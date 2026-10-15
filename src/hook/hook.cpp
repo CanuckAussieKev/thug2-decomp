@@ -2,6 +2,9 @@
 
 #include <windows.h>
 
+#include <cstdio>
+#include <cstring>
+#include <string>
 #include <vector>
 
 #include "hook/log.h"
@@ -56,12 +59,62 @@ void RegisterReplacement(const Replacement& r)
     Registry().push_back({r, {}, false});
 }
 
+namespace {
+
+// Replacements listed in thug2-decomp.ini are left as original code, for tracking down which one breaks
+// something without rebuilding:
+//   [replacements]
+//   disable=matrix.cpp, Lzss, 0x00402640
+// Each entry matches part of a source file name, part of a REPLACE name, or an exact address; * = all.
+std::vector<std::string> DisabledTokens()
+{
+    char buffer[4096] = {};
+    GetPrivateProfileStringA("replacements", "disable", "", buffer, sizeof(buffer),
+                             GameFolderPath("thug2-decomp.ini").c_str());
+    std::vector<std::string> tokens;
+    std::string current;
+    for (const char* p = buffer;; ++p) {
+        if (*p == ',' || *p == '\0') {
+            size_t first = current.find_first_not_of(" \t");
+            size_t last = current.find_last_not_of(" \t");
+            if (first != std::string::npos)
+                tokens.push_back(current.substr(first, last - first + 1));
+            current.clear();
+            if (*p == '\0')
+                break;
+        } else {
+            current += *p;
+        }
+    }
+    return tokens;
+}
+
+bool IsDisabled(const Replacement& r, const std::vector<std::string>& tokens)
+{
+    char address[16];
+    sprintf_s(address, "0x%08X", r.address);
+    for (const std::string& token : tokens) {
+        if (token == "*" || _stricmp(token.c_str(), address) == 0 || std::strstr(r.name, token.c_str()) ||
+            std::strstr(r.file, token.c_str()))
+            return true;
+    }
+    return false;
+}
+
+} // namespace
+
 void InstallReplacements()
 {
-    int installed = 0;
+    const std::vector<std::string> disabled = DisabledTokens();
+    int installed = 0, skipped = 0;
     for (Installed& entry : Registry()) {
         const Replacement& r = entry.replacement;
         std::memcpy(entry.original_bytes, reinterpret_cast<const void*>(r.address), sizeof(entry.original_bytes));
+        if (IsDisabled(r, disabled)) {
+            ++skipped;
+            Log("disabled 0x%08X %s (thug2-decomp.ini)", r.address, r.name);
+            continue;
+        }
         if (WriteJump(r.address, r.function)) {
             entry.active = true;
             ++installed;
@@ -70,7 +123,8 @@ void InstallReplacements()
             Log("FAILED to replace 0x%08X %s", r.address, r.name);
         }
     }
-    Log("%d of %u replacements installed", installed, static_cast<unsigned>(Registry().size()));
+    Log("%d of %u replacements installed, %d disabled by thug2-decomp.ini", installed,
+        static_cast<unsigned>(Registry().size()), skipped);
 }
 
 void RestoreOriginal(uint32_t address)

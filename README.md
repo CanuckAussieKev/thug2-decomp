@@ -35,6 +35,23 @@ then open `out\vs\thug2_decomp.slnx` and build **Debug | Win32**.
 
 To uninstall, delete `dinput8.dll` from the game folder.
 
+## Tracking down a problem
+
+Create `thug2-decomp.ini` in the game folder to switch things off without rebuilding:
+
+```ini
+[replacements]
+; Leave these as the original game code. Each entry matches part of a source file name (matrix.cpp, lzss),
+; part of a function name (Mth::FastSin) or an exact address (0x00402640). * disables everything.
+disable=
+
+[selftests]
+; 0 skips both self-test stages.
+enabled=1
+```
+
+The log (`thug2-decomp.log`) lists every replacement as `replaced` or `disabled`.
+
 ## Layout
 
 | Path | Contents |

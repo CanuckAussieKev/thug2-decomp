@@ -57,7 +57,8 @@ void BitStream::WriteBits(uint32_t value, int count)
         int used = 32 - m_bitsLeft;
         m_buffer = (m_buffer & ((1u << used) - 1)) | (value << used);
         *m_cursor++ = m_buffer;
-        value >>= m_bitsLeft;
+        // Arithmetic shift (SAR in the original): a value with its top bit set carries ones into the next word.
+        value = static_cast<uint32_t>(static_cast<int32_t>(value) >> m_bitsLeft);
         count -= m_bitsLeft;
         m_buffer = 0;
         m_bitsLeft = 32;

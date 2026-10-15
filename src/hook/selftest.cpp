@@ -91,6 +91,26 @@ void CheckFloat(float expected, float actual, const char* what)
     Check(Near(expected, actual), what);
 }
 
+// For results where float rounding is legitimately amplified (cancellation, acos near +/-1): compare with an
+// absolute tolerance chosen from the size of the inputs, not of the result.
+void CheckFloatWithin(float expected, float actual, float tolerance, const char* what)
+{
+    bool ok = std::fabs(expected - actual) <= tolerance;
+    if (!ok)
+        Log("  %s: original %g, ours %g (tolerance %g)", what, expected, actual, tolerance);
+    Check(ok, what);
+}
+
+void CheckVectorWithin(const Mth::Vector& expected, const Mth::Vector& actual, float tolerance, const char* what)
+{
+    bool ok = std::fabs(expected.x - actual.x) <= tolerance && std::fabs(expected.y - actual.y) <= tolerance &&
+              std::fabs(expected.z - actual.z) <= tolerance && std::fabs(expected.w - actual.w) <= tolerance;
+    if (!ok)
+        Log("  %s: original (%g %g %g %g), ours (%g %g %g %g) (tolerance %g)", what, expected.x, expected.y,
+            expected.z, expected.w, actual.x, actual.y, actual.z, actual.w, tolerance);
+    Check(ok, what);
+}
+
 void TestVector()
 {
     using Mth::Vector;
@@ -150,7 +170,10 @@ void TestVector()
         CheckVector(expected, -a, "operator-(Vector)");
         CheckFloat(Original<Dot>(0x00402530)(&a, &b), Mth::DotProduct(a, b), "DotProduct");
         Original<Binary>(0x00402550)(&expected, &a, &b);
-        CheckVector(expected, Mth::CrossProduct(a, b), "CrossProduct");
+        // Each component is a difference of two products of the inputs, which can cancel almost completely:
+        // allow rounding relative to the size of those products.
+        float product_scale = Mth::Vector{a.x, a.y, a.z, 0}.Length() * Mth::Vector{b.x, b.y, b.z, 0}.Length();
+        CheckVectorWithin(expected, Mth::CrossProduct(a, b), 1e-6f * product_scale + 1e-6f, "CrossProduct");
 
         expected = a; Original<Assign>(0x00406050)(&expected, &b);
         actual = a; actual -= b;
@@ -859,6 +882,11 @@ void TestRotateToPlane()
     const Vector vectors[] = {{3, 4, 5, 1}, {0, 2, 0, 1}, {-1, 0.5f, 2, 0}, {0.6f, 0.8f, 0, 0}, {0, 0, 0, 1}};
     for (const Vector& n : normals) {
         for (const Vector& v : vectors) {
+            // Known, accepted difference: a vector lying along the normal projects to (almost) zero. Ours gets
+            // exactly zero and uses the fallback direction; the original's extra x87 precision can leave
+            // rounding noise, which it then normalises into an arbitrary direction. Nothing to match there.
+            if (Mth::CrossProduct(v, n).Length() < 1e-5f * v.Length())
+                continue;
             Vector expected = v, actual = v;
             Original<RotateFn>(0x004060F0)(&expected, &n);
             actual.RotateToPlane(n);
@@ -1158,7 +1186,9 @@ void TestBatch18()
             for (int normal = 0; normal < 3; ++normal) {
                 if (ref == normal)
                     continue;
-                CheckFloat(Original<AngleFn>(0x004062D0)(&m, &v, ref, normal), Mth::GetAngleInPlane(m, v, ref, normal),
+                // acos near +/-1 magnifies float rounding of its input, so compare angles to 1e-4 radians.
+                CheckFloatWithin(Original<AngleFn>(0x004062D0)(&m, &v, ref, normal),
+                                 Mth::GetAngleInPlane(m, v, ref, normal), 1e-4f,
                            "Mth::GetAngleInPlane");
             }
         }
@@ -1390,7 +1420,10 @@ void RunLateSelfTests()
 void __cdecl LateSelfTestHook(void* params)
 {
     RestoreOriginal(0x004E1220);
-    RunLateSelfTests();
+    if (ConfigInt("selftests", "enabled", 1))
+        RunLateSelfTests();
+    else
+        Log("late self-tests: skipped (thug2-decomp.ini)");
     GameFunction<void(__cdecl*)(void*)>(0x004E1220)(params);
 }
 
@@ -1400,6 +1433,10 @@ REPLACE(0x004E1220, LateSelfTestHook);
 
 void RunSelfTests()
 {
+    if (!ConfigInt("selftests", "enabled", 1)) {
+        Log("self-tests: skipped (thug2-decomp.ini)");
+        return;
+    }
     TestCrc();
     TestVector();
     TestMatrix();

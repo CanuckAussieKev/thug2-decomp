@@ -16,6 +16,7 @@ struct Replacement {
     uint32_t address;
     void* function;
     const char* name;
+    const char* file; // source file of the REPLACE line (thug2-decomp.ini can disable by file name)
 };
 
 void RegisterReplacement(const Replacement& r);
@@ -50,9 +51,9 @@ Fn Original(uint32_t address)
 }
 
 struct ReplacementRegistrar {
-    ReplacementRegistrar(uint32_t address, void* function, const char* name)
+    ReplacementRegistrar(uint32_t address, void* function, const char* name, const char* file)
     {
-        RegisterReplacement({address, function, name});
+        RegisterReplacement({address, function, name, file});
     }
 };
 
@@ -74,4 +75,4 @@ void* CodeAddress(F f)
 #define REPLACE_CONCAT(a, b) REPLACE_CONCAT2(a, b)
 #define REPLACE(address, ...)                                                                        \
     static ReplacementRegistrar REPLACE_CONCAT(g_replace_, __LINE__)(                                \
-        address, CodeAddress(__VA_ARGS__), #__VA_ARGS__)
+        address, CodeAddress(__VA_ARGS__), #__VA_ARGS__, __FILE__)

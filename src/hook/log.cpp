@@ -9,14 +9,24 @@ namespace {
 FILE* g_log = nullptr;
 }
 
-void LogOpen()
+std::string GameFolderPath(const char* file_name)
 {
     char path[MAX_PATH];
     GetModuleFileNameA(nullptr, path, MAX_PATH);
     if (char* slash = strrchr(path, '\\'))
         slash[1] = '\0';
-    strcat_s(path, "thug2-decomp.log");
-    fopen_s(&g_log, path, "w");
+    return std::string(path) + file_name;
+}
+
+int ConfigInt(const char* section, const char* key, int fallback)
+{
+    return static_cast<int>(
+        GetPrivateProfileIntA(section, key, fallback, GameFolderPath("thug2-decomp.ini").c_str()));
+}
+
+void LogOpen()
+{
+    fopen_s(&g_log, GameFolderPath("thug2-decomp.log").c_str(), "w");
 }
 
 void Log(const char* fmt, ...)

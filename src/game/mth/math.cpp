@@ -2,6 +2,7 @@
 
 #include <bit>
 #include <cmath>
+#include <cstdint>
 
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -20,8 +21,29 @@ struct SinCosEntry {
     float cos_delta;
 };
 
-constexpr int kSinTableSize = 119;               // 0 .. pi/2 inclusive
-constexpr float kSinTableStep = kPi / 2.0f / 118; // 0x006453EC
+constexpr int kSinTableSize = 119; // 0 .. pi/2 inclusive
+
+// Constants taken bit-for-bit from the exe. (Typing them in as decimals once introduced an error in the
+// 5th significant digit of kAtanC3, so they stay as exact bit patterns.)
+constexpr float Bits(uint32_t bits) { return std::bit_cast<float>(bits); }
+
+constexpr float kSinTableStep = Bits(0x3C5A19E1); // 0x006453EC, (pi / 2) / 118
+
+// FastACos: Abramowitz & Stegun 4.4.45 coefficients (0x006453DC-0x006453E8).
+constexpr float kAcosA0 = Bits(0x3FC90DA4); //  1.5707288
+constexpr float kAcosA1 = Bits(0x3E593484); //  0.2121144 (subtracted)
+constexpr float kAcosA2 = Bits(0x3D981627); //  0.0742610
+constexpr float kAcosA3 = Bits(0xBC996E30); // -0.0187293
+
+// FastAtan2: odd polynomial for atan(t), t in [-1, 0] (0x006453FC-0x00645418).
+constexpr float kAtanC1 = Bits(0x3F7FFFF5);  //  0.99999934
+constexpr float kAtanC3 = Bits(0x3EAAA61C);  //  0.33329856 (subtracted)
+constexpr float kAtanC5 = Bits(0x3E4C40A6);  //  0.19946536
+constexpr float kAtanC7 = Bits(0x3E0E6C63);  //  0.13908534 (subtracted)
+constexpr float kAtanC9 = Bits(0x3DC577DF);  //  0.09642004
+constexpr float kAtanC11 = Bits(0x3D6501C4); //  0.05590989 (subtracted)
+constexpr float kAtanC13 = Bits(0x3CB31652); //  0.02186123
+constexpr float kAtanC15 = Bits(0xBB84D7E7); // -0.00405406
 
 SinCosEntry* SinTable() { return &GameVariable<SinCosEntry>(0x00690FE0); }
 
@@ -48,7 +70,7 @@ float FastACos(float value)
 {
     // Abramowitz & Stegun 4.4.45: acos(x) ~= sqrt(1 - x) * polynomial(x) for x >= 0.
     auto positive = [](float x) {
-        return (((-0.0187293f * x + 0.0742610f) * x - 0.2121144f) * x + 1.5707288f) * std::sqrt(1.0f - x);
+        return (((kAcosA3 * x + kAcosA2) * x - kAcosA1) * x + kAcosA0) * std::sqrt(1.0f - x);
     };
     return value < 0.0f ? kPi - positive(-value) : positive(value);
 }
@@ -65,10 +87,10 @@ float FastAtan2(float y, float x)
     float ratio = std::fabs(y) / std::fabs(x);
     float t = (ratio - 1.0f) / (ratio + 1.0f);
     float t2 = t * t;
-    float p = (t * 0.0218612f + t * -0.0040541f * t2) * t2 - t * 0.0559098f;
-    p = (t * 0.0964200f + p * t2) * t2 - t * 0.1390853f;
-    p = (t * 0.1994653f + p * t2) * t2 - t * 0.3333138f;
-    p = t * 0.99999934f + p * t2;
+    float p = (t * kAtanC13 + t * kAtanC15 * t2) * t2 - t * kAtanC11;
+    p = (t * kAtanC9 + p * t2) * t2 - t * kAtanC7;
+    p = (t * kAtanC5 + p * t2) * t2 - t * kAtanC3;
+    p = t * kAtanC1 + p * t2;
 
     constexpr float kQuarterPi = kPi / 4.0f;
     if (x_negative)
@@ -103,7 +125,7 @@ void CreateRotate2D(float out[4], float angle)
 namespace {
 
 // Table steps per radian, 118 / (pi / 2). Taken bit-for-bit from the exe (0x00645480).
-const float kSinStepsPerRadian = std::bit_cast<float>(0x42963E05u);
+constexpr float kSinStepsPerRadian = Bits(0x42963E05);
 
 } // namespace
 
