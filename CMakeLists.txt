@@ -120,8 +120,10 @@ if(EXISTS "${THUG2_GAME_DIR}")
         COMMENT "Copying dinput8.dll into ${THUG2_GAME_DIR}")
 endif()
 
-# thug2_check: runs the install-time checks on every replacement against a copy of THUG2PM.exe's image,
-# without starting the game:  thug2_check [<path to THUG2PM.exe>]
+# thug2_check: the start-up checks and the early self-tests against THUG2PM.exe's code, without starting the
+# game (see tools/check/main.cpp):  thug2_check [<path to THUG2PM.exe>]
 add_executable(thug2_check tools/check/main.cpp)
 target_link_libraries(thug2_check PRIVATE thug2_code minhook)
 target_compile_options(thug2_check PRIVATE /W4 /permissive- /utf-8)
+# Keep the tool itself away from 0x400000: its child process loads the game image there.
+target_link_options(thug2_check PRIVATE /BASE:0x20000000 /DYNAMICBASE:NO)

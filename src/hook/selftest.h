@@ -28,6 +28,8 @@ void Check(bool ok, const char* what);
 
 // Run every test registered for `stage` and log a summary.
 void RunSelfTests(TestStage stage);
+// Failures (and crashes) so far, all stages together.
+int SelfTestFailures();
 
 struct SelfTestRegistrar {
     SelfTestRegistrar(TestStage stage, const char* name, void (*test)(), void (*cleanup)() = nullptr)

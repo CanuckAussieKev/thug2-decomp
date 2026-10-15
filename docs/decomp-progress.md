@@ -183,6 +183,10 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       build's disc-cache stub frees the block and carries on with null (crash); with 100 archives loaded it
       writes slot -1. Late self-test: Themes.pre (all compressed) and ParkEdAnims.pre (mixed) loaded by the
       original and ours, repacked blocks compared byte for byte. thug2_check: 204, 202 match, 2 stubs.
+- [x] thug2_check runs the early self-tests offline (2026-10-15): it starts a suspended copy of itself,
+      reserves 0x400000 there before the Windows loader maps anything, loads THUG2PM.exe's image (imports from
+      System32 only - the game folder has our dinput8.dll) and runs the argument-size check and the Early
+      stage. All 24 early tests pass. Late/EngineStarted tests still need the game.
 - [ ] Next: the async file loader 0x5B6560-0x5B7130 (CAsyncFileLoader), then the memory manager.
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
       for original callers that read ECX/EDX after the call without writing them first (ignoring push-to-reserve,

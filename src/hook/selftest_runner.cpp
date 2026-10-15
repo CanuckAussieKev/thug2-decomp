@@ -67,6 +67,11 @@ void RegisterSelfTest(TestStage stage, const char* name, void (*test)(), void (*
     Registry().push_back({stage, name, test, cleanup});
 }
 
+int SelfTestFailures()
+{
+    return g_failures;
+}
+
 void Check(bool ok, const char* what)
 {
     if (!ok) {

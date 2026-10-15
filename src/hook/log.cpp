@@ -7,6 +7,7 @@
 
 namespace {
 FILE* g_log = nullptr;
+bool g_console = false;
 }
 
 std::string GameFolderPath(const char* file_name)
@@ -29,8 +30,21 @@ void LogOpen()
     fopen_s(&g_log, GameFolderPath("thug2-decomp.log").c_str(), "w");
 }
 
+void LogToConsole()
+{
+    g_console = true;
+}
+
 void Log(const char* fmt, ...)
 {
+    if (g_console) {
+        va_list args;
+        va_start(args, fmt);
+        vprintf(fmt, args);
+        va_end(args);
+        std::putchar('\n');
+        return;
+    }
     if (!g_log)
         return;
     va_list args;
