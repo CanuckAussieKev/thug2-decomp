@@ -78,6 +78,7 @@ add_library(thug2_decomp SHARED
     src/proxy/dinput8.def
     src/hook/hook.cpp
     src/hook/log.cpp
+    src/hook/shadow.cpp
     src/hook/selftest.cpp
     src/hook/selftest_runner.cpp
     src/game/core/crc.cpp

@@ -6,6 +6,7 @@
 
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/shadow.h"
 
 namespace Mth {
 
@@ -167,12 +168,12 @@ void InitSinLookupTable()
 
 } // namespace Mth
 
-REPLACE(0x004022C0, Mth::Clamp);
-REPLACE(0x00403EF0, Mth::FastACos);
+REPLACE_SHADOW(0x004022C0, Mth::Clamp);
+REPLACE_SHADOW(0x00403EF0, Mth::FastACos);
 REPLACE(0x00403F70, Mth::InitSinLookupTable);
-REPLACE(0x00404010, Mth::KeepWithin);
-REPLACE(0x004049B0, Mth::FastAtan2);
+REPLACE_SHADOW(0x00404010, Mth::KeepWithin);
+REPLACE_SHADOW(0x004049B0, Mth::FastAtan2);
 REPLACE(0x004058B0, Mth::CreateRotate2D);
-REPLACE(0x00405FD0, Mth::Sign);
-REPLACE(0x00405FF0, Mth::FastSin);
-REPLACE(0x00406020, Mth::FastCos);
+REPLACE_SHADOW(0x00405FD0, Mth::Sign);
+REPLACE_SHADOW(0x00405FF0, Mth::FastSin);
+REPLACE_SHADOW(0x00406020, Mth::FastCos);

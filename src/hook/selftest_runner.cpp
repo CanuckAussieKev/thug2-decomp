@@ -6,6 +6,7 @@
 
 #include "hook/hook.h"
 #include "hook/log.h"
+#include "hook/shadow.h"
 
 namespace {
 
@@ -118,6 +119,7 @@ void* __cdecl EngineStartedBody()
     if (!done) {
         done = true;
         RunSelfTests(TestStage::EngineStarted);
+        Shadow::LogSummary();
     }
     return OriginalFunction(0x0044EEF0);
 }

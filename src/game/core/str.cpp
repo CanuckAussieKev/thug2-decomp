@@ -5,6 +5,7 @@
 
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/shadow.h"
 
 namespace Str {
 
@@ -158,9 +159,9 @@ int NextWord(char* out, const char*& cursor)
 
 } // namespace Str
 
-REPLACE(0x00401FF0, Str::FindCaseless);
-REPLACE(0x00402120, Str::CompareCaseless);
-REPLACE(0x004020E0, Str::DehexifyDigit);
+REPLACE_SHADOW(0x00401FF0, Str::FindCaseless);
+REPLACE_SHADOW(0x00402120, Str::CompareCaseless);
+REPLACE_SHADOW(0x004020E0, Str::DehexifyDigit);
 REPLACE(0x00402170, Str::NextWord);
 REPLACE(0x00402200, Str::FormatWithSeparators);
 REPLACE(0x00402080, Str::LowerCase);

@@ -6,6 +6,7 @@
 #include "game/core/mem.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/shadow.h"
 
 namespace Mem {
 
@@ -111,7 +112,7 @@ struct PoolAdapter {
 
 } // namespace
 
-REPLACE(0x005BA3B0, &Mem::Pool::Contains);
+REPLACE_SHADOW(0x005BA3B0, &Mem::Pool::Contains);
 REPLACE(0x005BA3D0, &Mem::Pool::Allocate);
 REPLACE(0x005BA400, &Mem::Pool::Free);
 REPLACE(0x005BA420, &PoolAdapter::Construct);

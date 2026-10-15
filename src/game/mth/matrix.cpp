@@ -5,6 +5,7 @@
 #include "game/core/dbg.h"
 #include "game/mth/math.h"
 #include "hook/hook.h"
+#include "hook/shadow.h"
 
 namespace Mth {
 
@@ -417,7 +418,7 @@ Vector& Matrix::GetEulerAngles(Vector& out) const
 
 } // namespace Mth
 
-REPLACE(0x004041E0, &Mth::Matrix::Determinant);
+REPLACE_SHADOW(0x004041E0, &Mth::Matrix::Determinant);
 REPLACE(0x004043A0, &Mth::Matrix::Adjugate);
 REPLACE(0x00404AB0, &Mth::Matrix::GetEulerAngles);
 REPLACE(0x00405600, &Mth::Matrix::Invert);
@@ -427,7 +428,7 @@ REPLACE(0x00404C60, static_cast<Mth::Matrix& (*)(Mth::Matrix&, const Mth::Vector
 REPLACE(0x00404100, static_cast<Mth::Matrix& (Mth::Matrix::*)(const Mth::MatrixProduct&)>(&Mth::Matrix::operator=));
 REPLACE(0x00405170, &Mth::Matrix::OrthoNormalizeAbout);
 REPLACE(0x00405310, &Mth::Matrix::GetRotationAxisAngle);
-REPLACE(0x004062D0, Mth::GetAngleInPlane);
+REPLACE_SHADOW(0x004062D0, Mth::GetAngleInPlane);
 REPLACE(0x00405850, &Mth::Matrix::RotateLocal);
 REPLACE(0x00404BA0, &Mth::Matrix::Print);
 REPLACE(0x00404EC0,static_cast<Mth::Matrix& (*)(Mth::Matrix&, int, float)>(&Mth::CreateRotateMatrix));

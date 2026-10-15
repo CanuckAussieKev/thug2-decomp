@@ -6,6 +6,7 @@
 #include "game/file/file.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/shadow.h"
 
 namespace Pip {
 
@@ -266,11 +267,11 @@ bool PreFileIsInUse(const char* name)
 static_assert(sizeof(Pip::PreEntry) == 16 && sizeof(Pip::LoadedFile) == 16, "layout must match the original");
 
 REPLACE(0x005B7130, Pip::UnloadPre);
-REPLACE(0x005B7180, Pip::FindPreEntry);
+REPLACE_SHADOW(0x005B7180, Pip::FindPreEntry);
 REPLACE(0x005B7200, static_cast<void (*)(uint32_t)>(&Pip::Unload));
 REPLACE(0x005B7270, static_cast<void (*)(const char*)>(&Pip::Unload));
-REPLACE(0x005B7290, static_cast<int (*)(uint32_t)>(&Pip::GetFileSize));
-REPLACE(0x005B72E0, static_cast<int (*)(const char*)>(&Pip::GetFileSize));
-REPLACE(0x005B7300, Pip::GetNextLoadedPre);
+REPLACE_SHADOW(0x005B7290, static_cast<int (*)(uint32_t)>(&Pip::GetFileSize));
+REPLACE_SHADOW(0x005B72E0, static_cast<int (*)(const char*)>(&Pip::GetFileSize));
+REPLACE_SHADOW(0x005B7300, Pip::GetNextLoadedPre);
 REPLACE(0x005B7C00, Pip::Load);
-REPLACE(0x005B7370, Pip::PreFileIsInUse);
+REPLACE_SHADOW(0x005B7370, Pip::PreFileIsInUse);

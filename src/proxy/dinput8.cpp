@@ -7,6 +7,7 @@
 #include "hook/hook.h"
 #include "hook/log.h"
 #include "hook/selftest.h"
+#include "hook/shadow.h"
 
 extern "C" void partymod_attach(void); // src/partymod/main.c
 
@@ -45,7 +46,7 @@ BOOL WINAPI DllMain(HINSTANCE, DWORD reason, LPVOID)
     if (reason == DLL_PROCESS_ATTACH) {
         LogOpen();
         Log("thug2-decomp loaded");
-        // Self-tests call the original functions, so they must run before those functions are replaced.
+        // The early stage runs before anything is replaced, so these tests see the exe exactly as shipped.
         RunSelfTests(TestStage::Early);
         InstallReplacements();
 
@@ -61,6 +62,9 @@ BOOL WINAPI DllMain(HINSTANCE, DWORD reason, LPVOID)
         }
         partymod_attach();
         Log("PartyMod patches installed");
+    } else if (reason == DLL_PROCESS_DETACH) {
+        // On a normal quit: how much of the game's own calls the shadow checks covered.
+        Shadow::LogSummary();
     }
     return TRUE;
 }

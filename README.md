@@ -46,11 +46,16 @@ Create `thug2-decomp.ini` in the game folder to switch things off without rebuil
 disable=
 
 [selftests]
-; 0 skips both self-test stages.
+; 0 skips all self-tests and shadow checks.
 enabled=1
+; Shadow checks: for this many of the game's own calls to each REPLACE_SHADOW function, also run the
+; original and compare the results (0 = off).
+shadow_calls=100
 ```
 
-The log (`thug2-decomp.log`) lists every replacement as `replaced` or `disabled`.
+The log (`thug2-decomp.log`) lists every replacement as `replaced` or `disabled`, the result of each
+self-test stage (early, late, engine-started), any `SELFTEST FAIL` / `SELFTEST CRASH` / `SHADOW MISMATCH`,
+and on a normal quit a summary of how many shadow checks ran.
 
 ## Layout
 
@@ -67,5 +72,10 @@ The log (`thug2-decomp.log`) lists every replacement as `replaced` or `disabled`
 
 1. Decompile it in Ghidra and check its calling convention in the disassembly.
 2. Write it in the matching `src/game/<subsystem>/` file with a `// 0xADDRESS` comment.
-3. Add `REPLACE(0xADDRESS, Namespace::Function);` and, where practical, a self-test in `src/hook/selftest.cpp`.
-4. Build, play, check the log.
+3. Add `REPLACE(0xADDRESS, Namespace::Function);` - or `REPLACE_SHADOW(...)` if the function is pure (its
+   result depends only on its arguments and it changes nothing), so the game's own calls get compared with
+   the original (`src/hook/shadow.h`).
+4. Where practical, add a self-test comparing it with `Original<Fn>(0xADDRESS)` and register it with
+   `SELFTEST(Early|Late|EngineStarted, TestName)` for the earliest stage where what it needs exists
+   (`src/hook/selftest.h`).
+5. Build, play, check the log.

@@ -5,6 +5,7 @@
 
 #include "game/core/dbg.h"
 #include "hook/hook.h"
+#include "hook/shadow.h"
 
 namespace Mth {
 
@@ -286,14 +287,14 @@ REPLACE(0x004061A0, &Vector::SetDirection);
 REPLACE(0x00406200, &Vector::ProjectOnto);
 REPLACE(0x00406260, &Vector::GetMaxAxis);
 REPLACE(0x00405FA0, &Vector::Print);
-REPLACE(0x004023A0, &Vector::LengthSqr);
-REPLACE(0x004023C0, &Vector::Length);
+REPLACE_SHADOW(0x004023A0, &Vector::LengthSqr);
+REPLACE_SHADOW(0x004023C0, &Vector::Length);
 REPLACE(0x004023F0, &Vector::Normalize);
 REPLACE(0x00402440, static_cast<Vector (*)(const Vector&, const Vector&)>(&Mth::operator+));
 REPLACE(0x00402470, static_cast<Vector (*)(const Vector&, const Vector&)>(&Mth::operator-));
 REPLACE(0x004024A0, static_cast<Vector (*)(const Vector&, float)>(&Mth::operator*));
 REPLACE(0x004024D0, static_cast<Vector (*)(float, const Vector&)>(&Mth::operator*));
 REPLACE(0x00402500, static_cast<Vector (*)(const Vector&)>(&Mth::operator-));
-REPLACE(0x00402530, Mth::DotProduct);
+REPLACE_SHADOW(0x00402530, Mth::DotProduct);
 REPLACE(0x00402550, Mth::CrossProduct);
 REPLACE(0x00402600, &LineAdapter::Construct);

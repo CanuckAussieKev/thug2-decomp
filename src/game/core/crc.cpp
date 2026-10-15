@@ -3,6 +3,7 @@
 #include <array>
 
 #include "hook/hook.h"
+#include "hook/shadow.h"
 
 namespace Crc {
 
@@ -95,8 +96,8 @@ uint32_t GenerateCRCCaseless(const char* data, int size)
 } // namespace Crc
 
 // The originals are plain cdecl functions, the same as ours.
-REPLACE(0x00401AA0, Crc::GenerateCRCFromBuffer);
-REPLACE(0x00401AF0, Crc::ExtendCRCWithBuffer);
-REPLACE(0x00401B30, Crc::GenerateCRCCaseless);
-REPLACE(0x00401B90, Crc::GenerateCRCFromString);
-REPLACE(0x00401BE0, Crc::ExtendCRCWithString);
+REPLACE_SHADOW(0x00401AA0, Crc::GenerateCRCFromBuffer);
+REPLACE_SHADOW(0x00401AF0, Crc::ExtendCRCWithBuffer);
+REPLACE_SHADOW(0x00401B30, Crc::GenerateCRCCaseless);
+REPLACE_SHADOW(0x00401B90, Crc::GenerateCRCFromString);
+REPLACE_SHADOW(0x00401BE0, Crc::ExtendCRCWithString);
