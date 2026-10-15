@@ -264,7 +264,9 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       Internet/Cutscene/ExtraSkater/NamedHeap. Early test: a stand-in manager in a 12 MB arena, originals vs
       ours, then shutdown, compared page by page (five deliberate bugs caught). The constructor itself
       is only exercised by starting the game.
-- [ ] Next: test batches 34-35 in the game (the memory manager is now entirely ours).
+- [x] Batches 34-35 tested in the game (2026-10-15, by the user): game runs; log - 344/344 replacements, early
+      32/32, late 11/11, engine-started 2/2, shadow checks clean. The memory manager is entirely ours.
+- [ ] Next: pick the next subsystem.
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
       for original callers that read ECX/EDX after the call without writing them first (ignoring push-to-reserve,
       lea reg,[reg], or reg,-1 and zeroing idioms; callers that are themselves replaced count as safe).
