@@ -9,7 +9,9 @@ Batches marked (untested) haven't been run in-game yet.
 - [x] Batch 0: `Crc::GenerateCRCFromString` 0x401B90 (commit 55ac891)
 - [x] Batch 1 (untested): 0x402320-0x402600 -> `Mth::Vector` + `Mth::Line` ctor (14 functions,
       `src/game/mth/vector.cpp`), with self-tests.
-- [ ] Batch 2: heavily used leaves elsewhere in the block (0x401020, 0x401aa0, 0x401be0, 0x404090, 0x404dd0-0x404e70, 0x406050, 0x406080)
+- [x] Batch 2 (untested): CRC buffer/extend (0x401AA0, 0x401BE0), `Mth::Matrix` copy + X/Y/Z rotation builders
+      (0x404090, 0x404DD0-0x404E70), `Vector::operator-=` (0x406050), `Vector::ProjectToPlane` (0x406080).
+      Skipped 0x401020: compiler-generated array-constructor helper, not game code.
 - [ ] Batch 3+: the rest of the block, smallest first
 
 ## Notes

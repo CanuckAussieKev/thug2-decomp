@@ -10,7 +10,12 @@ public:
 
     Vector& operator=(const Vector& other);
     Vector& operator+=(const Vector& other);
+    Vector& operator-=(const Vector& other);
     Vector& operator*=(float scale);
+
+    // Removes the part of this vector that lies along `normal` (all four components are adjusted by
+    // dot(xyz, normal.xyz) * normal). With a unit-length normal this projects onto the plane.
+    Vector& ProjectToPlane(const Vector& normal);
 
     float LengthSqr() const;
     float Length() const;

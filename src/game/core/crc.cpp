@@ -23,6 +23,21 @@ constexpr std::array<uint32_t, 256> MakeTable()
 
 constexpr std::array<uint32_t, 256> kTable = MakeTable();
 
+uint32_t Step(uint32_t crc, uint8_t byte)
+{
+    return (crc >> 8) ^ kTable[(crc ^ byte) & 0xFF];
+}
+
+// Names are case-insensitive and treat '/' and '\' as the same character.
+uint8_t NameChar(char c)
+{
+    if (c >= 'A' && c <= 'Z')
+        c += 'a' - 'A';
+    if (c == '/')
+        c = '\\';
+    return static_cast<uint8_t>(c);
+}
+
 } // namespace
 
 // 0x00401B90
@@ -30,20 +45,34 @@ uint32_t GenerateCRCFromString(const char* string)
 {
     if (!string)
         return 0;
+    return ExtendCRCWithString(0xFFFFFFFF, string);
+}
 
+// 0x00401BE0
+uint32_t ExtendCRCWithString(uint32_t crc, const char* string)
+{
+    if (!string)
+        return crc;
+    for (; *string; ++string)
+        crc = Step(crc, NameChar(*string));
+    return crc;
+}
+
+// 0x00401AA0
+uint32_t GenerateCRCFromBuffer(const void* data, int size)
+{
+    if (!data || size < 1)
+        return 0;
+    const auto* bytes = static_cast<const uint8_t*>(data);
     uint32_t crc = 0xFFFFFFFF;
-    for (; *string; ++string) {
-        char c = *string;
-        if (c >= 'A' && c <= 'Z')
-            c += 'a' - 'A';
-        if (c == '/')
-            c = '\\';
-        crc = (crc >> 8) ^ kTable[(crc ^ static_cast<uint8_t>(c)) & 0xFF];
-    }
+    for (int i = 0; i < size; ++i)
+        crc = Step(crc, bytes[i]);
     return crc;
 }
 
 } // namespace Crc
 
-// The original is a plain cdecl function taking the string on the stack, the same as ours.
+// The originals are plain cdecl functions, the same as ours.
+REPLACE(0x00401AA0, Crc::GenerateCRCFromBuffer);
 REPLACE(0x00401B90, Crc::GenerateCRCFromString);
+REPLACE(0x00401BE0, Crc::ExtendCRCWithString);

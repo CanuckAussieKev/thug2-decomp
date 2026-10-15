@@ -2,8 +2,10 @@
 
 #include <cmath>
 #include <cstdint>
+#include <cstring>
 
 #include "game/core/crc.h"
+#include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -36,6 +38,18 @@ void TestCrc()
         Check(expected == actual, "Crc::GenerateCRCFromString");
     }
     Check(original(nullptr) == Crc::GenerateCRCFromString(nullptr), "Crc::GenerateCRCFromString(nullptr)");
+
+    auto extend = Original<uint32_t(__cdecl*)(uint32_t, const char*)>(0x00401BE0);
+    auto buffer = Original<uint32_t(__cdecl*)(const void*, int)>(0x00401AA0);
+    for (const char* s : inputs) {
+        uint32_t seed = original("prefix");
+        Check(extend(seed, s) == Crc::ExtendCRCWithString(seed, s), "Crc::ExtendCRCWithString");
+        int length = static_cast<int>(strlen(s));
+        Check(buffer(s, length) == Crc::GenerateCRCFromBuffer(s, length), "Crc::GenerateCRCFromBuffer");
+    }
+    Check(extend(0x1234, nullptr) == Crc::ExtendCRCWithString(0x1234, nullptr), "Crc::ExtendCRCWithString(null)");
+    Check(buffer(nullptr, 4) == Crc::GenerateCRCFromBuffer(nullptr, 4), "Crc::GenerateCRCFromBuffer(null)");
+    Check(buffer("abc", -1) == Crc::GenerateCRCFromBuffer("abc", -1), "Crc::GenerateCRCFromBuffer(-1)");
 }
 
 // The originals run on the x87 FPU and ours on SSE, so float results can differ in the last bits.
@@ -125,6 +139,19 @@ void TestVector()
         Original<Binary>(0x00402550)(&expected, &a, &b);
         CheckVector(expected, Mth::CrossProduct(a, b), "CrossProduct");
 
+        expected = a; Original<Assign>(0x00406050)(&expected, &b);
+        actual = a; actual -= b;
+        CheckVector(expected, actual, "Vector::operator-=");
+
+        Vector n = b;
+        n.Normalize();
+        expected = a; Original<Assign>(0x00406080)(&expected, &n);
+        actual = a; actual.ProjectToPlane(n);
+        CheckVector(expected, actual, "Vector::ProjectToPlane");
+        expected = a; Original<Assign>(0x00406080)(&expected, &expected);
+        actual = a; actual.ProjectToPlane(actual);
+        CheckVector(expected, actual, "Vector::ProjectToPlane (aliased)");
+
         alignas(16) unsigned char buffer[sizeof(Mth::Line)] = {};
         Original<LineCtor>(0x00402600)(buffer, &a, &b);
         Mth::Line line(a, b);
@@ -134,11 +161,46 @@ void TestVector()
     }
 }
 
+void TestMatrix()
+{
+    using Mth::Matrix;
+    using Rotate = Matrix*(__cdecl*)(Matrix*, float);
+    using Assign = Matrix*(__thiscall*)(Matrix*, const Matrix*);
+    const float angles[] = {0.0f, 0.5f, -1.25f, 3.14159265f, 10.0f};
+    const struct {
+        uint32_t address;
+        Matrix& (*ours)(Matrix&, float);
+        const char* name;
+    } rotations[] = {
+        {0x00404DD0, Mth::CreateRotateXMatrix, "CreateRotateXMatrix"},
+        {0x00404E20, Mth::CreateRotateYMatrix, "CreateRotateYMatrix"},
+        {0x00404E70, Mth::CreateRotateZMatrix, "CreateRotateZMatrix"},
+    };
+    for (const auto& r : rotations) {
+        for (float angle : angles) {
+            Matrix expected{}, actual{};
+            Original<Rotate>(r.address)(&expected, angle);
+            r.ours(actual, angle);
+            for (int i = 0; i < 4; ++i)
+                CheckVector(expected.row[i], actual.row[i], r.name);
+        }
+    }
+
+    Matrix source{}, expected{}, actual{};
+    Mth::CreateRotateYMatrix(source, 0.7f);
+    source.row[3] = {1.0f, 2.0f, 3.0f, 4.0f};
+    Original<Assign>(0x00404090)(&expected, &source);
+    actual = source;
+    for (int i = 0; i < 4; ++i)
+        CheckVector(expected.row[i], actual.row[i], "Matrix::operator=");
+}
+
 } // namespace
 
 void RunSelfTests()
 {
     TestCrc();
     TestVector();
+    TestMatrix();
     Log(g_failures ? "self-tests: %d FAILED" : "self-tests: all passed", g_failures);
 }

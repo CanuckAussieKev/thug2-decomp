@@ -27,6 +27,25 @@ Vector& Vector::operator+=(const Vector& other)
     return *this;
 }
 
+// 0x00406050
+Vector& Vector::operator-=(const Vector& other)
+{
+    x -= other.x;
+    y -= other.y;
+    z -= other.z;
+    w -= other.w;
+    return *this;
+}
+
+// 0x00406080
+Vector& Vector::ProjectToPlane(const Vector& normal)
+{
+    // All products are taken before writing, so this also works when `normal` is this vector.
+    float dot = DotProduct(*this, normal);
+    Vector along = normal * dot;
+    return *this -= along;
+}
+
 // 0x00402370
 Vector& Vector::operator*=(float scale)
 {
@@ -128,6 +147,8 @@ struct LineAdapter {
 REPLACE(0x00402320, &Vector::operator=);
 REPLACE(0x00402340, &Vector::operator+=);
 REPLACE(0x00402370, &Vector::operator*=);
+REPLACE(0x00406050, &Vector::operator-=);
+REPLACE(0x00406080, &Vector::ProjectToPlane);
 REPLACE(0x004023A0, &Vector::LengthSqr);
 REPLACE(0x004023C0, &Vector::Length);
 REPLACE(0x004023F0, &Vector::Normalize);
