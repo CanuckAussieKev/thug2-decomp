@@ -3,6 +3,7 @@
 #include <cstring>
 
 #include "game/core/crc.h"
+#include "game/core/mem.h"
 #include "game/file/file.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -19,14 +20,9 @@ LoadedFile* LoadedFiles() { return GameVariable<LoadedFile[kMaxLoadedFiles]>(0x0
 // Each loaded .pre archive's memory starts with the archive's name (see PreHeader).
 char** PreFiles() { return GameVariable<char* [kMaxPreFiles]>(0x007CFE18); }
 
-// The memory manager functions Pip loads files with (not rewritten yet): allocate from the current heap,
-// give back the unused end of a block, free.
-void* AllocateFileMemory(unsigned int size) { return GameFunction<void*(__cdecl*)(unsigned int)>(0x005BBAE0)(size); }
-void ShrinkFileMemory(unsigned int size, void* memory)
-{
-    GameFunction<void*(__cdecl*)(unsigned int, void*)>(0x005BBB30)(size, memory);
-}
-void FreeFileMemory(void* memory) { GameFunction<void(__cdecl*)(void*)>(0x005BBB60)(memory); }
+void* AllocateFileMemory(unsigned int size) { return Mem::Malloc(size); }
+void ShrinkFileMemory(unsigned int size, void* memory) { Mem::ReallocateShrink(size, memory); }
+void FreeFileMemory(void* memory) { Mem::FreeMalloc(memory); }
 
 // Buffers are allocated in whole 2 KB sectors.
 unsigned int SectorAligned(unsigned int size) { return (size + 0x7FF) & ~0x7FFu; }

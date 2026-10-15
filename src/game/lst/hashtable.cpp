@@ -28,6 +28,25 @@ HashTable::HashTable(int bits)
     m_flag = false;
 }
 
+// 0x005B89D0
+HashTable::~HashTable()
+{
+    if (m_buckets) {
+        FlushAllItems();
+        Mem::Free(m_buckets);
+        m_buckets = nullptr;
+    }
+}
+
+void* HashTable::GetItem(uint32_t key) const
+{
+    for (const Item* item = &m_buckets[key & ((1u << m_bits) - 1)]; item; item = item->next) {
+        if (item->key == key && item->value)
+            return item->value;
+    }
+    return nullptr;
+}
+
 // 0x00462740
 bool HashTable::PutItem(const uint32_t& key, void* value)
 {
@@ -132,11 +151,13 @@ namespace {
 
 struct HashTableAdapter {
     Lst::HashTable* Construct(int bits) { return new (this) Lst::HashTable(bits); }
+    void Destroy() { reinterpret_cast<Lst::HashTable*>(this)->~HashTable(); }
 };
 
 } // namespace
 
 REPLACE(0x0049FD90, &HashTableAdapter::Construct);
+REPLACE(0x005B89D0, &HashTableAdapter::Destroy);
 REPLACE(0x00462740, &Lst::HashTable::PutItem);
 REPLACE(0x005B80D0, &Lst::HashTable::FlushItem);
 REPLACE(0x0049FD30, &Lst::HashTable::FlushAllItems);

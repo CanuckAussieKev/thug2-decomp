@@ -15,12 +15,6 @@ class Manager;
 Manager* GetManager() { return GameVariable<Manager*>(0x007D1800); }
 bool& SystemReady() { return GameVariable<bool>(0x007CC979); }
 
-void* Allocate(unsigned int size, int mode, Heap* heap)
-{
-    return GameFunction<void*(__thiscall*)(Manager*, unsigned int, int, Heap*)>(0x005BAFC0)(GetManager(), size,
-                                                                                         mode, heap);
-}
-
 void Release(void* memory)
 {
     GameFunction<void(__thiscall*)(Manager*, void*)>(0x005BABA0)(GetManager(), memory);
@@ -40,6 +34,24 @@ void* Zeroed(void* memory, unsigned int size)
 }
 
 } // namespace
+
+void* Allocate(unsigned int size, int mode, Heap* heap)
+{
+    return GameFunction<void*(__thiscall*)(Manager*, unsigned int, int, Heap*)>(0x005BAFC0)(GetManager(), size,
+                                                                                         mode, heap);
+}
+
+void* Malloc(unsigned int size) { return GameFunction<void*(__cdecl*)(unsigned int)>(0x005BBAE0)(size); }
+
+void ReallocateShrink(unsigned int size, void* memory)
+{
+    GameFunction<void*(__cdecl*)(unsigned int, void*)>(0x005BBB30)(size, memory);
+}
+
+void FreeMalloc(void* memory) { GameFunction<void(__cdecl*)(void*)>(0x005BBB60)(memory); }
+
+Heap* BottomUpHeap() { return ManagerHeapAt(0x114); }
+Heap* TopDownHeap() { return ManagerHeapAt(0x110); }
 
 // 0x00401C90
 void* Clear(unsigned int size, void* dest)

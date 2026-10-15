@@ -20,6 +20,20 @@ void* Calloc(unsigned int size);
 void* Calloc(unsigned int size, int mode);
 void* Calloc(unsigned int size, Heap* heap, int mode);
 
+// The memory manager's allocate (not rewritten yet): `size` bytes from `heap` (null = the current heap).
+// Doesn't set the system up first - use New for that.
+void* Allocate(unsigned int size, int mode, Heap* heap);
+
+// The current-heap allocator file loading uses (not rewritten yet), its matching free, and giving back the
+// unused end of such a block.
+void* Malloc(unsigned int size);
+void FreeMalloc(void* memory);
+void ReallocateShrink(unsigned int size, void* memory);
+
+// The manager's two main heaps (at +0x110 and +0x114).
+Heap* TopDownHeap();
+Heap* BottomUpHeap();
+
 // Until PopContext, allocations come from `heap`. (Calls the game's manager; not rewritten yet.)
 void PushContext(Heap* heap);
 void PopContext();

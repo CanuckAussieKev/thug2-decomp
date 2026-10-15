@@ -20,6 +20,11 @@ public:
     using Callback = void(__cdecl*)(void* value, void* data);
 
     explicit HashTable(int bits);
+    // Frees the buckets (after removing every item).
+    ~HashTable();
+
+    // The value stored under `key`, or null. (Inlined at every use in the original; not a replacement.)
+    void* GetItem(uint32_t key) const;
 
     // Add an item. Keys aren't checked for duplicates. Always returns true.
     bool PutItem(const uint32_t& key, void* value);

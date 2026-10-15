@@ -143,8 +143,19 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       Vector::LengthSqr (our own math calls these directly, so only the game's direct calls count).
 - [x] Chat (2026-10-15, tested in a network game): GameNet::SendChatMessage 0x537BD0, CFunc_SendChatMessage
       0x5A16B0, chat commands (/hello in two colours as "Server", /colours). See src/game/net/chat.cpp.
-- [ ] Next: the .pre loader 0x5B75A0 / LoadPipPre cfuncs, the pre-file manager 0x5B7DF0-0x5B9640,
-      the async loader 0x5B6560-0x5B7130.
+- [x] Batch 24 (untested in play): `Pre::PreFile` (one loaded .pre archive) - ctor 0x5B8820, scalar deleting
+      dtor 0x5B9410, LoadContainedFile 0x5B8230, GetContainedFileByHandle 0x5B8310, GetContainedFile
+      0x5B8A00, Read 0x5B7F00 (returns bytes read - Ghidra said void), Seek 0x5B7F60; `Pre::Decode`
+      0x5B7DF0 (LZSS, 4 KB ring at 0x7CFFB0; hangs on a bad size like the original); Lst::HashTable dtor
+      0x5B89D0 and GetItem (inlined in the original). Mem::Allocate/Malloc/FreeMalloc/ReallocateShrink and
+      the two heaps are now in mem.h. Late self-test on a fake archive (plain, LZSS-compressed, empty and
+      duplicate-name files). Scanner: 170 functions, 4,983 call sites, clean. 0x5480A0 is an empty `ret`
+      (profiling marker; PartyMod uses the bytes after it as a code cave) - calls to it are dropped.
+- [ ] Next (batch 25): `PreMgr` - ctor 0x5B8D20, create/destroy 0x5B8E90/0x5B9510 (singleton 0x7D0FC4,
+      instance 0x7D0FCC, refcount 0x7D0FD0), getContainedFile 0x5B84A0, fileExists 0x5B8390, open
+      0x5B8AD0/0x5B8C70, InPre 0x5B8540, LoadFile 0x5B8750, postLoad 0x5B8DB0, unloadPre 0x5B9570, pending
+      check 0x5B7FD0, the File:: archive hooks 0x5B85A0-0x5B86E0. Then batch 26: loadPre 0x5B8EE0, the
+      PIP .pre loader 0x5B75A0, LoadPipPre/LoadPreFile/... script functions.
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
       for original callers that read ECX/EDX after the call without writing them first (ignoring push-to-reserve,
       lea reg,[reg], or reg,-1 and zeroing idioms; callers that are themselves replaced count as safe).

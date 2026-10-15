@@ -19,6 +19,7 @@
 #include "game/core/string.h"
 #include "game/file/file.h"
 #include "game/file/pip.h"
+#include "game/file/pre.h"
 #include "game/lst/hashtable.h"
 #include "game/mth/geometry.h"
 #include "game/mth/math.h"
@@ -1655,6 +1656,149 @@ void TestPipNamesLate()
     Check(unloaded == Pip::UnloadPre("missing.pre"), "Pip::UnloadPre");
 }
 
+// A fake .pre archive in game memory (PreFile frees its block with Mem::Free), with plain, compressed, empty
+// and duplicate-name entries. `compressed_source` gets the uncompressed bytes of the compressed entry.
+uint8_t* BuildFakeArchive(std::vector<uint8_t>& compressed_source)
+{
+    struct Spec {
+        const char* name;
+        std::vector<uint8_t> bytes;
+        bool compress;
+    };
+    compressed_source.clear();
+    for (int i = 0; i < 700; ++i)
+        compressed_source.push_back(static_cast<uint8_t>("skate or die "[i % 13] + (i / 97)));
+    std::vector<uint8_t> plain(37);
+    for (int i = 0; i < 37; ++i)
+        plain[i] = static_cast<uint8_t>(i * 7 + 1);
+    const Spec specs[] = {{"scripts/a.qb", plain, false},
+                          {"models\\b.mdl", compressed_source, true},
+                          {"empty.txt", {}, false},
+                          {"scripts/a.qb", {9, 9, 9}, false}};
+
+    std::vector<uint8_t> block(12, 0);
+    for (const Spec& s : specs) {
+        std::vector<uint8_t> stored = s.bytes;
+        int compressed_size = 0;
+        if (s.compress) {
+            std::vector<uint8_t> out(s.bytes.size() * 9 / 8 + 16);
+            compressed_size = Lzss::Encode(s.bytes.data(), out.data(), static_cast<int>(s.bytes.size()), false);
+            stored.assign(out.begin(), out.begin() + compressed_size);
+        }
+        int name_size = static_cast<int>((std::strlen(s.name) + 1 + 3) & ~3u);
+        size_t at = block.size();
+        block.resize(at + 16 + name_size + ((stored.size() + 3) & ~size_t(3)), 0);
+        int32_t header[4] = {static_cast<int32_t>(s.bytes.size()), compressed_size, name_size,
+                             static_cast<int32_t>(Crc::GenerateCRCFromString(s.name))};
+        std::memcpy(&block[at], header, sizeof(header));
+        std::memcpy(&block[at + 16], s.name, std::strlen(s.name) + 1);
+        if (!stored.empty())
+            std::memcpy(&block[at + 16 + name_size], stored.data(), stored.size());
+    }
+    int32_t top[3] = {static_cast<int32_t>(block.size()), 3, static_cast<int32_t>(std::size(specs))};
+    std::memcpy(block.data(), top, sizeof(top));
+    auto* memory = static_cast<uint8_t*>(Mem::New(static_cast<unsigned int>(block.size())));
+    std::memcpy(memory, block.data(), block.size());
+    return memory;
+}
+
+void TestPreFileLate()
+{
+    using Pre::PreFile;
+    using CtorFn = PreFile*(__thiscall*)(void*, uint8_t*, bool);
+    using DtorFn = PreFile*(__thiscall*)(PreFile*, unsigned int);
+    using LoadFn = uint8_t*(__thiscall*)(PreFile*, const char*, int*, uint8_t*);
+    using OpenFn = PreFile::FileInfo*(__thiscall*)(PreFile*, const char*);
+    using ByHandleFn = uint8_t*(__thiscall*)(PreFile*, PreFile::FileInfo*);
+    using ReadFn = int(__thiscall*)(PreFile*, void*, unsigned int);
+    using SeekFn = int(__thiscall*)(PreFile*, int, int);
+    using DecodeFn = void(__cdecl*)(const uint8_t*, uint8_t*, int);
+
+    std::vector<uint8_t> source;
+    uint8_t* block_expected = BuildFakeArchive(source);
+    uint8_t* block_actual = BuildFakeArchive(source);
+    auto* expected = static_cast<PreFile*>(Mem::New(sizeof(PreFile)));
+    auto* actual = static_cast<PreFile*>(Mem::New(sizeof(PreFile)));
+    Check(Original<CtorFn>(0x005B8820)(expected, block_expected, false) == expected,
+          "PreFile::PreFile (returns this)");
+    new (actual) PreFile(block_actual, false);
+
+    const char* names[] = {"scripts/a.qb", "models\\b.mdl", "empty.txt", "missing.dat"};
+    auto offset = [](const uint8_t* p, const uint8_t* base) { return p ? p - base : -1; };
+    bool same_table =
+        expected->m_numFiles == actual->m_numFiles && expected->m_bottomUpHeap == actual->m_bottomUpHeap;
+    for (const char* name : names) {
+        auto* e = static_cast<PreFile::FileInfo*>(expected->m_files->GetItem(Crc::GenerateCRCFromString(name)));
+        auto* a = static_cast<PreFile::FileInfo*>(actual->m_files->GetItem(Crc::GenerateCRCFromString(name)));
+        same_table = same_table && (e == nullptr) == (a == nullptr) &&
+                     (!e || (e->compressedSize == a->compressedSize && e->size == a->size &&
+                             offset(e->data, block_expected) == offset(a->data, block_actual) && !e->unpacked &&
+                             !a->unpacked && e->position == a->position));
+    }
+    Check(same_table, "PreFile::PreFile");
+
+    // LoadContainedFile into a buffer of our own, then once allocating.
+    for (const char* name : names) {
+        uint8_t out_e[800] = {}, out_a[800] = {};
+        int size_e = -5, size_a = -5;
+        uint8_t* r_e = Original<LoadFn>(0x005B8230)(expected, name, &size_e, out_e);
+        uint8_t* r_a = actual->LoadContainedFile(name, &size_a, out_a);
+        Check((r_e == out_e) == (r_a == out_a) && (r_e == nullptr) == (r_a == nullptr) && size_e == size_a &&
+                  std::memcmp(out_e, out_a, sizeof(out_e)) == 0,
+              "PreFile::LoadContainedFile");
+    }
+    {
+        int size = 0;
+        uint8_t* fresh = actual->LoadContainedFile("models\\b.mdl", &size, nullptr);
+        Check(fresh && size == static_cast<int>(source.size()) &&
+                  std::memcmp(fresh, source.data(), source.size()) == 0,
+              "PreFile::LoadContainedFile (allocating, decompressed)");
+        if (fresh)
+            Mem::FreeMalloc(fresh);
+    }
+
+    // Open each file, then seek and read through it the same way in both.
+    const int seeks[][2] = {{0, 0}, {5, 1}, {10, 2}, {-3, 1}, {100000, 0}, {1, 7}, {0, 2}, {3, 0}};
+    for (const char* name : names) {
+        PreFile::FileInfo* h_e = Original<OpenFn>(0x005B8A00)(expected, name);
+        PreFile::FileInfo* h_a = actual->GetContainedFile(name);
+        Check((h_e == nullptr) == (h_a == nullptr), "PreFile::GetContainedFile");
+        if (!h_e || !h_a)
+            continue;
+        uint8_t* d_e = Original<ByHandleFn>(0x005B8310)(expected, h_e);
+        uint8_t* d_a = actual->GetContainedFileByHandle(h_a);
+        Check((d_e == nullptr) == (d_a == nullptr) && (!d_e || std::memcmp(d_e, d_a, h_a->size) == 0),
+              "PreFile::GetContainedFileByHandle");
+        for (const auto& sk : seeks) {
+            int s_e = Original<SeekFn>(0x005B7F60)(expected, sk[0], sk[1]);
+            int s_a = actual->Seek(sk[0], sk[1]);
+            uint8_t b_e[64] = {}, b_a[64] = {};
+            int n_e = Original<ReadFn>(0x005B7F00)(expected, b_e, 20);
+            int n_a = actual->Read(b_a, 20);
+            Check(s_e == s_a && n_e == n_a && std::memcmp(b_e, b_a, sizeof(b_e)) == 0 &&
+                      h_e->position == h_a->position,
+                  "PreFile::Seek/Read");
+        }
+    }
+    PreFile::FileInfo foreign = {};
+    Check(Original<ByHandleFn>(0x005B8310)(expected, &foreign) == actual->GetContainedFileByHandle(&foreign),
+          "PreFile::GetContainedFileByHandle (not ours)");
+
+    // The decompressor on its own, on the compressed entry's data.
+    {
+        auto* info = static_cast<PreFile::FileInfo*>(
+            actual->m_files->GetItem(Crc::GenerateCRCFromString("models\\b.mdl")));
+        std::vector<uint8_t> out_e(source.size() + 32), out_a(source.size() + 32);
+        Original<DecodeFn>(0x005B7DF0)(info->data, out_e.data(), info->compressedSize);
+        Pre::Decode(info->data, out_a.data(), info->compressedSize);
+        Check(out_e == out_a && std::memcmp(out_a.data(), source.data(), source.size()) == 0, "Pre::Decode");
+    }
+
+    Check(Original<DtorFn>(0x005B9410)(expected, 1) == expected, "PreFile::~PreFile (returns this)");
+    actual->~PreFile();
+    Mem::Free(actual);
+}
+
 void TestPoolConstructorLate()
 {
     using Mem::Pool;
@@ -1935,5 +2079,6 @@ SELFTEST(Late, TestLzssLate);
 SELFTEST(Late, TestPoolConstructorLate);
 SELFTEST(Late, TestHashTableLate);
 SELFTEST(Late, TestPipNamesLate, RestorePipTables);
+SELFTEST(Late, TestPreFileLate);
 
 SELFTEST(EngineStarted, TestPipLoad);
