@@ -552,6 +552,56 @@ void TestBitStreamReadWrite()
     }
 }
 
+void TestBatch9()
+{
+    using Mth::Matrix;
+    using Mth::Vector;
+    using ScaleFn = Matrix*(__thiscall*)(Matrix*, float);
+    using EulerFn = Matrix*(__thiscall*)(Matrix*, float, float, float);
+    using AxisFn = Matrix*(__cdecl*)(Matrix*, const Vector*, float);
+    using RotateFn = Matrix*(__thiscall*)(Matrix*, const Vector*, float);
+
+    auto check_matrix = [](const Matrix& expected, const Matrix& actual, const char* what) {
+        for (int i = 0; i < 4; ++i)
+            CheckVector(expected.row[i], actual.row[i], what);
+    };
+
+    Matrix start;
+    Mth::CreateRotateYMatrix(start, 0.6f);
+    start.row[3] = {3.0f, -1.0f, 7.0f, 1.0f};
+
+    for (float scale : {1.0f, 2.5f, -0.5f, 0.0f}) {
+        Matrix expected = start, actual = start;
+        Original<ScaleFn>(0x00404120)(&expected, scale);
+        actual *= scale;
+        check_matrix(expected, actual, "Matrix::operator*=(float)");
+    }
+
+    const float angles[][3] = {{0, 0, 0}, {0.5f, 0, 0}, {0, 0.5f, 0}, {0, 0, 0.5f}, {0.3f, -1.1f, 2.0f}};
+    for (const auto& a : angles) {
+        Matrix expected{}, actual{};
+        Original<EulerFn>(0x004048D0)(&expected, a[0], a[1], a[2]);
+        actual.SetFromEulerAngles(a[0], a[1], a[2]);
+        check_matrix(expected, actual, "Matrix::SetFromEulerAngles");
+    }
+
+    const Vector axes[] = {{1, 0, 0, 0}, {0, 2, 0, 0}, {1, 1, 1, 0}, {-0.3f, 0.8f, 0.2f, 0}, {0, 0, 0, 0}};
+    for (const Vector& axis : axes) {
+        for (float angle : {0.0f, 0.9f, -2.4f}) {
+            Matrix expected{}, actual{};
+            Original<AxisFn>(0x00404C60)(&expected, &axis, angle);
+            Mth::CreateRotateMatrix(actual, axis, angle);
+            check_matrix(expected, actual, "Mth::CreateRotateMatrix");
+
+            expected = start;
+            actual = start;
+            Original<RotateFn>(0x00405950)(&expected, &axis, angle);
+            actual.Rotate(axis, angle);
+            check_matrix(expected, actual, "Matrix::Rotate");
+        }
+    }
+}
+
 // --- late self-tests ----------------------------------------------------------------------------------
 
 void TestLzssLate()
@@ -793,5 +843,6 @@ void RunSelfTests()
     TestBatch6();
     TestBatch7();
     TestBitStreamReadWrite();
+    TestBatch9();
     Log(g_failures ? "self-tests: %d FAILED" : "self-tests: all passed", g_failures);
 }

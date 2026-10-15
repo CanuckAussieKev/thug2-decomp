@@ -93,8 +93,63 @@ Matrix& Matrix::RotateZLocal(float angle)
     return Multiply(*this, CreateRotateZMatrix(rotation, angle), *this);
 }
 
+// 0x00404C60
+Matrix& CreateRotateMatrix(Matrix& m, const Vector& axis, float angle)
+{
+    float x = axis.x, y = axis.y, z = axis.z;
+    float length = std::sqrt(x * x + y * y + z * z);
+    if (length > 0.0f) {
+        float scale = 1.0f / length;
+        x *= scale;
+        y *= scale;
+        z *= scale;
+    }
+
+    float t = 1.0f - std::cos(angle);
+    float s = std::sin(angle);
+    m.row[0] = {1.0f - (1.0f - x * x) * t, x * y * t + z * s, z * x * t - y * s, 0.0f};
+    m.row[1] = {x * y * t - z * s, 1.0f - (1.0f - y * y) * t, z * y * t + x * s, 0.0f};
+    m.row[2] = {z * x * t + y * s, z * y * t - x * s, 1.0f - (1.0f - z * z) * t, 0.0f};
+    m.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    return m;
+}
+
+// 0x00405950
+Matrix& Matrix::Rotate(const Vector& axis, float angle)
+{
+    Matrix rotation;
+    return Multiply(*this, *this, CreateRotateMatrix(rotation, axis, angle));
+}
+
+// 0x00404120
+Matrix& Matrix::operator*=(float scale)
+{
+    if (scale != 1.0f) {
+        for (Vector& r : row)
+            r *= scale;
+    }
+    return *this;
+}
+
+// 0x004048D0
+Matrix& Matrix::SetFromEulerAngles(float x, float y, float z)
+{
+    float cx = std::cos(x), sx = std::sin(x);
+    float cy = std::cos(y), sy = std::sin(y);
+    float cz = std::cos(z), sz = std::sin(z);
+    row[0] = {cz * cy, -(sz * cy), -sy, 0.0f};
+    row[1] = {sz * cx - sy * sx * cz, cz * cx + sy * sx * sz, -(cy * sx), 0.0f};
+    row[2] = {sz * sx + cx * sy * cz, cz * sx - cx * sy * sz, cy * cx, 0.0f};
+    row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    return *this;
+}
+
 } // namespace Mth
 
+REPLACE(0x00404120, &Mth::Matrix::operator*=);
+REPLACE(0x004048D0, &Mth::Matrix::SetFromEulerAngles);
+REPLACE(0x00404C60, Mth::CreateRotateMatrix);
+REPLACE(0x00405950, &Mth::Matrix::Rotate);
 REPLACE(0x00405670, &Mth::Matrix::RotateXLocal);
 REPLACE(0x00405710, &Mth::Matrix::RotateYLocal);
 REPLACE(0x004057B0, &Mth::Matrix::RotateZLocal);
