@@ -8,6 +8,8 @@
 #include "hook/log.h"
 #include "hook/selftest.h"
 
+extern "C" void partymod_attach(void); // src/partymod/main.c
+
 namespace {
 
 using DirectInput8CreateFn = HRESULT(WINAPI*)(HINSTANCE, DWORD, REFIID, LPVOID*, LPUNKNOWN);
@@ -46,6 +48,19 @@ BOOL WINAPI DllMain(HINSTANCE, DWORD reason, LPVOID)
         // Self-tests call the original functions, so they must run before those functions are replaced.
         RunSelfTests();
         InstallReplacements();
+
+        // PartyMod is built into this DLL. THUG2PM.exe still tries LoadLibraryA("partymod.dll") at 0x0064B198;
+        // point that at our own (already loaded) name so a leftover partymod.dll can't patch the game twice.
+        static const char kOwnName[] = "dinput8.dll"; // 12 bytes; the original string has 13
+        auto* name = reinterpret_cast<char*>(0x0064B198);
+        DWORD old;
+        if (VirtualProtect(name, sizeof(kOwnName), PAGE_READWRITE, &old)) {
+            memcpy(name, kOwnName, sizeof(kOwnName));
+            VirtualProtect(name, sizeof(kOwnName), old, &old);
+            Log("partymod.dll loading disabled (PartyMod is built in)");
+        }
+        partymod_attach();
+        Log("PartyMod patches installed");
     }
     return TRUE;
 }

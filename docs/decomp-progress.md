@@ -135,3 +135,8 @@ Per docs/subsystems.md: file system (PIP/PRE archives, 0x5B6560-0x5BDAD0), then 
   Our ParseNetworkParams hook (0x4E1220) is fine: PartyMod patches the call to it at 0x4E26DC, not its entry.
 - Member functions are replaced via `REPLACE(addr, &Class::Method)`; constructors via a small adapter that
   placement-news the object (see `LineAdapter` in vector.cpp).
+
+## PartyMod port (2026-10-15)
+- [x] Step 1 code done (untested): PartyMod v1.0.4 in src/partymod (MIT, notice kept), built as a static lib with SDL2 2.30.9 fetched by CMake; our DllMain calls partymod_attach() and redirects the exe's LoadLibraryA("partymod.dll") to our own name. Builds cleanly.
+- [ ] Test: move partymod.dll out of the game folder, Rebuild All, check windowed mode, controllers, button prompts, online, and the log.
+- [ ] Copy SDL2.dll alongside if needed (already in the game folder).
