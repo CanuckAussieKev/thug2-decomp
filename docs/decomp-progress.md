@@ -120,6 +120,12 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       name, padded to 16, then {size, version, numFiles} and 16-byte entry headers). Files are freed with
       0x5BBB60 (memory manager, called by address for now). Early self-test on fake archives.
       Scanner: 148 functions, 4,746 call sites, clean.
+- [x] Batch 22 (untested): `File` I/O layer - `Open` 0x5B9E60, `Close` 0x5B9EA0, `Read` 0x5B9EE0, `Write`
+      0x5B9F60, `Seek` 0x5B9FA0, `GetFileSize` 0x5B9E00, `Exist` 0x5BA010, `OpenOnDisk` 0x5B9CB0 (argument
+      in EDX: naked asm adapter), and the archive-manager accessors 0x5B8040/0x5B8050. Each call asks the .pre
+      archive manager (0x7D0FC4) first and uses its result only if the "handled" flag (0x7D0FC8) is set.
+      OpenOnDisk maps names to data\..., .tex -> .txx and .pre -> .prx. Early self-test opens, seeks and
+      reads real files in Data\pre through both versions. Scanner: 158 functions, 4,954 call sites, clean.
 - [ ] Next: rest of the PIP/PRE code - Pip_Load 0x5B7C00 (PartyMod wraps it: keep its cdecl shape),
       the .pre loader 0x5B75A0, the async/pre-loading state 0x5B7DF0-0x5B9CB0, the cfuncs.
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function

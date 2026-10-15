@@ -15,6 +15,7 @@
 #include "game/core/pool.h"
 #include "game/core/str.h"
 #include "game/core/string.h"
+#include "game/file/file.h"
 #include "game/file/pip.h"
 #include "game/lst/hashtable.h"
 #include "game/mth/geometry.h"
@@ -1376,6 +1377,52 @@ void TestPip()
     std::memcpy(pres, saved_pres, sizeof(pres));
 }
 
+void TestFile()
+{
+    // Runs in DllMain, before the archive manager exists, so this exercises the disk paths. Only names in
+    // folders that exist: any error other than "file not found" would show the fatal file error screen.
+    if (GameVariable<void*>(0x007D0FC4) != nullptr) {
+        Log("self-test: TestFile skipped (archive manager already exists)");
+        return;
+    }
+    using OpenFn = File::Handle(__cdecl*)(const char*, const char*);
+    using CloseFn = int(__cdecl*)(File::Handle);
+    using ReadFn = int(__cdecl*)(void*, int, int, File::Handle);
+    using WriteFn = int(__cdecl*)(const void*, int, int, File::Handle);
+    using SeekFn = uint32_t(__cdecl*)(File::Handle, int, int);
+    using SizeFn = uint32_t(__cdecl*)(File::Handle);
+    using ExistFn = bool(__cdecl*)(const char*);
+
+    const char* names[] = {"pre/AP_scripts.prx", "pre\\AP_scripts.pre", "pre/nothere.prx",
+                           "c:\\skate5\\data\\pre/APcol.prx", "pre/APcol.prx"};
+    for (const char* name : names)
+        Check(Original<ExistFn>(0x005BA010)(name) == File::Exist(name), "File::Exist");
+
+    for (const char* name : names) {
+        File::Handle expected = Original<OpenFn>(0x005B9E60)(name, "rb");
+        File::Handle actual = File::Open(name, "rb");
+        Check((expected == nullptr) == (actual == nullptr), "File::Open");
+        if (!expected || !actual) {
+            if (expected)
+                Original<CloseFn>(0x005B9EA0)(expected);
+            if (actual)
+                File::Close(actual);
+            continue;
+        }
+        Check(Original<SizeFn>(0x005B9E00)(expected) == File::GetFileSize(actual), "File::GetFileSize");
+        const int seeks[][2] = {{100, 0}, {12, 1}, {-40, 2}, {0, 0}, {16, 7}};
+        for (const auto& s : seeks) {
+            Check(Original<SeekFn>(0x005B9FA0)(expected, s[0], s[1]) == File::Seek(actual, s[0], s[1]), "File::Seek");
+            uint8_t a[64] = {}, b[64] = {};
+            int read_expected = Original<ReadFn>(0x005B9EE0)(a, 4, 16, expected);
+            int read_actual = File::Read(b, 4, 16, actual);
+            Check(read_expected == read_actual && std::memcmp(a, b, sizeof(a)) == 0, "File::Read");
+        }
+        Check(Original<WriteFn>(0x005B9F60)("x", 1, 1, expected) == File::Write("x", 1, 1, actual), "File::Write");
+        Check(Original<CloseFn>(0x005B9EA0)(expected) == File::Close(actual), "File::Close");
+    }
+}
+
 // --- late self-tests ----------------------------------------------------------------------------------
 
 // The table's contents as (bucket, position in chain, key, value), so tables with different item addresses
@@ -1801,5 +1848,6 @@ void RunSelfTests()
     TestBatch18();
     TestPool();
     TestPip();
+    TestFile();
     Log(g_failures ? "self-tests: %d FAILED" : "self-tests: all passed", g_failures);
 }
