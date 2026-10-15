@@ -101,11 +101,11 @@ context push/pop, named heaps - do this last and carefully), hash table / save p
 input (0x5BC2C0-0x5BDA20). 0x5BDA20 is patched by PartyMod (bytes at 0x5BDA31): keep it original.
 Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*, int, int, int, int) shape.
 
-- [x] Batch 19 (untested): `Mem::Pool` fixed-size item pool - ctor 0x5BA420 (late self-test), `Allocate`
+- [x] Batch 19 (tested 2026-10-15: level loads and plays; self-tests pass): `Mem::Pool` fixed-size item pool - ctor 0x5BA420 (late self-test), `Allocate`
       0x5BA3D0 (335 callers), `Free` 0x5BA400, `Contains` 0x5BA3B0 (bool, AL only), with self-tests.
       Scanner: the PUSH-ECX filter now ignores writes to other stack slots ([ESP + n]); 131 functions,
       4,429 call sites, clean. Return-value pass matches all four.
-- [x] Batch 20 (untested): `Lst::HashTable` - ctor 0x49FD90, `PutItem` 0x462740, `FlushItem` 0x5B80D0,
+- [x] Batch 20 (tested 2026-10-15: level loads and plays; self-tests pass): `Lst::HashTable` - ctor 0x49FD90, `PutItem` 0x462740, `FlushItem` 0x5B80D0,
       `FlushAllItems` 0x49FD30, `HandleCallback` 0x5B8060, `IterateNext` 0x588190 (bool, 114 callers read AL);
       `Mem::PoolManager` `SetUp` 0x5BC3C0 / `CreateItem` 0x5BC450 / `FreeItem` 0x5BC4A0 (item pool 0 =
       "HashItem", pointers at 0x7D1808). Late self-test runs the same insert/remove/iterate sequence through
@@ -113,20 +113,20 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       Scanner: 140 functions, 4,719 call sites, clean.
       Not done here: 0x5BC2C0/0x5BC340 create and destroy the memory manager itself (with the manager);
       0x5BC4E0-0x5BC620 are a different class (a two-ended stack-style region allocator, vtable 0x658A58).
-- [x] Batch 21 (untested): `Pip` bookkeeping - `FindPreEntry` 0x5B7180, `Unload` 0x5B7200 / by name
+- [x] Batch 21 (tested 2026-10-15: level loads and plays; self-tests pass): `Pip` bookkeeping - `FindPreEntry` 0x5B7180, `Unload` 0x5B7200 / by name
       0x5B7270, `GetFileSize` 0x5B7290 / by name 0x5B72E0, `UnloadPre` 0x5B7130, `GetNextLoadedPre`
       0x5B7300, `PreFileIsInUse` 0x5B7370. Tables: 200 individually loaded files {data, checksum, size,
       refcount} at 0x7CF198; 100 loaded .pre archives at 0x7CFE18 (each block starts with the archive's
       name, padded to 16, then {size, version, numFiles} and 16-byte entry headers). Files are freed with
       0x5BBB60 (memory manager, called by address for now). Early self-test on fake archives.
       Scanner: 148 functions, 4,746 call sites, clean.
-- [x] Batch 22 (untested): `File` I/O layer - `Open` 0x5B9E60, `Close` 0x5B9EA0, `Read` 0x5B9EE0, `Write`
+- [x] Batch 22 (tested 2026-10-15: level loads and plays; self-tests pass): `File` I/O layer - `Open` 0x5B9E60, `Close` 0x5B9EA0, `Read` 0x5B9EE0, `Write`
       0x5B9F60, `Seek` 0x5B9FA0, `GetFileSize` 0x5B9E00, `Exist` 0x5BA010, `OpenOnDisk` 0x5B9CB0 (argument
       in EDX: naked asm adapter), and the archive-manager accessors 0x5B8040/0x5B8050. Each call asks the .pre
       archive manager (0x7D0FC4) first and uses its result only if the "handled" flag (0x7D0FC8) is set.
       OpenOnDisk maps names to data\..., .tex -> .txx and .pre -> .prx. Early self-test opens, seeks and
       reads real files in Data\pre through both versions. Scanner: 158 functions, 4,954 call sites, clean.
-- [x] Batch 23 (untested): `Pip::Load` 0x5B7C00 - already-loaded checks (archive entry / loaded-file
+- [x] Batch 23 (tested 2026-10-15: level loads and plays; self-tests pass): `Pip::Load` 0x5B7C00 - already-loaded checks (archive entry / loaded-file
       table), then async loader, pre-file manager (0x7D0FCC), CD-cache stubs, or plain File::Open/Read into a
       2 KB-aligned block that is then shrunk. PartyMod patches some *call sites* to its script-patching
       wrapper, which calls 0x5B7C00 by address - that now lands in ours (same cdecl signature). Late
