@@ -31,8 +31,15 @@ Batches marked (untested) haven't been run in-game yet.
       ctors (0x403230, 0x4032A0) and Volume (0x403390), with self-tests.
       Deferred: 0x4032E0 / 0x403330 (capsule containment tests; they call the big distance functions
       0x402640 / 0x402D60, whose calling conventions aren't confirmed yet).
-- [ ] Batch 7+: the rest of the block, smallest first. Next up: 0x403EF0-0x404010, 0x405600-0x405990,
-      0x4060F0-0x406260.
+- [x] Batch 7 (untested): `Mth::FastACos` (0x403EF0), `Mth::InitSinLookupTable` (0x403F70, table in globals
+      at 0x690FE0, 119 x {sin, cos, dsin, dcos} over 0..pi/2), `Mth::KeepWithin` (0x404010),
+      `Mth::CreateRotate2D` (0x4058B0), `Matrix::RotateX/Y/ZLocal` (0x405670, 0x405710, 0x4057B0; originals
+      multiply through the statically linked D3DXMatrixMultiply, ours use `Mth::Multiply`), with self-tests.
+      Deferred: 0x405600 (Matrix invert - needs 0x4043A0 / 0x4041E0 / 0x404120), 0x405950 (needs 0x404C60),
+      0x4058E0 (unknown class, fields at +0x80..+0x90).
+- [ ] Batch 8+: the rest of the block. Remaining are mostly larger: 0x4010D0-0x4014F0 (BitStream read/write),
+      0x401600 / 0x401700 (compression? prints In/Out byte counts), 0x402640 / 0x402D60 / 0x402F00 (distance
+      functions), 0x403550 / 0x403C00, 0x404120-0x404F50 (matrix maths), 0x405170-0x405A20, 0x4060F0-0x4062D0.
 - [ ] Infrastructure idea: a second self-test stage that runs once the game is initialised (e.g. on the first
       frame), so allocator/String functions can be tested against the originals too.
 

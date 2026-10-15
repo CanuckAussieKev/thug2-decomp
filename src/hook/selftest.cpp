@@ -438,6 +438,67 @@ void TestBatch6()
     }
 }
 
+void TestBatch7()
+{
+    using Unary = float(__cdecl*)(float);
+    for (float v : {-1.0f, -0.75f, -0.3f, 0.0f, 0.2f, 0.5f, 0.9f, 1.0f})
+        CheckFloat(Original<Unary>(0x00403EF0)(v), Mth::FastACos(v), "Mth::FastACos");
+
+    using KeepFn = float(__cdecl*)(float, float, float);
+    const float cases[][3] = {{10, 0, 3}, {10, 0, -3}, {1, 0, 3}, {-10, 0, 3}, {-1, 0, 3}, {5, 5, 1}, {2, 8, 0}};
+    for (const auto& c : cases)
+        CheckFloat(Original<KeepFn>(0x00404010)(c[0], c[1], c[2]), Mth::KeepWithin(c[0], c[1], c[2]),
+                   "Mth::KeepWithin");
+
+    using Rot2DFn = void(__cdecl*)(float*, float);
+    for (float angle : {0.0f, 0.4f, -2.0f}) {
+        float expected[4], actual[4];
+        Original<Rot2DFn>(0x004058B0)(expected, angle);
+        Mth::CreateRotate2D(actual, angle);
+        for (int i = 0; i < 4; ++i)
+            CheckFloat(expected[i], actual[i], "Mth::CreateRotate2D");
+    }
+
+    // The lookup table lives in the exe's globals: save it, compare both versions' output, restore it.
+    constexpr uintptr_t kTable = 0x00690FE0;
+    constexpr size_t kTableBytes = 119 * 16;
+    static unsigned char saved[kTableBytes], expected_table[kTableBytes];
+    std::memcpy(saved, reinterpret_cast<void*>(kTable), kTableBytes);
+    Original<void(__cdecl*)()>(0x00403F70)();
+    std::memcpy(expected_table, reinterpret_cast<void*>(kTable), kTableBytes);
+    Mth::InitSinLookupTable();
+    const auto* e = reinterpret_cast<const float*>(expected_table);
+    const auto* a = reinterpret_cast<const float*>(kTable);
+    for (size_t i = 0; i < kTableBytes / 4; ++i)
+        CheckFloat(e[i], a[i], "Mth::InitSinLookupTable");
+    std::memcpy(reinterpret_cast<void*>(kTable), saved, kTableBytes);
+
+    using Mth::Matrix;
+    using RotateLocal = Matrix*(__thiscall*)(Matrix*, float);
+    const struct {
+        uint32_t address;
+        Matrix& (Matrix::*ours)(float);
+        const char* name;
+    } rotations[] = {
+        {0x00405670, &Matrix::RotateXLocal, "Matrix::RotateXLocal"},
+        {0x00405710, &Matrix::RotateYLocal, "Matrix::RotateYLocal"},
+        {0x004057B0, &Matrix::RotateZLocal, "Matrix::RotateZLocal"},
+    };
+    Matrix start;
+    Mth::CreateRotateYMatrix(start, 0.3f);
+    start.row[1].x += 0.25f;
+    start.row[3] = {10.0f, -4.0f, 2.5f, 1.0f};
+    for (const auto& r : rotations) {
+        for (float angle : {0.0f, 0.7f, -1.9f}) {
+            Matrix expected = start, actual = start;
+            Original<RotateLocal>(r.address)(&expected, angle);
+            (actual.*r.ours)(angle);
+            for (int i = 0; i < 4; ++i)
+                CheckVector(expected.row[i], actual.row[i], r.name);
+        }
+    }
+}
+
 } // namespace
 
 void RunSelfTests()
@@ -450,5 +511,6 @@ void RunSelfTests()
     TestBatch4();
     TestBatch5();
     TestBatch6();
+    TestBatch7();
     Log(g_failures ? "self-tests: %d FAILED" : "self-tests: all passed", g_failures);
 }
