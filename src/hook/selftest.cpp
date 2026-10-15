@@ -2544,6 +2544,155 @@ void TestMemoryManager()
     }
 }
 
+// Creating the manager's heaps on a stand-in manager in a 12 MB arena (installed as the game's manager):
+// the original creators and ours, then ShutDownManager; the arena is compared page by page (pointers rebased,
+// heap names as text). The constructor itself isn't tested here: it allocates from the game's CRT and builds
+// the main heaps in their fixed static storage.
+bool g_saved_manager_ready = false;
+
+void RestoreManagerInitTest()
+{
+    if (!g_manager_test_swapped)
+        return;
+    GameVariable<void*>(0x007D1800) = g_saved_manager_for_test;
+    GameVariable<bool>(0x007CC979) = g_saved_manager_ready;
+    g_manager_test_swapped = false;
+}
+
+void TestMemoryManagerHeapCreation()
+{
+    using Mem::Allocator;
+    using Mem::Heap;
+    using Mem::Manager;
+    using Mem::Region;
+    if (GameVariable<void*>(0x007D1800)) {
+        Log("self-test: TestMemoryManagerHeapCreation skipped (the memory manager is already set up)");
+        return;
+    }
+    constexpr size_t kSize = 12 * 1024 * 1024;
+    g_saved_manager_for_test = nullptr;
+    g_saved_manager_ready = GameVariable<bool>(0x007CC979);
+    g_manager_test_swapped = true;
+
+    auto run = [&](bool original, uint8_t* arena) {
+        std::vector<uint32_t> trace;
+        auto rebased = [&](const void* pointer) {
+            auto value = reinterpret_cast<uint32_t>(pointer);
+            auto base = reinterpret_cast<uint32_t>(arena);
+            return value >= base && value <= base + kSize ? 0xA0000000u + (value - base) : value;
+        };
+        std::memset(arena, 0, kSize);
+        auto* manager = reinterpret_cast<Manager*>(arena);
+        GameVariable<void*>(0x007D1800) = manager;
+        auto* region = new (arena + 0x600) Region(arena + 0x1000, arena + kSize);
+        auto* top = new (arena + 0x620) Heap(region, -1, "Top Down");
+        auto* bottom = new (arena + 0x6C0) Heap(region, 1, "BottomUp");
+        manager->m_heaps[0] = top;
+        manager->m_heaps[1] = bottom;
+        manager->m_heapCount = 2;
+        manager->m_mainRegion = region;
+        manager->m_topDownHeap = top;
+        manager->m_bottomUpHeap = bottom;
+        manager->PushContext(bottom);
+
+        auto snapshot = [&]() {
+            // Heap names as text, then the arena as page hashes of the rebased words.
+            for (int i = 0; i < manager->m_heapCount; ++i) {
+                uint32_t hash = 0;
+                for (const char* c = manager->m_heaps[i] ? manager->m_heaps[i]->m_name : nullptr; c && *c; ++c)
+                    hash = hash * 31 + static_cast<uint8_t>(*c);
+                trace.push_back(hash);
+            }
+            std::vector<const char*> names(manager->m_heapCount);
+            for (int i = 0; i < manager->m_heapCount; ++i) {
+                if (manager->m_heaps[i]) {
+                    names[i] = manager->m_heaps[i]->m_name;
+                    manager->m_heaps[i]->m_name = nullptr;
+                }
+            }
+            auto base = reinterpret_cast<uint32_t>(arena);
+            const auto* words = reinterpret_cast<const uint32_t*>(arena);
+            for (size_t page = 0; page < kSize / 0x1000; ++page) {
+                uint32_t hash = 2166136261u;
+                for (size_t i = page * 0x400; i < (page + 1) * 0x400; ++i) {
+                    uint32_t word = words[i];
+                    if (word >= base && word <= base + kSize)
+                        word = 0xA0000000u + (word - base);
+                    hash = (hash ^ word) * 16777619u;
+                }
+                trace.push_back(hash);
+            }
+            for (int i = 0; i < manager->m_heapCount; ++i) {
+                if (manager->m_heaps[i])
+                    manager->m_heaps[i]->m_name = names[i];
+            }
+        };
+
+        using Method = void(__thiscall*)(Manager*);
+        auto call = [&](uint32_t address, void (Manager::*ours)()) {
+            if (original)
+                Original<Method>(address)(manager);
+            else
+                (manager->*ours)();
+        };
+        call(0x005BBE80, &Manager::InitStandardHeaps);
+        manager->PushContext(top); // (they make their heaps with the bottom-up heap current anyway)
+        call(0x005BB560, &Manager::InitNetMiscHeap);
+        call(0x005BB560, &Manager::InitNetMiscHeap); // already there: nothing
+        call(0x005BB660, &Manager::InitInternetHeaps);
+        manager->PopContext();
+        if (original) {
+            Original<void(__thiscall*)(Manager*, uint32_t)>(0x005BB780)(manager, 0x10000);
+            Original<void(__thiscall*)(Manager*, int)>(0x005BB820)(manager, 3);
+            Original<void(__thiscall*)(Manager*, uint32_t, uint32_t, const char*, int)>(0x005BB9E0)(manager, 0xABCD,
+                                                                                                0x2000, "Mine", 0);
+            trace.push_back(rebased(Original<Heap*(__thiscall*)(Manager*, Region*, int, const char*)>(0x005BB4E0)(
+                manager, manager->m_themeRegion, -1, "Extra")));
+        } else {
+            manager->InitCutsceneHeaps(0x10000);
+            manager->InitExtraSkaterHeaps(3);
+            manager->InitNamedHeap(0xABCD, 0x2000, "Mine", 0);
+            trace.push_back(rebased(manager->AddHeap(manager->m_themeRegion, -1, "Extra")));
+        }
+        trace.push_back(static_cast<uint32_t>(manager->m_heapCount));
+        trace.push_back(static_cast<uint32_t>(manager->m_contextDepth));
+        snapshot();
+        // Deleted heaps stay in freed memory with their names: give them all one name in the arena first (the
+        // literal names differ between the game's and ours).
+        std::memcpy(arena + 0x5F0, "heap", 5);
+        for (int i = 0; i < manager->m_heapCount; ++i) {
+            if (manager->m_heaps[i])
+                manager->m_heaps[i]->m_name = reinterpret_cast<const char*>(arena + 0x5F0);
+        }
+        if (original)
+            Original<void(__cdecl*)()>(0x005BC340)();
+        else
+            Mem::ShutDownManager();
+        trace.push_back(GameVariable<void*>(0x007D1800) == nullptr);
+        GameVariable<void*>(0x007D1800) = manager; // (for the snapshot's sake: nothing reads it)
+        snapshot();
+        GameVariable<void*>(0x007D1800) = nullptr;
+        return trace;
+    };
+    auto* arenas = static_cast<uint8_t*>(VirtualAlloc(nullptr, 2 * kSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
+    if (!arenas) {
+        Log("self-test: TestMemoryManagerHeapCreation skipped (no memory for the arenas)");
+        RestoreManagerInitTest();
+        return;
+    }
+    std::vector<uint32_t> expected = run(true, arenas);
+    std::vector<uint32_t> actual = run(false, arenas + kSize);
+    VirtualFree(arenas, 0, MEM_RELEASE);
+    RestoreManagerInitTest();
+    Check(expected == actual, "memory manager: creating heaps, shutting down");
+    for (size_t i = 0, shown = 0; i < expected.size() && i < actual.size() && shown < 8; ++i) {
+        if (expected[i] != actual[i]) {
+            Log("  heap creation entry %u: original %08X ours %08X", static_cast<unsigned>(i), expected[i], actual[i]);
+            ++shown;
+        }
+    }
+}
+
 // --- late self-tests ----------------------------------------------------------------------------------
 
 // The table's contents as (bucket, position in chain, key, value), so tables with different item addresses
@@ -3482,6 +3631,7 @@ SELFTEST(Early, TestAssetBundleLookups);
 SELFTEST(Early, TestAllocatorLayer);
 SELFTEST(Early, TestHeap, RestoreMemoryManager);
 SELFTEST(Early, TestMemoryManager, RestoreManagerForTest);
+SELFTEST(Early, TestMemoryManagerHeapCreation, RestoreManagerInitTest);
 
 SELFTEST(Late, TestMemoryLate);
 SELFTEST(Late, TestStringLate);

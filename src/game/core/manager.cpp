@@ -1,8 +1,10 @@
 #include "game/core/manager.h"
 
 #include <cstring>
+#include <new>
 
 #include "game/core/dbg.h"
+#include "game/core/mem.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -438,3 +440,255 @@ REPLACE(0x005BBB30, static_cast<void* (*)(unsigned int, void*)>(&Mem::Reallocate
 REPLACE(0x005BBB60, Mem::FreeMalloc);
 REPLACE(0x005BBB80, Mem::MallocSize);
 REPLACE(0x005BBBA0, Mem::Realloc);
+
+// --- creating the manager and its heaps -----------------------------------------------------------------------
+
+namespace Mem {
+
+namespace {
+
+// Where the manager and its main region and heaps live (static storage in the game).
+void* const kManagerStorage = reinterpret_cast<void*>(0x007D11F8);
+void* const kMainRegionStorage = reinterpret_cast<void*>(0x007D11E0);
+void* const kTopDownStorage = reinterpret_cast<void*>(0x007D1130);
+void* const kBottomUpStorage = reinterpret_cast<void*>(0x007D1098);
+constexpr uint32_t kMainBlockSize = 0x4000000; // 64 MB
+
+bool& ManagerReady() { return GameVariable<bool>(0x007CC979); }
+
+// The game CRT's malloc (the main block comes from it).
+void* CrtMalloc(size_t size) { return GameFunction<void*(__cdecl*)(size_t)>(0x00624031)(size); }
+
+AllocRegion* NewAllocRegion(uint32_t size)
+{
+    void* memory = Calloc(sizeof(AllocRegion));
+    return memory ? new (memory) AllocRegion(size) : nullptr;
+}
+
+} // namespace
+
+Manager*& Manager::Instance()
+{
+    return GameVariable<Manager*>(0x007D1800);
+}
+
+// 0x005BBC00
+Manager* Manager::Construct()
+{
+    m_current = nullptr;
+    for (NamedHeap& named : m_namedHeaps) {
+        named.region = nullptr;
+        named.heap = nullptr;
+        named.name = 0;
+        named.used = false;
+    }
+    m_unknown5E4 = 0;
+    m_unknown5E0 = 0;
+
+    auto* block = static_cast<uint8_t*>(CrtMalloc(kMainBlockSize));
+    GameVariable<uint8_t*>(0x007D17EC) = block;
+    GameVariable<uint8_t*>(0x007D17E8) = block + kMainBlockSize;
+    GameVariable<uint8_t*>(0x007D17E4) = block + kMainBlockSize;
+    uint8_t* end = GameVariable<uint8_t*>(0x007D17E4);
+    void* region = Clear(sizeof(Region), kMainRegionStorage);
+    m_mainRegion = region ? new (region) Region(reinterpret_cast<uint8_t*>((reinterpret_cast<uintptr_t>(block) + 15) & ~15u),
+                                                reinterpret_cast<uint8_t*>(reinterpret_cast<uintptr_t>(end) & ~15u))
+                          : nullptr;
+    void* top = Clear(sizeof(Heap), kTopDownStorage);
+    m_topDownHeap = top ? new (top) Heap(m_mainRegion, Allocator::kGrowDown, "Top Down") : nullptr;
+    void* bottom = Clear(sizeof(Heap), kBottomUpStorage);
+    m_bottomUpHeap = bottom ? new (bottom) Heap(m_mainRegion, Allocator::kGrowUp, "BottomUp") : nullptr;
+    m_heaps[1] = m_bottomUpHeap;
+    m_heaps[0] = m_topDownHeap;
+    m_heapCount = 2;
+
+    // (the code and data bounds are never set in this build: all zero)
+    auto codeStart = GameVariable<uintptr_t>(0x007D17F8);
+    auto dataStart = GameVariable<uintptr_t>(0x007D17F4);
+    auto dataEnd = GameVariable<uintptr_t>(0x007D17F0);
+    uint32_t dataK = static_cast<uint32_t>(dataEnd - dataStart) >> 10;
+    uint32_t codeK = static_cast<uint32_t>(dataStart - codeStart) >> 10;
+    Dbg::Printf("code [%p - %p] (%dK) + data [%p - %p] (%dK) = %dK \n", codeStart, dataStart, codeK, dataStart, dataEnd,
+                dataK, dataK + codeK);
+
+    m_contextDepth = 0;
+    m_internetRegion = nullptr;
+    m_netMiscRegion = nullptr;
+    m_cutsceneRegion = nullptr;
+    m_cutsceneBottomUpHeap = nullptr;
+    m_cutsceneTopDownHeap = nullptr;
+    return this;
+}
+
+// 0x005BB4E0
+Heap* Manager::AddHeap(Region* region, int direction, const char* name)
+{
+    void* memory = Calloc(sizeof(Heap));
+    Heap* heap = memory ? new (memory) Heap(region, direction, name) : nullptr;
+    m_heaps[m_heapCount++] = heap;
+    return heap;
+}
+
+// 0x005BBE80
+void Manager::InitStandardHeaps()
+{
+    m_frontEndRegion = NewAllocRegion(GameVariable<bool>(0x007CEFAD) ? 1000000 : 1100000);
+    Dbg::Printf("allocated mp_frontend_region at %p\n", m_frontEndRegion);
+    m_networkHeap = AddHeap(m_frontEndRegion, Allocator::kGrowDown, "Network");
+    Dbg::Printf("Setup TOP_DOWN mp_network_heap at %p\n", m_networkHeap);
+    m_frontEndHeap = AddHeap(m_frontEndRegion, Allocator::kGrowUp, "FrontEnd");
+    Dbg::Printf("Setup mp_frontend_heap at %p\n", m_frontEndHeap);
+
+    m_scriptRegion = NewAllocRegion(0x434770);
+    Dbg::Printf("allocated mp_script_region at %p\n", m_scriptRegion);
+    m_scriptHeap = AddHeap(m_scriptRegion, Allocator::kGrowUp, "Script");
+    Dbg::Printf("Setup mp_script_heap at %p\n", m_scriptHeap);
+
+    m_skaterInfoRegion = NewAllocRegion(82000);
+    Dbg::Printf("allocated mp_skater_info_region at %p\n", m_skaterInfoRegion);
+    m_skaterInfoHeap = AddHeap(m_skaterInfoRegion, Allocator::kGrowUp, "skt_info");
+    Dbg::Printf("Setup mp_skater_info_heap at %p\n", m_skaterInfoHeap);
+
+    m_themeRegion = NewAllocRegion(0x3C00);
+    Dbg::Printf("allocated mp_theme_region at %p\n", m_themeRegion);
+    m_themeHeap = AddHeap(m_themeRegion, Allocator::kGrowUp, "theme");
+    Dbg::Printf("Setup mp_theme_heap at %p\n", m_themeHeap);
+
+    m_skaterRegions[0] = NewAllocRegion(0x1AFA4);
+    Dbg::Printf("allocated mp_skater_region at %p\n", m_skaterRegions[0]);
+    m_skaterHeaps[0] = AddHeap(m_skaterRegions[0], Allocator::kGrowUp, "skater");
+    Dbg::Printf("Setup mp_skater_heap at %p\n", m_skaterHeaps[0]);
+
+    m_skaterGeomRegions[0] = NewAllocRegion(0x73F78);
+    Dbg::Printf("allocated mp_skater_geom_region at %p\n", m_skaterGeomRegions[0]);
+    m_skaterGeomHeaps[0] = AddHeap(m_skaterGeomRegions[0], Allocator::kGrowUp, "skater_geom");
+    Dbg::Printf("Setup mp_skater_geom_heap at %p\n", m_skaterGeomHeaps[0]);
+
+    for (int i = 1; i < kMaxSkaters; ++i) {
+        m_skaterRegions[i] = nullptr;
+        m_skaterHeaps[i] = nullptr;
+        m_skaterGeomRegions[i] = nullptr;
+        m_skaterGeomHeaps[i] = nullptr;
+    }
+    InitNamedHeap(0x0B1BA9DE, 0x16800, "PermanentTextureHeap", 0);
+    InitNamedHeap(0x33B42C96, 0x49C00, "UnloadableTextureHeap", 0);
+}
+
+// 0x005BB560 (made with the bottom-up heap current, on the game's manager)
+void Manager::InitNetMiscHeap()
+{
+    if (m_netMiscRegion)
+        return;
+    Manager* manager = Get();
+    manager->PushContext(manager->m_bottomUpHeap);
+    m_netMiscRegion = NewAllocRegion(160000);
+    m_netMiscHeap = AddHeap(m_netMiscRegion, Allocator::kGrowUp, "NetMisc");
+    Get()->PopContext();
+}
+
+// 0x005BB660 (made with the bottom-up heap current, on the game's manager)
+void Manager::InitInternetHeaps()
+{
+    if (m_internetRegion)
+        return;
+    Manager* manager = Get();
+    manager->PushContext(manager->m_bottomUpHeap);
+    m_internetRegion = NewAllocRegion(450000);
+    m_internetTopDownHeap = AddHeap(m_internetRegion, Allocator::kGrowDown, "InternetTopDown");
+    m_internetBottomUpHeap = AddHeap(m_internetRegion, Allocator::kGrowUp, "InternetBottomUp");
+    Get()->PopContext();
+}
+
+// 0x005BB780
+void Manager::InitCutsceneHeaps(uint32_t size)
+{
+    if (m_cutsceneRegion)
+        return;
+    m_cutsceneRegion = NewAllocRegion(size);
+    m_cutsceneBottomUpHeap = AddHeap(m_cutsceneRegion, Allocator::kGrowUp, "CutsceneBottomUp");
+    m_cutsceneTopDownHeap = AddHeap(m_cutsceneRegion, Allocator::kGrowDown, "CutsceneTopDown");
+}
+
+// 0x005BB820
+void Manager::InitExtraSkaterHeaps(int count)
+{
+    Dbg::Printf("Init Skater Heaps\n");
+    if (count > kMaxSkaters)
+        count = kMaxSkaters;
+    for (int i = 1; i < count; ++i) {
+        m_skaterRegions[i] = NewAllocRegion(0x1AFA4);
+        Dbg::Printf("EXTRA: allocated mp_skater_region at %p\n", m_skaterRegions[i]);
+        m_skaterHeaps[i] = AddHeap(m_skaterRegions[i], Allocator::kGrowUp, "skaterX");
+        Dbg::Printf("EXTRA: Setup mp_skater_heap at %p\n", m_skaterHeaps[i]);
+        m_skaterGeomRegions[i] = NewAllocRegion(0x73F78);
+        Dbg::Printf("EXTRA: allocated mp_skater_geom_region at %p\n", m_skaterGeomRegions[i]);
+        m_skaterGeomHeaps[i] = AddHeap(m_skaterGeomRegions[i], Allocator::kGrowUp, "skaterGeomX");
+        Dbg::Printf("EXTRA: Setup mp_skater_geom_heap at %p\n", m_skaterGeomHeaps[i]);
+    }
+    Dbg::Printf("END Init Skater Heaps\n");
+}
+
+// 0x005BB9E0
+void Manager::InitNamedHeap(uint32_t name, uint32_t size, const char* text, int /*unused*/)
+{
+    NamedHeap* named = nullptr;
+    for (NamedHeap& slot : m_namedHeaps) {
+        if (!slot.used) {
+            named = &slot;
+            break;
+        }
+    }
+    // (no free slot: crashes here, as in the original)
+    named->name = name;
+    std::memcpy(named->text, text, std::strlen(text) + 1); // (unbounded, as in the original)
+    named->region = NewAllocRegion(size);
+    named->heap = AddHeap(named->region, Allocator::kGrowUp, named->text);
+    named->used = true;
+}
+
+// 0x005BC2C0
+void SetUpManager()
+{
+    if (Manager::Get())
+        return;
+    void* memory = Clear(sizeof(Manager), kManagerStorage);
+    Manager* manager = memory ? static_cast<Manager*>(memory)->Construct() : nullptr;
+    Manager::Instance() = manager;
+    manager->PushContext(manager->m_bottomUpHeap);
+}
+
+// 0x004E1950
+int EnsureManager()
+{
+    if (!ManagerReady()) {
+        SetUpManager();
+        ManagerReady() = true;
+    }
+    return 0;
+}
+
+// 0x005BC340
+void ShutDownManager()
+{
+    Manager* manager = Manager::Get();
+    if (!manager)
+        return;
+    manager->DeleteStandardHeaps();
+    manager->PopContext();
+    manager->DestroyMainHeaps();
+    Manager::Instance() = nullptr;
+}
+
+} // namespace Mem
+
+REPLACE(0x005BBC00, &Mem::Manager::Construct);
+REPLACE(0x005BBE80, &Mem::Manager::InitStandardHeaps);
+REPLACE(0x005BB4E0, &Mem::Manager::AddHeap);
+REPLACE(0x005BB560, &Mem::Manager::InitNetMiscHeap);
+REPLACE(0x005BB660, &Mem::Manager::InitInternetHeaps);
+REPLACE(0x005BB780, &Mem::Manager::InitCutsceneHeaps);
+REPLACE(0x005BB820, &Mem::Manager::InitExtraSkaterHeaps);
+REPLACE(0x005BB9E0, &Mem::Manager::InitNamedHeap);
+REPLACE(0x005BC2C0, Mem::SetUpManager);
+REPLACE(0x004E1950, Mem::EnsureManager);
+REPLACE(0x005BC340, Mem::ShutDownManager);

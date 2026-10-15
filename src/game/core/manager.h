@@ -26,6 +26,21 @@ public:
     static constexpr int kMaxSkaters = 8;
 
     static Manager* Get();
+    static Manager*& Instance();
+
+    // 0x005BBC00: the 64 MB block, the main region and its two heaps (in static storage).
+    Manager* Construct();
+    // The rest of the standard heaps (front end, network, script, skater info, theme, skater, named texture heaps).
+    void InitStandardHeaps();
+    // A new heap in `region`, registered.
+    Heap* AddHeap(Region* region, int direction, const char* name);
+    void InitNetMiscHeap();
+    void InitInternetHeaps();
+    void InitCutsceneHeaps(uint32_t size);
+    // Heaps for skaters 1 to count-1 (multiplayer; at most 8 skaters).
+    void InitExtraSkaterHeaps(int count);
+    // A heap of its own region, found by name checksum.
+    void InitNamedHeap(uint32_t name, uint32_t size, const char* text, int unused);
 
     // Allocation through a heap (null: the current one); `assertOnFail` reaches the heap as is.
     void* Allocate(uint32_t size, int assertOnFail, Allocator* heap);
@@ -96,11 +111,20 @@ public:
     Heap* m_skaterInfoHeap;
     Region* m_themeRegion;
     Heap* m_themeHeap;
+    uint32_t m_unknown5E0;
+    uint32_t m_unknown5E4;
 };
 static_assert(offsetof(Manager, m_heapCount) == 0xC0 && offsetof(Manager, m_contextDepth) == 0x108 &&
                   offsetof(Manager, m_debugHeap) == 0x154 && offsetof(Manager, m_skaterRegions) == 0x160 &&
                   offsetof(Manager, m_namedHeaps) == 0x1E0 && offsetof(Manager, m_skaterInfoRegion) == 0x5D0 &&
-                  offsetof(Manager, m_themeHeap) == 0x5DC,
+                  offsetof(Manager, m_themeHeap) == 0x5DC && sizeof(Manager) == 0x5E8,
               "layout must match the original");
+
+// 0x005BC2C0: create the manager (on the first allocation), with the bottom-up heap current.
+void SetUpManager();
+// 0x004E1950: SetUpManager, once.
+int EnsureManager();
+// 0x005BC340
+void ShutDownManager();
 
 } // namespace Mem

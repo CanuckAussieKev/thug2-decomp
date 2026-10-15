@@ -15,7 +15,7 @@ bool& SystemReady() { return GameVariable<bool>(0x007CC979); }
 void EnsureSystemReady()
 {
     if (!SystemReady())
-        GameFunction<void(__cdecl*)()>(0x004E1950)();
+        EnsureManager();
 }
 
 void* Zeroed(void* memory, unsigned int size)
