@@ -1395,11 +1395,16 @@ void TestFile()
     using SizeFn = uint32_t(__cdecl*)(File::Handle);
     using ExistFn = bool(__cdecl*)(const char*);
 
-    // Paths are relative to the current directory; if data\pre isn't there, a "path not found" error would
-    // also go to the fatal error screen.
+    // The game opens data files relative to the current directory and never sets it itself, so it only works
+    // when launched with the game folder as the working directory. If it wasn't, the game will hit its own
+    // fatal file error later; report it as a failure here, and don't run the file tests - a "path not
+    // found" inside DllMain would crash before the game can show anything (0xC0000142 at launch).
     DWORD attributes = GetFileAttributesA("data\\pre");
     if (attributes == INVALID_FILE_ATTRIBUTES || !(attributes & FILE_ATTRIBUTE_DIRECTORY)) {
-        Log("self-test: TestFile skipped (no data\\pre folder in the current directory)");
+        char directory[MAX_PATH] = "?";
+        GetCurrentDirectoryA(MAX_PATH, directory);
+        Log("Game was started from the wrong folder: data\\pre not found in the working directory (%s)", directory);
+        Check(false, "File tests: game started from the wrong folder (working directory must be the game folder)");
         return;
     }
 
