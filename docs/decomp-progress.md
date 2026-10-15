@@ -218,7 +218,10 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       lookups (shown to catch a deliberate bug); Late test splits a handmade bundle, original vs ours.
       Also fixes batch 30: CreateAsyncLoaderModule returns the module (the start-up code 0x4E1EF0 keeps
       it) - caught by the register scan; the refcount test now compares the return value.
-- [ ] Next: the memory manager 0x5BA5A0-0x5BBE80 (wait for an in-game test of batches 26-31 first).
+- [x] Batches 26-31 tested in the game (2026-10-15, by the user): game runs fine; log - 276/276 replacements
+      installed, early 28/28, late 10/10 (incl. TestAssetBundleSplitLate, TestPipLoadPreLate), engine-started
+      2/2 (incl. TestLoadPreEngineStarted), shadow checks 1395 calls with no mismatches.
+- [ ] Next: the memory manager 0x5BA5A0-0x5BBE80.
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
       for original callers that read ECX/EDX after the call without writing them first (ignoring push-to-reserve,
       lea reg,[reg], or reg,-1 and zeroing idioms; callers that are themselves replaced count as safe).
