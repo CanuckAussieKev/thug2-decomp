@@ -231,8 +231,16 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       0x5BA140, Push/PopContext 0x5BA1E0/0x5BA360; list node unlink/dtors 0x5BA0E0/0x5BA100/0x5BA230;
       0x5BA4E0. Early test: arenas compared original vs ours (shown to catch an off-by-one after adding
       an exact-fill step); Late test: context stack + AllocRegion on the real manager.
-- [ ] Next: Mem::Heap (vtable 0x65848C: ctor 0x5BA520, dtor 0x5BA560, allocate 0x5BA780, 0x5BA4F0,
-      0x5BA9A0, 0x5BAA20, 0x5BAAE0, free 0x5BA5A0), then the Manager 0x5BAB90-0x5BBE80.
+- [x] Batch 33 (NOT run in the game yet; early test passes offline): Mem::Heap (src/game/core/heap.cpp;
+      vtable 0x65848C, 0x98 bytes: +0x6C use fallbacks, +0x70 fallback heaps[5], +0x84 reserves[5]).
+      Ctor 0x5BA520, dtor 0x5BA560, Allocate 0x5BA780 (best fit from the context's free list with split,
+      else the region, else the fallbacks; 0x7D0FDC busy flag, 0x7D0FE0 debug forced block), LargestFree
+      0x5BA4F0, ReallocateDown/Up/Shrink 0x5BA9A0/0x5BAA20/0x5BAAE0 (Shrink returns the block - Ghidra
+      said the size), Free 0x5BA5A0 (address-ordered, merges, gives the top back to the region). The
+      allocator statistics (+4..+0x20) are named. Early test: up/down/fallback heaps in an arena, the
+      original methods vs ours via vtable copies, arena compared (four deliberate bugs all caught; Free's
+      manager lookup uses a zeroed stand-in manager offline).
+- [ ] Next: the Manager 0x5BAB90-0x5BBE80.
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
       for original callers that read ECX/EDX after the call without writing them first (ignoring push-to-reserve,
       lea reg,[reg], or reg,-1 and zeroing idioms; callers that are themselves replaced count as safe).

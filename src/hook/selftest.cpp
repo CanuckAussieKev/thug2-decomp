@@ -2140,6 +2140,158 @@ void TestAllocatorContextsLate()
     }
 }
 
+// Mem::Heap on a region in an arena: the same script of allocations, frees and resizes through the original
+// methods and through ours (each run's heaps get a copy of the heap vtable pointing at one or the other), then
+// the arenas compared word for word with pointers rebased. Free looks a heap up in the memory manager: before
+// the game sets the manager up, a zeroed stand-in (no heaps) is used.
+alignas(16) uint8_t g_fake_memory_manager[0x600];
+void* g_saved_memory_manager = nullptr;
+bool g_memory_manager_swapped = false;
+
+void RestoreMemoryManager()
+{
+    if (!g_memory_manager_swapped)
+        return;
+    GameVariable<void*>(0x007D1800) = g_saved_memory_manager;
+    g_memory_manager_swapped = false;
+}
+
+void TestHeap()
+{
+    using Mem::BlockHeader;
+    using Mem::Heap;
+    using Mem::Region;
+    using HeapCtor = Heap*(__thiscall*)(void*, Region*, int, const char*);
+
+    if (!GameVariable<void*>(0x007D1800)) {
+        std::memset(g_fake_memory_manager, 0, sizeof(g_fake_memory_manager));
+        g_saved_memory_manager = nullptr;
+        GameVariable<void*>(0x007D1800) = g_fake_memory_manager;
+        g_memory_manager_swapped = true;
+    }
+
+    static void* vtables[2][9];
+    std::memcpy(vtables[0], reinterpret_cast<void*>(0x0065848C), sizeof(vtables[0]));
+    std::memcpy(vtables[1], reinterpret_cast<void*>(0x0065848C), sizeof(vtables[1]));
+    const uint32_t addresses[6] = {0x005BA780, 0x005BA4F0, 0x005BA9A0, 0x005BAA20, 0x005BAAE0, 0x005BA5A0};
+    for (int i = 0; i < 6; ++i)
+        vtables[0][3 + i] = Original<void*>(addresses[i]);
+    vtables[1][3] = CodeAddress(&Heap::Allocate);
+    vtables[1][4] = CodeAddress(&Heap::LargestFree);
+    vtables[1][5] = CodeAddress(&Heap::ReallocateDown);
+    vtables[1][6] = CodeAddress(&Heap::ReallocateUp);
+    vtables[1][7] = CodeAddress(&Heap::ReallocateShrink);
+    vtables[1][8] = CodeAddress(&Heap::Free);
+
+    auto run = [&](bool original) {
+        std::vector<uint32_t> trace;
+        uint8_t* arena = g_alloc_arenas[original ? 0 : 1];
+        std::memset(arena, 0xCD, kArenaSize);
+        void** vtable = vtables[original ? 0 : 1];
+        auto* region = new (arena) Region(arena + 0x400, arena + 0x2000);
+        auto* spare = new (arena + 0x20) Region(arena + 0x2000, arena + 0x2C00);
+        auto make_heap = [&](void* memory, Region* in, int direction) {
+            Heap* heap = original ? Original<HeapCtor>(0x005BA520)(memory, in, direction, "test")
+                                  : new (memory) Heap(in, direction, "test");
+            heap->m_vtable = vtable;
+            return heap;
+        };
+        Heap* up = make_heap(arena + 0x100, region, 1);
+        Heap* down = make_heap(arena + 0x200, region, -1);
+        Heap* other = make_heap(arena + 0x300, spare, 1);
+
+        auto put = [&](const void* pointer) { trace.push_back(Rebased(pointer, arena)); };
+        auto alloc = [&](Heap* heap, uint32_t size, bool assert_on_fail = false) {
+            void* block = heap->VirtualAllocate(size, assert_on_fail);
+            put(block);
+            return block;
+        };
+        auto release = [&](Heap* heap, void* block) { heap->VirtualFree(BlockHeader::Of(block)); };
+        auto call = [&](Heap* heap, int slot, uint32_t size, void* block) {
+            void* result = reinterpret_cast<void*(__thiscall*)(Heap*, uint32_t, void*)>(heap->m_vtable[slot])(
+                heap, size, block);
+            put(result);
+            return result;
+        };
+        auto largest = [&](Heap* heap) {
+            trace.push_back(reinterpret_cast<uint32_t(__thiscall*)(Heap*)>(heap->m_vtable[4])(heap));
+        };
+
+        // Growing up: allocate, free in the middle, reuse with a split, merge, give back at the top.
+        void* a = alloc(up, 0x30);
+        void* b = alloc(up, 0x100);
+        void* c = alloc(up, 0x10);
+        void* d = alloc(up, 0x55);
+        release(up, b);
+        void* e = alloc(up, 0x20); // from b's space, split
+        largest(up);
+        release(up, d);            // at the top: back to the region
+        release(up, c);
+        release(up, e);            // merges with its neighbours
+        largest(up);
+        void* f = alloc(up, 0x40);
+        void* g = alloc(up, 0x40);
+        release(up, f);
+        release(up, g);
+        a = call(up, 7, 0x5, a);          // shrink: the end becomes free
+        a = call(up, 6, 0x200, a);        // grow up in place (or not)
+        void* h = alloc(up, 0x18);
+        call(up, 6, 0x10, h);             // already big enough
+        // Two equally good holes (and a bigger one): the first of the smallest is taken.
+        void* hole1 = alloc(up, 0x40);
+        alloc(up, 0x10);
+        void* hole2 = alloc(up, 0x40);
+        alloc(up, 0x10);
+        void* hole3 = alloc(up, 0x80);
+        alloc(up, 0x10);
+        release(up, hole3);
+        release(up, hole2);
+        release(up, hole1);
+        alloc(up, 0x40);
+        alloc(up, 0x40);
+
+        // Growing down: allocate, grow down, free.
+        void* x = alloc(down, 0x40);
+        void* y = alloc(down, 0x20);
+        y = call(down, 5, 0x80, y);       // grows into the space just below
+        largest(down);
+        release(down, x);
+        release(down, y);
+        largest(down);
+
+        // Running out: no fallback, then falling back on `other` (keeping 0x100 bytes clear in it).
+        alloc(up, 0x10000);
+        up->m_useFallbacks = 1;
+        up->m_fallbacks[0] = nullptr;
+        up->m_fallbacks[1] = other;
+        up->m_fallbackReserve[1] = 0x100;
+        for (int i = 2; i < 5; ++i)
+            up->m_fallbacks[i] = nullptr;
+        up->m_fallbackReserve[0] = 0;
+        alloc(up, 0x1C00);                // too big for both: fails
+        alloc(up, static_cast<uint32_t>(region->MemAvailable()) - 0x100); // nearly fills the region
+        alloc(up, 0x200);                 // doesn't fit any more: from `other`
+        alloc(up, 0xB00);                 // would leave `other` under its reserve: fails
+        trace.push_back(static_cast<uint32_t>(GameVariable<int>(0x007D0FDC)));
+
+        for (Heap* heap : {up, down, other})
+            heap->m_vtable = reinterpret_cast<void**>(0x0065848C);
+        std::vector<uint32_t> image = RebasedArena(arena, kArenaSize);
+        trace.insert(trace.end(), image.begin(), image.end());
+        return trace;
+    };
+    std::vector<uint32_t> expected = run(true);
+    std::vector<uint32_t> actual = run(false);
+    Check(expected == actual, "heap: allocate, free, merge, resize, fall back");
+    for (size_t i = 0, shown = 0; i < expected.size() && i < actual.size() && shown < 8; ++i) {
+        if (expected[i] != actual[i]) {
+            Log("  heap word %u: original %08X ours %08X", static_cast<unsigned>(i), expected[i], actual[i]);
+            ++shown;
+        }
+    }
+    RestoreMemoryManager();
+}
+
 // --- late self-tests ----------------------------------------------------------------------------------
 
 // The table's contents as (bucket, position in chain, key, value), so tables with different item addresses
@@ -3076,6 +3228,7 @@ SELFTEST(Early, TestPcAsyncFileHandle, RestoreAsyncIoState);
 SELFTEST(Early, TestAsyncLoaderModuleRefs, RestoreLoaderModule);
 SELFTEST(Early, TestAssetBundleLookups);
 SELFTEST(Early, TestAllocatorLayer);
+SELFTEST(Early, TestHeap, RestoreMemoryManager);
 
 SELFTEST(Late, TestMemoryLate);
 SELFTEST(Late, TestStringLate);

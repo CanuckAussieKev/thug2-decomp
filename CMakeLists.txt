@@ -83,6 +83,7 @@ add_library(thug2_code OBJECT
     src/game/core/alloc.cpp
     src/game/core/crc.cpp
     src/game/core/dbg.cpp
+    src/game/core/heap.cpp
     src/game/core/mem.cpp
     src/game/core/pool.cpp
     src/game/core/str.cpp

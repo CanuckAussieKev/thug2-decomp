@@ -149,8 +149,8 @@ void ListNode::Unlink()
 Allocator::Allocator(Region* region, int direction, const char* name)
 {
     m_vtable = kAllocatorVtable;
-    for (uint32_t& value : m_unknown04)
-        value = 0;
+    m_usedBlocks = m_maxUsedBlocks = m_freeBlocks = m_maxFreeBlocks = 0;
+    m_usedSize = m_maxUsedSize = m_freeSize = m_maxFreeSize = 0;
     m_region = region;
     m_direction = direction;
     m_name = name;
