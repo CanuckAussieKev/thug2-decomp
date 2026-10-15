@@ -10,6 +10,8 @@
 #include <initializer_list>
 #include <new>
 
+#include <windows.h>
+
 #include "game/core/crc.h"
 #include "game/core/mem.h"
 #include "game/core/pool.h"
@@ -1393,33 +1395,53 @@ void TestFile()
     using SizeFn = uint32_t(__cdecl*)(File::Handle);
     using ExistFn = bool(__cdecl*)(const char*);
 
+    // Paths are relative to the current directory; if data\pre isn't there, a "path not found" error would
+    // also go to the fatal error screen.
+    DWORD attributes = GetFileAttributesA("data\\pre");
+    if (attributes == INVALID_FILE_ATTRIBUTES || !(attributes & FILE_ATTRIBUTE_DIRECTORY)) {
+        Log("self-test: TestFile skipped (no data\\pre folder in the current directory)");
+        return;
+    }
+
     const char* names[] = {"pre/AP_scripts.prx", "pre\\AP_scripts.pre", "pre/nothere.prx",
                            "c:\\skate5\\data\\pre/APcol.prx", "pre/APcol.prx"};
     for (const char* name : names)
         Check(Original<ExistFn>(0x005BA010)(name) == File::Exist(name), "File::Exist");
 
+    // The game opens files without sharing, so the original and ours can't have the same file open at once:
+    // run the whole sequence through one, close the file, then through the other, and compare the records.
+    struct Trace {
+        bool opened = false;
+        uint32_t size = 0;
+        std::vector<uint32_t> positions;
+        std::vector<int> counts;
+        std::vector<uint8_t> bytes;
+        int write = 0, close = 0;
+        bool operator==(const Trace&) const = default;
+    };
+    const int seeks[][2] = {{100, 0}, {12, 1}, {-40, 2}, {0, 0}, {16, 7}};
     for (const char* name : names) {
-        File::Handle expected = Original<OpenFn>(0x005B9E60)(name, "rb");
-        File::Handle actual = File::Open(name, "rb");
-        Check((expected == nullptr) == (actual == nullptr), "File::Open");
-        if (!expected || !actual) {
-            if (expected)
-                Original<CloseFn>(0x005B9EA0)(expected);
-            if (actual)
-                File::Close(actual);
-            continue;
+        Trace traces[2];
+        for (int which = 0; which < 2; ++which) {
+            bool original = which == 0;
+            Trace& t = traces[which];
+            File::Handle file = original ? Original<OpenFn>(0x005B9E60)(name, "rb") : File::Open(name, "rb");
+            t.opened = file != nullptr;
+            if (!file)
+                continue;
+            t.size = original ? Original<SizeFn>(0x005B9E00)(file) : File::GetFileSize(file);
+            for (const auto& sk : seeks) {
+                t.positions.push_back(original ? Original<SeekFn>(0x005B9FA0)(file, sk[0], sk[1])
+                                               : File::Seek(file, sk[0], sk[1]));
+                uint8_t buffer[64] = {};
+                t.counts.push_back(original ? Original<ReadFn>(0x005B9EE0)(buffer, 4, 16, file)
+                                            : File::Read(buffer, 4, 16, file));
+                t.bytes.insert(t.bytes.end(), buffer, buffer + sizeof(buffer));
+            }
+            t.write = original ? Original<WriteFn>(0x005B9F60)("x", 1, 1, file) : File::Write("x", 1, 1, file);
+            t.close = original ? Original<CloseFn>(0x005B9EA0)(file) : File::Close(file);
         }
-        Check(Original<SizeFn>(0x005B9E00)(expected) == File::GetFileSize(actual), "File::GetFileSize");
-        const int seeks[][2] = {{100, 0}, {12, 1}, {-40, 2}, {0, 0}, {16, 7}};
-        for (const auto& s : seeks) {
-            Check(Original<SeekFn>(0x005B9FA0)(expected, s[0], s[1]) == File::Seek(actual, s[0], s[1]), "File::Seek");
-            uint8_t a[64] = {}, b[64] = {};
-            int read_expected = Original<ReadFn>(0x005B9EE0)(a, 4, 16, expected);
-            int read_actual = File::Read(b, 4, 16, actual);
-            Check(read_expected == read_actual && std::memcmp(a, b, sizeof(a)) == 0, "File::Read");
-        }
-        Check(Original<WriteFn>(0x005B9F60)("x", 1, 1, expected) == File::Write("x", 1, 1, actual), "File::Write");
-        Check(Original<CloseFn>(0x005B9EA0)(expected) == File::Close(actual), "File::Close");
+        Check(traces[0] == traces[1], "File::Open/GetFileSize/Seek/Read/Write/Close");
     }
 }
 
