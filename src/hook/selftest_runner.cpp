@@ -108,6 +108,7 @@ namespace {
 // Late: the game parses its command line (ParseNetworkParams, 0x004E1220) once, early in WinMain.
 void __cdecl ParseNetworkParamsHook(void* params)
 {
+    StopIfReplacementsFailed();
     static bool done = false;
     if (!done) {
         done = true;
@@ -121,6 +122,7 @@ void __cdecl ParseNetworkParamsHook(void* params)
 // once, and jumps into the original through its trampoline.
 void* __cdecl EngineStartedBody()
 {
+    StopIfReplacementsFailed(); // in case the hook above is the one that failed
     static bool done = false;
     if (!done) {
         done = true;

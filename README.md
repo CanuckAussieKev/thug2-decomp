@@ -79,5 +79,6 @@ and on a normal quit a summary of how many shadow checks ran.
    `SELFTEST(Early|Late|EngineStarted, TestName)` for the earliest stage where what it needs exists
    (`src/hook/selftest.h`).
 5. Build, play, check the log. Replacements whose argument size (from the C++ type) doesn't match the
-   original's `RET n` aren't installed and show up as `NOT REPLACED`. Naked assembly stubs use
-   `REPLACE_UNCHECKED`.
+   original's `RET n` (or whose jump can't be written) stop the game at startup with a message naming them -
+   running on with the original code in their place would hide that our code isn't running. Fix them, or
+   list them under `disable=` to skip them deliberately. Naked assembly stubs use `REPLACE_UNCHECKED`.

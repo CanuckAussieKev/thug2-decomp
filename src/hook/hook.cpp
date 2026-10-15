@@ -32,6 +32,13 @@ std::vector<Installed>& Registry()
     return registry;
 }
 
+// Problems InstallReplacements found, shown by StopIfReplacementsFailed.
+std::string& Problems()
+{
+    static std::string problems;
+    return problems;
+}
+
 Installed* Find(uint32_t address)
 {
     for (Installed& entry : Registry())
@@ -196,8 +203,11 @@ void InstallReplacements()
         // wrong: leave the original in place instead.
         if (r.callee_pop >= 0 && original_pops[i] >= 0 && r.callee_pop != original_pops[i]) {
             ++mismatched;
-            Log("NOT REPLACED 0x%08X %s: the original pops %d bytes of arguments, ours %d (wrong argument list?)",
-                r.address, r.name, original_pops[i], r.callee_pop);
+            char problem[512];
+            sprintf_s(problem, "0x%08X %s: the original pops %d bytes of arguments, ours %d (wrong argument list?)",
+                      r.address, r.name, original_pops[i], r.callee_pop);
+            Log("NOT REPLACED %s", problem);
+            Problems() += std::string(problem) + "\n";
             continue;
         }
         if (r.callee_pop >= 0 && original_pops[i] >= 0)
@@ -219,6 +229,9 @@ void InstallReplacements()
             Log("replaced 0x%08X %s (plain jump, no trampoline: %s)", r.address, r.name, MH_StatusToString(status));
         } else {
             Log("FAILED to replace 0x%08X %s", r.address, r.name);
+            char problem[512];
+            sprintf_s(problem, "0x%08X %s: the jump to our code couldn't be written", r.address, r.name);
+            Problems() += std::string(problem) + "\n";
         }
     }
     if (init == MH_OK) {
@@ -231,7 +244,8 @@ void InstallReplacements()
     if (without_trampoline)
         Log("%d replacement(s) have no trampoline (their originals can't be called directly)", without_trampoline);
     if (mismatched)
-        Log("%d replacement(s) NOT installed: argument size differs from the original (see NOT REPLACED above)",
+        Log("%d replacement(s) NOT installed: argument size differs from the original (see NOT REPLACED above); "
+            "the game will stop with a message",
             mismatched);
     Log("argument sizes: %d checked against the original, %d not checked (naked stubs, or not determinable)",
         checked, unchecked);
@@ -260,6 +274,19 @@ void Reactivate(Installed& entry)
 }
 
 } // namespace
+
+void StopIfReplacementsFailed()
+{
+    if (Problems().empty())
+        return;
+    std::string message = "thug2-decomp can't run these replacements safely, so the game won't start:\n\n" +
+                          Problems() +
+                          "\nFix them, or list them under [replacements] disable= in thug2-decomp.ini to run the "
+                          "original code for them deliberately. Details are in thug2-decomp.log.";
+    Log("Stopping: replacements failed to install");
+    MessageBoxA(nullptr, message.c_str(), "thug2-decomp", MB_OK | MB_ICONERROR | MB_TOPMOST);
+    ExitProcess(1);
+}
 
 void RestoreOriginal(uint32_t address)
 {

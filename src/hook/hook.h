@@ -30,6 +30,13 @@ struct Replacement {
 void RegisterReplacement(const Replacement& r);
 void InstallReplacements();
 
+// If InstallReplacements found replacements that can't be used safely (argument size differs from the
+// original, or the jump couldn't be written), show a message naming them and end the game. Running on with
+// the original code in their place would look like a working game while our code isn't running at all.
+// Called from the first hooks the game reaches after DllMain (a message box inside DllMain can deadlock).
+// Listing a replacement in thug2-decomp.ini's disable= skips it deliberately instead.
+void StopIfReplacementsFailed();
+
 // Permanently put back the original code at `address` (for one-shot hooks).
 void RestoreOriginal(uint32_t address);
 

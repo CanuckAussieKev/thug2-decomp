@@ -161,7 +161,8 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       pending loads, compared through every call, with the manager globals saved and restored.
 - [x] Argument-size check (2026-10-15): at install time each replacement's popped argument bytes (from its
       C++ type, kCalleePop) are compared with the original's RET n (found by walking its code with MinHook's
-      hde32 decoder); a mismatch is logged as NOT REPLACED and the original stays. Found because the first
+      hde32 decoder); a mismatch is logged as NOT REPLACED and the game stops at startup with a message
+      naming it (silently running the original would give false confidence; disable= skips deliberately). Found because the first
       FinishLoad (two arguments) made the test hang. 187 of 190 checked, all match.
 - [ ] Next (batch 26): loadPre 0x5B8EE0, the PIP .pre loader 0x5B75A0, the LoadPipPre / LoadPreFile /
       UnloadPreFile / IsLoadPreFinished / WaitLoadPre / InPreFile script functions, then the async loader
