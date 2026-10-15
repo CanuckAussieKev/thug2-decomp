@@ -1289,23 +1289,36 @@ void TestPool()
         Check(Original<ContainsFn>(0x005BA3B0)(&actual, p) == actual.Contains(p), "Pool::Contains");
 }
 
-void TestPip()
+// Fake Pip tables, shared by the early and late Pip tests. Install saves the real tables and puts the fakes
+// in; RestorePipTables puts the real ones back (the test runner calls it even if the test crashes).
+Pip::LoadedFile g_saved_files[200];
+char* g_saved_pres[100];
+bool g_pip_tables_saved = false;
+alignas(16) uint8_t g_archive_a[512], g_archive_b[512];
+
+void RestorePipTables()
+{
+    if (!g_pip_tables_saved)
+        return;
+    std::memcpy(&GameVariable<Pip::LoadedFile[200]>(0x007CF198), g_saved_files, sizeof(g_saved_files));
+    std::memcpy(&GameVariable<char* [100]>(0x007CFE18), g_saved_pres, sizeof(g_saved_pres));
+    g_pip_tables_saved = false;
+}
+
+void InstallFakePipTables()
 {
     using Pip::LoadedFile;
     using Pip::PreEntry;
     auto& files = GameVariable<LoadedFile[200]>(0x007CF198);
     auto& pres = GameVariable<char* [100]>(0x007CFE18);
 
-    // Runs before the game has loaded anything, but save and restore the tables anyway.
-    static LoadedFile saved_files[200];
-    static char* saved_pres[100];
-    std::memcpy(saved_files, files, sizeof(files));
-    std::memcpy(saved_pres, pres, sizeof(pres));
+    std::memcpy(g_saved_files, files, sizeof(files));
+    std::memcpy(g_saved_pres, pres, sizeof(pres));
+    g_pip_tables_saved = true;
     std::memset(files, 0, sizeof(files));
     std::memset(pres, 0, sizeof(pres));
 
     // Two fake archives laid out like loaded .pre files: name, header {size, version, count}, entries.
-    alignas(16) static uint8_t archive_a[512], archive_b[512];
     auto build = [](uint8_t* block, const char* name, std::initializer_list<PreEntry> entries) {
         std::memset(block, 0, 512);
         std::memcpy(block, name, std::strlen(name) + 1);
@@ -1320,16 +1333,24 @@ void TestPip()
         }
         return reinterpret_cast<char*>(block);
     };
-    pres[3] = build(archive_a, "skater.pre", {{10, 0, 8, 0, 0x111}, {40, 21, 13, 2, 0x222}, {7, 0, 5, 0, 0x333}});
-    pres[50] = build(archive_b, "levelname_scripts.pre", {{100, 0, 20, 0, 0x444}, {3, 0, 1, 0, 0x222}});
+    pres[3] = build(g_archive_a, "skater.pre", {{10, 0, 8, 0, 0x111}, {40, 21, 13, 2, 0x222}, {7, 0, 5, 0, 0x333}});
+    pres[50] = build(g_archive_b, "levelname_scripts.pre", {{100, 0, 20, 0, 0x444}, {3, 0, 1, 0, 0x222}});
     files[7] = {reinterpret_cast<void*>(0x1000), 0x555, 1234, 3};
     files[120] = {reinterpret_cast<void*>(0x2000), 0x222, 99, 2};
+}
+
+// Checksum-based Pip functions. (The name-based ones call the game's _stricmp, which needs the game's C
+// runtime - not initialised yet in DllMain - so they are tested late, in TestPipNamesLate.)
+void TestPip()
+{
+    using Pip::LoadedFile;
+    using Pip::PreEntry;
+    auto& files = GameVariable<LoadedFile[200]>(0x007CF198);
+    InstallFakePipTables();
 
     using FindFn = PreEntry*(__cdecl*)(uint32_t);
     using SizeFn = int(__cdecl*)(uint32_t);
     using SizeByNameFn = int(__cdecl*)(const char*);
-    using NextFn = const char*(__cdecl*)(const char*);
-    using NameBoolFn = bool(__cdecl*)(const char*);
     using UnloadFn = void(__cdecl*)(uint32_t);
     using UnloadByNameFn = void(__cdecl*)(const char*);
 
@@ -1337,14 +1358,8 @@ void TestPip()
         Check(Original<FindFn>(0x005B7180)(c) == Pip::FindPreEntry(c), "Pip::FindPreEntry");
         Check(Original<SizeFn>(0x005B7290)(c) == Pip::GetFileSize(c), "Pip::GetFileSize");
     }
-    for (const char* name : {"skater.pre", "SKATER.PRE", "levelname_scripts.pre", "missing.pre"}) {
-        Check(Original<NameBoolFn>(0x005B7370)(name) == Pip::PreFileIsInUse(name), "Pip::PreFileIsInUse");
-        Check(Original<NextFn>(0x005B7300)(name) == Pip::GetNextLoadedPre(name), "Pip::GetNextLoadedPre");
+    for (const char* name : {"skater.pre", "SKATER.PRE", "levelname_scripts.pre", "missing.pre"})
         Check(Original<SizeByNameFn>(0x005B72E0)(name) == Pip::GetFileSize(name), "Pip::GetFileSize(name)");
-    }
-    Check(Original<NextFn>(0x005B7300)(nullptr) == Pip::GetNextLoadedPre(nullptr), "Pip::GetNextLoadedPre(null)");
-    // Only a name that matches nothing: a match would free the fake archive.
-    Check(Original<NameBoolFn>(0x005B7130)("missing.pre") == Pip::UnloadPre("missing.pre"), "Pip::UnloadPre");
 
     // Unload changes the tables: run the original, keep the result, put the tables back, run ours. Reference
     // counts stay above zero so nothing (fake) gets freed.
@@ -1352,13 +1367,13 @@ void TestPip()
     static uint8_t a_before[512], b_before[512], a_expected[512], b_expected[512];
     auto snapshot = [&](LoadedFile* f, uint8_t* a, uint8_t* b) {
         std::memcpy(f, files, sizeof(files));
-        std::memcpy(a, archive_a, 512);
-        std::memcpy(b, archive_b, 512);
+        std::memcpy(a, g_archive_a, 512);
+        std::memcpy(b, g_archive_b, 512);
     };
     auto restore = [&](const LoadedFile* f, const uint8_t* a, const uint8_t* b) {
         std::memcpy(files, f, sizeof(files));
-        std::memcpy(archive_a, a, 512);
-        std::memcpy(archive_b, b, 512);
+        std::memcpy(g_archive_a, a, 512);
+        std::memcpy(g_archive_b, b, 512);
     };
     auto unload_case = [&](auto original, auto ours, const char* what) {
         snapshot(files_before, a_before, b_before);
@@ -1366,17 +1381,14 @@ void TestPip()
         snapshot(files_expected, a_expected, b_expected);
         restore(files_before, a_before, b_before);
         ours();
-        Check(std::memcmp(files, files_expected, sizeof(files)) == 0 && std::memcmp(archive_a, a_expected, 512) == 0 &&
-                  std::memcmp(archive_b, b_expected, 512) == 0,
+        Check(std::memcmp(files, files_expected, sizeof(files)) == 0 && std::memcmp(g_archive_a, a_expected, 512) == 0 &&
+                  std::memcmp(g_archive_b, b_expected, 512) == 0,
               what);
     };
     for (uint32_t c : {0x222u, 0x555u, 0x111u, 0x999u})
         unload_case([&] { Original<UnloadFn>(0x005B7200)(c); }, [&] { Pip::Unload(c); }, "Pip::Unload");
     unload_case([] { Original<UnloadByNameFn>(0x005B7270)("whatever.tex"); }, [] { Pip::Unload("whatever.tex"); },
                 "Pip::Unload(name)");
-
-    std::memcpy(files, saved_files, sizeof(files));
-    std::memcpy(pres, saved_pres, sizeof(pres));
 }
 
 void TestFile()
@@ -1623,6 +1635,34 @@ void TestPipLoadLate()
     for (int i = 0; i < 3; ++i)
         Pip::Unload(name);
     Check(Pip::GetFileSize(name) == 0, "Pip::Unload (after Load)");
+}
+
+void TestPipNamesLate()
+{
+    using NextFn = const char*(__cdecl*)(const char*);
+    using NameBoolFn = bool(__cdecl*)(const char*);
+    InstallFakePipTables();
+    for (const char* name : {"skater.pre", "SKATER.PRE", "levelname_scripts.pre", "missing.pre"}) {
+        bool in_use;
+        const char* next;
+        {
+            OriginalCode a(0x005B7370), b(0x005B7300);
+            in_use = Original<NameBoolFn>(0x005B7370)(name);
+            next = Original<NextFn>(0x005B7300)(name);
+        }
+        Check(in_use == Pip::PreFileIsInUse(name), "Pip::PreFileIsInUse");
+        Check(next == Pip::GetNextLoadedPre(name), "Pip::GetNextLoadedPre");
+    }
+    const char* first;
+    bool unloaded;
+    {
+        OriginalCode a(0x005B7300), b(0x005B7130);
+        first = Original<NextFn>(0x005B7300)(nullptr);
+        // Only a name that matches nothing: a match would free the fake archive.
+        unloaded = Original<NameBoolFn>(0x005B7130)("missing.pre");
+    }
+    Check(first == Pip::GetNextLoadedPre(nullptr), "Pip::GetNextLoadedPre(null)");
+    Check(unloaded == Pip::UnloadPre("missing.pre"), "Pip::UnloadPre");
 }
 
 void TestPoolConstructorLate()
@@ -1872,15 +1912,37 @@ void TestStringLate()
 
 int g_late_failures_before = 0;
 
+// Runs one self-test, catching crashes: a crash inside DllMain would otherwise only show as error 0xC0000142
+// at launch, with nothing in the log. A crashed test counts as a failure and the game carries on (the
+// crashed test's own cleanup is skipped).
+int CrashFilter(EXCEPTION_POINTERS* info, const char* name)
+{
+    Log("SELFTEST CRASH in %s: exception 0x%08X at 0x%p", name,
+        static_cast<unsigned>(info->ExceptionRecord->ExceptionCode), info->ExceptionRecord->ExceptionAddress);
+    return EXCEPTION_EXECUTE_HANDLER;
+}
+
+void RunTest(void (*test)(), const char* name, void (*cleanup)() = nullptr)
+{
+    __try {
+        test();
+    } __except (CrashFilter(GetExceptionInformation(), name)) {
+        ++g_failures;
+    }
+    if (cleanup)
+        cleanup();
+}
+
 void RunLateSelfTests()
 {
     g_late_failures_before = g_failures;
-    TestMemoryLate();
-    TestStringLate();
-    TestLzssLate();
-    TestPoolConstructorLate();
-    TestHashTableLate();
-    TestPipLoadLate();
+    RunTest(TestMemoryLate, "TestMemoryLate");
+    RunTest(TestStringLate, "TestStringLate");
+    RunTest(TestLzssLate, "TestLzssLate");
+    RunTest(TestPoolConstructorLate, "TestPoolConstructorLate");
+    RunTest(TestHashTableLate, "TestHashTableLate");
+    RunTest(TestPipNamesLate, "TestPipNamesLate", RestorePipTables);
+    RunTest(TestPipLoadLate, "TestPipLoadLate");
     int failures = g_failures - g_late_failures_before;
     Log(failures ? "late self-tests: %d FAILED" : "late self-tests: all passed", failures);
 }
@@ -1906,29 +1968,29 @@ void RunSelfTests()
         Log("self-tests: skipped (thug2-decomp.ini)");
         return;
     }
-    TestCrc();
-    TestVector();
-    TestMatrix();
-    TestBitStream();
-    TestStringsAndMath();
-    TestBatch4();
-    TestBatch5();
-    TestBatch6();
-    TestBatch7();
-    TestBitStreamReadWrite();
-    TestBatch9();
-    TestBatch10();
-    TestBatch11();
-    TestBatch12();
-    TestBatch13();
-    TestRotateToPlane();
-    TestBatch14();
-    TestBatch15();
-    TestBatch16();
-    TestBatch17();
-    TestBatch18();
-    TestPool();
-    TestPip();
-    TestFile();
+    RunTest(TestCrc, "TestCrc");
+    RunTest(TestVector, "TestVector");
+    RunTest(TestMatrix, "TestMatrix");
+    RunTest(TestBitStream, "TestBitStream");
+    RunTest(TestStringsAndMath, "TestStringsAndMath");
+    RunTest(TestBatch4, "TestBatch4");
+    RunTest(TestBatch5, "TestBatch5");
+    RunTest(TestBatch6, "TestBatch6");
+    RunTest(TestBatch7, "TestBatch7");
+    RunTest(TestBitStreamReadWrite, "TestBitStreamReadWrite");
+    RunTest(TestBatch9, "TestBatch9");
+    RunTest(TestBatch10, "TestBatch10");
+    RunTest(TestBatch11, "TestBatch11");
+    RunTest(TestBatch12, "TestBatch12");
+    RunTest(TestBatch13, "TestBatch13");
+    RunTest(TestRotateToPlane, "TestRotateToPlane");
+    RunTest(TestBatch14, "TestBatch14");
+    RunTest(TestBatch15, "TestBatch15");
+    RunTest(TestBatch16, "TestBatch16");
+    RunTest(TestBatch17, "TestBatch17");
+    RunTest(TestBatch18, "TestBatch18");
+    RunTest(TestPool, "TestPool");
+    RunTest(TestPip, "TestPip", RestorePipTables);
+    RunTest(TestFile, "TestFile");
     Log(g_failures ? "self-tests: %d FAILED" : "self-tests: all passed", g_failures);
 }
