@@ -43,7 +43,7 @@ void FreeTree()
 // 0x00401600
 void InitTree()
 {
-    Mem::PushContext(Mem::ManagerHeapAt(0x110));
+    Mem::PushContext(Mem::TopDownHeap());
     Window() = static_cast<uint8_t*>(Mem::New(N + F - 1));
     Left() = static_cast<int*>(Mem::New((N + 1) * sizeof(int)));
     Right() = static_cast<int*>(Mem::New((N + 257) * sizeof(int)));

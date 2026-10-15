@@ -242,7 +242,19 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       manager lookup uses a zeroed stand-in manager offline).
 - [x] Batches 32-33 tested in the game (2026-10-15, by the user): works; log - 305/305 replacements, early
       30/30, late 11/11 (incl. TestAllocatorContextsLate), engine-started 2/2, shadow checks clean.
-- [ ] Next: the Manager 0x5BAB90-0x5BBE80.
+- [x] Batch 34 (NOT run in the game yet; early test passes offline): Mem::Manager (src/game/core/manager.*),
+      everything but heap creation and start-up. Layout: heaps registry [48] +0 / count +0xC0, current
+      +0xC4 into the context stack [16] +0xC8 (depth +0x108), main region +0x10C, TopDown +0x110,
+      BottomUp +0x114, FrontEnd/Script/Network/NetMisc/Internet/Cutscene/Debug region+heap pairs up to
+      +0x154, skater/skater-geom regions and heaps [8] +0x160..+0x1DC, named heaps [7] x 0x90 +0x1E0,
+      SkaterInfo +0x5D0, Theme +0x5D8. Allocate/AllocateZeroed/ReallocateUp/ReallocateShrink/Free/
+      Available, Push/PopContext, CurrentHeapName, First/NextHeap, DeleteHeap, Find/Get/DeleteNamedHeap,
+      GetHeap/GetHeapName (by checksum), DeleteNetMisc/Cutscene/ExtraSkater/StandardHeaps,
+      DestroyMainHeaps, and the globals Malloc/MallocAvailable/ReallocateShrink/FreeMalloc/MallocSize/
+      Realloc (28 functions). mem.cpp now calls the manager directly (ManagerHeapAt removed). Early test:
+      a stand-in manager in an arena, original vs ours (five deliberate bugs caught, three after
+      strengthening the script).
+- [ ] Next: heap creation 0x5BB4E0-0x5BB9E0 and start-up 0x5BBC00/0x5BBE80 (+ 0x5BC340 teardown).
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
       for original callers that read ECX/EDX after the call without writing them first (ignoring push-to-reserve,
       lea reg,[reg], or reg,-1 and zeroing idioms; callers that are themselves replaced count as safe).

@@ -2,6 +2,7 @@
 
 #include <cstring>
 
+#include "game/core/manager.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -9,16 +10,7 @@ namespace Mem {
 
 namespace {
 
-class Manager;
-
-// The memory manager singleton and its functions (not rewritten yet).
-Manager* GetManager() { return GameVariable<Manager*>(0x007D1800); }
 bool& SystemReady() { return GameVariable<bool>(0x007CC979); }
-
-void Release(void* memory)
-{
-    GameFunction<void(__thiscall*)(Manager*, void*)>(0x005BABA0)(GetManager(), memory);
-}
 
 void EnsureSystemReady()
 {
@@ -37,26 +29,11 @@ void* Zeroed(void* memory, unsigned int size)
 
 void* Allocate(unsigned int size, int mode, Heap* heap)
 {
-    return GameFunction<void*(__thiscall*)(Manager*, unsigned int, int, Heap*)>(0x005BAFC0)(GetManager(), size,
-                                                                                         mode, heap);
+    return Manager::Get()->Allocate(size, mode, heap);
 }
 
-void* Malloc(unsigned int size) { return GameFunction<void*(__cdecl*)(unsigned int)>(0x005BBAE0)(size); }
-
-void* ReallocateShrink(unsigned int size, void* memory)
-{
-    return GameFunction<void*(__cdecl*)(unsigned int, void*)>(0x005BBB30)(size, memory);
-}
-
-unsigned int MallocSize(void* memory)
-{
-    return GameFunction<unsigned int(__cdecl*)(void*)>(0x005BBB80)(memory);
-}
-
-void FreeMalloc(void* memory) { GameFunction<void(__cdecl*)(void*)>(0x005BBB60)(memory); }
-
-Heap* BottomUpHeap() { return ManagerHeapAt(0x114); }
-Heap* TopDownHeap() { return ManagerHeapAt(0x110); }
+Heap* BottomUpHeap() { return Manager::Get()->m_bottomUpHeap; }
+Heap* TopDownHeap() { return Manager::Get()->m_topDownHeap; }
 
 // 0x00401C90
 void* Clear(unsigned int size, void* dest)
@@ -76,7 +53,7 @@ void* New(unsigned int size)
 // 0x00401000
 void Free(void* memory)
 {
-    Release(memory);
+    Manager::Get()->Free(memory);
 }
 
 // 0x00401CC0
@@ -99,17 +76,12 @@ void* Calloc(unsigned int size, Heap* heap, int mode)
 
 void PushContext(Heap* heap)
 {
-    GameFunction<void(__thiscall*)(Manager*, Heap*)>(0x005BB0E0)(GetManager(), heap);
+    Manager::Get()->PushContext(heap);
 }
 
 void PopContext()
 {
-    GameFunction<void(__thiscall*)(Manager*)>(0x005BB110)(GetManager());
-}
-
-Heap* ManagerHeapAt(unsigned int offset)
-{
-    return *reinterpret_cast<Heap**>(reinterpret_cast<char*>(GetManager()) + offset);
+    Manager::Get()->PopContext();
 }
 
 } // namespace Mem

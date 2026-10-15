@@ -15,6 +15,7 @@
 
 #include "game/core/crc.h"
 #include "game/core/alloc.h"
+#include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/pool.h"
 #include "game/core/str.h"
@@ -2292,6 +2293,257 @@ void TestHeap()
     RestoreMemoryManager();
 }
 
+// The memory manager on a stand-in: a Manager in an arena (installed as the game's manager for the test),
+// with a region and two heaps; the same script through the original manager functions and ours, then the
+// arenas compared word for word with pointers rebased (heap names compared as text).
+constexpr size_t kManagerArenaSize = 0x8000;
+alignas(16) uint8_t g_manager_arenas[2][kManagerArenaSize];
+void* g_saved_manager_for_test = nullptr;
+bool g_manager_test_swapped = false;
+
+void RestoreManagerForTest()
+{
+    if (!g_manager_test_swapped)
+        return;
+    GameVariable<void*>(0x007D1800) = g_saved_manager_for_test;
+    g_manager_test_swapped = false;
+}
+
+void TestMemoryManager()
+{
+    using Mem::Allocator;
+    using Mem::Heap;
+    using Mem::Manager;
+    using Mem::Region;
+    if (GameVariable<void*>(0x007D1800)) {
+        Log("self-test: TestMemoryManager skipped (the memory manager is already set up)");
+        return;
+    }
+    g_saved_manager_for_test = nullptr;
+    g_manager_test_swapped = true;
+
+    const char* name = "test";
+    auto run = [&](bool original) {
+        std::vector<uint32_t> trace;
+        uint8_t* arena = g_manager_arenas[original ? 0 : 1];
+        std::memset(arena, 0, kManagerArenaSize);
+        auto put = [&](const void* pointer) {
+            auto value = reinterpret_cast<uint32_t>(pointer);
+            auto base = reinterpret_cast<uint32_t>(arena);
+            trace.push_back(value >= base && value <= base + kManagerArenaSize ? 0xA0000000u + (value - base) : value);
+        };
+        auto text = [&](const char* string) {
+            uint32_t hash = 0;
+            for (; string && *string; ++string)
+                hash = hash * 31 + static_cast<uint8_t>(*string);
+            trace.push_back(hash);
+        };
+
+        auto* manager = reinterpret_cast<Manager*>(arena);
+        GameVariable<void*>(0x007D1800) = manager;
+        auto* region = new (arena + 0x600) Region(arena + 0x800, arena + kManagerArenaSize);
+        auto* up = new (arena + 0x620) Heap(region, 1, name);
+        auto* down = new (arena + 0x6C0) Heap(region, -1, name);
+        manager->m_heaps[0] = up;
+        manager->m_heaps[1] = down;
+        manager->m_heapCount = 2;
+        manager->m_mainRegion = region;
+        manager->m_topDownHeap = down;
+        manager->m_bottomUpHeap = up;
+
+        // The functions under test: originals or ours.
+        auto push = [&](Allocator* heap) {
+            if (original)
+                Original<void(__thiscall*)(Manager*, Allocator*)>(0x005BB0E0)(manager, heap);
+            else
+                manager->PushContext(heap);
+        };
+        auto pop = [&]() {
+            if (original)
+                Original<void(__thiscall*)(Manager*)>(0x005BB110)(manager);
+            else
+                manager->PopContext();
+        };
+        using Alloc3 = void*(__thiscall*)(Manager*, uint32_t, int, Allocator*);
+        using Realloc3 = void*(__thiscall*)(Manager*, uint32_t, void*, Allocator*);
+        auto allocate = [&](uint32_t size, Allocator* heap) {
+            void* block = original ? Original<Alloc3>(0x005BAFC0)(manager, size, 1, heap)
+                                   : manager->Allocate(size, 1, heap);
+            put(block);
+            return block;
+        };
+        auto free_block = [&](void* block) {
+            if (original)
+                Original<void(__thiscall*)(Manager*, void*)>(0x005BABA0)(manager, block);
+            else
+                manager->Free(block);
+        };
+        auto delete_heap = [&](Allocator* heap) {
+            if (original)
+                Original<void(__thiscall*)(Manager*, Allocator*)>(0x005BABC0)(manager, heap);
+            else
+                manager->DeleteHeap(heap);
+        };
+        auto manager_call = [&](uint32_t address, void (Manager::*ours)()) {
+            if (original)
+                Original<void(__thiscall*)(Manager*)>(address)(manager);
+            else
+                (manager->*ours)();
+        };
+
+        // Allocation through the manager and the global functions.
+        push(up);
+        put(manager->m_current);
+        void* a = allocate(0x40, nullptr);
+        void* b = original ? Original<Alloc3>(0x005BB000)(manager, 0x30, 1, down)
+                           : manager->AllocateZeroed(0x30, 1, down);
+        put(b);
+        void* c = original ? Original<void*(__cdecl*)(unsigned int)>(0x005BBAE0)(0x20) : Mem::Malloc(0x20);
+        put(c);
+        trace.push_back(original ? Original<uint32_t(__thiscall*)(Manager*)>(0x005BB050)(manager)
+                                 : manager->Available());
+        trace.push_back(original ? Original<uint32_t(__cdecl*)()>(0x005BBB10)() : Mem::MallocAvailable());
+        a = original ? Original<Realloc3>(0x005BB0A0)(manager, 0x10, a, nullptr)
+                     : manager->ReallocateShrink(0x10, a, nullptr);
+        put(a);
+        c = original ? Original<void*(__cdecl*)(unsigned int, void*)>(0x005BBB30)(0x8, c)
+                     : Mem::ReallocateShrink(0x8, c);
+        put(c);
+        b = original ? Original<Realloc3>(0x005BB060)(manager, 0x80, b, down)
+                     : manager->ReallocateUp(0x80, b, down);
+        put(b);
+        std::memset(c, 0x5A, 8);
+        c = original ? Original<void*(__cdecl*)(void*, unsigned int)>(0x005BBBA0)(c, 0x40) : Mem::Realloc(c, 0x40);
+        put(c);
+        trace.push_back(original ? Original<unsigned int(__cdecl*)(void*)>(0x005BBB80)(c) : Mem::MallocSize(c));
+        trace.push_back(original ? Original<unsigned int(__cdecl*)(void*)>(0x005BBB80)(nullptr)
+                                 : Mem::MallocSize(nullptr));
+        void* d = original ? Original<void*(__cdecl*)(void*, unsigned int)>(0x005BBBA0)(nullptr, 0x10)
+                           : Mem::Realloc(nullptr, 0x10);
+        put(d);
+        free_block(a);
+        free_block(nullptr);
+        if (original)
+            Original<void(__cdecl*)(void*)>(0x005BBB60)(b);
+        else
+            Mem::FreeMalloc(b);
+        text(original ? Original<const char*(__thiscall*)(Manager*)>(0x005BB150)(manager) : manager->CurrentHeapName());
+        push(down);
+        put(manager->m_current);
+        pop();
+        put(manager->m_current); // back to `up`
+        pop();
+        put(manager->m_current);
+        trace.push_back(static_cast<uint32_t>(manager->m_contextDepth));
+        push(up);
+
+        // The registry.
+        using HeapFn = Allocator*(__thiscall*)(Manager*, Allocator*);
+        put(original ? Original<Allocator*(__thiscall*)(Manager*)>(0x005BAC10)(manager) : manager->FirstHeap());
+        manager->m_heaps[2] = reinterpret_cast<Allocator*>(arena + 0x90); // past the end: never returned
+        for (Allocator* heap : {static_cast<Allocator*>(up), static_cast<Allocator*>(down),
+                                static_cast<Allocator*>(nullptr)})
+            put(original ? Original<HeapFn>(0x005BAC20)(manager, heap) : manager->NextHeap(heap));
+        manager->m_heaps[2] = nullptr;
+
+        // Heaps and regions as real blocks from `up`, so deleting them frees them.
+        auto make_region = [&](uint32_t size) {
+            auto* memory = static_cast<uint8_t*>(manager->Allocate(0x18 + size, 1, up));
+            return new (memory) Region(memory + 0x20, memory + 0x18 + size);
+        };
+        auto make_heap = [&](Region* in) {
+            Heap* heap = new (manager->Allocate(sizeof(Heap), 1, up)) Heap(in, 1, name);
+            manager->m_heaps[manager->m_heapCount++] = heap;
+            return heap;
+        };
+
+        // Lookups by name.
+        Manager::NamedHeap& named = manager->m_namedHeaps[2];
+        named.region = make_region(0x100);
+        named.heap = make_heap(named.region);
+        named.name = 0x12345678;
+        std::memcpy(named.text, "Named", 6);
+        named.used = true;
+        manager->m_frontEndHeap = reinterpret_cast<Heap*>(arena + 0x10);
+        manager->m_skaterHeaps[2] = reinterpret_cast<Heap*>(arena + 0x20);
+        manager->m_skaterGeomHeaps[3] = reinterpret_cast<Heap*>(arena + 0x30);
+        manager->m_themeHeap = reinterpret_cast<Heap*>(arena + 0x40);
+        manager->m_debugHeap = reinterpret_cast<Heap*>(arena + 0x50);
+        const uint32_t names[] = {0x8FDB68AF, 0x0C7800B0, 0x62F3A0F3, 0x0FA33D9B, 0xE3551D2E, 0x96D29D93, 0xFCD5166B,
+                                  0x90020867, 0x25D71469, 0x7ED56B49, 0x70CB0238, 0xC3909393, 0xB497A305, 0x2D9EF2BF,
+                                  0x5A99C229, 0x572A9F4C, 0x202DAFDA, 0xB924FE60, 0xCE23CEF6, 0x08682D24, 0x17ECB880,
+                                  0x12345678, 0x0BADF00D};
+        for (uint32_t checksum : names) {
+            put(original ? Original<void*(__thiscall*)(Manager*, uint32_t)>(0x005BAF00)(manager, checksum)
+                         : static_cast<void*>(manager->FindNamedHeap(checksum)));
+            put(original ? Original<Heap*(__thiscall*)(Manager*, uint32_t, int)>(0x005BAF50)(manager, checksum, 0)
+                         : manager->GetNamedHeap(checksum, 0));
+            put(original ? Original<Heap*(__thiscall*)(Manager*, uint32_t)>(0x005BB310)(manager, checksum)
+                         : manager->GetHeap(checksum));
+            text(original ? Original<const char*(__thiscall*)(Manager*, uint32_t)>(0x005BB160)(manager, checksum)
+                          : manager->GetHeapName(checksum));
+        }
+        manager->m_frontEndHeap = nullptr;
+        manager->m_skaterHeaps[2] = nullptr;
+        manager->m_skaterGeomHeaps[3] = nullptr;
+        manager->m_themeHeap = nullptr;
+        manager->m_debugHeap = nullptr;
+
+        // Deleting.
+        using DeleteNamedFn = bool(__thiscall*)(Manager*, uint32_t, int);
+        for (int i = 0; i < 2; ++i)
+            trace.push_back(original ? Original<DeleteNamedFn>(0x005BAF70)(manager, 0x12345678, 0)
+                                     : manager->DeleteNamedHeap(0x12345678, 0));
+        Region* spare_region = make_region(0x80);
+        Heap* spare = make_heap(spare_region);
+        delete_heap(spare);
+        delete_heap(nullptr);
+        manager->m_netMiscRegion = make_region(0x80);
+        manager->m_netMiscHeap = make_heap(manager->m_netMiscRegion);
+        manager_call(0x005BAC50, &Manager::DeleteNetMiscHeap);
+        manager->m_cutsceneRegion = make_region(0x100);
+        manager->m_cutsceneTopDownHeap = new (manager->Allocate(sizeof(Heap), 1, up)) Heap(manager->m_cutsceneRegion, -1, name);
+        manager->m_heaps[manager->m_heapCount++] = manager->m_cutsceneTopDownHeap;
+        manager->m_cutsceneBottomUpHeap = make_heap(manager->m_cutsceneRegion);
+        manager_call(0x005BAC90, &Manager::DeleteCutsceneHeaps);
+        manager->m_skaterRegions[2] = make_region(0x80);
+        manager->m_skaterHeaps[2] = make_heap(manager->m_skaterRegions[2]);
+        manager->m_skaterGeomRegions[5] = make_region(0x80);
+        manager->m_skaterGeomHeaps[5] = make_heap(manager->m_skaterGeomRegions[5]);
+        manager_call(0x005BACF0, &Manager::DeleteExtraSkaterHeaps);
+        manager->m_frontEndRegion = make_region(0x80);
+        manager->m_frontEndHeap = make_heap(manager->m_frontEndRegion);
+        manager->m_skaterRegions[0] = make_region(0x80);
+        manager->m_skaterHeaps[0] = make_heap(manager->m_skaterRegions[0]);
+        manager->m_skaterRegions[4] = make_region(0x80); // an extra one: deleted too
+        manager->m_skaterHeaps[4] = make_heap(manager->m_skaterRegions[4]);
+        manager_call(0x005BADD0, &Manager::DeleteStandardHeaps);
+        trace.push_back(static_cast<uint32_t>(manager->m_heapCount));
+        manager_call(0x005BBE50, &Manager::DestroyMainHeaps);
+
+        std::vector<uint32_t> image(kManagerArenaSize / 4);
+        std::memcpy(image.data(), arena, kManagerArenaSize);
+        for (uint32_t& word : image) {
+            auto base = reinterpret_cast<uint32_t>(arena);
+            if (word >= base && word <= base + kManagerArenaSize) // (a region's end is one past the arena)
+                word = 0xA0000000u + (word - base);
+        }
+        trace.insert(trace.end(), image.begin(), image.end());
+        GameVariable<void*>(0x007D1800) = nullptr;
+        return trace;
+    };
+    std::vector<uint32_t> expected = run(true);
+    std::vector<uint32_t> actual = run(false);
+    RestoreManagerForTest();
+    Check(expected == actual, "memory manager: allocation, context stack, registry, lookups, deleting heaps");
+    for (size_t i = 0, shown = 0; i < expected.size() && i < actual.size() && shown < 8; ++i) {
+        if (expected[i] != actual[i]) {
+            Log("  manager word %u: original %08X ours %08X", static_cast<unsigned>(i), expected[i], actual[i]);
+            ++shown;
+        }
+    }
+}
+
 // --- late self-tests ----------------------------------------------------------------------------------
 
 // The table's contents as (bucket, position in chain, key, value), so tables with different item addresses
@@ -3229,6 +3481,7 @@ SELFTEST(Early, TestAsyncLoaderModuleRefs, RestoreLoaderModule);
 SELFTEST(Early, TestAssetBundleLookups);
 SELFTEST(Early, TestAllocatorLayer);
 SELFTEST(Early, TestHeap, RestoreMemoryManager);
+SELFTEST(Early, TestMemoryManager, RestoreManagerForTest);
 
 SELFTEST(Late, TestMemoryLate);
 SELFTEST(Late, TestStringLate);
