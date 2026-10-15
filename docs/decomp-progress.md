@@ -137,6 +137,5 @@ Per docs/subsystems.md: file system (PIP/PRE archives, 0x5B6560-0x5BDAD0), then 
   placement-news the object (see `LineAdapter` in vector.cpp).
 
 ## PartyMod port (2026-10-15)
-- [x] Step 1 code done (untested): PartyMod v1.0.4 in src/partymod (MIT, notice kept), built as a static lib with SDL2 2.30.9 fetched by CMake; our DllMain calls partymod_attach() and redirects the exe's LoadLibraryA("partymod.dll") to our own name. Builds cleanly.
-- [ ] Test: move partymod.dll out of the game folder, Rebuild All, check windowed mode, controllers, button prompts, online, and the log.
-- [ ] Copy SDL2.dll alongside if needed (already in the game folder).
+- [x] Step 1 done, TESTED IN-GAME 2026-10-15 (game runs with partymod.dll removed; log shows both PartyMod lines and all self-tests passing): PartyMod v1.0.4 in src/partymod (MIT, notice kept), built as a static lib with SDL2 2.30.9 fetched by CMake; our DllMain calls partymod_attach() and redirects the exe's LoadLibraryA("partymod.dll") to our own name. Builds cleanly.
+- [ ] Step 2 (ongoing): turn PartyMod's byte patches into proper rewrites as we reach the systems they touch.
