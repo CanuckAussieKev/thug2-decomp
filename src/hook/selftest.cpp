@@ -3399,6 +3399,243 @@ void RestoreScriptAddingTest()
     RestoreSymbolTable();
 }
 
+// Arrays (sizing, elements, resizing, deep copies of every element type) and structure copies, on a stand-in
+// manager with a script heap; originals vs ours, arenas compared.
+void TestScriptArrays()
+{
+    using namespace Script;
+    using Mem::Heap;
+    using Mem::Manager;
+    using Mem::Region;
+    if (GameVariable<void*>(0x007D1800)) {
+        Log("self-test: TestScriptArrays skipped (the memory manager is already set up)");
+        return;
+    }
+    for (int i = 0; i < 5; ++i)
+        std::memcpy(g_saved_script_pools[i], reinterpret_cast<void*>(kScriptPoolAddresses[i]), 16);
+    std::memcpy(g_saved_permanent_strings, reinterpret_cast<void*>(0x006F3570), sizeof(g_saved_permanent_strings));
+    g_saved_system_ready = GameVariable<bool>(0x007CC979);
+    g_saved_manager_for_test = nullptr;
+    g_script_write_swapped = true;
+    g_saved_symbol_table = GameVariable<CSymbolTableEntry**>(0x006F3624);
+    g_symbol_table_swapped = true;
+    int savedCopyCount = GameVariable<int>(0x006F3610);
+    int savedCopyPeak = GameVariable<int>(0x0067DA30);
+    for (uint32_t address : kScriptPoolAddresses)
+        std::memset(reinterpret_cast<void*>(address), 0, 16);
+    std::memset(reinterpret_cast<void*>(0x006F3570), 0, sizeof(g_saved_permanent_strings));
+    GameVariable<bool>(0x007CC979) = true;
+    static CSymbolTableEntry* table[0x1000];
+    std::memset(table, 0, sizeof(table));
+    GameVariable<CSymbolTableEntry**>(0x006F3624) = table;
+
+    auto run = [&](bool original) {
+        std::vector<uint32_t> trace;
+        uint8_t* arena = g_manager_arenas[original ? 0 : 1];
+        std::memset(arena, 0, kManagerArenaSize);
+        // (dirty script heap memory, so new elements must really be zeroed)
+        std::memset(arena + kManagerArenaSize - 0x2800, 0xCD, 0x2800);
+        auto* manager = reinterpret_cast<Manager*>(arena);
+        GameVariable<void*>(0x007D1800) = manager;
+        auto* region = new (arena + 0x600) Region(arena + 0x1000, arena + kManagerArenaSize - 0x2800);
+        auto* heap = new (arena + 0x620) Heap(region, 1, "test");
+        auto* scriptRegion = new (arena + 0x6C0) Region(arena + kManagerArenaSize - 0x2800, arena + kManagerArenaSize);
+        auto* scriptHeap = new (arena + 0x6E0) Heap(scriptRegion, 1, "script");
+        manager->m_heaps[0] = heap;
+        manager->m_heaps[1] = scriptHeap;
+        manager->m_heapCount = 2;
+        manager->m_scriptHeap = scriptHeap;
+        manager->PushContext(heap);
+        GameVariable<int>(0x006F3610) = 3;
+        GameVariable<int>(0x0067DA30) = 3;
+
+        auto new_array = [&]() { return NewArray()->Init(); };
+        auto put = [&](uint32_t value) { trace.push_back(value); };
+        auto put_float = [&](float value) {
+            uint32_t bits;
+            std::memcpy(&bits, &value, 4);
+            trace.push_back(bits);
+        };
+        using A = CArray*;
+        auto set_size = [&](A a, uint32_t size, ESymbolType type) {
+            if (original)
+                Original<void(__thiscall*)(A, uint32_t, uint32_t)>(0x0046CC50)(a, size, type);
+            else
+                a->SetSizeAndType(size, type);
+        };
+        auto set = [&](A a, uint32_t index, uint32_t value) {
+            if (original)
+                Original<void(__thiscall*)(A, uint32_t, uint32_t)>(0x0046CB10)(a, index, value);
+            else
+                a->SetElement(index, value);
+        };
+        auto set_float = [&](A a, uint32_t index, float value) {
+            if (original)
+                Original<void(__thiscall*)(A, uint32_t, float)>(0x0046CB40)(a, index, value);
+            else
+                a->SetFloat(index, value);
+        };
+        auto get = [&](A a, uint32_t index) {
+            return original ? Original<uint32_t(__thiscall*)(A, uint32_t)>(0x0046CC30)(a, index) : a->GetElement(index);
+        };
+        auto get_string = [&](A a, uint32_t index, bool local) {
+            if (original)
+                return Original<const char*(__thiscall*)(A, uint32_t)>(local ? 0x0046CB70 : 0x0046CBB0)(a, index);
+            return local ? a->GetLocalString(index) : a->GetString(index);
+        };
+        auto get_float = [&](A a, uint32_t index) {
+            return original ? Original<float(__thiscall*)(A, uint32_t)>(0x0046CBF0)(a, index) : a->GetFloat(index);
+        };
+        auto copy = [&](A to, A from) {
+            if (original)
+                Original<void(__cdecl*)(A, A)>(0x00478A60)(to, from);
+            else
+                CopyArray(to, from);
+        };
+        auto new_pair = [&](float x, float y) {
+            CPair* pair = original ? Original<CPair*(__thiscall*)(CPair*)>(0x0047AC00)(
+                                         static_cast<CPair*>(Original<void*(__cdecl*)(unsigned)>(0x0046D410)(12)))
+                                   : NewPair()->Init();
+            pair->x = x;
+            pair->y = y;
+            return pair;
+        };
+        auto new_vector = [&](float x, float y, float z) {
+            CVector* vector = original ? Original<CVector*(__thiscall*)(CVector*)>(0x0047ABF0)(static_cast<CVector*>(
+                                             Original<void*(__cdecl*)(unsigned)>(0x0046D3D0)(16)))
+                                       : NewVector()->Init();
+            vector->x = x;
+            vector->y = y;
+            vector->z = z;
+            return vector;
+        };
+
+        // Integers: sizes 0, 1, 4; resizing; float conversion.
+        A ints = new_array();
+        set_size(ints, 0, ESYMBOLTYPE_INTEGER);
+        put(ints->m_type);
+        set_size(ints, 1, ESYMBOLTYPE_INTEGER);
+        set(ints, 0, 42);
+        put(get(ints, 0));
+        put_float(get_float(ints, 0));
+        set_size(ints, 4, ESYMBOLTYPE_INTEGER);
+        for (uint32_t i = 0; i < 4; ++i)
+            set(ints, i, static_cast<uint32_t>(-3 + 5 * static_cast<int>(i)));
+        put_float(get_float(ints, 0));
+        if (original)
+            Original<void(__thiscall*)(A, uint32_t)>(0x0046CCF0)(ints, 6);
+        else
+            ints->Resize(6);
+        if (original)
+            Original<void(__thiscall*)(A, uint32_t)>(0x0046CCF0)(ints, 6);
+        else
+            ints->Resize(6);
+        set(ints, 5, 99);
+
+        A floats = new_array();
+        set_size(floats, 3, ESYMBOLTYPE_FLOAT);
+        for (uint32_t i = 0; i < 3; ++i)
+            set_float(floats, i, 0.5f + i);
+        put_float(get_float(floats, 2));
+        A oneFloat = new_array();
+        set_size(oneFloat, 1, ESYMBOLTYPE_FLOAT);
+        set_float(oneFloat, 0, 7.25f);
+        put_float(get_float(oneFloat, 0));
+
+        A strings = new_array();
+        set_size(strings, 3, ESYMBOLTYPE_STRING);
+        set(strings, 0, reinterpret_cast<uint32_t>(CreateString("alpha")));
+        set(strings, 2, reinterpret_cast<uint32_t>(CreateString("gamma")));
+        put(reinterpret_cast<uint32_t>(get_string(strings, 2, false)));
+        A locals = new_array();
+        set_size(locals, 1, ESYMBOLTYPE_LOCALSTRING);
+        set(locals, 0, reinterpret_cast<uint32_t>(CreateString("local")));
+        put(reinterpret_cast<uint32_t>(get_string(locals, 0, true)));
+
+        A pairs = new_array();
+        set_size(pairs, 2, ESYMBOLTYPE_PAIR);
+        set(pairs, 1, reinterpret_cast<uint32_t>(new_pair(1.5f, -2.0f)));
+        A vectors = new_array();
+        set_size(vectors, 2, ESYMBOLTYPE_VECTOR);
+        set(vectors, 0, reinterpret_cast<uint32_t>(new_vector(1.0f, 2.0f, 3.0f)));
+        set(vectors, 1, reinterpret_cast<uint32_t>(new_vector(4.0f, 5.0f, 6.0f)));
+
+        A structs = new_array();
+        set_size(structs, 2, ESYMBOLTYPE_STRUCTURE);
+        CStruct* inner = NewStruct()->Init();
+        inner->AddInteger(0x10u, 5);
+        inner->AddString(0x11u, "text");
+        set(structs, 0, reinterpret_cast<uint32_t>(inner));
+
+        A nested = new_array();
+        set_size(nested, 3, ESYMBOLTYPE_ARRAY);
+        set(nested, 0, reinterpret_cast<uint32_t>(ints));
+        set(nested, 2, reinterpret_cast<uint32_t>(strings));
+
+        A names = new_array();
+        set_size(names, 2, ESYMBOLTYPE_NAME);
+        set(names, 0, 0x1234u);
+        set(names, 1, 0x5678u);
+        A scripts = new_array();
+        set_size(scripts, 2, ESYMBOLTYPE_QSCRIPT);
+        set(scripts, 0, 0xABCDu);
+
+        // Deep copies, also over arrays that already hold something.
+        for (A source : {ints, floats, oneFloat, strings, locals, pairs, vectors, structs, nested, names, scripts}) {
+            A dest = new_array();
+            copy(dest, source);
+            put(dest->m_size);
+            put(dest->m_type);
+        }
+        A reused = new_array();
+        copy(reused, nested);
+        copy(reused, structs);
+        copy(reused, oneFloat);
+
+        // Structure copies.
+        CStruct* s = NewStruct();
+        if (original)
+            Original<CStruct*(__thiscall*)(CStruct*, CStruct*)>(0x00478AB0)(s, inner);
+        else
+            s->InitCopy(inner);
+        CStruct* self = NewStruct();
+        if (original)
+            Original<CStruct*(__thiscall*)(CStruct*, CStruct*)>(0x00478AB0)(self, self);
+        else
+            self->InitCopy(self);
+        put(static_cast<uint32_t>(GameVariable<int>(0x006F3610)));
+        put(static_cast<uint32_t>(GameVariable<int>(0x0067DA30)));
+
+        std::vector<uint32_t> image(kManagerArenaSize / 4);
+        std::memcpy(image.data(), arena, kManagerArenaSize);
+        auto base = reinterpret_cast<uint32_t>(arena);
+        for (uint32_t& word : image) {
+            if (word >= base && word <= base + kManagerArenaSize)
+                word = 0xA0000000u + (word - base);
+        }
+        for (uint32_t& word : trace) {
+            if (word >= base && word <= base + kManagerArenaSize)
+                word = 0xA0000000u + (word - base);
+        }
+        trace.insert(trace.end(), image.begin(), image.end());
+        GameVariable<void*>(0x007D1800) = nullptr;
+        return trace;
+    };
+    std::vector<uint32_t> expected = run(true);
+    std::vector<uint32_t> actual = run(false);
+    GameVariable<int>(0x006F3610) = savedCopyCount;
+    GameVariable<int>(0x0067DA30) = savedCopyPeak;
+    RestoreScriptWriteTest();
+    RestoreSymbolTable();
+    Check(expected == actual, "script arrays: sizing, elements, copying");
+    for (size_t i = 0, shown = 0; i < expected.size() && i < actual.size() && shown < 8; ++i) {
+        if (expected[i] != actual[i]) {
+            Log("  array entry %u: original %08X ours %08X", static_cast<unsigned>(i), expected[i], actual[i]);
+            ++shown;
+        }
+    }
+}
+
 // --- late self-tests ----------------------------------------------------------------------------------
 
 // The table's contents as (bucket, position in chain, key, value), so tables with different item addresses
@@ -4341,6 +4578,7 @@ SELFTEST(Early, TestMemoryManagerHeapCreation, RestoreManagerInitTest);
 SELFTEST(Early, TestScriptStructLookups, RestoreSymbolTable);
 SELFTEST(Early, TestScriptStructWriting, RestoreScriptWriteTest);
 SELFTEST(Early, TestScriptStructAdding, RestoreScriptAddingTest);
+SELFTEST(Early, TestScriptArrays, RestoreScriptAddingTest);
 
 SELFTEST(Late, TestMemoryLate);
 SELFTEST(Late, TestStringLate);

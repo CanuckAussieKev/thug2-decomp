@@ -299,8 +299,20 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       adding a named component with a flag's value). Register scan flags 0x4EFF92 'PUSH ECX' after
       AddVector by value: a false alarm (it only reserves a stack slot, overwritten by FSTP [ESP]).
 - [x] Batches 36-38 tested in the game (2026-10-16, by the user): game runs.
-- [ ] Next: CopyArray 0x478A60 (+ 0x46CC50 SetSizeAndType, 0x4787A0 element copy), the remaining array
-      functions (0x46CB10..), then the parser/symbol table (0x46F...) and the interpreter.
+- [x] Batch 39 (NOT run in the game yet; early test passes offline): script arrays and copies.
+      CArray::SetSizeAndType 0x46CC50 (frees the old block; 0 -> type none; one element in place; more ->
+      zeroed block on the script heap), Resize 0x46CCF0 (grow only - the original overruns when shrinking;
+      growing to 1 leaves a block pointer in place of the value), SetElement 0x46CB10, SetFloat 0x46CB40,
+      GetElement 0x46CC30 (folded getter for every 32-bit type, 218 callers), GetString 0x46CBB0 /
+      GetLocalString 0x46CB70 (type asserts compiled out), GetFloat 0x46CBF0 (ST0; integers converted);
+      CopyArrayElements 0x4787A0 (cdecl dest, src, count, type; raw for int/float/name, deep for strings,
+      pairs, vectors, structures, arrays; null elements skipped; other types copy nothing), CopyArray
+      0x478A60; CPair/CVector operator new 0x46D410/0x46D3D0 and constructors 0x47AC00/0x47ABF0;
+      CStruct::InitCopy 0x478AB0 (copy constructor; counts copies at 0x6F3610, peak 0x67DA30). 15 functions.
+      Early test: every element type built, read, resized and deep-copied (also over full arrays), on a dirty
+      script heap; originals vs ours (12 deliberate bugs caught, two after dirtying the heap).
+- [ ] Next: ComponentsEqual 0x4791A0 and the rest of 0x478B00..0x479190, then the parser/symbol table
+      (0x46F...) and the interpreter (0x46D450).
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
       for original callers that read ECX/EDX after the call without writing them first (ignoring push-to-reserve,
       lea reg,[reg], or reg,-1 and zeroing idioms; callers that are themselves replaced count as safe).

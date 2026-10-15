@@ -493,12 +493,7 @@ char* CreatePermanentString(const char* string)
 void DeletePair(CPair* pair) { PairPools().Free(pair); }
 void DeleteVector(CVector* vector) { VectorPools().Free(vector); }
 
-// A struct's AppendStructure and an array copy (not rewritten yet).
-void AppendStructure(CStruct* to, CStruct* from)
-{
-    GameFunction<void(__thiscall*)(CStruct*, CStruct*)>(0x00478480)(to, from);
-}
-void CopyArray(CArray* to, CArray* from) { GameFunction<void(__cdecl*)(CArray*, CArray*)>(0x00478A60)(to, from); }
+void AppendStructure(CStruct* to, CStruct* from) { to->AppendStructure(from); }
 
 } // namespace
 
@@ -1224,3 +1219,259 @@ REPLACE(0x00478480, &CStruct::AppendStructure);
 REPLACE(0x00478540, &CStruct::AppendStructureIfAny);
 REPLACE(0x00478650, &CStruct::Assign);
 REPLACE(0x00478560, &CStruct::ExpandInto);
+
+// --- arrays: sizing, elements, copying ------------------------------------------------------------------------
+
+namespace Script {
+
+namespace {
+
+// Allocate `count` elements on the script heap.
+uint32_t* AllocateElements(uint32_t count)
+{
+    Mem::PushContext(Mem::Manager::Get()->m_scriptHeap);
+    auto* elements = static_cast<uint32_t*>(Mem::Malloc(count * 4));
+    Mem::PopContext();
+    return elements;
+}
+
+// 0x006F3610 / 0x0067DA30: how many structures were made by copying, and the most there were (debug counters).
+int& StructCopyCount() { return GameVariable<int>(0x006F3610); }
+int& StructCopyPeak() { return GameVariable<int>(0x0067DA30); }
+
+} // namespace
+
+// 0x0046D410 / 0x0046D3D0 (operator new; the size is always the object's)
+CPair* NewPair() { return static_cast<CPair*>(GameVariable<Mem::PoolPair>(0x006F3644).Allocate(sizeof(CPair))); }
+CVector* NewVector()
+{
+    return static_cast<CVector*>(GameVariable<Mem::PoolPair>(0x006F3654).Allocate(sizeof(CVector)));
+}
+
+// 0x0047AC00
+CPair* CPair::Init()
+{
+    y = 0.0f;
+    x = 0.0f;
+    reinterpret_cast<uint8_t*>(this)[0] = 0;
+    return this;
+}
+
+// 0x0047ABF0
+CVector* CVector::Init()
+{
+    z = 0.0f;
+    y = 0.0f;
+    x = 0.0f;
+    reinterpret_cast<uint8_t*>(this)[0] = 0;
+    return this;
+}
+
+// 0x0046CC50
+void CArray::SetSizeAndType(uint32_t size, ESymbolType type)
+{
+    if (m_size == 1) {
+        // (the single element is in place: nothing to free)
+        if (m_elements)
+            m_elements = nullptr;
+    } else if (m_elements) {
+        Mem::FreeMalloc(m_elements);
+        m_elements = nullptr;
+    }
+    m_type = type;
+    m_size = size;
+    if (size == 0) {
+        m_type = ESYMBOLTYPE_NONE;
+        return;
+    }
+    if (size == 1)
+        return;
+    m_elements = AllocateElements(m_size);
+    for (uint32_t i = 0; i < m_size; ++i)
+        m_elements[i] = 0;
+}
+
+// 0x0046CCF0
+void CArray::Resize(uint32_t size)
+{
+    if (size == m_size)
+        return;
+    uint32_t* elements = AllocateElements(size);
+    const uint32_t* from = GetArrayPointer();
+    for (uint32_t i = 0; i < m_size; ++i)
+        elements[i] = from[i];
+    for (uint32_t i = m_size; i < size; ++i)
+        elements[i] = 0;
+    if (m_size > 1)
+        Mem::FreeMalloc(m_elements);
+    // (growing to one element leaves the block's pointer in place of the single value, as the original does)
+    m_elements = elements;
+    m_size = size;
+}
+
+// 0x0046CB10
+void CArray::SetElement(uint32_t index, uint32_t value)
+{
+    if (m_size == 1)
+        m_single = value;
+    else
+        m_elements[index] = value;
+}
+
+// 0x0046CB40
+void CArray::SetFloat(uint32_t index, float value)
+{
+    if (m_size == 1)
+        std::memcpy(&m_single, &value, 4);
+    else
+        std::memcpy(&m_elements[index], &value, 4);
+}
+
+// 0x0046CC30
+uint32_t CArray::GetElement(uint32_t index)
+{
+    return m_size == 1 ? m_single : m_elements[index];
+}
+
+// 0x0046CBB0
+const char* CArray::GetString(uint32_t index)
+{
+    return reinterpret_cast<const char*>(GetElement(index));
+}
+
+// 0x0046CB70
+const char* CArray::GetLocalString(uint32_t index)
+{
+    return reinterpret_cast<const char*>(GetElement(index));
+}
+
+// 0x0046CBF0
+float CArray::GetFloat(uint32_t index)
+{
+    uint32_t bits = GetElement(index);
+    if (m_type == ESYMBOLTYPE_FLOAT) {
+        float value;
+        std::memcpy(&value, &bits, 4);
+        return value;
+    }
+    return static_cast<float>(static_cast<int32_t>(bits));
+}
+
+// 0x004787A0
+void CopyArrayElements(uint32_t* dest, const uint32_t* source, uint32_t count, uint32_t type)
+{
+    for (uint32_t i = 0; i < count; ++i) {
+        uint32_t element = source[i];
+        switch (type) {
+        case ESYMBOLTYPE_INTEGER:
+        case ESYMBOLTYPE_FLOAT:
+        case ESYMBOLTYPE_NAME:
+            dest[i] = element;
+            break;
+        case ESYMBOLTYPE_STRING:
+        case ESYMBOLTYPE_LOCALSTRING:
+            if (element)
+                dest[i] = reinterpret_cast<uint32_t>(CreateString(reinterpret_cast<const char*>(element)));
+            break;
+        case ESYMBOLTYPE_PAIR:
+            if (element) {
+                auto* from = reinterpret_cast<const CPair*>(element);
+                CPair* pair = NewPair();
+                pair = pair ? pair->Init() : nullptr;
+                pair->x = from->x;
+                pair->y = from->y;
+                dest[i] = reinterpret_cast<uint32_t>(pair);
+            }
+            break;
+        case ESYMBOLTYPE_VECTOR:
+            if (element) {
+                auto* from = reinterpret_cast<const CVector*>(element);
+                CVector* vector = NewVector();
+                vector = vector ? vector->Init() : nullptr;
+                vector->x = from->x;
+                vector->y = from->y;
+                vector->z = from->z;
+                dest[i] = reinterpret_cast<uint32_t>(vector);
+            }
+            break;
+        case ESYMBOLTYPE_STRUCTURE:
+            if (element) {
+                auto* from = reinterpret_cast<CStruct*>(element);
+                CStruct* structure = NewStruct();
+                if (structure)
+                    structure->Init();
+                if (from != structure) {
+                    structure->Clear();
+                    structure->AppendStructure(from);
+                }
+                dest[i] = reinterpret_cast<uint32_t>(structure);
+            }
+            break;
+        case ESYMBOLTYPE_ARRAY:
+            if (element) {
+                CArray* array = NewArray();
+                if (array)
+                    array = array->Init();
+                CopyArray(array, reinterpret_cast<CArray*>(element));
+                dest[i] = reinterpret_cast<uint32_t>(array);
+            }
+            break;
+        default:
+            // Scripts, functions, unknowns: nothing is copied.
+            return;
+        }
+    }
+}
+
+// 0x00478A60
+void CopyArray(CArray* dest, CArray* source)
+{
+    CleanUpArray(dest);
+    ESymbolType type = source->m_type;
+    uint32_t size = source->m_size;
+    dest->SetSizeAndType(size, type);
+    if (size)
+        CopyArrayElements(dest->GetArrayPointer(), source->GetArrayPointer(), size, type);
+}
+
+// 0x00478AB0
+CStruct* CStruct::InitCopy(CStruct* source)
+{
+    m_head = nullptr;
+    m_unknown1 = 0;
+    if (source != this) {
+        Clear();
+        AppendStructure(source);
+    }
+    if (++StructCopyCount() > StructCopyPeak())
+        StructCopyPeak() = StructCopyCount();
+    return this;
+}
+
+} // namespace Script
+
+namespace {
+
+using Script::CArray;
+
+// 0x0046D410 / 0x0046D3D0 take the size (always the object's).
+void* NewPairMemory(unsigned int) { return Script::NewPair(); }
+void* NewVectorMemory(unsigned int) { return Script::NewVector(); }
+
+} // namespace
+
+REPLACE(0x0046D410, NewPairMemory);
+REPLACE(0x0046D3D0, NewVectorMemory);
+REPLACE(0x0047AC00, &Script::CPair::Init);
+REPLACE(0x0047ABF0, &Script::CVector::Init);
+REPLACE(0x0046CC50, &CArray::SetSizeAndType);
+REPLACE(0x0046CCF0, &CArray::Resize);
+REPLACE(0x0046CB10, &CArray::SetElement);
+REPLACE(0x0046CB40, &CArray::SetFloat);
+REPLACE(0x0046CC30, &CArray::GetElement);
+REPLACE(0x0046CBB0, &CArray::GetString);
+REPLACE(0x0046CB70, &CArray::GetLocalString);
+REPLACE(0x0046CBF0, &CArray::GetFloat);
+REPLACE(0x004787A0, Script::CopyArrayElements);
+REPLACE(0x00478A60, Script::CopyArray);
+REPLACE(0x00478AB0, &Script::CStruct::InitCopy);

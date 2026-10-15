@@ -39,6 +39,19 @@ public:
     void Clear();
     // The elements (for one element, the value stored in the array itself).
     uint32_t* GetArrayPointer();
+    // Make the array `size` zeroed elements of `type` (frees the old element block, not what it refers to).
+    void SetSizeAndType(uint32_t size, ESymbolType type);
+    // Grow the array to `size` elements, keeping the old ones (the new ones are zero; shrinking isn't supported).
+    void Resize(uint32_t size);
+
+    // The elements. Any 32-bit value (integer, checksum, structure, array...) by SetElement / GetElement.
+    void SetElement(uint32_t index, uint32_t value);
+    void SetFloat(uint32_t index, float value);
+    uint32_t GetElement(uint32_t index);
+    const char* GetString(uint32_t index);
+    const char* GetLocalString(uint32_t index);
+    // An integer array's elements are converted.
+    float GetFloat(uint32_t index);
 
     uint8_t m_unknown0;
     ESymbolType m_type;
@@ -52,17 +65,24 @@ public:
 static_assert(sizeof(CArray) == 0xC, "layout must match the original");
 
 // Pair and vector values are separate objects; the coordinates start at +4.
+// Their constructors clear only byte 0 of the first word.
 struct CPair {
+    CPair* Init();
+
     uint32_t unknown0;
     float x;
     float y;
 };
 struct CVector {
+    CVector* Init();
+
     uint32_t unknown0;
     float x;
     float y;
     float z;
 };
+CPair* NewPair();
+CVector* NewVector();
 
 struct CComponent {
     uint8_t typeAndFlag; // the type in the top 7 bits
@@ -117,6 +137,10 @@ void CleanUpComponent(CComponent* component);
 void CleanUpArray(CArray* array);
 // Make `dest` a deep copy of `source` (with `reference`, structures and arrays are referred to, not copied).
 void CopyComponent(CComponent* dest, CComponent* source, int reference);
+// Make `dest` a deep copy of `source`.
+void CopyArray(CArray* dest, CArray* source);
+// Deep copies of `count` elements of `type` (null elements are skipped).
+void CopyArrayElements(uint32_t* dest, const uint32_t* source, uint32_t count, uint32_t type);
 
 // The pooled allocations of the script's value objects.
 CStruct* NewStruct();
@@ -135,6 +159,8 @@ struct VectorValue {
 class CStruct {
 public:
     CStruct* Init();
+    // Initialise as a copy of `source` (the copy constructor).
+    CStruct* InitCopy(CStruct* source);
     bool IsEmpty();
     // The next component after `component` (null: the first).
     CComponent* GetNextComponent(CComponent* component);
