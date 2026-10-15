@@ -203,8 +203,14 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       completion is counted done without a callback - as the original), destructors, the I/O thread
       0x5B9B40 (66 ms poll) and PlatformInit 0x5B9B80. Early self-test opens/reads/closes pre\Themes.prx
       through an original handle and ours, synchronous and overlapped (shown to catch a deliberate bug).
-- [ ] Next: CAsyncFileLoader's other class (0x5B6940/0x5B6970, 0x5B6CF0-0x5B7090), then the memory
-      manager 0x5BA5A0-0x5BBE80.
+- [x] Batch 30 (NOT run in the game yet; early self-tests pass offline): the async loader engine module
+      (vtable 0x658158, 0x18 bytes; instance 0x7CF190, refs 0x7CF194): Create 0x5B6CA0 / Destroy
+      0x5B6620 (reference counted), constructor 0x5B6BC0 (Mdl::Module base + a Tsk::Task, vtable
+      0x6476F0, running 0x5B6990), destructors 0x5B6660/0x5B6940, Start 0x5B6970 (adds the task to the
+      main loop's logic tasks), the task 0x5B6990 and the handle poll 0x5B9780. Early self-test compares
+      the reference counting (no module) original vs ours (shown to catch a deliberate bug).
+- [ ] Next: 0x5B6CF0-0x5B7090 (a 0x234C-byte loader that copies files out of a buffer into Mem
+      allocations - needs its purpose worked out), then the memory manager 0x5BA5A0-0x5BBE80.
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
       for original callers that read ECX/EDX after the call without writing them first (ignoring push-to-reserve,
       lea reg,[reg], or reg,-1 and zeroing idioms; callers that are themselves replaced count as safe).

@@ -90,6 +90,12 @@ PcAsyncMethods PcAsyncFileHandleMethods();
 // Whether overlapped I/O is used (chosen at start-up; Windows NT 6 and later).
 bool& AsyncUseOverlappedIo();
 
+// The engine module whose per-frame task polls the handles and runs the callbacks: created (or another
+// reference taken) by CreateAsyncLoaderModule, released by DestroyAsyncLoaderModule.
+void CreateAsyncLoaderModule(bool create);
+void DestroyAsyncLoaderModule();
+void AsyncPollHandles();
+
 // The static side (CAsyncFileLoader).
 void AsyncInit();
 bool AsyncBusy();

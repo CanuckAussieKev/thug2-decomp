@@ -1748,6 +1748,55 @@ void TestPcAsyncFileHandle()
     VirtualFree(buffer, 0, MEM_RELEASE);
 }
 
+// The async loader module's reference counting, with no module (so nothing is created or destroyed): the
+// same create/release sequence through the originals and ours must leave the same counts.
+void* g_saved_loader_module = nullptr;
+uint32_t g_saved_loader_refs = 0;
+bool g_loader_module_saved = false;
+
+void RestoreLoaderModule()
+{
+    if (!g_loader_module_saved)
+        return;
+    GameVariable<void*>(0x007CF190) = g_saved_loader_module;
+    GameVariable<uint32_t>(0x007CF194) = g_saved_loader_refs;
+    g_loader_module_saved = false;
+}
+
+void TestAsyncLoaderModuleRefs()
+{
+    g_saved_loader_module = GameVariable<void*>(0x007CF190);
+    g_saved_loader_refs = GameVariable<uint32_t>(0x007CF194);
+    g_loader_module_saved = true;
+
+    auto run = [](bool original) {
+        std::vector<uint32_t> counts;
+        GameVariable<void*>(0x007CF190) = nullptr;
+        for (uint32_t start : {0u, 1u, 3u}) {
+            GameVariable<uint32_t>(0x007CF194) = start;
+            for (int step = 0; step < 6; ++step) {
+                if (step < 2) {
+                    if (original)
+                        Original<void(__cdecl*)(bool)>(0x005B6CA0)(false);
+                    else
+                        File::CreateAsyncLoaderModule(false);
+                } else if (original) {
+                    Original<void(__cdecl*)()>(0x005B6620)();
+                } else {
+                    File::DestroyAsyncLoaderModule();
+                }
+                counts.push_back(GameVariable<uint32_t>(0x007CF194));
+            }
+        }
+        return counts;
+    };
+    std::vector<uint32_t> expected = run(true);
+    std::vector<uint32_t> actual = run(false);
+    Check(expected == actual, "async loader module reference counts");
+    Check(GameVariable<void*>(0x007CF190) == nullptr, "async loader module: no module created");
+    RestoreLoaderModule();
+}
+
 // --- late self-tests ----------------------------------------------------------------------------------
 
 // The table's contents as (bucket, position in chain, key, value), so tables with different item addresses
@@ -2681,6 +2730,7 @@ SELFTEST(Early, TestPip, RestorePipTables);
 SELFTEST(Early, TestFile);
 SELFTEST(Early, TestAsyncFileSystem, RestoreAsyncGlobals);
 SELFTEST(Early, TestPcAsyncFileHandle, RestoreAsyncIoState);
+SELFTEST(Early, TestAsyncLoaderModuleRefs, RestoreLoaderModule);
 
 SELFTEST(Late, TestMemoryLate);
 SELFTEST(Late, TestStringLate);

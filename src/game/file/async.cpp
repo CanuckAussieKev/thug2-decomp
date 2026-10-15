@@ -695,3 +695,144 @@ REPLACE(0x005B9B80, File::PlatformInit);
 REPLACE(0x005B97B0, &PcAsyncFileHandleAdapter::Destroy);
 REPLACE(0x005B9640, &PcAsyncFileHandleAdapter::DestroyBody);
 REPLACE(0x005B6370, &PcAsyncFileHandleAdapter::DestroyBaseBody);
+
+// --- the async file loader module ------------------------------------------------------------------------
+// An engine module (Mdl::Module) whose per-frame task polls the platform handles and runs the completed I/O
+// callbacks. One instance, reference counted (0x007CF190 / 0x007CF194).
+
+namespace File {
+
+struct AsyncLoaderModule {
+    void** m_vtable;          // 0x00658158
+    uint8_t m_module[0x14 - 4]; // Mdl::Module's fields
+    void* m_task;             // Tsk::Task running AsyncLoaderTask
+};
+static_assert(sizeof(AsyncLoaderModule) == 0x18, "allocated as 0x18 bytes by the original");
+
+namespace {
+
+AsyncLoaderModule*& LoaderModule() { return GameVariable<AsyncLoaderModule*>(0x007CF190); }
+uint32_t& LoaderModuleRefs() { return GameVariable<uint32_t>(0x007CF194); }
+
+// Engine framework pieces (not rewritten yet).
+void ConstructModule(void* module) { GameFunction<void*(__thiscall*)(void*)>(0x0044F7E0)(module); }
+void DestroyModule(void* module) { GameFunction<void(__thiscall*)(void*)>(0x0044F790)(module); }
+void* ConstructTask(void* task) { return GameFunction<void*(__thiscall*)(void*, int)>(0x00406890)(task, 0); }
+void AddLogicTask(void* task)
+{
+    // The main loop manager's logic task list.
+    auto* manager = GameVariable<uint8_t*>(0x00696D68);
+    GameFunction<void(__thiscall*)(void*, void*)>(0x00406C90)(manager + 4, task);
+}
+
+} // namespace
+
+AsyncLoaderModule* ConstructAsyncLoaderModule(void* memory);
+
+// 0x005B9780: give each busy handle the chance to complete (also done by the I/O thread)
+void AsyncPollHandles()
+{
+    for (int i = 0; i < kMaxHandles; ++i) {
+        AsyncFileHandle* file = Pool()[i];
+        if (file && file->IsBusy())
+            file->Virtual<bool>(AsyncFileHandle::kPlatIsDone);
+    }
+}
+
+// 0x005B6990: the module's task, every frame
+void __cdecl AsyncLoaderTask(void* /*task*/)
+{
+    AsyncPollHandles();
+    AsyncExecuteCallbacks();
+}
+
+// 0x005B6CA0
+void CreateAsyncLoaderModule(bool create)
+{
+    if (!LoaderModule() && create) {
+        void* memory = Mem::Calloc(sizeof(AsyncLoaderModule), nullptr, 1);
+        if (!memory) {
+            LoaderModule() = nullptr;
+        } else {
+            LoaderModule() = ConstructAsyncLoaderModule(memory);
+            ++LoaderModuleRefs();
+            return;
+        }
+    }
+    ++LoaderModuleRefs();
+}
+
+// 0x005B6620
+void DestroyAsyncLoaderModule()
+{
+    if (LoaderModuleRefs() > 1) {
+        --LoaderModuleRefs();
+        return;
+    }
+    if (AsyncLoaderModule* module = LoaderModule())
+        reinterpret_cast<void(__thiscall*)(AsyncLoaderModule*, unsigned int)>(module->m_vtable[0])(module, 1);
+    LoaderModule() = nullptr;
+    LoaderModuleRefs() = 0;
+}
+
+} // namespace File
+
+namespace {
+
+using File::AsyncLoaderModule;
+
+struct AsyncLoaderModuleMethods {
+    AsyncLoaderModule* Self() { return reinterpret_cast<AsyncLoaderModule*>(this); }
+
+    // 0x005B6BC0
+    AsyncLoaderModule* Construct()
+    {
+        AsyncLoaderModule* module = Self();
+        File::ConstructModule(module);
+        module->m_vtable = reinterpret_cast<void**>(0x00658158);
+        auto* task = static_cast<uint32_t*>(Mem::Calloc(0x20));
+        if (task) {
+            File::ConstructTask(task);
+            task[7] = reinterpret_cast<uint32_t>(module);    // the task's data
+            task[0] = 0x006476F0;                             // Tsk::Task<CAsyncFileLoader> vtable
+            task[6] = 0x005B6990;                             // its code: AsyncLoaderTask
+        }
+        module->m_task = task;
+        return module;
+    }
+    // 0x005B6660 (destructor body)
+    void DestroyBody()
+    {
+        AsyncLoaderModule* module = Self();
+        module->m_vtable = reinterpret_cast<void**>(0x00658158);
+        if (auto* task = static_cast<void***>(module->m_task))
+            reinterpret_cast<void(__thiscall*)(void*, unsigned int)>((*task)[2])(task, 1);
+        File::DestroyModule(module);
+    }
+    // 0x005B6940 (scalar deleting destructor)
+    AsyncLoaderModule* Destroy(unsigned int flags)
+    {
+        DestroyBody();
+        if (flags & 1)
+            Mem::Free(Self());
+        return Self();
+    }
+    // 0x005B6970 (virtual: the module starts - its task joins the logic tasks)
+    void Start() { File::AddLogicTask(Self()->m_task); }
+};
+
+} // namespace
+
+File::AsyncLoaderModule* File::ConstructAsyncLoaderModule(void* memory)
+{
+    return static_cast<AsyncLoaderModuleMethods*>(memory)->Construct();
+}
+
+REPLACE(0x005B9780, File::AsyncPollHandles);
+REPLACE(0x005B6990, File::AsyncLoaderTask);
+REPLACE(0x005B6CA0, File::CreateAsyncLoaderModule);
+REPLACE(0x005B6620, File::DestroyAsyncLoaderModule);
+REPLACE(0x005B6BC0, &AsyncLoaderModuleMethods::Construct);
+REPLACE(0x005B6660, &AsyncLoaderModuleMethods::DestroyBody);
+REPLACE(0x005B6940, &AsyncLoaderModuleMethods::Destroy);
+REPLACE(0x005B6970, &AsyncLoaderModuleMethods::Start);
