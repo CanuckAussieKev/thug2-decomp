@@ -27,8 +27,12 @@ Batches marked (untested) haven't been run in-game yet.
       (0x401D80-0x401FA0, live-count global 0x690FA0); `Str::FindCaseless` (0x401FF0); `Dbg::Printf` (0x401C30).
       Memory + String have NO self-tests (the game's memory manager doesn't exist when self-tests run).
       If the game fails at startup, revert this batch first.
-- [ ] Batch 6+: the rest of the block, smallest first. Next up: 0x4032A0-0x403450, 0x403EF0-0x404010,
-      0x405600-0x405990, 0x4060F0-0x406260.
+- [x] Batch 6 (untested): `Mth::BBox` ctor/ctor(point)/AddPoint (0x4033E0, 0x403410, 0x403450), `Mth::Capsule`
+      ctors (0x403230, 0x4032A0) and Volume (0x403390), with self-tests.
+      Deferred: 0x4032E0 / 0x403330 (capsule containment tests; they call the big distance functions
+      0x402640 / 0x402D60, whose calling conventions aren't confirmed yet).
+- [ ] Batch 7+: the rest of the block, smallest first. Next up: 0x403EF0-0x404010, 0x405600-0x405990,
+      0x4060F0-0x406260.
 - [ ] Infrastructure idea: a second self-test stage that runs once the game is initialised (e.g. on the first
       frame), so allocator/String functions can be tested against the originals too.
 

@@ -10,6 +10,7 @@
 #include "game/core/crc.h"
 #include "game/core/mem.h"
 #include "game/core/str.h"
+#include "game/mth/geometry.h"
 #include "game/mth/math.h"
 #include "game/mth/matrix.h"
 #include "game/mth/random.h"
@@ -388,6 +389,55 @@ void TestBatch5()
             Check(Original<FindFn>(0x00401FF0)(h, n) == Str::FindCaseless(h, n), "Str::FindCaseless");
 }
 
+void TestBatch6()
+{
+    using Mth::BBox;
+    using Mth::Capsule;
+    using Mth::Line;
+    using Mth::Vector;
+    using BBoxCtor = BBox*(__thiscall*)(void*);
+    using BBoxAtCtor = BBox*(__thiscall*)(void*, const Vector*);
+    using AddPointFn = void(__thiscall*)(BBox*, const Vector*);
+    using CapsuleCtor = Capsule*(__thiscall*)(void*, const Vector*, const Vector*, float);
+    using CapsuleLineCtor = Capsule*(__thiscall*)(void*, const Line*, float);
+    using VolumeFn = float(__thiscall*)(const Capsule*);
+
+    auto check_box = [](const BBox& expected, const BBox& actual, const char* what) {
+        CheckVector(expected.min, actual.min, what);
+        CheckVector(expected.max, actual.max, what);
+    };
+
+    alignas(16) unsigned char raw[sizeof(Capsule) > sizeof(BBox) ? sizeof(Capsule) : sizeof(BBox)];
+    BBox* original_box = Original<BBoxCtor>(0x004033E0)(raw);
+    check_box(*original_box, BBox(), "BBox::BBox()");
+
+    const Vector points[] = {{1, 2, 3, 1}, {-4, 5, 0.5f, 1}, {2, -7, 9, 1}, {0, 0, 0, 1}};
+    BBox expected_box = *original_box, actual_box;
+    for (const Vector& p : points) {
+        Original<AddPointFn>(0x00403450)(&expected_box, &p);
+        actual_box.AddPoint(p);
+        check_box(expected_box, actual_box, "BBox::AddPoint");
+    }
+    check_box(*Original<BBoxAtCtor>(0x00403410)(raw, &points[1]), BBox(points[1]), "BBox::BBox(point)");
+
+    const Vector start{1, 2, 3, 1}, offset{4, -5, 6, 0};
+    for (float radius : {0.0f, 0.5f, 12.0f}) {
+        const Capsule& a = *Original<CapsuleCtor>(0x00403230)(raw, &start, &offset, radius);
+        Capsule b(start, offset, radius);
+        CheckVector(a.line.start, b.line.start, "Capsule(start, offset, radius)");
+        CheckVector(a.line.end, b.line.end, "Capsule(start, offset, radius)");
+        CheckFloat(a.radius, b.radius, "Capsule(start, offset, radius)");
+        CheckFloat(Original<VolumeFn>(0x00403390)(&b), b.Volume(), "Capsule::Volume");
+
+        Line line(start, offset);
+        const Capsule& c = *Original<CapsuleLineCtor>(0x004032A0)(raw, &line, radius);
+        Capsule d(line, radius);
+        CheckVector(c.line.start, d.line.start, "Capsule(line, radius)");
+        CheckVector(c.line.end, d.line.end, "Capsule(line, radius)");
+        CheckFloat(c.radius, d.radius, "Capsule(line, radius)");
+    }
+}
+
 } // namespace
 
 void RunSelfTests()
@@ -399,5 +449,6 @@ void RunSelfTests()
     TestStringsAndMath();
     TestBatch4();
     TestBatch5();
+    TestBatch6();
     Log(g_failures ? "self-tests: %d FAILED" : "self-tests: all passed", g_failures);
 }

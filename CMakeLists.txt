@@ -24,6 +24,7 @@ add_library(thug2_decomp SHARED
     src/game/core/mem.cpp
     src/game/core/str.cpp
     src/game/core/string.cpp
+    src/game/mth/geometry.cpp
     src/game/mth/math.cpp
     src/game/mth/matrix.cpp
     src/game/mth/random.cpp
