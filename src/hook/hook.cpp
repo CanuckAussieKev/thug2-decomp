@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 
+#include <MinHook.h>
+
 #include "hook/log.h"
 
 namespace {
@@ -15,6 +17,9 @@ struct Installed {
     Replacement replacement;
     uint8_t original_bytes[5];
     bool active;
+    // Original code's entry point (MinHook trampoline). Null if MinHook couldn't hook the function and a
+    // plain jump was written instead - the original is then only reachable inside an OriginalCode scope.
+    void* trampoline;
 };
 
 // Function-local so it exists before any REPLACE() registrar in another file runs.
@@ -56,7 +61,7 @@ bool WriteJump(uint32_t from, void* to)
 
 void RegisterReplacement(const Replacement& r)
 {
-    Registry().push_back({r, {}, false});
+    Registry().push_back({r, {}, false, nullptr});
 }
 
 namespace {
@@ -106,44 +111,104 @@ bool IsDisabled(const Replacement& r, const std::vector<std::string>& tokens)
 void InstallReplacements()
 {
     const std::vector<std::string> disabled = DisabledTokens();
-    int installed = 0, skipped = 0;
+    MH_STATUS init = MH_Initialize();
+    if (init != MH_OK)
+        Log("MinHook failed to initialise (%s): replacements will have no trampolines", MH_StatusToString(init));
+
+    int installed = 0, skipped = 0, without_trampoline = 0;
     for (Installed& entry : Registry()) {
         const Replacement& r = entry.replacement;
-        std::memcpy(entry.original_bytes, reinterpret_cast<const void*>(r.address), sizeof(entry.original_bytes));
+        auto* target = reinterpret_cast<void*>(r.address);
+        std::memcpy(entry.original_bytes, target, sizeof(entry.original_bytes));
         if (IsDisabled(r, disabled)) {
             ++skipped;
             Log("disabled 0x%08X %s (thug2-decomp.ini)", r.address, r.name);
             continue;
         }
-        if (WriteJump(r.address, r.function)) {
+        MH_STATUS status = init == MH_OK ? MH_CreateHook(target, r.function, &entry.trampoline) : init;
+        if (status == MH_OK)
+            status = MH_QueueEnableHook(target);
+        if (status == MH_OK) {
             entry.active = true;
             ++installed;
             Log("replaced 0x%08X %s", r.address, r.name);
+        } else if (WriteJump(r.address, r.function)) {
+            entry.trampoline = nullptr;
+            entry.active = true;
+            ++installed;
+            ++without_trampoline;
+            Log("replaced 0x%08X %s (plain jump, no trampoline: %s)", r.address, r.name, MH_StatusToString(status));
         } else {
             Log("FAILED to replace 0x%08X %s", r.address, r.name);
         }
     }
+    if (init == MH_OK) {
+        MH_STATUS applied = MH_ApplyQueued();
+        if (applied != MH_OK)
+            Log("MinHook failed to enable the queued hooks: %s", MH_StatusToString(applied));
+    }
     Log("%d of %u replacements installed, %d disabled by thug2-decomp.ini", installed,
         static_cast<unsigned>(Registry().size()), skipped);
+    if (without_trampoline)
+        Log("%d replacement(s) have no trampoline (their originals can't be called directly)", without_trampoline);
 }
+
+namespace {
+
+// Put the original code back at `address` (true if it was ours before).
+bool Deactivate(Installed& entry)
+{
+    if (!entry.active)
+        return false;
+    if (entry.trampoline)
+        MH_DisableHook(reinterpret_cast<void*>(entry.replacement.address));
+    else
+        WriteCode(entry.replacement.address, entry.original_bytes, sizeof(entry.original_bytes));
+    return true;
+}
+
+void Reactivate(Installed& entry)
+{
+    if (entry.trampoline)
+        MH_EnableHook(reinterpret_cast<void*>(entry.replacement.address));
+    else
+        WriteJump(entry.replacement.address, entry.replacement.function);
+}
+
+} // namespace
 
 void RestoreOriginal(uint32_t address)
 {
     Installed* entry = Find(address);
-    if (entry && entry->active && WriteCode(address, entry->original_bytes, sizeof(entry->original_bytes)))
+    if (entry && Deactivate(*entry))
         entry->active = false;
+}
+
+void* OriginalFunction(uint32_t address)
+{
+    Installed* entry = Find(address);
+    if (entry && entry->active) {
+        if (entry->trampoline)
+            return entry->trampoline;
+        static bool warned = false;
+        if (!warned) {
+            warned = true;
+            Log("WARNING: Original(0x%08X) called but it has no trampoline - this runs our replacement", address);
+        }
+    }
+    return reinterpret_cast<void*>(address);
 }
 
 OriginalCode::OriginalCode(uint32_t address) : m_address(address)
 {
     Installed* entry = Find(address);
-    if (entry && entry->active)
-        WriteCode(address, entry->original_bytes, sizeof(entry->original_bytes));
+    if (entry)
+        Deactivate(*entry);
 }
 
 OriginalCode::~OriginalCode()
 {
     Installed* entry = Find(m_address);
     if (entry && entry->active)
-        WriteJump(m_address, entry->replacement.function);
+        Reactivate(*entry);
 }

@@ -34,16 +34,6 @@
 
 namespace {
 
-int g_failures = 0;
-
-void Check(bool ok, const char* what)
-{
-    if (!ok) {
-        ++g_failures;
-        Log("SELFTEST FAIL: %s", what);
-    }
-}
-
 void TestCrc()
 {
     auto original = Original<uint32_t(__cdecl*)(const char*)>(0x00401B90);
@@ -1584,10 +1574,10 @@ void TestHashTableLate()
     Mem::Free(actual->m_buckets);
 }
 
-void TestPipLoadLate()
+void TestPipLoad()
 {
     if (!GameVariable<void*>(0x007D0FCC)) {
-        Log("late self-test: Pip::Load skipped (pre-file manager not created yet)");
+        Log("self-test: Pip::Load skipped (pre-file manager not created yet)");
         return;
     }
     using LoadFn = void*(__cdecl*)(const char*, bool, void*, void*, void*);
@@ -1602,7 +1592,7 @@ void TestPipLoadLate()
     // original, keep a copy, unload, then load it with ours and compare.
     const char* name = "pre/Themes.prx";
     if (Pip::GetFileSize(name) != 0) {
-        Log("late self-test: Pip::Load skipped (%s already loaded)", name);
+        Log("self-test: Pip::Load skipped (%s already loaded)", name);
         return;
     }
     void* expected;
@@ -1910,87 +1900,40 @@ void TestStringLate()
     Check(live == live_at_start, "String live count restored");
 }
 
-int g_late_failures_before = 0;
-
-// Runs one self-test, catching crashes: a crash inside DllMain would otherwise only show as error 0xC0000142
-// at launch, with nothing in the log. A crashed test counts as a failure and the game carries on (the
-// crashed test's own cleanup is skipped).
-int CrashFilter(EXCEPTION_POINTERS* info, const char* name)
-{
-    Log("SELFTEST CRASH in %s: exception 0x%08X at 0x%p", name,
-        static_cast<unsigned>(info->ExceptionRecord->ExceptionCode), info->ExceptionRecord->ExceptionAddress);
-    return EXCEPTION_EXECUTE_HANDLER;
-}
-
-void RunTest(void (*test)(), const char* name, void (*cleanup)() = nullptr)
-{
-    __try {
-        test();
-    } __except (CrashFilter(GetExceptionInformation(), name)) {
-        ++g_failures;
-    }
-    if (cleanup)
-        cleanup();
-}
-
-void RunLateSelfTests()
-{
-    g_late_failures_before = g_failures;
-    RunTest(TestMemoryLate, "TestMemoryLate");
-    RunTest(TestStringLate, "TestStringLate");
-    RunTest(TestLzssLate, "TestLzssLate");
-    RunTest(TestPoolConstructorLate, "TestPoolConstructorLate");
-    RunTest(TestHashTableLate, "TestHashTableLate");
-    RunTest(TestPipNamesLate, "TestPipNamesLate", RestorePipTables);
-    RunTest(TestPipLoadLate, "TestPipLoadLate");
-    int failures = g_failures - g_late_failures_before;
-    Log(failures ? "late self-tests: %d FAILED" : "late self-tests: all passed", failures);
-}
-
-// One-shot hook: runs the late self-tests, removes itself and continues into the real ParseNetworkParams.
-void __cdecl LateSelfTestHook(void* params)
-{
-    RestoreOriginal(0x004E1220);
-    if (ConfigInt("selftests", "enabled", 1))
-        RunLateSelfTests();
-    else
-        Log("late self-tests: skipped (thug2-decomp.ini)");
-    GameFunction<void(__cdecl*)(void*)>(0x004E1220)(params);
-}
-
 } // namespace
 
-REPLACE(0x004E1220, LateSelfTestHook);
+// --- registration (each stage runs its tests in this order) ---------------------------------------------
 
-void RunSelfTests()
-{
-    if (!ConfigInt("selftests", "enabled", 1)) {
-        Log("self-tests: skipped (thug2-decomp.ini)");
-        return;
-    }
-    RunTest(TestCrc, "TestCrc");
-    RunTest(TestVector, "TestVector");
-    RunTest(TestMatrix, "TestMatrix");
-    RunTest(TestBitStream, "TestBitStream");
-    RunTest(TestStringsAndMath, "TestStringsAndMath");
-    RunTest(TestBatch4, "TestBatch4");
-    RunTest(TestBatch5, "TestBatch5");
-    RunTest(TestBatch6, "TestBatch6");
-    RunTest(TestBatch7, "TestBatch7");
-    RunTest(TestBitStreamReadWrite, "TestBitStreamReadWrite");
-    RunTest(TestBatch9, "TestBatch9");
-    RunTest(TestBatch10, "TestBatch10");
-    RunTest(TestBatch11, "TestBatch11");
-    RunTest(TestBatch12, "TestBatch12");
-    RunTest(TestBatch13, "TestBatch13");
-    RunTest(TestRotateToPlane, "TestRotateToPlane");
-    RunTest(TestBatch14, "TestBatch14");
-    RunTest(TestBatch15, "TestBatch15");
-    RunTest(TestBatch16, "TestBatch16");
-    RunTest(TestBatch17, "TestBatch17");
-    RunTest(TestBatch18, "TestBatch18");
-    RunTest(TestPool, "TestPool");
-    RunTest(TestPip, "TestPip", RestorePipTables);
-    RunTest(TestFile, "TestFile");
-    Log(g_failures ? "self-tests: %d FAILED" : "self-tests: all passed", g_failures);
-}
+SELFTEST(Early, TestCrc);
+SELFTEST(Early, TestVector);
+SELFTEST(Early, TestMatrix);
+SELFTEST(Early, TestBitStream);
+SELFTEST(Early, TestStringsAndMath);
+SELFTEST(Early, TestBatch4);
+SELFTEST(Early, TestBatch5);
+SELFTEST(Early, TestBatch6);
+SELFTEST(Early, TestBatch7);
+SELFTEST(Early, TestBitStreamReadWrite);
+SELFTEST(Early, TestBatch9);
+SELFTEST(Early, TestBatch10);
+SELFTEST(Early, TestBatch11);
+SELFTEST(Early, TestBatch12);
+SELFTEST(Early, TestBatch13);
+SELFTEST(Early, TestRotateToPlane);
+SELFTEST(Early, TestBatch14);
+SELFTEST(Early, TestBatch15);
+SELFTEST(Early, TestBatch16);
+SELFTEST(Early, TestBatch17);
+SELFTEST(Early, TestBatch18);
+SELFTEST(Early, TestPool);
+SELFTEST(Early, TestPip, RestorePipTables);
+SELFTEST(Early, TestFile);
+
+SELFTEST(Late, TestMemoryLate);
+SELFTEST(Late, TestStringLate);
+SELFTEST(Late, TestLzssLate);
+SELFTEST(Late, TestPoolConstructorLate);
+SELFTEST(Late, TestHashTableLate);
+SELFTEST(Late, TestPipNamesLate, RestorePipTables);
+
+SELFTEST(EngineStarted, TestPipLoad);

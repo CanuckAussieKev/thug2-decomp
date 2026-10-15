@@ -6,8 +6,9 @@
 // Replacing original game functions with our own.
 //
 // Each decompiled function registers itself with REPLACE(address, function). On startup every registered
-// replacement is installed by writing a jump at the original function's entry point, so all callers in the
-// exe end up in our code.
+// replacement is installed (with MinHook) by writing a jump at the original function's entry point, so all
+// callers in the exe end up in our code. MinHook also builds a trampoline for each one - the original's first
+// instructions followed by a jump back into it - so the original stays callable through Original().
 //
 // The replacement must use the same calling convention and arguments as the original. Check the original's
 // disassembly: VC7.1 with whole-program optimisation can give internal functions non-standard conventions.
@@ -25,9 +26,15 @@ void InstallReplacements();
 // Permanently put back the original code at `address` (for one-shot hooks).
 void RestoreOriginal(uint32_t address);
 
-// While one of these exists, the original code at `address` runs instead of our replacement:
+// Entry point of the original code of the function at `address`: its trampoline once our replacement is
+// installed, otherwise `address` itself. Safe to call from any thread at any time.
+void* OriginalFunction(uint32_t address);
+
+// While one of these exists, *every* call to `address` - including calls made from inside other original
+// functions - runs the original code instead of our replacement. Original() alone only affects your own
+// call; use this when a test wants an original function to use original helpers too:
 //
-//   { OriginalCode original(0x00401DD0); call_the_original(...); }
+//   { OriginalCode a(0x00401290), b(0x004013E0); Original<EncodeFn>(0x00401700)(...); }
 //
 // Only for self-tests at a controlled point on the main thread: other threads calling the function meanwhile
 // would also get the original.
@@ -42,12 +49,11 @@ private:
     uint32_t m_address;
 };
 
-// Pointer to the original game function at `address`. Before replacements are installed (or inside an
-// OriginalCode scope) this runs the original code; otherwise it lands in our replacement.
+// The original game function at `address`, typed. Always runs the original code (see OriginalFunction).
 template <typename Fn>
 Fn Original(uint32_t address)
 {
-    return reinterpret_cast<Fn>(address);
+    return reinterpret_cast<Fn>(OriginalFunction(address));
 }
 
 struct ReplacementRegistrar {

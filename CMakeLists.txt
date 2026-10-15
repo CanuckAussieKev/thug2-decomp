@@ -30,6 +30,23 @@ set_target_properties(sdl2 PROPERTIES
     IMPORTED_LOCATION "${sdl2_SOURCE_DIR}/lib/x86/SDL2.dll"
     INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_BINARY_DIR}/sdl2-include")
 
+# --- MinHook (BSD 2-clause, see THIRD_PARTY_NOTICES.md) --------------------------------------------------
+# Installs the replacement jumps and builds trampolines, so the original code of a replaced function can
+# still be called (self-tests, shadow checks) from any thread. Only the 32-bit parts are built.
+FetchContent_Declare(minhook
+    URL https://github.com/TsudaKageyu/minhook/archive/refs/tags/v1.3.3.tar.gz
+    URL_HASH SHA256=5bec16358ec9086d4593124bf558635e89135abea2c76e5761ecaf09f4546b19
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+    SOURCE_SUBDIR no-cmake) # download only: built below with just the 32-bit sources
+FetchContent_MakeAvailable(minhook)
+add_library(minhook STATIC
+    ${minhook_SOURCE_DIR}/src/buffer.c
+    ${minhook_SOURCE_DIR}/src/hook.c
+    ${minhook_SOURCE_DIR}/src/trampoline.c
+    ${minhook_SOURCE_DIR}/src/hde/hde32.c)
+target_include_directories(minhook PUBLIC ${minhook_SOURCE_DIR}/include)
+target_compile_options(minhook PRIVATE /W0)
+
 # --- PartyMod (ported, MIT licence: see src/partymod/LICENSE and UPSTREAM.md) ---------------------------
 add_library(partymod STATIC
     src/partymod/cfunc.c
@@ -62,6 +79,7 @@ add_library(thug2_decomp SHARED
     src/hook/hook.cpp
     src/hook/log.cpp
     src/hook/selftest.cpp
+    src/hook/selftest_runner.cpp
     src/game/core/crc.cpp
     src/game/core/dbg.cpp
     src/game/core/mem.cpp
@@ -81,7 +99,7 @@ add_library(thug2_decomp SHARED
     src/game/util/lzss.cpp
 )
 target_include_directories(thug2_decomp PRIVATE src)
-target_link_libraries(thug2_decomp PRIVATE partymod)
+target_link_libraries(thug2_decomp PRIVATE partymod minhook)
 target_compile_definitions(thug2_decomp PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
 target_compile_options(thug2_decomp PRIVATE /W4 /permissive- /utf-8)
 # The proxy has to be called dinput8.dll for Windows to load it instead of the system one.

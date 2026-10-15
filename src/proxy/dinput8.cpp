@@ -46,7 +46,7 @@ BOOL WINAPI DllMain(HINSTANCE, DWORD reason, LPVOID)
         LogOpen();
         Log("thug2-decomp loaded");
         // Self-tests call the original functions, so they must run before those functions are replaced.
-        RunSelfTests();
+        RunSelfTests(TestStage::Early);
         InstallReplacements();
 
         // PartyMod is built into this DLL. THUG2PM.exe still tries LoadLibraryA("partymod.dll") at 0x0064B198;
