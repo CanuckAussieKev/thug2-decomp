@@ -115,6 +115,69 @@ Matrix& CreateRotateMatrix(Matrix& m, const Vector& axis, float angle)
     return m;
 }
 
+// 0x00404EC0
+Matrix& CreateRotateMatrix(Matrix& m, int axis, float angle)
+{
+    float s = std::sin(angle);
+    float c = std::cos(angle);
+    int a = (axis + 1) % 3;
+    int b = (axis + 2) % 3;
+    m.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
+    m.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
+    m.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
+    m.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    (&m.row[a].x)[a] = c;
+    (&m.row[a].x)[b] = s;
+    (&m.row[b].x)[a] = -s;
+    (&m.row[b].x)[b] = c;
+    return m;
+}
+
+// 0x00404F50
+Matrix& CreateLookAtMatrix(Matrix& m, const Vector& eye, const Vector& target, const Vector& up)
+{
+    float fx = target.x - eye.x, fy = target.y - eye.y, fz = target.z - eye.z;
+    float length = std::sqrt(fy * fy + fx * fx + fz * fz);
+    if (length > 0.0f) {
+        float scale = 1.0f / length;
+        fx *= scale;
+        fy *= scale;
+        fz *= scale;
+    }
+    // right = forward x up, true_up = right x forward
+    float rx = fy * up.z - fz * up.y, ry = fz * up.x - fx * up.z, rz = fx * up.y - fy * up.x;
+    float ux = ry * fz - rz * fy, uy = rz * fx - rx * fz, uz = rx * fy - ry * fx;
+
+    m.row[0] = {rx, ux, fx, 0.0f};
+    m.row[1] = {ry, uy, fy, 0.0f};
+    m.row[2] = {rz, uz, fz, 0.0f};
+    m.row[3] = {-(rz * eye.z + ry * eye.y + rx * eye.x), -(uz * eye.z + uy * eye.y + ux * eye.x),
+                -(fy * eye.y + fx * eye.x + fz * eye.z), 1.0f};
+    return m;
+}
+
+// 0x00405080
+Matrix& CreateOrthographicMatrix(Matrix& m, float width, float height, float near_z, float far_z)
+{
+    m.row[0] = {2.0f / width, 0.0f, 0.0f, 0.0f};
+    m.row[1] = {0.0f, 2.0f / height, 0.0f, 0.0f};
+    m.row[2] = {0.0f, 0.0f, 2.0f / (far_z - near_z), 0.0f};
+    m.row[3] = {0.0f, 0.0f, -((near_z + far_z) / (far_z - near_z)), 1.0f};
+    return m;
+}
+
+// 0x004050F0
+Matrix& CreatePerspectiveMatrix(Matrix& m, float fov, float aspect, float near_z, float far_z)
+{
+    float q = far_z / (far_z - near_z);
+    float cot = std::cos(fov * 0.5f) / std::sin(fov * 0.5f);
+    m.row[0] = {aspect * cot, 0.0f, 0.0f, 0.0f};
+    m.row[1] = {0.0f, cot, 0.0f, 0.0f};
+    m.row[2] = {0.0f, 0.0f, q, 1.0f};
+    m.row[3] = {0.0f, 0.0f, -(q * near_z), 0.0f};
+    return m;
+}
+
 // 0x00405950
 Matrix& Matrix::Rotate(const Vector& axis, float angle)
 {
@@ -237,7 +300,11 @@ REPLACE(0x00404AB0, &Mth::Matrix::GetEulerAngles);
 REPLACE(0x00405600, &Mth::Matrix::Invert);
 REPLACE(0x00404120, &Mth::Matrix::operator*=);
 REPLACE(0x004048D0, &Mth::Matrix::SetFromEulerAngles);
-REPLACE(0x00404C60, Mth::CreateRotateMatrix);
+REPLACE(0x00404C60, static_cast<Mth::Matrix& (*)(Mth::Matrix&, const Mth::Vector&, float)>(&Mth::CreateRotateMatrix));
+REPLACE(0x00404EC0, static_cast<Mth::Matrix& (*)(Mth::Matrix&, int, float)>(&Mth::CreateRotateMatrix));
+REPLACE(0x00404F50, Mth::CreateLookAtMatrix);
+REPLACE(0x00405080, Mth::CreateOrthographicMatrix);
+REPLACE(0x004050F0, Mth::CreatePerspectiveMatrix);
 REPLACE(0x00405950, &Mth::Matrix::Rotate);
 REPLACE(0x00405670, &Mth::Matrix::RotateXLocal);
 REPLACE(0x00405710, &Mth::Matrix::RotateYLocal);

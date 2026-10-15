@@ -866,6 +866,64 @@ void TestRotateToPlane()
     }
 }
 
+void TestBatch14()
+{
+    using Mth::BBox;
+    using Mth::Matrix;
+    using Mth::Vector;
+    using CenterFn = Vector*(__thiscall*)(const BBox*, Vector*);
+    using AxisFn = Matrix*(__cdecl*)(Matrix*, int, float);
+    using LookAtFn = Matrix*(__cdecl*)(Matrix*, const Vector*, const Vector*, const Vector*);
+    using ProjFn = Matrix*(__cdecl*)(Matrix*, float, float, float, float);
+
+    auto check_matrix = [](const Matrix& expected, const Matrix& actual, const char* what) {
+        for (int i = 0; i < 4; ++i)
+            CheckVector(expected.row[i], actual.row[i], what);
+    };
+
+    BBox box;
+    box.min = {-2.0f, 1.0f, -7.5f, 1.0f};
+    box.max = {6.0f, 3.0f, 0.5f, 1.0f};
+    Vector expected_center{9, 9, 9, 9}, actual_center{9, 9, 9, 9};
+    Original<CenterFn>(0x00403BB0)(&box, &expected_center);
+    box.GetCenter(actual_center);
+    CheckVector(expected_center, actual_center, "BBox::GetCenter");
+
+    for (int axis = 0; axis < 3; ++axis) {
+        for (float angle : {0.0f, 0.8f, -2.2f}) {
+            Matrix expected{}, actual{};
+            Original<AxisFn>(0x00404EC0)(&expected, axis, angle);
+            Mth::CreateRotateMatrix(actual, axis, angle);
+            check_matrix(expected, actual, "Mth::CreateRotateMatrix(axis index)");
+        }
+    }
+
+    const Vector eyes[] = {{0, 5, -10, 1}, {3, 2, 1, 1}, {-4, 0, 8, 1}};
+    const Vector targets[] = {{0, 0, 0, 1}, {3, 2, 1, 1}, {10, -3, 2, 1}};
+    const Vector up{0, 1, 0, 0};
+    for (const Vector& eye : eyes) {
+        for (const Vector& target : targets) {
+            Matrix expected{}, actual{};
+            Original<LookAtFn>(0x00404F50)(&expected, &eye, &target, &up);
+            Mth::CreateLookAtMatrix(actual, eye, target, up);
+            check_matrix(expected, actual, "Mth::CreateLookAtMatrix");
+        }
+    }
+
+    const float params[][4] = {{640, 480, 1, 1000}, {2, 2, -1, 1}, {1.2f, 0.75f, 0.1f, 5000}};
+    for (const auto& p : params) {
+        Matrix expected{}, actual{};
+        Original<ProjFn>(0x00405080)(&expected, p[0], p[1], p[2], p[3]);
+        Mth::CreateOrthographicMatrix(actual, p[0], p[1], p[2], p[3]);
+        check_matrix(expected, actual, "Mth::CreateOrthographicMatrix");
+
+        float fov = p[0] > 10 ? 1.2f : p[0]; // radians
+        Original<ProjFn>(0x004050F0)(&expected, fov, p[1] > 10 ? 0.75f : p[1], p[2], p[3]);
+        Mth::CreatePerspectiveMatrix(actual, fov, p[1] > 10 ? 0.75f : p[1], p[2], p[3]);
+        check_matrix(expected, actual, "Mth::CreatePerspectiveMatrix");
+    }
+}
+
 // --- late self-tests ----------------------------------------------------------------------------------
 
 void TestLzssLate()
@@ -1113,5 +1171,6 @@ void RunSelfTests()
     TestBatch12();
     TestBatch13();
     TestRotateToPlane();
+    TestBatch14();
     Log(g_failures ? "self-tests: %d FAILED" : "self-tests: all passed", g_failures);
 }

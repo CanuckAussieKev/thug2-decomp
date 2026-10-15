@@ -60,7 +60,11 @@ Batches marked (untested) haven't been run in-game yet.
 - [x] Batch 13 (untested): `BBox::ContainsPoint` (0x4025A0, returns int), `BBox::CountAxesContaining`
       (0x4034D0), `BBox::LineIntersect` (0x403550, faces tested +X -X +Y -Y +Z -Z), `BBox::GetClosestSurfacePoint`
       (0x403C00), with self-tests (random and face-aimed segments, points on faces and corners).
-- [ ] Batch 14+: 0x403BB0, 0x404EC0-0x4050F0, 0x405170-0x405A20, 0x4060F0-0x4062D0, 0x404BA0 (matrix debug print).
+- [x] Batch 14 (untested): `BBox::GetCenter` (0x403BB0), `Mth::CreateRotateMatrix(axis index)` (0x404EC0),
+      `Mth::CreateLookAtMatrix` (0x404F50; right vector deliberately not normalised, as in the original),
+      `Mth::CreateOrthographicMatrix` (0x405080), `Mth::CreatePerspectiveMatrix` (0x4050F0), with self-tests.
+      Register scan: 105 functions, 3,453 call sites, clean.
+- [ ] Batch 15+: 0x405170-0x405A20, 0x406200-0x4062D0, 0x404BA0 (matrix debug print).
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
       for original callers that read ECX/EDX after the call without writing them first (ignoring push-to-reserve,
       lea reg,[reg], or reg,-1 and zeroing idioms; callers that are themselves replaced count as safe).

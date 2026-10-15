@@ -16,6 +16,8 @@ public:
 
     // Grow the box to include `point` (x, y, z only).
     void AddPoint(const Vector& point);
+    // Centre of the box (w = 1).
+    Vector& GetCenter(Vector& out) const;
 
     // 1 if min <= point <= max on every axis (edges included; NaN gives 0). Returns int: the original sets
     // all of EAX.

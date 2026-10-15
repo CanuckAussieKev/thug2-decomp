@@ -37,6 +37,13 @@ void BBox::AddPoint(const Vector& point)
         max.z = point.z;
 }
 
+// 0x00403BB0
+Vector& BBox::GetCenter(Vector& out) const
+{
+    out = {(max.x - min.x) * 0.5f + min.x, (max.y - min.y) * 0.5f + min.y, (max.z - min.z) * 0.5f + min.z, 1.0f};
+    return out;
+}
+
 // 0x004025A0
 int BBox::ContainsPoint(const Vector& point) const
 {
@@ -511,6 +518,7 @@ struct GeometryAdapter {
 
 REPLACE(0x00402D60, &Line::DistanceSqrToPoint);
 REPLACE(0x00402F00, Mth::ClosestPointsBetweenLines);
+REPLACE(0x00403BB0, &BBox::GetCenter);
 REPLACE(0x004025A0, &BBox::ContainsPoint);
 REPLACE(0x004034D0, &BBox::CountAxesContaining);
 REPLACE(0x00403550, &BBox::LineIntersect);

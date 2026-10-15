@@ -40,6 +40,16 @@ public:
 
 // Fill `m` with a rotation of `angle` radians about `axis` (normalised internally; a zero axis is used as is).
 Matrix& CreateRotateMatrix(Matrix& m, const Vector& axis, float angle);
+// The same about coordinate axis 0, 1 or 2 (x, y, z), matching CreateRotateX/Y/ZMatrix.
+Matrix& CreateRotateMatrix(Matrix& m, int axis, float angle);
+
+// View matrix looking from `eye` towards `target`. Columns are right = forward x up, up' = right x forward and
+// forward; only forward is normalised (as in the original).
+Matrix& CreateLookAtMatrix(Matrix& m, const Vector& eye, const Vector& target, const Vector& up);
+// Orthographic projection: x scaled by 2/width, y by 2/height, z mapped from [near_z, far_z] to [-1, 1].
+Matrix& CreateOrthographicMatrix(Matrix& m, float width, float height, float near_z, float far_z);
+// Perspective projection. `fov` is in radians; x is scaled by aspect * cot(fov / 2) and y by cot(fov / 2).
+Matrix& CreatePerspectiveMatrix(Matrix& m, float fov, float aspect, float near_z, float far_z);
 
 // Standard row-vector matrix product a * b (the same as D3DXMatrixMultiply). `out` may alias a or b.
 Matrix& Multiply(Matrix& out, const Matrix& a, const Matrix& b);
