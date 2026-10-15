@@ -1,3 +1,4 @@
+#include "game/script/struct.h"
 #include "hook/selftest.h"
 
 #include <cmath>
@@ -2693,6 +2694,268 @@ void TestMemoryManagerHeapCreation()
     }
 }
 
+// Script::CStruct lookups on handmade structures and a stand-in symbol table: every getter, the searches and
+// the flag checks, through the originals and ours, over the same data (they only read it).
+Script::CSymbolTableEntry** g_saved_symbol_table = nullptr;
+bool g_symbol_table_swapped = false;
+
+void RestoreSymbolTable()
+{
+    if (!g_symbol_table_swapped)
+        return;
+    GameVariable<Script::CSymbolTableEntry**>(0x006F3624) = g_saved_symbol_table;
+    g_symbol_table_swapped = false;
+}
+
+#pragma warning(push)
+#pragma warning(disable : 4456) // (the getter macro's `key`, shadowed for the by-name getters)
+void TestScriptStructLookups()
+{
+    using namespace Script;
+    static CSymbolTableEntry* table[0x1000];
+    static CSymbolTableEntry symbols[6];
+    static CComponent components[32];
+    static CStruct structs[6];
+    static CPair pair = {0, 1.5f, -2.0f};
+    static CVector vector = {0, 3.0f, 4.0f, 5.0f};
+    std::memset(table, 0, sizeof(table));
+    std::memset(symbols, 0, sizeof(symbols));
+    std::memset(components, 0, sizeof(components));
+    std::memset(structs, 0, sizeof(structs));
+
+    const char* const strings[] = {"speed", "angle", "text", "global_int", "alias", "global_float", "label", "local",
+                                   "where", "dir", "sub", "list", "count", "unknown_name", "flag_a", "flag_g",
+                                   "included", "missing"};
+    constexpr int kNames = sizeof(strings) / sizeof(strings[0]);
+    uint32_t n[kNames];
+    for (int i = 0; i < kNames; ++i)
+        n[i] = Crc::GenerateCRCFromString(strings[i]);
+    enum { SPEED, ANGLE, TEXT, GINT, ALIAS, GFLOAT, LABEL, LOCAL, WHERE, DIR, SUB, LIST, COUNT, UNKNOWN, FLAGA, FLAGG,
+           INCLUDED, MISSING };
+
+    // Symbols: an included structure, an integer, an alias of it, a float; plus a bucket collision.
+    auto add_symbol = [&](int i, uint32_t name, ESymbolType type, uint32_t value) {
+        symbols[i].name = name;
+        symbols[i].type = type;
+        symbols[i].raw = value;
+        CSymbolTableEntry*& bucket = table[name & 0xFFF];
+        symbols[i].next = bucket;
+        bucket = &symbols[i];
+    };
+    CStruct* global = &structs[1];
+    CStruct* sub = &structs[2];
+    CStruct* subsub = &structs[3];
+    add_symbol(0, n[INCLUDED], ESYMBOLTYPE_STRUCTURE, reinterpret_cast<uint32_t>(global));
+    add_symbol(1, n[GINT], ESYMBOLTYPE_INTEGER, 77);
+    add_symbol(2, n[ALIAS], ESYMBOLTYPE_NAME, n[GINT]);
+    float half = 0.5f;
+    uint32_t half_bits;
+    std::memcpy(&half_bits, &half, 4);
+    add_symbol(3, n[GFLOAT], ESYMBOLTYPE_FLOAT, half_bits);
+    add_symbol(4, n[INCLUDED] + 0x1000, ESYMBOLTYPE_INTEGER, 5); // same bucket as INCLUDED
+    add_symbol(5, n[MISSING] ^ 0x5000, ESYMBOLTYPE_NAME, 0x12345); // an alias of nothing
+
+    int used = 0;
+    auto add = [&](CStruct* to, ESymbolType type, uint32_t name, uint32_t value) {
+        CComponent* component = &components[used++];
+        component->typeAndFlag = static_cast<uint8_t>(type << 1);
+        component->name = name;
+        component->raw = value;
+        CComponent** link = &to->m_head;
+        while (*link)
+            link = &(*link)->next;
+        *link = component;
+    };
+    float f15 = 1.5f, f25 = 2.5f;
+    uint32_t f15_bits, f25_bits;
+    std::memcpy(&f15_bits, &f15, 4);
+    std::memcpy(&f25_bits, &f25, 4);
+    // The included global structure.
+    add(global, ESYMBOLTYPE_INTEGER, n[SPEED], 5);
+    add(global, ESYMBOLTYPE_NAME, 0, n[FLAGG]);
+    add(global, ESYMBOLTYPE_FLOAT, n[ANGLE], f25_bits);
+    add(global, ESYMBOLTYPE_STRING, n[TEXT], reinterpret_cast<uint32_t>("global text"));
+    // Nested structures.
+    add(subsub, ESYMBOLTYPE_INTEGER, n[COUNT], 1);
+    add(sub, ESYMBOLTYPE_STRUCTURE, n[SUB], reinterpret_cast<uint32_t>(subsub));
+    add(sub, ESYMBOLTYPE_NAME, 0, n[FLAGA]);
+    add(sub, ESYMBOLTYPE_NAME, 0, n[INCLUDED]); // last: an include isn't the unnamed checksum
+    // The main structure.
+    CStruct* main = &structs[0];
+    add(main, ESYMBOLTYPE_INTEGER, n[SPEED], 1);
+    add(main, ESYMBOLTYPE_NAME, 0, n[INCLUDED]);
+    add(main, ESYMBOLTYPE_INTEGER, n[SPEED], 3);
+    add(main, ESYMBOLTYPE_NAME, n[GINT], n[GINT]);
+    add(main, ESYMBOLTYPE_NAME, n[ALIAS], n[ALIAS]);
+    add(main, ESYMBOLTYPE_NAME, n[GFLOAT], n[GFLOAT]);
+    add(main, ESYMBOLTYPE_NAME, 0, n[FLAGA]);
+    add(main, ESYMBOLTYPE_STRING, n[LABEL], reinterpret_cast<uint32_t>("hello"));
+    add(main, ESYMBOLTYPE_LOCALSTRING, n[LOCAL], reinterpret_cast<uint32_t>("local text"));
+    add(main, ESYMBOLTYPE_PAIR, n[WHERE], reinterpret_cast<uint32_t>(&pair));
+    add(main, ESYMBOLTYPE_VECTOR, n[DIR], reinterpret_cast<uint32_t>(&vector));
+    add(main, ESYMBOLTYPE_STRUCTURE, n[SUB], reinterpret_cast<uint32_t>(sub));
+    add(main, ESYMBOLTYPE_ARRAY, n[LIST], 0xA11A7);
+    add(main, ESYMBOLTYPE_INTEGER, n[COUNT], 9);
+    add(main, ESYMBOLTYPE_NAME, n[UNKNOWN], n[UNKNOWN]);
+    add(main, ESYMBOLTYPE_FLOAT, n[ANGLE], f15_bits);
+    add(main, ESYMBOLTYPE_NAME, n[TEXT], n[MISSING] ^ 0x5000);
+    // For IsSubsetOf: two small integer structures.
+    add(&structs[4], ESYMBOLTYPE_INTEGER, n[SPEED], 1);
+    add(&structs[5], ESYMBOLTYPE_INTEGER, n[COUNT], 2);
+    add(&structs[5], ESYMBOLTYPE_INTEGER, n[SPEED], 1);
+
+    g_saved_symbol_table = GameVariable<CSymbolTableEntry**>(0x006F3624);
+    GameVariable<CSymbolTableEntry**>(0x006F3624) = table;
+    g_symbol_table_swapped = true;
+
+    auto run = [&](bool original) {
+        std::vector<uint32_t> trace;
+        auto out_value = [&](bool result, const void* out, size_t size) {
+            trace.push_back(result);
+            uint32_t words[4] = {};
+            std::memcpy(words, out, size);
+            for (size_t i = 0; i < size / 4; ++i)
+                trace.push_back(words[i]);
+        };
+        auto symbol = [&](uint32_t name) {
+            trace.push_back(reinterpret_cast<uint32_t>(original ? Original<CSymbolTableEntry*(__cdecl*)(uint32_t)>(
+                                                                      0x00478CF0)(name)
+                                                                : LookUpSymbol(name)));
+        };
+        for (int i = 0; i < kNames; ++i)
+            symbol(n[i]);
+        symbol(n[INCLUDED] + 0x1000);
+        symbol(n[MISSING] ^ 0x5000);
+
+        for (CStruct* s : {main, global, sub, &structs[4]}) {
+            std::vector<uint32_t> query(n, n + kNames);
+            query.push_back(0);
+            for (int q = 0; q <= kNames; ++q) {
+                uint32_t name = query[q];
+                const char* text = q < kNames ? strings[q] : "";
+                for (uint32_t type = 0; type <= 13; ++type) {
+                    uint32_t value = 0xCCCCCCCC;
+                    bool r = original ? Original<bool(__thiscall*)(CStruct*, uint32_t, uint32_t, void*)>(0x004764B0)(
+                                            s, name, type, &value)
+                                      : s->Search(name, type, &value);
+                    out_value(r, &value, 4);
+                }
+#define GETTER(address, Type, call_ours, ...)                                                                        \
+    {                                                                                                                  \
+        Type value{};                                                                                                  \
+        std::memset(&value, 0xCC, sizeof(value));                                                                      \
+        bool r = original ? Original<bool(__thiscall*)(CStruct*, __VA_ARGS__)>(address)(s, key, &value, flag)          \
+                          : call_ours;                                                                                 \
+        out_value(r, &value, sizeof(value));                                                                           \
+    }
+                for (int flag = 0; flag < 2; ++flag) {
+                    uint32_t key = name;
+                    GETTER(0x00476590, const char*, s->GetString(key, &value, flag), uint32_t, const char**, int)
+                    GETTER(0x00476630, int, s->GetInteger(key, &value, flag), uint32_t, int*, int)
+                    GETTER(0x004766D0, float, s->GetFloat(key, &value, flag), uint32_t, float*, int)
+                    GETTER(0x004767C0, CStruct*, s->GetStructure(key, &value, flag), uint32_t, CStruct**, int)
+                    GETTER(0x00476860, CArray*, s->GetArray(key, &value, flag), uint32_t, CArray**, int)
+                    GETTER(0x00476950, uint32_t, s->GetChecksum(key, &value, flag), uint32_t, uint32_t*, int)
+                    GETTER(0x00476A30, uint32_t, s->GetChecksumOrStringChecksum(key, &value, flag), uint32_t,
+                           uint32_t*, int)
+                    GETTER(0x00476FB0, VectorValue, s->GetVector(key, &value, flag), uint32_t, VectorValue*, int)
+                    {
+                        bool b = flag != 0;
+                        GETTER(0x00476C60, const char*, reinterpret_cast<bool(__thiscall*)(CStruct*, uint32_t,
+                                                                                           const char**, bool)>(
+                                                            0x00476C60)(s, key, &value, b),
+                               uint32_t, const char**, bool)
+                        GETTER(0x00476CB0, int, s->GetInteger(key, &value, b), uint32_t, int*, bool)
+                        GETTER(0x00476D50, float, s->GetFloat(key, &value, b), uint32_t, float*, bool)
+                        GETTER(0x00476E70, CStruct*, s->GetStructure(key, &value, b), uint32_t, CStruct**, bool)
+                        GETTER(0x00476EC0, uint32_t, s->GetChecksum(key, &value, b), uint32_t, uint32_t*, bool)
+                        GETTER(0x00476F10, CArray*, s->GetArray(key, &value, b), uint32_t, CArray**, bool)
+                        GETTER(0x00477040, VectorValue, s->GetVector(key, &value, b), uint32_t, VectorValue*, bool)
+                        GETTER(0x00476DF0, CPair, s->GetPair(key, &value, b), uint32_t, CPair*, bool)
+                    }
+                    if (q < kNames) {
+                        const char* key2 = text;
+                        {
+                            const char* key = key2;
+                            GETTER(0x004765F0, const char*, s->GetString(key, &value, flag), const char*, const char**,
+                                   int)
+                            GETTER(0x00476680, int, s->GetInteger(key, &value, flag), const char*, int*, int)
+                            GETTER(0x00476720, float, s->GetFloat(key, &value, flag), const char*, float*, int)
+                            GETTER(0x00476810, CStruct*, s->GetStructure(key, &value, flag), const char*, CStruct**,
+                                   int)
+                            GETTER(0x004768B0, CArray*, s->GetArray(key, &value, flag), const char*, CArray**, int)
+                            GETTER(0x00476A00, uint32_t, s->GetChecksum(key, &value, flag), const char*, uint32_t*,
+                                   int)
+                            GETTER(0x00477010, VectorValue, s->GetVector(key, &value, flag), const char*,
+                                   VectorValue*, int)
+                            bool b = flag != 0;
+                            GETTER(0x00476C80, const char*, reinterpret_cast<bool(__thiscall*)(
+                                                                CStruct*, const char*, const char**, bool)>(0x00476C80)(
+                                                                s, key, &value, b),
+                                   const char*, const char**, bool)
+                            GETTER(0x00476D00, int, s->GetInteger(key, &value, b), const char*, int*, bool)
+                            GETTER(0x00476DA0, float, s->GetFloat(key, &value, b), const char*, float*, bool)
+                            GETTER(0x00476EE0, uint32_t, s->GetChecksum(key, &value, b), const char*, uint32_t*, bool)
+                            GETTER(0x00476F60, CArray*, s->GetArray(key, &value, b), const char*, CArray**, bool)
+                            GETTER(0x00477060, VectorValue, s->GetVector(key, &value, b), const char*, VectorValue*,
+                                   bool)
+                        }
+                    }
+                }
+#undef GETTER
+                {
+                    float x = -1, y = -1;
+                    bool r = original ? Original<bool(__thiscall*)(CStruct*, uint32_t, float*, float*, int)>(
+                                            0x00476770)(s, name, &x, &y, 1)
+                                      : s->GetPair(name, &x, &y, 1);
+                    float xy[2] = {x, y};
+                    out_value(r, xy, 8);
+                }
+                using Find = CComponent*(__thiscall*)(CStruct*, uint32_t);
+                using Has = bool(__thiscall*)(CStruct*, uint32_t);
+                using HasNamed = bool(__thiscall*)(CStruct*, const char*);
+                trace.push_back(reinterpret_cast<uint32_t>(original ? Original<Find>(0x00476A90)(s, name)
+                                                                    : s->FindComponent(name)));
+                trace.push_back(reinterpret_cast<uint32_t>(original ? Original<Find>(0x00476430)(s, name)
+                                                                    : s->FindLastComponent(name)));
+                trace.push_back(original ? Original<Has>(0x00476AF0)(s, name) : s->ContainsComponentNamed(name));
+                trace.push_back(original ? Original<Has>(0x00476B40)(s, name) : s->ContainsFlag(name));
+                trace.push_back(original ? Original<HasNamed>(0x00476B10)(s, text) : s->ContainsComponentNamed(text));
+                trace.push_back(original ? Original<HasNamed>(0x00476BA0)(s, text) : s->ContainsFlag(text));
+            }
+            for (CStruct* other : {main, global, sub, subsub, &structs[4], &structs[5], static_cast<CStruct*>(nullptr)})
+                trace.push_back(original ? Original<bool(__thiscall*)(CStruct*, CStruct*)>(0x00476BC0)(s, other)
+                                         : s->References(other));
+            CComponent* walk = nullptr;
+            for (int i = 0; i < 4; ++i) {
+                walk = original ? Original<CComponent*(__thiscall*)(CStruct*, CComponent*)>(0x00476490)(s, walk)
+                                : s->GetNextComponent(walk);
+                trace.push_back(reinterpret_cast<uint32_t>(walk));
+            }
+            trace.push_back(original ? Original<bool(__thiscall*)(CStruct*)>(0x00476420)(s) : s->IsEmpty());
+        }
+        for (CStruct* a : {&structs[4], &structs[5]})
+            for (CStruct* b : {&structs[4], &structs[5]})
+                trace.push_back(original ? Original<bool(__thiscall*)(CStruct*, CStruct*)>(0x00476C10)(a, b)
+                                         : a->IsSubsetOf(b));
+        return trace;
+    };
+    std::vector<uint32_t> expected = run(true);
+    std::vector<uint32_t> actual = run(false);
+    RestoreSymbolTable();
+    Check(expected == actual && expected.size() > 1000, "script structures: lookups and getters");
+    for (size_t i = 0, shown = 0; i < expected.size() && i < actual.size() && shown < 8; ++i) {
+        if (expected[i] != actual[i]) {
+            Log("  struct lookups entry %u: original %08X ours %08X", static_cast<unsigned>(i), expected[i], actual[i]);
+            ++shown;
+        }
+    }
+    if (expected.size() != actual.size())
+        Log("  struct lookups: %u entries vs %u", static_cast<unsigned>(expected.size()),
+            static_cast<unsigned>(actual.size()));
+}
+#pragma warning(pop)
+
 // --- late self-tests ----------------------------------------------------------------------------------
 
 // The table's contents as (bucket, position in chain, key, value), so tables with different item addresses
@@ -3632,6 +3895,7 @@ SELFTEST(Early, TestAllocatorLayer);
 SELFTEST(Early, TestHeap, RestoreMemoryManager);
 SELFTEST(Early, TestMemoryManager, RestoreManagerForTest);
 SELFTEST(Early, TestMemoryManagerHeapCreation, RestoreManagerInitTest);
+SELFTEST(Early, TestScriptStructLookups, RestoreSymbolTable);
 
 SELFTEST(Late, TestMemoryLate);
 SELFTEST(Late, TestStringLate);

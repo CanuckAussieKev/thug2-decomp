@@ -266,7 +266,19 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       is only exercised by starting the game.
 - [x] Batches 34-35 tested in the game (2026-10-15, by the user): game runs; log - 344/344 replacements, early
       32/32, late 11/11, engine-started 2/2, shadow checks clean. The memory manager is entirely ours.
-- [ ] Next: pick the next subsystem.
+- [x] Batch 36 (NOT run in the game yet; early test passes offline): the script system's structures, read side
+      (src/game/script/struct.*). CComponent (16 bytes: type<<1 byte, name checksum, value, next), CStruct
+      (8 bytes, head at +4), symbol table 0x6F3624 (0x1000 buckets; entry type +1, name +4, value +0xC,
+      next +0x10), ESymbolType (1 int, 2 float, 3 string, 4 local string, 5 pair, 6 vector, 10 struct,
+      12 array, 13 name). LookUpSymbol 0x478CF0 (follows aliases), Init, IsEmpty, GetNextComponent,
+      FindComponent/FindLastComponent, Search 0x4764B0 (last match wins; int->float; names standing for
+      global values; included global structures), ContainsComponentNamed/ContainsFlag (by checksum and
+      name), References, IsSubsetOf, and every typed getter (string, integer, float, pair x2, structure,
+      array, checksum, checksum-or-string, vector) in its int-assert, bool-assert, checksum and string
+      forms - 44 functions. params.h now calls CStruct directly. Early test: a stand-in symbol table and
+      handmade structures, every getter over 19 names, originals vs ours (six deliberate bugs caught, one
+      after adding an include-last case).
+- [ ] Next: the write side of CStruct (adding/removing components, Clear, copying) and the component pools.
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
       for original callers that read ECX/EDX after the call without writing them first (ignoring push-to-reserve,
       lea reg,[reg], or reg,-1 and zeroing idioms; callers that are themselves replaced count as safe).

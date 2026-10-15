@@ -1,0 +1,142 @@
+#pragma once
+
+#include <cstdint>
+
+// The script system's data: structures of named components (Script::CStruct - also every script function's
+// parameters), and the global symbol table they can refer to.
+//
+// A component's name is the checksum of the name used in the script (0 for an unnamed one). A structure can
+// include a global structure by an unnamed name component that names it: lookups search those too.
+namespace Script {
+
+class CArray;
+class CStruct;
+
+// The types of components and symbols.
+enum ESymbolType : uint8_t {
+    ESYMBOLTYPE_NONE = 0,
+    ESYMBOLTYPE_INTEGER = 1,
+    ESYMBOLTYPE_FLOAT = 2,
+    ESYMBOLTYPE_STRING = 3,
+    ESYMBOLTYPE_LOCALSTRING = 4,
+    ESYMBOLTYPE_PAIR = 5,
+    ESYMBOLTYPE_VECTOR = 6,
+    ESYMBOLTYPE_QSCRIPT = 7,
+    ESYMBOLTYPE_CFUNCTION = 8,
+    ESYMBOLTYPE_MEMBERFUNCTION = 9,
+    ESYMBOLTYPE_STRUCTURE = 10,
+    ESYMBOLTYPE_ARRAY = 12,
+    ESYMBOLTYPE_NAME = 13,
+};
+
+// Pair and vector values are separate objects; the coordinates start at +4.
+struct CPair {
+    uint32_t unknown0;
+    float x;
+    float y;
+};
+struct CVector {
+    uint32_t unknown0;
+    float x;
+    float y;
+    float z;
+};
+
+struct CComponent {
+    uint8_t typeAndFlag; // the type in the top 7 bits
+    uint8_t unknown1;
+    uint16_t unknown2;
+    uint32_t name;
+    union {
+        int32_t integer;
+        float floatValue;
+        const char* string;
+        uint32_t checksum;
+        CStruct* structure;
+        CArray* array;
+        CPair* pair;
+        CVector* vector;
+        uint32_t raw;
+    };
+    CComponent* next;
+
+    ESymbolType Type() const { return static_cast<ESymbolType>(typeAndFlag >> 1); }
+};
+static_assert(sizeof(CComponent) == 0x10, "layout must match the original");
+
+struct CSymbolTableEntry {
+    uint8_t unknown0;
+    ESymbolType type;
+    uint16_t unknown2;
+    uint32_t name;
+    uint32_t unknown8;
+    union {
+        int32_t integer;
+        float floatValue;
+        CStruct* structure;
+        uint32_t checksum;
+        uint32_t raw;
+    };
+    CSymbolTableEntry* next;
+};
+
+// 0x00478CF0: the global symbol `name` (following names that just name another symbol), or null.
+CSymbolTableEntry* LookUpSymbol(uint32_t name);
+
+// A 4-component vector as scripts' vectors are returned (w = 1).
+struct VectorValue {
+    float x, y, z, w;
+};
+
+class CStruct {
+public:
+    CStruct* Init();
+    bool IsEmpty();
+    // The next component after `component` (null: the first).
+    CComponent* GetNextComponent(CComponent* component);
+    // The component `name` - the last one there is, also in included structures.
+    CComponent* FindLastComponent(uint32_t name);
+    // The first component named `name`, or the flag `name`, also in included structures.
+    CComponent* FindComponent(uint32_t name);
+    // The value of the last component `name` of type `type` (integers are converted for floats; name components
+    // naming a global symbol of the type count too), into `out` (4 bytes).
+    bool Search(uint32_t name, uint32_t type, void* out);
+
+    bool ContainsComponentNamed(uint32_t name);
+    bool ContainsComponentNamed(const char* name);
+    // Whether the bare name `flag` is among the components.
+    bool ContainsFlag(uint32_t flag);
+    bool ContainsFlag(const char* flag);
+    // Whether `other` is this structure or one of its structure components (recursively).
+    bool References(CStruct* other);
+    // Whether every component of this structure is in `other` too (by name and value).
+    bool IsSubsetOf(CStruct* other);
+
+    // The typed getters: false if missing (`assert`: the game would report it - a no-op in this build).
+    bool GetString(uint32_t name, const char** out, int assert);
+    bool GetString(const char* name, const char** out, int assert);
+    bool GetInteger(uint32_t name, int* out, int assert);
+    bool GetInteger(const char* name, int* out, int assert);
+    bool GetFloat(uint32_t name, float* out, int assert);
+    bool GetFloat(const char* name, float* out, int assert);
+    bool GetPair(uint32_t name, float* x, float* y, int assert);
+    bool GetPair(uint32_t name, CPair* out, bool assert);
+    bool GetStructure(uint32_t name, CStruct** out, int assert);
+    bool GetStructure(const char* name, CStruct** out, int assert);
+    bool GetArray(uint32_t name, CArray** out, int assert);
+    bool GetArray(const char* name, CArray** out, int assert);
+    bool GetChecksum(uint32_t name, uint32_t* out, int assert);
+    bool GetChecksum(const char* name, uint32_t* out, int assert);
+    // The checksum `name`, or else the checksum of the string `name`.
+    bool GetChecksumOrStringChecksum(uint32_t name, uint32_t* out, int assert);
+    bool GetVector(uint32_t name, VectorValue* out, int assert);
+    bool GetVector(const char* name, VectorValue* out, int assert);
+
+    uint8_t m_unknown0;
+    uint8_t m_unknown1;
+    uint16_t m_unknown2;
+    CComponent* m_head;
+};
+static_assert(sizeof(CStruct) == 8, "layout must match the original");
+
+} // namespace Script
