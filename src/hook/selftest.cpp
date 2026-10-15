@@ -3,6 +3,9 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <iterator>
+#include <tuple>
+#include <vector>
 
 #include <initializer_list>
 #include <new>
@@ -12,6 +15,7 @@
 #include "game/core/pool.h"
 #include "game/core/str.h"
 #include "game/core/string.h"
+#include "game/lst/hashtable.h"
 #include "game/mth/geometry.h"
 #include "game/mth/math.h"
 #include "game/mth/matrix.h"
@@ -1283,6 +1287,126 @@ void TestPool()
 
 // --- late self-tests ----------------------------------------------------------------------------------
 
+// The table's contents as (bucket, position in chain, key, value), so tables with different item addresses
+// can be compared.
+std::vector<std::tuple<int, int, uint32_t, void*>> DumpHashTable(const Lst::HashTable& table)
+{
+    std::vector<std::tuple<int, int, uint32_t, void*>> out;
+    for (int b = 0; b < 1 << table.m_bits; ++b) {
+        int position = 0;
+        for (const Lst::HashTable::Item* item = &table.m_buckets[b]; item; item = item->next)
+            out.emplace_back(b, position++, item->key, item->value);
+    }
+    return out;
+}
+
+void TestHashTableLate()
+{
+    using Lst::HashTable;
+    using CtorFn = HashTable*(__thiscall*)(void*, int);
+    using PutFn = bool(__thiscall*)(HashTable*, const uint32_t*, void*);
+    using FlushFn = void(__thiscall*)(HashTable*, const uint32_t*);
+    using FlushAllFn = void(__thiscall*)(HashTable*);
+    using CallbackFn = void(__thiscall*)(HashTable*, HashTable::Callback, void*);
+    using NextFn = bool(__thiscall*)(HashTable*);
+
+    alignas(HashTable) unsigned char raw_expected[sizeof(HashTable)], raw_actual[sizeof(HashTable)];
+    HashTable* expected;
+    {
+        OriginalCode original(0x0049FD90);
+        expected = Original<CtorFn>(0x0049FD90)(raw_expected, 2);
+    }
+    HashTable* actual = new (raw_actual) HashTable(2);
+    Check(expected == reinterpret_cast<HashTable*>(raw_expected) && expected->m_bits == actual->m_bits &&
+              expected->m_size == actual->m_size && expected->m_flag == actual->m_flag &&
+              DumpHashTable(*expected) == DumpHashTable(*actual),
+          "HashTable::HashTable");
+
+    auto value = [](int i) { return reinterpret_cast<void*>(static_cast<uintptr_t>(0x1000 + i * 4)); };
+    auto same = [&] { return expected->m_size == actual->m_size && DumpHashTable(*expected) == DumpHashTable(*actual); };
+
+    // 4 buckets: keys 1, 5, 9, 13 share one, 2 and 6 another.
+    const uint32_t keys[] = {1, 5, 2, 9, 6, 13, 3, 0x80000001u};
+    for (int i = 0; i < static_cast<int>(std::size(keys)); ++i) {
+        bool e, a;
+        {
+            OriginalCode original(0x00462740);
+            e = Original<PutFn>(0x00462740)(expected, &keys[i], value(i));
+        }
+        a = actual->PutItem(keys[i], value(i));
+        Check(e == a && same(), "HashTable::PutItem");
+    }
+
+    auto iterate = [](HashTable* table, bool original) {
+        std::vector<uint32_t> seen;
+        table->m_iterBucket = -1;
+        table->m_iterItem = nullptr;
+        for (int guard = 0; guard < 64; ++guard) {
+            bool more;
+            if (original) {
+                OriginalCode code(0x00588190);
+                more = Original<NextFn>(0x00588190)(table);
+            } else {
+                more = table->IterateNext();
+            }
+            if (!more)
+                break;
+            seen.push_back(table->m_iterItem->key);
+        }
+        return seen;
+    };
+    auto callbacks = [](HashTable* table, bool original) {
+        static std::vector<void*>* s_out;
+        std::vector<void*> out;
+        s_out = &out;
+        auto record = [](void* v, void*) { s_out->push_back(v); };
+        if (original) {
+            OriginalCode code(0x005B8060);
+            Original<CallbackFn>(0x005B8060)(table, record, nullptr);
+        } else {
+            table->HandleCallback(record, nullptr);
+        }
+        return out;
+    };
+    auto check_walks = [&](const char* when) {
+        Check(iterate(expected, true) == iterate(actual, false), when);
+        Check(callbacks(expected, true) == callbacks(actual, false), when);
+    };
+    check_walks("HashTable::IterateNext/HandleCallback (full)");
+
+    // Remove a bucket's own slot (leaving its chain), a chained item, a missing key, then re-add.
+    const uint32_t removals[] = {1, 9, 77, 2, 6, 1};
+    for (uint32_t key : removals) {
+        {
+            OriginalCode original(0x005B80D0);
+            Original<FlushFn>(0x005B80D0)(expected, &key);
+        }
+        actual->FlushItem(key);
+        Check(same(), "HashTable::FlushItem");
+    }
+    check_walks("HashTable::IterateNext/HandleCallback (after FlushItem)");
+    {
+        uint32_t key = 21;
+        {
+            OriginalCode original(0x00462740);
+            Original<PutFn>(0x00462740)(expected, &key, value(50));
+        }
+        actual->PutItem(key, value(50));
+        Check(same(), "HashTable::PutItem (into emptied slot)");
+    }
+
+    {
+        OriginalCode original(0x0049FD30);
+        Original<FlushAllFn>(0x0049FD30)(expected);
+    }
+    actual->FlushAllItems();
+    Check(same() && actual->m_size == 0, "HashTable::FlushAllItems");
+    check_walks("HashTable::IterateNext/HandleCallback (empty)");
+
+    Mem::Free(expected->m_buckets);
+    Mem::Free(actual->m_buckets);
+}
+
 void TestPoolConstructorLate()
 {
     using Mem::Pool;
@@ -1537,6 +1661,7 @@ void RunLateSelfTests()
     TestStringLate();
     TestLzssLate();
     TestPoolConstructorLate();
+    TestHashTableLate();
     int failures = g_failures - g_late_failures_before;
     Log(failures ? "late self-tests: %d FAILED" : "late self-tests: all passed", failures);
 }

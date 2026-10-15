@@ -30,3 +30,20 @@ public:
 };
 
 } // namespace Mem
+
+namespace Mem {
+
+// Item pools shared by the engine's container classes, by index. Pool 0 holds hash table items (12 bytes
+// each); the other slots are unused in this game.
+namespace PoolManager {
+
+// Create pool `index` with room for `count` items. Only index 0 is set up (as "HashItem").
+void SetUp(int index, int count);
+// Take an item from pool `index`; without that pool, allocate it from the default heap instead.
+void* CreateItem(int index);
+// Give an item back to wherever CreateItem got it.
+void FreeItem(int index, void* item);
+
+} // namespace PoolManager
+
+} // namespace Mem

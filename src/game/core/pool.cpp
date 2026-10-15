@@ -4,6 +4,7 @@
 #include <new>
 
 #include "game/core/mem.h"
+#include "hook/game.h"
 #include "hook/hook.h"
 
 namespace Mem {
@@ -64,6 +65,39 @@ bool Pool::Contains(const void* pointer) const
     return m_start <= p && p < m_end;
 }
 
+namespace PoolManager {
+
+static Pool*& PoolAt(int index) { return GameVariable<Pool*[4]>(0x007D1808)[index]; }
+
+// 0x005BC3C0
+void SetUp(int index, int count)
+{
+    if (index != 0)
+        return;
+    void* memory = New(sizeof(Pool));
+    PoolAt(0) = memory ? new (memory) Pool(12, count, "HashItem") : nullptr;
+}
+
+// 0x005BC450
+void* CreateItem(int index)
+{
+    if (Pool* pool = PoolAt(index))
+        return pool->Allocate();
+    // Only pool 0 has a known item size; the original asks for 0 bytes for the others.
+    return New(index == 0 ? 12 : 0);
+}
+
+// 0x005BC4A0
+void FreeItem(int index, void* item)
+{
+    if (Pool* pool = PoolAt(index))
+        pool->Free(item);
+    else
+        Free(item);
+}
+
+} // namespace PoolManager
+
 } // namespace Mem
 
 namespace {
@@ -81,3 +115,6 @@ REPLACE(0x005BA3B0, &Mem::Pool::Contains);
 REPLACE(0x005BA3D0, &Mem::Pool::Allocate);
 REPLACE(0x005BA400, &Mem::Pool::Free);
 REPLACE(0x005BA420, &PoolAdapter::Construct);
+REPLACE(0x005BC3C0, Mem::PoolManager::SetUp);
+REPLACE(0x005BC450, Mem::PoolManager::CreateItem);
+REPLACE(0x005BC4A0, Mem::PoolManager::FreeItem);

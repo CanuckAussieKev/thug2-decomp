@@ -105,7 +105,15 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       0x5BA3D0 (335 callers), `Free` 0x5BA400, `Contains` 0x5BA3B0 (bool, AL only), with self-tests.
       Scanner: the PUSH-ECX filter now ignores writes to other stack slots ([ESP + n]); 131 functions,
       4,429 call sites, clean. Return-value pass matches all four.
-- [ ] Next: the hash table helpers (0x5B80D0 and friends, 0x5BC2C0-0x5BC9B0), then the PIP/PRE archive code.
+- [x] Batch 20 (untested): `Lst::HashTable` - ctor 0x49FD90, `PutItem` 0x462740, `FlushItem` 0x5B80D0,
+      `FlushAllItems` 0x49FD30, `HandleCallback` 0x5B8060, `IterateNext` 0x588190 (bool, 114 callers read AL);
+      `Mem::PoolManager` `SetUp` 0x5BC3C0 / `CreateItem` 0x5BC450 / `FreeItem` 0x5BC4A0 (item pool 0 =
+      "HashItem", pointers at 0x7D1808). Late self-test runs the same insert/remove/iterate sequence through
+      the original and our code and compares bucket contents. Lookup (GetItem) is inlined at its callers.
+      Scanner: 140 functions, 4,719 call sites, clean.
+      Not done here: 0x5BC2C0/0x5BC340 create and destroy the memory manager itself (with the manager);
+      0x5BC4E0-0x5BC620 are a different class (a two-ended stack-style region allocator, vtable 0x658A58).
+- [ ] Next: the PIP/PRE archive code (0x5B7130-0x5B9CB0).
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
       for original callers that read ECX/EDX after the call without writing them first (ignoring push-to-reserve,
       lea reg,[reg], or reg,-1 and zeroing idioms; callers that are themselves replaced count as safe).
