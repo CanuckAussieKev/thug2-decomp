@@ -10,6 +10,7 @@
 #include "game/core/crc.h"
 #include "game/core/mem.h"
 #include "game/core/str.h"
+#include "game/core/string.h"
 #include "game/mth/geometry.h"
 #include "game/mth/math.h"
 #include "game/mth/matrix.h"
@@ -499,7 +500,196 @@ void TestBatch7()
     }
 }
 
+// --- late self-tests ----------------------------------------------------------------------------------
+// These need the game running far enough for its memory manager to exist, so they run from a one-shot hook
+// on ParseNetworkParams (called once by WinMain before the main loop). Originals are reached through
+// OriginalCode scopes because the replacements are already installed by then.
+
+void TestMemoryLate()
+{
+    using NewFn = void*(__cdecl*)(unsigned int);
+    using FreeFn = void(__cdecl*)(void*);
+    using Calloc1 = void*(__cdecl*)(unsigned int);
+    using Calloc2 = void*(__cdecl*)(unsigned int, int);
+    using Calloc3 = void*(__cdecl*)(unsigned int, Mem::Heap*, int);
+
+    auto all_zero = [](const void* p, unsigned int size) {
+        const auto* bytes = static_cast<const unsigned char*>(p);
+        for (unsigned int i = 0; i < size; ++i)
+            if (bytes[i])
+                return false;
+        return true;
+    };
+    auto release_original = [](void* p) {
+        OriginalCode original(0x00401000);
+        Original<FreeFn>(0x00401000)(p);
+    };
+
+    for (unsigned int size : {1u, 16u, 100u, 4096u}) {
+        void* a;
+        {
+            OriginalCode original(0x004015D0);
+            a = Original<NewFn>(0x004015D0)(size);
+        }
+        void* b = Mem::New(size);
+        Check(a && b && a != b, "Mem::New");
+        release_original(a);
+        Mem::Free(b);
+
+        // Dirty some memory first so a missing clear would show up.
+        void* dirty = Mem::New(size);
+        std::memset(dirty, 0xCD, size);
+        Mem::Free(dirty);
+
+        void* c1;
+        void* c2;
+        void* c3;
+        {
+            OriginalCode o1(0x00401CC0), o2(0x00401D00), o3(0x00401D40);
+            c1 = Original<Calloc1>(0x00401CC0)(size);
+            c2 = Original<Calloc2>(0x00401D00)(size, 1);
+            c3 = Original<Calloc3>(0x00401D40)(size, nullptr, 1);
+        }
+        void* d1 = Mem::Calloc(size);
+        void* d2 = Mem::Calloc(size, 1);
+        void* d3 = Mem::Calloc(size, nullptr, 1);
+        Check(c1 && c2 && c3 && all_zero(c1, size) && all_zero(c2, size) && all_zero(c3, size),
+              "Mem::Calloc (original, sanity)");
+        Check(d1 && d2 && d3 && all_zero(d1, size) && all_zero(d2, size) && all_zero(d3, size), "Mem::Calloc");
+        for (void* p : {c1, c2, c3, d1, d2, d3})
+            Mem::Free(p);
+    }
+}
+
+// Gives the tests access to String's protected CopyRange.
+struct StringAccess : Str::String {
+    using Str::String::CopyRange;
+};
+
+void TestStringLate()
+{
+    using Str::String;
+    using Ctor = String*(__thiscall*)(void*);
+    using TextCtor = String*(__thiscall*)(void*, const char*);
+    using CopyCtor = String*(__thiscall*)(void*, const String*);
+    using Dtor = void(__thiscall*)(String*);
+    using AssignText = String*(__thiscall*)(String*, const char*);
+    using AssignString = String*(__thiscall*)(String*, const String*);
+    using CopyRangeFn = void(__thiscall*)(String*, const char*, int, int);
+
+    int& live = GameVariable<int>(0x00690FA0);
+    auto same = [](const String& a, const String& b) {
+        bool text = (!a.m_buffer && !b.m_buffer) || (a.m_buffer && b.m_buffer && strcmp(a.m_buffer, b.m_buffer) == 0);
+        bool capacity = !a.m_buffer || a.m_capacity == b.m_capacity;
+        return text && capacity;
+    };
+
+    alignas(String) unsigned char raw_a[sizeof(String)], raw_b[sizeof(String)];
+    auto& a = *reinterpret_cast<String*>(raw_a);
+    auto& b = *reinterpret_cast<String*>(raw_b);
+    const int live_at_start = live;
+
+    const char* texts[] = {nullptr, "", "a", "abc", "Hello, World", "a much longer string than the others"};
+    for (const char* text : texts) {
+        int before = live;
+        {
+            OriginalCode original(0x00401F50);
+            Original<TextCtor>(0x00401F50)(raw_a, text);
+        }
+        new (raw_b) String(text);
+        Check(same(a, b) && a.m_serial == before && b.m_serial == before + 1 && live == before + 2,
+              "String::String(const char*)");
+
+        // Walk both through the same sequence of assignments.
+        for (const char* next : texts) {
+            {
+                OriginalCode original(0x00401ED0);
+                Original<AssignText>(0x00401ED0)(&a, next);
+            }
+            b = next;
+            Check(same(a, b), "String::operator=(const char*)");
+        }
+
+        alignas(String) unsigned char raw_c[sizeof(String)], raw_d[sizeof(String)];
+        {
+            OriginalCode original(0x00401FA0);
+            Original<CopyCtor>(0x00401FA0)(raw_c, &a);
+        }
+        new (raw_d) String(b);
+        auto& c = *reinterpret_cast<String*>(raw_c);
+        auto& d = *reinterpret_cast<String*>(raw_d);
+        Check(same(c, d), "String::String(const String&)");
+
+        String source("source text");
+        {
+            OriginalCode original(0x00401F10);
+            Original<AssignString>(0x00401F10)(&c, &source);
+        }
+        d = source;
+        Check(same(c, d), "String::operator=(const String&)");
+
+        const char* range_text = "0123456789";
+        const int ranges[][2] = {{0, 9}, {3, 5}, {4, 4}, {6, 2}, {10, 12}};
+        for (const auto& r : ranges) {
+            {
+                OriginalCode original(0x00401DD0);
+                Original<CopyRangeFn>(0x00401DD0)(&c, range_text, r[0], r[1]);
+            }
+            static_cast<StringAccess&>(d).CopyRange(range_text, r[0], r[1]);
+            Check(same(c, d), "String::CopyRange");
+        }
+
+        int before_destroy = live;
+        {
+            OriginalCode original(0x00401DA0);
+            Original<Dtor>(0x00401DA0)(&c);
+        }
+        d.~String();
+        Check(live == before_destroy - 2, "String::~String");
+
+        {
+            OriginalCode original(0x00401DA0);
+            Original<Dtor>(0x00401DA0)(&a);
+        }
+        b.~String();
+    }
+
+    {
+        int before = live;
+        {
+            OriginalCode original(0x00401D80);
+            Original<Ctor>(0x00401D80)(raw_a);
+        }
+        new (raw_b) String();
+        Check(!a.m_buffer && !b.m_buffer && a.m_serial == before && b.m_serial == before + 1, "String::String()");
+        a.~String();
+        b.~String();
+    }
+    Check(live == live_at_start, "String live count restored");
+}
+
+int g_late_failures_before = 0;
+
+void RunLateSelfTests()
+{
+    g_late_failures_before = g_failures;
+    TestMemoryLate();
+    TestStringLate();
+    int failures = g_failures - g_late_failures_before;
+    Log(failures ? "late self-tests: %d FAILED" : "late self-tests: all passed", failures);
+}
+
+// One-shot hook: runs the late self-tests, removes itself and continues into the real ParseNetworkParams.
+void __cdecl LateSelfTestHook(void* params)
+{
+    RestoreOriginal(0x004E1220);
+    RunLateSelfTests();
+    GameFunction<void(__cdecl*)(void*)>(0x004E1220)(params);
+}
+
 } // namespace
+
+REPLACE(0x004E1220, LateSelfTestHook);
 
 void RunSelfTests()
 {

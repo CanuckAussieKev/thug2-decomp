@@ -40,8 +40,10 @@ Batches marked (untested) haven't been run in-game yet.
 - [ ] Batch 8+: the rest of the block. Remaining are mostly larger: 0x4010D0-0x4014F0 (BitStream read/write),
       0x401600 / 0x401700 (compression? prints In/Out byte counts), 0x402640 / 0x402D60 / 0x402F00 (distance
       functions), 0x403550 / 0x403C00, 0x404120-0x404F50 (matrix maths), 0x405170-0x405A20, 0x4060F0-0x4062D0.
-- [ ] Infrastructure idea: a second self-test stage that runs once the game is initialised (e.g. on the first
-      frame), so allocator/String functions can be tested against the originals too.
+- [x] Infrastructure (untested): late self-test stage. A one-shot hook on ParseNetworkParams (0x4E1220, called
+      once from WinMain before the main loop) removes itself, runs late self-tests, then calls the real function.
+      `OriginalCode` scopes temporarily restore an original function so it can be compared after hooking.
+      Late tests now cover batch 5: Mem::New/Free/Calloc x3 and all Str::String functions.
 
 ## Notes
 - Ghidra's pseudocode can be wrong for x87 float code: 0x4023A0 decompiled as an empty function but is
@@ -49,5 +51,13 @@ Batches marked (untested) haven't been run in-game yet.
 - Float self-tests use a tolerance: originals run on x87, ours on SSE, so the last bits can differ.
 - Globals the original code also uses must stay in the exe's memory: use `GameVariable<T>(address)`
   (`src/hook/game.h`). Self-tests that touch such state save and restore it.
+- Functions that need the game running (memory, anything touching game objects) go in the late self-tests
+  in `selftest.cpp`; wrap each call to an original in `OriginalCode original(address);`.
+- Never REPLACE an address PartyMod patches at runtime (it would overwrite our jump or we'd overwrite its).
+  Function entries PartyMod jmp-patches: 0x5F56E0, 0x5BDCC0, 0x5F3A50, 0x4A0780, 0x4A07C0, 0x4B2440, 0x4B2330.
+  It also patches many call sites and bytes inside functions (see its src/*.c); check before replacing anything
+  in 0x44F000-0x452400, 0x4B2E00-0x4B9200, 0x4CE000-0x4D9000, 0x4E2400-0x4E2800, 0x500000-0x530000,
+  0x533600, 0x545B00-0x54DD20, 0x5A6E70-0x5A8A10, 0x5B7C00, 0x5BDA00-0x5BDD00, 0x5F3A50-0x5F4600, 0x5F86D0-0x618300.
+  Our ParseNetworkParams hook (0x4E1220) is fine: PartyMod patches the call to it at 0x4E26DC, not its entry.
 - Member functions are replaced via `REPLACE(addr, &Class::Method)`; constructors via a small adapter that
   placement-news the object (see `LineAdapter` in vector.cpp).

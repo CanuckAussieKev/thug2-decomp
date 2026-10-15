@@ -21,7 +21,28 @@ struct Replacement {
 void RegisterReplacement(const Replacement& r);
 void InstallReplacements();
 
-// Calls the original game function at `address` (only valid before replacements are installed).
+// Permanently put back the original code at `address` (for one-shot hooks).
+void RestoreOriginal(uint32_t address);
+
+// While one of these exists, the original code at `address` runs instead of our replacement:
+//
+//   { OriginalCode original(0x00401DD0); call_the_original(...); }
+//
+// Only for self-tests at a controlled point on the main thread: other threads calling the function meanwhile
+// would also get the original.
+class OriginalCode {
+public:
+    explicit OriginalCode(uint32_t address);
+    ~OriginalCode();
+    OriginalCode(const OriginalCode&) = delete;
+    OriginalCode& operator=(const OriginalCode&) = delete;
+
+private:
+    uint32_t m_address;
+};
+
+// Pointer to the original game function at `address`. Before replacements are installed (or inside an
+// OriginalCode scope) this runs the original code; otherwise it lands in our replacement.
 template <typename Fn>
 Fn Original(uint32_t address)
 {
