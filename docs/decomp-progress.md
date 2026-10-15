@@ -221,7 +221,18 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
 - [x] Batches 26-31 tested in the game (2026-10-15, by the user): game runs fine; log - 276/276 replacements
       installed, early 28/28, late 10/10 (incl. TestAssetBundleSplitLate, TestPipLoadPreLate), engine-started
       2/2 (incl. TestLoadPreEngineStarted), shadow checks 1395 calls with no mismatches.
-- [ ] Next: the memory manager 0x5BA5A0-0x5BBE80.
+- [x] Batch 32 (NOT run in the game yet; early test passes offline, contexts test is Late): the memory
+      manager's lowest layer (src/game/core/alloc.*). Block header {allocator, size, marker 0xCF801FE1 /
+      0xDEADDEAD, ?} helpers 0x5BA080-0x5BA0B0; Region (vtable 0x658A58: start, min available, end,
+      allocators[up, down]) ctor 0x5BC5F0, Add/RemoveAllocator, MemAvailable, Allocate 0x5BC560 (3 args,
+      the 3rd unused - caught by the argument-size check); AllocRegion (0x658A5C) ctor/dtors; Allocator
+      base (vtable 0x65845C, 0x64 bytes: region +0x24, direction +0x28 (+1 up / -1 down), top +0x2C,
+      context +0x30, name +0x34, context list head +0x38, base context +0x4C) ctor 0x5BA260, dtor
+      0x5BA140, Push/PopContext 0x5BA1E0/0x5BA360; list node unlink/dtors 0x5BA0E0/0x5BA100/0x5BA230;
+      0x5BA4E0. Early test: arenas compared original vs ours (shown to catch an off-by-one after adding
+      an exact-fill step); Late test: context stack + AllocRegion on the real manager.
+- [ ] Next: Mem::Heap (vtable 0x65848C: ctor 0x5BA520, dtor 0x5BA560, allocate 0x5BA780, 0x5BA4F0,
+      0x5BA9A0, 0x5BAA20, 0x5BAAE0, free 0x5BA5A0), then the Manager 0x5BAB90-0x5BBE80.
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
       for original callers that read ECX/EDX after the call without writing them first (ignoring push-to-reserve,
       lea reg,[reg], or reg,-1 and zeroing idioms; callers that are themselves replaced count as safe).

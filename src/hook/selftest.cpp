@@ -14,6 +14,7 @@
 #include <windows.h>
 
 #include "game/core/crc.h"
+#include "game/core/alloc.h"
 #include "game/core/mem.h"
 #include "game/core/pool.h"
 #include "game/core/str.h"
@@ -1919,6 +1920,226 @@ void TestAssetBundleSplitLate()
     }
 }
 
+// --- the allocator layer (regions, allocators, block headers) ---
+// Each scenario runs in its own arena, once through the originals and once through ours; the arenas are
+// compared with every pointer into the arena turned into an offset.
+constexpr size_t kArenaSize = 0x3000;
+alignas(16) uint8_t g_alloc_arenas[2][kArenaSize];
+int g_fake_free_calls = 0;
+uintptr_t g_fake_freed_header = 0;
+
+struct FakeAllocatorFree {
+    void Free(Mem::BlockHeader* header)
+    {
+        ++g_fake_free_calls;
+        g_fake_freed_header = reinterpret_cast<uintptr_t>(header);
+    }
+};
+
+std::vector<uint32_t> RebasedArena(const uint8_t* arena, size_t size)
+{
+    std::vector<uint32_t> words(size / 4);
+    std::memcpy(words.data(), arena, size);
+    auto base = reinterpret_cast<uint32_t>(arena);
+    for (uint32_t& word : words) {
+        if (word >= base && word < base + size)
+            word = 0xA0000000u + (word - base);
+    }
+    return words;
+}
+
+uint32_t Rebased(const void* pointer, const uint8_t* arena)
+{
+    auto value = reinterpret_cast<uint32_t>(pointer);
+    auto base = reinterpret_cast<uint32_t>(arena);
+    return value >= base && value < base + kArenaSize ? 0xA0000000u + (value - base) : value;
+}
+
+void TestAllocatorLayer()
+{
+    using Mem::Allocator;
+    using Mem::Region;
+    using RegionCtor = Region*(__thiscall*)(void*, uint8_t*, uint8_t*);
+    using AllocatorCtor = Allocator*(__thiscall*)(void*, Region*, int, const char*);
+    using RegionAllocate = uint8_t*(__thiscall*)(Region*, Allocator*, int, int);
+    using RegionAvailable = int(__thiscall*)(Region*);
+    using RegionRemove = void(__thiscall*)(Region*, Allocator*);
+    using AllocatorDestroy = void(__thiscall*)(Allocator*);
+
+    static void* fake_vtable[9];
+    fake_vtable[8] = CodeAddress(&FakeAllocatorFree::Free);
+
+    auto run = [&](bool original) {
+        std::vector<uint32_t> trace;
+        uint8_t* arena = g_alloc_arenas[original ? 0 : 1];
+        std::memset(arena, 0xCD, kArenaSize);
+        uint8_t* start = arena + 0x1000;
+        uint8_t* end = arena + 0x2000;
+        void* region_memory = arena;
+        void* up_memory = arena + 0x100;
+        void* down_memory = arena + 0x200;
+        const char* name = "test";
+
+        Region* region = original ? Original<RegionCtor>(0x005BC5F0)(region_memory, start, end)
+                                  : new (region_memory) Region(start, end);
+        trace.push_back(Rebased(region, arena));
+        Allocator* up = original ? Original<AllocatorCtor>(0x005BA260)(up_memory, region, 1, name)
+                                 : new (up_memory) Allocator(region, 1, name);
+        Allocator* down = original ? Original<AllocatorCtor>(0x005BA260)(down_memory, region, -1, name)
+                                   : new (down_memory) Allocator(region, -1, name);
+        trace.push_back(Rebased(up, arena));
+        trace.push_back(Rebased(down, arena));
+
+        auto allocate = [&](Allocator* allocator, int size) {
+            uint8_t* result = original ? Original<RegionAllocate>(0x005BC560)(region, allocator, size, 0)
+                                       : region->Allocate(allocator, size, 0);
+            trace.push_back(Rebased(result, arena));
+            int available = original ? Original<RegionAvailable>(0x005BC530)(region) : region->MemAvailable();
+            trace.push_back(static_cast<uint32_t>(available));
+        };
+        allocate(up, 0x100);
+        allocate(down, 0x200);
+        allocate(up, 0x2000);  // too big: fails
+        allocate(down, 0xE01); // one byte too many: fails
+        allocate(down, 0xE00); // exactly fills
+        allocate(up, 1);       // full: fails
+        allocate(down, -0x400); // giving back
+        allocate(up, 0x10);
+
+        // Take the down allocator away: the up one can now reach the end.
+        if (original) {
+            Original<AllocatorDestroy>(0x005BA140)(down);
+        } else {
+            down->DestroyBody();
+        }
+        allocate(up, 0x300);
+        // Exactly to the end (the up side's limit), then one more byte.
+        allocate(up, original ? Original<RegionAvailable>(0x005BC530)(region) : region->MemAvailable());
+        allocate(up, 1);
+        if (original)
+            Original<RegionRemove>(0x005BC510)(region, up);
+        else
+            region->RemoveAllocator(up);
+        trace.push_back(static_cast<uint32_t>(original ? Original<RegionAvailable>(0x005BC530)(region)
+                                                       : region->MemAvailable()));
+
+        // Block headers: a block at +0x2800 owned by a fake allocator whose free (slot 8) counts calls.
+        auto* fake_allocator = reinterpret_cast<Allocator*>(arena + 0x2400);
+        fake_allocator->m_vtable = fake_vtable;
+        uint8_t* block = arena + 0x2810;
+        auto* header = reinterpret_cast<Mem::BlockHeader*>(block - 0x10);
+        header->allocator = fake_allocator;
+        header->size = 0x123;
+        header->marker = 0;
+        g_fake_free_calls = 0;
+        void* marked = original ? Original<void*(__cdecl*)(void*)>(0x005BA080)(block) : Mem::MarkBlockInUse(block);
+        trace.push_back(Rebased(marked, arena));
+        trace.push_back(header->marker);
+        trace.push_back(Rebased(original ? Original<void*(__cdecl*)(void*)>(0x005BA090)(block)
+                                         : static_cast<void*>(Mem::GetBlockHeader(block)),
+                                arena));
+        trace.push_back(original ? Original<uint32_t(__cdecl*)(void*)>(0x005BA0A0)(block) : Mem::GetBlockSize(block));
+        for (int i = 0; i < 2; ++i) {
+            void* owner = original ? Original<void*(__cdecl*)(void*)>(0x005BA0B0)(block)
+                                   : static_cast<void*>(Mem::FreeBlock(block));
+            trace.push_back(Rebased(owner, arena));
+            trace.push_back(static_cast<uint32_t>(g_fake_free_calls));
+            trace.push_back(Rebased(reinterpret_cast<void*>(g_fake_freed_header), arena));
+            trace.push_back(header->marker);
+        }
+
+        std::vector<uint32_t> image = RebasedArena(arena, kArenaSize);
+        trace.insert(trace.end(), image.begin(), image.end());
+        return trace;
+    };
+    std::vector<uint32_t> expected = run(true);
+    std::vector<uint32_t> actual = run(false);
+    Check(expected == actual, "allocator layer: regions, allocators, block headers");
+    for (size_t i = 0, shown = 0; i < expected.size() && i < actual.size() && shown < 8; ++i) {
+        if (expected[i] != actual[i]) {
+            Log("  allocator layer word %u: original %08X ours %08X", static_cast<unsigned>(i), expected[i], actual[i]);
+            ++shown;
+        }
+    }
+}
+
+// The context stack and an AllocRegion, on the real memory manager: original vs ours.
+void TestAllocatorContextsLate()
+{
+    using Mem::Allocator;
+    using Mem::AllocRegion;
+    using Mem::Region;
+    using RegionCtor = Region*(__thiscall*)(void*, uint8_t*, uint8_t*);
+    using AllocatorCtor = Allocator*(__thiscall*)(void*, Region*, int, const char*);
+    using Method = void(__thiscall*)(Allocator*);
+    using AllocRegionCtor = AllocRegion*(__thiscall*)(void*, uint32_t);
+    using AllocRegionDtor = AllocRegion*(__thiscall*)(AllocRegion*, unsigned int);
+
+    auto run = [&](bool original) {
+        std::vector<uint32_t> trace;
+        uint8_t* arena = g_alloc_arenas[original ? 0 : 1];
+        std::memset(arena, 0, kArenaSize);
+        Region* region = original ? Original<RegionCtor>(0x005BC5F0)(arena, arena + 0x1000, arena + 0x2000)
+                                  : new (arena) Region(arena + 0x1000, arena + 0x2000);
+        Allocator* allocator = original ? Original<AllocatorCtor>(0x005BA260)(arena + 0x100, region, 1, "test")
+                                        : new (arena + 0x100) Allocator(region, 1, "test");
+        auto shape = [&]() {
+            // Depth of the stack, whether the current context is the newest, whether it's the base one.
+            uint32_t depth = 0;
+            for (Mem::ListNode* node = allocator->m_contexts.next; node != &allocator->m_contexts && depth < 10;
+                 node = node->next)
+                ++depth;
+            trace.push_back(depth);
+            trace.push_back(allocator->m_context == allocator->m_contexts.next->data);
+            trace.push_back(allocator->m_context == &allocator->m_baseContext);
+            trace.push_back(allocator->m_context ? reinterpret_cast<uint32_t>(allocator->m_context->freeList) : 99);
+        };
+        shape();
+        for (int i = 0; i < 2; ++i) {
+            if (original)
+                Original<Method>(0x005BA1E0)(allocator);
+            else
+                allocator->PushContext();
+            shape();
+        }
+        for (int i = 0; i < 2; ++i) {
+            if (original)
+                Original<Method>(0x005BA360)(allocator);
+            else
+                allocator->PopContext();
+            shape();
+        }
+        if (original)
+            Original<Method>(0x005BA140)(allocator);
+        else
+            allocator->DestroyBody();
+        trace.push_back(region->m_allocators[0] == nullptr);
+
+        // An AllocRegion of 0x1234 bytes (rounded to 0x1230), then destroyed without freeing the object.
+        auto* memory = arena + 0x2800;
+        AllocRegion* owned = original ? Original<AllocRegionCtor>(0x005BC620)(memory, 0x1234)
+                                      : new (memory) AllocRegion(0x1234);
+        trace.push_back(owned == reinterpret_cast<AllocRegion*>(memory));
+        trace.push_back(static_cast<uint32_t>(owned->m_end - owned->m_start));
+        trace.push_back(static_cast<uint32_t>(owned->m_minAvailable));
+        trace.push_back(owned->m_start != nullptr);
+        trace.push_back(reinterpret_cast<uint32_t>(owned->m_vtable));
+        AllocRegion* destroyed = original ? Original<AllocRegionDtor>(0x005BC700)(owned, 0)
+                                          : reinterpret_cast<AllocRegionDtor>(0x005BC700)(owned, 0); // (the game address runs ours)
+        trace.push_back(destroyed == owned);
+        trace.push_back(reinterpret_cast<uint32_t>(owned->m_vtable));
+        return trace;
+    };
+    std::vector<uint32_t> expected = run(true);
+    std::vector<uint32_t> actual = run(false);
+    Check(expected == actual, "allocator contexts and AllocRegion");
+    for (size_t i = 0; i < expected.size() && i < actual.size(); ++i) {
+        if (expected[i] != actual[i])
+            Log("  allocator contexts step %u: original %08X ours %08X", static_cast<unsigned>(i), expected[i],
+                actual[i]);
+    }
+}
+
 // --- late self-tests ----------------------------------------------------------------------------------
 
 // The table's contents as (bucket, position in chain, key, value), so tables with different item addresses
@@ -2854,11 +3075,13 @@ SELFTEST(Early, TestAsyncFileSystem, RestoreAsyncGlobals);
 SELFTEST(Early, TestPcAsyncFileHandle, RestoreAsyncIoState);
 SELFTEST(Early, TestAsyncLoaderModuleRefs, RestoreLoaderModule);
 SELFTEST(Early, TestAssetBundleLookups);
+SELFTEST(Early, TestAllocatorLayer);
 
 SELFTEST(Late, TestMemoryLate);
 SELFTEST(Late, TestStringLate);
 SELFTEST(Late, TestLzssLate);
 SELFTEST(Late, TestAssetBundleSplitLate);
+SELFTEST(Late, TestAllocatorContextsLate);
 SELFTEST(Late, TestPoolConstructorLate);
 SELFTEST(Late, TestHashTableLate);
 SELFTEST(Late, TestPipNamesLate, RestorePipTables);

@@ -80,6 +80,7 @@ add_library(thug2_code OBJECT
     src/hook/shadow.cpp
     src/hook/selftest.cpp
     src/hook/selftest_runner.cpp
+    src/game/core/alloc.cpp
     src/game/core/crc.cpp
     src/game/core/dbg.cpp
     src/game/core/mem.cpp
