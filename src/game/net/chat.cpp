@@ -1,0 +1,202 @@
+#include "game/net/chat.h"
+
+#include <cstdint>
+#include <cstdio>
+#include <cstring>
+
+#include "game/core/mem.h"
+#include "game/core/pool.h"
+#include "hook/game.h"
+#include "hook/hook.h"
+
+namespace GameNet {
+
+namespace {
+
+constexpr uint8_t kMsgChat = 0x4C;   // 'L'
+constexpr uint8_t kObserverColor = 8; // also used for messages from "Server"
+constexpr int kNameSize = 16;
+constexpr int kMaxTextSize = 131;
+
+// What travels over the network: the receiver (0x00532050) shows "\c<color+2><name>\c0 : <text>". The
+// server relays it unchanged to every other player (0x0056A000).
+#pragma pack(push, 1)
+struct ChatPacket {
+    uint8_t color;
+    char name[kNameSize];
+    char text[kMaxTextSize];
+};
+#pragma pack(pop)
+static_assert(sizeof(ChatPacket) == 0x94);
+
+// Net::MsgDesc: a message to be sent (0x20 bytes; its constructor sets the defaults).
+struct MsgDesc {
+    uint8_t id;
+    uint8_t unknown1;
+    uint16_t length;
+    void* data;
+    uint8_t rest[0x18];
+};
+static_assert(sizeof(MsgDesc) == 0x20);
+
+void InitMsgDesc(MsgDesc* desc) { GameFunction<void(__thiscall*)(MsgDesc*)>(0x004549F0)(desc); }
+// Fields set by the chat send; their meaning isn't known yet.
+uint32_t& MsgDescField0C(MsgDesc* desc) { return *reinterpret_cast<uint32_t*>(desc->rest + 0x4); }
+uint8_t& MsgDescField10(MsgDesc* desc) { return desc->rest[0x8]; }
+
+// The local player's info (not decompiled yet): name at +0x38, flags at +0x1D0, team at [+0x14]+0x14.
+struct PlayerInfo;
+PlayerInfo* LocalPlayer(Manager* manager)
+{
+    return GameFunction<PlayerInfo*(__thiscall*)(Manager*)>(0x00537320)(manager);
+}
+const char* PlayerName(PlayerInfo* player) { return reinterpret_cast<const char*>(player) + 0x38; }
+bool IsObserver(PlayerInfo* player)
+{
+    return (*reinterpret_cast<uint32_t*>(reinterpret_cast<char*>(player) + 0x1D0) >> 2) & 1;
+}
+uint8_t TeamColor(PlayerInfo* player)
+{
+    auto* team = *reinterpret_cast<char**>(reinterpret_cast<char*>(player) + 0x14);
+    return static_cast<uint8_t>(*reinterpret_cast<uint32_t*>(team + 0x14));
+}
+
+// The manager's client connection (+0x08) queues a message for the server.
+void SendToServer(Manager* manager, MsgDesc* desc)
+{
+    void* client = *reinterpret_cast<void**>(reinterpret_cast<char*>(manager) + 0x08);
+    GameFunction<void(__thiscall*)(void*, MsgDesc*)>(0x00459E50)(client, desc);
+}
+
+// Script::CStruct (8 bytes, from the current script struct pool when there is one) - not decompiled yet.
+struct ScriptStruct;
+ScriptStruct* NewScriptStruct()
+{
+    int current = GameVariable<int>(0x006F3614);
+    Mem::Pool* pool = GameVariable<Mem::Pool* [2]>(0x006F361C)[current];
+    void* memory = pool ? pool->Allocate() : Mem::New(8);
+    return memory ? GameFunction<ScriptStruct*(__thiscall*)(void*)>(0x00476410)(memory) : nullptr;
+}
+void DeleteScriptStruct(ScriptStruct* s)
+{
+    if (!s)
+        return;
+    GameFunction<void(__thiscall*)(ScriptStruct*)>(0x00477130)(s);
+    GameFunction<void(__cdecl*)(void*)>(0x00409070)(s);
+}
+void AddString(ScriptStruct* s, uint32_t name, const char* value)
+{
+    GameFunction<void(__thiscall*)(ScriptStruct*, uint32_t, const char*)>(0x004779D0)(s, name, value);
+}
+void RunScript(uint32_t script, ScriptStruct* params)
+{
+    GameFunction<void(__cdecl*)(uint32_t, ScriptStruct*, int, int, int)>(0x00475790)(script, params, 0, 0, 0);
+}
+
+constexpr uint32_t kText = 0xC4745838;              // checksum of "text"
+constexpr uint32_t kShowChatScript = 0xCCB19938;    // the script that adds a line to the chat display
+
+void Copy(char* out, size_t size, const char* in)
+{
+    // The original copies with no limit (and would overrun on a too-long line); stop at the field size.
+    strncpy_s(out, size, in, _TRUNCATE);
+}
+
+// Shared by the normal and the named send.
+void Send(Manager* manager, const char* name, uint8_t color, const char* text)
+{
+    ChatPacket packet = {};
+    packet.color = color;
+    Copy(packet.name, sizeof(packet.name), name);
+    Copy(packet.text, sizeof(packet.text), text);
+
+    MsgDesc desc;
+    InitMsgDesc(&desc);
+    desc.id = kMsgChat;
+    desc.length = static_cast<uint16_t>(std::strlen(packet.text) + 0x12); // color + name + text + '\0'
+    desc.data = &packet;
+    MsgDescField0C(&desc) = 2;
+    MsgDescField10(&desc) = 8;
+    SendToServer(manager, &desc);
+
+    // The server doesn't send our own line back to us, so show it here.
+    char line[256];
+    std::snprintf(line, sizeof(line), "%s : %s", packet.name, packet.text);
+    ScriptStruct* params = NewScriptStruct();
+    AddString(params, kText, line);
+    RunScript(kShowChatScript, params);
+    DeleteScriptStruct(params);
+}
+
+} // namespace
+
+Manager* GetManager() { return GameVariable<Manager*>(0x007CCE14); }
+
+// 0x00537BD0 (GameNet::Manager::SendChatMessage)
+void SendChatMessage(Manager* manager, const char* text)
+{
+    if (*text == '\0')
+        return;
+    PlayerInfo* player = LocalPlayer(manager);
+    uint8_t color = IsObserver(player) ? kObserverColor : TeamColor(player);
+    Send(manager, PlayerName(player), color, text);
+}
+
+void SendNamedChatMessage(Manager* manager, const char* name, const char* text)
+{
+    if (*text == '\0')
+        return;
+    Send(manager, name, kObserverColor, text);
+}
+
+bool HandleChatCommand(Manager* manager, const char* text)
+{
+    if (text[0] != '/')
+        return false;
+    if (_stricmp(text, "/hello") == 0) {
+        SendNamedChatMessage(manager, "Server", "Hello, World.");
+        return true;
+    }
+    return false; // not one of ours: send it as typed
+}
+
+} // namespace GameNet
+
+namespace {
+
+// Script::CStruct::GetString (not decompiled yet): finds a string parameter by checksum.
+bool GetStringParam(void* params, uint32_t name, const char** out)
+{
+    return GameFunction<bool(__thiscall*)(void*, uint32_t, const char**, bool)>(0x00476C60)(params, name, out,
+                                                                                         false);
+}
+
+constexpr uint32_t kChatTextParam = 0x61414D56; // the chat line's parameter name in the chat scripts
+
+// 0x005A16B0: script function SendChatMessage <text>. Lines starting with '/' that we recognise are run as
+// chat commands instead of being sent.
+bool __cdecl CFunc_SendChatMessage(void* params, void* /*script*/)
+{
+    const char* text = nullptr;
+    GetStringParam(params, kChatTextParam, &text);
+    if (!text)
+        return false;
+    if (std::strlen(text) != 0 && _stricmp(text, "--EMPTY--") != 0) {
+        GameNet::Manager* manager = GameNet::GetManager();
+        if (!GameNet::HandleChatCommand(manager, text))
+            GameNet::SendChatMessage(manager, text);
+    }
+    return true;
+}
+
+struct ManagerAdapter {
+    void SendChatMessage(const char* text)
+    {
+        GameNet::SendChatMessage(reinterpret_cast<GameNet::Manager*>(this), text);
+    }
+};
+
+} // namespace
+
+REPLACE(0x005A16B0, CFunc_SendChatMessage);
+REPLACE(0x00537BD0, &ManagerAdapter::SendChatMessage);
