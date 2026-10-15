@@ -37,6 +37,9 @@ void BBox::AddPoint(const Vector& point)
         max.z = point.z;
 }
 
+// 0x00404060 (Ghidra's signature database labels this MFC's CRect constructor; it is the same simple code)
+Rect::Rect(int l, int t, int r, int b) : left(l), top(t), right(r), bottom(b) {}
+
 // 0x00403BB0
 Vector& BBox::GetCenter(Vector& out) const
 {
@@ -512,6 +515,10 @@ struct GeometryAdapter {
         return new (this) Capsule(start, offset, radius);
     }
     Capsule* ConstructCapsuleFromLine(const Line& line, float radius) { return new (this) Capsule(line, radius); }
+    Mth::Rect* ConstructRect(int left, int top, int right, int bottom)
+    {
+        return new (this) Mth::Rect(left, top, right, bottom);
+    }
 };
 
 } // namespace
@@ -519,6 +526,7 @@ struct GeometryAdapter {
 REPLACE(0x00402D60, &Line::DistanceSqrToPoint);
 REPLACE(0x00402F00, Mth::ClosestPointsBetweenLines);
 REPLACE(0x00403BB0, &BBox::GetCenter);
+REPLACE(0x00404060, &GeometryAdapter::ConstructRect);
 REPLACE(0x004025A0, &BBox::ContainsPoint);
 REPLACE(0x004034D0, &BBox::CountAxesContaining);
 REPLACE(0x00403550, &BBox::LineIntersect);

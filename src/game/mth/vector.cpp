@@ -71,6 +71,35 @@ Vector& Vector::RotateToPlane(const Vector& normal)
     return *this;
 }
 
+// 0x004061A0
+Vector& Vector::SetDirection(const Vector& direction)
+{
+    float length = std::sqrt(z * z + y * y + x * x);
+    *this = {length * direction.x, length * direction.y, length * direction.z, length * direction.w};
+    return *this;
+}
+
+// 0x00406200
+Vector& Vector::ProjectOnto(const Vector& axis)
+{
+    float dot = y * axis.y + z * axis.z + axis.x * x;
+    *this = {dot * axis.x, dot * axis.y, dot * axis.z, dot * axis.w};
+    return *this;
+}
+
+// 0x00406260
+float Vector::GetMaxAxis(int* axis) const
+{
+    int index;
+    if (std::fabs(y) <= std::fabs(x))
+        index = std::fabs(x) < std::fabs(z) ? 2 : 0;
+    else
+        index = std::fabs(y) < std::fabs(z) ? 2 : 1;
+    if (axis)
+        *axis = index;
+    return (&x)[index];
+}
+
 // 0x00402370
 Vector& Vector::operator*=(float scale)
 {
@@ -246,6 +275,9 @@ REPLACE(0x00405F80, &Vector::NegateXRotateX90);
 REPLACE(0x00406050, &Vector::operator-=);
 REPLACE(0x00406080, &Vector::ProjectToPlane);
 REPLACE(0x004060F0, &Vector::RotateToPlane);
+REPLACE(0x004061A0, &Vector::SetDirection);
+REPLACE(0x00406200, &Vector::ProjectOnto);
+REPLACE(0x00406260, &Vector::GetMaxAxis);
 REPLACE(0x004023A0, &Vector::LengthSqr);
 REPLACE(0x004023C0, &Vector::Length);
 REPLACE(0x004023F0, &Vector::Normalize);

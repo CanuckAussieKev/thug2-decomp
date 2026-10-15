@@ -924,6 +924,70 @@ void TestBatch14()
     }
 }
 
+void TestBatch15()
+{
+    using DigitFn = int(__cdecl*)(const char*);
+    for (int value = 0; value < 256; ++value) {
+        char c = static_cast<char>(value);
+        Check(Original<DigitFn>(0x004020E0)(&c) == Str::DehexifyDigit(&c), "Str::DehexifyDigit");
+    }
+
+    using CompareFn = int(__cdecl*)(const char*, const char*);
+    const char* words[] = {"", "a", "A", "abc", "ABD", "abcd", "Skater", "skater", "\xE9t\xE9", "zz", "z"};
+    for (const char* a : words)
+        for (const char* b : words)
+            Check(Original<CompareFn>(0x00402120)(a, b) == Str::CompareCaseless(a, b), "Str::CompareCaseless");
+
+    using WordFn = int(__cdecl*)(char*, const char**);
+    const char* texts[] = {"hello world", "one\\_two three", "line one\\nnext", "end", "", "  double",
+                           "esc\\x here", "\\_lead"};
+    for (const char* text : texts) {
+        const char* cursor_expected = text;
+        const char* cursor_actual = text;
+        for (int step = 0; step < 6; ++step) {
+            char expected[64] = {}, actual[64] = {};
+            int r1 = Original<WordFn>(0x00402170)(expected, &cursor_expected);
+            int r2 = Str::NextWord(actual, cursor_actual);
+            Check(r1 == r2 && strcmp(expected, actual) == 0 && cursor_expected == cursor_actual, "Str::NextWord");
+            if (r1 == 2)
+                break;
+        }
+    }
+
+    using RectFn = Mth::Rect*(__thiscall*)(void*, int, int, int, int);
+    int raw[4] = {};
+    Mth::Rect* original_rect = Original<RectFn>(0x00404060)(raw, 1, -2, 300, 400);
+    Mth::Rect rect(1, -2, 300, 400);
+    Check(original_rect == reinterpret_cast<Mth::Rect*>(raw) && raw[0] == rect.left && raw[1] == rect.top &&
+              raw[2] == rect.right && raw[3] == rect.bottom,
+          "Rect::Rect");
+
+    using Mth::Vector;
+    using DirFn = Vector*(__thiscall*)(Vector*, const Vector*);
+    using MaxFn = float(__thiscall*)(const Vector*, int*);
+    const Vector vectors[] = {{3, 4, 0, 1}, {-1, 2, -3, 0}, {0, 0, 0, 1}, {5, -5, 5, 2}, {1, 1, 0, 0}, {-2, 0.5f, 7, 1}};
+    const Vector axis{0.6f, 0, 0.8f, 0.5f};
+    for (const Vector& v : vectors) {
+        Vector expected = v, actual = v;
+        Original<DirFn>(0x004061A0)(&expected, &axis);
+        actual.SetDirection(axis);
+        CheckVector(expected, actual, "Vector::SetDirection");
+
+        expected = v;
+        actual = v;
+        Original<DirFn>(0x00406200)(&expected, &axis);
+        actual.ProjectOnto(axis);
+        CheckVector(expected, actual, "Vector::ProjectOnto");
+
+        int expected_axis = -1, actual_axis = -1;
+        float a = Original<MaxFn>(0x00406260)(&v, &expected_axis);
+        float b = v.GetMaxAxis(&actual_axis);
+        CheckFloat(a, b, "Vector::GetMaxAxis");
+        Check(expected_axis == actual_axis, "Vector::GetMaxAxis (axis)");
+        CheckFloat(Original<MaxFn>(0x00406260)(&v, nullptr), v.GetMaxAxis(nullptr), "Vector::GetMaxAxis (no axis)");
+    }
+}
+
 // --- late self-tests ----------------------------------------------------------------------------------
 
 void TestLzssLate()
@@ -1172,5 +1236,6 @@ void RunSelfTests()
     TestBatch13();
     TestRotateToPlane();
     TestBatch14();
+    TestBatch15();
     Log(g_failures ? "self-tests: %d FAILED" : "self-tests: all passed", g_failures);
 }

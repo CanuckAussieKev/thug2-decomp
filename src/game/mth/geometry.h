@@ -6,6 +6,13 @@
 
 namespace Mth {
 
+// Integer rectangle. Field meanings are assumed (left, top, right, bottom) until its users are decompiled.
+struct Rect {
+    Rect(int left, int top, int right, int bottom);
+
+    int left, top, right, bottom;
+};
+
 // Axis-aligned bounding box.
 class BBox {
 public:

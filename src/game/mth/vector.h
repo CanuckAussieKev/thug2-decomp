@@ -23,6 +23,12 @@ public:
     // Turn this vector into the plane with unit normal `normal`, keeping its length (x, y, z; w becomes 0).
     // If it points straight along the normal, (-normal.z, normal.x, -normal.y) is used as the direction.
     Vector& RotateToPlane(const Vector& normal);
+    // Point along `direction` (assumed unit length), keeping this vector's length. w is scaled too.
+    Vector& SetDirection(const Vector& direction);
+    // Keep only the part along unit vector `axis`: axis * dot(this, axis). w is scaled too.
+    Vector& ProjectOnto(const Vector& axis);
+    // The x, y or z component with the largest magnitude (ties favour x, then y); `axis` gets 0, 1 or 2.
+    float GetMaxAxis(int* axis) const;
 
     float LengthSqr() const;
     float Length() const;

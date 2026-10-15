@@ -49,8 +49,74 @@ const char* FindCaseless(const char* haystack, const char* needle)
     return nullptr;
 }
 
+// 0x00402120
+int CompareCaseless(const char* a, const char* b)
+{
+    for (;; ++a, ++b) {
+        char ca = Lower(*a), cb = Lower(*b);
+        if (ca != cb)
+            return ca < cb ? -1 : 1;
+        if (ca == '\0')
+            return 0;
+    }
+}
+
+// 0x004020E0
+int DehexifyDigit(const char* digit)
+{
+    char c = *digit;
+    if (c >= '0' && c <= '9')
+        return c - '0';
+    if (c >= 'a' && c <= 'v')
+        return c - 'a' + 10;
+    if (c >= 'A' && c <= 'V')
+        return c - 'A' + 10;
+    return 0;
+}
+
+// 0x00402170
+int NextWord(char* out, const char*& cursor)
+{
+    for (;;) {
+        char c = *cursor;
+        if (c == '\0') {
+            *out = '\0';
+            return 2;
+        }
+        if (c == ' ')
+            break;
+        if (c == '\\') {
+            ++cursor;
+            char escaped = *cursor;
+            if (escaped == '_') {
+                *out++ = ' ';
+                ++cursor;
+            } else if (escaped == 'n') {
+                ++cursor;
+                *out = '\0';
+                return 1;
+            } else {
+                out[0] = '\\';
+                out[1] = escaped;
+                out += 2;
+                ++cursor;
+            }
+        } else {
+            *out++ = c;
+            ++cursor;
+        }
+    }
+    // The terminating space is kept as part of the word.
+    out[0] = *cursor++;
+    out[1] = '\0';
+    return 0;
+}
+
 } // namespace Str
 
 REPLACE(0x00401FF0, Str::FindCaseless);
+REPLACE(0x00402120, Str::CompareCaseless);
+REPLACE(0x004020E0, Str::DehexifyDigit);
+REPLACE(0x00402170, Str::NextWord);
 REPLACE(0x00402080, Str::LowerCase);
 REPLACE(0x004020B0, Str::UpperCase);
