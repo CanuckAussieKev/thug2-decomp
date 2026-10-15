@@ -237,4 +237,4 @@ struct Check<Address, Function, Name> {
     static constexpr char REPLACE_CONCAT(g_shadow_name_, __LINE__)[] = #__VA_ARGS__;                 \
     static ReplacementRegistrar REPLACE_CONCAT(g_replace_, __LINE__)(                                \
         address, CodeAddress(&Shadow::Check<address, __VA_ARGS__, REPLACE_CONCAT(g_shadow_name_, __LINE__)>::Call), \
-        #__VA_ARGS__ " [shadow]", __FILE__)
+        kCalleePop<decltype(__VA_ARGS__)>, #__VA_ARGS__ " [shadow]", __FILE__)

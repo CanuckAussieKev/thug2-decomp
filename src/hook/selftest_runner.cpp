@@ -82,10 +82,16 @@ void RunSelfTests(TestStage stage)
         return;
     }
     int failures_before = g_failures, count = 0;
+    for (const RegisteredTest& t : Registry())
+        count += t.stage == stage;
+    Log("%s self-tests: running %d", StageName(stage), count);
+    // [selftests] trace=1 logs each test as it starts - for finding one that hangs.
+    static const bool trace = ConfigInt("selftests", "trace", 0) != 0;
     for (const RegisteredTest& t : Registry()) {
         if (t.stage == stage) {
+            if (trace)
+                Log("  %s", t.name);
             RunGuarded(t);
-            ++count;
         }
     }
     int failures = g_failures - failures_before;
@@ -139,4 +145,4 @@ __declspec(naked) void MainLoopHook()
 } // namespace
 
 REPLACE(0x004E1220, ParseNetworkParamsHook);
-REPLACE(0x0044EEF0, MainLoopHook);
+REPLACE_UNCHECKED(0x0044EEF0, MainLoopHook); // passes everything through

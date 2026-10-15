@@ -18,7 +18,7 @@ MAX_STEPS = 64
 project_dir = sys.argv[1]
 replaced = {}
 for path in glob.glob("src/game/**/*.cpp", recursive=True):
-    for m in re.finditer(r"REPLACE(?:_SHADOW)?\(0x([0-9A-Fa-f]{8}),\s*([^;]+)\);", open(path, encoding="utf-8").read()):
+    for m in re.finditer(r"REPLACE(?:_SHADOW|_UNCHECKED)?\(0x([0-9A-Fa-f]{8}),\s*([^;]+)\);", open(path, encoding="utf-8").read()):
         replaced[int(m.group(1), 16)] = m.group(2).strip()
 
 

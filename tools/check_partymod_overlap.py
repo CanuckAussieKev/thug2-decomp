@@ -25,7 +25,7 @@ for m in re.finditer(r"patch\w*\(\s*\(?(?:void\s*\*\)\s*)?\(?(0x[0-9a-fA-F]+|add
 
 replaced = set()
 for path in glob.glob("src/**/*.cpp", recursive=True):
-    for m in re.finditer(r"REPLACE(?:_SHADOW)?\(0x([0-9A-Fa-f]{8})", open(path, encoding="utf-8").read()):
+    for m in re.finditer(r"REPLACE(?:_SHADOW|_UNCHECKED)?\(0x([0-9A-Fa-f]{8})", open(path, encoding="utf-8").read()):
         replaced.add(int(m.group(1), 16))
 
 overlaps = sorted((p, r) for p in patches for r in replaced if r <= p < r + WINDOW)

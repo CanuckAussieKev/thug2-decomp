@@ -8,6 +8,9 @@
 #include <vector>
 
 #include <MinHook.h>
+#include <hde/hde32.h> // MinHook's instruction length decoder
+
+#include <algorithm>
 
 #include "hook/log.h"
 
@@ -55,6 +58,63 @@ bool WriteJump(uint32_t from, void* to)
     int32_t offset = static_cast<int32_t>(reinterpret_cast<uint32_t>(to) - (from + 5));
     std::memcpy(jump + 1, &offset, sizeof(offset));
     return WriteCode(from, jump, sizeof(jump));
+}
+
+constexpr int kUnknownPop = -1;
+
+// How many bytes of arguments the original function at `entry` pops when it returns (its RET n), found by
+// following its code from the entry point: every branch is followed, and so are jumps into other functions
+// (a tail call's RET returns to our caller, so it counts too). kUnknownPop if no RET is reached, if
+// different paths disagree, or if the code can't be followed. Must run before any hooks are written.
+int OriginalCalleePop(uint32_t entry)
+{
+    std::vector<uint32_t> work{entry};
+    std::vector<uint32_t> seen;
+    int result = -2; // no RET found yet
+    int steps = 0;
+    while (!work.empty()) {
+        uint32_t address = work.back();
+        work.pop_back();
+        for (;;) {
+            if (std::find(seen.begin(), seen.end(), address) != seen.end())
+                break;
+            seen.push_back(address);
+            if (++steps > 5000)
+                return kUnknownPop;
+            hde32s hs;
+            unsigned int length = hde32_disasm(reinterpret_cast<const void*>(address), &hs);
+            if (length == 0 || (hs.flags & F_ERROR))
+                return kUnknownPop;
+            uint32_t next = address + length;
+            uint8_t op = hs.opcode;
+            if (op == 0xC3 || op == 0xC2) { // ret / ret imm16
+                int pop = op == 0xC2 ? hs.imm.imm16 : 0;
+                if (result != -2 && result != pop)
+                    return kUnknownPop;
+                result = pop;
+                break;
+            }
+            if (op == 0xCC) // int3 padding: fell off the end
+                break;
+            if (op == 0xEB || op == 0xE9) { // jmp rel8 / rel32
+                int32_t relative = op == 0xEB ? static_cast<int8_t>(hs.imm.imm8) : static_cast<int32_t>(hs.imm.imm32);
+                address = next + relative;
+                continue;
+            }
+            bool short_branch = (op >= 0x70 && op <= 0x7F) || (op >= 0xE0 && op <= 0xE3); // jcc, loop, jcxz
+            bool near_branch = op == 0x0F && hs.opcode2 >= 0x80 && hs.opcode2 <= 0x8F;
+            if (short_branch || near_branch) {
+                int32_t relative = short_branch ? static_cast<int8_t>(hs.imm.imm8) : static_cast<int32_t>(hs.imm.imm32);
+                work.push_back(next + relative);
+                address = next;
+                continue;
+            }
+            if (op == 0xFF && hs.modrm_reg == 4) // jmp through a table: can't follow
+                break;
+            address = next;
+        }
+    }
+    return result >= 0 ? result : kUnknownPop;
 }
 
 } // namespace
@@ -115,8 +175,15 @@ void InstallReplacements()
     if (init != MH_OK)
         Log("MinHook failed to initialise (%s): replacements will have no trampolines", MH_StatusToString(init));
 
-    int installed = 0, skipped = 0, without_trampoline = 0;
-    for (Installed& entry : Registry()) {
+    // First, before anything is patched: how many argument bytes each original pops on return.
+    std::vector<int> original_pops;
+    for (const Installed& entry : Registry())
+        original_pops.push_back(entry.replacement.callee_pop >= 0 ? OriginalCalleePop(entry.replacement.address)
+                                                                  : kUnknownPop);
+
+    int installed = 0, skipped = 0, without_trampoline = 0, mismatched = 0, checked = 0, unchecked = 0;
+    for (size_t i = 0; i < Registry().size(); ++i) {
+        Installed& entry = Registry()[i];
         const Replacement& r = entry.replacement;
         auto* target = reinterpret_cast<void*>(r.address);
         std::memcpy(entry.original_bytes, target, sizeof(entry.original_bytes));
@@ -125,6 +192,18 @@ void InstallReplacements()
             Log("disabled 0x%08X %s (thug2-decomp.ini)", r.address, r.name);
             continue;
         }
+        // A replacement that pops a different number of argument bytes would leave every caller's stack
+        // wrong: leave the original in place instead.
+        if (r.callee_pop >= 0 && original_pops[i] >= 0 && r.callee_pop != original_pops[i]) {
+            ++mismatched;
+            Log("NOT REPLACED 0x%08X %s: the original pops %d bytes of arguments, ours %d (wrong argument list?)",
+                r.address, r.name, original_pops[i], r.callee_pop);
+            continue;
+        }
+        if (r.callee_pop >= 0 && original_pops[i] >= 0)
+            ++checked;
+        else
+            ++unchecked;
         MH_STATUS status = init == MH_OK ? MH_CreateHook(target, r.function, &entry.trampoline) : init;
         if (status == MH_OK)
             status = MH_QueueEnableHook(target);
@@ -151,6 +230,11 @@ void InstallReplacements()
         static_cast<unsigned>(Registry().size()), skipped);
     if (without_trampoline)
         Log("%d replacement(s) have no trampoline (their originals can't be called directly)", without_trampoline);
+    if (mismatched)
+        Log("%d replacement(s) NOT installed: argument size differs from the original (see NOT REPLACED above)",
+            mismatched);
+    Log("argument sizes: %d checked against the original, %d not checked (naked stubs, or not determinable)",
+        checked, unchecked);
 }
 
 namespace {

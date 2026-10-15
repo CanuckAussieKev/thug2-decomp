@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstring>
 #include <iterator>
+#include <string>
 #include <tuple>
 #include <vector>
 
@@ -1658,10 +1659,10 @@ void TestPipNamesLate()
 
 // A fake .pre archive in game memory (PreFile frees its block with Mem::Free), with plain, compressed, empty
 // and duplicate-name entries. `compressed_source` gets the uncompressed bytes of the compressed entry.
-uint8_t* BuildFakeArchive(std::vector<uint8_t>& compressed_source)
+uint8_t* BuildFakeArchive(std::vector<uint8_t>& compressed_source, const std::string& prefix = "")
 {
     struct Spec {
-        const char* name;
+        std::string name;
         std::vector<uint8_t> bytes;
         bool compress;
     };
@@ -1671,10 +1672,11 @@ uint8_t* BuildFakeArchive(std::vector<uint8_t>& compressed_source)
     std::vector<uint8_t> plain(37);
     for (int i = 0; i < 37; ++i)
         plain[i] = static_cast<uint8_t>(i * 7 + 1);
-    const Spec specs[] = {{"scripts/a.qb", plain, false},
-                          {"models\\b.mdl", compressed_source, true},
-                          {"empty.txt", {}, false},
-                          {"scripts/a.qb", {9, 9, 9}, false}};
+    const Spec specs[] = {{prefix + "scripts/a.qb", plain, false},
+                          {prefix + "models\\b.mdl", compressed_source, true},
+                          {prefix + "empty.txt", {}, false},
+                          {prefix + "scripts/a.qb", {9, 9, 9}, false},
+                          {prefix + "qb\\levelscripts.pre", {1, 2, 3, 4, 5}, false}};
 
     std::vector<uint8_t> block(12, 0);
     for (const Spec& s : specs) {
@@ -1685,13 +1687,13 @@ uint8_t* BuildFakeArchive(std::vector<uint8_t>& compressed_source)
             compressed_size = Lzss::Encode(s.bytes.data(), out.data(), static_cast<int>(s.bytes.size()), false);
             stored.assign(out.begin(), out.begin() + compressed_size);
         }
-        int name_size = static_cast<int>((std::strlen(s.name) + 1 + 3) & ~3u);
+        int name_size = static_cast<int>((s.name.size() + 1 + 3) & ~size_t(3));
         size_t at = block.size();
         block.resize(at + 16 + name_size + ((stored.size() + 3) & ~size_t(3)), 0);
         int32_t header[4] = {static_cast<int32_t>(s.bytes.size()), compressed_size, name_size,
-                             static_cast<int32_t>(Crc::GenerateCRCFromString(s.name))};
+                             static_cast<int32_t>(Crc::GenerateCRCFromString(s.name.c_str()))};
         std::memcpy(&block[at], header, sizeof(header));
-        std::memcpy(&block[at + 16], s.name, std::strlen(s.name) + 1);
+        std::memcpy(&block[at + 16], s.name.c_str(), s.name.size() + 1);
         if (!stored.empty())
             std::memcpy(&block[at + 16 + name_size], stored.data(), stored.size());
     }
@@ -1797,6 +1799,231 @@ void TestPreFileLate()
     Check(Original<DtorFn>(0x005B9410)(expected, 1) == expected, "PreFile::~PreFile (returns this)");
     actual->~PreFile();
     Mem::Free(actual);
+}
+
+// The pre manager's globals: the manager slot, the created instance and its reference count, and File's
+// "handled" flag. Saved by TestPreMgrLate and put back by RestorePreGlobals, even if the test crashes.
+struct PreGlobals {
+    Pre::PreMgr* slot;
+    Pre::PreMgr* instance;
+    int refs;
+    bool handled;
+};
+PreGlobals g_saved_pre_globals;
+bool g_pre_globals_saved = false;
+
+void SavePreGlobals()
+{
+    g_saved_pre_globals = {GameVariable<Pre::PreMgr*>(0x007D0FC4), GameVariable<Pre::PreMgr*>(0x007D0FCC),
+                           GameVariable<int>(0x007D0FD0), GameVariable<bool>(0x007D0FC8)};
+    g_pre_globals_saved = true;
+}
+
+void RestorePreGlobals()
+{
+    if (!g_pre_globals_saved)
+        return;
+    GameVariable<Pre::PreMgr*>(0x007D0FC4) = g_saved_pre_globals.slot;
+    GameVariable<Pre::PreMgr*>(0x007D0FCC) = g_saved_pre_globals.instance;
+    GameVariable<int>(0x007D0FD0) = g_saved_pre_globals.refs;
+    GameVariable<bool>(0x007D0FC8) = g_saved_pre_globals.handled;
+    g_pre_globals_saved = false;
+}
+
+// Which archive (by name) a manager's active file belongs to, plus the file's size and offset in its
+// archive - comparable between two managers holding equal archives at different addresses.
+std::string DescribeActive(Pre::PreMgr* m, Pre::PreFile::FileInfo* handle)
+{
+    if (!handle)
+        return "none";
+    const char* archive = "?";
+    for (const char* name : {"levels\\one.pre", "two.pre"})
+        if (m->m_pres->GetItem(Crc::GenerateCRCFromString(name)) == m->m_activePre)
+            archive = name;
+    char text[160];
+    sprintf_s(text, "%s size %d at %d pos %d open %d", archive, handle->size,
+              static_cast<int>(handle->data - m->m_activePre->m_block), handle->position,
+              m->m_activePre->m_openCount);
+    return text;
+}
+
+void TestPreMgrLate()
+{
+    using Pre::PreFile;
+    using Pre::PreMgr;
+    using Info = PreFile::FileInfo;
+    auto& slot = GameVariable<PreMgr*>(0x007D0FC4);
+    auto& instance = GameVariable<PreMgr*>(0x007D0FCC);
+    auto& refs = GameVariable<int>(0x007D0FD0);
+    auto& handled = GameVariable<bool>(0x007D0FC8);
+    SavePreGlobals();
+
+    // --- reference-counted creation
+    {
+        using CreateFn = PreMgr*(__cdecl*)(bool);
+        using DestroyFn = void(__cdecl*)();
+        auto run = [&](bool original) {
+            std::vector<int> trace;
+            instance = nullptr;
+            refs = 0;
+            auto create = [&](bool c) {
+                PreMgr* returned = original ? Original<CreateFn>(0x005B8E90)(c) : Pre::CreateManager(c);
+                trace.push_back(returned == instance);
+            };
+            auto destroy = [&] { original ? Original<DestroyFn>(0x005B9510)() : Pre::DestroyManager(); };
+            create(false);
+            trace.insert(trace.end(), {instance != nullptr, refs});
+            create(true);
+            trace.insert(trace.end(), {instance != nullptr, refs, slot == instance});
+            create(true);
+            trace.insert(trace.end(), {instance != nullptr, refs});
+            destroy();
+            trace.insert(trace.end(), {instance != nullptr, refs});
+            destroy();
+            trace.insert(trace.end(), {instance != nullptr, refs});
+            destroy();
+            trace.insert(trace.end(), {instance != nullptr, refs});
+            return trace;
+        };
+        std::vector<int> expected_trace = run(true);
+        Check(expected_trace == run(false), "Pre::CreateManager/DestroyManager");
+    }
+
+    // --- two managers, each given the same two archives through pending loads
+    using CtorFn = PreMgr*(__thiscall*)(void*);
+    using FinishFn = void(__thiscall*)(PreMgr*, int, uint8_t*, int);
+    auto* expected = static_cast<PreMgr*>(Mem::Calloc(sizeof(PreMgr), nullptr, 1));
+    auto* actual = static_cast<PreMgr*>(Mem::Calloc(sizeof(PreMgr), nullptr, 1));
+    Check(Original<CtorFn>(0x005B8D20)(expected) == expected && slot == expected, "PreMgr::PreMgr (original)");
+    new (actual) PreMgr();
+    Check(slot == actual && actual->m_pres && !actual->m_activeHandle && !actual->m_activeData &&
+              !actual->m_missingHandle && actual->m_numPending == 0 && expected->m_numPending == 0,
+          "PreMgr::PreMgr");
+
+    std::vector<uint8_t> source;
+    for (PreMgr* m : {expected, actual}) {
+        m->m_pending[0] = {11, "levels\\one.pre"};
+        m->m_pending[1] = {22, "two.pre"};
+        m->m_pending[2] = {33, "never.pre"};
+        m->m_numPending = 3;
+    }
+    auto pending_same = [&] {
+        bool same = expected->m_numPending == actual->m_numPending;
+        for (int i = 0; same && i < expected->m_numPending; ++i)
+            same = expected->m_pending[i].handle == actual->m_pending[i].handle &&
+                   std::strcmp(expected->m_pending[i].name, actual->m_pending[i].name) == 0;
+        return same;
+    };
+    Original<FinishFn>(0x005B8DB0)(expected, 22, BuildFakeArchive(source, "two/"), 0);
+    actual->FinishLoad(22, BuildFakeArchive(source, "two/"), 0);
+    Check(pending_same(), "PreMgr::FinishLoad");
+    Original<FinishFn>(0x005B8DB0)(expected, 11, BuildFakeArchive(source, "one/"), 0);
+    actual->FinishLoad(11, BuildFakeArchive(source, "one/"), 0);
+    Check(pending_same(), "PreMgr::FinishLoad (second)");
+    {
+        // Not a pending handle: nothing happens (and the block stays ours to free).
+        uint8_t* stray = BuildFakeArchive(source, "x/");
+        Original<FinishFn>(0x005B8DB0)(expected, 99, stray, 0);
+        actual->FinishLoad(99, stray, 0);
+        Check(pending_same() && expected->m_pres->m_size == actual->m_pres->m_size, "PreMgr::FinishLoad (unknown)");
+        Mem::Free(stray);
+    }
+
+    using NameBoolFn = bool(__thiscall*)(PreMgr*, const char*);
+    for (const char* name : {"two.pre", "levels\\one.pre", "never.pre", "TWO.PRE"}) {
+        Check(Original<NameBoolFn>(0x005B8540)(expected, name) == actual->IsLoaded(name), "PreMgr::IsLoaded");
+        Check(Original<NameBoolFn>(0x005B7FD0)(expected, name) == actual->IsLoadFinished(name),
+              "PreMgr::IsLoadFinished");
+    }
+
+    // --- finding files
+    using LoadFileFn = uint8_t*(__thiscall*)(PreMgr*, const char*, int*, uint8_t*);
+    using OpenFileFn = Info*(__thiscall*)(PreMgr*, const char*);
+    using ContainedFn = uint8_t*(__thiscall*)(PreMgr*, Info*);
+    const char* files[] = {"one/scripts/a.qb", "two/models/b.mdl", "two\\empty.txt", "one/qb/levelscripts.pre",
+                           "missing.dat"};
+    for (const char* name : files) {
+        uint8_t out_e[800] = {}, out_a[800] = {};
+        int size_e = -1, size_a = -1;
+        uint8_t* r_e = Original<LoadFileFn>(0x005B8750)(expected, name, &size_e, out_e);
+        uint8_t* r_a = actual->LoadFile(name, &size_a, out_a);
+        Check((r_e == nullptr) == (r_a == nullptr) && size_e == size_a && std::memcmp(out_e, out_a, 800) == 0,
+              "PreMgr::LoadFile");
+        Check(Original<NameBoolFn>(0x005B8390)(expected, name) == actual->FileExists(name), "PreMgr::FileExists");
+        Info* h_e = Original<OpenFileFn>(0x005B8AD0)(expected, name);
+        Info* h_a = actual->OpenFile(name);
+        Check(DescribeActive(expected, h_e) == DescribeActive(actual, h_a), "PreMgr::OpenFile");
+        if (h_e && h_a) {
+            Info foreign = {};
+            for (Info* pair : {static_cast<Info*>(nullptr), &foreign, &foreign}) {
+                uint8_t* d_e = Original<ContainedFn>(0x005B84A0)(expected, pair ? pair : h_e);
+                uint8_t* d_a = actual->GetContainedFile(pair ? pair : h_a);
+                Check((d_e == nullptr) == (d_a == nullptr) && (expected->m_missingHandle == &foreign) ==
+                                                                  (actual->m_missingHandle == &foreign),
+                      "PreMgr::GetContainedFile");
+            }
+        }
+    }
+
+    // --- the File:: side, through the global manager slot: run the same calls on each manager
+    auto run_hooks = [&](PreMgr* m, bool original) {
+        using ExistFn = bool(__cdecl*)(const char*);
+        using OpenFn = Info*(__cdecl*)(const char*, const char*, bool);
+        using CloseFn = int(__cdecl*)(Info*, bool);
+        using ReadFn = int(__cdecl*)(void*, int, int, Info*);
+        using WriteFn = int(__cdecl*)(const void*, int, int, Info*);
+        using SeekFn = int(__cdecl*)(Info*, int, int);
+        using SizeFn = int(__cdecl*)(Info*);
+        slot = m;
+        std::vector<std::string> trace;
+        auto note = [&](const std::string& what, int value) {
+            trace.push_back(what + "=" + std::to_string(value) + (handled ? " handled" : " not handled"));
+        };
+        for (const char* name : files) {
+            note("exist", original ? Original<ExistFn>(0x005B85A0)(name) : Pre::Exist(name));
+            Info* h = original ? Original<OpenFn>(0x005B8C70)(name, "rb", true) : Pre::Open(name, "rb", true);
+            trace.push_back(std::string("open ") + DescribeActive(m, h) + (handled ? " handled" : ""));
+            if (!h)
+                continue;
+            note("size", original ? Original<SizeFn>(0x005B86E0)(h) : Pre::GetFileSize(h));
+            note("seek", original ? Original<SeekFn>(0x005B86A0)(h, 3, 0) : Pre::Seek(h, 3, 0));
+            uint8_t buffer[16] = {};
+            note("read", original ? Original<ReadFn>(0x005B8630)(buffer, 2, 5, h) : Pre::Read(buffer, 2, 5, h));
+            trace.push_back(std::string(reinterpret_cast<char*>(buffer), sizeof(buffer)));
+            note("write", original ? Original<WriteFn>(0x005B8680)(buffer, 1, 1, h) : Pre::Write(buffer, 1, 1, h));
+            note("close", original ? Original<CloseFn>(0x005B85D0)(h, true) : Pre::Close(h, true));
+            trace.push_back("open count " + std::to_string(m->m_activePre->m_openCount));
+            Info* w = original ? Original<OpenFn>(0x005B8C70)(name, "wb", true) : Pre::Open(name, "wb", true);
+            trace.push_back(std::string("open for writing ") + (w ? "?" : "refused") + (handled ? " handled" : ""));
+        }
+        return trace;
+    };
+    std::vector<std::string> trace_expected = run_hooks(expected, true);
+    Check(trace_expected == run_hooks(actual, false), "Pre::Exist/Open/Read/Seek/GetFileSize/Write/Close");
+
+    // --- unloading
+    using UnloadFn = void(__thiscall*)(PreMgr*, const char*, bool);
+    const std::pair<const char*, bool> unloads[] = {{"nothere.pre", true}, {"nothere.pre", false}, {"two.pre", true}};
+    for (const auto& [name, only_if_loaded] : unloads) {
+        Original<UnloadFn>(0x005B9570)(expected, name, only_if_loaded);
+        actual->UnloadPre(name, only_if_loaded);
+        Check(expected->m_pres->m_size == actual->m_pres->m_size &&
+                  Original<NameBoolFn>(0x005B8540)(expected, "two.pre") == actual->IsLoaded("two.pre"),
+              "PreMgr::UnloadPre");
+    }
+    actual->m_blockUnload = expected->m_blockUnload = true;
+    Original<UnloadFn>(0x005B9570)(expected, "levels\\one.pre", true);
+    actual->UnloadPre("levels\\one.pre", true);
+    Check(expected->m_pres->m_size == 1 && actual->m_pres->m_size == 1, "PreMgr::UnloadPre (blocked)");
+
+    // Clean up: the remaining archive, the tables, the managers.
+    for (PreMgr* m : {expected, actual}) {
+        m->m_blockUnload = false;
+        m->UnloadPre("levels\\one.pre", true);
+        m->m_pres->~HashTable();
+        Mem::Free(m->m_pres);
+        Mem::Free(m);
+    }
 }
 
 void TestPoolConstructorLate()
@@ -2080,5 +2307,6 @@ SELFTEST(Late, TestPoolConstructorLate);
 SELFTEST(Late, TestHashTableLate);
 SELFTEST(Late, TestPipNamesLate, RestorePipTables);
 SELFTEST(Late, TestPreFileLate);
+SELFTEST(Late, TestPreMgrLate, RestorePreGlobals);
 
 SELFTEST(EngineStarted, TestPipLoad);

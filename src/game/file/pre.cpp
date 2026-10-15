@@ -217,6 +217,295 @@ int PreFile::Seek(int offset, int origin)
     return -1;
 }
 
+// --- PreMgr ---------------------------------------------------------------------------------------------
+
+static_assert(offsetof(PreMgr, m_pres) == 0x10 && offsetof(PreMgr, m_blockUnload) == 0x14 &&
+                  offsetof(PreMgr, m_pending) == 0x18 && offsetof(PreMgr, m_numPending) == 0x238 &&
+                  sizeof(PreMgr) == 0x23C,
+              "layout must match the original");
+
+namespace {
+
+PreMgr*& ManagerSlot() { return GameVariable<PreMgr*>(0x007D0FC4); } // set by the constructor
+PreMgr*& InstanceSlot() { return GameVariable<PreMgr*>(0x007D0FCC); } // the one CreateManager made
+int& InstanceRefs() { return GameVariable<int>(0x007D0FD0); }
+bool& Handled() { return GameVariable<bool>(0x007D0FC8); } // see File:: - "this call was ours"
+int Language() { return GameVariable<int>(0x007CEFA0); }
+
+// Names inside archives use backslashes. The original copies into a 128-byte buffer with no limit; this
+// stops at the buffer's size.
+void NormaliseName(char (&out)[128], const char* name)
+{
+    size_t i = 0;
+    for (; name[i] && i < sizeof(out) - 1; ++i)
+        out[i] = name[i] == '/' ? '\\' : name[i];
+    out[i] = '\0';
+}
+
+// Calls `visit` for each loaded archive, in table order, until it returns something non-null (returned), or
+// the table runs out. Uses the table's own iterator, like the original.
+template <typename Visit>
+auto ForEachPre(Lst::HashTable* pres, Visit visit) -> decltype(visit(static_cast<PreFile*>(nullptr)))
+{
+    pres->m_iterBucket = -1;
+    pres->m_iterItem = nullptr;
+    while (pres->IterateNext() && pres->m_iterItem && pres->m_iterItem->value) {
+        if (auto result = visit(static_cast<PreFile*>(pres->m_iterItem->value)))
+            return result;
+    }
+    return {};
+}
+
+} // namespace
+
+PreMgr* Manager() { return ManagerSlot(); }
+PreMgr* Instance() { return InstanceSlot(); }
+
+// 0x005B8D20
+PreMgr::PreMgr()
+{
+    void* memory = Mem::New(sizeof(Lst::HashTable));
+    m_pres = memory ? new (memory) Lst::HashTable(4) : nullptr;
+    ManagerSlot() = this;
+    m_activeHandle = nullptr;
+    m_activeData = nullptr;
+    m_missingHandle = nullptr;
+    m_numPending = 0;
+}
+
+// 0x005B8E90 (returns the instance in EAX: the caller keeps it)
+PreMgr* CreateManager(bool create)
+{
+    if (!InstanceSlot() && create) {
+        void* memory = Mem::Calloc(sizeof(PreMgr), nullptr, 1);
+        InstanceSlot() = memory ? new (memory) PreMgr() : nullptr;
+    }
+    ++InstanceRefs();
+    return InstanceSlot();
+}
+
+// 0x005B9510
+void DestroyManager()
+{
+    if (InstanceRefs() > 1) {
+        --InstanceRefs();
+        return;
+    }
+    if (PreMgr* manager = InstanceSlot()) {
+        if (Lst::HashTable* pres = manager->m_pres) {
+            pres->~HashTable();
+            Mem::Free(pres);
+        }
+        Mem::Free(manager);
+    }
+    InstanceSlot() = nullptr;
+    InstanceRefs() = 0;
+}
+
+// 0x005B8750
+uint8_t* PreMgr::LoadFile(const char* name, int* size, uint8_t* out)
+{
+    char path[128];
+    NormaliseName(path, name);
+    return ForEachPre(m_pres, [&](PreFile* pre) { return pre->LoadContainedFile(path, size, out); });
+}
+
+// 0x005B8390
+bool PreMgr::FileExists(const char* name)
+{
+    char path[128];
+    NormaliseName(path, name);
+    return ForEachPre(m_pres, [&](PreFile* pre) {
+        return pre->m_files->GetItem(Crc::GenerateCRCFromString(path)) != nullptr;
+    });
+}
+
+// 0x005B8AD0
+PreFile::FileInfo* PreMgr::OpenFile(const char* name)
+{
+    char path[128];
+    NormaliseName(path, name);
+    // "...scripts.pre" -> "...scripts.pr<language letter>"
+    size_t length = std::strlen(path);
+    if (length > 11 && std::strcmp(path + length - 11, "scripts.pre") == 0) {
+        static const char kLetters[] = {'f', 's', 'd', 'i'}; // languages 3 to 6
+        int language = Language();
+        path[length - 1] = language >= 3 && language <= 6 ? kLetters[language - 3] : 'e';
+    }
+    return ForEachPre(m_pres, [&](PreFile* pre) -> PreFile::FileInfo* {
+        PreFile::FileInfo* handle = pre->GetContainedFile(path);
+        if (!handle)
+            return nullptr;
+        m_activePre = pre;
+        m_activeHandle = handle;
+        m_activeData = pre->GetContainedFileByHandle(handle);
+        return handle;
+    });
+}
+
+// 0x005B84A0
+uint8_t* PreMgr::GetContainedFile(PreFile::FileInfo* handle)
+{
+    if (m_missingHandle == handle)
+        return nullptr;
+    if (m_activeHandle == handle)
+        return m_activeData;
+    uint8_t* data = ForEachPre(m_pres, [&](PreFile* pre) -> uint8_t* {
+        uint8_t* found = pre->GetContainedFileByHandle(handle);
+        if (found) {
+            m_activePre = pre;
+            m_activeHandle = handle;
+            m_activeData = found;
+        }
+        return found;
+    });
+    if (!data)
+        m_missingHandle = handle;
+    return data;
+}
+
+// 0x005B8540
+bool PreMgr::IsLoaded(const char* name)
+{
+    return m_pres->GetItem(Crc::GenerateCRCFromString(name)) != nullptr;
+}
+
+// 0x005B7FD0
+bool PreMgr::IsLoadFinished(const char* name)
+{
+    for (int i = 0; i < m_numPending; ++i) {
+        if (std::strcmp(m_pending[i].name, name) == 0)
+            return false;
+    }
+    return true;
+}
+
+// 0x005B8DB0
+void PreMgr::FinishLoad(int handle, uint8_t* data, int /*size*/)
+{
+    int i = 0;
+    while (i < m_numPending && m_pending[i].handle != handle)
+        ++i;
+    if (i == m_numPending)
+        return;
+    void* memory = Mem::Calloc(sizeof(PreFile), Mem::TopDownHeap(), 1);
+    PreFile* pre = memory ? new (memory) PreFile(data, false) : nullptr;
+    m_pres->PutItem(Crc::GenerateCRCFromString(m_pending[i].name), pre);
+    --m_numPending;
+    m_pending[i] = m_pending[m_numPending]; // the last pending load takes this one's place
+}
+
+// 0x005B9570
+void PreMgr::UnloadPre(const char* name, bool only_if_loaded)
+{
+    if (m_blockUnload)
+        return;
+    auto* pre = static_cast<PreFile*>(m_pres->GetItem(Crc::GenerateCRCFromString(name)));
+    if (!pre && only_if_loaded)
+        return;
+    m_pres->FlushItem(Crc::GenerateCRCFromString(name));
+    if (pre) {
+        pre->~PreFile();
+        Mem::Free(pre);
+    }
+}
+
+// --- the archive side of File:: -----------------------------------------------------------------------
+
+// 0x005B85A0
+bool Exist(const char* name)
+{
+    Handled() = Manager()->FileExists(name);
+    return Handled();
+}
+
+// 0x005B8C70
+PreFile::FileInfo* Open(const char* name, const char* mode, bool count_open)
+{
+    PreFile::FileInfo* handle = Manager()->OpenFile(name);
+    if (!handle) {
+        Handled() = false;
+        return nullptr;
+    }
+    if (count_open)
+        ++Manager()->m_activePre->m_openCount;
+    // Archives are read-only: any mode other than r/b gives the file up (and leaves it to File::).
+    for (const char* c = mode; *c; ++c) {
+        if (*c != 'r' && *c != 'b') {
+            PreFile* pre = Manager()->m_activePre;
+            if (pre->m_activeFile->unpacked)
+                Mem::Free(pre->m_activeFile->unpacked);
+            pre->m_activeFile->unpacked = nullptr;
+            if (count_open)
+                --pre->m_openCount;
+            Handled() = false;
+            return nullptr;
+        }
+    }
+    Manager()->m_activePre->m_activeFile->position = 0;
+    Handled() = true;
+    return handle;
+}
+
+// 0x005B85D0
+int Close(PreFile::FileInfo* file, bool count_open)
+{
+    if (!Manager()->GetContainedFile(file)) {
+        Handled() = false;
+        return 0;
+    }
+    PreFile* pre = Manager()->m_activePre;
+    if (pre->m_activeFile->unpacked)
+        Mem::Free(pre->m_activeFile->unpacked);
+    pre->m_activeFile->unpacked = nullptr;
+    if (count_open)
+        --pre->m_openCount;
+    Handled() = true;
+    return 0;
+}
+
+// 0x005B8630
+int Read(void* buffer, int size, int count, PreFile::FileInfo* file)
+{
+    if (!Manager()->GetContainedFile(file)) {
+        Handled() = false;
+        return 0;
+    }
+    Handled() = true;
+    return Manager()->m_activePre->Read(buffer, static_cast<unsigned int>(size * count));
+}
+
+// 0x005B8680
+int Write(const void* /*buffer*/, int /*size*/, int /*count*/, PreFile::FileInfo* file)
+{
+    Manager()->GetContainedFile(file);
+    Handled() = false;
+    return 0;
+}
+
+// 0x005B86A0
+int Seek(PreFile::FileInfo* file, int offset, int origin)
+{
+    if (!Manager()->GetContainedFile(file)) {
+        Handled() = false;
+        return 0;
+    }
+    Handled() = true;
+    return Manager()->m_activePre->Seek(offset, origin);
+}
+
+// 0x005B86E0
+int GetFileSize(PreFile::FileInfo* file)
+{
+    if (!Manager()->GetContainedFile(file)) {
+        Handled() = false;
+        return 0;
+    }
+    Handled() = true;
+    PreFile::FileInfo* active = Manager()->m_activePre->m_activeFile;
+    return active ? active->size : 0;
+}
+
 } // namespace Pre
 
 namespace {
@@ -233,6 +522,10 @@ struct PreFileAdapter {
     }
 };
 
+struct PreMgrAdapter {
+    Pre::PreMgr* Construct() { return new (this) Pre::PreMgr(); }
+};
+
 } // namespace
 
 REPLACE(0x005B7DF0, Pre::Decode);
@@ -243,3 +536,21 @@ REPLACE(0x005B8310, &Pre::PreFile::GetContainedFileByHandle);
 REPLACE(0x005B8A00, &Pre::PreFile::GetContainedFile);
 REPLACE(0x005B7F00, &Pre::PreFile::Read);
 REPLACE(0x005B7F60, &Pre::PreFile::Seek);
+REPLACE(0x005B8D20, &PreMgrAdapter::Construct);
+REPLACE(0x005B8E90, Pre::CreateManager);
+REPLACE(0x005B9510, Pre::DestroyManager);
+REPLACE(0x005B8750, &Pre::PreMgr::LoadFile);
+REPLACE(0x005B8390, &Pre::PreMgr::FileExists);
+REPLACE(0x005B8AD0, &Pre::PreMgr::OpenFile);
+REPLACE(0x005B84A0, &Pre::PreMgr::GetContainedFile);
+REPLACE(0x005B8540, &Pre::PreMgr::IsLoaded);
+REPLACE(0x005B7FD0, &Pre::PreMgr::IsLoadFinished);
+REPLACE(0x005B8DB0, &Pre::PreMgr::FinishLoad);
+REPLACE(0x005B9570, &Pre::PreMgr::UnloadPre);
+REPLACE(0x005B85A0, Pre::Exist);
+REPLACE(0x005B8C70, Pre::Open);
+REPLACE(0x005B85D0, Pre::Close);
+REPLACE(0x005B8630, Pre::Read);
+REPLACE(0x005B8680, Pre::Write);
+REPLACE(0x005B86A0, Pre::Seek);
+REPLACE(0x005B86E0, Pre::GetFileSize);

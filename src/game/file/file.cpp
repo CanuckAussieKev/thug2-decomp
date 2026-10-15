@@ -3,6 +3,7 @@
 #include <windows.h>
 
 #include "game/core/dbg.h"
+#include "game/file/pre.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -10,30 +11,28 @@ namespace File {
 
 namespace {
 
-// The .pre archive manager (not rewritten yet). While it exists, each file call goes to it first; it sets
-// the "handled" flag when the file was in one of its archives.
-bool ArchivesActive() { return GameVariable<void*>(0x007D0FC4) != nullptr; }
+// While a pre manager exists, each file call goes to it first; it sets the "handled" flag when the file was
+// in one of its archives.
+bool ArchivesActive() { return Pre::Manager() != nullptr; }
 bool& HandledByArchive() { return GameVariable<bool>(0x007D0FC8); }
 
-bool ArchiveExist(const char* name) { return GameFunction<bool(__cdecl*)(const char*)>(0x005B85A0)(name); }
-Handle ArchiveOpen(const char* name, const char* mode)
-{
-    return GameFunction<Handle(__cdecl*)(const char*, const char*, int)>(0x005B8C70)(name, mode, 0);
-}
-int ArchiveClose(Handle file) { return GameFunction<int(__cdecl*)(Handle, int)>(0x005B85D0)(file, 0); }
+Pre::PreFile::FileInfo* AsArchiveFile(Handle file) { return static_cast<Pre::PreFile::FileInfo*>(file); }
+bool ArchiveExist(const char* name) { return Pre::Exist(name); }
+Handle ArchiveOpen(const char* name, const char* mode) { return Pre::Open(name, mode, false); }
+int ArchiveClose(Handle file) { return Pre::Close(AsArchiveFile(file), false); }
 int ArchiveRead(void* buffer, int size, int count, Handle file)
 {
-    return GameFunction<int(__cdecl*)(void*, int, int, Handle)>(0x005B8630)(buffer, size, count, file);
+    return Pre::Read(buffer, size, count, AsArchiveFile(file));
 }
 int ArchiveWrite(const void* buffer, int size, int count, Handle file)
 {
-    return GameFunction<int(__cdecl*)(const void*, int, int, Handle)>(0x005B8680)(buffer, size, count, file);
+    return Pre::Write(buffer, size, count, AsArchiveFile(file));
 }
 uint32_t ArchiveSeek(Handle file, int offset, int origin)
 {
-    return GameFunction<uint32_t(__cdecl*)(Handle, int, int)>(0x005B86A0)(file, offset, origin);
+    return static_cast<uint32_t>(Pre::Seek(AsArchiveFile(file), offset, origin));
 }
-uint32_t ArchiveGetFileSize(Handle file) { return GameFunction<uint32_t(__cdecl*)(Handle)>(0x005B86E0)(file); }
+uint32_t ArchiveGetFileSize(Handle file) { return static_cast<uint32_t>(Pre::GetFileSize(AsArchiveFile(file))); }
 
 // Shows the fatal file error screen; never returns.
 [[noreturn]] void FatalFileError(DWORD error)
@@ -184,8 +183,8 @@ bool Exist(const char* name)
 
 namespace {
 
-// 0x005B8040 / 0x005B8050: one-line accessors for the two archive manager globals above.
-bool __cdecl ArchivesActiveAccessor() { return GameVariable<void*>(0x007D0FC4) != nullptr; }
+// 0x005B8040 / 0x005B8050: one-line accessors for the archive manager and the "handled" flag.
+bool __cdecl ArchivesActiveAccessor() { return Pre::Manager() != nullptr; }
 bool __cdecl HandledByArchiveAccessor() { return GameVariable<bool>(0x007D0FC8); }
 
 File::Handle __cdecl OpenOnDiskFromEdx(const char* name) { return File::OpenOnDisk(name); }
@@ -205,7 +204,7 @@ __declspec(naked) void OpenOnDiskAdapter()
 
 REPLACE(0x005B8040, ArchivesActiveAccessor);
 REPLACE(0x005B8050, HandledByArchiveAccessor);
-REPLACE(0x005B9CB0, OpenOnDiskAdapter);
+REPLACE_UNCHECKED(0x005B9CB0, OpenOnDiskAdapter); // argument in EDX
 REPLACE(0x005B9E60, File::Open);
 REPLACE(0x005B9EA0, File::Close);
 REPLACE(0x005B9EE0, File::Read);

@@ -101,7 +101,7 @@ add_library(thug2_decomp SHARED
     src/game/util/bitstream.cpp
     src/game/util/lzss.cpp
 )
-target_include_directories(thug2_decomp PRIVATE src)
+target_include_directories(thug2_decomp PRIVATE src ${minhook_SOURCE_DIR}/src) # MinHook's hde32 decoder
 target_link_libraries(thug2_decomp PRIVATE partymod minhook)
 target_compile_definitions(thug2_decomp PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
 target_compile_options(thug2_decomp PRIVATE /W4 /permissive- /utf-8)

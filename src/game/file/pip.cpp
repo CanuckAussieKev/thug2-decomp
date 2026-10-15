@@ -5,6 +5,7 @@
 #include "game/core/crc.h"
 #include "game/core/mem.h"
 #include "game/file/file.h"
+#include "game/file/pre.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/shadow.h"
@@ -27,11 +28,11 @@ void FreeFileMemory(void* memory) { Mem::FreeMalloc(memory); }
 // Buffers are allocated in whole 2 KB sectors.
 unsigned int SectorAligned(unsigned int size) { return (size + 0x7FF) & ~0x7FFu; }
 
-// The pre-file manager (not rewritten yet): finds files inside .pre archives registered with it.
+// The pre manager instance finds files inside .pre archives registered with it. (Like the original, this
+// assumes it exists.)
 void* PreManagerLoadFile(const char* name, int* size)
 {
-    void* manager = GameVariable<void*>(0x007D0FCC);
-    return GameFunction<void*(__thiscall*)(void*, const char*, int*, int)>(0x005B8750)(manager, name, size, 0);
+    return Pre::Instance()->LoadFile(name, size, nullptr);
 }
 
 // Loading from a CD cache: both hooks are stubs in the PC version (size 0, load fails).

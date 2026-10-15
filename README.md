@@ -78,4 +78,6 @@ and on a normal quit a summary of how many shadow checks ran.
 4. Where practical, add a self-test comparing it with `Original<Fn>(0xADDRESS)` and register it with
    `SELFTEST(Early|Late|EngineStarted, TestName)` for the earliest stage where what it needs exists
    (`src/hook/selftest.h`).
-5. Build, play, check the log.
+5. Build, play, check the log. Replacements whose argument size (from the C++ type) doesn't match the
+   original's `RET n` aren't installed and show up as `NOT REPLACED`. Naked assembly stubs use
+   `REPLACE_UNCHECKED`.

@@ -151,11 +151,21 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       the two heaps are now in mem.h. Late self-test on a fake archive (plain, LZSS-compressed, empty and
       duplicate-name files). Scanner: 170 functions, 4,983 call sites, clean. 0x5480A0 is an empty `ret`
       (profiling marker; PartyMod uses the bytes after it as a code cave) - calls to it are dropped.
-- [ ] Next (batch 25): `PreMgr` - ctor 0x5B8D20, create/destroy 0x5B8E90/0x5B9510 (singleton 0x7D0FC4,
-      instance 0x7D0FCC, refcount 0x7D0FD0), getContainedFile 0x5B84A0, fileExists 0x5B8390, open
-      0x5B8AD0/0x5B8C70, InPre 0x5B8540, LoadFile 0x5B8750, postLoad 0x5B8DB0, unloadPre 0x5B9570, pending
-      check 0x5B7FD0, the File:: archive hooks 0x5B85A0-0x5B86E0. Then batch 26: loadPre 0x5B8EE0, the
-      PIP .pre loader 0x5B75A0, LoadPipPre/LoadPreFile/... script functions.
+- [x] Batch 25 (untested in play): `Pre::PreMgr` - ctor 0x5B8D20, CreateManager 0x5B8E90 (returns the
+      instance in EAX - Ghidra said void; the caller keeps it), DestroyManager 0x5B9510, LoadFile 0x5B8750,
+      FileExists 0x5B8390, OpenFile 0x5B8AD0 (language redirect of "...scripts.pre" via 0x7CEFA0),
+      GetContainedFile 0x5B84A0, IsLoaded 0x5B8540, IsLoadFinished 0x5B7FD0, FinishLoad 0x5B8DB0 (THREE
+      stack arguments - RET 0xC; Ghidra showed two), UnloadPre 0x5B9570; the File:: archive hooks Exist,
+      Open, Close, Read, Write, Seek, GetFileSize (0x5B85A0-0x5B86E0, 0x5B8C70). File and Pip now call them
+      directly. Late self-test: an original and a rewritten manager given the same two archives through
+      pending loads, compared through every call, with the manager globals saved and restored.
+- [x] Argument-size check (2026-10-15): at install time each replacement's popped argument bytes (from its
+      C++ type, kCalleePop) are compared with the original's RET n (found by walking its code with MinHook's
+      hde32 decoder); a mismatch is logged as NOT REPLACED and the original stays. Found because the first
+      FinishLoad (two arguments) made the test hang. 187 of 190 checked, all match.
+- [ ] Next (batch 26): loadPre 0x5B8EE0, the PIP .pre loader 0x5B75A0, the LoadPipPre / LoadPreFile /
+      UnloadPreFile / IsLoadPreFinished / WaitLoadPre / InPreFile script functions, then the async loader
+      0x5B6560-0x5B7130.
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
       for original callers that read ECX/EDX after the call without writing them first (ignoring push-to-reserve,
       lea reg,[reg], or reg,-1 and zeroing idioms; callers that are themselves replaced count as safe).

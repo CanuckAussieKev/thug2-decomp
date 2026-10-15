@@ -53,4 +53,63 @@ public:
     bool m_bottomUpHeap;
 };
 
+// The pre manager: every loaded archive, searched in turn when a file is opened. There is one, created and
+// destroyed with reference counting (CreateManager / DestroyManager).
+class PreMgr {
+public:
+    PreMgr();
+
+    // Load the file `name` from whichever archive has it (see PreFile::LoadContainedFile).
+    uint8_t* LoadFile(const char* name, int* size, uint8_t* out);
+    // True if some archive contains `name`.
+    bool FileExists(const char* name);
+    // Open `name` from whichever archive has it and make it the active file. Language-specific script
+    // archives ("...scripts.pre") are redirected to the current language's version.
+    PreFile::FileInfo* OpenFile(const char* name);
+    // Make the file behind `handle` active and return its data, or null if no archive has it.
+    uint8_t* GetContainedFile(PreFile::FileInfo* handle);
+
+    // Whether the archive `name` is loaded / still waiting to finish loading.
+    bool IsLoaded(const char* name);
+    bool IsLoadFinished(const char* name);
+    // An archive's data has arrived for pending load `handle`: index it and add it to the loaded archives.
+    // The third argument (probably the data's size) isn't used, but callers pass it.
+    void FinishLoad(int handle, uint8_t* data, int size);
+    // Unload the archive `name`. With `only_if_loaded` false the name is removed from the table even if no
+    // archive is attached to it. Does nothing while unloading is blocked.
+    void UnloadPre(const char* name, bool only_if_loaded);
+
+    struct PendingLoad {
+        int handle;
+        char name[64];
+    };
+
+    PreFile* m_activePre;
+    PreFile::FileInfo* m_activeHandle;
+    uint8_t* m_activeData;
+    PreFile::FileInfo* m_missingHandle; // the last handle no archive had (a quick "no" next time)
+    Lst::HashTable* m_pres;             // PreFile by archive name checksum
+    bool m_blockUnload;
+    PendingLoad m_pending[8];
+    int m_numPending;
+};
+
+// The pre manager, if one exists (set by its constructor), and the one CreateManager made - the same object.
+PreMgr* Manager();
+PreMgr* Instance();
+// Reference-counted creation: the first call with `create` makes the manager, the last DestroyManager
+// deletes it. Returns the instance (null if there is none).
+PreMgr* CreateManager(bool create);
+void DestroyManager();
+
+// The archive side of the File:: calls. Each sets File's "handled" flag: whether the file was in an archive
+// (if not, File:: goes to disk). `count_open` keeps the archive's count of open files.
+bool Exist(const char* name);
+PreFile::FileInfo* Open(const char* name, const char* mode, bool count_open);
+int Close(PreFile::FileInfo* file, bool count_open);
+int Read(void* buffer, int size, int count, PreFile::FileInfo* file);
+int Write(const void* buffer, int size, int count, PreFile::FileInfo* file);
+int Seek(PreFile::FileInfo* file, int offset, int origin);
+int GetFileSize(PreFile::FileInfo* file);
+
 } // namespace Pre
