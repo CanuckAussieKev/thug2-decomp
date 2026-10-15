@@ -2,6 +2,7 @@
 
 #include <cmath>
 
+#include "game/mth/math.h"
 #include "hook/hook.h"
 
 namespace Mth {
@@ -144,8 +145,96 @@ Matrix& Matrix::SetFromEulerAngles(float x, float y, float z)
     return *this;
 }
 
+namespace {
+
+// Element (r, c), treating the four row vectors as a 4x4 array.
+float At(const Matrix& m, int r, int c)
+{
+    return (&m.row[r].x)[c];
+}
+
+// Determinant of the 3x3 matrix left after removing row `skip_row` and column `skip_col`, expanded along its
+// first row in the same order as the original: a(ei - fh) - b(di - fg) + c(dh - eg).
+float Minor(const Matrix& m, int skip_row, int skip_col)
+{
+    int r[3], c[3];
+    for (int i = 0, n = 0; i < 4; ++i)
+        if (i != skip_row)
+            r[n++] = i;
+    for (int i = 0, n = 0; i < 4; ++i)
+        if (i != skip_col)
+            c[n++] = i;
+    float a = At(m, r[0], c[0]), b = At(m, r[0], c[1]), cc = At(m, r[0], c[2]);
+    float d = At(m, r[1], c[0]), e = At(m, r[1], c[1]), f = At(m, r[1], c[2]);
+    float g = At(m, r[2], c[0]), h = At(m, r[2], c[1]), i = At(m, r[2], c[2]);
+    return a * (e * i - f * h) - b * (d * i - f * g) + cc * (d * h - e * g);
+}
+
+} // namespace
+
+// 0x004041E0
+float Matrix::Determinant() const
+{
+    return At(*this, 0, 0) * Minor(*this, 0, 0) - At(*this, 0, 1) * Minor(*this, 0, 1) +
+           At(*this, 0, 2) * Minor(*this, 0, 2) - At(*this, 0, 3) * Minor(*this, 0, 3);
+}
+
+// 0x004043A0
+Matrix& Matrix::Adjugate(const Matrix& source)
+{
+    for (int r = 0; r < 4; ++r) {
+        for (int c = 0; c < 4; ++c) {
+            float cofactor = Minor(source, c, r);
+            (&row[r].x)[c] = ((r + c) & 1) ? -cofactor : cofactor;
+        }
+    }
+    return *this;
+}
+
+// 0x00405600
+Matrix& Matrix::Invert()
+{
+    Matrix adjugate;
+    adjugate.Adjugate(*this);
+    float determinant = Determinant();
+    if (determinant != 1.0f)
+        adjugate *= 1.0f / determinant;
+    *this = adjugate;
+    return *this;
+}
+
+// 0x00404AB0
+Vector& Matrix::GetEulerAngles(Vector& out) const
+{
+    float sin_y = row[0].z;
+    if (!(sin_y <= 1.0f)) // also catches NaN, as the original does
+        sin_y = 1.0f;
+    else if (sin_y < -1.0f)
+        sin_y = -1.0f;
+
+    float y = -std::asin(sin_y);
+    float cos_y = std::cos(y);
+    float x, z;
+    if (std::fabs(cos_y) > 0.005f) {
+        float inv = 1.0f / cos_y;
+        float neg_inv = -1.0f / cos_y;
+        x = FastAtan2(neg_inv * row[1].z, inv * row[2].z);
+        z = FastAtan2(neg_inv * row[0].y, inv * row[0].x);
+    } else {
+        // Gimbal lock: X and Z rotate about the same axis, so put it all in Z.
+        x = 0.0f;
+        z = FastAtan2(row[1].x, row[1].y);
+    }
+    out = {x, y, z, 1.0f};
+    return out;
+}
+
 } // namespace Mth
 
+REPLACE(0x004041E0, &Mth::Matrix::Determinant);
+REPLACE(0x004043A0, &Mth::Matrix::Adjugate);
+REPLACE(0x00404AB0, &Mth::Matrix::GetEulerAngles);
+REPLACE(0x00405600, &Mth::Matrix::Invert);
 REPLACE(0x00404120, &Mth::Matrix::operator*=);
 REPLACE(0x004048D0, &Mth::Matrix::SetFromEulerAngles);
 REPLACE(0x00404C60, Mth::CreateRotateMatrix);

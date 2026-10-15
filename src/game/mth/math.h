@@ -11,6 +11,10 @@ float Sign(float value);
 // Fast arc cosine (polynomial approximation, error around 1e-4 radians) for value in [-1, 1].
 float FastACos(float value);
 
+// atan2(y, x). Uses the FPU's exact arctangent when |x| < |y| and a polynomial otherwise.
+// atan2(0, 0) gives NaN, as in the original.
+float FastAtan2(float y, float x);
+
 // If `value` is more than `distance` away from `target`, move it to exactly that distance (on the same side);
 // otherwise return it unchanged. The sign of `distance` is ignored.
 float KeepWithin(float value, float target, float distance);

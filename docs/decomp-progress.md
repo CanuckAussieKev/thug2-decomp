@@ -45,11 +45,11 @@ Batches marked (untested) haven't been run in-game yet.
 - [x] Batch 9 (untested): `Matrix::operator*=(float)` (0x404120), `Matrix::SetFromEulerAngles` (0x4048D0),
       `Mth::CreateRotateMatrix` axis-angle (0x404C60), `Matrix::Rotate(axis, angle)` (0x405950, previously
       deferred), with self-tests.
-- [ ] Batch 10: x87-heavy matrix maths - read the DISASSEMBLY, Ghidra's pseudocode is unreliable here:
-      0x4041E0 (shows as empty; almost certainly the determinant), 0x4043A0 (1.3 KB, likely adjoint/cofactors),
-      0x405600 (Matrix invert: adjoint, determinant, scale by 1/det), 0x4049B0 (fast atan2, polynomial with
-      constants at 0x6453F0-0x645418), 0x404AB0 (matrix -> Euler angles; calls 0x623560, a CRT function,
-      probably asin), 0x404BA0 (debug print of a matrix).
+- [x] Batch 10 (untested), worked from the disassembly: `Matrix::Determinant` (0x4041E0, row-0 cofactor
+      expansion; Ghidra showed it as empty), `Matrix::Adjugate` (0x4043A0), `Matrix::Invert` (0x405600; no
+      zero-determinant check, scaling skipped when det == 1), `Mth::FastAtan2(y, x)` (0x4049B0; hardware FPATAN
+      when |x| < |y|, else 8-term polynomial), `Matrix::GetEulerAngles` (0x404AB0; calls the CRT's x87 asin at
+      0x623560, gimbal-lock threshold 0.005), with self-tests. Not done: 0x404BA0 (debug print of a matrix).
 - [ ] Batch 11+: 0x402640 / 0x402D60 / 0x402F00 (distance functions; then the deferred 0x4032E0 / 0x403330),
       0x403550 / 0x403C00, 0x404EC0-0x4050F0, 0x405170-0x405A20, 0x4060F0-0x4062D0.
 - [x] Infrastructure (untested): late self-test stage. A one-shot hook on ParseNetworkParams (0x4E1220, called

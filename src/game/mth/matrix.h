@@ -26,6 +26,16 @@ public:
     // Rotation from angles about X, Y and Z (radians); translation cleared. Note the X and Z angles turn the
     // opposite way to CreateRotateXMatrix / CreateRotateZMatrix.
     Matrix& SetFromEulerAngles(float x, float y, float z);
+    // The reverse: angles (x, y, z, w = 1) that SetFromEulerAngles would turn back into this rotation. When
+    // the Y angle is near +/-90 degrees (gimbal lock), X is reported as 0 and the rotation goes into Z.
+    Vector& GetEulerAngles(Vector& out) const;
+
+    // Full 4x4 determinant.
+    float Determinant() const;
+    // this = adjugate of `source` (transposed cofactors). `source` must not be this matrix.
+    Matrix& Adjugate(const Matrix& source);
+    // Invert in place: adjugate / determinant. Like the original, a zero determinant isn't checked for.
+    Matrix& Invert();
 };
 
 // Fill `m` with a rotation of `angle` radians about `axis` (normalised internally; a zero axis is used as is).

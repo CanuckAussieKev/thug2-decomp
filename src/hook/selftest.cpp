@@ -602,6 +602,70 @@ void TestBatch9()
     }
 }
 
+void TestBatch10()
+{
+    using Mth::Matrix;
+    using Mth::Vector;
+    using DetFn = float(__thiscall*)(const Matrix*);
+    using AdjFn = Matrix*(__thiscall*)(Matrix*, const Matrix*);
+    using InvFn = Matrix*(__thiscall*)(Matrix*);
+    using EulerFn = Vector*(__thiscall*)(const Matrix*, Vector*);
+    using Atan2Fn = float(__cdecl*)(float, float);
+
+    auto check_matrix = [](const Matrix& expected, const Matrix& actual, const char* what) {
+        for (int i = 0; i < 4; ++i)
+            CheckVector(expected.row[i], actual.row[i], what);
+    };
+
+    // Rotation + translation, a scaled one, and a general (non-orthogonal) one.
+    Matrix samples[3];
+    samples[0].SetFromEulerAngles(0.4f, -0.9f, 1.3f);
+    samples[0].row[3] = {5.0f, -2.0f, 8.0f, 1.0f};
+    samples[1].SetFromEulerAngles(-1.1f, 0.2f, 0.7f);
+    samples[1] *= 2.5f;
+    samples[1].row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    samples[2].row[0] = {2.0f, 0.5f, -1.0f, 0.0f};
+    samples[2].row[1] = {0.3f, 3.0f, 0.2f, 0.1f};
+    samples[2].row[2] = {-0.4f, 1.0f, 4.0f, 0.0f};
+    samples[2].row[3] = {1.0f, 2.0f, 3.0f, 1.0f};
+
+    for (const Matrix& m : samples) {
+        CheckFloat(Original<DetFn>(0x004041E0)(&m), m.Determinant(), "Matrix::Determinant");
+
+        Matrix expected{}, actual{};
+        Original<AdjFn>(0x004043A0)(&expected, &m);
+        actual.Adjugate(m);
+        check_matrix(expected, actual, "Matrix::Adjugate");
+
+        expected = m;
+        actual = m;
+        Original<InvFn>(0x00405600)(&expected);
+        actual.Invert();
+        check_matrix(expected, actual, "Matrix::Invert");
+
+        Vector angles_expected{}, angles_actual{};
+        Original<EulerFn>(0x00404AB0)(&m, &angles_expected);
+        m.GetEulerAngles(angles_actual);
+        CheckVector(angles_expected, angles_actual, "Matrix::GetEulerAngles");
+    }
+
+    // Gimbal lock (Y = +/-90 degrees) takes the other branch of GetEulerAngles.
+    for (float y : {1.5707963f, -1.5707963f}) {
+        Matrix m;
+        m.SetFromEulerAngles(0.3f, y, -0.6f);
+        Vector angles_expected{}, angles_actual{};
+        Original<EulerFn>(0x00404AB0)(&m, &angles_expected);
+        m.GetEulerAngles(angles_actual);
+        CheckVector(angles_expected, angles_actual, "Matrix::GetEulerAngles (gimbal lock)");
+    }
+
+    const float points[][2] = {{1, 2},  {2, 1},   {-1, 2},  {-2, 1},   {-1, -2}, {-2, -1}, {1, -2},
+                               {2, -1}, {0, 1},   {0, -1},  {1, 0},    {-1, 0},  {3, 3},   {-3, 3},
+                               {0.001f, 5}, {5, 0.001f}, {-0.5f, -0.5f}};
+    for (const auto& p : points)
+        CheckFloat(Original<Atan2Fn>(0x004049B0)(p[0], p[1]), Mth::FastAtan2(p[0], p[1]), "Mth::FastAtan2");
+}
+
 // --- late self-tests ----------------------------------------------------------------------------------
 
 void TestLzssLate()
@@ -844,5 +908,6 @@ void RunSelfTests()
     TestBatch7();
     TestBitStreamReadWrite();
     TestBatch9();
+    TestBatch10();
     Log(g_failures ? "self-tests: %d FAILED" : "self-tests: all passed", g_failures);
 }

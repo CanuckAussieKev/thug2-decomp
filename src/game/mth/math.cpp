@@ -52,6 +52,29 @@ float FastACos(float value)
     return value < 0.0f ? kPi - positive(-value) : positive(value);
 }
 
+// 0x004049B0
+float FastAtan2(float y, float x)
+{
+    if (std::fabs(x) < std::fabs(y))
+        return std::atan2(y, x);
+
+    // atan(r) = pi/4 + atan((r - 1) / (r + 1)), with r = |y / x| <= 1, so the polynomial only needs t in [-1, 0].
+    bool x_negative = x < 0.0f;
+    bool y_not_positive = y <= 0.0f;
+    float ratio = std::fabs(y) / std::fabs(x);
+    float t = (ratio - 1.0f) / (ratio + 1.0f);
+    float t2 = t * t;
+    float p = (t * 0.0218612f + t * -0.0040541f * t2) * t2 - t * 0.0559098f;
+    p = (t * 0.0964200f + p * t2) * t2 - t * 0.1390853f;
+    p = (t * 0.1994653f + p * t2) * t2 - t * 0.3333138f;
+    p = t * 0.99999934f + p * t2;
+
+    constexpr float kQuarterPi = kPi / 4.0f;
+    if (x_negative)
+        return y_not_positive ? (p + kQuarterPi) - kPi : 3.0f * kQuarterPi - p;
+    return y_not_positive ? -kQuarterPi - p : p + kQuarterPi;
+}
+
 // 0x00404010
 float KeepWithin(float value, float target, float distance)
 {
@@ -100,5 +123,6 @@ REPLACE(0x004022C0, Mth::Clamp);
 REPLACE(0x00403EF0, Mth::FastACos);
 REPLACE(0x00403F70, Mth::InitSinLookupTable);
 REPLACE(0x00404010, Mth::KeepWithin);
+REPLACE(0x004049B0, Mth::FastAtan2);
 REPLACE(0x004058B0, Mth::CreateRotate2D);
 REPLACE(0x00405FD0, Mth::Sign);
