@@ -63,6 +63,23 @@ void TestCrc()
     Check(extend(0x1234, nullptr) == Crc::ExtendCRCWithString(0x1234, nullptr), "Crc::ExtendCRCWithString(null)");
     Check(buffer(nullptr, 4) == Crc::GenerateCRCFromBuffer(nullptr, 4), "Crc::GenerateCRCFromBuffer(null)");
     Check(buffer("abc", -1) == Crc::GenerateCRCFromBuffer("abc", -1), "Crc::GenerateCRCFromBuffer(-1)");
+
+    // ExtendCRCWithBuffer: compare the returned CRC (its only output) from several starting values, including
+    // the 0xFFFFFFFF the script code starts its chain with.
+    auto extend_buffer = Original<uint32_t(__cdecl*)(const void*, int, uint32_t)>(0x00401AF0);
+    for (const char* s : inputs) {
+        int length = static_cast<int>(strlen(s));
+        for (uint32_t start : {0xFFFFFFFFu, 0u, 0x12345678u}) {
+            for (int size : {length, length / 2, 0, -3}) {
+                uint32_t expected = extend_buffer(s, size, start);
+                uint32_t actual = Crc::ExtendCRCWithBuffer(s, size, start);
+                if (expected != actual)
+                    Log("  ExtendCRCWithBuffer(\"%s\", %d, %08X): original %08X, ours %08X", s, size, start, expected,
+                        actual);
+                Check(expected == actual, "Crc::ExtendCRCWithBuffer");
+            }
+        }
+    }
 }
 
 // The originals run on the x87 FPU and ours on SSE, so float results can differ in the last bits.

@@ -15,6 +15,9 @@ uint32_t ExtendCRCWithString(uint32_t crc, const char* string);
 // Plain CRC-32 (no final XOR) of raw bytes, with no case folding. Returns 0 for null data or size < 1.
 uint32_t GenerateCRCFromBuffer(const void* data, int size);
 
+// Continue `crc` over `size` raw bytes (no case folding). Returns `crc` unchanged for size < 1.
+uint32_t ExtendCRCWithBuffer(const void* data, int size, uint32_t crc);
+
 // Like GenerateCRCFromString, but for `size` characters that needn't be null-terminated.
 // Returns 0 for null data or size < 1.
 uint32_t GenerateCRCCaseless(const char* data, int size);

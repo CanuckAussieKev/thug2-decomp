@@ -82,12 +82,17 @@ Batches marked (untested) haven't been run in-game yet.
       the third argument Ghidra showed as unused is the reference row index), with self-tests.
       Register scan: 126 functions, 3,555 call sites, clean.
 
-**Core utilities block: DONE - 126 of 130 functions rewritten.** The other 4 are deliberately left as original
-code (nothing gained by replacing them):
+**TESTED IN-GAME 2026-10-15 (commit 0b5ac11):** the game runs with all 126 replacements active; early and late
+self-tests all pass. (The first test gave a black screen: Lzss::Decode's return value - see the RISK notes.)
+
+**Core utilities block: DONE - 127 of 130 functions rewritten.** The other 3 are deliberately left as original
+code for now:
 - 0x401020: compiler-generated "construct an array of objects" helper, not game code.
-- 0x401AF0: an empty counting loop with no effect.
-- 0x403210 / 0x403220: one-line setters that zero a field (+0x10 / +0x20) of classes not identified yet.
-  Revisit when their classes turn up in another subsystem.
+- 0x403210 / 0x403220: tiny base-class/member constructors (zero a field at +0x10 / +0x20), called from the
+  constructors of classes in other subsystems (0x418330; 0x42E3F0 and the object built in 0x48B430). Do them
+  together with those classes.
+- (0x401AF0 was listed here as "an empty loop with no effect" - wrong. Ghidra's pseudocode missed its third
+  argument; it is Crc::ExtendCRCWithBuffer and its caller uses the result. Rewritten 2026-10-15.)
 
 ## Next block
 Per docs/subsystems.md: file system (PIP/PRE archives, 0x5B6560-0x5BDAD0), then the script command libraries.

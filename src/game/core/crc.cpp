@@ -70,6 +70,17 @@ uint32_t GenerateCRCFromBuffer(const void* data, int size)
     return crc;
 }
 
+// 0x00401AF0
+// Ghidra's pseudocode shows this as an empty loop: it misses the third argument (the starting CRC, loaded
+// straight into EAX) and with it the loop body and the return value. The script code chains it over tokens.
+uint32_t ExtendCRCWithBuffer(const void* data, int size, uint32_t crc)
+{
+    const auto* bytes = static_cast<const uint8_t*>(data);
+    for (int i = 0; i < size; ++i)
+        crc = Step(crc, bytes[i]);
+    return crc;
+}
+
 // 0x00401B30
 uint32_t GenerateCRCCaseless(const char* data, int size)
 {
@@ -85,6 +96,7 @@ uint32_t GenerateCRCCaseless(const char* data, int size)
 
 // The originals are plain cdecl functions, the same as ours.
 REPLACE(0x00401AA0, Crc::GenerateCRCFromBuffer);
+REPLACE(0x00401AF0, Crc::ExtendCRCWithBuffer);
 REPLACE(0x00401B30, Crc::GenerateCRCCaseless);
 REPLACE(0x00401B90, Crc::GenerateCRCFromString);
 REPLACE(0x00401BE0, Crc::ExtendCRCWithString);
