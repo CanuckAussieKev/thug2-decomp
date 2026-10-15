@@ -2,6 +2,8 @@
 
 #include <windows.h>
 
+#include <cstring>
+
 #include "game/core/dbg.h"
 #include "game/file/pre.h"
 #include "hook/game.h"
@@ -46,15 +48,14 @@ bool UseAlternateDrive() { return GameVariable<int>(0x007D0FD8) != 0; }
 
 } // namespace
 
-// 0x005B9CB0 (takes `name` in EDX)
-Handle OpenOnDisk(const char* name)
+void MakeDiskPath(char (&path)[256], const char* name)
 {
-    char path[256] = "data\\";
+    std::memcpy(path, "data\\", 6);
     // Paths written for the original development machine.
     if (name[0] == 'c' && name[1] == ':')
         name += 15;
     int length = 5;
-    for (; *name; ++name)
+    for (; *name && length < 255; ++name)
         path[length++] = *name == '/' ? '\\' : *name;
     path[length] = '\0';
 
@@ -62,8 +63,15 @@ Handle OpenOnDisk(const char* name)
     char last = end[-1];
     if (last == 'x' && end[-2] == 'e' && end[-3] == 't')
         end[-2] = 'x'; // .tex -> .txx
-    if ((last == 'e' || last == 'x') && end[-2] == 'r' && end[-3] == 'p')
+    if (last == 'e' && end[-2] == 'r' && end[-3] == 'p')
         end[-1] = 'x'; // .pre -> .prx
+}
+
+// 0x005B9CB0 (takes `name` in EDX)
+Handle OpenOnDisk(const char* name)
+{
+    char path[256];
+    MakeDiskPath(path, name);
 
     HANDLE file = INVALID_HANDLE_VALUE;
     if (UseAlternateDrive()) {

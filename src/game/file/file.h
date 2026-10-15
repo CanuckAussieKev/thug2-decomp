@@ -23,6 +23,11 @@ uint32_t Seek(Handle file, int offset, int origin);
 uint32_t GetFileSize(Handle file);
 bool Exist(const char* name);
 
+// The path a game file name means on disk: "data\" + name, with forward slashes turned into backslashes, a
+// leading "c:\xxxxxxxxxxxx\" (the developers' machine) dropped, and the PC file extensions substituted
+// (.tex -> .txx, .pre -> .prx).
+void MakeDiskPath(char (&path)[256], const char* name);
+
 // Open on disk only: "data\" + name, with forward slashes turned into backslashes, a leading
 // "c:\xxxxxxxxxxxx\" dropped, and the PC file extensions substituted (.tex -> .txx, .pre -> .prx).
 Handle OpenOnDisk(const char* name);

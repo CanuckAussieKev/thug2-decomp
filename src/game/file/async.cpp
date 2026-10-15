@@ -1,10 +1,14 @@
 #include "game/file/async.h"
 
+#include <windows.h>
+
 #include <cstddef>
+#include <cstring>
 #include <new>
 
 #include "game/core/dbg.h"
 #include "game/core/mem.h"
+#include "game/file/file.h"
 #include "game/file/pre.h"
 #include "hook/hook.h"
 
@@ -37,9 +41,6 @@ PendingCallback (&CallbackLists())[2][kMaxHandles]
 int (&CallbackCounts())[2] { return GameVariable<int[2]>(0x007CF184); }
 int& CurrentList() { return GameVariable<int>(0x007CF18C); }
 
-// The platform (PC) start-up: creates the handles and the I/O thread (not rewritten yet).
-void PlatformInit() { GameFunction<void(__cdecl*)()>(0x005B9B80)(); }
-
 // The handle fields every allocation resets (as the original's Init and get_file_handle do).
 void ResetFields(AsyncFileHandle* file)
 {
@@ -69,6 +70,19 @@ void CompleteFromArchive(AsyncFileHandle* file)
 }
 
 } // namespace
+
+// The platform (PC) side, below.
+void PlatformInit();
+DWORD WINAPI AsyncIoThread(void*);
+
+// The CAsyncFileHandle constructor's work (0x005B69A0).
+void ConstructBase(AsyncFileHandle* file)
+{
+    ResetFields(file);
+    file->m_vtable = reinterpret_cast<void**>(0x00657EC8);
+    // The base class's platform init, through the base vtable (a debug stub).
+    reinterpret_cast<bool(__thiscall*)(AsyncFileHandle*)>(file->m_vtable[AsyncFileHandle::kPlatInit])(file);
+}
 
 // --- CAsyncFileHandle ----------------------------------------------------------------------------------
 
@@ -317,10 +331,7 @@ struct AsyncFileHandleAdapter {
     AsyncFileHandle* Construct()
     {
         auto* file = reinterpret_cast<AsyncFileHandle*>(this);
-        File::ResetFields(file);
-        file->m_vtable = reinterpret_cast<void**>(0x00657EC8);
-        // The base class's platform init, through the base vtable (a debug stub).
-        reinterpret_cast<bool(__thiscall*)(AsyncFileHandle*)>(file->m_vtable[AsyncFileHandle::kPlatInit])(file);
+        File::ConstructBase(file);
         return file;
     }
     AsyncFileHandle* Destroy(unsigned int flags)
@@ -405,3 +416,282 @@ REPLACE(0x005B64F0, &BaseStubs::Write);
 REPLACE(0x005B6510, &BaseStubs::GetS);
 REPLACE(0x005B6530, &BaseStubs::Seek);
 REPLACE(0x005B6550, &BaseStubs::Cancel);
+
+// --- CPcAsyncFileHandle: the PC platform handle (vtable 0x006583D8) -------------------------------------
+
+namespace File {
+
+namespace {
+
+constexpr int kErrorIoPending = 997;   // ERROR_IO_PENDING
+constexpr int kErrorHandleEof = 38;    // ERROR_HANDLE_EOF
+constexpr DWORD kStatusPending = 0x103; // OVERLAPPED.Internal while the I/O is in progress
+
+// Overlapped (truly asynchronous, unbuffered) reads are used on Windows NT 6 (Vista) and later.
+bool& UseOverlappedIo() { return GameVariable<bool>(0x007D0FD4); }
+
+} // namespace
+
+struct PcAsyncFileHandle : AsyncFileHandle {
+    // Platform methods (vtable slots).
+    void PcIoCallback(int event, bool error, int value, int extra);
+    bool PlatInit();
+    bool PlatOpen(const char* name);
+    bool PlatClose();
+    bool PlatIsDone();
+    bool PlatIsBusy();
+    bool PlatIsEOF();
+    int PlatLoad(void* buffer);
+    int PlatRead(void* buffer, int size, int count);
+
+    uint8_t m_unknown3C[0x7C - 0x3C];
+    int m_unknown7C;
+    void* m_destination; // where a read through m_tempBuffer goes
+    void* m_tempBuffer;
+    HANDLE m_file;
+    OVERLAPPED m_overlapped;
+};
+static_assert(offsetof(PcAsyncFileHandle, m_file) == 0x88 && sizeof(PcAsyncFileHandle) == 0xA0,
+              "layout must match the original");
+
+// 0x005B9950 (virtual io_callback: keeps the size and position up to date, then the base class's)
+void PcAsyncFileHandle::PcIoCallback(int event, bool error, int value, int extra)
+{
+    switch (event) {
+    case kAsyncIdle:
+        return;
+    case kAsyncOpen:
+        if (value >= 0 && !error)
+            m_fileSize = extra;
+        break;
+    case 2:
+    case kAsyncRead:
+        if (!error && m_tempBuffer && value > 0)
+            std::memcpy(m_destination, m_tempBuffer, static_cast<size_t>(value));
+        [[fallthrough]];
+    case 4:
+        if (value >= 0) {
+            if (!error)
+                m_position += value;
+            if (m_tempBuffer) {
+                Mem::Free(m_tempBuffer);
+                m_destination = nullptr;
+                m_tempBuffer = nullptr;
+            }
+        }
+        break;
+    case 5:
+        if (value >= 0 && !error)
+            m_position = value;
+        break;
+    default:
+        break;
+    }
+    IoCallback(event, error, value, extra);
+}
+
+// 0x005B9650 (returns false, as the original does - EAX is 0 when it returns)
+bool PcAsyncFileHandle::PlatInit()
+{
+    m_unknown7C = 0;
+    m_destination = nullptr;
+    m_tempBuffer = nullptr;
+    m_overlapped.Offset = 0;
+    m_overlapped.OffsetHigh = 0;
+    m_overlapped.hEvent = nullptr;
+    return false;
+}
+
+// 0x005B97E0
+bool PcAsyncFileHandle::PlatOpen(const char* name)
+{
+    m_position = 0;
+    char path[256];
+    MakeDiskPath(path, name);
+    BusyCount() = BusyCount() + 1;
+    m_busyCount = m_busyCount + 1;
+    bool overlapped = UseOverlappedIo();
+    m_file = CreateFileA(path, GENERIC_READ, overlapped ? FILE_SHARE_READ : 0, nullptr, OPEN_EXISTING,
+                         overlapped ? FILE_FLAG_OVERLAPPED | FILE_FLAG_NO_BUFFERING : FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (m_file == INVALID_HANDLE_VALUE)
+        return false; // (the busy counts stay raised, as in the original)
+    m_fileSize = static_cast<int>(::GetFileSize(m_file, nullptr));
+    m_fileSize = (m_fileSize + 0x7FF) & ~0x7FF; // whole 2 KB sectors (unbuffered reads)
+    Virtual<void>(kIoCallback, m_operation, false, reinterpret_cast<int>(m_file), static_cast<int>(m_fileSize));
+    return true;
+}
+
+// 0x005B9AF0
+bool PcAsyncFileHandle::PlatClose()
+{
+    if (m_file == INVALID_HANDLE_VALUE)
+        return false;
+    BusyCount() = BusyCount() + 1;
+    m_busyCount = m_busyCount + 1;
+    CloseHandle(m_file);
+    m_file = INVALID_HANDLE_VALUE;
+    Virtual<void>(kIoCallback, m_operation, false, 0, 0);
+    return true;
+}
+
+// 0x005B9680 (called by the I/O thread while the handle is busy)
+bool PcAsyncFileHandle::PlatIsDone()
+{
+    if (!UseOverlappedIo()) {
+        m_result = 0;
+        return true;
+    }
+    bool done = false;
+    if (m_result == kErrorIoPending) {
+        done = m_overlapped.Internal != kStatusPending;
+        if (done) {
+            DWORD bytes;
+            GetOverlappedResult(m_file, &m_overlapped, &bytes, FALSE);
+            m_result = 0;
+            Virtual<void>(kIoCallback, m_operation, false, static_cast<int>(bytes), 0);
+        }
+    }
+    return done;
+}
+
+// 0x005B9700
+bool PcAsyncFileHandle::PlatIsBusy()
+{
+    return m_result == kErrorIoPending;
+}
+
+// 0x005B9710
+bool PcAsyncFileHandle::PlatIsEOF()
+{
+    return m_result == kErrorHandleEof;
+}
+
+// 0x005B9720: read the whole file from the start
+int PcAsyncFileHandle::PlatLoad(void* buffer)
+{
+    m_overlapped.Offset = 0;
+    m_overlapped.OffsetHigh = 0;
+    m_overlapped.hEvent = nullptr;
+    return Virtual<int>(kPlatRead, buffer, 1, GetFileSize());
+}
+
+// 0x005B9A40
+int PcAsyncFileHandle::PlatRead(void* buffer, int size, int count)
+{
+    DWORD length = static_cast<DWORD>((size * count + 0x7FF) & ~0x7FF); // whole sectors
+    BusyCount() = BusyCount() + 1;
+    m_busyCount = m_busyCount + 1;
+    DWORD bytes = 0;
+    if (!ReadFile(m_file, buffer, length, &bytes, UseOverlappedIo() ? &m_overlapped : nullptr)) {
+        m_result = static_cast<int>(GetLastError());
+        if (m_result == kErrorIoPending && m_blocking) {
+            while (!Virtual<bool>(kPlatIsDone)) {
+            }
+        }
+        return 0;
+    }
+    // Finished at once: counted done here, without a callback (as in the original).
+    BusyCount() = BusyCount() - 1;
+    m_busyCount = m_busyCount - 1;
+    return 0;
+}
+
+// 0x005B9B40: the I/O thread - every 66 ms, lets each busy handle check whether its I/O has finished
+DWORD WINAPI AsyncIoThread(void*)
+{
+    for (;;) {
+        Sleep(66);
+        for (int i = 0; i < kMaxHandles; ++i) {
+            AsyncFileHandle* file = Pool()[i];
+            if (file && file->IsBusy())
+                file->Virtual<bool>(AsyncFileHandle::kPlatIsDone);
+        }
+    }
+}
+
+// 0x005B9B80: create the 16 PC handles (or reset them), start the I/O thread, choose overlapped I/O
+void PlatformInit()
+{
+    for (int i = 0; i < kMaxHandles; ++i) {
+        if (Pool()[i]) {
+            Pool()[i]->Init();
+            continue;
+        }
+        auto* file = static_cast<PcAsyncFileHandle*>(Mem::New(sizeof(PcAsyncFileHandle)));
+        if (file) {
+            ConstructBase(file);
+            file->m_vtable = reinterpret_cast<void**>(0x006583D8);
+            file->m_unknown7C = 0;
+            file->m_destination = nullptr;
+            file->m_tempBuffer = nullptr;
+            file->m_file = INVALID_HANDLE_VALUE;
+        }
+        Pool()[i] = file;
+    }
+    CreateThread(nullptr, 0x4000, AsyncIoThread, nullptr, 0, nullptr);
+
+    OSVERSIONINFOA version = {};
+    version.dwOSVersionInfoSize = sizeof(version);
+#pragma warning(suppress : 4996) // GetVersionExA: deprecated, but what the original asks
+    if (GetVersionExA(&version))
+        UseOverlappedIo() = version.dwPlatformId == VER_PLATFORM_WIN32_NT && version.dwMajorVersion > 5;
+}
+
+void ConstructAsyncFileHandle(AsyncFileHandle* file)
+{
+    ConstructBase(file);
+}
+
+PcAsyncMethods PcAsyncFileHandleMethods()
+{
+    return {CodeAddress(&PcAsyncFileHandle::PcIoCallback), CodeAddress(&PcAsyncFileHandle::PlatInit),
+            CodeAddress(&PcAsyncFileHandle::PlatOpen),     CodeAddress(&PcAsyncFileHandle::PlatClose),
+            CodeAddress(&PcAsyncFileHandle::PlatIsDone),   CodeAddress(&PcAsyncFileHandle::PlatIsBusy),
+            CodeAddress(&PcAsyncFileHandle::PlatIsEOF),    CodeAddress(&PcAsyncFileHandle::PlatLoad),
+            CodeAddress(&PcAsyncFileHandle::PlatRead)};
+}
+
+bool& AsyncUseOverlappedIo()
+{
+    return UseOverlappedIo();
+}
+
+} // namespace File
+
+namespace {
+
+// 0x005B97B0 (scalar deleting destructor) and 0x005B9640 / 0x005B6370 (the destructor bodies: each sets its
+// class's vtable on the way down)
+struct PcAsyncFileHandleAdapter {
+    AsyncFileHandle* Destroy(unsigned int flags)
+    {
+        auto* file = reinterpret_cast<AsyncFileHandle*>(this);
+        DestroyBody();
+        if (flags & 1)
+            Mem::Free(file);
+        return file;
+    }
+    void DestroyBody()
+    {
+        reinterpret_cast<AsyncFileHandle*>(this)->m_vtable = reinterpret_cast<void**>(0x006583D8);
+        DestroyBaseBody();
+    }
+    void DestroyBaseBody() { reinterpret_cast<AsyncFileHandle*>(this)->m_vtable = reinterpret_cast<void**>(0x00657EC8); }
+};
+
+} // namespace
+
+REPLACE(0x005B9950, &File::PcAsyncFileHandle::PcIoCallback);
+REPLACE(0x005B9650, &File::PcAsyncFileHandle::PlatInit);
+REPLACE(0x005B97E0, &File::PcAsyncFileHandle::PlatOpen);
+REPLACE(0x005B9AF0, &File::PcAsyncFileHandle::PlatClose);
+REPLACE(0x005B9680, &File::PcAsyncFileHandle::PlatIsDone);
+REPLACE(0x005B9700, &File::PcAsyncFileHandle::PlatIsBusy);
+REPLACE(0x005B9710, &File::PcAsyncFileHandle::PlatIsEOF);
+REPLACE(0x005B9720, &File::PcAsyncFileHandle::PlatLoad);
+REPLACE(0x005B9A40, &File::PcAsyncFileHandle::PlatRead);
+REPLACE(0x005B9B40, File::AsyncIoThread);
+REPLACE(0x005B9B80, File::PlatformInit);
+REPLACE(0x005B97B0, &PcAsyncFileHandleAdapter::Destroy);
+REPLACE(0x005B9640, &PcAsyncFileHandleAdapter::DestroyBody);
+REPLACE(0x005B6370, &PcAsyncFileHandleAdapter::DestroyBaseBody);

@@ -195,9 +195,16 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       Close. Virtual calls go through the object's own (game) vtable. Pip's "priority 8" was the callback
       mask (bit 3 = read completed). Early self-test with fake handles compares pool order, counters, handle
       fields and the callback sequence (shown to catch a deliberate pool bug).
-- [ ] Next (batch 29): the PC platform handle (vtable 0x6583D8: open/read/close/is_done/is_busy/is_eof/load/
-      io_callback, overlapped I/O on NT 6+) and its I/O thread 0x5B9B40 / init 0x5B9B80; then CAsyncFileLoader's
-      other class (0x5B6940/0x5B6970, 0x5B6CF0-0x5B7090); then the memory manager.
+- [x] Batch 29 (NOT run in the game yet; early self-tests pass offline): CPcAsyncFileHandle (vtable
+      0x6583D8) - io_callback override (size/position bookkeeping, temp-buffer copy), PlatInit (returns
+      false, as the original), PlatOpen (data\ path rules shared with File::OpenOnDisk via MakeDiskPath;
+      overlapped + unbuffered on NT 6+), PlatClose, PlatIsDone (polls OVERLAPPED.Internal != 0x103),
+      PlatIsBusy/IsEOF, PlatLoad, PlatRead (2 KB-rounded; blocking spins on IsDone; an immediate
+      completion is counted done without a callback - as the original), destructors, the I/O thread
+      0x5B9B40 (66 ms poll) and PlatformInit 0x5B9B80. Early self-test opens/reads/closes pre\Themes.prx
+      through an original handle and ours, synchronous and overlapped (shown to catch a deliberate bug).
+- [ ] Next: CAsyncFileLoader's other class (0x5B6940/0x5B6970, 0x5B6CF0-0x5B7090), then the memory
+      manager 0x5BA5A0-0x5BBE80.
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
       for original callers that read ECX/EDX after the call without writing them first (ignoring push-to-reserve,
       lea reg,[reg], or reg,-1 and zeroing idioms; callers that are themselves replaced count as safe).

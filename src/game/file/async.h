@@ -72,6 +72,24 @@ public:
     volatile int m_busyCount;
 };
 
+// What the CAsyncFileHandle constructor does (defaults, base vtable, the base class's platform init).
+void ConstructAsyncFileHandle(AsyncFileHandle* file);
+// The PC handle's platform methods, in vtable slot order where they override (for tests).
+struct PcAsyncMethods {
+    void* io_callback;
+    void* init;
+    void* open;
+    void* close;
+    void* is_done;
+    void* is_busy;
+    void* is_eof;
+    void* load;
+    void* read;
+};
+PcAsyncMethods PcAsyncFileHandleMethods();
+// Whether overlapped I/O is used (chosen at start-up; Windows NT 6 and later).
+bool& AsyncUseOverlappedIo();
+
 // The static side (CAsyncFileLoader).
 void AsyncInit();
 bool AsyncBusy();

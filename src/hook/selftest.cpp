@@ -1637,6 +1637,117 @@ void TestAsyncFileSystem()
     }
 }
 
+// The PC async handle on a real file: an original handle (original base methods, the game's PC vtable) and
+// ours (our base methods, a copy of that vtable pointing at our PC methods) open, read and close
+// pre\Themes.prx, synchronously and with overlapped I/O; results, sizes, counters and data are compared.
+bool g_saved_overlapped = false;
+int g_saved_async_busy = 0;
+bool g_async_io_saved = false;
+
+void RestoreAsyncIoState()
+{
+    if (!g_async_io_saved)
+        return;
+    File::AsyncUseOverlappedIo() = g_saved_overlapped;
+    GameVariable<int>(0x007CF17C) = g_saved_async_busy;
+    g_async_io_saved = false;
+}
+
+void TestPcAsyncFileHandle()
+{
+    using File::AsyncFileHandle;
+    using CtorFn = AsyncFileHandle*(__thiscall*)(void*);
+    using OpenFn = bool(__thiscall*)(AsyncFileHandle*, const char*, bool, int);
+    using ReadFn = int(__thiscall*)(AsyncFileHandle*, void*, int, int);
+    using CloseFn = bool(__thiscall*)(AsyncFileHandle*);
+    using SizeFn = int(__thiscall*)(AsyncFileHandle*);
+
+    DWORD attributes = GetFileAttributesA("data\\pre\\Themes.prx");
+    if (attributes == INVALID_FILE_ATTRIBUTES) {
+        Log("self-test: TestPcAsyncFileHandle skipped (data\\pre\\Themes.prx not found)");
+        return;
+    }
+    g_saved_overlapped = File::AsyncUseOverlappedIo();
+    g_saved_async_busy = GameVariable<int>(0x007CF17C);
+    g_async_io_saved = true;
+
+    // Our handles' vtable: the game's PC vtable with our methods in the slots we rewrote.
+    static void* our_vtable[19];
+    std::memcpy(our_vtable, reinterpret_cast<void*>(0x006583D8), sizeof(our_vtable));
+    File::PcAsyncMethods ours = File::PcAsyncFileHandleMethods();
+    our_vtable[AsyncFileHandle::kIoCallback] = ours.io_callback;
+    our_vtable[AsyncFileHandle::kPlatInit] = ours.init;
+    our_vtable[AsyncFileHandle::kPlatOpen] = ours.open;
+    our_vtable[AsyncFileHandle::kPlatClose] = ours.close;
+    our_vtable[AsyncFileHandle::kPlatIsDone] = ours.is_done;
+    our_vtable[AsyncFileHandle::kPlatIsBusy] = ours.is_busy;
+    our_vtable[AsyncFileHandle::kPlatIsEOF] = ours.is_eof;
+    our_vtable[AsyncFileHandle::kPlatLoad] = ours.load;
+    our_vtable[AsyncFileHandle::kPlatRead] = ours.read;
+
+    // Unbuffered reads need sector-aligned memory.
+    auto* buffer = static_cast<uint8_t*>(VirtualAlloc(nullptr, 0x4000, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
+    alignas(16) static uint8_t handles[2][0xA0];
+
+    auto run = [&](bool original, bool overlapped) {
+        std::vector<std::string> trace;
+        File::AsyncUseOverlappedIo() = overlapped;
+        GameVariable<int>(0x007CF17C) = 0;
+        auto* file = reinterpret_cast<AsyncFileHandle*>(handles[original ? 0 : 1]);
+        std::memset(file, 0, 0xA0);
+        if (original)
+            Original<CtorFn>(0x005B69A0)(file);
+        else
+            File::ConstructAsyncFileHandle(file);
+        file->m_vtable = original ? reinterpret_cast<void**>(0x006583D8) : our_vtable;
+        reinterpret_cast<HANDLE*>(handles[original ? 0 : 1] + 0x88)[0] = INVALID_HANDLE_VALUE;
+        file->Virtual<bool>(AsyncFileHandle::kPlatInit);
+
+        auto note = [&](const char* step, int value) {
+            trace.push_back(std::string(step) + " " + std::to_string(value) + ": result " +
+                            // after an open the result is the Windows file handle: only whether it's set
+                            std::to_string(step[0] == 'o' || step[0] == 's' ? (file->m_result != 0) : file->m_result) +
+                            " size " +
+                            std::to_string(file->m_fileSize) + " position " + std::to_string(file->m_position) +
+                            " busy " + std::to_string(file->m_busyCount) + "/" +
+                            std::to_string(GameVariable<int>(0x007CF17C)) + " operation " +
+                            std::to_string(file->m_operation) + " eof " +
+                            std::to_string(file->Virtual<bool>(AsyncFileHandle::kPlatIsEOF)) + " pending " +
+                            std::to_string(file->Virtual<bool>(AsyncFileHandle::kPlatIsBusy)));
+        };
+        bool opened = original ? Original<OpenFn>(0x005B67B0)(file, "pre/Themes.prx", true, 100)
+                               : file->Open("pre/Themes.prx", true, 100);
+        note("open", opened);
+        if (!opened)
+            return trace;
+        int size = original ? Original<SizeFn>(0x005B63A0)(file) : file->GetFileSize();
+        note("size", size);
+        std::memset(buffer, 0xCD, 0x4000);
+        int read = original ? Original<ReadFn>(0x005B6740)(file, buffer, 1, size)
+                            : file->Read(buffer, 1, size);
+        note("read", read);
+        uint32_t sum = 0;
+        for (int i = 0; i < 0x4000; ++i)
+            sum = sum * 31 + buffer[i];
+        trace.push_back("data checksum " + std::to_string(sum));
+        bool closed = original ? Original<CloseFn>(0x005B6840)(file) : file->Close();
+        note("close", closed);
+        return trace;
+    };
+    for (bool overlapped : {false, true}) {
+        std::vector<std::string> expected = run(true, overlapped);
+        std::vector<std::string> actual = run(false, overlapped);
+        Check(expected == actual && expected.size() > 1,
+              overlapped ? "PC async handle (overlapped I/O)" : "PC async handle (synchronous I/O)");
+        for (size_t i = 0; i < expected.size() || i < actual.size(); ++i) {
+            if (i >= expected.size() || i >= actual.size() || expected[i] != actual[i])
+                Log("  pc async step %u: original '%s' ours '%s'", static_cast<unsigned>(i),
+                    i < expected.size() ? expected[i].c_str() : "-", i < actual.size() ? actual[i].c_str() : "-");
+        }
+    }
+    VirtualFree(buffer, 0, MEM_RELEASE);
+}
+
 // --- late self-tests ----------------------------------------------------------------------------------
 
 // The table's contents as (bucket, position in chain, key, value), so tables with different item addresses
@@ -2569,6 +2680,7 @@ SELFTEST(Early, TestPool);
 SELFTEST(Early, TestPip, RestorePipTables);
 SELFTEST(Early, TestFile);
 SELFTEST(Early, TestAsyncFileSystem, RestoreAsyncGlobals);
+SELFTEST(Early, TestPcAsyncFileHandle, RestoreAsyncIoState);
 
 SELFTEST(Late, TestMemoryLate);
 SELFTEST(Late, TestStringLate);
