@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstring>
 
 // Replacing original game functions with our own.
 //
@@ -34,8 +35,22 @@ struct ReplacementRegistrar {
     }
 };
 
+// Code address of a free function or a (non-virtual, single-inheritance) member function.
+template <typename F>
+void* CodeAddress(F f)
+{
+    static_assert(sizeof(F) == sizeof(void*), "only plain functions and simple member functions");
+    void* p;
+    std::memcpy(&p, &f, sizeof(p));
+    return p;
+}
+
+// REPLACE(0x00401B90, Crc::GenerateCRCFromString);
+// REPLACE(0x00402340, &Mth::Vector::operator+=);
+// Overloads need a cast to pick one: REPLACE(addr, static_cast<Vector (*)(const Vector&, float)>(&operator*));
+// Constructors can't be pointed to, so wrap them in a small adapter that placement-news the object.
 #define REPLACE_CONCAT2(a, b) a##b
 #define REPLACE_CONCAT(a, b) REPLACE_CONCAT2(a, b)
-#define REPLACE(address, function)                                                                   \
+#define REPLACE(address, ...)                                                                        \
     static ReplacementRegistrar REPLACE_CONCAT(g_replace_, __LINE__)(                                \
-        address, reinterpret_cast<void*>(&function), #function)
+        address, CodeAddress(__VA_ARGS__), #__VA_ARGS__)
