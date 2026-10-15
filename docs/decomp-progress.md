@@ -325,6 +325,7 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       pre.cpp now calls Script::GetInteger. Early test: a symbol table built through both, iterated, unlinked,
       every getter over 8 names, a 20x20 ComponentsEqual matrix (NaN, aliases, int/float), AddArray; arenas
       compared (18 deliberate bugs caught, one after comparing an alias with an equal float).
+- [x] Batches 39-40 tested in the game (2026-10-16, by the user): verified.
 - [ ] Next: the script parser/loader (0x46F...) and the interpreter (0x46D450); the CArray functions between
       0x46CD90 and 0x46D3D0.
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
