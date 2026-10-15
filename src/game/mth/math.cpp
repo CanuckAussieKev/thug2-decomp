@@ -14,6 +14,13 @@ float Clamp(float value, float min, float max)
     return value;
 }
 
+// 0x00405FD0
+float Sign(float value)
+{
+    return value < 0.0f ? -1.0f : 1.0f;
+}
+
 } // namespace Mth
 
 REPLACE(0x004022C0, Mth::Clamp);
+REPLACE(0x00405FD0, Mth::Sign);

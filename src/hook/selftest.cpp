@@ -8,11 +8,14 @@
 #include <new>
 
 #include "game/core/crc.h"
+#include "game/core/mem.h"
 #include "game/core/str.h"
 #include "game/mth/math.h"
 #include "game/mth/matrix.h"
+#include "game/mth/random.h"
 #include "game/mth/vector.h"
 #include "game/util/bitstream.h"
+#include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
 
@@ -291,6 +294,90 @@ void TestStringsAndMath()
     }
 }
 
+void TestBatch4()
+{
+    // Random streams: both versions share the game's state, so run each from the same seed and compare the
+    // sequences, then put the game's state back.
+    uint32_t saved[6];
+    std::memcpy(saved, &GameVariable<uint32_t>(0x00690FC8), sizeof(saved));
+    using Seed = void(__cdecl*)(uint32_t);
+    using RndFn = int(__cdecl*)(int);
+    using PomFn = float(__cdecl*)(float);
+    for (uint32_t seed : {0u, 1u, 12345u, 0xDEADBEEFu}) {
+        int expected_ints[24], actual_ints[24];
+        float expected_floats[8], actual_floats[8];
+        Original<Seed>(0x00403DA0)(seed);
+        for (int i = 0; i < 8; ++i) {
+            expected_ints[i] = Original<RndFn>(0x00403DE0)(100 + i);
+            expected_ints[8 + i] = Original<RndFn>(0x00403E30)(7 + i * 1000);
+            expected_ints[16 + i] = Original<RndFn>(0x00403DE0)(-50);
+            expected_floats[i] = Original<PomFn>(0x00403E80)(2.5f * i);
+        }
+        Mth::InitialRand(seed);
+        for (int i = 0; i < 8; ++i) {
+            actual_ints[i] = Mth::Rnd(100 + i);
+            actual_ints[8 + i] = Mth::Rnd2(7 + i * 1000);
+            actual_ints[16 + i] = Mth::Rnd(-50);
+            actual_floats[i] = Mth::PlusOrMinus(2.5f * i);
+        }
+        Check(std::memcmp(expected_ints, actual_ints, sizeof(expected_ints)) == 0, "Mth::Rnd / Rnd2 sequence");
+        for (int i = 0; i < 8; ++i)
+            CheckFloat(expected_floats[i], actual_floats[i], "Mth::PlusOrMinus");
+    }
+    std::memcpy(&GameVariable<uint32_t>(0x00690FC8), saved, sizeof(saved));
+
+    using SignFn = float(__cdecl*)(float);
+    for (float v : {-2.0f, -0.0f, 0.0f, 3.5f})
+        CheckFloat(Original<SignFn>(0x00405FD0)(v), Mth::Sign(v), "Mth::Sign");
+
+    using Mth::Vector;
+    using Turn = Vector*(__thiscall*)(Vector*, int);
+    using Convert = void(__thiscall*)(Vector*);
+    const Vector source{1.5f, -2.0f, 3.25f, 4.0f};
+    for (int turns = -1; turns <= 4; ++turns) {
+        Vector expected = source, actual = source;
+        Original<Turn>(0x00405EB0)(&expected, turns);
+        actual.RotateY90(turns);
+        CheckVector(expected, actual, "Vector::RotateY90");
+    }
+    const struct {
+        uint32_t address;
+        void (Vector::*ours)();
+        const char* name;
+    } conversions[] = {
+        {0x00405EF0, &Vector::DegreesToRadians, "Vector::DegreesToRadians"},
+        {0x00405F20, &Vector::RadiansToDegrees, "Vector::RadiansToDegrees"},
+        {0x00405F50, &Vector::FeetToInches, "Vector::FeetToInches"},
+        {0x00405F80, &Vector::NegateXRotateX90, "Vector::NegateXRotateX90"},
+    };
+    for (const auto& c : conversions) {
+        Vector expected = source, actual = source;
+        Original<Convert>(c.address)(&expected);
+        (actual.*c.ours)();
+        CheckVector(expected, actual, c.name);
+    }
+
+    using CaselessFn = uint32_t(__cdecl*)(const char*, int);
+    const char text[] = "Levels/NJ/Skater_Board.PRE";
+    for (int size : {-1, 0, 1, 5, static_cast<int>(sizeof(text)) - 1})
+        Check(Original<CaselessFn>(0x00401B30)(text, size) == Crc::GenerateCRCCaseless(text, size),
+              "Crc::GenerateCRCCaseless");
+    Check(Original<CaselessFn>(0x00401B30)(nullptr, 4) == Crc::GenerateCRCCaseless(nullptr, 4),
+          "Crc::GenerateCRCCaseless(null)");
+
+    using ClearFn = void*(__cdecl*)(unsigned int, void*);
+    for (unsigned int size : {0u, 1u, 3u, 4u, 7u, 13u}) {
+        unsigned char expected[16], actual[16];
+        std::memset(expected, 0xA5, sizeof(expected));
+        std::memset(actual, 0xA5, sizeof(actual));
+        void* r1 = Original<ClearFn>(0x00401C90)(size, expected + 1);
+        void* r2 = Mem::Clear(size, actual + 1);
+        Check(std::memcmp(expected, actual, sizeof(expected)) == 0 && r1 == expected + 1 && r2 == actual + 1,
+              "Mem::Clear");
+    }
+    Check(Original<ClearFn>(0x00401C90)(8, nullptr) == Mem::Clear(8, nullptr), "Mem::Clear(null)");
+}
+
 } // namespace
 
 void RunSelfTests()
@@ -300,5 +387,6 @@ void RunSelfTests()
     TestMatrix();
     TestBitStream();
     TestStringsAndMath();
+    TestBatch4();
     Log(g_failures ? "self-tests: %d FAILED" : "self-tests: all passed", g_failures);
 }

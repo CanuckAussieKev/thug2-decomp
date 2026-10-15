@@ -25,6 +25,15 @@ public:
     float Length() const;
     // Scales x, y, z to length 1. A zero-length vector is left unchanged.
     Vector& Normalize();
+
+    // Rotate about the Y axis by 1, 2 or 3 quarter turns (other values do nothing).
+    Vector& RotateY90(int quarter_turns);
+    // Unit conversions applied to x, y, z (w is unchanged).
+    void DegreesToRadians();
+    void RadiansToDegrees();
+    void FeetToInches();
+    // x = -x, y = -z, z = y. Purpose not identified yet (looks like a coordinate-system conversion).
+    void NegateXRotateX90();
 };
 
 Vector operator+(const Vector& a, const Vector& b);

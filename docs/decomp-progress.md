@@ -17,11 +17,18 @@ Batches marked (untested) haven't been run in-game yet.
       Vector(x,y,z) ctor (0x4022F0), Vector/Matrix `operator[]` (0x402310, 0x404080).
       Deferred until their callers are understood: 0x401D80 (assigns IDs from a global counter at 0x690FA0),
       0x403210 / 0x403220 (each zero one field of an unknown class).
-- [ ] Batch 4+: the rest of the block, smallest first
+- [x] Batch 4 (untested): random streams `Mth::InitialRand/Rnd/Rnd2/PlusOrMinus` (0x403DA0-0x403E80, state shared
+      with the exe at 0x690FC8-0x690FDC via `GameVariable`), `Mth::Sign` (0x405FD0), Vector RotateY90 /
+      DegreesToRadians / RadiansToDegrees / FeetToInches / NegateXRotateX90 (0x405EB0-0x405F80),
+      `Crc::GenerateCRCCaseless` (0x401B30), `Mem::Clear` (0x401C90). Skipped 0x401AF0 (empty loop, no effect).
+- [ ] Batch 5+: the rest of the block, smallest first. Next up: 0x401D00-0x401F50 (small, each calls one
+      function), 0x4032A0-0x403450, 0x403E80-0x404010, 0x405600-0x405990.
 
 ## Notes
 - Ghidra's pseudocode can be wrong for x87 float code: 0x4023A0 decompiled as an empty function but is
   `LengthSqr` (result left in ST0). Always read the disassembly for float functions.
 - Float self-tests use a tolerance: originals run on x87, ours on SSE, so the last bits can differ.
+- Globals the original code also uses must stay in the exe's memory: use `GameVariable<T>(address)`
+  (`src/hook/game.h`). Self-tests that touch such state save and restore it.
 - Member functions are replaced via `REPLACE(addr, &Class::Method)`; constructors via a small adapter that
   placement-news the object (see `LineAdapter` in vector.cpp).

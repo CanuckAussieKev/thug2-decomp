@@ -70,9 +70,21 @@ uint32_t GenerateCRCFromBuffer(const void* data, int size)
     return crc;
 }
 
+// 0x00401B30
+uint32_t GenerateCRCCaseless(const char* data, int size)
+{
+    if (!data || size < 1)
+        return 0;
+    uint32_t crc = 0xFFFFFFFF;
+    for (int i = 0; i < size; ++i)
+        crc = Step(crc, NameChar(data[i]));
+    return crc;
+}
+
 } // namespace Crc
 
 // The originals are plain cdecl functions, the same as ours.
 REPLACE(0x00401AA0, Crc::GenerateCRCFromBuffer);
+REPLACE(0x00401B30, Crc::GenerateCRCCaseless);
 REPLACE(0x00401B90, Crc::GenerateCRCFromString);
 REPLACE(0x00401BE0, Crc::ExtendCRCWithString);

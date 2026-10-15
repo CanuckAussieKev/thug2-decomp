@@ -87,6 +87,62 @@ Vector& Vector::Normalize()
     return *this;
 }
 
+// 0x00405EB0
+Vector& Vector::RotateY90(int quarter_turns)
+{
+    float old_x = x;
+    switch (quarter_turns) {
+    case 1:
+        x = z;
+        z = -old_x;
+        break;
+    case 2:
+        x = -x;
+        z = -z;
+        break;
+    case 3:
+        x = -z;
+        z = old_x;
+        break;
+    }
+    return *this;
+}
+
+// 0x00405EF0
+void Vector::DegreesToRadians()
+{
+    constexpr float kScale = 0.0174532925f; // pi / 180
+    x *= kScale;
+    y *= kScale;
+    z *= kScale;
+}
+
+// 0x00405F20
+void Vector::RadiansToDegrees()
+{
+    constexpr float kScale = 57.2957795f; // 180 / pi
+    x *= kScale;
+    y *= kScale;
+    z *= kScale;
+}
+
+// 0x00405F50
+void Vector::FeetToInches()
+{
+    x *= 12.0f;
+    y *= 12.0f;
+    z *= 12.0f;
+}
+
+// 0x00405F80
+void Vector::NegateXRotateX90()
+{
+    float old_y = y;
+    x = -x;
+    y = -z;
+    z = old_y;
+}
+
 // 0x00402440
 Vector operator+(const Vector& a, const Vector& b)
 {
@@ -163,6 +219,11 @@ REPLACE(0x00402310, &Vector::operator[]);
 REPLACE(0x00402320, &Vector::operator=);
 REPLACE(0x00402340, &Vector::operator+=);
 REPLACE(0x00402370, &Vector::operator*=);
+REPLACE(0x00405EB0, &Vector::RotateY90);
+REPLACE(0x00405EF0, &Vector::DegreesToRadians);
+REPLACE(0x00405F20, &Vector::RadiansToDegrees);
+REPLACE(0x00405F50, &Vector::FeetToInches);
+REPLACE(0x00405F80, &Vector::NegateXRotateX90);
 REPLACE(0x00406050, &Vector::operator-=);
 REPLACE(0x00406080, &Vector::ProjectToPlane);
 REPLACE(0x004023A0, &Vector::LengthSqr);
