@@ -61,8 +61,12 @@ Batches marked (untested) haven't been run in-game yet.
       (0x4034D0), `BBox::LineIntersect` (0x403550, faces tested +X -X +Y -Y +Z -Z), `BBox::GetClosestSurfacePoint`
       (0x403C00), with self-tests (random and face-aimed segments, points on faces and corners).
 - [ ] Batch 14+: 0x403BB0, 0x404EC0-0x4050F0, 0x405170-0x405A20, 0x4060F0-0x4062D0, 0x404BA0 (matrix debug print).
-- [ ] TODO (safety tool): scan the call sites of every replaced function for callers that read ECX/EDX after
-      the call without reloading them. See the register-preservation note below.
+- [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
+      for original callers that read ECX/EDX after the call without writing them first (ignoring push-to-reserve,
+      lea reg,[reg], or reg,-1 and zeroing idioms; callers that are themselves replaced count as safe).
+      First run (batches 0-13): one real risk - 0x4060F0 relied on ProjectToPlane preserving EDX. Fixed by also
+      rewriting 0x4060F0 as `Vector::RotateToPlane` (with self-tests). Now: 100 functions, 3,445 call sites, clean.
+      RUN IT AFTER EVERY BATCH (snapshot first; it reads REPLACE lines from src/).
 - [x] Infrastructure (untested): late self-test stage. A one-shot hook on ParseNetworkParams (0x4E1220, called
       once from WinMain before the main loop) removes itself, runs late self-tests, then calls the real function.
       `OriginalCode` scopes temporarily restore an original function so it can be compared after hooking.

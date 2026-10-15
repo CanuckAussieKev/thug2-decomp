@@ -52,6 +52,25 @@ Vector& Vector::ProjectToPlane(const Vector& normal)
     return *this -= along;
 }
 
+// 0x004060F0
+// (The original relies on ProjectToPlane leaving EDX alone; with both rewritten that no longer matters.)
+Vector& Vector::RotateToPlane(const Vector& normal)
+{
+    float length = Length();
+    ProjectToPlane(normal);
+    if (Length() == 0.0f) {
+        x = -normal.z;
+        y = normal.x;
+        z = -normal.y;
+    }
+    Normalize();
+    x *= length;
+    y *= length;
+    z *= length;
+    w = 0.0f;
+    return *this;
+}
+
 // 0x00402370
 Vector& Vector::operator*=(float scale)
 {
@@ -226,6 +245,7 @@ REPLACE(0x00405F50, &Vector::FeetToInches);
 REPLACE(0x00405F80, &Vector::NegateXRotateX90);
 REPLACE(0x00406050, &Vector::operator-=);
 REPLACE(0x00406080, &Vector::ProjectToPlane);
+REPLACE(0x004060F0, &Vector::RotateToPlane);
 REPLACE(0x004023A0, &Vector::LengthSqr);
 REPLACE(0x004023C0, &Vector::Length);
 REPLACE(0x004023F0, &Vector::Normalize);

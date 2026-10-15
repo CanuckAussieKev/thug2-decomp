@@ -850,6 +850,22 @@ void TestBatch13()
     }
 }
 
+void TestRotateToPlane()
+{
+    using Mth::Vector;
+    using RotateFn = Vector*(__thiscall*)(Vector*, const Vector*);
+    const Vector normals[] = {{0, 1, 0, 0}, {1, 0, 0, 0}, {0.6f, 0.8f, 0, 0}, {0.2f, -0.4f, 0.894427f, 0}};
+    const Vector vectors[] = {{3, 4, 5, 1}, {0, 2, 0, 1}, {-1, 0.5f, 2, 0}, {0.6f, 0.8f, 0, 0}, {0, 0, 0, 1}};
+    for (const Vector& n : normals) {
+        for (const Vector& v : vectors) {
+            Vector expected = v, actual = v;
+            Original<RotateFn>(0x004060F0)(&expected, &n);
+            actual.RotateToPlane(n);
+            CheckVector(expected, actual, "Vector::RotateToPlane");
+        }
+    }
+}
+
 // --- late self-tests ----------------------------------------------------------------------------------
 
 void TestLzssLate()
@@ -1096,5 +1112,6 @@ void RunSelfTests()
     TestBatch11();
     TestBatch12();
     TestBatch13();
+    TestRotateToPlane();
     Log(g_failures ? "self-tests: %d FAILED" : "self-tests: all passed", g_failures);
 }

@@ -20,6 +20,9 @@ public:
     // Removes the part of this vector that lies along `normal` (all four components are adjusted by
     // dot(xyz, normal.xyz) * normal). With a unit-length normal this projects onto the plane.
     Vector& ProjectToPlane(const Vector& normal);
+    // Turn this vector into the plane with unit normal `normal`, keeping its length (x, y, z; w becomes 0).
+    // If it points straight along the normal, (-normal.z, normal.x, -normal.y) is used as the direction.
+    Vector& RotateToPlane(const Vector& normal);
 
     float LengthSqr() const;
     float Length() const;
