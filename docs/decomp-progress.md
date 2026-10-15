@@ -113,7 +113,15 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       Scanner: 140 functions, 4,719 call sites, clean.
       Not done here: 0x5BC2C0/0x5BC340 create and destroy the memory manager itself (with the manager);
       0x5BC4E0-0x5BC620 are a different class (a two-ended stack-style region allocator, vtable 0x658A58).
-- [ ] Next: the PIP/PRE archive code (0x5B7130-0x5B9CB0).
+- [x] Batch 21 (untested): `Pip` bookkeeping - `FindPreEntry` 0x5B7180, `Unload` 0x5B7200 / by name
+      0x5B7270, `GetFileSize` 0x5B7290 / by name 0x5B72E0, `UnloadPre` 0x5B7130, `GetNextLoadedPre`
+      0x5B7300, `PreFileIsInUse` 0x5B7370. Tables: 200 individually loaded files {data, checksum, size,
+      refcount} at 0x7CF198; 100 loaded .pre archives at 0x7CFE18 (each block starts with the archive's
+      name, padded to 16, then {size, version, numFiles} and 16-byte entry headers). Files are freed with
+      0x5BBB60 (memory manager, called by address for now). Early self-test on fake archives.
+      Scanner: 148 functions, 4,746 call sites, clean.
+- [ ] Next: rest of the PIP/PRE code - Pip_Load 0x5B7C00 (PartyMod wraps it: keep its cdecl shape),
+      the .pre loader 0x5B75A0, the async/pre-loading state 0x5B7DF0-0x5B9CB0, the cfuncs.
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
       for original callers that read ECX/EDX after the call without writing them first (ignoring push-to-reserve,
       lea reg,[reg], or reg,-1 and zeroing idioms; callers that are themselves replaced count as safe).

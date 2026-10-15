@@ -68,6 +68,7 @@ add_library(thug2_decomp SHARED
     src/game/core/pool.cpp
     src/game/core/str.cpp
     src/game/core/string.cpp
+    src/game/file/pip.cpp
     src/game/lst/hashtable.cpp
     src/game/mth/geometry.cpp
     src/game/mth/math.cpp

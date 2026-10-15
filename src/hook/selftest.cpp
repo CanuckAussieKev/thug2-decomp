@@ -15,6 +15,7 @@
 #include "game/core/pool.h"
 #include "game/core/str.h"
 #include "game/core/string.h"
+#include "game/file/pip.h"
 #include "game/lst/hashtable.h"
 #include "game/mth/geometry.h"
 #include "game/mth/math.h"
@@ -1285,6 +1286,96 @@ void TestPool()
         Check(Original<ContainsFn>(0x005BA3B0)(&actual, p) == actual.Contains(p), "Pool::Contains");
 }
 
+void TestPip()
+{
+    using Pip::LoadedFile;
+    using Pip::PreEntry;
+    auto& files = GameVariable<LoadedFile[200]>(0x007CF198);
+    auto& pres = GameVariable<char* [100]>(0x007CFE18);
+
+    // Runs before the game has loaded anything, but save and restore the tables anyway.
+    static LoadedFile saved_files[200];
+    static char* saved_pres[100];
+    std::memcpy(saved_files, files, sizeof(files));
+    std::memcpy(saved_pres, pres, sizeof(pres));
+    std::memset(files, 0, sizeof(files));
+    std::memset(pres, 0, sizeof(pres));
+
+    // Two fake archives laid out like loaded .pre files: name, header {size, version, count}, entries.
+    alignas(16) static uint8_t archive_a[512], archive_b[512];
+    auto build = [](uint8_t* block, const char* name, std::initializer_list<PreEntry> entries) {
+        std::memset(block, 0, 512);
+        std::memcpy(block, name, std::strlen(name) + 1);
+        uint8_t* header = block + ((std::strlen(name) + 0x10) & ~0xFu);
+        reinterpret_cast<int*>(header)[2] = static_cast<int>(entries.size());
+        uint8_t* p = header + 12;
+        for (const PreEntry& e : entries) {
+            std::memcpy(p, &e, sizeof(e));
+            int stored = e.compressedSize ? e.compressedSize : e.size;
+            p = reinterpret_cast<uint8_t*>(((reinterpret_cast<uintptr_t>(p) + e.nameSize + 0x1F) & ~uintptr_t(0xF)) +
+                                           ((stored + 3) & ~3));
+        }
+        return reinterpret_cast<char*>(block);
+    };
+    pres[3] = build(archive_a, "skater.pre", {{10, 0, 8, 0, 0x111}, {40, 21, 13, 2, 0x222}, {7, 0, 5, 0, 0x333}});
+    pres[50] = build(archive_b, "levelname_scripts.pre", {{100, 0, 20, 0, 0x444}, {3, 0, 1, 0, 0x222}});
+    files[7] = {reinterpret_cast<void*>(0x1000), 0x555, 1234, 3};
+    files[120] = {reinterpret_cast<void*>(0x2000), 0x222, 99, 2};
+
+    using FindFn = PreEntry*(__cdecl*)(uint32_t);
+    using SizeFn = int(__cdecl*)(uint32_t);
+    using SizeByNameFn = int(__cdecl*)(const char*);
+    using NextFn = const char*(__cdecl*)(const char*);
+    using NameBoolFn = bool(__cdecl*)(const char*);
+    using UnloadFn = void(__cdecl*)(uint32_t);
+    using UnloadByNameFn = void(__cdecl*)(const char*);
+
+    for (uint32_t c : {0x111u, 0x222u, 0x333u, 0x444u, 0x555u, 0x999u}) {
+        Check(Original<FindFn>(0x005B7180)(c) == Pip::FindPreEntry(c), "Pip::FindPreEntry");
+        Check(Original<SizeFn>(0x005B7290)(c) == Pip::GetFileSize(c), "Pip::GetFileSize");
+    }
+    for (const char* name : {"skater.pre", "SKATER.PRE", "levelname_scripts.pre", "missing.pre"}) {
+        Check(Original<NameBoolFn>(0x005B7370)(name) == Pip::PreFileIsInUse(name), "Pip::PreFileIsInUse");
+        Check(Original<NextFn>(0x005B7300)(name) == Pip::GetNextLoadedPre(name), "Pip::GetNextLoadedPre");
+        Check(Original<SizeByNameFn>(0x005B72E0)(name) == Pip::GetFileSize(name), "Pip::GetFileSize(name)");
+    }
+    Check(Original<NextFn>(0x005B7300)(nullptr) == Pip::GetNextLoadedPre(nullptr), "Pip::GetNextLoadedPre(null)");
+    // Only a name that matches nothing: a match would free the fake archive.
+    Check(Original<NameBoolFn>(0x005B7130)("missing.pre") == Pip::UnloadPre("missing.pre"), "Pip::UnloadPre");
+
+    // Unload changes the tables: run the original, keep the result, put the tables back, run ours. Reference
+    // counts stay above zero so nothing (fake) gets freed.
+    static LoadedFile files_before[200], files_expected[200];
+    static uint8_t a_before[512], b_before[512], a_expected[512], b_expected[512];
+    auto snapshot = [&](LoadedFile* f, uint8_t* a, uint8_t* b) {
+        std::memcpy(f, files, sizeof(files));
+        std::memcpy(a, archive_a, 512);
+        std::memcpy(b, archive_b, 512);
+    };
+    auto restore = [&](const LoadedFile* f, const uint8_t* a, const uint8_t* b) {
+        std::memcpy(files, f, sizeof(files));
+        std::memcpy(archive_a, a, 512);
+        std::memcpy(archive_b, b, 512);
+    };
+    auto unload_case = [&](auto original, auto ours, const char* what) {
+        snapshot(files_before, a_before, b_before);
+        original();
+        snapshot(files_expected, a_expected, b_expected);
+        restore(files_before, a_before, b_before);
+        ours();
+        Check(std::memcmp(files, files_expected, sizeof(files)) == 0 && std::memcmp(archive_a, a_expected, 512) == 0 &&
+                  std::memcmp(archive_b, b_expected, 512) == 0,
+              what);
+    };
+    for (uint32_t c : {0x222u, 0x555u, 0x111u, 0x999u})
+        unload_case([&] { Original<UnloadFn>(0x005B7200)(c); }, [&] { Pip::Unload(c); }, "Pip::Unload");
+    unload_case([] { Original<UnloadByNameFn>(0x005B7270)("whatever.tex"); }, [] { Pip::Unload("whatever.tex"); },
+                "Pip::Unload(name)");
+
+    std::memcpy(files, saved_files, sizeof(files));
+    std::memcpy(pres, saved_pres, sizeof(pres));
+}
+
 // --- late self-tests ----------------------------------------------------------------------------------
 
 // The table's contents as (bucket, position in chain, key, value), so tables with different item addresses
@@ -1709,5 +1800,6 @@ void RunSelfTests()
     TestBatch17();
     TestBatch18();
     TestPool();
+    TestPip();
     Log(g_failures ? "self-tests: %d FAILED" : "self-tests: all passed", g_failures);
 }
