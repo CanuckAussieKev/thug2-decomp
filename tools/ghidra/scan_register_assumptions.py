@@ -45,7 +45,7 @@ def ignores_old_value(ins, listing):
     if mnemonic == "LEA" and len(ops) == 2 and ops[1] == f"[{ops[0]}]":
         return True
     # push ecx used to reserve stack space: the slot is overwritten before anything reads it.
-    if mnemonic == "PUSH" and len(ops) == 1 and ops[0] in TRACKED:
+    if mnemonic == "PUSH" and len(ops) == 1 and ops[0] in TRACKED + ("EAX",):
         nxt = ins
         for _ in range(6):
             nxt = listing.getInstructionAt(nxt.getFallThrough()) if nxt.getFallThrough() else None
@@ -133,3 +133,46 @@ with pyghidra.open_project(project_dir, "THUG2PM_ghidra_mcp") as project:
             print(f"0x{target:08X} {name}: {reg} read at 0x{at:08X} '{text}' after call at 0x{site:08X} "
                   f"in {caller} - {note}")
         print(f"{risks} call site(s) need attention." if risks else "No risky call sites.")
+
+        # Second pass: which callers use the return value (EAX), and how much of it. Compare this with each
+        # replacement's C++ return type: a function we declared void must not have callers reading EAX
+        # (Lzss::Decode was exactly that bug), and one returning bool (AL only) must not have callers reading
+        # all of EAX.
+        def reg_names(objects):
+            return {str(o.getName()) for o in objects if hasattr(o, "getBaseRegister")
+                    and str(o.getBaseRegister().getName()) == "EAX"}
+
+        print()
+        print("Return-value use (EAX read after the call, before being written):")
+        for target, name in sorted(replaced.items()):
+            widths, sites = set(), 0
+            for ref in refs.getReferencesTo(space.getAddress(target)):
+                if not ref.getReferenceType().isCall():
+                    continue
+                site = listing.getInstructionAt(ref.getFromAddress())
+                if site is None:
+                    continue
+                caller_func = fm.getFunctionContaining(site.getAddress())
+                if caller_func is not None and caller_func.getEntryPoint().getOffset() in replaced:
+                    continue  # its original code no longer runs
+                work, seen, used = [(site.getFallThrough(), 0)], set(), False
+                while work:
+                    addr, steps = work.pop()
+                    if addr is None or steps > MAX_STEPS or addr.getOffset() in seen:
+                        continue
+                    seen.add(addr.getOffset())
+                    ins = listing.getInstructionAt(addr)
+                    if ins is None:
+                        continue
+                    read = set() if ignores_old_value(ins, listing) else reg_names(ins.getInputObjects())
+                    if read:
+                        widths |= read
+                        used = True
+                        continue
+                    if reg_names(ins.getResultObjects()) or ins.getFlowType().isCall() or ins.getFlowType().isTerminal():
+                        continue  # EAX overwritten, or the path ends
+                    for nxt in list(ins.getFlows()) + ([ins.getFallThrough()] if ins.getFallThrough() else []):
+                        work.append((nxt, steps + 1))
+                sites += used
+            if sites:
+                print(f"  0x{target:08X} {name}: {sites} site(s) read {', '.join(sorted(widths))}")

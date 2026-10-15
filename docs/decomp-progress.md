@@ -110,6 +110,13 @@ Per docs/subsystems.md: file system (PIP/PRE archives, 0x5B6560-0x5BDAD0), then 
   (`src/hook/game.h`). Self-tests that touch such state save and restore it.
 - Functions that need the game running (memory, anything touching game objects) go in the late self-tests
   in `selftest.cpp`; wrap each call to an original in `OriginalCode original(address);`.
+- RISK - return values Ghidra calls void: Ghidra's pseudocode can show a function as returning nothing while
+  the original leaves a meaningful value in EAX that callers use. Lzss::Decode was exactly this: it keeps the
+  output pointer in EAX, the file loader pads the data after it, so returning nothing corrupted memory and
+  gave a black screen at startup (found by bisecting with thug2-decomp.ini, 2026-10-15). The register scan
+  now also lists, for every replaced function, which original callers read EAX/AX/AL after the call: check
+  that against the C++ return type (void must have no readers; bool only AL readers). Self-tests should also
+  compare return values, not only output buffers.
 - RISK - register preservation: the exe was built with whole-program optimisation, so some callers rely on a
   callee leaving a "volatile" register (ECX/EDX) untouched. Example: 0x403C00 keeps using ECX after calling
   0x4034D0. Our compiled replacements may clobber those registers. Before replacing a function, check whether

@@ -244,7 +244,10 @@ int Encode(const uint8_t* in, uint8_t* out, int size, bool print_stats)
 }
 
 // 0x004014F0
-void Decode(const uint8_t* in, uint8_t* out, int size)
+// Ghidra shows this as returning nothing, but the original keeps the output pointer in EAX throughout, and
+// its callers rely on getting it back (one computes the decompressed size from it, the file loader pads the
+// data after it). Returning nothing here left garbage in EAX and corrupted memory while loading files.
+uint8_t* Decode(const uint8_t* in, uint8_t* out, int size)
 {
     uint8_t* window = DecodeWindow();
     std::memset(window, ' ', N - F);
@@ -255,13 +258,13 @@ void Decode(const uint8_t* in, uint8_t* out, int size)
         flags >>= 1;
         if ((flags & 0x100) == 0) {
             if (size == 0)
-                return;
+                return out;
             flags = *in++ | 0xFF00; // the high byte counts the 8 flags off
             --size;
         }
         if (flags & 1) {
             if (size == 0)
-                return;
+                return out;
             --size;
             uint8_t c = *in++;
             *out++ = c;
@@ -269,7 +272,7 @@ void Decode(const uint8_t* in, uint8_t* out, int size)
             r = (r + 1) & (N - 1);
         } else {
             if (size == 0)
-                return;
+                return out;
             int position = in[0];
             int info = in[1];
             in += 2;

@@ -1204,7 +1204,7 @@ void TestBatch18()
 void TestLzssLate()
 {
     using EncodeFn = int(__cdecl*)(const uint8_t*, uint8_t*, int, bool);
-    using DecodeFn = void(__cdecl*)(const uint8_t*, uint8_t*, int);
+    using DecodeFn = uint8_t*(__cdecl*)(const uint8_t*, uint8_t*, int);
 
     // Inputs: empty, tiny, around the 18-byte match limit, repetitive, and pseudo-random text.
     static uint8_t input[6000];
@@ -1228,12 +1228,15 @@ void TestLzssLate()
                   std::memcmp(out_expected, out_actual, static_cast<size_t>(actual_size)) == 0,
               "Lzss::Encode");
 
+        uint8_t* expected_end;
         {
             OriginalCode original(0x004014F0);
-            Original<DecodeFn>(0x004014F0)(out_expected, round_expected, expected_size);
+            expected_end = Original<DecodeFn>(0x004014F0)(out_expected, round_expected, expected_size);
         }
-        Lzss::Decode(out_actual, round_actual, actual_size);
+        uint8_t* actual_end = Lzss::Decode(out_actual, round_actual, actual_size);
         Check(std::memcmp(round_expected, round_actual, static_cast<size_t>(size)) == 0, "Lzss::Decode");
+        // Callers use the returned end pointer (decompressed size, padding), so it must match too.
+        Check(expected_end - round_expected == actual_end - round_actual, "Lzss::Decode (returned end pointer)");
         Check(std::memcmp(input, round_actual, static_cast<size_t>(size)) == 0, "Lzss round trip");
     }
 }
