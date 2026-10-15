@@ -14,7 +14,11 @@ namespace GameNet {
 namespace {
 
 constexpr uint8_t kMsgChat = 0x4C;   // 'L'
-constexpr uint8_t kObserverColor = 8; // also used for messages from "Server"
+constexpr uint8_t kObserverColor = 8;
+// Sender colour for messages from "Server". The receiver writes the name colour as \c<color + 2> in decimal,
+// but the text renderer reads a single hex digit after \c - so only 0..7 work (the game's own observer
+// colour 8 comes out as colour 1 followed by a stray "0").
+constexpr uint8_t kServerColor = 7;
 constexpr int kNameSize = 16;
 constexpr int kMaxTextSize = 131;
 
@@ -102,6 +106,18 @@ void Copy(char* out, size_t size, const char* in)
     strncpy_s(out, size, in, _TRUNCATE);
 }
 
+} // namespace
+
+void ShowLocalChatLine(const char* line)
+{
+    ScriptStruct* params = NewScriptStruct();
+    AddString(params, kText, line);
+    RunScript(kShowChatScript, params);
+    DeleteScriptStruct(params);
+}
+
+namespace {
+
 // Shared by the normal and the named send.
 void Send(Manager* manager, const char* name, uint8_t color, const char* text)
 {
@@ -122,10 +138,7 @@ void Send(Manager* manager, const char* name, uint8_t color, const char* text)
     // The server doesn't send our own line back to us, so show it here.
     char line[256];
     std::snprintf(line, sizeof(line), "%s : %s", packet.name, packet.text);
-    ScriptStruct* params = NewScriptStruct();
-    AddString(params, kText, line);
-    RunScript(kShowChatScript, params);
-    DeleteScriptStruct(params);
+    ShowLocalChatLine(line);
 }
 
 } // namespace
@@ -146,7 +159,7 @@ void SendNamedChatMessage(Manager* manager, const char* name, const char* text)
 {
     if (*text == '\0')
         return;
-    Send(manager, name, kObserverColor, text);
+    Send(manager, name, kServerColor, text);
 }
 
 bool HandleChatCommand(Manager* manager, const char* text)
@@ -154,7 +167,14 @@ bool HandleChatCommand(Manager* manager, const char* text)
     if (text[0] != '/')
         return false;
     if (_stricmp(text, "/hello") == 0) {
-        SendNamedChatMessage(manager, "Server", "Hello, World.");
+        // \cN switches the text colour (N = one hex digit, a palette entry of the chat font; \c0 = normal).
+        SendNamedChatMessage(manager, "Server", "\\c2Hello, \\c4World!");
+        return true;
+    }
+    if (_stricmp(text, "/colours") == 0 || _stricmp(text, "/colors") == 0) {
+        // Only shown here, not sent: each palette entry in its own colour, to pick codes from.
+        ShowLocalChatLine("\\c11 \\c22 \\c33 \\c44 \\c55 \\c66 \\c77 \\c88 \\c99 \\cAA \\cBB \\cCC \\cDD "
+                          "\\cEE \\cFF\\c0 (colour codes)");
         return true;
     }
     return false; // not one of ours: send it as typed
