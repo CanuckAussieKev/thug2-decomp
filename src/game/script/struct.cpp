@@ -822,3 +822,405 @@ REPLACE(0x00477090, &Script::CStruct::Clear);
 REPLACE(0x004776B0, static_cast<void (Script::CStruct::*)(uint32_t)>(&Script::CStruct::RemoveComponent));
 REPLACE(0x00477770, static_cast<void (Script::CStruct::*)(const char*)>(&Script::CStruct::RemoveComponent));
 REPLACE(0x00477790, &Script::CStruct::RemoveComponentOfType);
+
+// --- adding components ---------------------------------------------------------------------------------------
+
+namespace Script {
+
+namespace {
+
+// 0x0046D140 (the constructor: the second byte is left as it was)
+CComponent* ConstructComponent(CComponent* component)
+{
+    component->name = 0;
+    component->unknown2 = 0;
+    component->raw = 0;
+    component->next = nullptr;
+    component->typeAndFlag = 0;
+    return component;
+}
+
+CComponent* NewTypedComponent(uint32_t name, ESymbolType type)
+{
+    CComponent* component = NewComponent();
+    component->name = name;
+    component->typeAndFlag = static_cast<uint8_t>((component->typeAndFlag & 1) | (type << 1));
+    return component;
+}
+
+} // namespace
+
+// 0x0044C130 (+ the constructor, as the callers do)
+CComponent* NewComponent()
+{
+    void* memory = ComponentPools().Allocate(sizeof(CComponent));
+    return memory ? ConstructComponent(static_cast<CComponent*>(memory)) : nullptr;
+}
+
+// 0x00477860
+void CStruct::RemoveFlag(uint32_t flag)
+{
+    CComponent* previous = nullptr;
+    CComponent* component = m_head;
+    while (component) {
+        CComponent* next = component->next;
+        if (component->name == 0 && component->raw == flag) {
+            if (previous)
+                previous->next = next;
+            else
+                m_head = next;
+            CleanUpComponent(component);
+            FreeComponent(component);
+        } else {
+            previous = component;
+        }
+        component = next;
+    }
+}
+
+// 0x00477920
+void CStruct::AddComponent(CComponent* added)
+{
+    CComponent* last = nullptr;
+    CComponent* component = m_head;
+    while (component) {
+        bool replace = false;
+        if (component->name == added->name) {
+            ESymbolType mine = component->Type();
+            ESymbolType theirs = added->Type();
+            if (mine == theirs)
+                replace = !(mine == ESYMBOLTYPE_NAME && component->name == 0) || component->raw == added->raw;
+            else
+                replace = (mine == ESYMBOLTYPE_FLOAT && theirs == ESYMBOLTYPE_INTEGER) ||
+                          (mine == ESYMBOLTYPE_INTEGER && theirs == ESYMBOLTYPE_FLOAT);
+        }
+        if (replace) {
+            CComponent* next = component->next;
+            if (last)
+                last->next = next;
+            else
+                m_head = next;
+            CleanUpComponent(component);
+            FreeComponent(component);
+            component = next;
+        } else {
+            last = component;
+            component = component->next;
+        }
+    }
+    if (last)
+        last->next = added;
+    else
+        m_head = added;
+    added->next = nullptr;
+}
+
+// 0x004779D0
+void CStruct::AddString(uint32_t name, const char* value)
+{
+    CComponent* component = NewTypedComponent(name, ESYMBOLTYPE_STRING);
+    component->string = CreateString(value);
+    AddComponent(component);
+}
+
+// 0x00477A90
+void CStruct::AddString(const char* name, const char* value)
+{
+    AddString(Crc::GenerateCRCFromString(name), value);
+}
+
+// 0x00477AC0
+void CStruct::AddLocalString(uint32_t name, const char* value)
+{
+    CComponent* component = NewTypedComponent(name, ESYMBOLTYPE_LOCALSTRING);
+    component->string = CreateString(value);
+    AddComponent(component);
+}
+
+// 0x00478390
+void CStruct::AddString(uint32_t name, uint32_t type, const char* value)
+{
+    if (type == ESYMBOLTYPE_STRING)
+        AddString(name, value);
+    else
+        AddLocalString(name, value);
+}
+
+// 0x00477B80
+void CStruct::AddInteger(uint32_t name, int value)
+{
+    CComponent* component = NewTypedComponent(name, ESYMBOLTYPE_INTEGER);
+    component->integer = value;
+    AddComponent(component);
+}
+
+// 0x00477C30
+void CStruct::AddInteger(const char* name, int value)
+{
+    AddInteger(Crc::GenerateCRCFromString(name), value);
+}
+
+// 0x00477C60
+void CStruct::AddFloat(uint32_t name, float value)
+{
+    CComponent* component = NewTypedComponent(name, ESYMBOLTYPE_FLOAT);
+    component->floatValue = value;
+    AddComponent(component);
+}
+
+// 0x00477D10
+void CStruct::AddFloat(const char* name, float value)
+{
+    AddFloat(Crc::GenerateCRCFromString(name), value);
+}
+
+// 0x00477D40
+void CStruct::AddChecksum(uint32_t name, uint32_t value)
+{
+    CComponent* component = NewTypedComponent(name, ESYMBOLTYPE_NAME);
+    component->checksum = value;
+    AddComponent(component);
+}
+
+// 0x00477DF0
+void CStruct::AddChecksum(const char* name, uint32_t value)
+{
+    AddChecksum(Crc::GenerateCRCFromString(name), value);
+}
+
+// 0x00477E20
+void CStruct::AddVector(uint32_t name, float x, float y, float z)
+{
+    CComponent* component = NewTypedComponent(name, ESYMBOLTYPE_VECTOR);
+    auto* vector = static_cast<CVector*>(VectorPools().Allocate(sizeof(CVector)));
+    if (vector) {
+        vector->z = 0.0f;
+        vector->y = 0.0f;
+        vector->x = 0.0f;
+        reinterpret_cast<uint8_t*>(vector)[0] = 0;
+    }
+    component->vector = vector;
+    vector->x = x;
+    component->vector->y = y;
+    component->vector->z = z;
+    AddComponent(component);
+}
+
+// 0x00477F40
+void CStruct::AddVector(const char* name, float x, float y, float z)
+{
+    AddVector(Crc::GenerateCRCFromString(name), x, y, z);
+}
+
+// 0x00477F70
+void CStruct::AddVector(uint32_t name, VectorValue value)
+{
+    AddVector(name, value.x, value.y, value.z);
+}
+
+// 0x00477F90
+void CStruct::AddVector(const char* name, VectorValue value)
+{
+    AddVector(Crc::GenerateCRCFromString(name), value.x, value.y, value.z);
+}
+
+// 0x00477FC0
+void CStruct::AddPair(uint32_t name, float x, float y)
+{
+    CComponent* component = NewTypedComponent(name, ESYMBOLTYPE_PAIR);
+    auto* pair = static_cast<CPair*>(PairPools().Allocate(sizeof(CPair)));
+    if (pair) {
+        pair->y = 0.0f;
+        pair->x = 0.0f;
+        reinterpret_cast<uint8_t*>(pair)[0] = 0;
+    }
+    component->pair = pair;
+    pair->x = x;
+    component->pair->y = y;
+    AddComponent(component);
+}
+
+// 0x004780D0
+void CStruct::AddArrayPointer(uint32_t name, CArray* value)
+{
+    CComponent* component = NewTypedComponent(name, ESYMBOLTYPE_ARRAY);
+    component->array = value;
+    AddComponent(component);
+}
+
+// 0x00478180
+void CStruct::AddArrayPointer(const char* name, CArray* value)
+{
+    AddArrayPointer(Crc::GenerateCRCFromString(name), value);
+}
+
+// 0x004781B0
+void CStruct::AddStructurePointer(uint32_t name, CStruct* value)
+{
+    CComponent* component = NewTypedComponent(name, ESYMBOLTYPE_STRUCTURE);
+    component->structure = value;
+    AddComponent(component);
+}
+
+// 0x00478260
+void CStruct::AddStructurePointer(const char* name, CStruct* value)
+{
+    AddStructurePointer(Crc::GenerateCRCFromString(name), value);
+}
+
+// 0x00478670
+void CStruct::AddStructure(uint32_t name, CStruct* value)
+{
+    CComponent* component = NewTypedComponent(name, ESYMBOLTYPE_STRUCTURE);
+    CStruct* copy = NewStruct();
+    if (copy)
+        copy->Init();
+    component->structure = copy;
+    if (value != copy) {
+        copy->Clear();
+        copy->AppendStructure(value);
+    }
+    AddComponent(component);
+}
+
+// 0x00478770
+void CStruct::AddStructure(const char* name, CStruct* value)
+{
+    AddStructure(Crc::GenerateCRCFromString(name), value);
+}
+
+// 0x00478290
+void CStruct::AddScript(uint32_t name, const uint8_t* code, uint32_t size)
+{
+    CComponent* component = NewTypedComponent(name, ESYMBOLTYPE_QSCRIPT);
+    component->unknown2 = static_cast<uint16_t>(size);
+    Mem::PushContext(Mem::Manager::Get()->m_scriptHeap);
+    auto* copy = static_cast<uint8_t*>(Mem::Malloc(size));
+    Mem::PopContext();
+    for (uint32_t i = 0; i < size; ++i)
+        copy[i] = code[i];
+    component->raw = reinterpret_cast<uint32_t>(copy);
+    AddComponent(component);
+}
+
+// 0x004783C0
+void CStruct::AddComponentOfType(uint32_t name, uint32_t type, uint32_t value)
+{
+    switch (type) {
+    case ESYMBOLTYPE_INTEGER:
+        AddInteger(name, static_cast<int>(value));
+        break;
+    case ESYMBOLTYPE_FLOAT: {
+        float number;
+        std::memcpy(&number, &value, 4);
+        AddFloat(name, number);
+        break;
+    }
+    case 11:
+        AddStructurePointer(name, reinterpret_cast<CStruct*>(value));
+        break;
+    case ESYMBOLTYPE_ARRAY:
+        AddArrayPointer(name, reinterpret_cast<CArray*>(value));
+        break;
+    case ESYMBOLTYPE_NAME:
+        AddChecksum(name, value);
+        break;
+    default:
+        break;
+    }
+}
+
+// 0x00478480
+CStruct* CStruct::AppendStructure(CStruct* source)
+{
+    for (CComponent* component = source->m_head; component; component = component->next) {
+        CComponent* copy = NewComponent();
+        CopyComponent(copy, component, 0);
+        AddComponent(copy);
+    }
+    return this;
+}
+
+// 0x00478540
+void CStruct::AppendStructureIfAny(CStruct* source)
+{
+    if (source)
+        AppendStructure(source);
+}
+
+// 0x00478650
+CStruct* CStruct::Assign(CStruct* source)
+{
+    if (source != this) {
+        Clear();
+        AppendStructure(source);
+    }
+    return this;
+}
+
+// 0x00478560
+void CStruct::ExpandInto(CStruct* dest, int depth)
+{
+    for (CComponent* component = m_head; component; component = component->next) {
+        if (CStruct* included = IncludedStructure(component)) {
+            included->ExpandInto(dest, depth + 1);
+            continue;
+        }
+        CComponent* copy = NewComponent();
+        CopyComponent(copy, component, 0);
+        dest->AddComponent(copy);
+    }
+}
+
+} // namespace Script
+
+namespace {
+
+using Script::CArray;
+using Script::CStruct;
+using Script::VectorValue;
+template <typename... A>
+using AddMethod = void (CStruct::*)(A...);
+
+// 0x0044C170: free a component (pooled)
+void DeleteComponentAdapter(Script::CComponent* component) { Script::FreeComponent(component); }
+// 0x0044C130: operator new (the size is always 16)
+void* NewComponentMemory(unsigned int size) { return GameVariable<Mem::PoolPair>(0x006F2338).Allocate(size); }
+struct ComponentAdapter {
+    Script::CComponent* Construct() { return Script::ConstructComponent(reinterpret_cast<Script::CComponent*>(this)); }
+};
+
+} // namespace
+
+REPLACE(0x0046D140, &ComponentAdapter::Construct);
+REPLACE(0x0044C130, NewComponentMemory);
+REPLACE(0x0044C170, DeleteComponentAdapter);
+REPLACE(0x00477860, &CStruct::RemoveFlag);
+REPLACE(0x00477920, &CStruct::AddComponent);
+REPLACE(0x004779D0, static_cast<AddMethod<uint32_t, const char*>>(&CStruct::AddString));
+REPLACE(0x00477A90, static_cast<AddMethod<const char*, const char*>>(&CStruct::AddString));
+REPLACE(0x00477AC0, &CStruct::AddLocalString);
+REPLACE(0x00478390, static_cast<AddMethod<uint32_t, uint32_t, const char*>>(&CStruct::AddString));
+REPLACE(0x00477B80, static_cast<AddMethod<uint32_t, int>>(&CStruct::AddInteger));
+REPLACE(0x00477C30, static_cast<AddMethod<const char*, int>>(&CStruct::AddInteger));
+REPLACE(0x00477C60, static_cast<AddMethod<uint32_t, float>>(&CStruct::AddFloat));
+REPLACE(0x00477D10, static_cast<AddMethod<const char*, float>>(&CStruct::AddFloat));
+REPLACE(0x00477D40, static_cast<AddMethod<uint32_t, uint32_t>>(&CStruct::AddChecksum));
+REPLACE(0x00477DF0, static_cast<AddMethod<const char*, uint32_t>>(&CStruct::AddChecksum));
+REPLACE(0x00477E20, static_cast<AddMethod<uint32_t, float, float, float>>(&CStruct::AddVector));
+REPLACE(0x00477F40, static_cast<AddMethod<const char*, float, float, float>>(&CStruct::AddVector));
+REPLACE(0x00477F70, static_cast<AddMethod<uint32_t, VectorValue>>(&CStruct::AddVector));
+REPLACE(0x00477F90, static_cast<AddMethod<const char*, VectorValue>>(&CStruct::AddVector));
+REPLACE(0x00477FC0, &CStruct::AddPair);
+REPLACE(0x004780D0, static_cast<AddMethod<uint32_t, CArray*>>(&CStruct::AddArrayPointer));
+REPLACE(0x00478180, static_cast<AddMethod<const char*, CArray*>>(&CStruct::AddArrayPointer));
+REPLACE(0x004781B0, static_cast<AddMethod<uint32_t, CStruct*>>(&CStruct::AddStructurePointer));
+REPLACE(0x00478260, static_cast<AddMethod<const char*, CStruct*>>(&CStruct::AddStructurePointer));
+REPLACE(0x00478670, static_cast<AddMethod<uint32_t, CStruct*>>(&CStruct::AddStructure));
+REPLACE(0x00478770, static_cast<AddMethod<const char*, CStruct*>>(&CStruct::AddStructure));
+REPLACE(0x00478290, &CStruct::AddScript);
+REPLACE(0x004783C0, &CStruct::AddComponentOfType);
+REPLACE(0x00478480, &CStruct::AppendStructure);
+REPLACE(0x00478540, &CStruct::AppendStructureIfAny);
+REPLACE(0x00478650, &CStruct::Assign);
+REPLACE(0x00478560, &CStruct::ExpandInto);

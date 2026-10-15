@@ -124,6 +124,8 @@ void DeleteStruct(CStruct* structure);
 CArray* NewArray();
 void DeleteArray(CArray* array);
 void FreeComponent(CComponent* component);
+// A new, empty component (from the component pool).
+CComponent* NewComponent();
 
 // A 4-component vector as scripts' vectors are returned (w = 1).
 struct VectorValue {
@@ -160,6 +162,47 @@ public:
     void RemoveComponent(uint32_t name);
     void RemoveComponent(const char* name);
     void RemoveComponentOfType(uint32_t name, uint8_t type);
+    // Remove the bare name `flag`.
+    void RemoveFlag(uint32_t flag);
+
+    // Add `component` at the end, replacing any component of the same name and compatible type (integers and
+    // floats replace each other; a bare name only replaces the same name).
+    void AddComponent(CComponent* component);
+    void AddString(uint32_t name, const char* value);
+    void AddString(const char* name, const char* value);
+    void AddLocalString(uint32_t name, const char* value);
+    void AddString(uint32_t name, uint32_t type, const char* value); // string or local string
+    void AddInteger(uint32_t name, int value);
+    void AddInteger(const char* name, int value);
+    void AddFloat(uint32_t name, float value);
+    void AddFloat(const char* name, float value);
+    void AddChecksum(uint32_t name, uint32_t value);
+    void AddChecksum(const char* name, uint32_t value);
+    void AddVector(uint32_t name, float x, float y, float z);
+    void AddVector(const char* name, float x, float y, float z);
+    void AddVector(uint32_t name, VectorValue value);
+    void AddVector(const char* name, VectorValue value);
+    void AddPair(uint32_t name, float x, float y);
+    // Arrays and structures added by pointer (the structure takes them over).
+    void AddArrayPointer(uint32_t name, CArray* value);
+    void AddArrayPointer(const char* name, CArray* value);
+    void AddStructurePointer(uint32_t name, CStruct* value);
+    void AddStructurePointer(const char* name, CStruct* value);
+    // A copy of `value`.
+    void AddStructure(uint32_t name, CStruct* value);
+    void AddStructure(const char* name, CStruct* value);
+    // A compiled script, copied to the script heap.
+    void AddScript(uint32_t name, const uint8_t* code, uint32_t size);
+    // By type: integer, float, 11 structure pointer, 12 array pointer, 13 checksum (others are ignored).
+    void AddComponentOfType(uint32_t name, uint32_t type, uint32_t value);
+
+    // Copies of all `source`'s components, added.
+    CStruct* AppendStructure(CStruct* source);
+    void AppendStructureIfAny(CStruct* source);
+    // Become a copy of `source`.
+    CStruct* Assign(CStruct* source);
+    // Copies of this structure's components added to `dest`, with included global structures expanded.
+    void ExpandInto(CStruct* dest, int depth);
 
     // The typed getters: false if missing (`assert`: the game would report it - a no-op in this build).
     bool GetString(uint32_t name, const char** out, int assert);

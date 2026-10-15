@@ -288,7 +288,18 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       RemoveComponent (checksum/name), RemoveComponentOfType. Early test: a stand-in manager with a script
       heap, the script pools emptied; every owning type built, copied, removed, cleaned; arenas compared
       (six deliberate bugs caught, one after giving the test array a type).
-- [ ] Next: the CStruct adders (0x477860-0x478780), AppendStructure 0x478480, CopyArray 0x478A60.
+- [x] Batch 38 (NOT run in the game yet; early test passes offline): adding to script structures.
+      NewComponent (0x44C130 + constructor 0x46D140, which leaves byte 1 alone), DeleteComponent 0x44C170,
+      AddComponent 0x477920 (replaces same name + compatible type: equal types, int<->float; a bare name
+      only replaces the same name; appends), RemoveFlag, and every adder - string, local string, string of
+      type, integer, float, checksum, vector (x,y,z and by value), pair, array/structure pointers,
+      structure copy, compiled script, of type (1/2/11/12/13) - by checksum and name; AppendStructure,
+      AppendStructureIfAny, Assign, ExpandInto (expands included global structures). 32 functions. Early
+      test: stand-in manager + symbol table, originals vs ours (six deliberate bugs caught, one after
+      adding a named component with a flag's value). Register scan flags 0x4EFF92 'PUSH ECX' after
+      AddVector by value: a false alarm (it only reserves a stack slot, overwritten by FSTP [ESP]).
+- [ ] Next: CopyArray 0x478A60 (+ 0x46CC50 SetSizeAndType, 0x4787A0 element copy), the remaining array
+      functions (0x46CB10..), then the parser/symbol table (0x46F...) and the interpreter.
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
       for original callers that read ECX/EDX after the call without writing them first (ignoring push-to-reserve,
       lea reg,[reg], or reg,-1 and zeroing idioms; callers that are themselves replaced count as safe).

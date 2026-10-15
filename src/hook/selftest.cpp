@@ -3231,6 +3231,174 @@ void TestScriptStructWriting()
     }
 }
 
+// Adding components (every adder, the replacement rules, appending, assigning, expanding includes) on a
+// stand-in manager with a script heap and a stand-in symbol table; originals vs ours, arenas compared.
+void TestScriptStructAdding()
+{
+    using namespace Script;
+    using Mem::Heap;
+    using Mem::Manager;
+    using Mem::Region;
+    if (GameVariable<void*>(0x007D1800)) {
+        Log("self-test: TestScriptStructAdding skipped (the memory manager is already set up)");
+        return;
+    }
+    for (int i = 0; i < 5; ++i)
+        std::memcpy(g_saved_script_pools[i], reinterpret_cast<void*>(kScriptPoolAddresses[i]), 16);
+    std::memcpy(g_saved_permanent_strings, reinterpret_cast<void*>(0x006F3570), sizeof(g_saved_permanent_strings));
+    g_saved_system_ready = GameVariable<bool>(0x007CC979);
+    g_saved_manager_for_test = nullptr;
+    g_script_write_swapped = true;
+    g_saved_symbol_table = GameVariable<CSymbolTableEntry**>(0x006F3624);
+    g_symbol_table_swapped = true;
+    for (uint32_t address : kScriptPoolAddresses)
+        std::memset(reinterpret_cast<void*>(address), 0, 16);
+    std::memset(reinterpret_cast<void*>(0x006F3570), 0, sizeof(g_saved_permanent_strings));
+    GameVariable<bool>(0x007CC979) = true;
+    static CSymbolTableEntry* table[0x1000];
+    static CSymbolTableEntry symbol;
+    static CStruct global;
+    static CComponent globalComponents[2];
+    std::memset(table, 0, sizeof(table));
+    GameVariable<CSymbolTableEntry**>(0x006F3624) = table;
+
+    auto run = [&](bool original) {
+        std::vector<uint32_t> trace;
+        uint8_t* arena = g_manager_arenas[original ? 0 : 1];
+        std::memset(arena, 0, kManagerArenaSize);
+        auto* manager = reinterpret_cast<Manager*>(arena);
+        GameVariable<void*>(0x007D1800) = manager;
+        auto* region = new (arena + 0x600) Region(arena + 0x1000, arena + kManagerArenaSize - 0x1800);
+        auto* heap = new (arena + 0x620) Heap(region, 1, "test");
+        auto* scriptRegion = new (arena + 0x6C0) Region(arena + kManagerArenaSize - 0x1800, arena + kManagerArenaSize);
+        auto* scriptHeap = new (arena + 0x6E0) Heap(scriptRegion, 1, "script");
+        manager->m_heaps[0] = heap;
+        manager->m_heaps[1] = scriptHeap;
+        manager->m_heapCount = 2;
+        manager->m_scriptHeap = scriptHeap;
+        manager->PushContext(heap);
+
+        // A global structure {count=7, flag} included by name 0x6000.
+        std::memset(&global, 0, sizeof(global));
+        std::memset(globalComponents, 0, sizeof(globalComponents));
+        globalComponents[0] = {ESYMBOLTYPE_INTEGER << 1, 0, 0, 0x60, {7}, &globalComponents[1]};
+        globalComponents[1].typeAndFlag = ESYMBOLTYPE_NAME << 1;
+        globalComponents[1].checksum = 0x61;
+        global.m_head = &globalComponents[0];
+        symbol = {};
+        symbol.type = ESYMBOLTYPE_STRUCTURE;
+        symbol.name = 0x6000;
+        symbol.structure = &global;
+        table[0x6000 & 0xFFF] = &symbol;
+
+        auto new_struct = [&]() { return NewStruct()->Init(); };
+        CStruct* s = new_struct();
+        float f15 = 1.5f;
+        uint32_t f15_bits;
+        std::memcpy(&f15_bits, &f15, 4);
+        VectorValue v = {1.0f, 2.0f, 3.0f, 4.0f};
+        const uint8_t code[5] = {1, 2, 3, 4, 5};
+        CStruct* inner = new_struct();
+        CArray* array = NewArray()->Init();
+#define CALL(address, Signature, ours, ...)                                                                           \
+    if (original)                                                                                                      \
+        Original<Signature>(address)(__VA_ARGS__);                                                                     \
+    else                                                                                                               \
+        ours;
+        using S = CStruct*;
+        CALL(0x004779D0, void(__thiscall*)(S, uint32_t, const char*), s->AddString(1u, "one"), s, 1u, "one")
+        CALL(0x00477A90, void(__thiscall*)(S, const char*, const char*), s->AddString("named", "two"), s, "named",
+             "two")
+        CALL(0x00477AC0, void(__thiscall*)(S, uint32_t, const char*), s->AddLocalString(2, "local"), s, 2u, "local")
+        CALL(0x00478390, void(__thiscall*)(S, uint32_t, uint32_t, const char*), s->AddString(3, 4u, "typed"), s, 3u,
+             4u, "typed")
+        CALL(0x00477B80, void(__thiscall*)(S, uint32_t, int), s->AddInteger(4u, 40), s, 4u, 40)
+        CALL(0x00477C30, void(__thiscall*)(S, const char*, int), s->AddInteger("count", 41), s, "count", 41)
+        CALL(0x00477C60, void(__thiscall*)(S, uint32_t, float), s->AddFloat(4u, 2.5f), s, 4u, 2.5f) // replaces 4
+        CALL(0x00477D10, void(__thiscall*)(S, const char*, float), s->AddFloat("speed", 3.5f), s, "speed", 3.5f)
+        CALL(0x00477D40, void(__thiscall*)(S, uint32_t, uint32_t), s->AddChecksum(0u, 0x77u), s, 0u, 0x77u)
+        CALL(0x00477D40, void(__thiscall*)(S, uint32_t, uint32_t), s->AddChecksum(0u, 0x78u), s, 0u, 0x78u)
+        CALL(0x00477D40, void(__thiscall*)(S, uint32_t, uint32_t), s->AddChecksum(0u, 0x77u), s, 0u, 0x77u)
+        CALL(0x00477DF0, void(__thiscall*)(S, const char*, uint32_t), s->AddChecksum("mode", 0x99u), s, "mode", 0x99u)
+        CALL(0x00477E20, void(__thiscall*)(S, uint32_t, float, float, float), s->AddVector(5u, 1.0f, 2.0f, 3.0f), s,
+             5u, 1.0f, 2.0f, 3.0f)
+        CALL(0x00477F40, void(__thiscall*)(S, const char*, float, float, float), s->AddVector("pos", 4.0f, 5.0f, 6.0f),
+             s, "pos", 4.0f, 5.0f, 6.0f)
+        CALL(0x00477F70, void(__thiscall*)(S, uint32_t, VectorValue), s->AddVector(6u, v), s, 6u, v)
+        CALL(0x00477F90, void(__thiscall*)(S, const char*, VectorValue), s->AddVector("dir", v), s, "dir", v)
+        CALL(0x00477FC0, void(__thiscall*)(S, uint32_t, float, float), s->AddPair(7u, 0.5f, 0.25f), s, 7u, 0.5f, 0.25f)
+        CALL(0x004780D0, void(__thiscall*)(S, uint32_t, CArray*), s->AddArrayPointer(8u, array), s, 8u, array)
+        CALL(0x004781B0, void(__thiscall*)(S, uint32_t, CStruct*), s->AddStructurePointer(9u, inner), s, 9u, inner)
+        CALL(0x00478290, void(__thiscall*)(S, uint32_t, const uint8_t*, uint32_t), s->AddScript(10u, code, 5u), s,
+             10u, code, 5u)
+        for (uint32_t type = 0; type <= 14; ++type) {
+            uint32_t value = type == 11 ? reinterpret_cast<uint32_t>(new_struct())
+                             : type == 12 ? reinterpret_cast<uint32_t>(NewArray()->Init())
+                             : type == 2  ? f15_bits
+                                          : 0x100 + type;
+            CALL(0x004783C0, void(__thiscall*)(S, uint32_t, uint32_t, uint32_t), s->AddComponentOfType(0x200 + type, type,
+                                                                                                      value),
+                 s, 0x200 + type, type, value)
+        }
+        CALL(0x00478670, void(__thiscall*)(S, uint32_t, CStruct*), s->AddStructure(11u, s), s, 11u, s)
+        CALL(0x00478770, void(__thiscall*)(S, const char*, CStruct*), s->AddStructure("copy", inner), s, "copy", inner)
+        CALL(0x00478180, void(__thiscall*)(S, const char*, CArray*), s->AddArrayPointer("list", NewArray()->Init()), s,
+             "list", NewArray()->Init())
+        CALL(0x00478260, void(__thiscall*)(S, const char*, CStruct*), s->AddStructurePointer("sub", new_struct()), s,
+             "sub", new_struct())
+        s->AddInteger(0x300u, 0x78); // named, with the flag's value: not a flag
+        CALL(0x00477860, void(__thiscall*)(S, uint32_t), s->RemoveFlag(0x78u), s, 0x78u)
+        CALL(0x00477860, void(__thiscall*)(S, uint32_t), s->RemoveFlag(0x12345u), s, 0x12345u)
+        s->AddChecksum(0u, 0x6000u); // include the global structure
+
+        // Appending, assigning, expanding.
+        CStruct* t = new_struct();
+        t->AddInteger(4u, 1);
+        CALL(0x00478480, CStruct*(__thiscall*)(S, CStruct*), t->AppendStructure(s), t, s)
+        CALL(0x00478540, void(__thiscall*)(S, CStruct*), t->AppendStructureIfAny(nullptr), t, nullptr)
+        CStruct* u = new_struct();
+        CALL(0x00478650, CStruct*(__thiscall*)(S, CStruct*), u->Assign(s), u, s)
+        CALL(0x00478650, CStruct*(__thiscall*)(S, CStruct*), u->Assign(u), u, u)
+        CStruct* w = new_struct();
+        CALL(0x00478560, void(__thiscall*)(S, CStruct*, int), s->ExpandInto(w, 0), s, w, 0)
+#undef CALL
+        for (CStruct* each : {s, t, u, w}) {
+            uint32_t count = 0;
+            for (CComponent* c = each->m_head; c; c = c->next)
+                ++count;
+            trace.push_back(count);
+        }
+
+        std::vector<uint32_t> image(kManagerArenaSize / 4);
+        std::memcpy(image.data(), arena, kManagerArenaSize);
+        auto base = reinterpret_cast<uint32_t>(arena);
+        for (uint32_t& word : image) {
+            if (word >= base && word <= base + kManagerArenaSize)
+                word = 0xA0000000u + (word - base);
+        }
+        trace.insert(trace.end(), image.begin(), image.end());
+        GameVariable<void*>(0x007D1800) = nullptr;
+        return trace;
+    };
+    std::vector<uint32_t> expected = run(true);
+    std::vector<uint32_t> actual = run(false);
+    RestoreScriptWriteTest();
+    RestoreSymbolTable();
+    Check(expected == actual, "script structures: adding, appending, expanding");
+    for (size_t i = 0, shown = 0; i < expected.size() && i < actual.size() && shown < 8; ++i) {
+        if (expected[i] != actual[i]) {
+            Log("  struct adding entry %u: original %08X ours %08X", static_cast<unsigned>(i), expected[i], actual[i]);
+            ++shown;
+        }
+    }
+}
+
+void RestoreScriptAddingTest()
+{
+    RestoreScriptWriteTest();
+    RestoreSymbolTable();
+}
+
 // --- late self-tests ----------------------------------------------------------------------------------
 
 // The table's contents as (bucket, position in chain, key, value), so tables with different item addresses
@@ -4172,6 +4340,7 @@ SELFTEST(Early, TestMemoryManager, RestoreManagerForTest);
 SELFTEST(Early, TestMemoryManagerHeapCreation, RestoreManagerInitTest);
 SELFTEST(Early, TestScriptStructLookups, RestoreSymbolTable);
 SELFTEST(Early, TestScriptStructWriting, RestoreScriptWriteTest);
+SELFTEST(Early, TestScriptStructAdding, RestoreScriptAddingTest);
 
 SELFTEST(Late, TestMemoryLate);
 SELFTEST(Late, TestStringLate);
