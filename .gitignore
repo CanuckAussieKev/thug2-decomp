@@ -1,0 +1,12 @@
+# Never commit game files or binaries
+*.exe
+*.dll
+*.pdb
+*.gpr
+*.rep/
+build/
+out/
+.vs/
+
+# Data extracted from the game exe (regenerable with tools/, not ours to publish)
+data/derived/
