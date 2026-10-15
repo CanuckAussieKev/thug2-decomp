@@ -37,6 +37,14 @@ void Unload(const char* name);
 int GetFileSize(uint32_t checksum);
 int GetFileSize(const char* name);
 
+// Load the .pre archive pre\<name> (unless it's loaded already) into the next free slot, repacked so that
+// every file in it is stored uncompressed and 16-byte aligned - files are then used in place. French and
+// German use a localised archive (.prf/.prd) if there is one.
+void LoadPre(const char* name);
+// Load `name` into `buffer` (or a new block if null) from a .pre archive or disk; `*size` (if given) gets its
+// size. Returns the data, or null.
+void* LoadFileInto(const char* name, int* size, void* buffer);
+
 // Free every loaded .pre archive with this name. True if there was one.
 bool UnloadPre(const char* name);
 // The loaded .pre archive after the one named `previous` (null for the first), or null.

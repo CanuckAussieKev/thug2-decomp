@@ -1,12 +1,16 @@
 #include "game/file/pip.h"
 
+#include <cstdio>
 #include <cstring>
 
 #include "game/core/crc.h"
+#include "game/core/dbg.h"
 #include "game/core/mem.h"
 #include "game/file/async.h"
 #include "game/file/file.h"
 #include "game/file/pre.h"
+#include "game/script/params.h"
+#include "game/util/lzss.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/shadow.h"
@@ -49,6 +53,14 @@ PreHeader* HeaderOf(char* pre)
 }
 
 PreEntry* FirstEntry(PreHeader* header) { return reinterpret_cast<PreEntry*>(header + 1); }
+
+// Archives as stored on disk: the name follows the header directly, the data the name, padded to 4 bytes.
+// (Loaded archives are repacked with 16-byte aligned data - see NextEntry.)
+PreEntry* NextRawEntry(PreEntry* entry)
+{
+    uint32_t stored = static_cast<uint32_t>(entry->compressedSize ? entry->compressedSize : entry->size);
+    return reinterpret_cast<PreEntry*>(reinterpret_cast<uint8_t*>(entry + 1) + entry->nameSize + ((stored + 3) & ~3u));
+}
 
 PreEntry* NextEntry(PreEntry* entry)
 {
@@ -144,6 +156,252 @@ void* Load(const char* name, bool async, void* callback, void* callback_arg0, vo
 
     *slot = {data, checksum, size, 1};
     return data;
+}
+
+// 0x005B7B00: load `name` into `buffer` (or a new block if null), from a .pre archive or from disk, and set
+// `*size` (if given) to its size. Returns the data, or null if it couldn't be loaded.
+void* LoadFileInto(const char* name, int* size, void* buffer)
+{
+    int file_size = 0;
+    void* data = Pre::Instance()->LoadFile(name, &file_size, static_cast<uint8_t*>(buffer));
+    if (!data) {
+        file_size = File::CachedFileSize(name);
+        if (file_size != 0) {
+            data = buffer ? buffer : AllocateFileMemory(SectorAligned(static_cast<unsigned int>(file_size)));
+            if (!File::LoadCachedFile(name, data)) {
+                if (!buffer)
+                    FreeFileMemory(data);
+                data = nullptr;
+            }
+        } else {
+            File::Handle file = File::Open(name, "rb");
+            file_size = static_cast<int>(File::GetFileSize(file));
+            data = buffer ? buffer : AllocateFileMemory(SectorAligned(static_cast<unsigned int>(file_size)));
+            File::Read(data, 1, file_size, file);
+            File::Close(file);
+        }
+        if (!buffer && data)
+            ShrinkFileMemory(static_cast<unsigned int>(file_size), data);
+    }
+    if (size)
+        *size = file_size;
+    return data;
+}
+
+// 0x005B75A0
+void LoadPre(const char* name)
+{
+    for (int i = 0; i < kMaxPreFiles; ++i) {
+        if (PreFiles()[i] && _stricmp(PreFiles()[i], name) == 0)
+            return; // already loaded
+    }
+    int slot = -1;
+    for (int i = 0; i < kMaxPreFiles; ++i) {
+        if (!PreFiles()[i]) {
+            slot = i;
+            break;
+        }
+    }
+
+    char path[500];
+    std::snprintf(path, sizeof(path), "pre\\%s", name);
+    // The block starts with the archive's name, padded to 16 bytes.
+    unsigned int prefix = static_cast<unsigned int>((std::strlen(name) + 0x10) & ~size_t(0xF));
+    size_t length = std::strlen(path);
+
+    // French and German: a complete localised archive (.prf/.prd) if there is one, else a patch for the
+    // English archive (.ppf/.ppd).
+    uint32_t* patch = nullptr;
+    bool patched = false;
+    uint8_t* block = nullptr;
+    unsigned int file_size = 0, allocated = 0;
+    bool loaded = false;
+    char letter = GameVariable<int>(0x007CEFA0) == 3 ? 'f' : GameVariable<int>(0x007CEFA0) == 5 ? 'd' : '\0';
+    if (letter) {
+        path[length - 1] = letter;
+        if (!File::Exist(path)) {
+            path[length - 2] = 'p';
+            if (File::Exist(path)) {
+                File::Handle file = File::Open(path, "rb");
+                file_size = File::GetFileSize(file);
+                patch = static_cast<uint32_t*>(Mem::New(file_size));
+                File::Read(patch, 1, static_cast<int>(file_size), file);
+                File::Close(file);
+                path[length - 2] = 'r';
+                path[length - 1] = 'e';
+                patched = true;
+                if (file_size != 0) {
+                    // A leftover from the console versions' disc cache: always fails on PC, and the original
+                    // then carries on patching through a null block - it crashes here. (Patch files aren't
+                    // shipped with the PC version.)
+                    allocated = ((file_size + 0x7FF) & ~0x7FFu) + prefix;
+                    block = static_cast<uint8_t*>(AllocateFileMemory(allocated));
+                    std::memcpy(block, name, std::strlen(name) + 1);
+                    if (!File::LoadCachedFile(path, block + prefix)) {
+                        FreeFileMemory(block);
+                        block = nullptr;
+                    }
+                    loaded = true;
+                }
+            } else {
+                path[length - 2] = 'r';
+                path[length - 1] = 'e';
+            }
+        }
+    }
+
+    if (!loaded) {
+        File::Handle file = File::Open(path, "rb");
+        file_size = File::GetFileSize(file);
+        unsigned int needed = patched && patch[0] >= file_size ? patch[0] : file_size;
+        allocated = ((needed + 0x7FF) & ~0x7FFu) + prefix;
+        block = static_cast<uint8_t*>(AllocateFileMemory(allocated));
+        std::memcpy(block, name, std::strlen(name) + 1);
+        File::Read(block + prefix, 1, static_cast<int>(file_size), file);
+        File::Close(file);
+    }
+
+    if (patched) {
+        // Through uintptr_t: on the path above `block` can be null, as in the original.
+        auto data = reinterpret_cast<uintptr_t>(block) + prefix;
+        if (allocated > file_size)
+            std::memset(reinterpret_cast<void*>(data + file_size), 0, allocated - file_size - prefix);
+        const auto* p = reinterpret_cast<const uint8_t*>(patch + 2);
+        for (uint32_t i = 0; i < patch[1]; ++i) {
+            uint32_t offset = reinterpret_cast<const uint32_t*>(p)[0];
+            uint32_t count = reinterpret_cast<const uint32_t*>(p)[1];
+            p += 8;
+            std::memcpy(reinterpret_cast<void*>(data + offset), p, count);
+            p += count;
+        }
+        Mem::Free(patch);
+    }
+
+    // Repack: every file stored uncompressed, its data 16-byte aligned after its header and name, so files
+    // can be used in place. First the new size (plus slack), then the copy.
+    auto* old_header = reinterpret_cast<PreHeader*>(block + ((std::strlen(reinterpret_cast<char*>(block)) + 0x10) &
+                                                             ~size_t(0xF)));
+    int count = old_header->numFiles;
+    uintptr_t new_size = prefix + sizeof(PreHeader);
+    {
+        auto* entry = reinterpret_cast<PreEntry*>(old_header + 1);
+        for (int n = count; n != 0; --n) {
+            new_size = ((entry->nameSize + new_size + 0x1F) & ~uintptr_t(0xF)) + ((entry->size + 3) & ~3u);
+            entry = NextRawEntry(entry);
+        }
+    }
+    auto* repacked = static_cast<uint8_t*>(AllocateFileMemory(static_cast<unsigned int>(new_size + 0xC00)));
+    for (unsigned int i = 0; static_cast<int>(i) < static_cast<int>(prefix); ++i)
+        repacked[i] = block[i];
+
+    auto* new_header = reinterpret_cast<PreHeader*>(repacked + prefix);
+    new_header->numFiles = old_header->numFiles;
+    new_header->version = old_header->version;
+    auto* from = reinterpret_cast<PreEntry*>(old_header + 1);
+    auto* to = reinterpret_cast<PreEntry*>(new_header + 1);
+    for (int n = count; n != 0; --n) {
+        to->size = from->size;
+        to->checksum = from->checksum;
+        to->compressedSize = 0;
+        to->useCount = 0;
+        to->nameSize = from->nameSize;
+        std::memcpy(to + 1, from + 1, from->nameSize);
+
+        PreEntry* next_from = NextRawEntry(from);
+        const uint8_t* source = reinterpret_cast<const uint8_t*>(from + 1) + from->nameSize;
+        auto* target = reinterpret_cast<uint8_t*>((reinterpret_cast<uintptr_t>(to) + to->nameSize + 0x1F) &
+                                                  ~uintptr_t(0xF));
+        if (from->compressedSize) {
+            uint8_t* end = Lzss::Decode(source, target, from->compressedSize);
+            for (uint32_t pad = static_cast<uint32_t>(to->size); pad & 3; ++pad)
+                *end++ = 0;
+        } else {
+            std::memcpy(target, source, ((static_cast<uint32_t>(from->size) + 3) >> 2) * 4);
+        }
+        to = NextEntry(to);
+        from = next_from;
+    }
+    new_header->totalSize = static_cast<int>(reinterpret_cast<uint8_t*>(to) - reinterpret_cast<uint8_t*>(new_header));
+    FreeFileMemory(block);
+    // With all 100 slots taken the original writes to slot -1 (the last loaded file's reference count).
+    (&PreFiles()[0])[slot] = reinterpret_cast<char*>(repacked);
+}
+
+// --- script functions -----------------------------------------------------------------------------------
+
+namespace {
+
+constexpr uint32_t kHeapParam = 0x42D6DD1E;    // LoadPipPre ... heap = <name>
+constexpr uint32_t kHeapTopDown = 0x477FC6DE;  // the two heap names it accepts
+constexpr uint32_t kHeapBottomUp = 0xC80BF12D;
+
+const char* PreName(Script::CStruct* params)
+{
+    const char* name = nullptr;
+    Script::GetString(params, 0, &name, true);
+    return name;
+}
+
+} // namespace
+
+// 0x005B7A60: LoadPipPre <name> [heap = ...]
+bool __cdecl CFunc_LoadPipPre(Script::CStruct* params, Script::CScript* /*script*/)
+{
+    const char* name = PreName(params);
+    uint32_t heap = 0;
+    Script::GetChecksum(params, kHeapParam, &heap, false);
+    if (heap == kHeapTopDown)
+        Mem::PushContext(Mem::TopDownHeap());
+    else if (heap == kHeapBottomUp)
+        Mem::PushContext(Mem::BottomUpHeap());
+    else
+        heap = 0;
+    LoadPre(name);
+    if (heap)
+        Mem::PopContext();
+    return true;
+}
+
+// 0x005B7410: UnLoadPipPre <name>
+bool __cdecl CFunc_UnLoadPipPre(Script::CStruct* params, Script::CScript* /*script*/)
+{
+    return UnloadPre(PreName(params));
+}
+
+// 0x005B7430: DumpPipPreStatus [ShowPreedFiles] [ShowUnPreedFiles] [ShowOnlyOpenFiles] - debug output
+bool __cdecl CFunc_DumpPipPreStatus(Script::CStruct* params, Script::CScript* /*script*/)
+{
+    bool show_files = Script::ContainsFlag(params, "ShowPreedFiles");
+    bool show_loose_files = Script::ContainsFlag(params, "ShowUnPreedFiles");
+    bool only_open = Script::ContainsFlag(params, "ShowOnlyOpenFiles");
+    Dbg::Printf("Currently loaded pre files:\n");
+    for (int i = 0; i < kMaxPreFiles; ++i) {
+        char* pre = PreFiles()[i];
+        if (!pre)
+            continue;
+        Dbg::Printf("### %s ###\n", pre);
+        if (!show_files)
+            continue;
+        PreHeader* header = HeaderOf(pre);
+        PreEntry* entry = FirstEntry(header);
+        for (int n = header->numFiles; n > 0; --n, entry = NextEntry(entry)) {
+            if (!only_open || entry->useCount != 0) {
+                Dbg::Printf("Usage:%d  File: %s\n", entry->useCount, reinterpret_cast<const char*>(entry + 1));
+                for (volatile int wait = 0; wait < 100000; ++wait) {
+                    // the original pauses after each line (presumably so the debug output keeps up)
+                }
+            }
+        }
+    }
+    if (show_loose_files) {
+        Dbg::Printf("Currently loaded un-preed files:\n");
+        for (int i = 0; i < kMaxLoadedFiles; ++i) {
+            const LoadedFile& file = LoadedFiles()[i];
+            if (file.data)
+                Dbg::Printf("Usage:%d  File: %s\n", file.refCount, Script::FindChecksumName(file.checksum));
+        }
+    }
+    return true;
 }
 
 // 0x005B7200
@@ -251,3 +509,8 @@ REPLACE_SHADOW(0x005B72E0, static_cast<int (*)(const char*)>(&Pip::GetFileSize))
 REPLACE_SHADOW(0x005B7300, Pip::GetNextLoadedPre);
 REPLACE(0x005B7C00, Pip::Load);
 REPLACE_SHADOW(0x005B7370, Pip::PreFileIsInUse);
+REPLACE(0x005B75A0, Pip::LoadPre);
+REPLACE(0x005B7B00, Pip::LoadFileInto);
+REPLACE(0x005B7A60, Pip::CFunc_LoadPipPre);
+REPLACE(0x005B7410, Pip::CFunc_UnLoadPipPre);
+REPLACE(0x005B7430, Pip::CFunc_DumpPipPreStatus);

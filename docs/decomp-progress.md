@@ -174,8 +174,16 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       rewritten manager.
 - [x] tools/check (thug2_check.exe, built with everything): runs the argument-size check against a copy of
       the exe image without starting the game. 199 replacements: 197 match, 2 naked stubs unchecked.
-- [ ] Next: the PIP .pre loader 0x5B75A0 and LoadPipPre / UnLoadPipPre / DumpPipPreStatus, then the async
-      loader 0x5B6560-0x5B7130.
+- [x] Batch 27 (NOT run yet - built and checked offline only): Pip::LoadPre 0x5B75A0 (archive read
+      with its name in front, optional French/German .ppf/.ppd patch, then REPACKED: every file
+      uncompressed - via Lzss::Decode's returned end pointer - with 16-byte aligned data, 0xC00 slack;
+      raw archives step header+name+data(4-aligned), repacked ones align the data to 16), Pip::LoadFileInto
+      0x5B7B00, script functions LoadPipPre 0x5B7A60 (heap = checksum), UnLoadPipPre 0x5B7410,
+      DumpPipPreStatus 0x5B7430. Two latent original bugs kept and commented: with a patch file the PC
+      build's disc-cache stub frees the block and carries on with null (crash); with 100 archives loaded it
+      writes slot -1. Late self-test: Themes.pre (all compressed) and ParkEdAnims.pre (mixed) loaded by the
+      original and ours, repacked blocks compared byte for byte. thug2_check: 204, 202 match, 2 stubs.
+- [ ] Next: the async file loader 0x5B6560-0x5B7130 (CAsyncFileLoader), then the memory manager.
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
       for original callers that read ECX/EDX after the call without writing them first (ignoring push-to-reserve,
       lea reg,[reg], or reg,-1 and zeroing idioms; callers that are themselves replaced count as safe).

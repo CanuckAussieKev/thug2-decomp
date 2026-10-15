@@ -23,6 +23,19 @@ inline bool GetString(CStruct* params, uint32_t name, const char** out, bool ass
                                                                                             assert);
 }
 
+// The checksum parameter `name` (a name written without quotes in the script), or false if there isn't one.
+inline bool GetChecksum(CStruct* params, uint32_t name, uint32_t* out, bool assert = false)
+{
+    return GameFunction<bool(__thiscall*)(CStruct*, uint32_t, uint32_t*, bool)>(0x00476950)(params, name, out,
+                                                                                         assert);
+}
+
+// The name a checksum was made from, if the game knows it (for debug output).
+inline const char* FindChecksumName(uint32_t checksum)
+{
+    return GameFunction<const char*(__cdecl*)(uint32_t)>(0x0046D110)(checksum);
+}
+
 // Whether the flag `name` (a bare name among the parameters) is present.
 inline bool ContainsFlag(CStruct* params, uint32_t name)
 {

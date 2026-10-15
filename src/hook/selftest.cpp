@@ -2073,6 +2073,45 @@ void TestLoadPreEngineStarted()
     }
 }
 
+// Pip::LoadPre on real archives (one all-compressed, one mixed): load with the original, keep a copy of the
+// repacked block, unload, load with ours and compare byte for byte; then unload again. Late: needs the game's
+// C runtime (_stricmp) and memory manager. Skipped if the archive is already loaded.
+void TestPipLoadPreLate()
+{
+    using LoadPreFn = void(__cdecl*)(const char*);
+    auto& pres = GameVariable<char* [100]>(0x007CFE18);
+    auto find = [&](const char* name) -> char* {
+        for (char* pre : pres)
+            if (pre && _stricmp(pre, name) == 0)
+                return pre;
+        return nullptr;
+    };
+    auto block_size = [](const char* pre) {
+        size_t prefix = (std::strlen(pre) + 0x10) & ~size_t(0xF);
+        return prefix + static_cast<size_t>(*reinterpret_cast<const int*>(pre + prefix));
+    };
+    for (const char* name : {"Themes.pre", "ParkEdAnims.pre"}) {
+        if (find(name)) {
+            Log("self-test: Pip::LoadPre skipped for %s (already loaded)", name);
+            continue;
+        }
+        Original<LoadPreFn>(0x005B75A0)(name);
+        char* expected = find(name);
+        std::vector<uint8_t> expected_bytes;
+        if (expected)
+            expected_bytes.assign(expected, expected + block_size(expected));
+        Pip::UnloadPre(name);
+
+        Pip::LoadPre(name);
+        char* actual = find(name);
+        Check(expected && actual && block_size(actual) == expected_bytes.size() &&
+                  std::memcmp(actual, expected_bytes.data(), expected_bytes.size()) == 0,
+              "Pip::LoadPre (repacked archive)");
+        Pip::UnloadPre(name);
+        Check(!find(name), "Pip::UnloadPre (after LoadPre)");
+    }
+}
+
 void TestPoolConstructorLate()
 {
     using Mem::Pool;
@@ -2354,6 +2393,7 @@ SELFTEST(Late, TestPoolConstructorLate);
 SELFTEST(Late, TestHashTableLate);
 SELFTEST(Late, TestPipNamesLate, RestorePipTables);
 SELFTEST(Late, TestPreFileLate);
+SELFTEST(Late, TestPipLoadPreLate);
 SELFTEST(Late, TestPreMgrLate, RestorePreGlobals);
 
 SELFTEST(EngineStarted, TestPipLoad);
