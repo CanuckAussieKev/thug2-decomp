@@ -41,6 +41,14 @@ extern "C" HRESULT WINAPI Proxy_DirectInput8Create(HINSTANCE inst, DWORD version
     return real(inst, version, iid, out, outer);
 }
 
+// Called by PartyMod's fastExit (the game's normal quit path) just before the process ends.
+extern "C" void thug2_decomp_before_exit()
+{
+    // How much of the game's own calls the shadow checks covered during this session.
+    Shadow::LogSummary();
+    Log("quitting");
+}
+
 BOOL WINAPI DllMain(HINSTANCE, DWORD reason, LPVOID)
 {
     if (reason == DLL_PROCESS_ATTACH) {
@@ -62,9 +70,8 @@ BOOL WINAPI DllMain(HINSTANCE, DWORD reason, LPVOID)
         }
         partymod_attach();
         Log("PartyMod patches installed");
-    } else if (reason == DLL_PROCESS_DETACH) {
-        // On a normal quit: how much of the game's own calls the shadow checks covered.
-        Shadow::LogSummary();
     }
+    // Nothing on DLL_PROCESS_DETACH: by then our static objects may already be gone. Quit-time logging is in
+    // thug2_decomp_before_exit, called from PartyMod's fastExit.
     return TRUE;
 }

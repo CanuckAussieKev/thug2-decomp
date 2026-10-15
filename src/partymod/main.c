@@ -167,9 +167,23 @@ void getModuleInfo() {
 	mod_size = (uint32_t)end_addr - (uint32_t)base_addr;
 }
 
+#ifdef THUG2_DECOMP
+// THUG2_DECOMP: PartyMod is linked into thug2-decomp's DLL here, so exit() would be *that DLL's* C runtime:
+// it would destroy thug2-decomp's static objects while the game's other threads are still running and can
+// call into its hooks (and its DllMain detach would then see destroyed objects - a debug assertion on quit).
+// Log what thug2-decomp wants logged, then end the process directly: other threads stop first, and the
+// game's own cleanup is still skipped, as upstream intends.
+void thug2_decomp_before_exit(void);
+
+void fastExit() {
+	thug2_decomp_before_exit();
+	ExitProcess(0);
+}
+#else
 void fastExit() {
 	exit(0);
 }
+#endif
 
 // we don't care about cleanup, the OS can handle that. so patch the function immediately after the main loop to call exit to skip cleanup
 void patchFastExit() {
