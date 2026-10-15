@@ -164,9 +164,18 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       hde32 decoder); a mismatch is logged as NOT REPLACED and the game stops at startup with a message
       naming it (silently running the original would give false confidence; disable= skips deliberately). Found because the first
       FinishLoad (two arguments) made the test hang. 187 of 190 checked, all match.
-- [ ] Next (batch 26): loadPre 0x5B8EE0, the PIP .pre loader 0x5B75A0, the LoadPipPre / LoadPreFile /
-      UnloadPreFile / IsLoadPreFinished / WaitLoadPre / InPreFile script functions, then the async loader
-      0x5B6560-0x5B7130.
+- [x] Batch 26 (NOT run yet - built and checked offline only): PreMgr::LoadPre 0x5B8EE0 (pre\<name>.prx,
+      async through the async loader with callback 0x5B8E70 -> FinishLoad(handle, data, size), French/German
+      localised .prf/.prd or .ppf/.ppd patch, script global block_pre_loading -> m_blockPreLoading, load time
+      printout); the script functions LoadPreFile 0x5B9470, UnloadPreFile 0x5B9600, IsLoadPreFinished
+      0x5B8160, AllLoadPreFinished 0x5B8190, WaitLoadPre 0x5B81B0, WaitAllLoadPre 0x5B8200, InPreFile
+      0x5B8720. Shared helpers: game/script/params.h (GetString, ContainsFlag), game/file/async.h (async
+      loader and CD-cache calls). Engine-started self-test loads pre/Themes.prx through an original and a
+      rewritten manager.
+- [x] tools/check (thug2_check.exe, built with everything): runs the argument-size check against a copy of
+      the exe image without starting the game. 199 replacements: 197 match, 2 naked stubs unchecked.
+- [ ] Next: the PIP .pre loader 0x5B75A0 and LoadPipPre / UnLoadPipPre / DumpPipPreStatus, then the async
+      loader 0x5B6560-0x5B7130.
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
       for original callers that read ECX/EDX after the call without writing them first (ignoring push-to-reserve,
       lea reg,[reg], or reg,-1 and zeroing idioms; callers that are themselves replaced count as safe).

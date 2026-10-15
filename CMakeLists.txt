@@ -73,9 +73,8 @@ target_compile_definitions(partymod PRIVATE THUG2_DECOMP)
 target_compile_options(partymod PRIVATE /W0 /utf-8)
 target_link_libraries(partymod PUBLIC sdl2)
 
-add_library(thug2_decomp SHARED
-    src/proxy/dinput8.cpp
-    src/proxy/dinput8.def
+# The rewritten game code and the hook machinery, shared by the DLL and the check tool.
+add_library(thug2_code OBJECT
     src/hook/hook.cpp
     src/hook/log.cpp
     src/hook/shadow.cpp
@@ -101,9 +100,16 @@ add_library(thug2_decomp SHARED
     src/game/util/bitstream.cpp
     src/game/util/lzss.cpp
 )
-target_include_directories(thug2_decomp PRIVATE src ${minhook_SOURCE_DIR}/src) # MinHook's hde32 decoder
-target_link_libraries(thug2_decomp PRIVATE partymod minhook)
-target_compile_definitions(thug2_decomp PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_include_directories(thug2_code PUBLIC src PRIVATE ${minhook_SOURCE_DIR}/src) # MinHook's hde32 decoder
+target_link_libraries(thug2_code PUBLIC minhook)
+target_compile_definitions(thug2_code PUBLIC WIN32_LEAN_AND_MEAN NOMINMAX)
+target_compile_options(thug2_code PRIVATE /W4 /permissive- /utf-8)
+
+add_library(thug2_decomp SHARED
+    src/proxy/dinput8.cpp
+    src/proxy/dinput8.def
+)
+target_link_libraries(thug2_decomp PRIVATE thug2_code partymod minhook)
 target_compile_options(thug2_decomp PRIVATE /W4 /permissive- /utf-8)
 # The proxy has to be called dinput8.dll for Windows to load it instead of the system one.
 set_target_properties(thug2_decomp PROPERTIES OUTPUT_NAME dinput8)
@@ -113,3 +119,9 @@ if(EXISTS "${THUG2_GAME_DIR}")
         COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:thug2_decomp> "${THUG2_GAME_DIR}"
         COMMENT "Copying dinput8.dll into ${THUG2_GAME_DIR}")
 endif()
+
+# thug2_check: runs the install-time checks on every replacement against a copy of THUG2PM.exe's image,
+# without starting the game:  thug2_check [<path to THUG2PM.exe>]
+add_executable(thug2_check tools/check/main.cpp)
+target_link_libraries(thug2_check PRIVATE thug2_code minhook)
+target_compile_options(thug2_check PRIVATE /W4 /permissive- /utf-8)

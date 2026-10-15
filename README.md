@@ -82,3 +82,4 @@ and on a normal quit a summary of how many shadow checks ran.
    original's `RET n` (or whose jump can't be written) stop the game at startup with a message naming them -
    running on with the original code in their place would hide that our code isn't running. Fix them, or
    list them under `disable=` to skip them deliberately. Naked assembly stubs use `REPLACE_UNCHECKED`.
+   `out\...	hug2_check.exe` runs the same check without starting the game (exit code 1 on a mismatch).

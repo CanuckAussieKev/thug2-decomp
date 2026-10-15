@@ -4,6 +4,7 @@
 
 #include "game/core/crc.h"
 #include "game/core/mem.h"
+#include "game/file/async.h"
 #include "game/file/file.h"
 #include "game/file/pre.h"
 #include "hook/game.h"
@@ -34,31 +35,6 @@ void* PreManagerLoadFile(const char* name, int* size)
 {
     return Pre::Instance()->LoadFile(name, size, nullptr);
 }
-
-// Loading from a CD cache: both hooks are stubs in the PC version (size 0, load fails).
-int CachedFileSize(const char* name) { return GameFunction<int(__cdecl*)(const char*)>(0x005BA1D0)(name); }
-bool LoadCachedFile(const char* name, void* buffer)
-{
-    return GameFunction<bool(__cdecl*)(const char*, void*)>(0x005B9E50)(name, buffer);
-}
-
-// The asynchronous file loader (not rewritten yet).
-struct AsyncFile;
-AsyncFile* AsyncOpen(const char* name)
-{
-    return GameFunction<AsyncFile*(__cdecl*)(const char*, int, int)>(0x005B6C60)(name, 0, 100);
-}
-int AsyncGetFileSize(AsyncFile* file) { return GameFunction<int(__thiscall*)(AsyncFile*)>(0x005B63A0)(file); }
-void AsyncSetCallback(AsyncFile* file, void* callback, void* arg0, void* arg1)
-{
-    reinterpret_cast<int*>(file)[5] = 8; // priority?
-    GameFunction<void(__thiscall*)(AsyncFile*, void*, void*, void*)>(0x005B6380)(file, callback, arg0, arg1);
-}
-void AsyncRead(AsyncFile* file, void* buffer, int size)
-{
-    GameFunction<void(__thiscall*)(AsyncFile*, void*, int, int)>(0x005B6740)(file, buffer, 1, size);
-}
-void AsyncClose(AsyncFile* file) { GameFunction<void(__cdecl*)(AsyncFile*)>(0x005B68A0)(file); }
 
 // A loaded .pre archive: its name, padded to 16 bytes, then the archive's own header and its files.
 struct PreHeader {
@@ -131,23 +107,26 @@ void* Load(const char* name, bool async, void* callback, void* callback_arg0, vo
     void* data;
     int size;
     if (async) {
-        AsyncFile* file = AsyncOpen(name);
-        size = AsyncGetFileSize(file);
+        File::AsyncFile* file = File::AsyncOpen(name);
+        size = File::AsyncGetFileSize(file);
         data = AllocateFileMemory(SectorAligned(static_cast<unsigned int>(size)));
-        if (callback)
-            AsyncSetCallback(file, callback, callback_arg0, callback_arg1);
-        AsyncRead(file, data, size);
-        AsyncClose(file);
+        if (callback) {
+            File::AsyncSetPriority(file, 8);
+            File::AsyncSetCallback(file, reinterpret_cast<File::AsyncCallback>(callback), callback_arg0,
+                                   callback_arg1);
+        }
+        File::AsyncRead(file, data, size);
+        File::AsyncClose(file);
         if (data)
             ShrinkFileMemory(static_cast<unsigned int>(size), data);
     } else {
         size = 0;
         data = PreManagerLoadFile(name, &size);
         if (!data) {
-            size = CachedFileSize(name);
+            size = File::CachedFileSize(name);
             if (size != 0) {
                 data = AllocateFileMemory(SectorAligned(static_cast<unsigned int>(size)));
-                if (!LoadCachedFile(name, data)) {
+                if (!File::LoadCachedFile(name, data)) {
                     FreeFileMemory(data);
                     data = nullptr;
                 }

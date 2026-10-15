@@ -59,6 +59,12 @@ class PreMgr {
 public:
     PreMgr();
 
+    // Load the archive pre\<name> (.prx on disk) and add it to the loaded archives, asynchronously if
+    // `async` (finishing in FinishLoad). French and German use a localised archive (.prf/.prd) if there is
+    // one, or patch the English one with a .ppf/.ppd. `report_missing` prints an error if the file isn't
+    // there; `bottom_up` picks the heap. Does nothing while the script global block_pre_loading is set.
+    void LoadPre(const char* name, bool async, bool report_missing, bool bottom_up);
+
     // Load the file `name` from whichever archive has it (see PreFile::LoadContainedFile).
     uint8_t* LoadFile(const char* name, int* size, uint8_t* out);
     // True if some archive contains `name`.
@@ -76,7 +82,7 @@ public:
     // The third argument (probably the data's size) isn't used, but callers pass it.
     void FinishLoad(int handle, uint8_t* data, int size);
     // Unload the archive `name`. With `only_if_loaded` false the name is removed from the table even if no
-    // archive is attached to it. Does nothing while unloading is blocked.
+    // archive is attached to it. Does nothing while pre loading is blocked (see LoadPre).
     void UnloadPre(const char* name, bool only_if_loaded);
 
     struct PendingLoad {
@@ -89,7 +95,7 @@ public:
     uint8_t* m_activeData;
     PreFile::FileInfo* m_missingHandle; // the last handle no archive had (a quick "no" next time)
     Lst::HashTable* m_pres;             // PreFile by archive name checksum
-    bool m_blockUnload;
+    bool m_blockPreLoading;
     PendingLoad m_pending[8];
     int m_numPending;
 };

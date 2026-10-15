@@ -2011,15 +2011,62 @@ void TestPreMgrLate()
                   Original<NameBoolFn>(0x005B8540)(expected, "two.pre") == actual->IsLoaded("two.pre"),
               "PreMgr::UnloadPre");
     }
-    actual->m_blockUnload = expected->m_blockUnload = true;
+    actual->m_blockPreLoading = expected->m_blockPreLoading = true;
     Original<UnloadFn>(0x005B9570)(expected, "levels\\one.pre", true);
     actual->UnloadPre("levels\\one.pre", true);
     Check(expected->m_pres->m_size == 1 && actual->m_pres->m_size == 1, "PreMgr::UnloadPre (blocked)");
 
     // Clean up: the remaining archive, the tables, the managers.
     for (PreMgr* m : {expected, actual}) {
-        m->m_blockUnload = false;
+        m->m_blockPreLoading = false;
         m->UnloadPre("levels\\one.pre", true);
+        m->m_pres->~HashTable();
+        Mem::Free(m->m_pres);
+        Mem::Free(m);
+    }
+}
+
+// LoadPre needs the script system (it reads the block_pre_loading global), so this runs once the engine
+// has started. A small real archive is loaded (synchronously) by an original and a rewritten manager of its
+// own, and the results compared; the managers and archives are freed and the globals restored afterwards.
+void TestLoadPreEngineStarted()
+{
+    using Pre::PreFile;
+    using Pre::PreMgr;
+    using CtorFn = PreMgr*(__thiscall*)(void*);
+    using LoadPreFn = void(__thiscall*)(PreMgr*, const char*, bool, bool, bool);
+    SavePreGlobals();
+
+    auto* expected = static_cast<PreMgr*>(Mem::Calloc(sizeof(PreMgr), nullptr, 1));
+    auto* actual = static_cast<PreMgr*>(Mem::Calloc(sizeof(PreMgr), nullptr, 1));
+    Original<CtorFn>(0x005B8D20)(expected);
+    new (actual) PreMgr();
+
+    const char* name = "Themes.pre";
+    Original<LoadPreFn>(0x005B8EE0)(expected, name, false, true, false);
+    actual->LoadPre(name, false, true, false);
+
+    auto* pre_e = static_cast<PreFile*>(expected->m_pres->GetItem(Crc::GenerateCRCFromString(name)));
+    auto* pre_a = static_cast<PreFile*>(actual->m_pres->GetItem(Crc::GenerateCRCFromString(name)));
+    bool loaded = pre_e && pre_a && expected->m_blockPreLoading == actual->m_blockPreLoading &&
+                  expected->m_pres->m_size == actual->m_pres->m_size;
+    Check(loaded || (expected->m_blockPreLoading && actual->m_blockPreLoading), "PreMgr::LoadPre (loaded)");
+    if (pre_e && pre_a) {
+        int total = *reinterpret_cast<int*>(pre_e->m_block);
+        Check(pre_e->m_numFiles == pre_a->m_numFiles && pre_e->m_bottomUpHeap == pre_a->m_bottomUpHeap &&
+                  total == *reinterpret_cast<int*>(pre_a->m_block) && total > 0 &&
+                  std::memcmp(pre_e->m_block, pre_a->m_block, static_cast<size_t>(total)) == 0,
+              "PreMgr::LoadPre (archive contents)");
+    }
+    // Missing archive, not reported: nothing added.
+    Original<LoadPreFn>(0x005B8EE0)(expected, "no_such_archive.pre", false, false, false);
+    actual->LoadPre("no_such_archive.pre", false, false, false);
+    Check(expected->m_pres->m_size == actual->m_pres->m_size, "PreMgr::LoadPre (missing)");
+
+    for (PreMgr* m : {expected, actual}) {
+        m->m_blockPreLoading = false;
+        m->UnloadPre(name, true);
+        m->UnloadPre("no_such_archive.pre", true);
         m->m_pres->~HashTable();
         Mem::Free(m->m_pres);
         Mem::Free(m);
@@ -2310,3 +2357,4 @@ SELFTEST(Late, TestPreFileLate);
 SELFTEST(Late, TestPreMgrLate, RestorePreGlobals);
 
 SELFTEST(EngineStarted, TestPipLoad);
+SELFTEST(EngineStarted, TestLoadPreEngineStarted, RestorePreGlobals);

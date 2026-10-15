@@ -3,12 +3,17 @@
 #include <windows.h>
 
 #include <cstddef>
+#include <cstdio>
 #include <cstring>
 #include <new>
 
 #include "game/core/crc.h"
+#include "game/core/dbg.h"
 #include "game/core/mem.h"
+#include "game/file/async.h"
+#include "game/file/file.h"
 #include "game/lst/hashtable.h"
+#include "game/script/params.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -219,7 +224,7 @@ int PreFile::Seek(int offset, int origin)
 
 // --- PreMgr ---------------------------------------------------------------------------------------------
 
-static_assert(offsetof(PreMgr, m_pres) == 0x10 && offsetof(PreMgr, m_blockUnload) == 0x14 &&
+static_assert(offsetof(PreMgr, m_pres) == 0x10 && offsetof(PreMgr, m_blockPreLoading) == 0x14 &&
                   offsetof(PreMgr, m_pending) == 0x18 && offsetof(PreMgr, m_numPending) == 0x238 &&
                   sizeof(PreMgr) == 0x23C,
               "layout must match the original");
@@ -300,6 +305,137 @@ void DestroyManager()
     }
     InstanceSlot() = nullptr;
     InstanceRefs() = 0;
+}
+
+namespace {
+
+// The script global block_pre_loading (Script::GetInteger by name - not decompiled yet).
+bool PreLoadingBlocked()
+{
+    return GameFunction<int(__cdecl*)(const char*, int)>(0x004790C0)("block_pre_loading", 0) != 0;
+}
+// Always false in this build; only does debugging work when the debug flag is set.
+bool SkipSynchronousLoad() { return GameFunction<bool(__cdecl*)()>(0x00450EB0)(); }
+int TimeMilliseconds() { return GameFunction<int(__cdecl*)()>(0x005BE970)(); }
+bool DebugChecks() { return GameVariable<bool>(0x00684FA8); }
+
+Mem::Heap* LoadHeap(bool bottom_up) { return bottom_up ? Mem::BottomUpHeap() : Mem::TopDownHeap(); }
+
+// A localised archive patch (.ppf/.ppd): the patched archive's size, a record count, then the records -
+// {offset, length, `length` bytes to write at that offset}.
+void ApplyPatch(uint8_t* archive, const uint32_t* patch)
+{
+    const auto* p = reinterpret_cast<const uint8_t*>(patch + 2);
+    for (uint32_t i = 0; i < patch[1]; ++i) {
+        uint32_t offset = reinterpret_cast<const uint32_t*>(p)[0];
+        uint32_t length = reinterpret_cast<const uint32_t*>(p)[1];
+        p += 8;
+        std::memcpy(archive + offset, p, length);
+        p += length;
+    }
+}
+
+} // namespace
+
+// 0x005B8E70 (the async loader's callback for archives; not marked as a function in Ghidra)
+void __cdecl OnAsyncPreLoaded(File::AsyncFile* file, int event, int size, void* manager, void* data)
+{
+    if (event == 3) // finished
+        static_cast<PreMgr*>(manager)->FinishLoad(reinterpret_cast<int>(file), static_cast<uint8_t*>(data), size);
+}
+
+// 0x005B8EE0
+void PreMgr::LoadPre(const char* name, bool async, bool report_missing, bool bottom_up)
+{
+    m_blockPreLoading = PreLoadingBlocked();
+    if (m_blockPreLoading)
+        return;
+    if (!File::AsyncLoadingAvailable())
+        async = false;
+    if (!async && SkipSynchronousLoad())
+        return;
+
+    char path[256];
+    std::snprintf(path, sizeof(path), "pre\\%s", name);
+    if (std::strrchr(name, '.') && std::strlen(path) > 4)
+        path[std::strlen(path) - 1] = 'x'; // .pre -> .prx
+    int start = TimeMilliseconds();
+
+    if (async) {
+        if (File::AsyncFile* file = File::AsyncOpen(path)) {
+            PendingLoad& pending = m_pending[m_numPending];
+            // The original copies with no limit; the field holds 63 characters.
+            strncpy_s(pending.name, name, _TRUNCATE);
+            pending.handle = reinterpret_cast<int>(file);
+            ++m_numPending;
+            int size = File::AsyncGetFileSize(file);
+            void* data = Mem::Allocate(static_cast<unsigned int>(size), 1, LoadHeap(bottom_up));
+            File::AsyncSetCallback(file, OnAsyncPreLoaded, this, data);
+            File::AsyncRead(file, data, size);
+            return;
+        }
+        // Couldn't start an async load: load it now instead.
+    }
+
+    uint8_t* data;
+    int size = File::CachedFileSize(path);
+    if (size != 0) {
+        data = static_cast<uint8_t*>(Mem::Allocate(static_cast<unsigned int>(size), 1, LoadHeap(bottom_up)));
+        if (!File::LoadCachedFile(path, data))
+            Dbg::Printf("pre file %s failed to load quickly.\n", path);
+    } else {
+        // French and German: a complete localised archive (.prf/.prd) if there is one, else a patch for the
+        // English archive (.ppf/.ppd).
+        size_t length = std::strlen(path);
+        uint32_t* patch = nullptr;
+        bool patched = false;
+        char letter = Language() == 3 ? 'f' : Language() == 5 ? 'd' : '\0';
+        if (letter) {
+            path[length - 1] = letter;
+            if (!File::Exist(path)) {
+                path[length - 2] = 'p';
+                if (File::Exist(path)) {
+                    File::Handle file = File::Open(path, "rb");
+                    uint32_t patch_size = File::GetFileSize(file);
+                    patch = static_cast<uint32_t*>(Mem::New(patch_size));
+                    File::Read(patch, 1, static_cast<int>(patch_size), file);
+                    File::Close(file);
+                    patched = true;
+                }
+                path[length - 2] = 'r'; // back to .pre (opened as .prx)
+                path[length - 1] = 'e';
+            }
+        }
+
+        File::Handle file = File::Open(path, "rb");
+        if (!file && (report_missing || DebugChecks())) {
+            Dbg::Printf("couldn't open %s.  Make sure the, if this is a level PRE file, that the name in "
+                        "levels.q matches the file on disk\n",
+                        path);
+            return;
+        }
+        uint32_t file_size = File::GetFileSize(file);
+        size = static_cast<int>(file_size);
+        uint32_t allocated = file_size;
+        if (patched && file_size <= patch[0])
+            allocated = patch[0]; // room for the patched archive
+        data = static_cast<uint8_t*>(Mem::Allocate(allocated, 1, LoadHeap(bottom_up)));
+        File::Read(data, 1, static_cast<int>(file_size), file);
+        if (DebugChecks() && file_size != *reinterpret_cast<uint32_t*>(data))
+            Dbg::Printf("%s has incorrect file size\n", path);
+        File::Close(file);
+        if (patched) {
+            if (allocated > file_size)
+                std::memset(data + file_size, 0, allocated - file_size);
+            ApplyPatch(data, patch);
+            Mem::Free(patch);
+        }
+    }
+
+    Dbg::Printf("load time for file %s size %d is %d ms\n", name, size, TimeMilliseconds() - start);
+    void* memory = Mem::Calloc(sizeof(PreFile), LoadHeap(bottom_up), 1);
+    PreFile* pre = memory ? new (memory) PreFile(data, bottom_up) : nullptr;
+    m_pres->PutItem(Crc::GenerateCRCFromString(name), pre);
 }
 
 // 0x005B8750
@@ -398,7 +534,7 @@ void PreMgr::FinishLoad(int handle, uint8_t* data, int /*size*/)
 // 0x005B9570
 void PreMgr::UnloadPre(const char* name, bool only_if_loaded)
 {
-    if (m_blockUnload)
+    if (m_blockPreLoading)
         return;
     auto* pre = static_cast<PreFile*>(m_pres->GetItem(Crc::GenerateCRCFromString(name)));
     if (!pre && only_if_loaded)
@@ -506,6 +642,85 @@ int GetFileSize(PreFile::FileInfo* file)
     return active ? active->size : 0;
 }
 
+// --- script functions -----------------------------------------------------------------------------------
+
+namespace {
+
+// Flag names in the scripts' LoadPreFile calls (checksums; the names themselves aren't in the exe).
+constexpr uint32_t kFlagBottomUpHeap = 0xA44C770F;
+constexpr uint32_t kFlagReportMissing = 0x3D92465E;
+constexpr uint32_t kFlagAsync = 0x90E07C79;
+
+const char* ArchiveName(Script::CStruct* params)
+{
+    const char* name = nullptr;
+    Script::GetString(params, 0, &name, true);
+    return name;
+}
+
+} // namespace
+
+// 0x005B9470: LoadPreFile <name> [flags]
+bool __cdecl CFunc_LoadPreFile(Script::CStruct* params, Script::CScript* /*script*/)
+{
+    const char* name = ArchiveName(params);
+    PreMgr* manager = Instance();
+    bool bottom_up = Script::ContainsFlag(params, kFlagBottomUpHeap);
+    bool report_missing = Script::ContainsFlag(params, kFlagReportMissing);
+    bool async = Script::ContainsFlag(params, kFlagAsync);
+    Mem::PushContext(bottom_up ? Mem::BottomUpHeap() : Mem::TopDownHeap());
+    manager->LoadPre(name, async, report_missing, bottom_up);
+    Mem::PopContext();
+    return true;
+}
+
+// 0x005B9600: UnloadPreFile <name> [dont_assert]
+bool __cdecl CFunc_UnloadPreFile(Script::CStruct* params, Script::CScript* /*script*/)
+{
+    PreMgr* manager = Instance();
+    const char* name = ArchiveName(params);
+    manager->UnloadPre(name, Script::ContainsFlag(params, "dont_assert"));
+    return true;
+}
+
+// 0x005B8160: IsLoadPreFinished <name>
+bool __cdecl CFunc_IsLoadPreFinished(Script::CStruct* params, Script::CScript* /*script*/)
+{
+    PreMgr* manager = Instance();
+    return manager->IsLoadFinished(ArchiveName(params));
+}
+
+// 0x005B8190: AllLoadPreFinished
+bool __cdecl CFunc_AllLoadPreFinished(Script::CStruct* /*params*/, Script::CScript* /*script*/)
+{
+    return Instance()->m_numPending == 0;
+}
+
+// 0x005B81B0: WaitLoadPre <name>
+bool __cdecl CFunc_WaitLoadPre(Script::CStruct* params, Script::CScript* /*script*/)
+{
+    PreMgr* manager = Instance();
+    const char* name = ArchiveName(params);
+    while (!manager->IsLoadFinished(name))
+        File::AsyncWaitForIO();
+    return true;
+}
+
+// 0x005B8200: WaitAllLoadPre
+bool __cdecl CFunc_WaitAllLoadPre(Script::CStruct* /*params*/, Script::CScript* /*script*/)
+{
+    PreMgr* manager = Instance();
+    while (manager->m_numPending != 0)
+        File::AsyncWaitForIO();
+    return true;
+}
+
+// 0x005B8720: InPreFile <name> - whether the archive is loaded
+bool __cdecl CFunc_InPreFile(Script::CStruct* params, Script::CScript* /*script*/)
+{
+    return Instance()->IsLoaded(ArchiveName(params));
+}
+
 } // namespace Pre
 
 namespace {
@@ -554,3 +769,12 @@ REPLACE(0x005B8630, Pre::Read);
 REPLACE(0x005B8680, Pre::Write);
 REPLACE(0x005B86A0, Pre::Seek);
 REPLACE(0x005B86E0, Pre::GetFileSize);
+REPLACE(0x005B8EE0, &Pre::PreMgr::LoadPre);
+REPLACE(0x005B8E70, Pre::OnAsyncPreLoaded);
+REPLACE(0x005B9470, Pre::CFunc_LoadPreFile);
+REPLACE(0x005B9600, Pre::CFunc_UnloadPreFile);
+REPLACE(0x005B8160, Pre::CFunc_IsLoadPreFinished);
+REPLACE(0x005B8190, Pre::CFunc_AllLoadPreFinished);
+REPLACE(0x005B81B0, Pre::CFunc_WaitLoadPre);
+REPLACE(0x005B8200, Pre::CFunc_WaitAllLoadPre);
+REPLACE(0x005B8720, Pre::CFunc_InPreFile);

@@ -69,6 +69,10 @@ bool WriteJump(uint32_t from, void* to)
 
 constexpr int kUnknownPop = -1;
 
+// Where the code is read from, relative to its address: 0 in the game; tools that load the exe image
+// elsewhere set it (SetCodeReadOffset).
+intptr_t g_code_read_offset = 0;
+
 // How many bytes of arguments the original function at `entry` pops when it returns (its RET n), found by
 // following its code from the entry point: every branch is followed, and so are jumps into other functions
 // (a tail call's RET returns to our caller, so it counts too). kUnknownPop if no RET is reached, if
@@ -89,7 +93,7 @@ int OriginalCalleePop(uint32_t entry)
             if (++steps > 5000)
                 return kUnknownPop;
             hde32s hs;
-            unsigned int length = hde32_disasm(reinterpret_cast<const void*>(address), &hs);
+            unsigned int length = hde32_disasm(reinterpret_cast<const void*>(address + g_code_read_offset), &hs);
             if (length == 0 || (hs.flags & F_ERROR))
                 return kUnknownPop;
             uint32_t next = address + length;
@@ -175,6 +179,21 @@ bool IsDisabled(const Replacement& r, const std::vector<std::string>& tokens)
 
 } // namespace
 
+void SetCodeReadOffset(intptr_t offset)
+{
+    g_code_read_offset = offset;
+}
+
+std::vector<ArgumentSizeCheck> CheckArgumentSizes()
+{
+    std::vector<ArgumentSizeCheck> checks;
+    for (const Installed& entry : Registry()) {
+        const Replacement& r = entry.replacement;
+        checks.push_back({r, r.callee_pop >= 0 ? OriginalCalleePop(r.address) : kUnknownPop});
+    }
+    return checks;
+}
+
 void InstallReplacements()
 {
     const std::vector<std::string> disabled = DisabledTokens();
@@ -184,9 +203,8 @@ void InstallReplacements()
 
     // First, before anything is patched: how many argument bytes each original pops on return.
     std::vector<int> original_pops;
-    for (const Installed& entry : Registry())
-        original_pops.push_back(entry.replacement.callee_pop >= 0 ? OriginalCalleePop(entry.replacement.address)
-                                                                  : kUnknownPop);
+    for (const ArgumentSizeCheck& check : CheckArgumentSizes())
+        original_pops.push_back(check.original_pop);
 
     int installed = 0, skipped = 0, without_trampoline = 0, mismatched = 0, checked = 0, unchecked = 0;
     for (size_t i = 0; i < Registry().size(); ++i) {

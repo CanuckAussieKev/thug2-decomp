@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <cstring>
 #include <type_traits>
+#include <vector>
 
 // Replacing original game functions with our own.
 //
@@ -29,6 +30,23 @@ struct Replacement {
 
 void RegisterReplacement(const Replacement& r);
 void InstallReplacements();
+
+// For each registered replacement: how many argument bytes the original pops on return (its RET n), found by
+// walking the original's code - or -1 if that can't be determined (or the replacement opted out). Needs the
+// exe's original code at its addresses: call before InstallReplacements (tools/check also uses it on a copy
+// of the exe image).
+struct ArgumentSizeCheck {
+    Replacement replacement;
+    int original_pop;
+    bool Mismatch() const
+    {
+        return replacement.callee_pop >= 0 && original_pop >= 0 && replacement.callee_pop != original_pop;
+    }
+};
+std::vector<ArgumentSizeCheck> CheckArgumentSizes();
+// For tools that load the exe image somewhere other than 0x400000: the code at game address A is read from
+// A + offset.
+void SetCodeReadOffset(intptr_t offset);
 
 // If InstallReplacements found replacements that can't be used safely (argument size differs from the
 // original, or the jump couldn't be written), show a message naming them and end the game. Running on with
@@ -102,6 +120,10 @@ struct CalleePop {
 };
 template <typename R, typename... A>
 struct CalleePop<R(__cdecl*)(A...)> {
+    static constexpr int value = 0;
+};
+template <typename R, typename... A>
+struct CalleePop<R(__cdecl*)(A..., ...)> { // variadic functions are always cdecl
     static constexpr int value = 0;
 };
 template <typename R, typename... A>

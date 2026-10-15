@@ -6,6 +6,7 @@
 
 #include "game/core/mem.h"
 #include "game/core/pool.h"
+#include "game/script/params.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -184,21 +185,14 @@ bool HandleChatCommand(Manager* manager, const char* text)
 
 namespace {
 
-// Script::CStruct::GetString (not decompiled yet): finds a string parameter by checksum.
-bool GetStringParam(void* params, uint32_t name, const char** out)
-{
-    return GameFunction<bool(__thiscall*)(void*, uint32_t, const char**, bool)>(0x00476C60)(params, name, out,
-                                                                                         false);
-}
-
 constexpr uint32_t kChatTextParam = 0x61414D56; // the chat line's parameter name in the chat scripts
 
 // 0x005A16B0: script function SendChatMessage <text>. Lines starting with '/' that we recognise are run as
 // chat commands instead of being sent.
-bool __cdecl CFunc_SendChatMessage(void* params, void* /*script*/)
+bool __cdecl CFunc_SendChatMessage(Script::CStruct* params, Script::CScript* /*script*/)
 {
     const char* text = nullptr;
-    GetStringParam(params, kChatTextParam, &text);
+    Script::GetString(params, kChatTextParam, &text);
     if (!text)
         return false;
     if (std::strlen(text) != 0 && _stricmp(text, "--EMPTY--") != 0) {
