@@ -18,6 +18,7 @@
 #include "game/core/pool.h"
 #include "game/core/str.h"
 #include "game/core/string.h"
+#include "game/file/async.h"
 #include "game/file/file.h"
 #include "game/file/pip.h"
 #include "game/file/pre.h"
@@ -1454,6 +1455,188 @@ void TestFile()
     }
 }
 
+// --- async file system (pool and callback queue), with fake handles -------------------------------------
+
+struct AsyncGlobals {
+    File::AsyncFileHandle* pool[16];
+    int in_use, busy;
+    bool completed;
+    uint8_t lists[2 * 16 * 12];
+    int counts[2], current;
+};
+AsyncGlobals g_saved_async;
+bool g_async_saved = false;
+
+AsyncGlobals ReadAsyncGlobals()
+{
+    AsyncGlobals g;
+    std::memcpy(g.pool, &GameVariable<File::AsyncFileHandle* [16]>(0x007CF138), sizeof(g.pool));
+    g.in_use = GameVariable<int>(0x007CF178);
+    g.busy = GameVariable<int>(0x007CF17C);
+    g.completed = GameVariable<bool>(0x007CF180);
+    std::memcpy(g.lists, &GameVariable<uint8_t[2 * 16 * 12]>(0x007CEFB8), sizeof(g.lists));
+    std::memcpy(g.counts, &GameVariable<int[2]>(0x007CF184), sizeof(g.counts));
+    g.current = GameVariable<int>(0x007CF18C);
+    return g;
+}
+
+void WriteAsyncGlobals(const AsyncGlobals& g)
+{
+    std::memcpy(&GameVariable<File::AsyncFileHandle* [16]>(0x007CF138), g.pool, sizeof(g.pool));
+    GameVariable<int>(0x007CF178) = g.in_use;
+    GameVariable<int>(0x007CF17C) = g.busy;
+    GameVariable<bool>(0x007CF180) = g.completed;
+    std::memcpy(&GameVariable<uint8_t[2 * 16 * 12]>(0x007CEFB8), g.lists, sizeof(g.lists));
+    std::memcpy(&GameVariable<int[2]>(0x007CF184), g.counts, sizeof(g.counts));
+    GameVariable<int>(0x007CF18C) = g.current;
+}
+
+void RestoreAsyncGlobals()
+{
+    if (g_async_saved)
+        WriteAsyncGlobals(g_saved_async);
+    g_async_saved = false;
+}
+
+// A fake platform handle: its vtable's Init just counts.
+struct FakeAsyncMethods {
+    bool PlatInit()
+    {
+        ++reinterpret_cast<File::AsyncFileHandle*>(this)->m_unknown1C;
+        return true;
+    }
+};
+std::vector<std::string>* g_async_trace = nullptr;
+alignas(16) uint8_t g_fake_handles[2][16][0xA0];
+
+void __cdecl RecordAsyncCallback(File::AsyncFileHandle* file, int event, int value, void* arg0, void* arg1)
+{
+    int set = reinterpret_cast<uint8_t*>(file) >= g_fake_handles[1][0] ? 1 : 0;
+    int index = static_cast<int>((reinterpret_cast<uint8_t*>(file) - g_fake_handles[set][0]) / 0xA0);
+    char line[96];
+    sprintf_s(line, "callback handle %d event %d value %d args %p %p", index, event, value, arg0, arg1);
+    g_async_trace->push_back(line);
+}
+
+void TestAsyncFileSystem()
+{
+    using File::AsyncFileHandle;
+    using GetHandleFn = AsyncFileHandle*(__cdecl*)();
+    using FreeHandleFn = bool(__cdecl*)(AsyncFileHandle*);
+    using AddCallbackFn = void(__cdecl*)(AsyncFileHandle*, int, int);
+    using ExecuteFn = void(__cdecl*)();
+    using IoCallbackFn = void(__thiscall*)(AsyncFileHandle*, int, bool, int, int);
+    using SetCallbackFn = void(__thiscall*)(AsyncFileHandle*, File::AsyncCallback, void*, void*);
+    using IsBusyFn = bool(__thiscall*)(AsyncFileHandle*);
+    using BusyFn = bool(__cdecl*)();
+
+    g_saved_async = ReadAsyncGlobals();
+    g_async_saved = true;
+    static void* fake_vtable[19] = {};
+    fake_vtable[AsyncFileHandle::kPlatInit] = CodeAddress(&FakeAsyncMethods::PlatInit);
+
+    auto run = [&](int set, bool original) {
+        std::vector<std::string> trace;
+        g_async_trace = &trace;
+        std::memset(g_fake_handles[set], 0, sizeof(g_fake_handles[set]));
+        AsyncGlobals g = {};
+        for (int i = 0; i < 16; ++i) {
+            auto* file = reinterpret_cast<AsyncFileHandle*>(g_fake_handles[set][i]);
+            file->m_vtable = fake_vtable;
+            g.pool[i] = file;
+        }
+        WriteAsyncGlobals(g);
+        auto index_of = [&](AsyncFileHandle* file) {
+            return file ? static_cast<int>((reinterpret_cast<uint8_t*>(file) - g_fake_handles[set][0]) / 0xA0) : -1;
+        };
+        auto get = [&] { return original ? Original<GetHandleFn>(0x005B6AE0)() : File::AsyncGetHandle(); };
+        auto note_state = [&](const char* step) {
+            AsyncGlobals now = ReadAsyncGlobals();
+            std::string line = std::string(step) + ": in use " + std::to_string(now.in_use) + " busy " +
+                               std::to_string(now.busy) + " lists " + std::to_string(now.counts[0]) + "/" +
+                               std::to_string(now.counts[1]) + " current " + std::to_string(now.current) + " pool";
+            for (AsyncFileHandle* file : now.pool) {
+                line += " " + std::to_string(index_of(file)) + ":" + std::to_string(file->m_busyCount) + "/" +
+                        std::to_string(file->m_operation) + "/" + std::to_string(file->m_result) + "/" +
+                        std::to_string(file->m_unknown1C) + "/" + std::to_string(file->m_fileSize);
+            }
+            trace.push_back(line);
+        };
+
+        AsyncFileHandle* a = get();
+        AsyncFileHandle* b = get();
+        AsyncFileHandle* c = get();
+        note_state("three handles");
+        g.pool[3]->m_busyCount = 1; // the next free one is still busy: a later idle one is used instead
+        AsyncFileHandle* d = get();
+        trace.push_back("fourth " + std::to_string(index_of(d)));
+        note_state("past a busy handle");
+        bool freed = original ? Original<FreeHandleFn>(0x005B6590)(b) : File::AsyncFreeHandle(b);
+        trace.push_back(std::string("freed ") + (freed ? "yes" : "no"));
+        note_state("freed one");
+
+        for (AsyncFileHandle* file : {a, c}) {
+            if (original)
+                Original<SetCallbackFn>(0x005B6380)(file, RecordAsyncCallback, file, &trace);
+            else
+                file->SetCallback(RecordAsyncCallback, file, &trace);
+        }
+        a->m_busyCount = 2;
+        c->m_busyCount = 1;
+        d->m_busyCount = 1;
+        GameVariable<int>(0x007CF17C) = 4;
+        auto io = [&](AsyncFileHandle* file, int event, bool error, int value) {
+            if (original)
+                Original<IoCallbackFn>(0x005B69F0)(file, event, error, value, 0);
+            else
+                file->IoCallback(event, error, value, 0);
+        };
+        io(a, 3, false, 77);  // queued: a has a callback
+        io(d, 1, false, 5);   // no callback: counted done now
+        io(c, 6, true, -1);   // an error: no callback
+        if (original)
+            Original<AddCallbackFn>(0x005B65D0)(a, 1, 9);
+        else
+            File::AsyncAddCallback(a, 1, 9);
+        c->m_callbackMask = 1u << 3;
+        c->m_busyCount = 1;
+        io(c, 1, false, 3);   // not in c's mask
+        note_state("completions");
+        trace.push_back(std::string("busy ") + ((original ? Original<BusyFn>(0x005B6580)() : File::AsyncBusy()) ? "yes" : "no") +
+                        " a " + ((original ? Original<IsBusyFn>(0x005B6730)(a) : a->IsBusy()) ? "yes" : "no"));
+        if (original)
+            Original<ExecuteFn>(0x005B68C0)();
+        else
+            File::AsyncExecuteCallbacks();
+        note_state("after callbacks");
+        g_async_trace = nullptr;
+        // The callbacks recorded their own pointers as arg0: compare them as indices instead.
+        for (std::string& line : trace) {
+            for (int i = 0; i < 16; ++i) {
+                char pointer[32];
+                sprintf_s(pointer, "%p", static_cast<void*>(g_fake_handles[set][i]));
+                for (size_t at; (at = line.find(pointer)) != std::string::npos;)
+                    line.replace(at, std::strlen(pointer), "handle" + std::to_string(i));
+            }
+            char trace_pointer[32];
+            sprintf_s(trace_pointer, "%p", static_cast<void*>(&trace));
+            for (size_t at; (at = line.find(trace_pointer)) != std::string::npos;)
+                line.replace(at, std::strlen(trace_pointer), "trace");
+        }
+        return trace;
+    };
+    std::vector<std::string> expected = run(0, true);
+    std::vector<std::string> actual = run(1, false);
+    Check(expected == actual, "File::Async pool and callbacks");
+    if (expected != actual) {
+        for (size_t i = 0; i < expected.size() || i < actual.size(); ++i) {
+            if (i >= expected.size() || i >= actual.size() || expected[i] != actual[i])
+                Log("  async step %u: original '%s' ours '%s'", static_cast<unsigned>(i),
+                    i < expected.size() ? expected[i].c_str() : "-", i < actual.size() ? actual[i].c_str() : "-");
+        }
+    }
+}
+
 // --- late self-tests ----------------------------------------------------------------------------------
 
 // The table's contents as (bucket, position in chain, key, value), so tables with different item addresses
@@ -2385,6 +2568,7 @@ SELFTEST(Early, TestBatch18);
 SELFTEST(Early, TestPool);
 SELFTEST(Early, TestPip, RestorePipTables);
 SELFTEST(Early, TestFile);
+SELFTEST(Early, TestAsyncFileSystem, RestoreAsyncGlobals);
 
 SELFTEST(Late, TestMemoryLate);
 SELFTEST(Late, TestStringLate);

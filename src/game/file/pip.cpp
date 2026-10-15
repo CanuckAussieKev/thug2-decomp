@@ -123,7 +123,7 @@ void* Load(const char* name, bool async, void* callback, void* callback_arg0, vo
         size = File::AsyncGetFileSize(file);
         data = AllocateFileMemory(SectorAligned(static_cast<unsigned int>(size)));
         if (callback) {
-            File::AsyncSetPriority(file, 8);
+            File::AsyncSetCallbackMask(file, 1u << File::kAsyncRead); // call back when the read completes
             File::AsyncSetCallback(file, reinterpret_cast<File::AsyncCallback>(callback), callback_arg0,
                                    callback_arg1);
         }

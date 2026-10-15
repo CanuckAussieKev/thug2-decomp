@@ -2,7 +2,7 @@
 
 Generated 2026-10-15 by `tools/progress_report.py` - regenerate after each batch.
 
-**Game code: ░░░░░░░░░░░░░░░░░░░░ 1.9%** of the code rewritten (201 of 8,365 functions, 30.9 KB of 1,616.9 KB).
+**Game code: ░░░░░░░░░░░░░░░░░░░░ 2.0%** of the code rewritten (235 of 8,365 functions, 32.5 KB of 1,616.9 KB).
 
 Progress is by code size: function counts make a 10-byte helper look like as much work as a 2 KB routine. Subsystem boundaries come from the exe map (`docs/subsystems.md`) and are approximate (give or take a few functions); totals are exact.
 
@@ -29,8 +29,8 @@ Progress is by code size: function counts make a 10-byte helper look like as muc
 | Viewer / gaps / records / career save info | `0x577300`-`0x588180` | ░░░░░░░░░░░░░░░░░░░░ 0% | 0 / 304 | 0.0 KB / 60.7 KB |
 | Park editor & graffiti | `0x588180`-`0x595030` | ░░░░░░░░░░░░░░░░░░░░ 0% | 1 / 289 | 0.1 KB / 47.3 KB |
 | Lighting / FX / park memory | `0x595030`-`0x59f610` | ░░░░░░░░░░░░░░░░░░░░ 0% | 0 / 169 | 0.0 KB / 40.1 KB |
-| Game script commands (skater queries, save/memcard, profiles, appearance, cutscenes, weather) | `0x59f610`-`0x5b6560` | ░░░░░░░░░░░░░░░░░░░░ 0% | 1 / 574 | 0.1 KB / 87.1 KB |
-| File system (PIP/PRE archives) & skater memory heaps | `0x5b6560`-`0x5bdad0` | ███████░░░░░░░░░░░░░ 37% | 68 / 222 | 10.1 KB / 27.1 KB |
+| Game script commands (skater queries, save/memcard, profiles, appearance, cutscenes, weather) | `0x59f610`-`0x5b6560` | ░░░░░░░░░░░░░░░░░░░░ 0% | 17 / 574 | 0.4 KB / 87.1 KB |
+| File system (PIP/PRE archives) & skater memory heaps | `0x5b6560`-`0x5bdad0` | ████████░░░░░░░░░░░░ 42% | 86 / 222 | 11.5 KB / 27.1 KB |
 | Input devices (SIO) | `0x5bdad0`-`0x5be670` | ░░░░░░░░░░░░░░░░░░░░ 0% | 0 / 23 | 0.0 KB / 2.7 KB |
 | Win32 platform layer (window, D3D9/DirectSound/DirectInput setup, registry options) | `0x5eef20`-`0x5f8130` | ░░░░░░░░░░░░░░░░░░░░ 0% | 0 / 91 | 0.0 KB / 17.4 KB |
 

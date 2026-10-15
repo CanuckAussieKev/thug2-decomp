@@ -86,6 +86,7 @@ add_library(thug2_code OBJECT
     src/game/core/pool.cpp
     src/game/core/str.cpp
     src/game/core/string.cpp
+    src/game/file/async.cpp
     src/game/file/file.cpp
     src/game/file/pip.cpp
     src/game/file/pre.cpp

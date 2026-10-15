@@ -187,7 +187,17 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       reserves 0x400000 there before the Windows loader maps anything, loads THUG2PM.exe's image (imports from
       System32 only - the game folder has our dinput8.dll) and runs the argument-size check and the Early
       stage. All 24 early tests pass. Late/EngineStarted tests still need the game.
-- [ ] Next: the async file loader 0x5B6560-0x5B7130 (CAsyncFileLoader), then the memory manager.
+- [x] Batch 28 (NOT run in the game yet; early self-tests pass offline): the async file system's base
+      class and static side - CAsyncFileHandle Init/SetCallback/GetFileSize/Cancel/IsBusy/Read/Open/Close/
+      io_callback, constructor/destructor, the 17 base platform stubs (vtable slots 2-18, names from their
+      STUB strings), and the static functions: AsyncInit, AsyncBusy, the 16-handle pool (GetHandle/FreeHandle),
+      the double-buffered callback lists (AddCallback/SwapCallbackLists/ExecuteCallbacks), WaitForIO, Open,
+      Close. Virtual calls go through the object's own (game) vtable. Pip's "priority 8" was the callback
+      mask (bit 3 = read completed). Early self-test with fake handles compares pool order, counters, handle
+      fields and the callback sequence (shown to catch a deliberate pool bug).
+- [ ] Next (batch 29): the PC platform handle (vtable 0x6583D8: open/read/close/is_done/is_busy/is_eof/load/
+      io_callback, overlapped I/O on NT 6+) and its I/O thread 0x5B9B40 / init 0x5B9B80; then CAsyncFileLoader's
+      other class (0x5B6940/0x5B6970, 0x5B6CF0-0x5B7090); then the memory manager.
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
       for original callers that read ECX/EDX after the call without writing them first (ignoring push-to-reserve,
       lea reg,[reg], or reg,-1 and zeroing idioms; callers that are themselves replaced count as safe).
