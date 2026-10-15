@@ -25,6 +25,11 @@ struct LoadedFile {
     int refCount;
 };
 
+// Load a file into memory, or add a use to it if it's already loaded (on its own or inside a .pre
+// archive). Returns its data, or null. `async` loads through the asynchronous file loader, with an
+// optional completion callback and two arguments for it.
+void* Load(const char* name, bool async, void* callback, void* callback_arg0, void* callback_arg1);
+
 // Release one use of a file; a file loaded on its own is freed when its last use goes.
 void Unload(uint32_t checksum);
 void Unload(const char* name);

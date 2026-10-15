@@ -1545,6 +1545,59 @@ void TestHashTableLate()
     Mem::Free(actual->m_buckets);
 }
 
+void TestPipLoadLate()
+{
+    if (!GameVariable<void*>(0x007D0FCC)) {
+        Log("late self-test: Pip::Load skipped (pre-file manager not created yet)");
+        return;
+    }
+    using LoadFn = void*(__cdecl*)(const char*, bool, void*, void*, void*);
+    auto& files = GameVariable<Pip::LoadedFile[200]>(0x007CF198);
+    auto slot_of = [&](void* data) -> Pip::LoadedFile* {
+        for (auto& f : files)
+            if (f.data == data)
+                return &f;
+        return nullptr;
+    };
+    // A small file that is never in a .pre archive and isn't loaded at this point. Load it with the
+    // original, keep a copy, unload, then load it with ours and compare.
+    const char* name = "pre/Themes.prx";
+    if (Pip::GetFileSize(name) != 0) {
+        Log("late self-test: Pip::Load skipped (%s already loaded)", name);
+        return;
+    }
+    void* expected;
+    {
+        OriginalCode original(0x005B7C00);
+        expected = Original<LoadFn>(0x005B7C00)(name, false, nullptr, nullptr, nullptr);
+    }
+    Pip::LoadedFile* expected_slot = slot_of(expected);
+    Pip::LoadedFile expected_fields = expected_slot ? *expected_slot : Pip::LoadedFile{};
+    std::vector<uint8_t> expected_bytes;
+    if (expected && expected_fields.size > 0)
+        expected_bytes.assign(static_cast<uint8_t*>(expected), static_cast<uint8_t*>(expected) + expected_fields.size);
+    Pip::Unload(name);
+
+    void* actual = Pip::Load(name, false, nullptr, nullptr, nullptr);
+    Pip::LoadedFile* actual_slot = slot_of(actual);
+    bool ok = expected && actual && expected_slot && actual_slot && expected_slot == actual_slot &&
+              actual_slot->checksum == expected_fields.checksum && actual_slot->size == expected_fields.size &&
+              actual_slot->refCount == 1 &&
+              std::memcmp(actual, expected_bytes.data(), expected_bytes.size()) == 0;
+    Check(ok, "Pip::Load");
+
+    // Loading it again just adds a use - through the original and ours.
+    {
+        OriginalCode original(0x005B7C00);
+        Check(Original<LoadFn>(0x005B7C00)(name, false, nullptr, nullptr, nullptr) == actual, "Pip::Load (again, original)");
+    }
+    Check(Pip::Load(name, false, nullptr, nullptr, nullptr) == actual && actual_slot && actual_slot->refCount == 3,
+          "Pip::Load (again)");
+    for (int i = 0; i < 3; ++i)
+        Pip::Unload(name);
+    Check(Pip::GetFileSize(name) == 0, "Pip::Unload (after Load)");
+}
+
 void TestPoolConstructorLate()
 {
     using Mem::Pool;
@@ -1800,6 +1853,7 @@ void RunLateSelfTests()
     TestLzssLate();
     TestPoolConstructorLate();
     TestHashTableLate();
+    TestPipLoadLate();
     int failures = g_failures - g_late_failures_before;
     Log(failures ? "late self-tests: %d FAILED" : "late self-tests: all passed", failures);
 }
