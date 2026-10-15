@@ -311,8 +311,22 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       CStruct::InitCopy 0x478AB0 (copy constructor; counts copies at 0x6F3610, peak 0x67DA30). 15 functions.
       Early test: every element type built, read, resized and deep-copied (also over full arrays), on a dirty
       script heap; originals vs ours (12 deliberate bugs caught, two after dirtying the heap).
-- [ ] Next: ComponentsEqual 0x4791A0 and the rest of 0x478B00..0x479190, then the parser/symbol table
-      (0x46F...) and the interpreter (0x46D450).
+- [x] Batch 40 (NOT run in the game yet; early test passes offline): the symbol table and global values.
+      CreateSymbolTable 0x478C90 (0x1000 buckets from the current heap), FindSymbol 0x478CC0 (no alias
+      following), CSymbolTableEntry::Init 0x4790F0 (byte 0 bit 0 = in use), CreateSymbol 0x479110 (symbol
+      pool pair 0x6F362C), LinkSymbol 0x478DC0, UnlinkSymbol 0x478D60, GetNextSymbol 0x478E50 (iterator state
+      0x6F363C entry / 0x6F3640 bucket); global getters by checksum and name - GetInteger 0x478F60/0x4790C0
+      (floats truncated), GetFloat 0x478F00/0x478F30 (ST0), GetSymbolValue 0x478F90/0x478FB0 (any type),
+      GetString 0x478FD0/0x478FF0 (missing -> "" at 0x6469B4), GetStructure 0x479020/0x479040, GetArray
+      0x479070/0x479090; ComponentsEqual 0x4791A0 (thiscall on the first component; names standing for
+      symbols resolved; int/float compared exactly; strings by strcmp; pairs/vectors by coordinates;
+      structures/arrays only when the same one - the array comparison 0x49F4B0 is `return false`);
+      CStruct::AddArray 0x478B00/0x478C50 (a copy); the compiled-out type-name stub 0x479190. 23 functions.
+      pre.cpp now calls Script::GetInteger. Early test: a symbol table built through both, iterated, unlinked,
+      every getter over 8 names, a 20x20 ComponentsEqual matrix (NaN, aliases, int/float), AddArray; arenas
+      compared (18 deliberate bugs caught, one after comparing an alias with an equal float).
+- [ ] Next: the script parser/loader (0x46F...) and the interpreter (0x46D450); the CArray functions between
+      0x46CD90 and 0x46D3D0.
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
       for original callers that read ECX/EDX after the call without writing them first (ignoring push-to-reserve,
       lea reg,[reg], or reg,-1 and zeroing idioms; callers that are themselves replaced count as safe).

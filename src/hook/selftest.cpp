@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <iterator>
 #include <string>
 #include <tuple>
@@ -3636,6 +3637,282 @@ void TestScriptArrays()
     }
 }
 
+// The symbol table (creating, adding, linking, unlinking, iterating), global values by checksum and name,
+// comparing components, adding array copies - on a stand-in manager; originals vs ours, arenas compared.
+void TestScriptSymbols()
+{
+    using namespace Script;
+    using Mem::Heap;
+    using Mem::Manager;
+    using Mem::Region;
+    if (GameVariable<void*>(0x007D1800)) {
+        Log("self-test: TestScriptSymbols skipped (the memory manager is already set up)");
+        return;
+    }
+    for (int i = 0; i < 5; ++i)
+        std::memcpy(g_saved_script_pools[i], reinterpret_cast<void*>(kScriptPoolAddresses[i]), 16);
+    std::memcpy(g_saved_permanent_strings, reinterpret_cast<void*>(0x006F3570), sizeof(g_saved_permanent_strings));
+    g_saved_system_ready = GameVariable<bool>(0x007CC979);
+    g_saved_manager_for_test = nullptr;
+    g_script_write_swapped = true;
+    g_saved_symbol_table = GameVariable<CSymbolTableEntry**>(0x006F3624);
+    g_symbol_table_swapped = true;
+    uint8_t savedSymbolPools[16];
+    std::memcpy(savedSymbolPools, reinterpret_cast<void*>(0x006F362C), 16);
+    uint32_t savedIterator[2] = {GameVariable<uint32_t>(0x006F363C), GameVariable<uint32_t>(0x006F3640)};
+    for (uint32_t address : kScriptPoolAddresses)
+        std::memset(reinterpret_cast<void*>(address), 0, 16);
+    std::memset(reinterpret_cast<void*>(0x006F362C), 0, 16);
+    std::memset(reinterpret_cast<void*>(0x006F3570), 0, sizeof(g_saved_permanent_strings));
+    GameVariable<bool>(0x007CC979) = true;
+
+    auto run = [&](bool original) {
+        std::vector<uint32_t> trace;
+        uint8_t* arena = g_manager_arenas[original ? 0 : 1];
+        std::memset(arena, 0, kManagerArenaSize);
+        std::memset(arena + 0x1000, 0xCD, kManagerArenaSize - 0x1000);
+        auto* manager = reinterpret_cast<Manager*>(arena);
+        GameVariable<void*>(0x007D1800) = manager;
+        auto* region = new (arena + 0x600) Region(arena + 0x1000, arena + kManagerArenaSize - 0x2800);
+        auto* heap = new (arena + 0x620) Heap(region, 1, "test");
+        auto* scriptRegion = new (arena + 0x6C0) Region(arena + kManagerArenaSize - 0x2800, arena + kManagerArenaSize);
+        auto* scriptHeap = new (arena + 0x6E0) Heap(scriptRegion, 1, "script");
+        manager->m_heaps[0] = heap;
+        manager->m_heaps[1] = scriptHeap;
+        manager->m_heapCount = 2;
+        manager->m_scriptHeap = scriptHeap;
+        manager->PushContext(heap);
+        GameVariable<uint32_t>(0x006F363C) = 0x1111;
+        GameVariable<uint32_t>(0x006F3640) = 0x2222;
+        auto put = [&](uint32_t value) { trace.push_back(value); };
+        auto put_float = [&](float value) {
+            uint32_t bits;
+            std::memcpy(&bits, &value, 4);
+            trace.push_back(bits);
+        };
+        using E = CSymbolTableEntry*;
+
+        // The table, and symbols of every kind (two sharing a bucket).
+        if (original)
+            Original<void(__cdecl*)()>(0x00478C90)();
+        else
+            CreateSymbolTable();
+        auto create = [&](uint32_t name, ESymbolType type, uint32_t value) {
+            E entry = original ? Original<E(__cdecl*)(uint32_t)>(0x00479110)(name) : CreateSymbol(name);
+            entry->type = type;
+            entry->raw = value;
+            return entry;
+        };
+        float f = 2.75f, big = -1.0e9f;
+        uint32_t fBits, bigBits;
+        std::memcpy(&fBits, &f, 4);
+        std::memcpy(&bigBits, &big, 4);
+        CStruct* globalStruct = NewStruct()->Init();
+        globalStruct->AddInteger(0x40u, 4);
+        CArray* globalArray = NewArray()->Init();
+        globalArray->SetSizeAndType(3, ESYMBOLTYPE_INTEGER);
+        for (uint32_t i = 0; i < 3; ++i)
+            globalArray->SetElement(i, 10 + i);
+        const uint32_t kInt = Crc::GenerateCRCFromString("an_int");
+        const uint32_t kFloat = Crc::GenerateCRCFromString("a_float");
+        const uint32_t kString = Crc::GenerateCRCFromString("a_string");
+        const uint32_t kStruct = Crc::GenerateCRCFromString("a_struct");
+        const uint32_t kArray = Crc::GenerateCRCFromString("an_array");
+        const uint32_t kAlias = Crc::GenerateCRCFromString("an_alias");
+        const uint32_t kBig = Crc::GenerateCRCFromString("big");
+        create(kInt, ESYMBOLTYPE_INTEGER, static_cast<uint32_t>(-17));
+        create(kFloat, ESYMBOLTYPE_FLOAT, fBits);
+        create(kBig, ESYMBOLTYPE_FLOAT, bigBits);
+        create(kString, ESYMBOLTYPE_STRING, reinterpret_cast<uint32_t>(CreateString("hello")));
+        create(kStruct, ESYMBOLTYPE_STRUCTURE, reinterpret_cast<uint32_t>(globalStruct));
+        create(kArray, ESYMBOLTYPE_ARRAY, reinterpret_cast<uint32_t>(globalArray));
+        create(kAlias, ESYMBOLTYPE_NAME, kFloat);
+        E sameBucket1 = create(0x00012777, ESYMBOLTYPE_INTEGER, 1);
+        E sameBucket2 = create(0x00034777, ESYMBOLTYPE_INTEGER, 2);
+        E sameBucket3 = create(0x00056777, ESYMBOLTYPE_INTEGER, 3);
+        E last = create(0xFFFFFFFF, ESYMBOLTYPE_INTEGER, 4);
+
+        // Unlinking (middle, head, missing) and relinking.
+        auto unlink = [&](E entry) {
+            if (original)
+                Original<void(__cdecl*)(E)>(0x00478D60)(entry);
+            else
+                UnlinkSymbol(entry);
+        };
+        auto link = [&](E entry) {
+            if (original)
+                Original<void(__cdecl*)(E)>(0x00478DC0)(entry);
+            else
+                LinkSymbol(entry);
+        };
+        unlink(sameBucket2);
+        unlink(sameBucket3);
+        unlink(sameBucket3);
+        link(sameBucket2);
+        static CSymbolTableEntry loose;
+        loose = {};
+        loose.name = 0x777;
+        unlink(&loose);
+        put(original ? reinterpret_cast<uint32_t>(Original<E(__cdecl*)(uint32_t)>(0x00478CC0)(0x00034777))
+                     : reinterpret_cast<uint32_t>(FindSymbol(0x00034777)));
+        put(original ? reinterpret_cast<uint32_t>(Original<E(__cdecl*)(uint32_t)>(0x00478CC0)(0x00056777))
+                     : reinterpret_cast<uint32_t>(FindSymbol(0x00056777)));
+        (void)sameBucket1;
+        (void)last;
+
+        // Iterating: every symbol in order, then past the end, then again.
+        for (int pass = 0; pass < 2; ++pass) {
+            E entry = nullptr;
+            int count = 0;
+            do {
+                entry = original ? Original<E(__cdecl*)(E)>(0x00478E50)(entry) : GetNextSymbol(entry);
+                put(reinterpret_cast<uint32_t>(entry));
+                put(GameVariable<uint32_t>(0x006F363C));
+                put(GameVariable<uint32_t>(0x006F3640));
+            } while (entry && ++count < 64);
+        }
+
+        // Global values, by checksum and by name.
+        const char* names[] = {"an_int", "a_float", "big", "a_string", "a_struct", "an_array", "an_alias", "missing"};
+        for (const char* name : names) {
+            uint32_t checksum = Crc::GenerateCRCFromString(name);
+            if (original) {
+                put(static_cast<uint32_t>(Original<int(__cdecl*)(uint32_t)>(0x00478F60)(checksum)));
+                put(static_cast<uint32_t>(Original<int(__cdecl*)(const char*, int)>(0x004790C0)(name, 0)));
+                put_float(Original<float(__cdecl*)(uint32_t)>(0x00478F00)(checksum));
+                put_float(Original<float(__cdecl*)(const char*)>(0x00478F30)(name));
+                put(Original<uint32_t(__cdecl*)(uint32_t)>(0x00478F90)(checksum));
+                put(Original<uint32_t(__cdecl*)(const char*)>(0x00478FB0)(name));
+                put(reinterpret_cast<uint32_t>(Original<const char*(__cdecl*)(uint32_t)>(0x00478FD0)(checksum)));
+                put(reinterpret_cast<uint32_t>(Original<const char*(__cdecl*)(const char*)>(0x00478FF0)(name)));
+                put(reinterpret_cast<uint32_t>(Original<CStruct*(__cdecl*)(uint32_t)>(0x00479020)(checksum)));
+                put(reinterpret_cast<uint32_t>(Original<CStruct*(__cdecl*)(const char*)>(0x00479040)(name)));
+                put(reinterpret_cast<uint32_t>(Original<CArray*(__cdecl*)(uint32_t)>(0x00479070)(checksum)));
+                put(reinterpret_cast<uint32_t>(Original<CArray*(__cdecl*)(const char*)>(0x00479090)(name)));
+            } else {
+                put(static_cast<uint32_t>(GetInteger(checksum)));
+                put(static_cast<uint32_t>(GetInteger(name)));
+                put_float(GetFloat(checksum));
+                put_float(GetFloat(name));
+                put(GetSymbolValue(checksum));
+                put(GetSymbolValue(name));
+                put(reinterpret_cast<uint32_t>(GetString(checksum)));
+                put(reinterpret_cast<uint32_t>(GetString(name)));
+                put(reinterpret_cast<uint32_t>(GetStructure(checksum)));
+                put(reinterpret_cast<uint32_t>(GetStructure(name)));
+                put(reinterpret_cast<uint32_t>(GetArray(checksum)));
+                put(reinterpret_cast<uint32_t>(GetArray(name)));
+            }
+        }
+
+        // Comparing components: every pair from a varied set.
+        static CComponent components[20];
+        static CPair pairs[3];
+        static CVector vectors[3];
+        static char strings[3][8];
+        std::memset(components, 0, sizeof(components));
+        pairs[0] = {0, 1.0f, 2.0f};
+        pairs[1] = {0, 1.0f, 2.0f};
+        pairs[2] = {0, 1.0f, 2.5f};
+        vectors[0] = {0, 1.0f, 2.0f, 3.0f};
+        vectors[1] = {0, 1.0f, 2.0f, 3.0f};
+        vectors[2] = {0, 1.0f, 2.0f, -3.0f};
+        std::memcpy(strings[0], "abc", 4);
+        std::memcpy(strings[1], "abc", 4);
+        std::memcpy(strings[2], "abd", 4);
+        float nan = std::numeric_limits<float>::quiet_NaN();
+        float three = 3.0f, minus17 = -17.0f;
+        uint32_t nanBits, threeBits, minus17Bits;
+        std::memcpy(&nanBits, &nan, 4);
+        std::memcpy(&threeBits, &three, 4);
+        std::memcpy(&minus17Bits, &minus17, 4);
+        auto make = [&](int i, ESymbolType type, uint32_t value) {
+            components[i].typeAndFlag = static_cast<uint8_t>(type << 1);
+            components[i].raw = value;
+        };
+        make(0, ESYMBOLTYPE_INTEGER, 3);
+        make(1, ESYMBOLTYPE_INTEGER, static_cast<uint32_t>(-17));
+        make(2, ESYMBOLTYPE_FLOAT, threeBits);
+        make(3, ESYMBOLTYPE_FLOAT, fBits); // equal to the alias's 2.75
+        make(4, ESYMBOLTYPE_FLOAT, nanBits);
+        make(5, ESYMBOLTYPE_STRING, reinterpret_cast<uint32_t>(strings[0]));
+        make(6, ESYMBOLTYPE_STRING, reinterpret_cast<uint32_t>(strings[1]));
+        make(7, ESYMBOLTYPE_LOCALSTRING, reinterpret_cast<uint32_t>(strings[2]));
+        make(8, ESYMBOLTYPE_PAIR, reinterpret_cast<uint32_t>(&pairs[0]));
+        make(9, ESYMBOLTYPE_PAIR, reinterpret_cast<uint32_t>(&pairs[2]));
+        make(10, ESYMBOLTYPE_VECTOR, reinterpret_cast<uint32_t>(&vectors[0]));
+        make(11, ESYMBOLTYPE_VECTOR, reinterpret_cast<uint32_t>(&vectors[2]));
+        make(12, ESYMBOLTYPE_NAME, 0x1234);
+        make(13, ESYMBOLTYPE_NAME, kInt);   // stands for -17
+        make(14, ESYMBOLTYPE_NAME, kAlias); // stands for 2.75 (through the alias)
+        make(15, ESYMBOLTYPE_QSCRIPT, 0x5000);
+        make(16, ESYMBOLTYPE_STRUCTURE, reinterpret_cast<uint32_t>(globalStruct));
+        make(17, ESYMBOLTYPE_ARRAY, reinterpret_cast<uint32_t>(globalArray));
+        make(18, ESYMBOLTYPE_FLOAT, minus17Bits);
+        make(19, ESYMBOLTYPE_NAME, kStruct); // stands for the global structure
+        static CComponent copies[20];
+        std::memcpy(copies, components, sizeof(components));
+        copies[6].raw = reinterpret_cast<uint32_t>(strings[1]);
+        copies[8].raw = reinterpret_cast<uint32_t>(&pairs[1]);
+        copies[10].raw = reinterpret_cast<uint32_t>(&vectors[1]);
+        CArray* otherArray = NewArray()->Init();
+        copies[17].raw = reinterpret_cast<uint32_t>(otherArray);
+        for (CComponent* set : {components, copies}) {
+            for (int i = 0; i < 20; ++i) {
+                uint32_t bits = 0;
+                for (int j = 0; j < 20; ++j) {
+                    bool equal = original
+                                     ? Original<bool(__thiscall*)(CComponent*, CComponent*)>(0x004791A0)(&components[i],
+                                                                                                      &set[j])
+                                     : ComponentsEqual(&components[i], &set[j]);
+                    bits |= (equal ? 1u : 0u) << j;
+                }
+                put(bits);
+            }
+        }
+
+        // Adding array copies.
+        CStruct* s = NewStruct()->Init();
+        if (original) {
+            Original<void(__thiscall*)(CStruct*, uint32_t, CArray*)>(0x00478B00)(s, 1u, globalArray);
+            Original<void(__thiscall*)(CStruct*, const char*, CArray*)>(0x00478C50)(s, "list", globalArray);
+            Original<void(__thiscall*)(CStruct*, uint32_t, CArray*)>(0x00478B00)(s, 1u, otherArray);
+        } else {
+            s->AddArray(1u, globalArray);
+            s->AddArray("list", globalArray);
+            s->AddArray(1u, otherArray);
+        }
+        std::vector<uint32_t> image(kManagerArenaSize / 4);
+        std::memcpy(image.data(), arena, kManagerArenaSize);
+        auto base = reinterpret_cast<uint32_t>(arena);
+        auto relocate = [&](uint32_t& word) {
+            if (word >= base && word <= base + kManagerArenaSize)
+                word = 0xA0000000u + (word - base);
+        };
+        for (uint32_t& word : image)
+            relocate(word);
+        for (uint32_t& word : trace)
+            relocate(word);
+        trace.insert(trace.end(), image.begin(), image.end());
+        GameVariable<void*>(0x007D1800) = nullptr;
+        return trace;
+    };
+    std::vector<uint32_t> expected = run(true);
+    std::vector<uint32_t> actual = run(false);
+    std::memcpy(reinterpret_cast<void*>(0x006F362C), savedSymbolPools, 16);
+    GameVariable<uint32_t>(0x006F363C) = savedIterator[0];
+    GameVariable<uint32_t>(0x006F3640) = savedIterator[1];
+    RestoreScriptWriteTest();
+    RestoreSymbolTable();
+    Check(expected == actual, "script symbols: table, global values, comparing components");
+    for (size_t i = 0, shown = 0; i < expected.size() && i < actual.size() && shown < 8; ++i) {
+        if (expected[i] != actual[i]) {
+            Log("  symbol entry %u: original %08X ours %08X", static_cast<unsigned>(i), expected[i], actual[i]);
+            ++shown;
+        }
+    }
+}
+
 // --- late self-tests ----------------------------------------------------------------------------------
 
 // The table's contents as (bucket, position in chain, key, value), so tables with different item addresses
@@ -4579,6 +4856,7 @@ SELFTEST(Early, TestScriptStructLookups, RestoreSymbolTable);
 SELFTEST(Early, TestScriptStructWriting, RestoreScriptWriteTest);
 SELFTEST(Early, TestScriptStructAdding, RestoreScriptAddingTest);
 SELFTEST(Early, TestScriptArrays, RestoreScriptAddingTest);
+SELFTEST(Early, TestScriptSymbols, RestoreScriptAddingTest);
 
 SELFTEST(Late, TestMemoryLate);
 SELFTEST(Late, TestStringLate);

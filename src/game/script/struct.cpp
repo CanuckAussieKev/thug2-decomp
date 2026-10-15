@@ -16,6 +16,9 @@ namespace {
 CSymbolTableEntry** SymbolTable() { return GameVariable<CSymbolTableEntry**>(0x006F3624); }
 constexpr uint32_t kSymbolTableMask = 0xFFF;
 
+} // namespace
+
+// 0x00478CC0
 CSymbolTableEntry* FindSymbol(uint32_t name)
 {
     CSymbolTableEntry* entry = SymbolTable()[name & kSymbolTableMask];
@@ -24,6 +27,8 @@ CSymbolTableEntry* FindSymbol(uint32_t name)
     return entry;
 }
 
+namespace {
+
 // The global structure an unnamed name component includes, or null.
 CStruct* IncludedStructure(const CComponent* component)
 {
@@ -31,12 +36,6 @@ CStruct* IncludedStructure(const CComponent* component)
         return nullptr;
     CSymbolTableEntry* symbol = LookUpSymbol(component->checksum);
     return symbol && symbol->type == ESYMBOLTYPE_STRUCTURE ? symbol->structure : nullptr;
-}
-
-// Two components' values equal (not rewritten yet).
-bool ComponentsEqual(CComponent* a, CComponent* b)
-{
-    return GameFunction<bool(__thiscall*)(CComponent*, CComponent*)>(0x004791A0)(a, b);
 }
 
 } // namespace
@@ -1475,3 +1474,283 @@ REPLACE(0x0046CBF0, &CArray::GetFloat);
 REPLACE(0x004787A0, Script::CopyArrayElements);
 REPLACE(0x00478A60, Script::CopyArray);
 REPLACE(0x00478AB0, &Script::CStruct::InitCopy);
+
+// --- the symbol table and global values; comparing components; adding array copies --------------------------
+
+namespace Script {
+
+namespace {
+
+// The symbol iterator's position: the current entry and its bucket.
+CSymbolTableEntry*& IteratorEntry() { return GameVariable<CSymbolTableEntry*>(0x006F363C); }
+uint32_t& IteratorBucket() { return GameVariable<uint32_t>(0x006F3640); }
+
+// A global symbol's value as an integer / float (other types: 0).
+int SymbolInteger(CSymbolTableEntry* entry)
+{
+    if (entry) {
+        if (entry->type == ESYMBOLTYPE_INTEGER)
+            return entry->integer;
+        if (entry->type == ESYMBOLTYPE_FLOAT)
+            return static_cast<int>(entry->floatValue);
+    }
+    return 0;
+}
+float SymbolFloat(CSymbolTableEntry* entry)
+{
+    if (entry) {
+        if (entry->type == ESYMBOLTYPE_INTEGER)
+            return static_cast<float>(entry->integer);
+        if (entry->type == ESYMBOLTYPE_FLOAT)
+            return entry->floatValue;
+    }
+    return 0.0f;
+}
+uint32_t SymbolValueOfType(CSymbolTableEntry* entry, ESymbolType type)
+{
+    return entry && entry->type == type ? entry->raw : 0;
+}
+
+// The game's empty string (what the string getters give for missing symbols).
+const char* EmptyString() { return reinterpret_cast<const char*>(0x006469B4); }
+
+} // namespace
+
+// 0x00478C90
+void CreateSymbolTable()
+{
+    auto* table = static_cast<CSymbolTableEntry**>(Mem::Malloc(0x1000 * sizeof(CSymbolTableEntry*)));
+    GameVariable<CSymbolTableEntry**>(0x006F3624) = table;
+    for (uint32_t i = 0; i < 0x1000; ++i)
+        table[i] = nullptr;
+}
+
+// 0x004790F0
+CSymbolTableEntry* CSymbolTableEntry::Init()
+{
+    unknown0 &= 0xF8;
+    name = 0;
+    type = ESYMBOLTYPE_NONE;
+    raw = 0;
+    next = nullptr;
+    unknown8 = 0;
+    return this;
+}
+
+// 0x00479110
+CSymbolTableEntry* CreateSymbol(uint32_t name)
+{
+    void* memory = GameVariable<Mem::PoolPair>(0x006F362C).Allocate(sizeof(CSymbolTableEntry));
+    CSymbolTableEntry* entry = memory ? static_cast<CSymbolTableEntry*>(memory)->Init() : nullptr;
+    entry->name = name;
+    entry->unknown0 |= 1;
+    LinkSymbol(entry);
+    return entry;
+}
+
+// 0x00478DC0
+void LinkSymbol(CSymbolTableEntry* entry)
+{
+    CSymbolTableEntry*& head = SymbolTable()[entry->name & kSymbolTableMask];
+    entry->next = head;
+    head = entry;
+}
+
+// 0x00478D60
+void UnlinkSymbol(CSymbolTableEntry* entry)
+{
+    CSymbolTableEntry** bucket = &SymbolTable()[entry->name & kSymbolTableMask];
+    CSymbolTableEntry* previous = nullptr;
+    for (CSymbolTableEntry* each = *bucket; each; previous = each, each = each->next) {
+        if (each != entry)
+            continue;
+        if (previous)
+            previous->next = entry->next;
+        else
+            *bucket = entry->next;
+        entry->next = nullptr;
+        return;
+    }
+}
+
+// 0x00478E50
+CSymbolTableEntry* GetNextSymbol(CSymbolTableEntry* previous)
+{
+    CSymbolTableEntry* entry;
+    if (!previous) {
+        IteratorBucket() = 0;
+        entry = SymbolTable()[0];
+    } else {
+        entry = previous->next;
+    }
+    while (!entry) {
+        if (++IteratorBucket() >= 0x1000) {
+            IteratorBucket() = 0;
+            IteratorEntry() = nullptr;
+            return nullptr;
+        }
+        entry = SymbolTable()[IteratorBucket()];
+    }
+    IteratorEntry() = entry;
+    return entry;
+}
+
+// 0x00478F60 / 0x004790C0 (an unused second argument)
+int GetInteger(uint32_t name) { return SymbolInteger(LookUpSymbol(name)); }
+int GetInteger(const char* name) { return GetInteger(Crc::GenerateCRCFromString(name)); }
+// 0x00478F00 / 0x00478F30
+float GetFloat(uint32_t name) { return SymbolFloat(LookUpSymbol(name)); }
+float GetFloat(const char* name) { return GetFloat(Crc::GenerateCRCFromString(name)); }
+// 0x00478F90 / 0x00478FB0
+uint32_t GetSymbolValue(uint32_t name)
+{
+    CSymbolTableEntry* entry = LookUpSymbol(name);
+    return entry ? entry->raw : 0;
+}
+uint32_t GetSymbolValue(const char* name) { return GetSymbolValue(Crc::GenerateCRCFromString(name)); }
+// 0x00478FD0 / 0x00478FF0 (any type: the raw value)
+const char* GetString(uint32_t name)
+{
+    CSymbolTableEntry* entry = LookUpSymbol(name);
+    return entry ? reinterpret_cast<const char*>(entry->raw) : EmptyString();
+}
+const char* GetString(const char* name) { return GetString(Crc::GenerateCRCFromString(name)); }
+// 0x00479020 / 0x00479040
+CStruct* GetStructure(uint32_t name)
+{
+    return reinterpret_cast<CStruct*>(SymbolValueOfType(LookUpSymbol(name), ESYMBOLTYPE_STRUCTURE));
+}
+CStruct* GetStructure(const char* name) { return GetStructure(Crc::GenerateCRCFromString(name)); }
+// 0x00479070 / 0x00479090
+CArray* GetArray(uint32_t name)
+{
+    return reinterpret_cast<CArray*>(SymbolValueOfType(LookUpSymbol(name), ESYMBOLTYPE_ARRAY));
+}
+CArray* GetArray(const char* name) { return GetArray(Crc::GenerateCRCFromString(name)); }
+
+// 0x004791A0
+bool ComponentsEqual(CComponent* a, CComponent* b)
+{
+    // A name standing for a global symbol counts as the symbol's value.
+    auto resolve = [](CComponent* component, uint32_t* type, uint32_t* value) {
+        *type = component->Type();
+        *value = component->raw;
+        if (*type == ESYMBOLTYPE_NAME) {
+            if (CSymbolTableEntry* symbol = LookUpSymbol(*value)) {
+                *value = symbol->raw;
+                *type = symbol->type;
+            }
+        }
+    };
+    uint32_t typeA, valueA, typeB, valueB;
+    resolve(a, &typeA, &valueA);
+    resolve(b, &typeB, &valueB);
+    auto as_float = [](uint32_t bits) {
+        float value;
+        std::memcpy(&value, &bits, 4);
+        return static_cast<double>(value);
+    };
+    // (integers are compared with floats exactly, as the x87 does)
+    auto as_integer = [](uint32_t bits) { return static_cast<double>(static_cast<int32_t>(bits)); };
+    switch (typeA) {
+    case ESYMBOLTYPE_INTEGER:
+        if (typeB == ESYMBOLTYPE_FLOAT)
+            return as_integer(valueA) == as_float(valueB);
+        return typeB == ESYMBOLTYPE_INTEGER && valueA == valueB;
+    case ESYMBOLTYPE_FLOAT:
+        if (typeB == ESYMBOLTYPE_INTEGER)
+            return as_float(valueA) == as_integer(valueB);
+        return typeB == ESYMBOLTYPE_FLOAT && as_float(valueA) == as_float(valueB);
+    case ESYMBOLTYPE_STRING:
+    case ESYMBOLTYPE_LOCALSTRING:
+        return typeB == typeA &&
+               std::strcmp(reinterpret_cast<const char*>(valueA), reinterpret_cast<const char*>(valueB)) == 0;
+    case ESYMBOLTYPE_PAIR: {
+        if (typeB != ESYMBOLTYPE_PAIR)
+            return false;
+        auto* pa = reinterpret_cast<const CPair*>(valueA);
+        auto* pb = reinterpret_cast<const CPair*>(valueB);
+        return pa->x == pb->x && pa->y == pb->y;
+    }
+    case ESYMBOLTYPE_VECTOR: {
+        if (typeB != ESYMBOLTYPE_VECTOR)
+            return false;
+        auto* va = reinterpret_cast<const CVector*>(valueA);
+        auto* vb = reinterpret_cast<const CVector*>(valueB);
+        return va->x == vb->x && va->y == vb->y && va->z == vb->z;
+    }
+    case ESYMBOLTYPE_QSCRIPT:
+    case ESYMBOLTYPE_NAME:
+        return typeB == typeA && valueA == valueB;
+    case ESYMBOLTYPE_STRUCTURE:
+    case ESYMBOLTYPE_ARRAY:
+        // (different arrays are never equal: their comparison 0x0049F4B0 just returns false)
+        return typeB == typeA && valueA == valueB;
+    default:
+        return false;
+    }
+}
+
+// 0x00478B00
+void CStruct::AddArray(uint32_t name, CArray* value)
+{
+    CComponent* component = NewTypedComponent(name, ESYMBOLTYPE_ARRAY);
+    CArray* array = NewArray();
+    if (array)
+        array = array->Init();
+    component->array = array;
+    CopyArray(array, value);
+    AddComponent(component);
+}
+
+// 0x00478C50
+void CStruct::AddArray(const char* name, CArray* value)
+{
+    AddArray(Crc::GenerateCRCFromString(name), value);
+}
+
+} // namespace Script
+
+namespace {
+
+using Script::CStruct;
+
+// 0x00479190: the type-name lookup was compiled out: it gives a "(Hey, don't use this...)" message.
+const char* GetTypeName() { return reinterpret_cast<const char*>(0x00648474); }
+
+// ComponentsEqual is a member of the first component in the game.
+struct ComponentEqualsAdapter {
+    bool Equals(Script::CComponent* other)
+    {
+        return Script::ComponentsEqual(reinterpret_cast<Script::CComponent*>(this), other);
+    }
+};
+
+template <typename R, typename... A>
+using Function = R (*)(A...);
+
+} // namespace
+
+REPLACE(0x00478C90, Script::CreateSymbolTable);
+REPLACE(0x00478CC0, Script::FindSymbol);
+REPLACE(0x004790F0, &Script::CSymbolTableEntry::Init);
+REPLACE(0x00479110, Script::CreateSymbol);
+REPLACE(0x00478DC0, Script::LinkSymbol);
+REPLACE(0x00478D60, Script::UnlinkSymbol);
+REPLACE(0x00478E50, Script::GetNextSymbol);
+REPLACE(0x00478F60, static_cast<Function<int, uint32_t>>(Script::GetInteger));
+REPLACE(0x004790C0, static_cast<Function<int, const char*>>(Script::GetInteger));
+REPLACE(0x00478F00, static_cast<Function<float, uint32_t>>(Script::GetFloat));
+REPLACE(0x00478F30, static_cast<Function<float, const char*>>(Script::GetFloat));
+REPLACE(0x00478F90, static_cast<Function<uint32_t, uint32_t>>(Script::GetSymbolValue));
+REPLACE(0x00478FB0, static_cast<Function<uint32_t, const char*>>(Script::GetSymbolValue));
+REPLACE(0x00478FD0, static_cast<Function<const char*, uint32_t>>(Script::GetString));
+REPLACE(0x00478FF0, static_cast<Function<const char*, const char*>>(Script::GetString));
+REPLACE(0x00479020, static_cast<Function<Script::CStruct*, uint32_t>>(Script::GetStructure));
+REPLACE(0x00479040, static_cast<Function<Script::CStruct*, const char*>>(Script::GetStructure));
+REPLACE(0x00479070, static_cast<Function<Script::CArray*, uint32_t>>(Script::GetArray));
+REPLACE(0x00479090, static_cast<Function<Script::CArray*, const char*>>(Script::GetArray));
+REPLACE(0x004791A0, &ComponentEqualsAdapter::Equals);
+REPLACE(0x00478B00, static_cast<void (CStruct::*)(uint32_t, Script::CArray*)>(&CStruct::AddArray));
+REPLACE(0x00478C50, static_cast<void (CStruct::*)(const char*, Script::CArray*)>(&CStruct::AddArray));
+REPLACE(0x00479190, GetTypeName);

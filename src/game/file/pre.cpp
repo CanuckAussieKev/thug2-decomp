@@ -14,6 +14,7 @@
 #include "game/file/file.h"
 #include "game/lst/hashtable.h"
 #include "game/script/params.h"
+#include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -312,7 +313,7 @@ namespace {
 // The script global block_pre_loading (Script::GetInteger by name - not decompiled yet).
 bool PreLoadingBlocked()
 {
-    return GameFunction<int(__cdecl*)(const char*, int)>(0x004790C0)("block_pre_loading", 0) != 0;
+    return Script::GetInteger("block_pre_loading") != 0;
 }
 // Always false in this build; only does debugging work when the debug flag is set.
 bool SkipSynchronousLoad() { return GameFunction<bool(__cdecl*)()>(0x00450EB0)(); }

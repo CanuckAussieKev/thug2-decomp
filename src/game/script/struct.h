@@ -107,7 +107,9 @@ struct CComponent {
 static_assert(sizeof(CComponent) == 0x10, "layout must match the original");
 
 struct CSymbolTableEntry {
-    uint8_t unknown0;
+    CSymbolTableEntry* Init();
+
+    uint8_t unknown0; // bit 0: in use
     ESymbolType type;
     uint16_t unknown2;
     uint32_t name;
@@ -124,6 +126,36 @@ struct CSymbolTableEntry {
 
 // 0x00478CF0: the global symbol `name` (following names that just name another symbol), or null.
 CSymbolTableEntry* LookUpSymbol(uint32_t name);
+// The global symbol `name` itself, or null.
+CSymbolTableEntry* FindSymbol(uint32_t name);
+// Make the (empty) symbol table: 0x1000 buckets, from the current heap.
+void CreateSymbolTable();
+// A new symbol `name` (from the symbol pool), linked in.
+CSymbolTableEntry* CreateSymbol(uint32_t name);
+// Link `entry` in / take it out of the table (the entry is kept).
+void LinkSymbol(CSymbolTableEntry* entry);
+void UnlinkSymbol(CSymbolTableEntry* entry);
+// Iterate over every symbol: pass null for the first, then the previous one; null at the end.
+CSymbolTableEntry* GetNextSymbol(CSymbolTableEntry* previous);
+
+// The values of global symbols (by checksum or name). Integers and floats convert to each other; missing ones
+// (or the wrong type) give 0 / 0.0 / null; GetSymbolValue gives the raw value of any type; strings give "".
+int GetInteger(uint32_t name);
+int GetInteger(const char* name);
+float GetFloat(uint32_t name);
+float GetFloat(const char* name);
+uint32_t GetSymbolValue(uint32_t name);
+uint32_t GetSymbolValue(const char* name);
+const char* GetString(uint32_t name);
+const char* GetString(const char* name);
+CStruct* GetStructure(uint32_t name);
+CStruct* GetStructure(const char* name);
+CArray* GetArray(uint32_t name);
+CArray* GetArray(const char* name);
+
+// Whether two components' values are equal (names standing for global symbols are looked up; integers and
+// floats compare by value; structures and arrays only when they are the same one).
+bool ComponentsEqual(CComponent* a, CComponent* b);
 
 // Strings owned by components: copied to the script heap (or, while the permanent string cache is on, shared
 // in its block).
@@ -217,6 +249,8 @@ public:
     // A copy of `value`.
     void AddStructure(uint32_t name, CStruct* value);
     void AddStructure(const char* name, CStruct* value);
+    void AddArray(uint32_t name, CArray* value);
+    void AddArray(const char* name, CArray* value);
     // A compiled script, copied to the script heap.
     void AddScript(uint32_t name, const uint8_t* code, uint32_t size);
     // By type: integer, float, 11 structure pointer, 12 array pointer, 13 checksum (others are ignored).
