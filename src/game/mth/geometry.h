@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 #include "game/mth/vector.h"
 
 namespace Mth {
@@ -14,6 +16,19 @@ public:
 
     // Grow the box to include `point` (x, y, z only).
     void AddPoint(const Vector& point);
+
+    // 1 if min <= point <= max on every axis (edges included; NaN gives 0). Returns int: the original sets
+    // all of EAX.
+    int ContainsPoint(const Vector& point) const;
+    // Number of axes (0-3) on which point lies within the box; `axes` gets a bit per axis (1 = x, 2 = y, 4 = z).
+    int CountAxesContaining(const Vector& point, uint32_t& axes) const;
+    // Where the segment first enters the box through a face, checking +X, -X, +Y, -Y, +Z, -Z in that order.
+    // Fills `hit` (w = 1) and the face's outward normal. False if both ends are inside, both are beyond the
+    // same face, or the segment misses every face.
+    bool LineIntersect(const Line& line, Vector& hit, Vector& normal) const;
+    // For a point inside: the nearest point on the surface (moving along one axis; ties go to the earlier
+    // axis, and to max over min). For a point outside: the point clamped onto the box, w = 1.
+    void GetClosestSurfacePoint(const Vector& point, Vector& out) const;
 
     Vector min;
     Vector max;

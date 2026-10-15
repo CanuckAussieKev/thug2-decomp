@@ -37,6 +37,167 @@ void BBox::AddPoint(const Vector& point)
         max.z = point.z;
 }
 
+// 0x004025A0
+int BBox::ContainsPoint(const Vector& point) const
+{
+    // Written as "not outside" so NaN coordinates count as outside, as in the original.
+    if (!(point.x >= min.x) || !(point.y >= min.y) || !(point.z >= min.z))
+        return 0;
+    if (!(point.x <= max.x) || !(point.y <= max.y) || !(point.z <= max.z))
+        return 0;
+    return 1;
+}
+
+// 0x004034D0
+int BBox::CountAxesContaining(const Vector& point, uint32_t& axes) const
+{
+    axes = 0;
+    int count = 0;
+    if (point.x >= min.x && point.x <= max.x) {
+        ++count;
+        axes |= 1;
+    }
+    if (point.y >= min.y && point.y <= max.y) {
+        ++count;
+        axes |= 2;
+    }
+    if (point.z >= min.z && point.z <= max.z) {
+        ++count;
+        axes |= 4;
+    }
+    return count;
+}
+
+// 0x00403550
+bool BBox::LineIntersect(const Line& line, Vector& hit, Vector& normal) const
+{
+    const Vector& s = line.start;
+    const Vector& e = line.end;
+    if (ContainsPoint(s) && ContainsPoint(e))
+        return false;
+
+    // Both ends beyond the same face: no hit.
+    if (max.y < s.y && e.y > max.y)
+        return false;
+    if (s.y < min.y && e.y < min.y)
+        return false;
+    if (max.x < s.x && e.x > max.x)
+        return false;
+    if (s.x < min.x && e.x < min.x)
+        return false;
+    if (max.z < s.z && e.z > max.z)
+        return false;
+    if (s.z < min.z && e.z < min.z)
+        return false;
+
+    float dx = e.x - s.x, dy = e.y - s.y, dz = e.z - s.z;
+    if (dx == 0.0f)
+        dx = 1e-6f;
+    if (dy == 0.0f)
+        dy = 1e-6f;
+    if (dz == 0.0f)
+        dz = 1e-6f;
+
+    // Crossing a face at fraction k along the segment; the hit must be strictly inside the face.
+    auto inside_y_z = [&](float y, float z) { return y < max.y && min.y < y && z < max.z && min.z < z; };
+    auto inside_x_z = [&](float x, float z) { return x < max.x && min.x < x && z < max.z && min.z < z; };
+    auto inside_x_y = [&](float x, float y) { return x < max.x && min.x < x && y < max.y && min.y < y; };
+
+    if (max.x < s.x && e.x < max.x && dx < 0.0f) {
+        float k = (1.0f / dx) * (max.x - s.x);
+        float y = k * dy + s.y, z = k * dz + s.z;
+        if (inside_y_z(y, z)) {
+            hit = {max.x, y, z, 1.0f};
+            normal = {1.0f, 0.0f, 0.0f, 0.0f};
+            return true;
+        }
+    }
+    if (s.x < min.x && min.x < e.x && dx > 0.0f) {
+        float k = (1.0f / dx) * (min.x - s.x);
+        float y = k * dy + s.y, z = k * dz + s.z;
+        if (inside_y_z(y, z)) {
+            hit = {min.x, y, z, 1.0f};
+            normal = {-1.0f, 0.0f, 0.0f, 0.0f};
+            return true;
+        }
+    }
+    if (max.y < s.y && e.y < max.y && dy < 0.0f) {
+        float k = (1.0f / dy) * (max.y - s.y);
+        float x = k * dx + s.x, z = k * dz + s.z;
+        if (inside_x_z(x, z)) {
+            hit = {x, max.y, z, 1.0f};
+            normal = {0.0f, 1.0f, 0.0f, 0.0f};
+            return true;
+        }
+    }
+    if (s.y < min.y && min.y < e.y && dy > 0.0f) {
+        float k = (1.0f / dy) * (min.y - s.y);
+        float x = k * dx + s.x, z = k * dz + s.z;
+        if (inside_x_z(x, z)) {
+            hit = {x, min.y, z, 1.0f};
+            normal = {0.0f, -1.0f, 0.0f, 0.0f};
+            return true;
+        }
+    }
+    if (max.z < s.z && e.z < max.z && dz < 0.0f) {
+        float k = (1.0f / dz) * (max.z - s.z);
+        float x = k * dx + s.x, y = k * dy + s.y;
+        if (inside_x_y(x, y)) {
+            hit = {x, y, max.z, 1.0f};
+            normal = {0.0f, 0.0f, 1.0f, 0.0f};
+            return true;
+        }
+    }
+    if (s.z < min.z && e.z > min.z && dz > 0.0f) {
+        float k = (1.0f / dz) * (min.z - s.z);
+        float x = k * dx + s.x, y = k * dy + s.y;
+        if (inside_x_y(x, y)) {
+            hit = {x, y, min.z, 1.0f};
+            normal = {0.0f, 0.0f, -1.0f, 0.0f};
+            return true;
+        }
+    }
+    return false;
+}
+
+// 0x00403C00
+void BBox::GetClosestSurfacePoint(const Vector& point, Vector& out) const
+{
+    uint32_t axes;
+    if (CountAxesContaining(point, axes) == 3) {
+        // Inside: move along whichever axis reaches a face soonest.
+        float best_value = 0.0f, best_distance = 0.0f; // always set on the first pass (axis 0)
+        int best_axis = 0;
+        for (int axis = 0; axis < 3; ++axis) {
+            float p = (&point.x)[axis], lo = (&min.x)[axis], hi = (&max.x)[axis];
+            float value = hi, distance = hi - p;
+            if (!(distance <= p - lo)) {
+                value = lo;
+                distance = p - lo;
+            }
+            if (axis == 0 || distance < best_distance) {
+                best_axis = axis;
+                best_value = value;
+                best_distance = distance;
+            }
+        }
+        out = point;
+        (&out.x)[best_axis] = best_value;
+        return;
+    }
+
+    // Outside: keep the coordinates that are within range and clamp the rest.
+    out.w = 1.0f;
+    for (int axis = 0; axis < 3; ++axis) {
+        float p = (&point.x)[axis], lo = (&min.x)[axis], hi = (&max.x)[axis];
+        float& o = (&out.x)[axis];
+        if (axes & (1u << axis))
+            o = p;
+        else
+            o = (p <= lo) ? lo : hi; // NaN goes to max, as in the original
+    }
+}
+
 // 0x00403230
 Capsule::Capsule(const Vector& start, const Vector& offset, float r) : line(start, start + offset), radius(r) {}
 
@@ -350,6 +511,10 @@ struct GeometryAdapter {
 
 REPLACE(0x00402D60, &Line::DistanceSqrToPoint);
 REPLACE(0x00402F00, Mth::ClosestPointsBetweenLines);
+REPLACE(0x004025A0, &BBox::ContainsPoint);
+REPLACE(0x004034D0, &BBox::CountAxesContaining);
+REPLACE(0x00403550, &BBox::LineIntersect);
+REPLACE(0x00403C00, &BBox::GetClosestSurfacePoint);
 REPLACE(0x00402640, &Line::DistanceSqrToLine);
 REPLACE(0x004032E0, &Capsule::IntersectsSegment);
 REPLACE(0x00403330, &Capsule::ContainsPoint);

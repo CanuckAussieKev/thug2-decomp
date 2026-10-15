@@ -778,6 +778,78 @@ void TestBatch12()
     }
 }
 
+void TestBatch13()
+{
+    using Mth::BBox;
+    using Mth::Line;
+    using Mth::Vector;
+    using ContainsFn = int(__thiscall*)(const BBox*, const Vector*);
+    using CountFn = int(__thiscall*)(const BBox*, const Vector*, uint32_t*);
+    using IntersectFn = bool(__thiscall*)(const BBox*, const Line*, Vector*, Vector*);
+    using ClosestFn = void(__thiscall*)(const BBox*, const Vector*, Vector*);
+
+    BBox box;
+    box.min = {-2.0f, -1.0f, -3.0f, 1.0f};
+    box.max = {4.0f, 5.0f, 2.0f, 1.0f};
+
+    uint32_t seed = 777;
+    auto next = [&seed] {
+        seed = seed * 1103515245u + 12345u;
+        return static_cast<float>(static_cast<int>(seed >> 8) % 1601 - 800) / 100.0f;
+    };
+
+    // Random points, plus ones exactly on the faces and corners.
+    Vector points[120];
+    int count = 0;
+    for (; count < 100; ++count)
+        points[count] = {next(), next(), next(), 0.5f};
+    const Vector special[] = {{4, 5, 2, 1}, {-2, -1, -3, 1}, {4, 0, 0, 1}, {0, 5, 0, 1}, {0, 0, -3, 1},
+                              {1, 2, -0.5f, 1}, {3.9f, 2, 0, 1}, {1, -0.9f, 0, 1}, {1, 2, 1.95f, 1}};
+    for (const Vector& p : special)
+        points[count++] = p;
+
+    for (int i = 0; i < count; ++i) {
+        const Vector& p = points[i];
+        Check(Original<ContainsFn>(0x004025A0)(&box, &p) == box.ContainsPoint(p), "BBox::ContainsPoint");
+
+        uint32_t expected_axes = 99, actual_axes = 77;
+        int expected = Original<CountFn>(0x004034D0)(&box, &p, &expected_axes);
+        int actual = box.CountAxesContaining(p, actual_axes);
+        Check(expected == actual && expected_axes == actual_axes, "BBox::CountAxesContaining");
+
+        Vector expected_point{9, 9, 9, 9}, actual_point{9, 9, 9, 9};
+        Original<ClosestFn>(0x00403C00)(&box, &p, &expected_point);
+        box.GetClosestSurfacePoint(p, actual_point);
+        CheckVector(expected_point, actual_point, "BBox::GetClosestSurfacePoint");
+    }
+
+    // Segments between random points (many cross faces), plus one aimed at each face.
+    const Vector centre{1, 2, -0.5f, 1};
+    const Vector outside[] = {{10, 2, 0, 1}, {-10, 2, 0, 1}, {1, 12, 0, 1}, {1, -12, 0, 1}, {1, 2, 9, 1}, {1, 2, -9, 1}};
+    for (int i = 0; i + 1 < count + 6; i += 2) {
+        Vector a = i < count ? points[i] : outside[(i - count) % 6];
+        Vector b = i + 1 < count ? points[i + 1] : centre;
+        for (int pass = 0; pass < 2; ++pass) {
+            const Line line = pass == 0 ? Line(a, b) : Line(b, a);
+            Vector eh{9, 9, 9, 9}, en{9, 9, 9, 9}, ah{9, 9, 9, 9}, an{9, 9, 9, 9};
+            bool expected = Original<IntersectFn>(0x00403550)(&box, &line, &eh, &en);
+            bool actual = box.LineIntersect(line, ah, an);
+            Check(expected == actual, "BBox::LineIntersect (result)");
+            CheckVector(eh, ah, "BBox::LineIntersect (hit)");
+            CheckVector(en, an, "BBox::LineIntersect (normal)");
+        }
+    }
+    for (const Vector& o : outside) {
+        const Line line(o, centre);
+        Vector eh{}, en{}, ah{}, an{};
+        bool expected = Original<IntersectFn>(0x00403550)(&box, &line, &eh, &en);
+        bool actual = box.LineIntersect(line, ah, an);
+        Check(expected && actual, "BBox::LineIntersect (face-aimed)");
+        CheckVector(eh, ah, "BBox::LineIntersect (face-aimed hit)");
+        CheckVector(en, an, "BBox::LineIntersect (face-aimed normal)");
+    }
+}
+
 // --- late self-tests ----------------------------------------------------------------------------------
 
 void TestLzssLate()
@@ -1023,5 +1095,6 @@ void RunSelfTests()
     TestBatch10();
     TestBatch11();
     TestBatch12();
+    TestBatch13();
     Log(g_failures ? "self-tests: %d FAILED" : "self-tests: all passed", g_failures);
 }

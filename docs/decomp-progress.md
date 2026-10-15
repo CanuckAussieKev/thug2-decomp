@@ -57,8 +57,12 @@ Batches marked (untested) haven't been run in-game yet.
       parallel threshold 1e-6; branch order and NaN behaviour kept), `Capsule::IntersectsSegment` (0x4032E0,
       previously deferred; returns int because the original sets all of EAX). Self-tests: 200 random pairs plus
       parallel / anti-parallel / point-like cases, tolerance scaled to input size.
-- [ ] Batch 13+: 0x403550 (1.6 KB) / 0x403C00, 0x404EC0-0x4050F0, 0x405170-0x405A20, 0x4060F0-0x4062D0,
-      0x404BA0 (matrix debug print).
+- [x] Batch 13 (untested): `BBox::ContainsPoint` (0x4025A0, returns int), `BBox::CountAxesContaining`
+      (0x4034D0), `BBox::LineIntersect` (0x403550, faces tested +X -X +Y -Y +Z -Z), `BBox::GetClosestSurfacePoint`
+      (0x403C00), with self-tests (random and face-aimed segments, points on faces and corners).
+- [ ] Batch 14+: 0x403BB0, 0x404EC0-0x4050F0, 0x405170-0x405A20, 0x4060F0-0x4062D0, 0x404BA0 (matrix debug print).
+- [ ] TODO (safety tool): scan the call sites of every replaced function for callers that read ECX/EDX after
+      the call without reloading them. See the register-preservation note below.
 - [x] Infrastructure (untested): late self-test stage. A one-shot hook on ParseNetworkParams (0x4E1220, called
       once from WinMain before the main loop) removes itself, runs late self-tests, then calls the real function.
       `OriginalCode` scopes temporarily restore an original function so it can be compared after hooking.
@@ -72,6 +76,11 @@ Batches marked (untested) haven't been run in-game yet.
   (`src/hook/game.h`). Self-tests that touch such state save and restore it.
 - Functions that need the game running (memory, anything touching game objects) go in the late self-tests
   in `selftest.cpp`; wrap each call to an original in `OriginalCode original(address);`.
+- RISK - register preservation: the exe was built with whole-program optimisation, so some callers rely on a
+  callee leaving a "volatile" register (ECX/EDX) untouched. Example: 0x403C00 keeps using ECX after calling
+  0x4034D0. Our compiled replacements may clobber those registers. Before replacing a function, check whether
+  it preserves ECX/EDX and whether any caller we are NOT replacing uses them after the call. Checked so far:
+  0x4034D0 (only caller replaced too), 0x4025A0 (other callers tail-call it or return straight after).
 - Never REPLACE an address PartyMod patches at runtime (it would overwrite our jump or we'd overwrite its).
   Function entries PartyMod jmp-patches: 0x5F56E0, 0x5BDCC0, 0x5F3A50, 0x4A0780, 0x4A07C0, 0x4B2440, 0x4B2330.
   It also patches many call sites and bytes inside functions (see its src/*.c); check before replacing anything
