@@ -2,6 +2,7 @@
 
 #include <cmath>
 
+#include "game/core/dbg.h"
 #include "game/mth/math.h"
 #include "hook/hook.h"
 
@@ -119,6 +120,59 @@ Matrix& CreateRotateMatrix(Matrix& m, const Vector& axis, float angle)
 Matrix& Matrix::operator=(const MatrixProduct& product)
 {
     return Multiply(*this, *product.left, *product.right);
+}
+
+// 0x00405310
+void Matrix::GetRotationAxisAngle(Vector& axis, float& angle) const
+{
+    const float trace = (row[1].y + row[0].x + row[2].z) - 1.0f; // 2 cos(angle)
+    const float x = row[1].z - row[2].y;
+    const float y = row[2].x - row[0].z;
+    const float z = row[0].y - row[1].x;
+    const float length = std::sqrt(y * y + x * x + z * z); // 2 sin(angle)
+
+    if (length <= 0.0f) {
+        axis = {0.0f, 0.0f, 0.0f, 1.0f};
+    } else {
+        float inv = 1.0f / length;
+        axis = {x * inv, y * inv, z * inv, inv};
+    }
+    angle = std::atan2(length, trace);
+
+    if (!(length <= 0.01f) || !(trace <= 0.0f))
+        return;
+
+    // Near 180 degrees the differences above vanish: rebuild the axis from the largest diagonal element.
+    // (Nested exactly as in the original so NaNs choose the same case.)
+    const float m00 = row[0].x, m11 = row[1].y, m22 = row[2].z;
+    const Vector y_largest{row[1].x + row[0].y, m11 + 1.0f + m11 + 1.0f, row[1].z + row[2].y, 1.0f};
+    const Vector x_largest{m00 + 1.0f + m00 + 1.0f, row[1].x + row[0].y, row[0].z + row[2].x, 1.0f};
+    const Vector z_largest{row[0].z + row[2].x, row[1].z + row[2].y, m22 + 1.0f + m22 + 1.0f, 1.0f};
+    if (m00 <= m11)
+        axis = m22 < m11 ? y_largest : z_largest;
+    else
+        axis = m22 < m00 ? x_largest : z_largest;
+    axis.Normalize();
+}
+
+// 0x00405850
+void Matrix::RotateLocal(const Vector& angles)
+{
+    if (angles.x != 0.0f)
+        RotateXLocal(angles.x);
+    if (angles.y != 0.0f)
+        RotateYLocal(angles.y);
+    if (angles.z != 0.0f)
+        RotateZLocal(angles.z);
+}
+
+// 0x00404BA0
+void Matrix::Print() const
+{
+    Dbg::Printf("-----------------\n");
+    for (const Vector& r : row)
+        Dbg::Printf("%f %f %f %f\n", r.x, r.y, r.z, r.w);
+    Dbg::Printf("-----------------\n");
 }
 
 // 0x00405170
@@ -344,6 +398,9 @@ REPLACE(0x004048D0, &Mth::Matrix::SetFromEulerAngles);
 REPLACE(0x00404C60, static_cast<Mth::Matrix& (*)(Mth::Matrix&, const Mth::Vector&, float)>(&Mth::CreateRotateMatrix));
 REPLACE(0x00404100, static_cast<Mth::Matrix& (Mth::Matrix::*)(const Mth::MatrixProduct&)>(&Mth::Matrix::operator=));
 REPLACE(0x00405170, &Mth::Matrix::OrthoNormalizeAbout);
+REPLACE(0x00405310, &Mth::Matrix::GetRotationAxisAngle);
+REPLACE(0x00405850, &Mth::Matrix::RotateLocal);
+REPLACE(0x00404BA0, &Mth::Matrix::Print);
 REPLACE(0x00404EC0,static_cast<Mth::Matrix& (*)(Mth::Matrix&, int, float)>(&Mth::CreateRotateMatrix));
 REPLACE(0x00404F50, Mth::CreateLookAtMatrix);
 REPLACE(0x00405080, Mth::CreateOrthographicMatrix);

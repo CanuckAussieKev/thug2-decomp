@@ -21,6 +21,17 @@ public:
     // this = *product.left * *product.right
     Matrix& operator=(const MatrixProduct& product);
 
+    // The rotation as an axis and angle (radians, 0..pi). The axis is (m12 - m21, m20 - m02, m01 - m10)
+    // scaled by 1/length, with w = 1/length; near 180 degrees it is rebuilt from the largest diagonal element
+    // and normalised (w = 1). With no rotation the axis is (0, 0, 0, 1).
+    void GetRotationAxisAngle(Vector& axis, float& angle) const;
+
+    // Rotate about the local X, Y and Z axes in turn by angles.x/y/z, skipping any that are exactly 0.
+    void RotateLocal(const Vector& angles);
+
+    // Debug output of the four rows.
+    void Print() const;
+
     // Make the rotation rows orthonormal again, keeping row `axis` (0-2) as is: the other two are rebuilt from
     // cross products and normalised. Whichever of them is less perpendicular to the axis row is rebuilt first.
     Matrix& OrthoNormalizeAbout(int axis);

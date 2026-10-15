@@ -15,6 +15,7 @@
 #include "game/mth/math.h"
 #include "game/mth/matrix.h"
 #include "game/mth/random.h"
+#include "game/mth/slerp.h"
 #include "game/mth/vector.h"
 #include "game/util/bitstream.h"
 #include "game/util/lzss.h"
@@ -1053,6 +1054,75 @@ void TestBatch16()
     }
 }
 
+void TestBatch17()
+{
+    using Mth::Matrix;
+    using Mth::SlerpInterpolator;
+    using Mth::Vector;
+    using AxisAngleFn = void(__thiscall*)(const Matrix*, Vector*, float*);
+    using RotateLocalFn = void(__thiscall*)(Matrix*, const Vector*);
+    using CtorFn = SlerpInterpolator*(__thiscall*)(void*, const Matrix*, const Matrix*);
+    using SetFn = int(__thiscall*)(SlerpInterpolator*, const Matrix*, const Matrix*);
+    using InvertFn = void(__thiscall*)(SlerpInterpolator*);
+
+    // Rotations: none, small, general, and 180 degrees about each axis (the special case).
+    Matrix rotations[8];
+    rotations[0].SetFromEulerAngles(0, 0, 0);
+    rotations[1].SetFromEulerAngles(0.01f, 0.0f, 0.005f);
+    rotations[2].SetFromEulerAngles(0.4f, -1.2f, 2.0f);
+    rotations[3].SetFromEulerAngles(1.0f, 0.5f, -0.25f);
+    Mth::CreateRotateMatrix(rotations[4], 0, 3.14159265f);
+    Mth::CreateRotateMatrix(rotations[5], 1, 3.14159265f);
+    Mth::CreateRotateMatrix(rotations[6], 2, 3.14159265f);
+    const Vector diagonal{1, 1, 0, 0};
+    Mth::CreateRotateMatrix(rotations[7], diagonal, 3.14159f);
+
+    for (const Matrix& m : rotations) {
+        Vector expected_axis{9, 9, 9, 9}, actual_axis{9, 9, 9, 9};
+        float expected_angle = -1, actual_angle = -1;
+        Original<AxisAngleFn>(0x00405310)(&m, &expected_axis, &expected_angle);
+        m.GetRotationAxisAngle(actual_axis, actual_angle);
+        CheckFloat(expected_angle, actual_angle, "Matrix::GetRotationAxisAngle (angle)");
+        CheckVector(expected_axis, actual_axis, "Matrix::GetRotationAxisAngle (axis)");
+    }
+
+    const Vector angle_sets[] = {{0, 0, 0, 0}, {0.3f, 0, 0, 0}, {0, -0.7f, 1.1f, 0}, {0.2f, 0.4f, -0.6f, 0}};
+    for (const Vector& angles : angle_sets) {
+        Matrix expected = rotations[2], actual = rotations[2];
+        Original<RotateLocalFn>(0x00405850)(&expected, &angles);
+        actual.RotateLocal(angles);
+        for (int i = 0; i < 4; ++i)
+            CheckVector(expected.row[i], actual.row[i], "Matrix::RotateLocal");
+    }
+
+    auto same_slerp = [](const SlerpInterpolator& a, const SlerpInterpolator& b, const char* what) {
+        for (int i = 0; i < 4; ++i) {
+            CheckVector(a.start.row[i], b.start.row[i], what);
+            CheckVector(a.end.row[i], b.end.row[i], what);
+        }
+        CheckVector(a.axis, b.axis, what);
+        CheckFloat(a.angle, b.angle, what);
+        Check(a.small_rotation == b.small_rotation, what);
+    };
+    for (int i = 0; i < 8; ++i) {
+        const Matrix& from = rotations[2];
+        const Matrix& to = rotations[i];
+        alignas(16) static unsigned char raw_expected[sizeof(SlerpInterpolator)];
+        auto* expected = Original<CtorFn>(0x00405E90)(raw_expected, &from, &to);
+        SlerpInterpolator actual(from, to);
+        same_slerp(*expected, actual, "SlerpInterpolator::SlerpInterpolator");
+
+        int r1 = Original<SetFn>(0x00405990)(expected, &to, &from);
+        int r2 = actual.SetMatrices(to, from);
+        Check(r1 == r2, "SlerpInterpolator::SetMatrices (result)");
+        same_slerp(*expected, actual, "SlerpInterpolator::SetMatrices");
+
+        Original<InvertFn>(0x004058E0)(expected);
+        actual.InvertDirection();
+        same_slerp(*expected, actual, "SlerpInterpolator::InvertDirection");
+    }
+}
+
 // --- late self-tests ----------------------------------------------------------------------------------
 
 void TestLzssLate()
@@ -1303,5 +1373,6 @@ void RunSelfTests()
     TestBatch14();
     TestBatch15();
     TestBatch16();
+    TestBatch17();
     Log(g_failures ? "self-tests: %d FAILED" : "self-tests: all passed", g_failures);
 }

@@ -72,9 +72,16 @@ Batches marked (untested) haven't been run in-game yet.
       language setting at 0x7CEFA0), `Matrix::operator=(MatrixProduct)` (0x404100), `Matrix::OrthoNormalizeAbout`
       (0x405170), `Mth::FastSin` / `FastCos` (0x405FF0, 0x406020; lookup table + interpolation, no range
       reduction), with self-tests. Register scan: 117 functions, 3,519 call sites, clean.
-- [ ] Batch 17+: remaining core-block functions 0x405310, 0x405850, 0x405990 (+ its wrapper 0x405E90),
-      0x405A20 (1.1 KB), 0x405FA0, 0x4062D0. Still skipped/deferred: 0x401020, 0x401AF0, 0x403210, 0x403220,
-      0x404BA0 (matrix debug print), 0x4058E0.
+- [x] Batch 17 (untested): `Mth::SlerpInterpolator` (layout: start matrix +0x00, end +0x40, axis +0x80, angle
+      +0x90, small-rotation flag +0x94) - ctor 0x405E90, `SetMatrices` 0x405990 (threshold is a game variable
+      at 0x67C648, 2 degrees), `InvertDirection` 0x4058E0 (the previously deferred "unknown class" function);
+      `Matrix::GetRotationAxisAngle` 0x405310 (with the near-180-degree special case), `Matrix::RotateLocal`
+      0x405850, `Matrix::Print` 0x404BA0, `Vector::Print` 0x405FA0, with self-tests (debug prints untested).
+      Register scan: 124 functions, 3,537 call sites, clean.
+- [ ] Batch 18: last two real core-block functions - 0x405A20 (1.1 KB, almost certainly
+      SlerpInterpolator's "matrix at time t") and 0x4062D0 (angle about an axis? read the disassembly).
+      Still skipped/deferred: 0x401020 (compiler helper), 0x401AF0 (empty loop), 0x403210 / 0x403220
+      (zero one field of unknown classes).
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
       for original callers that read ECX/EDX after the call without writing them first (ignoring push-to-reserve,
       lea reg,[reg], or reg,-1 and zeroing idioms; callers that are themselves replaced count as safe).

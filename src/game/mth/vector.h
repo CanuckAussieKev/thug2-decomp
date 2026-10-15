@@ -27,6 +27,8 @@ public:
     Vector& SetDirection(const Vector& direction);
     // Keep only the part along unit vector `axis`: axis * dot(this, axis). w is scaled too.
     Vector& ProjectOnto(const Vector& axis);
+    // Debug output: "[x y z w]".
+    void Print() const;
     // The x, y or z component with the largest magnitude (ties favour x, then y); `axis` gets 0, 1 or 2.
     float GetMaxAxis(int* axis) const;
 

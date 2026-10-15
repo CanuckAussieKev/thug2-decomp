@@ -3,6 +3,7 @@
 #include <cmath>
 #include <new>
 
+#include "game/core/dbg.h"
 #include "hook/hook.h"
 
 namespace Mth {
@@ -85,6 +86,12 @@ Vector& Vector::ProjectOnto(const Vector& axis)
     float dot = y * axis.y + z * axis.z + axis.x * x;
     *this = {dot * axis.x, dot * axis.y, dot * axis.z, dot * axis.w};
     return *this;
+}
+
+// 0x00405FA0
+void Vector::Print() const
+{
+    Dbg::Printf("[%f %f %f %f]\n", x, y, z, w);
 }
 
 // 0x00406260
@@ -278,6 +285,7 @@ REPLACE(0x004060F0, &Vector::RotateToPlane);
 REPLACE(0x004061A0, &Vector::SetDirection);
 REPLACE(0x00406200, &Vector::ProjectOnto);
 REPLACE(0x00406260, &Vector::GetMaxAxis);
+REPLACE(0x00405FA0, &Vector::Print);
 REPLACE(0x004023A0, &Vector::LengthSqr);
 REPLACE(0x004023C0, &Vector::Length);
 REPLACE(0x004023F0, &Vector::Normalize);

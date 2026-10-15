@@ -28,6 +28,7 @@ add_library(thug2_decomp SHARED
     src/game/mth/math.cpp
     src/game/mth/matrix.cpp
     src/game/mth/random.cpp
+    src/game/mth/slerp.cpp
     src/game/mth/vector.cpp
     src/game/util/bitstream.cpp
     src/game/util/lzss.cpp
