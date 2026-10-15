@@ -21,8 +21,16 @@ Batches marked (untested) haven't been run in-game yet.
       with the exe at 0x690FC8-0x690FDC via `GameVariable`), `Mth::Sign` (0x405FD0), Vector RotateY90 /
       DegreesToRadians / RadiansToDegrees / FeetToInches / NegateXRotateX90 (0x405EB0-0x405F80),
       `Crc::GenerateCRCCaseless` (0x401B30), `Mem::Clear` (0x401C90). Skipped 0x401AF0 (empty loop, no effect).
-- [ ] Batch 5+: the rest of the block, smallest first. Next up: 0x401D00-0x401F50 (small, each calls one
-      function), 0x4032A0-0x403450, 0x403E80-0x404010, 0x405600-0x405990.
+- [x] Batch 5 (untested, HIGHER RISK): memory wrappers `Mem::New` (0x4015D0), `Mem::Free` (0x401000),
+      `Mem::Calloc` x3 (0x401CC0, 0x401D00, 0x401D40) over the game's manager (ptr at 0x7D1800, allocate
+      0x5BAFC0, free 0x5BABA0, both __thiscall); `Str::String` ctor/copy-ctor/dtor/assign x2/CopyRange
+      (0x401D80-0x401FA0, live-count global 0x690FA0); `Str::FindCaseless` (0x401FF0); `Dbg::Printf` (0x401C30).
+      Memory + String have NO self-tests (the game's memory manager doesn't exist when self-tests run).
+      If the game fails at startup, revert this batch first.
+- [ ] Batch 6+: the rest of the block, smallest first. Next up: 0x4032A0-0x403450, 0x403EF0-0x404010,
+      0x405600-0x405990, 0x4060F0-0x406260.
+- [ ] Infrastructure idea: a second self-test stage that runs once the game is initialised (e.g. on the first
+      frame), so allocator/String functions can be tested against the originals too.
 
 ## Notes
 - Ghidra's pseudocode can be wrong for x87 float code: 0x4023A0 decompiled as an empty function but is

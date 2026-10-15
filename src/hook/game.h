@@ -11,3 +11,15 @@ T& GameVariable(uintptr_t address)
 {
     return *reinterpret_cast<T*>(address);
 }
+
+// A function in the exe that hasn't been rewritten yet, called by address:
+//
+//   auto allocate = GameFunction<void*(__thiscall*)(Manager*, unsigned, int, Heap*)>(0x005BAFC0);
+//
+// Once that function is rewritten, call our version directly instead (calling a replaced function by
+// address would just land in our code anyway).
+template <typename Fn>
+Fn GameFunction(uintptr_t address)
+{
+    return reinterpret_cast<Fn>(address);
+}

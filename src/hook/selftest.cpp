@@ -378,6 +378,16 @@ void TestBatch4()
     Check(Original<ClearFn>(0x00401C90)(8, nullptr) == Mem::Clear(8, nullptr), "Mem::Clear(null)");
 }
 
+void TestBatch5()
+{
+    using FindFn = const char*(__cdecl*)(const char*, const char*);
+    const char* haystacks[] = {"", "Hello World", "levels\\NJ\\nj_Scripts.qb", "aaab", "abcABCabc"};
+    const char* needles[] = {"", "world", "NJ_SCR", "aab", "cab", "x", "ABCABCABCD", "b"};
+    for (const char* h : haystacks)
+        for (const char* n : needles)
+            Check(Original<FindFn>(0x00401FF0)(h, n) == Str::FindCaseless(h, n), "Str::FindCaseless");
+}
+
 } // namespace
 
 void RunSelfTests()
@@ -388,5 +398,6 @@ void RunSelfTests()
     TestBitStream();
     TestStringsAndMath();
     TestBatch4();
+    TestBatch5();
     Log(g_failures ? "self-tests: %d FAILED" : "self-tests: all passed", g_failures);
 }

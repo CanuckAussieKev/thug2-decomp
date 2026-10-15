@@ -20,8 +20,10 @@ add_library(thug2_decomp SHARED
     src/hook/log.cpp
     src/hook/selftest.cpp
     src/game/core/crc.cpp
+    src/game/core/dbg.cpp
     src/game/core/mem.cpp
     src/game/core/str.cpp
+    src/game/core/string.cpp
     src/game/mth/math.cpp
     src/game/mth/matrix.cpp
     src/game/mth/random.cpp
