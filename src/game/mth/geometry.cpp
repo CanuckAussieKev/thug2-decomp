@@ -87,6 +87,194 @@ float Line::DistanceSqrToPoint(const Vector& point, Vector* offset) const
     return result.x * result.x + result.y * result.y + result.z * result.z;
 }
 
+// 0x00402640
+// Region-based closest points between two segments. With this = P0 + s*D0 and other = P1 + t*D1, the squared
+// distance is a quadratic in (s, t):  a00 s^2 + 2 a01 s t + a11 t^2 + 2 b0 s + 2 b1 t + c.  Its unconstrained
+// minimum is checked against the unit square, and the edge or corner it falls outside of is minimised instead.
+// The branch order follows the original exactly (it matters for which edge wins at region boundaries).
+float Line::DistanceSqrToLine(const Line& other, float* s_out, float* t_out) const
+{
+    const float dx = start.x - other.start.x, dy = start.y - other.start.y, dz = start.z - other.start.z;
+    const float d0x = end.x - start.x, d0y = end.y - start.y, d0z = end.z - start.z;
+    const float d1x = other.end.x - other.start.x, d1y = other.end.y - other.start.y,
+                d1z = other.end.z - other.start.z;
+
+    const float a00 = d0y * d0y + d0z * d0z + d0x * d0x;
+    const float a01 = -d0y * d1y + -d0z * d1z + -d0x * d1x;
+    const float a11 = d1y * d1y + d1z * d1z + d1x * d1x;
+    const float b0 = d0z * dz + d0y * dy + d0x * dx;
+    const float c = dy * dy + dz * dz + dx * dx;
+    const float det = std::fabs(a11 * a00 - a01 * a01);
+    auto compute_b1 = [&] { return -dy * d1y + -dz * d1z + -dx * d1x; };
+
+    float s = 0.0f, t = 0.0f, sqr = c;
+
+    // Minimise along one edge of the unit square.
+    auto edge_s0 = [&](float b1) { // s = 0, t free
+        s = 0.0f;
+        if (b1 >= 0.0f) {
+            t = 0.0f;
+            sqr = c;
+        } else if (a11 <= -b1) {
+            t = 1.0f;
+            sqr = b1 + b1 + c + a11;
+        } else {
+            t = -b1 / a11;
+            sqr = -(b1 / a11) * b1 + c;
+        }
+    };
+    auto edge_t0 = [&] { // t = 0, s free
+        t = 0.0f;
+        if (b0 >= 0.0f) {
+            s = 0.0f;
+            sqr = c;
+        } else if (a00 <= -b0) {
+            s = 1.0f;
+            sqr = b0 + b0 + c + a00;
+        } else {
+            s = -b0 / a00;
+            sqr = -(b0 / a00) * b0 + c;
+        }
+    };
+    auto edge_s1 = [&](float b1) { // s = 1, t free
+        s = 1.0f;
+        float tmp = b1 + a01;
+        if (tmp < 0.0f) {
+            if (-tmp < a11) {
+                t = -tmp / a11;
+                sqr = b0 + b0 + tmp * t + c + a00;
+            } else {
+                t = 1.0f;
+                sqr = tmp + b0 + tmp + b0 + c + a11 + a00;
+            }
+        } else {
+            t = 0.0f;
+            sqr = b0 + b0 + c + a00;
+        }
+    };
+    // t = 1 with s free, when b0 + a01 < 0 (the caller checks).
+    auto edge_t1_inside = [&](float tmp, float b1) {
+        t = 1.0f;
+        if (-tmp < a00) {
+            s = -tmp / a00;
+            sqr = b1 + b1 + tmp * s + c + a11;
+        } else {
+            s = 1.0f;
+            sqr = tmp + b1 + tmp + b1 + c + a11 + a00;
+        }
+    };
+    auto corner_s0_t1 = [&](float b1) {
+        s = 0.0f;
+        t = 1.0f;
+        sqr = b1 + b1 + c + a11;
+    };
+
+    // Comparisons are written so NaNs take the same branches as in the original.
+    if (!(det < 1e-6f)) {
+        // Not parallel: scaled by det, the unconstrained minimum is at (s, t).
+        const float b1 = compute_b1();
+        s = a01 * b1 - a11 * b0;
+        t = a01 * b0 - a00 * b1;
+        if (s < 0.0f) {
+            float tmp = b0 + a01;
+            if (!(t < 0.0f) && !(t <= det) && tmp < 0.0f)
+                edge_t1_inside(tmp, b1);
+            else if (t < 0.0f && b0 < 0.0f)
+                edge_t0();
+            else
+                edge_s0(b1);
+        } else if (!(s <= det)) {
+            float tmp = b0 + a01;
+            if (t < 0.0f && -b0 < a00) {
+                edge_t0();
+            } else if (!(t < 0.0f) && !(t <= det) && -tmp <= a00) {
+                if (tmp < 0.0f) {
+                    t = 1.0f;
+                    s = -tmp / a00;
+                    sqr = b1 + b1 + tmp * s + c + a11;
+                } else {
+                    corner_s0_t1(b1);
+                }
+            } else {
+                edge_s1(b1);
+            }
+        } else if (t < 0.0f) {
+            edge_t0();
+        } else if (!(t <= det)) {
+            float tmp = b0 + a01;
+            if (tmp < 0.0f)
+                edge_t1_inside(tmp, b1);
+            else
+                corner_s0_t1(b1);
+        } else {
+            // Interior: the unconstrained minimum is inside the unit square.
+            float inv = 1.0f / det;
+            s *= inv;
+            t *= inv;
+            sqr = (b0 + b0 + s * a00 + t * a01) * s + (b1 + b1 + s * a01 + t * a11) * t + c;
+        }
+    } else if (a01 <= 0.0f) {
+        // Parallel, pointing the same way.
+        if (a00 <= -b0) {
+            t = 0.0f;
+            s = 1.0f;
+            sqr = b0 + b0 + c + a00;
+        } else if (!(b0 <= 0.0f)) {
+            const float b1 = compute_b1();
+            s = 0.0f;
+            if (-a01 <= b0) {
+                t = 1.0f;
+                sqr = b1 + b1 + c + a11;
+            } else {
+                t = -(b0 / a01);
+                sqr = (b1 + b1 + t * a11) * t + c;
+            }
+        } else {
+            s = -(b0 / a00);
+            t = 0.0f;
+            sqr = s * b0 + c;
+        }
+    } else {
+        // Parallel, pointing opposite ways.
+        if (b0 >= 0.0f) {
+            s = 0.0f;
+            t = 0.0f;
+            sqr = c;
+        } else if (!(-b0 <= a00)) {
+            s = 1.0f;
+            const float b1 = compute_b1();
+            if (-(b0 + a00) < a01) {
+                t = -((b0 + a00) / a01);
+                float tmp = b1 + a01;
+                sqr = b0 + b0 + (t * a11 + tmp + tmp) * t + c + a00;
+            } else {
+                t = 1.0f;
+                float tmp = b1 + b0 + a01;
+                sqr = tmp + tmp + c + a11 + a00;
+            }
+        } else {
+            s = -(b0 / a00);
+            t = 0.0f;
+            sqr = s * b0 + c;
+        }
+    }
+
+    if (s_out)
+        *s_out = s;
+    if (t_out)
+        *t_out = t;
+    return std::fabs(sqr);
+}
+
+// 0x004032E0
+int Capsule::IntersectsSegment(const Line& segment, float* s, float* t, float* distance_sqr) const
+{
+    float distance = line.DistanceSqrToLine(segment, s, t);
+    if (distance_sqr)
+        *distance_sqr = distance;
+    return distance <= radius * radius ? 1 : 0;
+}
+
 namespace {
 
 constexpr float kEpsilon = 1e-5f;
@@ -162,6 +350,8 @@ struct GeometryAdapter {
 
 REPLACE(0x00402D60, &Line::DistanceSqrToPoint);
 REPLACE(0x00402F00, Mth::ClosestPointsBetweenLines);
+REPLACE(0x00402640, &Line::DistanceSqrToLine);
+REPLACE(0x004032E0, &Capsule::IntersectsSegment);
 REPLACE(0x00403330, &Capsule::ContainsPoint);
 REPLACE(0x00403230, &GeometryAdapter::ConstructCapsule);
 REPLACE(0x004032A0, &GeometryAdapter::ConstructCapsuleFromLine);

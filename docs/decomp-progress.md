@@ -53,9 +53,12 @@ Batches marked (untested) haven't been run in-game yet.
 - [x] Batch 11 (untested): `Line::DistanceSqrToPoint` (0x402D60), `Mth::ClosestPointsBetweenLines` (0x402F00,
       epsilon 1e-5, returns bool in AL), `Capsule::ContainsPoint` (0x403330, previously deferred), with
       self-tests covering segment ends, skew/parallel/degenerate lines and clamping.
-- [ ] Batch 12+: 0x402640 (1.8 KB, called by the deferred capsule test 0x4032E0 with three arguments -
-      probably segment-to-segment distance), then 0x4032E0; 0x403550 / 0x403C00, 0x404EC0-0x4050F0,
-      0x405170-0x405A20, 0x4060F0-0x4062D0.
+- [x] Batch 12 (untested): `Line::DistanceSqrToLine` (0x402640, 1.8 KB region-based segment/segment distance;
+      parallel threshold 1e-6; branch order and NaN behaviour kept), `Capsule::IntersectsSegment` (0x4032E0,
+      previously deferred; returns int because the original sets all of EAX). Self-tests: 200 random pairs plus
+      parallel / anti-parallel / point-like cases, tolerance scaled to input size.
+- [ ] Batch 13+: 0x403550 (1.6 KB) / 0x403C00, 0x404EC0-0x4050F0, 0x405170-0x405A20, 0x4060F0-0x4062D0,
+      0x404BA0 (matrix debug print).
 - [x] Infrastructure (untested): late self-test stage. A one-shot hook on ParseNetworkParams (0x4E1220, called
       once from WinMain before the main loop) removes itself, runs late self-tests, then calls the real function.
       `OriginalCode` scopes temporarily restore an original function so it can be compared after hooking.

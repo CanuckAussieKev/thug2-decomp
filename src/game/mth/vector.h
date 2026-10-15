@@ -56,6 +56,11 @@ struct Line {
     // Squared distance from `point` to the closest point on the segment (x, y, z only). If `offset` is given
     // it receives point - closest point, including w.
     float DistanceSqrToPoint(const Vector& point, Vector* offset = nullptr) const;
+
+    // Squared distance between this segment and `other` (x, y, z only). The closest points are
+    // start + s * (end - start) on this segment and other.start + t * (other.end - other.start) on the other;
+    // s and t (both in [0, 1]) are written out when the pointers are given.
+    float DistanceSqrToLine(const Line& other, float* s = nullptr, float* t = nullptr) const;
 };
 
 // Closest points between lines `a` and `b`: point_a = a.start + s * (a.end - a.start), point_b likewise with

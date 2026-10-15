@@ -718,6 +718,66 @@ void TestBatch11()
     }
 }
 
+void TestBatch12()
+{
+    using Mth::Capsule;
+    using Mth::Line;
+    using Mth::Vector;
+    using SegFn = float(__thiscall*)(const Line*, const Line*, float*, float*);
+    using CapsuleFn = int(__thiscall*)(const Capsule*, const Line*, float*, float*, float*);
+
+    uint32_t seed = 4242;
+    auto next = [&seed] {
+        seed = seed * 1103515245u + 12345u;
+        return static_cast<float>(static_cast<int>(seed >> 8) % 2001 - 1000) / 100.0f;
+    };
+
+    // Random pairs, plus constructed parallel / anti-parallel / collinear / point-like ones.
+    struct Pair {
+        Vector a_start, a_end, b_start, b_end;
+    };
+    static Pair pairs[220];
+    int count = 0;
+    for (; count < 200; ++count)
+        pairs[count] = {{next(), next(), next(), 1}, {next(), next(), next(), 1},
+                        {next(), next(), next(), 1}, {next(), next(), next(), 1}};
+    const Vector base_start{0, 0, 0, 1}, base_end{4, 2, 0, 1};
+    const Vector shifts[] = {{0, 0, 3, 0}, {-6, -3, 1, 0}, {6, 3, -1, 0}, {2, 1, 0, 0}, {0, 0, 0, 0}};
+    for (const Vector& shift : shifts) {
+        pairs[count++] = {base_start, base_end, base_start + shift, base_end + shift}; // parallel
+        pairs[count++] = {base_start, base_end, base_end + shift, base_start + shift}; // anti-parallel
+    }
+    const Vector point{1, 1, 1, 1};
+    pairs[count++] = {base_start, base_end, point, point}; // second is a point
+    pairs[count++] = {point, point, base_start, base_end}; // first is a point
+
+    for (int i = 0; i < count; ++i) {
+        const Line a(pairs[i].a_start, pairs[i].a_end);
+        const Line b(pairs[i].b_start, pairs[i].b_end);
+        float es = -7, et = -7, as = -7, at = -7;
+        float expected = Original<SegFn>(0x00402640)(&a, &b, &es, &et);
+        float actual = a.DistanceSqrToLine(b, &as, &at);
+        // Tolerance scaled to the input size: the result is a sum of large terms that mostly cancel.
+        float scale = 1.0f + (a.start - b.start).LengthSqr() + (a.end - a.start).LengthSqr() +
+                      (b.end - b.start).LengthSqr();
+        bool ok = std::fabs(expected - actual) <= 2e-5f * scale && std::fabs(es - as) <= 1e-3f &&
+                  std::fabs(et - at) <= 1e-3f;
+        if (!ok)
+            Log("  segment pair %d: original %g (s %g, t %g), ours %g (s %g, t %g)", i, expected, es, et, actual, as,
+                at);
+        Check(ok, "Line::DistanceSqrToLine");
+    }
+
+    const Capsule capsule(Line(base_start, base_end), 1.25f);
+    for (int i = 0; i < count; i += 7) {
+        const Line segment(pairs[i].b_start, pairs[i].b_end);
+        float es = 0, et = 0, ed = 0, as = 0, at = 0, ad = 0;
+        int expected = Original<CapsuleFn>(0x004032E0)(&capsule, &segment, &es, &et, &ed);
+        int actual = capsule.IntersectsSegment(segment, &as, &at, &ad);
+        Check(expected == actual, "Capsule::IntersectsSegment");
+    }
+}
+
 // --- late self-tests ----------------------------------------------------------------------------------
 
 void TestLzssLate()
@@ -962,5 +1022,6 @@ void RunSelfTests()
     TestBatch9();
     TestBatch10();
     TestBatch11();
+    TestBatch12();
     Log(g_failures ? "self-tests: %d FAILED" : "self-tests: all passed", g_failures);
 }

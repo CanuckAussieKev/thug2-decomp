@@ -33,6 +33,11 @@ public:
     // closest point on the segment (whether or not the point is inside).
     bool ContainsPoint(const Vector& point, Vector* offset) const;
 
+    // 1 if `segment` passes within the capsule, else 0. Optionally reports where (s on the capsule's line,
+    // t on the segment, see Line::DistanceSqrToLine) and the squared distance between them. Returns int, not
+    // bool: the original sets all of EAX.
+    int IntersectsSegment(const Line& segment, float* s, float* t, float* distance_sqr) const;
+
     Line line;
     float radius;
 };
