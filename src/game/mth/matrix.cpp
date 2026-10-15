@@ -122,6 +122,34 @@ Matrix& Matrix::operator=(const MatrixProduct& product)
     return Multiply(*this, *product.left, *product.right);
 }
 
+// 0x004062D0
+float GetAngleInPlane(const Matrix& m, const Vector& v, int ref_axis, int normal_axis)
+{
+    const Vector& normal = m.row[normal_axis];
+    const Vector& ref = m.row[ref_axis];
+
+    Vector in_plane = v;
+    in_plane.ProjectToPlane(normal);
+    if (in_plane.z * in_plane.z + in_plane.x * in_plane.x + in_plane.y * in_plane.y < 0.0001f)
+        return 0.0f;
+    in_plane.Normalize();
+
+    float cosine = in_plane.z * ref.z + in_plane.y * ref.y + in_plane.x * ref.x;
+    if (!(cosine <= 1.0f)) // NaN also becomes 1, as in the original
+        cosine = 1.0f;
+    else if (cosine < -1.0f)
+        cosine = -1.0f;
+    float angle = std::acos(cosine);
+
+    // Which way round: compare ref x in_plane with the plane normal on its largest axis.
+    Vector cross{ref.y * in_plane.z - ref.z * in_plane.y, ref.z * in_plane.x - ref.x * in_plane.z,
+                 ref.x * in_plane.y - ref.y * in_plane.x, 0.0f};
+    int axis;
+    bool cross_positive = cross.GetMaxAxis(&axis) > 0.0f;
+    bool normal_positive = (&normal.x)[axis] > 0.0f;
+    return cross_positive == normal_positive ? angle : -angle;
+}
+
 // 0x00405310
 void Matrix::GetRotationAxisAngle(Vector& axis, float& angle) const
 {
@@ -399,6 +427,7 @@ REPLACE(0x00404C60, static_cast<Mth::Matrix& (*)(Mth::Matrix&, const Mth::Vector
 REPLACE(0x00404100, static_cast<Mth::Matrix& (Mth::Matrix::*)(const Mth::MatrixProduct&)>(&Mth::Matrix::operator=));
 REPLACE(0x00405170, &Mth::Matrix::OrthoNormalizeAbout);
 REPLACE(0x00405310, &Mth::Matrix::GetRotationAxisAngle);
+REPLACE(0x004062D0, Mth::GetAngleInPlane);
 REPLACE(0x00405850, &Mth::Matrix::RotateLocal);
 REPLACE(0x00404BA0, &Mth::Matrix::Print);
 REPLACE(0x00404EC0,static_cast<Mth::Matrix& (*)(Mth::Matrix&, int, float)>(&Mth::CreateRotateMatrix));

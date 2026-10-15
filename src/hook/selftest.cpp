@@ -1123,6 +1123,52 @@ void TestBatch17()
     }
 }
 
+void TestBatch18()
+{
+    using Mth::Matrix;
+    using Mth::SlerpInterpolator;
+    using Mth::Vector;
+    using GetMatrixFn = void(__thiscall*)(const SlerpInterpolator*, Matrix*, float);
+    using AngleFn = float(__cdecl*)(const Matrix*, const Vector*, int, int);
+
+    Matrix from, to_small, to_large;
+    from.SetFromEulerAngles(0.2f, -0.4f, 0.9f);
+    from.row[3] = {1, 2, 3, 1};
+    to_small.SetFromEulerAngles(0.205f, -0.4f, 0.905f); // under the 2-degree threshold
+    to_small.row[3] = {4, -2, 3, 1};
+    to_large.SetFromEulerAngles(-1.0f, 0.8f, 2.5f);
+    to_large.row[3] = {-6, 0, 9, 1};
+
+    for (const Matrix* to : {&to_small, &to_large}) {
+        SlerpInterpolator slerp(from, *to);
+        for (float t : {-0.5f, 0.0f, 0.25f, 0.5f, 0.9f, 1.0f, 1.5f}) {
+            Matrix expected{}, actual{};
+            Original<GetMatrixFn>(0x00405A20)(&slerp, &expected, t);
+            slerp.GetMatrix(actual, t);
+            for (int i = 0; i < 4; ++i)
+                CheckVector(expected.row[i], actual.row[i], "SlerpInterpolator::GetMatrix");
+        }
+    }
+
+    Matrix m;
+    m.SetFromEulerAngles(0.3f, 1.1f, -0.7f);
+    const Vector vectors[] = {{1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 1, 0}, {-1, 2, 0.5f, 0}, {0.3f, -0.2f, -3, 0}};
+    for (const Vector& v : vectors) {
+        for (int ref = 0; ref < 3; ++ref) {
+            for (int normal = 0; normal < 3; ++normal) {
+                if (ref == normal)
+                    continue;
+                CheckFloat(Original<AngleFn>(0x004062D0)(&m, &v, ref, normal), Mth::GetAngleInPlane(m, v, ref, normal),
+                           "Mth::GetAngleInPlane");
+            }
+        }
+    }
+    // A vector along the plane normal has nothing in the plane: both should return 0.
+    const Vector along_normal = m.row[2];
+    CheckFloat(Original<AngleFn>(0x004062D0)(&m, &along_normal, 0, 2), Mth::GetAngleInPlane(m, along_normal, 0, 2),
+               "Mth::GetAngleInPlane (zero)");
+}
+
 // --- late self-tests ----------------------------------------------------------------------------------
 
 void TestLzssLate()
@@ -1374,5 +1420,6 @@ void RunSelfTests()
     TestBatch15();
     TestBatch16();
     TestBatch17();
+    TestBatch18();
     Log(g_failures ? "self-tests: %d FAILED" : "self-tests: all passed", g_failures);
 }

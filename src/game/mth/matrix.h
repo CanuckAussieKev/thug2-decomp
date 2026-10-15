@@ -67,6 +67,10 @@ public:
 
 // Fill `m` with a rotation of `angle` radians about `axis` (normalised internally; a zero axis is used as is).
 Matrix& CreateRotateMatrix(Matrix& m, const Vector& axis, float angle);
+
+// Signed angle (radians) from row `ref_axis` of `m` to `v`, measured in the plane whose normal is row
+// `normal_axis`. 0 if `v` has (almost) nothing in that plane.
+float GetAngleInPlane(const Matrix& m, const Vector& v, int ref_axis, int normal_axis);
 // The same about coordinate axis 0, 1 or 2 (x, y, z), matching CreateRotateX/Y/ZMatrix.
 Matrix& CreateRotateMatrix(Matrix& m, int axis, float angle);
 

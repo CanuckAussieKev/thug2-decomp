@@ -78,10 +78,19 @@ Batches marked (untested) haven't been run in-game yet.
       `Matrix::GetRotationAxisAngle` 0x405310 (with the near-180-degree special case), `Matrix::RotateLocal`
       0x405850, `Matrix::Print` 0x404BA0, `Vector::Print` 0x405FA0, with self-tests (debug prints untested).
       Register scan: 124 functions, 3,537 call sites, clean.
-- [ ] Batch 18: last two real core-block functions - 0x405A20 (1.1 KB, almost certainly
-      SlerpInterpolator's "matrix at time t") and 0x4062D0 (angle about an axis? read the disassembly).
-      Still skipped/deferred: 0x401020 (compiler helper), 0x401AF0 (empty loop), 0x403210 / 0x403220
-      (zero one field of unknown classes).
+- [x] Batch 18 (untested): `SlerpInterpolator::GetMatrix` (0x405A20) and `Mth::GetAngleInPlane` (0x4062D0;
+      the third argument Ghidra showed as unused is the reference row index), with self-tests.
+      Register scan: 126 functions, 3,555 call sites, clean.
+
+**Core utilities block: DONE - 126 of 130 functions rewritten.** The other 4 are deliberately left as original
+code (nothing gained by replacing them):
+- 0x401020: compiler-generated "construct an array of objects" helper, not game code.
+- 0x401AF0: an empty counting loop with no effect.
+- 0x403210 / 0x403220: one-line setters that zero a field (+0x10 / +0x20) of classes not identified yet.
+  Revisit when their classes turn up in another subsystem.
+
+## Next block
+Per docs/subsystems.md: file system (PIP/PRE archives, 0x5B6560-0x5BDAD0), then the script command libraries.
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
       for original callers that read ECX/EDX after the call without writing them first (ignoring push-to-reserve,
       lea reg,[reg], or reg,-1 and zeroing idioms; callers that are themselves replaced count as safe).

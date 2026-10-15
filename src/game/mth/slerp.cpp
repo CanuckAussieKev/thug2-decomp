@@ -46,6 +46,43 @@ void SlerpInterpolator::InvertDirection()
     angle = 6.28318548f - angle; // 2 pi
 }
 
+// 0x00405A20
+void SlerpInterpolator::GetMatrix(Matrix& out, float t) const
+{
+    if (t <= 0.0f) {
+        out = start;
+        return;
+    }
+    if (!(t < 1.0f)) {
+        out = end;
+        return;
+    }
+
+    // The translation is read first, as in the original (so `out` may be one of the stored matrices).
+    const Vector from = start.row[3];
+    const Vector to = end.row[3];
+    auto lerp = [t](const Vector& a, const Vector& b) {
+        return Vector{(b.x - a.x) * t + a.x, (b.y - a.y) * t + a.y, (b.z - a.z) * t + a.z, (b.w - a.w) * t + a.w};
+    };
+
+    if (small_rotation) {
+        // Too small to rotate accurately: blend the rotation rows and renormalise them.
+        for (int i = 0; i < 3; ++i)
+            out.row[i] = lerp(start.row[i], end.row[i]);
+        for (int i = 0; i < 3; ++i)
+            out.row[i].Normalize();
+        out.row[0].w = out.row[1].w = out.row[2].w = 0.0f;
+        out.row[3] = lerp(from, to);
+        return;
+    }
+
+    out = start;
+    out.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    out.Rotate(axis, t * angle);
+    out.row[3] = lerp(from, to);
+    out.row[3].w = 1.0f;
+}
+
 } // namespace Mth
 
 namespace {
@@ -61,4 +98,5 @@ struct SlerpAdapter {
 
 REPLACE(0x004058E0, &Mth::SlerpInterpolator::InvertDirection);
 REPLACE(0x00405990, &Mth::SlerpInterpolator::SetMatrices);
+REPLACE(0x00405A20, &Mth::SlerpInterpolator::GetMatrix);
 REPLACE(0x00405E90, &SlerpAdapter::Construct);
