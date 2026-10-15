@@ -37,9 +37,13 @@ Batches marked (untested) haven't been run in-game yet.
       multiply through the statically linked D3DXMatrixMultiply, ours use `Mth::Multiply`), with self-tests.
       Deferred: 0x405600 (Matrix invert - needs 0x4043A0 / 0x4041E0 / 0x404120), 0x405950 (needs 0x404C60),
       0x4058E0 (unknown class, fields at +0x80..+0x90).
-- [ ] Batch 8+: the rest of the block. Remaining are mostly larger: 0x4010D0-0x4014F0 (BitStream read/write),
-      0x401600 / 0x401700 (compression? prints In/Out byte counts), 0x402640 / 0x402D60 / 0x402F00 (distance
-      functions), 0x403550 / 0x403C00, 0x404120-0x404F50 (matrix maths), 0x405170-0x405A20, 0x4060F0-0x4062D0.
+- [x] Batch 8 (untested): `BitStream::WriteBits/ReadBits/ReadSignedBits` (0x4010D0, 0x4011B0, 0x401260; early
+      self-tests) and LZSS (Okumura-style, public-domain design): `Lzss::InsertNode` 0x401290, `DeleteNode`
+      0x4013E0, `Decode` 0x4014F0, `InitTree` 0x401600, `Encode` 0x401700. LZSS state in exe globals
+      0x690F7C-0x690F9C, decoder window 0x68FF68. LZSS late self-tests compare the whole original pipeline
+      (all five functions via OriginalCode) against ours, byte for byte, plus round trips.
+- [ ] Batch 9+: the rest of the block (all larger): 0x402640 / 0x402D60 / 0x402F00 (distance functions),
+      0x403550 / 0x403C00, 0x404120-0x404F50 (matrix maths), 0x405170-0x405A20, 0x4060F0-0x4062D0.
 - [x] Infrastructure (untested): late self-test stage. A one-shot hook on ParseNetworkParams (0x4E1220, called
       once from WinMain before the main loop) removes itself, runs late self-tests, then calls the real function.
       `OriginalCode` scopes temporarily restore an original function so it can be compared after hooking.

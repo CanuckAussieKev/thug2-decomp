@@ -30,6 +30,7 @@ add_library(thug2_decomp SHARED
     src/game/mth/random.cpp
     src/game/mth/vector.cpp
     src/game/util/bitstream.cpp
+    src/game/util/lzss.cpp
 )
 target_include_directories(thug2_decomp PRIVATE src)
 target_compile_definitions(thug2_decomp PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)

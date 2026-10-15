@@ -20,4 +20,11 @@ void* Calloc(unsigned int size);
 void* Calloc(unsigned int size, int mode);
 void* Calloc(unsigned int size, Heap* heap, int mode);
 
+// Until PopContext, allocations come from `heap`. (Calls the game's manager; not rewritten yet.)
+void PushContext(Heap* heap);
+void PopContext();
+// A heap pointer stored in the memory manager at byte `offset`. Temporary, until the manager's layout is
+// decompiled and the heaps get names.
+Heap* ManagerHeapAt(unsigned int offset);
+
 } // namespace Mem

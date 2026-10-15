@@ -80,6 +80,21 @@ void* Calloc(unsigned int size, Heap* heap, int mode)
     return Zeroed(Allocate(size, mode, heap), size);
 }
 
+void PushContext(Heap* heap)
+{
+    GameFunction<void(__thiscall*)(Manager*, Heap*)>(0x005BB0E0)(GetManager(), heap);
+}
+
+void PopContext()
+{
+    GameFunction<void(__thiscall*)(Manager*)>(0x005BB110)(GetManager());
+}
+
+Heap* ManagerHeapAt(unsigned int offset)
+{
+    return *reinterpret_cast<Heap**>(reinterpret_cast<char*>(GetManager()) + offset);
+}
+
 } // namespace Mem
 
 // No self-tests: these need the game's memory manager, which doesn't exist yet when self-tests run.

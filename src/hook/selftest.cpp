@@ -17,6 +17,7 @@
 #include "game/mth/random.h"
 #include "game/mth/vector.h"
 #include "game/util/bitstream.h"
+#include "game/util/lzss.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -216,7 +217,7 @@ void TestBitStream()
 
     auto same = [](const BitStream& a, const BitStream& b, bool ignore_start) {
         return a.m_cursor == b.m_cursor && (ignore_start || a.m_start == b.m_start) && a.m_buffer == b.m_buffer &&
-               a.m_bitsFree == b.m_bitsFree && a.m_size == b.m_size && a.m_bitsUsed == b.m_bitsUsed;
+               a.m_bitsLeft == b.m_bitsLeft && a.m_size == b.m_size && a.m_bitsUsed == b.m_bitsUsed;
     };
     auto garbage = [](BitStream& s) { std::memset(&s, 0xA5, sizeof(s)); };
 
@@ -245,16 +246,16 @@ void TestBitStream()
         Check(Original<GetCount>(0x004010C0)(&expected) == actual.GetByteCount(), "BitStream::GetByteCount");
     }
 
-    for (int free_bits : {32, 20}) {
+    for (int bits_left : {32, 20}) {
         uint32_t out_expected[2] = {}, out_actual[2] = {};
         expected.SetOutputData(out_expected, 8);
         actual.SetOutputData(out_actual, 8);
         expected.m_buffer = actual.m_buffer = 0x12345678;
-        expected.m_bitsFree = actual.m_bitsFree = free_bits;
+        expected.m_bitsLeft = actual.m_bitsLeft = bits_left;
         Original<Flush>(0x00401180)(&expected);
         actual.Flush();
         Check(expected.m_cursor - out_expected == actual.m_cursor - out_actual && out_expected[0] == out_actual[0] &&
-                  expected.m_buffer == actual.m_buffer && expected.m_bitsFree == actual.m_bitsFree,
+                  expected.m_buffer == actual.m_buffer && expected.m_bitsLeft == actual.m_bitsLeft,
               "BitStream::Flush");
     }
 }
@@ -500,7 +501,95 @@ void TestBatch7()
     }
 }
 
+void TestBitStreamReadWrite()
+{
+    using Util::BitStream;
+    using WriteFn = void(__thiscall*)(BitStream*, uint32_t, int);
+    using ReadFn = uint32_t(__thiscall*)(BitStream*, int);
+    using ReadSignedFn = int32_t(__thiscall*)(BitStream*, int);
+
+    // A mix of widths, including word-straddling writes and full 32-bit values.
+    const struct {
+        uint32_t value;
+        int bits;
+    } items[] = {{1, 1},  {0x5, 3},        {0x7F, 7},       {0x1234, 16}, {0xABCDE, 20}, {0, 0},
+                 {3, 2},  {0xDEADBEEF, 32}, {0x15, 5},       {0x3FFFF, 18}, {0xFFFFFFFF, 32}, {0x2, 2},
+                 {0x1, 9}, {0x7FFFFFFF, 31}, {0x80000000, 32}, {0x55, 8}};
+
+    uint32_t data_expected[16] = {}, data_actual[16] = {};
+    BitStream expected, actual;
+    expected.SetOutputData(data_expected, sizeof(data_expected));
+    actual.SetOutputData(data_actual, sizeof(data_actual));
+    for (const auto& item : items) {
+        Original<WriteFn>(0x004010D0)(&expected, item.value, item.bits);
+        actual.WriteBits(item.value, item.bits);
+        Check(expected.m_buffer == actual.m_buffer && expected.m_bitsLeft == actual.m_bitsLeft &&
+                  expected.m_bitsUsed == actual.m_bitsUsed &&
+                  expected.m_cursor - data_expected == actual.m_cursor - data_actual,
+              "BitStream::WriteBits (state)");
+    }
+    expected.Flush();
+    actual.Flush();
+    Check(std::memcmp(data_expected, data_actual, sizeof(data_expected)) == 0, "BitStream::WriteBits (data)");
+
+    expected.SetInputData(data_expected, sizeof(data_expected));
+    actual.SetInputData(data_expected, sizeof(data_expected));
+    for (const auto& item : items) {
+        uint32_t a = Original<ReadFn>(0x004011B0)(&expected, item.bits);
+        uint32_t b = actual.ReadBits(item.bits);
+        Check(a == b && expected.m_buffer == actual.m_buffer && expected.m_bitsLeft == actual.m_bitsLeft,
+              "BitStream::ReadBits");
+    }
+
+    expected.SetInputData(data_expected, sizeof(data_expected));
+    actual.SetInputData(data_expected, sizeof(data_expected));
+    for (const auto& item : items) {
+        if (item.bits == 0)
+            continue; // the signed read of 0 bits reads bit -1 (mod 32): defined, but skip the oddity
+        int32_t a = Original<ReadSignedFn>(0x00401260)(&expected, item.bits);
+        int32_t b = actual.ReadSignedBits(item.bits);
+        Check(a == b, "BitStream::ReadSignedBits");
+    }
+}
+
 // --- late self-tests ----------------------------------------------------------------------------------
+
+void TestLzssLate()
+{
+    using EncodeFn = int(__cdecl*)(const uint8_t*, uint8_t*, int, bool);
+    using DecodeFn = void(__cdecl*)(const uint8_t*, uint8_t*, int);
+
+    // Inputs: empty, tiny, around the 18-byte match limit, repetitive, and pseudo-random text.
+    static uint8_t input[6000];
+    uint32_t seed = 99;
+    for (int i = 0; i < 6000; ++i) {
+        seed = seed * 1103515245u + 12345u;
+        const char* words[] = {"skate ", "grind ", "kickflip ", "manual ", "revert ", "ollie\n"};
+        input[i] = static_cast<uint8_t>(words[(seed >> 16) % 6][i % 5]); // every word has at least 5 chars
+    }
+    std::memset(input + 4000, 'A', 1500);
+
+    static uint8_t out_expected[7000], out_actual[7000], round_expected[6000], round_actual[6000];
+    for (int size : {0, 1, 17, 18, 19, 300, 4096, 6000}) {
+        int expected_size, actual_size;
+        {
+            OriginalCode a(0x00401290), b(0x004013E0), c(0x00401600), d(0x00401700);
+            expected_size = Original<EncodeFn>(0x00401700)(input, out_expected, size, false);
+        }
+        actual_size = Lzss::Encode(input, out_actual, size, false);
+        Check(expected_size == actual_size &&
+                  std::memcmp(out_expected, out_actual, static_cast<size_t>(actual_size)) == 0,
+              "Lzss::Encode");
+
+        {
+            OriginalCode original(0x004014F0);
+            Original<DecodeFn>(0x004014F0)(out_expected, round_expected, expected_size);
+        }
+        Lzss::Decode(out_actual, round_actual, actual_size);
+        Check(std::memcmp(round_expected, round_actual, static_cast<size_t>(size)) == 0, "Lzss::Decode");
+        Check(std::memcmp(input, round_actual, static_cast<size_t>(size)) == 0, "Lzss round trip");
+    }
+}
 // These need the game running far enough for its memory manager to exist, so they run from a one-shot hook
 // on ParseNetworkParams (called once by WinMain before the main loop). Originals are reached through
 // OriginalCode scopes because the replacements are already installed by then.
@@ -675,6 +764,7 @@ void RunLateSelfTests()
     g_late_failures_before = g_failures;
     TestMemoryLate();
     TestStringLate();
+    TestLzssLate();
     int failures = g_failures - g_late_failures_before;
     Log(failures ? "late self-tests: %d FAILED" : "late self-tests: all passed", failures);
 }
@@ -702,5 +792,6 @@ void RunSelfTests()
     TestBatch5();
     TestBatch6();
     TestBatch7();
+    TestBitStreamReadWrite();
     Log(g_failures ? "self-tests: %d FAILED" : "self-tests: all passed", g_failures);
 }
