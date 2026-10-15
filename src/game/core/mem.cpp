@@ -43,9 +43,14 @@ void* Allocate(unsigned int size, int mode, Heap* heap)
 
 void* Malloc(unsigned int size) { return GameFunction<void*(__cdecl*)(unsigned int)>(0x005BBAE0)(size); }
 
-void ReallocateShrink(unsigned int size, void* memory)
+void* ReallocateShrink(unsigned int size, void* memory)
 {
-    GameFunction<void*(__cdecl*)(unsigned int, void*)>(0x005BBB30)(size, memory);
+    return GameFunction<void*(__cdecl*)(unsigned int, void*)>(0x005BBB30)(size, memory);
+}
+
+unsigned int MallocSize(void* memory)
+{
+    return GameFunction<unsigned int(__cdecl*)(void*)>(0x005BBB80)(memory);
 }
 
 void FreeMalloc(void* memory) { GameFunction<void(__cdecl*)(void*)>(0x005BBB60)(memory); }

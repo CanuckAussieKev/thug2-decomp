@@ -92,7 +92,8 @@ bool& AsyncUseOverlappedIo();
 
 // The engine module whose per-frame task polls the handles and runs the callbacks: created (or another
 // reference taken) by CreateAsyncLoaderModule, released by DestroyAsyncLoaderModule.
-void CreateAsyncLoaderModule(bool create);
+struct AsyncLoaderModule;
+AsyncLoaderModule* CreateAsyncLoaderModule(bool create);
 void DestroyAsyncLoaderModule();
 void AsyncPollHandles();
 

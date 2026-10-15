@@ -28,7 +28,9 @@ void* Allocate(unsigned int size, int mode, Heap* heap);
 // unused end of such a block.
 void* Malloc(unsigned int size);
 void FreeMalloc(void* memory);
-void ReallocateShrink(unsigned int size, void* memory);
+void* ReallocateShrink(unsigned int size, void* memory);
+// The size of a Malloc block (0 for null).
+unsigned int MallocSize(void* memory);
 
 // The manager's two main heaps (at +0x110 and +0x114).
 Heap* TopDownHeap();

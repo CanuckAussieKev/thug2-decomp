@@ -209,8 +209,16 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       0x6476F0, running 0x5B6990), destructors 0x5B6660/0x5B6940, Start 0x5B6970 (adds the task to the
       main loop's logic tasks), the task 0x5B6990 and the handle poll 0x5B9780. Early self-test compares
       the reference counting (no module) original vs ours (shown to catch a deliberate bug).
-- [ ] Next: 0x5B6CF0-0x5B7090 (a 0x234C-byte loader that copies files out of a buffer into Mem
-      allocations - needs its purpose worked out), then the memory manager 0x5BA5A0-0x5BBE80.
+- [x] Batch 31 (NOT run in the game yet; lookup test passes offline, split test is Late): File::AssetBundle
+      (vtable 0x65822C, 0x2354 bytes; made by the level loader 0x4678A0): one file {unknown, count,
+      count x {offset, size, name crc, type crc}, data} loaded with Pip::LoadFileInto and split into one
+      Mem::Malloc block per asset (last first, shrinking the file block), plus the lookups. Constructor
+      0x5B6CF0, destructor 0x5B6EA0 (doesn't free assets), SetHeaps 0x5B6D30, Load 0x5B7090, Split 0x5B6EF0,
+      IsLoaded/GetAsset/GetEntry/FindEntry/FindAsset/HasAsset/FreeAsset 0x5B6D50-0x5B6E60. Early test of the
+      lookups (shown to catch a deliberate bug); Late test splits a handmade bundle, original vs ours.
+      Also fixes batch 30: CreateAsyncLoaderModule returns the module (the start-up code 0x4E1EF0 keeps
+      it) - caught by the register scan; the refcount test now compares the return value.
+- [ ] Next: the memory manager 0x5BA5A0-0x5BBE80 (wait for an in-game test of batches 26-31 first).
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
       for original callers that read ECX/EDX after the call without writing them first (ignoring push-to-reserve,
       lea reg,[reg], or reg,-1 and zeroing idioms; callers that are themselves replaced count as safe).

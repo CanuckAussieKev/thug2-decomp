@@ -746,20 +746,15 @@ void __cdecl AsyncLoaderTask(void* /*task*/)
     AsyncExecuteCallbacks();
 }
 
-// 0x005B6CA0
-void CreateAsyncLoaderModule(bool create)
+// 0x005B6CA0: returns the module (null if it doesn't exist) - the start-up code keeps it
+AsyncLoaderModule* CreateAsyncLoaderModule(bool create)
 {
     if (!LoaderModule() && create) {
         void* memory = Mem::Calloc(sizeof(AsyncLoaderModule), nullptr, 1);
-        if (!memory) {
-            LoaderModule() = nullptr;
-        } else {
-            LoaderModule() = ConstructAsyncLoaderModule(memory);
-            ++LoaderModuleRefs();
-            return;
-        }
+        LoaderModule() = memory ? ConstructAsyncLoaderModule(memory) : nullptr;
     }
     ++LoaderModuleRefs();
+    return LoaderModule();
 }
 
 // 0x005B6620

@@ -18,6 +18,7 @@
 #include "game/core/pool.h"
 #include "game/core/str.h"
 #include "game/core/string.h"
+#include "game/file/asset_bundle.h"
 #include "game/file/async.h"
 #include "game/file/file.h"
 #include "game/file/pip.h"
@@ -1776,10 +1777,10 @@ void TestAsyncLoaderModuleRefs()
             GameVariable<uint32_t>(0x007CF194) = start;
             for (int step = 0; step < 6; ++step) {
                 if (step < 2) {
-                    if (original)
-                        Original<void(__cdecl*)(bool)>(0x005B6CA0)(false);
-                    else
-                        File::CreateAsyncLoaderModule(false);
+                    // Returns the module: with none, null (the start-up code keeps it).
+                    void* module = original ? Original<void*(__cdecl*)(bool)>(0x005B6CA0)(false)
+                                            : File::CreateAsyncLoaderModule(false);
+                    counts.push_back(module == nullptr ? 0xFFFFu : reinterpret_cast<uint32_t>(module));
                 } else if (original) {
                     Original<void(__cdecl*)()>(0x005B6620)();
                 } else {
@@ -1795,6 +1796,127 @@ void TestAsyncLoaderModuleRefs()
     Check(expected == actual, "async loader module reference counts");
     Check(GameVariable<void*>(0x007CF190) == nullptr, "async loader module: no module created");
     RestoreLoaderModule();
+}
+
+// The asset bundle lookups on a fake bundle: the originals and ours must find the same entries and assets.
+void TestAssetBundleLookups()
+{
+    using File::AssetBundle;
+    static AssetBundle bundle;
+    std::memset(&bundle, 0, sizeof(bundle));
+    bundle.m_count = 5;
+    const uint32_t keys[5][2] = {{1, 10}, {2, 10}, {1, 20}, {2, 10}, {3, 30}};
+    for (int i = 0; i < 5; ++i) {
+        bundle.m_entries[i] = {static_cast<uint32_t>(i * 0x100), static_cast<uint32_t>(i + 1), keys[i][0], keys[i][1]};
+        bundle.m_assets[i] = reinterpret_cast<void*>(0x1000 + i);
+    }
+    bundle.m_loaded = true;
+
+    using FindFn = void*(__thiscall*)(AssetBundle*, uint32_t, uint32_t, int);
+    using HasFn = bool(__thiscall*)(AssetBundle*, uint32_t, uint32_t);
+    using IndexFn = void*(__thiscall*)(AssetBundle*, int);
+    using LoadedFn = bool(__thiscall*)(AssetBundle*);
+    bool same = Original<LoadedFn>(0x005B6D50)(&bundle) == bundle.IsLoaded();
+    for (int i = 0; i < 5; ++i) {
+        same = same && Original<IndexFn>(0x005B6D60)(&bundle, i) == bundle.GetAsset(i);
+        same = same && Original<IndexFn>(0x005B6D70)(&bundle, i) == bundle.GetEntry(i);
+    }
+    for (uint32_t name = 0; name <= 4; ++name) {
+        for (uint32_t type : {0u, 10u, 20u, 30u}) {
+            same = same && Original<FindFn>(0x005B6D80)(&bundle, name, type, 0) == bundle.FindEntry(name, type, 0);
+            same = same && Original<FindFn>(0x005B6DC0)(&bundle, name, type, 0) == bundle.FindAsset(name, type, 0);
+            same = same && Original<HasFn>(0x005B6E60)(&bundle, name, type) == bundle.HasAsset(name, type);
+        }
+    }
+    Check(same, "asset bundle lookups");
+    Check(bundle.FindAsset(2, 10, 0) == reinterpret_cast<void*>(0x1001) && !bundle.HasAsset(3, 10),
+          "asset bundle: first match, name and type both compared");
+}
+
+// Splitting a bundle file (made here) into its assets, original vs ours: the same result, entries and asset
+// contents; then FreeAsset on both.
+void TestAssetBundleSplitLate()
+{
+    using File::AssetBundle;
+    using CtorFn = AssetBundle*(__thiscall*)(void*);
+    using HeapsFn = void(__thiscall*)(AssetBundle*, Mem::Heap*, Mem::Heap*);
+    using SplitFn = bool(__thiscall*)(AssetBundle*, int, int);
+    using FreeFn = bool(__thiscall*)(AssetBundle*, uint32_t, uint32_t);
+    using DestroyFn = AssetBundle*(__thiscall*)(AssetBundle*, unsigned int);
+
+    // Header, 3 entries, then the data (sizes not multiples of 4).
+    const uint32_t sizes[3] = {13, 40, 7};
+    const int count = 3;
+    const int dataStart = 8 + count * 16;
+    const int fileSize = dataStart + 13 + 40 + 7;
+    auto make_file = [&](AssetBundle* bundle) {
+        Mem::PushContext(Mem::BottomUpHeap());
+        auto* data = static_cast<uint8_t*>(Mem::Malloc(fileSize));
+        Mem::PopContext();
+        auto* words = reinterpret_cast<uint32_t*>(data);
+        words[0] = 0x12345678;
+        words[1] = count;
+        uint32_t offset = dataStart;
+        for (int i = 0; i < count; ++i) {
+            uint32_t* entry = words + 2 + i * 4;
+            entry[0] = offset;
+            entry[1] = sizes[i];
+            entry[2] = 0xA0 + i;
+            entry[3] = i == 1 ? 0xBB : 0xCC;
+            for (uint32_t b = 0; b < sizes[i]; ++b)
+                data[offset + b] = static_cast<uint8_t>(i * 50 + b);
+            offset += sizes[i];
+        }
+        bundle->m_fileData = data;
+        bundle->m_loadedData = data;
+    };
+
+    auto run = [&](bool original) {
+        std::vector<std::string> trace;
+        auto* memory = Mem::New(sizeof(AssetBundle));
+        AssetBundle* bundle = original ? Original<CtorFn>(0x005B6CF0)(memory) : new (memory) AssetBundle;
+        if (original)
+            Original<HeapsFn>(0x005B6D30)(bundle, Mem::BottomUpHeap(), Mem::TopDownHeap());
+        else
+            bundle->SetHeaps(Mem::BottomUpHeap(), Mem::TopDownHeap());
+        make_file(bundle);
+        bool split = original ? Original<SplitFn>(0x005B6EF0)(bundle, 0, fileSize) : bundle->Split(0, fileSize);
+        trace.push_back("split " + std::to_string(split) + " count " + std::to_string(bundle->m_count) +
+                        " loaded " + std::to_string(bundle->m_loaded) + " file " +
+                        std::to_string(bundle->m_fileData != nullptr) + std::to_string(bundle->m_loadedData != nullptr));
+        for (int i = 0; i < bundle->m_count; ++i) {
+            const AssetBundle::Entry& entry = bundle->m_entries[i];
+            std::string line = "entry " + std::to_string(entry.offset) + " " + std::to_string(entry.size) + " " +
+                               std::to_string(entry.name) + " " + std::to_string(entry.type) + ":";
+            auto* asset = static_cast<uint8_t*>(bundle->m_assets[i]);
+            for (uint32_t b = 0; asset && b < entry.size; ++b)
+                line += " " + std::to_string(asset[b]);
+            trace.push_back(line);
+        }
+        bool freed = original ? Original<FreeFn>(0x005B6E00)(bundle, 0xA1, 0xBB) : bundle->FreeAsset(0xA1, 0xBB);
+        bool again = original ? Original<FreeFn>(0x005B6E00)(bundle, 0xA1, 0xBB) : bundle->FreeAsset(0xA1, 0xBB);
+        bool wrong = original ? Original<FreeFn>(0x005B6E00)(bundle, 0xA0, 0xBB) : bundle->FreeAsset(0xA0, 0xBB);
+        trace.push_back("free " + std::to_string(freed) + std::to_string(again) + std::to_string(wrong) + " asset1 " +
+                        std::to_string(bundle->m_assets[1] != nullptr));
+        // Free the rest, then the bundle (the destructor doesn't free assets).
+        for (int i = 0; i < bundle->m_count; ++i) {
+            if (bundle->m_assets[i])
+                Mem::FreeMalloc(bundle->m_assets[i]);
+        }
+        if (original)
+            Original<DestroyFn>(0x005B6EA0)(bundle, 1);
+        else
+            bundle->Destroy(1);
+        return trace;
+    };
+    std::vector<std::string> expected = run(true);
+    std::vector<std::string> actual = run(false);
+    Check(expected == actual && expected.size() == 5, "asset bundle split");
+    for (size_t i = 0; i < expected.size() || i < actual.size(); ++i) {
+        if (i >= expected.size() || i >= actual.size() || expected[i] != actual[i])
+            Log("  bundle step %u: original '%s' ours '%s'", static_cast<unsigned>(i),
+                i < expected.size() ? expected[i].c_str() : "-", i < actual.size() ? actual[i].c_str() : "-");
+    }
 }
 
 // --- late self-tests ----------------------------------------------------------------------------------
@@ -2731,10 +2853,12 @@ SELFTEST(Early, TestFile);
 SELFTEST(Early, TestAsyncFileSystem, RestoreAsyncGlobals);
 SELFTEST(Early, TestPcAsyncFileHandle, RestoreAsyncIoState);
 SELFTEST(Early, TestAsyncLoaderModuleRefs, RestoreLoaderModule);
+SELFTEST(Early, TestAssetBundleLookups);
 
 SELFTEST(Late, TestMemoryLate);
 SELFTEST(Late, TestStringLate);
 SELFTEST(Late, TestLzssLate);
+SELFTEST(Late, TestAssetBundleSplitLate);
 SELFTEST(Late, TestPoolConstructorLate);
 SELFTEST(Late, TestHashTableLate);
 SELFTEST(Late, TestPipNamesLate, RestorePipTables);
