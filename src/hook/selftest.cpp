@@ -2956,6 +2956,281 @@ void TestScriptStructLookups()
 }
 #pragma warning(pop)
 
+// The script structures' write side - strings, the pooled objects, cleaning up, copying and removing
+// components - on a stand-in manager in an arena (with a script heap; the script pools emptied so everything
+// comes from the arena), the same script through the originals and ours, arenas compared.
+uint8_t g_saved_script_pools[5][16];
+bool g_saved_system_ready = false;
+uint8_t g_saved_permanent_strings[0x18];
+bool g_script_write_swapped = false;
+const uint32_t kScriptPoolAddresses[5] = {0x006F2338, 0x006F3614, 0x006F22B4, 0x006F3644, 0x006F3654};
+
+void RestoreScriptWriteTest()
+{
+    if (!g_script_write_swapped)
+        return;
+    for (int i = 0; i < 5; ++i)
+        std::memcpy(reinterpret_cast<void*>(kScriptPoolAddresses[i]), g_saved_script_pools[i], 16);
+    std::memcpy(reinterpret_cast<void*>(0x006F3570), g_saved_permanent_strings, sizeof(g_saved_permanent_strings));
+    GameVariable<bool>(0x007CC979) = g_saved_system_ready;
+    GameVariable<void*>(0x007D1800) = g_saved_manager_for_test;
+    g_script_write_swapped = false;
+}
+
+void TestScriptStructWriting()
+{
+    using namespace Script;
+    using Mem::Heap;
+    using Mem::Manager;
+    using Mem::Region;
+    if (GameVariable<void*>(0x007D1800)) {
+        Log("self-test: TestScriptStructWriting skipped (the memory manager is already set up)");
+        return;
+    }
+    for (int i = 0; i < 5; ++i)
+        std::memcpy(g_saved_script_pools[i], reinterpret_cast<void*>(kScriptPoolAddresses[i]), 16);
+    std::memcpy(g_saved_permanent_strings, reinterpret_cast<void*>(0x006F3570), sizeof(g_saved_permanent_strings));
+    g_saved_system_ready = GameVariable<bool>(0x007CC979);
+    g_saved_manager_for_test = nullptr;
+    g_script_write_swapped = true;
+    for (uint32_t address : kScriptPoolAddresses)
+        std::memset(reinterpret_cast<void*>(address), 0, 16);
+    GameVariable<bool>(0x007CC979) = true;
+
+    auto run = [&](bool original) {
+        std::vector<uint32_t> trace;
+        uint8_t* arena = g_manager_arenas[original ? 0 : 1];
+        std::memset(arena, 0, kManagerArenaSize);
+        auto* manager = reinterpret_cast<Manager*>(arena);
+        GameVariable<void*>(0x007D1800) = manager;
+        auto* region = new (arena + 0x600) Region(arena + 0x1000, arena + kManagerArenaSize - 0x1800);
+        auto* heap = new (arena + 0x620) Heap(region, 1, "test");
+        auto* scriptRegion = new (arena + 0x6C0) Region(arena + kManagerArenaSize - 0x1800, arena + kManagerArenaSize);
+        auto* scriptHeap = new (arena + 0x6E0) Heap(scriptRegion, 1, "script");
+        manager->m_heaps[0] = heap;
+        manager->m_heaps[1] = scriptHeap;
+        manager->m_heapCount = 2;
+        manager->m_scriptHeap = scriptHeap;
+        manager->PushContext(heap);
+
+        // The functions under test.
+        auto create_string = [&](const char* s) {
+            return original ? Original<char*(__cdecl*)(const char*)>(0x004763A0)(s) : CreateString(s);
+        };
+        auto free_string = [&](const char* s) {
+            if (original)
+                Original<void(__cdecl*)(const char*)>(0x00476340)(s);
+            else
+                FreeString(s);
+        };
+        auto copy = [&](CComponent* to, CComponent* from, int reference) {
+            if (original)
+                Original<void(__cdecl*)(CComponent*, CComponent*, int)>(0x004773E0)(to, from, reference);
+            else
+                CopyComponent(to, from, reference);
+        };
+        auto clean = [&](CComponent* c) {
+            if (original)
+                Original<void(__cdecl*)(CComponent*)>(0x004772A0)(c);
+            else
+                CleanUpComponent(c);
+        };
+        auto clear = [&](CStruct* s) {
+            if (original)
+                Original<void(__thiscall*)(CStruct*)>(0x00477090)(s);
+            else
+                s->Clear();
+        };
+        auto new_struct = [&]() {
+            CStruct* s = original ? Original<CStruct*(__cdecl*)(unsigned)>(0x00409030)(8) : NewStruct();
+            return s->Init();
+        };
+        auto new_array = [&]() {
+            CArray* a = original ? Original<CArray*(__cdecl*)(unsigned)>(0x00408F90)(12) : NewArray();
+            return original ? Original<CArray*(__thiscall*)(CArray*)>(0x0046CAA0)(a) : a->Init();
+        };
+        auto put = [&](const void* p) {
+            auto value = reinterpret_cast<uint32_t>(p);
+            auto base = reinterpret_cast<uint32_t>(arena);
+            trace.push_back(value >= base && value <= base + kManagerArenaSize ? 0xA0000000u + (value - base) : value);
+        };
+
+        // Components (from the heap: freeing them goes back to it).
+        auto component = [&](ESymbolType type, uint32_t name, uint32_t value) {
+            auto* c = static_cast<CComponent*>(Mem::Malloc(sizeof(CComponent)));
+            c->typeAndFlag = static_cast<uint8_t>(type << 1);
+            c->name = name;
+            c->raw = value;
+            c->next = nullptr;
+            c->unknown1 = 0;
+            c->unknown2 = 0;
+            return c;
+        };
+        auto append = [&](CStruct* s, CComponent* c) {
+            CComponent** link = &s->m_head;
+            while (*link)
+                link = &(*link)->next;
+            *link = c;
+        };
+        CStruct* main = new_struct();
+        append(main, component(ESYMBOLTYPE_INTEGER, 1, 42));
+        append(main, component(ESYMBOLTYPE_STRING, 2, reinterpret_cast<uint32_t>(create_string("hello"))));
+        append(main, component(ESYMBOLTYPE_LOCALSTRING, 3, reinterpret_cast<uint32_t>(create_string("local"))));
+        auto* pair = static_cast<CPair*>(Mem::New(sizeof(CPair)));
+        *pair = {0, 1.5f, 2.5f};
+        append(main, component(ESYMBOLTYPE_PAIR, 4, reinterpret_cast<uint32_t>(pair)));
+        auto* vector = static_cast<CVector*>(Mem::New(sizeof(CVector)));
+        *vector = {0, 1.0f, 2.0f, 3.0f};
+        append(main, component(ESYMBOLTYPE_VECTOR, 5, reinterpret_cast<uint32_t>(vector)));
+        Mem::PushContext(scriptHeap);
+        auto* code = static_cast<uint8_t*>(Mem::Malloc(23));
+        Mem::PopContext();
+        for (int i = 0; i < 23; ++i)
+            code[i] = static_cast<uint8_t>(i * 7);
+        CComponent* script = component(ESYMBOLTYPE_QSCRIPT, 6, reinterpret_cast<uint32_t>(code));
+        script->unknown2 = 23;
+        append(main, script);
+        CStruct* inner = new_struct();
+        append(inner, component(ESYMBOLTYPE_FLOAT, 7, 0x3F800000));
+        append(inner, component(ESYMBOLTYPE_STRING, 8, reinterpret_cast<uint32_t>(create_string("inner"))));
+        append(main, component(ESYMBOLTYPE_STRUCTURE, 9, reinterpret_cast<uint32_t>(inner)));
+        CArray* strings = new_array();
+        strings->m_type = ESYMBOLTYPE_STRING;
+        strings->m_size = 3;
+        strings->m_elements = static_cast<uint32_t*>(Mem::Malloc(12));
+        for (int i = 0; i < 3; ++i)
+            strings->m_elements[i] = i == 1 ? 0 : reinterpret_cast<uint32_t>(create_string(i ? "two" : "zero"));
+        append(main, component(ESYMBOLTYPE_ARRAY, 10, reinterpret_cast<uint32_t>(strings)));
+        CArray* single = new_array();
+        single->m_type = ESYMBOLTYPE_INTEGER;
+        single->m_size = 1;
+        single->m_single = 99;
+        append(main, component(ESYMBOLTYPE_ARRAY, 11, reinterpret_cast<uint32_t>(single)));
+        CArray* structs = new_array();
+        structs->m_type = ESYMBOLTYPE_STRUCTURE;
+        structs->m_size = 2;
+        structs->m_elements = static_cast<uint32_t*>(Mem::Malloc(8));
+        for (int i = 0; i < 2; ++i) {
+            CStruct* element = new_struct();
+            append(element, component(ESYMBOLTYPE_INTEGER, 12, static_cast<uint32_t>(i)));
+            structs->m_elements[i] = reinterpret_cast<uint32_t>(element);
+        }
+        append(main, component(ESYMBOLTYPE_ARRAY, 13, reinterpret_cast<uint32_t>(structs)));
+        append(main, component(ESYMBOLTYPE_NAME, 0, 0x1234));
+        append(main, component(ESYMBOLTYPE_INTEGER, 1, 43)); // a second "1"
+
+        // Array accessors.
+        for (CArray* a : {strings, single, structs})
+            put(original ? Original<uint32_t*(__thiscall*)(CArray*)>(0x0046CB00)(a) : a->GetArrayPointer());
+
+        // Copy every component, deep and by reference.
+        CStruct* copies = new_struct();
+        for (CComponent* c = main->m_head; c; c = c->next) {
+            for (int reference = 0; reference < 2; ++reference) {
+                CComponent* to = component(ESYMBOLTYPE_INTEGER, 0, 0);
+                to->typeAndFlag |= 1; // the flag bit is kept
+                copy(to, c, reference);
+                trace.push_back(to->typeAndFlag);
+                trace.push_back(to->name);
+                trace.push_back(to->unknown2);
+                if (to->Type() == ESYMBOLTYPE_STRING || to->Type() == ESYMBOLTYPE_LOCALSTRING) {
+                    uint32_t hash = 0;
+                    for (const char* s = to->string; *s; ++s)
+                        hash = hash * 31 + static_cast<uint8_t>(*s);
+                    trace.push_back(hash);
+                }
+                append(copies, to);
+            }
+        }
+        // Copy onto a component that already has a value (it's cleaned up first).
+        CComponent* reused = component(ESYMBOLTYPE_STRING, 50, reinterpret_cast<uint32_t>(create_string("old")));
+        copy(reused, main->m_head->next, 0);
+        append(copies, reused);
+
+        // Removing, cleaning up, clearing.
+        auto remove = [&](CStruct* s, uint32_t name) {
+            if (original)
+                Original<void(__thiscall*)(CStruct*, uint32_t)>(0x004776B0)(s, name);
+            else
+                s->RemoveComponent(name);
+        };
+        remove(main, 1);  // both of them
+        remove(main, 77); // none
+        if (original) {
+            Original<void(__thiscall*)(CStruct*, uint32_t, uint8_t)>(0x00477790)(main, 9, ESYMBOLTYPE_INTEGER);
+            Original<void(__thiscall*)(CStruct*, uint32_t, uint8_t)>(0x00477790)(main, 9, ESYMBOLTYPE_STRUCTURE);
+            Original<void(__thiscall*)(CStruct*, const char*)>(0x00477770)(copies, "nothing");
+        } else {
+            main->RemoveComponentOfType(9, ESYMBOLTYPE_INTEGER);
+            main->RemoveComponentOfType(9, ESYMBOLTYPE_STRUCTURE);
+            copies->RemoveComponent("nothing");
+        }
+        clean(main->m_head);
+        trace.push_back(main->m_head->typeAndFlag);
+        clear(copies);
+        clear(main);
+        put(main->m_head);
+
+        // Strings: the permanent cache.
+        auto* block = reinterpret_cast<char*>(arena + 0x900);
+        GameVariable<char*>(0x006F3574) = block;
+        GameVariable<char*>(0x006F3578) = block;
+        GameVariable<uint32_t>(0x006F357C) = 0x100;
+        GameVariable<void*>(0x006F3580) = arena + 0xA00;
+        GameVariable<uint32_t>(0x006F3584) = 0;
+        GameVariable<bool>(0x006F3570) = true;
+        for (const char* s : {"alpha", "beta", "alpha", "Alpha"})
+            put(create_string(s));
+        GameVariable<bool>(0x006F3570) = false;
+        free_string(block);      // in the block: kept
+        free_string(block + 6);
+        put(GameVariable<char*>(0x006F3578));
+        trace.push_back(GameVariable<uint32_t>(0x006F3584));
+        std::memset(reinterpret_cast<void*>(0x006F3570), 0, 0x18);
+
+        // The pooled objects and an array clear.
+        CArray* a = new_array();
+        a->m_size = 1;
+        a->m_type = ESYMBOLTYPE_INTEGER;
+        a->m_single = 5;
+        if (original)
+            Original<void(__thiscall*)(CArray*)>(0x0046CAB0)(a);
+        else
+            a->Clear();
+        trace.push_back(a->m_size);
+        trace.push_back(a->m_single);
+        trace.push_back(a->m_type);
+        if (original) {
+            Original<void(__cdecl*)(CArray*)>(0x00408FD0)(a);
+            Original<void(__cdecl*)(CStruct*)>(0x00409070)(main);
+        } else {
+            DeleteArray(a);
+            DeleteStruct(main);
+        }
+
+        std::vector<uint32_t> image(kManagerArenaSize / 4);
+        std::memcpy(image.data(), arena, kManagerArenaSize);
+        auto base = reinterpret_cast<uint32_t>(arena);
+        for (uint32_t& word : image) {
+            if (word >= base && word <= base + kManagerArenaSize)
+                word = 0xA0000000u + (word - base);
+        }
+        trace.insert(trace.end(), image.begin(), image.end());
+        GameVariable<void*>(0x007D1800) = nullptr;
+        return trace;
+    };
+    std::vector<uint32_t> expected = run(true);
+    std::vector<uint32_t> actual = run(false);
+    RestoreScriptWriteTest();
+    Check(expected == actual, "script structures: strings, copying, cleaning up, removing");
+    for (size_t i = 0, shown = 0; i < expected.size() && i < actual.size() && shown < 8; ++i) {
+        if (expected[i] != actual[i]) {
+            Log("  struct writing entry %u: original %08X ours %08X", static_cast<unsigned>(i), expected[i], actual[i]);
+            ++shown;
+        }
+    }
+}
+
 // --- late self-tests ----------------------------------------------------------------------------------
 
 // The table's contents as (bucket, position in chain, key, value), so tables with different item addresses
@@ -3896,6 +4171,7 @@ SELFTEST(Early, TestHeap, RestoreMemoryManager);
 SELFTEST(Early, TestMemoryManager, RestoreManagerForTest);
 SELFTEST(Early, TestMemoryManagerHeapCreation, RestoreManagerInitTest);
 SELFTEST(Early, TestScriptStructLookups, RestoreSymbolTable);
+SELFTEST(Early, TestScriptStructWriting, RestoreScriptWriteTest);
 
 SELFTEST(Late, TestMemoryLate);
 SELFTEST(Late, TestStringLate);

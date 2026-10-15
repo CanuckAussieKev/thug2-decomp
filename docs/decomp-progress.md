@@ -278,7 +278,17 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       forms - 44 functions. params.h now calls CStruct directly. Early test: a stand-in symbol table and
       handmade structures, every getter over 19 names, originals vs ours (six deliberate bugs caught, one
       after adding an include-last case).
-- [ ] Next: the write side of CStruct (adding/removing components, Clear, copying) and the component pools.
+- [x] Batch 37 (NOT run in the game yet; early test passes offline): owning script values. Mem::PoolPair (a
+      class's two item pools: current +0, pools +8) for components 0x6F2338, CStruct 0x6F3614, CArray
+      0x6F22B4, CPair 0x6F3644, CVector 0x6F3654; NewStruct/DeleteStruct, NewArray/DeleteArray;
+      CreateString 0x4763A0 (script heap, or the permanent string cache 0x6F3570.. shared by checksum - its
+      EAX-convention helper 0x476260 folded in) / FreeString; CArray (12 bytes; one element stored in place)
+      Init/Clear/GetArrayPointer; CleanUpComponent 0x4772A0, CleanUpArray 0x477140, CopyComponent 0x4773E0
+      (deep, or by reference -> types 20/21 struct/array pointers), CStruct::Clear 0x477090,
+      RemoveComponent (checksum/name), RemoveComponentOfType. Early test: a stand-in manager with a script
+      heap, the script pools emptied; every owning type built, copied, removed, cleaned; arenas compared
+      (six deliberate bugs caught, one after giving the test array a type).
+- [ ] Next: the CStruct adders (0x477860-0x478780), AppendStructure 0x478480, CopyArray 0x478A60.
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
       for original callers that read ECX/EDX after the call without writing them first (ignoring push-to-reserve,
       lea reg,[reg], or reg,-1 and zeroing idioms; callers that are themselves replaced count as safe).

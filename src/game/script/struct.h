@@ -27,7 +27,29 @@ enum ESymbolType : uint8_t {
     ESYMBOLTYPE_STRUCTURE = 10,
     ESYMBOLTYPE_ARRAY = 12,
     ESYMBOLTYPE_NAME = 13,
+    // A component referring to a structure / array it doesn't own (made by CopyComponent when asked to).
+    ESYMBOLTYPE_STRUCTUREPOINTER = 20,
+    ESYMBOLTYPE_ARRAYPOINTER = 21,
 };
+
+// A script array: `size` elements of one type. A single element is kept in place of the pointer.
+class CArray {
+public:
+    CArray* Init();
+    void Clear();
+    // The elements (for one element, the value stored in the array itself).
+    uint32_t* GetArrayPointer();
+
+    uint8_t m_unknown0;
+    ESymbolType m_type;
+    uint16_t m_unknown2;
+    uint32_t m_size;
+    union {
+        uint32_t* m_elements;
+        uint32_t m_single;
+    };
+};
+static_assert(sizeof(CArray) == 0xC, "layout must match the original");
 
 // Pair and vector values are separate objects; the coordinates start at +4.
 struct CPair {
@@ -83,6 +105,26 @@ struct CSymbolTableEntry {
 // 0x00478CF0: the global symbol `name` (following names that just name another symbol), or null.
 CSymbolTableEntry* LookUpSymbol(uint32_t name);
 
+// Strings owned by components: copied to the script heap (or, while the permanent string cache is on, shared
+// in its block).
+char* CreateString(const char* string);
+void FreeString(const char* string);
+
+struct CComponent;
+// Free whatever a component's value owns and make it empty (keeps its name and flag bit).
+void CleanUpComponent(CComponent* component);
+// Free an array's elements (whatever they own too) and empty it.
+void CleanUpArray(CArray* array);
+// Make `dest` a deep copy of `source` (with `reference`, structures and arrays are referred to, not copied).
+void CopyComponent(CComponent* dest, CComponent* source, int reference);
+
+// The pooled allocations of the script's value objects.
+CStruct* NewStruct();
+void DeleteStruct(CStruct* structure);
+CArray* NewArray();
+void DeleteArray(CArray* array);
+void FreeComponent(CComponent* component);
+
 // A 4-component vector as scripts' vectors are returned (w = 1).
 struct VectorValue {
     float x, y, z, w;
@@ -111,6 +153,13 @@ public:
     bool References(CStruct* other);
     // Whether every component of this structure is in `other` too (by name and value).
     bool IsSubsetOf(CStruct* other);
+
+    // Remove (and free) every component.
+    void Clear();
+    // Remove every component named `name` (of type `type`).
+    void RemoveComponent(uint32_t name);
+    void RemoveComponent(const char* name);
+    void RemoveComponentOfType(uint32_t name, uint8_t type);
 
     // The typed getters: false if missing (`assert`: the game would report it - a no-op in this build).
     bool GetString(uint32_t name, const char** out, int assert);

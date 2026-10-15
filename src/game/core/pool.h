@@ -47,3 +47,18 @@ void FreeItem(int index, void* item);
 } // namespace PoolManager
 
 } // namespace Mem
+
+namespace Mem {
+
+// A class's pair of item pools (the engine's CPoolable): new items come from the current pool, or from the
+// default heap when it doesn't exist; freed items go back to whichever pool holds them.
+struct PoolPair {
+    int current;
+    int unknown4;
+    Pool* pools[2];
+
+    void* Allocate(unsigned int size);
+    void Free(void* item);
+};
+
+} // namespace Mem

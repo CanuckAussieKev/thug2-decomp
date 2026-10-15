@@ -99,6 +99,25 @@ void FreeItem(int index, void* item)
 
 } // namespace PoolManager
 
+void* PoolPair::Allocate(unsigned int size)
+{
+    if (Pool* pool = pools[current])
+        return pool->Allocate();
+    return New(size);
+}
+
+void PoolPair::Free(void* item)
+{
+    for (int which : {current, current ^ 1}) {
+        Pool* pool = pools[which];
+        if (pool && pool->Contains(item)) {
+            pool->Free(item);
+            return;
+        }
+    }
+    Mem::Free(item);
+}
+
 } // namespace Mem
 
 namespace {

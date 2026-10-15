@@ -1,6 +1,11 @@
 #include "game/script/struct.h"
 
+#include <cstring>
+
 #include "game/core/crc.h"
+#include "game/core/manager.h"
+#include "game/core/mem.h"
+#include "game/core/pool.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -441,3 +446,379 @@ REPLACE(0x00476F10, &BoolAssertGetters::GetArray);
 REPLACE(0x00476F60, &BoolAssertGetters::GetArrayNamed);
 REPLACE(0x00477040, &BoolAssertGetters::GetVector);
 REPLACE(0x00477060, &BoolAssertGetters::GetVectorNamed);
+
+// --- owning values: strings, pooled objects, cleaning up and copying ------------------------------------------
+
+namespace Script {
+
+namespace {
+
+// The pool pairs of the script's value objects.
+Mem::PoolPair& ComponentPools() { return GameVariable<Mem::PoolPair>(0x006F2338); }
+Mem::PoolPair& StructPools() { return GameVariable<Mem::PoolPair>(0x006F3614); }
+Mem::PoolPair& ArrayPools() { return GameVariable<Mem::PoolPair>(0x006F22B4); }
+Mem::PoolPair& PairPools() { return GameVariable<Mem::PoolPair>(0x006F3644); }
+Mem::PoolPair& VectorPools() { return GameVariable<Mem::PoolPair>(0x006F3654); }
+
+// The permanent string cache (used while loading the game's scripts): one block, strings shared by checksum.
+bool& UsePermanentStrings() { return GameVariable<bool>(0x006F3570); }
+char*& PermanentStringsStart() { return GameVariable<char*>(0x006F3574); }
+char*& PermanentStringsNext() { return GameVariable<char*>(0x006F3578); }
+uint32_t& PermanentStringsSize() { return GameVariable<uint32_t>(0x006F357C); }
+struct PermanentString {
+    uint32_t checksum;
+    char* string;
+};
+PermanentString*& PermanentStringTable() { return GameVariable<PermanentString*>(0x006F3580); }
+uint32_t& PermanentStringCount() { return GameVariable<uint32_t>(0x006F3584); }
+
+// 0x00476260 (takes the string in EAX - rewritten here as part of CreateString)
+char* CreatePermanentString(const char* string)
+{
+    int length = static_cast<int>(std::strlen(string));
+    uint32_t checksum = Crc::GenerateCRCFromBuffer(string, length);
+    PermanentString* table = PermanentStringTable();
+    for (uint32_t i = 0; i < PermanentStringCount(); ++i) {
+        if (table[i].checksum == checksum)
+            return table[i].string;
+    }
+    char* copy = PermanentStringsNext();
+    std::memcpy(copy, string, static_cast<size_t>(length) + 1);
+    PermanentStringsNext() = copy + length + 1;
+    table[PermanentStringCount()] = {checksum, copy};
+    ++PermanentStringCount();
+    return copy;
+}
+
+void DeletePair(CPair* pair) { PairPools().Free(pair); }
+void DeleteVector(CVector* vector) { VectorPools().Free(vector); }
+
+// A struct's AppendStructure and an array copy (not rewritten yet).
+void AppendStructure(CStruct* to, CStruct* from)
+{
+    GameFunction<void(__thiscall*)(CStruct*, CStruct*)>(0x00478480)(to, from);
+}
+void CopyArray(CArray* to, CArray* from) { GameFunction<void(__cdecl*)(CArray*, CArray*)>(0x00478A60)(to, from); }
+
+} // namespace
+
+// 0x004763A0
+char* CreateString(const char* string)
+{
+    if (UsePermanentStrings())
+        return CreatePermanentString(string);
+    Mem::PushContext(Mem::Manager::Get()->m_scriptHeap);
+    size_t size = std::strlen(string) + 1;
+    auto* copy = static_cast<char*>(Mem::Malloc(static_cast<unsigned int>(size)));
+    std::memcpy(copy, string, size);
+    Mem::PopContext();
+    return copy;
+}
+
+// 0x00476340 (strings in the permanent block are never freed)
+void FreeString(const char* string)
+{
+    const char* start = PermanentStringsStart();
+    if (string >= start && string < start + PermanentStringsSize())
+        return;
+    Mem::FreeMalloc(const_cast<char*>(string));
+}
+
+// 0x00409030 / 0x00409070
+CStruct* NewStruct() { return static_cast<CStruct*>(StructPools().Allocate(sizeof(CStruct))); }
+void DeleteStruct(CStruct* structure) { StructPools().Free(structure); }
+// 0x00408F90 / 0x00408FD0
+CArray* NewArray() { return static_cast<CArray*>(ArrayPools().Allocate(sizeof(CArray))); }
+void DeleteArray(CArray* array) { ArrayPools().Free(array); }
+void FreeComponent(CComponent* component) { ComponentPools().Free(component); }
+
+// 0x0046CAA0
+CArray* CArray::Init()
+{
+    m_type = ESYMBOLTYPE_NONE;
+    m_elements = nullptr;
+    m_size = 0;
+    m_unknown0 = 0;
+    return this;
+}
+
+// 0x0046CAB0
+void CArray::Clear()
+{
+    if (m_size == 1) {
+        // (the single element is in place: nothing to free)
+        m_size = 0;
+        m_type = ESYMBOLTYPE_NONE;
+        if (m_elements)
+            m_elements = nullptr;
+        return;
+    }
+    if (m_elements) {
+        Mem::FreeMalloc(m_elements);
+        m_elements = nullptr;
+    }
+    m_type = ESYMBOLTYPE_NONE;
+    m_size = 0;
+}
+
+// 0x0046CB00
+uint32_t* CArray::GetArrayPointer()
+{
+    return m_size == 1 ? &m_single : m_elements;
+}
+
+// 0x00477140
+void CleanUpArray(CArray* array)
+{
+    uint32_t count = array->m_size;
+    ESymbolType type = array->m_type;
+    uint32_t* elements = array->GetArrayPointer();
+    for (uint32_t i = 0; i < count; ++i) {
+        uint32_t& element = elements[i];
+        if (!element)
+            continue;
+        switch (type) {
+        case ESYMBOLTYPE_STRING:
+        case ESYMBOLTYPE_LOCALSTRING:
+            FreeString(reinterpret_cast<const char*>(element));
+            break;
+        case ESYMBOLTYPE_PAIR:
+            DeletePair(reinterpret_cast<CPair*>(element));
+            break;
+        case ESYMBOLTYPE_VECTOR:
+            DeleteVector(reinterpret_cast<CVector*>(element));
+            break;
+        case ESYMBOLTYPE_STRUCTURE: {
+            auto* structure = reinterpret_cast<CStruct*>(element);
+            structure->Clear();
+            DeleteStruct(structure);
+            break;
+        }
+        case ESYMBOLTYPE_ARRAY: {
+            auto* inner = reinterpret_cast<CArray*>(element);
+            CleanUpArray(inner);
+            inner->Clear();
+            DeleteArray(inner);
+            break;
+        }
+        default:
+            continue; // (other elements own nothing, and are left as they are)
+        }
+        element = 0;
+    }
+    array->Clear();
+}
+
+// 0x004772A0
+void CleanUpComponent(CComponent* component)
+{
+    switch (component->Type()) {
+    case ESYMBOLTYPE_STRING:
+    case ESYMBOLTYPE_LOCALSTRING:
+        if (component->string)
+            FreeString(component->string);
+        break;
+    case ESYMBOLTYPE_PAIR:
+        if (component->pair)
+            DeletePair(component->pair);
+        break;
+    case ESYMBOLTYPE_VECTOR:
+        if (component->vector)
+            DeleteVector(component->vector);
+        break;
+    case ESYMBOLTYPE_QSCRIPT:
+        if (component->raw)
+            Mem::FreeMalloc(reinterpret_cast<void*>(component->raw));
+        component->unknown2 = 0; // the script's size
+        break;
+    case ESYMBOLTYPE_STRUCTURE:
+        if (CStruct* structure = component->structure) {
+            structure->Clear();
+            DeleteStruct(structure);
+        }
+        break;
+    case ESYMBOLTYPE_ARRAY:
+        if (CArray* array = component->array) {
+            CleanUpArray(array);
+            array->Clear();
+            DeleteArray(array);
+        }
+        break;
+    default:
+        break;
+    }
+    component->raw = 0;
+    component->typeAndFlag &= 1;
+}
+
+// 0x004773E0
+void CopyComponent(CComponent* dest, CComponent* source, int reference)
+{
+    if (dest->raw)
+        CleanUpComponent(dest);
+    dest->typeAndFlag = static_cast<uint8_t>((source->typeAndFlag & ~1) | (dest->typeAndFlag & 1));
+    dest->name = source->name;
+    switch (source->Type()) {
+    case ESYMBOLTYPE_STRING:
+    case ESYMBOLTYPE_LOCALSTRING:
+        dest->string = CreateString(source->string);
+        break;
+    case ESYMBOLTYPE_PAIR: {
+        auto* pair = static_cast<CPair*>(PairPools().Allocate(sizeof(CPair)));
+        if (pair) {
+            // (the constructor: only the first byte of the first word is cleared)
+            pair->y = 0.0f;
+            pair->x = 0.0f;
+            reinterpret_cast<uint8_t*>(pair)[0] = 0;
+        }
+        dest->pair = pair;
+        pair->x = source->pair->x;
+        dest->pair->y = source->pair->y;
+        break;
+    }
+    case ESYMBOLTYPE_VECTOR: {
+        auto* vector = static_cast<CVector*>(VectorPools().Allocate(sizeof(CVector)));
+        if (vector) {
+            vector->z = 0.0f;
+            vector->y = 0.0f;
+            vector->x = 0.0f;
+            reinterpret_cast<uint8_t*>(vector)[0] = 0;
+        }
+        dest->vector = vector;
+        vector->x = source->vector->x;
+        dest->vector->y = source->vector->y;
+        dest->vector->z = source->vector->z;
+        break;
+    }
+    case ESYMBOLTYPE_QSCRIPT: {
+        // The compiled script, `unknown2` bytes.
+        Mem::PushContext(Mem::Manager::Get()->m_scriptHeap);
+        dest->raw = reinterpret_cast<uint32_t>(Mem::Malloc(source->unknown2));
+        dest->unknown2 = source->unknown2;
+        Mem::PopContext();
+        auto* from = reinterpret_cast<const uint8_t*>(source->raw);
+        auto* to = reinterpret_cast<uint8_t*>(dest->raw);
+        for (uint32_t i = 0; i < source->unknown2; ++i)
+            to[i] = from[i];
+        break;
+    }
+    case ESYMBOLTYPE_STRUCTURE: {
+        if (reference) {
+            dest->typeAndFlag = static_cast<uint8_t>((dest->typeAndFlag & 1) | (ESYMBOLTYPE_STRUCTUREPOINTER << 1));
+            dest->structure = source->structure;
+            break;
+        }
+        CStruct* structure = NewStruct();
+        if (structure)
+            structure->Init();
+        dest->structure = structure;
+        if (source->structure != structure) {
+            structure->Clear();
+            AppendStructure(structure, source->structure);
+        }
+        break;
+    }
+    case ESYMBOLTYPE_ARRAY: {
+        if (!reference) {
+            CArray* array = NewArray();
+            if (array)
+                array->Init();
+            dest->array = array;
+            CopyArray(array, source->array);
+            break;
+        }
+        dest->typeAndFlag = static_cast<uint8_t>((dest->typeAndFlag & 1) | (ESYMBOLTYPE_ARRAYPOINTER << 1));
+        dest->raw = source->raw;
+        break;
+    }
+    case ESYMBOLTYPE_INTEGER:
+    case ESYMBOLTYPE_FLOAT:
+    case ESYMBOLTYPE_NAME:
+    case ESYMBOLTYPE_STRUCTUREPOINTER:
+    case ESYMBOLTYPE_ARRAYPOINTER:
+        dest->raw = source->raw;
+        break;
+    default:
+        break;
+    }
+}
+
+// 0x00477090
+void CStruct::Clear()
+{
+    CComponent* component = m_head;
+    while (component) {
+        CComponent* next = component->next;
+        CleanUpComponent(component);
+        FreeComponent(component);
+        component = next;
+    }
+    m_head = nullptr;
+}
+
+// 0x004776B0
+void CStruct::RemoveComponent(uint32_t name)
+{
+    CComponent* previous = nullptr;
+    CComponent* component = m_head;
+    while (component) {
+        CComponent* next = component->next;
+        if (component->name == name) {
+            if (previous)
+                previous->next = next;
+            else
+                m_head = next;
+            CleanUpComponent(component);
+            FreeComponent(component);
+        } else {
+            previous = component;
+        }
+        component = next;
+    }
+}
+
+// 0x00477770
+void CStruct::RemoveComponent(const char* name)
+{
+    RemoveComponent(Crc::GenerateCRCFromString(name));
+}
+
+// 0x00477790
+void CStruct::RemoveComponentOfType(uint32_t name, uint8_t type)
+{
+    CComponent* previous = nullptr;
+    CComponent* component = m_head;
+    while (component) {
+        CComponent* next = component->next;
+        if (component->name == name && component->Type() == type) {
+            if (previous)
+                previous->next = next;
+            else
+                m_head = next;
+            CleanUpComponent(component);
+            FreeComponent(component);
+        } else {
+            previous = component;
+        }
+        component = next;
+    }
+}
+
+} // namespace Script
+
+REPLACE(0x004763A0, Script::CreateString);
+REPLACE(0x00476340, Script::FreeString);
+REPLACE(0x00409030, Script::NewStruct);
+REPLACE(0x00409070, Script::DeleteStruct);
+REPLACE(0x00408F90, Script::NewArray);
+REPLACE(0x00408FD0, Script::DeleteArray);
+REPLACE(0x0046CAA0, &Script::CArray::Init);
+REPLACE(0x0046CAB0, &Script::CArray::Clear);
+REPLACE(0x0046CB00, &Script::CArray::GetArrayPointer);
+REPLACE(0x00477140, Script::CleanUpArray);
+REPLACE(0x004772A0, Script::CleanUpComponent);
+REPLACE(0x004773E0, Script::CopyComponent);
+REPLACE(0x00477090, &Script::CStruct::Clear);
+REPLACE(0x004776B0, static_cast<void (Script::CStruct::*)(uint32_t)>(&Script::CStruct::RemoveComponent));
+REPLACE(0x00477770, static_cast<void (Script::CStruct::*)(const char*)>(&Script::CStruct::RemoveComponent));
+REPLACE(0x00477790, &Script::CStruct::RemoveComponentOfType);
