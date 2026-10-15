@@ -13,6 +13,10 @@ const char* FindCaseless(const char* haystack, const char* needle);
 // Compare ignoring ASCII case: -1, 0 or 1 (characters compare as signed chars).
 int CompareCaseless(const char* a, const char* b);
 
+// `value` as text with thousands separators chosen by the game language (space, dot or comma), e.g.
+// "1,234,567". Returns a static buffer in the exe, overwritten by the next call.
+const char* FormatWithSeparators(int value);
+
 // Value of one base-32 digit: '0'-'9' -> 0-9, 'A'-'V' / 'a'-'v' -> 10-31, anything else -> 0.
 int DehexifyDigit(const char* digit);
 

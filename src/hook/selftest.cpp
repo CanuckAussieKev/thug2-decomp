@@ -988,6 +988,71 @@ void TestBatch15()
     }
 }
 
+void TestBatch16()
+{
+    // Number formatting for each separator style. The language setting and output buffer belong to the game:
+    // save and restore them.
+    using FormatFn = const char*(__cdecl*)(int);
+    int& language = GameVariable<int>(0x007CEFA0);
+    const int saved_language = language;
+    char saved_buffer[36];
+    std::memcpy(saved_buffer, &GameVariable<char>(0x00690FA4), sizeof(saved_buffer));
+    for (int lang : {0, 3, 4, 6, 9}) {
+        language = lang;
+        for (int value : {0, 7, 999, 1000, -1000, 123456, -1234567, 2147483647, static_cast<int>(0x80000000u)}) {
+            char expected[36];
+            strcpy_s(expected, Original<FormatFn>(0x00402200)(value));
+            const char* actual = Str::FormatWithSeparators(value);
+            if (strcmp(expected, actual) != 0)
+                Log("  FormatWithSeparators(%d) lang %d: original \"%s\", ours \"%s\"", value, lang, expected, actual);
+            Check(strcmp(expected, actual) == 0, "Str::FormatWithSeparators");
+        }
+    }
+    language = saved_language;
+    std::memcpy(&GameVariable<char>(0x00690FA4), saved_buffer, sizeof(saved_buffer));
+
+    // Fast sin/cos read the game's lookup table: fill it for the test, then put the game's copy back.
+    constexpr uintptr_t kTable = 0x00690FE0;
+    constexpr size_t kTableBytes = 119 * 16;
+    static unsigned char saved_table[kTableBytes];
+    std::memcpy(saved_table, reinterpret_cast<void*>(kTable), kTableBytes);
+    Mth::InitSinLookupTable();
+    using TrigFn = float(__cdecl*)(float);
+    for (float angle : {0.0f, 0.1f, 0.5f, 0.7853f, 1.2f, 1.5f, 1.5707f}) {
+        CheckFloat(Original<TrigFn>(0x00405FF0)(angle), Mth::FastSin(angle), "Mth::FastSin");
+        CheckFloat(Original<TrigFn>(0x00406020)(angle), Mth::FastCos(angle), "Mth::FastCos");
+    }
+    std::memcpy(reinterpret_cast<void*>(kTable), saved_table, kTableBytes);
+
+    using Mth::Matrix;
+    using ProductFn = Matrix*(__thiscall*)(Matrix*, const Mth::MatrixProduct*);
+    using OrthoFn = Matrix*(__thiscall*)(Matrix*, int);
+    Matrix a, b;
+    a.SetFromEulerAngles(0.3f, 1.1f, -0.4f);
+    a.row[3] = {1, 2, 3, 1};
+    b.SetFromEulerAngles(-0.8f, 0.2f, 2.0f);
+    const Mth::MatrixProduct product{&a, &b};
+    Matrix expected{}, actual{};
+    Original<ProductFn>(0x00404100)(&expected, &product);
+    actual = product;
+    for (int i = 0; i < 4; ++i)
+        CheckVector(expected.row[i], actual.row[i], "Matrix::operator=(MatrixProduct)");
+
+    // A slightly skewed rotation, re-orthonormalised about each axis.
+    Matrix skewed = a;
+    skewed.row[0].y += 0.05f;
+    skewed.row[1].z -= 0.08f;
+    skewed.row[2].x += 0.12f;
+    for (int axis = 0; axis < 3; ++axis) {
+        expected = skewed;
+        actual = skewed;
+        Original<OrthoFn>(0x00405170)(&expected, axis);
+        actual.OrthoNormalizeAbout(axis);
+        for (int i = 0; i < 4; ++i)
+            CheckVector(expected.row[i], actual.row[i], "Matrix::OrthoNormalizeAbout");
+    }
+}
+
 // --- late self-tests ----------------------------------------------------------------------------------
 
 void TestLzssLate()
@@ -1237,5 +1302,6 @@ void RunSelfTests()
     TestRotateToPlane();
     TestBatch14();
     TestBatch15();
+    TestBatch16();
     Log(g_failures ? "self-tests: %d FAILED" : "self-tests: all passed", g_failures);
 }

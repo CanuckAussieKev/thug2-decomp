@@ -25,4 +25,9 @@ void CreateRotate2D(float out[4], float angle);
 // Fill the sine/cosine lookup table that the engine's fast trig functions read (a quarter circle in 118 steps).
 void InitSinLookupTable();
 
+// Sine / cosine from the lookup table with linear interpolation. Only valid for angles in [0, pi/2]: like the
+// original there is no range reduction, so other angles read outside the table.
+float FastSin(float angle);
+float FastCos(float angle);
+
 } // namespace Mth

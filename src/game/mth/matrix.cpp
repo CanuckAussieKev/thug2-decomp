@@ -115,6 +115,47 @@ Matrix& CreateRotateMatrix(Matrix& m, const Vector& axis, float angle)
     return m;
 }
 
+// 0x00404100 (the original calls the statically linked D3DXMatrixMultiply)
+Matrix& Matrix::operator=(const MatrixProduct& product)
+{
+    return Multiply(*this, *product.left, *product.right);
+}
+
+// 0x00405170
+Matrix& Matrix::OrthoNormalizeAbout(int axis)
+{
+    int b_index = axis + 1;
+    if (b_index == 3)
+        b_index = 0;
+    int c_index = b_index + 1;
+    if (c_index == 3)
+        c_index = 0;
+    const Vector& a = row[axis];
+    Vector& b = row[b_index];
+    Vector& c = row[c_index];
+
+    // b = c x a and c = a x b, written out in the original's operand order.
+    auto rebuild_b = [&] {
+        b = {a.z * c.y - a.y * c.z, c.z * a.x - a.z * c.x, a.y * c.x - c.y * a.x, 0.0f};
+        b.Normalize();
+    };
+    auto rebuild_c = [&] {
+        c = {b.z * a.y - b.y * a.z, b.x * a.z - a.x * b.z, a.x * b.y - b.x * a.y, 0.0f};
+        c.Normalize();
+    };
+
+    float c_dot_a = c.x * a.x + c.y * a.y + c.z * a.z;
+    float a_dot_b = a.x * b.x + a.y * b.y + a.z * b.z;
+    if (std::fabs(c_dot_a) < std::fabs(a_dot_b)) {
+        rebuild_b();
+        rebuild_c();
+    } else {
+        rebuild_c();
+        rebuild_b();
+    }
+    return *this;
+}
+
 // 0x00404EC0
 Matrix& CreateRotateMatrix(Matrix& m, int axis, float angle)
 {
@@ -301,7 +342,9 @@ REPLACE(0x00405600, &Mth::Matrix::Invert);
 REPLACE(0x00404120, &Mth::Matrix::operator*=);
 REPLACE(0x004048D0, &Mth::Matrix::SetFromEulerAngles);
 REPLACE(0x00404C60, static_cast<Mth::Matrix& (*)(Mth::Matrix&, const Mth::Vector&, float)>(&Mth::CreateRotateMatrix));
-REPLACE(0x00404EC0, static_cast<Mth::Matrix& (*)(Mth::Matrix&, int, float)>(&Mth::CreateRotateMatrix));
+REPLACE(0x00404100, static_cast<Mth::Matrix& (Mth::Matrix::*)(const Mth::MatrixProduct&)>(&Mth::Matrix::operator=));
+REPLACE(0x00405170, &Mth::Matrix::OrthoNormalizeAbout);
+REPLACE(0x00404EC0,static_cast<Mth::Matrix& (*)(Mth::Matrix&, int, float)>(&Mth::CreateRotateMatrix));
 REPLACE(0x00404F50, Mth::CreateLookAtMatrix);
 REPLACE(0x00405080, Mth::CreateOrthographicMatrix);
 REPLACE(0x004050F0, Mth::CreatePerspectiveMatrix);
@@ -312,7 +355,7 @@ REPLACE(0x004057B0, &Mth::Matrix::RotateZLocal);
 
 // operator= is __thiscall returning `this`; the rotation builders are cdecl and return the matrix pointer.
 REPLACE(0x00404080, &Mth::Matrix::operator[]);
-REPLACE(0x00404090, &Mth::Matrix::operator=);
+REPLACE(0x00404090, static_cast<Mth::Matrix& (Mth::Matrix::*)(const Mth::Matrix&)>(&Mth::Matrix::operator=));
 REPLACE(0x00404DD0, Mth::CreateRotateXMatrix);
 REPLACE(0x00404E20, Mth::CreateRotateYMatrix);
 REPLACE(0x00404E70, Mth::CreateRotateZMatrix);

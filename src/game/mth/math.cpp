@@ -1,5 +1,6 @@
 #include "game/mth/math.h"
 
+#include <bit>
 #include <cmath>
 
 #include "hook/game.h"
@@ -99,6 +100,31 @@ void CreateRotate2D(float out[4], float angle)
     out[3] = c;
 }
 
+namespace {
+
+// Table steps per radian, 118 / (pi / 2). Taken bit-for-bit from the exe (0x00645480).
+const float kSinStepsPerRadian = std::bit_cast<float>(0x42963E05u);
+
+} // namespace
+
+// 0x00405FF0
+float FastSin(float angle)
+{
+    float steps = angle * kSinStepsPerRadian;
+    int index = static_cast<int>(steps); // truncates, like the CRT's _ftol the original calls
+    const SinCosEntry& entry = SinTable()[index];
+    return (steps - static_cast<float>(index)) * entry.sin_delta + entry.sin;
+}
+
+// 0x00406020
+float FastCos(float angle)
+{
+    float steps = angle * kSinStepsPerRadian;
+    int index = static_cast<int>(steps);
+    const SinCosEntry& entry = SinTable()[index];
+    return (steps - static_cast<float>(index)) * entry.cos_delta + entry.cos;
+}
+
 // 0x00403F70
 void InitSinLookupTable()
 {
@@ -126,3 +152,5 @@ REPLACE(0x00404010, Mth::KeepWithin);
 REPLACE(0x004049B0, Mth::FastAtan2);
 REPLACE(0x004058B0, Mth::CreateRotate2D);
 REPLACE(0x00405FD0, Mth::Sign);
+REPLACE(0x00405FF0, Mth::FastSin);
+REPLACE(0x00406020, Mth::FastCos);

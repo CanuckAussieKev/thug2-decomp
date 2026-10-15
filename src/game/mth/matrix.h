@@ -4,10 +4,26 @@
 
 namespace Mth {
 
+class Matrix;
+
+// A pending product left * right, assigned into a matrix with operator=. (Only the assignment has been seen so
+// far; this is likely a small helper type for writing m = a * b without a temporary.)
+struct MatrixProduct {
+    const Matrix* left;
+    const Matrix* right;
+};
+
 // 4x4 matrix stored as four row vectors.
 class Matrix {
 public:
     Vector row[4];
+
+    // this = *product.left * *product.right
+    Matrix& operator=(const MatrixProduct& product);
+
+    // Make the rotation rows orthonormal again, keeping row `axis` (0-2) as is: the other two are rebuilt from
+    // cross products and normalised. Whichever of them is less perpendicular to the axis row is rebuilt first.
+    Matrix& OrthoNormalizeAbout(int axis);
 
     Matrix& operator=(const Matrix& other);
     Vector& operator[](int index);

@@ -1,5 +1,9 @@
 #include "game/core/str.h"
 
+#include <cstdio>
+#include <cstring>
+
+#include "hook/game.h"
 #include "hook/hook.h"
 
 namespace Str {
@@ -47,6 +51,46 @@ const char* FindCaseless(const char* haystack, const char* needle)
             return haystack;
     }
     return nullptr;
+}
+
+// 0x00402200
+const char* FormatWithSeparators(int value)
+{
+    char* const buffer = &GameVariable<char>(0x00690FA4); // shared with the original code
+    char* out = buffer;
+    if (value < 0) {
+        *out++ = '-';
+        value = static_cast<int>(0u - static_cast<unsigned>(value)); // INT_MIN stays negative, as in the original
+    }
+
+    char digits[32];
+    snprintf(digits, sizeof(digits), "%d", value);
+
+    char separator;
+    switch (GameVariable<int>(0x007CEFA0)) { // the game's language setting
+    case 3:
+        separator = ' ';
+        break;
+    case 4:
+    case 5:
+    case 6:
+        separator = '.';
+        break;
+    default:
+        separator = ',';
+        break;
+    }
+
+    int remaining = static_cast<int>(strlen(digits));
+    for (const char* digit = digits; remaining != 0;) {
+        *out++ = *digit++;
+        if (--remaining == 0)
+            break;
+        if (remaining % 3 == 0)
+            *out++ = separator;
+    }
+    *out = '\0';
+    return buffer;
 }
 
 // 0x00402120
@@ -118,5 +162,6 @@ REPLACE(0x00401FF0, Str::FindCaseless);
 REPLACE(0x00402120, Str::CompareCaseless);
 REPLACE(0x004020E0, Str::DehexifyDigit);
 REPLACE(0x00402170, Str::NextWord);
+REPLACE(0x00402200, Str::FormatWithSeparators);
 REPLACE(0x00402080, Str::LowerCase);
 REPLACE(0x004020B0, Str::UpperCase);

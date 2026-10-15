@@ -68,9 +68,13 @@ Batches marked (untested) haven't been run in-game yet.
       `Str::NextWord` (0x402170, word tokenizer with \_ and \n escapes), `Mth::Rect` ctor (0x404060; Ghidra's
       signature database calls it MFC CRect), `Vector::SetDirection` / `ProjectOnto` / `GetMaxAxis`
       (0x4061A0, 0x406200, 0x406260), with self-tests. Register scan: 112 functions, 3,489 call sites, clean.
-- [ ] Batch 16+: remaining core-block functions 0x402200, 0x404100, 0x405170, 0x405310, 0x405850, 0x405990,
-      0x405A20 (1.1 KB), 0x405E90, 0x405FA0, 0x405FF0, 0x406020, 0x4062D0. Still skipped/deferred: 0x401020,
-      0x401AF0, 0x403210, 0x403220, 0x404BA0 (matrix debug print), 0x4058E0.
+- [x] Batch 16 (untested): `Str::FormatWithSeparators` (0x402200; static buffer 0x690FA4, separator from the
+      language setting at 0x7CEFA0), `Matrix::operator=(MatrixProduct)` (0x404100), `Matrix::OrthoNormalizeAbout`
+      (0x405170), `Mth::FastSin` / `FastCos` (0x405FF0, 0x406020; lookup table + interpolation, no range
+      reduction), with self-tests. Register scan: 117 functions, 3,519 call sites, clean.
+- [ ] Batch 17+: remaining core-block functions 0x405310, 0x405850, 0x405990 (+ its wrapper 0x405E90),
+      0x405A20 (1.1 KB), 0x405FA0, 0x4062D0. Still skipped/deferred: 0x401020, 0x401AF0, 0x403210, 0x403220,
+      0x404BA0 (matrix debug print), 0x4058E0.
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
       for original callers that read ECX/EDX after the call without writing them first (ignoring push-to-reserve,
       lea reg,[reg], or reg,-1 and zeroing idioms; callers that are themselves replaced count as safe).
