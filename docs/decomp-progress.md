@@ -50,8 +50,12 @@ Batches marked (untested) haven't been run in-game yet.
       zero-determinant check, scaling skipped when det == 1), `Mth::FastAtan2(y, x)` (0x4049B0; hardware FPATAN
       when |x| < |y|, else 8-term polynomial), `Matrix::GetEulerAngles` (0x404AB0; calls the CRT's x87 asin at
       0x623560, gimbal-lock threshold 0.005), with self-tests. Not done: 0x404BA0 (debug print of a matrix).
-- [ ] Batch 11+: 0x402640 / 0x402D60 / 0x402F00 (distance functions; then the deferred 0x4032E0 / 0x403330),
-      0x403550 / 0x403C00, 0x404EC0-0x4050F0, 0x405170-0x405A20, 0x4060F0-0x4062D0.
+- [x] Batch 11 (untested): `Line::DistanceSqrToPoint` (0x402D60), `Mth::ClosestPointsBetweenLines` (0x402F00,
+      epsilon 1e-5, returns bool in AL), `Capsule::ContainsPoint` (0x403330, previously deferred), with
+      self-tests covering segment ends, skew/parallel/degenerate lines and clamping.
+- [ ] Batch 12+: 0x402640 (1.8 KB, called by the deferred capsule test 0x4032E0 with three arguments -
+      probably segment-to-segment distance), then 0x4032E0; 0x403550 / 0x403C00, 0x404EC0-0x4050F0,
+      0x405170-0x405A20, 0x4060F0-0x4062D0.
 - [x] Infrastructure (untested): late self-test stage. A one-shot hook on ParseNetworkParams (0x4E1220, called
       once from WinMain before the main loop) removes itself, runs late self-tests, then calls the real function.
       `OriginalCode` scopes temporarily restore an original function so it can be compared after hooking.

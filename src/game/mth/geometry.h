@@ -29,6 +29,10 @@ public:
     // Sphere volume plus the cylinder along the segment.
     float Volume() const;
 
+    // True if `point` is within the capsule. If `offset` is given it receives the point's offset from the
+    // closest point on the segment (whether or not the point is inside).
+    bool ContainsPoint(const Vector& point, Vector* offset) const;
+
     Line line;
     float radius;
 };

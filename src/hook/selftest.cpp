@@ -666,6 +666,58 @@ void TestBatch10()
         CheckFloat(Original<Atan2Fn>(0x004049B0)(p[0], p[1]), Mth::FastAtan2(p[0], p[1]), "Mth::FastAtan2");
 }
 
+void TestBatch11()
+{
+    using Mth::Capsule;
+    using Mth::Line;
+    using Mth::Vector;
+    using DistFn = float(__thiscall*)(const Line*, const Vector*, Vector*);
+    using ClosestFn = bool(__cdecl*)(const Line*, const Line*, Vector*, Vector*, float*, float*, bool);
+    using ContainsFn = bool(__thiscall*)(const Capsule*, const Vector*, Vector*);
+
+    const Line line({1, 2, 3, 1}, {5, -2, 7, 3});
+    const Vector points[] = {{0, 0, 0, 1}, {1, 2, 3, 1}, {3, 0, 5, 2}, {9, -6, 11, 1}, {2, 5, -1, 0}, {5, -2, 7, 3}};
+    for (const Vector& p : points) {
+        Vector expected_offset{}, actual_offset{};
+        float expected = Original<DistFn>(0x00402D60)(&line, &p, &expected_offset);
+        float actual = line.DistanceSqrToPoint(p, &actual_offset);
+        CheckFloat(expected, actual, "Line::DistanceSqrToPoint");
+        CheckVector(expected_offset, actual_offset, "Line::DistanceSqrToPoint (offset)");
+        CheckFloat(Original<DistFn>(0x00402D60)(&line, &p, nullptr), line.DistanceSqrToPoint(p),
+                   "Line::DistanceSqrToPoint (no offset)");
+    }
+
+    const Line others[] = {
+        Line({0, 0, 0, 1}, {0, 10, 0, 1}),       // skew
+        Line({-3, 4, 1, 1}, {6, 1, 9, 2}),       // general
+        Line({2, 2, 4, 1}, {6, -2, 8, 1}),       // parallel to `line`
+        Line({1, 1, 1, 1}, {1, 1, 1, 1}),        // degenerate (a point)
+        Line({20, 20, 20, 1}, {21, 25, 19, 1}),  // far away: clamping matters
+    };
+    for (const Line& other : others) {
+        for (bool clamp : {false, true}) {
+            Vector ea{9, 9, 9, 9}, eb{9, 9, 9, 9}, aa{9, 9, 9, 9}, ab{9, 9, 9, 9};
+            float es = 7, et = 7, as = 7, at = 7;
+            bool expected = Original<ClosestFn>(0x00402F00)(&line, &other, &ea, &eb, &es, &et, clamp);
+            bool actual = Mth::ClosestPointsBetweenLines(line, other, aa, ab, as, at, clamp);
+            Check(expected == actual, "ClosestPointsBetweenLines (result)");
+            CheckVector(ea, aa, "ClosestPointsBetweenLines (point a)");
+            CheckVector(eb, ab, "ClosestPointsBetweenLines (point b)");
+            CheckFloat(es, as, "ClosestPointsBetweenLines (s)");
+            CheckFloat(et, at, "ClosestPointsBetweenLines (t)");
+        }
+    }
+
+    const Capsule capsule(line, 1.5f);
+    for (const Vector& p : points) {
+        Vector expected_offset{8, 8, 8, 8}, actual_offset{8, 8, 8, 8};
+        bool expected = Original<ContainsFn>(0x00403330)(&capsule, &p, &expected_offset);
+        bool actual = capsule.ContainsPoint(p, &actual_offset);
+        Check(expected == actual, "Capsule::ContainsPoint");
+        CheckVector(expected_offset, actual_offset, "Capsule::ContainsPoint (offset)");
+    }
+}
+
 // --- late self-tests ----------------------------------------------------------------------------------
 
 void TestLzssLate()
@@ -909,5 +961,6 @@ void RunSelfTests()
     TestBitStreamReadWrite();
     TestBatch9();
     TestBatch10();
+    TestBatch11();
     Log(g_failures ? "self-tests: %d FAILED" : "self-tests: all passed", g_failures);
 }

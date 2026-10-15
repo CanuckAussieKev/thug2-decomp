@@ -52,6 +52,16 @@ struct Line {
     Vector end;
 
     Line(const Vector& from, const Vector& to);
+
+    // Squared distance from `point` to the closest point on the segment (x, y, z only). If `offset` is given
+    // it receives point - closest point, including w.
+    float DistanceSqrToPoint(const Vector& point, Vector* offset = nullptr) const;
 };
+
+// Closest points between lines `a` and `b`: point_a = a.start + s * (a.end - a.start), point_b likewise with
+// t. With `clamp`, s and t are limited to [0, 1] (segments instead of infinite lines). Returns false, leaving
+// the outputs untouched, if either line is shorter than 1e-5 on every axis or they are (nearly) parallel.
+bool ClosestPointsBetweenLines(const Line& a, const Line& b, Vector& point_a, Vector& point_b, float& s,
+                               float& t, bool clamp);
 
 } // namespace Mth
