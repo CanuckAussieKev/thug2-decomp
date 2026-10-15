@@ -9,6 +9,7 @@
 
 #include "game/core/crc.h"
 #include "game/core/mem.h"
+#include "game/core/pool.h"
 #include "game/core/str.h"
 #include "game/core/string.h"
 #include "game/mth/geometry.h"
@@ -1216,7 +1217,110 @@ void TestBatch18()
                "Mth::GetAngleInPlane (zero)");
 }
 
+void TestPool()
+{
+    using Mem::Pool;
+    using AllocateFn = void*(__thiscall*)(Pool*);
+    using FreeFn = void(__thiscall*)(Pool*, void*);
+    using ContainsFn = bool(__thiscall*)(const Pool*, const void*);
+
+    // A pool built by hand over a static block, so no game allocator is needed: 6 items of 12 bytes.
+    constexpr int kItems = 6, kSize = 12;
+    alignas(4) static uint8_t block_expected[kItems * kSize], block_actual[kItems * kSize];
+    auto build = [](Pool& pool, uint8_t* block) {
+        std::memset(&pool, 0, sizeof(pool));
+        pool.m_start = block;
+        pool.m_end = block + kItems * kSize;
+        pool.m_count = kItems;
+        pool.m_itemSize = kSize;
+        pool.m_freeList = block;
+        for (int i = 0; i < kItems; ++i)
+            *reinterpret_cast<void**>(block + i * kSize) = i < kItems - 1 ? block + (i + 1) * kSize : nullptr;
+    };
+    alignas(Pool) static unsigned char raw_expected[sizeof(Pool)], raw_actual[sizeof(Pool)];
+    auto& expected = *reinterpret_cast<Pool*>(raw_expected);
+    auto& actual = *reinterpret_cast<Pool*>(raw_actual);
+    build(expected, block_expected);
+    build(actual, block_actual);
+
+    auto same = [&] {
+        auto offset = [](const void* p, const uint8_t* base) {
+            return p ? static_cast<const uint8_t*>(p) - base : -1;
+        };
+        return expected.m_used == actual.m_used && expected.m_peakUsed == actual.m_peakUsed &&
+               offset(expected.m_freeList, block_expected) == offset(actual.m_freeList, block_actual);
+    };
+
+    // Allocate everything (and one more, which must fail), free a few, allocate again.
+    void* items_expected[kItems + 1];
+    void* items_actual[kItems + 1];
+    for (int i = 0; i <= kItems; ++i) {
+        items_expected[i] = Original<AllocateFn>(0x005BA3D0)(&expected);
+        items_actual[i] = actual.Allocate();
+        bool both_null = !items_expected[i] && !items_actual[i];
+        bool same_slot = items_expected[i] && items_actual[i] &&
+                         static_cast<uint8_t*>(items_expected[i]) - block_expected ==
+                             static_cast<uint8_t*>(items_actual[i]) - block_actual;
+        Check((both_null || same_slot) && same(), "Pool::Allocate");
+    }
+    for (int i : {2, 0, 4}) {
+        Original<FreeFn>(0x005BA400)(&expected, items_expected[i]);
+        actual.Free(items_actual[i]);
+        Check(same(), "Pool::Free");
+    }
+    for (int i = 0; i < 2; ++i) {
+        void* a = Original<AllocateFn>(0x005BA3D0)(&expected);
+        void* b = actual.Allocate();
+        Check(static_cast<uint8_t*>(a) - block_expected == static_cast<uint8_t*>(b) - block_actual && same(),
+              "Pool::Allocate (after Free)");
+    }
+
+    const uint8_t* probes[] = {block_actual - 1, block_actual, block_actual + 30, block_actual + kItems * kSize - 1,
+                               block_actual + kItems * kSize};
+    for (const uint8_t* p : probes)
+        Check(Original<ContainsFn>(0x005BA3B0)(&actual, p) == actual.Contains(p), "Pool::Contains");
+}
+
 // --- late self-tests ----------------------------------------------------------------------------------
+
+void TestPoolConstructorLate()
+{
+    using Mem::Pool;
+    using CtorFn = Pool*(__thiscall*)(void*, int, int, const char*);
+    const struct {
+        int size, count;
+        const char* name;
+    } cases[] = {{16, 8, "test pool"}, {4, 1, nullptr}, {32, 3, ""}};
+    for (const auto& c : cases) {
+        alignas(Pool) unsigned char raw_expected[sizeof(Pool)], raw_actual[sizeof(Pool)];
+        Pool* expected;
+        {
+            OriginalCode original(0x005BA420);
+            expected = Original<CtorFn>(0x005BA420)(raw_expected, c.size, c.count, c.name);
+        }
+        Pool* actual = new (raw_actual) Pool(c.size, c.count, c.name);
+        bool fields = expected == reinterpret_cast<Pool*>(raw_expected) && expected->m_count == actual->m_count &&
+                      expected->m_itemSize == actual->m_itemSize && expected->m_used == actual->m_used &&
+                      expected->m_peakUsed == actual->m_peakUsed &&
+                      expected->m_end - expected->m_start == actual->m_end - actual->m_start &&
+                      std::strcmp(expected->m_name, actual->m_name) == 0;
+        // Walk both free lists: same length and the same offsets within their blocks.
+        bool lists = true;
+        const uint8_t* e = static_cast<const uint8_t*>(expected->m_freeList);
+        const uint8_t* a = static_cast<const uint8_t*>(actual->m_freeList);
+        for (int steps = 0; (e || a) && steps <= c.count; ++steps) {
+            if (!e || !a || e - expected->m_start != a - actual->m_start) {
+                lists = false;
+                break;
+            }
+            e = *reinterpret_cast<const uint8_t* const*>(e);
+            a = *reinterpret_cast<const uint8_t* const*>(a);
+        }
+        Check(fields && lists, "Pool::Pool");
+        Mem::Free(expected->m_start);
+        Mem::Free(actual->m_start);
+    }
+}
 
 void TestLzssLate()
 {
@@ -1432,6 +1536,7 @@ void RunLateSelfTests()
     TestMemoryLate();
     TestStringLate();
     TestLzssLate();
+    TestPoolConstructorLate();
     int failures = g_failures - g_late_failures_before;
     Log(failures ? "late self-tests: %d FAILED" : "late self-tests: all passed", failures);
 }
@@ -1478,5 +1583,6 @@ void RunSelfTests()
     TestBatch16();
     TestBatch17();
     TestBatch18();
+    TestPool();
     Log(g_failures ? "self-tests: %d FAILED" : "self-tests: all passed", g_failures);
 }

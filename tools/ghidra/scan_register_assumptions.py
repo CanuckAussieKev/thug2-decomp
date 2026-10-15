@@ -51,13 +51,17 @@ def ignores_old_value(ins, listing):
             nxt = listing.getInstructionAt(nxt.getFallThrough()) if nxt.getFallThrough() else None
             if nxt is None or nxt.getFlowType().isCall() or nxt.getFlowType().isJump():
                 break
+            mnemonic_next = str(nxt.getMnemonicString())
             ops_next = operands(nxt)
             first = ops_next[0] if ops_next else ""
-            if "[ESP]" in first and str(nxt.getMnemonicString()) in ("FSTP", "FST", "MOV", "FISTP"):
-                return True
-            # LEA only computes an address; any other access to [ESP...] means the slot may be read first.
-            if str(nxt.getMnemonicString()) != "LEA" and any("[ESP" in o for o in ops_next):
+            # The pushed slot is [ESP] until the stack pointer moves.
+            if mnemonic_next in ("PUSH", "POP") or first == "ESP":
                 break
+            if "[ESP]" in first and mnemonic_next in ("FSTP", "FST", "MOV", "FISTP"):
+                return True  # overwritten before anything reads it
+            if any("[ESP]" in o for o in ops_next):
+                break  # the slot itself is read
+            # Accesses to other slots ([ESP + n]) and LEA don't touch the pushed value.
     return False
 
 

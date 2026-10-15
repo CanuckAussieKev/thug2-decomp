@@ -94,8 +94,18 @@ code for now:
 - (0x401AF0 was listed here as "an empty loop with no effect" - wrong. Ghidra's pseudocode missed its third
   argument; it is Crc::ExtendCRCWithBuffer and its caller uses the result. Rewritten 2026-10-15.)
 
-## Next block
-Per docs/subsystems.md: file system (PIP/PRE archives, 0x5B6560-0x5BDAD0), then the script command libraries.
+## File system & memory block (0x5B6560-0x5BDAD0, 222 functions)
+Contents: async file loader (0x5B6560-0x5B7130), PIP/PRE archives (0x5B7130-0x5B9CB0), small helpers incl. the
+item pool (0x5B9DF0-0x5BA560), the MEMORY MANAGER itself (0x5BA5A0-0x5BBE80: allocate 0x5BAFC0, free 0x5BABA0,
+context push/pop, named heaps - do this last and carefully), hash table / save paths / skater-select menu /
+input (0x5BC2C0-0x5BDA20). 0x5BDA20 is patched by PartyMod (bytes at 0x5BDA31): keep it original.
+Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*, int, int, int, int) shape.
+
+- [x] Batch 19 (untested): `Mem::Pool` fixed-size item pool - ctor 0x5BA420 (late self-test), `Allocate`
+      0x5BA3D0 (335 callers), `Free` 0x5BA400, `Contains` 0x5BA3B0 (bool, AL only), with self-tests.
+      Scanner: the PUSH-ECX filter now ignores writes to other stack slots ([ESP + n]); 131 functions,
+      4,429 call sites, clean. Return-value pass matches all four.
+- [ ] Next: the hash table helpers (0x5B80D0 and friends, 0x5BC2C0-0x5BC9B0), then the PIP/PRE archive code.
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
       for original callers that read ECX/EDX after the call without writing them first (ignoring push-to-reserve,
       lea reg,[reg], or reg,-1 and zeroing idioms; callers that are themselves replaced count as safe).
