@@ -298,6 +298,7 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       test: stand-in manager + symbol table, originals vs ours (six deliberate bugs caught, one after
       adding a named component with a flag's value). Register scan flags 0x4EFF92 'PUSH ECX' after
       AddVector by value: a false alarm (it only reserves a stack slot, overwritten by FSTP [ESP]).
+- [x] Batches 36-38 tested in the game (2026-10-16, by the user): game runs.
 - [ ] Next: CopyArray 0x478A60 (+ 0x46CC50 SetSizeAndType, 0x4787A0 element copy), the remaining array
       functions (0x46CB10..), then the parser/symbol table (0x46F...) and the interpreter.
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
