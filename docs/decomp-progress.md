@@ -137,6 +137,10 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       on 28 pure functions (first N game calls compared against the original; demonstrated with a
       deliberate FastSin error); tools/check_partymod_overlap.py. At engine start 7 of the 28 have been
       called (503 calls checked, no mismatches); the quit-time summary shows coverage after play.
+      Tested 2026-10-15 (short play session + menu quit): quit is clean (no assertion) after the fastExit
+      fix; 1,283 calls checked across 20 of the 28, no mismatches. Not yet called by the game: CRC
+      caseless, Capsule::Volume, FastAtan2/Sin/Cos, Matrix::Determinant, GetAngleInPlane,
+      Vector::LengthSqr (our own math calls these directly, so only the game's direct calls count).
 - [ ] Next: the .pre loader 0x5B75A0 / LoadPipPre cfuncs, the pre-file manager 0x5B7DF0-0x5B9640,
       the async loader 0x5B6560-0x5B7130.
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
