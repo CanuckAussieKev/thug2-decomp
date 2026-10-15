@@ -4,9 +4,15 @@
 #include <cstdint>
 #include <cstring>
 
+#include <initializer_list>
+#include <new>
+
 #include "game/core/crc.h"
+#include "game/core/str.h"
+#include "game/mth/math.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
+#include "game/util/bitstream.h"
 #include "hook/hook.h"
 #include "hook/log.h"
 
@@ -195,6 +201,96 @@ void TestMatrix()
         CheckVector(expected.row[i], actual.row[i], "Matrix::operator=");
 }
 
+void TestBitStream()
+{
+    using Util::BitStream;
+    using Ctor = BitStream*(__thiscall*)(BitStream*);
+    using SetData = void(__thiscall*)(BitStream*, void*, int);
+    using GetCount = int(__thiscall*)(const BitStream*);
+    using Flush = void(__thiscall*)(BitStream*);
+
+    auto same = [](const BitStream& a, const BitStream& b, bool ignore_start) {
+        return a.m_cursor == b.m_cursor && (ignore_start || a.m_start == b.m_start) && a.m_buffer == b.m_buffer &&
+               a.m_bitsFree == b.m_bitsFree && a.m_size == b.m_size && a.m_bitsUsed == b.m_bitsUsed;
+    };
+    auto garbage = [](BitStream& s) { std::memset(&s, 0xA5, sizeof(s)); };
+
+    alignas(BitStream) unsigned char raw_expected[sizeof(BitStream)], raw_actual[sizeof(BitStream)];
+    auto& expected = *reinterpret_cast<BitStream*>(raw_expected);
+    auto& actual = *reinterpret_cast<BitStream*>(raw_actual);
+
+    garbage(expected); garbage(actual);
+    Original<Ctor>(0x00401050)(&expected);
+    new (&actual) BitStream();
+    Check(same(expected, actual, true), "BitStream::BitStream"); // original leaves m_start unset
+
+    uint32_t data[4] = {};
+    garbage(expected); garbage(actual);
+    Original<SetData>(0x00401070)(&expected, data, 16);
+    actual.SetInputData(data, 16);
+    Check(same(expected, actual, false), "BitStream::SetInputData");
+
+    garbage(expected); garbage(actual);
+    Original<SetData>(0x00401090)(&expected, data, 16);
+    actual.SetOutputData(data, 16);
+    Check(same(expected, actual, false), "BitStream::SetOutputData");
+
+    for (int bits : {0, 1, 7, 8, 9, 31, 32, 33}) {
+        expected.m_bitsUsed = actual.m_bitsUsed = bits;
+        Check(Original<GetCount>(0x004010C0)(&expected) == actual.GetByteCount(), "BitStream::GetByteCount");
+    }
+
+    for (int free_bits : {32, 20}) {
+        uint32_t out_expected[2] = {}, out_actual[2] = {};
+        expected.SetOutputData(out_expected, 8);
+        actual.SetOutputData(out_actual, 8);
+        expected.m_buffer = actual.m_buffer = 0x12345678;
+        expected.m_bitsFree = actual.m_bitsFree = free_bits;
+        Original<Flush>(0x00401180)(&expected);
+        actual.Flush();
+        Check(expected.m_cursor - out_expected == actual.m_cursor - out_actual && out_expected[0] == out_actual[0] &&
+                  expected.m_buffer == actual.m_buffer && expected.m_bitsFree == actual.m_bitsFree,
+              "BitStream::Flush");
+    }
+}
+
+void TestStringsAndMath()
+{
+    using Convert = void(__cdecl*)(char*);
+    const char* inputs[] = {"", "MiXeD Case 123", "levels\\NJ\\NJ.PRE", "@[`{ edges", "\xC0\xE0 high"};
+    for (const char* s : inputs) {
+        char expected[64], actual[64];
+        strcpy_s(expected, s); strcpy_s(actual, s);
+        Original<Convert>(0x00402080)(expected);
+        Str::LowerCase(actual);
+        Check(strcmp(expected, actual) == 0, "Str::LowerCase");
+        strcpy_s(expected, s); strcpy_s(actual, s);
+        Original<Convert>(0x004020B0)(expected);
+        Str::UpperCase(actual);
+        Check(strcmp(expected, actual) == 0, "Str::UpperCase");
+    }
+
+    using ClampFn = float(__cdecl*)(float, float, float);
+    const float values[][3] = {{5, 0, 10}, {-1, 0, 10}, {11, 0, 10}, {0, 0, 0}, {5, 10, 0}, {-3.5f, -2, -1}};
+    for (const auto& v : values)
+        CheckFloat(Original<ClampFn>(0x004022C0)(v[0], v[1], v[2]), Mth::Clamp(v[0], v[1], v[2]), "Mth::Clamp");
+
+    using Mth::Vector;
+    using PointCtor = Vector*(__thiscall*)(Vector*, float, float, float);
+    Vector expected{9, 9, 9, 9};
+    Original<PointCtor>(0x004022F0)(&expected, 1.5f, -2.0f, 3.25f);
+    CheckVector(expected, {1.5f, -2.0f, 3.25f, 1.0f}, "Vector(x, y, z)");
+
+    using VectorIndex = float*(__thiscall*)(Vector*, int);
+    using MatrixIndex = Vector*(__thiscall*)(Mth::Matrix*, int);
+    Vector v{1, 2, 3, 4};
+    Mth::Matrix m{};
+    for (int i = 0; i < 4; ++i) {
+        Check(Original<VectorIndex>(0x00402310)(&v, i) == &v[i], "Vector::operator[]");
+        Check(Original<MatrixIndex>(0x00404080)(&m, i) == &m[i], "Matrix::operator[]");
+    }
+}
+
 } // namespace
 
 void RunSelfTests()
@@ -202,5 +298,7 @@ void RunSelfTests()
     TestCrc();
     TestVector();
     TestMatrix();
+    TestBitStream();
+    TestStringsAndMath();
     Log(g_failures ? "self-tests: %d FAILED" : "self-tests: all passed", g_failures);
 }

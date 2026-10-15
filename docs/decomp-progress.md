@@ -12,7 +12,12 @@ Batches marked (untested) haven't been run in-game yet.
 - [x] Batch 2 (untested): CRC buffer/extend (0x401AA0, 0x401BE0), `Mth::Matrix` copy + X/Y/Z rotation builders
       (0x404090, 0x404DD0-0x404E70), `Vector::operator-=` (0x406050), `Vector::ProjectToPlane` (0x406080).
       Skipped 0x401020: compiler-generated array-constructor helper, not game code.
-- [ ] Batch 3+: the rest of the block, smallest first
+- [x] Batch 3 (untested): `Util::BitStream` ctor/SetInputData/SetOutputData/GetByteCount/Flush
+      (0x401050-0x4010C0, 0x401180), `Str::LowerCase`/`UpperCase` (0x402080, 0x4020B0), `Mth::Clamp` (0x4022C0),
+      Vector(x,y,z) ctor (0x4022F0), Vector/Matrix `operator[]` (0x402310, 0x404080).
+      Deferred until their callers are understood: 0x401D80 (assigns IDs from a global counter at 0x690FA0),
+      0x403210 / 0x403220 (each zero one field of an unknown class).
+- [ ] Batch 4+: the rest of the block, smallest first
 
 ## Notes
 - Ghidra's pseudocode can be wrong for x87 float code: 0x4023A0 decompiled as an empty function but is

@@ -10,6 +10,7 @@ public:
     Vector row[4];
 
     Matrix& operator=(const Matrix& other);
+    Vector& operator[](int index);
 };
 
 // Fill `m` with a rotation of `angle` radians about one axis and return it.

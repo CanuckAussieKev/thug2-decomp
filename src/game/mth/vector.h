@@ -8,7 +8,11 @@ class Vector {
 public:
     float x, y, z, w;
 
+    // The original also has a Vector(x, y, z) constructor (0x004022F0) that sets w = 1. Vector stays an
+    // aggregate here so it can be written as {x, y, z, w}; use {x, y, z, 1.0f} for that constructor.
+
     Vector& operator=(const Vector& other);
+    float& operator[](int index);
     Vector& operator+=(const Vector& other);
     Vector& operator-=(const Vector& other);
     Vector& operator*=(float scale);

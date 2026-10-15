@@ -20,8 +20,11 @@ add_library(thug2_decomp SHARED
     src/hook/log.cpp
     src/hook/selftest.cpp
     src/game/core/crc.cpp
+    src/game/core/str.cpp
+    src/game/mth/math.cpp
     src/game/mth/matrix.cpp
     src/game/mth/vector.cpp
+    src/game/util/bitstream.cpp
 )
 target_include_directories(thug2_decomp PRIVATE src)
 target_compile_definitions(thug2_decomp PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)

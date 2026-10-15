@@ -14,6 +14,12 @@ Matrix& Matrix::operator=(const Matrix& other)
     return *this;
 }
 
+// 0x00404080
+Vector& Matrix::operator[](int index)
+{
+    return row[index];
+}
+
 // 0x00404DD0
 Matrix& CreateRotateXMatrix(Matrix& m, float angle)
 {
@@ -53,6 +59,7 @@ Matrix& CreateRotateZMatrix(Matrix& m, float angle)
 } // namespace Mth
 
 // operator= is __thiscall returning `this`; the rotation builders are cdecl and return the matrix pointer.
+REPLACE(0x00404080, &Mth::Matrix::operator[]);
 REPLACE(0x00404090, &Mth::Matrix::operator=);
 REPLACE(0x00404DD0, Mth::CreateRotateXMatrix);
 REPLACE(0x00404E20, Mth::CreateRotateYMatrix);

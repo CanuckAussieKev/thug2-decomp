@@ -17,6 +17,12 @@ Vector& Vector::operator=(const Vector& other)
     return *this;
 }
 
+// 0x00402310
+float& Vector::operator[](int index)
+{
+    return (&x)[index];
+}
+
 // 0x00402340
 Vector& Vector::operator+=(const Vector& other)
 {
@@ -135,6 +141,14 @@ namespace {
 
 using Mth::Vector;
 
+struct VectorAdapter {
+    Vector* ConstructPoint(float x, float y, float z)
+    {
+        *reinterpret_cast<Vector*>(this) = {x, y, z, 1.0f};
+        return reinterpret_cast<Vector*>(this);
+    }
+};
+
 struct LineAdapter {
     Mth::Line* Construct(const Vector& start, const Vector& end)
     {
@@ -144,6 +158,8 @@ struct LineAdapter {
 
 } // namespace
 
+REPLACE(0x004022F0, &VectorAdapter::ConstructPoint);
+REPLACE(0x00402310, &Vector::operator[]);
 REPLACE(0x00402320, &Vector::operator=);
 REPLACE(0x00402340, &Vector::operator+=);
 REPLACE(0x00402370, &Vector::operator*=);
