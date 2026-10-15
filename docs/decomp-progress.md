@@ -240,6 +240,8 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       allocator statistics (+4..+0x20) are named. Early test: up/down/fallback heaps in an arena, the
       original methods vs ours via vtable copies, arena compared (four deliberate bugs all caught; Free's
       manager lookup uses a zeroed stand-in manager offline).
+- [x] Batches 32-33 tested in the game (2026-10-15, by the user): works; log - 305/305 replacements, early
+      30/30, late 11/11 (incl. TestAllocatorContextsLate), engine-started 2/2, shadow checks clean.
 - [ ] Next: the Manager 0x5BAB90-0x5BBE80.
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
       for original callers that read ECX/EDX after the call without writing them first (ignoring push-to-reserve,
