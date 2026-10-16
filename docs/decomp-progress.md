@@ -356,7 +356,8 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       - AllocateChecksumNameLookupTables 0x46CF00 (untested: 10 MB), AddChecksumName 0x46CF60 (a full bucket
       runs into the next), FindChecksumName 0x46D0C0, FindChecksumNameOrUnknown 0x46D110 ("Unknown(0x%08x)"
       in 0x6F22C8; params.h's FindChecksumName now calls it), ParseChecksumNames 0x46CD90 (.chk lines
-      "0x<8 hex> <name>
+      "0x<8 hex> <name>
+
 "), LoadChecksumNames 0x46CFE0 (untested: needs a .chk file);
       RegisterCFunctions 0x46EFD0 (type 8), RegisterMemberFunctions 0x46F020 and RegisterMemberFunctionTable
       0x46F060 (type 9). 12 functions. Tests: the expression test now forces these originals too and has ~60
@@ -364,6 +365,8 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       and a late test (in the game - the original uses the game's C runtime, which the offline checker
       doesn't start) for adding a known checksum and the Unknown(...) text. 23 deliberate bugs caught, 5 after
       strengthening the tests.
+- [x] Batches 41-42 tested in the game (2026-10-16, by the user): game runs fine; log - 501/501 replacements,
+      early 39/39, late 12/12 (including the checksum-names late test), engine-started 2/2.
 - [ ] Next: the script parser / loader (0x46F090.., Script_ParseQB 0x46FBA0, LoadQB 0x46EDE0) and the
       interpreter (CScript).
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
