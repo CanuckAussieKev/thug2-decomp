@@ -276,7 +276,8 @@ public:
     // Copies of this structure's components added to `dest`, with included global structures expanded.
     void ExpandInto(CStruct* dest, int depth);
 
-    // The typed getters: false if missing (`assert`: the game would report it - a no-op in this build).
+    // The typed getters: false if missing. With `assert` set, a miss also calls 0x005480A0 with the structure -
+    // compiled-out debug output (an empty function in this build), so it changes nothing and is left out here.
     bool GetString(uint32_t name, const char** out, int assert);
     bool GetString(const char* name, const char** out, int assert);
     bool GetInteger(uint32_t name, int* out, int assert);

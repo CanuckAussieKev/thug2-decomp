@@ -26,3 +26,13 @@ Things that are true of this repo's testing and not obvious from the code; each 
   (dot products), so follow the instruction order and compute in double.
 - **Equal-looking data hides bugs**: mutations tend to survive with symmetric inputs (equal lengths, positive
   weights, a single use of stored state, names that don't collide). Make inputs asymmetric.
+
+## Tiny functions are usually not stubs
+`tools/ghidra/find_stubs.py` lists every game function of at most two instructions (~300). Most are real code
+belonging to a class - getters (`MOV EAX,[ECX+n]`), flag setters, constant returns, and `MOV [ECX],vtable; RET`
+(the destructor body of a class with nothing else to destroy). Write those with their class, not as generic
+stubs. Only the truly empty ones (bare `RET`/`RET n`, a constant return ignoring its arguments) go in
+`src/game/core/stubs.cpp`. They're linker-folded: one address stands for many source functions.
+Don't trust a comment saying a call is "a no-op" without looking: CStruct's getters on a miss call 0x5480A0
+(empty - compiled-out debug output, 528 callers). Bytes after a 1-byte function aren't necessarily padding:
+0x5480A1-0x5480BE is PartyMod's code cave (loads partymod.dll), written into THUG2PM.exe's padding.

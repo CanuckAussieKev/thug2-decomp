@@ -22,6 +22,13 @@ bool ReturnFalse() { return false; }
 // 0x005BA1D0: functions returning 0 / null
 int ReturnZero() { return 0; }
 
+// 0x005480A0: an empty cdecl function - the most called address in the game (528 calls). Mostly compiled-out
+// debug output: the callers still push its arguments (messages, a structure to dump...) and pop them after,
+// e.g. CStruct's typed getters on a miss when asked to assert, the memory manager's error paths. (The bytes
+// after its RET, 0x005480A1-0x005480BE, are PartyMod's: a code cave its exe patch put in the padding, which
+// loads partymod.dll - not the game's.)
+void DoNothing() {}
+
 // 0x005BAB90: functions that ignore their one (stack) argument
 void __stdcall IgnoreArgument(int) {}
 
@@ -33,6 +40,7 @@ REPLACE_SOURCE_ONLY(0x005B9E50, Stubs::ReturnFalse);        // 3 bytes
 REPLACE_SOURCE_ONLY(0x004504F0, Stubs::ReturnFalse);        // a jump to 0x005B9E50
 REPLACE_SOURCE_ONLY(0x005BA1D0, Stubs::ReturnZero);         // 3 bytes
 REPLACE_SOURCE_ONLY(0x0047AE10, Stubs::ReturnZero);         // a jump to 0x005BA1D0
+REPLACE_SOURCE_ONLY(0x005480A0, Stubs::DoNothing);          // 1 byte
 REPLACE_SOURCE_ONLY(0x005BAB90, Stubs::IgnoreArgument);     // 3 bytes
 REPLACE_SOURCE_ONLY(0x005144C0, Stubs::IgnoreArgument);     // a jump to 0x005BAB90
 REPLACE_SOURCE_ONLY(0x005B9DF0, File::AsyncInit);           // a jump to 0x005B6560
