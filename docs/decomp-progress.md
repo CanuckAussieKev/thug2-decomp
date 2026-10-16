@@ -346,8 +346,26 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       parentheses, both stack overflows, order-sensitive dot products, the 200-character string limit;
       results, error pointers, stack state, the evaluator's memory and the arenas compared (24 deliberate
       bugs caught, 6 after strengthening the test; 2 more were equivalent to the original).
-- [ ] Next: the checksum-name table (0x46CD90..0x46D110), CFunction registration (0x46EFD0..0x46F060),
-      0x47A910 / 0x479410 / 0x4795A0, then the script parser (0x46F...) and the interpreter (CScript).
+- [x] Batch 42 (NOT run in the game yet; early test passes offline, plus a late test that runs in the game):
+      the rest of what the evaluator calls, checksum names and script function registration.
+      LessThan 0x479410 / GreaterThan 0x4795A0 (members of the first component; names standing for symbols
+      looked up; numbers by value, NaN never; strings and local strings by their LENGTHS; structures by one
+      being a subset of the other), CopyArrayElementToComponent 0x47A910 (cdecl; local strings and other
+      types leave the component empty). src/game/script/names.*: the checksum-name lookup (on when 0x7CEFAC
+      is set; table 0x6F232C of 0x10000 buckets x 10 {checksum, name}, names block 0x6F2330/next 0x6F2334)
+      - AllocateChecksumNameLookupTables 0x46CF00 (untested: 10 MB), AddChecksumName 0x46CF60 (a full bucket
+      runs into the next), FindChecksumName 0x46D0C0, FindChecksumNameOrUnknown 0x46D110 ("Unknown(0x%08x)"
+      in 0x6F22C8; params.h's FindChecksumName now calls it), ParseChecksumNames 0x46CD90 (.chk lines
+      "0x<8 hex> <name>
+"), LoadChecksumNames 0x46CFE0 (untested: needs a .chk file);
+      RegisterCFunctions 0x46EFD0 (type 8), RegisterMemberFunctions 0x46F020 and RegisterMemberFunctionTable
+      0x46F060 (type 9). 12 functions. Tests: the expression test now forces these originals too and has ~60
+      more expressions (comparisons, every array element type); an early checksum-names/registration test;
+      and a late test (in the game - the original uses the game's C runtime, which the offline checker
+      doesn't start) for adding a known checksum and the Unknown(...) text. 23 deliberate bugs caught, 5 after
+      strengthening the tests.
+- [ ] Next: the script parser / loader (0x46F090.., Script_ParseQB 0x46FBA0, LoadQB 0x46EDE0) and the
+      interpreter (CScript).
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
       for original callers that read ECX/EDX after the call without writing them first (ignoring push-to-reserve,
       lea reg,[reg], or reg,-1 and zeroing idioms; callers that are themselves replaced count as safe).

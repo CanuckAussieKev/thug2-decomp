@@ -1,4 +1,5 @@
 #include "game/script/eval.h"
+#include "game/script/names.h"
 #include "game/script/struct.h"
 #include "hook/selftest.h"
 
@@ -3953,7 +3954,7 @@ void TestScriptExpressions()
     enum {
         I2, I3, I4, I7, IM7, I0, F15, F25, FTINY, FNAN, N1, N2, S_AB, S_CD, S_LONG, L_X, L_Y, P1, P2, V1, V2,
         ST1, ST2, STP, NAME_A, NAME_ZZ, ARR_I, ARR_EMPTY, ARR_N, ARR_P, I1, F0, S_50, V3, V4, NAME_C, ARR_S, ARR_SP,
-        S_49, kValueCount
+        S_49, ARR_F, ARR_L, ARR_PAIR, ARR_V, ARR_A, ARR_STRUCTS, NAME_INT, NAME_F, ST_SUB, kValueCount
     };
     using T = std::vector<Token>;
     auto v = [](int i) { return Token{'v', i}; };
@@ -4007,6 +4008,21 @@ void TestScriptExpressions()
         {v(V4), o(DOT), v(V3)}, {v(ARR_I), o(ADD), v(ARR_S)}, {v(STP), o(DOT), v(NAME_C)},
         {v(ST2), o(DOT), v(NAME_C)}, {v(ARR_SP), o(ELEM), v(I0)}, {v(ARR_S), o(ELEM), v(I1)},
         {v(ARR_I), o(ELEM), v(I3)}, {v(ARR_I), o(ELEM), v(I2)},
+        {v(ARR_F), o(ELEM), v(I1)}, {v(ARR_L), o(ELEM), v(I0)}, {v(ARR_PAIR), o(ELEM), v(I1)},
+        {v(ARR_V), o(ELEM), v(I0)}, {v(ARR_A), o(ELEM), v(I0)}, {v(ARR_STRUCTS), o(ELEM), v(I0)},
+        {v(ARR_SP), o(ELEM), v(I0), o(DOT), v(NAME_A)},
+        {v(I2), o(LT), v(F25)}, {v(F25), o(LT), v(I2)}, {v(F15), o(LT), v(F25)}, {v(F25), o(LT), v(F15)},
+        {v(FNAN), o(LT), v(I2)}, {v(I2), o(LT), v(FNAN)}, {v(FNAN), o(GT), v(F15)}, {v(F15), o(GT), v(FNAN)},
+        {v(I2), o(GT), v(F25)}, {v(F25), o(GT), v(I2)}, {v(F15), o(GT), v(F25)}, {v(I3), o(GT), v(I2)},
+        {v(I2), o(GT), v(I2)}, {v(I2), o(LT), v(I2)}, {v(F15), o(LT), v(F15)}, {v(F15), o(GT), v(F15)},
+        {v(S_AB), o(LT), v(S_LONG)}, {v(S_LONG), o(LT), v(S_AB)}, {v(S_AB), o(GT), v(S_CD)},
+        {v(S_LONG), o(GT), v(S_AB)}, {v(L_X), o(LT), v(L_Y)}, {v(L_Y), o(GT), v(L_X)}, {v(S_AB), o(LT), v(L_Y)},
+        {v(ST_SUB), o(LT), v(ST1)}, {v(ST1), o(LT), v(ST_SUB)}, {v(ST1), o(GT), v(ST_SUB)},
+        {v(ST_SUB), o(GT), v(ST1)}, {v(STP), o(GT), v(ST_SUB)}, {v(ST1), o(LT), v(I2)},
+        {v(NAME_INT), o(LT), v(I7)}, {v(NAME_INT), o(GT), v(I7)}, {v(I2), o(LT), v(NAME_F)},
+        {v(NAME_F), o(GT), v(I2)}, {v(NAME_INT), o(EQ), v(I4)}, {v(N1), o(LT), v(N2)},
+        {v(P1), o(LT), v(P2)}, {v(V1), o(GT), v(V2)}, {v(IM7), o(LT), v(I2)}, {v(I2), o(LT), v(IM7)},
+        {v(IM7), o(GT), v(I2)}, {v(S_AB), o(LT), v(S_CD)}, {v(S_CD), o(GT), v(S_AB)}, {v(S_LONG), o(GT), v(L_X)},
     };
     // Both stack overflows: 21 levels of "1 + (".
     {
@@ -4035,7 +4051,7 @@ void TestScriptExpressions()
     static const uint32_t kEvaluatorFunctions[] = {0x0046D160, 0x0046D180, 0x0046D1A0, 0x0046D280, 0x0046D380,
                                                    0x0046D1C0, 0x0046D220, 0x0046D250, 0x0046D260, 0x0046D2B0,
                                                    0x0046D310, 0x0046D370, 0x0046EB70, 0x0046EBF0, 0x0046EC40,
-                                                   0x0046D450};
+                                                   0x0046D450, 0x00479410, 0x004795A0, 0x0047A910};
     alignas(16) static uint8_t evaluatorMemory[0x200];
     static CComponent values[kValueCount];
     static CPair pairs[2];
@@ -4152,6 +4168,53 @@ void TestScriptExpressions()
         element->AddInteger(0xD0u, 8);
         arrStructs->SetElement(0, reinterpret_cast<uint32_t>(element));
         set(ARR_SP, ESYMBOLTYPE_ARRAYPOINTER, reinterpret_cast<uint32_t>(arrStructs));
+        set(ARR_STRUCTS, ESYMBOLTYPE_ARRAY, reinterpret_cast<uint32_t>(arrStructs));
+        CArray* arrF = NewArray()->Init();
+        arrF->SetSizeAndType(2, ESYMBOLTYPE_FLOAT);
+        arrF->SetFloat(0, 0.5f);
+        arrF->SetFloat(1, -8.25f);
+        set(ARR_F, ESYMBOLTYPE_ARRAY, reinterpret_cast<uint32_t>(arrF));
+        CArray* arrL = NewArray()->Init();
+        arrL->SetSizeAndType(1, ESYMBOLTYPE_LOCALSTRING);
+        arrL->SetElement(0, reinterpret_cast<uint32_t>(CreateString("loc")));
+        set(ARR_L, ESYMBOLTYPE_ARRAY, reinterpret_cast<uint32_t>(arrL));
+        CArray* arrPair = NewArray()->Init();
+        arrPair->SetSizeAndType(2, ESYMBOLTYPE_PAIR);
+        CPair* pairElement = NewPair()->Init();
+        pairElement->x = 3.0f;
+        pairElement->y = 4.0f;
+        arrPair->SetElement(1, reinterpret_cast<uint32_t>(pairElement));
+        arrPair->SetElement(0, reinterpret_cast<uint32_t>(pairElement));
+        set(ARR_PAIR, ESYMBOLTYPE_ARRAY, reinterpret_cast<uint32_t>(arrPair));
+        CArray* arrV = NewArray()->Init();
+        arrV->SetSizeAndType(1, ESYMBOLTYPE_VECTOR);
+        CVector* vectorElement = NewVector()->Init();
+        vectorElement->x = 7.0f;
+        vectorElement->y = 8.0f;
+        vectorElement->z = 9.0f;
+        arrV->SetElement(0, reinterpret_cast<uint32_t>(vectorElement));
+        set(ARR_V, ESYMBOLTYPE_ARRAY, reinterpret_cast<uint32_t>(arrV));
+        CArray* arrA = NewArray()->Init();
+        arrA->SetSizeAndType(1, ESYMBOLTYPE_ARRAY);
+        arrA->SetElement(0, reinterpret_cast<uint32_t>(arrI));
+        set(ARR_A, ESYMBOLTYPE_ARRAY, reinterpret_cast<uint32_t>(arrA));
+        CStruct* sub = NewStruct()->Init();
+        sub->AddInteger(0xA0u, 5);
+        set(ST_SUB, ESYMBOLTYPE_STRUCTURE, reinterpret_cast<uint32_t>(sub));
+        // Names standing for global values.
+        static CSymbolTableEntry intSymbol, floatSymbol;
+        intSymbol = {};
+        intSymbol.type = ESYMBOLTYPE_INTEGER;
+        intSymbol.name = 0x00000E01;
+        intSymbol.integer = 4;
+        floatSymbol = {};
+        floatSymbol.type = ESYMBOLTYPE_FLOAT;
+        floatSymbol.name = 0x00000E02;
+        floatSymbol.floatValue = 2.5f;
+        table[0xE01] = &intSymbol;
+        table[0xE02] = &floatSymbol;
+        set(NAME_INT, ESYMBOLTYPE_NAME, 0xE01u);
+        set(NAME_F, ESYMBOLTYPE_NAME, 0xE02u);
 
         std::vector<OriginalCode*> guards;
         if (original) {
@@ -4290,6 +4353,224 @@ void TestScriptExpressions()
             ++shown;
         }
     }
+}
+
+// Checksum names (adding, clashes, a bucket running over, finding, "Unknown(...)", parsing a .chk text) on
+// a stand-in table, and registering script functions as symbols; originals vs ours.
+std::vector<uint32_t>* g_parsed_names = nullptr;
+void __cdecl RecordParsedName(uint32_t checksum, const char* name)
+{
+    g_parsed_names->push_back(checksum);
+    for (const char* c = name; *c; ++c)
+        g_parsed_names->push_back(static_cast<uint8_t>(*c));
+    g_parsed_names->push_back(0xFFFFFFFF);
+}
+
+void TestScriptChecksumNames()
+{
+    using namespace Script;
+    using Mem::Heap;
+    using Mem::Manager;
+    using Mem::Region;
+    if (GameVariable<void*>(0x007D1800)) {
+        Log("self-test: TestScriptChecksumNames skipped (the memory manager is already set up)");
+        return;
+    }
+    for (int i = 0; i < 5; ++i)
+        std::memcpy(g_saved_script_pools[i], reinterpret_cast<void*>(kScriptPoolAddresses[i]), 16);
+    std::memcpy(g_saved_permanent_strings, reinterpret_cast<void*>(0x006F3570), sizeof(g_saved_permanent_strings));
+    g_saved_system_ready = GameVariable<bool>(0x007CC979);
+    g_saved_manager_for_test = nullptr;
+    g_script_write_swapped = true;
+    g_saved_symbol_table = GameVariable<CSymbolTableEntry**>(0x006F3624);
+    g_symbol_table_swapped = true;
+    uint8_t savedSymbolPools[16];
+    std::memcpy(savedSymbolPools, reinterpret_cast<void*>(0x006F362C), 16);
+    uint32_t savedNames[3];
+    std::memcpy(savedNames, reinterpret_cast<void*>(0x006F232C), 12);
+    bool savedEnabled = GameVariable<bool>(0x007CEFAC);
+    char savedUnknown[32];
+    std::memcpy(savedUnknown, reinterpret_cast<void*>(0x006F22C8), 32);
+    for (uint32_t address : kScriptPoolAddresses)
+        std::memset(reinterpret_cast<void*>(address), 0, 16);
+    std::memset(reinterpret_cast<void*>(0x006F362C), 0, 16);
+    std::memset(reinterpret_cast<void*>(0x006F3570), 0, sizeof(g_saved_permanent_strings));
+    GameVariable<bool>(0x007CC979) = true;
+    static CSymbolTableEntry* table[0x1000];
+    GameVariable<CSymbolTableEntry**>(0x006F3624) = table;
+    std::vector<uint8_t> nameTable(0x500000);
+    std::vector<char> nameBlock(0x10000);
+
+    auto run = [&](bool original) {
+        std::vector<uint32_t> trace;
+        g_parsed_names = &trace;
+        std::memset(table, 0, sizeof(table));
+        std::memset(nameTable.data(), 0, nameTable.size());
+        std::memset(nameBlock.data(), 0, nameBlock.size());
+        GameVariable<void*>(0x006F232C) = nameTable.data();
+        GameVariable<char*>(0x006F2330) = nameBlock.data();
+        GameVariable<char*>(0x006F2334) = nameBlock.data();
+        uint8_t* arena = g_manager_arenas[original ? 0 : 1];
+        std::memset(arena, 0, kManagerArenaSize);
+        auto* manager = reinterpret_cast<Manager*>(arena);
+        GameVariable<void*>(0x007D1800) = manager;
+        auto* region = new (arena + 0x600) Region(arena + 0x1000, arena + kManagerArenaSize);
+        auto* heap = new (arena + 0x620) Heap(region, 1, "test");
+        manager->m_heaps[0] = heap;
+        manager->m_heapCount = 1;
+        manager->PushContext(heap);
+
+        auto add = [&](uint32_t checksum, const char* name) {
+            if (original)
+                Original<void(__cdecl*)(uint32_t, const char*)>(0x0046CF60)(checksum, name);
+            else
+                AddChecksumName(checksum, name);
+        };
+        auto find = [&](uint32_t checksum) {
+            return original ? Original<const char*(__cdecl*)(uint32_t)>(0x0046D0C0)(checksum)
+                            : FindChecksumName(checksum);
+        };
+        auto find_or_unknown = [&](uint32_t checksum) {
+            return original ? Original<const char*(__cdecl*)(uint32_t)>(0x0046D110)(checksum)
+                            : FindChecksumNameOrUnknown(checksum);
+        };
+        auto put_name = [&](const char* name) {
+            trace.push_back(name ? 1 : 0);
+            if (name) {
+                trace.push_back(static_cast<uint32_t>(name - nameBlock.data()));
+                for (const char* c = name; *c; ++c)
+                    trace.push_back(static_cast<uint8_t>(*c));
+            }
+        };
+        for (bool enabled : {false, true}) {
+            GameVariable<bool>(0x007CEFAC) = enabled;
+            add(0x00010005, "alpha");
+            add(0x00020005, "beta");   // same bucket
+            // (adding a known checksum and the "Unknown(...)" text use the game's C runtime: late test)
+            add(0x12345678, "");
+            for (uint32_t i = 0; i < 12; ++i) {
+                char name[8] = {'n', static_cast<char>('a' + i), 0};
+                add(0x00300007 + (i << 16), name); // 12 in one bucket: runs into the next
+            }
+            for (uint32_t checksum : {0x00010005u, 0x00020005u, 0x00030005u, 0x12345678u, 0x00300007u, 0x00390007u,
+                                      0x003A0007u, 0x003B0007u, 0x00000008u}) {
+                put_name(find(checksum));
+                if (enabled && find(checksum))
+                    put_name(find_or_unknown(checksum));
+            }
+            trace.push_back(static_cast<uint32_t>(GameVariable<char*>(0x006F2334) - nameBlock.data()));
+        }
+        // Parsing (odd characters in the digits count as their codes; an empty name).
+        const char text[] = "0x0000ABCD first\r\n0xFFFFFFFF Second_Name\r\n0x12zZ5678 odd\r\n0x00000001 \r\n";
+        if (original)
+            Original<void(__cdecl*)(const char*, int, void (*)(uint32_t, const char*))>(0x0046CD90)(
+                text, static_cast<int>(sizeof(text) - 1), RecordParsedName);
+        else
+            ParseChecksumNames(text, static_cast<int>(sizeof(text) - 1), RecordParsedName);
+
+        // Registering.
+        static const CFunctionEntry functions[] = {{"FuncOne", reinterpret_cast<void*>(0x1111)},
+                                                   {"FuncTwo", reinterpret_cast<void*>(0x2222)}};
+        static const char* const members[] = {"MemberA", "MemberB", "MemberC"};
+        static const uint32_t records[] = {0xAAAA0001, 1, 2, 3, 0xBBBB0002, 4, 5, 6, 0, 0, 0, 0};
+        if (original) {
+            Original<void(__cdecl*)(const CFunctionEntry*, uint32_t)>(0x0046EFD0)(functions, 2);
+            Original<void(__cdecl*)(const char* const*, uint32_t)>(0x0046F020)(members, 3);
+            Original<void(__cdecl*)(void*, const uint32_t*, int)>(0x0046F060)(nullptr, records, 16);
+        } else {
+            RegisterCFunctions(functions, 2);
+            RegisterMemberFunctions(members, 3);
+            RegisterMemberFunctionTable(nullptr, records, 16);
+        }
+        for (CSymbolTableEntry* entry = GetNextSymbol(nullptr); entry; entry = GetNextSymbol(entry)) {
+            trace.push_back(entry->name);
+            trace.push_back(entry->unknown0);
+            trace.push_back(entry->type);
+            trace.push_back(entry->raw);
+        }
+        trace.push_back(static_cast<uint32_t>(GameVariable<char*>(0x006F2334) - nameBlock.data()));
+        for (size_t i = 0; i < 0x2000; ++i) // the first buckets
+            trace.push_back(reinterpret_cast<uint32_t*>(nameTable.data())[i]);
+        for (size_t i = 0; i < 0x40; ++i)
+            trace.push_back(reinterpret_cast<uint32_t*>(nameBlock.data())[i]);
+        GameVariable<void*>(0x007D1800) = nullptr;
+        g_parsed_names = nullptr;
+        // (pointers into the stand-in blocks, relative)
+        auto blockBase = reinterpret_cast<uint32_t>(nameBlock.data());
+        for (uint32_t& word : trace) {
+            if (word >= blockBase && word < blockBase + nameBlock.size())
+                word = 0xB0000000u + (word - blockBase);
+            if (word >= reinterpret_cast<uint32_t>(arena) && word < reinterpret_cast<uint32_t>(arena) + kManagerArenaSize)
+                word = 0xA0000000u + (word - reinterpret_cast<uint32_t>(arena));
+        }
+        return trace;
+    };
+    std::vector<uint32_t> expected = run(true);
+    std::vector<uint32_t> actual = run(false);
+    GameVariable<bool>(0x007CEFAC) = savedEnabled;
+    std::memcpy(reinterpret_cast<void*>(0x006F232C), savedNames, 12);
+    std::memcpy(reinterpret_cast<void*>(0x006F22C8), savedUnknown, 32);
+    std::memcpy(reinterpret_cast<void*>(0x006F362C), savedSymbolPools, 16);
+    RestoreScriptWriteTest();
+    RestoreSymbolTable();
+    Check(expected == actual, "checksum names and script function registration");
+    if (expected.size() != actual.size())
+        Log("  names trace sizes: original %u ours %u", static_cast<unsigned>(expected.size()),
+            static_cast<unsigned>(actual.size()));
+    for (size_t i = 0, shown = 0; i < expected.size() && i < actual.size() && shown < 8; ++i) {
+        if (expected[i] != actual[i]) {
+            Log("  names entry %u: original %08X ours %08X", static_cast<unsigned>(i), expected[i], actual[i]);
+            ++shown;
+        }
+    }
+}
+
+// The checksum-name paths that use the game's C runtime (in the game, after it has started): adding a
+// checksum that's already known (the original compares the names) and the "Unknown(0x...)" text.
+void TestScriptChecksumNamesLate()
+{
+    using namespace Script;
+    uint32_t savedNames[3];
+    std::memcpy(savedNames, reinterpret_cast<void*>(0x006F232C), 12);
+    bool savedEnabled = GameVariable<bool>(0x007CEFAC);
+    char savedUnknown[32];
+    std::memcpy(savedUnknown, reinterpret_cast<void*>(0x006F22C8), 32);
+    std::vector<uint8_t> nameTable(0x500000);
+    std::vector<char> nameBlock(0x1000);
+    auto run = [&](bool original) {
+        std::vector<uint32_t> trace;
+        std::memset(nameTable.data(), 0, nameTable.size());
+        std::memset(nameBlock.data(), 0, nameBlock.size());
+        GameVariable<void*>(0x006F232C) = nameTable.data();
+        GameVariable<char*>(0x006F2330) = nameBlock.data();
+        GameVariable<char*>(0x006F2334) = nameBlock.data();
+        GameVariable<bool>(0x007CEFAC) = true;
+        using AddFn = void(__cdecl*)(uint32_t, const char*);
+        using FindFn = const char*(__cdecl*)(uint32_t);
+        auto add = [&](uint32_t checksum, const char* name) {
+            if (original)
+                Original<AddFn>(0x0046CF60)(checksum, name);
+            else
+                AddChecksumName(checksum, name);
+        };
+        add(0x00010005, "alpha");
+        add(0x00010005, "ALPHA");
+        add(0x00010005, "other");
+        for (uint32_t checksum : {0x00010005u, 0x00020005u, 0xDEADBEEFu, 0u}) {
+            const char* name = original ? Original<FindFn>(0x0046D110)(checksum) : FindChecksumNameOrUnknown(checksum);
+            for (const char* c = name; *c; ++c)
+                trace.push_back(static_cast<uint8_t>(*c));
+            trace.push_back(0xFFFFFFFF);
+        }
+        trace.push_back(static_cast<uint32_t>(GameVariable<char*>(0x006F2334) - nameBlock.data()));
+        return trace;
+    };
+    std::vector<uint32_t> expected = run(true);
+    std::vector<uint32_t> actual = run(false);
+    GameVariable<bool>(0x007CEFAC) = savedEnabled;
+    std::memcpy(reinterpret_cast<void*>(0x006F232C), savedNames, 12);
+    std::memcpy(reinterpret_cast<void*>(0x006F22C8), savedUnknown, 32);
+    Check(expected == actual, "checksum names: known checksums and Unknown(...)");
 }
 
 // --- late self-tests ----------------------------------------------------------------------------------
@@ -5237,6 +5518,8 @@ SELFTEST(Early, TestScriptStructAdding, RestoreScriptAddingTest);
 SELFTEST(Early, TestScriptArrays, RestoreScriptAddingTest);
 SELFTEST(Early, TestScriptSymbols, RestoreScriptAddingTest);
 SELFTEST(Early, TestScriptExpressions, RestoreScriptAddingTest);
+SELFTEST(Early, TestScriptChecksumNames, RestoreScriptAddingTest);
+SELFTEST(Late, TestScriptChecksumNamesLate);
 
 SELFTEST(Late, TestMemoryLate);
 SELFTEST(Late, TestStringLate);

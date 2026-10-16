@@ -398,7 +398,7 @@ bool __cdecl CFunc_DumpPipPreStatus(Script::CStruct* params, Script::CScript* /*
         for (int i = 0; i < kMaxLoadedFiles; ++i) {
             const LoadedFile& file = LoadedFiles()[i];
             if (file.data)
-                Dbg::Printf("Usage:%d  File: %s\n", file.refCount, Script::FindChecksumName(file.checksum));
+                Dbg::Printf("Usage:%d  File: %s\n", file.refCount, Script::FindChecksumNameOrUnknown(file.checksum));
         }
     }
     return true;

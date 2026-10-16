@@ -28,20 +28,6 @@ CComponent& Result() { return GameVariable<CComponent>(0x006F2348); }
 // The error messages are the game's own strings.
 const char* Message(uint32_t address) { return reinterpret_cast<const char*>(address); }
 
-// Not rewritten yet: copying an array element to a component, and the < and > comparisons.
-void CopyArrayElementToComponent(CArray* array, uint32_t index, CComponent* to, bool reference)
-{
-    GameFunction<void(__cdecl*)(CArray*, uint32_t, CComponent*, int)>(0x0047A910)(array, index, to, reference);
-}
-bool LessThan(CComponent* a, CComponent* b)
-{
-    return GameFunction<bool(__thiscall*)(CComponent*, CComponent*)>(0x00479410)(a, b);
-}
-bool GreaterThan(CComponent* a, CComponent* b)
-{
-    return GameFunction<bool(__thiscall*)(CComponent*, CComponent*)>(0x004795A0)(a, b);
-}
-
 void SetResultType(ESymbolType type)
 {
     Result().typeAndFlag = static_cast<uint8_t>((Result().typeAndFlag & 1) | (type << 1));
@@ -107,6 +93,157 @@ bool JoinStrings(const char* a, const char* b, ESymbolType type)
 }
 
 } // namespace
+
+// 0x0047A910
+void CopyArrayElementToComponent(CArray* array, uint32_t index, CComponent* to, int reference)
+{
+    to->typeAndFlag = static_cast<uint8_t>((to->typeAndFlag & 1) | (array->m_type << 1));
+    switch (array->m_type) {
+    case ESYMBOLTYPE_INTEGER:
+    case ESYMBOLTYPE_NAME:
+        to->raw = array->GetElement(index);
+        break;
+    case ESYMBOLTYPE_FLOAT:
+        to->floatValue = array->GetFloat(index);
+        break;
+    case ESYMBOLTYPE_STRING:
+        to->string = CreateString(array->GetLocalString(index));
+        break;
+    case ESYMBOLTYPE_PAIR: {
+        auto* from = reinterpret_cast<const CPair*>(array->GetElement(index));
+        CPair* pair = NewPair();
+        pair = pair ? pair->Init() : nullptr;
+        to->pair = pair;
+        pair->x = from->x;
+        to->pair->y = from->y;
+        break;
+    }
+    case ESYMBOLTYPE_VECTOR: {
+        auto* from = reinterpret_cast<const CVector*>(array->GetElement(index));
+        CVector* vector = NewVector();
+        vector = vector ? vector->Init() : nullptr;
+        to->vector = vector;
+        vector->x = from->x;
+        to->vector->y = from->y;
+        to->vector->z = from->z;
+        break;
+    }
+    case ESYMBOLTYPE_STRUCTURE:
+        if (reference) {
+            to->typeAndFlag = static_cast<uint8_t>((to->typeAndFlag & 1) | (ESYMBOLTYPE_STRUCTUREPOINTER << 1));
+            to->raw = array->GetElement(index);
+        } else {
+            CStruct* structure = NewStruct();
+            to->structure = structure ? structure->Init() : nullptr;
+            to->structure->AppendStructureIfAny(reinterpret_cast<CStruct*>(array->GetElement(index)));
+        }
+        break;
+    case ESYMBOLTYPE_ARRAY:
+        if (reference) {
+            to->typeAndFlag = static_cast<uint8_t>((to->typeAndFlag & 1) | (ESYMBOLTYPE_ARRAYPOINTER << 1));
+            to->raw = array->GetElement(index);
+        } else {
+            CArray* copy = NewArray();
+            to->array = copy ? copy->Init() : nullptr;
+            CopyArray(to->array, reinterpret_cast<CArray*>(array->GetElement(index)));
+        }
+        break;
+    default:
+        // (local strings and the rest can't be taken out of arrays: the component is left empty)
+        to->typeAndFlag &= 1;
+        to->raw = 0;
+        break;
+    }
+}
+
+namespace {
+
+// A component's value and type, a name standing for a global symbol counting as the symbol's.
+void ResolvedValue(const CComponent* component, uint32_t* type, uint32_t* value)
+{
+    *type = component->Type();
+    *value = component->raw;
+    if (*type == ESYMBOLTYPE_NAME) {
+        if (CSymbolTableEntry* symbol = LookUpSymbol(*value)) {
+            *value = symbol->raw;
+            *type = symbol->type;
+        }
+    }
+}
+
+double AsFloat(uint32_t bits)
+{
+    float value;
+    std::memcpy(&value, &bits, 4);
+    return value;
+}
+double AsInteger(uint32_t bits) { return static_cast<double>(static_cast<int32_t>(bits)); }
+
+// a < b: numbers by value; strings by length (!); structures: a is a subset of b.
+bool Less(uint32_t typeA, uint32_t a, uint32_t typeB, uint32_t b)
+{
+    switch (typeA) {
+    case ESYMBOLTYPE_INTEGER:
+        if (typeB == ESYMBOLTYPE_FLOAT)
+            return AsInteger(a) < AsFloat(b);
+        return typeB == ESYMBOLTYPE_INTEGER && static_cast<int32_t>(a) < static_cast<int32_t>(b);
+    case ESYMBOLTYPE_FLOAT:
+        if (typeB == ESYMBOLTYPE_INTEGER)
+            return AsFloat(a) < AsInteger(b);
+        return typeB == ESYMBOLTYPE_FLOAT && AsFloat(a) < AsFloat(b);
+    case ESYMBOLTYPE_STRING:
+    case ESYMBOLTYPE_LOCALSTRING:
+        return typeB == typeA &&
+               std::strlen(reinterpret_cast<const char*>(a)) < std::strlen(reinterpret_cast<const char*>(b));
+    case ESYMBOLTYPE_STRUCTURE:
+    case ESYMBOLTYPE_STRUCTUREPOINTER:
+        return (typeB == ESYMBOLTYPE_STRUCTURE || typeB == ESYMBOLTYPE_STRUCTUREPOINTER) &&
+               reinterpret_cast<CStruct*>(a)->IsSubsetOf(reinterpret_cast<CStruct*>(b));
+    default:
+        return false;
+    }
+}
+
+} // namespace
+
+// 0x00479410 (a member of the first component in the game)
+bool LessThan(CComponent* a, CComponent* b)
+{
+    uint32_t typeA, valueA, typeB, valueB;
+    ResolvedValue(a, &typeA, &valueA);
+    ResolvedValue(b, &typeB, &valueB);
+    return Less(typeA, valueA, typeB, valueB);
+}
+
+// 0x004795A0
+bool GreaterThan(CComponent* a, CComponent* b)
+{
+    uint32_t typeA, valueA, typeB, valueB;
+    ResolvedValue(a, &typeA, &valueA);
+    ResolvedValue(b, &typeB, &valueB);
+    // (the same cases, decided by a's type)
+    switch (typeA) {
+    case ESYMBOLTYPE_INTEGER:
+    case ESYMBOLTYPE_FLOAT:
+        if (typeB != ESYMBOLTYPE_INTEGER && typeB != ESYMBOLTYPE_FLOAT)
+            return false;
+        if (typeA == ESYMBOLTYPE_INTEGER && typeB == ESYMBOLTYPE_INTEGER)
+            return static_cast<int32_t>(valueA) > static_cast<int32_t>(valueB);
+        return (typeA == ESYMBOLTYPE_INTEGER ? AsInteger(valueA) : AsFloat(valueA)) >
+               (typeB == ESYMBOLTYPE_INTEGER ? AsInteger(valueB) : AsFloat(valueB));
+    case ESYMBOLTYPE_STRING:
+    case ESYMBOLTYPE_LOCALSTRING:
+        return typeB == typeA && std::strlen(reinterpret_cast<const char*>(valueA)) >
+                                     std::strlen(reinterpret_cast<const char*>(valueB));
+    case ESYMBOLTYPE_STRUCTURE:
+    case ESYMBOLTYPE_STRUCTUREPOINTER:
+        // b is a subset of a
+        return (typeB == ESYMBOLTYPE_STRUCTURE || typeB == ESYMBOLTYPE_STRUCTUREPOINTER) &&
+               reinterpret_cast<CStruct*>(valueB)->IsSubsetOf(reinterpret_cast<CStruct*>(valueA));
+    default:
+        return false;
+    }
+}
 
 // 0x0046D160
 bool IsReference(const CComponent* component)
@@ -741,6 +878,11 @@ namespace {
 using Script::CExpressionEvaluator;
 
 struct ComponentAdapters {
+    bool LessThan(Script::CComponent* other) { return Script::LessThan(reinterpret_cast<Script::CComponent*>(this), other); }
+    bool GreaterThan(Script::CComponent* other)
+    {
+        return Script::GreaterThan(reinterpret_cast<Script::CComponent*>(this), other);
+    }
     bool IsReference() { return Script::IsReference(reinterpret_cast<Script::CComponent*>(this)); }
     void MakeReference() { Script::MakeReference(reinterpret_cast<Script::CComponent*>(this)); }
     void MakeOwning() { Script::MakeOwning(reinterpret_cast<Script::CComponent*>(this)); }
@@ -765,3 +907,6 @@ REPLACE(0x0046EB70, static_cast<void (CExpressionEvaluator::*)(int)>(&CExpressio
 REPLACE(0x0046EBF0, &CExpressionEvaluator::CloseParenthesis);
 REPLACE(0x0046EC40, &CExpressionEvaluator::GetResult);
 REPLACE(0x0046D450, &CExpressionEvaluator::Execute);
+REPLACE(0x00479410, &ComponentAdapters::LessThan);
+REPLACE(0x004795A0, &ComponentAdapters::GreaterThan);
+REPLACE(0x0047A910, Script::CopyArrayElementToComponent);

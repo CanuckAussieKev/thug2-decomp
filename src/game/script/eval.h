@@ -15,6 +15,13 @@ void MakeReference(CComponent* component);
 void MakeOwning(CComponent* component);
 // A component's truth value: an integer's value itself, 1 for a non-zero float, else 0.
 int GetBool(const CComponent* component);
+// a < b and a > b: numbers by value, strings by their lengths, structures by one being a subset of the other
+// (names standing for global symbols are looked up).
+bool LessThan(CComponent* a, CComponent* b);
+bool GreaterThan(CComponent* a, CComponent* b);
+// A copy of array element `index` in `to` (with `reference`, structures and arrays are referred to). Local
+// strings and other types leave `to` empty.
+void CopyArrayElementToComponent(CArray* array, uint32_t index, CComponent* to, int reference);
 
 // The operators (the token values the parser gives them).
 enum EOperator : int {

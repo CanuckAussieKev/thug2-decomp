@@ -2,6 +2,7 @@
 
 #include <cstdint>
 
+#include "game/script/names.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
 
@@ -25,12 +26,6 @@ inline bool GetString(CStruct* params, uint32_t name, const char** out, bool ass
 inline bool GetChecksum(CStruct* params, uint32_t name, uint32_t* out, bool assert = false)
 {
     return params->GetChecksum(name, out, assert);
-}
-
-// The name a checksum was made from, if the game knows it (for debug output).
-inline const char* FindChecksumName(uint32_t checksum)
-{
-    return GameFunction<const char*(__cdecl*)(uint32_t)>(0x0046D110)(checksum);
 }
 
 // Whether the flag `name` (a bare name among the parameters) is present.
