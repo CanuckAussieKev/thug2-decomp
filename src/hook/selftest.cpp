@@ -4875,6 +4875,199 @@ void TestScriptTokens()
     }
 }
 
+// Symbol bookkeeping for the loader: removing symbols of every type (and a kept one), pending removals and
+// replacements, the pool frees (pooled and not) and the .qb name table allocation; originals vs ours.
+void TestScriptSymbolBookkeeping()
+{
+    using namespace Script;
+    using Mem::Heap;
+    using Mem::Manager;
+    using Mem::Region;
+    if (GameVariable<void*>(0x007D1800)) {
+        Log("self-test: TestScriptSymbolBookkeeping skipped (the memory manager is already set up)");
+        return;
+    }
+    struct Saved {
+        uint32_t address;
+        uint32_t size;
+        uint8_t bytes[32];
+    };
+    Saved saved[] = {{0x006F2368, 4},  {0x006F3528, 4},  {0x006F3558, 4},  {0x006F2578, 16}, {0x006F362C, 16},
+                     {0x006F3644, 16}, {0x006F3654, 16}, {0x006F2338, 16}, {0x006F3614, 16}, {0x006F22B4, 16},
+                     {0x006F3570, 24}, {0x007CC979, 1},  {0x006F2564, 1}};
+    for (Saved& s : saved)
+        std::memcpy(s.bytes, reinterpret_cast<void*>(s.address), s.size);
+    std::vector<uint8_t> pendingSaved(0x40);
+    std::memcpy(pendingSaved.data(), reinterpret_cast<void*>(0x006F2588), pendingSaved.size());
+    g_saved_symbol_table = GameVariable<CSymbolTableEntry**>(0x006F3624);
+    g_symbol_table_swapped = true;
+    static CSymbolTableEntry* table[0x1000];
+    GameVariable<CSymbolTableEntry**>(0x006F3624) = table;
+    GameVariable<bool>(0x007CC979) = true;
+    GameVariable<uint32_t>(0x006F3558) = 0; // (no script cache: its invalidation isn't rewritten)
+
+    auto run = [&](bool original) {
+        std::vector<uint32_t> trace;
+        for (Saved& s : saved) {
+            if (s.address != 0x007CC979 && s.address != 0x006F3558)
+                std::memset(reinterpret_cast<void*>(s.address), 0, s.size);
+        }
+        std::memset(table, 0, sizeof(table));
+        uint8_t* arena = g_qb_arenas[original ? 0 : 1];
+        std::memset(arena, 0, sizeof(g_qb_arenas[0]));
+        std::memset(arena + 0x1000, 0xCD, sizeof(g_qb_arenas[0]) - 0x1000);
+        auto* manager = reinterpret_cast<Manager*>(arena);
+        GameVariable<void*>(0x007D1800) = manager;
+        auto* region = new (arena + 0x600) Region(arena + 0x1000, arena + 0x10000);
+        auto* heap = new (arena + 0x620) Heap(region, 1, "test");
+        auto* debugRegion = new (arena + 0x6C0) Region(arena + 0x10000, arena + sizeof(g_qb_arenas[0]));
+        auto* debugHeap = new (arena + 0x6E0) Heap(debugRegion, 1, "debug");
+        manager->m_heaps[0] = heap;
+        manager->m_heaps[1] = debugHeap;
+        manager->m_heapCount = 2;
+        manager->m_scriptHeap = heap;
+        manager->m_debugHeap = debugHeap;
+        manager->PushContext(heap);
+        auto base = reinterpret_cast<uint32_t>(arena);
+        auto relocate = [&](uint32_t word) {
+            return word >= base && word <= base + sizeof(g_qb_arenas[0]) ? 0xA0000000u + (word - base) : word;
+        };
+        using S = CSymbolTableEntry*;
+        auto remove = [&](S symbol) {
+            if (original)
+                Original<void(__cdecl*)(S)>(0x004711D0)(symbol);
+            else
+                CleanUpAndRemoveSymbol(symbol);
+        };
+        // The .qb name table, from each heap choice.
+        for (bool debug : {false, true}) {
+            if (original)
+                Original<void(__cdecl*)(bool)>(0x00470010)(debug);
+            else
+                AllocateScriptChecksumNames(debug);
+            trace.push_back(relocate(GameVariable<uint32_t>(0x006F2368)));
+            Mem::FreeMalloc(GameVariable<void*>(0x006F2368));
+        }
+        // Symbols of every type.
+        auto symbol = [&](uint32_t name, ESymbolType type, uint32_t value) {
+            S entry = CreateSymbol(name);
+            entry->type = type;
+            entry->raw = value;
+            return entry;
+        };
+        CStruct* structure = NewStruct()->Init();
+        structure->AddInteger(1u, 2);
+        CArray* array = NewArray()->Init();
+        array->SetSizeAndType(2, ESYMBOLTYPE_STRING);
+        array->SetElement(0, reinterpret_cast<uint32_t>(CreateString("x")));
+        array->SetElement(1, reinterpret_cast<uint32_t>(CreateString("y")));
+        S symbols[] = {
+            symbol(0x101, ESYMBOLTYPE_STRING, reinterpret_cast<uint32_t>(CreateString("text"))),
+            symbol(0x102, ESYMBOLTYPE_LOCALSTRING, reinterpret_cast<uint32_t>(CreateString("local"))),
+            symbol(0x103, ESYMBOLTYPE_PAIR, reinterpret_cast<uint32_t>(NewPair()->Init())),
+            symbol(0x104, ESYMBOLTYPE_VECTOR, reinterpret_cast<uint32_t>(NewVector()->Init())),
+            symbol(0x105, ESYMBOLTYPE_QSCRIPT, reinterpret_cast<uint32_t>(Mem::Malloc(24))),
+            symbol(0x106, ESYMBOLTYPE_STRUCTURE, reinterpret_cast<uint32_t>(structure)),
+            symbol(0x107, ESYMBOLTYPE_ARRAY, reinterpret_cast<uint32_t>(array)),
+            symbol(0x108, ESYMBOLTYPE_STRUCTURE, 0),
+            symbol(0x109, ESYMBOLTYPE_INTEGER, 5),
+            symbol(0x10A, ESYMBOLTYPE_CFUNCTION, 0x00401000),
+            symbol(0x10B, ESYMBOLTYPE_NAME, 0x1234),
+            symbol(0x10C, ESYMBOLTYPE_STRING, reinterpret_cast<uint32_t>(CreateString("kept"))),
+        };
+        symbols[11]->unknown0 |= 4; // kept
+        for (S entry : symbols)
+            remove(entry);
+        trace.push_back(symbols[11]->raw != 0);
+        // Pending removals and replacements.
+        S gone = symbol(0x201, ESYMBOLTYPE_INTEGER, 1);
+        S old = symbol(0x202, ESYMBOLTYPE_STRING, reinterpret_cast<uint32_t>(CreateString("old")));
+        S replacement = symbol(0x202, ESYMBOLTYPE_INTEGER, 9);
+        UnlinkSymbol(replacement);
+        (void)old;
+        if (original) {
+            Original<void(__cdecl*)(S)>(0x004727B0)(gone);
+            Original<void(__cdecl*)(S)>(0x004727F0)(replacement);
+            trace.push_back(GameVariable<uint32_t>(0x006F3528));
+            Original<void(__cdecl*)()>(0x00472830)();
+        } else {
+            RemoveSymbolLater(gone);
+            ReplaceSymbolLater(replacement);
+            trace.push_back(GameVariable<uint32_t>(0x006F3528));
+            ProcessPendingSymbols();
+        }
+        trace.push_back(GameVariable<uint32_t>(0x006F3528));
+        for (S entry = GetNextSymbol(nullptr); entry; entry = GetNextSymbol(entry)) {
+            trace.push_back(entry->name);
+            trace.push_back(entry->type);
+            trace.push_back(relocate(entry->raw));
+        }
+        // Frees: from a pool, and not.
+        CreatePool(GameVariable<Mem::PoolPair>(0x006F2578), 0x60, 3, "random");
+        void* pooled = GameVariable<Mem::PoolPair>(0x006F2578).Allocate(0x60);
+        CreatePool(GameVariable<Mem::PoolPair>(0x006F3644), 0x0C, 3, "pairs");
+        CreatePool(GameVariable<Mem::PoolPair>(0x006F3654), 0x10, 3, "vectors");
+        void* pooledPair = GameVariable<Mem::PoolPair>(0x006F3644).Allocate(0x0C);
+        void* pooledVector = GameVariable<Mem::PoolPair>(0x006F3654).Allocate(0x10);
+        void* loose[4];
+        for (void*& block : loose)
+            block = Mem::Malloc(16);
+        if (original) {
+            Original<void(__cdecl*)(void*)>(0x00470070)(pooled);
+            Original<void(__cdecl*)(void*)>(0x00470070)(loose[0]);
+            Original<void(__cdecl*)(void*)>(0x0044C1D0)(loose[1]);
+            Original<void(__cdecl*)(void*)>(0x0044C230)(loose[2]);
+            Original<void(__cdecl*)(void*)>(0x004700D0)(loose[3]);
+            Original<void(__cdecl*)(void*)>(0x0044C1D0)(pooledPair);
+            Original<void(__cdecl*)(void*)>(0x0044C230)(pooledVector);
+        } else {
+            FreeStoredRandom(pooled);
+            FreeStoredRandom(loose[0]);
+            FreePair(loose[1]);
+            FreeVector(loose[2]);
+            FreeSymbol(static_cast<S>(loose[3]));
+            FreePair(pooledPair);
+            FreeVector(pooledVector);
+        }
+        if (original) {
+            Original<void(__cdecl*)()>(0x0046FFF0)();
+            trace.push_back(GameVariable<uint8_t>(0x006F2564));
+            Original<void(__cdecl*)()>(0x00470000)();
+        } else {
+            SetScriptFlag6F2564();
+            trace.push_back(GameVariable<uint8_t>(0x006F2564));
+            ClearScriptFlag6F2564();
+        }
+        trace.push_back(GameVariable<uint8_t>(0x006F2564));
+        for (int i = 0; i < 4; ++i)
+            trace.push_back(relocate(reinterpret_cast<uint32_t*>(0x006F2588)[i]));
+
+        std::vector<uint32_t> image(sizeof(g_qb_arenas[0]) / 4);
+        std::memcpy(image.data(), arena, sizeof(g_qb_arenas[0]));
+        for (uint32_t& word : image)
+            word = relocate(word);
+        trace.insert(trace.end(), image.begin(), image.end());
+        GameVariable<void*>(0x007D1800) = nullptr;
+        return trace;
+    };
+    std::vector<uint32_t> expected = run(true);
+    std::vector<uint32_t> actual = run(false);
+    for (Saved& s : saved)
+        std::memcpy(reinterpret_cast<void*>(s.address), s.bytes, s.size);
+    std::memcpy(reinterpret_cast<void*>(0x006F2588), pendingSaved.data(), pendingSaved.size());
+    RestoreSymbolTable();
+    Check(expected == actual, "script symbol bookkeeping");
+    if (expected.size() != actual.size())
+        Log("  bookkeeping trace sizes: original %u ours %u", static_cast<unsigned>(expected.size()),
+            static_cast<unsigned>(actual.size()));
+    for (size_t i = 0, shown = 0; i < expected.size() && i < actual.size() && shown < 8; ++i) {
+        if (expected[i] != actual[i]) {
+            Log("  bookkeeping entry %u: original %08X ours %08X", static_cast<unsigned>(i), expected[i], actual[i]);
+            ++shown;
+        }
+    }
+}
+
 // --- late self-tests ----------------------------------------------------------------------------------
 
 // The table's contents as (bucket, position in chain, key, value), so tables with different item addresses
@@ -5823,6 +6016,7 @@ SELFTEST(Early, TestScriptExpressions, RestoreScriptAddingTest);
 SELFTEST(Early, TestScriptChecksumNames, RestoreScriptAddingTest);
 SELFTEST(Late, TestScriptChecksumNamesLate);
 SELFTEST(Early, TestScriptTokens);
+SELFTEST(Early, TestScriptSymbolBookkeeping);
 
 SELFTEST(Late, TestMemoryLate);
 SELFTEST(Late, TestStringLate);

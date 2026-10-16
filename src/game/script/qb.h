@@ -56,6 +56,23 @@ void CreatePool(Mem::PoolPair& pools, int item_size, int count, const char* name
 // The permanent string heap: `size` bytes of strings, at most `count` of them.
 void AllocatePermanentStringHeap(uint32_t size, uint32_t count);
 
+// Symbol bookkeeping while loading .qb files.
+struct CSymbolTableEntry;
+void AllocateScriptChecksumNames(bool debugHeap);
+void FreePair(void* pair);
+void FreeVector(void* vector);
+void FreeStoredRandom(void* random);
+void FreeSymbol(CSymbolTableEntry* symbol);
+// Take `symbol` out of the table and free it and its value.
+void CleanUpAndRemoveSymbol(CSymbolTableEntry* symbol);
+// Pending changes, done by ProcessPendingSymbols once a file is loaded: remove `symbol`, or replace the
+// table's symbol of the same name with `symbol`.
+void RemoveSymbolLater(CSymbolTableEntry* symbol);
+void ReplaceSymbolLater(CSymbolTableEntry* symbol);
+void ProcessPendingSymbols();
+void ClearScriptFlag6F2564();
+void SetScriptFlag6F2564();
+
 // A stored random sequence (the scripts' RandomNoRepeat / RandomPermute): a shuffled order of choices.
 struct CStoredRandom {
     // Shuffle the order; with `avoidRepeat`, the new first choice isn't the old last one.

@@ -361,3 +361,135 @@ REPLACE(0x0046F310, &CreatePoolOf<0x006F22B4, 0x0C>);
 REPLACE(0x0046F390, &CreatePoolOf<0x006F362C, 0x14>);
 REPLACE(0x0046F410, &CreatePoolOf<0x006F3548, 0xF4>);
 REPLACE(0x0046F4A0, &CreatePoolOf<0x006F2578, 0x60>);
+
+// --- symbol bookkeeping for the loader --------------------------------------------------------------------
+
+namespace Script {
+
+namespace {
+
+// Symbols waiting to be removed (or replaced) once a .qb file has been loaded: {symbol, owned}.
+struct PendingSymbol {
+    CSymbolTableEntry* symbol;
+    bool owned;
+};
+PendingSymbol* PendingSymbols() { return &GameVariable<PendingSymbol>(0x006F2588); }
+int& PendingSymbolCount() { return GameVariable<int>(0x006F3528); }
+
+// Not rewritten yet: forgetting a script's cached compiled form.
+void InvalidateScriptCache(uint32_t name)
+{
+    GameFunction<void(__cdecl*)(uint32_t)>(0x00475FD0)(name);
+}
+bool ScriptCacheEnabled() { return GameVariable<uint32_t>(0x006F3558) != 0; }
+
+void AddPendingSymbol(CSymbolTableEntry* symbol, bool owned)
+{
+    PendingSymbol& pending = PendingSymbols()[PendingSymbolCount()];
+    pending.symbol = symbol;
+    pending.owned = owned;
+    ++PendingSymbolCount();
+    if (symbol->type == ESYMBOLTYPE_QSCRIPT && ScriptCacheEnabled())
+        InvalidateScriptCache(symbol->name);
+}
+
+} // namespace
+
+// 0x00470000 / 0x0046FFF0
+void ClearScriptFlag6F2564() { GameVariable<bool>(0x006F2564) = false; }
+void SetScriptFlag6F2564() { GameVariable<bool>(0x006F2564) = true; }
+
+// 0x00470010
+void AllocateScriptChecksumNames(bool debugHeap)
+{
+    Mem::Manager* manager = Mem::Manager::Get();
+    Mem::PushContext(debugHeap ? manager->m_debugHeap : manager->m_scriptHeap);
+    auto* names = static_cast<uint32_t*>(Mem::Malloc(0x1000 * 12));
+    GameVariable<uint32_t*>(0x006F2368) = names;
+    Mem::PopContext();
+    for (uint32_t i = 0; i < 0x1000 * 3; ++i)
+        names[i] = 0;
+}
+
+// 0x0044C1D0 / 0x0044C230 / 0x00470070 / 0x004700D0
+void FreePair(void* pair) { GameVariable<Mem::PoolPair>(0x006F3644).Free(pair); }
+void FreeVector(void* vector) { GameVariable<Mem::PoolPair>(0x006F3654).Free(vector); }
+void FreeStoredRandom(void* random) { GameVariable<Mem::PoolPair>(0x006F2578).Free(random); }
+void FreeSymbol(CSymbolTableEntry* symbol) { GameVariable<Mem::PoolPair>(0x006F362C).Free(symbol); }
+
+// 0x004711D0
+void CleanUpAndRemoveSymbol(CSymbolTableEntry* symbol)
+{
+    UnlinkSymbol(symbol);
+    if (symbol->unknown0 & 4) // (kept: not owned by the table?)
+        return;
+    switch (symbol->type) {
+    case ESYMBOLTYPE_STRING:
+    case ESYMBOLTYPE_LOCALSTRING:
+        FreeString(reinterpret_cast<const char*>(symbol->raw));
+        break;
+    case ESYMBOLTYPE_PAIR:
+        FreePair(reinterpret_cast<void*>(symbol->raw));
+        break;
+    case ESYMBOLTYPE_VECTOR:
+        FreeVector(reinterpret_cast<void*>(symbol->raw));
+        break;
+    case ESYMBOLTYPE_QSCRIPT:
+        Mem::FreeMalloc(reinterpret_cast<void*>(symbol->raw));
+        break;
+    case ESYMBOLTYPE_STRUCTURE:
+        if (CStruct* structure = symbol->structure) {
+            structure->Clear();
+            DeleteStruct(structure);
+        }
+        break;
+    case ESYMBOLTYPE_ARRAY:
+        CleanUpArray(reinterpret_cast<CArray*>(symbol->raw));
+        if (auto* array = reinterpret_cast<CArray*>(symbol->raw)) {
+            array->Clear();
+            DeleteArray(array);
+        }
+        break;
+    default:
+        break;
+    }
+    symbol->raw = 0;
+    FreeSymbol(symbol);
+}
+
+// 0x004727B0: `symbol` goes once loading is done.
+void RemoveSymbolLater(CSymbolTableEntry* symbol) { AddPendingSymbol(symbol, true); }
+// 0x004727F0: `symbol` (not in the table) replaces the symbol of its name once loading is done.
+void ReplaceSymbolLater(CSymbolTableEntry* symbol) { AddPendingSymbol(symbol, false); }
+
+// 0x00472830
+void ProcessPendingSymbols()
+{
+    for (int i = 0; i < PendingSymbolCount(); ++i) {
+        PendingSymbol& pending = PendingSymbols()[i];
+        if (pending.owned) {
+            CleanUpAndRemoveSymbol(pending.symbol);
+        } else {
+            CleanUpAndRemoveSymbol(FindSymbol(pending.symbol->name));
+            LinkSymbol(pending.symbol);
+        }
+        // (reads the symbol even when it has just been freed, as the original does)
+        if (pending.symbol->type == ESYMBOLTYPE_QSCRIPT && ScriptCacheEnabled())
+            InvalidateScriptCache(pending.symbol->name);
+    }
+    PendingSymbolCount() = 0;
+}
+
+} // namespace Script
+
+REPLACE(0x00470000, Script::ClearScriptFlag6F2564);
+REPLACE(0x0046FFF0, Script::SetScriptFlag6F2564);
+REPLACE(0x00470010, Script::AllocateScriptChecksumNames);
+REPLACE(0x0044C1D0, Script::FreePair);
+REPLACE(0x0044C230, Script::FreeVector);
+REPLACE(0x00470070, Script::FreeStoredRandom);
+REPLACE(0x004700D0, Script::FreeSymbol);
+REPLACE(0x004711D0, Script::CleanUpAndRemoveSymbol);
+REPLACE(0x004727B0, Script::RemoveSymbolLater);
+REPLACE(0x004727F0, Script::ReplaceSymbolLater);
+REPLACE(0x00472830, Script::ProcessPendingSymbols);

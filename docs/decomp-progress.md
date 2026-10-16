@@ -387,9 +387,20 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       bugs caught, 2 after adding cases; one more would loop forever on the new case). CreateScriptPools
       itself is only exercised by starting the game.
 - [x] Batch 43 tested in the game (2026-10-16, by the user): game runs.
-- [ ] Next: the .qb parser (0x472420; old format) / Script_ParseQB 0x46FBA0 -> 0x46CA50, LoadQB 0x46EDE0,
-      the routines with register arguments (0x46F7A0, 0x46FBD0 random ranges, 0x46FD60, 0x46FE40), then the
-      interpreter (CScript).
+- [x] Batch 44 (NOT run in the game yet; early test passes offline): symbol bookkeeping for the .qb
+      loader (qb.cpp). AllocateScriptChecksumNames 0x470010 (the .qb name table, 0xC000 bytes, from the
+      script heap or - with its argument - the debug heap), FreePair 0x44C1D0 / FreeVector 0x44C230 /
+      FreeStoredRandom 0x470070 / FreeSymbol 0x4700D0 (pool pair frees), CleanUpAndRemoveSymbol 0x4711D0
+      (unlink; entries with byte-0 bit 2 set are only unlinked; frees the value by type), the pending list
+      (0x6F2588 {symbol, owned} x count 0x6F3528): RemoveSymbolLater 0x4727B0, ReplaceSymbolLater 0x4727F0,
+      ProcessPendingSymbols 0x472830 (still reads a freed symbol's type, as the original does; the script
+      cache invalidation 0x475FD0 is still the game's), and the flag 0x6F2564 set/clear 0x46FFF0/0x470000.
+      11 functions. Early test: every symbol type removed, a kept one, pending removal + replacement, pooled
+      and loose frees, both heap choices (14 deliberate bugs caught, 2 after giving the test a separate
+      debug heap and pooled pairs/vectors).
+- [ ] Next: the value / structure / array parsers (0x4706F0, 0x4712B0, 0x471860, 0x471B00, 0x470130),
+      the symbol-definition parser 0x472240, the .qb parser 0x472420, CreateScriptSymbol 0x46FE40 (register
+      arguments), LoadQB 0x46EDE0 / 0x46ED90; the pre-compiled format (0x46CA50, 0x46C970, 0x46C830, ...).
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
       for original callers that read ECX/EDX after the call without writing them first (ignoring push-to-reserve,
       lea reg,[reg], or reg,-1 and zeroing idioms; callers that are themselves replaced count as safe).
