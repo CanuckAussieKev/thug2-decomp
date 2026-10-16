@@ -53,6 +53,9 @@ HANDLED = {
     0x005F459D: "Platform::InitInput leaves out the DirectInput set-up PartyMod NOPs",
     0x005F45A2: "Platform::InitInput calls PartyMod's initManager",
     0x005F56E0: "Platform::ProcessWindowEvents is PartyMod's handleEvents (source only)",
+    0x0048D8F8: "Nx::LoadFont loads the meta button map PartyMod's GlyphStyle names (MetaButtonMapName)",
+    0x0048D983: "Nx::CFunc_LoadFont uses the button font PartyMod's GlyphStyle names (ButtonFontName)",
+    0x004B6C64: "Nx::UpdateLoadingBarColors writes its table into PartyMod's resbuffer",
 }
 import json
 bodies = {f["addr"]: f["end"] for f in json.load(open("data/derived/functions.json", encoding="utf-8"))}
