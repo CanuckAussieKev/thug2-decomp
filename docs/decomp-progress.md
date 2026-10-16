@@ -607,6 +607,10 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       histories (negative, huge, wrapping sums), milliseconds at 60/50/59.94 Hz up to 2^32+5 vblanks, waiting
       with a stand-in idle function, the flags. 23 deliberate bugs: 22 caught (1 after strengthening), 1
       equivalent (the vblank count isn't in the block Reset saves).
+- [x] Batches 49-52 tested in the game (2026-10-16, by the user): game works; 637 of 637 replacements
+      installed, early and engine-started tests pass, no run-time check failures. One late test failed -
+      "sio (late): Device constructor and destructor" - a test bug: after destroying, it compared the two
+      devices' node pointers (each its own). Fixed; the comparison now clears them first.
 - [ ] Next: the pre-compiled .qb format (0x46FBA0, 0x46CA50, 0x46C970, 0x46C830, 0x46C7F0, ...), the script
       cache (0x475FD0 ...), then CScript (0x472900.. / 0x473000..).
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function

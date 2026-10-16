@@ -6805,6 +6805,7 @@ void TestSioLate()
         b->m_node = nodeB;
         Original<void*(__thiscall*)(void*, unsigned int)>(0x005BCD00)(a, 0);
         b->Destroy(0);
+        a->m_node = b->m_node = nullptr; // (each still points at its own, now freed, node)
         same = same && std::memcmp(original, ours, sizeof(ours)) == 0;
     }
     for (int run = 0; run < 2; ++run) {
