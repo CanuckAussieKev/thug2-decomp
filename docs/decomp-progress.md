@@ -463,8 +463,9 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       GetCard 0x5BC730 (any port/slot), CreateManager 0x5BC900 / ReleaseManager 0x5BC950 (instance 0x7D1890,
       references 0x7D1894; Calloc on the default heap); Mc::Card - Open 0x5BC9B0 (thiscall, 3 args; mode 1
       read / 2 write / 3 both on existing files, 4 a new file, 6 write created if needed, 5 nothing; '/' ->
-      '' into the path buffer 0x7D1810; no sharing), RemoveFile 0x5BC770 (DeleteFileA), ConvertFilename
-      0x5BC740 (a copy in 0x7D1898), GetFreeBlocks 0x5BC790 (16 KB blocks), GetFileList 0x5BCAE0 ("Save      pattern", non-directories appended with local date/time and size), AlwaysTrue 0x5BC7F0 (folded);
+      '\' into the path buffer 0x7D1810; no sharing), RemoveFile 0x5BC770 (DeleteFileA), ConvertFilename
+      0x5BC740 (a copy in 0x7D1898), GetFreeBlocks 0x5BC790 (16 KB blocks), GetFileList 0x5BCAE0
+      ("Save\<pattern>", non-directories appended with local date/time and size), AlwaysTrue 0x5BC7F0 (folded);
       Mc::File (0x94: a Lst::Node, name +0x14, second..year +0x3C-0x42, size +0x44, handle +0x8C, card
       +0x90) - Seek 0x5BC800, Flush 0x5BC840, Write 0x5BC850, Read 0x5BC880, Close 0x5BC8B0. Also: node
       destructors for two more node types 0x5BC990 / 0x5BCD30 (ListNode::UnlinkAs), the owner destructor
