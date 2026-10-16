@@ -80,6 +80,7 @@ add_library(thug2_code OBJECT
     src/hook/shadow.cpp
     src/hook/selftest.cpp
     src/hook/selftest_runner.cpp
+    src/hook/selftests_skaterB.cpp
     src/hook/selftests_gfx.cpp
     src/hook/selftests_platform.cpp
     src/hook/selftests_partymod.cpp
@@ -110,6 +111,7 @@ add_library(thug2_code OBJECT
     src/game/net/chat.cpp
     src/game/net/stats.cpp
     src/game/obj/smtptr.cpp
+    src/game/skater/rotation.cpp
     src/game/sio/device.cpp
     src/game/skater/controls.cpp
     src/game/sys/platform.cpp
