@@ -1,5 +1,6 @@
 #include "game/script/eval.h"
 #include "game/script/names.h"
+#include "game/script/parse.h"
 #include "game/script/qb.h"
 #include "game/script/struct.h"
 #include "hook/selftest.h"
@@ -7,6 +8,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <functional>
 #include <limits>
 #include <iterator>
 #include <string>
@@ -4798,7 +4800,7 @@ void TestScriptTokens()
         if (original)
             Original<void(__cdecl*)(uint32_t)>(0x0046F870)(7);
         else
-            ForgetCachedScriptsOf(7);
+            ForgetStoredRandomsOf(7);
         GameVariable<void*>(0x006F2358) = nullptr;
         for (auto& entry : cache)
             trace.push_back(entry[0]);
@@ -5063,6 +5065,572 @@ void TestScriptSymbolBookkeeping()
     for (size_t i = 0, shown = 0; i < expected.size() && i < actual.size() && shown < 8; ++i) {
         if (expected[i] != actual[i]) {
             Log("  bookkeeping entry %u: original %08X ours %08X", static_cast<unsigned>(i), expected[i], actual[i]);
+            ++shown;
+        }
+    }
+}
+
+// --- the .qb parser -------------------------------------------------------------------------------------------
+
+// A token-stream builder for the parser test.
+struct QbBuilder {
+    std::vector<uint8_t> bytes;
+    QbBuilder& u8(uint32_t b)
+    {
+        bytes.push_back(static_cast<uint8_t>(b));
+        return *this;
+    }
+    QbBuilder& u16(uint32_t v) { return u8(v).u8(v >> 8); }
+    QbBuilder& u32(uint32_t v) { return u8(v).u8(v >> 8).u8(v >> 16).u8(v >> 24); }
+    QbBuilder& f32(float f)
+    {
+        uint32_t bits;
+        std::memcpy(&bits, &f, 4);
+        return u32(bits);
+    }
+    QbBuilder& eol() { return u8(0x01); }
+    QbBuilder& line(uint32_t n) { return u8(0x02).u32(n); }
+    QbBuilder& name(uint32_t c) { return u8(0x16).u32(c); }
+    QbBuilder& integer(int v) { return u8(0x17).u32(static_cast<uint32_t>(v)); }
+    QbBuilder& hex(uint32_t v) { return u8(0x18).u32(v); }
+    QbBuilder& real(float f) { return u8(0x1A).f32(f); }
+    QbBuilder& text(uint8_t token, const char* s)
+    {
+        uint32_t length = static_cast<uint32_t>(std::strlen(s)) + 1;
+        u8(token).u32(length);
+        for (uint32_t i = 0; i < length; ++i)
+            u8(static_cast<uint8_t>(s[i]));
+        return *this;
+    }
+    QbBuilder& string(const char* s) { return text(0x1B, s); }
+    QbBuilder& local(const char* s) { return text(0x1C, s); }
+    QbBuilder& vector(float x, float y, float z) { return u8(0x1E).f32(x).f32(y).f32(z); }
+    QbBuilder& pair(float x, float y) { return u8(0x1F).f32(x).f32(y); }
+    QbBuilder& assign(uint32_t c) { return name(c).u8(0x07); }
+    QbBuilder& param(uint32_t c) { return u8(0x2D).u8(0x16).u32(c); }
+    QbBuilder& all() { return u8(0x2C); }
+    QbBuilder& range(uint8_t token, float a, float b) { return u8(token).pair(a, b); }
+    QbBuilder& script(uint32_t c) { return u8(0x23).u8(0x16).u32(c); }
+    // A random block (token 0x2F/0x37/0x40/0x41) over `branches`, each branch a builder of its own.
+    QbBuilder& random(uint8_t token, const std::vector<std::pair<int, QbBuilder>>& branches)
+    {
+        uint32_t n = static_cast<uint32_t>(branches.size());
+        u8(token).u32(n);
+        for (auto& branch : branches)
+            u16(static_cast<uint32_t>(branch.first));
+        size_t offsets = bytes.size();
+        for (uint32_t i = 0; i < n; ++i)
+            u32(0);
+        std::vector<size_t> jumps;
+        for (uint32_t i = 0; i < n; ++i) {
+            size_t at = offsets + 4 * i;
+            uint32_t offset = static_cast<uint32_t>(bytes.size() - at - 4);
+            std::memcpy(&bytes[at], &offset, 4);
+            bytes.insert(bytes.end(), branches[i].second.bytes.begin(), branches[i].second.bytes.end());
+            jumps.push_back(bytes.size());
+            u8(0x2E).u32(0); // jump past the rest
+        }
+        for (size_t at : jumps) {
+            uint32_t offset = static_cast<uint32_t>(bytes.size() - at - 5);
+            std::memcpy(&bytes[at + 1], &offset, 4);
+        }
+        return *this;
+    }
+};
+
+uint8_t __cdecl ParserTestFunction(Script::CStruct* params, Script::CScript* script)
+{
+    int value = 0;
+    params->GetInteger(0xF001u, &value, 0);
+    return static_cast<uint8_t>(value + (params->ContainsFlag(0xF002u) ? 10 : 0) +
+                                (script == reinterpret_cast<Script::CScript*>(0x00ABC000) ? 100 : 0));
+}
+
+// Calling the register-argument entry points (the game's address: ours through the stub; or the original).
+const uint8_t* CallAddParameterRegisters(void* code, const uint8_t* token, uint32_t name, Script::CStruct* dest,
+                                         Script::CStruct* args)
+{
+    const uint8_t* result;
+    __asm {
+        mov ecx, token
+        mov edx, name
+        push args
+        push dest
+        call code
+        add esp, 8
+        mov result, eax
+    }
+    return result;
+}
+const uint8_t* CallParseRandomRangeRegisters(void* code, const uint8_t* token, Script::CComponent* component,
+                                             uint32_t deterministic)
+{
+    const uint8_t* result;
+    __asm {
+        push ebx
+        mov eax, token
+        mov ebx, deterministic
+        push component
+        call code
+        add esp, 4
+        pop ebx
+        mov result, eax
+    }
+    return result;
+}
+const uint8_t* CallSkipValueRegisters(void* code, const uint8_t* token)
+{
+    const uint8_t* result;
+    __asm {
+        mov eax, token
+        call code
+        mov result, eax
+    }
+    return result;
+}
+void* CallFindStoredRandomRegisters(void* code, const uint8_t* randomTable, uint32_t randomKind, uint32_t itemCount)
+{
+    void* result;
+    __asm {
+        push ebx
+        push esi
+        push edi
+        mov ebx, randomTable
+        mov edi, randomKind
+        mov esi, itemCount
+        call code
+        pop edi
+        pop esi
+        pop ebx
+        mov result, eax
+    }
+    return result;
+}
+
+// Everything a parsed value holds, written out (pointers into the arena made relative by the caller).
+void DescribeComponent(std::vector<uint32_t>& out, const Script::CComponent* c, int depth);
+void DescribeStruct(std::vector<uint32_t>& out, const Script::CStruct* s, int depth)
+{
+    out.push_back(0x57000000u);
+    if (!s || depth > 8)
+        return;
+    for (const Script::CComponent* c = s->m_head; c; c = c->next)
+        DescribeComponent(out, c, depth + 1);
+    out.push_back(0x57FFFFFFu);
+}
+void DescribeArray(std::vector<uint32_t>& out, Script::CArray* a, int depth)
+{
+    using namespace Script;
+    out.push_back(0xA7000000u | a->m_type);
+    out.push_back(a->m_size);
+    for (uint32_t i = 0; i < a->m_size; ++i) {
+        uint32_t e = a->GetElement(i);
+        switch (a->m_type) {
+        case ESYMBOLTYPE_STRING: case ESYMBOLTYPE_LOCALSTRING:
+            for (const char* p = reinterpret_cast<const char*>(e); *p; ++p)
+                out.push_back(static_cast<uint8_t>(*p));
+            break;
+        case ESYMBOLTYPE_PAIR:
+            out.push_back(reinterpret_cast<uint32_t*>(e)[1]);
+            out.push_back(reinterpret_cast<uint32_t*>(e)[2]);
+            break;
+        case ESYMBOLTYPE_VECTOR:
+            for (int k = 1; k <= 3; ++k)
+                out.push_back(reinterpret_cast<uint32_t*>(e)[k]);
+            break;
+        case ESYMBOLTYPE_STRUCTURE:
+            DescribeStruct(out, reinterpret_cast<CStruct*>(e), depth + 1);
+            break;
+        case ESYMBOLTYPE_ARRAY:
+            DescribeArray(out, reinterpret_cast<CArray*>(e), depth + 1);
+            break;
+        default:
+            out.push_back(e);
+            break;
+        }
+    }
+}
+void DescribeComponent(std::vector<uint32_t>& out, const Script::CComponent* c, int depth)
+{
+    using namespace Script;
+    out.push_back(c->typeAndFlag);
+    out.push_back(c->name);
+    out.push_back(c->unknown2);
+    switch (c->Type()) {
+    case ESYMBOLTYPE_STRING: case ESYMBOLTYPE_LOCALSTRING:
+        for (const char* p = c->string; *p; ++p)
+            out.push_back(static_cast<uint8_t>(*p));
+        break;
+    case ESYMBOLTYPE_PAIR:
+        out.push_back(reinterpret_cast<const uint32_t*>(c->pair)[1]);
+        out.push_back(reinterpret_cast<const uint32_t*>(c->pair)[2]);
+        break;
+    case ESYMBOLTYPE_VECTOR:
+        for (int k = 1; k <= 3; ++k)
+            out.push_back(reinterpret_cast<const uint32_t*>(c->vector)[k]);
+        break;
+    case ESYMBOLTYPE_STRUCTURE:
+        DescribeStruct(out, c->structure, depth);
+        break;
+    case ESYMBOLTYPE_ARRAY:
+        DescribeArray(out, c->array, depth);
+        break;
+    case ESYMBOLTYPE_QSCRIPT:
+        for (uint32_t i = 0; i < c->unknown2; ++i)
+            out.push_back(reinterpret_cast<const uint8_t*>(c->raw)[i]);
+        break;
+    default:
+        out.push_back(c->raw);
+        break;
+    }
+}
+
+// The parser: structures, arrays, expressions (with C function calls and global values), call arguments,
+// parameter references, random blocks of every kind, jumps, scripts and the register entry points - through
+// the original parser (all its functions original) and ours; the results, positions and arenas compared.
+void TestScriptParser()
+{
+    using namespace Script;
+    using Mem::Heap;
+    using Mem::Manager;
+    using Mem::Region;
+    if (GameVariable<void*>(0x007D1800)) {
+        Log("self-test: TestScriptParser skipped (the memory manager is already set up)");
+        return;
+    }
+    struct Saved {
+        uint32_t address;
+        uint32_t size;
+        std::vector<uint8_t> bytes;
+    };
+    std::vector<Saved> saved = {{0x006F2370, 0x200, {}}, {0x006F2568, 16, {}},  {0x006F2348, 16, {}},
+                                {0x006F2358, 12, {}},    {0x006F2578, 16, {}},  {0x006F3530, 4, {}},
+                                {0x006F3538, 4, {}},     {0x00690FC8, 24, {}},  {0x007CC979, 1, {}},
+                                {0x006F3570, 24, {}},    {0x006F2338, 16, {}},  {0x006F3614, 16, {}},
+                                {0x006F22B4, 16, {}},    {0x006F3644, 16, {}},  {0x006F3654, 16, {}}};
+    for (Saved& s : saved) {
+        s.bytes.resize(s.size);
+        std::memcpy(s.bytes.data(), reinterpret_cast<void*>(s.address), s.size);
+    }
+    g_saved_symbol_table = GameVariable<CSymbolTableEntry**>(0x006F3624);
+    g_symbol_table_swapped = true;
+    static CSymbolTableEntry* table[0x1000];
+    GameVariable<CSymbolTableEntry**>(0x006F3624) = table;
+
+    // Names used: 0xE0xx parameters, 0xC0xx globals.
+    const uint32_t G_INT = 0xC001, G_FLOAT = 0xC002, G_STRUCT = 0xC003, G_ARRAY = 0xC004, G_ALIAS = 0xC005,
+                   G_FUNC = 0xC006, G_MEMBER = 0xC007, G_STRING = 0xC008, G_SCRIPT = 0xC009, G_DANGLING = 0xC00A;
+    std::vector<QbBuilder> structures, arrays, expressions, calls;
+    auto add = [](std::vector<QbBuilder>& list) -> QbBuilder& {
+        list.emplace_back();
+        return list.back();
+    };
+    {
+        QbBuilder& b = add(structures);
+        b.u8(0x03).eol().line(3).assign(0xE001).integer(-5).eol();
+        b.assign(0xE002).real(2.5f).u8(0x09).assign(0xE003).string("text").assign(0xE004).local("loc").eol();
+        b.assign(0xE005).vector(1.0f, 2.0f, 3.0f).assign(0xE006).pair(4.0f, 5.0f).assign(0xE007).name(0x77).eol();
+        b.name(0xE008).eol();                                     // a flag
+        b.assign(0xE009).u8(0x03).assign(0xE00A).integer(1).u8(0x04).eol(); // a nested structure
+        b.u8(0x03).assign(0xE00B).integer(2).u8(0x04).eol();      // merged
+        b.assign(0xE00C).u8(0x05).integer(1).integer(2).u8(0x06).eol();
+        // (no hex integers as parameters: the original never moves past one)
+        b.assign(0x9D2D0915).vector(0.0f, 0.001f, 0.0f).eol();    // dropped
+        b.assign(0x9D2D0915).vector(0.0f, 0.5f, 0.0f).eol();      // kept
+        b.assign(0xE00E).u8(0x0E).integer(2).u8(0x0B).integer(3).u8(0x0D).integer(4).u8(0x0F).eol();
+        b.u8(0x0E).integer(7).u8(0x0F).eol();                     // an unnamed expression
+        b.u8(0x0E).name(G_STRUCT).u8(0x0B).name(G_STRUCT).u8(0x0F).eol(); // a structure expression: merged
+        b.all().eol().assign(0xE00F).all().eol().param(0xE101).eol().assign(0xE010).param(0xE102).eol();
+        b.param(0xE103).eol().param(0xE1FF).eol();                // <struct>: merged; missing
+        b.assign(0xE011).range(0x30, 1.0f, 6.0f).eol().assign(0xE012).range(0x38, 0.5f, 1.5f).eol();
+        b.assign(0xE013).range(0x30, 6.0f, -3.0f).eol();
+        QbBuilder one, two, three;
+        one.integer(111);
+        two.integer(222);
+        three.integer(333);
+        b.assign(0xE014).random(0x2F, {{1, one}, {3, two}, {2, three}}).eol();
+        b.assign(0xE015).random(0x37, {{1, one}, {1, two}}).eol();
+        b.assign(0xE01E).random(0x2F, {{3, one}, {-1, two}, {2, three}}).eol(); // a negative weight
+        b.assign(0xE01F).range(0x38, 2.0f, 5.0f).eol();
+        b.assign(0xE022).vector(0.0f, 0.0f, 0.0f).eol();         // kept: another name
+        b.name(0xE023).eol().u8(0x07).eol().integer(5).eol();      // line ends around the '='
+        for (int i = 0; i < 4; ++i) {
+            b.assign(0xE016 + i).random(0x40, {{1, one}, {1, two}, {1, three}}).eol();
+            b.assign(0xE01A + i).random(0x41, {{1, one}, {1, two}, {1, three}}).eol();
+        }
+        b.assign(0xE020).u8(0x49).u16(7).integer(1).integer(9).eol(); // a short jump over "1"
+        b.assign(0xE021).script(0xE0F0).integer(1).u8(0x24).line(4).eol();
+        b.script(0xE0F1).eol().integer(2).u8(0x24).eol();         // an unnamed script: named by itself
+        b.u8(0x04);
+    }
+    {
+        QbBuilder& b = add(structures); // a call's arguments, then a ')' and an end of line
+        b.u8(0x03).name(0xE030).assign(0xE031).integer(4).u8(0x04);
+    }
+    auto array = [&](std::function<void(QbBuilder&)> body) {
+        QbBuilder& b = add(arrays);
+        b.u8(0x05);
+        body(b);
+        b.u8(0x06);
+    };
+    array([](QbBuilder& b) { b.integer(1).eol().integer(-2).hex(3); });
+    array([](QbBuilder& b) { b.integer(1).real(2.5f).integer(3); });
+    array([](QbBuilder& b) { b.real(2.5f).integer(1).integer(-7); });
+    array([](QbBuilder& b) { b.name(1).line(5).name(2); });
+    array([](QbBuilder& b) { b.string("a").eol().string("bc"); });
+    array([](QbBuilder& b) { b.local("x").local("yz"); });
+    array([](QbBuilder& b) { b.vector(1, 2, 3).vector(4, 5, 6); });
+    array([](QbBuilder& b) { b.pair(1, 2).eol().pair(3, 4); });
+    array([](QbBuilder& b) {
+        b.u8(0x03).assign(0xE040).integer(1).u8(0x04).eol().u8(0x09).u8(0x03).name(0xE041).u8(0x04);
+    });
+    array([](QbBuilder& b) { b.u8(0x05).integer(1).u8(0x06).line(2).u8(0x05).string("s").u8(0x06); });
+    array([](QbBuilder&) {});
+    array([](QbBuilder& b) { b.eol().eol(); });
+    {
+        QbBuilder& b = add(arrays); // (not arrays: other values through ParseValue)
+        b.script(0xE0F3).integer(1).u8(0x24).eol();
+        add(arrays).all();
+        add(arrays).param(0xE103);
+    }
+    array([](QbBuilder& b) {
+        QbBuilder a, c;
+        a.integer(5);
+        c.integer(6);
+        b.random(0x2F, {{1, a}, {1, c}}).integer(7);
+    });
+    auto expression = [&](std::function<void(QbBuilder&)> body) {
+        QbBuilder& b = add(expressions);
+        b.u8(0x0E);
+        body(b);
+        b.u8(0x0F).eol();
+    };
+    expression([](QbBuilder& b) { b.integer(2).u8(0x0B).integer(3).u8(0x0D).integer(4); });
+    expression([](QbBuilder& b) {
+        b.u8(0x0E).integer(2).u8(0x0B).integer(3).u8(0x0F).u8(0x0D).integer(4);
+    });
+    expression([](QbBuilder& b) { b.integer(10).integer(-3); });          // 10 -3: a subtraction
+    expression([](QbBuilder& b) { b.real(1.5f).real(-0.5f); });
+    expression([](QbBuilder& b) { b.integer(10).integer(3); });           // ends at the 3
+    expression([](QbBuilder& b) { b.integer(10).integer(0); });           // ends at the 0
+    expression([](QbBuilder& b) { b.name(G_INT).u8(0x0B).name(G_FLOAT); });
+    expression([&](QbBuilder& b) { b.name(G_STRUCT).u8(0x08).name(0xE0A0); }); // a member: not a global
+    expression([&](QbBuilder& b) { b.name(G_STRUCT).u8(0x08).name(G_INT); });
+    expression([&](QbBuilder& b) { b.name(G_ARRAY).u8(0x05).integer(1); });
+    expression([&](QbBuilder& b) { b.name(G_ALIAS); });
+    expression([&](QbBuilder& b) { b.name(G_STRING).u8(0x0B).string("!"); });
+    expression([&](QbBuilder& b) { b.name(G_FUNC).assign(0xF001).integer(3).name(0xF002); });
+    expression([&](QbBuilder& b) { b.name(G_FUNC).u8(0x0F).u8(0x0B).integer(1).u8(0x0E); });
+    expression([&](QbBuilder& b) { b.name(G_MEMBER).integer(5); });
+    expression([&](QbBuilder& b) { b.name(0xBEEF); });                    // an unknown name
+    expression([&](QbBuilder& b) { b.param(0xE101).u8(0x0B).integer(1); });
+    expression([&](QbBuilder& b) { b.param(0xE103).u8(0x08).name(0xE200); });
+    expression([&](QbBuilder& b) { b.param(0xE104).u8(0x0B).integer(1); });
+    expression([&](QbBuilder& b) { b.param(0xE105).u8(0x0B).param(0xE105); });
+    expression([&](QbBuilder& b) { b.param(0xE103); });
+    expression([&](QbBuilder& b) { b.param(0xE1FF).integer(4); });
+    expression([&](QbBuilder& b) { b.all().u8(0x08).name(0xE101); });
+    expression([&](QbBuilder& b) { b.u8(0x03).assign(1).integer(2).u8(0x04).u8(0x0B).u8(0x03).name(3).u8(0x04); });
+    expression([&](QbBuilder& b) { b.vector(1, 2, 3).u8(0x0D).vector(0, 1, 0); });
+    expression([&](QbBuilder& b) { b.range(0x30, 1.0f, 3.0f).u8(0x0B).integer(1); });
+    expression([&](QbBuilder& b) { b.integer(1).u8(0x32).integer(0).u8(0x33).integer(1); });
+    expression([&](QbBuilder& b) { b.integer(4).u8(0x14).integer(3).u8(0x07).integer(1); });
+    expression([&](QbBuilder& b) {
+        QbBuilder a, c;
+        a.integer(5);
+        c.integer(6);
+        b.random(0x2F, {{1, a}, {1, c}}).u8(0x0B).integer(1);
+    });
+    auto call = [&](std::function<void(QbBuilder&)> body) {
+        QbBuilder& b = add(calls);
+        body(b);
+    };
+    call([](QbBuilder& b) { b.name(0xE050).assign(0xE051).integer(1).string("s").eol(); });
+    call([](QbBuilder& b) { b.u8(0x03).name(1).u8(0x04).all().u8(0x09).param(0xE101).u8(0x0F); });
+    call([](QbBuilder& b) {
+        b.assign(0xE052).u8(0x0E).integer(1).u8(0x0B).integer(1).u8(0x0F).u8(0x0E).name(G_STRUCT).u8(0x0F);
+        b.u8(0x0E).integer(0).u8(0x07).integer(1).u8(0x0F).line(1);
+    });
+    call([](QbBuilder& b) { b.assign(0xE053).param(0xE102).u8(0x00); });
+
+    static const uint32_t kParserFunctions[] = {0x00470C60, 0x00470BB0, 0x0046F7A0, 0x0046FD60, 0x0046FBD0,
+                                                0x00479730, 0x004706F0, 0x00470130, 0x00470F30, 0x00471860,
+                                                0x00471B00, 0x004712B0, 0x004728C0, 0x004728D0};
+
+    auto run = [&](bool original) {
+        std::vector<uint32_t> trace;
+        for (Saved& s : saved) {
+            if (s.address != 0x006F2370)
+                std::memset(reinterpret_cast<void*>(s.address), 0, s.size);
+        }
+        GameVariable<bool>(0x007CC979) = true;
+        GameVariable<uint32_t>(0x006F3530) = 0x00ABC000; // the current script
+        GameVariable<uint32_t>(0x00690FC8) = 0x12345;
+        GameVariable<uint32_t>(0x00690FCC) = 0x6789;
+        GameVariable<uint32_t>(0x00690FD0) = 0xABC;
+        GameVariable<uint32_t>(0x00690FD4) = 0xDEF01;
+        GameVariable<uint32_t>(0x00690FD8) = 0x2345;
+        GameVariable<uint32_t>(0x00690FDC) = 0x678;
+        std::memset(table, 0, sizeof(table));
+        uint8_t* arena = g_qb_arenas[original ? 0 : 1];
+        std::memset(arena, 0, sizeof(g_qb_arenas[0]));
+        std::memset(arena + 0x1000, 0xCD, sizeof(g_qb_arenas[0]) - 0x1000);
+        auto* manager = reinterpret_cast<Manager*>(arena);
+        GameVariable<void*>(0x007D1800) = manager;
+        auto* region = new (arena + 0x600) Region(arena + 0x1000, arena + sizeof(g_qb_arenas[0]));
+        auto* heap = new (arena + 0x620) Heap(region, 1, "test");
+        manager->m_heaps[0] = heap;
+        manager->m_heapCount = 1;
+        manager->m_scriptHeap = heap;
+        manager->PushContext(heap);
+        reinterpret_cast<CExpressionEvaluator*>(0x006F2370)->Init();
+        auto base = reinterpret_cast<uint32_t>(arena);
+        auto relocate = [&](uint32_t word) {
+            return word >= base && word <= base + sizeof(g_qb_arenas[0]) ? 0xA0000000u + (word - base) : word;
+        };
+
+        // The globals.
+        static CSymbolTableEntry symbols[10];
+        CStruct* globalStruct = NewStruct()->Init();
+        globalStruct->AddInteger(0xE0A0u, 5);
+        globalStruct->AddInteger(G_INT, 6);
+        CArray* globalArray = NewArray()->Init();
+        globalArray->SetSizeAndType(2, ESYMBOLTYPE_INTEGER);
+        globalArray->SetElement(0, 40);
+        globalArray->SetElement(1, 41);
+        struct {
+            uint32_t name;
+            ESymbolType type;
+            uint32_t raw;
+        } globals[] = {{G_INT, ESYMBOLTYPE_INTEGER, 7},
+                       {G_FLOAT, ESYMBOLTYPE_FLOAT, 0x40200000},
+                       {G_STRUCT, ESYMBOLTYPE_STRUCTURE, reinterpret_cast<uint32_t>(globalStruct)},
+                       {G_ARRAY, ESYMBOLTYPE_ARRAY, reinterpret_cast<uint32_t>(globalArray)},
+                       {G_ALIAS, ESYMBOLTYPE_NAME, G_INT},
+                       {G_FUNC, ESYMBOLTYPE_CFUNCTION, reinterpret_cast<uint32_t>(&ParserTestFunction)},
+                       {G_MEMBER, ESYMBOLTYPE_MEMBERFUNCTION, 0},
+                       {G_STRING, ESYMBOLTYPE_STRING, reinterpret_cast<uint32_t>("glob")},
+                       {G_SCRIPT, ESYMBOLTYPE_QSCRIPT, 0},
+                       {G_DANGLING, ESYMBOLTYPE_NAME, 0xDEAD}}; // (names a missing symbol)
+        for (int i = 0; i < 10; ++i) {
+            symbols[i] = {};
+            symbols[i].name = globals[i].name;
+            symbols[i].type = globals[i].type;
+            symbols[i].raw = globals[i].raw;
+            table[globals[i].name & 0xFFF] = &symbols[i];
+        }
+        // The caller's parameters.
+        CStruct* args = NewStruct()->Init();
+        args->AddInteger(0xE101u, 11);
+        args->AddString(0xE102u, "arg");
+        CStruct* argStruct = NewStruct()->Init();
+        argStruct->AddInteger(0xE200u, 12);
+        args->AddStructurePointer(0xE103u, argStruct);
+        args->AddChecksum(0xE104u, G_INT); // a name standing for a global
+        args->AddChecksum(0xE105u, G_DANGLING);
+
+        std::vector<OriginalCode*> guards;
+        if (original) {
+            for (uint32_t address : kParserFunctions)
+                guards.push_back(new OriginalCode(address));
+        }
+        using P = const uint8_t*;
+        auto position = [&](const QbBuilder& b, P p) { trace.push_back(static_cast<uint32_t>(p - b.bytes.data())); };
+        // (four passes: the random blocks' stored states are used again; after the second, they're given up
+        // by their script and taken by another)
+        for (int pass = 0; pass < 4; ++pass) {
+            CStruct* passArgs = pass % 2 == 0 ? args : nullptr;
+            if (pass == 2) {
+                ForgetStoredRandomsOf(0x00ABC000);
+                GameVariable<uint32_t>(0x006F3530) = 0x00ABD000;
+            }
+            for (const QbBuilder& b : structures) {
+                CStruct* dest = NewStruct()->Init();
+                P end = original ? Original<P(__cdecl*)(CStruct*, P, CStruct*)>(0x00471860)(dest, b.bytes.data(), passArgs)
+                                 : ParseStructure(dest, b.bytes.data(), passArgs);
+                position(b, end);
+                DescribeStruct(trace, dest, 0);
+            }
+            for (const QbBuilder& b : arrays) {
+                CComponent value = {};
+                P end = original ? Original<P(__cdecl*)(P, CStruct*, CComponent*)>(0x004706F0)(b.bytes.data(), passArgs, &value)
+                                 : ParseValue(b.bytes.data(), passArgs, &value);
+                position(b, end);
+                DescribeComponent(trace, &value, 0);
+            }
+            for (const QbBuilder& b : expressions) {
+                CComponent value = {};
+                P end = original ? Original<P(__cdecl*)(P, CStruct*, CComponent*)>(0x004712B0)(b.bytes.data(), passArgs, &value)
+                                 : ParseExpression(b.bytes.data(), passArgs, &value);
+                position(b, end);
+                DescribeComponent(trace, &value, 0);
+                trace.push_back(reinterpret_cast<uint32_t>(reinterpret_cast<CExpressionEvaluator*>(0x006F2370)->m_error));
+            }
+            for (const QbBuilder& b : calls) {
+                CStruct* dest = NewStruct()->Init();
+                P end = original ? Original<P(__cdecl*)(CStruct*, P, CStruct*)>(0x00470F30)(dest, b.bytes.data(), passArgs)
+                                 : ParseArguments(dest, b.bytes.data(), passArgs);
+                position(b, end);
+                DescribeStruct(trace, dest, 0);
+            }
+        }
+        // The register entry points: our stubs or the originals.
+        {
+            QbBuilder b;
+            b.integer(9).range(0x30, 2.0f, 1000.0f).u8(0x03).name(1).u8(0x04).name(0xE300).param(0xE101).all();
+            void* addParameter = original ? OriginalFunction(0x00470130) : reinterpret_cast<void*>(&AddParameterStub);
+            void* randomRange = original ? OriginalFunction(0x0046FBD0) : reinterpret_cast<void*>(&ParseRandomRangeStub);
+            void* skipValue = original ? OriginalFunction(0x0046FD60) : reinterpret_cast<void*>(&SkipValueStub);
+            void* findStored = original ? OriginalFunction(0x0046F7A0) : reinterpret_cast<void*>(&FindStoredRandomStub);
+            CStruct* dest = NewStruct()->Init();
+            P p = b.bytes.data();
+            for (uint32_t name : {0xE301u, 0xE302u, 0xE303u, 0u, 0xE304u, 0xE305u}) {
+                p = CallAddParameterRegisters(addParameter, p, name, dest, args);
+                position(b, p);
+            }
+            DescribeStruct(trace, dest, 0);
+            for (uint32_t deterministic : {0u, 1u, 0x100u}) {
+                CComponent value = {};
+                position(b, CallParseRandomRangeRegisters(randomRange, b.bytes.data() + 6, &value, deterministic));
+                DescribeComponent(trace, &value, 0);
+            }
+            for (size_t at : {size_t(0), size_t(5), size_t(15)})
+                position(b, CallSkipValueRegisters(skipValue, b.bytes.data() + at));
+            // (the stored randoms the structure test made)
+            for (CStoredRandom* stored = GameVariable<CStoredRandom*>(0x006F2358); stored; stored = stored->m_next) {
+                trace.push_back(relocate(reinterpret_cast<uint32_t>(
+                    CallFindStoredRandomRegisters(findStored, stored->m_table, stored->m_type, stored->m_count))));
+                trace.push_back(relocate(reinterpret_cast<uint32_t>(
+                    CallFindStoredRandomRegisters(findStored, stored->m_table, 0x99, stored->m_count))));
+            }
+        }
+        for (OriginalCode* guard : guards)
+            delete guard;
+        for (int i = 0; i < 3; ++i)
+            trace.push_back(relocate(reinterpret_cast<uint32_t*>(0x006F2358)[i]));
+
+        for (uint32_t& word : trace)
+            word = relocate(word);
+        std::vector<uint32_t> image(sizeof(g_qb_arenas[0]) / 4);
+        std::memcpy(image.data(), arena, sizeof(g_qb_arenas[0]));
+        for (uint32_t& word : image)
+            word = relocate(word);
+        trace.insert(trace.end(), image.begin(), image.end());
+        GameVariable<void*>(0x007D1800) = nullptr;
+        return trace;
+    };
+    std::vector<uint32_t> expected = run(true);
+    std::vector<uint32_t> actual = run(false);
+    for (Saved& s : saved)
+        std::memcpy(reinterpret_cast<void*>(s.address), s.bytes.data(), s.size);
+    RestoreSymbolTable();
+    Check(expected == actual, "script parser: structures, arrays, expressions, arguments, random blocks");
+    if (expected.size() != actual.size())
+        Log("  parser trace sizes: original %u ours %u", static_cast<unsigned>(expected.size()),
+            static_cast<unsigned>(actual.size()));
+    for (size_t i = 0, shown = 0; i < expected.size() && i < actual.size() && shown < 8; ++i) {
+        if (expected[i] != actual[i]) {
+            Log("  parser entry %u: original %08X ours %08X", static_cast<unsigned>(i), expected[i], actual[i]);
             ++shown;
         }
     }
@@ -6017,6 +6585,7 @@ SELFTEST(Early, TestScriptChecksumNames, RestoreScriptAddingTest);
 SELFTEST(Late, TestScriptChecksumNamesLate);
 SELFTEST(Early, TestScriptTokens);
 SELFTEST(Early, TestScriptSymbolBookkeeping);
+SELFTEST(Early, TestScriptParser);
 
 SELFTEST(Late, TestMemoryLate);
 SELFTEST(Late, TestStringLate);

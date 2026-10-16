@@ -46,8 +46,8 @@ void AddScriptChecksumName(uint32_t checksum, const char* name);
 const char* FindScriptChecksumName(uint32_t checksum);
 void FreeScriptChecksumNames();
 
-// Forget the cached scripts belonging to `owner`.
-void ForgetCachedScriptsOf(uint32_t owner);
+// Forget which script the stored random states belonging to `owner` (a script) were for.
+void ForgetStoredRandomsOf(uint32_t owner);
 
 // Create all the script system's item pools (from the script heap) and the permanent string heap.
 void CreateScriptPools();
@@ -78,10 +78,16 @@ struct CStoredRandom {
     // Shuffle the order; with `avoidRepeat`, the new first choice isn't the old last one.
     void Shuffle(bool avoidRepeat);
 
-    uint8_t unknown0[8];
+    uint32_t m_owner;         // the script using it
+    const uint8_t* m_table;   // the random table's offsets in the script
     uint16_t m_count;
-    uint8_t unknownA[8];
-    uint8_t m_order[0x4E]; // from +0x12
+    uint16_t unknownA;
+    uint32_t m_type;          // the token: 0x40 no-repeat, 0x41 permute
+    uint16_t m_index;         // permute: the position in m_order
+    uint8_t m_order[0x42];    // permute: the shuffled order (from +0x12)
+    uint32_t m_last;          // no-repeat: the last choice
+    CStoredRandom* m_next;    // older
+    CStoredRandom* m_previous; // newer
 };
 
 } // namespace Script

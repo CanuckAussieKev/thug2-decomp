@@ -376,7 +376,7 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       0x46FF00 (statement-start names of C functions -> 0x43 + function, member functions -> 0x46 + table
       entry or 0x44); the .qb files' own checksum names (table 0x6F2368, 0x1000 inline buckets {checksum,
       name, next}): AddScriptChecksumName 0x46FA60, FindScriptChecksumName 0x46F9B0, FreeScriptChecksumNames
-      0x46F9F0; ForgetCachedScriptsOf 0x46F870 (script cache list 0x6F2358, next at +0x58);
+      0x46F9F0; ForgetStoredRandomsOf 0x46F870 (the stored-random list 0x6F2358 - see batch 45);
       CStoredRandom::Shuffle 0x46F8A0; CreateScriptPools 0x46F520 with the nine per-class pool creators
       0x46F090..0x46F4A0 (CScriptCacheEntry 0x14 x300 0x6F3560, CComponent 0x10 x86000, CStruct 8 x19800,
       CVector 0x10 x9500, CPair 0xC x800, CArray 0xC x7000, CSymbolTableEntry 0x14 x12500 0x6F362C, CScript
@@ -398,9 +398,34 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       11 functions. Early test: every symbol type removed, a kept one, pending removal + replacement, pooled
       and loose frees, both heap choices (14 deliberate bugs caught, 2 after giving the test a separate
       debug heap and pooled pairs/vectors).
-- [ ] Next: the value / structure / array parsers (0x4706F0, 0x4712B0, 0x471860, 0x471B00, 0x470130),
-      the symbol-definition parser 0x472240, the .qb parser 0x472420, CreateScriptSymbol 0x46FE40 (register
-      arguments), LoadQB 0x46EDE0 / 0x46ED90; the pre-compiled format (0x46CA50, 0x46C970, 0x46C830, ...).
+- [x] Batch 45 (NOT run in the game yet; early test passes offline): the .qb parser core (src/game/script/
+      parse.*). ParseValue 0x4706F0, AddParameter 0x470130 (ECX token, EDX name, two caller-popped stack
+      arguments: a naked stub), ParseArguments 0x470F30 (a call's arguments, to the line end / ')'),
+      ParseStructure 0x471860 (also merges nested {}), ParseArray 0x471B00 (element type: the last kind
+      seen, but integers don't override floats; the element loops were code Ghidra never disassembled - read
+      with capstone), ParseExpression 0x4712B0 (drives the global evaluator 0x6F2370 through the global
+      component 0x6F2568; "a -1" is a subtraction; C functions are called inline with the arguments that
+      follow and give their result byte; names after '.' aren't looked up), ResolveRandomJumps 0x470C60
+      (jumps 0x2E/0x49; Random 0x2F/0x37 weighted - signed 16-bit weights, second random stream for 0x37;
+      RandomNoRepeat 0x40 and RandomPermute 0x41 with per-script stored state), the stored randoms (list
+      0x6F2358 newest / 0x6F235C oldest / count 0x6F2360, at most 100; CStoredRandom laid out: owner, table,
+      count, type, index, order, last, next, previous): NewStoredRandom 0x470BB0, FindStoredRandom 0x46F7A0
+      (EBX/EDI/ESI: stub), SkipValue 0x46FD60 (EAX: stub), ParseRandomRange 0x46FBD0 (EAX, BL = second
+      stream, one caller-popped argument: stub; integers when both ends are within 1e-5 of whole numbers
+      after the game's 0.1 nudge, else a float), ResolveNameComponent 0x479730, GetCurrentScript 0x4728C0
+      (0x6F3530), GetNextScript 0x4728D0. Found: the 0x6F2358 list of batch 43 is the stored randoms
+      (ForgetCachedScriptsOf renamed ForgetStoredRandomsOf). The original parser never moves past some
+      tokens in some places (e.g. a hex integer as a parameter, unknown tokens in arrays/expressions) and
+      loops forever; kept as it is. 18 functions (4 with assembly stubs). Early test: a small .qb assembler
+      builds ~60 token streams (structures with every parameter kind, arrays of every type, ~35 expressions,
+      call arguments, <name>/<...> references with and without caller parameters, all random block kinds over
+      four passes with an owner change, jumps, scripts) parsed by the original parser (all of it forced
+      original) and ours, plus the four stubs called with their register arguments; results, positions,
+      the stored randoms and the arena compared. 41 deliberate bugs: 40 caught (6 by hanging, 14 after
+      adding cases), 1 equivalent to the original (the 0.1 vs 0.5 nudge can't change a result).
+- [ ] Next: the symbol-definition parser 0x472240, the .qb file parser 0x472420, CreateScriptSymbol
+      0x46FE40 (register arguments), LoadQB 0x46EDE0 / 0x46ED90; the pre-compiled format (0x46CA50, 0x46C970,
+      0x46C830, ...); then CScript.
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
       for original callers that read ECX/EDX after the call without writing them first (ignoring push-to-reserve,
       lea reg,[reg], or reg,-1 and zeroing idioms; callers that are themselves replaced count as safe).

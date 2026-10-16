@@ -98,6 +98,7 @@ add_library(thug2_code OBJECT
     src/game/net/chat.cpp
     src/game/script/eval.cpp
     src/game/script/names.cpp
+    src/game/script/parse.cpp
     src/game/script/qb.cpp
     src/game/script/struct.cpp
     src/game/mth/geometry.cpp

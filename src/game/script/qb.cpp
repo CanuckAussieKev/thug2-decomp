@@ -18,6 +18,8 @@ namespace Script {
 
 static_assert(offsetof(CStoredRandom, m_count) == 8, "layout must match the original");
 static_assert(offsetof(CStoredRandom, m_order) == 0x12, "layout must match the original");
+static_assert(offsetof(CStoredRandom, m_last) == 0x54 && offsetof(CStoredRandom, m_next) == 0x58,
+              "layout must match the original");
 static_assert(sizeof(CStoredRandom) == 0x60, "layout must match the original");
 
 namespace {
@@ -261,9 +263,9 @@ void AddScriptChecksumName(uint32_t checksum, const char* name)
 }
 
 // 0x0046F870
-void ForgetCachedScriptsOf(uint32_t owner)
+void ForgetStoredRandomsOf(uint32_t owner)
 {
-    // The script cache: entries of 0x5C bytes, the owner first, the next entry at +0x58.
+    // The stored random states (newest first, the next at +0x58), the owning script first.
     for (auto* entry = GameVariable<uint32_t*>(0x006F2358); entry;
          entry = reinterpret_cast<uint32_t*>(entry[0x58 / 4])) {
         if (entry[0] == owner)
@@ -348,7 +350,7 @@ REPLACE(0x0046FF00, Script::PreProcessScript);
 REPLACE(0x0046F9B0, Script::FindScriptChecksumName);
 REPLACE(0x0046F9F0, Script::FreeScriptChecksumNames);
 REPLACE(0x0046FA60, Script::AddScriptChecksumName);
-REPLACE(0x0046F870, Script::ForgetCachedScriptsOf);
+REPLACE(0x0046F870, Script::ForgetStoredRandomsOf);
 REPLACE(0x0046F8A0, &Script::CStoredRandom::Shuffle);
 REPLACE(0x00476210, Script::AllocatePermanentStringHeap);
 REPLACE(0x0046F520, Script::CreateScriptPools);
