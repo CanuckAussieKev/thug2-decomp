@@ -42,12 +42,15 @@ installed); PartyMod-patched functions get source with PartyMod's behaviour. Lat
   doc, and record "tested in the game" when they report back.
 - **Don't launch the game unless the user says so** (they may be playing; a running game also locks the
   DLL), and never copy DLLs into the game folder.
-- Never REPLACE an address PartyMod patches (`python -I tools/check_partymod_overlap.py`); PartyMod's
-  runtime changes are ported into our DLL (src/partymod), so `partymod.dll` isn't loaded.
+- PartyMod's PC port (SDL2 window/input, config `partymod.ini`, glyphs, letterbox...) is part of the game's
+  source now (MIT: `LICENSES/partymod.txt`); `partymod.dll` isn't loaded and nothing patches rewritten code.
+  The only run-time writes into the exe are the GameSpy host names (`src/game/net/online_hosts.cpp`, until
+  the SDK is linked) and the IsPS2 CFunction table entry - `python -I tools/check_code_writes.py` checks
+  none lands in a rewritten function.
 - Python on this machine defaults to cp1252: always `encoding="utf-8"`. Use the Write/Edit tools for C++
   text with backslashes (shell heredocs mangle them).
 - Self-tests: by topic in `src/hook/selftests_<topic>.cpp` (each registers its own with SELFTEST; listed in
-  CMakeLists.txt) - `selftest.cpp` is too big to share. `selftests_partymod.cpp` has the CodePatch / JumpTo
+  CMakeLists.txt) - `selftest.cpp` is too big to share. `selftests_pc.cpp` has the CodePatch / JumpTo
   helpers (write bytes or a jump over game code for a test's length).
 - Parallel agents work (one git worktree + branch each, own Ghidra snapshot copy and `data/derived/`, records
   in `docs/pending/<name>.md`) but cost a lot of usage - keep each to a few functions, and merge yourself.

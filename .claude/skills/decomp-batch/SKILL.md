@@ -55,10 +55,9 @@ with tools\ghidra\snapshot_project.ps1). `inspect` below means:
   as named empty inline functions: `Mem::PushMemProfile(name)` / `PopMemProfile()` around allocations,
   `Script::PrintContents(struct)`, `Mem::DebugTrackBlock(block)` - add a new one when a call fits none.
   The strings they're passed document the code.
-- PartyMod-patched functions get source with PartyMod's behaviour (`python -I tools/check_partymod_overlap.py`
-  must account for every patch inside a rewritten function). Where PartyMod replaces or changes the code,
-  keep the original's logic visible too - in a comment, or as code if it's worth keeping - so the source shows
-  what the game did before PartyMod (the user wants this).
+- Functions PartyMod changed have source with PartyMod's behaviour (its PC port is part of the game's source
+  now). Where PartyMod replaced or changed the code, keep the original's logic visible too - in a comment, or
+  as code if it's worth keeping - so the source shows what the game did before PartyMod (the user wants this).
 - Register: `REPLACE(addr, Function)` / `&Class::Method` / adapters for members of other types; pure
   functions may use `REPLACE_SHADOW`; unhookable ones `REPLACE_SOURCE_ONLY`. New .cpp files go in
   CMakeLists.txt.
@@ -83,8 +82,8 @@ with tools\ghidra\snapshot_project.ps1). `inspect` below means:
   own handle - see TestLeftovers). Originals that use the game's C runtime (sprintf, _stricmp...) only run
   in a Late test (in the game); offline, check ours against an independent expectation.
 - Calls the original makes directly (platform, renderer, C runtime) are scripted by writing a jump over the
-  callee for the test (CodePatch / JumpTo in selftests_partymod.cpp); PartyMod's patch bytes are written into
-  the original the same way, so ours is compared with the original *as PartyMod leaves it*.
+  callee for the test (CodePatch / JumpTo in selftests_pc.cpp); where PartyMod changed a function, its patch
+  bytes are written into the original the same way, so ours is compared with the original *as PartyMod left it*.
 - `tools/mutate.py` names the failing test on each CAUGHT line (check it's yours; a bare CAUGHT is a crash),
   reports mutations that don't build, and rebuilds the restored code at the end.
 - Read [pitfalls.md](pitfalls.md) when a test crashes, hangs or fails strangely.
@@ -94,8 +93,8 @@ with tools\ghidra\snapshot_project.ps1). `inspect` below means:
   only known false alarms in the "RISK" lines (0x4EFF92 PUSH ECX reserve); every function listed as
   "N site(s) read EAX/AL" must return a value.
 - `... python tools/ghidra/audit_game_function_calls.py C:\Games\THUG2-ghidra-snapshot`: no MISMATCH.
-- `python -I tools/check_partymod_overlap.py`: "No overlaps" (it also fails on a PartyMod patch inside a
-  rewritten function that its HANDLED list doesn't account for; `tools/ghidra/partymod_patches.py` lists them).
+- `python -I tools/check_code_writes.py`: "No overlaps" (no run-time write into the exe - GameSpy host names,
+  the IsPS2 table entry - inside a rewritten function).
 - `... python tools/ghidra/find_gaps.py C:\Games\THUG2-ghidra-snapshot`: nothing new skipped next to this
   batch's functions (small helpers, setters, jumps to what you rewrote - give each source, source-only if it
   can't be hooked), and "0 thunks".
