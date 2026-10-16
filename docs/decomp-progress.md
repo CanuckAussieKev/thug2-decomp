@@ -869,7 +869,400 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       returning true as if queued; logged. Early test (TestPlayMovie): flag off (no ini offline) - a name, a path,
       no name - original vs ours, the queue 0x44F830 recorded. The flag-on path isn't tested (the flag is read
       once from the ini).
-- [ ] Next: finish the PartyMod round (docs/HANDOFF.md: 27 of 48 functions left, with notes); then the pre-compiled .qb format (0x46FBA0, 0x46CA50, 0x46C970, 0x46C830, 0x46C7F0, ...), the script
+- [x] Batch 62 (skaterB; PartyMod round; NOT run in the game yet): two skater air functions with PartyMod's PS2 controls
+      built in (new src/game/skater/rotation.*, `Skater::CorePhysicsComponent` - the component the air update
+      0x50CA00 runs on; fields by offset: object +0xC (matrix +0x6C, velocity +0xAC), display matrix +0x18,
+      input +0x150C (buttons of 0x20 bytes from +0x20: {down, time, ..., +0x10 pressed}), trick +0x1518
+      (rotation total +0x13A4), +0x1520 ([+0x18] shows the total), state flags +0x1528 ({bool, time} pairs,
+      cleared with time = 0x44ECE0() + [0x696D60])) and the network keyboard task with PartyMod's F1:
+  - Spin 0x504060 (thiscall, void): tap mode (+0x2DA: L1/R1 taps queue +-pi in +0x30C, turned at the stat
+    0x580790(0xF7A2ACC1) per frame length +0x8C); else L1/R1 held past the spin delay (0x580400(0xA5A02449);
+    held time read unsigned) turn at the stat 0x4957DB43 - PartyMod's 2-byte NOPs at 0x504239 / 0x50430B drop
+    the delay check (the delay is still read); then (flag +0xC0 clear) the second pair (input +0x60/+0x80, held
+    time signed) ramped between 0xA092B2BE and 0x5D756349; with no turn, face the ramp (flags +0x30 and +0x68:
+    acos(clamp(forward.y)) vs 0x61224F2E degrees, 0x406630's offset angle, Sign * 0x9DB33213, the last bit
+    exactly); the turn: +0x3A5 = turn > 0, RotateYLocal on both matrices, total += degrees, shown truncated
+    (0x564BE0) unless flag +0x30 and not +0x78 and |total| < 360 - 0x50C5CC2F + 0.1. Script floats come back
+    unrounded on x87: GameFunction<double(...)> keeps that.
+  - BreakVert 0x507120 (thiscall, 1 bool arg `force` - all callers pass 0, RET 4, void): the jump button held
+    past 0x580440(0x9D2F8CC8) with none of 4 others, or both triggers (input +0xC0 / +0x120; PartyMod's JNZs at
+    0x507184 / 0x5071AE make it either), or +0x2D0, or force. Triggers or +0x2D0: if 0x505F70 (thiscall bool)
+    only copy the matrix; else velocity x/z -= wall normal (+0x58/+0x60) * 24, RotateXLocal(0xD757F4BB deg),
+    flags 30/38/48 cleared, 80 set (if not exactly 1), face along velocity (no display copy). Otherwise:
+    velocity x/z -= normal * |v| (length squared stored as float first - the original stores it in the
+    argument's slot) * 0x13F33B41, y *= 0x848C5CD6, the same pitch, flags 30/38/48/B0 cleared, face along
+    velocity, display matrix = object's.
+  - GameNet::KeyboardTask 0x5334D0 (cdecl task callback, in chat.cpp): Enter (0x19) - unless ObjectExists
+    (0x462340) for ids 0x31631B98 / 0xF53D1D83 / 0x3B56E746 / "quit_dialog_anchor": run 0x3B4548B8 and clear
+    the typed keys (the parameters are leaked, as in the original); F1-F4 taunts (0xB53D0E0F = 0x0E5FD359 /
+    0xBEEA3518 / 0x4525ADBD / 0xA36DBEE1, script 0x2C43B5BA) at most every 2000 ms (0x7CCE20). PartyMod's byte
+    at 0x533652 (unconditional, patchInput) makes F1 0x1F, since its SDL keyboard input sends 0x1B for Escape.
+  - check_partymod_overlap.py HANDLED: 0x504239, 0x50430B, 0x507184/5, 0x5071AE/F, 0x533652. PartyMod's runtime
+    patches stay in src/partymod (as for batch 57: they still apply to the original when a replacement is
+    disabled in thug2-decomp.ini).
+  - Early tests (src/hook/selftests_skaterB.cpp): spin over 6000 and break vert over 4000 random cases (every
+    branch input: tap mode, buttons with held times around the script times incl. negative, flags, queued
+    turns, tilts, totals, velocities incl. zero, frame lengths incl. 0) x PS2 controls off/on - the original
+    with PartyMod's bytes written in for "on" - with the callees (clock 0x44ECE0, 0x580400/0x580440/0x580790,
+    0x564BE0, 0x406630, 0x505F70) redirected to recording stand-ins; break vert's original also gets our math
+    helpers (CreateRotateXMatrix, D3DXMatrixMultiply 0x5BFA8C - stdcall, Normalize, OrthoNormalizeAbout)
+    since those differ from the x87 originals in the last bit (spin compares exactly without that). The
+    keyboard task: no key, Enter x each dialog / none, F1 (0x1F), F2-F4, 0x1B, another key, at 2000 / 2001 ms,
+    on a stand-in memory manager (arenas compared), the original with PartyMod's byte.
+  - 52 deliberate bugs: 49 caught (5 after strengthening the tests: held times exactly at the jump time and
+    the ramp start - a stand-in clock that stops - a ramp end before its start, a queued turn just over one
+    frame's step, a tilt limit just above the angle, a total within the snap's 0.1), 3 equivalent (float vs
+    double rounding of queued -+ pi: exact in double for these magnitudes; `queued <= 0` inside `queued != 0`;
+    `speed >= 0` once speed is known non-zero).
+  - Checks: build clean, thug2_check 0 MISMATCHED and all early tests pass; register scan only the known
+    0x4EFF92 false alarm; call audit no MISMATCH; check_partymod_overlap "No overlaps", all handled;
+    find_gaps nothing new next to these (its 1 thunk, 0x4B2350, was there before).
+  - Shared files touched: CMakeLists.txt (src/hook/selftests_skaterB.cpp after selftest_runner.cpp;
+    src/game/skater/rotation.cpp after src/game/obj/smtptr.cpp), tools/check_partymod_overlap.py (HANDLED,
+    after the 0x527636 line), src/game/net/chat.cpp/.h (KeyboardTask). src/partymod unchanged.
+- [x] Batch 63 (gfx; PartyMod round, gfx part 2; NOT run in the game yet): new src/game/gfx/render.* (namespace Nx), tests in
+      new src/hook/selftests_gfx2.cpp (Early).
+      - 0x004DB200 Nx::SetCamera (set_camera; cdecl matrix, position, horizontal angle in degrees, aspect, zoom, bool
+        infinite): copies the camera position / orientation rows 2 (backward) and 1 (up) to 0x786CC4/0x786CDC/0x786CE8,
+        world = identity (0x786B90), D3DX look-at (0x5C0985) into 0x786BD0, near 2, far **96000 (PartyMod's float at
+        0x4DB35D; original 32000)** or the distance-clipping setting (0x7D6444, unsigned) x 18 when 0x7D643A,
+        perspective (0x5C0ACD) w = 4 tan(angle/2), h = w / (aspect / 1.1), zoom != 1 (NaN too) scales x/y (D3DX
+        scaling + multiply), infinite far plane writes _33 = -0.999999 / _43 = 1e-6, SetTransform world/view/projection,
+        the view's half-angle tangents/sines/cosines (0x786E18-0x786E2C), the heading rotation (atan2 - pi/2, D3DX
+        RotationY into 0x786C50), then the frustum update 0x4CDAA0 (thiscall on 0x775B80). The original's FPTAN / FPATAN
+        are inline asm so the roundings match: the first tangent takes the half-angle unrounded (double), the second its
+        float - different results for e.g. 30.0071 degrees. The original reuses its argument slots as scratch.
+      - 0x004DF390 Nx::DrawScreenBlur (the motion blur pass; void): if 0x7CC244, fog off, render states, linear min/mag
+        filters on 4 samplers (saved / restored), 0x4DEB70 if 0x705720, the quad (screen size 0x786A7C/80, u/v inset by
+        (1 - amount/255)/2 over the texture's size - u rounded from the unrounded quotient, v from the float), colour
+        0x80808080 or amount<<24|0x808080, blend 5 if the blur level 0x78732C > 2; draws the other texture into the
+        current one (level > 2), then the current one onto the back buffer (cleared to the fog colour 0x78733C with fog
+        and distance clipping, else 0x786CC0); swaps 0x786D68, fog back on. **PartyMod's JMP at 0x4DF63A**: the
+        letterbox adjustment of the quad never runs (the original's is in a comment - it adds a pixel count to v).
+      - Both REPLACE (hookable); both PartyMod patch addresses are in check_partymod_overlap.py's HANDLED list. PartyMod's
+        runtime patches stay in src/partymod (they only touch the originals' bodies, which our hooks bypass; the tests
+        write the same bytes into the originals).
+      - Tests: TestSetCamera - 5 orientations (all four headings, tilted) x 6 angles x 3 aspects x zoom 1 / 1.37 / NaN x
+        infinite or not (bool with garbage upper bytes to the original) x distance clipping off / on / past 2^31; the
+        original with PartyMod's 96000 written in; stand-in device (SetTransform recorded) and frustum update; every
+        camera global compared. TestDrawScreenBlur - off / on x both textures current x 5 amounts (incl. past 2^31) x
+        blur levels 1-4 x letterbox / fog / clipping / extra pass flags, screen and texture sizes, samplers linear or
+        not; original with PartyMod's JMP; stand-in device, textures, surfaces and renderer state calls.
+        41 deliberate bugs: 38 caught (1 after adding angles where the first tangent's rounding matters), 3 equivalent
+        (texture size as signed - sizes < 2^31; u's rounded via float or double - float subtraction/division double-
+        rounded to float is exact).
+      - 0x004B2D80 Nx::RenderWorld (the frame's 3D; void, no arguments): frame counter 0x786AC4; nothing but the
+        full-screen viewport while the device is lost (0x786D04). Otherwise the time 0x5BE970 -> 0x786D00, render
+        states, 0x4DBBD0, 0x4DEA80, then per viewport (count 0x701378; 0x4A06D0; skipped without a camera at +0x18):
+        0x6FA7B8 = index, the device viewport from its fractions (x/width from the int width, y/height from the height
+        as a float; truncated), **PartyMod's setDisplayRegion when letterboxed (its calls at 0x4B2E65; the original
+        moved y down H/8 and took H/4 off the height - in a comment)**, set_camera (angle 0x485B10, position 0x485A00,
+        matrix 0x485A10, aspect 0x4A0D20 - in that call order), the world scenes (list 0x6FA7EC, ends at a node whose
+        scene is -1; the next node taken before each; non-sky: 0x4D8ED0, meshes prepared once via flag 0x100 /
+        0x4D6530, pass 0x55 via 0x4DC700), 0x490DB0, 0x4C7520, 0x48E370, pass 1, the sky (set_camera from the origin,
+        infinite; fog range 20-21 set on the device and put back; fog off; sky scenes drawn at pass 3 with linear
+        min / no mip filter unless distance clipping and fog are both on), 0x443870 before or after depending on
+        0x786AB5, set_camera again, pass 0x82, non-sky pass 0x46, pass 0x102, then the later passes (0x4A0F30,
+        0x49AB50(index > 0), 0x496640, 0x4A10A0 virtual, 0x4920E0, 0x49C840, 0x4DCC70(0), 0x491910(index, 0)).
+        After the viewports: full-screen viewport (**PartyMod's setDisplayRegion when letterboxed, 0x4B33CA**),
+        0x4DE980, the blur pass (ours), fog off, **the 2D through PartyMod's draw2DWrapper (0x4B341D; the original
+        called 0x4DFB90 - PartyMod adds black bars)**, fog back, full-screen viewport again. The original passes the
+        saved fog flag as a dword with garbage upper bytes (0x490DE0 reads only AL).
+      - All three PartyMod patch addresses are in the HANDLED list.
+      - Test TestRenderWorld (Early): 0-3 viewports (one without a camera) x 64 flag combinations (letterbox, fog on
+        as 1 / 0x100 / off, distance clipping, fog setting, 0x786AB5, blur on/off) + the device lost, the scene list
+        full (world unprepared / sky / world prepared / sky) or empty, three back-buffer shapes (PartyMod's black
+        bars); the original with PartyMod's three calls, far plane and blur JMP written in; every callee stood in
+        by a recorder (25 game functions, the device's viewport / render state / transform / sampler / draw calls);
+        set_camera and the blur pass run for real (ours vs original). 38 deliberate bugs, all caught (3 after fixing
+        the test - it dirtied the letterbox flag after setting it, and sampler 0's filters were equal; 3 by the crash
+        the bug causes).
+      - Test helpers in selftests_gfx2.cpp are copies of selftests_partymod.cpp's CodePatch / JumpTo (a shared header
+        would be nicer - left for the merger to avoid conflicts).
+- [x] Batch 64 (movie; PartyMod round; NOT run in the game yet): movie playback 0x44FDC0 with its helpers, the playlist's
+      next track 0x452200, and Sio::SetActuators pointed at Platform::SetActuators.
+  - Nx::PlayMovieFile 0x44FDC0 (cdecl name; also reached by the jump 0x44F830: REPLACE_SOURCE_ONLY). Bink's sound
+    system (BinkSetSoundSystem(BinkOpenDirectSound, the DirectSound object 0x7D6A38); "Bink can't use DSound"
+    if it fails), the sound manager singleton (0x47BA60(false) / released 0x47C6C0 on every exit), Bink volume =
+    max(music 0x450440, effects 0x47AFD0) * 0.01f * 16384.0f truncated (x87 53-bit); path
+    "data\movies\bik\" + the name after its last backslash (the search never looks at name[0]: "\lead" keeps
+    its backslash; '/' isn't a separator) + ".bik"; music paused 0x450650, streams stopped 0x450690(-1);
+    BinkOpen (null: release, return); BeginMovie; the screen saver timeout read (SPI_GETSCREENSAVETIMEOUT) and,
+    if nonzero, set again every 201st loop pass (resets its timer); fog off (0x490DE0) and back after. Loop
+    (only with a texture; Sio manager referenced): app inactive -> BinkPause(1), Sleep(100) + window pump until
+    active, loop (not unpaused there); quit request -> end; device lost -> reset 0x44F250, still lost ->
+    loop, else BinkPause(0); BinkWait -> loop; BinkDoFrame, LockRect -> BinkCopyToBuffer(bits, pitch,
+    height, 0, 0, 0x67D7C4 | 0x80000000) + UnlockRect; DrawMovie; end at frameNum >= frames - 1 (unsigned: a
+    0-frame movie never ends by itself); window pump every 2nd frame; then the pads: ports 0-3, start (byte 2
+    bit 3) or X (byte 3 bit 6) pressed after being seen up (control data bits are set while up) ends it.
+    PartyMod NOPs the JNZ at 0x450121 that read the pads only every 5th frame - ours reads every frame (the
+    original's line in a comment). Cleanup: the playing flag 0x696D95 off, fog back, EndMovie, BinkClose,
+    0x696D90 = null, stage 0 alpha op MODULATE, sound manager released. Bink is called through the game's
+    import table (0x6452E8-0x645320) until it's linked; SystemParametersInfoA / Sleep directly.
+  - Nx::BeginMovie 0x44F8C0 (saves cull mode, multisample AA and sampler 0 min filter in 0x696D88/84/80; cull
+    none, AA off, lighting off, 0x4DAB60(1/2, 0), min filter linear; the movie size (unsigned -> float) in
+    0x67D7D0/D4 and the back buffer's in 0x67D7C8/CC; CreateTexture(w, h, 1, 0, X8R8G8B8, MANAGED): the texture
+    + playing flag on, or null), Nx::EndMovie 0x44F9F0 (states back, 0x4DAB60(1/2, 1), Release, 0x4DA730(0,0,0)),
+    Nx::DrawMovie 0x44FCC0 (BeginScene, Clear target black, DrawMovieFrame(0, 0, 0x67D7D8, 0x67D7DC, 1),
+    EndScene, Present, BinkNextFrame), Nx::ButtonPressedAgain 0x44F840 (EAX data, ECX mask, ESI seen-up word,
+    returns AL: naked stub, REPLACE_UNCHECKED).
+  - Pcm::PlayNextTrack 0x452200 (new src/game/pcm/music.*). Ghidra has no function there: it's the target of
+    0x452910's tail jump (JMP at 0x452A83), 0x452200-0x452676 (RET, then int3 padding); no other references
+    (scanned the exe for calls/jumps/pointers). check_partymod_overlap.py now has an extra-bodies table for it.
+    Logic: music on (DirectSound object, platform != 2, 0x67D7E0) and the playlist's byte +0xCA8 clear, no
+    stream playing (0x453250 == 1); 0x69BAAC = 0; 0x451400; playlist 1: the script's integer 0xF18AB1F9 picks
+    the track if < count (signed: negative indexes before the array); the special track 0x69806C (flag
+    0x69BAA0) with 1; empty playlist: nothing. Reshuffle (flag 0x67D7F4): last = order[count-1] (with an empty
+    order that's 0x696D9C, the movie dump counter), the on tracks (128-bit off masks at +0xC88/+0xC90, tested
+    with __allshl semantics: shifts by the low byte, 0 from 64) into the order 0x696DA0 (count 0x67D7F8),
+    Printf "shuffling random song order num_songs=%i", 2000 swaps of two random places, if order[0] is the last
+    track: swap it with place Rnd(n-1)+1 (or 0 when n <= 1 - that draw is the game's even under PartyMod),
+    position 0x69BAC4 = 0, played masks (+0xC98/+0xCA0) cleared. Else position+1, reshuffle next time at
+    position >= n-1. Then the track at the position plays unless off or already played (the original repeats
+    that same test `count` times - written once): played bit set, 0x4520D0(track, 0), current track 0x69BA98,
+    script 0x300CAD34 run with {0x8D02705D: track} (a new CStruct, cleared and deleted).
+    PartyMod: the two swap draws (calls at 0x4523A7/0x4523B4) go to its our_random: draws the game's Rnd(n)
+    (thrown away) then returns rand() % n (srand(time) at start-up) - Pcm::ShuffleRandom. our_random is
+    declared void but returns the value; the test (original with PartyMod's calls written in vs ours) shows
+    its EAX is rand() % n. ShuffleRandom returns the game's 0 for n == 0 instead of dividing by zero
+    (PartyMod would crash on a playlist with tracks but all of them off; the original wouldn't).
+  - Sio::SetActuators (device.cpp) now calls Platform::SetActuators (PartyMod's set_actuators) instead of
+    0x5F3A50. TestSio and TestSioManager write PartyMod's jump at 0x5F3A50 -> set_actuators (as in the game)
+    and jump from set_actuators to a recorder, so both runs trace the motor levels there (the DirectInput
+    effect stand-ins are no longer reached in TestSio). TestDetour moved up in selftest.cpp for that.
+  - PartyMod's runtime patches (patchMovieSkip, patchPlaylistShuffle) are left in src/partymod, as batch 60
+    did: they only touch the originals' bodies, which our replacements bypass, and keep PartyMod's behaviour
+    if a replacement is disabled in thug2-decomp.ini.
+  - Tests (selftests_partymod.cpp): TestPlayMovieFile - 8 runs (sound set-up fails + no movie; the texture
+    can't be made; plays out with waits, failed locks and port 0's buttons held from the start (no skip);
+    start pressed on port 2; X on port 3 with the app inactive and the device lost for two resets; 450 frames
+    with the screen saver reset twice and quit requested; 0 frames (quit); 1 frame) - the original with
+    PartyMod's NOP vs ours, Bink through stand-ins in its import slots, SystemParametersInfoA stood in at its
+    import slot and in user32 itself, the D3D device/texture, the renderer, sound, Sio, window pump,
+    DrawMovieFrame and Dbg::Printf stood in (game addresses and our functions). TestButtonPressedAgain - the
+    register stub vs the original over masks/bytes/seen bits/null data. TestPlayNextTrack - music off three
+    ways, +0xCA8, stream states 2/0, playlist 1 (in range, past, negative), the special track, empty, 45 tracks
+    of a 20-track playlist (3 + 1 off, one played early, one switched off mid-round), 210 of a 100-track
+    playlist (off in both halves, track 63 too), one track on (n = 1), a negative count - the original with
+    PartyMod's two calls written in, rand reseeded and the game's random streams reset for both runs.
+    TestPlayMovie now also stands in for ours' direct call to PlayMovieFile.
+    74 deliberate bugs: all caught, 2 after strengthening (the app-inactive path wasn't reached - the
+    every-other-frame pump re-activated the app first; track 63 wasn't off anywhere). stub_order is caught by a
+    crash (swapped stub arguments). Two early runs were reported caught only by "PC async handle" (flaky,
+    probably parallel worktrees' temp files): rerun, caught by the movie test.
+  - Checks: build clean, thug2_check 0 MISMATCHED / 72 early tests pass (after merging main), register scan (only the known
+    0x4EFF92), call audit (run against this worktree - the script hard-codes C:\Dev\thug2-decomp\src): no
+    MISMATCH (the two "?" are tail jumps: 0x490DE0 -> 0x4B8E40, 0x44F250 -> 0x44EE90, both plain RET),
+    check_partymod_overlap: no overlaps, 3 new HANDLED entries (0x450121, 0x4523A7, 0x4523B4).
+  - Not done, next to it: the SingletonPtr destructors 0x44FD40/0x44FD50 (MOV [ECX],vtable; JMP release) and
+    their scalar deleting destructors 0x44FD60/0x44FD90 (vtables 0x6472B4/0x6472B8, shared with other
+    functions), 0x44F870/0x44F890, and the Pcm API around 0x450220-0x4504B0 and 0x452680/0x452910 (the
+    caller). find_gaps' one thunk (0x48C1A0 -> SetLetterbox) predates this batch.
+Shared files touched: CMakeLists.txt (src/game/pcm/music.cpp after movie.cpp), tools/check_partymod_overlap.py
+(HANDLED + the extra-bodies table), src/hook/selftest.cpp (TestSio/TestSioManager, TestDetour moved up),
+src/hook/selftests_partymod.cpp, src/game/sio/device.cpp/.h. No src/partymod changes.
+- [x] Batch 65 (misc; PartyMod round, misc (NOT run in the game yet; early tests pass offline; branch pm/misc): three functions
+  PartyMod patches, with its changes built in (the original's logic kept in comments).
+  - 0x004E1EF0 `Sys::Main(argc, argv)` (src/game/sys/main.cpp; cdecl, returns 0): Config::Init 0x5B60B0, standard
+    heaps, the language start-up (German 0x4E0FE0, else 0x4E0DA0), the argument dump through Dbg::Printf, "demo" as
+    the only argument sets 0x7CC978, SetThreadExecutionState(continuous | system | display), InitialRand(0x6680BF3),
+    sin table; then while the quit flag (0x7D6A2C) is clear: bottom-up heap pushed (virtual slot 0), symbol table,
+    hash item pool (0, 10000), Pre manager, timer, async file system, the 23 singletons (system then game; their
+    holders' vtables 0x64AFB0-0x64B000 on the stack are only for exception unwinding), three tasks into the main
+    loop manager's lists (+0x7C: Mdl's and Sio's tasks; +0x04: 0x44E7F0's), six modules registered and started
+    (in two different orders), the engine start 0x48C1D0(350), MainLoop. **PartyMod: fastExit() after MainLoop**
+    (in place of the original's PopMemProfile call at 0x4E2492) - the process ends there. The teardown after it
+    (stop all modules, five unregistered - 0x476040 never is -, the three task lists emptied, releases in reverse,
+    Pre::DestroyManager, heap popped) is kept as code: reached only if fastExit returns (in the test). The memory
+    profile push/pops (empty 0x5480A0 calls) are kept with their names.
+  - 0x00545880 `Net::ServiceTask(task)` (src/game/net/service.cpp; cdecl task callback, the network manager is
+    the task's +0x1C): 18-state machine at manager +0x1B8 - wake-up timer (state 0), GameSpy availability check
+    (3-5; "mototrax"), news (6/A start a suspended download thread 0x545540 - its id via 0x533240, ResumeThread;
+    7 waits; B ends), message of the day (8 thread 0x545620, C waits 15 s, 9 shows it), lobby list (D-11).
+    **PartyMod's MOTD fix**: news timeout 500 ms (original 15000, 0x545B4F), script 0x588ED87C (original
+    0xD4E84C8D, 0x545CDE) and +0xFE09 = 1 (original 0, 0x545CE8). Note 0x6450E0 is ResumeThread (not
+    CloseHandle): the thread handles are never closed (as in the original).
+  - 0x005A8730 `Mc::LoadFromMemoryCard(params, script)` (src/game/mc/memcard_cfuncs.cpp; CFunc): Name / Type /
+    integer 0x8C6808D4 ("no apply"), path per platform (0x7CEFA8: 1-3 console folders, 5, 4/7 the card's
+    ConvertFilename of the type's pattern), open, size must equal the type's (0x5A7340), read, header {crc, ?, ?,
+    size, version}: size <= 500000 and the type's version (0x5A6210); two structures read (0x47A0C0), the second's
+    bytes minus 0x69 for type 0xCA41692D; applied by 0x5A81B0 (EAX type, ESI contents, stack script, params) or
+    kept in 0x7CECD4/0x7CECD8 (type 0x61A1BC57 also applied with params null); RunScript 0x0EB9402D when applied.
+    Failure checksum 0xFBF9C22A into the script's params. Music/streams paused unless platform 4. **PartyMod:
+    the save CRC isn't checked** (its NOP of the JNZ at 0x5A8A01; the CRC test kept in a comment). The type
+    helpers take register arguments (EAX/ECX/ESI/EDI): called through inline asm.
+  - Tests (src/hook/selftests_misc.cpp, Early): a generic recording stand-in (`StandIns`: PUSHAD thunk calling a
+    std::function handler, RET n) written over every callee - the game's address and our own version alike, and
+    kernel32's CreateThread / ResumeThread / SetThreadExecutionState (plus the game's import slots) - with
+    PartyMod's patch bytes written into the original. TestServiceTask: every state incl. out of range, wake
+    times around now, all GameSpy answers, message counts 0/3/-2, both timeouts on both sides of their limits
+    (and wrapped), finished flag, lobby empty or not; manager memory compared. TestLoadFromMemoryCard: 10
+    platforms, no card / converted name / file, missing name/type, wrong size, short read, header size
+    500000/500001/negative, wrong version, the obfuscated type (with and without bytes to decode), kept or
+    applied, null structures. TestMain: 7 command lines (demo, demox, dem, extra args, argc 0), languages, quit
+    already set, 1 and 2 loops; every call with its arguments, the demo flag, 0x6FA7D0. 50 deliberate bugs (20 service, 15 memory card, 15 main), all caught by the test meant to catch
+    them (s_motd's first run showed a one-off failure of TestAsyncHandlePc instead; rerun alone, caught by
+    TestServiceTask; five clean baseline runs after).
+  - tools/check_partymod_overlap.py HANDLED: 0x4E2492, 0x545B4F, 0x545CDE, 0x545CE8, 0x5A8A01.
+  - src/partymod unchanged: its runtime patches stay (bypassed by our functions; still in effect if a
+    replacement is disabled in thug2-decomp.ini).
+  - Register scan (only the known 0x4EFF92 false alarm) and call audit (126 GameFunction uses, no mismatch)
+    clean; PartyMod overlap check clean.
+  - Not done (find_gaps now lists them between 0x4E1950 and 0x4E1EF0): the ~50 small functions at
+    0x4E1970-0x4E1EE0 - the singleton holders' methods (11-byte `this->ptr = arg; return this` constructors,
+    33-byte destructors / vtable entries of the holder vtables 0x64AFB0-0x64B000) that main's stack holders use
+    only for exception unwinding. They belong with a SingletonPtr<T> class; next to pick up.
+- [x] Batch 66 (text; PartyMod round, menus/text; NOT run in the game yet): new src/game/gfx/text.* and src/game/gfx/device.*
+      (namespace Nx), tests in new src/hook/selftests_text.cpp (Early).
+      - Layouts: `SFont` (+0 height, +4 base, +8 SChar[], +0xC map[256], +0x10C special map, +0x134/+0x136 int16
+        char/space spacing, colours from +0x138 - "\c<i>" reads +0x134 + 4i, past the table for i > 16), `SChar` (0x18:
+        u0 v0 u1 v1, uint16 w h baseline), `STextEffect` (10 bytes: int16 x, y, xscale, yscale /16384, rotation
+        radians*16384), `TextVertex` (0x1C), `SText` (vtable 0x64A89C: [0] dtor 0x4CFAF0, [1] BeginDraw 0x4CEF00 - buffer
+        = 0x779FD8, [2] Draw, [3] EndDraw 0x4CEF10; +0x10 z, +0x14 font, +0x18 effects, +0x1C text, +0x20 x/y, +0x28
+        scales, +0x30 pivot, +0x38 angle, +0x3C RGBA colour, +0x40 fixed colour). Vertex buffer 0x780FE8, count
+        0x780FE4 (flushed at 0x400 via EndDraw + BeginDraw), button font 0x780FDC, texture font 0x780FE0.
+      - Escapes (the jump tables): `\\` (the backslash is a character), `\c<d>` colour (QueryString skips 2), `\s<d>` /
+        `\S` special glyph, `\b<d>` / `\m<d>` buttons (`\m` through the meta button map 0x48D6A0, then DehexifyDigit on a
+        local), `\u` / `\U` skip 2, **only capital `\L` skips 1 (`\l` is drawn as an l)**, other letters are drawn. An
+        escape that places a glyph (or a key name) ends the escape chain; a backslash as its digit is then a character.
+      - 0x004CECB0 `SFont::QueryString(text, float* width, float* height)` (thiscall, RET 0xC; reached via 0x4B3D10):
+        width = sum of (glyph / space / character width + this font's char spacing); key names add each character's
+        width through the map indexed by *signed* char; the digit itself isn't counted; height = the font's (unsigned).
+      - 0x004CFD00 `SText::Draw()` (thiscall, no args, also virtual [2]): screen position/pivot through 0x786D80-8C,
+        corners relative to the pivot in whole pixels (_ftol) turned by the text's angle (x87 FCOS/FSIN, as inline asm;
+        left/top offsets go through floats, right/bottom don't), per-character effects (offset, scale, rotation about
+        the centre - quirks kept: the centre is negated and offset by the pivot's **x** on both axes, the corners are
+        turned by sin/cos swapped (x' = dx sin - dy cos, y' = dy sin + dx cos), the effect's x offset carries into the
+        next character); quads (LT, LB, RB, RT); button glyphs switch to the button font for one character (EndDraw /
+        BeginDraw before, texture font 0x780FE0, and after); key names drawn by DrawKeyChar; spaces advance (space +
+        char spacing) and skip the rest; xscale or yscale 0 draws nothing.
+      - 0x004CFB20 `SText::DrawKeyChar(char, float* x, float y)` (thiscall, RET 0xC; only caller Draw): one plain quad,
+        top/bottom kept at double precision until stored, x advanced by width + spacing.
+      - 0x004D8650 `InitDirect3D()` (cdecl void; callers 0x4B25F0, 0x4D89C0 read nothing back): resets the screen
+        conversion, Direct3DCreate9(31) via 0x5BEB14 (null: MessageBoxA - text "Error", caption the long message, the
+        wrong way round - and return), GetAdapterDisplayMode (failure: return), present parameters 0x786A7C (hwnd
+        0x7D6A28, discard, 1 back buffer, auto depth D24X8, X8R8G8B8, 2x multisample if 0x7D6434), sizes
+        1280x1024 / 1024x768 / 800x600 / 640x480 from index 3 - setting(0x7D643C) (unsigned clamp to 3), 0x4D7C80
+        (cdecl w, h, hardware vertex processing, multisample) tried for {hw, ms} {sw, ms} {hw, -} {sw, -} at each size
+        down, the game's exit(0) (0x624AFE) if none works, scale = back buffer / 640, / 480 (unsigned), offset y =
+        _ftol(scaleY * 16), GetCreationParameters + CheckDeviceFormat(D24S8 texture) -> 0x786AB9, clears
+        0x786D1C-3C and 0x786D64, then 0x4D7D70, 0x4D8420, 0x4D7B60, 0x786D90 = 0x5BA1D0() (returns 0), 0x5BE7C0.
+      - PartyMod built in (original logic in comments): glyph.c - `dehexifyDigitWrapper` for `\b` (0x4CED4B / 0x4CFF0C)
+        and `shouldUseGlyph` decides glyph or key name (0x4CED6D / 0x4CFF36; originally glyph for 4-7 and 10-13);
+        window.c - no ShowWindow (0x4D869C), Windowed = its `isWindowed` (0x4D8720), the 640x480 slot = its
+        `resX`/`resY` (0x4D8776 / 0x4D8792), no SetWindowPos (0x4D8891), no ShowCursor loop (0x4D8989). All 28 patch
+        addresses are in check_partymod_overlap.py's HANDLED list. src/partymod is unchanged: its runtime patches only
+        touch the originals' bodies (bypassed by the hooks; the tests write the same bytes into the originals), and the
+        variables/functions used are already global.
+      - Tests (Early): `TestQueryString` - 17 texts covering every escape x 2 fonts x PartyMod's three input states
+        (keyboard, controller, keyboard + PreferGlyphs), key names stood in (0x5BCD50; empty, plain, chars > 0x7F),
+        the meta map filled, the original with PartyMod's bytes. `TestDrawText` - the texts plus a 300-character one
+        (buffer flushes) x 8 setups (screen scales/offsets, rotated text, pivots - one far away, past 2^24 - effects
+        with and without rotations, fixed colour, zero scales) x the three input states, stand-in vtable (BeginDraw /
+        EndDraw record the buffer); and DrawKeyChar directly, with the buffer one quad from full or not.
+        `TestInitDirect3D` - 36 scripts (no Direct3D, display mode failing, settings -1..7 x multisample x windowed,
+        devices failing 0-4 times or always (the game's exit, stood in by a throw - a returning exit would unbalance the
+        original's stack: it doesn't pop exit's argument), PartyMod sizes incl. negative (unsigned), another created
+        width, the depth check both ways); Direct3D, the import table's MessageBoxA and the callees stood in; the
+        original with PartyMod's bytes.
+      - 61 deliberate bugs: 59 caught (4 after strengthening: a backslash as the digit, DrawKeyChar's own flush, a far
+        pivot for the float-rounded offsets, MessageBox text/caption; one equivalent mutation replaced), 2 not
+        observable: rounding the pivot sum (pivot + y) to float before scaling (the later float rounding and _ftol
+        swallow it), and the sine rounded to double before the product in the effect rotation.
+      - Register scan (only the known 0x4EFF92 false alarm; nothing reads EAX after the four), call audit (no MISMATCH),
+        overlap check (no overlaps, all handled): clean. find_gaps: nothing new (the neighbours 0x4CEED0-0x4CFAF0 -
+        SText ctor/dtors, BeginDraw/EndDraw, 0x4CF0F0 - are more than 0x800 apart from these and still to do;
+        the SetLetterbox thunk 0x48C1A0 is from batch 55).
+      - Note for the game: Direct3D sets the x87 to 24-bit precision on its thread (no D3DCREATE_FPU_PRESERVE in
+        0x4D7C80), so in the game the originals' x87 code (all of these, like earlier batches') rounds differently from
+        our double-precision code; the tests compare at 53 bits.
+      - Also: tools/check/main.cpp (from main) catches the game's own /GS report; this agent's earlier runs hit it
+        through the returning exit stand-in (fixed by the throw).
+- [x] Batch 67 (skaterA; PartyMod round; NOT run in the game yet) Two skater core physics functions with PartyMod's PS2 controls
+      built in (new src/game/skater/core_physics.*; `Skater::CorePhysicsComponent` - the class skaterB's
+      rotation.* uses - now declared there, rotation.h includes it):
+      - LipPushOff 0x004FCBA0 (thiscall, two unused stack arguments - a script member function, in the table
+        a static initialiser writes at 0x00682970; RET 8; returns int 0/1): the facing (object +0x8C) flattened
+        to x, z and normalised (only if its length > 0; w copied, not scaled); the side vector (z, 0, -x, 0).
+        Input +0x80 held: 0. Both triggers (+0xC0, +0x120; PartyMod's JZ -> JNZ at 0x004FCC59 makes it either):
+        velocity (object +0xAC) += facing * physics float 0x1F96C224 (0x00580400). +0x60 held longer than
+        physics int 0x3080E9E7 (0x00580440, timer 0x0046B920): += facing * 0xDC818B7E. +0x20 held longer than
+        0x9B25142A: -= side * 0x1AB3809F. +0x40: += side * the same (through Mth's operator* / +=). x87 detail
+        kept: in the three inlined pushes the x component's product isn't rounded to float before the add
+        (computed in double). Slot map (entry ESP = R): R-0x20.. facing (x, 0, z, w), R-0x10.. side; the +0x40
+        branch's product goes into the facing's slot (hidden return of 0x004024A0), its scale into the pushed
+        argument slot. The handoff's "slot left from an earlier call's arguments" is that scale; nothing reads
+        a stale value.
+      - CheckForGround 0x00509BD0 (thiscall, void): the feeler line (+0x208 = pos + up * physics 0xE4D79235,
+        +0x218 = pos + up * -200) and the feeler check 0x005003A0(0x10, 0). Hit, not skatable (+0x228 clear):
+        if the distance along up < 0.001, position = hit point + hit normal; then leave. Hit, skatable: the
+        facing rotated into the hit's plane and into +0x68's (Mth::RotateToPlane); leave if facing . normal > 0
+        and the rotated facings' dot is in (0, cos(physics angle 0x4138283E with input +0x20 held, else
+        0xEF161C2A)); if above the hit, leave if the distance > max(tan(acos(clamped dot)) * frame movement,
+        physics 0x899BA3D0) (the original's FCOS / CRT acos + FPTAN on x87: ours in double - only compared).
+        Kept: timed flag +0x40 = +0x229, 0x004FE860(normal by value), position = hit point, timed flag +0x98
+        set when flags +0x18 == 0, distance > 2 and the dot > 0.99, 0x005196A0(+0xFA byte), +0x1514's +0x1C,
+        0x004FEA50, 0x005021D0, the two trigger checks 0x00434BF0 (0x0064BBA4 / 0x0064BBB0 - with an early
+        return when +0x1530's +0x26 is set) when +0x1AC != +0xFC, 0x005232A0(0) unless +0x1518's +0x13B0,
+        0x0043A930, +0x1514's +0x1D. Leaving: 0x004FDED0(1), the object's 0x00460A20 / 0x004609F0 events,
+        0x004FEBA0; flags +0x30 set: timed flag +0x48 on, BreakVert(false) unless both triggers - PartyMod only
+        flips the first JZ (0x00509E47), so under its PS2 controls the call is skipped only when +0x120 is held
+        without +0xC0 (ported as is) - then +0x48 off once input +0x20's release and press times both exceed
+        script int 0x6BB5B751; flags +0x30 clear: both triggers (PartyMod's 0x0050A257: either) -> the acid
+        drop search 0x00502240 and, if found, 0x00502F20; then the trigger check 0x0064BB80.
+      check_partymod_overlap.py: the six patch bytes are HANDLED. PartyMod's run-time byte patches in
+      src/partymod/input.c are left in place (like batch 57's): they only touch the originals, which the game
+      no longer runs while ours are installed, and keep PartyMod's behaviour if ours are disabled in the ini.
+      Early tests (new src/hook/selftests_skaterA.cpp): a generic recording stand-in harness - each callee's
+      first bytes get a thunk to one naked entry that records the call (`this`, stack arguments with arena
+      pointers made relative and stack pointers marked, data behind input pointers), fills output buffers,
+      returns seeded values (int / bool / float in ST0) and pops what the real callee pops, keeping every
+      register but EAX; our own BreakVert is stood in through its code address too. The original's
+      RotateToPlane is pointed at ours (not bit-identical, tested separately). LipPushOff: 3000 variants
+      (facing flat / zero, buttons, timers) x PS2 off / on; CheckForGround: 6000 variants (hit or not,
+      skatable, angles, distances, flags, triggers, a stand-in symbol table for 0x6BB5B751) x PS2 off / on
+      (at least 300 must land). The whole arena and the call trace compared. 54 deliberate bugs: 50 caught,
+      4 equivalent at float precision (the order of the distance's double sum, sqrt in float vs double,
+      `<` vs `<=` against an irrational cosine, the clamp at -1 - tan(acos(-1)) is ~0 like tan(acos(1))).
+- [x] Batch 67, cont. (PartyMod round; NOT run in the game yet) DoAirPhysics 0x0050CA00 (thiscall, void; the air update - the
+      caller at 0x0051094F is in code Ghidra never disassembled) in core_physics.cpp, with PartyMod's three
+      trigger checks built in (0x0050CAC4 air recovery: flags +0x80 or the triggers -> 0x00504B40; 0x0050CF89:
+      the triggers or +0x2D0, not wall riding, rising -> BreakVert; 0x0050DA64: the acid drop - all "both" in
+      the original, "either" under PS2 controls). Read in full from the disassembly (stack map entry ESP = R:
+      R-0x80 the input + 0x20, R-0x78 the ride's carried offset, R-0x68 the velocity copy - later reused for
+      the wall direction and the hit normal -, R-0x34 gravity from 0x004FF470, R-0x7C the object): timed flags
+      +0x40 off / +0xB0 on; 0x00504910, 0x004FFB90, Spin, 0x00504A60, 0x00504B40, 0x00504DF0, 0x004FE730
+      (+0x320 != 0); the countdown +0x14CC (0x00507500, facing into +0x14F0's plane at 0); wall ride +0x78:
+      flags +0xE4 added to the velocity copy, or 0x0042BBF0(0.1) when falling below +0x37C; what the skater
+      rides (+0x152C's +0x18: 0x00416F00 / 0x00427C70) carries it by its +0x5C; the move: position +=
+      v t + (0, g, 0, 1) t^2/2 (rounded as the x87 does: x's product and the z, w sums unrounded) + carried,
+      velocity += (0, g, 0, 1) t; flags +0x48 (on a wall): feeler up +1 to up * -23, off it BreakVert and +0x48
+      off once input +0x20's times pass script int 0x6BB5B751, +0x48 off after script int 0x26495947 ms;
+      wall feelers across the wall normal +0x278 (* 30), stepped (+0x298, halved; then 10 steps of 3 down);
+      a hit still along the wall (sqrt|wall.xz . normal.xz| > 0.02) moves onto it (height +0x26C kept as the
+      maximum), pushed off by script float 0x78384871, 0x004FE860(flattened normal), velocity into its plane;
+      the display matrix (+0x18) copy or 0x004FEA50; 0x00508780 from the last position + carried, return on
+      flags +0x18 == 2 / 5; the landing feeler: steep (normal y < 0.1) or fast (vel y > 10) landings wait for
+      the ride's 0x004FC400 > 500 after 0x004FFDB0; landing on something skatable is LandFromAir (a private
+      helper, part of 0x0050CA00: 0x004FDED0(0), 0x005021D0, +0x372-0x374, 0x004FC470, 0x00518CF0(speed /
+      0x00580790's value, flags +0xE1), 0x005232A0, 0x00506BA0, trigger check 0x0064BB98; then unless the
+      trigger took over: standing landing (no x/z velocity, +0x40 held) clears vel y, else velocity into the
+      ground's plane - from a wall ride along +0x490 unless 0x004FF590 says it turns up, at least script float
+      0x59484878 (0x0042BBF0) - and 0x004FC370(10); timed flag +0x30 off, +0x2D0, the ground normal into
+      +0x58/+0x68/+0x78 and the object's up, OrthoNormalizeAbout(1), the display matrix; event 0x532B16EF);
+      not skatable: velocity and facing into its plane, OrthoNormalizeAbout(2), pushed off by physics float
+      0x23410C14, timed flag +0xB0; no hit: 0x0050C930 unless +0x30; then 0x00504EE0, 0x004FFB10, 0x00503710 and
+      the acid drop (0x00420250 since +0x380 < 250 when +0x380 > +0x4EC -> 0x00502240's flag). Calls Spin and
+      BreakVert (skaterB's) directly. Early test TestDoAirPhysics: 12000 variants (flags, ride, buttons, wall
+      ride and feelers, landing skatable or not, from a wall ride or not, the clock offset 0x00696D60 held at 0
+      so times can meet exactly) x PS2 off / on, 42 stand-ins (our Spin / BreakVert through their code
+      addresses), the original's vector / matrix calls (RotateToPlane, ProjectToPlane, SetDirection, Normalize,
+      Length, LengthSqr, OrthoNormalizeAbout) pointed at ours, four script symbols; coverage counted (landings,
+      from wall rides, wall hits, push-offs, acid drops). 60 deliberate bugs: 59 caught (4 after
+      strengthening: 500 and 250 among the stand-ins' ints, the clock offset at 0, x-only zero velocities), 1
+      equivalent (x's position product rounded first: the sum adds an exact 0). The two earlier tests still
+      pass with the new int values.
+- [ ] Next: finish the PartyMod round (docs/HANDOFF.md: WinMain 0x4E2680 / MainLoop 0x44EEF0 and the GameSpy configuration left; run batches 60-67 in the game); then the pre-compiled .qb format (0x46FBA0, 0x46CA50, 0x46C970, 0x46C830, 0x46C7F0, ...), the script
       cache (0x475FD0 ...), then CScript (0x472900.. / 0x473000..).
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
       for original callers that read ECX/EDX after the call without writing them first (ignoring push-to-reserve,
