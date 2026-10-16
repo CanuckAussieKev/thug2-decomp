@@ -566,6 +566,29 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       destructor (the player-state calls skipped meanwhile). Processing a real device isn't tested offline
       (Process is PartyMod's SDL code). 22 deliberate bugs caught (3 after strengthening the test); the
       constructor is only compared in the game.
+- [x] Batch 51 (NOT run in the game yet; early test passes offline): SIO, part 3, and what it needs.
+      Smart pointers (new src/game/obj/smtptr.*): Obj::CRefCounted keeps the list of smart pointers to it at
+      +4; AddSmartPointer 0x4637C0 (to the front; the pointer's prev isn't touched), RemoveSmartPointer
+      0x4637E0, CSmtPtr::Release 0x416DD0; Obj::CSmtPtr<T> (12 bytes: object, prev, next) with the inline
+      assignment and destructor. Screen elements (new src/game/front/screen_element.*): CScreenElement
+      (flags +8, parent +0x4C) IsHidden 0x4A8F40 (hidden flag 0x400000 on it or any parent); the element
+      lookup 0x4AAE20 (not rewritten: it ignores the manager it's called on, 0x701440, and searches the hash
+      tables of the one at 0x6F0FC0). Sio::SpecialKeyInput 0x5BDF30 (virtual keys: F5 runs "refresh_chosen"
+      while menu_network_select_refresh is shown; else, with typed keys wanted, the arrows in a menu queue
+      0x14-0x17 and F1-F4 outside one 0x1B-0x1E). Sio::GetButtonKeyName 0x5BCD50 (a pad button's key name for
+      the menus: three tables - in a menu (not typing, not the park editor's piece_menu_hmenu unless quitting),
+      typing, else - from port 0's key bindings 0x7D6770 or fixed DirectInput codes; the name from the
+      platform's table (0x5F3120: 30 bytes per code at 0x7D42F8) through wcstombs into 0x7D1AD8, printed into
+      0x7D19D8; button 0x12 "a+b"; in a menu buttons 0x13/0x14 become the typed characters of Z/C and S/X;
+      it looks select_skater_hmenu up twice without using the result - kept). 6 functions.
+      Early test: smart pointer add/remove/release on a list of four, IsHidden through a parent chain, the
+      F-key handler over a stand-in screen element manager (hand-built hash tables; the server list absent,
+      shown, hidden, in a hidden parent) x flags x keys x a full queue, and our key names against worked
+      expectations (menu/typing/play tables, the "+" pair, the letter pairs, both menu flags, quitting).
+      Late test (the original uses the game's wcstombs/sprintf): key names, original vs ours, 6 element
+      scenes x 16 flag combinations x buttons -1..31. 29 deliberate bugs caught (3 after strengthening).
+      Left in SIO: ReadData 0x5BD200 (the original pad read - dead code with PartyMod, still to be written).
+      Then the timer module (Tmr) 0x5BE6F0-0x5BEAA0.
 - [ ] Next: the pre-compiled .qb format (0x46FBA0, 0x46CA50, 0x46C970, 0x46C830, 0x46C7F0, ...), the script
       cache (0x475FD0 ...), then CScript (0x472900.. / 0x473000..).
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function

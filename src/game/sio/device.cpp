@@ -6,11 +6,14 @@
 #include <windows.h>
 #include <dinput.h>
 
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <new>
 
 #include "game/core/alloc.h"
+#include "game/core/crc.h"
+#include "game/front/screen_element.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/stubs.h"
@@ -309,6 +312,183 @@ void KeyInput(int key, int flags)
         KeyboardCharCount() = 15; // (full: the last one is overwritten)
 }
 
+// --- special keys and key names ---------------------------------------------------------------------------
+
+namespace {
+// The other "in a menu" flag (PartyMod's names) and the quit request.
+bool& MenuActive() { return GameVariable<bool>(0x007CE46C); }
+bool& QuitRequested() { return GameVariable<bool>(0x007D6A2C); }
+// Port 0's key bindings (DirectInput key codes; -1 = none).
+int KeyBinding(int action) { return GameVariable<int>(0x007D6770 + 4 * action); }
+// The platform layer's key names (0x005F3120: 30 bytes - 15 wide characters - per key code, at 0x007D42F8).
+const wchar_t* KeyNameW(int code) { return GameFunction<const wchar_t*(__cdecl*)(int)>(0x005F3120)(code); }
+char (&NameBuffer())[256] { return GameVariable<char[256]>(0x007D1AD8); }
+char (&KeyNameResult())[256] { return GameVariable<char[256]>(0x007D19D8); }
+
+void ConvertKeyName(int code)
+{
+#pragma warning(suppress : 4996) // (as the original: the C runtime's conversion, at most 256 bytes)
+    std::wcstombs(NameBuffer(), KeyNameW(code), 256);
+    NameBuffer()[255] = '\0';
+}
+
+// The character a key (by scan code) types, for the menu hints.
+char KeyChar(UINT scanCode)
+{
+    return static_cast<char>(MapVirtualKeyA(MapVirtualKeyA(scanCode, MAPVK_VSC_TO_VK), MAPVK_VK_TO_CHAR));
+}
+
+// The key code shown for a button: in a menu (outside the park editor's piece menu, not typing)...
+int MenuKey(int button)
+{
+    switch (button) {
+    case 0: return KeyBinding(11);
+    case 1: return KeyBinding(10);
+    case 2: return KeyBinding(9);
+    case 3: return KeyBinding(8);
+    case 8: return 1;  // Escape
+    case 9: return 0x39; // space
+    case 14: return KeyBinding(16);
+    case 15: return KeyBinding(17);
+    case 16: return KeyBinding(14);
+    case 17: return KeyBinding(15);
+    case 21: return KeyBinding(18);
+    case 22: return 0x1C; // Enter
+    case 23: return 1;
+    case 24: return 0x12; // E
+    case 25: return 0x13; // R
+    case 26: return 0x0C; // -
+    case 27: return 0x0D; // =
+    case 28: return 2;  // 1
+    case 29: return 3;  // 2
+    default: return 0;
+    }
+}
+// ...while typing...
+int TypingKey(int button)
+{
+    switch (button) {
+    case 0: case 1: case 2: case 3: case 8: case 9: case 14: case 15: case 16: case 17: return -1;
+    case 22: return 0x1C;
+    case 23: return 1;
+    default: return 0;
+    }
+}
+// ...and otherwise.
+int PlayKey(int button)
+{
+    switch (button) {
+    case 0: return KeyBinding(11);
+    case 1: return KeyBinding(10);
+    case 2: return KeyBinding(9);
+    case 3: return KeyBinding(8);
+    case 8: return 1;
+    case 9: return KeyBinding(13);
+    case 14: return KeyBinding(16);
+    case 15: return KeyBinding(17);
+    case 16: return KeyBinding(14);
+    case 17: return KeyBinding(15);
+    case 21: return KeyBinding(18);
+    default: return 0;
+    }
+}
+} // namespace
+
+// 0x005BCD50
+const char* GetButtonKeyName(int button)
+{
+    bool menu = MenuActive() || InMenu();
+    bool typing = KeyboardTyping();
+    bool pieceMenu = false;
+    Front::ElementPtr element;
+    Front::GetElement(&element, Crc::GenerateCRCFromString("select_skater_hmenu"));
+    if (element)
+        element->IsHidden(); // (the result isn't used)
+    {
+        Front::ElementPtr found;
+        Front::GetElement(&found, Crc::GenerateCRCFromString("piece_menu_hmenu"));
+        element = found;
+    }
+    if (!QuitRequested() && element && !element->IsHidden())
+        pieceMenu = true;
+    {
+        Front::ElementPtr found;
+        Front::GetElement(&found, Crc::GenerateCRCFromString("select_skater_hmenu"));
+        element = found;
+        found.Release();
+    }
+    if (element)
+        element->IsHidden(); // (the result isn't used)
+
+    bool menuKeys = !pieceMenu && menu && !typing;
+    int code = menuKeys ? MenuKey(button) : typing ? TypingKey(button) : PlayKey(button);
+    ConvertKeyName(code);
+    std::snprintf(KeyNameResult(), sizeof(KeyNameResult()), "%s", NameBuffer());
+    if (button == 0x12) {
+        // two keys: "first+second"
+        ConvertKeyName(KeyBinding(16));
+        std::snprintf(KeyNameResult(), sizeof(KeyNameResult()), "%s+", NameBuffer());
+        ConvertKeyName(KeyBinding(17));
+        size_t used = std::strlen(KeyNameResult()); // (the original's strcat is unbounded)
+        size_t length = std::strlen(NameBuffer());
+        if (length > sizeof(KeyNameResult()) - 1 - used)
+            length = sizeof(KeyNameResult()) - 1 - used;
+        std::memcpy(KeyNameResult() + used, NameBuffer(), length);
+        KeyNameResult()[used + length] = '\0';
+    }
+    if (menuKeys && (button == 0x14 || button == 0x13)) {
+        // the two keys' characters: "S/X" or "Z/C" on a QWERTY keyboard
+        char first = KeyChar(button == 0x14 ? 0x1F : 0x2C);
+        char second = KeyChar(button == 0x14 ? 0x2D : 0x2E);
+        KeyNameResult()[0] = first;
+        KeyNameResult()[1] = '/';
+        KeyNameResult()[2] = second;
+        KeyNameResult()[3] = '\0';
+    }
+    return KeyNameResult();
+}
+
+// 0x005BDF30
+void SpecialKeyInput(int key, int flags)
+{
+    Front::ElementPtr element;
+    Front::GetElement(&element, Crc::GenerateCRCFromString("menu_network_select_refresh"));
+    bool serverList = false;
+    if (element && !element->IsHidden())
+        serverList = true;
+    else if (!KeyboardTyping() && (!TextEntry() || InMenu()))
+        return;
+    if (flags < 0)
+        return;
+    if (serverList && key == VK_F5) {
+        GameFunction<void(__cdecl*)(const char*, void*, void*, void*)>(0x004758F0)("refresh_chosen", nullptr, nullptr,
+                                                                                 nullptr);
+        return;
+    }
+    int queued = 0;
+    if (InMenu()) {
+        switch (key) {
+        case VK_DOWN: queued = 0x17; break;
+        case VK_UP: queued = 0x16; break;
+        case VK_LEFT: queued = 0x14; break;
+        case VK_RIGHT: queued = 0x15; break;
+        default: break;
+        }
+    } else {
+        switch (key) {
+        case VK_F1: queued = 0x1B; break;
+        case VK_F2: queued = 0x1C; break;
+        case VK_F3: queued = 0x1D; break;
+        case VK_F4: queued = 0x1E; break;
+        default: break;
+        }
+    }
+    if (queued)
+        KeyboardChars()[KeyboardCharCount()++] = queued;
+    if (KeyboardCharCount() == 16)
+        KeyboardCharCount() = 15;
+}
+
 // --- the manager -------------------------------------------------------------------------------------------
 
 namespace {
@@ -501,6 +681,8 @@ REPLACE_SOURCE_ONLY(0x005BCC50, Sio::ClearKeyboardChars); // a jump to 0x005BDE2
 REPLACE(0x005BE670, Sio::CreateManager);
 REPLACE(0x005BDCF0, Sio::ReleaseManager);
 REPLACE(0x005BDE70, Sio::KeyInput);
+REPLACE(0x005BDF30, Sio::SpecialKeyInput);
+REPLACE(0x005BCD50, Sio::GetButtonKeyName);
 REPLACE(0x005BE1F0, &DeviceAdapter::ConstructManager);
 REPLACE(0x005BE300, &Sio::Manager::DestroyBody);
 REPLACE(0x005BE6C0, &Sio::Manager::Destroy);

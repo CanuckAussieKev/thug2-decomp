@@ -1,6 +1,8 @@
 #include "game/core/stubs.h"
 #include "game/mc/memcard.h"
 #include "game/lst/search.h"
+#include "game/front/screen_element.h"
+#include "game/obj/smtptr.h"
 #include "game/sio/device.h"
 #include "game/sys/registry.h"
 #include "game/script/eval.h"
@@ -7054,6 +7056,322 @@ void TestSioManagerLate()
     Check(results[0] == results[1], "sio (late): device manager constructor");
 }
 
+// A stand-in screen element manager: the element lookup (0x004AAE20) searches the hash table at +8, then the
+// one at +0xC; each has one bucket here, chaining the stand-in elements.
+struct StandInElements {
+    struct Item {
+        uint32_t key;
+        void* value;
+        Item* next;
+    };
+    struct Table {
+        int bits;
+        Item* buckets;
+    };
+    alignas(16) uint8_t elements[4][0x50];
+    Item items[4];
+    Item empty;
+    Table first;
+    Table second;
+    uint8_t manager[0x10];
+
+    // Element i is `id` (absent if !present), hidden (0x400000) or inside a hidden parent (element 3) as asked.
+    void Set(const std::vector<std::tuple<uint32_t, bool, int>>& wanted)
+    {
+        std::memset(elements, 0, sizeof(elements));
+        std::memset(items, 0, sizeof(items));
+        empty = {0, nullptr, nullptr};
+        Item* last = nullptr;
+        for (size_t i = 0; i < wanted.size(); ++i) {
+            auto [id, present, state] = wanted[i];
+            auto* e = reinterpret_cast<uint32_t*>(elements[i]);
+            e[0] = 0x00777777;                                   // (vtable: unused)
+            e[2] = state == 1 ? 0x400000u | 0x13 : 0x13;           // hidden itself
+            e[0x4C / 4] = state == 2 ? reinterpret_cast<uint32_t>(elements[3]) : 0; // or its parent is
+            if (!present)
+                continue;
+            items[i] = {id, elements[i], nullptr};
+            if (last)
+                last->next = &items[i];
+            last = &items[i];
+        }
+        reinterpret_cast<uint32_t*>(elements[3])[2] = 0x400000; // the hidden parent
+        first = {0, last ? &items[0] : &empty};
+        // (the second table: always empty)
+        second = {0, &empty};
+        std::memset(manager, 0, sizeof(manager));
+        *reinterpret_cast<Table**>(manager + 8) = &first;
+        *reinterpret_cast<Table**>(manager + 0xC) = &second;
+        GameVariable<void*>(0x00701440) = manager;
+        GameVariable<void*>(0x006F0FC0) = manager; // (the lookup uses this one's tables)
+    }
+    // Every element's smart pointer list must be empty again.
+    uint32_t Pointers() const
+    {
+        uint32_t any = 0;
+        for (const auto& e : elements)
+            any |= reinterpret_cast<const uint32_t*>(e)[1];
+        return any;
+    }
+};
+
+// Smart pointers (add, remove, release), IsHidden, the F-key handler and the key names over stand-in screen
+// elements - original vs ours.
+void TestSioKeyNames()
+{
+    struct Saved {
+        uint32_t address;
+        uint32_t size;
+        std::vector<uint8_t> bytes;
+    };
+    std::vector<Saved> saved = {{0x00701440, 4, {}},     {0x006F0FC0, 4, {}}, {0x007CE46C, 4, {}},   {0x007CCDF8, 1, {}},
+                                {0x007D6A2C, 1, {}},     {0x007D6770, 0x60, {}}, {0x007D42F8 - 0x1E, 0x1E * 0x42, {}},
+                                {0x007D19D8, 0x200, {}}, {0x007D1BE0, 0x40, {}}, {0x007D1E28, 4, {}}};
+    for (Saved& s : saved) {
+        s.bytes.resize(s.size);
+        std::memcpy(s.bytes.data(), reinterpret_cast<void*>(s.address), s.size);
+    }
+    // Key names "K<code>" for codes -1 to 0x40; bindings 8-18 are codes 0x20-0x2A.
+    for (int code = -1; code <= 0x40; ++code) {
+        auto* name = reinterpret_cast<wchar_t*>(0x007D42F8 + code * 0x1E); // (30 bytes each)
+        std::swprintf(name, 15, L"K%02X%s", code & 0xFF, code == 0x22 ? L"_long_name" : L"");
+    }
+    for (int i = 0; i < 24; ++i)
+        GameVariable<int>(0x007D6770 + 4 * i) = i >= 8 && i <= 18 ? 0x20 + (i - 8) : -1;
+
+    static StandInElements standIn;
+    using Obj::CRefCounted;
+    using P = Obj::CSmtPtr<CRefCounted>;
+    std::vector<uint32_t> traces[2];
+    for (int run = 0; run < 2; ++run) {
+        bool original = run == 0;
+        std::vector<uint32_t>& trace = traces[run];
+
+        // Smart pointers on one object: add three, remove the middle, the first, release the last.
+        {
+            alignas(16) static uint8_t object[8];
+            static P pointers[4];
+            std::memset(object, 0, sizeof(object));
+            std::memset(pointers, 0xEE, sizeof(pointers));
+            auto* o = reinterpret_cast<CRefCounted*>(object);
+            auto dump = [&] {
+                auto rel = [&](const void* p) {
+                    for (int i = 0; i < 4; ++i)
+                        if (p == &pointers[i])
+                            return 0x50u + i;
+                    return reinterpret_cast<uint32_t>(p);
+                };
+                trace.push_back(rel(o->mp_smartPointers));
+                for (P& p : pointers) {
+                    trace.push_back(rel(p.mp_prev));
+                    trace.push_back(rel(p.mp_next));
+                    trace.push_back(p.mp_object == reinterpret_cast<CRefCounted*>(object) ? 1u
+                                                                                           : reinterpret_cast<uint32_t>(p.mp_object));
+                }
+            };
+            for (int i = 0; i < 3; ++i) {
+                pointers[i].mp_object = o;
+                pointers[i].mp_prev = nullptr;
+                if (original)
+                    Original<void(__thiscall*)(void*, P*)>(0x004637C0)(o, &pointers[i]);
+                else
+                    o->AddSmartPointer(&pointers[i]);
+                dump();
+            }
+            for (int i : {1, 2}) {
+                if (original)
+                    Original<void(__thiscall*)(void*, P*)>(0x004637E0)(o, &pointers[i]);
+                else
+                    o->RemoveSmartPointer(&pointers[i]);
+                dump();
+            }
+            for (int i : {0, 0, 3}) {
+                pointers[3].mp_object = nullptr;
+                if (original)
+                    Original<void(__thiscall*)(P*)>(0x00416DD0)(&pointers[i]);
+                else
+                    pointers[i].Release();
+                dump();
+            }
+        }
+
+        // IsHidden: itself, through parents, neither.
+        {
+            alignas(16) static uint8_t chain[4][0x50];
+            std::memset(chain, 0, sizeof(chain));
+            for (int i = 0; i < 3; ++i)
+                reinterpret_cast<uint32_t*>(chain[i])[0x4C / 4] = reinterpret_cast<uint32_t>(chain[i + 1]);
+            for (uint32_t hiddenAt = 0; hiddenAt <= 4; ++hiddenAt) {
+                for (int i = 0; i < 4; ++i)
+                    reinterpret_cast<uint32_t*>(chain[i])[2] = static_cast<uint32_t>(i) == hiddenAt ? 0x400000u : 0xBFFFFFu;
+                for (auto& e : chain)
+                    trace.push_back(original ? Original<bool(__thiscall*)(void*)>(0x004A8F40)(e)
+                                             : reinterpret_cast<Front::CScreenElement*>(e)->IsHidden());
+            }
+        }
+
+        // The F-key handler (F5 with the server list shown runs a script: not offline).
+        uint32_t refresh = Crc::GenerateCRCFromString("menu_network_select_refresh");
+        for (int shown = 0; shown < 4; ++shown) {
+            standIn.Set({{refresh, shown != 0, shown == 1 ? 0 : shown == 2 ? 1 : 2}});
+            for (int globals = 0; globals < 8; ++globals) {
+                GameVariable<bool>(0x007CE46E) = (globals & 1) != 0;
+                GameVariable<bool>(0x007CCDF8) = (globals & 2) != 0;
+                GameVariable<bool>(0x007CE46F) = (globals & 4) != 0;
+                std::memset(reinterpret_cast<void*>(0x007D1BE0), 0, 0x40);
+                GameVariable<uint32_t>(0x007D1E28) = (globals & 1) ? 15 : 13; // (15: the queue is full)
+                for (int key : {0x25, 0x26, 0x27, 0x28, 0x29, 0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x41}) {
+                    if (key == 0x74 && shown == 1)
+                        continue;
+                    for (int flags : {0, -1}) {
+                        if (original)
+                            Original<void(__cdecl*)(int, int)>(0x005BDF30)(key, flags);
+                        else
+                            Sio::SpecialKeyInput(key, flags);
+                        uint32_t count = GameVariable<uint32_t>(0x007D1E28);
+                        trace.push_back(count);
+                        trace.push_back(GameVariable<uint32_t>(0x007D1BE0 + 4 * ((count + 15) & 15)));
+                        if (count == 15 && !(globals & 1))
+                            GameVariable<uint32_t>(0x007D1E28) = 13;
+                    }
+                }
+            }
+            trace.push_back(standIn.Pointers());
+        }
+
+    }
+    // Ours against worked expectations (the original's needs the game's C runtime: see TestSioKeyNamesLate).
+    {
+        auto ch = [](UINT scan) { return static_cast<char>(MapVirtualKeyA(MapVirtualKeyA(scan, 1), 2)); };
+        std::string sx = {ch(0x1F), '/', ch(0x2D)};
+        std::string zc = {ch(0x2C), '/', ch(0x2E)};
+        uint32_t select = Crc::GenerateCRCFromString("select_skater_hmenu");
+        uint32_t piece = Crc::GenerateCRCFromString("piece_menu_hmenu");
+        struct Case {
+            bool menu, typing, pieceShown;
+            bool otherMenu, quit;
+            int button;
+            std::string expected;
+        };
+        std::vector<Case> cases = {
+            {true, false, false, false, false, 0, "K23"},  {true, false, false, false, false, 1, "K22_long_name"},
+            {true, false, false, false, false, 3, "K20"},  {true, false, false, false, false, 9, "K39"},
+            {true, false, false, false, false, 8, "K01"},  {true, false, false, false, false, 21, "K2A"},
+            {true, false, false, false, false, 22, "K1C"}, {true, false, false, false, false, 24, "K12"},
+            {true, false, false, false, false, 29, "K03"}, {true, false, false, false, false, 5, "K00"},
+            {true, false, false, false, false, 0x12, "K28+K29"}, {true, false, false, false, false, 0x14, sx},
+            {true, false, false, false, false, 0x13, zc},  {false, false, false, false, false, 9, "K25"},
+            {false, false, false, false, false, 0x14, "K00"}, {false, false, false, false, false, 24, "K00"},
+            {true, true, false, false, false, 0, "KFF"},   {true, true, false, false, false, 22, "K1C"},
+            {true, true, false, false, false, 23, "K01"},  {true, true, false, false, false, 0x13, "K00"},
+            {true, false, true, false, false, 9, "K25"},   {true, false, true, false, false, 0x14, "K00"},
+            // the other menu flag counts too; quitting ignores the piece menu
+            {false, false, false, true, false, 9, "K39"},  {true, false, true, false, true, 9, "K39"},
+        };
+        bool ok = true;
+        for (const Case& c : cases) {
+            standIn.Set({{select, true, 0}, {piece, c.pieceShown, 0}});
+            GameVariable<bool>(0x007CE46C) = c.menu;
+            GameVariable<bool>(0x007CE46F) = c.otherMenu;
+            GameVariable<bool>(0x007CE46E) = c.typing;
+            GameVariable<bool>(0x007D6A2C) = c.quit;
+            std::string got = Sio::GetButtonKeyName(c.button);
+            if (got != c.expected) {
+                Log("  key name %d (menu %d typing %d piece %d): \"%s\", expected \"%s\"", c.button, c.menu, c.typing,
+                    c.pieceShown, got.c_str(), c.expected.c_str());
+                ok = false;
+            }
+        }
+        Check(ok && standIn.Pointers() == 0, "sio: key names (ours vs expected)");
+    }
+    for (Saved& s : saved)
+        std::memcpy(reinterpret_cast<void*>(s.address), s.bytes.data(), s.size);
+    Check(traces[0] == traces[1], "sio: smart pointers, IsHidden, special keys");
+    if (traces[0].size() != traces[1].size())
+        Log("  key name trace sizes: original %u ours %u", static_cast<unsigned>(traces[0].size()),
+            static_cast<unsigned>(traces[1].size()));
+    for (size_t i = 0, shown = 0; i < traces[0].size() && i < traces[1].size() && shown < 8; ++i) {
+        if (traces[0][i] != traces[1][i]) {
+            Log("  key name entry %u: original %08X ours %08X", static_cast<unsigned>(i), traces[0][i], traces[1][i]);
+            ++shown;
+        }
+    }
+}
+
+// In the game (the original uses the game's C runtime: wcstombs, sprintf): the key names over stand-in screen
+// elements, original vs ours.
+void TestSioKeyNamesLate()
+{
+    struct Saved {
+        uint32_t address;
+        uint32_t size;
+        std::vector<uint8_t> bytes;
+    };
+    std::vector<Saved> saved = {{0x00701440, 4, {}},     {0x006F0FC0, 4, {}}, {0x007CE46C, 4, {}},   {0x007CCDF8, 1, {}},
+                                {0x007D6A2C, 1, {}},     {0x007D6770, 0x60, {}}, {0x007D42F8 - 0x1E, 0x1E * 0x42, {}},
+                                {0x007D19D8, 0x200, {}}, {0x007D1BE0, 0x40, {}}, {0x007D1E28, 4, {}}};
+    for (Saved& s : saved) {
+        s.bytes.resize(s.size);
+        std::memcpy(s.bytes.data(), reinterpret_cast<void*>(s.address), s.size);
+    }
+    // Key names "K<code>" for codes -1 to 0x40; bindings 8-18 are codes 0x20-0x2A.
+    for (int code = -1; code <= 0x40; ++code) {
+        auto* name = reinterpret_cast<wchar_t*>(0x007D42F8 + code * 0x1E); // (30 bytes each)
+        std::swprintf(name, 15, L"K%02X%s", code & 0xFF, code == 0x22 ? L"_long_name" : L"");
+    }
+    for (int i = 0; i < 24; ++i)
+        GameVariable<int>(0x007D6770 + 4 * i) = i >= 8 && i <= 18 ? 0x20 + (i - 8) : -1;
+
+    static StandInElements standIn;
+    using Obj::CRefCounted;
+    using P = Obj::CSmtPtr<CRefCounted>;
+    std::vector<uint32_t> traces[2];
+    for (int run = 0; run < 2; ++run) {
+        bool original = run == 0;
+        std::vector<uint32_t>& trace = traces[run];
+
+        // Key names.
+        uint32_t select = Crc::GenerateCRCFromString("select_skater_hmenu");
+        uint32_t piece = Crc::GenerateCRCFromString("piece_menu_hmenu");
+        for (int scene = 0; scene < 6; ++scene) {
+            // 0: none; 1: piece menu shown; 2: piece menu hidden; 3: both shown; 4: piece menu in a hidden parent;
+            // 5: select skater only
+            standIn.Set({{select, scene == 3 || scene == 5, 0},
+                         {piece, scene >= 1 && scene <= 4 && scene != 5, scene == 2 ? 1 : scene == 4 ? 2 : 0}});
+            for (int globals = 0; globals < 16; ++globals) {
+                GameVariable<bool>(0x007CE46C) = (globals & 1) != 0;
+                GameVariable<bool>(0x007CE46F) = (globals & 2) != 0;
+                GameVariable<bool>(0x007CE46E) = (globals & 4) != 0;
+                GameVariable<bool>(0x007D6A2C) = (globals & 8) != 0;
+                for (int button = -1; button <= 31; ++button) {
+                    std::memset(reinterpret_cast<void*>(0x007D19D8), 0x5A, 0x200);
+                    const char* name = original ? Original<const char*(__cdecl*)(int)>(0x005BCD50)(button)
+                                                : Sio::GetButtonKeyName(button);
+                    trace.push_back(reinterpret_cast<uint32_t>(name));
+                    trace.insert(trace.end(), reinterpret_cast<const uint32_t*>(0x007D19D8),
+                                 reinterpret_cast<const uint32_t*>(0x007D19D8) + 12);
+                    trace.insert(trace.end(), reinterpret_cast<const uint32_t*>(0x007D1AD8),
+                                 reinterpret_cast<const uint32_t*>(0x007D1AD8) + 8);
+                    trace.push_back(reinterpret_cast<const uint8_t*>(0x007D1BD7)[0]);
+                }
+            }
+            trace.push_back(standIn.Pointers());
+        }
+    }
+    for (Saved& s : saved)
+        std::memcpy(reinterpret_cast<void*>(s.address), s.bytes.data(), s.size);
+    Check(traces[0] == traces[1], "sio (late): key names");
+    if (traces[0].size() != traces[1].size())
+        Log("  key name trace sizes: original %u ours %u", static_cast<unsigned>(traces[0].size()),
+            static_cast<unsigned>(traces[1].size()));
+    for (size_t i = 0, shown = 0; i < traces[0].size() && i < traces[1].size() && shown < 8; ++i) {
+        if (traces[0][i] != traces[1][i]) {
+            Log("  key name entry %u: original %08X ours %08X", static_cast<unsigned>(i), traces[0][i], traces[1][i]);
+            ++shown;
+        }
+    }
+}
+
 // --- late self-tests ----------------------------------------------------------------------------------
 
 // The table's contents as (bucket, position in chain, key, value), so tables with different item addresses
@@ -8009,6 +8327,7 @@ SELFTEST(Early, TestMemoryCards);
 SELFTEST(Early, TestLeftovers);
 SELFTEST(Early, TestSio);
 SELFTEST(Early, TestSioManager);
+SELFTEST(Early, TestSioKeyNames);
 
 SELFTEST(Late, TestMemoryLate);
 SELFTEST(Late, TestStringLate);
@@ -8018,6 +8337,7 @@ SELFTEST(Late, TestAllocatorContextsLate);
 SELFTEST(Late, TestLeftoversLate);
 SELFTEST(Late, TestSioLate);
 SELFTEST(Late, TestSioManagerLate);
+SELFTEST(Late, TestSioKeyNamesLate);
 SELFTEST(Late, TestPoolConstructorLate);
 SELFTEST(Late, TestHashTableLate);
 SELFTEST(Late, TestPipNamesLate, RestorePipTables);

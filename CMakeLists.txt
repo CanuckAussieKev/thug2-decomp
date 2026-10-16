@@ -91,6 +91,7 @@ add_library(thug2_code OBJECT
     src/game/core/str.cpp
     src/game/core/string.cpp
     src/game/file/asset_bundle.cpp
+    src/game/front/screen_element.cpp
     src/game/file/async.cpp
     src/game/file/file.cpp
     src/game/file/pip.cpp
@@ -98,6 +99,7 @@ add_library(thug2_code OBJECT
     src/game/lst/hashtable.cpp
     src/game/lst/search.cpp
     src/game/net/chat.cpp
+    src/game/obj/smtptr.cpp
     src/game/sio/device.cpp
     src/game/sys/registry.cpp
     src/game/mc/memcard.cpp

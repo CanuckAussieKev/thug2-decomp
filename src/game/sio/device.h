@@ -101,6 +101,15 @@ void ClearKeyboardChars();
 // lParam (bit 30: auto-repeat; negative: a key release). PartyMod calls it for SDL's text input.
 void KeyInput(int key, int flags);
 
+// 0x005BDF30: a key press from the window's messages (virtual key codes): F5 refreshes the network server
+// list while it's shown; otherwise, with typed keys wanted, the arrow keys (in a menu) or F1-F4 are queued
+// as 0x14-0x17 / 0x1B-0x1E.
+void SpecialKeyInput(int key, int flags);
+// 0x005BCD50: the name of the key for a pad button (0-29) on port 0, for the menus' hints - from the key
+// bindings or fixed keys, depending on whether a menu is up or the keyboard is being typed on. A static
+// buffer.
+const char* GetButtonKeyName(int button);
+
 // The device manager (0x1C bytes, vtable 0x00658AD4): a device per controller port, processed by a task
 // once a frame. One, shared (reference counted).
 class Manager {

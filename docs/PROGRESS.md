@@ -2,22 +2,22 @@
 
 Generated 2026-10-16 by `tools/progress_report.py` - regenerate after each batch.
 
-**Game code: █░░░░░░░░░░░░░░░░░░░ 5.0%** of the code rewritten (628 of 8,365 functions, 81.3 KB of 1,616.9 KB).
+**Game code: █░░░░░░░░░░░░░░░░░░░ 5.1%** of the code rewritten (634 of 8,365 functions, 82.8 KB of 1,616.9 KB).
 
 Progress is by code size: function counts make a 10-byte helper look like as much work as a 2 KB routine. Subsystem boundaries come from the exe map (`docs/subsystems.md`) and are approximate (give or take a few functions); totals are exact.
 
 | Subsystem | Range | Progress (code size) | Functions | Code |
 |---|---|---|---:|---:|
 | Core utilities (CRC/checksums, string helpers, rect, random) | `0x401000`-`0x406460` | ███████████████████░ 99% | 129 / 130 | 19.8 KB / 19.8 KB |
-| Animation & skeleton / skinned model data | `0x406460`-`0x41a6d0` | ░░░░░░░░░░░░░░░░░░░░ 0% | 4 / 423 | 0.3 KB / 75.5 KB |
+| Animation & skeleton / skinned model data | `0x406460`-`0x41a6d0` | ░░░░░░░░░░░░░░░░░░░░ 0% | 5 / 423 | 0.3 KB / 75.5 KB |
 | Object components & level/scene loading | `0x41a6d0`-`0x445b50` | ░░░░░░░░░░░░░░░░░░░░ 0% | 1 / 584 | 0.0 KB / 157.7 KB |
 | Engine script commands (lighting/fog, memory heaps, script utils, arrays, music & streams) | `0x445b50`-`0x44e6b0` | ░░░░░░░░░░░░░░░░░░░░ 0% | 4 / 246 | 0.3 KB / 32.5 KB |
 | Movies (Bink) & streamed audio | `0x44e6b0`-`0x456910` | ░░░░░░░░░░░░░░░░░░░░ 0% | 1 / 277 | 0.0 KB / 30.3 KB |
 | Low-level networking (engine net library) | `0x456910`-`0x45efd0` | ░░░░░░░░░░░░░░░░░░░░ 0% | 0 / 183 | 0.0 KB / 28.3 KB |
-| Object system & script runtime (composite objects, events, object anims, particles, pathfinding, QB parser/executor) | `0x45efd0`-`0x47dc40` | █████░░░░░░░░░░░░░░░ 29% | 219 / 685 | 32.7 KB / 112.3 KB |
+| Object system & script runtime (composite objects, events, object anims, particles, pathfinding, QB parser/executor) | `0x45efd0`-`0x47dc40` | █████░░░░░░░░░░░░░░░ 29% | 221 / 685 | 32.7 KB / 112.3 KB |
 | Models / faces / textures for skaters (CAS) | `0x47dc40`-`0x490d80` | ░░░░░░░░░░░░░░░░░░░░ 0% | 1 / 523 | 0.0 KB / 67.5 KB |
 | Renderer: textures, geometry, particles, 2D/3D screen | `0x490d80`-`0x4a4500` | ░░░░░░░░░░░░░░░░░░░░ 0% | 2 / 559 | 0.2 KB / 73.1 KB |
-| Front-end UI: screen elements & text | `0x4a4500`-`0x4b2280` | ░░░░░░░░░░░░░░░░░░░░ 0% | 0 / 228 | 0.0 KB / 52.5 KB |
+| Front-end UI: screen elements & text | `0x4a4500`-`0x4b2280` | ░░░░░░░░░░░░░░░░░░░░ 0% | 1 / 228 | 0.0 KB / 52.5 KB |
 | Renderer: screen FX, image/texture formats, fonts, grass | `0x4b2280`-`0x4d6d40` | ░░░░░░░░░░░░░░░░░░░░ 0% | 0 / 488 | 0.0 KB / 114.8 KB |
 | Application main & game object rendering glue | `0x4d6d40`-`0x4e6b80` | ░░░░░░░░░░░░░░░░░░░░ 0% | 2 / 202 | 0.3 KB / 59.5 KB |
 | Goal & rail editors / skater camera | `0x4e6b80`-`0x500020` | ░░░░░░░░░░░░░░░░░░░░ 0% | 0 / 341 | 0.0 KB / 85.7 KB |
@@ -30,8 +30,8 @@ Progress is by code size: function counts make a 10-byte helper look like as muc
 | Park editor & graffiti | `0x588180`-`0x595030` | ░░░░░░░░░░░░░░░░░░░░ 0% | 1 / 289 | 0.1 KB / 47.3 KB |
 | Lighting / FX / park memory | `0x595030`-`0x59f610` | ░░░░░░░░░░░░░░░░░░░░ 0% | 0 / 169 | 0.0 KB / 40.1 KB |
 | Game script commands (skater queries, save/memcard, profiles, appearance, cutscenes, weather) | `0x59f610`-`0x5b6560` | ░░░░░░░░░░░░░░░░░░░░ 0% | 18 / 574 | 0.4 KB / 87.1 KB |
-| File system (PIP/PRE archives) & skater memory heaps | `0x5b6560`-`0x5bdad0` | ██████████████████░░ 90% | 220 / 222 | 24.5 KB / 27.1 KB |
-| Input devices (SIO) | `0x5bdad0`-`0x5be670` | ████████████████░░░░ 83% | 22 / 23 | 2.2 KB / 2.7 KB |
+| File system (PIP/PRE archives) & skater memory heaps | `0x5b6560`-`0x5bdad0` | ██████████████████░░ 93% | 221 / 222 | 25.5 KB / 27.1 KB |
+| Input devices (SIO) | `0x5bdad0`-`0x5be670` | ████████████████████ 100% | 23 / 23 | 2.7 KB / 2.7 KB |
 | Win32 platform layer (window, D3D9/DirectSound/DirectInput setup, registry options) | `0x5eef20`-`0x5f8130` | ░░░░░░░░░░░░░░░░░░░░ 0% | 0 / 91 | 0.0 KB / 17.4 KB |
 
 ## Not decompiled (libraries)
