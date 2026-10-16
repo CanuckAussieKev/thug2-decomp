@@ -26,7 +26,7 @@ Still to do (batches 54-56's records have notes - disassembly read, conventions,
 - Sio::SetActuators (device.cpp) still calls 0x5F3A50; pointing it at Platform::SetActuators needs TestSio's
   original run to have PartyMod's jump written at 0x5F3A50 first.
 
-Parallel agents worked well: one git worktree + branch each (`git worktree add C:\Dev	hug2-wt\<name> -b pm/<name>`),
+Parallel agents worked well: one git worktree + branch each (`git worktree add C:\Dev\thug2-wt\<name> -b pm/<name>`),
 their own copy of the Ghidra snapshot (Ghidra locks a project) and of data/derived/ (untracked), tests in
 src/hook/selftests_<name>.cpp, records in docs/pending/<name>.md; merges only conflict in CMakeLists.txt and
 the HANDLED list (keep both sides). They cost a lot of usage - scope each to a few functions.
