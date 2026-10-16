@@ -1,6 +1,6 @@
 // The script manager: the spawned scripts' per-frame update, spawning and running scripts, and the walks over
 // the list of all scripts that stop, kill or look scripts up (0x00472D80-0x004759F5, group D of the CScript
-// batch - docs/pending/cscript-plan.md).
+// batch - docs/script-runtime.md).
 //
 // Frame-level scheduling (UpdateSpawnedScripts, the spec for a later port of the script runtime):
 // - Every CScript is on one list, the newest at the head. Spawned scripts belong to the list: they are updated

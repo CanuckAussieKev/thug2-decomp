@@ -16,7 +16,7 @@
 // Every script is on one list (head 0x006F3538, the newest first). Spawned scripts belong to the list and are
 // updated and deleted by UpdateSpawnedScripts; the others belong to whoever made them (objects...).
 //
-// Layout and conventions are from the disassembly of 0x004728F0-0x00475920 (docs/pending/cscript-plan.md).
+// Layout and conventions are from the disassembly of 0x004728F0-0x00475920 (docs/script-runtime.md).
 // Every method is __thiscall, callee-pops (RET n = 4 * arguments); the free functions are __cdecl. None takes
 // arguments in other registers. One caller relies on ECX surviving a call: 0x00472E70 calls 0x00472D20 and
 // reads ECX afterwards (both must be ours together, or 0x00472D20 must preserve ECX - it does in the original).

@@ -1,6 +1,6 @@
 // CScript, group C: waiting, the call stack, interrupts and event handlers (0x004728F0-0x00475784).
 //
-// How these schedule a script (the spec for a later script runtime) is in docs/pending/csC.md; in short:
+// How these schedule a script (the spec for a later script runtime) is in docs/script-runtime.md; in short:
 // a wait is set by a statement and counted by UpdateWait once per Update (the first time in the same Update);
 // CallScript pushes the whole state of the running level and ReturnFromScript pops it; an interrupt is a call
 // run at once by a nested Update, marked so that its return ends that Update.

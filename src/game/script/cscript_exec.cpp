@@ -1,5 +1,5 @@
 // The script interpreter: CScript::Update and the statements it runs (group B of the CScript batch; see
-// cscript.h for the class and docs/pending/csB.md for the scheduling notes).
+// cscript.h for the class and docs/script-runtime.md for the scheduling notes).
 //
 // How a script runs (the spec for a later port):
 //
@@ -535,7 +535,7 @@ EScriptReturnVal CScript::Update()
                 m_onExitScript = 0;
                 Interrupt(onExit, nullptr);
             }
-            // (from wherever the on-exit script left m_pc - see docs/pending/cscript-plan.md)
+            // (from wherever the on-exit script left m_pc - see docs/script-runtime.md)
             ++m_pc;
             ParseFunctionParams();
             if (ReturnFromScript(m_functionParams))

@@ -1,5 +1,5 @@
 // CScript's life: construction and destruction, the pooled new / delete, stopping (ClearScript), setting the
-// script to run, and the small accessors. See cscript.h for the class and docs/pending/cscript-plan.md.
+// script to run, and the small accessors. See cscript.h for the class and docs/script-runtime.md.
 
 #include "game/script/cscript.h"
 
