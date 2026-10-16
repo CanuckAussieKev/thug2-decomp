@@ -102,6 +102,7 @@ add_library(thug2_code OBJECT
     src/game/obj/smtptr.cpp
     src/game/sio/device.cpp
     src/game/sys/registry.cpp
+    src/game/sys/timer.cpp
     src/game/mc/memcard.cpp
     src/game/script/eval.cpp
     src/game/script/load.cpp

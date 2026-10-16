@@ -589,6 +589,24 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       scenes x 16 flag combinations x buttons -1..31. 29 deliberate bugs caught (3 after strengthening).
       Left in SIO: ReadData 0x5BD200 (the original pad read - dead code with PartyMod, still to be written).
       Then the timer module (Tmr) 0x5BE6F0-0x5BEAA0.
+- [x] Batch 52 (NOT run in the game yet; early test passes offline): the game clock (Tmr, new
+      src/game/sys/timer.*), 0x5BE6F0-0x5BEAA0: Init 0x5BEA50 (Reset, then the C runtime clock and the time
+      stamp counter noted), Reset 0x5BE9B0 (the vblank rate from the refresh rate 0x684FB4 the first time;
+      frame length 1, history 1,1,1,1; the timing block 0x7D1E68 saved to 0x7D1E30), CountVblank 0x5BE700,
+      OncePerRender 0x5BE740 (render frame +1; the frame's vblanks into a 4-entry history), UpdateFrameLength
+      0x5BE7F0 (each entry 0-4, outside 0-10 counts as 1, * 0.25, at least 1; the uncapped average; the slow
+      motion asked for takes effect), WaitForVblank 0x5BE920 (runs the idle function 0x48C1C0 until the
+      vblank count moves), GetVblanks / GetRenderFrame (64-bit), GetTime 0x5BE970 (ms from the low 32 bits:
+      1000 / rate * vblanks, truncated through 64 bits like _ftol), GetFrameSeconds 0x5BE910,
+      GetSlomoFrameSeconds 0x5BEAA0 (returns the unrounded x87 product - double), Get/SetSlomo, SetFlags
+      0x5BE7C0 (two flags at 0x7D1EE8, meaning unknown), ReadCpuTimeStamp 0x5BE6F0 (source-only: 3 bytes;
+      not "ReadTimeStampCounter" - a winnt.h macro). 15 functions. The subsystem map (data/subsystems.csv,
+      docs/subsystems.md) now has the clock and the import thunks; the D3DX9 range starts at 0x5BEB1A.
+      Early test: reset (first time / later), init (but the clock and TSC), 32 frames of 0-13 vblanks with
+      the counters near their 32-bit limits, slow motion asked mid-frame, the frame length over unusual
+      histories (negative, huge, wrapping sums), milliseconds at 60/50/59.94 Hz up to 2^32+5 vblanks, waiting
+      with a stand-in idle function, the flags. 23 deliberate bugs: 22 caught (1 after strengthening), 1
+      equivalent (the vblank count isn't in the block Reset saves).
 - [ ] Next: the pre-compiled .qb format (0x46FBA0, 0x46CA50, 0x46C970, 0x46C830, 0x46C7F0, ...), the script
       cache (0x475FD0 ...), then CScript (0x472900.. / 0x473000..).
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function

@@ -32,8 +32,10 @@ Not decompiled: GameSpy SDK, D3DX9, MSVC CRT, STL helpers, compiler funclets (se
 | 0x595030-0x59f610 | Lighting / FX / park memory | 169 | 40 KB | 13% |
 | 0x59f610-0x5b6560 | Game script commands (skater queries, save/memcard, profiles, appearance, cutscenes, weather) | 574 | 87 KB | 85% |
 | 0x5b6560-0x5bdad0 | File system (PIP/PRE archives) & skater memory heaps | 222 | 27 KB | 6% |
-| 0x5bdad0-0x5be670 | Input devices (SIO) | 23 | 2 KB | 8% |
-| 0x5be670-0x5eef20 | *Library: D3DX9 (shader assembler/compiler, math)* | 712 | 158 KB | - |
+| 0x5bdad0-0x5be6f0 | Input devices (SIO) | 25 | 2 KB | 8% |
+| 0x5be6f0-0x5beaae | Game clock (Tmr) | 16 | 1 KB | - |
+| 0x5beaae-0x5beb1a | *Import thunks (Winsock, Direct3DCreate9)* | 18 | - | - |
+| 0x5beb1a-0x5eef20 | *Library: D3DX9 (shader assembler/compiler, math)* | 694 | 158 KB | - |
 | 0x5eef20-0x5f8130 | Win32 platform layer (window, D3D9/DSound/DInput setup, registry options) | 91 | 17 KB | 5% |
 
 ## Suggested order for the hook DLL

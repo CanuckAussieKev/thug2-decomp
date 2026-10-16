@@ -2,7 +2,7 @@
 
 Generated 2026-10-16 by `tools/progress_report.py` - regenerate after each batch.
 
-**Game code: █░░░░░░░░░░░░░░░░░░░ 5.1%** of the code rewritten (634 of 8,365 functions, 82.8 KB of 1,616.9 KB).
+**Game code: █░░░░░░░░░░░░░░░░░░░ 5.2%** of the code rewritten (651 of 8,382 functions, 83.8 KB of 1,617.8 KB).
 
 Progress is by code size: function counts make a 10-byte helper look like as much work as a 2 KB routine. Subsystem boundaries come from the exe map (`docs/subsystems.md`) and are approximate (give or take a few functions); totals are exact.
 
@@ -31,14 +31,16 @@ Progress is by code size: function counts make a 10-byte helper look like as muc
 | Lighting / FX / park memory | `0x595030`-`0x59f610` | ░░░░░░░░░░░░░░░░░░░░ 0% | 0 / 169 | 0.0 KB / 40.1 KB |
 | Game script commands (skater queries, save/memcard, profiles, appearance, cutscenes, weather) | `0x59f610`-`0x5b6560` | ░░░░░░░░░░░░░░░░░░░░ 0% | 18 / 574 | 0.4 KB / 87.1 KB |
 | File system (PIP/PRE archives) & skater memory heaps | `0x5b6560`-`0x5bdad0` | ██████████████████░░ 93% | 221 / 222 | 25.5 KB / 27.1 KB |
-| Input devices (SIO) | `0x5bdad0`-`0x5be670` | ████████████████████ 100% | 23 / 23 | 2.7 KB / 2.7 KB |
+| Input devices (SIO) | `0x5bdad0`-`0x5be6f0` | ████████████████████ 100% | 25 / 25 | 2.8 KB / 2.8 KB |
+| Game clock (Tmr) | `0x5be6f0`-`0x5beaae` | ████████████████████ 100% | 15 / 15 | 0.8 KB / 0.8 KB |
 | Win32 platform layer (window, D3D9/DirectSound/DirectInput setup, registry options) | `0x5eef20`-`0x5f8130` | ░░░░░░░░░░░░░░░░░░░░ 0% | 0 / 91 | 0.0 KB / 17.4 KB |
 
 ## Not decompiled (libraries)
 
 Linked as libraries in the final build rather than rewritten:
 
-- D3DX9 static library (shader assembler/compiler, math helpers) (`0x5be670`-`0x5eef20`): 712 functions, 158.8 KB
+- Import thunks (Winsock / Direct3DCreate9) (`0x5beaae`-`0x5beb1a`): 18 functions, 0.1 KB
+- D3DX9 static library (shader assembler/compiler, math helpers) (`0x5beb1a`-`0x5eef20`): 677 functions, 157.8 KB
 - GameSpy SDK, MSVC C runtime, STL helpers and compiler-generated code after `0x5F8130` (see `docs/library_ranges.md`)
 
 ## PartyMod

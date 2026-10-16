@@ -5,6 +5,7 @@
 #include "game/obj/smtptr.h"
 #include "game/sio/device.h"
 #include "game/sys/registry.h"
+#include "game/sys/timer.h"
 #include "game/script/eval.h"
 #include "game/script/load.h"
 #include "game/script/names.h"
@@ -7372,6 +7373,170 @@ void TestSioKeyNamesLate()
     }
 }
 
+// The stand-in idle function for WaitForVblank: counts a vblank on its third call.
+bool g_timer_original;
+int g_timer_idle_calls;
+void __cdecl TimerIdle()
+{
+    if (++g_timer_idle_calls % 3 == 0) {
+        if (g_timer_original)
+            Original<void(__cdecl*)()>(0x005BE700)();
+        else
+            Tmr::CountVblank();
+    }
+}
+
+// The game clock: reset (first time and later), init (all but the C runtime clock and the time stamp
+// counter), vblanks and frames over stalls and wraps, the frame length, slow motion, milliseconds at large
+// counts and other rates, waiting for a vblank (with a stand-in idle function), the flags - original vs ours.
+void TestTimer()
+{
+    struct Saved {
+        uint32_t address;
+        uint32_t size;
+        std::vector<uint8_t> bytes;
+    };
+    std::vector<Saved> saved = {{0x007D1E30, 0xC0, {}}, {0x00684FB4, 0x20, {}}, {0x006FA7D8, 4, {}}};
+    for (Saved& s : saved) {
+        s.bytes.resize(s.size);
+        std::memcpy(s.bytes.data(), reinterpret_cast<void*>(s.address), s.size);
+    }
+    std::vector<uint32_t> traces[2];
+    for (int run = 0; run < 2; ++run) {
+        bool original = run == 0;
+        g_timer_original = original;
+        std::vector<uint32_t>& trace = traces[run];
+        auto call = [&](uint32_t address, void (*ours)()) {
+            if (original)
+                Original<void(__cdecl*)()>(address)();
+            else
+                ours();
+        };
+        auto dump = [&] {
+            trace.insert(trace.end(), reinterpret_cast<uint32_t*>(0x007D1E30), reinterpret_cast<uint32_t*>(0x007D1EA0));
+            trace.insert(trace.end(), reinterpret_cast<uint32_t*>(0x007D1EB8), reinterpret_cast<uint32_t*>(0x007D1EEC));
+            trace.insert(trace.end(), reinterpret_cast<uint32_t*>(0x00684FB4), reinterpret_cast<uint32_t*>(0x00684FD4));
+        };
+        auto pushDouble = [&](double d) {
+            uint64_t bits;
+            std::memcpy(&bits, &d, 8);
+            trace.push_back(static_cast<uint32_t>(bits));
+            trace.push_back(static_cast<uint32_t>(bits >> 32));
+        };
+        auto pushFloat = [&](float f) {
+            uint32_t bits;
+            std::memcpy(&bits, &f, 4);
+            trace.push_back(bits);
+        };
+        auto queries = [&] {
+            uint64_t v = original ? Original<uint64_t(__cdecl*)()>(0x005BE8E0)() : Tmr::GetVblanks();
+            uint64_t r = original ? Original<uint64_t(__cdecl*)()>(0x005BE8D0)() : Tmr::GetRenderFrame();
+            trace.insert(trace.end(), {static_cast<uint32_t>(v), static_cast<uint32_t>(v >> 32), static_cast<uint32_t>(r),
+                                       static_cast<uint32_t>(r >> 32)});
+            trace.push_back(original ? Original<uint32_t(__cdecl*)()>(0x005BE970)() : Tmr::GetTime());
+            pushDouble(original ? Original<double(__cdecl*)()>(0x005BE910)() : Tmr::GetFrameSeconds());
+            pushDouble(original ? Original<double(__cdecl*)()>(0x005BEAA0)() : Tmr::GetSlomoFrameSeconds());
+            pushFloat(original ? Original<float(__cdecl*)()>(0x005BE8F0)() : Tmr::GetSlomo());
+        };
+
+        std::memset(reinterpret_cast<void*>(0x007D1E30), 0x3C, 0xC0);
+        GameVariable<float>(0x00684FC8) = 1.0f;
+        GameVariable<float>(0x00684FCC) = 1.0f;
+        GameVariable<bool>(0x007D1EEA) = false;
+        GameVariable<int>(0x00684FB4) = 50;
+        call(0x005BE9B0, Tmr::Reset);
+        dump();
+        GameVariable<int>(0x00684FB4) = 60; // (already set: kept)
+        call(0x005BE9B0, Tmr::Reset);
+        dump();
+        call(0x005BEA50, Tmr::Init);
+        dump();
+        queries();
+
+        // Frames of various lengths: 0 to 13 vblanks, then the counters near their 32-bit limits.
+        int lengths[] = {1, 2, 0, 3, 4, 5, 10, 11, 1, 13, 2, 7, 0, 0, 1, 6};
+        for (int pass = 0; pass < 2; ++pass) {
+            if (pass == 1) {
+                GameVariable<uint64_t>(0x007D1EC8) = 0xFFFFFFFDull;
+                GameVariable<uint64_t>(0x007D1ED0) = 0x1FFFFFFFEull;
+                GameVariable<uint64_t>(0x007D1ED8) = 0xFFFFFFFFull;
+                GameVariable<uint64_t>(0x007D1E88) = 0xFFFFFFF0ull; // (a frame "longer" than 10)
+            }
+            for (int length : lengths) {
+                for (int v = 0; v < length; ++v)
+                    call(0x005BE700, Tmr::CountVblank);
+                call(0x005BE740, Tmr::OncePerRender);
+                if (length == 5) {
+                    if (original)
+                        Original<void(__cdecl*)(float)>(0x005BE900)(0.25f);
+                    else
+                        Tmr::SetSlomo(0.25f);
+                }
+                if (length == 13) {
+                    if (original)
+                        Original<void(__cdecl*)(float)>(0x005BE900)(3.0f);
+                    else
+                        Tmr::SetSlomo(3.0f);
+                }
+                queries(); // (slow motion only changes at the next update)
+                call(0x005BE7F0, Tmr::UpdateFrameLength);
+                dump();
+                queries();
+            }
+        }
+        // Milliseconds at other rates and large counts (the low 32 bits only).
+        for (float rate : {60.0f, 50.0f, 59.94f}) {
+            GameVariable<float>(0x00684FD0) = rate;
+            for (uint64_t vblanks : {0ull, 1ull, 3599ull, 0x7FFFFFFFull, 0x80000000ull, 0xFFFFFFFFull, 0x100000005ull}) {
+                GameVariable<uint64_t>(0x007D1EC8) = vblanks;
+                trace.push_back(original ? Original<uint32_t(__cdecl*)()>(0x005BE970)() : Tmr::GetTime());
+            }
+        }
+        // History outside the usual range (negative, huge): the frame length's clamping.
+        for (int a : {-1, 0, 4, 10, 11, 0x7FFFFFFF}) {
+            int* history = reinterpret_cast<int*>(0x007D1E78);
+            history[0] = a;
+            history[1] = 0x7FFFFFFF;
+            for (int rest : {0, 4}) { // (4: large enough not to be lifted to the minimum of 1)
+                history[2] = rest;
+                history[3] = rest;
+                call(0x005BE7F0, Tmr::UpdateFrameLength);
+                dump();
+            }
+        }
+        // Waiting for a vblank: the idle function runs until one passes; none set: just the check.
+        g_timer_idle_calls = 0;
+        GameVariable<void*>(0x006FA7D8) = reinterpret_cast<void*>(&TimerIdle);
+        call(0x005BE920, Tmr::WaitForVblank);
+        trace.push_back(static_cast<uint32_t>(g_timer_idle_calls));
+        dump();
+        // The flags.
+        for (int flags = 0; flags < 4; ++flags) {
+            GameVariable<uint8_t>(0x007D1EE8) = static_cast<uint8_t>(flags & 1 ? 7 : 0);
+            GameVariable<uint8_t>(0x007D1EE9) = static_cast<uint8_t>(flags & 2 ? 9 : 0);
+            call(0x005BE7C0, Tmr::SetFlags);
+            trace.push_back(GameVariable<uint16_t>(0x007D1EE8));
+        }
+    }
+    for (Saved& s : saved)
+        std::memcpy(reinterpret_cast<void*>(s.address), s.bytes.data(), s.size);
+    Check(traces[0] == traces[1], "timer: vblanks, frames, frame length, slow motion, time");
+    if (traces[0].size() != traces[1].size())
+        Log("  timer trace sizes: original %u ours %u", static_cast<unsigned>(traces[0].size()),
+            static_cast<unsigned>(traces[1].size()));
+    for (size_t i = 0, shown = 0; i < traces[0].size() && i < traces[1].size() && shown < 8; ++i) {
+        if (traces[0][i] != traces[1][i]) {
+            Log("  timer entry %u: original %08X ours %08X", static_cast<unsigned>(i), traces[0][i], traces[1][i]);
+            ++shown;
+        }
+    }
+    // The time stamp counter only moves forward.
+    uint64_t a = Original<uint64_t(__cdecl*)()>(0x005BE6F0)();
+    uint64_t b = Tmr::ReadCpuTimeStamp();
+    uint64_t c = Original<uint64_t(__cdecl*)()>(0x005BE6F0)();
+    Check(a <= b && b <= c && c > a, "timer: time stamp counter");
+}
+
 // --- late self-tests ----------------------------------------------------------------------------------
 
 // The table's contents as (bucket, position in chain, key, value), so tables with different item addresses
@@ -8328,6 +8493,7 @@ SELFTEST(Early, TestLeftovers);
 SELFTEST(Early, TestSio);
 SELFTEST(Early, TestSioManager);
 SELFTEST(Early, TestSioKeyNames);
+SELFTEST(Early, TestTimer);
 
 SELFTEST(Late, TestMemoryLate);
 SELFTEST(Late, TestStringLate);
