@@ -14,6 +14,7 @@
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "game/net/chat.h"
+#include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/sio/sdl_input.h"
 #include "game/skater/rotation.h"
@@ -440,6 +441,10 @@ void TestKeyboardTask()
     }
     Patch exists(0x00462340, Jump(0x00462340, reinterpret_cast<void*>(&StandInObjectExists)));
     Patch run(0x00475790, Jump(0x00475790, reinterpret_cast<void*>(&StandInRunScript)));
+    // (the chat code calls ours directly)
+    auto ourRunScript = reinterpret_cast<uint32_t>(
+        CodeAddress(static_cast<void (*)(uint32_t, Script::CStruct*, Obj::CObject*, bool, const char*)>(&Script::RunScript)));
+    Patch runOurs(ourRunScript, Jump(ourRunScript, reinterpret_cast<void*>(&StandInRunScript)));
 
     auto runAll = [&](bool original) {
         std::vector<uint32_t> trace;

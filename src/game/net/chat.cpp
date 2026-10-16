@@ -9,6 +9,7 @@
 #include "game/core/mem.h"
 #include "game/core/pool.h"
 #include "game/core/crc.h"
+#include "game/script/cscript.h"
 #include "game/script/params.h"
 #include "game/script/struct.h"
 #include "game/sio/device.h"
@@ -101,7 +102,7 @@ void AddString(ScriptStruct* s, uint32_t name, const char* value)
 }
 void RunScript(uint32_t script, ScriptStruct* params)
 {
-    GameFunction<void(__cdecl*)(uint32_t, ScriptStruct*, int, int, int)>(0x00475790)(script, params, 0, 0, 0);
+    Script::RunScript(script, reinterpret_cast<Script::CStruct*>(params), nullptr, false, nullptr);
 }
 
 constexpr uint32_t kText = 0xC4745838;              // checksum of "text"
@@ -173,7 +174,7 @@ bool ObjectExists(Script::CStruct* params)
 }
 void RunScriptWith(uint32_t script, Script::CStruct* params)
 {
-    GameFunction<void(__cdecl*)(uint32_t, Script::CStruct*, int, int, int)>(0x00475790)(script, params, 0, 0, 0);
+    Script::RunScript(script, params, nullptr, false, nullptr);
 }
 
 } // namespace

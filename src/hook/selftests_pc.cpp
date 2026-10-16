@@ -14,6 +14,7 @@
 #include <cstring>
 #include <vector>
 
+#include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/gfx/flash.h"
 #include "game/core/dbg.h"
@@ -1023,7 +1024,8 @@ void TestPlayNextTrack()
     add(JumpBoth(0x00453250, nullptr, reinterpret_cast<const void*>(&PlStreamStateResult)));
     add(JumpBoth(0x00451400, nullptr, reinterpret_cast<const void*>(&PlVolume)));
     add(JumpBoth(0x004520D0, nullptr, reinterpret_cast<const void*>(&PlPlayTrack)));
-    add(JumpBoth(0x00475790, nullptr, reinterpret_cast<const void*>(&PlRunScript)));
+    add(JumpBoth(0x00475790, CodeAddress(static_cast<void (*)(uint32_t, Script::CStruct*, Obj::CObject*, bool, const char*)>(&Script::RunScript)),
+                 reinterpret_cast<const void*>(&PlRunScript)));
     add(JumpBoth(0x00478F60, CodeAddress(static_cast<int (*)(uint32_t)>(&Script::GetInteger)), reinterpret_cast<const void*>(&PlGetInteger)));
     add(JumpBoth(0x00409030, CodeAddress(&Script::NewStruct), reinterpret_cast<const void*>(&PlNewStruct)));
     add(JumpBoth(0x00476410, CodeAddress(&Script::CStruct::Init), reinterpret_cast<const void*>(&PlStructInit)));

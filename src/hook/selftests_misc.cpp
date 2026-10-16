@@ -26,6 +26,7 @@
 #include "game/mth/random.h"
 #include "game/net/service.h"
 #include "game/script/cache.h"
+#include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/sio/device.h"
 #include "game/sys/main.h"
@@ -114,11 +115,11 @@ void TestServiceTask()
             Record({0x713E});
             return g_now;
         });
-        s->At({0x00475790}, 0, [](Regs& r) {
+        s->At({0x00475790, AddressOf(static_cast<void (*)(uint32_t, Script::CStruct*, Obj::CObject*, bool, const char*)>(&Script::RunScript))}, 0, [](Regs& r) {
             Record({0x5C41, r.args[0], StructId(r.args[1]), r.args[2], r.args[3], r.args[4]});
             return 0u;
         });
-        s->At({0x00475420}, 0, [](Regs& r) {
+        s->At({0x00475420, AddressOf(static_cast<Script::CScript* (*)(uint32_t, Script::CStruct*, uint32_t, Script::CStruct*, int, uint32_t, bool, bool, bool, bool)>(&Script::SpawnScript))}, 0, [](Regs& r) {
             Record({0x5BA1, r.args[0], StructId(r.args[1])});
             for (int i = 2; i < 10; ++i)
                 Record({r.args[i]});
@@ -382,7 +383,7 @@ void TestLoadFromMemoryCard()
             Record({0xA99E, id(r.ecx), id(r.args[0])});
             return 0u;
         });
-        s->At({0x00475790}, 0, [=](Regs& r) {
+        s->At({0x00475790, AddressOf(static_cast<void (*)(uint32_t, Script::CStruct*, Obj::CObject*, bool, const char*)>(&Script::RunScript))}, 0, [=](Regs& r) {
             Record({0x5C41, r.args[0], id(r.args[1]), r.args[2], r.args[3], r.args[4]});
             return 0u;
         });

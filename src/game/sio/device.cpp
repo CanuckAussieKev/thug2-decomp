@@ -20,6 +20,7 @@
 #include "game/core/mem.h"
 #include "game/core/stubs.h"
 #include "game/lst/search.h"
+#include "game/script/cscript.h"
 #include "game/sio/sdl_input.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -462,8 +463,7 @@ void SpecialKeyInput(int key, int flags)
     if (flags < 0)
         return;
     if (serverList && key == VK_F5) {
-        GameFunction<void(__cdecl*)(const char*, void*, void*, void*)>(0x004758F0)("refresh_chosen", nullptr, nullptr,
-                                                                                 nullptr);
+        Script::RunScript("refresh_chosen", nullptr, nullptr, false);
         return;
     }
     int queued = 0;

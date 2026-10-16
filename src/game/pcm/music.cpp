@@ -11,6 +11,7 @@
 
 #include "game/core/dbg.h"
 #include "game/mth/random.h"
+#include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -84,7 +85,7 @@ void StartTrack(Playlist& list, int track)
     Script::CStruct* params = Script::NewStruct();
     params = params ? params->Init() : nullptr;
     params->AddInteger(0x8D02705Du, CurrentTrack());
-    GameFunction<void(__cdecl*)(uint32_t, Script::CStruct*, int, int, int)>(0x00475790)(0x300CAD34u, params, 0, 0, 0);
+    Script::RunScript(0x300CAD34u, params, nullptr, false, nullptr);
     if (params) {
         params->Clear();
         Script::DeleteStruct(params);
