@@ -7,7 +7,7 @@ built in (and the original's logic kept visible in a comment), so its run-time p
 `tools/ghidra/partymod_patches.py <snapshot>` lists them; `python -I tools/check_partymod_overlap.py` fails
 on any PartyMod patch inside a rewritten function its HANDLED list doesn't account for.
 
-Done (15 of 48): LoadQB; Sio::Device::Process, ActivateActuator; batch 54 (platform): SetActuators,
+Done (18 of 48): batch 57 (skater): 0x51F4C0, 0x527510, 0x527600; LoadQB; Sio::Device::Process, ActivateActuator; batch 54 (platform): SetActuators,
 ProcessWindowEvents, InitInput 0x5F44F0, GetMemCardSpaceAvailable; batch 55 (gfx): SetScreenAspectRatio,
 GetScreenAngleFactor, SetScreenBlur, SetLetterbox, CFunc_SetScreenBlur; batch 56 (glyph): LoadFont 0x48D7E0,
 CFunc_LoadFont, UpdateLoadingBarColors 0x4B6B80. The parallel worktrees are merged and removed.
@@ -16,7 +16,7 @@ Still to do (batches 54-56's records have notes - disassembly read, conventions,
 - graphics: 0x4B2D80, 0x4B9030, 0x4DB200 (far plane 32000 -> 96000), 0x4DF390, 0x44FA80 (movies)
 - menus/text: 0x4CFD00 (SText::Draw), 0x4CECB0 (SFont::QueryString), 0x4D8650 (D3D init)
 - skater controls (PS2-style triggers, spin delay; depend on PartyMod settings): 0x50CA00, 0x509BD0,
-  0x4FCBA0, 0x504060, 0x507120, 0x51F4C0, 0x527510, 0x527600, 0x5334D0
+  0x4FCBA0, 0x504060, 0x507120, 0x5334D0
 - platform/misc: 0x44FDC0 (movie skip), 0x452200 (playlist shuffle - Ghidra shows it inside 0x452910),
   0x4E1EF0 (fast exit), 0x5A8730, 0x545880, 0x54DCB0
 - WinMain 0x4E2680 and MainLoop 0x44EEF0: both host the test runner's hooks (src/hook/selftest_runner.cpp;

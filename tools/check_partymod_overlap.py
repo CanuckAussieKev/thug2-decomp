@@ -30,11 +30,18 @@ for path in glob.glob("src/**/*.cpp", recursive=True):
     for m in re.finditer(r"REPLACE(?:_SHADOW|_UNCHECKED)?\(0x([0-9A-Fa-f]{8})", open(path, encoding="utf-8").read()):
         replaced.add(int(m.group(1), 16))
 
-overlaps = sorted((p, r) for p in patches for r in replaced if r <= p < r + WINDOW)
+# Patches inside the 16-byte window that are known to be past the instructions MinHook copies (checked by hand).
+PAST_TRAMPOLINE = {
+    0x0051F4C8: "0x0051F4C0's hook copies 6 bytes (PUSH ECX; MOV EAX,[0x007CEFA8])",
+}
+overlaps = sorted((p, r) for p in patches for r in replaced if r <= p < r + WINDOW and p not in PAST_TRAMPOLINE)
 
 # A patch anywhere inside a rewritten function is bypassed by our version (the game runs ours, not the patched
 # original), so our source must do what the patch does. Each such patch is listed here with how it's done.
 HANDLED = {
+    0x0051F4C8: "Skater::Component::PlatformStructure compares with 5 instead of 7 under PS2 controls",
+    0x00527546: "Skater::Component::TryWalkAcidDrop skips the +0xC0 button under PS2 controls",
+    0x00527636: "Skater::Component::TryAcidDrop skips the +0xC0 button under PS2 controls",
     0x0046EE80: "Script::LoadQB loads through PartyMod's pipLoadWrapper (its script patches)",
     0x0048C170: "Nx::CFunc_SetScreenBlur (source only): PartyMod's restoreBlur rewrites the bytes already there",
     0x0048C171: "(the same five bytes)",

@@ -805,6 +805,23 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
             Windowed = 1 when its `isWindowed` (0x4D8720), table slot 3 = its `resX`/`resY` (0x4D8776/0x4D8792).
             Testable offline with a stand-in IDirect3D9 (detour the 0x5BEB14 thunk) and IAT stand-ins.
 
+- [x] Batch 57 (PartyMod round; NOT run in the game yet): three small skater control functions, with PartyMod's
+      PS2 controls (partymod.ini; `inputsettings.isPs2Controls`, read through Skater::Ps2Controls) built in
+      (new src/game/skater/controls.*). Skater::Component::PlatformStructure 0x51F4C0 (thiscall, `this`
+      unused: the structure for this platform from a control script's parameters - "xbox" 0xCE42EE1A on
+      platform 7 (PC), 0xCB0E600C on platform 5, else 0xE594F0A2 asserted; PartyMod's byte at 0x51F4C8 turns
+      the 7 into a 5, so PC skips the Xbox one). TryWalkAcidDrop 0x527510 / TryAcidDrop 0x527600 (bool: two
+      held buttons, input +0xC0 and +0x120 - PartyMod NOPs the first check, nollie, at 0x527546 / 0x527636;
+      the physics' acid drop search 0x502240 fills the velocity; then the trick name 0x427CD0, or (on foot,
+      0x527600) a sound 0x434BF0 and a state call 0x5260E0; velocity y 0, mode 2, state 0x2EDA83EA). The skater
+      component's fields are reached by offset (layout unknown beyond them). check_partymod_overlap.py: the
+      three patches are HANDLED; 0x51F4C8 sits inside the 16-byte window but past the 6 bytes MinHook copies,
+      listed in its new PAST_TRAMPOLINE exceptions. Early tests: the platform lookup over stand-in parameter
+      structures (each of the three present or not) x platforms 5/7/1 x PS2 controls off/on; the acid drops
+      over 128 combinations of the stopping flags, buttons, a found drop, on foot or not, x off/on, with the
+      five callees redirected to recording stand-ins - the original run with PartyMod's bytes written in for
+      "on". 15 deliberate bugs caught (3 after fixing the test's stand-in components: the type is byte 0,
+      shifted left one).
 - [ ] Next: the pre-compiled .qb format (0x46FBA0, 0x46CA50, 0x46C970, 0x46C830, 0x46C7F0, ...), the script
       cache (0x475FD0 ...), then CScript (0x472900.. / 0x473000..).
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function

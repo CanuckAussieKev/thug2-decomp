@@ -82,6 +82,7 @@ add_library(thug2_code OBJECT
     src/hook/selftest_runner.cpp
     src/hook/selftests_gfx.cpp
     src/hook/selftests_platform.cpp
+    src/hook/selftests_skater.cpp
     src/hook/selftests_glyph.cpp
     src/game/core/alloc.cpp
     src/game/core/crc.cpp
@@ -107,6 +108,7 @@ add_library(thug2_code OBJECT
     src/game/net/chat.cpp
     src/game/obj/smtptr.cpp
     src/game/sio/device.cpp
+    src/game/skater/controls.cpp
     src/game/sys/platform.cpp
     src/game/sys/registry.cpp
     src/game/sys/timer.cpp
