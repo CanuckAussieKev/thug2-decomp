@@ -4,6 +4,7 @@
 
 #include <cmath>
 
+#include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "game/script/struct.h"
 #include "game/skater/controls.h"
@@ -22,6 +23,7 @@ T& At(void* object, uint32_t offset)
 
 // The component's fields (offsets).
 constexpr uint32_t kObject = 0xC;            // the skater's object (below)
+constexpr uint32_t kDisplayMatrix = 0x18;    // (a copy of the object's matrix)
 constexpr uint32_t kGroundNormal = 0x68;     // (a vector the wall check turns the facing into)
 constexpr uint32_t kFeeler = 0xA8;           // a collision feeler (its result is copied below)
 constexpr uint32_t kSurfaceFlags = 0xFA;     // (a byte passed on when landing)
@@ -32,16 +34,20 @@ constexpr uint32_t kFeelerStart = 0x208;     // the feeler's line
 constexpr uint32_t kFeelerEnd = 0x218;
 constexpr uint32_t kHitSkatable = 0x228;     // (set by the feeler check 0x005003A0)
 constexpr uint32_t kHitFlag = 0x229;         // (likewise)
+constexpr uint32_t kWallNormal = 0x278;      // riding a wall: its normal (+0x268: the point, +0x26C its height)
 constexpr uint32_t kInput = 0x150C;          // the pad: a button every 0x20 bytes (pressed, then times)
 constexpr uint32_t kTriggerComponent = 0x1510;
 constexpr uint32_t kOtherComponent = 0x1514; // (+0x1C, +0x1D: bytes set on landing)
 constexpr uint32_t kSkaterComponent = 0x1518;
+constexpr uint32_t kOtherFlags = 0x151C;     // (+0x28, +0x50: bools)
 constexpr uint32_t kTimedFlags = 0x1528;     // bools, each followed by the time it last changed
+constexpr uint32_t kRide = 0x152C;           // +0x18: what the skater rides on (+0x5C: how far it moved)
 constexpr uint32_t kTriggerState = 0x1530;   // +0x26: a trigger's script took over
 
 // The object's fields.
 constexpr uint32_t kPosition = 0x4C;
 constexpr uint32_t kOldPosition = 0x5C;
+constexpr uint32_t kMatrix = 0x6C;
 constexpr uint32_t kUp = 0x7C;      // the matrix's rows (at +0x6C): up, then the facing
 constexpr uint32_t kFacing = 0x8C;
 constexpr uint32_t kVelocity = 0xAC;
@@ -302,7 +308,359 @@ void CorePhysicsComponent::CheckForGround()
         At<void*>(this, kTriggerComponent), reinterpret_cast<const void*>(0x0064BB80), &At<uint8_t>(this, kOtherFeeler));
 }
 
+namespace {
+
+void CallThis(uint32_t address, void* object) { GameFunction<void(__thiscall*)(void*)>(address)(object); }
+uint8_t& Flag(void* component, uint32_t offset) { return At<uint8_t>(At<void*>(component, kTimedFlags), offset); }
+void* ObjectOf(void* component) { return At<void*>(component, kObject); }
+
+} // namespace
+
+// 0x0050CA00
+void CorePhysicsComponent::DoAirPhysics()
+{
+    uint8_t* input = At<uint8_t*>(this, kInput);
+    float gravity = GameFunction<float(__thiscall*)(void*)>(0x004FF470)(this);
+    SetTimedFlag(At<void*>(this, kTimedFlags), 0x40, 0);
+    void* flags = At<void*>(this, kTimedFlags);
+    if (At<uint8_t>(flags, 0x30) || At<uint8_t>(flags, 0x78) || At<uint8_t>(flags, 0xA8) || At<uint8_t>(flags, 0x70))
+        SetTimedFlag(flags, 0xB0, 1);
+    At<uint8_t>(this, 0x2EC) = 0;
+    CallThis(0x00504910, this);
+    CallThis(0x004FFB90, this);
+    Spin();
+    CallThis(0x00504A60, this);
+    // (The original: flag +0x80 or both triggers. PartyMod's JZ -> JNZ at 0x0050CAC4 makes it either trigger.)
+    if (Flag(this, 0x80) || TriggersHeld(input))
+        CallThis(0x00504B40, this);
+    {
+        uint8_t* other = At<uint8_t*>(this, kOtherFlags);
+        if (!Flag(this, 0x30) && !Flag(this, 0x78) && !other[0x28] && !other[0x50])
+            CallThis(0x00504DF0, this);
+    }
+    if (At<float>(this, 0x320) != 0.0f)
+        CallThis(0x004FE730, this);
+
+    Mth::Vector velocity = VectorAt(ObjectOf(this), kVelocity);
+    int& countdown = At<int>(this, 0x14CC);
+    if (countdown > 0) {
+        --countdown;
+        if (GameFunction<bool(__thiscall*)(void*, int, int, int)>(0x00507500)(this, 1, 0, 0))
+            countdown = 0;
+        else if (countdown == 0)
+            VectorAt(ObjectOf(this), kFacing).RotateToPlane(VectorAt(this, 0x14F0));
+    }
+    flags = At<void*>(this, kTimedFlags);
+    if (At<uint8_t>(flags, 0x78)) {
+        if (velocity.y < 0.0f && VectorAt(ObjectOf(this), kPosition).y < At<float>(this, 0x37C))
+            GameFunction<void(__thiscall*)(void*, float)>(0x0042BBF0)(&At<uint8_t>(flags, 0xE4), 0.1f);
+        else
+            velocity += VectorAt(flags, 0xE4);
+    }
+
+    // What the skater rides on (+0x152C's +0x18, if it's still under the skater) carries it along.
+    Mth::Vector carried = {0.0f, 0.0f, 0.0f, 1.0f};
+    {
+        void* ride = At<void*>(this, kRide);
+        uint32_t* rider = At<uint32_t*>(ride, 0x18);
+        void* object = ObjectOf(this);
+        if (rider) {
+            if (*rider == 0)
+                CallThis(0x00427C70, ride);
+            else if (!GameFunction<bool(__thiscall*)(void*, void*)>(0x00416F00)(rider, &VectorAt(object, kPosition)))
+                CallThis(0x00427C70, ride);
+            else if (!Flag(this, 0x78) || At<uint8_t>(this, 0x14C0))
+                carried = VectorAt(At<void*>(At<void*>(this, kRide), 0x18), 0x5C);
+        }
+    }
+
+    // Move: position += velocity * t + (0, gravity, 0, 1) * t * t / 2, then the carried offset; velocity +=
+    // (0, gravity, 0, 1) * t. (Rounded as the original: x's velocity product and the z, w sums stay unrounded.)
+    {
+        float t = At<float>(this, 0x8C);
+        double half = static_cast<double>(t) * t * 0.5f;
+        float zeroHalf = static_cast<float>(0.0 * half);
+        float halfGravity = static_cast<float>(half * gravity);
+        float halfFloat = static_cast<float>(half);
+        float ty = t * velocity.y, tz = t * velocity.z, tw = t * velocity.w;
+        float sx = static_cast<float>(static_cast<double>(velocity.x) * t + zeroHalf);
+        float sy = ty + halfGravity;
+        double sz = 0.0 * half + tz;
+        double sw = static_cast<double>(tw) + halfFloat;
+        Mth::Vector& position = VectorAt(ObjectOf(this), kPosition);
+        position.x = sx + position.x;
+        position.y = sy + position.y;
+        position.z = static_cast<float>(sz + position.z);
+        position.w = static_cast<float>(sw + position.w);
+        VectorAt(ObjectOf(this), kPosition) += carried;
+
+        float tt = At<float>(this, 0x8C);
+        float zero = 0.0f * tt;
+        float fall = tt * gravity;
+        Mth::Vector& v = VectorAt(ObjectOf(this), kVelocity);
+        v.x += zero;
+        v.y += fall;
+        v.z += zero;
+        v.w += tt;
+    }
+
+    void* object = ObjectOf(this);
+    flags = At<void*>(this, kTimedFlags);
+    auto feel = GameFunction<bool(__thiscall*)(void*, uint32_t, uint32_t)>(0x005003A0);
+    if (At<uint8_t>(flags, 0x48)) {
+        if (At<uint8_t>(flags, 0x38) && At<uint8_t>(flags, 0x30)) {
+            // On a wall: a feeler from the skater's up (+1) to 23 below; off it, break out of vert.
+            const Mth::Vector& up = VectorAt(object, kUp);
+            const Mth::Vector& position = VectorAt(object, kPosition);
+            Mth::Vector& start = VectorAt(this, kFeelerStart);
+            Mth::Vector& end = VectorAt(this, kFeelerEnd);
+            float x = up.x + position.x, y = up.y + position.y, z = up.z + position.z, w = up.w + position.w;
+            start.z = z, start.w = w, start.x = x, start.y = y;
+            float ey = up.y * -23.0f, ez = up.z * -23.0f, ew = up.w * -23.0f;
+            x = static_cast<float>(static_cast<double>(up.x) * -23.0f + position.x);
+            y = ey + position.y, z = ez + position.z, w = ew + position.w;
+            end.z = z, end.w = w, end.x = x, end.y = y;
+            if (!feel(this, 0x10, 0)) {
+                BreakVert(false);
+                int wait = Script::GetInteger(0x6BB5B751);
+                if (TimeSinceRelease(input + kButton20) > wait && TimeSincePress(input + kButton20) > wait)
+                    SetTimedFlag(At<void*>(this, kTimedFlags), 0x48, 0);
+            }
+        }
+        uint32_t stamp = At<uint32_t>(At<void*>(this, kTimedFlags), 0x4C);
+        uint32_t now = static_cast<uint32_t>(GameFunction<int(__cdecl*)()>(0x0044ECE0)());
+        int elapsed = static_cast<int>(now + (static_cast<uint32_t>(GameVariable<int>(0x00696D60)) - stamp));
+        if (elapsed > Script::GetInteger(0x26495947))
+            SetTimedFlag(At<void*>(this, kTimedFlags), 0x48, 0);
+    } else if (At<uint8_t>(flags, 0x30)) {
+        // (The original: both triggers. PartyMod's JZ -> JNZ at 0x0050CF89 makes it either.)
+        if ((TriggersHeld(input) || At<uint8_t>(this, 0x2D0)) && !At<uint8_t>(flags, 0x78) &&
+            VectorAt(object, kVelocity).y > 0.0f)
+            BreakVert(false);
+    }
+
+    // Along a wall (+0x278: its normal; +0x26C: the height so far): a feeler across it, stepped down until it
+    // hits.
+    bool riding = false;
+    {
+        void* ride = At<void*>(this, kRide);
+        uint32_t* rider = At<uint32_t*>(ride, 0x18);
+        if (rider && *rider)
+            riding = true;
+        else if (rider)
+            CallThis(0x00427C70, ride);
+    }
+    if (!riding && Flag(this, 0x38) && Flag(this, 0x30)) {
+        Mth::Vector& start = VectorAt(this, kFeelerStart);
+        Mth::Vector& end = VectorAt(this, kFeelerEnd);
+        start.x = VectorAt(ObjectOf(this), kPosition).x;
+        start.y = At<float>(this, 0x26C);
+        start.z = VectorAt(ObjectOf(this), kPosition).z;
+        end = start;
+        const Mth::Vector& wall = VectorAt(this, kWallNormal);
+        float wz = wall.z * 30.0f, ww = wall.w * 30.0f;
+        start.x = static_cast<float>(static_cast<double>(wall.x) * 30.0f + start.x);
+        start.y = static_cast<float>(static_cast<double>(wall.y) * 30.0f + start.y);
+        start.z = wz + start.z;
+        start.w = ww + start.w;
+        end.x = static_cast<float>(end.x - static_cast<double>(wall.x) * 30.0f);
+        end.y = static_cast<float>(end.y - static_cast<double>(wall.y) * 30.0f);
+        end.z -= wz;
+        end.w -= ww;
+        float& step = At<float>(this, 0x298);
+        bool found = false;
+        if (step > 0.5f) {
+            start.y = step + start.y;
+            end.y = end.y + step;
+            if (feel(this, 0, 8)) {
+                found = true;
+            } else {
+                start.y -= step;
+                end.y -= step;
+                step *= 0.5f;
+            }
+        }
+        if (!found && feel(this, 0, 8))
+            found = true;
+        for (int i = 0; !found && i < 10; ++i) {
+            start.y -= 3.0f;
+            end.y -= 3.0f;
+            if (feel(this, 0, 8)) {
+                At<float>(this, 0x26C) = VectorAt(this, kHitPoint).y;
+                found = true;
+            }
+        }
+        const Mth::Vector& point = VectorAt(this, kHitPoint);
+        const Mth::Vector& normal = VectorAt(this, kHitNormal);
+        if (found && std::sqrt(std::fabs(static_cast<double>(wall.z) * normal.z + static_cast<double>(wall.x) * normal.x)) >
+                         0.02f) {
+            // Still along the wall: stay on it (not below the height so far); its normal is the new wall normal,
+            // and the skater is pushed off it by a script value.
+            float height = point.y < At<float>(this, 0x26C) ? At<float>(this, 0x26C) : point.y;
+            float hz = point.z, hw = point.w;
+            At<float>(this, 0x268) = point.x;
+            At<float>(this, 0x274) = hw;
+            At<float>(this, 0x26C) = height;
+            At<float>(this, 0x270) = hz;
+            VectorAt(ObjectOf(this), kPosition).x = point.x;
+            VectorAt(ObjectOf(this), kPosition).z = hz;
+            Mth::Vector& newWall = VectorAt(this, kWallNormal);
+            newWall = normal;
+            float push = Script::GetFloat(0x78384871);
+            Mth::Vector& position = VectorAt(ObjectOf(this), kPosition);
+            float py = push * newWall.y, pz = push * newWall.z, pw = push * newWall.w;
+            position.x = static_cast<float>(static_cast<double>(push) * newWall.x + position.x);
+            position.y += py;
+            position.z += pz;
+            position.w += pw;
+            Mth::Vector flat = {newWall.x, 0.0f, newWall.z, newWall.w};
+            flat.Normalize();
+            GameFunction<void(__thiscall*)(void*, Mth::Vector)>(0x004FE860)(this, flat);
+            VectorAt(ObjectOf(this), kVelocity).RotateToPlane(flat);
+        } else {
+            SetTimedFlag(At<void*>(this, kTimedFlags), 0x38, 0);
+        }
+    }
+
+    {
+        uint8_t* other = At<uint8_t*>(this, kOtherFlags);
+        if (!Flag(this, 0x30) || Flag(this, 0x78) || At<uint8_t>(this, 0x2DB) || other[0x28] || other[0x50])
+            At<Mth::Matrix>(this, kDisplayMatrix) = At<Mth::Matrix>(ObjectOf(this), kMatrix);
+        else
+            CallThis(0x004FEA50, this);
+    }
+
+    // Landing: a feeler from the last position (carried along) to the new one.
+    auto lastPosition = [&] { return carried + VectorAt(ObjectOf(this), kOldPosition); };
+    Mth::Vector from = lastPosition();
+    bool stopped = GameFunction<bool(__thiscall*)(void*, Mth::Vector*)>(0x00508780)(this, &from);
+    int state = At<int>(At<void*>(this, kTimedFlags), 0x18);
+    if (state == 2 || state == 5)
+        return;
+    VectorAt(this, kFeelerStart) = lastPosition();
+    VectorAt(this, kFeelerEnd) = VectorAt(ObjectOf(this), kPosition);
+    if (!stopped && feel(this, 0x10, 0)) {
+        bool steep = VectorAt(this, kHitNormal).y < 0.1f;
+        from = lastPosition();
+        // (Not yet, while something above says so - fast or steep, and the ride's timer past 500.)
+        bool notYet = GameFunction<bool(__thiscall*)(void*, Mth::Vector*)>(0x004FFDB0)(this, &from) &&
+                      (VectorAt(ObjectOf(this), kVelocity).y > 10.0f || steep) &&
+                      GameFunction<uint32_t(__thiscall*)(void*)>(0x004FC400)(At<void*>(this, kRide)) > 500;
+        if (!notYet) {
+            Mth::Vector normal = VectorAt(this, kHitNormal);
+            VectorAt(ObjectOf(this), kPosition) = VectorAt(this, kHitPoint);
+            VectorAt(ObjectOf(this), kPosition) += normal;
+            if (At<uint8_t>(this, kHitSkatable)) {
+                LandFromAir();
+                return;
+            }
+            // Not something to land on: turn along it and push off it.
+            VectorAt(ObjectOf(this), kVelocity).RotateToPlane(normal);
+            VectorAt(ObjectOf(this), kFacing).RotateToPlane(normal);
+            At<Mth::Matrix>(ObjectOf(this), kMatrix).OrthoNormalizeAbout(2);
+            At<Mth::Matrix>(this, kDisplayMatrix) = At<Mth::Matrix>(ObjectOf(this), kMatrix);
+            float push = PhysicsFloat(0x23410C14, object);
+            VectorAt(ObjectOf(this), kPosition) += normal * push;
+            SetTimedFlag(At<void*>(this, kTimedFlags), 0xB0, 1);
+        }
+    } else if (!Flag(this, 0x30)) {
+        CallThis(0x0050C930, this);
+    }
+
+    if (GameFunction<bool(__thiscall*)(void*)>(0x00504EE0)(this))
+        SetTimedFlag(At<void*>(this, kTimedFlags), 0xB0, 1);
+    CallThis(0x004FFB10, this);
+    CallThis(0x00503710, this);
+    if (Flag(this, 0xB0))
+        return;
+    // An acid drop: both triggers (the original; PartyMod's JZ -> JNZ at 0x0050DA64 makes it either).
+    if (!TriggersHeld(input))
+        return;
+    bool recent = false;
+    if (At<uint32_t>(this, 0x380) > At<uint32_t>(this, 0x4EC))
+        recent = GameFunction<uint32_t(__cdecl*)(uint32_t)>(0x00420250)(At<uint32_t>(this, 0x380)) < 0xFA;
+    uint8_t drop[40];
+    void* o = ObjectOf(this);
+    if (GameFunction<bool(__thiscall*)(void*, int, void*, void*, void*, void*)>(0x00502240)(
+            this, recent, &VectorAt(o, kPosition), &VectorAt(o, kOldPosition), &VectorAt(o, kVelocity), drop))
+        GameFunction<void(__thiscall*)(void*, void*)>(0x00502F20)(this, drop);
+}
+
+// (Part of 0x0050CA00: landing on something skatable.)
+void CorePhysicsComponent::LandFromAir()
+{
+    GameFunction<void(__thiscall*)(void*, int)>(0x004FDED0)(this, 0);
+    CallThis(0x005021D0, this);
+    void* flags = At<void*>(this, kTimedFlags);
+    if (At<uint8_t>(flags, 0x30) || At<uint8_t>(flags, 0x78)) {
+        At<uint8_t>(this, 0x373) = 1;
+        At<uint8_t>(this, 0x374) = 1;
+    } else {
+        At<uint8_t>(this, 0x374) = 0;
+    }
+    At<uint8_t>(this, 0x372) = At<uint8_t>(flags, 0x78);
+    GameFunction<void(__thiscall*)(void*, uint32_t)>(0x004FC470)(this, At<uint8_t>(this, kSurfaceFlags));
+    if (!At<uint8_t>(this, 0x2ED)) {
+        uint32_t which = Flag(this, 0xE1);
+        void* object = ObjectOf(this);
+        float speed = VectorAt(object, kVelocity).Length();
+        float scale = GameFunction<float(__thiscall*)(void*, uint32_t)>(0x00580790)(object, 0xCC5F87AA);
+        GameFunction<void(__thiscall*)(void*, float, uint32_t)>(0x00518CF0)(At<void*>(this, kOtherComponent),
+                                                                          speed / scale, which);
+    }
+    void* skater = At<void*>(this, kSkaterComponent);
+    if (!At<uint8_t>(skater, 0x13B0))
+        GameFunction<void(__thiscall*)(void*, bool)>(0x005232A0)(skater, false);
+    GameFunction<void(__thiscall*)(void*, void*)>(0x00506BA0)(this, &At<uint8_t>(this, kFeeler));
+    GameFunction<void(__thiscall*)(void*, const void*, void*)>(0x00434BF0)(
+        At<void*>(this, kTriggerComponent), reinterpret_cast<const void*>(0x0064BB98), &At<uint8_t>(this, kOtherFeeler));
+    if (!At<uint8_t>(At<uint8_t*>(this, kTriggerState), 0x26)) {
+        const Mth::Vector& normal = VectorAt(this, kHitNormal);
+        Mth::Vector& velocity = VectorAt(ObjectOf(this), kVelocity);
+        uint8_t* input = At<uint8_t*>(this, kInput);
+        if (!At<uint8_t>(this, 0x374) && !At<uint8_t>(this, 0x373) && velocity.x == 0.0f && velocity.z == 0.0f &&
+            input[kButton40]) {
+            // (Landing straight down with button +0x40 held: no bounce.)
+            At<uint32_t>(&velocity, 4) = 0;
+        } else {
+            if (!Flag(this, 0x78)) {
+                velocity.ProjectToPlane(normal);
+            } else {
+                // Landing from a wall ride: along +0x490's direction in the ground's plane, unless that turns
+                // the skater upwards (0x004FF590) - then the old velocity in the plane; at least a script speed.
+                Mth::Vector saved = velocity;
+                velocity.SetDirection(VectorAt(this, 0x490));
+                velocity.RotateToPlane(normal);
+                Mth::Vector& v = VectorAt(ObjectOf(this), kVelocity);
+                Mth::Vector probe = v;
+                GameFunction<void(__thiscall*)(void*, Mth::Vector*)>(0x004FF590)(this, &probe);
+                if (probe.y > 0.0f) {
+                    v = saved;
+                    VectorAt(ObjectOf(this), kVelocity).ProjectToPlane(normal);
+                }
+                float least = Script::GetFloat(0x59484878);
+                if (static_cast<double>(least) * least > VectorAt(ObjectOf(this), kVelocity).LengthSqr())
+                    GameFunction<void(__thiscall*)(void*, float)>(0x0042BBF0)(&VectorAt(ObjectOf(this), kVelocity),
+                                                                            Script::GetFloat(0x59484878));
+            }
+            GameFunction<void(__thiscall*)(void*, float)>(0x004FC370)(&VectorAt(ObjectOf(this), kVelocity), 10.0f);
+        }
+        SetTimedFlag(At<void*>(this, kTimedFlags), 0x30, 0);
+        At<uint8_t>(this, 0x2D0) = 0;
+        Mth::Vector& ground = VectorAt(this, 0x58);
+        ground = normal;
+        VectorAt(this, kGroundNormal) = ground;
+        VectorAt(this, 0x78) = ground;
+        CallThis(0x005009C0, this);
+        VectorAt(ObjectOf(this), kUp) = ground;
+        At<Mth::Matrix>(ObjectOf(this), kMatrix).OrthoNormalizeAbout(1);
+        At<Mth::Matrix>(this, kDisplayMatrix) = At<Mth::Matrix>(ObjectOf(this), kMatrix);
+    }
+    GameFunction<void(__thiscall*)(void*, uint32_t, int)>(0x004609F0)(ObjectOf(this), 0x532B16EF, 0);
+}
+
 } // namespace Skater
 
 REPLACE(0x004FCBA0, &Skater::CorePhysicsComponent::LipPushOff);
 REPLACE(0x00509BD0, &Skater::CorePhysicsComponent::CheckForGround);
+REPLACE(0x0050CA00, &Skater::CorePhysicsComponent::DoAirPhysics);

@@ -8,6 +8,7 @@
 #include <cstring>
 #include <vector>
 
+#include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "game/script/struct.h"
 #include "game/skater/core_physics.h"
@@ -96,7 +97,7 @@ float PickFloat()
 }
 int PickInt()
 {
-    static const int values[] = {-100, 0, 0, 50, 150, 300, 1000, 1};
+    static const int values[] = {-100, 0, 0, 50, 150, 300, 1000, 1, 500, 250};
     return values[Next() % (sizeof(values) / sizeof(values[0]))];
 }
 // A random float in [-range, range], a few bits only (so sums and products stay exact-ish but varied).
@@ -494,7 +495,202 @@ void TestCheckForGround()
     Check(same && deep >= 300, "skater: CheckForGround (PS2 controls off and on)");
 }
 
+// The air update's vector and matrix code: the original pointed at ours (see OurVectorCode).
+struct OurAirVectorCode {
+    CodePatch rotate{0x004060F0, JumpTo(0x004060F0, CodeAddress(&Mth::Vector::RotateToPlane))};
+    CodePatch project{0x00406080, JumpTo(0x00406080, CodeAddress(&Mth::Vector::ProjectToPlane))};
+    CodePatch direction{0x004061A0, JumpTo(0x004061A0, CodeAddress(&Mth::Vector::SetDirection))};
+    CodePatch normalize{0x004023F0, JumpTo(0x004023F0, CodeAddress(&Mth::Vector::Normalize))};
+    CodePatch length{0x004023C0, JumpTo(0x004023C0, CodeAddress(&Mth::Vector::Length))};
+    CodePatch lengthSqr{0x004023A0, JumpTo(0x004023A0, CodeAddress(&Mth::Vector::LengthSqr))};
+    CodePatch ortho{0x00405170, JumpTo(0x00405170, CodeAddress(&Mth::Matrix::OrthoNormalizeAbout))};
+};
+
+// PartyMod's PS2-controls bytes in the air update, while `on`.
+struct PartyModAirBytes {
+    std::vector<CodePatch*> patches;
+    explicit PartyModAirBytes(bool on)
+    {
+        if (!on)
+            return;
+        patches.push_back(new CodePatch(0x0050CAC4, {0x75, 0x0A})); // air recovery
+        patches.push_back(new CodePatch(0x0050CF89, {0x75, 0x14})); // in air
+        patches.push_back(new CodePatch(0x0050DA64, {0x75, 0x0A})); // acid drop
+    }
+    ~PartyModAirBytes()
+    {
+        for (CodePatch* p : patches)
+            delete p;
+    }
+};
+
+std::vector<StandIn> AirStandIns()
+{
+    return {
+        {0x00580400, 0, 3, Ret::Float, false, 0, -1, -1, 0},  // PhysicsFloat
+        {0x004FF470, 0, 0, Ret::Float, true, 0, -1, -1, 0},   // (gravity)
+        {0x0044ECE0, 0, 0, Ret::Int, false, 0, -1, -1, 0},    // the clock
+        {0x0046B920, 0, 0, Ret::Int, true, 0, -1, -1, 0},     // TimeSincePress
+        {0x0046B900, 0, 0, Ret::Int, true, 0, -1, -1, 0},     // TimeSinceRelease
+        {0x00504910, 0, 0, Ret::None, true, 0, -1, -1, 0},
+        {0x004FFB90, 0, 0, Ret::None, true, 0, -1, -1, 0},
+        {0x00504060, 0, 0, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::Spin)},
+        {0x00504A60, 0, 0, Ret::None, true, 0, -1, -1, 0},
+        {0x00504B40, 0, 0, Ret::None, true, 0, -1, -1, 0},
+        {0x00504DF0, 0, 0, Ret::None, true, 0, -1, -1, 0},
+        {0x004FE730, 0, 0, Ret::None, true, 0, -1, -1, 0},
+        {0x00507500, 12, 3, Ret::Bool, true, 0, -1, -1, 0},
+        {0x0042BBF0, 4, 1, Ret::None, true, 0, -1, -1, 0},     // (a vector's length, it seems)
+        {0x00427C70, 0, 0, Ret::None, true, 0, -1, -1, 0},
+        {0x00416F00, 4, 1, Ret::Bool, true, 0, -1, -1, 0},
+        {0x005003A0, 8, 2, Ret::Bool, true, 0, -1, -1, 0},     // the feeler
+        {0x00507120, 4, 1, Ret::None, true, 1, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::BreakVert)},
+        {0x004FE860, 16, 4, Ret::None, true, 0, -1, -1, 0},
+        {0x004FEA50, 0, 0, Ret::None, true, 0, -1, -1, 0},
+        {0x00508780, 4, 1, Ret::Bool, true, 0, 0, -1, 4},
+        {0x004FFDB0, 4, 1, Ret::Bool, true, 0, 0, -1, 4},
+        {0x004FC400, 0, 0, Ret::Int, true, 0, -1, -1, 0},
+        {0x004FDED0, 4, 1, Ret::None, true, 0, -1, -1, 0},
+        {0x005021D0, 0, 0, Ret::None, true, 0, -1, -1, 0},
+        {0x004FC470, 4, 1, Ret::None, true, 0, -1, -1, 0},
+        {0x00580790, 4, 1, Ret::Float, true, 0, -1, -1, 0},
+        {0x00518CF0, 8, 2, Ret::None, true, 0, -1, -1, 0},
+        {0x005232A0, 4, 1, Ret::None, true, 1, -1, -1, 0},
+        {0x00506BA0, 4, 1, Ret::None, true, 0, -1, -1, 0},
+        {0x00434BF0, 8, 2, Ret::None, true, 0, -1, -1, 0},
+        {0x004FF590, 4, 1, Ret::None, true, 0, 0, 0, 4},       // (reads and changes a vector)
+        {0x004FC370, 4, 1, Ret::None, true, 0, -1, -1, 0},
+        {0x005009C0, 0, 0, Ret::None, true, 0, -1, -1, 0},
+        {0x004609F0, 8, 2, Ret::None, true, 0, -1, -1, 0},
+        {0x0050C930, 0, 0, Ret::None, true, 0, -1, -1, 0},
+        {0x00504EE0, 0, 0, Ret::Bool, true, 0, -1, -1, 0},
+        {0x004FFB10, 0, 0, Ret::None, true, 0, -1, -1, 0},
+        {0x00503710, 0, 0, Ret::None, true, 0, -1, -1, 0},
+        {0x00420250, 0, 1, Ret::Int, false, 0, -1, -1, 0},
+        {0x00502240, 0x14, 5, Ret::Bool, true, 1, -1, 4, 10},  // the acid drop search (a bool, fills its last)
+        {0x00502F20, 4, 1, Ret::None, true, 0, 0, -1, 10},
+    };
+}
+
+// Whether `trace` has a call to `address` whose first argument (after `this`) is `argument`.
+bool Called(const std::vector<uint32_t>& trace, uint32_t address, uint32_t argument)
+{
+    for (size_t i = 1; i + 2 < trace.size(); ++i) {
+        if (trace[i] == address && trace[i + 2] == argument)
+            return true;
+    }
+    return false;
+}
+
+// DoAirPhysics 0x0050CA00: the flags, the ride, buttons and triggers, the wall ride and its feelers, landing
+// (skatable or not, from a wall ride or not) or not, PartyMod's PS2 controls off and on.
+void TestDoAirPhysics()
+{
+    uint8_t savedSettings = inputsettings.isPs2Controls;
+    g_arena = g_physicsArena;
+    g_arenaSize = kArenaSize;
+    StandIns standIns(AirStandIns());
+    OurAirVectorCode vectors;
+    StandInSymbols symbols;
+    Script::CSymbolTableEntry* wait = symbols.Add(0x6BB5B751);
+    wait->type = Script::ESYMBOLTYPE_INTEGER;
+    Script::CSymbolTableEntry* wallTime = symbols.Add(0x26495947);
+    wallTime->type = Script::ESYMBOLTYPE_INTEGER;
+    Script::CSymbolTableEntry* wallPush = symbols.Add(0x78384871);
+    wallPush->type = Script::ESYMBOLTYPE_FLOAT;
+    Script::CSymbolTableEntry* least = symbols.Add(0x59484878);
+    least->type = Script::ESYMBOLTYPE_FLOAT;
+    int savedOffset = GameVariable<int>(0x00696D60); // (the clock's offset: 0, so times can meet exactly)
+    GameVariable<int>(0x00696D60) = 0;
+    bool same = true;
+    int landed = 0, wallLanded = 0, wallFound = 0, pushedOff = 0, dropped = 0;
+    for (int variant = 0; variant < 12000 && same; ++variant) {
+        int ps2 = variant & 1;
+        g_rng = 0x9E3779B9u * (variant + 1);
+        FillArena();
+        wait->integer = PickInt();
+        wallTime->integer = PickInt();
+        wallPush->floatValue = RandomFloat(4.0f);
+        least->floatValue = RandomFloat(3.0f);
+        uint8_t* c = g_physicsArena + kComponent;
+        ArenaAt<float>(kComponent + 0x8C) = (Next() % 2) ? 1.0f / 60.0f : RandomFloat(0.1f);
+        ArenaAt<int>(kComponent + 0x14CC) = static_cast<int>(Next() % 3);
+        for (uint32_t b : {0x14C0u, 0x2D0u, 0x2DBu, 0x2ECu, 0x373u, 0x374u})
+            c[b] = RandomBool(30);
+        c[0x2ED] = RandomBool(50);
+        c[0x228] = RandomBool(60);
+        c[0xFA] = static_cast<uint8_t>(Next());
+        if (Next() % 2)
+            ArenaAt<float>(kComponent + 0x320) = 0.0f;
+        ArenaAt<float>(kComponent + 0x298) = RandomFloat(1.5f);
+        ArenaAt<uint32_t>(kComponent + 0x380) = Next() % 4;
+        ArenaAt<uint32_t>(kComponent + 0x4EC) = Next() % 4;
+        for (uint32_t f : {0x30u, 0x38u, 0x40u, 0x48u, 0x70u, 0x78u, 0x80u, 0xA8u, 0xB0u})
+            ArenaAt<uint8_t>(kFlags + f) = RandomBool(f == 0xB0 ? 20 : 40);
+        ArenaAt<uint8_t>(kFlags + 0xE1) = static_cast<uint8_t>(Next());
+        static const int states[] = {0, 0, 0, 1, 2, 5};
+        ArenaAt<int>(kFlags + 0x18) = states[Next() % 6];
+        ArenaAt<int>(kFlags + 0x4C) = (Next() % 2) ? -PickInt() : static_cast<int>(Next() % 2000) - 1000;
+        ArenaAt<uint8_t>(kMisc1 + 0x28) = RandomBool(20);
+        ArenaAt<uint8_t>(kMisc1 + 0x50) = RandomBool(20);
+        uint32_t ride = Next() % 3;
+        ArenaAt<uint8_t*>(kMisc2 + 0x18) = ride ? g_physicsArena + kMisc3 : nullptr;
+        ArenaAt<uint32_t>(kMisc3) = ride == 2 ? 1 : 0;
+        ArenaAt<uint8_t>(kTriggerState + 0x26) = RandomBool(20);
+        ArenaAt<uint8_t>(kSkater + 0x13B0) = RandomBool(50);
+        for (uint32_t button : {0x20u, 0x40u, 0xC0u, 0x120u})
+            ArenaAt<uint8_t>(kInput + button) = RandomBool(50);
+        float* velocity = &ArenaAt<float>(kObject + 0xAC);
+        if (variant % 6 == 0)
+            velocity[0] = velocity[2] = 0.0f;
+        else if (variant % 6 == 3)
+            velocity[0] = 0.0f;
+        if (variant % 9 == 0)
+            velocity[1] = 0.0f;
+        std::memcpy(g_physicsStart, g_physicsArena, kArenaSize);
+        uint32_t seed = Next() | 1;
+        std::vector<uint32_t> expected, actual;
+        {
+            PartyModAirBytes bytes(ps2 != 0);
+            expected = RunOnArena(seed, [](uint8_t* component) {
+                Original<void(__thiscall*)(void*)>(0x0050CA00)(component);
+                return 0u;
+            });
+        }
+        inputsettings.isPs2Controls = static_cast<uint8_t>(ps2);
+        actual = RunOnArena(seed, [](uint8_t* component) {
+            reinterpret_cast<Skater::CorePhysicsComponent*>(component)->DoAirPhysics();
+            return 0u;
+        });
+        inputsettings.isPs2Controls = savedSettings;
+        landed += Called(actual, 0x004FDED0, 0);
+        wallLanded += Called(actual, 0x004FDED0, 0) && Called(actual, 0x004FF590, 0x5AC00000u);
+        for (size_t i = 1; i + 1 < actual.size(); ++i) {
+            if (actual[i] == 0x004FE860) {
+                ++wallFound;
+                break;
+            }
+        }
+        for (size_t i = 1; i + 1 < actual.size(); ++i) {
+            if (actual[i] == 0x00580400 && actual[i + 1] == 0x23410C14) { // (cdecl: no `this` in the trace)
+                ++pushedOff;
+                break;
+            }
+        }
+        dropped += Called(actual, 0x00502F20, 0x5AC00000u);
+        same = Compare(expected, actual, "air physics", variant);
+    }
+    inputsettings.isPs2Controls = savedSettings;
+    GameVariable<int>(0x00696D60) = savedOffset;
+    bool covered = landed >= 300 && wallLanded >= 50 && wallFound >= 100 && pushedOff >= 100 && dropped >= 50;
+    if (!covered)
+        Log("  air physics coverage: landed %d (from a wall ride %d), wall hits %d, pushed off %d, acid drops %d",
+            landed, wallLanded, wallFound, pushedOff, dropped);
+    Check(same && covered, "skater: DoAirPhysics (PS2 controls off and on)");
+}
+
 } // namespace
 
 SELFTEST(Early, TestLipPushOff);
 SELFTEST(Early, TestCheckForGround);
+SELFTEST(Early, TestDoAirPhysics);

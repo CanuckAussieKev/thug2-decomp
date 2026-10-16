@@ -46,3 +46,41 @@
       (at least 300 must land). The whole arena and the call trace compared. 54 deliberate bugs: 50 caught,
       4 equivalent at float precision (the order of the distance's double sum, sqrt in float vs double,
       `<` vs `<=` against an irrational cosine, the clamp at -1 - tan(acos(-1)) is ~0 like tan(acos(1))).
+- [x] (PartyMod round; NOT run in the game yet) DoAirPhysics 0x0050CA00 (thiscall, void; the air update - the
+      caller at 0x0051094F is in code Ghidra never disassembled) in core_physics.cpp, with PartyMod's three
+      trigger checks built in (0x0050CAC4 air recovery: flags +0x80 or the triggers -> 0x00504B40; 0x0050CF89:
+      the triggers or +0x2D0, not wall riding, rising -> BreakVert; 0x0050DA64: the acid drop - all "both" in
+      the original, "either" under PS2 controls). Read in full from the disassembly (stack map entry ESP = R:
+      R-0x80 the input + 0x20, R-0x78 the ride's carried offset, R-0x68 the velocity copy - later reused for
+      the wall direction and the hit normal -, R-0x34 gravity from 0x004FF470, R-0x7C the object): timed flags
+      +0x40 off / +0xB0 on; 0x00504910, 0x004FFB90, Spin, 0x00504A60, 0x00504B40, 0x00504DF0, 0x004FE730
+      (+0x320 != 0); the countdown +0x14CC (0x00507500, facing into +0x14F0's plane at 0); wall ride +0x78:
+      flags +0xE4 added to the velocity copy, or 0x0042BBF0(0.1) when falling below +0x37C; what the skater
+      rides (+0x152C's +0x18: 0x00416F00 / 0x00427C70) carries it by its +0x5C; the move: position +=
+      v t + (0, g, 0, 1) t^2/2 (rounded as the x87 does: x's product and the z, w sums unrounded) + carried,
+      velocity += (0, g, 0, 1) t; flags +0x48 (on a wall): feeler up +1 to up * -23, off it BreakVert and +0x48
+      off once input +0x20's times pass script int 0x6BB5B751, +0x48 off after script int 0x26495947 ms;
+      wall feelers across the wall normal +0x278 (* 30), stepped (+0x298, halved; then 10 steps of 3 down);
+      a hit still along the wall (sqrt|wall.xz . normal.xz| > 0.02) moves onto it (height +0x26C kept as the
+      maximum), pushed off by script float 0x78384871, 0x004FE860(flattened normal), velocity into its plane;
+      the display matrix (+0x18) copy or 0x004FEA50; 0x00508780 from the last position + carried, return on
+      flags +0x18 == 2 / 5; the landing feeler: steep (normal y < 0.1) or fast (vel y > 10) landings wait for
+      the ride's 0x004FC400 > 500 after 0x004FFDB0; landing on something skatable is LandFromAir (a private
+      helper, part of 0x0050CA00: 0x004FDED0(0), 0x005021D0, +0x372-0x374, 0x004FC470, 0x00518CF0(speed /
+      0x00580790's value, flags +0xE1), 0x005232A0, 0x00506BA0, trigger check 0x0064BB98; then unless the
+      trigger took over: standing landing (no x/z velocity, +0x40 held) clears vel y, else velocity into the
+      ground's plane - from a wall ride along +0x490 unless 0x004FF590 says it turns up, at least script float
+      0x59484878 (0x0042BBF0) - and 0x004FC370(10); timed flag +0x30 off, +0x2D0, the ground normal into
+      +0x58/+0x68/+0x78 and the object's up, OrthoNormalizeAbout(1), the display matrix; event 0x532B16EF);
+      not skatable: velocity and facing into its plane, OrthoNormalizeAbout(2), pushed off by physics float
+      0x23410C14, timed flag +0xB0; no hit: 0x0050C930 unless +0x30; then 0x00504EE0, 0x004FFB10, 0x00503710 and
+      the acid drop (0x00420250 since +0x380 < 250 when +0x380 > +0x4EC -> 0x00502240's flag). Calls Spin and
+      BreakVert (skaterB's) directly. Early test TestDoAirPhysics: 12000 variants (flags, ride, buttons, wall
+      ride and feelers, landing skatable or not, from a wall ride or not, the clock offset 0x00696D60 held at 0
+      so times can meet exactly) x PS2 off / on, 42 stand-ins (our Spin / BreakVert through their code
+      addresses), the original's vector / matrix calls (RotateToPlane, ProjectToPlane, SetDirection, Normalize,
+      Length, LengthSqr, OrthoNormalizeAbout) pointed at ours, four script symbols; coverage counted (landings,
+      from wall rides, wall hits, push-offs, acid drops). 60 deliberate bugs: 59 caught (4 after
+      strengthening: 500 and 250 among the stand-ins' ints, the clock offset at 0, x-only zero velocities), 1
+      equivalent (x's position product rounded first: the sum adds an exact 0). The two earlier tests still
+      pass with the new int values.

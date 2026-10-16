@@ -42,6 +42,18 @@ public:
     // it leaves the ground - into the air, or into an acid drop if the physics finds one while both triggers
     // are held (either one under PartyMod's PS2 controls).
     void CheckForGround();
+
+    // 0x0050CA00: the air update. The rotation and other parts (0x00504910, Spin, ...), the move (velocity and
+    // gravity over the frame, plus what the skater rides on), wall riding (off the wall: BreakVert) and wall
+    // feelers, then the landing feeler from the last position to the new one: onto something skatable
+    // (LandFromAir) or pushed off it; else the air checks and an acid drop if the physics finds one while both
+    // triggers are held. PartyMod's PS2 controls take either trigger in the three trigger checks.
+    void DoAirPhysics();
+
+private:
+    // (Part of 0x0050CA00: landing on something skatable - the velocity into the ground's plane, the ground
+    // normal as the new up.)
+    void LandFromAir();
 };
 
 } // namespace Skater
