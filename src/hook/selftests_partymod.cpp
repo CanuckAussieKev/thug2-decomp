@@ -520,6 +520,37 @@ void TestDrawMovieFrame()
     Check(traces[0] == traces[1] && traces[1].size() > 300, "gfx: movie frame (with PartyMod's 4:3 fit)");
 }
 
+
+// --- PlayMovie ----------------------------------------------------------------------------------------------
+
+std::vector<std::string> g_play_log;
+void __cdecl StandInQueueMovie(const char* name) { g_play_log.push_back(name); }
+
+// PlayMovie with the flag off (no ini offline): a name, a path, no name - original vs ours, the queue recorded.
+void TestPlayMovie()
+{
+    CodePatch queue(0x0044F830, JumpTo(0x0044F830, reinterpret_cast<void*>(&StandInQueueMovie)));
+    std::vector<std::string> logs[2];
+    std::vector<int> results[2];
+    for (int run = 0; run < 2; ++run) {
+        g_play_log.clear();
+        for (const char* name : {"movies/bik/NSlogo", "credits", static_cast<const char*>(nullptr)}) {
+            alignas(16) uint8_t component[16] = {};
+            alignas(8) uint8_t params[8] = {};
+            if (name) {
+                component[0] = static_cast<uint8_t>(Script::ESYMBOLTYPE_STRING << 1); // unnamed (name 0)
+                std::memcpy(component + 8, &name, 4);
+                *reinterpret_cast<uint8_t**>(params + 4) = component;
+            }
+            bool result = run == 0 ? Original<bool(__cdecl*)(void*, void*)>(0x0059F0C0)(params, nullptr)
+                                   : Nx::PlayMovie(reinterpret_cast<Script::CStruct*>(params), nullptr);
+            results[run].push_back(result);
+        }
+        logs[run] = g_play_log;
+    }
+    Check(logs[0] == logs[1] && results[0] == results[1] && logs[1].size() == 2, "gfx: PlayMovie (flag off)");
+}
+
 } // namespace
 
 SELFTEST(Early, TestSkaterPlatformStructure);
@@ -527,3 +558,4 @@ SELFTEST(Early, TestSkaterAcidDrops);
 SELFTEST(Early, TestRetrieveTopStats);
 SELFTEST(Early, TestDrawFlash);
 SELFTEST(Early, TestDrawMovieFrame);
+SELFTEST(Early, TestPlayMovie);
