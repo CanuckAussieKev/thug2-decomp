@@ -69,6 +69,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_gapsB.cpp
     src/hook/selftests_qb.cpp
     src/hook/selftests_gapsA.cpp
+    src/hook/selftests_csB.cpp
     src/game/core/alloc.cpp
     src/game/core/crc.cpp
     src/game/core/dbg.cpp
@@ -126,6 +127,7 @@ add_library(thug2_code OBJECT
     src/game/mc/memcard_cfuncs.cpp
     src/game/script/eval.cpp
     src/game/script/cache.cpp
+    src/game/script/cscript_exec.cpp
     src/game/script/load.cpp
     src/game/script/names.cpp
     src/game/script/parse.cpp
