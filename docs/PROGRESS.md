@@ -45,4 +45,4 @@ Linked as libraries in the final build rather than rewritten:
 
 ## PC port (after PartyMod)
 
-PartyMod's changes (MIT, `LICENSES/partymod.txt`) are part of the game's source: the SDL window and input, widescreen, the settings file and the rest, by subsystem. Only the GameSpy host names are still written into the exe's library code at start-up (`src/game/net/online_hosts.cpp`).
+PartyMod's changes (MIT, `LICENSES/partymod.txt`) are part of the game's source: the SDL window and input, widescreen, the settings file and the rest, by subsystem. Still written into the exe at start-up: the GameSpy SDK's host names (library code, `src/game/net/online_hosts.cpp`) and, with PS2 controls, the CFunction table's IsPS2 entry (`src/game/sys/platform_cfuncs.cpp`).

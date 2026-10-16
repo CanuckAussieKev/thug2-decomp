@@ -70,8 +70,9 @@ out.append("- GameSpy SDK, MSVC C runtime, STL helpers and compiler-generated co
 out.append("")
 out.append("## PC port (after PartyMod)\n")
 out.append("PartyMod's changes (MIT, `LICENSES/partymod.txt`) are part of the game's source: the SDL window and "
-           "input, widescreen, the settings file and the rest, by subsystem. Only the GameSpy host names are still "
-           "written into the exe's library code at start-up (`src/game/net/online_hosts.cpp`).")
+           "input, widescreen, the settings file and the rest, by subsystem. Still written into the exe at start-up: "
+           "the GameSpy SDK's host names (library code, `src/game/net/online_hosts.cpp`) and, with PS2 controls, "
+           "the CFunction table's IsPS2 entry (`src/game/sys/platform_cfuncs.cpp`).")
 
 open("docs/PROGRESS.md", "w", encoding="utf-8").write("\n".join(out) + "\n")
 print(f"docs/PROGRESS.md: {total['done_funcs']}/{total['funcs']} functions, "

@@ -16,7 +16,7 @@ their creation function here.
 | DSOUND | 2 | 2 | 0x4d7c80–0x5f59d0 | DirectSound 8 device creation |
 | D3D9 | 1 | 1 | 0x4d8650 | `Direct3DCreate9` — renderer init (D3D9 device pointer at 0x7d69e0) |
 | GDI32 | 1 | 1 | 0x5d01e5 | `DeleteObject` only |
-| DINPUT8 | 1 | 1 | 0x5f44f0 | `DirectInput8Create` — input init (PartyMod NOPs this and uses SDL2) |
+| DINPUT8 | 1 | 1 | 0x5f44f0 | `DirectInput8Create` — input init (the PC port - after PartyMod - skips this and uses SDL2) |
 
 ## Proxy DLL candidates (for loading our hook DLL)
 
