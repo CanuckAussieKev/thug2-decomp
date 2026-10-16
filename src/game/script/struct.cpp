@@ -209,11 +209,14 @@ bool CStruct::IsSubsetOf(CStruct* other)
 // --- the typed getters -------------------------------------------------------------------------------------
 
 // 0x00476590 (strings and local strings)
-bool CStruct::GetString(uint32_t name, const char** out, int /*assert*/)
+bool CStruct::GetString(uint32_t name, const char** out, int assert)
 {
     const char* value;
-    if (!Search(name, ESYMBOLTYPE_STRING, &value) && !Search(name, ESYMBOLTYPE_LOCALSTRING, &value))
+    if (!Search(name, ESYMBOLTYPE_STRING, &value) && !Search(name, ESYMBOLTYPE_LOCALSTRING, &value)) {
+        if (assert)
+            PrintContents(this);
         return false;
+    }
     *out = value;
     return true;
 }
@@ -225,11 +228,14 @@ bool CStruct::GetString(const char* name, const char** out, int assert)
 }
 
 // 0x00476630
-bool CStruct::GetInteger(uint32_t name, int* out, int /*assert*/)
+bool CStruct::GetInteger(uint32_t name, int* out, int assert)
 {
     int value;
-    if (!Search(name, ESYMBOLTYPE_INTEGER, &value))
+    if (!Search(name, ESYMBOLTYPE_INTEGER, &value)) {
+        if (assert)
+            PrintContents(this);
         return false;
+    }
     *out = value;
     return true;
 }
@@ -241,11 +247,14 @@ bool CStruct::GetInteger(const char* name, int* out, int assert)
 }
 
 // 0x004766D0
-bool CStruct::GetFloat(uint32_t name, float* out, int /*assert*/)
+bool CStruct::GetFloat(uint32_t name, float* out, int assert)
 {
     float value;
-    if (!Search(name, ESYMBOLTYPE_FLOAT, &value))
+    if (!Search(name, ESYMBOLTYPE_FLOAT, &value)) {
+        if (assert)
+            PrintContents(this);
         return false;
+    }
     *out = value;
     return true;
 }
@@ -257,18 +266,21 @@ bool CStruct::GetFloat(const char* name, float* out, int assert)
 }
 
 // 0x00476770
-bool CStruct::GetPair(uint32_t name, float* x, float* y, int /*assert*/)
+bool CStruct::GetPair(uint32_t name, float* x, float* y, int assert)
 {
     CPair* pair;
-    if (!Search(name, ESYMBOLTYPE_PAIR, &pair))
+    if (!Search(name, ESYMBOLTYPE_PAIR, &pair)) {
+        if (assert)
+            PrintContents(this);
         return false;
+    }
     *x = pair->x;
     *y = pair->y;
     return true;
 }
 
 // 0x00476DF0 (zero if missing)
-bool CStruct::GetPair(uint32_t name, CPair* out, bool /*assert*/)
+bool CStruct::GetPair(uint32_t name, CPair* out, bool assert)
 {
     CPair* pair;
     if (Search(name, ESYMBOLTYPE_PAIR, &pair)) {
@@ -276,17 +288,22 @@ bool CStruct::GetPair(uint32_t name, CPair* out, bool /*assert*/)
         out->y = pair->y;
         return true;
     }
+    if (assert)
+        PrintContents(this);
     out->x = 0.0f;
     out->y = 0.0f;
     return false;
 }
 
 // 0x004767C0
-bool CStruct::GetStructure(uint32_t name, CStruct** out, int /*assert*/)
+bool CStruct::GetStructure(uint32_t name, CStruct** out, int assert)
 {
     CStruct* value;
-    if (!Search(name, ESYMBOLTYPE_STRUCTURE, &value))
+    if (!Search(name, ESYMBOLTYPE_STRUCTURE, &value)) {
+        if (assert)
+            PrintContents(this);
         return false;
+    }
     *out = value;
     return true;
 }
@@ -298,11 +315,14 @@ bool CStruct::GetStructure(const char* name, CStruct** out, int assert)
 }
 
 // 0x00476860
-bool CStruct::GetArray(uint32_t name, CArray** out, int /*assert*/)
+bool CStruct::GetArray(uint32_t name, CArray** out, int assert)
 {
     CArray* value;
-    if (!Search(name, ESYMBOLTYPE_ARRAY, &value))
+    if (!Search(name, ESYMBOLTYPE_ARRAY, &value)) {
+        if (assert)
+            PrintContents(this);
         return false;
+    }
     *out = value;
     return true;
 }
@@ -314,7 +334,7 @@ bool CStruct::GetArray(const char* name, CArray** out, int assert)
 }
 
 // 0x00476950 (the last match wins; an unnamed name that includes a global structure isn't a value)
-bool CStruct::GetChecksum(uint32_t name, uint32_t* out, int /*assert*/)
+bool CStruct::GetChecksum(uint32_t name, uint32_t* out, int assert)
 {
     bool found = false;
     for (CComponent* component = m_head; component; component = component->next) {
@@ -332,6 +352,8 @@ bool CStruct::GetChecksum(uint32_t name, uint32_t* out, int /*assert*/)
                 found = true;
         }
     }
+    if (assert && !found)
+        PrintContents(this);
     return found;
 }
 
@@ -354,11 +376,14 @@ bool CStruct::GetChecksumOrStringChecksum(uint32_t name, uint32_t* out, int asse
 }
 
 // 0x00476FB0
-bool CStruct::GetVector(uint32_t name, VectorValue* out, int /*assert*/)
+bool CStruct::GetVector(uint32_t name, VectorValue* out, int assert)
 {
     CVector* vector;
-    if (!Search(name, ESYMBOLTYPE_VECTOR, &vector))
+    if (!Search(name, ESYMBOLTYPE_VECTOR, &vector)) {
+        if (assert)
+            PrintContents(this);
         return false;
+    }
     out->x = vector->x;
     out->y = vector->y;
     out->z = vector->z;

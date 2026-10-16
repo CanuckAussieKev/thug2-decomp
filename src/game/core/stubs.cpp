@@ -22,9 +22,10 @@ bool ReturnFalse() { return false; }
 // 0x005BA1D0: functions returning 0 / null
 int ReturnZero() { return 0; }
 
-// 0x005480A0: an empty cdecl function - the most called address in the game (528 calls). Mostly compiled-out
-// debug output: the callers still push its arguments (messages, a structure to dump...) and pop them after,
-// e.g. CStruct's typed getters on a miss when asked to assert, the memory manager's error paths. (The bytes
+// 0x005480A0: an empty cdecl function - the most called address in the game (528 calls). Compiled-out debug
+// code: the callers still push its arguments and pop them after. In our source it appears under its uses'
+// names, as empty inline functions: Mem::PushMemProfile / PopMemProfile, Mem::DebugTrackBlock,
+// Script::PrintContents (more as their callers are rewritten). (The bytes
 // after its RET, 0x005480A1-0x005480BE, are PartyMod's: a code cave its exe patch put in the padding, which
 // loads partymod.dll - not the game's.)
 void DoNothing() {}

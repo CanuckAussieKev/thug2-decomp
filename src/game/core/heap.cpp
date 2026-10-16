@@ -123,6 +123,7 @@ void* Heap::Allocate(uint32_t size, bool assertOnFail)
     header->size = rounded;
     CountUp(m_usedBlocks, m_maxUsedBlocks, 1);
     CountUp(m_usedSize, m_maxUsedSize, static_cast<int>(kBlockHeaderSize + rounded));
+    DebugTrackBlock(header);
     return header->Block();
 }
 
@@ -146,8 +147,11 @@ void* Heap::ReallocateDown(uint32_t newSize, void* block)
     uint32_t rounded = RoundUp16(newSize);
     // The new space comes just below the block (with its own header, which becomes the block's).
     BlockHeader* extended = GetBlockHeader(VirtualAllocate(rounded - header->size, true));
+    DebugTrackBlock(header);
+    DebugTrackBlock(extended);
     --m_usedBlocks;
     extended->size = kBlockHeaderSize + rounded;
+    DebugTrackBlock(extended);
     HeapBusy() = 0;
     return extended->Block();
 }
@@ -169,9 +173,12 @@ void* Heap::ReallocateUp(uint32_t newSize, void* block)
         VirtualFree(extra);
         return nullptr;
     }
+    DebugTrackBlock(header);
+    DebugTrackBlock(extra);
     uint32_t extraSize = extra->size;
     --m_usedBlocks;
     header->size += kBlockHeaderSize + extraSize;
+    DebugTrackBlock(header);
     HeapBusy() = 0;
     return block;
 }
@@ -189,9 +196,12 @@ void* Heap::ReallocateShrink(uint32_t newSize, void* block)
     auto* tail = reinterpret_cast<BlockHeader*>(static_cast<uint8_t*>(block) + header->size - cut);
     tail->size = cut - kBlockHeaderSize;
     tail->allocator = this;
+    DebugTrackBlock(tail);
     CountUp(m_usedBlocks, m_maxUsedBlocks, 1);
     VirtualFree(tail);
+    DebugTrackBlock(header);
     header->size -= cut;
+    DebugTrackBlock(header);
     HeapBusy() = 0;
     return block;
 }

@@ -503,6 +503,13 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       .qb), CScript 0x4728F0-0x472E20, 0x47AC10-0x47AD80, the input-device code 0x5BCC40-0x5BCCC0.
       Also: 0x4E1220 (ParseNetworkParams) and 0x44EEF0 (MainLoop) are hooked only by the test runner - they
       still need source (progress counts only src/game, so they were never counted).
+- [x] Compiled-out debug calls restored (2026-10-16, at the user's request): every call the rewritten functions'
+      originals make to the empty function 0x5480A0 (61 sites) is back in the source, under its use's name, as
+      an empty inline function: Mem::PushMemProfile / PopMemProfile around allocations (the script pools in
+      CreateScriptPools, with names such as "CComponent and Reserve CComponent"; .pre loads and unpacking),
+      Script::PrintContents on a typed getter's miss with assert set, Mem::DebugTrackBlock on the heap's
+      blocks before/after each change. No behaviour change. New code must keep doing this
+      (tools/ghidra/find_stubs.py lists the empty functions).
 - [ ] Next: the pre-compiled .qb format (0x46FBA0, 0x46CA50, 0x46C970, 0x46C830, 0x46C7F0, ...), the script
       cache (0x475FD0 ...), then CScript (0x472900.. / 0x473000..).
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function

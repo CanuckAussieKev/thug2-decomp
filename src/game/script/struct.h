@@ -159,6 +159,10 @@ CArray* GetArray(const char* name);
 // floats compare by value; structures and arrays only when they are the same one).
 bool ComponentsEqual(CComponent* a, CComponent* b);
 
+// Debug output of a structure's contents, indented by `indent` levels. Compiled out of this build (the empty
+// function at 0x005480A0): the typed getters still call it on a miss when asked to assert.
+inline void PrintContents(const CStruct* /*structure*/, int /*indent*/ = 0) {}
+
 // Strings owned by components: copied to the script heap (or, while the permanent string cache is on, shared
 // in its block).
 char* CreateString(const char* string);
@@ -276,8 +280,8 @@ public:
     // Copies of this structure's components added to `dest`, with included global structures expanded.
     void ExpandInto(CStruct* dest, int depth);
 
-    // The typed getters: false if missing. With `assert` set, a miss also calls 0x005480A0 with the structure -
-    // compiled-out debug output (an empty function in this build), so it changes nothing and is left out here.
+    // The typed getters: false if missing. With `assert` set, a miss also prints the structure (PrintContents -
+    // compiled out of this build) before a compiled-out assert.
     bool GetString(uint32_t name, const char** out, int assert);
     bool GetString(const char* name, const char** out, int assert);
     bool GetInteger(uint32_t name, int* out, int assert);

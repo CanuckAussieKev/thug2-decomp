@@ -307,20 +307,42 @@ void AllocatePermanentStringHeap(uint32_t size, uint32_t count)
 // 0x0046F520
 void CreateScriptPools()
 {
+    Mem::PushMemProfile("AllocateChecksumNameLookupTables");
     AllocateChecksumNameLookupTables();
+    Mem::PopMemProfile();
     Mem::PushContext(Mem::Manager::Get()->m_scriptHeap);
     // (0x0046F090, 0x0046F110, 0x0046F190, 0x0046F210, 0x0046F290, 0x0046F310, 0x0046F390, 0x0046F410,
     // 0x0046F4A0: one function per class)
+    Mem::PushMemProfile("CScriptCacheEntry");
     CreatePool(GameVariable<Mem::PoolPair>(0x006F3560), 0x14, 300, "CScriptCacheEntry");
+    Mem::PopMemProfile();
+    Mem::PushMemProfile("CComponent and Reserve CComponent");
     CreatePool(GameVariable<Mem::PoolPair>(0x006F2338), 0x10, 86000, "CComponent");
+    Mem::PopMemProfile();
+    Mem::PushMemProfile("CStruct");
     CreatePool(GameVariable<Mem::PoolPair>(0x006F3614), 0x08, 19800, "CStruct");
+    Mem::PopMemProfile();
+    Mem::PushMemProfile("CVector");
     CreatePool(GameVariable<Mem::PoolPair>(0x006F3654), 0x10, 9500, "CVector");
+    Mem::PopMemProfile();
+    Mem::PushMemProfile("CPair");
     CreatePool(GameVariable<Mem::PoolPair>(0x006F3644), 0x0C, 800, "CPair");
+    Mem::PopMemProfile();
+    Mem::PushMemProfile("CArray");
     CreatePool(GameVariable<Mem::PoolPair>(0x006F22B4), 0x0C, 7000, "CArray");
+    Mem::PopMemProfile();
+    Mem::PushMemProfile("CSymbolTableEntry");
     CreatePool(GameVariable<Mem::PoolPair>(0x006F362C), 0x14, 12500, "CSymbolTableEntry");
+    Mem::PopMemProfile();
+    Mem::PushMemProfile("CScript");
     CreatePool(GameVariable<Mem::PoolPair>(0x006F3548), 0xF4, 300, "CScript");
+    Mem::PopMemProfile();
+    Mem::PushMemProfile("CStoredRandom");
     CreatePool(GameVariable<Mem::PoolPair>(0x006F2578), 0x60, 100, "CStoredRandom");
+    Mem::PopMemProfile();
+    Mem::PushMemProfile("AllocatePermanentStringHeap");
     AllocatePermanentStringHeap(190000, 7000);
+    Mem::PopMemProfile();
     Mem::PopContext();
 }
 

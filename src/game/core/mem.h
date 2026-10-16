@@ -20,6 +20,12 @@ void* Calloc(unsigned int size);
 void* Calloc(unsigned int size, int mode);
 void* Calloc(unsigned int size, Heap* heap, int mode);
 
+// Memory profiling: the game brackets allocations with these, naming what is allocated. Compiled out of this
+// build - both calls go to the empty function at 0x005480A0 (see Stubs::DoNothing) - so they do nothing here
+// either; they're kept to show where the original profiles.
+inline void PushMemProfile(const char* /*name*/) {}
+inline void PopMemProfile() {}
+
 // The memory manager's allocate: `size` bytes from `heap` (null = the current heap).
 // Doesn't set the system up first - use New for that.
 void* Allocate(unsigned int size, int mode, Heap* heap);

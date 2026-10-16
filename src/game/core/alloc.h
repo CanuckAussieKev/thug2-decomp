@@ -28,6 +28,10 @@ struct BlockHeader {
     BlockHeader*& NextFree() { return *reinterpret_cast<BlockHeader**>(this); }
 };
 constexpr uint32_t kBlockHeaderSize = sizeof(BlockHeader);
+
+// Memory debugging: the heap reports each block it hands out, splits or resizes (before and after the change).
+// Compiled out of this build (the empty function at 0x005480A0), kept to show where the original reports.
+inline void DebugTrackBlock(BlockHeader* /*block*/) {}
 static_assert(sizeof(BlockHeader) == 0x10, "every block's header is 16 bytes");
 
 // Mark a block as in use (returns it).

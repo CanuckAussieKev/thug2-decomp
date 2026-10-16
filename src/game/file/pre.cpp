@@ -185,8 +185,10 @@ PreFile::FileInfo* PreFile::GetContainedFile(const char* name)
         return nullptr;
     GetContainedFileByHandle(info);
     if (!m_activeFile->unpacked && m_activeFile->compressedSize != 0) {
+        Mem::PushMemProfile(name);
         m_activeFile->unpacked = static_cast<uint8_t*>(
             Mem::Allocate(static_cast<unsigned int>(m_activeFile->size), 1, FileHeap(m_bottomUpHeap)));
+        Mem::PopMemProfile();
         Decode(m_activeFile->data, m_activeFile->unpacked, m_activeFile->compressedSize);
     }
     return info;
@@ -370,7 +372,9 @@ void PreMgr::LoadPre(const char* name, bool async, bool report_missing, bool bot
             pending.handle = reinterpret_cast<int>(file);
             ++m_numPending;
             int size = File::AsyncGetFileSize(file);
+            Mem::PushMemProfile(path);
             void* data = Mem::Allocate(static_cast<unsigned int>(size), 1, LoadHeap(bottom_up));
+            Mem::PopMemProfile();
             File::AsyncSetCallback(file, OnAsyncPreLoaded, this, data);
             File::AsyncRead(file, data, size);
             return;
@@ -381,7 +385,9 @@ void PreMgr::LoadPre(const char* name, bool async, bool report_missing, bool bot
     uint8_t* data;
     int size = File::CachedFileSize(path);
     if (size != 0) {
+        Mem::PushMemProfile(path);
         data = static_cast<uint8_t*>(Mem::Allocate(static_cast<unsigned int>(size), 1, LoadHeap(bottom_up)));
+        Mem::PopMemProfile();
         if (!File::LoadCachedFile(path, data))
             Dbg::Printf("pre file %s failed to load quickly.\n", path);
     } else {
@@ -416,11 +422,13 @@ void PreMgr::LoadPre(const char* name, bool async, bool report_missing, bool bot
             return;
         }
         uint32_t file_size = File::GetFileSize(file);
+        Mem::PushMemProfile(path);
         size = static_cast<int>(file_size);
         uint32_t allocated = file_size;
         if (patched && file_size <= patch[0])
             allocated = patch[0]; // room for the patched archive
         data = static_cast<uint8_t*>(Mem::Allocate(allocated, 1, LoadHeap(bottom_up)));
+        Mem::PopMemProfile();
         File::Read(data, 1, static_cast<int>(file_size), file);
         if (DebugChecks() && file_size != *reinterpret_cast<uint32_t*>(data))
             Dbg::Printf("%s has incorrect file size\n", path);
