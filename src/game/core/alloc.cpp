@@ -152,18 +152,6 @@ void ListNode::UnlinkAs(void** nodeVtable)
     prev = this;
 }
 
-// 0x005BCD00
-void* DestroyOwner(void* owner, unsigned int flags)
-{
-    auto* fields = static_cast<void***>(owner);
-    fields[0] = reinterpret_cast<void**>(0x00658A6C);
-    if (void** owned = fields[1])
-        reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>((*reinterpret_cast<void***>(owned))[0])(owned, 1);
-    if (flags & 1)
-        Mem::Manager::Get()->Free(owner);
-    return owner;
-}
-
 // 0x005BC4D0
 void Region::DestroyBody()
 {
@@ -271,8 +259,8 @@ struct AllocAdapters {
     }
     // The node destructors of two other node types (vtables 0x0065797C and 0x00658A70).
     void UnlinkNode65797C() { reinterpret_cast<ListNode*>(this)->UnlinkAs(reinterpret_cast<void**>(0x0065797C)); }
+    // (the node of Sio::Device's list)
     void UnlinkNode658A70() { reinterpret_cast<ListNode*>(this)->UnlinkAs(reinterpret_cast<void**>(0x00658A70)); }
-    void* OwnerDestroy(unsigned int flags) { return Mem::DestroyOwner(this, flags); }
     // 0x005BA4E0: free what the first field points to
     void FreePointee() { Mem::Free(*reinterpret_cast<void**>(this)); }
 };
@@ -294,7 +282,6 @@ REPLACE(0x005BC700, &AllocAdapters::AllocRegionDestroy);
 REPLACE(0x005BA0E0, &Mem::ListNode::Unlink);
 REPLACE(0x005BC990, &AllocAdapters::UnlinkNode65797C);
 REPLACE(0x005BCD30, &AllocAdapters::UnlinkNode658A70);
-REPLACE(0x005BCD00, &AllocAdapters::OwnerDestroy);
 REPLACE(0x005BC4D0, &Mem::Region::DestroyBody);
 REPLACE(0x005BA100, &AllocAdapters::NodeDestroy);
 REPLACE(0x005BA230, &AllocAdapters::NodeDestroy);

@@ -4,8 +4,9 @@ From chunk 3. The linker placed object files in order, so libraries sit in conti
 
 | Range | What | Functions | Size | Decompile? |
 |---|---|---|---|---|
-| 0x401000-0x5be670 | **Game code** (Neversoft engine + THUG2) | ~8,270 | ~1,600 KB | **Yes** |
-| 0x5be670-0x5eef20 | **D3DX9 static library** (found in chunk 5: "D3DX9 Shader Assembler"; 588 of 712 functions not 16-byte aligned, unlike game code) | 712 | ~158 KB | No - link D3DX9 |
+| 0x401000-0x5beaae | **Game code** (Neversoft engine + THUG2; the SIO module runs to 0x5beaa0 - corrected 2026-10-16) | ~8,290 | ~1,600 KB | **Yes** |
+| 0x5beaae-0x5beb1a | Import thunks (`jmp [IAT]`: Winsock, Direct3DCreate9) | 18 | - | No |
+| 0x5beb1a-0x5eef20 | **D3DX9 static library** (found in chunk 5: "D3DX9 Shader Assembler"; 588 of 712 functions not 16-byte aligned, unlike game code) | 712 | ~158 KB | No - link D3DX9 |
 | 0x5eef20-0x5f8130 | **Game code**: Win32 platform layer | 91 | ~17 KB | **Yes** |
 | 0x5f8130-0x5f8160 | Import thunks (`jmp [IAT]`, linker-generated) | 4 | - | No |
 | 0x5f8160-0x622e80 | **GameSpy SDK** (gsi platform, availability check, QR2, server browsing, peer/chat, GP presence, NAT negotiation, HTTP, file transfer) | 831 | ~145 KB | No - link the SDK or reimplement against OpenSpy later |

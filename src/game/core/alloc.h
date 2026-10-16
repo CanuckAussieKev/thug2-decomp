@@ -86,10 +86,6 @@ struct ListNode {
     void UnlinkAs(void** nodeVtable);
 };
 
-// 0x005BCD00: the scalar deleting destructor of a small class (vtable 0x00658A6C, 8 bytes) that owns one
-// object at +4, deleted through its virtual destructor.
-void* DestroyOwner(void* owner, unsigned int flags);
-
 class Allocator {
 public:
     enum Direction : int { kGrowUp = 1, kGrowDown = -1 };

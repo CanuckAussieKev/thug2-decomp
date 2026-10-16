@@ -140,6 +140,7 @@ bool LoadGameImage(const std::vector<unsigned char>& bytes, const IMAGE_NT_HEADE
 
 int Child(const char* exe_path)
 {
+    std::setvbuf(stdout, nullptr, _IONBF, 0); // (nothing is lost if a test crashes)
     LogToConsole();
     std::vector<unsigned char> bytes;
     const IMAGE_NT_HEADERS32* nt = ReadFileBytes(exe_path, bytes) ? GameHeaders(bytes) : nullptr;

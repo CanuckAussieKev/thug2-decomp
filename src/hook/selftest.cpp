@@ -1,5 +1,6 @@
 #include "game/core/stubs.h"
 #include "game/mc/memcard.h"
+#include "game/sio/device.h"
 #include "game/sys/registry.h"
 #include "game/script/eval.h"
 #include "game/script/load.h"
@@ -6199,7 +6200,7 @@ void TestMemoryCards()
             auto* holder = static_cast<void**>(Mem::Calloc(8));
             holder[1] = flags ? &owned : nullptr;
             void* result = original ? Original<void*(__thiscall*)(void*, unsigned int)>(0x005BCD00)(holder, flags)
-                                    : Mem::DestroyOwner(holder, flags);
+                                    : reinterpret_cast<void*>(reinterpret_cast<Sio::Device*>(holder)->Destroy(flags));
             trace.push_back(relocate(reinterpret_cast<uint32_t>(result)));
             trace.push_back(static_cast<uint32_t>(owned.destroyed));
         }
@@ -6485,6 +6486,338 @@ void TestLeftoversLate()
         registry.Clear();
     }
     Check(dumps[0] == dumps[1] && dumps[1].size() == 2, "leftovers (late): registry defaults (no key)");
+}
+
+// --- Sio ------------------------------------------------------------------------------------------------------
+
+// What the stand-in force-feedback effects, keyboard and manager are asked to do.
+std::vector<uint32_t> g_sio_log;
+
+HRESULT __stdcall SioEffectSetParameters(void* self, const uint32_t* effect, DWORD flags)
+{
+    const auto* direction = reinterpret_cast<const int32_t*>(effect[9]);
+    g_sio_log.insert(g_sio_log.end(), {0x5E7u, reinterpret_cast<uint32_t>(self) & 0xF, effect[0], effect[1], effect[7],
+                                        static_cast<uint32_t>(flags), static_cast<uint32_t>(direction[0]),
+                                        static_cast<uint32_t>(direction[1]), *reinterpret_cast<const uint32_t*>(effect[12])});
+    return 0;
+}
+HRESULT __stdcall SioEffectStop(void* self)
+{
+    g_sio_log.insert(g_sio_log.end(), {0x5709u, reinterpret_cast<uint32_t>(self) & 0xF});
+    return 0;
+}
+HRESULT __stdcall SioUnused(void*) { return 0; }
+
+// A keyboard whose GetDeviceState results are scripted.
+std::vector<HRESULT> g_sio_keyboard_results;
+int g_sio_keyboard_calls;
+HRESULT __stdcall SioKeyboardAcquire(void*)
+{
+    g_sio_log.push_back(0xACC);
+    HRESULT result = g_sio_keyboard_results.empty() ? 0 : g_sio_keyboard_results.front();
+    if (!g_sio_keyboard_results.empty())
+        g_sio_keyboard_results.erase(g_sio_keyboard_results.begin());
+    return result;
+}
+HRESULT __stdcall SioKeyboardGetDeviceState(void*, DWORD size, void* buffer)
+{
+    g_sio_log.insert(g_sio_log.end(), {0x6E7u, static_cast<uint32_t>(size),
+                                        static_cast<uint32_t>(reinterpret_cast<uintptr_t>(buffer) - 0x007D1C20)});
+    std::memset(buffer, 0x40 + ++g_sio_keyboard_calls, 4);
+    HRESULT result = g_sio_keyboard_results.empty() ? 0 : g_sio_keyboard_results.front();
+    if (!g_sio_keyboard_results.empty())
+        g_sio_keyboard_results.erase(g_sio_keyboard_results.begin());
+    return result;
+}
+
+void* __fastcall SioManagerDestroy(void* self, void*, unsigned int flags)
+{
+    g_sio_log.insert(g_sio_log.end(), {0xDE57u, reinterpret_cast<uint32_t>(self) & 0xFF, flags});
+    return self;
+}
+
+// The device methods (motors traced through stand-in force-feedback effects; pads present or not through the
+// key binding table), the keyboard's state reading (a stand-in DirectInput keyboard) and typed characters, the
+// manager's references, Spt::Class's destructor - original vs ours. Device::Process is PartyMod's (SDL) and
+// the constructor calls the game's rand: see TestSioLate.
+void TestSio()
+{
+    struct Saved {
+        uint32_t address;
+        uint32_t size;
+        std::vector<uint8_t> bytes;
+    };
+    std::vector<Saved> saved = {{0x007D6668, 8, {}},   {0x007D42C8, 0x18, {}},  {0x007D6318, 8, {}},
+                                {0x007D6770, 0x260, {}}, {0x007D69D4, 4, {}}, {0x00684FC4, 4, {}},
+                                {0x007D1C20, 0x200, {}}, {0x007D1E20, 0xC, {}}, {0x007D1BE0, 0x40, {}}};
+    for (Saved& s : saved) {
+        s.bytes.resize(s.size);
+        std::memcpy(s.bytes.data(), reinterpret_cast<void*>(s.address), s.size);
+    }
+    // The original as PartyMod leaves it: the pad read at the start of ActivateActuator (push 0; call
+    // 0x005BD200 at 0x005BDA31) is NOPed in the game - offline it would run the menu code.
+    uint8_t activateBytes[7];
+    auto* activateCall = reinterpret_cast<uint8_t*>(0x005BDA31);
+    DWORD oldProtection;
+    VirtualProtect(activateCall, 7, PAGE_EXECUTE_READWRITE, &oldProtection);
+    std::memcpy(activateBytes, activateCall, 7);
+    bool alreadyPatched = activateBytes[0] == 0x90;
+    std::memset(activateCall, 0x90, 7);
+    static void* effectVtable[10];
+    for (void*& slot : effectVtable)
+        slot = reinterpret_cast<void*>(&SioUnused);
+    effectVtable[6] = reinterpret_cast<void*>(&SioEffectSetParameters);
+    effectVtable[8] = reinterpret_cast<void*>(&SioEffectStop);
+    alignas(16) static void* effects[2][4];
+    effects[0][0] = effectVtable;
+    effects[1][0] = effectVtable;
+
+    using Sio::Device;
+    using D = Device*;
+    std::vector<uint32_t> traces[2];
+    for (int run = 0; run < 2; ++run) {
+        bool original = run == 0;
+        std::vector<uint32_t>& trace = traces[run];
+        g_sio_log.clear();
+        alignas(16) static uint8_t devices[2][0x100];
+        for (int port = 0; port < 2; ++port) {
+            GameVariable<void*>(0x007D6668 + 4 * port) = effects[port];
+            GameVariable<int>(0x007D42C8 + 4 * port) = port; // port 1: a one-motor device
+            // Each motor's scale (the effect's range); zero offline, which would hide the levels.
+            GameVariable<int>(0x007D42D0 + 8 * port) = 7000 + 1000 * port;
+            GameVariable<int>(0x007D42D4 + 8 * port) = 3000 + 500 * port;
+            GameVariable<void*>(0x007D6318 + 4 * port) = nullptr; // no joysticks
+        }
+        auto setBindings = [](int port, bool any) {
+            auto* table = reinterpret_cast<int*>(0x007D6770 + port * 0x130);
+            for (int i = 0; i < 0x4C; ++i)
+                table[i] = -1;
+            if (any)
+                table[22] = 0x1C; // (the platform layer checks the first 23: the last one counts too)
+        };
+        auto call = [&](uint32_t address, D d, void (Device::*ours)()) {
+            if (original)
+                Original<void(__thiscall*)(D)>(address)(d);
+            else
+                (d->*ours)();
+        };
+        int variant = 0;
+        for (int state : {0, 1, 2, 5, 3})
+            for (uint32_t caps : {0u, 2u, 6u, 4u})
+                for (int count : {0, 1, 2, 3})
+                    for (int pauses : {0, 1, 2}) {
+                        ++variant;
+                        int port = variant & 1;
+                        setBindings(port, (variant / 2) % 3 != 0);
+                        auto* d = reinterpret_cast<D>(devices[port]);
+                        for (int i = 0; i < 0x100; ++i)
+                            devices[port][i] = static_cast<uint8_t>(i * 7 + variant);
+                        d->m_port = port;
+                        d->m_state = state;
+                        d->m_nextState = 9;
+                        d->m_capabilities = caps;
+                        d->m_numActuators = count;
+                        d->m_pauseCount = pauses;
+                        d->m_actuatorsDisabled = static_cast<uint8_t>((variant / 3) & 1);
+                        d->m_actuatorMax[0] = 200;
+                        d->m_actuatorMax[1] = 255;
+                        d->m_actuatorMax[2] = 13;
+                        switch (variant % 11) {
+                        case 0: call(0x005BCC70, d, &Device::Acquire); break;
+                        case 1: call(0x005BD8B0, d, &Device::Detect); break;
+                        case 2: call(0x005BCCC0, d, &Device::Settle); break;
+                        case 3: call(0x005BDAD0, d, &Device::DisableActuators); break;
+                        case 4: call(0x005BDB30, d, &Device::ResetActuators); break;
+                        case 5: call(0x005BDB60, d, &Device::PauseActuators); break;
+                        case 6: call(0x005BDBD0, d, &Device::UnpauseActuators); break;
+                        case 7: call(0x005BDC60, d, &Device::StopActuators); break;
+                        case 8: call(0x005BCCB0, d, &Device::EnableActuators); break;
+                        case 9:
+                            trace.push_back(original ? Original<bool(__thiscall*)(D)>(0x005BCC60)(d) : d->IsPluggedIn());
+                            break;
+                        default:
+                            for (int actuator : {-1, 0, 1, 2, 3}) {
+                                for (int percent : {0, 37, 50, 100, 250, -10}) {
+                                    d->m_actuatorsDisabled = static_cast<uint8_t>(percent == 250 && actuator == 1);
+                                    if (original)
+                                        Original<void(__thiscall*)(D, int, int)>(0x005BDA20)(d, actuator, percent);
+                                    else
+                                        d->ActivateActuator(actuator, percent);
+                                }
+                            }
+                        }
+                        trace.insert(trace.end(), reinterpret_cast<uint32_t*>(devices[port]),
+                                     reinterpret_cast<uint32_t*>(devices[port] + 0x100));
+                    }
+        // Pauses nest; unpausing restores the levels (with motors that are going).
+        {
+            auto* d = reinterpret_cast<D>(devices[0]);
+            std::memset(devices[0], 0, sizeof(devices[0]));
+            d->m_state = Device::kReady;
+            d->m_capabilities = Device::kHasActuators;
+            d->m_numActuators = 2;
+            d->m_actuatorDirect[0] = 90;
+            d->m_actuatorDirect[1] = 30;
+            for (uint32_t address : {0x005BDB60u, 0x005BDB60u, 0x005BDBD0u, 0x005BDBD0u, 0x005BDBD0u}) {
+                if (original)
+                    Original<void(__thiscall*)(D)>(address)(d);
+                else if (address == 0x005BDB60)
+                    d->PauseActuators();
+                else
+                    d->UnpauseActuators();
+                trace.insert(trace.end(), reinterpret_cast<uint32_t*>(devices[0]),
+                             reinterpret_cast<uint32_t*>(devices[0] + 0x100));
+            }
+        }
+
+        // The keyboard: no device, then a stand-in one (lost, then re-acquired or not).
+        static void* keyboardVtable[10];
+        for (void*& slot : keyboardVtable)
+            slot = reinterpret_cast<void*>(&SioUnused);
+        keyboardVtable[7] = reinterpret_cast<void*>(&SioKeyboardAcquire);
+        keyboardVtable[9] = reinterpret_cast<void*>(&SioKeyboardGetDeviceState);
+        static void* keyboard[1] = {keyboardVtable};
+        auto read = [&] {
+            if (original)
+                Original<void(__cdecl*)()>(0x005BDD60)();
+            else
+                Sio::ReadKeyboard();
+            trace.push_back(GameVariable<uint32_t>(0x00684FC4));
+            trace.push_back(GameVariable<uint32_t>(0x007D1E28));
+            trace.insert(trace.end(), reinterpret_cast<uint32_t*>(0x007D1C20), reinterpret_cast<uint32_t*>(0x007D1C20) + 2);
+            trace.insert(trace.end(), reinterpret_cast<uint32_t*>(0x007D1D20), reinterpret_cast<uint32_t*>(0x007D1D20) + 2);
+        };
+        g_sio_keyboard_calls = 0;
+        std::memset(reinterpret_cast<void*>(0x007D1C20), 0x77, 0x200);
+        GameVariable<int>(0x00684FC4) = 2;
+        GameVariable<void*>(0x007D69D4) = nullptr;
+        GameVariable<uint32_t>(0x007D1E28) = 5;
+        read();
+        read();
+        GameVariable<void*>(0x007D69D4) = keyboard;
+        GameVariable<int>(0x00684FC4) = 2;
+        g_sio_keyboard_results = {0, static_cast<HRESULT>(0x8007001E), 0, 0, static_cast<HRESULT>(0x8007000C),
+                                  static_cast<HRESULT>(0x80004005), static_cast<HRESULT>(0x80070005), 0};
+        for (int i = 0; i < 5; ++i)
+            read();
+
+        // Typed characters.
+        for (uint32_t count : {0u, 1u, 5u, 16u}) {
+            GameVariable<uint32_t>(0x007D1E28) = count;
+            for (int i = 0; i < 16; ++i)
+                GameVariable<int>(0x007D1BE0 + 4 * i) = 0x4100 + 'a' + i;
+            char out[20];
+            std::memset(out, '#', sizeof(out));
+            int got = original ? Original<int(__cdecl*)(char*)>(0x005BDD30)(out) : Sio::GetKeyboardChars(out);
+            trace.push_back(static_cast<uint32_t>(got));
+            trace.insert(trace.end(), reinterpret_cast<uint32_t*>(out), reinterpret_cast<uint32_t*>(out + 20));
+            if (original)
+                Original<void(__cdecl*)()>(0x005BDE20)();
+            else
+                Sio::ClearKeyboardChars();
+            trace.push_back(GameVariable<uint32_t>(0x007D1E28));
+        }
+
+        // The manager's references (an existing instance - its constructor isn't ours yet - and none).
+        static void* managerVtable[1] = {reinterpret_cast<void*>(&SioManagerDestroy)};
+        alignas(16) static void* manager[2] = {managerVtable, nullptr};
+        for (bool exists : {true, false}) {
+            GameVariable<void*>(0x007D1E20) = exists ? manager : nullptr;
+            GameVariable<uint32_t>(0x007D1E24) = 0;
+            for (int step = 0; step < 7; ++step) {
+                if (step < 3) {
+                    bool create = exists && step != 1; // (never actually making one: no constructor offline)
+                    void* got = original ? Original<void*(__cdecl*)(bool)>(0x005BE670)(create)
+                                         : static_cast<void*>(Sio::CreateManager(create));
+                    trace.push_back(got == manager ? 1u : reinterpret_cast<uint32_t>(got));
+                } else if (original) {
+                    Original<void(__cdecl*)()>(0x005BDCF0)();
+                } else {
+                    Sio::ReleaseManager();
+                }
+                trace.push_back(GameVariable<void*>(0x007D1E20) == manager ? 1u : GameVariable<uint32_t>(0x007D1E20));
+                trace.push_back(GameVariable<uint32_t>(0x007D1E24));
+            }
+        }
+
+        // Spt::Class's destructors (not freeing).
+        {
+            uint32_t object[2] = {0x12345678, 0x9ABC};
+            if (original)
+                Original<void(__thiscall*)(void*)>(0x005BDE30)(object);
+            else
+                reinterpret_cast<Spt::Class*>(object)->DestroyBody();
+            trace.insert(trace.end(), object, object + 2);
+            object[0] = 0x12345678;
+            void* result = original ? Original<void*(__thiscall*)(void*, unsigned int)>(0x005BDE40)(object, 0)
+                                    : reinterpret_cast<Spt::Class*>(object)->Destroy(0);
+            trace.push_back(result == object);
+            trace.insert(trace.end(), object, object + 2);
+        }
+        trace.insert(trace.end(), g_sio_log.begin(), g_sio_log.end());
+    }
+    for (Saved& s : saved)
+        std::memcpy(reinterpret_cast<void*>(s.address), s.bytes.data(), s.size);
+    if (!alreadyPatched)
+        std::memcpy(activateCall, activateBytes, 7);
+    VirtualProtect(activateCall, 7, oldProtection, &oldProtection);
+    Check(traces[0] == traces[1], "sio: devices, keyboard, manager references");
+    if (traces[0].size() != traces[1].size())
+        Log("  sio trace sizes: original %u ours %u", static_cast<unsigned>(traces[0].size()),
+            static_cast<unsigned>(traces[1].size()));
+    for (size_t i = 0, shown = 0; i < traces[0].size() && i < traces[1].size() && shown < 8; ++i) {
+        if (traces[0][i] != traces[1][i]) {
+            Log("  sio entry %u: original %08X ours %08X", static_cast<unsigned>(i), traces[0][i], traces[1][i]);
+            ++shown;
+        }
+    }
+}
+
+// In the game (the constructor's original uses the game's rand; the memory manager is up): the constructor
+// (all but the random retry delay, which must be 0-63), destroying with and without freeing, and
+// Spt::Class's freeing destructor.
+void TestSioLate()
+{
+    using Sio::Device;
+    bool same = true;
+    for (int run = 0; run < 3; ++run) {
+        alignas(16) uint8_t original[0x100], ours[0x100];
+        std::memset(original, 0x3C + run, sizeof(original));
+        std::memset(ours, 0x3C + run, sizeof(ours));
+        auto* a = Original<Device*(__thiscall*)(void*, int, int, int)>(0x005BD920)(original, run, run + 4, run * 3);
+        auto* b = new (ours) Device(run, run + 4, run * 3);
+        same = same && a == reinterpret_cast<Device*>(original) && b == reinterpret_cast<Device*>(ours);
+        auto* nodeA = reinterpret_cast<Mem::ListNode*>(a->m_node);
+        auto* nodeB = reinterpret_cast<Mem::ListNode*>(b->m_node);
+        same = same && nodeA && nodeB && nodeA->vtable == nodeB->vtable && nodeA->data == a && nodeB->data == b &&
+               nodeA->priority == nodeB->priority && nodeA->next == nodeA && nodeB->next == nodeB &&
+               nodeA->prev == nodeA && nodeB->prev == nodeB;
+        same = same && a->m_unpluggedRetry >= 0 && a->m_unpluggedRetry < 64 && b->m_unpluggedRetry >= 0 &&
+               b->m_unpluggedRetry < 64;
+        a->m_unpluggedRetry = b->m_unpluggedRetry = 0;
+        a->m_node = b->m_node = nullptr;
+        same = same && std::memcmp(original, ours, sizeof(ours)) == 0;
+        a->m_node = nodeA;
+        b->m_node = nodeB;
+        Original<void*(__thiscall*)(void*, unsigned int)>(0x005BCD00)(a, 0);
+        b->Destroy(0);
+        same = same && std::memcmp(original, ours, sizeof(ours)) == 0;
+    }
+    for (int run = 0; run < 2; ++run) {
+        void* memory = Mem::Calloc(0xF0);
+        void* object = Mem::Calloc(8);
+        auto* device = new (memory) Device(1, 1, 0);
+        auto* plain = static_cast<Spt::Class*>(object);
+        plain->m_vtable = reinterpret_cast<void**>(0x00658AA4);
+        if (run == 0) {
+            Original<void*(__thiscall*)(void*, unsigned int)>(0x005BCD00)(device, 1);
+            Original<void*(__thiscall*)(void*, unsigned int)>(0x005BDE40)(plain, 1);
+        } else {
+            device->Destroy(1);
+            plain->Destroy(1);
+        }
+    }
+    Check(same, "sio (late): Device constructor and destructor");
 }
 
 // --- late self-tests ----------------------------------------------------------------------------------
@@ -7440,6 +7773,7 @@ SELFTEST(Early, TestScriptParser);
 SELFTEST(Early, TestScriptLoading);
 SELFTEST(Early, TestMemoryCards);
 SELFTEST(Early, TestLeftovers);
+SELFTEST(Early, TestSio);
 
 SELFTEST(Late, TestMemoryLate);
 SELFTEST(Late, TestStringLate);
@@ -7447,6 +7781,7 @@ SELFTEST(Late, TestLzssLate);
 SELFTEST(Late, TestAssetBundleSplitLate);
 SELFTEST(Late, TestAllocatorContextsLate);
 SELFTEST(Late, TestLeftoversLate);
+SELFTEST(Late, TestSioLate);
 SELFTEST(Late, TestPoolConstructorLate);
 SELFTEST(Late, TestHashTableLate);
 SELFTEST(Late, TestPipNamesLate, RestorePipTables);

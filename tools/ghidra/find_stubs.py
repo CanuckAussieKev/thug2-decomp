@@ -20,7 +20,7 @@ for path in (REPO / "src" / "game").rglob("*.cpp"):
     for match in re.finditer(r"REPLACE\w*\(0x([0-9A-Fa-f]+)", path.read_text(encoding="utf-8")):
         replaced.add(int(match.group(1), 16))
 # Game code only (docs/library_ranges.md).
-game = [(0x401000, 0x5BE670), (0x5EEF20, 0x5F8130)]
+game = [(0x401000, 0x5BEAAE), (0x5EEF20, 0x5F8130)]
 
 with pyghidra.open_project(sys.argv[1], "THUG2PM_ghidra_mcp") as project, \
         pyghidra.program_context(project, "/THUG2PM.exe") as program:

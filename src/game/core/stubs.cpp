@@ -42,6 +42,7 @@ REPLACE_SOURCE_ONLY(0x004504F0, Stubs::ReturnFalse);        // a jump to 0x005B9
 REPLACE_SOURCE_ONLY(0x005BA1D0, Stubs::ReturnZero);         // 3 bytes
 REPLACE_SOURCE_ONLY(0x0047AE10, Stubs::ReturnZero);         // a jump to 0x005BA1D0
 REPLACE_SOURCE_ONLY(0x005480A0, Stubs::DoNothing);          // 1 byte
+REPLACE_SOURCE_ONLY(0x0048C1B0, Stubs::DoNothing);          // a jump to 0x005480A0
 REPLACE_SOURCE_ONLY(0x005BAB90, Stubs::IgnoreArgument);     // 3 bytes
 REPLACE_SOURCE_ONLY(0x005144C0, Stubs::IgnoreArgument);     // a jump to 0x005BAB90
 REPLACE_SOURCE_ONLY(0x005B9DF0, File::AsyncInit);           // a jump to 0x005B6560

@@ -2,7 +2,7 @@
 
 Generated 2026-10-16 by `tools/progress_report.py` - regenerate after each batch.
 
-**Game code: ░░░░░░░░░░░░░░░░░░░░ 4.9%** of the code rewritten (595 of 8,365 functions, 78.4 KB of 1,616.9 KB).
+**Game code: ░░░░░░░░░░░░░░░░░░░░ 4.9%** of the code rewritten (618 of 8,365 functions, 79.9 KB of 1,616.9 KB).
 
 Progress is by code size: function counts make a 10-byte helper look like as much work as a 2 KB routine. Subsystem boundaries come from the exe map (`docs/subsystems.md`) and are approximate (give or take a few functions); totals are exact.
 
@@ -15,14 +15,14 @@ Progress is by code size: function counts make a 10-byte helper look like as muc
 | Movies (Bink) & streamed audio | `0x44e6b0`-`0x456910` | ░░░░░░░░░░░░░░░░░░░░ 0% | 1 / 277 | 0.0 KB / 30.3 KB |
 | Low-level networking (engine net library) | `0x456910`-`0x45efd0` | ░░░░░░░░░░░░░░░░░░░░ 0% | 0 / 183 | 0.0 KB / 28.3 KB |
 | Object system & script runtime (composite objects, events, object anims, particles, pathfinding, QB parser/executor) | `0x45efd0`-`0x47dc40` | █████░░░░░░░░░░░░░░░ 29% | 219 / 685 | 32.7 KB / 112.3 KB |
-| Models / faces / textures for skaters (CAS) | `0x47dc40`-`0x490d80` | ░░░░░░░░░░░░░░░░░░░░ 0% | 0 / 523 | 0.0 KB / 67.5 KB |
+| Models / faces / textures for skaters (CAS) | `0x47dc40`-`0x490d80` | ░░░░░░░░░░░░░░░░░░░░ 0% | 1 / 523 | 0.0 KB / 67.5 KB |
 | Renderer: textures, geometry, particles, 2D/3D screen | `0x490d80`-`0x4a4500` | ░░░░░░░░░░░░░░░░░░░░ 0% | 2 / 559 | 0.2 KB / 73.1 KB |
 | Front-end UI: screen elements & text | `0x4a4500`-`0x4b2280` | ░░░░░░░░░░░░░░░░░░░░ 0% | 0 / 228 | 0.0 KB / 52.5 KB |
 | Renderer: screen FX, image/texture formats, fonts, grass | `0x4b2280`-`0x4d6d40` | ░░░░░░░░░░░░░░░░░░░░ 0% | 0 / 488 | 0.0 KB / 114.8 KB |
 | Application main & game object rendering glue | `0x4d6d40`-`0x4e6b80` | ░░░░░░░░░░░░░░░░░░░░ 0% | 2 / 202 | 0.3 KB / 59.5 KB |
 | Goal & rail editors / skater camera | `0x4e6b80`-`0x500020` | ░░░░░░░░░░░░░░░░░░░░ 0% | 0 / 341 | 0.0 KB / 85.7 KB |
 | Skater (physics, tricks, walking, stats, sticker tags) | `0x500020`-`0x533f20` | ░░░░░░░░░░░░░░░░░░░░ 0% | 1 / 544 | 0.0 KB / 186.9 KB |
-| Online & network game modes (CTF, servers, lobby, buddies, NAT negotiation) | `0x533f20`-`0x54ef60` | ░░░░░░░░░░░░░░░░░░░░ 0% | 1 / 457 | 0.4 KB / 91.9 KB |
+| Online & network game modes (CTF, servers, lobby, buddies, NAT negotiation) | `0x533f20`-`0x54ef60` | ░░░░░░░░░░░░░░░░░░░░ 0% | 2 / 457 | 0.4 KB / 91.9 KB |
 | Menu input mapping | `0x54ef60`-`0x550040` | ░░░░░░░░░░░░░░░░░░░░ 0% | 1 / 20 | 0.0 KB / 4.0 KB |
 | Goals & career (GoalManager, create-a-trick, trick objects, level launching) | `0x550040`-`0x56c920` | ░░░░░░░░░░░░░░░░░░░░ 0% | 0 / 666 | 0.0 KB / 103.8 KB |
 | Time-of-day manager & world state | `0x56c920`-`0x577300` | ░░░░░░░░░░░░░░░░░░░░ 0% | 0 / 137 | 0.0 KB / 38.1 KB |
@@ -30,8 +30,8 @@ Progress is by code size: function counts make a 10-byte helper look like as muc
 | Park editor & graffiti | `0x588180`-`0x595030` | ░░░░░░░░░░░░░░░░░░░░ 0% | 1 / 289 | 0.1 KB / 47.3 KB |
 | Lighting / FX / park memory | `0x595030`-`0x59f610` | ░░░░░░░░░░░░░░░░░░░░ 0% | 0 / 169 | 0.0 KB / 40.1 KB |
 | Game script commands (skater queries, save/memcard, profiles, appearance, cutscenes, weather) | `0x59f610`-`0x5b6560` | ░░░░░░░░░░░░░░░░░░░░ 0% | 18 / 574 | 0.4 KB / 87.1 KB |
-| File system (PIP/PRE archives) & skater memory heaps | `0x5b6560`-`0x5bdad0` | █████████████████░░░ 88% | 211 / 222 | 23.9 KB / 27.1 KB |
-| Input devices (SIO) | `0x5bdad0`-`0x5be670` | ░░░░░░░░░░░░░░░░░░░░ 0% | 0 / 23 | 0.0 KB / 2.7 KB |
+| File system (PIP/PRE archives) & skater memory heaps | `0x5b6560`-`0x5bdad0` | ██████████████████░░ 90% | 220 / 222 | 24.5 KB / 27.1 KB |
+| Input devices (SIO) | `0x5bdad0`-`0x5be670` | █████░░░░░░░░░░░░░░░ 29% | 12 / 23 | 0.8 KB / 2.7 KB |
 | Win32 platform layer (window, D3D9/DirectSound/DirectInput setup, registry options) | `0x5eef20`-`0x5f8130` | ░░░░░░░░░░░░░░░░░░░░ 0% | 0 / 91 | 0.0 KB / 17.4 KB |
 
 ## Not decompiled (libraries)

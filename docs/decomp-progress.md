@@ -510,6 +510,40 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       Script::PrintContents on a typed getter's miss with assert set, Mem::DebugTrackBlock on the heap's
       blocks before/after each change. No behaviour change. New code must keep doing this
       (tools/ghidra/find_stubs.py lists the empty functions).
+- [x] Batch 49 (NOT run in the game yet; early test passes offline): SIO, part 1 (src/game/sio/device.*) -
+      the controller ports. Sio::Device (0xF0 bytes, vtable 0x658A6C; PS2-format control data at +0x1C,
+      motor levels +0x5C / maxima +0x7C / saved +0x9C, pause count +0xBC, actuators-disabled +0xC0,
+      capabilities +0xC4, state +0xD4 (0 idle, 1 detect, 2 ready, 5 settle) and the state after settling
+      +0xD8, plugged in +0xE0): constructor 0x5BD920 (allocates its list node; reads the never-set +0xD0 for
+      the PS2 DMA buffer; rand() & 63 retry delay), destructor 0x5BCD00 (was batch 47's "owner destructor"),
+      Acquire 0x5BCC70, Detect 0x5BD8B0 (analogue pad, type 7, two motors), Settle 0x5BCCC0, IsPluggedIn
+      0x5BCC60 (returns the byte as is), ActivateActuator 0x5BDA20 (x87 max * percent * 0.01f, truncated; the
+      same * 256 for the motor; with PartyMod's change - no ReadData call), Enable/Disable/Reset/Pause/Unpause/
+      StopActuators 0x5BCCB0 / 0x5BDAD0 / 0x5BDB30 / 0x5BDB60 / 0x5BDBD0 / 0x5BDC60, Process 0x5BDCC0
+      (source-only: PartyMod's processController, which the game runs; the original's state machine is in the
+      comment). A pad is present if the port's DirectInput joystick reads (0x5F2E00) or it has key bindings
+      (0x5F2F80 checks the first 23 of the port's table at 0x7D6770). Keyboard: ReadKeyboard 0x5BDD60
+      (DirectInput state double buffer at 0x7D1C20, re-acquires when lost), GetKeyboardChars 0x5BDD30 /
+      ClearKeyboardChars 0x5BDE20 (+ their jumps 0x5BCC40 / 0x5BCC50). The manager singleton (0x7D1E20,
+      references 0x7D1E24): CreateManager 0x5BE670 (returns the instance - two callers use it; its constructor
+      0x5BE1F0 is next batch), ReleaseManager 0x5BDCF0. Spt::Class (assumed: the singletons' base, vtable
+      0x658AA4) destructors 0x5BDE30 / 0x5BDE40. Also the jump 0x48C1B0 -> 0x5480A0. 25 functions.
+      Early test: every method over states x capabilities x motor counts x pause depths x pad present or not,
+      motors traced through stand-in DirectInput force-feedback effects (0x7D6668; per-port scales at
+      0x7D42D0 set - zero offline, they hid the levels), the keyboard through a stand-in DirectInput keyboard
+      (lost / not acquired / failing re-acquire), typed characters, the manager's references and returned
+      instance, Spt::Class. The original ActivateActuator is tested as PartyMod leaves it (its 7-byte NOP at
+      0x5BDA31 applied during the test - unpatched it runs the menu code). Late test (game's rand, memory
+      manager up): constructor and destructors. 34 deliberate bugs caught (10 after fixing the test).
+      Also: the library boundary was wrong - game code runs to 0x5BEAAD (D3DX9 starts at 0x5BEB1A after 18
+      import thunks; docs/library_ranges.md, find_gaps / find_stubs fixed). thug2_check now links PartyMod
+      (SDL2 delay-loaded) and its output is unbuffered (a crashing test used to swallow everything).
+      Noticed: PartyMod's device struct puts start_or_a_pressed (uint32) at +0xF0 - past the 0xF0-byte
+      device, so its processController writes 4 bytes beyond the allocation every frame. Not confirmed
+      harmful; worth checking when the heap code is next looked at.
+      Next batch (SIO part 2): ReadData 0x5BD200 and the key-name function 0x5BCD50 (screen-element smart
+      pointers), KeyInput 0x5BDE70.. 0x5BDF30, the manager's constructor/destructor/task 0x5BE110-0x5BE300,
+      0x5BE3F0-0x5BE5E0, 0x5BE6C0-0x5BEAA0.
 - [ ] Next: the pre-compiled .qb format (0x46FBA0, 0x46CA50, 0x46C970, 0x46C830, 0x46C7F0, ...), the script
       cache (0x475FD0 ...), then CScript (0x472900.. / 0x473000..).
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function

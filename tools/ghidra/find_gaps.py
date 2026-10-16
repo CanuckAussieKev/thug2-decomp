@@ -30,7 +30,7 @@ for path in (REPO / "src" / "game").rglob("*.cpp"):
     for match in re.finditer(r"REPLACE\w*\(0x([0-9A-Fa-f]+)", path.read_text(encoding="utf-8")):
         replaced.add(int(match.group(1), 16))
 # Libraries we link instead of decompiling (docs/library_ranges.md).
-libraries = [(0x5BE670, 0x5EEF20), (0x5F8160, 0x622E80), (0x622F80, 0x640000)]
+libraries = [(0x5BEAAE, 0x5EEF20), (0x5F8160, 0x622E80), (0x622F80, 0x640000)]
 COMPILER_GENERATED = {0x401020}
 in_library = lambda a: any(lo <= a < hi for lo, hi in libraries)
 

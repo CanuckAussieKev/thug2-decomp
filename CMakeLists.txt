@@ -97,6 +97,7 @@ add_library(thug2_code OBJECT
     src/game/file/pre.cpp
     src/game/lst/hashtable.cpp
     src/game/net/chat.cpp
+    src/game/sio/device.cpp
     src/game/sys/registry.cpp
     src/game/mc/memcard.cpp
     src/game/script/eval.cpp
@@ -137,7 +138,9 @@ endif()
 # thug2_check: the start-up checks and the early self-tests against THUG2PM.exe's code, without starting the
 # game (see tools/check/main.cpp):  thug2_check [<path to THUG2PM.exe>]
 add_executable(thug2_check tools/check/main.cpp)
-target_link_libraries(thug2_check PRIVATE thug2_code minhook)
+target_link_libraries(thug2_check PRIVATE thug2_code partymod minhook delayimp)
+# PartyMod's code is linked for Sio::Device::Process (never run offline), so SDL2 is only loaded if used.
+target_link_options(thug2_check PRIVATE /DELAYLOAD:SDL2.dll)
 target_compile_options(thug2_check PRIVATE /W4 /permissive- /utf-8)
 # Keep the tool itself away from 0x400000: its child process loads the game image there.
 target_link_options(thug2_check PRIVATE /BASE:0x20000000 /DYNAMICBASE:NO)
