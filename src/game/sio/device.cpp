@@ -14,6 +14,7 @@
 #include "game/core/alloc.h"
 #include "game/core/crc.h"
 #include "game/front/screen_element.h"
+#include "game/sys/platform.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/stubs.h"
@@ -39,7 +40,7 @@ bool PadPresent(int port) { return PollJoystick(port) || HasKeyBindings(port); }
 
 } // namespace
 
-void SetActuators(int port, int left, int right) { GameFunction<void(__cdecl*)(int, int, int)>(0x005F3A50)(port, left, right); }
+void SetActuators(int port, int left, int right) { Platform::SetActuators(port, left, right); }
 
 // 0x005BD920
 Device::Device(int index, int port, int slot)
