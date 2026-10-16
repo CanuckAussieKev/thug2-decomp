@@ -19,7 +19,7 @@
 namespace {
 
 // Bytes written over game code for the length of a test (restored when it goes). (A copy of
-// selftests_partymod.cpp's.)
+// selftests_pc.cpp's.)
 struct CodePatch {
     uint8_t* at;
     std::vector<uint8_t> saved;
@@ -334,9 +334,6 @@ void TestDrawScreenBlur()
 
 // --- the world render ---------------------------------------------------------------------------------------
 
-extern "C" void setDisplayRegion();
-extern "C" void draw2DWrapper();
-
 // Recorders for the world render's callees, by argument count (Id names the callee in the trace).
 template <uint32_t Id> void __cdecl Rec0() { Record({Id}); }
 template <uint32_t Id> void __cdecl Rec1(uint32_t a) { Record({Id, a}); }
@@ -509,13 +506,13 @@ void TestRenderWorld()
                     g_texture_size[0][1] = g_texture_size[1][1] = 512;
                     if (original) {
                         std::vector<uint8_t> region1(58, 0x90), region2(35, 0x90);
-                        std::vector<uint8_t> call = JumpTo(0x004B2E65, reinterpret_cast<void*>(&setDisplayRegion));
+                        std::vector<uint8_t> call = JumpTo(0x004B2E65, reinterpret_cast<void*>(&Nx::SetDisplayRegion));
                         std::memcpy(region1.data(), call.data(), 5);
                         region1[0] = 0xE8;
-                        call = JumpTo(0x004B33CA, reinterpret_cast<void*>(&setDisplayRegion));
+                        call = JumpTo(0x004B33CA, reinterpret_cast<void*>(&Nx::SetDisplayRegion));
                         std::memcpy(region2.data(), call.data(), 5);
                         region2[0] = 0xE8;
-                        std::vector<uint8_t> draw2D = JumpTo(0x004B341D, reinterpret_cast<void*>(&draw2DWrapper));
+                        std::vector<uint8_t> draw2D = JumpTo(0x004B341D, reinterpret_cast<void*>(&Nx::Draw2DWithBlackBars));
                         draw2D[0] = 0xE8;
                         CodePatch a(0x004B2E65, region1);
                         CodePatch b(0x004B33CA, region2);

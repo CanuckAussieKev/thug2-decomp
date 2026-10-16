@@ -1,5 +1,5 @@
 // Self-test for the main loop (Mlp::Manager::MainLoop, 0x0044EEF0). The loop runs until the game ends, so the
-// original (with PartyMod's renderWorldWrapper call written in) and ours run against recording stand-ins for
+// original (with PartyMod's call to the letterboxed render, Mlp::RenderFrameLetterboxed, written in) and ours run against recording stand-ins for
 // everything they call - the Win32 timer, sleep and screen saver calls included - with a scripted clock, and a
 // stand-in ends the loop the way the game does (m_done set by a task, or the quit flag). The two call traces,
 // with the state at every call, are compared.
@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "game/core/dbg.h"
+#include "game/gfx/screen.h"
 #include "game/sio/device.h"
 #include "game/sys/mlp.h"
 #include "game/sys/platform.h"
@@ -23,8 +24,6 @@
 #include "hook/selftest.h"
 #include "hook/standins.h"
 
-extern "C" void renderWorldWrapper();                   // PartyMod (gfx.c)
-extern "C" void __cdecl setLetterbox(int isLetterboxed); // PartyMod (gfx.c)
 
 namespace {
 
@@ -130,7 +129,7 @@ void SetUpStandIns(StandIns& s)
     s.At({0x0048C330}, 0, On(kRender));
     s.At({0x00565DA0}, 0, On(kAfter));
     s.At({0x0048BF20}, 0, On(kEnd));
-    s.At({Resolve(reinterpret_cast<const void*>(&setLetterbox))}, 0, [](Regs& r) {
+    s.At({Resolve(reinterpret_cast<const void*>(&Nx::SetLetterbox))}, 0, [](Regs& r) {
         Record({r.args[0]});
         Letterbox() = static_cast<uint8_t>(r.args[0]);
         return Event(kLetterbox, r);
@@ -364,10 +363,11 @@ void TestMainLoop()
             bool original = run == 0;
             g_trace.clear();
             std::vector<uint32_t> trace;
-            // PartyMod: renderWorldWrapper called in place of the render (gfx.c patchLetterbox)
+            // PartyMod's call at 0x0044F1C0: the render with its letterbox (Mlp::RenderFrameLetterboxed) in place
+            // of the plain render
             if (original)
                 RunPatch(0x0044F1C0, Branch(0xE8, 0x0044F1C0, reinterpret_cast<const void*>(Resolve(
-                                                                  reinterpret_cast<const void*>(&renderWorldWrapper)))));
+                                                                  reinterpret_cast<const void*>(&Mlp::RenderFrameLetterboxed)))));
             for (const Case& c : cases) {
                 std::memset(g_mlp, 0xEE, sizeof(g_mlp));
                 std::memset(g_skate, 0, sizeof(g_skate));

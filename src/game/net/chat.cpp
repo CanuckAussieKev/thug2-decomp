@@ -1,3 +1,5 @@
+// Based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt (the PC port's changes in it).
+
 #include "game/net/chat.h"
 
 #include <cstdint>

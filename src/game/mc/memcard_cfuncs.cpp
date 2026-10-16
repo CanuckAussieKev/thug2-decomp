@@ -1,7 +1,11 @@
 // Script functions (CFuncs) for the memory card.
+// Based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt (the PC port's changes in it).
 
 #include "game/mc/memcard_cfuncs.h"
 
+#include <windows.h>
+
+#include <cstdint>
 #include <cstdio>
 
 #include "game/core/mem.h"
@@ -10,11 +14,25 @@
 #include "hook/game.h"
 #include "hook/hook.h"
 
-// PartyMod's free-space count (src/partymod/main.c): the disk's free 16 KB blocks, clamped so that scripts can
-// add to it without overflowing (the original's count is unclamped).
-extern "C" int32_t __fastcall calcAvailableSpaceFudged(uint8_t* card);
-
 namespace Mc {
+
+// The PC port's free space (based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt): with a card
+// (its +0x0C flag), the disk's free 16 KB blocks, clamped to 0x7FFE0001 so that scripts can add to it without
+// overflowing (the original's count, card->GetFreeBlocks(), is unclamped).
+int32_t __fastcall FreeDiskBlocks(Card* card)
+{
+    if (!reinterpret_cast<const uint8_t*>(card)[0xC])
+        return 0;
+    ULARGE_INTEGER freeSpace;
+    ULARGE_INTEGER totalSpace;
+    if (!GetDiskFreeSpaceExA(nullptr, &freeSpace, &totalSpace, nullptr))
+        return 0;
+    uint64_t blocks = freeSpace.QuadPart >> 14;
+    constexpr uint64_t kLimit = INT32_MAX - UINT16_MAX * 2; // (a number that leaves room for a bit of maths)
+    if (blocks > kLimit)
+        blocks = kLimit;
+    return static_cast<int32_t>(blocks);
+}
 
 namespace {
 
@@ -38,8 +56,9 @@ bool GetMemCardSpaceAvailable(Script::CStruct*, Script::CScript* script)
     Card* card = GameVariable<Manager*>(0x007D1890)->GetCard(0, 0);
     if (!card)
         return false;
-    // PartyMod: its clamped count in place of the original's card->GetFreeBlocks().
-    ResultParams(script)->AddInteger(kSpaceAvailable, calcAvailableSpaceFudged(reinterpret_cast<uint8_t*>(card)));
+    // PC port (PartyMod's call at 0x005A6E7E): the clamped disk count in place of the original's
+    // card->GetFreeBlocks().
+    ResultParams(script)->AddInteger(kSpaceAvailable, FreeDiskBlocks(card));
     return true;
 }
 

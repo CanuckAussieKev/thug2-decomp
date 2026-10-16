@@ -1,4 +1,5 @@
 // Serial I/O: the controller ports' devices, the keyboard's state and the device manager's lifetime.
+// Based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt (the PC port's changes in it).
 
 #include "game/sio/device.h"
 
@@ -19,11 +20,10 @@
 #include "game/core/mem.h"
 #include "game/core/stubs.h"
 #include "game/lst/search.h"
+#include "game/sio/sdl_input.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
-// PartyMod's replacement for Device::Process (src/partymod/input.c).
-extern "C" void __fastcall processController(void* device, void* unused, void* alsoDevice);
 
 namespace Sio {
 
@@ -89,11 +89,11 @@ Device* Device::Destroy(unsigned int flags)
 //     m_pluggedIn = 0;
 //     switch (m_state) { case kDetect: Detect(); break; case kReady: ReadData(0); break;
 //                        case kSettle: Settle(); break; }
-// where ReadData polls the pad into m_controlData. PartyMod replaces it with its own (SDL game
-// controllers and the keyboard), which is what the game runs.
-void Device::Process(int unused)
+// where ReadData polls the pad into m_controlData. PC port (PartyMod's jump from here): SDL game controllers
+// and the keyboard (game/sio/sdl_input.h).
+void Device::Process(int /*unused*/)
 {
-    processController(this, nullptr, reinterpret_cast<void*>(static_cast<intptr_t>(unused)));
+    ProcessSdlDevice(this);
 }
 
 // 0x005BCC70
@@ -846,7 +846,7 @@ struct DeviceAdapter {
 
 REPLACE(0x005BD920, &DeviceAdapter::Construct);
 REPLACE(0x005BCD00, &Sio::Device::Destroy);
-REPLACE(0x005BDCC0, &Sio::Device::Process); // (PartyMod jumped from here to processController)
+REPLACE(0x005BDCC0, &Sio::Device::Process);
 REPLACE(0x005BCC60, &Sio::Device::IsPluggedIn);
 REPLACE(0x005BCC70, &Sio::Device::Acquire);
 REPLACE(0x005BD8B0, &Sio::Device::Detect);

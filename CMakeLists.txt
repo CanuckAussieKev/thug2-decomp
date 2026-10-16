@@ -13,16 +13,16 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 set(THUG2_GAME_DIR "C:/Games/THUG2" CACHE PATH "Game folder the built dinput8.dll is copied into")
 
-# --- SDL2 (used by the PartyMod code for windowing and input) -------------------------------------------
-# The official 2.30.9 Visual C++ development package: the same version as the SDL2.dll PartyMod ships with.
-# Downloaded and checked against its SHA-256 at configure time; not stored in the repo.
+# --- SDL2 (the PC port's window and input: src/game/sys/sdl_*.cpp, src/game/sio/sdl_input.cpp) --------------
+# The official 2.30.9 Visual C++ development package: the same version as the SDL2.dll PartyMod ships with (the
+# game folder's SDL2.dll). Downloaded and checked against its SHA-256 at configure time; not stored in the repo.
 include(FetchContent)
 FetchContent_Declare(sdl2
     URL https://github.com/libsdl-org/SDL/releases/download/release-2.30.9/SDL2-devel-2.30.9-VC.zip
     URL_HASH SHA256=8c91d91e5bcb997d062ec2b553c53832ebf95654d4aa35e8c02a954d4ce752ae
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
 FetchContent_MakeAvailable(sdl2)
-# The package has its headers directly in include/; PartyMod includes them as <SDL2/...>.
+# The package has its headers directly in include/; the code includes them as <SDL2/...>.
 file(COPY "${sdl2_SOURCE_DIR}/include/" DESTINATION "${CMAKE_BINARY_DIR}/sdl2-include/SDL2")
 add_library(sdl2 SHARED IMPORTED)
 set_target_properties(sdl2 PROPERTIES
@@ -47,32 +47,6 @@ add_library(minhook STATIC
 target_include_directories(minhook PUBLIC ${minhook_SOURCE_DIR}/include)
 target_compile_options(minhook PRIVATE /W0)
 
-# --- PartyMod (ported, MIT licence: see src/partymod/LICENSE and UPSTREAM.md) ---------------------------
-add_library(partymod STATIC
-    src/partymod/cfunc.c
-    src/partymod/config.c
-    src/partymod/event.c
-    src/partymod/gfx.c
-    src/partymod/glyph.c
-    src/partymod/input.c
-    src/partymod/log.c
-    src/partymod/main.c
-    src/partymod/net.c
-    src/partymod/patch.c
-    src/partymod/patches.c
-    src/partymod/script.c
-    src/partymod/window.c
-    src/partymod/util/bps.c
-    src/partymod/util/hash.c
-    src/partymod/util/sb.c
-)
-target_include_directories(partymod PRIVATE src/partymod src/partymod/thirdparty)
-target_compile_definitions(partymod PRIVATE THUG2_DECOMP)
-# Upstream code, kept close to the original: it relies on int-to-pointer conversions for game addresses that
-# MSVC warns about, so its warnings are off rather than editing every line.
-target_compile_options(partymod PRIVATE /W0 /utf-8)
-target_link_libraries(partymod PUBLIC sdl2)
-
 # The rewritten game code and the hook machinery, shared by the DLL and the check tool.
 add_library(thug2_code OBJECT
     src/hook/hook.cpp
@@ -83,7 +57,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_skaterB.cpp
     src/hook/selftests_gfx.cpp
     src/hook/selftests_platform.cpp
-    src/hook/selftests_partymod.cpp
+    src/hook/selftests_pc.cpp
     src/hook/selftests_glyph.cpp
     src/hook/selftests_skaterA.cpp
     src/hook/selftests_gfx2.cpp
@@ -109,6 +83,8 @@ add_library(thug2_code OBJECT
     src/game/file/asset_bundle.cpp
     src/game/front/screen_element.cpp
     src/game/gfx/screen.cpp
+    src/game/gfx/settings.cpp
+    src/game/gfx/glyphs.cpp
     src/game/gfx/flash.cpp
     src/game/gfx/font.cpp
     src/game/gfx/text.cpp
@@ -126,13 +102,21 @@ add_library(thug2_code OBJECT
     src/game/net/chat.cpp
     src/game/net/stats.cpp
     src/game/net/service.cpp
+    src/game/net/online_hosts.cpp
     src/game/obj/flip_rotate.cpp
     src/game/obj/smtptr.cpp
     src/game/skater/rotation.cpp
     src/game/sio/device.cpp
+    src/game/sio/sdl_input.cpp
     src/game/skater/controls.cpp
     src/game/skater/core_physics.cpp
     src/game/sys/platform.cpp
+    src/game/sys/platform_cfuncs.cpp
+    src/game/sys/config.cpp
+    src/game/sys/debug_log.cpp
+    src/game/sys/pc_setup.cpp
+    src/game/sys/sdl_events.cpp
+    src/game/sys/sdl_window.cpp
     src/game/sys/registry.cpp
     src/game/sys/timer.cpp
     src/game/sys/main.cpp
@@ -145,6 +129,7 @@ add_library(thug2_code OBJECT
     src/game/script/load.cpp
     src/game/script/names.cpp
     src/game/script/parse.cpp
+    src/game/script/patched.cpp
     src/game/script/precompiled.cpp
     src/game/script/qb.cpp
     src/game/script/struct.cpp
@@ -156,9 +141,10 @@ add_library(thug2_code OBJECT
     src/game/mth/vector.cpp
     src/game/util/bitstream.cpp
     src/game/util/lzss.cpp
+    src/game/util/bps.cpp
 )
 target_include_directories(thug2_code PUBLIC src PRIVATE ${minhook_SOURCE_DIR}/src) # MinHook's hde32 decoder
-target_link_libraries(thug2_code PUBLIC minhook ws2_32) # ws2_32: the command line's server address
+target_link_libraries(thug2_code PUBLIC minhook sdl2 ws2_32) # ws2_32: the command line's server address
 target_compile_definitions(thug2_code PUBLIC WIN32_LEAN_AND_MEAN NOMINMAX)
 target_compile_options(thug2_code PRIVATE /W4 /permissive- /utf-8)
 
@@ -166,7 +152,7 @@ add_library(thug2_decomp SHARED
     src/proxy/dinput8.cpp
     src/proxy/dinput8.def
 )
-target_link_libraries(thug2_decomp PRIVATE thug2_code partymod minhook)
+target_link_libraries(thug2_decomp PRIVATE thug2_code minhook)
 target_compile_options(thug2_decomp PRIVATE /W4 /permissive- /utf-8)
 # The proxy has to be called dinput8.dll for Windows to load it instead of the system one.
 set_target_properties(thug2_decomp PROPERTIES OUTPUT_NAME dinput8)
@@ -180,8 +166,8 @@ endif()
 # thug2_check: the start-up checks and the early self-tests against THUG2PM.exe's code, without starting the
 # game (see tools/check/main.cpp):  thug2_check [<path to THUG2PM.exe>]
 add_executable(thug2_check tools/check/main.cpp)
-target_link_libraries(thug2_check PRIVATE thug2_code partymod minhook delayimp)
-# PartyMod's code is linked for Sio::Device::Process (never run offline), so SDL2 is only loaded if used.
+target_link_libraries(thug2_check PRIVATE thug2_code minhook delayimp)
+# The PC port's SDL code is linked (window, input: never run offline), so SDL2 is only loaded if used.
 target_link_options(thug2_check PRIVATE /DELAYLOAD:SDL2.dll)
 target_compile_options(thug2_check PRIVATE /W4 /permissive- /utf-8)
 # Keep the tool itself away from 0x400000: its child process loads the game image there.

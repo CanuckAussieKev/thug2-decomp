@@ -5,8 +5,15 @@
 namespace Nx {
 
 // 0x0044FA80: draw a movie frame's texture at (x, y), (width, height) in screen units, faded by alpha (0-1),
-// with PartyMod's 4:3 fit inside the back buffer.
+// with the PC port's 4:3 fit inside the back buffer (based on PartyMod (c) 2024 PARTYMANX, MIT - see
+// LICENSES/partymod.txt).
 void DrawMovieFrame(void* texture, float x, float y, float width, float height, float alpha);
+
+// The PC port's two calls in DrawMovieFrame. SetMovieTexture (cdecl): the renderer's texture set (0x004DA730),
+// noting the texture's size first. DrawMovieQuad (stdcall, as the device's DrawPrimitiveUP it stands in for):
+// the quad's corners moved to the largest 4:3 area centred in the back buffer, then drawn.
+void SetMovieTexture(int stage, void* texture, int unknown);
+void __stdcall DrawMovieQuad(void* device, int type, uint32_t count, void* vertices, uint32_t stride);
 
 } // namespace Nx
 
@@ -33,8 +40,8 @@ struct Bink {
 
 // 0x0044FDC0 (also reached by a jump at 0x0044F830): play data\movies\bik\<name>.bik (a path before the last
 // backslash in `name` is dropped) to its end, until the quit request, or until start or X is pressed on a pad
-// (pressed after being seen up). The music is paused and the streams stopped first. PartyMod: the pads are
-// read every frame, not every fifth.
+// (pressed after being seen up). The music is paused and the streams stopped first. PC port (PartyMod): the
+// pads are read every frame, not every fifth.
 void __cdecl PlayMovieFile(const char* name);
 
 // 0x0044F8C0: the render states for movies (the old ones saved for EndMovie) and a width x height texture for

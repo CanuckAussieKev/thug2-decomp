@@ -1,4 +1,5 @@
-// Bitmap font text: measuring and drawing, with PartyMod's button glyphs built in.
+// Bitmap font text: measuring and drawing, with the PC port's button glyphs (game/gfx/glyphs.h) built in.
+// Based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt (the PC port's changes in it).
 
 #include "game/gfx/text.h"
 
@@ -11,13 +12,9 @@
 #include "game/core/mem.h"
 #include "game/core/str.h"
 #include "game/file/file.h"
+#include "game/gfx/glyphs.h"
 #include "hook/game.h"
 #include "hook/hook.h"
-
-// PartyMod (src/partymod/glyph.c): which glyph a button tag stands for, and whether it's drawn as a glyph or as
-// the key's name - it depends on whether a keyboard is in use and its PreferGlyphs setting.
-extern "C" uint32_t dehexifyDigitWrapper(uint8_t* button);
-extern "C" uint8_t __cdecl shouldUseGlyph(uint8_t index);
 
 namespace Nx {
 
@@ -53,18 +50,18 @@ int ButtonIndex(char tag, const char* digit)
         char mapped = MetaButton(digit);
         return Str::DehexifyDigit(&mapped);
     }
-    // PartyMod (its call at 0x004CED4B / 0x004CFF0C): with a controller (or PreferGlyphs) the PC's explicit
-    // button tags are turned back into the controller's. The original: Str::DehexifyDigit(digit).
-    return static_cast<int>(dehexifyDigitWrapper(reinterpret_cast<uint8_t*>(const_cast<char*>(digit))));
+    // PC port (PartyMod's call at 0x004CED4B / 0x004CFF0C): with a controller (or PreferGlyphs) the PC's
+    // explicit button tags are turned back into the controller's. The original: Str::DehexifyDigit(digit).
+    return static_cast<int>(ButtonForTag(reinterpret_cast<uint8_t*>(const_cast<char*>(digit))));
 }
 
 // Whether a button is drawn as a glyph of the button font (otherwise its key's name is spelled out).
 bool UseButtonGlyph(int button)
 {
-    // PartyMod (its test at 0x004CED6D / 0x004CFF36). The original, where 4-7 and 10-13 are the glyphs:
+    // PC port (PartyMod's test at 0x004CED6D / 0x004CFF36). The original, where 4-7 and 10-13 are the glyphs:
     //   uint8_t b = static_cast<uint8_t>(button);
     //   return (b >= 4 && b <= 7) || (b >= 10 && b <= 13);
-    return shouldUseGlyph(static_cast<uint8_t>(button)) == 1;
+    return ShouldUseGlyph(static_cast<uint8_t>(button)) == 1;
 }
 
 // RGBA bytes (as stored) -> the vertex's ARGB: red and blue swap.

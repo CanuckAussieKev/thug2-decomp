@@ -15,16 +15,13 @@
 #include "game/mth/vector.h"
 #include "game/net/chat.h"
 #include "game/script/struct.h"
+#include "game/sio/sdl_input.h"
 #include "game/skater/rotation.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
 #include "hook/selftest.h"
 
-extern "C" struct PartyModInputSettings {
-    uint8_t isPs2Controls;
-    uint8_t uicontrols;
-} inputsettings;
 
 namespace {
 
@@ -315,7 +312,7 @@ void CompareTraces(const std::vector<uint32_t>* traces, const char* what, const 
 // PartyMod's PS2 controls off and on - the original with its NOPs at 0x00504239 / 0x0050430B for "on".
 void TestSkaterSpin()
 {
-    uint8_t savedSettings = inputsettings.isPs2Controls;
+    uint8_t savedSettings = Sio::TheInputSettings().ps2Controls;
     int savedOffset = GameVariable<int>(0x00696D60);
     std::vector<uint32_t> traces[2];
     {
@@ -336,14 +333,14 @@ void TestSkaterSpin()
                     for (Patch* p : bytes)
                         delete p;
                 } else {
-                    inputsettings.isPs2Controls = ps2 ? 1 : 0;
+                    Sio::TheInputSettings().ps2Controls = ps2 ? 1 : 0;
                     reinterpret_cast<Skater::CorePhysicsComponent*>(g_component)->Spin();
                 }
                 TraceSkater(traces[run]);
             }
         }
     }
-    inputsettings.isPs2Controls = savedSettings;
+    Sio::TheInputSettings().ps2Controls = savedSettings;
     GameVariable<int>(0x00696D60) = savedOffset;
     CompareTraces(traces, "skater: spin (PS2 controls off and on)", "spin");
 }
@@ -353,7 +350,7 @@ void TestSkaterSpin()
 void TestSkaterBreakVert()
 {
     OurMathHelpers helpers;
-    uint8_t savedSettings = inputsettings.isPs2Controls;
+    uint8_t savedSettings = Sio::TheInputSettings().ps2Controls;
     int savedOffset = GameVariable<int>(0x00696D60);
     std::vector<uint32_t> traces[2];
     {
@@ -375,7 +372,7 @@ void TestSkaterBreakVert()
                     for (Patch* p : bytes)
                         delete p;
                 } else {
-                    inputsettings.isPs2Controls = ps2 ? 1 : 0;
+                    Sio::TheInputSettings().ps2Controls = ps2 ? 1 : 0;
                     reinterpret_cast<Skater::CorePhysicsComponent*>(g_component)->BreakVert(force);
                 }
                 TraceSkater(traces[run]);
@@ -384,7 +381,7 @@ void TestSkaterBreakVert()
             }
         }
     }
-    inputsettings.isPs2Controls = savedSettings;
+    Sio::TheInputSettings().ps2Controls = savedSettings;
     GameVariable<int>(0x00696D60) = savedOffset;
     CompareTraces(traces, "skater: break vert (PS2 controls off and on)", "break vert");
 }

@@ -1,4 +1,5 @@
 // Music: picking the next track of a playlist.
+// Based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt (the PC port's changes in it).
 
 #include "game/pcm/music.h"
 
@@ -92,7 +93,7 @@ void StartTrack(Playlist& list, int track)
 
 } // namespace
 
-// PartyMod's our_random (main.c), at the shuffle's two draws (0x004523A7 / 0x004523B4). It keeps drawing the
+// PartyMod's our_random, at the shuffle's two draws (0x004523A7 / 0x004523B4). It keeps drawing the
 // game's number so the game's random stream advances as before. (rand() % 0 would divide by zero; the game's
 // Rnd(0) is 0, so that's kept for an empty order.)
 int ShuffleRandom(int n)

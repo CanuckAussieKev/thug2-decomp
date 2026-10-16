@@ -15,8 +15,10 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/sys/main.h"
+#include "game/sys/pc_setup.h"
 #include "game/sys/platform.h"
 #include "game/sys/registry.h"
+#include "game/sys/sdl_window.h"
 #include "game/sys/winmain.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -24,11 +26,15 @@
 #include "hook/selftest.h"
 #include "hook/standins.h"
 
-extern "C" void initPatch();
-extern "C" void createSDLWindow();
-extern "C" void networkParamsWrapper(void* args);
-
 namespace {
+
+// PartyMod's call at 0x004E26DC in place of ParseNetworkParams: its set-up (Sys::InitPcSetup), then the original
+// (through its address, so stood in like ours).
+void __cdecl PcSetupThenParseNetworkParams(char* commandLine)
+{
+    Sys::InitPcSetup();
+    GameFunction<void(__cdecl*)(char*)>(0x004E1220)(commandLine);
+}
 
 using namespace TestStandIns;
 
@@ -225,7 +231,7 @@ struct WinMainCase {
     const char* commandLine;
     int gsi[4];       // what GSIAvailableCheckThink returns in turn (-1 ends; then 1)
     uint32_t running; // FindWindowExA's answer
-    uint32_t window1; // the window createSDLWindow makes
+    uint32_t window1; // the window Sys::CreateSdlWindow makes
     uint32_t window2; // ... as the window events leave it
 };
 const WinMainCase kWinMainCases[] = {
@@ -324,7 +330,7 @@ void TestWinMain()
             return 0x10000000u;
         });
         s->Bytes(0x00645130, Dword(reinterpret_cast<uint32_t>(load)));
-        s->At({Resolve(reinterpret_cast<const void*>(&initPatch))}, 0, plain(0x1417));
+        s->At({Resolve(reinterpret_cast<const void*>(&Sys::InitPcSetup))}, 0, plain(0x1417));
         s->At({0x004E1220, AddressOf(&Sys::ParseNetworkParams)}, 0, [](Regs& r) {
             Record({0x1220, r.args[0] == reinterpret_cast<uint32_t>(g_commandLine),
                     Hash(reinterpret_cast<const char*>(r.args[0]))});
@@ -351,7 +357,7 @@ void TestWinMain()
             return 1u;
         });
         StandInApi(*s, 0x0064520C, reinterpret_cast<const void*>(&MapVirtualKeyA), 8, StandInMapVirtualKey);
-        s->At({Resolve(reinterpret_cast<const void*>(&createSDLWindow))}, 0, [](Regs&) {
+        s->At({Resolve(reinterpret_cast<const void*>(&Sys::CreateSdlWindow))}, 0, [](Regs&) {
             Record({0xCDE});
             Window() = g_case->window1;
             return 0u;
@@ -422,10 +428,10 @@ void TestWinMain()
             g_loads = 0;
             g_loadName = 0;
             if (original) {
-                // PartyMod: its set-up before the command line (main.c), its window (window.c), the window not
-                // shown (window.c), DirectInput not released (input.c)
-                RunPatch(0x004E26DC, Branch(0xE8, 0x004E26DC, reinterpret_cast<const void*>(&networkParamsWrapper)));
-                RunPatch(0x004E2767, Branch(0xE8, 0x004E2767, reinterpret_cast<const void*>(&createSDLWindow)));
+                // PartyMod: its set-up before the command line, its window, the window not shown, DirectInput
+                // not released
+                RunPatch(0x004E26DC, Branch(0xE8, 0x004E26DC, reinterpret_cast<const void*>(&PcSetupThenParseNetworkParams)));
+                RunPatch(0x004E2767, Branch(0xE8, 0x004E2767, reinterpret_cast<const void*>(&Sys::CreateSdlWindow)));
                 RunPatch(0x004E277D, std::vector<uint8_t>(20, 0x90));
                 RunPatch(0x004E2C16, std::vector<uint8_t>(5, 0x90));
             }

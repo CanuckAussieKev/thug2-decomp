@@ -61,6 +61,11 @@ void SetCodeReadOffset(intptr_t offset);
 // Listing a replacement in thug2-decomp.ini's disable= skips it deliberately instead.
 void StopIfReplacementsFailed();
 
+// Write `size` bytes over the exe's code or read-only data at `address` (made writable for the write). For game
+// source that still has to change library code or data the exe owns (the GameSpy host names, a CFunction table
+// entry) until that code is linked or the data is source too.
+bool WriteGameCode(uint32_t address, const void* bytes, size_t size);
+
 // Permanently put back the original code at `address` (for one-shot hooks).
 void RestoreOriginal(uint32_t address);
 

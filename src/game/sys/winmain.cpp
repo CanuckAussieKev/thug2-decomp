@@ -1,4 +1,5 @@
 // The program's entry point and its command line.
+// Based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt (the PC port's changes in it).
 
 #define _WINSOCK_DEPRECATED_NO_WARNINGS // inet_addr, gethostbyname: what the game uses
 #include "game/sys/winmain.h"
@@ -15,15 +16,13 @@
 #include "game/core/manager.h"
 #include "game/sio/device.h"
 #include "game/sys/main.h"
+#include "game/sys/pc_setup.h"
 #include "game/sys/platform.h"
 #include "game/sys/registry.h"
+#include "game/sys/sdl_window.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/selftest.h"
-
-// PartyMod (src/partymod)
-extern "C" void initPatch();       // main.c: its set-up once the game's C runtime runs
-extern "C" void createSDLWindow(); // window.c: its window, in place of the game's
 
 namespace Sys {
 
@@ -229,9 +228,9 @@ void ReadNetworkParams(const char* commandLine)
 // 0x004E2680
 int WINAPI WinMain(HINSTANCE instance, HINSTANCE /*previous*/, char* commandLine, int /*show*/)
 {
-    // PartyMod: its exe patch loads partymod.dll here - LoadLibraryA("partymod.dll") in a code cave (0x005480A1)
-    // called in place of GsiStartAvailableCheck, which the cave then jumps to. Here PartyMod is part of this DLL
-    // and was set up when it loaded (DllMain, src/proxy/dinput8.cpp), so nothing is loaded.
+    // (THUG2PM.exe's own patch loads partymod.dll here - LoadLibraryA("partymod.dll") in a code cave (0x005480A1)
+    // called in place of GsiStartAvailableCheck, which the cave then jumps to. The PC port is part of the game's
+    // source here, so nothing is loaded.)
     GsiStartAvailableCheck("thps6pc");
     int available;
     while ((available = GsiAvailableCheckThink()) == 0)
@@ -239,10 +238,10 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE /*previous*/, char* commandLine
     if (available != 1)
         Dbg::Printf("The backend is not available\n");
 
-    // PartyMod: its set-up (partymod.ini, logging, its script and event hooks, the online service's hosts, the
-    // button glyphs, the graphics settings) before the command line is read - its networkParamsWrapper, called
-    // in place of ParseNetworkParams.
-    initPatch();
+    // PC port: its set-up (partymod.ini, logging, the patched scripts, the SDL event pump, the online service's
+    // hosts, the button glyphs, the graphics settings) before the command line is read (PartyMod called it in
+    // place of ParseNetworkParams, then that).
+    InitPcSetup();
     ParseNetworkParams(commandLine);
 
     // The window title (the string at 0x0064B190, 25 characters - "...nd 2" - of which PartyMod's exe patch
@@ -255,15 +254,15 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE /*previous*/, char* commandLine
         return 0;
     }
 
-    // PartyMod: its SDL window (partymod.ini's size, windowed or not; the handle into 0x007D6A28) in place of
+    // PC port: the SDL window (partymod.ini's size, windowed or not; the handle into 0x007D6A28) in place of
     //     char title[26] = <the title>;
     //     CreateGameWindow(<the title> as the class name, title, 100, 100, 640, 480, WindowProc 0x004E16B0,
     //                      instance, icon 0x66, true);                       // 0x005F5860 (true: full screen)
-    createSDLWindow();
+    CreateSdlWindow();
     Platform::ProcessWindowEvents();
     if (!GameWindow())
         return 0;
-    // PartyMod: the window isn't shown here. The original did
+    // PC port: the window isn't shown here (SDL shows it). The original did
     //     ShowWindow(GameWindow(), GameVariable<bool>(0x00786AB7) ? SW_SHOWMINIMIZED : SW_SHOWNORMAL);
     Srand(Time());
 
@@ -328,10 +327,10 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE /*previous*/, char* commandLine
 
     Main(argc, argv);
 
-    // PartyMod: Main doesn't come back (its fast exit ends the process when the main loop returns). The original
+    // PC port: Main doesn't come back (FastExit ends the process when the main loop returns). The original
     // went on to shut down:
     ReleaseDirectSound();
-    // PartyMod: DirectInput isn't released here (its input replaces it): the original called 0x005F39E0.
+    // PC port: DirectInput isn't released here (SDL input replaces it): the original called 0x005F39E0.
     GameFunction<void(__cdecl*)()>(0x004908C0)(); // (the renderer's clean-up)
     ReleaseDirect3D();
     InvalidateRect(nullptr, nullptr, TRUE);
@@ -343,6 +342,6 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE /*previous*/, char* commandLine
 
 } // namespace Sys
 
-REPLACE(0x004E16B0, Sys::WindowProc); // (PartyMod's SDL window doesn't use it)
+REPLACE(0x004E16B0, Sys::WindowProc); // (the SDL window doesn't use it)
 REPLACE(0x004E2680, Sys::WinMain);
 REPLACE(0x004E1220, Sys::ParseNetworkParams);

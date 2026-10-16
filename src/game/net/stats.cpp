@@ -1,4 +1,5 @@
 // Online top stats.
+// Based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt (the PC port's changes in it).
 
 #include "game/net/stats.h"
 
@@ -6,12 +7,10 @@
 #include <cstdio>
 #include <cstring>
 
+#include "game/net/online_hosts.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
-
-// PartyMod's gamestats host (src/partymod/net.c; null before PartyMod has set up its online service).
-extern "C" char* partymod_gamestats_host;
 
 namespace Net {
 
@@ -46,8 +45,9 @@ bool __cdecl RetrieveTopStats(Script::CStruct* params, Script::CScript*)
     else
         ++current;
     StatsRequest request;
-    // PartyMod: its gamestats.<OnlineDomain> in place of gamestats.gamespy.com (0x0064D670)
-    const char* host = partymod_gamestats_host ? partymod_gamestats_host : reinterpret_cast<const char*>(0x0064D670);
+    // PC port: gamestats.<OnlineDomain> in place of gamestats.gamespy.com (0x0064D670; PartyMod's DWord at
+    // 0x0054DD14)
+    const char* host = GamestatsHost() ? GamestatsHost() : reinterpret_cast<const char*>(0x0064D670);
     std::snprintf(request.url, sizeof(request.url), "http://%s/thug2pc/%s", host, StatsFile(current));
     request.unknown114 = 0x1C049404;
     request.unknown108 = 0x1C049404;

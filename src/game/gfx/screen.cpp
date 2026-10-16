@@ -1,17 +1,14 @@
-// The screen's shape and full-screen effects (Nx engine, PC) - with PartyMod's replacements built in.
+// The screen's shape and full-screen effects (Nx engine, PC) - with the PC port's widescreen support
+// (pillar- / letterboxing to the aspect wanted) and its DisableBlur setting.
+// Based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt
 
 #include "game/gfx/screen.h"
 
+#include "game/gfx/settings.h"
 #include "game/script/params.h"
+#include "game/sys/sdl_window.h"
 #include "hook/game.h"
 #include "hook/hook.h"
-
-// PartyMod's replacements (src/partymod/gfx.c); it jumps from the starts of the originals to these.
-extern "C" void __cdecl setAspectRatio(float aspect);
-extern "C" float __cdecl getScreenAngleFactor();
-extern "C" void __cdecl setBlurWrapper(uint32_t blur);
-extern "C" void __cdecl setLetterbox(int isLetterboxed);
-extern "C" int blur_disabled; // PartyMod's DisableBlur setting ([Graphics] in partymod.ini, on by default)
 
 namespace Nx {
 
@@ -23,28 +20,66 @@ auto& ScreenBlur() { return GameVariable<uint32_t>(0x00787328); }
 // The last amount the script asked for (kept even when the blur is off).
 auto& ScriptScreenBlur() { return GameVariable<int>(0x006FA72C); }
 
+// The screen's aspect (width / height), and the original's angle factor constant (1.0).
+float& ScreenAspect() { return GameVariable<float>(0x00701340); }
+float AngleFactorConstant() { return GameVariable<float>(0x0067E544); }
+
+// The 640x480 -> back buffer conversion (InitDirect3D) and the letterbox flag.
+uint8_t& LetterboxActive() { return GameVariable<uint8_t>(0x00786CBE); }
+float& ScreenScaleX() { return GameVariable<float>(0x00786D80); }
+float& ScreenScaleY() { return GameVariable<float>(0x00786D84); }
+uint32_t& ScreenOffsetX() { return GameVariable<uint32_t>(0x00786D88); }
+uint32_t& ScreenOffsetY() { return GameVariable<uint32_t>(0x00786D8C); }
+uint32_t BackBufferWidth() { return GameVariable<uint32_t>(0x00786D6C); }
+uint32_t BackBufferHeight() { return GameVariable<uint32_t>(0x00786D70); }
+
 } // namespace
 
-// 0x004A0780. The original stores `aspect` as the screen's aspect (0x00701340). PartyMod stores the aspect it wants instead
-// (4:3 in the front end, the window's shape in a level) and ignores `aspect`.
-void SetScreenAspectRatio(float aspect)
+uint8_t CurrentLevel()
 {
-    setAspectRatio(aspect);
+    uint8_t* skate = GameVariable<uint8_t*>(0x007CE478);
+    if (!skate)
+        return 0;
+    return (*reinterpret_cast<uint8_t**>(skate + 0x20))[0x630];
 }
 
-// 0x004A07C0. The original returns the constant at 0x0067E544 (1.0). PartyMod widens the view for screens wider
-// than 4:3 (the aspect / (4/3), unless that constant isn't 1) and also updates the screen's aspect (0x00701340).
+float DesiredAspectRatio()
+{
+    // (the window's size as unsigned numbers)
+    auto width = static_cast<uint32_t>(Sys::WindowWidth());
+    auto height = static_cast<uint32_t>(Sys::WindowHeight());
+    if (CurrentLevel() == 0)
+        return 4.0f / 3.0f;
+    return static_cast<float>(width) / static_cast<float>(height);
+}
+
+// 0x004A0780. The original stores `aspect` as the screen's aspect (0x00701340). PC port (PartyMod): the aspect
+// wanted instead (4:3 in the front end, the window's shape in a level); `aspect` is ignored.
+void SetScreenAspectRatio(float /*aspect*/)
+{
+    ScreenAspect() = DesiredAspectRatio();
+}
+
+// 0x004A07C0. The original returns the constant at 0x0067E544 (1.0). PC port (PartyMod): the view is widened for
+// screens wider than 4:3 (the aspect / (4/3)) - unless that constant isn't 1 - and the screen's aspect
+// (0x00701340) is updated too.
 float GetScreenAngleFactor()
 {
-    return getScreenAngleFactor();
+    float aspect = DesiredAspectRatio();
+    // (narrower than 4:3: the horizontal view isn't narrowed - the vertical one grows instead)
+    float factor = aspect > 4.0f / 3.0f ? aspect / (4.0f / 3.0f) : 1.0f;
+    ScreenAspect() = aspect;
+    if (AngleFactorConstant() != 1.0f)
+        return AngleFactorConstant();
+    return factor;
 }
 
 // 0x004B2330. The original: if (BlurAvailable()) ScreenBlur() = amount;
-// PartyMod's DisableBlur setting (on by default) turns the blur off for good instead.
+// PC port (PartyMod): the DisableBlur setting (on by default) turns the blur off for good instead.
 void SetScreenBlur(uint32_t amount)
 {
-    if (blur_disabled) {
-        setBlurWrapper(amount); // ScreenBlur() = 0
+    if (BlurDisabled()) {
+        ScreenBlur() = 0;
         return;
     }
     if (BlurAvailable())
@@ -55,15 +90,32 @@ void SetScreenBlur(uint32_t amount)
 //     int quarter = backbufferHeight / 4;
 //     if (letterbox) { if (!active) { offsetY += quarter / 2; scaleY = 0.75f; active = true; } }
 //     else if (active) { offsetY += -quarter / 2; scaleY = 1.0f; active = false; }
-// (active 0x00786CBE, scaleY 0x00786D84, offsetY 0x00786D8C, backbufferHeight 0x00786D70). PartyMod replaces it:
-// it fits the 640x480 screen layout to the aspect it wants (pillarbox or letterbox) and sets the flag, which it
-// then uses for its own display region.
+// (active 0x00786CBE, scaleY 0x00786D84, offsetY 0x00786D8C, backbufferHeight 0x00786D70). PC port (PartyMod):
+// the 640x480 screen layout is fitted to the aspect wanted (pillarbox or letterbox) and the flag set, which then
+// selects the fitted display region (SetDisplayRegion).
 void SetLetterbox(bool letterbox)
 {
-    setLetterbox(letterbox);
+    float backBufferAspect = static_cast<float>(BackBufferWidth()) / static_cast<float>(BackBufferHeight());
+    float desired = DesiredAspectRatio();
+    if (backBufferAspect > desired) {
+        // wider: bars left and right
+        ScreenScaleX() = desired / backBufferAspect * (static_cast<float>(BackBufferWidth()) / 640.0f);
+        ScreenScaleY() = static_cast<float>(BackBufferHeight()) / 480.0f;
+        auto width = static_cast<uint32_t>(ScreenScaleX() * 640.0f);
+        ScreenOffsetX() = (BackBufferWidth() - width) / 2;
+        ScreenOffsetY() = static_cast<uint32_t>(16.0f * ScreenScaleY());
+    } else {
+        ScreenScaleX() = static_cast<float>(BackBufferWidth()) / 640.0f;
+        ScreenScaleY() = backBufferAspect / desired * (static_cast<float>(BackBufferHeight()) / 480.0f);
+        auto height = static_cast<uint32_t>(ScreenScaleY() * 480.0f);
+        ScreenOffsetX() = 0;
+        ScreenOffsetY() =
+            static_cast<uint32_t>(16.0f * ScreenScaleY() + static_cast<float>((BackBufferHeight() - height) / 2));
+    }
+    LetterboxActive() = letterbox;
 }
 
-// 0x0048C170: SetScreenBlur <amount>. (PartyMod rewrites this function's first bytes with what they already are
+// 0x0048C170: SetScreenBlur <amount>. (PartyMod rewrote this function's first bytes with what they already are
 // when DisableBlur is off - some patched executables "in the wild" remove the blur here.)
 bool __cdecl CFunc_SetScreenBlur(Script::CStruct* params, Script::CScript* /*script*/)
 {
@@ -76,8 +128,6 @@ bool __cdecl CFunc_SetScreenBlur(Script::CStruct* params, Script::CScript* /*scr
 
 } // namespace Nx
 
-// (PartyMod jumped from the starts of the first four to its own and rewrote the fifth's first bytes; its patches
-// are no longer applied - src/partymod - so these carry our hooks.)
 REPLACE(0x004A0780, Nx::SetScreenAspectRatio);
 REPLACE(0x004A07C0, Nx::GetScreenAngleFactor);
 REPLACE(0x004B2330, Nx::SetScreenBlur);

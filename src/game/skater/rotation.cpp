@@ -2,6 +2,7 @@
 //
 // Float arithmetic follows the original's x87 code at 53-bit precision: intermediate results are doubles,
 // rounded to float only where the original stores them.
+// Based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt (the PC port's changes in it).
 
 #include "game/skater/rotation.h"
 

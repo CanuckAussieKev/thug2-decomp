@@ -1,18 +1,16 @@
-// The Win32 platform layer: input set-up, rumble and the window's message pump, with PartyMod's changes.
+// The Win32 platform layer: input set-up, rumble and the window's message pump, with the PC port's SDL input and
+// window (based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt).
 
 #include "game/sys/platform.h"
 
 #include <cstdint>
 #include <cstring>
 
+#include "game/gfx/settings.h"
+#include "game/sio/sdl_input.h"
+#include "game/sys/sdl_events.h"
 #include "hook/game.h"
 #include "hook/hook.h"
-
-// PartyMod's replacements (src/partymod).
-extern "C" void __cdecl set_actuators(int port, uint16_t high, uint16_t low); // input.c
-extern "C" void __cdecl handleEvents();                                        // event.c
-extern "C" void __stdcall initManager();                                       // input.c
-extern "C" void __cdecl writeConfigValues();                                   // gfx.c
 
 namespace Platform {
 
@@ -23,7 +21,7 @@ void InitKeyNames() { GameFunction<void(__cdecl*)()>(0x005F3C10)(); }
 
 } // namespace
 
-// 0x005F3A50. PartyMod jumps from here to its own (rumble on the SDL game controller playing as `port`). The
+// 0x005F3A50. PC port: rumble on the SDL game controller playing as `port` (PartyMod jumped from here). The
 // original drove the port's DirectInput force-feedback effect (0x007D6668[port]):
 //     if (!effect) return;
 //     if (left == 0 && right == 0) { effect->Stop(); return; }
@@ -36,23 +34,23 @@ void InitKeyNames() { GameFunction<void(__cdecl*)()>(0x005F3C10)(); }
 // (x87 throughout, truncated by _ftol.)
 void SetActuators(int port, int left, int right)
 {
-    set_actuators(port, static_cast<uint16_t>(left), static_cast<uint16_t>(right));
+    Sio::SetSdlActuators(port, static_cast<uint16_t>(left), static_cast<uint16_t>(right));
 }
 
-// 0x005F56E0. PartyMod jumps from here to its SDL event pump (which also sees the quit request). The
+// 0x005F56E0. PC port: the SDL event pump (which also sees the quit request; PartyMod jumped from here). The
 // original pumped the game window's (0x007D6A28) Win32 messages:
 //     MSG msg;
 //     while (PeekMessageA(&msg, window, 0, 0, PM_REMOVE)) { TranslateMessage(&msg); DispatchMessageA(&msg); }
 void ProcessWindowEvents()
 {
-    handleEvents();
+    Platform::PumpSdlEvents();
 }
 
 // 0x005F44F0
 bool InitInput(HINSTANCE instance, HWND window, int config)
 {
-    (void)instance; // (the original passes it to DirectInput8Create - PartyMod's change removes that)
-    (void)config;   // (the original's settings loader took it - PartyMod's replacement doesn't)
+    (void)instance; // (the original passes it to DirectInput8Create - the PC port's SDL input doesn't use it)
+    (void)config;   // (the original's settings loader took it - the PC port's doesn't)
     if (!window)
         return false;
     auto& directInput = GameVariable<void*>(0x007D69D0);
@@ -78,18 +76,18 @@ bool InitInput(HINSTANCE instance, HWND window, int config)
     GameVariable<uint32_t>(0x007D643C) = 0;
     GameVariable<uint32_t>(0x007D6440) = 0;
     GameVariable<uint32_t>(0x007D6444) = 0;
-    // PartyMod: its own graphics settings (partymod.ini) in place of the original's loader 0x005F34D0(config).
-    writeConfigValues();
-    // PartyMod: its input manager (SDL game controllers, its key bindings) in place of the original's
+    // PC port: the graphics settings from partymod.ini in place of the original's loader 0x005F34D0(config).
+    Nx::WriteGraphicsSettings();
+    // PC port: SDL input (game controllers, the key bindings) in place of the original's
     //     DirectInput8Create(instance, 0x800, IID_IDirectInput8A, &directInput, nullptr);
     //     directInput->EnumDevices(0, 0x005F31D0 /* adds each joystick */, nullptr, DIEDFL_ATTACHEDONLY);
-    initManager();
+    Sio::InitSdlInput();
     InitKeyNames();
     return true;
 }
 
 } // namespace Platform
 
-REPLACE(0x005F3A50, Platform::SetActuators);       // (PartyMod jumped from here to set_actuators)
-REPLACE(0x005F56E0, Platform::ProcessWindowEvents); // (PartyMod jumped from here to handleEvents)
+REPLACE(0x005F3A50, Platform::SetActuators);
+REPLACE(0x005F56E0, Platform::ProcessWindowEvents);
 REPLACE(0x005F44F0, Platform::InitInput);

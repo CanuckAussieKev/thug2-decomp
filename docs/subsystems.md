@@ -48,7 +48,8 @@ Start where code is small, self-contained and easy to check, then work inwards:
 3. **Script command libraries** (both blocks, 85-89% already named). Hundreds of small, independent functions
    with known names: steady, low-risk progress, and they document what the game logic needs.
 4. **Win32 platform layer + input devices.** Small; this is where PartyMod's fixes (SDL2 window/input,
-   resolution, aspect ratio) can be built into the source directly.
+   resolution, aspect ratio) are built into the source (done: src/game/sys/sdl_*, config, pc_setup;
+   src/game/sio/sdl_input; src/game/gfx/settings, glyphs, screen, render; src/game/net/online_hosts).
 5. Then the big interlinked cores: **script runtime & object system -> skater -> goals/career -> renderer**.
 6. **Networking last.** GameSpy is gone; online play goes through OpenSpy, so revisit once everything else works.
 

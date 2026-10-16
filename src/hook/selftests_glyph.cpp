@@ -11,6 +11,7 @@
 
 #include "game/core/crc.h"
 #include "game/gfx/font.h"
+#include "game/gfx/glyphs.h"
 #include "game/gfx/loading_bar.h"
 #include "game/lst/hashtable.h"
 #include "game/script/struct.h"
@@ -19,12 +20,6 @@
 #include "hook/log.h"
 #include "hook/selftest.h"
 
-extern "C" uint8_t glyphStyle;
-extern "C" char* buttonsPs2;
-extern "C" char* buttonsNgc;
-extern "C" char* meta_button_map_ps2;
-extern "C" char* meta_button_map_gamecube;
-extern "C" uint8_t resbuffer[100000];
 
 namespace {
 
@@ -106,10 +101,11 @@ uint32_t Bits(float f)
 
 void TestLoadingBar()
 {
-    auto buffer = reinterpret_cast<uint32_t>(resbuffer);
+    uint8_t* gradient = Nx::LoadingBarGradientBuffer();
+    auto buffer = reinterpret_cast<uint32_t>(gradient);
     SaveRanges({{0x0067DDBC, 4}, {0x0067DDCC, 12}, {0x00786D6C, 4}, {0x00786D80, 4}, {0x00701680, 8},
                 {0x00705288, 24}, {buffer - 4, 4 + 0x9000}, {0x004B6C64, 4}});
-    // PartyMod's DWord patch (window.c: the table's base -> its buffer).
+    // PartyMod's DWord patch (the table's base -> the bigger buffer).
     uint32_t base = buffer;
     TestPatch patch(0x004B6C64, &base, 4);
 
@@ -149,7 +145,7 @@ void TestLoadingBar()
             trace.push_back(GameVariable<uint32_t>(0x00701684));
             // The table: the original (as PartyMod patches it) puts it 4 bytes before the buffer, ours at its
             // start; the word after it must be untouched.
-            const uint8_t* table = original ? resbuffer - 4 : resbuffer;
+            const uint8_t* table = original ? gradient - 4 : gradient;
             for (uint32_t i = 0; i < 0x9000 / 4; ++i)
                 trace.push_back(reinterpret_cast<const uint32_t*>(table)[i]);
             if (!original)
@@ -224,7 +220,7 @@ void TestLoadFont()
     using namespace Script;
     SaveRanges({{0x006FA808, 0x21}, {0x006FA830, 0x1C * 16}, {0x006FA9F0, sizeof(Lst::HashTable)},
                 {0x006F3624, 4}, {0x0048D8F8, 4}, {0x0048D983, 4}, {0x004B40A0, 5}});
-    uint8_t savedStyle = glyphStyle;
+    uint8_t savedStyle = Nx::GlyphStyle();
     TestDetour loadFile(0x004B40A0, reinterpret_cast<const void*>(&StandInLoadFontFile));
 
     // A stand-in symbol table holding the three meta button maps (different digits each, past 9 and fewer
@@ -233,7 +229,7 @@ void TestLoadFont()
     static CSymbolTableEntry symbols[3];
     static CArray maps[3];
     static uint32_t mapDigits[3][24];
-    const char* mapNames[3] = {"meta_button_map_xbox", meta_button_map_ps2, meta_button_map_gamecube};
+    const char* mapNames[3] = {"meta_button_map_xbox", "meta_button_map_ps2", "meta_button_map_gamecube"};
     GameVariable<CSymbolTableEntry**>(0x006F3624) = table;
 
     // The parameters: built by hand (no allocation).
@@ -261,11 +257,10 @@ void TestLoadFont()
 
     std::vector<uint32_t> traces[2];
     for (int style = 0; style < 3; ++style) {
-        glyphStyle = static_cast<uint8_t>(style);
-        // PartyMod's DWord patches (glyph.c, patchButtonGlyphs) for this style.
-        const char* buttonFont = style == 1 ? buttonsPs2 : style == 2 ? buttonsNgc : "ButtonsXbox";
-        uint32_t fontName = style == 0 ? 0x00648AFC : reinterpret_cast<uint32_t>(buttonFont);
-        uint32_t mapName = style == 0 ? 0x00648AB8 : reinterpret_cast<uint32_t>(mapNames[style]);
+        Nx::GlyphStyle() = static_cast<uint8_t>(style);
+        // PartyMod's DWord patches (patchButtonGlyphs) for this style: the names ours uses.
+        uint32_t fontName = style == 0 ? 0x00648AFC : reinterpret_cast<uint32_t>(Nx::ButtonFontName());
+        uint32_t mapName = style == 0 ? 0x00648AB8 : reinterpret_cast<uint32_t>(Nx::MetaButtonMapName());
         TestPatch fontPatch(0x0048D983, &fontName, 4);
         TestPatch mapPatch(0x0048D8F8, &mapName, 4);
 
@@ -394,7 +389,7 @@ void TestLoadFont()
             trace.push_back(static_cast<uint32_t>(g_fonts_made));
         }
     }
-    glyphStyle = savedStyle;
+    Nx::GlyphStyle() = savedStyle;
     RestoreGlyphRanges();
     Check(traces[0] == traces[1] && traces[0].size() > 3000,
           "LoadFont / CFunc_LoadFont: new and loaded fonts, setters, colour tables, slots, meta button map, "

@@ -1,4 +1,5 @@
 // The network manager's online service task: GameSpy availability, news, message of the day, lobby list.
+// Based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt (the PC port's changes in it).
 
 #include "game/net/service.h"
 
@@ -36,7 +37,7 @@ T& Field(uint8_t* manager, uint32_t offset)
     return *reinterpret_cast<T*>(manager + offset);
 }
 
-// PartyMod's MOTD fix (src/partymod/net.c, patchMotdFix): the news download's time limit (original: 15000 ms)
+// PartyMod's MOTD fix (its patchMotdFix): the news download's time limit (original: 15000 ms)
 // and the script run when it ends, with the "news ok" flag set (original: 0xD4E84C8D with the flag cleared).
 constexpr uint32_t kNewsTimeout = 500;
 constexpr uint32_t kNewsDoneScript = 0x588ED87C;

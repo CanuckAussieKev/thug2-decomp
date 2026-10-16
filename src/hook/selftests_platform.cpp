@@ -7,20 +7,19 @@
 
 #include <windows.h>
 
+#include "game/gfx/settings.h"
 #include "game/mc/memcard.h"
 #include "game/mc/memcard_cfuncs.h"
 #include "game/script/struct.h"
+#include "game/sio/sdl_input.h"
 #include "game/sys/platform.h"
+#include "game/sys/platform_cfuncs.h"
+#include "game/sys/sdl_events.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
 #include "hook/selftest.h"
 
-extern "C" void __cdecl set_actuators(int port, uint16_t high, uint16_t low);
-extern "C" void __cdecl handleEvents();
-extern "C" void __stdcall initManager();
-extern "C" void __cdecl writeConfigValues();
-extern "C" int32_t __fastcall calcAvailableSpaceFudged(uint8_t* card);
 
 namespace {
 
@@ -102,7 +101,7 @@ void Compare(const std::vector<uint32_t>& expected, const std::vector<uint32_t>&
     }
 }
 
-// --- PartyMod's functions, stood in for (calls recorded) ---------------------------------------------------
+// --- the PC port's functions, stood in for (calls recorded) ------------------------------------------------
 
 std::vector<uint32_t> g_platform_log;
 void __cdecl StandInSetActuators(int port, uint16_t high, uint16_t low)
@@ -120,7 +119,7 @@ void __stdcall StandInInitManager()
 void __cdecl StandInWriteConfigValues()
 {
     g_platform_log.insert(g_platform_log.end(), {0xC0F1u, GameVariable<uint32_t>(0x007D6444)});
-    GameVariable<uint8_t>(0x007D6434) = 0x11; // (as writeConfigValues writes the options)
+    GameVariable<uint8_t>(0x007D6434) = 0x11; // (as Nx::WriteGraphicsSettings writes the options)
     GameVariable<uint32_t>(0x007D6444) = 0x222;
 }
 void __cdecl StandInKeyNames()
@@ -128,20 +127,20 @@ void __cdecl StandInKeyNames()
     g_platform_log.insert(g_platform_log.end(), {0x4E75u, GameVariable<uint32_t>(0x007D6444)});
 }
 
-// Rumble and the event pump: the original's start is PartyMod's jump; ours calls PartyMod's function.
+// Rumble and the event pump: the original's start is PartyMod's jump to the PC port's function; ours calls it.
 void TestPlatformWholeReplacements()
 {
-    TestDetour setActuators(Resolve(reinterpret_cast<const void*>(&set_actuators)),
+    TestDetour setActuators(Resolve(reinterpret_cast<const void*>(&Sio::SetSdlActuators)),
                             reinterpret_cast<const void*>(&StandInSetActuators));
-    TestDetour events(Resolve(reinterpret_cast<const void*>(&handleEvents)),
+    TestDetour events(Resolve(reinterpret_cast<const void*>(&Platform::PumpSdlEvents)),
                       reinterpret_cast<const void*>(&StandInHandleEvents));
     std::vector<uint32_t> traces[2];
     for (int run = 0; run < 2; ++run) {
         bool original = run == 0;
         g_platform_log.clear();
         {
-            TestPatch jumpA(0x005F3A50, Branch(0xE9, 0x005F3A50, reinterpret_cast<const void*>(&set_actuators)));
-            TestPatch jumpB(0x005F56E0, Branch(0xE9, 0x005F56E0, reinterpret_cast<const void*>(&handleEvents)));
+            TestPatch jumpA(0x005F3A50, Branch(0xE9, 0x005F3A50, reinterpret_cast<const void*>(&Sio::SetSdlActuators)));
+            TestPatch jumpB(0x005F56E0, Branch(0xE9, 0x005F56E0, reinterpret_cast<const void*>(&Platform::PumpSdlEvents)));
             struct Case {
                 int port, left, right;
             };
@@ -159,7 +158,7 @@ void TestPlatformWholeReplacements()
         }
         traces[run] = g_platform_log;
     }
-    Check(traces[0].size() == 5 * 5, "platform: rumble and the event pump reached PartyMod's functions");
+    Check(traces[0].size() == 5 * 5, "platform: rumble and the event pump reached the PC port's functions");
     Compare(traces[0], traces[1], "platform: rumble and the event pump");
 }
 
@@ -172,20 +171,20 @@ void TestPlatformInitInput()
     SaveAll(saved);
     std::vector<uint32_t> traces[2];
     {
-        TestDetour manager(Resolve(reinterpret_cast<const void*>(&initManager)),
+        TestDetour manager(Resolve(reinterpret_cast<const void*>(&Sio::InitSdlInput)),
                            reinterpret_cast<const void*>(&StandInInitManager));
-        TestDetour config(Resolve(reinterpret_cast<const void*>(&writeConfigValues)),
+        TestDetour config(Resolve(reinterpret_cast<const void*>(&Nx::WriteGraphicsSettings)),
                           reinterpret_cast<const void*>(&StandInWriteConfigValues));
         TestDetour keyNames(0x005F3C10, reinterpret_cast<const void*>(&StandInKeyNames));
         for (int run = 0; run < 2; ++run) {
             bool original = run == 0;
             std::vector<uint32_t>& trace = traces[run];
-            // PartyMod: call writeConfigValues at 0x5F4591; 45 NOPs at 0x5F459D, then call initManager at
-            // 0x5F45A2.
+            // PartyMod: call its settings writer (Nx::WriteGraphicsSettings) at 0x5F4591; 45 NOPs at 0x5F459D,
+            // then call its input set-up (Sio::InitSdlInput) at 0x5F45A2.
             std::vector<uint8_t> nops(45, 0x90);
-            std::vector<uint8_t> call = Branch(0xE8, 0x005F45A2, reinterpret_cast<const void*>(&initManager));
+            std::vector<uint8_t> call = Branch(0xE8, 0x005F45A2, reinterpret_cast<const void*>(&Sio::InitSdlInput));
             std::memcpy(&nops[5], call.data(), 5);
-            TestPatch settings(0x005F4591, Branch(0xE8, 0x005F4591, reinterpret_cast<const void*>(&writeConfigValues)));
+            TestPatch settings(0x005F4591, Branch(0xE8, 0x005F4591, reinterpret_cast<const void*>(&Nx::WriteGraphicsSettings)));
             TestPatch input(0x005F459D, nops);
             int variant = 0;
             for (uintptr_t window : {uintptr_t(0), uintptr_t(0x1234)}) {
@@ -238,7 +237,7 @@ int32_t __fastcall StandInFreeSpace(uint8_t* card)
     return 0x7FFE0001;
 }
 
-// With and without a card; PartyMod's call to calcAvailableSpaceFudged in the original. The struct's adds,
+// With and without a card; PartyMod's call to its free space count (Mc::FreeDiskBlocks) in the original. The struct's adds,
 // the card lookup and the space count are stood in for (in the original and in our code alike).
 void TestMemCardSpaceAvailable()
 {
@@ -248,9 +247,9 @@ void TestMemCardSpaceAvailable()
                        CodeAddress(&StandInStruct::AddInteger));
     TestDetour cardOriginal(0x005BC730, CodeAddress(&StandInManager::GetCard));
     TestDetour cardOurs(Resolve(CodeAddress(&Mc::Manager::GetCard)), CodeAddress(&StandInManager::GetCard));
-    TestDetour space(Resolve(reinterpret_cast<const void*>(&calcAvailableSpaceFudged)),
+    TestDetour space(Resolve(reinterpret_cast<const void*>(&Mc::FreeDiskBlocks)),
                      reinterpret_cast<const void*>(&StandInFreeSpace));
-    TestPatch partymod(0x005A6E7E, Branch(0xE8, 0x005A6E7E, reinterpret_cast<const void*>(&calcAvailableSpaceFudged)));
+    TestPatch partymod(0x005A6E7E, Branch(0xE8, 0x005A6E7E, reinterpret_cast<const void*>(&Mc::FreeDiskBlocks)));
     void* savedManager = GameVariable<void*>(0x007D1890);
     alignas(16) static uint8_t manager[0x90], card[0x10], script[0x20], results[8];
     GameVariable<void*>(0x007D1890) = manager;
@@ -275,8 +274,71 @@ void TestMemCardSpaceAvailable()
     Compare(traces[0], traces[1], "memory card space");
 }
 
+// --- IsPS2 ---------------------------------------------------------------------------------------------------
+
+// The IsPS2 script command, through the CFunction table's entry: the original's (the shared "return false" stub
+// 0x005B9E50) vs ours (InstallIsPS2 pointing the entry at Sys::CFunc_IsPS2), PS2 controls off and on, over no
+// script, the vehicle grind script, scripts whose names differ from it in one bit (low, high) and another script.
+// PS2 controls off: ours must answer as the original; on: true only for the vehicle grind script (what PartyMod's
+// wrapper of the entry, isPs2Wrapper_DD, answered). The entry's other fields and neighbours stay as they were.
+void TestIsPS2()
+{
+    constexpr uint32_t kEntry = 0x00681468;
+    using CFunctionFn = bool(__cdecl*)(void*, void*);
+    std::vector<Saved> saved = {{kEntry - 8, 24, {}}};
+    SaveAll(saved);
+    uint8_t savedPs2 = Sio::TheInputSettings().ps2Controls;
+    Check(std::strcmp(GameVariable<const char*>(kEntry), "IsPS2") == 0 && GameVariable<uint32_t>(kEntry + 4) == 0x005B9E50,
+          "IsPS2: the table entry is IsPS2's, the shared stub");
+
+    alignas(16) static uint8_t scripts[4][0xD0];
+    const uint32_t names[4] = {0x47F15883, 0x47F15882, 0xC7F15883, 0x12345678};
+    for (int i = 0; i < 4; ++i) {
+        std::memset(scripts[i], 0xA5, sizeof(scripts[i]));
+        std::memcpy(scripts[i] + 0xC8, &names[i], 4);
+    }
+    void* cases[5] = {nullptr, scripts[0], scripts[1], scripts[2], scripts[3]};
+
+    std::vector<uint32_t> traces[2];
+    std::vector<uint32_t> expected;
+    for (int run = 0; run < 2; ++run) {
+        bool original = run == 0;
+        for (int ps2 = 0; ps2 < 2; ++ps2) {
+            RestoreAll(saved);
+            Sio::TheInputSettings().ps2Controls = static_cast<uint8_t>(ps2);
+            if (!original)
+                Sys::InstallIsPS2();
+            auto function = reinterpret_cast<CFunctionFn>(GameVariable<uint32_t>(kEntry + 4));
+            for (void* script : cases) {
+                bool answer = function(reinterpret_cast<void*>(0x1234), script);
+                traces[run].push_back(answer);
+                if (original)
+                    expected.push_back(ps2 && script == scripts[0]);
+            }
+            for (uint32_t a = kEntry - 8; a < kEntry + 16; a += 4)
+                if (a != kEntry + 4)
+                    traces[run].push_back(GameVariable<uint32_t>(a));
+        }
+    }
+    bool installed = GameVariable<uint32_t>(kEntry + 4) == reinterpret_cast<uint32_t>(&Sys::CFunc_IsPS2);
+    RestoreAll(saved);
+    Sio::TheInputSettings().ps2Controls = savedPs2;
+    Check(installed, "IsPS2: InstallIsPS2 points the entry at ours");
+    // PS2 controls off: as the original (the first half of each run's answers and fields).
+    std::vector<uint32_t> originalOff(traces[0].begin(), traces[0].begin() + traces[0].size() / 2);
+    std::vector<uint32_t> oursOff(traces[1].begin(), traces[1].begin() + traces[1].size() / 2);
+    Compare(originalOff, oursOff, "IsPS2 (PS2 controls off)");
+    // PS2 controls on: the vehicle grind script only (the fields as the original's).
+    std::vector<uint32_t> oursOn(traces[1].begin() + traces[1].size() / 2, traces[1].end());
+    std::vector<uint32_t> wanted(expected.begin() + 5, expected.end());
+    std::vector<uint32_t> fields(traces[0].begin() + traces[0].size() / 2 + 5, traces[0].end());
+    wanted.insert(wanted.end(), fields.begin(), fields.end());
+    Compare(wanted, oursOn, "IsPS2 (PS2 controls on: the vehicle grind script)");
+}
+
 } // namespace
 
+SELFTEST(Early, TestIsPS2);
 SELFTEST(Early, TestPlatformWholeReplacements);
 SELFTEST(Early, TestPlatformInitInput);
 SELFTEST(Early, TestMemCardSpaceAvailable);

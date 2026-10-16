@@ -1,4 +1,5 @@
 // Direct3D 9 start-up, with PartyMod's window and resolution changes built in.
+// Based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt (the PC port's changes in it).
 
 #include "game/gfx/device.h"
 
@@ -9,13 +10,10 @@
 #include <bit>
 #include <cstdint>
 
+#include "game/sys/sdl_window.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
-// PartyMod (src/partymod/window.c): its Windowed setting and the resolution of its window.
-extern "C" uint8_t isWindowed;
-extern "C" int resX;
-extern "C" int resY;
 
 namespace Nx {
 
@@ -76,7 +74,7 @@ void InitDirect3D()
     pp = {};
     pp.hDeviceWindow = Window();
     // PartyMod (its byte at 0x004D8720, written when its Windowed setting is on). The original: always full screen.
-    pp.Windowed = isWindowed ? TRUE : FALSE;
+    pp.Windowed = Sys::Windowed() ? TRUE : FALSE;
     pp.SwapEffect = D3DSWAPEFFECT_DISCARD;
     pp.BackBufferCount = 1;
     pp.EnableAutoDepthStencil = TRUE;
@@ -85,8 +83,8 @@ void InitDirect3D()
     if (first > 3)
         first = 3;
     // PartyMod (its DWords at 0x004D8776 / 0x004D8792): the smallest, 640x480, is its window's size.
-    const int widths[4] = {1280, 1024, 800, resX};
-    const int heights[4] = {1024, 768, 600, resY};
+    const int widths[4] = {1280, 1024, 800, Sys::WindowWidth()};
+    const int heights[4] = {1024, 768, 600, Sys::WindowHeight()};
     bool multisample = GameVariable<bool>(0x007D6434);
     DeviceWidth() = widths[first];
     DeviceHeight() = heights[first];

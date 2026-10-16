@@ -11,16 +11,13 @@
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "game/script/struct.h"
+#include "game/sio/sdl_input.h"
 #include "game/skater/core_physics.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
 #include "hook/selftest.h"
 
-extern "C" struct PartyModInputSettings {
-    uint8_t isPs2Controls;
-    uint8_t uicontrols;
-} inputsettings;
 
 namespace {
 
@@ -256,7 +253,7 @@ struct StandInSymbols {
     }
 };
 
-// PartyMod's PS2-controls bytes (input.c patchPs2Buttons) in the core physics functions, while `on`.
+// PartyMod's PS2-controls bytes (its patchPs2Buttons) in the core physics functions, while `on`.
 struct PartyModCorePhysicsBytes {
     std::vector<CodePatch*> patches;
     explicit PartyModCorePhysicsBytes(bool on)
@@ -351,7 +348,7 @@ bool Compare(const std::vector<uint32_t>& expected, const std::vector<uint32_t>&
 // PS2 controls off and on.
 void TestLipPushOff()
 {
-    uint8_t savedSettings = inputsettings.isPs2Controls;
+    uint8_t savedSettings = Sio::TheInputSettings().ps2Controls;
     g_arena = g_physicsArena;
     g_arenaSize = kArenaSize;
     StandIns standIns({
@@ -382,15 +379,15 @@ void TestLipPushOff()
                     component, reinterpret_cast<void*>(0x1234), reinterpret_cast<void*>(0x5678)));
             });
         }
-        inputsettings.isPs2Controls = static_cast<uint8_t>(ps2);
+        Sio::TheInputSettings().ps2Controls = static_cast<uint8_t>(ps2);
         actual = RunOnArena(seed, [](uint8_t* component) {
             return static_cast<uint32_t>(reinterpret_cast<Skater::CorePhysicsComponent*>(component)->LipPushOff(
                 reinterpret_cast<Script::CStruct*>(0x1234), reinterpret_cast<Script::CScript*>(0x5678)));
         });
-        inputsettings.isPs2Controls = savedSettings;
+        Sio::TheInputSettings().ps2Controls = savedSettings;
         same = Compare(expected, actual, "lip push-off", variant);
     }
-    inputsettings.isPs2Controls = savedSettings;
+    Sio::TheInputSettings().ps2Controls = savedSettings;
     Check(same, "skater: LipPushOff (PS2 controls off and on)");
 }
 
@@ -424,7 +421,7 @@ std::vector<StandIn> GroundStandIns()
 // PartyMod's PS2 controls off and on.
 void TestCheckForGround()
 {
-    uint8_t savedSettings = inputsettings.isPs2Controls;
+    uint8_t savedSettings = Sio::TheInputSettings().ps2Controls;
     g_arena = g_physicsArena;
     g_arenaSize = kArenaSize;
     StandIns standIns(GroundStandIns());
@@ -475,12 +472,12 @@ void TestCheckForGround()
                 return 0u;
             });
         }
-        inputsettings.isPs2Controls = static_cast<uint8_t>(ps2);
+        Sio::TheInputSettings().ps2Controls = static_cast<uint8_t>(ps2);
         actual = RunOnArena(seed, [](uint8_t* component) {
             reinterpret_cast<Skater::CorePhysicsComponent*>(component)->CheckForGround();
             return 0u;
         });
-        inputsettings.isPs2Controls = savedSettings;
+        Sio::TheInputSettings().ps2Controls = savedSettings;
         for (size_t i = 1; i + 2 < actual.size(); ++i) {
             if (actual[i] == 0x005196A0 && actual[i + 1] == 0xA0000000u + kFlags) {
                 ++deep; // (landed)
@@ -489,7 +486,7 @@ void TestCheckForGround()
         }
         same = Compare(expected, actual, "check for ground", variant);
     }
-    inputsettings.isPs2Controls = savedSettings;
+    Sio::TheInputSettings().ps2Controls = savedSettings;
     if (deep < 300)
         Log("  check for ground: only %d variants landed", deep);
     Check(same && deep >= 300, "skater: CheckForGround (PS2 controls off and on)");
@@ -586,7 +583,7 @@ bool Called(const std::vector<uint32_t>& trace, uint32_t address, uint32_t argum
 // (skatable or not, from a wall ride or not) or not, PartyMod's PS2 controls off and on.
 void TestDoAirPhysics()
 {
-    uint8_t savedSettings = inputsettings.isPs2Controls;
+    uint8_t savedSettings = Sio::TheInputSettings().ps2Controls;
     g_arena = g_physicsArena;
     g_arenaSize = kArenaSize;
     StandIns standIns(AirStandIns());
@@ -657,12 +654,12 @@ void TestDoAirPhysics()
                 return 0u;
             });
         }
-        inputsettings.isPs2Controls = static_cast<uint8_t>(ps2);
+        Sio::TheInputSettings().ps2Controls = static_cast<uint8_t>(ps2);
         actual = RunOnArena(seed, [](uint8_t* component) {
             reinterpret_cast<Skater::CorePhysicsComponent*>(component)->DoAirPhysics();
             return 0u;
         });
-        inputsettings.isPs2Controls = savedSettings;
+        Sio::TheInputSettings().ps2Controls = savedSettings;
         landed += Called(actual, 0x004FDED0, 0);
         wallLanded += Called(actual, 0x004FDED0, 0) && Called(actual, 0x004FF590, 0x5AC00000u);
         for (size_t i = 1; i + 1 < actual.size(); ++i) {
@@ -680,7 +677,7 @@ void TestDoAirPhysics()
         dropped += Called(actual, 0x00502F20, 0x5AC00000u);
         same = Compare(expected, actual, "air physics", variant);
     }
-    inputsettings.isPs2Controls = savedSettings;
+    Sio::TheInputSettings().ps2Controls = savedSettings;
     GameVariable<int>(0x00696D60) = savedOffset;
     bool covered = landed >= 300 && wallLanded >= 50 && wallFound >= 100 && pushedOff >= 100 && dropped >= 50;
     if (!covered)

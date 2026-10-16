@@ -9,8 +9,6 @@
 #include "hook/selftest.h"
 #include "hook/shadow.h"
 
-extern "C" void partymod_attach(void); // src/partymod/main.c
-
 namespace {
 
 using DirectInput8CreateFn = HRESULT(WINAPI*)(HINSTANCE, DWORD, REFIID, LPVOID*, LPUNKNOWN);
@@ -30,7 +28,7 @@ DirectInput8CreateFn LoadRealDirectInput8Create()
 
 } // namespace
 
-// Loaded lazily: LoadLibrary isn't allowed inside DllMain. (PartyMod replaces DirectInput with SDL2 and
+// Loaded lazily: LoadLibrary isn't allowed inside DllMain. (The PC port replaces DirectInput with SDL2 and
 // skips this call entirely, but the game still imports it, so it must exist.)
 extern "C" HRESULT WINAPI Proxy_DirectInput8Create(HINSTANCE inst, DWORD version, REFIID iid, LPVOID* out,
                                                    LPUNKNOWN outer)
@@ -41,7 +39,7 @@ extern "C" HRESULT WINAPI Proxy_DirectInput8Create(HINSTANCE inst, DWORD version
     return real(inst, version, iid, out, outer);
 }
 
-// Called by PartyMod's fastExit (the game's normal quit path) just before the process ends.
+// Called by Sys::FastExit (the game's normal quit path) just before the process ends.
 extern "C" void thug2_decomp_before_exit()
 {
     // How much of the game's own calls the shadow checks covered during this session.
@@ -58,21 +56,19 @@ BOOL WINAPI DllMain(HINSTANCE, DWORD reason, LPVOID)
         RunSelfTests(TestStage::Early);
         InstallReplacements();
 
-        // PartyMod is built into this DLL. THUG2PM.exe still tries LoadLibraryA("partymod.dll") at 0x0064B198;
-        // point that at our own (already loaded) name so a leftover partymod.dll can't patch the game twice.
+        // THUG2PM.exe's own patch makes the original WinMain LoadLibraryA("partymod.dll") (the name at 0x0064B198).
+        // Our WinMain doesn't, but the original still runs if its replacement is disabled in the ini: point the
+        // name at our own (already loaded) DLL so the partymod.dll in the game folder can't patch the game.
         static const char kOwnName[] = "dinput8.dll"; // 12 bytes; the original string has 13
         auto* name = reinterpret_cast<char*>(0x0064B198);
         DWORD old;
         if (VirtualProtect(name, sizeof(kOwnName), PAGE_READWRITE, &old)) {
             memcpy(name, kOwnName, sizeof(kOwnName));
             VirtualProtect(name, sizeof(kOwnName), old, &old);
-            Log("partymod.dll loading disabled (PartyMod is built in)");
+            Log("partymod.dll loading disabled (the PC port is part of the game's source)");
         }
-        partymod_attach();
-        Log("PartyMod attached (its patches are built into the rewritten functions; only GameSpy's host names "
-            "are still patched, by initPatch)");
     }
     // Nothing on DLL_PROCESS_DETACH: by then our static objects may already be gone. Quit-time logging is in
-    // thug2_decomp_before_exit, called from PartyMod's fastExit.
+    // thug2_decomp_before_exit, called from Sys::FastExit.
     return TRUE;
 }
