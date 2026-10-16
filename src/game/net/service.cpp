@@ -9,6 +9,7 @@
 #include <cstdio>
 
 #include "game/core/manager.h"
+#include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
@@ -69,12 +70,11 @@ void PopHeap() { Mem::Manager::Get()->PopContext(); }
 
 void RunScript(uint32_t name, Script::CStruct* params = nullptr)
 {
-    GameFunction<void(__cdecl*)(uint32_t, Script::CStruct*, void*, int, int)>(0x00475790)(name, params, nullptr, 0, 0);
+    Script::RunScript(name, params, nullptr, false, nullptr);
 }
 void SpawnScript(uint32_t name, Script::CStruct* params = nullptr)
 {
-    GameFunction<int(__cdecl*)(uint32_t, Script::CStruct*, int, int, int, int, int, int, int, int)>(0x00475420)(
-        name, params, 0, 0, 0, 0, 0, 0, 0, 0);
+    Script::SpawnScript(name, params, 0, nullptr, 0, 0, false, false, false, false);
 }
 Script::CStruct* NewParams()
 {

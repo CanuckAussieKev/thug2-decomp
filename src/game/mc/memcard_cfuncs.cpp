@@ -10,6 +10,7 @@
 
 #include "game/core/mem.h"
 #include "game/mc/memcard.h"
+#include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -272,8 +273,7 @@ bool LoadFromMemoryCard(Script::CStruct* params, Script::CScript* script)
                         }
                         loaded = true;
                         if (noApply == 0)
-                            GameFunction<void(__cdecl*)(uint32_t, Script::CStruct*, void*, int, int)>(0x00475790)(
-                                0x0EB9402D, params, nullptr, 0, 0);
+                            Script::RunScript(0x0EB9402Du, params, nullptr, false, nullptr);
                     }
                 }
             }

@@ -328,7 +328,7 @@ void KillSpawnedScript(CScript* script);
 // (the string) isn't used. With `netEnabled` in a network game, the other players are told (0x00473350).
 void RunScript(uint32_t name, CStruct* params, Obj::CObject* object, bool netEnabled, const char* nameString);
 void RunScript(const char* name, CStruct* params, Obj::CObject* object, bool netEnabled);
-// 0x004752F0: one Update of `name`, then its parameters are added to `results` (if not null).
+// 0x004752F0: one Update of `name`, then its parameters are added to `results` (not checked for null).
 void RunScriptOnce(uint32_t name, CStruct* params, Obj::CObject* object, CStruct* results);
 // 0x00473350 / 0x00473420: the network messages for RunScript (0x48) and SpawnScript (0x49).
 void SendRunScriptMessage(uint32_t name, CStruct* params, Obj::CObject* object);

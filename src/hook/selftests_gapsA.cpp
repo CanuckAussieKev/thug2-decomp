@@ -16,6 +16,7 @@
 #include "game/gfx/device.h"
 #include "game/gfx/text.h"
 #include "game/pcm/music.h"
+#include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -767,7 +768,7 @@ void StandInTrackStart(StandIns& s)
              Record({0xADD1, r.ecx == reinterpret_cast<uint32_t>(g_params), r.args[0], r.args[1]});
              return 0u;
          });
-    s.At({0x00475790}, 0, [](Regs& r) {
+    s.At({0x00475790, AddressOf(static_cast<void (*)(uint32_t, Script::CStruct*, Obj::CObject*, bool, const char*)>(&Script::RunScript))}, 0, [](Regs& r) {
         Record({0x5C41, r.args[0], r.args[1] == reinterpret_cast<uint32_t>(g_params), r.args[2], r.args[3], r.args[4]});
         return 0u;
     });
