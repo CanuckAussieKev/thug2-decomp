@@ -7,7 +7,8 @@
         from the exception-unwind funclets) and the 33-byte scalar deleting destructor (the vtable's only entry).
         All 24 instances in the exe (found by scanning for that destructor shape against the known Release functions -
         no others): 0x004E1980-0x004E1AF0 / 0x004E1B00-0x004E1EC0 (vtables 0x0064AFB0-0x0064B000, 21 instances: Pre,
-        0x00463730, Mdl, Mc, 0x0044E7F0, the async loader, and 15 of Main's game singletons), 0x0044FD40/0x0044FD60
+        0x00463730, Mdl, Mc, 0x0044E7F0, the async loader, the script cache (Script::CreateScriptCache / ReleaseScriptCache from main's cache batch),
+        and 14 more of Main's game singletons), 0x0044FD40/0x0044FD60
         (the sound manager 0x0047BA60, vtable 0x006472B4), 0x0044FD50/0x0044FD90 (Sio, 0x006472B8), and
         0x004B2230/0x004B2240 (Mlp, 0x0064A2EC). No identical-code folding among them (each has its own vtable);
         callers are only the unwind funclets and each scalar destructor. The one out-of-line constructor 0x004E1A90
@@ -44,12 +45,13 @@
       reference, no instance, a count over 2^31, the count wrapping), TestWindowProc (27 messages x 11 wParams, every
       Win32 call stood in through the import slots and the API), TestFlipRotateComponent (constructor, 75 parameter
       combinations, destructors).
-      Mutations: MUTATIONS_RESULT
-      Checks: thug2_check 0 MISMATCHED, early 88/88; register scan only the known 0x004EFF92 alarm (FlipRotate's
+      Mutations: 70 deliberate bugs, all caught at first (each by the test for its function; the device-reset ones also by
+      TestMainLoop, which calls ResetDeviceIfLost now; movie_reset by TestPlayMovieFile hanging). None equivalent.
+      Checks: thug2_check 0 MISMATCHED, early 91/91 (after merging main); register scan only the known 0x004EFF92 alarm (FlipRotate's
       Construct returns this); call audit no MISMATCH (singleton.cpp's GameFunction calls take template addresses the
       audit can't read: all 38 Create/Release functions checked by hand - plain RET, cdecl); check_partymod_overlap: no
       overlaps, nothing to handle.
-      Shared files changed: src/game/sys/main.cpp (Mlp::CreateManager/ReleaseManager called directly),
+      Shared files changed: src/game/sys/main.cpp (Mlp::CreateManager/ReleaseManager called directly; merged with main's script-cache calls),
       src/game/gfx/movie.cpp (calls Mlp::Manager::ResetDeviceIfLost in place of GameFunction 0x0044F250),
       src/hook/selftests_misc.cpp (TestMain stands in for our Mlp create/release too), src/hook/selftests_partymod.cpp
       (TestPlayMovieFile stands in for our ResetDeviceIfLost too), src/game/sys/mlp.cpp (MainLoop calls
