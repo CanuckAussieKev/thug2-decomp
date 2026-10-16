@@ -81,6 +81,11 @@ HANDLED = {
     0x0048D8F8: "Nx::LoadFont loads the meta button map PartyMod's GlyphStyle names (MetaButtonMapName)",
     0x0048D983: "Nx::CFunc_LoadFont uses the button font PartyMod's GlyphStyle names (ButtonFontName)",
     0x004B6C64: "Nx::UpdateLoadingBarColors writes its table into PartyMod's resbuffer",
+    0x004B2E65: "Nx::RenderWorld calls PartyMod's setDisplayRegion for a letterboxed viewport",
+    0x004B33CA: "Nx::RenderWorld calls PartyMod's setDisplayRegion for the letterboxed full-screen viewport",
+    0x004B341D: "Nx::RenderWorld draws the 2D through PartyMod's draw2DWrapper (black bars)",
+    0x004DB35D: "Nx::SetCamera uses PartyMod's far plane (96000)",
+    0x004DF63A: "Nx::DrawScreenBlur leaves out the letterbox adjustment PartyMod jumps over",
 }
 import json
 bodies = {f["addr"]: f["end"] for f in json.load(open("data/derived/functions.json", encoding="utf-8"))}

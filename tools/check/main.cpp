@@ -11,10 +11,14 @@
 //   - runs the early self-tests, which compare our code with the original code. The game's own start-up
 //     never runs, which is exactly the situation the early stage is written for (inside DllMain).
 //
-// Exit code 0 when everything passes, 1 on a mismatch or a failed self-test, 2 if the exe can't be loaded.
+// Exit code 0 when everything passes, 1 on a mismatch or a failed self-test, 2 if the exe can't be loaded, 3 if
+// a test corrupts memory (CRT report, run-time check failure, or the game's own buffer overrun check) - printed,
+// never a dialog.
 #include <windows.h>
 
+#include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -142,6 +146,26 @@ bool LoadGameImage(const std::vector<unsigned char>& bytes, const IMAGE_NT_HEADE
     return true;
 }
 
+// The game's own /GS check (VC7.1 CRT __security_error_handler, called from report_failure 0x622F9E when an
+// original function's stack cookie is overwritten) shows a "Buffer overrun detected!" message box and waits.
+// Offline that means a test corrupted an original's stack: print it and end the run instead.
+void __cdecl GameSecurityError(int code, void*)
+{
+    std::printf("BUFFER OVERRUN in the game's code (its /GS check, code %d): a self-test corrupted the stack of "
+                "an original function\n",
+                code);
+    std::fflush(stdout);
+    _exit(3);
+}
+
+void RedirectGameSecurityErrorHandler()
+{
+    auto* entry = reinterpret_cast<unsigned char*>(0x006287DD);
+    entry[0] = 0xE9; // JMP rel32 (the image is committed read/write/execute)
+    *reinterpret_cast<int32_t*>(entry + 1) =
+        static_cast<int32_t>(reinterpret_cast<uintptr_t>(&GameSecurityError) - (0x006287DD + 5));
+}
+
 int Child(const char* exe_path)
 {
     std::setvbuf(stdout, nullptr, _IONBF, 0); // (nothing is lost if a test crashes)
@@ -150,6 +174,7 @@ int Child(const char* exe_path)
     const IMAGE_NT_HEADERS32* nt = ReadFileBytes(exe_path, bytes) ? GameHeaders(bytes) : nullptr;
     if (!nt || !LoadGameImage(bytes, nt))
         return 2;
+    RedirectGameSecurityErrorHandler();
     // The file self-tests open data\pre\... relative to the working directory.
     std::string folder(exe_path);
     folder.resize(folder.find_last_of("\\/") == std::string::npos ? 0 : folder.find_last_of("\\/"));
