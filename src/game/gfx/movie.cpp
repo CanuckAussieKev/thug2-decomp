@@ -4,8 +4,11 @@
 
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 
+#include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/log.h"
 #include "hook/hook.h"
 
 // PartyMod's replacements for two of the calls (src/partymod/gfx.c): the texture set notes the movie's size,
@@ -79,6 +82,39 @@ void DrawMovieFrame(void* texture, float x, float y, float width, float height, 
     SetTextureStageState(0, 1, 4); // colour: modulate back
 }
 
+namespace {
+// thug2-decomp.ini [features] skip_intro_movies=1: the logo and intro movies at start-up aren't played.
+bool IsIntroMovie(const char* name)
+{
+    const char* base = name;
+    for (const char* c = name; *c; ++c)
+        if (*c == '\\' || *c == '/')
+            base = c + 1;
+    for (const char* intro : {"ATVI", "Beenox_Shift", "Dolby_Digital", "Intel_intro", "NSlogo", "intro", "introf"}) {
+        size_t length = std::strlen(intro);
+        if (_strnicmp(base, intro, length) == 0 && (base[length] == '\0' || base[length] == '.'))
+            return true;
+    }
+    return false;
+}
+} // namespace
+
+// 0x0059F0C0: the PlayMovie script command: queue the movie named by the unnamed string (0x0044F830).
+bool __cdecl PlayMovie(Script::CStruct* params, void*)
+{
+    const char* name = nullptr;
+    if (!params->GetString(0u, &name, 1))
+        return false;
+    static const bool skipIntros = ConfigInt("features", "skip_intro_movies", 0) != 0;
+    if (skipIntros && IsIntroMovie(name)) {
+        Log("skipping intro movie %s (thug2-decomp.ini [features] skip_intro_movies)", name);
+        return true;
+    }
+    GameFunction<void(__cdecl*)(const char*)>(0x0044F830)(name);
+    return true;
+}
+
 } // namespace Nx
 
 REPLACE(0x0044FA80, Nx::DrawMovieFrame);
+REPLACE(0x0059F0C0, Nx::PlayMovie);

@@ -13,7 +13,7 @@ installed); PartyMod-patched functions get source with PartyMod's behaviour. Lat
 ## Where things are
 - Game: `C:\Games\THUG2\THUG2PM.exe` - the PartyMod build (SafeDisc removed, base 0x400000). Also in that
   folder: our `dinput8.dll`, `thug2-decomp.ini` (`[replacements] disable=` by file/name/address, `*` = all;
-  `[selftests] enabled=`), `thug2-decomp.log` (read it after every game run). The retail THUG2.exe is
+  `[selftests] enabled=`; `[features] skip_intro_movies=1` skips the start-up logo/intro movies), `thug2-decomp.log` (read it after every game run). The retail THUG2.exe is
   SafeDisc-encrypted and not used.
 - Ghidra 12.1.4 at `C:\ghidra`; project `C:\Games\THUG2-ghidra` (the Ghidra MCP server uses it); a read-only
   copy for scripts at `C:\Games\THUG2-ghidra-snapshot` (refresh: `tools\ghidra\snapshot_project.ps1`).

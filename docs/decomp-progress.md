@@ -862,6 +862,12 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       calls written in, a stand-in D3D device and texture (GetLevelDesc), the renderer's calls and the C
       runtime sprintf stood in. 11 deliberate bugs: 9 caught, 2 equivalent under PartyMod (its fit replaces
       every vertex's x/y, so ours' positions never reach the draw).
+- [x] Batch 61 (NOT run in the game yet): the PlayMovie script command 0x59F0C0 (Nx::PlayMovie in
+      src/game/gfx/movie.cpp: the unnamed string, queued by 0x44F830; returns false without one) with a feature
+      flag: thug2-decomp.ini [features] skip_intro_movies=1 skips the start-up movies (ATVI, Beenox_Shift,
+      Dolby_Digital, Intel_intro, NSlogo, intro, introf - matched on the file name, any folder, any case),
+      returning true as if queued; logged. Not tested offline yet (no time): a small test against the original
+      with the flag off is still to write.
 - [ ] Next: finish the PartyMod round (docs/HANDOFF.md: 27 of 48 functions left, with notes); then the pre-compiled .qb format (0x46FBA0, 0x46CA50, 0x46C970, 0x46C830, 0x46C7F0, ...), the script
       cache (0x475FD0 ...), then CScript (0x472900.. / 0x473000..).
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
