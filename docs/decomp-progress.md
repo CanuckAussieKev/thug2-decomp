@@ -636,6 +636,14 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       can't fail after the one at the start). The test first looked fine while every read returned at once:
       it wrote a third port's key bindings - there are two tables, the third overwrote the quit flag.
       tools/mutate.py now names the failing test on each CAUGHT line and reports mutations that don't build.
+- [x] Fix (NOT run in the game yet): since batch 46 our LoadQB (0x46EDE0) called Pip::Load directly, but
+      PartyMod replaces that call (0x46EE80) with its pipLoadWrapper, which applies its binary script patch
+      for scripts\engine\menu\keyboard.qb - so that patch wasn't applied. LoadQB now loads ordinary .qb files
+      through pipLoadWrapper (guarded for when PartyMod's patch list isn't set up). check_partymod_overlap.py
+      only looked at a function's first 16 bytes; it now also fails on any PartyMod patch inside a rewritten
+      function's body unless the patch is listed with how our source does it (3 so far), skips commented-out
+      patches and reads "addr - n". New tools/ghidra/partymod_patches.py lists PartyMod's patches by game
+      function: 113 patches in 48 functions (35 KB), 2 in data.
 - [ ] Next: the pre-compiled .qb format (0x46FBA0, 0x46CA50, 0x46C970, 0x46C830, 0x46C7F0, ...), the script
       cache (0x475FD0 ...), then CScript (0x472900.. / 0x473000..).
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function

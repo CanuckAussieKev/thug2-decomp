@@ -188,7 +188,7 @@ struct scrobjArray *scr_get_array(struct scrStruct *str, uint32_t checksum) {
 	return result;
 }
 
-void __cdecl pipLoadWrapper(char *filename, int unk1, int unk2, int unk3, int unk4) {
+void * __cdecl pipLoadWrapper(char *filename, int unk1, int unk2, int unk3, int unk4) {
 	uint8_t *(__cdecl *orig_pipLoad)(char *, int, int, int, int) = 0x005b7c00;
 	uint32_t (__cdecl *getFileSize)(uint32_t) = 0x005b7290;
 	uint32_t (__cdecl *their_crc32)(char *) = (void *)0x00401b90;
@@ -205,6 +205,11 @@ void __cdecl pipLoadWrapper(char *filename, int unk1, int unk2, int unk3, int un
 
 	// TODO: cache script to avoid continuous leak
 	size_t filenameLen = strlen(filename);
+#ifdef THUG2_DECOMP
+	// (thug2-decomp's LoadQB calls this directly: before initScriptPatches - or offline - there's no patch list)
+	if (!patchMap)
+		return filedata;
+#endif
 	uint8_t *patch = map_get(patchMap, filename, filenameLen);
 	if (patch) {
 		//uint32_t filesize = ((uint32_t *)script)[1];

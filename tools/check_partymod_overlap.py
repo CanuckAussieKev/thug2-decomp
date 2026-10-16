@@ -12,11 +12,13 @@ WINDOW = 16  # more than any trampoline copies
 
 src = "".join(open(f, encoding="utf-8", errors="replace").read()
               for f in glob.glob("src/partymod/**/*.[ch]", recursive=True))
+src = re.sub(r"//[^\n]*", "", src)  # (commented-out patches don't count)
+src = re.sub(r"/\*.*?\*/", "", src, flags=re.S)
 names = {m.group(1): int(m.group(2), 16)
          for m in re.finditer(r"(addr_\w+)\s*=\s*\(?(?:void\s*\*\))?\s*\(?(0x[0-9a-fA-F]+)", src)}
 patches, unresolved = set(), set()
-for m in re.finditer(r"patch\w*\(\s*\(?(?:void\s*\*\)\s*)?\(?(0x[0-9a-fA-F]+|addr_\w+)\s*(?:\+\s*(\d+))?", src):
-    target, offset = m.group(1), int(m.group(2) or 0)
+for m in re.finditer(r"patch\w*\(\s*\(?(?:void\s*\*\)\s*)?\(?(0x[0-9a-fA-F]+|addr_\w+)\s*(?:([+-])\s*(\d+))?", src):
+    target, offset = m.group(1), int(m.group(3) or 0) * (-1 if m.group(2) == "-" else 1)
     value = int(target, 16) if target.startswith("0x") else names.get(target)
     if value is None:
         unresolved.add(target)
@@ -29,10 +31,31 @@ for path in glob.glob("src/**/*.cpp", recursive=True):
         replaced.add(int(m.group(1), 16))
 
 overlaps = sorted((p, r) for p in patches for r in replaced if r <= p < r + WINDOW)
+
+# A patch anywhere inside a rewritten function is bypassed by our version (the game runs ours, not the patched
+# original), so our source must do what the patch does. Each such patch is listed here with how it's done.
+HANDLED = {
+    0x0046EE80: "Script::LoadQB loads through PartyMod's pipLoadWrapper (its script patches)",
+    0x005BDA31: "Sio::Device::ActivateActuator leaves out the ReadData call PartyMod NOPs",
+    0x005BDCC0: "Sio::Device::Process is PartyMod's processController (source only)",
+}
+import json
+bodies = {f["addr"]: f["end"] for f in json.load(open("data/derived/functions.json", encoding="utf-8"))}
+all_registered = set()
+for path in glob.glob("src/game/**/*.cpp", recursive=True):
+    for m in re.finditer(r"REPLACE\w*\(0x([0-9A-Fa-f]{8})", open(path, encoding="utf-8").read()):
+        all_registered.add(int(m.group(1), 16))
+inside = sorted((p, r) for p in patches for r in all_registered if r in bodies and r <= p < bodies[r])
+unhandled = [(p, r) for p, r in inside if p not in HANDLED]
+for p, r in inside:
+    print(f"  0x{p:08X} inside rewritten 0x{r:08X}: " + (HANDLED.get(p) or "NOT HANDLED - our version bypasses this patch"))
+
 print(f"{len(patches)} PartyMod patch addresses, {len(replaced)} replaced functions")
 for name in sorted(unresolved):
     print(f"  could not resolve {name}")
 for p, r in overlaps:
     print(f"  OVERLAP: PartyMod patches 0x{p:08X}, inside the start of replaced 0x{r:08X}")
 print("No overlaps." if not overlaps else f"{len(overlaps)} overlap(s).")
-sys.exit(1 if overlaps or unresolved else 0)
+if unhandled:
+    print(f"{len(unhandled)} PartyMod patch(es) inside rewritten functions not handled.")
+sys.exit(1 if overlaps or unresolved or unhandled else 0)

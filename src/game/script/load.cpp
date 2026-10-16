@@ -13,6 +13,9 @@
 #include "hook/game.h"
 #include "hook/hook.h"
 
+// PartyMod's script loader (src/partymod/script.c).
+extern "C" const uint8_t* __cdecl pipLoadWrapper(char* filename, int unknown1, int unknown2, int unknown3, int unknown4);
+
 namespace Script {
 
 namespace {
@@ -259,7 +262,9 @@ void LoadQB(const char* filename, int unused, int temporary)
         LoadChecksumNames(filename);
     } else {
         Mem::PushContext(manager->m_topDownHeap);
-        auto* data = static_cast<const uint8_t*>(Pip::Load(filename, false, nullptr, nullptr, nullptr));
+        // PartyMod's loader: Pip::Load, then PartyMod's binary patch for the file if it has one (it ships
+        // one, for scripts\engine\menu\keyboard.qb). PartyMod puts it in place of the original's call here.
+        auto* data = pipLoadWrapper(const_cast<char*>(filename), 0, 0, 0, 0);
         Mem::PopContext();
         ParseQB(filename, data, unused, 0, temporary);
         Pip::Unload(filename);
