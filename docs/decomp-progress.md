@@ -95,6 +95,8 @@ self-tests all pass. (The first test gave a black screen: Lzss::Decode's return 
 original, done in batch 48). The last one, 0x401020, is the compiler's `vector constructor iterator' (calls a
 constructor on each element of an array): building the game from source makes the compiler emit it again, so it
 needs no source of its own (docs/library_ranges.md).
+- (0x401AF0 was listed here as "an empty loop with no effect" - wrong. Ghidra's pseudocode missed its third
+  argument; it is Crc::ExtendCRCWithBuffer and its caller uses the result. Rewritten 2026-10-15.)
 
 ## File system & memory block (0x5B6560-0x5BDAD0, 222 functions)
 Contents: async file loader (0x5B6560-0x5B7130), PIP/PRE archives (0x5B7130-0x5B9CB0), small helpers incl. the
