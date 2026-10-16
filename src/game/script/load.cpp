@@ -8,6 +8,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/file/pip.h"
+#include "game/script/cscript.h"
 #include "game/script/names.h"
 #include "game/script/parse.h"
 #include "game/script/patched.h"
@@ -211,14 +212,11 @@ void ParseQB(const char* filename, const uint8_t* data, int unused, int useQbNam
 // 0x00472C50
 bool ScriptRefersTo(const CScript* script, uint32_t name)
 {
-    auto* bytes = reinterpret_cast<const uint8_t*>(script);
-    if (*reinterpret_cast<const uint32_t*>(bytes + 0xC8) == name)
+    if (script->m_scriptName == name)
         return true;
-    // The calls it's in the middle of: 0x30 bytes each, the script's name first.
-    int depth = *reinterpret_cast<const int*>(bytes + 0x30);
-    auto* frame = *reinterpret_cast<const uint8_t* const*>(bytes + 0x94);
-    for (int i = 0; i < depth; ++i, frame += 0x30) {
-        if (*reinterpret_cast<const uint32_t*>(frame) == name)
+    // The calls it's in the middle of.
+    for (int i = 0; i < script->m_numReturnAddresses; ++i) {
+        if (script->m_returnAddresses[i].mScriptName == name)
             return true;
     }
     return false;
