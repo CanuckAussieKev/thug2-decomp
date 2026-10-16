@@ -1,5 +1,6 @@
 #include "game/script/eval.h"
 #include "game/script/names.h"
+#include "game/script/qb.h"
 #include "game/script/struct.h"
 #include "hook/selftest.h"
 
@@ -4573,6 +4574,307 @@ void TestScriptChecksumNamesLate()
     Check(expected == actual, "checksum names: known checksums and Unknown(...)");
 }
 
+// The .qb token helpers over a handmade token stream (every token kind), pre-processing names into function
+// references, the .qb checksum-name table, the script cache, stored-random shuffles, pool creation and the
+// permanent string heap; originals vs ours.
+alignas(16) uint8_t g_qb_arenas[2][0x20000];
+
+void TestScriptTokens()
+{
+    using namespace Script;
+    using Mem::Heap;
+    using Mem::Manager;
+    using Mem::Region;
+    if (GameVariable<void*>(0x007D1800)) {
+        Log("self-test: TestScriptTokens skipped (the memory manager is already set up)");
+        return;
+    }
+    // Globals touched: saved and put back.
+    struct Saved {
+        uint32_t address;
+        uint32_t size;
+        uint8_t bytes[32];
+    };
+    Saved saved[] = {{0x006F2368, 4}, {0x006F2358, 4},  {0x00690FC8, 24}, {0x006F2578, 16},
+                     {0x006F3560, 16}, {0x006F357C, 16}, {0x006F3588, 4},  {0x007CEFAC, 1},
+                     {0x007CC979, 1}};
+    for (Saved& s : saved)
+        std::memcpy(s.bytes, reinterpret_cast<void*>(s.address), s.size);
+    g_saved_symbol_table = GameVariable<CSymbolTableEntry**>(0x006F3624);
+    g_symbol_table_swapped = true;
+    static CSymbolTableEntry* table[0x1000];
+    GameVariable<CSymbolTableEntry**>(0x006F3624) = table;
+    GameVariable<bool>(0x007CEFAC) = false;
+    GameVariable<bool>(0x007CC979) = true;
+
+    // The token stream: every token kind with its data.
+    std::vector<uint8_t> stream;
+    auto u8 = [&](uint32_t b) { stream.push_back(static_cast<uint8_t>(b)); };
+    auto u32 = [&](uint32_t v) {
+        for (int i = 0; i < 4; ++i)
+            u8(v >> (8 * i));
+    };
+    for (uint32_t t = 1; t <= 0x4A; ++t) {
+        switch (t) {
+        case 0x02: case 0x16: case 0x17: case 0x18: case 0x1A: case 0x2E: case 0x43: case 0x44: case 0x46:
+            u8(t), u32(0x11223344 + t);
+            break;
+        case 0x1B: case 0x1C:
+            u8(t), u32(3), u8('a'), u8('b'), u8(0);
+            break;
+        case 0x1E:
+            u8(t), u32(1), u32(2), u32(3);
+            break;
+        case 0x1F:
+            u8(t), u32(1), u32(2);
+            break;
+        case 0x2B:
+            u8(t), u32(0xABCD), u8('n'), u8('m'), u8(0);
+            break;
+        case 0x2F: case 0x37: case 0x40: case 0x41:
+            u8(t), u32(2);
+            for (int i = 0; i < 12; ++i)
+                u8(i);
+            break;
+        case 0x47: case 0x48: case 0x49:
+            u8(t), u8(1), u8(2);
+            break;
+        case 0x10: case 0x19: case 0x1D: case 0x2A: case 0x31: case 0x4A:
+            break; // (tokens that don't step: tried on their own below)
+        default:
+            u8(t);
+            break;
+        }
+    }
+    const size_t tokenCount = stream.size();
+    // Statements: nested brackets, names that are / aren't functions, a short jump, the end.
+    const uint8_t statements[] = {
+        0x01, 0x16, 0x01, 0x00, 0x00, 0xC0,                               // CFunction
+        0x03, 0x16, 0x09, 0, 0, 0, 0x01, 0x05, 0x17, 1, 0, 0, 0, 0x06, 0x04, // { name [ 1 ] }
+        0x01, 0x16, 0x02, 0x00, 0x00, 0xC0,                               // member function with a table
+        0x0E, 0x17, 2, 0, 0, 0, 0x0F, 0x02, 9, 0, 0, 0,                   // ( 2 ) + line number
+        0x16, 0x03, 0x00, 0x00, 0xC0, 0x01,                               // member function without
+        0x16, 0x04, 0x00, 0x00, 0xC0, 0x01,                               // a name that isn't a function
+        0x47, 5, 0, 0x39, 0x01,                                           // short jump, then 0x39
+        0x47, 5, 0, 0x39, 0x16, 0x01, 0x00, 0x00, 0xC0, 0x01,             // ... and a call after it
+        0x47, 5, 0, 0x16, 0x01, 0x00, 0x00, 0xC0, 0x01,                   // short jump, then a call
+        0x16, 0x01, 0x00, 0x00, 0xC0, 0x03, 0x01, 0x04, 0x01,             // a call with a structure
+        0x24, 0x02, 7, 0, 0, 0, 0x01};
+
+    auto run = [&](bool original) {
+        std::vector<uint32_t> trace;
+        uint8_t* arena = g_qb_arenas[original ? 0 : 1];
+        std::memset(arena, 0, sizeof(g_qb_arenas[0]));
+        std::memset(arena + 0x1000, 0xCD, sizeof(g_qb_arenas[0]) - 0x1000);
+        auto* manager = reinterpret_cast<Manager*>(arena);
+        GameVariable<void*>(0x007D1800) = manager;
+        auto* region = new (arena + 0x600) Region(arena + 0x1000, arena + sizeof(g_qb_arenas[0]));
+        auto* heap = new (arena + 0x620) Heap(region, 1, "test");
+        manager->m_heaps[0] = heap;
+        manager->m_heapCount = 1;
+        manager->m_scriptHeap = heap;
+        manager->PushContext(heap);
+        auto base = reinterpret_cast<uint32_t>(arena);
+        auto relocate = [&](uint32_t word) {
+            return word >= base && word <= base + sizeof(g_qb_arenas[0]) ? 0xA0000000u + (word - base) : word;
+        };
+        using P = const uint8_t*;
+
+        // Skipping each token, and the lone tokens that don't step.
+        for (size_t i = 0; i < tokenCount;) {
+            P next = original ? Original<P(__cdecl*)(P)>(0x0046F690)(&stream[i]) : SkipToken(&stream[i]);
+            trace.push_back(static_cast<uint32_t>(next - stream.data()));
+            if (next == &stream[i])
+                break;
+            i = static_cast<size_t>(next - stream.data());
+        }
+        static const uint8_t kLoneTokens[] = {0x00, 0x10, 0x19, 0x1D, 0x2A, 0x31, 0x4A, 0x80, 0xFF};
+        for (uint8_t lone : kLoneTokens) {
+            P next = original ? Original<P(__cdecl*)(P)>(0x0046F690)(&lone) : SkipToken(&lone);
+            trace.push_back(static_cast<uint32_t>(next - &lone));
+        }
+        // Reading and writing.
+        uint8_t bytes[8] = {0x81, 0x92, 0xA3, 0xB4, 0xC5, 0, 0, 0};
+        trace.push_back(original ? Original<uint32_t(__cdecl*)(P)>(0x0046F7E0)(bytes + 1) : Read4Bytes(bytes + 1));
+        trace.push_back(original ? Original<uint16_t(__cdecl*)(P)>(0x0046F800)(bytes + 3) : Read2Bytes(bytes + 3));
+        uint8_t* end = original ? Original<uint8_t*(__cdecl*)(uint8_t*, uint32_t)>(0x0046F810)(bytes + 1, 0xDEADBEEF)
+                                : Write4Bytes(bytes + 1, 0xDEADBEEF);
+        trace.push_back(static_cast<uint32_t>(end - bytes));
+        end = original ? Original<uint8_t*(__cdecl*)(uint8_t*, uint16_t)>(0x0046F840)(bytes + 5, 0x1357)
+                       : Write2Bytes(bytes + 5, 0x1357);
+        trace.push_back(static_cast<uint32_t>(end - bytes));
+        trace.push_back(Read4Bytes(bytes) ^ Read4Bytes(bytes + 4));
+
+        // Statements.
+        std::vector<uint8_t> code(statements, statements + sizeof(statements));
+        P start = code.data();
+        for (size_t at = 0; at < code.size(); ++at) {
+            P p = start + at;
+            trace.push_back(static_cast<uint32_t>(
+                (original ? Original<P(__cdecl*)(P)>(0x0046F850)(p) : SkipEndOfLines(p)) - start));
+        }
+        bool statementStart = true;
+        int depth = 0;
+        for (P p = start; *p != 0x24; p = SkipToken(p)) {
+            if (statementStart) {
+                trace.push_back(static_cast<uint32_t>(
+                    (original ? Original<P(__cdecl*)(P)>(0x0046FB30)(p) : SkipToEndOfStatement(p)) - start));
+            }
+                if (*p == 0x03 || *p == 0x05 || *p == 0x0E)
+                ++depth;
+            if (*p == 0x04 || *p == 0x06 || *p == 0x0F)
+                --depth;
+            statementStart = depth == 0 && (*p == 0x01 || *p == 0x02);
+            trace.push_back(static_cast<uint32_t>(
+                (original ? Original<P(__cdecl*)(P)>(0x0046F920)(p) : SkipToEndOfScript(p)) - start));
+            trace.push_back(original ? Original<uint32_t(__cdecl*)(P)>(0x0046F960)(p) : CalculateScriptChecksum(p));
+        }
+        // A statement ended by a 0x00 token.
+        static const uint8_t kEndedByZero[] = {0x16, 1, 2, 3, 4, 0x17, 1, 0, 0, 0, 0x00, 0x24};
+        trace.push_back(static_cast<uint32_t>(
+            (original ? Original<P(__cdecl*)(P)>(0x0046FB30)(kEndedByZero) : SkipToEndOfStatement(kEndedByZero)) -
+            kEndedByZero));
+        // Pre-processing: 0xC0000001 a C function, 0xC0000002 a member function with a table entry,
+        // 0xC0000003 one without, 0xC0000004 an integer.
+        static CSymbolTableEntry symbols[4];
+        std::memset(table, 0, sizeof(table));
+        const ESymbolType types[4] = {ESYMBOLTYPE_CFUNCTION, ESYMBOLTYPE_MEMBERFUNCTION,
+                                      ESYMBOLTYPE_MEMBERFUNCTION, ESYMBOLTYPE_INTEGER};
+        const uint32_t values[4] = {0x00401000, 0x00402000, 0, 5};
+        for (int i = 0; i < 4; ++i) {
+            symbols[i] = {};
+            symbols[i].name = 0xC0000001 + i;
+            symbols[i].type = types[i];
+            symbols[i].raw = values[i];
+            table[(0xC0000001 + i) & 0xFFF] = &symbols[i];
+        }
+        if (original)
+            Original<void(__cdecl*)(uint8_t*)>(0x0046FF00)(code.data());
+        else
+            PreProcessScript(code.data());
+        for (uint8_t b : code)
+            trace.push_back(b);
+
+        // The .qb checksum-name table.
+        auto* names = static_cast<uint8_t*>(Mem::Malloc(0x1000 * 12));
+        std::memset(names, 0, 0x1000 * 12);
+        GameVariable<void*>(0x006F2368) = names;
+        auto add = [&](uint32_t checksum, const char* name) {
+            if (original)
+                Original<void(__cdecl*)(uint32_t, const char*)>(0x0046FA60)(checksum, name);
+            else
+                AddScriptChecksumName(checksum, name);
+        };
+        add(0x00000123, "first");
+        add(0x00001123, "second"); // same bucket
+        add(0x00002123, "third");
+        add(0x00000123, "again");  // added again
+        add(0x00000FFF, "last");
+        for (uint32_t checksum : {0x123u, 0x1123u, 0x2123u, 0x3123u, 0xFFFu, 0x0u, 0x7u}) {
+            const char* name = original ? Original<const char*(__cdecl*)(uint32_t)>(0x0046F9B0)(checksum)
+                                        : FindScriptChecksumName(checksum);
+            trace.push_back(name ? relocate(reinterpret_cast<uint32_t>(name)) : 0);
+            if (name)
+                trace.push_back(static_cast<uint8_t>(name[0]));
+        }
+        if (original)
+            Original<void(__cdecl*)()>(0x0046F9F0)();
+        else
+            FreeScriptChecksumNames();
+        trace.push_back(GameVariable<uint32_t>(0x006F2368));
+        trace.push_back(static_cast<uint32_t>(
+            original ? Original<const char*(__cdecl*)(uint32_t)>(0x0046F9B0)(0x123) != nullptr
+                     : FindScriptChecksumName(0x123) != nullptr));
+
+        // The script cache.
+        static uint32_t cache[3][0x5C / 4];
+        std::memset(cache, 0, sizeof(cache));
+        cache[0][0] = 7;
+        cache[1][0] = 8;
+        cache[2][0] = 7;
+        cache[0][0x58 / 4] = reinterpret_cast<uint32_t>(cache[1]);
+        cache[1][0x58 / 4] = reinterpret_cast<uint32_t>(cache[2]);
+        GameVariable<void*>(0x006F2358) = cache[0];
+        if (original)
+            Original<void(__cdecl*)(uint32_t)>(0x0046F870)(7);
+        else
+            ForgetCachedScriptsOf(7);
+        GameVariable<void*>(0x006F2358) = nullptr;
+        for (auto& entry : cache)
+            trace.push_back(entry[0]);
+
+        // Stored-random shuffles (the same random state for both).
+        GameVariable<uint32_t>(0x00690FC8) = 0x12345;
+        GameVariable<uint32_t>(0x00690FCC) = 0x6789;
+        GameVariable<uint32_t>(0x00690FD0) = 0xABC;
+        GameVariable<uint32_t>(0x00690FD4) = 0xDEF01;
+        GameVariable<uint32_t>(0x00690FD8) = 0x2345;
+        GameVariable<uint32_t>(0x00690FDC) = 0x678;
+        alignas(4) static uint8_t random[0x60];
+        auto* stored = reinterpret_cast<CStoredRandom*>(random);
+        static const uint16_t kCounts[] = {1, 2, 5, 9};
+        for (uint16_t count : kCounts) {
+            std::memset(random, 0, sizeof(random));
+            stored->m_count = count;
+            for (uint8_t i = 0; i < count; ++i)
+                stored->m_order[i] = i;
+            for (int round = 0; round < 6; ++round) {
+                bool avoid = round % 2 == 0;
+                if (count == 1)
+                    avoid = false;
+                if (original)
+                    Original<void(__thiscall*)(CStoredRandom*, bool)>(0x0046F8A0)(stored, avoid);
+                else
+                    stored->Shuffle(avoid);
+                for (uint8_t i = 0; i < count; ++i)
+                    trace.push_back(stored->m_order[i]);
+            }
+        }
+
+        // Pools and the permanent string heap.
+        for (uint32_t address : {0x006F2578u, 0x006F3560u})
+            std::memset(reinterpret_cast<void*>(address), 0, 16);
+        GameVariable<int>(0x006F2578) = 1; // the second slot
+        if (original) {
+            Original<void(__cdecl*)(int, const char*)>(0x0046F4A0)(5, "random pool");
+            Original<void(__cdecl*)(int, const char*)>(0x0046F090)(3, "cache pool");
+            Original<void(__cdecl*)(uint32_t, uint32_t)>(0x00476210)(0x100, 9);
+        } else {
+            CreatePool(GameVariable<Mem::PoolPair>(0x006F2578), 0x60, 5, "random pool");
+            CreatePool(GameVariable<Mem::PoolPair>(0x006F3560), 0x14, 3, "cache pool");
+            AllocatePermanentStringHeap(0x100, 9);
+        }
+        for (uint32_t address : {0x006F2578u, 0x006F3560u, 0x006F357Cu}) {
+            for (int i = 0; i < 4; ++i)
+                trace.push_back(relocate(reinterpret_cast<uint32_t*>(address)[i]));
+        }
+        trace.push_back(GameVariable<uint32_t>(0x006F3588));
+
+        std::vector<uint32_t> image(sizeof(g_qb_arenas[0]) / 4);
+        std::memcpy(image.data(), arena, sizeof(g_qb_arenas[0]));
+        for (uint32_t& word : image)
+            word = relocate(word);
+        trace.insert(trace.end(), image.begin(), image.end());
+        GameVariable<void*>(0x007D1800) = nullptr;
+        return trace;
+    };
+    std::vector<uint32_t> expected = run(true);
+    std::vector<uint32_t> actual = run(false);
+    for (Saved& s : saved)
+        std::memcpy(reinterpret_cast<void*>(s.address), s.bytes, s.size);
+    RestoreSymbolTable();
+    Check(expected == actual, "script tokens, pre-processing, .qb names, pools");
+    if (expected.size() != actual.size())
+        Log("  token trace sizes: original %u ours %u", static_cast<unsigned>(expected.size()),
+            static_cast<unsigned>(actual.size()));
+    for (size_t i = 0, shown = 0; i < expected.size() && i < actual.size() && shown < 8; ++i) {
+        if (expected[i] != actual[i]) {
+            Log("  token entry %u: original %08X ours %08X", static_cast<unsigned>(i), expected[i], actual[i]);
+            ++shown;
+        }
+    }
+}
+
 // --- late self-tests ----------------------------------------------------------------------------------
 
 // The table's contents as (bucket, position in chain, key, value), so tables with different item addresses
@@ -5520,6 +5822,7 @@ SELFTEST(Early, TestScriptSymbols, RestoreScriptAddingTest);
 SELFTEST(Early, TestScriptExpressions, RestoreScriptAddingTest);
 SELFTEST(Early, TestScriptChecksumNames, RestoreScriptAddingTest);
 SELFTEST(Late, TestScriptChecksumNamesLate);
+SELFTEST(Early, TestScriptTokens);
 
 SELFTEST(Late, TestMemoryLate);
 SELFTEST(Late, TestStringLate);

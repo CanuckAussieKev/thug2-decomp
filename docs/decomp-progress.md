@@ -367,7 +367,27 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       strengthening the tests.
 - [x] Batches 41-42 tested in the game (2026-10-16, by the user): game runs fine; log - 501/501 replacements,
       early 39/39, late 12/12 (including the checksum-names late test), engine-started 2/2.
-- [ ] Next: the script parser / loader (0x46F090.., Script_ParseQB 0x46FBA0, LoadQB 0x46EDE0) and the
+- [x] Batch 43 (NOT run in the game yet; early test passes offline): the .qb token toolkit and the script
+      pools (src/game/script/qb.*; the token formats are listed in qb.h). SkipToken 0x46F690 (sizes of every
+      token; 0x00/0x10/0x19/0x1D/0x2A/0x31 and unknown tokens don't step), Read4Bytes 0x46F7E0, Read2Bytes
+      0x46F800, Write4Bytes 0x46F810, Write2Bytes 0x46F840, SkipEndOfLines 0x46F850, SkipToEndOfStatement
+      0x46FB30 (brackets {} [] () balanced; ends at 0x01/0x02/0x00), SkipToEndOfScript 0x46F920,
+      CalculateScriptChecksum 0x46F960 (CRC of the tokens without line ends, up to '$'), PreProcessScript
+      0x46FF00 (statement-start names of C functions -> 0x43 + function, member functions -> 0x46 + table
+      entry or 0x44); the .qb files' own checksum names (table 0x6F2368, 0x1000 inline buckets {checksum,
+      name, next}): AddScriptChecksumName 0x46FA60, FindScriptChecksumName 0x46F9B0, FreeScriptChecksumNames
+      0x46F9F0; ForgetCachedScriptsOf 0x46F870 (script cache list 0x6F2358, next at +0x58);
+      CStoredRandom::Shuffle 0x46F8A0; CreateScriptPools 0x46F520 with the nine per-class pool creators
+      0x46F090..0x46F4A0 (CScriptCacheEntry 0x14 x300 0x6F3560, CComponent 0x10 x86000, CStruct 8 x19800,
+      CVector 0x10 x9500, CPair 0xC x800, CArray 0xC x7000, CSymbolTableEntry 0x14 x12500 0x6F362C, CScript
+      0xF4 x300 0x6F3548, CStoredRandom 0x60 x100 0x6F2578) and AllocatePermanentStringHeap 0x476210
+      (190000 bytes, 7000 strings). 26 functions. Early test: a token stream of every kind, statements
+      with nested brackets, pre-processing against a stand-in symbol table, the .qb name table, the cache,
+      shuffles with a fixed random state, two pools and the string heap in a 128 KB arena (24 deliberate
+      bugs caught, 2 after adding cases; one more would loop forever on the new case). CreateScriptPools
+      itself is only exercised by starting the game.
+- [ ] Next: the .qb parser (0x472420; old format) / Script_ParseQB 0x46FBA0 -> 0x46CA50, LoadQB 0x46EDE0,
+      the routines with register arguments (0x46F7A0, 0x46FBD0 random ranges, 0x46FD60, 0x46FE40), then the
       interpreter (CScript).
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
       for original callers that read ECX/EDX after the call without writing them first (ignoring push-to-reserve,
