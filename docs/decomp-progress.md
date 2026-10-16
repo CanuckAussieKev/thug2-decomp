@@ -1262,7 +1262,28 @@ src/hook/selftests_partymod.cpp, src/game/sio/device.cpp/.h. No src/partymod cha
       strengthening: 500 and 250 among the stand-ins' ints, the clock offset at 0, x-only zero velocities), 1
       equivalent (x's position product rounded first: the sum adds an exact 0). The two earlier tests still
       pass with the new int values.
-- [ ] Next: finish the PartyMod round (docs/HANDOFF.md: WinMain 0x4E2680 / MainLoop 0x44EEF0 and the GameSpy configuration left; run batches 60-67 in the game); then the pre-compiled .qb format (0x46FBA0, 0x46CA50, 0x46C970, 0x46C830, 0x46C7F0, ...), the script
+- [x] PartyMod round status (2026-10-16): 38 of the 48 patched functions have source (batches 54-60, 62-67).
+      Left: WinMain 0x4E2680 and MainLoop 0x44EEF0 (both host the test runner's hooks, src/hook/selftest_runner.cpp,
+      with ParseNetworkParams 0x4E1220 - plan that first; Sys::Main calls MainLoop through the game's address so
+      the runner's hook still fires); the 8 GameSpy functions (0x5F8690 and up: library code - PartyMod's OpenSpy
+      host names become configuration of the linked SDK). Afterwards: move the PartyMod helpers our code calls
+      (shouldUseGlyph, dehexifyDigitWrapper, setDisplayRegion, draw2DWrapper, movie_setTexture/movie_drawPrim,
+      fastExit, set_actuators, the window settings) into the game's source where it makes sense, and drop
+      src/partymod's runtime byte patches once nothing needs the originals (they stay for now so a replacement
+      disabled in the ini still runs PartyMod's patched original).
+      Neighbours left by the agents (find_gaps): SText ctor/dtors 0x4CEED0/0x4CEEF0/0x4CFAF0, BeginDraw 0x4CEF00,
+      EndDraw 0x4CEF10, 0x4CF0F0, 0x4CFA80; ~50 SingletonPtr holder methods 0x4E1970-0x4E1EE0 (vtables
+      0x64AFB0-0x64B000) and 0x44FD40-0x44FD90; 0x44F870, 0x44F890; Pcm 0x450220-0x4504B0, 0x452680, 0x452910;
+      the thunk 0x48C1A0 -> SetLetterbox; 0x4B2350/0x4B2360.
+      Learned: Direct3D drops the x87 to 24-bit precision when it creates the device, so in the game the
+      originals' float code rounds differently from ours (offline tests compare at 53 bits).
+      TestPcAsyncFileHandle failed once in two agents' runs under load (several thug2_check runs at once) and
+      passed on rerun. thug2_check never shows a dialog: CRT reports, run-time check failures and the game's own
+      /GS handler (0x6287DD) print and exit 3 - a stand-in for a function that never returns (exit) must not
+      return. tools/mutate.py stops before its final rebuild if a spec line isn't unique. Reusable harnesses:
+      StandIns (selftests_misc.cpp), the recorder in selftests_skaterA.cpp; selftests_gfx2.cpp has its own copy
+      of CodePatch/JumpTo.
+- [ ] Next: run batches 60-67 in the game; finish the PartyMod round (above: WinMain / MainLoop, GameSpy); then the pre-compiled .qb format (0x46FBA0, 0x46CA50, 0x46C970, 0x46C830, 0x46C7F0, ...), the script
       cache (0x475FD0 ...), then CScript (0x472900.. / 0x473000..).
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
       for original callers that read ECX/EDX after the call without writing them first (ignoring push-to-reserve,
