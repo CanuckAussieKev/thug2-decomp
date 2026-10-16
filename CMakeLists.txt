@@ -80,6 +80,7 @@ add_library(thug2_code OBJECT
     src/hook/shadow.cpp
     src/hook/selftest.cpp
     src/hook/selftest_runner.cpp
+    src/hook/selftests_gfx.cpp
     src/game/core/alloc.cpp
     src/game/core/crc.cpp
     src/game/core/dbg.cpp
@@ -92,6 +93,7 @@ add_library(thug2_code OBJECT
     src/game/core/string.cpp
     src/game/file/asset_bundle.cpp
     src/game/front/screen_element.cpp
+    src/game/gfx/screen.cpp
     src/game/file/async.cpp
     src/game/file/file.cpp
     src/game/file/pip.cpp

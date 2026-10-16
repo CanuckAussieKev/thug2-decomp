@@ -36,6 +36,15 @@ overlaps = sorted((p, r) for p in patches for r in replaced if r <= p < r + WIND
 # original), so our source must do what the patch does. Each such patch is listed here with how it's done.
 HANDLED = {
     0x0046EE80: "Script::LoadQB loads through PartyMod's pipLoadWrapper (its script patches)",
+    0x0048C170: "Nx::CFunc_SetScreenBlur (source only): PartyMod's restoreBlur rewrites the bytes already there",
+    0x0048C171: "(the same five bytes)",
+    0x0048C172: "(the same five bytes)",
+    0x0048C173: "(the same five bytes)",
+    0x0048C174: "(the same five bytes)",
+    0x004A0780: "Nx::SetScreenAspectRatio is PartyMod's setAspectRatio (source only)",
+    0x004A07C0: "Nx::GetScreenAngleFactor is PartyMod's getScreenAngleFactor (source only)",
+    0x004B2330: "Nx::SetScreenBlur is PartyMod's setBlurWrapper when DisableBlur is on (source only)",
+    0x004B2440: "Nx::SetLetterbox is PartyMod's setLetterbox (source only)",
     0x005BDA31: "Sio::Device::ActivateActuator leaves out the ReadData call PartyMod NOPs",
     0x005BDCC0: "Sio::Device::Process is PartyMod's processController (source only)",
 }
