@@ -1,5 +1,5 @@
 // Script functions (CFuncs) for the memory card.
-// Based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt (the PC port's changes in it).
+// Contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md (the PC port's changes in it).
 
 #include "game/mc/memcard_cfuncs.h"
 
@@ -16,7 +16,7 @@
 
 namespace Mc {
 
-// The PC port's free space (based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt): with a card
+// The PC port's free space (contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md): with a card
 // (its +0x0C flag), the disk's free 16 KB blocks, clamped to 0x7FFE0001 so that scripts can add to it without
 // overflowing (the original's count, card->GetFreeBlocks(), is unclamped).
 int32_t __fastcall FreeDiskBlocks(Card* card)
@@ -56,7 +56,7 @@ bool GetMemCardSpaceAvailable(Script::CStruct*, Script::CScript* script)
     Card* card = GameVariable<Manager*>(0x007D1890)->GetCard(0, 0);
     if (!card)
         return false;
-    // PC port (PartyMod's call at 0x005A6E7E): the clamped disk count in place of the original's
+    // PC port (its call at 0x005A6E7E): the clamped disk count in place of the original's
     // card->GetFreeBlocks().
     ResultParams(script)->AddInteger(kSpaceAvailable, FreeDiskBlocks(card));
     return true;
@@ -185,7 +185,7 @@ constexpr uint32_t kAlsoApplyType = 0x61A1BC57;  // applied even when kept
 // 0x005A8730. LoadFromMemoryCard Name=<string> Type=<checksum> [<kNoApply>=<integer>]: reads the save file and
 // applies it (or keeps its contents in 0x007CECD4 and its type in 0x007CECD8 when kNoApply is non-zero). True if
 // the file was read. A file of the wrong size, too big, of another version or (originally) with a bad checksum
-// leaves kLoadFailed in the script's parameters. PartyMod: the checksum isn't checked.
+// leaves kLoadFailed in the script's parameters. The PC port: the checksum isn't checked.
 bool LoadFromMemoryCard(Script::CStruct* params, Script::CScript* script)
 {
     if (Platform() != 4) {
@@ -249,7 +249,7 @@ bool LoadFromMemoryCard(Script::CStruct* params, Script::CScript* script)
                     fileHeader->checksum = 0;
                     // The original also rejected the file unless
                     //     Crc::GenerateCRCFromBuffer(data, fileHeader->size) == <the checksum read>
-                    // - the test PartyMod NOPs (its patch at 0x005A8A01).
+                    // - the test the PC port NOPs (its patch at 0x005A8A01).
                     bad = fileHeader->size > 500000 || fileHeader->version != TypeVersion(type);
                     if (!bad) {
                         uint8_t* rest = ReadStructure(header, data + sizeof(SaveHeader));

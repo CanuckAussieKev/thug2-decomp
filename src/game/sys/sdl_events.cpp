@@ -1,5 +1,5 @@
 // The SDL event pump.
-// Based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt
+// Contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md
 
 #include "game/sys/sdl_events.h"
 

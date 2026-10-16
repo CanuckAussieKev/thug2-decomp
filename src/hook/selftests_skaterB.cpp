@@ -1,5 +1,5 @@
-// Self-tests for the skater's spin and break-vert code (PartyMod's PS2 controls off and on) and the network
-// keyboard task (PartyMod's F1): the originals - with PartyMod's bytes written in where it patches them - vs ours.
+// Self-tests for the skater's spin and break-vert code (the PC port's PS2 controls off and on) and the network
+// keyboard task (the PC port's F1): the originals - with the PC port's bytes written in where it patches them - vs ours.
 
 #include <windows.h>
 
@@ -309,7 +309,7 @@ void CompareTraces(const std::vector<uint32_t>* traces, const char* what, const 
 
 // Spin: random cases over every input that decides a branch (tap mode or not, the buttons and their held
 // times against the script's times, the flags, the queued turn, the face-the-ramp values, the rotation total),
-// PartyMod's PS2 controls off and on - the original with its NOPs at 0x00504239 / 0x0050430B for "on".
+// the PC port's PS2 controls off and on - the original with its NOPs at 0x00504239 / 0x0050430B for "on".
 void TestSkaterSpin()
 {
     uint8_t savedSettings = Sio::TheInputSettings().ps2Controls;
@@ -411,7 +411,7 @@ void __cdecl StandInRunScript(uint32_t name, Script::CStruct* params, int a, int
 
 alignas(16) uint8_t g_key_arenas[2][0x8000];
 
-// The keyboard task: no key, Enter with each dialog present or none, F1 (0x1F with PartyMod, the original
+// The keyboard task: no key, Enter with each dialog present or none, F1 (0x1F with the PC port, the original
 // with its byte at 0x00533652), F2-F4, Escape (0x1B) and another key, each at 2000 and 2001 ms since the last
 // taunt - over a stand-in memory manager (the parameters it allocates, and leaks for Enter, compared).
 void TestKeyboardTask()
@@ -478,7 +478,7 @@ void TestKeyboardTask()
                     GameVariable<int[16]>(0x007D1BE0)[0] = key;
                     GameVariable<int[16]>(0x007D1BE0)[1] = 0x1C;
                     if (original) {
-                        Patch f1(0x00533652, {0x1F}); // PartyMod's
+                        Patch f1(0x00533652, {0x1F}); // The PC port's
                         Original<void(__cdecl*)(void*)>(0x005334D0)(nullptr);
                     } else {
                         GameNet::KeyboardTask(nullptr);
@@ -504,7 +504,7 @@ void TestKeyboardTask()
     std::vector<uint32_t> traces[2] = {runAll(true), runAll(false)};
     for (Saved& s : saved)
         std::memcpy(reinterpret_cast<void*>(s.address), s.bytes.data(), s.size);
-    CompareTraces(traces, "net: keyboard task (Enter, F1-F4 with PartyMod's F1)", "keyboard task");
+    CompareTraces(traces, "net: keyboard task (Enter, F1-F4 with the PC port's F1)", "keyboard task");
 }
 
 } // namespace

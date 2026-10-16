@@ -1,5 +1,5 @@
-// Drawing a frame of a movie (the Bink player's texture) as a screen quad - fitted to 4:3 on PC (the fit is based
-// on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt).
+// Drawing a frame of a movie (the Bink player's texture) as a screen quad - fitted to 4:3 on PC (the fit
+// contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md).
 
 #include "game/gfx/movie.h"
 
@@ -107,7 +107,7 @@ void DrawMovieFrame(void* texture, float x, float y, float width, float height, 
     char dumpName[256];
     std::snprintf(dumpName, sizeof(dumpName), "e:\\movietest\\movie%04d.bmp", GameVariable<int>(0x00696D9C));
     ++GameVariable<int>(0x00696D9C);
-    // PC port (PartyMod's call at 0x0044FB8C): SetMovieTexture in place of the renderer's texture set (0x004DA730)
+    // PC port (its call at 0x0044FB8C): SetMovieTexture in place of the renderer's texture set (0x004DA730)
     SetMovieTexture(0, texture, 0);
 
     // (x87: alpha * 255 truncated; each corner is position + size * the screen scale, rounded once)
@@ -126,7 +126,7 @@ void DrawMovieFrame(void* texture, float x, float y, float width, float height, 
     vertices[3].y = vertices[2].y;
     vertices[3].v = 1.0f;
     if (Method<long(__stdcall*)(void*)>(0xC / 4)(Device()) == 0) // TestCooperativeLevel: the device isn't lost
-        // PC port (PartyMod's call at 0x0044FC88): fitted to 4:3, in place of the device's DrawPrimitiveUP
+        // PC port (its call at 0x0044FC88): fitted to 4:3, in place of the device's DrawPrimitiveUP
         DrawMovieQuad(Device(), 5 /* triangle strip */, 2, vertices, sizeof(MovieVertex));
     SetTextureStageState(0, 1, 4); // colour: modulate back
 }
@@ -362,7 +362,7 @@ void __cdecl PlayMovieFile(const char* name)
             ++frames;
             if (frames % 2 == 0)
                 Platform::ProcessWindowEvents();
-            // PartyMod NOPs the original's "if (frames % 5 != 0) continue;" (0x00450121): the pads are read
+            // The PC port NOPs the original's "if (frames % 5 != 0) continue;" (0x00450121): the pads are read
             // every frame, so skipping reacts at once.
             input->ProcessDevices();
             bool skip = false;

@@ -1,5 +1,5 @@
 // The network manager's online service task: GameSpy availability, news, message of the day, lobby list.
-// Based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt (the PC port's changes in it).
+// Contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md (the PC port's changes in it).
 
 #include "game/net/service.h"
 
@@ -28,7 +28,7 @@ constexpr uint32_t kMotdText = 0xFDF4;      // char*: the downloaded message of 
 constexpr uint32_t kRequest = 0xFE00;       // the current ghttp request
 constexpr uint32_t kRequestStart = 0xFE04;  // when it was started
 constexpr uint32_t kNewsFinished = 0xFE08;  // bool: the news download has finished
-constexpr uint32_t kNewsOk = 0xFE09;        // bool (PartyMod sets it; meaning not known beyond that)
+constexpr uint32_t kNewsOk = 0xFE09;        // bool (the PC port sets it; meaning not known beyond that)
 constexpr uint32_t kAvailable = 0xFE0A;     // bool: the GameSpy services are available
 
 template <typename T>
@@ -37,7 +37,7 @@ T& Field(uint8_t* manager, uint32_t offset)
     return *reinterpret_cast<T*>(manager + offset);
 }
 
-// PartyMod's MOTD fix (its patchMotdFix): the news download's time limit (original: 15000 ms)
+// The PC port's MOTD fix (its patchMotdFix): the news download's time limit (original: 15000 ms)
 // and the script run when it ends, with the "news ok" flag set (original: 0xD4E84C8D with the flag cleared).
 constexpr uint32_t kNewsTimeout = 500;
 constexpr uint32_t kNewsDoneScript = 0x588ED87C;
@@ -191,7 +191,7 @@ void __cdecl ServiceTask(const uint8_t* task)
     }
     case 7: // the news download
         PushInternetHeap();
-        // (PartyMod's time limit; the original's was 15000 ms)
+        // (the PC port's time limit; the original's was 15000 ms)
         if (Tmr::GetTime() - Field<uint32_t>(manager, kRequestStart) > kNewsTimeout ||
             Field<bool>(manager, kNewsFinished)) {
             GhttpCancelRequest(Field<int>(manager, kRequest));
@@ -228,7 +228,7 @@ void __cdecl ServiceTask(const uint8_t* task)
     }
     case 0xB: // the news download has ended
         GhttpCleanup();
-        // PartyMod: the flag set and script 0x588ED87C (original: flag cleared, script 0xD4E84C8D)
+        // The PC port: the flag set and script 0x588ED87C (original: flag cleared, script 0xD4E84C8D)
         Field<bool>(manager, kNewsOk) = kNewsOkValue;
         RunScript(kNewsDoneScript);
         Finish(manager);

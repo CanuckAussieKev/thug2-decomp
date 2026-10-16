@@ -1,8 +1,8 @@
 #pragma once
 
-// Based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt
+// Contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md
 
-// The graphics options on PC, from [Graphics] in partymod.ini in place of the original's settings loader
+// The graphics options on PC, from [Graphics] in thug2-decomp.ini in place of the original's settings loader
 // (0x005F34D0, the registry): AntiAliasing, HQShadows, DistanceClipping, ClippingDistance (1-100), Fog, and
 // DisableBlur (on by default: SetScreenBlur keeps the motion blur off).
 namespace Nx {

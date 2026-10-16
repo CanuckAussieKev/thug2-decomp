@@ -29,7 +29,7 @@ void LoadFont(const char* name, int charSpacing, int spaceSpacing, uint32_t* col
 // LoadFont <name> [buttons_font] [char_spacing = n] [space_spacing = n] [color_tab = [[r g b a] ...]]
 bool __cdecl CFunc_LoadFont(Script::CStruct* params, Script::CScript* script);
 
-// The name of the button-glyph font and of the meta button map script array, as PartyMod's GlyphStyle
+// The name of the button-glyph font and of the meta button map script array, as the PC port's GlyphStyle
 // setting picks them (1 PS2, 2 GameCube, otherwise the original Xbox ones).
 const char* ButtonFontName();
 const char* MetaButtonMapName();

@@ -1,5 +1,5 @@
 // The loading screen's progress bar: its colour gradient, with the PC port's bigger buffer built in.
-// Based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt (the PC port's changes in it).
+// Contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md (the PC port's changes in it).
 
 #include "game/gfx/loading_bar.h"
 
@@ -10,7 +10,7 @@ namespace Nx {
 
 namespace {
 
-// The PC port's gradient table: 100000 bytes, enough for high resolutions (PartyMod's resbuffer, which its
+// The PC port's gradient table: 100000 bytes, enough for high resolutions (the PC port's resbuffer, which its
 // patchWindow pointed the table at).
 uint8_t s_gradientBuffer[100000];
 
@@ -47,7 +47,7 @@ void UpdateLoadingBarColors()
     BorderArgb() = 0x80000000u | BorderColor()[0] << 16 | BorderColor()[1] << 8 | BorderColor()[2];
 
     // One colour per pixel column, from the start colour towards the end colour. The original's table is at
-    // 0x00701688 and overflows at high resolutions; PartyMod pointed it at a bigger buffer instead, though 4
+    // 0x00701688 and overflows at high resolutions; the PC port pointed it at a bigger buffer instead, though 4
     // bytes too early (it replaced the instruction's base, which is the table's address + 4). Here the table is
     // at the start of the buffer. Nothing reads the table.
     int steps = static_cast<int>(static_cast<double>(GradientWidth()) * ScreenScaleX());

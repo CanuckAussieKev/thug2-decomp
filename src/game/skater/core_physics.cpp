@@ -1,5 +1,5 @@
-// The skater's core physics component, with PartyMod's PS2-style controls built in.
-// Based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt (the PC port's changes in it).
+// The skater's core physics component, with the PC port's PS2-style controls built in.
+// Contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md (the PC port's changes in it).
 
 #include "game/skater/core_physics.h"
 
@@ -95,7 +95,7 @@ void SetTimedFlag(void* flags, uint32_t offset, uint8_t value)
 int TimeSincePress(uint8_t* button) { return GameFunction<int(__thiscall*)(void*)>(0x0046B920)(button); }
 int TimeSinceRelease(uint8_t* button) { return GameFunction<int(__thiscall*)(void*)>(0x0046B900)(button); }
 
-// The two triggers: both held - or, under PartyMod's PS2 controls (its JZ -> JNZ at each check), either.
+// The two triggers: both held - or, under the PC port's PS2 controls (its JZ -> JNZ at each check), either.
 bool TriggersHeld(const uint8_t* input)
 {
     if (Ps2Controls())
@@ -134,7 +134,7 @@ int CorePhysicsComponent::LipPushOff(Script::CStruct*, Script::CScript*)
     uint8_t* input = At<uint8_t*>(this, kInput);
     if (input[kButton80])
         return 0;
-    // (The original: both triggers. PartyMod's JZ -> JNZ at 0x004FCC59 makes it either.)
+    // (The original: both triggers. The PC port's JZ -> JNZ at 0x004FCC59 makes it either.)
     if (TriggersHeld(input)) {
         float scale = PhysicsFloat(0x1F96C224, object);
         Push(VectorAt(At<void*>(this, kObject), kVelocity), forward, scale);
@@ -289,7 +289,7 @@ void CorePhysicsComponent::CheckForGround()
     void* flags = At<void*>(this, kTimedFlags);
     if (At<uint8_t>(flags, 0x30)) {
         SetTimedFlag(flags, 0x48, 1);
-        // The original: unless both triggers are held. PartyMod only turns the first check's JZ into a JNZ (at
+        // The original: unless both triggers are held. The PC port only turns the first check's JZ into a JNZ (at
         // 0x00509E47), so under its PS2 controls this is skipped only while the second is held without the first.
         bool skip = Ps2Controls() ? !input[kTrigger1] && input[kTrigger2] : input[kTrigger1] && input[kTrigger2];
         if (!skip)
@@ -298,7 +298,7 @@ void CorePhysicsComponent::CheckForGround()
         if (TimeSinceRelease(input + kButton20) > wait && TimeSincePress(input + kButton20) > wait)
             SetTimedFlag(At<void*>(this, kTimedFlags), 0x48, 0);
     } else if (TriggersHeld(input)) {
-        // (The original: both triggers; PartyMod's JZ -> JNZ at 0x0050A257 makes it either.)
+        // (The original: both triggers; the PC port's JZ -> JNZ at 0x0050A257 makes it either.)
         uint8_t drop[40];
         void* o = At<void*>(this, kObject);
         if (GameFunction<bool(__thiscall*)(void*, int, void*, void*, void*, void*)>(0x00502240)(
@@ -331,7 +331,7 @@ void CorePhysicsComponent::DoAirPhysics()
     CallThis(0x004FFB90, this);
     Spin();
     CallThis(0x00504A60, this);
-    // (The original: flag +0x80 or both triggers. PartyMod's JZ -> JNZ at 0x0050CAC4 makes it either trigger.)
+    // (The original: flag +0x80 or both triggers. The PC port's JZ -> JNZ at 0x0050CAC4 makes it either trigger.)
     if (Flag(this, 0x80) || TriggersHeld(input))
         CallThis(0x00504B40, this);
     {
@@ -434,7 +434,7 @@ void CorePhysicsComponent::DoAirPhysics()
         if (elapsed > Script::GetInteger(0x26495947))
             SetTimedFlag(At<void*>(this, kTimedFlags), 0x48, 0);
     } else if (At<uint8_t>(flags, 0x30)) {
-        // (The original: both triggers. PartyMod's JZ -> JNZ at 0x0050CF89 makes it either.)
+        // (The original: both triggers. The PC port's JZ -> JNZ at 0x0050CF89 makes it either.)
         if ((TriggersHeld(input) || At<uint8_t>(this, 0x2D0)) && !At<uint8_t>(flags, 0x78) &&
             VectorAt(object, kVelocity).y > 0.0f)
             BreakVert(false);
@@ -574,7 +574,7 @@ void CorePhysicsComponent::DoAirPhysics()
     CallThis(0x00503710, this);
     if (Flag(this, 0xB0))
         return;
-    // An acid drop: both triggers (the original; PartyMod's JZ -> JNZ at 0x0050DA64 makes it either).
+    // An acid drop: both triggers (the original; the PC port's JZ -> JNZ at 0x0050DA64 makes it either).
     if (!TriggersHeld(input))
         return;
     bool recent = false;

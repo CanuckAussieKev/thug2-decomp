@@ -1,5 +1,5 @@
-// The skater's control code, with the PC port's PS2-style controls built in (based on PartyMod (c) 2024
-// PARTYMANX, MIT - see LICENSES/partymod.txt).
+// The skater's control code, with the PC port's PS2-style controls built in.
+// Contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md
 
 #include "game/skater/controls.h"
 
@@ -46,7 +46,7 @@ bool FindAcidDrop(void* skater, float* velocity)
         velocity, static_cast<uint8_t*>(skater) + 0x768);
 }
 
-// The two buttons; PartyMod's PS2 controls skip the first (its NOP at 0x00527546 / 0x00527636).
+// The two buttons; the PC port's PS2 controls skip the first (its NOP at 0x00527546 / 0x00527636).
 bool ButtonsHeld(void* skater)
 {
     if (At<bool>(skater, kDisabled) || At<bool>(At<uint8_t*>(skater, kFlags), 0x24))
@@ -76,7 +76,7 @@ void EnterAcidDrop(void* skater, const float* velocity)
 Script::CStruct* Component::PlatformStructure(Script::CStruct* params)
 {
     Script::CStruct* found = nullptr;
-    int xbox = Ps2Controls() ? 5 : 7; // (PartyMod's byte at 0x0051F4C8)
+    int xbox = Ps2Controls() ? 5 : 7; // (the PC port's byte at 0x0051F4C8)
     if (Platform() == xbox) {
         if (!params->GetStructure(0xCE42EE1A, &found, 0))
             params->GetStructure(0xE594F0A2, &found, 1);

@@ -24,7 +24,7 @@ bool HandleChatCommand(Manager* manager, const char* text);
 
 // 0x005334D0: the manager's keyboard task (Tsk::Task, data the manager - not used): Enter opens the chat box
 // (script 0x3B4548B8) unless a dialog is up; F1-F4 run the taunt script (0x2C43B5BA) with a taunt name, at
-// most one every two seconds. With PartyMod's keyboard input built in: F1 is key 0x1F.
+// most one every two seconds. With the PC port's keyboard input built in: F1 is key 0x1F.
 void __cdecl KeyboardTask(void* task);
 
 } // namespace GameNet

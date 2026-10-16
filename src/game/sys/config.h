@@ -1,15 +1,15 @@
 #pragma once
 
-// Based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt
+// Contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md
 
 #include <cstddef>
 
-// The PC settings file: partymod.ini next to the exe (the name PartyMod gave it, kept so existing settings
-// keep working). Window, graphics, input, glyph, online and logging options are read from it at start-up.
-// (Not the game's own registry settings, and not thug2-decomp.ini, which is the hook DLL's.)
+// The PC settings: thug2-decomp.ini next to the exe (the file the hook DLL reads its own [replacements],
+// [selftests] and [features] from). Window, graphics, input, glyph, online and logging options are read from its
+// sections below at start-up. (Not the game's own registry settings.)
 namespace Config {
 
-constexpr const char* kFileName = "partymod.ini";
+constexpr const char* kFileName = "thug2-decomp.ini";
 
 // Its sections.
 constexpr const char* kGraphics = "Graphics";

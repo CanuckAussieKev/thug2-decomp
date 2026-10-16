@@ -88,7 +88,7 @@ PreEntry* FindPreEntry(uint32_t checksum)
     return nullptr;
 }
 
-// 0x005B7C00 (PartyMod's script patching wraps calls to this, and calls it by address)
+// 0x005B7C00 (the PC port's script patching wraps calls to this, and calls it by address)
 void* Load(const char* name, bool async, void* callback, void* callback_arg0, void* callback_arg1)
 {
     uint32_t checksum = Crc::GenerateCRCFromString(name);

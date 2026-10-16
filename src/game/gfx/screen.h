@@ -8,7 +8,7 @@ class CScript;
 } // namespace Script
 
 // The screen's shape and full-screen effects (Nx engine, PC): aspect ratio, field-of-view factor, letterbox and
-// motion blur. The PC port (based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt) changes most
+// motion blur. The PC port (contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md) changes most
 // of these: widescreen support, blur off by default.
 namespace Nx {
 

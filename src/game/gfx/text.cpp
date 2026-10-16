@@ -1,5 +1,5 @@
 // Bitmap font text: measuring and drawing, with the PC port's button glyphs (game/gfx/glyphs.h) built in.
-// Based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt (the PC port's changes in it).
+// Contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md (the PC port's changes in it).
 
 #include "game/gfx/text.h"
 
@@ -50,7 +50,7 @@ int ButtonIndex(char tag, const char* digit)
         char mapped = MetaButton(digit);
         return Str::DehexifyDigit(&mapped);
     }
-    // PC port (PartyMod's call at 0x004CED4B / 0x004CFF0C): with a controller (or PreferGlyphs) the PC's
+    // PC port (its call at 0x004CED4B / 0x004CFF0C): with a controller (or PreferGlyphs) the PC's
     // explicit button tags are turned back into the controller's. The original: Str::DehexifyDigit(digit).
     return static_cast<int>(ButtonForTag(reinterpret_cast<uint8_t*>(const_cast<char*>(digit))));
 }
@@ -58,7 +58,7 @@ int ButtonIndex(char tag, const char* digit)
 // Whether a button is drawn as a glyph of the button font (otherwise its key's name is spelled out).
 bool UseButtonGlyph(int button)
 {
-    // PC port (PartyMod's test at 0x004CED6D / 0x004CFF36). The original, where 4-7 and 10-13 are the glyphs:
+    // PC port (its test at 0x004CED6D / 0x004CFF36). The original, where 4-7 and 10-13 are the glyphs:
     //   uint8_t b = static_cast<uint8_t>(button);
     //   return (b >= 4 && b <= 7) || (b >= 10 && b <= 13);
     return ShouldUseGlyph(static_cast<uint8_t>(button)) == 1;

@@ -7,7 +7,7 @@
 
 // Serial I/O: the controller ports. A Device per port polls its pad (on PC: a DirectInput joystick, or the
 // keyboard bindings) into PS2-format control data, and drives its two vibration motors ("actuators").
-// PartyMod replaces the polling (Device::Process) with SDL game controllers and its own keyboard handling.
+// The PC port replaces the polling (Device::Process) with SDL game controllers and its own keyboard handling.
 namespace Sio {
 
 class Device {
@@ -22,7 +22,7 @@ public:
     // 0x005BCD00: the scalar deleting destructor (deletes the list node; frees the device if flags & 1).
     Device* Destroy(unsigned int flags);
 
-    // 0x005BDCC0: once a frame. PartyMod's (see device.cpp).
+    // 0x005BDCC0: once a frame. The PC port's (see device.cpp).
     void Process(int unused);
     // 0x005BCC60
     bool IsPluggedIn() const { return m_pluggedIn; }
@@ -34,11 +34,11 @@ public:
     void Settle();
 
     // 0x005BD200: the original's pad read (Process, state kReady): the platform layer's pad state for this
-    // port into PS2-format control data, with the menus deciding which port and keys count. PartyMod's
+    // port into PS2-format control data, with the menus deciding which port and keys count. The PC port's
     // Process does its own reading, so this isn't run in the game.
     void ReadData(int unused);
 
-    // 0x005BDA20: run motor `actuator` at `percent` of its maximum. PartyMod removes the original's first
+    // 0x005BDA20: run motor `actuator` at `percent` of its maximum. The PC port removes the original's first
     // step, reading the pad (see device.cpp).
     void ActivateActuator(int actuator, int percent);
     // 0x005BCCB0: allow vibration again (the motors stay as they are).
@@ -100,7 +100,7 @@ struct PadState {
 };
 static_assert(offsetof(PadState, sticks) == 0x0E && sizeof(PadState) == 0x18, "layout must match the original");
 
-// The platform layer's motor control (Platform::SetActuators, 0x005F3A50: PartyMod's): levels 0-65535.
+// The platform layer's motor control (Platform::SetActuators, 0x005F3A50: the PC port's): levels 0-65535.
 void SetActuators(int port, int left, int right);
 
 // The keyboard (DirectInput): 0x005BDD60 reads its state once a frame into one of two 256-byte buffers;
@@ -113,7 +113,7 @@ void ClearKeyboardChars();
 
 // 0x005BDE70: a typed key (a character, or a control key: Enter, Backspace, Escape...) from the window's
 // messages, queued for GetKeyboardChars while the keyboard is in use for typing. `flags` is the message's
-// lParam (bit 30: auto-repeat; negative: a key release). PartyMod calls it for SDL's text input.
+// lParam (bit 30: auto-repeat; negative: a key release). The PC port calls it for SDL's text input.
 void KeyInput(int key, int flags);
 
 // 0x005BDF30: a key press from the window's messages (virtual key codes): F5 refreshes the network server

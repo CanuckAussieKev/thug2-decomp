@@ -1,7 +1,7 @@
 // Self-tests for functions the PC port changes (skater controls, online stats, the screen flash, movies, the music
-// shuffle): original, with PartyMod's patch bytes written in for the runs that need them, vs ours.
-// (PartyMod's screen flash fix is copied below as the original run's reference: based on PartyMod (c) 2024
-// PARTYMANX, MIT - see LICENSES/partymod.txt)
+// shuffle): original, with the PC port's patch bytes written in for the runs that need them, vs ours.
+// (The PC port's screen flash fix is copied below as the original run's reference: contains MIT-licensed code
+// (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md)
 
 #include <windows.h>
 
@@ -61,10 +61,10 @@ std::vector<uint8_t> JumpTo(uint32_t from, const void* to)
     std::memcpy(&bytes[1], &relative, 4);
     return bytes;
 }
-// PartyMod's PS2-controls bytes in the original, while `on`.
-struct PartyModPs2Bytes {
+// The PC port's PS2-controls bytes in the original, while `on`.
+struct Ps2ControlBytes {
     std::vector<CodePatch*> patches;
-    explicit PartyModPs2Bytes(bool on)
+    explicit Ps2ControlBytes(bool on)
     {
         if (!on)
             return;
@@ -72,7 +72,7 @@ struct PartyModPs2Bytes {
         patches.push_back(new CodePatch(0x00527546, std::vector<uint8_t>(6, 0x90)));
         patches.push_back(new CodePatch(0x00527636, std::vector<uint8_t>(6, 0x90)));
     }
-    ~PartyModPs2Bytes()
+    ~Ps2ControlBytes()
     {
         for (CodePatch* p : patches)
             delete p;
@@ -114,7 +114,7 @@ void __fastcall StandInSetState(void* object, void*, int value)
     g_skater_log.insert(g_skater_log.end(), {0x57Au, Rel(object, g_skater), static_cast<uint32_t>(value)});
 }
 
-// The platform structure lookup over stand-in parameter structures, on platforms 5, 7 and another, PartyMod's
+// The platform structure lookup over stand-in parameter structures, on platforms 5, 7 and another, the PC port's
 // PS2 controls off and on.
 void TestSkaterPlatformStructure()
 {
@@ -145,7 +145,7 @@ void TestSkaterPlatformStructure()
                 GameVariable<int>(0x007CEFA8) = platform;
                 void* original;
                 {
-                    PartyModPs2Bytes bytes(ps2 != 0);
+                    Ps2ControlBytes bytes(ps2 != 0);
                     original = Original<void*(__thiscall*)(void*, void*)>(0x0051F4C0)(nullptr, params);
                 }
                 Sio::TheInputSettings().ps2Controls = static_cast<uint8_t>(ps2);
@@ -165,7 +165,7 @@ void TestSkaterPlatformStructure()
 }
 
 // The two acid drops over the buttons, the flags that stop them, the physics finding a drop or not, walking or
-// not, PartyMod's PS2 controls off and on: the skater's fields and every callee's arguments.
+// not, the PC port's PS2 controls off and on: the skater's fields and every callee's arguments.
 void TestSkaterAcidDrops()
 {
     uint8_t savedSettings = Sio::TheInputSettings().ps2Controls;
@@ -208,7 +208,7 @@ void TestSkaterAcidDrops()
                     g_skater_log.clear();
                     bool result;
                     if (original) {
-                        PartyModPs2Bytes bytes(ps2 != 0);
+                        Ps2ControlBytes bytes(ps2 != 0);
                         result = Original<bool(__thiscall*)(void*)>(which ? 0x00527600 : 0x00527510)(skater);
                     } else {
                         Sio::TheInputSettings().ps2Controls = static_cast<uint8_t>(ps2);
@@ -258,8 +258,8 @@ int __cdecl StandInSprintf(char* out, const char* format, ...)
     return n;
 }
 
-// RetrieveTopStats: an index given or not, every file (ratings: another reply), PartyMod's host or the
-// original's - the original run with PartyMod's DWord written in (and its C runtime sprintf stood in).
+// RetrieveTopStats: an index given or not, every file (ratings: another reply), the PC port's host or the
+// original's - the original run with the PC port's DWord written in (and its C runtime sprintf stood in).
 void TestRetrieveTopStats()
 {
     CodePatch send(0x0054A910, JumpTo(0x0054A910, reinterpret_cast<void*>(&StandInSendStatsRequest)));
@@ -277,7 +277,7 @@ void TestRetrieveTopStats()
     for (int run = 0; run < 2; ++run) {
         bool original = run == 0;
         g_stats_log.clear();
-        for (int partyMod = 0; partyMod < 2; ++partyMod) {
+        for (int pcPortHost = 0; pcPortHost < 2; ++pcPortHost) {
             for (int given : {-1, 0, 2, 3, 4}) {
                 std::memset(stats, 0x77, sizeof(stats));
                 *reinterpret_cast<int*>(stats + 0x90) = given == 3 ? 3 : 1; // (no index: the next one)
@@ -294,13 +294,13 @@ void TestRetrieveTopStats()
                 bool result;
                 if (original) {
                     char* hostAddress = host;
-                    uint32_t value = partyMod ? reinterpret_cast<uint32_t>(hostAddress) : 0x0064D670;
+                    uint32_t value = pcPortHost ? reinterpret_cast<uint32_t>(hostAddress) : 0x0064D670;
                     std::vector<uint8_t> bytes(4);
                     std::memcpy(bytes.data(), &value, 4);
                     CodePatch dword(0x0054DD14, bytes);
                     result = Original<bool(__cdecl*)(void*, void*)>(0x0054DCB0)(params, nullptr);
                 } else {
-                    Net::GamestatsHost() = partyMod ? host : nullptr;
+                    Net::GamestatsHost() = pcPortHost ? host : nullptr;
                     result = Net::RetrieveTopStats(reinterpret_cast<Script::CStruct*>(params), nullptr);
                 }
                 fields[run].push_back(result);
@@ -315,13 +315,13 @@ void TestRetrieveTopStats()
     for (size_t i = 0; i < logs[0].size() && i < logs[1].size(); ++i)
         if (logs[0][i] != logs[1][i])
             Log("  top stats %u: original %s / ours %s", static_cast<unsigned>(i), logs[0][i].c_str(), logs[1][i].c_str());
-    Check(logs[0] == logs[1] && fields[0] == fields[1] && logs[1].size() == 10, "net: RetrieveTopStats (PartyMod's host and not)");
+    Check(logs[0] == logs[1] && fields[0] == fields[1] && logs[1].size() == 10, "net: RetrieveTopStats (the PC port's host and not)");
 }
 
 
 // --- the screen flash ---------------------------------------------------------------------------------------
 
-// PartyMod's reorder_flash_vertices, called at 0x004B91E7 in place of the device's DrawPrimitiveUP (the flash's
+// The PC port's reorder_flash_vertices, called at 0x004B91E7 in place of the device's DrawPrimitiveUP (the flash's
 // vertices come in the wrong order): the first three rotated, then drawn through the device's vtable (slot 83).
 // Nx::DrawFlash has this built in; here it's the reference written into the original.
 struct FlashVertex {
@@ -329,7 +329,7 @@ struct FlashVertex {
     uint32_t color;
     float u, v;
 };
-void __fastcall PartyModReorderFlashVertices(uint32_t* device, uint32_t* deviceAgain, uint32_t* alsoDevice, uint32_t prim,
+void __fastcall PcPortReorderFlashVertices(uint32_t* device, uint32_t* deviceAgain, uint32_t* alsoDevice, uint32_t prim,
                                              uint32_t count, FlashVertex* vertices, uint32_t stride)
 {
     auto draw = reinterpret_cast<void(__fastcall*)(void*, void*, void*, uint32_t, uint32_t, FlashVertex*, uint32_t)>(
@@ -367,7 +367,7 @@ void __cdecl StandInState2b(int a, int b) { g_flash_log.insert(g_flash_log.end()
 void __cdecl StandInFormat(int a) { g_flash_log.insert(g_flash_log.end(), {0xF7Fu, static_cast<uint32_t>(a)}); }
 
 // The flash: two viewports x two screen sizes x colours x untextured / a texture (direct or through its +0x10)
-// - the original with PartyMod's call to reorder_flash_vertices written in - the draw recorded through a
+// - the original with the PC port's call to reorder_flash_vertices written in - the draw recorded through a
 // stand-in D3D device.
 void TestDrawFlash()
 {
@@ -421,10 +421,10 @@ void TestDrawFlash()
                     *reinterpret_cast<void**>(flash + 0x20) = textured ? tex[textured - 1] : nullptr;
                     g_flash_textured = textured != 0;
                     if (original) {
-                        std::vector<uint8_t> call = JumpTo(0x004B91E7, reinterpret_cast<void*>(&PartyModReorderFlashVertices));
+                        std::vector<uint8_t> call = JumpTo(0x004B91E7, reinterpret_cast<void*>(&PcPortReorderFlashVertices));
                         call[0] = 0xE8;
                         call.push_back(0x90);
-                        CodePatch partyMod(0x004B91E7, call);
+                        CodePatch pcPort(0x004B91E7, call);
                         Original<void(__cdecl*)(void*)>(0x004B9030)(flash);
                     } else {
                         Nx::DrawFlash(reinterpret_cast<Nx::Flash*>(flash));
@@ -443,7 +443,7 @@ void TestDrawFlash()
             Log("  flash entry %u: original %08X ours %08X", static_cast<unsigned>(i), traces[0][i], traces[1][i]);
             ++shown;
         }
-    Check(traces[0] == traces[1] && traces[1].size() > 100, "gfx: screen flash (with PartyMod's vertex order)");
+    Check(traces[0] == traces[1] && traces[1].size() > 100, "gfx: screen flash (with the PC port's vertex order)");
 }
 
 
@@ -474,8 +474,8 @@ void __cdecl MovieState2b(int a, int b) { g_movie_log.insert(g_movie_log.end(), 
 void __cdecl MovieFormat(int a) { g_movie_log.insert(g_movie_log.end(), {0x7Fu, static_cast<uint32_t>(a)}); }
 void __cdecl MovieSetTexture(int a, void* t, int c) { g_movie_log.insert(g_movie_log.end(), {0x7E7u, static_cast<uint32_t>(a), reinterpret_cast<uint32_t>(t) & 0xFFF, static_cast<uint32_t>(c)}); }
 
-// The movie frame: no texture, positions/sizes/fades, back buffers wider, narrower and 4:3 (PartyMod's fit),
-// the device lost or not - the original with PartyMod's two calls written in.
+// The movie frame: no texture, positions/sizes/fades, back buffers wider, narrower and 4:3 (the PC port's fit),
+// the device lost or not - the original with the PC port's two calls written in.
 void TestDrawMovieFrame()
 {
     CodePatch blend(0x004DA760, JumpTo(0x004DA760, reinterpret_cast<void*>(&MovieState1)));
@@ -538,7 +538,7 @@ void TestDrawMovieFrame()
             Log("  movie entry %u: original %08X ours %08X", static_cast<unsigned>(i), traces[0][i], traces[1][i]);
             ++shown;
         }
-    Check(traces[0] == traces[1] && traces[1].size() > 300, "gfx: movie frame (with PartyMod's 4:3 fit)");
+    Check(traces[0] == traces[1] && traces[1].size() > 300, "gfx: movie frame (with the PC port's 4:3 fit)");
 }
 
 
@@ -804,7 +804,7 @@ std::vector<CodePatch*> JumpBoth(uint32_t game, const void* ours, const void* to
     return patches;
 }
 
-// PlayMovieFile (with BeginMovie, EndMovie, DrawMovie and the button check) - the original with PartyMod's NOP
+// PlayMovieFile (with BeginMovie, EndMovie, DrawMovie and the button check) - the original with the PC port's NOP
 // (pads read every frame) vs ours: Bink, the D3D device and texture, the sound and input managers, the window
 // pump and the screen saver call stood in; runs where Bink's sound set-up fails, the movie doesn't open, the
 // texture can't be made, the movie plays out (waits, failed locks), start or X pressed (or held from the
@@ -814,7 +814,7 @@ void TestPlayMovieFile()
 {
     std::vector<CodePatch*> patches;
     auto add = [&](std::vector<CodePatch*> more) { patches.insert(patches.end(), more.begin(), more.end()); };
-    add({new CodePatch(0x00450121, std::vector<uint8_t>(6, 0x90))}); // PartyMod's (ours has no such check)
+    add({new CodePatch(0x00450121, std::vector<uint8_t>(6, 0x90))}); // The PC port's (ours has no such check)
     struct Slot {
         uint32_t address;
         const void* to;
@@ -944,7 +944,7 @@ void TestPlayMovieFile()
     if (traces[0].size() != traces[1].size())
         Log("  play movie trace sizes: original %u ours %u", static_cast<unsigned>(traces[0].size()),
             static_cast<unsigned>(traces[1].size()));
-    Check(traces[0] == traces[1] && traces[1].size() > 5000, "gfx: playing a movie (PartyMod: pads read every frame)");
+    Check(traces[0] == traces[1] && traces[1].size() > 5000, "gfx: playing a movie (the PC port: pads read every frame)");
 }
 
 // The button check's register stub (control data in EAX, the mask in ECX, the seen-up bits in ESI) vs the
@@ -1010,7 +1010,7 @@ void __cdecl PlRunScript(uint32_t name, void* params, int a, int b, int c)
 // range, past the end, negative), the special track, an empty playlist, then many tracks of a 20-track and a
 // 100-track playlist with tracks off in both halves (reshuffles, the last track not first again, a track
 // switched off or already played when its turn comes), a playlist with only one track on, a negative count -
-// the original with PartyMod's two shuffle calls written in (the C runtime reseeded alike for both runs).
+// the original with the PC port's two shuffle calls written in (the C runtime reseeded alike for both runs).
 void TestPlayNextTrack()
 {
     std::vector<CodePatch*> patches;
@@ -1164,7 +1164,7 @@ void TestPlayNextTrack()
             Log("  next track entry %u: original %08X ours %08X", static_cast<unsigned>(i), traces[0][i], traces[1][i]);
             ++shown;
         }
-    Check(traces[0] == traces[1] && traces[1].size() > 30000, "music: next track (PartyMod's shuffle)");
+    Check(traces[0] == traces[1] && traces[1].size() > 30000, "music: next track (the PC port's shuffle)");
 }
 
 } // namespace

@@ -1,10 +1,10 @@
 #pragma once
 
-// Based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt
+// Contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md
 
-// The PC layer's own log ([Logging] in partymod.ini): to the console when [Miscellaneous] Debug is on, and to
-// a file (LogToFile=1, LogFile= - partymod.log by default) next to the exe. Messages up to Level (2: info) are
-// kept. Separate from the hook DLL's thug2-decomp.log.
+// The PC layer's log ([Logging] in thug2-decomp.ini): messages up to Level (2: info) go into thug2-decomp.log
+// (through the hook DLL's Log, as "pc: <message>"), and to the console too when [Miscellaneous] Debug is on.
+// Nothing is logged before Configure.
 namespace DebugLog {
 
 enum class Level { kError = 0, kWarn = 1, kInfo = 2, kDebug = 3, kTrace = 4 };

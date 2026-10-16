@@ -1,5 +1,5 @@
 // Script-loaded fonts (LoadFont), with the PC port's button glyph style (game/gfx/glyphs.h) built in.
-// Based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt (the PC port's changes in it).
+// Contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md (the PC port's changes in it).
 
 #include "game/gfx/font.h"
 
@@ -46,7 +46,7 @@ void DebugFontLoaded() {}
 
 } // namespace
 
-// The PC port's GlyphStyle in place of the original's Xbox names (PartyMod patched the two names into the
+// The PC port's GlyphStyle in place of the original's Xbox names (the PC port patched the two names into the
 // original: the PUSHed string at 0x0048D8F8 and the MOVed one at 0x0048D983).
 const char* ButtonFontName()
 {

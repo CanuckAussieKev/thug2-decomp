@@ -14,7 +14,7 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 set(THUG2_GAME_DIR "C:/Games/THUG2" CACHE PATH "Game folder the built dinput8.dll is copied into")
 
 # --- SDL2 (the PC port's window and input: src/game/sys/sdl_*.cpp, src/game/sio/sdl_input.cpp) --------------
-# The official 2.30.9 Visual C++ development package: the same version as the SDL2.dll PartyMod ships with (the
+# The official 2.30.9 Visual C++ development package: the same version as the SDL2.dll the PC port ships with (the
 # game folder's SDL2.dll). Downloaded and checked against its SHA-256 at configure time; not stored in the repo.
 include(FetchContent)
 FetchContent_Declare(sdl2

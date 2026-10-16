@@ -1,5 +1,5 @@
-// Self-tests for the platform layer and the memory card's space CFunc - the functions PartyMod changes, each
-// compared with the original as PartyMod leaves it (its patch bytes written into the original for the test).
+// Self-tests for the platform layer and the memory card's space CFunc - the functions the PC port changes, each
+// compared with the original as the PC port leaves it (its patch bytes written into the original for the test).
 
 #include <cstdint>
 #include <cstring>
@@ -55,7 +55,7 @@ struct TestPatch {
     }
 };
 
-// An E8 (call) or E9 (jump) at `address` to `to`, as PartyMod's patchCall / patchJmp write them.
+// An E8 (call) or E9 (jump) at `address` to `to`, as the PC port's patchCall / patchJmp write them.
 std::vector<uint8_t> Branch(uint8_t opcode, uint32_t address, const void* to)
 {
     std::vector<uint8_t> bytes(5, opcode);
@@ -127,7 +127,7 @@ void __cdecl StandInKeyNames()
     g_platform_log.insert(g_platform_log.end(), {0x4E75u, GameVariable<uint32_t>(0x007D6444)});
 }
 
-// Rumble and the event pump: the original's start is PartyMod's jump to the PC port's function; ours calls it.
+// Rumble and the event pump: the original's start is the PC port's jump to its function; ours calls it.
 void TestPlatformWholeReplacements()
 {
     TestDetour setActuators(Resolve(reinterpret_cast<const void*>(&Sio::SetSdlActuators)),
@@ -162,7 +162,7 @@ void TestPlatformWholeReplacements()
     Compare(traces[0], traces[1], "platform: rumble and the event pump");
 }
 
-// Input set-up: no window, already set up, and the set-up over dirty globals; PartyMod's three patches in
+// Input set-up: no window, already set up, and the set-up over dirty globals; the PC port's three patches in
 // the original (its settings and input manager called, DirectInput NOPed).
 void TestPlatformInitInput()
 {
@@ -179,7 +179,7 @@ void TestPlatformInitInput()
         for (int run = 0; run < 2; ++run) {
             bool original = run == 0;
             std::vector<uint32_t>& trace = traces[run];
-            // PartyMod: call its settings writer (Nx::WriteGraphicsSettings) at 0x5F4591; 45 NOPs at 0x5F459D,
+            // The PC port: call its settings writer (Nx::WriteGraphicsSettings) at 0x5F4591; 45 NOPs at 0x5F459D,
             // then call its input set-up (Sio::InitSdlInput) at 0x5F45A2.
             std::vector<uint8_t> nops(45, 0x90);
             std::vector<uint8_t> call = Branch(0xE8, 0x005F45A2, reinterpret_cast<const void*>(&Sio::InitSdlInput));
@@ -237,7 +237,7 @@ int32_t __fastcall StandInFreeSpace(uint8_t* card)
     return 0x7FFE0001;
 }
 
-// With and without a card; PartyMod's call to its free space count (Mc::FreeDiskBlocks) in the original. The struct's adds,
+// With and without a card; the PC port's call to its free space count (Mc::FreeDiskBlocks) in the original. The struct's adds,
 // the card lookup and the space count are stood in for (in the original and in our code alike).
 void TestMemCardSpaceAvailable()
 {
@@ -249,7 +249,7 @@ void TestMemCardSpaceAvailable()
     TestDetour cardOurs(Resolve(CodeAddress(&Mc::Manager::GetCard)), CodeAddress(&StandInManager::GetCard));
     TestDetour space(Resolve(reinterpret_cast<const void*>(&Mc::FreeDiskBlocks)),
                      reinterpret_cast<const void*>(&StandInFreeSpace));
-    TestPatch partymod(0x005A6E7E, Branch(0xE8, 0x005A6E7E, reinterpret_cast<const void*>(&Mc::FreeDiskBlocks)));
+    TestPatch pcPort(0x005A6E7E, Branch(0xE8, 0x005A6E7E, reinterpret_cast<const void*>(&Mc::FreeDiskBlocks)));
     void* savedManager = GameVariable<void*>(0x007D1890);
     alignas(16) static uint8_t manager[0x90], card[0x10], script[0x20], results[8];
     GameVariable<void*>(0x007D1890) = manager;
@@ -279,7 +279,7 @@ void TestMemCardSpaceAvailable()
 // The IsPS2 script command, through the CFunction table's entry: the original's (the shared "return false" stub
 // 0x005B9E50) vs ours (InstallIsPS2 pointing the entry at Sys::CFunc_IsPS2), PS2 controls off and on, over no
 // script, the vehicle grind script, scripts whose names differ from it in one bit (low, high) and another script.
-// PS2 controls off: ours must answer as the original; on: true only for the vehicle grind script (what PartyMod's
+// PS2 controls off: ours must answer as the original; on: true only for the vehicle grind script (what the PC port's
 // wrapper of the entry, isPs2Wrapper_DD, answered). The entry's other fields and neighbours stay as they were.
 void TestIsPS2()
 {

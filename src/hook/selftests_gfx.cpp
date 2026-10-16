@@ -1,4 +1,4 @@
-// Self-tests for src/game/gfx: the originals as PartyMod leaves them (its jumps written over their starts for the
+// Self-tests for src/game/gfx: the originals as the PC port leaves them (its jumps written over their starts for the
 // length of the test) against ours.
 
 #include <cstdint>
@@ -19,7 +19,7 @@
 
 namespace {
 
-// A jump written over a game function's start for the length of a test (restored when it goes) - as PartyMod's
+// A jump written over a game function's start for the length of a test (restored when it goes) - as the PC port's
 // patchJmp does. (A copy of selftest.cpp's.)
 struct GfxDetour {
     uint8_t* at;
@@ -55,7 +55,7 @@ struct GfxSaved {
 };
 
 // Everything these functions read or write: the aspect, the angle-factor constant, the blur state, the letterbox
-// state and screen conversion (0x00786D6C-0x00786D8C), the skater (PartyMod's front-end check) and PartyMod's own.
+// state and screen conversion (0x00786D6C-0x00786D8C), the skater (the PC port's front-end check) and the PC port's own.
 std::vector<GfxSaved> SaveGfxState()
 {
     std::vector<GfxSaved> saved = {{0x00701340, 4, {}}, {0x0067E544, 4, {}}, {0x00786D40, 4, {}},
@@ -100,7 +100,7 @@ void CompareTraces(const std::vector<uint32_t>& expected, const std::vector<uint
 }
 
 // The aspect ratio, angle factor and letterbox over front end / level, window shapes (wide, tall) and back
-// buffers (wider and narrower than wanted), with the letterbox flag on and off before; blur with PartyMod's
+// buffers (wider and narrower than wanted), with the letterbox flag on and off before; blur with the PC port's
 // DisableBlur on and off (off: the unpatched original), the device able to blur or not.
 void TestGfxScreen()
 {
@@ -108,7 +108,7 @@ void TestGfxScreen()
     int savedResX = Sys::WindowWidth(), savedResY = Sys::WindowHeight();
     bool savedBlurDisabled = Nx::BlurDisabled();
 
-    // A stand-in skater: PartyMod reads its career's level (+0x20 -> +0x630) to tell the front end (0) from a level.
+    // A stand-in skater: the PC port reads its career's level (+0x20 -> +0x630) to tell the front end (0) from a level.
     alignas(16) static uint8_t career[0x640];
     alignas(16) static uint8_t skater[0x40];
     *reinterpret_cast<void**>(skater + 0x20) = career;
@@ -129,7 +129,7 @@ void TestGfxScreen()
         RestoreGfxState(saved); // both runs from the same state
         GfxDetour* jumps[4] = {};
         if (original) {
-            // PartyMod's jumps from the originals to its versions (now ours)
+            // The PC port's jumps from the originals to its versions (now ours)
             jumps[0] = new GfxDetour(0x004A0780, reinterpret_cast<const void*>(&Nx::SetScreenAspectRatio));
             jumps[1] = new GfxDetour(0x004A07C0, reinterpret_cast<const void*>(&Nx::GetScreenAngleFactor));
             jumps[3] = new GfxDetour(0x004B2440, reinterpret_cast<const void*>(&Nx::SetLetterbox));
@@ -197,11 +197,11 @@ void TestGfxScreen()
     Sys::WindowWidth() = savedResX;
     Sys::WindowHeight() = savedResY;
     Nx::BlurDisabled() = savedBlurDisabled;
-    CompareTraces(traces[0], traces[1], "gfx screen: aspect, angle factor, letterbox, blur (as PartyMod leaves them)");
+    CompareTraces(traces[0], traces[1], "gfx screen: aspect, angle factor, letterbox, blur (as the PC port leaves them)");
 }
 
 // The SetScreenBlur script command over parameters with the amount, without it, and with only a named integer,
-// PartyMod's DisableBlur on and off, the device able to blur or not.
+// the PC port's DisableBlur on and off, the device able to blur or not.
 void TestGfxScriptSetScreenBlur()
 {
     using Script::CComponent;
@@ -256,7 +256,7 @@ void TestGfxScriptSetScreenBlur()
     }
     RestoreGfxState(saved);
     Nx::BlurDisabled() = savedBlurDisabled;
-    CompareTraces(traces[0], traces[1], "gfx: the SetScreenBlur script command (as PartyMod leaves it)");
+    CompareTraces(traces[0], traces[1], "gfx: the SetScreenBlur script command (as the PC port leaves it)");
 }
 
 } // namespace

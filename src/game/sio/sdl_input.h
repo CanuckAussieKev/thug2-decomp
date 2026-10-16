@@ -1,11 +1,11 @@
 #pragma once
 
-// Based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt
+// Contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md
 
 #include <cstdint>
 
 // Input on PC: SDL game controllers and the keyboard in place of the original's DirectInput. The bindings are
-// in partymod.ini ([Keybinds]: SDL scan codes; [Gamepad]: SDL game controller buttons, 21 / 22 the right / left
+// in thug2-decomp.ini ([Keybinds]: SDL scan codes; [Gamepad]: SDL game controller buttons, 21 / 22 the right / left
 // trigger, -1 none; sticks 0 left, 1 right); [Miscellaneous] UsePS2Controls (on by default) gives the shoulder
 // buttons the PS2's layout (L1/R1 spin, L2/R2 nollie/switch) and the skater code its PS2 behaviour.
 // gamecontrollerdb.txt next to the exe adds controller mappings.

@@ -1,4 +1,4 @@
-// Self-tests for src/game/gfx/render.cpp (the camera, the blur pass, the world render): the originals, with PartyMod's patch bytes written in for the length of
+// Self-tests for src/game/gfx/render.cpp (the camera, the blur pass, the world render): the originals, with the PC port's patch bytes written in for the length of
 // the test, against ours - the device and the renderer's state calls stood in by recorders.
 
 #include <windows.h>
@@ -108,7 +108,7 @@ void __fastcall CameraFrustum(void* frustum) { Record({0xF85u, reinterpret_cast<
 
 // The camera over orientations facing all four ways (and a tilted one), fields of view, aspects, zooms (1, not 1,
 // NaN), far plane at infinity or not, distance clipping off / on (with a setting past 2^31) - the original with
-// PartyMod's far plane (96000) written in. Every camera global and the device's transforms compared.
+// the PC port's far plane (96000) written in. Every camera global and the device's transforms compared.
 void TestSetCamera()
 {
     SavedBytes saved({{0x00786B90, 0x164}, {0x00786E18, 0x18}, {0x007D643A, 1}, {0x007D6444, 4}, {0x007D69E0, 4}});
@@ -167,7 +167,7 @@ void TestSetCamera()
                             }
         traces[run] = g_log;
     }
-    CompareTraces(traces[0], traces[1], "gfx: set_camera (PartyMod's far plane)", 360 * 140);
+    CompareTraces(traces[0], traces[1], "gfx: set_camera (the PC port's far plane)", 360 * 140);
 }
 
 // --- the blur pass ------------------------------------------------------------------------------------------
@@ -278,9 +278,9 @@ struct BlurStandIns {
 };
 
 // The blur pass: off; on with each texture current, blur amounts 0 / small / full / past 2^31, blur levels 2 and 3
-// (one pass or two), letterboxed or not (PartyMod skips the adjustment), fog and distance clipping (clear colour),
+// (one pass or two), letterboxed or not (the PC port skips the adjustment), fog and distance clipping (clear colour),
 // the extra pass 0x004DEB70 or not, screen and texture sizes, samplers already linear or not - the original with
-// PartyMod's JMP at 0x004DF63A written in.
+// the PC port's JMP at 0x004DF63A written in.
 void TestDrawScreenBlur()
 {
     BlurStandIns blur;
@@ -317,7 +317,7 @@ void TestDrawScreenBlur()
                             g_sampler[s][6] = (n + 2 * s) % 4;
                         }
                         if (original) {
-                            CodePatch partyMod(0x004DF63A, {0xEB});
+                            CodePatch pcPort(0x004DF63A, {0xEB});
                             Original<void(__cdecl*)()>(0x004DF390)();
                         } else {
                             Nx::DrawScreenBlur();
@@ -329,7 +329,7 @@ void TestDrawScreenBlur()
                     }
         traces[run] = g_log;
     }
-    CompareTraces(traces[0], traces[1], "gfx: the blur pass (PartyMod's letterbox skip)", 50000);
+    CompareTraces(traces[0], traces[1], "gfx: the blur pass (the PC port's letterbox skip)", 50000);
 }
 
 // --- the world render ---------------------------------------------------------------------------------------
@@ -372,9 +372,9 @@ long __stdcall WorldSetViewport(void*, const uint32_t* vp)
 long __stdcall WorldDeviceState(void*, int state, uint32_t value) { Record({0xD57u, static_cast<uint32_t>(state), value}); return 0; }
 
 // The frame's 3D over 0-3 viewports (one without a camera), a scene list (two world scenes - one's meshes not yet
-// prepared - and two skies) or an empty one, the device lost or not, letterboxed (PartyMod's display region) or not,
+// prepared - and two skies) or an empty one, the device lost or not, letterboxed (the PC port's display region) or not,
 // fog on (as 1 or 0x100) or off, distance clipping and fog settings (no sky with both), the 0x00786AB5 order switch,
-// the blur on or off, back buffers wider / 4:3 / taller (PartyMod's black bars) - the original with PartyMod's three
+// the blur on or off, back buffers wider / 4:3 / taller (the PC port's black bars) - the original with the PC port's three
 // calls (and the far plane and blur JMP in the originals it calls) written in. Everything recorded: the renderer's
 // calls, the device's viewport, render states, transforms, samplers and draws, and the globals after each frame.
 void TestRenderWorld()
@@ -455,7 +455,7 @@ void TestRenderWorld()
     GameVariable<uint32_t>(0x006FA7C0) = 0xB0000C0;
     GameVariable<uint32_t>(0x006FA7C4) = 0xB0000C4;
     GameVariable<uint32_t>(0x006FA7C8) = 0xB0000C8;
-    GameVariable<float>(0x00786D80) = 1.5f; // PartyMod's display region: x / y scales of 640 x 480
+    GameVariable<float>(0x00786D80) = 1.5f; // The PC port's display region: x / y scales of 640 x 480
     GameVariable<float>(0x00786D84) = 1.875f;
 
     std::vector<uint32_t> traces[2];
@@ -533,7 +533,7 @@ void TestRenderWorld()
                 }
         traces[run] = g_log;
     }
-    CompareTraces(traces[0], traces[1], "gfx: the world render (PartyMod's display region and black bars)", 150000);
+    CompareTraces(traces[0], traces[1], "gfx: the world render (the PC port's display region and black bars)", 150000);
 }
 
 } // namespace

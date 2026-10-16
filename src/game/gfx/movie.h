@@ -5,8 +5,8 @@
 namespace Nx {
 
 // 0x0044FA80: draw a movie frame's texture at (x, y), (width, height) in screen units, faded by alpha (0-1),
-// with the PC port's 4:3 fit inside the back buffer (based on PartyMod (c) 2024 PARTYMANX, MIT - see
-// LICENSES/partymod.txt).
+// with the PC port's 4:3 fit inside the back buffer (contains MIT-licensed code
+// (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md).
 void DrawMovieFrame(void* texture, float x, float y, float width, float height, float alpha);
 
 // The PC port's two calls in DrawMovieFrame. SetMovieTexture (cdecl): the renderer's texture set (0x004DA730),
@@ -40,7 +40,7 @@ struct Bink {
 
 // 0x0044FDC0 (also reached by a jump at 0x0044F830): play data\movies\bik\<name>.bik (a path before the last
 // backslash in `name` is dropped) to its end, until the quit request, or until start or X is pressed on a pad
-// (pressed after being seen up). The music is paused and the streams stopped first. PC port (PartyMod): the
+// (pressed after being seen up). The music is paused and the streams stopped first. PC port: the
 // pads are read every frame, not every fifth.
 void __cdecl PlayMovieFile(const char* name);
 

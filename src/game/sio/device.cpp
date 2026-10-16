@@ -1,5 +1,5 @@
 // Serial I/O: the controller ports' devices, the keyboard's state and the device manager's lifetime.
-// Based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt (the PC port's changes in it).
+// Contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md (the PC port's changes in it).
 
 #include "game/sio/device.h"
 
@@ -89,7 +89,7 @@ Device* Device::Destroy(unsigned int flags)
 //     m_pluggedIn = 0;
 //     switch (m_state) { case kDetect: Detect(); break; case kReady: ReadData(0); break;
 //                        case kSettle: Settle(); break; }
-// where ReadData polls the pad into m_controlData. PC port (PartyMod's jump from here): SDL game controllers
+// where ReadData polls the pad into m_controlData. PC port (its jump from here): SDL game controllers
 // and the keyboard (game/sio/sdl_input.h).
 void Device::Process(int /*unused*/)
 {
@@ -129,7 +129,7 @@ void Device::Settle()
     m_nextState = kIdle;
 }
 
-// 0x005BDA20. The original first reads the pad (ReadData(0)); PartyMod removes that call (its Process does
+// 0x005BDA20. The original first reads the pad (ReadData(0)); the PC port removes that call (its Process does
 // the reading).
 void Device::ActivateActuator(int actuator, int percent)
 {
@@ -277,7 +277,7 @@ Mem::ListNode* DestroyDeviceNode(Mem::ListNode* node, unsigned int flags)
 
 namespace {
 // Whether typed keys are wanted: the keyboard is being typed on (0x007CE46E), or text entry is on
-// (0x007CCDF8) outside a menu (0x007CE46F). PartyMod sets the last two for its text input.
+// (0x007CCDF8) outside a menu (0x007CE46F). The PC port sets the last two for its text input.
 bool& KeyboardTyping() { return GameVariable<bool>(0x007CE46E); }
 bool& TextEntry() { return GameVariable<bool>(0x007CCDF8); }
 bool& InMenu() { return GameVariable<bool>(0x007CE46F); }
@@ -316,7 +316,7 @@ void KeyInput(int key, int flags)
 // --- special keys and key names ---------------------------------------------------------------------------
 
 namespace {
-// The other "in a menu" flag (PartyMod's names) and the quit request.
+// The other "in a menu" flag (the PC port's names) and the quit request.
 bool& MenuActive() { return GameVariable<bool>(0x007CE46C); }
 bool& QuitRequested() { return GameVariable<bool>(0x007D6A2C); }
 // Port 0's key bindings (DirectInput key codes; -1 = none).
@@ -852,7 +852,7 @@ REPLACE(0x005BCC70, &Sio::Device::Acquire);
 REPLACE(0x005BD8B0, &Sio::Device::Detect);
 REPLACE(0x005BCCC0, &Sio::Device::Settle);
 REPLACE(0x005BDA20, &Sio::Device::ActivateActuator);
-REPLACE(0x005BD200, &Sio::Device::ReadData); // (not run with PartyMod) // (PartyMod's patch inside it is past our jump)
+REPLACE(0x005BD200, &Sio::Device::ReadData); // (not run with the PC port) // (the PC port's patch inside it is past our jump)
 REPLACE(0x005BCCB0, &Sio::Device::EnableActuators);
 REPLACE(0x005BDAD0, &Sio::Device::DisableActuators);
 REPLACE(0x005BDB30, &Sio::Device::ResetActuators);

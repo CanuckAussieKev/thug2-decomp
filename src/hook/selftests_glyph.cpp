@@ -1,4 +1,4 @@
-// Self-tests for the PartyMod-patched font and loading bar functions (src/game/gfx): the original as PartyMod
+// Self-tests for the PC-port-patched font and loading bar functions (src/game/gfx): the original as the PC port
 // leaves it (its patch bytes written in for the test) against ours.
 
 #include <cstdint>
@@ -105,7 +105,7 @@ void TestLoadingBar()
     auto buffer = reinterpret_cast<uint32_t>(gradient);
     SaveRanges({{0x0067DDBC, 4}, {0x0067DDCC, 12}, {0x00786D6C, 4}, {0x00786D80, 4}, {0x00701680, 8},
                 {0x00705288, 24}, {buffer - 4, 4 + 0x9000}, {0x004B6C64, 4}});
-    // PartyMod's DWord patch (the table's base -> the bigger buffer).
+    // The PC port's DWord patch (the table's base -> the bigger buffer).
     uint32_t base = buffer;
     TestPatch patch(0x004B6C64, &base, 4);
 
@@ -143,7 +143,7 @@ void TestLoadingBar()
                 trace.push_back(GameVariable<uint32_t>(a));
             trace.push_back(GameVariable<uint32_t>(0x00701680));
             trace.push_back(GameVariable<uint32_t>(0x00701684));
-            // The table: the original (as PartyMod patches it) puts it 4 bytes before the buffer, ours at its
+            // The table: the original (as the PC port patches it) puts it 4 bytes before the buffer, ours at its
             // start; the word after it must be untouched.
             const uint8_t* table = original ? gradient - 4 : gradient;
             for (uint32_t i = 0; i < 0x9000 / 4; ++i)
@@ -156,7 +156,7 @@ void TestLoadingBar()
     }
     RestoreGlyphRanges();
     Check(traces[0] == traces[1] && traces[0].size() > 1000,
-          "loading bar: gradient, width, border colour and table (PartyMod's buffer)");
+          "loading bar: gradient, width, border colour and table (the PC port's buffer)");
     for (size_t i = 0, shown = 0; i < traces[0].size() && i < traces[1].size() && shown < 8; ++i) {
         if (traces[0][i] != traces[1][i]) {
             Log("  loading bar entry %u: original %08X ours %08X", static_cast<unsigned>(i), traces[1][i],
@@ -258,7 +258,7 @@ void TestLoadFont()
     std::vector<uint32_t> traces[2];
     for (int style = 0; style < 3; ++style) {
         Nx::GlyphStyle() = static_cast<uint8_t>(style);
-        // PartyMod's DWord patches (patchButtonGlyphs) for this style: the names ours uses.
+        // The PC port's DWord patches (patchButtonGlyphs) for this style: the names ours uses.
         uint32_t fontName = style == 0 ? 0x00648AFC : reinterpret_cast<uint32_t>(Nx::ButtonFontName());
         uint32_t mapName = style == 0 ? 0x00648AB8 : reinterpret_cast<uint32_t>(Nx::MetaButtonMapName());
         TestPatch fontPatch(0x0048D983, &fontName, 4);
@@ -347,7 +347,7 @@ void TestLoadFont()
             component(1, ESYMBOLTYPE_STRING, 0, reinterpret_cast<uint32_t>("fontA"), &components[2]);
             component(2, ESYMBOLTYPE_FLOAT, Crc::GenerateCRCFromString("char_spacing"), Bits(7.5f), nullptr);
             loadFont(&params, 0);
-            // 3. The button font: the name is replaced (PartyMod's style), flag after the name.
+            // 3. The button font: the name is replaced (the PC port's style), flag after the name.
             component(1, ESYMBOLTYPE_STRING, 0, reinterpret_cast<uint32_t>("ignored"), &components[0]);
             component(0, ESYMBOLTYPE_NAME, 0, Crc::GenerateCRCFromString("buttons_font"), nullptr);
             loadFont(&params, 0);
@@ -393,7 +393,7 @@ void TestLoadFont()
     RestoreGlyphRanges();
     Check(traces[0] == traces[1] && traces[0].size() > 3000,
           "LoadFont / CFunc_LoadFont: new and loaded fonts, setters, colour tables, slots, meta button map, "
-          "PartyMod's glyph styles");
+          "the PC port's glyph styles");
     if (traces[0].size() != traces[1].size())
         Log("  font trace sizes: original %u ours %u", static_cast<unsigned>(traces[1].size()),
             static_cast<unsigned>(traces[0].size()));

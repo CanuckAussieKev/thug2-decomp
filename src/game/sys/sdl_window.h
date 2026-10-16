@@ -1,8 +1,8 @@
 #pragma once
 
-// Based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt
+// Contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md
 
-// The game's window on PC: an SDL window ([Graphics] in partymod.ini: ResolutionX / ResolutionY - 0 = the
+// The game's window on PC: an SDL window ([Graphics] in thug2-decomp.ini: ResolutionX / ResolutionY - 0 = the
 // desktop's -, Windowed, Borderless) in place of the original's Win32 one (CreateGameWindow 0x005F5860, 640x480
 // full screen). Its handle goes where the game keeps its window (0x007D6A28); Nx::InitDirect3D makes the device
 // at its size, windowed or not.

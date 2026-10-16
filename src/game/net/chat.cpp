@@ -1,4 +1,4 @@
-// Based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt (the PC port's changes in it).
+// Contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md (the PC port's changes in it).
 
 #include "game/net/chat.h"
 
@@ -246,7 +246,7 @@ void __cdecl KeyboardTask(void* /*task*/)
         Sio::ClearKeyboardChars();
         return;
     }
-    // F1-F4: a taunt, at most one every two seconds. F1 comes as 0x1F with PartyMod's keyboard input (0x1B is
+    // F1-F4: a taunt, at most one every two seconds. F1 comes as 0x1F with the PC port's keyboard input (0x1B is
     // Escape there): its byte at 0x00533652 - the original compares with 0x1B.
     uint32_t taunt;
     switch (key) {

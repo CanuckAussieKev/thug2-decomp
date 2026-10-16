@@ -1,5 +1,5 @@
-// The graphics options (partymod.ini).
-// Based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt
+// The graphics options (thug2-decomp.ini).
+// Contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md
 
 #include "game/gfx/settings.h"
 

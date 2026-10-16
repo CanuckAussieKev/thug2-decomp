@@ -1,6 +1,6 @@
 // The screen's shape and full-screen effects (Nx engine, PC) - with the PC port's widescreen support
 // (pillar- / letterboxing to the aspect wanted) and its DisableBlur setting.
-// Based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt
+// Contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md
 
 #include "game/gfx/screen.h"
 
@@ -53,14 +53,14 @@ float DesiredAspectRatio()
     return static_cast<float>(width) / static_cast<float>(height);
 }
 
-// 0x004A0780. The original stores `aspect` as the screen's aspect (0x00701340). PC port (PartyMod): the aspect
+// 0x004A0780. The original stores `aspect` as the screen's aspect (0x00701340). PC port: the aspect
 // wanted instead (4:3 in the front end, the window's shape in a level); `aspect` is ignored.
 void SetScreenAspectRatio(float /*aspect*/)
 {
     ScreenAspect() = DesiredAspectRatio();
 }
 
-// 0x004A07C0. The original returns the constant at 0x0067E544 (1.0). PC port (PartyMod): the view is widened for
+// 0x004A07C0. The original returns the constant at 0x0067E544 (1.0). PC port: the view is widened for
 // screens wider than 4:3 (the aspect / (4/3)) - unless that constant isn't 1 - and the screen's aspect
 // (0x00701340) is updated too.
 float GetScreenAngleFactor()
@@ -75,7 +75,7 @@ float GetScreenAngleFactor()
 }
 
 // 0x004B2330. The original: if (BlurAvailable()) ScreenBlur() = amount;
-// PC port (PartyMod): the DisableBlur setting (on by default) turns the blur off for good instead.
+// PC port: the DisableBlur setting (on by default) turns the blur off for good instead.
 void SetScreenBlur(uint32_t amount)
 {
     if (BlurDisabled()) {
@@ -90,7 +90,7 @@ void SetScreenBlur(uint32_t amount)
 //     int quarter = backbufferHeight / 4;
 //     if (letterbox) { if (!active) { offsetY += quarter / 2; scaleY = 0.75f; active = true; } }
 //     else if (active) { offsetY += -quarter / 2; scaleY = 1.0f; active = false; }
-// (active 0x00786CBE, scaleY 0x00786D84, offsetY 0x00786D8C, backbufferHeight 0x00786D70). PC port (PartyMod):
+// (active 0x00786CBE, scaleY 0x00786D84, offsetY 0x00786D8C, backbufferHeight 0x00786D70). PC port:
 // the 640x480 screen layout is fitted to the aspect wanted (pillarbox or letterbox) and the flag set, which then
 // selects the fitted display region (SetDisplayRegion).
 void SetLetterbox(bool letterbox)
@@ -115,7 +115,7 @@ void SetLetterbox(bool letterbox)
     LetterboxActive() = letterbox;
 }
 
-// 0x0048C170: SetScreenBlur <amount>. (PartyMod rewrote this function's first bytes with what they already are
+// 0x0048C170: SetScreenBlur <amount>. (the PC port rewrote this function's first bytes with what they already are
 // when DisableBlur is off - some patched executables "in the wild" remove the blur here.)
 bool __cdecl CFunc_SetScreenBlur(Script::CStruct* params, Script::CScript* /*script*/)
 {

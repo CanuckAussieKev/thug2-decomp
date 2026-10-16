@@ -1,5 +1,5 @@
 // Script functions about the platform.
-// Based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt
+// Contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md
 
 #include "game/sys/platform_cfuncs.h"
 

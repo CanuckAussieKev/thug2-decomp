@@ -1,5 +1,5 @@
 // The online service's host names.
-// Based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt
+// Contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md
 //
 // Until the GameSpy SDK is linked (it's library code: not decompiled - docs/library_ranges.md), its host names
 // are in the exe's copy of it, as the operands of the instructions that use them (and two data words). This

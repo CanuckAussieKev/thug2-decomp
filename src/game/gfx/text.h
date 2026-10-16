@@ -5,7 +5,7 @@
 
 // Bitmap fonts and the screen text drawn with them (Nx engine, PC). Text can hold escapes: "\\" (a backslash),
 // "\c<d>" colour d of the font's table (0 = the text's own), "\s<d>" special glyph d, "\b<d>" a button (glyph
-// from the button font, or the key's name - PartyMod decides which), "\m<d>" a button through the meta button
+// from the button font, or the key's name - the PC port decides which), "\m<d>" a button through the meta button
 // map, "\u<d>" (skipped), "\L" (skipped); d is a base-32 digit.
 namespace Nx {
 

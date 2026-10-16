@@ -1,5 +1,5 @@
 // The game's SDL window.
-// Based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt
+// Contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md
 
 #include "game/sys/sdl_window.h"
 
@@ -99,7 +99,7 @@ void CreateSdlWindow()
     if (s_height < 480)
         s_height = 480;
 
-    s_window = SDL_CreateWindow("THUG2 - PARTYMOD", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, s_width, s_height,
+    s_window = SDL_CreateWindow("THUG2", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, s_width, s_height,
                                 flags);
     if (!s_window)
         DebugLog::Printf(DebugLog::Level::kError, "Failed to create window! Error: %s\n", SDL_GetError());

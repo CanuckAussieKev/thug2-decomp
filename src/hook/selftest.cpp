@@ -6533,7 +6533,7 @@ HRESULT __stdcall SioEffectStop(void* self)
     return 0;
 }
 HRESULT __stdcall SioUnused(void*) { return 0; }
-// The PC port's motor control (Sio::SetSdlActuators), which both the original (through PartyMod's jump at
+// The PC port's motor control (Sio::SetSdlActuators), which both the original (through the PC port's jump at
 // 0x005F3A50, written in) and ours (Platform::SetActuators) reach: the levels recorded instead of driving an SDL
 // controller.
 void __cdecl SioStandInSetActuators(int port, uint16_t high, uint16_t low)
@@ -6587,7 +6587,7 @@ void TestSio()
         s.bytes.resize(s.size);
         std::memcpy(s.bytes.data(), reinterpret_cast<void*>(s.address), s.size);
     }
-    // The original as PartyMod leaves it: the pad read at the start of ActivateActuator (push 0; call
+    // The original as the PC port leaves it: the pad read at the start of ActivateActuator (push 0; call
     // 0x005BD200 at 0x005BDA31) is NOPed in the game - offline it would run the menu code.
     uint8_t activateBytes[7];
     auto* activateCall = reinterpret_cast<uint8_t*>(0x005BDA31);
@@ -6596,8 +6596,8 @@ void TestSio()
     std::memcpy(activateBytes, activateCall, 7);
     bool alreadyPatched = activateBytes[0] == 0x90;
     std::memset(activateCall, 0x90, 7);
-    // The motors: PartyMod's jump at 0x005F3A50 to Sio::SetSdlActuators (as the game has it), and that recorded.
-    TestDetour partyModMotors(0x005F3A50, reinterpret_cast<const void*>(&Sio::SetSdlActuators));
+    // The motors: the PC port's jump at 0x005F3A50 to Sio::SetSdlActuators (as the game has it), and that recorded.
+    TestDetour pcPortMotors(0x005F3A50, reinterpret_cast<const void*>(&Sio::SetSdlActuators));
     TestDetour motors(reinterpret_cast<uint32_t>(&Sio::SetSdlActuators), reinterpret_cast<const void*>(&SioStandInSetActuators));
     static void* effectVtable[10];
     for (void*& slot : effectVtable)
@@ -6887,8 +6887,8 @@ void TestSioManager()
     effectVtable[6] = reinterpret_cast<void*>(&SioEffectSetParameters);
     effectVtable[8] = reinterpret_cast<void*>(&SioEffectStop);
     alignas(16) static void* effects[2][4] = {{effectVtable}, {effectVtable}};
-    // The motors: PartyMod's jump at 0x005F3A50 to Sio::SetSdlActuators (as the game has it), and that recorded.
-    TestDetour partyModMotors(0x005F3A50, reinterpret_cast<const void*>(&Sio::SetSdlActuators));
+    // The motors: the PC port's jump at 0x005F3A50 to Sio::SetSdlActuators (as the game has it), and that recorded.
+    TestDetour pcPortMotors(0x005F3A50, reinterpret_cast<const void*>(&Sio::SetSdlActuators));
     TestDetour motors(reinterpret_cast<uint32_t>(&Sio::SetSdlActuators), reinterpret_cast<const void*>(&SioStandInSetActuators));
     static void* standInVtable[4] = {reinterpret_cast<void*>(&SioStandInDestroy), nullptr,
                                      reinterpret_cast<void*>(&SioStandInDestroy), nullptr};
@@ -7427,7 +7427,7 @@ bool __cdecl StandInKeyDown(int code)
     return g_pad_key_down;
 }
 
-// The original pad read (not run with PartyMod), over the menus it checks (stand-in screen elements), the
+// The original pad read (not run with the PC port), over the menus it checks (stand-in screen elements), the
 // flags, ports, levels and scripted pad states - original vs ours.
 void TestSioReadData()
 {

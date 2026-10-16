@@ -5,8 +5,36 @@ from this repo include them, so keep these notices with any distributed `dinput8
 
 | Component | Where | Licence |
 |---|---|---|
-| PartyMod for THUG2 v1.0.4 (PARTYMANX) | moved into the game's source (`src/game/`; each file with its code says so) - the PC port's window, input, widescreen, settings file and fixes | MIT - `LICENSES/partymod.txt` |
+| PC port code, v1.0.4 (PARTYMANX) | moved into the game's source (`src/game/`; each file with its code says so) - the PC port's window, input, widescreen, settings and fixes | MIT - below |
 | SDL2 2.30.9 | downloaded at configure time (FetchContent) | zlib - https://github.com/libsdl-org/SDL/blob/release-2.30.9/LICENSE.txt |
 | MinHook 1.3.3 (Tsuda Kageyu) | downloaded at configure time (FetchContent) | BSD 2-clause - https://github.com/TsudaKageyu/minhook/blob/v1.3.3/LICENSE.txt |
 
 MinHook includes Hacker Disassembler Engine 32 by Vyacheslav Patkov (BSD 2-clause, same licence file).
+
+## PC port code (MIT)
+
+Source: https://github.com/PARTYMANX/partymod-thug2 (v1.0.4)
+
+```
+MIT License
+
+Copyright (c) 2024 PARTYMANX
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```

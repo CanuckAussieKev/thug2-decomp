@@ -1,11 +1,11 @@
 #pragma once
 
-// Based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt
+// Contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md
 
 namespace Sys {
 
 // The PC port's start-up, at the start of WinMain (before the command line is read): the settings file
-// (partymod.ini) and its log - with [Miscellaneous] Debug=1 a console too -, the patched scripts, the SDL event
+// (thug2-decomp.ini) and its log - with [Miscellaneous] Debug=1 a console too -, the patched scripts, the SDL event
 // pump, the music shuffle's random numbers seeded from the time (the C runtime's rand, Pcm::ShuffleRandom), the
 // online service's host names, the button glyph settings and the graphics settings. The window
 // (CreateSdlWindow) and input (Sio::InitSdlInput) follow later in WinMain.

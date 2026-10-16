@@ -1,5 +1,5 @@
 // Patched scripts on PC.
-// Based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt
+// Contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md
 
 #include "game/script/patched.h"
 
@@ -18,7 +18,7 @@ namespace {
 
 using DebugLog::Level;
 
-// The patch for scripts\engine\menu\keyboard.qb (PartyMod's patches/keyboard.bps).
+// The patch for scripts\engine\menu\keyboard.qb (the PC port's patches/keyboard.bps).
 const uint8_t kKeyboardPatch[] = {
     0x42, 0x50, 0x53, 0x31, 0x5C, 0x33, 0x80, 0x60, 0x37, 0x80, 0x80, 0x1C, 0x95, 0x85, 0x54, 0x01,
     0xB0, 0x81, 0xB5, 0xE0, 0x9E, 0x26, 0x8C, 0x8E, 0x24, 0xF4, 0xD1, 0x5C, 0x62, 0x37, 0x2F, 0x5C,

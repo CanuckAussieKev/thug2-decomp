@@ -1,9 +1,9 @@
 #pragma once
 
-// Based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt
+// Contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md
 
 // The online service's host names: GameSpy's servers (*.gamespy.com) replaced by [Miscellaneous] OnlineDomain
-// in partymod.ini (openspy.net by default), as the PC port has it.
+// in thug2-decomp.ini (openspy.net by default), as the PC port has it.
 namespace Net {
 
 // Make the host names for the domain and write them into the GameSpy SDK's code (once, at start-up).

@@ -43,6 +43,6 @@ Linked as libraries in the final build rather than rewritten:
 - D3DX9 static library (shader assembler/compiler, math helpers) (`0x5beb1a`-`0x5eef20`): 677 functions, 157.8 KB
 - GameSpy SDK, MSVC C runtime, STL helpers and compiler-generated code after `0x5F8130` (see `docs/library_ranges.md`)
 
-## PC port (after PartyMod)
+## PC port
 
-PartyMod's changes (MIT, `LICENSES/partymod.txt`) are part of the game's source: the SDL window and input, widescreen, the settings file and the rest, by subsystem. Still written into the exe at start-up: the GameSpy SDK's host names (library code, `src/game/net/online_hosts.cpp`) and, with PS2 controls, the CFunction table's IsPS2 entry (`src/game/sys/platform_cfuncs.cpp`).
+The PC port's changes (MIT, see `THIRD_PARTY_NOTICES.md`) are part of the game's source: the SDL window and input, widescreen, the settings file and the rest, by subsystem. Still written into the exe at start-up: the GameSpy SDK's host names (library code, `src/game/net/online_hosts.cpp`) and, with PS2 controls, the CFunction table's IsPS2 entry (`src/game/sys/platform_cfuncs.cpp`).

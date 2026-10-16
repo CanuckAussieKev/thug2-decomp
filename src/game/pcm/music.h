@@ -21,12 +21,12 @@ static_assert(sizeof(Playlist) == 0xCB0, "layout must match the original");
 // 0x00452200 (reached by a jump from 0x00452910): start the next track when no stream is playing - on the
 // script's chosen track for playlist 1, the track playing (0x0069806C) again when looping, else the next in the
 // shuffled order of the playlist's tracks that are on (reshuffled when the order runs out; the last track
-// played doesn't come first). Then runs a script (0x300CAD34) with the track's index. PartyMod: the shuffle
+// played doesn't come first). Then runs a script (0x300CAD34) with the track's index. The PC port: the shuffle
 // draws from the C runtime's rand (seeded at start-up from the time), so the order differs from launch to
 // launch.
 void __cdecl PlayNextTrack();
 
-// PartyMod's shuffle draw (its our_random): one of the game's random numbers in [0, n), thrown away, then
+// The PC port's shuffle draw (its our_random): one of the game's random numbers in [0, n), thrown away, then
 // rand() % n.
 int ShuffleRandom(int n);
 

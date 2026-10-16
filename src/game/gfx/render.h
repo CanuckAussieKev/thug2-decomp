@@ -4,7 +4,7 @@
 #include "game/mth/vector.h"
 
 // The per-frame 3D render (Nx engine, PC/D3D9): the camera's matrices, the world passes per viewport and the
-// motion blur pass. The PC port (based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt) changes
+// motion blur pass. The PC port (contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md) changes
 // all three (widescreen viewports, black bars, a further far plane); the original's code is given in comments.
 namespace Nx {
 

@@ -17,7 +17,7 @@ struct Flash {
     uint8_t* texture;  // +0x20 (null: untextured)
 };
 
-// 0x004B9030: draw a flash over its viewport, with PartyMod's vertex order fix.
+// 0x004B9030: draw a flash over its viewport, with the PC port's vertex order fix.
 void DrawFlash(const Flash* flash);
 
 } // namespace Nx
