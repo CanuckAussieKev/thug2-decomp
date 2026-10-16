@@ -3,9 +3,13 @@
 #include "game/gfx/text.h"
 
 #include <bit>
+#include <cstddef>
 #include <cstdint>
+#include <cstring>
 
+#include "game/core/mem.h"
 #include "game/core/str.h"
+#include "game/file/file.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -383,8 +387,293 @@ void SText::Draw()
     }
 }
 
+namespace {
+
+// The D3D9 device, its methods by vtable offset.
+void** Device() { return GameVariable<void**>(0x007D69E0); }
+template <typename F>
+F DeviceMethod(int offset)
+{
+    return reinterpret_cast<F>((*reinterpret_cast<void***>(Device()))[offset / 4]);
+}
+void SetTextureStageState(int stage, int type, int value)
+{
+    DeviceMethod<long(__stdcall*)(void*, int, int, int)>(0x10C)(Device(), stage, type, value);
+}
+template <typename F>
+F TextureMethod(void* texture, int offset)
+{
+    return reinterpret_cast<F>((*reinterpret_cast<void***>(texture))[offset / 4]);
+}
+
+// The renderer's state calls (not rewritten yet; cdecl).
+void SetVertexShader(int shader, int unknown) { GameFunction<void(__cdecl*)(int, int)>(0x004DAA80)(shader, unknown); }
+void SetVertexFormat(uint32_t fvf) { GameFunction<void(__cdecl*)(uint32_t)>(0x004D9DB0)(fvf); }
+void SetTexture(int stage, void* texture, uint32_t unknown)
+{
+    GameFunction<void(__cdecl*)(int, void*, uint32_t)>(0x004DA730)(stage, texture, unknown);
+}
+
+// The vertices' store (BeginDraw points the buffer at it) and the quads' triangles as indices into it (made the
+// first time they're drawn).
+TextVertex* VertexStore() { return reinterpret_cast<TextVertex*>(0x00779FD8); }
+uint16_t* QuadIndices() { return reinterpret_cast<uint16_t*>(0x00780FF0); }
+bool& QuadIndicesMade() { return GameVariable<bool>(0x00781BF0); }
+constexpr int kQuads = 0x100;
+
+// The loaded fonts (through SFont::next).
+SFont*& FontList() { return GameVariable<SFont*>(0x00780FD8); }
+
+uint16_t U16(const uint8_t* p)
+{
+    uint16_t value;
+    std::memcpy(&value, p, sizeof(value));
+    return value;
+}
+uint32_t U32(const uint8_t* p)
+{
+    uint32_t value;
+    std::memcpy(&value, p, sizeof(value));
+    return value;
+}
+
+} // namespace
+
+// 0x004CEED0
+SText* SText::Construct(float priority)
+{
+    GameFunction<void*(__thiscall*)(SText*, float, bool)>(0x004DFA70)(this, priority, true);
+    vtable = reinterpret_cast<void**>(0x0064A89C);
+    return this;
+}
+
+// 0x004CEEF0
+void SText::DestroyBody()
+{
+    vtable = reinterpret_cast<void**>(0x0064A89C);
+    GameFunction<void(__thiscall*)(SText*)>(0x004DFAA0)(this);
+}
+
+// 0x004CFAF0
+SText* SText::Destroy(unsigned int flags)
+{
+    DestroyBody();
+    if (flags & 1)
+        Mem::Free(this);
+    return this;
+}
+
+// 0x004CEF00
+void SText::ResetVertices() { VertexBuffer() = VertexStore(); }
+
+// 0x004CEF10
+void SText::DrawVertices()
+{
+    if (!QuadIndicesMade()) {
+        for (int quad = 0; quad < kQuads; ++quad) {
+            uint16_t first = static_cast<uint16_t>(quad * 4);
+            uint16_t* triangles = QuadIndices() + quad * 6;
+            triangles[0] = first;
+            triangles[1] = static_cast<uint16_t>(first + 1);
+            triangles[2] = static_cast<uint16_t>(first + 2);
+            triangles[3] = first;
+            triangles[4] = static_cast<uint16_t>(first + 2);
+            triangles[5] = static_cast<uint16_t>(first + 3);
+        }
+        QuadIndicesMade() = true;
+    }
+    int count = static_cast<int>(VertexCount());
+    if (count <= 0)
+        return;
+    SFont* textureFont = TextureFont() ? TextureFont() : font;
+    SetVertexShader(0, 0);
+    SetTextureStageState(0, 1, 5); // colour: texture x diffuse, doubled
+    SetTextureStageState(0, 2, 2);
+    SetTextureStageState(0, 3, 1);
+    SetTextureStageState(0, 4, 5); // alpha: the same
+    SetTextureStageState(0, 5, 2);
+    SetTextureStageState(0, 6, 1);
+    SetTextureStageState(1, 1, 1); // stage 1 off
+    SetVertexFormat(0x144);        // position (pre-transformed), colour, one texture coordinate
+    SetTexture(0, textureFont->texture, textureFont->unknown17C);
+    DeviceMethod<long(__stdcall*)(void*, int, int)>(0xE4)(Device(), 22, 1); // D3DRS_CULLMODE: none
+    if (!GameVariable<bool>(0x007D1EC0)) { // (rendering not skipped)
+        ++GameVariable<int>(0x00786EBC);            // draw calls
+        GameVariable<int>(0x00786EC0) += count / 2; // "triangles"
+        using DrawIndexedPrimitiveUP = long(__stdcall*)(void*, int, unsigned int, unsigned int, unsigned int, const void*,
+                                                        int, const void*, unsigned int);
+        DeviceMethod<DrawIndexedPrimitiveUP>(0x150)(Device(), 4 /* triangle list */, 0, count, count / 2, QuadIndices(),
+                                                    0x65 /* 16-bit indices */, VertexStore(), sizeof(TextVertex));
+    }
+    SetTextureStageState(0, 1, 4); // colour and alpha back to texture x diffuse
+    SetTextureStageState(0, 4, 4);
+    VertexCount() = 0;
+    TextureFont() = nullptr;
+}
+
+// 0x004CF0F0. The file: a header (+4 the character map format, +8 the number of glyphs, +0xC the height, +0x10
+// the base), the glyphs' character map entries (6 bytes each), the texture's header (+4 width, +6 height, 16-bit),
+// its pixels (one byte each, rounded up to 4), its palette (256 RGBA, PS2 alpha: 0x80 = opaque), and the glyphs'
+// rectangles in the texture (after 4 bytes: x, y, width, height, 16-bit).
+SFont* SFont::Load(const char* name, bool fromMemory)
+{
+    const uint8_t* data = reinterpret_cast<const uint8_t*>(name); // (from memory: the next bytes)
+    File::Handle file = nullptr;
+    if (!fromMemory) {
+        char path[128];
+        std::strcpy(path, "fonts/");
+        std::strcat(path, name);
+        std::strcat(path, ".fnt.xbx");
+        file = File::Open(path, "rb");
+    }
+    // The next size * count bytes into `to` (as the original reads them: the header as 0x14 of 1 byte, the rest
+    // as one block each; from memory, the glyph rectangles - read last - don't move on).
+    auto read = [&](void* to, int size, int count, bool advance) {
+        if (fromMemory) {
+            std::memcpy(to, data, static_cast<size_t>(size) * count);
+            if (advance)
+                data += size * count;
+        } else {
+            File::Read(to, size, count, file);
+        }
+    };
+    uint8_t buffer[0x808]; // (the original's: the tables of more than 256 glyphs overflow it)
+
+    auto* font = static_cast<SFont*>(Mem::New(sizeof(SFont)));
+    if (font)
+        std::memset(font, 0, sizeof(SFont));
+    read(buffer, 1, 0x14, true);
+    font->format = buffer[4];
+    int count = static_cast<int>(U32(buffer + 8));
+    font->height = U32(buffer + 0xC);
+    font->base = U32(buffer + 0x10);
+    std::memset(font->map, 0, sizeof(font->map));
+    std::memset(font->specialMap, 0, sizeof(font->specialMap));
+    font->chars = static_cast<SChar*>(Mem::New(static_cast<uint32_t>(count) * sizeof(SChar)));
+
+    // The character map: which glyph each character (and special glyph) is.
+    read(buffer, count * 6, 1, true);
+    uint8_t* fontBytes = reinterpret_cast<uint8_t*>(font);
+    if (font->format == 1) {
+        // Each glyph: its baseline, then a character (>= 0) or a special glyph (-1 - index; past the special map
+        // for indexes over 0x1F, as in the original).
+        for (int i = 0; i < count; ++i) {
+            const uint8_t* entry = buffer + 6 * i;
+            font->chars[i].baseline = U16(entry);
+            int16_t code = static_cast<int16_t>(U16(entry + 2));
+            if (code >= 0)
+                font->map[code & 0xFF] = static_cast<uint8_t>(i);
+            else
+                fontBytes[offsetof(SFont, specialMap) + static_cast<uint8_t>(0xFF - (code & 0xFF))] = static_cast<uint8_t>(i);
+        }
+    } else if (font->format == 2) {
+        // Each glyph: its baseline, then up to four characters (0xFF ends them early).
+        for (int i = 0; i < count; ++i) {
+            const uint8_t* entry = buffer + 6 * i;
+            font->chars[i].baseline = U16(entry);
+            const uint8_t* codes = entry + 2;
+            font->map[codes[0]] = static_cast<uint8_t>(i);
+            for (int c = 1; c < 4 && codes[c] != 0xFF; ++c)
+                font->map[codes[c]] = static_cast<uint8_t>(i);
+        }
+    }
+    // Characters and special glyphs without one get the default glyph (glyph 0 counts as none, but for 'A'/'a').
+    if (font->specialMap[0x1F]) {
+        for (int c = 0; c < 256; ++c) {
+            if (!font->map[c] && c != 'A' && c != 'a')
+                font->map[c] = font->specialMap[0x1F];
+            if (c < 0x1F && !font->specialMap[c])
+                font->specialMap[c] = font->specialMap[0x1F];
+        }
+    }
+
+    // The texture: created on the device, its palette's colours (RGBA, PS2 alpha) made ARGB with alpha doubled
+    // (0x80 and over: opaque), and the pixels written through it (the rows packed: the pitch isn't used).
+    read(buffer, 0x10, 1, true);
+    uint32_t width = U16(buffer + 4);
+    uint32_t height = U16(buffer + 6);
+    using CreateTexture = long(__stdcall*)(void*, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, void**, void*);
+    if (DeviceMethod<CreateTexture>(0x5C)(Device(), width, height, 1, 0, 21 /* A8R8G8B8 */, 1 /* managed */,
+                                         &font->texture, nullptr) != 0)
+        return nullptr;
+    uint32_t size = (height * width + 3) & ~3u;
+    auto* indices = static_cast<uint8_t*>(Mem::New(size));
+    uint32_t palette[256];
+    read(indices, static_cast<int>(size), 1, true);
+    read(palette, 0x400, 1, true);
+    for (uint32_t& color : palette) {
+        uint32_t argb = (color >> 16 & 0xFF) | (color & 0xFF) << 16 | (color & 0xFF00FF00);
+        uint32_t alpha = argb >> 24;
+        alpha = alpha >= 0x80 ? 0xFF : alpha << 1;
+        color = alpha << 24 | (argb & 0xFFFFFF);
+    }
+    auto* pixels = static_cast<uint32_t*>(Mem::New(size * 4));
+    // palette indices -> colours (not rewritten yet)
+    GameFunction<void(__cdecl*)(uint32_t*, const uint8_t*, uint32_t, const uint32_t*)>(0x005F45E0)(pixels, indices, size,
+                                                                                                  palette);
+    struct LockedRect {
+        int pitch;
+        void* bits;
+    } locked;
+    if (TextureMethod<long(__stdcall*)(void*, uint32_t, LockedRect*, const void*, uint32_t)>(font->texture, 0x4C)(
+            font->texture, 0, &locked, nullptr, 0) != 0)
+        return nullptr;
+    std::memcpy(locked.bits, pixels, size * 4);
+    TextureMethod<long(__stdcall*)(void*, uint32_t)>(font->texture, 0x50)(font->texture, 0);
+    Mem::Free(indices);
+    Mem::Free(pixels);
+
+    // The glyphs' rectangles: texture coordinates (the right/bottom ones from the unrounded left/top) and sizes.
+    read(buffer, count * 8 + 4, 1, false);
+    double textureWidth = static_cast<int>(width);
+    double textureHeight = static_cast<int>(height);
+    for (int i = 0; i < count; ++i) {
+        const uint8_t* rect = buffer + 4 + 8 * i;
+        SChar& glyph = font->chars[i];
+        glyph.w = U16(rect + 4);
+        glyph.h = U16(rect + 6);
+        double u0 = U16(rect) / textureWidth;
+        double v0 = U16(rect + 2) / textureHeight;
+        glyph.u0 = static_cast<float>(u0);
+        glyph.v0 = static_cast<float>(v0);
+        glyph.u1 = static_cast<float>(glyph.w / textureWidth + u0);
+        glyph.v1 = static_cast<float>(glyph.h / textureHeight + v0);
+    }
+
+    font->next = FontList();
+    FontList() = font;
+    if (!fromMemory)
+        File::Close(file);
+    font->spaceSpacing = static_cast<int16_t>(font->chars[font->map['I']].w);
+    return font;
+}
+
+// 0x004CFA80
+void SFont::Unload(SFont* font)
+{
+    if (FontList() == font) {
+        FontList() = font->next;
+    } else {
+        for (SFont* p = FontList(); p->next; p = p->next) {
+            if (p->next == font) {
+                p->next = font->next;
+                break;
+            }
+        }
+    }
+    Mem::Free(font->chars);
+    Mem::Free(font);
+}
+
 } // namespace Nx
 
 REPLACE(0x004CECB0, &Nx::SFont::QueryString);
 REPLACE(0x004CFB20, &Nx::SText::DrawKeyChar);
 REPLACE(0x004CFD00, &Nx::SText::Draw);
+REPLACE(0x004CEED0, &Nx::SText::Construct);
+REPLACE(0x004CEEF0, &Nx::SText::DestroyBody);
+REPLACE(0x004CFAF0, &Nx::SText::Destroy);
+REPLACE(0x004CEF00, &Nx::SText::ResetVertices);
+REPLACE(0x004CEF10, &Nx::SText::DrawVertices);
+REPLACE(0x004CF0F0, Nx::SFont::Load);
+REPLACE(0x004CFA80, Nx::SFont::Unload);

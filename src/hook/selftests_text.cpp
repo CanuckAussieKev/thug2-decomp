@@ -158,7 +158,7 @@ void BuildFonts()
             c.pad = 0xEEEE;
             font.map[i] = static_cast<uint8_t>((i * 37 + 11 + f) & 0xFF);
         }
-        for (int i = 0; i < 0x28; ++i)
+        for (int i = 0; i < 0x20; ++i)
             font.specialMap[i] = static_cast<uint8_t>(200 + i * 3 + f);
         font.charSpacing = static_cast<int16_t>(f ? 2 : -1);
         font.spaceSpacing = static_cast<int16_t>(f ? 9 : 7);
