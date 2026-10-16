@@ -423,6 +423,7 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       original) and ours, plus the four stubs called with their register arguments; results, positions,
       the stored randoms and the arena compared. 41 deliberate bugs: 40 caught (6 by hanging, 14 after
       adding cases), 1 equivalent to the original (the 0.1 vs 0.5 nudge can't change a result).
+- [x] Batches 44-45 tested in the game (2026-10-16, by the user): game runs.
 - [ ] Next: the symbol-definition parser 0x472240, the .qb file parser 0x472420, CreateScriptSymbol
       0x46FE40 (register arguments), LoadQB 0x46EDE0 / 0x46ED90; the pre-compiled format (0x46CA50, 0x46C970,
       0x46C830, ...); then CScript.
