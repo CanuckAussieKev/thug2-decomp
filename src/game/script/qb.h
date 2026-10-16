@@ -56,8 +56,9 @@ void CreatePool(Mem::PoolPair& pools, int item_size, int count, const char* name
 // The permanent string heap: `size` bytes of strings, at most `count` of them.
 void AllocatePermanentStringHeap(uint32_t size, uint32_t count);
 
-// The script cache (null when there isn't one), and dropping a script from it (call only with a cache).
-void* ScriptCache();
+// The script cache (null when there isn't one), and telling it a script has changed (call only with a cache).
+struct CScriptCache;
+CScriptCache* ScriptCache();
 void RemoveFromScriptCache(uint32_t name);
 
 // Symbol bookkeeping while loading .qb files.
