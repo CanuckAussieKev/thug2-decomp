@@ -1421,8 +1421,251 @@ src/hook/selftests_partymod.cpp, src/game/sio/device.cpp/.h. No src/partymod cha
       source only; the two runner fallbacks correctly not installed), early 84 / late 17 (from our ParseNetworkParams)
       / engine-started 2 (from our MainLoop) self-tests pass, shadow checks no mismatches. (The fallback path itself,
       disable=0x0044EEF0, not tried yet.)
-- [ ] Next: the PartyMod round's GameSpy configuration (with linking the SDK); then the pre-compiled .qb format (0x46FBA0, 0x46CA50, 0x46C970, 0x46C830, 0x46C7F0, ...), the script
-      cache (0x475FD0 ...), then CScript (0x472900.. / 0x473000..).
+- [x] PartyMod's runtime patches dropped (2026-10-16, at the user's request; NOT run in the game yet): no byte
+      patches into rewritten game code any more - the patch functions and the patches inside createSDLWindow,
+      patchButtonGlyphs, patchPs2Buttons and loadGfxSettings are in #ifndef THUG2_DECOMP blocks (src/partymod/UPSTREAM.md).
+      Still applied: GameSpy's host names (12 code + 2 data addresses) and the IsPS2 CFunction wrap. The 8 functions
+      PartyMod replaced whole (0x4A0780, 0x4A07C0, 0x4B2330, 0x4B2440, 0x48C170, 0x5F3A50, 0x5F56E0, 0x5BDCC0) are now
+      REPLACE (were source only: PartyMod's jumps went over our hooks, so its C versions ran). check_partymod_overlap
+      skips #ifndef THUG2_DECOMP blocks.
+- [x] Batch 70 (NOT run in the game yet; early test passes offline): the script cache (src/game/script/cache.*), the
+      whole class. Script::CScriptCache (0x24 bytes, an Mdl::Module: vtable 0x648468 {Destroy 0x4761E0, Start and
+      Stop = the empty 0x5480A0}; +0x14 the entry table (Lst::HashTable, 8 bits, on the script heap), +0x18 / +0x1C
+      the newest / oldest unused entry, +0x20 "free unused entries at once" - only ever cleared) and
+      CScriptCacheEntry (0x14: name, code, usage, older, newer; pool 0x6F3560). Functions: CreateScriptCache 0x476040
+      / ReleaseScriptCache 0x475A00 (the singleton 0x6F3558 with references 0x6F355C), Construct 0x475DD0,
+      DestroyBody 0x476090, Destroy 0x4761E0, GetScript 0x475E80, ReleaseScript 0x475D60, Invalidate 0x475FD0,
+      AddToUnused 0x475A40, RemoveFromUnused 0x475A70, DeleteEntry 0x475B60, MakeRoom 0x475BD0, the entry's
+      operator new 0x475AC0 / delete 0x475B00 (the pool pair), and Lst::HashTable::GetItem(const key&, bool)
+      0x462050 (the non-inlined GetItem; second argument always 1, unused). 15 functions.
+      Callers switched to ours: RemoveFromScriptCache (qb.cpp) now calls CScriptCache::Invalidate (ScriptCache()
+      returns CScriptCache*); Sys::Main creates/releases the cache with CreateScriptCache / ReleaseScriptCache (and
+      selftests_misc.cpp's Main test maps 0x476040 / 0x475A00 to them).
+      Conventions: everything on the cache is thiscall and callee-pops (GetScript, ReleaseScript, Invalidate,
+      AddToUnused, RemoveFromUnused, DeleteEntry RET 4; MakeRoom RET 8, its second argument unused); Construct and
+      DestroyBody take ECX only; new/delete and Create/Release are cdecl. Still the game's: Mdl::Module's
+      constructor / destructor body 0x44F7E0 / 0x44F790 (also used by File::AsyncLoaderModule).
+      Early test (src/hook/selftests_scache.cpp, TestScriptCache): a stand-in manager with a default heap and a
+      192 KB script heap in a 256 KB arena, two entry pools (120 and 30), a stand-in symbol table (a C function -
+      pre-processing rewrites calls to it -, compressed and stored scripts, a name naming a script, an integer) and
+      LZSS data made by the test; original vs ours: references with and without a cache, uses/releases through
+      the unused list (middle and both ends), invalidation of an unused and of a used script (new version), the
+      table lookup, five ~40 KB scripts dropping the oldest unused entries for heap room, 110 small ones hitting
+      the 100-entry limit, the other pool current, free-at-once, loose and pooled entry new/delete, destruction
+      through the vtable (slot 0 jumps to ours for our run), and two scripts sized to the margin (the largest
+      free block less 128 bytes, and one byte more). Results, the cache's lists, pool counts and the
+      whole arena compared. 40 deliberate bugs caught, 1 after adding the margin-sized scripts (14 of them by
+      crashing inside TestScriptCache, 1 by hanging).
+      Checks: builds without warnings; thug2_check 0 MISMATCHED (722 replacements, 15 not checked - none new),
+      early 85/85; register scan only the known 0x4EFF92 false alarm (0x475E80 and 0x462050 return values: yes);
+      call audit no MISMATCH; check_partymod_overlap "No overlaps"; find_gaps: nothing left in 0x475A00-0x476210,
+      but registering 0x462050 makes 0x4620A0-0x462710 (object/event CFunctions, not cache) show as a gap; the one
+      thunk (0x48C1A0 -> SetLetterbox) was there before.
+## What the cache does (script runtime semantics - for the QuickJS port)
+- Scripts live in the symbol table compressed ({checksum, size, stored size, code}, LZSS when stored < size).
+  A script only runs from the cache: GetScript decompresses it (into the script heap) and pre-processes it
+  (PreProcessScript: statement-start names of C functions / member functions are turned into direct calls), once;
+  later uses share that code.
+- Use counting: every GetScript takes a use, ReleaseScript gives one back. CScript (0x473A80, its clear/reset)
+  releases its current script (+0xC8) and every script on its call stack (frames +0x94, 0x30 bytes each, count
+  +0x30) - so a script is "in use" while it runs or waits on a script it called. Other users: 0x4E4F50 (a recursive
+  "does script X (or a script it calls) do Y" scan - gets then releases), 0x474540, 0x474B40, 0x475750,
+  0x45C950 (not rewritten yet).
+- A name naming another symbol is followed; the cache key is the script's own name (so an alias shares the
+  entry). Names that aren't scripts give null (no entry). Release looks the name up directly (no alias step).
+- Unused code stays cached (LRU list, newest first) and is only dropped when room is needed for another script:
+  while the script heap's largest free block - 128 is smaller than the new script, and while 100+ entries of the
+  current entry pool are in use. Nothing guards running out of unused entries while the heap is still too full:
+  the original then dereferences null.
+- Reloading a script (CreateScriptSymbol, the pending symbol changes in ProcessPendingSymbols) calls Invalidate:
+  the cached copy is freed and the new version decompressed right away, with the old use count. The old code is
+  gone even though scripts may still be running it; the loader restarts those (RestartChangedScripts). A script
+  that was unused ends up with a count of 0 but not on the unused list, so it's never dropped again (quirk).
+  Invalidating a name whose symbol is no longer a script would crash (GetItem null) - it's only called while the
+  symbol is still a script.
+- The cache is created at start-up (Sys::Main) as an engine module (registered, started - its Start does
+  nothing) and released at shutdown; it isn't unregistered.
+## Left in 0x475000-0x476FFF (all CScript / script manager, not the cache)
+0x475050, 0x4750B0 (38 callers), 0x4752F0, 0x4753C0, 0x475420 (spawn script, 36 callers), 0x475670, 0x4756C0,
+0x4756F0, 0x475700, 0x475750 (CScript: run a cached script - GetScript then 0x4748E0), 0x475790 (RunScript, 505
+callers), 0x4758F0, 0x475920 (the script manager's update: runs every script, flags 0x6F3544 / 0x6F3545). These
+belong with the CScript batch.
+- [x] Batch 71 (qb agent; NOT run in the game yet; early tests pass offline): the pre-compiled .qb format and
+      unloading a .qb (src/game/script/precompiled.*, load.cpp). 9 functions.
+      - ParsePrecompiledQB 0x46FBA0 (filename, data, unused): the image relocated in place against its own start
+        and its symbols defined, through RelocatePrecompiledSymbols 0x46CA50 (file, base, callback, argument,
+        flag: symbols from +0x1C until exactly the file's size at +4 - no other end check; each relocated, then
+        passed to the callback) with DefinePrecompiledSymbol 0x478DE0 (a function Ghidra never made - only its
+        address is pushed: sets the symbol's file checksum +8, CleanUpAndRemoveSymbol on the symbol of the same
+        name if any, links the file's own entry into the table; the flag - the third argument != 0, pushed as
+        all of EAX with only AL set - isn't read).
+      - Relocation, each returning the end of the item's data: RelocateSymbol 0x46C970 (entry +1 byte = type),
+        RelocateStruct 0x46C7F0 (the last component's end, or the structure's own end when empty),
+        RelocateComponent 0x46C6B0 (type = byte 0 >> 1; next relocated when set; a script component's size is
+        SkipToEndOfScript's), RelocateArray 0x46C830 (more than one element: an element table follows the
+        array, relocated only when non-null; strings padded once after the last), RelocateArrayElements 0x46C7B0
+        (a thiscall CArray method, RET 4: written as a free function with an adapter, struct.h unchanged).
+        Integers, floats, names, C functions, member functions, 0x0B and unknown types are left alone; arrays
+        of scripts (7), C functions, member functions and 0x0B have only their table relocated.
+        Quirk kept: a script symbol's stored size is read from right after its entry (+0x14+8), not through
+        its value.
+      - UnloadQB 0x46EEC0 (file checksum; 0 does nothing): lists the symbols whose +8 is that file (array on the
+        top-down heap), CleanUpAndRemoveSymbol on each in table order, then every script for which CScript
+        0x472C90 (all the scripts it's running / returning to still defined?) is false gets 0x473A80 (clear)
+        and 0x473010 (tells its object it stopped) - those three still the game's, through GameFunction -
+        and finally Pip::Unload(checksum) (pre-compiled files stay loaded until then). Callers: 0x5A59B0
+        (UnloadQB-like C function, then 0x479070), 0x5A59D0 (reload: unload then LoadQB), 0x466C20.
+      - LoadQB / LoadQBData now call our ParsePrecompiledQB directly.
+      Early tests (src/hook/selftests_qb.cpp): TestPrecompiledQB - a generated image with every symbol type
+      (strings of lengths 0/3/5, a script whose value is another block, unknown types 0/0x14), structures with
+      every component kind (three script components, with and without a line number after '$', nested and
+      empty structures, arrays as components), arrays of every element type with 0, 1 and more elements and a
+      null table, names that replace an earlier record of the file and symbols already in a stand-in table (and
+      share buckets): each relocation function on every item (fresh copy each time; return values and the whole
+      image), the walk with a recording callback / none / an empty file, ParsePrecompiledQB (both flag values),
+      the callback alone, and LoadQBData's pre-compiled branch - original vs ours. TestUnloadQB - symbols of
+      several files (kept and not, five types, several buckets) in a stand-in heap, four fake scripts with the
+      CScript methods and Pip::Unload stood in for (recording), unloading 0, a file, a file with no symbols,
+      another file - original vs ours, calls and the whole arena. 41 of 45 deliberate bugs caught (1 after
+      strengthening: a replaced table symbol that isn't kept, FreeSymbol stood in for); equivalent: `size == 1`
+      -> `>= 1` in the else of `> 1`, the ignored flag (twice: ParsePrecompiledQB, LoadQBData's `unused`),
+      linking only when no symbol of the name is left (none ever is after the removal).
+      Findings (the script runtime's spec):
+      - A pre-compiled image is symbols ready to use: the file's own CSymbolTableEntry records are linked into
+        the table and point into the file, which stays loaded (on the script heap) until UnloadQB. Records must
+        have bit 2 (4) of byte 0 set or CleanUpAndRemoveSymbol, when a later definition replaces them, frees
+        them into the pools as if they were pool memory. Nothing marks the symbols new (byte 0 bit 0 comes from
+        the file), so whether RestartChangedScripts restarts scripts that use them depends on the file.
+      - Defining a symbol from a pre-compiled file never calls RemoveFromScriptCache (CreateScriptSymbol does):
+        a cached decompressed copy of a replaced script would stay - worth checking against the script cache
+        agent's findings.
+      - The shipped data\**\*.qb.xbx files (95, magic 0xB075EF6F; "xbx" is the PC's pre-compiled extension from
+        0x5B6040, platform 4) do NOT fit this exe's layout: each entry starts 00 04 <type> 00 (the type in byte 2,
+        e.g. 0x0C for an array, 0x07 for scripts) and components 00 <t> 00 00 with values that don't match
+        this build's enum. Read as this code reads them, every entry would be a local string. So either nothing
+        loads them on PC (LoadQB's callers pass "....qb" names; the LoadQB C function takes the name from the
+        script) or they're loaded differently - check in the game (e.g. log LoadQB's pre-compiled branch)
+        before relying on the format. The +0x08..+0x1B header bytes (1C 08 02 04 10 04 08 0C ...) aren't read.
+      Next to it, not done: 0x46C470-0x46C6A0 (13 small functions of a class that wraps a CStruct at +4 -
+      0x46C610 GetX-with-default, 0x46C650 add, 0x46C680 destructor... - not part of this format); CScript
+      0x472C90 / 0x473A80 / 0x473010 (with CScript). find_gaps reports one thunk, 0x48C1A0 -> SetLetterbox
+      0x4B2440 - not from this batch.
+- [x] Batch 72 (gapsB; gaps next to Main / MainLoop / WinMain; NOT run in the game yet; branch wt/gapsB): 63 REPLACE lines
+      (2 source only).
+      - SingletonPtr (src/game/core/singleton.h / .cpp, namespace Spt): Neversoft's `Spt::SingletonPtr<T>` - a vtable and
+        the instance; constructed with T's Create(create) (a reference, the instance made with `create`), destroyed
+        with T's Release. The game's are locals (Sys::Main, the movie player, the network code) with inline
+        constructors; out of line are, per instance, the 11-byte destructor (`MOV [ECX],vtable; JMP Release`, called
+        from the exception-unwind funclets) and the 33-byte scalar deleting destructor (the vtable's only entry).
+        All 24 instances in the exe (found by scanning for that destructor shape against the known Release functions -
+        no others): 0x004E1980-0x004E1AF0 / 0x004E1B00-0x004E1EC0 (vtables 0x0064AFB0-0x0064B000, 21 instances: Pre,
+        0x00463730, Mdl, Mc, 0x0044E7F0, the async loader, the script cache (Script::CreateScriptCache / ReleaseScriptCache from main's cache batch),
+        and 14 more of Main's game singletons), 0x0044FD40/0x0044FD60
+        (the sound manager 0x0047BA60, vtable 0x006472B4), 0x0044FD50/0x0044FD90 (Sio, 0x006472B8), and
+        0x004B2230/0x004B2240 (Mlp, 0x0064A2EC). No identical-code folding among them (each has its own vtable);
+        callers are only the unwind funclets and each scalar destructor. The one out-of-line constructor 0x004E1A90
+        (not a function in Ghidra; 0x004E1A90-0x004E1AB4, called by 0x004F75F0) is SingletonPtr for 0x00590160's
+        singleton; it builds the instance pointer through 0x004E1970 - a store-and-return-this constructor the linker
+        folded with other one-pointer classes' (17 calls in the network code 0x00597740-0x0059D410): written as
+        `Spt::PointerMember::Construct`. Each instance is a Singleton type (Type, kVtable, Create, Release); those
+        without source are `GameSingleton<create, release, vtable>`, named by the Create address (Main's naming)
+        except Mdl::Manager and the sound manager.
+      - Mlp::Manager (src/game/sys/mlp.*): Construct 0x0044EDC0 (the three task lists 0x00406E80, +0xB8/+0xBC and m_done
+        cleared; the EH frame only unwinds a half-built manager), DestroyBody 0x0044EE30 (task lists 0x004070E0, the
+        last first), ResetDeviceIfLost 0x0044EE90 (static: uses no manager; the device-lost reset that MainLoop has
+        inline - MainLoop now calls it; also source only at its jump 0x0044F250, which PlayMovieFile called - it now
+        calls ours directly), ProfileFrames 0x0044F220 (CFunc ProfileTasks: +0xC4 frames, +0xC8 cleared; EAX left as
+        the argument, nobody reads it), StopLoop 0x0044F240 (CFunc ResetEngine: m_done = true; 4 bytes, source only),
+        Mlp::CreateManager 0x0044F260 / ReleaseManager 0x0044F2B0 (the singleton 0x00696D68, references 0x00696D6C,
+        unsigned; Calloc(0xCC, current heap, 1)). Sys::Main calls CreateManager/ReleaseManager directly now.
+      - Sys::WindowProc 0x004E16B0 (src/game/sys/winmain.*): bounds 0x004E16B0-0x004E180A (code to 0x004E17EB, then its
+        jump table 0x004E17EC (4 targets) and index table 0x004E17FC (15 bytes, messages 2..0x10)). WM_DESTROY/WM_CLOSE:
+        PostQuitMessage(0) + quit flag; WM_ACTIVATE (LOWORD 1/2): ShowWindow(game window 0x007D6A28, SW_MAXIMIZE),
+        active; else SW_MINIMIZE, inactive, device lost, InvalidateRect(0, 0, TRUE); WM_PAINT: ValidateRect;
+        WM_KEYDOWN -> Sio::SpecialKeyInput, WM_CHAR -> Sio::KeyInput; WM_SYSKEYDOWN F10 and WM_SYSCOMMAND SC_KEYMENU
+        (whole wParam compared) and WM_POWERBROADCAST swallowed (0); the rest DefWindowProcA (a tail jump). Unused with
+        PartyMod's SDL window; hooked anyway (harmless).
+      - 0x004E2C90 turned out to be a component's InitFromStructure: Obj::CFlipRotateComponent (src/game/obj/flip_rotate.*),
+        the factory 0x00481FB0's type 0xDF5C091A = "FlipRotate" (checksums matched by CRC: 0x0C7A712C "flipped",
+        0x6EA3704A "rotated"). Written with its small neighbours: Construct 0x004E2C50, DestroyBody 0x004E2C80, Destroy
+        0x004E2CF0, InitFromStructure 0x004E2C90 (base component 0x00481710/0x00481730/0x00481740 via GameFunction).
+      Tests (src/hook/selftests_gapsB.cpp, Early): TestSingletonPtrs (all 24 destructors and scalar destructors with
+      flags 0/1/2/3/0xFFFFFFFE, the constructor 0x004E1A90 with create 0/1/0x100/0xFF, 0x004E1970; Release, Create
+      0x00590160 and Mem::Manager::Free stood in, ours found through the replacement table), TestMlpManager (Construct
+      and DestroyBody on dirty memory, ProfileTasks, ResetEngine, the device reset in 6 cases through 0x0044EE90 and
+      0x0044F250 with a stand-in device; Create/Release through 15 steps: none, out of memory, made, again, the last
+      reference, no instance, a count over 2^31, the count wrapping), TestWindowProc (27 messages x 11 wParams, every
+      Win32 call stood in through the import slots and the API), TestFlipRotateComponent (constructor, 75 parameter
+      combinations, destructors).
+      Mutations: 70 deliberate bugs, all caught at first (each by the test for its function; the device-reset ones also by
+      TestMainLoop, which calls ResetDeviceIfLost now; movie_reset by TestPlayMovieFile hanging). None equivalent.
+      Checks: thug2_check 0 MISMATCHED, early 91/91 (after merging main); register scan only the known 0x004EFF92 alarm (FlipRotate's
+      Construct returns this); call audit no MISMATCH (singleton.cpp's GameFunction calls take template addresses the
+      audit can't read: all 38 Create/Release functions checked by hand - plain RET, cdecl); check_partymod_overlap: no
+      overlaps, nothing to handle.
+      Shared files changed: src/game/sys/main.cpp (Mlp::CreateManager/ReleaseManager called directly; merged with main's script-cache calls),
+      src/game/gfx/movie.cpp (calls Mlp::Manager::ResetDeviceIfLost in place of GameFunction 0x0044F250),
+      src/hook/selftests_misc.cpp (TestMain stands in for our Mlp create/release too), src/hook/selftests_partymod.cpp
+      (TestPlayMovieFile stands in for our ResetDeviceIfLost too), src/game/sys/mlp.cpp (MainLoop calls
+      ResetDeviceIfLost), CMakeLists.txt (singleton.cpp, flip_rotate.cpp, selftests_gapsB.cpp).
+      Left (find_gaps, new neighbours): Mdl::Manager 0x0044F300-0x0044F7E0 (17 functions, the module manager, next to
+      0x0044F2B0); 0x004B2270-0x004B2320 (next to the Mlp SingletonPtr); FlipRotate's Update 0x004E2D20 (1343 bytes).
+- [x] Batch 73 (gapsA; gaps next to batches 55/63-66; NOT run in the game yet; branch wt/gapsA): 34 addresses filled in -
+      28 REPLACE, 6 REPLACE_SOURCE_ONLY (jumps). Tests in new src/hook/selftests_gapsA.cpp (Early, StandIns harness).
+      - Text (src/game/gfx/text.*): `SFont` layout finished - specialMap is 0x20 bytes ([0x1F] doubles as the default
+        glyph), +0x12C `format`, +0x130 `next` (font list 0x780FD8), +0x178 `texture` (IDirect3DTexture9), +0x17C
+        (passed with it to 0x4DA730), size 0x180. SText: 0x4CEED0 `Construct(float priority)` (base drawable 0x4DFA70
+        with "not listed" = 1, vtable 0x64A89C, returns this), 0x4CEEF0 `DestroyBody` (vtable, then the base
+        destructor 0x4DFAA0), 0x4CFAF0 `Destroy(flags)` (deleting destructor), 0x4CEF00 `ResetVertices` (BeginDraw:
+        buffer pointer 0x780FE8 = 0x779FD8), 0x4CEF10 `DrawVertices` (EndDraw: makes the 256-quad index buffer
+        0x780FF0 once (flag 0x781BF0), then if count > 0 (signed): the texture font's (0x780FE0) or own font's
+        texture, 7 texture stage states, FVF 0x144, cull none, unless 0x7D1EC0: counters 0x786EBC / 0x786EC0 and
+        DrawIndexedPrimitiveUP; stage states back; count and texture font cleared - count <= 0 leaves both).
+        0x4CF0F0 `SFont::Load(name, fromMemory)` (cdecl; "fonts/<name>.fnt.xbx" or the bytes at name): header, the
+        character map (format 1: one character or special -1-index per glyph, specials past the map written past it;
+        format 2: up to four characters, 0xFF ends), the default glyph given to unmapped characters (not 'A'/'a' -
+        glyph 0 counts as unmapped) and specials, CreateTexture A8R8G8B8 managed (failure: return null, file left
+        open), palette RGBA -> ARGB with PS2 alpha doubled (>= 0x80 opaque), 0x5F45E0 expands the indices, LockRect
+        (failure: null), pixels copied packed (pitch ignored), glyph UVs (right/bottom from the unrounded left/top),
+        listed, closed, spaceSpacing = width of 'I'. 0x4CFA80 `SFont::Unload` (off the list, frees glyphs and font -
+        not the texture). selftests_text.cpp fills 0x20 special-map entries now (was 0x28: past the array).
+      - Device (src/game/gfx/device.*): 0x44F870 `Nx::SetRenderState(state, value)`, 0x44F890 `Nx::ClearDevice(...)`
+        - cdecl wrappers returning the HRESULT (32 and 4 callers; movie.cpp keeps its own inline calls).
+      - Music (src/game/pcm/music.*): `Stream` (0x74 bytes, three at 0x69B938: +0 name, +4 id, +0x10 channel, +0x30
+        listener). 0x450220 StreamIdFinished, 0x450260 FindPlayingStream (by id, then by name, -1), 0x4502D0
+        FreeStreamId, 0x450310 ShuffleUserSoundtrack (game's Rnd; at most 600; no PartyMod change here), 0x4503D0
+        UseUserSoundtrack, 0x450410 UseStandardSoundtrack, 0x450420 StopUserSoundtrack (source only: jump to
+        0x4531A0), 0x450430 MusicIsPaused (also registered source only at 0x44D680, the CFunction MusicIsPaused - a jump to it), 0x450440 /
+        0x450450 music / sfx volume (FLD), 0x450460 RandomTrackOrder (int, MOVZX), 0x450470 SetMusicLooping (so
+        0x69BAA0 is the loop flag, renamed from "special track set"), 0x450480 / 0x4504B0 Get/SetTracksOff
+        (playlist 0's off masks), 0x4504E0 SetUserSoundtrackVolume (float; 0x453400 only for playlist 1), 0x452680
+        PlayNextTrackInOrder (first track on and not played; all played: masks cleared, nothing plays), 0x452910
+        Update (stream system 0x453940, 0x453BD0, pause on failure, owners/listeners of ended streams, every 64
+        frames unless volume 0 (playlist != 1) or paused: in order or PlayNextTrack), 0x4B2350 GetNumSoundtracks
+        (source only, jump to 0x4542D0), 0x4B2360 GetSoundtrackName (wide name through user32 wsprintfA "%ls" per
+        character, 99 max, unconvertible / 0xA1-0xAC bytes -> '~', "~" if none), and the thunks 0x48C150 / 0x48C160
+        to them (source only).
+      - 0x48C1A0 -> SetLetterbox: REPLACE_SOURCE_ONLY in src/game/gfx/screen.cpp.
+      - Tests (Early): TestSTextDrawing, TestLoadFont (7 font files: both formats, defaults, past-the-map special,
+        another format, texture create / lock failures, memory and file; Unload at head / middle / end / missing),
+        TestDeviceWrappers, TestMusicStreams (lookups, getters/setters, shuffles incl. the last-first swap, names),
+        TestPlayNextTrackInOrder, TestMusicUpdate (20 cases). File, memory manager, device / texture vtables,
+        platform music functions stood in for.
+      - 81 deliberate bugs: 76 caught, 3 more after strengthening (format-1 code 0, the in-order round restart with
+        tracks over 63 played, frame 32), 2 equivalent: the default fill's `c < 0x1F` vs `<= 0x1F` (entry 0x1F is the
+        default itself, never 0 there) and '~' for an empty conversion (wsprintf "%ls" never gives one).
+      - Register scan (nothing new beyond the known 0x4EFF92; EAX readers of these all return values), call audit (no
+        MISMATCH), overlap check (no overlaps): clean.
+      - Not done: 0x4B2270-0x4B2320 (9 small Nx platform glue functions - a flag toggle, an EndScene-style device
+        call, a release, four jumps into 0x4D3CA0 / 0x4D8C90 / 0x4D8CC0 / 0x4DB570, a matrix call, a string getter -
+        left by gapsB next to 0x4B2350; they need their callees looked at, for a later batch). find_gaps after the
+        merge: none of this batch's neighbours left, 0 thunks.
+- [ ] Next: run batches 70-73 and the PartyMod patch removal in the game; then CScript (0x472900.. / 0x473000..;
+      the script manager 0x475050-0x475920 and 0x472C90 / 0x473A80 / 0x473010 left by batches 70-71); nearby gaps: the
+      module manager Mdl::Manager 0x44F300-0x44F7E0, 0x4B2270-0x4B2320 (9 glue functions), CFlipRotateComponent::Update
+      0x4E2D20 and its base 0x481710-0x481740, 0x46C470-0x46C6A0 (a CStruct wrapper class), 0x4620A0-0x462710 (object /
+      event CFunctions). GameSpy's host names become configuration when the SDK is linked. Check which files actually
+      reach LoadQB's pre-compiled branch: the shipped .qb.xbx files don't match its layout (batch 71).
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
       for original callers that read ECX/EDX after the call without writing them first (ignoring push-to-reserve,
       lea reg,[reg], or reg,-1 and zeroing idioms; callers that are themselves replaced count as safe).
