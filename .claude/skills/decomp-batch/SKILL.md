@@ -74,6 +74,9 @@ with tools\ghidra\snapshot_project.ps1). `inspect` below means:
   "N site(s) read EAX/AL" must return a value.
 - `... python tools/ghidra/audit_game_function_calls.py C:\Games\THUG2-ghidra-snapshot`: no MISMATCH.
 - `python -I tools/check_partymod_overlap.py`: "No overlaps".
+- `... python tools/ghidra/find_gaps.py C:\Games\THUG2-ghidra-snapshot`: nothing new skipped next to this
+  batch's functions (small helpers, setters, jumps to what you rewrote - give each source, source-only if it
+  can't be hooked), and "0 thunks".
 
 ## 7. Record and commit
 - `python -I tools/progress_report.py`; add a "- [x] Batch N (NOT run in the game yet; ...)" entry to
