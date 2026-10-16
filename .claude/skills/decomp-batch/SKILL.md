@@ -55,6 +55,10 @@ with tools\ghidra\snapshot_project.ps1). `inspect` below means:
   as named empty inline functions: `Mem::PushMemProfile(name)` / `PopMemProfile()` around allocations,
   `Script::PrintContents(struct)`, `Mem::DebugTrackBlock(block)` - add a new one when a call fits none.
   The strings they're passed document the code.
+- PartyMod-patched functions get source with PartyMod's behaviour (`python -I tools/check_partymod_overlap.py`
+  must account for every patch inside a rewritten function). Where PartyMod replaces or changes the code,
+  keep the original's logic visible too - in a comment, or as code if it's worth keeping - so the source shows
+  what the game did before PartyMod (the user wants this).
 - Register: `REPLACE(addr, Function)` / `&Class::Method` / adapters for members of other types; pure
   functions may use `REPLACE_SHADOW`; unhookable ones `REPLACE_SOURCE_ONLY`. New .cpp files go in
   CMakeLists.txt.
