@@ -87,6 +87,7 @@ add_library(thug2_code OBJECT
     src/game/core/manager.cpp
     src/game/core/mem.cpp
     src/game/core/pool.cpp
+    src/game/core/stubs.cpp
     src/game/core/str.cpp
     src/game/core/string.cpp
     src/game/file/asset_bundle.cpp
@@ -96,6 +97,7 @@ add_library(thug2_code OBJECT
     src/game/file/pre.cpp
     src/game/lst/hashtable.cpp
     src/game/net/chat.cpp
+    src/game/mc/memcard.cpp
     src/game/script/eval.cpp
     src/game/script/load.cpp
     src/game/script/names.cpp

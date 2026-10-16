@@ -2,6 +2,7 @@
 
 #include <new>
 
+#include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -138,11 +139,35 @@ void AllocRegion::DestroyBody()
 // 0x005BA0E0 (Lst::Node destructor: take it out of its list)
 void ListNode::Unlink()
 {
-    vtable = kNodeVtable;
+    UnlinkAs(kNodeVtable);
+}
+
+// 0x005BC990 / 0x005BCD30: the other node types' destructors
+void ListNode::UnlinkAs(void** nodeVtable)
+{
+    vtable = nodeVtable;
     prev->next = next;
     next->prev = prev;
     next = this;
     prev = this;
+}
+
+// 0x005BCD00
+void* DestroyOwner(void* owner, unsigned int flags)
+{
+    auto* fields = static_cast<void***>(owner);
+    fields[0] = reinterpret_cast<void**>(0x00658A6C);
+    if (void** owned = fields[1])
+        reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>((*reinterpret_cast<void***>(owned))[0])(owned, 1);
+    if (flags & 1)
+        Mem::Manager::Get()->Free(owner);
+    return owner;
+}
+
+// 0x005BC4D0
+void Region::DestroyBody()
+{
+    m_vtable = kRegionVtable;
 }
 
 // 0x005BA260
@@ -244,6 +269,10 @@ struct AllocAdapters {
             Mem::Free(node);
         return node;
     }
+    // The node destructors of two other node types (vtables 0x0065797C and 0x00658A70).
+    void UnlinkNode65797C() { reinterpret_cast<ListNode*>(this)->UnlinkAs(reinterpret_cast<void**>(0x0065797C)); }
+    void UnlinkNode658A70() { reinterpret_cast<ListNode*>(this)->UnlinkAs(reinterpret_cast<void**>(0x00658A70)); }
+    void* OwnerDestroy(unsigned int flags) { return Mem::DestroyOwner(this, flags); }
     // 0x005BA4E0: free what the first field points to
     void FreePointee() { Mem::Free(*reinterpret_cast<void**>(this)); }
 };
@@ -263,6 +292,10 @@ REPLACE(0x005BC620, &AllocAdapters::AllocRegionConstruct);
 REPLACE(0x005BC6B0, &Mem::AllocRegion::DestroyBody);
 REPLACE(0x005BC700, &AllocAdapters::AllocRegionDestroy);
 REPLACE(0x005BA0E0, &Mem::ListNode::Unlink);
+REPLACE(0x005BC990, &AllocAdapters::UnlinkNode65797C);
+REPLACE(0x005BCD30, &AllocAdapters::UnlinkNode658A70);
+REPLACE(0x005BCD00, &AllocAdapters::OwnerDestroy);
+REPLACE(0x005BC4D0, &Mem::Region::DestroyBody);
 REPLACE(0x005BA100, &AllocAdapters::NodeDestroy);
 REPLACE(0x005BA230, &AllocAdapters::NodeDestroy);
 REPLACE(0x005BA260, &AllocAdapters::AllocatorConstruct);

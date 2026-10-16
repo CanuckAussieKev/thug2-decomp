@@ -48,6 +48,8 @@ public:
     // Move `allocator`'s top by `size` (in its direction). Returns the start of the claimed space - the old top
     // growing up, the new top growing down - or null if it would cross the other allocator.
     uint8_t* Allocate(Allocator* allocator, int size, int unused);
+    // The destructor's body (only the vtable to set back: the memory isn't the region's).
+    void DestroyBody();
 
     void** m_vtable;          // 0x00658A58
     uint8_t* m_start;
@@ -76,7 +78,13 @@ struct ListNode {
     ListNode* prev;
 
     void Unlink();
+    // The same, for the node types of other classes (each Lst::Node<T> has its own vtable).
+    void UnlinkAs(void** nodeVtable);
 };
+
+// 0x005BCD00: the scalar deleting destructor of a small class (vtable 0x00658A6C, 8 bytes) that owns one
+// object at +4, deleted through its virtual destructor.
+void* DestroyOwner(void* owner, unsigned int flags);
 
 class Allocator {
 public:

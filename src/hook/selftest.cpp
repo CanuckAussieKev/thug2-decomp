@@ -1,3 +1,5 @@
+#include "game/core/stubs.h"
+#include "game/mc/memcard.h"
 #include "game/script/eval.h"
 #include "game/script/load.h"
 #include "game/script/names.h"
@@ -5968,6 +5970,324 @@ void TestScriptLoading()
     }
 }
 
+// A stand-in for an object owned by the memory-card holder: its virtual destructor records the call.
+struct McOwnedStandIn {
+    void** vtable;
+    int destroyed;
+    void* __thiscall Destroy(unsigned int flags)
+    {
+        destroyed = 100 + static_cast<int>(flags);
+        return this;
+    }
+};
+
+// The PC memory cards (files under Save\ in a scratch folder - never the game's): opening in every mode, read,
+// write, seek, flush, close, delete, names, free space, the manager's references; the list node and owner
+// destructors, the pool lookup and the folded stubs - original vs ours. The directory listing's original
+// uses the game's C runtime (sprintf), so ours is checked against what Windows reports.
+void TestMemoryCards()
+{
+    using Mem::Heap;
+    using Mem::Manager;
+    using Mem::Region;
+    if (GameVariable<void*>(0x007D1800)) {
+        Log("self-test: TestMemoryCards skipped (the memory manager is already set up)");
+        return;
+    }
+    char oldDirectory[MAX_PATH];
+    GetCurrentDirectoryA(MAX_PATH, oldDirectory);
+    char folder[MAX_PATH];
+    GetTempPathA(MAX_PATH, folder);
+    std::snprintf(folder + std::strlen(folder), 64, "thug2-mc-test-%lu", GetCurrentProcessId());
+    struct Saved {
+        uint32_t address;
+        uint32_t size;
+        std::vector<uint8_t> bytes;
+    };
+    std::vector<Saved> saved = {{0x007D1810, 0x100, {}}, {0x007D1890, 8, {}}, {0x007CC979, 1, {}},
+                                {0x007D1808, 8, {}}};
+    for (Saved& s : saved) {
+        s.bytes.resize(s.size);
+        std::memcpy(s.bytes.data(), reinterpret_cast<void*>(s.address), s.size);
+    }
+    auto removeFolder = [&] {
+        for (const char* name : {"Save\\a.sav", "Save\\b.sav", "Save\\new.sav", "Save\\always.sav", "Save\\x.tmp"}) {
+            std::string path = std::string(folder) + "\\" + name;
+            DeleteFileA(path.c_str());
+        }
+        RemoveDirectoryA((std::string(folder) + "\\Save\\dir.sav").c_str());
+        RemoveDirectoryA((std::string(folder) + "\\Save").c_str());
+        RemoveDirectoryA(folder);
+    };
+    // The same files, with the same dates, for each run.
+    auto makeFolder = [&] {
+        removeFolder();
+        CreateDirectoryA(folder, nullptr);
+        SetCurrentDirectoryA(folder);
+        CreateDirectoryA("Save", nullptr);
+        CreateDirectoryA("Save\\dir.sav", nullptr);
+        SYSTEMTIME time = {2004, 9, 2, 14, 13, 45, 30, 0};
+        FILETIME fileTime;
+        SystemTimeToFileTime(&time, &fileTime);
+        for (const char* name : {"Save\\a.sav", "Save\\b.sav", "Save\\x.tmp"}) {
+            HANDLE h = CreateFileA(name, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+            DWORD written;
+            WriteFile(h, name, static_cast<DWORD>(std::strlen(name)) * (name[5] == 'b' ? 3 : 1), &written, nullptr);
+            SetFileTime(h, nullptr, nullptr, &fileTime);
+            CloseHandle(h);
+            fileTime.dwLowDateTime += 0x10000000; // different dates
+        }
+    };
+
+    static uint8_t arenas[2][0x10000];
+    std::vector<uint32_t> blocks[2];
+    auto run = [&](bool original) {
+        std::vector<uint32_t> trace;
+        makeFolder();
+        for (Saved& s : saved)
+            std::memset(reinterpret_cast<void*>(s.address), 0, s.size);
+        GameVariable<bool>(0x007CC979) = true;
+        uint8_t* arena = arenas[original ? 0 : 1];
+        std::memset(arena, 0, sizeof(arenas[0]));
+        auto* manager = reinterpret_cast<Manager*>(arena);
+        GameVariable<void*>(0x007D1800) = manager;
+        auto* region = new (arena + 0x600) Region(arena + 0x1000, arena + sizeof(arenas[0]));
+        auto* heap = new (arena + 0x620) Heap(region, 1, "test");
+        manager->m_heaps[0] = heap;
+        manager->m_heapCount = 1;
+        manager->PushContext(heap);
+        auto base = reinterpret_cast<uint32_t>(arena);
+        auto relocate = [&](uint32_t word) {
+            return word >= base && word <= base + sizeof(arenas[0]) ? 0xA0000000u + (word - base) : word;
+        };
+        using M = Mc::Manager*;
+        using C = Mc::Card*;
+        using F = Mc::File*;
+
+        // The manager.
+        auto create = [&](bool make) {
+            return original ? Original<M(__cdecl*)(bool)>(0x005BC900)(make) : Mc::CreateManager(make);
+        };
+        auto release = [&] {
+            if (original)
+                Original<void(__cdecl*)()>(0x005BC950)();
+            else
+                Mc::ReleaseManager();
+            trace.push_back(relocate(GameVariable<uint32_t>(0x007D1890)));
+            trace.push_back(GameVariable<uint32_t>(0x007D1894));
+        };
+        trace.push_back(relocate(reinterpret_cast<uint32_t>(create(false))));
+        trace.push_back(GameVariable<uint32_t>(0x007D1894));
+        release();
+        M mc = create(true);
+        trace.push_back(relocate(reinterpret_cast<uint32_t>(mc)));
+        trace.push_back(relocate(reinterpret_cast<uint32_t>(create(true))));
+        trace.push_back(GameVariable<uint32_t>(0x007D1894));
+        C card = original ? Original<C(__thiscall*)(M, int, int)>(0x005BC730)(mc, 3, 1) : mc->GetCard(3, 1);
+        trace.push_back(relocate(reinterpret_cast<uint32_t>(card)));
+        trace.push_back(card->m_present);
+
+        // Files.
+        std::vector<F> files;
+        auto open = [&](const char* name, int mode) {
+            F file = original ? Original<F(__thiscall*)(C, const char*, int, int)>(0x005BC9B0)(card, name, mode, 7)
+                              : card->Open(name, mode, 7);
+            trace.push_back(file ? 1u : 0u);
+            if (file)
+                files.push_back(file);
+            return file;
+        };
+        for (int mode = 0; mode <= 7; ++mode) {
+            if (F file = open("Save/a.sav", mode)) {
+                uint8_t buffer[16] = {};
+                int count = original ? Original<int(__thiscall*)(F, void*, int)>(0x005BC880)(file, buffer, 16)
+                                     : file->Read(buffer, 16);
+                trace.push_back(static_cast<uint32_t>(count));
+                trace.push_back(buffer[0] | buffer[5] << 8);
+                count = original ? Original<int(__thiscall*)(F, const void*, int)>(0x005BC850)(file, "Z", 1)
+                                 : file->Write("Z", 1); // (fails on read-only files)
+                trace.push_back(static_cast<uint32_t>(count));
+                if (original)
+                    Original<bool(__thiscall*)(F)>(0x005BC8B0)(file);
+                else
+                    file->Close();
+            }
+        }
+        // (the path as converted: '/' to '\\')
+        trace.insert(trace.end(), reinterpret_cast<uint32_t*>(0x007D1810), reinterpret_cast<uint32_t*>(0x007D1820));
+        open("Save\\missing.sav", 1);
+        trace.insert(trace.end(), reinterpret_cast<uint32_t*>(0x007D1810), reinterpret_cast<uint32_t*>(0x007D1830));
+        // Opened twice at once: no sharing.
+        if (F first = open("Save\\b.sav", 1)) {
+            if (F second = open("Save\\b.sav", 1)) {
+                if (original)
+                    Original<bool(__thiscall*)(F)>(0x005BC8B0)(second);
+                else
+                    second->Close();
+            }
+            if (original)
+                Original<bool(__thiscall*)(F)>(0x005BC8B0)(first);
+            else
+                first->Close();
+        }
+        for (int attempt = 0; attempt < 2; ++attempt) {
+            if (F file = open("Save\\new.sav", 4)) { // a new file (the second time: it exists)
+                int count = original ? Original<int(__thiscall*)(F, const void*, int)>(0x005BC850)(file, "hello world", 11)
+                                     : file->Write("hello world", 11);
+                trace.push_back(static_cast<uint32_t>(count));
+                for (int origin : {0, 1, 2, 5}) {
+                    DWORD at = original ? Original<DWORD(__thiscall*)(F, LONG, int)>(0x005BC800)(file, -3 + origin, origin)
+                                        : file->Seek(-3 + origin, origin);
+                    trace.push_back(at);
+                }
+                trace.push_back(original ? Original<bool(__thiscall*)(F)>(0x005BC840)(file) : file->Flush());
+                trace.push_back(original ? Original<bool(__thiscall*)(F)>(0x005BC8B0)(file) : file->Close());
+            }
+        }
+        if (F file = open("Save/always.sav", 6)) {
+            trace.push_back(original ? Original<int(__thiscall*)(F, void*, int)>(0x005BC880)(file, nullptr, 0)
+                                     : file->Read(nullptr, 0)); // (write-only: fails)
+            trace.push_back(original ? Original<bool(__thiscall*)(F)>(0x005BC8B0)(file) : file->Close());
+            trace.push_back(original ? Original<bool(__thiscall*)(F)>(0x005BC8B0)(file) : file->Close()); // again
+        }
+        for (const char* name : {"Save\\x.tmp", "Save\\x.tmp", "nothing"})
+            trace.push_back(original ? Original<bool(__thiscall*)(C, const char*)>(0x005BC770)(card, name)
+                                     : card->RemoveFile(name));
+        const char* converted = original ? Original<const char*(__thiscall*)(C, const char*)>(0x005BC740)(card, "Card/File")
+                                         : card->ConvertFilename("Card/File");
+        trace.push_back(reinterpret_cast<uint32_t>(converted));
+        trace.push_back(static_cast<uint32_t>(std::strcmp(converted, "Card/File")));
+        for (uint8_t present : {uint8_t(0), uint8_t(0x75)}) {
+            card->m_present = present;
+            int free = original ? Original<int(__thiscall*)(C)>(0x005BC790)(card) : card->GetFreeBlocks();
+            blocks[original ? 0 : 1].push_back(static_cast<uint32_t>(free));
+            trace.push_back(free != 0);
+        }
+        trace.push_back(original ? Original<bool(__thiscall*)(C, int)>(0x005BC7F0)(card, 3) : card->AlwaysTrue(3));
+        // Handles differ between the runs: cleared before comparing.
+        for (F file : files)
+            file->m_handle = nullptr;
+
+        release();
+        release();
+        trace.push_back(GameVariable<uint32_t>(0x007D1890));
+        trace.push_back(GameVariable<uint32_t>(0x007D1894));
+
+        // List nodes of other types, the owner's destructor, the region's, the pool lookup.
+        static Mem::ListNode nodes[3];
+        for (void** vtable : {reinterpret_cast<void**>(0x0065797C), reinterpret_cast<void**>(0x00658A70)}) {
+            for (int i = 0; i < 3; ++i)
+                nodes[i] = {nullptr, &nodes[i], i, &nodes[(i + 1) % 3], &nodes[(i + 2) % 3]};
+            uint32_t address = vtable == reinterpret_cast<void**>(0x0065797C) ? 0x005BC990 : 0x005BCD30;
+            if (original)
+                Original<void(__thiscall*)(Mem::ListNode*)>(address)(&nodes[1]);
+            else
+                nodes[1].UnlinkAs(vtable);
+            for (Mem::ListNode& n : nodes) {
+                trace.push_back(reinterpret_cast<uint32_t>(n.vtable));
+                trace.push_back(static_cast<uint32_t>(n.next - nodes));
+                trace.push_back(static_cast<uint32_t>(n.prev - nodes));
+            }
+        }
+        static McOwnedStandIn owned;
+        static void* ownedVtable[1];
+        auto destroy = &McOwnedStandIn::Destroy;
+        std::memcpy(&ownedVtable[0], &destroy, sizeof(void*));
+        owned = {ownedVtable, 0};
+        for (unsigned int flags : {0u, 1u}) {
+            auto* holder = static_cast<void**>(Mem::Calloc(8));
+            holder[1] = flags ? &owned : nullptr;
+            void* result = original ? Original<void*(__thiscall*)(void*, unsigned int)>(0x005BCD00)(holder, flags)
+                                    : Mem::DestroyOwner(holder, flags);
+            trace.push_back(relocate(reinterpret_cast<uint32_t>(result)));
+            trace.push_back(static_cast<uint32_t>(owned.destroyed));
+        }
+        static uint8_t regionBytes[0x18];
+        std::memset(regionBytes, 0xEE, sizeof(regionBytes));
+        if (original)
+            Original<void(__thiscall*)(void*)>(0x005BC4D0)(regionBytes);
+        else
+            reinterpret_cast<Region*>(regionBytes)->DestroyBody();
+        trace.insert(trace.end(), reinterpret_cast<uint32_t*>(regionBytes), reinterpret_cast<uint32_t*>(regionBytes + 0x18));
+        GameVariable<uint32_t>(0x007D1808) = 0x11112222;
+        GameVariable<uint32_t>(0x007D180C) = 0x33334444;
+        for (int i = 0; i < 2; ++i) // (only 2 pools: past them is the path buffer)
+            trace.push_back(reinterpret_cast<uint32_t>(original ? Original<Mem::Pool*(__cdecl*)(int)>(0x005BC3B0)(i)
+                                                                : Mem::PoolManager::GetPool(i)));
+        // The folded stubs (source only: the originals are what runs in the game).
+        trace.push_back(original ? Original<bool(__cdecl*)()>(0x005B9760)() : Stubs::ReturnTrue());
+        trace.push_back(original ? Original<bool(__cdecl*)()>(0x005B6570)() : Stubs::ReturnTrue());
+        trace.push_back(original ? Original<bool(__cdecl*)()>(0x005B9E50)() : Stubs::ReturnFalse());
+        trace.push_back(static_cast<uint32_t>(original ? Original<int(__cdecl*)()>(0x005BA1D0)() : Stubs::ReturnZero()));
+        if (original)
+            Original<void(__stdcall*)(int)>(0x005BAB90)(5);
+        else
+            Stubs::IgnoreArgument(5);
+
+        for (uint32_t& word : trace)
+            word = relocate(word);
+        std::vector<uint32_t> image(sizeof(arenas[0]) / 4);
+        std::memcpy(image.data(), arena, sizeof(arenas[0]));
+        for (uint32_t& word : image)
+            word = relocate(word);
+        trace.insert(trace.end(), image.begin(), image.end());
+        // (after the arena is taken: it allocates in it)
+        // The directory listing (ours only), against Windows.
+        if (!original) {
+            Mc::File list = {};
+            list.m_node.next = list.m_node.prev = &list.m_node;
+            bool ok = card->GetFileList("*.sav", &list);
+            std::vector<std::string> got, want;
+            for (Mem::ListNode* n = list.m_node.next; n != &list.m_node; n = n->next) {
+                auto* f = reinterpret_cast<F>(n);
+                char line[128];
+                std::snprintf(line, sizeof(line), "%s %u %u-%u-%u %u:%u:%u %p", f->m_name, f->m_size, f->m_year,
+                              f->m_month, f->m_day, f->m_hour, f->m_minute, f->m_second, f->m_handle);
+                got.push_back(line);
+            }
+            WIN32_FIND_DATAA found;
+            HANDLE search = FindFirstFileA("Save\\*.sav", &found);
+            do {
+                if (found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+                    continue;
+                FILETIME local;
+                SYSTEMTIME t;
+                FileTimeToLocalFileTime(&found.ftLastWriteTime, &local);
+                FileTimeToSystemTime(&local, &t);
+                char line[128];
+                std::snprintf(line, sizeof(line), "%s %u %u-%u-%u %u:%u:%u %p", found.cFileName, found.nFileSizeLow,
+                              t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute, t.wSecond, nullptr);
+                want.push_back(line);
+            } while (FindNextFileA(search, &found));
+            FindClose(search);
+            Check(ok && got == want && got.size() >= 3, "memory cards: directory listing (ours vs Windows)");
+        }
+        GameVariable<void*>(0x007D1800) = nullptr;
+        SetCurrentDirectoryA(oldDirectory);
+        return trace;
+    };
+    std::vector<uint32_t> expected = run(true);
+    std::vector<uint32_t> actual = run(false);
+    SetCurrentDirectoryA(oldDirectory);
+    removeFolder();
+    for (Saved& s : saved)
+        std::memcpy(reinterpret_cast<void*>(s.address), s.bytes.data(), s.size);
+    Check(expected == actual, "memory cards: files, manager, nodes, stubs");
+    // (free space: the same disk moments apart - within 1024 blocks)
+    Check(blocks[0].size() == 2 && blocks[1].size() == 2 && blocks[0][0] == 0 && blocks[1][0] == 0 &&
+              (blocks[0][1] > blocks[1][1] ? blocks[0][1] - blocks[1][1] : blocks[1][1] - blocks[0][1]) < 1024,
+          "memory cards: free space");
+    if (expected.size() != actual.size())
+        Log("  memory card trace sizes: original %u ours %u", static_cast<unsigned>(expected.size()),
+            static_cast<unsigned>(actual.size()));
+    for (size_t i = 0, shown = 0; i < expected.size() && i < actual.size() && shown < 8; ++i) {
+        if (expected[i] != actual[i]) {
+            Log("  memory card entry %u: original %08X ours %08X", static_cast<unsigned>(i), expected[i], actual[i]);
+            ++shown;
+        }
+    }
+}
+
 // --- late self-tests ----------------------------------------------------------------------------------
 
 // The table's contents as (bucket, position in chain, key, value), so tables with different item addresses
@@ -6919,6 +7239,7 @@ SELFTEST(Early, TestScriptTokens);
 SELFTEST(Early, TestScriptSymbolBookkeeping);
 SELFTEST(Early, TestScriptParser);
 SELFTEST(Early, TestScriptLoading);
+SELFTEST(Early, TestMemoryCards);
 
 SELFTEST(Late, TestMemoryLate);
 SELFTEST(Late, TestStringLate);

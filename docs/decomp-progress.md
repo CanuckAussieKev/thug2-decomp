@@ -457,6 +457,29 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       cache. The tests had the cache off; they now use a stand-in cache (an empty hash table), and the old
       call crashes TestScriptLoading at 0x475FD6. Debug builds now also log debug-CRT reports and run-time
       check failures (with a call stack) to thug2-decomp.log before showing the usual dialog.
+- [x] Batch 47 (NOT run in the game yet; early test passes offline): the rest of the file-system block
+      except the input-device code. PC memory cards (src/game/mc/memcard.*): saves are Win32 files under
+      Save\. Mc::Manager (0x90 bytes: slots[4][2] {port, slot}, the one Card at +0x80) - Init 0x5BC8D0,
+      GetCard 0x5BC730 (any port/slot), CreateManager 0x5BC900 / ReleaseManager 0x5BC950 (instance 0x7D1890,
+      references 0x7D1894; Calloc on the default heap); Mc::Card - Open 0x5BC9B0 (thiscall, 3 args; mode 1
+      read / 2 write / 3 both on existing files, 4 a new file, 6 write created if needed, 5 nothing; '/' ->
+      '' into the path buffer 0x7D1810; no sharing), RemoveFile 0x5BC770 (DeleteFileA), ConvertFilename
+      0x5BC740 (a copy in 0x7D1898), GetFreeBlocks 0x5BC790 (16 KB blocks), GetFileList 0x5BCAE0 ("Save      pattern", non-directories appended with local date/time and size), AlwaysTrue 0x5BC7F0 (folded);
+      Mc::File (0x94: a Lst::Node, name +0x14, second..year +0x3C-0x42, size +0x44, handle +0x8C, card
+      +0x90) - Seek 0x5BC800, Flush 0x5BC840, Write 0x5BC850, Read 0x5BC880, Close 0x5BC8B0. Also: node
+      destructors for two more node types 0x5BC990 / 0x5BCD30 (ListNode::UnlinkAs), the owner destructor
+      0x5BCD00 (Mem::DestroyOwner), Region::DestroyBody 0x5BC4D0, PoolManager::GetPool 0x5BC3B0 (only pools
+      0 and 1 exist: past them is the path buffer). Source only (REPLACE_SOURCE_ONLY, new this batch - the
+      game is to be built from source, so nothing is skipped): the folded stubs ReturnTrue 0x5B9760 (+ its
+      jump 0x5B6570), ReturnFalse 0x5B9E50, ReturnZero 0x5BA1D0, IgnoreArgument 0x5BAB90 (src/game/core/
+      stubs.*), and the jumps 0x5B9DF0 (-> AsyncInit) / 0x5BA590 (-> Allocator::DestroyBody). 27 functions.
+      Early test: in a scratch folder (never the game's Save\), every open mode, reads/writes/seeks/flush/
+      close (also failing ones), a second open of an open file, deletes, the converted path, the manager's
+      references after each create/release, the node/owner/region destructors, the pool lookup, the stubs;
+      original vs ours (handles cleared before comparing). The listing's original uses the game's sprintf
+      (can't run offline): ours is checked against what Windows lists. 28 deliberate bugs caught (7 after
+      strengthening the test). Left in the block: the input-device code 0x5BCC60-0x5BDA20 (PartyMod
+      reworks input - read its source first).
 - [ ] Next: the pre-compiled .qb format (0x46FBA0, 0x46CA50, 0x46C970, 0x46C830, 0x46C7F0, ...), the script
       cache (0x475FD0 ...), then CScript (0x472900.. / 0x473000..).
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function

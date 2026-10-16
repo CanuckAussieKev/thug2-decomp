@@ -43,6 +43,8 @@ void SetUp(int index, int count);
 void* CreateItem(int index);
 // Give an item back to wherever CreateItem got it.
 void FreeItem(int index, void* item);
+// Pool `index` (null if there isn't one).
+Pool* GetPool(int index);
 
 } // namespace PoolManager
 

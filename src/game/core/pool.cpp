@@ -88,6 +88,12 @@ void* CreateItem(int index)
     return New(index == 0 ? 12 : 0);
 }
 
+// 0x005BC3B0
+Pool* GetPool(int index)
+{
+    return PoolAt(index);
+}
+
 // 0x005BC4A0
 void FreeItem(int index, void* item)
 {
@@ -138,3 +144,4 @@ REPLACE(0x005BA420, &PoolAdapter::Construct);
 REPLACE(0x005BC3C0, Mem::PoolManager::SetUp);
 REPLACE(0x005BC450, Mem::PoolManager::CreateItem);
 REPLACE(0x005BC4A0, Mem::PoolManager::FreeItem);
+REPLACE(0x005BC3B0, Mem::PoolManager::GetPool);
