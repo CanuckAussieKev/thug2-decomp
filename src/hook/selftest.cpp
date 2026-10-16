@@ -1,4 +1,5 @@
 #include "game/script/eval.h"
+#include "game/script/load.h"
 #include "game/script/names.h"
 #include "game/script/parse.h"
 #include "game/script/qb.h"
@@ -5636,6 +5637,321 @@ void TestScriptParser()
     }
 }
 
+alignas(16) uint8_t g_load_arenas[2][0x80000];
+
+const uint8_t* CallParseSymbolDefinitionRegisters(void* code, const uint8_t* token, uint32_t symbolName,
+                                                  const char* fileName)
+{
+    const uint8_t* result;
+    __asm {
+        mov ecx, token
+        push fileName
+        push symbolName
+        call code
+        add esp, 8
+        mov result, eax
+    }
+    return result;
+}
+void* CallCreateScriptSymbolRegisters(void* code, uint32_t scriptSize, const uint8_t* scriptCode, uint32_t symbolName,
+                                      uint32_t checksum, const char* fileName)
+{
+    void* result;
+    __asm {
+        push ebx
+        mov eax, scriptSize
+        mov ebx, scriptCode
+        push fileName
+        push checksum
+        push symbolName
+        call code
+        add esp, 12
+        pop ebx
+        mov result, eax
+    }
+    return result;
+}
+
+// Loading .qb files: defining every kind of symbol and compressed scripts, the checksum-name pre-scan (both
+// tables), debug sections (with checksum names off and on), redefinitions (plain, temporary + pending, an
+// unchanged script), restarting changed scripts, and the two register entry points - original vs ours.
+uint8_t __cdecl LoadingFileProbe(Script::CStruct*, Script::CScript*)
+{
+    return static_cast<uint8_t>(GameVariable<uint32_t>(0x006F2364) * 7 + 1);
+}
+
+void TestScriptLoading()
+{
+    using namespace Script;
+    using Mem::Heap;
+    using Mem::Manager;
+    using Mem::Region;
+    if (GameVariable<void*>(0x007D1800)) {
+        Log("self-test: TestScriptLoading skipped (the memory manager is already set up)");
+        return;
+    }
+    struct Saved {
+        uint32_t address;
+        uint32_t size;
+        std::vector<uint8_t> bytes;
+    };
+    std::vector<Saved> saved = {{0x006F2370, 0x200, {}}, {0x006F2568, 16, {}}, {0x006F2348, 16, {}},
+                                {0x006F2358, 16, {}},    {0x006F2578, 16, {}}, {0x006F3530, 4, {}},
+                                {0x006F3538, 4, {}},     {0x00690FC8, 24, {}}, {0x007CC979, 1, {}},
+                                {0x006F3570, 24, {}},    {0x006F2338, 16, {}}, {0x006F3614, 16, {}},
+                                {0x006F22B4, 16, {}},    {0x006F3644, 16, {}}, {0x006F3654, 16, {}},
+                                {0x006F362C, 16, {}},    {0x006F3528, 4, {}},  {0x006F2588, 0x80, {}},
+                                {0x006F3558, 4, {}},     {0x006F232C, 12, {}}, {0x007CEFAC, 1, {}},
+                                {0x006F363C, 8, {}}};
+    for (Saved& s : saved) {
+        s.bytes.resize(s.size);
+        std::memcpy(s.bytes.data(), reinterpret_cast<void*>(s.address), s.size);
+    }
+    g_saved_symbol_table = GameVariable<CSymbolTableEntry**>(0x006F3624);
+    g_symbol_table_swapped = true;
+    static CSymbolTableEntry* table[0x1000];
+    GameVariable<CSymbolTableEntry**>(0x006F3624) = table;
+    std::vector<uint8_t> nameTable(0x500000);
+    std::vector<char> nameBlock(0x4000);
+
+    // The .qb files.
+    auto scriptBody = [](QbBuilder& b, int variant, bool compressible) {
+        b.eol().name(0xF100).assign(0xF101).integer(variant).eol();
+        for (int i = 0; i < (compressible ? 30 : 1); ++i)
+            b.name(0xF102).assign(0xF103).integer(1).eol();
+        b.u8(0x24).line(9);
+    };
+    auto file = [&](int variant) {
+        QbBuilder b;
+        // (checksum names: the checksum, then the text)
+        b.u8(0x2B).u32(0xD001);
+        for (const char* c = "first_name"; *c; ++c)
+            b.u8(static_cast<uint8_t>(*c));
+        b.u8(0);
+        b.u8(0x2B).u32(0xD002);
+        for (const char* c = "second"; *c; ++c)
+            b.u8(static_cast<uint8_t>(*c));
+        b.u8(0);
+        b.eol().line(1);
+        b.name(0xD010).eol().u8(0x07).integer(variant).eol();
+        b.name(0xD011).u8(0x07).real(1.5f).line(2);
+        b.name(0xD012).u8(0x07).string("text").eol();
+        b.name(0xD013).u8(0x07).local("loc").eol();
+        b.name(0xD014).u8(0x07).vector(1, 2, 3).eol();
+        b.name(0xD015).u8(0x07).pair(4, 5).eol();
+        b.name(0xD016).u8(0x07).name(0xD010).eol();
+        b.name(0xD017).u8(0x07).u8(0x03).assign(0xE001).integer(variant).name(0xE002).u8(0x04).eol();
+        b.name(0xD018).u8(0x07).u8(0x05).integer(1).integer(variant).u8(0x06).eol();
+        b.name(0xD019).u8(0x07).u8(0x0E).integer(2).u8(0x0B).integer(variant).u8(0x0F).eol();
+        b.script(0xD020);
+        scriptBody(b, 1, true);   // the same each time
+        b.script(0xD021);
+        scriptBody(b, variant, true);
+        b.script(0xD022);
+        scriptBody(b, variant, false); // too small to compress
+        b.u8(0x45).u8(0x16).u32(0x70CB0238).eol(); // a debug section
+        b.name(0xD030).u8(0x07).integer(30).eol();
+        b.script(0xD031);
+        scriptBody(b, variant, false);
+        b.u8(0x45).u8(0x16).u32(0x0FA33D9B).eol(); // its end
+        b.name(0xD032).u8(0x07).string("after").eol();
+        b.name(0xD050 + static_cast<uint32_t>(variant)).u8(0x07).integer(variant).eol(); // new in each file
+        b.script(0xD060 + static_cast<uint32_t>(variant));
+        scriptBody(b, variant, false);
+        b.name(0xD040).u8(0x07).u8(0x0E).name(0xD0F0).u8(0x0F).eol(); // calls a C function while loading
+        b.u8(0x2B).u32(0xD003);
+        b.u8('x').u8(0);
+        b.eol().u8(0x00);
+        return b;
+    };
+    QbBuilder files[3] = {file(1), file(2), file(3)};
+
+    static const uint32_t kLoaderFunctions[] = {0x00472420, 0x00472240, 0x0046FE40, 0x0046ED20,
+                                                0x0046ED90, 0x00472C50};
+    alignas(4) static uint8_t scripts[3][0x100];
+    static uint32_t frames[2][0x30 / 4];
+
+    auto run = [&](bool original) {
+        std::vector<uint32_t> trace;
+        for (Saved& s : saved) {
+            if (s.address != 0x006F2370)
+                std::memset(reinterpret_cast<void*>(s.address), 0, s.size);
+        }
+        GameVariable<bool>(0x007CC979) = true;
+        std::memset(table, 0, sizeof(table));
+        std::memset(nameTable.data(), 0, nameTable.size());
+        std::memset(nameBlock.data(), 0, nameBlock.size());
+        GameVariable<void*>(0x006F232C) = nameTable.data();
+        GameVariable<char*>(0x006F2330) = nameBlock.data();
+        GameVariable<char*>(0x006F2334) = nameBlock.data();
+        uint8_t* arena = g_load_arenas[original ? 0 : 1];
+        std::memset(arena, 0, sizeof(g_load_arenas[0]));
+        std::memset(arena + 0x1000, 0xCD, sizeof(g_load_arenas[0]) - 0x1000);
+        auto* manager = reinterpret_cast<Manager*>(arena);
+        GameVariable<void*>(0x007D1800) = manager;
+        auto* region = new (arena + 0x600) Region(arena + 0x1000, arena + 0x60000);
+        auto* heap = new (arena + 0x620) Heap(region, 1, "script");
+        auto* debugRegion = new (arena + 0x6C0) Region(arena + 0x60000, arena + sizeof(g_load_arenas[0]));
+        auto* debugHeap = new (arena + 0x6E0) Heap(debugRegion, 1, "debug");
+        manager->m_heaps[0] = heap;
+        manager->m_heaps[1] = debugHeap;
+        manager->m_heapCount = 2;
+        manager->m_scriptHeap = heap;
+        manager->m_debugHeap = debugHeap;
+        manager->m_topDownHeap = heap;
+        manager->PushContext(heap);
+        reinterpret_cast<CExpressionEvaluator*>(0x006F2370)->Init();
+        auto base = reinterpret_cast<uint32_t>(arena);
+        auto relocate = [&](uint32_t word) {
+            return word >= base && word <= base + sizeof(g_load_arenas[0]) ? 0xA0000000u + (word - base) : word;
+        };
+        auto dump = [&] {
+            for (CSymbolTableEntry* s = GetNextSymbol(nullptr); s; s = GetNextSymbol(s)) {
+                trace.push_back(s->name);
+                trace.push_back(s->unknown0);
+                trace.push_back(s->type);
+                trace.push_back(s->unknown8);
+                CComponent c = {};
+                c.typeAndFlag = static_cast<uint8_t>(s->type << 1);
+                c.raw = s->raw;
+                if (s->type == ESYMBOLTYPE_QSCRIPT) {
+                    auto* block = reinterpret_cast<const uint32_t*>(s->raw);
+                    trace.insert(trace.end(), block, block + 3);
+                    for (uint32_t i = 0; i < block[2]; ++i)
+                        trace.push_back(reinterpret_cast<const uint8_t*>(block + 3)[i]);
+                } else {
+                    DescribeComponent(trace, &c, 0);
+                }
+            }
+            trace.push_back(GameVariable<uint32_t>(0x006F3528));
+            trace.push_back(GameVariable<uint32_t>(0x006F2364));
+            for (uint32_t checksum : {0xD001u, 0xD002u, 0xD003u, Crc::GenerateCRCFromString(R"(scripts\second.qb)")}) {
+                const char* name = FindScriptChecksumName(checksum);
+                trace.push_back(name ? static_cast<uint8_t>(name[0]) : 0xFFFFFFFFu);
+                name = FindChecksumName(checksum);
+                trace.push_back(name ? static_cast<uint8_t>(name[0]) : 0xFFFFFFFFu);
+            }
+        };
+
+        // A C function scripts can call while loading: it sees which file is loading.
+        static CSymbolTableEntry probe;
+        probe = {};
+        probe.name = 0xD0F0;
+        probe.type = ESYMBOLTYPE_CFUNCTION;
+        probe.raw = reinterpret_cast<uint32_t>(&LoadingFileProbe);
+        table[0xD0F0 & 0xFFF] = &probe;
+
+        std::vector<OriginalCode*> guards;
+        if (original) {
+            for (uint32_t address : kLoaderFunctions)
+                guards.push_back(new OriginalCode(address));
+        }
+        using ParseQBFn = void(__cdecl*)(const char*, const uint8_t*, int, int, int);
+        auto parse = [&](int which, int useQbNames, int temporary) {
+            const char* name = which == 0 ? "scripts\\first.qb" : which == 1 ? "scripts\\second.qb" : "third.qb";
+            if (original)
+                Original<ParseQBFn>(0x00472420)(name, files[which].bytes.data(), 0, useQbNames, temporary);
+            else
+                ParseQB(name, files[which].bytes.data(), 0, useQbNames, temporary);
+            dump();
+        };
+        parse(0, 0, 0);
+        parse(0, 0, 0);     // again: replaced, the unchanged script kept
+        parse(1, 1, 1);     // temporary
+        ProcessPendingSymbols();
+        dump();
+        // The debug section kept, names recorded (once: adding a known name uses the game's C runtime).
+        GameVariable<bool>(0x007CEFAC) = true;
+        parse(1, 0, 0);
+        GameVariable<bool>(0x007CEFAC) = false;
+        parse(2, 1, 0);
+        if (original)
+            Original<ParseQBFn>(0x0046ED90)("again.qb", files[0].bytes.data(), 0, 0, 0);
+        else
+            LoadQBData("again.qb", files[0].bytes.data(), 0, 0, 0);
+        dump();
+
+        // Restarting: scripts running other scripts only (none restarted), and which scripts refer to what.
+        std::memset(scripts, 0, sizeof(scripts));
+        std::memset(frames, 0, sizeof(frames));
+        for (int i = 0; i < 3; ++i) {
+            *reinterpret_cast<uint8_t**>(scripts[i]) = i < 2 ? scripts[i + 1] : nullptr;
+            *reinterpret_cast<uint32_t*>(scripts[i] + 0xC8) = 0xAAA0u + static_cast<uint32_t>(i);
+            *reinterpret_cast<uint32_t*>(scripts[i] + 0x30) = i;
+            *reinterpret_cast<uint32_t**>(scripts[i] + 0x94) = frames[0];
+        }
+        frames[0][0] = 0xBBB0;
+        frames[1][0] = 0xBBB1;
+        GameVariable<uint8_t*>(0x006F3538) = scripts[0];
+        for (int i = 0; i < 3; ++i) {
+            for (uint32_t name : {0xAAA0u, 0xAAA2u, 0xBBB0u, 0xBBB1u, 0xCCCCu}) {
+                bool refers = original ? Original<bool(__thiscall*)(void*, uint32_t)>(0x00472C50)(scripts[i], name)
+                                       : ScriptRefersTo(reinterpret_cast<CScript*>(scripts[i]), name);
+                trace.push_back(refers ? 1u : 0u);
+            }
+        }
+        if (original)
+            Original<void(__cdecl*)()>(0x0046ED20)();
+        else
+            RestartChangedScripts();
+        GameVariable<uint8_t*>(0x006F3538) = nullptr;
+        dump();
+
+        // The register entry points.
+        {
+            QbBuilder b;
+            b.integer(77).u8(0x03).assign(1).integer(2).u8(0x04).u8(0x05).real(1.0f).u8(0x06).u8(0x0E).integer(3)
+                .u8(0x0F).eol();
+            void* define = original ? OriginalFunction(0x00472240) : reinterpret_cast<void*>(&ParseSymbolDefinitionStub);
+            void* create = original ? OriginalFunction(0x0046FE40) : reinterpret_cast<void*>(&CreateScriptSymbolStub);
+            const uint8_t* p = b.bytes.data();
+            for (uint32_t name : {0xD101u, 0xD102u, 0xD103u, 0xD104u}) {
+                p = CallParseSymbolDefinitionRegisters(define, p, name, "regs.qb");
+                trace.push_back(static_cast<uint32_t>(p - b.bytes.data()));
+            }
+            for (uint32_t size : {4u, 200u}) {
+                std::vector<uint8_t> code(size, 0x01);
+                trace.push_back(relocate(reinterpret_cast<uint32_t>(
+                    CallCreateScriptSymbolRegisters(create, size, code.data(), 0xD110u + size, 0x1234u, "regs.qb"))));
+            }
+            dump();
+        }
+        for (OriginalCode* guard : guards)
+            delete guard;
+
+        for (uint32_t& word : trace)
+            word = relocate(word);
+        std::vector<uint32_t> image(sizeof(g_load_arenas[0]) / 4);
+        std::memcpy(image.data(), arena, sizeof(g_load_arenas[0]));
+        for (uint32_t& word : image) {
+            word = relocate(word);
+            // (uninitialised 16-bit fields - a symbol's unknown2 - can hold the top half of a stale pointer
+            // into this run's arena)
+            uint32_t high = word >> 16;
+            if (high >= (base >> 16) && high <= ((base + sizeof(g_load_arenas[0])) >> 16))
+                word = (word & 0xFFFF) | ((0xA000u + high - (base >> 16)) << 16);
+        }
+        trace.insert(trace.end(), image.begin(), image.end());
+        GameVariable<void*>(0x007D1800) = nullptr;
+        return trace;
+    };
+    std::vector<uint32_t> expected = run(true);
+    std::vector<uint32_t> actual = run(false);
+    for (Saved& s : saved)
+        std::memcpy(reinterpret_cast<void*>(s.address), s.bytes.data(), s.size);
+    RestoreSymbolTable();
+    Check(expected == actual, "script loading: .qb files, redefinitions, restarts");
+    if (expected.size() != actual.size())
+        Log("  loading trace sizes: original %u ours %u", static_cast<unsigned>(expected.size()),
+            static_cast<unsigned>(actual.size()));
+    for (size_t i = 0, shown = 0; i < expected.size() && i < actual.size() && shown < 8; ++i) {
+        if (expected[i] != actual[i]) {
+            Log("  loading entry %u: original %08X ours %08X", static_cast<unsigned>(i), expected[i], actual[i]);
+            ++shown;
+        }
+    }
+}
+
 // --- late self-tests ----------------------------------------------------------------------------------
 
 // The table's contents as (bucket, position in chain, key, value), so tables with different item addresses
@@ -6586,6 +6902,7 @@ SELFTEST(Late, TestScriptChecksumNamesLate);
 SELFTEST(Early, TestScriptTokens);
 SELFTEST(Early, TestScriptSymbolBookkeeping);
 SELFTEST(Early, TestScriptParser);
+SELFTEST(Early, TestScriptLoading);
 
 SELFTEST(Late, TestMemoryLate);
 SELFTEST(Late, TestStringLate);

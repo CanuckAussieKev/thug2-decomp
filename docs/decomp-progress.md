@@ -424,9 +424,28 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       the stored randoms and the arena compared. 41 deliberate bugs: 40 caught (6 by hanging, 14 after
       adding cases), 1 equivalent to the original (the 0.1 vs 0.5 nudge can't change a result).
 - [x] Batches 44-45 tested in the game (2026-10-16, by the user): game runs.
-- [ ] Next: the symbol-definition parser 0x472240, the .qb file parser 0x472420, CreateScriptSymbol
-      0x46FE40 (register arguments), LoadQB 0x46EDE0 / 0x46ED90; the pre-compiled format (0x46CA50, 0x46C970,
-      0x46C830, ...); then CScript.
+- [x] Batch 46 (NOT run in the game yet; early test passes offline): loading .qb files (src/game/script/
+      load.*). ParseQB 0x472420 (filename, data, unused, useQbNames, temporary): frees the .qb name table
+      (and makes a new one with useQbNames), pre-scans the checksum names (0x2B), records the file's own name
+      and sets the loading-file checksum 0x6F2364; then on the script heap defines each "name = value" and
+      each script, replacing old definitions (temporary: the old symbol set aside and new symbols listed for
+      ProcessPendingSymbols to undo); an unchanged script (same checksum) is kept; 0x45 section markers
+      0x70CB0238 / 0x0FA33D9B bracket a debug section (on the debug heap while checksum names are kept, else
+      skipped). ParseSymbolDefinition 0x472240 (ECX token, name and file name on the stack, caller pops: stub)
+      and CreateScriptSymbol 0x46FE40 (EAX size, EBX code, three caller-popped arguments: stub; scripts are
+      stored as {checksum, size, stored size, code}, LZSS-compressed when that's smaller, built in a 20000-byte
+      buffer). RestartChangedScripts 0x46ED20 (symbols' byte-0 bit 0 = new; restarts the scripts running or
+      calling a new script - CScript::Restart 0x4747F0 is still the game's), ScriptRefersTo 0x472C50 (a
+      CScript's current script +0xC8, call depth +0x30, frames +0x94 of 0x30 bytes), LoadQBData 0x46ED90,
+      LoadQB 0x46EDE0 (pre-compiled files - extension from 0x5B6040 - still go to the game's 0x46FBA0; others
+      are loaded on the top-down heap, parsed and unloaded). 7 functions (2 with stubs). Early test: three
+      generated .qb files (every definition kind, compressible and incompressible scripts, debug sections
+      with names off and on, names new in each file, a C function called while loading) through seven
+      loads (plain, again, temporary + pending, names on, useQbNames, LoadQBData), ScriptRefersTo and the
+      restart pass over fake scripts, and both stubs - original vs ours in a 512 KB arena. 24 deliberate bugs
+      caught (4 after adding cases). LoadQB itself (files, pre-compiled format) is only run by the game.
+- [ ] Next: the pre-compiled .qb format (0x46FBA0, 0x46CA50, 0x46C970, 0x46C830, 0x46C7F0, ...), the script
+      cache (0x475FD0 ...), then CScript (0x472900.. / 0x473000..).
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
       for original callers that read ECX/EDX after the call without writing them first (ignoring push-to-reserve,
       lea reg,[reg], or reg,-1 and zeroing idioms; callers that are themselves replaced count as safe).
