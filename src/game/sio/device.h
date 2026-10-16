@@ -3,9 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace Mem {
-struct ListNode;
-}
+#include "game/core/alloc.h"
 
 // Serial I/O: the controller ports. A Device per port polls its pad (on PC: a DirectInput joystick, or the
 // keyboard bindings) into PS2-format control data, and drives its two vibration motors ("actuators").
@@ -98,8 +96,43 @@ int GetKeyboardChars(char* out);
 // 0x005BDE20 (also through 0x005BCC50): forget them.
 void ClearKeyboardChars();
 
-// The device manager: one, shared (reference counted).
-class Manager;
+// 0x005BDE70: a typed key (a character, or a control key: Enter, Backspace, Escape...) from the window's
+// messages, queued for GetKeyboardChars while the keyboard is in use for typing. `flags` is the message's
+// lParam (bit 30: auto-repeat; negative: a key release). PartyMod calls it for SDL's text input.
+void KeyInput(int key, int flags);
+
+// The device manager (0x1C bytes, vtable 0x00658AD4): a device per controller port, processed by a task
+// once a frame. One, shared (reference counted).
+class Manager {
+public:
+    // 0x005BE1F0: the task (not started here) and a device for ports 0 and 1, each acquiring.
+    Manager();
+    // 0x005BE300: deletes the devices and the task.
+    void DestroyBody();
+    // 0x005BE6C0: the scalar deleting destructor.
+    Manager* Destroy(unsigned int flags);
+
+    // 0x005BE3F0: process each device (the first is told so).
+    void ProcessDevices();
+    // 0x005BE490 / 0x005BE4F0: the device on that port and slot / with that index (null if none).
+    Device* GetDevice(int port, int slot);
+    Device* GetDeviceByIndex(int index);
+    // 0x005BE550 / 0x005BE5E0: pause / unpause every device's motors.
+    void PauseDevices();
+    void UnpauseDevices();
+
+    void** m_vtable;
+    Mem::ListNode m_devices; // the list's head
+    void* m_task;            // Tsk::Task running ProcessTask with the list as its data
+};
+static_assert(offsetof(Manager, m_task) == 0x18 && sizeof(Manager) == 0x1C, "layout must match the original");
+
+// 0x005BE110: the scalar deleting destructor of a device's list node (Lst::Node<Device>, vtable 0x00658A70).
+Mem::ListNode* DestroyDeviceNode(Mem::ListNode* node, unsigned int flags);
+
+// 0x005BE140: the manager's task - processes each device in the list it was given.
+void __cdecl ProcessTask(void* task);
+
 // 0x005BE670: the manager, made on first use when `create` (counts a reference either way); returns it
 // (null if there is none).
 Manager* CreateManager(bool create);
@@ -108,19 +141,3 @@ void ReleaseManager();
 Manager*& ManagerInstance();
 
 } // namespace Sio
-
-namespace Spt {
-
-// The base of the engine's singletons and other classes with a virtual destructor (vtable 0x00658AA4).
-// Assumed to be Neversoft's Spt::Class.
-class Class {
-public:
-    // 0x005BDE30: the destructor (only resets the vtable).
-    void DestroyBody();
-    // 0x005BDE40: the scalar deleting destructor.
-    Class* Destroy(unsigned int flags);
-
-    void** m_vtable;
-};
-
-} // namespace Spt

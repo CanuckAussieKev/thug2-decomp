@@ -13,6 +13,8 @@
 #include "game/core/alloc.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/core/stubs.h"
+#include "game/lst/search.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -258,12 +260,189 @@ namespace {
 uint32_t& ManagerReferences() { return GameVariable<uint32_t>(0x007D1E24); }
 } // namespace
 
-// 0x005BE670 (the manager's constructor, 0x005BE1F0, isn't rewritten yet)
+// 0x005BE110: the device list node's scalar deleting destructor
+Mem::ListNode* DestroyDeviceNode(Mem::ListNode* node, unsigned int flags)
+{
+    node->UnlinkAs(reinterpret_cast<void**>(0x00658A70));
+    if (flags & 1)
+        Mem::Manager::Get()->Free(node);
+    return node;
+}
+
+// --- typed keys -------------------------------------------------------------------------------------------
+
+namespace {
+// Whether typed keys are wanted: the keyboard is being typed on (0x007CE46E), or text entry is on
+// (0x007CCDF8) outside a menu (0x007CE46F). PartyMod sets the last two for its text input.
+bool& KeyboardTyping() { return GameVariable<bool>(0x007CE46E); }
+bool& TextEntry() { return GameVariable<bool>(0x007CCDF8); }
+bool& InMenu() { return GameVariable<bool>(0x007CE46F); }
+} // namespace
+
+// 0x005BDE70
+void KeyInput(int key, int flags)
+{
+    if (!KeyboardTyping() && (!TextEntry() || InMenu()))
+        return;
+    if (flags < 0)
+        return;
+    bool queue = true;
+    switch (key) {
+    case '\r': key = 0x19; break; // Enter
+    case '\b': key = 0x18; break; // Backspace
+    case 0x1B:                    // Escape (not its auto-repeats)
+        if (flags & 0x40000000)
+            queue = false;
+        else
+            key = 0x1A;
+        break;
+    case ';': key = ':'; break;
+    // (not typeable in the game's fonts)
+    case -1: case '%': case '~': case '\\': case '|': case '[': case ']': case '}': case '"':
+        queue = false;
+        break;
+    default: break;
+    }
+    if (queue)
+        KeyboardChars()[KeyboardCharCount()++] = key;
+    if (KeyboardCharCount() == 16)
+        KeyboardCharCount() = 15; // (full: the last one is overwritten)
+}
+
+// --- the manager -------------------------------------------------------------------------------------------
+
+namespace {
+void** const kManagerVtable = reinterpret_cast<void**>(0x00658AD4);
+
+// Not rewritten yet: whether 0x00450D60 / 0x00450420 (set up / shut down a network-related block of player
+// state) are skipped.
+bool SkipPlayerStateSetup() { return GameFunction<bool(__cdecl*)()>(0x004505F0)(); }
+} // namespace
+
+// 0x005BE1F0
+Manager::Manager()
+{
+    m_vtable = kManagerVtable;
+    m_devices.data = reinterpret_cast<void*>(-1);
+    m_devices.priority = 0;
+    m_devices.next = &m_devices;
+    m_devices.prev = &m_devices;
+    m_devices.vtable = reinterpret_cast<void**>(0x00658A70);
+    auto* task = static_cast<uint32_t*>(Mem::Calloc(0x20));
+    if (task) {
+        GameFunction<void*(__thiscall*)(void*, int)>(0x00406890)(task, 0); // Tsk::BaseTask(priority 0)
+        task[0] = 0x006476F0;                                             // Tsk::Task<Lst::Head<Device>>
+        task[6] = reinterpret_cast<uint32_t>(&ProcessTask);
+        task[7] = reinterpret_cast<uint32_t>(&m_devices);
+    }
+    m_task = task;
+    int index = 0;
+    for (int port = 0; port < 2; ++port) {
+        void* memory = Mem::Calloc(sizeof(Device));
+        Device* device = memory ? new (memory) Device(index, port, 0) : nullptr;
+        if (!device)
+            continue;
+        Mem::ListNode* node = device->m_node; // onto the end of the list
+        node->prev = m_devices.prev;
+        node->next = &m_devices;
+        m_devices.prev->next = node;
+        m_devices.prev = node;
+        device->Acquire();
+        ++index;
+    }
+    if (!SkipPlayerStateSetup())
+        GameFunction<void(__cdecl*)()>(0x00450D60)();
+}
+
+// 0x005BE300
+void Manager::DestroyBody()
+{
+    m_vtable = kManagerVtable;
+    Lst::Search<Device> search;
+    for (Device* device = search.FirstItem(&m_devices); device;) {
+        Device* next = search.NextItem();
+        reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>(device->m_vtable[0])(device, 1);
+        device = next;
+    }
+    if (auto* task = static_cast<void***>(m_task))
+        reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>((*task)[2])(task, 1);
+    Stubs::ReturnZero(); // (a folded empty function - compiled-out code)
+    if (!SkipPlayerStateSetup())
+        GameFunction<void(__cdecl*)()>(0x00450420)();
+    m_devices.UnlinkAs(reinterpret_cast<void**>(0x00658A70));
+}
+
+// 0x005BE6C0
+Manager* Manager::Destroy(unsigned int flags)
+{
+    DestroyBody();
+    if (flags & 1)
+        Mem::Manager::Get()->Free(this);
+    return this;
+}
+
+namespace {
+void ProcessAll(Mem::ListNode* devices)
+{
+    Lst::Search<Device> search;
+    bool first = true;
+    for (Device* device = search.FirstItem(devices); device; device = search.NextItem()) {
+        device->Process(first);
+        first = false;
+    }
+}
+} // namespace
+
+// 0x005BE140
+void __cdecl ProcessTask(void* task) { ProcessAll(static_cast<Mem::ListNode*>(static_cast<void**>(task)[7])); }
+
+// 0x005BE3F0
+void Manager::ProcessDevices() { ProcessAll(&m_devices); }
+
+// 0x005BE490
+Device* Manager::GetDevice(int port, int slot)
+{
+    Lst::Search<Device> search;
+    for (Device* device = search.FirstItem(&m_devices); device; device = search.NextItem()) {
+        if (device->m_port == port && device->m_slot == slot)
+            return device;
+    }
+    return nullptr;
+}
+
+// 0x005BE4F0
+Device* Manager::GetDeviceByIndex(int index)
+{
+    Lst::Search<Device> search;
+    for (Device* device = search.FirstItem(&m_devices); device; device = search.NextItem()) {
+        if (device->m_index == index)
+            return device;
+    }
+    return nullptr;
+}
+
+// 0x005BE550
+void Manager::PauseDevices()
+{
+    Lst::Search<Device> search;
+    for (Device* device = search.FirstItem(&m_devices); device; device = search.NextItem())
+        device->PauseActuators();
+}
+
+// 0x005BE5E0
+void Manager::UnpauseDevices()
+{
+    Lst::Search<Device> search;
+    for (Device* device = search.FirstItem(&m_devices); device; device = search.NextItem())
+        device->UnpauseActuators();
+}
+
+// 0x005BE670
 Manager* CreateManager(bool create)
 {
     if (!ManagerInstance() && create) {
         if (void* memory = Mem::Calloc(0x1C, nullptr, 1)) {
-            ManagerInstance() = GameFunction<Manager*(__thiscall*)(void*)>(0x005BE1F0)(memory);
+            ManagerInstance() = new (memory) Manager();
             ++ManagerReferences();
             return ManagerInstance();
         }
@@ -290,26 +469,12 @@ void ReleaseManager()
 
 } // namespace Sio
 
-namespace Spt {
-
-// 0x005BDE30
-void Class::DestroyBody() { m_vtable = reinterpret_cast<void**>(0x00658AA4); }
-
-// 0x005BDE40
-Class* Class::Destroy(unsigned int flags)
-{
-    m_vtable = reinterpret_cast<void**>(0x00658AA4);
-    if (flags & 1)
-        Mem::Manager::Get()->Free(this);
-    return this;
-}
-
-} // namespace Spt
-
 namespace {
 
 struct DeviceAdapter {
     Sio::Device* Construct(int index, int port, int slot) { return new (this) Sio::Device(index, port, slot); }
+    Sio::Manager* ConstructManager() { return new (this) Sio::Manager(); }
+    Mem::ListNode* DestroyNode(unsigned int flags) { return Sio::DestroyDeviceNode(reinterpret_cast<Mem::ListNode*>(this), flags); }
 };
 
 } // namespace
@@ -335,5 +500,14 @@ REPLACE(0x005BDE20, Sio::ClearKeyboardChars);
 REPLACE_SOURCE_ONLY(0x005BCC50, Sio::ClearKeyboardChars); // a jump to 0x005BDE20
 REPLACE(0x005BE670, Sio::CreateManager);
 REPLACE(0x005BDCF0, Sio::ReleaseManager);
-REPLACE(0x005BDE30, &Spt::Class::DestroyBody);
-REPLACE(0x005BDE40, &Spt::Class::Destroy);
+REPLACE(0x005BDE70, Sio::KeyInput);
+REPLACE(0x005BE1F0, &DeviceAdapter::ConstructManager);
+REPLACE(0x005BE300, &Sio::Manager::DestroyBody);
+REPLACE(0x005BE6C0, &Sio::Manager::Destroy);
+REPLACE(0x005BE140, Sio::ProcessTask);
+REPLACE(0x005BE3F0, &Sio::Manager::ProcessDevices);
+REPLACE(0x005BE490, &Sio::Manager::GetDevice);
+REPLACE(0x005BE4F0, &Sio::Manager::GetDeviceByIndex);
+REPLACE(0x005BE550, &Sio::Manager::PauseDevices);
+REPLACE(0x005BE5E0, &Sio::Manager::UnpauseDevices);
+REPLACE(0x005BE110, &DeviceAdapter::DestroyNode);

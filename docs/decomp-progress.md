@@ -526,13 +526,13 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       (DirectInput state double buffer at 0x7D1C20, re-acquires when lost), GetKeyboardChars 0x5BDD30 /
       ClearKeyboardChars 0x5BDE20 (+ their jumps 0x5BCC40 / 0x5BCC50). The manager singleton (0x7D1E20,
       references 0x7D1E24): CreateManager 0x5BE670 (returns the instance - two callers use it; its constructor
-      0x5BE1F0 is next batch), ReleaseManager 0x5BDCF0. Spt::Class (assumed: the singletons' base, vtable
-      0x658AA4) destructors 0x5BDE30 / 0x5BDE40. Also the jump 0x48C1B0 -> 0x5480A0. 25 functions.
+      0x5BE1F0 is next batch), ReleaseManager 0x5BDCF0. The destructors 0x5BDE30 / 0x5BDE40 (first named
+      Spt::Class; batch 50 found they're Lst::Search's - vtable 0x658AA4 is the list iterator's). Also the jump 0x48C1B0 -> 0x5480A0. 25 functions.
       Early test: every method over states x capabilities x motor counts x pause depths x pad present or not,
       motors traced through stand-in DirectInput force-feedback effects (0x7D6668; per-port scales at
       0x7D42D0 set - zero offline, they hid the levels), the keyboard through a stand-in DirectInput keyboard
       (lost / not acquired / failing re-acquire), typed characters, the manager's references and returned
-      instance, Spt::Class. The original ActivateActuator is tested as PartyMod leaves it (its 7-byte NOP at
+      instance, the destructors. The original ActivateActuator is tested as PartyMod leaves it (its 7-byte NOP at
       0x5BDA31 applied during the test - unpatched it runs the menu code). Late test (game's rand, memory
       manager up): constructor and destructors. 34 deliberate bugs caught (10 after fixing the test).
       Also: the library boundary was wrong - game code runs to 0x5BEAAD (D3DX9 starts at 0x5BEB1A after 18
@@ -544,6 +544,28 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       Next batch (SIO part 2): ReadData 0x5BD200 and the key-name function 0x5BCD50 (screen-element smart
       pointers), KeyInput 0x5BDE70.. 0x5BDF30, the manager's constructor/destructor/task 0x5BE110-0x5BE300,
       0x5BE3F0-0x5BE5E0, 0x5BE6C0-0x5BEAA0.
+- [x] Batch 50 (NOT run in the game yet; early test passes offline): SIO, part 2. Sio::Manager (0x1C bytes,
+      vtable 0x658AD4: the device list's head node at +4, a Tsk::Task at +0x18): constructor 0x5BE1F0 (the
+      task - vtable 0x6476F0, code ProcessTask, data the list; a device for ports 0 and 1 appended and set
+      acquiring; then 0x450D60 unless 0x4505F0 - network-related player state, not rewritten),
+      DestroyBody 0x5BE300 (deletes the devices virtually, then the task; a call to the folded ReturnZero;
+      0x450420 unless 0x4505F0; unlinks the head) and Destroy 0x5BE6C0, ProcessTask 0x5BE140 (the task's
+      code) / ProcessDevices 0x5BE3F0 (Process each device, telling the first), GetDevice(port, slot)
+      0x5BE490, GetDeviceByIndex 0x5BE4F0, PauseDevices 0x5BE550 / UnpauseDevices 0x5BE5E0; CreateManager now
+      constructs it directly. The device list node's deleting destructor 0x5BE110 (Sio::DestroyDeviceNode).
+      KeyInput 0x5BDE70 (typed keys from the window messages - PartyMod calls it for SDL text input): wanted
+      while typing (0x7CE46E) or with text entry on (0x7CCDF8) outside a menu (0x7CE46F); a negative lParam
+      (release) is ignored; Enter -> 0x19, Backspace -> 0x18, Escape -> 0x1A (not its auto-repeats), ';' ->
+      ':'; -1 % ~ \ | [ ] } " dropped; the 16-slot queue stops at 15 (the last is overwritten).
+      New src/game/lst/search.h: Lst::Search<T> (the list iteration every loop here uses); its destructors
+      0x5BDE30 / 0x5BDE40 moved from batch 49's "Spt::Class" into lst/search.cpp. 12 functions.
+      Early test: KeyInput over 20 keys x 4 lParams x the three flags x queue fill levels (each queued key
+      traced), the manager's lookups, pause/unpause-all (motors traced) and destructor over 0, 1 and 3
+      stand-in devices (their and the task's deletion recorded), processing an empty list, the node
+      destructor. Late test: the constructor, original vs ours (devices, list, task), then the freeing
+      destructor (the player-state calls skipped meanwhile). Processing a real device isn't tested offline
+      (Process is PartyMod's SDL code). 22 deliberate bugs caught (3 after strengthening the test); the
+      constructor is only compared in the game.
 - [ ] Next: the pre-compiled .qb format (0x46FBA0, 0x46CA50, 0x46C970, 0x46C830, 0x46C7F0, ...), the script
       cache (0x475FD0 ...), then CScript (0x472900.. / 0x473000..).
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function

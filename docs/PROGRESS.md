@@ -2,7 +2,7 @@
 
 Generated 2026-10-16 by `tools/progress_report.py` - regenerate after each batch.
 
-**Game code: ░░░░░░░░░░░░░░░░░░░░ 4.9%** of the code rewritten (618 of 8,365 functions, 79.9 KB of 1,616.9 KB).
+**Game code: █░░░░░░░░░░░░░░░░░░░ 5.0%** of the code rewritten (628 of 8,365 functions, 81.3 KB of 1,616.9 KB).
 
 Progress is by code size: function counts make a 10-byte helper look like as much work as a 2 KB routine. Subsystem boundaries come from the exe map (`docs/subsystems.md`) and are approximate (give or take a few functions); totals are exact.
 
@@ -31,7 +31,7 @@ Progress is by code size: function counts make a 10-byte helper look like as muc
 | Lighting / FX / park memory | `0x595030`-`0x59f610` | ░░░░░░░░░░░░░░░░░░░░ 0% | 0 / 169 | 0.0 KB / 40.1 KB |
 | Game script commands (skater queries, save/memcard, profiles, appearance, cutscenes, weather) | `0x59f610`-`0x5b6560` | ░░░░░░░░░░░░░░░░░░░░ 0% | 18 / 574 | 0.4 KB / 87.1 KB |
 | File system (PIP/PRE archives) & skater memory heaps | `0x5b6560`-`0x5bdad0` | ██████████████████░░ 90% | 220 / 222 | 24.5 KB / 27.1 KB |
-| Input devices (SIO) | `0x5bdad0`-`0x5be670` | █████░░░░░░░░░░░░░░░ 29% | 12 / 23 | 0.8 KB / 2.7 KB |
+| Input devices (SIO) | `0x5bdad0`-`0x5be670` | ████████████████░░░░ 83% | 22 / 23 | 2.2 KB / 2.7 KB |
 | Win32 platform layer (window, D3D9/DirectSound/DirectInput setup, registry options) | `0x5eef20`-`0x5f8130` | ░░░░░░░░░░░░░░░░░░░░ 0% | 0 / 91 | 0.0 KB / 17.4 KB |
 
 ## Not decompiled (libraries)

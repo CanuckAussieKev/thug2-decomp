@@ -1,5 +1,6 @@
 #include "game/core/stubs.h"
 #include "game/mc/memcard.h"
+#include "game/lst/search.h"
 #include "game/sio/device.h"
 #include "game/sys/registry.h"
 #include "game/script/eval.h"
@@ -6538,7 +6539,7 @@ void* __fastcall SioManagerDestroy(void* self, void*, unsigned int flags)
 
 // The device methods (motors traced through stand-in force-feedback effects; pads present or not through the
 // key binding table), the keyboard's state reading (a stand-in DirectInput keyboard) and typed characters, the
-// manager's references, Spt::Class's destructor - original vs ours. Device::Process is PartyMod's (SDL) and
+// manager's references, Lst::Search's destructor - original vs ours. Device::Process is PartyMod's (SDL) and
 // the constructor calls the game's rand: see TestSioLate.
 void TestSio()
 {
@@ -6740,17 +6741,17 @@ void TestSio()
             }
         }
 
-        // Spt::Class's destructors (not freeing).
+        // Lst::Search's destructors (not freeing).
         {
             uint32_t object[2] = {0x12345678, 0x9ABC};
             if (original)
                 Original<void(__thiscall*)(void*)>(0x005BDE30)(object);
             else
-                reinterpret_cast<Spt::Class*>(object)->DestroyBody();
+                reinterpret_cast<Lst::SearchDestructors*>(object)->DestroyBody();
             trace.insert(trace.end(), object, object + 2);
             object[0] = 0x12345678;
             void* result = original ? Original<void*(__thiscall*)(void*, unsigned int)>(0x005BDE40)(object, 0)
-                                    : reinterpret_cast<Spt::Class*>(object)->Destroy(0);
+                                    : reinterpret_cast<Lst::SearchDestructors*>(object)->Destroy(0);
             trace.push_back(result == object);
             trace.insert(trace.end(), object, object + 2);
         }
@@ -6775,7 +6776,7 @@ void TestSio()
 
 // In the game (the constructor's original uses the game's rand; the memory manager is up): the constructor
 // (all but the random retry delay, which must be 0-63), destroying with and without freeing, and
-// Spt::Class's freeing destructor.
+// Lst::Search's freeing destructor.
 void TestSioLate()
 {
     using Sio::Device;
@@ -6807,7 +6808,7 @@ void TestSioLate()
         void* memory = Mem::Calloc(0xF0);
         void* object = Mem::Calloc(8);
         auto* device = new (memory) Device(1, 1, 0);
-        auto* plain = static_cast<Spt::Class*>(object);
+        auto* plain = static_cast<Lst::SearchDestructors*>(object);
         plain->m_vtable = reinterpret_cast<void**>(0x00658AA4);
         if (run == 0) {
             Original<void*(__thiscall*)(void*, unsigned int)>(0x005BCD00)(device, 1);
@@ -6818,6 +6819,239 @@ void TestSioLate()
         }
     }
     Check(same, "sio (late): Device constructor and destructor");
+}
+
+void* __fastcall SioStandInDestroy(void* self, void*, unsigned int flags)
+{
+    g_sio_log.insert(g_sio_log.end(), {0xDE57u, reinterpret_cast<uint32_t>(self) & 0xFFF, flags});
+    return self;
+}
+
+// Typed keys, and the device manager: looking devices up, pausing/unpausing them all (motors traced as in
+// TestSio), processing an empty list, the list node's destructor, the manager's destructor (stand-in devices
+// and task record being deleted) - original vs ours. The constructor (devices call the game's rand): see
+// TestSioManagerLate.
+void TestSioManager()
+{
+    struct Saved {
+        uint32_t address;
+        uint32_t size;
+        std::vector<uint8_t> bytes;
+    };
+    std::vector<Saved> saved = {{0x007CE46E, 2, {}}, {0x007CCDF8, 1, {}}, {0x007D1BE0, 0x40, {}},
+                                {0x007D1E28, 4, {}}, {0x007D6668, 8, {}}, {0x007D42C8, 0x18, {}},
+                                {0x007D6A38, 4, {}}};
+    for (Saved& s : saved) {
+        s.bytes.resize(s.size);
+        std::memcpy(s.bytes.data(), reinterpret_cast<void*>(s.address), s.size);
+    }
+    static void* effectVtable[10];
+    for (void*& slot : effectVtable)
+        slot = reinterpret_cast<void*>(&SioUnused);
+    effectVtable[6] = reinterpret_cast<void*>(&SioEffectSetParameters);
+    effectVtable[8] = reinterpret_cast<void*>(&SioEffectStop);
+    alignas(16) static void* effects[2][4] = {{effectVtable}, {effectVtable}};
+    static void* standInVtable[4] = {reinterpret_cast<void*>(&SioStandInDestroy), nullptr,
+                                     reinterpret_cast<void*>(&SioStandInDestroy), nullptr};
+
+    using Sio::Device;
+    using Sio::Manager;
+    std::vector<uint32_t> traces[2];
+    for (int run = 0; run < 2; ++run) {
+        bool original = run == 0;
+        std::vector<uint32_t>& trace = traces[run];
+        g_sio_log.clear();
+
+        // Typed keys.
+        for (int globals = 0; globals < 8; ++globals) {
+            GameVariable<bool>(0x007CE46E) = (globals & 1) != 0;
+            GameVariable<bool>(0x007CCDF8) = (globals & 2) != 0;
+            GameVariable<bool>(0x007CE46F) = (globals & 4) != 0;
+            for (uint32_t start : {0u, 14u, 15u}) {
+                GameVariable<uint32_t>(0x007D1E28) = start;
+                std::memset(reinterpret_cast<void*>(0x007D1BE0), 0xCC, 0x40);
+                for (int key : {-2, -1, 0, 8, 13, 27, 0x22, 0x25, 0x3A, 0x3B, 0x41, 0x5B, 0x5C, 0x5D, 0x61, 0x7C, 0x7D,
+                                0x7E, 0x7F, 300}) {
+                    for (int flags : {0, 0x40000000, -5, 1}) {
+                        if (original)
+                            Original<void(__cdecl*)(int, int)>(0x005BDE70)(key, flags);
+                        else
+                            Sio::KeyInput(key, flags);
+                        uint32_t count = GameVariable<uint32_t>(0x007D1E28);
+                        trace.push_back(count);
+                        trace.push_back(GameVariable<uint32_t>(0x007D1BE0 + 4 * ((count + 15) & 15))); // the last one
+                        if (GameVariable<uint32_t>(0x007D1E28) == 15)
+                            GameVariable<uint32_t>(0x007D1E28) = start; // (keep queueing)
+                    }
+                }
+                trace.insert(trace.end(), reinterpret_cast<uint32_t*>(0x007D1BE0),
+                             reinterpret_cast<uint32_t*>(0x007D1BE0) + 16);
+            }
+        }
+
+        // A stand-in manager with three devices (ports 0, 1, 0; slots 0, 0, 1).
+        for (int port = 0; port < 2; ++port) {
+            GameVariable<void*>(0x007D6668 + 4 * port) = effects[port];
+            GameVariable<int>(0x007D42C8 + 4 * port) = port;
+            GameVariable<int>(0x007D42D0 + 8 * port) = 7000 + 1000 * port;
+            GameVariable<int>(0x007D42D4 + 8 * port) = 3000 + 500 * port;
+        }
+        alignas(16) static uint8_t devices[3][0x100];
+        static Mem::ListNode nodes[3];
+        alignas(16) static uint8_t managerBytes[0x20];
+        static uint32_t task[8];
+        auto build = [&](int count) {
+            std::memset(managerBytes, 0, sizeof(managerBytes));
+            std::memset(devices, 0, sizeof(devices));
+            auto* manager = reinterpret_cast<Manager*>(managerBytes);
+            Mem::ListNode* head = &manager->m_devices;
+            *head = {reinterpret_cast<void**>(0x00658A70), reinterpret_cast<void*>(-1), 0, head, head};
+            manager->m_vtable = reinterpret_cast<void**>(0x12345678); // (the destructor sets its own)
+            task[0] = reinterpret_cast<uint32_t>(standInVtable);
+            manager->m_task = task;
+            for (int i = 0; i < count; ++i) {
+                for (int b = 0; b < 0x100; ++b)
+                    devices[i][b] = static_cast<uint8_t>(b * 5 + i);
+                auto* d = reinterpret_cast<Device*>(devices[i]);
+                d->m_vtable = reinterpret_cast<void**>(standInVtable);
+                d->m_port = i == 1 ? 1 : 0;
+                d->m_slot = i == 2 ? 1 : 0;
+                d->m_index = 10 + i;
+                d->m_state = i == 2 ? Device::kIdle : Device::kReady;
+                d->m_capabilities = Device::kHasActuators;
+                d->m_numActuators = 2;
+                d->m_pauseCount = i == 1 ? 1 : 0;
+                d->m_node = &nodes[i];
+                nodes[i] = {reinterpret_cast<void**>(0x00658A70), d, 0, head, head->prev};
+                head->prev->next = &nodes[i];
+                head->prev = &nodes[i];
+            }
+            return manager;
+        };
+        auto dumpDevices = [&] {
+            for (auto& d : devices)
+                trace.insert(trace.end(), reinterpret_cast<uint32_t*>(d), reinterpret_cast<uint32_t*>(d + 0x100));
+        };
+        auto relocate = [&](void* p) -> uint32_t {
+            for (int i = 0; i < 3; ++i)
+                if (p == devices[i])
+                    return 0xD0 + i;
+            return reinterpret_cast<uint32_t>(p);
+        };
+        for (int count : {0, 1, 3}) {
+            Manager* manager = build(count);
+            for (int port = -1; port <= 2; ++port)
+                for (int slot = 0; slot <= 2; ++slot)
+                    trace.push_back(relocate(original
+                                                 ? Original<Device*(__thiscall*)(Manager*, int, int)>(0x005BE490)(manager, port, slot)
+                                                 : manager->GetDevice(port, slot)));
+            for (int index = 9; index <= 13; ++index)
+                trace.push_back(relocate(original ? Original<Device*(__thiscall*)(Manager*, int)>(0x005BE4F0)(manager, index)
+                                                  : manager->GetDeviceByIndex(index)));
+            for (uint32_t address : {0x005BE550u, 0x005BE550u, 0x005BE5E0u, 0x005BE5E0u, 0x005BE5E0u}) {
+                if (original)
+                    Original<void(__thiscall*)(Manager*)>(address)(manager);
+                else if (address == 0x005BE550)
+                    manager->PauseDevices();
+                else
+                    manager->UnpauseDevices();
+                dumpDevices();
+            }
+            if (count == 0) {
+                task[7] = reinterpret_cast<uint32_t>(&manager->m_devices);
+                if (original) {
+                    Original<void(__thiscall*)(Manager*)>(0x005BE3F0)(manager);
+                    Original<void(__cdecl*)(void*)>(0x005BE140)(task);
+                } else {
+                    manager->ProcessDevices();
+                    Sio::ProcessTask(task);
+                }
+                task[7] = 0;
+            }
+            // The destructor (the player state call skipped: no network block offline).
+            GameVariable<void*>(0x007D6A38) = nullptr;
+            void* result = original ? Original<void*(__thiscall*)(Manager*, unsigned int)>(0x005BE6C0)(manager, 0)
+                                    : manager->Destroy(0);
+            trace.push_back(result == manager);
+            trace.insert(trace.end(), reinterpret_cast<uint32_t*>(managerBytes),
+                         reinterpret_cast<uint32_t*>(managerBytes + 0x1C));
+            for (uint32_t& word : trace)
+                if (word == reinterpret_cast<uint32_t>(&manager->m_devices))
+                    word = 0xEAD;
+        }
+        // The list node's destructor (not freeing).
+        {
+            Mem::ListNode ring[3];
+            for (int i = 0; i < 3; ++i)
+                ring[i] = {nullptr, &ring[i], i, &ring[(i + 1) % 3], &ring[(i + 2) % 3]};
+            void* result = original ? Original<void*(__thiscall*)(void*, unsigned int)>(0x005BE110)(&ring[1], 0)
+                                    : Sio::DestroyDeviceNode(&ring[1], 0);
+            trace.push_back(result == &ring[1]);
+            for (Mem::ListNode& n : ring) {
+                trace.push_back(reinterpret_cast<uint32_t>(n.vtable));
+                trace.push_back(static_cast<uint32_t>(n.next - ring));
+                trace.push_back(static_cast<uint32_t>(n.prev - ring));
+            }
+        }
+        trace.insert(trace.end(), g_sio_log.begin(), g_sio_log.end());
+    }
+    for (Saved& s : saved)
+        std::memcpy(reinterpret_cast<void*>(s.address), s.bytes.data(), s.size);
+    Check(traces[0] == traces[1], "sio: typed keys, device manager");
+    if (traces[0].size() != traces[1].size())
+        Log("  sio manager trace sizes: original %u ours %u", static_cast<unsigned>(traces[0].size()),
+            static_cast<unsigned>(traces[1].size()));
+    for (size_t i = 0, shown = 0; i < traces[0].size() && i < traces[1].size() && shown < 8; ++i) {
+        if (traces[0][i] != traces[1][i]) {
+            Log("  sio manager entry %u: original %08X ours %08X", static_cast<unsigned>(i), traces[0][i], traces[1][i]);
+            ++shown;
+        }
+    }
+}
+
+// In the game: the manager's constructor (its devices, list and task), then its freeing destructor - original
+// vs ours. The player state set-up both run is skipped (0x007D6A38 cleared meanwhile) so the game's state
+// isn't touched twice.
+void TestSioManagerLate()
+{
+    using Sio::Device;
+    using Sio::Manager;
+    void* network = GameVariable<void*>(0x007D6A38);
+    GameVariable<void*>(0x007D6A38) = nullptr;
+    std::vector<uint32_t> results[2];
+    for (int run = 0; run < 2; ++run) {
+        void* memory = Mem::Calloc(0x1C, nullptr, 1);
+        auto* manager = run == 0 ? Original<Manager*(__thiscall*)(void*)>(0x005BE1F0)(memory) : new (memory) Manager();
+        std::vector<uint32_t>& r = results[run];
+        r.push_back(manager == memory);
+        r.push_back(reinterpret_cast<uint32_t>(manager->m_vtable));
+        r.push_back(reinterpret_cast<uint32_t>(manager->m_devices.vtable));
+        r.push_back(reinterpret_cast<uint32_t>(manager->m_devices.data));
+        r.push_back(static_cast<uint32_t>(manager->m_devices.priority));
+        auto* task = static_cast<uint32_t*>(manager->m_task);
+        r.push_back(task != nullptr);
+        if (task) {
+            r.push_back(task[0]);
+            r.push_back(task[6] == 0x005BE140 || task[6] == reinterpret_cast<uint32_t>(&Sio::ProcessTask));
+            r.push_back(task[7] == reinterpret_cast<uint32_t>(&manager->m_devices));
+        }
+        Lst::Search<Device> search;
+        for (Device* d = search.FirstItem(&manager->m_devices); d; d = search.NextItem()) {
+            r.push_back(d->m_node->data == d);
+            uint8_t copy[0xF0];
+            std::memcpy(copy, d, sizeof(copy));
+            reinterpret_cast<Device*>(copy)->m_node = nullptr;
+            reinterpret_cast<Device*>(copy)->m_unpluggedRetry = 0;
+            r.insert(r.end(), reinterpret_cast<uint32_t*>(copy), reinterpret_cast<uint32_t*>(copy + 0xF0));
+        }
+        r.push_back(reinterpret_cast<uint32_t>(manager->m_devices.prev->next) == reinterpret_cast<uint32_t>(&manager->m_devices));
+        if (run == 0)
+            Original<void*(__thiscall*)(void*, unsigned int)>(0x005BE6C0)(manager, 1);
+        else
+            manager->Destroy(1);
+    }
+    GameVariable<void*>(0x007D6A38) = network;
+    Check(results[0] == results[1], "sio (late): device manager constructor");
 }
 
 // --- late self-tests ----------------------------------------------------------------------------------
@@ -7774,6 +8008,7 @@ SELFTEST(Early, TestScriptLoading);
 SELFTEST(Early, TestMemoryCards);
 SELFTEST(Early, TestLeftovers);
 SELFTEST(Early, TestSio);
+SELFTEST(Early, TestSioManager);
 
 SELFTEST(Late, TestMemoryLate);
 SELFTEST(Late, TestStringLate);
@@ -7782,6 +8017,7 @@ SELFTEST(Late, TestAssetBundleSplitLate);
 SELFTEST(Late, TestAllocatorContextsLate);
 SELFTEST(Late, TestLeftoversLate);
 SELFTEST(Late, TestSioLate);
+SELFTEST(Late, TestSioManagerLate);
 SELFTEST(Late, TestPoolConstructorLate);
 SELFTEST(Late, TestHashTableLate);
 SELFTEST(Late, TestPipNamesLate, RestorePipTables);
