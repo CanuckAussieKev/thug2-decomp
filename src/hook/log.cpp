@@ -4,6 +4,7 @@
 
 #include <cstdarg>
 #include <cstdio>
+#include <cstdlib>
 #include <cwchar>
 
 #ifdef _DEBUG
@@ -61,6 +62,11 @@ int __cdecl CrtReportHook(int type, char* message, int* returnValue)
     (void)returnValue;
     Log("DEBUG CRT REPORT (type %d): %s", type, message ? message : "");
     LogBacktrace();
+    // Tools run unattended: an assertion or error ends the run (exit code 3) instead of waiting on a dialog.
+    if (g_console && type != _CRT_WARN) {
+        std::fflush(stdout);
+        _exit(3);
+    }
     return FALSE;
 }
 
@@ -76,6 +82,10 @@ int __cdecl RtcErrorHandler(int type, const wchar_t* file, int line, const wchar
     va_end(args);
     Log("RUN-TIME CHECK FAILURE #%d: %ls", type, text);
     LogBacktrace();
+    if (g_console) {
+        std::fflush(stdout);
+        _exit(3);
+    }
     if (g_previous_rtc_handler) {
         // (the usual dialog, with the message already formatted)
         return g_previous_rtc_handler(type, file, line, module, L"%ls", text);
@@ -98,6 +108,14 @@ void LogOpen()
 void LogToConsole()
 {
     g_console = true;
+    // No dialogs in tools: CRT reports and run-time check failures are printed and end the run, crashes
+    // and abort() exit without the Windows error box.
+    SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);
+    _set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
+#ifdef _DEBUG
+    _CrtSetReportHook2(_CRT_RPTHOOK_INSTALL, CrtReportHook);
+    _RTC_SetErrorFuncW(RtcErrorHandler);
+#endif
 }
 
 void Log(const char* fmt, ...)
