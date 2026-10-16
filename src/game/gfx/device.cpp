@@ -148,6 +148,20 @@ void InitDirect3D()
     GameFunction<void(__cdecl*)()>(0x005BE7C0)();
 }
 
+// 0x0044F870
+long __cdecl SetRenderState(int state, uint32_t value)
+{
+    return Device()->SetRenderState(static_cast<D3DRENDERSTATETYPE>(state), value);
+}
+
+// 0x0044F890
+long __cdecl ClearDevice(uint32_t rectCount, const void* rects, uint32_t flags, uint32_t color, float z, uint32_t stencil)
+{
+    return Device()->Clear(rectCount, static_cast<const D3DRECT*>(rects), flags, color, z, stencil);
+}
+
 } // namespace Nx
 
 REPLACE(0x004D8650, Nx::InitDirect3D);
+REPLACE(0x0044F870, Nx::SetRenderState);
+REPLACE(0x0044F890, Nx::ClearDevice);

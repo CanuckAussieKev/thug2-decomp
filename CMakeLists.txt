@@ -94,6 +94,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_winmain.cpp
     src/hook/selftests_gapsB.cpp
     src/hook/selftests_qb.cpp
+    src/hook/selftests_gapsA.cpp
     src/game/core/alloc.cpp
     src/game/core/crc.cpp
     src/game/core/dbg.cpp
