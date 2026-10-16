@@ -352,6 +352,9 @@ uint32_t GetSpawnId(CScript* script);
 CScript* FindSpawnedScriptWithId(uint32_t id);
 // 0x00472E70 (group C): ComponentDestroyed on every script.
 void ComponentDestroyedAllScripts(Obj::CBaseComponent* component);
+// (group C) 0x00472D20's entry point: CScript::ComponentDestroyed keeping ECX as it was - the original's caller
+// 0x00472E70 reads ECX after the call.
+void ComponentDestroyedStub();
 // Stopping scripts (ClearScript + ReportStopped; they stay on the list, UpdateSpawnedScripts deletes spawned
 // ones once Update says finished):
 void KillSpawnedScriptsThatReferTo(uint32_t name);                               // 0x00473FA0 (any level)
