@@ -9,6 +9,7 @@
 #include "game/core/mem.h"
 #include "game/core/pool.h"
 #include "game/mth/random.h"
+#include "game/script/cache.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
@@ -391,13 +392,9 @@ REPLACE(0x0046F4A0, &CreatePoolOf<0x006F2578, 0x60>);
 namespace Script {
 
 // The script cache (0x006F3558, or null): the scripts' decompressed code, by name.
-void* ScriptCache() { return GameVariable<void*>(0x006F3558); }
+CScriptCache* ScriptCache() { return GameVariable<CScriptCache*>(0x006F3558); }
 
-// 0x00475FD0 is a method of the cache (not rewritten yet).
-void RemoveFromScriptCache(uint32_t name)
-{
-    GameFunction<void(__thiscall*)(void*, uint32_t)>(0x00475FD0)(ScriptCache(), name);
-}
+void RemoveFromScriptCache(uint32_t name) { ScriptCache()->Invalidate(name); }
 
 namespace {
 

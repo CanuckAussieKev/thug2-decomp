@@ -23,8 +23,10 @@ public:
     // Frees the buckets (after removing every item).
     ~HashTable();
 
-    // The value stored under `key`, or null. (Inlined at every use in the original; not a replacement.)
+    // The value stored under `key`, or null. (Inlined at most uses in the original.)
     void* GetItem(uint32_t key) const;
+    // 0x00462050: the same, as a function (the key by reference; the second argument, always 1, is unused).
+    void* GetItem(const uint32_t& key, bool unused) const;
 
     // Add an item. Keys aren't checked for duplicates. Always returns true.
     bool PutItem(const uint32_t& key, void* value);
