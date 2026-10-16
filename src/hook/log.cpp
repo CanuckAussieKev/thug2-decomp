@@ -4,6 +4,12 @@
 
 #include <cstdarg>
 #include <cstdio>
+#include <cwchar>
+
+#ifdef _DEBUG
+#include <crtdbg.h>
+#include <rtcapi.h>
+#endif
 
 namespace {
 FILE* g_log = nullptr;
@@ -25,9 +31,68 @@ int ConfigInt(const char* section, const char* key, int fallback)
         GetPrivateProfileIntA(section, key, fallback, GameFolderPath("thug2-decomp.ini").c_str()));
 }
 
+#ifdef _DEBUG
+namespace {
+
+// The calls that led here: addresses in our DLL relative to it, the game's as they are.
+void LogBacktrace()
+{
+    void* frames[24];
+    USHORT count = CaptureStackBackTrace(2, 24, frames, nullptr);
+    for (USHORT i = 0; i < count; ++i) {
+        HMODULE module = nullptr;
+        GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                           static_cast<LPCSTR>(frames[i]), &module);
+        char name[MAX_PATH] = "?";
+        if (module) {
+            GetModuleFileNameA(module, name, MAX_PATH);
+            if (char* slash = strrchr(name, '\\'))
+                memmove(name, slash + 1, strlen(slash));
+        }
+        Log("    at %s+0x%X (%p)", name,
+            static_cast<unsigned>(reinterpret_cast<uintptr_t>(frames[i]) - reinterpret_cast<uintptr_t>(module)),
+            frames[i]);
+    }
+}
+
+// Debug C runtime reports (assertions, errors): logged, then shown as usual.
+int __cdecl CrtReportHook(int type, char* message, int* returnValue)
+{
+    (void)returnValue;
+    Log("DEBUG CRT REPORT (type %d): %s", type, message ? message : "");
+    LogBacktrace();
+    return FALSE;
+}
+
+// Run-time check failures (e.g. "ESP was not properly saved across a function call"): logged, then shown as usual.
+_RTC_error_fnW g_previous_rtc_handler = nullptr;
+int __cdecl RtcErrorHandler(int type, const wchar_t* file, int line, const wchar_t* module, const wchar_t* format, ...)
+{
+    wchar_t text[512] = L"";
+    va_list args;
+    va_start(args, format);
+    if (format)
+        vswprintf(text, 512, format, args);
+    va_end(args);
+    Log("RUN-TIME CHECK FAILURE #%d: %ls", type, text);
+    LogBacktrace();
+    if (g_previous_rtc_handler) {
+        // (the usual dialog, with the message already formatted)
+        return g_previous_rtc_handler(type, file, line, module, L"%ls", text);
+    }
+    return 0;
+}
+
+} // namespace
+#endif
+
 void LogOpen()
 {
     fopen_s(&g_log, GameFolderPath("thug2-decomp.log").c_str(), "w");
+#ifdef _DEBUG
+    _CrtSetReportHook2(_CRT_RPTHOOK_INSTALL, CrtReportHook);
+    g_previous_rtc_handler = _RTC_SetErrorFuncW(RtcErrorHandler);
+#endif
 }
 
 void LogToConsole()

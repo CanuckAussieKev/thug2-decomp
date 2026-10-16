@@ -4880,6 +4880,21 @@ void TestScriptTokens()
 
 // Symbol bookkeeping for the loader: removing symbols of every type (and a kept one), pending removals and
 // replacements, the pool frees (pooled and not) and the .qb name table allocation; originals vs ours.
+// A stand-in script cache: an empty hash table (so dropping a script finds nothing), for the code that tells
+// the cache about changed scripts - through the game's method, which needs the object in ECX.
+void* StandInScriptCache()
+{
+    static uint32_t entries[16 * 3];
+    static uint32_t header[2];
+    static uint32_t cache[8];
+    std::memset(entries, 0, sizeof(entries));
+    header[0] = 4; // 1 << 4 buckets
+    header[1] = reinterpret_cast<uint32_t>(entries);
+    std::memset(cache, 0, sizeof(cache));
+    cache[0x14 / 4] = reinterpret_cast<uint32_t>(header);
+    return cache;
+}
+
 void TestScriptSymbolBookkeeping()
 {
     using namespace Script;
@@ -4907,7 +4922,7 @@ void TestScriptSymbolBookkeeping()
     static CSymbolTableEntry* table[0x1000];
     GameVariable<CSymbolTableEntry**>(0x006F3624) = table;
     GameVariable<bool>(0x007CC979) = true;
-    GameVariable<uint32_t>(0x006F3558) = 0; // (no script cache: its invalidation isn't rewritten)
+    GameVariable<void*>(0x006F3558) = StandInScriptCache();
 
     auto run = [&](bool original) {
         std::vector<uint32_t> trace;
@@ -5778,6 +5793,7 @@ void TestScriptLoading()
                 std::memset(reinterpret_cast<void*>(s.address), 0, s.size);
         }
         GameVariable<bool>(0x007CC979) = true;
+        GameVariable<void*>(0x006F3558) = StandInScriptCache();
         std::memset(table, 0, sizeof(table));
         std::memset(nameTable.data(), 0, nameTable.size());
         std::memset(nameBlock.data(), 0, nameBlock.size());

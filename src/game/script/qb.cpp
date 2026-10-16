@@ -368,6 +368,15 @@ REPLACE(0x0046F4A0, &CreatePoolOf<0x006F2578, 0x60>);
 
 namespace Script {
 
+// The script cache (0x006F3558, or null): the scripts' decompressed code, by name.
+void* ScriptCache() { return GameVariable<void*>(0x006F3558); }
+
+// 0x00475FD0 is a method of the cache (not rewritten yet).
+void RemoveFromScriptCache(uint32_t name)
+{
+    GameFunction<void(__thiscall*)(void*, uint32_t)>(0x00475FD0)(ScriptCache(), name);
+}
+
 namespace {
 
 // Symbols waiting to be removed (or replaced) once a .qb file has been loaded: {symbol, owned}.
@@ -378,12 +387,6 @@ struct PendingSymbol {
 PendingSymbol* PendingSymbols() { return &GameVariable<PendingSymbol>(0x006F2588); }
 int& PendingSymbolCount() { return GameVariable<int>(0x006F3528); }
 
-// Not rewritten yet: forgetting a script's cached compiled form.
-void InvalidateScriptCache(uint32_t name)
-{
-    GameFunction<void(__cdecl*)(uint32_t)>(0x00475FD0)(name);
-}
-bool ScriptCacheEnabled() { return GameVariable<uint32_t>(0x006F3558) != 0; }
 
 void AddPendingSymbol(CSymbolTableEntry* symbol, bool owned)
 {
@@ -391,8 +394,8 @@ void AddPendingSymbol(CSymbolTableEntry* symbol, bool owned)
     pending.symbol = symbol;
     pending.owned = owned;
     ++PendingSymbolCount();
-    if (symbol->type == ESYMBOLTYPE_QSCRIPT && ScriptCacheEnabled())
-        InvalidateScriptCache(symbol->name);
+    if (symbol->type == ESYMBOLTYPE_QSCRIPT && ScriptCache())
+        RemoveFromScriptCache(symbol->name);
 }
 
 } // namespace
@@ -476,8 +479,8 @@ void ProcessPendingSymbols()
             LinkSymbol(pending.symbol);
         }
         // (reads the symbol even when it has just been freed, as the original does)
-        if (pending.symbol->type == ESYMBOLTYPE_QSCRIPT && ScriptCacheEnabled())
-            InvalidateScriptCache(pending.symbol->name);
+        if (pending.symbol->type == ESYMBOLTYPE_QSCRIPT && ScriptCache())
+            RemoveFromScriptCache(pending.symbol->name);
     }
     PendingSymbolCount() = 0;
 }

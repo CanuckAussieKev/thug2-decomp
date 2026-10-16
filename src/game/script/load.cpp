@@ -20,10 +20,8 @@ namespace {
 // The checksum of the .qb file being loaded (0 outside loading).
 uint32_t& LoadingFile() { return GameVariable<uint32_t>(0x006F2364); }
 
-// Not rewritten yet: the script cache, the pre-compiled format, restarting a script and the platform's
+// Not rewritten yet: the pre-compiled format, restarting a script and the platform's
 // file extension for pre-compiled scripts.
-bool ScriptCacheEnabled() { return GameVariable<uint32_t>(0x006F3558) != 0; }
-void InvalidateScriptCache(uint32_t name) { GameFunction<void(__cdecl*)(uint32_t)>(0x00475FD0)(name); }
 void ParsePrecompiledQB(const char* filename, const uint8_t* data, int unused)
 {
     GameFunction<void(__cdecl*)(const char*, const uint8_t*, int)>(0x0046FBA0)(filename, data, unused);
@@ -103,8 +101,8 @@ CSymbolTableEntry* CreateScriptSymbol(uint32_t size, const uint8_t* code, uint32
         bytes[i] = buffer[i];
     symbol->raw = reinterpret_cast<uint32_t>(block);
     Mem::FreeMalloc(buffer);
-    if (ScriptCacheEnabled())
-        InvalidateScriptCache(name);
+    if (ScriptCache())
+        RemoveFromScriptCache(name);
     symbol->unknown8 = Crc::GenerateCRCFromString(filename);
     return symbol;
 }
