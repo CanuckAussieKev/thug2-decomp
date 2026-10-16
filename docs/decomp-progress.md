@@ -1773,12 +1773,81 @@ belong with the CScript batch.
       (WinMain's already-running check now finds a first copy, as the original intended); the exe's DLL-name redirect
       in DllMain removed; the MIT notice only in THIRD_PARTY_NOTICES.md, per-file headers point there.
 - [x] The rename build tested in the game (2026-10-17, by the user): game runs, settings read from thug2-decomp.ini, "pc:" lines in the log.
-- [ ] Next: CScript (0x472900.. / 0x473000..;
-      the script manager 0x475050-0x475920 and 0x472C90 / 0x473A80 / 0x473010 left by batches 70-71); nearby gaps: the
-      module manager Mdl::Manager 0x44F300-0x44F7E0, 0x4B2270-0x4B2320 (9 glue functions), CFlipRotateComponent::Update
-      0x4E2D20 and its base 0x481710-0x481740, 0x46C470-0x46C6A0 (a CStruct wrapper class), 0x4620A0-0x462710 (object /
-      event CFunctions). GameSpy's host names become configuration when the SDK is linked. Check which files actually
-      reach LoadQB's pre-compiled branch: the shipped .qb.xbx files don't match its layout (batch 71).
+- [x] Batch 74 (CScript, the script interpreter; NOT run in the game yet): 81 functions in 0x4728F0-0x475920 plus
+      0x449970 / 0x4499B0. Done as a phase-1 class map (src/game/script/cscript.h: layout static_asserted, 0xF4 bytes;
+      every method thiscall callee-pops, the free functions cdecl, no register arguments), then four parallel groups
+      (worktrees wt/csA-wt/csD), merged in 285f07e: the groups call each other directly; CSmtPtr::Set replaces the two
+      local SetObject helpers; the tests stand in for our methods as well as the game addresses. **What the
+      runtime does (the QuickJS port's spec) is in docs/script-runtime.md** - not repeated here.
+      Checks for every group: thug2_check 0 MISMATCHED, all early tests pass; register scan only the known
+      0x4EFF92 RISK; call audit no MISMATCH; check_code_writes no overlaps; find_gaps nothing left in range (the 5
+      sound functions aside). tools/check_partymod_overlap.py is no longer in the repo; PartyMod's only code patch
+      (0x4E26A0) is far from this range.
+      - 74A, life cycle (cscript_core.cpp, 22): Construct 0x4738E0, Destroy 0x474420, pooled new/delete 0x449970 /
+        0x4499B0, ClearScript 0x473A80, RunOnExitScripts 0x473880, ReportStopped 0x473010, CopyParamsIfOwned 0x4739D0,
+        SetScript 0x474540 (+ 0x4747A0 / 0x4747C0), SetScriptCopy 0x474720, Restart 0x4747F0, AllScriptsStillDefined
+        0x472C90, GotScript 0x472940, SetSpawnerFile 0x472F90, ObjectDestroyed 0x473BE0, the OnException/OnExit
+        accessors 0x472ED0/EE0/EF0, ClearOnExitScripts 0x472F00, FindScriptWithUniqueId 0x4734B0. load.cpp's four
+        GameFunction wrappers (0x4747F0, 0x472C90, 0x473A80, 0x473010) replaced by the methods. Header fix:
+        SetScriptCopy takes an `SStructScript*` {name, code} (from CStruct 0x476900), not a symbol entry.
+        Test TestCScriptCore (selftests_csA.cpp): stand-in heaps/pools/symbols/cache/table/tracker, every function's
+        branches, the whole state of every live script after each call. 63 mutations: 55 caught at once, 7 after
+        strengthening, 1 equivalent (Destroy's final m_object.Release - ClearScript already released it).
+        Findings: m_refCounted's vtable null for life (memset after its constructor); ClearScript releases the cache
+        use even for code it never took from the cache; Destroy leaves a busy handler table to its runner.
+      - 74B, the interpreter (cscript_exec.cpp, 13): Update 0x4750B0, ExecuteCommand 0x474B40, ExecuteIf 0x475050,
+        ExecuteSwitch 0x473C60 ("not checked" by thug2_check: its RET is behind the jump table), SkipToEndOfSwitch
+        0x472A70, ExecuteBegin/Repeat/Break 0x473220 / 0x472AB0 / 0x472B50, ParseFunctionParams 0x472950, ReadName
+        0x4729E0, CallMemberFunction 0x472980 (free) / 0x4731A0 / 0x4731E0. Test TestScriptInterpreter
+        (selftests_csB.cpp): 16 scripts (+8 called / interrupt scripts) for up to 24 Updates each, every token except
+        the endless ones; per-Update result and full state traced. 60 mutations: 49 caught at once, 10 after
+        strengthening, 1 equivalent (ExecuteRepeat storing mpEnd into m_pc). Findings: `obj:` with no such object
+        retries on object 0 (0x462120) or hangs; a missing name after `obj:` crashes outside 0xFB11E6CD; `return`
+        after an on-exit script that waited parses its arguments from the on-exit script's code.
+      - 74C, waits / call stack / interrupts / events (cscript_wait.cpp, 22): UpdateWait 0x473050, StopWaiting
+        0x4728F0, IsBlocked 0x472900, Wait / WaitOnePerFrame / WaitTime / WaitRealTime 0x472BD0 / 0x472BF0 / 0x472C10
+        / 0x473310, Block 0x472FD0, SetWaitOnComponent 0x4739A0, ComponentDestroyed 0x472D20 (a naked stub keeping ECX
+        for 0x472E70, REPLACE_UNCHECKED) and 0x472E70, ReceiveEvent 0x473800, UnblockInterruptedScript 0x472F40,
+        CallScript 0x4748E0, ReturnFromScript 0x473E70, Interrupt 0x475750, the six event handler methods 0x472EA0,
+        0x472EC0, 0x4734E0, 0x4735D0, 0x473690, 0x4736C0 (the table's own methods 0x45F820-0x4601A0 / 0x460470 stay
+        the game's - their meanings are in cscript_wait.cpp). Test TestCScriptWait (selftests_csC.cpp): every wait
+        type's edge cases (exact frame, NaN, huge/unsigned ms), call stack to depth 5 with the heap move, every
+        handler method with and without a table. 70 mutations: 65 caught at once, 4 after strengthening, 1
+        equivalent (growing the stack at depth >= 2 instead of == 2).
+      - 74D, the script manager (cscript_manager.cpp, 24): UpdateSpawnedScripts 0x475920, DeleteSpawnedScripts
+        0x4753C0, SpawnScript 0x475420 / 0x475670, KillSpawnedScript 0x4756C0, StopAllScriptsUsingThisObject
+        0x4756F0, DeleteFinishedScripts 0x475700, RunScript 0x475790 / 0x4758F0, RunScriptOnce 0x4752F0, the net
+        messages 0x473350 / 0x473420, Pause/Unpause 0x472D80 / 0x472DC0, ScriptExists / GetSpawnId /
+        FindSpawnedScriptWithId 0x472DE0 / 0x472E00 / 0x472E20, the kill/stop walks 0x473FA0, 0x474040, 0x4740D0,
+        0x474190, 0x474250, 0x4742B0, 0x474350. Callers switched to ours: chat.cpp (x2), service.cpp, music.cpp,
+        memcard_cfuncs.cpp, sio/device.cpp; their tests stand in for ours too. Tests TestScriptManagerWalks,
+        TestUpdateSpawnedScripts, TestSpawnAndRunScript, TestScriptNetMessages (selftests_csD.cpp). 56 mutations:
+        55 caught at once, 1 after strengthening. Findings: the Kill* walks read `next` before stopping, the Stop*
+        walks after (the plan said before for all); m_spawnerFile is the spawner's .qb file checksum, so
+        KillSpawnedScript id=<file> kills what a file's scripts spawned; spawning a C function from script without
+        flag 0x01917DF2 crashes in SetSpawnerFile (CFunc_SpawnScript 0x59F330 uses the null result).
+      Not done: the 5 sound functions 0x47AC10-0x47AD80 (not script code; for src/game/sfx/volume.*): 0x47AC10 volume
+      type from a checksum (0xF221474C -> 1, 0x9706104B -> 2, 0x0CA64C41 -> 3, else 0); 0x47AC50 sVolume::
+      PercentageAdjustment(float) (thiscall RET 4; 5 channels if type 2 else 2, each `pct * ch * 0.01f`); 0x47ACF0
+      IsSilent (channels == 0.0f, then `type != 3`; NaN -> false); 0x47AD60 the constructor (5 floats zeroed, type
+      untouched, EAX = 0); 0x47AD80 find a stream by checksum (stdcall RET 4; table 0x6F7A68 of 0x3C-byte entries,
+      two passes on +0 then +4, a hit only if 0x47C7E0(index); a second-pass hit also calls 0x478F60(0x6D2E270E, 0)
+      and, if 0, 0x478F60(0xD7BB618D, 0); returns the index or -1). Full notes: docs/pending/cscript-plan.md in git
+      history.
+      Test-template todo: the arena-image half-pointer normalisation (.claude/skills/decomp-batch/test-template.cpp
+      ~line 93, `high <= (base + size) >> 16`) works in whole 64 KB segments, so the segment holding the arena's end
+      can also normalise statics placed right after the arena (csB hit this with its fake objects and used `<`,
+      which instead skips the arena's last partial segment). A proper fix compares full addresses.
+- [ ] Next: run batch 74 (CScript) in the game - every script goes through it, so a failure shows at once (bisect by
+      file in thug2-decomp.ini: cscript_core / cscript_exec / cscript_wait / cscript_manager). Then the nearby gaps:
+      the module manager Mdl::Manager 0x44F300-0x44F7E0, 0x4B2270-0x4B2320 (9 glue functions), CFlipRotateComponent::
+      Update 0x4E2D20 and its base 0x481710-0x481740, 0x46C470-0x46C6A0 (a CStruct wrapper class), 0x4620A0-0x462710
+      (object / event CFunctions), the sound functions 0x47AC10-0x47AD80; and what CScript still calls in the game:
+      the event handler table 0x45F820-0x4601A0 + 0x460470 (needed for the event model - docs/script-runtime.md
+      section 12), the tracker 0x462120 / 0x462B90 / 0x463370 / 0x463450, FindObject 0x460AD0, CRefCounted
+      0x4637B0 / 0x463870, CObject::GetComponent 0x45DB90. GameSpy's host names become configuration when the SDK is
+      linked. Check which files actually reach LoadQB's pre-compiled branch: the shipped .qb.xbx files don't match
+      its layout (batch 71).
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
       for original callers that read ECX/EDX after the call without writing them first (ignoring push-to-reserve,
       lea reg,[reg], or reg,-1 and zeroing idioms; callers that are themselves replaced count as safe).

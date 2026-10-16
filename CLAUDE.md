@@ -72,4 +72,4 @@ installed); functions the PC port patched get source with the PC port's behaviou
   readable JS (not via the community "q" text syntax), API from the CFunctions with generated .d.ts typings,
   scripts as generators driven by a scheduler that matches the original's exactly. While decompiling the
   script runtime, document its scheduling semantics - they're the spec. The token format is in
-  src/game/script/qb.h.
+  src/game/script/qb.h. The runtime's behaviour so far: docs/script-runtime.md.
