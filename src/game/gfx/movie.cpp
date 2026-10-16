@@ -11,6 +11,7 @@
 #include "game/core/dbg.h"
 #include "game/script/struct.h"
 #include "game/sio/device.h"
+#include "game/sys/mlp.h"
 #include "game/sys/platform.h"
 #include "hook/game.h"
 #include "hook/log.h"
@@ -296,7 +297,7 @@ void __cdecl PlayMovieFile(const char* name)
             if (QuitRequested())
                 break;
             if (DeviceLost()) {
-                GameFunction<void(__cdecl*)()>(0x0044F250)(); // reset the device (a jump to 0x0044EE90)
+                Mlp::Manager::ResetDeviceIfLost(); // (through the jump at 0x0044F250)
                 if (DeviceLost())
                     continue;
                 BinkPause(CurrentMovie(), 0);

@@ -563,7 +563,8 @@ void TestMain()
             uint32_t ours;
         };
         const Create creates[] = {
-            {0x00463730, 0}, {0x0044F260, 0}, {0x0044F6F0, 0}, {0x005BE670, AddressOf(&Sio::CreateManager)},
+            {0x00463730, 0}, {0x0044F260, AddressOf(&Mlp::CreateManager)}, {0x0044F6F0, 0},
+            {0x005BE670, AddressOf(&Sio::CreateManager)},
             {0x005BC900, AddressOf(&Mc::CreateManager)}, {0x0044E7F0, 0},
             {0x005B6CA0, AddressOf(&File::CreateAsyncLoaderModule)},
             {0x00476040, AddressOf(&Script::CreateScriptCache)}, {0x004088E0, 0},
@@ -588,7 +589,8 @@ void TestMain()
             {0x004558D0, 0}, {0x0047C6C0, 0}, {0x00407980, 0}, {0x00475A00, AddressOf(&Script::ReleaseScriptCache)},
             {0x005B6620, AddressOf(&File::DestroyAsyncLoaderModule)}, {0x0044E6B0, 0},
             {0x005BC950, AddressOf(&Mc::ReleaseManager)}, {0x005BDCF0, AddressOf(&Sio::ReleaseManager)},
-            {0x0044F740, 0}, {0x0044F2B0, 0}, {0x00461FA0, 0}, {0x005B9510, AddressOf(&Pre::DestroyManager)}};
+            {0x0044F740, 0}, {0x0044F2B0, AddressOf(&Mlp::ReleaseManager)}, {0x00461FA0, 0},
+            {0x005B9510, AddressOf(&Pre::DestroyManager)}};
         index = 0;
         for (const Create& c : releases) {
             Handler handler = plain(0xE0000 + static_cast<uint32_t>(index));

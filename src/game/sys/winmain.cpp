@@ -13,6 +13,7 @@
 
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
+#include "game/sio/device.h"
 #include "game/sys/main.h"
 #include "game/sys/platform.h"
 #include "game/sys/registry.h"
@@ -108,6 +109,50 @@ const uint32_t kDefaultBindings[3][24] = {
 };
 
 } // namespace
+
+// 0x004E16B0
+LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    switch (message) {
+    case WM_DESTROY:
+    case WM_CLOSE:
+        PostQuitMessage(0);
+        GameVariable<bool>(0x007D6A2C) = true; // quit
+        return 0;
+    case WM_ACTIVATE:
+        // (the game's window, not the message's)
+        if (LOWORD(wParam) == WA_ACTIVE || LOWORD(wParam) == WA_CLICKACTIVE) {
+            ShowWindow(GameWindow(), SW_MAXIMIZE);
+            GameVariable<bool>(0x007CCBE4) = true; // active
+        } else {
+            ShowWindow(GameWindow(), SW_MINIMIZE);
+            GameVariable<bool>(0x007CCBE4) = false;
+            GameVariable<bool>(0x00786AB4) = true; // the device is taken as lost (reset when active again)
+            InvalidateRect(nullptr, nullptr, TRUE);
+        }
+        return 0;
+    case WM_PAINT:
+        ValidateRect(window, nullptr);
+        return 0;
+    case WM_KEYDOWN:
+        Sio::SpecialKeyInput(static_cast<int>(wParam), static_cast<int>(lParam));
+        return 0;
+    case WM_CHAR:
+        Sio::KeyInput(static_cast<int>(wParam), static_cast<int>(lParam));
+        return 0;
+    case WM_SYSKEYDOWN:
+        if (wParam == VK_F10) // (not the menu)
+            return 0;
+        break;
+    case WM_SYSCOMMAND:
+        if (wParam == SC_KEYMENU) // (no menu from Alt)
+            return 0;
+        break;
+    case WM_POWERBROADCAST:
+        return 0;
+    }
+    return DefWindowProcA(window, message, wParam, lParam);
+}
 
 // 0x004E1220
 void __cdecl ParseNetworkParams(const char* commandLine)
@@ -298,5 +343,6 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE /*previous*/, char* commandLine
 
 } // namespace Sys
 
+REPLACE(0x004E16B0, Sys::WindowProc); // (PartyMod's SDL window doesn't use it)
 REPLACE(0x004E2680, Sys::WinMain);
 REPLACE(0x004E1220, Sys::ParseNetworkParams);

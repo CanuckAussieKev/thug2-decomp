@@ -40,7 +40,7 @@ inline void DebugSetUp(int /*unused*/) {}
 uint8_t* Create(uint32_t create) { return GameFunction<uint8_t*(__cdecl*)(bool)>(create)(true); }
 void Release(uint32_t release) { GameFunction<void(__cdecl*)()>(release)(); }
 
-// The main loop's task manager (Mlp::Manager, 0x0044F260): three task lists, at +0x04, +0x40 and +0x7C.
+// The main loop's task manager (Mlp::Manager): three task lists, at +0x04, +0x40 and +0x7C.
 void AddTask(uint8_t* mlp, uint32_t list, void* task)
 {
     GameFunction<void(__thiscall*)(uint8_t*, void*)>(0x00406C90)(mlp + list, task);
@@ -118,7 +118,7 @@ int __cdecl Main(int argc, char** argv)
 
         Mem::PushMemProfile("System Singletons");
         Create(0x00463730);
-        uint8_t* mlp = Create(0x0044F260);
+        auto* mlp = reinterpret_cast<uint8_t*>(Mlp::CreateManager(true));
         uint8_t* mdl = Create(0x0044F6F0);
         auto* sio = reinterpret_cast<uint8_t*>(Sio::CreateManager(true));
         Mc::CreateManager(true);
@@ -209,7 +209,7 @@ int __cdecl Main(int argc, char** argv)
         Mc::ReleaseManager();
         Sio::ReleaseManager();
         Release(0x0044F740);
-        Release(0x0044F2B0);
+        Mlp::ReleaseManager();
         Release(0x00461FA0);
         Pre::DestroyManager();
         Mem::PopMemProfile(); // (Everything)
