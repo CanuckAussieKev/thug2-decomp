@@ -15,6 +15,7 @@
 #include "game/core/mem.h"
 #include "game/core/pool.h"
 #include "game/file/pip.h"
+#include "game/script/cscript.h"
 #include "game/script/load.h"
 #include "game/script/parse.h"
 #include "game/script/precompiled.h"
@@ -555,16 +556,16 @@ void TestUnloadQB()
         }
         GameVariable<void*>(0x006F3538) = g_fakeScripts[0];
         auto* s = new StandIns;
-        s->At({0x00472C90}, 0, [](Regs& r) {
+        s->At({0x00472C90, AddressOf(&Script::CScript::AllScriptsStillDefined)}, 0, [](Regs& r) {
             Record({0xC90, ScriptId(r.ecx)});
             return static_cast<uint32_t>(reinterpret_cast<uint8_t*>(r.ecx)[0x40]) | 0xABCDEF00u;
         });
-        s->At({0x00473A80}, 0, [](Regs& r) {
+        s->At({0x00473A80, AddressOf(&Script::CScript::ClearScript)}, 0, [](Regs& r) {
             Record({0xA80, ScriptId(r.ecx)});
             reinterpret_cast<uint8_t*>(r.ecx)[0x40] = 1; // (defined again: not stopped twice)
             return 0u;
         });
-        s->At({0x00473010}, 0, [](Regs& r) {
+        s->At({0x00473010, AddressOf(&Script::CScript::ReportStopped)}, 0, [](Regs& r) {
             Record({0x010, ScriptId(r.ecx)});
             return 0u;
         });

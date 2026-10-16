@@ -25,14 +25,7 @@ namespace {
 // The checksum of the .qb file being loaded (0 outside loading).
 uint32_t& LoadingFile() { return GameVariable<uint32_t>(0x006F2364); }
 
-// Not rewritten yet: CScript's methods, and the platform's file extension for pre-compiled scripts.
-void RestartScript(CScript* script) { GameFunction<void(__thiscall*)(CScript*)>(0x004747F0)(script); }
-// Whether every script `script` is running or will return to is still defined (or it's running a C function?).
-bool ScriptsStillDefined(CScript* script) { return GameFunction<bool(__thiscall*)(CScript*)>(0x00472C90)(script); }
-// Stop `script` and free everything it holds (its parameters, call stack, ...).
-void ClearScript(CScript* script) { GameFunction<void(__thiscall*)(CScript*)>(0x00473A80)(script); }
-// After ClearScript: tells the script's object (+0xE0) and, with flag 0x10 at +0xCC, 0x00462B90 that it stopped.
-void ScriptStopped(CScript* script) { GameFunction<void(__thiscall*)(CScript*)>(0x00473010)(script); }
+// Not rewritten yet: the platform's file extension for pre-compiled scripts.
 const char* PrecompiledExtension() { return GameFunction<const char*(__cdecl*)()>(0x005B6040)(); }
 
 // The symbol `existing` makes way for a new definition: set aside (temporary loads) or removed.
@@ -230,7 +223,7 @@ void RestartChangedScripts()
         if ((symbol->unknown0 & 1) && symbol->type == ESYMBOLTYPE_QSCRIPT) {
             for (CScript* script = GetNextScript(nullptr); script; script = GetNextScript(script)) {
                 if (ScriptRefersTo(script, symbol->name))
-                    RestartScript(script);
+                    script->Restart();
             }
             symbol->unknown0 &= 0xFE;
         }
@@ -298,9 +291,9 @@ void UnloadQB(uint32_t fileChecksum)
     }
     // Scripts left running code that's gone are stopped.
     for (CScript* script = GetNextScript(nullptr); script; script = GetNextScript(script)) {
-        if (!ScriptsStillDefined(script)) {
-            ClearScript(script);
-            ScriptStopped(script);
+        if (!script->AllScriptsStillDefined()) {
+            script->ClearScript();
+            script->ReportStopped();
         }
     }
     // (a pre-compiled file stays loaded until now)
