@@ -85,6 +85,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_platform.cpp
     src/hook/selftests_partymod.cpp
     src/hook/selftests_glyph.cpp
+    src/hook/selftests_skaterA.cpp
     src/hook/selftests_gfx2.cpp
     src/hook/selftests_misc.cpp
     src/hook/selftests_text.cpp
@@ -122,6 +123,7 @@ add_library(thug2_code OBJECT
     src/game/skater/rotation.cpp
     src/game/sio/device.cpp
     src/game/skater/controls.cpp
+    src/game/skater/core_physics.cpp
     src/game/sys/platform.cpp
     src/game/sys/registry.cpp
     src/game/sys/timer.cpp
