@@ -821,8 +821,6 @@ REPLACE(0x00477790, &Script::CStruct::RemoveComponentOfType);
 
 namespace Script {
 
-namespace {
-
 // 0x0046D140 (the constructor: the second byte is left as it was)
 CComponent* ConstructComponent(CComponent* component)
 {
@@ -833,6 +831,8 @@ CComponent* ConstructComponent(CComponent* component)
     component->typeAndFlag = 0;
     return component;
 }
+
+namespace {
 
 CComponent* NewTypedComponent(uint32_t name, ESymbolType type)
 {

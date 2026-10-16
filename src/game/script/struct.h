@@ -182,6 +182,8 @@ void DeleteArray(CArray* array);
 void FreeComponent(CComponent* component);
 // A new, empty component (from the component pool).
 CComponent* NewComponent();
+// Construct an empty component in place (leaves the second byte alone).
+CComponent* ConstructComponent(CComponent* component);
 
 // A 4-component vector as scripts' vectors are returned (w = 1).
 struct VectorValue {

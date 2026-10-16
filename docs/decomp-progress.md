@@ -326,8 +326,28 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       every getter over 8 names, a 20x20 ComponentsEqual matrix (NaN, aliases, int/float), AddArray; arenas
       compared (18 deliberate bugs caught, one after comparing an alias with an equal float).
 - [x] Batches 39-40 tested in the game (2026-10-16, by the user): verified.
-- [ ] Next: the script parser/loader (0x46F...) and the interpreter (0x46D450); the CArray functions between
-      0x46CD90 and 0x46D3D0.
+- [x] Batch 41 (NOT run in the game yet; early test passes offline): the script expression evaluator
+      (src/game/script/eval.*). CExpressionEvaluator (0x1F8 bytes: values[20] CComponent, value top +0x140,
+      operators[20] {op, open parentheses} +0x144, operator top +0x1E4, has-operators +0x1E8, token +0x1EC,
+      error +0x1F0, +0x1F4 set by the constructor): constructor 0x46D380, Clear 0x46D1C0, ClearIfNeeded 0x46D220,
+      SetTokenPointer 0x46D250, SetError 0x46D260, PushOperator 0x46D2B0, Input(value) 0x46D310,
+      OpenParenthesis 0x46D370, Input(operator) 0x46EB70 (precedences at 0x67D908), CloseParenthesis 0x46EBF0,
+      GetResult 0x46EC40, and Execute 0x46D450 (5.5 KB): operators 5 [], 7 ==, 8 . (dot product / structure
+      member), 10 -, 11 +, 12 /, 13 * (and vector cross product), 18 <, 20 >, 50 ||, 51 && (bitwise on the
+      raw integer values) over integers, floats, checksums, strings, local strings, pairs, vectors,
+      structures (+ merges, - removes names / arrays of names / another structure's parameters) and arrays
+      (+ concatenates as the first array's type); the result goes through the global component 0x6F2348;
+      errors are the game's own strings (after an error the value top ends at -1, as in the original).
+      Component helpers IsReference 0x46D160, MakeReference 0x46D180, MakeOwning 0x46D1A0, GetBool 0x46D280.
+      Mixed integer/float arithmetic is done in double then rounded, matching the x87 at 53-bit precision.
+      Still called through the game: array element to component 0x47A910, < 0x479410, > 0x4795A0.
+      17 functions. Early test: ~110 expressions fed through the original evaluator (all its functions
+      forced original with OriginalCode) and ours - every operator/type pair, every error, precedence,
+      parentheses, both stack overflows, order-sensitive dot products, the 200-character string limit;
+      results, error pointers, stack state, the evaluator's memory and the arenas compared (24 deliberate
+      bugs caught, 6 after strengthening the test; 2 more were equivalent to the original).
+- [ ] Next: the checksum-name table (0x46CD90..0x46D110), CFunction registration (0x46EFD0..0x46F060),
+      0x47A910 / 0x479410 / 0x4795A0, then the script parser (0x46F...) and the interpreter (CScript).
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
       for original callers that read ECX/EDX after the call without writing them first (ignoring push-to-reserve,
       lea reg,[reg], or reg,-1 and zeroing idioms; callers that are themselves replaced count as safe).

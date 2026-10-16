@@ -1,3 +1,4 @@
+#include "game/script/eval.h"
 #include "game/script/struct.h"
 #include "hook/selftest.h"
 
@@ -3913,6 +3914,384 @@ void TestScriptSymbols()
     }
 }
 
+// The expression evaluator: ~90 expressions covering every operator / type combination, precedence,
+// parentheses, every error and both stack overflows, fed through the original evaluator (with all its
+// functions original) and ours; results, errors, stack state and arenas compared.
+void TestScriptExpressions()
+{
+    using namespace Script;
+    using Mem::Heap;
+    using Mem::Manager;
+    using Mem::Region;
+    if (GameVariable<void*>(0x007D1800)) {
+        Log("self-test: TestScriptExpressions skipped (the memory manager is already set up)");
+        return;
+    }
+    for (int i = 0; i < 5; ++i)
+        std::memcpy(g_saved_script_pools[i], reinterpret_cast<void*>(kScriptPoolAddresses[i]), 16);
+    std::memcpy(g_saved_permanent_strings, reinterpret_cast<void*>(0x006F3570), sizeof(g_saved_permanent_strings));
+    g_saved_system_ready = GameVariable<bool>(0x007CC979);
+    g_saved_manager_for_test = nullptr;
+    g_script_write_swapped = true;
+    g_saved_symbol_table = GameVariable<CSymbolTableEntry**>(0x006F3624);
+    g_symbol_table_swapped = true;
+    uint8_t savedResult[16];
+    std::memcpy(savedResult, reinterpret_cast<void*>(0x006F2348), 16);
+    for (uint32_t address : kScriptPoolAddresses)
+        std::memset(reinterpret_cast<void*>(address), 0, 16);
+    std::memset(reinterpret_cast<void*>(0x006F3570), 0, sizeof(g_saved_permanent_strings));
+    GameVariable<bool>(0x007CC979) = true;
+    static CSymbolTableEntry* table[0x1000];
+    std::memset(table, 0, sizeof(table));
+    GameVariable<CSymbolTableEntry**>(0x006F3624) = table;
+
+    // Tokens: a value (index into the value table), an operator, or a parenthesis.
+    struct Token {
+        char kind; // 'v', 'o', '(', ')'
+        int value;
+    };
+    enum {
+        I2, I3, I4, I7, IM7, I0, F15, F25, FTINY, FNAN, N1, N2, S_AB, S_CD, S_LONG, L_X, L_Y, P1, P2, V1, V2,
+        ST1, ST2, STP, NAME_A, NAME_ZZ, ARR_I, ARR_EMPTY, ARR_N, ARR_P, I1, F0, S_50, V3, V4, NAME_C, ARR_S, ARR_SP,
+        S_49, kValueCount
+    };
+    using T = std::vector<Token>;
+    auto v = [](int i) { return Token{'v', i}; };
+    auto o = [](int op) { return Token{'o', op}; };
+    const Token open{'(', 0}, close{')', 0};
+    const int ADD = OPERATOR_ADD, SUB = OPERATOR_MINUS, MUL = OPERATOR_MULTIPLY, DIV = OPERATOR_DIVIDE,
+              DOT = OPERATOR_DOT, EQ = OPERATOR_EQUALS, LT = OPERATOR_LESS_THAN, GT = OPERATOR_GREATER_THAN,
+              OR = OPERATOR_OR, AND = OPERATOR_AND, ELEM = OPERATOR_ARRAY_ELEMENT;
+    std::vector<T> expressions = {
+        {v(I2), o(ADD), v(I3), o(MUL), v(I4)},
+        {open, v(I2), o(ADD), v(I3), close, o(MUL), v(I4)},
+        {v(I2), o(MUL), v(I3), o(ADD), v(I4)},
+        {v(I7), o(SUB), v(I3), o(SUB), v(I2)},
+        {v(I2), o(ADD), v(F15)}, {v(F15), o(ADD), v(I2)}, {v(F15), o(ADD), v(F25)},
+        {v(I2), o(SUB), v(F15)}, {v(F15), o(SUB), v(I2)}, {v(F15), o(SUB), v(F25)},
+        {v(I2), o(ADD), v(S_AB)}, {v(F15), o(ADD), v(S_AB)}, {v(F15), o(SUB), v(S_AB)}, {v(I2), o(SUB), v(S_AB)},
+        {v(N1), o(ADD), v(I3)}, {v(N1), o(ADD), v(N2)}, {v(N1), o(ADD), v(F15)}, {v(N1), o(SUB), v(I3)},
+        {v(S_AB), o(ADD), v(S_CD)}, {v(L_X), o(ADD), v(L_Y)}, {v(S_AB), o(ADD), v(L_X)}, {v(L_X), o(ADD), v(S_AB)},
+        {v(S_LONG), o(ADD), v(S_LONG)}, {v(S_LONG), o(ADD), v(S_AB)},
+        {v(P1), o(ADD), v(P2)}, {v(P1), o(SUB), v(P2)}, {v(P1), o(ADD), v(I2)}, {v(P1), o(SUB), v(I2)},
+        {v(V1), o(ADD), v(V2)}, {v(V1), o(SUB), v(V2)}, {v(V1), o(ADD), v(P1)}, {v(V1), o(SUB), v(P1)},
+        {v(V1), o(MUL), v(V2)}, {v(V1), o(DOT), v(V2)}, {v(P1), o(DOT), v(P2)}, {v(V1), o(DOT), v(P1)},
+        {v(P1), o(DOT), v(V1)}, {v(I2), o(DOT), v(I3)},
+        {v(I3), o(MUL), v(I4)}, {v(IM7), o(MUL), v(F15)}, {v(I3), o(MUL), v(V1)}, {v(I3), o(MUL), v(P1)},
+        {v(I3), o(MUL), v(S_AB)}, {v(F15), o(MUL), v(I3)}, {v(F15), o(MUL), v(F25)}, {v(F25), o(MUL), v(V2)},
+        {v(F25), o(MUL), v(P2)}, {v(F25), o(MUL), v(S_AB)}, {v(P1), o(MUL), v(I3)}, {v(P1), o(MUL), v(F25)},
+        {v(P1), o(MUL), v(P2)}, {v(V1), o(MUL), v(I3)}, {v(V1), o(MUL), v(F25)}, {v(V1), o(MUL), v(P1)},
+        {v(S_AB), o(MUL), v(I2)},
+        {v(I7), o(DIV), v(I2)}, {v(IM7), o(DIV), v(I2)}, {v(I7), o(DIV), v(I0)}, {v(I7), o(DIV), v(FTINY)},
+        {v(I7), o(DIV), v(F0)}, {v(I7), o(DIV), v(FNAN)}, {v(I7), o(DIV), v(F25)}, {v(F25), o(DIV), v(I2)},
+        {v(F25), o(DIV), v(F15)}, {v(I7), o(DIV), v(S_AB)}, {v(F25), o(DIV), v(P1)}, {v(P1), o(DIV), v(I2)},
+        {v(P1), o(DIV), v(F25)}, {v(P1), o(DIV), v(V1)}, {v(V1), o(DIV), v(I2)}, {v(V1), o(DIV), v(F25)},
+        {v(V1), o(DIV), v(V2)}, {v(S_AB), o(DIV), v(I2)},
+        {v(ST1), o(ADD), v(ST2)}, {v(ST1), o(ADD), v(STP)}, {v(STP), o(ADD), v(ST1)}, {v(ST1), o(ADD), v(I2)},
+        {v(ST1), o(SUB), v(NAME_A)}, {v(ST1), o(SUB), v(ARR_N)}, {v(ST1), o(SUB), v(ARR_I)},
+        {v(ST1), o(SUB), v(ARR_EMPTY)}, {v(ST1), o(SUB), v(ST2)}, {v(ST1), o(SUB), v(I2)},
+        {v(ST1), o(DOT), v(NAME_A)}, {v(ST1), o(DOT), v(NAME_ZZ)}, {v(STP), o(DOT), v(NAME_A)},
+        {v(ST1), o(DOT), v(I2)}, {v(STP), o(SUB), v(NAME_A)},
+        {v(ARR_I), o(ADD), v(ARR_N)}, {v(ARR_EMPTY), o(ADD), v(ARR_I)}, {v(ARR_I), o(ADD), v(ARR_EMPTY)},
+        {v(ARR_P), o(ADD), v(ARR_P)}, {v(ARR_I), o(ADD), v(I2)}, {v(ARR_I), o(SUB), v(ARR_I)},
+        {v(ARR_I), o(ELEM), v(I1)}, {v(ARR_I), o(ELEM), v(I7)}, {v(ARR_I), o(ELEM), v(F15)}, {v(I2), o(ELEM), v(I1)},
+        {v(ARR_P), o(ELEM), v(I0)}, {v(ARR_N), o(ELEM), v(I1)},
+        {v(I2), o(EQ), v(I2)}, {v(I2), o(EQ), v(F25)}, {v(S_AB), o(EQ), v(S_AB)}, {v(I2), o(LT), v(I3)},
+        {v(F25), o(GT), v(I2)}, {v(I3), o(LT), v(I2)},
+        {v(I2), o(OR), v(I4)}, {v(I2), o(AND), v(I4)}, {v(F15), o(AND), v(I3)}, {v(FNAN), o(OR), v(I0)},
+        {v(S_AB), o(OR), v(I0)}, {v(I0), o(AND), v(F0)},
+        {v(I2), o(ADD), v(I3), o(EQ), v(I4), o(ADD), v(I1)},
+        {v(I2), o(6), v(I3)}, {v(I2), v(I3)}, {o(ADD)}, {v(I2), o(ADD)}, {open, v(I2), o(ADD), v(I3)},
+        {v(I2), o(ADD), v(I3), close}, {}, {v(I2)}, {v(STP)}, {v(ARR_P)},
+        {v(S_LONG), o(ADD), v(S_50)}, {v(S_LONG), o(ADD), v(S_49)}, {v(S_LONG), o(ADD), v(S_AB), o(ADD), v(S_AB)}, {v(V3), o(DOT), v(V4)},
+        {v(V4), o(DOT), v(V3)}, {v(ARR_I), o(ADD), v(ARR_S)}, {v(STP), o(DOT), v(NAME_C)},
+        {v(ST2), o(DOT), v(NAME_C)}, {v(ARR_SP), o(ELEM), v(I0)}, {v(ARR_S), o(ELEM), v(I1)},
+        {v(ARR_I), o(ELEM), v(I3)}, {v(ARR_I), o(ELEM), v(I2)},
+    };
+    // Both stack overflows: 21 levels of "1 + (".
+    {
+        T deep;
+        for (int i = 0; i < 21; ++i) {
+            deep.push_back(v(I1));
+            deep.push_back(o(ADD));
+            deep.push_back(open);
+        }
+        expressions.push_back(deep);
+        T valuesOnly;
+        for (int i = 0; i < 21; ++i) {
+            valuesOnly.push_back(open);
+            valuesOnly.push_back(v(I1));
+        }
+        expressions.push_back(valuesOnly);
+        T operators;
+        for (int i = 0; i < 21; ++i) {
+            operators.push_back(open);
+            operators.push_back(v(I1));
+            operators.push_back(o(SUB));
+        }
+        expressions.push_back(operators);
+    }
+
+    static const uint32_t kEvaluatorFunctions[] = {0x0046D160, 0x0046D180, 0x0046D1A0, 0x0046D280, 0x0046D380,
+                                                   0x0046D1C0, 0x0046D220, 0x0046D250, 0x0046D260, 0x0046D2B0,
+                                                   0x0046D310, 0x0046D370, 0x0046EB70, 0x0046EBF0, 0x0046EC40,
+                                                   0x0046D450};
+    alignas(16) static uint8_t evaluatorMemory[0x200];
+    static CComponent values[kValueCount];
+    static CPair pairs[2];
+    static CVector vectors[2];
+    static char longString[160];
+    static char string50[60];
+    static CVector bigVectors[2];
+
+    auto run = [&](bool original) {
+        std::vector<uint32_t> trace;
+        uint8_t* arena = g_manager_arenas[original ? 0 : 1];
+        std::memset(arena, 0, kManagerArenaSize);
+        std::memset(arena + 0x1000, 0xCD, kManagerArenaSize - 0x1000);
+        auto* manager = reinterpret_cast<Manager*>(arena);
+        GameVariable<void*>(0x007D1800) = manager;
+        auto* region = new (arena + 0x600) Region(arena + 0x1000, arena + kManagerArenaSize - 0x2800);
+        auto* heap = new (arena + 0x620) Heap(region, 1, "test");
+        auto* scriptRegion = new (arena + 0x6C0) Region(arena + kManagerArenaSize - 0x2800, arena + kManagerArenaSize);
+        auto* scriptHeap = new (arena + 0x6E0) Heap(scriptRegion, 1, "script");
+        manager->m_heaps[0] = heap;
+        manager->m_heaps[1] = scriptHeap;
+        manager->m_heapCount = 2;
+        manager->m_scriptHeap = scriptHeap;
+        manager->PushContext(heap);
+        std::memset(reinterpret_cast<void*>(0x006F2348), 0, 16);
+
+        // The values.
+        std::memset(values, 0, sizeof(values));
+        auto set = [&](int i, ESymbolType type, uint32_t raw) {
+            values[i].typeAndFlag = static_cast<uint8_t>(type << 1);
+            values[i].raw = raw;
+        };
+        auto bits = [](float f) {
+            uint32_t b;
+            std::memcpy(&b, &f, 4);
+            return b;
+        };
+        set(I2, ESYMBOLTYPE_INTEGER, 2);
+        set(I3, ESYMBOLTYPE_INTEGER, 3);
+        set(I4, ESYMBOLTYPE_INTEGER, 4);
+        set(I7, ESYMBOLTYPE_INTEGER, 7);
+        set(IM7, ESYMBOLTYPE_INTEGER, static_cast<uint32_t>(-7));
+        set(I0, ESYMBOLTYPE_INTEGER, 0);
+        set(I1, ESYMBOLTYPE_INTEGER, 1);
+        set(F15, ESYMBOLTYPE_FLOAT, bits(1.5f));
+        set(F25, ESYMBOLTYPE_FLOAT, bits(-2.5f));
+        set(FTINY, ESYMBOLTYPE_FLOAT, bits(-1.0e-7f));
+        set(F0, ESYMBOLTYPE_FLOAT, bits(0.0f));
+        set(FNAN, ESYMBOLTYPE_FLOAT, bits(std::numeric_limits<float>::quiet_NaN()));
+        set(N1, ESYMBOLTYPE_NAME, 0x10000000);
+        set(N2, ESYMBOLTYPE_NAME, 0x00000123);
+        set(S_AB, ESYMBOLTYPE_STRING, reinterpret_cast<uint32_t>("ab"));
+        set(S_CD, ESYMBOLTYPE_STRING, reinterpret_cast<uint32_t>("cd"));
+        std::memset(longString, 'q', 150);
+        longString[150] = 0;
+        set(S_LONG, ESYMBOLTYPE_STRING, reinterpret_cast<uint32_t>(longString));
+        std::memset(string50, 'r', 50);
+        string50[50] = 0;
+        set(S_50, ESYMBOLTYPE_STRING, reinterpret_cast<uint32_t>(string50)); // 150 + 50 + 1: one too many
+        set(S_49, ESYMBOLTYPE_STRING, reinterpret_cast<uint32_t>(string50 + 1)); // 150 + 49 + 1 = 200: just fits
+        // Dot products whose result depends on the order the terms are added in.
+        bigVectors[0] = {0, 1.0f, 1073741824.0f, 1073741824.0f};
+        bigVectors[1] = {0, 1.0f, 1073741824.0f, -1073741824.0f};
+        set(V3, ESYMBOLTYPE_VECTOR, reinterpret_cast<uint32_t>(&bigVectors[0]));
+        set(V4, ESYMBOLTYPE_VECTOR, reinterpret_cast<uint32_t>(&bigVectors[1]));
+        set(L_X, ESYMBOLTYPE_LOCALSTRING, reinterpret_cast<uint32_t>("x"));
+        set(L_Y, ESYMBOLTYPE_LOCALSTRING, reinterpret_cast<uint32_t>("yy"));
+        pairs[0] = {0, 1.25f, -3.0f};
+        pairs[1] = {0, 0.5f, 7.0f};
+        vectors[0] = {0, 1.0f, 2.0f, 3.5f};
+        vectors[1] = {0, -4.0f, 0.25f, 6.0f};
+        set(P1, ESYMBOLTYPE_PAIR, reinterpret_cast<uint32_t>(&pairs[0]));
+        set(P2, ESYMBOLTYPE_PAIR, reinterpret_cast<uint32_t>(&pairs[1]));
+        set(V1, ESYMBOLTYPE_VECTOR, reinterpret_cast<uint32_t>(&vectors[0]));
+        set(V2, ESYMBOLTYPE_VECTOR, reinterpret_cast<uint32_t>(&vectors[1]));
+        CStruct* st1 = NewStruct()->Init();
+        st1->AddInteger(0xA0u, 5);
+        st1->AddFloat(0xA1u, 2.0f);
+        st1->AddChecksum(0u, 0xA2u); // a flag
+        st1->AddString(0xA3u, "s");
+        CStruct* st2 = NewStruct()->Init();
+        st2->AddFloat(0xA0u, 1.0f);  // same name, other type: stays
+        st2->AddFloat(0xA1u, 9.0f);  // same name and type: removed
+        st2->AddChecksum(0u, 0xA2u); // the flag: removed
+        st2->AddInteger(0xB0u, 1);
+        st2->AddStructure(0xC0u, st1); // a structure member
+        set(ST1, ESYMBOLTYPE_STRUCTURE, reinterpret_cast<uint32_t>(st1));
+        set(ST2, ESYMBOLTYPE_STRUCTURE, reinterpret_cast<uint32_t>(st2));
+        set(STP, ESYMBOLTYPE_STRUCTUREPOINTER, reinterpret_cast<uint32_t>(st2));
+        set(NAME_A, ESYMBOLTYPE_NAME, 0xA0u);
+        set(NAME_ZZ, ESYMBOLTYPE_NAME, 0xFFu);
+        set(NAME_C, ESYMBOLTYPE_NAME, 0xC0u);
+        CArray* arrI = NewArray()->Init();
+        arrI->SetSizeAndType(3, ESYMBOLTYPE_INTEGER);
+        for (uint32_t i = 0; i < 3; ++i)
+            arrI->SetElement(i, 0xA0u + i);
+        CArray* arrN = NewArray()->Init();
+        arrN->SetSizeAndType(2, ESYMBOLTYPE_NAME);
+        arrN->SetElement(0, 0xA3u);
+        arrN->SetElement(1, 0xA2u);
+        CArray* arrE = NewArray()->Init();
+        set(ARR_I, ESYMBOLTYPE_ARRAY, reinterpret_cast<uint32_t>(arrI));
+        set(ARR_N, ESYMBOLTYPE_ARRAY, reinterpret_cast<uint32_t>(arrN));
+        set(ARR_EMPTY, ESYMBOLTYPE_ARRAY, reinterpret_cast<uint32_t>(arrE));
+        set(ARR_P, ESYMBOLTYPE_ARRAYPOINTER, reinterpret_cast<uint32_t>(arrN));
+        CArray* arrS = NewArray()->Init();
+        arrS->SetSizeAndType(2, ESYMBOLTYPE_STRING);
+        arrS->SetElement(0, reinterpret_cast<uint32_t>(CreateString("e0")));
+        arrS->SetElement(1, reinterpret_cast<uint32_t>(CreateString("e1")));
+        set(ARR_S, ESYMBOLTYPE_ARRAY, reinterpret_cast<uint32_t>(arrS));
+        CArray* arrStructs = NewArray()->Init();
+        arrStructs->SetSizeAndType(1, ESYMBOLTYPE_STRUCTURE);
+        CStruct* element = NewStruct()->Init();
+        element->AddInteger(0xD0u, 8);
+        arrStructs->SetElement(0, reinterpret_cast<uint32_t>(element));
+        set(ARR_SP, ESYMBOLTYPE_ARRAYPOINTER, reinterpret_cast<uint32_t>(arrStructs));
+
+        std::vector<OriginalCode*> guards;
+        if (original) {
+            for (uint32_t address : kEvaluatorFunctions)
+                guards.push_back(new OriginalCode(address));
+        }
+        auto* e = reinterpret_cast<CExpressionEvaluator*>(evaluatorMemory);
+        std::memset(evaluatorMemory, 0xEE, sizeof(evaluatorMemory));
+        using E = CExpressionEvaluator*;
+        if (original)
+            Original<E(__thiscall*)(E)>(0x0046D380)(e);
+        else
+            e->Init();
+        for (const T& expression : expressions) {
+            if (original)
+                Original<void(__thiscall*)(E)>(0x0046D220)(e);
+            else
+                e->ClearIfNeeded();
+            if (original)
+                Original<void(__thiscall*)(E, const uint8_t*)>(0x0046D250)(e, reinterpret_cast<const uint8_t*>(1));
+            else
+                e->SetTokenPointer(reinterpret_cast<const uint8_t*>(1));
+            for (const Token& token : expression) {
+                if (e->m_error)
+                    break;
+                switch (token.kind) {
+                case 'v':
+                    if (original)
+                        Original<void(__thiscall*)(E, const CComponent*)>(0x0046D310)(e, &values[token.value]);
+                    else
+                        e->Input(&values[token.value]);
+                    break;
+                case 'o':
+                    if (original)
+                        Original<void(__thiscall*)(E, int)>(0x0046EB70)(e, token.value);
+                    else
+                        e->Input(token.value);
+                    break;
+                case '(':
+                    if (original)
+                        Original<void(__thiscall*)(E)>(0x0046D370)(e);
+                    else
+                        e->OpenParenthesis();
+                    break;
+                default:
+                    if (original)
+                        Original<void(__thiscall*)(E)>(0x0046EBF0)(e);
+                    else
+                        e->CloseParenthesis();
+                    break;
+                }
+            }
+            CComponent result = {};
+            bool ok = false;
+            if (!e->m_error) {
+                ok = original ? Original<bool(__thiscall*)(E, CComponent*)>(0x0046EC40)(e, &result)
+                              : e->GetResult(&result);
+            }
+            trace.push_back(ok ? 1u : 0u);
+            trace.push_back(reinterpret_cast<uint32_t>(e->m_error));
+            trace.push_back(static_cast<uint32_t>(e->m_valueTop));
+            trace.push_back(static_cast<uint32_t>(e->m_operatorTop));
+            trace.push_back(e->m_hasOperators ? 1u : 0u);
+            trace.push_back(result.typeAndFlag);
+            trace.push_back(result.raw);
+            switch (result.Type()) {
+            case ESYMBOLTYPE_PAIR:
+                trace.push_back(bits(result.pair->x));
+                trace.push_back(bits(result.pair->y));
+                break;
+            case ESYMBOLTYPE_VECTOR:
+                trace.push_back(bits(result.vector->x));
+                trace.push_back(bits(result.vector->y));
+                trace.push_back(bits(result.vector->z));
+                break;
+            case ESYMBOLTYPE_STRING:
+            case ESYMBOLTYPE_LOCALSTRING:
+                for (const char* c = result.string; *c; ++c)
+                    trace.push_back(static_cast<uint8_t>(*c));
+                break;
+            case ESYMBOLTYPE_STRUCTURE:
+                for (CComponent* c = result.structure->m_head; c; c = c->next) {
+                    trace.push_back(c->typeAndFlag);
+                    trace.push_back(c->name);
+                    trace.push_back(c->Type() == ESYMBOLTYPE_STRING ? 0 : c->raw);
+                }
+                break;
+            case ESYMBOLTYPE_ARRAY:
+                trace.push_back(result.array->m_size);
+                trace.push_back(result.array->m_type);
+                for (uint32_t i = 0; i < result.array->m_size; ++i)
+                    trace.push_back(result.array->GetElement(i));
+                break;
+            default:
+                break;
+            }
+            CleanUpComponent(&result);
+        }
+        if (original)
+            Original<void(__thiscall*)(E)>(0x0046D1C0)(e);
+        else
+            e->Clear();
+        for (OriginalCode* guard : guards)
+            delete guard;
+        trace.insert(trace.end(), reinterpret_cast<uint32_t*>(evaluatorMemory),
+                     reinterpret_cast<uint32_t*>(evaluatorMemory + sizeof(evaluatorMemory)));
+        trace.insert(trace.end(), reinterpret_cast<uint32_t*>(0x006F2348), reinterpret_cast<uint32_t*>(0x006F2358));
+
+        std::vector<uint32_t> image(kManagerArenaSize / 4);
+        std::memcpy(image.data(), arena, kManagerArenaSize);
+        auto base = reinterpret_cast<uint32_t>(arena);
+        auto relocate = [&](uint32_t& word) {
+            if (word >= base && word <= base + kManagerArenaSize)
+                word = 0xA0000000u + (word - base);
+        };
+        for (uint32_t& word : image)
+            relocate(word);
+        for (uint32_t& word : trace)
+            relocate(word);
+        trace.insert(trace.end(), image.begin(), image.end());
+        GameVariable<void*>(0x007D1800) = nullptr;
+        return trace;
+    };
+    std::vector<uint32_t> expected = run(true);
+    std::vector<uint32_t> actual = run(false);
+    std::memcpy(reinterpret_cast<void*>(0x006F2348), savedResult, 16);
+    RestoreScriptWriteTest();
+    RestoreSymbolTable();
+    Check(expected == actual, "script expressions: every operator, precedence, errors");
+    if (expected.size() != actual.size())
+        Log("  expression trace sizes: original %u ours %u", static_cast<unsigned>(expected.size()),
+            static_cast<unsigned>(actual.size()));
+    for (size_t i = 0, shown = 0; i < expected.size() && i < actual.size() && shown < 8; ++i) {
+        if (expected[i] != actual[i]) {
+            Log("  expression entry %u: original %08X ours %08X", static_cast<unsigned>(i), expected[i], actual[i]);
+            ++shown;
+        }
+    }
+}
+
 // --- late self-tests ----------------------------------------------------------------------------------
 
 // The table's contents as (bucket, position in chain, key, value), so tables with different item addresses
@@ -4857,6 +5236,7 @@ SELFTEST(Early, TestScriptStructWriting, RestoreScriptWriteTest);
 SELFTEST(Early, TestScriptStructAdding, RestoreScriptAddingTest);
 SELFTEST(Early, TestScriptArrays, RestoreScriptAddingTest);
 SELFTEST(Early, TestScriptSymbols, RestoreScriptAddingTest);
+SELFTEST(Early, TestScriptExpressions, RestoreScriptAddingTest);
 
 SELFTEST(Late, TestMemoryLate);
 SELFTEST(Late, TestStringLate);
