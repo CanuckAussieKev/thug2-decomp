@@ -1283,7 +1283,10 @@ src/hook/selftests_partymod.cpp, src/game/sio/device.cpp/.h. No src/partymod cha
       return. tools/mutate.py stops before its final rebuild if a spec line isn't unique. Reusable harnesses:
       StandIns (selftests_misc.cpp), the recorder in selftests_skaterA.cpp; selftests_gfx2.cpp has its own copy
       of CodePatch/JumpTo.
-- [ ] Next: run batches 60-67 in the game; finish the PartyMod round (above: WinMain / MainLoop, GameSpy); then the pre-compiled .qb format (0x46FBA0, 0x46CA50, 0x46C970, 0x46C830, 0x46C7F0, ...), the script
+- [x] Batches 60-61 tested in the game (2026-10-16, by the user): game runs; 650 of 650 replacements installed
+      (31 source only), early 62 / late 16 / engine-started 2 self-tests pass, shadow checks no mismatches; the
+      six intro movies skipped with skip_intro_movies=1. (That DLL predates batches 62-67.)
+- [ ] Next: run batches 62-67 in the game; finish the PartyMod round (above: WinMain / MainLoop, GameSpy); then the pre-compiled .qb format (0x46FBA0, 0x46CA50, 0x46C970, 0x46C830, 0x46C7F0, ...), the script
       cache (0x475FD0 ...), then CScript (0x472900.. / 0x473000..).
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
       for original callers that read ECX/EDX after the call without writing them first (ignoring push-to-reserve,
