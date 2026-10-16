@@ -17,4 +17,8 @@ void SetCamera(const Mth::Matrix* orientation, const Mth::Vector* position, floa
 // 0x004DF390: the motion blur pass - blends the previous frame (one of two textures) over the screen.
 void DrawScreenBlur();
 
+// 0x004B2D80: the frame's 3D: per viewport with a camera, the world, the sky, the later passes; then the blur and
+// the 2D over the whole screen.
+void RenderWorld();
+
 } // namespace Nx

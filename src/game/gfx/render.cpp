@@ -10,6 +10,11 @@
 #include "hook/game.h"
 #include "hook/hook.h"
 
+// PartyMod's replacements (src/partymod/gfx.c): the viewport fitted to the aspect it wants (pillar- or
+// letterboxed), and the 2D pass followed by black bars over the overdraw.
+extern "C" void setDisplayRegion();
+extern "C" void draw2DWrapper();
+
 namespace Nx {
 
 namespace {
@@ -343,7 +348,262 @@ void DrawScreenBlur()
     SetFog(true);
 }
 
+namespace {
+
+// The screen's viewports (0x004A06D0 returns one by index): fractions of the back buffer, and the camera.
+struct Viewport {
+    uint32_t unknown00;
+    float x, y, width, height; // +0x04
+    uint32_t unknown14;
+    void* camera;              // +0x18 (null: nothing to draw)
+};
+static_assert(offsetof(Viewport, camera) == 0x18, "viewport layout");
+
+// The device's viewport (D3DVIEWPORT9, 0x00786C90).
+struct DeviceViewport {
+    uint32_t x, y, width, height;
+    float minZ, maxZ;
+};
+
+// A world scene's mesh group: flagged 0x100 once its meshes are prepared.
+struct MeshGroup {
+    uint32_t flags;
+    uint8_t unknown04[0x18];
+    void** meshes; // +0x1C
+    int meshCount; // +0x20
+};
+static_assert(offsetof(MeshGroup, meshCount) == 0x20, "mesh group layout");
+
+// A loaded world scene (only what the render uses).
+struct Scene {
+    uint8_t unknown000[0x8D];
+    bool sky;               // +0x8D: drawn in the sky pass
+    uint8_t unknown08E[0x1F2];
+    MeshGroup* group;       // +0x280
+};
+static_assert(offsetof(Scene, group) == 0x280, "scene layout");
+
+// The list of loaded scenes (0x006FA7EC): ends at a node whose scene is -1.
+struct SceneNode {
+    uint32_t unknown0;
+    Scene* scene;    // +0x04
+    uint32_t unknown8;
+    SceneNode* next; // +0x0C
+};
+
+bool IsEnd(const SceneNode* node) { return reinterpret_cast<intptr_t>(node->scene) == -1; }
+
+// Calls fn(scene) for every scene in the list (the next node is taken before the call).
+template <typename F>
+void ForEachScene(F fn)
+{
+    SceneNode* node = GameVariable<SceneNode*>(0x006FA7EC);
+    if (IsEnd(node) || !node) // (sic: the original reads the node before testing it)
+        return;
+    while (node) {
+        SceneNode* next = IsEnd(node->next) ? nullptr : node->next;
+        fn(node->scene);
+        node = next;
+    }
+}
+
+DeviceViewport& TheViewport() { return GameVariable<DeviceViewport>(0x00786C90); }
+void SetViewport() { Method<long(__stdcall*)(void*, const void*)>(Device(), 0xBC)(Device(), &TheViewport()); }
+// The device's render state directly (not the renderer's cached one).
+void SetDeviceRenderState(int state, uint32_t value)
+{
+    Method<long(__stdcall*)(void*, int, uint32_t)>(Device(), 0xE4)(Device(), state, value);
+}
+
+void FullScreenViewport()
+{
+    TheViewport() = {0, 0, GameVariable<uint32_t>(0x00786D6C), GameVariable<uint32_t>(0x00786D70), 0.0f, 1.0f};
+}
+
+// The camera (a game object; its getters aren't rewritten yet, thiscall).
+float CameraAngle(void* camera) { return GameFunction<float(__thiscall*)(void*)>(0x00485B10)(camera); }
+const Mth::Vector* CameraPosition(void* camera) { return GameFunction<const Mth::Vector*(__thiscall*)(void*)>(0x00485A00)(camera); }
+const Mth::Matrix* CameraMatrix(void* camera) { return GameFunction<const Mth::Matrix*(__thiscall*)(void*)>(0x00485A10)(camera); }
+
+void DrawSceneGroup(Scene* scene, int pass, int viewport)
+{
+    GameFunction<void(__cdecl*)(MeshGroup*, int, int)>(0x004DC700)(scene->group, pass, viewport);
+}
+void SetPass(int pass) { GameFunction<void(__cdecl*)(int, int)>(0x004D1760)(pass, 0); }
+void SetLightingMode(int mode) { GameFunction<void(__cdecl*)(int)>(0x004DB620)(mode); }
+
+void RenderViewport(int index)
+{
+    const Viewport* view = GameFunction<const Viewport*(__cdecl*)(int)>(0x004A06D0)(index);
+    void* camera = view->camera;
+    if (!camera)
+        return;
+    GameVariable<int>(0x006FA7B8) = index; // the viewport being drawn
+    double width = GameVariable<int>(0x00786D6C);
+    double height = static_cast<float>(GameVariable<int>(0x00786D70));
+    DeviceViewport& vp = TheViewport();
+    vp.x = static_cast<int>(width * view->x);
+    vp.y = static_cast<int>(height * view->y);
+    vp.width = static_cast<int>(width * view->width);
+    vp.height = static_cast<int>(height * view->height);
+    vp.minZ = 0.0f;
+    vp.maxZ = 1.0f;
+    if (GameVariable<bool>(0x00786CBE)) {
+        // PartyMod (its call at 0x004B2E65): the viewport fitted to the aspect it wants. The original squashed the
+        // viewport to 3/4 of the screen's height:
+        //   int screenHeight = GameVariable<int>(0x00786D70);
+        //   vp.y += screenHeight / 8;
+        //   vp.height -= screenHeight / 4;
+        setDisplayRegion();
+    }
+    SetViewport();
+    SetLightingMode(0);
+    float aspect = GameFunction<float(__thiscall*)(const Viewport*)>(0x004A0D20)(view);
+
+    // The world: every scene but the sky.
+    {
+        float angle = CameraAngle(camera);
+        const Mth::Vector* position = CameraPosition(camera);
+        SetCamera(CameraMatrix(camera), position, angle, aspect, 1.0f, false);
+    }
+    ForEachScene([&](Scene* scene) {
+        if (scene->sky)
+            return;
+        GameFunction<void(__cdecl*)(const Mth::Vector*, int)>(0x004D8ED0)(CameraPosition(camera), index);
+        SetRenderState(1, 1);
+        SetRenderState(2, 1);
+        MeshGroup* group = scene->group;
+        if (!(group->flags & 0x100)) {
+            group->flags |= 0x100;
+            for (int i = 0; i < group->meshCount; ++i)
+                GameFunction<void(__thiscall*)(void*)>(0x004D6530)(group->meshes[i]);
+        }
+        DrawSceneGroup(scene, 0x55, index);
+    });
+    SetRenderState(1, 0);
+    GameFunction<void(__cdecl*)()>(0x00490DB0)();
+    GameFunction<void(__cdecl*)()>(0x004C7520)();
+    SetRenderState(1, 1);
+    GameFunction<void(__thiscall*)(void*)>(0x0048E370)(GameVariable<void*>(0x006FA7BC));
+    SetPass(1);
+    SetLightingMode(0);
+
+    // The sky: from the origin, far plane at infinity, fog over 20-21 (the fog range put back after).
+    {
+        Mth::Vector origin = {0.0f, 0.0f, 0.0f, 1.0f};
+        float angle = CameraAngle(camera);
+        SetCamera(CameraMatrix(camera), &origin, angle, aspect, 1.0f, true);
+    }
+    float& fogStart = GameVariable<float>(0x00787340);
+    float& fogEnd = GameVariable<float>(0x00787344);
+    float savedFogEnd = fogEnd, savedFogStart = fogStart;
+    fogStart = 20.0f;
+    fogEnd = 21.0f;
+    SetDeviceRenderState(0x24, GameVariable<uint32_t>(0x00787340)); // D3DRS_FOGSTART
+    SetDeviceRenderState(0x25, GameVariable<uint32_t>(0x00787344)); // D3DRS_FOGEND
+    bool fog = GameVariable<uint32_t>(0x00787338) != 0;
+    SetFog(false);
+    SetRenderState(1, 0);
+    SetRenderState(2, 1);
+    ForEachScene([&](Scene* scene) {
+        if (!scene->sky)
+            return;
+        // (with distance clipping and fog both on, there's no sky)
+        if (GameVariable<bool>(0x007D643A) && GameVariable<bool>(0x007D6436))
+            return;
+        uint32_t minFilter = GetSamplerState(0, 6), mipFilter = GetSamplerState(0, 7);
+        SetSamplerState(0, 6, 2); // linear
+        SetSamplerState(0, 7, 0); // no mipmaps
+        DrawSceneGroup(scene, 3, index);
+        SetSamplerState(0, 7, mipFilter);
+        SetSamplerState(0, 6, minFilter);
+    });
+    SetRenderState(1, 1);
+    SetRenderState(1, 0);
+    if (GameVariable<bool>(0x00786AB5))
+        GameFunction<void(__cdecl*)(void*)>(0x00443870)(camera);
+    SetRenderState(1, 1);
+    SetRenderState(2, 1);
+    fogStart = savedFogStart;
+    fogEnd = savedFogEnd;
+    SetDeviceRenderState(0x24, GameVariable<uint32_t>(0x00787340));
+    SetDeviceRenderState(0x25, GameVariable<uint32_t>(0x00787344));
+    SetFog(fog);
+
+    // The world again, for the later passes.
+    {
+        float angle = CameraAngle(camera);
+        const Mth::Vector* position = CameraPosition(camera);
+        SetCamera(CameraMatrix(camera), position, angle, aspect, 1.0f, false);
+    }
+    SetPass(0x82);
+    SetRenderState(1, 1);
+    SetRenderState(2, 1);
+    ForEachScene([&](Scene* scene) {
+        if (!scene->sky)
+            DrawSceneGroup(scene, 0x46, index);
+    });
+    SetPass(0x102);
+    GameFunction<void(__cdecl*)()>(0x004A0F30)();
+    SetRenderState(1, 0);
+    GameFunction<void(__thiscall*)(void*, bool)>(0x0049AB50)(GameVariable<void*>(0x006FA7C0), index > 0);
+    GameFunction<void(__thiscall*)(void*)>(0x00496640)(GameVariable<void*>(0x006FA7C4));
+    GameFunction<void(__thiscall*)(void*)>(0x004A10A0)(GameVariable<void*>(0x006FA7C8));
+    SetRenderState(1, 1);
+    GameFunction<void(__cdecl*)()>(0x004920E0)();
+    SetRenderState(1, 0);
+    if (!GameVariable<bool>(0x00786AB5))
+        GameFunction<void(__cdecl*)(void*)>(0x00443870)(camera);
+    SetRenderState(1, 1);
+    SetRenderState(2, 1);
+    GameFunction<void(__cdecl*)()>(0x0049C840)();
+    SetRenderState(1, 1);
+    SetRenderState(2, 1);
+    GameFunction<void(__cdecl*)(int)>(0x004DCC70)(0);
+    GameFunction<void(__cdecl*)(int, int)>(0x00491910)(index, 0);
+}
+
+} // namespace
+
+// 0x004B2D80
+void RenderWorld()
+{
+    ++GameVariable<int>(0x00786AC4); // frames rendered
+    if (!GameVariable<bool>(0x00786D04)) { // (nothing while the device is lost)
+        GameVariable<int>(0x00786D00) = GameFunction<int(__cdecl*)()>(0x005BE970)();
+        SetRenderState(1, 1);
+        SetRenderState(2, 1);
+        GameFunction<void(__cdecl*)()>(0x004DBBD0)();
+        GameFunction<void(__cdecl*)()>(0x004DEA80)();
+        int count = GameVariable<int>(0x00701378);
+        for (int i = 0; i < count; ++i)
+            RenderViewport(i);
+
+        // Full-screen effects and the 2D on top.
+        FullScreenViewport();
+        if (GameVariable<bool>(0x00786CBE)) {
+            // PartyMod (its call at 0x004B33CA): fitted to the aspect it wants. The original:
+            //   int screenHeight = GameVariable<int>(0x00786D70);
+            //   TheViewport().y = screenHeight / 8;
+            //   TheViewport().height = screenHeight - screenHeight / 4;
+            setDisplayRegion();
+        }
+        SetViewport();
+        GameFunction<void(__cdecl*)()>(0x004DE980)();
+        DrawScreenBlur();
+        bool fog = GameVariable<uint32_t>(0x00787338) != 0;
+        SetFog(false);
+        // PartyMod (its call at 0x004B341D): the 2D pass (0x004DFB90 in the original), then black bars over what's
+        // drawn outside the fitted area.
+        draw2DWrapper();
+        SetFog(fog);
+    }
+    FullScreenViewport();
+    SetViewport();
+}
+
 } // namespace Nx
 
 REPLACE(0x004DB200, Nx::SetCamera);
 REPLACE(0x004DF390, Nx::DrawScreenBlur);
+REPLACE(0x004B2D80, Nx::RenderWorld);
