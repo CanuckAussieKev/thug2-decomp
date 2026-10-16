@@ -40,9 +40,9 @@
       inactive-with-six-in-a-row frame, an absolute clock in the device case and letterbox 2 in the front end).
       Not equivalent but not testable: none known. (A signed division would only differ for a negative frequency,
       which the edges/quit cases don't use - the hang showed it once; the code follows the original.)
-      Shared harness: StandIns and its helpers moved from selftests_misc.cpp into src/hook/standins.h
-      (namespace StandInHarness; selftests_misc.cpp does `using namespace StandInHarness;`) - no change in what
-      they do. TestMain also stands in for our MainLoop now (Sys::Main calls it directly).
+      Shared harness: uses main's src/hook/standins.h (namespace TestStandIns, from pm/winmain; my own copy of the
+      same extraction was dropped in the merge). TestMain also stands in for our MainLoop now (Sys::Main calls it
+      directly).
       Test-runner mechanism: one flaw fixed in hook.cpp IsDisabled - disabling the game source in thug2-decomp.ini by
       address (0x0044EEF0) or by name ("MainLoop" is a substring of "MainLoopHook") also disabled the runner's
       fallback, so with MainLoop disabled the EngineStarted stage never ran. Fallbacks are now turned off only by
@@ -50,7 +50,8 @@
       install hooks - check in the game: with `disable=0x0044EEF0` the log should still show the engine-started
       self-tests, run from MainLoopHook.) The mechanism otherwise looks right: a fallback is superseded only by an
       installable (not source-only, not disabled) game replacement; if that one then fails its argument-size check
-      the game stops anyway.
+      the game stops anyway (main's merge from pm/winmain now keeps the fallback in that case, so the stage and the
+      stop message still come).
       Neighbours left (find_gaps; Mlp::Manager's other methods): 0x44EE90 (via the thunk 0x44F250), 0x44F220,
       0x44F240, and the singleton's create/release 0x44F260 / 0x44F2B0.
       Checks: builds without warnings; thug2_check 0 MISMATCHED, early 82/82; register scan only the known 0x4EFF92

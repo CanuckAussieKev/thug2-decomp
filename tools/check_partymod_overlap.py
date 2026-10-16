@@ -39,6 +39,10 @@ overlaps = sorted((p, r) for p in patches for r in replaced if r <= p < r + WIND
 # A patch anywhere inside a rewritten function is bypassed by our version (the game runs ours, not the patched
 # original), so our source must do what the patch does. Each such patch is listed here with how it's done.
 HANDLED = {
+    0x004E26DC: "Sys::WinMain calls PartyMod's initPatch before ParseNetworkParams (its networkParamsWrapper)",
+    0x004E2767: "Sys::WinMain calls PartyMod's createSDLWindow in place of the game's window",
+    0x004E277D: "Sys::WinMain leaves out the ShowWindow call PartyMod NOPs",
+    0x004E2C16: "Sys::WinMain leaves out the DirectInput release (0x005F39E0) PartyMod NOPs",
     0x0054DD14: "Net::RetrieveTopStats uses PartyMod's gamestats host (partymod_gamestats_host)",
     0x004B91E7: "Nx::DrawFlash rotates the first three vertices as PartyMod's reorder_flash_vertices does",
     0x0044FB8C: "Nx::DrawMovieFrame calls PartyMod's movie_setTexture",

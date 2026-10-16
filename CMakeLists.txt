@@ -90,6 +90,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_mainloop.cpp
     src/hook/selftests_misc.cpp
     src/hook/selftests_text.cpp
+    src/hook/selftests_winmain.cpp
     src/game/core/alloc.cpp
     src/game/core/crc.cpp
     src/game/core/dbg.cpp
@@ -130,6 +131,7 @@ add_library(thug2_code OBJECT
     src/game/sys/timer.cpp
     src/game/sys/main.cpp
     src/game/sys/mlp.cpp
+    src/game/sys/winmain.cpp
     src/game/mc/memcard.cpp
     src/game/mc/memcard_cfuncs.cpp
     src/game/script/eval.cpp
@@ -148,7 +150,7 @@ add_library(thug2_code OBJECT
     src/game/util/lzss.cpp
 )
 target_include_directories(thug2_code PUBLIC src PRIVATE ${minhook_SOURCE_DIR}/src) # MinHook's hde32 decoder
-target_link_libraries(thug2_code PUBLIC minhook)
+target_link_libraries(thug2_code PUBLIC minhook ws2_32) # ws2_32: the command line's server address
 target_compile_definitions(thug2_code PUBLIC WIN32_LEAN_AND_MEAN NOMINMAX)
 target_compile_options(thug2_code PRIVATE /W4 /permissive- /utf-8)
 

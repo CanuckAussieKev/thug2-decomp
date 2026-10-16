@@ -40,15 +40,7 @@ extern "C" void fastExit();
 
 namespace {
 
-using namespace StandInHarness;
-
-// The game's C runtime sprintf (not started offline): the original's calls, done by ours.
-uint32_t StandInSprintf(Regs& r)
-{
-    return static_cast<uint32_t>(std::vsnprintf(reinterpret_cast<char*>(r.args[0]), 256,
-                                                reinterpret_cast<const char*>(r.args[1]),
-                                                reinterpret_cast<va_list>(&r.args[2])));
-}
+using namespace TestStandIns;
 
 // Stand-in script structures: 16 of them, handed out in turn by NewStruct.
 alignas(16) uint8_t g_structs[16][16];
@@ -85,7 +77,6 @@ void StandInStructs(StandIns& s, bool poolAllocate)
         return 0u;
     });
 }
-
 
 // --- the online service task (0x00545880) -------------------------------------------------------------------
 

@@ -1,14 +1,15 @@
 #pragma once
 
-// The recording stand-in harness for self-tests (first written for Sys::Main's): every function the code under
-// test calls is stood in for by recording code (a jump written over the start of the game's function and of our
-// version of it alike), so the original and ours are compared call by call. Patches written for one run only
-// (PartyMod's bytes into the original) go through RunPatch / EndRunPatches; register RemoveStandIns as the test's
-// cleanup so nothing outlives a crashed test.
+// Recording stand-ins for self-tests that compare a whole function's calls (the original against ours): every
+// function it calls is stood in for by code that records the call (written over the start of the game's function
+// and of our version of it alike), Win32 functions included, and the two traces are compared.
+// Used by selftests_misc.cpp (Main, the online service task, LoadFromMemoryCard) and selftests_winmain.cpp.
 
 #include <windows.h>
 
+#include <cstdarg>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <functional>
 #include <initializer_list>
@@ -18,7 +19,7 @@
 #include "hook/log.h"
 #include "hook/selftest.h"
 
-namespace StandInHarness {
+namespace TestStandIns {
 
 // Our own functions may be reached through an incremental-linking jump: stand in for the function itself.
 inline uint32_t Resolve(const void* code)
@@ -33,7 +34,7 @@ inline uint32_t Resolve(const void* code)
 }
 // The code address of a function or (non-virtual, single-inheritance) member function.
 template <typename F>
-inline uint32_t AddressOf(F function)
+uint32_t AddressOf(F function)
 {
     static_assert(sizeof(F) == sizeof(void*), "a plain code pointer");
     void* code;
@@ -181,6 +182,14 @@ inline uint32_t HashBytes(const uint8_t* bytes, size_t size)
     return hash;
 }
 
+// The game's C runtime sprintf (not started offline): the original's calls, done by ours.
+inline uint32_t StandInSprintf(Regs& r)
+{
+    return static_cast<uint32_t>(std::vsnprintf(reinterpret_cast<char*>(r.args[0]), 256,
+                                                reinterpret_cast<const char*>(r.args[1]),
+                                                reinterpret_cast<va_list>(&r.args[2])));
+}
+
 struct Saved {
     uint32_t address;
     uint32_t size;
@@ -222,4 +231,4 @@ inline void StandInApi(StandIns& s, uint32_t importSlot, const void* api, uint16
         s.Bytes(importSlot, Dword(reinterpret_cast<uint32_t>(thunk)));
 }
 
-} // namespace StandInHarness
+} // namespace TestStandIns

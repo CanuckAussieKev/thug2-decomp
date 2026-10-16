@@ -28,7 +28,7 @@ extern "C" void __cdecl setLetterbox(int isLetterboxed); // PartyMod (gfx.c)
 
 namespace {
 
-using namespace StandInHarness;
+using namespace TestStandIns;
 
 alignas(16) uint8_t g_mlp[0x100];
 alignas(16) uint8_t g_skate[0x40];
