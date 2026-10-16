@@ -7,6 +7,7 @@
 #include <input.h>
 
 uint8_t forceGlyphs = 0;
+uint8_t glyphStyle = 0; // THUG2_DECOMP: kept (was a local of patchButtonGlyphs) for thug2-decomp's LoadFont
 
 char *buttonsPs2 = "ButtonsPs2";
 char *buttonsNgc = "ButtonsNgc";
@@ -67,7 +68,7 @@ uint8_t getGlyphConfig() {
 }
 
 void patchButtonGlyphs() {
-	uint8_t glyphStyle = getGlyphConfig();
+	glyphStyle = getGlyphConfig(); // THUG2_DECOMP: the global above
 
 	// load the appropriate glyph font and meta button map for glyph style (this only affects the basic menu control prompts)
 	if (glyphStyle == 1) {

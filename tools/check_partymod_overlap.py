@@ -38,6 +38,9 @@ HANDLED = {
     0x0046EE80: "Script::LoadQB loads through PartyMod's pipLoadWrapper (its script patches)",
     0x005BDA31: "Sio::Device::ActivateActuator leaves out the ReadData call PartyMod NOPs",
     0x005BDCC0: "Sio::Device::Process is PartyMod's processController (source only)",
+    0x0048D8F8: "Nx::LoadFont loads the meta button map PartyMod's GlyphStyle names (MetaButtonMapName)",
+    0x0048D983: "Nx::CFunc_LoadFont uses the button font PartyMod's GlyphStyle names (ButtonFontName)",
+    0x004B6C64: "Nx::UpdateLoadingBarColors writes its table into PartyMod's resbuffer",
 }
 import json
 bodies = {f["addr"]: f["end"] for f in json.load(open("data/derived/functions.json", encoding="utf-8"))}

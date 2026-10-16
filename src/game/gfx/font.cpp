@@ -1,0 +1,158 @@
+// Script-loaded fonts (LoadFont), with PartyMod's button glyph style built in.
+
+#include "game/gfx/font.h"
+
+#include "game/core/crc.h"
+#include "game/lst/hashtable.h"
+#include "game/script/params.h"
+#include "game/script/struct.h"
+#include "hook/game.h"
+#include "hook/hook.h"
+
+// PartyMod (src/partymod/glyph.c): its GlyphStyle setting and the names it uses for it.
+extern "C" uint8_t glyphStyle;
+extern "C" char* buttonsPs2;
+extern "C" char* buttonsNgc;
+extern "C" char* meta_button_map_ps2;
+extern "C" char* meta_button_map_gamecube;
+
+namespace Nx {
+
+namespace {
+
+FontSlot* Slots() { return &GameVariable<FontSlot>(0x006FA830); }
+Lst::HashTable& FontTable() { return GameVariable<Lst::HashTable>(0x006FA9F0); }
+// The meta button map: for each meta button (0-31) the digit of the button it stands for.
+char* MetaButtonMap() { return &GameVariable<char>(0x006FA808); }
+bool& MetaButtonMapLoaded() { return GameVariable<bool>(0x006FA828); }
+
+// The loaded font named by this checksum, or null.
+CFont* FindFont(uint32_t checksum) { return GameFunction<CFont*(__cdecl*)(uint32_t)>(0x0048D760)(checksum); }
+// Load a font file (fonts\<name>.fnt...).
+CFont* LoadFontFile(const char* name) { return GameFunction<CFont*(__cdecl*)(const char*)>(0x004B40A0)(name); }
+
+// Nx::CFont's setters (each calls the platform font's virtual).
+void SetSpacings(CFont* font, int charSpacing, int spaceSpacing)
+{
+    GameFunction<void(__thiscall*)(CFont*, int, int)>(0x004E3F90)(font, charSpacing, spaceSpacing);
+}
+void SetColorTable(CFont* font, uint32_t* colors)
+{
+    GameFunction<void(__thiscall*)(CFont*, uint32_t*)>(0x004A10A0)(font, colors);
+}
+void MarkAsButtonFont(CFont* font, bool buttonFont)
+{
+    GameFunction<void(__thiscall*)(CFont*, bool)>(0x00487D50)(font, buttonFont);
+}
+
+// Calls to the empty 0x005480A0 (compiled-out debug output).
+void DebugFontName(const char* /*name*/) {}
+void DebugFontLoaded() {}
+
+} // namespace
+
+// PartyMod patches the two names into the original (glyph.c, patchButtonGlyphs: the PUSHed string at
+// 0x0048D8F8 and the MOVed one at 0x0048D983).
+const char* ButtonFontName()
+{
+    if (glyphStyle == 1)
+        return buttonsPs2;
+    if (glyphStyle == 2)
+        return buttonsNgc;
+    return "ButtonsXbox";
+}
+
+const char* MetaButtonMapName()
+{
+    if (glyphStyle == 1)
+        return meta_button_map_ps2;
+    if (glyphStyle == 2)
+        return meta_button_map_gamecube;
+    return "meta_button_map_xbox";
+}
+
+// 0x0048D7E0
+void LoadFont(const char* name, int charSpacing, int spaceSpacing, uint32_t* colors, bool buttonFont)
+{
+    if (FindFont(Crc::GenerateCRCFromString(name))) {
+        // Already loaded: just update it (looked up again for each setter, as the original does).
+        SetSpacings(FindFont(Crc::GenerateCRCFromString(name)), charSpacing, spaceSpacing);
+        if (colors)
+            SetColorTable(FindFont(Crc::GenerateCRCFromString(name)), colors);
+        MarkAsButtonFont(FindFont(Crc::GenerateCRCFromString(name)), buttonFont);
+        return;
+    }
+
+    FontSlot* slots = Slots();
+    int index = 0;
+    while (index < kFontSlots && slots[index].font)
+        ++index;
+    if (index < kFontSlots) {
+        FontSlot& slot = slots[index];
+        slot.font = LoadFontFile(name);
+        SetSpacings(slot.font, charSpacing, spaceSpacing);
+        if (colors)
+            SetColorTable(slot.font, colors);
+        MarkAsButtonFont(slot.font, buttonFont);
+        // The original copies the name with no length limit, like strcpy.
+        const char* source = name;
+        char* out = slot.name;
+        while ((*out++ = *source++) != '\0') {
+        }
+        uint32_t key = Crc::GenerateCRCFromString(name);
+        FontTable().PutItem(key, slot.name);
+    }
+    // (With every slot taken nothing is loaded, but the map below still is.)
+
+    if (MetaButtonMapLoaded())
+        return;
+    Script::CArray* map = Script::GetArray(MetaButtonMapName());
+    if (!map)
+        return;
+    for (uint32_t i = 0; i < 32; ++i) {
+        int digit = i < map->m_size ? static_cast<int>(map->GetElement(i)) : 0;
+        MetaButtonMap()[i] = static_cast<char>(digit > 9 ? digit + 'a' - 10 : digit + '0');
+    }
+    MetaButtonMapLoaded() = true;
+}
+
+// 0x0048D950
+bool __cdecl CFunc_LoadFont(Script::CStruct* params, Script::CScript* /*script*/)
+{
+    bool buttonFont = params->ContainsFlag("buttons_font");
+    const char* name = nullptr; // (the original leaves it unset when the name is missing)
+    params->GetString(0u, &name, false);
+    if (buttonFont)
+        name = ButtonFontName();
+    DebugFontName(name);
+
+    float charSpacing = 0.0f;
+    params->GetFloat("char_spacing", &charSpacing, false);
+    float spaceSpacing = 0.0f;
+    params->GetFloat("space_spacing", &spaceSpacing, false);
+
+    // Up to 16 colours, each an array of up to 4 bytes (r g b a: lowest byte first). The original leaves the
+    // entries the script doesn't give as stack garbage; here they're 0.
+    uint32_t colors[16] = {};
+    Script::CArray* table;
+    if (params->GetArray("color_tab", &table, false)) {
+        for (uint32_t i = 0; static_cast<int>(i) < static_cast<int>(table->m_size); ++i) {
+            if (i >= 16)
+                break;
+            auto* color = reinterpret_cast<Script::CArray*>(table->GetElement(i));
+            uint32_t packed = 0;
+            for (int j = 0; j < static_cast<int>(color->m_size); ++j)
+                packed |= (color->GetElement(j) & 0xFF) << ((8 * j) & 31); // (a 5th byte wraps round, as SHL does)
+            colors[i] = packed;
+        }
+    }
+
+    LoadFont(name, static_cast<int>(charSpacing), static_cast<int>(spaceSpacing), colors, buttonFont);
+    DebugFontLoaded();
+    return true;
+}
+
+} // namespace Nx
+
+REPLACE(0x0048D7E0, Nx::LoadFont);
+REPLACE(0x0048D950, Nx::CFunc_LoadFont);
