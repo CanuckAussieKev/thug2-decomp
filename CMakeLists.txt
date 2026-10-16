@@ -89,8 +89,11 @@ add_library(thug2_code OBJECT
     src/hook/selftests_gfx2.cpp
     src/hook/selftests_mainloop.cpp
     src/hook/selftests_misc.cpp
+    src/hook/selftests_scache.cpp
     src/hook/selftests_text.cpp
     src/hook/selftests_winmain.cpp
+    src/hook/selftests_gapsB.cpp
+    src/hook/selftests_qb.cpp
     src/hook/selftests_gapsA.cpp
     src/game/core/alloc.cpp
     src/game/core/crc.cpp
@@ -99,6 +102,7 @@ add_library(thug2_code OBJECT
     src/game/core/manager.cpp
     src/game/core/mem.cpp
     src/game/core/pool.cpp
+    src/game/core/singleton.cpp
     src/game/core/stubs.cpp
     src/game/core/str.cpp
     src/game/core/string.cpp
@@ -122,6 +126,7 @@ add_library(thug2_code OBJECT
     src/game/net/chat.cpp
     src/game/net/stats.cpp
     src/game/net/service.cpp
+    src/game/obj/flip_rotate.cpp
     src/game/obj/smtptr.cpp
     src/game/skater/rotation.cpp
     src/game/sio/device.cpp
@@ -136,9 +141,11 @@ add_library(thug2_code OBJECT
     src/game/mc/memcard.cpp
     src/game/mc/memcard_cfuncs.cpp
     src/game/script/eval.cpp
+    src/game/script/cache.cpp
     src/game/script/load.cpp
     src/game/script/names.cpp
     src/game/script/parse.cpp
+    src/game/script/precompiled.cpp
     src/game/script/qb.cpp
     src/game/script/struct.cpp
     src/game/mth/geometry.cpp

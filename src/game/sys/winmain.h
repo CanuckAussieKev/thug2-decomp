@@ -12,6 +12,14 @@ namespace Sys {
 // game, DirectInput left alone at the end.
 int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, char* commandLine, int show);
 
+// 0x004E16B0: the game's window procedure (the window WinMain made before PartyMod; its SDL window has its own).
+// Closing or destroying the window quits (PostQuitMessage, the quit flag); activation maximises the game's
+// window and sets the active flag, deactivation minimises it, clears the flag, marks the device lost and
+// invalidates every window; WM_PAINT validates; key presses and typed characters go to Sio::SpecialKeyInput /
+// Sio::KeyInput; F10, Alt's menu (SC_KEYMENU) and power broadcasts are swallowed; the rest goes to
+// DefWindowProcA.
+LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam);
+
 // 0x004E1220 (cdecl): the network options on the command line (-HOST, -HOSTNAME, -EMAIL, -PPASS, -CONNECT,
 // -MAXPLAYERS, -GROUP, -NTEAMS, -SKILLLEVEL, -NAME, -PASSWORD; found in any case, values keep theirs). The
 // test runner's Late stage runs first (hook/selftest.h), then ReadNetworkParams.

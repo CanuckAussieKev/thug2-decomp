@@ -15,3 +15,10 @@ Local changes:
   thug2-decomp's rewritten LoadFont / CFunc_LoadFont can use the font and meta button map names PartyMod picks.
 
 - net.c: `partymod_gamestats_host` (THUG2_DECOMP) keeps the gamestats host for thug2-decomp's RetrieveTopStats.
+- No byte patches into rewritten game code (2026-10-16): every game function PartyMod patched is rewritten with
+  its behaviour built in, calling PartyMod's functions where needed. So `partymod_attach` installs nothing, and
+  the patch functions for those (`patchInput`, `patchGfx`, `patchWindow`, `patchLetterbox`, `patchMotdFix`, ...)
+  and the patches inside `createSDLWindow`, `patchButtonGlyphs`, `patchPs2Buttons` and `loadGfxSettings` are in
+  `#ifndef THUG2_DECOMP` blocks. Still applied: the GameSpy host names in `patchOnlineService` (GameSpy isn't
+  rewritten - it will be linked) and the `IsPS2` CFunction wrap. tools/check_partymod_overlap.py skips
+  `#ifndef THUG2_DECOMP` blocks.

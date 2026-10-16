@@ -69,7 +69,8 @@ BOOL WINAPI DllMain(HINSTANCE, DWORD reason, LPVOID)
             Log("partymod.dll loading disabled (PartyMod is built in)");
         }
         partymod_attach();
-        Log("PartyMod patches installed");
+        Log("PartyMod attached (its patches are built into the rewritten functions; only GameSpy's host names "
+            "are still patched, by initPatch)");
     }
     // Nothing on DLL_PROCESS_DETACH: by then our static objects may already be gone. Quit-time logging is in
     // thug2_decomp_before_exit, called from PartyMod's fastExit.

@@ -846,7 +846,7 @@ struct DeviceAdapter {
 
 REPLACE(0x005BD920, &DeviceAdapter::Construct);
 REPLACE(0x005BCD00, &Sio::Device::Destroy);
-REPLACE_SOURCE_ONLY(0x005BDCC0, &Sio::Device::Process); // PartyMod jumps from here to its own
+REPLACE(0x005BDCC0, &Sio::Device::Process); // (PartyMod jumped from here to processController)
 REPLACE(0x005BCC60, &Sio::Device::IsPluggedIn);
 REPLACE(0x005BCC70, &Sio::Device::Acquire);
 REPLACE(0x005BD8B0, &Sio::Device::Detect);

@@ -290,7 +290,9 @@ void * __cdecl pipLoadWrapper(char *filename, int unk1, int unk2, int unk3, int 
 	return scriptOut;
 }
 
+#ifndef THUG2_DECOMP // (the rewritten Script::LoadQB calls pipLoadWrapper)
 void patchScriptHook() {
 	patchCall(0x0046ee80, pipLoadWrapper);
 }
+#endif
 

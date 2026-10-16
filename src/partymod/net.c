@@ -20,6 +20,7 @@ char *allocOnlineServiceString(char *fmt, char *url) {
 	return result;
 }
 
+#ifndef THUG2_DECOMP // (built into the rewritten Net::ServiceTask and Mc::LoadFromMemoryCard)
 void patchMotdFix() {
 	patchDWord(0x00545b4e + 1, 0x000001f4);
 	patchDWord(0x00545cdd + 1, 0x588ed87c);
@@ -27,6 +28,7 @@ void patchMotdFix() {
 
 	patchNop(0x005a8a01, 2);
 }
+#endif
 
 void patchOnlineService() {
 	// NOTE: these will leak and that's a-okay
@@ -36,9 +38,10 @@ void patchOnlineService() {
 	// gamestats.gamespy.com
 	char *gamestats = allocOnlineServiceString("gamestats.%s", url);
 #ifdef THUG2_DECOMP
-	partymod_gamestats_host = gamestats; // (read by thug2-decomp's RetrieveTopStats)
-#endif
+	partymod_gamestats_host = gamestats; // (read by thug2-decomp's RetrieveTopStats, so 0x0054dd13 isn't patched)
+#else
 	patchDWord(0x0054dd13 + 1, gamestats);
+#endif
 	patchDWord(0x006025d8 + 1, gamestats);
 	patchDWord(0x00602618 + 1, gamestats);
 	patchDWord(0x00602650 + 2, gamestats);
@@ -81,5 +84,8 @@ void patchOnlineService() {
 	char *gpsp = allocOnlineServiceString("gpsp.%s", url);
 	patchDWord(0x006182bd + 1, gpsp);
 
+	// THUG2_DECOMP: built into the rewritten Net::ServiceTask and Mc::LoadFromMemoryCard.
+#ifndef THUG2_DECOMP
 	patchMotdFix();
+#endif
 }

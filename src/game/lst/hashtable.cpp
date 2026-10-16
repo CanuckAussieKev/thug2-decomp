@@ -47,6 +47,12 @@ void* HashTable::GetItem(uint32_t key) const
     return nullptr;
 }
 
+// 0x00462050
+void* HashTable::GetItem(const uint32_t& key, bool /*unused*/) const
+{
+    return GetItem(key);
+}
+
 // 0x00462740
 bool HashTable::PutItem(const uint32_t& key, void* value)
 {
@@ -158,6 +164,7 @@ struct HashTableAdapter {
 
 REPLACE(0x0049FD90, &HashTableAdapter::Construct);
 REPLACE(0x005B89D0, &HashTableAdapter::Destroy);
+REPLACE(0x00462050, static_cast<void* (Lst::HashTable::*)(const uint32_t&, bool) const>(&Lst::HashTable::GetItem));
 REPLACE(0x00462740, &Lst::HashTable::PutItem);
 REPLACE(0x005B80D0, &Lst::HashTable::FlushItem);
 REPLACE(0x0049FD30, &Lst::HashTable::FlushAllItems);
