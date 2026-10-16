@@ -24,6 +24,9 @@ with tools\ghidra\snapshot_project.ps1). `inspect` below means:
   take the hook's jump) or that shouldn't be hooked get `REPLACE_SOURCE_ONLY` (still compiled, counted and
   argument-checked; test them by calling ours directly against `Original<>`). Shared stubs (e.g. one
   `return true` used by many script commands) are written once and registered at their one address.
+  Tiny functions (`tools/ghidra/find_stubs.py` lists them) are mostly real class code - getters, setters,
+  `MOV [ECX],vtable; RET` destructor bodies: write them with their class; only truly empty ones go in
+  src/game/core/stubs.cpp.
 
 ## 2. Read the original - the disassembly, not the decompiler
 - `inspect disasm <addr>...` (write long ones to a scratch file and Read it); `inspect decompile` only as a
@@ -48,6 +51,10 @@ with tools\ghidra\snapshot_project.ps1). `inspect` below means:
 ## 3. Write
 - Files under src/game/<subsystem>/; match the surrounding style (comments say what, not how; short names
   of real concepts). Layout structs with `static_assert(offsetof...)`. Globals via `GameVariable<T>(addr)`.
+- Calls to the empty function 0x5480A0 (compiled-out debug code) stay in the source, with their arguments,
+  as named empty inline functions: `Mem::PushMemProfile(name)` / `PopMemProfile()` around allocations,
+  `Script::PrintContents(struct)`, `Mem::DebugTrackBlock(block)` - add a new one when a call fits none.
+  The strings they're passed document the code.
 - Register: `REPLACE(addr, Function)` / `&Class::Method` / adapters for members of other types; pure
   functions may use `REPLACE_SHADOW`; unhookable ones `REPLACE_SOURCE_ONLY`. New .cpp files go in
   CMakeLists.txt.
@@ -66,6 +73,11 @@ with tools\ghidra\snapshot_project.ps1). `inspect` below means:
   branch/constant/order/convention - and run `python -I tools/mutate.py spec.py`. Every non-equivalent
   mutation must be CAUGHT; for each miss, add the test case that exposes it (a miss is a hole in the test,
   not luck). Note truly equivalent ones in the record.
+- Tests never touch the user's real state: files go in a scratch temp folder (SetCurrentDirectory there,
+  restore after; never the game's Save\), registry writes go under a stand-in HKEY_CURRENT_USER
+  (RegOverridePredefKey onto a scratch key, skip the test if that fails, delete through the scratch key's
+  own handle - see TestLeftovers). Originals that use the game's C runtime (sprintf, _stricmp...) only run
+  in a Late test (in the game); offline, check ours against an independent expectation.
 - Read [pitfalls.md](pitfalls.md) when a test crashes, hangs or fails strangely.
 
 ## 6. Safety checks
