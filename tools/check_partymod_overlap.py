@@ -38,6 +38,12 @@ HANDLED = {
     0x0046EE80: "Script::LoadQB loads through PartyMod's pipLoadWrapper (its script patches)",
     0x005BDA31: "Sio::Device::ActivateActuator leaves out the ReadData call PartyMod NOPs",
     0x005BDCC0: "Sio::Device::Process is PartyMod's processController (source only)",
+    0x005A6E7E: "Mc::GetMemCardSpaceAvailable calls PartyMod's calcAvailableSpaceFudged",
+    0x005F3A50: "Platform::SetActuators is PartyMod's set_actuators (source only)",
+    0x005F4591: "Platform::InitInput calls PartyMod's writeConfigValues",
+    0x005F459D: "Platform::InitInput leaves out the DirectInput set-up PartyMod NOPs",
+    0x005F45A2: "Platform::InitInput calls PartyMod's initManager",
+    0x005F56E0: "Platform::ProcessWindowEvents is PartyMod's handleEvents (source only)",
 }
 import json
 bodies = {f["addr"]: f["end"] for f in json.load(open("data/derived/functions.json", encoding="utf-8"))}
