@@ -532,9 +532,12 @@ void TestDrawMovieFrame()
 std::vector<std::string> g_play_log;
 void __cdecl StandInQueueMovie(const char* name) { g_play_log.push_back(name); }
 
-// PlayMovie with the flag off (no ini offline): a name, a path, no name - original vs ours, the queue recorded.
+// PlayMovie with the flag off: a name, a path, no name - original vs ours, the queue recorded. Then ours with the
+// flag on: the intro movie is skipped (returning true), the other still queued.
 void TestPlayMovie()
 {
+    bool savedSkip = Nx::SkipIntroMovies();
+    Nx::SkipIntroMovies() = false;
     CodePatch queue(0x0044F830, JumpTo(0x0044F830, reinterpret_cast<void*>(&StandInQueueMovie)));
     auto* playFile = reinterpret_cast<void*>(&Nx::PlayMovieFile); // (ours calls it directly)
     CodePatch queueOurs(reinterpret_cast<uint32_t>(playFile),
@@ -558,6 +561,20 @@ void TestPlayMovie()
         logs[run] = g_play_log;
     }
     Check(logs[0] == logs[1] && results[0] == results[1] && logs[1].size() == 2, "gfx: PlayMovie (flag off)");
+
+    Nx::SkipIntroMovies() = true;
+    g_play_log.clear();
+    bool skippedAll = true;
+    for (const char* name : {"movies/bik/NSlogo", "credits"}) {
+        alignas(16) uint8_t component[16] = {};
+        alignas(8) uint8_t params[8] = {};
+        component[0] = static_cast<uint8_t>(Script::ESYMBOLTYPE_STRING << 1);
+        std::memcpy(component + 8, &name, 4);
+        *reinterpret_cast<uint8_t**>(params + 4) = component;
+        skippedAll &= Nx::PlayMovie(reinterpret_cast<Script::CStruct*>(params), nullptr);
+    }
+    Nx::SkipIntroMovies() = savedSkip;
+    Check(skippedAll && g_play_log == std::vector<std::string>{"credits"}, "gfx: PlayMovie (flag on)");
 }
 
 

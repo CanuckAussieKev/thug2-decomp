@@ -365,6 +365,12 @@ bool IsIntroMovie(const char* name)
 }
 } // namespace
 
+bool& SkipIntroMovies()
+{
+    static bool skip = ConfigInt("features", "skip_intro_movies", 0) != 0;
+    return skip;
+}
+
 // 0x0059F0C0: the PlayMovie script command: play the movie named by the unnamed string (through the jump at
 // 0x0044F830).
 bool __cdecl PlayMovie(Script::CStruct* params, void*)
@@ -372,8 +378,7 @@ bool __cdecl PlayMovie(Script::CStruct* params, void*)
     const char* name = nullptr;
     if (!params->GetString(0u, &name, 1))
         return false;
-    static const bool skipIntros = ConfigInt("features", "skip_intro_movies", 0) != 0;
-    if (skipIntros && IsIntroMovie(name)) {
+    if (SkipIntroMovies() && IsIntroMovie(name)) {
         Log("skipping intro movie %s (thug2-decomp.ini [features] skip_intro_movies)", name);
         return true;
     }
