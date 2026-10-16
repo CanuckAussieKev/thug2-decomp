@@ -19,7 +19,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 spec = runpy.run_path(sys.argv[1])
 build = spec.get("BUILD", os.path.join(REPO, "tools", "verify_build.cmd"))
 checker = os.path.join(REPO, "out", "build", "verify", "thug2_check.exe")
-log_path = os.path.join(os.environ.get("TEMP", "."), "mutate_check_output.txt")
+log_path = os.path.join(REPO, "out", "mutate_check_output.txt")  # (per checkout: parallel runs don't clash)
 only = sys.argv[2:]
 
 for path, name, old, new in spec["MUTS"]:
