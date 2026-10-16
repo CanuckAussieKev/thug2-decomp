@@ -28,6 +28,11 @@ void Check(bool ok, const char* what);
 
 // Run every test registered for `stage` and log a summary.
 void RunSelfTests(TestStage stage);
+// Where the game reaches a stage (Late: ParseNetworkParams 0x004E1220 is entered, early in WinMain;
+// EngineStarted: MainLoop 0x0044EEF0 is entered): stop if replacements failed to install, then run that stage's
+// tests the first time only (EngineStarted also logs the shadow-check summary). Called by the test runner's
+// fallback hooks and, once those functions have source, by the game source itself.
+void RunStageOnce(TestStage stage);
 // Failures (and crashes) so far, all stages together.
 int SelfTestFailures();
 

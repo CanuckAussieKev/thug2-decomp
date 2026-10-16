@@ -39,12 +39,14 @@ std::string& Problems()
     return problems;
 }
 
+// The entry at `address`: the hooked one if two are registered there (game source and a test-runner fallback).
 Installed* Find(uint32_t address)
 {
+    Installed* found = nullptr;
     for (Installed& entry : Registry())
-        if (entry.replacement.address == address)
-            return &entry;
-    return nullptr;
+        if (entry.replacement.address == address && (!found || (entry.active && !found->active)))
+            found = &entry;
+    return found;
 }
 
 bool WriteCode(uint32_t address, const uint8_t* bytes, size_t size)
@@ -207,7 +209,7 @@ void InstallReplacements()
         original_pops.push_back(check.original_pop);
 
     int installed = 0, skipped = 0, without_trampoline = 0, mismatched = 0, checked = 0, unchecked = 0,
-        source_only = 0;
+        source_only = 0, fallbacks_unused = 0;
     for (size_t i = 0; i < Registry().size(); ++i) {
         Installed& entry = Registry()[i];
         const Replacement& r = entry.replacement;
@@ -217,6 +219,17 @@ void InstallReplacements()
             ++skipped;
             Log("disabled 0x%08X %s (thug2-decomp.ini)", r.address, r.name);
             continue;
+        }
+        if (r.fallback) {
+            bool superseded = false;
+            for (const Installed& other : Registry())
+                superseded |= &other != &entry && other.replacement.address == r.address &&
+                              !other.replacement.fallback && !other.replacement.sourceOnly &&
+                              !IsDisabled(other.replacement, disabled);
+            if (superseded) {
+                ++fallbacks_unused;
+                continue;
+            }
         }
         // A replacement that pops a different number of argument bytes would leave every caller's stack
         // wrong: leave the original in place instead.
@@ -263,7 +276,7 @@ void InstallReplacements()
             Log("MinHook failed to enable the queued hooks: %s", MH_StatusToString(applied));
     }
     Log("%d of %u replacements installed, %d disabled by thug2-decomp.ini, %d source only (not hooked)", installed,
-        static_cast<unsigned>(Registry().size()) - source_only, skipped, source_only);
+        static_cast<unsigned>(Registry().size()) - source_only - fallbacks_unused, skipped, source_only);
     if (without_trampoline)
         Log("%d replacement(s) have no trampoline (their originals can't be called directly)", without_trampoline);
     if (mismatched)

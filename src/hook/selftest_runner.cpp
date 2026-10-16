@@ -108,17 +108,25 @@ void RunSelfTests(TestStage stage)
 
 // --- stage hooks ------------------------------------------------------------------------------------------
 
+void RunStageOnce(TestStage stage)
+{
+    StopIfReplacementsFailed();
+    static bool done[3] = {};
+    bool& stageDone = done[static_cast<int>(stage)];
+    if (stageDone)
+        return;
+    stageDone = true;
+    RunSelfTests(stage);
+    if (stage == TestStage::EngineStarted)
+        Shadow::LogSummary();
+}
+
 namespace {
 
 // Late: the game parses its command line (ParseNetworkParams, 0x004E1220) once, early in WinMain.
 void __cdecl ParseNetworkParamsHook(void* params)
 {
-    StopIfReplacementsFailed();
-    static bool done = false;
-    if (!done) {
-        done = true;
-        RunSelfTests(TestStage::Late);
-    }
+    RunStageOnce(TestStage::Late);
     Original<void(__cdecl*)(void*)>(0x004E1220)(params);
 }
 
@@ -127,13 +135,7 @@ void __cdecl ParseNetworkParamsHook(void* params)
 // once, and jumps into the original through its trampoline.
 void* __cdecl EngineStartedBody()
 {
-    StopIfReplacementsFailed(); // in case the hook above is the one that failed
-    static bool done = false;
-    if (!done) {
-        done = true;
-        RunSelfTests(TestStage::EngineStarted);
-        Shadow::LogSummary();
-    }
+    RunStageOnce(TestStage::EngineStarted);
     return OriginalFunction(0x0044EEF0);
 }
 
@@ -151,5 +153,7 @@ __declspec(naked) void MainLoopHook()
 
 } // namespace
 
-REPLACE(0x004E1220, ParseNetworkParamsHook);
-REPLACE_UNCHECKED(0x0044EEF0, MainLoopHook); // passes everything through
+// Fallbacks: once ParseNetworkParams / MainLoop have source in src/game, that source calls RunStageOnce and these
+// stay uninstalled (unless it's disabled in thug2-decomp.ini).
+REPLACE_FALLBACK(0x004E1220, ParseNetworkParamsHook);
+REPLACE_FALLBACK_UNCHECKED(0x0044EEF0, MainLoopHook); // passes everything through

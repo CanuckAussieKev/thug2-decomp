@@ -29,6 +29,9 @@ struct Replacement {
     // Written and compiled but not hooked (REPLACE_SOURCE_ONLY): too small for a jump, or the hook isn't
     // wanted. The argument-size check still applies.
     bool sourceOnly = false;
+    // REPLACE_FALLBACK: a test-runner hook, installed only while no other replacement is hooked at the same
+    // address (none written yet, or it's disabled in thug2-decomp.ini / source only).
+    bool fallback = false;
 };
 
 void RegisterReplacement(const Replacement& r);
@@ -93,9 +96,9 @@ Fn Original(uint32_t address)
 
 struct ReplacementRegistrar {
     ReplacementRegistrar(uint32_t address, void* function, int callee_pop, const char* name, const char* file,
-                         bool sourceOnly = false)
+                         bool sourceOnly = false, bool fallback = false)
     {
-        RegisterReplacement({address, function, callee_pop, name, file, sourceOnly});
+        RegisterReplacement({address, function, callee_pop, name, file, sourceOnly, fallback});
     }
 };
 
@@ -162,6 +165,12 @@ constexpr int kCalleePop = CalleePop<std::decay_t<F>>::value;
 #define REPLACE_SOURCE_ONLY(address, ...)                                                            \
     static ReplacementRegistrar REPLACE_CONCAT(g_replace_, __LINE__)(                                \
         address, CodeAddress(__VA_ARGS__), kCalleePop<decltype(__VA_ARGS__)>, #__VA_ARGS__, __FILE__, true)
+
+// The test runner's stage hooks (src/hook/selftest_runner.cpp) on game functions that will get source of their
+// own: installed only while that source isn't hooked at the address. The game source then calls
+// RunStageOnce (hook/selftest.h) itself. _UNCHECKED for naked stubs.
+#define REPLACE_FALLBACK(address, ...)                                                                   static ReplacementRegistrar REPLACE_CONCAT(g_replace_, __LINE__)(                                        address, CodeAddress(__VA_ARGS__), kCalleePop<decltype(__VA_ARGS__)>, #__VA_ARGS__, __FILE__, false, true)
+#define REPLACE_FALLBACK_UNCHECKED(address, ...)                                                         static ReplacementRegistrar REPLACE_CONCAT(g_replace_, __LINE__)(                                        address, CodeAddress(__VA_ARGS__), -1, #__VA_ARGS__, __FILE__, false, true)
 
 // For naked assembly stubs, whose C++ type says nothing about the stack: the argument-size check is skipped.
 #define REPLACE_UNCHECKED(address, ...)                                                              \
