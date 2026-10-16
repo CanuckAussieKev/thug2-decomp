@@ -18,6 +18,7 @@
 #include "game/gfx/movie.h"
 #include "game/pcm/music.h"
 #include "game/sio/device.h"
+#include "game/sys/mlp.h"
 #include "game/sys/platform.h"
 #include "game/net/stats.h"
 #include "game/skater/controls.h"
@@ -826,7 +827,8 @@ void TestPlayMovieFile()
     add(JumpBoth(0x00450650, nullptr, reinterpret_cast<const void*>(&PmPauseMusic)));
     add(JumpBoth(0x00450690, nullptr, reinterpret_cast<const void*>(&PmStopStreams)));
     add(JumpBoth(0x00490DE0, nullptr, reinterpret_cast<const void*>(&PmSetFog)));
-    add(JumpBoth(0x0044F250, nullptr, reinterpret_cast<const void*>(&PmResetDevice)));
+    add(JumpBoth(0x0044F250, reinterpret_cast<const void*>(&Mlp::Manager::ResetDeviceIfLost),
+                 reinterpret_cast<const void*>(&PmResetDevice)));
     add(JumpBoth(0x004DAB60, nullptr, reinterpret_cast<const void*>(&PmSampler)));
     add(JumpBoth(0x004DA730, nullptr, reinterpret_cast<const void*>(&PmRendererTexture)));
     add(JumpBoth(0x005F56E0, reinterpret_cast<const void*>(&Platform::ProcessWindowEvents), reinterpret_cast<const void*>(&PmEvents)));

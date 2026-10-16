@@ -91,6 +91,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_misc.cpp
     src/hook/selftests_text.cpp
     src/hook/selftests_winmain.cpp
+    src/hook/selftests_gapsB.cpp
     src/game/core/alloc.cpp
     src/game/core/crc.cpp
     src/game/core/dbg.cpp
@@ -98,6 +99,7 @@ add_library(thug2_code OBJECT
     src/game/core/manager.cpp
     src/game/core/mem.cpp
     src/game/core/pool.cpp
+    src/game/core/singleton.cpp
     src/game/core/stubs.cpp
     src/game/core/str.cpp
     src/game/core/string.cpp
@@ -121,6 +123,7 @@ add_library(thug2_code OBJECT
     src/game/net/chat.cpp
     src/game/net/stats.cpp
     src/game/net/service.cpp
+    src/game/obj/flip_rotate.cpp
     src/game/obj/smtptr.cpp
     src/game/skater/rotation.cpp
     src/game/sio/device.cpp

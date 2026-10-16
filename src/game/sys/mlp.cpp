@@ -9,6 +9,8 @@
 #include <cstdint>
 
 #include "game/core/dbg.h"
+#include "game/core/manager.h"
+#include "game/core/mem.h"
 #include "game/gfx/screen.h"
 #include "game/sio/device.h"
 #include "game/sys/platform.h"
@@ -82,7 +84,88 @@ void RenderFrameLetterboxed()
     }
 }
 
+// The task lists (Lst-style lists of tasks, 0x3C bytes each).
+void ConstructTaskList(uint8_t* list) { GameFunction<void*(__thiscall*)(uint8_t*)>(0x00406E80)(list); }
+void DestroyTaskList(uint8_t* list) { GameFunction<void(__thiscall*)(uint8_t*)>(0x004070E0)(list); }
+
+Manager*& Instance() { return GameVariable<Manager*>(0x00696D68); }
+uint32_t& References() { return GameVariable<uint32_t>(0x00696D6C); }
+
 } // namespace
+
+// 0x0044EDC0
+Manager* Manager::Construct()
+{
+    ConstructTaskList(m_logicTasks);
+    ConstructTaskList(m_displayTasks);
+    ConstructTaskList(m_systemTasks);
+    m_unknownB8 = 0;
+    m_unknownBC = 0;
+    m_done = false;
+    return this;
+}
+
+// 0x0044EE30
+void Manager::DestroyBody()
+{
+    DestroyTaskList(m_systemTasks);
+    DestroyTaskList(m_displayTasks);
+    DestroyTaskList(m_logicTasks);
+}
+
+// 0x0044EE90
+void Manager::ResetDeviceIfLost()
+{
+    if (!DeviceLost())
+        return;
+    if (Device()->TestCooperativeLevel() == D3DERR_DEVICELOST) // (not yet: it can't be reset)
+        return;
+    ReleaseDeviceObjects();
+    if (Device()->Reset(PresentParameters()) < 0)
+        return;
+    RestoreDeviceObjects();
+    DeviceLost() = false;
+}
+
+// 0x0044F220
+void Manager::ProfileFrames(int frames)
+{
+    m_profileFrames = frames;
+    m_profiling = 0;
+}
+
+// 0x0044F240
+void Manager::StopLoop() { m_done = true; }
+
+// 0x0044F260
+Manager* CreateManager(bool create)
+{
+    if (!Instance() && create) {
+        if (void* memory = Mem::Calloc(sizeof(Manager), nullptr, 1)) {
+            Instance() = static_cast<Manager*>(memory)->Construct();
+            ++References();
+            return Instance();
+        }
+        Instance() = nullptr;
+    }
+    ++References();
+    return Instance();
+}
+
+// 0x0044F2B0
+void ReleaseManager()
+{
+    if (References() > 1) {
+        --References();
+        return;
+    }
+    if (Manager* manager = Instance()) {
+        manager->DestroyBody();
+        Mem::Manager::Get()->Free(manager);
+    }
+    Instance() = nullptr;
+    References() = 0;
+}
 
 // 0x0044EEF0
 void Manager::MainLoop()
@@ -126,13 +209,7 @@ void Manager::MainLoop()
         if (QuitRequested())
             break;
         if (DeviceLost()) {
-            if (Device()->TestCooperativeLevel() != D3DERR_DEVICELOST) { // (it can be reset now)
-                ReleaseDeviceObjects();
-                if (Device()->Reset(PresentParameters()) >= 0) {
-                    RestoreDeviceObjects();
-                    DeviceLost() = false;
-                }
-            }
+            ResetDeviceIfLost(); // (inline in the original)
             SkipRender() = true;
         }
 
@@ -186,4 +263,12 @@ void Manager::MainLoop()
 
 } // namespace Mlp
 
+REPLACE(0x0044EDC0, &Mlp::Manager::Construct);
+REPLACE(0x0044EE30, &Mlp::Manager::DestroyBody);
+REPLACE(0x0044EE90, Mlp::Manager::ResetDeviceIfLost);
+REPLACE_SOURCE_ONLY(0x0044F250, Mlp::Manager::ResetDeviceIfLost); // a jump to 0x0044EE90
 REPLACE(0x0044EEF0, &Mlp::Manager::MainLoop);
+REPLACE(0x0044F220, &Mlp::Manager::ProfileFrames);
+REPLACE_SOURCE_ONLY(0x0044F240, &Mlp::Manager::StopLoop); // (4 bytes: too short to hook)
+REPLACE(0x0044F260, Mlp::CreateManager);
+REPLACE(0x0044F2B0, Mlp::ReleaseManager);
