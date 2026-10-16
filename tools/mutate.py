@@ -45,3 +45,6 @@ for path, name, old, new in spec["MUTS"]:
                 print(name, "CAUGHT (hang)", flush=True)
     finally:
         open(path, "w", encoding="utf-8").write(original)
+
+# Leave a build of the unmutated code behind (the last build was of a mutation).
+subprocess.run(["cmd", "/c", build], capture_output=True, text=True)

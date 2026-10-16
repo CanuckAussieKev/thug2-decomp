@@ -833,6 +833,20 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       (in selftests_skater.cpp): index given or not x every file x PartyMod's host or the original's, the
       original with PartyMod's DWord written in and its C runtime sprintf redirected to a stand-in (it can't
       run offline), the request recorded by a stand-in sender. 7 deliberate bugs caught.
+- [x] Batch 59 (PartyMod round; NOT run in the game yet): Nx::DrawFlash 0x4B9030 (new src/game/gfx/flash.*): a
+      screen flash - a rectangle over its viewport (fractions from 0x4A06D0, times the screen size 0x786D6C /
+      0x786D70; x87: products rounded once, sums to float) at its depth (+0x1C), colour packed from +0xC-0xF
+      (alpha +0xF), u/v 0-1 if it has a texture (+0x20, its image directly or through +0x10 by flag bit 0;
+      untextured the original leaves u/v unset - ours 0), the renderer's state calls (texture 0x4DA730,
+      0x4DAB60, blend 0x4DA760(5), 0x4DAA80, format 0x4D9DB0(0x144)), the draw/triangle counters
+      (0x786EBC/C0), then the device's DrawPrimitiveUP (vtable +0x14C) as a 2-triangle strip. PartyMod's
+      reorder_flash_vertices (its call at 0x4B91E7) rotates the first three vertices first - the original's
+      order is wrong - done inline here. Early test (selftests_partymod.cpp - renamed from selftests_skater.cpp:
+      it holds this round's tests): 4 viewports x 4 screen sizes x untextured / two textures, the original with
+      PartyMod's call written in, the draw recorded by a stand-in D3D device and the state calls by stand-ins.
+      10 deliberate bugs caught (1 after adding a viewport where rounding the sum once or twice differs -
+      found by search). tools/mutate.py now rebuilds the restored code at the end (it used to leave the last
+      mutation's build behind).
 - [ ] Next: the pre-compiled .qb format (0x46FBA0, 0x46CA50, 0x46C970, 0x46C830, 0x46C7F0, ...), the script
       cache (0x475FD0 ...), then CScript (0x472900.. / 0x473000..).
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function

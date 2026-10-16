@@ -1,5 +1,5 @@
-// Self-tests for src/game/skater: the control code PartyMod's PS2 controls change, original (with PartyMod's
-// patch bytes written in for the "on" runs) vs ours.
+// Self-tests for functions PartyMod changes (skater controls, online stats, the screen flash): original, with
+// PartyMod's patch bytes written in for the runs that need them, vs ours.
 
 #include <windows.h>
 
@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "game/script/struct.h"
+#include "game/gfx/flash.h"
 #include "game/net/stats.h"
 #include "game/skater/controls.h"
 #include "hook/game.h"
@@ -310,8 +311,119 @@ void TestRetrieveTopStats()
     Check(logs[0] == logs[1] && fields[0] == fields[1] && logs[1].size() == 10, "net: RetrieveTopStats (PartyMod's host and not)");
 }
 
+
+// --- the screen flash ---------------------------------------------------------------------------------------
+
+extern "C" void __fastcall reorder_flash_vertices(uint32_t*, uint32_t*, uint32_t*, uint32_t, uint32_t, void*, uint32_t);
+
+std::vector<uint32_t> g_flash_log;
+bool g_flash_textured;
+long __stdcall StandInDrawPrimitiveUP(void* device, int type, unsigned int count, const uint8_t* vertices, unsigned int stride)
+{
+    g_flash_log.insert(g_flash_log.end(), {0xD4A3u, reinterpret_cast<uint32_t>(device) & 0xFFF, static_cast<uint32_t>(type), count, stride});
+    for (int i = 0; i < 4; ++i) {
+        const uint32_t* v = reinterpret_cast<const uint32_t*>(vertices + 0x1C * i);
+        g_flash_log.insert(g_flash_log.end(), v, v + (g_flash_textured ? 7 : 5)); // (u/v unset untextured)
+    }
+    return 0;
+}
+const float* __cdecl StandInViewport(int index)
+{
+    // (the last: a product and sum that round differently once or twice - found by search)
+    static float views[4][5] = {{0, 0.0f, 0.0f, 1.0f, 1.0f}, {0, 0.125f, 0.3f, 0.5f, 0.3333333f}, {0, 0.1f, 0.2f, 0.7f, 0.37f},
+                                {0, 0.125f, 0.125f, 0.0065f, 0.017f}};
+    g_flash_log.insert(g_flash_log.end(), {0x7E3u, static_cast<uint32_t>(index)});
+    return views[index % 4];
+}
+void __cdecl StandInState3(int a, int b, int c) { g_flash_log.insert(g_flash_log.end(), {0x7A3u, static_cast<uint32_t>(a), static_cast<uint32_t>(b), static_cast<uint32_t>(c)}); }
+void __cdecl StandInState2(int a, int b) { g_flash_log.insert(g_flash_log.end(), {0x5A2u, static_cast<uint32_t>(a), static_cast<uint32_t>(b)}); }
+void __cdecl StandInBlend(int a) { g_flash_log.insert(g_flash_log.end(), {0xB1Du, static_cast<uint32_t>(a)}); }
+void __cdecl StandInState2b(int a, int b) { g_flash_log.insert(g_flash_log.end(), {0xAA8u, static_cast<uint32_t>(a), static_cast<uint32_t>(b)}); }
+void __cdecl StandInFormat(int a) { g_flash_log.insert(g_flash_log.end(), {0xF7Fu, static_cast<uint32_t>(a)}); }
+
+// The flash: two viewports x two screen sizes x colours x untextured / a texture (direct or through its +0x10)
+// - the original with PartyMod's call to reorder_flash_vertices written in - the draw recorded through a
+// stand-in D3D device.
+void TestDrawFlash()
+{
+    CodePatch viewport(0x004A06D0, JumpTo(0x004A06D0, reinterpret_cast<void*>(&StandInViewport)));
+    CodePatch texture(0x004DA730, JumpTo(0x004DA730, reinterpret_cast<void*>(&StandInState3)));
+    CodePatch sampler(0x004DAB60, JumpTo(0x004DAB60, reinterpret_cast<void*>(&StandInState2)));
+    CodePatch blend(0x004DA760, JumpTo(0x004DA760, reinterpret_cast<void*>(&StandInBlend)));
+    CodePatch other(0x004DAA80, JumpTo(0x004DAA80, reinterpret_cast<void*>(&StandInState2b)));
+    CodePatch format(0x004D9DB0, JumpTo(0x004D9DB0, reinterpret_cast<void*>(&StandInFormat)));
+    struct Saved {
+        uint32_t address;
+        uint32_t value;
+    };
+    std::vector<Saved> saved;
+    for (uint32_t a : {0x00786D6Cu, 0x00786D70u, 0x00786EBCu, 0x00786EC0u, 0x00786D0Cu})
+        saved.push_back({a, GameVariable<uint32_t>(a)});
+    static void* vtable[100];
+    for (void*& slot : vtable)
+        slot = nullptr;
+    vtable[83] = reinterpret_cast<void*>(&StandInDrawPrimitiveUP);
+    static void* device[2] = {vtable, nullptr};
+    GameVariable<void*>(0x00786D0C) = device;
+    // the texture: flags +8, +0x10 -> (an image, or a pointer to one) whose +0x10 is the D3D texture
+    alignas(16) static uint8_t image[0x20], holder[0x20], tex[2][0x20];
+    *reinterpret_cast<uint32_t*>(image + 0x10) = 0xD3D7E4;
+    *reinterpret_cast<void**>(holder) = image;
+    tex[0][8] = 0;
+    *reinterpret_cast<void**>(tex[0] + 0x10) = image;
+    tex[1][8] = 1;
+    *reinterpret_cast<void**>(tex[1] + 0x10) = holder;
+    std::vector<uint32_t> traces[2];
+    for (int run = 0; run < 2; ++run) {
+        bool original = run == 0;
+        g_flash_log.clear();
+        GameVariable<int>(0x00786EBC) = 10;
+        GameVariable<int>(0x00786EC0) = 20;
+        for (int view = 0; view < 4; ++view) {
+            for (int screen = 0; screen < 4; ++screen) {
+                static const int widths[4] = {641, 1280, 1023, 1919};
+                static const int heights[4] = {479, 720, 767, 1079};
+                GameVariable<int>(0x00786D6C) = widths[screen];
+                GameVariable<int>(0x00786D70) = heights[screen];
+                for (int textured = 0; textured < 3; ++textured) {
+                    alignas(16) uint8_t flash[0x24] = {};
+                    *reinterpret_cast<int*>(flash) = view;
+                    flash[0xC] = 0x12;
+                    flash[0xD] = static_cast<uint8_t>(0x34 + view);
+                    flash[0xE] = 0x56;
+                    flash[0xF] = static_cast<uint8_t>(0x78 + screen);
+                    *reinterpret_cast<float*>(flash + 0x1C) = 0.25f + view;
+                    *reinterpret_cast<void**>(flash + 0x20) = textured ? tex[textured - 1] : nullptr;
+                    g_flash_textured = textured != 0;
+                    if (original) {
+                        std::vector<uint8_t> call = JumpTo(0x004B91E7, reinterpret_cast<void*>(&reorder_flash_vertices));
+                        call[0] = 0xE8;
+                        call.push_back(0x90);
+                        CodePatch partyMod(0x004B91E7, call);
+                        Original<void(__cdecl*)(void*)>(0x004B9030)(flash);
+                    } else {
+                        Nx::DrawFlash(reinterpret_cast<Nx::Flash*>(flash));
+                    }
+                }
+            }
+        }
+        traces[run] = g_flash_log;
+        traces[run].push_back(GameVariable<uint32_t>(0x00786EBC));
+        traces[run].push_back(GameVariable<uint32_t>(0x00786EC0));
+    }
+    for (Saved& s : saved)
+        GameVariable<uint32_t>(s.address) = s.value;
+    for (size_t i = 0, shown = 0; i < traces[0].size() && i < traces[1].size() && shown < 6; ++i)
+        if (traces[0][i] != traces[1][i]) {
+            Log("  flash entry %u: original %08X ours %08X", static_cast<unsigned>(i), traces[0][i], traces[1][i]);
+            ++shown;
+        }
+    Check(traces[0] == traces[1] && traces[1].size() > 100, "gfx: screen flash (with PartyMod's vertex order)");
+}
+
 } // namespace
 
 SELFTEST(Early, TestSkaterPlatformStructure);
 SELFTEST(Early, TestSkaterAcidDrops);
 SELFTEST(Early, TestRetrieveTopStats);
+SELFTEST(Early, TestDrawFlash);
