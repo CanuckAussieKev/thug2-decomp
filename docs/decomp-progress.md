@@ -1417,8 +1417,11 @@ src/hook/selftests_partymod.cpp, src/game/sio/device.cpp/.h. No src/partymod cha
       Checks: builds without warnings; thug2_check 0 MISMATCHED, early 82/82; register scan only the known 0x4EFF92
       false alarm; call audit no MISMATCH (0x4D7AF0, 0x48BF10, 0x48BF20 "?" - they end in tail jumps to plain-RET
       functions, checked by hand); check_partymod_overlap "No overlaps". docs/PROGRESS.md not regenerated (merge).
-- [ ] Next: run batches 68-69 in the game (check the Late / EngineStarted stages still run - also with
-      disable=0x0044EEF0); the PartyMod round's GameSpy configuration; then the pre-compiled .qb format (0x46FBA0, 0x46CA50, 0x46C970, 0x46C830, 0x46C7F0, ...), the script
+- [x] Batches 68-69 tested in the game (2026-10-16, by the user): game runs; 673 of 673 replacements installed (32
+      source only; the two runner fallbacks correctly not installed), early 84 / late 17 (from our ParseNetworkParams)
+      / engine-started 2 (from our MainLoop) self-tests pass, shadow checks no mismatches. (The fallback path itself,
+      disable=0x0044EEF0, not tried yet.)
+- [ ] Next: the PartyMod round's GameSpy configuration (with linking the SDK); then the pre-compiled .qb format (0x46FBA0, 0x46CA50, 0x46C970, 0x46C830, 0x46C7F0, ...), the script
       cache (0x475FD0 ...), then CScript (0x472900.. / 0x473000..).
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
       for original callers that read ECX/EDX after the call without writing them first (ignoring push-to-reserve,
