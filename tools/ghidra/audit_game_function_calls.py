@@ -12,7 +12,7 @@ MISMATCH lines must be fixed; "?" means the original has no RET (a tail jump): c
 """
 import sys, re, pathlib, pyghidra
 pyghidra.start()
-src = pathlib.Path(r"C:\Dev\thug2-decomp\src")
+src = pathlib.Path(__file__).resolve().parents[2] / "src"  # this checkout's source (works in a worktree)
 pat = re.compile(r"GameFunction<\s*([^>]*?)\(\s*(__\w+)\s*\*\s*\)\s*\(([^)]*)\)\s*>\s*\(\s*(0x[0-9A-Fa-f]+)\s*\)")
 uses = []
 for f in src.rglob("*.*"):
