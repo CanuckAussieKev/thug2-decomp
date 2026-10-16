@@ -1772,7 +1772,8 @@ belong with the CScript batch.
       thug2-decomp.log ("pc: ...", [Logging] Level filter; LogToFile/LogFile no longer read); window title "THUG2"
       (WinMain's already-running check now finds a first copy, as the original intended); the exe's DLL-name redirect
       in DllMain removed; the MIT notice only in THIRD_PARTY_NOTICES.md, per-file headers point there.
-- [ ] Next: run the rename build in the game (settings from thug2-decomp.ini, window title); then CScript (0x472900.. / 0x473000..;
+- [x] The rename build tested in the game (2026-10-17, by the user): game runs, settings read from thug2-decomp.ini, "pc:" lines in the log.
+- [ ] Next: CScript (0x472900.. / 0x473000..;
       the script manager 0x475050-0x475920 and 0x472C90 / 0x473A80 / 0x473010 left by batches 70-71); nearby gaps: the
       module manager Mdl::Manager 0x44F300-0x44F7E0, 0x4B2270-0x4B2320 (9 glue functions), CFlipRotateComponent::Update
       0x4E2D20 and its base 0x481710-0x481740, 0x46C470-0x46C6A0 (a CStruct wrapper class), 0x4620A0-0x462710 (object /
