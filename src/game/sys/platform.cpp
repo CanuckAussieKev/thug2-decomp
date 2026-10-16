@@ -90,6 +90,6 @@ bool InitInput(HINSTANCE instance, HWND window, int config)
 
 } // namespace Platform
 
-REPLACE_SOURCE_ONLY(0x005F3A50, Platform::SetActuators);       // PartyMod jumps from here to set_actuators
-REPLACE_SOURCE_ONLY(0x005F56E0, Platform::ProcessWindowEvents); // PartyMod jumps from here to handleEvents
+REPLACE(0x005F3A50, Platform::SetActuators);       // (PartyMod jumped from here to set_actuators)
+REPLACE(0x005F56E0, Platform::ProcessWindowEvents); // (PartyMod jumped from here to handleEvents)
 REPLACE(0x005F44F0, Platform::InitInput);

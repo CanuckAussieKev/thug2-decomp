@@ -70,6 +70,9 @@ uint8_t getGlyphConfig() {
 void patchButtonGlyphs() {
 	glyphStyle = getGlyphConfig(); // THUG2_DECOMP: the global above
 
+	// THUG2_DECOMP: only the setting is read - the rewritten LoadFont / CFunc_LoadFont / SText::Draw /
+	// SFont::QueryString use glyphStyle, dehexifyDigitWrapper and shouldUseGlyph themselves; nothing is patched.
+#ifndef THUG2_DECOMP
 	// load the appropriate glyph font and meta button map for glyph style (this only affects the basic menu control prompts)
 	if (glyphStyle == 1) {
 		patchDWord(0x0048d97f + 4, buttonsPs2);
@@ -130,4 +133,5 @@ void patchButtonGlyphs() {
 
 	// NOP the rest
 	patchNop(0x004ced6d + 13, 3);
+#endif
 }

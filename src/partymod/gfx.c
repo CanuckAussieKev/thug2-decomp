@@ -250,6 +250,7 @@ void draw2DWrapper() {
 	}
 }
 
+#ifndef THUG2_DECOMP // (built into the rewritten SetLetterbox, DrawScreenBlur, RenderWorld and MainLoop)
 void patchLetterbox() {
 	patchJmp(0x004b2440, setLetterbox);
 	//patchByte(0x004b2e63, 0xeb);
@@ -271,6 +272,7 @@ void patchLetterbox() {
 	// hacky: wrap draw 2d func to add black bars to cover overdraw
 	patchCall(0x004b341d, draw2DWrapper);
 }
+#endif
 
 struct flashVertex {
 	float x, y, z, w;
@@ -292,10 +294,12 @@ void __fastcall reorder_flash_vertices(uint32_t *d3dDevice, uint32_t *maybedevic
 	drawPrimitiveUP(d3dDevice, maybedeviceagain, alsodevice, prim, count, vertices, stride);
 }
 
+#ifndef THUG2_DECOMP // (built into the rewritten screen flash draw)
 void patchScreenFlash() {
 	patchNop(0x004b91e7, 6);
 	patchCall(0x004b91e7, reorder_flash_vertices);
 }
+#endif
 
 void setBlurWrapper(uint32_t blur) {
 	uint32_t *screen_blur = 0x00787328;
@@ -303,6 +307,7 @@ void setBlurWrapper(uint32_t blur) {
 	*screen_blur = 0;
 }
 
+#ifndef THUG2_DECOMP // (the rewritten SetScreenBlur / CFunc_SetScreenBlur read blur_disabled)
 void patchBlur() {
 	patchJmp(0x004b2330, setBlurWrapper);
 }
@@ -315,6 +320,7 @@ void restoreBlur() {
 	patchByte(0x0048c170 + 3, 0x24);
 	patchByte(0x0048c170 + 4, 0x08);
 }
+#endif
 
 uint32_t movie_width;
 uint32_t movie_height;
@@ -374,11 +380,13 @@ void __stdcall movie_drawPrim(IDirect3DDevice9 *dev, D3DPRIMITIVETYPE type, uint
 	IDirect3DDevice9_DrawPrimitiveUP(dev, type, numPrims, vertices, stride);
 }
 
+#ifndef THUG2_DECOMP // (built into the rewritten Nx::DrawMovieFrame)
 void patchMovieBlackBars() {
 	patchCall(0x0044fb8c, movie_setTexture);
 	patchCall(0x0044fc88, movie_drawPrim);
 	patchNop(0x0044fc88 + 5, 1);
 }
+#endif
 
 void loadGfxSettings() {
 	graphics_settings.antialiasing = getConfigBool(CONFIG_GRAPHICS_SECTION, "AntiAliasing", 0);
@@ -387,19 +395,23 @@ void loadGfxSettings() {
 	graphics_settings.clipping_distance = getConfigInt(CONFIG_GRAPHICS_SECTION, "ClippingDistance", 100);
 	graphics_settings.fog = getConfigBool(CONFIG_GRAPHICS_SECTION, "Fog", 0);
 
+	// THUG2_DECOMP: the rewritten SetScreenBlur / CFunc_SetScreenBlur read blur_disabled; nothing is patched.
 	if (getConfigBool(CONFIG_GRAPHICS_SECTION, "DisableBlur", 1)) {
 #ifdef THUG2_DECOMP
 		blur_disabled = 1;
-#endif
+#else
 		patchBlur();
+#endif
 	} else {
 #ifdef THUG2_DECOMP
 		blur_disabled = 0;
-#endif
+#else
 		restoreBlur();
+#endif
 	}
 }
 
+#ifndef THUG2_DECOMP // (built into the rewritten InitInput, screen functions, SetCamera and the above)
 void patchGfx() {
 	patchCall(0x005f4591, writeConfigValues);	// don't load config, use our own
 
@@ -413,3 +425,4 @@ void patchGfx() {
 
 	patchMovieBlackBars();
 }
+#endif
