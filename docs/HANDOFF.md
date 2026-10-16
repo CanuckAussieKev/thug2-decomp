@@ -1,5 +1,8 @@
 # Handoff: PartyMod's patches into the source (2026-10-16)
 
+State: everything through batch 59 is merged on main, pushed, and run in the game (all self-tests pass).
+No work in flight - no worktrees or branches besides main.
+
 Read CLAUDE.md and `.claude/skills/decomp-batch/` first; the history is in `docs/decomp-progress.md`.
 
 Goal: give source to the 48 game functions PartyMod patches (113 patches, ~35 KB), with PartyMod's changes
@@ -10,7 +13,7 @@ on any PartyMod patch inside a rewritten function its HANDLED list doesn't accou
 Done (20 of 48): batch 59: 0x4B9030; batch 58: 0x54DCB0; batch 57 (skater): 0x51F4C0, 0x527510, 0x527600; LoadQB; Sio::Device::Process, ActivateActuator; batch 54 (platform): SetActuators,
 ProcessWindowEvents, InitInput 0x5F44F0, GetMemCardSpaceAvailable; batch 55 (gfx): SetScreenAspectRatio,
 GetScreenAngleFactor, SetScreenBlur, SetLetterbox, CFunc_SetScreenBlur; batch 56 (glyph): LoadFont 0x48D7E0,
-CFunc_LoadFont, UpdateLoadingBarColors 0x4B6B80. The parallel worktrees are merged and removed.
+CFunc_LoadFont, UpdateLoadingBarColors 0x4B6B80. 
 
 Still to do (batches 54-56's records have notes - disassembly read, conventions, test plans - for most):
 - graphics: 0x4B2D80, 0x4DB200 (far plane 32000 -> 96000), 0x4DF390, 0x44FA80 (movies)

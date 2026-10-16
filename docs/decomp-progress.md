@@ -847,6 +847,8 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       10 deliberate bugs caught (1 after adding a viewport where rounding the sum once or twice differs -
       found by search). tools/mutate.py now rebuilds the restored code at the end (it used to leave the last
       mutation's build behind).
+- [x] Batches 53-59 and the LoadQB fix tested in the game (2026-10-16, by the user): game runs; 648 of 648
+      replacements installed (31 source only), early 61 / late 16 / engine-started 2 self-tests all pass.
 - [ ] Next: the pre-compiled .qb format (0x46FBA0, 0x46CA50, 0x46C970, 0x46C830, 0x46C7F0, ...), the script
       cache (0x475FD0 ...), then CScript (0x472900.. / 0x473000..).
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
