@@ -2,7 +2,7 @@
 
 Generated 2026-10-16 by `tools/progress_report.py` - regenerate after each batch.
 
-**Game code: █░░░░░░░░░░░░░░░░░░░ 5.3%** of the code rewritten (652 of 8,382 functions, 85.4 KB of 1,617.8 KB).
+**Game code: █░░░░░░░░░░░░░░░░░░░ 5.3%** of the code rewritten (656 of 8,382 functions, 86.2 KB of 1,617.8 KB).
 
 Progress is by code size: function counts make a 10-byte helper look like as much work as a 2 KB routine. Subsystem boundaries come from the exe map (`docs/subsystems.md`) and are approximate (give or take a few functions); totals are exact.
 
@@ -29,11 +29,11 @@ Progress is by code size: function counts make a 10-byte helper look like as muc
 | Viewer / gaps / records / career save info | `0x577300`-`0x588180` | ░░░░░░░░░░░░░░░░░░░░ 0% | 0 / 304 | 0.0 KB / 60.7 KB |
 | Park editor & graffiti | `0x588180`-`0x595030` | ░░░░░░░░░░░░░░░░░░░░ 0% | 1 / 289 | 0.1 KB / 47.3 KB |
 | Lighting / FX / park memory | `0x595030`-`0x59f610` | ░░░░░░░░░░░░░░░░░░░░ 0% | 0 / 169 | 0.0 KB / 40.1 KB |
-| Game script commands (skater queries, save/memcard, profiles, appearance, cutscenes, weather) | `0x59f610`-`0x5b6560` | ░░░░░░░░░░░░░░░░░░░░ 0% | 18 / 574 | 0.4 KB / 87.1 KB |
+| Game script commands (skater queries, save/memcard, profiles, appearance, cutscenes, weather) | `0x59f610`-`0x5b6560` | ░░░░░░░░░░░░░░░░░░░░ 0% | 19 / 574 | 0.5 KB / 87.1 KB |
 | File system (PIP/PRE archives) & skater memory heaps | `0x5b6560`-`0x5bdad0` | ████████████████████ 100% | 222 / 222 | 27.1 KB / 27.1 KB |
 | Input devices (SIO) | `0x5bdad0`-`0x5be6f0` | ████████████████████ 100% | 25 / 25 | 2.8 KB / 2.8 KB |
 | Game clock (Tmr) | `0x5be6f0`-`0x5beaae` | ████████████████████ 100% | 15 / 15 | 0.8 KB / 0.8 KB |
-| Win32 platform layer (window, D3D9/DirectSound/DirectInput setup, registry options) | `0x5eef20`-`0x5f8130` | ░░░░░░░░░░░░░░░░░░░░ 0% | 0 / 91 | 0.0 KB / 17.4 KB |
+| Win32 platform layer (window, D3D9/DirectSound/DirectInput setup, registry options) | `0x5eef20`-`0x5f8130` | ░░░░░░░░░░░░░░░░░░░░ 4% | 3 / 91 | 0.7 KB / 17.4 KB |
 
 ## Not decompiled (libraries)
 
