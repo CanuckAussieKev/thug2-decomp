@@ -1,20 +1,15 @@
-// Script-loaded fonts (LoadFont), with PartyMod's button glyph style built in.
+// Script-loaded fonts (LoadFont), with the PC port's button glyph style (game/gfx/glyphs.h) built in.
+// Based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt (the PC port's changes in it).
 
 #include "game/gfx/font.h"
 
 #include "game/core/crc.h"
+#include "game/gfx/glyphs.h"
 #include "game/lst/hashtable.h"
 #include "game/script/params.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
-
-// PartyMod (src/partymod/glyph.c): its GlyphStyle setting and the names it uses for it.
-extern "C" uint8_t glyphStyle;
-extern "C" char* buttonsPs2;
-extern "C" char* buttonsNgc;
-extern "C" char* meta_button_map_ps2;
-extern "C" char* meta_button_map_gamecube;
 
 namespace Nx {
 
@@ -51,23 +46,23 @@ void DebugFontLoaded() {}
 
 } // namespace
 
-// PartyMod patches the two names into the original (glyph.c, patchButtonGlyphs: the PUSHed string at
-// 0x0048D8F8 and the MOVed one at 0x0048D983).
+// The PC port's GlyphStyle in place of the original's Xbox names (PartyMod patched the two names into the
+// original: the PUSHed string at 0x0048D8F8 and the MOVed one at 0x0048D983).
 const char* ButtonFontName()
 {
-    if (glyphStyle == 1)
-        return buttonsPs2;
-    if (glyphStyle == 2)
-        return buttonsNgc;
+    if (GlyphStyle() == 1)
+        return "ButtonsPs2";
+    if (GlyphStyle() == 2)
+        return "ButtonsNgc";
     return "ButtonsXbox";
 }
 
 const char* MetaButtonMapName()
 {
-    if (glyphStyle == 1)
-        return meta_button_map_ps2;
-    if (glyphStyle == 2)
-        return meta_button_map_gamecube;
+    if (GlyphStyle() == 1)
+        return "meta_button_map_ps2";
+    if (GlyphStyle() == 2)
+        return "meta_button_map_gamecube";
     return "meta_button_map_xbox";
 }
 

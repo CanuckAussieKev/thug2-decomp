@@ -1,4 +1,5 @@
-// The per-frame 3D render: the camera's matrices and the motion blur pass.
+// The per-frame 3D render: the camera's matrices and the motion blur pass, with the PC port's widescreen
+// display region and black bars (based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt).
 
 #include "game/gfx/render.h"
 
@@ -7,13 +8,9 @@
 #include <cstdint>
 #include <cstring>
 
+#include "game/gfx/screen.h"
 #include "hook/game.h"
 #include "hook/hook.h"
-
-// PartyMod's replacements (src/partymod/gfx.c): the viewport fitted to the aspect it wants (pillar- or
-// letterboxed), and the 2D pass followed by black bars over the overdraw.
-extern "C" void setDisplayRegion();
-extern "C" void draw2DWrapper();
 
 namespace Nx {
 
@@ -163,6 +160,66 @@ struct ViewShape {
 };
 
 } // namespace
+
+// --- the PC port's display region and black bars ---------------------------------------------------------------
+
+void SetDisplayRegion()
+{
+    // the 640x480 layout's size on the back buffer (SetLetterbox), centred
+    auto width = static_cast<uint32_t>(GameVariable<float>(0x00786D80) * 640.0f);
+    auto height = static_cast<uint32_t>(GameVariable<float>(0x00786D84) * 480.0f);
+    // (the device viewport, 0x00786C90: x, y, width, height)
+    GameVariable<uint32_t>(0x00786C90) = (GameVariable<uint32_t>(0x00786D6C) - width) / 2;
+    GameVariable<uint32_t>(0x00786C98) = width;
+    GameVariable<uint32_t>(0x00786C94) = (GameVariable<uint32_t>(0x00786D70) - height) / 2;
+    GameVariable<uint32_t>(0x00786C9C) = height;
+}
+
+void Draw2DWithBlackBars()
+{
+    struct BarVertex {
+        float x, y, z, w;
+        uint32_t color;
+        float u, v;
+    };
+    GameFunction<void(__cdecl*)()>(0x004DFB90)(); // the 2D pass
+
+    uint32_t backBufferWidth = GameVariable<uint32_t>(0x00786D6C);
+    uint32_t backBufferHeight = GameVariable<uint32_t>(0x00786D70);
+    float backBufferAspect = static_cast<float>(backBufferWidth) / static_cast<float>(backBufferHeight);
+    constexpr uint32_t kBlack = 0xFF000000;
+    if (backBufferAspect > DesiredAspectRatio()) {
+        // bars left and right
+        auto width = static_cast<uint32_t>(std::round(static_cast<double>(GameVariable<float>(0x00786D80) * 640.0f)));
+        uint32_t barWidth = (backBufferWidth - width) / 2;
+        SetTexture(0, nullptr, 0);
+        BarVertex bar[4] = {
+            {-0.5f, -0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
+            {-0.5f, static_cast<float>(backBufferHeight) + 0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
+            {static_cast<float>(barWidth) + 0.5f, static_cast<float>(backBufferHeight) + 0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
+            {static_cast<float>(barWidth) + 0.5f, -0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
+        };
+        DrawPrimitiveUP(6 /* D3DPT_TRIANGLEFAN */, 2, bar, sizeof(BarVertex));
+        for (BarVertex& corner : bar)
+            corner.x += static_cast<float>(width + barWidth);
+        DrawPrimitiveUP(6, 2, bar, sizeof(BarVertex));
+    } else if (backBufferAspect < DesiredAspectRatio()) {
+        // bars top and bottom
+        auto height = static_cast<uint32_t>(std::round(static_cast<double>(GameVariable<float>(0x00786D84) * 480.0f)));
+        uint32_t barHeight = (backBufferHeight - height) / 2;
+        SetTexture(0, nullptr, 0);
+        BarVertex bar[4] = {
+            {-0.5f, -0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
+            {-0.5f, static_cast<float>(barHeight) + 0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
+            {static_cast<float>(backBufferWidth) + 0.5f, static_cast<float>(barHeight) + 0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
+            {static_cast<float>(backBufferWidth) + 0.5f, -0.5f, 0.0f, 1.0f, kBlack, 0.0f, 0.0f},
+        };
+        DrawPrimitiveUP(6, 2, bar, sizeof(BarVertex));
+        for (BarVertex& corner : bar)
+            corner.y += static_cast<float>(height + barHeight);
+        DrawPrimitiveUP(6, 2, bar, sizeof(BarVertex));
+    }
+}
 
 // 0x004DB200
 void SetCamera(const Mth::Matrix* orientation, const Mth::Vector* position, float angle, float aspect, float zoom,
@@ -449,12 +506,12 @@ void RenderViewport(int index)
     vp.minZ = 0.0f;
     vp.maxZ = 1.0f;
     if (GameVariable<bool>(0x00786CBE)) {
-        // PartyMod (its call at 0x004B2E65): the viewport fitted to the aspect it wants. The original squashed the
+        // PC port (PartyMod's call at 0x004B2E65): the viewport fitted to the aspect wanted. The original squashed the
         // viewport to 3/4 of the screen's height:
         //   int screenHeight = GameVariable<int>(0x00786D70);
         //   vp.y += screenHeight / 8;
         //   vp.height -= screenHeight / 4;
-        setDisplayRegion();
+        SetDisplayRegion();
     }
     SetViewport();
     SetLightingMode(0);
@@ -582,20 +639,20 @@ void RenderWorld()
         // Full-screen effects and the 2D on top.
         FullScreenViewport();
         if (GameVariable<bool>(0x00786CBE)) {
-            // PartyMod (its call at 0x004B33CA): fitted to the aspect it wants. The original:
+            // PC port (PartyMod's call at 0x004B33CA): fitted to the aspect wanted. The original:
             //   int screenHeight = GameVariable<int>(0x00786D70);
             //   TheViewport().y = screenHeight / 8;
             //   TheViewport().height = screenHeight - screenHeight / 4;
-            setDisplayRegion();
+            SetDisplayRegion();
         }
         SetViewport();
         GameFunction<void(__cdecl*)()>(0x004DE980)();
         DrawScreenBlur();
         bool fog = GameVariable<uint32_t>(0x00787338) != 0;
         SetFog(false);
-        // PartyMod (its call at 0x004B341D): the 2D pass (0x004DFB90 in the original), then black bars over what's
+        // PC port (PartyMod's call at 0x004B341D): the 2D pass (0x004DFB90 in the original), then black bars over what's
         // drawn outside the fitted area.
-        draw2DWrapper();
+        Draw2DWithBlackBars();
         SetFog(fog);
     }
     FullScreenViewport();

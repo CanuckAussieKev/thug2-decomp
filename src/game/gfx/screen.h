@@ -8,9 +8,15 @@ class CScript;
 } // namespace Script
 
 // The screen's shape and full-screen effects (Nx engine, PC): aspect ratio, field-of-view factor, letterbox and
-// motion blur. PartyMod replaces most of these with its own (widescreen support, blur off by default); the
-// source here is what the game runs with PartyMod.
+// motion blur. The PC port (based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt) changes most
+// of these: widescreen support, blur off by default.
 namespace Nx {
+
+// The career's current level (0 = the front end); 0 without the skate module (0x007CE478, its career +0x20,
+// that's +0x630).
+uint8_t CurrentLevel();
+// The aspect the screen is fitted to: 4:3 in the front end, the window's shape in a level.
+float DesiredAspectRatio();
 
 // 0x004A0780
 void SetScreenAspectRatio(float aspect);

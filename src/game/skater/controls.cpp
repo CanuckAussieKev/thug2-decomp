@@ -1,22 +1,18 @@
-// The skater's control code, with PartyMod's PS2-style controls built in.
+// The skater's control code, with the PC port's PS2-style controls built in (based on PartyMod (c) 2024
+// PARTYMANX, MIT - see LICENSES/partymod.txt).
 
 #include "game/skater/controls.h"
 
 #include <cstring>
 
 #include "game/script/struct.h"
+#include "game/sio/sdl_input.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
-// PartyMod's input settings (src/partymod/input.c).
-extern "C" struct PartyModInputSettings {
-    uint8_t isPs2Controls;
-    uint8_t uicontrols;
-} inputsettings;
-
 namespace Skater {
 
-bool Ps2Controls() { return inputsettings.isPs2Controls != 0; }
+bool Ps2Controls() { return Sio::TheInputSettings().ps2Controls != 0; }
 
 namespace {
 

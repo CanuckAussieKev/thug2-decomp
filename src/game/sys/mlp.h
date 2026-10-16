@@ -35,7 +35,7 @@ struct Manager {
     // 0x0044EEF0: the game's main loop - one frame per pass, at most 60 a second (QueryPerformanceCounter),
     // skipping the render of frames that run late, idling while the window is inactive and resetting the
     // device after it's lost. Returns when the game is quit (0x007D6A2C) or m_done is set; m_done is then put
-    // back as it was on entry. PartyMod's renderWorldWrapper (the letterbox per level) is built in.
+    // back as it was on entry. The PC port's letterbox per level is built in (RenderFrameLetterboxed).
     void MainLoop();
 };
 static_assert(offsetof(Manager, m_logicTasks) == 0x04);
@@ -51,5 +51,9 @@ static_assert(sizeof(Manager) == 0xCC);
 Manager* CreateManager(bool create);
 // 0x0044F2B0: drops a reference; the last one destroys and frees the manager.
 void ReleaseManager();
+
+// The frame's render (0x0048C330), then the PC port's letterbox: on in the front end, off in a level (in place of
+// the main loop's plain render call at 0x0044F1C0).
+void RenderFrameLetterboxed();
 
 } // namespace Mlp

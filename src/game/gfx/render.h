@@ -4,9 +4,16 @@
 #include "game/mth/vector.h"
 
 // The per-frame 3D render (Nx engine, PC/D3D9): the camera's matrices, the world passes per viewport and the
-// motion blur pass. PartyMod changes all three (widescreen viewports, black bars, a further far plane); the
-// source here is what the game runs with PartyMod, with the original's code given in comments.
+// motion blur pass. The PC port (based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt) changes
+// all three (widescreen viewports, black bars, a further far plane); the original's code is given in comments.
 namespace Nx {
+
+// While letterboxed: the viewport (0x00786C90) set to the 640x480 layout's fitted area on the back buffer
+// (SetLetterbox's scales), centred.
+void SetDisplayRegion();
+// The 2D pass (0x004DFB90), then black bars over what was drawn outside the area fitted to the aspect wanted
+// (left and right on wider back buffers, top and bottom on narrower ones).
+void Draw2DWithBlackBars();
 
 // 0x004DB200: the camera's view and projection. `orientation`'s rows 1 and 2 are the camera's up and backward
 // directions; `angle` is the horizontal field of view in degrees; `zoom` scales the projection (1 = none);

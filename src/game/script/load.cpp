@@ -1,3 +1,5 @@
+// Based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt (the PC port's changes in it).
+
 #include "game/script/load.h"
 
 #include <cstring>
@@ -8,14 +10,12 @@
 #include "game/file/pip.h"
 #include "game/script/names.h"
 #include "game/script/parse.h"
+#include "game/script/patched.h"
 #include "game/script/precompiled.h"
 #include "game/script/qb.h"
 #include "game/util/lzss.h"
 #include "hook/game.h"
 #include "hook/hook.h"
-
-// PartyMod's script loader (src/partymod/script.c).
-extern "C" const uint8_t* __cdecl pipLoadWrapper(char* filename, int unknown1, int unknown2, int unknown3, int unknown4);
 
 namespace Script {
 
@@ -264,9 +264,9 @@ void LoadQB(const char* filename, int unused, int temporary)
         LoadChecksumNames(filename);
     } else {
         Mem::PushContext(manager->m_topDownHeap);
-        // PartyMod's loader: Pip::Load, then PartyMod's binary patch for the file if it has one (it ships
-        // one, for scripts\engine\menu\keyboard.qb). PartyMod puts it in place of the original's call here.
-        auto* data = pipLoadWrapper(const_cast<char*>(filename), 0, 0, 0, 0);
+        // PC port (PartyMod's call at 0x0046EE80): Pip::Load, then the binary patch for the file if there is one
+        // (scripts\engine\menu\keyboard.qb), in place of the original's plain Pip::Load.
+        auto* data = LoadPatchedScript(filename);
         Mem::PopContext();
         ParseQB(filename, data, unused, 0, temporary);
         Pip::Unload(filename);

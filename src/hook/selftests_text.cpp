@@ -14,19 +14,15 @@
 #include <vector>
 
 #include "game/gfx/device.h"
+#include "game/gfx/glyphs.h"
 #include "game/gfx/text.h"
+#include "game/sio/sdl_input.h"
+#include "game/sys/sdl_window.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
 #include "hook/selftest.h"
 
-extern "C" uint8_t isUsingKeyboard;
-extern "C" uint8_t forceGlyphs;
-extern "C" uint32_t dehexifyDigitWrapper(uint8_t* button);
-extern "C" uint8_t __cdecl shouldUseGlyph(uint8_t index);
-extern "C" uint8_t isWindowed;
-extern "C" int resX;
-extern "C" int resY;
 
 namespace {
 
@@ -85,14 +81,14 @@ uint32_t Bits(float f)
     return bits;
 }
 
-// PartyMod's button glyph patch (glyph.c's patchButtonGlyphs) for one function: the call at `call` goes to
-// dehexifyDigitWrapper; the test at `test` becomes PUSH EAX / CALL shouldUseGlyph / CMP AL,1 / POP EAX /
+// PartyMod's button glyph patch (its patchButtonGlyphs) for one function: the call at `call` goes to
+// Nx::ButtonForTag; the test at `test` becomes PUSH EAX / CALL Nx::ShouldUseGlyph / CMP AL,1 / POP EAX /
 // JZ <glyph> / 3 NOPs.
 void WritePartyModGlyphs(uint32_t call, uint32_t test, uint8_t jump)
 {
-    Write(call, Branch(0xE8, call, reinterpret_cast<void*>(&dehexifyDigitWrapper)));
+    Write(call, Branch(0xE8, call, reinterpret_cast<void*>(&Nx::ButtonForTag)));
     std::vector<uint8_t> bytes = {0x67, 0x50};
-    std::vector<uint8_t> callGlyph = Branch(0xE8, test + 2, reinterpret_cast<void*>(&shouldUseGlyph));
+    std::vector<uint8_t> callGlyph = Branch(0xE8, test + 2, reinterpret_cast<void*>(&Nx::ShouldUseGlyph));
     bytes.insert(bytes.end(), callGlyph.begin(), callGlyph.end());
     bytes.insert(bytes.end(), {0x3C, 0x01, 0x67, 0x58, 0x74, jump, 0x90, 0x90, 0x90});
     Write(test, bytes);
@@ -202,7 +198,7 @@ void TestQueryString()
 {
     Save(0x00780FDC, 4);
     Save(0x006FA808, 32);
-    uint8_t savedKeyboard = isUsingKeyboard, savedForce = forceGlyphs;
+    bool savedKeyboard = Sio::UsingKeyboard(), savedForce = Nx::PreferGlyphs();
     JumpTo(0x005BCD50, reinterpret_cast<void*>(&StandInKeyName));
     WritePartyModGlyphs(0x004CED4B, 0x004CED6D, 0x5B);
     BuildFonts();
@@ -212,8 +208,8 @@ void TestQueryString()
     for (int run = 0; run < 2; ++run) {
         g_text_log.clear();
         for (int state = 0; state < 3; ++state) {
-            isUsingKeyboard = state != 1;
-            forceGlyphs = state == 2;
+            Sio::UsingKeyboard() = state != 1;
+            Nx::PreferGlyphs() = state == 2;
             for (int font = 0; font < 2; ++font) {
                 for (size_t t = 0; t < std::size(kTexts); ++t) {
                     const char* text = kTexts[t];
@@ -230,8 +226,8 @@ void TestQueryString()
         }
         traces[run] = g_text_log;
     }
-    isUsingKeyboard = savedKeyboard;
-    forceGlyphs = savedForce;
+    Sio::UsingKeyboard() = savedKeyboard;
+    Nx::PreferGlyphs() = savedForce;
     RestoreTextRanges();
     for (size_t i = 0, shown = 0; i < traces[0].size() && i < traces[1].size() && shown < 6; ++i)
         if (traces[0][i] != traces[1][i]) {
@@ -277,7 +273,7 @@ void TestDrawText()
     Save(0x00780FDC, 0x10);
     Save(0x00786D80, 0x10);
     Save(0x006FA808, 32);
-    uint8_t savedKeyboard = isUsingKeyboard, savedForce = forceGlyphs;
+    bool savedKeyboard = Sio::UsingKeyboard(), savedForce = Nx::PreferGlyphs();
     JumpTo(0x005BCD50, reinterpret_cast<void*>(&StandInKeyName));
     WritePartyModGlyphs(0x004CFF0C, 0x004CFF36, 0x63);
     BuildFonts();
@@ -307,8 +303,8 @@ void TestDrawText()
             GameVariable<int>(0x00786D8C) = c.offsetY;
             BuildEffects(c.rotations);
             for (int state = 0; state < 3; ++state) {
-                isUsingKeyboard = state != 1;
-                forceGlyphs = state == 2;
+                Sio::UsingKeyboard() = state != 1;
+                Nx::PreferGlyphs() = state == 2;
                 std::vector<const char*> texts(std::begin(kTexts), std::end(kTexts));
                 texts.push_back(longText.c_str());
                 for (size_t t = 0; t < texts.size(); ++t) {
@@ -356,8 +352,8 @@ void TestDrawText()
         }
         traces[run] = g_text_log;
     }
-    isUsingKeyboard = savedKeyboard;
-    forceGlyphs = savedForce;
+    Sio::UsingKeyboard() = savedKeyboard;
+    Nx::PreferGlyphs() = savedForce;
     RestoreTextRanges();
     if (traces[0].size() != traces[1].size())
         Log("  draw text trace sizes: original %u ours %u", static_cast<unsigned>(traces[0].size()),
@@ -461,8 +457,8 @@ void TestInitDirect3D()
     Save(0x007D69DC, 0x08);
     Save(0x0067EBCC, 0x08);
     Save(0x007D6A28, 0x04);
-    uint8_t savedWindowed = isWindowed;
-    int savedX = resX, savedY = resY;
+    bool savedWindowed = Sys::Windowed();
+    int savedX = Sys::WindowWidth(), savedY = Sys::WindowHeight();
     g_d3d_vtable[8] = reinterpret_cast<void*>(&StandInGetAdapterDisplayMode);
     g_d3d_vtable[10] = reinterpret_cast<void*>(&StandInCheckDeviceFormat);
     g_device_vtable[9] = reinterpret_cast<void*>(&StandInGetCreationParameters);
@@ -512,9 +508,9 @@ void TestInitDirect3D()
             GameVariable<uint8_t>(0x007D6434) = s.multisample;
             GameVariable<uint8_t>(0x00786AB7) = 1; // would maximise the window
             GameVariable<uint32_t>(0x00786A9C) = 0x77; // the Windowed field before it's set
-            isWindowed = s.windowed;
-            resX = s.width;
-            resY = s.height;
+            Sys::Windowed() = s.windowed != 0;
+            Sys::WindowWidth() = s.width;
+            Sys::WindowHeight() = s.height;
             size_t marker = g_text_saved.size();
             if (run == 0) {
                 // PartyMod's run-time bytes: its window size, and windowed if set
@@ -550,9 +546,9 @@ void TestInitDirect3D()
         }
         traces[run] = g_text_log;
     }
-    isWindowed = savedWindowed;
-    resX = savedX;
-    resY = savedY;
+    Sys::Windowed() = savedWindowed;
+    Sys::WindowWidth() = savedX;
+    Sys::WindowHeight() = savedY;
     RestoreTextRanges();
     if (traces[0].size() != traces[1].size())
         Log("  d3d init trace sizes: original %u ours %u", static_cast<unsigned>(traces[0].size()),

@@ -132,6 +132,11 @@ int OriginalCalleePop(uint32_t entry)
 
 } // namespace
 
+bool WriteGameCode(uint32_t address, const void* bytes, size_t size)
+{
+    return WriteCode(address, static_cast<const uint8_t*>(bytes), size);
+}
+
 void RegisterReplacement(const Replacement& r)
 {
     Registry().push_back({r, {}, false, nullptr});

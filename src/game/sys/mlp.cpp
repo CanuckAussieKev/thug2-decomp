@@ -1,4 +1,5 @@
-// The main loop (Mlp::Manager), with PartyMod's per-level letterbox built in.
+// The main loop (Mlp::Manager), with the PC port's per-level letterbox built in.
+// (The letterbox per level is based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt)
 
 #include "game/sys/mlp.h"
 
@@ -61,28 +62,25 @@ void RenderFrame() { GameFunction<void(__cdecl*)()>(0x0048C330)(); }     // the 
 void AfterRender() { GameFunction<void(__cdecl*)()>(0x00565DA0)(); }     // (uses the skate module)
 void EndScene() { GameFunction<void(__cdecl*)()>(0x0048BF20)(); }        // EndScene, Present
 
-// PartyMod's getCurrentLevel: the career's current level (0 = the front end), 0 without the skate module.
-uint8_t CurrentLevel()
-{
-    uint8_t* skate = GameVariable<uint8_t*>(0x007CE478);
-    if (!skate)
-        return 0;
-    return (*reinterpret_cast<uint8_t**>(skate + 0x20))[0x630];
-}
 uint8_t LetterboxActive() { return GameVariable<uint8_t>(0x00786CBE); }
 
-// The frame's render, as PartyMod's renderWorldWrapper does it (its call at 0x0044F1C0): letterboxed (4:3) in the
-// front end, not in a level (split screen breaks with it on). The original only rendered: RenderFrame();
+} // namespace
+
+// The frame's render with the PC port's letterbox (PartyMod's renderWorldWrapper, at 0x0044F1C0): letterboxed
+// (4:3) in the front end, not in a level (split screen breaks with it on: both screens drawn over each other,
+// sharing a depth buffer). The original only rendered: RenderFrame();
 void RenderFrameLetterboxed()
 {
     RenderFrame();
-    if (CurrentLevel() == 0) {
+    if (Nx::CurrentLevel() == 0) {
         if (LetterboxActive() != 1)
             Nx::SetLetterbox(true);
     } else if (LetterboxActive() != 0) {
         Nx::SetLetterbox(false);
     }
 }
+
+namespace {
 
 // The task lists (Lst-style lists of tasks, 0x3C bytes each).
 void ConstructTaskList(uint8_t* list) { GameFunction<void*(__thiscall*)(uint8_t*)>(0x00406E80)(list); }

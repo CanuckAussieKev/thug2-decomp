@@ -1,4 +1,5 @@
-// Drawing a frame of a movie (the Bink player's texture) as a screen quad.
+// Drawing a frame of a movie (the Bink player's texture) as a screen quad - fitted to 4:3 on PC (the fit is based
+// on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt).
 
 #include "game/gfx/movie.h"
 
@@ -16,11 +17,6 @@
 #include "hook/game.h"
 #include "hook/log.h"
 #include "hook/hook.h"
-
-// PartyMod's replacements for two of the calls (src/partymod/gfx.c): the texture set notes the movie's size,
-// the draw fits the quad to 4:3 inside the back buffer (black bars).
-extern "C" void movie_setTexture(int index, void* texture, int unknown);
-extern "C" void __stdcall movie_drawPrim(void* device, int type, uint32_t count, void* vertices, uint32_t stride);
 
 namespace Nx {
 
@@ -41,7 +37,54 @@ void SetTextureStageState(int stage, int type, int value)
     Method<long(__stdcall*)(void*, int, int, int)>(0x10C / 4)(Device(), stage, type, value);
 }
 
+uint32_t s_movieWidth = 0;
+uint32_t s_movieHeight = 0;
+
 } // namespace
+
+void SetMovieTexture(int stage, void* texture, int unknown)
+{
+    // GetLevelDesc(0): a D3DSURFACE_DESC (0x20 bytes: format, type, usage, pool, multisample type and quality,
+    // width, height)
+    uint32_t desc[8];
+    reinterpret_cast<long(__stdcall*)(void*, unsigned int, void*)>((*static_cast<void***>(texture))[0x44 / 4])(
+        texture, 0, desc);
+    s_movieWidth = desc[6];
+    s_movieHeight = desc[7];
+    GameFunction<void(__cdecl*)(int, void*, int)>(0x004DA730)(stage, texture, unknown);
+}
+
+void __stdcall DrawMovieQuad(void* device, int type, uint32_t count, void* vertices, uint32_t stride)
+{
+    uint32_t backBufferWidth = GameVariable<uint32_t>(0x00786D6C);
+    uint32_t backBufferHeight = GameVariable<uint32_t>(0x00786D70);
+    // (4:3, whatever the movie's own shape: some, like the credits, are anamorphic)
+    float targetAspect = 4.0f / 3.0f;
+    float backBufferAspect = static_cast<float>(backBufferWidth) / static_cast<float>(backBufferHeight);
+    float width = static_cast<float>(backBufferWidth);
+    float height = static_cast<float>(backBufferHeight);
+    float offsetX = 0.0f;
+    float offsetY = 0.0f;
+    if (backBufferAspect > targetAspect) {
+        width = targetAspect / backBufferAspect * static_cast<float>(backBufferWidth);
+        offsetX = (static_cast<float>(backBufferWidth) - width) / 2;
+    } else if (backBufferAspect < targetAspect) {
+        height = backBufferAspect / targetAspect * static_cast<float>(backBufferHeight);
+        offsetY = (static_cast<float>(backBufferHeight) - height) / 2;
+    }
+    auto* quad = static_cast<MovieVertex*>(vertices);
+    quad[0].x = offsetX;
+    quad[0].y = offsetY;
+    quad[1].x = offsetX + width;
+    quad[1].y = offsetY;
+    quad[2].x = offsetX;
+    quad[2].y = offsetY + height;
+    quad[3].x = offsetX + width;
+    quad[3].y = offsetY + height;
+    // DrawPrimitiveUP
+    reinterpret_cast<long(__stdcall*)(void*, int, uint32_t, const void*, uint32_t)>(
+        (*static_cast<void***>(device))[0x14C / 4])(device, type, count, vertices, stride);
+}
 
 // 0x0044FA80
 void DrawMovieFrame(void* texture, float x, float y, float width, float height, float alpha)
@@ -64,8 +107,8 @@ void DrawMovieFrame(void* texture, float x, float y, float width, float height, 
     char dumpName[256];
     std::snprintf(dumpName, sizeof(dumpName), "e:\\movietest\\movie%04d.bmp", GameVariable<int>(0x00696D9C));
     ++GameVariable<int>(0x00696D9C);
-    // PartyMod: its movie_setTexture in place of the renderer's texture set (0x004DA730) at 0x0044FB8C
-    movie_setTexture(0, texture, 0);
+    // PC port (PartyMod's call at 0x0044FB8C): SetMovieTexture in place of the renderer's texture set (0x004DA730)
+    SetMovieTexture(0, texture, 0);
 
     // (x87: alpha * 255 truncated; each corner is position + size * the screen scale, rounded once)
     uint32_t color = static_cast<uint32_t>(static_cast<int>(static_cast<double>(alpha) * GameVariable<float>(0x00646B88)))
@@ -83,8 +126,8 @@ void DrawMovieFrame(void* texture, float x, float y, float width, float height, 
     vertices[3].y = vertices[2].y;
     vertices[3].v = 1.0f;
     if (Method<long(__stdcall*)(void*)>(0xC / 4)(Device()) == 0) // TestCooperativeLevel: the device isn't lost
-        // PartyMod: its movie_drawPrim in place of DrawPrimitiveUP at 0x0044FC88
-        movie_drawPrim(Device(), 5 /* triangle strip */, 2, vertices, sizeof(MovieVertex));
+        // PC port (PartyMod's call at 0x0044FC88): fitted to 4:3, in place of the device's DrawPrimitiveUP
+        DrawMovieQuad(Device(), 5 /* triangle strip */, 2, vertices, sizeof(MovieVertex));
     SetTextureStageState(0, 1, 4); // colour: modulate back
 }
 

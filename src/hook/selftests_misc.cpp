@@ -30,6 +30,7 @@
 #include "game/sio/device.h"
 #include "game/sys/main.h"
 #include "game/sys/mlp.h"
+#include "game/sys/pc_setup.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -37,7 +38,6 @@
 #include "hook/selftest.h"
 #include "hook/standins.h"
 
-extern "C" void fastExit();
 
 namespace {
 
@@ -199,7 +199,7 @@ void TestServiceTask()
         for (int run = 0; run < 2; ++run) {
             bool original = run == 0;
             g_trace.clear();
-            if (original) { // PartyMod's MOTD fix (net.c patchMotdFix)
+            if (original) { // PartyMod's MOTD fix (its patchMotdFix)
                 RunPatch(0x00545B4F, Dword(500));
                 RunPatch(0x00545CDE, Dword(0x588ED87C));
                 RunPatch(0x00545CE8, {0x01});
@@ -442,7 +442,7 @@ void TestLoadFromMemoryCard()
             bool original = run == 0;
             g_trace.clear();
             if (original)
-                RunPatch(0x005A8A01, {0x90, 0x90}); // PartyMod (net.c patchMotdFix)
+                RunPatch(0x005A8A01, {0x90, 0x90}); // PartyMod (its patchMotdFix)
             for (const LoadCase& c : cases) {
                 g_load = c;
                 g_nextStruct = c.newStruct ? 0 : -1;
@@ -613,7 +613,7 @@ void TestMain()
         s->At({0x0044F530}, 0, record(0xF530));
         s->At({0x0048C1D0}, 0, [](Regs& r) { Record({0xC1D0, r.args[0]}); return 0u; });
         s->At({0x0044EEF0, AddressOf(&Mlp::Manager::MainLoop)}, 0, record(0xEEF0));
-        void* exitThunk = s->At({Resolve(reinterpret_cast<const void*>(&fastExit))}, 0, plain(0xFA57));
+        void* exitThunk = s->At({Resolve(reinterpret_cast<const void*>(&Sys::FastExit))}, 0, plain(0xFA57));
 
         std::memset(g_memManager, 0, sizeof(g_memManager));
         *reinterpret_cast<uint8_t**>(g_memManager + 0x114) = g_heap;
@@ -640,7 +640,7 @@ void TestMain()
         for (int run = 0; run < 2; ++run) {
             bool original = run == 0;
             g_trace.clear();
-            // PartyMod: fastExit called in place of the profile pop after the main loop (main.c patchFastExit)
+            // PartyMod: its fast exit (Sys::FastExit) called in place of the profile pop after the main loop
             if (original)
                 RunPatch(0x004E2492, Branch(0xE8, 0x004E2492, exitThunk));
             for (const Case& c : cases) {

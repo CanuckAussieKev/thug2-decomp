@@ -8,19 +8,14 @@
 #include <windows.h>
 
 #include "game/gfx/screen.h"
+#include "game/gfx/settings.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
 #include "hook/selftest.h"
+#include "game/sys/sdl_window.h"
 
-extern "C" void __cdecl setAspectRatio(float aspect);
-extern "C" float __cdecl getScreenAngleFactor();
-extern "C" void __cdecl setBlurWrapper(uint32_t blur);
-extern "C" void __cdecl setLetterbox(int isLetterboxed);
-extern "C" int blur_disabled;
-extern "C" int resX; // PartyMod's window size (src/partymod/window.c)
-extern "C" int resY;
 
 namespace {
 
@@ -110,7 +105,8 @@ void CompareTraces(const std::vector<uint32_t>& expected, const std::vector<uint
 void TestGfxScreen()
 {
     std::vector<GfxSaved> saved = SaveGfxState();
-    int savedResX = resX, savedResY = resY, savedBlurDisabled = blur_disabled;
+    int savedResX = Sys::WindowWidth(), savedResY = Sys::WindowHeight();
+    bool savedBlurDisabled = Nx::BlurDisabled();
 
     // A stand-in skater: PartyMod reads its career's level (+0x20 -> +0x630) to tell the front end (0) from a level.
     alignas(16) static uint8_t career[0x640];
@@ -133,17 +129,18 @@ void TestGfxScreen()
         RestoreGfxState(saved); // both runs from the same state
         GfxDetour* jumps[4] = {};
         if (original) {
-            jumps[0] = new GfxDetour(0x004A0780, reinterpret_cast<const void*>(&setAspectRatio));
-            jumps[1] = new GfxDetour(0x004A07C0, reinterpret_cast<const void*>(&getScreenAngleFactor));
-            jumps[3] = new GfxDetour(0x004B2440, reinterpret_cast<const void*>(&setLetterbox));
+            // PartyMod's jumps from the originals to its versions (now ours)
+            jumps[0] = new GfxDetour(0x004A0780, reinterpret_cast<const void*>(&Nx::SetScreenAspectRatio));
+            jumps[1] = new GfxDetour(0x004A07C0, reinterpret_cast<const void*>(&Nx::GetScreenAngleFactor));
+            jumps[3] = new GfxDetour(0x004B2440, reinterpret_cast<const void*>(&Nx::SetLetterbox));
         }
         for (int level : {0, 7}) {
             career[0x630] = static_cast<uint8_t>(level);
             for (int withSkater = 0; withSkater < 2; ++withSkater) {
                 GameVariable<void*>(0x007CE478) = withSkater ? skater : nullptr;
                 for (const Shape& shape : shapes) {
-                    resX = shape.resX;
-                    resY = shape.resY;
+                    Sys::WindowWidth() = shape.resX;
+                    Sys::WindowHeight() = shape.resY;
                     GameVariable<int>(0x00786D6C) = shape.width;
                     GameVariable<int>(0x00786D70) = shape.height;
                     for (float aspect : aspects) {
@@ -177,9 +174,9 @@ void TestGfxScreen()
             }
         }
         for (int disabled : {1, 0}) {
-            blur_disabled = disabled;
+            Nx::BlurDisabled() = disabled != 0;
             if (original && disabled)
-                jumps[2] = new GfxDetour(0x004B2330, reinterpret_cast<const void*>(&setBlurWrapper));
+                jumps[2] = new GfxDetour(0x004B2330, reinterpret_cast<const void*>(&Nx::SetScreenBlur));
             for (uint32_t available : {0u, 1u})
                 for (uint32_t blur : blurs) {
                     GameVariable<uint32_t>(0x00786D40) = available;
@@ -197,9 +194,9 @@ void TestGfxScreen()
             delete jump;
     }
     RestoreGfxState(saved);
-    resX = savedResX;
-    resY = savedResY;
-    blur_disabled = savedBlurDisabled;
+    Sys::WindowWidth() = savedResX;
+    Sys::WindowHeight() = savedResY;
+    Nx::BlurDisabled() = savedBlurDisabled;
     CompareTraces(traces[0], traces[1], "gfx screen: aspect, angle factor, letterbox, blur (as PartyMod leaves them)");
 }
 
@@ -210,7 +207,7 @@ void TestGfxScriptSetScreenBlur()
     using Script::CComponent;
     using Script::CStruct;
     std::vector<GfxSaved> saved = SaveGfxState();
-    int savedBlurDisabled = blur_disabled;
+    bool savedBlurDisabled = Nx::BlurDisabled();
 
     // Stand-in parameter structures (nothing allocated: the getters only read).
     static CComponent named, amount, other;
@@ -238,9 +235,9 @@ void TestGfxScriptSetScreenBlur()
         bool original = run == 0;
         RestoreGfxState(saved);
         for (int disabled : {1, 0}) {
-            blur_disabled = disabled;
+            Nx::BlurDisabled() = disabled != 0;
             GfxDetour* jump = original && disabled
-                ? new GfxDetour(0x004B2330, reinterpret_cast<const void*>(&setBlurWrapper))
+                ? new GfxDetour(0x004B2330, reinterpret_cast<const void*>(&Nx::SetScreenBlur))
                 : nullptr;
             for (uint32_t available : {0u, 1u})
                 for (CStruct& p : params) {
@@ -258,7 +255,7 @@ void TestGfxScriptSetScreenBlur()
         }
     }
     RestoreGfxState(saved);
-    blur_disabled = savedBlurDisabled;
+    Nx::BlurDisabled() = savedBlurDisabled;
     CompareTraces(traces[0], traces[1], "gfx: the SetScreenBlur script command (as PartyMod leaves it)");
 }
 

@@ -1,4 +1,5 @@
 // The skater's core physics component, with PartyMod's PS2-style controls built in.
+// Based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt (the PC port's changes in it).
 
 #include "game/skater/core_physics.h"
 

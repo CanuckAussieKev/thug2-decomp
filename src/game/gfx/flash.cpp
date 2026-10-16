@@ -1,4 +1,5 @@
 // Screen flashes: a coloured (optionally textured) rectangle over part of the screen.
+// Based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt (the PC port's changes in it).
 
 #include "game/gfx/flash.h"
 

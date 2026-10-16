@@ -27,8 +27,8 @@
 #include "hook/log.h"
 #include "hook/selftest.h"
 
-// PartyMod's main.c (linked for its functions the game code calls) needs the DLL's pre-exit hook; nothing to do
-// here (fastExit never runs offline).
+// Sys::FastExit (src/game/sys/pc_setup.cpp) calls the DLL's pre-exit hook; nothing to do here (it never runs
+// offline).
 extern "C" void thug2_decomp_before_exit() {}
 
 namespace {

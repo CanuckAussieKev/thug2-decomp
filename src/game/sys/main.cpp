@@ -1,4 +1,5 @@
 // The game's main.
+// Based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt (the PC port's changes in it).
 
 #include "game/sys/main.h"
 
@@ -21,12 +22,11 @@
 #include "game/script/struct.h"
 #include "game/sio/device.h"
 #include "game/sys/mlp.h"
+#include "game/sys/pc_setup.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
-// PartyMod's fast exit (src/partymod/main.c): ends the process (thug2-decomp logs what it needs to first).
-extern "C" void fastExit();
 
 namespace Sys {
 
@@ -175,9 +175,10 @@ int __cdecl Main(int argc, char** argv)
 
         Mem::PushMemProfile("MainLoop");
         MainLoop(mlp);
-        // PartyMod: the process ends here (its fastExit, in place of the original's PopMemProfile()). The
+        // PC port: the process ends here (FastExit, in place of the original's PopMemProfile() - PartyMod's call
+        // at 0x004E2492). The
         // original went on to tear everything down and, unless quitting, start again from the top.
-        fastExit();
+        FastExit();
 
         StopAllModules(mdl);
         UnregisterModule(mdl, module5691A0); // (the script cache isn't unregistered)

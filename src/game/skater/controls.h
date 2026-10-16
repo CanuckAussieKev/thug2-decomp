@@ -6,11 +6,11 @@ namespace Script {
 class CStruct;
 }
 
-// The skater's control code: pieces PartyMod changes for its PS2-style controls (partymod.ini
-// [Input] Ps2Controls). The skater component's layout is only partly known: its fields are reached by offset.
+// The skater's control code: pieces the PC port (after PartyMod) changes for its PS2-style controls (partymod.ini
+// [Miscellaneous] UsePS2Controls). The skater component's layout is only partly known: its fields are reached by offset.
 namespace Skater {
 
-// PartyMod's setting (src/partymod/input.c).
+// The UsePS2Controls setting (Sio::TheInputSettings, game/sio/sdl_input.h).
 bool Ps2Controls();
 
 class Component {

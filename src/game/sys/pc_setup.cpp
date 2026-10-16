@@ -1,0 +1,67 @@
+// The PC port's start-up and fast exit.
+// Based on PartyMod (c) 2024 PARTYMANX, MIT - see LICENSES/partymod.txt
+
+#include "game/sys/pc_setup.h"
+
+#include <windows.h>
+
+#include <cstdio>
+#include <cstdlib>
+#include <ctime>
+
+#include "game/gfx/glyphs.h"
+#include "game/gfx/settings.h"
+#include "game/net/online_hosts.h"
+#include "game/script/patched.h"
+#include "game/sys/config.h"
+#include "game/sys/debug_log.h"
+#include "game/sys/sdl_events.h"
+
+// The hook DLL's last words (src/proxy/dinput8.cpp; tools/check has its own).
+extern "C" void thug2_decomp_before_exit();
+
+namespace Sys {
+
+namespace {
+
+// (PartyMod's version, shown in its log)
+constexpr int kVersionMajor = 1;
+constexpr int kVersionMinor = 0;
+constexpr int kVersionFix = 4;
+
+} // namespace
+
+void InitPcSetup()
+{
+    using DebugLog::Level;
+    Config::Init();
+    bool debug = Config::GetBool(Config::kMiscellaneous, "Debug", false);
+    DebugLog::Configure(debug);
+    if (debug) {
+        AllocConsole();
+        FILE* unused;
+        freopen_s(&unused, "CONIN$", "r", stdin);
+        freopen_s(&unused, "CONOUT$", "w", stderr);
+        freopen_s(&unused, "CONOUT$", "w", stdout);
+    }
+    DebugLog::Printf(Level::kInfo, "PARTYMOD for THUG2 %d.%d.%d\n", kVersionMajor, kVersionMinor, kVersionFix);
+    DebugLog::Printf(Level::kInfo, "DIRECTORY: %s\n", Config::ExecutableDirectory());
+
+    Script::InitScriptPatches();
+    Platform::InitEvents();
+    // the music shuffle's randomness (Pcm::ShuffleRandom)
+    std::srand(static_cast<unsigned int>(std::time(nullptr)));
+    DebugLog::Printf(Level::kInfo, "Patch Initialized\n");
+
+    Net::SetUpOnlineHosts();
+    Nx::LoadGlyphSettings();
+    Nx::LoadGraphicsSettings();
+}
+
+void FastExit()
+{
+    thug2_decomp_before_exit();
+    ExitProcess(0);
+}
+
+} // namespace Sys

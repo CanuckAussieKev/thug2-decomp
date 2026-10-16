@@ -49,6 +49,7 @@
 #include "game/mth/slerp.h"
 #include "game/mth/vector.h"
 #include "game/util/bitstream.h"
+#include "game/sio/sdl_input.h"
 #include "game/util/lzss.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -6532,9 +6533,9 @@ HRESULT __stdcall SioEffectStop(void* self)
     return 0;
 }
 HRESULT __stdcall SioUnused(void*) { return 0; }
-// PartyMod's motor control (input.c), which both the original (through PartyMod's jump at 0x005F3A50) and
-// ours (Platform::SetActuators) reach: the levels recorded instead of driving an SDL controller.
-extern "C" void __cdecl set_actuators(int port, uint16_t high, uint16_t low);
+// The PC port's motor control (Sio::SetSdlActuators), which both the original (through PartyMod's jump at
+// 0x005F3A50, written in) and ours (Platform::SetActuators) reach: the levels recorded instead of driving an SDL
+// controller.
 void __cdecl SioStandInSetActuators(int port, uint16_t high, uint16_t low)
 {
     g_sio_log.insert(g_sio_log.end(), {0x5E7u, static_cast<uint32_t>(port), high, low});
@@ -6568,9 +6569,9 @@ void* __fastcall SioManagerDestroy(void* self, void*, unsigned int flags)
     return self;
 }
 
-// The device methods (motors traced at PartyMod's set_actuators; pads present or not through the
+// The device methods (motors traced at Sio::SetSdlActuators; pads present or not through the
 // key binding table), the keyboard's state reading (a stand-in DirectInput keyboard) and typed characters, the
-// manager's references, Lst::Search's destructor - original vs ours. Device::Process is PartyMod's (SDL) and
+// manager's references, Lst::Search's destructor - original vs ours. Device::Process is the PC port's (SDL) and
 // the constructor calls the game's rand: see TestSioLate.
 void TestSio()
 {
@@ -6595,9 +6596,9 @@ void TestSio()
     std::memcpy(activateBytes, activateCall, 7);
     bool alreadyPatched = activateBytes[0] == 0x90;
     std::memset(activateCall, 0x90, 7);
-    // The motors: PartyMod's jump at 0x005F3A50 to its set_actuators (as in the game), and that recorded.
-    TestDetour partyModMotors(0x005F3A50, reinterpret_cast<const void*>(&set_actuators));
-    TestDetour motors(reinterpret_cast<uint32_t>(&set_actuators), reinterpret_cast<const void*>(&SioStandInSetActuators));
+    // The motors: PartyMod's jump at 0x005F3A50 to Sio::SetSdlActuators (as the game has it), and that recorded.
+    TestDetour partyModMotors(0x005F3A50, reinterpret_cast<const void*>(&Sio::SetSdlActuators));
+    TestDetour motors(reinterpret_cast<uint32_t>(&Sio::SetSdlActuators), reinterpret_cast<const void*>(&SioStandInSetActuators));
     static void* effectVtable[10];
     for (void*& slot : effectVtable)
         slot = reinterpret_cast<void*>(&SioUnused);
@@ -6886,9 +6887,9 @@ void TestSioManager()
     effectVtable[6] = reinterpret_cast<void*>(&SioEffectSetParameters);
     effectVtable[8] = reinterpret_cast<void*>(&SioEffectStop);
     alignas(16) static void* effects[2][4] = {{effectVtable}, {effectVtable}};
-    // The motors: PartyMod's jump at 0x005F3A50 to its set_actuators (as in the game), and that recorded.
-    TestDetour partyModMotors(0x005F3A50, reinterpret_cast<const void*>(&set_actuators));
-    TestDetour motors(reinterpret_cast<uint32_t>(&set_actuators), reinterpret_cast<const void*>(&SioStandInSetActuators));
+    // The motors: PartyMod's jump at 0x005F3A50 to Sio::SetSdlActuators (as the game has it), and that recorded.
+    TestDetour partyModMotors(0x005F3A50, reinterpret_cast<const void*>(&Sio::SetSdlActuators));
+    TestDetour motors(reinterpret_cast<uint32_t>(&Sio::SetSdlActuators), reinterpret_cast<const void*>(&SioStandInSetActuators));
     static void* standInVtable[4] = {reinterpret_cast<void*>(&SioStandInDestroy), nullptr,
                                      reinterpret_cast<void*>(&SioStandInDestroy), nullptr};
 
