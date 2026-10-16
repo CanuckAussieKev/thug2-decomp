@@ -386,6 +386,7 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       shuffles with a fixed random state, two pools and the string heap in a 128 KB arena (24 deliberate
       bugs caught, 2 after adding cases; one more would loop forever on the new case). CreateScriptPools
       itself is only exercised by starting the game.
+- [x] Batch 43 tested in the game (2026-10-16, by the user): game runs.
 - [ ] Next: the .qb parser (0x472420; old format) / Script_ParseQB 0x46FBA0 -> 0x46CA50, LoadQB 0x46EDE0,
       the routines with register arguments (0x46F7A0, 0x46FBD0 random ranges, 0x46FD60, 0x46FE40), then the
       interpreter (CScript).
