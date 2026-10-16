@@ -1802,15 +1802,14 @@ belong with the CScript batch.
   0x4034D0. Our compiled replacements may clobber those registers. Before replacing a function, check whether
   it preserves ECX/EDX and whether any caller we are NOT replacing uses them after the call. Checked so far:
   0x4034D0 (only caller replaced too), 0x4025A0 (other callers tail-call it or return straight after).
-- Never REPLACE an address PartyMod patches at runtime (it would overwrite our jump or we'd overwrite its).
-  Function entries PartyMod jmp-patches: 0x5F56E0, 0x5BDCC0, 0x5F3A50, 0x4A0780, 0x4A07C0, 0x4B2440, 0x4B2330.
-  It also patches many call sites and bytes inside functions (see its src/*.c); check before replacing anything
-  in 0x44F000-0x452400, 0x4B2E00-0x4B9200, 0x4CE000-0x4D9000, 0x4E2400-0x4E2800, 0x500000-0x530000,
-  0x533600, 0x545B00-0x54DD20, 0x5A6E70-0x5A8A10, 0x5B7C00, 0x5BDA00-0x5BDD00, 0x5F3A50-0x5F4600, 0x5F86D0-0x618300.
-  Our ParseNetworkParams hook (0x4E1220) is fine: PartyMod patches the call to it at 0x4E26DC, not its entry.
+- (Historical, until 2026-10-16: PartyMod patched the exe at run time, so its patched addresses couldn't be
+  REPLACEd. Now nothing patches rewritten code; the only run-time writes are the GameSpy host names and the
+  IsPS2 table entry - `python -I tools/check_code_writes.py`.)
 - Member functions are replaced via `REPLACE(addr, &Class::Method)`; constructors via a small adapter that
   placement-news the object (see `LineAdapter` in vector.cpp).
 
 ## PartyMod port (2026-10-15)
 - [x] Step 1 done, TESTED IN-GAME 2026-10-15 (game runs with partymod.dll removed; log shows both PartyMod lines and all self-tests passing): PartyMod v1.0.4 in src/partymod (MIT, notice kept), built as a static lib with SDL2 2.30.9 fetched by CMake; our DllMain calls partymod_attach() and redirects the exe's LoadLibraryA("partymod.dll") to our own name. Builds cleanly.
-- [ ] Step 2 (ongoing): turn PartyMod's byte patches into proper rewrites as we reach the systems they touch.
+- [x] Step 2 done (2026-10-16/17): every PartyMod-patched game function rewritten with its behaviour built in
+  (batches 54-69), the byte patches dropped, then src/partymod folded into the game's source and deleted (see
+  "PartyMod gone as a separate thing" above). Left: GameSpy's host names become SDK configuration when it's linked.
