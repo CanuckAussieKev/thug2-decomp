@@ -3,17 +3,22 @@
 
 #include <windows.h>
 
+#include <cstdarg>
 #include <cstdint>
+#include <cstdio>
+#include <string>
 #include <cstring>
 #include <vector>
 
 #include "game/script/struct.h"
+#include "game/net/stats.h"
 #include "game/skater/controls.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
 #include "hook/selftest.h"
 
+extern "C" char* partymod_gamestats_host;
 extern "C" struct PartyModInputSettings {
     uint8_t isPs2Controls;
     uint8_t uicontrols;
@@ -223,7 +228,90 @@ void TestSkaterAcidDrops()
     }
 }
 
+
+// --- online top stats (not skater code; shares this file's helpers) ---------------------------------------
+
+std::vector<std::string> g_stats_log;
+void __fastcall StandInSendStatsRequest(void* manager, void*, const uint8_t* request)
+{
+    char line[400];
+    uint32_t words[5];
+    std::memcpy(words, request + 0x104, sizeof(words));
+    std::snprintf(line, sizeof(line), "%p %08X %s %08X %08X %08X %08X %08X", manager, *reinterpret_cast<const uint32_t*>(request),
+                  reinterpret_cast<const char*>(request + 4), words[0], words[1], words[2], words[3], words[4]);
+    g_stats_log.push_back(line);
+}
+int __cdecl StandInSprintf(char* out, const char* format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    int n = std::vsnprintf(out, 400, format, args); // (the URLs fit)
+    va_end(args);
+    return n;
+}
+
+// RetrieveTopStats: an index given or not, every file (ratings: another reply), PartyMod's host or the
+// original's - the original run with PartyMod's DWord written in (and its C runtime sprintf stood in).
+void TestRetrieveTopStats()
+{
+    CodePatch send(0x0054A910, JumpTo(0x0054A910, reinterpret_cast<void*>(&StandInSendStatsRequest)));
+    CodePatch print(0x006234FE, JumpTo(0x006234FE, reinterpret_cast<void*>(&StandInSprintf)));
+    void* savedManager = GameVariable<void*>(0x007CCE14);
+    char* savedHost = partymod_gamestats_host;
+    static char host[] = "gamestats.example.org";
+    alignas(16) static uint8_t manager[0x20];
+    alignas(16) static uint8_t stats[0x200];
+    *reinterpret_cast<void**>(manager + 0x14) = manager + 4;
+    *reinterpret_cast<void**>(manager + 0x1C) = stats;
+    GameVariable<void*>(0x007CCE14) = manager;
+    std::vector<std::string> logs[2];
+    std::vector<uint32_t> fields[2];
+    for (int run = 0; run < 2; ++run) {
+        bool original = run == 0;
+        g_stats_log.clear();
+        for (int partyMod = 0; partyMod < 2; ++partyMod) {
+            for (int given : {-1, 0, 2, 3, 4}) {
+                std::memset(stats, 0x77, sizeof(stats));
+                *reinterpret_cast<int*>(stats + 0x90) = given == 3 ? 3 : 1; // (no index: the next one)
+                // the parameters: {type << 1, ?, ?, name, value, next}
+                alignas(16) uint8_t component[16] = {};
+                alignas(8) uint8_t params[8] = {};
+                if (given >= 0 && given != 3) {
+                    component[0] = static_cast<uint8_t>(Script::ESYMBOLTYPE_INTEGER << 1);
+                    uint32_t name = 0x7360C9EF;
+                    std::memcpy(component + 4, &name, 4);
+                    std::memcpy(component + 8, &given, 4);
+                    *reinterpret_cast<uint8_t**>(params + 4) = component;
+                }
+                bool result;
+                if (original) {
+                    char* hostAddress = host;
+                    uint32_t value = partyMod ? reinterpret_cast<uint32_t>(hostAddress) : 0x0064D670;
+                    std::vector<uint8_t> bytes(4);
+                    std::memcpy(bytes.data(), &value, 4);
+                    CodePatch dword(0x0054DD14, bytes);
+                    result = Original<bool(__cdecl*)(void*, void*)>(0x0054DCB0)(params, nullptr);
+                } else {
+                    partymod_gamestats_host = partyMod ? host : nullptr;
+                    result = Net::RetrieveTopStats(reinterpret_cast<Script::CStruct*>(params), nullptr);
+                }
+                fields[run].push_back(result);
+                fields[run].push_back(*reinterpret_cast<uint32_t*>(stats + 0x90));
+                fields[run].push_back(stats[0x1FC]);
+            }
+        }
+        logs[run] = g_stats_log;
+    }
+    GameVariable<void*>(0x007CCE14) = savedManager;
+    partymod_gamestats_host = savedHost;
+    for (size_t i = 0; i < logs[0].size() && i < logs[1].size(); ++i)
+        if (logs[0][i] != logs[1][i])
+            Log("  top stats %u: original %s / ours %s", static_cast<unsigned>(i), logs[0][i].c_str(), logs[1][i].c_str());
+    Check(logs[0] == logs[1] && fields[0] == fields[1] && logs[1].size() == 10, "net: RetrieveTopStats (PartyMod's host and not)");
+}
+
 } // namespace
 
 SELFTEST(Early, TestSkaterPlatformStructure);
 SELFTEST(Early, TestSkaterAcidDrops);
+SELFTEST(Early, TestRetrieveTopStats);

@@ -2,7 +2,7 @@
 
 Generated 2026-10-16 by `tools/progress_report.py` - regenerate after each batch.
 
-**Game code: █░░░░░░░░░░░░░░░░░░░ 5.4%** of the code rewritten (667 of 8,382 functions, 88.1 KB of 1,617.8 KB).
+**Game code: █░░░░░░░░░░░░░░░░░░░ 5.5%** of the code rewritten (668 of 8,382 functions, 88.3 KB of 1,617.8 KB).
 
 Progress is by code size: function counts make a 10-byte helper look like as much work as a 2 KB routine. Subsystem boundaries come from the exe map (`docs/subsystems.md`) and are approximate (give or take a few functions); totals are exact.
 
@@ -22,7 +22,7 @@ Progress is by code size: function counts make a 10-byte helper look like as muc
 | Application main & game object rendering glue | `0x4d6d40`-`0x4e6b80` | ░░░░░░░░░░░░░░░░░░░░ 0% | 2 / 202 | 0.3 KB / 59.5 KB |
 | Goal & rail editors / skater camera | `0x4e6b80`-`0x500020` | ░░░░░░░░░░░░░░░░░░░░ 0% | 0 / 341 | 0.0 KB / 85.7 KB |
 | Skater (physics, tricks, walking, stats, sticker tags) | `0x500020`-`0x533f20` | ░░░░░░░░░░░░░░░░░░░░ 0% | 4 / 544 | 0.7 KB / 186.9 KB |
-| Online & network game modes (CTF, servers, lobby, buddies, NAT negotiation) | `0x533f20`-`0x54ef60` | ░░░░░░░░░░░░░░░░░░░░ 0% | 2 / 457 | 0.4 KB / 91.9 KB |
+| Online & network game modes (CTF, servers, lobby, buddies, NAT negotiation) | `0x533f20`-`0x54ef60` | ░░░░░░░░░░░░░░░░░░░░ 0% | 3 / 457 | 0.7 KB / 91.9 KB |
 | Menu input mapping | `0x54ef60`-`0x550040` | ░░░░░░░░░░░░░░░░░░░░ 0% | 1 / 20 | 0.0 KB / 4.0 KB |
 | Goals & career (GoalManager, create-a-trick, trick objects, level launching) | `0x550040`-`0x56c920` | ░░░░░░░░░░░░░░░░░░░░ 0% | 0 / 666 | 0.0 KB / 103.8 KB |
 | Time-of-day manager & world state | `0x56c920`-`0x577300` | ░░░░░░░░░░░░░░░░░░░░ 0% | 0 / 137 | 0.0 KB / 38.1 KB |

@@ -822,6 +822,17 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       five callees redirected to recording stand-ins - the original run with PartyMod's bytes written in for
       "on". 15 deliberate bugs caught (3 after fixing the test's stand-in components: the type is byte 0,
       shifted left one).
+- [x] Batch 58 (PartyMod round; NOT run in the game yet): Net::RetrieveTopStats 0x54DCB0 (the script command;
+      new src/game/net/stats.*): the stats index (0x90 of the stats object at the online manager 0x7CCE14's
+      +0x1C) = the script's integer 0x7360C9EF, else the next; a request (0x118 bytes: timeout 0x25800 ms, the
+      URL "http://<host>/thug2pc/<file>" - files hs_at / bc_at / hs_mo / bc_mo / ratings, 32 bytes each at
+      0x67F2A0 - the reply callback 0x54DB20, checksums, the ratings file getting 0x7346E8E7 instead of
+      0xD932B07B) handed to 0x54A910 on the manager's +0x14; +0x1FC cleared; returns true. PartyMod's DWord at
+      0x54DD14 swaps gamestats.gamespy.com for gamestats.<OnlineDomain>: net.c now keeps that string in
+      `partymod_gamestats_host` (THUG2_DECOMP; noted in UPSTREAM.md), which ours uses when set. Early test
+      (in selftests_skater.cpp): index given or not x every file x PartyMod's host or the original's, the
+      original with PartyMod's DWord written in and its C runtime sprintf redirected to a stand-in (it can't
+      run offline), the request recorded by a stand-in sender. 7 deliberate bugs caught.
 - [ ] Next: the pre-compiled .qb format (0x46FBA0, 0x46CA50, 0x46C970, 0x46C830, 0x46C7F0, ...), the script
       cache (0x475FD0 ...), then CScript (0x472900.. / 0x473000..).
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function

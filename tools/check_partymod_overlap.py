@@ -39,6 +39,7 @@ overlaps = sorted((p, r) for p in patches for r in replaced if r <= p < r + WIND
 # A patch anywhere inside a rewritten function is bypassed by our version (the game runs ours, not the patched
 # original), so our source must do what the patch does. Each such patch is listed here with how it's done.
 HANDLED = {
+    0x0054DD14: "Net::RetrieveTopStats uses PartyMod's gamestats host (partymod_gamestats_host)",
     0x0051F4C8: "Skater::Component::PlatformStructure compares with 5 instead of 7 under PS2 controls",
     0x00527546: "Skater::Component::TryWalkAcidDrop skips the +0xC0 button under PS2 controls",
     0x00527636: "Skater::Component::TryAcidDrop skips the +0xC0 button under PS2 controls",

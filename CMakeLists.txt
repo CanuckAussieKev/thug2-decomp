@@ -106,6 +106,7 @@ add_library(thug2_code OBJECT
     src/game/lst/hashtable.cpp
     src/game/lst/search.cpp
     src/game/net/chat.cpp
+    src/game/net/stats.cpp
     src/game/obj/smtptr.cpp
     src/game/sio/device.cpp
     src/game/skater/controls.cpp

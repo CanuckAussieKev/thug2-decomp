@@ -4,6 +4,11 @@
 #include <patch.h>
 #include <log.h>
 
+#ifdef THUG2_DECOMP
+// "gamestats.<OnlineDomain>", once patchOnlineService has run (null before).
+char *partymod_gamestats_host = NULL;
+#endif
+
 char *allocOnlineServiceString(char *fmt, char *url) {
 	size_t outsize = strlen(fmt) + strlen(url) + 1;	// most likely oversized but it doesn't matter
 	char *result = malloc(outsize);
@@ -30,6 +35,9 @@ void patchOnlineService() {
 
 	// gamestats.gamespy.com
 	char *gamestats = allocOnlineServiceString("gamestats.%s", url);
+#ifdef THUG2_DECOMP
+	partymod_gamestats_host = gamestats; // (read by thug2-decomp's RetrieveTopStats)
+#endif
 	patchDWord(0x0054dd13 + 1, gamestats);
 	patchDWord(0x006025d8 + 1, gamestats);
 	patchDWord(0x00602618 + 1, gamestats);

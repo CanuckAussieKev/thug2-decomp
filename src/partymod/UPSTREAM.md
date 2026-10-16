@@ -13,3 +13,5 @@ Local changes:
   thug2-decomp's DLL, `exit` would run that DLL's C runtime shutdown while game threads are still running.
 - `glyph.c`: the glyph style read by `patchButtonGlyphs` is kept in a global `glyphStyle` (was a local), so
   thug2-decomp's rewritten LoadFont / CFunc_LoadFont can use the font and meta button map names PartyMod picks.
+
+- net.c: `partymod_gamestats_host` (THUG2_DECOMP) keeps the gamestats host for thug2-decomp's RetrieveTopStats.

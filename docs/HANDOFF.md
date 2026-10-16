@@ -7,7 +7,7 @@ built in (and the original's logic kept visible in a comment), so its run-time p
 `tools/ghidra/partymod_patches.py <snapshot>` lists them; `python -I tools/check_partymod_overlap.py` fails
 on any PartyMod patch inside a rewritten function its HANDLED list doesn't account for.
 
-Done (18 of 48): batch 57 (skater): 0x51F4C0, 0x527510, 0x527600; LoadQB; Sio::Device::Process, ActivateActuator; batch 54 (platform): SetActuators,
+Done (19 of 48): batch 58: 0x54DCB0; batch 57 (skater): 0x51F4C0, 0x527510, 0x527600; LoadQB; Sio::Device::Process, ActivateActuator; batch 54 (platform): SetActuators,
 ProcessWindowEvents, InitInput 0x5F44F0, GetMemCardSpaceAvailable; batch 55 (gfx): SetScreenAspectRatio,
 GetScreenAngleFactor, SetScreenBlur, SetLetterbox, CFunc_SetScreenBlur; batch 56 (glyph): LoadFont 0x48D7E0,
 CFunc_LoadFont, UpdateLoadingBarColors 0x4B6B80. The parallel worktrees are merged and removed.
@@ -18,7 +18,7 @@ Still to do (batches 54-56's records have notes - disassembly read, conventions,
 - skater controls (PS2-style triggers, spin delay; depend on PartyMod settings): 0x50CA00, 0x509BD0,
   0x4FCBA0, 0x504060, 0x507120, 0x5334D0
 - platform/misc: 0x44FDC0 (movie skip), 0x452200 (playlist shuffle - Ghidra shows it inside 0x452910),
-  0x4E1EF0 (fast exit), 0x5A8730, 0x545880, 0x54DCB0
+  0x4E1EF0 (fast exit), 0x5A8730, 0x545880
 - WinMain 0x4E2680 and MainLoop 0x44EEF0: both host the test runner's hooks (src/hook/selftest_runner.cpp;
   ParseNetworkParams 0x4E1220 too) - plan that first.
 - The 8 GameSpy functions (0x5F8690 and up) are library code: PartyMod's patches there (OpenSpy host names)
