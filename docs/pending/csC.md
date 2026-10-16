@@ -68,7 +68,14 @@ the bottom with and without results, a second growth (none), an already-moved st
 (running / not), every event handler method with and without a table (allocation failure too), the reset table
 with 0 / 1 (inline element) / 3 elements.
 
-MUTATIONS_PLACEHOLDER
+70 deliberate bugs (tools/mutate.py): 65 caught at once, 4 more after strengthening (the timer exactly a frame
+left after a first Update; the wait fields traced after every return; timer-started and interrupt bits made
+different in the saved frames). 1 equivalent: growing the stack at depth `>= 2` instead of `== 2` with the inline
+stack - an inline stack deeper than 2 can't happen (it is moved at the third call).
+Checks: thug2_check 0 MISMATCHED, all 99 early tests pass; register scan: only the known 0x004EFF92 RISK, and
+0x00472D20 "caller replaced too - safe"; IsBlocked (AL) and ReturnFromScript (AL) are the EAX/AL readers, both
+return values; call audit: no MISMATCH (0x0044ECE0 and 0x0045F880 "?": tail jumps, cdecl confirmed by their
+callers); check_code_writes: no overlaps; find_gaps: the gaps in the range are all other groups' functions.
 
 ## Scheduling semantics (from these functions; the spec for the QuickJS port)
 Update (group B) calls UpdateWait once per Update, before running statements, unless the wait was already counted
