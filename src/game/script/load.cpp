@@ -8,6 +8,7 @@
 #include "game/file/pip.h"
 #include "game/script/names.h"
 #include "game/script/parse.h"
+#include "game/script/precompiled.h"
 #include "game/script/qb.h"
 #include "game/util/lzss.h"
 #include "hook/game.h"
@@ -23,13 +24,14 @@ namespace {
 // The checksum of the .qb file being loaded (0 outside loading).
 uint32_t& LoadingFile() { return GameVariable<uint32_t>(0x006F2364); }
 
-// Not rewritten yet: the pre-compiled format, restarting a script and the platform's
-// file extension for pre-compiled scripts.
-void ParsePrecompiledQB(const char* filename, const uint8_t* data, int unused)
-{
-    GameFunction<void(__cdecl*)(const char*, const uint8_t*, int)>(0x0046FBA0)(filename, data, unused);
-}
+// Not rewritten yet: CScript's methods, and the platform's file extension for pre-compiled scripts.
 void RestartScript(CScript* script) { GameFunction<void(__thiscall*)(CScript*)>(0x004747F0)(script); }
+// Whether every script `script` is running or will return to is still defined (or it's running a C function?).
+bool ScriptsStillDefined(CScript* script) { return GameFunction<bool(__thiscall*)(CScript*)>(0x00472C90)(script); }
+// Stop `script` and free everything it holds (its parameters, call stack, ...).
+void ClearScript(CScript* script) { GameFunction<void(__thiscall*)(CScript*)>(0x00473A80)(script); }
+// After ClearScript: tells the script's object (+0xE0) and, with flag 0x10 at +0xCC, 0x00462B90 that it stopped.
+void ScriptStopped(CScript* script) { GameFunction<void(__thiscall*)(CScript*)>(0x00473010)(script); }
 const char* PrecompiledExtension() { return GameFunction<const char*(__cdecl*)()>(0x005B6040)(); }
 
 // The symbol `existing` makes way for a new definition: set aside (temporary loads) or removed.
@@ -241,7 +243,7 @@ void RestartChangedScripts()
 void LoadQBData(const char* filename, const uint8_t* data, int unused, int useQbNames, int temporary)
 {
     if (Read4Bytes(data) == 0xB075EF6F)
-        ParsePrecompiledQB(filename, data, unused);
+        ParsePrecompiledQB(filename, const_cast<uint8_t*>(data), unused); // (relocated in place)
     else
         ParseQB(filename, data, unused, useQbNames, temporary);
     RestartChangedScripts();
@@ -256,7 +258,7 @@ void LoadQB(const char* filename, int unused, int temporary)
     if (filename[length - 4] == '.' && _stricmp(filename + length - 3, extension) == 0) {
         // Pre-compiled: kept loaded.
         Mem::PushContext(manager->m_scriptHeap);
-        auto* data = static_cast<const uint8_t*>(Pip::Load(filename, false, nullptr, nullptr, nullptr));
+        auto* data = static_cast<uint8_t*>(Pip::Load(filename, false, nullptr, nullptr, nullptr));
         Mem::PopContext();
         ParsePrecompiledQB(filename, data, unused);
         LoadChecksumNames(filename);
@@ -270,6 +272,41 @@ void LoadQB(const char* filename, int unused, int temporary)
         Pip::Unload(filename);
     }
     RestartChangedScripts();
+}
+
+// 0x0046EEC0
+void UnloadQB(uint32_t fileChecksum)
+{
+    if (!fileChecksum)
+        return;
+    // The file's symbols: listed first (removing them changes the table), then removed.
+    int count = 0;
+    for (CSymbolTableEntry* symbol = GetNextSymbol(nullptr); symbol; symbol = GetNextSymbol(symbol)) {
+        if (symbol->unknown8 == fileChecksum)
+            ++count;
+    }
+    if (count) {
+        Mem::PushContext(Mem::Manager::Get()->m_topDownHeap);
+        auto** symbols = static_cast<CSymbolTableEntry**>(Mem::Malloc(static_cast<unsigned int>(count) * 4));
+        Mem::PopContext();
+        CSymbolTableEntry** next = symbols;
+        for (CSymbolTableEntry* symbol = GetNextSymbol(nullptr); symbol; symbol = GetNextSymbol(symbol)) {
+            if (symbol->unknown8 == fileChecksum)
+                *next++ = symbol;
+        }
+        for (int i = 0; i < count; ++i)
+            CleanUpAndRemoveSymbol(symbols[i]);
+        Mem::FreeMalloc(symbols);
+    }
+    // Scripts left running code that's gone are stopped.
+    for (CScript* script = GetNextScript(nullptr); script; script = GetNextScript(script)) {
+        if (!ScriptsStillDefined(script)) {
+            ClearScript(script);
+            ScriptStopped(script);
+        }
+    }
+    // (a pre-compiled file stays loaded until now)
+    Pip::Unload(fileChecksum);
 }
 
 } // namespace Script
@@ -330,5 +367,6 @@ REPLACE(0x00472C50, &ScriptAdapter::RefersTo);
 REPLACE(0x0046ED20, Script::RestartChangedScripts);
 REPLACE(0x0046ED90, Script::LoadQBData);
 REPLACE(0x0046EDE0, Script::LoadQB);
+REPLACE(0x0046EEC0, Script::UnloadQB);
 REPLACE_UNCHECKED(0x00472240, Script::ParseSymbolDefinitionStub); // arguments in ECX and on the stack
 REPLACE_UNCHECKED(0x0046FE40, Script::CreateScriptSymbolStub);    // arguments in EAX, EBX and on the stack
