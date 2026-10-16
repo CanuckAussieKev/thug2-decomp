@@ -1,5 +1,6 @@
 #include "game/core/stubs.h"
 #include "game/mc/memcard.h"
+#include "game/sys/registry.h"
 #include "game/script/eval.h"
 #include "game/script/load.h"
 #include "game/script/names.h"
@@ -6288,6 +6289,204 @@ void TestMemoryCards()
     }
 }
 
+// The registry settings are tested under a stand-in HKEY_CURRENT_USER (a scratch key), never the real one.
+struct RegistryStandIn {
+    HKEY root = nullptr;
+    bool ok = false; // false: the redirection failed - touch nothing
+    char name[64];
+    RegistryStandIn()
+    {
+        std::snprintf(name, sizeof(name), "Software\\thug2-decomp-test-%lu", GetCurrentProcessId());
+        if (RegCreateKeyExA(HKEY_CURRENT_USER, name, 0, nullptr, 0, KEY_ALL_ACCESS, nullptr, &root, nullptr) !=
+            ERROR_SUCCESS)
+            return;
+        ok = RegOverridePredefKey(HKEY_CURRENT_USER, root) == ERROR_SUCCESS;
+    }
+    ~RegistryStandIn()
+    {
+        if (!root)
+            return;
+        RegOverridePredefKey(HKEY_CURRENT_USER, nullptr);
+        RegDeleteTreeA(root, nullptr); // (through the scratch key's own handle)
+        RegCloseKey(root);
+        RegDeleteKeyA(HKEY_CURRENT_USER, name);
+    }
+    // Empty the scratch key between runs.
+    void Clear() { RegDeleteTreeA(root, nullptr); }
+    // Every value under the stand-in, as "key\value=data" lines.
+    std::vector<std::string> Dump()
+    {
+        std::vector<std::string> lines;
+        std::vector<std::string> keys = {""};
+        for (size_t k = 0; k < keys.size(); ++k) {
+            HKEY key;
+            if (RegOpenKeyExA(root, keys[k].empty() ? nullptr : keys[k].c_str(), 0, KEY_READ, &key) != ERROR_SUCCESS)
+                continue;
+            char child[256];
+            for (DWORD i = 0; RegEnumKeyA(key, i, child, sizeof(child)) == ERROR_SUCCESS; ++i)
+                keys.push_back(keys[k].empty() ? child : keys[k] + "\\" + child);
+            char value[256];
+            DWORD valueSize = sizeof(value), type = 0, data = 0, dataSize = sizeof(data);
+            for (DWORD i = 0; RegEnumValueA(key, i, value, &valueSize, nullptr, &type, reinterpret_cast<BYTE*>(&data),
+                                            &dataSize) == ERROR_SUCCESS;
+                 ++i) {
+                char line[600];
+                std::snprintf(line, sizeof(line), "%s\\%s=%lu:%lu", keys[k].c_str(), value, type, data);
+                lines.push_back(line);
+                valueSize = sizeof(value);
+                dataSize = sizeof(data);
+            }
+            RegCloseKey(key);
+        }
+        return lines;
+    }
+};
+
+// Leftovers that were skipped before the goal was the whole game's source: the default constructors of the
+// sphere and the capsule, CArray::SetType, the permanent-string switches, the script string slots, the
+// registry defaults (key present) and the jumps that stand for functions of their own.
+void TestLeftovers()
+{
+    // Constructors: the bytes and the returned pointer.
+    for (int which = 0; which < 2; ++which) {
+        alignas(16) uint8_t original[0x30], ours[0x30];
+        std::memset(original, 0xEE, sizeof(original));
+        std::memset(ours, 0xEE, sizeof(ours));
+        void* returned = Original<void*(__thiscall*)(void*)>(which ? 0x00403220 : 0x00403210)(original);
+        void* constructed = which ? static_cast<void*>(new (ours) Mth::Capsule()) : new (ours) Mth::Sphere();
+        Check(returned == original && constructed == ours && std::memcmp(original, ours, sizeof(ours)) == 0,
+              which ? "leftovers: Capsule()" : "leftovers: Sphere()");
+    }
+    {
+        uint8_t original[12], ours[12];
+        std::memset(original, 0x5A, sizeof(original));
+        std::memset(ours, 0x5A, sizeof(ours));
+        Original<void(__thiscall*)(void*, Script::ESymbolType)>(0x0046CAF0)(original, Script::ESymbolType(0x0D));
+        reinterpret_cast<Script::CArray*>(ours)->SetType(Script::ESymbolType(0x0D));
+        Check(std::memcmp(original, ours, sizeof(ours)) == 0, "leftovers: CArray::SetType");
+    }
+    // The permanent-string switches (with no table: nothing is freed).
+    {
+        uint8_t saved[0x18];
+        std::memcpy(saved, reinterpret_cast<void*>(0x006F3570), sizeof(saved));
+        std::vector<uint32_t> results[2];
+        for (int run = 0; run < 2; ++run) {
+            bool original = run == 0;
+            std::memset(reinterpret_cast<void*>(0x006F3570), 0, sizeof(saved));
+            GameVariable<uint32_t>(0x006F3574) = 0x1234;
+            for (int step = 0; step < 3; ++step) {
+                if (step == 1) {
+                    if (original)
+                        Original<void(__cdecl*)()>(0x00476300)();
+                    else
+                        Script::BeginPermanentStrings();
+                } else {
+                    if (original)
+                        Original<void(__cdecl*)()>(0x00476310)();
+                    else
+                        Script::EndPermanentStrings();
+                }
+                for (int i = 0; i < 6; ++i)
+                    results[run].push_back(GameVariable<uint32_t>(0x006F3570 + 4 * i));
+            }
+        }
+        std::memcpy(reinterpret_cast<void*>(0x006F3570), saved, sizeof(saved));
+        Check(results[0] == results[1], "leftovers: Begin/EndPermanentStrings (no table)");
+    }
+    // The script string slots: where they are; the writing (ours - the original's sprintf is the game's,
+    // compared in the Late test).
+    {
+        bool same = true;
+        for (int index : {0, 1, 5, 31})
+            same = same && Original<char*(__cdecl*)(int)>(0x00476390)(index) == Script::GetScriptString(index);
+        char saved[128];
+        std::memcpy(saved, Script::GetScriptString(3), sizeof(saved));
+        int written = Script::SetScriptString(3, "50%% off");
+        same = same && written == 7 && std::strcmp(Script::GetScriptString(3), "50% off") == 0;
+        std::memcpy(Script::GetScriptString(3), saved, sizeof(saved));
+        Check(same, "leftovers: script string slots");
+    }
+    // The jumps: they run what they jump to.
+    {
+        const char* text = "Leftover Jumps";
+        Check(Original<uint32_t(__cdecl*)(const char*)>(0x00472E60)(text) == Crc::GenerateCRCFromString(text) &&
+                  Original<bool(__cdecl*)()>(0x004504F0)() == Stubs::ReturnFalse() &&
+                  Original<int(__cdecl*)()>(0x0047AE10)() == Stubs::ReturnZero(),
+              "leftovers: jumps to rewritten functions");
+        uint32_t elements[2] = {0x11, 0x22};
+        uint8_t array[12] = {};
+        auto* a = reinterpret_cast<Script::CArray*>(array);
+        a->m_type = Script::ESymbolType(1);
+        a->m_size = 2;
+        a->m_elements = elements;
+        Check(Original<uint32_t(__thiscall*)(Script::CArray*, uint32_t)>(0x0041CB80)(a, 1) == a->GetElement(1),
+              "leftovers: CArray element jump");
+    }
+    // Registry defaults, with the settings key present (the path without sprintf).
+    {
+        RegistryStandIn registry;
+        if (!registry.ok) {
+            Check(false, "leftovers: registry stand-in (couldn't redirect HKEY_CURRENT_USER)");
+            return;
+        }
+        std::vector<std::string> dumps[2];
+        for (int run = 0; run < 2; ++run) {
+            HKEY settings;
+            RegCreateKeyExA(HKEY_CURRENT_USER, "Software\\Activision\\Tony Hawk's Underground 2\\Settings", 0, nullptr,
+                            0, KEY_ALL_ACCESS, nullptr, &settings, nullptr);
+            DWORD present = 77;
+            RegSetValueExA(settings, "Present", 0, REG_DWORD, reinterpret_cast<BYTE*>(&present), sizeof(present));
+            RegCloseKey(settings);
+            for (const char* name : {"Present", "Missing", "Missing"}) {
+                uint32_t value = name[0] == 'P' ? 5 : 9;
+                if (run == 0)
+                    Original<void(__cdecl*)(const char*, uint32_t)>(0x004E1810)(name, value);
+                else
+                    Sys::WriteDefaultSetting(name, value);
+            }
+            dumps[run] = registry.Dump();
+            registry.Clear();
+        }
+        Check(dumps[0] == dumps[1] && dumps[1].size() == 2, "leftovers: registry defaults (key present)");
+    }
+}
+
+// The originals that use the game's C runtime: the script string slots and the registry defaults without
+// the settings key.
+void TestLeftoversLate()
+{
+    char saved[128];
+    std::memcpy(saved, Script::GetScriptString(4), sizeof(saved));
+    bool same = true;
+    for (const char* text : {"", "plain", "100%% sure", "a much longer string than most, still under 128"}) {
+        int original = Original<int(__cdecl*)(int, const char*)>(0x00476370)(4, text);
+        std::string originalText = Script::GetScriptString(4);
+        std::memset(Script::GetScriptString(4), 0, 128);
+        int ours = Script::SetScriptString(4, text);
+        same = same && original == ours && originalText == Script::GetScriptString(4);
+    }
+    std::memcpy(Script::GetScriptString(4), saved, sizeof(saved));
+    Check(same, "leftovers (late): SetScriptString");
+
+    RegistryStandIn registry;
+    if (!registry.ok) {
+        Check(false, "leftovers (late): registry stand-in (couldn't redirect HKEY_CURRENT_USER)");
+        return;
+    }
+    std::vector<std::string> dumps[2];
+    for (int run = 0; run < 2; ++run) {
+        for (const char* name : {"First", "Second"}) {
+            if (run == 0)
+                Original<void(__cdecl*)(const char*, uint32_t)>(0x004E1810)(name, 3);
+            else
+                Sys::WriteDefaultSetting(name, 3);
+        }
+        dumps[run] = registry.Dump();
+        registry.Clear();
+    }
+    Check(dumps[0] == dumps[1] && dumps[1].size() == 2, "leftovers (late): registry defaults (no key)");
+}
+
 // --- late self-tests ----------------------------------------------------------------------------------
 
 // The table's contents as (bucket, position in chain, key, value), so tables with different item addresses
@@ -7240,12 +7439,14 @@ SELFTEST(Early, TestScriptSymbolBookkeeping);
 SELFTEST(Early, TestScriptParser);
 SELFTEST(Early, TestScriptLoading);
 SELFTEST(Early, TestMemoryCards);
+SELFTEST(Early, TestLeftovers);
 
 SELFTEST(Late, TestMemoryLate);
 SELFTEST(Late, TestStringLate);
 SELFTEST(Late, TestLzssLate);
 SELFTEST(Late, TestAssetBundleSplitLate);
 SELFTEST(Late, TestAllocatorContextsLate);
+SELFTEST(Late, TestLeftoversLate);
 SELFTEST(Late, TestPoolConstructorLate);
 SELFTEST(Late, TestHashTableLate);
 SELFTEST(Late, TestPipNamesLate, RestorePipTables);

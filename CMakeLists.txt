@@ -97,6 +97,7 @@ add_library(thug2_code OBJECT
     src/game/file/pre.cpp
     src/game/lst/hashtable.cpp
     src/game/net/chat.cpp
+    src/game/sys/registry.cpp
     src/game/mc/memcard.cpp
     src/game/script/eval.cpp
     src/game/script/load.cpp

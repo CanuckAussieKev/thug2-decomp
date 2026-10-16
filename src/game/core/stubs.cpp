@@ -30,7 +30,10 @@ void __stdcall IgnoreArgument(int) {}
 REPLACE_SOURCE_ONLY(0x005B9760, Stubs::ReturnTrue);         // 3 bytes
 REPLACE_SOURCE_ONLY(0x005B6570, Stubs::ReturnTrue);         // a jump to 0x005B9760
 REPLACE_SOURCE_ONLY(0x005B9E50, Stubs::ReturnFalse);        // 3 bytes
+REPLACE_SOURCE_ONLY(0x004504F0, Stubs::ReturnFalse);        // a jump to 0x005B9E50
 REPLACE_SOURCE_ONLY(0x005BA1D0, Stubs::ReturnZero);         // 3 bytes
+REPLACE_SOURCE_ONLY(0x0047AE10, Stubs::ReturnZero);         // a jump to 0x005BA1D0
 REPLACE_SOURCE_ONLY(0x005BAB90, Stubs::IgnoreArgument);     // 3 bytes
+REPLACE_SOURCE_ONLY(0x005144C0, Stubs::IgnoreArgument);     // a jump to 0x005BAB90
 REPLACE_SOURCE_ONLY(0x005B9DF0, File::AsyncInit);           // a jump to 0x005B6560
 REPLACE_SOURCE_ONLY(0x005BA590, &Mem::Allocator::DestroyBody); // a jump to 0x005BA140

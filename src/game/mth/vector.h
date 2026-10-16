@@ -62,6 +62,7 @@ struct Line {
     Vector start;
     Vector end;
 
+    Line() {} // (both ends left unset)
     Line(const Vector& from, const Vector& to);
 
     // Squared distance from `point` to the closest point on the segment (x, y, z only). If `offset` is given

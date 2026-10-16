@@ -159,7 +159,9 @@ constexpr int kCalleePop = CalleePop<std::decay_t<F>>::value;
 // rewritten - also those that can't be hooked: shorter than the 5-byte jump (3-byte stubs), or ones we
 // don't want hooked. They're registered (counted, argument sizes checked) but not installed:
 // REPLACE_SOURCE_ONLY(0x005B9760, Script::StubReturnTrue); // 3 bytes
-#define REPLACE_SOURCE_ONLY(address, ...)                                                                static ReplacementRegistrar REPLACE_CONCAT(g_replace_, __LINE__)(                                        address, CodeAddress(__VA_ARGS__), kCalleePop<decltype(__VA_ARGS__)>, #__VA_ARGS__, __FILE__, true)
+#define REPLACE_SOURCE_ONLY(address, ...)                                                            \
+    static ReplacementRegistrar REPLACE_CONCAT(g_replace_, __LINE__)(                                \
+        address, CodeAddress(__VA_ARGS__), kCalleePop<decltype(__VA_ARGS__)>, #__VA_ARGS__, __FILE__, true)
 
 // For naked assembly stubs, whose C++ type says nothing about the stack: the argument-size check is skipped.
 #define REPLACE_UNCHECKED(address, ...)                                                              \

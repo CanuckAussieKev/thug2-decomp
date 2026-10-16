@@ -209,6 +209,9 @@ void BBox::GetClosestSurfacePoint(const Vector& point, Vector& out) const
     }
 }
 
+// 0x00403220
+Capsule::Capsule() : radius(0.0f) {}
+
 // 0x00403230
 Capsule::Capsule(const Vector& start, const Vector& offset, float r) : line(start, start + offset), radius(r) {}
 
@@ -510,6 +513,8 @@ using Mth::Vector;
 // Constructors keep the original __thiscall shape (object in ECX, returned in EAX).
 struct GeometryAdapter {
     BBox* ConstructBBox() { return new (this) BBox(); }
+    Capsule* ConstructEmptyCapsule() { return new (this) Capsule(); }
+    Mth::Sphere* ConstructSphere() { return new (this) Mth::Sphere(); }
     BBox* ConstructBBoxAt(const Vector& point) { return new (this) BBox(point); }
     Capsule* ConstructCapsule(const Vector& start, const Vector& offset, float radius)
     {
@@ -535,6 +540,8 @@ REPLACE(0x00403C00, &BBox::GetClosestSurfacePoint);
 REPLACE(0x00402640, &Line::DistanceSqrToLine);
 REPLACE(0x004032E0, &Capsule::IntersectsSegment);
 REPLACE(0x00403330, &Capsule::ContainsPoint);
+REPLACE(0x00403210, &GeometryAdapter::ConstructSphere);
+REPLACE(0x00403220, &GeometryAdapter::ConstructEmptyCapsule);
 REPLACE(0x00403230, &GeometryAdapter::ConstructCapsule);
 REPLACE(0x004032A0, &GeometryAdapter::ConstructCapsuleFromLine);
 REPLACE_SHADOW(0x00403390, &Capsule::Volume);

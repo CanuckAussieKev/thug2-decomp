@@ -41,6 +41,8 @@ public:
     uint32_t* GetArrayPointer();
     // Make the array `size` zeroed elements of `type` (frees the old element block, not what it refers to).
     void SetSizeAndType(uint32_t size, ESymbolType type);
+    // Only the type (the elements are left as they are).
+    void SetType(ESymbolType type);
     // Grow the array to `size` elements, keeping the old ones (the new ones are zero; shrinking isn't supported).
     void Resize(uint32_t size);
 
@@ -161,6 +163,14 @@ bool ComponentsEqual(CComponent* a, CComponent* b);
 // in its block).
 char* CreateString(const char* string);
 void FreeString(const char* string);
+// While on, CreateString puts strings in the permanent block, sharing equal ones (startup scripts).
+void BeginPermanentStrings();
+// Off again; the lookup table is freed (the strings stay).
+void EndPermanentStrings();
+// The script string slots (128 characters each), for the SetScriptString / GetScriptString commands.
+// `string` is used as a format, as in the original (a '%' in it is interpreted).
+int SetScriptString(int index, const char* string);
+char* GetScriptString(int index);
 
 struct CComponent;
 // Free whatever a component's value owns and make it empty (keeps its name and flag bit).

@@ -46,6 +46,8 @@ public:
 // A line segment with a radius: every point within `radius` of the segment.
 class Capsule {
 public:
+    // The segment left unset, radius 0.
+    Capsule();
     // From a start point and the offset to the end point.
     Capsule(const Vector& start, const Vector& offset, float radius);
     Capsule(const Line& line, float radius);
@@ -63,6 +65,16 @@ public:
     int IntersectsSegment(const Line& segment, float* s, float* t, float* distance_sqr) const;
 
     Line line;
+    float radius;
+};
+
+// A point and a 32-bit value after it (+0x10). Only its default constructor (0x00403210: the point left unset,
+// the value 0) is known; the object built by 0x00418330 starts with one and then sets both. Assumed to be a
+// sphere (centre, radius) until its users are decompiled.
+struct Sphere {
+    Sphere() : radius(0.0f) {}
+
+    Vector center;
     float radius;
 };
 

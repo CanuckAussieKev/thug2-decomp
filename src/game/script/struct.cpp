@@ -1,5 +1,6 @@
 #include "game/script/struct.h"
 
+#include <cstdio>
 #include <cstring>
 
 #include "game/core/crc.h"
@@ -416,6 +417,8 @@ REPLACE(0x00476BA0, static_cast<Method<bool, const char*>>(&CStruct::ContainsFla
 REPLACE(0x00476BC0, &CStruct::References);
 REPLACE(0x00476C10, &CStruct::IsSubsetOf);
 REPLACE(0x00476590, static_cast<Method<bool, uint32_t, const char**, int>>(&CStruct::GetString));
+// (a jump to 0x00476590: a function of its own in the source whose body is just that call)
+REPLACE_SOURCE_ONLY(0x00476620, static_cast<Method<bool, uint32_t, const char**, int>>(&CStruct::GetString));
 REPLACE(0x004765F0, static_cast<Method<bool, const char*, const char**, int>>(&CStruct::GetString));
 REPLACE(0x00476630, static_cast<Method<bool, uint32_t, int*, int>>(&CStruct::GetInteger));
 REPLACE(0x00476680, static_cast<Method<bool, const char*, int*, int>>(&CStruct::GetInteger));
@@ -471,7 +474,7 @@ struct PermanentString {
 PermanentString*& PermanentStringTable() { return GameVariable<PermanentString*>(0x006F3580); }
 uint32_t& PermanentStringCount() { return GameVariable<uint32_t>(0x006F3584); }
 
-// 0x00476260 (takes the string in EAX - rewritten here as part of CreateString)
+// 0x00476260 (the string in EAX: called only by CreateString, so registered source-only)
 char* CreatePermanentString(const char* string)
 {
     int length = static_cast<int>(std::strlen(string));
@@ -508,6 +511,33 @@ char* CreateString(const char* string)
     Mem::PopContext();
     return copy;
 }
+
+// 0x00476300
+void BeginPermanentStrings() { UsePermanentStrings() = true; }
+
+// 0x00476310
+void EndPermanentStrings()
+{
+    UsePermanentStrings() = false;
+    if (PermanentStringTable()) {
+        Mem::FreeMalloc(PermanentStringTable());
+        PermanentStringTable() = nullptr;
+    }
+}
+
+namespace {
+char (&ScriptStringSlot(int index))[128] { return reinterpret_cast<char(*)[128]>(0x006F3590)[index]; }
+} // namespace
+
+// 0x00476370
+int SetScriptString(int index, const char* string)
+{
+#pragma warning(suppress : 4996) // (unbounded, and the string is the format: as in the original)
+    return std::sprintf(ScriptStringSlot(index), string);
+}
+
+// 0x00476390
+char* GetScriptString(int index) { return ScriptStringSlot(index); }
 
 // 0x00476340 (strings in the permanent block are never freed)
 void FreeString(const char* string)
@@ -554,6 +584,9 @@ void CArray::Clear()
     m_type = ESYMBOLTYPE_NONE;
     m_size = 0;
 }
+
+// 0x0046CAF0
+void CArray::SetType(ESymbolType type) { m_type = type; }
 
 // 0x0046CB00
 uint32_t* CArray::GetArrayPointer()
@@ -802,6 +835,12 @@ void CStruct::RemoveComponentOfType(uint32_t name, uint8_t type)
 
 REPLACE(0x004763A0, Script::CreateString);
 REPLACE(0x00476340, Script::FreeString);
+REPLACE_SOURCE_ONLY(0x00476260, Script::CreatePermanentString); // the string in EAX
+REPLACE(0x00476300, Script::BeginPermanentStrings);
+REPLACE(0x00476310, Script::EndPermanentStrings);
+REPLACE(0x00476370, Script::SetScriptString);
+REPLACE(0x00476390, Script::GetScriptString);
+REPLACE(0x0046CAF0, &Script::CArray::SetType);
 REPLACE(0x00409030, Script::NewStruct);
 REPLACE(0x00409070, Script::DeleteStruct);
 REPLACE(0x00408F90, Script::NewArray);
@@ -813,6 +852,7 @@ REPLACE(0x00477140, Script::CleanUpArray);
 REPLACE(0x004772A0, Script::CleanUpComponent);
 REPLACE(0x004773E0, Script::CopyComponent);
 REPLACE(0x00477090, &Script::CStruct::Clear);
+REPLACE_SOURCE_ONLY(0x00477130, &Script::CStruct::Clear); // a jump to 0x00477090
 REPLACE(0x004776B0, static_cast<void (Script::CStruct::*)(uint32_t)>(&Script::CStruct::RemoveComponent));
 REPLACE(0x00477770, static_cast<void (Script::CStruct::*)(const char*)>(&Script::CStruct::RemoveComponent));
 REPLACE(0x00477790, &Script::CStruct::RemoveComponentOfType);
@@ -1202,6 +1242,7 @@ REPLACE(0x00477D10, static_cast<AddMethod<const char*, float>>(&CStruct::AddFloa
 REPLACE(0x00477D40, static_cast<AddMethod<uint32_t, uint32_t>>(&CStruct::AddChecksum));
 REPLACE(0x00477DF0, static_cast<AddMethod<const char*, uint32_t>>(&CStruct::AddChecksum));
 REPLACE(0x00477E20, static_cast<AddMethod<uint32_t, float, float, float>>(&CStruct::AddVector));
+REPLACE_SOURCE_ONLY(0x00478460, static_cast<AddMethod<uint32_t, float, float, float>>(&CStruct::AddVector)); // a jump
 REPLACE(0x00477F40, static_cast<AddMethod<const char*, float, float, float>>(&CStruct::AddVector));
 REPLACE(0x00477F70, static_cast<AddMethod<uint32_t, VectorValue>>(&CStruct::AddVector));
 REPLACE(0x00477F90, static_cast<AddMethod<const char*, VectorValue>>(&CStruct::AddVector));
@@ -1468,6 +1509,7 @@ REPLACE(0x0046CCF0, &CArray::Resize);
 REPLACE(0x0046CB10, &CArray::SetElement);
 REPLACE(0x0046CB40, &CArray::SetFloat);
 REPLACE(0x0046CC30, &CArray::GetElement);
+REPLACE_SOURCE_ONLY(0x0041CB80, &CArray::GetElement); // a jump to 0x0046CC30
 REPLACE(0x0046CBB0, &CArray::GetString);
 REPLACE(0x0046CB70, &CArray::GetLocalString);
 REPLACE(0x0046CBF0, &CArray::GetFloat);
@@ -1752,5 +1794,6 @@ REPLACE(0x00479070, static_cast<Function<Script::CArray*, uint32_t>>(Script::Get
 REPLACE(0x00479090, static_cast<Function<Script::CArray*, const char*>>(Script::GetArray));
 REPLACE(0x004791A0, &ComponentEqualsAdapter::Equals);
 REPLACE(0x00478B00, static_cast<void (CStruct::*)(uint32_t, Script::CArray*)>(&CStruct::AddArray));
+REPLACE_SOURCE_ONLY(0x00478C80, static_cast<void (CStruct::*)(uint32_t, Script::CArray*)>(&CStruct::AddArray)); // a jump
 REPLACE(0x00478C50, static_cast<void (CStruct::*)(const char*, Script::CArray*)>(&CStruct::AddArray));
 REPLACE(0x00479190, GetTypeName);

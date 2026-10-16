@@ -14,6 +14,8 @@ From chunk 3. The linker placed object files in order, so libraries sit in conti
 | 0x640000-0x645000 | C++ exception-unwind funclets (compiler-generated) | 100 | ~1 KB | No - compiler regenerates them |
 
 ## Notes
+- 0x401020 in the game range is the compiler's `vector constructor iterator' (runs a constructor over an array:
+  `new T[n]`, arrays of objects). The compiler emits it when the game is built from source, so it needs none.
 - The game range still contains inlined STL template code and compiler helpers mixed into game functions.
   Those come for free when the C++ is rewritten with the same containers.
 - 0x5f5a00-0x5f8130 holds only 7 small functions with no strings or imports; counted as game code (it follows

@@ -17,12 +17,12 @@ that the compiler emits, or a plain function).
       `src/game/mth/vector.cpp`), with self-tests.
 - [x] Batch 2 (untested): CRC buffer/extend (0x401AA0, 0x401BE0), `Mth::Matrix` copy + X/Y/Z rotation builders
       (0x404090, 0x404DD0-0x404E70), `Vector::operator-=` (0x406050), `Vector::ProjectToPlane` (0x406080).
-      Skipped 0x401020: compiler-generated array-constructor helper, not game code.
+      0x401020 is compiler-generated (`vector constructor iterator'): the compiler emits it - see batch 48.
 - [x] Batch 3 (untested): `Util::BitStream` ctor/SetInputData/SetOutputData/GetByteCount/Flush
       (0x401050-0x4010C0, 0x401180), `Str::LowerCase`/`UpperCase` (0x402080, 0x4020B0), `Mth::Clamp` (0x4022C0),
       Vector(x,y,z) ctor (0x4022F0), Vector/Matrix `operator[]` (0x402310, 0x404080).
       Deferred until their callers are understood: 0x401D80 (assigns IDs from a global counter at 0x690FA0),
-      0x403210 / 0x403220 (each zero one field of an unknown class).
+      0x403210 / 0x403220 (each zero one field of an unknown class) - done in batch 48.
 - [x] Batch 4 (untested): random streams `Mth::InitialRand/Rnd/Rnd2/PlusOrMinus` (0x403DA0-0x403E80, state shared
       with the exe at 0x690FC8-0x690FDC via `GameVariable`), `Mth::Sign` (0x405FD0), Vector RotateY90 /
       DegreesToRadians / RadiansToDegrees / FeetToInches / NegateXRotateX90 (0x405EB0-0x405F80),
@@ -91,14 +91,10 @@ that the compiler emits, or a plain function).
 **TESTED IN-GAME 2026-10-15 (commit 0b5ac11):** the game runs with all 126 replacements active; early and late
 self-tests all pass. (The first test gave a black screen: Lzss::Decode's return value - see the RISK notes.)
 
-**Core utilities block: DONE - 127 of 130 functions rewritten.** The other 3 are deliberately left as original
-code for now:
-- 0x401020: compiler-generated "construct an array of objects" helper, not game code.
-- 0x403210 / 0x403220: tiny base-class/member constructors (zero a field at +0x10 / +0x20), called from the
-  constructors of classes in other subsystems (0x418330; 0x42E3F0 and the object built in 0x48B430). Do them
-  together with those classes.
-- (0x401AF0 was listed here as "an empty loop with no effect" - wrong. Ghidra's pseudocode missed its third
-  argument; it is Crc::ExtendCRCWithBuffer and its caller uses the result. Rewritten 2026-10-15.)
+**Core utilities block: DONE - 129 of 130 functions rewritten** (0x403210 / 0x403220, first left as
+original, done in batch 48). The last one, 0x401020, is the compiler's `vector constructor iterator' (calls a
+constructor on each element of an array): building the game from source makes the compiler emit it again, so it
+needs no source of its own (docs/library_ranges.md).
 
 ## File system & memory block (0x5B6560-0x5BDAD0, 222 functions)
 Contents: async file loader (0x5B6560-0x5B7130), PIP/PRE archives (0x5B7130-0x5B9CB0), small helpers incl. the
@@ -482,6 +478,29 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       strengthening the test). Left in the block: the input-device code 0x5BCC60-0x5BDA20 (PartyMod
       reworks input - read its source first).
 - [x] Batch 47 tested in the game (2026-10-16, by the user): game loads fine.
+- [x] Batch 48 (NOT run in the game yet; early test passes offline): the leftovers - functions skipped before
+      the goal became building the whole game, found with the new `tools/ghidra/find_gaps.py` (un-rewritten
+      functions between rewritten ones, and jumps to rewritten functions). Mth: Sphere() 0x403210 (a vector and
+      a 32-bit value cleared - assumed a sphere until its users are known) and Capsule() 0x403220 (radius 0;
+      Line got a default constructor). Script: CArray::SetType 0x46CAF0; CreatePermanentString 0x476260 (string
+      in EAX, only CreateString calls it: registered source-only); BeginPermanentStrings 0x476300 /
+      EndPermanentStrings 0x476310 (on while the startup scripts load, 0x5A59D0; the lookup table freed after);
+      SetScriptString 0x476370 / GetScriptString 0x476390 (128-character slots at 0x6F3590; the string is
+      sprintf's format, as in the original). Sys::WriteDefaultSetting 0x4E1810 (src/game/sys/registry.*):
+      WinMain's default DWORD settings under HKCU\Software\Activision\Tony Hawk's Underground 2\Settings,
+      written only when missing; without that key the original creates a key "Settings\<name>" - kept. Ten
+      jumps to rewritten functions (functions of their own whose body is just the call), source-only:
+      0x41CB80 -> CArray::GetElement, 0x4504F0 -> ReturnFalse, 0x472E60 -> GenerateCRCFromString, 0x476620 ->
+      CStruct::GetString, 0x477130 -> CStruct::Clear, 0x478460 -> AddVector, 0x478C80 -> AddArray, 0x47AE10 ->
+      ReturnZero, 0x5144C0 -> IgnoreArgument, 0x54FFE0 -> String's destructor. 19 functions. Early test:
+      constructors (bytes + returned pointer), SetType, the string switches, slot addresses, the jumps, and the
+      registry defaults with the key present under a stand-in HKEY_CURRENT_USER (RegOverridePredefKey onto a
+      scratch key - never the real settings). Late test (in game - the originals use the game's sprintf):
+      SetScriptString, and the registry defaults without the key. 9 deliberate bugs caught.
+      Not leftovers (planned work): 0x46EEC0 (unloads a .qb's scripts - needs CScript), 0x46FBA0 (pre-compiled
+      .qb), CScript 0x4728F0-0x472E20, 0x47AC10-0x47AD80, the input-device code 0x5BCC40-0x5BCCC0.
+      Also: 0x4E1220 (ParseNetworkParams) and 0x44EEF0 (MainLoop) are hooked only by the test runner - they
+      still need source (progress counts only src/game, so they were never counted).
 - [ ] Next: the pre-compiled .qb format (0x46FBA0, 0x46CA50, 0x46C970, 0x46C830, 0x46C7F0, ...), the script
       cache (0x475FD0 ...), then CScript (0x472900.. / 0x473000..).
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
