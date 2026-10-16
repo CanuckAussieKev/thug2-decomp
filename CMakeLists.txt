@@ -86,6 +86,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_partymod.cpp
     src/hook/selftests_glyph.cpp
     src/hook/selftests_gfx2.cpp
+    src/hook/selftests_text.cpp
     src/game/core/alloc.cpp
     src/game/core/crc.cpp
     src/game/core/dbg.cpp
@@ -101,6 +102,8 @@ add_library(thug2_code OBJECT
     src/game/gfx/screen.cpp
     src/game/gfx/flash.cpp
     src/game/gfx/font.cpp
+    src/game/gfx/text.cpp
+    src/game/gfx/device.cpp
     src/game/gfx/movie.cpp
     src/game/gfx/loading_bar.cpp
     src/game/gfx/render.cpp
