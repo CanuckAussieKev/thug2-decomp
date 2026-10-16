@@ -80,6 +80,7 @@ add_library(thug2_code OBJECT
     src/hook/shadow.cpp
     src/hook/selftest.cpp
     src/hook/selftest_runner.cpp
+    src/hook/selftests_platform.cpp
     src/game/core/alloc.cpp
     src/game/core/crc.cpp
     src/game/core/dbg.cpp
@@ -101,9 +102,11 @@ add_library(thug2_code OBJECT
     src/game/net/chat.cpp
     src/game/obj/smtptr.cpp
     src/game/sio/device.cpp
+    src/game/sys/platform.cpp
     src/game/sys/registry.cpp
     src/game/sys/timer.cpp
     src/game/mc/memcard.cpp
+    src/game/mc/memcard_cfuncs.cpp
     src/game/script/eval.cpp
     src/game/script/load.cpp
     src/game/script/names.cpp
