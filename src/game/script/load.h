@@ -26,6 +26,9 @@ bool ScriptRefersTo(const CScript* script, uint32_t name);
 void LoadQBData(const char* filename, const uint8_t* data, int unused, int useQbNames, int temporary);
 // Load and define the .qb file `filename`.
 void LoadQB(const char* filename, int unused, int temporary);
+// Remove every symbol defined by the .qb file whose name's checksum is `fileChecksum` (nothing for 0), stop the
+// scripts running code that's gone, and unload the file if it's still loaded (pre-compiled ones are).
+void UnloadQB(uint32_t fileChecksum);
 
 // The entry points for the game's callers, which pass arguments in registers (also called by the self-tests).
 void ParseSymbolDefinitionStub();

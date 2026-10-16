@@ -91,6 +91,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_misc.cpp
     src/hook/selftests_text.cpp
     src/hook/selftests_winmain.cpp
+    src/hook/selftests_qb.cpp
     src/game/core/alloc.cpp
     src/game/core/crc.cpp
     src/game/core/dbg.cpp
@@ -138,6 +139,7 @@ add_library(thug2_code OBJECT
     src/game/script/load.cpp
     src/game/script/names.cpp
     src/game/script/parse.cpp
+    src/game/script/precompiled.cpp
     src/game/script/qb.cpp
     src/game/script/struct.cpp
     src/game/mth/geometry.cpp
