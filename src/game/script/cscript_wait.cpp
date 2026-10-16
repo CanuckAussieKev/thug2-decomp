@@ -117,16 +117,6 @@ CEventHandlerTable* NewEventHandlerTable()
     return memory ? ConstructTable(memory) : nullptr;
 }
 
-// m_object = object (the smart pointer's links updated).
-void SetObject(Obj::CSmtPtr<Obj::CObject>& pointer, Obj::CObject* object)
-{
-    pointer.Release();
-    pointer.mp_object = object;
-    if (object) {
-        reinterpret_cast<Obj::CRefCounted*>(object)->AddSmartPointer(
-            reinterpret_cast<Obj::CSmtPtr<Obj::CRefCounted>*>(&pointer));
-    }
-}
 
 // A new, empty structure.
 CStruct* NewEmptyStruct()
@@ -318,9 +308,7 @@ void CScript::CallScript(uint32_t name, const uint8_t* code, CStruct* params, Ob
 {
     if (!m_pc) {
         // Nothing running: just start it.
-        // -> CScript::SetScript (group A)
-        GameFunction<void(__thiscall*)(CScript*, uint32_t, const uint8_t*, CStruct*, Obj::CObject*)>(0x00474540)(
-            this, name, code, params, object);
+        SetScript(name, code, params, object);
         m_flags = static_cast<uint8_t>((m_flags & ~SCRIPT_RUN_INTERRUPTED) | (interrupted ? SCRIPT_RUN_INTERRUPTED : 0));
         return;
     }
@@ -356,7 +344,7 @@ void CScript::CallScript(uint32_t name, const uint8_t* code, CStruct* params, Ob
     m_pc = ParseArguments(m_params, m_pc, nullptr);
     if (params)
         m_params->AppendStructure(params);
-    SetObject(m_object, object);
+    m_object.Set(object);
     m_flags = static_cast<uint8_t>((m_flags & ~SCRIPT_RUN_INTERRUPTED) | (interrupted ? SCRIPT_RUN_INTERRUPTED : 0));
     m_waitType = WAIT_TYPE_NONE;
     m_onExitScript = 0;
@@ -380,7 +368,7 @@ bool CScript::ReturnFromScript(CStruct* results)
         m_scriptName = frame.mScriptName;
         m_params = frame.mpParams;
         m_pc = frame.mpReturnAddress;
-        SetObject(m_object, frame.mpObject);
+        m_object.Set(frame.mpObject);
         m_currentLoop = frame.mpLoop;
         m_onExitScript = frame.mOnExitScript;
         m_waitType = frame.mWaitType & RETURN_WAIT_TYPE_MASK;
@@ -405,8 +393,7 @@ EScriptReturnVal CScript::Interrupt(uint32_t name, CStruct* params)
 {
     const uint8_t* code = ScriptCache()->GetScript(name);
     CallScript(name, code, params, m_object.Get(), true);
-    // -> CScript::Update (group B)
-    return GameFunction<EScriptReturnVal(__thiscall*)(CScript*)>(0x004750B0)(this);
+    return Update();
 }
 
 // 0x00472EA0

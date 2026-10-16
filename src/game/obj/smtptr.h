@@ -47,6 +47,15 @@ public:
         }
     }
 
+    // Point at `object` instead: out of the old object's list, onto the front of the new one's.
+    void Set(T* object)
+    {
+        Release();
+        mp_object = object;
+        if (object)
+            Object()->AddSmartPointer(Generic());
+    }
+
     T* Get() const { return mp_object; }
     T* operator->() const { return mp_object; }
     explicit operator bool() const { return mp_object != nullptr; }

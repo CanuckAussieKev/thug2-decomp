@@ -93,25 +93,6 @@ Obj::CObject* FindObject(uint32_t name) { return GameFunction<Obj::CObject*(__cd
 // result unused - what is left of a compiled-out assert.
 void NoObjectCheck() { GameFunction<bool(__thiscall*)(void*)>(0x0044E4F0)(GameVariable<void*>(0x007CCE14)); }
 
-// Group C's methods (cscript_wait.cpp), by address until the groups are merged.
-void UpdateWaitOf(CScript* script) // -> CScript::UpdateWait (group C)
-{
-    GameFunction<void(__thiscall*)(CScript*)>(0x00473050)(script);
-}
-void CallScriptOf(CScript* script, uint32_t name, const uint8_t* code, CStruct* params, Obj::CObject* object,
-                  bool interrupted) // -> CScript::CallScript (group C)
-{
-    GameFunction<void(__thiscall*)(CScript*, uint32_t, const uint8_t*, CStruct*, Obj::CObject*, bool)>(0x004748E0)(
-        script, name, code, params, object, interrupted);
-}
-bool ReturnFromScriptOf(CScript* script, CStruct* results) // -> CScript::ReturnFromScript (group C)
-{
-    return GameFunction<bool(__thiscall*)(CScript*, CStruct*)>(0x00473E70)(script, results);
-}
-EScriptReturnVal InterruptOf(CScript* script, uint32_t name, CStruct* params) // -> CScript::Interrupt (group C)
-{
-    return GameFunction<EScriptReturnVal(__thiscall*)(CScript*, uint32_t, CStruct*)>(0x00475750)(script, name, params);
-}
 
 // A component made and freed around one expression / switch value.
 void DeleteComponent(CComponent* component)
@@ -276,7 +257,7 @@ bool CScript::ExecuteCommand()
         switch (symbol->type) {
         case ESYMBOLTYPE_QSCRIPT: {
             const uint8_t* code = ScriptCache()->GetScript(symbol->name);
-            CallScriptOf(this, function, code, m_functionParams, object, false);
+            CallScript(function, code, m_functionParams, object, false);
             return true;
         }
         case ESYMBOLTYPE_MEMBERFUNCTION:
@@ -317,7 +298,7 @@ bool CScript::ExecuteCommand()
     switch (symbol->type) {
     case ESYMBOLTYPE_QSCRIPT: {
         const uint8_t* code = ScriptCache()->GetScript(symbol->name);
-        CallScriptOf(this, name, code, m_functionParams, m_object.Get(), false);
+        CallScript(name, code, m_functionParams, m_object.Get(), false);
         return true;
     }
     case ESYMBOLTYPE_CFUNCTION:
@@ -516,7 +497,7 @@ EScriptReturnVal CScript::Update()
     while (m_pc) {
         CurrentScriptVar() = this;
         if (!(m_flags & SCRIPT_RUN_WAIT_UPDATED))
-            UpdateWaitOf(this);
+            UpdateWait();
         if (m_waitType != WAIT_TYPE_NONE) {
             m_flags = static_cast<uint8_t>((m_flags & ~SCRIPT_RUN_INTERRUPTED) | SCRIPT_RUN_WAIT_UPDATED);
             CurrentScriptVar() = nullptr;
@@ -544,20 +525,20 @@ EScriptReturnVal CScript::Update()
         case 0x24: // '$'
             if (uint32_t onExit = m_onExitScript) {
                 m_onExitScript = 0;
-                InterruptOf(this, onExit, nullptr);
+                Interrupt(onExit, nullptr);
             }
-            if (ReturnFromScriptOf(this, nullptr))
+            if (ReturnFromScript(nullptr))
                 return ESCRIPTRETURNVAL_FINISHED_INTERRUPT;
             break;
         case 0x29: // return [args]
             if (uint32_t onExit = m_onExitScript) {
                 m_onExitScript = 0;
-                InterruptOf(this, onExit, nullptr);
+                Interrupt(onExit, nullptr);
             }
             // (from wherever the on-exit script left m_pc - see docs/pending/cscript-plan.md)
             ++m_pc;
             ParseFunctionParams();
-            if (ReturnFromScriptOf(this, m_functionParams))
+            if (ReturnFromScript(m_functionParams))
                 return ESCRIPTRETURNVAL_FINISHED_INTERRUPT;
             break;
         case 0x25:

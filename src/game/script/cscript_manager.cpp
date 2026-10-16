@@ -34,43 +34,34 @@ namespace Script {
 
 namespace {
 
-// Other groups' CScript functions (the merger turns these into direct calls).
-// -> new CScript (group A: CScript::operator new 0x00449970, then CScript::Construct 0x004738E0)
+// How the original makes and frees a script (no C++ constructor or destructor runs): the pooled operator new
+// (0x00449970) and Construct (0x004738E0); Destroy (0x00474420) and the pooled operator delete (0x004499B0).
 CScript* NewScript()
 {
-    void* memory = GameFunction<void*(__cdecl*)(size_t)>(0x00449970)(sizeof(CScript));
-    return memory ? GameFunction<CScript*(__thiscall*)(void*)>(0x004738E0)(memory) : nullptr;
+    void* memory = CScript::operator new(sizeof(CScript));
+    return memory ? static_cast<CScript*>(memory)->Construct() : nullptr;
 }
-// -> delete script (group A: CScript::Destroy 0x00474420, then CScript::operator delete 0x004499B0)
 void DeleteScript(CScript* script)
 {
     if (!script)
         return;
-    GameFunction<void(__thiscall*)(CScript*)>(0x00474420)(script);
-    GameFunction<void(__cdecl*)(void*)>(0x004499B0)(script);
+    script->Destroy();
+    CScript::operator delete(script);
 }
-// -> CScript::SetScript (group A)
 void SetScript(CScript* script, uint32_t name, const uint8_t* code, CStruct* params, Obj::CObject* object)
 {
-    GameFunction<void(__thiscall*)(CScript*, uint32_t, const uint8_t*, CStruct*, Obj::CObject*)>(0x00474540)(
-        script, name, code, params, object);
+    script->SetScript(name, code, params, object);
 }
-// -> CScript::ClearScript, CScript::ReportStopped (group A; the walks have ReportStopped inlined)
+// Stop a script and report it (the walks have ReportStopped inlined).
 void Stop(CScript* script)
 {
-    GameFunction<void(__thiscall*)(CScript*)>(0x00473A80)(script);
-    GameFunction<void(__thiscall*)(CScript*)>(0x00473010)(script);
+    script->ClearScript();
+    script->ReportStopped();
 }
-// -> CScript::Update (group B)
-EScriptReturnVal UpdateScript(CScript* script)
-{
-    return GameFunction<EScriptReturnVal(__thiscall*)(CScript*)>(0x004750B0)(script);
-}
-// -> Script::CallMemberFunction (group B)
+EScriptReturnVal UpdateScript(CScript* script) { return script->Update(); }
 bool CallMemberFunctionOf(CMemberFunctionEntry* entry, CStruct* params, Obj::CObject* object, CScript* script)
 {
-    return GameFunction<bool(__cdecl*)(CMemberFunctionEntry*, CStruct*, Obj::CObject*, CScript*)>(0x00472980)(
-        entry, params, object, script);
+    return CallMemberFunction(entry, params, object, script);
 }
 
 // A C function (the value of an ESYMBOLTYPE_CFUNCTION symbol).

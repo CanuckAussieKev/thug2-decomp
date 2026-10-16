@@ -99,7 +99,7 @@ std::vector<Saved> SavedGlobals()
 // The CScript methods of the other groups, the event table and the tracker (ReportStopped's calls).
 void StandInScriptMethods(StandIns& s)
 {
-    s.At({0x004750B0}, 0, [](Regs& r) { // Update
+    s.At({0x004750B0, AddressOf(&Script::CScript::Update)}, 0, [](Regs& r) { // Update
         uint32_t i;
         Inside(r.ecx, g_blocks, i);
         int call = g_updates[i]++;
@@ -108,7 +108,7 @@ void StandInScriptMethods(StandIns& s)
             g_onUpdate(static_cast<int>(i));
         return static_cast<uint32_t>(call < static_cast<int>(g_results[i].size()) ? g_results[i][call] : 2);
     });
-    s.At({0x00474420}, 0, [](Regs& r) { // Destroy: leaves the list (the block stays as it is)
+    s.At({0x00474420, AddressOf(&Script::CScript::Destroy)}, 0, [](Regs& r) { // Destroy: leaves the list (the block stays as it is)
         auto* script = reinterpret_cast<CScript*>(r.ecx);
         Record({0xDE57, Id(r.ecx)});
         if (script->mp_previous)
@@ -120,8 +120,8 @@ void StandInScriptMethods(StandIns& s)
         --Script::ScriptCount();
         return 0u;
     });
-    s.At({0x004499B0}, 0, [](Regs& r) { Record({0xDE1E, Id(r.args[0])}); return 0u; }); // operator delete
-    s.At({0x00473A80}, 0, [](Regs& r) { // ClearScript
+    s.At({0x004499B0, AddressOf(static_cast<void (*)(void*)>(&Script::CScript::operator delete))}, 0, [](Regs& r) { Record({0xDE1E, Id(r.args[0])}); return 0u; }); // operator delete
+    s.At({0x00473A80, AddressOf(&Script::CScript::ClearScript)}, 0, [](Regs& r) { // ClearScript
         Record({0xC1EA, Id(r.ecx)});
         reinterpret_cast<CScript*>(r.ecx)->m_pc = nullptr;
         return 0u;
@@ -564,7 +564,7 @@ void StandInAllocation(StandIns& s)
 // (SpawnScript must keep bits 4-7 and clear 1-3).
 void StandInSetScript(StandIns& s)
 {
-    s.At({0x00474540}, 16, [](Regs& r) {
+    s.At({0x00474540, AddressOf(static_cast<void (Script::CScript::*)(uint32_t, const uint8_t*, Script::CStruct*, Obj::CObject*)>(&Script::CScript::SetScript))}, 16, [](Regs& r) {
         Record({0x5E75, Id(r.ecx), r.args[0], r.args[1], Id(r.args[2]), Id(r.args[3]), Id(Script::ScriptListHead())});
         auto* script = reinterpret_cast<CScript*>(r.ecx);
         script->m_pc = reinterpret_cast<const uint8_t*>(0x00C0DE10);
@@ -660,7 +660,7 @@ void TestSpawnAndRunScript()
         StandInAllocation(*s);
         StandInSetScript(*s);
         StandInNet(*s, true);
-        s->At({0x00472980}, 0, [](Regs& r) {
+        s->At({0x00472980, AddressOf(static_cast<bool (*)(Script::CMemberFunctionEntry*, Script::CStruct*, Obj::CObject*, Script::CScript*)>(&Script::CallMemberFunction))}, 0, [](Regs& r) {
             Record({0x2980, r.args[0] == reinterpret_cast<uint32_t>(&g_entry), Id(r.args[1]), Id(r.args[2]), r.args[3]});
             return 1u;
         });

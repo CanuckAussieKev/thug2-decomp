@@ -134,14 +134,14 @@ void InstallStandIns(StandIns& s)
         return 0u;
     });
     // SetScript (group A): enough of it to see what happens after (the name and the code).
-    s.At({0x00474540}, 16, [](Regs& r) {
+    s.At({0x00474540, AddressOf(static_cast<void (Script::CScript::*)(uint32_t, const uint8_t*, Script::CStruct*, Obj::CObject*)>(&Script::CScript::SetScript))}, 16, [](Regs& r) {
         Rec(0x5E7, {r.ecx, r.args[0], r.args[1], r.args[2], r.args[3]});
         auto* script = reinterpret_cast<CScript*>(r.ecx);
         script->m_scriptName = r.args[0];
         script->m_pc = reinterpret_cast<const uint8_t*>(r.args[1] ? r.args[1] : g_csc_base + 0x7F00);
         return 0u;
     });
-    s.At({0x004750B0}, 0, [](Regs& r) {
+    s.At({0x004750B0, AddressOf(&Script::CScript::Update)}, 0, [](Regs& r) {
         Rec(0x0BDA, {r.ecx});
         return g_csc_update;
     });

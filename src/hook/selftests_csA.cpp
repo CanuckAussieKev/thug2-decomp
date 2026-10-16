@@ -164,7 +164,7 @@ void TestCScriptCore()
         const uint32_t stringName = Crc::GenerateCRCFromString(kStringName);
 
         auto* s = new StandIns;
-        s->At({0x00475750}, 8, [](Regs& r) { // -> Interrupt (group C)
+        s->At({0x00475750, AddressOf(&Script::CScript::Interrupt)}, 8, [](Regs& r) { // -> Interrupt (group C)
             auto* script = reinterpret_cast<CScript*>(r.ecx);
             Record({0x5750, r.ecx, r.args[0], r.args[1], reinterpret_cast<uint32_t>(script->m_pc),
                     reinterpret_cast<uint32_t>(script->m_codeCopy), static_cast<uint32_t>(script->m_numReturnAddresses),

@@ -36,15 +36,6 @@ void FreeStruct(CStruct* structure)
     DeleteStruct(structure);
 }
 
-// m_object = object (the smart pointer leaves the old object's list and joins the new one's).
-void SetObject(Obj::CSmtPtr<Obj::CObject>& pointer, Obj::CObject* object)
-{
-    pointer.Release();
-    pointer.mp_object = object;
-    if (object)
-        reinterpret_cast<Obj::CRefCounted*>(object)->AddSmartPointer(
-            reinterpret_cast<Obj::CSmtPtr<Obj::CRefCounted>*>(&pointer));
-}
 
 // Not rewritten yet.
 // Obj::CRefCounted's constructor (vtable 0x006478E4, no smart pointers) and destructor (0x00463820 after
@@ -190,17 +181,16 @@ void CScript::ClearScript()
 // 0x00473880
 void CScript::RunOnExitScripts()
 {
-    using Interrupt = EScriptReturnVal(__thiscall*)(CScript*, uint32_t, CStruct*);
     if (uint32_t name = m_onExitScript) {
         m_onExitScript = 0;
-        GameFunction<Interrupt>(0x00475750)(this, name, nullptr); // -> CScript::Interrupt (group C)
+        Interrupt(name, nullptr);
     }
     // From the top level down; the depth is read once (the interrupts push and pop levels of their own).
     for (int i = m_numReturnAddresses; i; --i) {
         uint32_t& onExit = m_returnAddresses[i - 1].mOnExitScript;
         if (uint32_t name = onExit) {
             onExit = 0;
-            GameFunction<Interrupt>(0x00475750)(this, name, nullptr); // -> CScript::Interrupt (group C)
+            Interrupt(name, nullptr);
         }
     }
 }
@@ -237,7 +227,7 @@ void CScript::SetScript(uint32_t name, const uint8_t* code, CStruct* params, Obj
     ClearScript();
     m_functionParams = NewEmptyStruct();
     m_scriptName = name;
-    SetObject(m_object, object);
+    m_object.Set(object);
     m_params = NewEmptyStruct();
     m_pc = code ? code : ScriptCache()->GetScript(name);
     if (!m_pc) {
