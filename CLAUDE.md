@@ -32,6 +32,8 @@ installed); PartyMod-patched functions get source with PartyMod's behaviour. Lat
   `docs/library_ranges.md` (GameSpy, D3DX9, CRT: not decompiled).
 
 ## How to work
+- **Start with `docs/HANDOFF.md` if it exists** (work in flight, what's next), then the "- [ ] Next:" line of
+  `docs/decomp-progress.md`.
 - **Decompiling: follow the `decomp-batch` skill** (`.claude/skills/decomp-batch/`): workflow, test template,
   pitfalls. Never trust Ghidra's return types or parameter counts; check calls into un-rewritten game code
   too (`tools/ghidra/audit_game_function_calls.py`); prove tests with `tools/mutate.py`.
@@ -44,6 +46,11 @@ installed); PartyMod-patched functions get source with PartyMod's behaviour. Lat
   runtime changes are ported into our DLL (src/partymod), so `partymod.dll` isn't loaded.
 - Python on this machine defaults to cp1252: always `encoding="utf-8"`. Use the Write/Edit tools for C++
   text with backslashes (shell heredocs mangle them).
+- Self-tests: by topic in `src/hook/selftests_<topic>.cpp` (each registers its own with SELFTEST; listed in
+  CMakeLists.txt) - `selftest.cpp` is too big to share. `selftests_partymod.cpp` has the CodePatch / JumpTo
+  helpers (write bytes or a jump over game code for a test's length).
+- Parallel agents work (one git worktree + branch each, own Ghidra snapshot copy and `data/derived/`, records
+  in `docs/pending/<name>.md`) but cost a lot of usage - keep each to a few functions, and merge yourself.
 - Commit messages end with the Co-Authored-By line given in the session.
 
 ## Facts about the binary
