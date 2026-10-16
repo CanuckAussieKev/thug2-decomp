@@ -12,6 +12,7 @@
 
 #include "game/script/struct.h"
 #include "game/gfx/flash.h"
+#include "game/gfx/movie.h"
 #include "game/net/stats.h"
 #include "game/skater/controls.h"
 #include "hook/game.h"
@@ -421,9 +422,108 @@ void TestDrawFlash()
     Check(traces[0] == traces[1] && traces[1].size() > 100, "gfx: screen flash (with PartyMod's vertex order)");
 }
 
+
+// --- the movie frame ----------------------------------------------------------------------------------------
+
+extern "C" void movie_setTexture(int index, void* texture, int unknown);
+extern "C" void __stdcall movie_drawPrim(void* device, int type, uint32_t count, void* vertices, uint32_t stride);
+
+std::vector<uint32_t> g_movie_log;
+long g_movie_lost;
+long __stdcall MovieTestCooperativeLevel(void*) { g_movie_log.push_back(0x7C1u); return g_movie_lost; }
+long __stdcall MovieSetRenderState(void*, int a, int b) { g_movie_log.insert(g_movie_log.end(), {0x5E5u, static_cast<uint32_t>(a), static_cast<uint32_t>(b)}); return 0; }
+long __stdcall MovieSetFvf(void*, uint32_t f) { g_movie_log.insert(g_movie_log.end(), {0xF7Fu, f}); return 0; }
+long __stdcall MovieStageState(void*, int a, int b, int c) { g_movie_log.insert(g_movie_log.end(), {0x557u, static_cast<uint32_t>(a), static_cast<uint32_t>(b), static_cast<uint32_t>(c)}); return 0; }
+long __stdcall MovieDraw(void*, int type, unsigned int count, const uint32_t* v, unsigned int stride)
+{
+    g_movie_log.insert(g_movie_log.end(), {0xD4Au, static_cast<uint32_t>(type), count, stride});
+    g_movie_log.insert(g_movie_log.end(), v, v + 28);
+    return 0;
+}
+long __stdcall MovieGetLevelDesc(void*, unsigned int level, uint32_t* desc)
+{
+    g_movie_log.insert(g_movie_log.end(), {0x1DEu, level});
+    desc[6] = 512; // Width
+    desc[7] = 256; // Height
+    return 0;
+}
+void __cdecl MovieState1(int a) { g_movie_log.insert(g_movie_log.end(), {0x51u, static_cast<uint32_t>(a)}); }
+void __cdecl MovieState2(int a, int b) { g_movie_log.insert(g_movie_log.end(), {0x52u, static_cast<uint32_t>(a), static_cast<uint32_t>(b)}); }
+void __cdecl MovieState2b(int a, int b) { g_movie_log.insert(g_movie_log.end(), {0x62u, static_cast<uint32_t>(a), static_cast<uint32_t>(b)}); }
+void __cdecl MovieFormat(int a) { g_movie_log.insert(g_movie_log.end(), {0x7Fu, static_cast<uint32_t>(a)}); }
+void __cdecl MovieSetTexture(int a, void* t, int c) { g_movie_log.insert(g_movie_log.end(), {0x7E7u, static_cast<uint32_t>(a), reinterpret_cast<uint32_t>(t) & 0xFFF, static_cast<uint32_t>(c)}); }
+
+// The movie frame: no texture, positions/sizes/fades, back buffers wider, narrower and 4:3 (PartyMod's fit),
+// the device lost or not - the original with PartyMod's two calls written in.
+void TestDrawMovieFrame()
+{
+    CodePatch blend(0x004DA760, JumpTo(0x004DA760, reinterpret_cast<void*>(&MovieState1)));
+    CodePatch sampler(0x004DAB60, JumpTo(0x004DAB60, reinterpret_cast<void*>(&MovieState2)));
+    CodePatch format(0x004D9DB0, JumpTo(0x004D9DB0, reinterpret_cast<void*>(&MovieFormat)));
+    CodePatch other(0x004DAA80, JumpTo(0x004DAA80, reinterpret_cast<void*>(&MovieState2b)));
+    CodePatch texture(0x004DA730, JumpTo(0x004DA730, reinterpret_cast<void*>(&MovieSetTexture)));
+    CodePatch print(0x006234FE, JumpTo(0x006234FE, reinterpret_cast<void*>(&StandInSprintf)));
+    std::vector<std::pair<uint32_t, uint32_t>> saved;
+    for (uint32_t a : {0x007D69E0u, 0x00786D6Cu, 0x00786D70u, 0x00696D9Cu})
+        saved.push_back({a, GameVariable<uint32_t>(a)});
+    static void* vtable[100] = {};
+    vtable[3] = reinterpret_cast<void*>(&MovieTestCooperativeLevel);
+    vtable[0xE4 / 4] = reinterpret_cast<void*>(&MovieSetRenderState);
+    vtable[0x164 / 4] = reinterpret_cast<void*>(&MovieSetFvf);
+    vtable[0x10C / 4] = reinterpret_cast<void*>(&MovieStageState);
+    vtable[0x14C / 4] = reinterpret_cast<void*>(&MovieDraw);
+    static void* device[2] = {vtable, nullptr};
+    static void* textureVtable[20] = {};
+    textureVtable[17] = reinterpret_cast<void*>(&MovieGetLevelDesc);
+    static void* movieTexture[2] = {textureVtable, nullptr};
+    GameVariable<void*>(0x007D69E0) = device;
+    std::vector<uint32_t> traces[2];
+    for (int run = 0; run < 2; ++run) {
+        bool original = run == 0;
+        g_movie_log.clear();
+        GameVariable<int>(0x00696D9C) = 7;
+        static const int sizes[3][2] = {{1920, 1080}, {640, 480}, {1024, 1280}};
+        for (const auto& size : sizes) {
+            GameVariable<int>(0x00786D6C) = size[0];
+            GameVariable<int>(0x00786D70) = size[1];
+            for (int lost = 0; lost < 2; ++lost) {
+                g_movie_lost = lost ? static_cast<long>(0x88760868) : 0;
+                for (int shape = 0; shape < 3; ++shape) {
+                    void* tex = shape == 2 && lost ? nullptr : movieTexture;
+                    float x = shape * 0.1f, y = 0.05f * shape, w = 1.0f - x, h = 0.7f + 0.01f * shape;
+                    float alpha = 0.333f * (shape + 1);
+                    if (original) {
+                        std::vector<uint8_t> call1 = JumpTo(0x0044FB8C, reinterpret_cast<void*>(&movie_setTexture));
+                        call1[0] = 0xE8;
+                        std::vector<uint8_t> call2 = JumpTo(0x0044FC88, reinterpret_cast<void*>(&movie_drawPrim));
+                        call2[0] = 0xE8;
+                        call2.push_back(0x90);
+                        CodePatch a(0x0044FB8C, call1);
+                        CodePatch b(0x0044FC88, call2);
+                        Original<void(__cdecl*)(void*, float, float, float, float, float)>(0x0044FA80)(tex, x, y, w, h, alpha);
+                    } else {
+                        Nx::DrawMovieFrame(tex, x, y, w, h, alpha);
+                    }
+                }
+            }
+        }
+        traces[run] = g_movie_log;
+        traces[run].push_back(GameVariable<uint32_t>(0x00696D9C));
+    }
+    for (auto& s : saved)
+        GameVariable<uint32_t>(s.first) = s.second;
+    for (size_t i = 0, shown = 0; i < traces[0].size() && i < traces[1].size() && shown < 6; ++i)
+        if (traces[0][i] != traces[1][i]) {
+            Log("  movie entry %u: original %08X ours %08X", static_cast<unsigned>(i), traces[0][i], traces[1][i]);
+            ++shown;
+        }
+    Check(traces[0] == traces[1] && traces[1].size() > 300, "gfx: movie frame (with PartyMod's 4:3 fit)");
+}
+
 } // namespace
 
 SELFTEST(Early, TestSkaterPlatformStructure);
 SELFTEST(Early, TestSkaterAcidDrops);
 SELFTEST(Early, TestRetrieveTopStats);
 SELFTEST(Early, TestDrawFlash);
+SELFTEST(Early, TestDrawMovieFrame);

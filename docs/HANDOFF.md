@@ -1,6 +1,6 @@
 # Handoff: PartyMod's patches into the source (2026-10-16)
 
-State: everything through batch 59 is merged on main, pushed, and run in the game (all self-tests pass).
+State: everything through batch 60 (batch 60 not run in the game yet) is merged on main, pushed, and run in the game (all self-tests pass).
 No work in flight - no worktrees or branches besides main.
 
 Read CLAUDE.md and `.claude/skills/decomp-batch/` first; the history is in `docs/decomp-progress.md`.
@@ -10,13 +10,13 @@ built in (and the original's logic kept visible in a comment), so its run-time p
 `tools/ghidra/partymod_patches.py <snapshot>` lists them; `python -I tools/check_partymod_overlap.py` fails
 on any PartyMod patch inside a rewritten function its HANDLED list doesn't account for.
 
-Done (20 of 48): batch 59: 0x4B9030; batch 58: 0x54DCB0; batch 57 (skater): 0x51F4C0, 0x527510, 0x527600; LoadQB; Sio::Device::Process, ActivateActuator; batch 54 (platform): SetActuators,
+Done (21 of 48): batch 60: 0x44FA80; batch 59: 0x4B9030; batch 58: 0x54DCB0; batch 57 (skater): 0x51F4C0, 0x527510, 0x527600; LoadQB; Sio::Device::Process, ActivateActuator; batch 54 (platform): SetActuators,
 ProcessWindowEvents, InitInput 0x5F44F0, GetMemCardSpaceAvailable; batch 55 (gfx): SetScreenAspectRatio,
 GetScreenAngleFactor, SetScreenBlur, SetLetterbox, CFunc_SetScreenBlur; batch 56 (glyph): LoadFont 0x48D7E0,
 CFunc_LoadFont, UpdateLoadingBarColors 0x4B6B80. 
 
 Still to do (batches 54-56's records have notes - disassembly read, conventions, test plans - for most):
-- graphics: 0x4B2D80, 0x4DB200 (far plane 32000 -> 96000), 0x4DF390, 0x44FA80 (movies)
+- graphics: 0x4B2D80, 0x4DB200 (far plane 32000 -> 96000; x87 FPTAN/FPATAN - needs inline asm to match), 0x4DF390
 - menus/text: 0x4CFD00 (SText::Draw), 0x4CECB0 (SFont::QueryString), 0x4D8650 (D3D init)
 - skater controls (PS2-style triggers, spin delay; depend on PartyMod settings): 0x50CA00, 0x509BD0,
   0x4FCBA0, 0x504060, 0x507120, 0x5334D0

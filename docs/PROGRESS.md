@@ -2,7 +2,7 @@
 
 Generated 2026-10-16 by `tools/progress_report.py` - regenerate after each batch.
 
-**Game code: █░░░░░░░░░░░░░░░░░░░ 5.5%** of the code rewritten (669 of 8,382 functions, 88.7 KB of 1,617.8 KB).
+**Game code: █░░░░░░░░░░░░░░░░░░░ 5.5%** of the code rewritten (670 of 8,382 functions, 89.3 KB of 1,617.8 KB).
 
 Progress is by code size: function counts make a 10-byte helper look like as much work as a 2 KB routine. Subsystem boundaries come from the exe map (`docs/subsystems.md`) and are approximate (give or take a few functions); totals are exact.
 
@@ -12,7 +12,7 @@ Progress is by code size: function counts make a 10-byte helper look like as muc
 | Animation & skeleton / skinned model data | `0x406460`-`0x41a6d0` | ░░░░░░░░░░░░░░░░░░░░ 0% | 5 / 423 | 0.3 KB / 75.5 KB |
 | Object components & level/scene loading | `0x41a6d0`-`0x445b50` | ░░░░░░░░░░░░░░░░░░░░ 0% | 1 / 584 | 0.0 KB / 157.7 KB |
 | Engine script commands (lighting/fog, memory heaps, script utils, arrays, music & streams) | `0x445b50`-`0x44e6b0` | ░░░░░░░░░░░░░░░░░░░░ 0% | 4 / 246 | 0.3 KB / 32.5 KB |
-| Movies (Bink) & streamed audio | `0x44e6b0`-`0x456910` | ░░░░░░░░░░░░░░░░░░░░ 0% | 1 / 277 | 0.0 KB / 30.3 KB |
+| Movies (Bink) & streamed audio | `0x44e6b0`-`0x456910` | ░░░░░░░░░░░░░░░░░░░░ 1% | 2 / 277 | 0.6 KB / 30.3 KB |
 | Low-level networking (engine net library) | `0x456910`-`0x45efd0` | ░░░░░░░░░░░░░░░░░░░░ 0% | 0 / 183 | 0.0 KB / 28.3 KB |
 | Object system & script runtime (composite objects, events, object anims, particles, pathfinding, QB parser/executor) | `0x45efd0`-`0x47dc40` | █████░░░░░░░░░░░░░░░ 29% | 221 / 685 | 32.7 KB / 112.3 KB |
 | Models / faces / textures for skaters (CAS) | `0x47dc40`-`0x490d80` | ░░░░░░░░░░░░░░░░░░░░ 1% | 4 / 523 | 0.7 KB / 67.5 KB |

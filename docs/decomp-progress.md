@@ -849,6 +849,19 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       mutation's build behind).
 - [x] Batches 53-59 and the LoadQB fix tested in the game (2026-10-16, by the user): game runs; 648 of 648
       replacements installed (31 source only), early 61 / late 16 / engine-started 2 self-tests all pass.
+- [x] Batch 60 (PartyMod round; NOT run in the game yet): Nx::DrawMovieFrame 0x44FA80 (new src/game/gfx/movie.*;
+      cdecl texture, x, y, width, height, alpha): nothing without a texture; the render states (blend
+      0x4DA760(0), 0x4DAB60(4, 0x10001), format 0x144 via 0x4D9DB0 and SetFVF, cull none, texture stage
+      states, 0x4DAA80, no texture), a leftover debug dump name "e:\movietest\movie%04d.bmp" formatted (counter
+      0x696D9C advanced, never written), the texture set, a quad (position + size x 640 / 480, colour 0x808080
+      with alpha*255 truncated) drawn as a 2-triangle strip unless the device is lost (TestCooperativeLevel),
+      then stage 0's colour op back to modulate. PartyMod reroutes the texture set (0x44FB8C) to its
+      movie_setTexture (notes the movie's size) and the draw (0x44FC88 + a NOP) to its movie_drawPrim (fits the
+      quad to 4:3 inside the back buffer) - ours calls both. Early test (selftests_partymod.cpp): back buffers
+      16:9 / 4:3 / tall x device lost or not x three shapes (and no texture), the original with PartyMod's two
+      calls written in, a stand-in D3D device and texture (GetLevelDesc), the renderer's calls and the C
+      runtime sprintf stood in. 11 deliberate bugs: 9 caught, 2 equivalent under PartyMod (its fit replaces
+      every vertex's x/y, so ours' positions never reach the draw).
 - [ ] Next: the pre-compiled .qb format (0x46FBA0, 0x46CA50, 0x46C970, 0x46C830, 0x46C7F0, ...), the script
       cache (0x475FD0 ...), then CScript (0x472900.. / 0x473000..).
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
