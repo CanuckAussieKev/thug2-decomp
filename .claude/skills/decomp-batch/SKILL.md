@@ -20,6 +20,10 @@ with tools\ghidra\snapshot_project.ps1). `inspect` below means:
 - docs/decomp-progress.md ends with "- [ ] Next: ..." - start there.
 - `inspect survey <from> <to>`: sizes, callers, REPLACED, strings. Prefer whole clusters (a function and the
   helpers only it uses); leave a call to an un-rewritten function as `GameFunction<...>(address)`.
+- Skip nothing: the game will eventually be built from this source. Functions shorter than 5 bytes (can't
+  take the hook's jump) or that shouldn't be hooked get `REPLACE_SOURCE_ONLY` (still compiled, counted and
+  argument-checked; test them by calling ours directly against `Original<>`). Shared stubs (e.g. one
+  `return true` used by many script commands) are written once and registered at their one address.
 
 ## 2. Read the original - the disassembly, not the decompiler
 - `inspect disasm <addr>...` (write long ones to a scratch file and Read it); `inspect decompile` only as a
@@ -45,7 +49,8 @@ with tools\ghidra\snapshot_project.ps1). `inspect` below means:
 - Files under src/game/<subsystem>/; match the surrounding style (comments say what, not how; short names
   of real concepts). Layout structs with `static_assert(offsetof...)`. Globals via `GameVariable<T>(addr)`.
 - Register: `REPLACE(addr, Function)` / `&Class::Method` / adapters for members of other types; pure
-  functions may use `REPLACE_SHADOW`. New .cpp files go in CMakeLists.txt.
+  functions may use `REPLACE_SHADOW`; unhookable ones `REPLACE_SOURCE_ONLY`. New .cpp files go in
+  CMakeLists.txt.
 
 ## 4. Build and check
 - `cmd //c "C:\Dev\thug2-decomp\tools\verify_build.cmd"` - no errors, no warnings (warnings fail the user's

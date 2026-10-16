@@ -4,6 +4,12 @@ Restart rule: continue the first batch not marked done. A batch is done when it 
 (one commit per batch). In-game testing happens later; a batch that breaks the game gets reverted by its commit.
 Batches marked (untested) haven't been run in-game yet.
 
+**2026-10-16 (user):** the end goal is to compile the game itself, not only to inject a DLL - so no game
+function is skipped. Functions noted below as "left as original", "too small" or "PartyMod-patched, keep
+original" are TO-DOs: write them; register unhookable ones with `REPLACE_SOURCE_ONLY` (compiled, counted,
+argument-checked, not hooked). Compiler-generated helpers still need source in some form (a C++ construct
+that the compiler emits, or a plain function).
+
 ## Core utilities (0x401000-0x406460, 130 functions)
 
 - [x] Batch 0: `Crc::GenerateCRCFromString` 0x401B90 (commit 55ac891)

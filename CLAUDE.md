@@ -1,8 +1,14 @@
 # THUG2 decompilation - notes for Claude
 
 **Goal:** readable C++ for Tony Hawk's Underground 2 (PC) that opens in an IDE, builds, and runs the game -
-functional equivalence, not byte-matching. Functions are replaced one at a time in the running game by a
-hook DLL (re3/OpenRCT2 style), loaded as a proxy `dinput8.dll`, so the repo ships no game code.
+functional equivalence, not byte-matching. **In the end the game itself is compiled from this source** (no
+original exe, no DLL injection). Until then, functions are replaced one at a time in the running game by a
+hook DLL (re3/OpenRCT2 style) loaded as a proxy `dinput8.dll` - that's how they're tested, not the goal.
+So no game function is skipped: ones too small to hook (3-byte stubs) or that we don't want hooked are
+still written and registered with `REPLACE_SOURCE_ONLY` (compiled, counted, argument sizes checked, not
+installed); PartyMod-patched functions get source with PartyMod's behaviour. Later phases: turn
+`GameVariable<T>(address)` globals into real variables, rewrite everything still reached via
+`GameFunction`, and link the libraries (D3DX9, GameSpy, CRT) instead of decompiling them.
 
 ## Where things are
 - Game: `C:\Games\THUG2\THUG2PM.exe` - the PartyMod build (SafeDisc removed, base 0x400000). Also in that

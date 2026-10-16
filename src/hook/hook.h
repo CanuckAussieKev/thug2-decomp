@@ -26,6 +26,9 @@ struct Replacement {
     int callee_pop;
     const char* name;
     const char* file; // source file of the REPLACE line (thug2-decomp.ini can disable by file name)
+    // Written and compiled but not hooked (REPLACE_SOURCE_ONLY): too small for a jump, or the hook isn't
+    // wanted. The argument-size check still applies.
+    bool sourceOnly = false;
 };
 
 void RegisterReplacement(const Replacement& r);
@@ -89,9 +92,10 @@ Fn Original(uint32_t address)
 }
 
 struct ReplacementRegistrar {
-    ReplacementRegistrar(uint32_t address, void* function, int callee_pop, const char* name, const char* file)
+    ReplacementRegistrar(uint32_t address, void* function, int callee_pop, const char* name, const char* file,
+                         bool sourceOnly = false)
     {
-        RegisterReplacement({address, function, callee_pop, name, file});
+        RegisterReplacement({address, function, callee_pop, name, file, sourceOnly});
     }
 };
 
@@ -150,6 +154,12 @@ constexpr int kCalleePop = CalleePop<std::decay_t<F>>::value;
 #define REPLACE(address, ...)                                                                        \
     static ReplacementRegistrar REPLACE_CONCAT(g_replace_, __LINE__)(                                \
         address, CodeAddress(__VA_ARGS__), kCalleePop<decltype(__VA_ARGS__)>, #__VA_ARGS__, __FILE__)
+
+// The goal is source for the whole game (to build it without the original exe), so every function gets
+// rewritten - also those that can't be hooked: shorter than the 5-byte jump (3-byte stubs), or ones we
+// don't want hooked. They're registered (counted, argument sizes checked) but not installed:
+// REPLACE_SOURCE_ONLY(0x005B9760, Script::StubReturnTrue); // 3 bytes
+#define REPLACE_SOURCE_ONLY(address, ...)                                                                static ReplacementRegistrar REPLACE_CONCAT(g_replace_, __LINE__)(                                        address, CodeAddress(__VA_ARGS__), kCalleePop<decltype(__VA_ARGS__)>, #__VA_ARGS__, __FILE__, true)
 
 // For naked assembly stubs, whose C++ type says nothing about the stack: the argument-size check is skipped.
 #define REPLACE_UNCHECKED(address, ...)                                                              \

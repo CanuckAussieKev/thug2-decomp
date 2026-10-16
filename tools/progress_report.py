@@ -24,7 +24,7 @@ def kb(n):
 functions = {f["addr"]: f for f in json.load(open("data/derived/functions.json", encoding="utf-8"))}
 rewritten = set()
 for path in glob.glob("src/game/**/*.cpp", recursive=True):
-    for m in re.finditer(r"REPLACE(?:_SHADOW|_UNCHECKED)?\(0x([0-9A-Fa-f]{8})", open(path, encoding="utf-8").read()):
+    for m in re.finditer(r"REPLACE(?:_SHADOW|_UNCHECKED|_SOURCE_ONLY)?\(0x([0-9A-Fa-f]{8})", open(path, encoding="utf-8").read()):
         rewritten.add(int(m.group(1), 16))
 
 rows, libraries = [], []

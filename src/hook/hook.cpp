@@ -206,7 +206,8 @@ void InstallReplacements()
     for (const ArgumentSizeCheck& check : CheckArgumentSizes())
         original_pops.push_back(check.original_pop);
 
-    int installed = 0, skipped = 0, without_trampoline = 0, mismatched = 0, checked = 0, unchecked = 0;
+    int installed = 0, skipped = 0, without_trampoline = 0, mismatched = 0, checked = 0, unchecked = 0,
+        source_only = 0;
     for (size_t i = 0; i < Registry().size(); ++i) {
         Installed& entry = Registry()[i];
         const Replacement& r = entry.replacement;
@@ -232,6 +233,10 @@ void InstallReplacements()
             ++checked;
         else
             ++unchecked;
+        if (r.sourceOnly) {
+            ++source_only;
+            continue;
+        }
         MH_STATUS status = init == MH_OK ? MH_CreateHook(target, r.function, &entry.trampoline) : init;
         if (status == MH_OK)
             status = MH_QueueEnableHook(target);
@@ -257,8 +262,8 @@ void InstallReplacements()
         if (applied != MH_OK)
             Log("MinHook failed to enable the queued hooks: %s", MH_StatusToString(applied));
     }
-    Log("%d of %u replacements installed, %d disabled by thug2-decomp.ini", installed,
-        static_cast<unsigned>(Registry().size()), skipped);
+    Log("%d of %u replacements installed, %d disabled by thug2-decomp.ini, %d source only (not hooked)", installed,
+        static_cast<unsigned>(Registry().size()) - source_only, skipped, source_only);
     if (without_trampoline)
         Log("%d replacement(s) have no trampoline (their originals can't be called directly)", without_trampoline);
     if (mismatched)
