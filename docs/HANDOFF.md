@@ -19,7 +19,14 @@ Still to do (batches 54-56's records have notes - disassembly read, conventions,
 - graphics: 0x4B2D80, 0x4DB200 (far plane 32000 -> 96000; x87 FPTAN/FPATAN - needs inline asm to match), 0x4DF390
 - menus/text: 0x4CFD00 (SText::Draw), 0x4CECB0 (SFont::QueryString), 0x4D8650 (D3D init)
 - skater controls (PS2-style triggers, spin delay; depend on PartyMod settings): 0x50CA00, 0x509BD0,
-  0x4FCBA0, 0x504060, 0x507120, 0x5334D0
+  0x4FCBA0, 0x504060, 0x507120, 0x5334D0. Notes on 0x4FCBA0 (lip trick / jump direction, thiscall, 2 args,
+  RET 8, returns int 0/1): reads the skater's velocity from [this+0xC] +0x8C/+0x94/+0x98, normalises the
+  horizontal part (FSQRT, compared with the float at 0x66D520), then checks the input at [this+0x150C]+0x20
+  (+0x60 stops it; +0xA0 and +0x100 held - PartyMod's lip patch is the JZ at 0x4FCC59 -> JNZ 0x0A under PS2
+  controls; then +0x40 with a timer 0x46B920 vs a script value 0x580440, then +0x00, then +0x20) and adds
+  physics values (0x580400: script floats 0x1F96C224 / 0xDC818B7E / 0x1AB3809F) to the vector at
+  [this+0xC]+0xAC. Dense x87 code with stack-slot reuse - one branch multiplies by a slot left from an
+  earlier call's arguments: map every stack slot before writing it.
 - platform/misc: 0x44FDC0 (movie skip), 0x452200 (playlist shuffle - Ghidra shows it inside 0x452910),
   0x4E1EF0 (fast exit), 0x5A8730, 0x545880
 - WinMain 0x4E2680 and MainLoop 0x44EEF0: both host the test runner's hooks (src/hook/selftest_runner.cpp;
