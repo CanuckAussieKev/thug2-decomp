@@ -68,9 +68,10 @@ for r, n, size in libraries:
 out.append("- GameSpy SDK, MSVC C runtime, STL helpers and compiler-generated code after `0x5F8130` "
            "(see `docs/library_ranges.md`)")
 out.append("")
-out.append("## PartyMod\n")
-out.append("Built in from source (`src/partymod/`, MIT). Its byte patches are not counted as progress; they turn "
-           "into rewrites as the subsystems they touch are decompiled.")
+out.append("## PC port (after PartyMod)\n")
+out.append("PartyMod's changes (MIT, `LICENSES/partymod.txt`) are part of the game's source: the SDL window and "
+           "input, widescreen, the settings file and the rest, by subsystem. Only the GameSpy host names are still "
+           "written into the exe's library code at start-up (`src/game/net/online_hosts.cpp`).")
 
 open("docs/PROGRESS.md", "w", encoding="utf-8").write("\n".join(out) + "\n")
 print(f"docs/PROGRESS.md: {total['done_funcs']}/{total['funcs']} functions, "

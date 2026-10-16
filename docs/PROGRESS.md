@@ -1,6 +1,6 @@
 # Decompilation progress
 
-Generated 2026-10-16 by `tools/progress_report.py` - regenerate after each batch.
+Generated 2026-10-17 by `tools/progress_report.py` - regenerate after each batch.
 
 **Game code: █░░░░░░░░░░░░░░░░░░░ 7.9%** of the code rewritten (812 of 8,382 functions, 127.8 KB of 1,617.8 KB).
 
@@ -43,6 +43,6 @@ Linked as libraries in the final build rather than rewritten:
 - D3DX9 static library (shader assembler/compiler, math helpers) (`0x5beb1a`-`0x5eef20`): 677 functions, 157.8 KB
 - GameSpy SDK, MSVC C runtime, STL helpers and compiler-generated code after `0x5F8130` (see `docs/library_ranges.md`)
 
-## PartyMod
+## PC port (after PartyMod)
 
-Built in from source (`src/partymod/`, MIT). Its byte patches are not counted as progress; they turn into rewrites as the subsystems they touch are decompiled.
+PartyMod's changes (MIT, `LICENSES/partymod.txt`) are part of the game's source: the SDL window and input, widescreen, the settings file and the rest, by subsystem. Only the GameSpy host names are still written into the exe's library code at start-up (`src/game/net/online_hosts.cpp`).
