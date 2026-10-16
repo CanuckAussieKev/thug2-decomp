@@ -87,6 +87,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_glyph.cpp
     src/hook/selftests_skaterA.cpp
     src/hook/selftests_gfx2.cpp
+    src/hook/selftests_mainloop.cpp
     src/hook/selftests_misc.cpp
     src/hook/selftests_text.cpp
     src/hook/selftests_winmain.cpp
@@ -129,6 +130,7 @@ add_library(thug2_code OBJECT
     src/game/sys/registry.cpp
     src/game/sys/timer.cpp
     src/game/sys/main.cpp
+    src/game/sys/mlp.cpp
     src/game/sys/winmain.cpp
     src/game/mc/memcard.cpp
     src/game/mc/memcard_cfuncs.cpp

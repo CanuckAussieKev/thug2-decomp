@@ -28,6 +28,7 @@
 #include "game/script/struct.h"
 #include "game/sio/device.h"
 #include "game/sys/main.h"
+#include "game/sys/mlp.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -607,7 +608,7 @@ void TestMain()
         s->At({0x0044F3E0}, 4, recordArg(0xF3E0));
         s->At({0x0044F530}, 0, record(0xF530));
         s->At({0x0048C1D0}, 0, [](Regs& r) { Record({0xC1D0, r.args[0]}); return 0u; });
-        s->At({0x0044EEF0}, 0, record(0xEEF0));
+        s->At({0x0044EEF0, AddressOf(&Mlp::Manager::MainLoop)}, 0, record(0xEEF0));
         void* exitThunk = s->At({Resolve(reinterpret_cast<const void*>(&fastExit))}, 0, plain(0xFA57));
 
         std::memset(g_memManager, 0, sizeof(g_memManager));

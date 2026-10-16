@@ -130,9 +130,9 @@ void __cdecl ParseNetworkParamsHook(void* params)
     Original<void(__cdecl*)(void*)>(0x004E1220)(params);
 }
 
-// EngineStarted: MainLoop (0x0044EEF0) is entered once, after every engine module has started. It's a
-// thiscall with a register we must not disturb, so the hook is a stub that saves ECX/EDX, runs the tests
-// once, and jumps into the original through its trampoline.
+// EngineStarted: MainLoop (0x0044EEF0) is entered once, after every engine module has started. It's a plain
+// thiscall (the manager in ECX, no arguments), so the hook is a stub that keeps ECX (and EDX), runs the tests
+// once, and jumps into the original through its trampoline. (Mlp::Manager::MainLoop calls RunStageOnce itself.)
 void* __cdecl EngineStartedBody()
 {
     RunStageOnce(TestStage::EngineStarted);

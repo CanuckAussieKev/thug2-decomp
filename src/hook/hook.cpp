@@ -171,6 +171,15 @@ bool IsDisabled(const Replacement& r, const std::vector<std::string>& tokens)
 {
     char address[16];
     sprintf_s(address, "0x%08X", r.address);
+    // A test-runner fallback stands in for the game source at its address while that's disabled, so the address
+    // or the game function's name (MainLoop is also part of MainLoopHook) doesn't turn it off: only `*`, its
+    // file or its own full name do.
+    if (r.fallback) {
+        for (const std::string& token : tokens)
+            if (token == "*" || std::strstr(r.file, token.c_str()) || _stricmp(r.name, token.c_str()) == 0)
+                return true;
+        return false;
+    }
     for (const std::string& token : tokens) {
         if (token == "*" || _stricmp(token.c_str(), address) == 0 || std::strstr(r.name, token.c_str()) ||
             std::strstr(r.file, token.c_str()))
