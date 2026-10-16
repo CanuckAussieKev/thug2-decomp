@@ -88,7 +88,7 @@ Device* Device::Destroy(unsigned int flags)
 //     m_pluggedIn = 0;
 //     switch (m_state) { case kDetect: Detect(); break; case kReady: ReadData(0); break;
 //                        case kSettle: Settle(); break; }
-// where ReadData (0x005BD200) polls the pad into m_controlData. PartyMod replaces it with its own (SDL game
+// where ReadData polls the pad into m_controlData. PartyMod replaces it with its own (SDL game
 // controllers and the keyboard), which is what the game runs.
 void Device::Process(int unused)
 {
@@ -489,6 +489,190 @@ void SpecialKeyInput(int key, int flags)
         KeyboardCharCount() = 15;
 }
 
+// --- the original pad read --------------------------------------------------------------------------------
+
+namespace {
+struct LevelInfo {
+    uint8_t unknown[0x40];
+    uint32_t checksum;
+};
+} // namespace
+
+namespace {
+// Flags the read consults (meaning partly unknown): two that turn the menu handling off, and the level
+// (0x007CE5D8; its +0x40 is the level's checksum - 0x7ECA21E5 is the park editor's).
+bool& Flag696D95() { return GameVariable<bool>(0x00696D95); }
+bool& Flag6F1158() { return GameVariable<bool>(0x006F1158); }
+constexpr uint32_t kParkEditorLevel = 0x7ECA21E5;
+// The platform layer: three settings it reads (0x005F6610 / 0x005F6620 / 0x005F6630 store them), its
+// window message pump (0x005F56E0), the pad read (0x005F5BC0) and whether a DirectInput key is down.
+void SetPadMode(int mode) { GameFunction<void(__cdecl*)(int)>(0x005F6610)(mode); }
+void SetPadSetting6A40(int value) { GameFunction<void(__cdecl*)(int)>(0x005F6620)(value); }
+void SetPadSettingE244(int value) { GameFunction<void(__cdecl*)(int)>(0x005F6630)(value); }
+void PumpWindowMessages() { GameFunction<void(__cdecl*)()>(0x005F56E0)(); }
+void ReadPadState(int port, PadState* state) { GameFunction<void(__cdecl*)(int, PadState*)>(0x005F5BC0)(port + 1, state); }
+bool KeyDown(int code) { return GameFunction<bool(__cdecl*)(int)>(0x005F30E0)(code); }
+// The port the front end is taking input from (a getter, 0x00553E90, on the object at 0x007CE4B4).
+int MenuPort() { return GameFunction<int(__thiscall*)(void*)>(0x00553E90)(GameVariable<void*>(0x007CE4B4)); }
+
+uint8_t IfAbove(uint8_t value, uint8_t threshold, uint8_t bit) { return value > threshold ? bit : 0; }
+uint8_t PressureOrZero(uint8_t value) { return value > 0x20 ? value : 0; }
+uint8_t AllOrNothing(uint32_t value) { return value ? 0xFF : 0; }
+// A stick from -32768..32767 to 0..255 (signed division, rounding toward zero).
+uint8_t Stick(int value) { return static_cast<uint8_t>(value / 256); }
+} // namespace
+
+// 0x005BD200
+void Device::ReadData(int)
+{
+    if (QuitRequested())
+        return;
+    bool menu = MenuActive() || InMenu();
+    bool typing = KeyboardTyping();
+    bool selectSkaterShown = false;
+    bool pieceMenuShown = false;
+    bool playing = false;
+
+    // Which menus are up (the skater select's horizontal menu is checked before and after the park editor's).
+    Front::ElementPtr element;
+    Front::GetElement(&element, Crc::GenerateCRCFromString("select_skater_hmenu"));
+    if (element && !element->IsHidden())
+        selectSkaterShown = true;
+    {
+        Front::ElementPtr found;
+        Front::GetElement(&found, Crc::GenerateCRCFromString("piece_menu_hmenu"));
+        element = found;
+    }
+    if (!QuitRequested() && element && !element->IsHidden())
+        pieceMenuShown = true;
+    {
+        Front::ElementPtr found;
+        Front::GetElement(&found, Crc::GenerateCRCFromString("select_skater_hmenu"));
+        element = found;
+    }
+    if (element && !element->IsHidden())
+        selectSkaterShown = true;
+    bool menuMode = !pieceMenuShown && menu && !typing;
+    if (Flag696D95() || Flag6F1158()) {
+        pieceMenuShown = false;
+        menuMode = false;
+    }
+
+    // In menus only the port the front end listens to (or port 0, or both on the skater select) reads.
+    int menuPort = MenuPort();
+    SetPadSetting6A40(0);
+    SetPadSettingE244(1);
+    if (typing) {
+        SetPadMode(2);
+    } else if (menuMode) {
+        if ((!selectSkaterShown || menuPort == m_port) && m_port == 0) {
+            SetPadMode(1);
+        } else if (!selectSkaterShown) {
+            SetPadMode(2);
+        } else if (menuPort == m_port && m_port == 1) {
+            SetPadMode(3);
+        } else {
+            m_pluggedIn = true;
+            element.Release();
+            return;
+        }
+    } else if (pieceMenuShown) {
+        if (m_port != 0) {
+            m_pluggedIn = true;
+            element.Release();
+            return;
+        }
+        SetPadMode(0);
+    } else {
+        SetPadMode(0);
+        playing = true;
+    }
+    PumpWindowMessages();
+    m_pluggedIn = false;
+    if (!PadPresent(m_port))
+        return;
+
+    PadState pad;
+    ReadPadState(m_port, &pad);
+    const uint8_t* p = pad.pressure;
+    uint16_t buttons = pad.buttons;
+    bool keyboardMenu = m_keyboardControl && menuMode; // (the keyboard drives the menus: some buttons ignored)
+    m_valid = 1;
+    m_pluggedIn = true;
+    // Two bytes of button bits, each set while the button is up.
+    m_controlData[0] = 0;
+    m_controlData[1] = 0x70;
+    uint8_t first = keyboardMenu ? 0xFF : static_cast<uint8_t>(~(((buttons & 0xFF) >> 1) & 8));
+    first ^= (buttons >> 5) & 7;
+    m_controlData[2] = first;
+    uint8_t second = static_cast<uint8_t>(~(p[1] >= 0x20 ? 0x20 : 0)) ^ (p[3] >= 0x20 ? 0x10 : 0);
+    if (!keyboardMenu)
+        second ^= p[0] >= 0x20 ? 0x40 : 0;
+    second ^= p[2] >= 0x20 ? 0x80 : 0;
+    uint8_t buttonsSoFar = second;
+    LevelInfo* level = GameVariable<LevelInfo*>(0x007CE5D8);
+    if (level && level->checksum == kParkEditorLevel) {
+        // The park editor: the triggers are mapped differently while its element 0x31631B98 is up.
+        bool editorElement = false;
+        if (GameVariable<void*>(0x00701440)) {
+            Front::ElementPtr found;
+            Front::GetElement(&found, 0x31631B98);
+            editorElement = found.Get() != nullptr;
+            found.Release();
+        }
+        second ^= IfAbove(p[7], 0x20, editorElement ? 2 : 4);
+        second ^= IfAbove(p[6], 0x20, 1);
+    } else {
+        second = buttonsSoFar ^ IfAbove(p[6], 0x80, 1) ^ IfAbove(p[7], 0x80, 2) ^ IfAbove(p[6], 0x20, 4) ^
+                 IfAbove(p[7], 0x20, 8);
+    }
+    m_controlData[3] = second;
+    // Pressures (dead zone 0x20).
+    m_controlData[12] = PressureOrZero(p[3]);
+    m_controlData[13] = PressureOrZero(p[1]);
+    m_controlData[14] = keyboardMenu ? 0 : PressureOrZero(p[0]);
+    m_controlData[15] = PressureOrZero(p[2]);
+    m_controlData[16] = PressureOrZero(p[6]);
+    m_controlData[17] = PressureOrZero(p[7]);
+    m_controlData[18] = 0;
+    m_controlData[19] = 0;
+    m_controlData[20] = 0;
+    // The d-pad: pressures, and its bits in the first byte.
+    m_controlData[10] = AllOrNothing(buttons & 1);
+    m_controlData[8] = AllOrNothing(buttons & 8);
+    m_controlData[11] = AllOrNothing(buttons & 2);
+    uint8_t low = static_cast<uint8_t>(buttons);
+    uint8_t dpad = static_cast<uint8_t>((low & 0xFE) << 1);
+    dpad = static_cast<uint8_t>((dpad ^ (low & 1)) << 2);
+    dpad = static_cast<uint8_t>((dpad ^ (low & 8)) << 2);
+    m_controlData[2] ^= dpad;
+    m_controlData[9] = AllOrNothing(buttons & 4);
+    // The sticks (y inverted).
+    m_controlData[4] = Stick(pad.sticks[2] + 0x7FFF);
+    m_controlData[5] = Stick(0x7FFF - pad.sticks[3]);
+    m_controlData[6] = Stick(pad.sticks[0] + 0x7FFF);
+    m_controlData[7] = Stick(0x7FFF - pad.sticks[1]);
+    if (p[4] > 0x20)
+        m_controlData[20] = 1;
+    if (p[5] > 0x20)
+        m_controlData[20] |= 2;
+    m_pressed = ((m_controlData[2] << 8 | m_controlData[3]) ^ 0xFFFF) != 0;
+
+    // The keyboard takes over the menus after start, a pressed trigger, a typed Enter, or (playing) Enter.
+    bool enterTyped = false;
+    if (typing) {
+        char typed[256];
+        int count = GetKeyboardChars(typed);
+        for (int i = 0; i < count; ++i) {
+            if (typed[i] == 0x19) {
+                enterTyped = true;
+                break;
+            }
+        }
+    }
+    m_keyboardControl = (buttons & 0x10) || p[0] >= 0x20 || enterTyped || (playing && KeyDown(0x1C));
+}
+
 // --- the manager -------------------------------------------------------------------------------------------
 
 namespace {
@@ -666,7 +850,8 @@ REPLACE(0x005BCC60, &Sio::Device::IsPluggedIn);
 REPLACE(0x005BCC70, &Sio::Device::Acquire);
 REPLACE(0x005BD8B0, &Sio::Device::Detect);
 REPLACE(0x005BCCC0, &Sio::Device::Settle);
-REPLACE(0x005BDA20, &Sio::Device::ActivateActuator); // (PartyMod's patch inside it is past our jump)
+REPLACE(0x005BDA20, &Sio::Device::ActivateActuator);
+REPLACE(0x005BD200, &Sio::Device::ReadData); // (not run with PartyMod) // (PartyMod's patch inside it is past our jump)
 REPLACE(0x005BCCB0, &Sio::Device::EnableActuators);
 REPLACE(0x005BDAD0, &Sio::Device::DisableActuators);
 REPLACE(0x005BDB30, &Sio::Device::ResetActuators);

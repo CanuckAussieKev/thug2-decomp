@@ -33,6 +33,11 @@ public:
     // 0x005BCCC0: one frame's wait, then the state after it.
     void Settle();
 
+    // 0x005BD200: the original's pad read (Process, state kReady): the platform layer's pad state for this
+    // port into PS2-format control data, with the menus deciding which port and keys count. PartyMod's
+    // Process does its own reading, so this isn't run in the game.
+    void ReadData(int unused);
+
     // 0x005BDA20: run motor `actuator` at `percent` of its maximum. PartyMod removes the original's first
     // step, reading the pad (see device.cpp).
     void ActivateActuator(int actuator, int percent);
@@ -84,6 +89,16 @@ static_assert(offsetof(Device, m_controlData) == 0x1C && offsetof(Device, m_actu
                   offsetof(Device, m_pauseCount) == 0xBC && offsetof(Device, m_state) == 0xD4 &&
                   offsetof(Device, m_pluggedIn) == 0xE0 && sizeof(Device) == 0xF0,
               "layout must match the original");
+
+// The platform layer's pad state for a port (0x005F5BC0 fills it).
+struct PadState {
+    uint32_t unknown0;
+    uint16_t buttons;     // bits: 0x10 start...; 0x01 / 0x02 / 0x04 / 0x08 the d-pad
+    uint8_t pressure[8];  // analogue buttons and triggers, 0-255
+    int16_t sticks[4];    // -32768..32767
+    uint8_t unknown16[2];
+};
+static_assert(offsetof(PadState, sticks) == 0x0E && sizeof(PadState) == 0x18, "layout must match the original");
 
 // The platform layer's motor control (0x005F3A50; PartyMod replaces it): levels 0-65535.
 void SetActuators(int port, int left, int right);

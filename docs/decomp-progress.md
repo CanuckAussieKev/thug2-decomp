@@ -611,6 +611,31 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       installed, early and engine-started tests pass, no run-time check failures. One late test failed -
       "sio (late): Device constructor and destructor" - a test bug: after destroying, it compared the two
       devices' node pointers (each its own). Fixed; the comparison now clears them first.
+- [x] Batch 53 (NOT run in the game yet - and PartyMod never runs it; early test passes offline): SIO's last
+      function, Device::ReadData 0x5BD200, the original pad read (Process in state kReady; PartyMod's Process
+      replaces it). Returns at once while quitting. Looks up select_skater_hmenu (twice) and piece_menu_hmenu
+      (ignored while quitting); menu mode = in a menu (0x7CE46C or 0x7CE46F), not the piece menu, not typing;
+      both off while 0x696D95 or 0x6F1158. The front end's port (0x553E90 on the object at 0x7CE4B4) decides
+      who reads: typing -> pad mode 2; in a menu -> mode 1 on port 0 (unless the skater select is up and the
+      front end listens elsewhere), mode 2 off the skater select, mode 3 on port 1 if it's the front end's,
+      else the device just reports plugged in; the piece menu -> port 0 only, mode 0; playing -> mode 0. (Pad
+      mode: 0x5F6610 -> 0x7D6A3C; also 0x5F6620(0), 0x5F6630(1).) Then the window messages are pumped
+      (0x5F56E0), and if a pad is present its state (Sio::PadState: buttons +4, eight pressures, four sticks;
+      read by 0x5F5BC0) becomes PS2 control data: two bytes of button bits (set while up; the keyboard
+      driving the menus masks some), pressures with a 0x20 dead zone, the d-pad as pressures and bits, the
+      sticks to 0-255 (y inverted, signed division), the triggers' bits - mapped differently in the park
+      editor (level checksum 0x7ECA21E5) and again while its element 0x31631B98 is up. "Pressed" if any bit
+      is down; the keyboard takes over the menus after start, a pressed trigger, a typed Enter (0x19) or,
+      while playing, Enter held (0x5F30E0(0x1C)). 1 function, 1.7 KB. SIO (0x5BCC40-0x5BE6C0) is now done.
+      Early test: the platform's pad read, message pump and key check redirected (a jump written over their
+      first bytes for the test, then restored) to scripted stand-ins, so original and ours see the same pad
+      and every call is recorded; 8 menu scenes x 13 flag sets x 3 ports x 2 front-end ports (levels, key
+      bindings, typed keys, pad states and keyboard control cycling), then 7 pad states x 4 levels x 3 menu
+      states x 4 keyboard combinations, and no element manager. 39 deliberate bugs: 37 caught, 2 equivalent
+      (the first skater select check is repeated before it's used; the quit check before the piece menu
+      can't fail after the one at the start). The test first looked fine while every read returned at once:
+      it wrote a third port's key bindings - there are two tables, the third overwrote the quit flag.
+      tools/mutate.py now names the failing test on each CAUGHT line and reports mutations that don't build.
 - [ ] Next: the pre-compiled .qb format (0x46FBA0, 0x46CA50, 0x46C970, 0x46C830, 0x46C7F0, ...), the script
       cache (0x475FD0 ...), then CScript (0x472900.. / 0x473000..).
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function

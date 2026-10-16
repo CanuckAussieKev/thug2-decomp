@@ -39,3 +39,10 @@ Don't trust a comment saying a call is "a no-op" without looking: CStruct's gett
 When a function you rewrite calls 0x5480A0 (or another empty function), keep the call in the source under
 a meaningful empty inline function (Mem::PushMemProfile/PopMemProfile, Script::PrintContents,
 Mem::DebugTrackBlock, ...) with its arguments - the strings it's passed document the code.
+
+## A test that passes at once can be testing nothing
+Check that the code under test actually ran its main path (count the calls it makes, or break it on purpose
+first). Batch 53's test passed while every call returned at the first line: stand-in data written for a
+third port spilled over the "quit requested" flag. `tools/mutate.py` prints the failing test's name on each
+CAUGHT line - make sure it's the test you wrote. Writing a jump over a game function's first bytes for the
+length of a test (TestDetour in selftest.cpp) is how to script platform calls the original makes directly.

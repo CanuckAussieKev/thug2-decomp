@@ -7374,6 +7374,213 @@ void TestSioKeyNamesLate()
     }
 }
 
+// A jump written over a game function's start for the length of a test (restored when it goes).
+struct TestDetour {
+    uint8_t* at;
+    uint8_t saved[5];
+    TestDetour(uint32_t address, const void* to) : at(reinterpret_cast<uint8_t*>(address))
+    {
+        DWORD old;
+        VirtualProtect(at, 5, PAGE_EXECUTE_READWRITE, &old);
+        std::memcpy(saved, at, 5);
+        at[0] = 0xE9;
+        int32_t relative = static_cast<int32_t>(reinterpret_cast<uintptr_t>(to) - (address + 5));
+        std::memcpy(at + 1, &relative, 4);
+        FlushInstructionCache(GetCurrentProcess(), at, 5);
+    }
+    ~TestDetour()
+    {
+        std::memcpy(at, saved, 5);
+        FlushInstructionCache(GetCurrentProcess(), at, 5);
+    }
+};
+
+// The platform layer, scripted: the pad state, the message pump and the key check (calls recorded).
+Sio::PadState g_pad;
+bool g_pad_key_down;
+std::vector<uint32_t> g_pad_log;
+void __cdecl StandInReadPad(int port, Sio::PadState* state)
+{
+    g_pad_log.push_back(0x9AD00u + static_cast<uint32_t>(port));
+    *state = g_pad;
+}
+void __cdecl StandInPump() { g_pad_log.push_back(0x9E5); }
+bool __cdecl StandInKeyDown(int code)
+{
+    g_pad_log.push_back(0xD0D00u + static_cast<uint32_t>(code));
+    return g_pad_key_down;
+}
+
+// The original pad read (not run with PartyMod), over the menus it checks (stand-in screen elements), the
+// flags, ports, levels and scripted pad states - original vs ours.
+void TestSioReadData()
+{
+    struct Saved {
+        uint32_t address;
+        uint32_t size;
+        std::vector<uint8_t> bytes;
+    };
+    std::vector<Saved> saved = {{0x00701440, 4, {}}, {0x006F0FC0, 4, {}}, {0x007CE46C, 4, {}}, {0x007CCDF8, 1, {}},
+                                {0x007D6A2C, 1, {}}, {0x00696D95, 1, {}}, {0x006F1158, 1, {}}, {0x007CE5D8, 4, {}},
+                                {0x007CE4B4, 4, {}}, {0x007D6A3C, 8, {}}, {0x0068E244, 4, {}}, {0x007D6318, 0x10, {}},
+                                {0x007D6770, 0x260, {}}, {0x007D1BE0, 0x40, {}}, {0x007D1E28, 4, {}}};
+    for (Saved& s : saved) {
+        s.bytes.resize(s.size);
+        std::memcpy(s.bytes.data(), reinterpret_cast<void*>(s.address), s.size);
+    }
+    TestDetour readPad(0x005F5BC0, reinterpret_cast<void*>(&StandInReadPad));
+    TestDetour pump(0x005F56E0, reinterpret_cast<void*>(&StandInPump));
+    TestDetour keyDown(0x005F30E0, reinterpret_cast<void*>(&StandInKeyDown));
+    for (int i = 0; i < 4; ++i)
+        GameVariable<void*>(0x007D6318 + 4 * i) = nullptr; // no joysticks: present through key bindings
+    static StandInElements standIn;
+    alignas(16) static uint8_t frontEnd[0x20]; // the object whose +0x1C is the front end's port
+    alignas(16) static uint8_t levels[2][0x48];
+    std::memset(levels, 0, sizeof(levels));
+    reinterpret_cast<uint32_t*>(levels[0])[0x40 / 4] = 0x7ECA21E5; // the park editor
+    reinterpret_cast<uint32_t*>(levels[1])[0x40 / 4] = 0x12345678;
+    uint32_t select = Crc::GenerateCRCFromString("select_skater_hmenu");
+    uint32_t piece = Crc::GenerateCRCFromString("piece_menu_hmenu");
+    const uint32_t editor = 0x31631B98;
+
+    struct Pad {
+        uint16_t buttons;
+        uint8_t p[8];
+        int16_t sticks[4];
+    };
+    std::vector<Pad> pads = {
+        {0x0000, {0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0}},
+        {0xFFFF, {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}, {32767, -32768, -1, 1}},
+        {0x0010, {0x1F, 0x20, 0x21, 0x80, 0x81, 0x20, 0x81, 0x21}, {255, -255, 256, -256}},
+        {0x00E5, {0x20, 0x1F, 0x20, 0x1F, 0x21, 0x21, 0x80, 0x80}, {-32767, 32766, 127, -128}},
+        {0x0102, {0x21, 0x00, 0x22, 0x20, 0x00, 0x00, 0x21, 0x81}, {1000, -1000, 0, 32767}},
+        {0x000C, {0x00, 0x30, 0x00, 0x30, 0x00, 0x00, 0x20, 0x20}, {-200, 200, -32768, 0}},
+        {0x0020, {0, 0, 0, 0, 0, 0, 0, 0}, {0, 0, 0, 0}}, // (only the first byte has a button down)
+    };
+
+    std::vector<uint32_t> traces[2];
+    for (int run = 0; run < 2; ++run) {
+        bool original = run == 0;
+        std::vector<uint32_t>& trace = traces[run];
+        alignas(16) static uint8_t device[0x100];
+        int variant = 0;
+        auto read = [&](int port, bool keyboardControl) {
+            ++variant;
+            for (int i = 0; i < 0x100; ++i)
+                device[i] = static_cast<uint8_t>(i * 3 + variant);
+            auto* d = reinterpret_cast<Sio::Device*>(device);
+            d->m_port = port;
+            d->m_keyboardControl = keyboardControl;
+            g_pad_log.clear();
+            GameVariable<int>(0x007D6A3C) = 0x55;
+            GameVariable<int>(0x007D6A40) = 0x55;
+            GameVariable<int>(0x0068E244) = 0x55;
+            if (original)
+                Original<void(__thiscall*)(void*, int)>(0x005BD200)(device, 7);
+            else
+                d->ReadData(7);
+            trace.insert(trace.end(), reinterpret_cast<uint32_t*>(device), reinterpret_cast<uint32_t*>(device + 0x100));
+            trace.push_back(GameVariable<uint32_t>(0x007D6A3C));
+            trace.push_back(GameVariable<uint32_t>(0x007D6A40));
+            trace.push_back(GameVariable<uint32_t>(0x0068E244));
+            trace.insert(trace.end(), g_pad_log.begin(), g_pad_log.end());
+            trace.push_back(standIn.Pointers());
+        };
+        auto setPad = [&](const Pad& pad) {
+            std::memset(&g_pad, 0x6B, sizeof(g_pad));
+            g_pad.buttons = pad.buttons;
+            std::memcpy(g_pad.pressure, pad.p, 8);
+            std::memcpy(g_pad.sticks, pad.sticks, 8);
+        };
+        auto setBindings = [](bool any) {
+            for (int port = 0; port < 2; ++port) { // (two ports' tables: beyond them are other globals)
+                auto* table = reinterpret_cast<int*>(0x007D6770 + port * 0x130);
+                for (int i = 0; i < 0x4C; ++i)
+                    table[i] = -1;
+                if (any)
+                    table[5] = 0x1C;
+            }
+        };
+        auto setChars = [](bool enter) {
+            GameVariable<uint32_t>(0x007D1E28) = 3;
+            GameVariable<int>(0x007D1BE0) = 'a';
+            GameVariable<int>(0x007D1BE4) = enter ? 0x19 : 'b';
+            GameVariable<int>(0x007D1BE8) = 'c';
+        };
+
+        // The menus, flags and ports: who reads and in which mode.
+        struct Scene {
+            int select, piece; // 0 absent, 1 shown, 2 hidden
+        };
+        std::vector<Scene> scenes = {{0, 0}, {1, 0}, {2, 0}, {0, 1}, {0, 2}, {1, 1}, {2, 1}, {1, 2}};
+        for (const Scene& scene : scenes) {
+            standIn.Set({{select, scene.select != 0, scene.select == 2 ? 1 : 0},
+                         {piece, scene.piece != 0, scene.piece == 2 ? 1 : 0},
+                         {editor, (variant & 1) != 0, 0}});
+            for (int flags : {0, 1, 2, 4, 5, 6, 8, 9, 16, 17, 32, 33, 64}) {
+                GameVariable<bool>(0x007CE46C) = (flags & 1) != 0;
+                GameVariable<bool>(0x007CE46F) = (flags & 2) != 0;
+                GameVariable<bool>(0x007CE46E) = (flags & 4) != 0;
+                GameVariable<bool>(0x007D6A2C) = (flags & 8) != 0;
+                GameVariable<bool>(0x00696D95) = (flags & 16) != 0;
+                GameVariable<bool>(0x006F1158) = (flags & 32) != 0;
+                for (int port = 0; port < 3; ++port) {
+                    for (int menuPort = 0; menuPort < 2; ++menuPort) {
+                        reinterpret_cast<int*>(frontEnd)[0x1C / 4] = menuPort;
+                        GameVariable<void*>(0x007CE4B4) = frontEnd;
+                        GameVariable<void*>(0x007CE5D8) = (variant % 3) == 2 ? nullptr : levels[variant % 3];
+                        setBindings((variant % 5) != 0);
+                        setChars((variant % 4) == 0);
+                        setPad(pads[static_cast<size_t>(variant) % pads.size()]);
+                        g_pad_key_down = (variant % 3) == 0;
+                        read(port, (variant % 7) < 3);
+                    }
+                }
+            }
+        }
+        // The bits: every pad state over the levels (and the park editor's element or not), the keyboard
+        // controlling the menus or not, typed Enter or not, Enter held or not.
+        GameVariable<bool>(0x007CE46C) = false;
+        GameVariable<bool>(0x007CE46F) = false;
+        GameVariable<bool>(0x007D6A2C) = false;
+        GameVariable<bool>(0x00696D95) = false;
+        GameVariable<bool>(0x006F1158) = false;
+        setBindings(true);
+        for (const Pad& pad : pads) {
+            setPad(pad);
+            for (int level = 0; level < 4; ++level) {
+                standIn.Set({{editor, level == 3, 0}});
+                GameVariable<void*>(0x007CE5D8) = level == 2 ? nullptr : levels[level == 3 ? 0 : level];
+                for (int menuState = 0; menuState < 3; ++menuState) { // playing, in a menu, typing
+                    GameVariable<bool>(0x007CE46F) = menuState == 1;
+                    GameVariable<bool>(0x007CE46E) = menuState == 2;
+                    for (int keys = 0; keys < 4; ++keys) {
+                        setChars((keys & 1) != 0);
+                        g_pad_key_down = (keys & 2) != 0;
+                        read(0, keys == 3 || keys == 0);
+                    }
+                }
+            }
+        }
+        // No element manager: the park editor's element isn't looked up.
+        GameVariable<void*>(0x00701440) = nullptr;
+        GameVariable<void*>(0x007CE5D8) = levels[0];
+        read(0, false);
+    }
+    for (Saved& s : saved)
+        std::memcpy(reinterpret_cast<void*>(s.address), s.bytes.data(), s.size);
+    Check(traces[0] == traces[1], "sio: the original pad read");
+    if (traces[0].size() != traces[1].size())
+        Log("  pad read trace sizes: original %u ours %u", static_cast<unsigned>(traces[0].size()),
+            static_cast<unsigned>(traces[1].size()));
+    for (size_t i = 0, shown = 0; i < traces[0].size() && i < traces[1].size() && shown < 8; ++i) {
+        if (traces[0][i] != traces[1][i]) {
+            Log("  pad read entry %u: original %08X ours %08X", static_cast<unsigned>(i), traces[0][i], traces[1][i]);
+            ++shown;
+        }
+    }
+}
+
 // The stand-in idle function for WaitForVblank: counts a vblank on its third call.
 bool g_timer_original;
 int g_timer_idle_calls;
@@ -8494,6 +8701,7 @@ SELFTEST(Early, TestLeftovers);
 SELFTEST(Early, TestSio);
 SELFTEST(Early, TestSioManager);
 SELFTEST(Early, TestSioKeyNames);
+SELFTEST(Early, TestSioReadData);
 SELFTEST(Early, TestTimer);
 
 SELFTEST(Late, TestMemoryLate);

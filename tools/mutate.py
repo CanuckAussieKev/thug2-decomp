@@ -29,12 +29,16 @@ for path, name, old, new in spec["MUTS"]:
     assert original.count(old) == 1, (name, original.count(old))
     open(path, "w", encoding="utf-8").write(original.replace(old, new, 1))
     try:
-        subprocess.run(["cmd", "/c", build], capture_output=True, text=True)
+        result = subprocess.run(["cmd", "/c", build], capture_output=True, text=True)
+        if result.returncode != 0:
+            print(name, "BUILD FAILED (fix the mutation)", flush=True)
+            continue
         with open(log_path, "w") as out:
             process = subprocess.Popen([checker], stdout=out, stderr=out, cwd=REPO)
             try:
                 code = process.wait(timeout=60)
-                print(name, "CAUGHT" if code != 0 else "missed", code, flush=True)
+                failed = [line.strip() for line in open(log_path, errors="replace") if "SELFTEST FAIL" in line]
+                print(name, "CAUGHT" if code != 0 else "missed", code, ("- " + failed[0]) if failed else "", flush=True)
             except subprocess.TimeoutExpired:
                 subprocess.run(["taskkill", "/F", "/T", "/IM", "thug2_check.exe"], capture_output=True)
                 process.wait()
