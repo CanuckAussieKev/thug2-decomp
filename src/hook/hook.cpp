@@ -221,11 +221,15 @@ void InstallReplacements()
             continue;
         }
         if (r.fallback) {
+            // (A replacement left out for a wrong argument size doesn't count: without the fallback that stage's
+            // tests - and the stop with the message naming it - would never come.)
             bool superseded = false;
-            for (const Installed& other : Registry())
-                superseded |= &other != &entry && other.replacement.address == r.address &&
-                              !other.replacement.fallback && !other.replacement.sourceOnly &&
-                              !IsDisabled(other.replacement, disabled);
+            for (size_t j = 0; j < Registry().size(); ++j) {
+                const Replacement& other = Registry()[j].replacement;
+                bool sizeMismatch = other.callee_pop >= 0 && original_pops[j] >= 0 && other.callee_pop != original_pops[j];
+                superseded |= j != i && other.address == r.address && !other.fallback && !other.sourceOnly &&
+                              !IsDisabled(other, disabled) && !sizeMismatch;
+            }
             if (superseded) {
                 ++fallbacks_unused;
                 continue;
