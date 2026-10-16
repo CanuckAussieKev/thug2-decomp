@@ -19,6 +19,7 @@
 #include "game/mth/random.h"
 #include "game/script/struct.h"
 #include "game/sio/device.h"
+#include "game/sys/mlp.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -44,7 +45,7 @@ void AddTask(uint8_t* mlp, uint32_t list, void* task)
     GameFunction<void(__thiscall*)(uint8_t*, void*)>(0x00406C90)(mlp + list, task);
 }
 void RemoveAllTasks(uint8_t* mlp, uint32_t list) { GameFunction<void(__thiscall*)(uint8_t*)>(0x00406CB0)(mlp + list); }
-void MainLoop(uint8_t* mlp) { GameFunction<void(__thiscall*)(uint8_t*)>(0x0044EEF0)(mlp); }
+void MainLoop(uint8_t* mlp) { reinterpret_cast<Mlp::Manager*>(mlp)->MainLoop(); }
 
 // The module manager (Mdl::Manager, 0x0044F6F0).
 void RegisterModule(uint8_t* mdl, void* module) { GameFunction<void(__thiscall*)(uint8_t*, void*)>(0x0044F3C0)(mdl, module); }

@@ -96,6 +96,7 @@ HANDLED = {
     0x004DB35D: "Nx::SetCamera uses PartyMod's far plane (96000)",
     0x004DF63A: "Nx::DrawScreenBlur leaves out the letterbox adjustment PartyMod jumps over",
     0x004E2492: "Sys::Main calls PartyMod's fastExit after the main loop",
+    0x0044F1C0: "Mlp::Manager::MainLoop renders through RenderFrameLetterboxed, PartyMod's renderWorldWrapper",
     0x00545B4F: "Net::ServiceTask: the news download gives up after PartyMod's 500 ms",
     0x00545CDE: "Net::ServiceTask runs PartyMod's script 0x588ED87C when the news download ends",
     0x00545CE8: "Net::ServiceTask sets the +0xFE09 flag to PartyMod's 1",
