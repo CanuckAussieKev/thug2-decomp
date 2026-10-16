@@ -100,7 +100,7 @@ struct PadState {
 };
 static_assert(offsetof(PadState, sticks) == 0x0E && sizeof(PadState) == 0x18, "layout must match the original");
 
-// The platform layer's motor control (0x005F3A50; PartyMod replaces it): levels 0-65535.
+// The platform layer's motor control (Platform::SetActuators, 0x005F3A50: PartyMod's): levels 0-65535.
 void SetActuators(int port, int left, int right);
 
 // The keyboard (DirectInput): 0x005BDD60 reads its state once a frame into one of two 256-byte buffers;

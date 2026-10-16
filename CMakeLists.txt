@@ -102,6 +102,7 @@ add_library(thug2_code OBJECT
     src/game/gfx/flash.cpp
     src/game/gfx/font.cpp
     src/game/gfx/movie.cpp
+    src/game/pcm/music.cpp
     src/game/gfx/loading_bar.cpp
     src/game/gfx/render.cpp
     src/game/file/async.cpp

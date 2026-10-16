@@ -44,6 +44,9 @@ HANDLED = {
     0x0044FB8C: "Nx::DrawMovieFrame calls PartyMod's movie_setTexture",
     0x0044FC88: "Nx::DrawMovieFrame draws through PartyMod's movie_drawPrim",
     0x0044FC8D: "(the NOP after that call)",
+    0x00450121: "Nx::PlayMovieFile reads the pads every frame (PartyMod NOPs the every-fifth-frame JNZ)",
+    0x004523A7: "Pcm::PlayNextTrack shuffles with Pcm::ShuffleRandom, PartyMod's our_random",
+    0x004523B4: "(the second draw)",
     0x0051F4C8: "Skater::Component::PlatformStructure compares with 5 instead of 7 under PS2 controls",
     0x00527546: "Skater::Component::TryWalkAcidDrop skips the +0xC0 button under PS2 controls",
     0x00527636: "Skater::Component::TryAcidDrop skips the +0xC0 button under PS2 controls",
@@ -83,6 +86,10 @@ HANDLED = {
 }
 import json
 bodies = {f["addr"]: f["end"] for f in json.load(open("data/derived/functions.json", encoding="utf-8"))}
+# Functions Ghidra doesn't define (it takes them as part of the function that jumps to them): start -> end.
+bodies.update({
+    0x00452200: 0x00452677,  # Pcm::PlayNextTrack, reached by a jump from 0x00452910
+})
 all_registered = set()
 for path in glob.glob("src/game/**/*.cpp", recursive=True):
     for m in re.finditer(r"REPLACE\w*\(0x([0-9A-Fa-f]{8})", open(path, encoding="utf-8").read()):

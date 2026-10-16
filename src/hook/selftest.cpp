@@ -6495,6 +6495,27 @@ void TestLeftoversLate()
 // --- Sio ------------------------------------------------------------------------------------------------------
 
 // What the stand-in force-feedback effects, keyboard and manager are asked to do.
+// A jump written over a function's first five bytes for the length of a test.
+struct TestDetour {
+    uint8_t* at;
+    uint8_t saved[5];
+    TestDetour(uint32_t address, const void* to) : at(reinterpret_cast<uint8_t*>(address))
+    {
+        DWORD old;
+        VirtualProtect(at, 5, PAGE_EXECUTE_READWRITE, &old);
+        std::memcpy(saved, at, 5);
+        at[0] = 0xE9;
+        int32_t relative = static_cast<int32_t>(reinterpret_cast<uintptr_t>(to) - (address + 5));
+        std::memcpy(at + 1, &relative, 4);
+        FlushInstructionCache(GetCurrentProcess(), at, 5);
+    }
+    ~TestDetour()
+    {
+        std::memcpy(at, saved, 5);
+        FlushInstructionCache(GetCurrentProcess(), at, 5);
+    }
+};
+
 std::vector<uint32_t> g_sio_log;
 
 HRESULT __stdcall SioEffectSetParameters(void* self, const uint32_t* effect, DWORD flags)
@@ -6511,6 +6532,13 @@ HRESULT __stdcall SioEffectStop(void* self)
     return 0;
 }
 HRESULT __stdcall SioUnused(void*) { return 0; }
+// PartyMod's motor control (input.c), which both the original (through PartyMod's jump at 0x005F3A50) and
+// ours (Platform::SetActuators) reach: the levels recorded instead of driving an SDL controller.
+extern "C" void __cdecl set_actuators(int port, uint16_t high, uint16_t low);
+void __cdecl SioStandInSetActuators(int port, uint16_t high, uint16_t low)
+{
+    g_sio_log.insert(g_sio_log.end(), {0x5E7u, static_cast<uint32_t>(port), high, low});
+}
 
 // A keyboard whose GetDeviceState results are scripted.
 std::vector<HRESULT> g_sio_keyboard_results;
@@ -6540,7 +6568,7 @@ void* __fastcall SioManagerDestroy(void* self, void*, unsigned int flags)
     return self;
 }
 
-// The device methods (motors traced through stand-in force-feedback effects; pads present or not through the
+// The device methods (motors traced at PartyMod's set_actuators; pads present or not through the
 // key binding table), the keyboard's state reading (a stand-in DirectInput keyboard) and typed characters, the
 // manager's references, Lst::Search's destructor - original vs ours. Device::Process is PartyMod's (SDL) and
 // the constructor calls the game's rand: see TestSioLate.
@@ -6567,6 +6595,9 @@ void TestSio()
     std::memcpy(activateBytes, activateCall, 7);
     bool alreadyPatched = activateBytes[0] == 0x90;
     std::memset(activateCall, 0x90, 7);
+    // The motors: PartyMod's jump at 0x005F3A50 to its set_actuators (as in the game), and that recorded.
+    TestDetour partyModMotors(0x005F3A50, reinterpret_cast<const void*>(&set_actuators));
+    TestDetour motors(reinterpret_cast<uint32_t>(&set_actuators), reinterpret_cast<const void*>(&SioStandInSetActuators));
     static void* effectVtable[10];
     for (void*& slot : effectVtable)
         slot = reinterpret_cast<void*>(&SioUnused);
@@ -6855,6 +6886,9 @@ void TestSioManager()
     effectVtable[6] = reinterpret_cast<void*>(&SioEffectSetParameters);
     effectVtable[8] = reinterpret_cast<void*>(&SioEffectStop);
     alignas(16) static void* effects[2][4] = {{effectVtable}, {effectVtable}};
+    // The motors: PartyMod's jump at 0x005F3A50 to its set_actuators (as in the game), and that recorded.
+    TestDetour partyModMotors(0x005F3A50, reinterpret_cast<const void*>(&set_actuators));
+    TestDetour motors(reinterpret_cast<uint32_t>(&set_actuators), reinterpret_cast<const void*>(&SioStandInSetActuators));
     static void* standInVtable[4] = {reinterpret_cast<void*>(&SioStandInDestroy), nullptr,
                                      reinterpret_cast<void*>(&SioStandInDestroy), nullptr};
 
@@ -7375,25 +7409,6 @@ void TestSioKeyNamesLate()
 }
 
 // A jump written over a game function's start for the length of a test (restored when it goes).
-struct TestDetour {
-    uint8_t* at;
-    uint8_t saved[5];
-    TestDetour(uint32_t address, const void* to) : at(reinterpret_cast<uint8_t*>(address))
-    {
-        DWORD old;
-        VirtualProtect(at, 5, PAGE_EXECUTE_READWRITE, &old);
-        std::memcpy(saved, at, 5);
-        at[0] = 0xE9;
-        int32_t relative = static_cast<int32_t>(reinterpret_cast<uintptr_t>(to) - (address + 5));
-        std::memcpy(at + 1, &relative, 4);
-        FlushInstructionCache(GetCurrentProcess(), at, 5);
-    }
-    ~TestDetour()
-    {
-        std::memcpy(at, saved, 5);
-        FlushInstructionCache(GetCurrentProcess(), at, 5);
-    }
-};
 
 // The platform layer, scripted: the pad state, the message pump and the key check (calls recorded).
 Sio::PadState g_pad;
