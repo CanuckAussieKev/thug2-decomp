@@ -100,6 +100,14 @@ constexpr uint32_t RETURN_WAIT_TYPE_MASK = 0xF;
 constexpr uint8_t RETURN_FLAG_TIMER_STARTED = 0x01;
 constexpr uint8_t RETURN_FLAG_INTERRUPTED = 0x02;
 
+// A script held by a structure component (8 bytes, filled by CStruct's 0x00476900): its name and its code.
+// (Group A: SetScriptCopy's argument.)
+struct SStructScript {
+    uint32_t mNameChecksum;
+    const uint8_t* mpScriptTokens;
+};
+static_assert(sizeof(SStructScript) == 8, "allocated as 8 bytes by 0x0048B200");
+
 // A member function's table entry (the value of a ESYMBOLTYPE_MEMBERFUNCTION symbol, token 0x46).
 struct CMemberFunctionEntry {
     uint32_t unknown0;
@@ -138,8 +146,9 @@ public:
     // 0x004747A0 / 0x004747C0: SetScript(name, null, params, object), the name as a checksum or a string.
     void SetScript(uint32_t name, CStruct* params, Obj::CObject* object);
     void SetScript(const char* name, CStruct* params, Obj::CObject* object);
-    // 0x00474720: SetScript with a private copy of the script symbol's code (m_codeCopy, on the script heap).
-    void SetScriptCopy(CSymbolTableEntry* symbol, CStruct* params, Obj::CObject* object);
+    // 0x00474720: SetScript with a private copy of `script`'s code (m_codeCopy, on the script heap) - a script
+    // held in a structure (0x0048B200 gets it with 0x00476900).
+    void SetScriptCopy(SStructScript* script, CStruct* params, Obj::CObject* object);
     // 0x004747F0: start again the script it was started with (the bottom level's name, parameters, object).
     void Restart();
     // 0x00472C90: whether the scripts of every level are still defined (the bottom level is skipped when it
