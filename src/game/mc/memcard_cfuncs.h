@@ -12,4 +12,7 @@ namespace Mc {
 // 0x005A6E40: script function GetMemCardSpaceAvailable.
 bool GetMemCardSpaceAvailable(Script::CStruct* params, Script::CScript* script);
 
+// 0x005A8730: script function LoadFromMemoryCard (PartyMod: without the save checksum test).
+bool LoadFromMemoryCard(Script::CStruct* params, Script::CScript* script);
+
 } // namespace Mc
