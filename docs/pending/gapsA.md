@@ -1,5 +1,5 @@
-- [x] Batch gapsA (gaps next to batches 55/63-66; NOT run in the game yet; branch wt/gapsA): 33 addresses filled in -
-      28 REPLACE, 5 REPLACE_SOURCE_ONLY (jumps). Tests in new src/hook/selftests_gapsA.cpp (Early, StandIns harness).
+- [x] Batch gapsA (gaps next to batches 55/63-66; NOT run in the game yet; branch wt/gapsA): 34 addresses filled in -
+      28 REPLACE, 6 REPLACE_SOURCE_ONLY (jumps). Tests in new src/hook/selftests_gapsA.cpp (Early, StandIns harness).
       - Text (src/game/gfx/text.*): `SFont` layout finished - specialMap is 0x20 bytes ([0x1F] doubles as the default
         glyph), +0x12C `format`, +0x130 `next` (font list 0x780FD8), +0x178 `texture` (IDirect3DTexture9), +0x17C
         (passed with it to 0x4DA730), size 0x180. SText: 0x4CEED0 `Construct(float priority)` (base drawable 0x4DFA70
@@ -23,7 +23,7 @@
         listener). 0x450220 StreamIdFinished, 0x450260 FindPlayingStream (by id, then by name, -1), 0x4502D0
         FreeStreamId, 0x450310 ShuffleUserSoundtrack (game's Rnd; at most 600; no PartyMod change here), 0x4503D0
         UseUserSoundtrack, 0x450410 UseStandardSoundtrack, 0x450420 StopUserSoundtrack (source only: jump to
-        0x4531A0), 0x450430 MusicIsPaused (CFunction MusicIsPaused jumps to it via 0x44D680 - not done), 0x450440 /
+        0x4531A0), 0x450430 MusicIsPaused (also registered source only at 0x44D680, the CFunction MusicIsPaused - a jump to it), 0x450440 /
         0x450450 music / sfx volume (FLD), 0x450460 RandomTrackOrder (int, MOVZX), 0x450470 SetMusicLooping (so
         0x69BAA0 is the loop flag, renamed from "special track set"), 0x450480 / 0x4504B0 Get/SetTracksOff
         (playlist 0's off masks), 0x4504E0 SetUserSoundtrackVolume (float; 0x453400 only for playlist 1), 0x452680
@@ -44,5 +44,7 @@
         default itself, never 0 there) and '~' for an empty conversion (wsprintf "%ls" never gives one).
       - Register scan (nothing new beyond the known 0x4EFF92; EAX readers of these all return values), call audit (no
         MISMATCH), overlap check (no overlaps): clean.
-      - Not done: CFunction thunk 0x44D680 (MusicIsPaused -> 0x450430); gapsB left 0x4B2270-0x4B2320 next to
-        0x4B2350 for this branch - not taken (see report).
+      - Not done: 0x4B2270-0x4B2320 (9 small Nx platform glue functions - a flag toggle, an EndScene-style device
+        call, a release, four jumps into 0x4D3CA0 / 0x4D8C90 / 0x4D8CC0 / 0x4DB570, a matrix call, a string getter -
+        left by gapsB next to 0x4B2350; they need their callees looked at, for a later batch). find_gaps after the
+        merge: none of this batch's neighbours left, 0 thunks.

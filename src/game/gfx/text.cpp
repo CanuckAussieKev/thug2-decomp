@@ -5,6 +5,7 @@
 #include <bit>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 
 #include "game/core/mem.h"
@@ -520,10 +521,8 @@ SFont* SFont::Load(const char* name, bool fromMemory)
     const uint8_t* data = reinterpret_cast<const uint8_t*>(name); // (from memory: the next bytes)
     File::Handle file = nullptr;
     if (!fromMemory) {
-        char path[128];
-        std::strcpy(path, "fonts/");
-        std::strcat(path, name);
-        std::strcat(path, ".fnt.xbx");
+        char path[128]; // (the original strcpy/strcats into it: a longer name overflows; here it's cut short)
+        std::snprintf(path, sizeof(path), "fonts/%s.fnt.xbx", name);
         file = File::Open(path, "rb");
     }
     // The next size * count bytes into `to` (as the original reads them: the header as 0x14 of 1 byte, the rest

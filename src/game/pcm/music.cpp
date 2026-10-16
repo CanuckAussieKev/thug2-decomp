@@ -357,7 +357,7 @@ const char* __cdecl GetSoundtrackName(int index)
         }
         *out = 0;
     } else {
-        std::strcpy(name, "~");
+        std::memcpy(name, "~", 2);
     }
     int length = static_cast<int>(std::strlen(name));
     for (int i = 0; i < length; ++i) {
@@ -417,6 +417,7 @@ REPLACE(0x004503D0, Pcm::UseUserSoundtrack);
 REPLACE(0x00450410, Pcm::UseStandardSoundtrack);
 REPLACE_SOURCE_ONLY(0x00450420, Pcm::StopUserSoundtrack); // a jump to 0x004531A0
 REPLACE(0x00450430, Pcm::MusicIsPaused);
+REPLACE_SOURCE_ONLY(0x0044D680, Pcm::MusicIsPaused); // the CFunction MusicIsPaused: a jump to 0x00450430 (its arguments unused)
 REPLACE(0x00450440, Pcm::GetMusicVolume);
 REPLACE(0x00450450, Pcm::GetSfxVolume);
 REPLACE(0x00450460, Pcm::RandomTrackOrder);
