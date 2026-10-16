@@ -481,6 +481,7 @@ Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*,
       (can't run offline): ours is checked against what Windows lists. 28 deliberate bugs caught (7 after
       strengthening the test). Left in the block: the input-device code 0x5BCC60-0x5BDA20 (PartyMod
       reworks input - read its source first).
+- [x] Batch 47 tested in the game (2026-10-16, by the user): game loads fine.
 - [ ] Next: the pre-compiled .qb format (0x46FBA0, 0x46CA50, 0x46C970, 0x46C830, 0x46C7F0, ...), the script
       cache (0x475FD0 ...), then CScript (0x472900.. / 0x473000..).
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
