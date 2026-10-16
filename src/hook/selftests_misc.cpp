@@ -25,6 +25,7 @@
 #include "game/mth/math.h"
 #include "game/mth/random.h"
 #include "game/net/service.h"
+#include "game/script/cache.h"
 #include "game/script/struct.h"
 #include "game/sio/device.h"
 #include "game/sys/main.h"
@@ -565,7 +566,8 @@ void TestMain()
             {0x00463730, 0}, {0x0044F260, AddressOf(&Mlp::CreateManager)}, {0x0044F6F0, 0},
             {0x005BE670, AddressOf(&Sio::CreateManager)},
             {0x005BC900, AddressOf(&Mc::CreateManager)}, {0x0044E7F0, 0},
-            {0x005B6CA0, AddressOf(&File::CreateAsyncLoaderModule)}, {0x00476040, 0}, {0x004088E0, 0},
+            {0x005B6CA0, AddressOf(&File::CreateAsyncLoaderModule)},
+            {0x00476040, AddressOf(&Script::CreateScriptCache)}, {0x004088E0, 0},
             {0x0047BA60, 0}, {0x00455880, 0}, {0x0045F7A0, 0}, {0x00589180, 0}, {0x00553DB0, 0}, {0x0057C0D0, 0},
             {0x0057EED0, 0}, {0x005691A0, 0}, {0x0054FF80, 0}, {0x0053F520, 0}, {0x00590160, 0}, {0x004ACAF0, 0},
             {0x0045D690, 0}, {0x00574540, 0}};
@@ -584,7 +586,7 @@ void TestMain()
         const Create releases[] = {
             {0x00574910, 0}, {0x0045D6E0, 0}, {0x004AACF0, 0}, {0x0058D290, 0}, {0x005395C0, 0}, {0x0054EBE0, 0},
             {0x00564C10, 0}, {0x0057FDB0, 0}, {0x0057C120, 0}, {0x00552F70, 0}, {0x005880E0, 0}, {0x0045F1E0, 0},
-            {0x004558D0, 0}, {0x0047C6C0, 0}, {0x00407980, 0}, {0x00475A00, 0},
+            {0x004558D0, 0}, {0x0047C6C0, 0}, {0x00407980, 0}, {0x00475A00, AddressOf(&Script::ReleaseScriptCache)},
             {0x005B6620, AddressOf(&File::DestroyAsyncLoaderModule)}, {0x0044E6B0, 0},
             {0x005BC950, AddressOf(&Mc::ReleaseManager)}, {0x005BDCF0, AddressOf(&Sio::ReleaseManager)},
             {0x0044F740, 0}, {0x0044F2B0, AddressOf(&Mlp::ReleaseManager)}, {0x00461FA0, 0},

@@ -38,10 +38,12 @@ void our_random(int out_of) {
 	return rand() % out_of;
 }
 
+#ifndef THUG2_DECOMP // (built into the rewritten Pcm::PlayNextTrack)
 void patchPlaylistShuffle() {
 	patchCall(addr_shuffle1, our_random);
 	patchCall(addr_shuffle2, our_random);
 }
+#endif
 
 int32_t __fastcall calcAvailableSpaceFudged(uint8_t *param1) {
 	if (*(param1 + 0xc)) {
@@ -63,9 +65,11 @@ int32_t __fastcall calcAvailableSpaceFudged(uint8_t *param1) {
 	return 0;
 }
 
+#ifndef THUG2_DECOMP // (built into the rewritten CFunc_GetMemCardSpaceAvailable)
 void patchCalcAvailableSpace() {
 	patchCall(0x005a6e7e, calcAvailableSpaceFudged);
 }
+#endif
 
 uint32_t rng_seed = 0;
 
@@ -131,9 +135,11 @@ void initPatch() {
 	//printf("BASE ADDR: 0x%08x, LEN: %d\n", base_addr, mod_size);
 }
 
+#ifndef THUG2_DECOMP // (the rewritten Platform::ProcessWindowEvents calls handleEvents)
 void patchEventHandler() {
 	patchJmp(addr_procevents, handleEvents);
 }
+#endif
 
 void getModuleInfo() {
 	void *mod = GetModuleHandle(NULL);
@@ -185,6 +191,7 @@ void fastExit() {
 }
 #endif
 
+#ifndef THUG2_DECOMP // (built into the rewritten Sys::Main and Nx::PlayMovieFile)
 // we don't care about cleanup, the OS can handle that. so patch the function immediately after the main loop to call exit to skip cleanup
 void patchFastExit() {
 	patchCall(0x004e2492, fastExit);
@@ -194,6 +201,7 @@ void patchFastExit() {
 void patchMovieSkip() {
 	patchNop(0x00450121, 6);
 }
+#endif
 
 void networkParamsWrapper(void *args) {
 	void (__cdecl *orig_networkParams)(void *) = 0x004e1220;
@@ -211,6 +219,9 @@ void partymod_attach(void) {
 	//findInitOffset();
 
 	// install patches
+	// THUG2_DECOMP: none - every game function these patched is rewritten with PartyMod's behaviour built in
+	// (and calls PartyMod's code where it needs it); thug2-decomp's WinMain calls initPatch itself.
+#ifndef THUG2_DECOMP
 	patchCall((void *)0x004e26dc, &(networkParamsWrapper));
 
 	patchEventHandler();
@@ -222,6 +233,7 @@ void partymod_attach(void) {
 	patchCalcAvailableSpace();
 	patchFastExit();
 	patchMovieSkip();
+#endif
 }
 
 #ifndef THUG2_DECOMP

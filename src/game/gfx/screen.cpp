@@ -76,10 +76,10 @@ bool __cdecl CFunc_SetScreenBlur(Script::CStruct* params, Script::CScript* /*scr
 
 } // namespace Nx
 
-// PartyMod jumps from the starts of the first four to its own, and may write over the fifth's first bytes, so
-// none can carry our hook.
-REPLACE_SOURCE_ONLY(0x004A0780, Nx::SetScreenAspectRatio);
-REPLACE_SOURCE_ONLY(0x004A07C0, Nx::GetScreenAngleFactor);
-REPLACE_SOURCE_ONLY(0x004B2330, Nx::SetScreenBlur);
-REPLACE_SOURCE_ONLY(0x004B2440, Nx::SetLetterbox);
-REPLACE_SOURCE_ONLY(0x0048C170, Nx::CFunc_SetScreenBlur);
+// (PartyMod jumped from the starts of the first four to its own and rewrote the fifth's first bytes; its patches
+// are no longer applied - src/partymod - so these carry our hooks.)
+REPLACE(0x004A0780, Nx::SetScreenAspectRatio);
+REPLACE(0x004A07C0, Nx::GetScreenAngleFactor);
+REPLACE(0x004B2330, Nx::SetScreenBlur);
+REPLACE(0x004B2440, Nx::SetLetterbox);
+REPLACE(0x0048C170, Nx::CFunc_SetScreenBlur);

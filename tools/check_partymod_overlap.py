@@ -14,6 +14,31 @@ src = "".join(open(f, encoding="utf-8", errors="replace").read()
               for f in glob.glob("src/partymod/**/*.[ch]", recursive=True))
 src = re.sub(r"//[^\n]*", "", src)  # (commented-out patches don't count)
 src = re.sub(r"/\*.*?\*/", "", src, flags=re.S)
+
+
+def drop_upstream_only(text):
+    """Leave out what thug2-decomp doesn't build: `#ifndef THUG2_DECOMP` blocks (up to their #else / #endif) and the
+    #else part of `#ifdef THUG2_DECOMP` blocks. Other #if blocks are kept whole."""
+    out, stack = [], []  # per open #if: [is a THUG2_DECOMP test, its current branch is built]
+    for line in text.splitlines(keepends=True):
+        s = line.strip()
+        if s.startswith("#if"):
+            ours = re.match(r"#if(n?)def\s+THUG2_DECOMP\b", s)
+            stack.append([bool(ours), not ours or ours.group(1) == ""])
+            continue
+        if stack and (s.startswith("#else") or s.startswith("#elif")):
+            if stack[-1][0]:
+                stack[-1][1] = not stack[-1][1]
+            continue
+        if stack and s.startswith("#endif"):
+            stack.pop()
+            continue
+        if all(built for _, built in stack):
+            out.append(line)
+    return "".join(out)
+
+
+src = drop_upstream_only(src)
 names = {m.group(1): int(m.group(2), 16)
          for m in re.finditer(r"(addr_\w+)\s*=\s*\(?(?:void\s*\*\))?\s*\(?(0x[0-9a-fA-F]+)", src)}
 patches, unresolved = set(), set()

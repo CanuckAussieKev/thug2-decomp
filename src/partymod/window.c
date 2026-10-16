@@ -91,9 +91,11 @@ void createSDLWindow() {
 	}
 
 	//*isFullscreen = !isWindowed;
+#ifndef THUG2_DECOMP // (the rewritten Nx::InitDirect3D reads isWindowed)
 	if (isWindowed) {
 		patchByte(0x004d871f + 1, 0x05);	// set fullscreen to 0
 	}
+#endif
 
 	enforceMaxResolution();
 
@@ -127,8 +129,10 @@ void createSDLWindow() {
 	*isFocused = 1;
 
 	// patch resolution setting
+#ifndef THUG2_DECOMP // (the rewritten Nx::InitDirect3D reads resX / resY)
 	patchDWord(0x004d8772 + 4, resX);
 	patchDWord(0x004d878e + 4, resY);
+#endif
 	
 	SDL_ShowCursor(0);
 }
@@ -143,6 +147,7 @@ void getWindowDimensions(uint32_t *width, uint32_t *height) {
 	}
 }
 
+#ifndef THUG2_DECOMP // (built into the rewritten WinMain, InitDirect3D and UpdateLoadingBarColors)
 void patchWindow() {
 	// replace the window with an SDL2 window.  this kind of straddles the line between input and config
 	patchCall(0x004e2767, createSDLWindow);
@@ -156,6 +161,7 @@ void patchWindow() {
 	patchByte(0x004d869c, 0xeb);	// don't call showwindow
 	patchNop(0x004e277d, 20);	// don't call showwindow
 }
+#endif
 
 void loadWindowSettings() {
 	resX = getConfigInt(CONFIG_GRAPHICS_SECTION, "ResolutionX", 0);

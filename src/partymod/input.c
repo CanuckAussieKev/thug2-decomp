@@ -1262,8 +1262,10 @@ uint8_t __cdecl isPs2Wrapper_DD(uint8_t *idk, uint8_t *script) {
 }
 
 void patchPs2Buttons() {
-	patchByte((void *)(addr_platform + 2), 0x05);	// change xbox platform to something else to just skip it
 	wrap_cfunc("IsPS2", isPs2Wrapper_DD, NULL);
+	// THUG2_DECOMP: the byte patches below are built into the rewritten skater functions (Skater::Ps2Controls()).
+#ifndef THUG2_DECOMP
+	patchByte((void *)(addr_platform + 2), 0x05);	// change xbox platform to something else to just skip it
 
 	// in air
 	patchByte((void *)(addr_r2l2_air), 0x75);
@@ -1313,8 +1315,10 @@ void patchPs2Buttons() {
 	// disable spin delay on l1/r1
 	patchNop((void *)(addr_spin_delay1), 2);
 	patchNop((void *)(addr_spin_delay2), 2);
+#endif
 }
 
+#ifndef THUG2_DECOMP // (built into the rewritten Sio / Platform input functions and GameNet::KeyboardTask)
 void patchInput() {
 	// patch SIO::Device
 	// process
@@ -1336,3 +1340,4 @@ void patchInput() {
 	// fix chat handler to be able to detect f1
 	patchByte(0x00533651 + 1, 0x1f);
 }
+#endif

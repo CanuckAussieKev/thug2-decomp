@@ -17,6 +17,7 @@
 #include "game/mc/memcard.h"
 #include "game/mth/math.h"
 #include "game/mth/random.h"
+#include "game/script/cache.h"
 #include "game/script/struct.h"
 #include "game/sio/device.h"
 #include "game/sys/mlp.h"
@@ -130,7 +131,7 @@ int __cdecl Main(int argc, char** argv)
 
         Mem::PushMemProfile("Game Singletons");
         GameFunction<void(__cdecl*)()>(0x004694E0)();
-        uint8_t* module476040 = Create(0x00476040);
+        Script::CScriptCache* scriptCache = Script::CreateScriptCache(true);
         uint8_t* module4088E0 = Create(0x004088E0);
         Create(0x0047BA60);
         Create(0x00455880);
@@ -154,13 +155,13 @@ int __cdecl Main(int argc, char** argv)
         AddTask(mlp, 0x7C, *reinterpret_cast<void**>(mdl));
         AddTask(mlp, 0x7C, *reinterpret_cast<void**>(sio + 0x18));
         AddTask(mlp, 0x04, *reinterpret_cast<void**>(singleton44E7F0));
-        RegisterModule(mdl, module476040);
+        RegisterModule(mdl, scriptCache);
         RegisterModule(mdl, module590160);
         RegisterModule(mdl, module54FF80);
         RegisterModule(mdl, module5691A0);
         RegisterModule(mdl, asyncLoader);
         RegisterModule(mdl, module4088E0);
-        StartModule(mdl, module476040);
+        StartModule(mdl, scriptCache);
         StartModule(mdl, module54FF80);
         StartModule(mdl, module5691A0);
         StartModule(mdl, module590160);
@@ -179,7 +180,7 @@ int __cdecl Main(int argc, char** argv)
         fastExit();
 
         StopAllModules(mdl);
-        UnregisterModule(mdl, module5691A0); // (module476040 isn't unregistered)
+        UnregisterModule(mdl, module5691A0); // (the script cache isn't unregistered)
         UnregisterModule(mdl, module54FF80);
         UnregisterModule(mdl, module590160);
         UnregisterModule(mdl, asyncLoader);
@@ -202,7 +203,7 @@ int __cdecl Main(int argc, char** argv)
         Release(0x004558D0);
         Release(0x0047C6C0);
         Release(0x00407980);
-        Release(0x00475A00);
+        Script::ReleaseScriptCache();
         File::DestroyAsyncLoaderModule();
         Release(0x0044E6B0);
         Mc::ReleaseManager();
