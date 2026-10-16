@@ -27,6 +27,11 @@ typedef struct {
 
 graphicsSettings graphics_settings;
 
+#ifdef THUG2_DECOMP
+// THUG2_DECOMP: the DisableBlur setting, for the decompiled SetScreenBlur (src/game/gfx/screen.cpp)
+int blur_disabled = 1;
+#endif
+
 void writeConfigValues() {
 	*antialiasing = graphics_settings.antialiasing;
 	*hq_shadows = graphics_settings.hq_shadows;
@@ -383,8 +388,14 @@ void loadGfxSettings() {
 	graphics_settings.fog = getConfigBool(CONFIG_GRAPHICS_SECTION, "Fog", 0);
 
 	if (getConfigBool(CONFIG_GRAPHICS_SECTION, "DisableBlur", 1)) {
+#ifdef THUG2_DECOMP
+		blur_disabled = 1;
+#endif
 		patchBlur();
 	} else {
+#ifdef THUG2_DECOMP
+		blur_disabled = 0;
+#endif
 		restoreBlur();
 	}
 }
