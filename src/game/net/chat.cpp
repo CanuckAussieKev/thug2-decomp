@@ -6,7 +6,11 @@
 
 #include "game/core/mem.h"
 #include "game/core/pool.h"
+#include "game/core/crc.h"
 #include "game/script/params.h"
+#include "game/script/struct.h"
+#include "game/sio/device.h"
+#include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -146,6 +150,32 @@ void Send(Manager* manager, const char* name, uint8_t color, const char* text)
 
 Manager* GetManager() { return GameVariable<Manager*>(0x007CCE14); }
 
+namespace {
+
+// The manager's keyboard task: the keys (Sio::GetKeyboardChars) it acts on.
+constexpr char kKeyEnter = 0x19;
+constexpr char kKeyF1 = 0x1F; // (0x1B in the original - see KeyboardTask)
+constexpr char kKeyF2 = 0x1C;
+constexpr char kKeyF3 = 0x1D;
+constexpr char kKeyF4 = 0x1E;
+constexpr uint32_t kId = 0x40C698AF;           // "id"
+constexpr uint32_t kOpenChatScript = 0x3B4548B8;
+constexpr uint32_t kTauntScript = 0x2C43B5BA;
+constexpr uint32_t kTauntName = 0xB53D0E0F;
+uint32_t& LastTauntTime() { return GameVariable<uint32_t>(0x007CCE20); }
+
+// The script command ObjectExists (0x00462340) with these parameters.
+bool ObjectExists(Script::CStruct* params)
+{
+    return GameFunction<bool(__cdecl*)(Script::CStruct*, void*)>(0x00462340)(params, nullptr);
+}
+void RunScriptWith(uint32_t script, Script::CStruct* params)
+{
+    GameFunction<void(__cdecl*)(uint32_t, Script::CStruct*, int, int, int)>(0x00475790)(script, params, 0, 0, 0);
+}
+
+} // namespace
+
 // 0x00537BD0 (GameNet::Manager::SendChatMessage)
 void SendChatMessage(Manager* manager, const char* text)
 {
@@ -181,6 +211,63 @@ bool HandleChatCommand(Manager* manager, const char* text)
     return false; // not one of ours: send it as typed
 }
 
+// 0x005334D0
+void __cdecl KeyboardTask(void* /*task*/)
+{
+    char keys[256];
+    if (Sio::GetKeyboardChars(keys) <= 0)
+        return;
+    char key = keys[0];
+    if (key == kKeyEnter) {
+        // Open the chat box - unless one of the dialogs (or the quit dialog's anchor) is up. (The parameters are
+        // never freed: the original leaks them, 8 bytes a time.)
+        Script::CStruct* params = Script::NewStruct();
+        if (params)
+            params = params->Init();
+        params->AddChecksum(kId, 0x31631B98);
+        if (ObjectExists(params))
+            return;
+        params->Clear();
+        params->AddChecksum(kId, 0xF53D1D83);
+        if (ObjectExists(params))
+            return;
+        params->Clear();
+        params->AddChecksum(kId, 0x3B56E746);
+        if (ObjectExists(params))
+            return;
+        params->Clear();
+        uint32_t anchor = Crc::GenerateCRCFromString("quit_dialog_anchor");
+        params->AddChecksum(Crc::GenerateCRCFromString("id"), anchor);
+        if (ObjectExists(params))
+            return;
+        RunScriptWith(kOpenChatScript, nullptr);
+        Sio::ClearKeyboardChars();
+        return;
+    }
+    // F1-F4: a taunt, at most one every two seconds. F1 comes as 0x1F with PartyMod's keyboard input (0x1B is
+    // Escape there): its byte at 0x00533652 - the original compares with 0x1B.
+    uint32_t taunt;
+    switch (key) {
+    case kKeyF1: taunt = 0x0E5FD359; break;
+    case kKeyF2: taunt = 0xBEEA3518; break;
+    case kKeyF3: taunt = 0x4525ADBD; break;
+    case kKeyF4: taunt = 0xA36DBEE1; break;
+    default: return;
+    }
+    if (Tmr::GetTime() - LastTauntTime() <= 2000)
+        return;
+    Script::CStruct* params = Script::NewStruct();
+    if (params)
+        params = params->Init();
+    params->AddChecksum(kTauntName, taunt);
+    RunScriptWith(kTauntScript, params);
+    if (params) {
+        params->Clear();
+        Script::DeleteStruct(params);
+    }
+    LastTauntTime() = Tmr::GetTime();
+}
+
 } // namespace GameNet
 
 namespace {
@@ -214,3 +301,4 @@ struct ManagerAdapter {
 
 REPLACE(0x005A16B0, CFunc_SendChatMessage);
 REPLACE(0x00537BD0, &ManagerAdapter::SendChatMessage);
+REPLACE(0x005334D0, GameNet::KeyboardTask);
