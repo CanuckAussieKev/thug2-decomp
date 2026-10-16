@@ -17,7 +17,11 @@ installed); PartyMod-patched functions get source with PartyMod's behaviour. Lat
   SafeDisc-encrypted and not used.
 - Ghidra 12.1.4 at `C:\ghidra`; project `C:\Games\THUG2-ghidra` (the Ghidra MCP server uses it); a read-only
   copy for scripts at `C:\Games\THUG2-ghidra-snapshot` (refresh: `tools\ghidra\snapshot_project.ps1`).
-  `tools/ghidra/inspect_range.py` surveys ranges and dumps disassembly/decompilation/jump tables/strings.
+  `tools/ghidra/inspect_range.py` surveys ranges and dumps disassembly/decompilation/jump tables/strings;
+  `find_gaps.py` lists un-rewritten functions between rewritten ones (what was skipped), `find_stubs.py`
+  the game's two-instruction functions.
+- Progress counts REPLACE lines under src/game only. src/hook's registrations of 0x4E1220
+  (ParseNetworkParams) and 0x44EEF0 (MainLoop) are test-runner hooks, not source - both still need writing.
 - Build: VS 2026 (MSVC 14.51), CMake + Ninja, x86. The user builds `out/build/x86-debug` in Visual Studio
   (post-build copies the DLL into the game folder; sometimes "Rebuild All" is needed - check the deployed
   DLL's timestamp). I build with `tools\verify_build.cmd` (`out/build/verify`, no copy) and run
