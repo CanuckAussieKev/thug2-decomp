@@ -83,6 +83,10 @@ void TestThing()
             delete guard;
 
         // 4. The whole arena, pointers made arena-relative (and stale half-pointers in 16-bit fields).
+        // The half-pointer pass works in whole 64 KB segments, so the segment holding the arena's end also
+        // matches whatever is placed right after the arena (another static -> false differences). If that
+        // bites, allocate the arenas with VirtualAlloc (64 KB aligned, nothing else shares their segments)
+        // instead of as statics.
         for (uint32_t& word : trace)
             word = relocate(word);
         std::vector<uint32_t> image(sizeof(g_thing_arenas[0]) / 4);
