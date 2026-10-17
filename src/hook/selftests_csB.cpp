@@ -23,6 +23,7 @@
 #include "game/core/mem.h"
 #include "game/core/pool.h"
 #include "game/script/cache.h"
+#include "game/obj/object.h"
 #include "game/script/cscript.h"
 #include "game/script/eval.h"
 #include "game/script/names.h"
@@ -744,7 +745,7 @@ void TestScriptInterpreter()
         Record({0x6E71, r.args[0]});
         return 0;
     });
-    s.At({0x00460AD0}, 0, [](Regs& r) -> uint32_t {
+    s.At({0x00460AD0, AddressOf(&Obj::FindObject)}, 0, [](Regs& r) -> uint32_t {
         Record({0xF0B1, r.args[0]});
         if (r.args[0] == OBJ_B)
             return reinterpret_cast<uint32_t>(&g_objB);

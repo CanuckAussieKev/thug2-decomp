@@ -18,6 +18,7 @@
 #include "game/mc/memcard.h"
 #include "game/mth/math.h"
 #include "game/mth/random.h"
+#include "game/obj/objman.h"
 #include "game/script/cache.h"
 #include "game/script/struct.h"
 #include "game/sio/device.h"
@@ -211,7 +212,7 @@ int __cdecl Main(int argc, char** argv)
         Sio::ReleaseManager();
         Release(0x0044F740);
         Mlp::ReleaseManager();
-        Release(0x00461FA0);
+        Obj::ReleaseTracker();
         Pre::DestroyManager();
         Mem::PopMemProfile(); // (Everything)
         Stubs::IgnoreArgument(0x10);

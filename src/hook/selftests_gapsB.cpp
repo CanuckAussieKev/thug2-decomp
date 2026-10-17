@@ -20,6 +20,7 @@
 #include "game/file/pre.h"
 #include "game/mc/memcard.h"
 #include "game/obj/flip_rotate.h"
+#include "game/obj/objman.h"
 #include "game/script/cache.h"
 #include "game/script/struct.h"
 #include "game/sio/device.h"
@@ -93,7 +94,7 @@ std::vector<Instance> Instances()
         {0x0044FD50, 0x0044FD90, 0x006472B8, 0x005BDCF0, AddressOf(&Sio::ReleaseManager)},
         {0x004B2230, 0x004B2240, 0x0064A2EC, 0x0044F2B0, AddressOf(&Mlp::ReleaseManager)},
         {0x004E1980, 0x004E1B00, 0x0064AFB0, 0x005B9510, AddressOf(&Pre::DestroyManager)},
-        {0x004E1990, 0x004E1B30, 0x0064AFB4, 0x00461FA0, 0},
+        {0x004E1990, 0x004E1B30, 0x0064AFB4, 0x00461FA0, AddressOf(&Obj::ReleaseTracker)},
         {0x004E19A0, 0x004E1B60, 0x0064AFB8, 0x0044F740, 0},
         {0x004E19B0, 0x004E1B90, 0x0064AFBC, 0x005BC950, AddressOf(&Mc::ReleaseManager)},
         {0x004E19C0, 0x004E1BC0, 0x0064AFC0, 0x0044E6B0, 0},
