@@ -1928,8 +1928,7 @@ belong with the CScript batch.
       calls (0x4609F0 / 0x460A20) to switch to direct calls. Small cleanups: event.cpp's ObjectFlags() and
       tracker.cpp (HasPosition / Position / alias count) read CObject fields by offset - use CObject's members
       (and add flag 0x10000 next to OBJECT_FLAG_*); cscript.h's CMemberFunctionEntry is really 0x18 bytes ({+0
-      name, +4 component type, +8 a 16-byte member function pointer: +8 code, +0xC this adjustment}); front_end.cpp
-      calls 0x6F85A8 "the object manager", but 0x47B000 / 0x47C560 update sound voices / streams. The earlier gaps:
+      name, +4 component type, +8 a 16-byte member function pointer: +8 code, +0xC this adjustment}). The earlier gaps:
       the module manager Mdl::Manager 0x44F300-0x44F7E0, 0x4B2270-0x4B2320 (9 glue functions), CFlipRotateComponent::
       Update 0x4E2D20 and its base 0x481710-0x481740, 0x46C470-0x46C6A0 (a CStruct wrapper class), the sound
       functions 0x47AC10-0x47AD80. GameSpy's host names become configuration when the SDK is linked. (Batch 71's
