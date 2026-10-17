@@ -258,7 +258,7 @@ void FrontEnd::Update(bool gamePaused)
     MenuOnScreen() = menuUp;
 
     Pcm::Update();
-    void* objects = GameVariable<void*>(0x006F85A8); // (the object manager)
+    void* objects = GameVariable<void*>(0x006F85A8); // (the sound manager: 0x0047B000 / 0x0047C560 update its voices / streams)
     GameFunction<void(__thiscall*)(void*)>(0x0047B000)(objects);
     Mem::Manager* memory = Mem::Manager::Get();
     if (!gamePaused) {
