@@ -10,8 +10,10 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include <vector>
 
 #include "game/core/crc.h"
+#include "game/front/level_editor_scenery.h"
 #include "game/front/mouse_menus.h"
 #include "game/gfx/camera.h"
 #include "game/gfx/screen.h"
@@ -255,6 +257,7 @@ struct Mouse {
     float relX = 0.0f, relY = 0.0f;
     int wheel = 0;
     int leftPresses = 0, leftReleases = 0;
+    int middlePresses = 0; // (as Alt+left click: one scenery sector in / out)
     bool left = false, right = false;
 };
 Mouse g_mouse;
@@ -265,6 +268,8 @@ struct Picked {
     uint32_t id = 0;
 };
 Picked g_hover, g_selected;
+// The scene sector under the cursor (its checksum; 0: none) - the selected ones are Scenery::Selection().
+uint32_t g_hoverSector;
 bool g_dragging, g_dragVertical;
 V3 g_dragOffset;     // the object's position minus the point on the drag plane under the cursor
 V3 g_dragStart;      // where the drag started (logged with the move)
@@ -303,6 +308,8 @@ void HandleEvent(SDL_Event* event)
             ++(down ? g_mouse.leftPresses : g_mouse.leftReleases);
         } else if (event->button.button == SDL_BUTTON_RIGHT) {
             g_mouse.right = down;
+        } else if (event->button.button == SDL_BUTTON_MIDDLE && down) {
+            ++g_mouse.middlePresses;
         }
         break;
     }
@@ -326,11 +333,7 @@ const char* NameOf(uint32_t checksum)
 
 // --- objects ---
 
-struct ObjectBox {
-    V3 origin;
-    V3 axes[3];
-    V3 min, max;
-};
+using ObjectBox = OrientedBox;
 
 // The model's bounding box: the model component's model (+0x208), its geometry 0 (0x00493CD0) and that geometry's
 // box (0x0048DE80: min, max), scaled by the model's scale (+0x1C..+0x24) when its flag 8 (+0x44) is on (0x00493090
@@ -423,15 +426,17 @@ void __cdecl PickOne(Obj::CObject* object, void* data)
     }
 }
 
-// The composite object under the ray (nearest box hit within kMaxPickDistance). Scenery would join here: the scene
-// sectors' boxes (not objects) tested the same way, a hit remembered as a sector rather than an object.
-Obj::CCompositeObject* Pick(V3 origin, V3 dir)
+// The composite object under the ray (nearest box hit within kMaxPickDistance), and its distance along the
+// normalised ray (`t`). (Scenery: Scenery::Pick, the nearer of the two wins.)
+Obj::CCompositeObject* Pick(V3 origin, V3 dir, float* t)
 {
+    *t = kMaxPickDistance;
     Obj::CCompositeObjectManager* manager = Obj::CompositeObjectManager();
     if (!manager)
         return nullptr;
     PickWalk walk = {origin, Normalize(dir), kMaxPickDistance, nullptr};
     manager->ForEach(PickOne, &walk);
+    *t = walk.bestT;
     return walk.best;
 }
 
@@ -506,9 +511,18 @@ V3 DragPlaneNormal(bool vertical, const Frame& frame)
     return Normalize(flat);
 }
 
-void StartDrag(Obj::CCompositeObject* object, V3 origin, V3 dir, bool vertical, const Frame& frame)
+// The selection: an object (`object`, live), else the selected scenery (moved about its pivot).
+V3 SelectionPos(Obj::CCompositeObject* object) { return object ? PosOf(object) : Scenery::Pivot(); }
+void PlaceSelection(Obj::CCompositeObject* object, V3 pos)
 {
-    V3 pos = PosOf(object);
+    if (object)
+        Place(object, pos);
+    else
+        Scenery::MoveTo(pos);
+}
+
+void StartDrag(V3 pos, V3 origin, V3 dir, bool vertical, const Frame& frame)
+{
     g_dragVertical = vertical;
     g_dragPlaneNormal = DragPlaneNormal(vertical, frame);
     float t;
@@ -517,7 +531,7 @@ void StartDrag(Obj::CCompositeObject* object, V3 origin, V3 dir, bool vertical, 
 
 void Drag(Obj::CCompositeObject* object, V3 origin, V3 dir)
 {
-    V3 pos = PosOf(object);
+    V3 pos = SelectionPos(object);
     float t;
     if (!RayPlane(origin, dir, pos, g_dragPlaneNormal, &t))
         return;
@@ -530,7 +544,7 @@ void Drag(Obj::CCompositeObject* object, V3 origin, V3 dir)
     else
         wanted.y = pos.y;
     if (wanted.x != pos.x || wanted.y != pos.y || wanted.z != pos.z)
-        Place(object, wanted);
+        PlaceSelection(object, wanted);
 }
 
 void LogPicked(const char* what, Obj::CCompositeObject* object)
@@ -564,6 +578,16 @@ void EndDrag()
                 Log("level editor: moved %08X (%s) from (%.1f, %.1f, %.1f) to (%.1f, %.1f, %.1f)", object->m_id,
                     NameOf(object->m_id), g_dragStart.x, g_dragStart.y, g_dragStart.z, pos.x, pos.y, pos.z);
         }
+    } else if (Scenery::HasSelection()) {
+        V3 pos = Scenery::Pivot();
+        if (pos.x != g_dragStart.x || pos.y != g_dragStart.y || pos.z != g_dragStart.z) {
+            ++g_moves;
+            if (DebugEnabled())
+                Log("level editor: moved %u scenery sector%s (%08X ...) from (%.1f, %.1f, %.1f) to (%.1f, %.1f, %.1f)",
+                    static_cast<unsigned>(Scenery::Selection().size()), Scenery::Selection().size() == 1 ? "" : "s",
+                    Scenery::Selection()[0], g_dragStart.x, g_dragStart.y, g_dragStart.z, pos.x, pos.y, pos.z);
+        }
+        Scenery::Commit();
     }
 }
 
@@ -668,16 +692,21 @@ bool __cdecl CFunc_Start(Script::CStruct*, Script::CScript*)
     g_exitRequested = false;
     g_hover = {};
     g_selected = {};
+    g_hoverSector = 0;
+    Scenery::ClearSelection();
     g_dragging = false;
     g_moves = 0;
     ++g_session;
     g_mouse = Mouse{};
     g_savedCursor = SDL_ShowCursor(SDL_QUERY);
     SDL_ShowCursor(SDL_ENABLE);
-    Log("level editor: on - W/A/S/D fly, Q/E down/up, Shift faster, right mouse look, left drag moves an object "
-        "(Shift: up/down), wheel turns it (or changes the speed), Escape / Enter leaves");
-    if (DebugEnabled())
+    Log("level editor: on - W/A/S/D fly, Q/E down/up, Shift faster, right mouse look, left drag moves an object or "
+        "scenery (Shift: up/down; Alt+click: one scenery sector in / out), wheel turns it (or changes the speed), "
+        "Escape / Enter leaves");
+    if (DebugEnabled()) {
         LogObjectCensus();
+        Scenery::LogCensus();
+    }
     return true;
 }
 
@@ -739,6 +768,7 @@ bool __cdecl CFunc_Stop(Script::CStruct*, Script::CScript*)
     if (!g_active)
         return true;
     EndDrag();
+    Scenery::Commit(); // (the moved scenery's collision where it now is, before the skater is put down)
     SetRelative(false);
     PlaceSkaterBelowCamera();
     if (g_camera) {
@@ -751,7 +781,10 @@ bool __cdecl CFunc_Stop(Script::CStruct*, Script::CScript*)
     g_camera = nullptr;
     g_hover = {};
     g_selected = {};
-    Log("level editor: off (%d move%s, not saved)", g_moves, g_moves == 1 ? "" : "s");
+    g_hoverSector = 0;
+    Scenery::ClearSelection();
+    Log("level editor: off (%d move%s, %d scenery sector%s moved since the level loaded; not saved)", g_moves,
+        g_moves == 1 ? "" : "s", Scenery::MovedCount(), Scenery::MovedCount() == 1 ? "" : "s");
     return true;
 }
 
@@ -904,13 +937,15 @@ void UpdateHud()
     std::snprintf(text, sizeof(text), "Camera (%.0f, %.0f, %.0f)  yaw %.0f  pitch %.0f  speed %.0f", g_pos.x, g_pos.y,
                   g_pos.z, g_yaw * 180.0f / kPi, g_pitch * 180.0f / kPi, g_speed);
     SetHudLine(1, text);
-    SetHudLine(2, "Hover: " + Describe(Live(g_hover)));
-    SetHudLine(3, "Selected: " + Describe(Live(g_selected)) + (g_dragging ? "  (moving)" : ""));
-    std::snprintf(text, sizeof(text), "Objects: %d pickable of %d   Moves: %d (not saved)", g_pickable, g_objects,
-                  g_moves);
+    SetHudLine(2, "Hover: " + (g_hoverSector ? Scenery::DescribeHover(g_hoverSector) : Describe(Live(g_hover))));
+    std::string selected = Scenery::HasSelection() ? Scenery::DescribeSelection() : Describe(Live(g_selected));
+    SetHudLine(3, "Selected: " + selected + (g_dragging ? "  (moving)" : ""));
+    std::snprintf(text, sizeof(text), "Objects: %d pickable of %d   Scenery moved: %d sectors   Moves: %d (not saved)",
+                  g_pickable, g_objects, Scenery::MovedCount(), g_moves);
     SetHudLine(4, text);
     SetHudLine(5, "W/A/S/D fly   Q/E down/up   Shift faster   Right mouse: look   Wheel: speed   Esc/Enter: exit");
-    SetHudLine(6, "Left drag: move   Shift+drag or PgUp/PgDn (R/F): raise/lower   Wheel on selected: turn");
+    SetHudLine(6, "Left drag: move (scenery: cluster; Alt/middle click: one sector)  Shift+drag, PgUp/PgDn: raise/lower  "
+                  "Wheel: turn");
 }
 
 } // namespace
@@ -928,6 +963,7 @@ void Update()
     g_mouse.relX = g_mouse.relY = 0.0f;
     g_mouse.wheel = 0;
     g_mouse.leftPresses = g_mouse.leftReleases = 0;
+    g_mouse.middlePresses = 0;
     if (!g_camera)
         return;
 
@@ -948,7 +984,8 @@ void Update()
     Obj::CCompositeObject* selected = Live(g_selected);
     if (!selected) {
         g_selected = {};
-        g_dragging = false;
+        if (!Scenery::HasSelection())
+            g_dragging = false;
     }
     bool haveRay = false;
     V3 dir = {0.0f, 0.0f, -1.0f};
@@ -969,40 +1006,78 @@ void Update()
         Log("level editor: mouse (%.0f, %.0f) in %dx%d, ray %d (%.3f, %.3f, %.3f)", input.x, input.y,
             input.windowWidth, input.windowHeight, haveRay ? 1 : 0, dir.x, dir.y, dir.z);
 
-    // Dragging, or what's under the cursor.
-    if (g_dragging && selected && haveRay) {
+    // Dragging, or what's under the cursor (an object, or scenery when its sector is nearer).
+    bool scenerySelected = !selected && Scenery::HasSelection();
+    if (g_dragging && (selected || scenerySelected) && haveRay) {
         if (shift != g_dragVertical)
-            StartDrag(selected, g_pos, dir, shift, frame);
+            StartDrag(SelectionPos(selected), g_pos, dir, shift, frame);
         Drag(selected, g_pos, dir);
     }
     if (!g_dragging) {
-        Obj::CCompositeObject* hover = haveRay ? Pick(g_pos, dir) : nullptr;
-        if (hover != g_hover.object)
+        float objectT = kMaxPickDistance;
+        Obj::CCompositeObject* hover = haveRay ? Pick(g_pos, dir, &objectT) : nullptr;
+        Scenery::Hit sceneryHit;
+        uint32_t hoverSector = 0;
+        if (haveRay && Scenery::Pick(g_pos, Normalize(dir), hover ? objectT : kMaxPickDistance, &sceneryHit)) {
+            hoverSector = sceneryHit.checksum;
+            hover = nullptr;
+        }
+        if (hover != g_hover.object && !hoverSector)
             LogPicked("hovering", hover);
+        if (hoverSector != g_hoverSector && hoverSector && DebugEnabled())
+            Log("level editor: hovering %s", Scenery::DescribeHover(hoverSector).c_str());
         g_hover = hover ? Picked{hover, hover->m_id} : Picked{};
+        g_hoverSector = hoverSector;
     }
-    if (input.leftPresses && haveRay && !g_dragging) {
+    if ((input.leftPresses || input.middlePresses) && haveRay && !g_dragging) {
         Obj::CCompositeObject* hover = Live(g_hover);
-        LogPicked("selected", hover);
-        g_selected = hover ? g_hover : Picked{};
-        if (hover) {
-            g_dragging = true;
-            g_dragStart = PosOf(hover);
-            StartDrag(hover, g_pos, dir, shift, frame);
+        bool alt = keys[SDL_SCANCODE_LALT] || keys[SDL_SCANCODE_RALT] || (input.middlePresses && !input.leftPresses);
+        if (g_hoverSector) {
+            // Scenery: its cluster, or (Alt) one sector in / out of the scenery selected.
+            g_selected = {};
+            if (alt)
+                Scenery::Toggle(g_hoverSector);
+            else if (!Scenery::Selected(g_hoverSector))
+                Scenery::SelectGroup(g_hoverSector);
+            if (!Scenery::HasSelection() && DebugEnabled())
+                Log("level editor: scenery %s", Scenery::DescribeHover(g_hoverSector).c_str());
+            if (Scenery::HasSelection() && !alt) {
+                g_dragging = true;
+                g_dragStart = Scenery::Pivot();
+                StartDrag(g_dragStart, g_pos, dir, shift, frame);
+            }
+        } else if (input.leftPresses) {
+            LogPicked("selected", hover);
+            Scenery::ClearSelection();
+            g_selected = hover ? g_hover : Picked{};
+            if (hover) {
+                g_dragging = true;
+                g_dragStart = PosOf(hover);
+                StartDrag(g_dragStart, g_pos, dir, shift, frame);
+            }
         }
     }
     if (input.leftReleases && !input.left)
         EndDrag();
 
-    // The wheel: turns the selected object (dragged or under the cursor), else the flying speed.
+    // The wheel: turns the selected object (dragged or under the cursor; scenery by quarter turns), else the flying
+    // speed.
     if (input.wheel) {
         selected = Live(g_selected);
+        bool overScenery = Scenery::HasSelection() && (g_dragging || Scenery::Selected(g_hoverSector));
         if (selected && (g_dragging || Live(g_hover) == selected)) {
             Turn(selected, static_cast<float>(input.wheel) * kTurnPerNotch);
             ++g_moves;
             if (DebugEnabled())
                 Log("level editor: turned %08X (%s) by %d degrees", selected->m_id, NameOf(selected->m_id),
                     input.wheel * 15);
+        } else if (!selected && overScenery) {
+            Scenery::Turn(input.wheel);
+            if (!g_dragging)
+                Scenery::Commit();
+            ++g_moves;
+            if (DebugEnabled())
+                Log("level editor: turned the scenery by %d degrees", input.wheel * 90);
         } else {
             g_speed = static_cast<float>(std::max(50.0, std::min(20000.0, g_speed * std::pow(1.25, input.wheel))));
             if (DebugEnabled())
@@ -1010,19 +1085,24 @@ void Update()
         }
     }
 
-    // Page Up / Page Down (or R / F) held: the selected object up / down (100 units a second, Shift x4).
+    // Page Up / Page Down (or R / F) held: the selected object or scenery up / down (100 units a second, Shift x4).
     int raise = (keys[SDL_SCANCODE_PAGEUP] || keys[SDL_SCANCODE_R] ? 1 : 0) -
                 (keys[SDL_SCANCODE_PAGEDOWN] || keys[SDL_SCANCODE_F] ? 1 : 0);
     static bool raising = false;
     selected = Live(g_selected);
-    if (raise && selected && !g_dragging) {
-        V3 pos = PosOf(selected);
+    bool haveSelection = selected || Scenery::HasSelection();
+    if (raise && haveSelection && !g_dragging) {
+        V3 pos = SelectionPos(selected);
         pos.y += static_cast<float>(raise * 100.0 * (shift ? 4.0 : 1.0) * seconds);
-        Place(selected, pos);
+        PlaceSelection(selected, pos);
         if (!raising)
             ++g_moves;
     }
-    raising = raise != 0 && selected;
+    bool wasRaising = raising;
+    raising = raise != 0 && haveSelection;
+    // (the scenery's collision lookups brought up to date once it stops moving)
+    if (wasRaising && !raising)
+        Scenery::Commit();
 }
 
 void Draw()
@@ -1030,17 +1110,29 @@ void Draw()
     if (!g_active || !g_haveView || !Device())
         return;
     Frame frame = FrameFromYawPitch(g_yaw, g_pitch);
-    LineVertex lines[2 * 12 * 2];
-    int count = 0;
+    // (two boxes and the selected scenery's, each up to 12 edges of 2 vertices)
+    constexpr int kMaxBoxes = 66;
+    static std::vector<LineVertex> lines(kMaxBoxes * 12 * 2);
+    LineVertex* out = lines.data();
+    int count = 0, boxes = 0;
     Obj::CCompositeObject* selected = Live(g_selected);
     Obj::CCompositeObject* hover = g_dragging ? nullptr : Live(g_hover);
     ObjectBox box;
     if (hover && hover != selected && ModelBox(hover, &box))
-        AddBox(box, frame, 0xFFFFFF00, lines, &count); // yellow
+        AddBox(box, frame, 0xFFFFFF00, out, &count), ++boxes; // yellow
+    if (!g_dragging && g_hoverSector && !Scenery::Selected(g_hoverSector) && Scenery::Box(g_hoverSector, &box))
+        AddBox(box, frame, Scenery::WhyNotMovable(g_hoverSector) ? 0xFFFF6040 : 0xFFFFFF00, out, &count), ++boxes;
     if (selected && ModelBox(selected, &box))
-        AddBox(box, frame, 0xFF00FFFF, lines, &count); // cyan
+        AddBox(box, frame, 0xFF00FFFF, out, &count), ++boxes; // cyan
+    for (uint32_t checksum : Scenery::Selection()) {
+        if (boxes >= kMaxBoxes)
+            break;
+        if (Scenery::Box(checksum, &box))
+            AddBox(box, frame, 0xFF00FFFF, out, &count), ++boxes;
+    }
     if (count == 0)
         return;
+    LineVertex* lineData = out;
     // The renderer's own (cached) state: no texture, pre-transformed vertices with a colour.
     GameFunction<void(__cdecl*)(int, void*, int)>(0x004DA730)(0, nullptr, 0); // SetTexture
     GameFunction<void(__cdecl*)(uint32_t)>(0x004D9DB0)(0x144);                // XYZRHW | DIFFUSE | TEX1
@@ -1054,7 +1146,7 @@ void Draw()
         SetStageState(kStates[i], kValues[i]);
     }
     Method<long(__stdcall*)(void*, int, unsigned int, const void*, unsigned int)>(Device(), 0x14C)(
-        Device(), 2 /* D3DPT_LINELIST */, static_cast<unsigned int>(count / 2), lines, sizeof(LineVertex));
+        Device(), 2 /* D3DPT_LINELIST */, static_cast<unsigned int>(count / 2), lineData, sizeof(LineVertex));
     for (int i = 0; i < 4; ++i)
         SetStageState(kStates[i], saved[i]);
 }

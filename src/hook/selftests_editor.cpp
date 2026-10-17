@@ -245,4 +245,104 @@ void TestEditorRays()
 }
 SELFTEST(Early, TestEditorRays);
 
+// --- scenery: quarter turns, placements, the engine's state, boxes ---------------------------------------------
+
+void TestEditorScenery()
+{
+    // Quarter turns as the engine turns vertices (sMesh::RotateY 0x004D6FB0: rotation 1 takes (x, z) to (z, -x),
+    // rotation 3 to (-z, x)) and as TurnAboutUp turns by that many quarters.
+    V3 v = {3, 7, 5};
+    Check(Near(LE::QuarterTurn(v, 1), {5, 7, -3}) && Near(LE::QuarterTurn(v, 3), {-5, 7, 3}) &&
+              Near(LE::QuarterTurn(v, 2), {-3, 7, -5}) && Near(LE::QuarterTurn(v, 0), v) &&
+              Near(LE::QuarterTurn(v, 4), v) && Near(LE::QuarterTurn(v, -1), {-5, 7, 3}),
+          "editor: quarter turns as the engine's");
+    bool matches = true;
+    for (int q = 0; q < 4; ++q)
+        matches &= Near(LE::QuarterTurn(v, q), LE::TurnAboutUp(v, q * 1.5707963f), 1e-4f);
+    Check(matches, "editor: quarter turns as TurnAboutUp");
+
+    // Placements: moved, then turned about a pivot; a point keeps its distance to the pivot.
+    LE::Placement placement = {0, {0, 0, 0}};
+    LE::MoveBy(&placement, {100, 10, -50});
+    Check(placement.quarters == 0 && Near(LE::Apply(placement, {1, 2, 3}), {101, 12, -47}), "editor: placement moved");
+    V3 pivot = {101, 12, -47}; // (where (1, 2, 3) is now)
+    LE::TurnAbout(&placement, pivot, 1);
+    Check(placement.quarters == 1 && Near(LE::Apply(placement, {1, 2, 3}), pivot),
+          "editor: placement turned about a point of it keeps that point");
+    // (2, 2, 3) is 1 along +x from the pivot: a quarter turn takes it to 1 along -z.
+    Check(Near(LE::Apply(placement, {2, 2, 3}), pivot + V3{0, 0, -1}), "editor: placement turned a quarter");
+    LE::TurnAbout(&placement, pivot, 3);
+    Check(placement.quarters == 0 && Near(LE::Apply(placement, {2, 2, 3}), pivot + V3{1, 0, 0}),
+          "editor: four quarters back where it was");
+    LE::TurnAbout(&placement, pivot, -1);
+    Check(placement.quarters == 3, "editor: a quarter back is three on");
+
+    // The engine's state: vertices at QuarterTurn(v, quarters) + position must land where the placement puts them,
+    // from any first state (a sector the park editor or a clone had already turned and placed).
+    bool engine = true;
+    const int firsts[3] = {0, 1, 3};
+    const V3 positions[3] = {{0, 0, 0}, {50, -20, 30}, {-1000, 5, 2000}};
+    const V3 loaded[3] = {{0, 0, 0}, {10, 2, -4}, {-300, 40, 900}};
+    for (int f = 0; f < 3; ++f) {
+        LE::Placement p = {0, {0, 0, 0}};
+        LE::MoveBy(&p, {-2564, 30, 6352});
+        LE::TurnAbout(&p, {-2500, 0, 6300}, 1 + f);
+        LE::MoveBy(&p, {7, -3, 11});
+        int quarters;
+        V3 position;
+        LE::EngineState(firsts[f], positions[f], p, &quarters, &position);
+        for (const V3& vertex : loaded) {
+            V3 first = LE::QuarterTurn(vertex, firsts[f]) + positions[f];
+            V3 now = LE::QuarterTurn(vertex, quarters) + position;
+            engine &= Near(now, LE::Apply(p, first), 1e-2f);
+        }
+        engine &= quarters == ((firsts[f] + p.quarters) & 3);
+    }
+    Check(engine, "editor: the engine's turns and position follow the placement");
+
+    // The placed box: its corners are the first box's corners placed.
+    LE::Placement p = {0, {0, 0, 0}};
+    LE::MoveBy(&p, {10, 0, 20});
+    LE::TurnAbout(&p, {15, 0, 25}, 1);
+    V3 min = {0, 0, 0}, max = {10, 4, 6};
+    LE::OrientedBox box = LE::PlacedBox(min, max, p);
+    V3 corners[8];
+    LE::BoxCorners(box.origin, box.axes, box.min, box.max, corners);
+    bool cornersPlaced = true;
+    for (int i = 0; i < 8; ++i) {
+        V3 corner = {(i & 1) ? max.x : min.x, (i & 2) ? max.y : min.y, (i & 4) ? max.z : min.z};
+        cornersPlaced &= Near(corners[i], LE::Apply(p, corner));
+    }
+    Check(cornersPlaced, "editor: a placed box's corners");
+    // A ray at a point of the turned box hits it, one beside it doesn't.
+    float t;
+    V3 inside = LE::Apply(p, {9, 2, 1});
+    Check(LE::RayBox(inside + V3{0, 100, 0}, {0, -1, 0}, box.origin, box.axes, box.min, box.max, &t) &&
+              Near(t, 98, 1e-3f),
+          "editor: ray hits a placed box");
+    V3 outside = LE::Apply(p, {11, 2, 1});
+    Check(!LE::RayBox(outside + V3{0, 100, 0}, {0, -1, 0}, box.origin, box.axes, box.min, box.max, &t),
+          "editor: ray beside a placed box");
+    V3 low, high;
+    LE::BoundsOf(box, &low, &high);
+    // (a quarter turn takes x 0..10 to z 0..-10 and z 0..6 to x 0..6: the low corner is where (10, 0, 0) went)
+    Check(Near(low, LE::Apply(p, {10, 0, 0})) && Near(high.y, 4) && Near(high.x - low.x, 6) &&
+              Near(high.z - low.z, 10),
+          "editor: a placed box's bounds");
+
+    // Sizes: the fire truck moves, the ground doesn't.
+    Check(LE::SectorSizeMovable({-2600, -430, 6100}, {-2000, -250, 6650}, 4000), "editor: a truck-sized sector moves");
+    Check(!LE::SectorSizeMovable({-9000, -500, -9000}, {9000, 0, 9000}, 4000), "editor: the ground doesn't");
+    Check(!LE::SectorSizeMovable({1, 0, 0}, {0, 1, 1}, 4000), "editor: an empty box doesn't");
+    Check(!LE::SectorSizeMovable({0, 0, 0}, {10, 4500, 10}, 4000) &&
+              !LE::SectorSizeMovable({0, 0, 0}, {10, 10, 4500}, 4000),
+          "editor: a tower or a long wall doesn't");
+    V3 a = {}, b = {};
+    LE::GrowBox(&a, &b, false, {1, 2, 3}, {4, 5, 6});
+    LE::GrowBox(&a, &b, true, {-1, 3, 3}, {2, 9, 4});
+    LE::GrowBox(&a, &b, true, {0, 3, 3}, {1, 4, 4});
+    Check(Near(a, {-1, 2, 3}) && Near(b, {4, 9, 6}), "editor: boxes grown");
+}
+SELFTEST(Early, TestEditorScenery);
+
 } // namespace
