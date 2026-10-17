@@ -2326,6 +2326,250 @@ belong with the CScript batch.
       net_conn_times.cpp,net_conn.cpp,net_metrics.cpp,net_manager.cpp,net_descs.cpp,net_compress.cpp` (the callers
       call each other directly, so disabling only unhooks the game's own callers; head.cpp also holds
       AddUniqueSequence).
+- [x] Batch 90: Mouse menus, stage 1 ([features] mouse_menus, default 1) - NOT run in the game yet. Record:
+      A new feature, not original game code and not PartyMod's: the mouse drives the front end's menus.
+      `thug2-decomp.ini` `[features] mouse_menus=1` (the default); **`mouse_menus=0` turns it off completely** (no SDL
+      mouse handler registered, `FrontEnd::InputLogic` doesn't call it, the cursor stays hidden as before).
+
+      Code: `src/game/front/mouse_menus.{h,cpp}` (new), two calls added - `Sio::InitSdlInput` -> `MouseMenus::Init()`
+      (registers an SDL event handler), and `Mdl::FrontEnd::InputLogic` (0x0054FB40) -> `MouseMenus::Update(frontEnd)` at
+      its start, with the first controller's handler only (once a frame). Tests: `src/hook/selftests_mouse.cpp`.
+
+      ## How it works
+      - **Input**: SDL_MOUSEMOTION (only with a real movement: xrel/yrel non-zero), SDL_MOUSEBUTTONDOWN (left, right),
+        SDL_MOUSEWHEEL; the window's size is read from the event's window. Nothing happens until the mouse has moved,
+        clicked or scrolled once.
+      - **When**: in the front end (`Nx::CurrentLevel() == 0`) or while the game is paused in a level
+        (`FrontEnd::m_paused` - the pause menu is built from the same screen elements and gets the same broadcast pad
+        events, so it should work the same way), and never in the park editor unless paused (its element 0x5999551E
+        exists - the same test as Sio's InParkEditor). The OS cursor is shown exactly then (SDL_ShowCursor), hidden
+        otherwise.
+      - **Window -> layout**: window pixels -> back buffer pixels (window size vs 0x00786D6C/70), then the inverse of
+        SetLetterbox's `back buffer = layout * scale + offset` (0x00786D80/84, 0x00786D88/8C). Note the original's +16 *
+        scaleY vertical offset (the root window is 640 x 448 at layout y 0).
+      - **The element tree**: the screen element manager (0x00701440) holds the root at +0x44 (SetRootScreenElement
+        0x004AC900 -> 0x004AB730); an element's first child is +0x58, the next sibling +0x64, the parent +0x4C (the
+        order 0x004A9600 counts and the menus index - an item's index is its place in that list). The layout pass
+        (0x004A9D30, run from the root every frame by the manager's update 0x004ABD00) stores each element's absolute
+        values: top left +0x134/+0x138 (justification already applied - 0x004A8C30: local top left = pos - (just + 1) / 2
+        * dims * scale, then parent's position + parent's scale * that, rotated by the parent's angle +0x14C), absolute
+        scale +0x13C/+0x140, alpha +0x114 (parents' included). Base dims are +0x160/+0x164 (GetScreenElementDims
+        0x004AD650 returns them times the local scale +0xA4/+0xA8; GetScreenElementPosition 0x004ADA80 returns the
+        *local* +0xE0/+0xE4, not useful here). So an element's rectangle = (+0x134, +0x138) + (+0x160 * +0x13C, +0x164 *
+        +0x140). Rotation is ignored.
+      - **Menus**: types vmenu 0x130EF802 / hmenu 0xCCDED1E1 (CBaseMenu, vtable 0x0064A048, 0x1A8 bytes; constructors
+        0x004A75C0 / 0x004A7630). Fields: +0x178 selected index (-1 none), +0x17C selected item's id, +0x180 has the focus,
+        +0x190 vertical, +0x1A0 movement allowed, +0x1A1 wraps. The menu's event handler (0x004A8100, vtable +0x14) moves
+        the selection on pad_up / pad_down (vertical) or pad_left / pad_right (horizontal) when focused and +0x1A0, through
+        0x004A7A40 -> 0x004A7850 (index += direction; past an end: wrap, or bounce back; skips items tagged
+        `tag_not_focusable` (0xF33A3321, set by `not_focusable`) or with `block_events` (flag 0x200000) on them or a
+        parent (0x004A8F00); unfocus/focus events to the old/new item). While the manager has pad-event priorities (+0x4E8
+        > 0 and the event among its list +0x5DC/+0x69C) only elements with priority (flag 0x10000000 up the chain,
+        0x004A8F20) of the top priority (0x004AB7C0) get pad events. Flags (+0x08): 0x400000 hide, 0x200000 block_events,
+        0x10000000 priority > 0 (SetProperties 0x004A96B0).
+      - **Hit-testing** (`FindItemAt`): a pre-order walk from the root; an element counts if its parent is a menu that
+        takes pad events (has the focus + the priority test above), it is focusable (as 0x004A7850 decides), not hidden
+        (subtrees of hidden elements are skipped), alpha >= 0.01, and the point is inside its area and inside every
+        clipping ancestor (window elements 0xA13ADBB7 - 0x004B2060 makes a viewport - and v/hscrollingmenus, when their
+        dims are non-zero). An item's area is its rectangle widened to its menu's width (vertical menu) or height
+        (horizontal). Later finds win: the deepest, and of overlapping siblings the last in the tree.
+      - **Hover**: when the item under the cursor changes (only on frames the mouse moved), the menu's selection is
+        stepped to it with the same broadcast events the pad sends (launched like InputLogic: target/source 0x36B2EE74,
+        `{device_num = the first controller's device, controller = 0}`, skipped when that mapping is inactive or menu
+        input blocked): pad_up/pad_down or pad_left/pad_right, re-reading +0x178 after each event, the shorter way round
+        when the menu wraps, stopping when it got there, didn't move, went the wrong way (bounce) or past the target, or
+        the menu was destroyed (held through a smart pointer). Up to 4 passes, so selecting an option row can focus its
+        inner hmenu and then select the hmenu item under the cursor.
+      - **Clicks**: left = select the item under the cursor (always, not only on change) then pad_choose if it is now
+        selected; on a vertical menu's item that has its own pad_left / pad_right handler (its script's event handler
+        table), a click in the item's left 30% sends pad_left, right 30% pad_right, the middle pad_choose. Right click =
+        pad_back, wheel = pad_up / pad_down (up to 5 per frame) - both only while some menu takes pad events (wheel: a
+        vertical one).
+
+      ## Not covered / known limits
+      - Menus of the other element type 0x118F6383 (made by 0x004AED90, 0x180 bytes - name unknown) aren't treated as
+        menus; nor are custom script-driven "menus" that read pad events without a vmenu/hmenu.
+      - Rotated elements (+0x14C) and 3D-anchored ones (flag 0x80000) are hit-tested as unrotated rectangles.
+      - Scrolling menus: clipping by the scrolling menu's own rect is a guess (its dims are taken as the visible window).
+      - Right click / wheel do nothing on screens without a focused menu (e.g. "press any button" screens).
+      - The park editor's and Create-a-Graphic's cursors are not mouse-driven. CAG's tool menus are ordinary menus, so
+        hovering them moves their selection like the pad would.
+      - Each hover step is a real pad event: menus play their focus sounds / animations per step (as holding the pad).
+
+      ## Stage 2 should replace
+      - The offset reads (`Field<>` in mouse_menus.cpp: +0x08, +0x4C, +0x58, +0x64, +0x114, +0x134..+0x164, +0x178,
+        +0x180, +0x190, +0x1A1; the manager's +0x44, +0x4E8, +0x5DC, +0x69C) with CScreenElement / CBaseMenu /
+        CScreenElementManager fields.
+      - `MenuTakesPadEvents` with the menu's own test (the start of 0x004A8100), `ItemFocusable` with 0x004A7850's.
+      - The stepping (pad events one by one) with a direct "focus this item" (the menu's `focus` event with
+        child_id 0x229D3DE4 only works on an unfocused menu - a decompiled CBaseMenu could set the selection directly and
+        send the unfocus/focus events itself).
+      - Exact z-order (draw priority) for overlapping items instead of tree order.
+
+      ## What to try in the game
+      1. Start the game (mouse_menus on by default). The cursor should appear in the front end menus. Without touching
+         the mouse, the pad/keyboard should work exactly as before (the cursor at rest does nothing).
+      2. Move the cursor over main-menu items: each should become selected (with the usual focus sound/highlight). Move
+         between items quickly, top to bottom and back; on a wrapping menu, from the first item to the last.
+      3. Left click an item: it opens as with Enter / A. Right click: goes back as with Escape / B. Wheel: moves the
+         selection up/down.
+      4. An options screen with left/right values (e.g. the game options or the skater/board select): click the left or
+         right end of an option row - its value should change; click the middle - as pad_choose.
+      5. Menus inside scrolling lists (e.g. level select, long lists): hover items near the list's top/bottom edge;
+         scrolled-out items must not be selectable.
+      6. Dialog boxes (e.g. "Quit?"): hovering/clicking should only act on the dialog, not the menu behind it.
+      7. The on-screen keyboard (naming a skater/park): hover keys, click to type.
+      8. Start a level: the cursor must disappear. Pause (Esc/Start): the cursor appears; hover/click the pause menu
+         items; unpause: the cursor disappears again.
+      9. Park editor: the cursor stays hidden while editing; in its pause menu the mouse works.
+      10. With `mouse_menus=0`: no cursor anywhere, mouse does nothing (as before).
+      11. Read thug2-decomp.log: no RUN-TIME CHECK FAILURE / DEBUG CRT REPORT.
+      Turn it off with `[features] mouse_menus=0` if anything misbehaves.
+
+      ## Tests
+      `TestMouseMapping` (the mapping through our Nx::SetLetterbox for 16:9, 4:3, 5:4 back buffers in the front end,
+      16:10 / 16:9 in a level, a back buffer shown in a different-size window; widescreen front end on and off; refusing
+      empty sizes), `TestMouseHitTest` (a stand-in tree of 29 elements laid out with the original's justification
+      0x004A8C30: overlaps, nesting, hidden / not_focusable / block_events (own and the menu's) / alpha 0 items, a hidden
+      menu, an unfocused menu over a focused one, a clipping window, uniformly and vertically scaled menus, right/bottom
+      justification, item areas widened across the menu (both sides, both menu directions); plus
+      ElementRect, ChildCount, IsMenu, AnyMenu, OptionSide), `TestMouseStepping` (a stand-in menu moving as 0x004A7850:
+      down / up / wrap both ways / ties / skipped items / a target it can't focus / locked / bounce / no selection / out of
+      range / destroyed mid-way (both directions) / a menu that wraps when told it doesn't, events recorded).
+
+      Mutations (`tools/mutate.py`, 40 deliberate bugs in mouse_menus.cpp/.h: mapping, rectangles, every hit-test
+      condition, AnyMenu, ChildCount, every stepping branch, OptionSide): all caught - 33 at once, 7 after strengthening
+      the tests (non-proportional window, vertical-only scale, block_events on the menu, widened areas on the left and
+      below, destroyed menu going round, unexpected wrap). One more (dropping a `next == current` check) was equivalent
+      - `moved <= 0` covers it - so the check was removed.
+      Checks: thug2_check 0 MISMATCHED, all 150 early self-tests pass; call audit clean; check_code_writes no overlaps;
+      register scan only the known 0x4EFF92 false alarm. No REPLACE registrations added (nothing of the game rewritten).
+- [x] Batch 91: Main-menu backdrop ([features] menu_backdrop: 0 skateshop, 1 view 1 (default), 2 view 2) - NOT run in the game yet. Record:
+      At the user's request: the front end shows a place in Los Angeles (level 15) instead of the skate shop, the camera
+      held at a view the user picked with /where. Setting: thug2-decomp.ini `[features] menu_backdrop = 0` (the original
+      skate shop, nothing changes), `1` (view 1, the default), `2` (view 2). The feature's code is clearly marked "NOT
+      ORIGINAL - the menu_backdrop feature" (src/game/front/menu_backdrop.*); the game functions it needed are rewritten
+      (Gfx::Camera, LoadScene) with the feature's calls marked "Not original".
+
+      ## What level 15 is
+      `LevelNum_LA = 15` (scripts/game/Levels.qb): **Los Angeles**, structure `level_la`, load script `load_la`
+      (`load_level level_la`), scene `"LA"`, sky `"LA_Sky"`, collision LAcol, nodes levels\LA\LA.qb, scripts LA_scripts.qb,
+      startup LA_Startup, goals LA_goals, setup LA_setup, peds LAped.pre, ambient track la_bg.
+
+      ## How the front end gets its level and camera (findings)
+      - The front end is the level `level_mainmenu` (`load_mainmenu`; start-up and every return go through
+        CheckForInvalidLevels, which turns load_skateshop / load_cas into load_mainmenu). Its `level_number` is
+        `LevelNum_Skateshop` = 0: load_level calls `CareerStartLevel level = <level_number>` (0x5AE990), which sets the
+        career's level byte (skate module 0x7CE478 -> +0x20 -> +0x630) that Nx::CurrentLevel() reads - so "level 0" means
+        "the front end" because the front end's structure says so, independent of which scene is loaded. Its scene is
+        "mainmenu" (mainmenuscn / mainmenucol), its nodes mainmenu.qb (the skater's restart trg_playerrestart, lights,
+        LevelGeometry / LevelObject sectors of the shop, the UI_bg / options_clouds ghosts), its scripts
+        mainmenu_scripts.qb + 12 more QBs (the menus), `frontend_level = 1`, startup `mainmenu_startup`. Dozens of
+        scripts test `LevelIs load_mainmenu`, so the front end has to stay that level.
+      - Loading another level as the front end isn't workable (the menus live in the mainmenu QBs, the skater spins at a
+        mainmenu node, scripts test LevelIs load_mainmenu). Replacing only the scene name would leave mainmenu.qb's
+        LevelGeometry / LevelObject nodes pointing at sectors that don't exist. So the backdrop is **added**: the
+        mainmenu level loads exactly as before, then LA's sky and scene are loaded as extra scenes.
+      - Scenes: `LoadScene` (0x445130) -> Nx::CEngine::sLoadScene 0x48CCB0(name, texdict, add_super_sectors, is_sky,
+        is_dictionary, is_net); a scene registers itself (0x48C560) in the scene list (head 0x6FA7E0, first node
+        0x6FA7EC; node +4 = the CScene, +0xC = next) with **its name's checksum at CScene +0x84** and its texture
+        dictionary at +0x88. UnloadAllLevelGeometry (0x48C810, from the level cleanup) unloads every scene in that list,
+        so the extra ones go with the front end.
+      - The front end's camera: `skatercam0` (a composite object with CCameraComponent, vtable 0x645E38) plays skater
+        camera animations from the skate module's movie manager (+0x368; `PlaySkaterCamAnim` 0x5AD830 ->
+        0x57AB60; the playing one's name: 0x57B030 thiscall). The main menu uses `mainmenu_camera02` (targeting the
+        spinning skater), the menus without the skater `play_no_skater_cam` = `mainmenu_camera03`, the network menu
+        `SS_MenuCam`, the level select `level_select_cam` (skater hidden); Create-A-Skater uses virtual cameras about the
+        skater's bones (name 0), the skater select `SS_SkaterChoosing` / skater_select_cam*, Create-A-Graphic `CAGR_cam1`.
+        CCameraComponent::Update (0x41B810 / 0x41B8A0) copies the object's position and matrix into its Gfx::Camera with
+        the camera's setters SetPos 0x485A70 / SetMatrix 0x485A90 - the only callers of those besides a debug camera at
+        0x4A1910-0x4A22A7. The viewport's camera: 0x4A09C0(0). The renderer (RenderViewport) and Element3d read it back.
+      - Gfx::Camera (vtable 0x6487E0, derived from Obj::CObject, 0xC4 bytes): +0x4C old position, +0x5C position, +0x6C
+        matrix (row 2 backward, row 1 up), +0xAC horizontal angle in degrees at 4:3 (the cameras' default is
+        Nx::GetScreenAngle = camera_fov), +0xB0 the angle as drawn (widened by GetScreenAngleFactor), +0xB4, +0xB8 12
+        and +0xBC 12000 (near / far by their values), +0xC0 1.0. The captured "fov 88.180" is +0xB0 for a 72-degree
+        camera on a 16:9 window (2 atan(tan 36 x 4/3) = 88.18), so the view uses the default angle.
+
+      ## What was changed
+      - **Gfx::Camera** (src/game/gfx/camera.*, rewritten): constructor 0x485BA0, destructor body 0x4859F0, scalar
+        deleting destructor 0x485A20, GetPos 0x485A00 / GetMatrix 0x485A10 (source only, 4 bytes), StoreOldPos 0x485A50,
+        SetPos 0x485A70, SetMatrix 0x485A90, UpdateAdjustedHFOV 0x485AA0 (x87), GetAdjustedHFOV 0x485B10, SetHFOV
+        0x485B20, CallMemberFunction 0x485B40. SetPos / SetMatrix / SetHFOV end with the feature's HoldCamera.
+      - **LoadScene** (src/game/gfx/scene.*, rewritten, 0x445130): as the original (including its never-used description
+        structure); at the end the feature's OnSceneLoaded.
+      - **render.cpp** (RenderViewport): the scene struct's name field (+0x84); the three scene loops skip
+        `Front::MenuBackdrop::HideScene(name)`; HoldCamera on the viewport's camera before it's read (in case nothing
+        set it this frame, e.g. while objects are paused).
+      - **menu_backdrop** (src/game/front/menu_backdrop.*, the feature): after "mainmenu" (any case) is loaded with the
+        setting on, LoadScene is called for "LA_Sky" then "LA" (is_net passed on). "Holding" = setting on, career level
+        0, the "LA" scene in the scene list, and the playing skater camera animation is mainmenu_camera,
+        mainmenu_camera02, mainmenu_camera03, SS_MenuCam or level_select_cam. While holding, the viewport-0 camera gets
+        the view (position w 1; matrix row 2 = back, row 1 = up, row 0 = up x back, normalised; row 3 kept; the
+        default field of view) whenever its setters run and before each render, and the "mainmenu" scene isn't drawn.
+        In the front end with the backdrop loaded but another camera (CAS, skater select, CAG...), "LA" and "LA_Sky"
+        aren't drawn and the camera isn't touched: those screens look as before, in the skate shop.
+
+      ## What of level 15 runs / is suppressed
+      Only its geometry and textures: no LA.qb nodes (so no peds, cars, goals, lights, trigger scripts, restarts),
+      no LA_scripts / startup / setup / goals scripts, no collision, no level sounds or ambient track, no TOD (the
+      front end turns it off), the front end's own music. Nothing had to be suppressed - none of it is loaded.
+
+      ## Tests (src/hook/selftests_menulvl.cpp, all Early; offline all 152 pass, 0 MISMATCHED)
+      - TestCameraMethods: original vs ours, 12 seeds, the setting on but not in play: constructor (distance clipping on /
+        off, negative / huge settings), getters, SetPos / StoreOldPos / SetMatrix (its result) / SetHFOV, the x87
+        UpdateAdjustedHFOV over 6 angles and 3 divisors and factors (bit-exact), GetAdjustedHFOV, the member function
+        (radians, missing - the params pointer's bits -, another name), destructor body, scalar delete 0 / 1; every
+        callee stood in (CObject, Mem::Manager::Free, GetFloat, the angle factor / default angle as float stand-ins), the
+        camera compared word by word after each step.
+      - TestLoadScene: original vs ours on a model CStruct (7 names incl. sky ones in odd case x 16 flag combinations x
+        setting 0/1/2, the front end's name only with 0), every call recorded (flags, the description structure, the
+        CRC, the texture path, the engine load's arguments); with the setting on and "MainMenu": the original's calls,
+        then LA_Sky (levels\LA_Sky\LA_Sky.tex, sky, no super sectors) and LA (levels\LA\LA.tex, super sectors),
+        is_net passed on, every structure freed.
+      - TestMenuBackdropViews: worked-out matrices (view 1 row 0 = (-0.777805, 0.000184, -0.628506), row 1 = up, row 2 =
+        back; view 2 row 0 = (0.719350, -0.000148, 0.694647)), determinant +1, normalisation of unnormalised input.
+      - TestMenuBackdropDecisions: the scene name checksums equal Crc("LA" / "LA_Sky" / "mainmenu"), the menu cameras by
+        name (and the skater / CAS / CAG ones not), the hold / hide truth tables.
+      - TestMenuBackdropState: on stand-in game state (skate module, career level byte, scene list, movie manager,
+        viewport camera): Holding / HideScene / the setters holding the camera over setting x level 0/15 x backdrop
+        loaded or not x camera animation x viewport or other camera; the field of view only updated when it differs.
+      - Mutations: 54 + 28 deliberate bugs; all caught except `upd_halfangle_double` (computing hFov x pi/360 as a float
+        multiply instead of x87 - equivalent: the product of two floats is exact in 53 bits, rounded once either way);
+        3 caught after strengthening (destructor's vtable, the divisor, SetHFOV's update). One unrelated flake seen once:
+        "net app: queued and streamed messages" failed in one mutation run and passed in 3 clean runs after.
+      - Register scan clean (Construct: 4 EAX readers, returns this), call audit no mismatch, check_code_writes no
+        overlaps, find_gaps: nothing skipped around 0x4859F0-0x485BA0.
+
+      ## What to check in the game (menu_backdrop=1, then 2, then 0)
+      - thug2-decomp.log: "menu_backdrop: loading the scenes LA_Sky and LA behind the front end (view 1)" each time the
+        front end loads; no crash / "pool" dump (memory: the front end now also holds LA's ~5.5 MB of scene and textures).
+      - Main menu: behind the spin menu, Los Angeles from the captured view (view 1 looks along (-0.62, -0.18, 0.77), view 2
+        along (0.68, -0.18, -0.71)), with LA's sky; no skate shop. The spinning skater is NOT visible (it stays at the shop's
+        node; the camera no longer follows it) - that's the design of a held view. Check the field of view looks like it
+        did in the level (the view uses the default 72 degrees, widened for the window as in a level).
+      - Options, network (ACTIONS, LAN/Internet select), memory card, level select: also LA (their backdrop panels and 3D
+        signs / level icons in front of it as before).
+      - Create-A-Skater, the pro skater select, Create-A-Graphic, face mapping: the skate shop as before (LA not drawn).
+        Going back to the main menu returns to LA.
+      - Starting a level (incl. Los Angeles itself), going back to the main menu, net games: levels look as before;
+        the front end loads LA again each time.
+      - menu_backdrop=0: the original skate shop everywhere, nothing loaded extra (no log line).
+
+      ## What might go wrong
+      - LA's geometry is shown with **every sector** on: sectors its node array would hide or create later (alternate /
+        broken states, goal objects) may show, and moving objects (LevelObject sectors) sit at their rest positions; no
+        peds, cars, lights or particles.
+      - A front-end screen using another camera animation than the five listed shows the skate shop (safe), and the main
+        menu's first ~10 frames after loading (before play_no_skater_cam) too. Screens whose camera isn't one of those
+        but should be LA: add its name to kMenuCameras.
+      - If something writes the camera other than through SetPos / SetMatrix (inlined code), Element3d models could be
+        placed for the shop camera in that frame; the renderer re-holds the camera before drawing, so the picture is
+        right.
+      - The skater (and the shop's ghost objects near the origin) could appear tiny in the distance in view 2 if LA's
+        geometry doesn't hide the origin (~6,300 units away).
+      - Memory: the front end's heap now also holds LA (out-of-memory would show as the pool dump crash at 0x448386).
+      - Disable: `[features] menu_backdrop=0`; the rewritten functions: `[replacements] disable=camera.cpp` /
+        `scene.cpp` (the feature's hooks live in them and in render.cpp).
 - [ ] Next: small net follow-ups: App::m_manager (+0x1440) could become `Manager*` (it is `void*`), name the
       Manager's +0x2E6 flag (pref checksum 0xE5ADE642) and check +0x374 (modem baud rate?).
       Widescreen follow-up: if the user still sees the bottom-left band overlap, don't draw sprites wholly outside the
