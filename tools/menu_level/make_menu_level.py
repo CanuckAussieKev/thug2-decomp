@@ -236,14 +236,20 @@ def array_elements(text, name):
         i += 1
 
 
-def la_placeholders(text):
-    # LA's collision names trigger nodes by their index in LA_NodeArray: the front end's node array starts with one
-    # stand-in per LA node (its position and angles only - no name, class or script: nothing is made, run or found
-    # by name), so those indices exist; the shop's nodes follow (they link to no node by index).
+def la_placeholders(text, shop_text):
+    # LA's collision triggers nodes by name (0x00434A60 finds the node by its Name - 0x0045CFC0 - and reads its
+    # TriggerScript without checking that it was found): the front end's node array starts with one stand-in per LA
+    # node - its position, angles and name only (no class or script: nothing is made or run) - so every name LA's
+    # collision uses is there. A name the shop's nodes also have (Box01, ParticleBox_10) is left off the stand-in:
+    # the menu's scripts find the shop's node. (The shop's nodes follow; they link to no node by index.)
+    shop_names = {n.lower() for n in re.findall(r"\bName=(\w+)", shop_text)}
     elements, _, _ = array_elements(text, "LA_NodeArray")
     placeholders = []
     for element in elements:
         fields = [m.group(0) for m in re.finditer(r"\b(?:Pos|Angles)=\([^)]*\)", element)]
+        name = re.search(r"\bName=(\w+)", element)
+        if name and name.group(1).lower() not in shop_names:
+            fields.append(name.group(0))
         placeholders.append("    { %s } " % " ".join(fields) if fields else "    { } ")
     return placeholders
 
@@ -279,7 +285,11 @@ def main():
         la = os.path.join(work, "LA.qb")
         open(la, "wb").write(prx_file(os.path.join(pre, "LA_scripts.prx"), r"levels\la\la.qb"))
         ns(args.ns, "-d", la, "-o", la + ".ns")
-        placeholders = la_placeholders(open(la + ".ns", encoding="utf-8").read())
+        shop = os.path.join(work, "shop.qb")
+        open(shop, "wb").write(sources[r"levels\mainmenu\mainmenu.qb"])
+        ns(args.ns, "-d", shop, "-o", shop + ".ns")
+        placeholders = la_placeholders(open(la + ".ns", encoding="utf-8").read(),
+                                       open(shop + ".ns", encoding="utf-8").read())
         for name, data in sources.items():
             base = os.path.join(work, os.path.basename(name))
             open(base, "wb").write(data)
