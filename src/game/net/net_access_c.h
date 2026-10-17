@@ -9,12 +9,14 @@
 #include <cstdint>
 
 #include "game/core/alloc.h"
+#include "game/net/net_app_view.h"
 #include "hook/game.h"
 
 namespace Net {
 
 class App;
-class Conn;
+// Net::Conn (wt/netA's ConnView: the fields it uses; more by offset below).
+class Conn : public ConnView {};
 
 template <typename T, typename O>
 T& Field(O* object, uint32_t offset)
@@ -58,7 +60,7 @@ constexpr uint32_t kConnReceiveBufferSize = 0xA28;
 
 // The connection's fields.
 namespace ConnField {
-constexpr uint32_t kNormalQueue = 0x0;         // Lst::Head<MsgLink>
+constexpr uint32_t kNormalQueue = 0x0;         // Lst::Head<MsgNormalLink>
 constexpr uint32_t kImportantQueue = 0x14;     // Lst::Head<MsgImpLink>
 constexpr uint32_t kSequencedQueue = 0x28;     // Lst::Head<MsgSeqLink>
 constexpr uint32_t kHandle = 0x3C;
@@ -88,30 +90,10 @@ constexpr uint32_t kTimestampOut = 0x3D18;
 constexpr uint32_t kConnStatus1 = 0x1;     // (acks only measure latency with it; MarkNewConnection clears it)
 constexpr uint32_t kConnDisconnAccepted = 0x8;
 
-// A queued outgoing message (refcounted: one copy is shared by every connection it goes to).
-struct QueuedMsg {
-    uint8_t m_Id;
-    uint8_t pad1;
-    uint16_t m_Length;
-    char* m_Data;
-    int m_RefCount;
-};
-static_assert(sizeof(QueuedMsg) == 0xC);
-
-// A sequenced message (0x10 bytes, constructor 0x00455040).
-struct SeqMsg {
-    uint8_t m_Id;
-    uint8_t pad1;
-    uint16_t m_Length;
-    char* m_Data;
-    uint8_t m_GroupId;
-    uint8_t pad9[3];
-    int m_RefCount;
-};
-static_assert(sizeof(SeqMsg) == 0x10);
+// Queued messages: QueuedMsg and SeqQueuedMsg (net_app_view.h).
 
 // The queues' links (Lst::Node<T>: the node, then the link's fields).
-struct MsgLink {
+struct MsgNormalLink {
     Mem::ListNode m_node;
     QueuedMsg* m_QMsg;
     uint32_t m_SendTime;           // not before this time
@@ -134,10 +116,10 @@ struct MsgSeqLink {
     uint32_t m_Timestamp;          // when it was last sent (0: never)
     uint32_t m_SequenceId;
     uint32_t m_SendTime;
-    SeqMsg* m_QMsg;
+    SeqQueuedMsg* m_QMsg;
 };
 static_assert(offsetof(MsgImpLink, m_SendTime) == 0x24 && offsetof(MsgSeqLink, m_QMsg) == 0x28 &&
-              offsetof(MsgLink, m_SendTime) == 0x18 && sizeof(MsgSeqLink) == 0x2C);
+              offsetof(MsgNormalLink, m_SendTime) == 0x18 && sizeof(MsgSeqLink) == 0x2C);
 
 // A stream being received in pieces (0x44 bytes, constructor 0x004549D0) and its link (0x18, 0x00455680).
 struct StreamDesc {
@@ -200,85 +182,66 @@ inline uint32_t MaxLatency() { return GameVariable<uint32_t>(0x00647588); }
 // MsgDesc (0x004549F0)
 inline void ConstructMsgDesc(MsgDesc* desc) { GameFunction<MsgDesc*(__thiscall*)(MsgDesc*)>(0x004549F0)(desc); }
 
-// App (wt/netA, wt/netB)
+// App (wt/netA's AppView; wt/netB's functions by address)
 // -> App::EnqueueMessage (wt/netB)
-inline void EnqueueMessage(App* app, int handle, MsgDesc* desc)
+inline void EnqueueMessage(AppView* app, int handle, MsgDesc* desc)
 {
-    GameFunction<void(__thiscall*)(App*, int, MsgDesc*)>(0x00457EB0)(app, handle, desc);
+    GameFunction<void(__thiscall*)(AppView*, int, MsgDesc*)>(0x00457EB0)(app, handle, desc);
 }
-// -> App::ShouldSendThisFrame (wt/netA): whether this frame sends to the connection at all
-inline bool ShouldSendThisFrame(App* app, Conn* conn)
-{
-    return GameFunction<bool(__thiscall*)(App*, Conn*)>(0x00456B00)(app, conn);
-}
-// -> App::MessagesToSend (wt/netB)
-inline bool MessagesToSend(App* app, Conn* conn)
-{
-    return GameFunction<bool(__thiscall*)(App*, Conn*)>(0x00457AC0)(app, conn);
-}
+// Whether this frame sends to the connection at all (its send interval has passed, or it's flagged).
+inline bool ShouldSendThisFrame(AppView* app, Conn* conn) { return app->IsSendDue(conn); }
+// Anything to send to the connection now.
+inline bool MessagesToSend(AppView* app, Conn* conn) { return app->MessagesDue(conn); }
 // -> App::BandwidthExceeded (wt/netB)
-inline bool BandwidthExceeded(App* app, Conn* conn)
+inline bool BandwidthExceeded(AppView* app, Conn* conn)
 {
-    return GameFunction<bool(__thiscall*)(App*, Conn*)>(0x00458E60)(app, conn);
+    return GameFunction<bool(__thiscall*)(AppView*, Conn*)>(0x00458E60)(app, conn);
 }
-// -> App::TimestampDue (wt/netB): whether a timestamp goes out with this packet
-inline bool TimestampDue(App* app, Conn* conn)
+// An important or sequenced message is due (unsent, or overdue for its ack): the client sends a timestamp
+// with the packet so it gets acked.
+inline bool TimestampDue(AppView* app, Conn* conn) { return app->ImportantMessagesDue(conn); }
+// A packet to ip:port (sendto) / on the connected socket.
+inline bool SendTo(AppView* app, uint32_t ip, uint16_t port, char* data, int size, int flags)
 {
-    return GameFunction<bool(__thiscall*)(App*, Conn*)>(0x00457970)(app, conn);
+    return app->SendTo(ip, port, reinterpret_cast<const uint8_t*>(data), size, flags);
 }
-// -> App::SendTo (wt/netA): a packet to ip:port (sendto)
-inline bool SendTo(App* app, uint32_t ip, uint16_t port, char* data, int size, int flags)
+inline bool Send(AppView* app, char* data, int size, int flags)
 {
-    return GameFunction<bool(__thiscall*)(App*, uint32_t, uint32_t, char*, int, int)>(0x00456E20)(app, ip, port, data,
-                                                                                                size, flags);
+    return app->Send(reinterpret_cast<const uint8_t*>(data), size, flags);
 }
-// -> App::Send (wt/netA): a packet on the connected socket
-inline bool Send(App* app, char* data, int size, int flags)
+// App flag 0x8: the App has no socket of its own (nothing to receive).
+inline bool HasNoSocket(AppView* app) { return app->IsLocal(); }
+// App flag 0x10: connection requests from foreign addresses are answered.
+inline bool AcceptsForeignConnections(AppView* app) { return app->HasFlag10(); }
+inline Conn* GetConnectionByAddress(AppView* app, uint32_t ip, uint16_t port)
 {
-    return GameFunction<bool(__thiscall*)(App*, char*, int, int)>(0x00456F10)(app, data, size, flags);
-}
-// -> (wt/netA) App flag 0x8: the App has no socket of its own (nothing to receive)
-inline bool HasNoSocket(App* app) { return GameFunction<bool(__thiscall*)(App*)>(0x00456F90)(app); }
-// -> App::AcceptsForeignConnections (wt/netA)
-inline bool AcceptsForeignConnections(App* app) { return GameFunction<bool(__thiscall*)(App*)>(0x00456FA0)(app); }
-// -> App::GetConnectionByAddress (wt/netB)
-inline Conn* GetConnectionByAddress(App* app, uint32_t ip, uint16_t port)
-{
-    return GameFunction<Conn*(__thiscall*)(App*, uint32_t, uint32_t)>(0x004578B0)(app, ip, port);
+    return static_cast<Conn*>(app->GetConnectionByAddress(ip, port));
 }
 // -> App::NewConnection (wt/netB)
-inline Conn* NewConnection(App* app, uint32_t ip, uint16_t port, int flags)
+inline Conn* NewConnection(AppView* app, uint32_t ip, uint16_t port, int flags)
 {
-    return GameFunction<Conn*(__thiscall*)(App*, uint32_t, uint32_t, int)>(0x004597C0)(app, ip, port, flags);
+    return GameFunction<Conn*(__thiscall*)(AppView*, uint32_t, uint32_t, int)>(0x004597C0)(app, ip, port, flags);
 }
-// -> App::ReadPacket (wt/netA): a received packet into the connection's read buffer (false: not valid)
-inline bool ReadPacket(App* app, char* packet, char* to, int size)
+// A received packet into the connection's read buffer (false: not valid; secure packets lose their checksum).
+inline bool ReadPacket(AppView* app, char* packet, char* to, int size)
 {
-    return GameFunction<bool(__thiscall*)(App*, char*, char*, int)>(0x00456CC0)(app, packet, to, size);
+    return app->Decrypt(reinterpret_cast<const uint8_t*>(packet), reinterpret_cast<uint8_t*>(to), size);
 }
-// -> App::SendMessageTo (wt/netA): a message straight to ip:port, not through a connection
-inline void SendMessageTo(App* app, uint8_t id, int unknown1, int unknown2, uint32_t ip, uint16_t port, int flags)
+// A message straight to ip:port, not through a connection.
+inline void SendMessageTo(AppView* app, uint8_t id, uint16_t length, const void* data, uint32_t ip, uint16_t port,
+                          int flags)
 {
-    GameFunction<void(__thiscall*)(App*, uint32_t, int, int, uint32_t, uint32_t, int)>(0x00457280)(
-        app, id, unknown1, unknown2, ip, port, flags);
+    app->SendMessageTo(id, length, data, ip, port, flags);
 }
-// -> App::TerminateConnection (wt/netA)
-inline void TerminateConnection(App* app, Conn* conn)
-{
-    GameFunction<void(__thiscall*)(App*, Conn*)>(0x00457300)(app, conn);
-}
-// -> App::ReportError (wt/netA): logs the socket error and closes the socket
-inline void ReportSocketError(App* app) { GameFunction<void(__thiscall*)(App*)>(0x00456A90)(app); }
-// -> App::Init (wt/netA)
-inline bool AppInit(App* app) { return GameFunction<bool(__thiscall*)(App*)>(0x00457110)(app); }
-// -> App::GetManager (wt/netA)
-inline uint8_t* GetManager(App* app) { return GameFunction<uint8_t*(__thiscall*)(App*)>(0x00456AF0)(app); }
+inline void TerminateConnection(AppView* app, Conn* conn) { app->TerminateConnection(conn); }
+inline void ReportSocketError(AppView* app) { app->ReportError(); }
+inline uint8_t* GetManager(AppView* app) { return static_cast<uint8_t*>(app->NetManager()); }
 // -> App::StreamMessage (wt/netB)
-inline void StreamMessage(App* app, Conn* conn, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5,
+inline void StreamMessage(AppView* app, Conn* conn, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5,
                           uint32_t a6, uint32_t a7)
 {
-    GameFunction<void(__thiscall*)(App*, Conn*, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t)>(
-        0x00458740)(app, conn, a1, a2, a3, a4, a5, a6, a7);
+    GameFunction<void(__thiscall*)(AppView*, Conn*, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
+                                   uint32_t)>(0x00458740)(app, conn, a1, a2, a3, a4, a5, a6, a7);
 }
 
 // Net::Manager's flags for a message id (0x00454980).
@@ -313,12 +276,8 @@ inline void FlagMessagesForResending(Conn* conn, uint32_t timestamp)
 }
 // The connection's destructor (0x00456790).
 inline void DestroyConn(Conn* conn) { GameFunction<void(__thiscall*)(Conn*)>(0x00456790)(conn); }
-// The connection's latency test (Net::LatencyTest at +0x1CA4) takes a measurement.
-// -> LatencyTest::InputLatencyValue (wt/netA)
-inline void AddLatency(Conn* conn, uint32_t latency)
-{
-    GameFunction<void(__thiscall*)(void*, uint32_t)>(0x004569B0)(&Field<uint8_t>(conn, ConnField::kLatency), latency);
-}
+// The connection's latency test takes a measurement.
+inline void AddLatency(Conn* conn, uint32_t latency) { conn->m_latencyTest.InputLatencyValue(static_cast<int>(latency)); }
 // Message/packet metrics (0x00454550, 0x00454D90).
 inline void AddMessageMetric(void* metrics, uint8_t id, uint32_t size)
 {
@@ -331,14 +290,14 @@ inline void AddPacketMetric(void* metrics, uint32_t size, uint32_t time)
 
 // Queued messages: the destructor frees the data (0x004550F0).
 inline void DestroyQueuedMsg(void* msg) { GameFunction<void(__thiscall*)(void*)>(0x004550F0)(msg); }
-inline SeqMsg* ConstructSeqMsg(void* memory, uint8_t id, uint16_t length, char* data, uint8_t group, bool compressed)
+inline SeqQueuedMsg* ConstructSeqMsg(void* memory, uint8_t id, uint16_t length, char* data, uint8_t group, bool compressed)
 {
-    return GameFunction<SeqMsg*(__thiscall*)(void*, uint32_t, uint32_t, char*, uint32_t, uint32_t)>(0x00455040)(
+    return GameFunction<SeqQueuedMsg*(__thiscall*)(void*, uint32_t, uint32_t, char*, uint32_t, uint32_t)>(0x00455040)(
         memory, id, length, data, group, compressed);
 }
-inline MsgSeqLink* ConstructMsgSeqLink(void* memory, SeqMsg* msg)
+inline MsgSeqLink* ConstructMsgSeqLink(void* memory, SeqQueuedMsg* msg)
 {
-    return GameFunction<MsgSeqLink*(__thiscall*)(void*, SeqMsg*)>(0x00455650)(memory, msg);
+    return GameFunction<MsgSeqLink*(__thiscall*)(void*, SeqQueuedMsg*)>(0x00455650)(memory, msg);
 }
 inline StreamDesc* ConstructStreamDesc(void* memory) { return GameFunction<StreamDesc*(__thiscall*)(void*)>(0x004549D0)(memory); }
 inline StreamLink* ConstructStreamLink(void* memory, StreamDesc* desc)

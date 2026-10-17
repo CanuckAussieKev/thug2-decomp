@@ -66,8 +66,7 @@ Client* Client::Construct(void* params)
 // 0x0045B910
 void Client::DestroyBody()
 {
-    // -> App::~App (wt/netA)
-    GameFunction<void(__thiscall*)(App*)>(0x00457710)(this);
+    AppView::DestroyBody();
 }
 
 // 0x0045B8E0
@@ -82,8 +81,7 @@ Client* Client::Destroy(unsigned int flags)
 // 0x0045B820
 void Client::Deinit()
 {
-    // -> App::Deinit (wt/netA)
-    GameFunction<void(__thiscall*)(App*)>(0x00457490)(this);
+    AppView::Deinit();
 }
 
 // 0x00459EC0
@@ -91,7 +89,7 @@ bool Client::Init()
 {
     Field<bool>(this, AppField::kConnected) = false;
     Timestamp(this) = 0;
-    if (!AppInit(this))
+    if (!AppView::Init())
         return false;
     Dispatcher* dispatcher = GetDispatcher(this);
     dispatcher->AddHandler(kMsgConnectionAccepted, HandleConnectionAccepted, 3, nullptr, 0x80);
@@ -158,7 +156,7 @@ void Client::ReceiveData()
         Field<int>(this, AppField::kTotalBytesIn) += received;
         int size = (Field<uint32_t>(this, AppField::kFlags) & kAppSecure) ? received - 2 : received;
         auto& server = Field<sockaddr_in>(this, AppField::kServerAddress);
-        if (Conn* conn = GetConnectionByAddress(this, server.sin_addr.s_addr, ntohs(server.sin_port))) {
+        if (Conn* conn = Net::GetConnectionByAddress(this, server.sin_addr.s_addr, ntohs(server.sin_port))) {
             char*& readPtr = Field<char*>(conn, ConnField::kReadPtr);
             if (readPtr + size < Field<char*>(conn, ConnField::kReadBuffer) + kConnReceiveBufferSize) {
                 uint32_t time = Tmr::GetTime();
@@ -219,7 +217,7 @@ void Client::SendData(Conn* conn)
             if (sent == 0 || now - sent > MaxLatency()) {
                 // a test due: if the last went unanswered, the latency is at least that much more
                 if (sent > Field<uint32_t>(conn, ConnField::kLatencyTestAnswered)) {
-                    uint32_t latency = (IsLocal(conn) ? 0 : Field<uint32_t>(conn, ConnField::kLatency)) + 100;
+                    uint32_t latency = (Net::IsLocal(conn) ? 0 : Field<uint32_t>(conn, ConnField::kLatency)) + 100;
                     if (latency > MaxLatency())
                         latency = MaxLatency();
                     AddLatency(conn, latency);
@@ -246,8 +244,8 @@ void Client::SendData(Conn* conn)
         if (size > 0 && IsRemote(conn)) {
             char* packet = Field<char*>(conn, ConnField::kWriteBuffer);
             bool sent = Field<bool>(this, AppField::kConnected)
-                            ? Send(this, packet, size, 0)
-                            : SendTo(this, Field<uint32_t>(conn, ConnField::kIp), Field<uint16_t>(conn, ConnField::kPort),
+                            ? Net::Send(this, packet, size, 0)
+                            : Net::SendTo(this, Field<uint32_t>(conn, ConnField::kIp), Field<uint16_t>(conn, ConnField::kPort),
                                      packet, size, 0);
             if (!sent) {
                 FlagMessagesForResending(conn, Field<uint32_t>(conn, ConnField::kTimestampOut));
@@ -274,7 +272,7 @@ int Client::HandleConnectionAccepted(MsgHandlerContext* context)
 // 0x0045ABD0
 int Client::HandleConnectionRefused(MsgHandlerContext* context)
 {
-    TerminateConnection(context->m_App, context->m_Conn);
+    Net::TerminateConnection(context->m_App, context->m_Conn);
     return kHandlerHalt;
 }
 

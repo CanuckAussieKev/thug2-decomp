@@ -43,7 +43,7 @@ bool Server::Init()
     Timestamp(this) = 0;
     Field<bool>(this, AppField::kConnected) = false;
     Field<uint32_t>(this, AppField::kServerUnknown1458) = 0;
-    if (!AppInit(this))
+    if (!AppView::Init())
         return false;
     Dispatcher* dispatcher = GetDispatcher(this);
     dispatcher->AddHandler(kMsgConnectionRequest, HandleConnectionRequest, 3, nullptr, kHighestPriority);
@@ -70,7 +70,7 @@ void Server::ReceiveData()
         }
         Field<int>(this, AppField::kTotalBytesIn) += received;
         int size = (Field<uint32_t>(this, AppField::kFlags) & kAppSecure) ? received - 2 : received;
-        if (Conn* conn = GetConnectionByAddress(this, from.sin_addr.s_addr, ntohs(from.sin_port))) {
+        if (Conn* conn = Net::GetConnectionByAddress(this, from.sin_addr.s_addr, ntohs(from.sin_port))) {
             char*& readPtr = Field<char*>(conn, ConnField::kReadPtr);
             if ((IsNew(conn) || !(Field<uint32_t>(this, AppField::kFlags) & kAppSecure)) &&
                 readPtr + size < Field<char*>(conn, ConnField::kReadBuffer) + kConnReceiveBufferSize) {
@@ -118,7 +118,7 @@ void Server::SendData(Conn* conn)
             if (sent == 0 || now - sent > MaxLatency()) {
                 // a test due: if the last went unanswered, the latency is at least that much more
                 if (sent > Field<uint32_t>(conn, ConnField::kLatencyTestAnswered)) {
-                    uint32_t latency = (IsLocal(conn) ? 0 : Field<uint32_t>(conn, ConnField::kLatency)) + 100;
+                    uint32_t latency = (Net::IsLocal(conn) ? 0 : Field<uint32_t>(conn, ConnField::kLatency)) + 100;
                     if (latency > MaxLatency())
                         latency = MaxLatency();
                     AddLatency(conn, latency);
@@ -161,7 +161,7 @@ void Server::SendData(Conn* conn)
         char*& writePtr = Field<char*>(conn, ConnField::kWritePtr);
         int size = static_cast<int>(writePtr - Field<char*>(conn, ConnField::kWriteBuffer));
         if (size > 0 && IsRemote(conn)) {
-            if (!SendTo(this, Field<uint32_t>(conn, ConnField::kIp), Field<uint16_t>(conn, ConnField::kPort),
+            if (!Net::SendTo(this, Field<uint32_t>(conn, ConnField::kIp), Field<uint16_t>(conn, ConnField::kPort),
                         Field<char*>(conn, ConnField::kWriteBuffer), size, 0)) {
                 FlagMessagesForResending(conn, Field<uint32_t>(conn, ConnField::kTimestampOut));
                 writePtr = Field<char*>(conn, ConnField::kWriteBuffer);
@@ -189,11 +189,11 @@ int Server::HandleConnectionRequest(MsgHandlerContext* context)
         if (!AcceptsForeignConnections(context->m_App))
             return kHandlerMsgDone;
         Conn* conn = context->m_Conn;
-        SendMessageTo(context->m_App, kMsgConnectionAccepted, 0, 0, Field<uint32_t>(conn, ConnField::kIp),
+        Net::SendMessageTo(context->m_App, kMsgConnectionAccepted, 0, nullptr, Field<uint32_t>(conn, ConnField::kIp),
                       Field<uint16_t>(conn, ConnField::kPort), 0);
         return kHandlerContinue;
     }
-    if (!IsLocal(context->m_Conn))
+    if (!Net::IsLocal(context->m_Conn))
         return kHandlerMsgDone;
     desc.m_Id = kMsgConnectionAccepted;
     desc.m_Priority = kHighestPriority;

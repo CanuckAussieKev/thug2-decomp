@@ -8,6 +8,7 @@
 #include "game/core/mem.h"
 #include "game/lst/search.h"
 #include "game/net/net_access_c.h"
+#include "game/net/net_app_messages.h"
 #include "hook/hook.h"
 
 namespace Net {
@@ -28,8 +29,7 @@ void ConstructContext(MsgHandlerContext* context)
 // 0x0045A590
 MsgHandler* MsgHandler::Destroy(unsigned int flags)
 {
-    // -> Lst::Node<MsgHandler>::~Node (wt/netA): unlinks it
-    GameFunction<void(__thiscall*)(MsgHandler*)>(0x00457030)(this);
+    static_cast<MsgHandlerNode*>(&m_node)->DestroyBody(); // (Lst::Node<MsgHandler>: unlinks it)
     if (flags & 1)
         Mem::Manager::Get()->Free(this);
     return this;
@@ -50,8 +50,8 @@ MsgHandlerSearch* MsgHandlerSearch::Destroy(unsigned int flags)
 // 0x0045A640
 void Dispatcher::Init()
 {
-    for (Lst::Head& list : m_handlers) {
-        Mem::ListNode* node = list.m_node.next;
+    for (int id = 0; id < kNumMessageIds; ++id) {
+        Mem::ListNode* node = List(id).m_node.next;
         // (the head check comes before the null check)
         if (node->data == reinterpret_cast<void*>(-1) || !node)
             continue;
@@ -68,9 +68,9 @@ void Dispatcher::Init()
 // 0x0045A690
 void Dispatcher::Deinit()
 {
-    for (Lst::Head& list : m_handlers) {
+    for (int id = 0; id < kNumMessageIds; ++id) {
         Lst::Search<MsgHandler> search;
-        for (MsgHandler* handler = search.FirstItem(&list.m_node); handler;) {
+        for (MsgHandler* handler = search.FirstItem(&List(id).m_node); handler;) {
             MsgHandler* next = search.NextItem();
             DeleteNode(handler);
             handler = next;
@@ -95,7 +95,7 @@ MsgHandler* Dispatcher::AddHandler(uint8_t id, MsgHandlerCode code, uint32_t fla
         handler->m_Flags = flags;
     }
     // (a failed allocation reaches AddNode as null and crashes there, as in the original)
-    m_handlers[id].AddNode(reinterpret_cast<Mem::ListNode*>(handler));
+    List(id).AddNode(reinterpret_cast<Mem::ListNode*>(handler));
     Mem::Manager::Get()->PopContext();
     return handler;
 }
@@ -105,7 +105,7 @@ int Dispatcher::DispatchMsg(MsgHandlerContext* context)
 {
     Lst::Search<MsgHandler> search;
     MsgHandler* next;
-    for (MsgHandler* handler = search.FirstItem(&m_handlers[context->m_MsgId].m_node); handler; handler = next) {
+    for (MsgHandler* handler = search.FirstItem(&List(context->m_MsgId).m_node); handler; handler = next) {
         next = search.NextItem();
         if ((handler->m_Flags & context->m_PacketFlags) != context->m_PacketFlags)
             continue;

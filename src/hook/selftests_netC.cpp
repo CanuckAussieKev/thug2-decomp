@@ -24,6 +24,7 @@
 #include "game/net/net_app_messages.h"
 #include "game/net/net_client.h"
 #include "game/net/net_dispatcher.h"
+#include "game/net/net_latency.h"
 #include "game/net/net_server.h"
 #include "game/sys/timer.h"
 #include "game/util/lzss.h"
@@ -189,18 +190,23 @@ void SetUpStandIns(StandIns& s)
         // (the rest of the descriptor isn't initialised)
         return 0u;
     });
-    for (uint32_t address : {0x00456B00u, 0x00457AC0u, 0x00458E60u, 0x00457970u}) {
-        s.At({address}, 4, [address](Regs& r) {
+    // (wt/netA's in C++ too: ours calls them directly)
+    std::pair<uint32_t, uint32_t> conditions[] = {{0x00456B00u, AddressOf(&AppView::IsSendDue)},
+                                                  {0x00457AC0u, AddressOf(&AppView::MessagesDue)},
+                                                  {0x00458E60u, 0x00458E60u},
+                                                  {0x00457970u, AddressOf(&AppView::ImportantMessagesDue)}};
+    for (auto [address, ours] : conditions) {
+        s.At({address, ours}, 4, [address](Regs& r) {
             Record({address, Rel(r.ecx), Rel(r.args[0])});
             return Next(address, address == 0x00458E60u ? 0 : 1);
         });
     }
-    s.At({0x00456E20}, 0x14, [](Regs& r) {
+    s.At({0x00456E20, AddressOf(&AppView::SendTo)}, 0x14, [](Regs& r) {
         Record({0x6E20, Rel(r.ecx), r.args[0], r.args[1], Rel(r.args[2]), r.args[3], r.args[4],
                 Hash(reinterpret_cast<void*>(r.args[2]), r.args[3])});
         return Next(0x6E20, 1);
     });
-    s.At({0x00456F10}, 0xC, [](Regs& r) {
+    s.At({0x00456F10, AddressOf(&AppView::Send)}, 0xC, [](Regs& r) {
         Record({0x6F10, Rel(r.ecx), Rel(r.args[0]), r.args[1], r.args[2], Hash(reinterpret_cast<void*>(r.args[0]), r.args[1])});
         return Next(0x6F10, 1);
     });
@@ -212,7 +218,7 @@ void SetUpStandIns(StandIns& s)
         Record({0x6540, Rel(r.ecx)});
         return Next(0x6540, 0);
     });
-    s.At({0x004569B0}, 4, [](Regs& r) {
+    s.At({0x004569B0, AddressOf(&LatencyTest::InputLatencyValue)}, 4, [](Regs& r) {
         Record({0x69B0, Rel(r.ecx), r.args[0]});
         return 0u;
     });
@@ -224,7 +230,7 @@ void SetUpStandIns(StandIns& s)
         Record({0x4D90, Rel(r.ecx), r.args[0], r.args[1]});
         return 0u;
     });
-    s.At({0x004578B0}, 8, [](Regs& r) {
+    s.At({0x004578B0, AddressOf(&AppView::GetConnectionByAddress)}, 8, [](Regs& r) {
         Record({0x78B0, Rel(r.ecx), r.args[0], r.args[1]});
         return Next(0x78B0, 0);
     });
@@ -232,7 +238,7 @@ void SetUpStandIns(StandIns& s)
         Record({0x97C0, Rel(r.ecx), r.args[0], r.args[1], r.args[2]});
         return Next(0x97C0, 0);
     });
-    s.At({0x00456CC0}, 0xC, [](Regs& r) {
+    s.At({0x00456CC0, AddressOf(&AppView::Decrypt)}, 0xC, [](Regs& r) {
         Record({0x6CC0, Rel(r.ecx), Rel(r.args[0]), Rel(r.args[1]), r.args[2],
                 Hash(reinterpret_cast<void*>(r.args[0]), std::min<uint32_t>(r.args[2], 0x514))});
         return Next(0x6CC0, 1);
@@ -241,7 +247,7 @@ void SetUpStandIns(StandIns& s)
         Record({0x6790, Rel(r.ecx)});
         return 0u;
     });
-    s.At({0x00457110}, 0, [](Regs& r) {
+    s.At({0x00457110, AddressOf(&AppView::Init)}, 0, [](Regs& r) {
         Record({0x7110, Rel(r.ecx)});
         return Next(0x7110, 1);
     });
@@ -253,23 +259,23 @@ void SetUpStandIns(StandIns& s)
         Record({0x6890, Rel(r.ecx), r.args[0]});
         return r.ecx;
     });
-    s.At({0x00457710}, 0, [](Regs& r) {
+    s.At({0x00457710, AddressOf(&AppView::DestroyBody)}, 0, [](Regs& r) {
         Record({0x7710, Rel(r.ecx)});
         return 0u;
     });
-    s.At({0x00457490}, 0, [](Regs& r) {
+    s.At({0x00457490, AddressOf(&AppView::Deinit)}, 0, [](Regs& r) {
         Record({0x7490, Rel(r.ecx)});
         return 0u;
     });
-    s.At({0x00456A90}, 0, [](Regs& r) {
+    s.At({0x00456A90, AddressOf(&AppView::ReportError)}, 0, [](Regs& r) {
         Record({0x6A90, Rel(r.ecx)});
         return 0u;
     });
-    s.At({0x00457300}, 4, [](Regs& r) {
+    s.At({0x00457300, AddressOf(&AppView::TerminateConnection)}, 4, [](Regs& r) {
         Record({0x7300, Rel(r.ecx), Rel(r.args[0])});
         return 0u;
     });
-    s.At({0x00457280}, 0x18, [](Regs& r) {
+    s.At({0x00457280, AddressOf(&AppView::SendMessageTo)}, 0x18, [](Regs& r) {
         Record({0x7280, Rel(r.ecx), r.args[0] & 0xFF, r.args[1], r.args[2], r.args[3], r.args[4] & 0xFFFF, r.args[5]});
         return 0u;
     });
@@ -389,8 +395,8 @@ void Reset()
         g_flagTable[0x28 + id] = kMsgNoLength;
     g_flagTable[0x28 + 0x24] = 0xFE; // other bits don't matter
 
-    for (Lst::Head& head : TheDispatcher()->m_handlers)
-        InitHead(&head.m_node);
+    for (int id = 0; id < Dispatcher::kNumMessageIds; ++id)
+        InitHead(&TheDispatcher()->List(id).m_node);
     Field<uint8_t*>(TheApp(), AppField::kManager) = g_flagTable;
     InitHead(&Field<Mem::ListNode>(TheApp(), AppField::kConnections));
     Field<uint32_t>(TheApp(), AppField::kTimestamp) = 40000;
@@ -536,7 +542,7 @@ void TestNetDispatcher()
         Record({Rel(AddHandler(original, 5, RecordingHandler, 0xFFFFFFFF, 5, 0x05))});
         Record({Rel(AddHandler(original, 254, RecordingHandler, 7, 6, 0x80))});
         Record({Rel(AddHandler(original, 0, RecordingHandler, 0, 7, 0x80))});
-        RecordList(&TheDispatcher()->m_handlers[5].m_node);
+        RecordList(&TheDispatcher()->List(5).m_node);
 
         auto* context = Make<MsgHandlerContext>();
         context->m_Msg = MakeBytes(16, 3);
@@ -573,7 +579,7 @@ void TestNetDispatcher()
             Original<void(__thiscall*)(Dispatcher*)>(0x0045A640)(TheDispatcher());
         else
             TheDispatcher()->Init();
-        RecordList(&TheDispatcher()->m_handlers[5].m_node);
+        RecordList(&TheDispatcher()->List(5).m_node);
         AddHandler(original, 5, RecordingHandler, 3, 8, 0x80);
         AddHandler(original, 5, RecordingHandler, 3, 9, 0x81);
         AddHandler(original, 77, RecordingHandler, 3, 10, 0x80);
@@ -582,8 +588,8 @@ void TestNetDispatcher()
             Original<void(__thiscall*)(Dispatcher*)>(0x0045A690)(TheDispatcher());
         else
             TheDispatcher()->Deinit();
-        RecordList(&TheDispatcher()->m_handlers[5].m_node);
-        RecordList(&TheDispatcher()->m_handlers[254].m_node);
+        RecordList(&TheDispatcher()->List(5).m_node);
+        RecordList(&TheDispatcher()->List(254).m_node);
     });
 
     CompareRuns("net dispatcher: the destructors", 1, [](bool original, int) {
@@ -739,10 +745,10 @@ void TestNetDispatchMsgHandlers()
 QueuedMsg* MakeQueuedMsg(uint8_t id, uint32_t length, int refs, uint8_t seed)
 {
     auto* msg = Make<QueuedMsg>();
-    msg->m_Id = id;
-    msg->m_Length = static_cast<uint16_t>(length);
-    msg->m_Data = MakeBytes(std::max<uint32_t>(length, 1), seed);
-    msg->m_RefCount = refs;
+    msg->m_id = id;
+    msg->m_length = static_cast<uint16_t>(length);
+    msg->m_data = MakeBytes(std::max<uint32_t>(length, 1), seed);
+    msg->m_refCount = refs;
     return msg;
 }
 template <typename Link>
@@ -754,9 +760,9 @@ Link* MakeLink(Conn* conn, uint32_t queue, int priority)
     AddTail(&Field<Mem::ListNode>(conn, queue), &link->m_node, link);
     return link;
 }
-MsgLink* Normal(Conn* conn, uint8_t id, uint32_t length, int refs, uint32_t sendTime)
+MsgNormalLink* Normal(Conn* conn, uint8_t id, uint32_t length, int refs, uint32_t sendTime)
 {
-    auto* link = MakeLink<MsgLink>(conn, ConnField::kNormalQueue, 0x80);
+    auto* link = MakeLink<MsgNormalLink>(conn, ConnField::kNormalQueue, 0x80);
     link->m_QMsg = MakeQueuedMsg(id, length, refs, static_cast<uint8_t>(length + id));
     link->m_SendTime = sendTime;
     return link;
@@ -774,11 +780,11 @@ MsgImpLink* Important(Conn* conn, uint8_t id, uint32_t length, uint32_t timestam
 MsgSeqLink* Sequenced(Conn* conn, uint8_t id, uint32_t length, uint32_t timestamp, uint32_t sendTime)
 {
     auto* link = MakeLink<MsgSeqLink>(conn, ConnField::kSequencedQueue, 0x80);
-    auto* msg = Make<SeqMsg>();
-    msg->m_Id = id;
-    msg->m_Length = static_cast<uint16_t>(length);
-    msg->m_Data = MakeBytes(std::max<uint32_t>(length, 1), static_cast<uint8_t>(id * 3));
-    msg->m_RefCount = 1;
+    auto* msg = Make<SeqQueuedMsg>();
+    msg->m_id = id;
+    msg->m_length = static_cast<uint16_t>(length);
+    msg->m_data = MakeBytes(std::max<uint32_t>(length, 1), static_cast<uint8_t>(id * 3));
+    msg->m_refCount = 1;
     link->m_QMsg = msg;
     link->m_Timestamp = timestamp;
     link->m_SendTime = sendTime;
@@ -1142,7 +1148,7 @@ void TestNetSequenceHandlers()
         auto sequenced = [&](uint32_t stamp, uint32_t time, int refs) {
             MsgSeqLink* link = Sequenced(conn, 0x31, 3, time, 0);
             link->m_Packetstamp = stamp;
-            link->m_QMsg->m_RefCount = refs;
+            link->m_QMsg->m_refCount = refs;
         };
         sequenced(0x5150, 39700, 1);
         sequenced(0x5151, 39900, 3);
@@ -1332,7 +1338,7 @@ void TestNetClientServerSetUp()
             result = original ? Original<bool(__thiscall*)(void*)>(0x0045B7A0)(g_app) : reinterpret_cast<Server*>(g_app)->Init();
         Record({result});
         for (int id : {3, 4, 5, 6, 9, 0xB})
-            RecordList(&TheDispatcher()->m_handlers[id].m_node);
+            RecordList(&TheDispatcher()->List(id).m_node);
     });
     CompareRuns("net Client::ConnectToServer", 5, [](bool original, int i) {
         uint32_t ip = i == 1 ? 0 : 0x0100007F + i;

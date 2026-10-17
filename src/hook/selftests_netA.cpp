@@ -16,7 +16,9 @@
 #include "game/core/crc.h"
 #include "game/core/manager.h"
 #include "game/lst/head.h"
+#include "game/net/net_app_messages.h"
 #include "game/net/net_app_view.h"
+#include "game/net/net_dispatcher.h"
 #include "game/net/net_latency.h"
 #include "game/net/net_lists.h"
 #include "hook/game.h"
@@ -639,16 +641,26 @@ void StandInSockets(StandIns& s)
     });
     s.At({0x006234FE}, 0, StandInSprintf); // the game's sprintf (not started offline)
     // -> the dispatcher (wt/netC)
-    s.At({0x0045A640}, 0, [](Regs& r) {
+    s.At({0x0045A640, AddressOf(&Net::Dispatcher::Init)}, 0, [](Regs& r) {
         Record({0xA640, Rel(r.ecx)});
         return 0u;
     });
-    s.At({0x0045A690}, 0, [](Regs& r) {
+    s.At({0x0045A690, AddressOf(&Net::Dispatcher::Deinit)}, 0, [](Regs& r) {
         Record({0xA690, Rel(r.ecx)});
         return 0u;
     });
-    s.At({0x0045A5C0}, 0x14, [](Regs& r) {
-        Record({0xA5C0, Rel(r.ecx), r.args[0], r.args[1], r.args[2], r.args[3], r.args[4]});
+    s.At({0x0045A5C0, AddressOf(&Net::Dispatcher::AddHandler)}, 0x14, [](Regs& r) {
+        // (ours registers the handlers' C++ versions: named by the originals' addresses)
+        uint32_t handler = r.args[1];
+        std::pair<Net::MsgHandlerCode, uint32_t> handlers[] = {
+            {Net::App::HandleAck, 0x0045B0B0}, {Net::App::HandleSequencedMessages, 0x0045AF10},
+            {Net::App::HandleCompressedMessages, 0x0045ABF0}, {Net::App::HandleStreamMessages, 0x0045B2F0},
+            {Net::App::HandleLatencyTest, 0x0045AD60}, {Net::App::HandleLatencyResponse, 0x0045AB60}};
+        for (auto [code, original] : handlers) {
+            if (handler == reinterpret_cast<uint32_t>(code))
+                handler = original;
+        }
+        Record({0xA5C0, Rel(r.ecx), r.args[0] & 0xFF, handler, r.args[2], r.args[3], r.args[4]});
         return 0u;
     });
     // -> Conn's destructor (takes it out of the app's list, as the real one does)
@@ -796,7 +808,7 @@ void StandInQueues(StandIns& s)
         return 0u;
     });
     // -> Dispatcher::DispatchMessage (wt/netC)
-    s.At({0x0045A750}, 4, [](Regs& r) {
+    s.At({0x0045A750, AddressOf(&Net::Dispatcher::DispatchMsg)}, 4, [](Regs& r) {
         auto* context = reinterpret_cast<const uint8_t*>(r.args[0]);
         auto word = [context](uint32_t offset) { return *reinterpret_cast<const uint32_t*>(context + offset); };
         Record({0xA750, Rel(r.ecx), Rel(word(0)), context[4], word(8), Rel(word(0xC)), Rel(word(0x10)), word(0x14),

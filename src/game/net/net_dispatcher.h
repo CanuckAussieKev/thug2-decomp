@@ -8,6 +8,7 @@
 
 #include "game/core/alloc.h"
 #include "game/lst/head.h"
+#include "game/net/net_lists.h"
 
 namespace Net {
 
@@ -73,9 +74,12 @@ struct MsgHandlerSearch {
     MsgHandlerSearch* Destroy(unsigned int flags);
 };
 
-class Dispatcher {
+// (Its handler lists, HandlerLists, and its destructor 0x00457260 are in net_lists.h.)
+class Dispatcher : public HandlerLists {
 public:
-    static constexpr int kNumMessageIds = 255;
+    static constexpr int kNumMessageIds = HandlerLists::kCount;
+
+    Lst::Head& List(int id) { return reinterpret_cast<Lst::Head&>(m_lists[id]); }
 
     // 0x0045A640: every handler deleted (each list walked node by node).
     void Init();
@@ -88,8 +92,6 @@ public:
     // 0x0045A830: every message in the connection's read buffer, then the acks they asked for. 1, or 2 (a
     // handler stopped the packet), or 3 (the connection was destroyed).
     int DispatchMsgHandlers(Conn* conn, uint32_t flags);
-
-    Lst::Head m_handlers[kNumMessageIds];
 };
 static_assert(sizeof(Dispatcher) == 0x13EC);
 
