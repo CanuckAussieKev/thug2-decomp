@@ -115,7 +115,8 @@ Mth::Matrix ViewMatrix(const View& view)
 
 void OnSceneLoaded(const char* name, bool isNet)
 {
-    if (!On(Setting()) || !name || _stricmp(name, "mainmenu") != 0)
+    // (only the front end's: the playable skate shop - menu_level's data - uses the same scene)
+    if (!On(Setting()) || !name || _stricmp(name, "mainmenu") != 0 || Nx::CurrentLevel() != 0)
         return;
     Log("menu_backdrop: loading the scenes %s and %s behind the front end (view %d)", kBackdropSky, kBackdropScene,
         Setting());

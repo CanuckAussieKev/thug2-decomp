@@ -749,7 +749,7 @@ void TestMenuLevel()
     for (int setting : {0, 1, 2}) {
         MB::Setting() = setting;
         ok = ok && !ML::Active() && !ML::HideScene(MB::kFrontEndSceneName) &&
-             !ML::OverlayPath("scripts\\game\\levels.qb", path);
+             (!ML::OverlayPath("scripts\\game\\levels.qb", path) || !std::strstr(path, "\\menu_level\\"));
     }
     Camera dummy{};
     dummy.m_pos = {1, 2, 3, 1};

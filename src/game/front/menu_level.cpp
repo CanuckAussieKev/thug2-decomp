@@ -5,6 +5,8 @@
 
 #include <windows.h>
 
+#include <SDL2/SDL.h>
+
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -27,10 +29,27 @@ constexpr uint32_t kMenuLevelYaw = 0xD36043EC;    // menu_level_yaw
 constexpr uint32_t kMenuLevelOffset = 0xA041A52B; // menu_level_offset
 constexpr float kShopRadius = 3000.0f;
 
+// The data overlay: thug2-decomp-data next to the exe (files always used: the playable skate shop...) and its
+// menu_level folder (the front end built in LA: used before the others while the setting is 3).
 const std::string& Folder()
 {
     static const std::string folder = GameFolderPath("thug2-decomp-data");
     return folder;
+}
+const std::string& MenuFolder()
+{
+    static const std::string folder = Folder() + "\\menu_level";
+    return folder;
+}
+bool IsFolder(const std::string& path)
+{
+    DWORD attributes = GetFileAttributesA(path.c_str());
+    return attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY);
+}
+bool IsFile(const std::string& path)
+{
+    DWORD attributes = GetFileAttributesA(path.c_str());
+    return attributes != INVALID_FILE_ATTRIBUTES && !(attributes & FILE_ATTRIBUTE_DIRECTORY);
 }
 
 // The camera matrix rows 0-2 we last wrote (to tell a matrix set again in the shop's coordinates from ours).
@@ -47,14 +66,13 @@ bool Active()
     if (MenuBackdrop::Setting() != kSetting)
         return false;
     static const bool exists = [] {
-        DWORD attributes = GetFileAttributesA(Folder().c_str());
-        bool found = attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY);
+        bool found = IsFolder(MenuFolder());
         // (logged only when the ini asks for it: self-tests set the setting for their run)
         if (ConfigInt("features", "menu_backdrop", 1) == kSetting)
             Log(found ? "menu_level: the front end is a level in Los Angeles (files from %s)"
                       : "menu_level: menu_backdrop=3 but %s doesn't exist - run tools/menu_level/make_menu_level.py; "
                         "the skate shop is used",
-                Folder().c_str());
+                MenuFolder().c_str());
         return found;
     }();
     return exists;
@@ -78,22 +96,26 @@ void OverlayName(const char* name, char (&out)[260])
 
 bool OverlayPath(const char* name, char (&path)[260])
 {
-    if (!name || !Active())
+    static const bool overlay = IsFolder(Folder());
+    if (!name || !overlay)
         return false;
     char relative[260];
     OverlayName(name, relative);
-    std::string full = Folder() + "\\" + relative;
-    if (full.size() >= sizeof(path))
+    std::string full;
+    if (Active() && IsFile(MenuFolder() + "\\" + relative))
+        full = MenuFolder() + "\\" + relative;
+    else if (IsFile(Folder() + "\\" + relative))
+        full = Folder() + "\\" + relative;
+    else
         return false;
-    DWORD attributes = GetFileAttributesA(full.c_str());
-    if (attributes == INVALID_FILE_ATTRIBUTES || (attributes & FILE_ATTRIBUTE_DIRECTORY))
+    if (full.size() >= sizeof(path))
         return false;
     std::memcpy(path, full.c_str(), full.size() + 1);
     // Each file the overlay serves, logged the first time (and how the game asked for it).
     static std::vector<std::string> logged;
     if (std::find(logged.begin(), logged.end(), full) == logged.end()) {
         logged.push_back(full);
-        Log("menu_level: %s read from the overlay (asked for as %s)", relative, name);
+        Log("data overlay: %s read from %s (asked for as %s)", relative, full.c_str(), name);
     }
     return true;
 }
@@ -136,6 +158,77 @@ void MovePoint(const Move& move, const float in[3], float out[3])
     for (int i = 0; i < 3; ++i)
         out[i] = turned[i] + move.offset[i];
 }
+
+namespace {
+
+constexpr uint32_t kMainMenuCamera = 0xFCC018D3; // mainmenu_camera02
+
+float& Zoom()
+{
+    static float zoom = [] {
+        int percent = ConfigInt("features", "menu_zoom", 100);
+        return percent >= 10 && percent <= 1000 ? percent / 100.0f : 1.0f;
+    }();
+    return zoom;
+}
+
+// The field of view the game gave the camera, and the one we wrote over it.
+float g_gameFov, g_writtenFov;
+bool g_haveWrittenFov;
+
+// Page Up / Page Down held: zoom in / out (1% a frame), Home: back to 100%. The value is logged when the key goes
+// up.
+void UpdateZoomKeys()
+{
+    static bool changing = false;
+    const uint8_t* keys = SDL_GetKeyboardState(nullptr);
+    if (!keys)
+        return;
+    float& zoom = Zoom();
+    bool in = keys[SDL_SCANCODE_PAGEUP] != 0, out = keys[SDL_SCANCODE_PAGEDOWN] != 0, reset = keys[SDL_SCANCODE_HOME];
+    if (in)
+        zoom = std::min(zoom * 1.01f, 10.0f);
+    if (out)
+        zoom = std::max(zoom / 1.01f, 0.1f);
+    if (reset)
+        zoom = 1.0f;
+    if (in || out || reset) {
+        changing = true;
+    } else if (changing) {
+        changing = false;
+        Log("menu_level: main menu zoom %d%% (to keep it: menu_zoom=%d in thug2-decomp.ini [features])",
+            static_cast<int>(zoom * 100.0f + 0.5f), static_cast<int>(zoom * 100.0f + 0.5f));
+    }
+}
+
+// The main menu camera's field of view divided by the zoom (as a narrower or wider lens: the tangent of half the
+// angle scaled).
+void ApplyZoom(Gfx::Camera* camera)
+{
+    bool ours = g_haveWrittenFov && camera->m_hFov == g_writtenFov;
+    if (!ours)
+        g_gameFov = camera->m_hFov;
+    if (MenuBackdrop::PlayingMenuCamera() != kMainMenuCamera) {
+        if (ours) { // (the zoom is the main menu's only)
+            camera->m_hFov = g_gameFov;
+            camera->UpdateAdjustedHFOV();
+            g_haveWrittenFov = false;
+        }
+        return;
+    }
+    UpdateZoomKeys();
+    constexpr double kHalfRadians = 3.14159265358979 / 360.0;
+    double half = std::atan(std::tan(g_gameFov * kHalfRadians) / Zoom());
+    float fov = static_cast<float>(half / kHalfRadians);
+    if (camera->m_hFov != fov) {
+        camera->m_hFov = fov;
+        camera->UpdateAdjustedHFOV();
+    }
+    g_writtenFov = fov;
+    g_haveWrittenFov = true;
+}
+
+} // namespace
 
 void PlaceCamera(Gfx::Camera* camera)
 {
@@ -188,6 +281,7 @@ void PlaceCamera(Gfx::Camera* camera)
         g_written = camera->m_matrix;
         g_haveWritten = true;
     }
+    ApplyZoom(camera);
 }
 
 void TurnOrientation(Mth::Matrix* orientation)
