@@ -65,6 +65,10 @@ void Reset();
 // the pivot by quarter turns. Both move the sectors at once (vertices and collision); Commit updates the scenes' super
 // sectors (collision lookups) - after a drag, not every frame.
 V3 Pivot();
+// The height of the selection's bottom (its boxes' lowest point, moved with it).
+float Bottom();
+// Exactly these sectors selected (those that can still be moved; their rails with them) - undo.
+void SetSelection(const std::vector<uint32_t>& sectors);
 void MoveTo(V3 pivot);
 void Turn(int quarters);
 void Commit();

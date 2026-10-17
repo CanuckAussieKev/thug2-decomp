@@ -3397,6 +3397,23 @@ belong with the CScript batch.
         boxes of its segment and of those ending at it. The selection takes rail nodes of its sectors' clusters (the
         truck: TRG_FireTruck01..25 in Fire_Tender - 25 found) and ones lying within a selected box; they move and turn
         with the sectors (same placements) and are drawn as cyan lines. Not checked: grinding them where they now are.
+- [x] Batch 103: level editor UX - **tested in the game** (launched by Claude; LA's fire truck and the office block
+      behind it).
+      - Hold-and-drag fixed: the drag plane went through the selection's middle, and with the camera below that (the
+        fire truck's middle is above a camera on the street) the ray never met it - nothing moved. Now a horizontal plane
+        at the base (an object's feet, the scenery's bottom: Scenery::Bottom); a ray meeting it at under ~12 degrees
+        (camera about level with it: one pixel threw the truck 1,200 units) or not at all drags across the view at the
+        same height instead; hits further than three times where the drag started are ignored. The camera holds still
+        while dragging and turns to the selection when let go (FocusOn). A drag moves only after 4 pixels.
+      - Escape during a drag cancels it (back where it started). The Pause key (Escape here) also reached
+        level_editor_exit through the menu's pad_start: PassPauseKey holds it back while dragging, and until it has
+        been up after a cancel.
+      - Ctrl+Z undo (64 steps, per session): drags, key moves (one step per press-and-hold), turns, drops; objects
+        put back with their matrices, scenery by selecting the same sectors (Scenery::SetSelection - rails with them)
+        and moving back / turning back. Ctrl no longer flies down (Q does).
+      - G: onto the ground below (the collision ray from just under the scenery's bottom, or from above an object's
+        feet). A ground marker while something is selected: a line from the base to the ground below and a cross.
+      - HUD control lines updated.
 - [ ] Next: small net follow-ups: App::m_manager (+0x1440) could become `Manager*` (it is `void*`), name the
       Manager's +0x2E6 flag (pref checksum 0xE5ADE642) and check +0x374 (modem baud rate?).
       Widescreen follow-up: if the user still sees the bottom-left band overlap, don't draw sprites wholly outside the

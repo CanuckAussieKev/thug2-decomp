@@ -276,6 +276,7 @@ struct Track {
 std::map<uint32_t, Track> g_tracks;
 std::vector<uint32_t> g_selection;
 V3 g_pivot;
+float g_halfHeight; // (the selection's bottom is this far below the pivot - quarter turns keep it)
 std::vector<uint8_t*> g_dirtyScenes;
 
 bool SameV3(V3 a, V3 b) { return a.x == b.x && a.y == b.y && a.z == b.z; }
@@ -509,6 +510,7 @@ void ComputePivot()
         have = true;
     }
     g_pivot = have ? (min + max) * 0.5f : V3{0.0f, 0.0f, 0.0f};
+    g_halfHeight = have ? (max.y - min.y) * 0.5f : 0.0f;
 }
 
 // The selection's rails: rail nodes of the selected sectors' clusters (the fire truck's TRG_FireTruck01..25 are in
@@ -844,6 +846,19 @@ void Toggle(uint32_t checksum)
 }
 
 V3 Pivot() { return g_pivot; }
+
+float Bottom() { return g_pivot.y - g_halfHeight; }
+
+void SetSelection(const std::vector<uint32_t>& sectors)
+{
+    g_selection.clear();
+    for (uint32_t checksum : sectors) {
+        if (!WhyNotMovable(checksum))
+            g_selection.push_back(checksum);
+    }
+    ComputePivot();
+    SelectRails();
+}
 
 void MoveTo(V3 pivot)
 {

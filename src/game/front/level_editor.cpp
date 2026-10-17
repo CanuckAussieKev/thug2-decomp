@@ -277,6 +277,10 @@ Picked g_hover, g_selected;
 // The scene sector under the cursor (its checksum; 0: none) - the selected ones are Scenery::Selection().
 uint32_t g_hoverSector;
 bool g_dragging, g_dragVertical;
+bool g_cancelDrag; // (Escape during a drag: the selection back where the drag started)
+// The selection's base and the ground below it (Draw's marker).
+bool g_haveMark;
+V3 g_markBase, g_markGround;
 V3 g_dragOffset;     // the object's position minus the point on the drag plane under the cursor
 V3 g_dragStart;      // where the drag started (logged with the move)
 V3 g_dragPlaneNormal;
@@ -323,8 +327,12 @@ void HandleEvent(SDL_Event* event)
         g_mouse.wheel += event->wheel.direction == SDL_MOUSEWHEEL_FLIPPED ? -event->wheel.y : event->wheel.y;
         break;
     case SDL_KEYDOWN:
-        if (event->key.keysym.scancode == SDL_SCANCODE_ESCAPE && !event->key.repeat)
-            g_exitRequested = true;
+        if (event->key.keysym.scancode == SDL_SCANCODE_ESCAPE && !event->key.repeat) {
+            if (g_dragging)
+                g_cancelDrag = true; // (puts the selection back; a second Escape leaves)
+            else
+                g_exitRequested = true;
+        }
         break;
     default:
         break;
@@ -527,22 +535,134 @@ void PlaceSelection(Obj::CCompositeObject* object, V3 pos)
         Scenery::MoveTo(pos);
 }
 
-void StartDrag(V3 pos, V3 origin, V3 dir, bool vertical, const Frame& frame)
+// The height of the selection's base: an object's position (its feet), the scenery's bottom.
+float SelectionBase(Obj::CCompositeObject* object) { return object ? object->m_pos.y : Scenery::Bottom(); }
+
+// --- undo (Ctrl+Z): what a move, a turn or a drop changed, put back ---
+
+struct UndoStep {
+    bool scenery;
+    // an object: where it was and how it was turned
+    uint32_t id;
+    Mth::Vector pos;
+    Mth::Matrix matrix, displayMatrix;
+    // scenery: its sectors, where their pivot was (a move), or the quarters it was turned (a turn)
+    std::vector<uint32_t> sectors;
+    V3 pivot;
+    int quarters;
+};
+std::vector<UndoStep> g_undo;
+UndoStep g_pending;
+bool g_hasPending;
+constexpr size_t kMaxUndo = 64;
+
+// The selection as it is now (before a change).
+UndoStep Snapshot(Obj::CCompositeObject* object)
+{
+    UndoStep step = {};
+    if (object) {
+        step.id = object->m_id;
+        step.pos = object->m_pos;
+        step.matrix = object->m_matrix;
+        step.displayMatrix = object->m_displayMatrix;
+    } else {
+        step.scenery = true;
+        step.sectors = Scenery::Selection();
+        step.pivot = Scenery::Pivot();
+    }
+    return step;
+}
+
+void PushUndo(const UndoStep& step)
+{
+    g_undo.push_back(step);
+    if (g_undo.size() > kMaxUndo)
+        g_undo.erase(g_undo.begin());
+}
+
+// A change starting (a drag, the keys moving it) and ending: kept for undo when the selection did move.
+void BeginChange(Obj::CCompositeObject* object)
+{
+    g_pending = Snapshot(object);
+    g_hasPending = object || Scenery::HasSelection();
+}
+void EndChange(Obj::CCompositeObject* object)
+{
+    if (!g_hasPending)
+        return;
+    g_hasPending = false;
+    V3 before = g_pending.scenery ? g_pending.pivot : V3{g_pending.pos.x, g_pending.pos.y, g_pending.pos.z};
+    V3 now = SelectionPos(object);
+    if (before.x != now.x || before.y != now.y || before.z != now.z)
+        PushUndo(g_pending);
+}
+
+void Undo(Picked* selected)
+{
+    if (g_undo.empty())
+        return;
+    UndoStep step = g_undo.back();
+    g_undo.pop_back();
+    if (!step.scenery) {
+        auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(step.id));
+        if (!object)
+            return;
+        object->m_matrix = step.matrix;
+        object->m_displayMatrix = step.displayMatrix;
+        Place(object, {step.pos.x, step.pos.y, step.pos.z});
+        Scenery::ClearSelection();
+        *selected = {object, object->m_id};
+    } else {
+        *selected = {};
+        Scenery::SetSelection(step.sectors);
+        if (step.quarters)
+            Scenery::Turn(-step.quarters);
+        else
+            Scenery::MoveTo(step.pivot);
+        Scenery::Commit();
+    }
+    if (DebugEnabled())
+        Log("level editor: undone (%u more to undo)", static_cast<unsigned>(g_undo.size()));
+}
+
+// --- dragging ---
+//
+// The selection follows the point under the cursor on a plane: horizontal at its base (an object's feet, the scenery's
+// bottom: the camera is nearly always above that - the middle of a fire truck can be above the camera), or with Shift
+// upright facing the camera (up / down only). With the camera below the base, upright but height kept (across the
+// view). It moves only once the cursor has gone a few pixels from where it was pressed (a click doesn't nudge it).
+V3 g_dragPlaneOffset; // from the selection's position to the plane's point
+float g_pressX, g_pressY;
+bool g_dragMoved;
+float g_dragReach; // (how far along the ray the plane may be hit: three times where the drag started)
+
+void StartDrag(V3 pos, float baseY, V3 origin, V3 dir, bool vertical, const Frame& frame)
 {
     g_dragVertical = vertical;
     g_dragPlaneNormal = DragPlaneNormal(vertical, frame);
-    float t;
-    g_dragOffset = RayPlane(origin, dir, pos, g_dragPlaneNormal, &t) ? pos - (origin + dir * t) : V3{0.0f, 0.0f, 0.0f};
+    g_dragPlaneOffset = vertical ? V3{0.0f, 0.0f, 0.0f} : V3{0.0f, baseY - pos.y, 0.0f};
+    float t = 0.0f;
+    // (a ray meeting the plane at under ~12 degrees - the camera about level with the base - would throw the
+    // selection far for a pixel: then across the view instead)
+    bool grazing = !vertical && std::fabs(Normalize(dir).y) < 0.2f;
+    if (!vertical && (grazing || !RayPlane(origin, dir, pos + g_dragPlaneOffset, g_dragPlaneNormal, &t))) {
+        g_dragPlaneNormal = DragPlaneNormal(true, frame);
+        g_dragPlaneOffset = {0.0f, 0.0f, 0.0f};
+    }
+    V3 point = pos + g_dragPlaneOffset;
+    g_dragOffset = RayPlane(origin, dir, point, g_dragPlaneNormal, &t) ? point - (origin + dir * t) : V3{0.0f, 0.0f, 0.0f};
+    g_dragReach = std::max(2000.0f, 3.0f * t);
+    g_dragOffset = g_dragOffset - g_dragPlaneOffset;
 }
 
 void Drag(Obj::CCompositeObject* object, V3 origin, V3 dir)
 {
     V3 pos = SelectionPos(object);
     float t;
-    if (!RayPlane(origin, dir, pos, g_dragPlaneNormal, &t))
+    if (!RayPlane(origin, dir, pos + g_dragPlaneOffset, g_dragPlaneNormal, &t))
         return;
     V3 hit = origin + dir * t;
-    if (Dot(hit - origin, hit - origin) > kMaxPickDistance * kMaxPickDistance)
+    if (t > g_dragReach)
         return; // (towards the horizon)
     V3 wanted = hit + g_dragOffset;
     if (g_dragVertical)
@@ -576,6 +696,7 @@ void EndDrag()
     if (!g_dragging)
         return;
     g_dragging = false;
+    EndChange(Live(g_selected));
     if (Obj::CCompositeObject* object = Live(g_selected)) {
         V3 pos = PosOf(object);
         if (pos.x != g_dragStart.x || pos.y != g_dragStart.y || pos.z != g_dragStart.z) {
@@ -749,7 +870,15 @@ bool PassKey(bool* released, bool down)
     return *released;
 }
 
-bool PassPauseKey(bool down) { return PassKey(&g_pauseKeyReleased, down); }
+bool PassPauseKey(bool down)
+{
+    // (during a drag the key cancels the drag instead - HandleEvent - and counts again only once it has been up)
+    if (g_dragging || g_cancelDrag) {
+        g_pauseKeyReleased = false;
+        return false;
+    }
+    return PassKey(&g_pauseKeyReleased, down);
+}
 
 bool __cdecl CFunc_Available(Script::CStruct*, Script::CScript*) { return Enabled() && Nx::CurrentLevel() != 0; }
 
@@ -772,6 +901,9 @@ bool __cdecl CFunc_Start(Script::CStruct*, Script::CScript*)
     g_hoverSector = 0;
     Scenery::Reset();
     g_dragging = false;
+    g_cancelDrag = false;
+    g_undo.clear();
+    g_hasPending = false;
     g_moves = 0;
     ++g_session;
     g_mouse = Mouse{};
@@ -1024,11 +1156,11 @@ void UpdateHud()
                   g_pickable, g_objects, Scenery::MovedCount(), g_moves);
     SetHudLine(4, text);
     if (Live(g_selected) || Scenery::HasSelection()) {
-        SetHudLine(5, "Selected: W/A/S/D move  Q/E down/up  Z/X turn  Shift fast  Wheel: zoom");
-        SetHudLine(6, "Right mouse: orbit  Drag: move  Alt/middle click: a sector  Backspace: deselect");
+        SetHudLine(5, "W/A/S/D move  Q/E down/up  Z/X turn  G: to the ground  Shift fast  Wheel: zoom");
+        SetHudLine(6, "Drag: move  Esc: cancel drag  RMB: orbit  Ctrl+Z undo  Alt+click: sector  Bksp: deselect");
     } else {
         SetHudLine(5, "Fly: W/A/S/D  Q/E down/up  Shift fast  Right mouse: look  Wheel: zoom  - +: speed");
-        SetHudLine(6, "Click: select (scenery: its group)  Drag: move  Esc/Enter: exit");
+        SetHudLine(6, "Click: select (scenery: its group)  Hold and drag: move  Ctrl+Z: undo  Esc: exit");
     }
 }
 
@@ -1103,12 +1235,34 @@ void Update()
         if (!Scenery::HasSelection())
             g_dragging = false;
     }
-    static bool backspace, turnLeft, turnRight, slower, faster;
+    // Escape during a drag: the selection back where the drag started.
+    if (g_cancelDrag) {
+        g_cancelDrag = false;
+        if (g_dragging && (selected || Scenery::HasSelection())) {
+            PlaceSelection(selected, g_dragStart);
+            if (!selected)
+                Scenery::Commit();
+            g_hasPending = false;
+            FocusOn(selected);
+            if (DebugEnabled())
+                Log("level editor: drag cancelled");
+        }
+        g_dragging = false;
+    }
+    static bool backspace, zKey, turnRight, slower, faster, dropKey;
     if (Pressed(keys, SDL_SCANCODE_BACKSPACE, &backspace) && (selected || Scenery::HasSelection()) && !g_dragging) {
         LogPicked("deselected", selected);
         g_selected = {};
         selected = nullptr;
         Scenery::ClearSelection();
+    }
+    // Ctrl+Z: undo the last move, turn or drop (selecting what it puts back).
+    bool ctrl = keys[SDL_SCANCODE_LCTRL] || keys[SDL_SCANCODE_RCTRL];
+    bool zPressed = Pressed(keys, SDL_SCANCODE_Z, &zKey);
+    if (zPressed && ctrl && !g_dragging && !g_keyMoving) {
+        Undo(&g_selected);
+        selected = Live(g_selected);
+        FocusOn(selected);
     }
     bool haveSelection = selected || Scenery::HasSelection();
 
@@ -1132,28 +1286,50 @@ void Update()
             V3 pos = SelectionPos(selected);
             pos = {pos.x + (forward.x * f + right.x * r) * step, pos.y + u * step,
                    pos.z + (forward.z * f + right.z * r) * step};
-            PlaceSelection(selected, pos);
-            if (!g_keyMoving)
+            if (!g_keyMoving) {
                 ++g_moves;
+                BeginChange(selected);
+            }
+            PlaceSelection(selected, pos);
             g_keyMoving = true;
         } else {
             // (the scenery's collision lookups brought up to date once it stops moving)
-            if (g_keyMoving && !selected)
-                Scenery::Commit();
+            if (g_keyMoving) {
+                EndChange(selected);
+                if (!selected)
+                    Scenery::Commit();
+            }
             g_keyMoving = false;
         }
         // Z / X: turn it - an object 15 degrees, scenery a quarter turn about its centre (the engine turns level
         // geometry by quarter turns only).
-        int turn = (Pressed(keys, SDL_SCANCODE_X, &turnRight) ? 1 : 0) -
-                   (Pressed(keys, SDL_SCANCODE_Z, &turnLeft) ? 1 : 0);
+        int turn = (Pressed(keys, SDL_SCANCODE_X, &turnRight) ? 1 : 0) - (zPressed && !ctrl ? 1 : 0);
         if (turn && !g_dragging) {
+            UndoStep step = Snapshot(selected);
             if (selected) {
                 Turn(selected, static_cast<float>(turn) * kTurnPerNotch);
             } else {
                 Scenery::Turn(turn);
                 Scenery::Commit();
+                step.quarters = turn;
             }
+            PushUndo(step);
             ++g_moves;
+        }
+        // G: down onto the ground below it (the game's collision ray, from just under the scenery's bottom - not to
+        // hit itself - or from above an object's feet).
+        if (Pressed(keys, SDL_SCANCODE_G, &dropKey) && !g_dragging) {
+            V3 pos = SelectionPos(selected);
+            float base = SelectionBase(selected);
+            V3 ground;
+            V3 from = selected ? V3{pos.x, base + 50.0f, pos.z} : V3{pos.x, base - 1.0f, pos.z};
+            if (GroundBelow(from, &ground) && ground.y != base) {
+                PushUndo(Snapshot(selected));
+                PlaceSelection(selected, {pos.x, pos.y + (ground.y - base), pos.z});
+                if (!selected)
+                    Scenery::Commit();
+                ++g_moves;
+            }
         }
         // The wheel: nearer / further.
         if (input.wheel)
@@ -1171,7 +1347,7 @@ void Update()
         FlyInput fly = {(keys[SDL_SCANCODE_W] ? 1 : 0) - (keys[SDL_SCANCODE_S] ? 1 : 0),
                         (keys[SDL_SCANCODE_D] ? 1 : 0) - (keys[SDL_SCANCODE_A] ? 1 : 0),
                         (keys[SDL_SCANCODE_E] || keys[SDL_SCANCODE_SPACE] ? 1 : 0) -
-                            (keys[SDL_SCANCODE_Q] || keys[SDL_SCANCODE_LCTRL] || keys[SDL_SCANCODE_RCTRL] ? 1 : 0)};
+                            (keys[SDL_SCANCODE_Q] ? 1 : 0)};
         g_pos = Fly(g_pos, frame, fly, static_cast<float>(g_speed * boost * seconds));
         if (input.wheel) {
             float step = static_cast<float>(kWheelStep * boost * input.wheel);
@@ -1206,9 +1382,12 @@ void Update()
     // Dragging, or what's under the cursor (an object, or scenery when its sector is nearer).
     bool scenerySelected = !selected && Scenery::HasSelection();
     if (g_dragging && (selected || scenerySelected) && haveRay) {
+        if (!g_dragMoved && std::fabs(input.x - g_pressX) + std::fabs(input.y - g_pressY) >= 4.0f)
+            g_dragMoved = true;
         if (shift != g_dragVertical)
-            StartDrag(SelectionPos(selected), g_pos, dir, shift, frame);
-        Drag(selected, g_pos, dir);
+            StartDrag(SelectionPos(selected), SelectionBase(selected), g_pos, dir, shift, frame);
+        if (g_dragMoved)
+            Drag(selected, g_pos, dir);
     }
     if (!g_dragging) {
         float objectT = kMaxPickDistance;
@@ -1242,7 +1421,7 @@ void Update()
             if (Scenery::HasSelection() && !alt) {
                 g_dragging = true;
                 g_dragStart = Scenery::Pivot();
-                StartDrag(g_dragStart, g_pos, dir, shift, frame);
+                StartDrag(g_dragStart, Scenery::Bottom(), g_pos, dir, shift, frame);
             }
         } else if (input.leftPresses) {
             LogPicked("selected", hover);
@@ -1251,8 +1430,14 @@ void Update()
             if (hover) {
                 g_dragging = true;
                 g_dragStart = PosOf(hover);
-                StartDrag(g_dragStart, g_pos, dir, shift, frame);
+                StartDrag(g_dragStart, g_dragStart.y, g_pos, dir, shift, frame);
             }
+        }
+        if (g_dragging) {
+            g_pressX = input.x;
+            g_pressY = input.y;
+            g_dragMoved = false;
+            BeginChange(Live(g_selected));
         }
     }
     // Let go: the selection becomes the frame of reference (the camera turns to it, at the distance it is).
@@ -1263,6 +1448,14 @@ void Update()
             FocusOn(object);
     }
     UpdateHighlights(Live(g_selected), g_dragging ? nullptr : Live(g_hover), g_dragging ? 0 : g_hoverSector);
+    // The ground marker: the point below the selection's base (Draw: a line down to it and a cross).
+    g_haveMark = false;
+    if (Obj::CCompositeObject* object = Live(g_selected); object || Scenery::HasSelection()) {
+        V3 pos = SelectionPos(object);
+        g_markBase = {pos.x, SelectionBase(object), pos.z};
+        V3 from = object ? g_markBase + V3{0.0f, 2.0f, 0.0f} : g_markBase - V3{0.0f, 1.0f, 0.0f};
+        g_haveMark = GroundBelow(from, &g_markGround);
+    }
 }
 
 void Draw()
@@ -1294,6 +1487,15 @@ void Draw()
     if (!selected) {
         for (const auto& segment : Scenery::SelectedRails())
             AddLine(segment.first, segment.second, frame, 0xFF40E0FF, &lines);
+    }
+    // The ground marker: a line from the selection's base down (or up) to the ground below it, and a cross there.
+    if (g_haveMark && (selected || Scenery::HasSelection())) {
+        constexpr uint32_t kMark = 0xFFFFE070;
+        if (std::fabs(g_markBase.y - g_markGround.y) > 1.0f)
+            AddLine(g_markBase, g_markGround, frame, kMark, &lines);
+        float size = std::max(10.0f, std::min(60.0f, g_orbitDistance * 0.05f));
+        AddLine(g_markGround - V3{size, 0.0f, 0.0f}, g_markGround + V3{size, 0.0f, 0.0f}, frame, kMark, &lines);
+        AddLine(g_markGround - V3{0.0f, 0.0f, size}, g_markGround + V3{0.0f, 0.0f, size}, frame, kMark, &lines);
     }
     if (lines.empty())
         return;
