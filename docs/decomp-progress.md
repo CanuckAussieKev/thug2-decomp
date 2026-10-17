@@ -3370,7 +3370,7 @@ belong with the CScript batch.
       - Alt+click: Windows may treat a lone Alt press as a menu key (SDL normally swallows it); the middle click does the
         same thing.
 - [x] Batch 102: level editor - highlight by tint, scenery groups grow by attached pieces, grind rails move with
-      scenery - **tested in the game** (launched by Claude; LA's fire truck), except grinding the moved rails.
+      scenery - **tested in the game** (launched by Claude; LA's fire truck) and confirmed working by the user.
       - Tint instead of boxes: CGeom::SetColor (vfunc +0x18, 0x004B48B0 - what SetObjectColor 0x005A3E80 uses for
         graffiti): level geometry -> each mesh's colour (+0x80..+0x88 floats = byte / 255, flag 4 at +0); instances ->
         +0x4D RGBA and flag 4. 0x80 per channel is neutral (SetColor clears instead). The renderer honours it: scenes
