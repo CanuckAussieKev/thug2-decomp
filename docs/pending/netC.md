@@ -10,12 +10,13 @@ Files:
 - `src/game/net/net_client.{h,cpp}` - **Net::Client** (constructor 0x45A250 here), with the deleting destructor
   and the two jump thunks Client and Server share.
 - `src/game/net/net_server.{h,cpp}` - **Net::Server** (constructor 0x45B830 here).
-- `src/game/net/net_app_messages.{h,cpp}` - **Net::App** methods in this range (BundleMessages and the handlers
-  App::Init registers). `class App` here is declared with only these members (no fields); the real App
-  (constructor 0x4594C0) is wt/netB's - the merger folds these in.
-- `src/game/net/net_access_c.h` - this range's view of everything defined elsewhere: App / Conn field offsets,
-  the queue link and queued-message layouts, MsgDesc, message ids, and inline wrappers calling the other ranges'
-  functions by address (each marked `-> Name (wt/netA)` / `(wt/netB)`; ones in nobody's range unmarked).
+- `src/game/net/net_app_messages.cpp` - **Net::App** methods in this range (BundleMessages and the handlers
+  App::Init registers), declared in wt/netB's `struct App` (net_app.h; the header net_app_messages.h only
+  includes it).
+- `src/game/net/net_access_c.h` - what this range uses of the rest: App / Conn fields not named yet (by offset),
+  the queue links' and stream link's layouts, message ids, short names for App's calls (now direct calls into
+  netA's AppView / netB's App), and Conn's and the message classes' functions (0x454xxx-0x456xxx, nobody's
+  range) by address.
 - `src/game/lst/head.{h,cpp}` - `Lst::Head::AddUniqueSequence` 0x45AEB0 (also called by game code 0x567257,
   0x567465).
 - Tests: `src/hook/selftests_netC.cpp` (9 Early tests).
@@ -105,18 +106,33 @@ packetstamp +0x1C, resends +0x20, send time +0x24), MsgSeqLink (resends +0x14, g
 last sent +0x1C, sequence +0x20, send time +0x24, msg +0x28). Stream: StreamDesc 0x44 (ctor 0x4549D0: size,
 id, msg id +8, name +9, data +0x2C, write pointer +0x30, checksum +0x3C), StreamLink 0x18 (desc +0x14).
 
-## Cross-range calls for the merger
+## Integration with wt/netA and wt/netB (merged from main into wt/netC)
 
-wt/netA: 0x456A90 (socket error), 0x456AF0 (GetManager), 0x456B00, 0x456CC0 (read a received packet),
-0x456E20 (SendTo), 0x456F10 (Send), 0x456F90, 0x456FA0, 0x4569B0 (LatencyTest::InputLatencyValue), 0x457030
-(Lst::Node<MsgHandler> dtor), 0x457110 (App::Init), 0x457280 (send a message to an address), 0x457300
-(TerminateConnection), 0x457490 (App slot 5), 0x457710 (App::~App).
-wt/netB: 0x4594C0 (App::App), 0x4594A0 (the App task's code), 0x457970, 0x457AC0, 0x457EB0 (EnqueueMessage),
-0x4578B0 (connection by address), 0x458740 (StreamMessage), 0x458E60, 0x4597C0 (NewConnection), 0x459690.
-Nobody's (0x454xxx-0x456xxx, Conn and messages): 0x454550, 0x454980, 0x4549D0, 0x4549F0, 0x454A20, 0x454C20,
+Done here: Dispatcher derives from netA's HandlerLists (+List(id)); Conn is `using Conn = ConnView`; Client and
+Server derive from netB's `struct App : AppView`; netA's QueuedMsg / SeqQueuedMsg and netB's MsgDesc /
+StreamDesc are used (StreamDesc +0x3C named m_checksum: received streams' checksum); netA's local
+MsgHandlerContext and duplicate message-id/result constants dropped for net_dispatcher.h / net_access_c.h. Every
+call between the three ranges is direct: netA's App::Init / Deinit / DispatchQueuedSequencedMessages call the
+Dispatcher and register the C++ handlers; netB's ProcessData calls DispatchMsgHandlers; this range calls
+AppView (IsSendDue, MessagesDue, ImportantMessagesDue, SendTo, Send, Decrypt, GetConnectionByAddress,
+SendMessageTo, TerminateConnection, ReportError, Init, Deinit, DestroyBody, LatencyTest::InputLatencyValue,
+MsgHandlerNode::DestroyBody) and App (Construct, EnqueueMessage, BandwidthExceeded, NewConnection,
+StreamMessageToConn, SendNetworkData as the task code). The three test files stand in for the others' C++
+functions next to the game addresses (netA's AddHandler stand-in names the C++ handlers by their original
+addresses). netA's id 0x12 "disconnect" is the compressed-message handler (renamed kMsgCompressed).
+
+**Client / Server naming disagrees with netB's record** (which says 0x6475CC/0x45A250 is the Server). Evidence
+for this record's naming: 0x45A250's Init 0x459EC0 registers handlers for 4 "connection accepted" and 5/6
+"refused/terminated" (what a client receives), its 0x459F40 connect()s to a server address, and its 0x459E50
+is what chat sends "to the server" through (GameNet manager +0x08, the client); 0x45B830's Init 0x45B7A0
+registers 3 "connection request" and 0xB "disconnect request" (what a server receives) and its ReceiveData
+creates connections for any unknown sender. net_app.h's comment was corrected.
+
+## Calls still by address (nobody's range)
+
+Conn and the message classes: 0x454550, 0x454980, 0x4549D0, 0x4549F0, 0x454A20, 0x454C20,
 0x454D90, 0x454E00, 0x455040, 0x4550F0, 0x455650, 0x455680, 0x455980, 0x4559B0, 0x4559C0, 0x455A10, 0x455A20,
 0x455A30, 0x455C10, 0x455C20, 0x455C30, 0x456540, 0x4566D0, 0x456790; 0x406890 (Tsk::Task ctor).
-The names in net_access_c.h for netA/netB functions are guesses from use; prefer the owners' names.
 
 ## Findings / quirks kept
 
@@ -148,8 +164,12 @@ destructors, AddUniqueSequence), DispatchMsgHandlers (14), BundleMessages (26: e
 resends/thresholds, full packets at the exact boundary, 16-bit wraps, bandwidth), every handler (latency,
 timestamps incl. wrap-around windows, sequenced incl. duplicates and out-of-memory, acks, compressed methods,
 streams incl. checksums and kept results), Client/Server construct/destroy/init/connect/enqueue, ReceiveData
-(10 each), SendData (18 each).
-MUTATIONS
+(10 each), SendData (19 each).
+Mutations: 90 deliberate bugs; 81 caught at once, 5 more after strengthening (a foreign connection with other
+flags passed, a no-length message at the size boundary, overdue resends in both queues, the server's end-of-send
+bandwidth step with 0/1 pending, the ack's round trip vs the current latency); 4 equivalent (AddUniqueSequence
+`>` vs `>=` after the equality check; `break` vs `return fits`; clamping latency/first-piece size at exactly the
+limit). One (Dispatcher::Init skipping the head check) is caught as a crash.
 
 ## What to test in the game
 

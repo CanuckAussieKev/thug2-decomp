@@ -13,8 +13,8 @@ struct MsgDesc;
 
 class Client : public App {
 public:
-    // 0x0045A250: the App (0x004594C0, from `params`), then the App's task (Tsk::Task, priority -2000).
-    Client* Construct(void* params);
+    // 0x0045A250: the App (0x004594C0, with `flags`), then the App's task (Tsk::Task, priority -2000).
+    Client* Construct(int flags);
     // 0x0045B8E0 (scalar deleting destructor; Server's vtable has it too)
     Client* Destroy(unsigned int flags);
     // 0x0045B910: the destructor (a jump to App's, 0x00457710; Server's too).
@@ -30,9 +30,10 @@ public:
     bool ConnectToServer(uint32_t ip, uint16_t port);
     // 0x00459E50: a message queued for the server (the first connection).
     void EnqueueMessageToServer(MsgDesc* desc);
-    // 0x00459DC0: a message streamed to the server (App::StreamMessage, 0x00458740, on the first connection).
-    void StreamMessageToServer(uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5, uint32_t a6,
-                               uint32_t a7);
+    // 0x00459DC0: a message streamed to the server (App::StreamMessageToConn, 0x00458740, on the first
+    // connection).
+    void StreamMessageToServer(uint8_t msgId, uint16_t size, void* data, const char* desc, uint8_t groupId,
+                               bool allAtOnce, bool sendInPlace);
 
     // 0x0045A300: everything waiting on the socket, into the server connection's read buffer (or, from an unknown
     // address while not connected, into a new connection).

@@ -95,12 +95,12 @@ int DispatchStream(MsgHandlerContext* context, StreamLink* link, StreamDesc* des
     ConstructContext(&whole);
     whole.m_App = context->m_App;
     whole.m_Conn = context->m_Conn;
-    whole.m_MsgId = desc->m_MsgId;
-    whole.m_MsgLength = desc->m_Size;
+    whole.m_MsgId = desc->m_msgId;
+    whole.m_MsgLength = desc->m_size;
     whole.m_PacketFlags = 0;
-    whole.m_Msg = static_cast<char*>(Mem::New(desc->m_Size));
-    std::memcpy(whole.m_Msg, desc->m_Data, desc->m_Size);
-    if (checkChecksum && Crc::GenerateCRCFromBuffer(whole.m_Msg, desc->m_Size) != desc->m_Checksum)
+    whole.m_Msg = static_cast<char*>(Mem::New(desc->m_size));
+    std::memcpy(whole.m_Msg, desc->m_data, desc->m_size);
+    if (checkChecksum && Crc::GenerateCRCFromBuffer(whole.m_Msg, desc->m_size) != desc->m_checksum)
         whole.m_PacketFlags |= kPacketChecksumMismatch;
     int result = GetDispatcher(context->m_App)->DispatchMsg(&whole);
     if (result != kHandlerKeep && result != kHandlerMsgDestroyed) {
@@ -129,7 +129,7 @@ bool App::BundleMessages(Conn* conn, int queue, bool resendsOnly)
             next = search.NextItem();
             if (Timestamp(this) < link->m_SendTime)
                 continue;
-            if (BandwidthExceeded(this, conn))
+            if (Net::BandwidthExceeded(this, conn))
                 return fits;
             QueuedMsg* msg = link->m_QMsg;
             if (!AppendMessage(this, conn, msg)) {
@@ -147,7 +147,7 @@ bool App::BundleMessages(Conn* conn, int queue, bool resendsOnly)
              link = search.NextItem()) {
             if (Timestamp(this) < link->m_SendTime)
                 continue;
-            if (BandwidthExceeded(this, conn))
+            if (Net::BandwidthExceeded(this, conn))
                 return fits;
             // never sent (unless only resends are wanted), or not acked within the resend threshold
             if (link->m_Timestamp == 0) {
@@ -175,7 +175,7 @@ bool App::BundleMessages(Conn* conn, int queue, bool resendsOnly)
              link = search.NextItem()) {
             if (Timestamp(this) < link->m_SendTime)
                 continue;
-            if (BandwidthExceeded(this, conn))
+            if (Net::BandwidthExceeded(this, conn))
                 return fits;
             // never sent (unless only resends are wanted), or not acked within the resend threshold
             if (link->m_Timestamp == 0) {
@@ -227,10 +227,10 @@ int App::HandleLatencyTest(MsgHandlerContext* context)
     MsgDesc desc;
     ConstructMsgDesc(&desc);
     uint32_t sentTime = *reinterpret_cast<uint32_t*>(context->m_Msg);
-    desc.m_Data = &sentTime;
-    desc.m_Length = sizeof(sentTime);
-    desc.m_Id = kMsgLatencyResponse;
-    EnqueueMessage(context->m_App, Field<int>(context->m_Conn, ConnField::kHandle), &desc);
+    desc.m_data = &sentTime;
+    desc.m_length = sizeof(sentTime);
+    desc.m_id = kMsgLatencyResponse;
+    Net::EnqueueMessage(context->m_App, Field<int>(context->m_Conn, ConnField::kHandle), &desc);
     return kHandlerContinue;
 }
 
@@ -383,12 +383,12 @@ int App::HandleStreamMessages(MsgHandlerContext* context)
         for (StreamLink* link = search.FirstItem(ListOf(context->m_Conn, ConnField::kStreams)); link;
              link = search.NextItem()) {
             StreamDesc* desc = link->m_Desc;
-            if (desc->m_StreamId != *reinterpret_cast<uint32_t*>(msg))
+            if (desc->m_streamId != *reinterpret_cast<int*>(msg))
                 continue;
             uint32_t size = context->m_MsgLength - 4;
-            std::memcpy(desc->m_DataPtr, msg + 4, size);
-            desc->m_DataPtr += size;
-            if (static_cast<uint32_t>(desc->m_DataPtr - desc->m_Data) >= desc->m_Size)
+            std::memcpy(desc->m_next, msg + 4, size);
+            desc->m_next += size;
+            if (static_cast<uint32_t>(desc->m_next - desc->m_data) >= static_cast<uint32_t>(desc->m_size))
                 return DispatchStream(context, link, desc, true);
         }
         break;
@@ -396,30 +396,30 @@ int App::HandleStreamMessages(MsgHandlerContext* context)
     case kMsgStreamStart: {
         // name (0x20 bytes), size, stream id, checksum, message id, then the first piece
         char* msg = context->m_Msg;
-        uint32_t streamId = *reinterpret_cast<uint32_t*>(msg + 0x24);
+        int streamId = *reinterpret_cast<int*>(msg + 0x24);
         Lst::Search<StreamLink> search;
         for (StreamLink* link = search.FirstItem(ListOf(context->m_Conn, ConnField::kStreams)); link;
              link = search.NextItem()) {
-            if (link->m_Desc->m_StreamId == streamId) { // started already
+            if (link->m_Desc->m_streamId == streamId) { // started already
                 Mem::Manager::Get()->PopContext();
                 return kHandlerMsgDone;
             }
         }
         void* memory = Mem::New(sizeof(StreamDesc));
         StreamDesc* desc = memory ? ConstructStreamDesc(memory) : nullptr;
-        for (int i = 0; (desc->m_Desc[i] = msg[i]) != 0; ++i) // (strcpy: no limit)
+        for (int i = 0; (desc->m_desc[i] = msg[i]) != 0; ++i) // (strcpy: no limit)
             ;
-        desc->m_Size = *reinterpret_cast<uint32_t*>(msg + 0x20);
-        desc->m_StreamId = *reinterpret_cast<uint32_t*>(msg + 0x24);
-        desc->m_Checksum = *reinterpret_cast<uint32_t*>(msg + 0x28);
-        desc->m_MsgId = static_cast<uint8_t>(msg[0x2C]);
-        desc->m_Data = static_cast<char*>(Mem::New(*reinterpret_cast<uint32_t*>(msg + 0x20)));
-        desc->m_DataPtr = desc->m_Data;
+        desc->m_size = *reinterpret_cast<int*>(msg + 0x20);
+        desc->m_streamId = *reinterpret_cast<int*>(msg + 0x24);
+        desc->m_checksum = *reinterpret_cast<uint32_t*>(msg + 0x28);
+        desc->m_msgId = static_cast<uint8_t>(msg[0x2C]);
+        desc->m_data = static_cast<uint8_t*>(Mem::New(*reinterpret_cast<uint32_t*>(msg + 0x20)));
+        desc->m_next = desc->m_data;
         int size = *reinterpret_cast<int*>(msg + 0x20);
         if (size >= static_cast<int>(kMaxStreamStartData))
             size = kMaxStreamStartData;
-        std::memcpy(desc->m_Data, msg + 0x2D, size);
-        desc->m_DataPtr += size;
+        std::memcpy(desc->m_data, msg + 0x2D, size);
+        desc->m_next += size;
         void* linkMemory = Mem::Calloc(sizeof(StreamLink));
         StreamLink* link = linkMemory ? ConstructStreamLink(linkMemory, desc) : nullptr;
         // at the end of the connection's streams
@@ -428,7 +428,7 @@ int App::HandleStreamMessages(MsgHandlerContext* context)
         link->m_node.prev = head->prev;
         head->prev->next = &link->m_node;
         head->prev = &link->m_node;
-        if (static_cast<uint32_t>(desc->m_DataPtr - desc->m_Data) >= desc->m_Size) // all in one message
+        if (static_cast<uint32_t>(desc->m_next - desc->m_data) >= static_cast<uint32_t>(desc->m_size)) // all in one message
             return DispatchStream(context, link, desc, false); // (no checksum check on this path)
         break;
     }

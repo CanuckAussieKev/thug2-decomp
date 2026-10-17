@@ -28,10 +28,9 @@ using ForeignPacketHandler = void(__cdecl*)(char* data, int size, sockaddr* from
 } // namespace
 
 // 0x0045B830
-Server* Server::Construct(void* params)
+Server* Server::Construct(int flags)
 {
-    // -> App::App (wt/netB)
-    GameFunction<App*(__thiscall*)(App*, void*)>(0x004594C0)(this, params);
+    App::Construct(flags);
     Field<void**>(this, 0) = kServerVtable;
     ConstructAppTask(this);
     return this;
@@ -84,7 +83,7 @@ void Server::ReceiveData()
                     handler(readPtr, received, reinterpret_cast<sockaddr*>(&from));
                 }
             }
-        } else if (Conn* fresh = NewConnection(this, from.sin_addr.s_addr, ntohs(from.sin_port), 6)) {
+        } else if (Conn* fresh = Net::NewConnection(this, from.sin_addr.s_addr, ntohs(from.sin_port), 6)) {
             Field<App*>(fresh, ConnField::kApp) = this;
             if (ReadPacket(this, buffer, Field<char*>(fresh, ConnField::kReadPtr), received)) {
                 Field<char*>(fresh, ConnField::kReadPtr) = Field<char*>(fresh, ConnField::kReadBuffer) + size;
@@ -108,7 +107,7 @@ void Server::SendData(Conn* conn)
         return;
     bool done = false;
     do {
-        if (!MessagesToSend(this, conn) || BandwidthExceeded(this, conn))
+        if (!MessagesToSend(this, conn) || Net::BandwidthExceeded(this, conn))
             break;
         if (IsRemote(conn) && !IsForeign(conn) && (Field<uint32_t>(this, AppField::kFlags) & kAppMeasureLatency)) {
             MsgDesc desc;
@@ -124,19 +123,19 @@ void Server::SendData(Conn* conn)
                     AddLatency(conn, latency);
                 }
                 sent = now;
-                desc.m_Data = &now;
-                desc.m_Length = sizeof(now);
-                desc.m_Id = kMsgLatencyTest;
-                EnqueueMessage(this, Field<int>(conn, ConnField::kHandle), &desc);
+                desc.m_data = &now;
+                desc.m_length = sizeof(now);
+                desc.m_id = kMsgLatencyTest;
+                Net::EnqueueMessage(this, Field<int>(conn, ConnField::kHandle), &desc);
             }
         }
         // every packet carries a timestamp
         auto timestamp = static_cast<uint16_t>(Field<uint32_t>(conn, ConnField::kTimestampOut));
-        timestampDesc.m_Data = &timestamp;
-        timestampDesc.m_Length = sizeof(timestamp);
-        timestampDesc.m_Id = kMsgTimestamp;
-        timestampDesc.m_Priority = kHighestPriority;
-        EnqueueMessage(this, Field<int>(conn, ConnField::kHandle), &timestampDesc);
+        timestampDesc.m_data = &timestamp;
+        timestampDesc.m_length = sizeof(timestamp);
+        timestampDesc.m_id = kMsgTimestamp;
+        timestampDesc.m_priority = kHighestPriority;
+        Net::EnqueueMessage(this, Field<int>(conn, ConnField::kHandle), &timestampDesc);
 
         int pendingBefore = GetNumPendingMessages(conn);
         if (!BundleMessages(conn, kQueueNormal, false))
@@ -176,7 +175,7 @@ void Server::SendData(Conn* conn)
         ++Field<uint32_t>(conn, ConnField::kTimestampOut);
     } while (!done);
 
-    if (BandwidthExceeded(this, conn) && GetNumPendingMessages(conn) == 0)
+    if (Net::BandwidthExceeded(this, conn) && GetNumPendingMessages(conn) == 0)
         SetBandwidth(conn, GetBandwidth(conn) + kIdleBandwidthStep); // limited, though nothing is waiting
 }
 
@@ -195,10 +194,10 @@ int Server::HandleConnectionRequest(MsgHandlerContext* context)
     }
     if (!Net::IsLocal(context->m_Conn))
         return kHandlerMsgDone;
-    desc.m_Id = kMsgConnectionAccepted;
-    desc.m_Priority = kHighestPriority;
-    desc.m_Queue = kQueueImportant;
-    EnqueueMessage(context->m_App, Field<int>(context->m_Conn, ConnField::kHandle), &desc);
+    desc.m_id = kMsgConnectionAccepted;
+    desc.m_priority = kHighestPriority;
+    desc.m_queue = kQueueImportant;
+    Net::EnqueueMessage(context->m_App, Field<int>(context->m_Conn, ConnField::kHandle), &desc);
     return kHandlerContinue;
 }
 
@@ -210,8 +209,8 @@ int Server::HandleDisconnRequest(MsgHandlerContext* context)
     Conn* conn = context->m_Conn;
     if (Field<uint32_t>(conn, ConnField::kStatus) & kConnDisconnAccepted)
         return kHandlerMsgDone;
-    desc.m_Id = kMsgDisconnAccepted;
-    EnqueueMessage(context->m_App, Field<int>(conn, ConnField::kHandle), &desc);
+    desc.m_id = kMsgDisconnAccepted;
+    Net::EnqueueMessage(context->m_App, Field<int>(conn, ConnField::kHandle), &desc);
     Field<uint32_t>(context->m_Conn, ConnField::kStatus) |= kConnDisconnAccepted;
     return kHandlerContinue;
 }

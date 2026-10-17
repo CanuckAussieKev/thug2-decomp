@@ -181,19 +181,19 @@ void SetUpStandIns(StandIns& s)
     });
 
     // the rest of the library
-    s.At({0x00457EB0}, 8, [](Regs& r) {
+    s.At({0x00457EB0, AddressOf(&App::EnqueueMessage)}, 8, [](Regs& r) {
         auto* desc = reinterpret_cast<MsgDesc*>(r.args[1]);
-        Record({0xE4C, Rel(r.ecx), r.args[0], desc->m_Id, desc->m_Length, static_cast<uint32_t>(desc->m_Priority),
-                static_cast<uint32_t>(desc->m_Queue), desc->m_Data ? Hash(desc->m_Data, desc->m_Length) : 0,
-                desc->unknown10[0], desc->unknown10[1], *reinterpret_cast<uint32_t*>(desc->unknown10 + 4),
-                *reinterpret_cast<uint32_t*>(desc->unknown10 + 8), desc->unknown10[0xC], desc->unknown1});
+        Record({0xE4C, Rel(r.ecx), r.args[0], desc->m_id, desc->m_length, static_cast<uint32_t>(desc->m_priority),
+                static_cast<uint32_t>(desc->m_queue), desc->m_data ? Hash(desc->m_data, desc->m_length) : 0,
+                desc->m_groupId, desc->m_singular, static_cast<uint32_t>(desc->m_delay), desc->m_forcedSequenceId,
+                desc->m_compression, desc->m_stream});
         // (the rest of the descriptor isn't initialised)
         return 0u;
     });
     // (wt/netA's in C++ too: ours calls them directly)
     std::pair<uint32_t, uint32_t> conditions[] = {{0x00456B00u, AddressOf(&AppView::IsSendDue)},
                                                   {0x00457AC0u, AddressOf(&AppView::MessagesDue)},
-                                                  {0x00458E60u, 0x00458E60u},
+                                                  {0x00458E60u, AddressOf(&App::BandwidthExceeded)},
                                                   {0x00457970u, AddressOf(&AppView::ImportantMessagesDue)}};
     for (auto [address, ours] : conditions) {
         s.At({address, ours}, 4, [address](Regs& r) {
@@ -234,7 +234,7 @@ void SetUpStandIns(StandIns& s)
         Record({0x78B0, Rel(r.ecx), r.args[0], r.args[1]});
         return Next(0x78B0, 0);
     });
-    s.At({0x004597C0}, 0xC, [](Regs& r) {
+    s.At({0x004597C0, AddressOf(&App::NewConnection)}, 0xC, [](Regs& r) {
         Record({0x97C0, Rel(r.ecx), r.args[0], r.args[1], r.args[2]});
         return Next(0x97C0, 0);
     });
@@ -251,7 +251,7 @@ void SetUpStandIns(StandIns& s)
         Record({0x7110, Rel(r.ecx)});
         return Next(0x7110, 1);
     });
-    s.At({0x004594C0}, 4, [](Regs& r) {
+    s.At({0x004594C0, AddressOf(&App::Construct)}, 4, [](Regs& r) {
         Record({0x94C0, Rel(r.ecx), r.args[0]});
         return r.ecx;
     });
@@ -279,7 +279,7 @@ void SetUpStandIns(StandIns& s)
         Record({0x7280, Rel(r.ecx), r.args[0] & 0xFF, r.args[1], r.args[2], r.args[3], r.args[4] & 0xFFFF, r.args[5]});
         return 0u;
     });
-    s.At({0x00458740}, 0x20, [](Regs& r) {
+    s.At({0x00458740, AddressOf(&App::StreamMessageToConn)}, 0x20, [](Regs& r) {
         Record({0x8740, Rel(r.ecx), Rel(r.args[0])});
         for (int i = 1; i < 8; ++i)
             Record({r.args[i]});
@@ -489,7 +489,7 @@ uint32_t Code(T function)
 
 int __cdecl RecordingHandler(MsgHandlerContext* context)
 {
-    auto tag = reinterpret_cast<uint32_t>(context->m_Data);
+    auto tag = reinterpret_cast<uint32_t>(context->m_data);
     // (a message without a length has a whole buffer's worth copied: look past its length then)
     uint32_t size = (g_flagTable[0x28 + context->m_MsgId] & kMsgNoLength) ? 0x40 : std::min<uint32_t>(context->m_MsgLength, 0x40);
     Record({0x4A, tag, context->m_MsgId, context->m_MsgLength, context->m_PacketFlags, Rel(context->m_App),
@@ -569,9 +569,9 @@ void TestNetDispatcher()
                 Answers(0x4A00 + tag, {result});
             context->m_MsgId = c.id;
             context->m_PacketFlags = c.flags;
-            context->m_Data = reinterpret_cast<void*>(0x5A5A);
+            context->m_data = reinterpret_cast<void*>(0x5A5A);
             Record({0xD15, c.id, c.flags, static_cast<uint32_t>(Dispatch(original, context)),
-                    reinterpret_cast<uint32_t>(context->m_Data)});
+                    reinterpret_cast<uint32_t>(context->m_data)});
         }
 
         // Init deletes them all (node by node), Deinit too (item by item)
@@ -1191,11 +1191,11 @@ void TestNetStreamHandlers()
         // streams 0x51 and 0x52 being received: 0x30 bytes, 0x10 so far
         for (uint32_t id : {0x51u, 0x52u}) {
             auto* desc = Make<StreamDesc>();
-            desc->m_Size = 0x30;
-            desc->m_StreamId = id;
-            desc->m_MsgId = 0x34;
-            desc->m_Data = MakeBytes(0x60, static_cast<uint8_t>(id)); // (room for case 7's overrun)
-            desc->m_DataPtr = desc->m_Data + 0x10;
+            desc->m_size = 0x30;
+            desc->m_streamId = id;
+            desc->m_msgId = 0x34;
+            desc->m_data = reinterpret_cast<uint8_t*>(MakeBytes(0x60, static_cast<uint8_t>(id))); // (room for case 7's overrun)
+            desc->m_next = desc->m_data + 0x10;
             auto* link = Make<StreamLink>();
             link->m_node.vtable = reinterpret_cast<void**>(g_nodeVtable);
             link->m_Desc = desc;
@@ -1239,9 +1239,9 @@ void TestNetStreamHandlers()
             // the checksum of the whole (case 5: wrong)
             auto* link = reinterpret_cast<StreamLink*>(streams->prev->data);
             char whole[0x30];
-            std::memcpy(whole, link->m_Desc->m_Data, 0x10);
+            std::memcpy(whole, link->m_Desc->m_data, 0x10);
             std::memcpy(whole + 0x10, msg + 4, 0x20);
-            link->m_Desc->m_Checksum = GameFunction<uint32_t(__cdecl*)(const void*, int)>(0x00401AA0)(whole, 0x30) +
+            link->m_Desc->m_checksum = GameFunction<uint32_t(__cdecl*)(const void*, int)>(0x00401AA0)(whole, 0x30) +
                                        (i == 5 ? 1 : 0);
             if (i == 8)
                 Answers(0x4A07, {5}); // kept
@@ -1284,6 +1284,7 @@ void SetCodeMap()
         {Code(&Server::HandleConnectionRequest), 0x0045ADB0},
         {Code(&Server::HandleTimestamp), 0x0045AA30},
         {Code(&Server::HandleDisconnRequest), 0x0045AE50},
+        {Code(&App::SendNetworkData), 0x004594A0},
     };
 }
 
@@ -1300,15 +1301,15 @@ void TestNetClientServerSetUp()
     World world;
     SetCodeMap();
     CompareRuns("net Client/Server::Construct, Destroy, Deinit", 6, [](bool original, int i) {
-        void* params = reinterpret_cast<void*>(0x9A9A0000 + i);
+        int params = 0x9A9A0000 + i;
         if (i == 1 || i == 3)
             g_failAllocation = 0;
         if (i < 2) {
-            void* result = original ? Original<void*(__thiscall*)(void*, void*)>(0x0045A250)(g_app, params)
+            void* result = original ? Original<void*(__thiscall*)(void*, int)>(0x0045A250)(g_app, params)
                                     : reinterpret_cast<Client*>(g_app)->Construct(params);
             Record({Rel(result)});
         } else if (i < 4) {
-            void* result = original ? Original<void*(__thiscall*)(void*, void*)>(0x0045B830)(g_app, params)
+            void* result = original ? Original<void*(__thiscall*)(void*, int)>(0x0045B830)(g_app, params)
                                     : reinterpret_cast<Server*>(g_app)->Construct(params);
             Record({Rel(result)});
         } else {
@@ -1373,16 +1374,17 @@ void TestNetClientServerSetUp()
             AddTail(connections, Make<Mem::ListNode>(), TheConn(2));
         }
         auto* desc = Make<MsgDesc>();
-        desc->m_Id = 0x40;
-        desc->m_Length = 4;
-        desc->m_Data = Dwords({0x600DF00D});
+        desc->m_id = 0x40;
+        desc->m_length = 4;
+        desc->m_data = Dwords({0x600DF00D});
         if (original) {
             Original<void(__thiscall*)(void*, MsgDesc*)>(0x00459E50)(g_app, desc);
             Original<void(__thiscall*)(void*, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t)>(
-                0x00459DC0)(g_app, 1, 2, 3, 4, 5, 6, 7);
+                0x00459DC0)(g_app, 0x41, 0x1234, 3, 4, 5, 1, 0);
         } else {
             reinterpret_cast<Client*>(g_app)->EnqueueMessageToServer(desc);
-            reinterpret_cast<Client*>(g_app)->StreamMessageToServer(1, 2, 3, 4, 5, 6, 7);
+            reinterpret_cast<Client*>(g_app)->StreamMessageToServer(0x41, 0x1234, reinterpret_cast<void*>(3),
+                                                                    reinterpret_cast<const char*>(4), 5, true, false);
         }
     });
 }

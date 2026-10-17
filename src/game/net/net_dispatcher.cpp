@@ -91,7 +91,7 @@ MsgHandler* Dispatcher::AddHandler(uint8_t id, MsgHandlerCode code, uint32_t fla
         handler->m_node.next = &handler->m_node;
         handler->m_node.prev = &handler->m_node;
         handler->m_Code = code;
-        handler->m_Data = data;
+        handler->m_data = data;
         handler->m_Flags = flags;
     }
     // (a failed allocation reaches AddNode as null and crashes there, as in the original)
@@ -109,7 +109,7 @@ int Dispatcher::DispatchMsg(MsgHandlerContext* context)
         next = search.NextItem();
         if ((handler->m_Flags & context->m_PacketFlags) != context->m_PacketFlags)
             continue;
-        context->m_Data = handler->m_Data;
+        context->m_data = handler->m_data;
         int result = handler->m_Code(context);
         switch (result) {
         case kHandlerError:
@@ -176,9 +176,9 @@ int Dispatcher::DispatchMsgHandlers(Conn* conn, uint32_t flags)
             MsgDesc desc;
             ConstructMsgDesc(&desc);
             uint16_t sequence = static_cast<uint16_t>(context.m_SequencesToAck[i]);
-            desc.m_Data = &sequence;
-            desc.m_Length = sizeof(sequence);
-            desc.m_Id = kMsgAck;
+            desc.m_data = &sequence;
+            desc.m_length = sizeof(sequence);
+            desc.m_id = kMsgAck;
             EnqueueMessage(context.m_App, Field<int>(context.m_Conn, ConnField::kHandle), &desc);
         }
     }

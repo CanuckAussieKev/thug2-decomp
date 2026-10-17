@@ -19,8 +19,6 @@ namespace {
 
 void** const kClientVtable = reinterpret_cast<void**>(0x006475CC);
 void** const kAppTaskVtable = reinterpret_cast<void**>(0x006476F0);
-// -> App's task callback (wt/netB): the App's work each frame
-void* const kAppTaskCode = reinterpret_cast<void*>(0x004594A0);
 constexpr int kAppTaskPriority = -2000;
 constexpr uint32_t kTaskSize = 0x20;
 constexpr int kTimestampWindow = 5000; // timestamps further apart than this have wrapped around
@@ -31,7 +29,7 @@ Dispatcher* GetDispatcher(App* app) { return &Field<Dispatcher>(app, AppField::k
 using ForeignPacketHandler = void(__cdecl*)(char* data, int size, sockaddr* from);
 
 // The first connection (Lst::Search<Conn> over the App's connections; the search's vtable is 0x0064759C).
-Conn* FirstConnection(App* app)
+Conn* ServerConnection(App* app)
 {
     Lst::Search<Conn> search;
     return search.FirstItem(&Field<Mem::ListNode>(app, AppField::kConnections));
@@ -48,16 +46,15 @@ void ConstructAppTask(App* app)
         GameFunction<void*(__thiscall*)(void*, int)>(0x00406890)(task, kAppTaskPriority);
         Field<App*>(task, 0x1C) = app;
         Field<void**>(task, 0x0) = kAppTaskVtable;
-        Field<void*>(task, 0x18) = kAppTaskCode;
+        Field<void*>(task, 0x18) = reinterpret_cast<void*>(&App::SendNetworkData);
     }
     Field<void*>(app, AppField::kTask) = task;
 }
 
 // 0x0045A250
-Client* Client::Construct(void* params)
+Client* Client::Construct(int flags)
 {
-    // -> App::App (wt/netB)
-    GameFunction<App*(__thiscall*)(App*, void*)>(0x004594C0)(this, params);
+    App::Construct(flags);
     Field<void**>(this, 0) = kClientVtable;
     ConstructAppTask(this);
     return this;
@@ -120,18 +117,18 @@ bool Client::ConnectToServer(uint32_t ip, uint16_t port)
 }
 
 // 0x00459DC0
-void Client::StreamMessageToServer(uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5, uint32_t a6,
-                                   uint32_t a7)
+void Client::StreamMessageToServer(uint8_t msgId, uint16_t size, void* data, const char* desc, uint8_t groupId,
+                                   bool allAtOnce, bool sendInPlace)
 {
-    if (Conn* server = FirstConnection(this))
-        StreamMessage(this, server, a1, a2, a3, a4, a5, a6, a7);
+    if (Conn* server = ServerConnection(this))
+        StreamMessageToConn(server, msgId, size, data, desc, groupId, allAtOnce, sendInPlace);
 }
 
 // 0x00459E50
 void Client::EnqueueMessageToServer(MsgDesc* desc)
 {
-    if (Conn* server = FirstConnection(this))
-        EnqueueMessage(this, Field<int>(server, ConnField::kHandle), desc);
+    if (Conn* server = ServerConnection(this))
+        Net::EnqueueMessage(this, Field<int>(server, ConnField::kHandle), desc);
 }
 
 // 0x0045A300
@@ -172,7 +169,7 @@ void Client::ReceiveData()
             }
         } else if (!Field<bool>(this, AppField::kConnected)) {
             // from an unknown address
-            if (Conn* fresh = NewConnection(this, from.sin_addr.s_addr, ntohs(from.sin_port), 6)) {
+            if (Conn* fresh = Net::NewConnection(this, from.sin_addr.s_addr, ntohs(from.sin_port), 6)) {
                 Field<App*>(fresh, ConnField::kApp) = this;
                 if (ReadPacket(this, buffer, Field<char*>(fresh, ConnField::kReadPtr), received)) {
                     Field<char*>(fresh, ConnField::kReadPtr) = Field<char*>(fresh, ConnField::kReadBuffer) + size;
@@ -197,17 +194,17 @@ void Client::SendData(Conn* conn)
     do {
         if (!MessagesToSend(this, conn))
             return;
-        if (BandwidthExceeded(this, conn))
+        if (Net::BandwidthExceeded(this, conn))
             return;
         if (TimestampDue(this, conn)) {
             MsgDesc desc;
             ConstructMsgDesc(&desc);
             auto timestamp = static_cast<uint16_t>(Field<uint32_t>(conn, ConnField::kTimestampOut));
-            desc.m_Data = &timestamp;
-            desc.m_Length = sizeof(timestamp);
-            desc.m_Id = kMsgTimestamp;
-            desc.m_Priority = kHighestPriority;
-            EnqueueMessage(this, Field<int>(conn, ConnField::kHandle), &desc);
+            desc.m_data = &timestamp;
+            desc.m_length = sizeof(timestamp);
+            desc.m_id = kMsgTimestamp;
+            desc.m_priority = kHighestPriority;
+            Net::EnqueueMessage(this, Field<int>(conn, ConnField::kHandle), &desc);
         }
         if (IsRemote(conn) && !IsForeign(conn) && (Field<uint32_t>(this, AppField::kFlags) & kAppMeasureLatency)) {
             MsgDesc desc;
@@ -223,10 +220,10 @@ void Client::SendData(Conn* conn)
                     AddLatency(conn, latency);
                 }
                 sent = now;
-                desc.m_Data = &now;
-                desc.m_Id = kMsgLatencyTest;
-                desc.m_Length = sizeof(now);
-                EnqueueMessage(this, Field<int>(conn, ConnField::kHandle), &desc);
+                desc.m_data = &now;
+                desc.m_id = kMsgLatencyTest;
+                desc.m_length = sizeof(now);
+                Net::EnqueueMessage(this, Field<int>(conn, ConnField::kHandle), &desc);
             }
         }
         if (!BundleMessages(conn, kQueueNormal, false))

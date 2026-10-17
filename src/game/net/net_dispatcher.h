@@ -12,8 +12,9 @@
 
 namespace Net {
 
-class App;
-class Conn;
+struct App;
+struct ConnView;
+using Conn = ConnView;
 
 // What a handler returns.
 enum HandlerResult : int {
@@ -39,7 +40,7 @@ struct MsgHandlerContext {
     App* m_App;
     Conn* m_Conn;
     uint32_t m_PacketFlags;
-    void* m_Data;                       // the handler's own data (MsgHandler::m_Data)
+    void* m_data;                       // the handler's own data (MsgHandler::m_data)
     uint32_t m_SequencesToAck[32];      // the timestamps to acknowledge after the packet (low 16 bits)
     int m_NumSequencesToAck;
     bool m_Acknowledge;                 // send those acks
@@ -55,7 +56,7 @@ using MsgHandlerCode = int(__cdecl*)(MsgHandlerContext* context);
 struct MsgHandler {
     Mem::ListNode m_node;   // vtable 0x006475E8
     MsgHandlerCode m_Code;
-    void* m_Data;
+    void* m_data;
     uint32_t m_Flags;
 
     // 0x0045A590 (scalar deleting destructor: the node unlinks itself)

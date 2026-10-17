@@ -11,8 +11,8 @@ namespace Net {
 
 class Server : public App {
 public:
-    // 0x0045B830: the App (0x004594C0, from `params`), then the App's task (Tsk::Task, priority -2000).
-    Server* Construct(void* params);
+    // 0x0045B830: the App (0x004594C0, with `flags`), then the App's task (Tsk::Task, priority -2000).
+    Server* Construct(int flags);
 
     // 0x0045B7A0: the App's Init, then handlers for connection requests, timestamps and disconnection requests.
     bool Init();

@@ -65,6 +65,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_gfx2.cpp
     src/hook/selftests_el3d.cpp
     src/hook/selftests_sprite.cpp
+    src/hook/selftests_netB.cpp
     src/hook/selftests_mainloop.cpp
     src/hook/selftests_misc.cpp
     src/hook/selftests_scache.cpp
@@ -127,6 +128,7 @@ add_library(thug2_code OBJECT
     src/game/net/net_app_messages.cpp
     src/game/net/net_client.cpp
     src/game/net/net_server.cpp
+    src/game/net/net_app.cpp
     src/game/net/net_app_view.cpp
     src/game/net/net_latency.cpp
     src/game/net/net_lists.cpp

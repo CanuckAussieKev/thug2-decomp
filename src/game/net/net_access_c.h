@@ -1,22 +1,21 @@
 #pragma once
 
-// The low-level network library's classes as seen from 0x4598C0-0x45BDA0 (Client, Server, the message
-// dispatcher and App's message handling): the App (constructor 0x004594C0) and the connection (Conn, built in
-// 0x00455xxx) are defined elsewhere, so their fields are reached by offset here, and their functions called by
-// address. When the library is merged, these become the real classes' members.
+// What 0x4598C0-0x45BDA0 (Client, Server, the message dispatcher, App's message handling) uses of the rest of
+// the net library: App (net_app.h) and Conn (ConnView, net_app_view.h) fields they don't name yet, by offset;
+// the queue links' and stream link's layouts; message ids; short names for App's calls; and Conn's / the
+// message classes' functions (0x00454xxx-0x00456xxx, not decompiled yet) by address.
 
 #include <cstddef>
 #include <cstdint>
 
 #include "game/core/alloc.h"
-#include "game/net/net_app_view.h"
+#include "game/net/net_app.h"
+#include "game/net/net_dispatcher.h"
 #include "hook/game.h"
 
 namespace Net {
 
-class App;
-// Net::Conn (wt/netA's ConnView: the fields it uses; more by offset below).
-class Conn : public ConnView {};
+// (Net::App: net_app.h; Net::Conn: ConnView, net_app_view.h - the fields they don't name by offset below.)
 
 template <typename T, typename O>
 T& Field(O* object, uint32_t offset)
@@ -121,37 +120,14 @@ struct MsgSeqLink {
 static_assert(offsetof(MsgImpLink, m_SendTime) == 0x24 && offsetof(MsgSeqLink, m_QMsg) == 0x28 &&
               offsetof(MsgNormalLink, m_SendTime) == 0x18 && sizeof(MsgSeqLink) == 0x2C);
 
-// A stream being received in pieces (0x44 bytes, constructor 0x004549D0) and its link (0x18, 0x00455680).
-struct StreamDesc {
-    uint32_t m_Size;
-    uint32_t m_StreamId;
-    uint8_t m_MsgId;
-    char m_Desc[0x23];             // a name, for debugging
-    char* m_Data;
-    char* m_DataPtr;               // where the next piece goes
-    uint8_t unknown34[8];
-    uint32_t m_Checksum;
-    uint8_t unknown40[4];
-};
-static_assert(offsetof(StreamDesc, m_Data) == 0x2C && offsetof(StreamDesc, m_Checksum) == 0x3C &&
-              sizeof(StreamDesc) == 0x44);
+// A stream being received in pieces: StreamDesc (net_app.h); its link (0x18, constructor 0x00455680).
 struct StreamLink {
     Mem::ListNode m_node;
     StreamDesc* m_Desc;
 };
 static_assert(sizeof(StreamLink) == 0x18);
 
-// Net::MsgDesc: a message to send (0x20 bytes, constructor 0x004549F0).
-struct MsgDesc {
-    uint8_t m_Id;
-    uint8_t unknown1;
-    uint16_t m_Length;
-    void* m_Data;
-    int m_Priority;                // 0x80 normal, 0xFF highest
-    int m_Queue;                   // 0 normal, 1 important, 2 sequenced
-    uint8_t unknown10[0x10];
-};
-static_assert(sizeof(MsgDesc) == 0x20);
+// (Net::MsgDesc: net_app.h)
 
 constexpr int kQueueNormal = 0;
 constexpr int kQueueImportant = 1;
@@ -182,21 +158,13 @@ inline uint32_t MaxLatency() { return GameVariable<uint32_t>(0x00647588); }
 // MsgDesc (0x004549F0)
 inline void ConstructMsgDesc(MsgDesc* desc) { GameFunction<MsgDesc*(__thiscall*)(MsgDesc*)>(0x004549F0)(desc); }
 
-// App (wt/netA's AppView; wt/netB's functions by address)
-// -> App::EnqueueMessage (wt/netB)
-inline void EnqueueMessage(AppView* app, int handle, MsgDesc* desc)
-{
-    GameFunction<void(__thiscall*)(AppView*, int, MsgDesc*)>(0x00457EB0)(app, handle, desc);
-}
+// App (wt/netA's AppView and wt/netB's App, net_app.h): short names for the calls this range makes
+inline void EnqueueMessage(App* app, int handle, MsgDesc* desc) { app->EnqueueMessage(handle, desc); }
 // Whether this frame sends to the connection at all (its send interval has passed, or it's flagged).
 inline bool ShouldSendThisFrame(AppView* app, Conn* conn) { return app->IsSendDue(conn); }
 // Anything to send to the connection now.
 inline bool MessagesToSend(AppView* app, Conn* conn) { return app->MessagesDue(conn); }
-// -> App::BandwidthExceeded (wt/netB)
-inline bool BandwidthExceeded(AppView* app, Conn* conn)
-{
-    return GameFunction<bool(__thiscall*)(AppView*, Conn*)>(0x00458E60)(app, conn);
-}
+inline bool BandwidthExceeded(App* app, Conn* conn) { return app->BandwidthExceeded(conn); }
 // An important or sequenced message is due (unsent, or overdue for its ack): the client sends a timestamp
 // with the packet so it gets acked.
 inline bool TimestampDue(AppView* app, Conn* conn) { return app->ImportantMessagesDue(conn); }
@@ -215,12 +183,11 @@ inline bool HasNoSocket(AppView* app) { return app->IsLocal(); }
 inline bool AcceptsForeignConnections(AppView* app) { return app->HasFlag10(); }
 inline Conn* GetConnectionByAddress(AppView* app, uint32_t ip, uint16_t port)
 {
-    return static_cast<Conn*>(app->GetConnectionByAddress(ip, port));
+    return app->GetConnectionByAddress(ip, port);
 }
-// -> App::NewConnection (wt/netB)
-inline Conn* NewConnection(AppView* app, uint32_t ip, uint16_t port, int flags)
+inline Conn* NewConnection(App* app, uint32_t ip, uint16_t port, int flags)
 {
-    return GameFunction<Conn*(__thiscall*)(AppView*, uint32_t, uint32_t, int)>(0x004597C0)(app, ip, port, flags);
+    return app->NewConnection(static_cast<int>(ip), port, flags);
 }
 // A received packet into the connection's read buffer (false: not valid; secure packets lose their checksum).
 inline bool ReadPacket(AppView* app, char* packet, char* to, int size)
@@ -236,14 +203,6 @@ inline void SendMessageTo(AppView* app, uint8_t id, uint16_t length, const void*
 inline void TerminateConnection(AppView* app, Conn* conn) { app->TerminateConnection(conn); }
 inline void ReportSocketError(AppView* app) { app->ReportError(); }
 inline uint8_t* GetManager(AppView* app) { return static_cast<uint8_t*>(app->NetManager()); }
-// -> App::StreamMessage (wt/netB)
-inline void StreamMessage(AppView* app, Conn* conn, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5,
-                          uint32_t a6, uint32_t a7)
-{
-    GameFunction<void(__thiscall*)(AppView*, Conn*, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t,
-                                   uint32_t)>(0x00458740)(app, conn, a1, a2, a3, a4, a5, a6, a7);
-}
-
 // Net::Manager's flags for a message id (0x00454980).
 inline uint8_t MessageFlags(uint8_t* manager, uint8_t id)
 {
