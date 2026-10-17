@@ -9,6 +9,7 @@
 
 #include <SDL2/SDL.h>
 
+#include "game/front/mouse_menus.h"
 #include "game/sio/device.h"
 #include "game/sys/config.h"
 #include "game/sys/debug_log.h"
@@ -931,6 +932,8 @@ void InitSdlInput()
         Sys::InstallIsPS2();
     WriteGameKeyBindings();
     Platform::RegisterEventHandler(HandleInputEvent);
+    // (not PartyMod's - the mouse_menus feature: the mouse's events, when it's on)
+    MouseMenus::Init();
 }
 
 void ProcessSdlDevice(Device* device)
