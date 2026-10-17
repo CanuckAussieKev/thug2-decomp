@@ -9,7 +9,8 @@
 #                              skate shop's scene loaded too (extra_scene: the wheel's meshes are in it), and the
 #                              move (menu_level_yaw / menu_level_offset) the DLL reads for the cameras; load_level
 #                              loads a level's extra_scene after its own scene.
-#   levels\mainmenu\mainmenu.qb  the shop's node array with every node moved into LA by that move.
+#   levels\mainmenu\mainmenu.qb  the shop's node array with every node moved into LA by that move, after a
+#                              position-only stand-in for each of LA's nodes (LA's collision triggers nodes by index).
 # Nothing of the game is stored in the repo: the files are made from the game folder each time.
 #
 # The move is one turn about the up axis plus a shift: it takes the main menu camera's place in the shop
@@ -213,6 +214,40 @@ def edit_levels(text, yaw, offset):
     return text
 
 
+def array_elements(text, name):
+    # The top-level { ... } elements of the array `name = [ ... ]` and where the array's [ ... ] is in `text`.
+    start = text.index(name + " =")
+    open_at = text.index("[", start)
+    elements, depth, element_start, i = [], 0, None, open_at + 1
+    while True:
+        c = text[i]
+        if c == '"':
+            i = text.index('"', i + 1)
+        elif c in "{[(":
+            if depth == 0 and c == "{":
+                element_start = i
+            depth += 1
+        elif c in "}])":
+            if depth == 0:
+                return elements, open_at, i
+            depth -= 1
+            if depth == 0 and c == "}":
+                elements.append(text[element_start:i + 1])
+        i += 1
+
+
+def la_placeholders(text):
+    # LA's collision names trigger nodes by their index in LA_NodeArray: the front end's node array starts with one
+    # stand-in per LA node (its position and angles only - no name, class or script: nothing is made, run or found
+    # by name), so those indices exist; the shop's nodes follow (they link to no node by index).
+    elements, _, _ = array_elements(text, "LA_NodeArray")
+    placeholders = []
+    for element in elements:
+        fields = [m.group(0) for m in re.finditer(r"\b(?:Pos|Angles)=\([^)]*\)", element)]
+        placeholders.append("    { %s } " % " ".join(fields) if fields else "    { } ")
+    return placeholders
+
+
 def ns(tool, *args):
     result = subprocess.run([tool, *args], capture_output=True, text=True)
     if result.returncode != 0:
@@ -241,6 +276,10 @@ def main():
                                                  r"levels\mainmenu\mainmenu.qb"),
     }
     with tempfile.TemporaryDirectory() as work:
+        la = os.path.join(work, "LA.qb")
+        open(la, "wb").write(prx_file(os.path.join(pre, "LA_scripts.prx"), r"levels\la\la.qb"))
+        ns(args.ns, "-d", la, "-o", la + ".ns")
+        placeholders = la_placeholders(open(la + ".ns", encoding="utf-8").read())
         for name, data in sources.items():
             base = os.path.join(work, os.path.basename(name))
             open(base, "wb").write(data)
@@ -250,7 +289,9 @@ def main():
                 text = edit_levels(text, yaw, offset)
             else:
                 text, moved = move_nodes(text, yaw, offset)
-                print("node array: %d points moved" % moved)
+                _, open_at, _ = array_elements(text, "mainmenu_NodeArray")
+                text = text[:open_at + 1] + "\n" + "\n".join(placeholders) + text[open_at + 1:]
+                print("node array: %d points moved, after %d LA placeholders" % (moved, len(placeholders)))
             open(base + ".new.ns", "w", encoding="utf-8").write(text)
             target = os.path.join(out, name)
             os.makedirs(os.path.dirname(target), exist_ok=True)
