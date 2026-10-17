@@ -110,6 +110,7 @@ add_library(thug2_code OBJECT
     src/game/ed/cursor.cpp
     src/game/ed/menu.cpp
     src/game/ed/park_map.cpp
+    src/game/ed/park_io.cpp
     src/game/net/service.cpp
     src/game/net/online_hosts.cpp
     src/game/obj/flip_rotate.cpp

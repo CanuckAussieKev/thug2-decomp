@@ -61,3 +61,21 @@ strings.
     metapiece/generator/gap manager callees stood in, the vtable's GetPiece/AddPiece as thunks. 50 deliberate
     bugs: 47 caught (1 after duplicating a metapiece in a bucket), 2 equivalent (risers can't reach the slide's
     metapiece check - precise lists leave them out; `> y` vs `>= y + 1`), 1 caught by a crash.
+- [x] Batch A4 (NOT run in the game yet): set-up and saving - src/game/ed/park_io.cpp
+  - 0x005960D0 SetUpAbstractMetas (Ed_standard_metapieces: single / multiple / "ack" = made of palette metapieces;
+    special_type gap_placement, area_selection, rail_placement, restart_1/multi/horse, king_of_hill, the four
+    flags; a single-piece palette entry for every piece used), 0x00596980 WriteCompressedMap (header, floor
+    heights, metapieces as Ed_Save_Map index + cell + height + turn, whole gaps 0x30 bytes, CRC), 0x00596CD0
+    SetDefaultBounds (ed_default_inner_dim), 0x00596D50 SetUpRoadMask (Ed_Roadmask: quirk kept - read from
+    element 4, past the array's end, after four fixed rectangles), 0x00596E50 SetUpLights (Ed_Light_Info),
+    0x00596FB0 UpdatePercentBar, 0x005975A0, 0x005975B0 WriteIntoStructure (Park_editor_map, Park_editor_goals
+    via the GoalEditor module, rails via RailEditor, MaxPlayers), 0x00597720, 0x005987A0 ClearCompressedMap
+    ("Unnamed park"; quirk kept: CRC before the size and gap count are set), 0x00597BD0 AddGap (x87 float
+    order kept: x stored as float midway, z not), 0x00597FC0 RemoveGap, and source for 0x00591450
+    (PrintMapList, no REPLACE).
+  - Test: an "io" group (1000 cases) with stand-in script structures (FakeDesc) answering the CStruct getters,
+    real CArray::GetElement on fake arrays, the gap length returned in ST0 by patched bytes. 59 deliberate bugs:
+    52 caught (3 after strengthening: separate stand-ins for the gap's halves, flag 0x1000 in the test
+    metapieces, a non-matching metapiece in front of the gap's own), 1 didn't build, 3 equivalent (moving the
+    gap count after an already-taken CRC; rounding case 1's z to float - always an exact integer there; float
+    vs double division of the gap length - differs only on double-rounding cases the random lengths don't hit).

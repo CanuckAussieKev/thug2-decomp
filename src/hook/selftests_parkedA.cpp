@@ -7,6 +7,7 @@
 #include <cstring>
 #include <vector>
 
+#include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/pool.h"
@@ -758,6 +759,8 @@ void* g_vtable[4]; // (outside the arena: the stand-ins' code moves between runs
 
 // --- the map of metapieces ---------------------------------------------------------------------------------------
 
+extern int g_intersectAll;
+
 int MetaIndex(const void* meta)
 {
     auto at = reinterpret_cast<uintptr_t>(meta);
@@ -783,7 +786,7 @@ void BuildMap(Random& r)
         meta.m_cellArea.l = static_cast<uint8_t>(r.Range(1, 3));
         meta.m_cellArea.h = static_cast<uint8_t>(r.Range(1, 3));
         meta.m_flags = 0;
-        for (uint32_t flag : {0x4u, 0x8u, 0x20u, 0x100u, 0x400u, 0x4000u})
+        for (uint32_t flag : {0x4u, 0x8u, 0x20u, 0x100u, 0x400u, 0x1000u, 0x4000u})
             if (r.Range(0, 3) == 0)
                 meta.m_flags |= flag;
         if (r.Range(0, 1))
@@ -803,7 +806,7 @@ void BuildMap(Random& r)
     int used = 0;
     for (int x = 20; x < 36; ++x) {
         for (int z = 20; z < 36; ++z) {
-            for (int n = r.Range(0, 2); n > 0 && used < 290; --n) {
+            for (int n = r.Range(0, 2); n > 0 && used < 288; --n) {
                 CMapListNode& node = g_arena.bucketNodes[used++];
                 node.mp_meta = &g_arena.metas[r.Range(0, 31)];
                 node.mp_next = p.mp_bucketList[x][z];
@@ -813,14 +816,14 @@ void BuildMap(Random& r)
     }
     // the lists of metapieces
     p.mp_concreteMetaList = nullptr;
-    for (int n = r.Range(0, 12); n > 0 && used < 290; --n) {
+    for (int n = r.Range(0, 12); n > 0 && used < 288; --n) {
         CMapListNode& node = g_arena.bucketNodes[used++];
         node.mp_meta = &g_arena.metas[r.Range(0, 31)];
         node.mp_next = p.mp_concreteMetaList;
         p.mp_concreteMetaList = &node;
     }
     g_arena.list = nullptr;
-    for (int n = r.Range(0, 6); n > 0 && used < 290; --n) {
+    for (int n = r.Range(0, 6); n > 0 && used < 288; --n) {
         CMapListNode& node = g_arena.bucketNodes[used++];
         node.mp_meta = &g_arena.metas[r.Range(0, 31)];
         node.mp_next = g_arena.list;
@@ -830,7 +833,8 @@ void BuildMap(Random& r)
     auto& pools = GameVariable<Mem::PoolPair>(0x007CE5F0);
     pools.current = r.Range(0, 1);
     pools.pools[0] = pools.pools[1] = nullptr;
-    if (r.Range(0, 3)) {
+    bool usePool = r.Range(0, 3) != 0;
+    {
         auto& pool = *reinterpret_cast<Mem::Pool*>(g_arena.pools[1]);
         pool.m_start = reinterpret_cast<uint8_t*>(g_arena.poolNodes);
         pool.m_end = reinterpret_cast<uint8_t*>(g_arena.poolNodes + 160);
@@ -841,7 +845,8 @@ void BuildMap(Random& r)
         for (int i = 0; i < 160; ++i)
             *reinterpret_cast<void**>(&g_arena.poolNodes[i]) = i < 159 ? &g_arena.poolNodes[i + 1] : nullptr;
         pool.m_freeList = &g_arena.poolNodes[0];
-        pools.pools[pools.current] = &pool;
+        if (usePool)
+            pools.pools[pools.current] = &pool;
     }
     GameVariable<void*>(0x007CE688) = reinterpret_cast<void*>(0x68800000); // the park heap
     p.mp_generator = &g_arena.pieces[15];
@@ -854,7 +859,7 @@ void StandInMap(StandIns& s)
         uint32_t h = HashBytes(reinterpret_cast<const uint8_t*>(&r.args[0]), 6) ^ (r.args[2] & 0xFF);
         h ^= static_cast<uint32_t>(MetaIndex(reinterpret_cast<void*>(r.ecx))) * 0x9E3779B1u;
         Record({0x0CE0, static_cast<uint32_t>(MetaIndex(reinterpret_cast<void*>(r.ecx))), h});
-        return (h >> 7) & 1;
+        return g_intersectAll ? 1u : (h >> 7) & 1;
     });
     s.At({0x005907B0}, 4, [](Regs& r) { // CMetaPiece::SetRot
         Record({0x07B0, static_cast<uint32_t>(MetaIndex(reinterpret_cast<void*>(r.ecx))), r.args[0]});
@@ -1060,11 +1065,534 @@ void CaseMap(bool original, Random& r, std::vector<uint32_t>& t, StandIns& s)
     }
 }
 
+// --- set-up from the scripts, the compressed map, gaps -----------------------------------------------------------
+
+// A stand-in script structure: what its getters answer (the handlers below read it through ECX).
+struct FakeDesc {
+    uint32_t tag; // kFakeTag
+    int kind;     // 0 single, 1 multiple, 2 made of metapieces, 3 none of them
+    uint32_t single;
+    Script::CArray* pos; // "pos" (single), or null
+    Script::CArray* pieces;
+    bool hasSpecial;
+    uint32_t special;
+    bool hasName;
+    uint32_t name;
+    bool riser, noRails, flagged; // is_riser, no_rails, flag 0x0CD75A3F
+    Script::CComponent first;     // a piece entry's first (unnamed) component: the name
+    Script::CArray* unnamed;      // a piece entry's [x y z (rot)]
+};
+constexpr uint32_t kFakeTag = 0xFA4ED35C;
+
+struct IoArena {
+    FakeDesc descs[40];
+    Script::CArray arrays[40];
+    uint32_t elements[40][8];
+    uint32_t sources[16][2]; // piece sources: +4 is the name
+    float stats[0x1B];
+    float vectors[8][4]; // CVectors: x at +4
+    uint8_t editor[0x7C];
+};
+IoArena g_io;
+int g_intersectAll = 0;
+float g_gapLength = 0;
+
+Script::CArray* MakeArray(int& used, std::initializer_list<uint32_t> values)
+{
+    Script::CArray* a = &g_io.arrays[used];
+    uint32_t* e = g_io.elements[used];
+    ++used;
+    a->m_unknown0 = 0;
+    a->m_type = Script::ESYMBOLTYPE_INTEGER;
+    a->m_unknown2 = 0;
+    a->m_size = static_cast<uint32_t>(values.size());
+    int i = 0;
+    for (uint32_t v : values)
+        e[i++] = v;
+    for (; i < 8; ++i)
+        e[i] = 0x33 + i;
+    if (a->m_size == 1)
+        a->m_single = e[0];
+    else
+        a->m_elements = e;
+    return a;
+}
+
+FakeDesc* Desc(uint32_t ecx)
+{
+    auto* d = reinterpret_cast<FakeDesc*>(ecx);
+    auto at = reinterpret_cast<uintptr_t>(d);
+    auto first = reinterpret_cast<uintptr_t>(&g_io.descs[0]);
+    return at >= first && at < first + sizeof(g_io.descs) && d->tag == kFakeTag ? d : nullptr;
+}
+
+Script::CArray* g_standardMetas;
+Script::CArray* g_saveMap;
+Script::CArray* g_roadMask;
+Script::CArray* g_lightInfo;
+int g_innerDim;
+
+void BuildIo(Random& r)
+{
+    std::memset(&g_io, 0, sizeof(g_io));
+    int arrays = 0;
+    // the palette: single pieces, multiple ones, and one made of metapieces
+    const uint32_t specials[] = {0x2813AB8A, 0xFC26B6F4, 0xFFD81C08, 0x48FA9C7B, 0x419183B2, 0xE69AEFAF,
+                                 0xA091CE25, 0x74B0F4E9, 0xC893ACF8, 0x40BDFA7E, 0x3AE047FC, 0x12345678};
+    int numDescs = r.Range(1, 6);
+    uint32_t descPointers[8];
+    int entriesUsed = 8;
+    for (int i = 0; i < numDescs; ++i) {
+        FakeDesc& d = g_io.descs[i];
+        d.tag = kFakeTag;
+        d.kind = i == 0 ? 0 : r.Range(0, 3); // (the first is a single piece the others can be made of)
+        d.single = kNames[r.Range(0, 4)] ^ static_cast<uint32_t>(r.Range(0, 1));
+        d.pos = r.Range(0, 1) ? MakeArray(arrays, {static_cast<uint32_t>(r.Range(0, 9)), static_cast<uint32_t>(r.Range(-2, 3)),
+                                                   static_cast<uint32_t>(r.Range(0, 9))})
+                              : nullptr;
+        d.hasSpecial = r.Range(0, 1) != 0;
+        d.special = specials[r.Range(0, 11)];
+        d.hasName = i > 0 && r.Range(0, 1) != 0;
+        d.name = kNames[r.Range(0, 4)] + 1;
+        d.riser = r.Range(0, 2) == 0;
+        d.noRails = r.Range(0, 2) == 0;
+        // its piece entries (multiple, or made of metapieces)
+        int count = r.Range(1, 3);
+        uint32_t entries[3];
+        for (int k = 0; k < count; ++k) {
+            FakeDesc& e = g_io.descs[entriesUsed++];
+            e.tag = kFakeTag;
+            e.kind = 3;
+            e.first.checksum = d.kind == 2 ? g_io.descs[0].single : kNames[r.Range(0, 4)];
+            e.flagged = r.Range(0, 2) == 0;
+            if (r.Range(0, 1))
+                e.unnamed = MakeArray(arrays, {static_cast<uint32_t>(r.Range(0, 5)), static_cast<uint32_t>(r.Range(-1, 2)),
+                                               static_cast<uint32_t>(r.Range(0, 5)), static_cast<uint32_t>(r.Range(0, 3))});
+            else
+                e.unnamed = MakeArray(arrays, {static_cast<uint32_t>(r.Range(0, 5)), static_cast<uint32_t>(r.Range(-1, 2)),
+                                               static_cast<uint32_t>(r.Range(0, 5))});
+            entries[k] = reinterpret_cast<uint32_t>(&e);
+        }
+        d.pieces = count == 1 ? MakeArray(arrays, {entries[0]})
+                   : count == 2 ? MakeArray(arrays, {entries[0], entries[1]})
+                                : MakeArray(arrays, {entries[0], entries[1], entries[2]});
+        descPointers[i] = reinterpret_cast<uint32_t>(&d);
+    }
+    switch (numDescs) {
+    case 1: g_standardMetas = MakeArray(arrays, {descPointers[0], descPointers[0]}); g_standardMetas->m_size = 1;
+        g_standardMetas->m_single = descPointers[0]; break;
+    case 2: g_standardMetas = MakeArray(arrays, {descPointers[0], descPointers[1]}); break;
+    case 3: g_standardMetas = MakeArray(arrays, {descPointers[0], descPointers[1], descPointers[2]}); break;
+    case 4: g_standardMetas = MakeArray(arrays, {descPointers[0], descPointers[1], descPointers[2], descPointers[3]}); break;
+    default: g_standardMetas = MakeArray(arrays, {descPointers[0], descPointers[1], descPointers[2], descPointers[3], descPointers[4]}); break;
+    }
+    // the names saved by index
+    g_saveMap = MakeArray(arrays, {kNames[0], kNames[1], kNames[2], kNames[3]});
+    if (r.Range(0, 1))
+        g_saveMap->m_size = static_cast<uint32_t>(r.Range(2, 4));
+    // road mask rectangles (the code reads them from element 4 on)
+    int roads = r.Range(0, 4);
+    uint32_t rects[8];
+    for (int k = 0; k < 8; ++k)
+        rects[k] = reinterpret_cast<uint32_t>(MakeArray(arrays, {static_cast<uint32_t>(r.Range(0, 57)), static_cast<uint32_t>(r.Range(0, 57)),
+                                                                 static_cast<uint32_t>(r.Range(1, 9)), static_cast<uint32_t>(r.Range(1, 9))}));
+    g_roadMask = MakeArray(arrays, {rects[0], rects[1], rects[2], rects[3], rects[4], rects[5], rects[6], rects[7]});
+    g_roadMask->m_size = static_cast<uint32_t>(roads);
+    if (roads == 1)
+        g_roadMask->m_elements = g_io.elements[arrays - 1]; // (one element is kept in place: read past it all the same)
+    g_innerDim = r.Range(10, 50);
+    // lights
+    for (auto& v : g_io.vectors)
+        for (float& f : v)
+            f = static_cast<float>(r.Range(-500, 500)) / 7.0f;
+    g_lightInfo = nullptr; // (answered by the light descriptor stand-in below)
+    // the memory bar
+    for (float& f : g_io.stats)
+        f = static_cast<float>(r.Range(-10, 30)) / 17.0f;
+    // the editor's value for the compressed map
+    *reinterpret_cast<uint32_t*>(&g_io.editor[0x78]) = r.Range(0, 1) ? 0 : r.Next();
+    GameVariable<uint8_t*>(0x007CE5D8) = g_io.editor; // (only ClearCompressedMap checks for none)
+    // the gaps
+    for (Ed::GapInfo& gap : g_arena.gaps) {
+        gap.m_numCompleteHalves = r.Range(0, 3) ? 2 : r.Range(0, 1);
+        for (int h = 0; h < 2; ++h) {
+            gap.m_pos[h].x = static_cast<uint8_t>(r.Range(20, 35));
+            gap.m_pos[h].z = static_cast<uint8_t>(r.Range(20, 35));
+            gap.m_pos[h].y = static_cast<int8_t>(r.Range(-3, 3));
+            gap.m_rot[h] = r.Range(0, 4) ? r.Range(0, 3) : 7;
+            gap.m_leftExtent[h] = r.Range(-3, 9);
+            gap.m_rightExtent[h] = r.Range(-3, 9);
+        }
+        if (gap.m_rot[0] > 3)
+            gap.m_rot[0] = 1; // (the first half can't take the previous half's position: there isn't one)
+        for (char& c : gap.m_text)
+            c = static_cast<char>(r.Range('a', 'z'));
+        gap.m_text[r.Range(0, 31)] = 0;
+        gap.m_score = r.Range(-100, 100000);
+        gap.m_cancelFlags = r.Next();
+    }
+    g_gapLength = static_cast<float>(r.Range(1, 2000)) / 3.0f;
+    CParkManager& p = g_arena.park;
+    p.m_theme = r.Range(0, 9);
+    p.m_parkChanged = r.Range(0, 1) != 0;
+    for (int i = 0; i < 63; ++i)
+        p.m_parkName[i] = static_cast<char>(r.Range('a', 'z'));
+    p.m_parkName[r.Range(0, 62)] = 0;
+    for (uint32_t i = 0; i < 4; ++i)
+        p.m_roadMask[i] = RandomArea(r, 8);
+    GameVariable<float>(0x007CE644) = g_io.stats[0x2C / 4];
+    GameVariable<Mem::PoolPair>(0x006F3614).pools[0] = nullptr; // structures and arrays from the heap
+    GameVariable<Mem::PoolPair>(0x006F3614).pools[1] = nullptr;
+    GameVariable<Mem::PoolPair>(0x006F22B4).pools[0] = nullptr;
+    GameVariable<Mem::PoolPair>(0x006F22B4).pools[1] = nullptr;
+}
+
+const char* NameAt(uint32_t address) { return reinterpret_cast<const char*>(address); }
+bool Is(uint32_t name, const char* text) { return std::strcmp(NameAt(name), text) == 0; }
+
+void StandInIo(StandIns& s)
+{
+    using namespace Script;
+    s.At({0x00479090, AddressOf(static_cast<CArray* (*)(const char*)>(&GetArray))}, 0, [](Regs& r) {
+        Record({0x9090, Hash(NameAt(r.args[0]))});
+        if (Is(r.args[0], "Ed_standard_metapieces"))
+            return reinterpret_cast<uint32_t>(g_standardMetas);
+        if (Is(r.args[0], "Ed_Save_Map"))
+            return reinterpret_cast<uint32_t>(g_saveMap);
+        if (Is(r.args[0], "Ed_Roadmask"))
+            return reinterpret_cast<uint32_t>(g_roadMask);
+        // Ed_Light_Info: an array whose first element is an array whose first element is the descriptor
+        static CArray outer, inner;
+        outer.m_size = inner.m_size = 1;
+        outer.m_type = inner.m_type = ESYMBOLTYPE_ARRAY;
+        inner.m_single = reinterpret_cast<uint32_t>(&g_io.descs[39]);
+        outer.m_single = reinterpret_cast<uint32_t>(&inner);
+        return reinterpret_cast<uint32_t>(&outer);
+    });
+    s.At({0x004790C0, AddressOf(static_cast<int (*)(const char*)>(&GetInteger))}, 0, [](Regs& r) {
+        Record({0x90C0, Hash(NameAt(r.args[0]))});
+        return static_cast<uint32_t>(g_innerDim);
+    });
+    s.At({0x00476A00, AddressOf(static_cast<bool (CStruct::*)(const char*, uint32_t*, int)>(&CStruct::GetChecksum))}, 12,
+         [](Regs& r) {
+             FakeDesc* d = Desc(r.ecx);
+             Record({0x6A00, Hash(NameAt(r.args[0])), r.args[2]});
+             auto* out = reinterpret_cast<uint32_t*>(r.args[1]);
+             if (d && Is(r.args[0], "single") && d->kind == 0) {
+                 *out = d->single;
+                 return 1u;
+             }
+             if (d && Is(r.args[0], "name") && d->hasName) {
+                 *out = d->name;
+                 return 1u;
+             }
+             return 0u;
+         });
+    s.At({0x00476950, AddressOf(static_cast<bool (CStruct::*)(uint32_t, uint32_t*, int)>(&CStruct::GetChecksum))}, 12,
+         [](Regs& r) {
+             FakeDesc* d = Desc(r.ecx);
+             Record({0x6950, r.args[0]});
+             if (d && d->hasSpecial && r.args[0] == 0xF176A9FD) {
+                 *reinterpret_cast<uint32_t*>(r.args[1]) = d->special;
+                 return 1u;
+             }
+             return 0u;
+         });
+    s.At({0x004768B0, 0x00476F60, AddressOf(static_cast<bool (CStruct::*)(const char*, CArray**, int)>(&CStruct::GetArray))},
+         12, [](Regs& r) {
+             FakeDesc* d = Desc(r.ecx);
+             Record({0x68B0, Hash(NameAt(r.args[0])), r.args[2] & 0xFF});
+             auto* out = reinterpret_cast<CArray**>(r.args[1]);
+             CArray* answer = nullptr;
+             if (d && Is(r.args[0], "pos"))
+                 answer = d == &g_io.descs[39] ? &g_io.arrays[39] : d->pos;
+             else if (d && Is(r.args[0], "multiple") && d->kind == 1)
+                 answer = d->pieces;
+             else if (d && Is(r.args[0], "ack") && d->kind == 2)
+                 answer = d->pieces;
+             if (answer)
+                 *out = answer;
+             return answer != nullptr ? 1u : 0u;
+         });
+    s.At({0x00476860, AddressOf(static_cast<bool (CStruct::*)(uint32_t, CArray**, int)>(&CStruct::GetArray))}, 12,
+         [](Regs& r) {
+             FakeDesc* d = Desc(r.ecx);
+             Record({0x6860, r.args[0], r.args[2]});
+             if (d && d->unnamed) {
+                 *reinterpret_cast<CArray**>(r.args[1]) = d->unnamed;
+                 return 1u;
+             }
+             return 0u;
+         });
+    s.At({0x00476BA0, AddressOf(static_cast<bool (CStruct::*)(const char*)>(&CStruct::ContainsFlag))}, 4, [](Regs& r) {
+        FakeDesc* d = Desc(r.ecx);
+        Record({0x6BA0, Hash(NameAt(r.args[0]))});
+        return static_cast<uint32_t>(d && ((Is(r.args[0], "is_riser") && d->riser) || (Is(r.args[0], "no_rails") && d->noRails)));
+    });
+    s.At({0x00476B40, AddressOf(static_cast<bool (CStruct::*)(uint32_t)>(&CStruct::ContainsFlag))}, 4, [](Regs& r) {
+        FakeDesc* d = Desc(r.ecx);
+        Record({0x6B40, r.args[0]});
+        return static_cast<uint32_t>(d && r.args[0] == 0x0CD75A3F && d->flagged);
+    });
+    s.At({0x00476490, AddressOf(&CStruct::GetNextComponent)}, 4, [](Regs& r) {
+        FakeDesc* d = Desc(r.ecx);
+        return d && !r.args[0] ? reinterpret_cast<uint32_t>(&d->first) : 0u;
+    });
+    s.At({0x00476DA0, AddressOf(static_cast<bool (CStruct::*)(const char*, float*, int)>(&CStruct::GetFloat))}, 12,
+         [](Regs& r) {
+             Record({0x6DA0, Hash(NameAt(r.args[0])), r.args[2] & 0xFF});
+             *reinterpret_cast<float*>(r.args[1]) = g_io.vectors[0][Hash(NameAt(r.args[0])) & 3];
+             return 1u;
+         });
+    s.At({0x00477060, AddressOf(static_cast<bool (CStruct::*)(const char*, VectorValue*, int)>(&CStruct::GetVector))}, 12,
+         [](Regs& r) {
+             Record({0x7060, Hash(NameAt(r.args[0])), r.args[2] & 0xFF});
+             std::memcpy(reinterpret_cast<void*>(r.args[1]), g_io.vectors[1 + (Hash(NameAt(r.args[0])) & 1)], 16);
+             return 1u;
+         });
+    // the generator, pieces and metapieces
+    s.At({0x00591D90}, 4, [](Regs& r) { // a piece's source (+4: its name)
+        Record({0x1D90, r.args[0]});
+        uint32_t (&source)[2] = g_io.sources[r.args[0] & 15];
+        source[1] = r.args[0];
+        return reinterpret_cast<uint32_t>(&source);
+    });
+    s.At({0x00590FA0}, 0, [](Regs& r) { // the abstract metapiece's constructor
+        auto* meta = reinterpret_cast<CMetaPiece*>(r.ecx);
+        std::memset(meta, 0, sizeof(CMetaPiece));
+        meta->m_vtable = g_vtable;
+        Record({0x0FA0, Offset(meta)});
+        return r.ecx;
+    });
+    s.At({0x00591100}, 16, [](Regs& r) { // add a metapiece's pieces
+        Record({0x1100, Offset(reinterpret_cast<void*>(r.ecx)), Offset(reinterpret_cast<void*>(r.args[0])),
+                HashBytes(reinterpret_cast<const uint8_t*>(r.args[1]), 6), r.args[2], r.args[3] & 0xFF});
+        return 0u;
+    });
+    s.At({0x00591E00}, 32, [](Regs& r) { // the lights
+        Record({0x1E00, Offset(reinterpret_cast<void*>(r.ecx)), r.args[0], r.args[1], r.args[2], r.args[3], r.args[4],
+                r.args[5], r.args[6], r.args[7]});
+        return 0u;
+    });
+    s.At({0x00592FE0}, 8, [](Regs& r) { // a light's position
+        auto* v = reinterpret_cast<const uint32_t*>(r.args[0]);
+        Record({0x2FE0, v[0], v[1], v[2], v[3], r.args[1]});
+        return 0u;
+    });
+    // the memory bar
+    s.At({0x0059E730}, 0, [](Regs& r) {
+        std::memcpy(reinterpret_cast<void*>(r.args[0]), g_io.stats, sizeof(g_io.stats));
+        return r.args[0];
+    });
+    s.At({0x00477C60, AddressOf(static_cast<void (CStruct::*)(uint32_t, float)>(&CStruct::AddFloat))}, 8, [](Regs& r) {
+        Record({0x7C60, r.args[0], r.args[1]});
+        return r.ecx;
+    });
+    s.At({0x00409070, AddressOf(&Script::DeleteStruct)}, 0, [](Regs& r) {
+        Record({0x9070, Offset(reinterpret_cast<void*>(r.args[0]))});
+        return 0u;
+    });
+    // writing the park into a structure
+    s.At({0x0046CC50, AddressOf(&CArray::SetSizeAndType)}, 8, [](Regs& r) {
+        Record({0xCC50, Offset(reinterpret_cast<void*>(r.ecx)), r.args[0], r.args[1]});
+        return 0u;
+    });
+    s.At({0x0046CB10, AddressOf(&CArray::SetElement)}, 8, [](Regs& r) {
+        Record({0xCB10, r.args[0], r.args[1]});
+        return 0u;
+    });
+    s.At({0x004780D0, AddressOf(static_cast<void (CStruct::*)(uint32_t, CArray*)>(&CStruct::AddArrayPointer))}, 8,
+         [](Regs& r) {
+             Record({0x80D0, r.args[0], Offset(reinterpret_cast<void*>(r.args[1]))});
+             return r.ecx;
+         });
+    s.At({0x004781B0, AddressOf(static_cast<void (CStruct::*)(uint32_t, CStruct*)>(&CStruct::AddStructurePointer))}, 8,
+         [](Regs& r) {
+             Record({0x81B0, r.args[0], Offset(reinterpret_cast<void*>(r.args[1]))});
+             return r.ecx;
+         });
+    s.At({0x00477B80, AddressOf(static_cast<void (CStruct::*)(uint32_t, int)>(&CStruct::AddInteger))}, 8, [](Regs& r) {
+        Record({0x7B80, r.args[0], r.args[1]});
+        return r.ecx;
+    });
+    s.At({0x004E8470}, 0, [](Regs&) { return 0x4E840000u; });
+    s.At({0x004F4970}, 0, [](Regs&) { return 0x4F490000u; });
+    s.At({0x004EBA10}, 8, [](Regs& r) {
+        Record({0xBA10, r.ecx, r.args[0], Offset(reinterpret_cast<void*>(r.args[1]))});
+        return 0u;
+    });
+    s.At({0x004F6680}, 4, [](Regs& r) {
+        Record({0x6680, r.ecx});
+        return 0u;
+    });
+    // gaps
+    s.At({0x0058C990}, 0, [](Regs& r) {
+        Record({0xC990, Offset(reinterpret_cast<void*>(r.ecx))});
+        return g_gapLength > 600.0f ? 0xFFFFFFFFu : static_cast<uint32_t>(static_cast<int>(g_gapLength) % 7);
+    });
+    std::vector<uint8_t> length = {0xD9, 0x05}; // FLD [g_gapLength]; RET 4 (a float result, which stand-ins can't give)
+    for (uint8_t b : Dword(reinterpret_cast<uint32_t>(&g_gapLength)))
+        length.push_back(b);
+    length.insert(length.end(), {0xC2, 0x04, 0x00});
+    s.Bytes(0x0058CBF0, length);
+    s.At({0x0058CB20}, 8, [](Regs& r) { // CGapManager: gap i's info (first halves only every other time)
+        Record({0xCB20, r.args[0]});
+        *reinterpret_cast<int*>(r.args[1]) = (r.args[0] % 3 == 0) ? 0 : 1;
+        return r.args[0] % 5 == 4 ? 0u : reinterpret_cast<uint32_t>(&g_arena.gaps[r.args[0] % 3]);
+    });
+    s.At({0x00593500}, 12, [](Regs& r) { // the gap's trigger piece
+        auto* v = reinterpret_cast<const uint32_t*>(r.args[0]);
+        Record({0x3500, v[0], v[1], v[2], r.args[1], r.args[2]});
+        return reinterpret_cast<uint32_t>(&g_arena.pieces[3]);
+    });
+    s.At({0x005906B0}, 4, [](Regs& r) {
+        Record({0x06B0, Offset(reinterpret_cast<void*>(r.ecx)), r.args[0]});
+        return 0u;
+    });
+    s.At({0x0058C9B0}, 12, [](Regs& r) {
+        Record({0xC9B0, Offset(reinterpret_cast<void*>(r.ecx)), Offset(reinterpret_cast<void*>(r.args[0])),
+                Offset(reinterpret_cast<void*>(r.args[1])), r.args[2]});
+        return 0u;
+    });
+    s.At({0x0058D070}, 12, [](Regs& r) {
+        Record({0xD070, Offset(reinterpret_cast<void*>(r.ecx)), Offset(reinterpret_cast<void*>(r.args[0])),
+                Offset(reinterpret_cast<void*>(r.args[1])), r.args[2]});
+        return 0u;
+    });
+    s.At({0x0058CDF0}, 8, [](Regs& r) {
+        Record({0xCDF0, r.args[0], r.args[1]});
+        return 0u;
+    });
+    s.At({0x00401C30, AddressOf(&Dbg::Printf)}, 0, [](Regs& r) {
+        Record({0x1C30, r.args[0]});
+        return 0u;
+    });
+}
+
+void CaseIo(bool original, Random& r, std::vector<uint32_t>& t, StandIns& s)
+{
+    CParkManager& p = g_arena.park;
+    BuildMap(r);
+    StandInMap(s);
+    BuildIo(r);
+    StandInIo(s);
+    g_allocFails = false;
+    using Call0 = void(__thiscall*)(void*);
+    auto call0 = [&](uint32_t address, void (CParkManager::*ours)()) {
+        if (original)
+            Orig<Call0>(address)(&p);
+        else
+            (p.*ours)();
+    };
+    switch (r.Range(0, 11)) {
+    case 0: {
+        // (the abstract list starts empty, so parts are found among this run's palette)
+        p.mp_abstractMetaList = nullptr;
+        p.m_numAbstractMetas = 0;
+        auto& pools = GameVariable<Mem::PoolPair>(0x007CE5F0);
+        if (!pools.pools[pools.current]) // (enough nodes)
+            pools.pools[pools.current] = reinterpret_cast<Mem::Pool*>(g_arena.pools[1]);
+        call0(0x005960D0, &CParkManager::SetUpAbstractMetas);
+        RecordList(t, p.mp_abstractMetaList);
+        for (const CMapListNode* node = p.mp_abstractMetaList; node; node = node->mp_next)
+            t.insert(t.end(), {node->mp_meta->m_flags, node->mp_meta->m_nameChecksum});
+        break;
+    }
+    case 1:
+        call0(0x00596980, &CParkManager::WriteCompressedMap);
+        break;
+    case 2:
+        call0(0x00596CD0, &CParkManager::SetDefaultBounds);
+        break;
+    case 3:
+        call0(0x00596D50, &CParkManager::SetUpRoadMask);
+        break;
+    case 4:
+        g_io.descs[39].tag = kFakeTag;
+        {
+            Script::CArray& positions = g_io.arrays[39];
+            positions.m_type = Script::ESYMBOLTYPE_VECTOR;
+            positions.m_size = static_cast<uint32_t>(r.Range(0, 4));
+            for (int k = 0; k < 4; ++k)
+                g_io.elements[39][k] = reinterpret_cast<uint32_t>(g_io.vectors[4 + k]);
+            if (positions.m_size == 1)
+                positions.m_single = g_io.elements[39][0];
+            else
+                positions.m_elements = g_io.elements[39];
+        }
+        call0(0x00596E50, &CParkManager::SetUpLights);
+        break;
+    case 5:
+        if (original)
+            Orig<void(__cdecl*)()>(0x00596FB0)();
+        else
+            CParkManager::UpdatePercentBar();
+        break;
+    case 6:
+        call0(0x005975A0, &CParkManager::WriteCompressedMapIfChanged);
+        break;
+    case 7: {
+        auto* out = reinterpret_cast<Script::CStruct*>(&g_arena.heap[0x7F0]);
+        if (original)
+            Orig<void(__thiscall*)(void*, Script::CStruct*)>(0x005975B0)(&p, out);
+        else
+            p.WriteIntoStructure(out);
+        break;
+    }
+    case 8: {
+        int theme = r.Range(0, 9);
+        if (original)
+            Orig<void(__thiscall*)(void*, int)>(0x00597720)(&p, theme);
+        else
+            p.SetTheme(theme);
+        break;
+    }
+    case 9:
+        if (r.Range(0, 3) == 0)
+            GameVariable<uint8_t*>(0x007CE5D8) = nullptr;
+        call0(0x005987A0, &CParkManager::ClearCompressedMap);
+        break;
+    case 10: {
+        Ed::GapInfo* gap = &g_arena.gaps[r.Range(0, 2)];
+        if (original)
+            t.push_back(Orig<bool(__thiscall*)(void*, Ed::GapInfo*)>(0x00597BD0)(&p, gap));
+        else
+            t.push_back(p.AddGap(gap));
+        break;
+    }
+    case 11: {
+        g_intersectAll = 1; // (an empty list crashes the original: a metapiece under each half)
+        Ed::GapInfo* gap = &g_arena.gaps[r.Range(0, 2)];
+        for (int h = 0; h < 2; ++h) {
+            GridDims& at = gap->m_pos[h];
+            at.w = at.h = at.l = 1;
+            for (int k = 0; k < 2; ++k) { // the one exactly there (sometimes), and one in front of it
+                CMapListNode& extra = g_arena.bucketNodes[292 + 2 * h + k];
+                extra.mp_meta = &g_arena.metas[r.Range(0, 31)];
+                extra.mp_meta->m_flags &= ~CMetaPiece::kFlagRiser; // (risers are left out)
+                if (k == 0 && r.Range(0, 2))
+                    extra.mp_meta->m_cellArea = at;
+                extra.mp_next = p.mp_bucketList[at.x][at.z];
+                p.mp_bucketList[at.x][at.z] = &extra;
+            }
+        }
+        if (original)
+            Orig<void(__thiscall*)(void*, Ed::GapInfo*)>(0x00597FC0)(&p, gap);
+        else
+            p.RemoveGap(gap);
+        g_intersectAll = 0;
+        break;
+    }
+    }
+    t.push_back(HashBytes(reinterpret_cast<const uint8_t*>(&g_io), sizeof(g_io) - sizeof(g_io.editor)));
+}
+
 void TestParkManagerAccessors()
 {
     std::vector<Saved> saved = {{0x007CE604, 12, {}}, {0x007CE5D4, 4, {}}, {0x007CE5B4, 16, {}},
                                 {0x007D1800, 4, {}}, {0x007CC979, 1, {}},
-                                {0x007CE5F0, 16, {}}, {0x007CE688, 4, {}}};
+                                {0x007CE5F0, 16, {}}, {0x007CE688, 4, {}},
+                                {0x007CE644, 4, {}}, {0x007CE5D8, 4, {}}, {0x006F3614, 16, {}}, {0x006F22B4, 16, {}}};
     SaveAll(saved);
     struct Named {
         CaseFn fn;
@@ -1077,7 +1605,8 @@ void TestParkManagerAccessors()
                     Named{CaseFloor, "CParkManager floor (slide undo/reset, height, world position, road mask)"},
                     Named{CaseCursor, "CCursor (clipboards, gap name/flags, helper text, area selection, bounds)"},
                     Named{CaseMenuAndGaps, "CUpperMenuManager, instances, CParkManager gap manager copy/highlight"},
-                    Named{CaseMap, "CParkManager map (meta lists, buckets, area queries, gap info, floor slide, floor)"}}) {
+                    Named{CaseMap, "CParkManager map (meta lists, buckets, area queries, gap info, floor slide, floor)"},
+                    Named{CaseIo, "CParkManager set-up and saving (palette, compressed map, bounds, roads, lights, bar, gaps)"}}) {
         std::vector<uint32_t> expected, actual;
         for (uint32_t seed = 1; seed <= 1000; ++seed) {
             std::vector<uint32_t> e = RunCase(c.fn, seed * 7919u, true);

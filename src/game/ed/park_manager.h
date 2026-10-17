@@ -9,6 +9,10 @@
 
 #include "game/mth/vector.h"
 
+namespace Script {
+class CStruct;
+}
+
 namespace Ed {
 
 // An area of cells: position and size (x and z across the floor, y up in steps of a floor level).
@@ -309,8 +313,38 @@ public:
     // it to their bottoms where nothing's left above) and mark (or clear) the levels they fill.
     void ApplyMetaToFloor(CMetaPiece* meta, bool add);
 
+    // Set-up and saving (park_io.cpp).
+    // 0x005960D0: the palette from Ed_standard_metapieces (single pieces, multiple pieces, and ones made of
+    // other palette metapieces), the special pieces, and a single-piece metapiece for every piece used.
+    void SetUpAbstractMetas();
+    // 0x00596980: the park into the compressed map (unless the map is newer than the park).
+    void WriteCompressedMap();
+    // 0x00596CD0: the park's bounds (inside: ed_default_inner_dim square, centred).
+    void SetDefaultBounds();
+    // 0x00596D50: the road mask from Ed_Roadmask (after the first four rectangles).
+    void SetUpRoadMask();
+    // 0x00596E50: the lights from Ed_Light_Info.
+    void SetUpLights();
+    // 0x00596FB0: the memory bar (parked_update_percent_bar park_percent, park_full).
+    static void UpdatePercentBar();
+    // 0x005975A0
+    void WriteCompressedMapIfChanged();
+    // 0x005975B0: the park into `out` (Park_editor_map, Park_editor_goals, the rails, MaxPlayers).
+    void WriteIntoStructure(Script::CStruct* out);
+    // 0x00597720
+    void SetTheme(int theme);
+    // 0x005987A0: an empty park in the compressed map.
+    void ClearCompressedMap();
+    // 0x00597BD0: attach `gap` to the pieces at its halves (the gap manager makes its triggers).
+    bool AddGap(GapInfo* gap);
+    // 0x00597FC0: detach it.
+    void RemoveGap(GapInfo* gap);
+    // 0x00591450: debug output of a list (CMapListTemp::PrintContents).
+    static void PrintMapList(const CMapListNode* list);
+
     void* mp_generator; // CParkGenerator
-    uint8_t unknown4[0x7C - 4];
+    bool m_parkChanged; // since the compressed map was written
+    uint8_t unknown5[0x7C - 5];
     CMapListNode* mp_concreteMetaList;
     CMapListNode* mp_abstractMetaList;
     int m_numConcreteMetas;
