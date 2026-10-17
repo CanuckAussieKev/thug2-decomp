@@ -3430,6 +3430,37 @@ belong with the CScript batch.
         hidden: CSector::SetActive 0x0049E9B0 false - not drawn, collision off - and its rails' active flag 4 cleared)
         undo like anything else. Checked: Home, Delete, Ctrl+Z, Ctrl+Y, Ctrl+Z on the truck.
       - HUD: the camera and counts share a line; three lines of controls, for flying, a selection, and dragging.
+- [x] Batch 105: level editor - saved layouts, duplicates, move arrows, multi-select, the browser, the HUD redone -
+      **tested in the game** (launched by Claude, holding the game lock the lfx agents share; LA).
+      - Split into modules: level_editor.cpp (camera, input, selection, arrows, undo, duplicate, browser, drawing),
+        level_editor_objects.cpp, level_editor_scenery.cpp, level_editor_layout.cpp, level_editor_hud.cpp.
+      - Names: ParseQB (0x00472420, ours) notes every .qb's 0x2B checksum names into a map (Script::KeepQbNames /
+        KeptQbName, on when the editor is enabled) - the HUD and the browser show FE_CAB, Fire_Tender, LA_Bench03...
+      - Layouts: thug2-decomp-layouts\<main scene checksum>.txt (text: sector / rail placements and hidden, scenery
+        copies as a placement relative to the source as loaded - Compose -, objects' positions and matrices, object
+        copies). Ctrl+S writes; Nx::CFunc_LoadScene tells Layout::OnSceneLoaded and, once the level is up (the skater,
+        a second), it is put back (not in network games). Checked: saved, relaunched, "Layout loaded: 17 pieces, 18
+        copies, 25 rail points". Rails' hidden is relative to how they started (some start off: the first save listed
+        19 untouched rails).
+      - Scenery copies: CScene::CloneSector (0x0049DF30, thiscall RET 0x14: source checksum, scene, instance 0,
+        add-to-collision 1, new checksum 0 - new ids 1, 2, 3...) as the park editor's pieces: own meshes, added to the
+        render lists, flag 4 -> UpdateSuperSectors adds the collision. A full clone's box (+0x14/+0x24) isn't copied:
+        set to the source's bounds where it is. Copies take no rails (the first try moved the source's). Checked: the
+        truck's 17 pieces and a bench copied, moved, saved, reloaded.
+      - Object copies: the node's structure copied (InitCopy) with a new Name / Pos through CreateFromStructure's
+        0x005A2E50 - LevelObject / GameObject only; deleted with MarkAsDead (Kill needs a node). Not checked in the
+        game yet (the browser's objects tab lists 22 in LA).
+      - Move arrows (x red, y green, z blue, a fifth of the distance long; within 8 pixels lights up): dragging one
+        moves along that axis (ClosestOnAxis). Checked: dragged the truck 120 along x. Multi-select: Shift+click adds
+        objects (moved / turned together about the first) or scenery groups. Undo / redo now also cover copies made
+        and deleted (shown / hidden, made again / MarkAsDead). The browser (B): the level's movable scenery (618 in LA)
+        and copyable objects; Up/Down, Left/Right, F shows the original, Enter places a copy on the ground where the
+        cursor points.
+      - HUD: a status panel top left (mode, selection, under the cursor, camera and counts), the keys for the mode at
+        the bottom (fly / selected / dragging / along an arrow / adding) with \c1 key colour (the subtitles' code),
+        a message line, F1 help panel. Measured: the white2 sprite is ~3.2 across and ~8 down per unit of scale, and
+        the HUD container sits 22 lower than its 640 x 480 position (moved up). Lines stay under 90 characters with
+        their colour codes.
 - [ ] Next: small net follow-ups: App::m_manager (+0x1440) could become `Manager*` (it is `void*`), name the
       Manager's +0x2E6 flag (pref checksum 0xE5ADE642) and check +0x374 (modem baud rate?).
       Widescreen follow-up: if the user still sees the bottom-left band overlap, don't draw sprites wholly outside the

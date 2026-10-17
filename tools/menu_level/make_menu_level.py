@@ -401,7 +401,7 @@ script level_editor_hud_create {
         type=ContainerElement
         parent=root_window
         id=level_editor_hud
-        pos=(320.0, 240.0)
+        pos=(320.0, 218.0)
         dims=(640.0, 480.0)
     }
     CreateScreenElement {
@@ -411,7 +411,7 @@ script level_editor_hud_create {
         pos=(6.0, 6.0)
         just=[left top]
         rgba=[2 0 1 90]
-        scale=(118.0, 15.4)
+        scale=(118.0, 6.9)
         z_priority=990
     }
     CreateScreenElement {
@@ -431,7 +431,7 @@ script level_editor_hud_create {
         pos=(320.0, 480.0)
         just=[center bottom]
         rgba=[2 0 1 90]
-        scale=(200.5, 8.4)
+        scale=(200.5, 3.8)
         z_priority=990
     }
     CreateScreenElement {
@@ -440,7 +440,7 @@ script level_editor_hud_create {
         texture=white3
         scale=(40.0, 0.03)
         rgba=[13 56 82 80]
-        pos=(320.0, 452.0)
+        pos=(320.0, 450.0)
         z_priority=991
     }
     <index> = 1

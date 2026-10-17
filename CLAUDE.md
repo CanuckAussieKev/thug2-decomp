@@ -20,8 +20,8 @@ installed); functions PartyMod patched get source with PartyMod's behaviour. Lat
   level in LA (files made by `tools/menu_level/make_menu_level.py` into `thug2-decomp-data\menu_level`; Page Up / Down
   zoom the main menu, `menu_zoom=<percent>` keeps a zoom); the same tool makes the skate shop a playable level
   (`thug2-decomp-data`, used at every setting: SKATE SHOP in the level select); `debug_backdrop=1` logs its decisions; `level_editor=0` hides the pause menu's
-  LEVEL EDITOR - fly camera, pick and drag objects, src/game/front/level_editor.h; the item is in the same tool's overlay -
-  and `debug_editor=1` logs its picks and moves), `thug2-decomp.log` (read it after every game run). The retail THUG2.exe is
+  LEVEL EDITOR - src/game/front/level_editor.h; the item is in the same tool's overlay; its saved layouts are in
+  `thug2-decomp-layouts\<scene>.txt` and load with their level - and `debug_editor=1` logs its picks and moves), `thug2-decomp.log` (read it after every game run). The retail THUG2.exe is
   SafeDisc-encrypted and not used.
 - Ghidra 12.1.4 at `C:\ghidra`; project `C:\Games\THUG2-ghidra` (the Ghidra MCP server uses it); a read-only
   copy for scripts at `C:\Games\THUG2-ghidra-snapshot` (refresh: `tools\ghidra\snapshot_project.ps1`).

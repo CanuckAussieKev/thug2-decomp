@@ -18,8 +18,9 @@ namespace {
 constexpr size_t kMaxText = 90;
 constexpr uint32_t kId = 0x40C698AFu;   // id
 constexpr uint32_t kText = 0xC4745838u; // text
-// (the white2 sprite's size at scale 1, in the 640 x 480 screen: the bottom bar's 200.5 spans 640)
-constexpr float kSpriteUnit = 640.0f / 200.5f;
+// (the white2 sprite's size at scale 1 in the 640 x 480 screen: across, the bottom bar's 200.5 spans 640; down,
+// about 8 - measured on screen)
+constexpr float kSpriteUnit = 640.0f / 200.5f, kSpriteUnitDown = 8.0f;
 constexpr float kLineHeight = 12.5f;
 
 std::map<std::string, std::string> g_shown; // element id -> text
@@ -83,7 +84,7 @@ void ShowPanel(const std::vector<std::string>& lines, float x, float y, float wi
         Script::CStruct* params = reinterpret_cast<Script::CStruct*>(memory)->Init();
         float height = 12.0f + kLineHeight * static_cast<float>(lines.size());
         params->AddPair(Crc::GenerateCRCFromString("pos"), x, y);
-        params->AddPair(Crc::GenerateCRCFromString("scale"), width / kSpriteUnit, height / kSpriteUnit);
+        params->AddPair(Crc::GenerateCRCFromString("scale"), width / kSpriteUnit, height / kSpriteUnitDown);
         params->AddInteger(Crc::GenerateCRCFromString("lines"), static_cast<int>(lines.size()));
         Script::RunScript("level_editor_panel_show", params, nullptr, false);
         params->Clear();

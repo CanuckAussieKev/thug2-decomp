@@ -18,34 +18,30 @@ class CScript;
 // The pause menu in a level gets LEVEL EDITOR (the data overlay's scripts\game\menu\gamemenu_pause.qb, made by
 // tools/menu_level/make_menu_level.py: the item and the scripts level_editor_enter / level_editor_exit). Entering it
 // takes the pause menu down, takes the skater out of the world (as the goal editor does) and keeps the game paused;
-// the script command LevelEditor_Start then hands the view to a free camera:
-//   - Holding the left button on something selects it and drags it: on the horizontal plane at its base (with the
-//     camera about level with that, across the view at its height instead); Shift: up / down. The camera holds still
-//     while dragging and turns to the selection when it's let go; it moves only once the cursor has gone a few pixels,
-//     and Escape during a drag puts it back. Seen from about level, the mouse moves it in the view's terms (up / down:
-//     away / back); the wheel pushes / pulls it while dragging; Ctrl snaps to a 25-unit grid. Ctrl+Z / Ctrl+Y undo /
-//     redo moves, turns, drops, resets and hiding (64 deep, this session); G drops the selection onto the ground below
-//     it; Home puts it back where the level had it; Delete hides scenery; a marker (a line down to the ground and a
-//     cross) shows where the ground is.
-//   - W / A / S / D fly forward / left / back / right along the view, Q / E (or Space) down / up, Shift 4x
-//     faster; no collision. Holding the right mouse button looks around (the cursor hidden meanwhile).
-//   - The object under the cursor (a composite object with a model: level objects, peds, cars - not the skater) is
-//     tinted warmer (its geometry's own colour, put back after - Scenery::Tint; only a model the engine can't colour
-//     is outlined by its bounding box, yellow). A left click selects it (a cyan pulse) and dragging moves it on the
-//     horizontal plane at its height; with Shift held, up and down only. The mouse wheel turns the selected object
-//     about the up axis (15 degrees a notch) while it's dragged or under the cursor; otherwise it changes the flying
-//     speed. A click on nothing deselects.
-//   - Escape, Enter (the Pause key) or a controller's Start leave it (level_editor_exit: LevelEditor_Stop, the skater
-//     back, the pause menu again).
-//   - Scenery (the level's static scene sectors - LevelGeometry such as the fire truck in Los Angeles) is picked
-//     too: the game's collision ray finds the sector under the cursor (sectors without collision by their boxes).
-//     A click selects the sector with the rest of its trick-object cluster (the node's TrickObject Cluster=, e.g.
-//     the fire truck's cab, body and wheels) and the pieces built onto them (the truck's ladder, in other clusters);
-//     hovering tints what a click would take. Alt+click (or a middle click) adds or removes a single sector. Dragging,
-//     the keys and Z / X (quarter turns for scenery) move the selection: the sectors' vertices and collision are
-//     moved in place as the park editor moves its pieces, and its grind rails with them (level_editor_scenery.cpp;
-//     the rails are drawn as lines while selected).
-// Moves are not saved anywhere (nothing persists past the level).
+// the script command LevelEditor_Start then hands the view to a free camera. The modules:
+//   level_editor.cpp          the camera, the mouse and keys, selecting, dragging, the move arrows, undo / redo,
+//                             duplicating, the browser, drawing the lines (rails, the ground marker, the arrows)
+//   level_editor_objects.cpp  composite objects with a model (level objects, peds, cars - not the skater): picking by
+//                             their model's box, moving and turning them, copies made from their nodes
+//   level_editor_scenery.cpp  the level's static scene sectors (LevelGeometry such as LA's fire truck): picking by
+//                             the collision ray, groups (a trick-object cluster and the pieces built onto it), moving
+//                             vertices and collision in place as the park editor does, grind rails with them,
+//                             copies (CScene::CloneSector), hiding, tinting
+//   level_editor_layout.cpp   what was changed, saved per level (thug2-decomp-layouts\<scene>.txt, Ctrl+S) and put
+//                             back whenever that level loads (not in network games)
+//   level_editor_hud.cpp      the HUD: a status panel top left, the keys for what you're doing at the bottom, a
+//                             message line, and a panel for the help (F1) and the browser (B)
+// The controls (F1 lists them in the game):
+//   - Flying: W A S D, Q / E down / up, Shift faster, the right mouse button looks, the wheel goes forward / back.
+//   - Selecting: a click on an object or scenery (scenery takes its group; hovering tints what a click would take);
+//     Shift+click adds / removes; Alt+click or a middle click one piece of scenery; Backspace deselects.
+//   - Moving: hold and drag (Shift: up / down; the wheel pushes / pulls; Ctrl snaps to 25; Escape puts it back), or
+//     drag one of the arrows to move along that axis only; W A S D / Q E nudge; Z / X turn (objects 15 degrees,
+//     scenery a quarter); G drops it onto the ground (a marker shows where that is).
+//   - Editing: Ctrl+D duplicates; Delete hides scenery (deletes copies of objects); Home puts it back where the level
+//     had it; Ctrl+Z / Ctrl+Y undo / redo (64 steps, this session).
+//   - Adding: B lists the level's scenery and objects; Enter places a copy where the cursor points.
+//   - Saving: Ctrl+S. Leaving: Escape, Enter (the Pause key) or a controller's Start (level_editor_exit).
 //
 // thug2-decomp.ini [features] level_editor=1 (default; 0: LevelEditor_Available is false - no menu item - and
 // LevelEditor_Start refuses), debug_editor=1 logs picks, moves and the view.

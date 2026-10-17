@@ -1222,29 +1222,31 @@ void UpdateHud()
     std::snprintf(text, sizeof(text), "Camera (%.0f, %.0f, %.0f)  speed %.0f    %d changes    %d pieces moved", g_pos.x,
                   g_pos.y, g_pos.z, g_speed, g_moves, Scenery::MovedCount());
     Hud::SetLine(4, text);
+    // (each line at most 90 characters with its colour codes - 6 a key)
     if (g_browser.open) {
-        Hud::SetLine(5, Key("Up/Down") + " choose  " + Key("Left/Right") + " pieces / objects  " + Key("Enter") +
-                            " place at the cursor");
-        Hud::SetLine(6, Key("F") + " show the original  " + Key("B") + " or " + Key("Esc") + " close");
+        Hud::SetLine(5, Key("Up/Down") + " choose   " + Key("Left/Right") + " scenery / objects   " + Key("Enter") +
+                            " place it");
+        Hud::SetLine(6, Key("F") + " show me the original   " + Key("B") + " or " + Key("Esc") + " close");
     } else if (g_dragging) {
         if (g_axis >= 0)
-            Hud::SetLine(5, Key("Mouse") + " moves it along the arrow  " + Key("Ctrl") + " snap to 25");
+            Hud::SetLine(5, Key("Mouse") + " moves it along the arrow   " + Key("Ctrl") + " snap to 25");
         else
-            Hud::SetLine(5, Key("Mouse") + " moves it  " + Key("Shift") + " up / down  " + Key("Wheel") +
-                                " push / pull  " + Key("Ctrl") + " snap to 25");
+            Hud::SetLine(5, Key("Mouse") + " move   " + Key("Shift") + " up / down   " + Key("Wheel") + " push / pull   " +
+                                Key("Ctrl") + " snap");
         Hud::SetLine(6, Key("Esc") + " put it back where it was");
     } else if (HaveSelection()) {
-        Hud::SetLine(5, Key("Drag") + " move  " + Key("Arrows") + " one axis  " + Key("WASD QE") + " nudge  " +
-                            Key("Z X") + " turn  " + Key("G") + " to the ground");
-        Hud::SetLine(6, Key("Ctrl+D") + " duplicate  " + Key("Del") + " hide  " + Key("Home") + " reset  " +
-                            Key("Shift+click") + " add  " + Key("Bksp") + " deselect");
+        Hud::SetLine(5, Key("Drag") + " move  " + Key("Arrows") + " one axis  " + Key("WASDQE") + " nudge  " + Key("ZX") +
+                            " turn  " + Key("G") + " drop");
+        Hud::SetLine(6, Key("Ctrl+D") + " copy  " + Key("Del") + " hide  " + Key("Home") + " reset  " + Key("Bksp") +
+                            " deselect  " + Key("F1") + " help");
     } else {
-        Hud::SetLine(5, Key("WASD") + " fly  " + Key("Q E") + " down / up  " + Key("Shift") + " fast  " + Key("RMB") +
-                            " look  " + Key("Wheel") + " dolly  " + Key("- =") + " speed");
-        Hud::SetLine(6, Key("Click") + " select  " + Key("B") + " add pieces  " + Key("Ctrl+S") + " save  " +
-                            Key("Ctrl+Z/Y") + " undo / redo  " + Key("F1") + " help");
+        Hud::SetLine(5, Key("WASD") + " fly  " + Key("QE") + " down / up  " + Key("Shift") + " fast  " + Key("RMB") +
+                            " look  " + Key("Wheel") + " dolly");
+        Hud::SetLine(6, Key("Click") + " select  " + Key("B") + " add  " + Key("Ctrl+S") + " save  " + Key("Ctrl+Z/Y") +
+                            " undo  " + Key("F1") + " help");
     }
 }
+
 
 void ShowHelp()
 {
@@ -1294,8 +1296,9 @@ void ShowBrowser()
 {
     std::vector<std::string> lines;
     char title[96];
-    std::snprintf(title, sizeof(title), "ADD   %s   %s   (%d)", g_browser.tab == 0 ? "[Scenery]" : "Scenery",
-                  g_browser.tab == 1 ? "[Objects]" : "Objects", static_cast<int>(g_browser.items.size()));
+    std::snprintf(title, sizeof(title), "ADD   %s / %s   (%d)",
+                  g_browser.tab == 0 ? "SCENERY" : "scenery", g_browser.tab == 1 ? "OBJECTS" : "objects",
+                  static_cast<int>(g_browser.items.size()));
     lines.push_back(title);
     int count = static_cast<int>(g_browser.items.size());
     if (g_browser.index < g_browser.top)
@@ -1314,13 +1317,16 @@ void ShowBrowser()
     Hud::ShowPanel(lines, 380.0f, 34.0f, 254.0f);
 }
 
-// The point the cursor's ray first meets the level (none: 600 units ahead, on the ground below that if any).
+// Where the cursor points: the ground below the point its ray first meets the level (a wall: the floor at its foot;
+// a roof: the roof) - none: 600 units ahead, on the ground below that if any.
 V3 CursorPoint(V3 dir, bool haveRay, const Frame& frame)
 {
-    V3 hit;
+    V3 hit, ground;
     V3 ray = haveRay ? Normalize(dir) : frame.back * -1.0f;
-    if (Cast(g_pos, g_pos + ray * kMaxPickDistance, &hit))
-        return hit;
+    if (Cast(g_pos, g_pos + ray * kMaxPickDistance, &hit)) {
+        V3 back = hit - ray * 5.0f + V3{0.0f, 5.0f, 0.0f};
+        return GroundBelow(back, &ground) ? ground : hit;
+    }
     V3 ahead = g_pos + ray * 600.0f;
     if (GroundBelow(ahead, &hit))
         return hit;

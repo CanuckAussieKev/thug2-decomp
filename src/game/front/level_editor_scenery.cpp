@@ -438,6 +438,7 @@ V3 RailPos(const RailNode* node) { return {node->pos[0], node->pos[1], node->pos
 // What we've done to a rail node: where it was when first touched, the placement since, where we put it.
 struct RailTrack {
     RailNode* node;
+    bool active0; // (flag 4 when first touched: some rails start off)
     V3 pos0;
     Placement placement;
     V3 pos;
@@ -469,7 +470,7 @@ RailTrack* RailTrackOf(uint32_t name)
             return &it->second;
         g_railTracks.erase(it);
     }
-    RailTrack track = {node, RailPos(node), {0, {0.0f, 0.0f, 0.0f}}, RailPos(node)};
+    RailTrack track = {node, (node->flags & 4) != 0, RailPos(node), {0, {0.0f, 0.0f, 0.0f}}, RailPos(node)};
     return &g_railTracks.emplace(name, track).first->second;
 }
 
@@ -537,6 +538,8 @@ void SelectRails()
     std::vector<uint32_t> clusters;
     std::vector<std::pair<V3, V3>> boxes;
     for (uint32_t checksum : g_selection) {
+        if (IsClone(checksum))
+            continue; // (a copy has no rails of its own: the source's stay with the source)
         clusters.push_back(checksum);
         if (uint32_t cluster = ClusterOf(checksum))
             clusters.push_back(cluster);
@@ -965,7 +968,7 @@ State SaveState()
     }
     for (uint32_t name : g_rails) {
         if (RailTrack* track = RailTrackOf(name))
-            state.rails.push_back({name, track->placement, !(track->node->flags & 4)});
+            state.rails.push_back({name, track->placement, track->active0 && !(track->node->flags & 4)});
     }
     return state;
 }
@@ -989,7 +992,8 @@ void ApplyStates(const std::vector<SectorState>& sectors, const std::vector<Rail
     for (const RailState& saved : rails) {
         if (RailTrack* track = RailTrackOf(saved.name)) {
             track->placement = saved.placement;
-            track->node->flags = saved.hidden ? track->node->flags & ~4u : track->node->flags | 4u;
+            bool active = track->active0 && !saved.hidden;
+            track->node->flags = active ? track->node->flags | 4u : track->node->flags & ~4u;
             names.push_back(saved.name);
         }
     }
@@ -1031,7 +1035,7 @@ std::vector<RailState> ChangedRails()
         const RailTrack& track = entry.second;
         if (FindRail(entry.first) != track.node)
             continue;
-        bool hidden = !(track.node->flags & 4);
+        bool hidden = track.active0 && !(track.node->flags & 4);
         const Placement& p = track.placement;
         if (hidden || p.quarters || p.offset.x != 0.0f || p.offset.y != 0.0f || p.offset.z != 0.0f)
             changed.push_back({entry.first, p, hidden});
