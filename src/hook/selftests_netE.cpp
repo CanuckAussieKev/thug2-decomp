@@ -464,10 +464,15 @@ std::vector<uint32_t> RunManager(bool original)
     globals();
     uint8_t* instance = GameVariable<uint8_t*>(0x006EFDD8);
     RecordWords(instance, 0x37C);
+    // An app node in each list, so the destructor body's unlinking shows.
+    Append(reinterpret_cast<ListNode*>(instance), Obj<ListNode>(0x700), 0x006474D8, 1);
+    Append(reinterpret_cast<ListNode*>(instance + 0x14), Obj<ListNode>(0x720), 0x006474D8, 2);
     for (int i = 0; i < 4; ++i) {
         release();
         globals();
     }
+    RecordWords(instance, 0x28);
+    RecordWords(Obj(0x700), 0x40);
     g_allocFail = true;
     Record({Rel(create(1))});
     globals();
@@ -570,7 +575,8 @@ std::vector<uint32_t> RunConnTimes(bool original)
         uint32_t last, now, extra;
     };
     const Case cases[] = {{100, 50, 10},          {100, 90, 10}, {100, 90, 11},          {0xFFFFFFF0, 0x10, 0xFFFFFFF0},
-                          {5, 0xFFFFFFFF, 2},     {0, 1, 0},     {0x80000000, 0x7FFFFFFF, 2}, {7, 7, 0}};
+                          {5, 0xFFFFFFFF, 2},     {0, 1, 0},     {0x80000000, 0x7FFFFFFF, 2}, {7, 7, 0},
+                          {0xFFFFFFFF, 5, 0}};
     for (const Case& c : cases) {
         last = c.last;
         g_now = c.now;
