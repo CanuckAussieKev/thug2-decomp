@@ -229,4 +229,20 @@ void HoldCamera(Gfx::Camera* camera)
     ApplyView(camera, *ViewFor(Setting()));
 }
 
+void NoteAndHoldCamera(Gfx::Camera* camera)
+{
+    if (!camera || !Holding() || camera != ViewportCamera(0))
+        return;
+    const View& view = *ViewFor(Setting());
+    // The game's own pose, whichever way it got there (the camera component doesn't go through SetPos / SetMatrix in
+    // the game - a debug_backdrop log showed "camera from nowhere"): if the camera isn't at the held view when it's
+    // about to be drawn, the game moved it since we last held it - note that as the menu camera's pose.
+    if (camera->m_pos.x != view.pos[0] || camera->m_pos.y != view.pos[1] || camera->m_pos.z != view.pos[2]) {
+        g_gamePose.p = camera->m_pos;
+        g_gamePose.m = camera->m_matrix;
+        g_gamePose.pos = g_gamePose.matrix = true;
+    }
+    ApplyView(camera, view);
+}
+
 } // namespace Front::MenuBackdrop

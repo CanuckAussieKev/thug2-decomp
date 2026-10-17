@@ -83,8 +83,11 @@ void NoteCameraMatrix(Gfx::Camera* camera, const Mth::Matrix& matrix);
 bool GameCameraPose(Mth::Vector* pos, Mth::Matrix* matrix);
 void ForgetGameCameraPose();
 
-// Called by the camera's setters (and the renderer, for the viewport's camera): while holding, the viewport 0
-// camera gets the view.
+// Called by the camera's setters: while holding, the viewport 0 camera gets the view.
 void HoldCamera(Gfx::Camera* camera);
+// Called by the renderer for the viewport's camera before it's read: as HoldCamera, but first, if the camera isn't
+// at the held view, notes where the game put it (the menu camera's pose - the camera component writes the camera
+// without the setters in the game).
+void NoteAndHoldCamera(Gfx::Camera* camera);
 
 } // namespace Front::MenuBackdrop

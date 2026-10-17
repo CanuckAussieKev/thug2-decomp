@@ -2882,6 +2882,12 @@ belong with the CScript batch.
             - If not: set `[features] debug_backdrop=1`, start the game to the main menu, quit, and send the "menu_backdrop
               debug" lines: they show which input stays wrong (e.g. "camera from nowhere" = neither source gives the
               camera's pose; "menu camera 00000000" in the sampling step = no menu camera seen; "held off 1").
+- [x] Front-end objects, second fix (2026-10-17; NOT run in the game yet): the user's debug_backdrop=1 log showed every
+      condition true but 'camera from nowhere' - the camera component doesn't set the viewport camera through SetPos /
+      SetMatrix in the game, so neither source gave the menu camera's pose. Now the renderer's hold point
+      (MenuBackdrop::NoteAndHoldCamera, render.cpp) notes the camera's pose whenever it isn't at the held view (the game
+      moved it this frame) before holding it. Not covered by an offline test (no camera component offline) - checked
+      in the game.
 - [ ] Next: small net follow-ups: App::m_manager (+0x1440) could become `Manager*` (it is `void*`), name the
       Manager's +0x2E6 flag (pref checksum 0xE5ADE642) and check +0x374 (modem baud rate?).
       Widescreen follow-up: if the user still sees the bottom-left band overlap, don't draw sprites wholly outside the

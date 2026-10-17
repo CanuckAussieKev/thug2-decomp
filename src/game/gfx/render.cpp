@@ -511,7 +511,7 @@ void RenderViewport(int index)
         return;
     // Not original - the menu_backdrop feature: the front end's camera held at the chosen view (also when nothing
     // set it this frame).
-    Front::MenuBackdrop::HoldCamera(static_cast<Gfx::Camera*>(camera));
+    Front::MenuBackdrop::NoteAndHoldCamera(static_cast<Gfx::Camera*>(camera));
     GameVariable<int>(0x006FA7B8) = index; // the viewport being drawn
     double width = GameVariable<int>(0x00786D6C);
     double height = static_cast<float>(GameVariable<int>(0x00786D70));
