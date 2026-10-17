@@ -20,12 +20,23 @@ namespace Net {
 // Two kinds: those of the normal and important queues (constructor 0x00454FA0) and those of the sequenced
 // queue (0x00455040, 0x10 bytes); the destructor 0x004550F0 (both) frees the data.
 struct QueuedMsg {
+    // 0x00454FA0: a copy of `data` (`length` bytes; none if 0). With a compression method (1 RLE, 2 LZSS) the
+    // copy is compressed if that makes it smaller: the id becomes 0x12 (compressed) and the length shrinks.
+    QueuedMsg* Construct(uint8_t id, uint16_t length, void* data, uint8_t compression);
+    // 0x004550F0 (SeqQueuedMsg's too): the data freed.
+    void DestroyBody();
+
     uint8_t m_id;      // +0x00
     uint16_t m_length; // +0x02
     char* m_data;      // +0x04
     int m_refCount;    // +0x08
 };
 struct SeqQueuedMsg {
+    // 0x00455040: as QueuedMsg's, with the +0x08 byte.
+    SeqQueuedMsg* Construct(uint8_t id, uint16_t length, void* data, uint8_t byte8, uint8_t compression);
+    // (0x004550F0: QueuedMsg::DestroyBody - the data is at the same place)
+    void DestroyBody() { reinterpret_cast<QueuedMsg*>(this)->DestroyBody(); }
+
     uint8_t m_id;      // +0x00
     uint16_t m_length; // +0x02
     char* m_data;      // +0x04
@@ -75,6 +86,15 @@ struct ConnView {
     bool m_sendNow;                 // +0x3CF4 (0x00455990 reads it)
     ConnNode m_appNode;             // +0x3CF8 in the App's connection list (data = the connection)
     ConnView* m_aliasConn;          // +0x3D0C
+
+    // (wt/netE) +0x6C: the time of the last communication (net_conn_times.cpp).
+    uint32_t& LastCommTime() { return *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(this) + 0x6C); }
+    // 0x00455920: the last communication time moved to now + `extra` ms, unless it's later already.
+    void UpdateCommTime(uint32_t extra);
+    // 0x00455940: milliseconds since the last communication (0 if that's in the future).
+    uint32_t GetTimeElapsedSinceCommunication();
+    // 0x00455960
+    void SetSendInterval(uint32_t interval) { m_sendInterval = interval; }
 };
 static_assert(offsetof(ConnView, m_handle) == 0x3C && offsetof(ConnView, m_port) == 0x48 &&
                   offsetof(ConnView, m_lastSendTime) == 0x70 && offsetof(ConnView, m_sequenceNumbers) == 0x478 &&

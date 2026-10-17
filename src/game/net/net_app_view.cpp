@@ -57,10 +57,10 @@ void DeleteConn(ConnView* conn)
     }
 }
 
-// -> QueuedMsg's destructor (frees the data)
+// QueuedMsg's destructor (frees the data)
 void DeleteMsg(void* msg)
 {
-    GameFunction<void(__thiscall*)(void*)>(0x004550F0)(msg);
+    static_cast<QueuedMsg*>(msg)->DestroyBody();
     Free(msg);
 }
 
@@ -195,9 +195,8 @@ SeqQueuedMsg* AppView::NewQueuedMsg(uint8_t id, uint16_t length, void* data, uin
     void* memory = Mem::New(sizeof(SeqQueuedMsg));
     if (!memory)
         return nullptr;
-    // -> SeqQueuedMsg's constructor (copies the data, compressing it if `arg5`)
-    return GameFunction<SeqQueuedMsg*(__thiscall*)(void*, uint8_t, uint16_t, void*, uint8_t, uint8_t)>(0x00455040)(
-        memory, id, length, data, arg4, arg5);
+    // SeqQueuedMsg's constructor (copies the data, compressing it if `arg5`)
+    return static_cast<SeqQueuedMsg*>(memory)->Construct(id, length, data, arg4, arg5);
 }
 
 // 0x00456E20

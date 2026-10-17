@@ -798,12 +798,12 @@ std::vector<int> g_dispatchResults;
 void StandInQueues(StandIns& s)
 {
     // -> SeqQueuedMsg's constructor and the queued messages' destructor
-    s.At({0x00455040}, 0x14, [](Regs& r) {
+    s.At({0x00455040, AddressOf(&Net::SeqQueuedMsg::Construct)}, 0x14, [](Regs& r) {
         Record({0x5040, Rel(r.ecx), r.args[0] & 0xFF, r.args[1] & 0xFFFF, Rel(r.args[2]), r.args[3] & 0xFF,
                 r.args[4] & 0xFF});
         return r.ecx;
     });
-    s.At({0x004550F0}, 0, [](Regs& r) {
+    s.At({0x004550F0, AddressOf(&Net::QueuedMsg::DestroyBody)}, 0, [](Regs& r) {
         Record({0x50F0, Rel(r.ecx)});
         return 0u;
     });
