@@ -65,6 +65,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_misc.cpp
     src/hook/selftests_lfxc.cpp
     src/hook/selftests_lfxc2.cpp
+    src/hook/selftests_lfxc3.cpp
     src/hook/selftests_scache.cpp
     src/hook/selftests_text.cpp
     src/hook/selftests_winmain.cpp
@@ -111,6 +112,7 @@ add_library(thug2_code OBJECT
     src/game/net/service.cpp
     src/game/net/online_hosts.cpp
     src/game/obj/flip_rotate.cpp
+    src/game/park/park_cursor.cpp
     src/game/park/park_editor.cpp
     src/game/park/park_memory.cpp
     src/game/obj/smtptr.cpp

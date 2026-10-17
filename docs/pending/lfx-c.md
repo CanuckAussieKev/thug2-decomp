@@ -73,3 +73,29 @@ Records for the lead to fold into docs/decomp-progress.md.
     (the float sum of the corner and size: rounding through double then float is the same as float addition).
   - (A mutation run once showed "SELFTEST FAIL: PC async handle (synchronous I/O)" - not lfx-c's test; it
     passed on rerun: probably timing-dependent.)
+- [x] Batch lfx-c 4 (NOT run in the game yet): the park editor's cursor and the manager's set-up -
+  src/game/park/park_cursor.cpp (11 functions, all REPLACE). The gap descriptor (0x54 bytes at cursor +0x70:
+  two halves' cells, turns, left / right extents, name, score, halves done, id; the name counter at +0xC4).
+  - CCursor::RemoveClipboardsTooBig 0x0059D120 (clipboards wider or longer than the park are unlinked,
+    ~CClipboard 0x0058C980, freed through CClipboard's pools), PlacePiece 0x0059D240 (fits, height <= 17, a
+    restart point needs a free slot of its type - "No free slots exist for this type of restart point"; a copy of
+    the type turned and added with the bottom-up heap as default), DestroyUnderCursor 0x0059D380, AddGapHalf
+    0x0059D410 ("gap", "gap2"...; prints the area with 0x00590210), RemoveGapHalf 0x0059D600 (pieces with flag
+    0x1000 looked at again), ChangeGap 0x0059D6B0 (turn resets the extents; extents 0-6 kept inside the park,
+    by the turn: 0/2 along z, 1/3 along x), DestroySelection / FlattenSelection 0x0059D8E0 / 0x0059D980,
+    RaiseArea 0x0059D9F0 (at most 10 x 10), RaiseLower 0x0059DAA0 (the area widened by the pieces standing on it
+    - any height: the query's height is 16 -, the highest setting the top; not above 17 or below -16; the
+    original writes FloorHeight's level flag over its copy of the park's size).
+  - CParkManager::Initialize 0x0059DCD0 (once: Init, the park's map object 0xA8 bytes 0x0058CCC0 - in the
+    top-down heap for level 0xCD3682C1 -, generator set-up, RebuildPark(0), and the piece sets: each set's
+    pieces run from its `first` in Ed_standard_metapieces to the next set's (processed last to first); a
+    clipboard set gets Clipboard0-5; hidden sets aren't visible). As in the original, a set whose pieces
+    aren't all in the manager's list reads a null piece.
+  - Test: TestParkCursor (src/hook/selftests_lfxc3.cpp, Early): 14 variants (and 36 gap changes per variant),
+    the clipboard pools, hand-built Ed_piece_sets / Ed_standard_metapieces structures, an empty symbol table;
+    every call stood in for (cdecl stand-ins don't record ECX; pointers to locals are recorded as one marker).
+    59 deliberate bugs caught, 10 after strengthening (exact height / DMA-slot / -16 limits, a failed AddGap,
+    gaps reaching the park's edge along x, the cursor's +0x55 flag set beforehand, dirty piece sets).
+  - Pitfall found: a crash inside an original with its own SEH frame (here Initialize, reading a flag through a
+    null symbol table) kills thug2_check outright (the game's frame handler runs first, without its CRT) instead
+    of being logged as a SELFTEST CRASH.
