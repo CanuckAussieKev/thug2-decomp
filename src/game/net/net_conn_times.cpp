@@ -1,31 +1,31 @@
-// Net::Conn's communication times (the last ones below Conn's own range, 0x00455970 on: wt/netF). See ConnView
-// in net_app_view.h.
+// Net::Conn's communication times (the last ones below Conn's own range, 0x00455970 on: net_conn.cpp). See
+// net_conn.h.
 
-#include "game/net/net_app_view.h"
+#include "game/net/net_conn.h"
 #include "game/sys/timer.h"
 #include "hook/hook.h"
 
 namespace Net {
 
 // 0x00455920
-void ConnView::UpdateCommTime(uint32_t extra)
+void Conn::UpdateCommTime(uint32_t extra)
 {
     uint32_t time = Tmr::GetTime() + extra;
-    if (time > LastCommTime())
-        LastCommTime() = time;
+    if (time > m_lastCommTime)
+        m_lastCommTime = time;
 }
 
 // 0x00455940
-uint32_t ConnView::GetTimeElapsedSinceCommunication()
+uint32_t Conn::GetTimeElapsedSinceCommunication()
 {
     uint32_t now = Tmr::GetTime();
-    if (now < LastCommTime())
+    if (now < m_lastCommTime)
         return 0;
-    return now - LastCommTime();
+    return now - m_lastCommTime;
 }
 
 } // namespace Net
 
-REPLACE(0x00455920, &Net::ConnView::UpdateCommTime);
-REPLACE(0x00455940, &Net::ConnView::GetTimeElapsedSinceCommunication);
-REPLACE(0x00455960, &Net::ConnView::SetSendInterval);
+REPLACE(0x00455920, &Net::Conn::UpdateCommTime);
+REPLACE(0x00455940, &Net::Conn::GetTimeElapsedSinceCommunication);
+REPLACE(0x00455960, &Net::Conn::SetSendInterval);

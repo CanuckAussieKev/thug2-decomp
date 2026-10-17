@@ -23,16 +23,15 @@ constexpr int kAppTaskPriority = -2000;
 constexpr uint32_t kTaskSize = 0x20;
 constexpr int kTimestampWindow = 5000; // timestamps further apart than this have wrapped around
 
-uint32_t& Timestamp(App* app) { return Field<uint32_t>(app, AppField::kTimestamp); }
-Dispatcher* GetDispatcher(App* app) { return &Field<Dispatcher>(app, AppField::kDispatcher); }
+uint32_t& Timestamp(App* app) { return app->m_time; }
+Dispatcher* GetDispatcher(App* app) { return &app->m_dispatcher; }
 
-using ForeignPacketHandler = void(__cdecl*)(char* data, int size, sockaddr* from);
 
 // The first connection (Lst::Search<Conn> over the App's connections; the search's vtable is 0x0064759C).
 Conn* ServerConnection(App* app)
 {
     Lst::Search<Conn> search;
-    return search.FirstItem(&Field<Mem::ListNode>(app, AppField::kConnections));
+    return search.FirstItem(&app->m_connections);
 }
 
 } // namespace
@@ -48,7 +47,7 @@ void ConstructAppTask(App* app)
         Field<void**>(task, 0x0) = kAppTaskVtable;
         Field<void*>(task, 0x18) = reinterpret_cast<void*>(&App::SendNetworkData);
     }
-    Field<void*>(app, AppField::kTask) = task;
+    app->m_sendTask = task;
 }
 
 // 0x0045A250
@@ -63,7 +62,7 @@ Client* Client::Construct(int flags)
 // 0x0045B910
 void Client::DestroyBody()
 {
-    AppView::DestroyBody();
+    App::DestroyBody();
 }
 
 // 0x0045B8E0
@@ -78,15 +77,15 @@ Client* Client::Destroy(unsigned int flags)
 // 0x0045B820
 void Client::Deinit()
 {
-    AppView::Deinit();
+    App::Deinit();
 }
 
 // 0x00459EC0
 bool Client::Init()
 {
-    Field<bool>(this, AppField::kConnected) = false;
+    m_connected = false;
     Timestamp(this) = 0;
-    if (!AppView::Init())
+    if (!App::Init())
         return false;
     Dispatcher* dispatcher = GetDispatcher(this);
     dispatcher->AddHandler(kMsgConnectionAccepted, HandleConnectionAccepted, 3, nullptr, 0x80);
@@ -99,20 +98,20 @@ bool Client::Init()
 // 0x00459F40
 bool Client::ConnectToServer(uint32_t ip, uint16_t port)
 {
-    auto& address = Field<sockaddr_in>(this, AppField::kServerAddress);
+    auto& address = *reinterpret_cast<sockaddr_in*>(m_serverAddress);
     std::memset(&address, 0, sizeof(address));
     address.sin_family = AF_INET;
     address.sin_port = htons(port);
     address.sin_addr.s_addr = ip;
     std::memset(address.sin_zero, 0, sizeof(address.sin_zero));
-    while (connect(Field<SOCKET>(this, AppField::kSocket), reinterpret_cast<sockaddr*>(&address), sizeof(address)) ==
+    while (connect(m_socket, reinterpret_cast<sockaddr*>(&address), sizeof(address)) ==
            SOCKET_ERROR) {
         if (WSAGetLastError() != WSAEWOULDBLOCK) {
             ReportSocketError(this);
             return false;
         }
     }
-    Field<bool>(this, AppField::kConnected) = ip != 0;
+    m_connected = ip != 0;
     return true;
 }
 
@@ -128,7 +127,7 @@ void Client::StreamMessageToServer(uint8_t msgId, uint16_t size, void* data, con
 void Client::EnqueueMessageToServer(MsgDesc* desc)
 {
     if (Conn* server = ServerConnection(this))
-        Net::EnqueueMessage(this, Field<int>(server, ConnField::kHandle), desc);
+        Net::EnqueueMessage(this, server->m_handle, desc);
 }
 
 // 0x0045A300
@@ -140,9 +139,9 @@ void Client::ReceiveData()
         return;
     int received;
     do {
-        char* buffer = &Field<char>(this, AppField::kReceiveBuffer);
-        SOCKET socket = Field<SOCKET>(this, AppField::kSocket);
-        if (!Field<bool>(this, AppField::kConnected))
+        char* buffer = m_receiveBuffer;
+        SOCKET socket = m_socket;
+        if (!m_connected)
             received = recvfrom(socket, buffer, kReceiveBufferSize, 0, reinterpret_cast<sockaddr*>(&from), &fromLength);
         else
             received = recv(socket, buffer, kReceiveBufferSize, 0);
@@ -150,32 +149,32 @@ void Client::ReceiveData()
             WSAGetLastError();
             return;
         }
-        Field<int>(this, AppField::kTotalBytesIn) += received;
-        int size = (Field<uint32_t>(this, AppField::kFlags) & kAppSecure) ? received - 2 : received;
-        auto& server = Field<sockaddr_in>(this, AppField::kServerAddress);
+        m_totalBytesIn += received;
+        int size = (m_flags & kAppSecure) ? received - 2 : received;
+        auto& server = *reinterpret_cast<sockaddr_in*>(m_serverAddress);
         if (Conn* conn = Net::GetConnectionByAddress(this, server.sin_addr.s_addr, ntohs(server.sin_port))) {
-            char*& readPtr = Field<char*>(conn, ConnField::kReadPtr);
-            if (readPtr + size < Field<char*>(conn, ConnField::kReadBuffer) + kConnReceiveBufferSize) {
+            char*& readPtr = conn->m_readPtr;
+            if (readPtr + size < conn->m_readBuffer + kConnReceiveBufferSize) {
                 uint32_t time = Tmr::GetTime();
                 if (ReadPacket(this, buffer, readPtr, received)) {
                     readPtr += size;
-                    AddPacketMetric(&Field<uint8_t>(conn, ConnField::kReceiveMetrics), received + 0x1C,
+                    AddPacketMetric(conn->m_receiveMetrics, received + 0x1C,
                                     Timestamp(this));
-                    if (time > Field<uint32_t>(conn, ConnField::kLastCommTime))
-                        Field<uint32_t>(conn, ConnField::kLastCommTime) = time;
-                } else if (auto handler = Field<ForeignPacketHandler>(this, AppField::kForeignPacketHandler)) {
+                    if (time > conn->m_lastCommTime)
+                        conn->m_lastCommTime = time;
+                } else if (auto handler = m_foreignPacketHandler) {
                     handler(buffer, received, reinterpret_cast<sockaddr*>(&from));
                 }
             }
-        } else if (!Field<bool>(this, AppField::kConnected)) {
+        } else if (!m_connected) {
             // from an unknown address
             if (Conn* fresh = Net::NewConnection(this, from.sin_addr.s_addr, ntohs(from.sin_port), 6)) {
-                Field<App*>(fresh, ConnField::kApp) = this;
-                if (ReadPacket(this, buffer, Field<char*>(fresh, ConnField::kReadPtr), received)) {
-                    Field<char*>(fresh, ConnField::kReadPtr) = Field<char*>(fresh, ConnField::kReadBuffer) + size;
+                fresh->m_app = this;
+                if (ReadPacket(this, buffer, fresh->m_readPtr, received)) {
+                    fresh->m_readPtr = fresh->m_readBuffer + size;
                     MarkNewConnection(fresh);
                 } else {
-                    if (auto handler = Field<ForeignPacketHandler>(this, AppField::kForeignPacketHandler))
+                    if (auto handler = m_foreignPacketHandler)
                         handler(buffer, received, reinterpret_cast<sockaddr*>(&from));
                     DestroyConn(fresh);
                     Mem::Manager::Get()->Free(fresh);
@@ -199,22 +198,22 @@ void Client::SendData(Conn* conn)
         if (TimestampDue(this, conn)) {
             MsgDesc desc;
             ConstructMsgDesc(&desc);
-            auto timestamp = static_cast<uint16_t>(Field<uint32_t>(conn, ConnField::kTimestampOut));
+            auto timestamp = static_cast<uint16_t>(conn->m_timestampOut);
             desc.m_data = &timestamp;
             desc.m_length = sizeof(timestamp);
             desc.m_id = kMsgTimestamp;
             desc.m_priority = kHighestPriority;
-            Net::EnqueueMessage(this, Field<int>(conn, ConnField::kHandle), &desc);
+            Net::EnqueueMessage(this, conn->m_handle, &desc);
         }
-        if (IsRemote(conn) && !IsForeign(conn) && (Field<uint32_t>(this, AppField::kFlags) & kAppMeasureLatency)) {
+        if (IsRemote(conn) && !IsForeign(conn) && (m_flags & kAppMeasureLatency)) {
             MsgDesc desc;
             ConstructMsgDesc(&desc);
-            uint32_t& sent = Field<uint32_t>(conn, ConnField::kLatencyTestSent);
+            uint32_t& sent = conn->m_latencyTest.m_sendTime;
             uint32_t now = Timestamp(this);
             if (sent == 0 || now - sent > MaxLatency()) {
                 // a test due: if the last went unanswered, the latency is at least that much more
-                if (sent > Field<uint32_t>(conn, ConnField::kLatencyTestAnswered)) {
-                    uint32_t latency = (Net::IsLocal(conn) ? 0 : Field<uint32_t>(conn, ConnField::kLatency)) + 100;
+                if (sent > conn->m_latencyTest.m_receiveTime) {
+                    uint32_t latency = (Net::IsLocal(conn) ? 0 : static_cast<uint32_t>(conn->m_latencyTest.m_averageLatency)) + 100;
                     if (latency > MaxLatency())
                         latency = MaxLatency();
                     AddLatency(conn, latency);
@@ -223,7 +222,7 @@ void Client::SendData(Conn* conn)
                 desc.m_data = &now;
                 desc.m_id = kMsgLatencyTest;
                 desc.m_length = sizeof(now);
-                Net::EnqueueMessage(this, Field<int>(conn, ConnField::kHandle), &desc);
+                Net::EnqueueMessage(this, conn->m_handle, &desc);
             }
         }
         if (!BundleMessages(conn, kQueueNormal, false))
@@ -236,26 +235,26 @@ void Client::SendData(Conn* conn)
             done = true;
         if (!BundleMessages(conn, kQueueImportant, false))
             done = true;
-        char*& writePtr = Field<char*>(conn, ConnField::kWritePtr);
-        int size = static_cast<int>(writePtr - Field<char*>(conn, ConnField::kWriteBuffer));
+        char*& writePtr = conn->m_writePtr;
+        int size = static_cast<int>(writePtr - conn->m_writeBuffer);
         if (size > 0 && IsRemote(conn)) {
-            char* packet = Field<char*>(conn, ConnField::kWriteBuffer);
-            bool sent = Field<bool>(this, AppField::kConnected)
+            char* packet = conn->m_writeBuffer;
+            bool sent = m_connected
                             ? Net::Send(this, packet, size, 0)
-                            : Net::SendTo(this, Field<uint32_t>(conn, ConnField::kIp), Field<uint16_t>(conn, ConnField::kPort),
+                            : Net::SendTo(this, conn->m_ip, conn->m_port,
                                      packet, size, 0);
             if (!sent) {
-                FlagMessagesForResending(conn, Field<uint32_t>(conn, ConnField::kTimestampOut));
-                writePtr = Field<char*>(conn, ConnField::kWriteBuffer);
+                FlagMessagesForResending(conn, conn->m_timestampOut);
+                writePtr = conn->m_writeBuffer;
                 return;
             }
-            Field<int>(this, AppField::kTotalBytesOut) += size;
-            AddPacketMetric(&Field<uint8_t>(conn, ConnField::kSendMetrics), size + 0x1C, Timestamp(this));
-            Field<uint32_t>(conn, ConnField::kLastSendTime) = Timestamp(this);
+            m_totalBytesOut += size;
+            AddPacketMetric(conn->m_sendMetrics, size + 0x1C, Timestamp(this));
+            conn->m_lastSendTime = Timestamp(this);
             SetForceSendThisFrame(conn, false);
-            writePtr = Field<char*>(conn, ConnField::kWriteBuffer);
+            writePtr = conn->m_writeBuffer;
         }
-        ++Field<uint32_t>(conn, ConnField::kTimestampOut);
+        ++conn->m_timestampOut;
     } while (!done);
 }
 
@@ -284,7 +283,7 @@ int Client::HandleTimestamp(MsgHandlerContext* context)
     context->m_SequencesToAck[context->m_NumSequencesToAck] = *stamp;
     ++context->m_NumSequencesToAck;
     Conn* conn = context->m_Conn;
-    uint32_t& newest = Field<uint32_t>(conn, ConnField::kLastTimestampIn);
+    uint32_t& newest = conn->m_lastTimestampIn;
     if (newest == 0) {
         newest = *stamp;
         return kHandlerContinue;
@@ -294,21 +293,21 @@ int Client::HandleTimestamp(MsgHandlerContext* context)
     if (timestamp < newest) {
         late = newest - timestamp <= kTimestampWindow; // (else it has wrapped around: newer)
     } else if (timestamp == newest) {
-        ++Field<int>(context->m_App, AppField::kDupePackets);
+        ++context->m_App->m_dupePackets;
         return kHandlerError;
     } else {
         uint32_t gap = timestamp - newest;
         if (gap > 1 && gap <= kTimestampWindow) {
-            Field<int>(context->m_App, AppField::kLostPackets) += gap - 1;
-            Field<uint32_t>(context->m_Conn, ConnField::kLastTimestampIn) = *stamp;
+            context->m_App->m_lostPackets += gap - 1;
+            context->m_Conn->m_lastTimestampIn = *stamp;
             return kHandlerContinue;
         }
         late = gap > kTimestampWindow; // (so far ahead it has wrapped around: older)
     }
     if (late) {
         // it was counted as lost when a newer one came
-        ++Field<int>(context->m_App, AppField::kLatePackets);
-        --Field<int>(context->m_App, AppField::kLostPackets);
+        ++context->m_App->m_latePackets;
+        --context->m_App->m_lostPackets;
         context->m_PacketFlags |= kPacketLate;
         return kHandlerContinue;
     }

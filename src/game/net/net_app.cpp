@@ -17,7 +17,6 @@
 
 namespace Net {
 
-using Conn = ConnView;
 
 namespace {
 
@@ -27,7 +26,7 @@ void** const kAppVtable = reinterpret_cast<void**>(0x006475B4);
 void** const kAppNodeVtable = reinterpret_cast<void**>(0x006474D8);      // Lst::Node<App>
 void** const kTaskVtable = reinterpret_cast<void**>(0x006476F0);         // Tsk::Task<App>
 
-// Message targets (not AppView::kHandleBroadcast, a flag).
+// Message targets (not App::kBroadcast, a flag).
 constexpr int kHandleBroadcast = 0xFF;        // every connection
 constexpr int kHandleExcludeBroadcast = 0x80; // every connection but handle & 0x7F
 constexpr uint8_t kMsgStreamStart = 0x0E;
@@ -39,53 +38,43 @@ constexpr int kMetricsTaskPriority = -2500;
 constexpr int kReceiveTaskPriority = 1000;
 constexpr int kProcessTaskPriority = 0;
 
-// --- Conn (0x3D20 bytes, ConnView; the fields it doesn't name) -----------------------------------------------
-uint8_t* Bytes(Conn* conn) { return reinterpret_cast<uint8_t*>(conn); }
-template <typename T>
-T& At(Conn* conn, uint32_t offset)
-{
-    return *reinterpret_cast<T*>(Bytes(conn) + offset);
-}
+// --- Conn (net_conn.h): short names for the fields used here ------------------------------------------------
 // The outgoing message queues (Lst::Heads of links, highest priority first).
-ListNode* NormalQueue(Conn* conn) { return &At<ListNode>(conn, 0x00); }
-ListNode* ImportantQueue(Conn* conn) { return &At<ListNode>(conn, 0x14); }
-ListNode* SequencedQueue(Conn* conn) { return &At<ListNode>(conn, 0x28); }
-// The receive buffer's read and write positions.
-uint8_t*& ReadPosition(Conn* conn) { return At<uint8_t*>(conn, 0x54); }
-uint8_t*& WritePosition(Conn* conn) { return At<uint8_t*>(conn, 0x58); }
+ListNode* NormalQueue(Conn* conn) { return &conn->m_normalMsgs; }
+ListNode* ImportantQueue(Conn* conn) { return &conn->m_importantMsgs; }
+ListNode* SequencedQueue(Conn* conn) { return &conn->m_sequencedMsgs; }
+// The receive buffer's read and write positions (its start and end).
+uint8_t*& ReadPosition(Conn* conn) { return reinterpret_cast<uint8_t*&>(conn->m_readBuffer); }
+uint8_t*& WritePosition(Conn* conn) { return reinterpret_cast<uint8_t*&>(conn->m_readPtr); }
 // Status: 1 ready, bit 2 invalid, bit 3 disconnecting.
-uint32_t& Status(Conn* conn) { return At<uint32_t>(conn, 0x60); }
-constexpr uint32_t kStatusReady = 1;
+uint32_t& Status(Conn* conn) { return conn->m_status; }
+constexpr uint32_t kStatusReady = Conn::kStatusReady;
 constexpr uint32_t kStatusDisconnecting = 8;
-App*& OwnerApp(Conn* conn) { return At<App*>(conn, 0x68); }
-uint32_t& CreatedTime(Conn* conn) { return At<uint32_t>(conn, 0x6C); }
+App*& OwnerApp(Conn* conn) { return conn->m_app; }
 // The next sequence id of each message group.
-uint32_t& NextSequenceId(Conn* conn, uint8_t group) { return At<uint32_t>(conn, 0x78 + 4 * group); }
-int& NextStreamId(Conn* conn) { return At<int>(conn, 0x878); }
-ListNode* Streams(Conn* conn) { return &At<ListNode>(conn, 0x1C90); } // Lst::Head<StreamLink>
-void* InMetrics(Conn* conn) { return Bytes(conn) + 0x1CDC; }         // Net::Metrics (0x100C bytes)
-void* OutMetrics(Conn* conn) { return Bytes(conn) + 0x2CE8; }
-// The send buffer (+0x4C its start, +0x50 the end of what's written): a local connection takes its alias's
-// (the other end, in this process) straight into its own receive buffer.
-uint8_t*& SendBufferStart(Conn* conn) { return At<uint8_t*>(conn, 0x4C); }
-uint8_t*& SendBufferEnd(Conn* conn) { return At<uint8_t*>(conn, 0x50); }
+uint32_t& NextSequenceId(Conn* conn, uint8_t group) { return conn->m_nextSequenceIds[group]; }
+int& NextStreamId(Conn* conn) { return conn->m_nextStreamId; }
+ListNode* Streams(Conn* conn) { return &conn->m_sendStreams; } // Lst::Head<StreamLink>
+void* InMetrics(Conn* conn) { return conn->m_receiveMetrics; } // Net::Metrics (0x100C bytes)
+void* OutMetrics(Conn* conn) { return conn->m_sendMetrics; }
+// The send buffer (its start, the end of what's written): a local connection takes its alias's (the other end,
+// in this process) straight into its own receive buffer.
+uint8_t*& SendBufferStart(Conn* conn) { return reinterpret_cast<uint8_t*&>(conn->m_writeBuffer); }
+uint8_t*& SendBufferEnd(Conn* conn) { return reinterpret_cast<uint8_t*&>(conn->m_writePtr); }
 
-// Conn's methods (0x00455xxx-0x00456xxx, not rewritten yet).
-Conn* ConstructConn(void* memory, int flags)
-{
-    return GameFunction<Conn*(__thiscall*)(void*, int)>(0x00455C80)(memory, flags);
-}
-void DestroyConnBody(Conn* conn) { GameFunction<void(__thiscall*)(Conn*)>(0x00456790)(conn); }
-bool IsValid(Conn* conn) { return GameFunction<bool(__thiscall*)(Conn*)>(0x00455C20)(conn); }
-void Invalidate(Conn* conn) { GameFunction<void(__thiscall*)(Conn*)>(0x00455C10)(conn); }
-bool IsLocalConn(Conn* conn) { return GameFunction<bool(__thiscall*)(Conn*)>(0x00455A20)(conn); }
-bool IsRemote(Conn* conn) { return GameFunction<bool(__thiscall*)(Conn*)>(0x00455A30)(conn); }
-bool IsForeign(Conn* conn) { return GameFunction<bool(__thiscall*)(Conn*)>(0x00455A10)(conn); }
-int BandwidthType(Conn* conn) { return GameFunction<int(__thiscall*)(Conn*)>(0x004559A0)(conn); }
-int BandwidthLimit(Conn* conn) { return GameFunction<int(__thiscall*)(Conn*)>(0x004559C0)(conn); }
-void SetForceSend(Conn* conn, bool force) { GameFunction<void(__thiscall*)(Conn*, bool)>(0x00455980)(conn, force); }
+// Conn's methods (net_conn.cpp).
+Conn* ConstructConn(void* memory, int flags) { return static_cast<Conn*>(memory)->Construct(flags); }
+void DestroyConnBody(Conn* conn) { conn->Destroy(); }
+bool IsValid(Conn* conn) { return conn->IsValid(); }
+void Invalidate(Conn* conn) { conn->Invalidate(); }
+bool IsLocalConn(Conn* conn) { return conn->IsLocal(); }
+bool IsRemote(Conn* conn) { return conn->IsRemote(); }
+bool IsForeign(Conn* conn) { return conn->IsForeign(); }
+int BandwidthType(Conn* conn) { return conn->GetBandwidthType(); }
+int BandwidthLimit(Conn* conn) { return conn->GetBandwidth(); }
+void SetForceSend(Conn* conn, bool force) { conn->SetForceSendThisFrame(force); }
 // The sequenced links that carry streamed pieces.
-int NumStreamPiecesQueued(Conn* conn) { return GameFunction<int(__thiscall*)(Conn*)>(0x004565E0)(conn); }
+int NumStreamPiecesQueued(Conn* conn) { return conn->GetNumQueuedStreamPieces(); }
 
 // Net::Metrics: bytes over the last second.
 int BytesPerSecond(void* metrics) { return GameFunction<int(__thiscall*)(void*)>(0x00454520)(metrics); }
@@ -99,7 +88,7 @@ int TotalBandwidth(void* manager) { return GameFunction<int(__thiscall*)(void*)>
 int ConnectionType(void* manager) { return GameFunction<int(__thiscall*)(void*)>(0x00454960)(manager); }
 
 // --- Messages ---------------------------------------------------------------------------------------------------
-// QueuedMsg (0x0C) and SeqQueuedMsg (0x10, made by AppView::NewQueuedMsg): a copy of a message shared by the
+// QueuedMsg (0x0C) and SeqQueuedMsg (0x10, made by App::NewQueuedMsg): a copy of a message shared by the
 // links that send it to each connection; freed with the last.
 QueuedMsg* ConstructQueuedMsg(void* memory, uint8_t id, uint16_t length, void* data, uint8_t compression)
 {
@@ -203,10 +192,6 @@ struct StreamData {
 // --- The rest of the library ------------------------------------------------------------------------------
 // A message link into a queue: Lst::Head::AddNodeFromTail (0x00457350).
 void AddLink(ListNode* queue, ListNode* link) { reinterpret_cast<Lst::Head*>(queue)->AddNodeFromTail(link); }
-// The handler lists' constructor (0x00457010, in wt/netA's range; not a function in Ghidra, not rewritten).
-void ConstructHandlerList(ListNode* head) { GameFunction<void(__thiscall*)(ListNode*)>(0x00457010)(head); }
-// The process task (0x00456CA0, in wt/netA's range; not a function in Ghidra, not rewritten).
-void* const kProcessNetworkData = reinterpret_cast<void*>(0x00456CA0);
 // conn's received messages to their handlers (Dispatcher::DispatchMsgHandlers); 2 = halted, 3 = stop
 int DispatchMessages(HandlerLists* dispatcher, Conn* conn, int flags)
 {
@@ -251,7 +236,7 @@ App* App::Construct(int flags)
 {
     m_vtable = kAppVtable;
     for (MsgHandlerNode& handlers : m_dispatcher.m_lists)
-        ConstructHandlerList(&handlers);
+        handlers.ConstructHead();
     m_dispatcherApp = this;
     m_list1414.vtable = kAppNodeVtable;
     m_list1414.data = this;
@@ -263,11 +248,11 @@ App* App::Construct(int flags)
     InitHead(&m_banned, kBannedConnVtable);
     m_metricsTask = NewTask(kMetricsTaskPriority, reinterpret_cast<void*>(&App::NetworkMetrics), this);
     m_receiveTask = NewTask(kReceiveTaskPriority, reinterpret_cast<void*>(&App::ReceiveNetworkData), this);
-    m_processTask = NewTask(kProcessTaskPriority, kProcessNetworkData, this);
-    Unknown1F00() = GameVariable<double>(0x006453A0); // 0.0
+    m_processTask = NewTask(kProcessTaskPriority, reinterpret_cast<void*>(&App::ProcessNetworkData), this);
+    m_unknown1F00 = GameVariable<double>(0x006453A0); // 0.0
     m_flags = static_cast<uint32_t>(flags);
     m_time = 0;
-    m_unknown1E88 = 0;
+    m_foreignPacketHandler = nullptr;
     return this;
 }
 
@@ -651,6 +636,14 @@ void App::ProcessStreamMessages()
     }
 }
 
+// 0x00456CA0
+void __cdecl App::ProcessNetworkData(void* task)
+{
+    App* app = TaskApp(task);
+    ++app->m_frameCount;
+    reinterpret_cast<bool(__thiscall*)(App*)>(app->m_vtable[1])(app); // ProcessData
+}
+
 // 0x004593C0
 void __cdecl App::ReceiveNetworkData(void* task)
 {
@@ -717,7 +710,7 @@ Conn* App::NewConnection(int ip, uint16_t port, int flags)
         conn->m_port = port;
         conn->m_handle = GetFreeHandle();
         OwnerApp(conn) = this;
-        CreatedTime(conn) = Tmr::GetTime();
+        conn->m_lastCommTime = Tmr::GetTime();
         AddToTail(&m_connections, &conn->m_appNode);
     }
     PopHeap();
@@ -738,6 +731,7 @@ REPLACE(0x00458E60, &Net::App::BandwidthExceeded);
 REPLACE(0x00458F80, &Net::App::GetFreeHandle);
 REPLACE(0x00458FB0, &Net::App::TerminateInvalidConnections);
 REPLACE(0x004590C0, &Net::App::ProcessStreamMessages);
+REPLACE(0x00456CA0, Net::App::ProcessNetworkData);
 REPLACE(0x004593C0, Net::App::ReceiveNetworkData);
 REPLACE(0x004593E0, Net::App::NetworkMetrics);
 REPLACE(0x004594A0, Net::App::SendNetworkData);

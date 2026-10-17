@@ -14,7 +14,7 @@ namespace Net {
 
 class Server;
 class Client;
-class AppView;
+struct App;
 
 class ManagerView {
 public:
@@ -31,7 +31,7 @@ public:
     // 0x004553F0: the same for a client (one connection: the server).
     Client* CreateNewAppClient(int id, const char* name, uint16_t port, int address, int flags);
     // 0x00455550: `app` out of its list, deinitialised (virtual slot 5) and deleted.
-    void DestroyApp(AppView* app);
+    void DestroyApp(App* app);
 
     AppNode m_servers;            // +0x000 Lst::Head<App> (vtable 0x00647544)
     AppNode m_clients;            // +0x014

@@ -224,8 +224,12 @@ void StandInMessages(StandIns& s)
         return reinterpret_cast<uint32_t>(block);
     });
     // -> the links' destructor bodies (wt/netF)
-    for (uint32_t address : {0x00455B50u, 0x00455B70u, 0x00455B90u, 0x00455BB0u}) {
-        s.At({address}, 0, [address](Regs& r) {
+    std::pair<uint32_t, uint32_t> bodies[] = {{0x00455B50u, AddressOf(&Net::MsgNormalNode::DestroyBody)},
+                                              {0x00455B70u, AddressOf(&Net::MsgImpNode::DestroyBody)},
+                                              {0x00455B90u, AddressOf(&Net::MsgSeqNode::DestroyBody)},
+                                              {0x00455BB0u, AddressOf(&Net::StreamLinkNode::DestroyBody)}};
+    for (auto [address, ours] : bodies) {
+        s.At({address, ours}, 0, [address](Regs& r) {
             Record({address, Rel(r.ecx)});
             return 0x5A5A5A5Au;
         });
@@ -386,7 +390,7 @@ void StandInManager(StandIns& s)
         Record({0xDE17, Rel(r.ecx)});
         return 0x77u;
     }));
-    s.At({0x00456BA0, AddressOf(&Net::AppView::Bind)}, 8, [](Regs& r) {
+    s.At({0x00456BA0, AddressOf(&Net::App::Bind)}, 8, [](Regs& r) {
         Record({0xB1D, Rel(r.ecx), r.args[0], r.args[1] & 0xFFFF});
         return 1u;
     });

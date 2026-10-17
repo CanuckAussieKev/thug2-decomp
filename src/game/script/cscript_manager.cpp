@@ -24,6 +24,7 @@
 
 #include "game/core/crc.h"
 #include "game/core/manager.h"
+#include "game/net/net_app.h"
 #include "game/script/cscript.h"
 #include "game/script/load.h"
 #include "game/script/struct.h"
@@ -90,19 +91,8 @@ NetManager* Net() { return GameVariable<NetManager*>(0x007CCE14); }
 bool InNetGame(NetManager* net) { return GameFunction<bool(__thiscall*)(NetManager*)>(0x0044E4F0)(net); }
 // 0x00532EA0: the client connection `index` (+0x08 + 4 * index).
 void* GetClient(NetManager* net, int index) { return GameFunction<void*(__thiscall*)(NetManager*, int)>(0x00532EA0)(net, index); }
-// Net::MsgDesc: a message to be sent (0x20 bytes; the constructor 0x004549F0 sets the defaults).
-struct MsgDesc {
-    uint8_t id;
-    uint8_t unknown1;
-    uint16_t length;
-    const void* data;
-    uint32_t unknown8;  // 0x80 by default
-    uint32_t unknownC;  // the script messages: 2
-    uint8_t unknown10;  // the script messages: 8
-    uint8_t rest[0xF];
-};
-static_assert(sizeof(MsgDesc) == 0x20 && offsetof(MsgDesc, unknownC) == 0xC && offsetof(MsgDesc, unknown10) == 0x10,
-              "layout must match the original");
+// Net::MsgDesc (net_app.h): a message to be sent; the constructor 0x004549F0 sets the defaults.
+using ::Net::MsgDesc;
 void InitMsgDesc(MsgDesc* desc) { GameFunction<void(__thiscall*)(MsgDesc*)>(0x004549F0)(desc); }
 // 0x00459E50: queue a message for the server.
 void EnqueueMessageToServer(void* client, MsgDesc* desc)
@@ -308,11 +298,11 @@ void SendRunScriptMessage(uint32_t name, CStruct* params, Obj::CObject* object)
     message.objectId = object ? ObjectId(object) : 0xFFFFFFFF;
     int size = WriteToBuffer(params, message.params, sizeof(message.params));
     void* client = GetClient(net, 0);
-    desc.data = &message;
-    desc.length = static_cast<uint16_t>(size + 8);
-    desc.id = MSG_ID_RUN_SCRIPT;
-    desc.unknownC = 2;
-    desc.unknown10 = 8;
+    desc.m_data = &message;
+    desc.m_length = static_cast<uint16_t>(size + 8);
+    desc.m_id = MSG_ID_RUN_SCRIPT;
+    desc.m_queue = MsgDesc::kQueueSequenced;
+    desc.m_groupId = 8;
     EnqueueMessageToServer(client, &desc);
 }
 
@@ -336,11 +326,11 @@ void SendSpawnScriptMessage(uint32_t name, Obj::CObject* object, int node, bool 
     message.permanent = permanent;
     static_assert(sizeof(message) == 0x10, "the message's size");
     void* client = GetClient(net, 0);
-    desc.data = &message;
-    desc.length = sizeof(message);
-    desc.id = MSG_ID_SPAWN_SCRIPT;
-    desc.unknownC = 2;
-    desc.unknown10 = 8;
+    desc.m_data = &message;
+    desc.m_length = sizeof(message);
+    desc.m_id = MSG_ID_SPAWN_SCRIPT;
+    desc.m_queue = MsgDesc::kQueueSequenced;
+    desc.m_groupId = 8;
     EnqueueMessageToServer(client, &desc);
 }
 

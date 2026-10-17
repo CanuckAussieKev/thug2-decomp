@@ -132,18 +132,18 @@ int Dispatcher::DispatchMsgHandlers(Conn* conn, uint32_t flags)
     MsgHandlerContext context;
     char buffer[kConnReceiveBufferSize];
     ConstructContext(&context);
-    context.m_App = Field<App*>(conn, ConnField::kApp);
+    context.m_App = conn->m_app;
     context.m_Conn = conn;
     context.m_PacketFlags = flags;
     context.m_Msg = buffer;
     context.m_MsgLength = 0;
-    char*& readBuffer = Field<char*>(conn, ConnField::kReadBuffer);
-    char*& readPtr = Field<char*>(conn, ConnField::kReadPtr);
-    void* metrics = &Field<uint8_t>(conn, ConnField::kReceiveMetrics);
+    char*& readBuffer = conn->m_readBuffer;
+    char*& readPtr = conn->m_readPtr;
+    void* metrics = conn->m_receiveMetrics;
 
     for (char* p = readBuffer; p < readPtr; p += context.m_MsgLength) {
         context.m_MsgId = static_cast<uint8_t>(*p++);
-        uint8_t* table = GetManager(Field<App*>(conn, ConnField::kApp));
+        uint8_t* table = GetManager(conn->m_app);
         bool hasLength = !(MessageFlags(table, context.m_MsgId) & kMsgNoLength);
         if (hasLength) {
             context.m_MsgLength = *reinterpret_cast<uint16_t*>(p);
@@ -179,7 +179,7 @@ int Dispatcher::DispatchMsgHandlers(Conn* conn, uint32_t flags)
             desc.m_data = &sequence;
             desc.m_length = sizeof(sequence);
             desc.m_id = kMsgAck;
-            EnqueueMessage(context.m_App, Field<int>(context.m_Conn, ConnField::kHandle), &desc);
+            EnqueueMessage(context.m_App, context.m_Conn->m_handle, &desc);
         }
     }
     readPtr = readBuffer;

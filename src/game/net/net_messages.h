@@ -85,20 +85,28 @@ struct StreamLink {
 static_assert(sizeof(StreamLink) == 0x18);
 
 // The connection's queue heads (and the links' base) - Lst::Node<T> of each link type. (The destructor bodies,
-// 0x00455B50-0x00455BB0, are Conn's range: wt/netF.)
+// 0x00455B50-0x00455BB0, are in Conn's range: net_conn.cpp.)
 struct StreamLinkNode : Mem::ListNode {
+    // 0x00455BB0: the destructor body: out of its list (and linked to itself).
+    void DestroyBody();
     // 0x00455130: the scalar deleting destructor.
     StreamLinkNode* Destroy(unsigned int flags);
 };
 struct MsgNormalNode : Mem::ListNode {
+    // 0x00455B50: the destructor body.
+    void DestroyBody();
     // 0x00455170
     MsgNormalNode* Destroy(unsigned int flags);
 };
 struct MsgImpNode : Mem::ListNode {
+    // 0x00455B70: the destructor body.
+    void DestroyBody();
     // 0x004551B0
     MsgImpNode* Destroy(unsigned int flags);
 };
 struct MsgSeqNode : Mem::ListNode {
+    // 0x00455B90: the destructor body (also each of Conn's received queues', from its destructor).
+    void DestroyBody();
     // 0x004551F0
     MsgSeqNode* Destroy(unsigned int flags);
 };

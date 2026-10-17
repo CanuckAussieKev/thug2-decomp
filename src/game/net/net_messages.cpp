@@ -51,7 +51,6 @@ void InitNode(Mem::ListNode* node, void** vtable)
 }
 
 // -> the links' destructor bodies (Lst::Node<T>'s, Conn's range: wt/netF)
-void DestroyLinkBody(void* link, uint32_t address) { GameFunction<void(__thiscall*)(void*)>(address)(link); }
 
 } // namespace
 
@@ -132,7 +131,7 @@ StreamLink* StreamLink::Construct(StreamDesc* desc)
 // 0x004557C0
 MsgNormalLink* MsgNormalLink::Destroy(unsigned int flags)
 {
-    DestroyLinkBody(this, 0x00455B50); // -> ~Lst::Node<MsgNormalLink> (wt/netF)
+    reinterpret_cast<MsgNormalNode*>(&m_node)->DestroyBody();
     if (flags & 1)
         ReleaseMemory(this);
     return this;
@@ -141,7 +140,7 @@ MsgNormalLink* MsgNormalLink::Destroy(unsigned int flags)
 // 0x004557F0
 MsgImpLink* MsgImpLink::Destroy(unsigned int flags)
 {
-    DestroyLinkBody(this, 0x00455B70); // -> ~Lst::Node<MsgImpLink> (wt/netF)
+    reinterpret_cast<MsgImpNode*>(&m_node)->DestroyBody();
     if (flags & 1)
         ReleaseMemory(this);
     return this;
@@ -150,7 +149,7 @@ MsgImpLink* MsgImpLink::Destroy(unsigned int flags)
 // 0x00455820
 MsgSeqLink* MsgSeqLink::Destroy(unsigned int flags)
 {
-    DestroyLinkBody(this, 0x00455B90); // -> ~Lst::Node<MsgSeqLink> (wt/netF)
+    reinterpret_cast<MsgSeqNode*>(&m_node)->DestroyBody();
     if (flags & 1)
         ReleaseMemory(this);
     return this;
@@ -159,7 +158,7 @@ MsgSeqLink* MsgSeqLink::Destroy(unsigned int flags)
 // 0x00455850
 StreamLink* StreamLink::Destroy(unsigned int flags)
 {
-    DestroyLinkBody(this, 0x00455BB0); // -> ~Lst::Node<StreamLink> (wt/netF)
+    reinterpret_cast<StreamLinkNode*>(&m_node)->DestroyBody();
     if (flags & 1)
         ReleaseMemory(this);
     return this;

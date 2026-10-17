@@ -13,8 +13,7 @@
 namespace Net {
 
 struct App;
-struct ConnView;
-using Conn = ConnView;
+struct Conn;
 
 // What a handler returns.
 enum HandlerResult : int {

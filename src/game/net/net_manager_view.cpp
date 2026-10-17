@@ -27,7 +27,7 @@ constexpr uint8_t kMsgTimestamp = 9;
 constexpr int kConnectionTypeNone = 1; // (1 and 3: no configured IP address; their meaning isn't known yet)
 constexpr int kConnectionType3 = 3;
 constexpr int kClientMaxConnections = 1;
-// The classes' sizes (Server and Client here are views: their fields past AppView's aren't named yet).
+// The classes' sizes (Server and Client here are views: their fields past App's aren't named yet).
 constexpr uint32_t kServerSize = 0x2308;
 constexpr uint32_t kClientSize = 0x1F18;
 
@@ -53,9 +53,9 @@ void AddToTail(Mem::ListNode* head, Mem::ListNode* node)
 }
 
 // -> 0x00454CB0 (wt/netD): the app's four tasks added to the main loop.
-void AddAppTasks(ManagerView* manager, AppView* app)
+void AddAppTasks(ManagerView* manager, App* app)
 {
-    GameFunction<void(__thiscall*)(ManagerView*, AppView*)>(0x00454CB0)(manager, app);
+    GameFunction<void(__thiscall*)(ManagerView*, App*)>(0x00454CB0)(manager, app);
 }
 
 void CopyString(char* out, const char* text) { std::memcpy(out, text, std::strlen(text) + 1); }
@@ -67,7 +67,7 @@ void CopyName(char* out, const char* text)
     std::strncpy(out, text, 0x40);
 }
 
-bool InitApp(AppView* app) { return reinterpret_cast<bool(__thiscall*)(AppView*)>(app->m_vtable[4])(app); }
+bool InitApp(App* app) { return reinterpret_cast<bool(__thiscall*)(App*)>(app->m_vtable[4])(app); }
 
 } // namespace
 
@@ -161,16 +161,16 @@ Client* ManagerView::CreateNewAppClient(int id, const char* name, uint16_t port,
 }
 
 // 0x00455550
-void ManagerView::DestroyApp(AppView* app)
+void ManagerView::DestroyApp(App* app)
 {
     Mem::ListNode& node = app->m_list1414;
     node.prev->next = node.next;
     node.next->prev = node.prev;
     node.next = &node;
     node.prev = &node;
-    reinterpret_cast<void(__thiscall*)(AppView*)>(app->m_vtable[5])(app); // Deinit (through 0x00456B30)
+    reinterpret_cast<void(__thiscall*)(App*)>(app->m_vtable[5])(app); // Deinit (through 0x00456B30)
     if (app) // (checked only now)
-        reinterpret_cast<void*(__thiscall*)(AppView*, unsigned int)>(app->m_vtable[0])(app, 1);
+        reinterpret_cast<void*(__thiscall*)(App*, unsigned int)>(app->m_vtable[0])(app, 1);
     --m_numApps;
 }
 
