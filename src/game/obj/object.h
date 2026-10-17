@@ -14,7 +14,7 @@
 // structure scripts read and write); flags scripts set and test (Obj_SetFlag...). Scripts find an object by its id
 // through the object tracker (0x006F0FC0, wt/trk's code): FindObject.
 //
-// From the disassembly of 0x00460850-0x00461900 (methods: __thiscall, RET n = 4 * arguments; FindObject and the
+// From the disassembly of 0x004607A0-0x00461900 (methods: __thiscall, RET n = 4 * arguments; FindObject and the
 // manager walk's callbacks: __cdecl). The member functions scripts call (Obj_SetFlag...) are entries of the member
 // function table at 0x00683550 (0x18 bytes each: the name, the component type 0x57525413 - "the object itself" - and
 // a member function pointer, filled in by 0x00642940); 0x0045D850 (the object's vtable +0x08) calls them as
@@ -137,11 +137,23 @@ public:
     bool GetTag(Script::CStruct* params, Script::CStruct* dest);
     // 0x00460D90: copies of the tags named in `names` (the last name first) added to `dest`. True.
     bool GetTags(Script::CArray* names, Script::CStruct* dest);
+    // 0x004607B0: remove the flag `flag` from the tags (none: nothing).
+    void RemoveTagFlag(uint32_t flag);
+    // 0x004607C0 / 0x004607E0: the tag `name` as an integer / a checksum (no tags, or none such: false).
+    bool GetIntegerTag(uint32_t name, int* value);
+    bool GetChecksumTag(uint32_t name, uint32_t* value);
+    // 0x00460800: whether the tags hold the flag `flag` (no tags: false).
+    bool ContainsTagFlag(uint32_t flag);
+    // 0x00460820: the tags added to `dest` (no tags: nothing).
+    void CopyTagsTo(Script::CStruct* dest);
+    // 0x004607A0: its script's handler for events of `type` goes (no script: nothing).
+    void ClearEventHandler(uint32_t type);
     // 0x00460960: the flag bits `params` names: its unnamed array of names (each one's global integer is a bit
     // number), else 1 << its unnamed integer, else 0. (`this` and `script` aren't used.)
     uint32_t GetFlagMask(Script::CStruct* params, Script::CScript* script);
 
     // --- the member functions scripts call on the object (the table at 0x00683550) ---
+    bool Obj_LeaveScript(Script::CStruct* params, Script::CScript* script);       // 0x00460840 (0xB3C262EC)
     bool Obj_KillSpawnedScript(Script::CStruct* params, Script::CScript* script); // 0x00460850
     bool Obj_Visible(Script::CStruct* params, Script::CScript* script);           // 0x004608D0
     bool Obj_Invisible(Script::CStruct* params, Script::CScript* script);         // 0x004608E0

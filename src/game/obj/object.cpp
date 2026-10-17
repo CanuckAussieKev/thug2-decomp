@@ -408,6 +408,39 @@ bool CObject::GetTags(CArray* names, CStruct* dest)
     return true;
 }
 
+// 0x004607A0
+void CObject::ClearEventHandler(uint32_t type)
+{
+    if (m_script)
+        m_script->ClearEventHandler(type);
+}
+
+// 0x004607B0
+void CObject::RemoveTagFlag(uint32_t flag)
+{
+    if (mp_tags)
+        mp_tags->RemoveFlag(flag);
+}
+
+// 0x004607C0
+bool CObject::GetIntegerTag(uint32_t name, int* value) { return mp_tags ? mp_tags->GetInteger(name, value, 0) : false; }
+
+// 0x004607E0
+bool CObject::GetChecksumTag(uint32_t name, uint32_t* value)
+{
+    return mp_tags ? mp_tags->GetChecksum(name, value, 0) : false;
+}
+
+// 0x00460800
+bool CObject::ContainsTagFlag(uint32_t flag) { return mp_tags ? mp_tags->ContainsFlag(flag) : false; }
+
+// 0x00460820
+void CObject::CopyTagsTo(CStruct* dest)
+{
+    if (mp_tags)
+        dest->AppendStructureIfAny(mp_tags);
+}
+
 // 0x00460960
 uint32_t CObject::GetFlagMask(CStruct* params, CScript* /*script*/)
 {
@@ -423,6 +456,13 @@ uint32_t CObject::GetFlagMask(CStruct* params, CScript* /*script*/)
     if (params->GetInteger(kUnnamed, &bit, 0))
         return 1u << (bit & 31);
     return mask;
+}
+
+// 0x00460840: the calling script lets go of the object (at every level; it stops waiting). True.
+bool CObject::Obj_LeaveScript(CStruct* /*params*/, CScript* script)
+{
+    script->ObjectDestroyed(this);
+    return true;
 }
 
 // 0x00460850: kill the scripts spawned on the object with the name `name` - else with the spawn id `id` - except
@@ -627,6 +667,7 @@ REPLACE(0x00460B20, &Obj::CObjectNode::DestroyBody);
 REPLACE(0x00460B40, &Obj::CObjectNode::Destroy);
 REPLACE(0x00460B80, &Obj::CObject::Construct);
 REPLACE(0x004615D0, &Obj::CObject::DestroyBody);
+REPLACE_SOURCE_ONLY(0x00420060, &Obj::CObject::DestroyBody); // a jump to 0x004615D0
 REPLACE(0x00461900, &Obj::CObject::Destroy);
 REPLACE(0x00460930, &Obj::CObject::DestroyIfUnlocked);
 REPLACE(0x00461710, &Obj::CObject::SetProperties);
@@ -650,6 +691,13 @@ REPLACE(0x00460C20, &Obj::CObject::RemoveTags);
 REPLACE(0x00460CA0, &Obj::CObject::GetTag);
 REPLACE(0x00460D90, &Obj::CObject::GetTags);
 REPLACE(0x00460960, &Obj::CObject::GetFlagMask);
+REPLACE(0x004607A0, &Obj::CObject::ClearEventHandler);
+REPLACE(0x004607B0, &Obj::CObject::RemoveTagFlag);
+REPLACE(0x004607C0, &Obj::CObject::GetIntegerTag);
+REPLACE(0x004607E0, &Obj::CObject::GetChecksumTag);
+REPLACE(0x00460800, &Obj::CObject::ContainsTagFlag);
+REPLACE(0x00460820, &Obj::CObject::CopyTagsTo);
+REPLACE(0x00460840, &Obj::CObject::Obj_LeaveScript);
 REPLACE(0x00460850, &Obj::CObject::Obj_KillSpawnedScript);
 REPLACE(0x004608D0, &Obj::CObject::Obj_Visible);
 REPLACE(0x004608E0, &Obj::CObject::Obj_Invisible);

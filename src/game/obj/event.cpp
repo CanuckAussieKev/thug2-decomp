@@ -6,6 +6,7 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/obj/objman.h"
 #include "game/script/cscript.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
@@ -41,10 +42,10 @@ void TrackerRemoveListener(uint32_t type, CScript* script)
 {
     GameFunction<void(__thiscall*)(void*, uint32_t, CScript*)>(0x00463450)(Tracker(), type, script);
 }
-// 0x00461FE0: onto the front of the listener list (and m_registered). -> wt/obj
+// 0x00461FE0: onto the front of the listener list (and m_registered).
 void TrackerRegisterListener(CEventListener* listener)
 {
-    GameFunction<void(__thiscall*)(void*, CEventListener*)>(0x00461FE0)(Tracker(), listener);
+    static_cast<CTrackerEventListeners*>(Tracker())->RegisterEventListener(listener);
 }
 // 0x00462000: off the list (m_registered cleared). -> wt/trk
 void TrackerUnregisterListener(CEventListener* listener)

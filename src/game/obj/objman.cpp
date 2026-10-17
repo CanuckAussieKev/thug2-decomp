@@ -342,7 +342,7 @@ void ReleaseTracker()
 // 0x00461FE0
 void CTrackerEventListeners::RegisterEventListener(CEventListener* listener)
 {
-    listener->mp_next = mp_eventListeners;
+    listener->mp_nextListener = mp_eventListeners;
     mp_eventListeners = listener;
     listener->m_registered = true;
 }
@@ -354,6 +354,7 @@ REPLACE(0x00461BC0, &Obj::CBaseManager::Construct);
 REPLACE(0x00461B50, &Obj::CBaseManager::DestroyBody);
 REPLACE(0x00461B80, &Obj::CBaseManager::Destroy);
 REPLACE(0x00461A00, &Obj::CBaseManager::RegisterObject);
+REPLACE_SOURCE_ONLY(0x004AAD30, &Obj::CBaseManager::RegisterObject); // a jump to 0x00461A00
 REPLACE(0x00461A50, &Obj::CBaseManager::UnregisterObject);
 REPLACE(0x004619A0, &Obj::CBaseManager::ReassignObjectId);
 REPLACE(0x004619D0, &Obj::CBaseManager::SetObjectPriority);

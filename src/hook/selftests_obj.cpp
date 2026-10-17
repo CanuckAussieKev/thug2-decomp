@@ -181,7 +181,7 @@ void InstallStandIns(StandIns& s)
     });
     s.At({0x00478F60, AddressOf(static_cast<int (*)(uint32_t)>(&Script::GetInteger))}, 0, [](Regs& r) {
         Rec(0x6EA1, {r.args[0]});
-        return (r.args[0] * 7) % 40; // (bit numbers from 32 up too)
+        return 31 + (r.args[0] & 7); // (bit numbers from 32 up too)
     });
     // --- the memory manager ---
     s.At({0x005BAFC0, AddressOf(&Mem::Manager::Allocate)}, 12, [](Regs& r) {
@@ -221,6 +221,8 @@ void InstallStandIns(StandIns& s)
     record({0x004750B0, AddressOf(&CScript::Update)}, 0, 0xC509, 0, true, 2);
     record({0x00472F90, AddressOf(&CScript::SetSpawnerFile)}, 4, 0xC50A, 1, true, 0);
     record({0x00472F00, AddressOf(&CScript::ClearOnExitScripts)}, 0, 0xC50B, 0, true, 0);
+    record({0x00473690, AddressOf(&CScript::ClearEventHandler)}, 4, 0xC50C, 1, true, 0);
+    record({0x00473BE0, AddressOf(&CScript::ObjectDestroyed)}, 4, 0xC50D, 1, true, 0);
     using SpawnFn = CScript* (*)(uint32_t, CStruct*, uint32_t, CStruct*, int, uint32_t, bool, bool, bool, bool);
     s.At({0x00475420, AddressOf(static_cast<SpawnFn>(&Script::SpawnScript))}, 0, [](Regs& r) {
         Rec(0xC5A0, {r.args[0], r.args[1], r.args[2], r.args[3], r.args[4], r.args[5], r.args[6] & 0xFF,
@@ -295,7 +297,7 @@ void InstallStandIns(StandIns& s)
     for (void*& slot : g_obj_managerVtable)
         slot = nullptr;
     g_obj_managerVtable[1] = s.Thunk(4, [](Regs& r) {
-        Rec(0x3A01, {r.ecx, r.args[0]});
+        Rec(0x3A01, {r.ecx, r.args[0], reinterpret_cast<CBaseManager*>(r.ecx)->m_reassigning});
         if (g_obj_forwardManager)
             reinterpret_cast<Fn1>(Code(0x00461A00, &CBaseManager::RegisterObject))(reinterpret_cast<void*>(r.ecx),
                                                                                   reinterpret_cast<void*>(r.args[0]));
@@ -458,6 +460,8 @@ std::vector<uint32_t> RunObjectTest(bool original)
     auto* a = reinterpret_cast<CObject*>(arena + 0x100);
     std::memset(a, 0xCD, 0x60);
     Result(Rel(Call<CObject*>(0x00460B80, &CObject::Construct, a)));
+    Result(a->m_id);
+    Result(a->m_type);
     a->m_vtable = g_obj_objectVtable;
 
     // SetID: no id yet; an id but no manager; an id and a manager. SetType.
@@ -539,6 +543,8 @@ std::vector<uint32_t> RunObjectTest(bool original)
     Answer('F', flagsInt, kClear, 1u);
     flags(0x004610F0, &CObject::Obj_FlagSet, flagsInt);
     flags(0x004610F0, &CObject::Obj_FlagSet, flagsInt);
+    flags(0x00461040, &CObject::Obj_FlagNotSet, flagsArray);
+    flags(0x004610F0, &CObject::Obj_FlagSet, flagsArray);
     flags(0x004610C0, &CObject::Obj_SetFlag, flagsArray);
     flags(0x00461070, &CObject::Obj_ClearFlag, flagsNone);
     flags(0x00461070, &CObject::Obj_ClearFlag, flagsSmall);
@@ -569,6 +575,25 @@ std::vector<uint32_t> RunObjectTest(bool original)
     Result(Call<bool>(0x004617C0, &CObject::Obj_SetTags, a, params, caller));
     Result(Call<bool>(0x004617C0, &CObject::Obj_SetTags, b, params, caller));
     b->mp_tags = nullptr;
+
+    // The small tag functions: with tags (found / not), without.
+    Answer('I', tags, 0x71, 0x17u);
+    Answer('K', tags, 0x72, 0x27u);
+    Answer('F', tags, 0x73, 1u);
+    for (CObject* o : {a, b}) {
+        uint32_t value = 0xBAD;
+        for (uint32_t name : {0x71u, 0x72u, 0x73u}) {
+            value = 0xBAD;
+            Result(Call<bool>(0x004607C0, &CObject::GetIntegerTag, o, name, reinterpret_cast<int*>(&value)));
+            Result(value);
+            value = 0xBAD;
+            Result(Call<bool>(0x004607E0, &CObject::GetChecksumTag, o, name, &value));
+            Result(value);
+            Result(Call<bool>(0x00460800, &CObject::ContainsTagFlag, o, name));
+        }
+        Call<void>(0x004607B0, &CObject::RemoveTagFlag, o, 0x74u);
+        Call<void>(0x00460820, &CObject::CopyTagsTo, o, dest);
+    }
 
     // RemoveTags: no tags; two names, tags left; two names, none left; an empty array, none left; no array.
     Call<void>(0x00460C20, &CObject::RemoveTags, b, Array(arena, 5, 2));
@@ -725,6 +750,11 @@ std::vector<uint32_t> RunObjectScriptTest(bool original)
     for (P p : {sw1, sw2, sw3})
         Result(Call<bool>(0x004618A0, &CObject::Obj_SwitchScript, a, p, caller));
 
+    // ClearEventHandler (a script / none), Obj_LeaveScript.
+    Call<void>(0x004607A0, &CObject::ClearEventHandler, a, 0xE1E1u);
+    Call<void>(0x004607A0, &CObject::ClearEventHandler, MakeObject(arena, 3, 0xD, 1, 0), 0xE2E2u);
+    Result(Call<bool>(0x00460840, &CObject::Obj_LeaveScript, a, params, caller));
+
     // PassEventToScript: no script; a script; a script whose object goes during the event.
     CObject* d = MakeObject(arena, 3, 0xD, 1, 0);
     auto* event = reinterpret_cast<Obj::CEvent*>(arena + 0x1F00);
@@ -768,6 +798,8 @@ CObject* g_obj_walkAdd;    // registered when the walk reaches g_obj_walkTrigger
 CObject* g_obj_walkRemove; // unregistered then
 CObject* g_obj_walkTrigger;
 CObject* g_obj_walkNested; // a nested walk starts here
+CObject* g_obj_walkUnlinkAt;   // here the next object's node is taken out by hand (no restart)
+CObject* g_obj_walkUnlinkNext;
 void __cdecl WalkInner(CObject* object, void* data)
 {
     Rec(0x3A1, {reinterpret_cast<uint32_t>(object), reinterpret_cast<uint32_t>(data), object->m_visitedMask});
@@ -783,6 +815,12 @@ void __cdecl Walk(CObject* object, void* data)
         if (g_obj_walkAdd)
             g_obj_walkManager->VirtualRegisterObject(g_obj_walkAdd);
     }
+    if (object == g_obj_walkUnlinkAt) {
+        g_obj_walkUnlinkAt = nullptr;
+        Mem::ListNode* node = &g_obj_walkUnlinkNext->m_node;
+        node->prev->next = node->next;
+        node->next->prev = node->prev; // (its own links kept: the walk goes on from it)
+    }
     if (object == g_obj_walkNested) {
         g_obj_walkNested = nullptr;
         Call<void>(0x00461CC0, &CBaseManager::ForEach, g_obj_walkManager, &WalkInner, reinterpret_cast<void*>(0x77));
@@ -794,6 +832,7 @@ std::vector<uint32_t> RunManagerTest(bool original)
     uint8_t* arena = BeginRun(original);
     g_obj_forwardManager = true;
     g_obj_walkAdd = g_obj_walkRemove = g_obj_walkTrigger = g_obj_walkNested = nullptr;
+    g_obj_walkUnlinkAt = g_obj_walkUnlinkNext = nullptr;
     // Construct over dirty memory: the base manager, the general one (and without a task).
     auto* base = reinterpret_cast<CBaseManager*>(arena + 0x3000);
     std::memset(base, 0xCD, 0x40);
@@ -840,6 +879,12 @@ std::vector<uint32_t> RunManagerTest(bool original)
     Call<void>(0x00461CC0, &CBaseManager::ForEach, general, &Walk, reinterpret_cast<void*>(0x33));
     Result(general->m_walking);
     Call<void>(0x00461CC0, &CBaseManager::ForEach, base, &Walk, reinterpret_cast<void*>(0x44));
+    // The next object taken out by hand during the callback: it was fetched before, so it's still visited.
+    CObject* firstObject = static_cast<CObject*>(general->m_objects.next->data);
+    g_obj_walkUnlinkAt = firstObject;
+    g_obj_walkUnlinkNext = static_cast<CObject*>(general->m_objects.next->next->data);
+    Call<void>(0x00461CC0, &CBaseManager::ForEach, general, &Walk, reinterpret_cast<void*>(0x55));
+    Call<void>(0x00461A00, &CBaseManager::RegisterObject, general, g_obj_walkUnlinkNext);
 
     // Searches by type (0, 1, 2; one with no objects of it), and a node without an object ending one.
     Obj::CObjectSearch search = {};
@@ -870,11 +915,15 @@ std::vector<uint32_t> RunManagerTest(bool original)
     Call<void>(0x00461B00, &CGeneralManager::KillObject, general, objects[0]);
     Call<void>(0x00461A50, &CBaseManager::UnregisterObject, general, objects[3]);
     Call<void>(0x00461B00, &CGeneralManager::KillObject, general, objects[3]);
-    objects[3]->m_node.data = nullptr; // (a node without an object is skipped)
     uint32_t task[8] = {};
     task[7] = reinterpret_cast<uint32_t>(general);
     CallC<void>(0x00461BB0, &Obj::FlushDeadObjectsTask, static_cast<void*>(task));
     Result(Rel(general->m_deadObjects.next));
+    // A node without an object is skipped.
+    Call<void>(0x00461B00, &CGeneralManager::KillObject, general, objects[7]);
+    objects[7]->m_node.data = nullptr;
+    Call<void>(0x00461AB0, &CGeneralManager::FlushDeadObjects, general);
+    objects[7]->m_node.data = objects[7];
 
     // Destruction: the general manager (unlocks, deletes the unlocked: all; its task); the base manager; a
     // list head on its own.

@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "game/core/alloc.h"
+#include "game/obj/event.h"
 #include "game/obj/object.h"
 #include "game/obj/smtptr.h"
 
@@ -110,17 +111,6 @@ struct CObjectSearch {
 // The object tracker (0x006F0FC0, wt/trk's class) is a reference-counted singleton (0x006F0FC4).
 // 0x00461FA0: drop a reference; the last one deletes it.
 void ReleaseTracker();
-
-// A tracker client: the object it is for (a smart pointer at +0x04), and its link in the tracker's list (+0x10).
-// (0x0045FB30 sets the object and registers it.)
-struct CEventListener {
-    void** m_vtable;
-    CSmtPtr<CObject> mp_object;   // +0x04
-    CEventListener* mp_next;      // +0x10
-    bool m_registered;            // +0x14
-};
-static_assert(offsetof(CEventListener, mp_next) == 0x10 && offsetof(CEventListener, m_registered) == 0x14,
-              "layout must match the original");
 
 // What 0x00461FE0 uses of the tracker (CTracker, wt/trk): its list of event listeners at +0x14.
 struct CTrackerEventListeners {
