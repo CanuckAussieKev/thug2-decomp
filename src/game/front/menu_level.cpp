@@ -44,10 +44,12 @@ bool Active()
     static const bool exists = [] {
         DWORD attributes = GetFileAttributesA(Folder().c_str());
         bool found = attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY);
-        Log(found ? "menu_level: the front end is a level in Los Angeles (files from %s)"
-                  : "menu_level: menu_backdrop=3 but %s doesn't exist - run tools/menu_level/make_menu_level.py; "
-                    "the skate shop is used",
-            Folder().c_str());
+        // (logged only when the ini asks for it: self-tests set the setting for their run)
+        if (ConfigInt("features", "menu_backdrop", 1) == kSetting)
+            Log(found ? "menu_level: the front end is a level in Los Angeles (files from %s)"
+                      : "menu_level: menu_backdrop=3 but %s doesn't exist - run tools/menu_level/make_menu_level.py; "
+                        "the skate shop is used",
+                Folder().c_str());
         return found;
     }();
     return exists;

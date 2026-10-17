@@ -720,10 +720,10 @@ void TestMenuLevel()
               name("models\\metadata\\x.qb", "models\\metadata\\x.qb") && name("", "");
     Check(ok, "menu_level: overlay file names");
 
-    // The move tools/menu_level/make_menu_level.py makes for view 1 takes the shop's main menu camera (180, 40, 300) to
-    // the view's place; a turn about up adds to the heading atan2(x, z).
-    ML::Move move = {1.896807f, {-2034.805217f, -382.621f, 6070.783948f}};
-    float camera[3] = {180.0f, 40.0f, 300.0f}, moved[3];
+    // The move tools/menu_level/make_menu_level.py makes for view 1 takes the shop's main menu camera
+    // (59.833, -12.74, 181.704) to the view's place; a turn about up adds to the heading atan2(x, z).
+    ML::Move move = {-3.821257f, {-1875.924702f, -329.881f, 5983.118348f}};
+    float camera[3] = {59.833f, -12.74f, 181.704f}, moved[3];
     ML::MovePoint(move, camera, moved);
     ok = std::fabs(moved[0] - -1808.255f) < 0.01f && std::fabs(moved[1] - -342.621f) < 0.001f &&
          std::fabs(moved[2] - 5804.185f) < 0.01f;

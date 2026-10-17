@@ -13,7 +13,7 @@
 # Nothing of the game is stored in the repo: the files are made from the game folder each time.
 #
 # The move is one turn about the up axis plus a shift: it takes the main menu camera's place in the shop
-# (mainmenu_camera02 at (180, 40, 300), looking at the skater + mainmneu_cam_offset - from a menu_backdrop log) to
+# (mainmenu_camera02, placed from the skater: see SHOP_CAMERA) to
 # the backdrop view's place (src/game/front/menu_backdrop.cpp kViews), the camera's heading to the view's.
 # Needs NeverScript (tools/build_neverscript.ps1 -> out/neverscript/ns.exe).
 
@@ -29,10 +29,12 @@ import zlib
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# The main menu camera in the skate shop (menu_backdrop debug log: "placed for camera FCC018D3 at (180, 40, 300)")
-# and what it looks at: the skater ((13.5, -59, 38) in the same log) + mainmneu_cam_offset (-25, 51, -40).
-SHOP_CAMERA = (180.0, 40.0, 300.0)
-SHOP_TARGET = (13.5 - 25.0, -59.0 + 51.0, 38.0 - 40.0)
+# The main menu camera in the skate shop (menu_backdrop debug log, the camera steady: "placed for camera FCC018D3 at
+# (59.833, -12.740, 181.704), field of view 45"): the skater at TRG_Playerrestart (84.833, -63.740, 61.704) +
+# targetOffset mainmneu_cam_offset (-25, 51, -40) + positionOffset (0, 0, 160) - it looks at the skater + the
+# target offset, straight along the shop's -z.
+SHOP_CAMERA = (59.833, -12.740, 181.704)
+SHOP_TARGET = (59.833, -12.740, 21.704)
 
 # Node fields that are points (moved and turned); Angles are turned; everything else is kept.
 POINT_FIELDS = ("Pos", "MidPosition", "EndPosition")
