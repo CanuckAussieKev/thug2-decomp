@@ -238,6 +238,12 @@ Mth::Matrix g_savedMatrix;
 V3 g_pos;
 float g_yaw, g_pitch;
 float g_speed = 800.0f; // units a second (Shift: 4x)
+// With an object selected: the camera's distance from it, and whether the keys are moving it.
+float g_orbitDistance = 300.0f;
+bool g_keyMoving;
+constexpr float kMinOrbit = 20.0f, kMaxOrbit = 20000.0f;
+constexpr double kObjectSpeed = 150.0; // units a second (Shift: 4x)
+constexpr double kWheelStep = 120.0;   // units a notch while flying (Shift: 4x)
 // The view as last drawn (NoteView).
 bool g_haveView;
 Lens g_lens;
@@ -825,8 +831,10 @@ std::string g_hudShown[kHudLines];
 int g_hudFrames;
 int g_pickable, g_objects;
 
-void SetHudLine(int line, const std::string& text)
+void SetHudLine(int line, const std::string& full)
 {
+    // (at most 90 characters: a text element set to a much longer text corrupted the heap)
+    std::string text = full.size() > 90 ? full.substr(0, 90) : full;
     if (g_hudShown[line] == text)
         return;
     g_hudShown[line] = text;
@@ -909,8 +917,53 @@ void UpdateHud()
     std::snprintf(text, sizeof(text), "Objects: %d pickable of %d   Moves: %d (not saved)", g_pickable, g_objects,
                   g_moves);
     SetHudLine(4, text);
-    SetHudLine(5, "W/A/S/D fly   Q/E down/up   Shift faster   Right mouse: look   Wheel: speed   Esc/Enter: exit");
-    SetHudLine(6, "Left drag: move   Shift+drag or PgUp/PgDn (R/F): raise/lower   Wheel on selected: turn");
+    if (Live(g_selected)) {
+        SetHudLine(5, "Selected: W/A/S/D move  Q/E down/up  Z/X turn  Shift fast  Wheel: zoom");
+        SetHudLine(6, "Right mouse: orbit  Drag: move  Backspace: deselect  Esc: exit");
+    } else {
+        SetHudLine(5, "Fly: W/A/S/D  Q/E down/up  Shift fast  Right mouse: look  Wheel: zoom  - +: speed");
+        SetHudLine(6, "Click: select (the camera follows it)  Drag: move  Esc/Enter: exit");
+    }
+}
+
+} // namespace
+
+namespace {
+
+// The point the camera looks at when an object is selected: its box's centre, or above its position.
+V3 TargetOf(Obj::CCompositeObject* object)
+{
+    ObjectBox box;
+    if (ModelBox(object, &box)) {
+        V3 mid = {(box.min.x + box.max.x) * 0.5f, (box.min.y + box.max.y) * 0.5f, (box.min.z + box.max.z) * 0.5f};
+        return {box.origin.x + box.axes[0].x * mid.x + box.axes[1].x * mid.y + box.axes[2].x * mid.z,
+                box.origin.y + box.axes[0].y * mid.x + box.axes[1].y * mid.y + box.axes[2].y * mid.z,
+                box.origin.z + box.axes[0].z * mid.x + box.axes[1].z * mid.y + box.axes[2].z * mid.z};
+    }
+    V3 pos = PosOf(object);
+    return {pos.x, pos.y + 40.0f, pos.z};
+}
+
+// The selected object as the frame of reference: the camera turned to look at it from where it is, at that
+// distance (kept while the object moves - as the skater camera keeps the skater's size).
+void FocusOn(Obj::CCompositeObject* object)
+{
+    V3 target = TargetOf(object);
+    V3 back = {g_pos.x - target.x, g_pos.y - target.y, g_pos.z - target.z};
+    float distance = std::sqrt(back.x * back.x + back.y * back.y + back.z * back.z);
+    if (distance < 1.0f)
+        return;
+    g_orbitDistance = std::max(kMinOrbit, std::min(kMaxOrbit, distance));
+    YawPitchFromBack(Normalize(back), &g_yaw, &g_pitch);
+}
+
+// A key's press (true once per press).
+bool Pressed(const uint8_t* keys, SDL_Scancode key, bool* was)
+{
+    bool down = keys[key] != 0;
+    bool pressed = down && !*was;
+    *was = down;
+    return pressed;
 }
 
 } // namespace
@@ -930,26 +983,85 @@ void Update()
     g_mouse.leftPresses = g_mouse.leftReleases = 0;
     if (!g_camera)
         return;
-
-    // Looking (right button held) and flying.
-    SetRelative(input.right);
-    if (input.right)
-        Look(&g_yaw, &g_pitch, input.relX, input.relY, kLookRadiansPerPixel);
     const uint8_t* keys = SDL_GetKeyboardState(nullptr);
     bool shift = keys[SDL_SCANCODE_LSHIFT] || keys[SDL_SCANCODE_RSHIFT];
-    FlyInput fly = {(keys[SDL_SCANCODE_W] ? 1 : 0) - (keys[SDL_SCANCODE_S] ? 1 : 0),
-                    (keys[SDL_SCANCODE_D] ? 1 : 0) - (keys[SDL_SCANCODE_A] ? 1 : 0),
-                    (keys[SDL_SCANCODE_E] || keys[SDL_SCANCODE_SPACE] ? 1 : 0) -
-                        (keys[SDL_SCANCODE_Q] || keys[SDL_SCANCODE_LCTRL] || keys[SDL_SCANCODE_RCTRL] ? 1 : 0)};
-    Frame frame = FrameFromYawPitch(g_yaw, g_pitch);
-    g_pos = Fly(g_pos, frame, fly, static_cast<float>(g_speed * (shift ? 4.0 : 1.0) * seconds));
+    double boost = shift ? 4.0 : 1.0;
 
-    // The mouse ray (once the view has been drawn).
     Obj::CCompositeObject* selected = Live(g_selected);
     if (!selected) {
         g_selected = {};
         g_dragging = false;
     }
+    static bool backspace, turnLeft, turnRight, slower, faster;
+    if (Pressed(keys, SDL_SCANCODE_BACKSPACE, &backspace) && selected && !g_dragging) {
+        LogPicked("deselected", selected);
+        g_selected = {};
+        selected = nullptr;
+    }
+
+    // Looking (right button held): about the camera, or orbiting the selected object.
+    SetRelative(input.right);
+    if (input.right)
+        Look(&g_yaw, &g_pitch, input.relX, input.relY, kLookRadiansPerPixel);
+    Frame frame = FrameFromYawPitch(g_yaw, g_pitch);
+
+    if (selected) {
+        // The object moves with the keys - W/S along the camera's heading, A/D across it, Q/E (R/F, Page Up/Down)
+        // down/up - and the camera follows it.
+        V3 forward = Normalize({-frame.back.x, 0.0f, -frame.back.z});
+        V3 right = Normalize({frame.right.x, 0.0f, frame.right.z});
+        int f = (keys[SDL_SCANCODE_W] ? 1 : 0) - (keys[SDL_SCANCODE_S] ? 1 : 0);
+        int r = (keys[SDL_SCANCODE_D] ? 1 : 0) - (keys[SDL_SCANCODE_A] ? 1 : 0);
+        int u = (keys[SDL_SCANCODE_E] || keys[SDL_SCANCODE_R] || keys[SDL_SCANCODE_PAGEUP] ? 1 : 0) -
+                (keys[SDL_SCANCODE_Q] || keys[SDL_SCANCODE_F] || keys[SDL_SCANCODE_PAGEDOWN] ? 1 : 0);
+        if ((f || r || u) && !g_dragging) {
+            float step = static_cast<float>(kObjectSpeed * boost * seconds);
+            V3 pos = PosOf(selected);
+            pos = {pos.x + (forward.x * f + right.x * r) * step, pos.y + u * step,
+                   pos.z + (forward.z * f + right.z * r) * step};
+            Place(selected, pos);
+            if (!g_keyMoving)
+                ++g_moves;
+            g_keyMoving = true;
+        } else {
+            g_keyMoving = false;
+        }
+        // Z / X: turn it 15 degrees.
+        int turn = (Pressed(keys, SDL_SCANCODE_X, &turnRight) ? 1 : 0) -
+                   (Pressed(keys, SDL_SCANCODE_Z, &turnLeft) ? 1 : 0);
+        if (turn) {
+            Turn(selected, static_cast<float>(turn) * kTurnPerNotch);
+            ++g_moves;
+        }
+        // The wheel: nearer / further.
+        if (input.wheel)
+            g_orbitDistance = static_cast<float>(
+                std::max(static_cast<double>(kMinOrbit),
+                         std::min(static_cast<double>(kMaxOrbit), g_orbitDistance * std::pow(0.85, input.wheel))));
+        // The camera at that distance from it (held still while the mouse drags it).
+        if (!g_dragging) {
+            V3 target = TargetOf(selected);
+            g_pos = {target.x + frame.back.x * g_orbitDistance, target.y + frame.back.y * g_orbitDistance,
+                     target.z + frame.back.z * g_orbitDistance};
+        }
+    } else {
+        // Flying: W/A/S/D along the view, Q/E down/up, the wheel forward / back, - / = the speed.
+        FlyInput fly = {(keys[SDL_SCANCODE_W] ? 1 : 0) - (keys[SDL_SCANCODE_S] ? 1 : 0),
+                        (keys[SDL_SCANCODE_D] ? 1 : 0) - (keys[SDL_SCANCODE_A] ? 1 : 0),
+                        (keys[SDL_SCANCODE_E] || keys[SDL_SCANCODE_SPACE] ? 1 : 0) -
+                            (keys[SDL_SCANCODE_Q] || keys[SDL_SCANCODE_LCTRL] || keys[SDL_SCANCODE_RCTRL] ? 1 : 0)};
+        g_pos = Fly(g_pos, frame, fly, static_cast<float>(g_speed * boost * seconds));
+        if (input.wheel) {
+            float step = static_cast<float>(kWheelStep * boost * input.wheel);
+            g_pos = {g_pos.x - frame.back.x * step, g_pos.y - frame.back.y * step, g_pos.z - frame.back.z * step};
+        }
+        int speed = (Pressed(keys, SDL_SCANCODE_EQUALS, &faster) ? 1 : 0) -
+                    (Pressed(keys, SDL_SCANCODE_MINUS, &slower) ? 1 : 0);
+        if (speed)
+            g_speed = static_cast<float>(std::max(50.0, std::min(20000.0, g_speed * std::pow(1.5, speed))));
+    }
+
+    // The mouse ray (once the view has been drawn).
     bool haveRay = false;
     V3 dir = {0.0f, 0.0f, -1.0f};
     if (g_haveView && !input.right && input.windowWidth > 0 && input.windowHeight > 0) {
@@ -981,6 +1093,7 @@ void Update()
             LogPicked("hovering", hover);
         g_hover = hover ? Picked{hover, hover->m_id} : Picked{};
     }
+    // A click selects what's under the cursor (and starts dragging it), or deselects.
     if (input.leftPresses && haveRay && !g_dragging) {
         Obj::CCompositeObject* hover = Live(g_hover);
         LogPicked("selected", hover);
@@ -991,38 +1104,12 @@ void Update()
             StartDrag(hover, g_pos, dir, shift, frame);
         }
     }
-    if (input.leftReleases && !input.left)
+    // Let go: the selected object becomes the frame of reference (the camera turns to it, at the distance it is).
+    if (input.leftReleases && !input.left) {
         EndDrag();
-
-    // The wheel: turns the selected object (dragged or under the cursor), else the flying speed.
-    if (input.wheel) {
-        selected = Live(g_selected);
-        if (selected && (g_dragging || Live(g_hover) == selected)) {
-            Turn(selected, static_cast<float>(input.wheel) * kTurnPerNotch);
-            ++g_moves;
-            if (DebugEnabled())
-                Log("level editor: turned %08X (%s) by %d degrees", selected->m_id, NameOf(selected->m_id),
-                    input.wheel * 15);
-        } else {
-            g_speed = static_cast<float>(std::max(50.0, std::min(20000.0, g_speed * std::pow(1.25, input.wheel))));
-            if (DebugEnabled())
-                Log("level editor: speed %.0f units a second", g_speed);
-        }
+        if (Obj::CCompositeObject* object = Live(g_selected))
+            FocusOn(object);
     }
-
-    // Page Up / Page Down (or R / F) held: the selected object up / down (100 units a second, Shift x4).
-    int raise = (keys[SDL_SCANCODE_PAGEUP] || keys[SDL_SCANCODE_R] ? 1 : 0) -
-                (keys[SDL_SCANCODE_PAGEDOWN] || keys[SDL_SCANCODE_F] ? 1 : 0);
-    static bool raising = false;
-    selected = Live(g_selected);
-    if (raise && selected && !g_dragging) {
-        V3 pos = PosOf(selected);
-        pos.y += static_cast<float>(raise * 100.0 * (shift ? 4.0 : 1.0) * seconds);
-        Place(selected, pos);
-        if (!raising)
-            ++g_moves;
-    }
-    raising = raise != 0 && selected;
 }
 
 void Draw()
