@@ -27,40 +27,45 @@ All 19 functions of the range (the survey's 17 plus two task callbacks Ghidra ne
 | 0x4597C0 | App::NewConnection(ip, port, flags) |
 
 ## Classes
-- **Net::App** (constructor here, so defined here): vtable 0x6475B4 = [0x459660 deleting dtor, 0x459690
-  ProcessData, purecall ReceiveData, purecall SendEnqueuedMessages(Conn*), 0x457110, 0x457490]. Server vtable
-  0x6475CC = [0x45B8E0, 0x459690, 0x45A300, 0x459FD0, 0x459EC0, 0x45B820] (ctor 0x45A250), Client 0x6475EC =
-  [0x45B8E0, 0x459690, 0x45BBD0, 0x45B920, 0x45B7A0, 0x45B820] (ctor 0x45B830); both make the send task (+0x1448,
-  priority -2000, 0x4594A0). Layout: +8 timestamp (ms), +0xC Dispatcher (255 Lst::Head<MsgHandler>, ctor 0x457010
-  / dtor 0x457030, head vtable 0x6475E8; +0x13F8 its app), +0x1414 Lst::Node<App> (vtable 0x6474D8, data = app),
-  +0x1440 a manager (0x4545B0 reads its +0x378 = total bandwidth), +0x1444 process task (0x456CA0, pri 0), +0x1448
-  send task, +0x144C receive task (0x4593C0, pri 1000), +0x1450 metrics task (0x4593E0, pri -2500), +0x1454 /
-  +0x1458 connections / maximum, +0x1E84 flags, +0x1E88, +0x1E8C Lst::Head<Conn> (vtable 0x6475AC), +0x1EA0
-  Lst::Head<BannedConn> (vtable 0x6475B0; items 0x18 bytes, +0x14 the address, added by 0x457400), +0x1F00 a double
-  (0.0). Size at least 0x1F08.
+- **Net::App** (constructor here): `struct App : AppView` - after merging wt/netA, App takes all its fields from
+  netA's AppView (net_app_view.h) and adds only the methods of this range (static_assert sizeof(App) ==
+  sizeof(AppView)); +0x1F00 (a double, 0.0 from the constructor, past AppView's fields) through an accessor. AppView's
+  fields this range identified were renamed in net_app_view.h (and selftests_netA.cpp): m_processTask (+0x1444,
+  0x456CA0, priority 0), m_sendTask (+0x1448, 0x4594A0, -2000, made by the Server's and Client's constructors),
+  m_receiveTask (+0x144C, 0x4593C0, 1000), m_metricsTask (+0x1450, 0x4593E0, -2500) and the getters 0x456A50-80
+  (SendTask/ReceiveTask/ProcessTask/MetricsTask), m_numConnections / m_maxConnections (+0x1454 / +0x1458, int),
+  m_dispatcherApp (+0x13F8). The final unification: rename AppView to App (or fold App's methods into it) and drop
+  the derivation; ConnView becomes Conn when Conn's constructor (0x455C80) is written.
+  Vtables: App 0x6475B4 = [0x459660 deleting dtor, 0x459690 ProcessData, purecall ReceiveData, purecall
+  SendEnqueuedMessages(Conn*), 0x457110 Init, 0x457490 Deinit]. Server 0x6475CC = [0x45B8E0, 0x459690, 0x45A300,
+  0x459FD0, 0x459EC0, 0x45B820] (ctor 0x45A250), Client 0x6475EC = [0x45B8E0, 0x459690, 0x45BBD0, 0x45B920,
+  0x45B7A0, 0x45B820] (ctor 0x45B830). Head vtables in between: 0x6475AC Head<Conn>, 0x6475B0 Head<BannedConn>,
+  0x6475E4 / 0x6475E8 (the dispatcher's handler-list head is 0x6475E8, set by 0x457010).
 - **Net::MsgDesc** (0x20; ctor 0x4549F0, not in any range): +0 id, +1 stream piece, +2 length, +4 data, +8 priority
   (0x80), +0xC queue (0 default, 1 important, 2 sequenced), +0x10 group, +0x11 singular, +0x14 delay, +0x18 forced
   sequence id, +0x1C compression (0 none, 1 RLE, 2 LZSS - 0x454E30). Defined in net_app.h.
 - **Net::StreamDesc** (0x44; ctor 0x4549D0, dtor body 0x454E00) and StreamLink (0x18, vtable 0x647584, ctor
   0x455680): defined in net_app.h / used by offset.
-- **Conn** (0x3D20, ctor 0x455C80 outside the three ranges): forward-declared, accessors by offset in net_app.cpp:
-  +0/+0x14/+0x28 default/important/sequenced queues, +0x3C handle, +0x40 address, +0x48 port, +0x54/+0x58 receive
+- **Conn** = netA's ConnView (`using Conn = ConnView` in net_app.cpp); fields ConnView doesn't name are accessors by
+  offset in net_app.cpp: +0x4C/+0x50 the send buffer (start / end of what's written: ProcessData copies a local
+  connection's alias's - +0x3D0C, ConnView::m_aliasConn - into its own receive buffer), +0x54/+0x58 receive
   read/write positions, +0x60 status (1 ready, 4 invalid, 8 disconnecting), +0x64 flags (1 local, 2 remote,
-  4 foreign), +0x68 app, +0x6C creation time, +0x78 next sequence id per group (x256), +0x478 expected sequence ids
-  (read by 0x457560), +0x878 next stream id, +0x1C90 Lst::Head<StreamLink>, +0x1CDC / +0x2CE8 in / out
-  Metrics (0x100C each: +0x1008 bytes over the last second), +0x3CF4 force-send byte, +0x3CF8 Lst::Node<Conn>,
-  +0x3D0C a local peer's buffer (+0x4C/+0x50), +0x3D10 bandwidth type (1 = slow), +0x3D1C bandwidth limit.
+  4 foreign), +0x68 app, +0x6C creation time, +0x78 next outgoing sequence id per group (x256), +0x878 next stream
+  id, +0x1C90 Lst::Head<StreamLink>, +0x1CDC / +0x2CE8 in / out Metrics (0x100C each: +0x1008 bytes over the last
+  second; update 0x454D00), +0x3D10 bandwidth type (1 = slow), +0x3D1C bandwidth limit.
 - Links (by offset, ctors outside the ranges): QueuedMsg 0xC (0x454FA0), QueuedMsgSeq 0x10 (0x455040, via 0x456D90),
   MsgLink 0x1C (0x4555F0), MsgImportantLink 0x28 (0x455620), MsgSeqLink 0x2C (0x455650).
 
-## Cross-range calls for the merger (GameFunction now, `// -> ... (wt/netA|wt/netC)` in net_app.cpp)
-- wt/netA: 0x457910 GetConnectionByHandle, 0x457C80 remove queued messages with an id (thiscall App, RET 0xC),
-  0x456D90 new QueuedMsgSeq (thiscall App, RET 0x14), 0x457350 Head<MsgLink> priority insert, 0x457AC0
-  MessagesToSend(conn), 0x457560 ProcessSequencedMessages(conn), 0x457710 ~App body, 0x457010 handler-list ctor,
-  0x456CA0 the process task callback.
-- wt/netC: 0x45A830 Dispatcher::DispatchMessages(conn, flags) (2 = done, 3 = stop).
+## Cross-range calls
+- wt/netA (merged): direct calls now - GetConnectionByHandle, FreeMessages, NewQueuedMsg, Lst::Head::AddNodeFromTail,
+  MessagesDue, DispatchQueuedSequencedMessages, DestroyBody. Still GameFunction: 0x457010 (the handler lists'
+  constructor) and 0x456CA0 (the process task callback) - in netA's range but not Ghidra functions and not
+  rewritten by netA: someone should write them.
+- wt/netC: 0x45A830 Dispatcher::DispatchMessages(conn, flags) (2 = done, 3 = stop) - GameFunction with
+  `// -> ... (wt/netC)`.
 - Not in any of the three ranges (0x454xxx-0x456xxx, "Movies" in subsystems.md but really the net library):
-  Conn's methods, MsgDesc/QueuedMsg/link/StreamDesc constructors, Metrics.
+  Conn's methods, MsgDesc/QueuedMsg/link/StreamDesc constructors, Metrics, Net::Manager getters (0x454960,
+  0x4545B0). 0x6EFDD8 is the Net::Manager (its +0x128: 1 = slow connection).
 
 ## Findings
 - 0x458740 / 0x4590C0 leave the stack MsgDesc's singular (+0x11) and compression (+0x1C) uninitialised, and the
@@ -79,7 +84,14 @@ TestNetAppMessages, TestNetAppConnections: original vs ours on a stand-in memory
 with a stand-in app and connections in a 64 KB-aligned arena; the game's own code runs for queue/link/stream
 helpers, GetConnectionByHandle, metrics; recorders for Dbg::Printf, Conn ctor/dtor, MessagesToSend, the dispatcher,
 ProcessSequencedMessages, ~App and the app's virtual functions. The whole arena (relocated) plus the call log is
-compared. Mutations: see below.
+compared, plus each connection's stream and sequenced-link counts after every stream frame (the pieces'
+timing). Mutations: 68 deliberate bugs, all caught (10 more after strengthening: id 9 to all, sequenced
+compression, stream frame timing/limits, exact bandwidth share, a non-local alias buffer, a lone sharer).
+Equivalent (dropped): `handle != 0xFF` in the single-target id-9 rule (0xFF has the 0x80 bit, so never single
+anyway); `queued >= max` vs `>` in ProcessStreamMessages (a zero budget sends nothing either way).
+Safety: audit_game_function_calls (no MISMATCH; 0x457010 has no RET in Ghidra - checked by hand, plain RET),
+register scan (only the known 0x4EFF92 alarm; FirstConnection / IsConnectionBanned / BandwidthExceeded /
+NewConnection return values), check_code_writes (no overlaps), find_gaps (nothing skipped in the range).
 
 ## To test in the game
 Network menu; host a LAN game and join it from another machine (or a second instance), play a round, chat, let
