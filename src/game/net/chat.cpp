@@ -9,6 +9,8 @@
 #include "game/core/mem.h"
 #include "game/core/pool.h"
 #include "game/core/crc.h"
+#include "game/gfx/screen.h"
+#include "game/obj/object.h"
 #include "game/obj/tracker.h"
 #include "game/script/cscript.h"
 #include "game/script/params.h"
@@ -17,6 +19,7 @@
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/log.h"
 
 namespace GameNet {
 
@@ -207,6 +210,35 @@ bool HandleChatCommand(Manager* manager, const char* text)
         // Only shown here, not sent: each palette entry in its own colour, to pick codes from.
         ShowLocalChatLine("\\c11 \\c22 \\c33 \\c44 \\c55 \\c66 \\c77 \\c88 \\c99 \\cAA \\cBB \\cCC \\cDD "
                           "\\cEE \\cFF\\c0 (colour codes)");
+        return true;
+    }
+    if (_stricmp(text, "/where") == 0) {
+        // Only shown here, not sent: the level, the local skater's position and orientation, and the camera's - written
+        // to thug2-decomp.log (for picking a place to show behind the main menu).
+        uint8_t level = Nx::CurrentLevel();
+        Log("where: level %u", level);
+        auto* skater = GameFunction<Obj::CCompositeObject*(__thiscall*)(void*)>(0x00566520)(
+            GameVariable<void*>(0x007CE478)); // the skate module's local skater
+        if (skater) {
+            const Mth::Vector& p = skater->m_pos;
+            const Mth::Matrix& m = skater->m_matrix;
+            Log("where: skater pos %.3f %.3f %.3f", p.x, p.y, p.z);
+            for (int row = 0; row < 3; ++row)
+                Log("where: skater matrix row %d %.6f %.6f %.6f", row, m.row[row].x, m.row[row].y, m.row[row].z);
+        } else {
+            Log("where: no local skater");
+        }
+        // The camera of the last frame drawn (SetCamera's copy, 0x00786CA8: field of view, position, rows 2 and 1).
+        const float* camera = &GameVariable<float>(0x00786CA8);
+        Log("where: camera fov %.3f pos %.3f %.3f %.3f back %.6f %.6f %.6f up %.6f %.6f %.6f", camera[2], camera[7],
+            camera[8], camera[9], camera[13], camera[14], camera[15], camera[16], camera[17], camera[18]);
+        char line[128];
+        if (skater)
+            std::snprintf(line, sizeof(line), "\\c4where:\\c0 level %u at %.0f %.0f %.0f - saved to the log", level,
+                          skater->m_pos.x, skater->m_pos.y, skater->m_pos.z);
+        else
+            std::snprintf(line, sizeof(line), "\\c4where:\\c0 level %u (no skater) - saved to the log", level);
+        ShowLocalChatLine(line);
         return true;
     }
     return false; // not one of ours: send it as typed
