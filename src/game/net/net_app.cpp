@@ -69,22 +69,19 @@ void* OutMetrics(Conn* conn) { return Bytes(conn) + 0x2CE8; }
 uint8_t*& SendBufferStart(Conn* conn) { return At<uint8_t*>(conn, 0x4C); }
 uint8_t*& SendBufferEnd(Conn* conn) { return At<uint8_t*>(conn, 0x50); }
 
-// Conn's methods (0x00455xxx-0x00456xxx, not rewritten yet).
-Conn* ConstructConn(void* memory, int flags)
-{
-    return GameFunction<Conn*(__thiscall*)(void*, int)>(0x00455C80)(memory, flags);
-}
-void DestroyConnBody(Conn* conn) { GameFunction<void(__thiscall*)(Conn*)>(0x00456790)(conn); }
-bool IsValid(Conn* conn) { return GameFunction<bool(__thiscall*)(Conn*)>(0x00455C20)(conn); }
-void Invalidate(Conn* conn) { GameFunction<void(__thiscall*)(Conn*)>(0x00455C10)(conn); }
-bool IsLocalConn(Conn* conn) { return GameFunction<bool(__thiscall*)(Conn*)>(0x00455A20)(conn); }
-bool IsRemote(Conn* conn) { return GameFunction<bool(__thiscall*)(Conn*)>(0x00455A30)(conn); }
-bool IsForeign(Conn* conn) { return GameFunction<bool(__thiscall*)(Conn*)>(0x00455A10)(conn); }
-int BandwidthType(Conn* conn) { return GameFunction<int(__thiscall*)(Conn*)>(0x004559A0)(conn); }
-int BandwidthLimit(Conn* conn) { return GameFunction<int(__thiscall*)(Conn*)>(0x004559C0)(conn); }
-void SetForceSend(Conn* conn, bool force) { GameFunction<void(__thiscall*)(Conn*, bool)>(0x00455980)(conn, force); }
+// Conn's methods (net_conn.cpp).
+Conn* ConstructConn(void* memory, int flags) { return static_cast<Conn*>(memory)->Construct(flags); }
+void DestroyConnBody(Conn* conn) { conn->Destroy(); }
+bool IsValid(Conn* conn) { return conn->IsValid(); }
+void Invalidate(Conn* conn) { conn->Invalidate(); }
+bool IsLocalConn(Conn* conn) { return conn->IsLocal(); }
+bool IsRemote(Conn* conn) { return conn->IsRemote(); }
+bool IsForeign(Conn* conn) { return conn->IsForeign(); }
+int BandwidthType(Conn* conn) { return conn->GetBandwidthType(); }
+int BandwidthLimit(Conn* conn) { return conn->GetBandwidth(); }
+void SetForceSend(Conn* conn, bool force) { conn->SetForceSendThisFrame(force); }
 // The sequenced links that carry streamed pieces.
-int NumStreamPiecesQueued(Conn* conn) { return GameFunction<int(__thiscall*)(Conn*)>(0x004565E0)(conn); }
+int NumStreamPiecesQueued(Conn* conn) { return conn->GetNumQueuedStreamPieces(); }
 
 // Net::Metrics: bytes over the last second.
 int BytesPerSecond(void* metrics) { return GameFunction<int(__thiscall*)(void*)>(0x00454520)(metrics); }
@@ -203,10 +200,6 @@ struct StreamData {
 // --- The rest of the library ------------------------------------------------------------------------------
 // A message link into a queue: Lst::Head::AddNodeFromTail (0x00457350).
 void AddLink(ListNode* queue, ListNode* link) { reinterpret_cast<Lst::Head*>(queue)->AddNodeFromTail(link); }
-// The handler lists' constructor (0x00457010, in wt/netA's range; not a function in Ghidra, not rewritten).
-void ConstructHandlerList(ListNode* head) { GameFunction<void(__thiscall*)(ListNode*)>(0x00457010)(head); }
-// The process task (0x00456CA0, in wt/netA's range; not a function in Ghidra, not rewritten).
-void* const kProcessNetworkData = reinterpret_cast<void*>(0x00456CA0);
 // conn's received messages to their handlers (Dispatcher::DispatchMsgHandlers); 2 = halted, 3 = stop
 int DispatchMessages(HandlerLists* dispatcher, Conn* conn, int flags)
 {
@@ -251,7 +244,7 @@ App* App::Construct(int flags)
 {
     m_vtable = kAppVtable;
     for (MsgHandlerNode& handlers : m_dispatcher.m_lists)
-        ConstructHandlerList(&handlers);
+        handlers.ConstructHead();
     m_dispatcherApp = this;
     m_list1414.vtable = kAppNodeVtable;
     m_list1414.data = this;
@@ -263,7 +256,7 @@ App* App::Construct(int flags)
     InitHead(&m_banned, kBannedConnVtable);
     m_metricsTask = NewTask(kMetricsTaskPriority, reinterpret_cast<void*>(&App::NetworkMetrics), this);
     m_receiveTask = NewTask(kReceiveTaskPriority, reinterpret_cast<void*>(&App::ReceiveNetworkData), this);
-    m_processTask = NewTask(kProcessTaskPriority, kProcessNetworkData, this);
+    m_processTask = NewTask(kProcessTaskPriority, reinterpret_cast<void*>(&App::ProcessNetworkData), this);
     Unknown1F00() = GameVariable<double>(0x006453A0); // 0.0
     m_flags = static_cast<uint32_t>(flags);
     m_time = 0;
@@ -651,6 +644,14 @@ void App::ProcessStreamMessages()
     }
 }
 
+// 0x00456CA0
+void __cdecl App::ProcessNetworkData(void* task)
+{
+    App* app = TaskApp(task);
+    ++app->m_counters[5]; // (+0x1410: frames processed)
+    reinterpret_cast<bool(__thiscall*)(App*)>(app->m_vtable[1])(app); // ProcessData
+}
+
 // 0x004593C0
 void __cdecl App::ReceiveNetworkData(void* task)
 {
@@ -738,6 +739,7 @@ REPLACE(0x00458E60, &Net::App::BandwidthExceeded);
 REPLACE(0x00458F80, &Net::App::GetFreeHandle);
 REPLACE(0x00458FB0, &Net::App::TerminateInvalidConnections);
 REPLACE(0x004590C0, &Net::App::ProcessStreamMessages);
+REPLACE(0x00456CA0, Net::App::ProcessNetworkData);
 REPLACE(0x004593C0, Net::App::ReceiveNetworkData);
 REPLACE(0x004593E0, Net::App::NetworkMetrics);
 REPLACE(0x004594A0, Net::App::SendNetworkData);

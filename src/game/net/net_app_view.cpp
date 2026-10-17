@@ -44,15 +44,15 @@ void DeleteVirtual(void* object, int slot)
     reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>(vtable[slot])(object, 1);
 }
 
-// -> Conn's methods (not decompiled yet: below the three net ranges)
-uint32_t SendInterval(ConnView* conn) { return GameFunction<uint32_t(__thiscall*)(ConnView*)>(0x00455970)(conn); }
-bool SendNow(ConnView* conn) { return GameFunction<bool(__thiscall*)(ConnView*)>(0x00455990)(conn); }
-// twice the average latency, at least 500 ms (1000 ms or no wait at all in some modes)
-uint32_t ResendThreshold(ConnView* conn) { return GameFunction<uint32_t(__thiscall*)(ConnView*)>(0x00455C30)(conn); }
+// Conn's methods (net_conn.cpp)
+uint32_t SendInterval(ConnView* conn) { return conn->GetSendInterval(); }
+bool SendNow(ConnView* conn) { return conn->GetForceSendThisFrame(); }
+// twice the average latency, at least 500 ms (1000 ms with status bit 2)
+uint32_t ResendThreshold(ConnView* conn) { return conn->GetResendThreshold(); }
 void DeleteConn(ConnView* conn)
 {
     if (conn) {
-        GameFunction<void(__thiscall*)(ConnView*)>(0x00456790)(conn); // -> Conn::~Conn
+        conn->Destroy();
         Free(conn);
     }
 }

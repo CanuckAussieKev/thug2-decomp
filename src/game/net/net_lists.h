@@ -22,6 +22,8 @@ inline void** const kBannedConnSearchVtable = reinterpret_cast<void**>(0x006475A
 
 // A node (or head) of a Dispatcher's handler lists (Lst::Node<MsgHandler>).
 struct MsgHandlerNode : Mem::ListNode {
+    // 0x00457010: a head's constructor (Lst::Head<MsgHandler>, vtable 0x006475E8): an empty list.
+    MsgHandlerNode* ConstructHead();
     // 0x00457030: the destructor body: out of its list (and linked to itself).
     void DestroyBody();
     // 0x00457090: the scalar deleting destructor.
@@ -45,6 +47,8 @@ struct ConnNode : Mem::ListNode {
     void DestroyBody();
     // 0x004573A0: the head's scalar deleting destructor.
     ConnNode* DestroyHead(unsigned int flags);
+    // 0x00455BD0: the node's scalar deleting destructor (vtable 0x00647574).
+    ConnNode* Destroy(unsigned int flags);
 };
 
 // Lst::Node<BannedConn> (the head of an App's banned list is one too).

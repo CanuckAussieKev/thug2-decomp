@@ -664,7 +664,7 @@ void StandInSockets(StandIns& s)
         return 0u;
     });
     // -> Conn's destructor (takes it out of the app's list, as the real one does)
-    s.At({0x00456790}, 0, [](Regs& r) {
+    s.At({0x00456790, AddressOf(&ConnView::Destroy)}, 0, [](Regs& r) {
         auto* node = &reinterpret_cast<ConnView*>(r.ecx)->m_appNode;
         Record({0x6790, Rel(r.ecx), Rel(node->next), Rel(node->prev)}); // (still in the list?)
         RemoveNode(&reinterpret_cast<ConnView*>(r.ecx)->m_appNode);

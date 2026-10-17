@@ -110,7 +110,8 @@ struct MsgSeqLink {
     Mem::ListNode m_node;          // priority: the sequence number
     uint8_t m_NumResends;
     uint8_t m_GroupId;
-    uint8_t pad16[2];
+    uint8_t m_StreamMessage;       // a piece of a stream (Conn::GetNumQueuedStreamPieces counts them)
+    uint8_t pad17;
     uint32_t m_Packetstamp;
     uint32_t m_Timestamp;          // when it was last sent (0: never)
     uint32_t m_SequenceId;
@@ -209,32 +210,26 @@ inline uint8_t MessageFlags(uint8_t* manager, uint8_t id)
     return GameFunction<uint8_t(__thiscall*)(uint8_t*, uint32_t)>(0x00454980)(manager, id);
 }
 
-// Conn (0x00455xxx-0x00456xxx, not decompiled yet). Its flags (+0x64): 1 local (the App's own client/server in
-// this process), 2 remote, 4 foreign (created for a packet from an unknown address: NewConnection's flags 6).
-inline bool IsRemote(Conn* conn) { return GameFunction<bool(__thiscall*)(Conn*)>(0x00455A30)(conn); }
-inline bool IsForeign(Conn* conn) { return GameFunction<bool(__thiscall*)(Conn*)>(0x00455A10)(conn); }
-inline bool IsLocal(Conn* conn) { return GameFunction<bool(__thiscall*)(Conn*)>(0x00455A20)(conn); }
-// (0x00455C20) status bit 2 clear: MarkNewConnection hasn't been called
-inline bool IsNew(Conn* conn) { return GameFunction<bool(__thiscall*)(Conn*)>(0x00455C20)(conn); }
-// (0x00455C10) status: bit 0 off, bit 2 on
-inline void MarkNewConnection(Conn* conn) { GameFunction<void(__thiscall*)(Conn*)>(0x00455C10)(conn); }
-// How long an important message waits for its ack before going again (0x00455C30).
-inline uint32_t GetResendThreshold(Conn* conn) { return GameFunction<uint32_t(__thiscall*)(Conn*)>(0x00455C30)(conn); }
-inline void SetForceSendThisFrame(Conn* conn, bool on)
-{
-    GameFunction<void(__thiscall*)(Conn*, bool)>(0x00455980)(conn, on);
-}
-inline int GetBandwidth(Conn* conn) { return GameFunction<int(__thiscall*)(Conn*)>(0x004559C0)(conn); }
-inline void SetBandwidth(Conn* conn, int bandwidth) { GameFunction<void(__thiscall*)(Conn*, int)>(0x004559B0)(conn, bandwidth); }
-// The number of important/sequenced messages waiting for acks (0x00456540).
-inline int GetNumPendingMessages(Conn* conn) { return GameFunction<int(__thiscall*)(Conn*)>(0x00456540)(conn); }
-// A send failed: the queues are rolled back to before this timestamp (0x004566D0).
-inline void FlagMessagesForResending(Conn* conn, uint32_t timestamp)
-{
-    GameFunction<void(__thiscall*)(Conn*, uint32_t)>(0x004566D0)(conn, timestamp);
-}
-// The connection's destructor (0x00456790).
-inline void DestroyConn(Conn* conn) { GameFunction<void(__thiscall*)(Conn*)>(0x00456790)(conn); }
+// Conn's methods (net_conn.cpp). Its flags (+0x64): 1 local (the App's own client/server in this process),
+// 2 remote, 4 foreign (created for a packet from an unknown address: NewConnection's flags 6).
+inline bool IsRemote(Conn* conn) { return conn->IsRemote(); }
+inline bool IsForeign(Conn* conn) { return conn->IsForeign(); }
+inline bool IsLocal(Conn* conn) { return conn->IsLocal(); }
+// Status bit 2 clear: not invalidated (MarkNewConnection = Conn::Invalidate hasn't been called).
+inline bool IsNew(Conn* conn) { return conn->IsValid(); }
+// Status: bit 0 off, bit 2 on (Conn::Invalidate)
+inline void MarkNewConnection(Conn* conn) { conn->Invalidate(); }
+// How long an important message waits for its ack before going again.
+inline uint32_t GetResendThreshold(Conn* conn) { return conn->GetResendThreshold(); }
+inline void SetForceSendThisFrame(Conn* conn, bool on) { conn->SetForceSendThisFrame(on); }
+inline int GetBandwidth(Conn* conn) { return conn->GetBandwidth(); }
+inline void SetBandwidth(Conn* conn, int bandwidth) { conn->SetBandwidth(bandwidth); }
+// The most times one important/sequenced message has been resent (Conn::GetHighestResendCount).
+inline int GetNumPendingMessages(Conn* conn) { return conn->GetHighestResendCount(); }
+// A send failed: the messages that went with this packet's timestamp go again.
+inline void FlagMessagesForResending(Conn* conn, uint32_t timestamp) { conn->FlagMessagesForResending(timestamp); }
+// The connection's destructor.
+inline void DestroyConn(Conn* conn) { conn->Destroy(); }
 // The connection's latency test takes a measurement.
 inline void AddLatency(Conn* conn, uint32_t latency) { conn->m_latencyTest.InputLatencyValue(static_cast<int>(latency)); }
 // Message/packet metrics (0x00454550, 0x00454D90).

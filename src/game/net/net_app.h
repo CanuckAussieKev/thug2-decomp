@@ -108,6 +108,8 @@ struct App : AppView {
     ConnView* NewConnection(int ip, uint16_t port, int flags);
 
     // Task callbacks (the task's +0x1C is the app).
+    // 0x00456CA0: counts the frame (+0x1410), then ProcessData (virtual slot 1; a tail jump).
+    static void __cdecl ProcessNetworkData(void* task);
     // 0x004593C0: timestamp, dead connections, ReceiveData (virtual slot 2).
     static void __cdecl ReceiveNetworkData(void* task);
     // 0x004593E0: each connection's bandwidth meters (in and out).

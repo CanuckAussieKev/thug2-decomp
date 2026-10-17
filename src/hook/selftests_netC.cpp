@@ -210,11 +210,11 @@ void SetUpStandIns(StandIns& s)
         Record({0x6F10, Rel(r.ecx), Rel(r.args[0]), r.args[1], r.args[2], Hash(reinterpret_cast<void*>(r.args[0]), r.args[1])});
         return Next(0x6F10, 1);
     });
-    s.At({0x004566D0}, 4, [](Regs& r) {
+    s.At({0x004566D0, AddressOf(&ConnView::FlagMessagesForResending)}, 4, [](Regs& r) {
         Record({0x66D0, Rel(r.ecx), r.args[0]});
         return 0u;
     });
-    s.At({0x00456540}, 0, [](Regs& r) {
+    s.At({0x00456540, AddressOf(&ConnView::GetHighestResendCount)}, 0, [](Regs& r) {
         Record({0x6540, Rel(r.ecx)});
         return Next(0x6540, 0);
     });
@@ -243,7 +243,7 @@ void SetUpStandIns(StandIns& s)
                 Hash(reinterpret_cast<void*>(r.args[0]), std::min<uint32_t>(r.args[2], 0x514))});
         return Next(0x6CC0, 1);
     });
-    s.At({0x00456790}, 0, [](Regs& r) {
+    s.At({0x00456790, AddressOf(&ConnView::Destroy)}, 0, [](Regs& r) {
         Record({0x6790, Rel(r.ecx)});
         return 0u;
     });

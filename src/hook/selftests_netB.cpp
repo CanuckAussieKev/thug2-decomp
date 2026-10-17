@@ -128,6 +128,8 @@ std::vector<uint32_t> Image(uint8_t* arena)
             return 0x004593E0u;
         if (word == reinterpret_cast<uint32_t>(&App::ReceiveNetworkData))
             return 0x004593C0u;
+        if (word == reinterpret_cast<uint32_t>(&App::ProcessNetworkData))
+            return 0x00456CA0u;
         return word;
     };
     std::vector<uint32_t> image(kArenaSize / 4);
@@ -279,7 +281,7 @@ void StandInLibrary(StandIns& s)
         return 0u;
     });
     // Conn::Conn(flags): zeroed, linked to itself in its app node.
-    s.At({0x00455C80}, 4, [](Regs& r) {
+    s.At({0x00455C80, TestStandIns::AddressOf(&Conn::Construct)}, 4, [](Regs& r) {
         auto* conn = reinterpret_cast<uint8_t*>(r.ecx);
         std::memset(conn, 0x00, kConnSize);
         auto* node = reinterpret_cast<ListNode*>(conn + 0x3CF8);
@@ -290,7 +292,7 @@ void StandInLibrary(StandIns& s)
         return r.ecx;
     });
     // ~Conn body.
-    s.At({0x00456790}, 0, [](Regs& r) {
+    s.At({0x00456790, TestStandIns::AddressOf(&Conn::Destroy)}, 0, [](Regs& r) {
         Log2({0xDC0Cu, r.ecx, At<uint32_t>(reinterpret_cast<void*>(r.ecx), 0x60)});
         return 0u;
     });
