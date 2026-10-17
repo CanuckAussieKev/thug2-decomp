@@ -62,6 +62,8 @@ struct CObjectNode : Mem::ListNode {
 constexpr uint32_t OBJECT_FLAG_DEAD = 0x1;      // MarkAsDead: waiting in the manager's dead list to be deleted
 constexpr uint32_t OBJECT_FLAG_LOCKED = 0x2;    // not deleted by the manager walks that delete unlocked objects
 constexpr uint32_t OBJECT_FLAG_INVISIBLE = 0x4; // Obj_Invisible / Obj_Visible
+constexpr uint32_t OBJECT_FLAG_HAS_POSITION = 0x20;      // the tracker's distance checks use its position (+0x4C)
+constexpr uint32_t OBJECT_FLAG_SPAWN_HANDLERS = 0x10000; // its event handlers run as new spawned scripts on it
 
 // No id yet (0x0064780C: the manager gives it a unique one when registered) / no type (0x00647810).
 constexpr uint32_t kUnassignedId = 0xFFFFFFFF;
@@ -280,9 +282,6 @@ constexpr uint32_t COMPOSITE_FLAG_TELEPORTED = 0x8;  // until the end of its nex
 constexpr uint32_t COMPOSITE_FLAG_FINALIZED = 0x20;  // Finalize (which also sets 0x40)
 constexpr uint32_t COMPOSITE_FLAG_FINALIZED2 = 0x40; // (set with 0x20; meaning unknown)
 constexpr uint32_t COMPOSITE_FLAG_DESTROYING = 0x80; // its destructor is running
-
-// m_objectFlags: CCompositeObject's constructor sets 0x20 (an object with a position).
-constexpr uint32_t OBJECT_FLAG_HAS_POSITION = 0x20;
 
 // An object made of components (Obj::CCompositeObject, vtable 0x00647650; composite.cpp): skaters, peds, cars,
 // level objects. It has a position, an orientation, a velocity and a display matrix; each frame its update runs

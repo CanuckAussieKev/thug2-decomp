@@ -111,17 +111,15 @@ static_assert(sizeof(SStructScript) == 8, "allocated as 8 bytes by 0x0048B200");
 // A member function's table entry (the value of a ESYMBOLTYPE_MEMBERFUNCTION symbol, token 0x46), 0x18 bytes: the
 // tables at 0x00683550 (CObject's, filled in by 0x00642940) and 0x00683268 (CCompositeObject's, 0x006425D0).
 struct CMemberFunctionEntry {
-    uint32_t unknown0;       // +0x00 the name (checksum)
+    uint32_t mName;
     uint32_t mComponentType; // the object component that runs it; 0x57525413 / 0x0ADA4E74: the object itself
-    // +0x08: a 16-byte (MSVC "unknown inheritance") member function pointer, `bool (Class::*)(CStruct* params,
-    // CScript* script)`: the code (null: the object looks the name up instead - CObject's vtable +0x0C) and the
-    // adjustment to `this`; the last two words (virtual base) aren't used (CObject::CallMemberFunction 0x0045D850).
-    void* mpCode;            // +0x08
-    int32_t mThisAdjustment; // +0x0C
-    uint32_t unknown10;      // +0x10
-    uint32_t unknown14;      // +0x14
+    // +0x08: the member function, as a 16-byte (virtual-inheritance) member function pointer, `bool (Class::*)(
+    // CStruct* params, CScript* script)`; null: the object looks the name up (CObject::CallMemberFunction 0x0045D850).
+    void* mCode;
+    int mThisAdjustment;      // +0x0C
+    int mVirtualBaseOffsets[2]; // +0x10 (unused by single-inheritance classes)
 };
-static_assert(sizeof(CMemberFunctionEntry) == 0x18, "the tables' entries are 0x18 bytes");
+static_assert(sizeof(CMemberFunctionEntry) == 0x18, "a table entry is 0x18 bytes");
 
 class CScript {
 public:

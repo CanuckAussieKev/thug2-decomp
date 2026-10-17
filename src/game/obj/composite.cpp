@@ -7,6 +7,7 @@
 #include <cstdint>
 
 #include "game/core/manager.h"
+#include "game/obj/compositemgr.h"
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
@@ -44,23 +45,11 @@ constexpr uint32_t kTypeResult = 0x24495505;     // (name unknown): Obj_GetType'
 constexpr float kInchesToFeet = 1.0f / 12.0f;
 constexpr float kSpeedTolerance = 0.1f;
 
-// The composite object manager (0x006F0FB8; wt/coim's range 0x0045EFD0-0x0045F7A0, not rewritten yet).
-void* CompositeObjectManager() { return GameVariable<void*>(0x006F0FB8); }
-// -> CCompositeObjectManager::RegisterComponent 0x0045F3E0 (wt/coim): onto the list of the components of its type.
-void RegisterComponent(CBaseComponent* component)
-{
-    GameFunction<void(__thiscall*)(void*, CBaseComponent*)>(0x0045F3E0)(CompositeObjectManager(), component);
-}
-// -> CCompositeObjectManager::UnregisterComponent 0x0045F420 (wt/coim).
-void UnregisterComponent(CBaseComponent* component)
-{
-    GameFunction<void(__thiscall*)(void*, CBaseComponent*)>(0x0045F420)(CompositeObjectManager(), component);
-}
-// -> CCompositeObjectManager::CreateComponent 0x0045F2A0 (wt/coim): a new component of `type`.
-CBaseComponent* CreateComponent(uint32_t type)
-{
-    return GameFunction<CBaseComponent*(__thiscall*)(void*, uint32_t)>(0x0045F2A0)(CompositeObjectManager(), type);
-}
+// The composite object manager (0x006F0FB8, compositemgr.cpp): its lists of the components of each type, and the
+// component makers.
+void RegisterComponent(CBaseComponent* component) { CompositeObjectManager()->AddComponentByType(component); }
+void UnregisterComponent(CBaseComponent* component) { CompositeObjectManager()->RemoveComponentByType(component); }
+CBaseComponent* CreateComponent(uint32_t type) { return CompositeObjectManager()->CreateComponent(type); }
 // The position (pos=) / orientation in a structure, if it has them (cdecl; not rewritten yet).
 void GetPositionFromStructure(CStruct* params, Mth::Vector* pos)
 {
@@ -111,11 +100,11 @@ inline void PrintObjectDetails(const char* /*text*/) {}
 // 0x0045D850
 bool CObject::CallMemberFunction(CMemberFunctionEntry* entry, CStruct* params, CScript* script)
 {
-    if (entry->mpCode) {
+    if (entry->mCode) {
         void* self = reinterpret_cast<uint8_t*>(this) + entry->mThisAdjustment;
-        return reinterpret_cast<bool(__thiscall*)(void*, CStruct*, CScript*)>(entry->mpCode)(self, params, script);
+        return reinterpret_cast<bool(__thiscall*)(void*, CStruct*, CScript*)>(entry->mCode)(self, params, script);
     }
-    return VirtualCallMemberFunction(this, entry->unknown0, params, script);
+    return VirtualCallMemberFunction(this, entry->mName, params, script);
 }
 
 // --- CBaseComponent -------------------------------------------------------------------------------------------
@@ -157,7 +146,7 @@ void CBaseComponent::Suspend(bool suspend)
 // 0x0045D720 (a jump to vtable +0x30 with the entry's name in place of the entry)
 int CBaseComponent::CallMemberFunction(CMemberFunctionEntry* entry, CStruct* params, CScript* script)
 {
-    return CallMemberFunction(entry->unknown0, params, script);
+    return CallMemberFunction(entry->mName, params, script);
 }
 
 // --- CCompositeObject: life -----------------------------------------------------------------------------------

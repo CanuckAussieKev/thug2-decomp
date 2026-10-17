@@ -56,6 +56,7 @@ add_library(thug2_code OBJECT
     src/hook/selftest_runner.cpp
     src/hook/selftests_skaterB.cpp
     src/hook/selftests_menu.cpp
+    src/hook/selftests_left.cpp
     src/hook/selftests_gfx.cpp
     src/hook/selftests_platform.cpp
     src/hook/selftests_pc.cpp
@@ -72,6 +73,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_gapsA.cpp
     src/hook/selftests_csD.cpp
     src/hook/selftests_cobj.cpp
+    src/hook/selftests_coim.cpp
     src/hook/selftests_obj.cpp
     src/hook/selftests_evt.cpp
     src/hook/selftests_trk.cpp
@@ -109,12 +111,15 @@ add_library(thug2_code OBJECT
     src/game/file/pip.cpp
     src/game/file/pre.cpp
     src/game/lst/hashtable.cpp
+    src/game/lst/head.cpp
     src/game/lst/search.cpp
     src/game/net/chat.cpp
     src/game/net/stats.cpp
     src/game/net/service.cpp
     src/game/net/online_hosts.cpp
     src/game/obj/composite.cpp
+    src/game/obj/compositemgr.cpp
+    src/game/obj/cutscene.cpp
     src/game/obj/event.cpp
     src/game/obj/flip_rotate.cpp
     src/game/obj/object.cpp

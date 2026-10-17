@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "game/core/manager.h"
+#include "game/obj/compositemgr.h"
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
@@ -211,15 +212,15 @@ void InstallStandIns(StandIns& s)
         return 0u;
     });
     // --- the composite object manager (wt/coim), the position getters, the memory manager ---
-    s.At({0x0045F3E0}, 4, [](Regs& r) {
+    s.At({0x0045F3E0, AddressOf(&Obj::CCompositeObjectManager::AddComponentByType)}, 4, [](Regs& r) {
         Rec(0xF3E0, {r.ecx, r.args[0]});
         return 0u;
     });
-    s.At({0x0045F420}, 4, [](Regs& r) {
+    s.At({0x0045F420, AddressOf(&Obj::CCompositeObjectManager::RemoveComponentByType)}, 4, [](Regs& r) {
         Rec(0xF420, {r.ecx, r.args[0]});
         return 0u;
     });
-    s.At({0x0045F2A0}, 4, [](Regs& r) {
+    s.At({0x0045F2A0, AddressOf(&Obj::CCompositeObjectManager::CreateComponent)}, 4, [](Regs& r) {
         Rec(0xF2A0, {r.ecx, r.args[0]});
         if (!g_cobj_nextType)
             return 0u;
@@ -440,7 +441,7 @@ std::vector<uint32_t> RunLifeTest(bool original)
     Result(Call<uint32_t>(0x0045D850, static_cast<ByEntry>(&CObject::CallMemberFunction), a, entry, params, script) & 0xFF);
     entry->mThisAdjustment = -8;
     Result(Call<uint32_t>(0x0045D850, static_cast<ByEntry>(&CObject::CallMemberFunction), a, entry, params, script) & 0xFF);
-    entry->mpCode = nullptr;
+    entry->mCode = nullptr;
     Result(Call<uint32_t>(0x0045D850, static_cast<ByEntry>(&CObject::CallMemberFunction), a, entry, params, script) & 0xFF);
     // A component's: by the entry's name.
     using CompEntry = int (CBaseComponent::*)(CMemberFunctionEntry*, CStruct*, CScript*);

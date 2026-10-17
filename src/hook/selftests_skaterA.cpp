@@ -10,6 +10,7 @@
 
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
+#include "game/obj/object.h"
 #include "game/script/struct.h"
 #include "game/sio/sdl_input.h"
 #include "game/skater/core_physics.h"
@@ -409,8 +410,8 @@ std::vector<StandIn> GroundStandIns()
         {0x005232A0, 4, 1, Ret::None, true, 1, -1, -1, 0},    // (a bool)
         {0x0043A930, 4, 1, Ret::None, true, 0, -1, -1, 0},
         {0x004FDED0, 4, 1, Ret::None, true, 0, -1, -1, 0},
-        {0x00460A20, 12, 3, Ret::None, true, 0, -1, -1, 0},
-        {0x004609F0, 8, 2, Ret::None, true, 0, -1, -1, 0},
+        {0x00460A20, 12, 3, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CObject::BroadcastEvent)},
+        {0x004609F0, 8, 2, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CObject::SelfEvent)},
         {0x00507120, 4, 1, Ret::None, true, 1, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::BreakVert)},
         {0x00502240, 0x14, 5, Ret::Bool, true, 0, -1, 4, 10}, // the acid drop search (fills its last argument)
         {0x00502F20, 4, 1, Ret::None, true, 0, 0, -1, 10},    // (reads it)
@@ -558,7 +559,7 @@ std::vector<StandIn> AirStandIns()
         {0x004FF590, 4, 1, Ret::None, true, 0, 0, 0, 4},       // (reads and changes a vector)
         {0x004FC370, 4, 1, Ret::None, true, 0, -1, -1, 0},
         {0x005009C0, 0, 0, Ret::None, true, 0, -1, -1, 0},
-        {0x004609F0, 8, 2, Ret::None, true, 0, -1, -1, 0},
+        {0x004609F0, 8, 2, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CObject::SelfEvent)},
         {0x0050C930, 0, 0, Ret::None, true, 0, -1, -1, 0},
         {0x00504EE0, 0, 0, Ret::Bool, true, 0, -1, -1, 0},
         {0x004FFB10, 0, 0, Ret::None, true, 0, -1, -1, 0},
