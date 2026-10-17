@@ -500,6 +500,7 @@ std::vector<uint32_t> RunLists(bool original)
         {1000, 0, 0, {{2, 200, 0}}},
         {1000, 0, 0, {{2, 199, 0}}},
         {1000, 0, 0, {{2, 200, 1001}}},
+        {1000, 0, 0, {{2, 200, 1000}}},
         {1000, 0, 0, {{1, 500, 0}, {1, 100, 0}}},
         {1000, 0, 0, {{2, 500, 0}, {2, 100, 0}}},
         {1000, 0, 0, {{0, 5000, 0}, {1, 900, 0}, {2, 900, 0}, {2, 150, 0}}},
@@ -652,7 +653,8 @@ void StandInSockets(StandIns& s)
     });
     // -> Conn's destructor (takes it out of the app's list, as the real one does)
     s.At({0x00456790}, 0, [](Regs& r) {
-        Record({0x6790, Rel(r.ecx)});
+        auto* node = &reinterpret_cast<ConnView*>(r.ecx)->m_appNode;
+        Record({0x6790, Rel(r.ecx), Rel(node->next), Rel(node->prev)}); // (still in the list?)
         RemoveNode(&reinterpret_cast<ConnView*>(r.ecx)->m_appNode);
         return 0u;
     });
@@ -717,6 +719,7 @@ std::vector<uint32_t> RunSockets(bool original)
                 Record({0x5E11, sendMessage(app, 0xFF00 | 0x2A, 0x77770000 | 20, data, 0x0200007F, 0x5555 | 0x10000, 2) &
                                     0xFF});
                 Record({0x5E12, sendMessage(app, 3, 0, data, 0x0300007F, 80, 0) & 0xFF});
+                Record({0x5E14, sendMessage(app, 4, 1, data + 9, 0x0400007F, 81, 0) & 0xFF});
                 for (bool connected : {false, true}) {
                     app->m_connected = connected;
                     Record({0x5E13, sendOn(app, data, 25, 4) & 0xFF});
@@ -798,6 +801,8 @@ void StandInQueues(StandIns& s)
         auto word = [context](uint32_t offset) { return *reinterpret_cast<const uint32_t*>(context + offset); };
         Record({0xA750, Rel(r.ecx), Rel(word(0)), context[4], word(8), Rel(word(0xC)), Rel(word(0x10)), word(0x14),
                 HashBytes(context + 0x18, 0xA1 - 0x18)}); // (0xA1-0xA3: padding)
+        // (a handler may change the context: the next message must not see it)
+        *reinterpret_cast<uint32_t*>(r.args[0] + 0x14) = 0xF1A65000;
         return static_cast<uint32_t>(Next(g_dispatchResults, 1));
     });
     // The links' scalar deleting destructors (they leave their list, as the real ones do), the tasks' (slot 2).
@@ -871,6 +876,7 @@ std::vector<uint32_t> RunQueues(bool original)
         {{{0, 3, 5}, {5, 7}, {5, 8, 0}}, {1, 1, 1}, 3, 7},
         {{{0, 3, -1, true}, {0, 4}}, {1, 1}, 3, 0},
         {{{5, 0xFFFFFFFFu}, {5, 0}}, {1, 1}, 0, 0xFFFFFFFFu},
+        {{{0, 9}, {0, 3}, {0, 4}}, {1, 1, 1}, 3, 0},
     };
     ConnView* conn = Conn(3);
     for (const SeqCase& c : seqCases) {
