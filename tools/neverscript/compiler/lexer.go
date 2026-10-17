@@ -298,11 +298,44 @@ func LexSourceCode(lexer *Lexer) Error { // do lexical analysis (build an array 
 			break
 		}
 
-		if data, found := CanFindFloat(); found {
+		// Negative number literal: a '-' IMMEDIATELY followed by a digit (no space)
+		// is a signed literal, not the subtraction operator. THUG2 encodes
+		// `(<x> -1)` as two adjacent operands (0xE <x> <int -1> 0xF), distinct from
+		// the binary subtraction `(<x> - 1)` (0xE <x> 0xA <int 1> 0xF). The
+		// decompiler always spaces a binary minus and never a sign, so keying off the
+		// no-space form preserves that distinction byte-faithfully through the lexer.
+		if lexer.SourceCode[lexer.Index] == '-' &&
+			lexer.Index+1 < lexer.SourceCodeSize &&
+			unicode.IsDigit(rune(lexer.SourceCode[lexer.Index+1])) {
+			lexer.Index++ // consume '-'
+			if data, found := CanFindFloat(); found {
+				SaveToken(lexer, TokenKind_Float, "-"+data)
+				lexer.Index += len(data)
+			} else if data, found := CanFindInteger(); found {
+				SaveToken(lexer, TokenKind_Integer, "-"+data)
+				lexer.Index += len(data)
+			} else {
+				lexer.Index-- // not actually a number; restore '-'
+				SaveToken(lexer, TokenKind_Minus, "-")
+				lexer.Index++
+			}
+		} else if data, found := CanFindFloat(); found {
 			SaveToken(lexer, TokenKind_Float, data)
 			lexer.Index += len(data)
 		} else if data, found := CanFindInteger(); found {
 			SaveToken(lexer, TokenKind_Integer, data)
+			lexer.Index += len(data)
+		} else if lexer.SourceCode[lexer.Index] == '%' && lexer.Index+1 < lexer.SourceCodeSize && lexer.SourceCode[lexer.Index+1] == '"' {
+			// LocalString literal: %"..." -> 0x1C (vs 0x1B for a plain "..." String).
+			// THUG2 distinguishes the two opcodes; the decompiler emits the `%` sigil
+			// so the distinction round-trips byte-identically.
+			lexer.Index++ // consume the '%'
+			data, found, initialLineNumber, err := CanFindString()
+			if !found {
+				return CompilationError{"Expected string after '%'", lexer.LineNumber, lexer.ColumnNumber, lexer.BaseFilePath}
+			}
+			if err != nil { return CompilationError{err.Error(), initialLineNumber, lexer.ColumnNumber, lexer.BaseFilePath} }
+			SaveToken(lexer, TokenKind_LocalString, data)
 			lexer.Index += len(data)
 		} else if data, found, initialLineNumber, err := CanFindString(); found {
 			if err != nil { return CompilationError{err.Error(), initialLineNumber, lexer.ColumnNumber, lexer.BaseFilePath} }
@@ -404,12 +437,39 @@ func LexSourceCode(lexer *Lexer) Error { // do lexical analysis (build an array 
 				} else if CanFindKeyword("while", true) {
 					SaveToken(lexer, TokenKind_While, "while")
 					lexer.Index += 5
+				} else if CanFindKeyword("Begin", true) {
+					SaveToken(lexer, TokenKind_Begin, "Begin")
+					lexer.Index += 5
+				} else if CanFindKeyword("Repeat", true) {
+					SaveToken(lexer, TokenKind_Repeat, "Repeat")
+					lexer.Index += 6
+				} else if CanFindKeyword("switch", true) {
+					SaveToken(lexer, TokenKind_Switch, "switch")
+					lexer.Index += 6
+				} else if CanFindKeyword("case", true) {
+					SaveToken(lexer, TokenKind_Case, "case")
+					lexer.Index += 4
+				} else if CanFindKeyword("default", true) {
+					SaveToken(lexer, TokenKind_Default, "default")
+					lexer.Index += 7
+				} else if CanFindKeyword("endswitch", true) {
+					SaveToken(lexer, TokenKind_EndSwitch, "endswitch")
+					lexer.Index += 9
 				} else if CanFindKeyword("break", true) {
 					SaveToken(lexer, TokenKind_Break, "break")
 					lexer.Index += 5
 				} else if CanFindKeyword("script", true) {
 					SaveToken(lexer, TokenKind_Script, "script")
 					lexer.Index += 6
+				} else if CanFindKeyword("randomrange", true) {
+					SaveToken(lexer, TokenKind_RandomRange, "randomrange")
+					lexer.Index += 11
+				} else if CanFindKeyword("random3", true) {
+					SaveToken(lexer, TokenKind_Random3, "random3")
+					lexer.Index += 7
+				} else if CanFindKeyword("random2", true) {
+					SaveToken(lexer, TokenKind_Random2, "random2")
+					lexer.Index += 7
 				} else if CanFindKeyword("random", true) {
 					SaveToken(lexer, TokenKind_Random, "random")
 					lexer.Index += 6

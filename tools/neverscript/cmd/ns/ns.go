@@ -130,7 +130,7 @@ func RunNeverscript(arguments CommandLineArguments) error {
 		select {
 		case result := <-compilationChannel:
 		    compilationError = result
-		case <-time.After(3 * time.Second):
+		case <-time.After(300 * time.Second):
 			return errors.New("ERROR - Compiler took too long. It probably went into an infinite loop because of a bug or an unimplemented feature")
 			fmt.Println("\nWARNING - Roq decompiler froze. Some QB cannot be decompiled, e.g. adjacent line ending bytes (0x01 0x01)")
 		}
@@ -157,7 +157,7 @@ func RunNeverscript(arguments CommandLineArguments) error {
 			select {
 			case decompiledRoq := <-roqChannel:
 				fmt.Println(decompiledRoq)
-			case <-time.After(3 * time.Second):
+			case <-time.After(300 * time.Second):
 				fmt.Println("\nWARNING - Roq decompiler froze. Some QB cannot be decompiled, e.g. adjacent line ending bytes (0x01 0x01)")
 			}
 		}
@@ -173,7 +173,11 @@ func RunNeverscript(arguments CommandLineArguments) error {
 		if err != nil {
 			return err
 		}
-		decompiledCode = fmt.Sprintf("// %s decompiled with ns %s\n%s", filepath.Base(*arguments.FileToDecompile), version, decompiledCode)
+		// NOTE: deliberately NO header comment. Its trailing newline used to compile
+		// to a spurious leading 0x01, breaking byte-identity (the original AU_sfx.qb
+		// has no leading newline; AU_Scripts.qb does — and the body decompile already
+		// preserves whichever the source had). Keep the output a faithful mirror of
+		// the bytecode so recompile(decompile(x)) == x.
 
 		outputFileName := *arguments.OutputFileName
 		if outputFileName == "" {

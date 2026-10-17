@@ -64,6 +64,13 @@ func GenerateBytecode(compiler *BytecodeCompiler) {
 
 	nameTable := make(map[string]uint32)
 
+	// Explicit trailing-name-table order, populated by __register_checksums__
+	// directives (which the decompiler emits to pin the table to the original's
+	// order — THUG2's loader requires it). When non-empty this overrides the
+	// map-iteration order below.
+	var nameTableOrder []string
+	nameTableOrderSeen := make(map[string]bool)
+
 	var writeBytecodeForNode func(node AstNode)
 	var writeBytecodeForIf func(node AstNode)
 	var writeBytecodeForIfElse func(conditionNode AstNode, bodyNodes []AstNode, elseNodes []AstNode, hasElse bool)
@@ -102,13 +109,28 @@ func GenerateBytecode(compiler *BytecodeCompiler) {
 			write(0x1B)
 			stringData := node.Data.(AstData_String).StringToken.Data
 			stringData = stringData[1 : len(stringData)-1]
-			stringData = strings.Replace(stringData, "\\\\", "\\",-1)
-			stringData = strings.Replace(stringData, "\\\"", "\"",-1)
+			stringData = strings.Replace(stringData, "\\\\", "\\", -1)
+			stringData = strings.Replace(stringData, "\\\"", "\"", -1)
+			writeLittleUint32(uint32(len(stringData) + 1))
+			write([]byte(stringData)...)
+			write(0)
+		case AstKind_LocalString:
+			// THUG2 LocalString (0x1C): same payload as a String (0x1B) but a
+			// distinct opcode. The `%"..."` sigil preserves the distinction.
+			write(0x1C)
+			stringData := node.Data.(AstData_String).StringToken.Data
+			stringData = stringData[1 : len(stringData)-1]
+			stringData = strings.Replace(stringData, "\\\\", "\\", -1)
+			stringData = strings.Replace(stringData, "\\\"", "\"", -1)
 			writeLittleUint32(uint32(len(stringData) + 1))
 			write([]byte(stringData)...)
 			write(0)
 		case AstKind_Pair:
 			writeBytecodeForPair(node)
+		case AstKind_RandomRange:
+			// 0x30 followed by a pair (0x1F + two floats)
+			write(0x30)
+			writeBytecodeForNode(node.Data.(AstData_UnaryExpression).Node)
 		case AstKind_Vector:
 			writeBytecodeForVector(node)
 		case AstKind_UnaryExpression:
@@ -170,6 +192,39 @@ func GenerateBytecode(compiler *BytecodeCompiler) {
 			writeBytecodeForBinaryExpression(node, 0x33)
 		case AstKind_LogicalOr:
 			writeBytecodeForBinaryExpression(node, 0x32)
+		case AstKind_FlatExpression:
+			// A parenthesised expression with 2+ operators, e.g. (A = 0 or B = <c>).
+			// THUG2 stores it as one flat infix stream inside a single 0xE/0xF pair,
+			// with operator bytes inline and NO nested parentheses. Emit it verbatim.
+			data := node.Data.(AstData_FlatExpression)
+			write(0xE)
+			for i := range data.Operands {
+				// Operators[i-1] joins operand i-1 and i. When it is missing (i-1 >=
+				// len(Operators)) the operands are ADJACENT with no operator byte,
+				// which is how THUG2 encodes `(<x> -1)` (operand, signed-literal):
+				// 0xE <x> <int -1> 0xF.
+				if i > 0 && i-1 < len(data.Operators) {
+					// Newlines stored before this operator (multi-line flat expr).
+					if i-1 < len(data.NewlinesBeforeOperator) {
+						for n := 0; n < data.NewlinesBeforeOperator[i-1]; n++ {
+							write(1)
+						}
+					}
+					operatorByte, _ := FlatOperatorByte(data.Operators[i-1])
+					write(operatorByte)
+					// Newlines stored after the operator, before this operand.
+					if i-1 < len(data.NewlinesAfterOperator) {
+						for n := 0; n < data.NewlinesAfterOperator[i-1]; n++ {
+							write(1)
+						}
+					}
+				}
+				writeBytecodeForNode(data.Operands[i])
+			}
+			for n := 0; n < data.TrailingNewlines; n++ {
+				write(1)
+			}
+			write(0xF)
 		case AstKind_Comment:
 			//writeBytecodeForNode(AstNode{
 			//	Kind: AstKind_String,
@@ -198,7 +253,13 @@ func GenerateBytecode(compiler *BytecodeCompiler) {
 
 			numBranches := len(data.Branches)
 
-			write(0x2F)
+			if data.IsRandom3 {
+				write(0x41)
+			} else if data.IsNoRepeat {
+				write(0x40)
+			} else {
+				write(0x2F)
+			}
 			writeLittleUint32(uint32(numBranches))
 
 			// write branch weights
@@ -213,6 +274,15 @@ func GenerateBytecode(compiler *BytecodeCompiler) {
 			for i := 0; i < numBranches; i++ {
 				var offset uint32 = 2
 				writeLittleUint32(offset)
+			}
+
+			// Most randoms place a single newline (0x01) between the offset table
+			// and the first branch, and every branch offset is measured to account
+			// for it (+1 below). But it's per-random (formatting), so emit it only
+			// when the source had it (a newline right after `{`); otherwise the
+			// offsets must NOT include the +1.
+			if data.Branch0Newline {
+				write(0x01)
 			}
 
 			// write branches (record sizes for offset calculations, record longjump positions)
@@ -240,6 +310,9 @@ func GenerateBytecode(compiler *BytecodeCompiler) {
 				offsetIndex := branchOffsetsIndex + (4 * i)
 
 				offsetValue := 0
+				if data.Branch0Newline {
+					offsetValue = 1 // +1 for the 0x01 newline before the first branch
+				}
 
 				// include next branch offsets in offsetValue
 				for j := i + 1; j < numBranches; j++ {
@@ -254,86 +327,120 @@ func GenerateBytecode(compiler *BytecodeCompiler) {
 				writeLittleUint32Index(uint32(offsetValue), offsetIndex)
 			}
 
-			// update longjump offsets with real values
+			// update longjump offsets with real values. LongJumpDelta is normally 0
+			// (jumps target the random's structural end); a few originals store a
+			// non-canonical target that lands this many bytes further out.
 			for i := 0; i < numBranches-1; i++ {
-				realOffset := finalIndex - longJumpPositions[i] - 5
+				realOffset := finalIndex + data.LongJumpDelta - longJumpPositions[i] - 5
 				writeLittleUint32Index(uint32(realOffset), longJumpPositions[i]+1)
 			}
 
 		case AstKind_WhileLoop:
-			if compiler.TargetGame == "thug2" {
-				compilerGeneratedChecksum := AstNode{
-					Kind: AstKind_Checksum,
-					Data: AstData_Checksum{
-						ChecksumToken: Token{
-							Kind: TokenKind_Identifier,
-							Data: fmt.Sprintf("__COMPILER__infinite_loop_bypasser_%d", compiler.NextLoopBypasserId),
-						},
-					},
-				}
-				compiler.NextLoopBypasserId++
-				constantIntegerNode := AstNode{
-					Kind: AstKind_Integer,
-					Data: AstData_Integer{
-						IntegerToken: Token{
-							Kind: TokenKind_Integer,
-							Data: "0",
-						},
-					},
-				}
-				writeBytecodeForNode(AstNode{
-					Kind: AstKind_Assignment,
-					Data: AstData_Assignment{
-						NameNode:  compilerGeneratedChecksum,
-						ValueNode: constantIntegerNode,
-					},
-				})
-				write(1)
-				write(0x20)
-				write(1)
-				writeBytecodeForNode(AstNode{
-					Kind: AstKind_IfStatement,
-					Data: AstData_IfStatement{
-						Conditions: []AstNode{
-							{
-								Kind: AstKind_GreaterThanExpression,
-								Data: AstData_BinaryExpression{
-									LeftNode: AstNode{
-										Kind: AstKind_LocalReference,
-										Data: AstData_LocalReference{
-											Node: compilerGeneratedChecksum,
-										},
-									},
-									RightNode: constantIntegerNode,
-								},
-							},
-						},
-						Bodies: [][]AstNode{
-							{
-								{
-									Kind: AstKind_NewLine,
-									Data: AstData_Empty{},
-								},
-								{
-									Kind: AstKind_Break,
-									Data: AstData_Empty{},
-								},
-								{
-									Kind: AstKind_NewLine,
-									Data: AstData_Empty{},
-								},
-							},
-						},
-					},
-				})
-			} else {
-				write(0x20)
-			}
-
+			// Emit a plain begin/repeat loop (0x20 ... 0x21), matching the
+			// original Neversoft bytecode. (Previously THUG2 builds injected an
+			// "infinite_loop_bypasser" guard, but it assigned a GLOBAL while the
+			// guard read an undefined LOCAL — semantically wrong and not present
+			// in real game scripts, which loop forever via an in-body `wait`.)
+			write(0x20)
 			for _, bodyNode := range node.Data.(AstData_WhileLoop).BodyNodes {
 				writeBytecodeForNode(bodyNode)
 			}
 			write(0x21)
+		case AstKind_RepeatLoop:
+			// Counted loop: 0x00 (Begin) <body> 0x21 (Repeat) [<count>].
+			repeatData := node.Data.(AstData_RepeatLoop)
+			write(0x00)
+			for _, bodyNode := range repeatData.BodyNodes {
+				writeBytecodeForNode(bodyNode)
+			}
+			write(0x21)
+			if repeatData.HasCount {
+				writeBytecodeForNode(repeatData.CountNode)
+			}
+		case AstKind_Switch:
+			// THUG2 native switch:
+			//   0x3C value 0x01
+			//   ( 0x3E 0x49<introOff> caseValue <body> 0x49<trailOff> )*
+			//   ( 0x3F 0x49<defOff> <defaultBody> )?
+			//   0x3D
+			// 0x49 (short-break) offsets are little-endian uint16 measured FROM the
+			// 0x49 opcode position. Layout the bytes first, recording each 0x49
+			// position, then backpatch the offsets.
+			switchData := node.Data.(AstData_Switch)
+
+			write(0x3C)
+			writeBytecodeForNode(switchData.ValueNode)
+			// Newlines between the switch value and the first case (usually 1).
+			switchValueNewlines := switchData.NewlinesAfterValue
+			if switchValueNewlines < 1 {
+				switchValueNewlines = 1
+			}
+			for n := 0; n < switchValueNewlines; n++ {
+				write(0x01)
+			}
+
+			introPositions := make([]int, len(switchData.CaseValues))
+			trailPositions := make([]int, len(switchData.CaseValues))
+			for i := range switchData.CaseValues {
+				write(0x3E)
+				introPositions[i] = len(compiler.Bytes)
+				write(0x49, 0x00, 0x00)
+				writeBytecodeForNode(switchData.CaseValues[i])
+				for _, bodyNode := range switchData.CaseBodies[i] {
+					writeBytecodeForNode(bodyNode)
+				}
+				// The construct physically abutting `endswitch` carries no
+				// trailing short-break (its `break` would be a redundant
+				// fall-through). When there is no default, that construct is the
+				// final case, so the original Neversoft compiler elides its
+				// trailing 0x49. (When a default exists, every case still needs
+				// its break to skip over the default body, and the default —
+				// emitted below — is the one abutting endswitch.)
+				isFinalCaseAbuttingEndswitch := i == len(switchData.CaseValues)-1 && !switchData.HasDefault
+				if isFinalCaseAbuttingEndswitch {
+					trailPositions[i] = -1
+				} else {
+					trailPositions[i] = len(compiler.Bytes)
+					write(0x49, 0x00, 0x00)
+				}
+			}
+
+			defaultPosition := -1
+			if switchData.HasDefault {
+				write(0x3F)
+				defaultPosition = len(compiler.Bytes)
+				write(0x49, 0x00, 0x00)
+				for _, bodyNode := range switchData.DefaultBody {
+					writeBytecodeForNode(bodyNode)
+				}
+			}
+
+			endswitchPosition := len(compiler.Bytes)
+			write(0x3D)
+
+			// Backpatch short-break offsets. Every intro short-break targets the
+			// byte just before the next construct (case/default/endswitch):
+			//   introOff = (trailPos + 2) - introPos   (targets the trail SB's last offset byte,
+			//                                            i.e. one before the next case/default)
+			//   trailOff = endswitchPos - trailPos
+			//   defOff   = (endswitchPos - 1) - defPos (targets the byte before endswitch)
+			// A final case with no default has no trailing SB (trailPos == -1); its
+			// intro instead targets endswitchPos-1, exactly like a default.
+			for i := range switchData.CaseValues {
+				if trailPositions[i] == -1 {
+					introOff := (endswitchPosition - 1) - introPositions[i]
+					writeLittleUint16Index(uint16(introOff), introPositions[i]+1)
+					continue
+				}
+				introOff := (trailPositions[i] + 2) - introPositions[i]
+				writeLittleUint16Index(uint16(introOff), introPositions[i]+1)
+				trailOff := endswitchPosition - trailPositions[i]
+				writeLittleUint16Index(uint16(trailOff), trailPositions[i]+1)
+			}
+			if switchData.HasDefault {
+				defOff := (endswitchPosition - 1) - defaultPosition
+				writeLittleUint16Index(uint16(defOff), defaultPosition+1)
+			}
 		case AstKind_Return:
 			data := node.Data.(AstData_UnaryExpression)
 
@@ -395,10 +502,37 @@ func GenerateBytecode(compiler *BytecodeCompiler) {
 			for _, parameterNode := range data.ParameterNodes {
 				writeBytecodeForNode(parameterNode)
 			}
+		case AstKind_NameTableEntry:
+			// Checksum names declared via __register_checksums__: register them so
+			// they appear in the trailing name table, IN THIS ORDER, and emit NO
+			// body bytecode. A name may carry an explicit non-canonical checksum
+			// override (Hashes[i] >= 0) to reproduce a quirky original table hash.
+			entryData := node.Data.(AstData_NameTableEntry)
+			for i, name := range entryData.Names {
+				checksum := StringToChecksum(name)
+				if i < len(entryData.Hashes) && entryData.Hashes[i] >= 0 {
+					checksum = uint32(entryData.Hashes[i])
+				}
+				nameTable[name] = checksum
+				if !nameTableOrderSeen[name] {
+					nameTableOrderSeen[name] = true
+					nameTableOrder = append(nameTableOrder, name)
+				}
+			}
 		case AstKind_Assignment:
 			data := node.Data.(AstData_Assignment)
 			writeBytecodeForNode(data.NameNode)
+			// Re-emit newlines that sat between the name and '=' (`name\n= value`),
+			// stored as 0x01 bytes before the 0x07.
+			for i := 0; i < data.NewlinesBeforeEquals; i++ {
+				write(1)
+			}
 			write(7)
+			// Re-emit newlines that sat between '=' and the value (e.g. a struct on
+			// the next line), which THUG2 stores as 0x01 bytes after the 0x07.
+			for i := 0; i < data.NewlinesAfterEquals; i++ {
+				write(1)
+			}
 			writeBytecodeForNode(data.ValueNode)
 		case AstKind_Struct:
 			write(3)
@@ -507,7 +641,7 @@ func GenerateBytecode(compiler *BytecodeCompiler) {
 			temp1 := data.ChecksumToken.Data[1:]
 			temp1 = temp1[6:8] + temp1[4:6] + temp1[2:4] + temp1[0:2]
 
-			temp2, _ := strconv.ParseInt(temp1, 16, 32)
+			temp2, _ := strconv.ParseUint(temp1, 16, 32)
 			checksum = uint32(temp2)
 		} else {
 			name := data.ChecksumToken.Data
@@ -618,9 +752,56 @@ func GenerateBytecode(compiler *BytecodeCompiler) {
 	writeBytecodeForNode(compiler.RootAstNode)
 
 	if !compiler.RemoveChecksums {
-		for name, checksum := range nameTable {
-			writeNameTableEntry(checksum, name)
+		if len(nameTableOrder) > 0 {
+			// Emit in the explicit order from __register_checksums__ (original
+			// table order, which THUG2 requires). Append any names referenced in
+			// the body but somehow not declared, so nothing is dropped.
+			for _, name := range nameTableOrder {
+				writeNameTableEntry(nameTable[name], name)
+			}
+			for name, checksum := range nameTable {
+				if !nameTableOrderSeen[name] {
+					writeNameTableEntry(checksum, name)
+				}
+			}
+		} else {
+			for name, checksum := range nameTable {
+				writeNameTableEntry(checksum, name)
+			}
 		}
 	}
 	write(0)
+}
+
+// FlatOperatorByte maps an operator AstKind to its single THUG2 bytecode byte,
+// for use inside a flat parenthesised expression (AstKind_FlatExpression). The
+// boolean is false for operators that have no direct single-byte form here
+// (e.g. !=, which the compiler only emits via negation); the parser refuses to
+// build a flat node in that case, falling back to existing behaviour.
+func FlatOperatorByte(kind AstKind) (byte, bool) {
+	switch kind {
+	case AstKind_EqualsExpression:
+		return 0x7, true
+	case AstKind_LessThanExpression:
+		return 0x12, true
+	case AstKind_LessThanEqualsExpression:
+		return 0x13, true
+	case AstKind_GreaterThanExpression:
+		return 0x14, true
+	case AstKind_GreaterThanEqualsExpression:
+		return 0x15, true
+	case AstKind_AdditionExpression:
+		return 0xB, true
+	case AstKind_SubtractionExpression:
+		return 0xA, true
+	case AstKind_MultiplicationExpression:
+		return 0xD, true
+	case AstKind_DivisionExpression:
+		return 0xC, true
+	case AstKind_LogicalOr:
+		return 0x32, true
+	case AstKind_LogicalAnd:
+		return 0x33, true
+	}
+	return 0, false
 }
