@@ -119,6 +119,9 @@ add_library(thug2_code OBJECT
     src/game/net/stats.cpp
     src/game/net/service.cpp
     src/game/net/online_hosts.cpp
+    src/game/net/net_app_view.cpp
+    src/game/net/net_latency.cpp
+    src/game/net/net_lists.cpp
     src/game/obj/composite.cpp
     src/game/obj/compositemgr.cpp
     src/game/obj/cutscene.cpp
