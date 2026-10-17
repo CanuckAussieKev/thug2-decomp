@@ -87,9 +87,9 @@ void CCursor::RemoveClipboardsTooBig()
         uint8_t* next = NextClipboard(clipboard);
         GridDims area = {};
         ClipboardArea(clipboard, this, &area);
-        uint8_t parkWidth = Manager()->ParkDims().width;
-        uint8_t parkLength = Manager()->ParkDims().length;
-        if (area.width > parkWidth || area.width > parkLength || area.length > parkWidth || area.length > parkLength) {
+        uint8_t parkWidth = Manager()->ParkDims().w;
+        uint8_t parkLength = Manager()->ParkDims().l;
+        if (area.w > parkWidth || area.w > parkLength || area.l > parkWidth || area.l > parkLength) {
             // Too big to paste in this park: unlinked and deleted.
             if (previous)
                 *reinterpret_cast<uint8_t**>(previous + 0x14) = next;
@@ -112,7 +112,7 @@ bool CCursor::PlacePiece()
     CParkManager* manager = Manager();
     if (!GameFunction<bool(__thiscall*)(CParkManager*, GridDims, int)>(0x00599CD0)(manager, Area(), 0))
         return false;
-    if (Area().height + FloorHeight(manager, Area(), nullptr) > 17)
+    if (Area().h + FloorHeight(manager, Area(), nullptr) > 17)
         return false;
     // A restart point needs a free slot of its type.
     uint32_t type = MetaType(Meta());
@@ -147,7 +147,7 @@ bool CCursor::DestroyUnderCursor()
     } else {
         area = Area();
     }
-    return Manager()->DestroyMetasInArea(area, false, false, true);
+    return Manager()->DestroyMetasInAreaAndRebuild(area, false, false, true);
 }
 
 // 0x0059D410
@@ -166,34 +166,34 @@ bool CCursor::AddGapHalf()
         int half;
         if (!GapAt(Manager(), &Area(), &half) && meta) {
             GapDescriptor& gap = Gap();
-            if (gap.numCompleteHalves == 1)
+            if (gap.m_numCompleteHalves == 1)
                 RemoveGap(Manager(), &gap);
             else
-                gap.numCompleteHalves = 0;
-            int n = gap.numCompleteHalves;
-            gap.loc[n] = MetaArea(meta);
-            gap.rot[n] = 0;
-            gap.leftExtent[n] = 0;
-            gap.rightExtent[n] = 0;
-            gap.score = 100;
-            gap.numCompleteHalves = n + 1;
-            gap.id = -1;
+                gap.m_numCompleteHalves = 0;
+            int n = gap.m_numCompleteHalves;
+            gap.m_pos[n] = MetaArea(meta);
+            gap.m_rot[n] = 0;
+            gap.m_leftExtent[n] = 0;
+            gap.m_rightExtent[n] = 0;
+            gap.m_score = 100;
+            gap.m_numCompleteHalves = n + 1;
+            gap.m_tabIndex = -1;
             if (n == 0) {
                 // The gap's name: "gap", then "gap2", "gap3"...
                 if (GapCounter() > 1)
 #pragma warning(suppress : 4996)
-                    std::sprintf(gap.name, reinterpret_cast<const char*>(0x0064F8A8), GapCounter()); // "gap%d"
+                    std::sprintf(gap.m_text, reinterpret_cast<const char*>(0x0064F8A8), GapCounter()); // "gap%d"
                 else
-                    std::memcpy(gap.name, "gap", 4);
+                    std::memcpy(gap.m_text, "gap", 4);
                 ++GapCounter();
             }
             if (AddGap(Manager(), &gap)) {
                 GameFunction<void(__thiscall*)(CParkManager*, const GridDims*, int)>(0x0059C600)(Manager(), &Area(), 0);
-                if (gap.numCompleteHalves > 0)
+                if (gap.m_numCompleteHalves > 0)
                     GameFunction<void(__thiscall*)(CParkManager*, int, GapDescriptor*)>(0x00595CB0)(Manager(), 1, &gap);
                 added = true;
             } else {
-                gap.numCompleteHalves = 0;
+                gap.m_numCompleteHalves = 0;
             }
         }
     }
@@ -206,9 +206,9 @@ bool CCursor::AddGapHalf()
 bool CCursor::RemoveGapHalf()
 {
     CParkManager* manager = Manager();
-    if (Gap().numCompleteHalves == 1) {
+    if (Gap().m_numCompleteHalves == 1) {
         RemoveGap(manager, &Gap());
-        Gap().numCompleteHalves = 0;
+        Gap().m_numCompleteHalves = 0;
         Manager()->RebuildArea(&Area(), false);
         return true;
     }
@@ -220,7 +220,7 @@ bool CCursor::RemoveGapHalf()
     Manager()->RebuildArea(&Area(), false);
     // The pieces that had gaps are told to look again (0x00591A50).
     manager = Manager();
-    for (auto* node = manager->At<CMapListNode*>(0x7C); node; node = node->next) {
+    for (auto* node = manager->At<CMapListNode*>(0x7C); node; node = node->mp_next) {
         if (MetaFlags(NodeMeta(node)) & kMetaHasGap)
             GameFunction<void(__thiscall*)(void*, int, int)>(0x00591A50)(NodeMeta(node), 1, 1);
     }
@@ -236,66 +236,66 @@ bool CCursor::ChangeGap(int turn, int left, int right)
     if (!gap)
         return false;
     // A gap being made: only its own first half.
-    if (Gap().numCompleteHalves == 1 &&
-        (gap->loc[0].x != Gap().loc[0].x || gap->loc[0].y != Gap().loc[0].y || gap->loc[0].z != Gap().loc[0].z))
+    if (Gap().m_numCompleteHalves == 1 &&
+        (gap->m_pos[0].x != Gap().m_pos[0].x || gap->m_pos[0].y != Gap().m_pos[0].y || gap->m_pos[0].z != Gap().m_pos[0].z))
         return false;
     GapDescriptor copy = *gap;
     bool changed = false;
     if (turn) {
-        copy.rot[half] -= turn;
-        copy.leftExtent[half] = 0;
-        copy.rightExtent[half] = 0;
+        copy.m_rot[half] -= turn;
+        copy.m_leftExtent[half] = 0;
+        copy.m_rightExtent[half] = 0;
         changed = true;
     }
     if (left) {
-        copy.leftExtent[half] += left;
-        if (copy.leftExtent[half] < 0)
-            copy.leftExtent[half] = 0;
-        else if (copy.leftExtent[half] > 6)
-            copy.leftExtent[half] = 6;
+        copy.m_leftExtent[half] += left;
+        if (copy.m_leftExtent[half] < 0)
+            copy.m_leftExtent[half] = 0;
+        else if (copy.m_leftExtent[half] > 6)
+            copy.m_leftExtent[half] = 6;
         changed = true;
     }
     if (right) {
-        copy.rightExtent[half] += right;
-        if (copy.rightExtent[half] < 0)
-            copy.rightExtent[half] = 0;
-        if (copy.rightExtent[half] > 6)
-            copy.rightExtent[half] = 6;
+        copy.m_rightExtent[half] += right;
+        if (copy.m_rightExtent[half] < 0)
+            copy.m_rightExtent[half] = 0;
+        if (copy.m_rightExtent[half] > 6)
+            copy.m_rightExtent[half] = 6;
     } else if (!changed) {
         return true;
     }
     RemoveGap(Manager(), gap);
-    copy.rot[half] &= 3;
+    copy.m_rot[half] &= 3;
     GridDims park = Manager()->ParkDims();
-    const GridDims& at = copy.loc[half];
-    int* leftExtent = &copy.leftExtent[half];
-    int* rightExtent = &copy.rightExtent[half];
+    const GridDims& at = copy.m_pos[half];
+    int* m_leftExtent = &copy.m_leftExtent[half];
+    int* m_rightExtent = &copy.m_rightExtent[half];
     // Each extent is kept inside the park: the one behind the gap's start, the other past its end.
-    switch (copy.rot[half]) {
+    switch (copy.m_rot[half]) {
     case 0:
     case 2: {
-        int* behind = copy.rot[half] == 0 ? rightExtent : leftExtent;
-        int* ahead = copy.rot[half] == 0 ? leftExtent : rightExtent;
+        int* behind = copy.m_rot[half] == 0 ? m_rightExtent : m_leftExtent;
+        int* ahead = copy.m_rot[half] == 0 ? m_leftExtent : m_rightExtent;
         if (at.z - *behind < park.z)
             --*behind;
-        if (at.z + at.length + *ahead > park.z + park.length)
+        if (at.z + at.l + *ahead > park.z + park.l)
             --*ahead;
         break;
     }
     case 1:
     case 3: {
-        int* behind = copy.rot[half] == 1 ? rightExtent : leftExtent;
-        int* ahead = copy.rot[half] == 1 ? leftExtent : rightExtent;
+        int* behind = copy.m_rot[half] == 1 ? m_rightExtent : m_leftExtent;
+        int* ahead = copy.m_rot[half] == 1 ? m_leftExtent : m_rightExtent;
         if (at.x - *behind < park.x)
             --*behind;
-        if (at.x + at.width + *ahead > park.x + park.width)
+        if (at.x + at.w + *ahead > park.x + park.w)
             --*ahead;
         break;
     }
     }
     AddGap(Manager(), &copy);
     Manager()->RebuildArea(&park, false);
-    if (Gap().numCompleteHalves == 1)
+    if (Gap().m_numCompleteHalves == 1)
         Gap() = copy;
     return true;
 }
@@ -307,7 +307,7 @@ bool CCursor::DestroySelection()
         return false;
     GridDims area = {};
     SelectedArea(this, &area);
-    bool destroyed = Manager()->DestroyMetasInArea(area, true, true, false);
+    bool destroyed = Manager()->DestroyMetasInAreaAndRebuild(area, true, true, false);
     MemoryMarker(reinterpret_cast<const char*>(0x0064F8B0)); // "After Area deletion"
     Selecting() = true;
     At<bool>(0x55) = false;
@@ -329,7 +329,7 @@ void CCursor::FlattenSelection()
 // 0x0059D9F0
 bool CCursor::RaiseArea(GridDims area, int height, int dir, char level)
 {
-    if (area.width > 10 || area.length > 10)
+    if (area.w > 10 || area.l > 10)
         return false;
     if (!GameFunction<bool(__thiscall*)(CParkManager*, GridDims, int, int, bool, bool)>(0x0059C520)(
             Manager(), area, area.y, height, dir > 0, level == 0))
@@ -357,30 +357,30 @@ bool CCursor::RaiseLower(int dir)
         ClipboardArea(CurrentClipboard(), this, &area);
     }
     GridDims park = CParkManager::Instance()->ParkDims();
-    if (area.width > park.width || area.length > park.length)
+    if (area.w > park.w || area.l > park.l)
         return false;
     // (the original has the level flag written over the copy's first byte)
     char level = 0;
     int height = FloorHeight(Manager(), area, &level);
     if (height + dir <= -16)
         return false;
-    int top = area.height + height + dir;
+    int top = area.h + height + dir;
     // The pieces standing on the area (any height) widen it, and the highest sets the top.
-    GridDims above = {area.x, area.y, area.z, area.width, 16, area.length};
+    GridDims above = {area.x, area.y, area.z, area.w, 16, area.l};
     CMapListNode* list = MetasWithin(CParkManager::Instance(), above);
-    for (CMapListNode* node = list; node; node = node->next) {
+    for (CMapListNode* node = list; node; node = node->mp_next) {
         void* meta = GameFunction<void*(__thiscall*)(CMapListNode*)>(0x005480C0)(node);
         GridDims at = MetaArea(meta);
-        if (at.height > area.height)
-            top = at.height + height + dir;
+        if (at.h > area.h)
+            top = at.h + height + dir;
         if (at.x < area.x)
             area.x = at.x;
-        if (at.width > area.width)
-            area.width = at.width;
+        if (at.w > area.w)
+            area.w = at.w;
         if (at.z < area.z)
             area.z = at.z;
-        if (at.length > area.length)
-            area.length = at.length;
+        if (at.l > area.l)
+            area.l = at.l;
     }
     GameFunction<void(__thiscall*)(CMapListNode*)>(0x00591BE0)(list); // the list freed
     if (top > 17)
@@ -433,56 +433,56 @@ void CParkManager::Initialize(uint32_t level)
     for (int i = NumSets() - 1; i >= 0; --i) {
         PieceSet& set = Sets(this)[i];
         auto* description = reinterpret_cast<Script::CStruct*>(sets->GetElement(static_cast<uint32_t>(i)));
-        set.name = nullptr;
-        description->GetString(reinterpret_cast<const char*>(0x0064D0C4), &set.name, 1); // "name"
-        set.nameChecksum = Crc::GenerateCRCFromString(set.name);
-        set.selected = 0;
-        set.numEntries = 0;
+        set.m_name = nullptr;
+        description->GetString(reinterpret_cast<const char*>(0x0064D0C4), &set.m_name, 1); // "name"
+        set.m_nameChecksum = Crc::GenerateCRCFromString(set.m_name);
+        set.m_selected = 0;
+        set.m_numEntries = 0;
         uint32_t first = 0;
         if (description->GetChecksum(reinterpret_cast<const char*>(0x0064A144), &first, 0)) { // "first"
             // `first`'s place in the standard pieces (the manager's list runs from the last to the first).
             int index = 0;
             int position = At<int>(0x88) - 1;
-            for (auto* node = At<CMapListNode*>(0x80); node; node = node->next, --position) {
+            for (auto* node = At<CMapListNode*>(0x80); node; node = node->mp_next, --position) {
                 if (MetaType(NodeMeta(node)) == first) {
                     index = position;
                     break;
                 }
             }
-            set.numEntries = end - index;
+            set.m_numEntries = end - index;
             end = index;
-            for (int entry = 0; entry < set.numEntries; ++entry) {
+            for (int entry = 0; entry < set.m_numEntries; ++entry) {
                 int piece = index + entry;
                 void* meta = nullptr;
                 int at = At<int>(0x88) - 1;
-                for (auto* node = At<CMapListNode*>(0x80); node; node = node->next, --at) {
+                for (auto* node = At<CMapListNode*>(0x80); node; node = node->mp_next, --at) {
                     void* candidate = NodeMeta(node);
                     if (at == piece) {
                         meta = candidate;
                         break;
                     }
                 }
-                set.entries[entry].type = MetaType(meta); // (no check for a missing piece, as in the original)
+                set.m_entries[entry].checksum = MetaType(meta); // (no check for a missing piece, as in the original)
                 auto* pieceDescription =
                     reinterpret_cast<Script::CStruct*>(standard->GetElement(static_cast<uint32_t>(piece)));
                 if (!pieceDescription->GetString(reinterpret_cast<const char*>(0x0064F8D8), // "text_name"
-                                                 &set.entries[entry].textName, 0))
-                    set.entries[entry].textName = nullptr;
+                                                 &set.m_entries[entry].name, 0))
+                    set.m_entries[entry].name = nullptr;
             }
         }
-        set.isClipboardSet = false;
+        set.m_isClipboard = false;
         if (description->ContainsFlag(kClipboardSet)) {
-            set.isClipboardSet = true;
-            set.numEntries = 6;
+            set.m_isClipboard = true;
+            set.m_numEntries = 6;
             const char* text = Script::GetString(0x4E677220u);
             for (int k = 0; k < 6; ++k) {
                 char name[100];
                 std::snprintf(name, sizeof(name), reinterpret_cast<const char*>(0x0064F8CC), k); // "Clipboard%d"
-                set.entries[k].textName = text;
-                set.entries[k].type = Crc::GenerateCRCFromString(name);
+                set.m_entries[k].name = text;
+                set.m_entries[k].checksum = Crc::GenerateCRCFromString(name);
             }
         }
-        set.visible = !description->ContainsFlag(reinterpret_cast<const char*>(0x0064F8C4)); // "hidden"
+        set.m_visible = !description->ContainsFlag(reinterpret_cast<const char*>(0x0064F8C4)); // "hidden"
     }
 }
 

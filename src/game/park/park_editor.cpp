@@ -26,7 +26,7 @@ GridDims& MetaArea(void* meta) { return *reinterpret_cast<GridDims*>(static_cast
 bool& SceneUpdates() { return GameVariable<bool>(0x0067F398); }
 
 // CParkManager (not decompiled yet).
-void DestroyConcreteMeta(CParkManager* manager, void* meta, int flags)
+void CallDestroyConcreteMeta(CParkManager* manager, void* meta, int flags)
 {
     GameFunction<void(__thiscall*)(CParkManager*, void*, int)>(0x0059AE90)(manager, meta, flags);
 }
@@ -57,8 +57,6 @@ void DestroyList(CMapListTemp& temp)
 
 } // namespace
 
-CParkManager* CParkManager::Instance() { return GameVariable<CParkManager*>(0x007CE604); }
-CCursor*& CCursor::Instance() { return GameVariable<CCursor*>(0x007CE608); }
 
 // 0x0059CB10
 void CParkManager::RebuildPark(uint32_t how)
@@ -120,12 +118,12 @@ bool CParkManager::RebuildArea(const GridDims* area, bool checkMemory)
 }
 
 // 0x0059CD20
-bool CParkManager::DestroyMetasInArea(GridDims area, bool skipRestarts, bool onlyWithin, bool skipLocked)
+bool CParkManager::DestroyMetasInAreaAndRebuild(GridDims area, bool skipRestarts, bool onlyWithin, bool skipLocked)
 {
     bool destroyed = false;
     CMapListTemp metas = {GetMetasWithin(this, area)};
     if (metas.list) {
-        for (CMapListNode* node = metas.list; node; node = node->next) {
+        for (CMapListNode* node = metas.list; node; node = node->mp_next) {
             void* meta = NodeMeta(node);
             if (MetaFlags(meta) & kMetaFloor)
                 continue;
@@ -135,7 +133,7 @@ bool CParkManager::DestroyMetasInArea(GridDims area, bool skipRestarts, bool onl
                 continue;
             if (skipLocked && (MetaFlags(meta) & kMetaLocked))
                 continue;
-            DestroyConcreteMeta(this, meta, 1);
+            CallDestroyConcreteMeta(this, meta, 1);
             destroyed = true;
         }
         // The area's corner and size in the world (0x00595A90), and the scene updated over it.
@@ -163,19 +161,19 @@ bool CParkManager::DestroyMetasInArea(GridDims area, bool skipRestarts, bool onl
 void CParkManager::ClearArea(GridDims area)
 {
     CMapListTemp metas = {GetMetasWithin(this, area)};
-    for (CMapListNode* node = metas.list; node; node = node->next) {
+    for (CMapListNode* node = metas.list; node; node = node->mp_next) {
         void* meta = NodeMeta(node);
         if (MetaFlags(meta) & kMetaFloor)
             continue;
         GridDims at = MetaArea(meta);
         GameFunction<void(__thiscall*)(CParkManager*, void*, int, int, int)>(0x0059B090)(this, meta, 0, -at.y, 0);
-        for (int x = at.x; x < at.x + at.width; ++x) {
-            for (int z = at.z; z < at.z + at.length; ++z)
+        for (int x = at.x; x < at.x + at.w; ++x) {
+            for (int z = at.z; z < at.z + at.l; ++z)
                 CellHeight(x, z) = 0;
         }
     }
-    for (int x = area.x; x < area.x + area.width; ++x) {
-        for (int z = area.z; z < area.z + area.length; ++z)
+    for (int x = area.x; x < area.x + area.w; ++x) {
+        for (int z = area.z; z < area.z + area.l; ++z)
             CellHeight(x, z) = 0;
     }
     Flags() &= ~5u;
@@ -210,7 +208,7 @@ void __cdecl CCursor::Destroy()
         return;
     if (cursor->Meta()) {
         MetaFlags(cursor->Meta()) &= ~kMetaInCursor;
-        DestroyConcreteMeta(cursor->Manager(), cursor->Meta(), 0);
+        CallDestroyConcreteMeta(cursor->Manager(), cursor->Meta(), 0);
     }
     GameFunction<void(__thiscall*)(CCursor*)>(0x005988A0)(cursor); // ~CCursor
     Mem::Manager::Get()->Free(cursor);
@@ -222,16 +220,16 @@ void CCursor::ChangePieceInSet(int dir)
 {
     auto* set = GameFunction<PieceSet*(__thiscall*)(CParkManager*, int, int*)>(0x00595210)(Manager(), SetIndex(),
                                                                                          &MenuSetNumber());
-    int selected = set->selected + dir;
+    int selected = set->m_selected + dir;
     if (selected < 0)
-        selected = set->numEntries - 1;
-    else if (selected >= set->numEntries)
+        selected = set->m_numEntries - 1;
+    else if (selected >= set->m_numEntries)
         selected = 0;
-    set->selected = selected;
-    if (set->isClipboardSet)
+    set->m_selected = selected;
+    if (set->m_isClipboard)
         GameFunction<void(__thiscall*)(CCursor*, int)>(0x00595450)(this, selected); // select that clipboard
     else
-        GameFunction<void(__thiscall*)(CCursor*, uint32_t)>(0x0059BC00)(this, set->entries[selected].type);
+        GameFunction<void(__thiscall*)(CCursor*, uint32_t)>(0x0059BC00)(this, set->m_entries[selected].checksum);
 }
 
 // 0x0059C9B0
@@ -241,7 +239,7 @@ void CCursor::ChangeSet(int dir)
     auto countVisible = [this]() {
         int visible = 0;
         for (int i = 0; i < SetIndex(); ++i) {
-            if (Sets(Manager())[i].visible)
+            if (Sets(Manager())[i].m_visible)
                 ++visible;
         }
         MenuSetNumber() = visible;
@@ -253,16 +251,16 @@ void CCursor::ChangeSet(int dir)
         if (SetIndex() >= Manager()->NumSets())
             SetIndex() = 0;
         countVisible();
-        if (Sets(Manager())[SetIndex()].visible)
+        if (Sets(Manager())[SetIndex()].m_visible)
             break;
     }
     countVisible();
     PieceSet& set = Sets(Manager())[SetIndex()];
-    if (!set.isClipboardSet) {
-        GameFunction<void(__thiscall*)(CCursor*, uint32_t)>(0x0059BC00)(this, set.entries[set.selected].type);
+    if (!set.m_isClipboard) {
+        GameFunction<void(__thiscall*)(CCursor*, uint32_t)>(0x0059BC00)(this, set.m_entries[set.m_selected].checksum);
         return;
     }
-    int selected = set.selected;
+    int selected = set.m_selected;
     for (uint8_t* clipboard = Clipboards(); clipboard; clipboard = *reinterpret_cast<uint8_t**>(clipboard + 0x14))
         GameFunction<void(__thiscall*)(uint8_t*)>(0x0058C200)(clipboard);
     uint8_t* clipboard = Clipboards();
@@ -271,7 +269,7 @@ void CCursor::ChangeSet(int dir)
     CurrentClipboard() = clipboard;
     if (Meta()) {
         MetaFlags(Meta()) &= ~kMetaInCursor;
-        DestroyConcreteMeta(Manager(), Meta(), 0);
+        CallDestroyConcreteMeta(Manager(), Meta(), 0);
         UpdatePieces(Manager()->Generator());
         Meta() = nullptr;
     }
@@ -288,6 +286,6 @@ REPLACE(0x0059C950, &Ed::CCursor::ChangePieceInSet);
 REPLACE(0x0059C9B0, &Ed::CCursor::ChangeSet);
 REPLACE(0x0059CB10, &Ed::CParkManager::RebuildPark);
 REPLACE(0x0059CC70, &Ed::CParkManager::RebuildArea);
-REPLACE(0x0059CD20, &Ed::CParkManager::DestroyMetasInArea);
+REPLACE(0x0059CD20, &Ed::CParkManager::DestroyMetasInAreaAndRebuild);
 REPLACE(0x0059CEC0, &Ed::CParkManager::ClearArea);
-REPLACE(0x0059D080, &Ed::CParkManager::ChangeFloorHeight);
+REPLACE(0x0059D080, static_cast<bool (Ed::CParkManager::*)(Ed::GridDims, int)>(&Ed::CParkManager::ChangeFloorHeight));

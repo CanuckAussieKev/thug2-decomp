@@ -379,7 +379,7 @@ void CParkManager::RebuildInnerShell(GridDims bounds)
                 m_floor[x][z].m_height = 0;
         }
     }
-    mp_generator->UpdateBounds((m_flags & kMapLoaded) ? m_map.m_08 : 0);
+    mp_generator->UpdateBounds((m_flags & kMapLoaded) ? m_map.m_shellSize : 0);
     MarkProgress("RebuildInnerShell-End");
 }
 
@@ -453,5 +453,6 @@ REPLACE(0x0059B280, &Ed::CParkManager::UndoFloorChange);
 REPLACE(0x0059B2C0, &Ed::CParkManager::MoveRiserList);
 REPLACE(0x0059B320, &Ed::CParkManager::RebuildFloorPiece);
 REPLACE(0x0059BED0, &Ed::CParkManager::RebuildInnerShell);
-REPLACE(0x0059C520, &Ed::CParkManager::ChangeFloorHeight);
+REPLACE(0x0059C520, static_cast<bool (Ed::CParkManager::*)(Ed::GridDims, int, int, bool, bool)>(
+                         &Ed::CParkManager::ChangeFloorHeight));
 REPLACE(0x0059C600, &Ed::CParkManager::RebuildFloor);

@@ -1,6 +1,6 @@
 // The park editor's cursor: clipboards, area selection, the gap being built, keeping it in the park.
 
-#include "game/ed/cursor.h"
+#include "game/ed/park.h"
 
 #include "game/core/pool.h"
 #include "game/script/cscript.h"
@@ -28,24 +28,24 @@ CCursor* CCursor::sInstance() { return GameVariable<CCursor*>(0x007CE608); }
 void CCursor::HideClipboards()
 {
     for (CClipboard* clipboard = mp_clipboards; clipboard; clipboard = clipboard->mp_next)
-        clipboard->Hide();
+        clipboard->DestroyMetas();
 }
 
 void CCursor::SetGapNameAndScore(const char* name, int score)
 {
     if (name) {
         if (*name == '\0') {
-            m_gapInfo.m_text[0] = 'x';
-            m_gapInfo.m_text[1] = '\0';
+            m_gap.m_text[0] = 'x';
+            m_gap.m_text[1] = '\0';
         } else {
-            char* to = m_gapInfo.m_text;
+            char* to = m_gap.m_text;
             while ((*to++ = *name++) != '\0') { // (no length limit, as in the original)
             }
         }
     }
     if (score >= 0)
-        m_gapInfo.m_score = score;
-    SetGapInfo(m_gapInfo.m_tabIndex, &m_gapInfo);
+        m_gap.m_score = score;
+    SetGapInfo(m_gap.m_tabIndex, &m_gap);
 }
 
 void CCursor::SetGapCancelFlags(Script::CStruct* flags)
@@ -56,14 +56,14 @@ void CCursor::SetGapCancelFlags(Script::CStruct* flags)
     for (Script::CComponent* component = flags->GetNextComponent(nullptr); component;
          component = flags->GetNextComponent(component))
         cancel |= static_cast<uint32_t>(Script::GetInteger(component->checksum));
-    m_gapInfo.m_cancelFlags = cancel;
-    SetGapInfo(m_gapInfo.m_tabIndex, &m_gapInfo);
+    m_gap.m_cancelFlags = cancel;
+    SetGapInfo(m_gap.m_tabIndex, &m_gap);
 }
 
 void CCursor::ShowClipboard()
 {
-    if (mp_currentClipboard)
-        mp_currentClipboard->ShowAt(this);
+    if (mp_clipboard)
+        mp_clipboard->ShowAt(this);
 }
 
 void CCursor::SelectClipboard(int index)
@@ -72,26 +72,26 @@ void CCursor::SelectClipboard(int index)
     CClipboard* clipboard = mp_clipboards;
     for (int i = 0; i < index && clipboard; ++i)
         clipboard = clipboard->mp_next;
-    mp_currentClipboard = clipboard;
+    mp_clipboard = clipboard;
 }
 
 void CCursor::SetVisibility(bool visible)
 {
     if (mp_meta) // 0x005903A0: the pieces' visibility
         GameFunction<void(__thiscall*)(CMetaPiece*, bool)>(0x005903A0)(mp_meta, visible);
-    if (!visible && mp_currentClipboard)
-        mp_currentClipboard->Hide();
-    m_areaSelectDone = false;
+    if (!visible && mp_clipboard)
+        mp_clipboard->DestroyMetas();
+    m_areaHighlighted = false;
 }
 
-void CCursor::UpdateHelperText()
+void CCursor::OnModeChanged()
 {
     Script::CStruct params;
     params.Init();
     uint32_t mode;
     if (m_mode == kModeGapAdjust)
         mode = 0xE75A3A17; // gap_adjust
-    else if (m_mode == kModeGapRegular)
+    else if (m_mode == kModeGap)
         mode = 0x780A5CF3; // gap_regular
     else if (m_mode == kModeRailPlacement)
         mode = 0xFFD81C08; // rail_placement
@@ -104,19 +104,19 @@ void CCursor::UpdateHelperText()
 
 void CCursor::GetAreaSelectDims(GridDims* area)
 {
-    if (m_areaSelectState == 0) {
+    if (m_areaSelect == 0) {
         area->Set(0, 0, 0, 0, 0, 0);
         return;
     }
-    uint8_t lowX = m_areaCorner[0].x, highX = m_areaCorner[1].x;
+    uint8_t lowX = m_areaStart.x, highX = m_areaLast.x;
     if (highX < lowX) {
-        lowX = m_areaCorner[1].x;
-        highX = m_areaCorner[0].x;
+        lowX = m_areaLast.x;
+        highX = m_areaStart.x;
     }
-    uint8_t lowZ = m_areaCorner[0].z, highZ = m_areaCorner[1].z;
+    uint8_t lowZ = m_areaStart.z, highZ = m_areaLast.z;
     if (highZ < lowZ) {
-        lowZ = m_areaCorner[1].z;
-        highZ = m_areaCorner[0].z;
+        lowZ = m_areaLast.z;
+        highZ = m_areaStart.z;
     }
     area->x = lowX;
     area->z = lowZ;
@@ -126,7 +126,7 @@ void CCursor::GetAreaSelectDims(GridDims* area)
     area->l = static_cast<uint8_t>(highZ - lowZ + 1);
 }
 
-void CCursor::DestroyLastClipboard()
+void CCursor::RemoveOldestClipboard()
 {
     CClipboard* previous = nullptr;
     CClipboard* last = mp_clipboards;
@@ -144,10 +144,10 @@ void CCursor::DestroyLastClipboard()
         mp_clipboards = nullptr;
 }
 
-void CCursor::ForceInBounds()
+void CCursor::ClampToPark()
 {
-    const GridDims& bounds = mp_manager->m_parkNearBounds;
-    GridDims& pos = m_cellDims;
+    const GridDims& bounds = mp_manager->m_parkBounds;
+    GridDims& pos = m_cell_area;
     if (pos.x < bounds.x)
         pos.x = bounds.x;
     if (pos.w + pos.x > bounds.w + bounds.x)
@@ -157,12 +157,12 @@ void CCursor::ForceInBounds()
     if (pos.l + pos.z > bounds.l + bounds.z)
         pos.z = static_cast<uint8_t>(bounds.l - pos.l + bounds.z);
 
-    if (m_mode != kModePasteClipboard || !mp_currentClipboard)
+    if (m_mode != kModePaste || !mp_clipboard)
         return;
     // the pasted area (whose corner may be off the grid: signed) is pushed back inside too
     GridDims area;
     area.Set(0, 0, 0, 0, 0, 0);
-    mp_currentClipboard->GetArea(this, &area);
+    mp_clipboard->GetArea(this, &area);
     int last = bounds.w + bounds.x - 1;
     int shift = 0;
     if (static_cast<int8_t>(area.x) < bounds.x)
@@ -190,39 +190,39 @@ void CCursor::DestroyClipboards()
         CClipboard::Free(clipboard);
         clipboard = next;
     }
-    mp_currentClipboard = nullptr;
+    mp_clipboard = nullptr;
 }
 
-void CCursor::ForgetGapOnPiece(CMetaPiece* meta)
+void CCursor::ForgetGapAt(CMetaPiece* meta)
 {
-    GridDims area = meta->m_cellArea;
+    GridDims area = meta->m_cell_area;
     int half;
     GapInfo* gap = mp_manager->GetGapInfo(&area, &half);
     if (!gap)
         return;
-    if (m_gapInfo.m_numCompleteHalves != 1 ||
-        (gap->m_pos[0].x == m_gapInfo.m_pos[0].x && gap->m_pos[0].y == m_gapInfo.m_pos[0].y &&
-         gap->m_pos[0].z == m_gapInfo.m_pos[0].z))
-        m_gapInfo.m_numCompleteHalves = 0;
+    if (m_gap.m_numCompleteHalves != 1 ||
+        (gap->m_pos[0].x == m_gap.m_pos[0].x && gap->m_pos[0].y == m_gap.m_pos[0].y &&
+         gap->m_pos[0].z == m_gap.m_pos[0].z))
+        m_gap.m_numCompleteHalves = 0;
 }
 
 int CCursor::AdvanceAreaSelection()
 {
-    if (m_areaSelectState == 0) {
-        m_areaCorner[0] = m_cellDims;
-        m_areaCorner[1] = m_cellDims;
-        m_areaSelectState = 1;
-        m_areaSelectDone = false;
-        return m_areaSelectState;
+    if (m_areaSelect == 0) {
+        m_areaStart = m_cell_area;
+        m_areaLast = m_cell_area;
+        m_areaSelect = 1;
+        m_areaHighlighted = false;
+        return m_areaSelect;
     }
-    if (m_areaSelectState == 1) {
+    if (m_areaSelect == 1) {
         GridDims area;
         area.Set(0, 0, 0, 0, 0, 0);
         GetAreaSelectDims(&area);
         if (area.w <= 10 && area.l <= 10)
-            m_areaSelectState = 2;
+            m_areaSelect = 2;
     }
-    return m_areaSelectState;
+    return m_areaSelect;
 }
 
 } // namespace Ed
@@ -237,12 +237,12 @@ REPLACE(0x00595430, &CCursor::GetGapName);
 REPLACE(0x00595440, &CCursor::ShowClipboard);
 REPLACE(0x00595450, &CCursor::SelectClipboard);
 REPLACE(0x005954A0, &CCursor::SetVisibility);
-REPLACE(0x005954D0, &CCursor::UpdateHelperText);
+REPLACE(0x005954D0, &CCursor::OnModeChanged);
 REPLACE(0x005955C0, &Ed::CClipboard::Free);
 REPLACE(0x00597100, &CCursor::RestartAreaSelection);
 REPLACE(0x00597110, &CCursor::GetAreaSelectDims);
-REPLACE(0x00597190, &CCursor::DestroyLastClipboard);
-REPLACE(0x005971E0, &CCursor::ForceInBounds);
+REPLACE(0x00597190, &CCursor::RemoveOldestClipboard);
+REPLACE(0x005971E0, &CCursor::ClampToPark);
 REPLACE(0x005988A0, &CCursor::DestroyClipboards);
-REPLACE(0x00598940, &CCursor::ForgetGapOnPiece);
+REPLACE(0x00598940, &CCursor::ForgetGapAt);
 REPLACE(0x005989C0, &CCursor::AdvanceAreaSelection);

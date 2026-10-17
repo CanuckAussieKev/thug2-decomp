@@ -1,6 +1,6 @@
 // The park editor's piece menu.
 
-#include "game/ed/menu.h"
+#include "game/ed/piece_menu.h"
 
 #include "game/core/mem.h"
 #include "game/script/cscript.h"
@@ -11,8 +11,6 @@
 namespace Ed {
 
 namespace {
-
-CUpperMenuManager*& Instance() { return GameVariable<CUpperMenuManager*>(0x007CE60C); }
 
 void RunMenuScript(uint32_t script, Script::CStruct* params = nullptr)
 {
@@ -25,17 +23,17 @@ CUpperMenuManager* CUpperMenuManager::sInstance() { return Instance(); }
 
 void CUpperMenuManager::Create()
 {
-    if (Instance())
+    if (CUpperMenuManager::Instance())
         return;
     Mem::PushContext(Mem::BottomUpHeap());
     auto* menu = static_cast<CUpperMenuManager*>(Mem::New(sizeof(CUpperMenuManager)));
     if (menu) {
-        menu->m_unknown4 = 0;
-        menu->unknownC = 0;
-        menu->unknown8 = 0;
+        menu->mp_set = nullptr;
+        menu->m_selected = 0;
+        menu->m_setNumber = 0;
         menu->mp_manager = CParkManager::sInstance();
     }
-    Instance() = menu;
+    CUpperMenuManager::Instance() = menu;
     Mem::PopContext();
 }
 
@@ -45,7 +43,7 @@ void CUpperMenuManager::Enable()
     RunMenuScript(0xED885B50); // parked_make_set_menu
     for (int i = 0; i < mp_manager->m_numSets; ++i) {
         CPieceSet& set = mp_manager->m_sets[i];
-        if (!set.m_isUsed)
+        if (!set.m_visible)
             continue;
         Script::CStruct params;
         params.Init();
@@ -53,14 +51,14 @@ void CUpperMenuManager::Enable()
         RunMenuScript(0xA4F522E9, &params);       // parked_make_set_menu_item
         params.Clear();
     }
-    m_unknown4 = 0;
+    mp_set = nullptr;
 }
 
 void CUpperMenuManager::Disable()
 {
     RunMenuScript(0x5C7A3276); // parked_destroy_piece_menu
     RunMenuScript(0x6BF4AA3D); // parked_destroy_set_menu
-    m_unknown4 = 0;
+    mp_set = nullptr;
 }
 
 } // namespace Ed

@@ -220,7 +220,7 @@ void StandInCursor(StandIns& s)
         Record({0xCC70, CuRel(r.ecx), CuRel(r.args[0]), CuAreaAt(r.args[0]), r.args[1] & 0xFF});
         return g_cuMemoryOk || !(r.args[1] & 0xFF) ? 1u : 0u;
     });
-    s.At({0x0059CD20, AddressOf(&Ed::CParkManager::DestroyMetasInArea)}, 0x14, [](Regs& r) {
+    s.At({0x0059CD20, AddressOf(&Ed::CParkManager::DestroyMetasInAreaAndRebuild)}, 0x14, [](Regs& r) {
         Record({0xCD20, CuRel(r.ecx), CuArea(r, 0), r.args[2] & 0xFF, r.args[3] & 0xFF, r.args[4] & 0xFF});
         return static_cast<uint32_t>(g_cuVariant & 1);
     });
@@ -351,15 +351,15 @@ void SetUpCursor(int variant)
     cursor->At<bool>(0x55) = true;
     GapDescriptor& gap = cursor->Gap();
     std::memset(&gap, 0x11, sizeof(gap));
-    gap.numCompleteHalves = variant % 3 == 2 ? 1 : 0;
-    gap.loc[0] = {static_cast<uint8_t>(5 + variant % 2), 0, 6, 1, 1, 1};
+    gap.m_numCompleteHalves = variant % 3 == 2 ? 1 : 0;
+    gap.m_pos[0] = {static_cast<uint8_t>(5 + variant % 2), 0, 6, 1, 1, 1};
     std::memset(&g_cuGap, 0, sizeof(g_cuGap));
-    g_cuGap.loc[0] = {static_cast<uint8_t>(5 + ((variant / 2) % 2) * 50), 0, 6, 2, 1, 3};
-    g_cuGap.loc[1] = {static_cast<uint8_t>(variant % 4), 1, static_cast<uint8_t>((variant % 3) * 20), 2, 1, 3};
+    g_cuGap.m_pos[0] = {static_cast<uint8_t>(5 + ((variant / 2) % 2) * 50), 0, 6, 2, 1, 3};
+    g_cuGap.m_pos[1] = {static_cast<uint8_t>(variant % 4), 1, static_cast<uint8_t>((variant % 3) * 20), 2, 1, 3};
     for (int h = 0; h < 2; ++h) {
-        g_cuGap.rot[h] = variant + h * 5;
-        g_cuGap.leftExtent[h] = (variant * 2 + h) % 8 - 1;
-        g_cuGap.rightExtent[h] = (variant * 3 + h) % 8;
+        g_cuGap.m_rot[h] = variant + h * 5;
+        g_cuGap.m_leftExtent[h] = (variant * 2 + h) % 8 - 1;
+        g_cuGap.m_rightExtent[h] = (variant * 3 + h) % 8;
     }
     g_cuFull = variant % 7 == 6;
     g_cuFits = variant % 5 != 2;
@@ -435,7 +435,7 @@ void TestParkCursor()
             callBool(0x0059D240, &Cursor::PlacePiece);
             for (int extra : {0, 1}) { // (at the height limit, and one over)
                 SetUpCursor(variant);
-                cursor->Area().height = static_cast<uint8_t>(17 - g_cuHeight + extra);
+                cursor->Area().h = static_cast<uint8_t>(17 - g_cuHeight + extra);
                 callBool(0x0059D240, &Cursor::PlacePiece);
             }
             SetUpCursor(variant);

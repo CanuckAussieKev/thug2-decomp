@@ -25,6 +25,7 @@
 #include "game/obj/smtptr.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
+#include "hook/hook.h"
 #include "hook/log.h"
 #include "hook/selftest.h"
 #include "hook/standins.h"
@@ -97,16 +98,41 @@ uint32_t Norm(uint32_t value)
 
 // Stand in for the functions at `at`: record the address, ECX and `n` stack arguments (those whose bit is set in
 // `words` are GridDims halves: only their low 16 bits count), then return `result` (or the scripted value).
+// Our function registered at a game address (from the replacements' own table), or 0.
+uint32_t OursAt(uint32_t address)
+{
+    static std::map<uint32_t, void*> ours;
+    if (ours.empty()) {
+        for (const ArgumentSizeCheck& c : CheckArgumentSizes()) {
+            if (!c.replacement.fallback)
+                ours[c.replacement.address] = c.replacement.function;
+        }
+    }
+    // (game code outside the rewritten ranges that has source without a replacement)
+    if (address == 0x00591BE0)
+        return AddressOf(&Ed::CMapListNode::DestroyList);
+    if (address == 0x005914B0)
+        return AddressOf(&Ed::CMapListNode::Free);
+    auto it = ours.find(address);
+    return it == ours.end() ? 0u : Resolve(it->second);
+}
+
+// (the game's functions and ours: the park editor's code calls ours directly)
 void Rec(StandIns& s, std::initializer_list<uint32_t> at, uint16_t pop, int n, uint32_t words = 0,
          std::function<uint32_t(Regs&)> result = nullptr, bool noEcx = false)
 {
     uint32_t id = *at.begin();
-    s.At(at, pop, [=](Regs& r) {
+    void* thunk = s.Thunk(pop, [=](Regs& r) {
         Record({id, noEcx ? 0u : Norm(r.ecx)});
         for (int i = 0; i < n; ++i)
             Record({(words >> i) & 1 ? r.args[i] & 0xFFFF : Norm(r.args[i])});
         return result ? result(r) : Next(id);
     });
+    for (uint32_t address : at) {
+        s.Bytes(address, Branch(0xE9, address, thunk));
+        if (uint32_t ours = OursAt(address))
+            s.Bytes(ours, Branch(0xE9, ours, thunk));
+    }
 }
 
 void StandInGame(StandIns& s)
@@ -253,11 +279,11 @@ void StandInGame(StandIns& s)
     Rec(s, {0x00596980}, 0, 0);
     Rec(s, {0x00597BD0}, 4, 1, 0, [](Regs& r) {
         auto* gap = reinterpret_cast<GapInfo*>(r.args[0]);
-        Record({HashBytes(reinterpret_cast<uint8_t*>(gap), 0x24), Hash(gap->m_name),
-                static_cast<uint32_t>(gap->m_score), static_cast<uint32_t>(gap->m_numPlaced)});
+        Record({HashBytes(reinterpret_cast<uint8_t*>(gap), 0x24), Hash(gap->m_text),
+                static_cast<uint32_t>(gap->m_score), static_cast<uint32_t>(gap->m_numCompleteHalves)});
         // (+0x50 only comes from this version's maps; the older reader leaves it)
         if (g_world.manager.m_map.m_version == 0x4E24)
-            Record({static_cast<uint32_t>(gap->m_50)});
+            Record({static_cast<uint32_t>(gap->m_cancelFlags)});
         return 1u;
     });
     Rec(s, {0x005907B0}, 4, 1);
@@ -515,12 +541,12 @@ void BasicWorld()
     c.mp_clipboard = &w.clipboards[1];
     c.m_areaStart = GridDims::Make(3, 0, 4, 0, 0, 0);
     c.m_areaLast = GridDims::Make(30, 0, 20, 0, 0, 0);
-    c.m_gap.m_numPlaced = 0;
-    c.m_gap.m_gapIndex = 2;
-    w.gaps[0].m_numPlaced = 2;
-    w.gaps[0].ends[0].x = 0x66;
-    w.gaps[1].m_numPlaced = 1;
-    w.gaps[1].ends[0].l = 0x77;
+    c.m_gap.m_numCompleteHalves = 0;
+    c.m_gap.m_tabIndex = 2;
+    w.gaps[0].m_numCompleteHalves = 2;
+    w.gaps[0].m_pos[0].x = 0x66;
+    w.gaps[1].m_numCompleteHalves = 1;
+    w.gaps[1].m_pos[0].l = 0x77;
     GameVariable<CParkManager*>(0x007CE604) = &m;
     GameVariable<CCursor*>(0x007CE608) = &c;
     GameVariable<void*>(0x007D1800) = w.memManager;
@@ -652,7 +678,7 @@ void TestParkCursor()
                 g_script[0x00597740] = {U(&w.nodes[9])};
             if (mc.gap)
                 g_script[0x00597AC0] = {U(&w.gaps[0])};
-            w.cursor.m_gap.m_numPlaced = mc.placed;
+            w.cursor.m_gap.m_numCompleteHalves = mc.placed;
         }, [&](bool original) {
             return original ? Game<void(__thiscall*)(CCursor*, int, int)>(0x00598B60, Cur(), mc.dx, mc.dz)
                             : (Cur()->Move(mc.dx, mc.dz), 0u);
@@ -1007,9 +1033,9 @@ void TestParkManagerBuild()
             if (c) {
                 g_script[0x00597AC0] = {U(&w.gaps[0])};
                 g_script[0x00597AC0 + 1] = {static_cast<uint32_t>(c - 1)};
-                w.gaps[0].ends[0] = GridDims::Make(1, 2, 3, 4, 5, 6);
-                w.gaps[0].ends[1] = GridDims::Make(7, -8, 9, 10, 11, 12);
-                std::snprintf(w.gaps[0].m_name, sizeof(w.gaps[0].m_name), "gap name");
+                w.gaps[0].m_pos[0] = GridDims::Make(1, 2, 3, 4, 5, 6);
+                w.gaps[0].m_pos[1] = GridDims::Make(7, -8, 9, 10, 11, 12);
+                std::snprintf(w.gaps[0].m_text, sizeof(w.gaps[0].m_text), "gap name");
                 w.gaps[0].m_score = 250;
             }
             g_script[0x00595670] = {U(&w.metas[8])};
@@ -1026,7 +1052,7 @@ void TestParkManagerBuild()
             GameVariable<uint8_t>(0x0067F398) = 0x77;
             w.manager.m_05 = true;
             w.manager.m_flags = c == 1 ? 0x0Au : (c == 2 ? 0x1u : 0x4u);
-            w.manager.m_88 = 7;
+            w.manager.m_numAbstractMetas = 7;
             w.nodes[6].mp_meta = nullptr;
             if (c == 3)
                 w.manager.mp_gapManager = nullptr;
@@ -1060,7 +1086,7 @@ void TestParkManagerBuild()
             g_script[0x00476630] = {rc.players};
             g_script[0x00476630 + 1] = {rc.players ? 6u : 0u};
             w.manager.m_flags = rc.flags;
-            w.manager.m_map.m_08 = 0x1234;
+            w.manager.m_map.m_shellSize = 0x1234;
             w.manager.m_parkBuilt = rc.built;
             g_script[0x00476F60] = {rc.map};
             g_script[0x00476F60 + 1] = {U(w.arrays[0])};
@@ -1105,7 +1131,7 @@ void TestParkManagerBuild()
             map.m_z = 5;
             map.m_w = 30;
             map.m_l = 31;
-            map.m_08 = 0x2468;
+            map.m_shellSize = 0x2468;
             map.m_theme = 0xBEEF;
             map.m_maxPlayers = 6;
             for (int i = 0; i < kFloorSize * kFloorSize; ++i)
@@ -1338,7 +1364,7 @@ void TestParkFloor()
             for (int i = 0; i < 64; ++i)
                 g_script[0x00595670].push_back(U(&w.metas[4 + i % 6]));
             w.manager.m_flags = c ? 2 : 0;
-            w.manager.m_map.m_08 = 0x3344;
+            w.manager.m_map.m_shellSize = 0x3344;
         }, [&](bool original) {
             GridDims bounds = GridDims::Make(static_cast<uint8_t>(10 + c), 0, 12, static_cast<uint8_t>(29 + c), 0, 28);
             return original ? Game<void(__thiscall*)(CParkManager*, GridDims)>(0x0059BED0, Man(), bounds)

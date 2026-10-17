@@ -20,6 +20,16 @@ public:
     // selected piece focused, the slider and the name. (`unused`: the callers' second argument)
     void SetPieceSet(CPieceSet* set, int unused, int setNumber);
 
+    // upper_menu.cpp:
+    // 0x00595570 (the getter the game calls)
+    static CUpperMenuManager* sInstance();
+    // 0x00597400: create the instance (on the bottom-up heap) if there isn't one
+    static void Create();
+    // 0x00597490: build the piece menu and the set menu (an item for each shown piece set)
+    void Enable();
+    // 0x00595580: destroy both menus
+    void Disable();
+
     CParkManager* mp_manager; // +0x00
     CPieceSet* mp_set;        // +0x04: the set shown
     int m_setNumber;          // +0x08

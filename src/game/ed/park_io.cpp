@@ -1,7 +1,7 @@
 // The park editor's park set up from the scripts (palette, bounds, road mask, lights) and kept in compressed
 // form (the map that's saved and sent), the gaps attached to pieces, and the memory bar.
 
-#include "game/ed/park_manager.h"
+#include "game/ed/park.h"
 
 #include <cstring>
 
@@ -21,9 +21,9 @@ namespace {
 Mem::Heap* ParkHeap() { return GameVariable<Mem::Heap*>(0x007CE688); }
 
 // The cell size (120, 48, 120) and the grid's offset in cells used by the gap pieces (28).
-float CellWidth() { return GameVariable<float>(0x0064F41C); }
-float CellHeight() { return GameVariable<float>(0x0064F420); }
-float CellLength() { return GameVariable<float>(0x0064F424); }
+float CellSizeX() { return GameVariable<float>(0x0064F41C); }
+float CellSizeY() { return GameVariable<float>(0x0064F420); }
+float CellSizeZ() { return GameVariable<float>(0x0064F424); }
 float GapGridOffset() { return GameVariable<float>(0x0064F730); }
 
 // The park editor object (0x007CE5D8, 0x7C bytes): the value at +0x78 goes into the compressed map.
@@ -90,47 +90,47 @@ void CParkManager::SetUpAbstractMetas()
             meta->AddPiece(source, &pos, 0, false);
             uint32_t name = *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(source) + 4); // the source's name
             pieceNames[numPieceNames++] = name;
-            meta->m_flags |= CMetaPiece::kFlagSingle;
-            meta->m_nameChecksum = name;
+            meta->m_flags |= CMetaPiece::kSector;
+            meta->m_name_checksum = name;
             uint32_t special; // (left unset if there's none, as in the original)
             if (desc->GetChecksum(0xF176A9FD, &special, 0)) { // special_type
                 switch (special) {
                 case 0x2813AB8A: // gap_placement
-                    meta->m_flags |= CMetaPiece::kFlagGapPlacement;
+                    meta->m_flags |= CMetaPiece::kGap;
                     break;
                 case 0xFC26B6F4: // area_selection
-                    meta->m_flags |= CMetaPiece::kFlagAreaSelection;
+                    meta->m_flags |= CMetaPiece::kAreaSelect;
                     break;
                 case 0xFFD81C08: // rail_placement
-                    meta->m_flags |= CMetaPiece::kFlagRailPlacement;
+                    meta->m_flags |= CMetaPiece::kRailPlacement;
                     break;
                 case 0x48FA9C7B: // restart_1
-                    m_specialPieceNames[0] = single;
+                    m_restartPieces[0] = single;
                     break;
                 case 0x419183B2: // restart_multi
-                    m_specialPieceNames[1] = single;
+                    m_restartPieces[1] = single;
                     break;
                 case 0xE69AEFAF: // restart_horse
-                    m_specialPieceNames[2] = single;
+                    m_restartPieces[2] = single;
                     break;
                 case 0xA091CE25: // king_of_hill
-                    m_specialPieceNames[3] = single;
+                    m_restartPieces[3] = single;
                     break;
                 case 0x74B0F4E9: // red_flag
-                    m_specialPieceNames[4] = single;
-                    meta->m_flags |= CMetaPiece::kFlagRestart;
+                    m_restartPieces[4] = single;
+                    meta->m_flags |= CMetaPiece::kRestartFlag;
                     break;
                 case 0xC893ACF8: // green_flag
-                    m_specialPieceNames[5] = single;
-                    meta->m_flags |= CMetaPiece::kFlagRestart;
+                    m_restartPieces[5] = single;
+                    meta->m_flags |= CMetaPiece::kRestartFlag;
                     break;
                 case 0x40BDFA7E: // blue_flag
-                    m_specialPieceNames[6] = single;
-                    meta->m_flags |= CMetaPiece::kFlagRestart;
+                    m_restartPieces[6] = single;
+                    meta->m_flags |= CMetaPiece::kRestartFlag;
                     break;
                 case 0x3AE047FC: // yellow_flag
-                    m_specialPieceNames[7] = single;
-                    meta->m_flags |= CMetaPiece::kFlagRestart;
+                    m_restartPieces[7] = single;
+                    meta->m_flags |= CMetaPiece::kRestartFlag;
                     break;
                 }
             }
@@ -158,7 +158,7 @@ void CParkManager::SetUpAbstractMetas()
                 meta->AddPiece(source, &pos, rot, entry->ContainsFlag(0x0CD75A3Fu));
             }
             if (unslidable)
-                meta->m_flags |= CMetaPiece::kFlagUnslidable;
+                meta->m_flags |= CMetaPiece::kFloorLocked;
         } else if (desc->GetArray("ack", &pieces, 0)) { // made of other palette metapieces
             meta->Initialize(static_cast<int>(pieces->m_size));
             for (uint32_t i = 0; i < pieces->m_size; ++i) {
@@ -167,13 +167,13 @@ void CParkManager::SetUpAbstractMetas()
                 Script::CArray* at = nullptr;
                 entry->GetArray(0u, &at, 1);
                 CMetaPiece* part = nullptr;
-                for (CMapListNode* node = mp_abstractMetaList; node; node = node->mp_next) {
-                    if (node->GetMeta()->Cast()->m_nameChecksum == name) {
+                for (CMapListNode* node = mp_abstract_metas; node; node = node->mp_next) {
+                    if (node->GetMeta()->Cast()->m_name_checksum == name) {
                         part = node->GetMeta()->Cast();
                         break;
                     }
                 }
-                GridDims pos = part->m_cellArea; // (an unknown name crashes, as in the original)
+                GridDims pos = part->m_cell_area; // (an unknown name crashes, as in the original)
                 uint8_t z = ByteAt(at, 2);
                 uint8_t y = ByteAt(at, 1);
                 pos.x = ByteAt(at, 0);
@@ -185,16 +185,16 @@ void CParkManager::SetUpAbstractMetas()
                     meta, part, &pos, rot, entry->ContainsFlag(0x0CD75A3Fu));
             }
         }
-        if (desc->GetChecksum("name", &meta->m_nameChecksum, 0))
-            meta->m_flags &= ~CMetaPiece::kFlagSingle;
+        if (desc->GetChecksum("name", &meta->m_name_checksum, 0))
+            meta->m_flags &= ~CMetaPiece::kSector;
         if (desc->ContainsFlag("is_riser"))
-            meta->m_flags |= CMetaPiece::kFlagRiser;
+            meta->m_flags |= CMetaPiece::kInnerShell;
         if (desc->ContainsFlag("no_rails"))
-            meta->m_flags |= CMetaPiece::kFlagNoRails;
+            meta->m_flags |= CMetaPiece::kNoRails;
         CMapListNode* node = CMapListNode::Create();
         node->mp_meta = meta; // (out of memory crashes, as in the original)
-        node->mp_next = mp_abstractMetaList;
-        mp_abstractMetaList = node;
+        node->mp_next = mp_abstract_metas;
+        mp_abstract_metas = node;
         ++m_numAbstractMetas;
     }
 
@@ -202,8 +202,8 @@ void CParkManager::SetUpAbstractMetas()
     for (uint32_t i = 0; i < numPieceNames; ++i) {
         uint32_t name = pieceNames[i];
         bool found = false;
-        for (CMapListNode* node = mp_abstractMetaList; node; node = node->mp_next) {
-            if (node->GetMeta()->Cast()->m_nameChecksum == name) {
+        for (CMapListNode* node = mp_abstract_metas; node; node = node->mp_next) {
+            if (node->GetMeta()->Cast()->m_name_checksum == name) {
                 found = true;
                 break;
             }
@@ -217,50 +217,50 @@ void CParkManager::SetUpAbstractMetas()
         pos.Set(0, 0, 0, 0, 0, 0);
         GetCellDims(source, &pos);
         meta->AddPiece(source, &pos, 0, false);
-        meta->m_nameChecksum = name;
-        meta->m_flags |= CMetaPiece::kFlagSingle;
+        meta->m_name_checksum = name;
+        meta->m_flags |= CMetaPiece::kSector;
         CMapListNode* node = CMapListNode::Create();
         node->mp_meta = meta;
-        node->mp_next = mp_abstractMetaList;
-        mp_abstractMetaList = node;
+        node->mp_next = mp_abstract_metas;
+        mp_abstract_metas = node;
         ++m_numAbstractMetas;
     }
 }
 
 void CParkManager::WriteCompressedMap()
 {
-    if (m_compressedMapFlags & kMapNewerThanPark)
+    if (m_flags & kMapNewerThanPark)
         return;
-    CompressedMap& map = m_compressedMap;
+    CompressedMap& map = m_map;
     std::memset(&map, 0, sizeof(map));
     Script::CArray* saveNames = Script::GetArray("Ed_Save_Map"); // the palette names, by save index
     uint32_t numNames = saveNames->m_size;
     map.m_version = CompressedMap::kVersion;
-    map.m_theme = static_cast<uint16_t>(m_theme);
-    map.unknownA = 0;
-    map.m_x = m_parkNearBounds.x;
-    map.m_z = m_parkNearBounds.z;
-    map.m_w = m_parkNearBounds.w;
-    map.m_l = m_parkNearBounds.l;
-    map.m_unknown18 = EditorValue78();
+    map.m_shellSize = static_cast<uint16_t>(m_shellSize);
+    map.unknown0A = 0;
+    map.m_x = m_parkBounds.x;
+    map.m_z = m_parkBounds.z;
+    map.m_w = m_parkBounds.w;
+    map.m_l = m_parkBounds.l;
+    map.m_theme = EditorValue78();
     map.m_maxPlayers = GeneratorMaxPlayers(mp_generator);
-    char* to = map.m_parkName;
+    char* to = map.m_name;
     for (const char* from = m_parkName; (*to++ = *from++) != '\0';) {
     }
-    uint8_t* out = map.m_data;
-    for (int x = 0; x < kFloorMaxWidth; ++x)
-        for (int z = 0; z < kFloorMaxLength; ++z)
+    auto* out = reinterpret_cast<uint8_t*>(map.m_floorHeights);
+    for (int x = 0; x < kFloorSize; ++x)
+        for (int z = 0; z < kFloorSize; ++z)
             *out++ = static_cast<uint8_t>(m_floor[x][z].m_height);
 
     int numMetas = 0;
-    for (CMapListNode* node = mp_concreteMetaList; node; node = node->mp_next) {
+    for (CMapListNode* node = mp_concrete_metas; node; node = node->mp_next) {
         CMetaPiece* meta = node->GetMeta()->Cast();
         uint32_t flags = meta->m_flags;
-        if ((flags & CMetaPiece::kFlagRiser) || (flags & CMetaPiece::kFlag100) || !(flags & CMetaPiece::kFlagInPark))
+        if ((flags & CMetaPiece::kInnerShell) || (flags & CMetaPiece::kFence) || !(flags & CMetaPiece::kInPark))
             continue;
-        GridDims at = meta->m_cellArea;
+        GridDims at = meta->m_cell_area;
         uint32_t index = 0;
-        while (index < numNames && saveNames->GetElement(index) != meta->m_nameChecksum)
+        while (index < numNames && saveNames->GetElement(index) != meta->m_name_checksum)
             ++index;
         if (index >= numNames)
             continue;
@@ -305,29 +305,29 @@ void CParkManager::WriteCompressedMap()
         out += 0x30;
     }
     map.m_size = static_cast<uint16_t>(out - reinterpret_cast<uint8_t*>(&map));
-    if (!(m_compressedMapFlags & (kMapValid | kMapNewerThanPark)))
-        m_compressedMapFlags |= kMapNotSavedLocal;
-    m_compressedMapFlags = (m_compressedMapFlags & ~kMapNewerThanPark) | kMapValid | kMapInSync;
+    if (!(m_flags & (kMapValid | kMapNewerThanPark)))
+        m_flags |= kMapNotSavedLocal;
+    m_flags = (m_flags & ~kMapNewerThanPark) | kMapValid | kMapInSync;
     map.m_checksum = Crc::GenerateCRCFromBuffer(&map.m_size, sizeof(map) - 4);
 }
 
 void CParkManager::SetDefaultBounds()
 {
     int inner = Script::GetInteger("ed_default_inner_dim"); // (0x004790C0, asserting)
-    m_parkFarBounds.Set(1, -4, 1, 56, 8, 56);
+    m_shellBounds.Set(1, -4, 1, 56, 8, 56);
     uint8_t corner = static_cast<uint8_t>((56 - inner) / 2 + 1);
-    m_parkNearBounds.Set(corner, -4, corner, static_cast<uint8_t>(inner), 8, static_cast<uint8_t>(inner));
+    m_parkBounds.Set(corner, -4, corner, static_cast<uint8_t>(inner), 8, static_cast<uint8_t>(inner));
 }
 
 void CParkManager::SetUpRoadMask()
 {
     Script::CArray* roads = Script::GetArray("Ed_Roadmask");
-    m_roadMaskLength = roads->m_size;
+    m_numBlockedAreas = roads->m_size;
     // (the first four rectangles are set elsewhere; this reads the array from element 4, past its end, as the
     // original does)
-    for (uint32_t i = 4; i < m_roadMaskLength + 4; ++i) {
+    for (uint32_t i = 4; i < m_numBlockedAreas + 4; ++i) {
         auto* rect = reinterpret_cast<Script::CArray*>(roads->GetElement(i));
-        GridDims& mask = (&m_roadMask[0])[i]; // (past the eighth: over the length itself, as in the original)
+        GridDims& mask = (&m_blockedAreas[0])[i]; // (past the eighth: over the length itself, as in the original)
         *mask.Byte(0) = ByteAt(rect, 0);
         *mask.Byte(2) = ByteAt(rect, 1);
         *mask.Byte(3) = ByteAt(rect, 2);
@@ -335,7 +335,7 @@ void CParkManager::SetUpRoadMask()
         *mask.Byte(1) = 0;
         mask.MakeInfiniteOnY();
     }
-    m_roadMaskLength += 4;
+    m_numBlockedAreas += 4;
 }
 
 void CParkManager::SetUpLights()
@@ -360,9 +360,9 @@ void CParkManager::SetUpLights()
     for (int i = 0; i < static_cast<int>(positions->m_size); ++i) {
         auto* v = reinterpret_cast<float*>(positions->GetElement(static_cast<uint32_t>(i))); // a CVector (x at +4)
         Mth::Vector pos;
-        pos.x = CellWidth() * v[1];
-        pos.y = CellHeight() * v[2];
-        pos.z = CellLength() * v[3];
+        pos.x = CellSizeX() * v[1];
+        pos.y = CellSizeY() * v[2];
+        pos.z = CellSizeZ() * v[3];
         pos.w = 1.0f;
         GameFunction<void(__thiscall*)(void*, Mth::Vector*, int)>(0x00592FE0)(mp_generator, &pos, i);
     }
@@ -392,21 +392,21 @@ void CParkManager::UpdatePercentBar()
     }
 }
 
-void CParkManager::WriteCompressedMapIfChanged()
+void CParkManager::WriteCompressedMapIfBuilt()
 {
-    if (m_parkChanged)
+    if (m_parkBuilt)
         WriteCompressedMap();
 }
 
 void CParkManager::WriteIntoStructure(Script::CStruct* out)
 {
-    if (m_parkChanged)
+    if (m_parkBuilt)
         WriteCompressedMap();
-    m_compressedMapFlags &= ~kMapNotSavedLocal;
+    m_flags &= ~kMapNotSavedLocal;
     Script::CArray* memory = Script::NewArray();
     Script::CArray* map = memory ? memory->Init() : nullptr;
     map->SetSizeAndType(0xEA6, Script::ESYMBOLTYPE_INTEGER); // (out of memory crashes, as in the original)
-    const auto* words = reinterpret_cast<const uint32_t*>(&m_compressedMap);
+    const auto* words = reinterpret_cast<const uint32_t*>(&m_map);
     for (uint32_t i = 0; i < 0xEA6; ++i)
         map->SetElement(i, words[i]);
     out->AddArrayPointer(0x337C5289u, map); // Park_editor_map
@@ -422,37 +422,37 @@ void CParkManager::WriteIntoStructure(Script::CStruct* out)
     out->AddInteger(0xB7E39B53u, GeneratorMaxPlayers(mp_generator)); // MaxPlayers
 }
 
-void CParkManager::SetTheme(int theme)
+void CParkManager::SetShellSize(int theme)
 {
-    m_theme = theme;
+    m_shellSize = theme;
     WriteCompressedMap();
 }
 
 void CParkManager::ClearCompressedMap()
 {
     SetDefaultBounds();
-    CompressedMap& map = m_compressedMap;
+    CompressedMap& map = m_map;
     map.m_version = CompressedMap::kVersion;
-    map.m_theme = static_cast<uint16_t>(m_theme);
-    map.unknownA = 0;
-    map.m_x = m_parkNearBounds.x;
-    map.m_z = m_parkNearBounds.z;
-    map.m_w = m_parkNearBounds.w;
-    map.m_l = m_parkNearBounds.l;
-    map.m_unknown18 = GameVariable<void*>(0x007CE5D8) ? EditorValue78() : 0;
+    map.m_shellSize = static_cast<uint16_t>(m_shellSize);
+    map.unknown0A = 0;
+    map.m_x = m_parkBounds.x;
+    map.m_z = m_parkBounds.z;
+    map.m_w = m_parkBounds.w;
+    map.m_l = m_parkBounds.l;
+    map.m_theme = GameVariable<void*>(0x007CE5D8) ? EditorValue78() : 0;
     map.m_maxPlayers = 2;
-    std::memcpy(map.m_parkName, reinterpret_cast<const void*>(0x0064F734), 13); // "Unnamed park"
-    std::memset(map.m_data, 0, kFloorMaxWidth * kFloorMaxLength);
+    std::memcpy(map.m_name, reinterpret_cast<const void*>(0x0064F734), 13); // "Unnamed park"
+    std::memset(map.m_floorHeights, 0, kFloorSize * kFloorSize);
     map.m_numMetas = 0;
-    uint32_t used = offsetof(CompressedMap, m_data) + kFloorMaxWidth * kFloorMaxLength;
+    uint32_t used = offsetof(CompressedMap, m_floorHeights) + kFloorSize * kFloorSize;
     // (the checksum is taken before the size and the gap count are set, as in the original)
     uint32_t checksum = Crc::GenerateCRCFromBuffer(&map.m_size, static_cast<int>(used - 4));
     map.m_size = static_cast<uint16_t>(used);
     map.m_checksum = checksum;
     map.m_numGaps = 0;
-    if (!(m_compressedMapFlags & (kMapValid | kMapNewerThanPark)))
-        m_compressedMapFlags |= kMapNotSavedLocal;
-    m_compressedMapFlags = (m_compressedMapFlags & ~kMapNewerThanPark) | kMapValid | kMapInSync;
+    if (!(m_flags & (kMapValid | kMapNewerThanPark)))
+        m_flags |= kMapNotSavedLocal;
+    m_flags = (m_flags & ~kMapNewerThanPark) | kMapValid | kMapInSync;
 }
 
 bool CParkManager::AddGap(GapInfo* gap)
@@ -469,17 +469,17 @@ bool CParkManager::AddGap(GapInfo* gap)
         pos.w = 1;
         pos.h = 1;
         pos.l = 1;
-        CMapListTemp metas(GetAreaMetaPieces(pos, 0, nullptr, true));
-        if (!metas.GetList())
+        MapListHolder metas(GetIntersectingMetas(pos, 0, nullptr, true));
+        if (!metas.list)
             return false;
-        CMetaPiece* meta = metas.GetList()->GetMeta()->Cast();
-        meta->m_flags |= CMetaPiece::kFlagInGap;
-        pos = meta->m_cellArea;
-        GridDims d = meta->m_cellArea;
+        CMetaPiece* meta = metas.list->GetMeta()->Cast();
+        meta->m_flags |= CMetaPiece::kHighlightable;
+        pos = meta->m_cell_area;
+        GridDims d = meta->m_cell_area;
         // 0x0058CBF0: the gap's length on this half
         float length = GameFunction<float(__thiscall*)(GapInfo*, int)>(0x0058CBF0)(gap, half);
-        const double w = CellWidth(), l = CellLength();
-        const double y = static_cast<double>(d.y) * CellHeight();
+        const double w = CellSizeX(), l = CellSizeZ();
+        const double y = static_cast<double>(d.y) * CellSizeY();
         int alongX = 0;
         float x = at.x;
         double z = at.z;
@@ -527,19 +527,19 @@ void CParkManager::RemoveGap(GapInfo* gap)
 {
     CMetaPiece* halves[2]; // (unset for a half with nothing there, as in the original)
     for (int half = 0; half < gap->m_numCompleteHalves; ++half) {
-        CMapListTemp metas(GetAreaMetaPieces(gap->m_pos[half], 0, nullptr, true));
-        if (metas.GetList()->mp_next)
-            PrintMapList(metas.GetList());
-        for (CMapListNode* node = metas.GetList(); node; node = node->mp_next) {
+        MapListHolder metas(GetIntersectingMetas(gap->m_pos[half], 0, nullptr, true));
+        if (metas.list->mp_next)
+            PrintMapList(metas.list);
+        for (CMapListNode* node = metas.list; node; node = node->mp_next) {
             CMetaPiece* meta = node->GetMeta()->Cast();
             halves[half] = meta;
-            const GridDims& d = meta->m_cellArea;
+            const GridDims& d = meta->m_cell_area;
             if (d.x == gap->m_pos[half].x && d.y == gap->m_pos[half].y && d.z == gap->m_pos[half].z)
                 break;
         }
         CMetaPiece* meta = halves[half];
         GameFunction<void(__thiscall*)(CMetaPiece*, bool, int)>(0x00591A50)(meta, false, 0); // not highlighted
-        meta->m_flags &= ~CMetaPiece::kFlagInGap;
+        meta->m_flags &= ~CMetaPiece::kHighlightable;
     }
     int index;
     // CGapManager: the gap of the first half (0x0058CA10), removed (0x0058CDF0)
@@ -554,7 +554,7 @@ void CParkManager::PrintMapList(const CMapListNode* list)
     Dbg::Printf(reinterpret_cast<const char*>(0x0064F404));
     for (const CMapListNode* node = list; node; node = node->mp_next) {
         Dbg::Printf(reinterpret_cast<const char*>(0x0064F3F0), node->mp_meta);
-        const GridDims& d = node->mp_meta->m_cellArea;
+        const GridDims& d = node->mp_meta->m_cell_area;
         Dbg::Printf(reinterpret_cast<const char*>(0x0064F394), d.x, static_cast<int>(d.y), d.z, d.w, d.h, d.l);
     }
 }
@@ -569,9 +569,9 @@ REPLACE(0x00596CD0, &CParkManager::SetDefaultBounds);
 REPLACE(0x00596D50, &CParkManager::SetUpRoadMask);
 REPLACE(0x00596E50, &CParkManager::SetUpLights);
 REPLACE(0x00596FB0, &CParkManager::UpdatePercentBar);
-REPLACE(0x005975A0, &CParkManager::WriteCompressedMapIfChanged);
+REPLACE(0x005975A0, &CParkManager::WriteCompressedMapIfBuilt);
 REPLACE(0x005975B0, &CParkManager::WriteIntoStructure);
-REPLACE(0x00597720, &CParkManager::SetTheme);
+REPLACE(0x00597720, &CParkManager::SetShellSize);
 REPLACE(0x005987A0, &CParkManager::ClearCompressedMap);
 REPLACE(0x00597BD0, &CParkManager::AddGap);
 REPLACE(0x00597FC0, &CParkManager::RemoveGap);

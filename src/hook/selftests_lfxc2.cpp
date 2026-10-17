@@ -189,12 +189,12 @@ void SetUpParkEditor(int variant)
     manager->NumSets() = 7;
     for (int i = 0; i < 7; ++i) {
         Ed::PieceSet& set = Ed::Sets(manager)[i];
-        set.visible = ((variant >> (i % 5)) & 1) || i == 4;
-        set.isClipboardSet = i == 2 || i == 5;
-        set.numEntries = 3 + i;
-        set.selected = (i * 2 + variant) % set.numEntries;
+        set.m_visible = ((variant >> (i % 5)) & 1) || i == 4;
+        set.m_isClipboard = i == 2 || i == 5;
+        set.m_numEntries = 3 + i;
+        set.m_selected = (i * 2 + variant) % set.m_numEntries;
         for (int e = 0; e < 40; ++e)
-            set.entries[e].type = 0x7E000000u + i * 0x100 + e;
+            set.m_entries[e].checksum = 0x7E000000u + i * 0x100 + e;
     }
     for (int i = 0; i < 12; ++i) {
         uint8_t* meta = g_edMetas[i];
@@ -274,7 +274,7 @@ void TestParkEditor()
             SetUpParkEditor(variant);
             bool destroyed = original ? Original<bool(__thiscall*)(Manager*, GridDims, bool, bool, bool)>(0x0059CD20)(
                                             manager, area, flags[0], flags[1], flags[2])
-                                      : manager->DestroyMetasInArea(area, flags[0], flags[1], flags[2]);
+                                      : manager->DestroyMetasInAreaAndRebuild(area, flags[0], flags[1], flags[2]);
             Record({0xCD20, destroyed ? 1u : 0u});
             RecordParkEditor();
             SetUpParkEditor(variant);

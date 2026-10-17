@@ -79,3 +79,27 @@ strings.
     metapieces, a non-matching metapiece in front of the gap's own), 1 didn't build, 3 equivalent (moving the
     gap count after an already-taken CRC; rounding case 1's z to float - always an exact integer there; float
     vs double division of the gap length - differs only on double-rounding cases the random lengths don't hit).
+- [x] Park editor types unified (lfx-a + lfx-b + lfx-c): main (with lfx-c) and lfx-b's branch merged into lfx-a;
+  one definition of each type in src/game/ed/park.h (lfx-b's layouts, with lfx-a's fields and methods and
+  lfx-c's offset accessors added); src/game/park/park_editor.h now only includes it; my old headers
+  (ed/park_manager.h, ed/cursor.h, ed/menu.h) are gone, CUpperMenuManager is in ed/piece_menu.h. My sources were
+  renamed (ed/park_accessors.cpp, ed/cursor_tools.cpp, ed/park_lists.cpp, ed/upper_menu.cpp, park_io.cpp).
+  - Names settled: where lfx-b already called one of my functions through its address, its name was kept
+    (GetIntersectingMetas 0x597740, GetAreaMetaPieces 0x597A00, BuildRiserList 0x5984A0, RestoreFloorHeights
+    0x5952B0, ClearFloorChangeMarks 0x595D40, IsAreaBlocked 0x595B30, HasFloorLockedMeta 0x5983D0,
+    SetMetaInCells 0x598150, ClampToPark 0x5971E0, OnModeChanged 0x5954D0, ForgetGapAt 0x598940,
+    RemoveOldestClipboard 0x597190, GetAreaSelectDims). Corrected: 0x5987A0 is ClearCompressedMap (not the piece
+    sets), 0x595EE0/0x595FC0 are AddMetaToCells/RemoveMetaFromCells (the cell lists, not the floor), the
+    CParkManager +0x351C / compressed map +0x08 value is the shell size (sk5ed%d_shell; GetShellSize 0x5950B0,
+    SetShellSize 0x597720) and the map's +0x18 is the theme (the park editor's +0x78). GapInfo keeps lfx-a's
+    field names (m_pos, m_rot, m_leftExtent, m_rightExtent, m_text, m_score, m_numCompleteHalves, m_tabIndex,
+    m_cancelFlags); GapDescriptor and PieceSet are aliases. lfx-c's GridDims width/height/length became w/h/l,
+    its 0x59CD20 is DestroyMetasInAreaAndRebuild (lfx-b's 0x599880 keeps DestroyMetasInArea); the two
+    ChangeFloorHeight overloads (0x59C520, 0x59D080) are registered with static_casts.
+  - CMapListNode::DestroyList (0x591BE0, source only) is __fastcall (the list in ECX, as the original's thiscall);
+    MapListHolder frees only a non-null list (as 0x591C60); GetIntersectingMetas' last argument is a uint32_t
+    passed on whole to CMetaPiece::Intersects (the original pushes the whole register).
+  - lfx-b's tests: their stand-ins (Rec) now also patch our functions at those addresses (from the replacement
+    table, plus DestroyList/Free), since lfx-b's code calls the rewritten functions directly now.
+  - Checks: 1595 replacements, 0 MISMATCHED; 190 early self-tests pass; check_code_writes no overlaps;
+    audit_game_function_calls no MISMATCH; scan_register_assumptions only the known 0x4EFF92.

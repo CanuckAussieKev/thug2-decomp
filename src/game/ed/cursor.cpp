@@ -114,7 +114,7 @@ void CCursor::Move(int dx, int dz)
         GridDims pos = metas.list->GetConcreteMeta()->m_cell_area;
         int half;
         if (GapInfo* gap = mp_manager->GetGapInfo(&pos, &half)) {
-            if (m_gap.m_numPlaced != 1)
+            if (m_gap.m_numCompleteHalves != 1)
                 m_gap = *gap;
             mode = kModeGapAdjust;
         }
@@ -123,7 +123,7 @@ void CCursor::Move(int dx, int dz)
         m_mode = mode;
         OnModeChanged();
     }
-    if (m_gap.m_numPlaced > 0) {
+    if (m_gap.m_numCompleteHalves > 0) {
         mp_manager->HighlightGapPieces(1, &m_gap);
     } else {
         CParkManager* manager = mp_manager;
@@ -434,13 +434,13 @@ CCursor* CCursor::Construct()
     m_moveTime = 1.0f;
     m_clipboardSet = 0;
     m_menuIndex = 0;
-    m_gap.m_numPlaced = 0;
-    m_gap.m_50 = 0;
+    m_gap.m_numCompleteHalves = 0;
+    m_gap.m_cancelFlags = 0;
     m_mode = kModeNone;
     mp_manager = CParkManager::Instance();
     CPieceSet* set = mp_manager->GetPieceSet(0, &m_menuIndex);
     ChangePiece(set->m_entries[set->m_selected].checksum);
-    m_C4 = 1;
+    m_gapCounter = 1;
     return this;
 }
 

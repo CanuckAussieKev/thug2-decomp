@@ -114,7 +114,7 @@ void CParkManager::ReadFromStructure(Script::CStruct* params, bool applyToEditor
     params->GetInteger(kMaxPlayers, &maxPlayers, 0);
     Instance()->mp_generator->SetMaxPlayers(maxPlayers);
 
-    uint16_t mapSize = (m_flags & kMapLoaded) ? m_map.m_08 : 0;
+    uint16_t mapSize = (m_flags & kMapLoaded) ? m_map.m_shellSize : 0;
     if (m_parkBuilt)
         WriteCompressedMap();
     Script::CArray* map = nullptr;
@@ -205,14 +205,14 @@ void CParkManager::ReadCompressedMap(Script::CArray* names, bool current)
     m_parkBounds.z = m_map.m_z;
     m_parkBounds.w = m_map.m_w;
     m_parkBounds.l = m_map.m_l;
-    m_351C = m_map.m_08;
+    m_shellSize = m_map.m_shellSize;
     SetTheme(m_map.m_theme);
     mp_generator->SetMaxPlayers(m_map.m_maxPlayers);
     const int8_t* heights = m_map.m_floorHeights;
     for (int x = 0; x < kFloorSize; ++x) {
         for (int z = 0; z < kFloorSize; ++z) {
             m_floor[x][z].m_height = *heights++;
-            m_floor[x][z].unknown4 = 0;
+            m_floor[x][z].m_heightsUsed = 0;
         }
     }
 
@@ -239,19 +239,19 @@ void CParkManager::ReadCompressedMap(Script::CArray* names, bool current)
     for (int i = 0; i < m_map.m_numGaps; ++i, gap += gapSize) {
         GapInfo info = {};
         for (int end = 0; end < 2; ++end) {
-            info.ends[end] = GridDims::Make(0, 0, 0, 0, 0, 0);
-            info.ends[end].x = gap[end];
-            info.ends[end].y = static_cast<int8_t>(gap[2 + end] - 8);
-            info.ends[end].z = gap[4 + end];
-            info.m_0C[end] = (gap[8] >> (end * 4)) & 0xF;
-            info.m_14[end] = gap[6 + end] >> 4;
-            info.m_1C[end] = gap[6 + end] & 0xF;
+            info.m_pos[end] = GridDims::Make(0, 0, 0, 0, 0, 0);
+            info.m_pos[end].x = gap[end];
+            info.m_pos[end].y = static_cast<int8_t>(gap[2 + end] - 8);
+            info.m_pos[end].z = gap[4 + end];
+            info.m_rot[end] = (gap[8] >> (end * 4)) & 0xF;
+            info.m_leftExtent[end] = gap[6 + end] >> 4;
+            info.m_rightExtent[end] = gap[6 + end] & 0xF;
         }
-        CopyString(info.m_name, reinterpret_cast<const char*>(gap + 0xA));
+        CopyString(info.m_text, reinterpret_cast<const char*>(gap + 0xA));
         info.m_score = *reinterpret_cast<const uint16_t*>(gap + 0x2A);
-        info.m_numPlaced = 2;
+        info.m_numCompleteHalves = 2;
         if (current)
-            info.m_50 = *reinterpret_cast<const uint32_t*>(gap + 0x2C);
+            info.m_cancelFlags = *reinterpret_cast<const uint32_t*>(gap + 0x2C);
         AddGap(&info);
     }
     m_flags = (m_flags & ~kMapSaved) | kMapUpToDate;
@@ -265,7 +265,7 @@ void CParkManager::ResetPark()
         for (int x = 0; x < kFloorSize; ++x) {
             FloorCell& cell = m_floor[x][z];
             cell.m_height = 0;
-            cell.unknown4 = 0;
+            cell.m_heightsUsed = 0;
             cell.m_touched = false;
             cell.m_delta = 0;
         }

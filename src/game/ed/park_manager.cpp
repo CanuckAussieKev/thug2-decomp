@@ -38,13 +38,13 @@ CParkManager* CParkManager::Construct()
     mp_concrete_metas = nullptr;
     mp_abstract_metas = nullptr;
     m_numConcreteMetas = 0;
-    m_88 = 0;
+    m_numAbstractMetas = 0;
     std::memset(m_cellMetas, 0, sizeof(m_cellMetas));
     m_parkBuilt = false;
     m_flags = 0;
     m_05 = false;
     mp_gapManager = nullptr;
-    m_177C8 = 0;
+    mp_gapManagerCopy = nullptr;
     // The shell's blocks of each of the 8 kinds.
     for (int i = 1; i <= 8; ++i) {
         char name[128];
@@ -55,8 +55,8 @@ CParkManager* CParkManager::Construct()
         std::snprintf(name, sizeof(name), "floor_block%d", i);
         m_shellBlocks[i - 1][2] = Crc::GenerateCRCFromString(name);
     }
-    m_351C = 0;
-    SetUpPieceSets();
+    m_shellSize = 0;
+    ClearCompressedMap();
     mp_riserList = nullptr;
     m_parkName[0] = '\0';
     m_74 = 0;
@@ -121,7 +121,7 @@ void CParkManager::AddMetaPieceToPark(GridDims pos, CMetaPiece* meta)
         mp_generator->AddCollision(piece);
     }
     SetMetaInCells(meta, 1);
-    AddMetaToFloor(meta);
+    AddMetaToCells(meta);
     for (int player = 1; player < 9; ++player) {
         if (meta->m_name_checksum == m_restartPieces[player - 1]) {
             mp_generator->AddRestart(&origin, meta->m_rot, &pos, player, 0, 0);
@@ -184,11 +184,11 @@ void CParkManager::DestroyConcreteMeta(CMetaPiece* meta, uint32_t flags)
     if (!(meta->m_flags & CMetaPiece::kInnerShell) && (flags & 1)) {
         GridDims above = meta->m_cell_area;
         above.y = static_cast<int8_t>(above.h + above.y);
-        above.MakeInfinitelyHigh();
+        above.MakeInfiniteOnY();
         DestroyMetasInArea(above, 3);
     }
     SetMetaInCells(meta, 0);
-    RemoveMetaFromFloor(meta);
+    RemoveMetaFromCells(meta);
     RemoveMetaFromList(meta, &mp_concrete_metas);
     for (int player = 1; player < 9; ++player) {
         if (meta->m_name_checksum == m_restartPieces[player - 1]) {
@@ -237,7 +237,7 @@ CMetaPiece* CParkManager::RelocateMetaPiece(CMetaPiece* meta, int dx, int dy, in
         moved = *gap;
         hadGap = true;
         RemoveGap(gap);
-        GridDims& end = moved.ends[half];
+        GridDims& end = moved.m_pos[half];
         end.x = static_cast<uint8_t>(end.x + dx);
         end.y = static_cast<int8_t>(end.y + dy);
         end.z = static_cast<uint8_t>(end.z + dz);
@@ -270,7 +270,7 @@ void CParkManager::Destroy(int keepRails)
         if (meta)
             meta->Delete();
     }
-    m_88 = 0;
+    m_numAbstractMetas = 0;
     DestroyConcreteMetas(keepRails);
     mp_generator->CleanUp(keepRails);
     m_parkBuilt = false;
