@@ -14,9 +14,11 @@
 #include <vector>
 
 #include "game/front/menu_backdrop.h"
+#include "game/front/screen_element.h"
 #include "game/gfx/camera.h"
 #include "game/gfx/screen.h"
 #include "game/script/struct.h"
+#include "hook/game.h"
 #include "hook/log.h"
 
 namespace Front::MenuLevel {
@@ -201,6 +203,44 @@ void UpdateZoomKeys()
     }
 }
 
+// The main menu's ring of items (2D screen elements laid out for the unzoomed wheel) scaled with the zoom: a field
+// of view's zoom scales the 3D picture about the screen's centre (the 640 x 480 layout's (320, 240)), so the ring's
+// two parts - the items' menu main_vmenu (at spin_menu_pos (46, 214); the items are its children) and the
+// highlight bar roundbar_bar (build_roundbar: spin_menu_pos + (60, -3)) - get that scale and their positions moved
+// to centre + (position - centre) * zoom. (Not their container main_menu: the helper bar is in it too.) Set with
+// DoScreenElementMorph (time 0) when an element is at rest - drawn at scale 1 (just made) or at the zoom set before
+// (the keys changed it); animations (scale morphs) are left alone.
+void ScaleMainMenu(float zoom)
+{
+    constexpr uint32_t kId = 0x40C698AF, kScale = 0x13B9DA7B, kTime = 0x906B67BA, kPos = 0x7F261953;
+    struct Part {
+        uint32_t id;
+        float x, y;
+        float lastSet;
+    };
+    static Part parts[] = {{0xB0524B44, 46.0f, 214.0f, 1.0f},   // main_vmenu
+                           {0x1954867E, 106.0f, 211.0f, 1.0f}}; // roundbar_bar
+    for (Part& part : parts) {
+        ElementPtr element;
+        GetElement(&element, part.id);
+        if (!element.Get())
+            continue;
+        float now = element->m_scaleX;
+        if (std::fabs(now - zoom) < 0.002f ||
+            (std::fabs(now - 1.0f) > 0.002f && std::fabs(now - part.lastSet) > 0.002f))
+            continue;
+        alignas(4) uint8_t memory[8];
+        Script::CStruct* params = reinterpret_cast<Script::CStruct*>(memory)->Init();
+        params->AddChecksum(kId, part.id);
+        params->AddPair(kPos, 320.0f + (part.x - 320.0f) * zoom, 240.0f + (part.y - 240.0f) * zoom);
+        params->AddFloat(kScale, zoom);
+        params->AddFloat(kTime, 0.0f);
+        GameFunction<bool(__cdecl*)(Script::CStruct*, Script::CScript*)>(0x004AD540)(params, nullptr); // DoScreenElementMorph
+        params->Clear();
+        part.lastSet = zoom;
+    }
+}
+
 // The main menu camera's field of view divided by the zoom (as a narrower or wider lens: the tangent of half the
 // angle scaled).
 void ApplyZoom(Gfx::Camera* camera)
@@ -226,6 +266,7 @@ void ApplyZoom(Gfx::Camera* camera)
     }
     g_writtenFov = fov;
     g_haveWrittenFov = true;
+    ScaleMainMenu(Zoom());
 }
 
 } // namespace
