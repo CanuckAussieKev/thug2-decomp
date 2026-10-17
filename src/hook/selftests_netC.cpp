@@ -191,30 +191,30 @@ void SetUpStandIns(StandIns& s)
         return 0u;
     });
     // (wt/netA's in C++ too: ours calls them directly)
-    std::pair<uint32_t, uint32_t> conditions[] = {{0x00456B00u, AddressOf(&AppView::IsSendDue)},
-                                                  {0x00457AC0u, AddressOf(&AppView::MessagesDue)},
+    std::pair<uint32_t, uint32_t> conditions[] = {{0x00456B00u, AddressOf(&App::IsSendDue)},
+                                                  {0x00457AC0u, AddressOf(&App::MessagesDue)},
                                                   {0x00458E60u, AddressOf(&App::BandwidthExceeded)},
-                                                  {0x00457970u, AddressOf(&AppView::ImportantMessagesDue)}};
+                                                  {0x00457970u, AddressOf(&App::ImportantMessagesDue)}};
     for (auto [address, ours] : conditions) {
         s.At({address, ours}, 4, [address](Regs& r) {
             Record({address, Rel(r.ecx), Rel(r.args[0])});
             return Next(address, address == 0x00458E60u ? 0 : 1);
         });
     }
-    s.At({0x00456E20, AddressOf(&AppView::SendTo)}, 0x14, [](Regs& r) {
+    s.At({0x00456E20, AddressOf(&App::SendTo)}, 0x14, [](Regs& r) {
         Record({0x6E20, Rel(r.ecx), r.args[0], r.args[1], Rel(r.args[2]), r.args[3], r.args[4],
                 Hash(reinterpret_cast<void*>(r.args[2]), r.args[3])});
         return Next(0x6E20, 1);
     });
-    s.At({0x00456F10, AddressOf(&AppView::Send)}, 0xC, [](Regs& r) {
+    s.At({0x00456F10, AddressOf(&App::Send)}, 0xC, [](Regs& r) {
         Record({0x6F10, Rel(r.ecx), Rel(r.args[0]), r.args[1], r.args[2], Hash(reinterpret_cast<void*>(r.args[0]), r.args[1])});
         return Next(0x6F10, 1);
     });
-    s.At({0x004566D0, AddressOf(&ConnView::FlagMessagesForResending)}, 4, [](Regs& r) {
+    s.At({0x004566D0, AddressOf(&Conn::FlagMessagesForResending)}, 4, [](Regs& r) {
         Record({0x66D0, Rel(r.ecx), r.args[0]});
         return 0u;
     });
-    s.At({0x00456540, AddressOf(&ConnView::GetHighestResendCount)}, 0, [](Regs& r) {
+    s.At({0x00456540, AddressOf(&Conn::GetHighestResendCount)}, 0, [](Regs& r) {
         Record({0x6540, Rel(r.ecx)});
         return Next(0x6540, 0);
     });
@@ -230,7 +230,7 @@ void SetUpStandIns(StandIns& s)
         Record({0x4D90, Rel(r.ecx), r.args[0], r.args[1]});
         return 0u;
     });
-    s.At({0x004578B0, AddressOf(&AppView::GetConnectionByAddress)}, 8, [](Regs& r) {
+    s.At({0x004578B0, AddressOf(&App::GetConnectionByAddress)}, 8, [](Regs& r) {
         Record({0x78B0, Rel(r.ecx), r.args[0], r.args[1]});
         return Next(0x78B0, 0);
     });
@@ -238,16 +238,16 @@ void SetUpStandIns(StandIns& s)
         Record({0x97C0, Rel(r.ecx), r.args[0], r.args[1], r.args[2]});
         return Next(0x97C0, 0);
     });
-    s.At({0x00456CC0, AddressOf(&AppView::Decrypt)}, 0xC, [](Regs& r) {
+    s.At({0x00456CC0, AddressOf(&App::Decrypt)}, 0xC, [](Regs& r) {
         Record({0x6CC0, Rel(r.ecx), Rel(r.args[0]), Rel(r.args[1]), r.args[2],
                 Hash(reinterpret_cast<void*>(r.args[0]), std::min<uint32_t>(r.args[2], 0x514))});
         return Next(0x6CC0, 1);
     });
-    s.At({0x00456790, AddressOf(&ConnView::Destroy)}, 0, [](Regs& r) {
+    s.At({0x00456790, AddressOf(&Conn::Destroy)}, 0, [](Regs& r) {
         Record({0x6790, Rel(r.ecx)});
         return 0u;
     });
-    s.At({0x00457110, AddressOf(&AppView::Init)}, 0, [](Regs& r) {
+    s.At({0x00457110, AddressOf(&App::Init)}, 0, [](Regs& r) {
         Record({0x7110, Rel(r.ecx)});
         return Next(0x7110, 1);
     });
@@ -259,23 +259,23 @@ void SetUpStandIns(StandIns& s)
         Record({0x6890, Rel(r.ecx), r.args[0]});
         return r.ecx;
     });
-    s.At({0x00457710, AddressOf(&AppView::DestroyBody)}, 0, [](Regs& r) {
+    s.At({0x00457710, AddressOf(&App::DestroyBody)}, 0, [](Regs& r) {
         Record({0x7710, Rel(r.ecx)});
         return 0u;
     });
-    s.At({0x00457490, AddressOf(&AppView::Deinit)}, 0, [](Regs& r) {
+    s.At({0x00457490, AddressOf(&App::Deinit)}, 0, [](Regs& r) {
         Record({0x7490, Rel(r.ecx)});
         return 0u;
     });
-    s.At({0x00456A90, AddressOf(&AppView::ReportError)}, 0, [](Regs& r) {
+    s.At({0x00456A90, AddressOf(&App::ReportError)}, 0, [](Regs& r) {
         Record({0x6A90, Rel(r.ecx)});
         return 0u;
     });
-    s.At({0x00457300, AddressOf(&AppView::TerminateConnection)}, 4, [](Regs& r) {
+    s.At({0x00457300, AddressOf(&App::TerminateConnection)}, 4, [](Regs& r) {
         Record({0x7300, Rel(r.ecx), Rel(r.args[0])});
         return 0u;
     });
-    s.At({0x00457280, AddressOf(&AppView::SendMessageTo)}, 0x18, [](Regs& r) {
+    s.At({0x00457280, AddressOf(&App::SendMessageTo)}, 0x18, [](Regs& r) {
         Record({0x7280, Rel(r.ecx), r.args[0] & 0xFF, r.args[1], r.args[2], r.args[3], r.args[4] & 0xFFFF, r.args[5]});
         return 0u;
     });

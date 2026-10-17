@@ -1,7 +1,7 @@
 #pragma once
 
 // What 0x4598C0-0x45BDA0 (Client, Server, the message dispatcher, App's message handling) uses of the rest of
-// the net library: App (net_app.h) and Conn (ConnView, net_app_view.h) fields they don't name yet, by offset;
+// the net library: App (net_app.h) and Conn (Conn, net_app_view.h) fields they don't name yet, by offset;
 // the queue links' and stream link's layouts; message ids; short names for App's calls; and Conn's / the
 // message classes' functions (0x00454xxx-0x00456xxx, not decompiled yet) by address.
 
@@ -15,7 +15,7 @@
 
 namespace Net {
 
-// (Net::App: net_app.h; Net::Conn: ConnView, net_app_view.h - the fields they don't name by offset below.)
+// (Net::App: net_app.h; Net::Conn: Conn, net_app_view.h - the fields they don't name by offset below.)
 
 template <typename T, typename O>
 T& Field(O* object, uint32_t offset)
@@ -159,30 +159,30 @@ inline uint32_t MaxLatency() { return GameVariable<uint32_t>(0x00647588); }
 // MsgDesc (0x004549F0)
 inline void ConstructMsgDesc(MsgDesc* desc) { GameFunction<MsgDesc*(__thiscall*)(MsgDesc*)>(0x004549F0)(desc); }
 
-// App (wt/netA's AppView and wt/netB's App, net_app.h): short names for the calls this range makes
+// App (wt/netA's App and wt/netB's App, net_app.h): short names for the calls this range makes
 inline void EnqueueMessage(App* app, int handle, MsgDesc* desc) { app->EnqueueMessage(handle, desc); }
 // Whether this frame sends to the connection at all (its send interval has passed, or it's flagged).
-inline bool ShouldSendThisFrame(AppView* app, Conn* conn) { return app->IsSendDue(conn); }
+inline bool ShouldSendThisFrame(App* app, Conn* conn) { return app->IsSendDue(conn); }
 // Anything to send to the connection now.
-inline bool MessagesToSend(AppView* app, Conn* conn) { return app->MessagesDue(conn); }
+inline bool MessagesToSend(App* app, Conn* conn) { return app->MessagesDue(conn); }
 inline bool BandwidthExceeded(App* app, Conn* conn) { return app->BandwidthExceeded(conn); }
 // An important or sequenced message is due (unsent, or overdue for its ack): the client sends a timestamp
 // with the packet so it gets acked.
-inline bool TimestampDue(AppView* app, Conn* conn) { return app->ImportantMessagesDue(conn); }
+inline bool TimestampDue(App* app, Conn* conn) { return app->ImportantMessagesDue(conn); }
 // A packet to ip:port (sendto) / on the connected socket.
-inline bool SendTo(AppView* app, uint32_t ip, uint16_t port, char* data, int size, int flags)
+inline bool SendTo(App* app, uint32_t ip, uint16_t port, char* data, int size, int flags)
 {
     return app->SendTo(ip, port, reinterpret_cast<const uint8_t*>(data), size, flags);
 }
-inline bool Send(AppView* app, char* data, int size, int flags)
+inline bool Send(App* app, char* data, int size, int flags)
 {
     return app->Send(reinterpret_cast<const uint8_t*>(data), size, flags);
 }
 // App flag 0x8: the App has no socket of its own (nothing to receive).
-inline bool HasNoSocket(AppView* app) { return app->IsLocal(); }
+inline bool HasNoSocket(App* app) { return app->IsLocal(); }
 // App flag 0x10: connection requests from foreign addresses are answered.
-inline bool AcceptsForeignConnections(AppView* app) { return app->HasFlag10(); }
-inline Conn* GetConnectionByAddress(AppView* app, uint32_t ip, uint16_t port)
+inline bool AcceptsForeignConnections(App* app) { return app->AcceptsForeignConnections(); }
+inline Conn* GetConnectionByAddress(App* app, uint32_t ip, uint16_t port)
 {
     return app->GetConnectionByAddress(ip, port);
 }
@@ -191,19 +191,19 @@ inline Conn* NewConnection(App* app, uint32_t ip, uint16_t port, int flags)
     return app->NewConnection(static_cast<int>(ip), port, flags);
 }
 // A received packet into the connection's read buffer (false: not valid; secure packets lose their checksum).
-inline bool ReadPacket(AppView* app, char* packet, char* to, int size)
+inline bool ReadPacket(App* app, char* packet, char* to, int size)
 {
     return app->Decrypt(reinterpret_cast<const uint8_t*>(packet), reinterpret_cast<uint8_t*>(to), size);
 }
 // A message straight to ip:port, not through a connection.
-inline void SendMessageTo(AppView* app, uint8_t id, uint16_t length, const void* data, uint32_t ip, uint16_t port,
+inline void SendMessageTo(App* app, uint8_t id, uint16_t length, const void* data, uint32_t ip, uint16_t port,
                           int flags)
 {
     app->SendMessageTo(id, length, data, ip, port, flags);
 }
-inline void TerminateConnection(AppView* app, Conn* conn) { app->TerminateConnection(conn); }
-inline void ReportSocketError(AppView* app) { app->ReportError(); }
-inline uint8_t* GetManager(AppView* app) { return static_cast<uint8_t*>(app->NetManager()); }
+inline void TerminateConnection(App* app, Conn* conn) { app->TerminateConnection(conn); }
+inline void ReportSocketError(App* app) { app->ReportError(); }
+inline uint8_t* GetManager(App* app) { return static_cast<uint8_t*>(app->NetManager()); }
 // Net::Manager's flags for a message id (0x00454980).
 inline uint8_t MessageFlags(uint8_t* manager, uint8_t id)
 {

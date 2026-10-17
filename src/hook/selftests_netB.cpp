@@ -27,7 +27,7 @@ namespace {
 
 using Mem::ListNode;
 using Net::App;
-using Conn = Net::ConnView;
+using Net::Conn;
 using Net::MsgDesc;
 using TestStandIns::Regs;
 using TestStandIns::StandIns;
@@ -272,7 +272,7 @@ void** StandInAppVtable(StandIns& s)
 }
 
 // The rest of the library that's stood in, the same for the original and ours (game addresses and, for
-// AppView's methods that ours calls directly, our functions too).
+// App's methods that ours calls directly, our functions too).
 void StandInLibrary(StandIns& s)
 {
     // Dbg::Printf (the game's C runtime).
@@ -297,7 +297,7 @@ void StandInLibrary(StandIns& s)
         return 0u;
     });
     // App::MessagesToSend(conn).
-    s.At({0x00457AC0, TestStandIns::AddressOf(&Net::AppView::MessagesDue)}, 4, [](Regs& r) {
+    s.At({0x00457AC0, TestStandIns::AddressOf(&Net::App::MessagesDue)}, 4, [](Regs& r) {
         Log2({0x5E2Du, r.ecx, r.args[0]});
         return static_cast<uint32_t>(g_messagesToSend[r.args[0]]);
     });
@@ -312,7 +312,7 @@ void StandInLibrary(StandIns& s)
         return static_cast<uint32_t>(result);
     });
     // App::ProcessSequencedMessages(conn).
-    s.At({0x00457560, TestStandIns::AddressOf(&Net::AppView::DispatchQueuedSequencedMessages)}, 4, [](Regs& r) {
+    s.At({0x00457560, TestStandIns::AddressOf(&Net::App::DispatchQueuedSequencedMessages)}, 4, [](Regs& r) {
         Log2({0x5E9u, r.ecx, r.args[0]});
         bool result = true;
         if (!g_sequencedResults.empty()) {
@@ -322,7 +322,7 @@ void StandInLibrary(StandIns& s)
         return static_cast<uint32_t>(result);
     });
     // ~App body.
-    s.At({0x00457710, TestStandIns::AddressOf(&Net::AppView::DestroyBody)}, 0, [](Regs& r) {
+    s.At({0x00457710, TestStandIns::AddressOf(&Net::App::DestroyBody)}, 0, [](Regs& r) {
         Log2({0xDA99u, r.ecx});
         return 0u;
     });

@@ -29,7 +29,7 @@
 namespace {
 
 using Mem::ListNode;
-using Net::ConnView;
+using Net::Conn;
 using TestStandIns::Regs;
 using TestStandIns::StandIns;
 
@@ -187,13 +187,13 @@ ListNode* NewLink(uint32_t constructor, uint32_t size, void* message)
     void* memory = Mem::New(size);
     return GameFunction<ListNode*(__thiscall*)(void*, void*)>(constructor)(memory, message);
 }
-void AddNormal(ConnView* conn, Net::QueuedMsg* message)
+void AddNormal(Conn* conn, Net::QueuedMsg* message)
 {
     ListNode* link = NewLink(0x004555F0, 0x1C, message);
     At<uint32_t>(link, 0x18) = 0x700 + message->m_id;
     AddLast(&conn->m_normalMsgs, link);
 }
-void AddImportant(ConnView* conn, Net::QueuedMsg* message, uint8_t resends, uint32_t packetstamp, uint32_t sent)
+void AddImportant(Conn* conn, Net::QueuedMsg* message, uint8_t resends, uint32_t packetstamp, uint32_t sent)
 {
     auto* link = reinterpret_cast<Net::MsgImpLink*>(NewLink(0x00455620, 0x28, message));
     link->m_NumResends = resends;
@@ -223,7 +223,7 @@ void AddStream(ListNode* head, bool withDesc, bool withData, bool inPlace)
 }
 
 // Each queue of `conn` filled; `variant` changes the resend counts, packetstamps and which lists have what.
-void Fill(ConnView* conn, int variant)
+void Fill(Conn* conn, int variant)
 {
     using Net::QueuedMsg;
     using Net::SeqQueuedMsg;
@@ -285,38 +285,38 @@ std::vector<uint32_t> Run(bool original)
     uint8_t* misc = arena + kMiscOffset;
 
     // Construction (dirty memory, the first 64 groups' sequence ids zeroed only).
-    ConnView* conns[kConns];
+    Conn* conns[kConns];
     for (int i = 0; i < kConns; ++i) {
-        auto* memory = reinterpret_cast<ConnView*>(arena + kConnOffset + i * kConnSize);
-        conns[i] = Call(original, 0x00455C80, &ConnView::Construct, memory, i == 2 ? 6 : 1 << i);
+        auto* memory = reinterpret_cast<Conn*>(arena + kConnOffset + i * kConnSize);
+        conns[i] = Call(original, 0x00455C80, &Conn::Construct, memory, i == 2 ? 6 : 1 << i);
         Log2({reinterpret_cast<uint32_t>(conns[i])});
     }
     for (int i = 0; i < kConns; ++i)
         Fill(conns[i], i);
 
     // Getters and setters.
-    ConnView* c = conns[0];
+    Conn* c = conns[0];
     c->m_sendInterval = 0x4321;
-    Log2({Value(original, 0x00455970, &ConnView::GetSendInterval, c)});
+    Log2({Value(original, 0x00455970, &Conn::GetSendInterval, c)});
     for (bool force : {true, false, true}) {
         c->m_sendNow = !force;
-        Call(original, 0x00455980, &ConnView::SetForceSendThisFrame, c, force);
-        Log2({Value(original, 0x00455990, &ConnView::GetForceSendThisFrame, c)});
+        Call(original, 0x00455980, &Conn::SetForceSendThisFrame, c, force);
+        Log2({Value(original, 0x00455990, &Conn::GetForceSendThisFrame, c)});
     }
     c->m_bandwidthType = 0x77;
-    Log2({Value(original, 0x004559A0, &ConnView::GetBandwidthType, c)});
-    Call(original, 0x004559B0, &ConnView::SetBandwidth, c, 98765);
-    Log2({Value(original, 0x004559C0, &ConnView::GetBandwidth, c)});
+    Log2({Value(original, 0x004559A0, &Conn::GetBandwidthType, c)});
+    Call(original, 0x004559B0, &Conn::SetBandwidth, c, 98765);
+    Log2({Value(original, 0x004559C0, &Conn::GetBandwidth, c)});
     for (int type : {0, 1, 2, 3, -1, 2}) {
         c->m_bandwidth = 5555;
-        Call(original, 0x00455A40, &ConnView::SetBandwidthType, c, type);
+        Call(original, 0x00455A40, &Conn::SetBandwidthType, c, type);
         Log2({static_cast<uint32_t>(c->m_bandwidthType), static_cast<uint32_t>(c->m_bandwidth)});
     }
     c->m_latencyTest.m_averageLatency = 321;
     for (uint32_t flags : {0u, 1u, 2u, 4u, 7u, 6u, 0xF8u}) {
         c->m_flags = flags;
-        Log2({Value(original, 0x00455A10, &ConnView::IsForeign, c), Value(original, 0x00455A20, &ConnView::IsLocal, c),
-              Value(original, 0x00455A30, &ConnView::IsRemote, c), Value(original, 0x00455B40, &ConnView::GetAveLatency, c)});
+        Log2({Value(original, 0x00455A10, &Conn::IsForeign, c), Value(original, 0x00455A20, &Conn::IsLocal, c),
+              Value(original, 0x00455A30, &Conn::IsRemote, c), Value(original, 0x00455B40, &Conn::GetAveLatency, c)});
     }
     for (uint32_t status : {0u, 1u, 2u, 4u, 5u, 6u, 0xFBu}) {
         for (uint32_t flags : {0u, 1u, 6u}) {
@@ -324,41 +324,41 @@ std::vector<uint32_t> Run(bool original)
                 c->m_status = status;
                 c->m_flags = flags;
                 c->m_latencyTest.m_averageLatency = latency;
-                Log2({Value(original, 0x00455C30, &ConnView::GetResendThreshold, c)});
+                Log2({Value(original, 0x00455C30, &Conn::GetResendThreshold, c)});
             }
         }
         c->m_status = status;
-        Log2({Value(original, 0x00455C20, &ConnView::IsValid, c)});
-        Call(original, 0x00455C10, &ConnView::Invalidate, c);
-        Log2({c->m_status, Value(original, 0x00455C20, &ConnView::IsValid, c)});
+        Log2({Value(original, 0x00455C20, &Conn::IsValid, c)});
+        Call(original, 0x00455C10, &Conn::Invalidate, c);
+        Log2({c->m_status, Value(original, 0x00455C20, &Conn::IsValid, c)});
     }
 
     // The queues: counts, flags, resends.
-    for (ConnView* conn : conns) {
-        Log2({Value(original, 0x00456540, &ConnView::GetHighestResendCount, conn),
-              Value(original, 0x004565E0, &ConnView::GetNumQueuedStreamPieces, conn)});
+    for (Conn* conn : conns) {
+        Log2({Value(original, 0x00456540, &Conn::GetHighestResendCount, conn),
+              Value(original, 0x004565E0, &Conn::GetNumQueuedStreamPieces, conn)});
     }
-    Call(original, 0x004566D0, &ConnView::FlagMessagesForResending, conns[0], 100u);
-    Call(original, 0x004566D0, &ConnView::FlagMessagesForResending, conns[2], 300u);
-    Call(original, 0x00456630, &ConnView::ClearResendCounts, conns[1]);
-    Log2({Value(original, 0x00456540, &ConnView::GetHighestResendCount, conns[1])});
+    Call(original, 0x004566D0, &Conn::FlagMessagesForResending, conns[0], 100u);
+    Call(original, 0x004566D0, &Conn::FlagMessagesForResending, conns[2], 300u);
+    Call(original, 0x00456630, &Conn::ClearResendCounts, conns[1]);
+    Log2({Value(original, 0x00456540, &Conn::GetHighestResendCount, conns[1])});
 
     // Taking them apart.
-    Call(original, 0x00456210, &ConnView::DestroyImportantMessages, conns[1]);
-    Call(original, 0x00455F30, &ConnView::DestroyLinks, conns[1]); // (normal messages and received ones left)
-    Call(original, 0x00456770, &ConnView::DestroyMessageQueues, conns[2]);
-    Call(original, 0x00455E50, &ConnView::DestroyReceivedSequencedMessages, conns[3]);
-    Call(original, 0x00456370, &ConnView::ReleaseQueuedMessages, conns[3]);
-    Call(original, 0x00455F30, &ConnView::DestroyLinks, conns[3]);
-    Log2({Value(original, 0x00456540, &ConnView::GetHighestResendCount, conns[3]),
-          Value(original, 0x004565E0, &ConnView::GetNumQueuedStreamPieces, conns[1])});
+    Call(original, 0x00456210, &Conn::DestroyImportantMessages, conns[1]);
+    Call(original, 0x00455F30, &Conn::DestroyLinks, conns[1]); // (normal messages and received ones left)
+    Call(original, 0x00456770, &Conn::DestroyMessageQueues, conns[2]);
+    Call(original, 0x00455E50, &Conn::DestroyReceivedSequencedMessages, conns[3]);
+    Call(original, 0x00456370, &Conn::ReleaseQueuedMessages, conns[3]);
+    Call(original, 0x00455F30, &Conn::DestroyLinks, conns[3]);
+    Log2({Value(original, 0x00456540, &Conn::GetHighestResendCount, conns[3]),
+          Value(original, 0x004565E0, &Conn::GetNumQueuedStreamPieces, conns[1])});
     // The destructor: conn 0 in an app's list (taken out), conn 1 with its queues half emptied.
     auto* appList = reinterpret_cast<ListNode*>(misc);
     Net::InitConnListHead(appList, Net::kConnHeadVtable);
     AddLast(appList, &conns[0]->m_appNode);
     AddLast(appList, &conns[3]->m_appNode);
-    Call(original, 0x00456790, &ConnView::Destroy, conns[0]);
-    Call(original, 0x00456790, &ConnView::Destroy, conns[1]);
+    Call(original, 0x00456790, &Conn::Destroy, conns[0]);
+    Call(original, 0x00456790, &Conn::Destroy, conns[1]);
 
     // The list types.
     using SearchBodies = std::pair<uint32_t, uint32_t>;

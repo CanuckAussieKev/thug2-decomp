@@ -1,6 +1,5 @@
 // Net::Conn (Neversoft's Net library): one end of a connection - its outgoing message queues, the sequenced
-// messages and streams it has received, its buffers, latency and bandwidth. See net_app_view.h (ConnView) and
-// net_conn.h (its lists' types).
+// messages and streams it has received, its buffers, latency and bandwidth. See net_conn.h.
 
 #include "game/net/net_conn.h"
 
@@ -11,7 +10,6 @@
 #include "game/lst/search.h"
 #include "game/net/net_access_c.h"
 #include "game/net/net_app.h"
-#include "game/net/net_app_view.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -114,7 +112,7 @@ template struct ConnListSearch<0x0064756C>;
 template struct ConnListSearch<0x00647570>;
 
 // 0x00455C80
-ConnView* ConnView::Construct(int flags)
+Conn* Conn::Construct(int flags)
 {
     InitConnListHead(&m_normalMsgs, kMsgLinkHeadVtable);
     InitConnListHead(&m_importantMsgs, kMsgImpLinkHeadVtable);
@@ -136,8 +134,8 @@ ConnView* ConnView::Construct(int flags)
 
     m_flags = static_cast<uint32_t>(flags);
     m_status = kStatusReady;
-    m_readBuffer = m_readPtr = static_cast<uint8_t*>(Mem::New(kReadBufferSize));
-    m_writeBuffer = m_writePtr = static_cast<uint8_t*>(Mem::New(kWriteBufferSize));
+    m_readBuffer = m_readPtr = static_cast<char*>(Mem::New(kReadBufferSize));
+    m_writeBuffer = m_writePtr = static_cast<char*>(Mem::New(kWriteBufferSize));
     m_sendInterval = 0;
     m_lastSendTime = 0;
     m_sendNow = false;
@@ -155,7 +153,7 @@ ConnView* ConnView::Construct(int flags)
 }
 
 // 0x00456790
-void ConnView::Destroy()
+void Conn::Destroy()
 {
     DestroyReceivedSequencedMessages();
     ReleaseQueuedMessages();
@@ -173,34 +171,34 @@ void ConnView::Destroy()
 }
 
 // 0x00455970
-uint32_t ConnView::GetSendInterval() { return m_sendInterval; }
+uint32_t Conn::GetSendInterval() { return m_sendInterval; }
 
 // 0x00455980
-void ConnView::SetForceSendThisFrame(bool force) { m_sendNow = force; }
+void Conn::SetForceSendThisFrame(bool force) { m_sendNow = force; }
 
 // 0x00455990
-bool ConnView::GetForceSendThisFrame() { return m_sendNow; }
+bool Conn::GetForceSendThisFrame() { return m_sendNow; }
 
 // 0x004559A0
-int ConnView::GetBandwidthType() { return m_bandwidthType; }
+int Conn::GetBandwidthType() { return m_bandwidthType; }
 
 // 0x004559B0
-void ConnView::SetBandwidth(int bytesPerSecond) { m_bandwidth = bytesPerSecond; }
+void Conn::SetBandwidth(int bytesPerSecond) { m_bandwidth = bytesPerSecond; }
 
 // 0x004559C0
-int ConnView::GetBandwidth() { return m_bandwidth; }
+int Conn::GetBandwidth() { return m_bandwidth; }
 
 // 0x00455A10
-bool ConnView::IsForeign() { return (m_flags & kFlagForeign) != 0; }
+bool Conn::IsForeign() { return (m_flags & kFlagForeign) != 0; }
 
 // 0x00455A20
-bool ConnView::IsLocal() { return (m_flags & kFlagLocal) != 0; }
+bool Conn::IsLocal() { return (m_flags & kFlagLocal) != 0; }
 
 // 0x00455A30
-bool ConnView::IsRemote() { return (m_flags & kFlagRemote) != 0; }
+bool Conn::IsRemote() { return (m_flags & kFlagRemote) != 0; }
 
 // 0x00455A40
-void ConnView::SetBandwidthType(int type)
+void Conn::SetBandwidthType(int type)
 {
     m_bandwidthType = type;
     switch (type) {
@@ -217,7 +215,7 @@ void ConnView::SetBandwidthType(int type)
 }
 
 // 0x00455B40
-int ConnView::GetAveLatency()
+int Conn::GetAveLatency()
 {
     if (IsLocal())
         return 0;
@@ -225,17 +223,17 @@ int ConnView::GetAveLatency()
 }
 
 // 0x00455C10
-void ConnView::Invalidate()
+void Conn::Invalidate()
 {
     m_status &= ~kStatusReady;
     m_status |= kStatusInvalid;
 }
 
 // 0x00455C20
-bool ConnView::IsValid() { return (m_status & kStatusInvalid) == 0; }
+bool Conn::IsValid() { return (m_status & kStatusInvalid) == 0; }
 
 // 0x00455C30
-uint32_t ConnView::GetResendThreshold()
+uint32_t Conn::GetResendThreshold()
 {
     if (m_status & kStatus2)
         return kStatus2ResendThreshold;
@@ -246,7 +244,7 @@ uint32_t ConnView::GetResendThreshold()
 }
 
 // 0x00455E50
-void ConnView::DestroyReceivedSequencedMessages()
+void Conn::DestroyReceivedSequencedMessages()
 {
     for (ListNode& queue : m_receivedQueues) {
         ForEach<MsgSeqLink>(&queue, [](MsgSeqLink* link) {
@@ -260,7 +258,7 @@ void ConnView::DestroyReceivedSequencedMessages()
 }
 
 // 0x00455F30
-void ConnView::DestroyLinks()
+void Conn::DestroyLinks()
 {
     auto deleteLink = [](void* link) { DeleteLink(link); };
     ForEach<MsgNormalLink>(&m_normalMsgs, deleteLink);
@@ -280,7 +278,7 @@ void ConnView::DestroyLinks()
 }
 
 // 0x00456210
-void ConnView::DestroyImportantMessages()
+void Conn::DestroyImportantMessages()
 {
     ForEach<MsgImpLink>(&m_importantMsgs, [](MsgImpLink* link) {
         Release(link->m_QMsg);
@@ -293,7 +291,7 @@ void ConnView::DestroyImportantMessages()
 }
 
 // 0x00456370
-void ConnView::ReleaseQueuedMessages()
+void Conn::ReleaseQueuedMessages()
 {
     ForEach<MsgNormalLink>(&m_normalMsgs, [](MsgNormalLink* link) { Release(link->m_QMsg); });
     ForEach<MsgImpLink>(&m_importantMsgs, [](MsgImpLink* link) { Release(link->m_QMsg); });
@@ -301,7 +299,7 @@ void ConnView::ReleaseQueuedMessages()
 }
 
 // 0x00456540
-int ConnView::GetHighestResendCount()
+int Conn::GetHighestResendCount()
 {
     int highest = 0;
     ForEach<MsgImpLink>(&m_importantMsgs, [&](MsgImpLink* link) {
@@ -316,7 +314,7 @@ int ConnView::GetHighestResendCount()
 }
 
 // 0x004565E0
-int ConnView::GetNumQueuedStreamPieces()
+int Conn::GetNumQueuedStreamPieces()
 {
     int count = 0;
     ForEach<MsgSeqLink>(&m_sequencedMsgs, [&](MsgSeqLink* link) {
@@ -327,14 +325,14 @@ int ConnView::GetNumQueuedStreamPieces()
 }
 
 // 0x00456630
-void ConnView::ClearResendCounts()
+void Conn::ClearResendCounts()
 {
     ForEach<MsgImpLink>(&m_importantMsgs, [](MsgImpLink* link) { link->m_NumResends = 0; });
     ForEach<MsgSeqLink>(&m_sequencedMsgs, [](MsgSeqLink* link) { link->m_NumResends = 0; });
 }
 
 // 0x004566D0
-void ConnView::FlagMessagesForResending(uint32_t packetstamp)
+void Conn::FlagMessagesForResending(uint32_t packetstamp)
 {
     ForEach<MsgImpLink>(&m_importantMsgs, [=](MsgImpLink* link) {
         if (link->m_Packetstamp == packetstamp)
@@ -347,7 +345,7 @@ void ConnView::FlagMessagesForResending(uint32_t packetstamp)
 }
 
 // 0x00456770
-void ConnView::DestroyMessageQueues()
+void Conn::DestroyMessageQueues()
 {
     DestroyReceivedSequencedMessages();
     ReleaseQueuedMessages();
@@ -369,28 +367,28 @@ REPLACE(0x00455B50, &Net::MsgLinkNode::DestroyBody);
 REPLACE(0x00455B70, &Net::MsgImpLinkNode::DestroyBody);
 REPLACE(0x00455B90, &Net::MsgSeqLinkNode::DestroyBody);
 REPLACE(0x00455BB0, &Net::StreamLinkNode::DestroyBody);
-REPLACE(0x00455C80, &Net::ConnView::Construct);
-REPLACE(0x00456790, &Net::ConnView::Destroy);
-REPLACE_SOURCE_ONLY(0x00455970, &Net::ConnView::GetSendInterval); // 4 bytes
-REPLACE(0x00455980, &Net::ConnView::SetForceSendThisFrame);
-REPLACE(0x00455990, &Net::ConnView::GetForceSendThisFrame);
-REPLACE(0x004559A0, &Net::ConnView::GetBandwidthType);
-REPLACE(0x004559B0, &Net::ConnView::SetBandwidth);
-REPLACE(0x004559C0, &Net::ConnView::GetBandwidth);
-REPLACE(0x00455A10, &Net::ConnView::IsForeign);
-REPLACE(0x00455A20, &Net::ConnView::IsLocal);
-REPLACE(0x00455A30, &Net::ConnView::IsRemote);
-REPLACE(0x00455A40, &Net::ConnView::SetBandwidthType);
-REPLACE(0x00455B40, &Net::ConnView::GetAveLatency);
-REPLACE(0x00455C10, &Net::ConnView::Invalidate);
-REPLACE(0x00455C20, &Net::ConnView::IsValid);
-REPLACE(0x00455C30, &Net::ConnView::GetResendThreshold);
-REPLACE(0x00455E50, &Net::ConnView::DestroyReceivedSequencedMessages);
-REPLACE(0x00455F30, &Net::ConnView::DestroyLinks);
-REPLACE(0x00456210, &Net::ConnView::DestroyImportantMessages);
-REPLACE(0x00456370, &Net::ConnView::ReleaseQueuedMessages);
-REPLACE(0x00456540, &Net::ConnView::GetHighestResendCount);
-REPLACE(0x004565E0, &Net::ConnView::GetNumQueuedStreamPieces);
-REPLACE(0x00456630, &Net::ConnView::ClearResendCounts);
-REPLACE(0x004566D0, &Net::ConnView::FlagMessagesForResending);
-REPLACE(0x00456770, &Net::ConnView::DestroyMessageQueues);
+REPLACE(0x00455C80, &Net::Conn::Construct);
+REPLACE(0x00456790, &Net::Conn::Destroy);
+REPLACE_SOURCE_ONLY(0x00455970, &Net::Conn::GetSendInterval); // 4 bytes
+REPLACE(0x00455980, &Net::Conn::SetForceSendThisFrame);
+REPLACE(0x00455990, &Net::Conn::GetForceSendThisFrame);
+REPLACE(0x004559A0, &Net::Conn::GetBandwidthType);
+REPLACE(0x004559B0, &Net::Conn::SetBandwidth);
+REPLACE(0x004559C0, &Net::Conn::GetBandwidth);
+REPLACE(0x00455A10, &Net::Conn::IsForeign);
+REPLACE(0x00455A20, &Net::Conn::IsLocal);
+REPLACE(0x00455A30, &Net::Conn::IsRemote);
+REPLACE(0x00455A40, &Net::Conn::SetBandwidthType);
+REPLACE(0x00455B40, &Net::Conn::GetAveLatency);
+REPLACE(0x00455C10, &Net::Conn::Invalidate);
+REPLACE(0x00455C20, &Net::Conn::IsValid);
+REPLACE(0x00455C30, &Net::Conn::GetResendThreshold);
+REPLACE(0x00455E50, &Net::Conn::DestroyReceivedSequencedMessages);
+REPLACE(0x00455F30, &Net::Conn::DestroyLinks);
+REPLACE(0x00456210, &Net::Conn::DestroyImportantMessages);
+REPLACE(0x00456370, &Net::Conn::ReleaseQueuedMessages);
+REPLACE(0x00456540, &Net::Conn::GetHighestResendCount);
+REPLACE(0x004565E0, &Net::Conn::GetNumQueuedStreamPieces);
+REPLACE(0x00456630, &Net::Conn::ClearResendCounts);
+REPLACE(0x004566D0, &Net::Conn::FlagMessagesForResending);
+REPLACE(0x00456770, &Net::Conn::DestroyMessageQueues);

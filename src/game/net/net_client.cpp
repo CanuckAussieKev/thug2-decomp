@@ -26,7 +26,6 @@ constexpr int kTimestampWindow = 5000; // timestamps further apart than this hav
 uint32_t& Timestamp(App* app) { return Field<uint32_t>(app, AppField::kTimestamp); }
 Dispatcher* GetDispatcher(App* app) { return &Field<Dispatcher>(app, AppField::kDispatcher); }
 
-using ForeignPacketHandler = void(__cdecl*)(char* data, int size, sockaddr* from);
 
 // The first connection (Lst::Search<Conn> over the App's connections; the search's vtable is 0x0064759C).
 Conn* ServerConnection(App* app)
@@ -63,7 +62,7 @@ Client* Client::Construct(int flags)
 // 0x0045B910
 void Client::DestroyBody()
 {
-    AppView::DestroyBody();
+    App::DestroyBody();
 }
 
 // 0x0045B8E0
@@ -78,7 +77,7 @@ Client* Client::Destroy(unsigned int flags)
 // 0x0045B820
 void Client::Deinit()
 {
-    AppView::Deinit();
+    App::Deinit();
 }
 
 // 0x00459EC0
@@ -86,7 +85,7 @@ bool Client::Init()
 {
     Field<bool>(this, AppField::kConnected) = false;
     Timestamp(this) = 0;
-    if (!AppView::Init())
+    if (!App::Init())
         return false;
     Dispatcher* dispatcher = GetDispatcher(this);
     dispatcher->AddHandler(kMsgConnectionAccepted, HandleConnectionAccepted, 3, nullptr, 0x80);

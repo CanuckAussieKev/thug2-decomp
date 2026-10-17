@@ -23,7 +23,6 @@ constexpr int kIdleBandwidthStep = 1000; // more when nothing waits for an ack
 uint32_t& Timestamp(App* app) { return Field<uint32_t>(app, AppField::kTimestamp); }
 Dispatcher* GetDispatcher(App* app) { return &Field<Dispatcher>(app, AppField::kDispatcher); }
 
-using ForeignPacketHandler = void(__cdecl*)(char* data, int size, sockaddr* from);
 
 } // namespace
 
@@ -42,7 +41,7 @@ bool Server::Init()
     Timestamp(this) = 0;
     Field<bool>(this, AppField::kConnected) = false;
     Field<uint32_t>(this, AppField::kServerUnknown1458) = 0;
-    if (!AppView::Init())
+    if (!App::Init())
         return false;
     Dispatcher* dispatcher = GetDispatcher(this);
     dispatcher->AddHandler(kMsgConnectionRequest, HandleConnectionRequest, 3, nullptr, kHighestPriority);
@@ -185,7 +184,7 @@ int Server::HandleConnectionRequest(MsgHandlerContext* context)
     MsgDesc desc;
     ConstructMsgDesc(&desc);
     if (context->m_PacketFlags & kPacketForeign) {
-        if (!AcceptsForeignConnections(context->m_App))
+        if (!Net::AcceptsForeignConnections(context->m_App))
             return kHandlerMsgDone;
         Conn* conn = context->m_Conn;
         Net::SendMessageTo(context->m_App, kMsgConnectionAccepted, 0, nullptr, Field<uint32_t>(conn, ConnField::kIp),

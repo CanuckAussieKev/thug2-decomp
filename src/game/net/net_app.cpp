@@ -16,7 +16,6 @@
 
 namespace Net {
 
-using Conn = ConnView;
 
 namespace {
 
@@ -26,7 +25,7 @@ void** const kAppVtable = reinterpret_cast<void**>(0x006475B4);
 void** const kAppNodeVtable = reinterpret_cast<void**>(0x006474D8);      // Lst::Node<App>
 void** const kTaskVtable = reinterpret_cast<void**>(0x006476F0);         // Tsk::Task<App>
 
-// Message targets (not AppView::kHandleBroadcast, a flag).
+// Message targets (not App::kBroadcast, a flag).
 constexpr int kHandleBroadcast = 0xFF;        // every connection
 constexpr int kHandleExcludeBroadcast = 0x80; // every connection but handle & 0x7F
 constexpr uint8_t kMsgStreamStart = 0x0E;
@@ -38,7 +37,7 @@ constexpr int kMetricsTaskPriority = -2500;
 constexpr int kReceiveTaskPriority = 1000;
 constexpr int kProcessTaskPriority = 0;
 
-// --- Conn (0x3D20 bytes, ConnView; the fields it doesn't name) -----------------------------------------------
+// --- Conn (0x3D20 bytes, Conn; the fields it doesn't name) -----------------------------------------------
 uint8_t* Bytes(Conn* conn) { return reinterpret_cast<uint8_t*>(conn); }
 template <typename T>
 T& At(Conn* conn, uint32_t offset)
@@ -95,7 +94,7 @@ int TotalBandwidth(void* manager) { return GameFunction<int(__thiscall*)(void*)>
 int ConnectionType(void* manager) { return GameFunction<int(__thiscall*)(void*)>(0x00454960)(manager); }
 
 // --- Messages ---------------------------------------------------------------------------------------------------
-// QueuedMsg (0x0C) and SeqQueuedMsg (0x10, made by AppView::NewQueuedMsg): a copy of a message shared by the
+// QueuedMsg (0x0C) and SeqQueuedMsg (0x10, made by App::NewQueuedMsg): a copy of a message shared by the
 // links that send it to each connection; freed with the last.
 QueuedMsg* ConstructQueuedMsg(void* memory, uint8_t id, uint16_t length, void* data, uint8_t compression)
 {
@@ -257,10 +256,10 @@ App* App::Construct(int flags)
     m_metricsTask = NewTask(kMetricsTaskPriority, reinterpret_cast<void*>(&App::NetworkMetrics), this);
     m_receiveTask = NewTask(kReceiveTaskPriority, reinterpret_cast<void*>(&App::ReceiveNetworkData), this);
     m_processTask = NewTask(kProcessTaskPriority, reinterpret_cast<void*>(&App::ProcessNetworkData), this);
-    Unknown1F00() = GameVariable<double>(0x006453A0); // 0.0
+    m_unknown1F00 = GameVariable<double>(0x006453A0); // 0.0
     m_flags = static_cast<uint32_t>(flags);
     m_time = 0;
-    m_unknown1E88 = 0;
+    m_foreignPacketHandler = nullptr;
     return this;
 }
 
@@ -648,7 +647,7 @@ void App::ProcessStreamMessages()
 void __cdecl App::ProcessNetworkData(void* task)
 {
     App* app = TaskApp(task);
-    ++app->m_counters[5]; // (+0x1410: frames processed)
+    ++app->m_frameCount;
     reinterpret_cast<bool(__thiscall*)(App*)>(app->m_vtable[1])(app); // ProcessData
 }
 

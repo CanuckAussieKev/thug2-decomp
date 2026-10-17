@@ -30,8 +30,8 @@
 namespace {
 
 using namespace TestStandIns;
-using Net::AppView;
-using Net::ConnView;
+using Net::App;
+using Net::Conn;
 using Mem::ListNode;
 
 // Our function registered at a game address (from the replacements' own table).
@@ -81,8 +81,8 @@ alignas(16) uint8_t g_misc[0x4000]; // heads, links, messages, tasks
 alignas(16) uint8_t g_heap[0x1000]; // what the stand-in allocator hands out
 alignas(16) uint8_t g_fakeManager[0x600];
 
-AppView* App() { return reinterpret_cast<AppView*>(g_app); }
-ConnView* Conn(int i) { return reinterpret_cast<ConnView*>(g_conns[i]); }
+App* TheApp() { return reinterpret_cast<App*>(g_app); }
+Conn* TheConn(int i) { return reinterpret_cast<Conn*>(g_conns[i]); }
 template <typename T = uint8_t>
 T* Misc(uint32_t offset)
 {
@@ -204,7 +204,7 @@ void ResetObjects()
     std::memset(g_heap, 0xAB, sizeof(g_heap));
     g_heapUsed = 0;
     g_allocFail = false;
-    std::memcpy(App()->m_name, "server", 7);
+    std::memcpy(TheApp()->m_name, "server", 7);
 }
 
 // --- LatencyTest --------------------------------------------------------------------------------------------------
@@ -259,16 +259,16 @@ using ThisCall3 = uint32_t(__thiscall*)(void*, uint32_t, uint32_t, uint32_t);
 // A connection list of the four stand-in connections.
 void SetUpConnections(int count)
 {
-    InitHead(&App()->m_connections, 0x006475AC);
+    InitHead(&TheApp()->m_connections, 0x006475AC);
     const uint32_t ips[] = {0x0A000001, 0x0A000001, 0x0B000002, 0x0B000002};
     const uint16_t ports[] = {1, 2, 1, 2};
     const int handles[] = {10, 11, 12, 10};
     for (int i = 0; i < count; ++i) {
-        ConnView* conn = Conn(i);
+        Conn* conn = TheConn(i);
         conn->m_ip = ips[i];
         conn->m_port = ports[i];
         conn->m_handle = handles[i];
-        Append(&App()->m_connections, &conn->m_appNode, 0x00647574, conn);
+        Append(&TheApp()->m_connections, &conn->m_appNode, 0x00647574, conn);
     }
 }
 
@@ -277,7 +277,7 @@ constexpr uint32_t kLinkSize = 0x30;
 Net::MsgLink* Link(int i) { return Misc<Net::MsgLink>(0x2000 + i * kLinkSize); }
 uint32_t g_linkVtable[4];
 
-void SetUpQueues(ConnView* conn)
+void SetUpQueues(Conn* conn)
 {
     InitHead(&conn->m_normalMsgs, 0x00647578);
     InitHead(&conn->m_importantMsgs, 0x0064757C);
@@ -308,7 +308,7 @@ std::vector<uint32_t> RunLists(bool original)
 {
     ResetObjects();
     Originals guards(original);
-    AppView* app = App();
+    App* app = TheApp();
 
     // The getters and flags.
     app->m_processTask = reinterpret_cast<void*>(0x1444);
@@ -343,10 +343,10 @@ std::vector<uint32_t> RunLists(bool original)
     }
 
     // Aliases.
-    Fn<ThisCall2>(original, 0x00456B40)(app, reinterpret_cast<uint32_t>(Conn(0)), reinterpret_cast<uint32_t>(Conn(1)));
-    Record({Rel(Conn(0)->m_aliasConn), Rel(Conn(1)->m_aliasConn)});
-    Fn<ThisCall2>(original, 0x00456B40)(app, reinterpret_cast<uint32_t>(Conn(2)), reinterpret_cast<uint32_t>(Conn(2)));
-    Record({Rel(Conn(2)->m_aliasConn)});
+    Fn<ThisCall2>(original, 0x00456B40)(app, reinterpret_cast<uint32_t>(TheConn(0)), reinterpret_cast<uint32_t>(TheConn(1)));
+    Record({Rel(TheConn(0)->m_aliasConn), Rel(TheConn(1)->m_aliasConn)});
+    Fn<ThisCall2>(original, 0x00456B40)(app, reinterpret_cast<uint32_t>(TheConn(2)), reinterpret_cast<uint32_t>(TheConn(2)));
+    Record({Rel(TheConn(2)->m_aliasConn)});
 
     // Lookups and the connection search.
     for (int count : {0, 4}) {
@@ -465,7 +465,7 @@ std::vector<uint32_t> RunLists(bool original)
         uint32_t time, last, interval;
         bool now;
     };
-    ConnView* conn = Conn(0);
+    Conn* conn = TheConn(0);
     for (SendCase c : {SendCase{1000, 900, 100, false}, SendCase{1000, 901, 100, false}, SendCase{1000, 901, 100, true},
                        SendCase{5, 0xFFFFFFF0u, 0x16, false}, SendCase{5, 0xFFFFFFF0u, 0x15, false},
                        SendCase{5, 0xFFFFFFF0u, 0x16, true}, SendCase{0, 0, 0, false}}) {
@@ -664,10 +664,10 @@ void StandInSockets(StandIns& s)
         return 0u;
     });
     // -> Conn's destructor (takes it out of the app's list, as the real one does)
-    s.At({0x00456790, AddressOf(&ConnView::Destroy)}, 0, [](Regs& r) {
-        auto* node = &reinterpret_cast<ConnView*>(r.ecx)->m_appNode;
+    s.At({0x00456790, AddressOf(&Conn::Destroy)}, 0, [](Regs& r) {
+        auto* node = &reinterpret_cast<Conn*>(r.ecx)->m_appNode;
         Record({0x6790, Rel(r.ecx), Rel(node->next), Rel(node->prev)}); // (still in the list?)
-        RemoveNode(&reinterpret_cast<ConnView*>(r.ecx)->m_appNode);
+        RemoveNode(&reinterpret_cast<Conn*>(r.ecx)->m_appNode);
         return 0u;
     });
 }
@@ -676,7 +676,7 @@ std::vector<uint32_t> RunSockets(bool original)
 {
     ResetObjects();
     Originals guards(original);
-    AppView* app = App();
+    App* app = TheApp();
     uint32_t* manager = Misc<uint32_t>(0x3800);
     app->m_manager = manager;
     app->m_socket = 0x1234;
@@ -840,7 +840,7 @@ std::vector<uint32_t> RunQueues(bool original)
 {
     ResetObjects();
     Originals guards(original);
-    AppView* app = App();
+    App* app = TheApp();
     std::memcpy(app->m_name, "client", 7);
 
     // NewQueuedMsg.
@@ -853,10 +853,10 @@ std::vector<uint32_t> RunQueues(bool original)
     // TerminateConnection, BanConnection.
     SetUpConnections(4);
     InitHead(&app->m_banned, 0x006475B0);
-    Fn<ThisCall1>(original, 0x00457300)(app, reinterpret_cast<uint32_t>(Conn(1)));
+    Fn<ThisCall1>(original, 0x00457300)(app, reinterpret_cast<uint32_t>(TheConn(1)));
     RecordList(&app->m_connections);
-    Fn<ThisCall1>(original, 0x00457400)(app, reinterpret_cast<uint32_t>(Conn(2)));
-    Fn<ThisCall1>(original, 0x00457400)(app, reinterpret_cast<uint32_t>(Conn(0)));
+    Fn<ThisCall1>(original, 0x00457400)(app, reinterpret_cast<uint32_t>(TheConn(2)));
+    Fn<ThisCall1>(original, 0x00457400)(app, reinterpret_cast<uint32_t>(TheConn(0)));
     RecordList(&app->m_banned);
     RecordWords(g_heap, 0x80);
 
@@ -890,7 +890,7 @@ std::vector<uint32_t> RunQueues(bool original)
         {{{5, 0xFFFFFFFFu}, {5, 0}}, {1, 1}, 0, 0xFFFFFFFFu},
         {{{0, 9}, {0, 3}, {0, 4}}, {1, 1, 1}, 3, 0},
     };
-    ConnView* conn = Conn(3);
+    Conn* conn = TheConn(3);
     for (const SeqCase& c : seqCases) {
         for (Mem::ListNode& queue : conn->m_receivedQueues)
             InitHead(&queue, 0x00647584);
@@ -954,7 +954,7 @@ std::vector<uint32_t> RunQueues(bool original)
         if (variant) {
             for (int i = 0; i < 2; ++i)
                 Append(&app->m_banned, Link(i), reinterpret_cast<uint32_t>(g_linkVtable), Link(i));
-            Append(&app->m_connections, &Conn(0)->m_appNode, 0x00647574, Conn(0));
+            Append(&app->m_connections, &TheConn(0)->m_appNode, 0x00647574, TheConn(0));
             Append(&app->m_list1414, Misc<ListNode>(0x1D00), 0x2222, Misc(0x1D00));
         }
         uint32_t* tasks = Misc<uint32_t>(0x1E00);
@@ -973,7 +973,7 @@ std::vector<uint32_t> RunQueues(bool original)
         RecordWords(reinterpret_cast<uint8_t*>(app) + 0x1400, 0x60);
         RecordWords(reinterpret_cast<uint8_t*>(app) + 0x1E80, 0x38);
         RecordWords(Misc(0x1D00), 0x60);
-        RecordWords(&Conn(0)->m_appNode, 0x14);
+        RecordWords(&TheConn(0)->m_appNode, 0x14);
         Record({HashBytes(reinterpret_cast<const uint8_t*>(&app->m_dispatcher), sizeof(app->m_dispatcher))});
         RecordWords(&app->m_dispatcher.m_lists[7], 0x3C);
     }
