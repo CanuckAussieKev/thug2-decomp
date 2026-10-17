@@ -681,12 +681,66 @@ bool __cdecl CFunc_Start(Script::CStruct*, Script::CScript*)
     return true;
 }
 
+namespace {
+
+// The ground below a point: the game's collision ray (a CFeeler: constructor 0x00417760; 0x00417710 (start, end,
+// movables) casts it - thiscall, RET 0xC, true on a hit; the hit's normal at +0x24, its point at +0x34), straight
+// down 5000 units, static
+// collision only.
+bool GroundBelow(V3 from, V3* ground)
+{
+    alignas(16) uint8_t feeler[0x100] = {};
+    GameFunction<void*(__thiscall*)(void*)>(0x00417760)(feeler);
+    Mth::Vector start = {from.x, from.y, from.z, 1.0f}, end = {from.x, from.y - 5000.0f, from.z, 1.0f};
+    if (!GameFunction<bool(__thiscall*)(void*, const Mth::Vector*, const Mth::Vector*, int)>(0x00417710)(
+            feeler, &start, &end, 0))
+        return false;
+    const float* hit = reinterpret_cast<const float*>(feeler + 0x34);
+    *ground = {hit[0], hit[1], hit[2]};
+    return true;
+}
+
+// Leaving the editor: the skater (hidden while editing) put on the ground below the camera, facing the way the camera
+// looked, so play goes on where the editor was left (as Obj_MoveToNode does: position, orientation, teleported).
+void PlaceSkaterBelowCamera()
+{
+    constexpr uint32_t kSkater = 0x5B8AB877; // Skater (the local skater's alias)
+    auto* skater = static_cast<Obj::CCompositeObject*>(Obj::FindObject(kSkater));
+    if (!skater)
+        return;
+    // (below the camera; else from high above it - the camera may have gone through the floor)
+    V3 ground;
+    bool found = GroundBelow(g_pos, &ground) || GroundBelow({g_pos.x, g_pos.y + 3000.0f, g_pos.z}, &ground);
+    if (!found)
+        ground = g_pos;
+    Frame frame = FrameFromYawPitch(g_yaw, 0.0f);
+    V3 at = {-frame.back.x, 0.0f, -frame.back.z};
+    float length = std::sqrt(at.x * at.x + at.z * at.z);
+    if (length > 0.0001f)
+        at = {at.x / length, 0.0f, at.z / length};
+    else
+        at = {0.0f, 0.0f, 1.0f};
+    // (rows: right = up x at, up, at)
+    Mth::Vector right = {at.z, 0.0f, -at.x, 0.0f}, up = {0.0f, 1.0f, 0.0f, 0.0f}, forward = {at.x, 0.0f, at.z, 0.0f};
+    for (Mth::Matrix* m : {&skater->m_matrix, &skater->m_displayMatrix}) {
+        m->row[0] = right;
+        m->row[1] = up;
+        m->row[2] = forward;
+    }
+    Place(skater, ground);
+    Log("level editor: the skater put at (%.0f, %.0f, %.0f)%s", ground.x, ground.y, ground.z,
+        found ? " (the ground below the camera)" : " (the camera's place: no ground found below)");
+}
+
+} // namespace
+
 bool __cdecl CFunc_Stop(Script::CStruct*, Script::CScript*)
 {
     if (!g_active)
         return true;
     EndDrag();
     SetRelative(false);
+    PlaceSkaterBelowCamera();
     if (g_camera) {
         g_camera->m_pos = g_savedPos;
         g_camera->m_matrix = g_savedMatrix;
@@ -855,8 +909,8 @@ void UpdateHud()
     std::snprintf(text, sizeof(text), "Objects: %d pickable of %d   Moves: %d (not saved)", g_pickable, g_objects,
                   g_moves);
     SetHudLine(4, text);
-    SetHudLine(5, "W/A/S/D fly   Q/E down/up   Shift faster   Right mouse: look   Wheel: speed");
-    SetHudLine(6, "Left drag: move (Shift: up/down)   Wheel on selected: turn   Esc/Enter: exit");
+    SetHudLine(5, "W/A/S/D fly   Q/E down/up   Shift faster   Right mouse: look   Wheel: speed   Esc/Enter: exit");
+    SetHudLine(6, "Left drag: move   Shift+drag or PgUp/PgDn (R/F): raise/lower   Wheel on selected: turn");
 }
 
 } // namespace
@@ -955,6 +1009,20 @@ void Update()
                 Log("level editor: speed %.0f units a second", g_speed);
         }
     }
+
+    // Page Up / Page Down (or R / F) held: the selected object up / down (100 units a second, Shift x4).
+    int raise = (keys[SDL_SCANCODE_PAGEUP] || keys[SDL_SCANCODE_R] ? 1 : 0) -
+                (keys[SDL_SCANCODE_PAGEDOWN] || keys[SDL_SCANCODE_F] ? 1 : 0);
+    static bool raising = false;
+    selected = Live(g_selected);
+    if (raise && selected && !g_dragging) {
+        V3 pos = PosOf(selected);
+        pos.y += static_cast<float>(raise * 100.0 * (shift ? 4.0 : 1.0) * seconds);
+        Place(selected, pos);
+        if (!raising)
+            ++g_moves;
+    }
+    raising = raise != 0 && selected;
 }
 
 void Draw()

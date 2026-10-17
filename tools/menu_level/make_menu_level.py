@@ -401,8 +401,27 @@ script level_editor_hud_create {
         type=ContainerElement
         parent=root_window
         id=level_editor_hud
-        pos=(0.0, 0.0)
-        just=[left top]
+        pos=(320.0, 240.0)
+        dims=(640.0, 480.0)
+    }
+    CreateScreenElement {
+        type=SpriteElement
+        parent=level_editor_hud
+        texture=white2
+        pos=(320.0, 480.0)
+        just=[center bottom]
+        rgba=[2 0 1 98]
+        scale=(200.5, 12.6)
+        z_priority=990
+    }
+    CreateScreenElement {
+        type=SpriteElement
+        parent=level_editor_hud
+        texture=white3
+        scale=(40.0, 0.03)
+        rgba=[13 56 82 80]
+        pos=(320.0, 380.0)
+        z_priority=991
     }
     <index> = 1
     while {
@@ -413,18 +432,17 @@ script level_editor_hud_create {
             id=<line_id>
             font=small
             text=""
-            pos=((24.0, 18.0) + (0.0, 15.0) * <index>)
+            pos=((22.0, 372.0) + (0.0, 11.0) * <index>)
             just=[left top]
-            scale=0.75
-            rgba=[128 128 128 128]
-            shadow
-            shadow_offs=(1.0, 1.0)
-            shadow_rgba=[0 0 0 128]
+            scale=0.58
+            rgba=[110 110 110 128]
             z_priority=1000
         }
         <index> = (<index> + 1)
     } 7
     SetScreenElementProps id=level_editor_hud_1 rgba=[128 110 0 128]
+    SetScreenElementProps id=level_editor_hud_6 rgba=[80 90 100 128]
+    SetScreenElementProps id=level_editor_hud_7 rgba=[80 90 100 128]
 }
 script level_editor_hud_set {
     if ObjectExists id=<id> {
