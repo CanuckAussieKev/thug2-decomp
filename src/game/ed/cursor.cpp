@@ -435,7 +435,7 @@ CCursor* CCursor::Construct()
     m_clipboardSet = 0;
     m_menuIndex = 0;
     m_gap.m_numPlaced = 0;
-    m_gap.unknown50 = 0;
+    m_gap.m_50 = 0;
     m_mode = kModeNone;
     mp_manager = CParkManager::Instance();
     CPieceSet* set = mp_manager->GetPieceSet(0, &m_menuIndex);

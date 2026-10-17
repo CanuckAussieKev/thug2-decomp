@@ -15,10 +15,26 @@
 #include "game/mth/vector.h"
 #include "hook/game.h"
 
+namespace Script {
+class CArray;
+class CStruct;
+} // namespace Script
+
 namespace Ed {
 
 class CParkGenerator; // the scene side of the park (0x4A4 bytes, 0x00593460 constructs it): no source yet
 class CCursor;
+class CPiece;
+
+// The grid's cells in the world (the exe's constants): 120 x 48 x 120, the 58 x 58 grid centred on the origin.
+constexpr float kCellWidth = 120.0f;  // 0x0064F41C
+constexpr float kCellHeight = 48.0f;  // 0x0064F420
+constexpr float kCellLength = 120.0f; // 0x0064F424
+constexpr float kGridCells = 58.0f;   // 0x0064F7A8
+constexpr float kRiserBelowDrop = 1.5f; // 0x00646744
+
+// Progress markers through the park's rebuilding, compiled out of this build (the empty function 0x005480A0).
+inline void MarkProgress(const char* /*label*/) {}
 
 // A box of cells: the corner (x, y, z) and the size (w, h, l). y is signed (floor steps below 0 are dug in).
 struct GridDims {
@@ -58,13 +74,14 @@ public:
         kFlag1 = 0x1,               // (only these are highlighted by an area selection)
         kInPark = 0x4,              // placed in the park (not the cursor's own piece)
         kInnerShell = 0x8,          // part of the floor / shell the park builds itself (risers, walls)
-        kFlag20 = 0x20,             // (kept when an area is cleared with flag 4)
+        kFlag20 = 0x20,             // being moved by a floor change (kept when an area is cleared with flag 4)
         kSector = 0x80,             // a menu entry that is a sector (a whole set) rather than one piece
         kFence = 0x100,             // a fence piece of the inner shell
         kCursor = 0x200,            // the cursor's piece
         kFlag400 = 0x400,
         kGap = 0x800,               // the gap tool
         kHighlightable = 0x1000,    // highlighted while a gap is placed
+        kFloorLocked = 0x4000,      // (stops the floor under it being levelled)
         kAreaSelect = 0x8000,       // the clipboard's area select tool
         kRailPlacement = 0x10000,   // the rail tool
         kRiserBelow = 0x20000,
@@ -107,6 +124,11 @@ public:
     {
         return GameFunction<bool(__thiscall*)(CMetaPiece*, GridDims*)>(0x00590750)(this, area);
     }
+    // Vtable slot 0: piece `index` (its scene piece)
+    CPiece* GetPiece(uint32_t index)
+    {
+        return reinterpret_cast<CPiece*(__thiscall*)(CMetaPiece*, uint32_t)>(m_vtable[0])(this, index);
+    }
     // Vtable slot 1: the scalar deleting destructor
     void Delete() { reinterpret_cast<void(__thiscall*)(CMetaPiece*, int)>(m_vtable[1])(this, 1); }
 };
@@ -114,9 +136,24 @@ static_assert(offsetof(CMetaPiece, m_flags) == 0x0C);
 static_assert(offsetof(CMetaPiece, m_num_used_entries) == 0x34);
 static_assert(sizeof(CMetaPiece) == 0x3C);
 
-// A node of a metapiece list.
+// A piece of the scene (what a metapiece is made of).
+class CPiece {
+public:
+    // 0x00590670: put it at `position` (and move its scene object if `update`)
+    void SetPosition(Mth::Vector* position, int update)
+    {
+        GameFunction<void(__thiscall*)(CPiece*, Mth::Vector*, int)>(0x00590670)(this, position, update);
+    }
+    // 0x00590260: turn it to `rot` quarter turns (and its scene object if `update`)
+    void SetRot(int rot, int update) { GameFunction<void(__thiscall*)(CPiece*, int, int)>(0x00590260)(this, rot, update); }
+
+    uint8_t unknown00[0x28];
+    int m_rot; // +0x28
+};
+
+// A node of a metapiece list (12 bytes, pooled: the pool pair 0x007CE5F0).
 struct CMapListNode {
-    void* unknown0;
+    int m_dy; // in the floor change's list: how far the metapiece moves up (down if negative)
     CMetaPiece* mp_meta; // +0x04
     CMapListNode* mp_next; // +0x08
 
@@ -140,13 +177,19 @@ struct MapListHolder {
     MapListHolder& operator=(const MapListHolder&) = delete;
 };
 
-// A gap being placed (0x54 bytes; 0x0058CBC0 initialises it): the gap tool's state.
+// A gap (0x54 bytes; 0x0058CBC0 constructs the two ends): the gap tool's state, and how a gap is kept.
 struct GapInfo {
-    uint8_t unknown00[0x48];
-    int m_numPlaced;   // +0x48: how many of its ends are placed (1 while the second is being placed)
+    GridDims ends[2];  // +0x00
+    int m_0C[2];       // +0x0C: (4 bits each in the map)
+    int m_14[2];       // +0x14
+    int m_1C[2];       // +0x1C
+    char m_name[0x20]; // +0x24
+    int m_score;       // +0x44
+    int m_numPlaced;   // +0x48: how many of its ends are placed (2 for a whole gap)
     int m_gapIndex;    // +0x4C: the gap manager's index (-1 none)
-    int unknown50;
+    int m_50;
 };
+static_assert(offsetof(GapInfo, m_name) == 0x24);
 static_assert(sizeof(GapInfo) == 0x54);
 
 // A copied area (0x18 bytes, pooled: the pool pair 0x007CE5B4): the metapieces (and rails) copied from it.
@@ -207,9 +250,9 @@ static_assert(sizeof(CPieceSet) == 0x154);
 struct FloorCell {
     int m_height;   // in floor steps
     int unknown4;
-    uint8_t unknown8;
+    bool m_touched; // +0x08: changed by the floor change under way
     uint8_t pad9[3];
-    int unknownC;
+    int m_delta;    // +0x0C: by how much
 };
 static_assert(sizeof(FloorCell) == 16);
 
@@ -219,7 +262,7 @@ constexpr int kFloorSize = 58; // the grid is 58 x 58 cells
 struct CompressedMap {
     uint8_t unknown00[6];
     uint16_t m_version;      // +0x06: 0x4E24 (gaps 0x30 bytes); older parks have 0x2C-byte gaps
-    uint16_t m_08;           // +0x08
+    uint16_t m_08;           // +0x08 (the park manager's m_351C)
     uint8_t unknown0A[2];
     uint8_t m_x, m_z, m_w, m_l; // +0x0C: the park's bounds
     uint16_t m_numMetas;     // +0x10
@@ -247,6 +290,10 @@ public:
     {
         return GameFunction<GapInfo*(__thiscall*)(CGapManager*, int, int*)>(0x0058CB20)(this, index, half);
     }
+    // 0x0058CE90: remove every gap
+    void RemoveAllGaps() { GameFunction<void(__thiscall*)(CGapManager*)>(0x0058CE90)(this); }
+    // 0x0058CF20: the destructor (also clears the singleton)
+    void Destroy() { GameFunction<void(__thiscall*)(CGapManager*)>(0x0058CF20)(this); }
 };
 
 // The park generator (the scene side): what's used of it here.
@@ -265,6 +312,49 @@ public:
     void SetPiecesHighlighted(int on) { GameFunction<void(__thiscall*)(CParkGenerator*, int)>(0x00592290)(this, on); }
     // 0x00591D20 (sets +0x20)
     void SetMaxPlayers(int count) { GameFunction<void(__thiscall*)(CParkGenerator*, int)>(0x00591D20)(this, count); }
+    // 0x00591C70: the destructor
+    void Destroy() { GameFunction<void(__thiscall*)(CParkGenerator*)>(0x00591C70)(this); }
+    // 0x00592550 / 0x00594410: a placed piece into the scene and into the collision
+    void AddPiece(CPiece* piece) { GameFunction<void(__thiscall*)(CParkGenerator*, CPiece*)>(0x00592550)(this, piece); }
+    void AddCollision(CPiece* piece) { GameFunction<void(__thiscall*)(CParkGenerator*, CPiece*)>(0x00594410)(this, piece); }
+    // 0x00593200: a restart point of `type` at `position` (the cells `area`). False when there's no room.
+    bool AddRestart(Mth::Vector* position, int rot, GridDims* area, int type, int automatic, uint32_t flag)
+    {
+        return GameFunction<bool(__thiscall*)(CParkGenerator*, Mth::Vector*, int, GridDims*, int, int, uint32_t)>(
+            0x00593200)(this, position, rot, area, type, automatic, flag);
+    }
+    // 0x005933D0: whether there are fewer than `count` restart points of `type`
+    bool NeedsRestarts(int type, int count)
+    {
+        return GameFunction<bool(__thiscall*)(CParkGenerator*, int, int)>(0x005933D0)(this, type, count);
+    }
+    // 0x00591FE0: forget the restart points put down automatically; 0x00591FC0: all of them
+    void ClearAutomaticRestarts() { GameFunction<void(__thiscall*)(CParkGenerator*)>(0x00591FE0)(this); }
+    void ClearRestarts() { GameFunction<void(__thiscall*)(CParkGenerator*)>(0x00591FC0)(this); }
+    // 0x00594EA0: the level's node array from the park
+    void BuildNodeArray(CMapListNode* metas)
+    {
+        GameFunction<void(__thiscall*)(CParkGenerator*, CMapListNode*)>(0x00594EA0)(this, metas);
+    }
+    // 0x005920D0: the park's bounding boxes
+    void UpdateBounds(uint32_t value) { GameFunction<void(__thiscall*)(CParkGenerator*, uint32_t)>(0x005920D0)(this, value); }
+    // 0x00593580: delete the scene's pieces (`keepRails` 0: the rails go too)
+    void DestroyPieces(int keepRails) { GameFunction<void(__thiscall*)(CParkGenerator*, int)>(0x00593580)(this, keepRails); }
+    // 0x00592090: rebuild the collision (when allowed)
+    void RebuildCollision() { GameFunction<void(__thiscall*)(CParkGenerator*)>(0x00592090)(this); }
+    // 0x00594C70
+    void CleanUp(int type) { GameFunction<void(__thiscall*)(CParkGenerator*, int)>(0x00594C70)(this, type); }
+};
+
+// What RebuildFloorPiece is asked (0x1C bytes): the cell and its floor height; it says where the top piece went.
+struct FloorPieceRequest {
+    int x;
+    int y; // (out) the top piece's height
+    int z;
+    int unknownC;
+    int unknown10;
+    int index; // height - 1: the riser_above%d piece
+    int height;
 };
 
 class CParkManager {
@@ -335,6 +425,85 @@ public:
         return nullptr;
     }
 
+    // 0x00598E00: the constructor (an empty park; the generator made). Returns this.
+    CParkManager* Construct();
+    // 0x00599BF0 / 0x00599C70: make / delete the instance
+    static void CreateInstance();
+    static void DeleteInstance();
+    // 0x00598FC0: a park from a script structure (its goals, rails, player count and map)
+    void ReadFromStructure(Script::CStruct* params, bool applyToEditor);
+    // 0x00599140: save the park to, or load it from, CustomParks\custom<slot>.prk
+    void AccessDisk(bool save, int slot);
+    // 0x00599EB0 / 0x0059B750: the park built from the compressed map
+    void ReadFromOldCompressedMap();
+    void ReadFromCompressedMap();
+    // 0x0059BE20: an empty park ("unnamed park")
+    void ResetPark();
+    // 0x005993E0: the restart points every park has, then the node array
+    void GenerateNodeArray();
+    // 0x00599A20: put `meta` in the park at `pos` (x, y, z)
+    void AddMetaPieceToPark(GridDims pos, CMetaPiece* meta);
+    // 0x00599CD0: whether the floor of `area` can be raised or lowered (not with pieces on it; without `uneven`,
+    // only where it's flat at area.y)
+    bool CanChangeFloorHere(GridDims area, bool uneven);
+    // 0x00599E20: delete what's in the layer under `area` (counted in m_riserMetas / m_riserPieces)
+    void DestroyMetasBelow(GridDims area);
+    // 0x0059B020: delete every placed metapiece (`keepRails` is passed to the generator)
+    void DestroyConcreteMetas(int keepRails);
+    // 0x0059B090: `meta` deleted and made again (dx, dy, dz) cells away, with its gap. Returns the new one.
+    CMetaPiece* RelocateMetaPiece(CMetaPiece* meta, int dx, int dy, int dz);
+    // 0x0059B280: put the floor and the moved metapieces back
+    void UndoFloorChange();
+    // 0x0059B2C0: move each metapiece of `list` by its m_dy
+    void MoveRiserList(CMapListNode* list);
+    // 0x0059B320: the floor pieces of one cell (risers, the floor, riser_below walls)
+    void RebuildFloorPiece(FloorPieceRequest* request);
+    // 0x0059BD40: take the park down (the map brought up to date first)
+    void Destroy(int keepRails);
+    // 0x0059BED0: the park's bounds become `bounds`: what's outside goes, the fence goes round it
+    void RebuildInnerShell(GridDims bounds);
+    // 0x0059C520: raise or lower (or with `level`, set to `target`) the floor of `area` and what's on it
+    bool ChangeFloorHeight(GridDims area, int y, int target, bool raise, bool level);
+    // 0x0059C600: the floor pieces of `area` and round it (null: the whole park, after clearing what's outside)
+    bool RebuildFloor(GridDims* area, int unused); // (the callers pass 0 as `unused`)
+
+    // 0x00596980: the park into the compressed map
+    void WriteCompressedMap() { GameFunction<void(__thiscall*)(CParkManager*)>(0x00596980)(this); }
+    // 0x005975B0: the park into a script structure
+    void WriteIntoStructure(Script::CStruct* params)
+    {
+        GameFunction<void(__thiscall*)(CParkManager*, Script::CStruct*)>(0x005975B0)(this, params);
+    }
+    // 0x005950F0
+    void SetParkName(const char* name)
+    {
+        GameFunction<void(__thiscall*)(CParkManager*, const char*)>(0x005950F0)(this, name);
+    }
+    // 0x00597BD0: a gap made from `gap`
+    bool AddGap(GapInfo* gap) { return GameFunction<bool(__thiscall*)(CParkManager*, GapInfo*)>(0x00597BD0)(this, gap); }
+    // 0x005987A0: the piece sets and the abstract metapieces
+    void SetUpPieceSets() { GameFunction<void(__thiscall*)(CParkManager*)>(0x005987A0)(this); }
+    // 0x00595B30: whether `area` overlaps one of the blocked areas
+    bool IsAreaBlocked(GridDims area)
+    {
+        return GameFunction<bool(__thiscall*)(CParkManager*, GridDims)>(0x00595B30)(this, area);
+    }
+    // 0x005983D0: whether a metapiece in `area` has kFloorLocked
+    bool HasFloorLockedMeta(GridDims area)
+    {
+        return GameFunction<bool(__thiscall*)(CParkManager*, GridDims)>(0x005983D0)(this, area);
+    }
+    // 0x005984A0: change the floor cells of `area` (marking them) and list the metapieces that move with them
+    bool BuildRiserList(GridDims area, int y, int target, uint32_t mode, CMapListNode** list)
+    {
+        return GameFunction<bool(__thiscall*)(CParkManager*, GridDims, int, int, uint32_t, CMapListNode**)>(0x005984A0)(
+            this, area, y, target, mode, list);
+    }
+    // 0x005952B0: undo the marked floor changes (clamping heights to -16..15)
+    void RestoreFloorHeights() { GameFunction<void(__thiscall*)(CParkManager*)>(0x005952B0)(this); }
+    // 0x00595D40: clear the marks (and every metapiece's kFlag20)
+    void ClearFloorChangeMarks() { GameFunction<void(__thiscall*)(CParkManager*)>(0x00595D40)(this); }
+
     // 0x00599880: delete the metapieces intersecting `area` (`flags`: 2 not the inner shell, 4 not kFlag20 ones;
     // passed on to DestroyConcreteMeta). Returns the count of metapieces << 16 | the count of their pieces.
     uint32_t DestroyMetasInArea(GridDims area, uint32_t flags);
@@ -388,11 +557,15 @@ public:
     CompressedMap m_map;                 // +0x13C90
     uint32_t m_flags;                    // +0x17728
     char m_parkName[0x40];               // +0x1772C
-    GridDims m_1776C[8];
-    uint8_t unknown1779C[8];
+    GridDims m_blockedAreas[8];          // +0x1776C: (the first four: the strips round the park)
+    uint32_t m_numBlockedAreas;          // +0x1779C
+    uint32_t unknown177A0;
     uint32_t m_restartPieces[8];         // +0x177A4: the restart pieces of players 1-8
     CGapManager* mp_gapManager;          // +0x177C4
     int m_177C8;
+
+private:
+    void ReadCompressedMap(Script::CArray* names, bool current);
 };
 static_assert(offsetof(CParkManager, m_shellBlocks) == 0x14);
 static_assert(offsetof(CParkManager, mp_concrete_metas) == 0x7C);

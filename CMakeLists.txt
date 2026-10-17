@@ -87,7 +87,10 @@ add_library(thug2_code OBJECT
     src/game/core/string.cpp
     src/game/file/asset_bundle.cpp
     src/game/ed/cursor.cpp
+    src/game/ed/park_floor.cpp
     src/game/ed/park_manager.cpp
+    src/game/ed/park_map.cpp
+    src/game/ed/piece_menu.cpp
     src/game/front/screen_element.cpp
     src/game/gfx/screen.cpp
     src/game/gfx/settings.cpp
