@@ -13,6 +13,17 @@ void Free(void* memory) { Mem::Manager::Get()->Free(memory); }
 
 } // namespace
 
+// 0x00457010
+MsgHandlerNode* MsgHandlerNode::ConstructHead()
+{
+    data = reinterpret_cast<void*>(-1);
+    priority = 0;
+    next = this;
+    prev = this;
+    vtable = kMsgHandlerHeadVtable;
+    return this;
+}
+
 // 0x00457030
 void MsgHandlerNode::DestroyBody() { UnlinkAs(kMsgHandlerNodeVtable); }
 
@@ -37,6 +48,15 @@ void ConnNode::DestroyBody() { UnlinkAs(kConnNodeVtable); }
 
 // 0x004573A0
 ConnNode* ConnNode::DestroyHead(unsigned int flags)
+{
+    DestroyBody();
+    if (flags & 1)
+        Free(this);
+    return this;
+}
+
+// 0x00455BD0
+ConnNode* ConnNode::Destroy(unsigned int flags)
 {
     DestroyBody();
     if (flags & 1)
@@ -91,11 +111,13 @@ BannedConnSearch* BannedConnSearch::Destroy(unsigned int flags)
 
 } // namespace Net
 
+REPLACE(0x00457010, &Net::MsgHandlerNode::ConstructHead);
 REPLACE(0x00457030, &Net::MsgHandlerNode::DestroyBody);
 REPLACE(0x00457090, &Net::MsgHandlerNode::Destroy);
 REPLACE(0x00457260, &Net::HandlerLists::Destroy);
 REPLACE(0x00457050, &Net::ConnNode::DestroyBody);
 REPLACE(0x004573A0, &Net::ConnNode::DestroyHead);
+REPLACE(0x00455BD0, &Net::ConnNode::Destroy);
 REPLACE(0x00457070, &Net::BannedConnNode::DestroyBody);
 REPLACE(0x004570D0, &Net::BannedConnNode::Destroy);
 REPLACE(0x00457460, &Net::BannedConn::DestroyBanned);

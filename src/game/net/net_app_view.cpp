@@ -1,7 +1,7 @@
-// Net::App's socket I/O, connection list and message queues (Neversoft's Net library). See net_app_view.h.
+// Net::App's socket I/O, connection list and message queues (Neversoft's Net library). See net_app.h.
 
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
-#include "game/net/net_app_view.h"
+#include "game/net/net_app.h"
 
 #include <winsock2.h>
 #include <windows.h>
@@ -44,23 +44,23 @@ void DeleteVirtual(void* object, int slot)
     reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>(vtable[slot])(object, 1);
 }
 
-// -> Conn's methods (not decompiled yet: below the three net ranges)
-uint32_t SendInterval(ConnView* conn) { return GameFunction<uint32_t(__thiscall*)(ConnView*)>(0x00455970)(conn); }
-bool SendNow(ConnView* conn) { return GameFunction<bool(__thiscall*)(ConnView*)>(0x00455990)(conn); }
-// twice the average latency, at least 500 ms (1000 ms or no wait at all in some modes)
-uint32_t ResendThreshold(ConnView* conn) { return GameFunction<uint32_t(__thiscall*)(ConnView*)>(0x00455C30)(conn); }
-void DeleteConn(ConnView* conn)
+// Conn's methods (net_conn.cpp)
+uint32_t SendInterval(Conn* conn) { return conn->GetSendInterval(); }
+bool SendNow(Conn* conn) { return conn->GetForceSendThisFrame(); }
+// twice the average latency, at least 500 ms (1000 ms with status bit 2)
+uint32_t ResendThreshold(Conn* conn) { return conn->GetResendThreshold(); }
+void DeleteConn(Conn* conn)
 {
     if (conn) {
-        GameFunction<void(__thiscall*)(ConnView*)>(0x00456790)(conn); // -> Conn::~Conn
+        conn->Destroy();
         Free(conn);
     }
 }
 
-// -> QueuedMsg's destructor (frees the data)
+// QueuedMsg's destructor (frees the data)
 void DeleteMsg(void* msg)
 {
-    GameFunction<void(__thiscall*)(void*)>(0x004550F0)(msg);
+    static_cast<QueuedMsg*>(msg)->DestroyBody();
     Free(msg);
 }
 
@@ -95,7 +95,7 @@ void Remove(Mem::ListNode* node)
 } // namespace
 
 // 0x00456910
-void AppView::Encrypt(const uint8_t* data, uint8_t* out, int length, int* outLength)
+void App::Encrypt(const uint8_t* data, uint8_t* out, int length, int* outLength)
 {
     uint16_t checksum = Checksum(data, length);
     std::memcpy(out, &checksum, sizeof(checksum));
@@ -105,7 +105,7 @@ void AppView::Encrypt(const uint8_t* data, uint8_t* out, int length, int* outLen
 }
 
 // 0x00456CC0
-bool AppView::Decrypt(const uint8_t* packet, uint8_t* out, int length)
+bool App::Decrypt(const uint8_t* packet, uint8_t* out, int length)
 {
     if (length < 3)
         return false;
@@ -127,7 +127,7 @@ bool AppView::Decrypt(const uint8_t* packet, uint8_t* out, int length)
 }
 
 // 0x00456A90
-void AppView::ReportError()
+void App::ReportError()
 {
     char message[0x400];
     std::snprintf(message, sizeof(message), "%s: Error %d\n", m_name, WSAGetLastError());
@@ -135,7 +135,7 @@ void AppView::ReportError()
 }
 
 // 0x00456B00
-bool AppView::IsSendDue(ConnView* conn)
+bool App::IsSendDue(Conn* conn)
 {
     uint32_t interval = SendInterval(conn);
     if (m_time - conn->m_lastSendTime >= interval)
@@ -153,14 +153,14 @@ __declspec(naked) void VirtualSlot5Jump()
 }
 
 // 0x00456B40
-void AppView::AliasConnections(ConnView* first, ConnView* second)
+void App::AliasConnections(Conn* first, Conn* second)
 {
     first->m_aliasConn = second;
     second->m_aliasConn = first;
 }
 
 // 0x00456BA0
-bool AppView::Bind(uint32_t /*address*/, uint16_t port)
+bool App::Bind(uint32_t /*address*/, uint16_t port)
 {
     sockaddr_in local = {};
     local.sin_family = AF_INET;
@@ -190,18 +190,17 @@ bool AppView::Bind(uint32_t /*address*/, uint16_t port)
 }
 
 // 0x00456D90
-SeqQueuedMsg* AppView::NewQueuedMsg(uint8_t id, uint16_t length, void* data, uint8_t arg4, uint8_t arg5)
+SeqQueuedMsg* App::NewQueuedMsg(uint8_t id, uint16_t length, void* data, uint8_t arg4, uint8_t arg5)
 {
     void* memory = Mem::New(sizeof(SeqQueuedMsg));
     if (!memory)
         return nullptr;
-    // -> SeqQueuedMsg's constructor (copies the data, compressing it if `arg5`)
-    return GameFunction<SeqQueuedMsg*(__thiscall*)(void*, uint8_t, uint16_t, void*, uint8_t, uint8_t)>(0x00455040)(
-        memory, id, length, data, arg4, arg5);
+    // SeqQueuedMsg's constructor (copies the data, compressing it if `arg5`)
+    return static_cast<SeqQueuedMsg*>(memory)->Construct(id, length, data, arg4, arg5);
 }
 
 // 0x00456E20
-bool AppView::SendTo(uint32_t ip, uint16_t port, const uint8_t* data, int length, int flags)
+bool App::SendTo(uint32_t ip, uint16_t port, const uint8_t* data, int length, int flags)
 {
     sockaddr_in to = {};
     to.sin_family = AF_INET;
@@ -225,7 +224,7 @@ bool AppView::SendTo(uint32_t ip, uint16_t port, const uint8_t* data, int length
 }
 
 // 0x00456F10
-bool AppView::Send(const uint8_t* data, int length, int flags)
+bool App::Send(const uint8_t* data, int length, int flags)
 {
     if (!m_connected)
         return false;
@@ -237,7 +236,7 @@ bool AppView::Send(const uint8_t* data, int length, int flags)
 }
 
 // 0x00457110
-bool AppView::Init()
+bool App::Init()
 {
     if (!(m_flags & kLocal)) {
         m_socket = static_cast<uint32_t>(socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP));
@@ -258,8 +257,12 @@ bool AppView::Init()
         }
     }
     m_numConnections = 0;
-    for (uint32_t& counter : m_counters)
-        counter = 0;
+    m_totalBytesOut = 0;
+    m_totalBytesIn = 0;
+    m_lostPackets = 0;
+    m_latePackets = 0;
+    m_dupePackets = 0;
+    m_frameCount = 0;
     DispatcherInit(&m_dispatcher);
     // the handlers (net_app_messages.cpp)
     AddHandler(&m_dispatcher, kMsgAck, App::HandleAck, kHandleFlags3, kHighPriority);
@@ -273,7 +276,7 @@ bool AppView::Init()
 }
 
 // 0x00457280
-bool AppView::SendMessageTo(uint8_t id, uint16_t length, const void* data, uint32_t ip, uint16_t port, int flags)
+bool App::SendMessageTo(uint8_t id, uint16_t length, const void* data, uint32_t ip, uint16_t port, int flags)
 {
     uint8_t packet[kMaxPacketSize];
     packet[0] = id;
@@ -284,22 +287,22 @@ bool AppView::SendMessageTo(uint8_t id, uint16_t length, const void* data, uint3
 }
 
 // 0x00457300
-void AppView::TerminateConnection(ConnView* conn)
+void App::TerminateConnection(Conn* conn)
 {
     Remove(&conn->m_appNode);
     DeleteConn(conn);
 }
 
 // 0x004573D0
-ConnView* AppView::NextConnection(ConnSearch* search)
+Conn* App::NextConnection(ConnSearch* search)
 {
     Mem::ListNode* next = search->m_node->next;
     search->m_node = next->data == reinterpret_cast<void*>(-1) ? nullptr : next;
-    return search->m_node ? static_cast<ConnView*>(search->m_node->data) : nullptr;
+    return search->m_node ? static_cast<Conn*>(search->m_node->data) : nullptr;
 }
 
 // 0x00457400
-void AppView::BanConnection(ConnView* conn)
+void App::BanConnection(Conn* conn)
 {
     auto* banned = static_cast<BannedConn*>(Mem::Calloc(sizeof(BannedConn)));
     if (banned)
@@ -313,20 +316,20 @@ void AppView::BanConnection(ConnView* conn)
 }
 
 // 0x00457490
-void AppView::Deinit()
+void App::Deinit()
 {
     if (!(m_flags & kLocal))
         closesocket(m_socket);
     DispatcherDeinit(&m_dispatcher);
-    Lst::Search<ConnView> search;
-    for (ConnView *conn = search.FirstItem(&m_connections), *next; conn; conn = next) {
+    Lst::Search<Conn> search;
+    for (Conn *conn = search.FirstItem(&m_connections), *next; conn; conn = next) {
         next = search.NextItem();
         DeleteConn(conn);
     }
 }
 
 // 0x00457560
-bool AppView::DispatchQueuedSequencedMessages(ConnView* conn)
+bool App::DispatchQueuedSequencedMessages(Conn* conn)
 {
     MsgHandlerContext context;
     context.Construct();
@@ -361,7 +364,7 @@ bool AppView::DispatchQueuedSequencedMessages(ConnView* conn)
 }
 
 // 0x00457710
-void AppView::DestroyBody()
+void App::DestroyBody()
 {
     m_vtable = kAppVtable;
     Lst::Search<BannedConn> search;
@@ -381,10 +384,10 @@ void AppView::DestroyBody()
 }
 
 // 0x004578B0
-ConnView* AppView::GetConnectionByAddress(uint32_t ip, uint16_t port)
+Conn* App::GetConnectionByAddress(uint32_t ip, uint16_t port)
 {
-    Lst::Search<ConnView> search;
-    for (ConnView* conn = search.FirstItem(&m_connections); conn; conn = search.NextItem()) {
+    Lst::Search<Conn> search;
+    for (Conn* conn = search.FirstItem(&m_connections); conn; conn = search.NextItem()) {
         if (conn->m_ip == ip && conn->m_port == port)
             return conn;
     }
@@ -392,10 +395,10 @@ ConnView* AppView::GetConnectionByAddress(uint32_t ip, uint16_t port)
 }
 
 // 0x00457910
-ConnView* AppView::GetConnectionByHandle(int handle)
+Conn* App::GetConnectionByHandle(int handle)
 {
-    Lst::Search<ConnView> search;
-    for (ConnView* conn = search.FirstItem(&m_connections); conn; conn = search.NextItem()) {
+    Lst::Search<Conn> search;
+    for (Conn* conn = search.FirstItem(&m_connections); conn; conn = search.NextItem()) {
         if (conn->m_handle == handle)
             return conn;
     }
@@ -403,7 +406,7 @@ ConnView* AppView::GetConnectionByHandle(int handle)
 }
 
 // 0x00457970
-bool AppView::ImportantMessagesDue(ConnView* conn)
+bool App::ImportantMessagesDue(Conn* conn)
 {
     Lst::Search<MsgLink> important;
     for (MsgLink* link = important.FirstItem(&conn->m_importantMsgs); link; link = important.NextItem()) {
@@ -421,7 +424,7 @@ bool AppView::ImportantMessagesDue(ConnView* conn)
 }
 
 // 0x00457AC0
-bool AppView::MessagesDue(ConnView* conn)
+bool App::MessagesDue(Conn* conn)
 {
     Lst::Search<MsgLink> normal;
     for (MsgLink* link = normal.FirstItem(&conn->m_normalMsgs); link; link = normal.NextItem()) {
@@ -444,7 +447,7 @@ bool AppView::MessagesDue(ConnView* conn)
 }
 
 // 0x00457C80
-void AppView::FreeMessages(ConnView* conn, int queue, uint8_t id)
+void App::FreeMessages(Conn* conn, int queue, uint8_t id)
 {
     Mem::ListNode* list;
     uint32_t msgOffset;
@@ -480,35 +483,35 @@ void AppView::FreeMessages(ConnView* conn, int queue, uint8_t id)
 
 } // namespace Net
 
-REPLACE(0x00456910, &Net::AppView::Encrypt);
-REPLACE(0x00456CC0, &Net::AppView::Decrypt);
-REPLACE(0x00456A50, &Net::AppView::SendTask);
-REPLACE(0x00456A60, &Net::AppView::ReceiveTask);
-REPLACE(0x00456A70, &Net::AppView::ProcessTask);
-REPLACE(0x00456A80, &Net::AppView::MetricsTask);
-REPLACE(0x00456AF0, &Net::AppView::NetManager);
-REPLACE(0x00456B60, &Net::AppView::Socket);
-REPLACE(0x00456B70, &Net::AppView::SetValue1E88);
-REPLACE(0x00456F90, &Net::AppView::IsLocal);
-REPLACE(0x00456FA0, &Net::AppView::HasFlag10);
-REPLACE(0x00456A90, &Net::AppView::ReportError);
-REPLACE(0x00456B00, &Net::AppView::IsSendDue);
+REPLACE(0x00456910, &Net::App::Encrypt);
+REPLACE(0x00456CC0, &Net::App::Decrypt);
+REPLACE(0x00456A50, &Net::App::SendTask);
+REPLACE(0x00456A60, &Net::App::ReceiveTask);
+REPLACE(0x00456A70, &Net::App::ProcessTask);
+REPLACE(0x00456A80, &Net::App::MetricsTask);
+REPLACE(0x00456AF0, &Net::App::NetManager);
+REPLACE(0x00456B60, &Net::App::Socket);
+REPLACE(0x00456B70, &Net::App::SetForeignPacketHandler);
+REPLACE(0x00456F90, &Net::App::IsLocal);
+REPLACE(0x00456FA0, &Net::App::AcceptsForeignConnections);
+REPLACE(0x00456A90, &Net::App::ReportError);
+REPLACE(0x00456B00, &Net::App::IsSendDue);
 REPLACE_UNCHECKED(0x00456B30, Net::VirtualSlot5Jump);
-REPLACE(0x00456B40, &Net::AppView::AliasConnections);
-REPLACE(0x00456BA0, &Net::AppView::Bind);
-REPLACE(0x00456D90, &Net::AppView::NewQueuedMsg);
-REPLACE(0x00456E20, &Net::AppView::SendTo);
-REPLACE(0x00456F10, &Net::AppView::Send);
-REPLACE(0x00457110, &Net::AppView::Init);
-REPLACE(0x00457280, &Net::AppView::SendMessageTo);
-REPLACE(0x00457300, &Net::AppView::TerminateConnection);
-REPLACE(0x004573D0, &Net::AppView::NextConnection);
-REPLACE(0x00457400, &Net::AppView::BanConnection);
-REPLACE(0x00457490, &Net::AppView::Deinit);
-REPLACE(0x00457560, &Net::AppView::DispatchQueuedSequencedMessages);
-REPLACE(0x00457710, &Net::AppView::DestroyBody);
-REPLACE(0x004578B0, &Net::AppView::GetConnectionByAddress);
-REPLACE(0x00457910, &Net::AppView::GetConnectionByHandle);
-REPLACE(0x00457970, &Net::AppView::ImportantMessagesDue);
-REPLACE(0x00457AC0, &Net::AppView::MessagesDue);
-REPLACE(0x00457C80, &Net::AppView::FreeMessages);
+REPLACE(0x00456B40, &Net::App::AliasConnections);
+REPLACE(0x00456BA0, &Net::App::Bind);
+REPLACE(0x00456D90, &Net::App::NewQueuedMsg);
+REPLACE(0x00456E20, &Net::App::SendTo);
+REPLACE(0x00456F10, &Net::App::Send);
+REPLACE(0x00457110, &Net::App::Init);
+REPLACE(0x00457280, &Net::App::SendMessageTo);
+REPLACE(0x00457300, &Net::App::TerminateConnection);
+REPLACE(0x004573D0, &Net::App::NextConnection);
+REPLACE(0x00457400, &Net::App::BanConnection);
+REPLACE(0x00457490, &Net::App::Deinit);
+REPLACE(0x00457560, &Net::App::DispatchQueuedSequencedMessages);
+REPLACE(0x00457710, &Net::App::DestroyBody);
+REPLACE(0x004578B0, &Net::App::GetConnectionByAddress);
+REPLACE(0x00457910, &Net::App::GetConnectionByHandle);
+REPLACE(0x00457970, &Net::App::ImportantMessagesDue);
+REPLACE(0x00457AC0, &Net::App::MessagesDue);
+REPLACE(0x00457C80, &Net::App::FreeMessages);

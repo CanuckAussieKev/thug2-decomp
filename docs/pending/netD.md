@@ -73,7 +73,22 @@ MsgDesc copies: reinterpret_cast to Net::MsgDesc and Construct() - netF unifies 
 address now also stand in for ours: selftests_netC.cpp (0x454550, 0x454D90, 0x454C20), selftests_netB.cpp
 (Dbg::Printf, which StreamDesc::DestroyBody calls).
 
-## Cross-range calls (for the merger)
+## After merging main (netE, netF)
+- netE's `ManagerView` is folded into **Net::Manager** (net_manager.h): its constructor 0x4556E0, destructor body
+  0x4555A0, CreateNewAppServer / CreateNewAppClient / DestroyApp and CreateManager / ReleaseManager are Manager's
+  (net_manager_view.cpp renamed net_manager_apps.cpp, net_manager_view.h removed; includes and singleton.cpp
+  updated). netE's field names mapped onto this layout: m_msgFlags -> m_messageFlags (uint8_t), m_localIp ->
+  m_localIP, m_useLocalIp -> m_useDHCP (set from broadband_type == ip_dhcp; CreateNewApp* then bind to the local
+  IP), m_unknown2E0/2E4/2E6/2E8 -> m_lastError / m_online / m_flag2E6 / m_modemState, m_unknown198 ->
+  m_dialupNumberIndex, m_totalBandwidth -> m_bandwidth; m_servers / m_clients are AppNodes.
+- Direct calls now: netE's CompressMessage (net_messages.cpp) and AddAppTasks (net_manager_apps.cpp); netF's
+  Metrics constructor (Conn's m_receiveMetrics / m_sendMetrics are now typed `Metrics`; callers pass their
+  address) and ~StreamDesc (net_conn.cpp); chat.cpp / cscript_manager.cpp's MsgDesc constructor.
+- Tests standing in for ours too: selftests_netE.cpp (0x454E30, 0x454CB0), selftests_netF.cpp (Dbg::Printf).
+- After the merge: thug2_check 0 MISMATCHED, 157 early tests pass; check_code_writes no overlaps; call audit no
+  MISMATCH; register scan only the known RISK.
+
+## Cross-range calls (as found before the merge)
 - netE (0x454FA0-0x455970) calls into this range: QueuedMsg ctors 0x454FA0 / 0x455040 -> CompressMessage 0x454E30;
   CreateNewAppServer 0x455270 / CreateNewAppClient 0x4553F0 -> Manager::AddAppTasks 0x454CB0 (ECX = the manager);
   the Manager's constructor 0x4556E0 / destructor body 0x4555A0 / create-release 0x455880 / 0x4558D0 belong on
@@ -123,7 +138,7 @@ the "read EAX/AL" list returns a value. Call audit: no MISMATCH. check_code_writ
 skipped in or next to the range, 0 thunks.
 
 ## Disable
-`[replacements] disable=net_metrics.cpp,net_manager.cpp,net_descs.cpp,net_compress.cpp` in thug2-decomp.ini.
+`[replacements] disable=net_metrics.cpp,net_manager.cpp,net_descs.cpp,net_compress.cpp` (netE's Manager code: net_manager_apps.cpp) in thug2-decomp.ini.
 (The callers in net_app*.cpp / net_dispatcher.cpp / chat.cpp / cscript_manager.cpp now call these directly; disabling
 the files only unhooks the game's own callers.)
 

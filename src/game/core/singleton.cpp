@@ -9,6 +9,7 @@
 #include "game/file/pre.h"
 #include "game/front/front_end.h"
 #include "game/mc/memcard.h"
+#include "game/net/net_manager.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/objman.h"
 #include "game/obj/tracker.h"
@@ -93,7 +94,12 @@ struct ObjectTracker {
 };
 using Singleton44E7F0 = GameSingleton<0x0044E7F0, 0x0044E6B0, 0x0064AFC0>;
 using Singleton4088E0 = GameSingleton<0x004088E0, 0x00407980, 0x0064AFCC>;
-using Singleton455880 = GameSingleton<0x00455880, 0x004558D0, 0x0064AFD0>;
+struct NetManager {
+    using Type = Net::Manager;
+    static constexpr uint32_t kVtable = 0x0064AFD0;
+    static Type* Create(bool create) { return Net::CreateManager(create); }
+    static void Release() { Net::ReleaseManager(); }
+};
 struct CompositeObjectManager {
     using Type = Obj::CCompositeObjectManager;
     static constexpr uint32_t kVtable = 0x0064AFD4;
@@ -144,8 +150,8 @@ REPLACE(0x004E19E0, &Spt::SingletonPtr<Spt::ScriptCache>::DestroyBody);
 REPLACE(0x004E1C20, &Spt::SingletonPtr<Spt::ScriptCache>::Destroy);
 REPLACE(0x004E19F0, &Spt::SingletonPtr<Spt::Singleton4088E0>::DestroyBody);
 REPLACE(0x004E1C50, &Spt::SingletonPtr<Spt::Singleton4088E0>::Destroy);
-REPLACE(0x004E1A00, &Spt::SingletonPtr<Spt::Singleton455880>::DestroyBody);
-REPLACE(0x004E1C80, &Spt::SingletonPtr<Spt::Singleton455880>::Destroy);
+REPLACE(0x004E1A00, &Spt::SingletonPtr<Spt::NetManager>::DestroyBody);
+REPLACE(0x004E1C80, &Spt::SingletonPtr<Spt::NetManager>::Destroy);
 REPLACE(0x004E1A10, &Spt::SingletonPtr<Spt::CompositeObjectManager>::DestroyBody);
 REPLACE(0x004E1CB0, &Spt::SingletonPtr<Spt::CompositeObjectManager>::Destroy);
 REPLACE(0x004E1A20, &Spt::SingletonPtr<Spt::Singleton589180>::DestroyBody);

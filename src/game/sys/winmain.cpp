@@ -255,7 +255,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE /*previous*/, char* commandLine
     // leaves "THUG2"): if a window has it, the game is running already - that one is brought to the front.
     // (thug2-decomp.ini [features] allow_multiple_instances=1, not in the original: skip this check so a second copy
     // can run - e.g. to host and join a LAN game on one PC. Its socket falls back to a free port when the game's
-    // port is taken (AppView::Bind) and its log goes to thug2-decomp-2.log.)
+    // port is taken (App::Bind) and its log goes to thug2-decomp-2.log.)
     const char kTitle[] = "THUG2";
     if (HWND running = AllowMultipleInstances() ? nullptr : FindWindowExA(nullptr, nullptr, nullptr, kTitle)) {
         ShowWindow(running, SW_RESTORE);

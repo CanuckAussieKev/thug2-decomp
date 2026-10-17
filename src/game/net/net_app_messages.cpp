@@ -19,9 +19,8 @@ namespace {
 
 constexpr uint32_t kMaxStreamStartData = 0x100; // the first piece of a stream, in its start message
 
-uint32_t Timestamp(App* app) { return Field<uint32_t>(app, AppField::kTimestamp); }
-Dispatcher* GetDispatcher(App* app) { return &Field<Dispatcher>(app, AppField::kDispatcher); }
-Mem::ListNode* ListOf(Conn* conn, uint32_t offset) { return &Field<Mem::ListNode>(conn, offset); }
+uint32_t Timestamp(App* app) { return app->m_time; }
+Dispatcher* GetDispatcher(App* app) { return &app->m_dispatcher; }
 
 void ConstructContext(MsgHandlerContext* context) { context->Construct(); }
 
@@ -42,14 +41,14 @@ void FreeQueuedMsg(QueuedMsg* msg)
 // A normal or important message into the packet: its id, its length (unless the id has none), its data.
 bool AppendMessage(App* app, Conn* conn, QueuedMsg* msg)
 {
-    char*& writePtr = Field<char*>(conn, ConnField::kWritePtr);
-    uint8_t flags = MessageFlags(Field<uint8_t*>(app, AppField::kManager), msg->m_id);
+    char*& writePtr = conn->m_writePtr;
+    uint8_t flags = MessageFlags(static_cast<uint8_t*>(app->m_manager), msg->m_id);
     auto size = static_cast<uint16_t>(msg->m_length + ((~flags & kMsgNoLength) ? 3 : 1));
-    if (static_cast<int>(size - reinterpret_cast<uint32_t>(Field<char*>(conn, ConnField::kWriteBuffer)) +
+    if (static_cast<int>(size - reinterpret_cast<uint32_t>(conn->m_writeBuffer) +
                          reinterpret_cast<uint32_t>(writePtr)) >= static_cast<int>(kMaxPacketSize))
         return false;
     *writePtr++ = static_cast<char>(msg->m_id);
-    if (!(MessageFlags(Field<uint8_t*>(app, AppField::kManager), msg->m_id) & kMsgNoLength)) {
+    if (!(MessageFlags(static_cast<uint8_t*>(app->m_manager), msg->m_id) & kMsgNoLength)) {
         *reinterpret_cast<uint16_t*>(writePtr) = msg->m_length;
         writePtr += 2;
     }
@@ -57,18 +56,18 @@ bool AppendMessage(App* app, Conn* conn, QueuedMsg* msg)
         std::memcpy(writePtr, msg->m_data, msg->m_length);
         writePtr += msg->m_length;
     }
-    AddMessageMetric(&Field<uint8_t>(conn, ConnField::kSendMetrics), msg->m_id, msg->m_length);
+    AddMessageMetric(&conn->m_sendMetrics, msg->m_id, msg->m_length);
     return true;
 }
 
 // A sequenced message into the packet, wrapped in a message of id 7: group, sequence number, id, data.
 bool AppendSequencedMessage(Conn* conn, MsgSeqLink* link)
 {
-    char*& writePtr = Field<char*>(conn, ConnField::kWritePtr);
+    char*& writePtr = conn->m_writePtr;
     SeqQueuedMsg* msg = link->m_QMsg;
     uint16_t length = msg->m_length;
     auto size = static_cast<uint16_t>(length + 9);
-    if (static_cast<int>(size - reinterpret_cast<uint32_t>(Field<char*>(conn, ConnField::kWriteBuffer)) +
+    if (static_cast<int>(size - reinterpret_cast<uint32_t>(conn->m_writeBuffer) +
                          reinterpret_cast<uint32_t>(writePtr)) >= static_cast<int>(kMaxPacketSize))
         return false;
     *writePtr++ = static_cast<char>(kMsgSequenced);
@@ -82,7 +81,7 @@ bool AppendSequencedMessage(Conn* conn, MsgSeqLink* link)
         std::memcpy(writePtr, msg->m_data, msg->m_length);
         writePtr += msg->m_length;
     }
-    AddMessageMetric(&Field<uint8_t>(conn, ConnField::kSendMetrics), msg->m_id, msg->m_length);
+    AddMessageMetric(&conn->m_sendMetrics, msg->m_id, msg->m_length);
     return true;
 }
 
@@ -123,7 +122,7 @@ bool App::BundleMessages(Conn* conn, int queue, bool resendsOnly)
     case kQueueNormal: {
         Lst::Search<MsgNormalLink> search;
         MsgNormalLink* next;
-        for (MsgNormalLink* link = search.FirstItem(ListOf(conn, ConnField::kNormalQueue)); link; link = next) {
+        for (MsgNormalLink* link = search.FirstItem(&conn->m_normalMsgs); link; link = next) {
             next = search.NextItem();
             if (Timestamp(this) < link->m_SendTime)
                 continue;
@@ -141,7 +140,7 @@ bool App::BundleMessages(Conn* conn, int queue, bool resendsOnly)
     }
     case kQueueImportant: {
         Lst::Search<MsgImpLink> search;
-        for (MsgImpLink* link = search.FirstItem(ListOf(conn, ConnField::kImportantQueue)); link;
+        for (MsgImpLink* link = search.FirstItem(&conn->m_importantMsgs); link;
              link = search.NextItem()) {
             if (Timestamp(this) < link->m_SendTime)
                 continue;
@@ -163,13 +162,13 @@ bool App::BundleMessages(Conn* conn, int queue, bool resendsOnly)
             if (link->m_Timestamp != 0)
                 ++link->m_NumResends;
             link->m_Timestamp = Timestamp(this);
-            link->m_Packetstamp = Field<uint32_t>(conn, ConnField::kTimestampOut);
+            link->m_Packetstamp = conn->m_timestampOut;
         }
         break;
     }
     case kQueueSequenced: {
         Lst::Search<MsgSeqLink> search;
-        for (MsgSeqLink* link = search.FirstItem(ListOf(conn, ConnField::kSequencedQueue)); link;
+        for (MsgSeqLink* link = search.FirstItem(&conn->m_sequencedMsgs); link;
              link = search.NextItem()) {
             if (Timestamp(this) < link->m_SendTime)
                 continue;
@@ -191,7 +190,7 @@ bool App::BundleMessages(Conn* conn, int queue, bool resendsOnly)
             if (link->m_Timestamp != 0)
                 ++link->m_NumResends;
             link->m_Timestamp = Timestamp(this);
-            link->m_Packetstamp = Field<uint32_t>(conn, ConnField::kTimestampOut);
+            link->m_Packetstamp = conn->m_timestampOut;
         }
         break;
     }
@@ -208,8 +207,8 @@ int App::HandleLatencyResponse(MsgHandlerContext* context)
     auto* sentTime = reinterpret_cast<uint32_t*>(context->m_Msg);
     if (!Net::IsLocal(conn)) {
         uint32_t now = Timestamp(context->m_App);
-        if (*sentTime == Field<uint32_t>(conn, ConnField::kLatencyTestSent)) {
-            Field<uint32_t>(conn, ConnField::kLatencyTestAnswered) = *sentTime;
+        if (*sentTime == conn->m_latencyTest.m_sendTime) {
+            conn->m_latencyTest.m_receiveTime = *sentTime;
             uint32_t latency = now - *sentTime;
             if (latency > MaxLatency())
                 latency = MaxLatency();
@@ -228,7 +227,7 @@ int App::HandleLatencyTest(MsgHandlerContext* context)
     desc.m_data = &sentTime;
     desc.m_length = sizeof(sentTime);
     desc.m_id = kMsgLatencyResponse;
-    Net::EnqueueMessage(context->m_App, Field<int>(context->m_Conn, ConnField::kHandle), &desc);
+    Net::EnqueueMessage(context->m_App, context->m_Conn->m_handle, &desc);
     return kHandlerContinue;
 }
 
@@ -283,7 +282,7 @@ int App::HandleSequencedMessages(MsgHandlerContext* context)
     context->m_Acknowledge = true;
     uint32_t sequence = *reinterpret_cast<uint32_t*>(msg + 1);
     uint8_t group = msg[0];
-    if (sequence < Field<uint32_t>(conn, ConnField::kNextSequence + group * 4))
+    if (sequence < conn->m_sequenceNumbers[group])
         return kHandlerContinue; // handled already
 
     Mem::Manager* manager = Mem::Manager::Get();
@@ -303,7 +302,7 @@ int App::HandleSequencedMessages(MsgHandlerContext* context)
     link->m_SequenceId = sequence;
     Mem::Manager::Get()->PopContext();
 
-    auto& buffer = Field<Lst::Head>(context->m_Conn, ConnField::kSequencedBuffer + group * sizeof(Lst::Head));
+    auto& buffer = reinterpret_cast<Lst::Head&>(context->m_Conn->m_receivedQueues[group]);
     if (!buffer.AddUniqueSequence(&link->m_node)) { // a duplicate
         if (SeqQueuedMsg* duplicate = link->m_QMsg) {
             DestroyQueuedMsg(duplicate);
@@ -327,7 +326,7 @@ int App::HandleAck(MsgHandlerContext* context)
     {
         Lst::Search<MsgImpLink> search;
         MsgImpLink* next;
-        for (MsgImpLink* link = search.FirstItem(ListOf(context->m_Conn, ConnField::kImportantQueue)); link;
+        for (MsgImpLink* link = search.FirstItem(&context->m_Conn->m_importantMsgs); link;
              link = next) {
             next = search.NextItem();
             if (*packetstamp == static_cast<uint16_t>(link->m_Packetstamp) && link->m_Timestamp) {
@@ -340,7 +339,7 @@ int App::HandleAck(MsgHandlerContext* context)
     {
         Lst::Search<MsgSeqLink> search;
         MsgSeqLink* next;
-        for (MsgSeqLink* link = search.FirstItem(ListOf(context->m_Conn, ConnField::kSequencedQueue)); link;
+        for (MsgSeqLink* link = search.FirstItem(&context->m_Conn->m_sequencedMsgs); link;
              link = next) {
             next = search.NextItem();
             if (*packetstamp == static_cast<uint16_t>(link->m_Packetstamp) && link->m_Timestamp) {
@@ -356,9 +355,9 @@ int App::HandleAck(MsgHandlerContext* context)
     }
 
     Conn* conn = context->m_Conn;
-    if (IsRemote(conn) && (Field<uint32_t>(conn, ConnField::kStatus) & kConnStatus1) && sentTime) {
+    if (IsRemote(conn) && (conn->m_status & kConnStatus1) && sentTime) {
         uint32_t latency = Timestamp(context->m_App) - sentTime;
-        uint32_t current = Net::IsLocal(conn) ? 0 : Field<uint32_t>(conn, ConnField::kLatency);
+        uint32_t current = Net::IsLocal(conn) ? 0 : static_cast<uint32_t>(conn->m_latencyTest.m_averageLatency);
         if (latency > current) {
             if (latency > MaxLatency())
                 latency = MaxLatency();
@@ -378,7 +377,7 @@ int App::HandleStreamMessages(MsgHandlerContext* context)
         // stream id (4 bytes), then the piece
         char* msg = context->m_Msg;
         Lst::Search<StreamLink> search;
-        for (StreamLink* link = search.FirstItem(ListOf(context->m_Conn, ConnField::kStreams)); link;
+        for (StreamLink* link = search.FirstItem(&context->m_Conn->m_receivedStreams); link;
              link = search.NextItem()) {
             StreamDesc* desc = link->m_Desc;
             if (desc->m_streamId != *reinterpret_cast<int*>(msg))
@@ -396,7 +395,7 @@ int App::HandleStreamMessages(MsgHandlerContext* context)
         char* msg = context->m_Msg;
         int streamId = *reinterpret_cast<int*>(msg + 0x24);
         Lst::Search<StreamLink> search;
-        for (StreamLink* link = search.FirstItem(ListOf(context->m_Conn, ConnField::kStreams)); link;
+        for (StreamLink* link = search.FirstItem(&context->m_Conn->m_receivedStreams); link;
              link = search.NextItem()) {
             if (link->m_Desc->m_streamId == streamId) { // started already
                 Mem::Manager::Get()->PopContext();
@@ -421,7 +420,7 @@ int App::HandleStreamMessages(MsgHandlerContext* context)
         void* linkMemory = Mem::Calloc(sizeof(StreamLink));
         StreamLink* link = linkMemory ? ConstructStreamLink(linkMemory, desc) : nullptr;
         // at the end of the connection's streams
-        Mem::ListNode* head = ListOf(context->m_Conn, ConnField::kStreams);
+        Mem::ListNode* head = &context->m_Conn->m_receivedStreams;
         link->m_node.next = head;
         link->m_node.prev = head->prev;
         head->prev->next = &link->m_node;

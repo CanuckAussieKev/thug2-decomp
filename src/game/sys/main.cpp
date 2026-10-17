@@ -19,6 +19,7 @@
 #include "game/mc/memcard.h"
 #include "game/mth/math.h"
 #include "game/mth/random.h"
+#include "game/net/net_manager.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/objman.h"
 #include "game/obj/tracker.h"
@@ -139,7 +140,7 @@ int __cdecl Main(int argc, char** argv)
         Script::CScriptCache* scriptCache = Script::CreateScriptCache(true);
         uint8_t* module4088E0 = Create(0x004088E0);
         Create(0x0047BA60);
-        Create(0x00455880);
+        Net::CreateManager(true);
         Obj::CreateCompositeObjectManager(true);
         GameFunction<void(__cdecl*)()>(0x004E4860)();
         Create(0x00589180);
@@ -206,7 +207,7 @@ int __cdecl Main(int argc, char** argv)
         Release(0x00552F70);
         Release(0x005880E0);
         Obj::ReleaseCompositeObjectManager();
-        Release(0x004558D0);
+        Net::ReleaseManager();
         Release(0x0047C6C0);
         Release(0x00407980);
         Script::ReleaseScriptCache();

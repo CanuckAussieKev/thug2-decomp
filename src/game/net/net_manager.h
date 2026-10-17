@@ -4,15 +4,18 @@
 #include <cstdint>
 
 #include "game/core/alloc.h"
+#include "game/net/net_messages.h"
 
-// Neversoft's Net::Manager (0x37C bytes; the instance at 0x006EFDD8, made and released by 0x00455880 /
-// 0x004558D0, constructor 0x004556E0 - wt/netE): the apps (servers and clients) it made and the network
-// settings GameNet copies from the network preferences (0x00535040). Mostly a console's settings (DHCP, dial-up
-// numbers, a modem): on the PC few of them reach a socket. Its getters and setters are 0x00454530 - 0x004549C0,
-// 0x00454CB0 and 0x00454DE0 (net_manager.cpp).
+// Neversoft's Net::Manager (0x37C bytes; the instance at 0x006EFDD8, made and released by CreateManager /
+// ReleaseManager): the apps (servers and clients) it made and the network settings GameNet copies from the network
+// preferences (0x00535040). Mostly a console's settings (DHCP, dial-up numbers, a modem): on the PC few of them
+// reach a socket. Its getters and setters are 0x00454530 - 0x004549C0, 0x00454CB0 and 0x00454DE0
+// (net_manager.cpp); its constructor, destructor and app making 0x00455270 - 0x004558D0 (net_manager_apps.cpp).
 
 namespace Net {
 
+class Server;
+class Client;
 struct App;
 
 class Manager {
@@ -27,6 +30,20 @@ public:
 
     // The instance (0x006EFDD8; its reference count is 0x006EFDDC).
     static Manager* Instance();
+
+    // 0x004556E0: empty app lists, every message with a length field but acks (8) and timestamps (9), no IP
+    // address yet ("<Unknown>"), 192.168.55.99 and a 255.255.0.0 mask, a 400000 bandwidth.
+    Manager* Construct();
+    // 0x004555A0: the destructor body (the app lists' heads).
+    void DestroyBody();
+    // 0x00455270: a new server (in the network heap), named and told its manager, initialised and (unless it's
+    // local) bound to `port` on `address` - the local IP when DHCP is set and the connection type isn't 1 or 3;
+    // flags bit 0: its socket counts as connected. Null memory isn't checked (a crash).
+    Server* CreateNewAppServer(int id, const char* name, int maxClients, uint16_t port, int address, int flags);
+    // 0x004553F0: the same for a client (one connection: the server).
+    Client* CreateNewAppClient(int id, const char* name, uint16_t port, int address, int flags);
+    // 0x00455550: `app` out of its list, deinitialised (virtual slot 5) and deleted.
+    void DestroyApp(App* app);
 
     // 0x00454580: (nothing to do on the PC) online. True.
     bool ConnectToInternet();
@@ -73,8 +90,8 @@ public:
     // 0x00454970 (shown by the TestNetSetup script command: 2-7 are set-up errors)
     int GetLastError() { return m_lastError; }
     // 0x00454980 / 0x00454990: a message id's flags.
-    char GetMessageFlags(uint8_t msgId) { return m_messageFlags[msgId]; }
-    void SetMessageFlags(uint8_t msgId, char flags) { m_messageFlags[msgId] = flags; }
+    char GetMessageFlags(uint8_t msgId) { return static_cast<char>(m_messageFlags[msgId]); }
+    void SetMessageFlags(uint8_t msgId, char flags) { m_messageFlags[msgId] = static_cast<uint8_t>(flags); }
     // 0x004549A0 / 0x004549B0: the online state machine's state (0x00533810: 0-8; 5 at first).
     int GetModemState() { return m_modemState; }
     void SetModemState(int state) { m_modemState = state; }
@@ -86,9 +103,10 @@ public:
     // 0x00454DE0: the dial-up number in use ("" for connection type 3).
     const char* GetDialupNumber();
 
-    Mem::ListNode m_servers;              // +0x000 Lst::Head<App> (vtable 0x00647544)
-    Mem::ListNode m_clients;              // +0x014
-    char m_messageFlags[0x100];           // +0x028 per message id (the constructor: 8 and 9 get 1, 0-254 0)
+    AppNode m_servers;                    // +0x000 Lst::Head<App> (vtable 0x00647544)
+    AppNode m_clients;                    // +0x014
+    uint8_t m_messageFlags[0x100];        // +0x028 per message id (bit 0: sent without its length; the
+                                          //        constructor: 8 and 9 get 1, 0-254 0)
     int m_connectionType;                 // +0x128
     uint32_t m_unknown12C;
     int m_deviceType;                     // +0x130
@@ -106,7 +124,7 @@ public:
     int m_numApps;                        // +0x2DC apps made
     int m_lastError;                      // +0x2E0
     bool m_online;                        // +0x2E4
-    bool m_useDHCP;                       // +0x2E5
+    bool m_useDHCP;                       // +0x2E5 (the apps are then bound to m_localIP)
     bool m_flag2E6;                       // +0x2E6
     uint8_t m_pad2E7;
     int m_modemState;                     // +0x2E8
@@ -129,5 +147,9 @@ static_assert(offsetof(Manager, m_clients) == 0x14 && offsetof(Manager, m_messag
                   offsetof(Manager, m_bandwidth) == 0x378 && sizeof(Manager) == 0x37C,
               "layout must match the original");
 
+// 0x00455880: the manager singleton, made (zeroed memory) if `create` and there's none; one more reference.
+Manager* CreateManager(bool create);
+// 0x004558D0: one reference less; the last deletes it.
+void ReleaseManager();
 
 } // namespace Net
