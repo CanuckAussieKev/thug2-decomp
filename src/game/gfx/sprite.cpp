@@ -65,8 +65,9 @@ int64_t Truncated(double value) { return static_cast<int64_t>(value); }
 // Widescreen front end (thug2-decomp.ini [features] widescreen_menus, not in the original): the 2D layout stays
 // 4:3 and centred while nothing covers the sides any more (PartyMod's pillarbox bars hid them), so a sprite reaching
 // the layout's left edge (x <= 0) is drawn from the screen's left edge, one reaching its right edge (x >= 640) to
-// the screen's right edge - the menus' bands and panels. Each edge on its own; heights unchanged; rotated sprites
-// only when they stay upright or on their side (the bottom band is turned by 180 degrees).
+// the screen's right edge - the menus' bands and panels. Each edge on its own, and only for sprites overlapping the
+// layout (one wholly outside it is drawn where it is); heights unchanged; rotated sprites only when they stay upright
+// or on their side (the bottom band is turned by 180 degrees).
 void SSprite::Draw()
 {
     float u0 = 0.0f, vTop = 1.0f, u1, vBottom;
@@ -140,9 +141,11 @@ void SSprite::Draw()
                 y1 = y1 * ScreenScaleY() + ScreenOffsetY();
         }
         if (frontEndWidescreen) {
-            if (layoutX0 <= 0.0f)
+            // (only sprites overlapping the layout: one lying wholly outside it - parked off-screen, or the end
+            // strip of a band - keeps its place instead of becoming a strip at the screen's edge)
+            if (layoutX0 <= 0.0f && layoutX1 > 0.0f)
                 x0 = 0.0f;
-            if (layoutX1 >= kLayoutWidth)
+            if (layoutX1 >= kLayoutWidth && layoutX0 < kLayoutWidth)
                 x1 = screenRight;
         }
         vertices[0].x = vertices[1].x = x0;
@@ -180,9 +183,10 @@ void SSprite::Draw()
                 for (int b = a + 1; b < 4; ++b)
                     if (layoutX[order[b]] < layoutX[order[a]])
                         std::swap(order[a], order[b]);
-            if (layoutX[order[0]] <= 0.0)
+            // (again only when the sprite overlaps the layout)
+            if (layoutX[order[0]] <= 0.0 && layoutX[order[3]] > 0.0)
                 vertices[order[0]].x = vertices[order[1]].x = 0.0f;
-            if (layoutX[order[3]] >= kLayoutWidth)
+            if (layoutX[order[3]] >= kLayoutWidth && layoutX[order[0]] < kLayoutWidth)
                 vertices[order[2]].x = vertices[order[3]].x = screenRight;
         }
     }

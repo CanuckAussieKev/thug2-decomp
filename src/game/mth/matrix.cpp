@@ -82,6 +82,70 @@ Matrix& Matrix::RotateXLocal(float angle)
     return Multiply(*this, CreateRotateXMatrix(rotation, angle), *this);
 }
 
+// 0x0041A6A0 / 0x0041A6D0 / 0x0041A700 (the originals: D3DXMatrixMultiply(this, this, &rotation))
+Matrix& Matrix::RotateX(float angle)
+{
+    Matrix rotation;
+    return Multiply(*this, *this, CreateRotateXMatrix(rotation, angle));
+}
+
+Matrix& Matrix::RotateY(float angle)
+{
+    Matrix rotation;
+    return Multiply(*this, *this, CreateRotateYMatrix(rotation, angle));
+}
+
+Matrix& Matrix::RotateZ(float angle)
+{
+    Matrix rotation;
+    return Multiply(*this, *this, CreateRotateZMatrix(rotation, angle));
+}
+
+// 0x0041A640
+Matrix& Matrix::Ident()
+{
+    row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
+    row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
+    row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
+    row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    return *this;
+}
+
+// 0x0041BA30
+Matrix& Matrix::Scale(const Vector& scale)
+{
+    for (Vector& r : row) {
+        r.x *= scale.x;
+        r.y *= scale.y;
+        r.z *= scale.z;
+        r.w *= scale.w;
+    }
+    return *this;
+}
+
+// 0x0048A230
+Matrix& Matrix::Translate(const Vector& offset)
+{
+    row[3].x += offset.x;
+    row[3].y += offset.y;
+    row[3].z += offset.z;
+    row[3].w += offset.w;
+    return *this;
+}
+
+// 0x0041F470. Each component's sum in the original's order (x87, rounded once): the w row's term and the x row's
+// first, then z's, then y's (for x: w, z, y, then x's term last).
+Vector operator*(const Vector& v, const Matrix& m)
+{
+    auto term = [&](int r, int c) { return static_cast<double>((&m.row[r].x)[c]) * (&v.x)[r]; };
+    Vector out;
+    out.w = static_cast<float>(term(3, 3) + term(0, 3) + term(2, 3) + term(1, 3));
+    out.z = static_cast<float>(term(3, 2) + term(0, 2) + term(2, 2) + term(1, 2));
+    out.y = static_cast<float>(term(3, 1) + term(0, 1) + term(2, 1) + term(1, 1));
+    out.x = static_cast<float>(term(3, 0) + term(2, 0) + term(1, 0) + term(0, 0));
+    return out;
+}
+
 // 0x00405710
 Matrix& Matrix::RotateYLocal(float angle)
 {
@@ -439,6 +503,13 @@ REPLACE(0x00405950, &Mth::Matrix::Rotate);
 REPLACE(0x00405670, &Mth::Matrix::RotateXLocal);
 REPLACE(0x00405710, &Mth::Matrix::RotateYLocal);
 REPLACE(0x004057B0, &Mth::Matrix::RotateZLocal);
+REPLACE(0x0041A6A0, &Mth::Matrix::RotateX);
+REPLACE(0x0041A6D0, &Mth::Matrix::RotateY);
+REPLACE(0x0041A700, &Mth::Matrix::RotateZ);
+REPLACE(0x0041A640, &Mth::Matrix::Ident);
+REPLACE(0x0041BA30, &Mth::Matrix::Scale);
+REPLACE(0x0048A230, &Mth::Matrix::Translate);
+REPLACE(0x0041F470, static_cast<Mth::Vector (*)(const Mth::Vector&, const Mth::Matrix&)>(&Mth::operator*));
 
 // operator= is __thiscall returning `this`; the rotation builders are cdecl and return the matrix pointer.
 REPLACE(0x00404080, &Mth::Matrix::operator[]);
