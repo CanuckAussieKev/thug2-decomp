@@ -154,7 +154,9 @@ void Camera::StoreOldPos()
 void Camera::SetPos(const Mth::Vector& pos)
 {
     std::memcpy(&m_pos, &pos, sizeof(m_pos)); // (copied as words)
-    // Not original - the menu_backdrop feature (see menu_backdrop.h): the front end's camera held at the chosen view.
+    // Not original - the menu_backdrop feature (see menu_backdrop.h): the front end's camera held at the chosen view
+    // (the game's pose noted first).
+    Front::MenuBackdrop::NoteCameraPos(this, pos);
     Front::MenuBackdrop::HoldCamera(this);
 }
 
@@ -163,6 +165,7 @@ Mth::Matrix& Camera::SetMatrix(const Mth::Matrix& matrix)
 {
     m_matrix = matrix;
     // Not original - the menu_backdrop feature.
+    Front::MenuBackdrop::NoteCameraMatrix(this, matrix);
     Front::MenuBackdrop::HoldCamera(this);
     return m_matrix;
 }

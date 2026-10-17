@@ -20,6 +20,9 @@ namespace Front::FrontEndObjects {
 
 namespace {
 
+// [features] debug_backdrop: the decisions logged.
+bool Debug() { return DebugBackdrop() != 0; }
+
 // --- the table ---------------------------------------------------------------------------------------------------
 
 // An entry: a name (with %d, `count` names numbered from 1), its kind, and an offset added in the backdrop's view
@@ -217,6 +220,9 @@ CameraPose g_sample;
 int g_samples; // samples of g_sample.anim's camera taken in a row (0: none)
 // A camera still moving after this many samples is taken where it is then.
 constexpr int kMaxSamples = 30;
+// The frames (counted by the renders) and the last one a sample was taken in.
+uint32_t g_frame;
+uint32_t g_sampledFrame = 0xFFFFFFFF;
 
 void Write(Moved& moved)
 {
@@ -300,10 +306,14 @@ bool Check(int index)
 {
     Moved& moved = g_moved[index];
     if (!StillThere(moved)) {
+        if (Debug())
+            Log("menu_backdrop debug: object %08X gone (no longer found, replaced or dead): forgotten", moved.id);
         Forget(index);
         return false;
     }
     if (!MayMove(moved.object, moved.kind)) {
+        if (Debug())
+            Log("menu_backdrop debug: object %08X restored (its physics is no longer paused)", moved.id);
         Restore(moved);
         Forget(index);
         return false;
@@ -343,6 +353,11 @@ void MoveNew(const CameraPose& pose)
         if (Find(object) >= 0 || !MayMove(object, entry.kind))
             continue;
         Move(object, entry, pose);
+        if (Debug())
+            Log("menu_backdrop debug: object %08X moved (%s) from (%.3f, %.3f, %.3f) to (%.3f, %.3f, %.3f)", entry.id,
+                entry.kind == Kind::Skater ? "skater" : "object", g_moved[g_movedCount - 1].pos.original.x,
+                g_moved[g_movedCount - 1].pos.original.y, g_moved[g_movedCount - 1].pos.original.z,
+                object->m_pos.x, object->m_pos.y, object->m_pos.z);
     }
 }
 
@@ -459,8 +474,12 @@ Mth::Vector UnmapPoint(const Placement& p, const Mth::Vector& v)
 
 // --- the state ---------------------------------------------------------------------------------------------------
 
-void RestoreAll()
+void RestoreAll() { RestoreAll("asked"); }
+
+void RestoreAll(const char* why)
 {
+    if (Debug() && (g_applied || g_movedCount))
+        Log("menu_backdrop debug: restoring %d object(s): %s", g_movedCount, why);
     for (int i = 0; i < g_movedCount; ++i) {
         if (StillThere(g_moved[i]))
             Restore(g_moved[i]);
@@ -469,48 +488,101 @@ void RestoreAll()
     g_applied = false;
 }
 
-void Step(const Inputs& inputs, bool sample, Lookup lookup)
+// The pose of the camera the inputs give (its object's, else the one the game last gave the viewport camera).
+bool InputCameraPose(const Inputs& inputs, CameraPose& pose)
+{
+    const Mth::Vector* pos = nullptr;
+    const Mth::Matrix* matrix = nullptr;
+    if (inputs.camera) {
+        pos = &inputs.camera->m_pos;
+        matrix = &inputs.camera->m_matrix;
+    } else if (inputs.cameraPos && inputs.cameraMatrix) {
+        pos = inputs.cameraPos;
+        matrix = inputs.cameraMatrix;
+    } else {
+        return false;
+    }
+    pose.anim = inputs.menuCamera;
+    std::memcpy(pose.pos, pos, sizeof(pose.pos));
+    std::memcpy(pose.back, &matrix->row[2], sizeof(pose.back));
+    std::memcpy(pose.up, &matrix->row[1], sizeof(pose.up));
+    return true;
+}
+
+// [features] debug_backdrop: the decision's inputs logged whenever they change.
+void LogDecision(const Inputs& inputs, bool sample)
+{
+    struct State {
+        int on, frontEnd, loaded;
+        uint32_t camera;
+        int holdOff, applied, poseKnown, cameraSource, poses;
+    };
+    static State last;
+    static bool logged;
+    State now = {inputs.view != nullptr,
+                 inputs.frontEnd,
+                 inputs.backdropLoaded,
+                 inputs.menuCamera,
+                 g_holdOff,
+                 g_applied,
+                 inputs.menuCamera && PoseFor(inputs.menuCamera),
+                 inputs.camera ? 1 : (inputs.cameraPos && inputs.cameraMatrix) ? 2 : 0,
+                 g_poseCount};
+    if (logged && std::memcmp(&now, &last, sizeof(now)) == 0)
+        return;
+    logged = true;
+    last = now;
+    Log("menu_backdrop debug: setting %d, level 0 %d, LA loaded %d, menu camera %08X, held off %d, applied %d, "
+        "pose known %d (%d known), camera from %s, %d sample(s) in a row, %s step, %d moved",
+        MenuBackdrop::Setting(), now.frontEnd, now.loaded, now.camera, now.holdOff, now.applied, now.poseKnown,
+        now.poses, now.cameraSource == 1 ? "its object" : now.cameraSource == 2 ? "the setters" : "nowhere",
+        g_samples, sample ? "sampling" : "non-sampling", g_movedCount);
+}
+
+bool Step(const Inputs& inputs, bool sample, Lookup lookup)
 {
     g_lookup = lookup;
+    if (Debug())
+        LogDecision(inputs, sample);
     if (!inputs.view || !inputs.frontEnd || !inputs.backdropLoaded) {
         // Not the front end with the backdrop: nothing moved, everything about this front end forgotten.
         if (g_applied)
-            RestoreAll();
+            RestoreAll(!inputs.view ? "setting off" : !inputs.frontEnd ? "not the front end" : "backdrop not loaded");
         g_holdOff = false;
         g_poseCount = 0;
         g_samples = 0;
-        return;
+        return false;
     }
     bool want = inputs.menuCamera != 0 && !g_holdOff;
     if (g_applied && (!want || inputs.menuCamera != g_camera || inputs.view != g_view))
-        RestoreAll();
+        RestoreAll(g_holdOff ? "held off (level change)"
+                   : !inputs.menuCamera ? "not a menu camera"
+                   : inputs.menuCamera != g_camera ? "another menu camera" : "another view");
     if (!want) {
         g_samples = 0;
-        return;
+        return false;
     }
     const CameraPose* pose = PoseFor(inputs.menuCamera);
+    bool sampled = false;
     if (!pose) {
         if (g_applied) // (the poses were forgotten while objects were moved)
-            RestoreAll();
-        // The menu camera's pose, from its object while nothing is moved: the same for two updates in a row (or,
-        // still moving after kMaxSamples, as it is then).
+            RestoreAll("camera pose forgotten");
+        // The menu camera's pose, while nothing is moved: the same for two samples in a row (or, still moving after
+        // kMaxSamples, as it is then).
         if (!sample || g_poseCount >= kMaxCameraPoses)
-            return;
-        if (!inputs.camera) {
+            return false;
+        CameraPose now = {};
+        if (!InputCameraPose(inputs, now)) {
             g_samples = 0;
-            return;
+            return false;
         }
-        CameraPose now = {inputs.menuCamera, {}, {}, {}};
-        const Obj::CCompositeObject* camera = inputs.camera;
-        std::memcpy(now.pos, &camera->m_pos, sizeof(now.pos));
-        std::memcpy(now.back, &camera->m_matrix.row[2], sizeof(now.back));
-        std::memcpy(now.up, &camera->m_matrix.row[1], sizeof(now.up));
+        sampled = true;
         bool steady = g_samples > 0 && SamePose(now, g_sample);
         bool tooLong = g_samples >= kMaxSamples && now.anim == g_sample.anim;
         if (!steady && !tooLong) {
             g_samples = g_samples > 0 && now.anim == g_sample.anim ? g_samples + 1 : 1;
             g_sample = now;
-            return;
+            return true;
         }
         g_poses[g_poseCount] = now;
         pose = &g_poses[g_poseCount++];
@@ -522,31 +594,47 @@ void Step(const Inputs& inputs, bool sample, Lookup lookup)
         g_applied = true;
         g_camera = inputs.menuCamera;
         g_view = inputs.view;
+        if (Debug())
+            Log("menu_backdrop debug: applying for camera %08X", g_camera);
     }
     for (int i = 0; i < g_movedCount;) {
         if (Check(i))
             ++i;
     }
     MoveNew(*pose);
+    return sampled;
 }
 
-void Update(bool sample)
+void Update(bool logic)
 {
     const MenuBackdrop::View* view = MenuBackdrop::ViewFor(MenuBackdrop::Setting());
     if (!view) {
         if (g_applied)
-            RestoreAll();
+            RestoreAll("setting off");
         return;
     }
-    Inputs inputs = {view, Nx::CurrentLevel() == 0, false, 0, nullptr};
+    // The camera is sampled once a frame, by whichever step comes first: the object update walk's or the render's
+    // (the frames counted by the renders).
+    bool sample = g_sampledFrame != g_frame;
+    Inputs inputs = {view, Nx::CurrentLevel() == 0, false, 0, nullptr, nullptr, nullptr};
     if (inputs.frontEnd)
         inputs.backdropLoaded = MenuBackdrop::BackdropLoaded();
+    Mth::Vector pos;
+    Mth::Matrix matrix;
     if (inputs.frontEnd && inputs.backdropLoaded) {
         inputs.menuCamera = MenuBackdrop::PlayingMenuCamera();
-        if (inputs.menuCamera && sample && !PoseFor(inputs.menuCamera))
+        if (inputs.menuCamera && sample && !PoseFor(inputs.menuCamera)) {
             inputs.camera = ViewportCameraObject();
+            if (!inputs.camera && MenuBackdrop::GameCameraPose(&pos, &matrix)) {
+                inputs.cameraPos = &pos;
+                inputs.cameraMatrix = &matrix;
+            }
+        }
     }
-    Step(inputs, sample, FindInGame);
+    if (Step(inputs, sample, FindInGame))
+        g_sampledFrame = g_frame;
+    if (!logic)
+        ++g_frame;
 }
 
 void BeforeComponents(Obj::CCompositeObject* object)
@@ -570,16 +658,21 @@ void BeforeCFunction(const void* function)
 
 void OnLevelChange()
 {
+    if (Debug() && !g_holdOff)
+        Log("menu_backdrop debug: a level change (LoadScene or a cleanup function): held off");
     if (g_applied)
-        RestoreAll();
+        RestoreAll("level change (LoadScene or a cleanup function)");
     g_holdOff = true;
 }
 
 void OnBackdropLoaded()
 {
+    if (Debug())
+        Log("menu_backdrop debug: the backdrop loaded: no longer held off, camera poses forgotten");
     g_holdOff = false;
     g_poseCount = 0;
     g_samples = 0;
+    MenuBackdrop::ForgetGameCameraPose();
 }
 
 bool Applied() { return g_applied; }
@@ -588,8 +681,16 @@ int MovedCount() { return g_movedCount; }
 int CameraPoseCount() { return g_poseCount; }
 bool IsMoved(const Obj::CCompositeObject* object) { return Find(object) >= 0; }
 
+int& DebugBackdrop()
+{
+    static int debug = ConfigInt("features", "debug_backdrop", 0);
+    return debug;
+}
+
 void Reset()
 {
+    g_frame = 0;
+    g_sampledFrame = 0xFFFFFFFF;
     g_movedCount = 0;
     g_applied = false;
     g_holdOff = false;

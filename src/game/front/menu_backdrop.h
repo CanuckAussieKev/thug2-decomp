@@ -75,6 +75,14 @@ bool HideScene(uint32_t sceneName);
 // Writes the view into a camera: position (w 1), matrix rows 0-2 (row 3 kept), and the cameras' default field of
 // view (Nx::GetScreenAngle: camera_fov) if it differs, with the camera's adjusted angle updated.
 void ApplyView(Gfx::Camera* camera, const View& view);
+// Called by the camera's setters before HoldCamera: the pose the game gives the viewport camera while it is held
+// (what the menu camera would show), kept for the front-end objects (frontend_objects.h).
+void NoteCameraPos(Gfx::Camera* camera, const Mth::Vector& pos);
+void NoteCameraMatrix(Gfx::Camera* camera, const Mth::Matrix& matrix);
+// The last pose noted (false until both its position and matrix were), and forgetting it.
+bool GameCameraPose(Mth::Vector* pos, Mth::Matrix* matrix);
+void ForgetGameCameraPose();
+
 // Called by the camera's setters (and the renderer, for the viewport's camera): while holding, the viewport 0
 // camera gets the view.
 void HoldCamera(Gfx::Camera* camera);

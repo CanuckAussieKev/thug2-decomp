@@ -185,6 +185,43 @@ void ApplyView(Gfx::Camera* camera, const View& view)
     }
 }
 
+namespace {
+// The pose the game last gave the viewport camera while it was held (before the view replaced it).
+struct GamePose {
+    bool pos, matrix;
+    Mth::Vector p;
+    Mth::Matrix m;
+};
+GamePose g_gamePose;
+} // namespace
+
+void NoteCameraPos(Gfx::Camera* camera, const Mth::Vector& pos)
+{
+    if (!camera || !Holding() || camera != ViewportCamera(0))
+        return;
+    g_gamePose.p = pos;
+    g_gamePose.pos = true;
+}
+
+void NoteCameraMatrix(Gfx::Camera* camera, const Mth::Matrix& matrix)
+{
+    if (!camera || !Holding() || camera != ViewportCamera(0))
+        return;
+    g_gamePose.m = matrix;
+    g_gamePose.matrix = true;
+}
+
+bool GameCameraPose(Mth::Vector* pos, Mth::Matrix* matrix)
+{
+    if (!g_gamePose.pos || !g_gamePose.matrix)
+        return false;
+    *pos = g_gamePose.p;
+    *matrix = g_gamePose.m;
+    return true;
+}
+
+void ForgetGameCameraPose() { g_gamePose.pos = g_gamePose.matrix = false; }
+
 void HoldCamera(Gfx::Camera* camera)
 {
     if (!camera || !Holding() || camera != ViewportCamera(0))
