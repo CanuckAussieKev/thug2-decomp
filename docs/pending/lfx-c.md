@@ -33,7 +33,13 @@ Records for the lead to fold into docs/decomp-progress.md.
     0x2AB71EEF (DumpScripts).
   - Tested in the game 2026-10-18 (lfx-c's own run, under the game lock): starts, Free Skate -> Los Angeles
     loads and plays, the pause menu works; log clean (all self-tests passed, no CRT reports / RTC failures).
-- [x] Batch lfx-c 2 (NOT run in the game yet): the park editor's memory budget - src/game/park/park_memory.cpp
+- [x] Batches lfx-c 1-4 tested in the game 2026-10-18 (lfx-c's own runs under the game lock, the build of
+  commit "lfx-c batch 4"): Free Skate -> Los Angeles loads and plays, pause menu fine; Create-A-Modes ->
+  Create-A-Park loads the park editor (the piece sets RESTARTS / TEAM FLAGS / TOOLS / CLIPBOARD / TABLES-BENCHES
+  built by Initialize, the memory bar drawn), the cursor moves and a restart point is placed; no crash; log clean
+  (932 of 932 replacements installed, all early / late / engine-started self-tests passed, no CRT reports or
+  run-time check failures). Not exercised: gaps, clipboards, raising / lowering, area selection.
+- [x] Batch lfx-c 2: the park editor's memory budget - src/game/park/park_memory.cpp
   (17 functions, all REPLACE): GetParkHeap 0x0059E100 (0x007CE688), GetMainHeap 0x0059E180 (the bottom-up
   heap), ClearStats 0x0059E110, SetCountsDirty 0x0059E170, RemoveDma / AddPieceDma / RemovePieceDma
   0x0059E130 / 0x0059E190 / 0x0059E1E0 (a piece's DMA pieces from the global structure 0x9547DA8D by type, 1 if
