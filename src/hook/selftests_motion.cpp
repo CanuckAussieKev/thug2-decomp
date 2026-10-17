@@ -149,8 +149,8 @@ void TestMotionRotateTo()
     };
     bool ok = true;
     int saved = Front::MenuBackdrop::Setting();
-    for (int setting : {0, 1, 3}) {
-        Front::MenuBackdrop::Setting() = setting; // (3: no overlay folder offline, so the level isn't active)
+    for (int setting : {0, 1, 2}) {
+        Front::MenuBackdrop::Setting() = setting; // (not 3: in the game the level may be active)
         for (const Case& c : cases) {
             Params params(c.name, c.x, c.y, c.z, c.convert, c.both);
             std::vector<Started> expected, actual;

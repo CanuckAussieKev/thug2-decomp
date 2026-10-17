@@ -4,6 +4,8 @@
 
 #include <vector>
 
+#include "game/front/menu_backdrop.h"
+
 #include "hook/hook.h"
 #include "hook/log.h"
 #include "hook/shadow.h"
@@ -92,6 +94,10 @@ void RunSelfTests(TestStage stage)
     Log("%s self-tests: running %d", StageName(stage), count);
     // [selftests] trace=1 logs each test as it starts - for finding one that hangs.
     static const bool trace = ConfigInt("selftests", "trace", 0) != 0;
+    // The ini's menu_backdrop doesn't take part: off while the tests run (the tests that need it set it themselves).
+    // With it on, its hooks in the renderer, file loading and cameras ran inside tests' stand-ins.
+    int backdrop = Front::MenuBackdrop::Setting();
+    Front::MenuBackdrop::Setting() = 0;
     for (const RegisteredTest& t : Registry()) {
         if (t.stage == stage) {
             if (trace)
@@ -99,6 +105,7 @@ void RunSelfTests(TestStage stage)
             RunGuarded(t);
         }
     }
+    Front::MenuBackdrop::Setting() = backdrop;
     int failures = g_failures - failures_before;
     if (failures)
         Log("%s self-tests: %d FAILED (%d tests)", StageName(stage), failures, count);

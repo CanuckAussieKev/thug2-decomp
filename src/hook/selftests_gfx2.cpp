@@ -22,7 +22,22 @@ namespace {
 
 // Bytes written over game code for the length of a test (restored when it goes). (A copy of
 // selftests_pc.cpp's.)
-struct CodePatch {
+// Patches and saved bytes still in place (a crashed test's destructors don't run: Cleanup undoes them, newest first).
+struct Undo {
+    virtual void Restore() = 0;
+};
+std::vector<Undo*> g_live;
+void Forget(Undo* undo)
+{
+    for (size_t i = g_live.size(); i-- > 0;) {
+        if (g_live[i] == undo) {
+            g_live.erase(g_live.begin() + i);
+            return;
+        }
+    }
+}
+
+struct CodePatch : Undo {
     uint8_t* at;
     std::vector<uint8_t> saved;
     CodePatch(uint32_t address, const std::vector<uint8_t>& bytes)
@@ -33,11 +48,17 @@ struct CodePatch {
         std::memcpy(saved.data(), at, bytes.size());
         std::memcpy(at, bytes.data(), bytes.size());
         FlushInstructionCache(GetCurrentProcess(), at, bytes.size());
+        g_live.push_back(this);
     }
-    ~CodePatch()
+    void Restore() override
     {
         std::memcpy(at, saved.data(), saved.size());
         FlushInstructionCache(GetCurrentProcess(), at, saved.size());
+    }
+    ~CodePatch()
+    {
+        Forget(this);
+        Restore();
     }
 };
 std::vector<uint8_t> JumpTo(uint32_t from, const void* to)
@@ -62,7 +83,7 @@ uint32_t Bits(float f)
 }
 
 // Globals saved before a test and put back after.
-struct SavedBytes {
+struct SavedBytes : Undo {
     std::vector<std::pair<uint32_t, std::vector<uint8_t>>> blocks;
     SavedBytes(std::initializer_list<std::pair<uint32_t, uint32_t>> ranges)
     {
@@ -71,11 +92,17 @@ struct SavedBytes {
             std::memcpy(bytes.data(), reinterpret_cast<void*>(r.first), r.second);
             blocks.push_back({r.first, bytes});
         }
+        g_live.push_back(this);
     }
-    ~SavedBytes()
+    void Restore() override
     {
         for (auto& b : blocks)
             std::memcpy(reinterpret_cast<void*>(b.first), b.second.data(), b.second.size());
+    }
+    ~SavedBytes()
+    {
+        Forget(this);
+        Restore();
     }
 };
 
@@ -604,9 +631,20 @@ void TestWidescreenMenus()
     Check(ok, "gfx: widescreen_menus (front end 3D wide, 2D 4:3; levels unchanged)");
 }
 
+// After each test (also one that crashed): whatever it left patched or saved is put back, newest first.
+void Cleanup()
+{
+    while (!g_live.empty()) {
+        Undo* undo = g_live.back();
+        g_live.pop_back();
+        undo->Restore();
+    }
+}
+
 } // namespace
 
-SELFTEST(Early, TestSetCamera);
-SELFTEST(Early, TestDrawScreenBlur);
-SELFTEST(Early, TestRenderWorld);
-SELFTEST(Early, TestWidescreenMenus);
+
+SELFTEST(Early, TestSetCamera, Cleanup);
+SELFTEST(Early, TestDrawScreenBlur, Cleanup);
+SELFTEST(Early, TestRenderWorld, Cleanup);
+SELFTEST(Early, TestWidescreenMenus, Cleanup);
