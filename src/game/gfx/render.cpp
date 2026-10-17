@@ -9,6 +9,7 @@
 #include <cstring>
 
 #include "game/front/menu_backdrop.h"
+#include "game/front/menu_level.h"
 #include "game/front/frontend_objects.h"
 #include "game/gfx/camera.h"
 #include "game/gfx/screen.h"
@@ -454,7 +455,13 @@ static_assert(offsetof(Scene, group) == 0x280 && offsetof(Scene, sky) == 0x8D &&
 // scene or the backdrop level's isn't drawn.
 // Original behaviour: every loaded scene is drawn; with menu_backdrop the front end's shop scene is skipped while the
 // LA view is held, and LA's scenes while another front-end camera (Create-A-Skater...) shows the shop.
-bool Hidden(const Scene* scene) { return Front::MenuBackdrop::HideScene(scene->name); }
+// Not original either - the menu_level feature (game/front/menu_level.h): the front end built in LA doesn't draw the
+// skate shop's scene (loaded only for the wheel's meshes).
+// Original behaviour: the shop's scene is drawn in the front end.
+bool Hidden(const Scene* scene)
+{
+    return Front::MenuBackdrop::HideScene(scene->name) || Front::MenuLevel::HideScene(scene->name);
+}
 
 // The list of loaded scenes (0x006FA7EC): ends at a node whose scene is -1.
 struct SceneNode {
@@ -516,6 +523,10 @@ void RenderViewport(int index)
     // Original behaviour: the viewport's camera is drawn as the game left it; with menu_backdrop, while a menu camera
     // plays in the front end, the game's pose is noted and the camera put at the chosen LA view.
     Front::MenuBackdrop::NoteAndHoldCamera(static_cast<Gfx::Camera*>(camera));
+    // Not original - the menu_level feature: the front end's camera animations are in the skate shop's coordinates; in
+    // the front end built in LA the camera gets the shop's move into LA.
+    // Original behaviour: the camera is drawn where the game put it.
+    Front::MenuLevel::PlaceCamera(static_cast<Gfx::Camera*>(camera));
     GameVariable<int>(0x006FA7B8) = index; // the viewport being drawn
     double width = GameVariable<int>(0x00786D6C);
     double height = static_cast<float>(GameVariable<int>(0x00786D70));

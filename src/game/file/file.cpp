@@ -6,6 +6,7 @@
 
 #include "game/core/dbg.h"
 #include "game/file/pre.h"
+#include "game/front/menu_level.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -94,6 +95,16 @@ Handle OpenOnDisk(const char* name)
 // 0x005B9E60
 Handle Open(const char* name, const char* mode)
 {
+    // Not original - the menu_level feature (game/front/menu_level.h): a file of the data overlay is opened from it,
+    // before any archive (its handle isn't an archive's: Read, Seek, Close... fall through to the disk's).
+    // Original behaviour: archives first, then the data folder.
+    char overlay[260];
+    if (Front::MenuLevel::OverlayPath(name, overlay)) {
+        HANDLE file = CreateFileA(overlay, GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL,
+                                  nullptr);
+        if (file != INVALID_HANDLE_VALUE)
+            return file;
+    }
     if (ArchivesActive()) {
         Handle file = ArchiveOpen(name, mode);
         if (HandledByArchive())
@@ -169,6 +180,11 @@ uint32_t GetFileSize(Handle file)
 // 0x005BA010
 bool Exist(const char* name)
 {
+    // Not original - the menu_level feature: the data overlay's files exist.
+    // Original behaviour: archives first, then the data folder.
+    char overlay[260];
+    if (Front::MenuLevel::OverlayPath(name, overlay))
+        return true;
     if (ArchivesActive()) {
         bool result = ArchiveExist(name);
         if (HandledByArchive())

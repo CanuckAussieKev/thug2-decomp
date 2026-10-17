@@ -22,6 +22,7 @@
 #include "game/obj/object.h"
 #include "game/core/str.h"
 #include "game/front/menu_backdrop.h"
+#include "game/front/menu_level.h"
 #include "game/gfx/camera.h"
 #include "game/gfx/scene.h"
 #include "game/script/struct.h"
@@ -701,8 +702,66 @@ done:
 
 } // namespace
 
+// --- the menu_level feature (src/game/front/menu_level.*) ---------------------------------------------------------
+
+void TestMenuLevel()
+{
+    namespace ML = Front::MenuLevel;
+    auto name = [](const char* in, const char* want) {
+        char out[260];
+        ML::OverlayName(in, out);
+        if (std::strcmp(out, want) != 0)
+            Log("  menu_level: '%s' -> '%s' (expected '%s')", in, out, want);
+        return std::strcmp(out, want) == 0;
+    };
+    bool ok = name("levels\\mainmenu\\mainmenu.qb", "levels\\mainmenu\\mainmenu.qb") &&
+              name("Data/Scripts/Game/Levels.qb", "scripts\\game\\levels.qb") &&
+              name("c:\\ports\\THUG2\\THUG2XB\\Skate6\\data\\scripts\\game\\Levels.qb", "scripts\\game\\levels.qb") &&
+              name("models\\metadata\\x.qb", "models\\metadata\\x.qb") && name("", "");
+    Check(ok, "menu_level: overlay file names");
+
+    // The move tools/menu_level/make_menu_level.py makes for view 1 takes the shop's main menu camera (180, 40, 300) to
+    // the view's place; a turn about up adds to the heading atan2(x, z).
+    ML::Move move = {1.896807f, {-2034.805217f, -382.621f, 6070.783948f}};
+    float camera[3] = {180.0f, 40.0f, 300.0f}, moved[3];
+    ML::MovePoint(move, camera, moved);
+    ok = std::fabs(moved[0] - -1808.255f) < 0.01f && std::fabs(moved[1] - -342.621f) < 0.001f &&
+         std::fabs(moved[2] - 5804.185f) < 0.01f;
+    ML::Move quarter = {1.5707963f, {0, 0, 0}};
+    float forward[3] = {0, 0, 1}, side[3] = {0, 2, 0}, turned[3], up[3];
+    ML::TurnDirection(quarter, forward, turned);
+    ML::TurnDirection(quarter, side, up);
+    ok = ok && std::fabs(turned[0] - 1) < 1e-6f && std::fabs(turned[1]) < 1e-6f && std::fabs(turned[2]) < 1e-6f &&
+         up[0] == 0 && up[1] == 2 && std::fabs(up[2]) < 1e-6f;
+    if (!ok)
+        Log("  menu_level: camera moved to %.3f %.3f %.3f, (0 0 1) turned to %f %f %f", moved[0], moved[1], moved[2],
+            turned[0], turned[1], turned[2]);
+    Check(ok, "menu_level: the move");
+
+    float view[3] = {-1808.255f, -342.621f, 5804.185f}, wheel[3] = {0.0f, -12.75f, -7.07f};
+    Check(ML::InShop(camera) && ML::InShop(wheel) && !ML::InShop(view) && !ML::InShop(moved),
+          "menu_level: the shop's coordinates");
+
+    // Off unless menu_backdrop is 3: nothing hidden, no overlay files, the camera left alone.
+    int saved = MB::Setting();
+    char path[260];
+    ok = true;
+    for (int setting : {0, 1, 2}) {
+        MB::Setting() = setting;
+        ok = ok && !ML::Active() && !ML::HideScene(MB::kFrontEndSceneName) &&
+             !ML::OverlayPath("scripts\\game\\levels.qb", path);
+    }
+    Camera dummy{};
+    dummy.m_pos = {1, 2, 3, 1};
+    ML::PlaceCamera(&dummy);
+    ok = ok && dummy.m_pos.x == 1 && dummy.m_pos.y == 2 && dummy.m_pos.z == 3;
+    MB::Setting() = saved;
+    Check(ok, "menu_level: off at settings 0-2");
+}
+
 SELFTEST(Early, TestCameraMethods, Cleanup);
 SELFTEST(Early, TestLoadScene, Cleanup);
 SELFTEST(Early, TestMenuBackdropViews);
 SELFTEST(Early, TestMenuBackdropDecisions);
 SELFTEST(Early, TestMenuBackdropState, Cleanup);
+SELFTEST(Early, TestMenuLevel);

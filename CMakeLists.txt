@@ -109,6 +109,7 @@ add_library(thug2_code OBJECT
     src/game/front/mouse_menus.cpp
     src/game/front/frontend_objects.cpp
     src/game/front/menu_backdrop.cpp
+    src/game/front/menu_level.cpp
     src/game/skate/competition.cpp
     src/game/gfx/screen.cpp
     src/game/gfx/settings.cpp

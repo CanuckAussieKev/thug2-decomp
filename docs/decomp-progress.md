@@ -2972,6 +2972,60 @@ belong with the CScript batch.
               the rim), the skater plays his spin animations; no parts flying apart.
             - Options / network menus and back: the group re-placed for those cameras; CAS / skater select: the shop as
               before.
+- [x] Batch 96: menu_level - the front end as a level of its own in Los Angeles (`menu_backdrop = 3`; NOT run in the
+      game yet). Record:
+      At the user's request ("making our own level"), with NeverScript (tools/neverscript, violetvandal's THUG2 fork:
+      454/470 of the game's .qb round-trip byte-identical). Marked "NOT ORIGINAL": src/game/front/menu_level.{h,cpp},
+      tools/menu_level/make_menu_level.py; hooks with "Original behaviour:" notes in pip.cpp (Load, LoadFileInto),
+      file.cpp (Open, Exist) and render.cpp (Hidden, RenderViewport).
+
+      ## What a level is (Levels.qb, unpacked from qb_scripts.prx)
+      - A structure (level_Mainmenu) read by the script `load_level`: scnpre / level (LoadScene <level>), sky, colpre
+        (LoadCollision <level>), pre (mainmenu_scripts.pre: scripts and the .ska camera animations), qb (the node
+        array: NodeArrayManLoad; its array is named after the file: mainmenu.qb -> mainmenu_NodeArray), level_qb /
+        more_level_qbs, level_number, frontend_level, lighting. All script-driven.
+      - **The wheel's meshes are in the shop's scene** (wol_* sector checksums in mainmenu.scn / mainmenu_net.scn /
+        mainmenu.col, not in LA.scn). Level objects find their sector in any loaded scene and draw it as an instance
+        (batch 93's notes), so the shop's scene is loaded as an extra scene and only not drawn.
+      - Files: Levels.qb is in qb_scripts.prx, mainmenu.qb in mainmenu_scripts.prx - archives win over the data folder,
+        so the overlay is checked before archives (Pip::Load / LoadFileInto skip FindPreEntry, the pre manager and the
+        cache for an overlay file; File::Open opens the overlay's file - its handle isn't an archive's, so Read / Seek /
+        Close fall through to the disk's (GetContainedFile null -> not handled)).
+      - The menu cameras: mainmenu_camera02 at (180, 40, 300) in the shop (batch 95's log: the menu camera's pose),
+        aimed at the skater + mainmneu_cam_offset (-25, 51, -40); SS_MenuCam (173, 40, 300) and mainmenu_camera03
+        (-40, 20, 150) play without a target - the animations are in the shop's coordinates.
+
+      ## How
+      - make_menu_level.py (needs out/neverscript/ns.exe) unpacks the two files from the archives (LZSS as
+        Lzss::Decode), decompiles, edits, compiles into the overlay (default <game>\thug2-decomp-data):
+        level_Mainmenu -> scnpre LAscn.pre, level "LA", colpre LAcol.pre, + sky "LA_Sky", extra_scene "mainmenu",
+        menu_level_yaw / menu_level_offset (level_name stays "mainmenu"); load_level loads `<extra_scene>` after the
+        level's scene (non-net, non-park-editor branch). mainmenu.qb: Pos / MidPosition / EndPosition moved, Angles
+        turned (exactly: Rz*Ry*Rx * RotateY(yaw) split back; plain yaw just adds) - 111 points.
+      - The move: p * RotateY(yaw) + offset, taking the shop camera (180, 40, 300) to the backdrop view's place
+        (menu_backdrop.cpp kViews, read from the C++) and the camera's heading (to the target) to the view's: view 1:
+        turn 108.679 degrees, shift (-2034.805, -382.621, 6070.784). The wheel lands 359 units ahead of the view, the
+        skater's restart (TRG_Playerrestart) at (-2003.5, -446.4, 5970.7). `--lift` raises everything (ground fit).
+      - In the game: MenuLevel::Active = menu_backdrop 3 and the overlay folder exists (logged once). The renderer gives
+        the viewport camera the move while the level is the front end and the camera is within 3000 units of the shop's
+        origin (LA's front end is ~6,300 away, so a moved camera isn't moved again); its matrix is turned when the game
+        wrote a new one (compared with the last we wrote). The "mainmenu" scene isn't drawn in the front end.
+        menu_backdrop's hold and the front-end objects stay off (ViewFor(3) is null).
+
+      ## Tests (src/hook/selftests_menulvl.cpp TestMenuLevel; offline all 173 pass)
+      - Overlay names (case, '/', "data\" and development paths stripped, "metadata\" kept); the move takes the shop
+        camera to view 1 (0.01); a quarter turn takes (0 0 1) to (1 0 0) (the heading convention); the shop test; off
+        at settings 0-2 (nothing hidden, no overlay, the camera untouched).
+      - Mutations: 6, 5 caught; `setting` (Active ignoring the setting) missed: offline there is no overlay folder, so
+        Active is false at every setting anyway.
+
+      ## Unknowns for the game run
+      - Whether an instance drawn from a sector follows the object's node position (the batch-95 run showed moved
+        objects drawing moved, so likely).
+      - The skater's height on LA's ground (y -446; physics paused on the main menu; the options menu's shadow skater
+        uses LA's collision now); `--lift`.
+      - Cameras that follow the skater (CAS, skater select) - moved twice if their animation is relative; scripts that
+        name shop places; the shop's lights / particles / bouncy boards now float in LA.
 - [ ] Next: small net follow-ups: App::m_manager (+0x1440) could become `Manager*` (it is `void*`), name the
       Manager's +0x2E6 flag (pref checksum 0xE5ADE642) and check +0x374 (modem baud rate?).
       Widescreen follow-up: if the user still sees the bottom-left band overlap, don't draw sprites wholly outside the
