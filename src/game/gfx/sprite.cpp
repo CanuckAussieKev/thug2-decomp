@@ -157,24 +157,33 @@ void SSprite::Draw()
         // (in the original's order: top left, top right, bottom left, bottom right)
         for (int i : {0, 2, 1, 3})
             RotateZ(corners[i], rotation);
-        // Still upright or on its side: each side's two corners share an x.
-        auto same = [](float a, float b) { return std::fabs(a - b) <= 0.01f; };
-        bool upright = (same(corners[0].x, corners[1].x) && same(corners[2].x, corners[3].x)) ||
-                       (same(corners[0].x, corners[2].x) && same(corners[1].x, corners[3].x));
+        // Still (nearly) upright or on its side: within 0.01 radians of a multiple of 90 degrees. (The menus' bottom
+        // band is turned by pi + 0.001, so its corners don't line up exactly.)
+        double quarterTurns = static_cast<double>(rotation) / 1.5707963267948966;
+        bool upright = std::fabs(quarterTurns - std::round(quarterTurns)) * 1.5707963267948966 <= 0.01;
         double offsetX = ScreenOffsetX();
         float offsetY = static_cast<float>(ScreenOffsetY());
+        double layoutX[4];
         for (int i = 0; i < 4; ++i) {
             // (truncated to whole pixels, unlike the upright ones)
-            double layoutX = static_cast<double>(corners[i].x) + x;
-            vertices[i].x = static_cast<float>(static_cast<int32_t>(Truncated(layoutX * ScreenScaleX() + offsetX)));
+            layoutX[i] = static_cast<double>(corners[i].x) + x;
+            vertices[i].x = static_cast<float>(static_cast<int32_t>(Truncated(layoutX[i] * ScreenScaleX() + offsetX)));
             vertices[i].y = static_cast<float>(static_cast<int32_t>(
                 Truncated((static_cast<double>(corners[i].y) + y) * ScreenScaleY() + offsetY)));
-            if (frontEndWidescreen && upright) {
-                if (layoutX <= 0.0)
-                    vertices[i].x = 0.0f;
-                else if (layoutX >= kLayoutWidth)
-                    vertices[i].x = screenRight;
-            }
+        }
+        if (frontEndWidescreen && upright) {
+            // The sprite's left side is its two leftmost corners in the layout, the right side the two rightmost
+            // (a turned sprite's own left corners can be on the right); each side reaching past its layout edge
+            // goes to the screen's edge, as for upright sprites.
+            int order[4] = {0, 1, 2, 3};
+            for (int a = 0; a < 4; ++a)
+                for (int b = a + 1; b < 4; ++b)
+                    if (layoutX[order[b]] < layoutX[order[a]])
+                        std::swap(order[a], order[b]);
+            if (layoutX[order[0]] <= 0.0)
+                vertices[order[0]].x = vertices[order[1]].x = 0.0f;
+            if (layoutX[order[3]] >= kLayoutWidth)
+                vertices[order[2]].x = vertices[order[3]].x = screenRight;
         }
     }
     // Diagnostic: thug2-decomp.ini [features] debug_sprites=1 logs, in the front end, each sprite (once per position)

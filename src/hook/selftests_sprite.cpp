@@ -245,6 +245,11 @@ void TestSpriteWidescreenEdges()
         // ... and from -5 to 5 (layout x <= 0 -> 0)
         {true, false, -5.0f, 100.0f, -1.57079637f, {0.0f, 251.0f, 0.0f, 251.0f}},
         {false, false, -5.0f, 100.0f, -1.57079637f, {228.0f, 251.0f, 228.0f, 251.0f}},
+        // turned by pi + 0.001, as the menus' bottom band is: corners at layout x 5, 5.01 (its own left) and
+        // -94.99995, -94.99 (its own right, now on the left): the two leftmost go to the screen's left edge
+        {true, false, 5.0f, 100.0f, 3.14259f, {251.0f, 251.0f, 0.0f, 0.0f}},
+        {false, false, 5.0f, 100.0f, 3.14259f, {251.0f, 251.0f, 26.0f, 26.0f}},
+        {true, true, 5.0f, 100.0f, 3.14259f, {251.0f, 251.0f, 26.0f, 26.0f}},
     };
     bool ok = true;
     std::vector<uint32_t> tilted[2];

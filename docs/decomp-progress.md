@@ -2048,6 +2048,13 @@ belong with the CScript batch.
       Fixes:"; identifiers renamed (partyModMotors, PartyModReorderFlashVertices, WritePartyModGlyphs...); per-file
       headers read "Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md". Runtime
       strings other than self-test messages unchanged (window title "THUG2", the log's "pc:" prefix, thug2-decomp.ini).
+- [x] Sprite edge rule fix (2026-10-17, from the user's in-game screenshots and a debug_sprites=1 log; NOT run in
+      the game yet): the menus' bottom band is 64x64 strips turned by pi + 0.001 (3.14259), so the rule's corner
+      line-up test (0.01 layout units) rejected them and they kept their 4:3 ends (screen x 44 / 67 .. 1756 / 1780).
+      Now: 'upright' is decided from the angle (within 0.01 rad of a multiple of 90 degrees), and the two leftmost /
+      rightmost corners in layout space are the sides moved to the screen's edges (a turned sprite's own left corners
+      are on the right). TestSpriteWidescreenEdges gained the pi + 0.001 case (on / off / in a level); 2 deliberate
+      bugs caught. [features] debug_sprites=1 (new, off by default) logs front-end sprites reaching past the layout.
 - [ ] Next: the widescreen front end's Element3d backdrop (UI_bg.mdl on the network menu: decompile the Element3d
       draw and decide how it should fill a wide screen - batch 82's finding). Then the gaps batches 79-81 left: **0x45E9E0**
       (Obj_GetCollision, the last of table 0x683268's 30 entries) with the collision feeler 0x417760 / 0x4172F0; the
