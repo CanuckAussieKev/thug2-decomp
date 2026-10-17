@@ -24,3 +24,24 @@ strings.
   - Test (selftests_parkedA.cpp, TestParkManagerAccessors): 200 random parks per group, original vs ours on
     the same memory, results + whole park hashed; CParkGenerator calls, 0x0059EB30 and the original's sprintf
     stood in. 33 deliberate bugs caught (2 after strengthening the road-mask cases).
+- [x] Batch A2 (NOT run in the game yet): the cursor, the piece menu, the gap manager copy -
+  src/game/ed/cursor.cpp/.h, menu.cpp/.h, park_manager.cpp
+  - CCursor (0x007CE608, 200 bytes: +0 park manager, +4 cell dims, +0x44 meta, +0x48 area selection state and
+    corners, +0x58 clipboard list, +0x5C current clipboard, +0x6C mode, +0x70 GapInfo): 0x00595330 sInstance,
+    0x00595340 HideClipboards, 0x00595360 SetGapNameAndScore ("" -> "x"), 0x005953C0 SetGapCancelFlags,
+    0x00595430 GetGapName, 0x00595440 ShowClipboard, 0x00595450 SelectClipboard, 0x005954A0 SetVisibility,
+    0x005954D0 UpdateHelperText (parked_set_helper_text_mode: gap_adjust / gap_regular / rail_placement /
+    regular), 0x00597100 RestartAreaSelection, 0x00597110 GetAreaSelectDims, 0x00597190 DestroyLastClipboard,
+    0x005971E0 ForceInBounds (a pasted clipboard's area is treated as signed), 0x005988A0 DestroyClipboards
+    (quirk kept: the list head isn't cleared), 0x00598940 ForgetGapOnPiece, 0x005989C0 AdvanceAreaSelection
+    (done when at most 11 x 11), 0x005955C0 CClipboard::Free (pools 0x007CE5B4).
+  - CUpperMenuManager (0x007CE60C, 0x10 bytes): 0x00595570 sInstance, 0x00595580 Disable, 0x00597400 Create,
+    0x00597490 Enable (parked_make_piece_menu / _set_menu / _set_menu_item set_name per used set).
+  - CParkManager: 0x00595BC0 CreateGapManagerCopy, 0x00595C70 UseGapManagerCopy, 0x00595C80
+    DestroyGapManagerCopy, 0x00595CB0 HighlightGapPieces. +0x177C4 is the gap manager in use, +0x177C8 a copy.
+    CPieceSet's name (+4) is a pointer.
+  - Test: TestParkManagerAccessors grew two groups (cursor; menu + instances + gap manager), 1000 random cases
+    each, every callee (clipboards, gap manager, scripts, CStruct, memory manager, pools) stood in and
+    recorded. 46 deliberate bugs: 45 caught (8 after strengthening: rarer modes, cursor at the park's edges,
+    selections near 11 x 11, the gap manager constructor making itself current), 1 equivalent (moving the null
+    check of SetGapCancelFlags after `cancel = 0`).

@@ -90,6 +90,20 @@ static_assert(offsetof(CMetaPiece, m_flags) == 0xC && offsetof(CMetaPiece, m_nam
                   sizeof(CMetaPiece) == 0x3C,
               "layout must match the original");
 
+// A gap built in the editor (0x54 bytes): its two halves (pieces), and what's shown and scored.
+struct GapInfo {
+    GridDims m_pos[2];
+    int m_rot[2];
+    int m_leftExtent[2];
+    int m_rightExtent[2];
+    char m_text[32];
+    int m_score;
+    int m_numCompleteHalves;
+    int m_tabIndex; // the gap manager's slot (-1: none)
+    uint32_t m_cancelFlags;
+};
+static_assert(sizeof(GapInfo) == 0x54, "layout must match the original");
+
 // One cell of the floor (16 bytes).
 struct FloorHeightEntry {
     int m_height;           // -16 to 15
@@ -103,7 +117,8 @@ static_assert(sizeof(FloorHeightEntry) == 16, "grid cell");
 // A set of pieces in the piece menu (0x154 bytes).
 struct CPieceSet {
     uint32_t unknown0;
-    char m_name[0x150 - 4];
+    const char* m_name;
+    uint8_t unknown8[0x150 - 8];
     bool m_isUsed;
     uint8_t pad151[3];
 };
@@ -188,6 +203,15 @@ public:
     Mth::Vector GridCoordinatesToWorld(const GridDims& area, Mth::Vector* dimensions);
     // 0x00595B30: does `area` overlap a rectangle of the road mask?
     bool IntersectsRoadMask(GridDims area);
+    // 0x00595BC0: a copy of the gap manager in use (on the script heap); the one in use stays current.
+    void CreateGapManagerCopy();
+    // 0x00595C70: make the copy the gap manager in use.
+    void UseGapManagerCopy();
+    // 0x00595C80
+    void DestroyGapManagerCopy();
+    // 0x00595CB0: highlight (or not) the pieces gaps are attached to; when highlighting, `gap` (if it has a
+    // slot) becomes the gap manager's current one.
+    void HighlightGapPieces(bool on, GapInfo* gap);
     // 0x00595D40: clear the floor slide's marks inside the park, and every placed piece's kFlagSlid.
     void ResetSlideMarks();
 
@@ -212,8 +236,8 @@ public:
     uint32_t unknown177A0;
     uint32_t m_specialPieceNames[kNumSpecialPieces]; // restart_1, restart_multi, restart_horse, king_of_hill,
                                                      // red, blue, green, yellow flags
-    uint32_t unknown177C4;
-    void* mp_gapManager; // CGapManager
+    void* mp_gapManager;     // CGapManager: the park's gaps
+    void* mp_gapManagerCopy; // see CreateGapManagerCopy
 };
 static_assert(offsetof(CParkManager, mp_bucketList) == 0x8C && offsetof(CParkManager, m_theme) == 0x351C &&
                   offsetof(CParkManager, m_floor) == 0x352C && offsetof(CParkManager, m_sets) == 0x1076C &&
@@ -221,7 +245,7 @@ static_assert(offsetof(CParkManager, mp_bucketList) == 0x8C && offsetof(CParkMan
                   offsetof(CParkManager, m_compressedMapFlags) == 0x17728 &&
                   offsetof(CParkManager, m_roadMask) == 0x1776C && offsetof(CParkManager, m_roadMaskLength) == 0x1779C &&
                   offsetof(CParkManager, m_specialPieceNames) == 0x177A4 &&
-                  offsetof(CParkManager, mp_gapManager) == 0x177C8 && sizeof(CParkManager) == 0x177CC,
+                  offsetof(CParkManager, mp_gapManager) == 0x177C4 && sizeof(CParkManager) == 0x177CC,
               "layout must match the original");
 
 } // namespace Ed

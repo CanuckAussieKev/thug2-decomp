@@ -7,6 +7,8 @@
 #include <cstring>
 
 #include "game/core/crc.h"
+#include "game/core/manager.h"
+#include "game/core/mem.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -215,6 +217,53 @@ bool CParkManager::IntersectsRoadMask(GridDims area)
     return false;
 }
 
+namespace {
+
+// CGapManager (0xA8 bytes): the instance in use (sInstance, 0x0058CBB0), constructor, copying and destructor.
+void*& GapManagerInstance() { return GameVariable<void*>(0x007CE5D4); }
+
+} // namespace
+
+void CParkManager::CreateGapManagerCopy()
+{
+    void* current = GapManagerInstance();
+    Mem::PushContext(Mem::Manager::Get()->m_scriptHeap);
+    void* memory = Mem::New(0xA8);
+    void* copy = memory ? GameFunction<void*(__thiscall*)(void*, int)>(0x0058CCC0)(memory, 0) : nullptr;
+    mp_gapManagerCopy = copy;
+    GameFunction<void(__thiscall*)(void*, void*)>(0x0058CF30)(copy, current); // (null if out of memory)
+    Mem::PopContext();
+    GapManagerInstance() = current; // (the constructor made the copy current)
+}
+
+void CParkManager::UseGapManagerCopy() { GapManagerInstance() = mp_gapManagerCopy; }
+
+void CParkManager::DestroyGapManagerCopy()
+{
+    void* copy = mp_gapManagerCopy;
+    if (!copy)
+        return;
+    GameFunction<void(__thiscall*)(void*)>(0x0058CF20)(copy); // the destructor
+    Mem::Manager::Get()->Free(copy);
+    mp_gapManagerCopy = nullptr;
+}
+
+void CParkManager::HighlightGapPieces(bool on, GapInfo* gap)
+{
+    for (CMapListNode* node = mp_concreteMetaList; node; node = node->mp_next) {
+        if (node->GetMeta()->Cast()->m_flags & CMetaPiece::kFlagInGap) // 0x00591A50: highlight its pieces
+            GameFunction<void(__thiscall*)(CMetaPiece*, bool, int)>(0x00591A50)(node->GetMeta()->Cast(), on, 1);
+    }
+    auto refresh = GameFunction<void(__thiscall*)(void*, int)>(0x00592290); // CParkGenerator
+    refresh(mp_generator, 0);
+    if (on) {
+        if (gap && gap->m_tabIndex >= 0) // 0x0058CB70: the gap manager's current gap
+            GameFunction<void(__thiscall*)(void*, int)>(0x0058CB70)(mp_gapManager, gap->m_tabIndex);
+    } else {
+        refresh(mp_generator, 0);
+    }
+}
+
 void CParkManager::ResetSlideMarks()
 {
     for (int x = m_parkFarBounds.x; x < m_parkFarBounds.x + m_parkFarBounds.w; ++x) {
@@ -250,4 +299,8 @@ REPLACE(0x00595990, &CParkManager::CanResizeTo);
 REPLACE(0x005959D0, &CParkManager::GetFloorHeight);
 REPLACE(0x00595A90, &CParkManager::GridCoordinatesToWorld);
 REPLACE(0x00595B30, &CParkManager::IntersectsRoadMask);
+REPLACE(0x00595BC0, &CParkManager::CreateGapManagerCopy);
+REPLACE(0x00595C70, &CParkManager::UseGapManagerCopy);
+REPLACE(0x00595C80, &CParkManager::DestroyGapManagerCopy);
+REPLACE(0x00595CB0, &CParkManager::HighlightGapPieces);
 REPLACE(0x00595D40, &CParkManager::ResetSlideMarks);
