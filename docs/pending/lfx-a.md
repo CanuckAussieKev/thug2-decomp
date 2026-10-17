@@ -103,3 +103,9 @@ strings.
     table, plus DestroyList/Free), since lfx-b's code calls the rewritten functions directly now.
   - Checks: 1595 replacements, 0 MISMATCHED; 190 early self-tests pass; check_code_writes no overlaps;
     audit_game_function_calls no MISMATCH; scan_register_assumptions only the known 0x4EFF92.
+- [x] The unified build (commit "Park editor: one set of Ed:: types...") tested in the game 2026-10-18 under the
+  lock: Free Skate -> the level loads and plays, pause menu fine; Create-A-Modes -> Create-A-Park opens (piece
+  and set menus, memory bar), the cursor moves, a Player 1 Restart is placed (space) and stays when the cursor
+  moves away, the raise key runs. Log: 1552 of 1552 replacements installed, early (190) / late / engine-started
+  self-tests all pass, no CRT reports or run-time check failures. (scratchpad keys.ps1 got a `space` key.)
+  Not exercised in the game: gaps, clipboards, area selection, test play, saving.
