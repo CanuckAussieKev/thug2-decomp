@@ -9,6 +9,7 @@
 #include "game/sys/sdl_window.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/log.h"
 
 namespace Nx {
 
@@ -53,11 +54,29 @@ float DesiredAspectRatio()
     return static_cast<float>(width) / static_cast<float>(height);
 }
 
+bool& WidescreenMenus()
+{
+    static bool on = ConfigInt("features", "widescreen_menus", 1) != 0;
+    return on;
+}
+
+bool FrontEndWidescreen() { return WidescreenMenus() && CurrentLevel() == 0; }
+
+float Desired3DAspectRatio()
+{
+    if (!FrontEndWidescreen())
+        return DesiredAspectRatio();
+    auto width = static_cast<uint32_t>(Sys::WindowWidth());
+    auto height = static_cast<uint32_t>(Sys::WindowHeight());
+    return static_cast<float>(width) / static_cast<float>(height);
+}
+
 // 0x004A0780. The original stores `aspect` as the screen's aspect (0x00701340). PC port: the aspect
-// wanted instead (4:3 in the front end, the window's shape in a level); `aspect` is ignored.
+// wanted instead (4:3 in the front end, the window's shape in a level); `aspect` is ignored. (The 3D view's
+// aspect: with widescreen_menus the window's shape in the front end too.)
 void SetScreenAspectRatio(float /*aspect*/)
 {
-    ScreenAspect() = DesiredAspectRatio();
+    ScreenAspect() = Desired3DAspectRatio();
 }
 
 // 0x004A07C0. The original returns the constant at 0x0067E544 (1.0). PC port: the view is widened for
@@ -65,7 +84,7 @@ void SetScreenAspectRatio(float /*aspect*/)
 // (0x00701340) is updated too.
 float GetScreenAngleFactor()
 {
-    float aspect = DesiredAspectRatio();
+    float aspect = Desired3DAspectRatio();
     // (narrower than 4:3: the horizontal view isn't narrowed - the vertical one grows instead)
     float factor = aspect > 4.0f / 3.0f ? aspect / (4.0f / 3.0f) : 1.0f;
     ScreenAspect() = aspect;

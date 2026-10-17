@@ -183,6 +183,9 @@ void Draw2DWithBlackBars()
         float u, v;
     };
     GameFunction<void(__cdecl*)()>(0x004DFB90)(); // the 2D pass
+    // (widescreen_menus: in the front end the 3D scene fills the sides, so no bars over it.)
+    if (FrontEndWidescreen())
+        return;
 
     uint32_t backBufferWidth = GameVariable<uint32_t>(0x00786D6C);
     uint32_t backBufferHeight = GameVariable<uint32_t>(0x00786D70);
@@ -505,12 +508,13 @@ void RenderViewport(int index)
     vp.height = static_cast<int>(height * view->height);
     vp.minZ = 0.0f;
     vp.maxZ = 1.0f;
-    if (GameVariable<bool>(0x00786CBE)) {
+    if (GameVariable<bool>(0x00786CBE) && !FrontEndWidescreen()) {
         // PC port (its call at 0x004B2E65): the viewport fitted to the aspect wanted. The original squashed the
         // viewport to 3/4 of the screen's height:
         //   int screenHeight = GameVariable<int>(0x00786D70);
         //   vp.y += screenHeight / 8;
         //   vp.height -= screenHeight / 4;
+        // (widescreen_menus: in the front end the 3D view keeps the whole screen; the 2D below stays fitted.)
         SetDisplayRegion();
     }
     SetViewport();

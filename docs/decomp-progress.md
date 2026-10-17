@@ -2004,6 +2004,16 @@ belong with the CScript batch.
       mThisAdjustment, mVirtualBaseOffsets[2]}.
 - [x] Batches 79-81 tested in the game (2026-10-17, by the user): game runs; 1136 of 1136 replacements installed
       (35 source only), early 125 / late 17 / engine-started 2 self-tests pass, shadow checks no mismatches.
+- [x] Widescreen front end (2026-10-17, at the user's request; NOT run in the game yet): the PC port fits the
+      front end to 4:3 (DesiredAspectRatio: CurrentLevel() == 0 -> 4:3), so the main menu was pillarboxed - by
+      design, not a regression. New thug2-decomp.ini [features] widescreen_menus (default 1): in the front end
+      the 3D view uses the window's shape (SetScreenAspectRatio / GetScreenAngleFactor via Desired3DAspectRatio;
+      RenderWorld keeps the full-screen viewport instead of SetDisplayRegion; Draw2DWithBlackBars draws no bars)
+      while the 2D menu layout stays 4:3 and centred (SetLetterbox's scale/offset and the 2D pass's region still
+      use DesiredAspectRatio). widescreen_menus=0 is the PC port's behaviour. Test TestWidescreenMenus (worked-out
+      values: front end on/off, a level on/off on 1920x1080; 2 deliberate bugs caught); TestRenderWorld runs with
+      it off (it compares with the original plus the PC port's patches). The RenderWorld / bar parts are only
+      checked in the game.
 - [ ] Next: the gaps batches 79-81 left: **0x45E9E0**
       (Obj_GetCollision, the last of table 0x683268's 30 entries) with the collision feeler 0x417760 / 0x4172F0; the
       rest of the cutscene system up to 0x4680B0 (0x463AA0 quaternion + translation to matrix, 0x463BA0,

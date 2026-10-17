@@ -11,6 +11,8 @@
 #include <vector>
 
 #include "game/gfx/render.h"
+#include "game/gfx/screen.h"
+#include "game/sys/sdl_window.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -379,6 +381,13 @@ long __stdcall WorldDeviceState(void*, int state, uint32_t value) { Record({0xD5
 // calls, the device's viewport, render states, transforms, samplers and draws, and the globals after each frame.
 void TestRenderWorld()
 {
+    // (compared with the original plus the PC port's patches: the PC port's pillarboxed front end)
+    bool widescreenMenus = Nx::WidescreenMenus();
+    Nx::WidescreenMenus() = false;
+    struct RestoreWidescreen {
+        bool value;
+        ~RestoreWidescreen() { Nx::WidescreenMenus() = value; }
+    } restoreWidescreen{widescreenMenus};
     BlurStandIns blur;
     SavedBytes saved({{0x00786AC4, 4}, {0x00786D04, 1}, {0x00786D00, 4}, {0x00701378, 4}, {0x006FA7B8, 4},
                       {0x00786D6C, 4}, {0x00786B90, 0x164}, {0x00786E18, 0x18}, {0x006FA7EC, 4}, {0x006FA7BC, 0x10},
@@ -536,8 +545,68 @@ void TestRenderWorld()
     CompareTraces(traces[0], traces[1], "gfx: the world render (the PC port's display region and black bars)", 150000);
 }
 
+// widescreen_menus: in the front end the 3D view gets the window's shape (aspect, field of view) while the 2D layout
+// stays 4:3 and centred; with it off the front end is 4:3 throughout; in a level it changes nothing. Checked against
+// worked-out values on a 1920x1080 window and back buffer.
+void TestWidescreenMenus()
+{
+    SavedBytes saved({{0x007CE478, 4}, {0x00786D6C, 8}, {0x00701340, 4}, {0x0067E544, 4}, {0x00786D80, 0x10},
+                      {0x00786CBE, 1}});
+    bool widescreenMenus = Nx::WidescreenMenus();
+    int windowWidth = Sys::WindowWidth(), windowHeight = Sys::WindowHeight();
+
+    alignas(16) static uint8_t career[0x640];
+    alignas(16) static uint8_t skater[0x40];
+    *reinterpret_cast<void**>(skater + 0x20) = career;
+    career[0x630] = 7;
+    Sys::WindowWidth() = 1920;
+    Sys::WindowHeight() = 1080;
+    GameVariable<uint32_t>(0x00786D6C) = 1920;
+    GameVariable<uint32_t>(0x00786D70) = 1080;
+    GameVariable<float>(0x0067E544) = 1.0f;
+
+    auto closeTo = [](float a, float b) { return std::fabs(a - b) < 1e-5f; };
+    struct Case {
+        bool inLevel, setting;
+        bool frontEndWidescreen;
+        float aspect3D, factor, scaleX, scaleY;
+        uint32_t offsetX;
+    };
+    const Case cases[] = {
+        {false, true, true, 16.0f / 9.0f, 4.0f / 3.0f, 2.25f, 2.25f, 240}, // front end: wide 3D, 4:3 2D
+        {false, false, false, 4.0f / 3.0f, 1.0f, 2.25f, 2.25f, 240},       // front end, off: 4:3 throughout
+        {true, true, false, 16.0f / 9.0f, 4.0f / 3.0f, 3.0f, 2.25f, 0},     // a level: wide, unchanged
+        {true, false, false, 16.0f / 9.0f, 4.0f / 3.0f, 3.0f, 2.25f, 0},
+    };
+    bool ok = true;
+    for (const Case& c : cases) {
+        GameVariable<void*>(0x007CE478) = c.inLevel ? skater : nullptr;
+        Nx::WidescreenMenus() = c.setting;
+        bool frontEndWidescreen = Nx::FrontEndWidescreen();
+        GameVariable<float>(0x00701340) = -3.0f;
+        Nx::SetScreenAspectRatio(1.25f);
+        float aspect = GameVariable<float>(0x00701340);
+        float factor = Nx::GetScreenAngleFactor();
+        Nx::SetLetterbox(true);
+        bool match = frontEndWidescreen == c.frontEndWidescreen && closeTo(aspect, c.aspect3D) &&
+                     closeTo(factor, c.factor) && closeTo(GameVariable<float>(0x00786D80), c.scaleX) &&
+                     closeTo(GameVariable<float>(0x00786D84), c.scaleY) && GameVariable<uint32_t>(0x00786D88) == c.offsetX;
+        if (!match)
+            Log("  widescreen menus (level %d, setting %d): front end wide %d, aspect %f, factor %f, scale %f x %f, "
+                "x offset %u",
+                c.inLevel, c.setting, frontEndWidescreen, aspect, factor, GameVariable<float>(0x00786D80),
+                GameVariable<float>(0x00786D84), GameVariable<uint32_t>(0x00786D88));
+        ok = ok && match;
+    }
+    Nx::WidescreenMenus() = widescreenMenus;
+    Sys::WindowWidth() = windowWidth;
+    Sys::WindowHeight() = windowHeight;
+    Check(ok, "gfx: widescreen_menus (front end 3D wide, 2D 4:3; levels unchanged)");
+}
+
 } // namespace
 
 SELFTEST(Early, TestSetCamera);
 SELFTEST(Early, TestDrawScreenBlur);
 SELFTEST(Early, TestRenderWorld);
+SELFTEST(Early, TestWidescreenMenus);
