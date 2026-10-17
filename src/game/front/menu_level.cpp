@@ -36,6 +36,9 @@ const std::string& Folder()
 // The camera matrix rows 0-2 we last wrote (to tell a matrix set again in the shop's coordinates from ours).
 Mth::Matrix g_written;
 bool g_haveWritten;
+// The camera position we last wrote.
+float g_writtenPos[3];
+bool g_haveWrittenPos;
 
 } // namespace
 
@@ -141,18 +144,39 @@ void PlaceCamera(Gfx::Camera* camera)
     Move move;
     if (!CurrentMove(&move))
         return;
+    // Only a camera still in the shop's coordinates gets the move - position and orientation together. Cameras
+    // placed from the skater (the main menu's mainmenu_camera02: targetOffset / positionOffset turn with the skater)
+    // are already right. A position still as we last wrote it wasn't set again: its matrix is turned when the game
+    // set it again since.
     float pos[3] = {camera->m_pos.x, camera->m_pos.y, camera->m_pos.z};
-    bool shopPos = InShop(pos);
+    bool ourPos = g_haveWrittenPos && std::memcmp(pos, g_writtenPos, sizeof(pos)) == 0;
     bool newMatrix = !g_haveWritten || std::memcmp(&camera->m_matrix, &g_written, sizeof(Mth::Vector) * 3) != 0;
-    if (shopPos) {
-        float moved[3];
-        MovePoint(move, pos, moved);
-        camera->m_pos.x = moved[0];
-        camera->m_pos.y = moved[1];
-        camera->m_pos.z = moved[2];
+    bool shop = !ourPos && InShop(pos);
+    // [features] debug_backdrop: each new camera position the game gives (up to 40), and what became of it.
+    static const bool debug = ConfigInt("features", "debug_backdrop", 0) != 0;
+    static int logged = 0;
+    static float lastLogged[3];
+    if (debug && !ourPos && logged < 40 &&
+        (logged == 0 || std::fabs(pos[0] - lastLogged[0]) + std::fabs(pos[1] - lastLogged[1]) +
+                                std::fabs(pos[2] - lastLogged[2]) > 1.0f)) {
+        ++logged;
+        std::memcpy(lastLogged, pos, sizeof(pos));
+        float out[3];
+        MovePoint(move, pos, out);
+        const Mth::Vector& back = camera->m_matrix.row[2];
+        Log("menu_level debug: camera at (%.1f, %.1f, %.1f) looking along (%.3f, %.3f, %.3f): %s", pos[0], pos[1],
+            pos[2], -back.x, -back.y, -back.z, shop ? "in the shop, moved" : "left as it is");
     }
-    // The orientation when the game set it again since ours (with the position or alone).
-    if (newMatrix) {
+    if (shop) {
+        float out[3];
+        MovePoint(move, pos, out);
+        camera->m_pos.x = out[0];
+        camera->m_pos.y = out[1];
+        camera->m_pos.z = out[2];
+        std::memcpy(g_writtenPos, out, sizeof(out));
+        g_haveWrittenPos = true;
+    }
+    if (shop || (ourPos && newMatrix)) {
         for (int row = 0; row < 3; ++row) {
             Mth::Vector& r = camera->m_matrix.row[row];
             float in[3] = {r.x, r.y, r.z}, out[3];
