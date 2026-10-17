@@ -193,7 +193,30 @@ struct GamePose {
     Mth::Matrix m;
 };
 GamePose g_gamePose;
+// The field of view the game gave it (horizontal, degrees at 4:3) and the menu camera playing then.
+bool g_gameFovNoted;
+float g_gameFov;
+uint32_t g_gameFovCamera;
+
+void NoteFov(float degrees)
+{
+    g_gameFov = degrees;
+    g_gameFovCamera = PlayingMenuCamera();
+    g_gameFovNoted = true;
+}
 } // namespace
+
+void NoteCameraFov(Gfx::Camera* camera, float degrees)
+{
+    if (!camera || !Holding() || camera != ViewportCamera(0))
+        return;
+    NoteFov(degrees);
+}
+
+float GameCameraFov(uint32_t menuCamera)
+{
+    return g_gameFovNoted && g_gameFovCamera == menuCamera ? g_gameFov : 0.0f;
+}
 
 void NoteCameraPos(Gfx::Camera* camera, const Mth::Vector& pos)
 {
@@ -220,7 +243,7 @@ bool GameCameraPose(Mth::Vector* pos, Mth::Matrix* matrix)
     return true;
 }
 
-void ForgetGameCameraPose() { g_gamePose.pos = g_gamePose.matrix = false; }
+void ForgetGameCameraPose() { g_gamePose.pos = g_gamePose.matrix = g_gameFovNoted = false; }
 
 void HoldCamera(Gfx::Camera* camera)
 {
@@ -242,6 +265,9 @@ void NoteAndHoldCamera(Gfx::Camera* camera)
         g_gamePose.m = camera->m_matrix;
         g_gamePose.pos = g_gamePose.matrix = true;
     }
+    // Its field of view likewise: one that isn't the held view's was written by the game since.
+    if (camera->m_hFov != Nx::GetScreenAngle())
+        NoteFov(camera->m_hFov);
     ApplyView(camera, view);
 }
 

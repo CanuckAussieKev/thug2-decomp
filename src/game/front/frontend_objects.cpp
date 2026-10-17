@@ -198,6 +198,7 @@ struct Moved {
     Placement placement;
     VectorField pos, oldPos, vel;
     MatrixField matrix, display;
+    int updating; // inside its own update (BeforeUpdate .. AfterComponents; nested updates counted): at its real place
 };
 
 Moved g_moved[kMaxObjects];
@@ -212,6 +213,7 @@ Lookup g_lookup;
 struct CameraPose {
     uint32_t anim;
     float pos[3], back[3], up[3];
+    float fov, viewFov; // the menu camera's and the held view's fields of view (0: not known)
 };
 constexpr int kMaxCameraPoses = 8;
 CameraPose g_poses[kMaxCameraPoses];
@@ -302,9 +304,42 @@ bool Tracked(uint32_t id)
 
 // One moved object checked: gone - forgotten; may no longer move - restored and forgotten; else the game's writes
 // taken in. Returns whether it is still moved.
+void WriteReal(Moved& moved)
+{
+    Obj::CCompositeObject* object = moved.object;
+    object->m_pos = moved.pos.original;
+    object->m_oldPos = moved.oldPos.original;
+    object->m_vel = moved.vel.original;
+    object->m_matrix = moved.matrix.original;
+    object->m_displayMatrix = moved.display.original;
+}
+
+// The object as it is now is its real place (it was put there for its own update): moved again from it.
+void MoveFromReal(Moved& moved)
+{
+    Obj::CCompositeObject* object = moved.object;
+    const Placement& p = moved.placement;
+    Start(moved.pos, object->m_pos, p, true);
+    Start(moved.oldPos, object->m_oldPos, p, true);
+    Start(moved.vel, object->m_vel, p, false);
+    Start(moved.matrix, object->m_matrix, p);
+    Start(moved.display, object->m_displayMatrix, p);
+    Write(moved);
+}
+
 bool Check(int index)
 {
     Moved& moved = g_moved[index];
+    if (moved.updating) {
+        // (its update ended early - it died in its script: it is at its real place)
+        moved.updating = 0;
+        if (StillThere(moved) && MayMove(moved.object, moved.kind)) {
+            MoveFromReal(moved);
+            return true;
+        }
+        Forget(index);
+        return false;
+    }
     if (!StillThere(moved)) {
         if (Debug())
             Log("menu_backdrop debug: object %08X gone (no longer found, replaced or dead): forgotten", moved.id);
@@ -328,7 +363,9 @@ void Move(Obj::CCompositeObject* object, const TableObject& entry, const CameraP
     moved.id = entry.id;
     moved.kind = entry.kind;
     moved.object = object;
-    moved.placement = MakePlacement(pose.pos, pose.back, pose.up, *g_view, entry.offset);
+    moved.updating = 0;
+    moved.placement =
+        MakePlacement(pose.pos, pose.back, pose.up, *g_view, entry.offset, DepthScale(pose.fov, pose.viewFov));
     const Placement& p = moved.placement;
     Start(moved.pos, object->m_pos, p, true);
     Start(moved.oldPos, object->m_oldPos, p, true);
@@ -373,7 +410,8 @@ const CameraPose* PoseFor(uint32_t anim)
 bool SamePose(const CameraPose& a, const CameraPose& b)
 {
     return a.anim == b.anim && std::memcmp(a.pos, b.pos, sizeof(a.pos)) == 0 &&
-           std::memcmp(a.back, b.back, sizeof(a.back)) == 0 && std::memcmp(a.up, b.up, sizeof(a.up)) == 0;
+           std::memcmp(a.back, b.back, sizeof(a.back)) == 0 && std::memcmp(a.up, b.up, sizeof(a.up)) == 0 &&
+           a.fov == b.fov && a.viewFov == b.viewFov;
 }
 
 // The object owning the viewport camera's camera component (CCameraComponent: +0x18 its Gfx::Camera).
@@ -419,22 +457,34 @@ void CameraFrame(const float back[3], const float up[3], double frame[3][3])
     u[2] = b[0] * right[1] - b[1] * right[0];
 }
 
+double DepthScale(float cameraFov, float viewFov)
+{
+    if (!(cameraFov > 0.0f && cameraFov < 180.0f && viewFov > 0.0f && viewFov < 180.0f))
+        return 1.0;
+    const double halfDegree = 3.14159265358979323846 / 360.0;
+    return std::tan(cameraFov * halfDegree) / std::tan(viewFov * halfDegree);
+}
+
 Placement MakePlacement(const float cameraPos[3], const float cameraBack[3], const float cameraUp[3],
-                        const MenuBackdrop::View& view, const float offset[3])
+                        const MenuBackdrop::View& view, const float offset[3], double depthScale)
 {
     double from[3][3], to[3][3];
     CameraFrame(cameraBack, cameraUp, from);
     CameraFrame(view.back, view.up, to);
     Placement p;
-    // rot = from^T * to: the camera's axes become the view's.
+    // rot = from^T * to: the camera's axes become the view's. point = from^T * D * to, D scaling the camera's
+    // depth (its row 2, back) by depthScale; pointInverse = to^T * D^-1 * from.
     for (int i = 0; i < 3; ++i) {
-        for (int j = 0; j < 3; ++j)
+        for (int j = 0; j < 3; ++j) {
             p.rot[i][j] = from[0][i] * to[0][j] + from[1][i] * to[1][j] + from[2][i] * to[2][j];
+            p.point[i][j] = from[0][i] * to[0][j] + from[1][i] * to[1][j] + depthScale * from[2][i] * to[2][j];
+            p.pointInverse[i][j] = to[0][i] * from[0][j] + to[1][i] * from[1][j] + to[2][i] * from[2][j] / depthScale;
+        }
     }
-    // trans = the view's position - the camera's position turned, + the offset along the view's axes.
+    // trans = the view's position - the camera's position mapped, + the offset along the view's axes.
     for (int j = 0; j < 3; ++j) {
-        double turned = cameraPos[0] * p.rot[0][j] + cameraPos[1] * p.rot[1][j] + cameraPos[2] * p.rot[2][j];
-        p.trans[j] = view.pos[j] - turned + offset[0] * to[0][j] + offset[1] * to[1][j] + offset[2] * to[2][j];
+        double mapped = cameraPos[0] * p.point[0][j] + cameraPos[1] * p.point[1][j] + cameraPos[2] * p.point[2][j];
+        p.trans[j] = view.pos[j] - mapped + offset[0] * to[0][j] + offset[1] * to[1][j] + offset[2] * to[2][j];
     }
     return p;
 }
@@ -451,7 +501,7 @@ Mth::Vector MapPoint(const Placement& p, const Mth::Vector& v)
 {
     double out[3];
     for (int j = 0; j < 3; ++j)
-        out[j] = v.x * p.rot[0][j] + v.y * p.rot[1][j] + v.z * p.rot[2][j] + p.trans[j];
+        out[j] = v.x * p.point[0][j] + v.y * p.point[1][j] + v.z * p.point[2][j] + p.trans[j];
     return {static_cast<float>(out[0]), static_cast<float>(out[1]), static_cast<float>(out[2]), v.w};
 }
 
@@ -468,7 +518,7 @@ Mth::Vector UnmapPoint(const Placement& p, const Mth::Vector& v)
     double d[3] = {v.x - p.trans[0], v.y - p.trans[1], v.z - p.trans[2]};
     double out[3];
     for (int i = 0; i < 3; ++i)
-        out[i] = d[0] * p.rot[i][0] + d[1] * p.rot[i][1] + d[2] * p.rot[i][2];
+        out[i] = d[0] * p.pointInverse[0][i] + d[1] * p.pointInverse[1][i] + d[2] * p.pointInverse[2][i];
     return {static_cast<float>(out[0]), static_cast<float>(out[1]), static_cast<float>(out[2]), v.w};
 }
 
@@ -506,6 +556,8 @@ bool InputCameraPose(const Inputs& inputs, CameraPose& pose)
     std::memcpy(pose.pos, pos, sizeof(pose.pos));
     std::memcpy(pose.back, &matrix->row[2], sizeof(pose.back));
     std::memcpy(pose.up, &matrix->row[1], sizeof(pose.up));
+    pose.fov = inputs.cameraFov;
+    pose.viewFov = inputs.viewFov;
     return true;
 }
 
@@ -587,8 +639,10 @@ bool Step(const Inputs& inputs, bool sample, Lookup lookup)
         g_poses[g_poseCount] = now;
         pose = &g_poses[g_poseCount++];
         g_samples = 0;
-        Log("menu_backdrop: the front-end objects placed for camera %08X at (%.3f, %.3f, %.3f)%s", now.anim,
-            now.pos[0], now.pos[1], now.pos[2], steady ? "" : " (the camera still moving)");
+        Log("menu_backdrop: the front-end objects placed for camera %08X at (%.3f, %.3f, %.3f), field of view %.3f "
+            "(the view's %.3f: depth x %.4f)%s",
+            now.anim, now.pos[0], now.pos[1], now.pos[2], now.fov, now.viewFov, DepthScale(now.fov, now.viewFov),
+            steady ? "" : " (the camera still moving)");
     }
     if (!g_applied) {
         g_applied = true;
@@ -616,7 +670,7 @@ void Update(bool logic)
     // The camera is sampled once a frame, by whichever step comes first: the object update walk's or the render's
     // (the frames counted by the renders).
     bool sample = g_sampledFrame != g_frame;
-    Inputs inputs = {view, Nx::CurrentLevel() == 0, false, 0, nullptr, nullptr, nullptr};
+    Inputs inputs = {view, Nx::CurrentLevel() == 0, false, 0, nullptr, nullptr, nullptr, 0.0f, Nx::GetScreenAngle()};
     if (inputs.frontEnd)
         inputs.backdropLoaded = MenuBackdrop::BackdropLoaded();
     Mth::Vector pos;
@@ -624,6 +678,7 @@ void Update(bool logic)
     if (inputs.frontEnd && inputs.backdropLoaded) {
         inputs.menuCamera = MenuBackdrop::PlayingMenuCamera();
         if (inputs.menuCamera && sample && !PoseFor(inputs.menuCamera)) {
+            inputs.cameraFov = MenuBackdrop::GameCameraFov(inputs.menuCamera);
             inputs.camera = ViewportCameraObject();
             if (!inputs.camera && MenuBackdrop::GameCameraPose(&pos, &matrix)) {
                 inputs.cameraPos = &pos;
@@ -637,16 +692,48 @@ void Update(bool logic)
         ++g_frame;
 }
 
-void BeforeComponents(Obj::CCompositeObject* object)
+void BeforeUpdate(Obj::CCompositeObject* object)
 {
     if (!g_applied)
         return;
     int index = Find(object);
-    if (index >= 0)
-        Check(index);
+    if (index < 0)
+        return;
+    Moved& moved = g_moved[index];
+    if (moved.updating++)
+        return; // (a nested update: already at its real place)
+    if (!StillThere(moved)) {
+        Forget(index);
+        return;
+    }
+    // What was done to it since (outside its update) taken in, then its real place for its own update.
+    ReconcileFields(moved);
+    WriteReal(moved);
 }
 
-void AfterComponents(Obj::CCompositeObject* object) { BeforeComponents(object); }
+void AfterComponents(Obj::CCompositeObject* object)
+{
+    if (!g_applied)
+        return;
+    int index = Find(object);
+    if (index < 0)
+        return;
+    Moved& moved = g_moved[index];
+    if (!moved.updating) {
+        Check(index);
+        return;
+    }
+    if (--moved.updating)
+        return;
+    // Whatever its update did, it did at its real place: that is its real place now.
+    if (!StillThere(moved) || !MayMove(moved.object, moved.kind)) {
+        if (Debug())
+            Log("menu_backdrop debug: object %08X left at its real place (gone, or its physics unpaused)", moved.id);
+        Forget(index);
+        return;
+    }
+    MoveFromReal(moved);
+}
 
 void BeforeCFunction(const void* function)
 {

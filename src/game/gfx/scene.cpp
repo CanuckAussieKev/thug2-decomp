@@ -46,6 +46,8 @@ bool __cdecl CFunc_LoadScene(Script::CStruct* params, Script::CScript* /*script*
 {
     // Not original - the menu_backdrop feature (see game/front/frontend_objects.h): a level is loading, the front
     // end's objects go back where they were.
+    // Original behaviour: the scene is just loaded; with menu_backdrop any front-end objects moved into LA are put
+    // back first and kept there until the backdrop is loaded again.
     Front::FrontEndObjects::OnLevelChange();
     bool isDictionary = params->ContainsFlag(kIsDictionary);
     bool isSky = params->ContainsFlag(kIsSky);
@@ -83,6 +85,7 @@ bool __cdecl CFunc_LoadScene(Script::CStruct* params, Script::CScript* /*script*
     description->Clear();
 
     // Not original - the menu_backdrop feature (see menu_backdrop.h): the front end's scene brings the backdrop's.
+    // Original behaviour: only the scene asked for is loaded; with menu_backdrop "mainmenu" also loads LA_Sky and LA.
     Front::MenuBackdrop::OnSceneLoaded(name, isNet);
     return true;
 }

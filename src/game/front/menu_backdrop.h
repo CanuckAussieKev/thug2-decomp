@@ -82,6 +82,12 @@ void NoteCameraMatrix(Gfx::Camera* camera, const Mth::Matrix& matrix);
 // The last pose noted (false until both its position and matrix were), and forgetting it.
 bool GameCameraPose(Mth::Vector* pos, Mth::Matrix* matrix);
 void ForgetGameCameraPose();
+// The field of view the game gives the viewport camera while it is held (SetHFOV, or written directly - noted at the
+// renderer's hold point when it isn't the held view's), with the menu camera playing then.
+void NoteCameraFov(Gfx::Camera* camera, float degrees);
+// The menu camera's field of view noted (horizontal degrees at 4:3) if noted while `menuCamera` played, else 0
+// (none noted: the cameras' default, the held view's own). Forgotten with ForgetGameCameraPose.
+float GameCameraFov(uint32_t menuCamera);
 
 // Called by the camera's setters: while holding, the viewport 0 camera gets the view.
 void HoldCamera(Gfx::Camera* camera);

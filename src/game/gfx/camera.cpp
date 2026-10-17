@@ -156,6 +156,8 @@ void Camera::SetPos(const Mth::Vector& pos)
     std::memcpy(&m_pos, &pos, sizeof(m_pos)); // (copied as words)
     // Not original - the menu_backdrop feature (see menu_backdrop.h): the front end's camera held at the chosen view
     // (the game's pose noted first).
+    // Original behaviour: the position is kept as given; with menu_backdrop the viewport's camera, while a menu camera
+    // plays, has the given position noted and is put back at the LA view.
     Front::MenuBackdrop::NoteCameraPos(this, pos);
     Front::MenuBackdrop::HoldCamera(this);
 }
@@ -165,6 +167,8 @@ Mth::Matrix& Camera::SetMatrix(const Mth::Matrix& matrix)
 {
     m_matrix = matrix;
     // Not original - the menu_backdrop feature.
+    // Original behaviour: the matrix is kept as given; with menu_backdrop the viewport's camera, while a menu camera
+    // plays, has the given matrix noted and is turned back to the LA view.
     Front::MenuBackdrop::NoteCameraMatrix(this, matrix);
     Front::MenuBackdrop::HoldCamera(this);
     return m_matrix;
@@ -182,7 +186,10 @@ void Camera::SetHFOV(float degrees)
 {
     m_hFov = degrees;
     UpdateAdjustedHFOV();
-    // Not original - the menu_backdrop feature.
+    // Not original - the menu_backdrop feature (the game's angle noted first).
+    // Original behaviour: the angle is kept as given; with menu_backdrop the viewport's camera, while a menu camera
+    // plays, has it noted (for the objects' placement) and gets the LA view's default angle back.
+    Front::MenuBackdrop::NoteCameraFov(this, degrees);
     Front::MenuBackdrop::HoldCamera(this);
 }
 
