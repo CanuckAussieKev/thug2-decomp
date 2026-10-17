@@ -8,7 +8,7 @@ class CScript;
 } // namespace Script
 
 // The screen's shape and full-screen effects (Nx engine, PC): aspect ratio, field-of-view factor, letterbox and
-// motion blur. The PC port (contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md) changes most
+// motion blur. PartyMod (whose code this contains: MIT, (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md) changes most
 // of these: widescreen support, blur off by default.
 namespace Nx {
 
@@ -21,7 +21,7 @@ float DesiredAspectRatio();
 
 // thug2-decomp.ini [features] widescreen_menus (default 1): in the front end the 3D scene behind the menus fills
 // the window (widescreen field of view, no pillarbox bars) while the 2D menu layout stays 4:3 and centred. With 0,
-// the front end is pillarboxed 4:3 as in the PC port. Read from the ini once; self-tests set it for their run.
+// the front end is pillarboxed 4:3 as in PartyMod. Read from the ini once; self-tests set it for their run.
 bool& WidescreenMenus();
 // Whether that applies right now: the setting is on and we're in the front end.
 bool FrontEndWidescreen();

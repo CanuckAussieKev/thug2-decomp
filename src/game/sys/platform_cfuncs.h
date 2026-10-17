@@ -8,8 +8,8 @@ class CScript;
 namespace Sys {
 
 // IsPS2: false on PC - the game's CFunction table (0x0067F3A0) points it at the shared "return false" stub
-// 0x005B9E50 (also IsNGC's and others', so it can't be hooked on its own). With the PC port's PS2 controls on
-// (contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md) it's true for the vehicle grind script
+// 0x005B9E50 (also IsNGC's and others', so it can't be hooked on its own). With PartyMod's PS2 controls on
+// (contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md) it's true for the vehicle grind script
 // (0x47F15883), so a vehicle grinds on the PS2's buttons.
 bool __cdecl CFunc_IsPS2(Script::CStruct* params, Script::CScript* script);
 

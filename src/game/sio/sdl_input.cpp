@@ -1,5 +1,5 @@
 // Input on PC: SDL game controllers and the keyboard.
-// Contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md
+// Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md
 
 #include "game/sio/sdl_input.h"
 
@@ -191,7 +191,7 @@ void RemoveController(SDL_GameController* controller)
     int i = 0;
     while (i < s_controllerCount && s_controllers[i] != controller)
         ++i;
-    // (as the PC port: when it isn't found this looks one past the last entry, which can be a stale copy)
+    // (as in PartyMod: when it isn't found this looks one past the last entry, which can be a stale copy)
     if (s_controllers[i] != controller) {
         DebugLog::Printf(Level::kWarn, "Did not find disconnected controller in list\n");
         return;
@@ -273,7 +273,7 @@ uint8_t InParkEditor()
     if (!manager)
         return 0;
     int element[4] = {0, 0, 0, 0};
-    // (thiscall: the PC port calls them as fastcall with a null EDX, which they don't read)
+    // (thiscall: PartyMod calls them as fastcall with a null EDX, which they don't read)
     auto* found = GameFunction<uint32_t*(__thiscall*)(void*, void*, uint32_t, uint32_t)>(0x004AAE20)(
         manager, element, 0x5999551E, 0);
     if (found && *found) {
@@ -894,7 +894,7 @@ void LoadPadBinds()
     s_pad.camera = static_cast<PadStick>(Config::GetInt(Config::kGamepad, "CameraStick", kStickRight));
 }
 
-// Stores 32 bits at `offset` into the device. The PC port's view of the device has these fields as 32-bit (the game's
+// Stores 32 bits at `offset` into the device. PartyMod's view of the device has these fields as 32-bit (the game's
 // are bytes followed by padding - and +0xEC's second byte is m_keyboardControl, cleared this way); its last one,
 // "start or A pressed" at +0xF0, lies just past the end of the 0xF0-byte device. Kept as it was.
 void Store32(Device* device, uint32_t offset, uint32_t value)

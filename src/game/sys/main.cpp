@@ -1,5 +1,5 @@
 // The game's main.
-// Contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md (the PC port's changes in it).
+// Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md (PartyMod's changes in it).
 
 #include "game/sys/main.h"
 
@@ -180,7 +180,7 @@ int __cdecl Main(int argc, char** argv)
 
         Mem::PushMemProfile("MainLoop");
         MainLoop(mlp);
-        // PC port: the process ends here (FastExit, in place of the original's PopMemProfile() - the PC port's call
+        // Originally from PartyMod Fixes: the process ends here (FastExit, in place of the original's PopMemProfile() - PartyMod's call
         // at 0x004E2492). The
         // original went on to tear everything down and, unless quitting, start again from the top.
         FastExit();

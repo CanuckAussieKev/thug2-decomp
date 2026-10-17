@@ -1,5 +1,5 @@
 // Self-test for the main loop (Mlp::Manager::MainLoop, 0x0044EEF0). The loop runs until the game ends, so the
-// original (with the PC port's call to the letterboxed render, Mlp::RenderFrameLetterboxed, written in) and ours run against recording stand-ins for
+// original (with PartyMod's call to the letterboxed render, Mlp::RenderFrameLetterboxed, written in) and ours run against recording stand-ins for
 // everything they call - the Win32 timer, sleep and screen saver calls included - with a scripted clock, and a
 // stand-in ends the loop the way the game does (m_done set by a task, or the quit flag). The two call traces,
 // with the state at every call, are compared.
@@ -363,7 +363,7 @@ void TestMainLoop()
             bool original = run == 0;
             g_trace.clear();
             std::vector<uint32_t> trace;
-            // The PC port's call at 0x0044F1C0: the render with its letterbox (Mlp::RenderFrameLetterboxed) in place
+            // PartyMod's call at 0x0044F1C0: the render with its letterbox (Mlp::RenderFrameLetterboxed) in place
             // of the plain render
             if (original)
                 RunPatch(0x0044F1C0, Branch(0xE8, 0x0044F1C0, reinterpret_cast<const void*>(Resolve(

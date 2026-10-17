@@ -1,5 +1,5 @@
 // The program's entry point and its command line.
-// Contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md (the PC port's changes in it).
+// Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md (PartyMod's changes in it).
 
 #define _WINSOCK_DEPRECATED_NO_WARNINGS // inet_addr, gethostbyname: what the game uses
 #include "game/sys/winmain.h"
@@ -229,7 +229,7 @@ void ReadNetworkParams(const char* commandLine)
 int WINAPI WinMain(HINSTANCE instance, HINSTANCE /*previous*/, char* commandLine, int /*show*/)
 {
     // (THUG2PM.exe's own patch loads a DLL here - LoadLibraryA(<the name at 0x0064B198>) in a code cave (0x005480A1)
-    // called in place of GsiStartAvailableCheck, which the cave then jumps to. The PC port is part of the game's
+    // called in place of GsiStartAvailableCheck, which the cave then jumps to. PartyMod is part of the game's
     // source here, so nothing is loaded.)
     GsiStartAvailableCheck("thps6pc");
     int available;
@@ -238,13 +238,13 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE /*previous*/, char* commandLine
     if (available != 1)
         Dbg::Printf("The backend is not available\n");
 
-    // PC port: its set-up (thug2-decomp.ini, logging, the patched scripts, the SDL event pump, the online service's
-    // hosts, the button glyphs, the graphics settings) before the command line is read (the PC port called it in
+    // Originally from PartyMod Fixes: its set-up (thug2-decomp.ini, logging, the patched scripts, the SDL event pump, the online service's
+    // hosts, the button glyphs, the graphics settings) before the command line is read (PartyMod called it in
     // place of ParseNetworkParams, then that).
     InitPcSetup();
     ParseNetworkParams(commandLine);
 
-    // The window title (the string at 0x0064B190, 25 characters - "...nd 2" - of which the PC port's exe patch
+    // The window title (the string at 0x0064B190, 25 characters - "...nd 2" - of which PartyMod's exe patch
     // leaves "THUG2"): if a window has it, the game is running already - that one is brought to the front.
     const char kTitle[] = "THUG2";
     if (HWND running = FindWindowExA(nullptr, nullptr, nullptr, kTitle)) {
@@ -254,7 +254,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE /*previous*/, char* commandLine
         return 0;
     }
 
-    // PC port: the SDL window (thug2-decomp.ini's size, windowed or not; the handle into 0x007D6A28) in place of
+    // Originally from PartyMod Fixes: the SDL window (thug2-decomp.ini's size, windowed or not; the handle into 0x007D6A28) in place of
     //     char title[26] = <the title>;
     //     CreateGameWindow(<the title> as the class name, title, 100, 100, 640, 480, WindowProc 0x004E16B0,
     //                      instance, icon 0x66, true);                       // 0x005F5860 (true: full screen)
@@ -262,7 +262,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE /*previous*/, char* commandLine
     Platform::ProcessWindowEvents();
     if (!GameWindow())
         return 0;
-    // PC port: the window isn't shown here (SDL shows it). The original did
+    // Originally from PartyMod Fixes: the window isn't shown here (SDL shows it). The original did
     //     ShowWindow(GameWindow(), GameVariable<bool>(0x00786AB7) ? SW_SHOWMINIMIZED : SW_SHOWNORMAL);
     Srand(Time());
 
@@ -327,10 +327,10 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE /*previous*/, char* commandLine
 
     Main(argc, argv);
 
-    // PC port: Main doesn't come back (FastExit ends the process when the main loop returns). The original
+    // Originally from PartyMod Fixes: Main doesn't come back (FastExit ends the process when the main loop returns). The original
     // went on to shut down:
     ReleaseDirectSound();
-    // PC port: DirectInput isn't released here (SDL input replaces it): the original called 0x005F39E0.
+    // Originally from PartyMod Fixes: DirectInput isn't released here (SDL input replaces it): the original called 0x005F39E0.
     GameFunction<void(__cdecl*)()>(0x004908C0)(); // (the renderer's clean-up)
     ReleaseDirect3D();
     InvalidateRect(nullptr, nullptr, TRUE);

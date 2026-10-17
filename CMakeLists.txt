@@ -13,8 +13,8 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 set(THUG2_GAME_DIR "C:/Games/THUG2" CACHE PATH "Game folder the built dinput8.dll is copied into")
 
-# --- SDL2 (the PC port's window and input: src/game/sys/sdl_*.cpp, src/game/sio/sdl_input.cpp) --------------
-# The official 2.30.9 Visual C++ development package: the same version as the SDL2.dll the PC port ships with (the
+# --- SDL2 (PartyMod's window and input: src/game/sys/sdl_*.cpp, src/game/sio/sdl_input.cpp) --------------
+# The official 2.30.9 Visual C++ development package: the same version as the SDL2.dll PartyMod ships with (the
 # game folder's SDL2.dll). Downloaded and checked against its SHA-256 at configure time; not stored in the repo.
 include(FetchContent)
 FetchContent_Declare(sdl2
@@ -195,7 +195,7 @@ endif()
 # game (see tools/check/main.cpp):  thug2_check [<path to THUG2PM.exe>]
 add_executable(thug2_check tools/check/main.cpp)
 target_link_libraries(thug2_check PRIVATE thug2_code minhook delayimp)
-# The PC port's SDL code is linked (window, input: never run offline), so SDL2 is only loaded if used.
+# PartyMod's SDL code is linked (window, input: never run offline), so SDL2 is only loaded if used.
 target_link_options(thug2_check PRIVATE /DELAYLOAD:SDL2.dll)
 target_compile_options(thug2_check PRIVATE /W4 /permissive- /utf-8)
 # Keep the tool itself away from 0x400000: its child process loads the game image there.

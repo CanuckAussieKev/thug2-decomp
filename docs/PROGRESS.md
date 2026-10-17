@@ -2,7 +2,7 @@
 
 Generated 2026-10-17 by `tools/progress_report.py` - regenerate after each batch.
 
-**Game code: ██░░░░░░░░░░░░░░░░░░ 10.2%** of the code rewritten (1,114 of 8,382 functions, 165.7 KB of 1,617.8 KB).
+**Game code: ██░░░░░░░░░░░░░░░░░░ 10.3%** of the code rewritten (1,115 of 8,382 functions, 167.2 KB of 1,617.8 KB).
 
 Progress is by code size: function counts make a 10-byte helper look like as much work as a 2 KB routine. Subsystem boundaries come from the exe map (`docs/subsystems.md`) and are approximate (give or take a few functions); totals are exact.
 
@@ -20,7 +20,7 @@ Progress is by code size: function counts make a 10-byte helper look like as muc
 | Renderer: textures, geometry, particles, 2D/3D screen | `0x490d80`-`0x4a4500` | ░░░░░░░░░░░░░░░░░░░░ 0% | 4 / 559 | 0.2 KB / 73.1 KB |
 | Front-end UI: screen elements & text | `0x4a4500`-`0x4b2280` | ░░░░░░░░░░░░░░░░░░░░ 0% | 4 / 228 | 0.1 KB / 52.5 KB |
 | Renderer: screen FX, image/texture formats, fonts, grass | `0x4b2280`-`0x4d6d40` | █░░░░░░░░░░░░░░░░░░░ 7% | 17 / 488 | 9.1 KB / 114.8 KB |
-| Application main & game object rendering glue | `0x4d6d40`-`0x4e6b80` | ██░░░░░░░░░░░░░░░░░░ 14% | 55 / 202 | 8.9 KB / 59.5 KB |
+| Application main & game object rendering glue | `0x4d6d40`-`0x4e6b80` | ███░░░░░░░░░░░░░░░░░ 17% | 56 / 202 | 10.4 KB / 59.5 KB |
 | Goal & rail editors / skater camera | `0x4e6b80`-`0x500020` | ░░░░░░░░░░░░░░░░░░░░ 0% | 1 / 341 | 0.7 KB / 85.7 KB |
 | Skater (physics, tricks, walking, stats, sticker tags) | `0x500020`-`0x533f20` | █░░░░░░░░░░░░░░░░░░░ 5% | 9 / 544 | 10.1 KB / 186.9 KB |
 | Online & network game modes (CTF, servers, lobby, buddies, NAT negotiation) | `0x533f20`-`0x54ef60` | ░░░░░░░░░░░░░░░░░░░░ 3% | 12 / 457 | 3.0 KB / 91.9 KB |
@@ -44,6 +44,6 @@ Linked as libraries in the final build rather than rewritten:
 - D3DX9 static library (shader assembler/compiler, math helpers) (`0x5beb1a`-`0x5eef20`): 677 functions, 157.8 KB
 - GameSpy SDK, MSVC C runtime, STL helpers and compiler-generated code after `0x5F8130` (see `docs/library_ranges.md`)
 
-## PC port
+## PartyMod
 
-The PC port's changes (MIT, see `THIRD_PARTY_NOTICES.md`) are part of the game's source: the SDL window and input, widescreen, the settings file and the rest, by subsystem. Still written into the exe at start-up: the GameSpy SDK's host names (library code, `src/game/net/online_hosts.cpp`) and, with PS2 controls, the CFunction table's IsPS2 entry (`src/game/sys/platform_cfuncs.cpp`).
+PartyMod's changes (MIT, (c) 2024 PARTYMANX, see `THIRD_PARTY_NOTICES.md`) are part of the game's source: the SDL window and input, widescreen, the settings file and the rest, by subsystem. Still written into the exe at start-up: the GameSpy SDK's host names (library code, `src/game/net/online_hosts.cpp`) and, with PS2 controls, the CFunction table's IsPS2 entry (`src/game/sys/platform_cfuncs.cpp`).

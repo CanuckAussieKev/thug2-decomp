@@ -35,7 +35,7 @@ stubs. Only the truly empty ones (bare `RET`/`RET n`, a constant return ignoring
 `src/game/core/stubs.cpp`. They're linker-folded: one address stands for many source functions.
 Don't trust a comment saying a call is "a no-op" without looking: CStruct's getters on a miss call 0x5480A0
 (empty - compiled-out debug output, 528 callers). Bytes after a 1-byte function aren't necessarily padding:
-0x5480A1-0x5480BE is the PC port's code cave (loads its DLL), written into THUG2PM.exe's padding.
+0x5480A1-0x5480BE is PartyMod's code cave (loads its DLL), written into THUG2PM.exe's padding.
 When a function you rewrite calls 0x5480A0 (or another empty function), keep the call in the source under
 a meaningful empty inline function (Mem::PushMemProfile/PopMemProfile, Script::PrintContents,
 Mem::DebugTrackBlock, ...) with its arguments - the strings it's passed document the code.

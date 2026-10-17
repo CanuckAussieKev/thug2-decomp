@@ -5,7 +5,7 @@ Restart rule: continue the first batch not marked done. A batch is done when it 
 Batches marked (untested) haven't been run in-game yet.
 
 **2026-10-16 (user):** the end goal is to compile the game itself, not only to inject a DLL - so no game
-function is skipped. Functions noted below as "left as original", "too small" or "patched by the PC port, keep
+function is skipped. Functions noted below as "left as original", "too small" or "patched by PartyMod, keep
 original" are TO-DOs: write them; register unhookable ones with `REPLACE_SOURCE_ONLY` (compiled, counted,
 argument-checked, not hooked). Compiler-generated helpers still need source in some form (a C++ construct
 that the compiler emits, or a plain function).
@@ -102,8 +102,8 @@ needs no source of its own (docs/library_ranges.md).
 Contents: async file loader (0x5B6560-0x5B7130), PIP/PRE archives (0x5B7130-0x5B9CB0), small helpers incl. the
 item pool (0x5B9DF0-0x5BA560), the MEMORY MANAGER itself (0x5BA5A0-0x5BBE80: allocate 0x5BAFC0, free 0x5BABA0,
 context push/pop, named heaps - do this last and carefully), hash table / save paths / skater-select menu /
-input (0x5BC2C0-0x5BDA20). 0x5BDA20 is patched by the PC port (bytes at 0x5BDA31): keep it original.
-Pip_Load (0x5B7C00) is wrapped by the PC port's script hook: keep its cdecl (char*, int, int, int, int) shape.
+input (0x5BC2C0-0x5BDA20). 0x5BDA20 is patched by PartyMod (bytes at 0x5BDA31): keep it original.
+Pip_Load (0x5B7C00) is wrapped by PartyMod's script hook: keep its cdecl (char*, int, int, int, int) shape.
 
 - [x] Batch 19 (tested 2026-10-15: level loads and plays; self-tests pass): `Mem::Pool` fixed-size item pool - ctor 0x5BA420 (late self-test), `Allocate`
       0x5BA3D0 (335 callers), `Free` 0x5BA400, `Contains` 0x5BA3B0 (bool, AL only), with self-tests.
@@ -132,7 +132,7 @@ Pip_Load (0x5B7C00) is wrapped by the PC port's script hook: keep its cdecl (cha
       reads real files in Data\pre through both versions. Scanner: 158 functions, 4,954 call sites, clean.
 - [x] Batch 23 (tested 2026-10-15: level loads and plays; self-tests pass): `Pip::Load` 0x5B7C00 - already-loaded checks (archive entry / loaded-file
       table), then async loader, pre-file manager (0x7D0FCC), CD-cache stubs, or plain File::Open/Read into a
-      2 KB-aligned block that is then shrunk. The PC port patches some *call sites* to its script-patching
+      2 KB-aligned block that is then shrunk. PartyMod patches some *call sites* to its script-patching
       wrapper, which calls 0x5B7C00 by address - that now lands in ours (same cdecl signature). Late
       self-test loads pre/Themes.prx through both and compares bytes, size and slot; async path untested.
       Memory manager (0x5BBAE0/0x5BBB30/0x5BBB60), async loader and pre-file manager called by address.
@@ -154,7 +154,7 @@ Pip_Load (0x5B7C00) is wrapped by the PC port's script hook: keep its cdecl (cha
       0x5B89D0 and GetItem (inlined in the original). Mem::Allocate/Malloc/FreeMalloc/ReallocateShrink and
       the two heaps are now in mem.h. Late self-test on a fake archive (plain, LZSS-compressed, empty and
       duplicate-name files). Scanner: 170 functions, 4,983 call sites, clean. 0x5480A0 is an empty `ret`
-      (profiling marker; the PC port uses the bytes after it as a code cave) - calls to it are dropped.
+      (profiling marker; PartyMod uses the bytes after it as a code cave) - calls to it are dropped.
 - [x] Batch 25 (untested in play): `Pre::PreMgr` - ctor 0x5B8D20, CreateManager 0x5B8E90 (returns the
       instance in EAX - Ghidra said void; the caller keeps it), DestroyManager 0x5B9510, LoadFile 0x5B8750,
       FileExists 0x5B8390, OpenFile 0x5B8AD0 (language redirect of "...scripts.pre" via 0x7CEFA0),
@@ -477,7 +477,7 @@ Pip_Load (0x5B7C00) is wrapped by the PC port's script hook: keep its cdecl (cha
       references after each create/release, the node/owner/region destructors, the pool lookup, the stubs;
       original vs ours (handles cleared before comparing). The listing's original uses the game's sprintf
       (can't run offline): ours is checked against what Windows lists. 28 deliberate bugs caught (7 after
-      strengthening the test). Left in the block: the input-device code 0x5BCC60-0x5BDA20 (the PC port
+      strengthening the test). Left in the block: the input-device code 0x5BCC60-0x5BDA20 (PartyMod
       reworks input - read its source first).
 - [x] Batch 47 tested in the game (2026-10-16, by the user): game loads fine.
 - [x] Batch 48 (NOT run in the game yet; early test passes offline): the leftovers - functions skipped before
@@ -518,9 +518,9 @@ Pip_Load (0x5B7C00) is wrapped by the PC port's script hook: keep its cdecl (cha
       the PS2 DMA buffer; rand() & 63 retry delay), destructor 0x5BCD00 (was batch 47's "owner destructor"),
       Acquire 0x5BCC70, Detect 0x5BD8B0 (analogue pad, type 7, two motors), Settle 0x5BCCC0, IsPluggedIn
       0x5BCC60 (returns the byte as is), ActivateActuator 0x5BDA20 (x87 max * percent * 0.01f, truncated; the
-      same * 256 for the motor; with the PC port's change - no ReadData call), Enable/Disable/Reset/Pause/Unpause/
+      same * 256 for the motor; with PartyMod's change - no ReadData call), Enable/Disable/Reset/Pause/Unpause/
       StopActuators 0x5BCCB0 / 0x5BDAD0 / 0x5BDB30 / 0x5BDB60 / 0x5BDBD0 / 0x5BDC60, Process 0x5BDCC0
-      (source-only: the PC port's processController, which the game runs; the original's state machine is in the
+      (source-only: PartyMod's processController, which the game runs; the original's state machine is in the
       comment). A pad is present if the port's DirectInput joystick reads (0x5F2E00) or it has key bindings
       (0x5F2F80 checks the first 23 of the port's table at 0x7D6770). Keyboard: ReadKeyboard 0x5BDD60
       (DirectInput state double buffer at 0x7D1C20, re-acquires when lost), GetKeyboardChars 0x5BDD30 /
@@ -532,13 +532,13 @@ Pip_Load (0x5B7C00) is wrapped by the PC port's script hook: keep its cdecl (cha
       motors traced through stand-in DirectInput force-feedback effects (0x7D6668; per-port scales at
       0x7D42D0 set - zero offline, they hid the levels), the keyboard through a stand-in DirectInput keyboard
       (lost / not acquired / failing re-acquire), typed characters, the manager's references and returned
-      instance, the destructors. The original ActivateActuator is tested as the PC port leaves it (its 7-byte NOP at
+      instance, the destructors. The original ActivateActuator is tested as PartyMod leaves it (its 7-byte NOP at
       0x5BDA31 applied during the test - unpatched it runs the menu code). Late test (game's rand, memory
       manager up): constructor and destructors. 34 deliberate bugs caught (10 after fixing the test).
       Also: the library boundary was wrong - game code runs to 0x5BEAAD (D3DX9 starts at 0x5BEB1A after 18
-      import thunks; docs/library_ranges.md, find_gaps / find_stubs fixed). thug2_check now links the PC port
+      import thunks; docs/library_ranges.md, find_gaps / find_stubs fixed). thug2_check now links PartyMod
       (SDL2 delay-loaded) and its output is unbuffered (a crashing test used to swallow everything).
-      Noticed: the PC port's device struct puts start_or_a_pressed (uint32) at +0xF0 - past the 0xF0-byte
+      Noticed: PartyMod's device struct puts start_or_a_pressed (uint32) at +0xF0 - past the 0xF0-byte
       device, so its processController writes 4 bytes beyond the allocation every frame. Not confirmed
       harmful; worth checking when the heap code is next looked at.
       Next batch (SIO part 2): ReadData 0x5BD200 and the key-name function 0x5BCD50 (screen-element smart
@@ -553,7 +553,7 @@ Pip_Load (0x5B7C00) is wrapped by the PC port's script hook: keep its cdecl (cha
       code) / ProcessDevices 0x5BE3F0 (Process each device, telling the first), GetDevice(port, slot)
       0x5BE490, GetDeviceByIndex 0x5BE4F0, PauseDevices 0x5BE550 / UnpauseDevices 0x5BE5E0; CreateManager now
       constructs it directly. The device list node's deleting destructor 0x5BE110 (Sio::DestroyDeviceNode).
-      KeyInput 0x5BDE70 (typed keys from the window messages - the PC port calls it for SDL text input): wanted
+      KeyInput 0x5BDE70 (typed keys from the window messages - PartyMod calls it for SDL text input): wanted
       while typing (0x7CE46E) or with text entry on (0x7CCDF8) outside a menu (0x7CE46F); a negative lParam
       (release) is ignored; Enter -> 0x19, Backspace -> 0x18, Escape -> 0x1A (not its auto-repeats), ';' ->
       ':'; -1 % ~ \ | [ ] } " dropped; the 16-slot queue stops at 15 (the last is overwritten).
@@ -564,7 +564,7 @@ Pip_Load (0x5B7C00) is wrapped by the PC port's script hook: keep its cdecl (cha
       stand-in devices (their and the task's deletion recorded), processing an empty list, the node
       destructor. Late test: the constructor, original vs ours (devices, list, task), then the freeing
       destructor (the player-state calls skipped meanwhile). Processing a real device isn't tested offline
-      (Process is the PC port's SDL code). 22 deliberate bugs caught (3 after strengthening the test); the
+      (Process is PartyMod's SDL code). 22 deliberate bugs caught (3 after strengthening the test); the
       constructor is only compared in the game.
 - [x] Batch 51 (NOT run in the game yet; early test passes offline): SIO, part 3, and what it needs.
       Smart pointers (new src/game/obj/smtptr.*): Obj::CRefCounted keeps the list of smart pointers to it at
@@ -587,7 +587,7 @@ Pip_Load (0x5B7C00) is wrapped by the PC port's script hook: keep its cdecl (cha
       expectations (menu/typing/play tables, the "+" pair, the letter pairs, both menu flags, quitting).
       Late test (the original uses the game's wcstombs/sprintf): key names, original vs ours, 6 element
       scenes x 16 flag combinations x buttons -1..31. 29 deliberate bugs caught (3 after strengthening).
-      Left in SIO: ReadData 0x5BD200 (the original pad read - dead code with the PC port, still to be written).
+      Left in SIO: ReadData 0x5BD200 (the original pad read - dead code with PartyMod, still to be written).
       Then the timer module (Tmr) 0x5BE6F0-0x5BEAA0.
 - [x] Batch 52 (NOT run in the game yet; early test passes offline): the game clock (Tmr, new
       src/game/sys/timer.*), 0x5BE6F0-0x5BEAA0: Init 0x5BEA50 (Reset, then the C runtime clock and the time
@@ -611,8 +611,8 @@ Pip_Load (0x5B7C00) is wrapped by the PC port's script hook: keep its cdecl (cha
       installed, early and engine-started tests pass, no run-time check failures. One late test failed -
       "sio (late): Device constructor and destructor" - a test bug: after destroying, it compared the two
       devices' node pointers (each its own). Fixed; the comparison now clears them first.
-- [x] Batch 53 (NOT run in the game yet - and the PC port never runs it; early test passes offline): SIO's last
-      function, Device::ReadData 0x5BD200, the original pad read (Process in state kReady; the PC port's Process
+- [x] Batch 53 (NOT run in the game yet - and PartyMod never runs it; early test passes offline): SIO's last
+      function, Device::ReadData 0x5BD200, the original pad read (Process in state kReady; PartyMod's Process
       replaces it). Returns at once while quitting. Looks up select_skater_hmenu (twice) and piece_menu_hmenu
       (ignored while quitting); menu mode = in a menu (0x7CE46C or 0x7CE46F), not the piece menu, not typing;
       both off while 0x696D95 or 0x6F1158. The front end's port (0x553E90 on the object at 0x7CE4B4) decides
@@ -637,39 +637,39 @@ Pip_Load (0x5B7C00) is wrapped by the PC port's script hook: keep its cdecl (cha
       it wrote a third port's key bindings - there are two tables, the third overwrote the quit flag.
       tools/mutate.py now names the failing test on each CAUGHT line and reports mutations that don't build.
 - [x] Fix (NOT run in the game yet): since batch 46 our LoadQB (0x46EDE0) called Pip::Load directly, but
-      the PC port replaces that call (0x46EE80) with its pipLoadWrapper, which applies its binary script patch
+      PartyMod replaces that call (0x46EE80) with its pipLoadWrapper, which applies its binary script patch
       for scripts\engine\menu\keyboard.qb - so that patch wasn't applied. LoadQB now loads ordinary .qb files
-      through pipLoadWrapper (guarded for when the PC port's patch list isn't set up). The overlap check
-      only looked at a function's first 16 bytes; it now also fails on any PC port patch inside a rewritten
+      through pipLoadWrapper (guarded for when PartyMod's patch list isn't set up). The overlap check
+      only looked at a function's first 16 bytes; it now also fails on any PartyMod patch inside a rewritten
       function's body unless the patch is listed with how our source does it (3 so far), skips commented-out
-      patches and reads "addr - n". A new Ghidra script (since retired) lists the PC port's patches by game
+      patches and reads "addr - n". A new Ghidra script (since retired) lists PartyMod's patches by game
       function: 113 patches in 48 functions (35 KB), 2 in data.
-- [x] Batch 54 (PC port round, platform agent; NOT run in the game yet). Its record:
+- [x] Batch 54 (PartyMod round, platform agent; NOT run in the game yet). Its record:
 
-      - [x] PC port round, platform (NOT run in the game yet; early tests pass offline): four functions the PC port
+      - [x] PartyMod round, platform (NOT run in the game yet; early tests pass offline): four functions PartyMod
             changes, with its changes built into the source (src/game/sys/platform.cpp, src/game/mc/memcard_cfuncs.cpp).
-            - 0x5F3A50 Platform::SetActuators (source only; the PC port jumps from its start): calls the PC port's
+            - 0x5F3A50 Platform::SetActuators (source only; PartyMod jumps from its start): calls PartyMod's
               set_actuators(port, left, right) (SDL rumble on the controller playing as the port). The original's
               DirectInput force-feedback logic (ranges 0x7D42D0, one-motor kind 0x7D42C8, DIEFFECT parameters,
               magnitude * 10000) is kept in a comment. Sio::SetActuators (device.cpp) still calls 0x5F3A50 (which
-              reaches the PC port in the game): pointing it at Platform::SetActuators makes TestSio fail offline, since
-              that test's original run uses the unpatched DirectInput version - TestSio would need the PC port's jump
+              reaches PartyMod in the game): pointing it at Platform::SetActuators makes TestSio fail offline, since
+              that test's original run uses the unpatched DirectInput version - TestSio would need PartyMod's jump
               written at 0x5F3A50 first.
-            - 0x5F56E0 Platform::ProcessWindowEvents (source only; the PC port jumps from its start): calls the PC port's
+            - 0x5F56E0 Platform::ProcessWindowEvents (source only; PartyMod jumps from its start): calls PartyMod's
               handleEvents (SDL event pump). The original's PeekMessage/Translate/Dispatch loop on the window
               0x7D6A28 is in a comment.
             - 0x5F44F0 Platform::InitInput(instance, window, config) (cdecl, bool): false without a window, true if
               DirectInput (0x7D69D0) is already set; else clears the ports' joystick/effect state, the key bindings
-              (-1) and the graphics options, then the PC port's writeConfigValues (in place of the settings loader
-              0x5F34D0(config)), the PC port's initManager (in place of DirectInput8Create + EnumDevices, which the PC port
+              (-1) and the graphics options, then PartyMod's writeConfigValues (in place of the settings loader
+              0x5F34D0(config)), PartyMod's initManager (in place of DirectInput8Create + EnumDevices, which PartyMod
               NOPs), then the key-name table 0x5F3C10, and returns true.
             - 0x5A6E40 Mc::GetMemCardSpaceAvailable (CFunc): SpaceAvailable = 0 and FilesLeft = 1000000 into the
               calling script's params (CScript +0x14), then the card (0x7D1890's GetCard(0,0)); false without one;
-              else SpaceAvailable = the PC port's calcAvailableSpaceFudged(card) (clamped free blocks) in place of
+              else SpaceAvailable = PartyMod's calcAvailableSpaceFudged(card) (clamped free blocks) in place of
               Card::GetFreeBlocks.
-            Tests (src/hook/selftests_platform.cpp): each original runs with the PC port's patch bytes written in for the
+            Tests (src/hook/selftests_platform.cpp): each original runs with PartyMod's patch bytes written in for the
             test (jumps at 0x5F3A50 / 0x5F56E0, calls at 0x5F4591 / 0x5F45A2 with the 45-byte NOP, the call at
-            0x5A6E7E), and the PC port's functions, the struct adds, the card lookup and 0x5F3C10 are redirected (a jump
+            0x5A6E7E), and PartyMod's functions, the struct adds, the card lookup and 0x5F3C10 are redirected (a jump
             over their first bytes, our own and the game's alike) to recording stand-ins. Rumble over 5 port/level
             cases (incl. values beyond 16 bits); input set-up with/without a window and DirectInput over dirty
             globals (the stand-ins record what's set up when they're called: order checked); the CFunc with and
@@ -677,69 +677,69 @@ Pip_Load (0x5B7C00) is wrapped by the PC port's script hook: keep its cdecl (cha
             clean. tools/check/main.cpp now defines an empty thug2_decomp_before_exit (main.c is linked into
             thug2_check for calcAvailableSpaceFudged).
             Left undone (stopped early on the coordinator's request - budget): 0x44FDC0 (Bink movie player, the
-            movie-skip NOP at 0x450121), 0x452910 (music update; the shuffle the PC port patches is really the code at
+            movie-skip NOP at 0x450121), 0x452910 (music update; the shuffle PartyMod patches is really the code at
             0x452200, a separate function Ghidra merged into 0x452910's body - 0x452910 tail-jumps to it), 0x4E1EF0
             (the game's main: all singletons, MainLoop, teardown; fastExit at 0x4E2492), 0x5A8730
-            (LoadFromMemoryCard; the PC port NOPs the save checksum's JNZ at 0x5A8A01), 0x545880 (online/MOTD state
+            (LoadFromMemoryCard; PartyMod NOPs the save checksum's JNZ at 0x5A8A01), 0x545880 (online/MOTD state
             machine, 18 states: wait 500 ms not 15000 at 0x545B4E, script 0x588ED87C not 0xD4E84C8D and
             [+0xFE09] = 1 in the state at 0x545CD0), 0x54DCB0 (RetrieveTopStats: sprintf "http://%s/thug2pc/%s"
-            with the PC port's "gamestats.<OnlineDomain>" in place of gamestats.gamespy.com - needs net.c to keep
+            with PartyMod's "gamestats.<OnlineDomain>" in place of gamestats.gamespy.com - needs net.c to keep
             that string in a global; request struct 0x118 bytes; disassembly read, not written).
 
-- [x] Batch 55 (PC port round, gfx agent; NOT run in the game yet). Its record:
+- [x] Batch 55 (PartyMod round, gfx agent; NOT run in the game yet). Its record:
 
-      - [x] PC port gfx, part 1 (NOT run in the game yet; branch pm/gfx): the screen's shape and blur, with
-        the PC port's replacements built in. New src/game/gfx/screen.cpp (namespace Nx), all `REPLACE_SOURCE_ONLY`
-        because the PC port's jumps or byte writes sit on their first bytes:
-        - 0x004A0780 SetScreenAspectRatio: the PC port's `setAspectRatio` (stores the aspect it wants - 4:3 in the front
+      - [x] PartyMod gfx, part 1 (NOT run in the game yet; branch pm/gfx): the screen's shape and blur, with
+        PartyMod's replacements built in. New src/game/gfx/screen.cpp (namespace Nx), all `REPLACE_SOURCE_ONLY`
+        because PartyMod's jumps or byte writes sit on their first bytes:
+        - 0x004A0780 SetScreenAspectRatio: PartyMod's `setAspectRatio` (stores the aspect it wants - 4:3 in the front
           end, the window's shape in a level - and ignores the argument). The original stored the argument in
           0x00701340 (kept as a comment).
-        - 0x004A07C0 GetScreenAngleFactor: the PC port's `getScreenAngleFactor` (aspect / (4/3) for screens wider than
+        - 0x004A07C0 GetScreenAngleFactor: PartyMod's `getScreenAngleFactor` (aspect / (4/3) for screens wider than
           4:3, unless the constant 0x0067E544 isn't 1; also updates 0x00701340). The original returned that constant.
-        - 0x004B2330 SetScreenBlur: **depends on the PC port's `DisableBlur` setting** (on by default): on, the blur is
+        - 0x004B2330 SetScreenBlur: **depends on PartyMod's `DisableBlur` setting** (on by default): on, the blur is
           forced to 0 (`setBlurWrapper`); off, the original (store the amount in 0x00787328 if 0x00786D40, the device
           can blur). gfx.c now records the setting in `blur_disabled` (a THUG2_DECOMP-marked edit).
-        - 0x004B2440 SetLetterbox: the PC port's `setLetterbox` (fits the 640x480 layout to the aspect it wants, pillar-
+        - 0x004B2440 SetLetterbox: PartyMod's `setLetterbox` (fits the 640x480 layout to the aspect it wants, pillar-
           or letterboxed). The original's squash to 3/4 height is given as a comment.
-        - 0x0048C170 CFunc_SetScreenBlur: the original (unnamed integer -> 0x006FA72C and SetScreenBlur). The PC port's
+        - 0x0048C170 CFunc_SetScreenBlur: the original (unnamed integer -> 0x006FA72C and SetScreenBlur). PartyMod's
           `restoreBlur` (DisableBlur off) writes this function's first five bytes with the bytes already there in
           THUG2PM.exe (checked: 51 8B 4C 24 08) - so no change in behaviour, but it would wipe a hook's jump, hence
-          source only. Note its SetScreenBlur call reaches the PC port's blur override when DisableBlur is on.
+          source only. Note its SetScreenBlur call reaches PartyMod's blur override when DisableBlur is on.
         - All nine patch addresses are in the overlap check's HANDLED list.
-        - Tests (src/hook/selftests_gfx.cpp, Early): TestGfxScreen - the originals as the PC port leaves them (its jumps
+        - Tests (src/hook/selftests_gfx.cpp, Early): TestGfxScreen - the originals as PartyMod leaves them (its jumps
           written over their starts for the test) vs ours over front end / level / no skater (stand-in skater and
           career), four window and back-buffer shapes (wider and narrower than wanted), the angle-factor constant 1
           and not 1, letterbox on/off from both previous states; SetScreenBlur with DisableBlur on (patched) and off
           (the unpatched original), the device able to blur or not, four amounts. TestGfxScriptSetScreenBlur - the
           script command over stand-in parameter structures (the amount, none, only a named integer, an unnamed
           float), both settings, device able or not: return value, 0x006FA72C and 0x00787328. 11 deliberate bugs
-          caught (each by the test meant to catch it). Not tested: the in-game path where the PC port's real patches are
+          caught (each by the test meant to catch it). Not tested: the in-game path where PartyMod's real patches are
           applied (same functions, so only the setting plumbing differs).
-        - Left undone (budget): the five large rendering functions the PC port patches inside. They're hookable
+        - Left undone (budget): the five large rendering functions PartyMod patches inside. They're hookable
           (`REPLACE`) and their disassembly is read; notes for whoever picks them up:
           - 0x004B2D80 (the per-frame world render: per viewport, viewport rect, set_camera, scene passes, sky
-            pass with fog 20/21, then 2D): the PC port NOPs both letterbox viewport adjustments (0x004B2E65, 58 bytes;
+            pass with fog 20/21, then 2D): PartyMod NOPs both letterbox viewport adjustments (0x004B2E65, 58 bytes;
             0x004B33CA, 35 bytes) and calls `setDisplayRegion` there (still behind the `if (letterbox active)` test),
             and calls `draw2DWrapper` instead of 0x004DFB90. ~30 callees, all cdecl except 0x4A0D20, 0x485B10,
             0x485A00/10, 0x4D6530, 0x48E370, 0x49AB50 (RET 4), 0x496640, 0x4A10A0 (thiscall). Passes a dword with
             garbage upper bytes to 0x490DE0 (only AL matters there - check 0x4B8E40).
-          - 0x004DF390 (the blur pass): the PC port turns the JZ at 0x004DF63A into JMP - the letterbox adjustment of
+          - 0x004DF390 (the blur pass): PartyMod turns the JZ at 0x004DF63A into JMP - the letterbox adjustment of
             the blur quad never runs. Mind the precisions: v1.u = (float)(1 - unrounded t/W) but 1 - tH uses the
             float-rounded tH.
           - 0x004DB200 (set_camera(matrix, position, screen angle, aspect, scale, render at infinity), 6 cdecl
-            args): the PC port's far plane default is 96000 (patch at 0x004DB35D, original 32000). Uses FPTAN/FPATAN
+            args): PartyMod's far plane default is 96000 (patch at 0x004DB35D, original 32000). Uses FPTAN/FPATAN
             and D3DX through dispatch pointers (0x5C036B, 0x5BFA8C, 0x5C0509).
-          - 0x004B9030 (screen flash quad): the DrawPrimitiveUP call at 0x004B91E7 goes through the PC port's
+          - 0x004B9030 (screen flash quad): the DrawPrimitiveUP call at 0x004B91E7 goes through PartyMod's
             `reorder_flash_vertices` (rotates the first three vertices); u/v are uninitialised without a texture.
           - 0x0044FA80 (movie frame quad): `movie_setTexture` at 0x0044FB8C, `movie_drawPrim` (stdcall) at
             0x0044FC88 + NOP; also sprintf's an unused "e:\movietest\movie%04d.bmp" with counter 0x00696D9C.
           Testing them offline needs a stand-in D3D device (a vtable of recording stubs) and detours over every
           callee; all five are plain D3D state/draw sequences, so that's feasible.
 
-- [x] Batch 56 (PC port round, glyph agent; NOT run in the game yet). Its record:
+- [x] Batch 56 (PartyMod round, glyph agent; NOT run in the game yet). Its record:
 
-      - [x] PC port round, glyph/fonts/window (NOT run in the game yet; branch pm/glyph): the script fonts and the
-        loading bar's colours, with the PC port's patches built in. src/game/gfx/font.cpp, src/game/gfx/loading_bar.cpp,
+      - [x] PartyMod round, glyph/fonts/window (NOT run in the game yet; branch pm/glyph): the script fonts and the
+        loading bar's colours, with PartyMod's patches built in. src/game/gfx/font.cpp, src/game/gfx/loading_bar.cpp,
         tests in src/hook/selftests_glyph.cpp.
         - `Nx::LoadFont` (0x48D7E0, cdecl `(name, charSpacing, spaceSpacing, uint32_t* colors, bool buttonFont)`):
           a loaded font (hash table 0x6FA9F0 of 16 `FontSlot`s {char name[24]; CFont*} at 0x6FA830, looked up via
@@ -756,20 +756,20 @@ Pip_Load (0x5B7C00) is wrapped by the PC port's script hook: keep its cdecl (cha
         - `Nx::UpdateLoadingBarColors` (0x4B6B80; called by the SetLoadingBar* CFuncs): start/end/border colours
           from 0x67DDCC/D0/D4, width = screen width (0x786D6C) * bar width (0x67DDBC) / 640, border ARGB with alpha
           0x80, and a per-pixel gradient table of {r, g, b} ints. Nothing in the exe reads that table.
-        - The PC port built in:
+        - PartyMod built in:
           - glyph.c:74/77 (DWords at 0x48D983 and 0x48D8F8): the button font name ("ButtonsXbox") and the meta
-            button map ("meta_button_map_xbox") become the PC port's PS2 / GameCube ones by its `GlyphStyle` setting.
-            `Nx::ButtonFontName()` / `MetaButtonMapName()` pick them from the PC port's own variables; glyph.c now keeps
-            the style in a global `glyphStyle` (was a local of patchButtonGlyphs; noted in the PC port's UPSTREAM.md).
-          - window.c:150 (DWord at 0x4B6C64): the gradient table goes in the PC port's `resbuffer[100000]` instead of
-            0x701688 (which overflows at high resolutions). The PC port replaced the instruction's base, which is the
+            button map ("meta_button_map_xbox") become PartyMod's PS2 / GameCube ones by its `GlyphStyle` setting.
+            `Nx::ButtonFontName()` / `MetaButtonMapName()` pick them from PartyMod's own variables; glyph.c now keeps
+            the style in a global `glyphStyle` (was a local of patchButtonGlyphs; noted in PartyMod's UPSTREAM.md).
+          - window.c:150 (DWord at 0x4B6C64): the gradient table goes in PartyMod's `resbuffer[100000]` instead of
+            0x701688 (which overflows at high resolutions). PartyMod replaced the instruction's base, which is the
             table + 4, so the patched original writes from 4 bytes *before* its buffer; ours writes from the buffer's
             start (same contents, no out-of-bounds write).
           - The three addresses are in HANDLED in the overlap check.
         - Tests (Early): `TestLoadingBar` - 7 cases (rising, falling, ~3000-entry high resolution, short, zero and
-          negative width, flat, rounding of both float conversions) against the original with the PC port's DWord
+          negative width, flat, rounding of both float conversions) against the original with PartyMod's DWord
           written in; compares the globals, the whole table (original's at resbuffer-4, ours at resbuffer) and that
-          ours leaves the 4 bytes before the buffer alone. `TestLoadFont` - for each glyph style 0/1/2 (the PC port's
+          ours leaves the 4 bytes before the buffer alone. `TestLoadFont` - for each glyph style 0/1/2 (PartyMod's
           two DWords written into the original): CFunc_LoadFont with a hand-built parameter structure (new font with
           3/1/0/5-byte colours and truncated spacings; the same font again; the button font flag; 20 colours) and
           LoadFont directly (no colour table, updates, filling all 16 slots and beyond, map missing then present,
@@ -786,7 +786,7 @@ Pip_Load (0x5B7C00) is wrapped by the PC port's script hook: keep its cdecl (cha
             bytes: u0 v0 u1 v1 floats, w h baseline uint16), +0xC map[256], +0x10C special map[32], +0x134/+0x136
             int16 char/space spacing, colour table from +0x138 (indexed [idx*4+0x134], idx >= 1). Escapes: `\\`
             (counted as a char), `\s<d>`/`\S` special glyph, `\b<d>`/`\m<d>` (meta: 0x48D6A0 maps through the meta
-            map, then DehexifyDigit on a 1-byte local) buttons, `\c`/`\u` skip 2, `\l` skip 1. The PC port: the
+            map, then DehexifyDigit on a 1-byte local) buttons, `\c`/`\u` skip 2, `\l` skip 1. PartyMod: the
             non-meta DehexifyDigit call (0x4CED4B) -> `dehexifyDigitWrapper`; the glyph-or-key-name test at
             0x4CED6D (originally glyph for 4-7 and 10-13) -> `shouldUseGlyph(index)`; key-name path sums
             GetButtonKeyName's characters' widths (signed char map index) + spacing and stops counting the rest.
@@ -795,23 +795,23 @@ Pip_Load (0x5B7C00) is wrapped by the PC port's script hook: keep its cdecl (cha
             int16 x, y, xscale, yscale /16384, rotation /16384); rotation by +0x38 about pivot +0x30/+0x34; vertices
             (xyzrhw, ARGB, uv; 0x1C bytes) into 0x780FE8, count 0x780FE4, flushed through vtable +0xC/+4 at 0x400.
             Button glyphs switch to the button font 0x780FDC for one char; key names are drawn char by char via
-            0x4CFB20. Original quirks: the per-char rotation centre uses pivot X for both axes. The PC port patches the
+            0x4CFB20. Original quirks: the per-char rotation centre uses pivot X for both axes. PartyMod patches the
             same two places as QueryString (0x4CFF0C call, 0x4CFF36 test). Needs a bit-exact float test.
           - 0x4D8650 (D3D init, called from 0x4B25F0 and 0x4D89C0): Direct3DCreate9, GetAdapterDisplayMode,
             present parameters at 0x786A7C, resolution table 1280/1024/800/640 x 1024/768/600/480 tried from
             index 3 - setting 0x7D643C, device creation via 0x4D7C80 over 4 flag pairs, exit(0) on failure,
             conversion factors 0x786D80/84 (= w/640, h/480), CheckDeviceFormat, ShowCursor loop, Tmr::SetFlags.
-            The PC port: no ShowWindow (0x4D869C), no SetWindowPos (NOP at 0x4D8891), no ShowCursor loop (0x4D8989),
+            PartyMod: no ShowWindow (0x4D869C), no SetWindowPos (NOP at 0x4D8891), no ShowCursor loop (0x4D8989),
             Windowed = 1 when its `isWindowed` (0x4D8720), table slot 3 = its `resX`/`resY` (0x4D8776/0x4D8792).
             Testable offline with a stand-in IDirect3D9 (detour the 0x5BEB14 thunk) and IAT stand-ins.
 
-- [x] Batch 57 (PC port round; NOT run in the game yet): three small skater control functions, with the PC port's
+- [x] Batch 57 (PartyMod round; NOT run in the game yet): three small skater control functions, with PartyMod's
       PS2 controls (its settings file, now thug2-decomp.ini; `inputsettings.isPs2Controls`, read through Skater::Ps2Controls) built in
       (new src/game/skater/controls.*). Skater::Component::PlatformStructure 0x51F4C0 (thiscall, `this`
       unused: the structure for this platform from a control script's parameters - "xbox" 0xCE42EE1A on
-      platform 7 (PC), 0xCB0E600C on platform 5, else 0xE594F0A2 asserted; the PC port's byte at 0x51F4C8 turns
+      platform 7 (PC), 0xCB0E600C on platform 5, else 0xE594F0A2 asserted; PartyMod's byte at 0x51F4C8 turns
       the 7 into a 5, so PC skips the Xbox one). TryWalkAcidDrop 0x527510 / TryAcidDrop 0x527600 (bool: two
-      held buttons, input +0xC0 and +0x120 - the PC port NOPs the first check, nollie, at 0x527546 / 0x527636;
+      held buttons, input +0xC0 and +0x120 - PartyMod NOPs the first check, nollie, at 0x527546 / 0x527636;
       the physics' acid drop search 0x502240 fills the velocity; then the trick name 0x427CD0, or (on foot,
       0x527600) a sound 0x434BF0 and a state call 0x5260E0; velocity y 0, mode 2, state 0x2EDA83EA). The skater
       component's fields are reached by offset (layout unknown beyond them). The overlap check: the
@@ -819,48 +819,48 @@ Pip_Load (0x5B7C00) is wrapped by the PC port's script hook: keep its cdecl (cha
       listed in its new PAST_TRAMPOLINE exceptions. Early tests: the platform lookup over stand-in parameter
       structures (each of the three present or not) x platforms 5/7/1 x PS2 controls off/on; the acid drops
       over 128 combinations of the stopping flags, buttons, a found drop, on foot or not, x off/on, with the
-      five callees redirected to recording stand-ins - the original run with the PC port's bytes written in for
+      five callees redirected to recording stand-ins - the original run with PartyMod's bytes written in for
       "on". 15 deliberate bugs caught (3 after fixing the test's stand-in components: the type is byte 0,
       shifted left one).
-- [x] Batch 58 (PC port round; NOT run in the game yet): Net::RetrieveTopStats 0x54DCB0 (the script command;
+- [x] Batch 58 (PartyMod round; NOT run in the game yet): Net::RetrieveTopStats 0x54DCB0 (the script command;
       new src/game/net/stats.*): the stats index (0x90 of the stats object at the online manager 0x7CCE14's
       +0x1C) = the script's integer 0x7360C9EF, else the next; a request (0x118 bytes: timeout 0x25800 ms, the
       URL "http://<host>/thug2pc/<file>" - files hs_at / bc_at / hs_mo / bc_mo / ratings, 32 bytes each at
       0x67F2A0 - the reply callback 0x54DB20, checksums, the ratings file getting 0x7346E8E7 instead of
-      0xD932B07B) handed to 0x54A910 on the manager's +0x14; +0x1FC cleared; returns true. The PC port's DWord at
+      0xD932B07B) handed to 0x54A910 on the manager's +0x14; +0x1FC cleared; returns true. PartyMod's DWord at
       0x54DD14 swaps gamestats.gamespy.com for gamestats.<OnlineDomain>: net.c now keeps that string in
       its own gamestats host variable (THUG2_DECOMP; noted in UPSTREAM.md), which ours uses when set. Early test
-      (in selftests_skater.cpp): index given or not x every file x the PC port's host or the original's, the
-      original with the PC port's DWord written in and its C runtime sprintf redirected to a stand-in (it can't
+      (in selftests_skater.cpp): index given or not x every file x PartyMod's host or the original's, the
+      original with PartyMod's DWord written in and its C runtime sprintf redirected to a stand-in (it can't
       run offline), the request recorded by a stand-in sender. 7 deliberate bugs caught.
-- [x] Batch 59 (PC port round; NOT run in the game yet): Nx::DrawFlash 0x4B9030 (new src/game/gfx/flash.*): a
+- [x] Batch 59 (PartyMod round; NOT run in the game yet): Nx::DrawFlash 0x4B9030 (new src/game/gfx/flash.*): a
       screen flash - a rectangle over its viewport (fractions from 0x4A06D0, times the screen size 0x786D6C /
       0x786D70; x87: products rounded once, sums to float) at its depth (+0x1C), colour packed from +0xC-0xF
       (alpha +0xF), u/v 0-1 if it has a texture (+0x20, its image directly or through +0x10 by flag bit 0;
       untextured the original leaves u/v unset - ours 0), the renderer's state calls (texture 0x4DA730,
       0x4DAB60, blend 0x4DA760(5), 0x4DAA80, format 0x4D9DB0(0x144)), the draw/triangle counters
-      (0x786EBC/C0), then the device's DrawPrimitiveUP (vtable +0x14C) as a 2-triangle strip. The PC port's
+      (0x786EBC/C0), then the device's DrawPrimitiveUP (vtable +0x14C) as a 2-triangle strip. PartyMod's
       reorder_flash_vertices (its call at 0x4B91E7) rotates the first three vertices first - the original's
       order is wrong - done inline here. Early test (selftests_pc.cpp - renamed from selftests_skater.cpp:
       it holds this round's tests): 4 viewports x 4 screen sizes x untextured / two textures, the original with
-      the PC port's call written in, the draw recorded by a stand-in D3D device and the state calls by stand-ins.
+      PartyMod's call written in, the draw recorded by a stand-in D3D device and the state calls by stand-ins.
       10 deliberate bugs caught (1 after adding a viewport where rounding the sum once or twice differs -
       found by search). tools/mutate.py now rebuilds the restored code at the end (it used to leave the last
       mutation's build behind).
 - [x] Batches 53-59 and the LoadQB fix tested in the game (2026-10-16, by the user): game runs; 648 of 648
       replacements installed (31 source only), early 61 / late 16 / engine-started 2 self-tests all pass.
-- [x] Batch 60 (PC port round; NOT run in the game yet): Nx::DrawMovieFrame 0x44FA80 (new src/game/gfx/movie.*;
+- [x] Batch 60 (PartyMod round; NOT run in the game yet): Nx::DrawMovieFrame 0x44FA80 (new src/game/gfx/movie.*;
       cdecl texture, x, y, width, height, alpha): nothing without a texture; the render states (blend
       0x4DA760(0), 0x4DAB60(4, 0x10001), format 0x144 via 0x4D9DB0 and SetFVF, cull none, texture stage
       states, 0x4DAA80, no texture), a leftover debug dump name "e:\movietest\movie%04d.bmp" formatted (counter
       0x696D9C advanced, never written), the texture set, a quad (position + size x 640 / 480, colour 0x808080
       with alpha*255 truncated) drawn as a 2-triangle strip unless the device is lost (TestCooperativeLevel),
-      then stage 0's colour op back to modulate. The PC port reroutes the texture set (0x44FB8C) to its
+      then stage 0's colour op back to modulate. PartyMod reroutes the texture set (0x44FB8C) to its
       movie_setTexture (notes the movie's size) and the draw (0x44FC88 + a NOP) to its movie_drawPrim (fits the
       quad to 4:3 inside the back buffer) - ours calls both. Early test (selftests_pc.cpp): back buffers
-      16:9 / 4:3 / tall x device lost or not x three shapes (and no texture), the original with the PC port's two
+      16:9 / 4:3 / tall x device lost or not x three shapes (and no texture), the original with PartyMod's two
       calls written in, a stand-in D3D device and texture (GetLevelDesc), the renderer's calls and the C
-      runtime sprintf stood in. 11 deliberate bugs: 9 caught, 2 equivalent under the PC port (its fit replaces
+      runtime sprintf stood in. 11 deliberate bugs: 9 caught, 2 equivalent under PartyMod (its fit replaces
       every vertex's x/y, so ours' positions never reach the draw).
 - [x] Batch 61 (NOT run in the game yet): the PlayMovie script command 0x59F0C0 (Nx::PlayMovie in
       src/game/gfx/movie.cpp: the unnamed string, queued by 0x44F830; returns false without one) with a feature
@@ -869,15 +869,15 @@ Pip_Load (0x5B7C00) is wrapped by the PC port's script hook: keep its cdecl (cha
       returning true as if queued; logged. Early test (TestPlayMovie): flag off (no ini offline) - a name, a path,
       no name - original vs ours, the queue 0x44F830 recorded. The flag-on path isn't tested (the flag is read
       once from the ini).
-- [x] Batch 62 (skaterB; PC port round; NOT run in the game yet): two skater air functions with the PC port's PS2 controls
+- [x] Batch 62 (skaterB; PartyMod round; NOT run in the game yet): two skater air functions with PartyMod's PS2 controls
       built in (new src/game/skater/rotation.*, `Skater::CorePhysicsComponent` - the component the air update
       0x50CA00 runs on; fields by offset: object +0xC (matrix +0x6C, velocity +0xAC), display matrix +0x18,
       input +0x150C (buttons of 0x20 bytes from +0x20: {down, time, ..., +0x10 pressed}), trick +0x1518
       (rotation total +0x13A4), +0x1520 ([+0x18] shows the total), state flags +0x1528 ({bool, time} pairs,
-      cleared with time = 0x44ECE0() + [0x696D60])) and the network keyboard task with the PC port's F1:
+      cleared with time = 0x44ECE0() + [0x696D60])) and the network keyboard task with PartyMod's F1:
   - Spin 0x504060 (thiscall, void): tap mode (+0x2DA: L1/R1 taps queue +-pi in +0x30C, turned at the stat
     0x580790(0xF7A2ACC1) per frame length +0x8C); else L1/R1 held past the spin delay (0x580400(0xA5A02449);
-    held time read unsigned) turn at the stat 0x4957DB43 - the PC port's 2-byte NOPs at 0x504239 / 0x50430B drop
+    held time read unsigned) turn at the stat 0x4957DB43 - PartyMod's 2-byte NOPs at 0x504239 / 0x50430B drop
     the delay check (the delay is still read); then (flag +0xC0 clear) the second pair (input +0x60/+0x80, held
     time signed) ramped between 0xA092B2BE and 0x5D756349; with no turn, face the ramp (flags +0x30 and +0x68:
     acos(clamp(forward.y)) vs 0x61224F2E degrees, 0x406630's offset angle, Sign * 0x9DB33213, the last bit
@@ -885,7 +885,7 @@ Pip_Load (0x5B7C00) is wrapped by the PC port's script hook: keep its cdecl (cha
     (0x564BE0) unless flag +0x30 and not +0x78 and |total| < 360 - 0x50C5CC2F + 0.1. Script floats come back
     unrounded on x87: GameFunction<double(...)> keeps that.
   - BreakVert 0x507120 (thiscall, 1 bool arg `force` - all callers pass 0, RET 4, void): the jump button held
-    past 0x580440(0x9D2F8CC8) with none of 4 others, or both triggers (input +0xC0 / +0x120; the PC port's JNZs at
+    past 0x580440(0x9D2F8CC8) with none of 4 others, or both triggers (input +0xC0 / +0x120; PartyMod's JNZs at
     0x507184 / 0x5071AE make it either), or +0x2D0, or force. Triggers or +0x2D0: if 0x505F70 (thiscall bool)
     only copy the matrix; else velocity x/z -= wall normal (+0x58/+0x60) * 24, RotateXLocal(0xD757F4BB deg),
     flags 30/38/48 cleared, 80 set (if not exactly 1), face along velocity (no display copy). Otherwise:
@@ -895,20 +895,20 @@ Pip_Load (0x5B7C00) is wrapped by the PC port's script hook: keep its cdecl (cha
   - GameNet::KeyboardTask 0x5334D0 (cdecl task callback, in chat.cpp): Enter (0x19) - unless ObjectExists
     (0x462340) for ids 0x31631B98 / 0xF53D1D83 / 0x3B56E746 / "quit_dialog_anchor": run 0x3B4548B8 and clear
     the typed keys (the parameters are leaked, as in the original); F1-F4 taunts (0xB53D0E0F = 0x0E5FD359 /
-    0xBEEA3518 / 0x4525ADBD / 0xA36DBEE1, script 0x2C43B5BA) at most every 2000 ms (0x7CCE20). The PC port's byte
+    0xBEEA3518 / 0x4525ADBD / 0xA36DBEE1, script 0x2C43B5BA) at most every 2000 ms (0x7CCE20). PartyMod's byte
     at 0x533652 (unconditional, patchInput) makes F1 0x1F, since its SDL keyboard input sends 0x1B for Escape.
-  - The overlap check's HANDLED list: 0x504239, 0x50430B, 0x507184/5, 0x5071AE/F, 0x533652. The PC port's runtime
-    patches stay in the PC port's folder (as for batch 57: they still apply to the original when a replacement is
+  - The overlap check's HANDLED list: 0x504239, 0x50430B, 0x507184/5, 0x5071AE/F, 0x533652. PartyMod's runtime
+    patches stay in PartyMod's folder (as for batch 57: they still apply to the original when a replacement is
     disabled in thug2-decomp.ini).
   - Early tests (src/hook/selftests_skaterB.cpp): spin over 6000 and break vert over 4000 random cases (every
     branch input: tap mode, buttons with held times around the script times incl. negative, flags, queued
     turns, tilts, totals, velocities incl. zero, frame lengths incl. 0) x PS2 controls off/on - the original
-    with the PC port's bytes written in for "on" - with the callees (clock 0x44ECE0, 0x580400/0x580440/0x580790,
+    with PartyMod's bytes written in for "on" - with the callees (clock 0x44ECE0, 0x580400/0x580440/0x580790,
     0x564BE0, 0x406630, 0x505F70) redirected to recording stand-ins; break vert's original also gets our math
     helpers (CreateRotateXMatrix, D3DXMatrixMultiply 0x5BFA8C - stdcall, Normalize, OrthoNormalizeAbout)
     since those differ from the x87 originals in the last bit (spin compares exactly without that). The
     keyboard task: no key, Enter x each dialog / none, F1 (0x1F), F2-F4, 0x1B, another key, at 2000 / 2001 ms,
-    on a stand-in memory manager (arenas compared), the original with the PC port's byte.
+    on a stand-in memory manager (arenas compared), the original with PartyMod's byte.
   - 52 deliberate bugs: 49 caught (5 after strengthening the tests: held times exactly at the jump time and
     the ramp start - a stand-in clock that stops - a ramp end before its start, a queued turn just over one
     frame's step, a tilt limit just above the angle, a total within the snap's 0.1), 3 equivalent (float vs
@@ -919,12 +919,12 @@ Pip_Load (0x5B7C00) is wrapped by the PC port's script hook: keep its cdecl (cha
     find_gaps nothing new next to these (its 1 thunk, 0x4B2350, was there before).
   - Shared files touched: CMakeLists.txt (src/hook/selftests_skaterB.cpp after selftest_runner.cpp;
     src/game/skater/rotation.cpp after src/game/obj/smtptr.cpp), the overlap check (HANDLED,
-    after the 0x527636 line), src/game/net/chat.cpp/.h (KeyboardTask). The PC port's folder unchanged.
-- [x] Batch 63 (gfx; PC port round, gfx part 2; NOT run in the game yet): new src/game/gfx/render.* (namespace Nx), tests in
+    after the 0x527636 line), src/game/net/chat.cpp/.h (KeyboardTask). PartyMod's folder unchanged.
+- [x] Batch 63 (gfx; PartyMod round, gfx part 2; NOT run in the game yet): new src/game/gfx/render.* (namespace Nx), tests in
       new src/hook/selftests_gfx2.cpp (Early).
       - 0x004DB200 Nx::SetCamera (set_camera; cdecl matrix, position, horizontal angle in degrees, aspect, zoom, bool
         infinite): copies the camera position / orientation rows 2 (backward) and 1 (up) to 0x786CC4/0x786CDC/0x786CE8,
-        world = identity (0x786B90), D3DX look-at (0x5C0985) into 0x786BD0, near 2, far **96000 (the PC port's float at
+        world = identity (0x786B90), D3DX look-at (0x5C0985) into 0x786BD0, near 2, far **96000 (PartyMod's float at
         0x4DB35D; original 32000)** or the distance-clipping setting (0x7D6444, unsigned) x 18 when 0x7D643A,
         perspective (0x5C0ACD) w = 4 tan(angle/2), h = w / (aspect / 1.1), zoom != 1 (NaN too) scales x/y (D3DX
         scaling + multiply), infinite far plane writes _33 = -0.999999 / _43 = 1e-6, SetTransform world/view/projection,
@@ -937,17 +937,17 @@ Pip_Load (0x5B7C00) is wrapped by the PC port's script hook: keep its cdecl (cha
         (1 - amount/255)/2 over the texture's size - u rounded from the unrounded quotient, v from the float), colour
         0x80808080 or amount<<24|0x808080, blend 5 if the blur level 0x78732C > 2; draws the other texture into the
         current one (level > 2), then the current one onto the back buffer (cleared to the fog colour 0x78733C with fog
-        and distance clipping, else 0x786CC0); swaps 0x786D68, fog back on. **The PC port's JMP at 0x4DF63A**: the
+        and distance clipping, else 0x786CC0); swaps 0x786D68, fog back on. **PartyMod's JMP at 0x4DF63A**: the
         letterbox adjustment of the quad never runs (the original's is in a comment - it adds a pixel count to v).
-      - Both REPLACE (hookable); both PC port patch addresses are in the overlap check's HANDLED list. The PC port's
-        runtime patches stay in the PC port's folder (they only touch the originals' bodies, which our hooks bypass; the tests
+      - Both REPLACE (hookable); both PartyMod patch addresses are in the overlap check's HANDLED list. PartyMod's
+        runtime patches stay in PartyMod's folder (they only touch the originals' bodies, which our hooks bypass; the tests
         write the same bytes into the originals).
       - Tests: TestSetCamera - 5 orientations (all four headings, tilted) x 6 angles x 3 aspects x zoom 1 / 1.37 / NaN x
         infinite or not (bool with garbage upper bytes to the original) x distance clipping off / on / past 2^31; the
-        original with the PC port's 96000 written in; stand-in device (SetTransform recorded) and frustum update; every
+        original with PartyMod's 96000 written in; stand-in device (SetTransform recorded) and frustum update; every
         camera global compared. TestDrawScreenBlur - off / on x both textures current x 5 amounts (incl. past 2^31) x
         blur levels 1-4 x letterbox / fog / clipping / extra pass flags, screen and texture sizes, samplers linear or
-        not; original with the PC port's JMP; stand-in device, textures, surfaces and renderer state calls.
+        not; original with PartyMod's JMP; stand-in device, textures, surfaces and renderer state calls.
         41 deliberate bugs: 38 caught (1 after adding angles where the first tangent's rounding matters), 3 equivalent
         (texture size as signed - sizes < 2^31; u's rounded via float or double - float subtraction/division double-
         rounded to float is exact).
@@ -955,7 +955,7 @@ Pip_Load (0x5B7C00) is wrapped by the PC port's script hook: keep its cdecl (cha
         full-screen viewport while the device is lost (0x786D04). Otherwise the time 0x5BE970 -> 0x786D00, render
         states, 0x4DBBD0, 0x4DEA80, then per viewport (count 0x701378; 0x4A06D0; skipped without a camera at +0x18):
         0x6FA7B8 = index, the device viewport from its fractions (x/width from the int width, y/height from the height
-        as a float; truncated), **the PC port's setDisplayRegion when letterboxed (its calls at 0x4B2E65; the original
+        as a float; truncated), **PartyMod's setDisplayRegion when letterboxed (its calls at 0x4B2E65; the original
         moved y down H/8 and took H/4 off the height - in a comment)**, set_camera (angle 0x485B10, position 0x485A00,
         matrix 0x485A10, aspect 0x4A0D20 - in that call order), the world scenes (list 0x6FA7EC, ends at a node whose
         scene is -1; the next node taken before each; non-sky: 0x4D8ED0, meshes prepared once via flag 0x100 /
@@ -964,22 +964,22 @@ Pip_Load (0x5B7C00) is wrapped by the PC port's script hook: keep its cdecl (cha
         min / no mip filter unless distance clipping and fog are both on), 0x443870 before or after depending on
         0x786AB5, set_camera again, pass 0x82, non-sky pass 0x46, pass 0x102, then the later passes (0x4A0F30,
         0x49AB50(index > 0), 0x496640, 0x4A10A0 virtual, 0x4920E0, 0x49C840, 0x4DCC70(0), 0x491910(index, 0)).
-        After the viewports: full-screen viewport (**the PC port's setDisplayRegion when letterboxed, 0x4B33CA**),
-        0x4DE980, the blur pass (ours), fog off, **the 2D through the PC port's draw2DWrapper (0x4B341D; the original
-        called 0x4DFB90 - the PC port adds black bars)**, fog back, full-screen viewport again. The original passes the
+        After the viewports: full-screen viewport (**PartyMod's setDisplayRegion when letterboxed, 0x4B33CA**),
+        0x4DE980, the blur pass (ours), fog off, **the 2D through PartyMod's draw2DWrapper (0x4B341D; the original
+        called 0x4DFB90 - PartyMod adds black bars)**, fog back, full-screen viewport again. The original passes the
         saved fog flag as a dword with garbage upper bytes (0x490DE0 reads only AL).
-      - All three PC port patch addresses are in the HANDLED list.
+      - All three PartyMod patch addresses are in the HANDLED list.
       - Test TestRenderWorld (Early): 0-3 viewports (one without a camera) x 64 flag combinations (letterbox, fog on
         as 1 / 0x100 / off, distance clipping, fog setting, 0x786AB5, blur on/off) + the device lost, the scene list
-        full (world unprepared / sky / world prepared / sky) or empty, three back-buffer shapes (the PC port's black
-        bars); the original with the PC port's three calls, far plane and blur JMP written in; every callee stood in
+        full (world unprepared / sky / world prepared / sky) or empty, three back-buffer shapes (PartyMod's black
+        bars); the original with PartyMod's three calls, far plane and blur JMP written in; every callee stood in
         by a recorder (25 game functions, the device's viewport / render state / transform / sampler / draw calls);
         set_camera and the blur pass run for real (ours vs original). 38 deliberate bugs, all caught (3 after fixing
         the test - it dirtied the letterbox flag after setting it, and sampler 0's filters were equal; 3 by the crash
         the bug causes).
       - Test helpers in selftests_gfx2.cpp are copies of selftests_pc.cpp's CodePatch / JumpTo (a shared header
         would be nicer - left for the merger to avoid conflicts).
-- [x] Batch 64 (movie; PC port round; NOT run in the game yet): movie playback 0x44FDC0 with its helpers, the playlist's
+- [x] Batch 64 (movie; PartyMod round; NOT run in the game yet): movie playback 0x44FDC0 with its helpers, the playlist's
       next track 0x452200, and Sio::SetActuators pointed at Platform::SetActuators.
   - Nx::PlayMovieFile 0x44FDC0 (cdecl name; also reached by the jump 0x44F830: REPLACE_SOURCE_ONLY). Bink's sound
     system (BinkSetSoundSystem(BinkOpenDirectSound, the DirectSound object 0x7D6A38); "Bink can't use DSound"
@@ -995,7 +995,7 @@ Pip_Load (0x5B7C00) is wrapped by the PC port's script hook: keep its cdecl (cha
     height, 0, 0, 0x67D7C4 | 0x80000000) + UnlockRect; DrawMovie; end at frameNum >= frames - 1 (unsigned: a
     0-frame movie never ends by itself); window pump every 2nd frame; then the pads: ports 0-3, start (byte 2
     bit 3) or X (byte 3 bit 6) pressed after being seen up (control data bits are set while up) ends it.
-    The PC port NOPs the JNZ at 0x450121 that read the pads only every 5th frame - ours reads every frame (the
+    PartyMod NOPs the JNZ at 0x450121 that read the pads only every 5th frame - ours reads every frame (the
     original's line in a comment). Cleanup: the playing flag 0x696D95 off, fog back, EndMovie, BinkClose,
     0x696D90 = null, stage 0 alpha op MODULATE, sound manager released. Bink is called through the game's
     import table (0x6452E8-0x645320) until it's linked; SystemParametersInfoA / Sleep directly.
@@ -1016,35 +1016,35 @@ Pip_Load (0x5B7C00) is wrapped by the PC port's script hook: keep its cdecl (cha
     order that's 0x696D9C, the movie dump counter), the on tracks (128-bit off masks at +0xC88/+0xC90, tested
     with __allshl semantics: shifts by the low byte, 0 from 64) into the order 0x696DA0 (count 0x67D7F8),
     Printf "shuffling random song order num_songs=%i", 2000 swaps of two random places, if order[0] is the last
-    track: swap it with place Rnd(n-1)+1 (or 0 when n <= 1 - that draw is the game's even under the PC port),
+    track: swap it with place Rnd(n-1)+1 (or 0 when n <= 1 - that draw is the game's even under PartyMod),
     position 0x69BAC4 = 0, played masks (+0xC98/+0xCA0) cleared. Else position+1, reshuffle next time at
     position >= n-1. Then the track at the position plays unless off or already played (the original repeats
     that same test `count` times - written once): played bit set, 0x4520D0(track, 0), current track 0x69BA98,
     script 0x300CAD34 run with {0x8D02705D: track} (a new CStruct, cleared and deleted).
-    The PC port: the two swap draws (calls at 0x4523A7/0x4523B4) go to its our_random: draws the game's Rnd(n)
+    PartyMod: the two swap draws (calls at 0x4523A7/0x4523B4) go to its our_random: draws the game's Rnd(n)
     (thrown away) then returns rand() % n (srand(time) at start-up) - Pcm::ShuffleRandom. our_random is
-    declared void but returns the value; the test (original with the PC port's calls written in vs ours) shows
+    declared void but returns the value; the test (original with PartyMod's calls written in vs ours) shows
     its EAX is rand() % n. ShuffleRandom returns the game's 0 for n == 0 instead of dividing by zero
-    (the PC port would crash on a playlist with tracks but all of them off; the original wouldn't).
-  - Sio::SetActuators (device.cpp) now calls Platform::SetActuators (the PC port's set_actuators) instead of
-    0x5F3A50. TestSio and TestSioManager write the PC port's jump at 0x5F3A50 -> set_actuators (as in the game)
+    (PartyMod would crash on a playlist with tracks but all of them off; the original wouldn't).
+  - Sio::SetActuators (device.cpp) now calls Platform::SetActuators (PartyMod's set_actuators) instead of
+    0x5F3A50. TestSio and TestSioManager write PartyMod's jump at 0x5F3A50 -> set_actuators (as in the game)
     and jump from set_actuators to a recorder, so both runs trace the motor levels there (the DirectInput
     effect stand-ins are no longer reached in TestSio). TestDetour moved up in selftest.cpp for that.
-  - The PC port's runtime patches (patchMovieSkip, patchPlaylistShuffle) are left in the PC port's folder, as batch 60
-    did: they only touch the originals' bodies, which our replacements bypass, and keep the PC port's behaviour
+  - PartyMod's runtime patches (patchMovieSkip, patchPlaylistShuffle) are left in PartyMod's folder, as batch 60
+    did: they only touch the originals' bodies, which our replacements bypass, and keep PartyMod's behaviour
     if a replacement is disabled in thug2-decomp.ini.
   - Tests (selftests_pc.cpp): TestPlayMovieFile - 8 runs (sound set-up fails + no movie; the texture
     can't be made; plays out with waits, failed locks and port 0's buttons held from the start (no skip);
     start pressed on port 2; X on port 3 with the app inactive and the device lost for two resets; 450 frames
     with the screen saver reset twice and quit requested; 0 frames (quit); 1 frame) - the original with
-    the PC port's NOP vs ours, Bink through stand-ins in its import slots, SystemParametersInfoA stood in at its
+    PartyMod's NOP vs ours, Bink through stand-ins in its import slots, SystemParametersInfoA stood in at its
     import slot and in user32 itself, the D3D device/texture, the renderer, sound, Sio, window pump,
     DrawMovieFrame and Dbg::Printf stood in (game addresses and our functions). TestButtonPressedAgain - the
     register stub vs the original over masks/bytes/seen bits/null data. TestPlayNextTrack - music off three
     ways, +0xCA8, stream states 2/0, playlist 1 (in range, past, negative), the special track, empty, 45 tracks
     of a 20-track playlist (3 + 1 off, one played early, one switched off mid-round), 210 of a 100-track
     playlist (off in both halves, track 63 too), one track on (n = 1), a negative count - the original with
-    the PC port's two calls written in, rand reseeded and the game's random streams reset for both runs.
+    PartyMod's two calls written in, rand reseeded and the game's random streams reset for both runs.
     TestPlayMovie now also stands in for ours' direct call to PlayMovieFile.
     74 deliberate bugs: all caught, 2 after strengthening (the app-inactive path wasn't reached - the
     every-other-frame pump re-activated the app first; track 63 wasn't off anywhere). stub_order is caught by a
@@ -1060,9 +1060,9 @@ Pip_Load (0x5B7C00) is wrapped by the PC port's script hook: keep its cdecl (cha
     caller). find_gaps' one thunk (0x48C1A0 -> SetLetterbox) predates this batch.
 Shared files touched: CMakeLists.txt (src/game/pcm/music.cpp after movie.cpp), the overlap check
 (HANDLED + the extra-bodies table), src/hook/selftest.cpp (TestSio/TestSioManager, TestDetour moved up),
-src/hook/selftests_pc.cpp, src/game/sio/device.cpp/.h. No changes to the PC port's folder.
-- [x] Batch 65 (misc; PC port round, misc (NOT run in the game yet; early tests pass offline; branch pm/misc): three functions
-  the PC port patches, with its changes built in (the original's logic kept in comments).
+src/hook/selftests_pc.cpp, src/game/sio/device.cpp/.h. No changes to PartyMod's folder.
+- [x] Batch 65 (misc; PartyMod round, misc (NOT run in the game yet; early tests pass offline; branch pm/misc): three functions
+  PartyMod patches, with its changes built in (the original's logic kept in comments).
   - 0x004E1EF0 `Sys::Main(argc, argv)` (src/game/sys/main.cpp; cdecl, returns 0): Config::Init 0x5B60B0, standard
     heaps, the language start-up (German 0x4E0FE0, else 0x4E0DA0), the argument dump through Dbg::Printf, "demo" as
     the only argument sets 0x7CC978, SetThreadExecutionState(continuous | system | display), InitialRand(0x6680BF3),
@@ -1070,7 +1070,7 @@ src/hook/selftests_pc.cpp, src/game/sio/device.cpp/.h. No changes to the PC port
     hash item pool (0, 10000), Pre manager, timer, async file system, the 23 singletons (system then game; their
     holders' vtables 0x64AFB0-0x64B000 on the stack are only for exception unwinding), three tasks into the main
     loop manager's lists (+0x7C: Mdl's and Sio's tasks; +0x04: 0x44E7F0's), six modules registered and started
-    (in two different orders), the engine start 0x48C1D0(350), MainLoop. **The PC port: fastExit() after MainLoop**
+    (in two different orders), the engine start 0x48C1D0(350), MainLoop. **PartyMod: fastExit() after MainLoop**
     (in place of the original's PopMemProfile call at 0x4E2492) - the process ends there. The teardown after it
     (stop all modules, five unregistered - 0x476040 never is -, the three task lists emptied, releases in reverse,
     Pre::DestroyManager, heap popped) is kept as code: reached only if fastExit returns (in the test). The memory
@@ -1079,7 +1079,7 @@ src/hook/selftests_pc.cpp, src/game/sio/device.cpp/.h. No changes to the PC port
     the task's +0x1C): 18-state machine at manager +0x1B8 - wake-up timer (state 0), GameSpy availability check
     (3-5; "mototrax"), news (6/A start a suspended download thread 0x545540 - its id via 0x533240, ResumeThread;
     7 waits; B ends), message of the day (8 thread 0x545620, C waits 15 s, 9 shows it), lobby list (D-11).
-    **The PC port's MOTD fix**: news timeout 500 ms (original 15000, 0x545B4F), script 0x588ED87C (original
+    **PartyMod's MOTD fix**: news timeout 500 ms (original 15000, 0x545B4F), script 0x588ED87C (original
     0xD4E84C8D, 0x545CDE) and +0xFE09 = 1 (original 0, 0x545CE8). Note 0x6450E0 is ResumeThread (not
     CloseHandle): the thread handles are never closed (as in the original).
   - 0x005A8730 `Mc::LoadFromMemoryCard(params, script)` (src/game/mc/memcard_cfuncs.cpp; CFunc): Name / Type /
@@ -1088,13 +1088,13 @@ src/hook/selftests_pc.cpp, src/game/sio/device.cpp/.h. No changes to the PC port
     size, version}: size <= 500000 and the type's version (0x5A6210); two structures read (0x47A0C0), the second's
     bytes minus 0x69 for type 0xCA41692D; applied by 0x5A81B0 (EAX type, ESI contents, stack script, params) or
     kept in 0x7CECD4/0x7CECD8 (type 0x61A1BC57 also applied with params null); RunScript 0x0EB9402D when applied.
-    Failure checksum 0xFBF9C22A into the script's params. Music/streams paused unless platform 4. **The PC port:
+    Failure checksum 0xFBF9C22A into the script's params. Music/streams paused unless platform 4. **PartyMod:
     the save CRC isn't checked** (its NOP of the JNZ at 0x5A8A01; the CRC test kept in a comment). The type
     helpers take register arguments (EAX/ECX/ESI/EDI): called through inline asm.
   - Tests (src/hook/selftests_misc.cpp, Early): a generic recording stand-in (`StandIns`: PUSHAD thunk calling a
     std::function handler, RET n) written over every callee - the game's address and our own version alike, and
     kernel32's CreateThread / ResumeThread / SetThreadExecutionState (plus the game's import slots) - with
-    the PC port's patch bytes written into the original. TestServiceTask: every state incl. out of range, wake
+    PartyMod's patch bytes written into the original. TestServiceTask: every state incl. out of range, wake
     times around now, all GameSpy answers, message counts 0/3/-2, both timeouts on both sides of their limits
     (and wrapped), finished flag, lobby empty or not; manager memory compared. TestLoadFromMemoryCard: 10
     platforms, no card / converted name / file, missing name/type, wrong size, short read, header size
@@ -1104,7 +1104,7 @@ src/hook/selftests_pc.cpp, src/game/sio/device.cpp/.h. No changes to the PC port
     them (s_motd's first run showed a one-off failure of TestAsyncHandlePc instead; rerun alone, caught by
     TestServiceTask; five clean baseline runs after).
   - The overlap check's HANDLED list: 0x4E2492, 0x545B4F, 0x545CDE, 0x545CE8, 0x5A8A01.
-  - The PC port's folder unchanged: its runtime patches stay (bypassed by our functions; still in effect if a
+  - PartyMod's folder unchanged: its runtime patches stay (bypassed by our functions; still in effect if a
     replacement is disabled in thug2-decomp.ini).
   - Register scan (only the known 0x4EFF92 false alarm) and call audit (126 GameFunction uses, no mismatch)
     clean; the overlap check clean.
@@ -1112,7 +1112,7 @@ src/hook/selftests_pc.cpp, src/game/sio/device.cpp/.h. No changes to the PC port
     0x4E1970-0x4E1EE0 - the singleton holders' methods (11-byte `this->ptr = arg; return this` constructors,
     33-byte destructors / vtable entries of the holder vtables 0x64AFB0-0x64B000) that main's stack holders use
     only for exception unwinding. They belong with a SingletonPtr<T> class; next to pick up.
-- [x] Batch 66 (text; PC port round, menus/text; NOT run in the game yet): new src/game/gfx/text.* and src/game/gfx/device.*
+- [x] Batch 66 (text; PartyMod round, menus/text; NOT run in the game yet): new src/game/gfx/text.* and src/game/gfx/device.*
       (namespace Nx), tests in new src/hook/selftests_text.cpp (Early).
       - Layouts: `SFont` (+0 height, +4 base, +8 SChar[], +0xC map[256], +0x10C special map, +0x134/+0x136 int16
         char/space spacing, colours from +0x138 - "\c<i>" reads +0x134 + 4i, past the table for i > 16), `SChar` (0x18:
@@ -1147,24 +1147,24 @@ src/hook/selftests_pc.cpp, src/game/sio/device.cpp/.h. No changes to the PC port
         down, the game's exit(0) (0x624AFE) if none works, scale = back buffer / 640, / 480 (unsigned), offset y =
         _ftol(scaleY * 16), GetCreationParameters + CheckDeviceFormat(D24S8 texture) -> 0x786AB9, clears
         0x786D1C-3C and 0x786D64, then 0x4D7D70, 0x4D8420, 0x4D7B60, 0x786D90 = 0x5BA1D0() (returns 0), 0x5BE7C0.
-      - The PC port built in (original logic in comments): glyph.c - `dehexifyDigitWrapper` for `\b` (0x4CED4B / 0x4CFF0C)
+      - PartyMod built in (original logic in comments): glyph.c - `dehexifyDigitWrapper` for `\b` (0x4CED4B / 0x4CFF0C)
         and `shouldUseGlyph` decides glyph or key name (0x4CED6D / 0x4CFF36; originally glyph for 4-7 and 10-13);
         window.c - no ShowWindow (0x4D869C), Windowed = its `isWindowed` (0x4D8720), the 640x480 slot = its
         `resX`/`resY` (0x4D8776 / 0x4D8792), no SetWindowPos (0x4D8891), no ShowCursor loop (0x4D8989). All 28 patch
-        addresses are in the overlap check's HANDLED list. The PC port's folder is unchanged: its runtime patches only
+        addresses are in the overlap check's HANDLED list. PartyMod's folder is unchanged: its runtime patches only
         touch the originals' bodies (bypassed by the hooks; the tests write the same bytes into the originals), and the
         variables/functions used are already global.
-      - Tests (Early): `TestQueryString` - 17 texts covering every escape x 2 fonts x the PC port's three input states
+      - Tests (Early): `TestQueryString` - 17 texts covering every escape x 2 fonts x PartyMod's three input states
         (keyboard, controller, keyboard + PreferGlyphs), key names stood in (0x5BCD50; empty, plain, chars > 0x7F),
-        the meta map filled, the original with the PC port's bytes. `TestDrawText` - the texts plus a 300-character one
+        the meta map filled, the original with PartyMod's bytes. `TestDrawText` - the texts plus a 300-character one
         (buffer flushes) x 8 setups (screen scales/offsets, rotated text, pivots - one far away, past 2^24 - effects
         with and without rotations, fixed colour, zero scales) x the three input states, stand-in vtable (BeginDraw /
         EndDraw record the buffer); and DrawKeyChar directly, with the buffer one quad from full or not.
         `TestInitDirect3D` - 36 scripts (no Direct3D, display mode failing, settings -1..7 x multisample x windowed,
         devices failing 0-4 times or always (the game's exit, stood in by a throw - a returning exit would unbalance the
-        original's stack: it doesn't pop exit's argument), the PC port's sizes incl. negative (unsigned), another created
+        original's stack: it doesn't pop exit's argument), PartyMod's sizes incl. negative (unsigned), another created
         width, the depth check both ways); Direct3D, the import table's MessageBoxA and the callees stood in; the
-        original with the PC port's bytes.
+        original with PartyMod's bytes.
       - 61 deliberate bugs: 59 caught (4 after strengthening: a backslash as the digit, DrawKeyChar's own flush, a far
         pivot for the float-rounded offsets, MessageBox text/caption; one equivalent mutation replaced), 2 not
         observable: rounding the pivot sum (pivot + y) to float before scaling (the later float rounding and _ftol
@@ -1178,13 +1178,13 @@ src/hook/selftests_pc.cpp, src/game/sio/device.cpp/.h. No changes to the PC port
         our double-precision code; the tests compare at 53 bits.
       - Also: tools/check/main.cpp (from main) catches the game's own /GS report; this agent's earlier runs hit it
         through the returning exit stand-in (fixed by the throw).
-- [x] Batch 67 (skaterA; PC port round; NOT run in the game yet) Two skater core physics functions with the PC port's PS2 controls
+- [x] Batch 67 (skaterA; PartyMod round; NOT run in the game yet) Two skater core physics functions with PartyMod's PS2 controls
       built in (new src/game/skater/core_physics.*; `Skater::CorePhysicsComponent` - the class skaterB's
       rotation.* uses - now declared there, rotation.h includes it):
       - LipPushOff 0x004FCBA0 (thiscall, two unused stack arguments - a script member function, in the table
         a static initialiser writes at 0x00682970; RET 8; returns int 0/1): the facing (object +0x8C) flattened
         to x, z and normalised (only if its length > 0; w copied, not scaled); the side vector (z, 0, -x, 0).
-        Input +0x80 held: 0. Both triggers (+0xC0, +0x120; the PC port's JZ -> JNZ at 0x004FCC59 makes it either):
+        Input +0x80 held: 0. Both triggers (+0xC0, +0x120; PartyMod's JZ -> JNZ at 0x004FCC59 makes it either):
         velocity (object +0xAC) += facing * physics float 0x1F96C224 (0x00580400). +0x60 held longer than
         physics int 0x3080E9E7 (0x00580440, timer 0x0046B920): += facing * 0xDC818B7E. +0x20 held longer than
         0x9B25142A: -= side * 0x1AB3809F. +0x40: += side * the same (through Mth's operator* / +=). x87 detail
@@ -1205,14 +1205,14 @@ src/hook/selftests_pc.cpp, src/game/sio/device.cpp/.h. No changes to the PC port
         0x004FEA50, 0x005021D0, the two trigger checks 0x00434BF0 (0x0064BBA4 / 0x0064BBB0 - with an early
         return when +0x1530's +0x26 is set) when +0x1AC != +0xFC, 0x005232A0(0) unless +0x1518's +0x13B0,
         0x0043A930, +0x1514's +0x1D. Leaving: 0x004FDED0(1), the object's 0x00460A20 / 0x004609F0 events,
-        0x004FEBA0; flags +0x30 set: timed flag +0x48 on, BreakVert(false) unless both triggers - the PC port only
+        0x004FEBA0; flags +0x30 set: timed flag +0x48 on, BreakVert(false) unless both triggers - PartyMod only
         flips the first JZ (0x00509E47), so under its PS2 controls the call is skipped only when +0x120 is held
         without +0xC0 (ported as is) - then +0x48 off once input +0x20's release and press times both exceed
-        script int 0x6BB5B751; flags +0x30 clear: both triggers (the PC port's 0x0050A257: either) -> the acid
+        script int 0x6BB5B751; flags +0x30 clear: both triggers (PartyMod's 0x0050A257: either) -> the acid
         drop search 0x00502240 and, if found, 0x00502F20; then the trigger check 0x0064BB80.
-      The overlap check: the six patch bytes are HANDLED. The PC port's run-time byte patches in
-      the PC port's input.c are left in place (like batch 57's): they only touch the originals, which the game
-      no longer runs while ours are installed, and keep the PC port's behaviour if ours are disabled in the ini.
+      The overlap check: the six patch bytes are HANDLED. PartyMod's run-time byte patches in
+      PartyMod's input.c are left in place (like batch 57's): they only touch the originals, which the game
+      no longer runs while ours are installed, and keep PartyMod's behaviour if ours are disabled in the ini.
       Early tests (new src/hook/selftests_skaterA.cpp): a generic recording stand-in harness - each callee's
       first bytes get a thunk to one naked entry that records the call (`this`, stack arguments with arena
       pointers made relative and stack pointers marked, data behind input pointers), fills output buffers,
@@ -1224,8 +1224,8 @@ src/hook/selftests_pc.cpp, src/game/sio/device.cpp/.h. No changes to the PC port
       (at least 300 must land). The whole arena and the call trace compared. 54 deliberate bugs: 50 caught,
       4 equivalent at float precision (the order of the distance's double sum, sqrt in float vs double,
       `<` vs `<=` against an irrational cosine, the clamp at -1 - tan(acos(-1)) is ~0 like tan(acos(1))).
-- [x] Batch 67, cont. (PC port round; NOT run in the game yet) DoAirPhysics 0x0050CA00 (thiscall, void; the air update - the
-      caller at 0x0051094F is in code Ghidra never disassembled) in core_physics.cpp, with the PC port's three
+- [x] Batch 67, cont. (PartyMod round; NOT run in the game yet) DoAirPhysics 0x0050CA00 (thiscall, void; the air update - the
+      caller at 0x0051094F is in code Ghidra never disassembled) in core_physics.cpp, with PartyMod's three
       trigger checks built in (0x0050CAC4 air recovery: flags +0x80 or the triggers -> 0x00504B40; 0x0050CF89:
       the triggers or +0x2D0, not wall riding, rising -> BreakVert; 0x0050DA64: the acid drop - all "both" in
       the original, "either" under PS2 controls). Read in full from the disassembly (stack map entry ESP = R:
@@ -1262,15 +1262,15 @@ src/hook/selftests_pc.cpp, src/game/sio/device.cpp/.h. No changes to the PC port
       strengthening: 500 and 250 among the stand-ins' ints, the clock offset at 0, x-only zero velocities), 1
       equivalent (x's position product rounded first: the sum adds an exact 0). The two earlier tests still
       pass with the new int values.
-- [x] PC port round status (2026-10-16): 38 of the 48 patched functions have source (batches 54-60, 62-67).
+- [x] PartyMod round status (2026-10-16): 38 of the 48 patched functions have source (batches 54-60, 62-67).
       Left (WinMain / MainLoop since done, batches 68-69): WinMain 0x4E2680 and MainLoop 0x44EEF0 (both host the test runner's hooks, src/hook/selftest_runner.cpp,
       with ParseNetworkParams 0x4E1220 - plan that first; Sys::Main calls MainLoop through the game's address so
-      the runner's hook still fires); the 8 GameSpy functions (0x5F8690 and up: library code - the PC port's OpenSpy
-      host names become configuration of the linked SDK). Afterwards: move the PC port's helpers our code calls
+      the runner's hook still fires); the 8 GameSpy functions (0x5F8690 and up: library code - PartyMod's OpenSpy
+      host names become configuration of the linked SDK). Afterwards: move PartyMod's helpers our code calls
       (shouldUseGlyph, dehexifyDigitWrapper, setDisplayRegion, draw2DWrapper, movie_setTexture/movie_drawPrim,
       fastExit, set_actuators, the window settings) into the game's source where it makes sense, and drop
-      the PC port folder's runtime byte patches once nothing needs the originals (they stay for now so a replacement
-      disabled in the ini still runs the PC port's patched original).
+      the PartyMod folder's runtime byte patches once nothing needs the originals (they stay for now so a replacement
+      disabled in the ini still runs PartyMod's patched original).
       Neighbours left by the agents (find_gaps): SText ctor/dtors 0x4CEED0/0x4CEEF0/0x4CFAF0, BeginDraw 0x4CEF00,
       EndDraw 0x4CEF10, 0x4CF0F0, 0x4CFA80; ~50 SingletonPtr holder methods 0x4E1970-0x4E1EE0 (vtables
       0x64AFB0-0x64B000) and 0x44FD40-0x44FD90; 0x44F870, 0x44F890; Pcm 0x450220-0x4504B0, 0x452680, 0x452910;
@@ -1298,22 +1298,22 @@ src/hook/selftests_pc.cpp, src/game/sio/device.cpp/.h. No changes to the PC port
       disabled only by `*`, its file or its full name. Game source calls RunStageOnce itself (batches 68-69).
 - [x] Batch 68 (winmain agent; NOT run in the game yet): WinMain 0x004E2680 and ParseNetworkParams 0x004E1220 -
       src/game/sys/winmain.cpp (`Sys::WinMain`, `Sys::ParseNetworkParams` / `Sys::ReadNetworkParams`).
-      - WinMain: GameSpy's back-end check ("thps6pc", waits 5 ms at a time; "The backend is not available"), the PC port's
+      - WinMain: GameSpy's back-end check ("thps6pc", waits 5 ms at a time; "The backend is not available"), PartyMod's
         initPatch, ParseNetworkParams, an already running copy (FindWindowExA by the title "THUG2") brought to the
-        front (SW_RESTORE, BringWindowToTop, SetForegroundWindow; returns 0), the PC port's createSDLWindow, the window
+        front (SW_RESTORE, BringWindowToTop, SetForegroundWindow; returns 0), PartyMod's createSDLWindow, the window
         events, no window -> 0, srand(time) on the game's C runtime, the command line split at spaces into at most 20
         arguments (argv[0] is the first word, not the program name), the CD ("THUG CD2"), DirectSound, the 72 default
         bindings (k0_/gp0_/gp1_ 0..23 through Sys::WriteDefaultSetting), Platform::InitInput with the settings key,
         the 256 key names from MapVirtualKeyA (acute accent -> ', ; -> :) and F1-F15, Sys::Main (called directly),
         then the original's shutdown (DirectSound, 0x004908C0, Direct3D, InvalidateRect, minimise, _cexit,
-        Mem::ShutDownManager, _exit(0)) - never reached with the PC port (Main's fast exit ends the process).
-      - The PC port, built in (each with the original in a comment): the 0x004E26A0 call into its cave 0x005480A1
-        (LoadLibraryA of the PC port's DLL by name, then on to GSIStartAvailableCheck) loads nothing - the PC port is in our DLL and
+        Mem::ShutDownManager, _exit(0)) - never reached with PartyMod (Main's fast exit ends the process).
+      - PartyMod, built in (each with the original in a comment): the 0x004E26A0 call into its cave 0x005480A1
+        (LoadLibraryA of PartyMod's DLL by name, then on to GSIStartAvailableCheck) loads nothing - PartyMod is in our DLL and
         attached in DllMain; 0x004E26DC networkParamsWrapper -> initPatch() then ParseNetworkParams; 0x004E2767
         createSDLWindow in place of 0x005F5860 (the game's window: class/title string 0x0064B190, 100,100 640x480,
         WindowProc 0x004E16B0, icon 0x66, full screen); 0x004E277D ShowWindow left out; 0x004E2C16 the DirectInput
         release 0x005F39E0 left out. The title string 0x0064B190 is 25 characters in the original ("...nd 2", most
-        likely "Tony Hawk's Underground 2"; the retail exe isn't here to check) - the PC port's exe patch leaves "THUG2"
+        likely "Tony Hawk's Underground 2"; the retail exe isn't here to check) - PartyMod's exe patch leaves "THUG2"
         and puts its DLL's name in the rest.
       - ParseNetworkParams: runs RunStageOnce(TestStage::Late) first (the Late stage, where the runner's hook ran it
         before), then options found in an upper-case copy, values read from the command line itself: -HOST (needs
@@ -1337,8 +1337,8 @@ src/hook/selftests_pc.cpp, src/game/sio/device.cpp/.h. No changes to the PC port
         the original on the game's own C runtime.
       - TestWinMain (Early): 12 cases (back end up / down / waiting, running already, no window, the window changed
         by the events, empty/space-led/19/20/21/25-word command lines) with every callee and Win32 import stood in
-        by recording code (StandIns), the PC port's patch bytes written into the original, the original's LoadLibraryA
-        counted (once per case, the PC port's DLL; ours never); _exit's stand-in throws back to the test. Covers the key
+        by recording code (StandIns), PartyMod's patch bytes written into the original, the original's LoadLibraryA
+        counted (once per case, PartyMod's DLL; ours never); _exit's stand-in throws back to the test. Covers the key
         name renames (also with bits above the character), mbstowcs widening (VC7.1's behaviour expected - the UCRT
         matches), the window read again at each use.
       63 deliberate bugs: 59 caught (2 after strengthening: the -GROUP / -NTEAMS value offsets, caught once a command
@@ -1357,16 +1357,16 @@ src/hook/selftests_pc.cpp, src/game/sio/device.cpp/.h. No changes to the PC port
       TestStandIns, header-only) for reuse; the overlap check's HANDLED list gets 0x004E26DC, 0x004E2767,
       0x004E277D, 0x004E2C16; CMakeLists.txt: winmain.cpp, selftests_winmain.cpp, ws2_32.
       Left: the window procedure 0x004E16B0 (not a function in Ghidra, so find_gaps doesn't list it; unused with
-      the PC port's SDL window), 0x004E2C90 (91 bytes, no callers), the SingletonPtr methods 0x004E1970-0x004E1EE0.
+      PartyMod's SDL window), 0x004E2C90 (91 bytes, no callers), the SingletonPtr methods 0x004E1970-0x004E1EE0.
 - [x] Batch 69 MainLoop (NOT run in the game yet; pm/mainloop): `Mlp::Manager::MainLoop` 0x44EEF0 (src/game/sys/mlp.cpp,
-      mlp.h), the game's main loop - the last but one of the PC port round's functions (WinMain is in pm/winmain).
+      mlp.h), the game's main loop - the last but one of PartyMod round's functions (WinMain is in pm/winmain).
       Sys::Main now calls it directly (no longer through the game's address).
       Convention: a plain thiscall (the manager in ECX, no arguments, plain RET) - no naked stub needed. Its only
       caller is Sys::Main (0x4E248D, replaced). EAX at its RETs is the entry value of m_done on one path and the quit
       flag's byte on the other: nobody reads it (register scan: nothing reads EAX/AL after it), so `void`.
       What it does, per frame (one pass of a do-while(!m_done), m_done cleared first and put back as it was on entry):
       the screen saver's timeout set again every 201 frames (SystemParametersInfoA GET/SET, restarts its idle time);
-      the skip-render (0x7D1EC0) and 0x6F1158 flags cleared; keyboard read, window events (the PC port's handleEvents),
+      the skip-render (0x7D1EC0) and 0x6F1158 flags cleared; keyboard read, window events (PartyMod's handleEvents),
       network service 0x536640; inactive window (0x7CCBE4) without text entry (0x7CCDF8): Sleep(100) + window events
       until active, then straight to the loop test (no frame time used); inactive with text entry: render skipped;
       quit flag (0x7D6A2C): out at once; device lost (0x786AB4): unless TestCooperativeLevel says still lost,
@@ -1380,16 +1380,16 @@ src/hook/selftests_pc.cpp, src/game/sio/device.cpp/.h. No changes to the PC port
       task list (+0x7C) then the logic list (+0x04) run with the profiling flag (0x4070A0); BeginScene 0x48BF10 and
       EndScene/Present 0x48BF20 unless the render is skipped (re-read after the tasks), around the frame's render
       0x48C330 and 0x565DA0; Tmr::UpdateFrameLength. The +0x40 list isn't run by the loop.
-      The PC port: its only patch inside is the call at 0x44F1C0 -> renderWorldWrapper; built in as
+      PartyMod: its only patch inside is the call at 0x44F1C0 -> renderWorldWrapper; built in as
       RenderFrameLetterboxed (render, then the letterbox on in the front end - level byte 0 of the career, or no skate
       module - and off in a level), the original's plain call in a comment. HANDLED entry added in
       the overlap check.
       Found by the test: the frame length is `frequency / 60` UNSIGNED (0x623D50 is _aulldiv; I first wrote a signed
       division - the original hung where ours didn't on a negative frequency).
-      Test (src/hook/selftests_mainloop.cpp, TestMainLoop, Early): the original (the PC port's renderWorldWrapper call
+      Test (src/hook/selftests_mainloop.cpp, TestMainLoop, Early): the original (PartyMod's renderWorldWrapper call
       written in at 0x44F1C0) and ours, with every callee stood in for by recording code - SystemParametersInfoA,
       QueryPerformanceFrequency/Counter and Sleep too (import slot and API), a stand-in D3D device (TestCooperativeLevel,
-      Reset), the PC port's setLetterbox - and a scripted clock; the loop ends the way the game ends it (m_done set by a
+      Reset), PartyMod's setLetterbox - and a scripted clock; the loop ends the way the game ends it (m_done set by a
       task, the quit flag). Five cases: 450 jittered frames (waits, late, pauses, screen saver twice, profiling,
       tasks changing the skip flag, letterbox from 2 to 1); quit in frame 5 with a frequency over 2^32 in a level;
       device lost/reset failing/reset working plus the inactive window both ways; exact edges (1.5 frames, 20 frames);
@@ -1421,12 +1421,12 @@ src/hook/selftests_pc.cpp, src/game/sio/device.cpp/.h. No changes to the PC port
       source only; the two runner fallbacks correctly not installed), early 84 / late 17 (from our ParseNetworkParams)
       / engine-started 2 (from our MainLoop) self-tests pass, shadow checks no mismatches. (The fallback path itself,
       disable=0x0044EEF0, not tried yet.)
-- [x] The PC port's runtime patches dropped (2026-10-16, at the user's request; NOT run in the game yet): no byte
+- [x] PartyMod's runtime patches dropped (2026-10-16, at the user's request; NOT run in the game yet): no byte
       patches into rewritten game code any more - the patch functions and the patches inside createSDLWindow,
-      patchButtonGlyphs, patchPs2Buttons and loadGfxSettings are in #ifndef THUG2_DECOMP blocks (the PC port's UPSTREAM.md).
+      patchButtonGlyphs, patchPs2Buttons and loadGfxSettings are in #ifndef THUG2_DECOMP blocks (PartyMod's UPSTREAM.md).
       Still applied: GameSpy's host names (12 code + 2 data addresses) and the IsPS2 CFunction wrap. The 8 functions
-      the PC port replaced whole (0x4A0780, 0x4A07C0, 0x4B2330, 0x4B2440, 0x48C170, 0x5F3A50, 0x5F56E0, 0x5BDCC0) are now
-      REPLACE (were source only: the PC port's jumps went over our hooks, so its C versions ran). The overlap check
+      PartyMod replaced whole (0x4A0780, 0x4A07C0, 0x4B2330, 0x4B2440, 0x48C170, 0x5F3A50, 0x5F56E0, 0x5BDCC0) are now
+      REPLACE (were source only: PartyMod's jumps went over our hooks, so its C versions ran). The overlap check
       skips #ifndef THUG2_DECOMP blocks.
 - [x] Batch 70 (NOT run in the game yet; early test passes offline): the script cache (src/game/script/cache.*), the
       whole class. Script::CScriptCache (0x24 bytes, an Mdl::Module: vtable 0x648468 {Destroy 0x4761E0, Start and
@@ -1589,7 +1589,7 @@ belong with the CScript batch.
         active; else SW_MINIMIZE, inactive, device lost, InvalidateRect(0, 0, TRUE); WM_PAINT: ValidateRect;
         WM_KEYDOWN -> Sio::SpecialKeyInput, WM_CHAR -> Sio::KeyInput; WM_SYSKEYDOWN F10 and WM_SYSCOMMAND SC_KEYMENU
         (whole wParam compared) and WM_POWERBROADCAST swallowed (0); the rest DefWindowProcA (a tail jump). Unused with
-        the PC port's SDL window; hooked anyway (harmless).
+        PartyMod's SDL window; hooked anyway (harmless).
       - 0x004E2C90 turned out to be a component's InitFromStructure: Obj::CFlipRotateComponent (src/game/obj/flip_rotate.*),
         the factory 0x00481FB0's type 0xDF5C091A = "FlipRotate" (checksums matched by CRC: 0x0C7A712C "flipped",
         0x6EA3704A "rotated"). Written with its small neighbours: Construct 0x004E2C50, DestroyBody 0x004E2C80, Destroy
@@ -1638,7 +1638,7 @@ belong with the CScript batch.
         - cdecl wrappers returning the HRESULT (32 and 4 callers; movie.cpp keeps its own inline calls).
       - Music (src/game/pcm/music.*): `Stream` (0x74 bytes, three at 0x69B938: +0 name, +4 id, +0x10 channel, +0x30
         listener). 0x450220 StreamIdFinished, 0x450260 FindPlayingStream (by id, then by name, -1), 0x4502D0
-        FreeStreamId, 0x450310 ShuffleUserSoundtrack (game's Rnd; at most 600; no PC port change here), 0x4503D0
+        FreeStreamId, 0x450310 ShuffleUserSoundtrack (game's Rnd; at most 600; no PartyMod change here), 0x4503D0
         UseUserSoundtrack, 0x450410 UseStandardSoundtrack, 0x450420 StopUserSoundtrack (source only: jump to
         0x4531A0), 0x450430 MusicIsPaused (also registered source only at 0x44D680, the CFunction MusicIsPaused - a jump to it), 0x450440 /
         0x450450 music / sfx volume (FLD), 0x450460 RandomTrackOrder (int, MOVZX), 0x450470 SetMusicLooping (so
@@ -1665,16 +1665,16 @@ belong with the CScript batch.
         call, a release, four jumps into 0x4D3CA0 / 0x4D8C90 / 0x4D8CC0 / 0x4DB570, a matrix call, a string getter -
         left by gapsB next to 0x4B2350; they need their callees looked at, for a later batch). find_gaps after the
         merge: none of this batch's neighbours left, 0 thunks.
-- [x] The PC port no longer a separate thing (2026-10-17, at the user's request; **NOT run in the game yet**; builds
+- [x] PartyMod no longer a separate thing (2026-10-17, at the user's request; **NOT run in the game yet**; builds
       without warnings, thug2_check 0 MISMATCHED - 826 replacements, 15 not checked, none new -, early 98/98).
-      Everything of the PC port (v1.0.4) the game still used is C++ in the game's source, by subsystem; the MIT
-      licence notice for the moved code (from the PC port's folder/LICENSE) is in THIRD_PARTY_NOTICES.md (README
+      Everything of PartyMod (v1.0.4) the game still used is C++ in the game's source, by subsystem; the MIT
+      licence notice for the moved code (from PartyMod's folder/LICENSE) is in THIRD_PARTY_NOTICES.md (README
       updated). The settings are in thug2-decomp.ini next to the exe ([Graphics], [Miscellaneous], [Keybinds],
       [Gamepad], [Logging] alongside [replacements] / [selftests] / [features]), with the same keys and defaults;
       same SDL2 2.30.9 (now linked to thug2_code; thug2_check still delay-loads it).
       Where it went:
       - src/game/sys/config.* (Config::): the settings file - Init, ExecutableDirectory, GetBool/GetInt/GetString.
-      - src/game/sys/debug_log.* (DebugLog::): the PC port's [Logging] debug log (Level, LogToFile, LogFile;
+      - src/game/sys/debug_log.* (DebugLog::): PartyMod's [Logging] debug log (Level, LogToFile, LogFile;
         console with [Miscellaneous] Debug=1).
       - src/game/sys/sdl_events.* (Platform::InitEvents / RegisterEventHandler / PumpSdlEvents): the event pump
         (handlers in the same order: quit, window focus, input); std::vector instead of the stretchy buffer.
@@ -1687,15 +1687,15 @@ belong with the CScript batch.
       - src/game/sio/sdl_input.* (Sio::InitSdlInput = initManager, ProcessSdlDevice = processController,
         SetSdlActuators = set_actuators, UsingKeyboard(), TheInputSettings()): SDL controllers, players, the
         keyboard and its menu keys, typed text (Sio::KeyInput called directly), the DirectInput key table
-        0x007D6770, the bindings. Sio::Device fields instead of the PC port's struct; its four 32-bit stores
+        0x007D6770, the bindings. Sio::Device fields instead of PartyMod's struct; its four 32-bit stores
         (+0x14, +0xE0, +0xEC and +0xF0 - the last one 4 bytes past the end of the 0xF0-byte device) kept as
         32-bit stores (Store32), so the bytes written are the same.
       - src/game/sys/platform_cfuncs.* (Sys::CFunc_IsPS2, Sys::InstallIsPS2): see IsPS2 below.
       - src/game/gfx/settings.* (Nx::LoadGraphicsSettings, WriteGraphicsSettings, BlurDisabled()).
       - src/game/gfx/screen.cpp: Nx::CurrentLevel, DesiredAspectRatio; SetScreenAspectRatio /
-        GetScreenAngleFactor / SetScreenBlur / SetLetterbox now contain the PC port's code (they called it).
+        GetScreenAngleFactor / SetScreenBlur / SetLetterbox now contain PartyMod's code (they called it).
         Mlp's own CurrentLevel copy dropped (uses Nx::CurrentLevel); Mlp::RenderFrameLetterboxed is public (the
-        main loop test writes a call to it into the original, as the PC port's renderWorldWrapper).
+        main loop test writes a call to it into the original, as PartyMod's renderWorldWrapper).
       - src/game/gfx/render.cpp: Nx::SetDisplayRegion, Nx::Draw2DWithBlackBars (draw2DWrapper).
       - src/game/gfx/movie.cpp: Nx::SetMovieTexture, Nx::DrawMovieQuad (movie_setTexture / movie_drawPrim).
       - src/game/gfx/glyphs.* (Nx::LoadGlyphSettings, PreferGlyphs(), GlyphStyle(), ButtonForTag =
@@ -1705,19 +1705,19 @@ belong with the CScript batch.
       - src/game/net/online_hosts.* (Net::SetUpOnlineHosts, GamestatsHost()): see GameSpy below.
       - src/game/script/patched.* (Script::InitScriptPatches, LoadPatchedScript = pipLoadWrapper) and
         src/game/util/bps.* (Bps::Apply, PatchChecksum): the keyboard.qb BPS patch (its 380 bytes now an array
-        in patched.cpp), with the PC port's reuse of the patched copy on later loads.
-      Deleted: the PC port's whole folder - patch.c/h (patch primitives), patches.c (incbin output, now the array),
+        in patched.cpp), with PartyMod's reuse of the patched copy on later loads.
+      Deleted: PartyMod's whole folder - patch.c/h (patch primitives), patches.c (incbin output, now the array),
       incbin, util/hash (map, only for the script patch list - now a vector), util/sb (event list - now a
       vector), cfunc.c (wrap_cfunc), networkParamsWrapper, the attach function (DllMain no longer calls anything),
       getModuleInfo / base_addr / mod_size (only for findPattern), every #ifndef THUG2_DECOMP block, UPSTREAM.md.
       Removed too: src/proxy/dinput8.cpp's redirect of THUG2PM.exe's DLL name (0x0064B198) to dinput8.dll (the
-      exe's own patch makes the *original* WinMain load the PC port's DLL by that name, which only runs when
+      exe's own patch makes the *original* WinMain load PartyMod's DLL by that name, which only runs when
       WinMain's replacement is disabled in the ini). Comments reworded. thug2_decomp_before_exit stays (Sys::FastExit calls it).
       IsPS2: the CFunction table's IsPS2 entry (0x00681468: name 0x006524FC, function 0x0068146C) points at the
       shared 3-byte "return false" stub 0x005B9E50, which 12 other CFunctions share (IsNGC too) - it can't be
       REPLACEd for IsPS2 alone (and is already Stubs::ReturnFalse, source only). So the game's own
       Sys::CFunc_IsPS2 (false; with PS2 controls true for the vehicle grind script 0x47F15883 - CScript +0xC8 -,
-      as the PC port's isPs2Wrapper_DD) is put into the table entry by Sys::InstallIsPS2, from Sio::InitSdlInput
+      as PartyMod's isPs2Wrapper_DD) is put into the table entry by Sys::InstallIsPS2, from Sio::InitSdlInput
       under PS2 controls only (where wrap_cfunc did it; it checks the entry's name is "IsPS2" first). No REPLACE
       line (nothing to count). Early test TestIsPS2 (selftests_platform.cpp): through the table entry, original
       vs ours with PS2 controls off; on, against the wrapper's answers; the entry's neighbours unchanged. 12 of 12
@@ -1727,20 +1727,20 @@ belong with the CScript batch.
       natneg data words) with hook's new WriteGameCode (hook.h) - commented "until the GameSpy SDK is linked,
       then this becomes its configuration". tools/check_code_writes.py (replaces the old overlap check)
       checks those 14 writes and the IsPS2 entry stay outside every REPLACE'd function's body and first 16
-      bytes: "No overlaps". The Ghidra script that listed the PC port folder's patches retired.
-      Tests: pointed at the moved functions (the original runs still get the PC port's jumps/calls written in, now
+      bytes: "No overlaps". The Ghidra script that listed the PartyMod folder's patches retired.
+      Tests: pointed at the moved functions (the original runs still get PartyMod's jumps/calls written in, now
       to our functions - so for those patched parts the comparison is our code against itself; the unpatched
       parts are still original vs ours). Two reference copies live in the tests instead, since the game has no
-      separate function for them: the PC port's reorder_flash_vertices (selftests_pc.cpp, the flash test's
+      separate function for them: PartyMod's reorder_flash_vertices (selftests_pc.cpp, the flash test's
       original run) and networkParamsWrapper (selftests_winmain.cpp: Sys::InitPcSetup then 0x004E1220).
-      The PC port round's test file renamed selftests_pc.cpp.
+      PartyMod round's test file renamed selftests_pc.cpp.
       Behaviour changes (all meant to be none in practice):
-      - The "Input text '%s' > 1 byte!!" debug log line now gets its argument (the PC port passed none: it printed
+      - The "Input text '%s' > 1 byte!!" debug log line now gets its argument (PartyMod passed none: it printed
         stack garbage, at Level 3 only).
-      - The window's `resolution_setting = 0` (the PC port set its own pointer variable, not the setting) dropped.
-      - Two calls in the park editor check are typed thiscall instead of the PC port's fastcall with a
+      - The window's `resolution_setting = 0` (PartyMod set its own pointer variable, not the setting) dropped.
+      - Two calls in the park editor check are typed thiscall instead of PartyMod's fastcall with a
         null EDX (0x004AAE20 ignores ECX/EDX; 0x004637E0 doesn't read EDX) - same code.
-      - Calls the PC port made through game addresses that are now our own functions call ours directly: Pip::Load,
+      - Calls PartyMod made through game addresses that are now our own functions call ours directly: Pip::Load,
         Pip::GetFileSize, Crc::GenerateCRCFromString, Str::DehexifyDigit (REPLACE_SHADOW: its shadow check no
         longer sees these calls), Sio::KeyInput, Mth::Rnd (already so in ShuffleRandom). Same unless one of them
         is disabled in the ini.
@@ -1769,11 +1769,12 @@ belong with the CScript batch.
       - [ ] Online: the menu, the MOTD/news download, top stats (OpenSpy / OnlineDomain).
       - [ ] Memory card: free space shown, saving/loading.
       - [ ] Quitting: the process ends at once; thug2-decomp.log ends with the shadow summary and "quitting".
-- [x] Batches 70-73, the patch removal and the PC port move tested in the game (2026-10-17, by the user): game runs;
+- [x] Batches 70-73, the patch removal and PartyMod move tested in the game (2026-10-17, by the user): game runs;
       792 of 792 replacements installed (32 source only), early 98 / late 17 / engine-started 2 self-tests pass, shadow
       checks no mismatches.
-- [x] PC port references renamed (2026-10-17, at the user's request; NOT run in the game yet): settings read from
-      thug2-decomp.ini ([Graphics], [Miscellaneous], [Keybinds], [Gamepad], [Logging]); the port's debug log goes into
+- [x] PartyMod references renamed to a generic name (2026-10-17, at the user's request; NOT run in the game yet;
+      the name was put back later, see "PartyMod credited again" below): settings read from
+      thug2-decomp.ini ([Graphics], [Miscellaneous], [Keybinds], [Gamepad], [Logging]); PartyMod's debug log goes into
       thug2-decomp.log ("pc: ...", [Logging] Level filter; LogToFile/LogFile no longer read); window title "THUG2"
       (WinMain's already-running check now finds a first copy, as the original intended); the exe's DLL-name redirect
       in DllMain removed; the MIT notice only in THIRD_PARTY_NOTICES.md, per-file headers point there.
@@ -1919,7 +1920,7 @@ belong with the CScript batch.
       pad_choose, the anchors, device_num, controller, handle_keyboard_input. Test (selftests_menu.cpp, 8 Early
       tests): 66 mutations, all caught (1 after adding a negative-index GrabControlEvent case). Findings: pad events
       are launched targeted with target "none", so only event listeners and WaitForEvent waiters get them; quirks
-      kept in SetButtonEventMappings' `null` handling and the Space key's leaked params. The PC port's UIControls
+      kept in SetButtonEventMappings' `null` handling and the Space key's leaked params. PartyMod's UIControls
       setting isn't read by any of this. Left: the front end's destructor 0x54EE70, v_start_cb 0x54EEA0, v_stop_cb
       0x54EF30, the auto-repeat 0x54ECE0, Release 0x54EBE0.
 - [x] Batches 75-78 tested in the game (2026-10-17, by the user): game runs; 1028 of 1028 replacements installed
@@ -2004,17 +2005,51 @@ belong with the CScript batch.
       mThisAdjustment, mVirtualBaseOffsets[2]}.
 - [x] Batches 79-81 tested in the game (2026-10-17, by the user): game runs; 1136 of 1136 replacements installed
       (35 source only), early 125 / late 17 / engine-started 2 self-tests pass, shadow checks no mismatches.
-- [x] Widescreen front end (2026-10-17, at the user's request; NOT run in the game yet): the PC port fits the
+- [x] Widescreen front end (2026-10-17, at the user's request; NOT run in the game yet): PartyMod fits the
       front end to 4:3 (DesiredAspectRatio: CurrentLevel() == 0 -> 4:3), so the main menu was pillarboxed - by
       design, not a regression. New thug2-decomp.ini [features] widescreen_menus (default 1): in the front end
       the 3D view uses the window's shape (SetScreenAspectRatio / GetScreenAngleFactor via Desired3DAspectRatio;
       RenderWorld keeps the full-screen viewport instead of SetDisplayRegion; Draw2DWithBlackBars draws no bars)
       while the 2D menu layout stays 4:3 and centred (SetLetterbox's scale/offset and the 2D pass's region still
-      use DesiredAspectRatio). widescreen_menus=0 is the PC port's behaviour. Test TestWidescreenMenus (worked-out
+      use DesiredAspectRatio). widescreen_menus=0 is PartyMod's behaviour. Test TestWidescreenMenus (worked-out
       values: front end on/off, a level on/off on 1920x1080; 2 deliberate bugs caught); TestRenderWorld runs with
-      it off (it compares with the original plus the PC port's patches). The RenderWorld / bar parts are only
+      it off (it compares with the original plus PartyMod's patches). The RenderWorld / bar parts are only
       checked in the game.
-- [ ] Next: the gaps batches 79-81 left: **0x45E9E0**
+- [x] Batch 82, sprite draw and the widescreen front end's edges (branch wt/sprite; **NOT run in the game yet**;
+      disable with `[replacements] disable=sprite.cpp`): **Nx::SSprite::Draw 0x004DFCF0** (src/game/gfx/sprite.*;
+      thiscall, no arguments, no return value, only reached through SSprite's vtable 0x0064AD28: [0] destructor
+      0x4DFCC0, [1] BeginDraw 0x4DF990, [2] Draw, [3] EndDraw 0x4DFA40; same drawable base as SText). Fields: +0x14
+      texture, +0x18/+0x1C position, +0x20/+0x22 size, +0x24/+0x28 scale, +0x2C/+0x30 hot spot, +0x34 rotation,
+      +0x38 RGBA, +0x3C/+0x3D flipV/flipU. One indexed quad (DrawIndexedPrimitiveUP, indices 0x67EFA8, FVF 0x144).
+      Quirks kept: scale 0 or alpha 0 draws nothing, negative scale mirrors; the flips go through a 16-bit integer
+      (values between 0 and 1 become 0); an upright sprite as wide / tall as the 640x480 layout or more fills the
+      back buffer, otherwise it's mapped through 0x786D80-0x786D8C - except a y edge exactly at 0 (it ignores
+      PartyMod's 36-pixel offset at 1080p); rotated sprites (corners by 0x4882D0, a Vector RotateZ not in Ghidra's
+      database, not rewritten) are mapped and truncated to whole pixels. New with widescreen_menus (front end only):
+      an upright sprite's layout edge <= 0 is drawn from screen x 0 and one >= 640 to the back buffer's width (each
+      edge on its own; y unchanged) - also for sprites turned to upright or on their side (the menus' bottom band is
+      10 strips with rot_angle 180, thememenu.qb); other angles unchanged. Side effect: a front-end sprite sliding in
+      from off the layout's left is stretched from screen x 0 while it moves. Text and the loading bar unchanged.
+      Tests (selftests_sprite.cpp): TestSpriteDraw (original vs ours, the setting off, 1792 sprites x 4 back buffers,
+      every device call and vertex) and TestSpriteWidescreenEdges (worked-out x values at 1920x1080); 48 deliberate
+      bugs, all caught (3 after strengthening).
+      Finding: the network menu's backdrop panel (dark purple with the city) is **not a sprite** but a 3D model
+      screen element - make_mainmenu_3d_plane (mainmenu_net.qb) makes an **Element3d** with "UI_bg\UI_bg.mdl" (pos
+      (320, 225), scale (2.1, 2.2, 2.1), CameraZ -500) drawn through the 3D path, so the sprite rule doesn't cover
+      it. PartyMod's 4:3 viewport cropped its right ~8 layout units; now it shows whole, ending 17 px past the 4:3
+      area on the right while its left end sits exactly at the 4:3 area's left edge (x 240) - what looks "offset".
+      Why it stops at 240 and how Element3d projects with the wide 3D view needs its draw code (not decompiled).
+      What to look at in the game (a wide window, widescreen_menus=1): the main menu and the network "ACTIONS" menu -
+      the top band should start at the screen's left edge, the bottom band (180-degree strips) and the streak lines
+      reach both edges; menu text, highlight bars and boxes exactly where they were; widescreen_menus=0 identical to
+      before (PartyMod's pillarbox); in a level the HUD sprites unchanged.
+- [x] PartyMod credited again (2026-10-17, at the user's request): every reference by the generic name in the source,
+      tools and docs is "PartyMod" again; comments introducing code that does what PartyMod did read "Originally from PartyMod
+      Fixes:"; identifiers renamed (partyModMotors, PartyModReorderFlashVertices, WritePartyModGlyphs...); per-file
+      headers read "Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md". Runtime
+      strings other than self-test messages unchanged (window title "THUG2", the log's "pc:" prefix, thug2-decomp.ini).
+- [ ] Next: the widescreen front end's Element3d backdrop (UI_bg.mdl on the network menu: decompile the Element3d
+      draw and decide how it should fill a wide screen - batch 82's finding). Then the gaps batches 79-81 left: **0x45E9E0**
       (Obj_GetCollision, the last of table 0x683268's 30 entries) with the collision feeler 0x417760 / 0x4172F0; the
       rest of the cutscene system up to 0x4680B0 (0x463AA0 quaternion + translation to matrix, 0x463BA0,
       0x463C70-0x464360, the pool pair 0x4645A0 / 0x4645E0, 0x464640-0x4680B0: loading 0x466620, the details' slots
@@ -2055,14 +2090,14 @@ belong with the CScript batch.
   0x4034D0. Our compiled replacements may clobber those registers. Before replacing a function, check whether
   it preserves ECX/EDX and whether any caller we are NOT replacing uses them after the call. Checked so far:
   0x4034D0 (only caller replaced too), 0x4025A0 (other callers tail-call it or return straight after).
-- (Historical, until 2026-10-16: the PC port patched the exe at run time, so its patched addresses couldn't be
+- (Historical, until 2026-10-16: PartyMod patched the exe at run time, so its patched addresses couldn't be
   REPLACEd. Now nothing patches rewritten code; the only run-time writes are the GameSpy host names and the
   IsPS2 table entry - `python -I tools/check_code_writes.py`.)
 - Member functions are replaced via `REPLACE(addr, &Class::Method)`; constructors via a small adapter that
   placement-news the object (see `LineAdapter` in vector.cpp).
 
-## PC port (2026-10-15)
-- [x] Step 1 done, TESTED IN-GAME 2026-10-15 (game runs with the PC port's DLL removed; log shows both PC port lines and all self-tests passing): the PC port (v1.0.4) in its own folder (MIT, notice kept), built as a static lib with SDL2 2.30.9 fetched by CMake; our DllMain calls its attach function and redirects the exe's LoadLibraryA of its DLL to our own name. Builds cleanly.
-- [x] Step 2 done (2026-10-16/17): every PC-port-patched game function rewritten with its behaviour built in
-  (batches 54-69), the byte patches dropped, then the PC port's folder folded into the game's source and deleted (see
-  "The PC port no longer a separate thing" above). Left: GameSpy's host names become SDK configuration when it's linked.
+## PartyMod (2026-10-15)
+- [x] Step 1 done, TESTED IN-GAME 2026-10-15 (game runs with PartyMod's DLL removed; log shows both PartyMod lines and all self-tests passing): PartyMod (v1.0.4) in its own folder (MIT, notice kept), built as a static lib with SDL2 2.30.9 fetched by CMake; our DllMain calls its attach function and redirects the exe's LoadLibraryA of its DLL to our own name. Builds cleanly.
+- [x] Step 2 done (2026-10-16/17): every PartyMod-patched game function rewritten with its behaviour built in
+  (batches 54-69), the byte patches dropped, then PartyMod's folder folded into the game's source and deleted (see
+  "PartyMod no longer a separate thing" above). Left: GameSpy's host names become SDK configuration when it's linked.

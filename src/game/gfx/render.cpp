@@ -1,5 +1,5 @@
-// The per-frame 3D render: the camera's matrices and the motion blur pass, with the PC port's widescreen
-// display region and black bars (contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md).
+// The per-frame 3D render: the camera's matrices and the motion blur pass, with PartyMod's widescreen
+// display region and black bars (contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md).
 
 #include "game/gfx/render.h"
 
@@ -161,7 +161,7 @@ struct ViewShape {
 
 } // namespace
 
-// --- the PC port's display region and black bars ---------------------------------------------------------------
+// --- PartyMod's display region and black bars ---------------------------------------------------------------
 
 void SetDisplayRegion()
 {
@@ -248,7 +248,7 @@ void SetCamera(const Mth::Matrix* orientation, const Mth::Vector* position, floa
     MatrixLookAt(&view, camera.position, target, camera.up);
 
     camera.nearZ = 2.0f;
-    // The PC port (its float at 0x004DB35D): the far plane 96000 - further, for large levels' backgrounds (e.g.
+    // Originally from PartyMod Fixes (its float at 0x004DB35D): the far plane 96000 - further, for large levels' backgrounds (e.g.
     // Skatopia). The original: camera.farZ = 32000.0f;
     camera.farZ = 96000.0f;
     camera.angle = angle;
@@ -354,7 +354,7 @@ void DrawScreenBlur()
         {0, screenHeight, 0, 1, color, static_cast<float>(insetU), 1.0f - insetV},
         {screenWidth, screenHeight, 0, 1, color, static_cast<float>(1.0 - insetU), 1.0f - insetV},
     };
-    // The PC port (its JMP at 0x004DF63A): no letterbox adjustment - the PC port's letterbox is a viewport. The
+    // Originally from PartyMod Fixes (its JMP at 0x004DF63A): no letterbox adjustment - PartyMod's letterbox is a viewport. The
     // original, when letterboxed (0x00786CBE), moved the quad in by an eighth of the back buffer's height:
     //   float bar = static_cast<float>(GameVariable<int>(0x00786D70) / 8);
     //   quad[0].y = quad[1].y = bar;
@@ -509,7 +509,7 @@ void RenderViewport(int index)
     vp.minZ = 0.0f;
     vp.maxZ = 1.0f;
     if (GameVariable<bool>(0x00786CBE) && !FrontEndWidescreen()) {
-        // PC port (its call at 0x004B2E65): the viewport fitted to the aspect wanted. The original squashed the
+        // Originally from PartyMod Fixes (its call at 0x004B2E65): the viewport fitted to the aspect wanted. The original squashed the
         // viewport to 3/4 of the screen's height:
         //   int screenHeight = GameVariable<int>(0x00786D70);
         //   vp.y += screenHeight / 8;
@@ -643,7 +643,7 @@ void RenderWorld()
         // Full-screen effects and the 2D on top.
         FullScreenViewport();
         if (GameVariable<bool>(0x00786CBE)) {
-            // PC port (its call at 0x004B33CA): fitted to the aspect wanted. The original:
+            // Originally from PartyMod Fixes (its call at 0x004B33CA): fitted to the aspect wanted. The original:
             //   int screenHeight = GameVariable<int>(0x00786D70);
             //   TheViewport().y = screenHeight / 8;
             //   TheViewport().height = screenHeight - screenHeight / 4;
@@ -654,7 +654,7 @@ void RenderWorld()
         DrawScreenBlur();
         bool fog = GameVariable<uint32_t>(0x00787338) != 0;
         SetFog(false);
-        // PC port (its call at 0x004B341D): the 2D pass (0x004DFB90 in the original), then black bars over what's
+        // Originally from PartyMod Fixes (its call at 0x004B341D): the 2D pass (0x004DFB90 in the original), then black bars over what's
         // drawn outside the fitted area.
         Draw2DWithBlackBars();
         SetFog(fog);

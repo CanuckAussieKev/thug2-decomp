@@ -1,4 +1,4 @@
-// Contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md (the PC port's changes in it).
+// Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md (PartyMod's changes in it).
 
 #include "game/script/load.h"
 
@@ -255,7 +255,7 @@ void LoadQB(const char* filename, int unused, int temporary)
         LoadChecksumNames(filename);
     } else {
         Mem::PushContext(manager->m_topDownHeap);
-        // PC port (its call at 0x0046EE80): Pip::Load, then the binary patch for the file if there is one
+        // Originally from PartyMod Fixes (its call at 0x0046EE80): Pip::Load, then the binary patch for the file if there is one
         // (scripts\engine\menu\keyboard.qb), in place of the original's plain Pip::Load.
         auto* data = LoadPatchedScript(filename);
         Mem::PopContext();

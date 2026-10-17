@@ -1,6 +1,6 @@
-// Self-tests for PC-port-patched functions of different subsystems: the game's main (fast exit), the network
+// Self-tests for PartyMod-patched functions of different subsystems: the game's main (fast exit), the network
 // manager's online service task (MOTD fix) and LoadFromMemoryCard (no save checksum test). Each original runs
-// with the PC port's patch bytes written in, against ours; every function they call is stood in for by recording
+// with PartyMod's patch bytes written in, against ours; every function they call is stood in for by recording
 // code (written over the start of the game's function and of our version of it alike), so the two are compared
 // call by call.
 
@@ -205,7 +205,7 @@ void TestServiceTask()
         for (int run = 0; run < 2; ++run) {
             bool original = run == 0;
             g_trace.clear();
-            if (original) { // The PC port's MOTD fix (its patchMotdFix)
+            if (original) { // PartyMod's MOTD fix (its patchMotdFix)
                 RunPatch(0x00545B4F, Dword(500));
                 RunPatch(0x00545CDE, Dword(0x588ED87C));
                 RunPatch(0x00545CE8, {0x01});
@@ -248,7 +248,7 @@ void TestServiceTask()
         delete s;
     }
     RestoreAll(saved);
-    Compare(traces[0], traces[1], "service task: every state, the timeouts (the PC port's 500 ms), GameSpy answers, lobby");
+    Compare(traces[0], traces[1], "service task: every state, the timeouts (PartyMod's 500 ms), GameSpy answers, lobby");
 }
 
 // --- LoadFromMemoryCard (0x005A8730) ------------------------------------------------------------------------
@@ -369,7 +369,7 @@ void TestLoadFromMemoryCard()
             std::memcpy(reinterpret_cast<void*>(r.args[0]), g_fileContents, sizeof(g_fileContents));
             return static_cast<uint32_t>(g_load.readSize);
         });
-        // (the original's checksum: computed, but the PC port's NOP ignores it - not recorded)
+        // (the original's checksum: computed, but PartyMod's NOP ignores it - not recorded)
         s->At({0x00401AA0}, 0, [](Regs&) { return 0x12345678u; });
         s->At({0x005A6210}, 0, [](Regs& r) {
             Record({0x6210, r.eax});
@@ -448,7 +448,7 @@ void TestLoadFromMemoryCard()
             bool original = run == 0;
             g_trace.clear();
             if (original)
-                RunPatch(0x005A8A01, {0x90, 0x90}); // The PC port (its patchMotdFix)
+                RunPatch(0x005A8A01, {0x90, 0x90}); // PartyMod (its patchMotdFix)
             for (const LoadCase& c : cases) {
                 g_load = c;
                 g_nextStruct = c.newStruct ? 0 : -1;
@@ -646,7 +646,7 @@ void TestMain()
         for (int run = 0; run < 2; ++run) {
             bool original = run == 0;
             g_trace.clear();
-            // The PC port: its fast exit (Sys::FastExit) called in place of the profile pop after the main loop
+            // PartyMod: its fast exit (Sys::FastExit) called in place of the profile pop after the main loop
             if (original)
                 RunPatch(0x004E2492, Branch(0xE8, 0x004E2492, exitThunk));
             for (const Case& c : cases) {

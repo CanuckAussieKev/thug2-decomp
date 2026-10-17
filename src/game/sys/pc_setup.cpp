@@ -1,5 +1,5 @@
-// The PC port's start-up and fast exit.
-// Contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md
+// PartyMod's start-up and fast exit.
+// Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md
 
 #include "game/sys/pc_setup.h"
 

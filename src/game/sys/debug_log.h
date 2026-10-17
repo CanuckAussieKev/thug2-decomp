@@ -1,6 +1,6 @@
 #pragma once
 
-// Contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md
+// Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md
 
 // The PC layer's log ([Logging] in thug2-decomp.ini): messages up to Level (2: info) go into thug2-decomp.log
 // (through the hook DLL's Log, as "pc: <message>"), and to the console too when [Miscellaneous] Debug is on.

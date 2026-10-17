@@ -1,8 +1,8 @@
-// The skater's turning in the air (spins, breaking out of vert), with the PC port's PS2-style controls built in.
+// The skater's turning in the air (spins, breaking out of vert), with PartyMod's PS2-style controls built in.
 //
 // Float arithmetic follows the original's x87 code at 53-bit precision: intermediate results are doubles,
 // rounded to float only where the original stores them.
-// Contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md (the PC port's changes in it).
+// Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md (PartyMod's changes in it).
 
 #include "game/skater/rotation.h"
 
@@ -64,7 +64,7 @@ constexpr uint32_t kJump = 0x00;           // (offsets from the pad's +0x20)
 constexpr uint32_t kSpinLeft2 = 0x40;
 constexpr uint32_t kSpinRight2 = 0x60;
 constexpr uint32_t kSpinLeft = 0x80;       // L1
-constexpr uint32_t kTriggerA = 0xA0;       // The PC port's "R2/L2" pair
+constexpr uint32_t kTriggerA = 0xA0;       // PartyMod's "R2/L2" pair
 constexpr uint32_t kSpinRight = 0xE0;      // R1
 constexpr uint32_t kTriggerB = 0x100;
 constexpr uint32_t kButton140 = 0x140;
@@ -185,7 +185,7 @@ void CorePhysicsComponent::Spin()
         }
     } else {
         // Holding one button (not both) turns once it's been held longer than the spin delay - always, with
-        // the PC port's PS2 controls (it NOPs the delay checks' jumps; the delay is still read). Held long enough,
+        // PartyMod's PS2 controls (it NOPs the delay checks' jumps; the delay is still read). Held long enough,
         // the skater can no longer be turned to face the ramp.
         uint8_t* left = pad + kSpinLeft;
         uint8_t* right = pad + kSpinRight;
@@ -285,7 +285,7 @@ void CorePhysicsComponent::BreakVert(bool force)
 {
     void* object = At<void*>(this, kObject);
     uint8_t* pad = At<uint8_t*>(this, kInput) + 0x20;
-    // The two buttons: both (the PC port's PS2 controls: either - its JNZs at 0x00507184 / 0x005071AE).
+    // The two buttons: both (PartyMod's PS2 controls: either - its JNZs at 0x00507184 / 0x005071AE).
     auto triggers = [&] {
         return Ps2Controls() ? pad[kTriggerA] || pad[kTriggerB] : pad[kTriggerA] && pad[kTriggerB];
     };

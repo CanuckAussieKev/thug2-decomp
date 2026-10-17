@@ -1,5 +1,5 @@
 // Music: picking the next track of a playlist.
-// Contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md (the PC port's changes in it).
+// Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md (PartyMod's changes in it).
 
 #include "game/pcm/music.h"
 
@@ -94,7 +94,7 @@ void StartTrack(Playlist& list, int track)
 
 } // namespace
 
-// The PC port's our_random, at the shuffle's two draws (0x004523A7 / 0x004523B4). It keeps drawing the
+// PartyMod's our_random, at the shuffle's two draws (0x004523A7 / 0x004523B4). It keeps drawing the
 // game's number so the game's random stream advances as before. (rand() % 0 would divide by zero; the game's
 // Rnd(0) is 0, so that's kept for an empty order.)
 int ShuffleRandom(int n)
@@ -138,7 +138,7 @@ void __cdecl PlayNextTrack()
                 Order()[count++] = track;
         OrderCount() = count;
         Dbg::Printf(reinterpret_cast<const char*>(0x00647318), count); // "shuffling random song order num_songs=%i\n"
-        // 2000 swaps of two random places. The PC port draws them with ShuffleRandom; the original with
+        // 2000 swaps of two random places. PartyMod draws them with ShuffleRandom; the original with
         // Mth::Rnd(OrderCount()).
         for (int i = 0; i < 2000; ++i) {
             int a = ShuffleRandom(OrderCount());
@@ -149,7 +149,7 @@ void __cdecl PlayNextTrack()
                 Order()[b] = swap;
             }
         }
-        // Not the last one again first: swap it with another place (this draw is the game's, under the PC port too).
+        // Not the last one again first: swap it with another place (this draw is the game's, under PartyMod too).
         if (Order()[0] == last) {
             int other = OrderCount() > 1 ? Mth::Rnd(OrderCount() - 1) + 1 : 0;
             int swap = Order()[0];
@@ -290,7 +290,7 @@ uint32_t __cdecl FreeStreamId(uint32_t id)
     }
 }
 
-// 0x00450310 (with the game's random numbers: the PC port's shuffle change is only in PlayNextTrack's)
+// 0x00450310 (with the game's random numbers: PartyMod's shuffle change is only in PlayNextTrack's)
 void __cdecl ShuffleUserSoundtrack()
 {
     int count = GameFunction<int(__cdecl*)(int)>(0x00454320)(UserSoundtrack()); // the soundtrack's tracks
