@@ -63,6 +63,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_glyph.cpp
     src/hook/selftests_skaterA.cpp
     src/hook/selftests_gfx2.cpp
+    src/hook/selftests_sprite.cpp
     src/hook/selftests_mainloop.cpp
     src/hook/selftests_misc.cpp
     src/hook/selftests_scache.cpp
@@ -106,6 +107,7 @@ add_library(thug2_code OBJECT
     src/game/pcm/music.cpp
     src/game/gfx/loading_bar.cpp
     src/game/gfx/render.cpp
+    src/game/gfx/sprite.cpp
     src/game/file/async.cpp
     src/game/file/file.cpp
     src/game/file/pip.cpp
