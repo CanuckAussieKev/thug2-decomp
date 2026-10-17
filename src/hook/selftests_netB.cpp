@@ -48,6 +48,11 @@ bool g_netB_swapped = false;
 // Everything recorded by the stand-ins (and the tests' own results).
 std::vector<uint32_t> g_netB_log;
 void Log2(std::initializer_list<uint32_t> values) { g_netB_log.insert(g_netB_log.end(), values); }
+template <typename T>
+T& At(void* object, uint32_t offset)
+{
+    return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
+}
 
 // Scripted answers.
 std::map<uint32_t, bool> g_messagesToSend;      // conn -> App::MessagesToSend
@@ -202,6 +207,17 @@ void ProcessStreams(bool original, App* app)
         Original<void(__thiscall*)(App*)>(0x004590C0)(app);
     else
         app->ProcessStreamMessages();
+    // Each connection's streams and sequenced links after each frame (the pieces' timing).
+    ListNode* head = &app->m_connections;
+    for (ListNode* n = head->next; n != head; n = n->next) {
+        auto* conn = static_cast<Conn*>(n->data);
+        uint32_t streams = 0, links = 0;
+        for (ListNode* l = At<ListNode>(conn, 0x1C90).next; l != &At<ListNode>(conn, 0x1C90); l = l->next)
+            ++streams;
+        for (ListNode* l = At<ListNode>(conn, 0x28).next; l != &At<ListNode>(conn, 0x28); l = l->next)
+            ++links;
+        Log2({0x5754u, streams, links});
+    }
 }
 void RunTask(bool original, uint32_t address, void (*ours)(void*), void* task)
 {
@@ -220,11 +236,6 @@ R Call(bool original, uint32_t address, R (App::*ours)(A...), App* app, std::typ
 }
 
 // --- The stand-in world -------------------------------------------------------------------------------------
-template <typename T>
-T& At(void* object, uint32_t offset)
-{
-    return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
-}
 void InitHead(ListNode* head, uint32_t vtable)
 {
     head->vtable = reinterpret_cast<void**>(vtable);
@@ -366,7 +377,7 @@ World MakeWorld(bool original, void** vtable)
     GameVariable<void*>(0x006EFDD8) = w.settings;
     w.data = w.misc + 0x800;
     for (int i = 0; i < 0x400; ++i)
-        w.data[i] = static_cast<uint8_t>(i * 7 + (i >> 5));
+        w.data[i] = static_cast<uint8_t>(0x80 | (i * 7 + (i >> 5))); // (never like an arena address)
     return w;
 }
 
@@ -418,6 +429,10 @@ std::vector<uint32_t> RunMessages(bool original)
     Enqueue(original, app, 2, &e);
     e = Desc(0, 0x22, 4, d + 12, 0x80, 0);
     Enqueue(original, app, 2, &e);
+    e = Desc(0, 9, 4, d + 14, 0x80, 0);
+    Enqueue(original, app, 0xFF, &e);
+    e = Desc(0, 9, 4, d + 15, 0x80, 0);
+    Enqueue(original, app, 0x80 | 5, &e);
     e = Desc(0, 0x21, 6, d + 13, 0x85, 2);
     e.m_singular = true;
     Enqueue(original, app, 5, &e);
@@ -451,9 +466,13 @@ std::vector<uint32_t> RunMessages(bool original)
     Enqueue(original, app, 3, &e);
     e = Desc(3, 0x44, 11, d + 34, 0x68, 9);
     Enqueue(original, app, 0xFF, &e);
-    std::memset(d + 0x300, 0x41, 0x40);
+    std::memset(d + 0x300, 0xC1, 0x40);
     e = Desc(0, 0x45, 0x40, d + 0x300, 0x80, 0);
     e.m_compression = 1;
+    Enqueue(original, app, 1, &e);
+    e = Desc(2, 0x46, 0x40, d + 0x300, 0x80, 0);
+    e.m_compression = 1;
+    e.m_groupId = 3;
     Enqueue(original, app, 1, &e);
 
     Stream(original, app, 0xFF, 0x50, 0x80, d, "small", 4, false, false);
@@ -461,36 +480,30 @@ std::vector<uint32_t> RunMessages(bool original)
     Stream(original, app, 3, 0x52, 0x40, d + 6, "to a disconnecting one", 5, true, false);
     StreamToConn(original, app, c1, 0x53, 0x2A0, d + 7, "later, copied", 6, false, false);
     StreamToConn(original, app, c0, 0x54, 0x390, d + 8, "later, in place", 6, false, true);
-    StreamToConn(original, app, c0, 0x55, 0x150, d + 9, "one more piece", 2, false, false);
+    StreamToConn(original, app, c0, 0x55, 0x350, d + 9, "three more pieces", 2, false, false);
     StreamToConn(original, app, c3, 0x56, 0x101, d + 10, "one more byte", 9, false, false);
     StreamToConn(original, app, c3, 0x57, 0x300, d + 11, "slow", 9, false, false);
     StreamToConn(original, app, c2, 0x58, 0x100, d + 12, "exactly one piece", 1, false, false);
-    ProcessStreams(original, app);
-    ProcessStreams(original, app);
-    // Make room in c1's and c0's sequenced queues (the pieces count against the stream limit).
-    for (Conn* conn : {c0, c1}) {
+    // Stream pieces already queued count against the limit: SetPieces leaves n of them marked.
+    auto setPieces = [](Conn* conn, int n) {
         auto* queue = &At<ListNode>(conn, 0x28);
         for (ListNode* link = queue->next; link != queue; link = link->next)
-            At<uint8_t>(link, 0x16) = 0;
-    }
-    ProcessStreams(original, app);
+            At<uint8_t>(link, 0x16) = n-- > 0 ? 1 : 0;
+    };
+    ProcessStreams(original, app);  // c0 full (8 queued), c1: both pieces, c3 (slow) full
+    setPieces(c0, 3);
+    ProcessStreams(original, app);  // c0: 2 pieces of "in place"
+    setPieces(c0, 0);
     At<int>(w.settings, 0x128) = 1; // the slow network setting
-    for (ListNode* link = At<ListNode>(c0, 0x28).next; link != &At<ListNode>(c0, 0x28); link = link->next)
-        At<uint8_t>(link, 0x16) = 0;
-    ProcessStreams(original, app);
+    ProcessStreams(original, app);  // c0: 1 piece: "in place" done
     At<int>(w.settings, 0x128) = 0;
-    for (Conn* conn : {c0, c1, c3}) {
-        auto* queue = &At<ListNode>(conn, 0x28);
-        for (ListNode* link = queue->next; link != queue; link = link->next)
-            At<uint8_t>(link, 0x16) = 0;
-    }
+    setPieces(c0, 0);
+    setPieces(c3, 1);
+    ProcessStreams(original, app);  // c0: "one more piece" (3 pieces); c3: "one more byte"
+    setPieces(c3, 0);
     RunTask(original, 0x004594A0, &App::SendNetworkData, w.task);
-    for (int i = 0; i < 6; ++i) {
-        for (Conn* conn : {c0, c1, c3}) {
-            auto* queue = &At<ListNode>(conn, 0x28);
-            for (ListNode* link = queue->next; link != queue; link = link->next)
-                At<uint8_t>(link, 0x16) = 0;
-        }
+    for (int i = 0; i < 3; ++i) {
+        setPieces(c3, 0);
         ProcessStreams(original, app);
     }
     Log2({app->m_timestamp});
@@ -638,6 +651,15 @@ std::vector<uint32_t> RunConnections(bool original)
     setConn(1, 2, 500, 30000);
     Log2({Call(original, 0x00458E60, &App::BandwidthExceeded, app, conns[3])});
     Log2({Call(original, 0x00458E60, &App::BandwidthExceeded, app, conns[1])});
+    // Exactly its share (two sharing 1200).
+    setConn(0, 2, 600, 30000);
+    setConn(1, 2, 0, 30000);
+    setConn(2, 1, 0, 30000);
+    setConn(3, 1, 0, 30000);
+    At<int>(w.manager, 0x378) = 1200;
+    Log2({Call(original, 0x00458E60, &App::BandwidthExceeded, app, conns[0])});
+    setConn(0, 2, 601, 30000);
+    Log2({Call(original, 0x00458E60, &App::BandwidthExceeded, app, conns[0])});
 
     // Sending.
     Call(original, 0x00458CA0, &App::SendData, app, false);
@@ -675,6 +697,13 @@ std::vector<uint32_t> RunConnections(bool original)
         At<uint8_t*>(peer, 0x50) = w.data + 0x10 * i + 13 + i;
     }
     At<uint32_t>(conns[1], 0x64) |= 1; // local without a buffer
+    {
+        uint8_t* peer = w.misc + 0x1B00; // not local, with a buffer: left alone
+        At<void*>(conns[3], 0x3D0C) = peer;
+        At<uint8_t*>(peer, 0x4C) = w.data + 0x40;
+        At<uint8_t*>(peer, 0x50) = w.data + 0x48;
+        At<uint32_t>(conns[3], 0x64) &= ~1u;
+    }
     Log2({Call(original, 0x00459690, &App::ProcessData, app)});
     g_dispatchResults = {1, 2};
     Log2({Call(original, 0x00459690, &App::ProcessData, app)});
