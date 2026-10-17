@@ -11,6 +11,9 @@ namespace Sys {
 // command line is read, its SDL window in place of the game's own, the window not shown or minimised by the
 // game, DirectInput left alone at the end.
 int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, char* commandLine, int show);
+// thug2-decomp.ini [features] allow_multiple_instances (default 0): WinMain skips its already-running check. Read from
+// the ini once; self-tests set it for their run.
+bool& AllowMultipleInstances();
 
 // 0x004E16B0: the game's window procedure (the window WinMain made before PartyMod; its SDL window has its own).
 // Closing or destroying the window quits (PostQuitMessage, the quit flag); activation maximises the game's

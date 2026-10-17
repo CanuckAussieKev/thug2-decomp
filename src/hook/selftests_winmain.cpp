@@ -296,6 +296,12 @@ uint32_t StandInMapVirtualKey(Regs& r)
 
 void TestWinMain()
 {
+    // (compared with the original, which always has the already-running check: allow_multiple_instances off)
+    struct RestoreSetting {
+        bool value = Sys::AllowMultipleInstances();
+        ~RestoreSetting() { Sys::AllowMultipleInstances() = value; }
+    } restoreSetting;
+    Sys::AllowMultipleInstances() = false;
     std::vector<Saved> saved = {{0x007D6A28, 4, {}}};
     SaveAll(saved);
     std::vector<uint32_t> traces[2];

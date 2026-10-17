@@ -2215,6 +2215,14 @@ belong with the CScript batch.
       CreateMutexA (0x6409D0) is unnamed, and AppView::Bind (0x456BA0) already retries on port 0 when the game's port is
       taken (so one copy hosts on the fixed port, the other gets a free one). LogOpen: when thug2-decomp.log is held by
       another copy (fopen_s files aren't shared), it writes thug2-decomp-2.log .. -9.log.
+- [x] Batches 83-86 and allow_multiple_instances tested in the game (2026-10-17, by the user): two copies on one
+      PC, hosting and joining a LAN game works; 1261 of 1261 replacements installed (37 source only), late / engine-
+      started self-tests pass. Two early self-tests failed in the game: TestWinMain (it compared with the original
+      while allow_multiple_instances=1 skipped the check - fixed: Sys::AllowMultipleInstances() is settable, the test
+      turns it off) and, in the first copy only, netB's 'net app: queued and streamed messages' (6 arena words
+      differ only in a stale high half next to the 0xCD fill - likely the 3 bytes the original's stream start reads
+      past the copied data, which hold whatever is there in the game; the test needs to make them identical in both
+      runs or mask them).
 - [ ] Next: the rest of the net library below 0x456910: Conn and the message types 0x4544E0-0x456910 (Metrics
       0x4544E0 / 0x454520 / update 0x454D00, the Net::Manager getters 0x454530-0x4549C0, StreamDesc 0x4549D0 /
       0x454E00, MsgDesc 0x4549F0, MsgHandlerContext 0x454A20, RLE / LZSS compression 0x454C20 / 0x454E30, QueuedMsg /

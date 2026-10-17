@@ -227,6 +227,12 @@ void ReadNetworkParams(const char* commandLine)
 }
 
 // 0x004E2680
+bool& AllowMultipleInstances()
+{
+    static bool allow = ConfigInt("features", "allow_multiple_instances", 0) != 0;
+    return allow;
+}
+
 int WINAPI WinMain(HINSTANCE instance, HINSTANCE /*previous*/, char* commandLine, int /*show*/)
 {
     // (THUG2PM.exe's own patch loads a DLL here - LoadLibraryA(<the name at 0x0064B198>) in a code cave (0x005480A1)
@@ -251,8 +257,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE /*previous*/, char* commandLine
     // can run - e.g. to host and join a LAN game on one PC. Its socket falls back to a free port when the game's
     // port is taken (AppView::Bind) and its log goes to thug2-decomp-2.log.)
     const char kTitle[] = "THUG2";
-    static const bool allowMultipleInstances = ConfigInt("features", "allow_multiple_instances", 0) != 0;
-    if (HWND running = allowMultipleInstances ? nullptr : FindWindowExA(nullptr, nullptr, nullptr, kTitle)) {
+    if (HWND running = AllowMultipleInstances() ? nullptr : FindWindowExA(nullptr, nullptr, nullptr, kTitle)) {
         ShowWindow(running, SW_RESTORE);
         BringWindowToTop(running);
         SetForegroundWindow(running);
