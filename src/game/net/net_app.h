@@ -15,10 +15,12 @@
 
 namespace Net {
 
-// A message to be sent (0x20 bytes; the constructor 0x004549F0 sets id, length, data, priority, queue, delay
-// and the forced sequence id - not stream, group, singular or compression).
+// A message to be sent (0x20 bytes; the constructor 0x004549F0 sets every field: zero, priority 0x80).
 struct MsgDesc {
     enum Queue : int { kQueueDefault = 0, kQueueImportant = 1, kQueueSequenced = 2 };
+
+    // 0x004549F0 (net_descs.cpp)
+    MsgDesc* Construct();
 
     uint8_t m_id;               // 0x00
     uint8_t m_stream;           // 0x01 a piece of a streamed message (counted by Conn 0x004565E0)
@@ -42,6 +44,11 @@ static_assert(sizeof(MsgDesc) == 0x20 && offsetof(MsgDesc, m_priority) == 0x08 &
 // A streamed message not sent all at once (0x44 bytes, constructor 0x004549D0, destructor body 0x00454E00): sent
 // in 256-byte pieces, a few each frame (App::ProcessStreamMessages).
 struct StreamDesc {
+    // 0x004549D0 (net_descs.cpp): size, data, next, group and sendInPlace zeroed.
+    StreamDesc* Construct();
+    // 0x00454E00: the data freed unless it's the sender's ("Destroying StreamDesc's Data").
+    void DestroyBody();
+
     int m_size;                 // 0x00
     int m_streamId;             // 0x04
     uint8_t m_msgId;            // 0x08

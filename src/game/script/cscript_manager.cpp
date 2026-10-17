@@ -24,6 +24,7 @@
 
 #include "game/core/crc.h"
 #include "game/core/manager.h"
+#include "game/net/net_app.h"
 #include "game/script/cscript.h"
 #include "game/script/load.h"
 #include "game/script/struct.h"
@@ -103,7 +104,7 @@ struct MsgDesc {
 };
 static_assert(sizeof(MsgDesc) == 0x20 && offsetof(MsgDesc, unknownC) == 0xC && offsetof(MsgDesc, unknown10) == 0x10,
               "layout must match the original");
-void InitMsgDesc(MsgDesc* desc) { GameFunction<void(__thiscall*)(MsgDesc*)>(0x004549F0)(desc); }
+void InitMsgDesc(MsgDesc* desc) { reinterpret_cast<Net::MsgDesc*>(desc)->Construct(); }
 // 0x00459E50: queue a message for the server.
 void EnqueueMessageToServer(void* client, MsgDesc* desc)
 {

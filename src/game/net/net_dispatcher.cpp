@@ -19,10 +19,7 @@ void** const kMsgHandlerSearchVtable = reinterpret_cast<void**>(0x006475E4);
 void** const kMsgHandlerVtable = reinterpret_cast<void**>(0x006475E8);
 constexpr uint32_t kFixedSizeCopy = 0x514; // what a message without a length field copies
 
-void ConstructContext(MsgHandlerContext* context)
-{
-    GameFunction<MsgHandlerContext*(__thiscall*)(MsgHandlerContext*)>(0x00454A20)(context);
-}
+void ConstructContext(MsgHandlerContext* context) { context->Construct(); }
 
 } // namespace
 

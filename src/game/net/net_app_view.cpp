@@ -167,7 +167,7 @@ bool AppView::Bind(uint32_t /*address*/, uint16_t port)
     local.sin_port = htons(port);
     // (The original asks the manager for its +0x128 value and sets the address to INADDR_ANY unless it's 1 - it's
     // INADDR_ANY already either way.)
-    if (GameFunction<int(__thiscall*)(void*)>(0x00454960)(m_manager) != 1)
+    if (static_cast<Manager*>(m_manager)->GetConnectionType() != Manager::kConnectionModem)
         local.sin_addr.s_addr = INADDR_ANY;
     if (bind(m_socket, reinterpret_cast<sockaddr*>(&local), sizeof(local)) < 0) {
         if (WSAGetLastError() != WSAEADDRINUSE) {
@@ -329,7 +329,7 @@ void AppView::Deinit()
 bool AppView::DispatchQueuedSequencedMessages(ConnView* conn)
 {
     MsgHandlerContext context;
-    GameFunction<MsgHandlerContext*(__thiscall*)(MsgHandlerContext*)>(0x00454A20)(&context);
+    context.Construct();
     for (Mem::ListNode& queue : conn->m_receivedQueues) {
         Lst::Search<MsgLink> search;
         for (MsgLink *link = search.FirstItem(&queue), *next; link; link = next) {

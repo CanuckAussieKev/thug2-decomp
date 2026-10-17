@@ -9,6 +9,7 @@
 #include "game/core/mem.h"
 #include "game/core/pool.h"
 #include "game/core/crc.h"
+#include "game/net/net_app.h"
 #include "game/obj/tracker.h"
 #include "game/script/cscript.h"
 #include "game/script/params.h"
@@ -52,7 +53,7 @@ struct MsgDesc {
 };
 static_assert(sizeof(MsgDesc) == 0x20);
 
-void InitMsgDesc(MsgDesc* desc) { GameFunction<void(__thiscall*)(MsgDesc*)>(0x004549F0)(desc); }
+void InitMsgDesc(MsgDesc* desc) { reinterpret_cast<Net::MsgDesc*>(desc)->Construct(); }
 // Fields set by the chat send; their meaning isn't known yet.
 uint32_t& MsgDescField0C(MsgDesc* desc) { return *reinterpret_cast<uint32_t*>(desc->rest + 0x4); }
 uint8_t& MsgDescField10(MsgDesc* desc) { return desc->rest[0x8]; }

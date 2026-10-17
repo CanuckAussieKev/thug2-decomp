@@ -11,6 +11,8 @@
 #include "game/core/alloc.h"
 #include "game/net/net_app.h"
 #include "game/net/net_dispatcher.h"
+#include "game/net/net_manager.h"
+#include "game/net/net_metrics.h"
 #include "hook/game.h"
 
 namespace Net {
@@ -156,7 +158,7 @@ inline uint32_t MaxLatency() { return GameVariable<uint32_t>(0x00647588); }
 // --- Functions of other classes, by address ---
 
 // MsgDesc (0x004549F0)
-inline void ConstructMsgDesc(MsgDesc* desc) { GameFunction<MsgDesc*(__thiscall*)(MsgDesc*)>(0x004549F0)(desc); }
+inline void ConstructMsgDesc(MsgDesc* desc) { desc->Construct(); }
 
 // App (wt/netA's AppView and wt/netB's App, net_app.h): short names for the calls this range makes
 inline void EnqueueMessage(App* app, int handle, MsgDesc* desc) { app->EnqueueMessage(handle, desc); }
@@ -206,7 +208,7 @@ inline uint8_t* GetManager(AppView* app) { return static_cast<uint8_t*>(app->Net
 // Net::Manager's flags for a message id (0x00454980).
 inline uint8_t MessageFlags(uint8_t* manager, uint8_t id)
 {
-    return GameFunction<uint8_t(__thiscall*)(uint8_t*, uint32_t)>(0x00454980)(manager, id);
+    return static_cast<uint8_t>(reinterpret_cast<Manager*>(manager)->GetMessageFlags(id));
 }
 
 // Conn (0x00455xxx-0x00456xxx, not decompiled yet). Its flags (+0x64): 1 local (the App's own client/server in
@@ -240,11 +242,11 @@ inline void AddLatency(Conn* conn, uint32_t latency) { conn->m_latencyTest.Input
 // Message/packet metrics (0x00454550, 0x00454D90).
 inline void AddMessageMetric(void* metrics, uint8_t id, uint32_t size)
 {
-    GameFunction<void(__thiscall*)(void*, uint32_t, uint32_t)>(0x00454550)(metrics, id, size);
+    static_cast<Metrics*>(metrics)->AddMessage(id, static_cast<int>(size));
 }
 inline void AddPacketMetric(void* metrics, uint32_t size, uint32_t time)
 {
-    GameFunction<void(__thiscall*)(void*, uint32_t, uint32_t)>(0x00454D90)(metrics, size, time);
+    static_cast<Metrics*>(metrics)->AddPacket(static_cast<int>(size), static_cast<int>(time));
 }
 
 // Queued messages: the destructor frees the data (0x004550F0).
@@ -258,12 +260,12 @@ inline MsgSeqLink* ConstructMsgSeqLink(void* memory, SeqQueuedMsg* msg)
 {
     return GameFunction<MsgSeqLink*(__thiscall*)(void*, SeqQueuedMsg*)>(0x00455650)(memory, msg);
 }
-inline StreamDesc* ConstructStreamDesc(void* memory) { return GameFunction<StreamDesc*(__thiscall*)(void*)>(0x004549D0)(memory); }
+inline StreamDesc* ConstructStreamDesc(void* memory) { return static_cast<StreamDesc*>(memory)->Construct(); }
 inline StreamLink* ConstructStreamLink(void* memory, StreamDesc* desc)
 {
     return GameFunction<StreamLink*(__thiscall*)(void*, StreamDesc*)>(0x00455680)(memory, desc);
 }
-inline void DestroyStreamDesc(StreamDesc* desc) { GameFunction<void(__thiscall*)(StreamDesc*)>(0x00454E00)(desc); }
+inline void DestroyStreamDesc(StreamDesc* desc) { desc->DestroyBody(); }
 
 // Lst::Node<T>'s deleting destructor (each node type's vtable slot 0).
 inline void DeleteNode(void* node)

@@ -33,6 +33,9 @@ constexpr uint32_t kPacketChecksumMismatch = 0x4;   // a stream whose checksum d
 
 // What a handler gets (0xA4 bytes, constructor 0x00454A20).
 struct MsgHandlerContext {
+    // 0x00454A20 (net_descs.cpp): every field zeroed.
+    MsgHandlerContext* Construct();
+
     char* m_Msg;
     uint8_t m_MsgId;
     uint8_t pad5[3];

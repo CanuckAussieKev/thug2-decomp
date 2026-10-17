@@ -9,6 +9,7 @@
 #include "game/core/mem.h"
 #include "game/lst/search.h"
 #include "game/net/net_access_c.h"
+#include "game/net/net_compress.h"
 #include "game/util/lzss.h"
 #include "hook/hook.h"
 
@@ -22,15 +23,12 @@ uint32_t Timestamp(App* app) { return Field<uint32_t>(app, AppField::kTimestamp)
 Dispatcher* GetDispatcher(App* app) { return &Field<Dispatcher>(app, AppField::kDispatcher); }
 Mem::ListNode* ListOf(Conn* conn, uint32_t offset) { return &Field<Mem::ListNode>(conn, offset); }
 
-void ConstructContext(MsgHandlerContext* context)
-{
-    GameFunction<MsgHandlerContext*(__thiscall*)(MsgHandlerContext*)>(0x00454A20)(context);
-}
+void ConstructContext(MsgHandlerContext* context) { context->Construct(); }
 
-// (0x00454C20) method 1's decompressor: 0 when it worked; `size` gets the expanded size.
+// Method 1's decompressor: 0 when it worked; `size` gets the expanded size.
 int Decompress(const char* in, int inSize, char* out, int* size)
 {
-    return GameFunction<int(__cdecl*)(const char*, int, char*, int*)>(0x00454C20)(in, inSize, out, size);
+    return RleDecompress(reinterpret_cast<const uint8_t*>(in), inSize, reinterpret_cast<uint8_t*>(out), size);
 }
 
 void FreeQueuedMsg(QueuedMsg* msg)
