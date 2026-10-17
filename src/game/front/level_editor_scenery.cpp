@@ -601,6 +601,18 @@ int MovedCount()
 
 void LogCensus()
 {
+    // (every node of the scene list, skies too: what the walk sees)
+    SceneNode* node = GameVariable<SceneNode*>(0x006FA7EC);
+    for (int i = 0; node && i < 16; ++i, node = node->next) {
+        bool end = IsEnd(node);
+        uint8_t* scene = end ? nullptr : node->scene;
+        auto* table = scene ? *reinterpret_cast<uint32_t**>(scene + 0xD0) : nullptr;
+        Log("level editor: scene list node %d %p: scene %p%s, sky byte %d, name %08X, sector table %p (bits %u)", i,
+            static_cast<void*>(node), static_cast<void*>(node->scene), end ? " (end)" : "", scene ? scene[0x8D] : -1,
+            scene ? *reinterpret_cast<uint32_t*>(scene + 0x84) : 0, static_cast<void*>(table), table ? table[0] : 0);
+        if (end)
+            break;
+    }
     ForEachScene([](uint8_t* scene) {
         int sectors = 0, withGeometry = 0, withCollision = 0, movable = 0;
         ForEachSector(scene, [&](uint32_t checksum, uint8_t* sector) {
