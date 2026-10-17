@@ -106,10 +106,10 @@ add_library(thug2_code OBJECT
     src/game/lst/search.cpp
     src/game/net/chat.cpp
     src/game/net/stats.cpp
-    src/game/ed/park_manager.cpp
-    src/game/ed/cursor.cpp
-    src/game/ed/menu.cpp
-    src/game/ed/park_map.cpp
+    src/game/ed/park_accessors.cpp
+    src/game/ed/cursor_tools.cpp
+    src/game/ed/upper_menu.cpp
+    src/game/ed/park_lists.cpp
     src/game/ed/park_io.cpp
     src/game/net/service.cpp
     src/game/net/online_hosts.cpp
