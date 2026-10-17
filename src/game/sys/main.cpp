@@ -19,6 +19,7 @@
 #include "game/mth/math.h"
 #include "game/mth/random.h"
 #include "game/obj/objman.h"
+#include "game/obj/tracker.h"
 #include "game/script/cache.h"
 #include "game/script/struct.h"
 #include "game/sio/device.h"
@@ -118,7 +119,7 @@ int __cdecl Main(int argc, char** argv)
         Mem::PopMemProfile();
 
         Mem::PushMemProfile("System Singletons");
-        Create(0x00463730);
+        Obj::CreateTracker(true);
         auto* mlp = reinterpret_cast<uint8_t*>(Mlp::CreateManager(true));
         uint8_t* mdl = Create(0x0044F6F0);
         auto* sio = reinterpret_cast<uint8_t*>(Sio::CreateManager(true));

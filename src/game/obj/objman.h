@@ -6,6 +6,7 @@
 #include "game/core/alloc.h"
 #include "game/obj/event.h"
 #include "game/obj/object.h"
+#include "game/obj/tracker.h"
 #include "game/obj/smtptr.h"
 
 // The managers that own objects: CBaseManager (a list of objects, sorted by their node's priority, registered
@@ -108,16 +109,9 @@ struct CObjectSearch {
     uint32_t m_type;       // +0x08
 };
 
-// The object tracker (0x006F0FC0, wt/trk's class) is a reference-counted singleton (0x006F0FC4).
+// The object tracker (0x006F0FC0, tracker.h) is a reference-counted singleton (0x006F0FC4).
+// (CTracker::RegisterEventListener 0x00461FE0 is in objman.cpp too.)
 // 0x00461FA0: drop a reference; the last one deletes it.
 void ReleaseTracker();
-
-// What 0x00461FE0 uses of the tracker (CTracker, wt/trk): its list of event listeners at +0x14.
-struct CTrackerEventListeners {
-    uint8_t unknown0[0x14];
-    CEventListener* mp_eventListeners; // +0x14
-    // 0x00461FE0 (CTracker::RegisterEventListener): `listener` goes on the front of the list, registered.
-    void RegisterEventListener(CEventListener* listener);
-};
 
 } // namespace Obj

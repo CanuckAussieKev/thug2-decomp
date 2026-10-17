@@ -2,7 +2,7 @@
 
 NOT run in the game yet. To switch off: `[replacements] disable=object.cpp,objman.cpp`.
 
-## Rewritten (75 functions)
+## Rewritten (75 functions + 2 source-only thunks)
 
 `src/game/obj/object.h/.cpp` - `Obj::CObject` (0x4C bytes; CCompositeObject's fields start at 0x4C):
 - construction / destruction: Construct 0x00460B80, DestroyBody 0x004615D0, Destroy 0x00461900,
@@ -42,16 +42,18 @@ The functions 0x004607A0-0x00460840 came from wt/evt's range (left for wt/obj, s
 ## Header / caller changes the merger must know
 - New headers object.h, objman.h. `struct CEvent` is forward-declared in object.h (event.h defines it);
   objman.h includes event.h (CEventListener is evt's).
-- `CTrackerEventListeners` is a stand-in view of the tracker (only +0x14, its listener list): fold it into
-  wt/trk's CTracker (method RegisterEventListener) when merging trk.
+- After merging wt/trk: CTracker::RegisterEventListener 0x00461FE0 is declared in tracker.h and defined in
+  objman.cpp; tracker.cpp's FindObjectById calls CBaseManager::GetObjectByID directly; object.cpp / objman.cpp call
+  CTracker (LookUpObject, LaunchEvent, GetUniqueId, AddObject, RemoveObject) and CRefCounted (Construct, Destruct,
+  ClearSmartPointers) directly. object.h's "no id yet" constant is `kUnassignedId` (-1) - trk's `kNoObjectId`
+  (0x36B2EE74) is a different thing. CObject +0x3C is `m_aliasCount` (trk's finding).
+- Thunks 0x00420060 (-> DestroyBody) and 0x004AAD30 (-> RegisterObject) are REPLACE_SOURCE_ONLY.
 - cscript_exec.cpp: FindObject and GetComponent are direct calls now (Obj::FindObject,
   CCompositeObject::GetComponent). event.cpp: 0x00461FE0 is a direct call.
-- singleton.cpp: `Singleton463730` became `ObjectTracker` (Create still GameFunction 0x00463730 - wt/trk's;
-  Release = Obj::ReleaseTracker); sys/main.cpp calls Obj::ReleaseTracker(). selftests_misc / gapsB / csB / evt
+- singleton.cpp: `Singleton463730` became `ObjectTracker` (Obj::CreateTracker / Obj::ReleaseTracker); sys/main.cpp
+  calls both directly. selftests_misc / gapsB / csB / evt
   stand in for ours next to the game addresses.
-- Still called through GameFunction (wt/trk): 0x004637B0 / 0x00463870 / 0x00463820 (CRefCounted ctor, dtor,
-  clear pointers), 0x00462120 (find by id), 0x00462F00 (LaunchEvent), 0x004621D0 (new unique id), 0x00462980 /
-  0x00462A20 (add / remove an object), 0x00463730 (tracker create). Unassigned: 0x0045A540 (Lst::Head insert by
+- Still through GameFunction: 0x0045A540 (Lst::Head insert by
   priority), 0x00406890 / 0x00406C90 (Tsk::Task).
 - event.cpp's ObjectFlags() reads CObject +0x08 by offset; it could use `object->m_objectFlags` now (flag 0x10000:
   spawn the handlers - add it next to OBJECT_FLAG_* when someone finds what sets it).
@@ -117,3 +119,7 @@ The functions 0x004607A0-0x00460840 came from wt/evt's range (left for wt/obj, s
 scripts/events/death/destruction; managers, walks with restarts and nesting, searches, dead list, destruction,
 the tracker release, listeners), original vs ours on the same arena with everything else stood in for, compared
 call by call and then the whole arena.
+
+Mutations: 72 deliberate bugs, 71 caught (66 at first; the tests then got: the id right after Construct, bit
+numbers of 33+, a partly-set multi-bit FlagNotSet, m_reassigning seen by Register, a node taken out by hand during a
+walk, the dead list's order), 1 equivalent (NextItemOfType's null-object return: both give null).

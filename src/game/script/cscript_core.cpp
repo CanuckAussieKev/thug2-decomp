@@ -10,6 +10,7 @@
 #include "game/core/mem.h"
 #include "game/core/pool.h"
 #include "game/obj/event.h"
+#include "game/obj/tracker.h"
 #include "game/script/cache.h"
 #include "game/script/parse.h"
 #include "game/script/qb.h"
@@ -37,21 +38,6 @@ void FreeStruct(CStruct* structure)
     DeleteStruct(structure);
 }
 
-
-// Not rewritten yet.
-// Obj::CRefCounted's constructor (vtable 0x006478E4, no smart pointers) and destructor (0x00463820 after
-// putting the vtable back).
-void ConstructRefCounted(Obj::CRefCounted* object)
-{
-    GameFunction<Obj::CRefCounted*(__thiscall*)(Obj::CRefCounted*)>(0x004637B0)(object);
-}
-void DestroyRefCounted(Obj::CRefCounted* object) { GameFunction<void(__thiscall*)(Obj::CRefCounted*)>(0x00463870)(object); }
-// The object tracker (0x006F0FC0): `script` no longer blocks on an event it registered for.
-void TrackerForgetScript(CScript* script)
-{
-    GameFunction<void(__thiscall*)(void*, CScript*)>(0x00462B90)(GameVariable<void*>(0x006F0FC0), script);
-}
-
 } // namespace
 
 // 0x004738E0
@@ -60,7 +46,7 @@ CScript* CScript::Construct()
     m_object.mp_prev = nullptr;
     m_object.mp_next = nullptr;
     m_object.mp_object = nullptr;
-    ConstructRefCounted(&m_refCounted);
+    m_refCounted.Construct();
     // Then all of it is zeroed - m_refCounted's vtable too (an original quirk, kept).
     std::memset(this, 0, sizeof(CScript));
     mp_next = ScriptListHead();
@@ -105,7 +91,7 @@ void CScript::Destroy()
         }
     }
     --ScriptCount();
-    DestroyRefCounted(&m_refCounted);
+    m_refCounted.Destruct();
     m_object.Release();
 }
 
@@ -186,7 +172,7 @@ void CScript::ReportStopped()
         m_eventHandlers->RemoveGroup(Obj::kAllGroups);
     }
     if (m_spawnFlags & SCRIPT_FLAG_TRACKER_BLOCKED)
-        TrackerForgetScript(this);
+        Obj::Tracker()->ForgetScript(this);
 }
 
 // 0x004739D0

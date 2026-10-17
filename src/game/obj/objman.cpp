@@ -21,27 +21,8 @@ void** const kObjectNodeVtable = reinterpret_cast<void**>(0x006477E4);
 void** const kFlushTaskVtable = reinterpret_cast<void**>(0x006476F0); // Tsk::Task<CGeneralManager>
 constexpr int kFlushTaskPriority = 1000;
 
-// The object tracker (0x006F0FC0, wt/trk): a new unique id, an object registered / unregistered, the object with
-// an id.
-void*& Tracker() { return GameVariable<void*>(0x006F0FC0); }
+// The tracker's reference count.
 uint32_t& TrackerReferences() { return GameVariable<uint32_t>(0x006F0FC4); }
-uint32_t TrackerNewId(void* tracker)
-{
-    return GameFunction<uint32_t(__thiscall*)(void*)>(0x004621D0)(tracker); // -> wt/trk
-}
-void TrackerAddObject(void* tracker, CObject* object)
-{
-    GameFunction<void(__thiscall*)(void*, CObject*)>(0x00462980)(tracker, object); // -> wt/trk
-}
-void TrackerRemoveObject(void* tracker, CObject* object, uint32_t newId, uint32_t reassigning)
-{
-    GameFunction<void(__thiscall*)(void*, CObject*, uint32_t, uint32_t)>(0x00462A20)(tracker, object, newId,
-                                                                                     reassigning); // -> wt/trk
-}
-CObject* TrackerGetObject(uint32_t id)
-{
-    return GameFunction<CObject*(__thiscall*)(void*, uint32_t)>(0x00462120)(Tracker(), id); // -> wt/trk
-}
 
 // Not rewritten yet: Lst::Head<CObject>'s insert by priority (0x0045A540: before the first node whose priority
 // isn't higher - the highest first, equal ones newest first), Tsk::Task's constructor and the main loop's system
@@ -132,19 +113,19 @@ void CBaseManager::VirtualKillObject(CObject* object)
 // 0x00461A00
 void CBaseManager::RegisterObject(CObject* object)
 {
-    void* tracker = Tracker();
+    CTracker* tracker = Tracker();
     object->mp_manager = this;
     AddNodeByPriority(&m_objects, &object->m_node);
     m_restartWalks = 0xFFFFFFFF;
-    if (object->m_id == kNoObjectId)
-        object->SetID(TrackerNewId(tracker));
-    TrackerAddObject(tracker, object);
+    if (object->m_id == kUnassignedId)
+        object->SetID(tracker->GetUniqueId());
+    tracker->AddObject(object);
 }
 
 // 0x00461A50
 void CBaseManager::UnregisterObject(CObject* object)
 {
-    TrackerRemoveObject(Tracker(), object, m_newId, m_reassigning);
+    Tracker()->RemoveObject(object, m_newId, m_reassigning);
     Mem::ListNode* node = &object->m_node;
     if (node->prev != node) {
         node->prev->next = node->next;
@@ -176,7 +157,7 @@ void CBaseManager::SetObjectPriority(CObject* object, int priority)
 }
 
 // 0x004619F0
-CObject* CBaseManager::GetObjectByID(uint32_t id) { return TrackerGetObject(id); }
+CObject* CBaseManager::GetObjectByID(uint32_t id) { return Tracker()->LookUpObject(id); }
 
 // 0x00461CC0. The next object is looked at before the callback runs; a callback that changes the list (register
 // or unregister) makes the walk start again from the front, past the objects already done.
@@ -333,14 +314,14 @@ void ReleaseTracker()
         --references;
         return;
     }
-    if (auto* tracker = static_cast<void***>(Tracker()))
-        reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>((*tracker)[0])(tracker, 1);
+    if (CTracker* tracker = Tracker()) // (its scalar deleting destructor, through the vtable)
+        reinterpret_cast<void*(__thiscall*)(CTracker*, unsigned int)>(tracker->m_vtable[0])(tracker, 1);
     Tracker() = nullptr;
     references = 0;
 }
 
 // 0x00461FE0
-void CTrackerEventListeners::RegisterEventListener(CEventListener* listener)
+void CTracker::RegisterEventListener(CEventListener* listener)
 {
     listener->mp_nextListener = mp_eventListeners;
     mp_eventListeners = listener;
@@ -369,4 +350,4 @@ REPLACE(0x00461BB0, Obj::FlushDeadObjectsTask);
 REPLACE(0x00461F30, &Obj::CObjectSearch::FirstItemOfType);
 REPLACE(0x00461ED0, &Obj::CObjectSearch::NextItemOfType);
 REPLACE(0x00461FA0, Obj::ReleaseTracker);
-REPLACE(0x00461FE0, &Obj::CTrackerEventListeners::RegisterEventListener);
+REPLACE(0x00461FE0, &Obj::CTracker::RegisterEventListener);

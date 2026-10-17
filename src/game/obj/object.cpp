@@ -8,6 +8,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/obj/objman.h"
+#include "game/obj/tracker.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
@@ -46,31 +47,10 @@ constexpr uint32_t kAll = 0xC4E78E22;             // all
 constexpr uint32_t kClear = 0x1A4E0EF9;           // clear
 constexpr uint32_t kNoSpawnerFile = 0x01917DF2;   // (name unknown): the spawned script keeps no spawner file
 
-// Not rewritten yet (wt/trk): CRefCounted's constructor (vtable 0x006478E4, no pointers), its destructor (the
-// vtable back, then the pointers cleared) and the clearing of its pointers (each smart pointer to it set to null).
-void ConstructRefCounted(CRefCounted* object)
-{
-    GameFunction<CRefCounted*(__thiscall*)(CRefCounted*)>(0x004637B0)(object); // -> wt/trk
-}
-void DestroyRefCounted(CRefCounted* object)
-{
-    GameFunction<void(__thiscall*)(CRefCounted*)>(0x00463870)(object); // -> wt/trk
-}
-void ClearSmartPointers(CRefCounted* object)
-{
-    GameFunction<void(__thiscall*)(CRefCounted*)>(0x00463820)(object); // -> wt/trk
-}
-
-// The object tracker (0x006F0FC0, wt/trk): the object with an id, and LaunchEvent (to `target`, -1: everyone).
-void* Tracker() { return GameVariable<void*>(0x006F0FC0); }
-CObject* TrackerGetObject(uint32_t id)
-{
-    return GameFunction<CObject*(__thiscall*)(void*, uint32_t)>(0x00462120)(Tracker(), id); // -> wt/trk
-}
+// The tracker's LaunchEvent (to `target`, -1: everyone; its answer isn't used).
 void LaunchEvent(uint32_t type, uint32_t target, uint32_t source, CStruct* data, bool broadcast, float radius)
 {
-    GameFunction<void(__thiscall*)(void*, uint32_t, uint32_t, uint32_t, CStruct*, bool, float)>(0x00462F00)(
-        Tracker(), type, target, source, data, broadcast, radius); // -> wt/trk
+    Tracker()->LaunchEvent(type, target, source, data, broadcast, radius);
 }
 
 // The object's vtable: slot 1 SetProperties, 6 MarkAsDead.
@@ -114,7 +94,7 @@ void AddCopy(CStruct* dest, CComponent* component)
 } // namespace
 
 // 0x00460920
-void CObjectRef::DestroyBody() { DestroyRefCounted(this); }
+void CObjectRef::DestroyBody() { Destruct(); }
 
 // 0x00460AF0
 CObjectRef* CObjectRef::Destroy(unsigned int flags)
@@ -140,23 +120,23 @@ CObjectNode* CObjectNode::Destroy(unsigned int flags)
 // 0x00460B80
 CObject* CObject::Construct()
 {
-    ConstructRefCounted(this);
+    CRefCounted::Construct();
     m_vtable = kObjectVtable;
     m_node.vtable = kObjectNodeVtable;
     m_node.data = this;
     m_node.priority = 0;
     m_node.next = &m_node;
     m_node.prev = &m_node;
-    ConstructRefCounted(&m_ref);
+    m_ref.CRefCounted::Construct();
     m_ref.mp_object = this;
     m_ref.m_vtable = kObjectRefVtable;
-    m_id = kNoObjectId;
+    m_id = kUnassignedId;
     m_type = kNoObjectType;
     mp_tags = nullptr;
     m_script = nullptr;
     mp_manager = nullptr;
     m_objectFlags = 0;
-    unknown3C = 0;
+    m_aliasCount = 0;
     m_visitedMask = 0;
     return this;
 }
@@ -178,7 +158,7 @@ void CObject::DestroyBody()
     Script::StopAllScriptsUsingThisObject(this);
     m_ref.DestroyBody();
     m_node.UnlinkAs(kObjectNodeVtable);
-    DestroyRefCounted(this);
+    Destruct();
 }
 
 // 0x00461900
@@ -248,7 +228,7 @@ void CObject::MarkAsDead()
     manager->VirtualUnregisterObject(this);
     manager->VirtualKillObject(this);
     m_objectFlags |= OBJECT_FLAG_DEAD;
-    ClearSmartPointers(&m_ref);
+    m_ref.ClearSmartPointers();
 }
 
 // 0x00461290
@@ -309,13 +289,13 @@ void CObject::SelfEvent(uint32_t type, CStruct* data) { LaunchEvent(type, m_id, 
 // 0x00460A20
 void CObject::BroadcastEvent(uint32_t type, CStruct* data, float /*radius*/)
 {
-    LaunchEvent(type, kNoObjectId, m_id, data, true, -1.0f);
+    LaunchEvent(type, kUnassignedId, m_id, data, true, -1.0f);
 }
 
 // 0x00461930
 void CObject::SetID(uint32_t id)
 {
-    if (m_id != kNoObjectId && mp_manager)
+    if (m_id != kUnassignedId && mp_manager)
         mp_manager->VirtualReassignObjectId(this, id);
     m_id = id;
     CreateTagsIfNeeded();
@@ -626,7 +606,7 @@ bool CObject::Obj_SwitchScript(CStruct* params, CScript* /*script*/)
 }
 
 // 0x00460AD0
-CObject* FindObject(uint32_t id) { return TrackerGetObject(id); }
+CObject* FindObject(uint32_t id) { return Tracker()->LookUpObject(id); }
 
 // 0x00460AC0
 void Unlock(CObject* object, void* /*data*/) { object->m_objectFlags &= ~OBJECT_FLAG_LOCKED; }

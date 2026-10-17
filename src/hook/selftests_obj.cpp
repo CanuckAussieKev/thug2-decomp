@@ -18,6 +18,7 @@
 #include "game/obj/object.h"
 #include "game/obj/objman.h"
 #include "game/obj/smtptr.h"
+#include "game/obj/tracker.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
@@ -249,29 +250,29 @@ void InstallStandIns(StandIns& s)
         return 0u;
     });
     // CRefCounted (wt/trk): constructor, destructor, pointers cleared.
-    s.At({0x004637B0}, 0, [](Regs& r) {
+    s.At({0x004637B0, AddressOf(&Obj::CRefCounted::Construct)}, 0, [](Regs& r) {
         Rec(0x5310, {r.ecx});
         reinterpret_cast<uint32_t*>(r.ecx)[0] = 0x006478E4;
         reinterpret_cast<uint32_t*>(r.ecx)[1] = 0;
         return r.ecx;
     });
-    record({0x00463870}, 0, 0x5311, 0, true, 0);
-    record({0x00463820}, 0, 0x5312, 0, true, 0);
+    record({0x00463870, AddressOf(&Obj::CRefCounted::Destruct)}, 0, 0x5311, 0, true, 0);
+    record({0x00463820, AddressOf(&Obj::CRefCounted::ClearSmartPointers)}, 0, 0x5312, 0, true, 0);
     // --- the tracker (wt/trk) ---
-    s.At({0x00462120}, 4, [](Regs& r) {
+    s.At({0x00462120, AddressOf(&Obj::CTracker::LookUpObject)}, 4, [](Regs& r) {
         Rec(0x7A00, {r.ecx, r.args[0]});
         return Abs(g_obj_found);
     });
-    s.At({0x00462F00}, 0x18, [](Regs& r) {
+    s.At({0x00462F00, AddressOf(&Obj::CTracker::LaunchEvent)}, 0x18, [](Regs& r) {
         Rec(0x7A01, {r.ecx, r.args[0], r.args[1], r.args[2], r.args[3], r.args[4] & 0xFF, r.args[5]});
         return 0u;
     });
-    s.At({0x004621D0}, 0, [](Regs& r) {
+    s.At({0x004621D0, AddressOf(&Obj::CTracker::GetUniqueId)}, 0, [](Regs& r) {
         Rec(0x7A02, {r.ecx});
         return g_obj_nextId++;
     });
-    record({0x00462980}, 4, 0x7A03, 1, true, 0);
-    s.At({0x00462A20}, 12, [](Regs& r) {
+    record({0x00462980, AddressOf(&Obj::CTracker::AddObject)}, 4, 0x7A03, 1, true, 0);
+    s.At({0x00462A20, AddressOf(&Obj::CTracker::RemoveObject)}, 12, [](Regs& r) {
         Rec(0x7A04, {r.ecx, r.args[0], r.args[1], r.args[2]});
         return 0u;
     });
@@ -426,7 +427,7 @@ CObject* MakeObject(uint8_t* arena, int i, uint32_t id, uint32_t type, int prior
     object->m_node.priority = priority;
     object->m_node.next = &object->m_node;
     object->m_node.prev = &object->m_node;
-    object->unknown3C = 0;
+    object->m_aliasCount = 0;
     object->m_ref.m_vtable = reinterpret_cast<void**>(0x006477E0);
     object->m_ref.mp_smartPointers = nullptr;
     object->m_ref.mp_object = object;
@@ -469,7 +470,7 @@ std::vector<uint32_t> RunObjectTest(bool original)
     Call<void>(0x00461930, &CObject::SetID, a, 0x2222u);
     a->mp_manager = manager;
     Call<void>(0x00461930, &CObject::SetID, a, 0x3333u);
-    a->m_id = Obj::kNoObjectId;
+    a->m_id = Obj::kUnassignedId;
     Call<void>(0x00461930, &CObject::SetID, a, 0x4444u);
     Call<void>(0x00461970, &CObject::SetType, a, 0x7E7Eu);
     CStruct* tags = a->mp_tags;
@@ -853,7 +854,7 @@ std::vector<uint32_t> RunManagerTest(bool original)
     CObject* objects[8];
     const int priorities[8] = {5, 9, 5, 1, 9, 3, 7, 2};
     for (int i = 0; i < 8; ++i)
-        objects[i] = MakeObject(arena, i, i == 1 || i == 6 ? Obj::kNoObjectId : 0x100u + i, i % 3, priorities[i]);
+        objects[i] = MakeObject(arena, i, i == 1 || i == 6 ? Obj::kUnassignedId : 0x100u + i, i % 3, priorities[i]);
     for (int i = 0; i < 5; ++i)
         Call<void>(0x00461A00, &CBaseManager::RegisterObject, general, objects[i]);
     // Reassign an id, move one by priority, look one up.
@@ -955,12 +956,12 @@ std::vector<uint32_t> RunManagerTest(bool original)
         Result(GameVariable<uint32_t>(0x006F0FC4));
     }
     // An event listener registered (twice: the list).
-    auto* listeners = reinterpret_cast<Obj::CTrackerEventListeners*>(arena + 0x5300);
+    auto* listeners = reinterpret_cast<Obj::CTracker*>(arena + 0x5300);
     listeners->mp_eventListeners = reinterpret_cast<Obj::CEventListener*>(arena + 0x5400);
     auto* listener1 = reinterpret_cast<Obj::CEventListener*>(arena + 0x5500);
     auto* listener2 = reinterpret_cast<Obj::CEventListener*>(arena + 0x5520);
-    Call<void>(0x00461FE0, &Obj::CTrackerEventListeners::RegisterEventListener, listeners, listener1);
-    Call<void>(0x00461FE0, &Obj::CTrackerEventListeners::RegisterEventListener, listeners, listener2);
+    Call<void>(0x00461FE0, &Obj::CTracker::RegisterEventListener, listeners, listener1);
+    Call<void>(0x00461FE0, &Obj::CTracker::RegisterEventListener, listeners, listener2);
     return EndRun(arena);
 }
 

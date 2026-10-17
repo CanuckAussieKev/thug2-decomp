@@ -55,6 +55,7 @@ add_library(thug2_code OBJECT
     src/hook/selftest.cpp
     src/hook/selftest_runner.cpp
     src/hook/selftests_skaterB.cpp
+    src/hook/selftests_menu.cpp
     src/hook/selftests_gfx.cpp
     src/hook/selftests_platform.cpp
     src/hook/selftests_pc.cpp
@@ -72,6 +73,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_csD.cpp
     src/hook/selftests_obj.cpp
     src/hook/selftests_evt.cpp
+    src/hook/selftests_trk.cpp
     src/hook/selftests_csA.cpp
     src/hook/selftests_csC.cpp
     src/hook/selftests_csB.cpp
@@ -88,6 +90,8 @@ add_library(thug2_code OBJECT
     src/game/core/string.cpp
     src/game/file/asset_bundle.cpp
     src/game/front/screen_element.cpp
+    src/game/front/front_end.cpp
+    src/game/skate/competition.cpp
     src/game/gfx/screen.cpp
     src/game/gfx/settings.cpp
     src/game/gfx/glyphs.cpp
@@ -114,6 +118,7 @@ add_library(thug2_code OBJECT
     src/game/obj/object.cpp
     src/game/obj/objman.cpp
     src/game/obj/smtptr.cpp
+    src/game/obj/tracker.cpp
     src/game/skater/rotation.cpp
     src/game/sio/device.cpp
     src/game/sio/sdl_input.cpp

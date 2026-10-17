@@ -61,7 +61,7 @@ constexpr uint32_t OBJECT_FLAG_LOCKED = 0x2;    // not deleted by the manager wa
 constexpr uint32_t OBJECT_FLAG_INVISIBLE = 0x4; // Obj_Invisible / Obj_Visible
 
 // No id yet (0x0064780C: the manager gives it a unique one when registered) / no type (0x00647810).
-constexpr uint32_t kNoObjectId = 0xFFFFFFFF;
+constexpr uint32_t kUnassignedId = 0xFFFFFFFF;
 constexpr uint32_t kNoObjectType = 0;
 
 class CObject : public CRefCounted {
@@ -174,20 +174,20 @@ public:
     uint32_t m_objectFlags;        // +0x08 OBJECT_FLAG_*
     CBaseManager* mp_manager;      // +0x0C the manager it is registered with
     Script::CScript* m_script;     // +0x10 its own script (made on demand)
-    uint32_t m_id;                 // +0x14 kNoObjectId until registered
+    uint32_t m_id;                 // +0x14 kUnassignedId until registered
     uint32_t m_type;               // +0x18
     uint32_t m_visitedMask;        // +0x1C CBaseManager::ForEach's bits (one per walk in progress)
     Script::CStruct* mp_tags;      // +0x20 made on demand (front-end heap)
     uint32_t m_flags;              // +0x24 the script flags (Obj_SetFlag...; never initialised here)
     CObjectNode m_node;            // +0x28 in the manager's list (or its dead list)
-    uint32_t unknown3C;            // +0x3C (zeroed)
+    uint32_t m_aliasCount;         // +0x3C the tracker's aliases of it (tracker.cpp)
     CObjectRef m_ref;              // +0x40
 };
 static_assert(offsetof(CObject, m_objectFlags) == 0x08 && offsetof(CObject, mp_manager) == 0x0C &&
                   offsetof(CObject, m_script) == 0x10 && offsetof(CObject, m_id) == 0x14 &&
                   offsetof(CObject, m_type) == 0x18 && offsetof(CObject, m_visitedMask) == 0x1C &&
                   offsetof(CObject, mp_tags) == 0x20 && offsetof(CObject, m_flags) == 0x24 &&
-                  offsetof(CObject, m_node) == 0x28 && offsetof(CObject, unknown3C) == 0x3C &&
+                  offsetof(CObject, m_node) == 0x28 && offsetof(CObject, m_aliasCount) == 0x3C &&
                   offsetof(CObject, m_ref) == 0x40 && sizeof(CObject) == 0x4C,
               "layout must match the original (CCompositeObject's fields start at 0x4C)");
 

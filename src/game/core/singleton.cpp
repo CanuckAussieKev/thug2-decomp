@@ -9,6 +9,7 @@
 #include "game/file/pre.h"
 #include "game/mc/memcard.h"
 #include "game/obj/objman.h"
+#include "game/obj/tracker.h"
 #include "game/script/cache.h"
 #include "game/sio/device.h"
 #include "game/sys/mlp.h"
@@ -75,11 +76,10 @@ struct MlpManager {
 // Named by their Create functions where there's no better name yet (Sys::Main makes them all).
 using MdlManager = GameSingleton<0x0044F6F0, 0x0044F740, 0x0064AFB8>;   // the module manager
 using SoundManager = GameSingleton<0x0047BA60, 0x0047C6C0, 0x006472B4>; // the sound effects manager
-// The object tracker (its Create 0x00463730: wt/trk).
 struct ObjectTracker {
-    using Type = void;
+    using Type = Obj::CTracker;
     static constexpr uint32_t kVtable = 0x0064AFB4;
-    static void* Create(bool create) { return GameFunction<void*(__cdecl*)(bool)>(0x00463730)(create); }
+    static Type* Create(bool create) { return Obj::CreateTracker(create); }
     static void Release() { Obj::ReleaseTracker(); }
 };
 using Singleton44E7F0 = GameSingleton<0x0044E7F0, 0x0044E6B0, 0x0064AFC0>;

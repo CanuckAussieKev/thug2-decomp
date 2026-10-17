@@ -11,6 +11,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/obj/event.h"
+#include "game/obj/tracker.h"
 #include "game/script/cache.h"
 #include "game/script/parse.h"
 #include "game/script/qb.h"
@@ -32,19 +33,6 @@ constexpr float kSecondsPerMs = 0.001f;
 
 // The checksum of `exception` (an event handler table element that is an exception handler).
 constexpr uint32_t kExceptionFlag = 0x80367192;
-
-// The object tracker (0x006F0FC0): which scripts listen for which event types. Still the game's.
-void* Tracker() { return GameVariable<void*>(0x006F0FC0); }
-// 0x00463370: `script` waits for / handles events of type `type`.
-void TrackerAddListener(uint32_t type, CScript* script)
-{
-    GameFunction<void(__thiscall*)(void*, uint32_t, CScript*)>(0x00463370)(Tracker(), type, script);
-}
-// 0x00463450: no longer.
-void TrackerRemoveListener(uint32_t type, CScript* script)
-{
-    GameFunction<void(__thiscall*)(void*, uint32_t, CScript*)>(0x00463450)(Tracker(), type, script);
-}
 
 using Obj::CEventHandlerTable;
 
@@ -174,7 +162,7 @@ void CScript::Block(uint32_t eventType)
     m_waitType = WAIT_TYPE_BLOCKED;
     m_waitArg = eventType;
     if (eventType) {
-        TrackerAddListener(eventType, this);
+        Obj::Tracker()->AddListener(eventType, this);
         m_spawnFlags |= SCRIPT_FLAG_TRACKER_BLOCKED;
     }
 }
@@ -373,7 +361,7 @@ void CScript::ClearEventHandler(uint32_t eventType)
 {
     if (m_eventHandlers) {
         m_eventHandlers->RemoveType(eventType);
-        TrackerRemoveListener(eventType, this);
+        Obj::Tracker()->RemoveListener(eventType, this);
     }
 }
 

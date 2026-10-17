@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 namespace Obj {
 
 template <typename T>
@@ -9,6 +11,15 @@ class CSmtPtr;
 // (so they can be cleared when it dies instead of dangling).
 class CRefCounted {
 public:
+    // 0x004637B0: the constructor (vtable 0x006478E4, no smart pointers; returns this).
+    CRefCounted* Construct();
+    // 0x00463870: the destructor: every smart pointer to it is cleared (0x00463820). 0x00463880: the scalar
+    // deleting destructor (vtable slot 0; returns this).
+    void Destruct();
+    CRefCounted* ScalarDelete(uint8_t flags);
+    // 0x00463820: clear every smart pointer to it (each is taken out of its object's list and nulled).
+    void ClearSmartPointers();
+
     // 0x004637C0: onto the front of the list (the pointer's own `prev` isn't touched).
     void AddSmartPointer(CSmtPtr<CRefCounted>* pointer);
     // 0x004637E0: out of the list; its links are cleared.

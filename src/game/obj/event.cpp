@@ -6,7 +6,7 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
-#include "game/obj/objman.h"
+#include "game/obj/tracker.h"
 #include "game/script/cscript.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
@@ -30,33 +30,16 @@ constexpr uint32_t kExceptionFlag = 0x80367192;
 constexpr uint32_t kObjectFlagSpawnHandlers = 0x10000;
 uint32_t ObjectFlags(const CObject* object) { return reinterpret_cast<const uint32_t*>(object)[2]; }
 
-// The tracker (0x006F0FC0): which scripts listen for which event types, the event listeners, the event log.
-// Not rewritten here (wt/trk: 0x00462000-0x004639E0; wt/obj: up to 0x00462000).
-void* Tracker() { return GameVariable<void*>(0x006F0FC0); }
-// 0x00463370 / 0x00463450: `script` listens for events of `type` / no longer. -> wt/trk
-void TrackerAddListener(uint32_t type, CScript* script)
-{
-    GameFunction<void(__thiscall*)(void*, uint32_t, CScript*)>(0x00463370)(Tracker(), type, script);
-}
-void TrackerRemoveListener(uint32_t type, CScript* script)
-{
-    GameFunction<void(__thiscall*)(void*, uint32_t, CScript*)>(0x00463450)(Tracker(), type, script);
-}
-// 0x00461FE0: onto the front of the listener list (and m_registered).
+// The tracker (0x006F0FC0, tracker.h): which scripts listen for which event types, the event listeners, the
+// event log.
+void TrackerAddListener(uint32_t type, CScript* script) { Tracker()->AddListener(type, script); }
+void TrackerRemoveListener(uint32_t type, CScript* script) { Tracker()->RemoveListener(type, script); }
 void TrackerRegisterListener(CEventListener* listener)
 {
-    static_cast<CTrackerEventListeners*>(Tracker())->RegisterEventListener(listener);
+    Tracker()->RegisterEventListener(listener);
 }
-// 0x00462000: off the list (m_registered cleared). -> wt/trk
-void TrackerUnregisterListener(CEventListener* listener)
-{
-    GameFunction<void(__thiscall*)(void*, CEventListener*)>(0x00462000)(Tracker(), listener);
-}
-// 0x00462B10: the event log: `script` dealt with `event` (`how`). -> wt/trk
-void TrackerLogEventHandled(CEvent* event, uint32_t how, uint32_t script)
-{
-    GameFunction<void(__thiscall*)(void*, CEvent*, uint32_t, uint32_t)>(0x00462B10)(Tracker(), event, how, script);
-}
+void TrackerUnregisterListener(CEventListener* listener) { Tracker()->RemoveEventListener(listener); }
+void TrackerLogEventHandled(CEvent* event, uint32_t how, uint32_t script) { Tracker()->LogHandled(event, how, script); }
 
 // `new CStruct` / `new CStruct(*source)` (null if the pool is full) and `delete structure`.
 CStruct* NewEmptyStruct()
