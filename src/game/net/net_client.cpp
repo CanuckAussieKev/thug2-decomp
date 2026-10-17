@@ -156,7 +156,7 @@ void Client::ReceiveData()
             return;
         }
         Field<int>(this, AppField::kTotalBytesIn) += received;
-        int size = (Field<uint32_t>(this, AppField::kFlags) & kAppTwoByteTrailer) ? received - 2 : received;
+        int size = (Field<uint32_t>(this, AppField::kFlags) & kAppSecure) ? received - 2 : received;
         auto& server = Field<sockaddr_in>(this, AppField::kServerAddress);
         if (Conn* conn = GetConnectionByAddress(this, server.sin_addr.s_addr, ntohs(server.sin_port))) {
             char*& readPtr = Field<char*>(conn, ConnField::kReadPtr);

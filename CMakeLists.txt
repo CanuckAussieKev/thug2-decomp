@@ -81,6 +81,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_csA.cpp
     src/hook/selftests_csC.cpp
     src/hook/selftests_csB.cpp
+    src/hook/selftests_netC.cpp
     src/game/core/alloc.cpp
     src/game/core/crc.cpp
     src/game/core/dbg.cpp

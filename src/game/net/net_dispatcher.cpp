@@ -101,7 +101,7 @@ MsgHandler* Dispatcher::AddHandler(uint8_t id, MsgHandlerCode code, uint32_t fla
 }
 
 // 0x0045A750
-int Dispatcher::DispatchMessage(MsgHandlerContext* context)
+int Dispatcher::DispatchMsg(MsgHandlerContext* context)
 {
     Lst::Search<MsgHandler> search;
     MsgHandler* next;
@@ -143,7 +143,7 @@ int Dispatcher::DispatchMsgHandlers(Conn* conn, uint32_t flags)
 
     for (char* p = readBuffer; p < readPtr; p += context.m_MsgLength) {
         context.m_MsgId = static_cast<uint8_t>(*p++);
-        uint8_t* table = MessageFlagsTable(Field<App*>(conn, ConnField::kApp));
+        uint8_t* table = GetManager(Field<App*>(conn, ConnField::kApp));
         bool hasLength = !(MessageFlags(table, context.m_MsgId) & kMsgNoLength);
         if (hasLength) {
             context.m_MsgLength = *reinterpret_cast<uint16_t*>(p);
@@ -159,7 +159,7 @@ int Dispatcher::DispatchMsgHandlers(Conn* conn, uint32_t flags)
         }
         if (IsForeign(conn))
             context.m_PacketFlags |= kPacketForeign;
-        int result = DispatchMessage(&context);
+        int result = DispatchMsg(&context);
         if (result == kHandlerError || result == kHandlerHalt) {
             readPtr = readBuffer;
             return kHandlerHalt;
@@ -194,5 +194,5 @@ REPLACE(0x0045A590, &Net::MsgHandler::Destroy);
 REPLACE(0x0045A5C0, &Net::Dispatcher::AddHandler);
 REPLACE(0x0045A640, &Net::Dispatcher::Init);
 REPLACE(0x0045A690, &Net::Dispatcher::Deinit);
-REPLACE(0x0045A750, &Net::Dispatcher::DispatchMessage);
+REPLACE(0x0045A750, &Net::Dispatcher::DispatchMsg);
 REPLACE(0x0045A830, &Net::Dispatcher::DispatchMsgHandlers);

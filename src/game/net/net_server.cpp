@@ -69,10 +69,10 @@ void Server::ReceiveData()
             return;
         }
         Field<int>(this, AppField::kTotalBytesIn) += received;
-        int size = (Field<uint32_t>(this, AppField::kFlags) & kAppTwoByteTrailer) ? received - 2 : received;
+        int size = (Field<uint32_t>(this, AppField::kFlags) & kAppSecure) ? received - 2 : received;
         if (Conn* conn = GetConnectionByAddress(this, from.sin_addr.s_addr, ntohs(from.sin_port))) {
             char*& readPtr = Field<char*>(conn, ConnField::kReadPtr);
-            if ((IsNew(conn) || !(Field<uint32_t>(this, AppField::kFlags) & kAppTwoByteTrailer)) &&
+            if ((IsNew(conn) || !(Field<uint32_t>(this, AppField::kFlags) & kAppSecure)) &&
                 readPtr + size < Field<char*>(conn, ConnField::kReadBuffer) + kConnReceiveBufferSize) {
                 if (ReadPacket(this, buffer, readPtr, received)) {
                     readPtr += size;

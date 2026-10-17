@@ -22,7 +22,7 @@ T& Field(O* object, uint32_t offset)
     return *reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(object) + offset);
 }
 
-// The message flags table (App +0x1440, the "message metrics"): one byte per message id at +0x28.
+// The network manager (Net::Manager, App +0x1440) keeps a flags byte per message id (at +0x28).
 // Bit 0: the message is sent without its length (fixed size).
 constexpr uint8_t kMsgNoLength = 1;
 
@@ -37,7 +37,7 @@ constexpr uint32_t kLatePackets = 0x1408;      // timestamps older than the newe
 constexpr uint32_t kDupePackets = 0x140C;      // timestamps seen twice
 constexpr uint32_t kSocket = 0x1428;
 constexpr uint32_t kConnected = 0x143C;        // bool: the socket is connect()ed (send/recv, not sendto/recvfrom)
-constexpr uint32_t kMsgFlags = 0x1440;         // the message flags table (see kMsgNoLength)
+constexpr uint32_t kManager = 0x1440;          // Net::Manager (its message flags: kMsgNoLength)
 constexpr uint32_t kTask = 0x1448;             // Tsk::Task: the App's per-frame work
 constexpr uint32_t kServerUnknown1458 = 0x1458; // cleared by Server::Init
 constexpr uint32_t kReceiveBuffer = 0x1970;    // 0x514 bytes
@@ -50,7 +50,7 @@ constexpr uint32_t kServerAddress = 0x1F08;    // sockaddr_in (Client::ConnectTo
 // App flags (+0x1E84).
 constexpr uint32_t kAppMeasureLatency = 0x4;   // send latency tests
 constexpr uint32_t kAppAcceptForeign = 0x10;   // (0x00456FA0)
-constexpr uint32_t kAppTwoByteTrailer = 0x20;  // received sizes count two bytes fewer
+constexpr uint32_t kAppSecure = 0x20;          // checksummed packets: two bytes fewer counted
 
 constexpr uint32_t kMaxPacketSize = 0x512;     // a packet being built
 constexpr uint32_t kReceiveBufferSize = 0x514;
@@ -271,8 +271,8 @@ inline void TerminateConnection(App* app, Conn* conn)
 inline void ReportSocketError(App* app) { GameFunction<void(__thiscall*)(App*)>(0x00456A90)(app); }
 // -> App::Init (wt/netA)
 inline bool AppInit(App* app) { return GameFunction<bool(__thiscall*)(App*)>(0x00457110)(app); }
-// -> App::GetMessageFlags (wt/netA): the message flags table
-inline uint8_t* MessageFlagsTable(App* app) { return GameFunction<uint8_t*(__thiscall*)(App*)>(0x00456AF0)(app); }
+// -> App::GetManager (wt/netA)
+inline uint8_t* GetManager(App* app) { return GameFunction<uint8_t*(__thiscall*)(App*)>(0x00456AF0)(app); }
 // -> App::StreamMessage (wt/netB)
 inline void StreamMessage(App* app, Conn* conn, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5,
                           uint32_t a6, uint32_t a7)
@@ -281,10 +281,10 @@ inline void StreamMessage(App* app, Conn* conn, uint32_t a1, uint32_t a2, uint32
         0x00458740)(app, conn, a1, a2, a3, a4, a5, a6, a7);
 }
 
-// The message flags table (0x00454980).
-inline uint8_t MessageFlags(uint8_t* table, uint8_t id)
+// Net::Manager's flags for a message id (0x00454980).
+inline uint8_t MessageFlags(uint8_t* manager, uint8_t id)
 {
-    return GameFunction<uint8_t(__thiscall*)(uint8_t*, uint32_t)>(0x00454980)(table, id);
+    return GameFunction<uint8_t(__thiscall*)(uint8_t*, uint32_t)>(0x00454980)(manager, id);
 }
 
 // Conn (0x00455xxx-0x00456xxx, not decompiled yet). Its flags (+0x64): 1 local (the App's own client/server in
@@ -313,8 +313,8 @@ inline void FlagMessagesForResending(Conn* conn, uint32_t timestamp)
 }
 // The connection's destructor (0x00456790).
 inline void DestroyConn(Conn* conn) { GameFunction<void(__thiscall*)(Conn*)>(0x00456790)(conn); }
-// The latency average (0x004569B0, wt/netA): adds a measurement.
-// -> Net::AverageFilter::InputValue (wt/netA)
+// The connection's latency test (Net::LatencyTest at +0x1CA4) takes a measurement.
+// -> LatencyTest::InputLatencyValue (wt/netA)
 inline void AddLatency(Conn* conn, uint32_t latency)
 {
     GameFunction<void(__thiscall*)(void*, uint32_t)>(0x004569B0)(&Field<uint8_t>(conn, ConnField::kLatency), latency);

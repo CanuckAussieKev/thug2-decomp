@@ -84,7 +84,7 @@ public:
     // 0x0045A5C0: a handler for message `id`, in the network heap.
     MsgHandler* AddHandler(uint8_t id, MsgHandlerCode code, uint32_t flags, void* data, int priority);
     // 0x0045A750: the message's handlers, in order, until one stops; HandlerResult (4 comes back as 1).
-    int DispatchMessage(MsgHandlerContext* context);
+    int DispatchMsg(MsgHandlerContext* context);
     // 0x0045A830: every message in the connection's read buffer, then the acks they asked for. 1, or 2 (a
     // handler stopped the packet), or 3 (the connection was destroyed).
     int DispatchMsgHandlers(Conn* conn, uint32_t flags);

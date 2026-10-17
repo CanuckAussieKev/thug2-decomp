@@ -45,13 +45,13 @@ void FreeQueuedMsg(QueuedMsg* msg)
 bool AppendMessage(App* app, Conn* conn, QueuedMsg* msg)
 {
     char*& writePtr = Field<char*>(conn, ConnField::kWritePtr);
-    uint8_t flags = MessageFlags(Field<uint8_t*>(app, AppField::kMsgFlags), msg->m_Id);
+    uint8_t flags = MessageFlags(Field<uint8_t*>(app, AppField::kManager), msg->m_Id);
     auto size = static_cast<uint16_t>(msg->m_Length + ((~flags & kMsgNoLength) ? 3 : 1));
     if (static_cast<int>(size - reinterpret_cast<uint32_t>(Field<char*>(conn, ConnField::kWriteBuffer)) +
                          reinterpret_cast<uint32_t>(writePtr)) >= static_cast<int>(kMaxPacketSize))
         return false;
     *writePtr++ = static_cast<char>(msg->m_Id);
-    if (!(MessageFlags(Field<uint8_t*>(app, AppField::kMsgFlags), msg->m_Id) & kMsgNoLength)) {
+    if (!(MessageFlags(Field<uint8_t*>(app, AppField::kManager), msg->m_Id) & kMsgNoLength)) {
         *reinterpret_cast<uint16_t*>(writePtr) = msg->m_Length;
         writePtr += 2;
     }
@@ -102,7 +102,7 @@ int DispatchStream(MsgHandlerContext* context, StreamLink* link, StreamDesc* des
     std::memcpy(whole.m_Msg, desc->m_Data, desc->m_Size);
     if (checkChecksum && Crc::GenerateCRCFromBuffer(whole.m_Msg, desc->m_Size) != desc->m_Checksum)
         whole.m_PacketFlags |= kPacketChecksumMismatch;
-    int result = GetDispatcher(context->m_App)->DispatchMessage(&whole);
+    int result = GetDispatcher(context->m_App)->DispatchMsg(&whole);
     if (result != kHandlerKeep && result != kHandlerMsgDestroyed) {
         if (StreamDesc* stream = link->m_Desc) {
             DestroyStreamDesc(stream);
@@ -271,7 +271,7 @@ int App::HandleCompressedMessages(MsgHandlerContext* context)
     inner.m_PacketFlags = context->m_PacketFlags;
     inner.m_MsgId = id;
     inner.m_MsgLength = length;
-    int result = GetDispatcher(context->m_App)->DispatchMessage(&inner);
+    int result = GetDispatcher(context->m_App)->DispatchMsg(&inner);
     Mem::Manager::Get()->Free(inner.m_Msg);
     Mem::Manager::Get()->Free(data);
     return result;
