@@ -262,6 +262,11 @@ void CCompositeObject::Update()
 {
     if (m_compositeFlags & COMPOSITE_FLAG_PAUSED)
         return;
+    // Not original - the menu_backdrop feature (see game/front/frontend_objects.h): a front-end object moved into
+    // the backdrop is at its real place for its own update...
+    // Original behaviour: nothing here - the object updates where it is; with menu_backdrop a moved one is put back at
+    // its real (shop) place for its update.
+    Front::FrontEndObjects::BeforeUpdate(this);
     if (!(m_compositeFlags & COMPOSITE_FLAG_SUSPENDED)) {
         if (m_script)
             m_script->Update();
@@ -269,9 +274,6 @@ void CCompositeObject::Update()
             return;
         VirtualOwnUpdate();
     }
-    // Not original - the menu_backdrop feature (see game/front/frontend_objects.h): a front-end object moved into
-    // the backdrop takes in what its script did (or is put back) before its components run...
-    Front::FrontEndObjects::BeforeComponents(this);
     for (CBaseComponent* component = mp_components; component; component = component->mp_next) {
         if (component->m_flags & COMPONENT_FLAG_SUSPENDED)
             continue;
@@ -279,7 +281,9 @@ void CCompositeObject::Update()
         if (m_objectFlags & OBJECT_FLAG_DEAD)
             break;
     }
-    // ...and what they did. (Nothing for objects that aren't moved.)
+    // ...and moved back into it after. (Nothing for objects that aren't moved.)
+    // Original behaviour: nothing here - the update ends with w = 1 and the teleported flag cleared; with
+    // menu_backdrop a moved object is moved into LA again from wherever its update left it.
     Front::FrontEndObjects::AfterComponents(this);
     m_pos.w = 1.0f;
     m_compositeFlags &= ~COMPOSITE_FLAG_TELEPORTED;

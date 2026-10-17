@@ -155,6 +155,46 @@ void TestFrontEndPlacement()
         }
     }
     Check(ok, "front-end objects: the placement for views 1 and 2 (worked values), its inverse, offsets");
+
+    // Different fields of view: the depth scale (worked: tan 25 / tan 36 = 0.641817, tan 23.3 / tan 36 = 0.592764),
+    // and what the menu camera saw lands where it was on screen, the same size.
+    ok = Near(FO::DepthScale(50.0f, 72.0f), 0.641818, 1e-6) && Near(FO::DepthScale(46.6f, 72.0f), 0.592764, 1e-6) &&
+         FO::DepthScale(72.0f, 72.0f) == 1.0 && FO::DepthScale(0.0f, 72.0f) == 1.0 &&
+         FO::DepthScale(50.0f, 0.0f) == 1.0 && FO::DepthScale(180.0f, 72.0f) == 1.0 &&
+         Near(FO::DepthScale(72.0f, 50.0f), 1.0 / 0.641818, 1e-5);
+    for (int v = 0; v < 2 && ok; ++v) {
+        const MB::View& view = *MB::ViewFor(v + 1);
+        const double k = FO::DepthScale(50.0f, 72.0f);
+        FO::Placement p = FO::MakePlacement(kCamPos, kCamBack, kCamUp, view, kNoOffset, k);
+        double viewFrame[3][3];
+        FO::CameraFrame(view.back, view.up, viewFrame);
+        // Points at (right 10, up 5, 100 ahead) and (-30, 12, 250 ahead) of the menu camera.
+        const double local[2][3] = {{10.0, 5.0, 100.0}, {-30.0, 12.0, 250.0}};
+        for (const auto& l : local) {
+            Mth::Vector point = {static_cast<float>(kCamPos[0] + l[0] * frame[0][0] + l[1] * frame[1][0] - l[2] * frame[2][0]),
+                                 static_cast<float>(kCamPos[1] + l[0] * frame[0][1] + l[1] * frame[1][1] - l[2] * frame[2][1]),
+                                 static_cast<float>(kCamPos[2] + l[0] * frame[0][2] + l[1] * frame[1][2] - l[2] * frame[2][2]),
+                                 1.0f};
+            Mth::Vector placed = FO::MapPoint(p, point);
+            double d[3] = {placed.x - view.pos[0], placed.y - view.pos[1], placed.z - view.pos[2]};
+            double right = d[0] * viewFrame[0][0] + d[1] * viewFrame[0][1] + d[2] * viewFrame[0][2];
+            double up = d[0] * viewFrame[1][0] + d[1] * viewFrame[1][1] + d[2] * viewFrame[1][2];
+            double ahead = -(d[0] * viewFrame[2][0] + d[1] * viewFrame[2][1] + d[2] * viewFrame[2][2]);
+            ok = ok && Near(right, l[0], 2e-3) && Near(up, l[1], 2e-3) && Near(ahead, l[2] * 0.641818, 2e-3);
+            // On screen (x / (depth tan(half fov))): the same with the menu camera's 50 and the view's 72 degrees.
+            const double t50 = std::tan(25.0 * 3.14159265358979 / 180.0), t72 = std::tan(36.0 * 3.14159265358979 / 180.0);
+            ok = ok && Near(right / (ahead * t72), l[0] / (l[2] * t50), 1e-4) &&
+                 Near(up / (ahead * t72), l[1] / (l[2] * t50), 1e-4);
+            // And back.
+            Mth::Vector back = FO::UnmapPoint(p, placed);
+            ok = ok && VecNear(back, point.x, point.y, point.z, 2e-3);
+        }
+        // Directions only turn.
+        FO::Placement same = FO::MakePlacement(kCamPos, kCamBack, kCamUp, view, kNoOffset);
+        for (int i = 0; i < 9; ++i)
+            ok = ok && p.rot[i / 3][i % 3] == same.rot[i / 3][i % 3];
+    }
+    Check(ok, "front-end objects: the placement with the menu camera's field of view (depth scale)");
 }
 
 // --- stand-in objects ----------------------------------------------------------------------------------------------
@@ -393,7 +433,7 @@ void TestFrontEndObjectStates()
     std::vector<uint8_t> mRing = Snapshot(ring), mSkater = Snapshot(skater);
     FO::Step(in, true, FoundLookup);
     FO::Step(in, false, FoundLookup);
-    FO::BeforeComponents(ring.Get());
+    FO::AfterComponents(ring.Get()); // (outside an update: the writes since are looked at)
     FO::AfterComponents(skater.Get());
     if (!(Same(ring, mRing) && Same(skater, mSkater) && FO::MovedCount() == 3))
         fail("steady");
@@ -580,7 +620,7 @@ void TestFrontEndObjectStates()
             expected[0][k] = c * (&o0.x)[k] + s * (&o1.x)[k];
             expected[1][k] = -s * (&o0.x)[k] + c * (&o1.x)[k];
         }
-        FO::BeforeComponents(o); // (nothing new)
+        FO::AfterComponents(o); // (nothing new)
         // Restore through a camera change and check.
         FO::Inputs none = in;
         none.menuCamera = 0;
@@ -608,8 +648,8 @@ void TestFrontEndObjectStates()
     clearFlags();
     ring.Get()->m_pos.w = 0.25f;
     skater.Get()->m_matrix.row[3].w = 2.0f;
-    FO::BeforeComponents(ring.Get());
-    FO::BeforeComponents(skater.Get());
+    FO::AfterComponents(ring.Get());
+    FO::AfterComponents(skater.Get());
     if (ring.Get()->m_compositeFlags & kTeleported)
         fail("w only: no teleport");
     {
@@ -652,7 +692,7 @@ void TestFrontEndObjectStates()
             fail("one row changed in place");
         // - w only, then the position written back to its real value: moved again, the new w kept.
         k->m_matrix.row[0].w = 3.0f;
-        FO::BeforeComponents(k);
+        FO::AfterComponents(k);
         k->m_pos = ks->m_pos;
         FO::AfterComponents(k);
         Mth::Vector pos = FO::MapPoint(p1, ks->m_pos);
@@ -686,9 +726,12 @@ void TestFrontEndObjectStates()
     // skates; moved again once paused.
     clearFlags();
     control.bytes[0x18] = 0;
-    FO::BeforeComponents(skater.Get());
-    if (!(PoseRestored(skater, sSkater) && FO::MovedCount() == 2 && !FO::IsMoved(skater.Get())))
-        fail("unpaused: restored");
+    FO::BeforeUpdate(skater.Get()); // (its update: at its real place; its physics unpaused meanwhile)
+    if (!(std::memcmp(skater.bytes, sSkater.data(), 0x104) == 0 && FO::IsMoved(skater.Get())))
+        fail("unpaused: real place for its update");
+    FO::AfterComponents(skater.Get());
+    if (!(std::memcmp(skater.bytes, sSkater.data(), 0x104) == 0 && FO::MovedCount() == 2 && !FO::IsMoved(skater.Get())))
+        fail("unpaused: left there");
     FO::Step(in, true, FoundLookup);
     if (FO::IsMoved(skater.Get()) || std::memcmp(skater.bytes, sSkater.data(), 0x104) != 0)
         fail("unpaused: not moved");
@@ -754,7 +797,7 @@ void TestFrontEndObjectStates()
     FO::Reset();
     FillObject(ring, kCompositeVtable, kRing, 2);
     sRing = Snapshot(ring);
-    FO::BeforeComponents(ring.Get());
+    FO::BeforeUpdate(ring.Get());
     FO::AfterComponents(ring.Get());
     if (!Same(ring, sRing))
         fail("hooks with nothing moved");
@@ -770,12 +813,28 @@ void TestFrontEndObjectStates()
 Mth::Vector g_hook_seen;
 bool g_hook_doWrite;
 Mth::Vector g_hook_write;
+int g_hook_turn; // 1: about the object's own z (Rz * m, the motion component's), 2: about the world's z (m * Rz)
 void __fastcall HookComponentUpdate(Obj::CBaseComponent* component, void* /*edx*/)
 {
     CCompositeObject* o = component->m_object;
     g_hook_seen = o->m_pos;
     if (g_hook_doWrite)
         o->m_pos = g_hook_write;
+    if (g_hook_turn) {
+        const float a = 0.3926991f, c = std::cos(a), s = std::sin(a);
+        Mth::Matrix& m = o->m_matrix;
+        if (g_hook_turn == 1) {
+            Mth::Vector r0 = m.row[0], r1 = m.row[1];
+            m.row[0] = {c * r0.x + s * r1.x, c * r0.y + s * r1.y, c * r0.z + s * r1.z, r0.w};
+            m.row[1] = {-s * r0.x + c * r1.x, -s * r0.y + c * r1.y, -s * r0.z + c * r1.z, r1.w};
+        } else {
+            for (int r = 0; r < 3; ++r) {
+                Mth::Vector v = m.row[r];
+                m.row[r] = {c * v.x - s * v.y, s * v.x + c * v.y, v.z, v.w};
+            }
+        }
+        o->m_displayMatrix = m; // (as the motion component copies it)
+    }
 }
 void* g_hookVtable[16];
 
@@ -839,7 +898,7 @@ void TestFrontEndObjectHooks()
     g_hook_write = {7.0f, -11.0f, 2.0f, 1.0f};
     ring.Get()->Update();
     Mth::Vector expected = FO::MapPoint(p1, g_hook_write);
-    ok = ok && std::memcmp(&g_hook_seen, &movedRing, 16) == 0;
+    ok = ok && std::memcmp(&g_hook_seen, &sRing.data()[0x4C], 16) == 0 && movedRing.x != g_hook_seen.x;
     ok = ok && std::memcmp(&ring.Get()->m_pos, &expected, 16) == 0 &&
          !(ring.Get()->m_compositeFlags & kTeleported);
 
@@ -849,8 +908,98 @@ void TestFrontEndObjectHooks()
     skater.Get()->Update();
     ok = ok && std::memcmp(&g_hook_seen, &sSkater.data()[0x4C], 16) == 0 && !FO::IsMoved(skater.Get());
     ok = ok && std::memcmp(skater.bytes + 0x4C, sSkater.data() + 0x4C, 0x100 - 0x4C) == 0;
-    (void)p1;
-    Check(ok, "front-end objects: CCompositeObject::Update's hooks (before and after the components)");
+    if (!ok)
+        Log("  front-end objects hooks: failed before the turns");
+
+    // Turned by a component during its update (Obj_Rotate in spin_menu_spin_geometry, either way round): turned as
+    // at its real place, then moved again - restored as the original's turn.
+    for (int turn = 1; turn <= 2 && ok; ++turn) {
+        FO::Reset();
+        FillObject(ring, kCompositeVtable, kRing, 2);
+        ring.Get()->mp_components = recorder2.Get();
+        sRing = Snapshot(ring);
+        FO::Step(in, true, FoundLookup);
+        FO::Step(in, true, FoundLookup);
+        g_hook_doWrite = false;
+        g_hook_turn = turn;
+        ring.Get()->Update();
+        ring.Get()->Update();
+        g_hook_turn = 0;
+        // The expected real orientation: the original turned twice the same way.
+        auto* was = reinterpret_cast<CCompositeObject*>(sRing.data());
+        Mth::Matrix expect = was->m_matrix;
+        for (int k = 0; k < 2; ++k) {
+            const double a = 0.3926991, c = std::cos(a), s = std::sin(a);
+            if (turn == 1) {
+                Mth::Vector r0 = expect.row[0], r1 = expect.row[1];
+                for (int j = 0; j < 3; ++j) {
+                    (&expect.row[0].x)[j] = static_cast<float>(c * (&r0.x)[j] + s * (&r1.x)[j]);
+                    (&expect.row[1].x)[j] = static_cast<float>(-s * (&r0.x)[j] + c * (&r1.x)[j]);
+                }
+            } else {
+                for (int r = 0; r < 3; ++r) {
+                    Mth::Vector v = expect.row[r];
+                    expect.row[r] = {static_cast<float>(c * v.x - s * v.y), static_cast<float>(s * v.x + c * v.y),
+                                     v.z, v.w};
+                }
+            }
+        }
+        for (int r = 0; r < 3; ++r) {
+            Mth::Vector placed = FO::MapDirection(p1, expect.row[r]);
+            ok = ok && VecNear(ring.Get()->m_matrix.row[r], placed.x, placed.y, placed.z, 2e-6) &&
+                 VecNear(ring.Get()->m_displayMatrix.row[r], placed.x, placed.y, placed.z, 2e-6);
+        }
+        Mth::Vector placedPos = FO::MapPoint(p1, was->m_pos);
+        ok = ok && std::memcmp(&ring.Get()->m_pos, &placedPos, 16) == 0;
+        FO::Inputs none = in;
+        none.menuCamera = 0;
+        FO::Step(none, true, FoundLookup);
+        for (int r = 0; r < 3; ++r)
+            ok = ok && VecNear(ring.Get()->m_matrix.row[r], expect.row[r].x, expect.row[r].y, expect.row[r].z, 2e-6);
+        ok = ok && std::memcmp(&ring.Get()->m_pos, &was->m_pos, 16) == 0;
+        if (!ok)
+            Log("  front-end objects hooks: turn %d", turn);
+    }
+    // A nested update (Obj_ForceUpdate from its own update): one real place, moved once at the outer update's end.
+    if (ok) {
+        FO::Reset();
+        FillObject(ring, kCompositeVtable, kRing, 2);
+        sRing = Snapshot(ring);
+        FO::Step(in, true, FoundLookup);
+        FO::Step(in, true, FoundLookup);
+        FO::BeforeUpdate(ring.Get());
+        FO::BeforeUpdate(ring.Get());
+        ring.Get()->m_pos.x += 1.0f;
+        FO::AfterComponents(ring.Get());
+        ok = ok && std::memcmp(ring.bytes + 0x4C, sRing.data() + 0x4C, 4) != 0 && ring.Get()->m_pos.x < 1000.0f &&
+             ring.Get()->m_pos.x > -1000.0f; // (still at its real place)
+        FO::AfterComponents(ring.Get());
+        auto* was = reinterpret_cast<CCompositeObject*>(sRing.data());
+        Mth::Vector moved = FO::MapPoint(p1, {was->m_pos.x + 1.0f, was->m_pos.y, was->m_pos.z, was->m_pos.w});
+        ok = ok && std::memcmp(&ring.Get()->m_pos, &moved, 16) == 0;
+        // An update that ended early (died in its script): moved again from its real place at the next step.
+        FO::BeforeUpdate(ring.Get());
+        ring.Get()->m_pos.y += 2.0f;
+        FO::Step(in, false, FoundLookup);
+        Mth::Vector again = FO::MapPoint(p1, {was->m_pos.x + 1.0f, was->m_pos.y + 2.0f, was->m_pos.z, was->m_pos.w});
+        ok = ok && std::memcmp(&ring.Get()->m_pos, &again, 16) == 0 && FO::IsMoved(ring.Get());
+        // ...and its next update is at its real place again (the early end forgotten).
+        ring.Get()->mp_components = recorder2.Get();
+        g_hook_doWrite = false;
+        ring.Get()->Update();
+        Mth::Vector real = {was->m_pos.x + 1.0f, was->m_pos.y + 2.0f, was->m_pos.z, was->m_pos.w};
+        ok = ok && std::memcmp(&g_hook_seen, &real, 16) == 0;
+        // A position written from outside its update (a spawned script's Obj_MoveToNode): its update starts there.
+        ring.Get()->m_pos = {3.0f, -12.0f, 1.0f, 1.0f};
+        ring.Get()->Update();
+        Mth::Vector written = {3.0f, -12.0f, 1.0f, 1.0f};
+        Mth::Vector placedWritten = FO::MapPoint(p1, written);
+        ok = ok && std::memcmp(&g_hook_seen, &written, 16) == 0 &&
+             std::memcmp(&ring.Get()->m_pos, &placedWritten, 16) == 0;
+        if (!ok)
+            Log("  front-end objects hooks: nested / early end / written outside");
+    }
+    Check(ok, "front-end objects: CCompositeObject::Update's hooks (real place for the update, turns, nesting)");
     FO::Reset();
 }
 
@@ -1061,6 +1210,51 @@ void TestFrontEndObjectsGameState()
         if (MB::GameCameraPose(&noted, &notedMatrix))
             fail("setters: forgotten");
         g_gs_cameraComponent = cameraComponent.Get();
+    }
+    // The menu camera's field of view, noted from SetHFOV while held (or written directly: the renderer's hold
+    // point): the placement's depth scaled.
+    {
+        SettingScope scope(1);
+        ClearTeleported(ring);
+        g_gs_career[0x630] = 15;
+        FO::Update(true); // (restored, the poses forgotten)
+        g_gs_career[0x630] = 0;
+        MB::ForgetGameCameraPose();
+        g_gs_viewport->SetHFOV(50.0f);
+        if (MB::GameCameraFov(cam02) != 50.0f || MB::GameCameraFov(0x12345678) != 0.0f)
+            fail("fov noted");
+        if (g_gs_viewport->m_hFov != 72.0f)
+            fail("fov held");
+        for (int frame = 0; frame < 3; ++frame) {
+            FO::Update(true);
+            FO::Update(false);
+        }
+        FO::Placement pk = FO::MakePlacement(kCamPos, kCamBack, kCamUp, *MB::ViewFor(1), kNoOffset,
+                                             FO::DepthScale(50.0f, 72.0f));
+        if (!(FO::Applied() && MovedBy(ring.Get(), sRing, pk))) {
+            Log("  fov: applied %d, ring at (%.4f %.4f %.4f), expected (%.4f %.4f %.4f)", FO::Applied(),
+                ring.Get()->m_pos.x, ring.Get()->m_pos.y, ring.Get()->m_pos.z,
+                FO::MapPoint(pk, reinterpret_cast<CCompositeObject*>(sRing.data())->m_pos).x,
+                FO::MapPoint(pk, reinterpret_cast<CCompositeObject*>(sRing.data())->m_pos).y,
+                FO::MapPoint(pk, reinterpret_cast<CCompositeObject*>(sRing.data())->m_pos).z);
+            fail("fov placement");
+        }
+        g_gs_viewport->m_hFov = 40.0f;
+        MB::NoteAndHoldCamera(g_gs_viewport);
+        if (MB::GameCameraFov(cam02) != 40.0f || g_gs_viewport->m_hFov != 72.0f)
+            fail("fov written directly");
+        MB::NoteAndHoldCamera(g_gs_viewport); // (now the view's own: kept)
+        if (MB::GameCameraFov(cam02) != 40.0f)
+            fail("fov kept");
+        MB::ForgetGameCameraPose();
+        if (MB::GameCameraFov(cam02) != 0.0f)
+            fail("fov forgotten");
+        // Not held (another camera): not noted.
+        g_gs_anim = Crc::GenerateCRCFromString("skater_select_cam");
+        g_gs_viewport->SetHFOV(30.0f);
+        g_gs_anim = cam02;
+        if (MB::GameCameraFov(cam02) != 0.0f)
+            fail("fov not held");
     }
     // No skate module (CurrentLevel 0): the scene list decides; no camera animation: nothing.
     {

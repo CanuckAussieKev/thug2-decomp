@@ -52,7 +52,9 @@ namespace Front::FrontEndObjects {
 
 // A rigid transform (in double): p' = p * rot + trans (the game's row vectors), directions r' = r * rot.
 struct Placement {
-    double rot[3][3];
+    double rot[3][3];          // directions (orientation rows, velocity)
+    double point[3][3];        // points: p' = p * point + trans
+    double pointInverse[3][3]; // back: p = (p' - trans) * pointInverse
     double trans[3];
 };
 // A camera frame from its backward (row 2) and up (row 1) directions as the views are made (row 0 = up x back),
@@ -60,8 +62,16 @@ struct Placement {
 void CameraFrame(const float back[3], const float up[3], double frame[3][3]);
 // The placement taking a camera at `cameraPos` (back / up) to `view` - its position to the view's, its frame to the
 // view's - then moved by `offset` in the view's frame (right, up, back).
+//
+// The menu camera and the held view needn't have the same field of view: what the menu camera saw at depth d along
+// its view is put at depth d * depthScale along the held view (its sideways and up offsets kept), with
+// depthScale = tan(menu fov / 2) / tan(view fov / 2) (DepthScale) - so every point lands where it was on screen and
+// every object (not resized) appears the same size. Orientations are only turned.
 Placement MakePlacement(const float cameraPos[3], const float cameraBack[3], const float cameraUp[3],
-                        const MenuBackdrop::View& view, const float offset[3]);
+                        const MenuBackdrop::View& view, const float offset[3], double depthScale = 1.0);
+// tan(cameraFov / 2) / tan(viewFov / 2) (horizontal angles in degrees at 4:3, as Gfx::Camera keeps them); 1 for an
+// angle not in (0, 180).
+double DepthScale(float cameraFov, float viewFov);
 // A point / a direction through the placement or back (x, y, z; w kept), rounded once to float.
 Mth::Vector MapPoint(const Placement& placement, const Mth::Vector& point);
 Mth::Vector MapDirection(const Placement& placement, const Mth::Vector& direction);
@@ -81,6 +91,9 @@ struct Inputs {
     // Else the pose the game last gave the viewport camera (its setters, before the held view replaced it).
     const Mth::Vector* cameraPos;
     const Mth::Matrix* cameraMatrix;
+    // The menu camera's field of view and the held view's (horizontal degrees at 4:3; 0: not known - the same).
+    float cameraFov;
+    float viewFov;
 };
 // An object by id (Obj::FindObject in the game).
 using Lookup = Obj::CObject* (*)(uint32_t id);
@@ -92,9 +105,12 @@ bool Step(const Inputs& inputs, bool sample, Lookup lookup);
 // camera is sampled once a frame, by whichever step comes first (the frames counted by the renders).
 void Update(bool logic);
 
-// The hooks in CCompositeObject::Update (0x0045D920): after the object's script and own update, and after its
-// components. Nothing unless the object is moved.
-void BeforeComponents(Obj::CCompositeObject* object);
+// The hooks in CCompositeObject::Update (0x0045D920), nothing unless the object is moved: at its start (once it isn't
+// paused) the object is put at its real place - what was done to it since taken in first - so its script, own update
+// and components (Obj_Rotate's turning, Obj_MoveToNode, physics) work where the game expects it; after its
+// components, wherever it is then is its real place, and it is moved into the backdrop again (teleported: the model
+// drawn there). Nested updates (Obj_ForceUpdate) count; an update ended early (the object died) is noticed later.
+void BeforeUpdate(Obj::CCompositeObject* object);
 void AfterComponents(Obj::CCompositeObject* object);
 // The hook before a script calls a C function: Cleanup, UnloadAllLevelGeometry, UnloadScene restore and hold off.
 void BeforeCFunction(const void* function);

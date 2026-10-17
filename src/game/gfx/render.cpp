@@ -452,6 +452,8 @@ static_assert(offsetof(Scene, group) == 0x280 && offsetof(Scene, sky) == 0x8D &&
 
 // Not original - the menu_backdrop feature (see game/front/menu_backdrop.h): in the front end either the skate shop's
 // scene or the backdrop level's isn't drawn.
+// Original behaviour: every loaded scene is drawn; with menu_backdrop the front end's shop scene is skipped while the
+// LA view is held, and LA's scenes while another front-end camera (Create-A-Skater...) shows the shop.
 bool Hidden(const Scene* scene) { return Front::MenuBackdrop::HideScene(scene->name); }
 
 // The list of loaded scenes (0x006FA7EC): ends at a node whose scene is -1.
@@ -511,6 +513,8 @@ void RenderViewport(int index)
         return;
     // Not original - the menu_backdrop feature: the front end's camera held at the chosen view (also when nothing
     // set it this frame).
+    // Original behaviour: the viewport's camera is drawn as the game left it; with menu_backdrop, while a menu camera
+    // plays in the front end, the game's pose is noted and the camera put at the chosen LA view.
     Front::MenuBackdrop::NoteAndHoldCamera(static_cast<Gfx::Camera*>(camera));
     GameVariable<int>(0x006FA7B8) = index; // the viewport being drawn
     double width = GameVariable<int>(0x00786D6C);
@@ -645,6 +649,8 @@ void RenderWorld()
 {
     // Not original - the menu_backdrop feature (see game/front/frontend_objects.h): front-end objects moved into
     // the backdrop, or put back, for what is drawn now.
+    // Original behaviour: the frame is drawn straight away; with menu_backdrop the wheel and the skater are first
+    // moved into LA (or put back) and the menu camera's pose sampled if no update walk did this frame.
     Front::FrontEndObjects::Update(false);
     ++GameVariable<int>(0x00786AC4); // frames rendered
     if (!GameVariable<bool>(0x00786D04)) { // (nothing while the device is lost)
