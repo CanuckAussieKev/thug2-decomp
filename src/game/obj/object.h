@@ -359,6 +359,15 @@ public:
     bool Obj_HasComponent(Script::CStruct* params, Script::CScript* script);        // 0x0045E410
     bool Obj_Pause(Script::CStruct* params, Script::CScript* script);               // 0x0045E9B0 (Pause)
     bool Obj_Unpause(Script::CStruct* params, Script::CScript* script);             // 0x0045E9D0 (Unpause)
+    bool Obj_GetOrientation(Script::CStruct* params, Script::CScript* script);      // 0x0045DF70
+    bool Obj_GetDistToNode(Script::CStruct* params, Script::CScript* script);       // 0x0045E020
+    bool Obj_GetOrientationToObject(Script::CStruct* params, Script::CScript* script); // 0x0045E140
+    bool Obj_SetOrientation(Script::CStruct* params, Script::CScript* script);      // 0x0045E650
+    bool Obj_GetQuat(Script::CStruct* params, Script::CScript* script);             // 0x0045E940
+    bool Obj_NearestOutsideAngle(Script::CStruct* params, Script::CScript* script); // 0x0045EF30 [0x37185D8A]
+    // 0x0045ED30: the nearest other object of `type` in its manager's list (the first one met if none is nearer
+    // than 5322672), or null.
+    CCompositeObject* FindNearestObjectOfType(uint32_t type);
 
     // --- its own vtable slots ---
     void VirtualOwnUpdate() { reinterpret_cast<void(__thiscall*)(CCompositeObject*)>(m_vtable[10])(this); }

@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "game/core/manager.h"
+#include "game/mth/matrix.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
@@ -92,6 +93,18 @@ void Cleanup()
 void* g_cobj_componentVtable[13];
 void* g_cobj_objectVtable[11];
 void* g_cobj_memberCode; // a member function a table entry points to
+void* g_cobj_managerVtable[8];
+uint32_t g_cobj_listHead;  // what the stand-in manager's object list is
+float g_cobj_angle;        // what the stand-in GetAngleInPlane returns
+float g_cobj_quatW;        // the w of the quaternion the stand-in MatrixToQuat makes
+
+// GetAngleInPlane returns its float in ST0: a C++ stand-in, jumped to from the original's start and ours.
+float __cdecl StandInAngleInPlane(const Mth::Matrix* m, const Mth::Vector* v, int ref, int normal)
+{
+    Rec(0x62D0, {reinterpret_cast<uint32_t>(m), InArena(reinterpret_cast<uint32_t>(v)) ? 1u : 0x57ACu, Bits(v->x), Bits(v->y), Bits(v->z), Bits(v->w),
+                 static_cast<uint32_t>(ref), static_cast<uint32_t>(normal)});
+    return g_cobj_angle;
+}
 
 // Our stand-ins kill the object for the update that `g_cobj_killOn` names.
 void MaybeKill(uint32_t who)
@@ -230,9 +243,38 @@ void InstallStandIns(StandIns& s)
         return reinterpret_cast<uint32_t>(component);
     });
     s.At({0x0045C050}, 0, [](Regs& r) {
-        Rec(0xC050, {r.args[0], r.args[1]});
+        Rec(0xC050, {r.args[0], InArena(r.args[1]) ? r.args[1] : 0x57ACu});
+        const float pos[4] = {7.5f, -3.25f, 100.0625f, 1.0f};
+        std::memcpy(reinterpret_cast<void*>(r.args[1]), pos, sizeof(pos));
         return 0u;
     });
+    s.At({0x0045C1B0}, 0, [](Regs& r) {
+        Rec(0xC1B0, {r.args[0], r.args[1]});
+        return g_cobj_base + 0x3F00;
+    });
+    s.At({0x0042BC40}, 4, [](Regs& r) {
+        const auto* q = reinterpret_cast<const uint32_t*>(r.ecx);
+        Rec(0xBC40, {q[0], q[1], q[2], q[3], InArena(r.ecx) ? r.ecx : 0x57ACu, r.args[0]});
+        auto* m = reinterpret_cast<float*>(r.args[0]);
+        for (int i = 0; i < 16; ++i)
+            m[i] = 0.25f * static_cast<float>(i) - 1.0f;
+        return 0u;
+    });
+    s.At({0x0042E1F0}, 4, [](Regs& r) {
+        Rec(0xE1F0, {InArena(r.ecx) ? r.ecx : 0x57ACu, r.args[0]});
+        const float q[4] = {0.125f, -0.5f, 0.75f, g_cobj_quatW};
+        std::memcpy(reinterpret_cast<void*>(r.ecx), q, sizeof(q));
+        return r.ecx;
+    });
+    s.At({0x004048D0, AddressOf(&Mth::Matrix::SetFromEulerAngles)}, 12, [](Regs& r) {
+        Rec(0x48D0, {InArena(r.ecx) ? r.ecx : 0x57ACu, r.args[0], r.args[1], r.args[2]});
+        auto* m = reinterpret_cast<uint32_t*>(r.ecx);
+        for (uint32_t i = 0; i < 16; ++i)
+            m[i] = r.args[i % 3] ^ i;
+        return r.ecx;
+    });
+    for (uint32_t address : {0x004062D0u, AddressOf(&Mth::GetAngleInPlane)})
+        s.Bytes(address, Branch(0xE9, address, reinterpret_cast<void*>(&StandInAngleInPlane)));
     s.At({0x0045C0B0}, 0, [](Regs& r) {
         Rec(0xC0B0, {r.args[0], r.args[1]});
         return 0u;
@@ -278,6 +320,12 @@ void InstallStandIns(StandIns& s)
     g_cobj_objectVtable[10] = s.Thunk(0, [](Regs& r) {
         Rec(0x0B0A, {r.ecx});
         return 0u;
+    });
+    for (void*& slot : g_cobj_managerVtable)
+        slot = nullptr;
+    g_cobj_managerVtable[6] = s.Thunk(0, [](Regs& r) {
+        Rec(0x3A06, {r.ecx});
+        return g_cobj_listHead;
     });
     g_cobj_memberCode = s.Thunk(8, [](Regs& r) {
         Rec(0x3E3B, {r.ecx, r.args[0], r.args[1]});
@@ -663,6 +711,140 @@ std::vector<uint32_t> RunMemberTest(bool original)
     return EndRun(arena);
 }
 
+// --- the member functions that work out directions and distances ------------------------------------------
+void RecordMatrices(CCompositeObject* o)
+{
+    for (const Mth::Matrix* m : {&o->m_matrix, &o->m_displayMatrix})
+        for (const Mth::Vector& row : m->row)
+            Rec(0x3A7, {Bits(row.x), Bits(row.y), Bits(row.z), Bits(row.w)});
+}
+
+std::vector<uint32_t> RunMathTest(bool original)
+{
+    uint8_t* arena = BeginRun(original);
+    using C = CCompositeObject;
+    auto* script = reinterpret_cast<CScript*>(arena + 0x2000);
+    script->m_params = Struct(arena, 0);
+    CStruct* params = Struct(arena, 1);
+    CStruct* empty = Struct(arena, 2);
+
+    // Objects of the types 0x7A, 0xBAF9B341 (the type 0x0045EF30 looks for) in a stand-in manager's list.
+    auto* manager = reinterpret_cast<uint32_t*>(arena + 0x6400);
+    manager[0] = reinterpret_cast<uint32_t>(g_cobj_managerVtable);
+    auto* head = reinterpret_cast<Mem::ListNode*>(arena + 0x6420);
+    g_cobj_listHead = reinterpret_cast<uint32_t>(head);
+    C* objects[6];
+    const uint32_t types[6] = {0xBAF9B341, 0x7A, 0xBAF9B341, 0xBAF9B341, 0x7A, 0xBAF9B341};
+    const float positions[6][3] = {{0.0f, 0.0f, 0.0f},  {3.0f, 0.0f, 4.0f},     {10.0f, -2.0f, 1.0f},
+                                   {-7.5f, 1.0f, 2.25f}, {0.5f, 0.5f, 0.5f},    {9.0f, 3.0f, -1.0f}};
+    Mem::ListNode* previous = head;
+    *head = {reinterpret_cast<void**>(0x006477E4), reinterpret_cast<void*>(-1), 0, nullptr, nullptr};
+    for (int i = 0; i < 6; ++i) {
+        objects[i] = reinterpret_cast<C*>(arena + 0x100 + 0x120 * i);
+        C* o = objects[i];
+        o->m_vtable = reinterpret_cast<void**>(g_cobj_objectVtable);
+        o->m_type = types[i];
+        o->mp_manager = reinterpret_cast<Obj::CBaseManager*>(manager);
+        o->m_pos = {positions[i][0], positions[i][1], positions[i][2], 1.0f};
+        o->m_node = {reinterpret_cast<void**>(0x006477E4), o, 0, nullptr, previous};
+        previous->next = &o->m_node;
+        previous = &o->m_node;
+    }
+    previous->next = head;
+    head->prev = previous;
+    C* a = objects[0];
+    a->m_matrix.row[0] = {0.6f, 0.0f, -0.8f, 0.0f};
+    a->m_matrix.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
+    a->m_matrix.row[2] = {0.8f, 0.0f, 0.6f, 0.0f};
+    a->m_matrix.row[3] = {1.0f, 2.0f, 3.0f, 1.0f};
+    a->m_displayMatrix = a->m_matrix;
+    a->m_displayMatrix.row[2] = {0.3f, -1.7f, 2.2f, 9.0f};
+
+    // GetOrientation: a display at row of some length; of none.
+    Member(0x0045DF70, &C::Obj_GetOrientation, a, params, script);
+    for (const Mth::Vector& at : {Mth::Vector{0.7f, 0.11f, -0.013f, 0.0f}, Mth::Vector{-123.4f, 5.67f, 0.0089f, 0.0f},
+                                  Mth::Vector{1e-3f, 3e-4f, -7e-3f, 0.0f}}) {
+        a->m_displayMatrix.row[2] = at;
+        Member(0x0045DF70, &C::Obj_GetOrientation, a, params, script);
+    }
+    a->m_displayMatrix.row[2] = {0.0f, 0.0f, 0.0f, 1.0f};
+    Member(0x0045DF70, &C::Obj_GetOrientation, a, params, script);
+    // GetDistToNode (the node's position from the stand-in).
+    Answer('K', params, 0, {0x0DE0});
+    Member(0x0045E020, &C::Obj_GetDistToNode, a, params, script);
+    Member(0x0045E020, &C::Obj_GetDistToNode, a, empty, script);
+    a->m_pos = {-2.0f, 1.0f, 33.3f, 1.0f};
+    Member(0x0045E020, &C::Obj_GetDistToNode, a, params, script);
+    a->m_pos = {0.0f, 0.0f, 0.0f, 1.0f};
+    // GetOrientationToObject: to objects 1, 2 and none.
+    for (uint32_t found : {Rel(objects[1]), Rel(objects[2]), 0u}) {
+        g_cobj_found = found;
+        Member(0x0045E140, &C::Obj_GetOrientationToObject, a, params, script);
+    }
+    a->m_matrix.row[0] = {2.5f, 0.3f, -1.1f, 0.0f};
+    for (int i = 1; i < 6; ++i) {
+        g_cobj_found = Rel(objects[i]);
+        Member(0x0045E140, &C::Obj_GetOrientationToObject, a, params, script);
+    }
+    a->m_matrix.row[0] = {0.6f, 0.0f, -0.8f, 0.0f};
+    // FindNearestObjectOfType: from each object, for each type; a type with none; only itself.
+    using Nearest = C* (C::*)(uint32_t);
+    for (C* o : {objects[0], objects[2], objects[4]}) {
+        for (uint32_t type : {0xBAF9B341u, 0x7Au, 0x5555u})
+            Result(Rel(Call<C*>(0x0045ED30, static_cast<Nearest>(&C::FindNearestObjectOfType), o, type)));
+    }
+    objects[5]->m_pos = {1e30f, 1e30f, 1e30f, 1.0f};
+    objects[2]->m_pos = {-1e30f, 1e30f, 1e30f, 1.0f};
+    objects[3]->m_pos = {1e30f, -1e30f, 1e30f, 1.0f};
+    Result(Rel(Call<C*>(0x0045ED30, static_cast<Nearest>(&C::FindNearestObjectOfType), a, 0xBAF9B341u)));
+    objects[3]->m_pos = {-7.5f, 1.0f, 2.25f, 1.0f};
+    // Two at the same distance (the first one met wins).
+    objects[2]->m_pos = {3.0f, 0.0f, 4.0f, 1.0f};
+    objects[5]->m_pos = {0.0f, 5.0f, 0.0f, 1.0f};
+    objects[3]->m_pos = {0.0f, 0.0f, -5.0f, 1.0f};
+    Result(Rel(Call<C*>(0x0045ED30, static_cast<Nearest>(&C::FindNearestObjectOfType), a, 0xBAF9B341u)));
+    objects[3]->m_pos = {-7.5f, 1.0f, 2.25f, 1.0f};
+    objects[2]->m_pos.w = 0.25f; // (the nearest one below: its w counts)
+    // NearestOutsideAngle: the stand-in angle against the parameter; no object of the type.
+    CStruct* angle = Struct(arena, 3);
+    Answer('F', angle, 0, {Bits(30.0f)});
+    for (float result : {0.6f, -0.6f, 0.5235987f, 0.5235988f, -0.52359879f, 0.0f}) {
+        g_cobj_angle = result;
+        Member(0x0045EF30, &C::Obj_NearestOutsideAngle, a, angle, script);
+    }
+    for (int i = 0; i < 6; ++i)
+        objects[i]->m_type = 0x7A;
+    Member(0x0045EF30, &C::Obj_NearestOutsideAngle, a, angle, script);
+
+    // SetOrientation: dir (ordinary; within 0.99 of vertical, both ways; exactly 0.99), quat, angles (some
+    // missing); GetQuat (w >= 0, w < 0).
+    CStruct* orient = Struct(arena, 4);
+    const float dirs[][3] = {{0.3f, 0.2f, -0.9f}, {0.01f, 0.995f, 0.05f}, {0.0f, -2.0f, 0.01f}, {0.1f, 0.99f, 0.0f},
+                             {12.7f, -3.3f, 0.123f}, {-0.0071f, 0.43f, 77.7f}, {1e-3f, 0.98999f, 2.1f}};
+    for (const auto& d : dirs) {
+        Answer('V', orient, 0x455485EF, {Bits(d[0]), Bits(d[1]), Bits(d[2]), Bits(1.0f)});
+        Member(0x0045E650, &C::Obj_SetOrientation, a, orient, script);
+        RecordMatrices(a);
+    }
+    CStruct* quat = Struct(arena, 5);
+    Answer('V', quat, 0x748CA262, {Bits(0.1f), Bits(-0.5f), Bits(0.3f), Bits(1.0f)});
+    a->m_displayMatrix.row[1].y = 77.0f;
+    Member(0x0045E650, &C::Obj_SetOrientation, a, quat, script);
+    RecordMatrices(a);
+    CStruct* euler = Struct(arena, 6);
+    Answer('F', euler, 0x7323E97C, {Bits(45.0f)});
+    Answer('F', euler, 0x9D2D8850, {Bits(-120.5f)});
+    Member(0x0045E650, &C::Obj_SetOrientation, a, euler, script);
+    RecordMatrices(a);
+    Answer('F', euler, 0x0424D9EA, {Bits(7.25f)});
+    Member(0x0045E650, &C::Obj_SetOrientation, a, euler, script);
+    for (float w : {0.5f, -0.5f, 0.0f}) {
+        g_cobj_quatW = w;
+        Member(0x0045E940, &C::Obj_GetQuat, a, params, script);
+    }
+    return EndRun(arena);
+}
+
 void RunPair(std::vector<uint32_t> (*run)(bool), const char* what)
 {
     std::vector<uint32_t> expected = run(true);
@@ -678,6 +860,7 @@ void TestCompositeObjects()
     RunPair(RunLifeTest, "CCompositeObject: construction, update, hide / suspend, components, member function calls");
     RunPair(RunStructureTest, "CCompositeObject: components from structures, InitFromStructure");
     RunPair(RunMemberTest, "CCompositeObject: the member functions scripts call");
+    RunPair(RunMathTest, "CCompositeObject: orientation, distances, the nearest object");
     Cleanup();
 }
 
