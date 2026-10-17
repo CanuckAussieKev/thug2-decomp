@@ -17,6 +17,7 @@ inline void** const kConnHeadVtable = reinterpret_cast<void**>(0x006475AC);     
 inline void** const kBannedConnNodeVtable = reinterpret_cast<void**>(0x006475A4); // Lst::Node<BannedConn>
 inline void** const kBannedConnVtable = reinterpret_cast<void**>(0x006475B0);     // BannedConn, Lst::Head<BannedConn>
 inline void** const kMsgHandlerNodeVtable = reinterpret_cast<void**>(0x006475A8); // Lst::Node<MsgHandler>
+inline void** const kMsgHandlerHeadVtable = reinterpret_cast<void**>(0x006475E8); // Lst::Head<MsgHandler>
 inline void** const kConnSearchVtable = reinterpret_cast<void**>(0x0064759C);       // Lst::Search<Conn>
 inline void** const kBannedConnSearchVtable = reinterpret_cast<void**>(0x006475A0); // Lst::Search<BannedConn>
 

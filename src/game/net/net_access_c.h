@@ -11,6 +11,7 @@
 #include "game/core/alloc.h"
 #include "game/net/net_app.h"
 #include "game/net/net_dispatcher.h"
+#include "game/net/net_messages.h"
 #include "hook/game.h"
 
 namespace Net {
@@ -91,42 +92,7 @@ constexpr uint32_t kConnDisconnAccepted = 0x8;
 
 // Queued messages: QueuedMsg and SeqQueuedMsg (net_app_view.h).
 
-// The queues' links (Lst::Node<T>: the node, then the link's fields).
-struct MsgNormalLink {
-    Mem::ListNode m_node;
-    QueuedMsg* m_QMsg;
-    uint32_t m_SendTime;           // not before this time
-};
-struct MsgImpLink {
-    Mem::ListNode m_node;
-    uint32_t m_Timestamp;          // when it was last sent (0: never)
-    QueuedMsg* m_QMsg;
-    uint32_t m_Packetstamp;        // the connection's timestamp it went out with (the ack names it)
-    uint8_t m_NumResends;
-    uint8_t pad21[3];
-    uint32_t m_SendTime;
-};
-struct MsgSeqLink {
-    Mem::ListNode m_node;          // priority: the sequence number
-    uint8_t m_NumResends;
-    uint8_t m_GroupId;
-    uint8_t m_StreamMessage;       // a piece of a stream (Conn::GetNumQueuedStreamPieces counts them)
-    uint8_t pad17;
-    uint32_t m_Packetstamp;
-    uint32_t m_Timestamp;          // when it was last sent (0: never)
-    uint32_t m_SequenceId;
-    uint32_t m_SendTime;
-    SeqQueuedMsg* m_QMsg;
-};
-static_assert(offsetof(MsgImpLink, m_SendTime) == 0x24 && offsetof(MsgSeqLink, m_QMsg) == 0x28 &&
-              offsetof(MsgNormalLink, m_SendTime) == 0x18 && sizeof(MsgSeqLink) == 0x2C);
-
-// A stream being received in pieces: StreamDesc (net_app.h); its link (0x18, constructor 0x00455680).
-struct StreamLink {
-    Mem::ListNode m_node;
-    StreamDesc* m_Desc;
-};
-static_assert(sizeof(StreamLink) == 0x18);
+// The queues' links and the stream link: net_messages.h.
 
 // (Net::MsgDesc: net_app.h)
 
@@ -243,20 +209,19 @@ inline void AddPacketMetric(void* metrics, uint32_t size, uint32_t time)
 }
 
 // Queued messages: the destructor frees the data (0x004550F0).
-inline void DestroyQueuedMsg(void* msg) { GameFunction<void(__thiscall*)(void*)>(0x004550F0)(msg); }
+inline void DestroyQueuedMsg(void* msg) { static_cast<QueuedMsg*>(msg)->DestroyBody(); }
 inline SeqQueuedMsg* ConstructSeqMsg(void* memory, uint8_t id, uint16_t length, char* data, uint8_t group, bool compressed)
 {
-    return GameFunction<SeqQueuedMsg*(__thiscall*)(void*, uint32_t, uint32_t, char*, uint32_t, uint32_t)>(0x00455040)(
-        memory, id, length, data, group, compressed);
+    return static_cast<SeqQueuedMsg*>(memory)->Construct(id, length, data, group, compressed);
 }
 inline MsgSeqLink* ConstructMsgSeqLink(void* memory, SeqQueuedMsg* msg)
 {
-    return GameFunction<MsgSeqLink*(__thiscall*)(void*, SeqQueuedMsg*)>(0x00455650)(memory, msg);
+    return static_cast<MsgSeqLink*>(memory)->Construct(msg);
 }
 inline StreamDesc* ConstructStreamDesc(void* memory) { return GameFunction<StreamDesc*(__thiscall*)(void*)>(0x004549D0)(memory); }
 inline StreamLink* ConstructStreamLink(void* memory, StreamDesc* desc)
 {
-    return GameFunction<StreamLink*(__thiscall*)(void*, StreamDesc*)>(0x00455680)(memory, desc);
+    return static_cast<StreamLink*>(memory)->Construct(desc);
 }
 inline void DestroyStreamDesc(StreamDesc* desc) { GameFunction<void(__thiscall*)(StreamDesc*)>(0x00454E00)(desc); }
 

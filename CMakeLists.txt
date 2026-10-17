@@ -86,6 +86,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_netC.cpp
     src/hook/selftests_netF.cpp
     src/hook/selftests_netA.cpp
+    src/hook/selftests_netE.cpp
     src/game/core/alloc.cpp
     src/game/core/crc.cpp
     src/game/core/dbg.cpp
@@ -134,6 +135,9 @@ add_library(thug2_code OBJECT
     src/game/net/net_latency.cpp
     src/game/net/net_lists.cpp
     src/game/net/net_conn.cpp
+    src/game/net/net_messages.cpp
+    src/game/net/net_manager_view.cpp
+    src/game/net/net_conn_times.cpp
     src/game/obj/composite.cpp
     src/game/obj/compositemgr.cpp
     src/game/obj/cutscene.cpp

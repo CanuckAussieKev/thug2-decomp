@@ -11,33 +11,14 @@
 #include "game/core/alloc.h"
 #include "game/net/net_latency.h"
 #include "game/net/net_lists.h"
+#include "game/net/net_messages.h"
 
 namespace Net {
 
 struct App;
 
-// Lst::Node<T>'s vtables (the destructor body resets them), the heads' (the constructor sets them; their
-// scalar deleting destructors are in wt/netE's range) and the searches'.
-inline void** const kMsgLinkNodeVtable = reinterpret_cast<void**>(0x006474CC);    // Lst::Node<MsgLink>
-inline void** const kMsgImpLinkNodeVtable = reinterpret_cast<void**>(0x006474D0); // Lst::Node<MsgImpLink>
-inline void** const kMsgSeqLinkNodeVtable = reinterpret_cast<void**>(0x006474D4); // Lst::Node<MsgSeqLink>
-inline void** const kStreamLinkNodeVtable = reinterpret_cast<void**>(0x006474C8); // Lst::Node<StreamLink>
-inline void** const kMsgLinkHeadVtable = reinterpret_cast<void**>(0x00647578);    // Lst::Head<MsgLink>
-inline void** const kMsgImpLinkHeadVtable = reinterpret_cast<void**>(0x0064757C); // Lst::Head<MsgImpLink>
-inline void** const kMsgSeqLinkHeadVtable = reinterpret_cast<void**>(0x00647580); // Lst::Head<MsgSeqLink>
-inline void** const kStreamLinkHeadVtable = reinterpret_cast<void**>(0x00647584); // Lst::Head<StreamLink>
-inline void** const kMsgHandlerHeadVtable = reinterpret_cast<void**>(0x006475E8); // Lst::Head<MsgHandler>
-
-// A node of one of Conn's lists: Lst::Node<T> for each link type (the vtable its destructor leaves).
-template <uint32_t NodeVtable>
-struct ConnListNode : Mem::ListNode {
-    // The destructor body: out of its list (and linked to itself).
-    void DestroyBody() { UnlinkAs(reinterpret_cast<void**>(NodeVtable)); }
-};
-using MsgLinkNode = ConnListNode<0x006474CC>;    // 0x00455B50
-using MsgImpLinkNode = ConnListNode<0x006474D0>; // 0x00455B70
-using MsgSeqLinkNode = ConnListNode<0x006474D4>; // 0x00455B90 (also each received queue's, Conn's destructor)
-using StreamLinkNode = ConnListNode<0x006474C8>; // 0x00455BB0
+// (The message lists' node and link vtables - the heads Conn's constructor makes use the links' own, folded -
+// and node types: net_messages.h.)
 
 // Lst::Head<MsgSeqLink> (Conn's sequenced queue and received queues).
 struct MsgSeqLinkHead : Mem::ListNode {
@@ -85,6 +66,13 @@ struct Conn {
     // 0x00456790 (the destructor)
     void Destroy();
 
+    // 0x00455920 (net_conn_times.cpp): the last communication time moved to now + `extra` ms, unless it's
+    // later already.
+    void UpdateCommTime(uint32_t extra);
+    // 0x00455940 (net_conn_times.cpp): milliseconds since the last communication (0 if that's in the future).
+    uint32_t GetTimeElapsedSinceCommunication();
+    // 0x00455960
+    void SetSendInterval(uint32_t interval) { m_sendInterval = interval; }
     // 0x00455970
     uint32_t GetSendInterval();
     // 0x00455980
@@ -149,7 +137,7 @@ struct Conn {
     uint32_t m_status;              // +0x60 kStatus...
     uint32_t m_flags;               // +0x64 kFlag...
     App* m_app;                     // +0x68 the App (set by App::NewConnection)
-    uint32_t m_lastCommTime;        // +0x6C
+    uint32_t m_lastCommTime;        // +0x6C the last communication (App::NewConnection: the creation time)
     uint32_t m_lastSendTime;        // +0x70
     uint32_t m_sendInterval;        // +0x74
     uint32_t m_nextSequenceIds[kNumGroups]; // +0x78 outgoing: the next sequence id of each group

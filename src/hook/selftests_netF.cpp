@@ -394,9 +394,9 @@ std::vector<uint32_t> Run(bool original)
     // node destructor bodies: the middle of three
     using NodeCase = std::pair<uint32_t, void (*)(ListNode*)>;
     for (auto [address, ours] :
-         {NodeCase{0x00455B50, [](ListNode* n) { static_cast<Net::MsgLinkNode*>(n)->DestroyBody(); }},
-          NodeCase{0x00455B70, [](ListNode* n) { static_cast<Net::MsgImpLinkNode*>(n)->DestroyBody(); }},
-          NodeCase{0x00455B90, [](ListNode* n) { static_cast<Net::MsgSeqLinkNode*>(n)->DestroyBody(); }},
+         {NodeCase{0x00455B50, [](ListNode* n) { static_cast<Net::MsgNormalNode*>(n)->DestroyBody(); }},
+          NodeCase{0x00455B70, [](ListNode* n) { static_cast<Net::MsgImpNode*>(n)->DestroyBody(); }},
+          NodeCase{0x00455B90, [](ListNode* n) { static_cast<Net::MsgSeqNode*>(n)->DestroyBody(); }},
           NodeCase{0x00455BB0, [](ListNode* n) { static_cast<Net::StreamLinkNode*>(n)->DestroyBody(); }}}) {
         auto* nodes = reinterpret_cast<ListNode*>(misc + 0x200 + (address & 0xF0) * 4);
         Net::InitConnListHead(&nodes[0], nullptr);

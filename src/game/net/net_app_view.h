@@ -14,12 +14,23 @@ namespace Net {
 // Two kinds: those of the normal and important queues (constructor 0x00454FA0) and those of the sequenced
 // queue (0x00455040, 0x10 bytes); the destructor 0x004550F0 (both) frees the data.
 struct QueuedMsg {
+    // 0x00454FA0: a copy of `data` (`length` bytes; none if 0). With a compression method (1 RLE, 2 LZSS) the
+    // copy is compressed if that makes it smaller: the id becomes 0x12 (compressed) and the length shrinks.
+    QueuedMsg* Construct(uint8_t id, uint16_t length, void* data, uint8_t compression);
+    // 0x004550F0 (SeqQueuedMsg's too): the data freed.
+    void DestroyBody();
+
     uint8_t m_id;      // +0x00
     uint16_t m_length; // +0x02
     char* m_data;      // +0x04
     int m_refCount;    // +0x08
 };
 struct SeqQueuedMsg {
+    // 0x00455040: as QueuedMsg's, with the +0x08 byte.
+    SeqQueuedMsg* Construct(uint8_t id, uint16_t length, void* data, uint8_t byte8, uint8_t compression);
+    // (0x004550F0: QueuedMsg::DestroyBody - the data is at the same place)
+    void DestroyBody() { reinterpret_cast<QueuedMsg*>(this)->DestroyBody(); }
+
     uint8_t m_id;      // +0x00
     uint16_t m_length; // +0x02
     char* m_data;      // +0x04

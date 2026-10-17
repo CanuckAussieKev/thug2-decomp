@@ -10,6 +10,7 @@
 #include "game/core/mem.h"
 #include "game/lst/head.h"
 #include "game/lst/search.h"
+#include "game/net/net_messages.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -56,7 +57,6 @@ uint32_t& Status(Conn* conn) { return At<uint32_t>(conn, 0x60); }
 constexpr uint32_t kStatusReady = 1;
 constexpr uint32_t kStatusDisconnecting = 8;
 App*& OwnerApp(Conn* conn) { return At<App*>(conn, 0x68); }
-uint32_t& CreatedTime(Conn* conn) { return At<uint32_t>(conn, 0x6C); }
 // The next sequence id of each message group.
 uint32_t& NextSequenceId(Conn* conn, uint8_t group) { return At<uint32_t>(conn, 0x78 + 4 * group); }
 int& NextStreamId(Conn* conn) { return At<int>(conn, 0x878); }
@@ -98,28 +98,27 @@ int ConnectionType(void* manager) { return GameFunction<int(__thiscall*)(void*)>
 // links that send it to each connection; freed with the last.
 QueuedMsg* ConstructQueuedMsg(void* memory, uint8_t id, uint16_t length, void* data, uint8_t compression)
 {
-    return GameFunction<QueuedMsg*(__thiscall*)(void*, uint8_t, uint16_t, void*, uint8_t)>(0x00454FA0)(
-        memory, id, length, data, compression);
+    return static_cast<QueuedMsg*>(memory)->Construct(id, length, data, compression);
 }
 // ~QueuedMsg / ~SeqQueuedMsg: frees the data.
-void DestroyQueuedMsgBody(void* message) { GameFunction<void(__thiscall*)(void*)>(0x004550F0)(message); }
+void DestroyQueuedMsgBody(void* message) { static_cast<QueuedMsg*>(message)->DestroyBody(); }
 
 // The links: Lst::Nodes (+8 the priority) pointing at a QueuedMsg.
 // MsgLink (0x1C bytes, vtable 0x00647578): +0x18 the time it may be sent.
 ListNode* ConstructMsgLink(void* memory, QueuedMsg* message)
 {
-    return GameFunction<ListNode*(__thiscall*)(void*, QueuedMsg*)>(0x004555F0)(memory, message);
+    return &static_cast<MsgNormalLink*>(memory)->Construct(message)->m_node;
 }
 // MsgImportantLink (0x28, vtable 0x0064757C): +0x14 when it was last sent (0 = never), +0x24 the time it may go.
 ListNode* ConstructMsgImportantLink(void* memory, QueuedMsg* message)
 {
-    return GameFunction<ListNode*(__thiscall*)(void*, QueuedMsg*)>(0x00455620)(memory, message);
+    return &static_cast<MsgImpLink*>(memory)->Construct(message)->m_node;
 }
 // MsgSeqLink (0x2C, vtable 0x00647580): +0x15 the group, +0x16 a stream piece, +0x1C when last sent,
 // +0x20 the sequence id, +0x24 the time it may go.
 ListNode* ConstructMsgSeqLink(void* memory, SeqQueuedMsg* message)
 {
-    return GameFunction<ListNode*(__thiscall*)(void*, SeqQueuedMsg*)>(0x00455650)(memory, message);
+    return &static_cast<MsgSeqLink*>(memory)->Construct(message)->m_node;
 }
 template <typename T>
 T& LinkField(ListNode* link, uint32_t offset)
@@ -130,7 +129,7 @@ T& LinkField(ListNode* link, uint32_t offset)
 // StreamLink (0x18 bytes, vtable 0x00647584): a Lst::Node (data = itself) with +0x14 its StreamDesc.
 ListNode* ConstructStreamLink(void* memory, StreamDesc* stream)
 {
-    return GameFunction<ListNode*(__thiscall*)(void*, StreamDesc*)>(0x00455680)(memory, stream);
+    return &static_cast<StreamLink*>(memory)->Construct(stream)->m_node;
 }
 StreamDesc* StreamOf(ListNode* link) { return LinkField<StreamDesc*>(link, 0x14); }
 StreamDesc* ConstructStreamDesc(void* memory)
@@ -717,7 +716,7 @@ Conn* App::NewConnection(int ip, uint16_t port, int flags)
         conn->m_port = port;
         conn->m_handle = GetFreeHandle();
         OwnerApp(conn) = this;
-        CreatedTime(conn) = Tmr::GetTime();
+        conn->m_lastCommTime = Tmr::GetTime();
         AddToTail(&m_connections, &conn->m_appNode);
     }
     PopHeap();

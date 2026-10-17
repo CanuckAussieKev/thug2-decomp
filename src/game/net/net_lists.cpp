@@ -20,7 +20,7 @@ MsgHandlerNode* MsgHandlerNode::ConstructHead()
     priority = 0;
     next = this;
     prev = this;
-    vtable = reinterpret_cast<void**>(0x006475E8); // Lst::Head<MsgHandler>
+    vtable = kMsgHandlerHeadVtable;
     return this;
 }
 

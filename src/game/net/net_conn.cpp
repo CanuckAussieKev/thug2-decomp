@@ -35,8 +35,6 @@ uint32_t& NextConnId() { return GameVariable<uint32_t>(0x0067D800); }
 
 // -> Net::Metrics's constructor (wt/netD)
 void ConstructMetrics(void* metrics) { GameFunction<void*(__thiscall*)(void*)>(0x004544E0)(metrics); }
-// -> ~QueuedMsg / ~SeqQueuedMsg: frees the data (wt/netE)
-void DestroyQueuedMsgBody(void* message) { GameFunction<void(__thiscall*)(void*)>(0x004550F0)(message); }
 // -> ~StreamDesc: frees the data unless it was sent in place (wt/netD)
 void DestroyStreamDescBody(StreamDesc* stream) { GameFunction<void(__thiscall*)(StreamDesc*)>(0x00454E00)(stream); }
 
@@ -52,7 +50,7 @@ template <typename Msg>
 void Release(Msg* message)
 {
     if (--message->m_refCount == 0) {
-        DestroyQueuedMsgBody(message);
+        message->DestroyBody();
         Mem::Free(message);
     }
 }
@@ -76,7 +74,7 @@ void ForEach(ListNode* head, F action)
 // 0x00455C60
 MsgSeqLinkHead* MsgSeqLinkHead::Construct()
 {
-    InitConnListHead(this, kMsgSeqLinkHeadVtable);
+    InitConnListHead(this, kMsgSeqLinkVtable);
     return this;
 }
 
@@ -88,6 +86,12 @@ void InitConnListHead(ListNode* head, void** vtable)
     head->prev = head;
     head->vtable = vtable;
 }
+
+// 0x00455B50 / 0x00455B70 / 0x00455B90 / 0x00455BB0: the message lists' Lst::Node<T> destructor bodies
+void MsgNormalNode::DestroyBody() { UnlinkAs(kMsgNormalNodeVtable); }
+void MsgImpNode::DestroyBody() { UnlinkAs(kMsgImpNodeVtable); }
+void MsgSeqNode::DestroyBody() { UnlinkAs(kMsgSeqNodeVtable); }
+void StreamLinkNode::DestroyBody() { UnlinkAs(kStreamLinkNodeVtable); }
 
 // 0x004559D0 / 0x004559E0 / 0x004559F0 / 0x00455A00
 template <uint32_t SearchVtable>
@@ -114,15 +118,15 @@ template struct ConnListSearch<0x00647570>;
 // 0x00455C80
 Conn* Conn::Construct(int flags)
 {
-    InitConnListHead(&m_normalMsgs, kMsgLinkHeadVtable);
-    InitConnListHead(&m_importantMsgs, kMsgImpLinkHeadVtable);
-    InitConnListHead(&m_sequencedMsgs, kMsgSeqLinkHeadVtable);
+    InitConnListHead(&m_normalMsgs, kMsgNormalLinkVtable);
+    InitConnListHead(&m_importantMsgs, kMsgImpLinkVtable);
+    InitConnListHead(&m_sequencedMsgs, kMsgSeqLinkVtable);
     m_status = 0;
     m_flags = 0;
     for (ListNode& queue : m_receivedQueues)
         static_cast<MsgSeqLinkHead*>(&queue)->Construct();
-    InitConnListHead(&m_receivedStreams, kStreamLinkHeadVtable);
-    InitConnListHead(&m_sendStreams, kStreamLinkHeadVtable);
+    InitConnListHead(&m_receivedStreams, kStreamLinkVtable);
+    InitConnListHead(&m_sendStreams, kStreamLinkVtable);
     m_latencyTest.Construct();
     ConstructMetrics(m_receiveMetrics);
     ConstructMetrics(m_sendMetrics);
@@ -164,10 +168,10 @@ void Conn::Destroy()
     static_cast<StreamLinkNode*>(&m_sendStreams)->DestroyBody();
     static_cast<StreamLinkNode*>(&m_receivedStreams)->DestroyBody();
     for (int group = kNumGroups - 1; group >= 0; --group)
-        static_cast<MsgSeqLinkNode*>(&m_receivedQueues[group])->DestroyBody();
-    static_cast<MsgSeqLinkNode*>(&m_sequencedMsgs)->DestroyBody();
-    static_cast<MsgImpLinkNode*>(&m_importantMsgs)->DestroyBody();
-    static_cast<MsgLinkNode*>(&m_normalMsgs)->DestroyBody();
+        static_cast<MsgSeqNode*>(&m_receivedQueues[group])->DestroyBody();
+    static_cast<MsgSeqNode*>(&m_sequencedMsgs)->DestroyBody();
+    static_cast<MsgImpNode*>(&m_importantMsgs)->DestroyBody();
+    static_cast<MsgNormalNode*>(&m_normalMsgs)->DestroyBody();
 }
 
 // 0x00455970
@@ -249,7 +253,7 @@ void Conn::DestroyReceivedSequencedMessages()
     for (ListNode& queue : m_receivedQueues) {
         ForEach<MsgSeqLink>(&queue, [](MsgSeqLink* link) {
             if (SeqQueuedMsg* message = link->m_QMsg) {
-                DestroyQueuedMsgBody(message);
+                message->DestroyBody();
                 Mem::Free(message);
             }
             DeleteLink(link);
@@ -363,9 +367,9 @@ REPLACE(0x00455A80, &Net::MsgSeqLinkSearch::Destroy);
 REPLACE(0x00455AB0, &Net::MsgLinkSearch::Destroy);
 REPLACE(0x00455AE0, &Net::MsgImpLinkSearch::Destroy);
 REPLACE(0x00455B10, &Net::StreamLinkSearch::Destroy);
-REPLACE(0x00455B50, &Net::MsgLinkNode::DestroyBody);
-REPLACE(0x00455B70, &Net::MsgImpLinkNode::DestroyBody);
-REPLACE(0x00455B90, &Net::MsgSeqLinkNode::DestroyBody);
+REPLACE(0x00455B50, &Net::MsgNormalNode::DestroyBody);
+REPLACE(0x00455B70, &Net::MsgImpNode::DestroyBody);
+REPLACE(0x00455B90, &Net::MsgSeqNode::DestroyBody);
 REPLACE(0x00455BB0, &Net::StreamLinkNode::DestroyBody);
 REPLACE(0x00455C80, &Net::Conn::Construct);
 REPLACE(0x00456790, &Net::Conn::Destroy);
