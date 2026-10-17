@@ -45,3 +45,19 @@ strings.
     recorded. 46 deliberate bugs: 45 caught (8 after strengthening: rarer modes, cursor at the park's edges,
     selections near 11 x 11, the gap manager constructor making itself current), 1 equivalent (moving the null
     check of SetGapCancelFlags after `cancel = 0`).
+- [x] Batches A1+A2 tested in the game (lfx-a's own run, under the lock): LA-area level (skate shop list order)
+  loads and plays, pause menu works; Create-A-Park opens (piece menu, set menu, percent bar), the cursor moves,
+  the floor raise/lower keys run, the editor's pause menu opens. Log: all self-tests pass, no CRT reports.
+- [x] Batch A3 (NOT run in the game yet): the map of metapieces - src/game/ed/park_map.cpp
+  - 0x00595670 CreateConcreteMeta, 0x005958B0 HasPiecesOutside, 0x00595DF0 AddMetaToList, 0x00595E80
+    RemoveMetaFromList, 0x00595EE0 AddMetaToBuckets, 0x00595FC0 RemoveMetaFromBuckets, 0x00597740
+    GetAreaMetaPieces (both forms: by buckets, or by a metapiece's pieces), 0x00597A00 GetMetaPiecesAt,
+    0x00597AC0 GetGapInfo, 0x005983D0 IsColumnUnslidable, 0x005984A0 SlideColumn (recursive floor slide),
+    0x00598150 ApplyMetaToFloor. Source (no REPLACE, outside the range) for CMapListNode's pool new/delete
+    (0x005914B0), DestroyList (0x00591BE0), VerifyIntegrity (0x00590470), CMapListTemp.
+  - Metapiece flag 0x4000 = "unslidable" (a piece with flag 0x0CD75A3F, name unknown); 0x100 unnamed.
+  - tools/ghidra/audit_game_function_calls.py: GridDims by value counts as 8 bytes.
+  - Test: a "map" group (1000 cases): random metapieces in a 16 x 16 patch, buckets, a real node pool,
+    metapiece/generator/gap manager callees stood in, the vtable's GetPiece/AddPiece as thunks. 50 deliberate
+    bugs: 47 caught (1 after duplicating a metapiece in a bucket), 2 equivalent (risers can't reach the slide's
+    metapiece check - precise lists leave them out; `> y` vs `>= y + 1`), 1 caught by a crash.

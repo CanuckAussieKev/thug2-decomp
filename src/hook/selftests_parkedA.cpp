@@ -41,8 +41,14 @@ struct ParkArena {
     Ed::CClipboard clipboards[8];
     Ed::GapInfo gaps[3];
     Script::CComponent components[6];
-    uint8_t heap[0x200];
+    uint8_t heap[0x800];
     alignas(4) uint8_t pools[2][sizeof(Mem::Pool)]; // (Pool has a constructor)
+    // the map of metapieces
+    CMapListNode poolNodes[160];
+    CMapListNode bucketNodes[300];
+    Ed::MetaPieceEntry moreEntries[32][3];
+    CMapListNode* list;
+    uint8_t pieces[16][4];
 };
 alignas(16) ParkArena g_arena;
 
@@ -157,6 +163,7 @@ using CaseFn = void (*)(bool original, Random& r, std::vector<uint32_t>& trace, 
 
 void BuildEditor(uint32_t seed);
 void StandInEditor(StandIns& s);
+void StandInEditorRest(StandIns& s);
 
 std::vector<uint32_t> RunCase(CaseFn fn, uint32_t seed, bool original)
 {
@@ -168,6 +175,7 @@ std::vector<uint32_t> RunCase(CaseFn fn, uint32_t seed, bool original)
     {
         StandIns s;
         StandInEditor(s);
+        StandInEditorRest(s);
         fn(original, r, trace, s);
     }
     trace.insert(trace.end(), g_trace.begin(), g_trace.end());
@@ -466,6 +474,8 @@ void BuildEditor(uint32_t seed)
     }
 }
 
+void StandInGapInfo(StandIns& s);
+
 void StandInEditor(StandIns& s)
 {
     auto record = [](uint32_t tag) {
@@ -506,12 +516,21 @@ void StandInEditor(StandIns& s)
         *reinterpret_cast<GridDims*>(r.args[1]) = g_clipboardArea;
         return 0u;
     });
-    s.At({0x00597AC0}, 8, [](Regs& r) { // CParkManager: the gap a piece is a half of
+    (void)s;
+}
+
+void StandInGapInfo(StandIns& s)
+{
+    s.At({0x00597AC0, AddressOf(&CParkManager::GetGapInfo)}, 8, [](Regs& r) { // the gap a piece is a half of
         auto* area = reinterpret_cast<const uint8_t*>(r.args[0]);
         Record({0x7AC0, Offset(reinterpret_cast<void*>(r.ecx)), HashBytes(area, 6)});
         *reinterpret_cast<int*>(r.args[1]) = 1;
         return g_gapFor < 0 ? 0u : reinterpret_cast<uint32_t>(&g_arena.gaps[g_gapFor]);
     });
+}
+
+void StandInEditorRest(StandIns& s)
+{
     // scripts
     using namespace Script;
     s.At({0x00476410, AddressOf(&CStruct::Init)}, 0, [](Regs& r) {
@@ -573,7 +592,7 @@ void StandInEditor(StandIns& s)
     });
 }
 
-void CaseCursor(bool original, Random& r, std::vector<uint32_t>& t, StandIns&)
+void CaseCursor(bool original, Random& r, std::vector<uint32_t>& t, StandIns& s)
 {
     Ed::CCursor& c = g_arena.cursor;
     using Ed::CCursor;
@@ -654,6 +673,7 @@ void CaseCursor(bool original, Random& r, std::vector<uint32_t>& t, StandIns&)
         call0(0x005988A0, &CCursor::DestroyClipboards);
         break;
     case 13:
+        StandInGapInfo(s);
         if (r.Range(0, 1)) {
             CMetaPiece* meta = &g_arena.metas[r.Range(0, 31)];
             if (original)
@@ -734,10 +754,317 @@ void CaseMenuAndGaps(bool original, Random& r, std::vector<uint32_t>& t, StandIn
     }
 }
 
+void* g_vtable[4]; // (outside the arena: the stand-ins' code moves between runs)
+
+// --- the map of metapieces ---------------------------------------------------------------------------------------
+
+int MetaIndex(const void* meta)
+{
+    auto at = reinterpret_cast<uintptr_t>(meta);
+    auto first = reinterpret_cast<uintptr_t>(&g_arena.metas[0]);
+    return at >= first && at < first + sizeof(g_arena.metas) ? static_cast<int>((at - first) / sizeof(CMetaPiece)) : 99;
+}
+
+// A random map: metapieces in a 16 x 16 patch of the grid (from 20, 20), each listed in a few buckets.
+void BuildMap(Random& r)
+{
+    CParkManager& p = g_arena.park;
+    for (auto& row : p.mp_bucketList)
+        for (CMapListNode*& bucket : row)
+            bucket = nullptr;
+    void* const kVtable = g_vtable;
+    for (int i = 0; i < 32; ++i) {
+        CMetaPiece& meta = g_arena.metas[i];
+        meta.m_vtable = kVtable;
+        meta.m_cellArea.x = static_cast<uint8_t>(r.Range(20, 34));
+        meta.m_cellArea.z = static_cast<uint8_t>(r.Range(20, 34));
+        meta.m_cellArea.y = static_cast<int8_t>(r.Range(-4, 6));
+        meta.m_cellArea.w = static_cast<uint8_t>(r.Range(1, 3));
+        meta.m_cellArea.l = static_cast<uint8_t>(r.Range(1, 3));
+        meta.m_cellArea.h = static_cast<uint8_t>(r.Range(1, 3));
+        meta.m_flags = 0;
+        for (uint32_t flag : {0x4u, 0x8u, 0x20u, 0x100u, 0x400u, 0x4000u})
+            if (r.Range(0, 3) == 0)
+                meta.m_flags |= flag;
+        if (r.Range(0, 1))
+            meta.m_flags |= 0x4;
+        meta.m_numEntries = static_cast<uint32_t>(r.Range(1, 4));
+        meta.mp_moreEntries = g_arena.moreEntries[i];
+        for (uint32_t e = 0; e < 5; ++e) {
+            Ed::MetaPieceEntry& entry = e < 2 ? meta.m_entries[e] : g_arena.moreEntries[i][e - 2];
+            entry.x = static_cast<uint8_t>(r.Range(0, 2));
+            entry.y = static_cast<int8_t>(r.Range(-1, 2));
+            entry.z = static_cast<uint8_t>(r.Range(0, 2));
+            entry.rot = static_cast<uint8_t>(r.Range(0, 3));
+            entry.isReal = r.Range(0, 3) != 0;
+            entry.piece = kNames[r.Range(0, 4)];
+        }
+    }
+    int used = 0;
+    for (int x = 20; x < 36; ++x) {
+        for (int z = 20; z < 36; ++z) {
+            for (int n = r.Range(0, 2); n > 0 && used < 290; --n) {
+                CMapListNode& node = g_arena.bucketNodes[used++];
+                node.mp_meta = &g_arena.metas[r.Range(0, 31)];
+                node.mp_next = p.mp_bucketList[x][z];
+                p.mp_bucketList[x][z] = &node;
+            }
+        }
+    }
+    // the lists of metapieces
+    p.mp_concreteMetaList = nullptr;
+    for (int n = r.Range(0, 12); n > 0 && used < 290; --n) {
+        CMapListNode& node = g_arena.bucketNodes[used++];
+        node.mp_meta = &g_arena.metas[r.Range(0, 31)];
+        node.mp_next = p.mp_concreteMetaList;
+        p.mp_concreteMetaList = &node;
+    }
+    g_arena.list = nullptr;
+    for (int n = r.Range(0, 6); n > 0 && used < 290; --n) {
+        CMapListNode& node = g_arena.bucketNodes[used++];
+        node.mp_meta = &g_arena.metas[r.Range(0, 31)];
+        node.mp_next = g_arena.list;
+        g_arena.list = &node;
+    }
+    // the node pools: a real pool (most of the time), or the heap
+    auto& pools = GameVariable<Mem::PoolPair>(0x007CE5F0);
+    pools.current = r.Range(0, 1);
+    pools.pools[0] = pools.pools[1] = nullptr;
+    if (r.Range(0, 3)) {
+        auto& pool = *reinterpret_cast<Mem::Pool*>(g_arena.pools[1]);
+        pool.m_start = reinterpret_cast<uint8_t*>(g_arena.poolNodes);
+        pool.m_end = reinterpret_cast<uint8_t*>(g_arena.poolNodes + 160);
+        pool.m_count = 160;
+        pool.m_itemSize = sizeof(CMapListNode);
+        pool.m_used = 0;
+        pool.m_peakUsed = 0;
+        for (int i = 0; i < 160; ++i)
+            *reinterpret_cast<void**>(&g_arena.poolNodes[i]) = i < 159 ? &g_arena.poolNodes[i + 1] : nullptr;
+        pool.m_freeList = &g_arena.poolNodes[0];
+        pools.pools[pools.current] = &pool;
+    }
+    GameVariable<void*>(0x007CE688) = reinterpret_cast<void*>(0x68800000); // the park heap
+    p.mp_generator = &g_arena.pieces[15];
+    p.mp_gapManager = &g_arena.pieces[14];
+}
+
+void StandInMap(StandIns& s)
+{
+    s.At({0x00590CE0}, 12, [](Regs& r) { // CMetaPiece::Intersects
+        uint32_t h = HashBytes(reinterpret_cast<const uint8_t*>(&r.args[0]), 6) ^ (r.args[2] & 0xFF);
+        h ^= static_cast<uint32_t>(MetaIndex(reinterpret_cast<void*>(r.ecx))) * 0x9E3779B1u;
+        Record({0x0CE0, static_cast<uint32_t>(MetaIndex(reinterpret_cast<void*>(r.ecx))), h});
+        return (h >> 7) & 1;
+    });
+    s.At({0x005907B0}, 4, [](Regs& r) { // CMetaPiece::SetRot
+        Record({0x07B0, static_cast<uint32_t>(MetaIndex(reinterpret_cast<void*>(r.ecx))), r.args[0]});
+        return 0u;
+    });
+    s.At({0x00590400}, 0, [](Regs& r) { // CMetaPiece::CountPieces
+        return reinterpret_cast<CMetaPiece*>(r.ecx)->m_numEntries;
+    });
+    s.At({0x00590AD0}, 4, [](Regs& r) { // CMetaPiece::Initialize
+        Record({0x0AD0, Offset(reinterpret_cast<void*>(r.ecx)), r.args[0]});
+        return 0u;
+    });
+    s.At({0x00591AB0}, 0, [](Regs& r) { // CMetaPiece::FinishPieces
+        Record({0x1AB0, Offset(reinterpret_cast<void*>(r.ecx))});
+        return 0u;
+    });
+    s.At({0x005911D0}, 8, [](Regs& r) { // the abstract metapiece's entry, copied
+        auto* meta = reinterpret_cast<CMetaPiece*>(r.ecx);
+        int i = static_cast<int>(r.args[1]);
+        *reinterpret_cast<Ed::MetaPieceEntry*>(r.args[0]) = i < 2 ? meta->m_entries[i] : meta->mp_moreEntries[i - 2];
+        return r.args[0];
+    });
+    s.At({0x00591D90}, 4, [](Regs& r) { // CParkGenerator: a piece's source
+        Record({0x1D90, Offset(reinterpret_cast<void*>(r.ecx)), r.args[0]});
+        return r.args[0] ^ 0x5A5A;
+    });
+    s.At({0x005923C0}, 8, [](Regs& r) { // CParkGenerator: a new piece
+        Record({0x23C0, Offset(reinterpret_cast<void*>(r.ecx)), r.args[0], r.args[1]});
+        return reinterpret_cast<uint32_t>(&g_arena.pieces[r.args[0] & 7]);
+    });
+    s.At({0x00590260}, 8, [](Regs& r) { // a piece's rotation
+        Record({0x0260, Offset(reinterpret_cast<void*>(r.ecx)), r.args[0], r.args[1]});
+        return 0u;
+    });
+    s.At({0x00590B60}, 0, [](Regs& r) { // the concrete metapiece's constructor
+        auto* meta = reinterpret_cast<CMetaPiece*>(r.ecx);
+        std::memset(meta, 0, sizeof(CMetaPiece));
+        meta->m_vtable = g_vtable;
+        Record({0x0B60, Offset(meta)});
+        return r.ecx;
+    });
+    s.At({0x005904C0}, 4, [](Regs& r) { // a piece's size in cells
+        auto* dims = reinterpret_cast<GridDims*>(r.args[0]);
+        uint32_t k = Offset(reinterpret_cast<void*>(r.ecx));
+        dims->Set(static_cast<uint8_t>(k), 0, static_cast<uint8_t>(k >> 3), static_cast<uint8_t>(1 + (k >> 2) % 3),
+                  static_cast<uint8_t>(1 + (k >> 4) % 3), static_cast<uint8_t>(1 + (k >> 3) % 2));
+        return 0u;
+    });
+    s.At({0x0058CA10}, 8, [](Regs& r) { // CGapManager: the gap a metapiece is a half of
+        Record({0xCA10, Offset(reinterpret_cast<void*>(r.ecx)), static_cast<uint32_t>(MetaIndex(reinterpret_cast<void*>(r.args[0])))});
+        *reinterpret_cast<int*>(r.args[1]) = MetaIndex(reinterpret_cast<void*>(r.args[0])) % 5;
+        return static_cast<uint32_t>(MetaIndex(reinterpret_cast<void*>(r.args[0])) % 3 != 0);
+    });
+    s.At({0x0058CB20}, 8, [](Regs& r) { // CGapManager: a gap's info
+        Record({0xCB20, r.args[0]});
+        *reinterpret_cast<int*>(r.args[1]) = 1;
+        return reinterpret_cast<uint32_t>(&g_arena.gaps[r.args[0] % 3]);
+    });
+    // the metapieces' virtual functions
+    g_vtable[0] = s.Thunk(4, [](Regs& r) { // GetPiece
+        return reinterpret_cast<uint32_t>(&g_arena.pieces[(MetaIndex(reinterpret_cast<void*>(r.ecx)) + r.args[0]) & 7]);
+    });
+    g_vtable[2] = s.Thunk(16, [](Regs& r) { // AddPiece
+        Record({0xADD0, Offset(reinterpret_cast<void*>(r.ecx)), Offset(reinterpret_cast<void*>(r.args[0])),
+                HashBytes(reinterpret_cast<const uint8_t*>(r.args[1]), 6), r.args[2], r.args[3] & 0xFF});
+        return 0u;
+    });
+}
+
+void RecordList(std::vector<uint32_t>& t, const CMapListNode* list)
+{
+    int n = 0;
+    for (const CMapListNode* node = list; node && n < 1000; node = node->mp_next, ++n)
+        t.insert(t.end(), {Offset(node), Offset(node->mp_meta), static_cast<uint32_t>(node->m_slideAmount)});
+    t.push_back(0x1157);
+}
+
+GridDims MapArea(Random& r)
+{
+    GridDims area;
+    area.x = static_cast<uint8_t>(r.Range(18, 36));
+    area.z = static_cast<uint8_t>(r.Range(18, 36));
+    area.y = static_cast<int8_t>(r.Range(-5, 6));
+    area.w = static_cast<uint8_t>(r.Range(0, 5));
+    area.l = static_cast<uint8_t>(r.Range(0, 5));
+    area.h = static_cast<uint8_t>(r.Range(0, 4));
+    return area;
+}
+
+void CaseMap(bool original, Random& r, std::vector<uint32_t>& t, StandIns& s)
+{
+    CParkManager& p = g_arena.park;
+    BuildMap(r);
+    StandInMap(s);
+    CMetaPiece* meta = &g_arena.metas[r.Range(0, 31)];
+    g_allocFails = false; // (the originals crash when a node or metapiece can't be had)
+    switch (r.Range(0, 11)) {
+    case 0: {
+        uint32_t flags = r.Next() & 0x3F;
+        auto* made = original ? Orig<CMetaPiece*(__thiscall*)(void*, CMetaPiece*, uint32_t)>(0x00595670)(&p, meta, flags)
+                              : p.CreateConcreteMeta(meta, flags);
+        t.push_back(Offset(made));
+        RecordList(t, p.mp_concreteMetaList);
+        break;
+    }
+    case 1: {
+        GridDims area = MapArea(r);
+        area.w = static_cast<uint8_t>(r.Range(0, 16));
+        area.l = static_cast<uint8_t>(r.Range(0, 16));
+        t.push_back(original ? Orig<bool(__thiscall*)(void*, GridDims)>(0x005958B0)(&p, area) : p.HasPiecesOutside(area));
+        break;
+    }
+    case 2:
+        if (original)
+            Orig<void(__thiscall*)(void*, CMetaPiece*, CMapListNode**)>(0x00595DF0)(&p, meta, &g_arena.list);
+        else
+            p.AddMetaToList(meta, &g_arena.list);
+        RecordList(t, g_arena.list);
+        break;
+    case 3:
+        if (r.Range(0, 2) && g_arena.list) // (usually one that's in the list)
+            meta = g_arena.list->mp_next && r.Range(0, 1) ? g_arena.list->mp_next->mp_meta : g_arena.list->mp_meta;
+        if (original)
+            Orig<void(__thiscall*)(void*, CMetaPiece*, CMapListNode**)>(0x00595E80)(&p, meta, &g_arena.list);
+        else
+            p.RemoveMetaFromList(meta, &g_arena.list);
+        RecordList(t, g_arena.list);
+        break;
+    case 4:
+        if (original)
+            Orig<void(__thiscall*)(void*, CMetaPiece*)>(0x00595EE0)(&p, meta);
+        else
+            p.AddMetaToBuckets(meta);
+        break;
+    case 5:
+        if (r.Range(0, 1)) { // the metapiece twice in a bucket under it
+            CMapListNode*& bucket = p.mp_bucketList[meta->m_cellArea.x][meta->m_cellArea.z];
+            for (int k = 0; k < 2; ++k) {
+                CMapListNode& extra = g_arena.bucketNodes[295 + k];
+                extra.mp_meta = meta;
+                extra.mp_next = bucket;
+                bucket = &extra;
+            }
+        }
+        if (original)
+            Orig<void(__thiscall*)(void*, CMetaPiece*)>(0x00595FC0)(&p, meta);
+        else
+            p.RemoveMetaFromBuckets(meta);
+        break;
+    case 6: {
+        GridDims area = MapArea(r);
+        int rot = r.Range(0, 3);
+        CMetaPiece* with = r.Range(0, 2) ? nullptr : meta;
+        bool precise = r.Range(0, 1) != 0;
+        CMapListNode* list =
+            original ? Orig<CMapListNode*(__thiscall*)(void*, GridDims, int, CMetaPiece*, bool)>(0x00597740)(
+                           &p, area, rot, with, precise)
+                     : p.GetAreaMetaPieces(area, rot, with, precise);
+        RecordList(t, list);
+        break;
+    }
+    case 7: {
+        GridDims area = MapArea(r);
+        CMapListNode* list = original ? Orig<CMapListNode*(__thiscall*)(void*, GridDims)>(0x00597A00)(&p, area)
+                                      : p.GetMetaPiecesAt(area);
+        RecordList(t, list);
+        break;
+    }
+    case 8: {
+        GridDims cell = MapArea(r);
+        int half = -7;
+        Ed::GapInfo* gap = original ? Orig<Ed::GapInfo*(__thiscall*)(void*, GridDims*, int*)>(0x00597AC0)(&p, &cell, &half)
+                                    : p.GetGapInfo(&cell, &half);
+        t.insert(t.end(), {Offset(gap), static_cast<uint32_t>(half), HashBytes(reinterpret_cast<uint8_t*>(&cell), 6)});
+        break;
+    }
+    case 9: {
+        GridDims area = MapArea(r);
+        t.push_back(original ? Orig<bool(__thiscall*)(void*, GridDims)>(0x005983D0)(&p, area) : p.IsColumnUnslidable(area));
+        break;
+    }
+    case 10: {
+        GridDims area = MapArea(r);
+        int y = r.Range(-6, 6);
+        int height = r.Range(-17, 16);
+        uint32_t flags = r.Next() & 7;
+        CMapListNode* list = r.Range(0, 1) ? g_arena.list : nullptr;
+        bool ok = original ? Orig<bool(__thiscall*)(void*, GridDims, int, int, uint32_t, CMapListNode**)>(0x005984A0)(
+                                 &p, area, y, height, flags, &list)
+                           : p.SlideColumn(area, y, height, flags, &list);
+        t.push_back(ok);
+        RecordList(t, list);
+        break;
+    }
+    case 11: {
+        bool add = r.Range(0, 1) != 0;
+        if (original)
+            Orig<void(__thiscall*)(void*, CMetaPiece*, bool)>(0x00598150)(&p, meta, add);
+        else
+            p.ApplyMetaToFloor(meta, add);
+        break;
+    }
+    }
+}
+
 void TestParkManagerAccessors()
 {
     std::vector<Saved> saved = {{0x007CE604, 12, {}}, {0x007CE5D4, 4, {}}, {0x007CE5B4, 16, {}},
-                                {0x007D1800, 4, {}}, {0x007CC979, 1, {}}};
+                                {0x007D1800, 4, {}}, {0x007CC979, 1, {}},
+                                {0x007CE5F0, 16, {}}, {0x007CE688, 4, {}}};
     SaveAll(saved);
     struct Named {
         CaseFn fn;
@@ -749,7 +1076,8 @@ void TestParkManagerAccessors()
                     Named{CaseLookups, "CParkManager lookups (bucket, set, map info, special, abstract meta)"},
                     Named{CaseFloor, "CParkManager floor (slide undo/reset, height, world position, road mask)"},
                     Named{CaseCursor, "CCursor (clipboards, gap name/flags, helper text, area selection, bounds)"},
-                    Named{CaseMenuAndGaps, "CUpperMenuManager, instances, CParkManager gap manager copy/highlight"}}) {
+                    Named{CaseMenuAndGaps, "CUpperMenuManager, instances, CParkManager gap manager copy/highlight"},
+                    Named{CaseMap, "CParkManager map (meta lists, buckets, area queries, gap info, floor slide, floor)"}}) {
         std::vector<uint32_t> expected, actual;
         for (uint32_t seed = 1; seed <= 1000; ++seed) {
             std::vector<uint32_t> e = RunCase(c.fn, seed * 7919u, true);

@@ -197,9 +197,7 @@ void CCursor::ForgetGapOnPiece(CMetaPiece* meta)
 {
     GridDims area = meta->m_cellArea;
     int half;
-    // 0x00597AC0: the gap `area`'s piece is a half of
-    auto* gap = GameFunction<GapInfo*(__thiscall*)(CParkManager*, GridDims*, int*)>(0x00597AC0)(mp_manager, &area,
-                                                                                             &half);
+    GapInfo* gap = mp_manager->GetGapInfo(&area, &half);
     if (!gap)
         return;
     if (m_gapInfo.m_numCompleteHalves != 1 ||

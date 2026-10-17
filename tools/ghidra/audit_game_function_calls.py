@@ -26,7 +26,7 @@ for f in src.rglob("*.*"):
 def size(p):
     p = p.replace("const", "").strip()
     if ("VectorValue" in p or p in ("Mth::Vector", "Vector")) and "*" not in p and "&" not in p: return 16
-    if p in ("double", "int64_t", "uint64_t"): return 8
+    if p in ("double", "int64_t", "uint64_t", "GridDims", "Ed::GridDims"): return 8  # (GridDims: 6 bytes, 2 slots)
     return 4
 with pyghidra.open_project(sys.argv[1], "THUG2PM_ghidra_mcp") as project, pyghidra.program_context(project, "/THUG2PM.exe") as program:
     fm = program.getFunctionManager(); sp = program.getAddressFactory().getDefaultAddressSpace(); listing = program.getListing()

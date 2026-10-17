@@ -48,14 +48,53 @@ class CMetaPiece;
 
 // A link in the lists of metapieces (12 bytes, from the pools at 0x007CE5F0).
 struct CMapListNode {
-    int m_slideAmount; // used by the floor slide (CParkManager::SlideArea)
+    int m_slideAmount; // how far the floor slide moves it (CParkManager::SlideColumn)
     CMetaPiece* mp_meta;
     CMapListNode* mp_next;
 
     // 0x005480C0 (the linker shares it with other one-pointer getters)
     CMetaPiece* GetMeta() const { return mp_meta; }
+
+    // A new node from the pools (or the heap), zeroed; null if out of memory.
+    static CMapListNode* Create();
+    // 0x005914B0: back to the pools (operator delete).
+    static void Free(void* node);
+    // 0x00591BE0: free this node and every one after it.
+    void DestroyList();
+    // 0x00590470: walks the list (a debug check with its asserts compiled out; never ends on a cycle).
+    static void VerifyIntegrity(const CMapListNode* list);
 };
 static_assert(sizeof(CMapListNode) == 12, "pool item");
+
+// Holds a list made for the moment and frees it when it goes (0x004E1970 constructs it, 0x00469490 is
+// GetList, 0x00591C60 the destructor).
+class CMapListTemp {
+public:
+    explicit CMapListTemp(CMapListNode* list) : mp_list(list) {}
+    ~CMapListTemp()
+    {
+        if (mp_list)
+            mp_list->DestroyList();
+    }
+    CMapListTemp(const CMapListTemp&) = delete;
+    CMapListTemp& operator=(const CMapListTemp&) = delete;
+    CMapListNode* GetList() const { return mp_list; }
+
+private:
+    CMapListNode* mp_list;
+};
+
+// One piece of a metapiece (12 bytes): where it sits inside it, and how it's turned.
+struct MetaPieceEntry {
+    uint8_t x;
+    int8_t y;
+    uint8_t z;
+    uint8_t rot;
+    bool isReal; // fills cells (not just a marker)
+    uint8_t pad5[3];
+    uint32_t piece; // the piece's name (abstract metapieces) or the piece (concrete ones)
+};
+static_assert(sizeof(MetaPieceEntry) == 12, "layout must match the original");
 
 // A metapiece (0x3C bytes): one or more pieces placed as a unit. Abstract ones are the palette's (built from
 // Ed_standard_metapieces); concrete ones stand in the park. Only the fields seen so far.
@@ -66,7 +105,10 @@ public:
     uint8_t pad0A[2];
     uint32_t m_flags; // kFlag*
     int m_rot;
-    uint8_t unknown14[0x38 - 0x14];
+    MetaPieceEntry m_entries[2];
+    MetaPieceEntry* mp_moreEntries; // entries 2 and up
+    uint32_t unknown30;
+    uint32_t m_numEntries;
     uint32_t m_nameChecksum;
 
     enum : uint32_t {
@@ -74,20 +116,40 @@ public:
         kFlagRiser = 0x8,           // is_riser
         kFlagSlid = 0x20,           // already moved by the current floor slide
         kFlagSingle = 0x80,         // a single piece
+        kFlag100 = 0x100,
         kFlagNoRails = 0x400,       // no_rails
         kFlagGapPlacement = 0x800,  // special_type gap_placement
         kFlagInGap = 0x1000,        // a gap is attached
         kFlagRestart = 0x2000,      // special_type restart flags (red/green/blue/yellow)
-        kFlagSpecial4000 = 0x4000,
+        kFlagUnslidable = 0x4000,   // has a piece flagged 0x0CD75A3F: the floor under it can't slide
         kFlagAreaSelection = 0x8000, // special_type area_selection
         kFlagRailPlacement = 0x10000 // special_type rail_placement
     };
 
     // 0x005902E0: the concrete or abstract metapiece itself (a cast in the original).
     CMetaPiece* Cast() { return this; }
+
+    // The rest is game code not rewritten yet.
+    // 0x00590340
+    MetaPieceEntry* GetEntry(int index);
+    // 0x00590400
+    int CountPieces();
+    // 0x00590AD0: room for `count` pieces.
+    void Initialize(int count);
+    // 0x00591AB0: its cell area from its pieces.
+    void FinishPieces();
+    // 0x005907B0: turn it (quarter turns).
+    void SetRot(int rot);
+    // 0x00590CE0: does it take up any of `area` (with `precise`, by its real pieces' cells)?
+    bool Intersects(GridDims area, bool precise);
+    // virtual 0: piece `index`
+    void* GetPiece(int index);
+    // virtual 2: add a piece at `pos`.
+    void AddPiece(void* piece, GridDims* pos, int rot, bool isReal);
 };
-static_assert(offsetof(CMetaPiece, m_flags) == 0xC && offsetof(CMetaPiece, m_nameChecksum) == 0x38 &&
-                  sizeof(CMetaPiece) == 0x3C,
+static_assert(offsetof(CMetaPiece, m_flags) == 0xC && offsetof(CMetaPiece, m_entries) == 0x14 &&
+                  offsetof(CMetaPiece, mp_moreEntries) == 0x2C && offsetof(CMetaPiece, m_numEntries) == 0x34 &&
+                  offsetof(CMetaPiece, m_nameChecksum) == 0x38 && sizeof(CMetaPiece) == 0x3C,
               "layout must match the original");
 
 // A gap built in the editor (0x54 bytes): its two halves (pieces), and what's shown and scored.
@@ -214,6 +276,38 @@ public:
     void HighlightGapPieces(bool on, GapInfo* gap);
     // 0x00595D40: clear the floor slide's marks inside the park, and every placed piece's kFlagSlid.
     void ResetSlideMarks();
+
+    // The map of metapieces (park_map.cpp).
+    // 0x00595670: a concrete metapiece (on the park heap) built like the palette's `abstractMeta`, its pieces
+    // made by the generator with `pieceFlags`; added to the list of concrete metapieces.
+    CMetaPiece* CreateConcreteMeta(CMetaPiece* abstractMeta, uint32_t pieceFlags);
+    // 0x005958B0: is a placed piece (not a riser) not wholly inside `area` (x and z)?
+    bool HasPiecesOutside(GridDims area);
+    // 0x00595DF0: add `meta` to the front of `list` unless it's in it already.
+    void AddMetaToList(CMetaPiece* meta, CMapListNode** list);
+    // 0x00595E80: take `meta` out of `list`.
+    void RemoveMetaFromList(CMetaPiece* meta, CMapListNode** list);
+    // 0x00595EE0: list `meta` in the bucket of every cell under it.
+    void AddMetaToBuckets(CMetaPiece* meta);
+    // 0x00595FC0
+    void RemoveMetaFromBuckets(CMetaPiece* meta);
+    // 0x00597740: a new list of the metapieces in `area`. Without `meta`: those in the cells' buckets that
+    // intersect `area` (with `precise`, risers left out and only real pieces' cells counted). With `meta`
+    // (turned to `rot` for the moment): those its pieces would touch with its corner at `area`.
+    CMapListNode* GetAreaMetaPieces(GridDims area, int rot, CMetaPiece* meta, bool precise);
+    // 0x00597A00: a new list of every metapiece in the buckets of `area`.
+    CMapListNode* GetMetaPiecesAt(GridDims area);
+    // 0x00597AC0: the gap whose half is the metapiece at `cell` (made one cell big); `half` gets which half.
+    GapInfo* GetGapInfo(GridDims* cell, int* half);
+    // 0x005983D0: does an unslidable metapiece stand anywhere over `area`?
+    bool IsColumnUnslidable(GridDims area);
+    // 0x005984A0: slide the floor of `area` (from height `y`): up or down a level, or to `height` (flags 1:
+    // to the height, 2: up / exactly, 4: every height counts), marking the cells; the metapieces on it go on
+    // `slidList` and their own areas slide with them. False if a cell would leave -16..15.
+    bool SlideColumn(GridDims area, int y, int height, uint32_t flags, CMapListNode** slidList);
+    // 0x00598150: `meta` placed (or taken away): raise the floor under its real pieces to their tops (or lower
+    // it to their bottoms where nothing's left above) and mark (or clear) the levels they fill.
+    void ApplyMetaToFloor(CMetaPiece* meta, bool add);
 
     void* mp_generator; // CParkGenerator
     uint8_t unknown4[0x7C - 4];
