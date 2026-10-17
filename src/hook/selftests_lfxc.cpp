@@ -12,8 +12,13 @@
 
 #include "game/core/crc.h"
 #include "game/core/dbg.h"
+#include "game/core/alloc.h"
 #include "game/core/dump_text.h"
+#include "game/core/manager.h"
+#include "game/core/mem.h"
+#include "game/core/pool.h"
 #include "game/file/file.h"
+#include "game/park/park_memory.h"
 #include "game/script/cscript.h"
 #include "game/script/skate_cfuncs.h"
 #include "game/script/struct.h"
@@ -331,6 +336,418 @@ void TestSkateCFuncs()
     Compare(traces[0], traces[1], "skate script commands (0x0059EDF0-0x0059F5E0), ControllerPressed, DumpText");
 }
 
+// --- the park editor's memory budget (0x0059E100-0x0059ED5F) -------------------------------------------------
+
+// Stand-in memory: a bump allocator's arena (the pools and regions Init makes), the manager, two heaps and their
+// regions, the park heap and region, the script's pools, the park manager and its map.
+alignas(16) uint8_t g_parkArena[0x40000 + 16000 * 12];
+uint32_t g_parkArenaUsed;
+alignas(16) uint8_t g_fakeManager[sizeof(Mem::Manager)];
+alignas(16) uint8_t g_fakeHeaps[3][sizeof(Mem::Heap)]; // main (bottom-up), top-down, park
+alignas(16) uint8_t g_fakeRegions[3][sizeof(Mem::Region)];
+alignas(16) uint8_t g_fakePools[3][sizeof(Mem::Pool)]; // components, vectors, arrays
+alignas(16) uint8_t g_fakeParkManager[0x20];
+alignas(16) uint8_t g_fakeParkMap[0x40];
+int g_regionAvailable[3];
+uint32_t g_largestFree;
+int g_themeArg;
+int g_valueShift; // varies the script's figures between scenarios
+alignas(16) uint8_t g_structs_lfxc[8][16]; // the structures GetMemoryValue makes
+uint32_t g_nextStruct_lfxc;
+void* g_fakeRegionVtable[1]; // slot 0: the scalar deleting destructor (stood in)
+
+Mem::Heap* FakeHeap(int i) { return reinterpret_cast<Mem::Heap*>(g_fakeHeaps[i]); }
+Mem::Region* FakeRegion(int i) { return reinterpret_cast<Mem::Region*>(g_fakeRegions[i]); }
+Mem::Pool* FakePool(int i) { return reinterpret_cast<Mem::Pool*>(g_fakePools[i]); }
+
+// Addresses of the stand-in objects, made position-independent.
+uint32_t ParkRel(uint32_t value)
+{
+    struct Range {
+        const void* base;
+        uint32_t size;
+        uint32_t tag;
+    };
+    const Range ranges[] = {{g_parkArena, sizeof(g_parkArena), 0xA0000000u},
+                            {g_fakeManager, sizeof(g_fakeManager), 0xA1000000u},
+                            {g_fakeHeaps, sizeof(g_fakeHeaps), 0xA2000000u},
+                            {g_fakeRegions, sizeof(g_fakeRegions), 0xA3000000u},
+                            {g_fakePools, sizeof(g_fakePools), 0xA4000000u},
+                            {g_fakeParkManager, sizeof(g_fakeParkManager), 0xA5000000u},
+                            {g_fakeParkMap, sizeof(g_fakeParkMap), 0xA6000000u},
+                            {g_structs_lfxc, sizeof(g_structs_lfxc), 0xA7000000u}};
+    for (const Range& r : ranges) {
+        auto base = reinterpret_cast<uint32_t>(r.base);
+        if (value >= base && value < base + r.size)
+            return r.tag + (value - base);
+    }
+    return value;
+}
+
+// The script's memory figures, by name (and index): fixed numbers, shifted per scenario.
+int MemoryValue(const char* name, int index)
+{
+    struct Figure {
+        const char* name;
+        int value;
+    };
+    const Figure figures[] = {{"main_heap_pad", 0x20000},   {"anim_set_mem", 0x11000},
+                              {"park_heap_pad", 0x1100},    {"theme_pad", 0x3000},
+                              {"main_heap_base", 0x400000}, {"park_heap_base", 0x100000},
+                              {"top_down_required", 0x80000}, {"component_use_base", 100},
+                              {"vector_use_base", 50},      {"CArray_use_base", 25},
+                              {"max_dma_pieces", 300},      {"floor_piece_size_park", 0x800},
+                              {"floor_piece_size_main", 0x400}, {"park_heap_size", 0x2000}};
+    for (const Figure& f : figures) {
+        if (std::strcmp(f.name, name) == 0)
+            return f.value + (index >= 0 ? index : 0) + g_valueShift * (f.value / 7 + 3);
+    }
+    return 12345;
+}
+
+void StandInParkMemory(StandIns& s)
+{
+    s.At({0x0059E5C0, AddressOf(&Ed::GetMemoryValue)}, 0, [](Regs& r) {
+        auto* name = reinterpret_cast<const char*>(r.args[0]);
+        Record({0xE5C0, Hash(name), r.args[1]});
+        return static_cast<uint32_t>(MemoryValue(name, static_cast<int>(r.args[1])));
+    });
+    s.At({0x00595200}, 0, [](Regs&) { return reinterpret_cast<uint32_t>(g_fakeParkManager); });
+    s.At({0x005950B0}, 0, [](Regs& r) { Record({0x50B0, ParkRel(r.ecx)}); return static_cast<uint32_t>(g_themeArg); });
+    s.At({0x00592AB0}, 4, [](Regs& r) {
+        Record({0x2AB0, ParkRel(r.ecx), r.args[0]});
+        auto* counts = reinterpret_cast<int*>(r.args[0]);
+        for (int i = 0; i < 6; ++i)
+            counts[i] = 7 + i * 13 + g_valueShift;
+        return r.args[0];
+    });
+    s.At({0x005BC530, AddressOf(&Mem::Region::MemAvailable)}, 0, [](Regs& r) {
+        Record({0xC530, ParkRel(r.ecx)});
+        for (int i = 0; i < 3; ++i) {
+            if (r.ecx == reinterpret_cast<uint32_t>(FakeRegion(i)))
+                return static_cast<uint32_t>(g_regionAvailable[i]);
+        }
+        return static_cast<uint32_t>(g_regionAvailable[2] + 0x10); // (a region Init made)
+    });
+    s.At({0x005BA4F0, AddressOf(&Mem::Heap::LargestFree)}, 0, [](Regs& r) {
+        Record({0xA4F0, ParkRel(r.ecx)});
+        return g_largestFree;
+    });
+    s.At({0x00479020, AddressOf(static_cast<CStruct* (*)(uint32_t)>(&Script::GetStructure))}, 0, [](Regs& r) {
+        Record({0x9020, r.args[0]});
+        static TestParams table;
+        if (!table.count)
+            table.Integer(0x1111, 4).Integer(0x2222, -3).Integer(0x3333, 0);
+        return reinterpret_cast<uint32_t>(table.Struct());
+    });
+    s.At({0x00401C30, AddressOf(static_cast<int (*)(const char*, ...)>(&Dbg::Printf))}, 0, [](Regs& r) {
+        Record({0x1C30, Hash(reinterpret_cast<const char*>(r.args[0])), ParkRel(r.args[1])});
+        return 0xFFFFFFFFu;
+    });
+    // the memory manager
+    s.At({0x005BAFC0, AddressOf(&Mem::Manager::Allocate)}, 12, [](Regs& r) {
+        uint32_t size = (r.args[0] + 15) & ~15u;
+        Record({0xAFC0, ParkRel(r.ecx), r.args[0], r.args[1], r.args[2]});
+        if (g_parkArenaUsed + size > sizeof(g_parkArena))
+            return 0u;
+        uint8_t* block = g_parkArena + g_parkArenaUsed;
+        g_parkArenaUsed += size;
+        std::memset(block, 0xCD, size);
+        return reinterpret_cast<uint32_t>(block);
+    });
+    s.At({0x005BABA0, AddressOf(&Mem::Manager::Free)}, 4, [](Regs& r) {
+        Record({0xABA0, ParkRel(r.ecx), ParkRel(r.args[0])});
+        return 0u;
+    });
+    s.At({0x005BB0E0, AddressOf(&Mem::Manager::PushContext)}, 4, [](Regs& r) {
+        Record({0xB0E0, ParkRel(r.ecx), ParkRel(r.args[0])});
+        return 0u;
+    });
+    s.At({0x005BB110, AddressOf(&Mem::Manager::PopContext)}, 0, [](Regs& r) {
+        Record({0xB110, ParkRel(r.ecx)});
+        return 0u;
+    });
+    s.At({0x005BB4E0, AddressOf(&Mem::Manager::AddHeap)}, 12, [](Regs& r) {
+        Record({0xB4E0, ParkRel(r.ecx), ParkRel(r.args[0]), r.args[1], Hash(reinterpret_cast<const char*>(r.args[2]))});
+        return reinterpret_cast<uint32_t>(FakeHeap(2));
+    });
+    g_fakeRegionVtable[0] = s.Thunk(4, [](Regs& r) {
+        Record({0xDE57, ParkRel(r.ecx), r.args[0]});
+        return r.ecx;
+    });
+    s.At({0x005BABC0, AddressOf(&Mem::Manager::DeleteHeap)}, 4, [](Regs& r) {
+        Record({0xABC0, ParkRel(r.ecx), ParkRel(r.args[0])});
+        return 0u;
+    });
+}
+
+// The stand-in state of one scenario (the same for both runs).
+void SetUpParkState(int scenario)
+{
+    std::memset(g_fakeManager, 0, sizeof(g_fakeManager));
+    std::memset(g_fakeHeaps, 0, sizeof(g_fakeHeaps));
+    std::memset(g_fakeRegions, 0, sizeof(g_fakeRegions));
+    std::memset(g_fakePools, 0, sizeof(g_fakePools));
+    auto* manager = reinterpret_cast<Mem::Manager*>(g_fakeManager);
+    manager->m_bottomUpHeap = FakeHeap(0);
+    manager->m_topDownHeap = FakeHeap(1);
+    for (int i = 0; i < 3; ++i) {
+        FakeHeap(i)->m_region = FakeRegion(i);
+        FakeRegion(i)->m_vtable = g_fakeRegionVtable;
+    }
+    GameVariable<int>(0x006F2338) = 0;
+    GameVariable<int>(0x006F3654) = 0;
+    GameVariable<int>(0x006F22B4) = 0;
+    // (main heap: free blocks; park heap: used and free)
+    FakeHeap(0)->m_freeSize = 0x30000 + scenario * 0x9000;
+    FakeHeap(2)->m_usedSize = 0x6000 + scenario * 0x100;
+    FakeHeap(2)->m_freeSize = 0x800 + scenario * 0x40;
+    const int mainAvailable[] = {0x200000, 0x10000, 0x60000, 0x3000, 0x90000, 0x48000};
+    g_regionAvailable[0] = mainAvailable[scenario % 6];
+    g_regionAvailable[1] = 0x50000 + (scenario % 3) * 0x40000; // top-down: under and over its requirement
+    g_regionAvailable[2] = 0x30000 - scenario * 0x7000;
+    const uint32_t largest[] = {0x7FFFFFFF, 0x1000, 0x40000, 0x18000, 0x10, 0x30000};
+    g_largestFree = largest[scenario % 6];
+    g_themeArg = scenario * 3 - 2;
+    g_valueShift = scenario % 4 - 1;
+    reinterpret_cast<void**>(g_fakeParkManager)[0] = g_fakeParkMap;
+    reinterpret_cast<int*>(g_fakeParkMap)[0x20 / 4] = scenario % 3;
+    // the script's pools: room for more or fewer items than the park has
+    for (int i = 0; i < 3; ++i) {
+        FakePool(i)->m_count = 1000 - i * 200 + scenario * 37;
+        FakePool(i)->m_used = 400 + i * 150 - scenario * 21;
+    }
+    GameVariable<Mem::Pool*>(0x006F2338 + 8) = FakePool(0);
+    GameVariable<Mem::Pool*>(0x006F3654 + 8) = FakePool(1);
+    GameVariable<Mem::Pool*>(0x006F22B4 + 8) = FakePool(2);
+    Ed::ParkHeap() = FakeHeap(2);
+    Ed::ParkRegion() = FakeRegion(2);
+    Ed::DmaPieces() = 40 + scenario * 47;
+    Ed::CountsDirty() = scenario % 2 == 0;
+    if (scenario == 10) {
+        // the main heap's free memory exactly its pad (fragmented: the largest block is small)
+        int pad = MemoryValue("main_heap_pad", -1) + (scenario % 3) * 0x8EF1C - 0x8EF1C;
+        g_regionAvailable[0] = 2 * pad + MemoryValue("anim_set_mem", -1) - FakeHeap(0)->m_freeSize;
+        g_largestFree = 0x10;
+    } else if (scenario == 11 || scenario == 13) {
+        // plenty free, more than a float holds exactly (the park heap the fullest); or just a little
+        int pad = MemoryValue("main_heap_pad", -1) + (scenario % 3) * 0x8EF1C - 0x8EF1C;
+        int target = scenario == 11 ? 0x1234567 : 100;
+        g_regionAvailable[0] = target + MemoryValue("anim_set_mem", -1) + pad + MemoryValue("theme_pad", g_themeArg) -
+                               FakeHeap(0)->m_freeSize;
+        g_largestFree = 0x7FFFFFFF;
+        g_regionAvailable[2] = 0x400;
+    } else if (scenario == 12) {
+        // the main heap's free memory 5 floor pieces (and a bit) over 10% of its base: room for 5, not 6
+        int pad = MemoryValue("main_heap_pad", -1) + (scenario % 3) * 0x8EF1C - 0x8EF1C;
+        int target = MemoryValue("main_heap_base", -1) / 10 + 5 * MemoryValue("floor_piece_size_main", -1) + 100;
+        g_regionAvailable[0] = target + MemoryValue("anim_set_mem", -1) + pad + MemoryValue("theme_pad", g_themeArg) -
+                               FakeHeap(0)->m_freeSize;
+        g_largestFree = 0x7FFFFFFF;
+        g_regionAvailable[2] = 0x40000;
+        Ed::DmaPieces() = 40;
+    }
+}
+
+void RecordParkGlobals()
+{
+    const auto* words = reinterpret_cast<const uint32_t*>(0x007CE5B4);
+    for (uint32_t i = 0; i < (0x007CE698 - 0x007CE5B4) / 4; ++i)
+        Record({ParkRel(words[i])});
+}
+
+// Every function of the park editor's memory budget: original against ours. GetMemoryValue on its own (the
+// structures, the script run and its result stood in for); the rest with GetMemoryValue stood in for.
+void TestParkMemory()
+{
+    std::vector<Saved> saved = {{0x007CE5B4, 0x007CE698 - 0x007CE5B4, {}}, {0x006F2338, 16, {}}, {0x006F3654, 16, {}},
+                                {0x006F22B4, 16, {}}, {0x006F3614, 16, {}}, {0x007D1800, 4, {}}, {0x007CC979, 1, {}},
+                                {0x006F3624, 4, {}}};
+    SaveAll(saved);
+    static Script::CSymbolTableEntry* table[0x1000];
+    std::memset(table, 0, sizeof(table));
+    GameVariable<Script::CSymbolTableEntry**>(0x006F3624) = table;
+    GameVariable<bool>(0x007CC979) = true;
+    GameVariable<void*>(0x007D1800) = g_fakeManager;
+
+    std::vector<uint32_t> traces[2];
+    // 1. GetMemoryValue
+    {
+        auto* standIns = new StandIns;
+        StandIns& s = *standIns;
+        s.At({0x005BA3D0, AddressOf(&Mem::Pool::Allocate)}, 0, [](Regs&) {
+            Record({0xA3D0});
+            return reinterpret_cast<uint32_t>(g_structs_lfxc[g_nextStruct_lfxc++ & 7]);
+        });
+        s.At({0x00476410, AddressOf(&CStruct::Init)}, 0, [](Regs& r) { Record({0x6410, ParkRel(r.ecx)}); return r.ecx; });
+        s.At({0x00477090, 0x00477130, AddressOf(&CStruct::Clear)}, 0, [](Regs& r) {
+            Record({0x7090, ParkRel(r.ecx)});
+            return 0u;
+        });
+        s.At({0x00409070, AddressOf(&Script::DeleteStruct)}, 0, [](Regs& r) {
+            Record({0x9070, ParkRel(r.args[0])});
+            return 0u;
+        });
+        using AddChecksumFn = void (CStruct::*)(uint32_t, uint32_t);
+        using AddIntegerFn = void (CStruct::*)(uint32_t, int);
+        s.At({0x00477D40, AddressOf(static_cast<AddChecksumFn>(&CStruct::AddChecksum))}, 8, [](Regs& r) {
+            Record({0x7D40, ParkRel(r.ecx), r.args[0], r.args[1]});
+            return 0u;
+        });
+        s.At({0x00477B80, AddressOf(static_cast<AddIntegerFn>(&CStruct::AddInteger))}, 8, [](Regs& r) {
+            Record({0x7B80, ParkRel(r.ecx), r.args[0], r.args[1]});
+            return 0u;
+        });
+        s.At({0x004752F0, AddressOf(&Script::RunScriptOnce)}, 0, [](Regs& r) {
+            Record({0x52F0, r.args[0], ParkRel(r.args[1]), r.args[2], ParkRel(r.args[3])});
+            return 0u;
+        });
+        using GetIntegerFn = bool (CStruct::*)(uint32_t, int*, int);
+        s.At({0x00476CB0, AddressOf(static_cast<GetIntegerFn>(&CStruct::GetInteger))}, 12, [](Regs& r) {
+            Record({0x6CB0, ParkRel(r.ecx), r.args[0], *reinterpret_cast<uint32_t*>(r.args[1]), r.args[2] & 0xFF});
+            *reinterpret_cast<int*>(r.args[1]) = 0x4321 + static_cast<int>(g_nextStruct_lfxc);
+            return 1u;
+        });
+        reinterpret_cast<void**>(0x006F3614)[2] = g_structs_lfxc; // a struct pool (its allocate is stood in)
+        GameVariable<int>(0x006F3614) = 0;
+        using ValueFn = int(__cdecl*)(const char*, int);
+        for (int run = 0; run < 2; ++run) {
+            bool original = run == 0;
+            g_trace.clear();
+            g_nextStruct_lfxc = 0;
+            for (int index : {-1, 0, 5, -7}) {
+                int value = original ? Original<ValueFn>(0x0059E5C0)("main_heap_pad", index)
+                                     : Ed::GetMemoryValue("main_heap_pad", index);
+                Record({0x5C0, static_cast<uint32_t>(value)});
+            }
+            traces[run] = g_trace;
+        }
+        RemoveStandIns();
+        Compare(traces[0], traces[1], "park memory: GetMemoryValue");
+        Check(traces[0].size() > 40, "park memory: GetMemoryValue's original reached its calls");
+    }
+
+    // 2. the rest
+    auto* standIns = new StandIns;
+    StandInParkMemory(*standIns);
+    for (int run = 0; run < 2; ++run) {
+        bool original = run == 0;
+        g_trace.clear();
+        std::memset(reinterpret_cast<void*>(0x007CE5B4), 0, 0x007CE698 - 0x007CE5B4);
+        using VoidFn = void(__cdecl*)();
+        using PieceFn = void(__cdecl*)(const void*);
+        using TypeFn = void(__cdecl*)(uint32_t);
+        using StatsFn = Ed::MemoryStats*(__cdecl*)(Ed::MemoryStats*);
+        using FitFn = bool(__cdecl*)(int, int);
+        using PoolFn = void(__cdecl*)(int, const char*);
+
+        SetUpParkState(0);
+        Record({ParkRel(reinterpret_cast<uint32_t>(original ? Original<Mem::Heap*(__cdecl*)()>(0x0059E100)() : Ed::GetParkHeap()))});
+        Record({ParkRel(reinterpret_cast<uint32_t>(original ? Original<Mem::Heap*(__cdecl*)()>(0x0059E180)() : Ed::GetMainHeap()))});
+        original ? Original<VoidFn>(0x0059E170)() : Ed::SetCountsDirty();
+        Record({GameVariable<uint32_t>(0x007CE694)});
+
+        // DMA pieces: flags 0 / bit 8 / bit 2 / both; types in the table, missing (1), negative, zero
+        struct Piece {
+            uint8_t unknown0[0xC];
+            uint32_t flags;
+            uint8_t unknown10[0x28];
+            uint32_t type;
+        } pieces[8] = {};
+        const uint32_t flags[] = {0, 0x100, 0x4, 0x104, 0x4, 0x4, 0xFFFFFEFF, 0x100};
+        const uint32_t types[] = {0x1111, 0x2222, 0x9999, 0x1111, 0x2222, 0x3333, 0x1111, 0x9999};
+        for (int i = 0; i < 8; ++i) {
+            pieces[i].flags = flags[i];
+            pieces[i].type = types[i];
+            original ? Original<PieceFn>(0x0059E190)(&pieces[i]) : Ed::AddPieceDma(&pieces[i]);
+            Record({static_cast<uint32_t>(Ed::DmaPieces())});
+        }
+        for (int i = 0; i < 8; ++i) {
+            original ? Original<PieceFn>(0x0059E1E0)(&pieces[i]) : Ed::RemovePieceDma(&pieces[i]);
+            Record({static_cast<uint32_t>(Ed::DmaPieces())});
+        }
+        original ? Original<TypeFn>(0x0059E130)(0x9999) : Ed::RemoveDma(0x9999);
+        original ? Original<TypeFn>(0x0059E130)(0x1111) : Ed::RemoveDma(0x1111);
+        Record({static_cast<uint32_t>(Ed::DmaPieces())});
+
+        // the markers (free memory changing between them)
+        const uint32_t markers[] = {0x2D987043, 0xAFFF3067, 0x9BF91DBE, 0xCC63F828, 0xE113C765, 0x7DE18688,
+                                    0x65B63305, 0x12345678, 0xAF6240B2, 0x2D987043, 0xFFFFFFFF};
+        int step = 0;
+        for (uint32_t marker : markers) {
+            g_regionAvailable[0] = 0x100000 - step * 0x1234;
+            FakeHeap(0)->m_freeSize = 0x2000 + step * 0x111;
+            FakePool(0)->m_used = 300 + step;
+            FakePool(1)->m_used = 200 + step * 2;
+            Ed::DmaPieces() = 50 + step;
+            ++step;
+            original ? Original<TypeFn>(0x0059E390)(marker) : Ed::Marker(marker);
+            RecordParkGlobals();
+        }
+        original ? Original<VoidFn>(0x0059E110)() : Ed::ClearStats();
+        RecordParkGlobals();
+
+        // the figures, in scenarios crossing each comparison; MainHeapHasRoom / PiecesFit around their limits
+        for (int scenario = 0; scenario < 14; ++scenario) {
+            SetUpParkState(scenario);
+            Ed::MemoryStats out;
+            std::memset(&out, 0xEE, sizeof(out));
+            Ed::MemoryStats* result = original ? Original<StatsFn>(0x0059E730)(&out) : Ed::GetMemoryStats(&out);
+            Record({result == &out ? 1u : 0u});
+            const auto* words = reinterpret_cast<const uint32_t*>(&out);
+            for (size_t i = 0; i < sizeof(out) / 4; ++i)
+                Record({words[i]});
+            RecordParkGlobals();
+            for (int count : {0, 1, 3, 9, 40, -2}) {
+                bool room = original ? Original<FitFn>(0x0059EAD0)(count, scenario + 1)
+                                     : Ed::MainHeapHasRoom(count, scenario + 1);
+                Record({0xEAD0, room ? 1u : 0u});
+            }
+            // (and at PiecesFit's limits: the DMA budget exactly used; the main heap just at / over 90%)
+            int exactDma = MemoryValue("max_dma_pieces", -1) - Ed::DmaPieces();
+            int mainSize = MemoryValue("floor_piece_size_main", -1);
+            int overMain = (Ed::Stats().mainHeapFree - MemoryValue("main_heap_base", -1) / 10) / mainSize + 1;
+            for (int last : {10, 13, 60, 400, 9, 10 + exactDma, 11 + exactDma, 10 + overMain, 9 + overMain}) {
+                bool fit = original ? Original<FitFn>(0x0059EB30)(10, last) : Ed::PiecesFit(10, last);
+                Record({0xEB30, fit ? 1u : 0u});
+            }
+        }
+
+        // the pools on their own, then Init and ShutDown (both levels; a pool not made here kept)
+        g_parkArenaUsed = 0;
+        SetUpParkState(1);
+        GameVariable<int>(0x007CE5B4) = 1;
+        GameVariable<int>(0x007CE5C4) = 0;
+        GameVariable<int>(0x007CE5F0) = 1;
+        original ? Original<PoolFn>(0x0059E210)(30, "MapList") : Ed::CreateMapListNodePool(30, "MapList");
+        original ? Original<PoolFn>(0x0059E290)(20, "Entries") : Ed::CreateClipboardEntryPool(20, "Entries");
+        original ? Original<PoolFn>(0x0059E310)(10, "Boards") : Ed::CreateClipboardPool(10, "Boards");
+        RecordParkGlobals();
+        original ? Original<VoidFn>(0x0059E4E0)() : Ed::ShutDown();
+        RecordParkGlobals();
+        for (uint32_t level : {0xCD3682C1u, 0x7ECA21E5u}) {
+            SetUpParkState(level & 3);
+            GameVariable<int>(0x007CE5B4) = 0;
+            GameVariable<int>(0x007CE5C4) = 1;
+            GameVariable<int>(0x007CE5F0) = 0;
+            original ? Original<TypeFn>(0x0059EC00)(level) : Ed::Init(level);
+            RecordParkGlobals();
+            GameVariable<uint8_t>(0x007CE5C8 + 1) = 0; // the clipboard entries' pool isn't ours to delete
+            original ? Original<VoidFn>(0x0059E4E0)() : Ed::ShutDown();
+            RecordParkGlobals();
+        }
+        // (the arena: the pools' and regions' contents)
+        traces[run] = g_trace;
+        for (uint32_t i = 0; i < g_parkArenaUsed / 4; ++i)
+            traces[run].push_back(ParkRel(reinterpret_cast<uint32_t*>(g_parkArena)[i]));
+    }
+    RemoveStandIns();
+    RestoreAll(saved);
+    Check(traces[0].size() > 2000, "park memory: the original reached its calls");
+    Compare(traces[0], traces[1], "park memory (0x0059E100-0x0059EC00)");
+}
+
 } // namespace
 
 SELFTEST(Early, TestSkateCFuncs, RemoveStandIns);
+SELFTEST(Early, TestParkMemory, RemoveStandIns);

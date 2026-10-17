@@ -110,6 +110,7 @@ add_library(thug2_code OBJECT
     src/game/net/service.cpp
     src/game/net/online_hosts.cpp
     src/game/obj/flip_rotate.cpp
+    src/game/park/park_memory.cpp
     src/game/obj/smtptr.cpp
     src/game/skater/rotation.cpp
     src/game/sio/device.cpp

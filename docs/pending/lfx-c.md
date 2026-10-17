@@ -31,3 +31,26 @@ Records for the lead to fold into docs/decomp-progress.md.
     overwrote it).
   - Unknown checksum names: 0x80804991 (FakeLights), 0x01917DF2 (SpawnScript), 0xAE94C183 (Omnigon),
     0x2AB71EEF (DumpScripts).
+  - Tested in the game 2026-10-18 (lfx-c's own run, under the game lock): starts, Free Skate -> Los Angeles
+    loads and plays, the pause menu works; log clean (all self-tests passed, no CRT reports / RTC failures).
+- [x] Batch lfx-c 2 (NOT run in the game yet): the park editor's memory budget - src/game/park/park_memory.cpp
+  (17 functions, all REPLACE): GetParkHeap 0x0059E100 (0x007CE688), GetMainHeap 0x0059E180 (the bottom-up
+  heap), ClearStats 0x0059E110, SetCountsDirty 0x0059E170, RemoveDma / AddPieceDma / RemovePieceDma
+  0x0059E130 / 0x0059E190 / 0x0059E1E0 (a piece's DMA pieces from the global structure 0x9547DA8D by type, 1 if
+  missing; piece flag 0x100 = don't count, 0x4 = counted), the pools of CMapListNode / CClipboardEntry /
+  CClipboard (0x0059E210 / 290 / 310: PoolPairs at 0x007CE5F0 / 0x007CE5C4 / 0x007CE5B4, the pair's second word
+  = per-slot "made here" bytes), Marker 0x0059E390 (memory markers: OUTER SHELL MEM / NETANIMS MEM debug output),
+  ShutDown 0x0059E4E0, GetMemoryValue 0x0059E5C0 (runs script 0x3CB03619 once with the name's checksum and an
+  index, reads 0x083FDB95), GetMemoryStats 0x0059E730 (the editor's memory bars: main / top-down / park heap,
+  component / vector / array pools, DMA pieces; x87: free amounts rounded to float before dividing, max taken
+  before rounding for the heaps and DMA, after for the pools; returns `out` - 2 callers read EAX),
+  MainHeapHasRoom 0x0059EAD0 (< 95% after count*size*40000 bytes), PiecesFit 0x0059EB30 (DMA, park and main heap
+  sizes per floor piece, < 90%), Init 0x0059EC00 (the "Park Editor" heap in its own AllocRegion of
+  park_heap_size - top-down heap for level 0xCD3682C1, else bottom-up - and the three pools; "pool is at %p").
+  - Test: TestParkMemory (Early): GetMemoryValue with its structures / script / result stood in; everything else
+    with GetMemoryValue, Region::MemAvailable, Heap::LargestFree, the manager's Allocate/Free/Push/Pop/AddHeap/
+    DeleteHeap and the park manager's calls stood in; 14 scenarios crossing every comparison of GetMemoryStats
+    (fragmentation at exactly the pad, a free amount a float can't hold, a little free), PiecesFit at its exact
+    limits, the pools / Init / ShutDown for both levels. 42 deliberate bugs caught (7 after strengthening);
+    1 equivalent (fragmentation `<` vs `<=`: the other two conditions exclude equality).
+  - tools/ghidra/audit_game_function_calls.py: Ed::GridDims (6 bytes) counts 8 on the stack.
