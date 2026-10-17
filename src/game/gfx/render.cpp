@@ -8,6 +8,8 @@
 #include <cstdint>
 #include <cstring>
 
+#include "game/front/menu_backdrop.h"
+#include "game/gfx/camera.h"
 #include "game/gfx/screen.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -436,12 +438,20 @@ static_assert(offsetof(MeshGroup, meshCount) == 0x20, "mesh group layout");
 
 // A loaded world scene (only what the render uses).
 struct Scene {
-    uint8_t unknown000[0x8D];
+    uint8_t unknown000[0x84];
+    uint32_t name;          // +0x84: the checksum of its name
+    void* texDict;          // +0x88
+    uint8_t unknown08C;
     bool sky;               // +0x8D: drawn in the sky pass
     uint8_t unknown08E[0x1F2];
     MeshGroup* group;       // +0x280
 };
-static_assert(offsetof(Scene, group) == 0x280, "scene layout");
+static_assert(offsetof(Scene, group) == 0x280 && offsetof(Scene, sky) == 0x8D && offsetof(Scene, name) == 0x84,
+              "scene layout");
+
+// Not original - the menu_backdrop feature (see game/front/menu_backdrop.h): in the front end either the skate shop's
+// scene or the backdrop level's isn't drawn.
+bool Hidden(const Scene* scene) { return Front::MenuBackdrop::HideScene(scene->name); }
 
 // The list of loaded scenes (0x006FA7EC): ends at a node whose scene is -1.
 struct SceneNode {
@@ -498,6 +508,9 @@ void RenderViewport(int index)
     void* camera = view->camera;
     if (!camera)
         return;
+    // Not original - the menu_backdrop feature: the front end's camera held at the chosen view (also when nothing
+    // set it this frame).
+    Front::MenuBackdrop::HoldCamera(static_cast<Gfx::Camera*>(camera));
     GameVariable<int>(0x006FA7B8) = index; // the viewport being drawn
     double width = GameVariable<int>(0x00786D6C);
     double height = static_cast<float>(GameVariable<int>(0x00786D70));
@@ -528,7 +541,7 @@ void RenderViewport(int index)
         SetCamera(CameraMatrix(camera), position, angle, aspect, 1.0f, false);
     }
     ForEachScene([&](Scene* scene) {
-        if (scene->sky)
+        if (scene->sky || Hidden(scene))
             return;
         GameFunction<void(__cdecl*)(const Mth::Vector*, int)>(0x004D8ED0)(CameraPosition(camera), index);
         SetRenderState(1, 1);
@@ -567,7 +580,7 @@ void RenderViewport(int index)
     SetRenderState(1, 0);
     SetRenderState(2, 1);
     ForEachScene([&](Scene* scene) {
-        if (!scene->sky)
+        if (!scene->sky || Hidden(scene))
             return;
         // (with distance clipping and fog both on, there's no sky)
         if (GameVariable<bool>(0x007D643A) && GameVariable<bool>(0x007D6436))
@@ -601,7 +614,7 @@ void RenderViewport(int index)
     SetRenderState(1, 1);
     SetRenderState(2, 1);
     ForEachScene([&](Scene* scene) {
-        if (!scene->sky)
+        if (!scene->sky && !Hidden(scene))
             DrawSceneGroup(scene, 0x46, index);
     });
     SetPass(0x102);
