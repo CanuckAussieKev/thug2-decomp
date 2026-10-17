@@ -78,14 +78,19 @@ struct Inputs {
     bool backdropLoaded;              // the backdrop's scene is loaded
     uint32_t menuCamera;              // the menu camera animation playing (0: none, or not a menu camera)
     Obj::CCompositeObject* camera;    // the object of the viewport's camera (null: none)
+    // Else the pose the game last gave the viewport camera (its setters, before the held view replaced it).
+    const Mth::Vector* cameraPos;
+    const Mth::Matrix* cameraMatrix;
 };
 // An object by id (Obj::FindObject in the game).
 using Lookup = Obj::CObject* (*)(uint32_t id);
 
-// One step: restores, captures the menu camera's pose (`sample`: once per logic update), moves objects.
-void Step(const Inputs& inputs, bool sample, Lookup lookup);
-// Step with the game's state (the composite object manager's update: sample; the renderer: not).
-void Update(bool sample);
+// One step: restores, captures the menu camera's pose (`sample`: a sample may be taken), moves objects. Returns
+// whether a sample was taken.
+bool Step(const Inputs& inputs, bool sample, Lookup lookup);
+// Step with the game's state (`logic`: from the composite object manager's update, else from the renderer). The
+// camera is sampled once a frame, by whichever step comes first (the frames counted by the renders).
+void Update(bool logic);
 
 // The hooks in CCompositeObject::Update (0x0045D920): after the object's script and own update, and after its
 // components. Nothing unless the object is moved.
@@ -99,8 +104,12 @@ void OnLevelChange();
 // The backdrop has just been loaded (MenuBackdrop::OnSceneLoaded): objects may be moved again, the camera poses
 // are captured anew.
 void OnBackdropLoaded();
-// Everything restored now.
+// Everything restored now (`why`: logged with debug_backdrop).
 void RestoreAll();
+void RestoreAll(const char* why);
+// thug2-decomp.ini [features] debug_backdrop (default 0): with 1, every change of the decision's inputs, each
+// object moved, restored or forgotten, and every restore's reason are logged. Self-tests set it for their run.
+int& DebugBackdrop();
 
 // For self-tests: the state, and forgetting it all without restoring anything.
 bool Applied();

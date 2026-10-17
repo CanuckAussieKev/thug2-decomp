@@ -12,7 +12,15 @@
 #include "game/core/crc.h"
 #include "game/front/frontend_objects.h"
 #include "game/front/menu_backdrop.h"
+#include <algorithm>
+#include <map>
+#include <set>
+#include <string>
+
+#include "game/core/dbg.h"
 #include "game/gfx/camera.h"
+#include "game/gfx/scene.h"
+#include "game/script/struct.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/object.h"
 #include "hook/game.h"
@@ -873,7 +881,7 @@ void SetBackdrop(bool loaded)
 void TestFrontEndObjectsGameState()
 {
     FO::Reset();
-    g_feobj_saved = {{0x007CE478, 4, {}}, {0x006FA7EC, 4, {}}, {0x006F0FB8, 4, {}}};
+    g_feobj_saved = {{0x007CE478, 4, {}}, {0x006FA7EC, 4, {}}, {0x006F0FB8, 4, {}}, {0x00701348, 4, {}}};
     SaveAll(g_feobj_saved);
     for (void*& slot : g_emptyVtable)
         slot = reinterpret_cast<void*>(0x005480A0);
@@ -904,6 +912,9 @@ void TestFrontEndObjectsGameState()
     s->At({0x0045F2D0, AddressOf(&Obj::CCompositeObjectManager::GetFirstComponentByType)}, 4, [](Regs& r) {
         return r.args[0] == 0xC4E311FA ? reinterpret_cast<uint32_t>(g_gs_cameraComponent) : 0u;
     });
+    // (the held view's field of view: the default angle, the adjusted one stood in)
+    s->At({0x00485AA0, AddressOf(&Gfx::Camera::UpdateAdjustedHFOV)}, 0, [](Regs&) { return 0u; });
+    GameVariable<float>(0x00701348) = 72.0f;
     std::memset(g_gs_skate, 0, sizeof(g_gs_skate));
     std::memset(g_gs_career, 0, sizeof(g_gs_career));
     *reinterpret_cast<uint8_t**>(g_gs_skate + 0x20) = g_gs_career;
@@ -934,13 +945,14 @@ void TestFrontEndObjectsGameState()
                 fail("a condition missing");
         }
         g_gs_viewport = reinterpret_cast<Gfx::Camera*>(viewportMemory);
-        // All: the camera's object's pose over two updates (render steps don't sample), then moved.
-        FO::Update(false);
-        FO::Update(true);
-        FO::Update(false);
+        // All: the camera's object's pose, sampled once a frame by whichever step comes first (the frames counted
+        // by the renders), the same twice in a row: moved.
+        FO::Update(true);  // frame 0: a sample
+        FO::Update(true);  // (the same frame: none)
+        FO::Update(false); // (its render: none)
         if (!Same(ring, sRing) || FO::Applied())
             fail("before the second sample");
-        FO::Update(true);
+        FO::Update(true); // frame 1: the second
         if (!(FO::Applied() && MovedBy(ring.Get(), sRing, p1)))
             fail("moved");
         // Another camera (Create-A-Skater): back.
@@ -964,6 +976,7 @@ void TestFrontEndObjectsGameState()
     {
         SettingScope scope(2);
         FO::Update(true);
+        FO::Update(false); // (the next frame)
         FO::Update(true);
         if (!(FO::Applied() && MovedBy(ring.Get(), sRing, p2)))
             fail("view 2");
@@ -981,10 +994,82 @@ void TestFrontEndObjectsGameState()
         if (!Same(ring, sRing) || FO::Applied())
             fail("off: nothing");
     }
+    // Renders only (no object update walk): sampled by the renders.
+    {
+        SettingScope scope(1);
+        ClearTeleported(ring);
+        g_gs_career[0x630] = 15;
+        FO::Update(false); // (a level: the poses forgotten)
+        g_gs_career[0x630] = 0;
+        FO::Update(false);
+        if (FO::Applied())
+            fail("renders only: one sample");
+        FO::Update(false);
+        if (!(FO::Applied() && MovedBy(ring.Get(), sRing, p1)))
+            fail("renders only");
+    }
+    // No camera component owning the viewport camera: the pose the game gave the viewport camera's setters (noted
+    // before the held view replaces it).
+    {
+        SettingScope scope(1);
+        ClearTeleported(ring);
+        g_gs_career[0x630] = 15;
+        FO::Update(true);
+        g_gs_career[0x630] = 0;
+        if (!PoseRestored(ring, sRing))
+            fail("setters: restored");
+        g_gs_cameraComponent = nullptr;
+        MB::ForgetGameCameraPose();
+        FO::Update(false);
+        FO::Update(false);
+        if (FO::Applied())
+            fail("setters: nothing noted");
+        Gfx::Camera* viewport = g_gs_viewport;
+        Mth::Vector pos = {kCamPos[0], kCamPos[1], kCamPos[2], 1.0f};
+        Mth::Matrix m = {};
+        m.row[1] = {kCamUp[0], kCamUp[1], kCamUp[2], 0.0f};
+        m.row[2] = {kCamBack[0], kCamBack[1], kCamBack[2], 0.0f};
+        m.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+        viewport->SetPos(pos); // (a position alone isn't a pose)
+        FO::Update(false);
+        FO::Update(false);
+        if (FO::Applied())
+            fail("setters: a position only");
+        viewport->SetMatrix(m);
+        // (held: the camera shows the view; the game's pose noted)
+        if (!(viewport->m_pos.x == MB::ViewFor(1)->pos[0]))
+            fail("setters: held");
+        FO::Update(false);
+        viewport->SetPos(pos);
+        viewport->SetMatrix(m);
+        FO::Update(true);
+        if (!(FO::Applied() && MovedBy(ring.Get(), sRing, p1)))
+            fail("setters");
+        // Another camera than the viewport's, or not held: not noted.
+        Mth::Vector noted;
+        Mth::Matrix notedMatrix;
+        alignas(16) static uint8_t otherMemory[0xC4];
+        reinterpret_cast<Gfx::Camera*>(otherMemory)->SetPos({1.0f, 2.0f, 3.0f, 1.0f});
+        if (!(MB::GameCameraPose(&noted, &notedMatrix) && noted.x == kCamPos[0]))
+            fail("setters: another camera");
+        g_gs_anim = Crc::GenerateCRCFromString("skater_select_cam");
+        viewport->SetPos({4.0f, 5.0f, 6.0f, 1.0f});
+        if (!(MB::GameCameraPose(&noted, &notedMatrix) && noted.x == kCamPos[0]))
+            fail("setters: not held");
+        g_gs_anim = cam02;
+        FO::OnBackdropLoaded();
+        if (MB::GameCameraPose(&noted, &notedMatrix))
+            fail("setters: forgotten");
+        g_gs_cameraComponent = cameraComponent.Get();
+    }
     // No skate module (CurrentLevel 0): the scene list decides; no camera animation: nothing.
     {
         SettingScope scope(1);
         GameVariable<uint8_t*>(0x007CE478) = nullptr;
+        FO::Update(true); // (restores what the blocks above moved)
+        if (!PoseRestored(ring, sRing))
+            fail("no skate module: restored");
+        ClearTeleported(ring);
         for (int k = 0; k < 3; ++k)
             FO::Update(true);
         if (!Same(ring, sRing) || FO::Applied())
@@ -994,8 +1079,167 @@ void TestFrontEndObjectsGameState()
     Cleanup();
 }
 
+// --- the front end's load as the game does it -------------------------------------------------------------------
+
+// LoadScene's callees stood in: structures (strings and flags kept per address), the texture dictionary and the
+// scene file (each loaded scene added to the stand-in scene list, by its name's checksum).
+struct LsStruct {
+    std::map<uint32_t, std::string> strings;
+    std::set<uint32_t> flags;
+};
+std::map<uint32_t, LsStruct> g_lq_structs;
+std::vector<uint32_t> g_lq_loaded;
+uint8_t g_lq_scenes[8][0x90];
+uint32_t g_lq_nodes[9][4];
+constexpr uint32_t kSceneParam = 0x26861025;
+
+void SetLoadedScenes()
+{
+    size_t n = g_lq_loaded.size();
+    for (size_t i = 0; i < n; ++i) {
+        std::memset(g_lq_scenes[i], 0, sizeof(g_lq_scenes[i]));
+        std::memcpy(g_lq_scenes[i] + 0x84, &g_lq_loaded[i], 4);
+        g_lq_nodes[i][1] = reinterpret_cast<uint32_t>(g_lq_scenes[i]);
+        g_lq_nodes[i][3] = reinterpret_cast<uint32_t>(g_lq_nodes[i + 1]);
+    }
+    g_lq_nodes[n][1] = 0xFFFFFFFF;
+    GameVariable<uint32_t>(0x006FA7EC) = reinterpret_cast<uint32_t>(g_lq_nodes[0]);
+}
+
+void InstallLoadStandIns(StandIns& s)
+{
+    using Script::CStruct;
+    s.At({0x00476B40, AddressOf(static_cast<bool (CStruct::*)(uint32_t)>(&CStruct::ContainsFlag))}, 4,
+         [](Regs& r) { return g_lq_structs[r.ecx].flags.count(r.args[0]) ? 1u : 0u; });
+    s.At({0x00476C60, AddressOf(static_cast<bool (CStruct::*)(uint32_t, const char**, int)>(&CStruct::GetString))}, 12,
+         [](Regs& r) {
+             auto& strings = g_lq_structs[r.ecx].strings;
+             auto it = strings.find(r.args[0]);
+             if (it == strings.end())
+                 return 0u;
+             *reinterpret_cast<const char**>(r.args[1]) = it->second.c_str();
+             return 1u;
+         });
+    s.At({0x00476410, AddressOf(&CStruct::Init)}, 0, [](Regs& r) {
+        g_lq_structs[r.ecx] = {};
+        reinterpret_cast<uint32_t*>(r.ecx)[0] = 0x1717;
+        reinterpret_cast<uint32_t*>(r.ecx)[1] = 0;
+        return r.ecx;
+    });
+    s.At({0x00477130, AddressOf(&CStruct::Clear)}, 0, [](Regs& r) {
+        g_lq_structs[r.ecx] = {};
+        return 0u;
+    });
+    s.At({0x00477D40, AddressOf(static_cast<void (CStruct::*)(uint32_t, uint32_t)>(&CStruct::AddChecksum))}, 8,
+         [](Regs& r) {
+             if (r.args[0] == 0)
+                 g_lq_structs[r.ecx].flags.insert(r.args[1]);
+             return 0u;
+         });
+    s.At({0x004779D0, AddressOf(static_cast<void (CStruct::*)(uint32_t, const char*)>(&CStruct::AddString))}, 8,
+         [](Regs& r) {
+             g_lq_structs[r.ecx].strings[r.args[0]] = reinterpret_cast<const char*>(r.args[1]);
+             return 0u;
+         });
+    s.At({0x00401C30, AddressOf(&Dbg::Printf)}, 0, [](Regs&) { return 0u; });
+    s.At({0x0049F0C0}, 0, [](Regs&) { return 0x7E000010u; });
+    s.At({0x0048CCB0}, 0, [](Regs& r) {
+        g_lq_loaded.push_back(Crc::GenerateCRCFromString(reinterpret_cast<const char*>(r.args[0])));
+        SetLoadedScenes();
+        return 0x7D000000u;
+    });
+}
+
+// The front end loading as in the game: load_level's LoadScene "mainmenu" (OnLevelChange at its start), which
+// loads LA_Sky and LA through LoadScene again from MenuBackdrop::OnSceneLoaded (each starting with OnLevelChange),
+// then OnBackdropLoaded; then frames go by with the main menu's camera: the objects must be moved - also when only
+// renders step (no object walk), as with the game's frame order not known for sure.
+void TestFrontEndObjectsLoadSequence()
+{
+    FO::Reset();
+    g_feobj_saved = {{0x007CE478, 4, {}}, {0x006FA7EC, 4, {}}, {0x006F0FB8, 4, {}}, {0x00701348, 4, {}}};
+    SaveAll(g_feobj_saved);
+    for (void*& slot : g_emptyVtable)
+        slot = reinterpret_cast<void*>(0x005480A0);
+    const uint32_t kRing = Crc::GenerateCRCFromString("wol_inner_ring");
+    static ObjectMemory ring, camera;
+    static ComponentMemory cameraComponent;
+    alignas(16) static uint8_t viewportMemory[0xC4];
+    FillObject(ring, kCompositeVtable, kRing, 2);
+    FillObject(camera, kCompositeVtable, 0x967C138C, 0);
+    camera.Get()->m_pos = {kCamPos[0], kCamPos[1], kCamPos[2], 1.0f};
+    camera.Get()->m_matrix.row[2] = {kCamBack[0], kCamBack[1], kCamBack[2], 0.0f};
+    camera.Get()->m_matrix.row[1] = {kCamUp[0], kCamUp[1], kCamUp[2], 0.0f};
+    std::memset(cameraComponent.bytes, 0, sizeof(cameraComponent.bytes));
+    cameraComponent.Get()->m_type = 0xC4E311FA;
+    cameraComponent.Get()->m_object = camera.Get();
+    *reinterpret_cast<void**>(cameraComponent.bytes + 0x18) = viewportMemory;
+    g_gs_viewport = reinterpret_cast<Gfx::Camera*>(viewportMemory);
+    g_gs_cameraComponent = cameraComponent.Get();
+    g_foundCount = 0;
+    SetFound(kRing, ring.Get());
+    std::vector<uint8_t> sRing = Snapshot(ring);
+
+    auto* s = new StandIns;
+    InstallLoadStandIns(*s);
+    s->At({0x0057B030}, 0, [](Regs&) { return g_gs_anim; });
+    s->At({0x004A09C0}, 0, [](Regs& r) { return r.args[0] == 0 ? reinterpret_cast<uint32_t>(g_gs_viewport) : 0u; });
+    s->At({0x00460AD0, AddressOf(&Obj::FindObject)}, 0,
+          [](Regs& r) { return reinterpret_cast<uint32_t>(FoundLookup(r.args[0])); });
+    s->At({0x0045F2D0, AddressOf(&Obj::CCompositeObjectManager::GetFirstComponentByType)}, 4, [](Regs& r) {
+        return r.args[0] == 0xC4E311FA ? reinterpret_cast<uint32_t>(g_gs_cameraComponent) : 0u;
+    });
+    std::memset(g_gs_skate, 0, sizeof(g_gs_skate));
+    std::memset(g_gs_career, 0, sizeof(g_gs_career));
+    *reinterpret_cast<uint8_t**>(g_gs_skate + 0x20) = g_gs_career;
+    *reinterpret_cast<uint32_t*>(g_gs_skate + 0x368) = 0x0BADF00D;
+    GameVariable<uint8_t*>(0x007CE478) = g_gs_skate;
+    GameVariable<uint8_t*>(0x006F0FB8) = g_gs_manager;
+    FO::Placement p1 = FO::MakePlacement(kCamPos, kCamBack, kCamUp, *MB::ViewFor(1), kNoOffset);
+    bool ok = true;
+    int savedDebug = FO::DebugBackdrop();
+    for (int walks = 1; walks >= 0 && ok; --walks) {
+        SettingScope scope(1);
+        FO::DebugBackdrop() = walks ? 0 : 1; // (the renders-only run logged)
+        FO::Reset();
+        std::memcpy(ring.bytes, sRing.data(), sRing.size());
+        g_gs_anim = 0; // (no camera animation while loading)
+        g_lq_loaded.clear();
+        SetLoadedScenes();
+        // Frames before the load (the loading screen).
+        if (walks)
+            FO::Update(true);
+        FO::Update(false);
+        alignas(4) static uint8_t params[8];
+        g_lq_structs.clear();
+        g_lq_structs[reinterpret_cast<uint32_t>(params)].strings[kSceneParam] = "mainmenu";
+        Nx::CFunc_LoadScene(reinterpret_cast<Script::CStruct*>(params), nullptr);
+        const uint32_t expected[] = {MB::kFrontEndSceneName, MB::kBackdropSkyName, MB::kBackdropSceneName};
+        ok = ok && g_lq_loaded.size() == 3 && std::equal(g_lq_loaded.begin(), g_lq_loaded.end(), expected);
+        ok = ok && !FO::HoldingOff();
+        if (!ok)
+            Log("  front-end objects (load): %u scenes loaded, held off %d", static_cast<unsigned>(g_lq_loaded.size()),
+                FO::HoldingOff());
+        // The main menu's camera starts; frames go by (walk if any, then render).
+        g_gs_anim = Crc::GenerateCRCFromString("mainmenu_camera02");
+        for (int frame = 0; frame < 3; ++frame) {
+            if (walks)
+                FO::Update(true);
+            FO::Update(false);
+        }
+        ok = ok && FO::Applied() && MovedBy(ring.Get(), sRing, p1);
+        if (!ok)
+            Log("  front-end objects (load, %s): applied %d, %d moved", walks ? "walks and renders" : "renders only",
+                FO::Applied(), FO::MovedCount());
+    }
+    FO::DebugBackdrop() = savedDebug;
+    Check(ok, "front-end objects: the front end's load as in the game (nested LoadScene), then frames: moved");
+    Cleanup();
+}
+
 } // namespace
 
+SELFTEST(Early, TestFrontEndObjectsLoadSequence, Cleanup);
 SELFTEST(Early, TestFrontEndPlacement);
 SELFTEST(Early, TestFrontEndObjectStates, Cleanup);
 SELFTEST(Early, TestFrontEndObjectHooks, Cleanup);
