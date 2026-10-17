@@ -7,6 +7,7 @@
 #include <cstdint>
 
 #include "game/core/manager.h"
+#include "game/front/frontend_objects.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/objman.h"
 #include "game/obj/object.h"
@@ -268,6 +269,9 @@ void CCompositeObject::Update()
             return;
         VirtualOwnUpdate();
     }
+    // Not original - the menu_backdrop feature (see game/front/frontend_objects.h): a front-end object moved into
+    // the backdrop takes in what its script did (or is put back) before its components run...
+    Front::FrontEndObjects::BeforeComponents(this);
     for (CBaseComponent* component = mp_components; component; component = component->mp_next) {
         if (component->m_flags & COMPONENT_FLAG_SUSPENDED)
             continue;
@@ -275,6 +279,8 @@ void CCompositeObject::Update()
         if (m_objectFlags & OBJECT_FLAG_DEAD)
             break;
     }
+    // ...and what they did. (Nothing for objects that aren't moved.)
+    Front::FrontEndObjects::AfterComponents(this);
     m_pos.w = 1.0f;
     m_compositeFlags &= ~COMPOSITE_FLAG_TELEPORTED;
 }

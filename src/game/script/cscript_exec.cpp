@@ -40,6 +40,7 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/front/frontend_objects.h"
 #include "game/obj/object.h"
 #include "game/script/cache.h"
 #include "game/script/cscript.h"
@@ -215,6 +216,9 @@ bool CScript::ExecuteCommand()
         auto function = reinterpret_cast<CFunction>(Read4Bytes(m_pc));
         m_pc += 4;
         ParseFunctionParams();
+        // Not original - the menu_backdrop feature (game/front/frontend_objects.h): Cleanup... put the front end's
+        // objects back first.
+        Front::FrontEndObjects::BeforeCFunction(reinterpret_cast<const void*>(function));
         return function(m_functionParams, this);
     }
     }
@@ -303,6 +307,8 @@ bool CScript::ExecuteCommand()
         return true;
     }
     case ESYMBOLTYPE_CFUNCTION:
+        // Not original - the menu_backdrop feature (as above).
+        Front::FrontEndObjects::BeforeCFunction(reinterpret_cast<const void*>(symbol->raw));
         return reinterpret_cast<CFunction>(symbol->raw)(m_functionParams, this);
     case ESYMBOLTYPE_MEMBERFUNCTION: {
         auto* entry = reinterpret_cast<CMemberFunctionEntry*>(symbol->raw);

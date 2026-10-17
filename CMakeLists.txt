@@ -89,6 +89,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_netF.cpp
     src/hook/selftests_netA.cpp
     src/hook/selftests_netE.cpp
+    src/hook/selftests_feobj.cpp
     src/hook/selftests_menulvl.cpp
     src/game/core/alloc.cpp
     src/game/core/crc.cpp
@@ -106,6 +107,7 @@ add_library(thug2_code OBJECT
     src/game/front/screen_element.cpp
     src/game/front/front_end.cpp
     src/game/front/mouse_menus.cpp
+    src/game/front/frontend_objects.cpp
     src/game/front/menu_backdrop.cpp
     src/game/skate/competition.cpp
     src/game/gfx/screen.cpp

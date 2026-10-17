@@ -9,6 +9,7 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/front/frontend_objects.h"
 #include "game/script/names.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
@@ -240,6 +241,9 @@ CCompositeObject* CCompositeObjectManager::CreateCompositeObjectFromNode(Script:
 // 0x0045F4A0
 void CCompositeObjectManager::Update()
 {
+    // Not original - the menu_backdrop feature (see game/front/frontend_objects.h): front-end objects moved into
+    // the backdrop (or put back) before the objects update.
+    Front::FrontEndObjects::Update(true);
     WalkObjects(this, [](CCompositeObject* object) { UpdateCompositeObject(object); });
 }
 

@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstring>
 
+#include "game/front/frontend_objects.h"
 #include "game/gfx/camera.h"
 #include "game/gfx/scene.h"
 #include "game/gfx/screen.h"
@@ -45,15 +46,6 @@ struct SceneNode {
 bool IsEnd(const SceneNode* node) { return reinterpret_cast<intptr_t>(node->scene) == -1; }
 uint32_t SceneName(const uint8_t* scene) { return *reinterpret_cast<const uint32_t*>(scene + 0x84); }
 
-bool BackdropLoaded()
-{
-    for (SceneNode* node = GameVariable<SceneNode*>(0x006FA7EC); node && !IsEnd(node); node = node->next) {
-        if (SceneName(node->scene) == kBackdropSceneName)
-            return true;
-    }
-    return false;
-}
-
 // The name of the skater camera animation playing (the skate module's movie manager +0x368: 0x0057B030,
 // thiscall), 0 if none (or one without a name).
 uint32_t PlayingCameraAnim()
@@ -67,12 +59,27 @@ uint32_t PlayingCameraAnim()
     return GameFunction<uint32_t(__thiscall*)(void*)>(0x0057B030)(movies);
 }
 
-// The viewport's camera (0x004A09C0, cdecl).
-Gfx::Camera* ViewportCamera(int viewport) { return GameFunction<Gfx::Camera*(__cdecl*)(int)>(0x004A09C0)(viewport); }
-
 bool On(int setting) { return ViewFor(setting) != nullptr; }
 
 } // namespace
+
+bool BackdropLoaded()
+{
+    for (SceneNode* node = GameVariable<SceneNode*>(0x006FA7EC); node && !IsEnd(node); node = node->next) {
+        if (SceneName(node->scene) == kBackdropSceneName)
+            return true;
+    }
+    return false;
+}
+
+uint32_t PlayingMenuCamera()
+{
+    uint32_t anim = PlayingCameraAnim();
+    return IsMenuCamera(anim) ? anim : 0;
+}
+
+// (0x004A09C0, cdecl)
+Gfx::Camera* ViewportCamera(int viewport) { return GameFunction<Gfx::Camera*(__cdecl*)(int)>(0x004A09C0)(viewport); }
 
 int& Setting()
 {
@@ -121,6 +128,8 @@ void OnSceneLoaded(const char* name, bool isNet)
         Nx::CFunc_LoadScene(params, nullptr);
         params->Clear();
     }
+    // The front-end objects may be moved into the backdrop again (frontend_objects.h).
+    FrontEndObjects::OnBackdropLoaded();
 }
 
 bool IsMenuCamera(uint32_t animName)
