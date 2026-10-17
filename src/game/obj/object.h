@@ -59,6 +59,8 @@ struct CObjectNode : Mem::ListNode {
 constexpr uint32_t OBJECT_FLAG_DEAD = 0x1;      // MarkAsDead: waiting in the manager's dead list to be deleted
 constexpr uint32_t OBJECT_FLAG_LOCKED = 0x2;    // not deleted by the manager walks that delete unlocked objects
 constexpr uint32_t OBJECT_FLAG_INVISIBLE = 0x4; // Obj_Invisible / Obj_Visible
+constexpr uint32_t OBJECT_FLAG_HAS_POSITION = 0x20;      // the tracker's distance checks use its position (+0x4C)
+constexpr uint32_t OBJECT_FLAG_SPAWN_HANDLERS = 0x10000; // its event handlers run as new spawned scripts on it
 
 // No id yet (0x0064780C: the manager gives it a unique one when registered) / no type (0x00647810).
 constexpr uint32_t kUnassignedId = 0xFFFFFFFF;

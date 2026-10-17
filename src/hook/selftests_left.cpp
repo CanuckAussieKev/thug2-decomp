@@ -12,6 +12,7 @@
 
 #include "game/core/crc.h"
 #include "game/front/front_end.h"
+#include "game/lst/head.h"
 #include "game/obj/cutscene.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
@@ -392,8 +393,68 @@ void TestCutsceneDetails()
     });
 }
 
+// --- Lst::Head::AddNode 0x0045A540 ------------------------------------------------------------------------------
+
+Mem::ListNode g_listNodes[2][12]; // [run][0: the head, then the nodes]
+
+void TestHeadAddNode()
+{
+    std::vector<uint32_t> traces[2];
+    for (int run = 0; run < 2; ++run) {
+        bool o = run == 0;
+        Mem::ListNode* nodes = g_listNodes[run];
+        auto id = [nodes](Mem::ListNode* p) {
+            return p >= nodes && p < nodes + 12 ? static_cast<uint32_t>(p - nodes) : 0xEEEEEEEEu;
+        };
+        std::vector<uint32_t> trace;
+        // Lists made from priorities (descending order kept by the inserts), then each insert's resulting order.
+        const std::vector<int> sequences[] = {
+            {5}, {5, 7}, {5, 3}, {5, 5}, {1, 2, 3, 4}, {4, 3, 2, 1}, {3, 1, 3, 2, 3, -1, 0, -5, 2, 9, 3},
+            {0, 0, 0}, {-2, -3, -1}, {0x7FFFFFFF, -0x7FFFFFFF - 1, 0},
+        };
+        for (const auto& priorities : sequences) {
+            std::memset(nodes, 0xCD, sizeof(g_listNodes[0]));
+            Mem::ListNode* head = &nodes[0];
+            head->vtable = reinterpret_cast<void**>(0x006475E4);
+            head->data = reinterpret_cast<void*>(-1);
+            head->priority = 0x1234;
+            head->next = head;
+            head->prev = head;
+            int n = 1;
+            for (int priority : priorities) {
+                // (in the longest list, a node with data -1 ends the walk: the next lower one goes at the end)
+                if (n == 6 && priorities.size() > 10)
+                    nodes[3].data = reinterpret_cast<void*>(-1);
+                Mem::ListNode* node = &nodes[n];
+                node->data = reinterpret_cast<void*>(0x5000 + n);
+                node->priority = priority;
+                ++n;
+                if (o)
+                    Original<void(__thiscall*)(Mem::ListNode*, Mem::ListNode*)>(0x0045A540)(head, node);
+                else
+                    reinterpret_cast<Lst::Head*>(head)->AddNode(node);
+                // Forwards and backwards.
+                for (Mem::ListNode* p = head->next; p != head && trace.size() < 100000; p = p->next)
+                    trace.push_back(id(p));
+                trace.push_back(0xF00D);
+                for (Mem::ListNode* p = head->prev; p != head && trace.size() < 100000; p = p->prev)
+                    trace.push_back(id(p));
+                trace.push_back(0xBAC4);
+            }
+            for (int i = 0; i < 12; ++i)
+                trace.insert(trace.end(), {reinterpret_cast<uint32_t>(nodes[i].vtable),
+                                           reinterpret_cast<uint32_t>(nodes[i].data),
+                                           static_cast<uint32_t>(nodes[i].priority), id(nodes[i].next),
+                                           id(nodes[i].prev)});
+        }
+        traces[run] = trace;
+    }
+    Compare(traces[0], traces[1], "Lst::Head::AddNode (by priority, highest first, equal ones newest first)");
+}
+
 } // namespace
 
 SELFTEST(Early, TestCutsceneNameFromPath, RestoreLeftTest);
 SELFTEST(Early, TestCutsceneData, RestoreLeftTest);
 SELFTEST(Early, TestCutsceneDetails, RestoreLeftTest);
+SELFTEST(Early, TestHeadAddNode);

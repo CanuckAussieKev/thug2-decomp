@@ -7,6 +7,7 @@
 
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
+#include "game/obj/object.h"
 #include "game/script/struct.h"
 #include "game/skater/controls.h"
 #include "hook/game.h"
@@ -283,8 +284,8 @@ void CorePhysicsComponent::CheckForGround()
 
     // Off the ground.
     GameFunction<void(__thiscall*)(void*, int)>(0x004FDED0)(this, 1);
-    GameFunction<void(__thiscall*)(void*, uint32_t, int, int)>(0x00460A20)(At<void*>(this, kObject), 0xD96F01F1, 0, 0);
-    GameFunction<void(__thiscall*)(void*, uint32_t, int)>(0x004609F0)(At<void*>(this, kObject), 0x3B1001B6, 0);
+    static_cast<Obj::CObject*>(At<void*>(this, kObject))->BroadcastEvent(0xD96F01F1, nullptr, 0.0f);
+    static_cast<Obj::CObject*>(At<void*>(this, kObject))->SelfEvent(0x3B1001B6, nullptr);
     GameFunction<void(__thiscall*)(void*)>(0x004FEBA0)(this);
     void* flags = At<void*>(this, kTimedFlags);
     if (At<uint8_t>(flags, 0x30)) {
@@ -657,7 +658,7 @@ void CorePhysicsComponent::LandFromAir()
         At<Mth::Matrix>(ObjectOf(this), kMatrix).OrthoNormalizeAbout(1);
         At<Mth::Matrix>(this, kDisplayMatrix) = At<Mth::Matrix>(ObjectOf(this), kMatrix);
     }
-    GameFunction<void(__thiscall*)(void*, uint32_t, int)>(0x004609F0)(ObjectOf(this), 0x532B16EF, 0);
+    static_cast<Obj::CObject*>(ObjectOf(this))->SelfEvent(0x532B16EF, nullptr);
 }
 
 } // namespace Skater

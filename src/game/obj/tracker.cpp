@@ -12,6 +12,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/pool.h"
+#include "game/obj/object.h"
 #include "game/obj/objman.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
@@ -46,13 +47,13 @@ constexpr int kWaiters = 40;
 // The pool pair of the listener lists (CScriptList).
 Mem::PoolPair& ScriptListPools() { return GameVariable<Mem::PoolPair>(0x006F0FC8); }
 
-// --- the objects (Obj::CObject; not rewritten yet) ---
-uint8_t* Bytes(CObject* object) { return reinterpret_cast<uint8_t*>(object); }
-uint32_t& ObjectId(CObject* object) { return *reinterpret_cast<uint32_t*>(Bytes(object) + 0x14); }
-int& AliasCount(CObject* object) { return *reinterpret_cast<int*>(Bytes(object) + 0x3C); }
-// +0x08 bit 0x20: the object has a position (+0x4C).
-bool HasPosition(CObject* object) { return (Bytes(object)[0x08] & 0x20) != 0; }
-const float* Position(CObject* object) { return reinterpret_cast<const float*>(Bytes(object) + 0x4C); }
+// --- the objects ---
+uint32_t& ObjectId(CObject* object) { return object->m_id; }
+// The tracker's aliases of it (compared as a signed count by the original).
+bool HasAliases(const CObject* object) { return static_cast<int>(object->m_aliasCount) > 0; }
+bool HasPosition(const CObject* object) { return (object->m_objectFlags & OBJECT_FLAG_HAS_POSITION) != 0; }
+// The position: CCompositeObject's first field (+0x4C, just after CObject's).
+const float* Position(CObject* object) { return reinterpret_cast<const float*>(object + 1); }
 // Its vtable +0x04: take the properties in `params` (SetObjectProps). +0x14: an event targeted at it.
 void SetProperties(CObject* object, Script::CStruct* params)
 {
@@ -335,8 +336,8 @@ uint32_t CTracker::GetUniqueId()
 void CTracker::AddObject(CObject* object)
 {
     if (auto* aliased = static_cast<CObject*>(mp_aliases->GetItem(ObjectId(object)))) {
-        if (AliasCount(aliased) > 0)
-            --AliasCount(aliased);
+        if (HasAliases(aliased))
+            --aliased->m_aliasCount;
         mp_aliases->FlushItem(ObjectId(object));
     }
     mp_objects->PutItem(ObjectId(object), object);
@@ -379,8 +380,8 @@ void CTracker::RemoveAliasesOf(CObject* object)
             alias = table->m_iterItem->key;
             aliased = static_cast<CObject*>(table->m_iterItem->value);
         }
-        if (AliasCount(aliased) > 0)
-            --AliasCount(aliased);
+        if (HasAliases(aliased))
+            --aliased->m_aliasCount;
         table->FlushItem(alias);
     }
 }
@@ -389,11 +390,11 @@ void CTracker::RemoveAliasesOf(CObject* object)
 void CTracker::AddAlias(uint32_t alias, CObject* object)
 {
     if (auto* aliased = static_cast<CObject*>(mp_aliases->GetItem(alias))) {
-        if (AliasCount(aliased) > 0)
-            --AliasCount(aliased);
+        if (HasAliases(aliased))
+            --aliased->m_aliasCount;
         mp_aliases->FlushItem(alias);
     }
-    ++AliasCount(object);
+    ++object->m_aliasCount;
     mp_aliases->PutItem(alias, object);
 }
 

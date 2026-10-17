@@ -110,9 +110,14 @@ static_assert(sizeof(SStructScript) == 8, "allocated as 8 bytes by 0x0048B200");
 
 // A member function's table entry (the value of a ESYMBOLTYPE_MEMBERFUNCTION symbol, token 0x46).
 struct CMemberFunctionEntry {
-    uint32_t unknown0;
+    uint32_t mName;
     uint32_t mComponentType; // the object component that runs it; 0x57525413 / 0x0ADA4E74: the object itself
+    // +0x08: the member function, as a 16-byte (virtual-inheritance) member function pointer.
+    void* mCode;
+    int mThisAdjustment;      // +0x0C
+    int mVirtualBaseOffsets[2]; // +0x10 (unused by single-inheritance classes)
 };
+static_assert(sizeof(CMemberFunctionEntry) == 0x18, "a table entry is 0x18 bytes");
 
 class CScript {
 public:
