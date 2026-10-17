@@ -3466,6 +3466,314 @@ belong with the CScript batch.
         a message line, F1 help panel. Measured: the white2 sprite is ~3.2 across and ~8 down per unit of scale, and
         the HUD container sits 22 lower than its 640 x 480 position (moved up). Lines stay under 90 characters with
         their colour codes.
+- [x] Batch 106: the "Lighting / FX / park memory" range 0x595030-0x59F610 decompiled whole by three agents in
+      parallel (worktrees, a shared game lock: one game at a time, the deployed DLL and ini put back on release) - it
+      is the park editor (Create-A-Park) and the skate game's script commands, not lighting: 169 functions, all
+      REPLACE but one source-only (a Ghidra split of 0x599CD0). The three defined the park editor's classes apart;
+      lfx-a unified them in src/game/ed/park.h. Tested in the game by the agents: LA loads and plays, Create-A-Park
+      opens, the cursor moves, the floor raises / lowers, a restart point placed, Test Play. Not tried in the game:
+      gaps, clipboards, area selection, saving parks. The merged build: 1595 replacements, 0 MISMATCHED, 190 early
+      self-tests pass. The agents' records:
+      ### 0x595030-0x598A60 (lfx-a; also the unification of the three)
+      # lfx-a: park editor 0x595030-0x598A60 (records for the lead to fold into decomp-progress.md)
+
+      The range docs/subsystems.md calls "Lighting / FX / park memory" is the park editor (Create-A-Park, namespace
+      `Ed`, src/game/ed/): CParkManager (the park: grid, compressed map, piece sets, road mask, gap manager copy),
+      CCursor, CUpperMenuManager, the clipboards. Checksum names from the .qb name tables (0x2B entries) and the exe's
+      strings.
+
+      - [x] Batch A1 (NOT run in the game yet): CParkManager's accessors - src/game/ed/park_manager.cpp/.h
+        - 0x00595030 GetCompressedMapBuffer, 0x00595050 SetCompressedMapBuffer, 0x00595090 IsMapSavedLocally,
+          0x005950B0 GetTheme, 0x005950D0 GetParkName, 0x005950F0 SetParkName, 0x00595140 RebuildParkGeometry
+          (CParkGenerator 0x00593610 / 0x005947D0 / 0x00594910), 0x00595170 GetShellChecksum ("sk5ed_shell" /
+          "sk5ed%d_shell" theme+1), 0x005951E0 GetMapListNode, 0x00595200 sInstance (0x007CE604), 0x00595210
+          GetPieceSet, 0x00595250 GetMapInfo (thiscall, ECX unused, RET 0x1C), 0x005952B0 UndoFloorSlide, 0x00595300
+          GetSpecialPieceIndex (restart_1, restart_multi, restart_horse, king_of_hill, the four flags), 0x00595620
+          GetAbstractMetaPiece, 0x00595990 CanResizeTo (park memory check 0x0059EB30), 0x005959D0 GetFloorHeight,
+          0x00595A90 GridCoordinatesToWorld (returns the vector: hidden result pointer, EAX), 0x00595B30
+          IntersectsRoadMask, 0x00595D40 ResetSlideMarks.
+        - Layout: CParkManager 0x177CC bytes; 58 x 58 grid of map-list buckets (+0x8C) and floor cells (+0x352C,
+          16 bytes: height, levels used, slide mark, slide amount); 40 piece sets of 0x154 (+0x1076C); the compressed
+          map (+0x13C90, 0x3A98 bytes, version 20004); flags +0x17728 (1 valid, 2 in sync, 4 newer than park,
+          8 not saved locally); road mask +0x1776C; special piece names +0x177A4; gap managers +0x177C4/+0x177C8.
+        - Found: a free `__thiscall` function pointer returning a struct passes the result address in ECX (MSVC);
+          the test calls the original through a member-function pointer instead.
+        - Test (selftests_parkedA.cpp, TestParkManagerAccessors): 200 random parks per group, original vs ours on
+          the same memory, results + whole park hashed; CParkGenerator calls, 0x0059EB30 and the original's sprintf
+          stood in. 33 deliberate bugs caught (2 after strengthening the road-mask cases).
+      - [x] Batch A2 (NOT run in the game yet): the cursor, the piece menu, the gap manager copy -
+        src/game/ed/cursor.cpp/.h, menu.cpp/.h, park_manager.cpp
+        - CCursor (0x007CE608, 200 bytes: +0 park manager, +4 cell dims, +0x44 meta, +0x48 area selection state and
+          corners, +0x58 clipboard list, +0x5C current clipboard, +0x6C mode, +0x70 GapInfo): 0x00595330 sInstance,
+          0x00595340 HideClipboards, 0x00595360 SetGapNameAndScore ("" -> "x"), 0x005953C0 SetGapCancelFlags,
+          0x00595430 GetGapName, 0x00595440 ShowClipboard, 0x00595450 SelectClipboard, 0x005954A0 SetVisibility,
+          0x005954D0 UpdateHelperText (parked_set_helper_text_mode: gap_adjust / gap_regular / rail_placement /
+          regular), 0x00597100 RestartAreaSelection, 0x00597110 GetAreaSelectDims, 0x00597190 DestroyLastClipboard,
+          0x005971E0 ForceInBounds (a pasted clipboard's area is treated as signed), 0x005988A0 DestroyClipboards
+          (quirk kept: the list head isn't cleared), 0x00598940 ForgetGapOnPiece, 0x005989C0 AdvanceAreaSelection
+          (done when at most 11 x 11), 0x005955C0 CClipboard::Free (pools 0x007CE5B4).
+        - CUpperMenuManager (0x007CE60C, 0x10 bytes): 0x00595570 sInstance, 0x00595580 Disable, 0x00597400 Create,
+          0x00597490 Enable (parked_make_piece_menu / _set_menu / _set_menu_item set_name per used set).
+        - CParkManager: 0x00595BC0 CreateGapManagerCopy, 0x00595C70 UseGapManagerCopy, 0x00595C80
+          DestroyGapManagerCopy, 0x00595CB0 HighlightGapPieces. +0x177C4 is the gap manager in use, +0x177C8 a copy.
+          CPieceSet's name (+4) is a pointer.
+        - Test: TestParkManagerAccessors grew two groups (cursor; menu + instances + gap manager), 1000 random cases
+          each, every callee (clipboards, gap manager, scripts, CStruct, memory manager, pools) stood in and
+          recorded. 46 deliberate bugs: 45 caught (8 after strengthening: rarer modes, cursor at the park's edges,
+          selections near 11 x 11, the gap manager constructor making itself current), 1 equivalent (moving the null
+          check of SetGapCancelFlags after `cancel = 0`).
+      - [x] Batches A1+A2 tested in the game (lfx-a's own run, under the lock): LA-area level (skate shop list order)
+        loads and plays, pause menu works; Create-A-Park opens (piece menu, set menu, percent bar), the cursor moves,
+        the floor raise/lower keys run, the editor's pause menu opens. Log: all self-tests pass, no CRT reports.
+      - [x] Batch A3 (NOT run in the game yet): the map of metapieces - src/game/ed/park_map.cpp
+        - 0x00595670 CreateConcreteMeta, 0x005958B0 HasPiecesOutside, 0x00595DF0 AddMetaToList, 0x00595E80
+          RemoveMetaFromList, 0x00595EE0 AddMetaToBuckets, 0x00595FC0 RemoveMetaFromBuckets, 0x00597740
+          GetAreaMetaPieces (both forms: by buckets, or by a metapiece's pieces), 0x00597A00 GetMetaPiecesAt,
+          0x00597AC0 GetGapInfo, 0x005983D0 IsColumnUnslidable, 0x005984A0 SlideColumn (recursive floor slide),
+          0x00598150 ApplyMetaToFloor. Source (no REPLACE, outside the range) for CMapListNode's pool new/delete
+          (0x005914B0), DestroyList (0x00591BE0), VerifyIntegrity (0x00590470), CMapListTemp.
+        - Metapiece flag 0x4000 = "unslidable" (a piece with flag 0x0CD75A3F, name unknown); 0x100 unnamed.
+        - tools/ghidra/audit_game_function_calls.py: GridDims by value counts as 8 bytes.
+        - Test: a "map" group (1000 cases): random metapieces in a 16 x 16 patch, buckets, a real node pool,
+          metapiece/generator/gap manager callees stood in, the vtable's GetPiece/AddPiece as thunks. 50 deliberate
+          bugs: 47 caught (1 after duplicating a metapiece in a bucket), 2 equivalent (risers can't reach the slide's
+          metapiece check - precise lists leave them out; `> y` vs `>= y + 1`), 1 caught by a crash.
+      - [x] Batch A4 (NOT run in the game yet): set-up and saving - src/game/ed/park_io.cpp
+        - 0x005960D0 SetUpAbstractMetas (Ed_standard_metapieces: single / multiple / "ack" = made of palette metapieces;
+          special_type gap_placement, area_selection, rail_placement, restart_1/multi/horse, king_of_hill, the four
+          flags; a single-piece palette entry for every piece used), 0x00596980 WriteCompressedMap (header, floor
+          heights, metapieces as Ed_Save_Map index + cell + height + turn, whole gaps 0x30 bytes, CRC), 0x00596CD0
+          SetDefaultBounds (ed_default_inner_dim), 0x00596D50 SetUpRoadMask (Ed_Roadmask: quirk kept - read from
+          element 4, past the array's end, after four fixed rectangles), 0x00596E50 SetUpLights (Ed_Light_Info),
+          0x00596FB0 UpdatePercentBar, 0x005975A0, 0x005975B0 WriteIntoStructure (Park_editor_map, Park_editor_goals
+          via the GoalEditor module, rails via RailEditor, MaxPlayers), 0x00597720, 0x005987A0 ClearCompressedMap
+          ("Unnamed park"; quirk kept: CRC before the size and gap count are set), 0x00597BD0 AddGap (x87 float
+          order kept: x stored as float midway, z not), 0x00597FC0 RemoveGap, and source for 0x00591450
+          (PrintMapList, no REPLACE).
+        - Test: an "io" group (1000 cases) with stand-in script structures (FakeDesc) answering the CStruct getters,
+          real CArray::GetElement on fake arrays, the gap length returned in ST0 by patched bytes. 59 deliberate bugs:
+          52 caught (3 after strengthening: separate stand-ins for the gap's halves, flag 0x1000 in the test
+          metapieces, a non-matching metapiece in front of the gap's own), 1 didn't build, 3 equivalent (moving the
+          gap count after an already-taken CRC; rounding case 1's z to float - always an exact integer there; float
+          vs double division of the gap length - differs only on double-rounding cases the random lengths don't hit).
+      - [x] Park editor types unified (lfx-a + lfx-b + lfx-c): main (with lfx-c) and lfx-b's branch merged into lfx-a;
+        one definition of each type in src/game/ed/park.h (lfx-b's layouts, with lfx-a's fields and methods and
+        lfx-c's offset accessors added); src/game/park/park_editor.h now only includes it; my old headers
+        (ed/park_manager.h, ed/cursor.h, ed/menu.h) are gone, CUpperMenuManager is in ed/piece_menu.h. My sources were
+        renamed (ed/park_accessors.cpp, ed/cursor_tools.cpp, ed/park_lists.cpp, ed/upper_menu.cpp, park_io.cpp).
+        - Names settled: where lfx-b already called one of my functions through its address, its name was kept
+          (GetIntersectingMetas 0x597740, GetAreaMetaPieces 0x597A00, BuildRiserList 0x5984A0, RestoreFloorHeights
+          0x5952B0, ClearFloorChangeMarks 0x595D40, IsAreaBlocked 0x595B30, HasFloorLockedMeta 0x5983D0,
+          SetMetaInCells 0x598150, ClampToPark 0x5971E0, OnModeChanged 0x5954D0, ForgetGapAt 0x598940,
+          RemoveOldestClipboard 0x597190, GetAreaSelectDims). Corrected: 0x5987A0 is ClearCompressedMap (not the piece
+          sets), 0x595EE0/0x595FC0 are AddMetaToCells/RemoveMetaFromCells (the cell lists, not the floor), the
+          CParkManager +0x351C / compressed map +0x08 value is the shell size (sk5ed%d_shell; GetShellSize 0x5950B0,
+          SetShellSize 0x597720) and the map's +0x18 is the theme (the park editor's +0x78). GapInfo keeps lfx-a's
+          field names (m_pos, m_rot, m_leftExtent, m_rightExtent, m_text, m_score, m_numCompleteHalves, m_tabIndex,
+          m_cancelFlags); GapDescriptor and PieceSet are aliases. lfx-c's GridDims width/height/length became w/h/l,
+          its 0x59CD20 is DestroyMetasInAreaAndRebuild (lfx-b's 0x599880 keeps DestroyMetasInArea); the two
+          ChangeFloorHeight overloads (0x59C520, 0x59D080) are registered with static_casts.
+        - CMapListNode::DestroyList (0x591BE0, source only) is __fastcall (the list in ECX, as the original's thiscall);
+          MapListHolder frees only a non-null list (as 0x591C60); GetIntersectingMetas' last argument is a uint32_t
+          passed on whole to CMetaPiece::Intersects (the original pushes the whole register).
+        - lfx-b's tests: their stand-ins (Rec) now also patch our functions at those addresses (from the replacement
+          table, plus DestroyList/Free), since lfx-b's code calls the rewritten functions directly now.
+        - Checks: 1595 replacements, 0 MISMATCHED; 190 early self-tests pass; check_code_writes no overlaps;
+          audit_game_function_calls no MISMATCH; scan_register_assumptions only the known 0x4EFF92.
+      - [x] The unified build (commit "Park editor: one set of Ed:: types...") tested in the game 2026-10-18 under the
+        lock: Free Skate -> the level loads and plays, pause menu fine; Create-A-Modes -> Create-A-Park opens (piece
+        and set menus, memory bar), the cursor moves, a Player 1 Restart is placed (space) and stays when the cursor
+        moves away, the raise key runs. Log: 1552 of 1552 replacements installed, early (190) / late / engine-started
+        self-tests all pass, no CRT reports or run-time check failures. (scratchpad keys.ps1 got a `space` key.)
+        Not exercised in the game: gaps, clipboards, area selection, test play, saving.
+      ### 0x598A60-0x59C900 (lfx-b)
+      # lfx-b: park editor 0x598A60-0x59C900 (records for the lead to fold into decomp-progress.md)
+
+      The range is the park editor (Create-A-Park), not lighting: `Ed::CParkManager` (the park: metapieces on a
+      58 x 58 grid, floor heights, piece sets, the compressed map that's saved; instance 0x007CE604, 0x177CC bytes),
+      `Ed::CCursor` (0x007CE608, 200 bytes) and the piece menu (0x007CE60C). Names come from the strings and the
+      checksums' names in the game's .qb files (a 0x2B-entry table built from all 470 .qb: "parked_make_piece_menu",
+      "riser_floor", "Sk4Ed_Fence_20x20", "gap_adjust"...). Source: src/game/ed/ (park.h types and the calls into
+      un-rewritten park code; cursor.cpp, park_manager.cpp, ...). Tests: src/hook/selftests_park.cpp - every function
+      runs on a stand-in park (manager, cursor, metapieces, node lists, clipboards) twice, original then ours, with every
+      game function it calls stood in for by recording code with scripted results (standins.h), and the calls, results
+      and memory are compared. tools/ghidra/audit_game_function_calls.py now knows GridDims (6 bytes, passed in 8).
+
+      - [x] Batch lfx-b 1 (NOT run in the game yet): the cursor and three park manager functions (16 REPLACE).
+        - CCursor: 0x598A60 HighlightIntersectingMetas, 0x598B40 IsOverGap, 0x598B60 Move, 0x59A1F0 Update (stick,
+          turning, the slide to the target, the piece / paste shown), 0x59A5A0 ClearAreaSelection, 0x59A610
+          IsAreaSelectionInvalid, 0x59A6D0 CopyAreaToClipboard, 0x59A8D0 UpdateAreaSelectionHighlight, 0x59BAC0
+          DestroyCursorMeta, 0x59BAF0 SwitchToClipboard, 0x59BC00 ChangePiece, 0x59C7A0 Construct, 0x59C860
+          CreateInstance.
+        - CParkManager: 0x599880 DestroyMetasInArea (returns metas << 16 | pieces), 0x599960 HighlightMetasWithinArea,
+          0x59AE90 DestroyConcreteMeta.
+        - Findings: cursor modes 1 Regular, 2 gap_regular, 3 gap_adjust, 4 area select (copy), 5 paste, 6
+          rail_placement (from parked_set_helper_text_mode and the piece flags 0x800 / 0x8000 / 0x10000). GridDims
+          (x, y signed, z, w, h, l) is passed by value in two dwords (the high half of the second is stale stack).
+          0x597AC0 (the gap lookup) shrinks the box it's given to 1x1x1 - IsOverGap passes the cursor's own box, so
+          the cursor's w/h/l become 1 (kept). The original's x87 sums are kept at double precision past the float
+          stores (the turning angle, the slide). Original quirks kept: SwitchToClipboard writes through a null set
+          when there's no clipboard set; ChangePiece reads a null metapiece for an unknown checksum; CopyAreaToClipboard
+          asks the global manager (not the cursor's) for the world box.
+        - Test: TestParkCursor (13 functions, ~90 cases) and TestParkManagerMetas; 58 deliberate bugs caught, 4 after
+          strengthening (turn to exactly 0, the rotation counter from 0, the angle step overshooting by under 1, an
+          area-select state of 2). Register scan: only the known 0x4EFF92 alarm; IsOverGap / CopyAreaToClipboard
+          read as AL, DestroyMetasInArea as EAX. No MISMATCH in the call audit.
+      - [x] Batch lfx-b 2 (NOT run in the game yet - batch 1 was, see below): the rest of the park manager, the floor and
+        the piece menu (23 REPLACE, 1 SOURCE_ONLY). src/game/ed/park_manager.cpp, park_map.cpp, park_floor.cpp,
+        piece_menu.cpp (+ piece_menu.h).
+        - CParkManager, making and taking down: 0x598E00 Construct (the generator, the shell block names
+          "floor_wall_block%d"...), 0x599BF0 CreateInstance, 0x599C70 DeleteInstance, 0x59B020 DestroyConcreteMetas,
+          0x59BD40 Destroy (the map brought up to date first, the gap manager deleted, the park pools freed).
+        - Metapieces: 0x599A20 AddMetaPieceToPark (pieces placed round the metapiece's middle, the grid of 120 x 48 x
+          120 cells centred on the origin; restart pieces of players 1-8 become restart points; the park's cost),
+          0x59B090 RelocateMetaPiece (deleted and made again, its gap moved with it).
+        - The map: 0x598FC0 ReadFromStructure (goals, rails - the rail editor's flag 0x67F000 cleared outside the "edit"
+          level -, MaxPlayers, Park_editor_map), 0x599140 AccessDisk (CustomParks\custom%d.prk; a premade park keeps its
+          name from premade_parks_info), 0x599EB0 / 0x59B750 the readers (older parks: 0x2C-byte gaps and another dead
+          piece checksum; the two bodies are one function here), 0x59BE20 ResetPark ("unnamed park").
+        - The floor: 0x5993E0 GenerateNodeArray (18 default restart points round the park's middle - players 1 and 2,
+          four more, six of type 3, six of type 4 -, each dropped onto what a feeler finds, then the node array),
+          0x599CD0 CanChangeFloorHere (+ 0x599DD4: its last block, which Ghidra split off - registered SOURCE_ONLY to the
+          same function), 0x599E20 DestroyMetasBelow, 0x59B280 UndoFloorChange, 0x59B2C0 MoveRiserList, 0x59B320
+          RebuildFloorPiece (riser_above%d / riser_floor / riser_floor_below on top, riser_below walls where a
+          neighbour is lower; what's already right is kept), 0x59BED0 RebuildInnerShell (the four strips round the park,
+          Sk4Ed_Fence_20x20 pieces where not blocked, no floor height outside), 0x59C520 ChangeFloorHeight, 0x59C600
+          RebuildFloor (takes a second, unused argument: RET 8).
+        - The piece menu (CUpperMenuManager, 0x7CE60C): 0x598DA0 DeleteInstance, 0x59A9E0 SetPieceSet (the
+          parked_make_piece_menu items for clipboards / sectors / pieces with their sector names, the set menu, the
+          focus events to the object tracker, the slider over the 7 entries round the selected one).
+        - Findings: CMapListNode's first word is the floor change's per-metapiece step (m_dy); GapInfo is two ends,
+          their sides, the name, score and how many ends are placed (2 = a whole gap) - 0x596980 packs it into the map.
+          The readers' gap is a stack local the original leaves partly uninitialised (+0x4C, and +0x50 for older
+          parks): zeroed here. AddMetaPieceToPark's positions have w unset on the stack in the original: 1 here. Quirks
+          kept: SetPieceSet reads a null metapiece for an entry with no abstract metapiece; the feeler's smart pointer is
+          released by its destructor.
+        - Tests: TestParkManagerBuild, TestParkFloor, TestParkPieceMenu (stand-ins for every call; the gap read in is
+          compared on the parts the map gives). Deliberate bugs: 84 of 91 caught at first, then the rest after
+          strengthening (the collision flag during deletion, +0x50 and +4 of the read map, the shell's last column and
+          first row, a top piece at the wrong height, a metapiece exactly at the park's edge, the floor request's
+          index); one was equivalent (the feeler's explicit release - its destructor does it, so the call went), two
+          mutations didn't build and were rewritten. Menu: 21 bugs, 20 caught; the last (`count < 7` for `<= 7`) is
+          equivalent (with exactly 7 entries the clamping gives the same window). One more equivalent: the left shell
+          edge's `lowest = 0` as 1 (only its sign is used) - tested as -1 instead.
+        - Register scan: only the known 0x4EFF92 alarm; AL readers of CanChangeFloorHere / ChangeFloorHeight (bool). No
+          MISMATCH in the call audit; find_gaps shows nothing left in 0x598A60-0x59C900, 0 thunks.
+      - [x] Tested in the game (2026-10-18, run by lfx-b under the game lock, verify-build DLL): batch 1 alone, then
+        batches 1+2. Main menu -> Free Skate -> Los Angeles plays; Create-A-Modes -> Create-A-Park loads the editor
+        (the default park with its fence and restarts), the cursor moves (W/D), A/S raise and lower the floor (a dug-in
+        cell with its riser walls appeared), the pause menu comes up, Test Play puts the skater in the park. Log: all
+        110 early / 17 late / 2 engine-started self-tests pass, 912 of 912 replacements installed, no run-time check
+        failures or CRT reports. Not exercised: the clipboard / gap / rail tools, saving and loading parks, switching
+        piece sets (the menu keys weren't found from the keyboard script).
+      ### 0x59C900-0x59F610 (lfx-c)
+      # lfx-c: 0x0059C900-0x0059F610 (Lighting / FX / park memory, third part)
+
+      Records for the lead to fold into docs/decomp-progress.md.
+
+      - [x] Batch lfx-c 1 (NOT run in the game yet): the skate game's script commands at the end of the range and two
+        helpers - src/game/script/skate_cfuncs.cpp, src/game/core/dump_text.cpp (24 functions, all REPLACE).
+        - CFunc_ControllerDebounce 0x0059EDF0 (button not "pressed" for `time` s: per-button times at 0x007CE758,
+          indexed like the button table 0x0067D6D8 via 0x0044E5A0; x87 unsigned clock + time*1000 truncated through
+          64 bits), ControllerPressed 0x0059EE80 (the helper of CFunc_ControllerPressed 0x0059F9A0: the controller's
+          input state at +0x18, one byte per button - right +4, left +5, up +6, down +7, triangle +8, circle +9,
+          x +0xA, square +0xB, L1 +0xC, R1 +0xD, L2 +0xE, R2 +0xF, black +0x16, white +0x17, z +0x18; diagonals
+          need both; debounced while the time is later than now (unsigned, strict)).
+        - FakeLights 0x0059F0F0 (id= changes one light, 0x004901D0; prefix= lists nodes 0x0045BF90 with a 16-bit
+          count and sets lights up 0x0048FE40; flag 0x80804991 = not a prefix), UpdateFxLighting, NodeExists,
+          LoadNodeArray (kills the session's spawned scripts, notes the name at 0x007CE6D8 unbounded, loads the .qb),
+          ResetCamera ("TODO: ScriptResetCamera not implemented" per viewport with a camera), Set{Movement,Rotate}Velocity
+          (viewer speeds, defaults 400 / 120), ClearViewerObject, CasArtist (global cas_artist), SpawnScript (all the
+          options; NotSessionSpecific is an integer; at the caller's node; notes the caller's .qb file unless flag
+          0x01917DF2 - and, as in the original, calls SetSpawnerFile on a null result), UnBlockInterruptedScript,
+          KillSpawnedScript (Name= first, else Id=), Pause/UnPauseSpawnedScripts, DisplayLoadingScreen (default
+          "images\xxxxx", freeze, blank, a float = the bar's time), HideLoadingScreen, LastBroadcastedOmnigonWas /
+          OmnigonAllowed (checksum 0xAE94C183 vs 0x007CEBC8), SetLevelName (sprintf with the name as the format -
+          kept), DumpScripts (compiled out).
+        - DumpText 0x0059ED60: the pool-usage dump's (0x00448330) line buffer 0x007CE7B8-0x007CEBA8, '\n' -> CR LF,
+          flushed with File::Write to the handle at 0x007CEBB8 - which nothing ever sets (a dead log in this build).
+          The fit check is made before the CR LF expansion and skipped for an empty buffer (both can overrun - kept).
+        - Test: TestSkateCFuncs (src/hook/selftests_lfxc.cpp, Early): every command against the original on
+          hand-built structures, every game function they call stood in for by recording code (StandIns), all 20
+          buttons over 24 input patterns with debounced entries, the dump buffer through two flushes and an overrun.
+          33 deliberate bugs caught, 3 of them after strengthening (the debounce table recorded before ControllerPressed
+          overwrote it).
+        - Unknown checksum names: 0x80804991 (FakeLights), 0x01917DF2 (SpawnScript), 0xAE94C183 (Omnigon),
+          0x2AB71EEF (DumpScripts).
+        - Tested in the game 2026-10-18 (lfx-c's own run, under the game lock): starts, Free Skate -> Los Angeles
+          loads and plays, the pause menu works; log clean (all self-tests passed, no CRT reports / RTC failures).
+      - [x] Batches lfx-c 1-4 tested in the game 2026-10-18 (lfx-c's own runs under the game lock, the build of
+        commit "lfx-c batch 4"): Free Skate -> Los Angeles loads and plays, pause menu fine; Create-A-Modes ->
+        Create-A-Park loads the park editor (the piece sets RESTARTS / TEAM FLAGS / TOOLS / CLIPBOARD / TABLES-BENCHES
+        built by Initialize, the memory bar drawn), the cursor moves and a restart point is placed; no crash; log clean
+        (932 of 932 replacements installed, all early / late / engine-started self-tests passed, no CRT reports or
+        run-time check failures). Not exercised: gaps, clipboards, raising / lowering, area selection.
+      - [x] Batch lfx-c 2: the park editor's memory budget - src/game/park/park_memory.cpp
+        (17 functions, all REPLACE): GetParkHeap 0x0059E100 (0x007CE688), GetMainHeap 0x0059E180 (the bottom-up
+        heap), ClearStats 0x0059E110, SetCountsDirty 0x0059E170, RemoveDma / AddPieceDma / RemovePieceDma
+        0x0059E130 / 0x0059E190 / 0x0059E1E0 (a piece's DMA pieces from the global structure 0x9547DA8D by type, 1 if
+        missing; piece flag 0x100 = don't count, 0x4 = counted), the pools of CMapListNode / CClipboardEntry /
+        CClipboard (0x0059E210 / 290 / 310: PoolPairs at 0x007CE5F0 / 0x007CE5C4 / 0x007CE5B4, the pair's second word
+        = per-slot "made here" bytes), Marker 0x0059E390 (memory markers: OUTER SHELL MEM / NETANIMS MEM debug output),
+        ShutDown 0x0059E4E0, GetMemoryValue 0x0059E5C0 (runs script 0x3CB03619 once with the name's checksum and an
+        index, reads 0x083FDB95), GetMemoryStats 0x0059E730 (the editor's memory bars: main / top-down / park heap,
+        component / vector / array pools, DMA pieces; x87: free amounts rounded to float before dividing, max taken
+        before rounding for the heaps and DMA, after for the pools; returns `out` - 2 callers read EAX),
+        MainHeapHasRoom 0x0059EAD0 (< 95% after count*size*40000 bytes), PiecesFit 0x0059EB30 (DMA, park and main heap
+        sizes per floor piece, < 90%), Init 0x0059EC00 (the "Park Editor" heap in its own AllocRegion of
+        park_heap_size - top-down heap for level 0xCD3682C1, else bottom-up - and the three pools; "pool is at %p").
+        - Test: TestParkMemory (Early): GetMemoryValue with its structures / script / result stood in; everything else
+          with GetMemoryValue, Region::MemAvailable, Heap::LargestFree, the manager's Allocate/Free/Push/Pop/AddHeap/
+          DeleteHeap and the park manager's calls stood in; 14 scenarios crossing every comparison of GetMemoryStats
+          (fragmentation at exactly the pad, a free amount a float can't hold, a little free), PiecesFit at its exact
+          limits, the pools / Init / ShutDown for both levels. 42 deliberate bugs caught (7 after strengthening);
+          1 equivalent (fragmentation `<` vs `<=`: the other two conditions exclude equality).
+        - tools/ghidra/audit_game_function_calls.py: Ed::GridDims (6 bytes) counts 8 on the stack.
+      - [x] Batch lfx-c 3 (NOT run in the game yet): the park editor's manager and cursor, first part -
+        src/game/park/park_editor.cpp (8 functions, all REPLACE). Ed::GridDims (x, signed y, z, width, height,
+        length; 6 bytes, 8 on the stack), the grid of 58 x 58 16-byte cells at manager +0x352C (+0 the floor height),
+        the piece sets (0x154 bytes from +0x1076C: name checksum, name, 40 {type, text name}, count, selected, visible,
+        clipboard set).
+        - CCursor::Destroy 0x0059C900 (static: drops its piece, ~CCursor 0x005988A0, freed), ChangePieceInSet
+          0x0059C950 (wraps; clipboard sets select a clipboard), ChangeSet 0x0059C9B0 (the next visible set; the
+          menu number = visible sets before it; a clipboard set walks to its clipboard, drops the piece, mode 5).
+        - CParkManager::RebuildPark 0x0059CB10 (new park 0x1A4E0EF9 or not loaded: empty grid, "unnamed park";
+          else from the saved map; flag 0x0067F398 off around the floor's rebuild), RebuildArea 0x0059CC70 (with
+          checkMemory: false when the park editor singleton 0x00590160 says it's full), DestroyMetasInArea 0x0059CD20
+          (not the floor's, optionally not restart points / only wholly inside / not locked; the scene updated over
+          the area: corner + size floats), ClearArea 0x0059CEC0 (flattens: pieces moved down by their height, the
+          floor set to 0 under them and in the area), ChangeFloorHeight 0x0059D080 (undone if out of memory).
+        - Test: TestParkEditor (src/hook/selftests_lfxc2.cpp, Early): 12 variants of manager / cursor / pieces /
+          clipboards, every call stood in for. 39 deliberate bugs caught (none needed strengthening); 1 equivalent
+          (the float sum of the corner and size: rounding through double then float is the same as float addition).
+        - (A mutation run once showed "SELFTEST FAIL: PC async handle (synchronous I/O)" - not lfx-c's test; it
+          passed on rerun: probably timing-dependent.)
+      - [x] Batch lfx-c 4 (NOT run in the game yet): the park editor's cursor and the manager's set-up -
+        src/game/park/park_cursor.cpp (11 functions, all REPLACE). The gap descriptor (0x54 bytes at cursor +0x70:
+        two halves' cells, turns, left / right extents, name, score, halves done, id; the name counter at +0xC4).
+        - CCursor::RemoveClipboardsTooBig 0x0059D120 (clipboards wider or longer than the park are unlinked,
+          ~CClipboard 0x0058C980, freed through CClipboard's pools), PlacePiece 0x0059D240 (fits, height <= 17, a
+          restart point needs a free slot of its type - "No free slots exist for this type of restart point"; a copy of
+          the type turned and added with the bottom-up heap as default), DestroyUnderCursor 0x0059D380, AddGapHalf
+          0x0059D410 ("gap", "gap2"...; prints the area with 0x00590210), RemoveGapHalf 0x0059D600 (pieces with flag
+          0x1000 looked at again), ChangeGap 0x0059D6B0 (turn resets the extents; extents 0-6 kept inside the park,
+          by the turn: 0/2 along z, 1/3 along x), DestroySelection / FlattenSelection 0x0059D8E0 / 0x0059D980,
+          RaiseArea 0x0059D9F0 (at most 10 x 10), RaiseLower 0x0059DAA0 (the area widened by the pieces standing on it
+          - any height: the query's height is 16 -, the highest setting the top; not above 17 or below -16; the
+          original writes FloorHeight's level flag over its copy of the park's size).
+        - CParkManager::Initialize 0x0059DCD0 (once: Init, the park's map object 0xA8 bytes 0x0058CCC0 - in the
+          top-down heap for level 0xCD3682C1 -, generator set-up, RebuildPark(0), and the piece sets: each set's
+          pieces run from its `first` in Ed_standard_metapieces to the next set's (processed last to first); a
+          clipboard set gets Clipboard0-5; hidden sets aren't visible). As in the original, a set whose pieces
+          aren't all in the manager's list reads a null piece.
+        - Test: TestParkCursor (src/hook/selftests_lfxc3.cpp, Early): 14 variants (and 36 gap changes per variant),
+          the clipboard pools, hand-built Ed_piece_sets / Ed_standard_metapieces structures, an empty symbol table;
+          every call stood in for (cdecl stand-ins don't record ECX; pointers to locals are recorded as one marker).
+          59 deliberate bugs caught, 10 after strengthening (exact height / DMA-slot / -16 limits, a failed AddGap,
+          gaps reaching the park's edge along x, the cursor's +0x55 flag set beforehand, dirty piece sets).
+        - Pitfall found: a crash inside an original with its own SEH frame (here Initialize, reading a flag through a
+          null symbol table) kills thug2_check outright (the game's frame handler runs first, without its CRT) instead
+          of being logged as a SELFTEST CRASH.
 - [ ] Next: small net follow-ups: App::m_manager (+0x1440) could become `Manager*` (it is `void*`), name the
       Manager's +0x2E6 flag (pref checksum 0xE5ADE642) and check +0x374 (modem baud rate?).
       Widescreen follow-up: if the user still sees the bottom-left band overlap, don't draw sprites wholly outside the

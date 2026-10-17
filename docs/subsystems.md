@@ -30,7 +30,7 @@ Not decompiled: GameSpy SDK, D3DX9, MSVC CRT, STL helpers, compiler funclets (se
 | 0x56c920-0x577300 | Time-of-day manager & world state | 137 | 38 KB | 13% |
 | 0x577300-0x588180 | Viewer / gaps / records / career save info | 304 | 60 KB | 1% |
 | 0x588180-0x595030 | Park editor & graffiti | 289 | 47 KB | 14% |
-| 0x595030-0x59f610 | Lighting / FX / park memory | 169 | 40 KB | 13% |
+| 0x595030-0x59f610 | Park editor (Create-A-Park) & skate script commands | 169 | 40 KB | 13% |
 | 0x59f610-0x5b6560 | Game script commands (skater queries, save/memcard, profiles, appearance, cutscenes, weather) | 574 | 87 KB | 85% |
 | 0x5b6560-0x5bdad0 | File system (PIP/PRE archives) & skater memory heaps | 222 | 27 KB | 6% |
 | 0x5bdad0-0x5be6f0 | Input devices (SIO) | 25 | 2 KB | 8% |

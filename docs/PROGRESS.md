@@ -1,8 +1,8 @@
 # Decompilation progress
 
-Generated 2026-10-17 by `tools/progress_report.py` - regenerate after each batch.
+Generated 2026-10-18 by `tools/progress_report.py` - regenerate after each batch.
 
-**Game code: ██░░░░░░░░░░░░░░░░░░ 12.4%** of the code rewritten (1,352 of 8,382 functions, 200.3 KB of 1,617.8 KB).
+**Game code: ██░░░░░░░░░░░░░░░░░░ 14.9%** of the code rewritten (1,520 of 8,382 functions, 240.4 KB of 1,617.8 KB).
 
 Progress is by code size: function counts make a 10-byte helper look like as much work as a 2 KB routine. Subsystem boundaries come from the exe map (`docs/subsystems.md`) and are approximate (give or take a few functions); totals are exact.
 
@@ -29,7 +29,7 @@ Progress is by code size: function counts make a 10-byte helper look like as muc
 | Time-of-day manager & world state | `0x56c920`-`0x577300` | ░░░░░░░░░░░░░░░░░░░░ 0% | 0 / 137 | 0.0 KB / 38.1 KB |
 | Viewer / gaps / records / career save info | `0x577300`-`0x588180` | ░░░░░░░░░░░░░░░░░░░░ 0% | 0 / 304 | 0.0 KB / 60.7 KB |
 | Park editor & graffiti | `0x588180`-`0x595030` | ░░░░░░░░░░░░░░░░░░░░ 0% | 1 / 289 | 0.1 KB / 47.3 KB |
-| Lighting / FX / park memory | `0x595030`-`0x59f610` | ░░░░░░░░░░░░░░░░░░░░ 0% | 1 / 169 | 0.0 KB / 40.1 KB |
+| Park editor (Create-A-Park) & skate script commands | `0x595030`-`0x59f610` | ████████████████████ 100% | 169 / 169 | 40.1 KB / 40.1 KB |
 | Game script commands (skater queries, save/memcard, profiles, appearance, cutscenes, weather) | `0x59f610`-`0x5b6560` | ░░░░░░░░░░░░░░░░░░░░ 1% | 20 / 574 | 1.6 KB / 87.1 KB |
 | File system (PIP/PRE archives) & skater memory heaps | `0x5b6560`-`0x5bdad0` | ████████████████████ 100% | 222 / 222 | 27.1 KB / 27.1 KB |
 | Input devices (SIO) | `0x5bdad0`-`0x5be6f0` | ████████████████████ 100% | 25 / 25 | 2.8 KB / 2.8 KB |
