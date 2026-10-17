@@ -386,11 +386,55 @@ LEVEL_EDITOR_SCRIPTS = """script level_editor_enter {
         replace_handlers
         event_handlers=[{pad_select null_script}]
     }
+    level_editor_hud_create
 }
 script level_editor_exit {
+    level_editor_hud_destroy
     LevelEditor_Stop
     Skater:AddSkaterToWorld
     create_pause_menu
+}
+script level_editor_hud_create {
+    level_editor_hud_destroy
+    SetScreenElementLock id=root_window off
+    CreateScreenElement {
+        type=ContainerElement
+        parent=root_window
+        id=level_editor_hud
+        pos=(0.0, 0.0)
+        just=[left top]
+    }
+    <index> = 1
+    while {
+        FormatText ChecksumName=line_id "level_editor_hud_%i" i=<index>
+        CreateScreenElement {
+            type=TextElement
+            parent=level_editor_hud
+            id=<line_id>
+            font=small
+            text=""
+            pos=((24.0, 18.0) + (0.0, 15.0) * <index>)
+            just=[left top]
+            scale=0.75
+            rgba=[128 128 128 128]
+            shadow
+            shadow_offs=(1.0, 1.0)
+            shadow_rgba=[0 0 0 128]
+            z_priority=1000
+        }
+        <index> = (<index> + 1)
+    } 7
+    SetScreenElementProps id=level_editor_hud_1 rgba=[128 110 0 128]
+}
+script level_editor_hud_set {
+    if ObjectExists id=<id> {
+        SetScreenElementProps id=<id> text=<text>
+    }
+}
+script level_editor_hud_destroy {
+    if ObjectExists id=level_editor_hud {
+        DestroyScreenElement id=level_editor_hud
+    }
 }
 """
 

@@ -7,8 +7,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <cstring>
+#include <string>
 
+#include "game/core/crc.h"
 #include "game/front/mouse_menus.h"
 #include "game/gfx/camera.h"
 #include "game/gfx/screen.h"
@@ -16,6 +19,7 @@
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
 #include "game/script/names.h"
+#include "game/script/struct.h"
 #include "game/sys/sdl_events.h"
 #include "hook/game.h"
 #include "hook/log.h"
@@ -218,6 +222,7 @@ namespace {
 
 constexpr uint32_t kModelComponent = 0x286A8D26;
 constexpr uint32_t kSkaterPhysicsControl = 0xD9151D4D; // (skaters aren't picked)
+constexpr uint32_t kCameraComponent = 0xC4E311FA;      // camera (camera objects aren't either)
 constexpr float kNearZ = 2.0f;                         // (Nx::SetCamera's near plane)
 constexpr float kPi = 3.14159265f;
 constexpr float kTurnPerNotch = 15.0f * kPi / 180.0f;
@@ -265,6 +270,7 @@ V3 g_dragOffset;     // the object's position minus the point on the drag plane 
 V3 g_dragStart;      // where the drag started (logged with the move)
 V3 g_dragPlaneNormal;
 int g_moves;
+int g_session; // (counts the times the editor started: the HUD's elements are new each time)
 
 void ReadWindowSize(uint32_t windowId)
 {
@@ -334,7 +340,7 @@ bool ModelBox(Obj::CCompositeObject* object, ObjectBox* out)
 {
     if (object->m_compositeFlags & (Obj::COMPOSITE_FLAG_HIDDEN | Obj::COMPOSITE_FLAG_DESTROYING))
         return false;
-    if (object->GetComponent(kSkaterPhysicsControl))
+    if (object->GetComponent(kSkaterPhysicsControl) || object->GetComponent(kCameraComponent))
         return false;
     Obj::CBaseComponent* component = object->GetComponent(kModelComponent);
     if (!component)
@@ -342,16 +348,22 @@ bool ModelBox(Obj::CCompositeObject* object, ObjectBox* out)
     auto* model = *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x208);
     if (!model)
         return false;
+    // A model cloned from a scene sector (the component's +0x234: level objects; placed by 0x004219F0 whatever its
+    // flags), or one in use (flags +0x44: 1 on - 0 for unused variants - and 4 off; peds' animated models have 2
+    // off: they are placed through their skeletons, not 0x004219F0's matrix).
+    bool cloned = reinterpret_cast<uint8_t*>(component)[0x234] != 0;
     uint8_t flags = model[0x44];
-    if (!(flags & 2) || (flags & 4))
+    if (!cloned && (!(flags & 1) || (flags & 4)))
         return false;
     void* geometry = GameFunction<void*(__thiscall*)(void*, int)>(0x00493CD0)(model, 0);
-    if (!geometry)
-        return false;
-    const Mth::Vector* box = GameFunction<const Mth::Vector*(__thiscall*)(void*)>(0x0048DE80)(geometry);
-    if (!box)
-        return false;
-    V3 min = {box[0].x, box[0].y, box[0].z}, max = {box[1].x, box[1].y, box[1].z};
+    const Mth::Vector* box =
+        geometry ? GameFunction<const Mth::Vector*(__thiscall*)(void*)>(0x0048DE80)(geometry) : nullptr;
+    // (no geometry box - peds' animated models -: a person-sized box standing on the object's position)
+    V3 min = {-25.0f, 0.0f, -25.0f}, max = {25.0f, 80.0f, 25.0f};
+    if (box && box[0].x <= box[1].x && box[0].y <= box[1].y && box[0].z <= box[1].z) {
+        min = {box[0].x, box[0].y, box[0].z};
+        max = {box[1].x, box[1].y, box[1].z};
+    }
     if (flags & 8) {
         const float* scale = reinterpret_cast<const float*>(model + 0x1C);
         min = {min.x * scale[0], min.y * scale[1], min.z * scale[2]};
@@ -421,6 +433,43 @@ Obj::CCompositeObject* Pick(V3 origin, V3 dir)
     PickWalk walk = {origin, Normalize(dir), kMaxPickDistance, nullptr};
     manager->ForEach(PickOne, &walk);
     return walk.best;
+}
+
+// [features] debug_editor: how many composite objects there are and how many can be picked (with the first few).
+struct Census {
+    int objects, pickable;
+};
+void __cdecl CountOne(Obj::CObject* object, void* data)
+{
+    auto* census = static_cast<Census*>(data);
+    auto* composite = static_cast<Obj::CCompositeObject*>(object);
+    ++census->objects;
+    ObjectBox box;
+    if (!ModelBox(composite, &box)) {
+        if (census->objects <= 80) {
+            Obj::CBaseComponent* component = composite->GetComponent(kModelComponent);
+            uint8_t* model = component ? *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x208)
+                                       : nullptr;
+            void* geometry = model ? GameFunction<void*(__thiscall*)(void*, int)>(0x00493CD0)(model, 0) : nullptr;
+            Log("level editor:   not pickable %08X (%s) at (%.0f, %.0f, %.0f): flags %X, model component %p (cloned %d), "
+                "model %p (flags %02X), geometry %p",
+                composite->m_id, NameOf(composite->m_id), composite->m_pos.x, composite->m_pos.y, composite->m_pos.z,
+                composite->m_compositeFlags, static_cast<void*>(component),
+                component ? reinterpret_cast<uint8_t*>(component)[0x234] : 0, static_cast<void*>(model),
+                model ? model[0x44] : 0, geometry);
+        }
+        return;
+    }
+    if (++census->pickable <= 8)
+        Log("level editor:   pickable %08X (%s) at (%.1f, %.1f, %.1f)", composite->m_id, NameOf(composite->m_id),
+            composite->m_pos.x, composite->m_pos.y, composite->m_pos.z);
+}
+void LogObjectCensus()
+{
+    Census census = {};
+    if (Obj::CCompositeObjectManager* manager = Obj::CompositeObjectManager())
+        manager->ForEach(CountOne, &census);
+    Log("level editor: %d composite objects, %d pickable", census.objects, census.pickable);
 }
 
 void Place(Obj::CCompositeObject* object, V3 pos)
@@ -621,11 +670,14 @@ bool __cdecl CFunc_Start(Script::CStruct*, Script::CScript*)
     g_selected = {};
     g_dragging = false;
     g_moves = 0;
+    ++g_session;
     g_mouse = Mouse{};
     g_savedCursor = SDL_ShowCursor(SDL_QUERY);
     SDL_ShowCursor(SDL_ENABLE);
     Log("level editor: on - W/A/S/D fly, Q/E down/up, Shift faster, right mouse look, left drag moves an object "
         "(Shift: up/down), wheel turns it (or changes the speed), Escape / Enter leaves");
+    if (DebugEnabled())
+        LogObjectCensus();
     return true;
 }
 
@@ -708,10 +760,112 @@ void NoteView(Gfx::Camera* camera, float angle, float aspect, const uint32_t vie
     g_haveView = true;
 }
 
+// --- the HUD ---
+
+namespace {
+
+// The lines of the HUD's text elements (level_editor_hud_create in the overlay's gamemenu_pause.qb: ids
+// level_editor_hud_1 .. _7), as last set (set again only when changed, a few times a second).
+constexpr int kHudLines = 7;
+std::string g_hudShown[kHudLines];
+int g_hudFrames;
+int g_pickable, g_objects;
+
+void SetHudLine(int line, const std::string& text)
+{
+    if (g_hudShown[line] == text)
+        return;
+    g_hudShown[line] = text;
+    char id[32];
+    std::snprintf(id, sizeof(id), "level_editor_hud_%d", line + 1);
+    alignas(4) uint8_t memory[8];
+    Script::CStruct* params = reinterpret_cast<Script::CStruct*>(memory)->Init();
+    params->AddChecksum(0x40C698AFu, Crc::GenerateCRCFromString(id)); // id
+    params->AddString(0xC4745838u, text.c_str());                       // text
+    Script::RunScript("level_editor_hud_set", params, nullptr, false);
+    params->Clear();
+}
+
+// The class of the object's node (its id is its node's name), from the level's node table (0x0045C1B0: by name).
+const char* ClassOf(uint32_t id)
+{
+    auto* node = GameFunction<Script::CStruct*(__cdecl*)(uint32_t, int)>(0x0045C1B0)(id, 0);
+    uint32_t cls = 0;
+    if (!node || !node->GetChecksum(0x12B4E660u, &cls, 0)) // Class
+        return "object";
+    switch (cls) {
+    case 0xB7B3BD86: return "LevelObject";
+    case 0xEF59C100: return "GameObject";
+    case 0xA0DFAC98: return "Pedestrian";
+    case 0xE47F1B79: return "Vehicle";
+    case 0x9E7D469E: return "ParticleObject";
+    case 0xDABD3086: return "EnvironmentObject";
+    default: return "node";
+    }
+}
+
+float HeadingDegrees(const Obj::CCompositeObject* object)
+{
+    const Mth::Vector& at = object->m_matrix.row[2];
+    return std::atan2(at.x, at.z) * 180.0f / kPi;
+}
+
+std::string Describe(Obj::CCompositeObject* object)
+{
+    if (!object)
+        return "-";
+    const char* name = Script::FindChecksumName(object->m_id);
+    char text[200];
+    std::snprintf(text, sizeof(text), "%s %08X%s%s  at (%.0f, %.0f, %.0f)  heading %.0f", ClassOf(object->m_id),
+                  object->m_id, name ? " " : "", name ? name : "", object->m_pos.x, object->m_pos.y,
+                  object->m_pos.z, HeadingDegrees(object));
+    return text;
+}
+
+void __cdecl CountPickable(Obj::CObject* object, void*)
+{
+    ++g_objects;
+    ObjectBox box;
+    if (ModelBox(static_cast<Obj::CCompositeObject*>(object), &box))
+        ++g_pickable;
+}
+
+// Every 10th frame: the camera, what's hovered and selected, the moves and the controls.
+void UpdateHud()
+{
+    static int shownSession = -1;
+    if (shownSession != g_session) {
+        shownSession = g_session;
+        for (std::string& line : g_hudShown)
+            line.clear();
+        g_hudFrames = 0;
+    }
+    if (g_hudFrames++ % 10 != 0)
+        return;
+    g_objects = g_pickable = 0;
+    if (Obj::CCompositeObjectManager* manager = Obj::CompositeObjectManager())
+        manager->ForEach(CountPickable, nullptr);
+    char text[200];
+    SetHudLine(0, "LEVEL EDITOR");
+    std::snprintf(text, sizeof(text), "Camera (%.0f, %.0f, %.0f)  yaw %.0f  pitch %.0f  speed %.0f", g_pos.x, g_pos.y,
+                  g_pos.z, g_yaw * 180.0f / kPi, g_pitch * 180.0f / kPi, g_speed);
+    SetHudLine(1, text);
+    SetHudLine(2, "Hover: " + Describe(Live(g_hover)));
+    SetHudLine(3, "Selected: " + Describe(Live(g_selected)) + (g_dragging ? "  (moving)" : ""));
+    std::snprintf(text, sizeof(text), "Objects: %d pickable of %d   Moves: %d (not saved)", g_pickable, g_objects,
+                  g_moves);
+    SetHudLine(4, text);
+    SetHudLine(5, "W/A/S/D fly   Q/E down/up   Shift faster   Right mouse: look   Wheel: speed");
+    SetHudLine(6, "Left drag: move (Shift: up/down)   Wheel on selected: turn   Esc/Enter: exit");
+}
+
+} // namespace
+
 void Update()
 {
     if (!g_active)
         return;
+    UpdateHud();
     uint64_t now = SDL_GetPerformanceCounter();
     double seconds = g_lastCounter ? static_cast<double>(now - g_lastCounter) / SDL_GetPerformanceFrequency() : 0.0;
     g_lastCounter = now;
@@ -754,6 +908,12 @@ void Update()
             haveRay = true;
         }
     }
+
+    // ([features] debug_editor: once a second, what the mouse is seen as)
+    static int debugFrames = 0;
+    if (DebugEnabled() && ++debugFrames % 60 == 0)
+        Log("level editor: mouse (%.0f, %.0f) in %dx%d, ray %d (%.3f, %.3f, %.3f)", input.x, input.y,
+            input.windowWidth, input.windowHeight, haveRay ? 1 : 0, dir.x, dir.y, dir.z);
 
     // Dragging, or what's under the cursor.
     if (g_dragging && selected && haveRay) {
