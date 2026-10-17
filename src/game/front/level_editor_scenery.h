@@ -75,6 +75,34 @@ void Commit();
 // How many sectors have been moved since the level loaded.
 int MovedCount();
 
+// The selection's state: which sectors are selected, where the editor has put each (relative to where the level has
+// it) and whether it's hidden, and the same for its rails. Undo / redo save it before a change and restore it; reset
+// is every placement back to none, hiding is every piece hidden (CSector::SetActive: neither drawn nor collided with -
+// its rails turned off too).
+struct SectorState {
+    uint32_t checksum;
+    Placement placement;
+    bool hidden;
+};
+struct RailState {
+    uint32_t name;
+    Placement placement;
+    bool hidden;
+};
+struct State {
+    std::vector<uint32_t> selection;
+    std::vector<SectorState> sectors;
+    std::vector<RailState> rails;
+};
+State SaveState();
+void RestoreState(const State& state); // (selects state.selection again; collision updated)
+// Home: the selection back where the level has it (and shown).
+void ResetSelection();
+// Delete: the selection hidden, and deselected.
+void HideSelection();
+// Where the first selected sector has been put (false: not moved).
+bool SelectionMoved(Placement* placement);
+
 // [features] debug_editor: the scenes and their sectors.
 void LogCensus();
 

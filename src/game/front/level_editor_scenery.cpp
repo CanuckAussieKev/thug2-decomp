@@ -555,29 +555,47 @@ void SelectRails()
     }
 }
 
+// Where the editor has put a sector (none yet: where the level has it).
+Placement PlacementOf(uint32_t checksum, uint8_t* geom)
+{
+    auto it = g_tracks.find(checksum);
+    if (it != g_tracks.end() && it->second.geom == geom)
+        return it->second.placement;
+    return {0, {0.0f, 0.0f, 0.0f}};
+}
+
+bool SamePlacement(const Placement& a, const Placement& b)
+{
+    return a.quarters == b.quarters && std::fabs(a.offset.x - b.offset.x) < 0.5f &&
+           std::fabs(a.offset.y - b.offset.y) < 0.5f && std::fabs(a.offset.z - b.offset.z) < 0.5f;
+}
+
 // The group a click on a sector selects: the sector, the rest of its cluster, and the movable pieces built onto them
-// (PieceFits / PieceTouches, three rounds - each with its cluster).
+// (PieceFits / PieceTouches, three rounds - each with its cluster). Decided on the level's own layout (the boxes as
+// loaded) and only among pieces the editor has moved together (the same placement): a group moved into something
+// doesn't take it in, and a piece moved away from its group no longer brings the group along. Hidden pieces aren't
+// taken.
 std::vector<uint32_t> GroupOf(uint32_t checksum)
 {
     std::vector<uint32_t> group;
     uint8_t* scene = nullptr;
-    if (WhyNotMovable(checksum) || !FindSector(checksum, &scene))
+    uint8_t* clicked = FindSector(checksum, &scene);
+    if (WhyNotMovable(checksum) || !clicked)
         return group;
+    Placement placement = PlacementOf(checksum, GeomOf(clicked));
     struct Piece {
         uint32_t checksum;
         V3 min, max;
         bool in;
     };
-    std::vector<Piece> pieces; // (the scene's sectors small enough to move)
+    std::vector<Piece> pieces; // (the scene's shown sectors small enough to move, moved as the clicked one)
     ForEachSector(scene, [&](uint32_t other, uint8_t* sector) {
         uint8_t* geom = GeomOf(sector);
-        OrientedBox box;
-        if (!PlainGeom(geom) || !CurrentBox(other, geom, &box) ||
-            !SectorSizeMovable(box.min, box.max, kMaxSectorExtent))
+        V3 min, max;
+        if (!PlainGeom(geom) || !geom[0x48] || !GeomBox(geom, &min, &max) ||
+            !SectorSizeMovable(min, max, kMaxSectorExtent) || !SamePlacement(PlacementOf(other, geom), placement))
             return;
-        Piece piece = {other, {}, {}, false};
-        BoundsOf(box, &piece.min, &piece.max);
-        pieces.push_back(piece);
+        pieces.push_back({other, min, max, false});
     });
     auto take = [&](Piece& piece) {
         if (piece.in || WhyNotMovable(piece.checksum))
@@ -877,6 +895,7 @@ void MoveTo(V3 pivot)
     }
     ApplyRails();
     g_pivot = pivot;
+    g_hoverGroupOf = 0;
 }
 
 void Turn(int quarters)
@@ -895,6 +914,7 @@ void Turn(int quarters)
             TurnAbout(&track->placement, g_pivot, quarters);
     }
     ApplyRails();
+    g_hoverGroupOf = 0;
 }
 
 std::vector<std::pair<V3, V3>> SelectedRails()
@@ -909,6 +929,101 @@ std::vector<std::pair<V3, V3>> SelectedRails()
 }
 
 int SelectedRailCount() { return static_cast<int>(g_rails.size()); }
+
+// --- the selection's state (undo / redo, reset, hiding) ---
+
+namespace {
+
+// CSector::SetActive (0x0049E9B0, thiscall, RET 4: the geometry's active flag - vfunc +0x34 - and the collision's
+// "off" flag 4) / IsActive (0x0049E9E0).
+void SetActive(uint8_t* sector, bool active) { GameFunction<void(__thiscall*)(void*, bool)>(0x0049E9B0)(sector, active); }
+bool IsActive(uint8_t* sector) { return GameFunction<bool(__thiscall*)(void*)>(0x0049E9E0)(sector); }
+
+} // namespace
+
+State SaveState()
+{
+    State state;
+    state.selection = g_selection;
+    for (uint32_t checksum : g_selection) {
+        uint8_t* sector = FindSector(checksum, nullptr);
+        if (!sector)
+            continue;
+        state.sectors.push_back({checksum, PlacementOf(checksum, GeomOf(sector)), !IsActive(sector)});
+    }
+    for (uint32_t name : g_rails) {
+        if (RailTrack* track = RailTrackOf(name))
+            state.rails.push_back({name, track->placement, !(track->node->flags & 4)});
+    }
+    return state;
+}
+
+void RestoreState(const State& state)
+{
+    for (const SectorState& saved : state.sectors) {
+        Track* track = TrackOf(saved.checksum);
+        if (!track)
+            continue;
+        if (track->placement.quarters != saved.placement.quarters || !SameV3(track->placement.offset, saved.placement.offset)) {
+            track->placement = saved.placement;
+            ApplyTrack(track);
+        }
+        if (IsActive(track->sector) == saved.hidden) {
+            SetActive(track->sector, !saved.hidden);
+            MarkDirty(track->scene);
+        }
+    }
+    g_rails.clear();
+    for (const RailState& saved : state.rails) {
+        if (RailTrack* track = RailTrackOf(saved.name)) {
+            track->placement = saved.placement;
+            track->node->flags = saved.hidden ? track->node->flags & ~4u : track->node->flags | 4u;
+            g_rails.push_back(saved.name);
+        }
+    }
+    ApplyRails();
+    g_selection = state.selection;
+    ComputePivot();
+    g_hoverGroupOf = 0;
+    Commit();
+}
+
+void ResetSelection()
+{
+    State state = SaveState();
+    for (SectorState& saved : state.sectors) {
+        saved.placement = {0, {0.0f, 0.0f, 0.0f}};
+        saved.hidden = false;
+    }
+    for (RailState& saved : state.rails) {
+        saved.placement = {0, {0.0f, 0.0f, 0.0f}};
+        saved.hidden = false;
+    }
+    RestoreState(state);
+}
+
+void HideSelection()
+{
+    State state = SaveState();
+    for (SectorState& saved : state.sectors)
+        saved.hidden = true;
+    for (RailState& saved : state.rails)
+        saved.hidden = true;
+    RestoreState(state);
+    ClearSelection();
+}
+
+bool SelectionMoved(Placement* placement)
+{
+    if (g_selection.empty())
+        return false;
+    uint8_t* sector = FindSector(g_selection[0], nullptr);
+    if (!sector)
+        return false;
+    *placement = PlacementOf(g_selection[0], GeomOf(sector));
+    return placement->quarters != 0 || placement->offset.x != 0.0f || placement->offset.y != 0.0f ||
+           placement->offset.z != 0.0f;
+}
 
 void Reset()
 {

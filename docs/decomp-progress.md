@@ -3414,6 +3414,22 @@ belong with the CScript batch.
       - G: onto the ground below (the collision ray from just under the scenery's bottom, or from above an object's
         feet). A ground marker while something is selected: a line from the base to the ground below and a cross.
       - HUD control lines updated.
+- [x] Batch 104: level editor - groups on the level's layout, push / pull, undo / redo, reset, hide - **tested in
+      the game** (launched by Claude; LA's fire truck).
+      - Groups were decided on where pieces are now: moving the truck into another piece made that piece part of it the
+        next click. Now on the boxes as loaded (GeomBox) and only among pieces with the same placement (moved together;
+        never moved = none): a group moved into something doesn't take it, a piece moved away from its group no longer
+        brings it. Hidden pieces aren't taken. Checked: the moved truck re-selects as the same 17 sectors.
+      - Push / pull "locked": with the camera about level with the truck's base the drag fell back to across-the-view.
+        Now, under ~20 degrees, the mouse moves it in the view's terms (left / right across, up / down away / back along
+        the ground, a pixel's span at its distance - 2.5x for away). Checked: 105 pixels up pushed the truck ~190
+        units straight away. The wheel pushes / pulls while dragging (a tenth of its distance a notch); Ctrl snaps to a
+        25-unit grid.
+      - Undo now restores absolute states (Scenery::State: placements, hidden, rails; objects' position and matrices),
+        so Ctrl+Y redo, Home (back where the level had it; objects' first places kept per level) and Delete (scenery
+        hidden: CSector::SetActive 0x0049E9B0 false - not drawn, collision off - and its rails' active flag 4 cleared)
+        undo like anything else. Checked: Home, Delete, Ctrl+Z, Ctrl+Y, Ctrl+Z on the truck.
+      - HUD: the camera and counts share a line; three lines of controls, for flying, a selection, and dragging.
 - [ ] Next: small net follow-ups: App::m_manager (+0x1440) could become `Manager*` (it is `void*`), name the
       Manager's +0x2E6 flag (pref checksum 0xE5ADE642) and check +0x374 (modem baud rate?).
       Widescreen follow-up: if the user still sees the bottom-left band overlap, don't draw sprites wholly outside the

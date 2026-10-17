@@ -22,8 +22,11 @@ class CScript;
 //   - Holding the left button on something selects it and drags it: on the horizontal plane at its base (with the
 //     camera about level with that, across the view at its height instead); Shift: up / down. The camera holds still
 //     while dragging and turns to the selection when it's let go; it moves only once the cursor has gone a few pixels,
-//     and Escape during a drag puts it back. Ctrl+Z undoes moves, turns and drops (64 deep, this session); G drops
-//     the selection onto the ground below it; a marker (a line down to the ground and a cross) shows where that is.
+//     and Escape during a drag puts it back. Seen from about level, the mouse moves it in the view's terms (up / down:
+//     away / back); the wheel pushes / pulls it while dragging; Ctrl snaps to a 25-unit grid. Ctrl+Z / Ctrl+Y undo /
+//     redo moves, turns, drops, resets and hiding (64 deep, this session); G drops the selection onto the ground below
+//     it; Home puts it back where the level had it; Delete hides scenery; a marker (a line down to the ground and a
+//     cross) shows where the ground is.
 //   - W / A / S / D fly forward / left / back / right along the view, Q / E (or Space) down / up, Shift 4x
 //     faster; no collision. Holding the right mouse button looks around (the cursor hidden meanwhile).
 //   - The object under the cursor (a composite object with a model: level objects, peds, cars - not the skater) is
