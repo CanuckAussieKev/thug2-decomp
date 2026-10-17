@@ -28,8 +28,14 @@ class CScript;
 //     speed. A click on nothing deselects.
 //   - Escape, Enter (the Pause key) or a controller's Start leave it (level_editor_exit: LevelEditor_Stop, the skater
 //     back, the pause menu again).
-// Moves are not saved anywhere (nothing persists past the level). Scenery (the static scene sectors) isn't movable
-// yet: the picking walks composite objects only (see Pick in the .cpp for where sectors would join).
+//   - Scenery (the level's static scene sectors - LevelGeometry such as the fire truck in Los Angeles) is picked
+//     too: the game's collision ray finds the sector under the cursor (sectors without collision by their boxes).
+//     A click selects the sector with the rest of its trick-object cluster (the node's TrickObject Cluster=, e.g.
+//     the fire truck's cab, body and wheels); Alt+click (or a middle click) adds or removes a single sector - the
+//     truck's ladder is in other clusters. Dragging, Page Up / Down
+//     and the wheel (quarter turns for scenery) move the selection: the sectors' vertices and collision are moved
+//     in place as the park editor moves its pieces (level_editor_scenery.cpp).
+// Moves are not saved anywhere (nothing persists past the level).
 //
 // thug2-decomp.ini [features] level_editor=1 (default; 0: LevelEditor_Available is false - no menu item - and
 // LevelEditor_Start refuses), debug_editor=1 logs picks, moves and the view.
@@ -133,5 +139,43 @@ bool BoxLooksWorldSpace(V3 min, V3 max, V3 objectPos);
 V3 TurnAboutUp(V3 v, float angle);
 // A line from a to b (camera space depth = distance along the view) clipped to depth >= nearZ: false if all behind.
 bool ClipToNear(V3 cameraPos, const Frame& frame, float nearZ, V3* a, V3* b);
+
+// A box placed in the world: p = origin + local.x * axes[0] + local.y * axes[1] + local.z * axes[2], local within
+// min..max (an object's model box, or a scene sector's box where it is now).
+struct OrientedBox {
+    V3 origin;
+    V3 axes[3];
+    V3 min, max;
+};
+
+// --- scenery (the static scene sectors; level_editor_scenery.cpp) ------------------------------------------------
+
+// A direction turned by `quarters` quarter turns about the world's up axis, exactly (no trigonometry): as
+// TurnAboutUp(v, quarters * 90 degrees), and as the engine turns a sector's vertices (sMesh::RotateY 0x004D6FB0:
+// rotation 1 takes (dx, dz) from the pivot to (dz, -dx), rotation 3 to (-dz, dx)).
+V3 QuarterTurn(V3 v, int quarters);
+// Where a moved sector is, relative to where it was when the editor first touched it: a point x of it then is now at
+// QuarterTurn(x, quarters) + offset.
+struct Placement {
+    int quarters; // 0..3
+    V3 offset;
+};
+V3 Apply(const Placement& placement, V3 x);
+// Moved by `delta`; turned by `quarters` quarter turns about `pivot` (a world point, where it is now).
+void MoveBy(Placement* placement, V3 delta);
+void TurnAbout(Placement* placement, V3 pivot, int quarters);
+// What the engine keeps for a placement: the sector's quarter turns (CSector +0x10, set by SetYRotation 0x0049E760)
+// and its geometry's world position (the meshes' pivot, sMesh +0x90's translation), from those when first touched
+// (`quarters0`, `position0`). Its vertices are at QuarterTurn(v, quarters) + position for v as loaded.
+void EngineState(int quarters0, V3 position0, const Placement& placement, int* quarters, V3* position);
+// The box (min / max as when first touched) where the placement has put it.
+OrientedBox PlacedBox(V3 min, V3 max, const Placement& placement);
+// Whether a sector of that box can be moved: not huge (the ground, a whole street: an extent over `limit`) and a
+// real box.
+bool SectorSizeMovable(V3 min, V3 max, float limit);
+// The box around two boxes' (axis-aligned) corners: `have` false takes `min` / `max` as they come.
+void GrowBox(V3* min, V3* max, bool have, V3 boxMin, V3 boxMax);
+// The axis-aligned box around an oriented box's corners.
+void BoundsOf(const OrientedBox& box, V3* min, V3* max);
 
 } // namespace Front::LevelEditor
