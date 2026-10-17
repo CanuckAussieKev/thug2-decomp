@@ -3076,6 +3076,32 @@ belong with the CScript batch.
         Game Options, Multiplayer, Story Mode Options, Create-A-Skater, Single Session (same framing as the shop's),
         level select, loading Training and quitting back to the LA main menu. No exceptions or debug reports.
       - Not checked: Create-A-Graphic, face mapping, the network lobby, 2 Player, view 2.
+- [x] Batch 99: main menu zoom keys; the skate shop as a playable level - **tested in the game** (launched by Claude
+      at the user's request). Record:
+      - Zoom (menu_level.cpp ApplyZoom, from PlaceCamera): while mainmenu_camera02 plays in the LA front end, Page Up /
+        Page Down held zoom in / out 1% a frame, Home resets; the camera's field of view becomes
+        2 atan(tan(fov / 2) / zoom) (the game's angle remembered against the one we wrote); the value is logged when
+        the key goes up; [features] menu_zoom=<percent> is the starting zoom. Checked: 146% / 208% / 297% presses.
+      - The data overlay split: files at the top of thug2-decomp-data are always used; menu_level\ (the LA front
+        end) is tried first while menu_backdrop=3. The tool empties the folder and makes it again (marker file).
+      - The playable shop (make_menu_level.py): Load_SkateShopLevel / Level_SkateShopLevel - the shop's scene,
+        collision, archives and lighting, level_name "skateshop", LevelNum_Default (as the game's test levels: 11 is
+        also the created park's number, so the sign can't use it). **Not "Load_SkateShop"**: CheckForInvalidLevels
+        turns the obsolete load_skateshop into Load_MainMenu. Its node array levels\skateshop\skateshop.qb: the
+        shop's without the shadow skater's TriggerScript and the menus' 3D backgrounds, **TRG_Playerrestart moved
+        before SS_player_restart** (the first player restart is where the skater starts; SS_player_restart is below
+        the shop - the front end moves the skater by script - so the first try started in the void).
+        Level select: a SKATE SHOP sign after TRAINING (Training's flag and sign texture, level_num 21 - the test
+        level's slot); level_select_info_add_gaps / _add_highscore skip 21 (GetLevelGapTotals read through a null for
+        it - a crash on the sign).
+      - menu_backdrop 1/2 doesn't load LA behind the playable shop (OnSceneLoaded: front end only).
+      - Checked in the game: SKATE SHOP sign, the level loads with the skater skating in the shop, quitting back to
+        the LA main menu; no exceptions.
+      - **Open: the element3d class self-test (TestElement3dClass) fails in the game since this commit** (passes
+        offline; passes in the game at 9ec3b15 - bisected with a worktree build). It runs before any code this commit
+        changed; the differing word ("snapshot 17, element +0x908": original 7A8017BA, ours an arena address) looks
+        like a value read uninitialized whose contents depend on code layout. To investigate: which recorded word
+        that is, and whether the original reads it uninitialized.
 - [ ] Next: small net follow-ups: App::m_manager (+0x1440) could become `Manager*` (it is `void*`), name the
       Manager's +0x2E6 flag (pref checksum 0xE5ADE642) and check +0x374 (modem baud rate?).
       Widescreen follow-up: if the user still sees the bottom-left band overlap, don't draw sprites wholly outside the
