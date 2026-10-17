@@ -30,8 +30,10 @@
       in +0x3D14, timestamp out +0x3D18, bandwidth +0x3D1C (400000 from the constructor).
       Quirk kept: the constructor zeroes only the first 64 groups' sequence ids (REP STOSD of 0x40 dwords, both
       arrays); the type stays uninitialised (+0x3D10).
-      Calls into the other ranges by address: Metrics' constructor 0x4544E0 and ~StreamDesc 0x454E00 (wt/netD),
-      ~QueuedMsg 0x4550F0 (wt/netE). Existing callers now call Conn directly (net_app.cpp, net_app_view.cpp,
+      Calls into the other ranges by address: Metrics' constructor 0x4544E0 and ~StreamDesc 0x454E00 (wt/netD);
+      netE's ~QueuedMsg (QueuedMsg::DestroyBody) is called directly, and netE's link destructors call the node
+      destructor bodies 0x455B50-0x455BB0 (methods of netE's MsgNormalNode / MsgImpNode / MsgSeqNode /
+      StreamLinkNode) directly. Existing callers now call Conn directly (net_app.cpp, net_app_view.cpp,
       net_access_c.h; App::Construct uses ConstructHead and ProcessNetworkData); netA / netB / netC's tests stand in
       for ours next to the game addresses (0x455C80, 0x456790, 0x4566D0, 0x456540) and netB's arena relocates
       &App::ProcessNetworkData to 0x456CA0.
@@ -45,3 +47,21 @@
       500 ms minimum).
       Disable with `[replacements] disable=net_conn.cpp` (net_lists.cpp and net_app.cpp hold 0x455BD0 / 0x457010
       / 0x456CA0).
+- [x] Net clean-up (branch wt/netF, after the merge of wt/netE; NOT run in the game yet - no behaviour change, all
+      151 early tests pass): **Net::Conn** is a real struct in net_conn.h (0x3D20, every field named and
+      static_asserted; `ConnView` is gone, `using Conn = ConnView` too); **Net::App** is one struct in net_app.h
+      (AppView folded in, no derivation; sizeof 0x1F08; the Client adds m_serverAddress at 0x1F08, sizeof 0x1F18 as
+      allocated at 0x455460); net_app_view.h keeps QueuedMsg / SeqQueuedMsg / MsgLink / VirtualSlot5Jump.
+      net_access_c.h's AppField / ConnField offsets became members (the tests use Field<T>(object, offsetof(...))
+      where they write raw stand-in bytes); chat.cpp's and cscript_manager.cpp's MsgDesc copies are net_app.h's
+      Net::MsgDesc (their 0x0C / 0x10 fields: m_queue = kQueueSequenced, m_groupId = 8).
+      Renames: ConnView -> Conn; AppView -> App; App::m_counters[6] -> m_totalBytesOut, m_totalBytesIn,
+      m_lostPackets, m_latePackets, m_dupePackets, m_frameCount; App::m_dispatcher is a Dispatcher;
+      App::m_scrambled[0x1E84-0x145C] -> m_scrambled[0x514] + m_receiveBuffer[0x514]; m_unknown1E88 ->
+      m_foreignPacketHandler (ForeignPacketHandler moved to net_app.h from net_client.cpp / net_server.cpp);
+      m_name[1] -> m_name[0x48]; Unknown1F00() -> m_unknown1F00; SetValue1E88 -> SetForeignPacketHandler; HasFlag10 ->
+      AcceptsForeignConnections; kFlag10 -> kAcceptForeign (+ kMeasureLatency 4); Conn::m_unknown44 -> m_id,
+      m_unknown878 -> m_nextStreamId; netE's ConnView::LastCommTime() and net_app.cpp's CreatedTime() ->
+      Conn::m_lastCommTime; netC's GetNumPendingMessages wraps Conn::GetHighestResendCount (it's the most resends,
+      not a count); IsNew / MarkNewConnection wrap IsValid / Invalidate; netA's test helpers App() / Conn(i) ->
+      TheApp() / TheConn(i).
