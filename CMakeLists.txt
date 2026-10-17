@@ -69,6 +69,9 @@ add_library(thug2_code OBJECT
     src/hook/selftests_netB.cpp
     src/hook/selftests_mainloop.cpp
     src/hook/selftests_misc.cpp
+    src/hook/selftests_lfxc.cpp
+    src/hook/selftests_lfxc2.cpp
+    src/hook/selftests_lfxc3.cpp
     src/hook/selftests_scache.cpp
     src/hook/selftests_text.cpp
     src/hook/selftests_winmain.cpp
@@ -96,6 +99,7 @@ add_library(thug2_code OBJECT
     src/game/core/alloc.cpp
     src/game/core/crc.cpp
     src/game/core/dbg.cpp
+    src/game/core/dump_text.cpp
     src/game/core/heap.cpp
     src/game/core/manager.cpp
     src/game/core/mem.cpp
@@ -167,6 +171,9 @@ add_library(thug2_code OBJECT
     src/game/obj/motion.cpp
     src/game/obj/object.cpp
     src/game/obj/objman.cpp
+    src/game/park/park_cursor.cpp
+    src/game/park/park_editor.cpp
+    src/game/park/park_memory.cpp
     src/game/obj/smtptr.cpp
     src/game/obj/tracker.cpp
     src/game/skater/rotation.cpp
@@ -202,6 +209,7 @@ add_library(thug2_code OBJECT
     src/game/script/precompiled.cpp
     src/game/script/qb.cpp
     src/game/script/struct.cpp
+    src/game/script/skate_cfuncs.cpp
     src/game/mth/geometry.cpp
     src/game/mth/math.cpp
     src/game/mth/matrix.cpp
