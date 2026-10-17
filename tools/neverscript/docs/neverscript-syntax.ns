@@ -1,0 +1,216 @@
+// 23rd December 2020: THIS DOCUMENT IS NOT KEPT UP TO DATE.
+// The real source of truth of the syntax can be found inside 'verify_consistent_compiler_output.go' and 'neverscript.ns' which lives in the same directory
+
+/*
+==============================
+    GLOBAL VARIABLES
+==============================
+*/
+
+// Ints
+my_int = 256            // decimal     (base 10)
+my_int = 0x1234D00D     // hexadecimal (base 16)
+my_int = 0b10100111001  // binary      (base 2)
+my_int = 0o1234567      // octal       (base 8)
+my_int = -32
+my_int = -0x20
+my_int = -0b100000
+my_int = -0o40
+
+// Floats
+my_float = 123.45
+my_float = 18.0         // .0 required to avoid ambiguity with integers
+
+// Strings
+my_string = "Hello, I contain text!"
+my_string = ""
+
+// {
+//     Checksums
+
+//     All variable names are converted to 32-bit checksums by the compiler.
+//     The next 4 lines of code are semantically identical:
+my_variable = my_variable
+my_variable = #01E0ED3D
+#01E0ED3D = my_variable
+#01E0ED3D = #01E0ED3D
+
+//     Different variable names will produce different checksums:
+foo = 10 // #738C9ADE = 10
+bar = 10 // #89007355 = 10
+baz = 10 // #87DBFB67 = 10
+
+//     Variable names are case-insensitive.
+//     The next 3 lines of code are semantically indentical:
+foo = 10 // #738C9ADE = 10
+Foo = 10 // #738C9ADE = 10
+FOO = 10 // #738C9ADE = 10
+
+//     Checksums will usually only be seen in decompiled code when a checksum lookup was unsuccessful.
+// }
+
+// Arrays
+my_array = [1 2 3 4]
+my_array = ["Foo" "Bar" "Baz"]
+my_array = [[1 2] [3 4]]
+my_array = [foo, bar, baz] // Sometimes arrays have commas to disambiguate separate checksum elements from script invocations.
+my_array = [
+    "first element (index 0)"  // Arrays
+    "second element (index 1)" // can
+    "third element (index 2)"  // contain
+    "fourth element (index 3)" // line-breaks.
+]
+
+// Pairs (2 floats packed together as a unit)
+my_pair = (0.2, 0.3)
+my_pair = (99.0, 500.0)
+
+// Vectors (3 floats packed together as a unit)
+vector_1 = (0.0, 0.0, 0.0)
+vector_2 = (0.1, 0.2, 0.3)
+
+// Structs
+language_struct = {
+    name = "NeverScript"
+    is_fun
+    rewrites = 5 // probably
+}
+nested1 = {
+    nested2 = {
+        foo = 10
+        bar = 20
+        nested3 = {
+            baz = [1 2 3 4]
+        }
+    }
+}
+time_struct = {10 minutes}
+my_struct = { CapitalizeName name = "tony hawk", year = 2020 } // Structs can also have commas to separate elements (see commas in arrays ^^^).
+
+
+/*
+==============================
+    SCRIPTS
+==============================
+*/
+
+/*
+ * Script name: "add"
+ * Parameters: "first", "second"
+ * Returns: "add_result"
+ */
+script add {
+    return add_result=(<first> + <second>)
+    // Use <> to reference local variables and parameters.
+    // Use () to perform calculations.
+}
+
+script Print_Something text=default_text {
+    print text=(<text>)
+}
+
+script UpdateGlobalState {
+    Change my_string="Oh no... Global state has been modified!"
+    // Call the "Change" script to update global variables.
+    // This script is implemented in C++ and accessible at runtime through the scripting engine.
+}
+
+script main {
+    print text="Hello"
+
+    // Add two numbers and print the return value
+    add first=10 second=20
+    print text=<add_result>
+
+    // Call a function across multiple lines (example style 1):
+    kick_player \
+        name = "byxor" \
+        reason = "using techs during game of koth"
+
+    // Call a function across multiple lines (example style 2):
+    kick_player name="byxor" \
+                reason="using techs during game of koth"
+
+    // Use a `\` at the end of a line to prevent the compiler from inserting a line-break.
+
+    print text="Goodbye"
+}
+
+script FizzBuzz {
+    if ! ((GotParam Fizz) or (GotParam Buzz)) {
+      result = "..."
+    } else if (GotParam Fizz) and (GotParam Buzz) {
+        result = "FizzBuzz"
+    } else if GotParam Fizz {
+        result = "Fizz"
+    } else {
+        result = "Buzz"
+    }
+    return YourFizzBuzzResult = (<result>)
+    // I don't think it's necessary, but I often parenthesize checksum expressions out of paranoia.
+    // By doing this, you can have more confidence that the expression evaluates to a more """primitive""" type, if such an explanation makes any sense.
+}
+
+script doArbitraryStuff {
+    variable = 10
+    if (<variable> < 5) {
+        print text="Variable is below 5"
+    } else if (<variable> < 10) {
+        print text="Variable is 5 or more, but below 10"
+    } else {
+        print text="Variable is 10 or more"
+    }
+
+    // Returns <vel_x> <vel_y> <vel_z> into local memory.
+    GetSkaterVelocity
+
+    IsFalling = (<vel_y> < 0.0)
+    if (<IsFalling>) {
+        SetSkaterVelocity \
+            vel_x = <vel_x> \
+            vel_y = 0.0 \
+            vel_z = <vel_z>
+    }
+
+    if ! (<IsFalling>) {
+        SetSkaterVelocity \
+            vel_x = (<vel_x> - 0.01) \
+            vel_y = (<vel_y>) \
+            vel_z = (<vel_z> - 0.01)
+    }
+
+    #11223344 param=1 \
+              #23232323=2
+
+    // `random` is a keyword to enable random branching at runtime.
+    // Each branch has a weight integer, and a corresponding snippet of code associated with it.
+    print \
+        message = random {
+            100 {"Highly probable"}
+            60 {"Somewhat probable"}
+            20 {"Unlikely"}
+            1 {"Very unlikely"}
+        }
+    }
+
+    (x < 2)
+    (x > 2)
+    if (x = 2) {}
+
+    random {
+        1 {
+            Bark
+            print "you're a dog bro"
+        }
+        1 {
+            Meow
+            print "you're a cat bro"
+        }
+        1 {
+            Hiss
+            print "you're a snake bro"
+        }
+    }
+
+    Foo <...>
+}
