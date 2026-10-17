@@ -1837,7 +1837,9 @@ belong with the CScript batch.
       Test-template todo: the arena-image half-pointer normalisation (.claude/skills/decomp-batch/test-template.cpp
       ~line 93, `high <= (base + size) >> 16`) works in whole 64 KB segments, so the segment holding the arena's end
       can also normalise statics placed right after the arena (csB hit this with its fake objects and used `<`,
-      which instead skips the arena's last partial segment). A proper fix compares full addresses.
+      which instead skips the arena's last partial segment). Full addresses can't be compared (the pass exists for
+      stray 16-bit halves); the template now says to allocate arenas with VirtualAlloc (64 KB aligned, alone in
+      their segments) when it bites. Changing the existing static arenas was tried and broke csB - left as is.
 - [x] Batch 74 (CScript) tested in the game (2026-10-17, by the user): game runs; 873 of 873 replacements installed
       (32 source only), early 105 / late 17 / engine-started 2 self-tests pass, shadow checks no mismatches.
 - [ ] Next: (batch 74 tested) - every script goes through it, so a failure shows at once (bisect by
