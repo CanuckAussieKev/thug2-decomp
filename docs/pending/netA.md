@@ -108,7 +108,12 @@ SendTo/SendMessageTo/Send secure and not with each error, Init's 8 paths, Deinit
 (NewQueuedMsg incl. allocation failure, TerminateConnection, BanConnection, 15 sequenced-dispatch scenarios
 over every handler result, FreeMessages for each queue and a bad one, the destructor body). Original vs ours,
 full call traces and object memory compared.
-MUTATIONS_PLACEHOLDER
+Mutations: 54 deliberate bugs; 45 caught at first, 7 more after strengthening the tests (length-1 messages,
+an out-of-turn link ahead of an in-turn one, a handler changing the context's +0x14, the sequenced `<=` case,
+the connection's node state seen by ~Conn) and 2 rewritten to build; 1 equivalent (HandlerLists::Destroy's
+last-to-first order: unlinking from a ring commutes). Register scan: every function whose callers read EAX/AL
+returns a value; call audit: no MISMATCH; check_code_writes: no overlaps; find_gaps: nothing skipped (the two
+thunks 0x45B820/0x45B910 are in wt/netC's range).
 
 ## To test in the game
 Network play: host a LAN game (Network Play / Host), join it from a second PC or instance (or online via the
