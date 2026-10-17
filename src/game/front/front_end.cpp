@@ -555,8 +555,9 @@ void __cdecl FrontEnd::InputLogic(FrontEndInputHandler* handler)
 {
     FrontEnd* frontEnd = handler->m_data;
     // (not original - the mouse_menus feature: once a frame, with the first controller's handler, the mouse's menu
-    // events; nothing when it's off)
-    if (handler->m_index == 0 && MouseMenus::Enabled())
+    // events; nothing when it's off - Update checks; the level editor's input logic runs there too, whatever the
+    // setting)
+    if (handler->m_index == 0)
         MouseMenus::Update(frontEnd);
     void* tracker = Tracker();
     static_cast<Obj::CTracker*>(tracker)->LogFrame();

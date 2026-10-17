@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstring>
 
+#include "game/front/level_editor.h"
 #include "game/front/menu_backdrop.h"
 #include "game/front/menu_level.h"
 #include "game/front/frontend_objects.h"
@@ -527,6 +528,10 @@ void RenderViewport(int index)
     // the front end built in LA the camera gets the shop's move into LA.
     // Original behaviour: the camera is drawn where the game put it.
     Front::MenuLevel::PlaceCamera(static_cast<Gfx::Camera*>(camera));
+    // Not original - the level editor (game/front/level_editor.h): while it runs, the first viewport's camera is put
+    // where the editor flies.
+    // Original behaviour: the camera is drawn where the game put it.
+    Front::LevelEditor::PlaceCamera(static_cast<Gfx::Camera*>(camera));
     GameVariable<int>(0x006FA7B8) = index; // the viewport being drawn
     double width = GameVariable<int>(0x00786D6C);
     double height = static_cast<float>(GameVariable<int>(0x00786D70));
@@ -555,6 +560,9 @@ void RenderViewport(int index)
         float angle = CameraAngle(camera);
         const Mth::Vector* position = CameraPosition(camera);
         SetCamera(CameraMatrix(camera), position, angle, aspect, 1.0f, false);
+        // Not original - the level editor: the view's projection noted (its mouse ray and outlines).
+        // Original behaviour: nothing.
+        Front::LevelEditor::NoteView(static_cast<Gfx::Camera*>(camera), angle, aspect, &vp.x);
     }
     ForEachScene([&](Scene* scene) {
         if (scene->sky || Hidden(scene))
@@ -663,6 +671,10 @@ void RenderWorld()
     // Original behaviour: the frame is drawn straight away; with menu_backdrop the wheel and the skater are first
     // moved into LA (or put back) and the menu camera's pose sampled if no update walk did this frame.
     Front::FrontEndObjects::Update(false);
+    // Not original - the level editor (game/front/level_editor.h): its frame (flying, picking, dragging) - it runs
+    // while the game is paused.
+    // Original behaviour: nothing.
+    Front::LevelEditor::Update();
     ++GameVariable<int>(0x00786AC4); // frames rendered
     if (!GameVariable<bool>(0x00786D04)) { // (nothing while the device is lost)
         GameVariable<int>(0x00786D00) = GameFunction<int(__cdecl*)()>(0x005BE970)();
@@ -691,6 +703,9 @@ void RenderWorld()
         // Originally from PartyMod Fixes (its call at 0x004B341D): the 2D pass (0x004DFB90 in the original), then black bars over what's
         // drawn outside the fitted area.
         Draw2DWithBlackBars();
+        // Not original - the level editor: the hovered and selected objects outlined over everything.
+        // Original behaviour: nothing more is drawn.
+        Front::LevelEditor::Draw();
         SetFog(fog);
     }
     FullScreenViewport();

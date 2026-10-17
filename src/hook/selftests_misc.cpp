@@ -21,6 +21,7 @@
 #include "game/file/async.h"
 #include "game/file/pre.h"
 #include "game/front/front_end.h"
+#include "game/front/level_editor.h"
 #include "game/mc/memcard.h"
 #include "game/mc/memcard_cfuncs.h"
 #include "game/mth/math.h"
@@ -610,6 +611,9 @@ void TestMain()
         s->At({0x0044E610}, 4, [](Regs& r) { Record({0xE610, SingletonId(r.ecx), r.args[0] & 0xFF}); return 0u; });
         s->At({0x005A5E70}, 0, plain(0x5E70));
         s->At({0x005A5B20}, 0, plain(0x5B20));
+        // (not original - the level editor's script commands, registered after 0x005A5E70: ours only, not recorded)
+        s->At({Resolve(reinterpret_cast<const void*>(&Front::LevelEditor::RegisterScriptFunctions))}, 0,
+              [](Regs&) { return 0u; });
         s->At({0x004694E0}, 0, plain(0x94E0));
         s->At({0x004E4860}, 0, plain(0x4860));
         s->At({0x00406C90}, 4, recordArg(0x6C90));
