@@ -44,6 +44,68 @@ uint32_t NodeClass(Script::CStruct* node)
 }
 
 std::vector<Copy> g_copies;
+
+// The copies' nodes: a node array of ours (level_editor_copy_nodes) in the node manager, so the game finds a copy's
+// node by its name as it does any object's - creating a LevelObject runs scripts that look it up (SetObjectColor's
+// node command, 0x005A3E80, reads the node unchecked: without one the game crashed). The array is made again with
+// every node added (a script array of one keeps its element in place of the pointer - Resize mishandles that) and
+// only the new node is hashed (the others keep their places). Taken out and freed when a level loads.
+Script::CArray* g_copyNodes;
+std::vector<Script::CStruct*> g_copyNodeList;
+
+uint32_t CopyNodesName()
+{
+    static const uint32_t name = Crc::GenerateCRCFromString("level_editor_copy_nodes");
+    return name;
+}
+
+SkateScript::CNodeManager* NodeManager() { return GameVariable<SkateScript::CNodeManager*>(0x006F0D84); }
+
+bool AddCopyNode(Script::CStruct* node)
+{
+    SkateScript::CNodeManager* manager = NodeManager();
+    if (!manager)
+        return false;
+    uint32_t name = CopyNodesName();
+    int index = -1;
+    for (uint32_t i = 0; i < manager->m_count; ++i) {
+        if (manager->m_arrays[i].m_name == name)
+            index = static_cast<int>(i);
+    }
+    if (index < 0) {
+        if (manager->m_count >= static_cast<uint32_t>(SkateScript::CNodeManager::kMaxArrays))
+            return false;
+        g_copyNodes = Script::NewArray()->Init();
+        g_copyNodeList.clear();
+        index = static_cast<int>(manager->m_count);
+        manager->m_arrays[index].m_name = name;
+        manager->m_arrays[index].mp_nodes = g_copyNodes;
+        manager->m_arrays[index].m_flag = false;
+        ++manager->m_count;
+    }
+    g_copyNodeList.push_back(node);
+    uint32_t count = static_cast<uint32_t>(g_copyNodeList.size());
+    g_copyNodes->SetSizeAndType(count, Script::ESYMBOLTYPE_STRUCTURE);
+    for (uint32_t i = 0; i < count; ++i)
+        g_copyNodes->SetElement(i, reinterpret_cast<uint32_t>(g_copyNodeList[i]));
+    return manager->HashNodeIn(name, count - 1, reinterpret_cast<uint32_t>(node));
+}
+
+void ForgetCopyNodes()
+{
+    if (!g_copyNodes)
+        return;
+    if (SkateScript::CNodeManager* manager = NodeManager())
+        manager->RemoveNodeArray(CopyNodesName());
+    for (Script::CStruct* node : g_copyNodeList) {
+        node->Clear();
+        Script::DeleteStruct(node);
+    }
+    g_copyNodeList.clear();
+    g_copyNodes->SetSizeAndType(0, Script::ESYMBOLTYPE_NONE);
+    Script::DeleteArray(g_copyNodes);
+    g_copyNodes = nullptr;
+}
 std::vector<uint32_t> g_touched;
 std::vector<State> g_origins;
 int g_copyCounter;
@@ -333,16 +395,21 @@ Obj::CCompositeObject* MakeCopy(uint32_t source, V3 pos, uint32_t name)
         return nullptr;
     if (!NameOf(name))
         Script::NoteQbName(name, (Label(source) + " copy").c_str());
-    // The node's structure copied (the creation copies what it keeps: CreateFromStructure is handed script
-    // parameters that die after the call), named and placed anew.
-    alignas(4) uint8_t memory[8];
-    Script::CStruct* copy = reinterpret_cast<Script::CStruct*>(memory)->InitCopy(node);
+    // The node's structure copied, named and placed anew, made a node (AddCopyNode), then created from it as the
+    // level's objects are (CreateFromStructure's 0x005A2E50).
+    Script::CStruct* copy = Script::NewStruct()->Init();
+    copy->AppendStructure(node);
     copy->RemoveComponent(kName);
     copy->AddChecksum(kName, name);
     copy->RemoveComponent(kPos);
     copy->AddVector(kPos, pos.x, pos.y, pos.z);
+    if (!AddCopyNode(copy)) {
+        copy->Clear();
+        Script::DeleteStruct(copy);
+        Log("level editor: no room for another node array - copy not made");
+        return nullptr;
+    }
     GameFunction<int(__cdecl*)(Script::CStruct*)>(0x005A2E50)(copy);
-    copy->Clear();
     auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(name));
     if (object)
         g_copies.push_back({name, source});
@@ -397,6 +464,7 @@ const State* Origin(uint32_t id)
 
 void ForgetLevel()
 {
+    ForgetCopyNodes();
     g_copies.clear();
     g_touched.clear();
     g_origins.clear();

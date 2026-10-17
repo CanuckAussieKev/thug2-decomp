@@ -3448,8 +3448,13 @@ belong with the CScript batch.
         set to the source's bounds where it is. Copies take no rails (the first try moved the source's). Checked: the
         truck's 17 pieces and a bench copied, moved, saved, reloaded.
       - Object copies: the node's structure copied (InitCopy) with a new Name / Pos through CreateFromStructure's
-        0x005A2E50 - LevelObject / GameObject only; deleted with MarkAsDead (Kill needs a node). Not checked in the
-        game yet (the browser's objects tab lists 22 in LA).
+        0x005A2E50 - LevelObject / GameObject only; deleted with MarkAsDead (Kill needs a node). The first try crashed:
+        creating a LevelObject runs scripts that call SetObjectColor on it, whose node command (0x005A3E80) reads the
+        node of that name unchecked - a copy had none. Now each copy's structure is a node of ours: a node array
+        level_editor_copy_nodes added to the node manager (made again with each node: a one-element script array
+        keeps its value in place of the pointer), only the new node hashed (HashNodeIn); taken out and freed when a
+        level loads. Checked: a cone placed from the browser, duplicated, undone / redone, deleted / undone, saved,
+        and made again by the next launch's layout. Not checked: leaving a level with copies for another one.
       - Move arrows (x red, y green, z blue, a fifth of the distance long; within 8 pixels lights up): dragging one
         moves along that axis (ClosestOnAxis). Checked: dragged the truck 120 along x. Multi-select: Shift+click adds
         objects (moved / turned together about the first) or scenery groups. Undo / redo now also cover copies made
