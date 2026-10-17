@@ -43,6 +43,24 @@ void Head::AddNode(Mem::ListNode* node)
     InsertBefore(&m_node, node); // at the end
 }
 
+// 0x0045AEB0
+bool Head::AddUniqueSequence(Mem::ListNode* node)
+{
+    int priority = node->priority;
+    for (Mem::ListNode* next = m_node.next;; next = next->next) {
+        if (next->data == reinterpret_cast<void*>(-1) || !next)
+            break;
+        if (next->priority == priority)
+            return false;
+        if (next->priority > priority) {
+            InsertBefore(next, node);
+            return true;
+        }
+    }
+    InsertBefore(&m_node, node); // at the end
+    return true;
+}
+
 // 0x00457350
 void Head::AddNodeFromTail(Mem::ListNode* node)
 {
@@ -61,4 +79,5 @@ void Head::AddNodeFromTail(Mem::ListNode* node)
 } // namespace Lst
 
 REPLACE(0x0045A540, &Lst::Head::AddNode);
+REPLACE(0x0045AEB0, &Lst::Head::AddUniqueSequence);
 REPLACE(0x00457350, &Lst::Head::AddNodeFromTail);

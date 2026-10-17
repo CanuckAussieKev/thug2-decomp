@@ -300,7 +300,7 @@ void StandInLibrary(StandIns& s)
         return static_cast<uint32_t>(g_messagesToSend[r.args[0]]);
     });
     // Dispatcher::DispatchMessages(conn, flags).
-    s.At({0x0045A830}, 8, [](Regs& r) {
+    s.At({0x0045A830, TestStandIns::AddressOf(&Net::Dispatcher::DispatchMsgHandlers)}, 8, [](Regs& r) {
         Log2({0xD15u, r.ecx, r.args[0], r.args[1]});
         int result = 0;
         if (!g_dispatchResults.empty()) {

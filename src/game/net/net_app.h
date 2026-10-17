@@ -5,6 +5,7 @@
 
 #include "game/core/alloc.h"
 #include "game/net/net_app_view.h"
+#include "game/net/net_dispatcher.h"
 #include "game/net/net_lists.h"
 
 // Neversoft's network library (Net): an App (the base of the Server and the Client) owns its connections (Conn),
@@ -51,7 +52,7 @@ struct StreamDesc {
     uint8_t m_groupId;          // 0x34
     uint8_t m_pad35[3];
     uint32_t m_sequenceId;      // 0x38 the next piece's sequence id (reserved when the stream was queued)
-    uint32_t m_unknown3C;
+    uint32_t m_checksum;        // 0x3C received streams: the whole message's checksum
     bool m_sendInPlace;         // 0x40 m_data is the caller's (not freed)
     uint8_t m_pad41[3];
 };
@@ -59,7 +60,7 @@ static_assert(sizeof(StreamDesc) == 0x44 && offsetof(StreamDesc, m_data) == 0x2C
                   offsetof(StreamDesc, m_sequenceId) == 0x38 && offsetof(StreamDesc, m_sendInPlace) == 0x40,
               "layout must match the original");
 
-// Net::App (vtable 0x006475B4; the Server's 0x006475CC and the Client's 0x006475EC derive from it).
+// Net::App (vtable 0x006475B4; the Client's 0x006475CC and the Server's 0x006475EC derive from it).
 // Virtual slots: 0 deleting destructor (0x00459660), 1 ProcessData (0x00459690), 2 ReceiveData (pure),
 // 3 SendEnqueuedMessages(ConnView*) (pure), 4 Init (0x00457110), 5 Deinit (0x00457490).
 struct App : AppView {
@@ -113,6 +114,28 @@ struct App : AppView {
     static void __cdecl NetworkMetrics(void* task);
     // 0x004594A0: stream pieces, then SendData(true).
     static void __cdecl SendNetworkData(void* task);
+
+    // 0x004598C0 - 0x0045B2F0 (net_app_messages.cpp)
+    // 0x004598C0: the messages of one queue (0 normal, 1 important, 2 sequenced) that are due go into the
+    // connection's packet; false if one didn't fit. Normal messages are dequeued as they go; important and
+    // sequenced ones stay until acked (`resendsOnly`: only those sent before whose ack is overdue).
+    bool BundleMessages(Conn* conn, int queue, bool resendsOnly);
+
+    // Handlers (registered by App::Init, 0x00457110).
+    // 0x0045AD60 (id 1): answers a latency test with its time.
+    static int __cdecl HandleLatencyTest(MsgHandlerContext* context);
+    // 0x0045AB60 (id 2): the answer to our latency test: the round trip goes into the latency average.
+    static int __cdecl HandleLatencyResponse(MsgHandlerContext* context);
+    // 0x0045AF10 (id 7): a sequenced message, buffered in its group's list by sequence number (to be handled
+    // in order); acks are sent for the packet.
+    static int __cdecl HandleSequencedMessages(MsgHandlerContext* context);
+    // 0x0045B0B0 (id 8): an ack: the important and sequenced messages sent with that timestamp are done; the
+    // round trip is a latency measurement.
+    static int __cdecl HandleAck(MsgHandlerContext* context);
+    // 0x0045ABF0 (id 0x12): a compressed message (method 1 or 2), expanded and dispatched.
+    static int __cdecl HandleCompressedMessages(MsgHandlerContext* context);
+    // 0x0045B2F0 (ids 0xE, 0xF): a stream's start and its pieces; the whole message is dispatched when complete.
+    static int __cdecl HandleStreamMessages(MsgHandlerContext* context);
 };
 static_assert(sizeof(App) == sizeof(AppView), "App adds no fields to AppView");
 

@@ -13,6 +13,9 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/lst/search.h"
+#include "game/net/net_access_c.h"
+#include "game/net/net_app_messages.h"
+#include "game/net/net_dispatcher.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -23,38 +26,14 @@ namespace {
 void** const kAppVtable = reinterpret_cast<void**>(0x006475B4);
 void** const kList1414Vtable = reinterpret_cast<void**>(0x006474D8);
 
-// The ids of the library's own messages (named by what their handlers do).
-constexpr uint32_t kMsgPingTest = 0x01;
-constexpr uint32_t kMsgPingResponse = 0x02;
-constexpr uint32_t kMsgSequenced = 0x07;
-constexpr uint32_t kMsgAck = 0x08;
-constexpr uint32_t kMsgStreamStart = 0x0E;
-constexpr uint32_t kMsgStreamData = 0x0F;
-constexpr uint32_t kMsgDisconnect = 0x12;
+// (The message ids and handler results: net_access_c.h, net_dispatcher.h.)
 
-// Dispatcher::AddHandler's flags (their meaning isn't established; the ack and disconnect handlers get 3, the
-// others 2) and the priority Init gives its handlers.
+// Dispatcher::AddHandler's packet-flags masks (3: foreign packets too) and the priority Init gives its handlers.
 constexpr uint32_t kHandleFlags2 = 2;
 constexpr uint32_t kHandleFlags3 = 3;
 constexpr uint32_t kHighPriority = 0x80;
 
-// What a message handler returns, as DispatchQueuedSequencedMessages treats it (any other value: done, stop).
-constexpr int kHandlerContinue = 1;       // done, go on with the next message
-constexpr int kHandlerConnectionGone = 3; // stop, touch nothing more
-constexpr int kHandlerKeepMessage = 5;    // stop, the message stays queued
-
-// Net::MsgHandlerContext: what a handler is told about a message (constructor 0x00454A20 clears it).
-struct MsgHandlerContext {
-    char* m_msg;            // +0x00
-    uint8_t m_msgId;        // +0x04
-    int m_msgLength;        // +0x08
-    AppView* m_app;         // +0x0C
-    ConnView* m_conn;       // +0x10
-    uint32_t m_packetFlags; // +0x14
-    uint8_t m_rest[0xA4 - 0x18];
-};
-static_assert(offsetof(MsgHandlerContext, m_conn) == 0x10 && sizeof(MsgHandlerContext) == 0xA4,
-              "layout must match the original");
+// (Net::MsgHandlerContext: net_dispatcher.h)
 
 void Free(void* memory) { Mem::Manager::Get()->Free(memory); }
 
@@ -85,20 +64,17 @@ void DeleteMsg(void* msg)
     Free(msg);
 }
 
-// -> Dispatcher (wt/netC)
-void DispatcherInit(HandlerLists* dispatcher) { GameFunction<void(__thiscall*)(HandlerLists*)>(0x0045A640)(dispatcher); }
-void DispatcherDeinit(HandlerLists* dispatcher)
+// The Dispatcher (net_dispatcher.h) the App's handler lists are.
+void DispatcherInit(HandlerLists* dispatcher) { static_cast<Dispatcher*>(dispatcher)->Init(); }
+void DispatcherDeinit(HandlerLists* dispatcher) { static_cast<Dispatcher*>(dispatcher)->Deinit(); }
+void AddHandler(HandlerLists* dispatcher, uint32_t id, MsgHandlerCode handler, uint32_t flags, uint32_t priority)
 {
-    GameFunction<void(__thiscall*)(HandlerLists*)>(0x0045A690)(dispatcher);
-}
-void AddHandler(HandlerLists* dispatcher, uint32_t id, uint32_t handler, uint32_t flags, uint32_t priority)
-{
-    GameFunction<void(__thiscall*)(HandlerLists*, uint32_t, uint32_t, uint32_t, void*, uint32_t)>(0x0045A5C0)(
-        dispatcher, id, handler, flags, nullptr, priority);
+    static_cast<Dispatcher*>(dispatcher)->AddHandler(static_cast<uint8_t>(id), handler, flags, nullptr,
+                                                     static_cast<int>(priority));
 }
 int DispatchMessage(HandlerLists* dispatcher, MsgHandlerContext* context)
 {
-    return GameFunction<int(__thiscall*)(HandlerLists*, MsgHandlerContext*)>(0x0045A750)(dispatcher, context);
+    return static_cast<Dispatcher*>(dispatcher)->DispatchMsg(context);
 }
 
 uint16_t Checksum(const uint8_t* data, int length)
@@ -285,14 +261,14 @@ bool AppView::Init()
     for (uint32_t& counter : m_counters)
         counter = 0;
     DispatcherInit(&m_dispatcher);
-    // -> the handlers (wt/netC)
-    AddHandler(&m_dispatcher, kMsgAck, 0x0045B0B0, kHandleFlags3, kHighPriority);
-    AddHandler(&m_dispatcher, kMsgSequenced, 0x0045AF10, kHandleFlags2, kHighPriority);
-    AddHandler(&m_dispatcher, kMsgDisconnect, 0x0045ABF0, kHandleFlags3, kHighPriority);
-    AddHandler(&m_dispatcher, kMsgStreamStart, 0x0045B2F0, kHandleFlags2, kHighPriority);
-    AddHandler(&m_dispatcher, kMsgStreamData, 0x0045B2F0, kHandleFlags2, kHighPriority);
-    AddHandler(&m_dispatcher, kMsgPingTest, 0x0045AD60, kHandleFlags2, kHighPriority);
-    AddHandler(&m_dispatcher, kMsgPingResponse, 0x0045AB60, kHandleFlags2, kHighPriority);
+    // the handlers (net_app_messages.cpp)
+    AddHandler(&m_dispatcher, kMsgAck, App::HandleAck, kHandleFlags3, kHighPriority);
+    AddHandler(&m_dispatcher, kMsgSequenced, App::HandleSequencedMessages, kHandleFlags2, kHighPriority);
+    AddHandler(&m_dispatcher, kMsgCompressed, App::HandleCompressedMessages, kHandleFlags3, kHighPriority);
+    AddHandler(&m_dispatcher, kMsgStreamStart, App::HandleStreamMessages, kHandleFlags2, kHighPriority);
+    AddHandler(&m_dispatcher, kMsgStreamData, App::HandleStreamMessages, kHandleFlags2, kHighPriority);
+    AddHandler(&m_dispatcher, kMsgLatencyTest, App::HandleLatencyTest, kHandleFlags2, kHighPriority);
+    AddHandler(&m_dispatcher, kMsgLatencyResponse, App::HandleLatencyResponse, kHandleFlags2, kHighPriority);
     return true;
 }
 
@@ -362,17 +338,17 @@ bool AppView::DispatchQueuedSequencedMessages(ConnView* conn)
             if (link->At<uint32_t>(0x20) != conn->m_sequenceNumbers[group])
                 break; // not its turn yet
             auto* msg = link->At<SeqQueuedMsg*>(0x28);
-            context.m_conn = conn;
-            context.m_msg = msg->m_data;
-            context.m_app = this;
-            context.m_packetFlags = 0;
-            context.m_msgId = msg->m_id;
-            context.m_msgLength = msg->m_length;
+            context.m_Conn = static_cast<Conn*>(conn);
+            context.m_Msg = msg->m_data;
+            context.m_App = static_cast<App*>(this);
+            context.m_PacketFlags = 0;
+            context.m_MsgId = msg->m_id;
+            context.m_MsgLength = msg->m_length;
             ++conn->m_sequenceNumbers[group];
             int result = DispatchMessage(&m_dispatcher, &context);
-            if (result == kHandlerKeepMessage)
+            if (result == kHandlerKeep)
                 return true;
-            if (result == kHandlerConnectionGone)
+            if (result == kHandlerMsgDestroyed)
                 return false;
             if (msg)
                 DeleteMsg(msg);

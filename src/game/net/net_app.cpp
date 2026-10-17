@@ -207,10 +207,10 @@ void AddLink(ListNode* queue, ListNode* link) { reinterpret_cast<Lst::Head*>(que
 void ConstructHandlerList(ListNode* head) { GameFunction<void(__thiscall*)(ListNode*)>(0x00457010)(head); }
 // The process task (0x00456CA0, in wt/netA's range; not a function in Ghidra, not rewritten).
 void* const kProcessNetworkData = reinterpret_cast<void*>(0x00456CA0);
-// -> Dispatcher::DispatchMessages: conn's received messages to their handlers; 2 = done, 3 = stop (wt/netC)
+// conn's received messages to their handlers (Dispatcher::DispatchMsgHandlers); 2 = halted, 3 = stop
 int DispatchMessages(HandlerLists* dispatcher, Conn* conn, int flags)
 {
-    return GameFunction<int(__thiscall*)(HandlerLists*, Conn*, int)>(0x0045A830)(dispatcher, conn, flags);
+    return static_cast<Dispatcher*>(dispatcher)->DispatchMsgHandlers(conn, static_cast<uint32_t>(flags));
 }
 
 // App's virtual functions.
