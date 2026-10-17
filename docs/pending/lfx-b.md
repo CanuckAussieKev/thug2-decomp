@@ -70,3 +70,10 @@ and memory are compared. tools/ghidra/audit_game_function_calls.py now knows Gri
     edge's `lowest = 0` as 1 (only its sign is used) - tested as -1 instead.
   - Register scan: only the known 0x4EFF92 alarm; AL readers of CanChangeFloorHere / ChangeFloorHeight (bool). No
     MISMATCH in the call audit; find_gaps shows nothing left in 0x598A60-0x59C900, 0 thunks.
+- [x] Tested in the game (2026-10-18, run by lfx-b under the game lock, verify-build DLL): batch 1 alone, then
+  batches 1+2. Main menu -> Free Skate -> Los Angeles plays; Create-A-Modes -> Create-A-Park loads the editor
+  (the default park with its fence and restarts), the cursor moves (W/D), A/S raise and lower the floor (a dug-in
+  cell with its riser walls appeared), the pause menu comes up, Test Play puts the skater in the park. Log: all
+  110 early / 17 late / 2 engine-started self-tests pass, 912 of 912 replacements installed, no run-time check
+  failures or CRT reports. Not exercised: the clipboard / gap / rail tools, saving and loading parks, switching
+  piece sets (the menu keys weren't found from the keyboard script).
