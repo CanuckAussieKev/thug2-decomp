@@ -97,7 +97,7 @@ public:
 
     // 0x00456910: `data` scrambled into `out`: a 16-bit checksum (the CRC's halves added), then each byte XORed
     // with the checksum's low byte. *outLength = length + 2.
-    void Encrypt(const uint8_t* data, int length, uint8_t* out, int* outLength);
+    void Encrypt(const uint8_t* data, uint8_t* out, int length, int* outLength);
     // 0x00456CC0: a received packet into `out`: false if it's shorter than 3 bytes or (secure) its checksum is
     // wrong; secure packets lose their checksum (`length` - 2 bytes copied).
     bool Decrypt(const uint8_t* packet, uint8_t* out, int length);

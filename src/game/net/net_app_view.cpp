@@ -119,7 +119,7 @@ void Remove(Mem::ListNode* node)
 } // namespace
 
 // 0x00456910
-void AppView::Encrypt(const uint8_t* data, int length, uint8_t* out, int* outLength)
+void AppView::Encrypt(const uint8_t* data, uint8_t* out, int length, int* outLength)
 {
     uint16_t checksum = Checksum(data, length);
     std::memcpy(out, &checksum, sizeof(checksum));
@@ -233,7 +233,7 @@ bool AppView::SendTo(uint32_t ip, uint16_t port, const uint8_t* data, int length
     to.sin_addr.s_addr = ip;
     int result;
     if (m_flags & kSecure) {
-        Encrypt(data, length, m_scrambled, &length);
+        Encrypt(data, m_scrambled, length, &length);
         result = sendto(m_socket, reinterpret_cast<const char*>(m_scrambled), length, flags,
                         reinterpret_cast<sockaddr*>(&to), sizeof(to));
     } else {
@@ -254,7 +254,7 @@ bool AppView::Send(const uint8_t* data, int length, int flags)
     if (!m_connected)
         return false;
     if (m_flags & kSecure) {
-        Encrypt(data, length, m_scrambled, &length);
+        Encrypt(data, m_scrambled, length, &length);
         return send(m_socket, reinterpret_cast<const char*>(m_scrambled), length, flags) != SOCKET_ERROR;
     }
     return send(m_socket, reinterpret_cast<const char*>(data), length, flags) != SOCKET_ERROR;
