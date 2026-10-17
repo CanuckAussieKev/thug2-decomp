@@ -38,35 +38,29 @@ constexpr int kMetricsTaskPriority = -2500;
 constexpr int kReceiveTaskPriority = 1000;
 constexpr int kProcessTaskPriority = 0;
 
-// --- Conn (0x3D20 bytes, Conn; the fields it doesn't name) -----------------------------------------------
-uint8_t* Bytes(Conn* conn) { return reinterpret_cast<uint8_t*>(conn); }
-template <typename T>
-T& At(Conn* conn, uint32_t offset)
-{
-    return *reinterpret_cast<T*>(Bytes(conn) + offset);
-}
+// --- Conn (net_conn.h): short names for the fields used here ------------------------------------------------
 // The outgoing message queues (Lst::Heads of links, highest priority first).
-ListNode* NormalQueue(Conn* conn) { return &At<ListNode>(conn, 0x00); }
-ListNode* ImportantQueue(Conn* conn) { return &At<ListNode>(conn, 0x14); }
-ListNode* SequencedQueue(Conn* conn) { return &At<ListNode>(conn, 0x28); }
-// The receive buffer's read and write positions.
-uint8_t*& ReadPosition(Conn* conn) { return At<uint8_t*>(conn, 0x54); }
-uint8_t*& WritePosition(Conn* conn) { return At<uint8_t*>(conn, 0x58); }
+ListNode* NormalQueue(Conn* conn) { return &conn->m_normalMsgs; }
+ListNode* ImportantQueue(Conn* conn) { return &conn->m_importantMsgs; }
+ListNode* SequencedQueue(Conn* conn) { return &conn->m_sequencedMsgs; }
+// The receive buffer's read and write positions (its start and end).
+uint8_t*& ReadPosition(Conn* conn) { return reinterpret_cast<uint8_t*&>(conn->m_readBuffer); }
+uint8_t*& WritePosition(Conn* conn) { return reinterpret_cast<uint8_t*&>(conn->m_readPtr); }
 // Status: 1 ready, bit 2 invalid, bit 3 disconnecting.
-uint32_t& Status(Conn* conn) { return At<uint32_t>(conn, 0x60); }
-constexpr uint32_t kStatusReady = 1;
+uint32_t& Status(Conn* conn) { return conn->m_status; }
+constexpr uint32_t kStatusReady = Conn::kStatusReady;
 constexpr uint32_t kStatusDisconnecting = 8;
-App*& OwnerApp(Conn* conn) { return At<App*>(conn, 0x68); }
+App*& OwnerApp(Conn* conn) { return conn->m_app; }
 // The next sequence id of each message group.
-uint32_t& NextSequenceId(Conn* conn, uint8_t group) { return At<uint32_t>(conn, 0x78 + 4 * group); }
-int& NextStreamId(Conn* conn) { return At<int>(conn, 0x878); }
-ListNode* Streams(Conn* conn) { return &At<ListNode>(conn, 0x1C90); } // Lst::Head<StreamLink>
-void* InMetrics(Conn* conn) { return Bytes(conn) + 0x1CDC; }         // Net::Metrics (0x100C bytes)
-void* OutMetrics(Conn* conn) { return Bytes(conn) + 0x2CE8; }
-// The send buffer (+0x4C its start, +0x50 the end of what's written): a local connection takes its alias's
-// (the other end, in this process) straight into its own receive buffer.
-uint8_t*& SendBufferStart(Conn* conn) { return At<uint8_t*>(conn, 0x4C); }
-uint8_t*& SendBufferEnd(Conn* conn) { return At<uint8_t*>(conn, 0x50); }
+uint32_t& NextSequenceId(Conn* conn, uint8_t group) { return conn->m_nextSequenceIds[group]; }
+int& NextStreamId(Conn* conn) { return conn->m_nextStreamId; }
+ListNode* Streams(Conn* conn) { return &conn->m_sendStreams; } // Lst::Head<StreamLink>
+void* InMetrics(Conn* conn) { return conn->m_receiveMetrics; } // Net::Metrics (0x100C bytes)
+void* OutMetrics(Conn* conn) { return conn->m_sendMetrics; }
+// The send buffer (its start, the end of what's written): a local connection takes its alias's (the other end,
+// in this process) straight into its own receive buffer.
+uint8_t*& SendBufferStart(Conn* conn) { return reinterpret_cast<uint8_t*&>(conn->m_writeBuffer); }
+uint8_t*& SendBufferEnd(Conn* conn) { return reinterpret_cast<uint8_t*&>(conn->m_writePtr); }
 
 // Conn's methods (net_conn.cpp).
 Conn* ConstructConn(void* memory, int flags) { return static_cast<Conn*>(memory)->Construct(flags); }

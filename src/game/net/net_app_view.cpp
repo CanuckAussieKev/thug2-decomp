@@ -1,4 +1,4 @@
-// Net::App's socket I/O, connection list and message queues (Neversoft's Net library). See net_app_view.h.
+// Net::App's socket I/O, connection list and message queues (Neversoft's Net library). See net_app.h.
 
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 #include "game/net/net_app.h"

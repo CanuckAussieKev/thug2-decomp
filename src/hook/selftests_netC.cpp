@@ -61,7 +61,7 @@ bool g_saved;
 
 App* TheApp() { return reinterpret_cast<App*>(g_app); }
 Conn* TheConn(int i) { return reinterpret_cast<Conn*>(g_conns[i]); }
-Dispatcher* TheDispatcher() { return reinterpret_cast<Dispatcher*>(g_app + AppField::kDispatcher); }
+Dispatcher* TheDispatcher() { return reinterpret_cast<Dispatcher*>(g_app + offsetof(Net::App, m_dispatcher)); }
 
 uint32_t Next(uint32_t tag, uint32_t otherwise)
 {
@@ -397,27 +397,27 @@ void Reset()
 
     for (int id = 0; id < Dispatcher::kNumMessageIds; ++id)
         InitHead(&TheDispatcher()->List(id).m_node);
-    Field<uint8_t*>(TheApp(), AppField::kManager) = g_flagTable;
-    InitHead(&Field<Mem::ListNode>(TheApp(), AppField::kConnections));
-    Field<uint32_t>(TheApp(), AppField::kTimestamp) = 40000;
-    Field<int>(TheApp(), AppField::kSocket) = 0x5C;
+    Field<uint8_t*>(TheApp(), offsetof(Net::App, m_manager)) = g_flagTable;
+    InitHead(&Field<Mem::ListNode>(TheApp(), offsetof(Net::App, m_connections)));
+    Field<uint32_t>(TheApp(), offsetof(Net::App, m_time)) = 40000;
+    Field<int>(TheApp(), offsetof(Net::App, m_socket)) = 0x5C;
     for (int i = 0; i < kNumConns; ++i) {
         Conn* conn = TheConn(i);
-        for (uint32_t offset : {ConnField::kNormalQueue, ConnField::kImportantQueue, ConnField::kSequencedQueue,
-                                ConnField::kStreams})
+        for (uint32_t offset : {offsetof(Net::Conn, m_normalMsgs), offsetof(Net::Conn, m_importantMsgs), offsetof(Net::Conn, m_sequencedMsgs),
+                                offsetof(Net::Conn, m_receivedStreams)})
             InitHead(&Field<Mem::ListNode>(conn, offset));
         for (uint32_t group = 0; group < 256; ++group)
-            InitHead(&Field<Mem::ListNode>(conn, ConnField::kSequencedBuffer + group * 0x14));
-        Field<App*>(conn, ConnField::kApp) = TheApp();
-        Field<int>(conn, ConnField::kHandle) = 0x100 + i;
-        Field<uint32_t>(conn, ConnField::kIp) = 0x0A000001 + i;
-        Field<uint16_t>(conn, ConnField::kPort) = static_cast<uint16_t>(5150 + i);
+            InitHead(&Field<Mem::ListNode>(conn, offsetof(Net::Conn, m_receivedQueues) + group * 0x14));
+        Field<App*>(conn, offsetof(Net::Conn, m_app)) = TheApp();
+        Field<int>(conn, offsetof(Net::Conn, m_handle)) = 0x100 + i;
+        Field<uint32_t>(conn, offsetof(Net::Conn, m_ip)) = 0x0A000001 + i;
+        Field<uint16_t>(conn, offsetof(Net::Conn, m_port)) = static_cast<uint16_t>(5150 + i);
         char* read = MakeBytes(kConnReceiveBufferSize, static_cast<uint8_t>(0x10 + i));
-        Field<char*>(conn, ConnField::kReadBuffer) = read;
-        Field<char*>(conn, ConnField::kReadPtr) = read;
+        Field<char*>(conn, offsetof(Net::Conn, m_readBuffer)) = read;
+        Field<char*>(conn, offsetof(Net::Conn, m_readPtr)) = read;
         char* write = MakeBytes(0x600, static_cast<uint8_t>(0x40 + i));
-        Field<char*>(conn, ConnField::kWriteBuffer) = write;
-        Field<char*>(conn, ConnField::kWritePtr) = write;
+        Field<char*>(conn, offsetof(Net::Conn, m_writeBuffer)) = write;
+        Field<char*>(conn, offsetof(Net::Conn, m_writePtr)) = write;
     }
 }
 
@@ -682,7 +682,7 @@ void TestNetDispatchMsgHandlers()
         d->AddHandler(0x24, RecordingHandler, 0, reinterpret_cast<void*>(4), 0x80);
         d->AddHandler(0x24, RecordingHandler, 0xFFFFFFFF, reinterpret_cast<void*>(5), 0x10);
         Conn* conn = TheConn(1);
-        char* start = Field<char*>(conn, ConnField::kReadBuffer);
+        char* start = Field<char*>(conn, offsetof(Net::Conn, m_readBuffer));
         Writer w{start};
         w.Byte(0x20).Word(5).Bytes(5, 1);
         w.Byte(0x21).Bytes(5, 2);                       // no length: as long as the one before
@@ -693,7 +693,7 @@ void TestNetDispatchMsgHandlers()
         w.Byte(0x20).Word(0);
         if (i == 13)
             w.Byte(0x22).Word(2).Bytes(2, 5);           // a second ack
-        Field<char*>(conn, ConnField::kReadPtr) = w.p;
+        Field<char*>(conn, offsetof(Net::Conn, m_readPtr)) = w.p;
         Answers(0x4B01, {2, 2});
         uint32_t flags = 0;
         switch (i) {
@@ -719,7 +719,7 @@ void TestNetDispatchMsgHandlers()
             Answers(0x4B02, {0}); // no acks after all
             break;
         case 8:
-            Field<char*>(conn, ConnField::kReadPtr) = start; // nothing received
+            Field<char*>(conn, offsetof(Net::Conn, m_readPtr)) = start; // nothing received
             break;
         case 9:
             Answers(0x4A05, {0x77});
@@ -762,14 +762,14 @@ Link* MakeLink(Conn* conn, uint32_t queue, int priority)
 }
 MsgNormalLink* Normal(Conn* conn, uint8_t id, uint32_t length, int refs, uint32_t sendTime)
 {
-    auto* link = MakeLink<MsgNormalLink>(conn, ConnField::kNormalQueue, 0x80);
+    auto* link = MakeLink<MsgNormalLink>(conn, offsetof(Net::Conn, m_normalMsgs), 0x80);
     link->m_QMsg = MakeQueuedMsg(id, length, refs, static_cast<uint8_t>(length + id));
     link->m_SendTime = sendTime;
     return link;
 }
 MsgImpLink* Important(Conn* conn, uint8_t id, uint32_t length, uint32_t timestamp, uint32_t sendTime)
 {
-    auto* link = MakeLink<MsgImpLink>(conn, ConnField::kImportantQueue, 0x80);
+    auto* link = MakeLink<MsgImpLink>(conn, offsetof(Net::Conn, m_importantMsgs), 0x80);
     link->m_QMsg = MakeQueuedMsg(id, length, 1, static_cast<uint8_t>(length + id));
     link->m_Timestamp = timestamp;
     link->m_SendTime = sendTime;
@@ -779,7 +779,7 @@ MsgImpLink* Important(Conn* conn, uint8_t id, uint32_t length, uint32_t timestam
 }
 MsgSeqLink* Sequenced(Conn* conn, uint8_t id, uint32_t length, uint32_t timestamp, uint32_t sendTime)
 {
-    auto* link = MakeLink<MsgSeqLink>(conn, ConnField::kSequencedQueue, 0x80);
+    auto* link = MakeLink<MsgSeqLink>(conn, offsetof(Net::Conn, m_sequencedMsgs), 0x80);
     auto* msg = Make<SeqQueuedMsg>();
     msg->m_id = id;
     msg->m_length = static_cast<uint16_t>(length);
@@ -808,12 +808,12 @@ void TestNetBundleMessages()
     World world;
     CompareRuns("net App::BundleMessages", 26, [](bool original, int i) {
         Conn* conn = TheConn(2);
-        char*& writePtr = Field<char*>(conn, ConnField::kWritePtr);
-        char* start = Field<char*>(conn, ConnField::kWriteBuffer);
+        char*& writePtr = Field<char*>(conn, offsetof(Net::Conn, m_writePtr));
+        char* start = Field<char*>(conn, offsetof(Net::Conn, m_writeBuffer));
         int queue = i < 8 ? kQueueNormal : i < 17 ? kQueueImportant : i < 25 ? kQueueSequenced : 3;
         bool resendsOnly = false;
-        Field<uint32_t>(conn, ConnField::kStatus) = 2; // a resend threshold of 1000
-        Field<uint32_t>(conn, ConnField::kTimestampOut) = 0x00ABCDEF;
+        Field<uint32_t>(conn, offsetof(Net::Conn, m_status)) = 2; // a resend threshold of 1000
+        Field<uint32_t>(conn, offsetof(Net::Conn, m_timestampOut)) = 0x00ABCDEF;
         switch (i) {
         // normal queue
         case 0:
@@ -847,7 +847,7 @@ void TestNetBundleMessages()
             break;
         case 6:
             Normal(conn, 0x20, 0xFFFE, 1, 0); // the size wraps around to 1: "fits"
-            Field<char*>(conn, ConnField::kWriteBuffer) = writePtr = MakeBytes(0x10100, 9); // room for it
+            Field<char*>(conn, offsetof(Net::Conn, m_writeBuffer)) = writePtr = MakeBytes(0x10100, 9); // room for it
             break;
         case 7:
             break;
@@ -878,13 +878,13 @@ void TestNetBundleMessages()
             Important(conn, 0x21, 0x10, 0, 0);
             break;
         case 13:
-            Field<uint32_t>(conn, ConnField::kStatus) = 0;
-            Field<uint32_t>(conn, ConnField::kLatency) = 300; // threshold 600 (unless local)
+            Field<uint32_t>(conn, offsetof(Net::Conn, m_status)) = 0;
+            Field<uint32_t>(conn, offsetof(Net::Conn, m_latencyTest.m_averageLatency)) = 300; // threshold 600 (unless local)
             Important(conn, 0x20, 5, 39400, 0);
             Important(conn, 0x21, 6, 39399, 0);
             break;
         case 14:
-            Field<uint32_t>(conn, ConnField::kStatus) = 0;
+            Field<uint32_t>(conn, offsetof(Net::Conn, m_status)) = 0;
             Field<uint32_t>(conn, 0x64) = 1; // local: threshold 0
             Important(conn, 0x20, 5, 40000, 0);
             Important(conn, 0x21, 6, 39999, 0);
@@ -895,7 +895,7 @@ void TestNetBundleMessages()
             break;
         case 16:
             Important(conn, 0x22, 0xFFFE, 1, 0); // wraps around
-            Field<char*>(conn, ConnField::kWriteBuffer) = writePtr = MakeBytes(0x10100, 9); // room for it
+            Field<char*>(conn, offsetof(Net::Conn, m_writeBuffer)) = writePtr = MakeBytes(0x10100, 9); // room for it
             break;
         // sequenced queue
         case 17:
@@ -925,11 +925,11 @@ void TestNetBundleMessages()
             break;
         case 22:
             Sequenced(conn, 0x20, 0xFFF8, 0, 0); // the size wraps around to 1
-            Field<char*>(conn, ConnField::kWriteBuffer) = writePtr = MakeBytes(0x10100, 9); // room for it
+            Field<char*>(conn, offsetof(Net::Conn, m_writeBuffer)) = writePtr = MakeBytes(0x10100, 9); // room for it
             break;
         case 23:
-            Field<uint32_t>(conn, ConnField::kStatus) = 0;
-            Field<uint32_t>(conn, ConnField::kLatency) = 250;
+            Field<uint32_t>(conn, offsetof(Net::Conn, m_status)) = 0;
+            Field<uint32_t>(conn, offsetof(Net::Conn, m_latencyTest.m_averageLatency)) = 250;
             Sequenced(conn, 0x20, 5, 39500, 0);
             Sequenced(conn, 0x21, 6, 39499, 0);
             break;
@@ -989,8 +989,8 @@ void TestNetSmallHandlers()
     CompareRuns("net App::HandleLatencyResponse", 7, [](bool original, int i) {
         Conn* conn = TheConn(0);
         Field<uint32_t>(conn, 0x64) = 2;
-        Field<uint32_t>(conn, ConnField::kLatencyTestSent) = 39000;
-        Field<uint32_t>(conn, ConnField::kLatencyTestAnswered) = 1234;
+        Field<uint32_t>(conn, offsetof(Net::Conn, m_latencyTest.m_sendTime)) = 39000;
+        Field<uint32_t>(conn, offsetof(Net::Conn, m_latencyTest.m_receiveTime)) = 1234;
         uint32_t sent = 39000;
         if (i == 1)
             sent = 38999; // not ours
@@ -1005,7 +1005,7 @@ void TestNetSmallHandlers()
         if (i == 6)
             sent = 38001;
         if (i >= 3)
-            Field<uint32_t>(conn, ConnField::kLatencyTestSent) = sent;
+            Field<uint32_t>(conn, offsetof(Net::Conn, m_latencyTest.m_sendTime)) = sent;
         Handle(original, 0x0045AB60, App::HandleLatencyResponse,
                MakeContext(conn, kMsgLatencyResponse, Dwords({sent}), 4, 0));
     });
@@ -1026,10 +1026,10 @@ void TestNetSmallHandlers()
     };
     CompareRuns("net Client::HandleTimestamp", static_cast<int>(std::size(stamps)), [](bool original, int i) {
         Conn* conn = TheConn(2);
-        Field<uint32_t>(conn, ConnField::kLastTimestampIn) = stamps[i].newest;
-        Field<int>(TheApp(), AppField::kLostPackets) = 10;
-        Field<int>(TheApp(), AppField::kLatePackets) = 20;
-        Field<int>(TheApp(), AppField::kDupePackets) = 30;
+        Field<uint32_t>(conn, offsetof(Net::Conn, m_lastTimestampIn)) = stamps[i].newest;
+        Field<int>(TheApp(), offsetof(Net::App, m_lostPackets)) = 10;
+        Field<int>(TheApp(), offsetof(Net::App, m_latePackets)) = 20;
+        Field<int>(TheApp(), offsetof(Net::App, m_dupePackets)) = 30;
         Handle(original, 0x0045AA70, Client::HandleTimestamp,
                MakeContext(conn, kMsgTimestamp, Dwords({0xAB0000 | stamps[i].stamp}), 7, stamps[i].flags));
     });
@@ -1046,7 +1046,7 @@ void TestNetSmallHandlers()
             break;
         case 1:
             flags = 3;
-            Field<uint32_t>(TheApp(), AppField::kFlags) = kAppAcceptForeign;
+            Field<uint32_t>(TheApp(), offsetof(Net::App, m_flags)) = kAppAcceptForeign;
             break;
         case 2:
             Field<uint32_t>(conn, 0x64) = 1; // local
@@ -1060,7 +1060,7 @@ void TestNetSmallHandlers()
             break;
         default:
             flags = 1;
-            Field<uint32_t>(TheApp(), AppField::kFlags) = 0xFF;
+            Field<uint32_t>(TheApp(), offsetof(Net::App, m_flags)) = 0xFF;
             Field<uint32_t>(conn, 0x64) = 1;
             break;
         }
@@ -1069,7 +1069,7 @@ void TestNetSmallHandlers()
     });
     CompareRuns("net Server::HandleDisconnRequest", 3, [](bool original, int i) {
         Conn* conn = TheConn(0);
-        Field<uint32_t>(conn, ConnField::kStatus) = i == 1 ? 0x9 : i == 2 ? 0x7 : 0;
+        Field<uint32_t>(conn, offsetof(Net::Conn, m_status)) = i == 1 ? 0x9 : i == 2 ? 0x7 : 0;
         Handle(original, 0x0045AE50, Server::HandleDisconnRequest,
                MakeContext(conn, kMsgDisconnRequest, Dwords({5}), 0, 0));
     });
@@ -1082,9 +1082,9 @@ void TestNetSequenceHandlers()
     CompareRuns("net App::HandleSequencedMessages", 8, [](bool original, int i) {
         Conn* conn = TheConn(1);
         uint8_t group = i == 4 ? 0xFF : 3;
-        Field<uint32_t>(conn, ConnField::kNextSequence + group * 4) = 10;
+        Field<uint32_t>(conn, offsetof(Net::Conn, m_sequenceNumbers) + group * 4) = 10;
         uint32_t sequence = i == 1 ? 9 : i == 2 ? 10 : 12;
-        auto* buffer = &Field<Mem::ListNode>(conn, ConnField::kSequencedBuffer + group * 0x14);
+        auto* buffer = &Field<Mem::ListNode>(conn, offsetof(Net::Conn, m_receivedQueues) + group * 0x14);
         for (int priority : {5, 11, 14}) {
             auto* node = Make<Mem::ListNode>();
             node->vtable = reinterpret_cast<void**>(g_nodeVtable);
@@ -1108,19 +1108,19 @@ void TestNetSequenceHandlers()
     CompareRuns("net App::HandleAck", 9, [](bool original, int i) {
         Conn* conn = TheConn(2);
         Field<uint32_t>(conn, 0x64) = 2;
-        Field<uint32_t>(conn, ConnField::kStatus) = 1;
-        Field<uint32_t>(conn, ConnField::kLatency) = 150;
+        Field<uint32_t>(conn, offsetof(Net::Conn, m_status)) = 1;
+        Field<uint32_t>(conn, offsetof(Net::Conn, m_latencyTest.m_averageLatency)) = 150;
         uint32_t lastTime = 39800;
         switch (i) {
         case 2:
-            Field<uint32_t>(conn, ConnField::kLatency) = 300;
+            Field<uint32_t>(conn, offsetof(Net::Conn, m_latencyTest.m_averageLatency)) = 300;
             break;
         case 3:
             Field<uint32_t>(conn, 0x64) = 3;
-            Field<uint32_t>(conn, ConnField::kLatency) = 300;
+            Field<uint32_t>(conn, offsetof(Net::Conn, m_latencyTest.m_averageLatency)) = 300;
             break;
         case 4:
-            Field<uint32_t>(conn, ConnField::kStatus) = 0x1E;
+            Field<uint32_t>(conn, offsetof(Net::Conn, m_status)) = 0x1E;
             break;
         case 5:
             Field<uint32_t>(conn, 0x64) = 5;
@@ -1129,14 +1129,14 @@ void TestNetSequenceHandlers()
             lastTime = 30000;
             break;
         case 8:
-            Field<uint32_t>(conn, ConnField::kLatency) = 200;
+            Field<uint32_t>(conn, offsetof(Net::Conn, m_latencyTest.m_averageLatency)) = 200;
             break;
         default:
             break;
         }
         uint32_t ack = i == 7 ? 0x6000 : 0x5151;
         auto important = [&](uint32_t stamp, uint32_t time, int refs) {
-            auto* link = MakeLink<MsgImpLink>(conn, ConnField::kImportantQueue, 0x80);
+            auto* link = MakeLink<MsgImpLink>(conn, offsetof(Net::Conn, m_importantMsgs), 0x80);
             link->m_QMsg = MakeQueuedMsg(0x30, 4, refs, 1);
             link->m_Packetstamp = stamp;
             link->m_Timestamp = time;
@@ -1156,8 +1156,8 @@ void TestNetSequenceHandlers()
         sequenced(0xF5151, lastTime, 1); // (the last one acked gives the round trip)
         Handle(original, 0x0045B0B0, App::HandleAck,
                MakeContext(conn, kMsgAck, Dwords({0xEE000000 | ack}), 0x77, i == 0 ? 3 : i == 8 ? 2 : 0));
-        RecordList(&Field<Mem::ListNode>(conn, ConnField::kImportantQueue));
-        RecordList(&Field<Mem::ListNode>(conn, ConnField::kSequencedQueue));
+        RecordList(&Field<Mem::ListNode>(conn, offsetof(Net::Conn, m_importantMsgs)));
+        RecordList(&Field<Mem::ListNode>(conn, offsetof(Net::Conn, m_sequencedMsgs)));
     });
 }
 
@@ -1187,7 +1187,7 @@ void TestNetStreamHandlers()
     CompareRuns("net App::HandleStreamMessages", 14, [](bool original, int i) {
         TheDispatcher()->AddHandler(0x34, RecordingHandler, 0xFFFFFFFF, reinterpret_cast<void*>(7), 0x80);
         Conn* conn = TheConn(1);
-        auto* streams = &Field<Mem::ListNode>(conn, ConnField::kStreams);
+        auto* streams = &Field<Mem::ListNode>(conn, offsetof(Net::Conn, m_receivedStreams));
         // streams 0x51 and 0x52 being received: 0x30 bytes, 0x10 so far
         for (uint32_t id : {0x51u, 0x52u}) {
             auto* desc = Make<StreamDesc>();
@@ -1328,8 +1328,8 @@ void TestNetClientServerSetUp()
         }
     });
     CompareRuns("net Client/Server::Init", 4, [](bool original, int i) {
-        Field<uint8_t>(TheApp(), AppField::kConnected) = 1;
-        Field<uint32_t>(TheApp(), AppField::kServerUnknown1458) = 0x1458;
+        Field<uint8_t>(TheApp(), offsetof(Net::App, m_connected)) = 1;
+        Field<uint32_t>(TheApp(), offsetof(Net::App, m_maxConnections)) = 0x1458;
         if (i % 2 == 0)
             Answers(0x7110, {0}); // the App's Init fails
         bool result;
@@ -1343,8 +1343,8 @@ void TestNetClientServerSetUp()
     });
     CompareRuns("net Client::ConnectToServer", 5, [](bool original, int i) {
         uint32_t ip = i == 1 ? 0 : 0x0100007F + i;
-        Field<uint8_t>(TheApp(), AppField::kConnected) = i == 3 ? 1 : 0x55;
-        std::memset(&Field<uint8_t>(TheApp(), AppField::kServerAddress), 0xEE, 16);
+        Field<uint8_t>(TheApp(), offsetof(Net::App, m_connected)) = i == 3 ? 1 : 0x55;
+        std::memset(&Field<uint8_t>(TheApp(), offsetof(Net::Client, m_serverAddress)), 0xEE, 16);
         switch (i) {
         case 2:
             Answers(0xC044, {0xFFFFFFFF, 0xFFFFFFFF, 0});
@@ -1367,7 +1367,7 @@ void TestNetClientServerSetUp()
         Record({result});
     });
     CompareRuns("net Client::EnqueueMessageToServer, StreamMessageToServer", 3, [](bool original, int i) {
-        auto* connections = &Field<Mem::ListNode>(TheApp(), AppField::kConnections);
+        auto* connections = &Field<Mem::ListNode>(TheApp(), offsetof(Net::App, m_connections));
         if (i > 0) {
             auto* node = Make<Mem::ListNode>();
             AddTail(connections, node, i == 1 ? TheConn(1) : nullptr);
@@ -1399,14 +1399,14 @@ void TestNetReceiveData()
             auto conn0 = reinterpret_cast<uint32_t>(TheConn(0));
             auto conn1 = reinterpret_cast<uint32_t>(TheConn(1));
             auto conn2 = reinterpret_cast<uint32_t>(TheConn(2));
-            auto& server_address = Field<sockaddr_in>(TheApp(), AppField::kServerAddress);
+            auto& server_address = Field<sockaddr_in>(TheApp(), offsetof(Net::Client, m_serverAddress));
             server_address.sin_port = 0x1F2E;
             server_address.sin_addr.s_addr = 0x0302A8C0;
-            Field<uint32_t>(conn, ConnField::kLastCommTime) = 500;
-            Field<void*>(TheApp(), AppField::kForeignPacketHandler) = reinterpret_cast<void*>(ForeignPacketHandler);
+            Field<uint32_t>(conn, offsetof(Net::Conn, m_lastCommTime)) = 500;
+            Field<void*>(TheApp(), offsetof(Net::App, m_foreignPacketHandler)) = reinterpret_cast<void*>(ForeignPacketHandler);
             switch (i) {
             case 0:
-                Field<uint32_t>(TheApp(), AppField::kFlags) = 8; // no socket
+                Field<uint32_t>(TheApp(), offsetof(Net::App, m_flags)) = 8; // no socket
                 Answers(0xF40F, {20});
                 break;
             case 1:
@@ -1415,10 +1415,10 @@ void TestNetReceiveData()
                 Answers(0x713E, {777, 400});
                 break;
             case 2:
-                Field<uint32_t>(TheApp(), AppField::kFlags) = kAppSecure;
+                Field<uint32_t>(TheApp(), offsetof(Net::App, m_flags)) = kAppSecure;
                 Answers(0xF40F, {20, 30, 1});
                 Answers(0x78B0, {conn0, conn0, conn0});
-                Field<uint32_t>(conn, ConnField::kStatus) = i == 2 && server ? 4 : 0; // (the server: not new)
+                Field<uint32_t>(conn, offsetof(Net::Conn, m_status)) = i == 2 && server ? 4 : 0; // (the server: not new)
                 break;
             case 3:
                 Answers(0xF40F, {20, 30});
@@ -1427,7 +1427,7 @@ void TestNetReceiveData()
                 Answers(0x713E, {600, 0});
                 break;
             case 4:
-                Field<char*>(conn, ConnField::kReadPtr) += 0xA20; // nearly full
+                Field<char*>(conn, offsetof(Net::Conn, m_readPtr)) += 0xA20; // nearly full
                 Answers(0xF40F, {8, 7});
                 Answers(0x78B0, {conn0, conn0});
                 break;
@@ -1439,7 +1439,7 @@ void TestNetReceiveData()
                 Answers(0xF40B, {0x0A0B0C0D, 0x01020304, 0x05060708});
                 break;
             case 6:
-                Field<uint8_t>(TheApp(), AppField::kConnected) = 1; // recv; unknown senders aren't taken
+                Field<uint8_t>(TheApp(), offsetof(Net::App, m_connected)) = 1; // recv; unknown senders aren't taken
                 Answers(0xF40F, {20, 30});
                 Answers(0x78B0, {0, conn0});
                 break;
@@ -1448,18 +1448,18 @@ void TestNetReceiveData()
                 Answers(0x3A6E, {WSAECONNRESET});
                 break;
             case 8:
-                Field<uint32_t>(TheApp(), AppField::kFlags) = kAppSecure;
-                Field<uint32_t>(conn, ConnField::kStatus) = 4; // not new
+                Field<uint32_t>(TheApp(), offsetof(Net::App, m_flags)) = kAppSecure;
+                Field<uint32_t>(conn, offsetof(Net::Conn, m_status)) = 4; // not new
                 Answers(0xF40F, {20, 0});
                 Answers(0x78B0, {conn0, conn0});
-                Field<void*>(TheApp(), AppField::kForeignPacketHandler) = nullptr;
+                Field<void*>(TheApp(), offsetof(Net::App, m_foreignPacketHandler)) = nullptr;
                 Answers(0x6CC0, {0});
                 break;
             default:
                 Answers(0xF40F, {20, 30});
                 Answers(0x97C0, {conn1, conn2});
                 Answers(0x6CC0, {0, 0});
-                Field<void*>(TheApp(), AppField::kForeignPacketHandler) = nullptr;
+                Field<void*>(TheApp(), offsetof(Net::App, m_foreignPacketHandler)) = nullptr;
                 break;
             }
             if (server) {
@@ -1485,13 +1485,13 @@ void TestNetSendData()
         CompareRuns(server ? "net Server::SendData" : "net Client::SendData", 19, [server](bool original, int i) {
             Conn* conn = TheConn(1);
             Field<uint32_t>(conn, 0x64) = 2; // remote
-            Field<uint32_t>(TheApp(), AppField::kFlags) = kAppMeasureLatency;
-            Field<uint32_t>(conn, ConnField::kTimestampOut) = 0x00017FFF;
-            Field<uint32_t>(conn, ConnField::kLatencyTestSent) = 39000;
-            Field<uint32_t>(conn, ConnField::kLatencyTestAnswered) = 39000;
-            Field<uint32_t>(conn, ConnField::kLatency) = 120;
+            Field<uint32_t>(TheApp(), offsetof(Net::App, m_flags)) = kAppMeasureLatency;
+            Field<uint32_t>(conn, offsetof(Net::Conn, m_timestampOut)) = 0x00017FFF;
+            Field<uint32_t>(conn, offsetof(Net::Conn, m_latencyTest.m_sendTime)) = 39000;
+            Field<uint32_t>(conn, offsetof(Net::Conn, m_latencyTest.m_receiveTime)) = 39000;
+            Field<uint32_t>(conn, offsetof(Net::Conn, m_latencyTest.m_averageLatency)) = 120;
             Field<int>(conn, 0x3D1C) = 0x1000; // bandwidth
-            Field<int>(TheApp(), AppField::kTotalBytesOut) = 1000;
+            Field<int>(TheApp(), offsetof(Net::App, m_totalBytesOut)) = 1000;
             Normal(conn, 0x20, 10, 1, 0);
             Important(conn, 0x22, 6, 0, 0);
             Answers(0x00457AC0, {1, 0});
@@ -1507,39 +1507,39 @@ void TestNetSendData()
                 break;
             case 3:
                 Answers(0x00457970, {1}); // a timestamp due
-                Field<uint32_t>(conn, ConnField::kLatencyTestSent) = 0; // and the first latency test
+                Field<uint32_t>(conn, offsetof(Net::Conn, m_latencyTest.m_sendTime)) = 0; // and the first latency test
                 break;
             case 4:
-                Field<uint8_t>(TheApp(), AppField::kConnected) = 1;
+                Field<uint8_t>(TheApp(), offsetof(Net::App, m_connected)) = 1;
                 break;
             case 5:
                 Answers(0x6E20, {0}); // sending fails
                 Answers(0x6F10, {0});
                 break;
             case 6:
-                Field<uint32_t>(conn, ConnField::kLatencyTestSent) = 37999; // overdue, unanswered
-                Field<uint32_t>(conn, ConnField::kLatencyTestAnswered) = 37000;
-                Field<uint32_t>(conn, ConnField::kLatency) = 1950;
+                Field<uint32_t>(conn, offsetof(Net::Conn, m_latencyTest.m_sendTime)) = 37999; // overdue, unanswered
+                Field<uint32_t>(conn, offsetof(Net::Conn, m_latencyTest.m_receiveTime)) = 37000;
+                Field<uint32_t>(conn, offsetof(Net::Conn, m_latencyTest.m_averageLatency)) = 1950;
                 break;
             case 7:
-                Field<uint32_t>(conn, ConnField::kLatencyTestSent) = 38000; // exactly not overdue
-                Field<uint32_t>(conn, ConnField::kLatencyTestAnswered) = 1;
+                Field<uint32_t>(conn, offsetof(Net::Conn, m_latencyTest.m_sendTime)) = 38000; // exactly not overdue
+                Field<uint32_t>(conn, offsetof(Net::Conn, m_latencyTest.m_receiveTime)) = 1;
                 break;
             case 8:
                 Field<uint32_t>(conn, 0x64) = 3; // local
-                Field<uint32_t>(conn, ConnField::kLatencyTestSent) = 30000;
-                Field<uint32_t>(conn, ConnField::kLatencyTestAnswered) = 1;
+                Field<uint32_t>(conn, offsetof(Net::Conn, m_latencyTest.m_sendTime)) = 30000;
+                Field<uint32_t>(conn, offsetof(Net::Conn, m_latencyTest.m_receiveTime)) = 1;
                 break;
             case 9:
                 Field<uint32_t>(conn, 0x64) = 6; // foreign
-                Field<uint32_t>(conn, ConnField::kLatencyTestSent) = 30000;
+                Field<uint32_t>(conn, offsetof(Net::Conn, m_latencyTest.m_sendTime)) = 30000;
                 break;
             case 10:
-                Field<uint32_t>(TheApp(), AppField::kFlags) = 0;
-                Field<uint32_t>(conn, ConnField::kLatencyTestSent) = 30000;
+                Field<uint32_t>(TheApp(), offsetof(Net::App, m_flags)) = 0;
+                Field<uint32_t>(conn, offsetof(Net::Conn, m_latencyTest.m_sendTime)) = 30000;
                 break;
             case 11: {
-                Field<char*>(conn, ConnField::kWritePtr) += 0x500; // a full packet: the loop ends
+                Field<char*>(conn, offsetof(Net::Conn, m_writePtr)) += 0x500; // a full packet: the loop ends
                 Answers(0x00457AC0, {1, 1, 1});
                 break;
             }
@@ -1549,16 +1549,16 @@ void TestNetSendData()
                 break;
             case 13:
                 Answers(0x6540, {3, 5}); // more waiting for acks
-                Field<uint32_t>(conn, ConnField::kStatus) = 1;
+                Field<uint32_t>(conn, offsetof(Net::Conn, m_status)) = 1;
                 break;
             case 14:
                 Answers(0x6540, {3, 5});
-                Field<uint32_t>(conn, ConnField::kStatus) = 1;
+                Field<uint32_t>(conn, offsetof(Net::Conn, m_status)) = 1;
                 Field<int>(conn, 0x3D1C) = 0x700;
                 break;
             case 15:
                 Answers(0x6540, {3, 5});
-                Field<uint32_t>(conn, ConnField::kStatus) = 0;
+                Field<uint32_t>(conn, offsetof(Net::Conn, m_status)) = 0;
                 break;
             case 16:
                 Answers(0x00457AC0, {0});
@@ -1574,7 +1574,7 @@ void TestNetSendData()
                 // overdue resends in both queues: the order they go into the packet
                 Important(conn, 0x23, 9, 30000, 0);
                 Sequenced(conn, 0x24, 5, 30000, 0);
-                Field<uint32_t>(conn, ConnField::kStatus) = 2;
+                Field<uint32_t>(conn, offsetof(Net::Conn, m_status)) = 2;
                 break;
             }
             if (server) {

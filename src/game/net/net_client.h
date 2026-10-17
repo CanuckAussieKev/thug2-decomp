@@ -49,6 +49,9 @@ public:
     static int __cdecl HandleConnectionRefused(MsgHandlerContext* context);
     // 0x0045AA70 (id 9): the server's timestamp, acked; lost, late and duplicate packets counted from it.
     static int __cdecl HandleTimestamp(MsgHandlerContext* context);
+
+    uint8_t m_serverAddress[0x10]; // +0x1F08 sockaddr_in (ConnectToServer; ReceiveData looks the server up by it)
 };
+static_assert(sizeof(Client) == 0x1F18, "allocated as 0x1F18 bytes (0x00455460)");
 
 } // namespace Net

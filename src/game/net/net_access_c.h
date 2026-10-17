@@ -1,9 +1,8 @@
 #pragma once
 
 // What 0x4598C0-0x45BDA0 (Client, Server, the message dispatcher, App's message handling) uses of the rest of
-// the net library: App (net_app.h) and Conn (Conn, net_app_view.h) fields they don't name yet, by offset;
-// the queue links' and stream link's layouts; message ids; short names for App's calls; and Conn's / the
-// message classes' functions (0x00454xxx-0x00456xxx, not decompiled yet) by address.
+// the net library: flags and sizes, message ids, short names for App's and Conn's calls, and the message
+// classes' functions not decompiled yet by address. (App: net_app.h; Conn: net_conn.h; links: net_messages.h.)
 
 #include <cstddef>
 #include <cstdint>
@@ -16,8 +15,7 @@
 
 namespace Net {
 
-// (Net::App: net_app.h; Net::Conn: Conn, net_app_view.h - the fields they don't name by offset below.)
-
+// An object's field by offset (the tests' stand-in objects use it with offsetof).
 template <typename T, typename O>
 T& Field(O* object, uint32_t offset)
 {
@@ -28,26 +26,7 @@ T& Field(O* object, uint32_t offset)
 // Bit 0: the message is sent without its length (fixed size).
 constexpr uint8_t kMsgNoLength = 1;
 
-// The App's fields.
-namespace AppField {
-constexpr uint32_t kTimestamp = 0x8;           // the frame time (milliseconds)
-constexpr uint32_t kDispatcher = 0xC;          // Dispatcher
-constexpr uint32_t kTotalBytesOut = 0x13FC;
-constexpr uint32_t kTotalBytesIn = 0x1400;
-constexpr uint32_t kLostPackets = 0x1404;      // timestamps skipped over
-constexpr uint32_t kLatePackets = 0x1408;      // timestamps older than the newest
-constexpr uint32_t kDupePackets = 0x140C;      // timestamps seen twice
-constexpr uint32_t kSocket = 0x1428;
-constexpr uint32_t kConnected = 0x143C;        // bool: the socket is connect()ed (send/recv, not sendto/recvfrom)
-constexpr uint32_t kManager = 0x1440;          // Net::Manager (its message flags: kMsgNoLength)
-constexpr uint32_t kTask = 0x1448;             // Tsk::Task: the App's per-frame work
-constexpr uint32_t kServerUnknown1458 = 0x1458; // cleared by Server::Init
-constexpr uint32_t kReceiveBuffer = 0x1970;    // 0x514 bytes
-constexpr uint32_t kFlags = 0x1E84;
-constexpr uint32_t kForeignPacketHandler = 0x1E88; // void (*)(char* data, int size, sockaddr* from)
-constexpr uint32_t kConnections = 0x1E8C;      // Lst::Head<Conn>
-constexpr uint32_t kServerAddress = 0x1F08;    // sockaddr_in (Client::ConnectToServer)
-} // namespace AppField
+// (The App's fields: net_app.h; the Client's server address: net_client.h.)
 
 // App flags (+0x1E84).
 constexpr uint32_t kAppMeasureLatency = 0x4;   // send latency tests
@@ -58,33 +37,7 @@ constexpr uint32_t kMaxPacketSize = 0x512;     // a packet being built
 constexpr uint32_t kReceiveBufferSize = 0x514;
 constexpr uint32_t kConnReceiveBufferSize = 0xA28;
 
-// The connection's fields.
-namespace ConnField {
-constexpr uint32_t kNormalQueue = 0x0;         // Lst::Head<MsgNormalLink>
-constexpr uint32_t kImportantQueue = 0x14;     // Lst::Head<MsgImpLink>
-constexpr uint32_t kSequencedQueue = 0x28;     // Lst::Head<MsgSeqLink>
-constexpr uint32_t kHandle = 0x3C;
-constexpr uint32_t kIp = 0x40;
-constexpr uint32_t kPort = 0x48;               // uint16_t
-constexpr uint32_t kWriteBuffer = 0x4C;        // the packet being built: its start
-constexpr uint32_t kWritePtr = 0x50;           // and end
-constexpr uint32_t kReadBuffer = 0x54;         // received data: its start
-constexpr uint32_t kReadPtr = 0x58;            // and end
-constexpr uint32_t kStatus = 0x60;
-constexpr uint32_t kApp = 0x68;
-constexpr uint32_t kLastCommTime = 0x6C;
-constexpr uint32_t kLastSendTime = 0x70;
-constexpr uint32_t kNextSequence = 0x478;      // per group: the next sequence number expected
-constexpr uint32_t kSequencedBuffer = 0x87C;   // per group: Lst::Head<MsgSeqLink>, received out of order
-constexpr uint32_t kStreams = 0x1C7C;          // Lst::Head<StreamLink>: streams being received
-constexpr uint32_t kLatency = 0x1CA4;          // the latency average (first dword: the current value)
-constexpr uint32_t kLatencyTestSent = 0x1CD4;
-constexpr uint32_t kLatencyTestAnswered = 0x1CD8;
-constexpr uint32_t kReceiveMetrics = 0x1CDC;
-constexpr uint32_t kSendMetrics = 0x2CE8;
-constexpr uint32_t kLastTimestampIn = 0x3D14;
-constexpr uint32_t kTimestampOut = 0x3D18;
-} // namespace ConnField
+// (The connection's fields: net_conn.h.)
 
 // Connection status (+0x60).
 constexpr uint32_t kConnStatus1 = 0x1;     // (acks only measure latency with it; MarkNewConnection clears it)
