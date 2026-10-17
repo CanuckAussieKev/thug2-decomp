@@ -156,6 +156,23 @@ void PlaceCamera(Gfx::Camera* camera)
     }
 }
 
+void TurnOrientation(Mth::Matrix* orientation)
+{
+    if (!orientation || !Active() || Nx::CurrentLevel() != 0)
+        return;
+    Move move;
+    if (!CurrentMove(&move))
+        return;
+    for (int row = 0; row < 3; ++row) {
+        Mth::Vector& r = orientation->row[row];
+        float in[3] = {r.x, r.y, r.z}, out[3];
+        TurnDirection(move, in, out);
+        r.x = out[0];
+        r.y = out[1];
+        r.z = out[2];
+    }
+}
+
 bool HideScene(uint32_t sceneName)
 {
     return sceneName == MenuBackdrop::kFrontEndSceneName && Active() && Nx::CurrentLevel() == 0;

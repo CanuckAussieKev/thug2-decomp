@@ -91,6 +91,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_netE.cpp
     src/hook/selftests_feobj.cpp
     src/hook/selftests_menulvl.cpp
+    src/hook/selftests_motion.cpp
     src/game/core/alloc.cpp
     src/game/core/crc.cpp
     src/game/core/dbg.cpp
@@ -157,6 +158,7 @@ add_library(thug2_code OBJECT
     src/game/obj/cutscene.cpp
     src/game/obj/event.cpp
     src/game/obj/flip_rotate.cpp
+    src/game/obj/motion.cpp
     src/game/obj/object.cpp
     src/game/obj/objman.cpp
     src/game/obj/smtptr.cpp

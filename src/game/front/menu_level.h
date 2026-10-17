@@ -5,6 +5,9 @@
 namespace Gfx {
 class Camera;
 }
+namespace Mth {
+class Matrix;
+}
 
 // NOT ORIGINAL - the menu_level feature (ours, added at the user's request; not the game's and not PartyMod's): the
 // front end as a level of its own in Los Angeles instead of the skate shop.
@@ -51,6 +54,10 @@ void TurnDirection(const Move& move, const float in[3], float out[3]);
 // Called by the renderer for a viewport's camera before it's read: in the front end with the level active, a camera
 // still in the shop's coordinates gets the move (its orientation too, also when only that was set again).
 void PlaceCamera(Gfx::Camera* camera);
+
+// Called by the motion component's Obj_Rotate for an absolute orientation (given in the shop's terms): in the front
+// end with the level active, the orientation gets the move's turn (rows 0-2 times RotateY(yaw), as the nodes' angles).
+void TurnOrientation(Mth::Matrix* orientation);
 
 // For the renderer: the front end's own scene ("mainmenu") isn't drawn in the front end while active.
 bool HideScene(uint32_t sceneName);
