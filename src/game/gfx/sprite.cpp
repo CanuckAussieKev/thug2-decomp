@@ -7,6 +7,7 @@
 #include "game/gfx/screen.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/log.h"
 
 namespace Nx {
 
@@ -174,6 +175,31 @@ void SSprite::Draw()
                 else if (layoutX >= kLayoutWidth)
                     vertices[i].x = screenRight;
             }
+        }
+    }
+    // Diagnostic: thug2-decomp.ini [features] debug_sprites=1 logs, in the front end, each sprite (once per position)
+    // that reaches past the 4:3 layout's left or right edge, with the screen x it gets.
+    static const bool debugSprites = ConfigInt("features", "debug_sprites", 0) != 0;
+    if (debugSprites && frontEndWidescreen) {
+        double reachLeft = left + x, reachRight = static_cast<double>(right) + x;
+        if (rotation != 0.0f) {
+            reachLeft = std::fabs(static_cast<double>(left)) + std::fabs(static_cast<double>(right));
+            reachRight = x + reachLeft; // (rotated: anything whose extent could cross an edge)
+            reachLeft = x - reachLeft;
+        }
+        static uint32_t s_seen[256];
+        static int s_count = 0;
+        uint32_t key = static_cast<uint32_t>(x * 16.0f) * 2654435761u ^ static_cast<uint32_t>(y * 16.0f) ^
+                       static_cast<uint32_t>(width) << 20;
+        bool seen = false;
+        for (int i = 0; i < s_count; ++i)
+            seen |= s_seen[i] == key;
+        if (!seen && s_count < 256 && (reachLeft <= 0.0 || reachRight >= kLayoutWidth)) {
+            s_seen[s_count++] = key;
+            Log("sprite: pos %.2f,%.2f size %ux%u scale %.3f,%.3f hot %.2f,%.2f rot %.5f flip %u%u -> screen x %.1f %.1f "
+                "%.1f %.1f, y %.1f %.1f",
+                x, y, width, height, xscale, yscale, hotX, hotY, rotation, flipU, flipV, vertices[0].x,
+                vertices[1].x, vertices[2].x, vertices[3].x, vertices[0].y, vertices[1].y);
         }
     }
     const float u[4] = {u0, u0, u1, u1};
