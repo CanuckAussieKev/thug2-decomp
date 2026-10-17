@@ -64,6 +64,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_skaterA.cpp
     src/hook/selftests_gfx2.cpp
     src/hook/selftests_sprite.cpp
+    src/hook/selftests_netB.cpp
     src/hook/selftests_mainloop.cpp
     src/hook/selftests_misc.cpp
     src/hook/selftests_scache.cpp
@@ -119,6 +120,7 @@ add_library(thug2_code OBJECT
     src/game/net/stats.cpp
     src/game/net/service.cpp
     src/game/net/online_hosts.cpp
+    src/game/net/net_app.cpp
     src/game/obj/composite.cpp
     src/game/obj/compositemgr.cpp
     src/game/obj/cutscene.cpp
