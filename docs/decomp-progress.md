@@ -1842,19 +1842,102 @@ belong with the CScript batch.
       their segments) when it bites. Changing the existing static arenas was tried and broke csB - left as is.
 - [x] Batch 74 (CScript) tested in the game (2026-10-17, by the user): game runs; 873 of 873 replacements installed
       (32 source only), early 105 / late 17 / engine-started 2 self-tests pass, shadow checks no mismatches.
-- [ ] Next: (batch 74 tested) - every script goes through it, so a failure shows at once (bisect by
-      file in thug2-decomp.ini: cscript_core / cscript_exec / cscript_wait / cscript_manager). Then the nearby gaps:
+- [x] Batches 75-78 (events, the tracker, objects, the menu front end; NOT run in the game yet): four parallel
+      worktrees (wt/evt, wt/trk, wt/obj, wt/menu), merged in ca73875, 532db1d, 6d271c4 / 0bfdb41 and d5ac8c3; each
+      calls the others directly after the merges (one CEvent / CEventListener in event.h, CTracker in tracker.h,
+      CObject in object.h), and each test stands in for the others' code next to the game addresses. **The event
+      model, objects' scripts and the front end's place in the frame are in docs/script-runtime.md (sections 2, 11,
+      12; open questions 13)** - not repeated here. Checks for every batch: thug2_check 0 MISMATCHED, all early
+      tests pass; register scan only the known 0x4EFF92 risk; call audit clean (the "?" tail-jumping callees checked
+      by hand); check_code_writes no overlaps.
+- [x] Batch 75, events and the handler table (src/game/obj/event.*, 21 functions, 0x45F7F0-0x460792): CEvent
+      Construct 0x45F7F0 / MarkHandled 0x45F9B0 / Destroy 0x460150; CEventListener Construct 0x45FAA0, Destroy
+      0x45FAC0, DeletingDestructor 0x460170, RegisterWithTracker 0x45FB30; CEventHandlerTable Construct 0x45F820 /
+      Destroy 0x45FB70, AddHandler 0x45FBC0, AddHandlers 0x4601A0, RemoveType 0x45FDF0, RemoveGroup 0x45FE60 /
+      0x4600E0, MarkGroup 0x45F840, RemoveMarked 0x45FED0, Compact 0x45FF50, Register / UnregisterWithTracker
+      0x45FA10 / 0x45FA60, **PassEvent 0x460470**, PrintTable 0x45F880. CScript's GameFunction wrappers for them are
+      gone. Test TestEvents (selftests_evt.cpp, Early): every function on stand-in tables / scripts / objects in an
+      arena, all outside calls recorded. 48 mutations caught (7 after strengthening: removed entries in MarkGroup /
+      Register / Unregister, RemoveGroup(all_groups) on a filled table, Compact's `changed`, the spawn path).
+      Checksums: 0xC377C572 null_script, 0x8B713E0E all_groups, 0x1CA1FF20 default, 0x7031F10C params, 0x923FBB3A
+      group, 0x80367192 exception. Findings: ReportStopped removes **every** handler (the spec said it sent an event
+      0x8B713E0E - corrected); exception handlers run OnExceptionRun then replace the script (SetScript + Update);
+      object flag 0x10000 makes normal handlers spawn; entries' flag bits 2-7 uninitialised [quirk]. Left: the
+      composite object instance manager 0x45EFD0-0x45F7A0 (18 functions; a different subsystem); 0x4607A0-0x460840
+      went to wt/obj.
+- [x] Batch 76, the object tracker (src/game/obj/tracker.*, smtptr.*, 41 functions, 0x462000-0x4639E0): CTracker
+      (0xB21C bytes, singleton 0x6F0FC0) Construct 0x462CF0, Destruct 0x462E40 (the alias and listener tables leak,
+      original), ScalarDelete 0x463780, CreateTracker 0x463730, LookUpObject 0x462120, GetObjectByAlias 0x462190,
+      GetUniqueId 0x4621D0, Add/RemoveObject 0x462980 / 0x462A20, RemoveAliasesOf 0x462590, AddAlias 0x462A90,
+      RemoveEventListener 0x462000, Add/RemoveListener 0x463370 / 0x463450, ForgetScript 0x462B90, WaitForEvent
+      0x462260, **LaunchEvent 0x462F00**, LogHandled / LogRead / LogFrame 0x462B10 / 0x462B40 / 0x462B70; CEventLog
+      AddEntry 0x4627C0, Print 0x4620A0, Destroy 0x462CB0; CScriptNode / CScriptList 0x462530, 0x462550, 0x462710,
+      0x462620, 0x4626B0, 0x4624D0; CFunctions WaitForEvent 0x462310, ObjectExists 0x462340,
+      TerminateObjectsScripts 0x462380, SetObjectProps 0x462440, PrintEventLog 0x462480, AssignAlias 0x462C40,
+      LaunchEvent / FireEvent 0x4634D0; CRefCounted Construct 0x4637B0, ClearSmartPointers 0x463820, Destruct
+      0x463870, ScalarDelete 0x463880. Callers switched: cscript_core / cscript_wait, net/chat.cpp. Test TestTracker
+      (selftests_trk.cpp, Early): objects / aliases / ids, listeners, broadcasts (deleted receiver, radius edges),
+      targeted events, WaitForEvent (all 40 slots, reuse), the log, all seven CFunctions, CRefCounted. 53 + 10
+      mutations: 49 caught at once, the 4 misses and 6 more after strengthening, 1 equivalent (ClearSmartPointers'
+      second `mp_object = nullptr`). Findings: 0x36B2EE74 is the "no object" id; m_refCounted is what LaunchEvent's
+      smart pointers point at; one event releases at most one WaitForEvent waiter; Block(type) registrations outlive
+      the block. Original crashes kept (a targeted event with no such target, unchecked objects in AddAlias /
+      SetObjectProps / TerminateObjectsScripts, a radius broadcast's source, unchecked allocations). Skipped:
+      0x4638B0, 0x463910, 0x4639A0, 0x4639C0 - methods of the class at 0x463A00 (+0x34xx fields), to go with it.
+- [x] Batch 77, objects and their managers (src/game/obj/object.*, objman.*, 75 functions + 2 source-only thunks,
+      0x4607A0-0x461FE0 and 0x45DB90): CObject (0x4C bytes, vtable 0x6477E8) construction / destruction, SetProperties
+      0x461710, CallMemberFunction 0x4608F0, PassEventToScript 0x461140, MarkAsDead 0x460A50, the script functions
+      (CreateScriptIfNeeded, SwitchScript, CallScript, SpawnScript, SpawnAndRunScript, ClearEventHandler), SelfEvent
+      0x4609F0 / BroadcastEvent 0x460A20, ids / types / tags, the member functions of table 0x683550 (Obj_LeaveScript,
+      Obj_KillSpawnedScript, Obj_Visible / Invisible, Obj_GetId, GetTags, GetSingleTag, 0xEEEB7220, RemoveTags, the
+      four flag functions, SetTags, Obj_SpawnScript, Obj_SwitchScript); FindObject 0x460AD0, Unlock / DestroyIfUnlocked
+      0x460AC0 / 0x460AA0, CCompositeObject::GetComponent 0x45DB90; CBaseManager (Construct, Register / Unregister /
+      ReassignObjectId, SetObjectPriority, GetObjectByID 0x4619F0, ForEach 0x461CC0), CGeneralManager (KillObject,
+      FlushDeadObjects and its task), CObjectSearch 0x461F30 / 0x461ED0, ReleaseTracker 0x461FA0,
+      CTracker::RegisterEventListener 0x461FE0. Thunks 0x420060 and 0x4AAD30 REPLACE_SOURCE_ONLY. singleton.cpp's
+      Singleton463730 became ObjectTracker (CreateTracker / ReleaseTracker); cscript_exec.cpp calls FindObject and
+      GetComponent directly. Test TestObjects (selftests_obj.cpp, Early; three runs: tags / flags / member functions;
+      scripts / events / death / destruction; managers, nested and restarted walks, searches, the dead list). 72
+      mutations: 71 caught (66 at first), 1 equivalent (NextItemOfType's null return). Findings: an object's own
+      script isn't spawned and runs inside CCompositeObject's update 0x45D920; the object spawn functions set a
+      spawned script's m_object; MarkAsDead blocks the object's script for good and defers the delete to the
+      manager's task; GetSingleTag / 0xEEEB7220 / RemoveTags edge cases; the flag word +0x24 is never initialised.
+- [x] Batch 78, menu input mapping (src/game/front/front_end.*, src/game/skate/competition.*, 20 functions,
+      0x54EF60-0x55002F): Mdl::FrontEnd (0x164 bytes, vtable 0x64D724, instance 0x7CE464) AddKeyboardHandler
+      0x54EF60, UpdateButtonEventMappings 0x54EF80, KeyboardTask 0x54F200, **Update 0x54F380** (runs
+      UpdateSpawnedScripts), GrabControlEvent 0x54F600, SetAnalogStickActiveForMenus 0x54F900, PauseGame 0x54F960,
+      InputLogic 0x54FB40, LogicTask 0x54FCC0 (task code Ghidra never made a function), UpdateInputMappings 0x54FD00,
+      constructor 0x54FE00, CreateFrontEnd 0x54FF80; the CFunctions SetMenuAutoRepeatTimes 0x54F0F0,
+      SetMenuPadMappings 0x54F150, SetButtonEventMappings 0x54F1B0, SetAnalogStickActiveForMenus 0x54FDC0;
+      CCompetition's Leader constructor 0x54FFD0, destructor body 0x54FFF0, EditParams 0x550010, StartRun 0x550020.
+      Names found by CRC guessing: inactive / active / use_as_first, block_menu_input, pad_start / pad_back /
+      pad_choose, the anchors, device_num, controller, handle_keyboard_input. Test (selftests_menu.cpp, 8 Early
+      tests): 66 mutations, all caught (1 after adding a negative-index GrabControlEvent case). Findings: pad events
+      are launched targeted with target "none", so only event listeners and WaitForEvent waiters get them; quirks
+      kept in SetButtonEventMappings' `null` handling and the Space key's leaked params. The PC port's UIControls
+      setting isn't read by any of this. Left: the front end's destructor 0x54EE70, v_start_cb 0x54EEA0, v_stop_cb
+      0x54EF30, the auto-repeat 0x54ECE0, Release 0x54EBE0.
+- [ ] Next: run batches 75-78 in the game (NOT run yet; every event and object goes through them - bisect by file
+      in thug2-decomp.ini: event.cpp, tracker.cpp, object.cpp, objman.cpp, front_end.cpp). Then the gaps they left:
+      CCompositeObjectInstanceMgr 0x45EFD0-0x45F7A0 (incl. the object update walk 0x45F4A0 and 0x45F5D0, which the
+      front end's PauseGame calls); CCompositeObject 0x45D050-0x45EFD0 (incl. its update 0x45D920 - who runs it
+      relative to UpdateSpawnedScripts is docs/script-runtime.md section 13's first question - and 0x45D850, the
+      member function table entry call, CObject vtable slot 2); 0x4638B0-0x4639C0 with the class at 0x463A00; the
+      front end's remaining 0x54EBE0-0x54EF30; 0x45A540 (Lst::Head insert by priority), Tsk::Task 0x406890 /
+      0x406C90, 0x4AAD40 (CGeneralManager slot 6); and core_physics.cpp's SelfEvent / BroadcastEvent GameFunction
+      calls (0x4609F0 / 0x460A20) to switch to direct calls. Small cleanups: event.cpp's ObjectFlags() and
+      tracker.cpp (HasPosition / Position / alias count) read CObject fields by offset - use CObject's members
+      (and add flag 0x10000 next to OBJECT_FLAG_*); cscript.h's CMemberFunctionEntry is really 0x18 bytes ({+0
+      name, +4 component type, +8 a 16-byte member function pointer: +8 code, +0xC this adjustment}); front_end.cpp
+      calls 0x6F85A8 "the object manager", but 0x47B000 / 0x47C560 update sound voices / streams. The earlier gaps:
       the module manager Mdl::Manager 0x44F300-0x44F7E0, 0x4B2270-0x4B2320 (9 glue functions), CFlipRotateComponent::
-      Update 0x4E2D20 and its base 0x481710-0x481740, 0x46C470-0x46C6A0 (a CStruct wrapper class), 0x4620A0-0x462710
-      (object / event CFunctions), the sound functions 0x47AC10-0x47AD80; and what CScript still calls in the game:
-      the event handler table 0x45F820-0x4601A0 + 0x460470 (needed for the event model - docs/script-runtime.md
-      section 12), the tracker 0x462120 / 0x462B90 / 0x463370 / 0x463450, FindObject 0x460AD0, CRefCounted
-      0x4637B0 / 0x463870, CObject::GetComponent 0x45DB90. GameSpy's host names become configuration when the SDK is
-      linked. (Batch 71's question, answered 2026-10-17: LoadQB's pre-compiled branch needs a name ending in the
-      platform extension from 0x005B6040 (0x007CEFA8: 1-3 ps2, 4 xbx, 5 ngc, 6 xen, else ???). Every shipped
-      .qb.xbx - pre-compiled images, magic 0xB075EF6F, laid out for the Xbox build - has a token-format .qb twin
-      next to it, and the exe only builds .qb names ("%08x.qb", "runnow.qb", "scripts\animview\%s.qb"), so the PC
-      game loads the .qb files; the branch is unused unless a script names a .xbx file itself.)
+      Update 0x4E2D20 and its base 0x481710-0x481740, 0x46C470-0x46C6A0 (a CStruct wrapper class), the sound
+      functions 0x47AC10-0x47AD80. GameSpy's host names become configuration when the SDK is linked. (Batch 71's
+      question, answered 2026-10-17: LoadQB's pre-compiled branch needs a name ending in the platform extension
+      from 0x005B6040 (0x007CEFA8: 1-3 ps2, 4 xbx, 5 ngc, 6 xen, else ???). Every shipped .qb.xbx - pre-compiled
+      images, magic 0xB075EF6F, laid out for the Xbox build - has a token-format .qb twin next to it, and the exe
+      only builds .qb names ("%08x.qb", "runnow.qb", "scripts\animview\%s.qb"), so the PC game loads the .qb files;
+      the branch is unused unless a script names a .xbx file itself.)
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
       for original callers that read ECX/EDX after the call without writing them first (ignoring push-to-reserve,
       lea reg,[reg], or reg,-1 and zeroing idioms; callers that are themselves replaced count as safe).
