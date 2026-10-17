@@ -9,6 +9,7 @@
 #include <cstring>
 
 #include "game/front/menu_backdrop.h"
+#include "game/front/frontend_objects.h"
 #include "game/gfx/camera.h"
 #include "game/gfx/screen.h"
 #include "hook/game.h"
@@ -642,6 +643,9 @@ void RenderViewport(int index)
 // 0x004B2D80
 void RenderWorld()
 {
+    // Not original - the menu_backdrop feature (see game/front/frontend_objects.h): front-end objects moved into
+    // the backdrop, or put back, for what is drawn now.
+    Front::FrontEndObjects::Update(false);
     ++GameVariable<int>(0x00786AC4); // frames rendered
     if (!GameVariable<bool>(0x00786D04)) { // (nothing while the device is lost)
         GameVariable<int>(0x00786D00) = GameFunction<int(__cdecl*)()>(0x005BE970)();

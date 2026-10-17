@@ -63,6 +63,12 @@ bool ShouldHideScene(uint32_t sceneName, int setting, bool frontEnd, bool backdr
 
 // The same from the game's state now.
 bool Holding();
+// Whether the backdrop's scene is in the scene list.
+bool BackdropLoaded();
+// The skater camera animation playing if it is a menu camera (IsMenuCamera), else 0.
+uint32_t PlayingMenuCamera();
+// A viewport's camera (0x004A09C0).
+Gfx::Camera* ViewportCamera(int viewport);
 // For the renderer, per scene (its name checksum, CScene +0x84).
 bool HideScene(uint32_t sceneName);
 

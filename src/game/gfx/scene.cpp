@@ -6,6 +6,7 @@
 #include "game/core/crc.h"
 #include "game/core/dbg.h"
 #include "game/core/str.h"
+#include "game/front/frontend_objects.h"
 #include "game/front/menu_backdrop.h"
 #include "game/script/params.h"
 #include "hook/game.h"
@@ -43,6 +44,9 @@ void* LoadSceneFile(const char* name, void* texDict, bool addSuperSectors, bool 
 // 0x00445130
 bool __cdecl CFunc_LoadScene(Script::CStruct* params, Script::CScript* /*script*/)
 {
+    // Not original - the menu_backdrop feature (see game/front/frontend_objects.h): a level is loading, the front
+    // end's objects go back where they were.
+    Front::FrontEndObjects::OnLevelChange();
     bool isDictionary = params->ContainsFlag(kIsDictionary);
     bool isSky = params->ContainsFlag(kIsSky);
     bool isNet = params->ContainsFlag(kIsNet);
