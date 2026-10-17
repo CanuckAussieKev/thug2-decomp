@@ -73,6 +73,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_csA.cpp
     src/hook/selftests_csC.cpp
     src/hook/selftests_csB.cpp
+    src/hook/selftests_parkedA.cpp
     src/game/core/alloc.cpp
     src/game/core/crc.cpp
     src/game/core/dbg.cpp
@@ -105,6 +106,7 @@ add_library(thug2_code OBJECT
     src/game/lst/search.cpp
     src/game/net/chat.cpp
     src/game/net/stats.cpp
+    src/game/ed/park_manager.cpp
     src/game/net/service.cpp
     src/game/net/online_hosts.cpp
     src/game/obj/flip_rotate.cpp
