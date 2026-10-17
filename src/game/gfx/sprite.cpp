@@ -1,0 +1,204 @@
+// 2D sprites (Nx engine, PC): a texture drawn as a quad, from the 640x480 screen layout onto the back buffer.
+
+#include "game/gfx/sprite.h"
+
+#include <cmath>
+
+#include "game/gfx/screen.h"
+#include "hook/game.h"
+#include "hook/hook.h"
+
+namespace Nx {
+
+namespace {
+
+// The 640x480 layout -> back buffer conversion (SetLetterbox) and the back buffer's size.
+float ScreenScaleX() { return GameVariable<float>(0x00786D80); }
+float ScreenScaleY() { return GameVariable<float>(0x00786D84); }
+int32_t ScreenOffsetX() { return GameVariable<int32_t>(0x00786D88); }
+int32_t ScreenOffsetY() { return GameVariable<int32_t>(0x00786D8C); }
+int32_t BackBufferWidth() { return GameVariable<int32_t>(0x00786D6C); }
+int32_t BackBufferHeight() { return GameVariable<int32_t>(0x00786D70); }
+// The layout's size (the constants at 0x00649FD4 and 0x006484B4).
+constexpr float kLayoutWidth = 640.0f;
+constexpr float kLayoutHeight = 480.0f;
+
+// The D3D9 device, its methods by vtable offset.
+void** Device() { return GameVariable<void**>(0x007D69E0); }
+template <typename F>
+F DeviceMethod(int offset)
+{
+    return reinterpret_cast<F>((*reinterpret_cast<void***>(Device()))[offset / 4]);
+}
+void SetTextureStageState(int stage, int type, int value)
+{
+    DeviceMethod<long(__stdcall*)(void*, int, int, int)>(0x10C)(Device(), stage, type, value);
+}
+// The renderer's vertex format set (not rewritten yet; cdecl).
+void SetVertexFormat(uint32_t fvf) { GameFunction<void(__cdecl*)(uint32_t)>(0x004D9DB0)(fvf); }
+// Two triangles of a quad: 0 1 2, 1 3 2.
+const uint16_t* QuadIndices() { return reinterpret_cast<const uint16_t*>(0x0067EFA8); }
+
+struct Vertex {
+    float x, y, z, rhw;
+    uint32_t color; // ARGB
+    float u, v;
+};
+static_assert(sizeof(Vertex) == 0x1C, "the original's vertex");
+
+struct Vector4 {
+    float x, y, z, w;
+};
+// 0x004882D0 (a Vector member, thiscall, not rewritten yet): rotate about z by `angle` radians (x87 fsin/fcos).
+void RotateZ(Vector4& v, float angle) { GameFunction<void(__thiscall*)(Vector4*, float)>(0x004882D0)(&v, angle); }
+
+// The original's _ftol (0x006236FC): truncated towards zero, as a 64-bit integer.
+int64_t Truncated(double value) { return static_cast<int64_t>(value); }
+
+} // namespace
+
+// 0x004DFCF0. The texture's part holding the image (u0..u1, and from vTop at the top edge to vBottom), mirrored
+// for negative scales; the quad's corners from the hot spot, scale and size, rotated about the hot spot; mapped
+// to the back buffer; drawn unless transparent.
+//
+// Widescreen front end (thug2-decomp.ini [features] widescreen_menus, not in the original): the 2D layout stays
+// 4:3 and centred while nothing covers the sides any more (PartyMod's pillarbox bars hid them), so a sprite reaching
+// the layout's left edge (x <= 0) is drawn from the screen's left edge, one reaching its right edge (x >= 640) to
+// the screen's right edge - the menus' bands and panels. Each edge on its own; heights unchanged; rotated sprites
+// only when they stay upright or on their side (the bottom band is turned by 180 degrees).
+void SSprite::Draw()
+{
+    float u0 = 0.0f, vTop = 1.0f, u1, vBottom;
+    if (texture) {
+        u1 = static_cast<float>(static_cast<double>(texture->actualWidth) / texture->baseWidth);
+        vBottom = static_cast<float>(1.0 - static_cast<double>(texture->actualHeight) / texture->baseHeight);
+    } else {
+        u1 = 1.0f;
+        vBottom = 0.0f;
+    }
+    float scaleX = xscale, scaleY = yscale;
+    if (scaleX == 0.0f || scaleY == 0.0f)
+        return;
+    if (scaleX < 0.0f) {
+        scaleX = -scaleX;
+        u0 = u1;
+        u1 = 0.0f;
+    }
+    if (scaleY < 0.0f) {
+        scaleY = -scaleY;
+        vTop = vBottom;
+        vBottom = 1.0f;
+    }
+    // (the flips go through a 16-bit integer, as in the original: coordinates between 0 and 1 come out 0, 1.0 stays)
+    if (flipV) {
+        float old = vTop;
+        vTop = vBottom;
+        vBottom = static_cast<float>(static_cast<uint16_t>(Truncated(old)));
+    }
+    if (flipU) {
+        float old = u0;
+        u0 = u1;
+        u1 = static_cast<float>(static_cast<uint16_t>(Truncated(old)));
+    }
+
+    // The corners from the hot spot, in layout units (the left one kept at double precision, as the original does).
+    double left = -(static_cast<double>(scaleX) * hotX);
+    float top = static_cast<float>(-(static_cast<double>(scaleY) * hotY));
+    float right = static_cast<float>(static_cast<double>(width) * scaleX + left);
+    float bottom = static_cast<float>(static_cast<double>(height) * scaleY + top);
+
+    uint32_t argb = (color & 0xFF00FF00) | ((color & 0xFF) << 16) | ((color >> 16) & 0xFF);
+    if (!(argb & 0xFF000000))
+        return;
+
+    bool frontEndWidescreen = FrontEndWidescreen();
+    float screenRight = static_cast<float>(BackBufferWidth());
+    Vertex vertices[4]; // top left, bottom left, top right, bottom right
+    if (rotation == 0.0f) {
+        float x0 = static_cast<float>(left + x);
+        float y0 = static_cast<float>(static_cast<double>(top) + y);
+        float x1 = static_cast<float>(static_cast<double>(right) + x);
+        double y1 = static_cast<double>(bottom) + y;
+        float layoutX0 = x0, layoutX1 = x1;
+        // As wide as the layout or wider: the whole back buffer's width (the same for heights).
+        if (x0 <= 0.0f && x1 >= kLayoutWidth) {
+            x0 = 0.0f;
+            x1 = screenRight;
+        } else {
+            x0 = static_cast<float>(static_cast<double>(ScreenScaleX()) * x0 + ScreenOffsetX());
+            x1 = static_cast<float>(static_cast<double>(ScreenScaleX()) * x1 + ScreenOffsetX());
+        }
+        if (y0 <= 0.0f && y1 >= kLayoutHeight) {
+            y0 = 0.0f;
+            y1 = BackBufferHeight();
+        } else {
+            // (an edge exactly at 0 isn't moved by the offset - the original's)
+            if (y0 != 0.0f)
+                y0 = static_cast<float>(static_cast<double>(ScreenScaleY()) * y0 + ScreenOffsetY());
+            if (y1 != 0.0)
+                y1 = y1 * ScreenScaleY() + ScreenOffsetY();
+        }
+        if (frontEndWidescreen) {
+            if (layoutX0 <= 0.0f)
+                x0 = 0.0f;
+            if (layoutX1 >= kLayoutWidth)
+                x1 = screenRight;
+        }
+        vertices[0].x = vertices[1].x = x0;
+        vertices[2].x = vertices[3].x = x1;
+        vertices[0].y = vertices[2].y = y0;
+        vertices[1].y = vertices[3].y = static_cast<float>(y1);
+    } else {
+        Vector4 corners[4] = {{static_cast<float>(left), top, 0.0f, 0.0f},
+                              {static_cast<float>(left), bottom, 0.0f, 0.0f},
+                              {right, top, 0.0f, 0.0f},
+                              {right, bottom, 0.0f, 0.0f}};
+        // (in the original's order: top left, top right, bottom left, bottom right)
+        for (int i : {0, 2, 1, 3})
+            RotateZ(corners[i], rotation);
+        // Still upright or on its side: each side's two corners share an x.
+        auto same = [](float a, float b) { return std::fabs(a - b) <= 0.01f; };
+        bool upright = (same(corners[0].x, corners[1].x) && same(corners[2].x, corners[3].x)) ||
+                       (same(corners[0].x, corners[2].x) && same(corners[1].x, corners[3].x));
+        double offsetX = ScreenOffsetX();
+        float offsetY = static_cast<float>(ScreenOffsetY());
+        for (int i = 0; i < 4; ++i) {
+            // (truncated to whole pixels, unlike the upright ones)
+            double layoutX = static_cast<double>(corners[i].x) + x;
+            vertices[i].x = static_cast<float>(static_cast<int32_t>(Truncated(layoutX * ScreenScaleX() + offsetX)));
+            vertices[i].y = static_cast<float>(static_cast<int32_t>(
+                Truncated((static_cast<double>(corners[i].y) + y) * ScreenScaleY() + offsetY)));
+            if (frontEndWidescreen && upright) {
+                if (layoutX <= 0.0)
+                    vertices[i].x = 0.0f;
+                else if (layoutX >= kLayoutWidth)
+                    vertices[i].x = screenRight;
+            }
+        }
+    }
+    const float u[4] = {u0, u0, u1, u1};
+    const float v[4] = {vTop, vBottom, vTop, vBottom};
+    for (int i = 0; i < 4; ++i) {
+        vertices[i].z = 0.0f;
+        vertices[i].rhw = 1.0f;
+        vertices[i].color = argb;
+        vertices[i].u = u[i];
+        vertices[i].v = v[i];
+    }
+
+    SetVertexFormat(0x144);        // position (pre-transformed), colour, one texture coordinate
+    SetTextureStageState(0, 1, 5); // colour: texture x diffuse, doubled
+    SetTextureStageState(0, 4, 5); // alpha: the same
+    if (!GameVariable<bool>(0x007D1EC0)) { // (rendering not skipped)
+        ++GameVariable<int>(0x00786EBC);    // draw calls
+        GameVariable<int>(0x00786EC0) += 2; // triangles
+        using DrawIndexedPrimitiveUP = long(__stdcall*)(void*, int, unsigned int, unsigned int, unsigned int, const void*,
+                                                        int, const void*, unsigned int);
+        DeviceMethod<DrawIndexedPrimitiveUP>(0x150)(Device(), 4 /* triangle list */, 0, 4, 2, QuadIndices(),
+                                                    0x65 /* 16-bit indices */, vertices, sizeof(Vertex));
+    }
+}
+
+} // namespace Nx
+
+REPLACE(0x004DFCF0, &Nx::SSprite::Draw);
