@@ -1850,8 +1850,11 @@ belong with the CScript batch.
       the event handler table 0x45F820-0x4601A0 + 0x460470 (needed for the event model - docs/script-runtime.md
       section 12), the tracker 0x462120 / 0x462B90 / 0x463370 / 0x463450, FindObject 0x460AD0, CRefCounted
       0x4637B0 / 0x463870, CObject::GetComponent 0x45DB90. GameSpy's host names become configuration when the SDK is
-      linked. Check which files actually reach LoadQB's pre-compiled branch: the shipped .qb.xbx files don't match
-      its layout (batch 71).
+      linked. (Batch 71's question, answered 2026-10-17: LoadQB's pre-compiled branch needs a name ending in the
+      platform extension from 0x005B6040 (0x007CEFA8: 1-3 ps2, 4 xbx, 5 ngc, 6 xen, else ???). Every shipped
+      .qb.xbx - pre-compiled images, magic 0xB075EF6F, laid out for the Xbox build - has a token-format .qb twin
+      next to it, and the exe only builds .qb names ("%08x.qb", "runnow.qb", "scripts\animview\%s.qb"), so the PC
+      game loads the .qb files; the branch is unused unless a script names a .xbx file itself.)
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
       for original callers that read ECX/EDX after the call without writing them first (ignoring push-to-reserve,
       lea reg,[reg], or reg,-1 and zeroing idioms; callers that are themselves replaced count as safe).
