@@ -10,6 +10,7 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/obj/compositemgr.h"
 #include "game/obj/tracker.h"
 #include "game/pcm/music.h"
 #include "game/script/cscript.h"
@@ -358,12 +359,13 @@ void FrontEnd::PauseGame(bool pause)
         else
             reinterpret_cast<void(__thiscall*)(void*)>((*skater)[0x30 / 4])(skater);
     }
-    GameFunction<void(__thiscall*)(void*, bool)>(0x0045F5D0)(GameVariable<void*>(0x006F0FB8), pause);
+    Obj::CompositeObjectManager()->Pause(pause);
     GameFunction<void(__cdecl*)(bool)>(0x0044ED10)(pause);
     GameFunction<void(__thiscall*)(void*, bool)>(0x004AAEE0)(GameVariable<void*>(0x00701440), pause);
     GamePaused() = pause;
     m_paused = pause;
-    // The main loop's logic tasks: while paused only those of the 0xC kinds run.
+    // The main loop's logic tasks: while paused those of the 0xC kinds (a task's +0x14 bits) are skipped
+    // (0x00406AC0 runs a task only when (mask & its kinds) == 0).
     if (pause) {
         *reinterpret_cast<uint32_t*>(MainLoopManager() + 8) = 0xC;
         ReportPauseState();

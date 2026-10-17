@@ -71,6 +71,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_qb.cpp
     src/hook/selftests_gapsA.cpp
     src/hook/selftests_csD.cpp
+    src/hook/selftests_coim.cpp
     src/hook/selftests_obj.cpp
     src/hook/selftests_evt.cpp
     src/hook/selftests_trk.cpp
@@ -113,6 +114,7 @@ add_library(thug2_code OBJECT
     src/game/net/stats.cpp
     src/game/net/service.cpp
     src/game/net/online_hosts.cpp
+    src/game/obj/compositemgr.cpp
     src/game/obj/event.cpp
     src/game/obj/flip_rotate.cpp
     src/game/obj/object.cpp
