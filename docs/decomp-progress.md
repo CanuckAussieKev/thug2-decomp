@@ -3026,6 +3026,29 @@ belong with the CScript batch.
         uses LA's collision now); `--lift`.
       - Cameras that follow the skater (CAS, skater select) - moved twice if their animation is relative; scripts that
         name shop places; the shop's lights / particles / bouncy boards now float in LA.
+      - Tested in the game by the user: works (the wheel and skater in LA) - but spinning the menu turned the wheel back
+        to front (fixed in batch 97).
+- [x] Batch 97: the motion component's Obj_Rotate (0x00425600) rewritten, with the menu_level turn for absolute
+      orientations (NOT run in the game yet). Record:
+      - Cause of the wheel turning back to front: `spin_menu_spin_geometry` uses `Obj_Rotate absolute = (0, 0, 1) *
+        <rot_angle>`; with `absolute` the target orientation is built from the angles alone
+        (Mth::Matrix::SetFromEulerAngles, 0x004048D0), not from the node's - the wheel parts' nodes carry the level's
+        108.7 degree turn, so every spin slerped them back to the shop's heading. (`relative` turns the orientation
+        now about the object's own axes: RotateLocal; 0x00425520 starts the turn: an interpolator from the object's
+        matrix (+0x6C of the object at +0x0C) to the target, `time` from the params.) SetFromEulerAngles's convention
+        differs from the nodes' (Rz(-z) for (0, 0, z)), so no angles in the script could express "the shop's
+        orientation, turned": fixed in code.
+      - src/game/obj/motion.{h,cpp}: Obj::CMotionComponent::RotateTo (0x00425600, thiscall, RET 4; its caller
+        0x00426770 ignores the result): relative first (returns), then absolute; with the flag 0x26AF9DC9 (name
+        unknown) z negated then NegateXRotateX90; DegreesToRadians. Not original: MenuLevel::TurnOrientation on the
+        absolute target (rows * RotateY(yaw) in the front end with menu_level active - as the nodes' angles).
+      - Test (src/hook/selftests_motion.cpp TestMotionRotateTo): original vs ours on hand-made parameter structures
+        (no script pools; an empty symbol table offline), 0x00425520 replaced by a stand-in recording the target:
+        relative, absolute, converted, neither, relative + absolute; settings 0 / 1 / 3. Matrices within 2 ulps: the
+        same SetFromEulerAngles gives results 1 ulp apart for bit-identical angles depending on the call order (CRT
+        sinf / cosf state; the arguments were checked bit-identical with a stand-in for 0x004048D0). Mutations: 7, 6
+        caught (`relative_return` after adding the relative + absolute case); `no_reset` equivalent. Register scan:
+        nothing for 0x00425600; check_code_writes no overlaps. Offline all 174 pass.
 - [ ] Next: small net follow-ups: App::m_manager (+0x1440) could become `Manager*` (it is `void*`), name the
       Manager's +0x2E6 flag (pref checksum 0xE5ADE642) and check +0x374 (modem baud rate?).
       Widescreen follow-up: if the user still sees the bottom-left band overlap, don't draw sprites wholly outside the
