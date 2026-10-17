@@ -21,6 +21,7 @@
 #include "game/core/pool.h"
 #include "game/core/string.h"
 #include "game/front/front_end.h"
+#include "game/obj/tracker.h"
 #include "game/pcm/music.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
@@ -259,7 +260,7 @@ void InstallStandIns(StandIns& s)
         Record({0x61, r.args[0]});
         return Next(g_globals, 0u);
     });
-    s.At({0x00462340}, 0, [](Regs& r) { // ObjectExists
+    s.At({0x00462340, AddressOf(&Obj::CFunc_ObjectExists)}, 0, [](Regs& r) { // ObjectExists
         uint32_t id = g_lastId[StructIndex(r.args[0])];
         Record({0x0E, Id(r.args[0]), Id(r.args[1]), id});
         for (uint32_t existing : g_existing)
@@ -360,7 +361,7 @@ void InstallStandIns(StandIns& s)
     thiscall0(0x00564D60, 0x4D60, nullptr);
     thiscall0(0x00566520, 0x6520, [] { return reinterpret_cast<uint32_t>(g_localSkater); });
     thiscall0(0x004ABD00, 0xBD00, nullptr);
-    thiscall0(0x00462B70, 0x2B70, nullptr);
+    s.At({0x00462B70, AddressOf(&Obj::CTracker::LogFrame)}, 0, [](Regs& r) { Record({0x2B70, Id(r.ecx)}); return 0u; });
     thiscall0(0x004068F0, 0x68F0, nullptr);
     thiscall1(0x00564F60, 0x4F60, nullptr);
     thiscall1(0x005665C0, 0x65C0,
@@ -387,7 +388,7 @@ void InstallStandIns(StandIns& s)
         Record({0xECE0, Id(r.ecx), r.args[0], r.args[1]});
         return Next(g_repeats, 0u);
     });
-    s.At({0x00462F00}, 0x18, [](Regs& r) { // LaunchEvent
+    s.At({0x00462F00, AddressOf(&Obj::CTracker::LaunchEvent)}, 0x18, [](Regs& r) { // LaunchEvent
         Record({0x2F00, Id(r.ecx), r.args[0], r.args[1], r.args[2], Id(r.args[3]), r.args[4], r.args[5]});
         return 0u;
     });

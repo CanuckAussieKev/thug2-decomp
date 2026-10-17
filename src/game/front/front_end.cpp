@@ -10,6 +10,7 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/obj/tracker.h"
 #include "game/pcm/music.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
@@ -73,7 +74,7 @@ inline void ReportPauseState() {}
 // Engine pieces without source yet.
 bool ObjectExists(Script::CStruct* params) // the script command ObjectExists
 {
-    return GameFunction<bool(__cdecl*)(Script::CStruct*, Script::CScript*)>(0x00462340)(params, nullptr);
+    return Obj::CFunc_ObjectExists(params, nullptr);
 }
 void ConstructModule(void* module) { GameFunction<void*(__thiscall*)(void*)>(0x0044F7E0)(module); }
 void ConstructNode(void* node, int priority) { GameFunction<void*(__thiscall*)(void*, int)>(0x00406890)(node, priority); }
@@ -385,7 +386,7 @@ void __cdecl FrontEnd::InputLogic(FrontEndInputHandler* handler)
 {
     FrontEnd* frontEnd = handler->m_data;
     void* tracker = Tracker();
-    GameFunction<void(__thiscall*)(void*)>(0x00462B70)(tracker);
+    static_cast<Obj::CTracker*>(tracker)->LogFrame();
     for (int index = 0;; ++index) {
         uint32_t event = 0;
         if (index == 0) {
@@ -416,8 +417,7 @@ void __cdecl FrontEnd::InputLogic(FrontEndInputHandler* handler)
         params.Init();
         params.AddInteger(kDeviceNum, *reinterpret_cast<int*>(handler->m_device + 0xC));
         params.AddInteger(kController, 0); // (the original loads the mapping, then passes 0)
-        GameFunction<void(__thiscall*)(void*, uint32_t, uint32_t, uint32_t, Script::CStruct*, int, float)>(
-            0x00462F00)(tracker, event, kMenuEvent, kMenuEvent, &params, 0, -1.0f); // LaunchEvent
+        static_cast<Obj::CTracker*>(tracker)->LaunchEvent(event, kMenuEvent, kMenuEvent, &params, false, -1.0f);
         params.Clear();
     }
 }
