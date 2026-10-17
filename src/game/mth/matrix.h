@@ -50,6 +50,18 @@ public:
     // Scale all 16 values (skipped when scale is exactly 1).
     Matrix& operator*=(float scale);
 
+    // The identity.
+    Matrix& Ident();
+    // Each row's x, y, z and w multiplied by scale.x, .y, .z and .w (the columns scaled: as if followed by a
+    // scaling).
+    Matrix& Scale(const Vector& scale);
+    // row 3 (the translation) += `offset` (all four components).
+    Matrix& Translate(const Vector& offset);
+    // this = this * rotation: rotate about the world's X, Y or Z axis.
+    Matrix& RotateX(float angle);
+    Matrix& RotateY(float angle);
+    Matrix& RotateZ(float angle);
+
     // Rotation from angles about X, Y and Z (radians); translation cleared. Note the X and Z angles turn the
     // opposite way to CreateRotateXMatrix / CreateRotateZMatrix.
     Matrix& SetFromEulerAngles(float x, float y, float z);
@@ -81,6 +93,9 @@ Matrix& CreateLookAtMatrix(Matrix& m, const Vector& eye, const Vector& target, c
 Matrix& CreateOrthographicMatrix(Matrix& m, float width, float height, float near_z, float far_z);
 // Perspective projection. `fov` is in radians; x is scaled by aspect * cot(fov / 2) and y by cot(fov / 2).
 Matrix& CreatePerspectiveMatrix(Matrix& m, float fov, float aspect, float near_z, float far_z);
+
+// The row vector `v` (all four components) times `m`.
+Vector operator*(const Vector& v, const Matrix& m);
 
 // Standard row-vector matrix product a * b (the same as D3DXMatrixMultiply). `out` may alias a or b.
 Matrix& Multiply(Matrix& out, const Matrix& a, const Matrix& b);

@@ -79,6 +79,24 @@ void SetScreenAspectRatio(float /*aspect*/)
     ScreenAspect() = Desired3DAspectRatio();
 }
 
+// 0x004A0790
+float GetScreenAspect()
+{
+    return ScreenAspect();
+}
+
+// 0x004A07A0
+void SetScreenAngle(float angle)
+{
+    GameVariable<float>(0x00701348) = angle;
+}
+
+// 0x004A07B0
+float GetScreenAngle()
+{
+    return GameVariable<float>(0x00701348);
+}
+
 // 0x004A07C0. The original returns the constant at 0x0067E544 (1.0). Originally from PartyMod Fixes: the view is widened for
 // screens wider than 4:3 (the aspect / (4/3)) - unless that constant isn't 1 - and the screen's aspect
 // (0x00701340) is updated too.
@@ -148,6 +166,9 @@ bool __cdecl CFunc_SetScreenBlur(Script::CStruct* params, Script::CScript* /*scr
 } // namespace Nx
 
 REPLACE(0x004A0780, Nx::SetScreenAspectRatio);
+REPLACE(0x004A0790, Nx::GetScreenAspect);
+REPLACE(0x004A07A0, Nx::SetScreenAngle);
+REPLACE(0x004A07B0, Nx::GetScreenAngle);
 REPLACE(0x004A07C0, Nx::GetScreenAngleFactor);
 REPLACE(0x004B2330, Nx::SetScreenBlur);
 REPLACE(0x004B2440, Nx::SetLetterbox);
