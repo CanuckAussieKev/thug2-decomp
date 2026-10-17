@@ -22,7 +22,8 @@ class CScript;
 //   - W / A / S / D fly forward / left / back / right along the view, Q / E (or Ctrl / Space) down / up, Shift 4x
 //     faster; no collision. Holding the right mouse button looks around (the cursor hidden meanwhile).
 //   - The object under the cursor (a composite object with a model: level objects, peds, cars - not the skater) is
-//     outlined (its model's bounding box, yellow). A left click selects it (cyan) and dragging moves it on the
+//     tinted warmer (its geometry's own colour, put back after - Scenery::Tint; only a model the engine can't colour
+//     is outlined by its bounding box, yellow). A left click selects it (a cyan pulse) and dragging moves it on the
 //     horizontal plane at its height; with Shift held, up and down only. The mouse wheel turns the selected object
 //     about the up axis (15 degrees a notch) while it's dragged or under the cursor; otherwise it changes the flying
 //     speed. A click on nothing deselects.
@@ -31,10 +32,11 @@ class CScript;
 //   - Scenery (the level's static scene sectors - LevelGeometry such as the fire truck in Los Angeles) is picked
 //     too: the game's collision ray finds the sector under the cursor (sectors without collision by their boxes).
 //     A click selects the sector with the rest of its trick-object cluster (the node's TrickObject Cluster=, e.g.
-//     the fire truck's cab, body and wheels); Alt+click (or a middle click) adds or removes a single sector - the
-//     truck's ladder is in other clusters. Dragging, Page Up / Down
-//     and the wheel (quarter turns for scenery) move the selection: the sectors' vertices and collision are moved
-//     in place as the park editor moves its pieces (level_editor_scenery.cpp).
+//     the fire truck's cab, body and wheels) and the pieces built onto them (the truck's ladder, in other clusters);
+//     hovering tints what a click would take. Alt+click (or a middle click) adds or removes a single sector. Dragging,
+//     the keys and Z / X (quarter turns for scenery) move the selection: the sectors' vertices and collision are
+//     moved in place as the park editor moves its pieces, and its grind rails with them (level_editor_scenery.cpp;
+//     the rails are drawn as lines while selected).
 // Moves are not saved anywhere (nothing persists past the level).
 //
 // thug2-decomp.ini [features] level_editor=1 (default; 0: LevelEditor_Available is false - no menu item - and
@@ -67,7 +69,7 @@ void PlaceCamera(Gfx::Camera* camera);
 // Called by the renderer once a viewport is set up: what the view's projection is (for the mouse ray and the
 // outlines). `viewport`: the device viewport (x, y, width, height in back buffer pixels).
 void NoteView(Gfx::Camera* camera, float angle, float aspect, const uint32_t viewport[4]);
-// After the 2D pass: the outlines of the hovered and selected objects.
+// After the 2D pass: the selected scenery's grind rails, and outlines of what couldn't be tinted.
 void Draw();
 // For the keyboard (Sio): whether the Pause key, `down` now, counts - only once it has been up since the editor
 // started (the Enter that chose the menu item doesn't leave at once).

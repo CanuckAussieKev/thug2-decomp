@@ -599,7 +599,12 @@ std::vector<uint32_t> GroupOf(uint32_t checksum)
             have = true;
         }
     }
-    for (int round = 0; round < 3; ++round) {
+    // (only a free-standing thing grows: not a floor, a wall or a whole building - what stands on or against those isn't
+    // part of them)
+    V3 groupSize = groupMax - groupMin;
+    bool grows = std::min({groupSize.x, groupSize.y, groupSize.z}) >= 20.0f &&
+                 std::max({groupSize.x, groupSize.y, groupSize.z}) <= 1500.0f;
+    for (int round = 0; grows && round < 3; ++round) {
         std::vector<uint32_t> joined;
         for (Piece& piece : pieces) {
             if (piece.in || !PieceFits(piece.min, piece.max, groupMin, groupMax))
@@ -788,11 +793,35 @@ const std::vector<uint32_t>& HoverGroup(uint32_t checksum)
     return g_hoverGroup;
 }
 
+// [features] debug_editor: how the first selected sector's meshes are drawn (whether the material lets a colour
+// through).
+void LogMeshes()
+{
+    if (!DebugEnabled() || g_selection.empty())
+        return;
+    uint8_t* geom = SectorGeometry(g_selection[0]);
+    auto** meshes = geom ? *reinterpret_cast<uint8_t***>(geom + 0x3C) : nullptr;
+    uint32_t count = geom ? *reinterpret_cast<uint32_t*>(geom + 0x40) : 0;
+    for (uint32_t i = 0; meshes && i < count && i < 4; ++i) {
+        uint8_t* mesh = meshes[i];
+        uint8_t* material = *reinterpret_cast<uint8_t**>(mesh + 0x14);
+        const uint32_t* m = reinterpret_cast<const uint32_t*>(material);
+        const float* colour = reinterpret_cast<const float*>(mesh + 0x80);
+        Log("level editor:   mesh %u: flags %08X, colour (%.2f, %.2f, %.2f), fvf %08X, material %p: passes %u, "
+            "pass flags %08X %08X, colour 0 %08X %08X %08X; renderer 786AB8 %d",
+            i, *reinterpret_cast<uint32_t*>(mesh), colour[0], colour[1], colour[2],
+            *reinterpret_cast<uint32_t*>(mesh + 0x38), static_cast<void*>(material), material ? m[2] & 0xFFFFFFF : 0,
+            material ? m[8] : 0, material ? m[9] : 0, material ? m[0x10] : 0, material ? m[0x11] : 0,
+            material ? m[0x12] : 0, GameVariable<uint8_t>(0x00786AB8));
+    }
+}
+
 void SelectGroup(uint32_t checksum)
 {
     g_selection = GroupOf(checksum);
     ComputePivot();
     SelectRails();
+    LogMeshes();
     if (DebugEnabled()) {
         Log("level editor: selected scenery %s, %u sector%s (cluster %08X), %u rail node%s, pivot (%.1f, %.1f, %.1f)",
             Label(checksum).c_str(), static_cast<unsigned>(g_selection.size()), g_selection.size() == 1 ? "" : "s",
@@ -845,6 +874,7 @@ void Turn(int quarters)
             ApplyTrack(track);
         }
     }
+    LogMeshes();
     for (uint32_t name : g_rails) {
         if (RailTrack* track = RailTrackOf(name))
             TurnAbout(&track->placement, g_pivot, quarters);

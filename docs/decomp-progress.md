@@ -3369,6 +3369,34 @@ belong with the CScript batch.
         removes single sectors.
       - Alt+click: Windows may treat a lone Alt press as a menu key (SDL normally swallows it); the middle click does the
         same thing.
+- [x] Batch 102: level editor - highlight by tint, scenery groups grow by attached pieces, grind rails move with
+      scenery - **tested in the game** (launched by Claude; LA's fire truck), except grinding the moved rails.
+      - Tint instead of boxes: CGeom::SetColor (vfunc +0x18, 0x004B48B0 - what SetObjectColor 0x005A3E80 uses for
+        graffiti): level geometry -> each mesh's colour (+0x80..+0x88 floats = byte / 255, flag 4 at +0); instances ->
+        +0x4D RGBA and flag 4. 0x80 per channel is neutral (SetColor clears instead). The renderer honours it: scenes
+        draw through 0x004DC700 (material changes 0x004D1F00, each mesh 0x004D5290); in the pixel-shader mode
+        (0x00786AB8 = 1, as on this PC) a mesh with flag 4 goes through 0x004D3D10, which multiplies the material's pass
+        colours by 2 x the mesh colour (passes whose flag byte has bit 7 are left alone); the fixed-function path
+        passes the colour to 0x004D24D0 (TEXTUREFACTOR, MODULATE2X). Objects' instances: 0x004D1335 copies +0x4D to
+        0x00786F20 with 0x00786F1C set. The editor saves the raw mesh / instance state the first time and writes it
+        back when no longer highlighted (Scenery::Tint / EndTints) - checked in the game: the truck pulses cyan while
+        selected, back to its colours on Backspace. Hover: warmer, over the whole group a click would take. Boxes
+        only for geometry that isn't the PC class; objects' models through the model component's model (+0x208) and
+        0x00494640 (geometry by index - as 0x00420700 colours level objects). Peds' tint not checked.
+      - Group growth (PieceFits / PieceTouches, self-tested and proved with tools/mutate.py, 9 mutations): pieces no
+        bigger than the group, touching one of its boxes above that box's bottom, three rounds, each with its cluster;
+        only for a free-standing group (every side >= 20, none > 1500: a floor or a building doesn't grow - the first
+        game run grabbed every wall standing on a flat ground piece). The truck: 9 cluster sectors + 8 (ladder, turntable,
+        small parts) - and the yellow kicker ramp touching it, which then turns with the truck (adjust if it grabs too
+        much).
+      - Grind rails: Mdl::Skate (0x007CE478) +0x24 = the level's rail manager (CFunc_ParseNodeArray 0x005A34E0 ->
+        0x0057E960 fills it from RailNodes and ClimbingNodes): +0x40 nodes (0x54 bytes each: +0x00 / +0x10 segment box,
+        +0x20 position, +0x40 next, +0x44 prev, +0x48 flags - 4 active, 0x10 climbing, +0x4C node name, +0x50 terrain),
+        +0x48 count, +0x50 rails riding an object (positions in its space, 0x0057CB60). Boxes from the node and its next
+        (0x0057C260); skaters test every node's box (0x0057E2D0) - no grid, so moving a rail is its position and the
+        boxes of its segment and of those ending at it. The selection takes rail nodes of its sectors' clusters (the
+        truck: TRG_FireTruck01..25 in Fire_Tender - 25 found) and ones lying within a selected box; they move and turn
+        with the sectors (same placements) and are drawn as cyan lines. Not checked: grinding them where they now are.
 - [ ] Next: small net follow-ups: App::m_manager (+0x1440) could become `Manager*` (it is `void*`), name the
       Manager's +0x2E6 flag (pref checksum 0xE5ADE642) and check +0x374 (modem baud rate?).
       Widescreen follow-up: if the user still sees the bottom-left band overlap, don't draw sprites wholly outside the
