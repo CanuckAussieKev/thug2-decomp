@@ -3044,11 +3044,38 @@ belong with the CScript batch.
         absolute target (rows * RotateY(yaw) in the front end with menu_level active - as the nodes' angles).
       - Test (src/hook/selftests_motion.cpp TestMotionRotateTo): original vs ours on hand-made parameter structures
         (no script pools; an empty symbol table offline), 0x00425520 replaced by a stand-in recording the target:
-        relative, absolute, converted, neither, relative + absolute; settings 0 / 1 / 3. Matrices within 2 ulps: the
+        relative, absolute, converted, neither, relative + absolute; settings 0 / 1 / 2 (not 3: active in the game).
+        Matrices within 2 ulps: the
         same SetFromEulerAngles gives results 1 ulp apart for bit-identical angles depending on the call order (CRT
         sinf / cosf state; the arguments were checked bit-identical with a stand-in for 0x004048D0). Mutations: 7, 6
         caught (`relative_return` after adding the relative + absolute case); `no_reset` equivalent. Register scan:
         nothing for 0x00425600; check_code_writes no overlaps. Offline all 174 pass.
+- [x] Batch 98: menu_level made to work in the game - **tested in the game** (Claude launched it at the user's request,
+      driving the menus with posted key messages; screenshots checked). Record:
+      - The user's first runs were mode 1 (no menu_backdrop line: default 1) - batch 97's fix wasn't reached. With 3:
+        - A "debug error" dialog: the self-tests ran with the ini's menu_backdrop=3 active; TestRenderWorld crashed in
+          menu_level's hooks and left its stand-ins patched (a crashed test's destructors don't run) - among them a
+          no-argument stand-in at 0x004A10A0, which the font loader then hit ("ESP not saved"). The runner now runs
+          tests with menu_backdrop 0; gfx2's patches register themselves and a Cleanup undoes them.
+        - Crashes in Script::CStruct::GetChecksum (null node): found with a new crash logger (src/hook/log.cpp: a
+          vectored handler logging exceptions in the game or the DLL - registers, the top of the stack, return
+          addresses that follow a CALL). LA's collision triggers nodes by **name** (0x00434A60 -> 0x0045CFC0, a hash
+          of the nodes by Name; the TriggerScript read doesn't check for null): the generated node array starts with
+          a stand-in per LA node (Pos, Angles, Name; no class / script; Box01 and ParticleBox_10, which the shop also
+          has, unnamed). It still crashed: the node array is read through the **async file system** (0x00408D10 ->
+          AsyncOpen), which took mainmenu_scripts.prx's copy - the overlay is now checked there too (AsyncFileHandle::
+          Open skips the archive, PlatOpen opens the overlay's path). The overlay logs each file it serves.
+      - Cameras: mainmenu_camera02 is placed from the skater with offsets that turn with it - already right in LA;
+        PlaceCamera wrongly turned its matrix (the view faced away from the fire truck). Now only cameras still in the
+        shop's coordinates are moved (mainmenu_camera03, SS_MenuCam, level_select_cam...). Create-A-Skater /
+        Single Session (cas_setup_rotating_camera: offsets turned about the world's up axis by cas_cam_angle):
+        the generated mainmenu_cas.qb uses cas_cam_angle - yaw. The shop's camera pose for the move is the steady one
+        (59.833, -12.740, 181.704) = skater + targetOffset + positionOffset (the earlier (180, 40, 300) was wrong).
+      - The shop's bouncy skateboards and particle effects aren't created (CreatedAtStart off; they hung in LA's air).
+      - Checked in the game: main menu (wheel, skater, view 1's fire truck), a spin (the wheel turns in its plane),
+        Game Options, Multiplayer, Story Mode Options, Create-A-Skater, Single Session (same framing as the shop's),
+        level select, loading Training and quitting back to the LA main menu. No exceptions or debug reports.
+      - Not checked: Create-A-Graphic, face mapping, the network lobby, 2 Player, view 2.
 - [ ] Next: small net follow-ups: App::m_manager (+0x1440) could become `Manager*` (it is `void*`), name the
       Manager's +0x2E6 flag (pref checksum 0xE5ADE642) and check +0x374 (modem baud rate?).
       Widescreen follow-up: if the user still sees the bottom-left band overlap, don't draw sprites wholly outside the
