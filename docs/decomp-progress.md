@@ -2002,8 +2002,9 @@ belong with the CScript batch.
       (OBJECT_FLAG_HAS_POSITION 0x20 and OBJECT_FLAG_SPAWN_HANDLERS 0x10000 added; the tracker test doesn't cover a
       negative alias count); cscript.h's CMemberFunctionEntry is 0x18 bytes {mName, mComponentType, mCode,
       mThisAdjustment, mVirtualBaseOffsets[2]}.
-- [ ] Next: batches 79-81 are NOT run in the game yet (if one breaks, disable by file: compositemgr.cpp,
-      composite.cpp, node_manager.cpp, cutscene.cpp, front_end.cpp, head.cpp). Then the gaps they left: **0x45E9E0**
+- [x] Batches 79-81 tested in the game (2026-10-17, by the user): game runs; 1136 of 1136 replacements installed
+      (35 source only), early 125 / late 17 / engine-started 2 self-tests pass, shadow checks no mismatches.
+- [ ] Next: the gaps batches 79-81 left: **0x45E9E0**
       (Obj_GetCollision, the last of table 0x683268's 30 entries) with the collision feeler 0x417760 / 0x4172F0; the
       rest of the cutscene system up to 0x4680B0 (0x463AA0 quaternion + translation to matrix, 0x463BA0,
       0x463C70-0x464360, the pool pair 0x4645A0 / 0x4645E0, 0x464640-0x4680B0: loading 0x466620, the details' slots
