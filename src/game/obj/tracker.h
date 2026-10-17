@@ -146,7 +146,9 @@ public:
     // 0x00462A90: `alias` names `object` (replacing what it named).
     void AddAlias(uint32_t alias, CObject* object);
 
-    // 0x00462000: the event listener stops seeing events.
+    // 0x00461FE0 (objman.cpp): `listener` goes on the front of the list, registered. 0x00462000: the event
+    // listener stops seeing events.
+    void RegisterEventListener(CEventListener* listener);
     void RemoveEventListener(CEventListener* listener);
     // 0x00463370 / 0x00463450: `script` listens / stops listening for events of type `type`.
     void AddListener(uint32_t type, Script::CScript* script);

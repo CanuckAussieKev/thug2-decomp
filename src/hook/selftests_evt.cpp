@@ -172,7 +172,7 @@ void InstallStandIns(StandIns& s)
         Rec(0x7A02, {r.ecx, r.args[0], r.args[1]});
         return 0u;
     });
-    s.At({0x00461FE0}, 4, [](Regs& r) {
+    s.At({0x00461FE0, AddressOf(&Obj::CTracker::RegisterEventListener)}, 4, [](Regs& r) {
         Rec(0x7A03, {r.ecx, r.args[0]});
         return 0u;
     });

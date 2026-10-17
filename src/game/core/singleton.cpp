@@ -8,6 +8,8 @@
 #include "game/file/async.h"
 #include "game/file/pre.h"
 #include "game/mc/memcard.h"
+#include "game/obj/objman.h"
+#include "game/obj/tracker.h"
 #include "game/script/cache.h"
 #include "game/sio/device.h"
 #include "game/sys/mlp.h"
@@ -74,7 +76,12 @@ struct MlpManager {
 // Named by their Create functions where there's no better name yet (Sys::Main makes them all).
 using MdlManager = GameSingleton<0x0044F6F0, 0x0044F740, 0x0064AFB8>;   // the module manager
 using SoundManager = GameSingleton<0x0047BA60, 0x0047C6C0, 0x006472B4>; // the sound effects manager
-using Singleton463730 = GameSingleton<0x00463730, 0x00461FA0, 0x0064AFB4>;
+struct ObjectTracker {
+    using Type = Obj::CTracker;
+    static constexpr uint32_t kVtable = 0x0064AFB4;
+    static Type* Create(bool create) { return Obj::CreateTracker(create); }
+    static void Release() { Obj::ReleaseTracker(); }
+};
 using Singleton44E7F0 = GameSingleton<0x0044E7F0, 0x0044E6B0, 0x0064AFC0>;
 using Singleton4088E0 = GameSingleton<0x004088E0, 0x00407980, 0x0064AFCC>;
 using Singleton455880 = GameSingleton<0x00455880, 0x004558D0, 0x0064AFD0>;
@@ -104,8 +111,8 @@ REPLACE(0x004B2230, &Spt::SingletonPtr<Spt::MlpManager>::DestroyBody);
 REPLACE(0x004B2240, &Spt::SingletonPtr<Spt::MlpManager>::Destroy);
 REPLACE(0x004E1980, &Spt::SingletonPtr<Spt::PreManager>::DestroyBody);
 REPLACE(0x004E1B00, &Spt::SingletonPtr<Spt::PreManager>::Destroy);
-REPLACE(0x004E1990, &Spt::SingletonPtr<Spt::Singleton463730>::DestroyBody);
-REPLACE(0x004E1B30, &Spt::SingletonPtr<Spt::Singleton463730>::Destroy);
+REPLACE(0x004E1990, &Spt::SingletonPtr<Spt::ObjectTracker>::DestroyBody);
+REPLACE(0x004E1B30, &Spt::SingletonPtr<Spt::ObjectTracker>::Destroy);
 REPLACE(0x004E19A0, &Spt::SingletonPtr<Spt::MdlManager>::DestroyBody);
 REPLACE(0x004E1B60, &Spt::SingletonPtr<Spt::MdlManager>::Destroy);
 REPLACE(0x004E19B0, &Spt::SingletonPtr<Spt::McManager>::DestroyBody);

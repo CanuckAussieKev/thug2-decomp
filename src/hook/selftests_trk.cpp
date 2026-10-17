@@ -18,6 +18,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/pool.h"
+#include "game/obj/objman.h"
 #include "game/obj/smtptr.h"
 #include "game/obj/tracker.h"
 #include "game/script/cscript.h"
@@ -222,7 +223,7 @@ void InstallStandIns(StandIns& s)
         return 0u;
     });
     // The objects and event listeners.
-    s.At({0x004619F0}, 4, [](Regs& r) {
+    s.At({0x004619F0, AddressOf(&Obj::CBaseManager::GetObjectByID)}, 4, [](Regs& r) {
         Rec(0x19F0, {r.ecx, r.args[0]});
         for (int i = 0; i < kObjects; ++i) {
             if (ObjectIdOf(i) == r.args[0])

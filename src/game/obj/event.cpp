@@ -34,10 +34,9 @@ uint32_t ObjectFlags(const CObject* object) { return reinterpret_cast<const uint
 // event log.
 void TrackerAddListener(uint32_t type, CScript* script) { Tracker()->AddListener(type, script); }
 void TrackerRemoveListener(uint32_t type, CScript* script) { Tracker()->RemoveListener(type, script); }
-// 0x00461FE0: onto the front of the listener list (and m_registered). -> wt/obj
 void TrackerRegisterListener(CEventListener* listener)
 {
-    GameFunction<void(__thiscall*)(CTracker*, CEventListener*)>(0x00461FE0)(Tracker(), listener);
+    Tracker()->RegisterEventListener(listener);
 }
 void TrackerUnregisterListener(CEventListener* listener) { Tracker()->RemoveEventListener(listener); }
 void TrackerLogEventHandled(CEvent* event, uint32_t how, uint32_t script) { Tracker()->LogHandled(event, how, script); }

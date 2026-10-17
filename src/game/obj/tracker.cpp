@@ -12,6 +12,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/pool.h"
+#include "game/obj/objman.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
@@ -63,11 +64,8 @@ void PassEvent(CObject* object, CEvent* event)
     void** vtable = *reinterpret_cast<void***>(object);
     reinterpret_cast<void(__thiscall*)(CObject*, CEvent*)>(vtable[5])(object, event);
 }
-// 0x004619F0: the object with this id (the object manager 0x006F0FB8). -> wt/obj
-CObject* FindObjectById(uint32_t id)
-{
-    return GameFunction<CObject*(__thiscall*)(void*, uint32_t)>(0x004619F0)(GameVariable<void*>(0x006F0FB8), id);
-}
+// The object with this id (the object manager 0x006F0FB8's GetObjectByID).
+CObject* FindObjectById(uint32_t id) { return GameVariable<CBaseManager*>(0x006F0FB8)->GetObjectByID(id); }
 // 0x004AC120: the object id named by `name` in `params` (the screen element manager 0x00701440; also takes names
 // of screen elements and aliases). False if there is none.
 bool GetObjectId(Script::CStruct* params, uint32_t name, uint32_t* id)
