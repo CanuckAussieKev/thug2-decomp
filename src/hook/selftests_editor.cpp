@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 
 #include "game/front/level_editor.h"
 #include "game/mth/matrix.h"
@@ -344,5 +345,51 @@ void TestEditorScenery()
     Check(Near(a, {-1, 2, 3}) && Near(b, {4, 9, 6}), "editor: boxes grown");
 }
 SELFTEST(Early, TestEditorScenery);
+
+// --- the pieces a selection grows by, rail boxes, the highlight's pulse -----------------------------------------
+
+void TestEditorPieces()
+{
+    // A truck (600 long, 200 high, 250 wide) standing on the street at y 0.
+    V3 truckMin = {0, 0, 0}, truckMax = {600, 200, 250};
+    // Its ladder: as long, sticking out above it - fits, touches.
+    V3 ladderMin = {100, 150, 80}, ladderMax = {700, 500, 170};
+    Check(LE::PieceFits(ladderMin, ladderMax, truckMin, truckMax) &&
+              LE::PieceTouches(ladderMin, ladderMax, truckMin, truckMax, 2),
+          "editor: the ladder joins the truck");
+    // The street under it, a building beside it: too big.
+    Check(!LE::PieceFits({-2000, -10, -500}, {2000, 0, 800}, truckMin, truckMax), "editor: the street doesn't fit");
+    Check(!LE::PieceFits({-100, 0, 252}, {800, 1500, 900}, truckMin, truckMax), "editor: the building doesn't fit");
+    // A manhole cover under it: small, but only touches its bottom.
+    Check(!LE::PieceTouches({200, -5, 100}, {260, 3, 160}, truckMin, truckMax, 2),
+          "editor: what's under it doesn't touch it");
+    // A cone 30 away: doesn't touch; one 1 away does (within the margin).
+    Check(!LE::PieceTouches({630, 0, 0}, {660, 40, 30}, truckMin, truckMax, 2), "editor: a cone apart doesn't touch");
+    Check(LE::PieceTouches({601, 0, 0}, {631, 40, 30}, truckMin, truckMax, 2), "editor: a cone at its side touches");
+    Check(!LE::PieceTouches({0, 0, 260}, {30, 40, 290}, truckMin, truckMax, 2) &&
+              !LE::PieceTouches({0, 210, 0}, {30, 240, 30}, truckMin, truckMax, 2),
+          "editor: beside or above with a gap doesn't touch");
+    // Wider across than 1.25 the truck's length: a long wall doesn't fit, though flat (no volume).
+    Check(!LE::PieceFits({0, 0, 0}, {800, 0, 10}, truckMin, truckMax) &&
+              LE::PieceFits({0, 0, 0}, {740, 0, 10}, truckMin, truckMax),
+          "editor: wider than the group doesn't fit");
+    Check(!LE::PieceFits({0, 0, 0}, {10, 0, 800}, truckMin, truckMax), "editor: wider along z doesn't fit");
+    // Within its length but bulkier (1.75 its volume): doesn't fit.
+    Check(!LE::PieceFits({0, 0, 0}, {700, 300, 250}, truckMin, truckMax), "editor: bulkier than the group doesn't fit");
+
+    V3 min, max;
+    LE::SegmentBox({5, -2, 9}, {-1, 4, 9}, &min, &max);
+    Check(Near(min, {-1, -2, 9}) && Near(max, {5, 4, 9}), "editor: a rail segment's box");
+
+    Check(LE::Pulse(0x80D0A060, 0x80FFD850, 0.0) == 0x80D0A060 && LE::Pulse(0x80D0A060, 0x80FFD850, 0.625) == 0x80FFD850 &&
+              LE::Pulse(0x80D0A060, 0x80FFD850, 1.25) == 0x80D0A060,
+          "editor: the pulse goes low, high, low");
+    uint32_t middle = LE::Pulse(0x00000000, 0xFF80FF00, 0.3125);
+    auto about = [](uint32_t value, int wanted) { return std::abs(static_cast<int>(value) - wanted) <= 1; };
+    Check((middle & 0xFF) == 0 && about((middle >> 8) & 0xFF, 0x80) && about((middle >> 16) & 0xFF, 0x40) &&
+              about(middle >> 24, 0x80),
+          "editor: the pulse halfway");
+}
+SELFTEST(Early, TestEditorPieces);
 
 } // namespace

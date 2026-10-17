@@ -3,10 +3,12 @@
 #include "game/front/level_editor_scenery.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <map>
+#include <unordered_map>
 
 #include "game/core/manager.h"
 #include "game/mth/vector.h"
@@ -83,6 +85,39 @@ void BoundsOf(const OrientedBox& box, V3* min, V3* max)
     BoxCorners(box.origin, box.axes, box.min, box.max, corners);
     for (int i = 0; i < 8; ++i)
         GrowBox(min, max, i != 0, corners[i], corners[i]);
+}
+
+bool PieceFits(V3 min, V3 max, V3 groupMin, V3 groupMax)
+{
+    V3 size = max - min, group = groupMax - groupMin;
+    double volume = static_cast<double>(size.x) * size.y * size.z;
+    double groupVolume = static_cast<double>(group.x) * group.y * group.z;
+    float across = std::max(group.x, group.z) * 1.25f;
+    return volume <= groupVolume && size.x <= across && size.z <= across;
+}
+
+bool PieceTouches(V3 min, V3 max, V3 boxMin, V3 boxMax, float margin)
+{
+    return min.x <= boxMax.x + margin && max.x >= boxMin.x - margin && min.z <= boxMax.z + margin &&
+           max.z >= boxMin.z - margin && min.y <= boxMax.y + margin && max.y > boxMin.y + 5.0f;
+}
+
+void SegmentBox(V3 a, V3 b, V3* min, V3* max)
+{
+    *min = {std::min(a.x, b.x), std::min(a.y, b.y), std::min(a.z, b.z)};
+    *max = {std::max(a.x, b.x), std::max(a.y, b.y), std::max(a.z, b.z)};
+}
+
+uint32_t Pulse(uint32_t low, uint32_t high, double seconds)
+{
+    double phase = std::fmod(seconds, 1.25) / 1.25;
+    double mix = 0.5 - 0.5 * std::cos(phase * 2.0 * 3.14159265358979);
+    uint32_t colour = 0;
+    for (int shift = 0; shift < 32; shift += 8) {
+        double a = (low >> shift) & 0xFF, b = (high >> shift) & 0xFF;
+        colour |= static_cast<uint32_t>(a + (b - a) * mix + 0.5) << shift;
+    }
+    return colour;
 }
 
 // --- the game side ----------------------------------------------------------------------------------------------
@@ -340,13 +375,124 @@ std::string Label(uint32_t checksum)
     return text;
 }
 
+// A node's TrickObject Cluster= (0: none), by its name (0x0045C1B0) - kept, as looked up (the level doesn't change
+// while the editor is on; Reset forgets them).
+std::unordered_map<uint32_t, uint32_t> g_clusters;
 uint32_t ClusterOf(uint32_t checksum)
 {
+    auto it = g_clusters.find(checksum);
+    if (it != g_clusters.end())
+        return it->second;
     auto* node = GameFunction<Script::CStruct*(__cdecl*)(uint32_t, int)>(0x0045C1B0)(checksum, 0);
     uint32_t cluster = 0;
     if (node)
         node->GetChecksum(kCluster, &cluster, 0);
+    g_clusters.emplace(checksum, cluster);
     return cluster;
+}
+
+// --- grind rails ---
+//
+// The level's rails: the rail manager of Mdl::Skate (0x007CE478, +0x24) - filled from the node array's RailNodes and
+// ClimbingNodes by 0x0057E960 (from CFunc_ParseNodeArray 0x005A34E0): +0x40 its nodes, +0x48 their count, +0x50 set
+// when its rails ride an object (positions in the object's space, 0x0057CB60 - never the level's).
+// A node (0x54 bytes, 0x0057D090): +0x00 / +0x10 the box of its segment (to the next node; its own point when it has
+// none - 0x0057C260), +0x20 its position, +0x30 (climbing nodes), +0x40 the next node, +0x44 the previous, +0x48 flags
+// (4 active, 0x10 a climbing node), +0x4C its node's name, +0x50 its terrain. Skaters find rails by testing every
+// node's box (0x0057E2D0): moving one is its position and the boxes of its segment and the one before.
+struct RailNode {
+    float min[4], max[4], pos[4], climb[4];
+    RailNode* next;
+    RailNode* prev;
+    uint32_t flags;
+    uint32_t name;
+    uint8_t terrain[4];
+};
+static_assert(sizeof(RailNode) == 0x54, "a rail node is 0x54 bytes");
+
+bool RailNodes(RailNode** nodes, int* count)
+{
+    uint8_t* skate = GameVariable<uint8_t*>(0x007CE478);
+    uint8_t* manager = skate ? *reinterpret_cast<uint8_t**>(skate + 0x24) : nullptr;
+    if (!manager || manager[0x50])
+        return false;
+    *nodes = *reinterpret_cast<RailNode**>(manager + 0x40);
+    *count = *reinterpret_cast<int*>(manager + 0x48);
+    return *nodes && *count > 0 && *count < 100000;
+}
+
+V3 RailPos(const RailNode* node) { return {node->pos[0], node->pos[1], node->pos[2]}; }
+
+// What we've done to a rail node: where it was when first touched, the placement since, where we put it.
+struct RailTrack {
+    RailNode* node;
+    V3 pos0;
+    Placement placement;
+    V3 pos;
+};
+std::map<uint32_t, RailTrack> g_railTracks;
+std::vector<uint32_t> g_rails; // (the selection's rail nodes, by name)
+
+RailNode* FindRail(uint32_t name)
+{
+    RailNode* nodes;
+    int count;
+    if (!RailNodes(&nodes, &count))
+        return nullptr;
+    for (int i = 0; i < count; ++i) {
+        if (nodes[i].name == name && !(nodes[i].flags & 0x10))
+            return &nodes[i];
+    }
+    return nullptr;
+}
+
+RailTrack* RailTrackOf(uint32_t name)
+{
+    RailNode* node = FindRail(name);
+    if (!node)
+        return nullptr;
+    auto it = g_railTracks.find(name);
+    if (it != g_railTracks.end()) {
+        if (it->second.node == node && SameV3(it->second.pos, RailPos(node)))
+            return &it->second;
+        g_railTracks.erase(it);
+    }
+    RailTrack track = {node, RailPos(node), {0, {0.0f, 0.0f, 0.0f}}, RailPos(node)};
+    return &g_railTracks.emplace(name, track).first->second;
+}
+
+// The rail nodes placed where their tracks say, then the boxes of their segments and of those ending at them.
+void ApplyRails()
+{
+    RailNode* nodes;
+    int count;
+    if (!RailNodes(&nodes, &count))
+        return;
+    std::vector<RailNode*> moved;
+    for (uint32_t name : g_rails) {
+        auto it = g_railTracks.find(name);
+        if (it == g_railTracks.end())
+            continue;
+        RailTrack& track = it->second;
+        V3 pos = Apply(track.placement, track.pos0);
+        track.node->pos[0] = pos.x;
+        track.node->pos[1] = pos.y;
+        track.node->pos[2] = pos.z;
+        track.pos = pos;
+        moved.push_back(track.node);
+    }
+    auto isMoved = [&](const RailNode* node) {
+        return node && std::find(moved.begin(), moved.end(), node) != moved.end();
+    };
+    for (int i = 0; i < count; ++i) {
+        RailNode* node = &nodes[i];
+        if (!isMoved(node) && !isMoved(node->next))
+            continue;
+        V3 min, max;
+        SegmentBox(RailPos(node), node->next ? RailPos(node->next) : RailPos(node), &min, &max);
+        node->min[0] = min.x, node->min[1] = min.y, node->min[2] = min.z, node->min[3] = 1.0f;
+        node->max[0] = max.x, node->max[1] = max.y, node->max[2] = max.z, node->max[3] = 1.0f;
+    }
 }
 
 void ComputePivot()
@@ -364,6 +510,128 @@ void ComputePivot()
     }
     g_pivot = have ? (min + max) * 0.5f : V3{0.0f, 0.0f, 0.0f};
 }
+
+// The selection's rails: rail nodes of the selected sectors' clusters (the fire truck's TRG_FireTruck01..25 are in
+// Fire_Tender), and ones lying within a selected sector's box (both ends, within 10 units).
+void SelectRails()
+{
+    g_rails.clear();
+    RailNode* nodes;
+    int count;
+    if (g_selection.empty() || !RailNodes(&nodes, &count))
+        return;
+    std::vector<uint32_t> clusters;
+    std::vector<std::pair<V3, V3>> boxes;
+    for (uint32_t checksum : g_selection) {
+        clusters.push_back(checksum);
+        if (uint32_t cluster = ClusterOf(checksum))
+            clusters.push_back(cluster);
+        OrientedBox box;
+        V3 min, max;
+        if (Box(checksum, &box)) {
+            BoundsOf(box, &min, &max);
+            boxes.push_back({min - V3{10.0f, 10.0f, 10.0f}, max + V3{10.0f, 10.0f, 10.0f}});
+        }
+    }
+    auto within = [&](V3 p) {
+        for (const auto& box : boxes) {
+            if (p.x >= box.first.x && p.x <= box.second.x && p.y >= box.first.y && p.y <= box.second.y &&
+                p.z >= box.first.z && p.z <= box.second.z)
+                return true;
+        }
+        return false;
+    };
+    auto listed = [&](uint32_t c) { return c && std::find(clusters.begin(), clusters.end(), c) != clusters.end(); };
+    for (int i = 0; i < count; ++i) {
+        const RailNode& node = nodes[i];
+        if (node.flags & 0x10)
+            continue;
+        bool in = listed(node.name) || listed(ClusterOf(node.name)) ||
+                  (within(RailPos(&node)) && (!node.next || within(RailPos(node.next))));
+        if (in && std::find(g_rails.begin(), g_rails.end(), node.name) == g_rails.end())
+            g_rails.push_back(node.name);
+    }
+}
+
+// The group a click on a sector selects: the sector, the rest of its cluster, and the movable pieces built onto them
+// (PieceFits / PieceTouches, three rounds - each with its cluster).
+std::vector<uint32_t> GroupOf(uint32_t checksum)
+{
+    std::vector<uint32_t> group;
+    uint8_t* scene = nullptr;
+    if (WhyNotMovable(checksum) || !FindSector(checksum, &scene))
+        return group;
+    struct Piece {
+        uint32_t checksum;
+        V3 min, max;
+        bool in;
+    };
+    std::vector<Piece> pieces; // (the scene's sectors small enough to move)
+    ForEachSector(scene, [&](uint32_t other, uint8_t* sector) {
+        uint8_t* geom = GeomOf(sector);
+        OrientedBox box;
+        if (!PlainGeom(geom) || !CurrentBox(other, geom, &box) ||
+            !SectorSizeMovable(box.min, box.max, kMaxSectorExtent))
+            return;
+        Piece piece = {other, {}, {}, false};
+        BoundsOf(box, &piece.min, &piece.max);
+        pieces.push_back(piece);
+    });
+    auto take = [&](Piece& piece) {
+        if (piece.in || WhyNotMovable(piece.checksum))
+            return false;
+        piece.in = true;
+        group.push_back(piece.checksum);
+        return true;
+    };
+    uint32_t cluster = ClusterOf(checksum);
+    for (Piece& piece : pieces) {
+        if (piece.checksum == checksum || (cluster && ClusterOf(piece.checksum) == cluster))
+            take(piece);
+    }
+    if (group.empty())
+        return group;
+    V3 groupMin = {}, groupMax = {};
+    bool have = false;
+    for (const Piece& piece : pieces) {
+        if (piece.in) {
+            GrowBox(&groupMin, &groupMax, have, piece.min, piece.max);
+            have = true;
+        }
+    }
+    for (int round = 0; round < 3; ++round) {
+        std::vector<uint32_t> joined;
+        for (Piece& piece : pieces) {
+            if (piece.in || !PieceFits(piece.min, piece.max, groupMin, groupMax))
+                continue;
+            for (const Piece& member : pieces) {
+                if (member.in && PieceTouches(piece.min, piece.max, member.min, member.max, 2.0f)) {
+                    joined.push_back(piece.checksum);
+                    break;
+                }
+            }
+        }
+        if (joined.empty())
+            break;
+        for (uint32_t joining : joined) {
+            uint32_t joiningCluster = ClusterOf(joining);
+            for (Piece& piece : pieces) {
+                if (piece.checksum == joining ||
+                    (joiningCluster && ClusterOf(piece.checksum) == joiningCluster &&
+                     PieceFits(piece.min, piece.max, groupMin, groupMax))) {
+                    if (take(piece) && DebugEnabled())
+                        Log("level editor:   joins: %s (%.0f x %.0f x %.0f)", Label(piece.checksum).c_str(),
+                            piece.max.x - piece.min.x, piece.max.y - piece.min.y, piece.max.z - piece.min.z);
+                }
+            }
+        }
+    }
+    return group;
+}
+
+// The hovered sector's group (what a click would select), kept while the same sector is hovered.
+uint32_t g_hoverGroupOf;
+std::vector<uint32_t> g_hoverGroup;
 
 // The feeler (as GroundBelow in level_editor.cpp): constructor 0x00417760, cast 0x00417710 (start, end, movables).
 // Its collision data from +0x24: the normal, the point (+0x34), the collision object hit (+0x54) and its checksum
@@ -492,6 +760,8 @@ std::string DescribeSelection()
                   quarters * 90);
     if (g_selection.size() > 1)
         text += " + " + std::to_string(g_selection.size() - 1) + " more";
+    if (!g_rails.empty())
+        text += ", " + std::to_string(g_rails.size()) + " rail points";
     return text + more;
 }
 
@@ -503,27 +773,31 @@ bool Selected(uint32_t checksum)
     return std::find(g_selection.begin(), g_selection.end(), checksum) != g_selection.end();
 }
 
-void ClearSelection() { g_selection.clear(); }
+void ClearSelection()
+{
+    g_selection.clear();
+    g_rails.clear();
+}
+
+const std::vector<uint32_t>& HoverGroup(uint32_t checksum)
+{
+    if (checksum != g_hoverGroupOf) {
+        g_hoverGroupOf = checksum;
+        g_hoverGroup = checksum ? GroupOf(checksum) : std::vector<uint32_t>{};
+    }
+    return g_hoverGroup;
+}
 
 void SelectGroup(uint32_t checksum)
 {
-    g_selection.clear();
-    if (WhyNotMovable(checksum))
-        return;
-    g_selection.push_back(checksum);
-    uint32_t cluster = ClusterOf(checksum);
-    uint8_t* scene = nullptr;
-    if (cluster && FindSector(checksum, &scene)) {
-        ForEachSector(scene, [&](uint32_t other, uint8_t*) {
-            if (other != checksum && !Selected(other) && ClusterOf(other) == cluster && !WhyNotMovable(other))
-                g_selection.push_back(other);
-        });
-    }
+    g_selection = GroupOf(checksum);
     ComputePivot();
+    SelectRails();
     if (DebugEnabled()) {
-        Log("level editor: selected scenery %s, %u sector%s (cluster %08X), pivot (%.1f, %.1f, %.1f)",
+        Log("level editor: selected scenery %s, %u sector%s (cluster %08X), %u rail node%s, pivot (%.1f, %.1f, %.1f)",
             Label(checksum).c_str(), static_cast<unsigned>(g_selection.size()), g_selection.size() == 1 ? "" : "s",
-            cluster, g_pivot.x, g_pivot.y, g_pivot.z);
+            ClusterOf(checksum), static_cast<unsigned>(g_rails.size()), g_rails.size() == 1 ? "" : "s", g_pivot.x,
+            g_pivot.y, g_pivot.z);
         for (uint32_t member : g_selection)
             Log("level editor:   %s", Label(member).c_str());
     }
@@ -537,6 +811,7 @@ void Toggle(uint32_t checksum)
     else if (!WhyNotMovable(checksum))
         g_selection.push_back(checksum);
     ComputePivot();
+    SelectRails();
 }
 
 V3 Pivot() { return g_pivot; }
@@ -552,6 +827,11 @@ void MoveTo(V3 pivot)
             ApplyTrack(track);
         }
     }
+    for (uint32_t name : g_rails) {
+        if (RailTrack* track = RailTrackOf(name))
+            MoveBy(&track->placement, delta);
+    }
+    ApplyRails();
     g_pivot = pivot;
 }
 
@@ -563,6 +843,127 @@ void Turn(int quarters)
         if (Track* track = TrackOf(checksum)) {
             TurnAbout(&track->placement, g_pivot, quarters);
             ApplyTrack(track);
+        }
+    }
+    for (uint32_t name : g_rails) {
+        if (RailTrack* track = RailTrackOf(name))
+            TurnAbout(&track->placement, g_pivot, quarters);
+    }
+    ApplyRails();
+}
+
+std::vector<std::pair<V3, V3>> SelectedRails()
+{
+    std::vector<std::pair<V3, V3>> segments;
+    for (uint32_t name : g_rails) {
+        const RailNode* node = FindRail(name);
+        if (node && node->next)
+            segments.push_back({RailPos(node), RailPos(node->next)});
+    }
+    return segments;
+}
+
+int SelectedRailCount() { return static_cast<int>(g_rails.size()); }
+
+void Reset()
+{
+    ClearSelection();
+    g_clusters.clear();
+    g_hoverGroupOf = 0;
+    g_hoverGroup.clear();
+}
+
+uint8_t* SectorGeometry(uint32_t checksum)
+{
+    uint8_t* sector = FindSector(checksum, nullptr);
+    return sector ? GeomOf(sector) : nullptr;
+}
+
+// --- highlighting ---
+
+bool Tintable(void* geom) { return geom && *static_cast<uint32_t*>(geom) == kPcGeomVtable; }
+
+namespace {
+
+// How a geometry's colour was before we tinted it: an instance's (+0x4C: its flags' bit 4, the colour at +0x4D), or
+// each mesh's (+0x3C / +0x40: the mesh's flags' bit 4, its colour +0x80..+0x88) - what CGeom::SetColor (vfunc
+// +0x18, 0x004B48B0) writes.
+struct Saved {
+    TintOwner owner;
+    uint8_t* geom;
+    uint8_t* instance;
+    uint32_t instanceFlag;
+    uint8_t instanceColour[4];
+    std::vector<std::array<uint32_t, 4>> meshes; // {flag bit 4, r, g, b (float bits)}
+    bool used;
+};
+std::vector<Saved> g_tinted;
+
+Saved SaveColour(TintOwner owner, uint8_t* geom)
+{
+    Saved saved = {owner, geom, *reinterpret_cast<uint8_t**>(geom + 0x4C), 0, {}, {}, true};
+    if (saved.instance) {
+        saved.instanceFlag = *reinterpret_cast<uint32_t*>(saved.instance) & 4;
+        std::memcpy(saved.instanceColour, saved.instance + 0x4D, 4);
+        return saved;
+    }
+    auto** meshes = *reinterpret_cast<uint32_t***>(geom + 0x3C);
+    uint32_t count = *reinterpret_cast<uint32_t*>(geom + 0x40);
+    for (uint32_t i = 0; meshes && i < count && i < 4096; ++i) {
+        uint32_t* mesh = meshes[i];
+        saved.meshes.push_back({mesh[0] & 4, mesh[0x20], mesh[0x21], mesh[0x22]});
+    }
+    return saved;
+}
+
+void RestoreColour(const Saved& saved)
+{
+    if (saved.instance) {
+        if (*reinterpret_cast<uint8_t**>(saved.geom + 0x4C) != saved.instance)
+            return;
+        auto& flags = *reinterpret_cast<uint32_t*>(saved.instance);
+        flags = (flags & ~4u) | saved.instanceFlag;
+        std::memcpy(saved.instance + 0x4D, saved.instanceColour, 4);
+        return;
+    }
+    auto** meshes = *reinterpret_cast<uint32_t***>(saved.geom + 0x3C);
+    uint32_t count = *reinterpret_cast<uint32_t*>(saved.geom + 0x40);
+    if (!meshes || count != saved.meshes.size())
+        return;
+    for (uint32_t i = 0; i < count; ++i) {
+        uint32_t* mesh = meshes[i];
+        mesh[0] = (mesh[0] & ~4u) | saved.meshes[i][0];
+        mesh[0x20] = saved.meshes[i][1];
+        mesh[0x21] = saved.meshes[i][2];
+        mesh[0x22] = saved.meshes[i][3];
+    }
+}
+
+} // namespace
+
+void Tint(TintOwner owner, void* geom, uint32_t rgba)
+{
+    if (!Tintable(geom))
+        return;
+    auto* g = static_cast<uint8_t*>(geom);
+    auto it = std::find_if(g_tinted.begin(), g_tinted.end(), [&](const Saved& s) { return s.geom == g; });
+    if (it == g_tinted.end())
+        g_tinted.push_back(SaveColour(owner, g));
+    else
+        it->used = true;
+    Method<void(__thiscall*)(void*, uint32_t)>(geom, 0x18)(geom, rgba);
+}
+
+void EndTints(void* (*resolve)(TintOwner), bool all)
+{
+    for (auto it = g_tinted.begin(); it != g_tinted.end();) {
+        if (all || !it->used) {
+            if (resolve(it->owner) == it->geom) // (still there: not a dead object's)
+                RestoreColour(*it);
+            it = g_tinted.erase(it);
+        } else {
+            it->used = false;
+            ++it;
         }
     }
 }

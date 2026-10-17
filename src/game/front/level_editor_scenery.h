@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "game/front/level_editor.h"
@@ -46,10 +47,19 @@ bool HasSelection();
 const std::vector<uint32_t>& Selection();
 bool Selected(uint32_t checksum);
 void ClearSelection();
-// The sector and the rest of its cluster (the node's TrickObject Cluster=) that can be moved.
+// The sector, the rest of its cluster (the node's TrickObject Cluster=) and the pieces built onto them (PieceFits /
+// PieceTouches: the fire truck's ladder) that can be moved - and their grind rails (rail nodes of those clusters, or
+// lying within a selected sector's box), which move and turn with them.
 void SelectGroup(uint32_t checksum);
-// Alt+click: one sector in or out.
+// What SelectGroup would select for that sector (kept while it stays the same: the hover's highlight).
+const std::vector<uint32_t>& HoverGroup(uint32_t checksum);
+// Alt+click: one sector in or out (the rails chosen again).
 void Toggle(uint32_t checksum);
+// The selection's rails: each segment (a rail node to the next) where it is now; how many rail nodes.
+std::vector<std::pair<V3, V3>> SelectedRails();
+int SelectedRailCount();
+// The editor starting: no selection, node lookups forgotten.
+void Reset();
 
 // The selection's pivot (the centre of its boxes when selected, moved with it) and moving it there; turning it about
 // the pivot by quarter turns. Both move the sectors at once (vertices and collision); Commit updates the scenes' super
@@ -63,5 +73,21 @@ int MovedCount();
 
 // [features] debug_editor: the scenes and their sectors.
 void LogCensus();
+
+// The geometry of a sector (null: none).
+uint8_t* SectorGeometry(uint32_t checksum);
+
+// Highlighting: geometry tinted with the engine's own colour (CGeom::SetColor, vfunc +0x18 - what SetObjectColor uses
+// for graffiti: each mesh's colour, or an instance's), and put back exactly as it was when no longer wanted. Each
+// frame: Tint what should show, then EndTints puts back the rest (`all`: everything - the editor stopping). Who owns
+// a geometry: a sector (`index` -1, `id` its checksum) or an object (its id, the geometry's index in its model);
+// `resolve` finds that owner's geometry now, and a geometry is only put back when it is still that.
+struct TintOwner {
+    uint32_t id;
+    int index;
+};
+bool Tintable(void* geom); // (the PC geometry class)
+void Tint(TintOwner owner, void* geom, uint32_t rgba);
+void EndTints(void* (*resolve)(TintOwner), bool all);
 
 } // namespace Front::LevelEditor::Scenery

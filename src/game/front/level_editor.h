@@ -178,4 +178,17 @@ void GrowBox(V3* min, V3* max, bool have, V3 boxMin, V3 boxMax);
 // The axis-aligned box around an oriented box's corners.
 void BoundsOf(const OrientedBox& box, V3* min, V3* max);
 
+// A selection grows by the pieces built onto it but not put in its cluster (LA's fire truck: its ladder): a piece
+// (axis-aligned bounds `min`..`max`) joins when it is no bigger than the group was (`groupMin`..`groupMax`: no larger
+// volume, no wider across than 1.25 times the group's longer side - not the street it stands on or the building beside
+// it) and it touches one of the group's boxes (`boxMin`..`boxMax`, within `margin`) above that box's bottom (by more
+// than 5 units: not the ground under it).
+bool PieceFits(V3 min, V3 max, V3 groupMin, V3 groupMax);
+bool PieceTouches(V3 min, V3 max, V3 boxMin, V3 boxMax, float margin);
+// A grind rail's segment box, as the rail manager makes it (0x0057C260): the two points' bounds.
+void SegmentBox(V3 a, V3 b, V3* min, V3* max);
+// The highlight's colour at `seconds`: an RGBA (the engine's per-mesh colour, 0x80 a channel unchanged) between `low`
+// and `high`, a pulse a second and a quarter (0 at low).
+uint32_t Pulse(uint32_t low, uint32_t high, double seconds);
+
 } // namespace Front::LevelEditor

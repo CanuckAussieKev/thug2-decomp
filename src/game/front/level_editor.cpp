@@ -630,27 +630,98 @@ struct LineVertex {
     float u, v;
 };
 
-void AddBox(const ObjectBox& box, const Frame& frame, uint32_t color, LineVertex* out, int* count)
+void AddLine(V3 a, V3 b, const Frame& frame, uint32_t color, std::vector<LineVertex>* out)
+{
+    if (!ClipToNear(g_pos, frame, kNearZ + 0.01f, &a, &b))
+        return;
+    float ax, ay, bx, by;
+    if (!Project(g_pos, frame, g_lens, a, kNearZ, &ax, &ay) || !Project(g_pos, frame, g_lens, b, kNearZ, &bx, &by))
+        return;
+    float px[2], py[2];
+    NdcToPixel(g_viewport, ax, ay, &px[0], &py[0]);
+    NdcToPixel(g_viewport, bx, by, &px[1], &py[1]);
+    for (int k = 0; k < 2; ++k)
+        out->push_back({px[k], py[k], 0.0f, 1.0f, color, 0.0f, 0.0f});
+}
+
+void AddBox(const ObjectBox& box, const Frame& frame, uint32_t color, std::vector<LineVertex>* out)
 {
     V3 corners[8];
     BoxCorners(box.origin, box.axes, box.min, box.max, corners);
     for (int i = 0; i < 8; ++i) {
         for (int bit = 1; bit < 8; bit <<= 1) {
-            if (i & bit)
-                continue;
-            V3 a = corners[i], b = corners[i | bit];
-            if (!ClipToNear(g_pos, frame, kNearZ + 0.01f, &a, &b))
-                continue;
-            float ax, ay, bx, by;
-            if (!Project(g_pos, frame, g_lens, a, kNearZ, &ax, &ay) || !Project(g_pos, frame, g_lens, b, kNearZ, &bx, &by))
-                continue;
-            float px[2], py[2];
-            NdcToPixel(g_viewport, ax, ay, &px[0], &py[0]);
-            NdcToPixel(g_viewport, bx, by, &px[1], &py[1]);
-            for (int k = 0; k < 2; ++k)
-                out[(*count)++] = {px[k], py[k], 0.0f, 1.0f, color, 0.0f, 0.0f};
+            if (!(i & bit))
+                AddLine(corners[i], corners[i | bit], frame, color, out);
         }
     }
+}
+
+// --- highlighting (the things' own colour tinted: Scenery::Tint) ---
+
+constexpr uint32_t kHoverTint = 0x8098C8C8;      // RGBA: warmer and brighter
+constexpr uint32_t kSelectedTintLow = 0x80D0A060; // a cyan pulse
+constexpr uint32_t kSelectedTintHigh = 0x80FFD850;
+bool g_hoverTinted, g_selectedTinted; // (else their boxes are drawn)
+
+// An object's model's geometry `index` (the model component's model +0x208, 0x00494640 - as 0x00420700 colours a
+// level object for SetObjectColor).
+void* ModelGeometry(Obj::CCompositeObject* object, int index)
+{
+    Obj::CBaseComponent* component = object->GetComponent(kModelComponent);
+    auto* model = component ? *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x208) : nullptr;
+    return model ? GameFunction<void*(__thiscall*)(void*, int)>(0x00494640)(model, index) : nullptr;
+}
+
+void* ResolveTint(Scenery::TintOwner owner)
+{
+    if (owner.index < 0)
+        return Scenery::SectorGeometry(owner.id);
+    auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(owner.id));
+    return object ? ModelGeometry(object, owner.index) : nullptr;
+}
+
+bool TintObject(Obj::CCompositeObject* object, uint32_t rgba)
+{
+    bool any = false;
+    for (int i = 0; i < 16; ++i) {
+        void* geom = ModelGeometry(object, i);
+        if (!geom)
+            break;
+        if (Scenery::Tintable(geom)) {
+            Scenery::Tint({object->m_id, i}, geom, rgba);
+            any = true;
+        }
+    }
+    return any;
+}
+
+bool TintSectors(const std::vector<uint32_t>& sectors, uint32_t rgba)
+{
+    bool all = true;
+    for (uint32_t checksum : sectors) {
+        void* geom = Scenery::SectorGeometry(checksum);
+        if (Scenery::Tintable(geom))
+            Scenery::Tint({checksum, -1}, geom, rgba);
+        else
+            all = false;
+    }
+    return all;
+}
+
+void UpdateHighlights(Obj::CCompositeObject* selected, Obj::CCompositeObject* hover, uint32_t hoverSector)
+{
+    uint32_t pulse = Pulse(kSelectedTintLow, kSelectedTintHigh, SDL_GetTicks() / 1000.0);
+    g_selectedTinted = true;
+    if (selected)
+        g_selectedTinted = TintObject(selected, pulse);
+    else if (Scenery::HasSelection())
+        g_selectedTinted = TintSectors(Scenery::Selection(), pulse);
+    g_hoverTinted = true;
+    if (hover && hover != selected)
+        g_hoverTinted = TintObject(hover, kHoverTint);
+    else if (hoverSector && !Scenery::Selected(hoverSector) && !Scenery::WhyNotMovable(hoverSector))
+        g_hoverTinted = TintSectors(Scenery::HoverGroup(hoverSector), kHoverTint);
+    Scenery::EndTints(ResolveTint, false);
 }
 
 } // namespace
@@ -699,7 +770,7 @@ bool __cdecl CFunc_Start(Script::CStruct*, Script::CScript*)
     g_hover = {};
     g_selected = {};
     g_hoverSector = 0;
-    Scenery::ClearSelection();
+    Scenery::Reset();
     g_dragging = false;
     g_moves = 0;
     ++g_session;
@@ -775,6 +846,7 @@ bool __cdecl CFunc_Stop(Script::CStruct*, Script::CScript*)
         return true;
     EndDrag();
     Scenery::Commit(); // (the moved scenery's collision where it now is, before the skater is put down)
+    Scenery::EndTints(ResolveTint, true);
     SetRelative(false);
     PlaceSkaterBelowCamera();
     if (g_camera) {
@@ -1190,6 +1262,7 @@ void Update()
         if (object || Scenery::HasSelection())
             FocusOn(object);
     }
+    UpdateHighlights(Live(g_selected), g_dragging ? nullptr : Live(g_hover), g_dragging ? 0 : g_hoverSector);
 }
 
 void Draw()
@@ -1197,29 +1270,35 @@ void Draw()
     if (!g_active || !g_haveView || !Device())
         return;
     Frame frame = FrameFromYawPitch(g_yaw, g_pitch);
-    // (two boxes and the selected scenery's, each up to 12 edges of 2 vertices)
-    constexpr int kMaxBoxes = 66;
-    static std::vector<LineVertex> lines(kMaxBoxes * 12 * 2);
-    LineVertex* out = lines.data();
-    int count = 0, boxes = 0;
+    // What's hovered and selected shows tinted (UpdateHighlights); boxes only for what couldn't be (yellow hovered, cyan
+    // selected); the selection's grind rails as lines.
+    static std::vector<LineVertex> lines;
+    lines.clear();
     Obj::CCompositeObject* selected = Live(g_selected);
     Obj::CCompositeObject* hover = g_dragging ? nullptr : Live(g_hover);
     ObjectBox box;
-    if (hover && hover != selected && ModelBox(hover, &box))
-        AddBox(box, frame, 0xFFFFFF00, out, &count), ++boxes; // yellow
-    if (!g_dragging && g_hoverSector && !Scenery::Selected(g_hoverSector) && Scenery::Box(g_hoverSector, &box))
-        AddBox(box, frame, Scenery::WhyNotMovable(g_hoverSector) ? 0xFFFF6040 : 0xFFFFFF00, out, &count), ++boxes;
-    if (selected && ModelBox(selected, &box))
-        AddBox(box, frame, 0xFF00FFFF, out, &count), ++boxes; // cyan
-    for (uint32_t checksum : Scenery::Selection()) {
-        if (boxes >= kMaxBoxes)
-            break;
-        if (Scenery::Box(checksum, &box))
-            AddBox(box, frame, 0xFF00FFFF, out, &count), ++boxes;
+    if (!g_hoverTinted) {
+        if (hover && hover != selected && ModelBox(hover, &box))
+            AddBox(box, frame, 0xFFFFFF00, &lines);
+        else if (!g_dragging && g_hoverSector && !Scenery::Selected(g_hoverSector) && Scenery::Box(g_hoverSector, &box))
+            AddBox(box, frame, 0xFFFFFF00, &lines);
     }
-    if (count == 0)
+    if (!g_selectedTinted) {
+        if (selected && ModelBox(selected, &box))
+            AddBox(box, frame, 0xFF00FFFF, &lines);
+        for (size_t i = 0; !selected && i < Scenery::Selection().size() && i < 64; ++i) {
+            if (Scenery::Box(Scenery::Selection()[i], &box))
+                AddBox(box, frame, 0xFF00FFFF, &lines);
+        }
+    }
+    if (!selected) {
+        for (const auto& segment : Scenery::SelectedRails())
+            AddLine(segment.first, segment.second, frame, 0xFF40E0FF, &lines);
+    }
+    if (lines.empty())
         return;
-    LineVertex* lineData = out;
+    int count = static_cast<int>(lines.size());
+    LineVertex* lineData = lines.data();
     // The renderer's own (cached) state: no texture, pre-transformed vertices with a colour.
     GameFunction<void(__cdecl*)(int, void*, int)>(0x004DA730)(0, nullptr, 0); // SetTexture
     GameFunction<void(__cdecl*)(uint32_t)>(0x004D9DB0)(0x144);                // XYZRHW | DIFFUSE | TEX1
