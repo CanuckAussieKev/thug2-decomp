@@ -240,8 +240,10 @@ def drop_decorations(text):
 
 
 MARKER = "made-by-make_menu_level.txt"
-# The level number of the SKATE SHOP sign (the test level's slot: its records, unlock and dot lookups take it).
-SKATESHOP_SIGN_LEVEL = 21
+# The level numbers of the SKATE SHOP and TEST LEVEL signs (unused / the test level's slot: their records, unlock and
+# dot lookups take them; each sign needs its own - the level select tells signs apart by it).
+SKATESHOP_SIGN_LEVEL = 18
+TESTLEVEL_SIGN_LEVEL = 21
 
 # --- the playable skate shop ------------------------------------------------------------------------------------
 
@@ -327,14 +329,32 @@ def add_skateshop_sign(text):
         sys.exit("gamemenu_levelselect.qb: the TestLevel entry not found")
     text = text.replace(test.group(0), '{text="TEST LEVEL" level_num=21 num_goals=0 flag=LEVEL_UNLOCKED_TR '
                         'level=load_TestLevel sign_texture=sign_training dot_pos=(89.0, 82.0)}', 1)
-    # The info panel's gaps and high score: level 21 has no records (GetLevelGapTotals reads through a null for it):
-    # skipped, as the created park's are.
+    # The info panel's gaps and high score: levels 18 and 21 have no records (GetLevelGapTotals reads through a null
+    # for them): skipped, as the created park's are.
     for script in ("level_select_info_add_gaps", "level_select_info_add_highscore"):
         head = "script %s {\n    if (<level_num> = <created_park_number>) {\n        return \n    } \n" % script
         if text.count(head) != 1:
             sys.exit("gamemenu_levelselect.qb: %s's start not as expected" % script)
-        text = text.replace(head, head + "    if (<level_num> = %d) {\n        return \n    } \n"
-                            % SKATESHOP_SIGN_LEVEL, 1)
+        skips = "".join("    if (<level_num> = %d) {\n        return \n    } \n" % n
+                        for n in (SKATESHOP_SIGN_LEVEL, TESTLEVEL_SIGN_LEVEL))
+        text = text.replace(head, head + skips, 1)
+    return text
+
+
+def testlevel_nodes(text):
+    # TestLevel in network games: load_level makes no path memory there (AllocatePathManMemory only outside them), and
+    # an object following a path crashes (0x00469620 reads through the missing path manager). The shipped levels keep
+    # such objects out of network games (AbsentInNetGames); the developers' test level didn't for Obj_BeachBall07
+    # (Obj_FollowPathLinked). Every node whose trigger script follows a path gets AbsentInNetGames.
+    followers = set(re.findall(r"\nscript (\w+) \{[^}]*Obj_FollowPath", text))
+    elements, _, _ = array_elements(text, "TestLevel_NodeArray")
+    marked = 0
+    for element in elements:
+        script = re.search(r"\bTriggerScript=(\w+)", element)
+        if script and script.group(1) in followers and "AbsentInNetGames" not in element:
+            text = text.replace(element, element.replace("CreatedAtStart", "CreatedAtStart AbsentInNetGames", 1), 1)
+            marked += 1
+    print("TestLevel: %d path-following node(s) kept out of network games" % marked)
     return text
 
 
@@ -352,7 +372,10 @@ def edit_cas(text, yaw):
 
 def array_elements(text, name):
     # The top-level { ... } elements of the array `name = [ ... ]` and where the array's [ ... ] is in `text`.
-    start = text.index(name + " =")
+    found = re.search(re.escape(name) + " =", text, re.IGNORECASE) # (names are checksums: any case)
+    if not found:
+        raise ValueError("%s not found" % name)
+    start = found.start()
     open_at = text.index("[", start)
     elements, depth, element_start, i = [], 0, None, open_at + 1
     while True:
@@ -451,6 +474,9 @@ def main():
         write(levels_with_shop, r"scripts\game\Levels.qb")
         write(skateshop_nodes(shop), r"levels\skateshop\skateshop.qb")
         write(add_skateshop_sign(select), r"scripts\game\menu\gamemenu_levelselect.qb")
+        testlevel = decompile(prx_file(os.path.join(pre, "TestLevel_scripts.prx"), r"levels\testlevel\testlevel.qb"),
+                              "TestLevel.qb")
+        write(testlevel_nodes(testlevel), r"levels\TestLevel\TestLevel.qb")
 
         # menu_level: the front end in LA.
         write(edit_levels(levels_with_shop, yaw, offset), r"menu_level\scripts\game\Levels.qb")
