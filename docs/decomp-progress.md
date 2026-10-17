@@ -2818,6 +2818,9 @@ belong with the CScript batch.
               calls Cleanup directly) restore at the next LoadScene instead (the wheel parts die with the cleanup; the
               skater is put back before the next level's restart).
             - Particles / sounds of the shop (ATM sparks...) are not moved.
+- [x] Mouse menus (batches 90 + 92) tested in the game (2026-10-17, by the user): hover / click / right click / wheel
+      work, including the rotating main menu, the network menu and the in-level pause menu (the pause-menu cursor, missing
+      in the first test, works with batch 92's build).
 - [ ] Next: small net follow-ups: App::m_manager (+0x1440) could become `Manager*` (it is `void*`), name the
       Manager's +0x2E6 flag (pref checksum 0xE5ADE642) and check +0x374 (modem baud rate?).
       Widescreen follow-up: if the user still sees the bottom-left band overlap, don't draw sprites wholly outside the
