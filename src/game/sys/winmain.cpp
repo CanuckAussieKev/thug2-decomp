@@ -15,6 +15,7 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/sio/device.h"
+#include "hook/log.h"
 #include "game/sys/main.h"
 #include "game/sys/pc_setup.h"
 #include "game/sys/platform.h"
@@ -246,8 +247,12 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE /*previous*/, char* commandLine
 
     // The window title (the string at 0x0064B190, 25 characters - "...nd 2" - of which PartyMod's exe patch
     // leaves "THUG2"): if a window has it, the game is running already - that one is brought to the front.
+    // (thug2-decomp.ini [features] allow_multiple_instances=1, not in the original: skip this check so a second copy
+    // can run - e.g. to host and join a LAN game on one PC. Its socket falls back to a free port when the game's
+    // port is taken (AppView::Bind) and its log goes to thug2-decomp-2.log.)
     const char kTitle[] = "THUG2";
-    if (HWND running = FindWindowExA(nullptr, nullptr, nullptr, kTitle)) {
+    static const bool allowMultipleInstances = ConfigInt("features", "allow_multiple_instances", 0) != 0;
+    if (HWND running = allowMultipleInstances ? nullptr : FindWindowExA(nullptr, nullptr, nullptr, kTitle)) {
         ShowWindow(running, SW_RESTORE);
         BringWindowToTop(running);
         SetForegroundWindow(running);

@@ -2208,6 +2208,13 @@ belong with the CScript batch.
       0x5A0xxx) (0x4548F0 inet_addr, 0x454910 gethostbyname / "localhost"); then MsgDesc 0x4549F0,
       MsgHandlerContext 0x454A20, QueuedMsg / SeqQueuedMsg 0x454FA0 / 0x455040, the link constructors, Conn's
       methods 0x455970-0x456790.
+- [x] Several copies of the game (2026-10-17, at the user's request, for testing LAN play on one PC; NOT run in the
+      game yet): thug2-decomp.ini [features] allow_multiple_instances=1 skips WinMain's already-running check (a window
+      titled "THUG2" -> bring it to the front and quit - the original's; PartyMod's "THUG2 - PARTYMOD" title made it
+      never match, our "THUG2" title made it work again). Nothing else stops a second copy: the C runtime's
+      CreateMutexA (0x6409D0) is unnamed, and AppView::Bind (0x456BA0) already retries on port 0 when the game's port is
+      taken (so one copy hosts on the fixed port, the other gets a free one). LogOpen: when thug2-decomp.log is held by
+      another copy (fopen_s files aren't shared), it writes thug2-decomp-2.log .. -9.log.
 - [ ] Next: the rest of the net library below 0x456910: Conn and the message types 0x4544E0-0x456910 (Metrics
       0x4544E0 / 0x454520 / update 0x454D00, the Net::Manager getters 0x454530-0x4549C0, StreamDesc 0x4549D0 /
       0x454E00, MsgDesc 0x4549F0, MsgHandlerContext 0x454A20, RLE / LZSS compression 0x454C20 / 0x454E30, QueuedMsg /

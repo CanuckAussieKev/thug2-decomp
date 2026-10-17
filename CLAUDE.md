@@ -14,7 +14,8 @@ installed); functions PartyMod patched get source with PartyMod's behaviour. Lat
 - Game: `C:\Games\THUG2\THUG2PM.exe` - the patched PC build (SafeDisc removed, base 0x400000). Also in that
   folder: our `dinput8.dll`, `thug2-decomp.ini` (`[replacements] disable=` by file/name/address, `*` = all;
   `[selftests] enabled=`; `[features] skip_intro_movies=1` skips the start-up logo/intro movies,
-  `widescreen_menus=0` brings back PartyMod's pillarboxed 4:3 front end), `thug2-decomp.log` (read it after every game run). The retail THUG2.exe is
+  `widescreen_menus=0` brings back PartyMod's pillarboxed 4:3 front end, `allow_multiple_instances=1` lets a second
+  copy run - its log is `thug2-decomp-2.log`), `thug2-decomp.log` (read it after every game run). The retail THUG2.exe is
   SafeDisc-encrypted and not used.
 - Ghidra 12.1.4 at `C:\ghidra`; project `C:\Games\THUG2-ghidra` (the Ghidra MCP server uses it); a read-only
   copy for scripts at `C:\Games\THUG2-ghidra-snapshot` (refresh: `tools\ghidra\snapshot_project.ps1`).

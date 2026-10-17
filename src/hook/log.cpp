@@ -98,7 +98,15 @@ int __cdecl RtcErrorHandler(int type, const wchar_t* file, int line, const wchar
 
 void LogOpen()
 {
-    fopen_s(&g_log, GameFolderPath("thug2-decomp.log").c_str(), "w");
+    // (fopen_s doesn't share a file open for writing: when another copy of the game has the log - [features]
+    // allow_multiple_instances - this one writes thug2-decomp-2.log, -3, ...)
+    if (fopen_s(&g_log, GameFolderPath("thug2-decomp.log").c_str(), "w") != 0) {
+        for (int copy = 2; copy <= 9 && !g_log; ++copy) {
+            std::string name = "thug2-decomp-" + std::to_string(copy) + ".log";
+            if (fopen_s(&g_log, GameFolderPath(name.c_str()).c_str(), "w") != 0)
+                g_log = nullptr;
+        }
+    }
 #ifdef _DEBUG
     _CrtSetReportHook2(_CRT_RPTHOOK_INSTALL, CrtReportHook);
     g_previous_rtc_handler = _RTC_SetErrorFuncW(RtcErrorHandler);
