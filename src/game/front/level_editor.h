@@ -178,6 +178,9 @@ void TurnAbout(Placement* placement, V3 pivot, int quarters);
 // and its geometry's world position (the meshes' pivot, sMesh +0x90's translation), from those when first touched
 // (`quarters0`, `position0`). Its vertices are at QuarterTurn(v, quarters) + position for v as loaded.
 void EngineState(int quarters0, V3 position0, const Placement& placement, int* quarters, V3* position);
+// `outer` after `inner`: Apply(Compose(outer, inner), x) == Apply(outer, Apply(inner, x)) - a copy made of a moved
+// sector and moved since is placed by its own placement after its source's (relative to the source as loaded).
+Placement Compose(const Placement& outer, const Placement& inner);
 // The box (min / max as when first touched) where the placement has put it.
 OrientedBox PlacedBox(V3 min, V3 max, const Placement& placement);
 // Whether a sector of that box can be moved: not huge (the ground, a whole street: an extent over `limit`) and a
@@ -187,6 +190,12 @@ bool SectorSizeMovable(V3 min, V3 max, float limit);
 void GrowBox(V3* min, V3* max, bool have, V3 boxMin, V3 boxMax);
 // The axis-aligned box around an oriented box's corners.
 void BoundsOf(const OrientedBox& box, V3* min, V3* max);
+
+// The point of the line through `p` along `u` nearest to the ray from `o` along `d` (the move arrows: dragging along
+// one axis): its parameter `s` (p + u * s). False when the two are (nearly) parallel.
+bool ClosestOnAxis(V3 p, V3 u, V3 o, V3 d, float* s);
+// The distance in pixels from (x, y) to the segment (ax, ay)-(bx, by).
+float DistanceToSegment(float x, float y, float ax, float ay, float bx, float by);
 
 // A selection grows by the pieces built onto it but not put in its cluster (LA's fire truck: its ladder): a piece
 // (axis-aligned bounds `min`..`max`) joins when it is no bigger than the group was (`groupMin`..`groupMax`: no larger

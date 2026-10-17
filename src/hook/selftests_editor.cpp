@@ -6,8 +6,10 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <string>
 
 #include "game/front/level_editor.h"
+#include "game/front/level_editor_layout.h"
 #include "game/mth/matrix.h"
 #include "hook/game.h"
 #include "hook/selftest.h"
@@ -391,5 +393,66 @@ void TestEditorPieces()
           "editor: the pulse halfway");
 }
 SELFTEST(Early, TestEditorPieces);
+
+// --- the move arrows, placements composed, layouts ---------------------------------------------------------------
+
+void TestEditorArrowsAndLayouts()
+{
+    // A ray straight down at x = 30 meets the x axis through the origin at s = 30; parallel: no answer.
+    float s = 0;
+    Check(LE::ClosestOnAxis({0, 0, 0}, {1, 0, 0}, {30, 100, 0}, {0, -1, 0}, &s) && Near(s, 30, 1e-3f),
+          "editor: the point on an axis under a ray");
+    Check(LE::ClosestOnAxis({5, 2, 0}, {0, 2, 0}, {0, 8, 10}, {1, 0, -2}, &s) && Near(s, 3, 1e-3f),
+          "editor: the point on a scaled axis");
+    Check(!LE::ClosestOnAxis({0, 0, 0}, {1, 0, 0}, {0, 5, 0}, {2, 0, 0}, &s), "editor: a ray along the axis");
+    Check(Near(LE::DistanceToSegment(5, 3, 0, 0, 10, 0), 3) && Near(LE::DistanceToSegment(13, 4, 0, 0, 10, 0), 5) &&
+              Near(LE::DistanceToSegment(-3, 0, 0, 0, 10, 0), 3),
+          "editor: distance to a segment (middle, past either end)");
+
+    // Composed placements: the copy's after the source's.
+    LE::Placement inner = {1, {10, 0, 5}}, outer = {3, {-4, 2, 7}};
+    LE::Placement both = LE::Compose(outer, inner);
+    bool composed = true;
+    for (V3 x : {V3{0, 0, 0}, V3{3, 1, -2}, V3{-50, 7, 12}})
+        composed &= Near(LE::Apply(both, x), LE::Apply(outer, LE::Apply(inner, x)), 1e-4f);
+    Check(composed && both.quarters == 0, "editor: placements composed");
+
+    // A layout written and read back.
+    namespace Layout = Front::LevelEditor::Layout;
+    Layout::File file;
+    file.scene = 0x4DDB9865;
+    file.sectors.push_back({0x61EF3AD4, {1, {-117.6f, 0.0f, 150.75f}}, false});
+    file.sectors.push_back({0x8A321E61, {0, {0, 0, 0}}, true});
+    file.rails.push_back({0x12345678, {3, {1.5f, 1234.56789f, 1e-3f}}, false});
+    file.clones.push_back({0x61EF3AD4, {2, {400.125f, 0, -3}}});
+    Layout::ObjectRecord object = {0x1B636D59, {-3512.3f, -338.7f, 3293.6f}, {1, 0, 0, 0, 1, 0, 0, 0, 1}};
+    file.objects.push_back(object);
+    Layout::CopyRecord copy = {0xABCDEF01, 0x1B636D59, {1, 2, 3}, {0, 0, -1, 0, 1, 0, 1, 0, 0}};
+    file.copies.push_back(copy);
+    std::string text = Layout::Write(file);
+    Layout::File back;
+    int line = -1;
+    bool read = Layout::Read(text, &back, &line);
+    bool same = read && back.scene == file.scene && back.sectors.size() == 2 && back.rails.size() == 1 &&
+                back.clones.size() == 1 && back.objects.size() == 1 && back.copies.size() == 1;
+    if (same) {
+        same = back.sectors[0].checksum == 0x61EF3AD4 && back.sectors[0].placement.quarters == 1 &&
+               back.sectors[0].placement.offset.x == -117.6f && back.sectors[0].placement.offset.z == 150.75f &&
+               !back.sectors[0].hidden && back.sectors[1].hidden && back.rails[0].placement.offset.z == 1e-3f && back.rails[0].placement.offset.y == 1234.56789f &&
+               back.rails[0].placement.quarters == 3 && back.clones[0].placement.offset.x == 400.125f &&
+               back.objects[0].pos[1] == -338.7f && back.copies[0].name == 0xABCDEF01 &&
+               back.copies[0].source == 0x1B636D59 && back.copies[0].rows[2] == -1.0f;
+    }
+    Check(same, "editor: a layout written and read back (floats exact)");
+    Check(!Layout::Read("something else\n", &back, &line), "editor: not a layout");
+    Check(!Layout::Read("thug2-decomp layout 1\nsector 12 x\n", &back, &line) && line == 2,
+          "editor: a bad line is reported");
+    Check(Layout::Read("thug2-decomp layout 1\n# a comment\nfuture 1 2 3\nscene 0000000A\n", &back, &line) &&
+              back.scene == 10,
+          "editor: comments and later records skipped");
+    Check(!Layout::Read("thug2-decomp layout 1\nsector 00000001 5 0 0 0 0\n", &back, &line),
+          "editor: quarters past 3 refused");
+}
+SELFTEST(Early, TestEditorArrowsAndLayouts);
 
 } // namespace

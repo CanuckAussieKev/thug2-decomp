@@ -113,6 +113,9 @@ add_library(thug2_code OBJECT
     src/game/front/menu_backdrop.cpp
     src/game/front/menu_level.cpp
     src/game/front/level_editor.cpp
+    src/game/front/level_editor_hud.cpp
+    src/game/front/level_editor_layout.cpp
+    src/game/front/level_editor_objects.cpp
     src/game/front/level_editor_scenery.cpp
     src/game/skate/competition.cpp
     src/game/gfx/screen.cpp

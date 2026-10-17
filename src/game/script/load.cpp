@@ -123,6 +123,7 @@ void ParseQB(const char* filename, const uint8_t* data, int unused, int useQbNam
                 AddScriptChecksumName(checksum, name);
             else
                 AddChecksumName(checksum, name);
+            NoteQbName(checksum, name); // (ours: kept for the level editor when it's on)
             p = reinterpret_cast<const uint8_t*>(name + std::strlen(name) + 1);
         } else {
             p = SkipToken(p);

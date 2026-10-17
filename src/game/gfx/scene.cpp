@@ -7,6 +7,7 @@
 #include "game/core/dbg.h"
 #include "game/core/str.h"
 #include "game/front/frontend_objects.h"
+#include "game/front/level_editor_layout.h"
 #include "game/front/menu_backdrop.h"
 #include "game/script/params.h"
 #include "hook/game.h"
@@ -87,6 +88,8 @@ bool __cdecl CFunc_LoadScene(Script::CStruct* params, Script::CScript* /*script*
     // Not original - the menu_backdrop feature (see menu_backdrop.h): the front end's scene brings the backdrop's.
     // Original behaviour: only the scene asked for is loaded; with menu_backdrop "mainmenu" also loads LA_Sky and LA.
     Front::MenuBackdrop::OnSceneLoaded(name, isNet);
+    // Not original - the level editor's saved layouts (level_editor_layout.h): put back once the level is up.
+    Front::LevelEditor::Layout::OnSceneLoaded(name, isNet);
     return true;
 }
 

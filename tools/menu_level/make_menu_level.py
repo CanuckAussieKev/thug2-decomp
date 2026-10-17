@@ -408,10 +408,30 @@ script level_editor_hud_create {
         type=SpriteElement
         parent=level_editor_hud
         texture=white2
+        pos=(6.0, 6.0)
+        just=[left top]
+        rgba=[2 0 1 90]
+        scale=(118.0, 15.4)
+        z_priority=990
+    }
+    CreateScreenElement {
+        type=SpriteElement
+        parent=level_editor_hud
+        texture=white3
+        scale=(11.8, 0.03)
+        rgba=[128 110 0 90]
+        pos=(6.0, 20.0)
+        just=[left top]
+        z_priority=991
+    }
+    CreateScreenElement {
+        type=SpriteElement
+        parent=level_editor_hud
+        texture=white2
         pos=(320.0, 480.0)
         just=[center bottom]
-        rgba=[2 0 1 98]
-        scale=(200.5, 12.6)
+        rgba=[2 0 1 90]
+        scale=(200.5, 8.4)
         z_priority=990
     }
     CreateScreenElement {
@@ -420,7 +440,7 @@ script level_editor_hud_create {
         texture=white3
         scale=(40.0, 0.03)
         rgba=[13 56 82 80]
-        pos=(320.0, 380.0)
+        pos=(320.0, 452.0)
         z_priority=991
     }
     <index> = 1
@@ -432,17 +452,53 @@ script level_editor_hud_create {
             id=<line_id>
             font=small
             text=""
-            pos=((22.0, 372.0) + (0.0, 11.0) * <index>)
+            pos=((14.0, 0.0) + (0.0, 11.0) * <index>)
             just=[left top]
-            scale=0.58
-            rgba=[110 110 110 128]
+            scale=0.56
+            rgba=[118 118 118 128]
             z_priority=1000
         }
         <index> = (<index> + 1)
-    } 7
-    SetScreenElementProps id=level_editor_hud_1 rgba=[128 110 0 128]
-    SetScreenElementProps id=level_editor_hud_6 rgba=[80 90 100 128]
-    SetScreenElementProps id=level_editor_hud_7 rgba=[80 90 100 128]
+    } 4
+    SetScreenElementProps id=level_editor_hud_1 rgba=[128 110 0 128] scale=0.62 pos=(14.0, 9.0)
+    SetScreenElementProps id=level_editor_hud_3 rgba=[96 100 104 128]
+    SetScreenElementProps id=level_editor_hud_4 rgba=[80 90 100 128]
+    CreateScreenElement {
+        type=TextElement
+        parent=level_editor_hud
+        id=level_editor_hud_5
+        font=small
+        text=""
+        pos=(14.0, 455.0)
+        just=[left top]
+        scale=0.55
+        rgba=[104 104 104 128]
+        z_priority=1000
+    }
+    CreateScreenElement {
+        type=TextElement
+        parent=level_editor_hud
+        id=level_editor_hud_6
+        font=small
+        text=""
+        pos=(14.0, 466.0)
+        just=[left top]
+        scale=0.55
+        rgba=[104 104 104 128]
+        z_priority=1000
+    }
+    CreateScreenElement {
+        type=TextElement
+        parent=level_editor_hud
+        id=level_editor_hud_7
+        font=small
+        text=""
+        pos=(320.0, 92.0)
+        just=[center top]
+        scale=0.8
+        rgba=[128 120 64 128]
+        z_priority=1000
+    }
 }
 script level_editor_hud_set {
     if ObjectExists id=<id> {
@@ -450,8 +506,55 @@ script level_editor_hud_set {
     }
 }
 script level_editor_hud_destroy {
+    level_editor_panel_hide
     if ObjectExists id=level_editor_hud {
         DestroyScreenElement id=level_editor_hud
+    }
+}
+script level_editor_panel_show {
+    level_editor_panel_hide
+    if ! ObjectExists id=level_editor_hud {
+        return
+    }
+    CreateScreenElement {
+        type=ContainerElement
+        parent=level_editor_hud
+        id=level_editor_panel
+        pos=(320.0, 240.0)
+        dims=(640.0, 480.0)
+    }
+    CreateScreenElement {
+        type=SpriteElement
+        parent=level_editor_panel
+        texture=white2
+        pos=<pos>
+        just=[left top]
+        rgba=[2 0 1 104]
+        scale=<scale>
+        z_priority=992
+    }
+    <index> = 0
+    while {
+        FormatText ChecksumName=line_id "level_editor_panel_%i" i=<index>
+        CreateScreenElement {
+            type=TextElement
+            parent=level_editor_panel
+            id=<line_id>
+            font=small
+            text=""
+            pos=(<pos> + (8.0, 6.0) + (0.0, 12.5) * <index>)
+            just=[left top]
+            scale=0.56
+            rgba=[118 118 118 128]
+            z_priority=1001
+        }
+        <index> = (<index> + 1)
+    } <lines>
+    SetScreenElementProps id=level_editor_panel_0 rgba=[128 110 0 128]
+}
+script level_editor_panel_hide {
+    if ObjectExists id=level_editor_panel {
+        DestroyScreenElement id=level_editor_panel
     }
 }
 """

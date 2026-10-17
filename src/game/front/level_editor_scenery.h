@@ -96,6 +96,34 @@ struct State {
 };
 State SaveState();
 void RestoreState(const State& state); // (selects state.selection again; collision updated)
+// Those states put in place without touching the selection (layouts); collision updated.
+void ApplyStates(const std::vector<SectorState>& sectors, const std::vector<RailState>& rails);
+// What the editor has changed in this level: sectors moved or hidden (copies left out), rails moved or turned off.
+std::vector<SectorState> ChangedSectors();
+std::vector<RailState> ChangedRails();
+// The level's main scene (the first that isn't a sky) and a scene's name (+0x84).
+uint8_t* MainScene();
+uint32_t SceneName(uint8_t* scene);
+
+// Copies of sectors (Ctrl+D, the browser): a full copy (CScene::CloneSector 0x0049DF30, as the park editor makes its
+// pieces) of the source as it is now, in its scene, ready to move like any sector. Its checksum (0: not made).
+uint32_t Duplicate(uint32_t source);
+// The copies made this level: the copy, its source, and where the source had been put when it was copied (a copy's
+// place relative to the source as loaded is its placement after that one - Compose).
+struct Clone {
+    uint32_t checksum;
+    uint32_t source;
+    Placement sourceAtCopy;
+};
+std::vector<Clone>& Clones();
+bool IsClone(uint32_t checksum);
+// Where the editor has put a sector (none: false), and whether it's hidden.
+bool PlacementNow(uint32_t checksum, Placement* placement);
+bool Hidden(uint32_t checksum);
+// Shift+click: a sector's group added to the selection.
+void AddGroup(uint32_t checksum);
+// The browser's pieces: the main scene's shown sectors that can be moved (copies left out).
+std::vector<uint32_t> MovablePieces();
 // Home: the selection back where the level has it (and shown).
 void ResetSelection();
 // Delete: the selection hidden, and deselected.

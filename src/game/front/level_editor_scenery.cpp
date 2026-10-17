@@ -13,6 +13,7 @@
 #include "game/core/manager.h"
 #include "game/mth/vector.h"
 #include "game/script/names.h"
+#include "game/script/qb.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/log.h"
@@ -34,6 +35,12 @@ V3 QuarterTurn(V3 v, int quarters)
 V3 Apply(const Placement& placement, V3 x) { return QuarterTurn(x, placement.quarters) + placement.offset; }
 
 void MoveBy(Placement* placement, V3 delta) { placement->offset = placement->offset + delta; }
+
+Placement Compose(const Placement& outer, const Placement& inner)
+{
+    // outer(inner(x)) = Q_o (Q_i x + o_i) + o_o = Q_o Q_i x + (Q_o o_i + o_o).
+    return {(inner.quarters + outer.quarters) & 3, QuarterTurn(inner.offset, outer.quarters) + outer.offset};
+}
 
 void TurnAbout(Placement* placement, V3 pivot, int quarters)
 {
@@ -364,15 +371,19 @@ void ApplyTrack(Track* track)
 
 const char* NameOf(uint32_t checksum)
 {
-    const char* name = Script::FindChecksumName(checksum);
-    return name ? name : nullptr;
+    if (const char* name = Script::KeptQbName(checksum))
+        return name;
+    return Script::FindChecksumName(checksum);
 }
 
 std::string Label(uint32_t checksum)
 {
     char text[96];
     const char* name = NameOf(checksum);
-    std::snprintf(text, sizeof(text), "%s%s%08X", name ? name : "", name ? " " : "", checksum);
+    if (name)
+        std::snprintf(text, sizeof(text), "%s", name);
+    else
+        std::snprintf(text, sizeof(text), "%08X", checksum);
     return text;
 }
 
@@ -462,15 +473,16 @@ RailTrack* RailTrackOf(uint32_t name)
     return &g_railTracks.emplace(name, track).first->second;
 }
 
-// The rail nodes placed where their tracks say, then the boxes of their segments and of those ending at them.
-void ApplyRails()
+// The rail nodes `names` placed where their tracks say, then the boxes of their segments and of those ending at
+// them.
+void ApplyRails(const std::vector<uint32_t>& names)
 {
     RailNode* nodes;
     int count;
     if (!RailNodes(&nodes, &count))
         return;
     std::vector<RailNode*> moved;
-    for (uint32_t name : g_rails) {
+    for (uint32_t name : names) {
         auto it = g_railTracks.find(name);
         if (it == g_railTracks.end())
             continue;
@@ -893,7 +905,7 @@ void MoveTo(V3 pivot)
         if (RailTrack* track = RailTrackOf(name))
             MoveBy(&track->placement, delta);
     }
-    ApplyRails();
+    ApplyRails(g_rails);
     g_pivot = pivot;
     g_hoverGroupOf = 0;
 }
@@ -913,7 +925,7 @@ void Turn(int quarters)
         if (RailTrack* track = RailTrackOf(name))
             TurnAbout(&track->placement, g_pivot, quarters);
     }
-    ApplyRails();
+    ApplyRails(g_rails);
     g_hoverGroupOf = 0;
 }
 
@@ -958,9 +970,9 @@ State SaveState()
     return state;
 }
 
-void RestoreState(const State& state)
+void ApplyStates(const std::vector<SectorState>& sectors, const std::vector<RailState>& rails)
 {
-    for (const SectorState& saved : state.sectors) {
+    for (const SectorState& saved : sectors) {
         Track* track = TrackOf(saved.checksum);
         if (!track)
             continue;
@@ -973,19 +985,164 @@ void RestoreState(const State& state)
             MarkDirty(track->scene);
         }
     }
-    g_rails.clear();
-    for (const RailState& saved : state.rails) {
+    std::vector<uint32_t> names;
+    for (const RailState& saved : rails) {
         if (RailTrack* track = RailTrackOf(saved.name)) {
             track->placement = saved.placement;
             track->node->flags = saved.hidden ? track->node->flags & ~4u : track->node->flags | 4u;
-            g_rails.push_back(saved.name);
+            names.push_back(saved.name);
         }
     }
-    ApplyRails();
-    g_selection = state.selection;
+    ApplyRails(names);
     ComputePivot();
     g_hoverGroupOf = 0;
     Commit();
+}
+
+void RestoreState(const State& state)
+{
+    ApplyStates(state.sectors, state.rails);
+    g_rails.clear();
+    for (const RailState& saved : state.rails)
+        g_rails.push_back(saved.name);
+    g_selection = state.selection;
+    ComputePivot();
+}
+
+std::vector<SectorState> ChangedSectors()
+{
+    std::vector<SectorState> changed;
+    for (const auto& entry : g_tracks) {
+        const Track& track = entry.second;
+        if (IsClone(entry.first) || FindSector(entry.first, nullptr) != track.sector)
+            continue;
+        bool hidden = !IsActive(track.sector);
+        const Placement& p = track.placement;
+        if (hidden || p.quarters || p.offset.x != 0.0f || p.offset.y != 0.0f || p.offset.z != 0.0f)
+            changed.push_back({entry.first, p, hidden});
+    }
+    return changed;
+}
+
+std::vector<RailState> ChangedRails()
+{
+    std::vector<RailState> changed;
+    for (const auto& entry : g_railTracks) {
+        const RailTrack& track = entry.second;
+        if (FindRail(entry.first) != track.node)
+            continue;
+        bool hidden = !(track.node->flags & 4);
+        const Placement& p = track.placement;
+        if (hidden || p.quarters || p.offset.x != 0.0f || p.offset.y != 0.0f || p.offset.z != 0.0f)
+            changed.push_back({entry.first, p, hidden});
+    }
+    return changed;
+}
+
+uint8_t* MainScene()
+{
+    uint8_t* found = nullptr;
+    ForEachScene([&](uint8_t* scene) {
+        if (!found)
+            found = scene;
+    });
+    return found;
+}
+
+uint32_t SceneName(uint8_t* scene) { return scene ? *reinterpret_cast<uint32_t*>(scene + 0x84) : 0; }
+
+// --- copies of sectors ---
+//
+// CScene::CloneSector (0x0049DF30, thiscall, RET 0x14: the source's checksum, the scene to put it in, instance,
+// add-to-collision, the new checksum - 0: a new one; returns the new checksum) as the park editor makes its pieces
+// (0x00594730): not an instance (its own meshes and vertex buffers, added to the scene's render lists - so it moves
+// as any level sector), flagged 4 to be added to the super sectors (Commit). The copy is made of the source as it is
+// now (moved or not); its box (+0x14 / +0x24, not copied for a full clone) is set to the source's box where it is.
+
+std::vector<Clone>& Clones()
+{
+    static std::vector<Clone> clones;
+    return clones;
+}
+
+bool IsClone(uint32_t checksum)
+{
+    const auto& clones = Clones();
+    return std::any_of(clones.begin(), clones.end(), [&](const Clone& c) { return c.checksum == checksum; });
+}
+
+uint32_t Duplicate(uint32_t source)
+{
+    uint8_t* scene = nullptr;
+    uint8_t* sector = FindSector(source, &scene);
+    if (!sector || WhyNotMovable(source))
+        return 0;
+    OrientedBox box;
+    V3 min, max;
+    if (!Box(source, &box))
+        return 0;
+    BoundsOf(box, &min, &max);
+    Placement sourcePlacement = PlacementOf(source, GeomOf(sector));
+    uint32_t made = GameFunction<uint32_t(__thiscall*)(void*, uint32_t, void*, int, int, uint32_t)>(0x0049DF30)(
+        scene, source, scene, 0, 1, 0);
+    uint8_t* copy = made ? LookupSector(scene, made) : nullptr;
+    uint8_t* geom = copy ? GeomOf(copy) : nullptr;
+    if (!geom || *reinterpret_cast<uint32_t*>(geom) != kPcGeomVtable || *reinterpret_cast<void**>(geom + 0x4C)) {
+        Log("level editor: copy of %s: %s", Label(source).c_str(), made ? "not a plain sector" : "not made");
+        return 0;
+    }
+    float* boxes = reinterpret_cast<float*>(geom + 0x14);
+    boxes[0] = min.x, boxes[1] = min.y, boxes[2] = min.z;
+    boxes[4] = max.x, boxes[5] = max.y, boxes[6] = max.z;
+    MarkDirty(scene);
+    Clones().push_back({made, source, sourcePlacement});
+    char name[96];
+    std::snprintf(name, sizeof(name), "%s copy", Label(source).c_str());
+    Script::NoteQbName(made, name);
+    if (DebugEnabled())
+        Log("level editor: copy %08X of %s, box (%.0f, %.0f, %.0f)-(%.0f, %.0f, %.0f), meshes %s", made,
+            Label(source).c_str(), min.x, min.y, min.z, max.x, max.y, max.z,
+            MeshesMovable(geom) ? MeshesMovable(geom) : "movable");
+    return made;
+}
+
+bool PlacementNow(uint32_t checksum, Placement* placement)
+{
+    uint8_t* sector = FindSector(checksum, nullptr);
+    if (!sector)
+        return false;
+    *placement = PlacementOf(checksum, GeomOf(sector));
+    return true;
+}
+
+bool Hidden(uint32_t checksum)
+{
+    uint8_t* sector = FindSector(checksum, nullptr);
+    return sector && !IsActive(sector);
+}
+
+void AddGroup(uint32_t checksum)
+{
+    for (uint32_t member : GroupOf(checksum)) {
+        if (!Selected(member))
+            g_selection.push_back(member);
+    }
+    ComputePivot();
+    SelectRails();
+}
+
+std::vector<uint32_t> MovablePieces()
+{
+    std::vector<uint32_t> pieces;
+    uint8_t* scene = MainScene();
+    if (!scene)
+        return pieces;
+    ForEachSector(scene, [&](uint32_t checksum, uint8_t* sector) {
+        uint8_t* geom = GeomOf(sector);
+        if (PlainGeom(geom) && geom[0x48] && !IsClone(checksum) && !WhyNotMovable(checksum))
+            pieces.push_back(checksum);
+    });
+    return pieces;
 }
 
 void ResetSelection()
