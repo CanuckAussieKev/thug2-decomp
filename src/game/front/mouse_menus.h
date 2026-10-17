@@ -11,6 +11,10 @@
 //   pad_right handlers of its own (an option's arrows), a click in its left or right 30% sends pad_left /
 //   pad_right instead;
 // - a right click is pad_back, the wheel pad_up / pad_down (while a menu takes pad events).
+// An item's area is what is drawn for it (itself and everything below it, turned elements as turned boxes). Menus
+// that don't move on every pad event get their selection stepped over the next frames (the pending target), and
+// a click's event is sent once the item is selected. A turned menu (the main menu's spin menu) isn't moved by
+// hovering; a click turns it to the item and chooses it. [features] debug_mouse=1 logs every click.
 // The OS cursor is shown in the front end and while the game is paused in a level (the pause menu is the same kind
 // of menu), hidden otherwise; the park editor is left alone. Nothing happens until the mouse has moved or clicked,
 // and hovering only acts when the item under the cursor changes, so a resting cursor doesn't fight the pad.
@@ -65,6 +69,18 @@ struct Rect {
 };
 Rect ElementRect(const Front::CScreenElement* element);
 
+// An element's area with its rotation: from its absolute top left (+0x134 / +0x138) along its absolute angle
+// (+0x14C, radians: its own and its parents' - the layout pass 0x004A9D30 places a child's top left at the
+// parent's top left plus the parent's angle turning the scaled local offset, so an element's contents lie along
+// its angle from its top left), `width` x `height` (base dims times absolute scale; either may be negative).
+struct Box {
+    float x, y, width, height, angle;
+};
+Box ElementBox(const Front::CScreenElement* element);
+bool BoxContains(const Box& box, float x, float y);
+// Whether an angle turns anything (not a whole number of turns).
+bool Rotated(float angle);
+
 // A menu (a vmenu or an hmenu - CBaseMenu, vtable 0x0064A048) and its item.
 bool IsMenu(const Front::CScreenElement* element);
 bool IsVerticalMenu(const Front::CScreenElement* menu); // +0x190
@@ -76,6 +92,25 @@ int ChildCount(const Front::CScreenElement* element);
 // 0x200000) on it or a parent.
 bool ItemFocusable(const Front::CScreenElement* item);
 
+// Items a menu passes over by script: the main menu's spin menu (make_spin_menu_item) gives its filler items the
+// tag `blank` and its disabled ones `active = 0`; their focus script moves the selection on at once. They are
+// never a mouse target.
+bool ItemPassedOver(const Front::CScreenElement* item);
+
+// Where an item is drawn: itself and everything below it that isn't hidden (whatever their alpha - the spin
+// menu fades out the front item's text under its "roundbar" label; theme_menu_add_item's text and highlight bar
+// are centred 5-7 pixels above the top of the item's own 20-pixel-high container, so mostly outside it). Parts
+// with no area count only if they are the item itself. The unrotated parts make one rectangle,
+// widened to the menu's width (a vertical menu) or height (a horizontal one) unless the menu is rotated; rotated
+// parts count each as its own turned box.
+bool ItemContains(const Front::CScreenElement* item, const Front::CScreenElement* menu, float x, float y);
+// The rectangle around all of it (for the debug log).
+Rect ItemBounds(const Front::CScreenElement* item, const Front::CScreenElement* menu);
+// A menu whose items are turned (the main menu's spin menu: its vmenu and items have rot_angle): hovering
+// doesn't select (the items would turn away under the cursor and the next one would be selected, and so on);
+// a click turns it to the item and chooses it.
+bool IsRotatingMenu(const Front::CScreenElement* menu);
+
 struct Hit {
     Front::CScreenElement* menu;
     Front::CScreenElement* item;
@@ -83,10 +118,10 @@ struct Hit {
 };
 // Which menus count (the game's test: MenuTakesPadEvents).
 using MenuFilter = bool (*)(Front::CScreenElement* menu);
-// The item under (x, y): of the elements below `root` that are focusable items of a menu `accepts`, not hidden and
-// visible (alpha), inside every window element above them (their clip region; scrolling menus too), the deepest -
-// and of overlapping ones the last in the tree. An item's area spans its menu's width (a vertical menu) or height
-// (a horizontal one) as well as its own. False if none.
+// The item under (x, y): of the elements below `root` that are focusable items of a menu `accepts` (and not passed
+// over), not hidden and visible (alpha), inside every window element above them (their clip region; scrolling
+// menus too), the deepest - and of overlapping ones the last in the tree. An item's area: ItemContains. False if
+// none.
 bool FindItemAt(Front::CScreenElement* root, float x, float y, MenuFilter accepts, Hit* out);
 // Whether there is a menu `accepts` below `root` (vertical only: `vertical`).
 bool AnyMenu(Front::CScreenElement* root, MenuFilter accepts, bool verticalOnly);
@@ -97,6 +132,31 @@ bool AnyMenu(Front::CScreenElement* root, MenuFilter accepts, bool verticalOnly)
 // focused), or after `count` events. Returns the events sent.
 int StepSelection(int target, int count, bool wraps, int (*read)(void* context), void (*send)(void* context, int direction),
                   void* context);
+
+// Moving a selection to an item over several frames - for menus that don't move on every pad event (the spin
+// menu takes pad_up / pad_down only while its 0.15 s turn isn't running: spin_menu_input_timer turns
+// disable_pad_handling on, clearing the menu's +0x1A0 - and TemporarilyDisableInput blocks the menus for a
+// moment). Once a frame: StepSelection again, until the selection is the target; gives up after `kTargetFrames`
+// frames or `kMaxStuckFrames` frames in a row without the selection changing, or when it has none (-1). `wait`:
+// send nothing this frame (the current item is one the menu passes over by itself).
+enum class TargetState { Reached, Moving, GaveUp };
+struct Target {
+    int index;       // the item's place in its menu
+    int count;       // the menu's children
+    bool wraps;
+    int framesLeft;
+    int stuckFrames; // frames in a row ending with the selection where the last one ended
+    int lastSeen;    // the selection at the end of the last frame (-2: none yet)
+};
+constexpr int kTargetFrames = 300;
+constexpr int kMaxStuckFrames = 45;
+Target StartTarget(int index, int count, bool wraps);
+TargetState AdvanceTarget(Target& target, bool wait, int (*read)(void* context),
+                          void (*send)(void* context, int direction), void* context);
+
+// [features] debug_mouse (default 0): each click logged - the cursor on the layout, the item found (or the
+// elements under the cursor when none), its menu's state, and which events were sent or why none were.
+bool& DebugEnabled();
 
 // A click on an item with its own pad_left / pad_right handlers: -1 in its left 30%, +1 in its right 30%, else 0
 // (pad_choose).
