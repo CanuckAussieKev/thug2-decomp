@@ -16,6 +16,11 @@ struct Head {
     // whose priority is higher (ascending order), else at the end - unless a node has the same priority: then
     // nothing is added and the result is false. (The same head-before-null check order as AddNode.)
     bool AddUniqueSequence(Mem::ListNode* node);
+
+    // 0x00457350 (Lst::Head<T> of the net library's message lists): the same order searched from the end:
+    // `node` goes after the last node whose priority isn't lower (equal ones oldest first), else at the
+    // front. (The same data-before-null check order as AddNode.)
+    void AddNodeFromTail(Mem::ListNode* node);
 };
 
 } // namespace Lst

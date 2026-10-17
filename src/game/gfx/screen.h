@@ -30,6 +30,12 @@ float Desired3DAspectRatio();
 
 // 0x004A0780
 void SetScreenAspectRatio(float aspect);
+// 0x004A0790: the screen's aspect as last set (0x00701340).
+float GetScreenAspect();
+// 0x004A07A0 / 0x004A07B0: the cameras' default horizontal angle in degrees (0x00701348; set at start-up from the
+// script global camera_fov).
+void SetScreenAngle(float angle);
+float GetScreenAngle();
 // 0x004A07C0: the factor the horizontal field of view is scaled by.
 float GetScreenAngleFactor();
 // 0x004B2330: the motion blur amount (0 = off, up to 255).

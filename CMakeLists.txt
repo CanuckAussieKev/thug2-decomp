@@ -63,6 +63,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_glyph.cpp
     src/hook/selftests_skaterA.cpp
     src/hook/selftests_gfx2.cpp
+    src/hook/selftests_el3d.cpp
     src/hook/selftests_sprite.cpp
     src/hook/selftests_mainloop.cpp
     src/hook/selftests_misc.cpp
@@ -82,6 +83,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_csC.cpp
     src/hook/selftests_csB.cpp
     src/hook/selftests_netC.cpp
+    src/hook/selftests_netA.cpp
     src/game/core/alloc.cpp
     src/game/core/crc.cpp
     src/game/core/dbg.cpp
@@ -94,6 +96,7 @@ add_library(thug2_code OBJECT
     src/game/core/str.cpp
     src/game/core/string.cpp
     src/game/file/asset_bundle.cpp
+    src/game/front/element3d.cpp
     src/game/front/screen_element.cpp
     src/game/front/front_end.cpp
     src/game/skate/competition.cpp
@@ -124,6 +127,9 @@ add_library(thug2_code OBJECT
     src/game/net/net_app_messages.cpp
     src/game/net/net_client.cpp
     src/game/net/net_server.cpp
+    src/game/net/net_app_view.cpp
+    src/game/net/net_latency.cpp
+    src/game/net/net_lists.cpp
     src/game/obj/composite.cpp
     src/game/obj/compositemgr.cpp
     src/game/obj/cutscene.cpp
