@@ -12,6 +12,11 @@ struct Head {
     // highest first; equal ones newest first), else at the end. (The walk checks each node's data for -1
     // before checking the node for null - a null link would crash first.)
     void AddNode(Mem::ListNode* node);
+
+    // 0x00457350 (Lst::Head<T> of the net library's message lists): the same order searched from the end:
+    // `node` goes after the last node whose priority isn't lower (equal ones oldest first), else at the
+    // front. (The same data-before-null check order as AddNode.)
+    void AddNodeFromTail(Mem::ListNode* node);
 };
 
 } // namespace Lst

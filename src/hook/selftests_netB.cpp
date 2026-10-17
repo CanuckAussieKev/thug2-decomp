@@ -27,7 +27,7 @@ namespace {
 
 using Mem::ListNode;
 using Net::App;
-using Net::Conn;
+using Conn = Net::ConnView;
 using Net::MsgDesc;
 using TestStandIns::Regs;
 using TestStandIns::StandIns;
@@ -269,7 +269,8 @@ void** StandInAppVtable(StandIns& s)
     return reinterpret_cast<void**>(vtable);
 }
 
-// The rest of the library that's stood in, the same for the original and ours.
+// The rest of the library that's stood in, the same for the original and ours (game addresses and, for
+// AppView's methods that ours calls directly, our functions too).
 void StandInLibrary(StandIns& s)
 {
     // Dbg::Printf (the game's C runtime).
@@ -294,7 +295,7 @@ void StandInLibrary(StandIns& s)
         return 0u;
     });
     // App::MessagesToSend(conn).
-    s.At({0x00457AC0}, 4, [](Regs& r) {
+    s.At({0x00457AC0, TestStandIns::AddressOf(&Net::AppView::MessagesDue)}, 4, [](Regs& r) {
         Log2({0x5E2Du, r.ecx, r.args[0]});
         return static_cast<uint32_t>(g_messagesToSend[r.args[0]]);
     });
@@ -309,7 +310,7 @@ void StandInLibrary(StandIns& s)
         return static_cast<uint32_t>(result);
     });
     // App::ProcessSequencedMessages(conn).
-    s.At({0x00457560}, 4, [](Regs& r) {
+    s.At({0x00457560, TestStandIns::AddressOf(&Net::AppView::DispatchQueuedSequencedMessages)}, 4, [](Regs& r) {
         Log2({0x5E9u, r.ecx, r.args[0]});
         bool result = true;
         if (!g_sequencedResults.empty()) {
@@ -319,7 +320,7 @@ void StandInLibrary(StandIns& s)
         return static_cast<uint32_t>(result);
     });
     // ~App body.
-    s.At({0x00457710}, 0, [](Regs& r) {
+    s.At({0x00457710, TestStandIns::AddressOf(&Net::AppView::DestroyBody)}, 0, [](Regs& r) {
         Log2({0xDA99u, r.ecx});
         return 0u;
     });
@@ -365,7 +366,7 @@ World MakeWorld(bool original, void** vtable)
     SetUpArena(w.arena);
     w.app = reinterpret_cast<App*>(w.arena + kAppOffset);
     w.app->m_vtable = vtable;
-    w.app->m_timestamp = 1000;
+    w.app->m_time = 1000;
     InitHead(&w.app->m_connections, 0x006475AC);
     InitHead(&w.app->m_banned, 0x006475B0);
     w.misc = w.arena + kMiscOffset;
@@ -506,7 +507,7 @@ std::vector<uint32_t> RunMessages(bool original)
         setPieces(c3, 0);
         ProcessStreams(original, app);
     }
-    Log2({app->m_timestamp});
+    Log2({app->m_time});
     std::vector<uint32_t> image = Image(w.arena);
     GameVariable<void*>(0x007D1800) = nullptr;
     return image;
@@ -555,7 +556,7 @@ std::vector<uint32_t> RunConnections(bool original)
     app->m_manager = w.manager;
     app->m_maxConnections = 4;
     app->m_numConnections = 0;
-    app->m_timestamp = 5000;
+    app->m_time = 5000;
     At<int>(w.manager, 0x378) = 3000;
 
     // New connections.
@@ -644,7 +645,7 @@ std::vector<uint32_t> RunConnections(bool original)
     setConn(3, 1, 300, 30000);
     At<int>(w.manager, 0x378) = 1600;
     Log2({Call(original, 0x00458E60, &App::BandwidthExceeded, app, conns[0])});
-    At<int>(w.manager, 0x378) = 1400;
+    At<int>(w.manager, 0x378) = 1300; // (its whole share is over 700, half of it not)
     Log2({Call(original, 0x00458E60, &App::BandwidthExceeded, app, conns[0])});
     At<int>(w.manager, 0x378) = 1201;
     setConn(3, 2, 300, 30000);
@@ -728,7 +729,7 @@ std::vector<uint32_t> RunConnections(bool original)
     setTerm(3, 4, 0, true);      // invalid, still sending
     GameVariable<uint64_t>(0x007D1EC8) = 999999;
     RunTask(original, 0x004593C0, &App::ReceiveNetworkData, w.task);
-    Log2({app->m_timestamp});
+    Log2({app->m_time});
     setTerm(2, 4, -1, false);    // invalid, read past the end: deleted
     setTerm(3, 1, 0, false);     // valid
     Call(original, 0x00458FB0, &App::TerminateInvalidConnections, app);

@@ -8,6 +8,7 @@
 #include "game/core/crc.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/lst/head.h"
 #include "game/lst/search.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
@@ -15,18 +16,19 @@
 
 namespace Net {
 
+using Conn = ConnView;
+
 namespace {
 
 using Mem::ListNode;
 
 void** const kAppVtable = reinterpret_cast<void**>(0x006475B4);
 void** const kAppNodeVtable = reinterpret_cast<void**>(0x006474D8);      // Lst::Node<App>
-void** const kConnectionsVtable = reinterpret_cast<void**>(0x006475AC);  // Lst::Head<Conn>
-void** const kBannedVtable = reinterpret_cast<void**>(0x006475B0);       // Lst::Head<BannedConn>
 void** const kTaskVtable = reinterpret_cast<void**>(0x006476F0);         // Tsk::Task<App>
 
-constexpr int kBroadcast = 0xFF;           // every connection
-constexpr int kExcludeBroadcast = 0x80;    // every connection but handle & 0x7F
+// Message targets (not AppView::kHandleBroadcast, a flag).
+constexpr int kHandleBroadcast = 0xFF;        // every connection
+constexpr int kHandleExcludeBroadcast = 0x80; // every connection but handle & 0x7F
 constexpr uint8_t kMsgStreamStart = 0x0E;
 constexpr uint8_t kMsgStreamData = 0x0F;
 constexpr uint8_t kMsgUnreadyOk = 0x09;    // default-queue messages that go to a connection that isn't ready
@@ -36,7 +38,7 @@ constexpr int kMetricsTaskPriority = -2500;
 constexpr int kReceiveTaskPriority = 1000;
 constexpr int kProcessTaskPriority = 0;
 
-// --- Conn (0x3D20 bytes; not rewritten yet) ---------------------------------------------------------------------
+// --- Conn (0x3D20 bytes, ConnView; the fields it doesn't name) -----------------------------------------------
 uint8_t* Bytes(Conn* conn) { return reinterpret_cast<uint8_t*>(conn); }
 template <typename T>
 T& At(Conn* conn, uint32_t offset)
@@ -47,9 +49,6 @@ T& At(Conn* conn, uint32_t offset)
 ListNode* NormalQueue(Conn* conn) { return &At<ListNode>(conn, 0x00); }
 ListNode* ImportantQueue(Conn* conn) { return &At<ListNode>(conn, 0x14); }
 ListNode* SequencedQueue(Conn* conn) { return &At<ListNode>(conn, 0x28); }
-int& Handle(Conn* conn) { return At<int>(conn, 0x3C); }
-int& Address(Conn* conn) { return At<int>(conn, 0x40); }
-uint16_t& Port(Conn* conn) { return At<uint16_t>(conn, 0x48); }
 // The receive buffer's read and write positions.
 uint8_t*& ReadPosition(Conn* conn) { return At<uint8_t*>(conn, 0x54); }
 uint8_t*& WritePosition(Conn* conn) { return At<uint8_t*>(conn, 0x58); }
@@ -65,11 +64,10 @@ int& NextStreamId(Conn* conn) { return At<int>(conn, 0x878); }
 ListNode* Streams(Conn* conn) { return &At<ListNode>(conn, 0x1C90); } // Lst::Head<StreamLink>
 void* InMetrics(Conn* conn) { return Bytes(conn) + 0x1CDC; }         // Net::Metrics (0x100C bytes)
 void* OutMetrics(Conn* conn) { return Bytes(conn) + 0x2CE8; }
-ListNode* AppLink(Conn* conn) { return &At<ListNode>(conn, 0x3CF8); } // Lst::Node<Conn> in App::m_connections
-// A local connection's peer buffer (data written straight into it): +0x4C start, +0x50 end.
-uint8_t*& PeerBufferStart(void* buffer) { return *reinterpret_cast<uint8_t**>(static_cast<uint8_t*>(buffer) + 0x4C); }
-uint8_t*& PeerBufferEnd(void* buffer) { return *reinterpret_cast<uint8_t**>(static_cast<uint8_t*>(buffer) + 0x50); }
-void*& PeerBuffer(Conn* conn) { return At<void*>(conn, 0x3D0C); }
+// The send buffer (+0x4C its start, +0x50 the end of what's written): a local connection takes its alias's
+// (the other end, in this process) straight into its own receive buffer.
+uint8_t*& SendBufferStart(Conn* conn) { return At<uint8_t*>(conn, 0x4C); }
+uint8_t*& SendBufferEnd(Conn* conn) { return At<uint8_t*>(conn, 0x50); }
 
 // Conn's methods (0x00455xxx-0x00456xxx, not rewritten yet).
 Conn* ConstructConn(void* memory, int flags)
@@ -79,7 +77,7 @@ Conn* ConstructConn(void* memory, int flags)
 void DestroyConnBody(Conn* conn) { GameFunction<void(__thiscall*)(Conn*)>(0x00456790)(conn); }
 bool IsValid(Conn* conn) { return GameFunction<bool(__thiscall*)(Conn*)>(0x00455C20)(conn); }
 void Invalidate(Conn* conn) { GameFunction<void(__thiscall*)(Conn*)>(0x00455C10)(conn); }
-bool IsLocal(Conn* conn) { return GameFunction<bool(__thiscall*)(Conn*)>(0x00455A20)(conn); }
+bool IsLocalConn(Conn* conn) { return GameFunction<bool(__thiscall*)(Conn*)>(0x00455A20)(conn); }
 bool IsRemote(Conn* conn) { return GameFunction<bool(__thiscall*)(Conn*)>(0x00455A30)(conn); }
 bool IsForeign(Conn* conn) { return GameFunction<bool(__thiscall*)(Conn*)>(0x00455A10)(conn); }
 int BandwidthType(Conn* conn) { return GameFunction<int(__thiscall*)(Conn*)>(0x004559A0)(conn); }
@@ -96,22 +94,19 @@ void UpdateMetrics(void* metrics, uint32_t time)
 }
 // +0x378 of the app's manager: the bandwidth allowed over all connections.
 int TotalBandwidth(void* manager) { return GameFunction<int(__thiscall*)(void*)>(0x004545B0)(manager); }
-// GameNet's network settings (0x006EFDD8): +0x128, 1 = a slow connection.
-int ConnectionType(void* settings) { return GameFunction<int(__thiscall*)(void*)>(0x00454960)(settings); }
+// The Net::Manager's +0x128: 1 = a slow connection.
+int ConnectionType(void* manager) { return GameFunction<int(__thiscall*)(void*)>(0x00454960)(manager); }
 
 // --- Messages ---------------------------------------------------------------------------------------------------
-// QueuedMsg (0x0C bytes: id, length, data, +8 links) and QueuedMsgSeq (0x10: +8 group, +0xC links): a copy of a
-// message shared by the links that send it to each connection; freed with the last.
-struct QueuedMsg;
+// QueuedMsg (0x0C) and SeqQueuedMsg (0x10, made by AppView::NewQueuedMsg): a copy of a message shared by the
+// links that send it to each connection; freed with the last.
 QueuedMsg* ConstructQueuedMsg(void* memory, uint8_t id, uint16_t length, void* data, uint8_t compression)
 {
     return GameFunction<QueuedMsg*(__thiscall*)(void*, uint8_t, uint16_t, void*, uint8_t)>(0x00454FA0)(
         memory, id, length, data, compression);
 }
-int& LinkCount(QueuedMsg* message) { return *reinterpret_cast<int*>(reinterpret_cast<uint8_t*>(message) + 0x08); }
-int& SeqLinkCount(QueuedMsg* message) { return *reinterpret_cast<int*>(reinterpret_cast<uint8_t*>(message) + 0x0C); }
-// ~QueuedMsg / ~QueuedMsgSeq: frees the data.
-void DestroyQueuedMsgBody(QueuedMsg* message) { GameFunction<void(__thiscall*)(QueuedMsg*)>(0x004550F0)(message); }
+// ~QueuedMsg / ~SeqQueuedMsg: frees the data.
+void DestroyQueuedMsgBody(void* message) { GameFunction<void(__thiscall*)(void*)>(0x004550F0)(message); }
 
 // The links: Lst::Nodes (+8 the priority) pointing at a QueuedMsg.
 // MsgLink (0x1C bytes, vtable 0x00647578): +0x18 the time it may be sent.
@@ -126,9 +121,9 @@ ListNode* ConstructMsgImportantLink(void* memory, QueuedMsg* message)
 }
 // MsgSeqLink (0x2C, vtable 0x00647580): +0x15 the group, +0x16 a stream piece, +0x1C when last sent,
 // +0x20 the sequence id, +0x24 the time it may go.
-ListNode* ConstructMsgSeqLink(void* memory, QueuedMsg* message)
+ListNode* ConstructMsgSeqLink(void* memory, SeqQueuedMsg* message)
 {
-    return GameFunction<ListNode*(__thiscall*)(void*, QueuedMsg*)>(0x00455650)(memory, message);
+    return GameFunction<ListNode*(__thiscall*)(void*, SeqQueuedMsg*)>(0x00455650)(memory, message);
 }
 template <typename T>
 T& LinkField(ListNode* link, uint32_t offset)
@@ -205,45 +200,17 @@ struct StreamData {
     uint8_t m_data[kStreamPieceSize];
 };
 
-// --- The rest of App (wt/netA, wt/netC) -----------------------------------------------------------------------
-// -> App::GetConnectionByHandle (wt/netA)
-Conn* GetConnectionByHandle(App* app, int handle)
-{
-    return GameFunction<Conn*(__thiscall*)(App*, int)>(0x00457910)(app, handle);
-}
-// -> App: drop conn's queued messages of `queue` with id `id` (wt/netA)
-void RemoveMessagesWithId(App* app, Conn* conn, int queue, uint8_t id)
-{
-    GameFunction<void(__thiscall*)(App*, Conn*, int, uint8_t)>(0x00457C80)(app, conn, queue, id);
-}
-// -> App: a QueuedMsgSeq from the network heap (wt/netA)
-QueuedMsg* NewQueuedMsgSeq(App* app, uint8_t id, uint16_t length, void* data, uint8_t group, uint8_t compression)
-{
-    return GameFunction<QueuedMsg*(__thiscall*)(App*, uint8_t, uint16_t, void*, uint8_t, uint8_t)>(0x00456D90)(
-        app, id, length, data, group, compression);
-}
-// -> Lst::Head<MsgLink>::AddNode: before the last node whose priority is lower... (from the tail) (wt/netA)
-void AddLink(ListNode* queue, ListNode* link)
-{
-    GameFunction<void(__thiscall*)(ListNode*, ListNode*)>(0x00457350)(queue, link);
-}
-// -> App::MessagesToSend: whether conn has messages due (wt/netA)
-bool MessagesToSend(App* app, Conn* conn) { return GameFunction<bool(__thiscall*)(App*, Conn*)>(0x00457AC0)(app, conn); }
-// -> App::ProcessSequencedMessages: conn's received sequenced messages, in order; false to stop (wt/netA)
-bool ProcessSequencedMessages(App* app, Conn* conn)
-{
-    return GameFunction<bool(__thiscall*)(App*, Conn*)>(0x00457560)(app, conn);
-}
-// -> App::~App body (wt/netA)
-void DestroyAppBody(App* app) { GameFunction<void(__thiscall*)(App*)>(0x00457710)(app); }
-// -> the dispatcher's handler lists: constructor (wt/netA)
+// --- The rest of the library ------------------------------------------------------------------------------
+// A message link into a queue: Lst::Head::AddNodeFromTail (0x00457350).
+void AddLink(ListNode* queue, ListNode* link) { reinterpret_cast<Lst::Head*>(queue)->AddNodeFromTail(link); }
+// The handler lists' constructor (0x00457010, in wt/netA's range; not a function in Ghidra, not rewritten).
 void ConstructHandlerList(ListNode* head) { GameFunction<void(__thiscall*)(ListNode*)>(0x00457010)(head); }
-// -> the process task (0x00456CA0, wt/netA)
+// The process task (0x00456CA0, in wt/netA's range; not a function in Ghidra, not rewritten).
 void* const kProcessNetworkData = reinterpret_cast<void*>(0x00456CA0);
 // -> Dispatcher::DispatchMessages: conn's received messages to their handlers; 2 = done, 3 = stop (wt/netC)
-int DispatchMessages(App::Dispatcher* dispatcher, Conn* conn, int flags)
+int DispatchMessages(HandlerLists* dispatcher, Conn* conn, int flags)
 {
-    return GameFunction<int(__thiscall*)(App::Dispatcher*, Conn*, int)>(0x0045A830)(dispatcher, conn, flags);
+    return GameFunction<int(__thiscall*)(HandlerLists*, Conn*, int)>(0x0045A830)(dispatcher, conn, flags);
 }
 
 // App's virtual functions.
@@ -283,23 +250,23 @@ void InitHead(ListNode* head, void** vtable)
 App* App::Construct(int flags)
 {
     m_vtable = kAppVtable;
-    for (ListNode& handlers : m_dispatcher.m_handlers)
+    for (MsgHandlerNode& handlers : m_dispatcher.m_lists)
         ConstructHandlerList(&handlers);
-    m_dispatcher.m_app = this;
-    m_node.vtable = kAppNodeVtable;
-    m_node.data = this;
-    m_node.priority = 0;
-    m_node.next = &m_node;
-    m_node.prev = &m_node;
+    m_dispatcherApp = this;
+    m_list1414.vtable = kAppNodeVtable;
+    m_list1414.data = this;
+    m_list1414.priority = 0;
+    m_list1414.next = &m_list1414;
+    m_list1414.prev = &m_list1414;
     m_flags = 0;
-    InitHead(&m_connections, kConnectionsVtable);
-    InitHead(&m_banned, kBannedVtable);
+    InitHead(&m_connections, kConnHeadVtable);
+    InitHead(&m_banned, kBannedConnVtable);
     m_metricsTask = NewTask(kMetricsTaskPriority, reinterpret_cast<void*>(&App::NetworkMetrics), this);
     m_receiveTask = NewTask(kReceiveTaskPriority, reinterpret_cast<void*>(&App::ReceiveNetworkData), this);
     m_processTask = NewTask(kProcessTaskPriority, kProcessNetworkData, this);
-    m_unknown1F00 = GameVariable<double>(0x006453A0); // 0.0
-    m_flags = flags;
-    m_timestamp = 0;
+    Unknown1F00() = GameVariable<double>(0x006453A0); // 0.0
+    m_flags = static_cast<uint32_t>(flags);
+    m_time = 0;
     m_unknown1E88 = 0;
     return this;
 }
@@ -307,7 +274,7 @@ App* App::Construct(int flags)
 // 0x00459660
 App* App::Destroy(unsigned int flags)
 {
-    DestroyAppBody(this);
+    DestroyBody();
     if (flags & 1)
         Memory()->Free(this);
     return this;
@@ -319,21 +286,21 @@ void App::EnqueueMessage(int handle, MsgDesc* desc)
     PushNetworkHeap();
     // Every connection that takes it (`accepts`), or every one but handle & 0x7F, or the handle's.
     auto forEachTarget = [&](auto accepts, auto queue) {
-        if (handle == kBroadcast) {
+        if (handle == kHandleBroadcast) {
             Lst::Search<Conn> search;
             for (Conn* conn = search.FirstItem(&m_connections); conn; conn = search.NextItem()) {
                 if (accepts(conn))
                     queue(conn);
             }
-        } else if (handle & kExcludeBroadcast) {
-            int excluded = handle & ~kExcludeBroadcast;
+        } else if (handle & kHandleExcludeBroadcast) {
+            int excluded = handle & ~kHandleExcludeBroadcast;
             Lst::Search<Conn> search;
             for (Conn* conn = search.FirstItem(&m_connections); conn; conn = search.NextItem()) {
-                if (Handle(conn) != excluded && accepts(conn))
+                if (conn->m_handle != excluded && accepts(conn))
                     queue(conn);
             }
         } else {
-            Conn* conn = GetConnectionByHandle(this, handle); // (not checked for null)
+            Conn* conn = GetConnectionByHandle(handle); // (not checked for null)
             if (accepts(conn))
                 queue(conn);
         }
@@ -348,20 +315,20 @@ void App::EnqueueMessage(int handle, MsgDesc* desc)
                    : nullptr;
         // To ready connections only (to a single connection, also message 9).
         auto ready = [&](Conn* conn) {
-            return Status(conn) == kStatusReady || (handle != kBroadcast && !(handle & kExcludeBroadcast) &&
+            return Status(conn) == kStatusReady || (handle != kHandleBroadcast && !(handle & kHandleExcludeBroadcast) &&
                                                     desc->m_id == kMsgUnreadyOk);
         };
         forEachTarget(ready, [&](Conn* conn) {
             if (desc->m_singular)
-                RemoveMessagesWithId(this, conn, desc->m_queue, desc->m_id);
-            ++LinkCount(message);
+                FreeMessages(conn, desc->m_queue, desc->m_id);
+            ++message->m_refCount;
             void* linkMemory = Mem::Calloc(0x1C);
             ListNode* link = linkMemory ? ConstructMsgLink(linkMemory, message) : nullptr;
             link->priority = desc->m_priority;
-            LinkField<uint32_t>(link, 0x18) = desc->m_delay + m_timestamp;
+            LinkField<uint32_t>(link, 0x18) = desc->m_delay + m_time;
             AddLink(NormalQueue(conn), link);
         });
-        if (LinkCount(message) == 0) {
+        if (message->m_refCount == 0) {
             DestroyQueuedMsgBody(message);
             Memory()->Free(message);
         }
@@ -374,32 +341,32 @@ void App::EnqueueMessage(int handle, MsgDesc* desc)
                    : nullptr;
         forEachTarget(notDisconnecting, [&](Conn* conn) {
             if (desc->m_singular)
-                RemoveMessagesWithId(this, conn, desc->m_queue, desc->m_id);
-            ++LinkCount(message);
+                FreeMessages(conn, desc->m_queue, desc->m_id);
+            ++message->m_refCount;
             void* linkMemory = Mem::Calloc(0x28);
             ListNode* link = linkMemory ? ConstructMsgImportantLink(linkMemory, message) : nullptr;
             link->priority = desc->m_priority;
-            LinkField<uint32_t>(link, 0x24) = desc->m_delay + m_timestamp;
+            LinkField<uint32_t>(link, 0x24) = desc->m_delay + m_time;
             LinkField<uint32_t>(link, 0x14) = 0;
             AddLink(ImportantQueue(conn), link);
         });
-        if (LinkCount(message) == 0) {
+        if (message->m_refCount == 0) {
             DestroyQueuedMsgBody(message);
             Memory()->Free(message);
         }
         break;
     }
     case MsgDesc::kQueueSequenced: {
-        QueuedMsg* message =
-            NewQueuedMsgSeq(this, desc->m_id, desc->m_length, desc->m_data, desc->m_groupId, desc->m_compression);
+        SeqQueuedMsg* message =
+            NewQueuedMsg(desc->m_id, desc->m_length, desc->m_data, desc->m_groupId, desc->m_compression);
         forEachTarget(notDisconnecting, [&](Conn* conn) {
-            ++SeqLinkCount(message);
+            ++message->m_refCount;
             void* linkMemory = Mem::Calloc(0x2C);
             ListNode* link = linkMemory ? ConstructMsgSeqLink(linkMemory, message) : nullptr;
             // The original's broadcast gives the links the queue number (2) as their priority instead.
-            link->priority = handle == kBroadcast ? desc->m_queue : desc->m_priority;
+            link->priority = handle == kHandleBroadcast ? desc->m_queue : desc->m_priority;
             LinkField<uint32_t>(link, 0x1C) = 0;
-            LinkField<uint32_t>(link, 0x24) = desc->m_delay + m_timestamp;
+            LinkField<uint32_t>(link, 0x24) = desc->m_delay + m_time;
             LinkField<uint8_t>(link, 0x15) = desc->m_groupId;
             if (desc->m_forcedSequenceId)
                 LinkField<uint32_t>(link, 0x20) = desc->m_forcedSequenceId;
@@ -408,7 +375,7 @@ void App::EnqueueMessage(int handle, MsgDesc* desc)
             LinkField<uint8_t>(link, 0x16) = desc->m_stream;
             AddLink(SequencedQueue(conn), link);
         });
-        if (SeqLinkCount(message) == 0) {
+        if (message->m_refCount == 0) {
             DestroyQueuedMsgBody(message);
             Memory()->Free(message);
         }
@@ -442,7 +409,7 @@ void App::StreamMessageToConn(Conn* conn, uint8_t msgId, uint16_t size, void* da
     message.m_id = kMsgStreamStart;
     message.m_queue = MsgDesc::kQueueSequenced;
     message.m_stream = 1;
-    EnqueueMessage(Handle(conn), &message);
+    EnqueueMessage(conn->m_handle, &message);
 
     if (size > kStreamPieceSize) {
         if (allAtOnce) {
@@ -461,7 +428,7 @@ void App::StreamMessageToConn(Conn* conn, uint8_t msgId, uint16_t size, void* da
                 message.m_id = kMsgStreamData;
                 message.m_queue = MsgDesc::kQueueSequenced;
                 message.m_stream = 1;
-                EnqueueMessage(Handle(conn), &message);
+                EnqueueMessage(conn->m_handle, &message);
                 sent += length;
                 next += length;
             }
@@ -502,14 +469,14 @@ void App::StreamMessageToConn(Conn* conn, uint8_t msgId, uint16_t size, void* da
 void App::StreamMessage(int handle, uint8_t msgId, uint16_t size, void* data, const char* desc, uint8_t groupId,
                         bool allAtOnce, bool sendInPlace)
 {
-    if (handle == kBroadcast) {
+    if (handle == kHandleBroadcast) {
         Lst::Search<Conn> search;
         for (Conn* conn = search.FirstItem(&m_connections); conn; conn = search.NextItem()) {
             if (IsValid(conn))
                 StreamMessageToConn(conn, msgId, size, data, desc, groupId, allAtOnce, sendInPlace);
         }
     } else {
-        Conn* conn = GetConnectionByHandle(this, handle); // (not checked for null)
+        Conn* conn = GetConnectionByHandle(handle); // (not checked for null)
         if (IsValid(conn))
             StreamMessageToConn(conn, msgId, size, data, desc, groupId, allAtOnce, sendInPlace);
     }
@@ -536,7 +503,7 @@ void App::SendEnqueuedMessages()
 void App::SendData(bool sendInFrame)
 {
     if (!sendInFrame) {
-        ++m_timestamp;
+        ++m_time;
         Lst::Search<Conn> search;
         for (Conn* conn = search.FirstItem(&m_connections); conn; conn = search.NextItem())
             SetForceSend(conn, true);
@@ -549,7 +516,7 @@ bool App::IsConnectionBanned(Conn* conn)
 {
     Lst::Search<uint8_t> search;
     for (uint8_t* banned = search.FirstItem(&m_banned); banned; banned = search.NextItem()) {
-        if (*reinterpret_cast<int*>(banned + 0x14) == Address(conn))
+        if (*reinterpret_cast<uint32_t*>(banned + 0x14) == conn->m_ip)
             return true;
     }
     return false;
@@ -592,7 +559,7 @@ bool App::BandwidthExceeded(Conn* conn)
 int App::GetFreeHandle()
 {
     for (int handle = 1; handle < 0x100; ++handle) {
-        if (!GetConnectionByHandle(this, handle))
+        if (!GetConnectionByHandle(handle))
             return handle;
     }
     return 0;
@@ -605,10 +572,10 @@ void App::TerminateInvalidConnections()
     Conn* conn = search.FirstItem(&m_connections);
     while (conn) {
         Conn* next = search.NextItem();
-        if ((Status(conn) & kStatusDisconnecting) && !MessagesToSend(this, conn))
+        if ((Status(conn) & kStatusDisconnecting) && !MessagesDue(conn))
             Invalidate(conn);
-        if (!IsValid(conn) && WritePosition(conn) <= ReadPosition(conn) && !MessagesToSend(this, conn)) {
-            Remove(AppLink(conn));
+        if (!IsValid(conn) && WritePosition(conn) <= ReadPosition(conn) && !MessagesDue(conn)) {
+            Remove(&conn->m_appNode);
             DestroyConnBody(conn);
             Memory()->Free(conn);
         }
@@ -623,12 +590,12 @@ void App::ProcessStreamMessages()
     MsgDesc message = {}; // (singular and compression uninitialised in the original - see StreamMessageToConn)
     InitMsgDesc(&message);
     StreamData piece;
-    void* settings = GameVariable<void*>(0x006EFDD8);
+    void* manager = GameVariable<void*>(0x006EFDD8); // the Net::Manager
     Lst::Search<Conn> search;
     for (Conn* conn = search.FirstItem(&m_connections); conn; conn = search.NextItem()) {
         int maxQueued = 5;
         int maxPerFrame = 3;
-        if (ConnectionType(settings) == 1 || BandwidthType(conn) == 1) {
+        if (ConnectionType(manager) == 1 || BandwidthType(conn) == 1) {
             maxQueued = 2;
             maxPerFrame = 1;
         }
@@ -669,7 +636,7 @@ void App::ProcessStreamMessages()
                 message.m_groupId = stream->m_groupId;
                 message.m_stream = 1;
                 message.m_forcedSequenceId = stream->m_sequenceId++;
-                EnqueueMessage(Handle(conn), &message);
+                EnqueueMessage(conn->m_handle, &message);
                 stream->m_next += length;
                 sent += length;
                 --budget;
@@ -688,7 +655,7 @@ void App::ProcessStreamMessages()
 void __cdecl App::ReceiveNetworkData(void* task)
 {
     App* app = TaskApp(task);
-    app->m_timestamp = Tmr::GetTime();
+    app->m_time = Tmr::GetTime();
     app->TerminateInvalidConnections();
     ReceiveData(app);
 }
@@ -699,8 +666,8 @@ void __cdecl App::NetworkMetrics(void* task)
     App* app = TaskApp(task);
     Lst::Search<Conn> search;
     for (Conn* conn = search.FirstItem(&app->m_connections); conn; conn = search.NextItem()) {
-        UpdateMetrics(InMetrics(conn), app->m_timestamp);
-        UpdateMetrics(OutMetrics(conn), app->m_timestamp);
+        UpdateMetrics(InMetrics(conn), app->m_time);
+        UpdateMetrics(OutMetrics(conn), app->m_time);
     }
 }
 
@@ -719,11 +686,11 @@ bool App::ProcessData()
     Conn* conn = search.FirstItem(&m_connections);
     while (conn) {
         Conn* next = search.NextItem();
-        if (IsLocal(conn) && PeerBuffer(conn)) {
-            void* buffer = PeerBuffer(conn);
-            size_t length = PeerBufferEnd(buffer) - PeerBufferStart(buffer);
-            std::memcpy(WritePosition(conn), PeerBufferStart(buffer), length);
-            PeerBufferEnd(PeerBuffer(conn)) = PeerBufferStart(PeerBuffer(conn));
+        if (IsLocalConn(conn) && conn->m_aliasConn) {
+            Conn* alias = conn->m_aliasConn;
+            size_t length = SendBufferEnd(alias) - SendBufferStart(alias);
+            std::memcpy(WritePosition(conn), SendBufferStart(alias), length);
+            SendBufferEnd(conn->m_aliasConn) = SendBufferStart(conn->m_aliasConn);
             WritePosition(conn) += length;
         }
         int result = DispatchMessages(&m_dispatcher, conn, 0);
@@ -731,7 +698,7 @@ bool App::ProcessData()
             return true;
         if (result == 3)
             return false;
-        if (!ProcessSequencedMessages(this, conn))
+        if (!DispatchQueuedSequencedMessages(conn))
             return false;
         conn = next;
     }
@@ -746,12 +713,12 @@ Conn* App::NewConnection(int ip, uint16_t port, int flags)
     if (m_numConnections < m_maxConnections) {
         void* memory = Mem::New(0x3D20);
         conn = memory ? ConstructConn(memory, flags) : nullptr; // (not checked for null)
-        Address(conn) = ip;
-        Port(conn) = port;
-        Handle(conn) = GetFreeHandle();
+        conn->m_ip = static_cast<uint32_t>(ip);
+        conn->m_port = port;
+        conn->m_handle = GetFreeHandle();
         OwnerApp(conn) = this;
         CreatedTime(conn) = Tmr::GetTime();
-        AddToTail(&m_connections, AppLink(conn));
+        AddToTail(&m_connections, &conn->m_appNode);
     }
     PopHeap();
     return conn;
