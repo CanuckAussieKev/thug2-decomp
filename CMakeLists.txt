@@ -89,6 +89,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_netF.cpp
     src/hook/selftests_netA.cpp
     src/hook/selftests_netE.cpp
+    src/hook/selftests_menulvl.cpp
     src/game/core/alloc.cpp
     src/game/core/crc.cpp
     src/game/core/dbg.cpp
@@ -105,6 +106,7 @@ add_library(thug2_code OBJECT
     src/game/front/screen_element.cpp
     src/game/front/front_end.cpp
     src/game/front/mouse_menus.cpp
+    src/game/front/menu_backdrop.cpp
     src/game/skate/competition.cpp
     src/game/gfx/screen.cpp
     src/game/gfx/settings.cpp
@@ -118,6 +120,8 @@ add_library(thug2_code OBJECT
     src/game/gfx/loading_bar.cpp
     src/game/gfx/render.cpp
     src/game/gfx/sprite.cpp
+    src/game/gfx/camera.cpp
+    src/game/gfx/scene.cpp
     src/game/file/async.cpp
     src/game/file/file.cpp
     src/game/file/pip.cpp
