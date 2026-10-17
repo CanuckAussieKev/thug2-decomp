@@ -1838,7 +1838,9 @@ belong with the CScript batch.
       ~line 93, `high <= (base + size) >> 16`) works in whole 64 KB segments, so the segment holding the arena's end
       can also normalise statics placed right after the arena (csB hit this with its fake objects and used `<`,
       which instead skips the arena's last partial segment). A proper fix compares full addresses.
-- [ ] Next: run batch 74 (CScript) in the game - every script goes through it, so a failure shows at once (bisect by
+- [x] Batch 74 (CScript) tested in the game (2026-10-17, by the user): game runs; 873 of 873 replacements installed
+      (32 source only), early 105 / late 17 / engine-started 2 self-tests pass, shadow checks no mismatches.
+- [ ] Next: (batch 74 tested) - every script goes through it, so a failure shows at once (bisect by
       file in thug2-decomp.ini: cscript_core / cscript_exec / cscript_wait / cscript_manager). Then the nearby gaps:
       the module manager Mdl::Manager 0x44F300-0x44F7E0, 0x4B2270-0x4B2320 (9 glue functions), CFlipRotateComponent::
       Update 0x4E2D20 and its base 0x481710-0x481740, 0x46C470-0x46C6A0 (a CStruct wrapper class), 0x4620A0-0x462710
