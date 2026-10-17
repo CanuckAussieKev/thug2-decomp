@@ -10,6 +10,7 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/front/mouse_menus.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/tracker.h"
 #include "game/pcm/music.h"
@@ -553,6 +554,10 @@ void FrontEnd::PauseGame(bool pause)
 void __cdecl FrontEnd::InputLogic(FrontEndInputHandler* handler)
 {
     FrontEnd* frontEnd = handler->m_data;
+    // (not original - the mouse_menus feature: once a frame, with the first controller's handler, the mouse's menu
+    // events; nothing when it's off)
+    if (handler->m_index == 0 && MouseMenus::Enabled())
+        MouseMenus::Update(frontEnd);
     void* tracker = Tracker();
     static_cast<Obj::CTracker*>(tracker)->LogFrame();
     for (int index = 0;; ++index) {

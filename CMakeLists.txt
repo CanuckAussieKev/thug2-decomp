@@ -64,6 +64,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_skaterA.cpp
     src/hook/selftests_gfx2.cpp
     src/hook/selftests_el3d.cpp
+    src/hook/selftests_mouse.cpp
     src/hook/selftests_sprite.cpp
     src/hook/selftests_netB.cpp
     src/hook/selftests_mainloop.cpp
@@ -103,6 +104,7 @@ add_library(thug2_code OBJECT
     src/game/front/element3d.cpp
     src/game/front/screen_element.cpp
     src/game/front/front_end.cpp
+    src/game/front/mouse_menus.cpp
     src/game/skate/competition.cpp
     src/game/gfx/screen.cpp
     src/game/gfx/settings.cpp
