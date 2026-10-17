@@ -10,6 +10,7 @@
 #include "game/core/pool.h"
 #include "game/core/crc.h"
 #include "game/gfx/screen.h"
+#include "game/net/net_app.h"
 #include "game/obj/object.h"
 #include "game/obj/tracker.h"
 #include "game/script/cscript.h"
@@ -45,20 +46,9 @@ struct ChatPacket {
 #pragma pack(pop)
 static_assert(sizeof(ChatPacket) == 0x94);
 
-// Net::MsgDesc: a message to be sent (0x20 bytes; its constructor sets the defaults).
-struct MsgDesc {
-    uint8_t id;
-    uint8_t unknown1;
-    uint16_t length;
-    void* data;
-    uint8_t rest[0x18];
-};
-static_assert(sizeof(MsgDesc) == 0x20);
-
+// Net::MsgDesc (net_app.h): a message to be sent; its constructor (0x004549F0) sets the defaults.
+using ::Net::MsgDesc;
 void InitMsgDesc(MsgDesc* desc) { GameFunction<void(__thiscall*)(MsgDesc*)>(0x004549F0)(desc); }
-// Fields set by the chat send; their meaning isn't known yet.
-uint32_t& MsgDescField0C(MsgDesc* desc) { return *reinterpret_cast<uint32_t*>(desc->rest + 0x4); }
-uint8_t& MsgDescField10(MsgDesc* desc) { return desc->rest[0x8]; }
 
 // The local player's info (not decompiled yet): name at +0x38, flags at +0x1D0, team at [+0x14]+0x14.
 struct PlayerInfo;
@@ -140,11 +130,11 @@ void Send(Manager* manager, const char* name, uint8_t color, const char* text)
 
     MsgDesc desc;
     InitMsgDesc(&desc);
-    desc.id = kMsgChat;
-    desc.length = static_cast<uint16_t>(std::strlen(packet.text) + 0x12); // color + name + text + '\0'
-    desc.data = &packet;
-    MsgDescField0C(&desc) = 2;
-    MsgDescField10(&desc) = 8;
+    desc.m_id = kMsgChat;
+    desc.m_length = static_cast<uint16_t>(std::strlen(packet.text) + 0x12); // color + name + text + '\0'
+    desc.m_data = &packet;
+    desc.m_queue = MsgDesc::kQueueSequenced;
+    desc.m_groupId = 8;
     SendToServer(manager, &desc);
 
     // The server doesn't send our own line back to us, so show it here.
