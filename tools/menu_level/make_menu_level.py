@@ -214,6 +214,35 @@ def edit_levels(text, yaw, offset):
     return text
 
 
+# The shop's own decorations that would hang in LA's air: its bouncy skateboards and its electrical sparks / smoke.
+# Not created (CreatedAtStart taken off; their nodes stay - nothing in the scripts names them).
+SHOP_DECORATIONS = ("WH_TB_Ska8brd_01", "WH_TB_Ska8brd_01b", "WH_TB_Sk8brd_02", "ATM_SparkA01", "ATM_SmokeA01",
+                    "ParticleBox_10")
+
+
+def drop_decorations(text):
+    elements, _, _ = array_elements(text, "mainmenu_NodeArray")
+    dropped = 0
+    for element in elements:
+        name = re.search(r"\bName=(\w+)", element)
+        if name and name.group(1) in SHOP_DECORATIONS and "CreatedAtStart" in element:
+            text = text.replace(element, element.replace("CreatedAtStart", "", 1), 1)
+            dropped += 1
+    return text, dropped
+
+
+def edit_cas(text, yaw):
+    # Create-A-Skater's camera (cas_setup_rotating_camera) is the skater's place plus offsets turned about the
+    # world's up axis by cas_cam_angle degrees (get_rotated_vector: x' = x cos - z sin, z' = x sin + z cos - the
+    # move's turn the other way round): in LA the angle is cas_cam_angle - yaw.
+    old = "    cos cas_cam_angle \n    sin cas_cam_angle \n"
+    if text.count(old) != 1:
+        sys.exit("mainmenu_cas.qb: get_rotated_vector's cos / sin found %d times" % text.count(old))
+    new = ("    <menu_level_angle> = (cas_cam_angle + %.6f) \n    cos <menu_level_angle> \n    sin <menu_level_angle> \n"
+           % -math.degrees(yaw))
+    return text.replace(old, new)
+
+
 def array_elements(text, name):
     # The top-level { ... } elements of the array `name = [ ... ]` and where the array's [ ... ] is in `text`.
     start = text.index(name + " =")
@@ -280,6 +309,8 @@ def main():
         r"scripts\game\Levels.qb": prx_file(os.path.join(pre, "qb_scripts.prx"), r"scripts\game\levels.qb"),
         r"levels\mainmenu\mainmenu.qb": prx_file(os.path.join(pre, "mainmenu_scripts.prx"),
                                                  r"levels\mainmenu\mainmenu.qb"),
+        r"levels\mainmenu\mainmenu_cas.qb": prx_file(os.path.join(pre, "mainmenu_scripts.prx"),
+                                                     r"levels\mainmenu\mainmenu_cas.qb"),
     }
     with tempfile.TemporaryDirectory() as work:
         la = os.path.join(work, "LA.qb")
@@ -297,8 +328,12 @@ def main():
             text = open(base + ".ns", encoding="utf-8").read()
             if name.endswith("Levels.qb"):
                 text = edit_levels(text, yaw, offset)
+            elif name.endswith("mainmenu_cas.qb"):
+                text = edit_cas(text, yaw)
             else:
                 text, moved = move_nodes(text, yaw, offset)
+                text, dropped = drop_decorations(text)
+                print("node array: %d shop decorations not created" % dropped)
                 _, open_at, _ = array_elements(text, "mainmenu_NodeArray")
                 text = text[:open_at + 1] + "\n" + "\n".join(placeholders) + text[open_at + 1:]
                 print("node array: %d points moved, after %d LA placeholders" % (moved, len(placeholders)))
