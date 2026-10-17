@@ -10,6 +10,7 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/obj/event.h"
 #include "game/script/cache.h"
 #include "game/script/parse.h"
 #include "game/script/qb.h"
@@ -32,9 +33,6 @@ constexpr float kSecondsPerMs = 0.001f;
 // The checksum of `exception` (an event handler table element that is an exception handler).
 constexpr uint32_t kExceptionFlag = 0x80367192;
 
-// An event's type (CEvent +0x00).
-uint32_t EventType(const Obj::CEvent* event) { return *reinterpret_cast<const uint32_t*>(event); }
-
 // The object tracker (0x006F0FC0): which scripts listen for which event types. Still the game's.
 void* Tracker() { return GameVariable<void*>(0x006F0FC0); }
 // 0x00463370: `script` waits for / handles events of type `type`.
@@ -48,73 +46,13 @@ void TrackerRemoveListener(uint32_t type, CScript* script)
     GameFunction<void(__thiscall*)(void*, uint32_t, CScript*)>(0x00463450)(Tracker(), type, script);
 }
 
-// The event handler table's methods (Obj::CEventHandlerTable, 0x10 bytes: the entries, their count, +0x08
-// alive, +0x09 changed, +0x0C in use; an entry is 0x14 bytes: type, script, group, params, flags - bit 0
-// exception, bit 1 marked for removal). Still the game's.
 using Obj::CEventHandlerTable;
-// 0x0045F820: the constructor (returns this).
-CEventHandlerTable* ConstructTable(void* memory)
-{
-    return GameFunction<CEventHandlerTable*(__thiscall*)(void*)>(0x0045F820)(memory);
-}
-// 0x0045FA60: the tracker forgets the script's handlers' types. 0x0045FA10: the tracker is told them.
-void TableUnregister(CEventHandlerTable* table, CScript* script)
-{
-    GameFunction<void(__thiscall*)(CEventHandlerTable*, CScript*)>(0x0045FA60)(table, script);
-}
-void TableRegister(CEventHandlerTable* table, CScript* script)
-{
-    GameFunction<void(__thiscall*)(CEventHandlerTable*, CScript*)>(0x0045FA10)(table, script);
-}
-// 0x004601A0: add an array of handler structures (`replace`: same types replaced; an empty array clears all).
-void TableAddArray(CEventHandlerTable* table, CArray* handlers, bool replace)
-{
-    GameFunction<void(__thiscall*)(CEventHandlerTable*, CArray*, bool)>(0x004601A0)(table, handlers, replace);
-}
-// 0x0045FF50: the removed entries go.
-void TableCompact(CEventHandlerTable* table)
-{
-    GameFunction<void(__thiscall*)(CEventHandlerTable*)>(0x0045FF50)(table);
-}
-// 0x0045FBC0: add (or replace the entry of) one handler.
-void TableAdd(CEventHandlerTable* table, CScript* script, uint32_t type, uint32_t scriptName, uint32_t group,
-              bool exception, CStruct* params)
-{
-    GameFunction<void(__thiscall*)(CEventHandlerTable*, CScript*, uint32_t, uint32_t, uint32_t, bool, CStruct*)>(
-        0x0045FBC0)(table, script, type, scriptName, group, exception, params);
-}
-// 0x0045FDF0: remove the handlers of an event type.
-void TableRemoveType(CEventHandlerTable* table, uint32_t type)
-{
-    GameFunction<void(__thiscall*)(CEventHandlerTable*, uint32_t)>(0x0045FDF0)(table, type);
-}
-// 0x004600E0: remove a group's handlers (0x8B713E0E: all).
-void TableRemoveGroup(CEventHandlerTable* table, CScript* script, uint32_t group)
-{
-    GameFunction<void(__thiscall*)(CEventHandlerTable*, CScript*, uint32_t)>(0x004600E0)(table, script, group);
-}
-// 0x0045F840: mark a group's handlers for removal. 0x0045FED0: remove the marked ones.
-void TableMarkGroup(CEventHandlerTable* table, uint32_t group)
-{
-    GameFunction<void(__thiscall*)(CEventHandlerTable*, uint32_t)>(0x0045F840)(table, group);
-}
-void TableRemoveMarked(CEventHandlerTable* table, CScript* script)
-{
-    GameFunction<void(__thiscall*)(CEventHandlerTable*, CScript*)>(0x0045FED0)(table, script);
-}
-// 0x00460470: run the handlers of `event` (as interrupts or spawned scripts).
-void TablePassEvent(CEventHandlerTable* table, Obj::CEvent* event, CScript* script)
-{
-    GameFunction<void(__thiscall*)(CEventHandlerTable*, Obj::CEvent*, CScript*)>(0x00460470)(table, event, script);
-}
-// 0x0045F880 (cdecl): print the table (null: "Emtpy").
-int PrintTable(CEventHandlerTable* table) { return GameFunction<int(__cdecl*)(CEventHandlerTable*)>(0x0045F880)(table); }
 
 // A new event handler table (on the current heap).
 CEventHandlerTable* NewEventHandlerTable()
 {
-    void* memory = Mem::New(0x10);
-    return memory ? ConstructTable(memory) : nullptr;
+    void* memory = Mem::New(sizeof(CEventHandlerTable));
+    return memory ? static_cast<CEventHandlerTable*>(memory)->Construct() : nullptr;
 }
 
 
@@ -274,17 +212,17 @@ void ComponentDestroyedAllScripts(Obj::CBaseComponent* component)
 // 0x00473800
 bool CScript::ReceiveEvent(Obj::CEvent* event)
 {
-    if (m_waitType == WAIT_TYPE_BLOCKED && m_waitArg && EventType(event) == m_waitArg)
+    if (m_waitType == WAIT_TYPE_BLOCKED && m_waitArg && event->m_type == m_waitArg)
         m_waitType = WAIT_TYPE_NONE;
     // Levels blocked on it further down go on when they're returned to.
     for (int i = 0; i < m_numReturnAddresses; ++i) {
         SReturnAddress& frame = m_returnAddresses[i];
         if ((frame.mWaitType & RETURN_WAIT_TYPE_MASK) == WAIT_TYPE_BLOCKED && frame.mWaitArg &&
-            EventType(event) == frame.mWaitArg)
+            event->m_type == frame.mWaitArg)
             frame.mWaitType &= ~RETURN_WAIT_TYPE_MASK;
     }
     if (m_eventHandlers)
-        TablePassEvent(m_eventHandlers, event, this);
+        m_eventHandlers->PassEvent(event, this);
     return true;
 }
 
@@ -400,11 +338,11 @@ EScriptReturnVal CScript::Interrupt(uint32_t name, CStruct* params)
 void CScript::ClearEventHandlerGroup(uint32_t group)
 {
     if (m_eventHandlers)
-        TableRemoveGroup(m_eventHandlers, this, group);
+        m_eventHandlers->RemoveGroup(this, group);
 }
 
 // 0x00472EC0
-int CScript::PrintEventHandlerTable() { return PrintTable(m_eventHandlers); }
+int CScript::PrintEventHandlerTable() { return CEventHandlerTable::PrintTable(m_eventHandlers); }
 
 // 0x004734E0
 void CScript::SetEventHandlers(CArray* handlers, bool replace)
@@ -413,10 +351,10 @@ void CScript::SetEventHandlers(CArray* handlers, bool replace)
     if (!m_eventHandlers)
         m_eventHandlers = NewEventHandlerTable();
     else
-        TableUnregister(m_eventHandlers, this);
-    TableAddArray(m_eventHandlers, handlers, replace);
-    TableCompact(m_eventHandlers);
-    TableRegister(m_eventHandlers, this);
+        m_eventHandlers->UnregisterWithTracker(this);
+    m_eventHandlers->AddHandlers(handlers, replace);
+    m_eventHandlers->Compact();
+    m_eventHandlers->RegisterWithTracker(this);
     Mem::PopContext();
 }
 
@@ -426,7 +364,7 @@ void CScript::SetEventHandler(uint32_t eventType, uint32_t script, uint32_t grou
     Mem::PushContext(Mem::Manager::Get()->m_frontEndHeap);
     if (!m_eventHandlers)
         m_eventHandlers = NewEventHandlerTable();
-    TableAdd(m_eventHandlers, this, eventType, script, group, exception, params);
+    m_eventHandlers->AddHandler(this, eventType, script, group, exception, params);
     Mem::PopContext();
 }
 
@@ -434,7 +372,7 @@ void CScript::SetEventHandler(uint32_t eventType, uint32_t script, uint32_t grou
 void CScript::ClearEventHandler(uint32_t eventType)
 {
     if (m_eventHandlers) {
-        TableRemoveType(m_eventHandlers, eventType);
+        m_eventHandlers->RemoveType(eventType);
         TrackerRemoveListener(eventType, this);
     }
 }
@@ -445,7 +383,7 @@ void CScript::ResetEventHandlersFromTable(CArray* table, uint32_t group)
 {
     Mem::PushContext(Mem::Manager::Get()->m_frontEndHeap);
     if (m_eventHandlers)
-        TableMarkGroup(m_eventHandlers, group);
+        m_eventHandlers->MarkGroup(group);
     int count = static_cast<int>(table->m_size);
     if (!m_eventHandlers && count)
         m_eventHandlers = NewEventHandlerTable();
@@ -455,12 +393,12 @@ void CScript::ResetEventHandlersFromTable(CArray* table, uint32_t group)
         CComponent* type = flag->next;
         CComponent* script = type->next;
         CComponent* params = script->next;
-        TableAdd(m_eventHandlers, this, type->checksum, script->checksum, group, flag->checksum == kExceptionFlag,
+        m_eventHandlers->AddHandler(this, type->checksum, script->checksum, group, flag->checksum == kExceptionFlag,
                  params ? params->structure : nullptr);
     }
     // (the group's handlers not added again go)
     if (m_eventHandlers)
-        TableRemoveMarked(m_eventHandlers, this);
+        m_eventHandlers->RemoveMarked(this);
     Mem::PopContext();
 }
 

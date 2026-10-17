@@ -15,6 +15,7 @@
 #include "game/core/pool.h"
 #include "game/obj/smtptr.h"
 #include "game/script/cache.h"
+#include "game/obj/event.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
@@ -183,15 +184,15 @@ void TestCScriptCore()
                                                                                                : nullptr;
             return reinterpret_cast<uint32_t>(code);
         });
-        s->At({0x0045FA60}, 4, [](Regs& r) {
+        s->At({0x0045FA60, AddressOf(&Obj::CEventHandlerTable::UnregisterWithTracker)}, 4, [](Regs& r) {
             Record({0xFA60, r.ecx, r.args[0]});
             return 0u;
         });
-        s->At({0x0045FE60}, 4, [](Regs& r) {
+        s->At({0x0045FE60, AddressOf(static_cast<void (Obj::CEventHandlerTable::*)(uint32_t)>(&Obj::CEventHandlerTable::RemoveGroup))}, 4, [](Regs& r) {
             Record({0xFE60, r.ecx, r.args[0]});
             return 0u;
         });
-        s->At({0x0045FB70}, 0, [](Regs& r) {
+        s->At({0x0045FB70, AddressOf(&Obj::CEventHandlerTable::Destroy)}, 0, [](Regs& r) {
             Record({0xFB70, r.ecx, reinterpret_cast<uint32_t*>(r.ecx)[3]});
             return 0u;
         });

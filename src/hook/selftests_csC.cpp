@@ -18,6 +18,7 @@
 #include "game/core/mem.h"
 #include "game/obj/smtptr.h"
 #include "game/script/cache.h"
+#include "game/obj/event.h"
 #include "game/script/cscript.h"
 #include "game/script/parse.h"
 #include "game/script/struct.h"
@@ -171,37 +172,44 @@ void InstallStandIns(StandIns& s)
         return 0u;
     });
     // The event handler table.
-    s.At({0x0045F820}, 0, [](Regs& r) {
+    s.At({0x0045F820, AddressOf(&Obj::CEventHandlerTable::Construct)}, 0, [](Regs& r) {
         Rec(0xE820, {r.ecx});
         return r.ecx;
     });
-    for (uint32_t address : {0x0045FA60u, 0x0045FA10u, 0x0045FDF0u, 0x0045F840u, 0x0045FED0u}) {
-        s.At({address}, 4, [address](Regs& r) {
+    const std::pair<uint32_t, uint32_t> oneArgument[] = {
+        {0x0045FA60u, AddressOf(&Obj::CEventHandlerTable::UnregisterWithTracker)},
+        {0x0045FA10u, AddressOf(&Obj::CEventHandlerTable::RegisterWithTracker)},
+        {0x0045FDF0u, AddressOf(&Obj::CEventHandlerTable::RemoveType)},
+        {0x0045F840u, AddressOf(&Obj::CEventHandlerTable::MarkGroup)},
+        {0x0045FED0u, AddressOf(&Obj::CEventHandlerTable::RemoveMarked)},
+    };
+    for (auto [address, ours] : oneArgument) {
+        s.At({address, ours}, 4, [address](Regs& r) {
             Rec(address, {r.ecx, r.args[0]});
             return 0u;
         });
     }
-    s.At({0x004601A0}, 8, [](Regs& r) {
+    s.At({0x004601A0, AddressOf(&Obj::CEventHandlerTable::AddHandlers)}, 8, [](Regs& r) {
         Rec(0xE1A0, {r.ecx, r.args[0], r.args[1] & 0xFF});
         return 0u;
     });
-    s.At({0x0045FF50}, 0, [](Regs& r) {
+    s.At({0x0045FF50, AddressOf(&Obj::CEventHandlerTable::Compact)}, 0, [](Regs& r) {
         Rec(0xEF50, {r.ecx});
         return 0u;
     });
-    s.At({0x0045FBC0}, 0x18, [](Regs& r) {
+    s.At({0x0045FBC0, AddressOf(&Obj::CEventHandlerTable::AddHandler)}, 0x18, [](Regs& r) {
         Rec(0xEBC0, {r.ecx, r.args[0], r.args[1], r.args[2], r.args[3], r.args[4] & 0xFF, r.args[5]});
         return 0u;
     });
-    s.At({0x004600E0}, 8, [](Regs& r) {
+    s.At({0x004600E0, AddressOf(static_cast<void (Obj::CEventHandlerTable::*)(Script::CScript*, uint32_t)>(&Obj::CEventHandlerTable::RemoveGroup))}, 8, [](Regs& r) {
         Rec(0xE0E0, {r.ecx, r.args[0], r.args[1]});
         return 0u;
     });
-    s.At({0x00460470}, 8, [](Regs& r) {
+    s.At({0x00460470, AddressOf(&Obj::CEventHandlerTable::PassEvent)}, 8, [](Regs& r) {
         Rec(0xE470, {r.ecx, r.args[0], r.args[1]});
         return 0u;
     });
-    s.At({0x0045F880}, 0, [](Regs& r) {
+    s.At({0x0045F880, AddressOf(&Obj::CEventHandlerTable::PrintTable)}, 0, [](Regs& r) {
         Rec(0xE880, {r.args[0]});
         return 0x4321u + (r.args[0] & 0xF);
     });
