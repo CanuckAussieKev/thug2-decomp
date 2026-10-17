@@ -9,6 +9,7 @@
 
 #include <SDL2/SDL.h>
 
+#include "game/front/level_editor.h"
 #include "game/front/mouse_menus.h"
 #include "game/sio/device.h"
 #include "game/sys/config.h"
@@ -522,6 +523,16 @@ void PollKeyboard(Device* device)
     auto down = [keys](SDL_Scancode key) { return KeyDown(keys, static_cast<uint8_t>(key)) != 0; };
     auto menuDown = [](uint8_t state) { return s_inMenu && state == 1; };
 
+    // Not original - the level editor (game/front/level_editor.h) flies on W/A/S/D/Q/E/Shift/Ctrl/Space: while it
+    // runs, the keyboard gives the game only the Pause key (Start: leaves the editor), once it has been up since the
+    // editor started; nothing else.
+    // Original behaviour: every binding is read.
+    if (Front::LevelEditor::Active()) {
+        if (Front::LevelEditor::PassPauseKey(keys[s_keys.menu] != 0))
+            data[2] |= 1 << 3;
+        return;
+    }
+
     if (down(s_keys.menu))
         data[2] |= 1 << 3;
     if (down(s_keys.cameraToggle))
@@ -934,6 +945,8 @@ void InitSdlInput()
     Platform::RegisterEventHandler(HandleInputEvent);
     // (not PartyMod's - the mouse_menus feature: the mouse's events, when it's on)
     MouseMenus::Init();
+    // (not PartyMod's either - the level editor: its mouse and Escape key)
+    Front::LevelEditor::Init();
 }
 
 void ProcessSdlDevice(Device* device)

@@ -11,6 +11,8 @@
 #   levels\skateshop\skateshop.qb  the shop's node array (skateshop_NodeArray) without the front end's parts: the
 #                              shadow skater's trigger script and the menus' 3D backgrounds.
 #   scripts\game\menu\gamemenu_levelselect.qb  the level select with a SKATE SHOP sign.
+#   scripts\game\menu\gamemenu_pause.qb  the pause menu with LEVEL EDITOR (src/game/front/level_editor.h) and its
+#                              scripts level_editor_enter / level_editor_exit.
 #   menu_level\scripts\game\Levels.qb  as above, and level_Mainmenu pointing at LA's scene, sky and collision, the
 #                              skate shop's scene loaded too (extra_scene: the wheel's meshes are in it), and the
 #                              move (menu_level_yaw / menu_level_offset) the DLL reads for the cameras; load_level
@@ -338,6 +340,61 @@ def add_skateshop_sign(text):
     return text
 
 
+# --- the level editor (src/game/front/level_editor.h) -------------------------------------------------------------
+
+LEVEL_EDITOR_SCRIPTS = """script level_editor_enter {
+    if ! LevelEditor_Start {
+        return
+    }
+    if ObjectExists id=current_menu_anchor {
+        DestroyScreenElement id=current_menu_anchor
+    }
+    if ObjectExists id=helper_text_anchor {
+        DestroyScreenElement id=helper_text_anchor
+    }
+    pause_menu_gradient off
+    menu3d_hide
+    PauseSkaters
+    HideSkaterAndMiscSkaterEffects
+    SetScreenElementProps {
+        id=root_window
+        replace_handlers
+        event_handlers=[{pad_start level_editor_exit}]
+    }
+    SetScreenElementProps {
+        id=root_window
+        replace_handlers
+        event_handlers=[{pad_select null_script}]
+    }
+}
+script level_editor_exit {
+    LevelEditor_Stop
+    Skater:AddSkaterToWorld
+    create_pause_menu
+}
+"""
+
+
+def add_level_editor(text):
+    # The pause menu's LEVEL EDITOR item (after YOUR OPTIONS: single player only - net games don't get that item, the
+    # park editor's own pause menu returns earlier) while LevelEditor_Available (the [features] level_editor setting,
+    # in a level), and the two scripts. level_editor_enter takes the pause menu down as the goal editor's
+    # my_exit_pause_menu does (the game stays paused: no UnpauseGame), the skater out of the world as its edit_goal
+    # does (PauseSkaters, HideSkaterAndMiscSkaterEffects), and Start / Select over to the editor (Start leaves it).
+    # level_editor_exit brings the skater back and the pause menu again (its CONTINUE unpauses as ever).
+    options = re.search(r'\n( *)add_roundbar_menu_item text="YOUR OPTIONS" id=menu_your_options '
+                        r'pad_choose_script=create_your_options_menu \n', text)
+    if not options or text.count('text="YOUR OPTIONS"') != 1:
+        sys.exit("gamemenu_pause.qb: the YOUR OPTIONS item not found once")
+    indent = options.group(1)
+    item = ('%sif LevelEditor_Available {\n%s    add_roundbar_menu_item text="LEVEL EDITOR" id=menu_level_editor '
+            'pad_choose_script=level_editor_enter \n%s} \n' % (indent, indent, indent))
+    text = text[:options.end()] + item + text[options.end():]
+    register = text.find("\n__register_checksums__")
+    at = register + 1 if register >= 0 else len(text)
+    return text[:at] + LEVEL_EDITOR_SCRIPTS + text[at:]
+
+
 def edit_cas(text, yaw):
     # Create-A-Skater's camera (cas_setup_rotating_camera) is the skater's place plus offsets turned about the
     # world's up axis by cas_cam_angle degrees (get_rotated_vector: x' = x cos - z sin, z' = x sin + z cos - the
@@ -445,12 +502,15 @@ def main():
         cas = decompile(prx_file(menu_scripts, r"levels\mainmenu\mainmenu_cas.qb"), "mainmenu_cas.qb")
         select = decompile(prx_file(qb_scripts, r"scripts\game\menu\gamemenu_levelselect.qb"), "levelselect.qb")
         la = decompile(prx_file(os.path.join(pre, "LA_scripts.prx"), r"levels\la\la.qb"), "LA.qb")
+        pause = decompile(prx_file(qb_scripts, r"scripts\game\menu\gamemenu_pause.qb"), "pause.qb")
 
         # Always: the playable skate shop.
         levels_with_shop = add_skateshop_level(levels)
         write(levels_with_shop, r"scripts\game\Levels.qb")
         write(skateshop_nodes(shop), r"levels\skateshop\skateshop.qb")
         write(add_skateshop_sign(select), r"scripts\game\menu\gamemenu_levelselect.qb")
+        # Always: the pause menu's LEVEL EDITOR (the DLL's [features] level_editor decides whether it shows).
+        write(add_level_editor(pause), r"scripts\game\menu\gamemenu_pause.qb")
 
         # menu_level: the front end in LA.
         write(edit_levels(levels_with_shop, yaw, offset), r"menu_level\scripts\game\Levels.qb")

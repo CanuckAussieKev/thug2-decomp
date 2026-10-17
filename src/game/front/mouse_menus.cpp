@@ -10,6 +10,7 @@
 #include <SDL2/SDL.h>
 
 #include "game/front/front_end.h"
+#include "game/front/level_editor.h"
 #include "game/front/screen_element.h"
 #include "game/gfx/screen.h"
 #include "game/obj/event.h"
@@ -857,6 +858,19 @@ void Init()
 
 void Update(Mdl::FrontEnd* frontEnd)
 {
+    // Not original either - the level editor (game/front/level_editor.h) has the mouse while it runs: no menu
+    // events (the clicks and wheel meanwhile are dropped), the cursor left as the editor sets it; its own input logic
+    // runs here instead.
+    // Original behaviour (of the mouse_menus feature): the mouse drives the menus.
+    if (Front::LevelEditor::Active()) {
+        s_mouse.moved = false;
+        s_mouse.leftClicks = 0;
+        s_mouse.rightClicks = 0;
+        s_mouse.wheel = 0;
+        ClearPending("the level editor runs");
+        Front::LevelEditor::InputLogic();
+        return;
+    }
     if (!Enabled())
         return;
     MouseState input = s_mouse;

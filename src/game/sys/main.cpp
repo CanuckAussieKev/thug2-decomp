@@ -16,6 +16,7 @@
 #include "game/file/async.h"
 #include "game/file/pre.h"
 #include "game/front/front_end.h"
+#include "game/front/level_editor.h"
 #include "game/mc/memcard.h"
 #include "game/mth/math.h"
 #include "game/mth/random.h"
@@ -133,6 +134,10 @@ int __cdecl Main(int argc, char** argv)
         Mem::PopMemProfile();
         GameFunction<void(__thiscall*)(void*, bool)>(0x0044E610)(GameVariable<void*>(0x00696D40), true); // (+0x10C)
         GameFunction<void(__cdecl*)()>(0x005A5E70)();
+        // Not original - the level editor (game/front/level_editor.h): its script commands (LevelEditor_Start...)
+        // registered after the game's own.
+        // Original behaviour: only the game's table (0x0067F3A0) and its member functions are registered.
+        Front::LevelEditor::RegisterScriptFunctions();
         GameFunction<void(__cdecl*)()>(0x005A5B20)();
 
         Mem::PushMemProfile("Game Singletons");
