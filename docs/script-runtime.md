@@ -8,7 +8,9 @@ fields, flags) plus `cscript_core.cpp` (A), `cscript_exec.cpp` (B), `cscript_wai
 `cscript_manager.cpp` (D). For the script cache (GetScript / ReleaseScript use counting) see "What the cache
 does" in decomp-progress.md (batch 70). For the token format see `src/game/script/qb.h`. Sections 11 and 12
 (events, objects) come from batches 75-77 (`src/game/obj/event.*`, `tracker.*`, `object.*`, `objman.*`), the
-front end's part of the frame (section 2) from batch 78 (`src/game/front/front_end.*`).
+front end's part of the frame (section 2) from batch 78 (`src/game/front/front_end.*`), the frame order, the
+object walk, pausing objects and composite objects (sections 2 and 12) from batches 79-81
+(`src/game/obj/compositemgr.*`, `composite.*`, `src/game/lst/head.*`).
 
 Conventions in this document:
 - "Update" means one call of `CScript::Update` (0x004750B0). A "count" is one call of `UpdateWait` (0x00473050).
@@ -54,8 +56,8 @@ member's vtable null for the script's whole life **[quirk, harmless unless somet
 ## 2. The frame loop: UpdateSpawnedScripts (0x00475920)
 
 It is called once per frame from the menu front end's Update (0x0054F380, see "Where it runs" below). Scripts
-owned by objects (not spawned) are not updated here: their objects update them (section 12; when, relative to
-this walk, is open - section 13).
+owned by objects (not spawned) are not updated here: their objects update them, earlier in the same frame (the
+object walk, "The whole frame" below; section 12).
 
 1. Set "updating" (0x006F3544) and clear "one-per-frame released" (0x006F352C).
 2. Walk from the head (newest) to the tail (oldest). For the script at the cursor, **first** look up the next
@@ -100,10 +102,86 @@ heap and calls `FrontEnd::Update(paused)` (0x0054F380), then the screen element 
    skater, false)` - synchronous (section 9).
 
 Pausing (PauseGame 0x0054F960) sets the PAUSED bit of every spawned script (PauseSpawnedScripts), pauses the
-skaters, the object manager (0x0045F5D0 on 0x006F0FB8) and the screen elements, and restricts the main loop's
-logic tasks to the kinds in mask 0xC. Update itself still runs while paused; paused spawned scripts with code
-are skipped by the walk (step 3 above). Pad input is turned into events by the front end's input handlers
-(section 11, "Pad input").
+skaters, the composite objects (0x0045F5D0 on the composite object manager 0x006F0FB8, "Pausing objects" below)
+and the screen elements, and sets the main loop's logic list mask (Mlp::Manager +0x08) to 0xC, which **skips** the
+logic tasks whose kinds (+0x14) have bit 2 or 3 set (see "Task lists" below; earlier versions of this document had
+it backwards). Neither the front end's logic task nor the object walk's task has kinds, so both still run while
+paused; paused spawned scripts with code are skipped by the walk (step 3 above). Pad input is turned into events
+by the front end's input handlers (section 11, "Pad input").
+
+### The whole frame (code; the list behaviour also test)
+
+**The main loop** (Mlp::Manager::MainLoop 0x0044EEF0) runs, every frame, the **system** task list
+(Mlp::Manager +0x7C), then the **logic** task list (+0x04), then renders.
+
+**Task lists** (add 0x00406C90 -> 0x00406A80 -> Lst::Head::AddNode 0x0045A540; run 0x004070A0 -> 0x00406AC0):
+- Tasks are kept by priority, **highest first**; a task added with the same priority as others goes **before**
+  them (newest first) - AddNode inserts before the first node whose priority is <= its own (test).
+- A run goes from the front and runs each task **at most once** (the run's counter is stamped into the task,
+  +0x10). If a task is added during the run (the list's +0x1C set), the walk starts again from the front,
+  skipping tasks already stamped.
+- A task is skipped when its +0x04 is non-zero, or when the list's mask (the list's +0x04; the logic list's is
+  Mlp::Manager +0x08) shares a bit with the task's kinds (+0x14): a task runs only when `(mask & kinds) == 0`
+  (0x00406B61-0x00406B6D). Tasks made by the constructor 0x00406890 have kinds 0 and are never masked.
+
+**The frame, in order:**
+1. **System tasks**, among them each CGeneralManager's FlushDeadObjectsTask (0x00461BB0, priority 1000): objects
+   marked dead during the previous frame are deleted here, before any of this frame's logic (section 12).
+2. **Logic tasks**, highest priority first: the input manager's task (priority 2000; made at 0x0044E76A, added by
+   Sys::Main; the front end's pad handlers run in it, section 11.5) ... **the composite object manager's task
+   (0x0045F6D0, priority -900): the object walk** (below) ... **the front end's logic task (0x0054FCC0, priority
+   -2000): FrontEnd::Update -> UpdateSpawnedScripts** (above). Other logic tasks are not all placed yet - e.g. the
+   skate module's two tasks of priority -1000 made at 0x0056E2B0 run between the object walk and the front end
+   (section 13).
+3. **Render.**
+
+Consequences (code):
+- **Objects' own scripts run before the spawned scripts every frame.** Whatever an object's script does in a frame
+  (events it launches, globals it sets) happens before that frame's UpdateSpawnedScripts; what spawned scripts do
+  reaches an object script's own statements only at its next Update, next frame (an event handled at once, section
+  11, is the exception: its handler runs inside the spawned script's statement).
+- A script **spawned during the object walk** (by an object's script or a component) is at the head of the list
+  before UpdateSpawnedScripts starts, so its **first Update is in the same frame** (unlike a script spawned during
+  UpdateSpawnedScripts, which waits for the next frame).
+- "One-per-frame released" (0x006F352C) is cleared at the start of UpdateSpawnedScripts, after the objects have
+  run: an object script's one-per-frame wait (section 5) sees the flag as the previous frame's spawned walk left
+  it.
+- `PAUSE_WITH_OBJECT` spawned scripts are checked against their object's vtable +0x1C in UpdateSpawnedScripts,
+  after the object has updated this frame.
+
+### The object walk (CCompositeObjectManager::Update 0x0045F4A0) (code + test)
+
+- Every object on the composite object manager's list, **in list order: node priority highest first, equal
+  priorities newest first** (CBaseManager::RegisterObject -> AddNode 0x0045A540). A new object's node priority is
+  0 (CObject's constructor); CBaseManager::SetObjectPriority moves it.
+- It is CBaseManager::ForEach's walk (section 12) with the work inline: one bit of the manager's +0x18 per walk in
+  progress (nested walks take the next free bit), every object's bit cleared first, the next object looked up
+  **before** the current one updates. When the list changes during an update (an object registered or
+  unregistered: the manager's +0x1C set), the walk starts again from the front, skipping objects already updated.
+  So an object **created during the walk is updated in the same frame**; an object unregistered (e.g. marked dead)
+  before the walk reaches it is not; a list node with no object ends the walk.
+- Each object gets one CCompositeObject::Update (0x0045D920): its own script, its vtable +0x28, then its
+  components (section 12).
+- **Other places an object's update runs** (code): Obj_ForceUpdate (0x0045DC40, a script member function: the
+  whole update, script included, nested inside the calling statement - re-entrantly when the object's own script
+  calls it); 0x00501600 (a skater component's member function 0x8819DD8B: after moving the skater it calls
+  SetTeleported(true) and, when the object's +0xBC byte is set and 0x00580880 returns non-null, updates the object
+  at once); 0x00583DA0 (vtable 0x0064EF48's class, on a restart: the object named 0x967C138C or 0xE17B231A - a
+  camera, by the look of it - gets SetTeleported(false) and an immediate update). An object updated there runs its
+  script **twice** that frame.
+
+### Pausing objects (code + test)
+
+- `CCompositeObjectManager::Pause(bool)` (0x0045F5D0) sets or clears composite flag +0x104 bit 0 (PAUSED) on
+  **every composite object that exists at that moment** (the same walk). Callers: PauseGame (0x0054F960) and the
+  script commands PauseObjects / UnPauseObjects (0x005A0620 / 0x005A0630). The member functions Pause / Unpause
+  (0x0045E9B0 / 0x0045E9D0) set or clear it on one object.
+- The object walk's task isn't masked, so it still runs every frame; a paused object's update returns at once -
+  **its script doesn't run and its components don't update**.
+- `PAUSE_WITH_OBJECT` for a composite object means "while the object is paused": its vtable +0x1C is 0x0045E500
+  (`!(flags & PAUSED)`); CObject's own (0x005B9760) is always true.
+- [quirk] An object created while paused is **not** paused (Pause only touches the objects it walks). Unpausing
+  clears the bit on every object - also on objects paused by PauseObjects / Pause before the game was paused.
 
 ## 3. One Update (0x004750B0)
 
@@ -279,7 +357,10 @@ What these rules mean, per type:
 - **One per frame**: counted like the counter, but at 0 only the **first** such script per frame to reach 0
   continues. The others stay at 0 and try again at their next Update. The flag is cleared only at the start of
   UpdateSpawnedScripts, so the winner is the first in walk order (newest first) among spawned scripts. Object
-  scripts updated before the walk in the same frame compete with the previous frame's flag (open, section 13).
+  scripts are updated earlier in the frame (the object walk, section 2), so they see the flag as the previous
+  frame's spawned walk left it: if a spawned script was released then, no object script is released this frame;
+  if not, the first object script in walk order to reach 0 is - and the spawned walk clears the flag again anyway
+  (code).
   Inside RunScript (section 9) a second release never happens and the loop spins for ever **[bug] (code)**.
 - **Timer**: game time (slomo-scaled), counted per Update. With a constant dt and t the requested seconds, the
   script goes on during the **max(1, floor(t/dt))-th following Update** (subject to float rounding of each
@@ -595,9 +676,12 @@ The CFunctions and the CScript methods they use:
       ReceiveEvent; if there is neither, the game prints the event log and calls ReceiveEvent on null
       **[bug: crash]**.
    **The listener lists are not used**: a targeted event never reaches a script just because it listens for the
-   type (code).
+   type (code). Composite objects (and the skater, ped and level objects built on them) keep CObject's +0x14, so
+   the event reaches only the object's own script, never its components; only screen elements override +0x14
+   (section 12).
 2. **Broadcast**: every script on the type's listener list, in the order they started listening, gets
-   ReceiveEvent (0x00473800). With `radius` >= 0, a script whose object has a position (CObject +0x08 bit 0x20)
+   ReceiveEvent (0x00473800). With `radius` >= 0, a script whose object has a position (CObject +0x08 bit 0x20,
+   set by CCompositeObject's constructor)
    gets it only if its squared distance from the **source** object (looked up by id, not checked for null
    **[bug]**) is less than radius squared (equal: not delivered); scripts without an object, or whose object has
    no position, always get it; a NaN radius means none. Event listeners and the target are not involved.
@@ -615,7 +699,7 @@ The CFunctions and the CScript methods they use:
 
 So a script blocked with `Block type=X` is released by a broadcast of X, by an X targeted at its spawn id (a
 spawned script), or by an X targeted at its object if it is that object's own script (through
-PassEventToScript, unless the object's class overrides +0x14 - open, section 13). A spawned script running on an
+PassEventToScript; screen elements handle targeted events their own way, section 12). A spawned script running on an
 object does **not** get events targeted at the object (code).
 
 **One script, ReceiveEvent** (0x00473800, section 5): first the levels blocked on the type are released (the
@@ -705,7 +789,8 @@ menu actions (presumably the screen element manager's, 0x004A1090) is open (sect
 ## 12. Objects and their scripts
 
 The code: `src/game/obj/object.*` (`Obj::CObject`, 0x4C bytes, vtable 0x006477E8; CCompositeObject's own fields
-start at +0x4C) and `objman.*` (CBaseManager / CGeneralManager); batch 77.
+start at +0x4C) and `objman.*` (CBaseManager / CGeneralManager); batch 77. Composite objects: `composite.*`
+(batch 80) and `compositemgr.*` (the composite object manager, batch 79).
 
 - **Name -> object** (code): `name:` in a statement (section 4.2) and every CFunction that takes an object go
   through FindObject (0x00460AD0) or CBaseManager::GetObjectByID (0x004619F0, the same lookup, `this` unused) to
@@ -725,13 +810,9 @@ start at +0x4C) and `objman.*` (CBaseManager / CGeneralManager); batch 77.
 - **An object's own script is not spawned** (code): an object has at most one script of its own (+0x10), made on
   demand: CreateScriptIfNeeded (0x00461290, starts it on `empty_script`), SwitchScript (0x00461350: SetScript
   with the object - the first statement at its next update), CallScript (0x00461500), and SetProps
-  `event_handlers=` (SetProperties 0x00461710). It never goes through UpdateSpawnedScripts: CCompositeObject's
-  update (0x0045D920) runs `m_script->Update()` first (unless its +0x104 bits 0/1 say paused / scripts off), then,
-  if the object isn't dead, its vtable +0x28, then each component's update. So an object's script runs inside its
-  object's update, before its components. The update is reached from 0x0045F4A0 (a walk over a manager's
-  objects with the same restartable bit scheme as ForEach, in the composite object manager's range), from
-  0x0045DC40, 0x00501600 and 0x00583DA0; where that sits in the frame relative to UpdateSpawnedScripts is open
-  (section 13).
+  `event_handlers=` (SetProperties 0x00461710). It never goes through UpdateSpawnedScripts: it gets one Update
+  per frame inside its object's update (CCompositeObject, below), which the object walk runs **before**
+  UpdateSpawnedScripts (section 2, "The whole frame"; other callers of the update there too).
 - **CallScript on an object** (0x00461500, code + test): `Interrupt(name, params)` on the object's script (made
   if needed, its object set): the script runs **at once**, nested over whatever the object's script was doing
   (section 7) - not a new script.
@@ -749,7 +830,13 @@ start at +0x4C) and `objman.*` (CBaseManager / CGeneralManager); batch 77.
   (section 10). **Obj_SwitchScript** (0x004618A0): SwitchScript to the unnamed name with `params=`.
 - **Events to an object** (code + test): CObject's vtable slot 5 (+0x14, PassEventToScript 0x00461140) hands a
   targeted event to its own script's ReceiveEvent, holding a smart pointer to the object; it returns false if the
-  object was deleted meanwhile, and true (nothing happens) with no script.
+  object was deleted meanwhile, and true (nothing happens) with no script. **CCompositeObject (vtable 0x00647650)
+  and its three subclasses (vtables 0x0064EC44, 0x0064EF48, 0x0064F138: the skater, ped and level-object kinds,
+  constructors around 0x0057826D, 0x00582DC3, 0x0058987F) keep 0x00461140**, so an event targeted at a composite
+  object goes to that object's own script only - **never to its components** (code). Of the 21 vtables with
+  CObject's slot 2 (0x0045D850), the only ones with a different +0x14 are screen elements: 0x004A8100 (vtable
+  0x0064A048), 0x004AA560 (0x0064A0BC), 0x004AE6A0 (0x0064A154 / 0x0064A188 / 0x0064A1BC) - they handle targeted
+  events themselves (not decompiled; likely where the menus' pad events become actions, section 11.5).
 - **Obj_LeaveScript** (0x00460840; name checksum 0xB3C262EC, real name unknown): `script->ObjectDestroyed(this)` on
   the calling script - the object is dropped from all its levels and its current wait ends (section 5) (test).
 - **Dying** (code + test): MarkAsDead (the member function `Die`, vtable slot 6, 0x00460A50): the object's own
@@ -772,28 +859,82 @@ start at +0x4C) and `objman.*` (CBaseManager / CGeneralManager); batch 77.
 - **The managers' walks** (test): CBaseManager::ForEach (0x00461CC0) visits every object once even if the callback
   registers or unregisters objects - any list change restarts the walk from the front, skipping objects already
   visited; up to 32 nested walks, one bit each. A manager keeps its objects sorted by node priority, highest
-  first (0x0045A540) (code).
-- Member functions called from script (`obj:Name` / `44` / `46` statements) come from a table at 0x00683550:
-  0x18-byte entries `{name, component type 0x57525413, a 16-byte member function pointer}` (code).
+  first, equal priorities newest first (Lst::Head::AddNode 0x0045A540) (test).
+- Member functions called from script (`obj:Name` / `44` / `46` statements) come from tables of 0x18-byte entries
+  `{name, component type, a 16-byte member function pointer}` (`CMemberFunctionEntry`: mName, mComponentType,
+  mCode, mThisAdjustment, two virtual-base offsets): CObject's at 0x00683550 (type 0x57525413), CCompositeObject's
+  at 0x00683268 (type 0x0ADA4E74, 30 entries), both registered by the composite object manager's constructor.
+  An entry with a member function pointer is called directly (CObject's vtable slot 2, 0x0045D850, `this` moved by
+  the entry's adjustment); with none, by name (vtable slot 3) (code + test).
+
+### 12.1 Composite objects (CCompositeObject, code + test)
+
+`Obj::CCompositeObject` (0x108 bytes, vtable 0x00647650, 11 slots): CObject's fields, then position +0x4C, old
+position +0x5C, orientation matrix +0x6C, velocity +0xAC, a byte +0xBC, display matrix +0xC0, the component list
++0x100, flags +0x104. Skaters, peds and level objects are subclasses. It is what the object walk updates.
+- **Making one**: CreateCompositeObject (0x0045F330: Calloc 0x108, the constructor 0x0045E510, type 0xCDEB9229,
+  registered with the manager - so with the tracker: an id, a unique `autoid` if none, findable by FindObject at
+  once). CreateCompositeObjectFromNode (0x0045F3A0; CFunc_CreateCompositeObject 0x00449540 with `components=` and
+  `params=`): registered **before** its id/position are read from the node data (InitFromStructure 0x0045DAD0:
+  `name` -> SetID, re-registering it), then its components made from the array (0x0045DA90), then Finalize
+  (vtable +0x20, 0x0045DB30). The constructor sets **CObject flag 0x20** (has a position: the tracker's broadcast
+  radius check, section 11.3).
+- **Flags (+0x104)**: 1 paused, 2 suspended, 4 hidden, 8 teleported (cleared at the end of each update), 0x20 /
+  0x40 finalized, 0x80 being destroyed.
+- **Components** (`Obj::CBaseComponent`, base vtable 0x00647618): each belongs to one object, linked in the order
+  they were added (+0x10), and on the manager's list of all components of its type (static 0x006F0DB8[128],
+  through +0x14, newest first; GetFirstComponentByType 0x0045F2D0 walks it). Component types (81) are registered by
+  0x004E4860 right after the manager is made; CreateComponent(type) calls the first matching maker. A type the
+  manager can't make gives a null component that is added anyway **[bug: crash]**.
+- **One update** (0x0045D920; test):
+  1. Paused: return - nothing at all.
+  2. Unless suspended: the object's own script gets **one Update** (if it has one; the result is ignored); if the
+     object is now dead (MarkAsDead), **return** (no components, and the end step below is skipped too); then its
+     own update, vtable +0x28 (the subclasses' - the skater's etc.; empty in the base).
+  3. Each component in list order, skipping suspended ones (component +0x08 bit 0), **stopping as soon as a
+     component kills the object**.
+  4. Position w = 1.0, TELEPORTED cleared.
+- **Hide / Suspend / teleport**: Hide(bool) (0x0045D990) and Suspend(bool) (0x0045D9E0) do nothing if the flag
+  already has that value, else set or clear it and pass it to each component (vtable +0x20 / +0x1C). The base
+  component's Suspend (0x0045D760) sets its suspended flag, so **suspending an object normally stops its script,
+  its own update and its components** (a component class whose +0x1C doesn't set the flag keeps updating; a
+  component added later isn't suspended). SetTeleported(bool) (0x0045E4C0) sets TELEPORTED and, with true, calls
+  each component's Teleport (vtable +0x24). MarkAsDead (slot 6, 0x0045D7C0) tells each component (vtable +0x10),
+  then CObject's MarkAsDead.
+- **Member functions** (`obj:Name`; CallMemberFunction(name), slot 3 0x0045E450): first each component in turn
+  (vtable +0x30: 0 = false, 1 = true, 2 = not mine), then CObject's names (SetProps, Die...). A component given a
+  table entry (0x0045D720) always goes by the entry's name. CCompositeObject's own (table 0x00683268): Obj_GetPosition,
+  Obj_SetPosition, Obj_GetVelocity, GetSpeed, Obj_GetOrientation, Obj_SetOrientation, Obj_GetQuat,
+  Obj_GetOrientationToObject, Obj_GetDistanceToObject (feet), Obj_GetDistToNode, Obj_GetType, Obj_HasComponent,
+  Obj_PrintDetails, Hide / Unhide / IsHidden, Suspend / Unsuspend, Pause / Unpause (section 2), **Obj_ForceUpdate**
+  (0x0045DC40: a whole update at once, nested inside the calling statement - re-entrant when the object's own
+  script calls it), and unnamed ones (section 13). [quirk] CreateComponentFromStructure
+  and Obj_HasComponent with no type use the parameter structure's address as the type.
+- **Dying and deletion**: as for every CGeneralManager object (above): MarkAsDead -> the dead list, deleted by
+  FlushDeadObjectsTask at the start of the next frame.
 
 ## 13. Open questions
 
-- **Who updates object scripts, and when** relative to UpdateSpawnedScripts in the frame: CCompositeObject's
-  update 0x0045D920 runs the object's script (section 12); it is called from the walk 0x0045F4A0 (called from
-  0x0045F6D7, the composite object manager 0x0045EFD0-0x0045F7A0, not yet decompiled), 0x0045DC40, 0x00501600 and
-  0x00583DA0. Where that walk's task sits relative to the front end's logic task (priority -2000, section 2)
-  decides the one-per-frame flag order and which frame a cross-script event lands in.
-- **What an object does with a targeted event**: CObject's vtable +0x14 passes it to its own script (section 12).
-  Whether CCompositeObject or its subclasses (the skater...) override +0x14, e.g. to pass it to components, is
-  not known.
+- **The rest of the logic task list**: the object walk (-900) and the front end (-2000) are placed (section 2),
+  but not every other logic task - e.g. the skate module's two tasks of priority -1000 made at 0x0056E2B0 (they
+  run between the two), and which tasks (if any) have kinds 4 / 8 and so stop while paused. The task list code
+  itself (0x00406850-0x00406E00, Tsk::Task) isn't decompiled yet.
+- **Screen elements' targeted events**: screen elements override CObject's +0x14 (0x004A8100, 0x004AA560,
+  0x004AE6A0, section 12); what they do with an event is not decompiled.
 - **Event listeners** (CEventListener): who registers them (CTracker::RegisterEventListener 0x00461FE0's callers)
   and what their filter (vtable +0x04, 0x004A1090) does with an event - in particular how the menus' pad events
   (section 11.5) become screen element actions.
-- **CObject flags 0x10000 and 0x20**: what sets 0x10000 (a script's normal handlers spawn instead of interrupting)
-  and 0x20 (has a position, for broadcast radius checks).
+- **CObject flag 0x10000** (`OBJECT_FLAG_SPAWN_HANDLERS`): what sets it (a script's normal handlers spawn instead
+  of interrupting). (Flag 0x20 is set by CCompositeObject's constructor, section 12.1.)
 - **Unidentified checksums**: 0xB3C262EC (the member function Obj_LeaveScript's real name), 0xEEEB7220 (the
   member function returning the tags named in an array), 0x01917DF2 (the spawn flag that skips SetSpawnerFile),
-  0x36B2EE74 (the "no object" event target / source).
+  0x36B2EE74 (the "no object" event target / source). CCompositeObject's unnamed member functions, by what they
+  do: 0x406998A5 (a component from the parameters), 0x2BFFEAA3 (has a component of the type `name=`), 0x10C1C887
+  (move along its own axes by x= y= z=), 0xF8CFD515 (moving backwards), 0x7DCC5FB9 / 0xE5DF66D7 / 0xDD468509
+  (speed near / above / below), 0x37185D8A (the nearest object of type 0xBAF9B341 lies outside an angle),
+  0x0168B09C (probably Obj_GetCollision, 0x0045E9E0, not decompiled); result names 0x976B04A3
+  (Obj_GetDistanceToObject), 0x24495505 (Obj_GetType), 0xC97F3AA9 (Obj_GetOrientationToObject's angle); the script
+  integer 0xBA2C7CCB read and ignored by CreateCoimHeap.
 - **The CFunctions that set waits** (Wait / WaitTime / Block / the object waits, and how their arguments map to
   frames vs seconds vs real time): not yet decompiled.
 - **0xFB11E6CD**: presumably the default level's script (missing calls are silent there). The front end runs it

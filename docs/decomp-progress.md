@@ -1546,6 +1546,11 @@ belong with the CScript batch.
         loads them on PC (LoadQB's callers pass "....qb" names; the LoadQB C function takes the name from the
         script) or they're loaded differently - check in the game (e.g. log LoadQB's pre-compiled branch)
         before relying on the format. The +0x08..+0x1B header bytes (1C 08 02 04 10 04 08 0C ...) aren't read.
+      - Batch 71's question, answered 2026-10-17: LoadQB's pre-compiled branch needs a name ending in the platform
+        extension from 0x005B6040 (0x007CEFA8: 1-3 ps2, 4 xbx, 5 ngc, 6 xen, else ???). Every shipped .qb.xbx -
+        pre-compiled images, magic 0xB075EF6F, laid out for the Xbox build - has a token-format .qb twin next to it, and
+        the exe only builds .qb names ("%08x.qb", "runnow.qb", "scripts\animview\%s.qb"), so the PC game loads the .qb
+        files; the branch is unused unless a script names a .xbx file itself.
       Next to it, not done: 0x46C470-0x46C6A0 (13 small functions of a class that wraps a CStruct at +4 -
       0x46C610 GetX-with-default, 0x46C650 add, 0x46C680 destructor... - not part of this format); CScript
       0x472C90 / 0x473A80 / 0x473010 (with CScript). find_gaps reports one thunk, 0x48C1A0 -> SetLetterbox
@@ -1919,25 +1924,95 @@ belong with the CScript batch.
       0x54EF30, the auto-repeat 0x54ECE0, Release 0x54EBE0.
 - [x] Batches 75-78 tested in the game (2026-10-17, by the user): game runs; 1028 of 1028 replacements installed
       (35 source only), early 116 / late 17 / engine-started 2 self-tests pass, shadow checks no mismatches.
-- [ ] Next: the gaps batches 75-78 left:
-      CCompositeObjectInstanceMgr 0x45EFD0-0x45F7A0 (incl. the object update walk 0x45F4A0 and 0x45F5D0, which the
-      front end's PauseGame calls); CCompositeObject 0x45D050-0x45EFD0 (incl. its update 0x45D920 - who runs it
-      relative to UpdateSpawnedScripts is docs/script-runtime.md section 13's first question - and 0x45D850, the
-      member function table entry call, CObject vtable slot 2); 0x4638B0-0x4639C0 with the class at 0x463A00; the
-      front end's remaining 0x54EBE0-0x54EF30; 0x45A540 (Lst::Head insert by priority), Tsk::Task 0x406890 /
-      0x406C90, 0x4AAD40 (CGeneralManager slot 6); and core_physics.cpp's SelfEvent / BroadcastEvent GameFunction
-      calls (0x4609F0 / 0x460A20) to switch to direct calls. Small cleanups: event.cpp's ObjectFlags() and
-      tracker.cpp (HasPosition / Position / alias count) read CObject fields by offset - use CObject's members
-      (and add flag 0x10000 next to OBJECT_FLAG_*); cscript.h's CMemberFunctionEntry is really 0x18 bytes ({+0
-      name, +4 component type, +8 a 16-byte member function pointer: +8 code, +0xC this adjustment}). The earlier gaps:
-      the module manager Mdl::Manager 0x44F300-0x44F7E0, 0x4B2270-0x4B2320 (9 glue functions), CFlipRotateComponent::
-      Update 0x4E2D20 and its base 0x481710-0x481740, 0x46C470-0x46C6A0 (a CStruct wrapper class), the sound
-      functions 0x47AC10-0x47AD80. GameSpy's host names become configuration when the SDK is linked. (Batch 71's
-      question, answered 2026-10-17: LoadQB's pre-compiled branch needs a name ending in the platform extension
-      from 0x005B6040 (0x007CEFA8: 1-3 ps2, 4 xbx, 5 ngc, 6 xen, else ???). Every shipped .qb.xbx - pre-compiled
-      images, magic 0xB075EF6F, laid out for the Xbox build - has a token-format .qb twin next to it, and the exe
-      only builds .qb names ("%08x.qb", "runnow.qb", "scripts\animview\%s.qb"), so the PC game loads the .qb files;
-      the branch is unused unless a script names a .xbx file itself.)
+- [x] Batch 79, the composite object manager and the COIM heap (src/game/obj/compositemgr.*, 18 functions,
+      0x45EFD0-0x45F7A0; NOT run in the game yet): Obj::CCompositeObjectManager (CGeneralManager + 0x408 bytes,
+      vtable 0x6476D4, singleton 0x6F0FB8) Construct 0x45F6E0 (its logic task: priority -900, code 0x45F6D0, on
+      Mlp::Manager's logic list; registers the member function tables 0x683550 and 0x683268), DestroyBody 0x45F200,
+      scalar delete 0x45F300, RegisterComponent 0x45F270 (81 types, all from 0x4E4860), CreateComponent 0x45F2A0, the
+      per-type component lists (static 0x6F0DB8[128]: GetFirstComponentByType 0x45F2D0, Add/RemoveComponentByType
+      0x45F3E0 / 0x45F420), CreateCompositeObject 0x45F330, CreateCompositeObjectFromNode 0x45F3A0, **Update 0x45F4A0
+      (the object walk)**, **Pause 0x45F5D0**, ReleaseCompositeObjectManager 0x45F1E0 (the last reference forgets the
+      instance without deleting it [quirk]); the COIM heap (the remains of CCompositeObjectInstanceMgr): DestroyCoimHeap
+      0x45EFD0, CreateCoimHeap 0x45F0B0, InitCoim 0x45F160, ResizeCoimHeap 0x45F1C0 (the values InitCOIM stores are
+      read by nothing). PauseGame, Sys::Main and singleton.cpp (Spt::CompositeObjectManager) call ours. Test
+      TestCompositeObjectManager (selftests_coim.cpp, Early; three runs on stand-in managers / objects / components:
+      construction, component types and lists, making objects, the walks - restart, nested Update / Pause, an object
+      unregistered and another registered mid-walk - the COIM heap). 47 mutations: 45 caught (6 after strengthening),
+      2 equivalent (DestroyCoimHeap's loop re-check and erase range). Findings (docs/script-runtime.md section 2):
+      the main loop runs the system task list, then the logic list, then renders; task lists are sorted highest
+      priority first (equal: newest first) and a run restarts when a task is added; the object walk (-900) updates
+      every composite object - its own script first - **before** the front end's -2000 task runs
+      UpdateSpawnedScripts, so a script spawned during the walk gets its first Update the same frame; objects made
+      mid-walk update the same frame; **the pause mask was documented backwards**: 0x406AC0 runs a task only when
+      `(mask & kinds) == 0`, so PauseGame's 0xC skips kinds 4 / 8 (front_end.cpp's comment and the spec fixed);
+      pausing works through each object's paused flag, and objects created while paused aren't paused [quirk].
+- [x] Batch 80, CCompositeObject, CBaseComponent and the node manager (0x45D050-0x45EFD0, 70 functions; NOT run in
+      the game yet). Semantics: docs/script-runtime.md sections 2 and 12.1.
+  - [x] 80A (src/game/obj/composite.*, 44 functions; GetComponent 0x45DB90 moved there from object.cpp): CObject's
+        vtable slot 2 0x45D850 (a member function table entry: its pointer on `this` + adjustment, else by name);
+        CBaseComponent (vtable 0x647618) constructor / destructor / Suspend 0x45D760 / CallMemberFunction(entry)
+        0x45D720; CCompositeObject (0x108 bytes, vtable 0x647650) constructor 0x45E510 (sets CObject flag 0x20),
+        destructor, **Update 0x45D920**, Hide 0x45D990, Suspend 0x45D9E0, SetTeleported 0x45E4C0,
+        ShouldUpdateScripts 0x45E500 (slot 7: PAUSE_WITH_OBJECT = while paused), MarkAsDead 0x45D7C0, AddComponent,
+        CreateComponentsFromArray, CreateComponentFromStructure, InitFromStructure, Finalize, CallMemberFunction(name)
+        0x45E450 (components first, then CObject's); 23 script member functions of table 0x683268 (Obj_GetPosition,
+        Obj_SetPosition, Obj_ForceUpdate, Obj_GetVelocity, GetSpeed, Hide / Unhide / IsHidden, Suspend / Unsuspend,
+        Obj_GetDistanceToObject, Obj_GetType, Obj_HasComponent, Pause / Unpause, Obj_PrintDetails and 8 unnamed - names
+        by checksumming candidates). Test TestCompositeObjects (selftests_cobj.cpp): 72 mutations, 70 caught (62 at
+        first), 2 equivalent in practice (the order of the sums of squares in GetSpeed / Obj_GetDistanceToObject: no
+        float input in 2M random tries changes a result). Quirks kept: no type -> the parameter structure's address as
+        the type; an unmakeable component type gives a null component that is added anyway (crash); AddComponent
+        doesn't clear the component's next pointer.
+  - [x] 80B (composite.cpp, 7 functions): Obj_GetOrientation 0x45DF70, Obj_GetDistToNode 0x45E020,
+        Obj_GetOrientationToObject 0x45E140, Obj_SetOrientation 0x45E650, Obj_GetQuat 0x45E940,
+        FindNearestObjectOfType 0x45ED30, [0x37185D8A] 0x45EF30. Test RunMathTest: 42 mutations, 41 caught (26 at
+        first), 1 equivalent (FindNearestObjectOfType's null check after the first search). **Mth::Vector::Normalize
+        (vector.cpp) changed** to keep the length and 1/length in double, as the x87 original does (ours rounded both
+        to float: 1-ulp differences; the vector tests still pass). **Mth::FastACos returns a rounded float** where the
+        original leaves ST0 unrounded; 0x45E140 uses a local FastACosUnrounded, other callers of FastACos /
+        Vector::Length may differ by an ulp.
+  - [x] 80C (src/game/script/node_manager.*, 19 functions, 0x45D050-0x45D6E0): SkateScript::CNodeManager (singleton
+        0x6F0D84 / 0x6F0D88; Create 0x45D690, Release 0x45D6E0 - singleton.cpp and main.cpp call ours), constructor
+        0x45D370, AddNodeArray 0x45D520 (hashed; position= -> pos= with z negated; links= indices -> node names),
+        RemoveNodeArray / RemoveNodeArrayOfFile / HasNodeArray, HashNodeIn, HashNodes, ResolveLinks, the last array /
+        name, the node walk (StartWalk / EndWalk / NextNode), the owner pointer, MakeNodeArrayName (levels\nj\nj.qb ->
+        nj_nodearray), NodeArrayChecksum. The hash helpers before the range (0x45CE40 / 0x45CE60 / 0x45CEF0 /
+        0x45CFC0, 0x45C900, 0x45BE40) stay GameFunction. Test RunNodeTest: 39 mutations, all caught (5 by a crash, 1
+        after strengthening).
+  - Findings: composite objects and their three subclasses (vtables 0x64EC44, 0x64EF48, 0x64F138) keep CObject's
+    +0x14 - a targeted event reaches only the object's own script, never components; only screen elements override
+    it (0x4A8100, 0x4AA560, 0x4AE6A0). Suspending an object also suspends its components (the base component's
+    Suspend sets their flag). Skipped: **0x45E9E0** (member function 0x0168B09C, probably Obj_GetCollision: 848 bytes
+    of x87 building a CFeeler 0x417760 / collision 0x4172F0) - with the feeler code.
+- [x] Batch 81, leftovers and cleanups (20 functions; NOT run in the game yet): the front end's last pieces
+      (src/game/front/front_end.*, 8 functions, 0x54EBE0-0x54EF30): ReleaseFrontEnd 0x54EBE0, DestroyBody 0x54EC20,
+      PadsPluggedIn 0x54ECA0, RemoveKeyboardHandler 0x54ECD0, **AutoRepeat 0x54ECE0**, Destroy 0x54EE70, Start
+      0x54EEA0, Stop 0x54EF30 (PadMapping's two unknown words are the auto-repeat state and its ms timer; held
+      directions in priority left / right / up / down; while the startup script runs, AutoRepeat returns 0 for
+      controller 0; quirks kept: the destructor never deletes the keyboard task, Start puts each handler on its own
+      index's controller). Tests TestFrontEndAutoRepeat, TestFrontEndModule: 41 mutations, 40 caught, 1 equivalent.
+      Cutscene pieces (src/game/obj/cutscene.*, 10 functions): CutsceneNameFromPath 0x4638B0 (path in EDX: naked
+      stub), CCutsceneData NameChecksum 0x463910 / IsDone 0x4639A0 / UpdateVblanks 0x4639C0 / SetSubtitles 0x463A10 /
+      CheckSkip 0x464120 / UpdateSubtitles 0x4644A0, CCutsceneDetails (vtable 0x647920) slots 9 0x464580, 11
+      0x463A50, 13 0x463A60. Tests (selftests_left.cpp) TestCutsceneNameFromPath, TestCutsceneData,
+      TestCutsceneDetails: 48 mutations, 47 caught, 1 equivalent (NaN `<` vs `!>=`). Lst::Head::AddNode 0x45A540
+      (src/game/lst/head.*; objman.cpp calls it): TestHeadAddNode, 5 mutations caught. CreateCompositeObjectManager
+      0x45F7A0 (compositemgr.cpp): TestCreateCompositeObjectManager, 5 mutations caught. Cleanups: core_physics.cpp
+      calls CObject's SelfEvent / BroadcastEvent directly; event.cpp / tracker.cpp use CObject's members
+      (OBJECT_FLAG_HAS_POSITION 0x20 and OBJECT_FLAG_SPAWN_HANDLERS 0x10000 added; the tracker test doesn't cover a
+      negative alias count); cscript.h's CMemberFunctionEntry is 0x18 bytes {mName, mComponentType, mCode,
+      mThisAdjustment, mVirtualBaseOffsets[2]}.
+- [ ] Next: batches 79-81 are NOT run in the game yet (if one breaks, disable by file: compositemgr.cpp,
+      composite.cpp, node_manager.cpp, cutscene.cpp, front_end.cpp, head.cpp). Then the gaps they left: **0x45E9E0**
+      (Obj_GetCollision, the last of table 0x683268's 30 entries) with the collision feeler 0x417760 / 0x4172F0; the
+      rest of the cutscene system up to 0x4680B0 (0x463AA0 quaternion + translation to matrix, 0x463BA0,
+      0x463C70-0x464360, the pool pair 0x4645A0 / 0x4645E0, 0x464640-0x4680B0: loading 0x466620, the details' slots
+      0 / 2 / 5 / 7 / 8, the big updates 0x4648D0 / 0x465C00); the task-list area 0x406850-0x406E00 (~25 functions,
+      incl. Tsk::Task 0x406890 / 0x406C90 -> 0x406A80 and the list run 0x406AC0 the frame order rests on); 0x4AAD40
+      (CGeneralManager slot 6). The earlier gaps: the module manager Mdl::Manager 0x44F300-0x44F7E0,
+      0x4B2270-0x4B2320 (9 glue functions), CFlipRotateComponent::Update 0x4E2D20 and its base 0x481710-0x481740,
+      0x46C470-0x46C6A0 (a CStruct wrapper class), the sound functions 0x47AC10-0x47AD80. GameSpy's host names become
+      configuration when the SDK is linked.
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
       for original callers that read ECX/EDX after the call without writing them first (ignoring push-to-reserve,
       lea reg,[reg], or reg,-1 and zeroing idioms; callers that are themselves replaced count as safe).
