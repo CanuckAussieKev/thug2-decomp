@@ -1,5 +1,5 @@
 // The PC settings (thug2-decomp.ini).
-// Contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md
+// Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md
 
 #include "game/sys/config.h"
 

@@ -1,5 +1,5 @@
-// The main loop (Mlp::Manager), with the PC port's per-level letterbox built in.
-// (The letterbox per level contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md)
+// The main loop (Mlp::Manager), with PartyMod's per-level letterbox built in.
+// (The letterbox per level contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md)
 
 #include "game/sys/mlp.h"
 
@@ -66,7 +66,7 @@ uint8_t LetterboxActive() { return GameVariable<uint8_t>(0x00786CBE); }
 
 } // namespace
 
-// The frame's render with the PC port's letterbox (the PC port's renderWorldWrapper, at 0x0044F1C0): letterboxed
+// The frame's render with PartyMod's letterbox (PartyMod's renderWorldWrapper, at 0x0044F1C0): letterboxed
 // (4:3) in the front end, not in a level (split screen breaks with it on: both screens drawn over each other,
 // sharing a depth buffer). The original only rendered: RenderFrame();
 void RenderFrameLetterboxed()

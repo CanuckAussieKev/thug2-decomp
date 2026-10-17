@@ -2,28 +2,29 @@
 
 Generated 2026-10-17 by `tools/progress_report.py` - regenerate after each batch.
 
-**Game code: █░░░░░░░░░░░░░░░░░░░ 8.6%** of the code rewritten (893 of 8,382 functions, 139.3 KB of 1,617.8 KB).
+**Game code: ██░░░░░░░░░░░░░░░░░░ 12.4%** of the code rewritten (1,352 of 8,382 functions, 200.3 KB of 1,617.8 KB).
 
 Progress is by code size: function counts make a 10-byte helper look like as much work as a 2 KB routine. Subsystem boundaries come from the exe map (`docs/subsystems.md`) and are approximate (give or take a few functions); totals are exact.
 
 | Subsystem | Range | Progress (code size) | Functions | Code |
 |---|---|---|---:|---:|
 | Core utilities (CRC/checksums, string helpers, rect, random) | `0x401000`-`0x406460` | ███████████████████░ 99% | 129 / 130 | 19.8 KB / 19.8 KB |
-| Animation & skeleton / skinned model data | `0x406460`-`0x41a6d0` | ░░░░░░░░░░░░░░░░░░░░ 0% | 5 / 423 | 0.3 KB / 75.5 KB |
-| Object components & level/scene loading | `0x41a6d0`-`0x445b50` | ░░░░░░░░░░░░░░░░░░░░ 0% | 1 / 584 | 0.0 KB / 157.7 KB |
+| Animation & skeleton / skinned model data | `0x406460`-`0x41a6d0` | ░░░░░░░░░░░░░░░░░░░░ 0% | 7 / 423 | 0.4 KB / 75.5 KB |
+| Object components & level/scene loading | `0x41a6d0`-`0x445b50` | ░░░░░░░░░░░░░░░░░░░░ 0% | 8 / 584 | 1.1 KB / 157.7 KB |
 | Engine script commands (lighting/fog, memory heaps, script utils, arrays, music & streams) | `0x445b50`-`0x44e6b0` | ░░░░░░░░░░░░░░░░░░░░ 1% | 7 / 246 | 0.5 KB / 32.5 KB |
-| Movies (Bink) & streamed audio | `0x44e6b0`-`0x456910` | ████░░░░░░░░░░░░░░░░ 20% | 40 / 277 | 6.3 KB / 30.3 KB |
-| Low-level networking (engine net library) | `0x456910`-`0x45efd0` | ░░░░░░░░░░░░░░░░░░░░ 0% | 0 / 183 | 0.0 KB / 28.3 KB |
-| Object system & script runtime (composite objects, events, object anims, particles, pathfinding, QB parser/executor) | `0x45efd0`-`0x47dc40` | ████████░░░░░░░░░░░░ 42% | 323 / 685 | 47.2 KB / 112.3 KB |
-| Models / faces / textures for skaters (CAS) | `0x47dc40`-`0x490d80` | ░░░░░░░░░░░░░░░░░░░░ 1% | 7 / 523 | 0.7 KB / 67.5 KB |
-| Renderer: textures, geometry, particles, 2D/3D screen | `0x490d80`-`0x4a4500` | ░░░░░░░░░░░░░░░░░░░░ 0% | 4 / 559 | 0.2 KB / 73.1 KB |
-| Front-end UI: screen elements & text | `0x4a4500`-`0x4b2280` | ░░░░░░░░░░░░░░░░░░░░ 0% | 3 / 228 | 0.1 KB / 52.5 KB |
+| Movies (Bink) & streamed audio | `0x44e6b0`-`0x4544e0` | █████░░░░░░░░░░░░░░░ 28% | 40 / 167 | 6.3 KB / 22.1 KB |
+| Low-level networking (engine net library) | `0x4544e0`-`0x45bda0` | ████████████████████ 100% | 205 / 205 | 26.5 KB / 26.5 KB |
+| Level nodes & composite objects (node array, node names/prefixes, CCompositeObject, components) | `0x45bda0`-`0x45efd0` | █████████░░░░░░░░░░░ 48% | 47 / 88 | 4.9 KB / 10.0 KB |
+| Object system & script runtime (composite objects, events, object anims, particles, pathfinding, QB parser/executor) | `0x45efd0`-`0x47dc40` | ███████████░░░░░░░░░ 56% | 467 / 685 | 63.8 KB / 112.3 KB |
+| Models / faces / textures for skaters (CAS) | `0x47dc40`-`0x490d80` | ░░░░░░░░░░░░░░░░░░░░ 1% | 19 / 523 | 1.3 KB / 67.5 KB |
+| Renderer: textures, geometry, particles, 2D/3D screen | `0x490d80`-`0x4a4500` | ░░░░░░░░░░░░░░░░░░░░ 0% | 7 / 559 | 0.2 KB / 73.1 KB |
+| Front-end UI: screen elements & text | `0x4a4500`-`0x4b2280` | █░░░░░░░░░░░░░░░░░░░ 9% | 14 / 228 | 5.0 KB / 52.5 KB |
 | Renderer: screen FX, image/texture formats, fonts, grass | `0x4b2280`-`0x4d6d40` | █░░░░░░░░░░░░░░░░░░░ 7% | 17 / 488 | 9.1 KB / 114.8 KB |
-| Application main & game object rendering glue | `0x4d6d40`-`0x4e6b80` | ██░░░░░░░░░░░░░░░░░░ 14% | 55 / 202 | 8.9 KB / 59.5 KB |
+| Application main & game object rendering glue | `0x4d6d40`-`0x4e6b80` | ███░░░░░░░░░░░░░░░░░ 17% | 56 / 202 | 10.4 KB / 59.5 KB |
 | Goal & rail editors / skater camera | `0x4e6b80`-`0x500020` | ░░░░░░░░░░░░░░░░░░░░ 0% | 1 / 341 | 0.7 KB / 85.7 KB |
 | Skater (physics, tricks, walking, stats, sticker tags) | `0x500020`-`0x533f20` | █░░░░░░░░░░░░░░░░░░░ 5% | 9 / 544 | 10.1 KB / 186.9 KB |
-| Online & network game modes (CTF, servers, lobby, buddies, NAT negotiation) | `0x533f20`-`0x54ef60` | ░░░░░░░░░░░░░░░░░░░░ 2% | 4 / 457 | 2.3 KB / 91.9 KB |
-| Menu input mapping | `0x54ef60`-`0x550040` | ░░░░░░░░░░░░░░░░░░░░ 0% | 1 / 20 | 0.0 KB / 4.0 KB |
+| Online & network game modes (CTF, servers, lobby, buddies, NAT negotiation) | `0x533f20`-`0x54ef60` | ░░░░░░░░░░░░░░░░░░░░ 3% | 12 / 457 | 3.0 KB / 91.9 KB |
+| Menu input mapping | `0x54ef60`-`0x550040` | ████████████████████ 100% | 20 / 20 | 4.0 KB / 4.0 KB |
 | Goals & career (GoalManager, create-a-trick, trick objects, level launching) | `0x550040`-`0x56c920` | ░░░░░░░░░░░░░░░░░░░░ 0% | 0 / 666 | 0.0 KB / 103.8 KB |
 | Time-of-day manager & world state | `0x56c920`-`0x577300` | ░░░░░░░░░░░░░░░░░░░░ 0% | 0 / 137 | 0.0 KB / 38.1 KB |
 | Viewer / gaps / records / career save info | `0x577300`-`0x588180` | ░░░░░░░░░░░░░░░░░░░░ 0% | 0 / 304 | 0.0 KB / 60.7 KB |
@@ -43,6 +44,6 @@ Linked as libraries in the final build rather than rewritten:
 - D3DX9 static library (shader assembler/compiler, math helpers) (`0x5beb1a`-`0x5eef20`): 677 functions, 157.8 KB
 - GameSpy SDK, MSVC C runtime, STL helpers and compiler-generated code after `0x5F8130` (see `docs/library_ranges.md`)
 
-## PC port
+## PartyMod
 
-The PC port's changes (MIT, see `THIRD_PARTY_NOTICES.md`) are part of the game's source: the SDL window and input, widescreen, the settings file and the rest, by subsystem. Still written into the exe at start-up: the GameSpy SDK's host names (library code, `src/game/net/online_hosts.cpp`) and, with PS2 controls, the CFunction table's IsPS2 entry (`src/game/sys/platform_cfuncs.cpp`).
+PartyMod's changes (MIT, (c) 2024 PARTYMANX, see `THIRD_PARTY_NOTICES.md`) are part of the game's source: the SDL window and input, widescreen, the settings file and the rest, by subsystem. Still written into the exe at start-up: the GameSpy SDK's host names (library code, `src/game/net/online_hosts.cpp`) and, with PS2 controls, the CFunction table's IsPS2 entry (`src/game/sys/platform_cfuncs.cpp`).

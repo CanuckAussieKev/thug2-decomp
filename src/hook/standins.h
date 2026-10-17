@@ -146,7 +146,7 @@ private:
     std::vector<Patch*> m_patches;
 };
 
-// Bytes written for one run only (the PC port's patches into the original).
+// Bytes written for one run only (PartyMod's patches into the original).
 inline std::vector<Patch*> g_runPatches;
 inline void RunPatch(uint32_t address, const std::vector<uint8_t>& bytes) { g_runPatches.push_back(new Patch(address, bytes)); }
 inline void EndRunPatches()

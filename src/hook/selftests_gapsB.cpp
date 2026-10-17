@@ -18,13 +18,18 @@
 #include "game/core/singleton.h"
 #include "game/file/async.h"
 #include "game/file/pre.h"
+#include "game/front/front_end.h"
 #include "game/mc/memcard.h"
+#include "game/net/net_manager.h"
 #include "game/obj/flip_rotate.h"
+#include "game/obj/compositemgr.h"
+#include "game/obj/objman.h"
 #include "game/script/cache.h"
 #include "game/script/struct.h"
 #include "game/sio/device.h"
 #include "game/sys/mlp.h"
 #include "game/sys/winmain.h"
+#include "game/script/node_manager.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -93,25 +98,25 @@ std::vector<Instance> Instances()
         {0x0044FD50, 0x0044FD90, 0x006472B8, 0x005BDCF0, AddressOf(&Sio::ReleaseManager)},
         {0x004B2230, 0x004B2240, 0x0064A2EC, 0x0044F2B0, AddressOf(&Mlp::ReleaseManager)},
         {0x004E1980, 0x004E1B00, 0x0064AFB0, 0x005B9510, AddressOf(&Pre::DestroyManager)},
-        {0x004E1990, 0x004E1B30, 0x0064AFB4, 0x00461FA0, 0},
+        {0x004E1990, 0x004E1B30, 0x0064AFB4, 0x00461FA0, AddressOf(&Obj::ReleaseTracker)},
         {0x004E19A0, 0x004E1B60, 0x0064AFB8, 0x0044F740, 0},
         {0x004E19B0, 0x004E1B90, 0x0064AFBC, 0x005BC950, AddressOf(&Mc::ReleaseManager)},
         {0x004E19C0, 0x004E1BC0, 0x0064AFC0, 0x0044E6B0, 0},
         {0x004E19D0, 0x004E1BF0, 0x0064AFC4, 0x005B6620, AddressOf(&File::DestroyAsyncLoaderModule)},
         {0x004E19E0, 0x004E1C20, 0x0064AFC8, 0x00475A00, AddressOf(&Script::ReleaseScriptCache)},
         {0x004E19F0, 0x004E1C50, 0x0064AFCC, 0x00407980, 0},
-        {0x004E1A00, 0x004E1C80, 0x0064AFD0, 0x004558D0, 0},
-        {0x004E1A10, 0x004E1CB0, 0x0064AFD4, 0x0045F1E0, 0},
+        {0x004E1A00, 0x004E1C80, 0x0064AFD0, 0x004558D0, AddressOf(&Net::ReleaseManager)},
+        {0x004E1A10, 0x004E1CB0, 0x0064AFD4, 0x0045F1E0, AddressOf(&Obj::ReleaseCompositeObjectManager)},
         {0x004E1A20, 0x004E1CE0, 0x0064AFD8, 0x005880E0, 0},
         {0x004E1A30, 0x004E1D10, 0x0064AFDC, 0x00552F70, 0},
         {0x004E1A40, 0x004E1D40, 0x0064AFE0, 0x0057C120, 0},
         {0x004E1A50, 0x004E1D70, 0x0064AFE4, 0x0057FDB0, 0},
         {0x004E1A60, 0x004E1DA0, 0x0064AFE8, 0x00564C10, 0},
-        {0x004E1A70, 0x004E1DD0, 0x0064AFEC, 0x0054EBE0, 0},
+        {0x004E1A70, 0x004E1DD0, 0x0064AFEC, 0x0054EBE0, AddressOf(&Mdl::ReleaseFrontEnd)},
         {0x004E1A80, 0x004E1E00, 0x0064AFF0, 0x005395C0, 0},
         {0x004E1AC0, 0x004E1E30, 0x0064AFF4, 0x0058D290, 0},
         {0x004E1AD0, 0x004E1E60, 0x0064AFF8, 0x004AACF0, 0},
-        {0x004E1AE0, 0x004E1E90, 0x0064AFFC, 0x0045D6E0, 0},
+        {0x004E1AE0, 0x004E1E90, 0x0064AFFC, 0x0045D6E0, AddressOf(&SkateScript::ReleaseNodeManager)},
         {0x004E1AF0, 0x004E1EC0, 0x0064B000, 0x00574910, 0},
     };
 }

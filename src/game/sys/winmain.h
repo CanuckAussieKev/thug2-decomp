@@ -7,12 +7,15 @@ namespace Sys {
 // 0x004E2680: the program's entry point (called by the C runtime's start-up). Unless another copy of the game
 // is running (then that one's window is brought to the front): the network command line, the window, the
 // command line split into arguments, the CD, DirectSound, the default key and pad settings, input and the
-// keys' names - then the game's Main. The PC port's changes are built in: its set-up (initPatch) before the
+// keys' names - then the game's Main. PartyMod's changes are built in: its set-up (initPatch) before the
 // command line is read, its SDL window in place of the game's own, the window not shown or minimised by the
 // game, DirectInput left alone at the end.
 int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, char* commandLine, int show);
+// thug2-decomp.ini [features] allow_multiple_instances (default 0): WinMain skips its already-running check. Read from
+// the ini once; self-tests set it for their run.
+bool& AllowMultipleInstances();
 
-// 0x004E16B0: the game's window procedure (the window WinMain made before the PC port; its SDL window has its own).
+// 0x004E16B0: the game's window procedure (the window WinMain made before PartyMod; its SDL window has its own).
 // Closing or destroying the window quits (PostQuitMessage, the quit flag); activation maximises the game's
 // window and sets the active flag, deactivation minimises it, clears the flag, marks the device lost and
 // invalidates every window; WM_PAINT validates; key presses and typed characters go to Sio::SpecialKeyInput /

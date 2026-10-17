@@ -1,5 +1,5 @@
-// Self-tests for the PC-port-patched text and Direct3D start-up functions (src/game/gfx/text.cpp, device.cpp):
-// the original as the PC port leaves it (its patch bytes written in for the test) against ours.
+// Self-tests for the PartyMod-patched text and Direct3D start-up functions (src/game/gfx/text.cpp, device.cpp):
+// the original as PartyMod leaves it (its patch bytes written in for the test) against ours.
 
 #include <windows.h>
 
@@ -81,10 +81,10 @@ uint32_t Bits(float f)
     return bits;
 }
 
-// The PC port's button glyph patch (its patchButtonGlyphs) for one function: the call at `call` goes to
+// PartyMod's button glyph patch (its patchButtonGlyphs) for one function: the call at `call` goes to
 // Nx::ButtonForTag; the test at `test` becomes PUSH EAX / CALL Nx::ShouldUseGlyph / CMP AL,1 / POP EAX /
 // JZ <glyph> / 3 NOPs.
-void WritePcPortGlyphs(uint32_t call, uint32_t test, uint8_t jump)
+void WritePartyModGlyphs(uint32_t call, uint32_t test, uint8_t jump)
 {
     Write(call, Branch(0xE8, call, reinterpret_cast<void*>(&Nx::ButtonForTag)));
     std::vector<uint8_t> bytes = {0x67, 0x50};
@@ -164,7 +164,7 @@ void BuildFonts()
 }
 
 // Texts covering every escape: "\\", colours (0, in range, past the table), specials, buttons plain and through
-// the meta map (glyphs and key names, by the PC port's rules), "\u"/"\l" skips, unknown letters, an escape at the
+// the meta map (glyphs and key names, by PartyMod's rules), "\u"/"\l" skips, unknown letters, an escape at the
 // end, chains of escapes, and spaces.
 const char* const kTexts[] = {
     "Hello world",
@@ -192,15 +192,15 @@ void FillMetaMap()
         GameVariable<char>(0x006FA808 + i) = "4a7dQc9ht0b5kmfrp2s1e8uq6ng3jvlo"[i];
 }
 
-// The text's size, for each text x the three PC port input states (keyboard, controller, keyboard with
-// PreferGlyphs), against the original with the PC port's patch written in.
+// The text's size, for each text x the three PartyMod input states (keyboard, controller, keyboard with
+// PreferGlyphs), against the original with PartyMod's patch written in.
 void TestQueryString()
 {
     Save(0x00780FDC, 4);
     Save(0x006FA808, 32);
     bool savedKeyboard = Sio::UsingKeyboard(), savedForce = Nx::PreferGlyphs();
     JumpTo(0x005BCD50, reinterpret_cast<void*>(&StandInKeyName));
-    WritePcPortGlyphs(0x004CED4B, 0x004CED6D, 0x5B);
+    WritePartyModGlyphs(0x004CED4B, 0x004CED6D, 0x5B);
     BuildFonts();
     FillMetaMap();
     GameVariable<Nx::SFont*>(0x00780FDC) = &g_fonts[1];
@@ -239,7 +239,7 @@ void TestQueryString()
                 marker & 0xFFFFFF, traces[0][i], traces[1][i]);
             ++shown;
         }
-    Check(traces[0] == traces[1] && traces[0].size() > 200, "text: SFont::QueryString (with the PC port's button glyphs)");
+    Check(traces[0] == traces[1] && traces[0].size() > 200, "text: SFont::QueryString (with PartyMod's button glyphs)");
 }
 
 // One drawing setup: screen conversion and the text's fields.
@@ -264,9 +264,9 @@ void BuildEffects(bool rotations)
     }
 }
 
-// Draw (and DrawKeyChar directly): every text x the PC port input states x screen and text setups (scales,
+// Draw (and DrawKeyChar directly): every text x PartyMod input states x screen and text setups (scales,
 // offsets, a rotated text, a pivot, effects with and without rotations, a fixed colour, a zero scale), the
-// vertex buffer filling up (a long text) - the original with the PC port's patch written in; the vertices recorded
+// vertex buffer filling up (a long text) - the original with PartyMod's patch written in; the vertices recorded
 // by a stand-in EndDraw, with the BeginDraw/EndDraw calls, the texture font and the key names asked for.
 void TestDrawText()
 {
@@ -275,7 +275,7 @@ void TestDrawText()
     Save(0x006FA808, 32);
     bool savedKeyboard = Sio::UsingKeyboard(), savedForce = Nx::PreferGlyphs();
     JumpTo(0x005BCD50, reinterpret_cast<void*>(&StandInKeyName));
-    WritePcPortGlyphs(0x004CFF0C, 0x004CFF36, 0x63);
+    WritePartyModGlyphs(0x004CFF0C, 0x004CFF36, 0x63);
     BuildFonts();
     FillMetaMap();
     std::string longText;
@@ -363,7 +363,7 @@ void TestDrawText()
             Log("  draw text entry %u: original %08X ours %08X", static_cast<unsigned>(i), traces[0][i], traces[1][i]);
             ++shown;
         }
-    Check(traces[0] == traces[1] && traces[0].size() > 10000, "text: SText::Draw, DrawKeyChar (with the PC port's button glyphs)");
+    Check(traces[0] == traces[1] && traces[0].size() > 10000, "text: SText::Draw, DrawKeyChar (with PartyMod's button glyphs)");
 }
 
 // --- Direct3D start-up ---------------------------------------------------------------------------------------
@@ -375,8 +375,8 @@ struct D3DScript {
     HRESULT depthFormat;   // CheckDeviceFormat's result
     int setting;           // the resolution setting (0x007D643C)
     bool multisample;      // 0x007D6434
-    bool windowed;         // The PC port's Windowed
-    int width, height;     // The PC port's window size
+    bool windowed;         // PartyMod's Windowed
+    int width, height;     // PartyMod's window size
     int deviceWidth;       // what the created device's back buffer width becomes (0 = as asked)
 };
 D3DScript g_d3d;
@@ -447,9 +447,9 @@ void* __cdecl StandInDebugFont() { g_text_log.push_back(0xA1D0u); return reinter
 void __cdecl StandInLast() { g_text_log.push_back(0xE7C0u); }
 
 // InitDirect3D: Direct3D missing, the display mode failing, every resolution setting (also out of range) x
-// multisampling x windowed, devices failing at the first tries / every time (the game's exit), the PC port's sizes
+// multisampling x windowed, devices failing at the first tries / every time (the game's exit), PartyMod's sizes
 // (also one past 2^31, converted unsigned), a created device of another width, the depth format check both
-// ways - the original with the PC port's bytes written in, Direct3D, Win32 and the callees stood in.
+// ways - the original with PartyMod's bytes written in, Direct3D, Win32 and the callees stood in.
 void TestInitDirect3D()
 {
     Save(0x00786A70, 0x330); // present parameters ... screen conversion, 0x00786D90
@@ -471,7 +471,7 @@ void TestInitDirect3D()
     JumpTo(0x004D7B60, reinterpret_cast<void*>(&StandInRegistry));
     JumpTo(0x005BA1D0, reinterpret_cast<void*>(&StandInDebugFont));
     JumpTo(0x005BE7C0, reinterpret_cast<void*>(&StandInLast));
-    // The PC port's bytes that don't depend on the run: no ShowWindow, no SetWindowPos, no ShowCursor loop.
+    // PartyMod's bytes that don't depend on the run: no ShowWindow, no SetWindowPos, no ShowCursor loop.
     Write(0x004D869C, {0xEB});
     Write(0x004D8891, std::vector<uint8_t>(14, 0x90));
     Write(0x004D8989, {0xEB});
@@ -513,7 +513,7 @@ void TestInitDirect3D()
             Sys::WindowHeight() = s.height;
             size_t marker = g_text_saved.size();
             if (run == 0) {
-                // The PC port's run-time bytes: its window size, and windowed if set
+                // PartyMod's run-time bytes: its window size, and windowed if set
                 Write(0x004D8776, Dword(static_cast<uint32_t>(s.width)));
                 Write(0x004D8792, Dword(static_cast<uint32_t>(s.height)));
                 if (s.windowed)
@@ -558,7 +558,7 @@ void TestInitDirect3D()
             Log("  d3d init entry %u: original %08X ours %08X", static_cast<unsigned>(i), traces[0][i], traces[1][i]);
             ++shown;
         }
-    Check(traces[0] == traces[1] && traces[0].size() > 1000, "gfx: InitDirect3D (with the PC port's window changes)");
+    Check(traces[0] == traces[1] && traces[0].size() > 1000, "gfx: InitDirect3D (with PartyMod's window changes)");
 }
 
 } // namespace

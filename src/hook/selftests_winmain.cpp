@@ -1,5 +1,5 @@
 // Self-tests for the program's entry point (WinMain, 0x004E2680) and its command line's network options
-// (ParseNetworkParams, 0x004E1220). WinMain runs with the PC port's patch bytes written into the original, against
+// (ParseNetworkParams, 0x004E1220). WinMain runs with PartyMod's patch bytes written into the original, against
 // ours, with every function it calls (Win32 included) stood in for by recording code; ParseNetworkParams over a
 // range of command lines, the game's C runtime calls stood in for by what they do (offline) or not at all (Late).
 
@@ -28,7 +28,7 @@
 
 namespace {
 
-// The PC port's call at 0x004E26DC in place of ParseNetworkParams: its set-up (Sys::InitPcSetup), then the original
+// PartyMod's call at 0x004E26DC in place of ParseNetworkParams: its set-up (Sys::InitPcSetup), then the original
 // (through its address, so stood in like ours).
 void __cdecl PcSetupThenParseNetworkParams(char* commandLine)
 {
@@ -296,6 +296,12 @@ uint32_t StandInMapVirtualKey(Regs& r)
 
 void TestWinMain()
 {
+    // (compared with the original, which always has the already-running check: allow_multiple_instances off)
+    struct RestoreSetting {
+        bool value = Sys::AllowMultipleInstances();
+        ~RestoreSetting() { Sys::AllowMultipleInstances() = value; }
+    } restoreSetting;
+    Sys::AllowMultipleInstances() = false;
     std::vector<Saved> saved = {{0x007D6A28, 4, {}}};
     SaveAll(saved);
     std::vector<uint32_t> traces[2];
@@ -428,7 +434,7 @@ void TestWinMain()
             g_loads = 0;
             g_loadName = 0;
             if (original) {
-                // The PC port: its set-up before the command line, its window, the window not shown, DirectInput
+                // PartyMod: its set-up before the command line, its window, the window not shown, DirectInput
                 // not released
                 RunPatch(0x004E26DC, Branch(0xE8, 0x004E26DC, reinterpret_cast<const void*>(&PcSetupThenParseNetworkParams)));
                 RunPatch(0x004E2767, Branch(0xE8, 0x004E2767, reinterpret_cast<const void*>(&Sys::CreateSdlWindow)));
@@ -462,8 +468,8 @@ void TestWinMain()
     RestoreAll(saved);
     Compare(traces[0], traces[1],
             "WinMain: back end up or not, running already, no window, arguments (spaces, 20 at most), defaults, "
-            "key names, the PC port's set-up and window, the shutdown");
-    // The PC port's exe patch loads its DLL (the name at 0x0064B198) in the original (once per run that gets that
+            "key names, PartyMod's set-up and window, the shutdown");
+    // PartyMod's exe patch loads its DLL (the name at 0x0064B198) in the original (once per run that gets that
     // far); ours doesn't
     Check(loads[0] == static_cast<int>(sizeof(kWinMainCases) / sizeof(kWinMainCases[0])) &&
               loadNames[0] == Hash(reinterpret_cast<const char*>(0x0064B198)) && loads[1] == 0,

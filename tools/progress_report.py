@@ -68,8 +68,8 @@ for r, n, size in libraries:
 out.append("- GameSpy SDK, MSVC C runtime, STL helpers and compiler-generated code after `0x5F8130` "
            "(see `docs/library_ranges.md`)")
 out.append("")
-out.append("## PC port\n")
-out.append("The PC port's changes (MIT, see `THIRD_PARTY_NOTICES.md`) are part of the game's source: the SDL window and "
+out.append("## PartyMod\n")
+out.append("PartyMod's changes (MIT, (c) 2024 PARTYMANX, see `THIRD_PARTY_NOTICES.md`) are part of the game's source: the SDL window and "
            "input, widescreen, the settings file and the rest, by subsystem. Still written into the exe at start-up: "
            "the GameSpy SDK's host names (library code, `src/game/net/online_hosts.cpp`) and, with PS2 controls, "
            "the CFunction table's IsPS2 entry (`src/game/sys/platform_cfuncs.cpp`).")

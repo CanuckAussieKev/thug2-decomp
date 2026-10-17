@@ -55,9 +55,9 @@ with tools\ghidra\snapshot_project.ps1). `inspect` below means:
   as named empty inline functions: `Mem::PushMemProfile(name)` / `PopMemProfile()` around allocations,
   `Script::PrintContents(struct)`, `Mem::DebugTrackBlock(block)` - add a new one when a call fits none.
   The strings they're passed document the code.
-- Functions the PC port changed have source with the PC port's behaviour (it is part of the game's source
-  now). Where the PC port replaced or changed the code, keep the original's logic visible too - in a comment, or
-  as code if it's worth keeping - so the source shows what the game did before the PC port (the user wants this).
+- Functions PartyMod changed have source with PartyMod's behaviour (it is part of the game's source
+  now). Where PartyMod replaced or changed the code, keep the original's logic visible too - in a comment, or
+  as code if it's worth keeping - so the source shows what the game did before PartyMod (the user wants this).
 - Register: `REPLACE(addr, Function)` / `&Class::Method` / adapters for members of other types; pure
   functions may use `REPLACE_SHADOW`; unhookable ones `REPLACE_SOURCE_ONLY`. New .cpp files go in
   CMakeLists.txt.
@@ -82,8 +82,8 @@ with tools\ghidra\snapshot_project.ps1). `inspect` below means:
   own handle - see TestLeftovers). Originals that use the game's C runtime (sprintf, _stricmp...) only run
   in a Late test (in the game); offline, check ours against an independent expectation.
 - Calls the original makes directly (platform, renderer, C runtime) are scripted by writing a jump over the
-  callee for the test (CodePatch / JumpTo in selftests_pc.cpp); where the PC port changed a function, its patch
-  bytes are written into the original the same way, so ours is compared with the original *as the PC port left it*.
+  callee for the test (CodePatch / JumpTo in selftests_pc.cpp); where PartyMod changed a function, its patch
+  bytes are written into the original the same way, so ours is compared with the original *as PartyMod left it*.
 - `tools/mutate.py` names the failing test on each CAUGHT line (check it's yours; a bare CAUGHT is a crash),
   reports mutations that don't build, and rebuilds the restored code at the end.
 - Read [pitfalls.md](pitfalls.md) when a test crashes, hangs or fails strangely.

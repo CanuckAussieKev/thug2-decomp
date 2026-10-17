@@ -14,7 +14,9 @@
 #include "game/core/mem.h"
 #include "game/core/pool.h"
 #include "game/obj/smtptr.h"
+#include "game/obj/tracker.h"
 #include "game/script/cache.h"
+#include "game/obj/event.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
@@ -183,30 +185,30 @@ void TestCScriptCore()
                                                                                                : nullptr;
             return reinterpret_cast<uint32_t>(code);
         });
-        s->At({0x0045FA60}, 4, [](Regs& r) {
+        s->At({0x0045FA60, AddressOf(&Obj::CEventHandlerTable::UnregisterWithTracker)}, 4, [](Regs& r) {
             Record({0xFA60, r.ecx, r.args[0]});
             return 0u;
         });
-        s->At({0x0045FE60}, 4, [](Regs& r) {
+        s->At({0x0045FE60, AddressOf(static_cast<void (Obj::CEventHandlerTable::*)(uint32_t)>(&Obj::CEventHandlerTable::RemoveGroup))}, 4, [](Regs& r) {
             Record({0xFE60, r.ecx, r.args[0]});
             return 0u;
         });
-        s->At({0x0045FB70}, 0, [](Regs& r) {
+        s->At({0x0045FB70, AddressOf(&Obj::CEventHandlerTable::Destroy)}, 0, [](Regs& r) {
             Record({0xFB70, r.ecx, reinterpret_cast<uint32_t*>(r.ecx)[3]});
             return 0u;
         });
-        s->At({0x00462B90}, 4, [](Regs& r) {
+        s->At({0x00462B90, AddressOf(&Obj::CTracker::ForgetScript)}, 4, [](Regs& r) {
             Record({0x2B90, r.ecx, r.args[0]});
             return 0u;
         });
-        s->At({0x004637B0}, 0, [](Regs& r) {
+        s->At({0x004637B0, AddressOf(&Obj::CRefCounted::Construct)}, 0, [](Regs& r) {
             auto* object = reinterpret_cast<uint32_t*>(r.ecx);
             Record({0x37B0, r.ecx, object[0], object[1]});
             object[0] = 0x006478E4;
             object[1] = 0;
             return r.ecx;
         });
-        s->At({0x00463870}, 0, [](Regs& r) {
+        s->At({0x00463870, AddressOf(&Obj::CRefCounted::Destruct)}, 0, [](Regs& r) {
             auto* object = reinterpret_cast<uint32_t*>(r.ecx);
             Record({0x3870, r.ecx, object[0], object[1]});
             return 0u;

@@ -1,6 +1,6 @@
-// Self-tests for PC-port-patched functions of different subsystems: the game's main (fast exit), the network
+// Self-tests for PartyMod-patched functions of different subsystems: the game's main (fast exit), the network
 // manager's online service task (MOTD fix) and LoadFromMemoryCard (no save checksum test). Each original runs
-// with the PC port's patch bytes written in, against ours; every function they call is stood in for by recording
+// with PartyMod's patch bytes written in, against ours; every function they call is stood in for by recording
 // code (written over the start of the game's function and of our version of it alike), so the two are compared
 // call by call.
 
@@ -20,11 +20,17 @@
 #include "game/core/pool.h"
 #include "game/file/async.h"
 #include "game/file/pre.h"
+#include "game/front/front_end.h"
+#include "game/front/level_editor.h"
 #include "game/mc/memcard.h"
 #include "game/mc/memcard_cfuncs.h"
 #include "game/mth/math.h"
 #include "game/mth/random.h"
+#include "game/net/net_manager.h"
 #include "game/net/service.h"
+#include "game/obj/compositemgr.h"
+#include "game/obj/objman.h"
+#include "game/obj/tracker.h"
 #include "game/script/cache.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
@@ -33,6 +39,7 @@
 #include "game/sys/mlp.h"
 #include "game/sys/pc_setup.h"
 #include "game/sys/timer.h"
+#include "game/script/node_manager.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -200,7 +207,7 @@ void TestServiceTask()
         for (int run = 0; run < 2; ++run) {
             bool original = run == 0;
             g_trace.clear();
-            if (original) { // The PC port's MOTD fix (its patchMotdFix)
+            if (original) { // PartyMod's MOTD fix (its patchMotdFix)
                 RunPatch(0x00545B4F, Dword(500));
                 RunPatch(0x00545CDE, Dword(0x588ED87C));
                 RunPatch(0x00545CE8, {0x01});
@@ -243,7 +250,7 @@ void TestServiceTask()
         delete s;
     }
     RestoreAll(saved);
-    Compare(traces[0], traces[1], "service task: every state, the timeouts (the PC port's 500 ms), GameSpy answers, lobby");
+    Compare(traces[0], traces[1], "service task: every state, the timeouts (PartyMod's 500 ms), GameSpy answers, lobby");
 }
 
 // --- LoadFromMemoryCard (0x005A8730) ------------------------------------------------------------------------
@@ -364,7 +371,7 @@ void TestLoadFromMemoryCard()
             std::memcpy(reinterpret_cast<void*>(r.args[0]), g_fileContents, sizeof(g_fileContents));
             return static_cast<uint32_t>(g_load.readSize);
         });
-        // (the original's checksum: computed, but the PC port's NOP ignores it - not recorded)
+        // (the original's checksum: computed, but PartyMod's NOP ignores it - not recorded)
         s->At({0x00401AA0}, 0, [](Regs&) { return 0x12345678u; });
         s->At({0x005A6210}, 0, [](Regs& r) {
             Record({0x6210, r.eax});
@@ -443,7 +450,7 @@ void TestLoadFromMemoryCard()
             bool original = run == 0;
             g_trace.clear();
             if (original)
-                RunPatch(0x005A8A01, {0x90, 0x90}); // The PC port (its patchMotdFix)
+                RunPatch(0x005A8A01, {0x90, 0x90}); // PartyMod (its patchMotdFix)
             for (const LoadCase& c : cases) {
                 g_load = c;
                 g_nextStruct = c.newStruct ? 0 : -1;
@@ -564,14 +571,14 @@ void TestMain()
             uint32_t ours;
         };
         const Create creates[] = {
-            {0x00463730, 0}, {0x0044F260, AddressOf(&Mlp::CreateManager)}, {0x0044F6F0, 0},
+            {0x00463730, AddressOf(&Obj::CreateTracker)}, {0x0044F260, AddressOf(&Mlp::CreateManager)}, {0x0044F6F0, 0},
             {0x005BE670, AddressOf(&Sio::CreateManager)},
             {0x005BC900, AddressOf(&Mc::CreateManager)}, {0x0044E7F0, 0},
             {0x005B6CA0, AddressOf(&File::CreateAsyncLoaderModule)},
             {0x00476040, AddressOf(&Script::CreateScriptCache)}, {0x004088E0, 0},
-            {0x0047BA60, 0}, {0x00455880, 0}, {0x0045F7A0, 0}, {0x00589180, 0}, {0x00553DB0, 0}, {0x0057C0D0, 0},
-            {0x0057EED0, 0}, {0x005691A0, 0}, {0x0054FF80, 0}, {0x0053F520, 0}, {0x00590160, 0}, {0x004ACAF0, 0},
-            {0x0045D690, 0}, {0x00574540, 0}};
+            {0x0047BA60, 0}, {0x00455880, AddressOf(&Net::CreateManager)}, {0x0045F7A0, AddressOf(&Obj::CreateCompositeObjectManager)}, {0x00589180, 0}, {0x00553DB0, 0}, {0x0057C0D0, 0},
+            {0x0057EED0, 0}, {0x005691A0, 0}, {0x0054FF80, AddressOf(&Mdl::CreateFrontEnd)}, {0x0053F520, 0}, {0x00590160, 0}, {0x004ACAF0, 0},
+            {0x0045D690, AddressOf(&SkateScript::CreateNodeManager)}, {0x00574540, 0}};
         int index = 0;
         for (const Create& c : creates) {
             Handler handler = [index](Regs& r) {
@@ -585,12 +592,12 @@ void TestMain()
             ++index;
         }
         const Create releases[] = {
-            {0x00574910, 0}, {0x0045D6E0, 0}, {0x004AACF0, 0}, {0x0058D290, 0}, {0x005395C0, 0}, {0x0054EBE0, 0},
-            {0x00564C10, 0}, {0x0057FDB0, 0}, {0x0057C120, 0}, {0x00552F70, 0}, {0x005880E0, 0}, {0x0045F1E0, 0},
-            {0x004558D0, 0}, {0x0047C6C0, 0}, {0x00407980, 0}, {0x00475A00, AddressOf(&Script::ReleaseScriptCache)},
+            {0x00574910, 0}, {0x0045D6E0, AddressOf(&SkateScript::ReleaseNodeManager)}, {0x004AACF0, 0}, {0x0058D290, 0}, {0x005395C0, 0}, {0x0054EBE0, AddressOf(&Mdl::ReleaseFrontEnd)},
+            {0x00564C10, 0}, {0x0057FDB0, 0}, {0x0057C120, 0}, {0x00552F70, 0}, {0x005880E0, 0}, {0x0045F1E0, AddressOf(&Obj::ReleaseCompositeObjectManager)},
+            {0x004558D0, AddressOf(&Net::ReleaseManager)}, {0x0047C6C0, 0}, {0x00407980, 0}, {0x00475A00, AddressOf(&Script::ReleaseScriptCache)},
             {0x005B6620, AddressOf(&File::DestroyAsyncLoaderModule)}, {0x0044E6B0, 0},
             {0x005BC950, AddressOf(&Mc::ReleaseManager)}, {0x005BDCF0, AddressOf(&Sio::ReleaseManager)},
-            {0x0044F740, 0}, {0x0044F2B0, AddressOf(&Mlp::ReleaseManager)}, {0x00461FA0, 0},
+            {0x0044F740, 0}, {0x0044F2B0, AddressOf(&Mlp::ReleaseManager)}, {0x00461FA0, AddressOf(&Obj::ReleaseTracker)},
             {0x005B9510, AddressOf(&Pre::DestroyManager)}};
         index = 0;
         for (const Create& c : releases) {
@@ -604,6 +611,9 @@ void TestMain()
         s->At({0x0044E610}, 4, [](Regs& r) { Record({0xE610, SingletonId(r.ecx), r.args[0] & 0xFF}); return 0u; });
         s->At({0x005A5E70}, 0, plain(0x5E70));
         s->At({0x005A5B20}, 0, plain(0x5B20));
+        // (not original - the level editor's script commands, registered after 0x005A5E70: ours only, not recorded)
+        s->At({Resolve(reinterpret_cast<const void*>(&Front::LevelEditor::RegisterScriptFunctions))}, 0,
+              [](Regs&) { return 0u; });
         s->At({0x004694E0}, 0, plain(0x94E0));
         s->At({0x004E4860}, 0, plain(0x4860));
         s->At({0x00406C90}, 4, recordArg(0x6C90));
@@ -641,7 +651,7 @@ void TestMain()
         for (int run = 0; run < 2; ++run) {
             bool original = run == 0;
             g_trace.clear();
-            // The PC port: its fast exit (Sys::FastExit) called in place of the profile pop after the main loop
+            // PartyMod: its fast exit (Sys::FastExit) called in place of the profile pop after the main loop
             if (original)
                 RunPatch(0x004E2492, Branch(0xE8, 0x004E2492, exitThunk));
             for (const Case& c : cases) {

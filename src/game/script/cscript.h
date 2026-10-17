@@ -23,8 +23,8 @@
 namespace Obj {
 class CObject;          // a game object (CRefCounted; +0x100 its component list)
 class CBaseComponent;   // one of an object's components; can hold a script waiting on it
-class CEventHandlerTable; // a script's event handlers (0x10 bytes; +0x08 alive, +0x0C in use)
-struct CEvent;          // +0x00 the event's type checksum
+class CEventHandlerTable; // a script's event handlers (game/obj/event.h)
+struct CEvent;          // an event (game/obj/event.h)
 } // namespace Obj
 
 namespace Script {
@@ -108,11 +108,18 @@ struct SStructScript {
 };
 static_assert(sizeof(SStructScript) == 8, "allocated as 8 bytes by 0x0048B200");
 
-// A member function's table entry (the value of a ESYMBOLTYPE_MEMBERFUNCTION symbol, token 0x46).
+// A member function's table entry (the value of a ESYMBOLTYPE_MEMBERFUNCTION symbol, token 0x46), 0x18 bytes: the
+// tables at 0x00683550 (CObject's, filled in by 0x00642940) and 0x00683268 (CCompositeObject's, 0x006425D0).
 struct CMemberFunctionEntry {
-    uint32_t unknown0;
+    uint32_t mName;
     uint32_t mComponentType; // the object component that runs it; 0x57525413 / 0x0ADA4E74: the object itself
+    // +0x08: the member function, as a 16-byte (virtual-inheritance) member function pointer, `bool (Class::*)(
+    // CStruct* params, CScript* script)`; null: the object looks the name up (CObject::CallMemberFunction 0x0045D850).
+    void* mCode;
+    int mThisAdjustment;      // +0x0C
+    int mVirtualBaseOffsets[2]; // +0x10 (unused by single-inheritance classes)
 };
+static_assert(sizeof(CMemberFunctionEntry) == 0x18, "a table entry is 0x18 bytes");
 
 class CScript {
 public:
@@ -134,8 +141,9 @@ public:
     // 0x00473880: run the pending OnExitRun scripts (this level's, then each return address' from the top) as
     // interrupts. Also called by 0x00583470.
     void RunOnExitScripts();
-    // 0x00473010: after ClearScript: the event handler table forgets this script (0x0045FA60) and gets event
-    // 0x8B713E0E; with SCRIPT_FLAG_TRACKER_BLOCKED, the tracker (0x006F0FC0, 0x00462B90) forgets it.
+    // 0x00473010: after ClearScript: the tracker forgets the event handler table's types for this script and
+    // every handler is removed (group all_groups); with SCRIPT_FLAG_TRACKER_BLOCKED, the tracker (0x006F0FC0,
+    // 0x00462B90) forgets it.
     void ReportStopped();
     // 0x004739D0: a copy of `params` if it is (or is inside) this script's own parameters or function
     // parameters, which ClearScript is about to free; else null.

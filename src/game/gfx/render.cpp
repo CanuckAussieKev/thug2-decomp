@@ -1,5 +1,5 @@
-// The per-frame 3D render: the camera's matrices and the motion blur pass, with the PC port's widescreen
-// display region and black bars (contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md).
+// The per-frame 3D render: the camera's matrices and the motion blur pass, with PartyMod's widescreen
+// display region and black bars (contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md).
 
 #include "game/gfx/render.h"
 
@@ -8,6 +8,11 @@
 #include <cstdint>
 #include <cstring>
 
+#include "game/front/level_editor.h"
+#include "game/front/menu_backdrop.h"
+#include "game/front/menu_level.h"
+#include "game/front/frontend_objects.h"
+#include "game/gfx/camera.h"
 #include "game/gfx/screen.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -161,7 +166,7 @@ struct ViewShape {
 
 } // namespace
 
-// --- the PC port's display region and black bars ---------------------------------------------------------------
+// --- PartyMod's display region and black bars ---------------------------------------------------------------
 
 void SetDisplayRegion()
 {
@@ -183,6 +188,9 @@ void Draw2DWithBlackBars()
         float u, v;
     };
     GameFunction<void(__cdecl*)()>(0x004DFB90)(); // the 2D pass
+    // (widescreen_menus: in the front end the 3D scene fills the sides, so no bars over it.)
+    if (FrontEndWidescreen())
+        return;
 
     uint32_t backBufferWidth = GameVariable<uint32_t>(0x00786D6C);
     uint32_t backBufferHeight = GameVariable<uint32_t>(0x00786D70);
@@ -245,7 +253,7 @@ void SetCamera(const Mth::Matrix* orientation, const Mth::Vector* position, floa
     MatrixLookAt(&view, camera.position, target, camera.up);
 
     camera.nearZ = 2.0f;
-    // The PC port (its float at 0x004DB35D): the far plane 96000 - further, for large levels' backgrounds (e.g.
+    // Originally from PartyMod Fixes (its float at 0x004DB35D): the far plane 96000 - further, for large levels' backgrounds (e.g.
     // Skatopia). The original: camera.farZ = 32000.0f;
     camera.farZ = 96000.0f;
     camera.angle = angle;
@@ -351,7 +359,7 @@ void DrawScreenBlur()
         {0, screenHeight, 0, 1, color, static_cast<float>(insetU), 1.0f - insetV},
         {screenWidth, screenHeight, 0, 1, color, static_cast<float>(1.0 - insetU), 1.0f - insetV},
     };
-    // The PC port (its JMP at 0x004DF63A): no letterbox adjustment - the PC port's letterbox is a viewport. The
+    // Originally from PartyMod Fixes (its JMP at 0x004DF63A): no letterbox adjustment - PartyMod's letterbox is a viewport. The
     // original, when letterboxed (0x00786CBE), moved the quad in by an eighth of the back buffer's height:
     //   float bar = static_cast<float>(GameVariable<int>(0x00786D70) / 8);
     //   quad[0].y = quad[1].y = bar;
@@ -433,12 +441,28 @@ static_assert(offsetof(MeshGroup, meshCount) == 0x20, "mesh group layout");
 
 // A loaded world scene (only what the render uses).
 struct Scene {
-    uint8_t unknown000[0x8D];
+    uint8_t unknown000[0x84];
+    uint32_t name;          // +0x84: the checksum of its name
+    void* texDict;          // +0x88
+    uint8_t unknown08C;
     bool sky;               // +0x8D: drawn in the sky pass
     uint8_t unknown08E[0x1F2];
     MeshGroup* group;       // +0x280
 };
-static_assert(offsetof(Scene, group) == 0x280, "scene layout");
+static_assert(offsetof(Scene, group) == 0x280 && offsetof(Scene, sky) == 0x8D && offsetof(Scene, name) == 0x84,
+              "scene layout");
+
+// Not original - the menu_backdrop feature (see game/front/menu_backdrop.h): in the front end either the skate shop's
+// scene or the backdrop level's isn't drawn.
+// Original behaviour: every loaded scene is drawn; with menu_backdrop the front end's shop scene is skipped while the
+// LA view is held, and LA's scenes while another front-end camera (Create-A-Skater...) shows the shop.
+// Not original either - the menu_level feature (game/front/menu_level.h): the front end built in LA doesn't draw the
+// skate shop's scene (loaded only for the wheel's meshes).
+// Original behaviour: the shop's scene is drawn in the front end.
+bool Hidden(const Scene* scene)
+{
+    return Front::MenuBackdrop::HideScene(scene->name) || Front::MenuLevel::HideScene(scene->name);
+}
 
 // The list of loaded scenes (0x006FA7EC): ends at a node whose scene is -1.
 struct SceneNode {
@@ -495,6 +519,19 @@ void RenderViewport(int index)
     void* camera = view->camera;
     if (!camera)
         return;
+    // Not original - the menu_backdrop feature: the front end's camera held at the chosen view (also when nothing
+    // set it this frame).
+    // Original behaviour: the viewport's camera is drawn as the game left it; with menu_backdrop, while a menu camera
+    // plays in the front end, the game's pose is noted and the camera put at the chosen LA view.
+    Front::MenuBackdrop::NoteAndHoldCamera(static_cast<Gfx::Camera*>(camera));
+    // Not original - the menu_level feature: the front end's camera animations are in the skate shop's coordinates; in
+    // the front end built in LA the camera gets the shop's move into LA.
+    // Original behaviour: the camera is drawn where the game put it.
+    Front::MenuLevel::PlaceCamera(static_cast<Gfx::Camera*>(camera));
+    // Not original - the level editor (game/front/level_editor.h): while it runs, the first viewport's camera is put
+    // where the editor flies.
+    // Original behaviour: the camera is drawn where the game put it.
+    Front::LevelEditor::PlaceCamera(static_cast<Gfx::Camera*>(camera));
     GameVariable<int>(0x006FA7B8) = index; // the viewport being drawn
     double width = GameVariable<int>(0x00786D6C);
     double height = static_cast<float>(GameVariable<int>(0x00786D70));
@@ -505,12 +542,13 @@ void RenderViewport(int index)
     vp.height = static_cast<int>(height * view->height);
     vp.minZ = 0.0f;
     vp.maxZ = 1.0f;
-    if (GameVariable<bool>(0x00786CBE)) {
-        // PC port (its call at 0x004B2E65): the viewport fitted to the aspect wanted. The original squashed the
+    if (GameVariable<bool>(0x00786CBE) && !FrontEndWidescreen()) {
+        // Originally from PartyMod Fixes (its call at 0x004B2E65): the viewport fitted to the aspect wanted. The original squashed the
         // viewport to 3/4 of the screen's height:
         //   int screenHeight = GameVariable<int>(0x00786D70);
         //   vp.y += screenHeight / 8;
         //   vp.height -= screenHeight / 4;
+        // (widescreen_menus: in the front end the 3D view keeps the whole screen; the 2D below stays fitted.)
         SetDisplayRegion();
     }
     SetViewport();
@@ -522,9 +560,12 @@ void RenderViewport(int index)
         float angle = CameraAngle(camera);
         const Mth::Vector* position = CameraPosition(camera);
         SetCamera(CameraMatrix(camera), position, angle, aspect, 1.0f, false);
+        // Not original - the level editor: the view's projection noted (its mouse ray and outlines).
+        // Original behaviour: nothing.
+        Front::LevelEditor::NoteView(static_cast<Gfx::Camera*>(camera), angle, aspect, &vp.x);
     }
     ForEachScene([&](Scene* scene) {
-        if (scene->sky)
+        if (scene->sky || Hidden(scene))
             return;
         GameFunction<void(__cdecl*)(const Mth::Vector*, int)>(0x004D8ED0)(CameraPosition(camera), index);
         SetRenderState(1, 1);
@@ -563,7 +604,7 @@ void RenderViewport(int index)
     SetRenderState(1, 0);
     SetRenderState(2, 1);
     ForEachScene([&](Scene* scene) {
-        if (!scene->sky)
+        if (!scene->sky || Hidden(scene))
             return;
         // (with distance clipping and fog both on, there's no sky)
         if (GameVariable<bool>(0x007D643A) && GameVariable<bool>(0x007D6436))
@@ -597,7 +638,7 @@ void RenderViewport(int index)
     SetRenderState(1, 1);
     SetRenderState(2, 1);
     ForEachScene([&](Scene* scene) {
-        if (!scene->sky)
+        if (!scene->sky && !Hidden(scene))
             DrawSceneGroup(scene, 0x46, index);
     });
     SetPass(0x102);
@@ -625,6 +666,15 @@ void RenderViewport(int index)
 // 0x004B2D80
 void RenderWorld()
 {
+    // Not original - the menu_backdrop feature (see game/front/frontend_objects.h): front-end objects moved into
+    // the backdrop, or put back, for what is drawn now.
+    // Original behaviour: the frame is drawn straight away; with menu_backdrop the wheel and the skater are first
+    // moved into LA (or put back) and the menu camera's pose sampled if no update walk did this frame.
+    Front::FrontEndObjects::Update(false);
+    // Not original - the level editor (game/front/level_editor.h): its frame (flying, picking, dragging) - it runs
+    // while the game is paused.
+    // Original behaviour: nothing.
+    Front::LevelEditor::Update();
     ++GameVariable<int>(0x00786AC4); // frames rendered
     if (!GameVariable<bool>(0x00786D04)) { // (nothing while the device is lost)
         GameVariable<int>(0x00786D00) = GameFunction<int(__cdecl*)()>(0x005BE970)();
@@ -639,7 +689,7 @@ void RenderWorld()
         // Full-screen effects and the 2D on top.
         FullScreenViewport();
         if (GameVariable<bool>(0x00786CBE)) {
-            // PC port (its call at 0x004B33CA): fitted to the aspect wanted. The original:
+            // Originally from PartyMod Fixes (its call at 0x004B33CA): fitted to the aspect wanted. The original:
             //   int screenHeight = GameVariable<int>(0x00786D70);
             //   TheViewport().y = screenHeight / 8;
             //   TheViewport().height = screenHeight - screenHeight / 4;
@@ -650,9 +700,12 @@ void RenderWorld()
         DrawScreenBlur();
         bool fog = GameVariable<uint32_t>(0x00787338) != 0;
         SetFog(false);
-        // PC port (its call at 0x004B341D): the 2D pass (0x004DFB90 in the original), then black bars over what's
+        // Originally from PartyMod Fixes (its call at 0x004B341D): the 2D pass (0x004DFB90 in the original), then black bars over what's
         // drawn outside the fitted area.
         Draw2DWithBlackBars();
+        // Not original - the level editor: the hovered and selected objects outlined over everything.
+        // Original behaviour: nothing more is drawn.
+        Front::LevelEditor::Draw();
         SetFog(fog);
     }
     FullScreenViewport();

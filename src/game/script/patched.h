@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-// Contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md
+// Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md
 
 // Patched scripts on PC: .qb files loaded with a binary patch (BPS) applied - one: scripts\engine\menu\keyboard.qb
 // (the on-screen keyboard, for typing with a real keyboard). The patched script is kept and reused when the file

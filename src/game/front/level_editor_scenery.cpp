@@ -1,0 +1,1353 @@
+// NOT ORIGINAL - the level editor's scenery (ours, added at the user's request). See level_editor_scenery.h.
+
+#include "game/front/level_editor_scenery.h"
+
+#include <algorithm>
+#include <array>
+#include <cmath>
+#include <cstdio>
+#include <cstring>
+#include <map>
+#include <unordered_map>
+
+#include "game/core/manager.h"
+#include "game/mth/vector.h"
+#include "game/script/names.h"
+#include "game/script/qb.h"
+#include "game/script/struct.h"
+#include "hook/game.h"
+#include "hook/log.h"
+
+namespace Front::LevelEditor {
+
+// --- the pieces (pure) ------------------------------------------------------------------------------------------
+
+V3 QuarterTurn(V3 v, int quarters)
+{
+    switch (quarters & 3) {
+    case 1: return {v.z, v.y, -v.x};
+    case 2: return {-v.x, v.y, -v.z};
+    case 3: return {-v.z, v.y, v.x};
+    default: return v;
+    }
+}
+
+V3 Apply(const Placement& placement, V3 x) { return QuarterTurn(x, placement.quarters) + placement.offset; }
+
+void MoveBy(Placement* placement, V3 delta) { placement->offset = placement->offset + delta; }
+
+Placement Compose(const Placement& outer, const Placement& inner)
+{
+    // outer(inner(x)) = Q_o (Q_i x + o_i) + o_o = Q_o Q_i x + (Q_o o_i + o_o).
+    return {(inner.quarters + outer.quarters) & 3, QuarterTurn(inner.offset, outer.quarters) + outer.offset};
+}
+
+void TurnAbout(Placement* placement, V3 pivot, int quarters)
+{
+    // x'' = R (x' - pivot) + pivot, x' = Q x + offset: x'' = R Q x + R (offset - pivot) + pivot.
+    placement->quarters = (placement->quarters + quarters) & 3;
+    placement->offset = QuarterTurn(placement->offset - pivot, quarters) + pivot;
+}
+
+void EngineState(int quarters0, V3 position0, const Placement& placement, int* quarters, V3* position)
+{
+    // Loaded vertex v was at Q0 v + p0; now at Q (Q0 v + p0) + offset = Q Q0 v + (Q p0 + offset).
+    *quarters = (quarters0 + placement.quarters) & 3;
+    *position = Apply(placement, position0);
+}
+
+OrientedBox PlacedBox(V3 min, V3 max, const Placement& placement)
+{
+    OrientedBox box;
+    box.origin = placement.offset;
+    box.axes[0] = QuarterTurn({1.0f, 0.0f, 0.0f}, placement.quarters);
+    box.axes[1] = {0.0f, 1.0f, 0.0f};
+    box.axes[2] = QuarterTurn({0.0f, 0.0f, 1.0f}, placement.quarters);
+    box.min = min;
+    box.max = max;
+    return box;
+}
+
+bool SectorSizeMovable(V3 min, V3 max, float limit)
+{
+    if (!(min.x <= max.x && min.y <= max.y && min.z <= max.z)) // (also NaN)
+        return false;
+    return max.x - min.x <= limit && max.y - min.y <= limit && max.z - min.z <= limit;
+}
+
+void GrowBox(V3* min, V3* max, bool have, V3 boxMin, V3 boxMax)
+{
+    if (!have) {
+        *min = boxMin;
+        *max = boxMax;
+        return;
+    }
+    *min = {std::min(min->x, boxMin.x), std::min(min->y, boxMin.y), std::min(min->z, boxMin.z)};
+    *max = {std::max(max->x, boxMax.x), std::max(max->y, boxMax.y), std::max(max->z, boxMax.z)};
+}
+
+void BoundsOf(const OrientedBox& box, V3* min, V3* max)
+{
+    V3 corners[8];
+    BoxCorners(box.origin, box.axes, box.min, box.max, corners);
+    for (int i = 0; i < 8; ++i)
+        GrowBox(min, max, i != 0, corners[i], corners[i]);
+}
+
+bool PieceFits(V3 min, V3 max, V3 groupMin, V3 groupMax)
+{
+    V3 size = max - min, group = groupMax - groupMin;
+    double volume = static_cast<double>(size.x) * size.y * size.z;
+    double groupVolume = static_cast<double>(group.x) * group.y * group.z;
+    float across = std::max(group.x, group.z) * 1.25f;
+    return volume <= groupVolume && size.x <= across && size.z <= across;
+}
+
+bool PieceTouches(V3 min, V3 max, V3 boxMin, V3 boxMax, float margin)
+{
+    return min.x <= boxMax.x + margin && max.x >= boxMin.x - margin && min.z <= boxMax.z + margin &&
+           max.z >= boxMin.z - margin && min.y <= boxMax.y + margin && max.y > boxMin.y + 5.0f;
+}
+
+void SegmentBox(V3 a, V3 b, V3* min, V3* max)
+{
+    *min = {std::min(a.x, b.x), std::min(a.y, b.y), std::min(a.z, b.z)};
+    *max = {std::max(a.x, b.x), std::max(a.y, b.y), std::max(a.z, b.z)};
+}
+
+uint32_t Pulse(uint32_t low, uint32_t high, double seconds)
+{
+    double phase = std::fmod(seconds, 1.25) / 1.25;
+    double mix = 0.5 - 0.5 * std::cos(phase * 2.0 * 3.14159265358979);
+    uint32_t colour = 0;
+    for (int shift = 0; shift < 32; shift += 8) {
+        double a = (low >> shift) & 0xFF, b = (high >> shift) & 0xFF;
+        colour |= static_cast<uint32_t>(a + (b - a) * mix + 0.5) << shift;
+    }
+    return colour;
+}
+
+// --- the game side ----------------------------------------------------------------------------------------------
+
+namespace Scenery {
+namespace {
+
+constexpr uint32_t kPcGeomVtable = 0x0064A368;
+constexpr float kMaxSectorExtent = 4000.0f; // (larger: the ground, a street, a building block - not moved)
+constexpr uint32_t kCluster = 0x1A3A966Bu;  // "Cluster" (the node's TrickObject Cluster=)
+
+template <typename F>
+F Method(void* object, int offset)
+{
+    return reinterpret_cast<F>((*reinterpret_cast<void***>(object))[offset / 4]);
+}
+
+// The scenes (0x006FA7EC's list: nodes {?, scene +4, ?, next +0xC}, ended by a node whose scene is -1), skies left
+// out (+0x8D: drawn in the sky pass).
+struct SceneNode {
+    uint32_t unknown0;
+    uint8_t* scene;
+    uint32_t unknown8;
+    SceneNode* next;
+};
+bool IsEnd(const SceneNode* node) { return reinterpret_cast<intptr_t>(node->scene) == -1; }
+
+template <typename F>
+void ForEachScene(F fn)
+{
+    SceneNode* node = GameVariable<SceneNode*>(0x006FA7EC);
+    for (int guard = 0; node && !IsEnd(node) && guard < 256; ++guard) {
+        SceneNode* next = node->next;
+        if (node->scene && !node->scene[0x8D])
+            fn(node->scene);
+        node = next;
+    }
+}
+
+// A scene's sector table (+0xD0): {bits, entries}; 1 << bits entries {checksum, sector, next}.
+struct TableEntry {
+    uint32_t checksum;
+    uint8_t* sector;
+    TableEntry* next;
+};
+template <typename F>
+void ForEachSector(uint8_t* scene, F fn)
+{
+    auto* table = *reinterpret_cast<uint32_t**>(scene + 0xD0);
+    if (!table || table[0] > 20)
+        return;
+    auto* entries = reinterpret_cast<TableEntry*>(table[1]);
+    if (!entries)
+        return;
+    uint32_t count = 1u << table[0];
+    for (uint32_t i = 0; i < count; ++i) {
+        for (TableEntry* entry = &entries[i]; entry; entry = entry->next) {
+            if (entry->sector)
+                fn(entry->checksum, entry->sector);
+        }
+    }
+}
+
+uint8_t* LookupSector(uint8_t* scene, uint32_t checksum)
+{
+    return GameFunction<uint8_t*(__thiscall*)(void*, uint32_t)>(0x0049CB00)(scene, checksum);
+}
+
+// The sector of that checksum in the first (non-sky) scene having one.
+uint8_t* FindSector(uint32_t checksum, uint8_t** sceneOut)
+{
+    uint8_t* found = nullptr;
+    ForEachScene([&](uint8_t* scene) {
+        if (found)
+            return;
+        if (uint8_t* sector = LookupSector(scene, checksum)) {
+            found = sector;
+            if (sceneOut)
+                *sceneOut = scene;
+        }
+    });
+    return found;
+}
+
+uint8_t* GeomOf(uint8_t* sector) { return *reinterpret_cast<uint8_t**>(sector + 0x14); }
+uint8_t* CollOf(uint8_t* sector) { return *reinterpret_cast<uint8_t**>(sector + 0x18); }
+uint32_t& FlagsOf(uint8_t* sector) { return *reinterpret_cast<uint32_t*>(sector + 0x08); }
+int QuartersOf(uint8_t* sector) { return *reinterpret_cast<int*>(sector + 0x10); }
+
+// The PC geometry of level scenery (not an instance), active.
+bool PlainGeom(uint8_t* geom)
+{
+    return geom && *reinterpret_cast<uint32_t*>(geom) == kPcGeomVtable && !*reinterpret_cast<void**>(geom + 0x4C);
+}
+
+// Its box as loaded (+0x14 min, +0x24 max).
+bool GeomBox(uint8_t* geom, V3* min, V3* max)
+{
+    const float* box = reinterpret_cast<const float*>(geom + 0x14);
+    *min = {box[0], box[1], box[2]};
+    *max = {box[4], box[5], box[6]};
+    return min->x <= max->x && min->y <= max->y && min->z <= max->z;
+}
+
+// The geometry's world position (vfunc +0x4C, 0x004B46A0: the first mesh's; 0 when never moved).
+V3 GeomPosition(uint8_t* geom)
+{
+    const Mth::Vector* v = GameFunction<const Mth::Vector*(__thiscall*)(void*)>(0x0048DED0)(geom);
+    return {v->x, v->y, v->z};
+}
+
+// The meshes' vertices can be moved: each vertex buffer has its own CPU copy (+0x0C) holding exactly the mesh's
+// vertices (+0x22 count, +0x18 stride) - what sMesh::SetPosition walks and uploads.
+const char* MeshesMovable(uint8_t* geom)
+{
+    auto** meshes = *reinterpret_cast<uint8_t***>(geom + 0x3C);
+    uint32_t count = *reinterpret_cast<uint32_t*>(geom + 0x40);
+    if (!meshes || count == 0)
+        return "no meshes";
+    if (count > 4096)
+        return "odd mesh count";
+    for (uint32_t i = 0; i < count; ++i) {
+        uint8_t* mesh = meshes[i];
+        if (!mesh)
+            return "no mesh";
+        uint32_t buffers = mesh[0x1A];
+        uint32_t vertices = *reinterpret_cast<uint16_t*>(mesh + 0x22);
+        uint32_t stride = mesh[0x18];
+        if (buffers > 8)
+            return "odd vertex buffers";
+        for (uint32_t b = 0; b < buffers; ++b) {
+            auto* buffer = *reinterpret_cast<uint32_t**>(mesh + 0xCC + 4 * b);
+            if (!buffer || !buffer[3])
+                return "no vertex copy";
+            if (buffer[0] != vertices * stride)
+                return "shared vertex buffer";
+        }
+    }
+    return nullptr;
+}
+
+// What we've done to a sector: the box, turns and position when first touched, the placement since, and the engine's
+// state as we set it (checked again before each use: a level reloaded at the same addresses starts afresh).
+struct Track {
+    uint8_t* scene;
+    uint8_t* sector;
+    uint8_t* geom;
+    V3 min0, max0;
+    int quarters0;
+    V3 position0;
+    Placement placement;
+    int quarters;
+    V3 position;
+    bool moved;
+};
+std::map<uint32_t, Track> g_tracks;
+std::vector<uint32_t> g_selection;
+V3 g_pivot;
+float g_halfHeight; // (the selection's bottom is this far below the pivot - quarter turns keep it)
+std::vector<uint8_t*> g_dirtyScenes;
+
+bool SameV3(V3 a, V3 b) { return a.x == b.x && a.y == b.y && a.z == b.z; }
+
+// The track of a sector (made when first touched); null when the sector can't be found or has no plain geometry.
+Track* TrackOf(uint32_t checksum)
+{
+    uint8_t* scene = nullptr;
+    uint8_t* sector = FindSector(checksum, &scene);
+    if (!sector)
+        return nullptr;
+    uint8_t* geom = GeomOf(sector);
+    if (!PlainGeom(geom))
+        return nullptr;
+    auto it = g_tracks.find(checksum);
+    if (it != g_tracks.end()) {
+        Track& track = it->second;
+        if (track.sector == sector && track.geom == geom && track.scene == scene && track.quarters == QuartersOf(sector) &&
+            SameV3(track.position, GeomPosition(geom)))
+            return &track;
+        g_tracks.erase(it); // (another level, or moved by something else: start again from where it is)
+    }
+    Track track = {};
+    track.scene = scene;
+    track.sector = sector;
+    track.geom = geom;
+    if (!GeomBox(geom, &track.min0, &track.max0))
+        return nullptr;
+    track.quarters0 = track.quarters = QuartersOf(sector);
+    track.position0 = track.position = GeomPosition(geom);
+    track.placement = {0, {0.0f, 0.0f, 0.0f}};
+    return &g_tracks.emplace(checksum, track).first->second;
+}
+
+// A sector's box now, without making a track for it.
+bool CurrentBox(uint32_t checksum, uint8_t* geom, OrientedBox* box)
+{
+    auto it = g_tracks.find(checksum);
+    if (it != g_tracks.end() && it->second.geom == geom) {
+        *box = PlacedBox(it->second.min0, it->second.max0, it->second.placement);
+        return true;
+    }
+    V3 min, max;
+    if (!GeomBox(geom, &min, &max))
+        return false;
+    *box = PlacedBox(min, max, {0, {0.0f, 0.0f, 0.0f}});
+    return true;
+}
+
+void MarkDirty(uint8_t* scene)
+{
+    if (std::find(g_dirtyScenes.begin(), g_dirtyScenes.end(), scene) == g_dirtyScenes.end())
+        g_dirtyScenes.push_back(scene);
+}
+
+// The engine brought to the track's placement: the turn (CSector::SetYRotation 0x0049E760, about the geometry's
+// world position as it is), then the position (the geometry's SetWorldPosition, vfunc +0x48 through 0x0048DEC0; the
+// collision's, vfunc +0x14 - handed its own origin (vfunc +0x1C) plus the change: it translates by the difference),
+// the sector flagged for the super sectors' update as CSector::SetWorldPosition (0x0049E6C0) does.
+void ApplyTrack(Track* track)
+{
+    int quarters;
+    V3 position;
+    EngineState(track->quarters0, track->position0, track->placement, &quarters, &position);
+    if (quarters != track->quarters) {
+        GameFunction<void(__thiscall*)(void*, int)>(0x0049E760)(track->sector, quarters);
+        track->quarters = quarters;
+    }
+    if (!SameV3(position, track->position)) {
+        Mth::Vector to = {position.x, position.y, position.z, 1.0f};
+        GameFunction<void(__thiscall*)(void*, const Mth::Vector*)>(0x0048DEC0)(track->geom, &to);
+        if (uint8_t* coll = CollOf(track->sector)) {
+            const Mth::Vector* origin = Method<const Mth::Vector*(__thiscall*)(void*)>(coll, 0x1C)(coll);
+            V3 change = position - track->position;
+            Mth::Vector moved = {origin->x + change.x, origin->y + change.y, origin->z + change.z, origin->w};
+            Method<void(__thiscall*)(void*, const Mth::Vector*)>(coll, 0x14)(coll, &moved);
+        }
+        track->position = position;
+    }
+    if (FlagsOf(track->sector) & 0x40)
+        FlagsOf(track->sector) |= 0x20;
+    track->moved = true;
+    MarkDirty(track->scene);
+}
+
+const char* NameOf(uint32_t checksum)
+{
+    if (const char* name = Script::KeptQbName(checksum))
+        return name;
+    return Script::FindChecksumName(checksum);
+}
+
+std::string Label(uint32_t checksum)
+{
+    char text[96];
+    const char* name = NameOf(checksum);
+    if (name)
+        std::snprintf(text, sizeof(text), "%s", name);
+    else
+        std::snprintf(text, sizeof(text), "%08X", checksum);
+    return text;
+}
+
+// A node's TrickObject Cluster= (0: none), by its name (0x0045C1B0) - kept, as looked up (the level doesn't change
+// while the editor is on; Reset forgets them).
+std::unordered_map<uint32_t, uint32_t> g_clusters;
+uint32_t ClusterOf(uint32_t checksum)
+{
+    auto it = g_clusters.find(checksum);
+    if (it != g_clusters.end())
+        return it->second;
+    auto* node = GameFunction<Script::CStruct*(__cdecl*)(uint32_t, int)>(0x0045C1B0)(checksum, 0);
+    uint32_t cluster = 0;
+    if (node)
+        node->GetChecksum(kCluster, &cluster, 0);
+    g_clusters.emplace(checksum, cluster);
+    return cluster;
+}
+
+// --- grind rails ---
+//
+// The level's rails: the rail manager of Mdl::Skate (0x007CE478, +0x24) - filled from the node array's RailNodes and
+// ClimbingNodes by 0x0057E960 (from CFunc_ParseNodeArray 0x005A34E0): +0x40 its nodes, +0x48 their count, +0x50 set
+// when its rails ride an object (positions in the object's space, 0x0057CB60 - never the level's).
+// A node (0x54 bytes, 0x0057D090): +0x00 / +0x10 the box of its segment (to the next node; its own point when it has
+// none - 0x0057C260), +0x20 its position, +0x30 (climbing nodes), +0x40 the next node, +0x44 the previous, +0x48 flags
+// (4 active, 0x10 a climbing node), +0x4C its node's name, +0x50 its terrain. Skaters find rails by testing every
+// node's box (0x0057E2D0): moving one is its position and the boxes of its segment and the one before.
+struct RailNode {
+    float min[4], max[4], pos[4], climb[4];
+    RailNode* next;
+    RailNode* prev;
+    uint32_t flags;
+    uint32_t name;
+    uint8_t terrain[4];
+};
+static_assert(sizeof(RailNode) == 0x54, "a rail node is 0x54 bytes");
+
+bool RailNodes(RailNode** nodes, int* count)
+{
+    uint8_t* skate = GameVariable<uint8_t*>(0x007CE478);
+    uint8_t* manager = skate ? *reinterpret_cast<uint8_t**>(skate + 0x24) : nullptr;
+    if (!manager || manager[0x50])
+        return false;
+    *nodes = *reinterpret_cast<RailNode**>(manager + 0x40);
+    *count = *reinterpret_cast<int*>(manager + 0x48);
+    return *nodes && *count > 0 && *count < 100000;
+}
+
+V3 RailPos(const RailNode* node) { return {node->pos[0], node->pos[1], node->pos[2]}; }
+
+// What we've done to a rail node: where it was when first touched, the placement since, where we put it.
+struct RailTrack {
+    RailNode* node;
+    bool active0; // (flag 4 when first touched: some rails start off)
+    V3 pos0;
+    Placement placement;
+    V3 pos;
+};
+std::map<uint32_t, RailTrack> g_railTracks;
+std::vector<uint32_t> g_rails; // (the selection's rail nodes, by name)
+
+RailNode* FindRail(uint32_t name)
+{
+    RailNode* nodes;
+    int count;
+    if (!RailNodes(&nodes, &count))
+        return nullptr;
+    for (int i = 0; i < count; ++i) {
+        if (nodes[i].name == name && !(nodes[i].flags & 0x10))
+            return &nodes[i];
+    }
+    return nullptr;
+}
+
+RailTrack* RailTrackOf(uint32_t name)
+{
+    RailNode* node = FindRail(name);
+    if (!node)
+        return nullptr;
+    auto it = g_railTracks.find(name);
+    if (it != g_railTracks.end()) {
+        if (it->second.node == node && SameV3(it->second.pos, RailPos(node)))
+            return &it->second;
+        g_railTracks.erase(it);
+    }
+    RailTrack track = {node, (node->flags & 4) != 0, RailPos(node), {0, {0.0f, 0.0f, 0.0f}}, RailPos(node)};
+    return &g_railTracks.emplace(name, track).first->second;
+}
+
+// The rail nodes `names` placed where their tracks say, then the boxes of their segments and of those ending at
+// them.
+void ApplyRails(const std::vector<uint32_t>& names)
+{
+    RailNode* nodes;
+    int count;
+    if (!RailNodes(&nodes, &count))
+        return;
+    std::vector<RailNode*> moved;
+    for (uint32_t name : names) {
+        auto it = g_railTracks.find(name);
+        if (it == g_railTracks.end())
+            continue;
+        RailTrack& track = it->second;
+        V3 pos = Apply(track.placement, track.pos0);
+        track.node->pos[0] = pos.x;
+        track.node->pos[1] = pos.y;
+        track.node->pos[2] = pos.z;
+        track.pos = pos;
+        moved.push_back(track.node);
+    }
+    auto isMoved = [&](const RailNode* node) {
+        return node && std::find(moved.begin(), moved.end(), node) != moved.end();
+    };
+    for (int i = 0; i < count; ++i) {
+        RailNode* node = &nodes[i];
+        if (!isMoved(node) && !isMoved(node->next))
+            continue;
+        V3 min, max;
+        SegmentBox(RailPos(node), node->next ? RailPos(node->next) : RailPos(node), &min, &max);
+        node->min[0] = min.x, node->min[1] = min.y, node->min[2] = min.z, node->min[3] = 1.0f;
+        node->max[0] = max.x, node->max[1] = max.y, node->max[2] = max.z, node->max[3] = 1.0f;
+    }
+}
+
+void ComputePivot()
+{
+    V3 min = {}, max = {};
+    bool have = false;
+    for (uint32_t checksum : g_selection) {
+        OrientedBox box;
+        if (!Box(checksum, &box))
+            continue;
+        V3 a, b;
+        BoundsOf(box, &a, &b);
+        GrowBox(&min, &max, have, a, b);
+        have = true;
+    }
+    g_pivot = have ? (min + max) * 0.5f : V3{0.0f, 0.0f, 0.0f};
+    g_halfHeight = have ? (max.y - min.y) * 0.5f : 0.0f;
+}
+
+// The selection's rails: rail nodes of the selected sectors' clusters (the fire truck's TRG_FireTruck01..25 are in
+// Fire_Tender), and ones lying within a selected sector's box (both ends, within 10 units).
+void SelectRails()
+{
+    g_rails.clear();
+    RailNode* nodes;
+    int count;
+    if (g_selection.empty() || !RailNodes(&nodes, &count))
+        return;
+    std::vector<uint32_t> clusters;
+    std::vector<std::pair<V3, V3>> boxes;
+    for (uint32_t checksum : g_selection) {
+        if (IsClone(checksum))
+            continue; // (a copy has no rails of its own: the source's stay with the source)
+        clusters.push_back(checksum);
+        if (uint32_t cluster = ClusterOf(checksum))
+            clusters.push_back(cluster);
+        OrientedBox box;
+        V3 min, max;
+        if (Box(checksum, &box)) {
+            BoundsOf(box, &min, &max);
+            boxes.push_back({min - V3{10.0f, 10.0f, 10.0f}, max + V3{10.0f, 10.0f, 10.0f}});
+        }
+    }
+    auto within = [&](V3 p) {
+        for (const auto& box : boxes) {
+            if (p.x >= box.first.x && p.x <= box.second.x && p.y >= box.first.y && p.y <= box.second.y &&
+                p.z >= box.first.z && p.z <= box.second.z)
+                return true;
+        }
+        return false;
+    };
+    auto listed = [&](uint32_t c) { return c && std::find(clusters.begin(), clusters.end(), c) != clusters.end(); };
+    for (int i = 0; i < count; ++i) {
+        const RailNode& node = nodes[i];
+        if (node.flags & 0x10)
+            continue;
+        bool in = listed(node.name) || listed(ClusterOf(node.name)) ||
+                  (within(RailPos(&node)) && (!node.next || within(RailPos(node.next))));
+        if (in && std::find(g_rails.begin(), g_rails.end(), node.name) == g_rails.end())
+            g_rails.push_back(node.name);
+    }
+}
+
+// Where the editor has put a sector (none yet: where the level has it).
+Placement PlacementOf(uint32_t checksum, uint8_t* geom)
+{
+    auto it = g_tracks.find(checksum);
+    if (it != g_tracks.end() && it->second.geom == geom)
+        return it->second.placement;
+    return {0, {0.0f, 0.0f, 0.0f}};
+}
+
+bool SamePlacement(const Placement& a, const Placement& b)
+{
+    return a.quarters == b.quarters && std::fabs(a.offset.x - b.offset.x) < 0.5f &&
+           std::fabs(a.offset.y - b.offset.y) < 0.5f && std::fabs(a.offset.z - b.offset.z) < 0.5f;
+}
+
+// The group a click on a sector selects: the sector, the rest of its cluster, and the movable pieces built onto them
+// (PieceFits / PieceTouches, three rounds - each with its cluster). Decided on the level's own layout (the boxes as
+// loaded) and only among pieces the editor has moved together (the same placement): a group moved into something
+// doesn't take it in, and a piece moved away from its group no longer brings the group along. Hidden pieces aren't
+// taken.
+std::vector<uint32_t> GroupOf(uint32_t checksum)
+{
+    std::vector<uint32_t> group;
+    uint8_t* scene = nullptr;
+    uint8_t* clicked = FindSector(checksum, &scene);
+    if (WhyNotMovable(checksum) || !clicked)
+        return group;
+    Placement placement = PlacementOf(checksum, GeomOf(clicked));
+    struct Piece {
+        uint32_t checksum;
+        V3 min, max;
+        bool in;
+    };
+    std::vector<Piece> pieces; // (the scene's shown sectors small enough to move, moved as the clicked one)
+    ForEachSector(scene, [&](uint32_t other, uint8_t* sector) {
+        uint8_t* geom = GeomOf(sector);
+        V3 min, max;
+        if (!PlainGeom(geom) || !geom[0x48] || !GeomBox(geom, &min, &max) ||
+            !SectorSizeMovable(min, max, kMaxSectorExtent) || !SamePlacement(PlacementOf(other, geom), placement))
+            return;
+        pieces.push_back({other, min, max, false});
+    });
+    auto take = [&](Piece& piece) {
+        if (piece.in || WhyNotMovable(piece.checksum))
+            return false;
+        piece.in = true;
+        group.push_back(piece.checksum);
+        return true;
+    };
+    uint32_t cluster = ClusterOf(checksum);
+    for (Piece& piece : pieces) {
+        if (piece.checksum == checksum || (cluster && ClusterOf(piece.checksum) == cluster))
+            take(piece);
+    }
+    if (group.empty())
+        return group;
+    V3 groupMin = {}, groupMax = {};
+    bool have = false;
+    for (const Piece& piece : pieces) {
+        if (piece.in) {
+            GrowBox(&groupMin, &groupMax, have, piece.min, piece.max);
+            have = true;
+        }
+    }
+    // (only a free-standing thing grows: not a floor, a wall or a whole building - what stands on or against those isn't
+    // part of them)
+    V3 groupSize = groupMax - groupMin;
+    bool grows = std::min({groupSize.x, groupSize.y, groupSize.z}) >= 20.0f &&
+                 std::max({groupSize.x, groupSize.y, groupSize.z}) <= 1500.0f;
+    for (int round = 0; grows && round < 3; ++round) {
+        std::vector<uint32_t> joined;
+        for (Piece& piece : pieces) {
+            if (piece.in || !PieceFits(piece.min, piece.max, groupMin, groupMax))
+                continue;
+            for (const Piece& member : pieces) {
+                if (member.in && PieceTouches(piece.min, piece.max, member.min, member.max, 2.0f)) {
+                    joined.push_back(piece.checksum);
+                    break;
+                }
+            }
+        }
+        if (joined.empty())
+            break;
+        for (uint32_t joining : joined) {
+            uint32_t joiningCluster = ClusterOf(joining);
+            for (Piece& piece : pieces) {
+                if (piece.checksum == joining ||
+                    (joiningCluster && ClusterOf(piece.checksum) == joiningCluster &&
+                     PieceFits(piece.min, piece.max, groupMin, groupMax))) {
+                    if (take(piece) && DebugEnabled())
+                        Log("level editor:   joins: %s (%.0f x %.0f x %.0f)", Label(piece.checksum).c_str(),
+                            piece.max.x - piece.min.x, piece.max.y - piece.min.y, piece.max.z - piece.min.z);
+                }
+            }
+        }
+    }
+    return group;
+}
+
+// The hovered sector's group (what a click would select), kept while the same sector is hovered.
+uint32_t g_hoverGroupOf;
+std::vector<uint32_t> g_hoverGroup;
+
+// The feeler (as GroundBelow in level_editor.cpp): constructor 0x00417760, cast 0x00417710 (start, end, movables).
+// Its collision data from +0x24: the normal, the point (+0x34), the collision object hit (+0x54) and its checksum
+// (+0x58: the object's +4, written by 0x004131F0).
+bool CastStatic(V3 from, V3 to, V3* point, uint32_t* checksum)
+{
+    alignas(16) uint8_t feeler[0x100] = {};
+    GameFunction<void*(__thiscall*)(void*)>(0x00417760)(feeler);
+    Mth::Vector start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
+    if (!GameFunction<bool(__thiscall*)(void*, const Mth::Vector*, const Mth::Vector*, int)>(0x00417710)(
+            feeler, &start, &end, 0))
+        return false;
+    const float* hit = reinterpret_cast<const float*>(feeler + 0x34);
+    *point = {hit[0], hit[1], hit[2]};
+    *checksum = *reinterpret_cast<const uint32_t*>(feeler + 0x58);
+    return *reinterpret_cast<void* const*>(feeler + 0x54) != nullptr;
+}
+
+} // namespace
+
+bool Pick(V3 origin, V3 unitDir, float maxT, Hit* hit)
+{
+    float best = maxT;
+    bool found = false;
+    // The collision ray, past collision that has no geometry to show (invisible walls), at most a few times.
+    V3 from = origin;
+    for (int i = 0; i < 4; ++i) {
+        V3 point;
+        uint32_t checksum;
+        if (!CastStatic(from, origin + unitDir * maxT, &point, &checksum))
+            break;
+        float t = Dot(point - origin, unitDir);
+        if (t >= best)
+            break;
+        uint8_t* sector = FindSector(checksum, nullptr);
+        if (sector && GeomOf(sector)) {
+            best = t;
+            hit->checksum = checksum;
+            hit->t = t;
+            found = true;
+            break;
+        }
+        from = point + unitDir * 1.0f;
+    }
+    // Sectors without collision: by their boxes (not huge ones - a box around the camera would always win).
+    ForEachScene([&](uint8_t* scene) {
+        ForEachSector(scene, [&](uint32_t checksum, uint8_t* sector) {
+            uint8_t* geom = GeomOf(sector);
+            if (CollOf(sector) || !PlainGeom(geom) || !geom[0x48])
+                return;
+            OrientedBox box;
+            if (!CurrentBox(checksum, geom, &box) || !SectorSizeMovable(box.min, box.max, kMaxSectorExtent))
+                return;
+            float t;
+            if (RayBox(origin, unitDir, box.origin, box.axes, box.min, box.max, &t) && t < best) {
+                best = t;
+                hit->checksum = checksum;
+                hit->t = t;
+                found = true;
+            }
+        });
+    });
+    return found;
+}
+
+bool Box(uint32_t checksum, OrientedBox* box)
+{
+    uint8_t* sector = FindSector(checksum, nullptr);
+    if (!sector || !PlainGeom(GeomOf(sector)))
+        return false;
+    return CurrentBox(checksum, GeomOf(sector), box);
+}
+
+const char* WhyNotMovable(uint32_t checksum)
+{
+    uint8_t* sector = FindSector(checksum, nullptr);
+    if (!sector)
+        return "not found";
+    uint8_t* geom = GeomOf(sector);
+    if (!geom)
+        return "collision only";
+    if (*reinterpret_cast<uint32_t*>(geom) != kPcGeomVtable)
+        return "odd geometry";
+    if (*reinterpret_cast<void**>(geom + 0x4C))
+        return "an instance";
+    OrientedBox box;
+    if (!CurrentBox(checksum, geom, &box))
+        return "no box";
+    if (!SectorSizeMovable(box.min, box.max, kMaxSectorExtent))
+        return "too big";
+    return MeshesMovable(geom);
+}
+
+std::string DescribeHover(uint32_t checksum)
+{
+    std::string text = "scenery " + Label(checksum);
+    OrientedBox box;
+    if (Box(checksum, &box)) {
+        char size[64];
+        std::snprintf(size, sizeof(size), "  %.0f x %.0f x %.0f", box.max.x - box.min.x, box.max.y - box.min.y,
+                      box.max.z - box.min.z);
+        text += size;
+    }
+    if (uint32_t cluster = ClusterOf(checksum)) {
+        const char* name = NameOf(cluster);
+        char line[64];
+        std::snprintf(line, sizeof(line), "  cluster %s", name ? name : "");
+        text += name ? line : "  (in a cluster)";
+    }
+    if (const char* why = WhyNotMovable(checksum))
+        text += std::string("  (can't move: ") + why + ")";
+    return text;
+}
+
+std::string DescribeSelection()
+{
+    if (g_selection.empty())
+        return "-";
+    std::string text = "scenery " + Label(g_selection[0]);
+    char more[160];
+    int quarters = 0;
+    auto it = g_tracks.find(g_selection[0]);
+    if (it != g_tracks.end())
+        quarters = it->second.placement.quarters;
+    std::snprintf(more, sizeof(more), "  at (%.0f, %.0f, %.0f)  turned %d", g_pivot.x, g_pivot.y, g_pivot.z,
+                  quarters * 90);
+    if (g_selection.size() > 1)
+        text += " + " + std::to_string(g_selection.size() - 1) + " more";
+    if (!g_rails.empty())
+        text += ", " + std::to_string(g_rails.size()) + " rail points";
+    return text + more;
+}
+
+bool HasSelection() { return !g_selection.empty(); }
+const std::vector<uint32_t>& Selection() { return g_selection; }
+
+bool Selected(uint32_t checksum)
+{
+    return std::find(g_selection.begin(), g_selection.end(), checksum) != g_selection.end();
+}
+
+void ClearSelection()
+{
+    g_selection.clear();
+    g_rails.clear();
+}
+
+const std::vector<uint32_t>& HoverGroup(uint32_t checksum)
+{
+    if (checksum != g_hoverGroupOf) {
+        g_hoverGroupOf = checksum;
+        g_hoverGroup = checksum ? GroupOf(checksum) : std::vector<uint32_t>{};
+    }
+    return g_hoverGroup;
+}
+
+// [features] debug_editor: how the first selected sector's meshes are drawn (whether the material lets a colour
+// through).
+void LogMeshes()
+{
+    if (!DebugEnabled() || g_selection.empty())
+        return;
+    uint8_t* geom = SectorGeometry(g_selection[0]);
+    auto** meshes = geom ? *reinterpret_cast<uint8_t***>(geom + 0x3C) : nullptr;
+    uint32_t count = geom ? *reinterpret_cast<uint32_t*>(geom + 0x40) : 0;
+    for (uint32_t i = 0; meshes && i < count && i < 4; ++i) {
+        uint8_t* mesh = meshes[i];
+        uint8_t* material = *reinterpret_cast<uint8_t**>(mesh + 0x14);
+        const uint32_t* m = reinterpret_cast<const uint32_t*>(material);
+        const float* colour = reinterpret_cast<const float*>(mesh + 0x80);
+        Log("level editor:   mesh %u: flags %08X, colour (%.2f, %.2f, %.2f), fvf %08X, material %p: passes %u, "
+            "pass flags %08X %08X, colour 0 %08X %08X %08X; renderer 786AB8 %d",
+            i, *reinterpret_cast<uint32_t*>(mesh), colour[0], colour[1], colour[2],
+            *reinterpret_cast<uint32_t*>(mesh + 0x38), static_cast<void*>(material), material ? m[2] & 0xFFFFFFF : 0,
+            material ? m[8] : 0, material ? m[9] : 0, material ? m[0x10] : 0, material ? m[0x11] : 0,
+            material ? m[0x12] : 0, GameVariable<uint8_t>(0x00786AB8));
+    }
+}
+
+void SelectGroup(uint32_t checksum)
+{
+    g_selection = GroupOf(checksum);
+    ComputePivot();
+    SelectRails();
+    LogMeshes();
+    if (DebugEnabled()) {
+        Log("level editor: selected scenery %s, %u sector%s (cluster %08X), %u rail node%s, pivot (%.1f, %.1f, %.1f)",
+            Label(checksum).c_str(), static_cast<unsigned>(g_selection.size()), g_selection.size() == 1 ? "" : "s",
+            ClusterOf(checksum), static_cast<unsigned>(g_rails.size()), g_rails.size() == 1 ? "" : "s", g_pivot.x,
+            g_pivot.y, g_pivot.z);
+        for (uint32_t member : g_selection)
+            Log("level editor:   %s", Label(member).c_str());
+    }
+}
+
+void Toggle(uint32_t checksum)
+{
+    auto it = std::find(g_selection.begin(), g_selection.end(), checksum);
+    if (it != g_selection.end())
+        g_selection.erase(it);
+    else if (!WhyNotMovable(checksum))
+        g_selection.push_back(checksum);
+    ComputePivot();
+    SelectRails();
+}
+
+V3 Pivot() { return g_pivot; }
+
+float Bottom() { return g_pivot.y - g_halfHeight; }
+
+void SetSelection(const std::vector<uint32_t>& sectors)
+{
+    g_selection.clear();
+    for (uint32_t checksum : sectors) {
+        if (!WhyNotMovable(checksum))
+            g_selection.push_back(checksum);
+    }
+    ComputePivot();
+    SelectRails();
+}
+
+void MoveTo(V3 pivot)
+{
+    V3 delta = pivot - g_pivot;
+    if (delta.x == 0.0f && delta.y == 0.0f && delta.z == 0.0f)
+        return;
+    for (uint32_t checksum : g_selection) {
+        if (Track* track = TrackOf(checksum)) {
+            MoveBy(&track->placement, delta);
+            ApplyTrack(track);
+        }
+    }
+    for (uint32_t name : g_rails) {
+        if (RailTrack* track = RailTrackOf(name))
+            MoveBy(&track->placement, delta);
+    }
+    ApplyRails(g_rails);
+    g_pivot = pivot;
+    g_hoverGroupOf = 0;
+}
+
+void Turn(int quarters)
+{
+    if (!(quarters & 3))
+        return;
+    for (uint32_t checksum : g_selection) {
+        if (Track* track = TrackOf(checksum)) {
+            TurnAbout(&track->placement, g_pivot, quarters);
+            ApplyTrack(track);
+        }
+    }
+    LogMeshes();
+    for (uint32_t name : g_rails) {
+        if (RailTrack* track = RailTrackOf(name))
+            TurnAbout(&track->placement, g_pivot, quarters);
+    }
+    ApplyRails(g_rails);
+    g_hoverGroupOf = 0;
+}
+
+std::vector<std::pair<V3, V3>> SelectedRails()
+{
+    std::vector<std::pair<V3, V3>> segments;
+    for (uint32_t name : g_rails) {
+        const RailNode* node = FindRail(name);
+        if (node && node->next)
+            segments.push_back({RailPos(node), RailPos(node->next)});
+    }
+    return segments;
+}
+
+int SelectedRailCount() { return static_cast<int>(g_rails.size()); }
+
+// --- the selection's state (undo / redo, reset, hiding) ---
+
+namespace {
+
+// CSector::SetActive (0x0049E9B0, thiscall, RET 4: the geometry's active flag - vfunc +0x34 - and the collision's
+// "off" flag 4) / IsActive (0x0049E9E0).
+void SetActive(uint8_t* sector, bool active) { GameFunction<void(__thiscall*)(void*, bool)>(0x0049E9B0)(sector, active); }
+bool IsActive(uint8_t* sector) { return GameFunction<bool(__thiscall*)(void*)>(0x0049E9E0)(sector); }
+
+} // namespace
+
+State SaveState()
+{
+    State state;
+    state.selection = g_selection;
+    for (uint32_t checksum : g_selection) {
+        uint8_t* sector = FindSector(checksum, nullptr);
+        if (!sector)
+            continue;
+        state.sectors.push_back({checksum, PlacementOf(checksum, GeomOf(sector)), !IsActive(sector)});
+    }
+    for (uint32_t name : g_rails) {
+        if (RailTrack* track = RailTrackOf(name))
+            state.rails.push_back({name, track->placement, track->active0 && !(track->node->flags & 4)});
+    }
+    return state;
+}
+
+void ApplyStates(const std::vector<SectorState>& sectors, const std::vector<RailState>& rails)
+{
+    for (const SectorState& saved : sectors) {
+        Track* track = TrackOf(saved.checksum);
+        if (!track)
+            continue;
+        if (track->placement.quarters != saved.placement.quarters || !SameV3(track->placement.offset, saved.placement.offset)) {
+            track->placement = saved.placement;
+            ApplyTrack(track);
+        }
+        if (IsActive(track->sector) == saved.hidden) {
+            SetActive(track->sector, !saved.hidden);
+            MarkDirty(track->scene);
+        }
+    }
+    std::vector<uint32_t> names;
+    for (const RailState& saved : rails) {
+        if (RailTrack* track = RailTrackOf(saved.name)) {
+            track->placement = saved.placement;
+            bool active = track->active0 && !saved.hidden;
+            track->node->flags = active ? track->node->flags | 4u : track->node->flags & ~4u;
+            names.push_back(saved.name);
+        }
+    }
+    ApplyRails(names);
+    ComputePivot();
+    g_hoverGroupOf = 0;
+    Commit();
+}
+
+void RestoreState(const State& state)
+{
+    ApplyStates(state.sectors, state.rails);
+    g_rails.clear();
+    for (const RailState& saved : state.rails)
+        g_rails.push_back(saved.name);
+    g_selection = state.selection;
+    ComputePivot();
+}
+
+std::vector<SectorState> ChangedSectors()
+{
+    std::vector<SectorState> changed;
+    for (const auto& entry : g_tracks) {
+        const Track& track = entry.second;
+        if (IsClone(entry.first) || FindSector(entry.first, nullptr) != track.sector)
+            continue;
+        bool hidden = !IsActive(track.sector);
+        const Placement& p = track.placement;
+        if (hidden || p.quarters || p.offset.x != 0.0f || p.offset.y != 0.0f || p.offset.z != 0.0f)
+            changed.push_back({entry.first, p, hidden});
+    }
+    return changed;
+}
+
+std::vector<RailState> ChangedRails()
+{
+    std::vector<RailState> changed;
+    for (const auto& entry : g_railTracks) {
+        const RailTrack& track = entry.second;
+        if (FindRail(entry.first) != track.node)
+            continue;
+        bool hidden = track.active0 && !(track.node->flags & 4);
+        const Placement& p = track.placement;
+        if (hidden || p.quarters || p.offset.x != 0.0f || p.offset.y != 0.0f || p.offset.z != 0.0f)
+            changed.push_back({entry.first, p, hidden});
+    }
+    return changed;
+}
+
+uint8_t* MainScene()
+{
+    uint8_t* found = nullptr;
+    ForEachScene([&](uint8_t* scene) {
+        if (!found)
+            found = scene;
+    });
+    return found;
+}
+
+uint32_t SceneName(uint8_t* scene) { return scene ? *reinterpret_cast<uint32_t*>(scene + 0x84) : 0; }
+
+// --- copies of sectors ---
+//
+// CScene::CloneSector (0x0049DF30, thiscall, RET 0x14: the source's checksum, the scene to put it in, instance,
+// add-to-collision, the new checksum - 0: a new one; returns the new checksum) as the park editor makes its pieces
+// (0x00594730): not an instance (its own meshes and vertex buffers, added to the scene's render lists - so it moves
+// as any level sector), flagged 4 to be added to the super sectors (Commit). The copy is made of the source as it is
+// now (moved or not); its box (+0x14 / +0x24, not copied for a full clone) is set to the source's box where it is.
+
+std::vector<Clone>& Clones()
+{
+    static std::vector<Clone> clones;
+    return clones;
+}
+
+bool IsClone(uint32_t checksum)
+{
+    const auto& clones = Clones();
+    return std::any_of(clones.begin(), clones.end(), [&](const Clone& c) { return c.checksum == checksum; });
+}
+
+uint32_t Duplicate(uint32_t source)
+{
+    uint8_t* scene = nullptr;
+    uint8_t* sector = FindSector(source, &scene);
+    if (!sector || WhyNotMovable(source))
+        return 0;
+    OrientedBox box;
+    V3 min, max;
+    if (!Box(source, &box))
+        return 0;
+    BoundsOf(box, &min, &max);
+    Placement sourcePlacement = PlacementOf(source, GeomOf(sector));
+    uint32_t made = GameFunction<uint32_t(__thiscall*)(void*, uint32_t, void*, int, int, uint32_t)>(0x0049DF30)(
+        scene, source, scene, 0, 1, 0);
+    uint8_t* copy = made ? LookupSector(scene, made) : nullptr;
+    uint8_t* geom = copy ? GeomOf(copy) : nullptr;
+    if (!geom || *reinterpret_cast<uint32_t*>(geom) != kPcGeomVtable || *reinterpret_cast<void**>(geom + 0x4C)) {
+        Log("level editor: copy of %s: %s", Label(source).c_str(), made ? "not a plain sector" : "not made");
+        return 0;
+    }
+    float* boxes = reinterpret_cast<float*>(geom + 0x14);
+    boxes[0] = min.x, boxes[1] = min.y, boxes[2] = min.z;
+    boxes[4] = max.x, boxes[5] = max.y, boxes[6] = max.z;
+    MarkDirty(scene);
+    Clones().push_back({made, source, sourcePlacement});
+    char name[96];
+    std::snprintf(name, sizeof(name), "%s copy", Label(source).c_str());
+    Script::NoteQbName(made, name);
+    if (DebugEnabled())
+        Log("level editor: copy %08X of %s, box (%.0f, %.0f, %.0f)-(%.0f, %.0f, %.0f), meshes %s", made,
+            Label(source).c_str(), min.x, min.y, min.z, max.x, max.y, max.z,
+            MeshesMovable(geom) ? MeshesMovable(geom) : "movable");
+    return made;
+}
+
+bool PlacementNow(uint32_t checksum, Placement* placement)
+{
+    uint8_t* sector = FindSector(checksum, nullptr);
+    if (!sector)
+        return false;
+    *placement = PlacementOf(checksum, GeomOf(sector));
+    return true;
+}
+
+bool Hidden(uint32_t checksum)
+{
+    uint8_t* sector = FindSector(checksum, nullptr);
+    return sector && !IsActive(sector);
+}
+
+void AddGroup(uint32_t checksum)
+{
+    for (uint32_t member : GroupOf(checksum)) {
+        if (!Selected(member))
+            g_selection.push_back(member);
+    }
+    ComputePivot();
+    SelectRails();
+}
+
+std::vector<uint32_t> MovablePieces()
+{
+    std::vector<uint32_t> pieces;
+    uint8_t* scene = MainScene();
+    if (!scene)
+        return pieces;
+    ForEachSector(scene, [&](uint32_t checksum, uint8_t* sector) {
+        uint8_t* geom = GeomOf(sector);
+        if (PlainGeom(geom) && geom[0x48] && !IsClone(checksum) && !WhyNotMovable(checksum))
+            pieces.push_back(checksum);
+    });
+    return pieces;
+}
+
+void ResetSelection()
+{
+    State state = SaveState();
+    for (SectorState& saved : state.sectors) {
+        saved.placement = {0, {0.0f, 0.0f, 0.0f}};
+        saved.hidden = false;
+    }
+    for (RailState& saved : state.rails) {
+        saved.placement = {0, {0.0f, 0.0f, 0.0f}};
+        saved.hidden = false;
+    }
+    RestoreState(state);
+}
+
+void HideSelection()
+{
+    State state = SaveState();
+    for (SectorState& saved : state.sectors)
+        saved.hidden = true;
+    for (RailState& saved : state.rails)
+        saved.hidden = true;
+    RestoreState(state);
+    ClearSelection();
+}
+
+bool SelectionMoved(Placement* placement)
+{
+    if (g_selection.empty())
+        return false;
+    uint8_t* sector = FindSector(g_selection[0], nullptr);
+    if (!sector)
+        return false;
+    *placement = PlacementOf(g_selection[0], GeomOf(sector));
+    return placement->quarters != 0 || placement->offset.x != 0.0f || placement->offset.y != 0.0f ||
+           placement->offset.z != 0.0f;
+}
+
+void Reset()
+{
+    ClearSelection();
+    g_clusters.clear();
+    g_hoverGroupOf = 0;
+    g_hoverGroup.clear();
+}
+
+uint8_t* SectorGeometry(uint32_t checksum)
+{
+    uint8_t* sector = FindSector(checksum, nullptr);
+    return sector ? GeomOf(sector) : nullptr;
+}
+
+// --- highlighting ---
+
+bool Tintable(void* geom) { return geom && *static_cast<uint32_t*>(geom) == kPcGeomVtable; }
+
+namespace {
+
+// How a geometry's colour was before we tinted it: an instance's (+0x4C: its flags' bit 4, the colour at +0x4D), or
+// each mesh's (+0x3C / +0x40: the mesh's flags' bit 4, its colour +0x80..+0x88) - what CGeom::SetColor (vfunc
+// +0x18, 0x004B48B0) writes.
+struct Saved {
+    TintOwner owner;
+    uint8_t* geom;
+    uint8_t* instance;
+    uint32_t instanceFlag;
+    uint8_t instanceColour[4];
+    std::vector<std::array<uint32_t, 4>> meshes; // {flag bit 4, r, g, b (float bits)}
+    bool used;
+};
+std::vector<Saved> g_tinted;
+
+Saved SaveColour(TintOwner owner, uint8_t* geom)
+{
+    Saved saved = {owner, geom, *reinterpret_cast<uint8_t**>(geom + 0x4C), 0, {}, {}, true};
+    if (saved.instance) {
+        saved.instanceFlag = *reinterpret_cast<uint32_t*>(saved.instance) & 4;
+        std::memcpy(saved.instanceColour, saved.instance + 0x4D, 4);
+        return saved;
+    }
+    auto** meshes = *reinterpret_cast<uint32_t***>(geom + 0x3C);
+    uint32_t count = *reinterpret_cast<uint32_t*>(geom + 0x40);
+    for (uint32_t i = 0; meshes && i < count && i < 4096; ++i) {
+        uint32_t* mesh = meshes[i];
+        saved.meshes.push_back({mesh[0] & 4, mesh[0x20], mesh[0x21], mesh[0x22]});
+    }
+    return saved;
+}
+
+void RestoreColour(const Saved& saved)
+{
+    if (saved.instance) {
+        if (*reinterpret_cast<uint8_t**>(saved.geom + 0x4C) != saved.instance)
+            return;
+        auto& flags = *reinterpret_cast<uint32_t*>(saved.instance);
+        flags = (flags & ~4u) | saved.instanceFlag;
+        std::memcpy(saved.instance + 0x4D, saved.instanceColour, 4);
+        return;
+    }
+    auto** meshes = *reinterpret_cast<uint32_t***>(saved.geom + 0x3C);
+    uint32_t count = *reinterpret_cast<uint32_t*>(saved.geom + 0x40);
+    if (!meshes || count != saved.meshes.size())
+        return;
+    for (uint32_t i = 0; i < count; ++i) {
+        uint32_t* mesh = meshes[i];
+        mesh[0] = (mesh[0] & ~4u) | saved.meshes[i][0];
+        mesh[0x20] = saved.meshes[i][1];
+        mesh[0x21] = saved.meshes[i][2];
+        mesh[0x22] = saved.meshes[i][3];
+    }
+}
+
+} // namespace
+
+void Tint(TintOwner owner, void* geom, uint32_t rgba)
+{
+    if (!Tintable(geom))
+        return;
+    auto* g = static_cast<uint8_t*>(geom);
+    auto it = std::find_if(g_tinted.begin(), g_tinted.end(), [&](const Saved& s) { return s.geom == g; });
+    if (it == g_tinted.end())
+        g_tinted.push_back(SaveColour(owner, g));
+    else
+        it->used = true;
+    Method<void(__thiscall*)(void*, uint32_t)>(geom, 0x18)(geom, rgba);
+}
+
+void EndTints(void* (*resolve)(TintOwner), bool all)
+{
+    for (auto it = g_tinted.begin(); it != g_tinted.end();) {
+        if (all || !it->used) {
+            if (resolve(it->owner) == it->geom) // (still there: not a dead object's)
+                RestoreColour(*it);
+            it = g_tinted.erase(it);
+        } else {
+            it->used = false;
+            ++it;
+        }
+    }
+}
+
+void Commit()
+{
+    if (g_dirtyScenes.empty())
+        return;
+    // As the park editor does (0x00592090): the scene's UpdateSuperSectors (thiscall, a list of sectors to add - none)
+    // with the bottom-up heap current.
+    Mem::Manager* manager = Mem::Manager::Get();
+    for (uint8_t* scene : g_dirtyScenes) {
+        bool live = false;
+        ForEachScene([&](uint8_t* s) { live |= s == scene; });
+        if (!live || !*reinterpret_cast<void**>(scene + 0xD4))
+            continue;
+        if (manager)
+            manager->PushContext(manager->m_bottomUpHeap);
+        GameFunction<void(__thiscall*)(void*, void*)>(0x0049D780)(scene, nullptr);
+        if (manager)
+            manager->PopContext();
+    }
+    if (DebugEnabled())
+        Log("level editor: super sectors updated in %u scene%s", static_cast<unsigned>(g_dirtyScenes.size()),
+            g_dirtyScenes.size() == 1 ? "" : "s");
+    g_dirtyScenes.clear();
+}
+
+int MovedCount()
+{
+    int count = 0;
+    for (const auto& entry : g_tracks)
+        count += entry.second.moved ? 1 : 0;
+    return count;
+}
+
+void LogCensus()
+{
+    // (every node of the scene list, skies too: what the walk sees)
+    SceneNode* node = GameVariable<SceneNode*>(0x006FA7EC);
+    for (int i = 0; node && i < 16; ++i, node = node->next) {
+        bool end = IsEnd(node);
+        uint8_t* scene = end ? nullptr : node->scene;
+        auto* table = scene ? *reinterpret_cast<uint32_t**>(scene + 0xD0) : nullptr;
+        Log("level editor: scene list node %d %p: scene %p%s, sky byte %d, name %08X, sector table %p (bits %u)", i,
+            static_cast<void*>(node), static_cast<void*>(node->scene), end ? " (end)" : "", scene ? scene[0x8D] : -1,
+            scene ? *reinterpret_cast<uint32_t*>(scene + 0x84) : 0, static_cast<void*>(table), table ? table[0] : 0);
+        if (end)
+            break;
+    }
+    ForEachScene([](uint8_t* scene) {
+        int sectors = 0, withGeometry = 0, withCollision = 0, movable = 0;
+        ForEachSector(scene, [&](uint32_t checksum, uint8_t* sector) {
+            ++sectors;
+            withGeometry += GeomOf(sector) ? 1 : 0;
+            withCollision += CollOf(sector) ? 1 : 0;
+            movable += WhyNotMovable(checksum) ? 0 : 1;
+        });
+        uint32_t name = *reinterpret_cast<uint32_t*>(scene + 0x84);
+        Log("level editor: scene %08X (%s): %d sectors, %d with geometry, %d with collision, %d movable", name,
+            NameOf(name) ? NameOf(name) : "?", sectors, withGeometry, withCollision, movable);
+    });
+}
+
+} // namespace Scenery
+} // namespace Front::LevelEditor

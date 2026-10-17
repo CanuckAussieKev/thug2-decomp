@@ -23,7 +23,7 @@ so the MCP server can stay running. Only chunks that rename things in Ghidra nee
 
 ## Notes
 - Chunk 1 (2026-10-14): 11,624 .text functions, 1.93 MB code. 8,013 FUN_, 1,162 CFunc_, 2,449 other named
-  (Ghidra library IDs, thunks, names from the PC port's source). 360 call imports directly, 872 reference strings.
+  (Ghidra library IDs, thunks, names from PartyMod's source). 360 call imports directly, 872 reference strings.
 - Exe-derived data lives in `data/derived/` (gitignored, regenerable).
 - Chunk 2: proxy DLL choice -> dinput8.dll (1 export). Networking ~0x5f8170-0x622c90 (likely GameSpy),
   Bink player 0x44fcc0-0x453470.

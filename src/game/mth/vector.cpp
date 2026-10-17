@@ -133,12 +133,14 @@ float Vector::Length() const
 // 0x004023F0
 Vector& Vector::Normalize()
 {
-    float length = Length();
-    if (length > 0.0f) {
-        float scale = 1.0f / length;
-        x *= scale;
-        y *= scale;
-        z *= scale;
+    // As the original's x87 code: the length and its inverse stay in double precision; each component is rounded
+    // once.
+    double length = std::sqrt((static_cast<double>(x) * x + static_cast<double>(y) * y) + static_cast<double>(z) * z);
+    if (length > 0.0) {
+        double scale = 1.0 / length;
+        x = static_cast<float>(x * scale);
+        y = static_cast<float>(y * scale);
+        z = static_cast<float>(z * scale);
     }
     return *this;
 }

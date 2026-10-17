@@ -28,7 +28,7 @@ DirectInput8CreateFn LoadRealDirectInput8Create()
 
 } // namespace
 
-// Loaded lazily: LoadLibrary isn't allowed inside DllMain. (The PC port replaces DirectInput with SDL2 and
+// Loaded lazily: LoadLibrary isn't allowed inside DllMain. (PartyMod replaces DirectInput with SDL2 and
 // skips this call entirely, but the game still imports it, so it must exist.)
 extern "C" HRESULT WINAPI Proxy_DirectInput8Create(HINSTANCE inst, DWORD version, REFIID iid, LPVOID* out,
                                                    LPUNKNOWN outer)

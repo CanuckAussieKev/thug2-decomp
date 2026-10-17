@@ -1,5 +1,5 @@
-// Self-tests for the skater's core physics functions the PC port changes (its PS2-style controls): original - with
-// the PC port's bytes written in for the "on" runs - vs ours, on stand-in components, every callee into game code
+// Self-tests for the skater's core physics functions PartyMod changes (its PS2-style controls): original - with
+// PartyMod's bytes written in for the "on" runs - vs ours, on stand-in components, every callee into game code
 // replaced by a recording stand-in for the length of the test.
 
 #include <windows.h>
@@ -10,6 +10,7 @@
 
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
+#include "game/obj/object.h"
 #include "game/script/struct.h"
 #include "game/sio/sdl_input.h"
 #include "game/skater/core_physics.h"
@@ -253,7 +254,7 @@ struct StandInSymbols {
     }
 };
 
-// The PC port's PS2-controls bytes (its patchPs2Buttons) in the core physics functions, while `on`.
+// PartyMod's PS2-controls bytes (its patchPs2Buttons) in the core physics functions, while `on`.
 struct CorePhysicsPs2Bytes {
     std::vector<CodePatch*> patches;
     explicit CorePhysicsPs2Bytes(bool on)
@@ -344,7 +345,7 @@ bool Compare(const std::vector<uint32_t>& expected, const std::vector<uint32_t>&
     return false;
 }
 
-// LipPushOff 0x004FCBA0: the facing (flat or not), each button held or not (and the timers' values), the PC port's
+// LipPushOff 0x004FCBA0: the facing (flat or not), each button held or not (and the timers' values), PartyMod's
 // PS2 controls off and on.
 void TestLipPushOff()
 {
@@ -409,8 +410,8 @@ std::vector<StandIn> GroundStandIns()
         {0x005232A0, 4, 1, Ret::None, true, 1, -1, -1, 0},    // (a bool)
         {0x0043A930, 4, 1, Ret::None, true, 0, -1, -1, 0},
         {0x004FDED0, 4, 1, Ret::None, true, 0, -1, -1, 0},
-        {0x00460A20, 12, 3, Ret::None, true, 0, -1, -1, 0},
-        {0x004609F0, 8, 2, Ret::None, true, 0, -1, -1, 0},
+        {0x00460A20, 12, 3, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CObject::BroadcastEvent)},
+        {0x004609F0, 8, 2, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CObject::SelfEvent)},
         {0x00507120, 4, 1, Ret::None, true, 1, -1, -1, 0, CodeAddress(&Skater::CorePhysicsComponent::BreakVert)},
         {0x00502240, 0x14, 5, Ret::Bool, true, 0, -1, 4, 10}, // the acid drop search (fills its last argument)
         {0x00502F20, 4, 1, Ret::None, true, 0, 0, -1, 10},    // (reads it)
@@ -418,7 +419,7 @@ std::vector<StandIn> GroundStandIns()
 }
 
 // CheckForGround 0x00509BD0: hit or not, ground or not, the facing's angles, the flags, buttons and triggers,
-// the PC port's PS2 controls off and on.
+// PartyMod's PS2 controls off and on.
 void TestCheckForGround()
 {
     uint8_t savedSettings = Sio::TheInputSettings().ps2Controls;
@@ -503,7 +504,7 @@ struct OurAirVectorCode {
     CodePatch ortho{0x00405170, JumpTo(0x00405170, CodeAddress(&Mth::Matrix::OrthoNormalizeAbout))};
 };
 
-// The PC port's PS2-controls bytes in the air update, while `on`.
+// PartyMod's PS2-controls bytes in the air update, while `on`.
 struct AirPs2Bytes {
     std::vector<CodePatch*> patches;
     explicit AirPs2Bytes(bool on)
@@ -558,7 +559,7 @@ std::vector<StandIn> AirStandIns()
         {0x004FF590, 4, 1, Ret::None, true, 0, 0, 0, 4},       // (reads and changes a vector)
         {0x004FC370, 4, 1, Ret::None, true, 0, -1, -1, 0},
         {0x005009C0, 0, 0, Ret::None, true, 0, -1, -1, 0},
-        {0x004609F0, 8, 2, Ret::None, true, 0, -1, -1, 0},
+        {0x004609F0, 8, 2, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CObject::SelfEvent)},
         {0x0050C930, 0, 0, Ret::None, true, 0, -1, -1, 0},
         {0x00504EE0, 0, 0, Ret::Bool, true, 0, -1, -1, 0},
         {0x004FFB10, 0, 0, Ret::None, true, 0, -1, -1, 0},
@@ -580,7 +581,7 @@ bool Called(const std::vector<uint32_t>& trace, uint32_t address, uint32_t argum
 }
 
 // DoAirPhysics 0x0050CA00: the flags, the ride, buttons and triggers, the wall ride and its feelers, landing
-// (skatable or not, from a wall ride or not) or not, the PC port's PS2 controls off and on.
+// (skatable or not, from a wall ride or not) or not, PartyMod's PS2 controls off and on.
 void TestDoAirPhysics()
 {
     uint8_t savedSettings = Sio::TheInputSettings().ps2Controls;

@@ -1,4 +1,4 @@
-// Contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md (the PC port's changes in it).
+// Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md (PartyMod's changes in it).
 
 #include "game/net/chat.h"
 
@@ -9,6 +9,10 @@
 #include "game/core/mem.h"
 #include "game/core/pool.h"
 #include "game/core/crc.h"
+#include "game/gfx/screen.h"
+#include "game/net/net_app.h"
+#include "game/obj/object.h"
+#include "game/obj/tracker.h"
 #include "game/script/cscript.h"
 #include "game/script/params.h"
 #include "game/script/struct.h"
@@ -16,6 +20,7 @@
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/log.h"
 
 namespace GameNet {
 
@@ -41,20 +46,9 @@ struct ChatPacket {
 #pragma pack(pop)
 static_assert(sizeof(ChatPacket) == 0x94);
 
-// Net::MsgDesc: a message to be sent (0x20 bytes; its constructor sets the defaults).
-struct MsgDesc {
-    uint8_t id;
-    uint8_t unknown1;
-    uint16_t length;
-    void* data;
-    uint8_t rest[0x18];
-};
-static_assert(sizeof(MsgDesc) == 0x20);
-
-void InitMsgDesc(MsgDesc* desc) { GameFunction<void(__thiscall*)(MsgDesc*)>(0x004549F0)(desc); }
-// Fields set by the chat send; their meaning isn't known yet.
-uint32_t& MsgDescField0C(MsgDesc* desc) { return *reinterpret_cast<uint32_t*>(desc->rest + 0x4); }
-uint8_t& MsgDescField10(MsgDesc* desc) { return desc->rest[0x8]; }
+// Net::MsgDesc (net_app.h): a message to be sent; its constructor (0x004549F0) sets the defaults.
+using ::Net::MsgDesc;
+void InitMsgDesc(MsgDesc* desc) { desc->Construct(); }
 
 // The local player's info (not decompiled yet): name at +0x38, flags at +0x1D0, team at [+0x14]+0x14.
 struct PlayerInfo;
@@ -136,11 +130,11 @@ void Send(Manager* manager, const char* name, uint8_t color, const char* text)
 
     MsgDesc desc;
     InitMsgDesc(&desc);
-    desc.id = kMsgChat;
-    desc.length = static_cast<uint16_t>(std::strlen(packet.text) + 0x12); // color + name + text + '\0'
-    desc.data = &packet;
-    MsgDescField0C(&desc) = 2;
-    MsgDescField10(&desc) = 8;
+    desc.m_id = kMsgChat;
+    desc.m_length = static_cast<uint16_t>(std::strlen(packet.text) + 0x12); // color + name + text + '\0'
+    desc.m_data = &packet;
+    desc.m_queue = MsgDesc::kQueueSequenced;
+    desc.m_groupId = 8;
     SendToServer(manager, &desc);
 
     // The server doesn't send our own line back to us, so show it here.
@@ -167,11 +161,8 @@ constexpr uint32_t kTauntScript = 0x2C43B5BA;
 constexpr uint32_t kTauntName = 0xB53D0E0F;
 uint32_t& LastTauntTime() { return GameVariable<uint32_t>(0x007CCE20); }
 
-// The script command ObjectExists (0x00462340) with these parameters.
-bool ObjectExists(Script::CStruct* params)
-{
-    return GameFunction<bool(__cdecl*)(Script::CStruct*, void*)>(0x00462340)(params, nullptr);
-}
+// The script command ObjectExists with these parameters.
+bool ObjectExists(Script::CStruct* params) { return Obj::CFunc_ObjectExists(params, nullptr); }
 void RunScriptWith(uint32_t script, Script::CStruct* params)
 {
     Script::RunScript(script, params, nullptr, false, nullptr);
@@ -211,6 +202,35 @@ bool HandleChatCommand(Manager* manager, const char* text)
                           "\\cEE \\cFF\\c0 (colour codes)");
         return true;
     }
+    if (_stricmp(text, "/where") == 0) {
+        // Only shown here, not sent: the level, the local skater's position and orientation, and the camera's - written
+        // to thug2-decomp.log (for picking a place to show behind the main menu).
+        uint8_t level = Nx::CurrentLevel();
+        Log("where: level %u", level);
+        auto* skater = GameFunction<Obj::CCompositeObject*(__thiscall*)(void*)>(0x00566520)(
+            GameVariable<void*>(0x007CE478)); // the skate module's local skater
+        if (skater) {
+            const Mth::Vector& p = skater->m_pos;
+            const Mth::Matrix& m = skater->m_matrix;
+            Log("where: skater pos %.3f %.3f %.3f", p.x, p.y, p.z);
+            for (int row = 0; row < 3; ++row)
+                Log("where: skater matrix row %d %.6f %.6f %.6f", row, m.row[row].x, m.row[row].y, m.row[row].z);
+        } else {
+            Log("where: no local skater");
+        }
+        // The camera of the last frame drawn (SetCamera's copy, 0x00786CA8: field of view, position, rows 2 and 1).
+        const float* camera = &GameVariable<float>(0x00786CA8);
+        Log("where: camera fov %.3f pos %.3f %.3f %.3f back %.6f %.6f %.6f up %.6f %.6f %.6f", camera[2], camera[7],
+            camera[8], camera[9], camera[13], camera[14], camera[15], camera[16], camera[17], camera[18]);
+        char line[128];
+        if (skater)
+            std::snprintf(line, sizeof(line), "\\c4where:\\c0 level %u at %.0f %.0f %.0f - saved to the log", level,
+                          skater->m_pos.x, skater->m_pos.y, skater->m_pos.z);
+        else
+            std::snprintf(line, sizeof(line), "\\c4where:\\c0 level %u (no skater) - saved to the log", level);
+        ShowLocalChatLine(line);
+        return true;
+    }
     return false; // not one of ours: send it as typed
 }
 
@@ -247,7 +267,7 @@ void __cdecl KeyboardTask(void* /*task*/)
         Sio::ClearKeyboardChars();
         return;
     }
-    // F1-F4: a taunt, at most one every two seconds. F1 comes as 0x1F with the PC port's keyboard input (0x1B is
+    // F1-F4: a taunt, at most one every two seconds. F1 comes as 0x1F with PartyMod's keyboard input (0x1B is
     // Escape there): its byte at 0x00533652 - the original compares with 0x1B.
     uint32_t taunt;
     switch (key) {

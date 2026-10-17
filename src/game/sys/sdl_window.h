@@ -1,6 +1,6 @@
 #pragma once
 
-// Contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md
+// Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md
 
 // The game's window on PC: an SDL window ([Graphics] in thug2-decomp.ini: ResolutionX / ResolutionY - 0 = the
 // desktop's -, Windowed, Borderless) in place of the original's Win32 one (CreateGameWindow 0x005F5860, 640x480

@@ -2,7 +2,7 @@
 
 First-pass map of `THUG2PM.exe`'s code, built in chunks 1-5 (see `mapping-progress.md`). Ranges come from
 `data/subsystems.csv`; sizes are measured from the Ghidra project. Boundaries are approximate (+/- a few functions)
-and labels come from script-command names, strings, imports and the PC port's source. Refine as code is read.
+and labels come from script-command names, strings, imports and PartyMod's source. Refine as code is read.
 
 **Game code to decompile: ~8,365 functions, ~1.6 MB of x86.**
 Not decompiled: GameSpy SDK, D3DX9, MSVC CRT, STL helpers, compiler funclets (see `library_ranges.md`).
@@ -13,8 +13,9 @@ Not decompiled: GameSpy SDK, D3DX9, MSVC CRT, STL helpers, compiler funclets (se
 | 0x406460-0x41a6d0 | Animation & skeleton / skinned model data | 423 | 75 KB | 0% |
 | 0x41a6d0-0x445b50 | Object components & level/scene loading | 584 | 157 KB | 3% |
 | 0x445b50-0x44e6b0 | Engine script commands (lighting/fog, memory heaps, script utils, arrays, music & streams) | 246 | 32 KB | 89% |
-| 0x44e6b0-0x456910 | Movies (Bink) & streamed audio | 277 | 30 KB | 0% |
-| 0x456910-0x45efd0 | Low-level networking (engine net library) | 183 | 28 KB | 0% |
+| 0x44e6b0-0x4544e0 | Movies (Bink) & streamed audio | 167 | 22 KB | 1% |
+| 0x4544e0-0x45bda0 | Low-level networking (engine net library: Net::Manager getters, message types, Conn, App, Client/Server, Dispatcher; boundary moved from 0x456910 in batch 86) | 205 | 26 KB | 0% |
+| 0x45bda0-0x45efd0 | Level nodes & composite objects (node array, node names/prefixes, CCompositeObject, components) | 88 | 10 KB | 0% |
 | 0x45efd0-0x47dc40 | Object system & script runtime (composite objects, events, particles, pathfinding, QB parser/executor; runtime behaviour: `script-runtime.md`) | 685 | 112 KB | 1% |
 | 0x47dc40-0x490d80 | Skater models / faces / textures (create-a-skater) | 523 | 67 KB | 3% |
 | 0x490d80-0x4a4500 | Renderer: textures, geometry, particles, 2D/3D screen | 559 | 73 KB | 0% |
@@ -47,7 +48,7 @@ Start where code is small, self-contained and easy to check, then work inwards:
 2. **File system (PIP/PRE).** Small, and immediately visible: if it's wrong, nothing loads.
 3. **Script command libraries** (both blocks, 85-89% already named). Hundreds of small, independent functions
    with known names: steady, low-risk progress, and they document what the game logic needs.
-4. **Win32 platform layer + input devices.** Small; this is where the PC port's fixes (SDL2 window/input,
+4. **Win32 platform layer + input devices.** Small; this is where PartyMod's fixes (SDL2 window/input,
    resolution, aspect ratio) are built into the source (done: src/game/sys/sdl_*, config, pc_setup;
    src/game/sio/sdl_input; src/game/gfx/settings, glyphs, screen, render; src/game/net/online_hosts).
 5. Then the big interlinked cores: **script runtime & object system -> skater -> goals/career -> renderer**.

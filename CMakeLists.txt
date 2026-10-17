@@ -13,8 +13,8 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 set(THUG2_GAME_DIR "C:/Games/THUG2" CACHE PATH "Game folder the built dinput8.dll is copied into")
 
-# --- SDL2 (the PC port's window and input: src/game/sys/sdl_*.cpp, src/game/sio/sdl_input.cpp) --------------
-# The official 2.30.9 Visual C++ development package: the same version as the SDL2.dll the PC port ships with (the
+# --- SDL2 (PartyMod's window and input: src/game/sys/sdl_*.cpp, src/game/sio/sdl_input.cpp) --------------
+# The official 2.30.9 Visual C++ development package: the same version as the SDL2.dll PartyMod ships with (the
 # game folder's SDL2.dll). Downloaded and checked against its SHA-256 at configure time; not stored in the repo.
 include(FetchContent)
 FetchContent_Declare(sdl2
@@ -55,14 +55,23 @@ add_library(thug2_code OBJECT
     src/hook/selftest.cpp
     src/hook/selftest_runner.cpp
     src/hook/selftests_skaterB.cpp
+    src/hook/selftests_menu.cpp
+    src/hook/selftests_left.cpp
     src/hook/selftests_gfx.cpp
     src/hook/selftests_platform.cpp
     src/hook/selftests_pc.cpp
     src/hook/selftests_glyph.cpp
     src/hook/selftests_skaterA.cpp
     src/hook/selftests_gfx2.cpp
+    src/hook/selftests_el3d.cpp
+    src/hook/selftests_mouse.cpp
+    src/hook/selftests_sprite.cpp
+    src/hook/selftests_netB.cpp
     src/hook/selftests_mainloop.cpp
     src/hook/selftests_misc.cpp
+    src/hook/selftests_lfxc.cpp
+    src/hook/selftests_lfxc2.cpp
+    src/hook/selftests_lfxc3.cpp
     src/hook/selftests_scache.cpp
     src/hook/selftests_text.cpp
     src/hook/selftests_winmain.cpp
@@ -70,13 +79,28 @@ add_library(thug2_code OBJECT
     src/hook/selftests_qb.cpp
     src/hook/selftests_gapsA.cpp
     src/hook/selftests_csD.cpp
+    src/hook/selftests_cobj.cpp
+    src/hook/selftests_coim.cpp
+    src/hook/selftests_obj.cpp
+    src/hook/selftests_evt.cpp
+    src/hook/selftests_trk.cpp
     src/hook/selftests_csA.cpp
     src/hook/selftests_csC.cpp
     src/hook/selftests_csB.cpp
     src/hook/selftests_parkedA.cpp
+    src/hook/selftests_netC.cpp
+    src/hook/selftests_netD.cpp
+    src/hook/selftests_netF.cpp
+    src/hook/selftests_netA.cpp
+    src/hook/selftests_netE.cpp
+    src/hook/selftests_feobj.cpp
+    src/hook/selftests_menulvl.cpp
+    src/hook/selftests_motion.cpp
+    src/hook/selftests_editor.cpp
     src/game/core/alloc.cpp
     src/game/core/crc.cpp
     src/game/core/dbg.cpp
+    src/game/core/dump_text.cpp
     src/game/core/heap.cpp
     src/game/core/manager.cpp
     src/game/core/mem.cpp
@@ -86,7 +110,19 @@ add_library(thug2_code OBJECT
     src/game/core/str.cpp
     src/game/core/string.cpp
     src/game/file/asset_bundle.cpp
+    src/game/front/element3d.cpp
     src/game/front/screen_element.cpp
+    src/game/front/front_end.cpp
+    src/game/front/mouse_menus.cpp
+    src/game/front/frontend_objects.cpp
+    src/game/front/menu_backdrop.cpp
+    src/game/front/menu_level.cpp
+    src/game/front/level_editor.cpp
+    src/game/front/level_editor_hud.cpp
+    src/game/front/level_editor_layout.cpp
+    src/game/front/level_editor_objects.cpp
+    src/game/front/level_editor_scenery.cpp
+    src/game/skate/competition.cpp
     src/game/gfx/screen.cpp
     src/game/gfx/settings.cpp
     src/game/gfx/glyphs.cpp
@@ -98,11 +134,15 @@ add_library(thug2_code OBJECT
     src/game/pcm/music.cpp
     src/game/gfx/loading_bar.cpp
     src/game/gfx/render.cpp
+    src/game/gfx/sprite.cpp
+    src/game/gfx/camera.cpp
+    src/game/gfx/scene.cpp
     src/game/file/async.cpp
     src/game/file/file.cpp
     src/game/file/pip.cpp
     src/game/file/pre.cpp
     src/game/lst/hashtable.cpp
+    src/game/lst/head.cpp
     src/game/lst/search.cpp
     src/game/net/chat.cpp
     src/game/net/stats.cpp
@@ -113,8 +153,35 @@ add_library(thug2_code OBJECT
     src/game/ed/park_io.cpp
     src/game/net/service.cpp
     src/game/net/online_hosts.cpp
+    src/game/net/net_dispatcher.cpp
+    src/game/net/net_app_messages.cpp
+    src/game/net/net_client.cpp
+    src/game/net/net_server.cpp
+    src/game/net/net_app.cpp
+    src/game/net/net_app_view.cpp
+    src/game/net/net_latency.cpp
+    src/game/net/net_lists.cpp
+    src/game/net/net_manager.cpp
+    src/game/net/net_metrics.cpp
+    src/game/net/net_compress.cpp
+    src/game/net/net_descs.cpp
+    src/game/net/net_conn.cpp
+    src/game/net/net_messages.cpp
+    src/game/net/net_manager_apps.cpp
+    src/game/net/net_conn_times.cpp
+    src/game/obj/composite.cpp
+    src/game/obj/compositemgr.cpp
+    src/game/obj/cutscene.cpp
+    src/game/obj/event.cpp
     src/game/obj/flip_rotate.cpp
+    src/game/obj/motion.cpp
+    src/game/obj/object.cpp
+    src/game/obj/objman.cpp
+    src/game/park/park_cursor.cpp
+    src/game/park/park_editor.cpp
+    src/game/park/park_memory.cpp
     src/game/obj/smtptr.cpp
+    src/game/obj/tracker.cpp
     src/game/skater/rotation.cpp
     src/game/sio/device.cpp
     src/game/sio/sdl_input.cpp
@@ -135,6 +202,7 @@ add_library(thug2_code OBJECT
     src/game/mc/memcard.cpp
     src/game/mc/memcard_cfuncs.cpp
     src/game/script/eval.cpp
+    src/game/script/node_manager.cpp
     src/game/script/cache.cpp
     src/game/script/cscript_manager.cpp
     src/game/script/cscript_wait.cpp
@@ -147,6 +215,7 @@ add_library(thug2_code OBJECT
     src/game/script/precompiled.cpp
     src/game/script/qb.cpp
     src/game/script/struct.cpp
+    src/game/script/skate_cfuncs.cpp
     src/game/mth/geometry.cpp
     src/game/mth/math.cpp
     src/game/mth/matrix.cpp
@@ -181,7 +250,7 @@ endif()
 # game (see tools/check/main.cpp):  thug2_check [<path to THUG2PM.exe>]
 add_executable(thug2_check tools/check/main.cpp)
 target_link_libraries(thug2_check PRIVATE thug2_code minhook delayimp)
-# The PC port's SDL code is linked (window, input: never run offline), so SDL2 is only loaded if used.
+# PartyMod's SDL code is linked (window, input: never run offline), so SDL2 is only loaded if used.
 target_link_options(thug2_check PRIVATE /DELAYLOAD:SDL2.dll)
 target_compile_options(thug2_check PRIVATE /W4 /permissive- /utf-8)
 # Keep the tool itself away from 0x400000: its child process loads the game image there.

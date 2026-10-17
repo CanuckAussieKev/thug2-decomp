@@ -45,6 +45,11 @@ uint8_t* Write2Bytes(uint8_t* p, uint16_t value);
 void AddScriptChecksumName(uint32_t checksum, const char* name);
 const char* FindScriptChecksumName(uint32_t checksum);
 void FreeScriptChecksumNames();
+// NOT ORIGINAL - every .qb's checksum names kept for our tools (the level editor's HUD: node names such as
+// Fire_Tender), once KeepQbNames(true) - ParseQB notes each (the game only keeps them with its debug names on).
+void KeepQbNames(bool keep);
+void NoteQbName(uint32_t checksum, const char* name);
+const char* KeptQbName(uint32_t checksum);
 
 // Forget which script the stored random states belonging to `owner` (a script) were for.
 void ForgetStoredRandomsOf(uint32_t owner);

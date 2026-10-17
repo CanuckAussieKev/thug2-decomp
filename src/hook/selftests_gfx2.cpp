@@ -1,4 +1,4 @@
-// Self-tests for src/game/gfx/render.cpp (the camera, the blur pass, the world render): the originals, with the PC port's patch bytes written in for the length of
+// Self-tests for src/game/gfx/render.cpp (the camera, the blur pass, the world render): the originals, with PartyMod's patch bytes written in for the length of
 // the test, against ours - the device and the renderer's state calls stood in by recorders.
 
 #include <windows.h>
@@ -11,6 +11,8 @@
 #include <vector>
 
 #include "game/gfx/render.h"
+#include "game/gfx/screen.h"
+#include "game/sys/sdl_window.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -20,7 +22,22 @@ namespace {
 
 // Bytes written over game code for the length of a test (restored when it goes). (A copy of
 // selftests_pc.cpp's.)
-struct CodePatch {
+// Patches and saved bytes still in place (a crashed test's destructors don't run: Cleanup undoes them, newest first).
+struct Undo {
+    virtual void Restore() = 0;
+};
+std::vector<Undo*> g_live;
+void Forget(Undo* undo)
+{
+    for (size_t i = g_live.size(); i-- > 0;) {
+        if (g_live[i] == undo) {
+            g_live.erase(g_live.begin() + i);
+            return;
+        }
+    }
+}
+
+struct CodePatch : Undo {
     uint8_t* at;
     std::vector<uint8_t> saved;
     CodePatch(uint32_t address, const std::vector<uint8_t>& bytes)
@@ -31,11 +48,17 @@ struct CodePatch {
         std::memcpy(saved.data(), at, bytes.size());
         std::memcpy(at, bytes.data(), bytes.size());
         FlushInstructionCache(GetCurrentProcess(), at, bytes.size());
+        g_live.push_back(this);
     }
-    ~CodePatch()
+    void Restore() override
     {
         std::memcpy(at, saved.data(), saved.size());
         FlushInstructionCache(GetCurrentProcess(), at, saved.size());
+    }
+    ~CodePatch()
+    {
+        Forget(this);
+        Restore();
     }
 };
 std::vector<uint8_t> JumpTo(uint32_t from, const void* to)
@@ -60,7 +83,7 @@ uint32_t Bits(float f)
 }
 
 // Globals saved before a test and put back after.
-struct SavedBytes {
+struct SavedBytes : Undo {
     std::vector<std::pair<uint32_t, std::vector<uint8_t>>> blocks;
     SavedBytes(std::initializer_list<std::pair<uint32_t, uint32_t>> ranges)
     {
@@ -69,11 +92,17 @@ struct SavedBytes {
             std::memcpy(bytes.data(), reinterpret_cast<void*>(r.first), r.second);
             blocks.push_back({r.first, bytes});
         }
+        g_live.push_back(this);
     }
-    ~SavedBytes()
+    void Restore() override
     {
         for (auto& b : blocks)
             std::memcpy(reinterpret_cast<void*>(b.first), b.second.data(), b.second.size());
+    }
+    ~SavedBytes()
+    {
+        Forget(this);
+        Restore();
     }
 };
 
@@ -108,7 +137,7 @@ void __fastcall CameraFrustum(void* frustum) { Record({0xF85u, reinterpret_cast<
 
 // The camera over orientations facing all four ways (and a tilted one), fields of view, aspects, zooms (1, not 1,
 // NaN), far plane at infinity or not, distance clipping off / on (with a setting past 2^31) - the original with
-// the PC port's far plane (96000) written in. Every camera global and the device's transforms compared.
+// PartyMod's far plane (96000) written in. Every camera global and the device's transforms compared.
 void TestSetCamera()
 {
     SavedBytes saved({{0x00786B90, 0x164}, {0x00786E18, 0x18}, {0x007D643A, 1}, {0x007D6444, 4}, {0x007D69E0, 4}});
@@ -167,7 +196,7 @@ void TestSetCamera()
                             }
         traces[run] = g_log;
     }
-    CompareTraces(traces[0], traces[1], "gfx: set_camera (the PC port's far plane)", 360 * 140);
+    CompareTraces(traces[0], traces[1], "gfx: set_camera (PartyMod's far plane)", 360 * 140);
 }
 
 // --- the blur pass ------------------------------------------------------------------------------------------
@@ -278,9 +307,9 @@ struct BlurStandIns {
 };
 
 // The blur pass: off; on with each texture current, blur amounts 0 / small / full / past 2^31, blur levels 2 and 3
-// (one pass or two), letterboxed or not (the PC port skips the adjustment), fog and distance clipping (clear colour),
+// (one pass or two), letterboxed or not (PartyMod skips the adjustment), fog and distance clipping (clear colour),
 // the extra pass 0x004DEB70 or not, screen and texture sizes, samplers already linear or not - the original with
-// the PC port's JMP at 0x004DF63A written in.
+// PartyMod's JMP at 0x004DF63A written in.
 void TestDrawScreenBlur()
 {
     BlurStandIns blur;
@@ -317,7 +346,7 @@ void TestDrawScreenBlur()
                             g_sampler[s][6] = (n + 2 * s) % 4;
                         }
                         if (original) {
-                            CodePatch pcPort(0x004DF63A, {0xEB});
+                            CodePatch partyMod(0x004DF63A, {0xEB});
                             Original<void(__cdecl*)()>(0x004DF390)();
                         } else {
                             Nx::DrawScreenBlur();
@@ -329,7 +358,7 @@ void TestDrawScreenBlur()
                     }
         traces[run] = g_log;
     }
-    CompareTraces(traces[0], traces[1], "gfx: the blur pass (the PC port's letterbox skip)", 50000);
+    CompareTraces(traces[0], traces[1], "gfx: the blur pass (PartyMod's letterbox skip)", 50000);
 }
 
 // --- the world render ---------------------------------------------------------------------------------------
@@ -372,13 +401,20 @@ long __stdcall WorldSetViewport(void*, const uint32_t* vp)
 long __stdcall WorldDeviceState(void*, int state, uint32_t value) { Record({0xD57u, static_cast<uint32_t>(state), value}); return 0; }
 
 // The frame's 3D over 0-3 viewports (one without a camera), a scene list (two world scenes - one's meshes not yet
-// prepared - and two skies) or an empty one, the device lost or not, letterboxed (the PC port's display region) or not,
+// prepared - and two skies) or an empty one, the device lost or not, letterboxed (PartyMod's display region) or not,
 // fog on (as 1 or 0x100) or off, distance clipping and fog settings (no sky with both), the 0x00786AB5 order switch,
-// the blur on or off, back buffers wider / 4:3 / taller (the PC port's black bars) - the original with the PC port's three
+// the blur on or off, back buffers wider / 4:3 / taller (PartyMod's black bars) - the original with PartyMod's three
 // calls (and the far plane and blur JMP in the originals it calls) written in. Everything recorded: the renderer's
 // calls, the device's viewport, render states, transforms, samplers and draws, and the globals after each frame.
 void TestRenderWorld()
 {
+    // (compared with the original plus PartyMod's patches: PartyMod's pillarboxed front end)
+    bool widescreenMenus = Nx::WidescreenMenus();
+    Nx::WidescreenMenus() = false;
+    struct RestoreWidescreen {
+        bool value;
+        ~RestoreWidescreen() { Nx::WidescreenMenus() = value; }
+    } restoreWidescreen{widescreenMenus};
     BlurStandIns blur;
     SavedBytes saved({{0x00786AC4, 4}, {0x00786D04, 1}, {0x00786D00, 4}, {0x00701378, 4}, {0x006FA7B8, 4},
                       {0x00786D6C, 4}, {0x00786B90, 0x164}, {0x00786E18, 0x18}, {0x006FA7EC, 4}, {0x006FA7BC, 0x10},
@@ -455,7 +491,7 @@ void TestRenderWorld()
     GameVariable<uint32_t>(0x006FA7C0) = 0xB0000C0;
     GameVariable<uint32_t>(0x006FA7C4) = 0xB0000C4;
     GameVariable<uint32_t>(0x006FA7C8) = 0xB0000C8;
-    GameVariable<float>(0x00786D80) = 1.5f; // The PC port's display region: x / y scales of 640 x 480
+    GameVariable<float>(0x00786D80) = 1.5f; // PartyMod's display region: x / y scales of 640 x 480
     GameVariable<float>(0x00786D84) = 1.875f;
 
     std::vector<uint32_t> traces[2];
@@ -533,11 +569,82 @@ void TestRenderWorld()
                 }
         traces[run] = g_log;
     }
-    CompareTraces(traces[0], traces[1], "gfx: the world render (the PC port's display region and black bars)", 150000);
+    CompareTraces(traces[0], traces[1], "gfx: the world render (PartyMod's display region and black bars)", 150000);
+}
+
+// widescreen_menus: in the front end the 3D view gets the window's shape (aspect, field of view) while the 2D layout
+// stays 4:3 and centred; with it off the front end is 4:3 throughout; in a level it changes nothing. Checked against
+// worked-out values on a 1920x1080 window and back buffer.
+void TestWidescreenMenus()
+{
+    SavedBytes saved({{0x007CE478, 4}, {0x00786D6C, 8}, {0x00701340, 4}, {0x0067E544, 4}, {0x00786D80, 0x10},
+                      {0x00786CBE, 1}});
+    bool widescreenMenus = Nx::WidescreenMenus();
+    int windowWidth = Sys::WindowWidth(), windowHeight = Sys::WindowHeight();
+
+    alignas(16) static uint8_t career[0x640];
+    alignas(16) static uint8_t skater[0x40];
+    *reinterpret_cast<void**>(skater + 0x20) = career;
+    career[0x630] = 7;
+    Sys::WindowWidth() = 1920;
+    Sys::WindowHeight() = 1080;
+    GameVariable<uint32_t>(0x00786D6C) = 1920;
+    GameVariable<uint32_t>(0x00786D70) = 1080;
+    GameVariable<float>(0x0067E544) = 1.0f;
+
+    auto closeTo = [](float a, float b) { return std::fabs(a - b) < 1e-5f; };
+    struct Case {
+        bool inLevel, setting;
+        bool frontEndWidescreen;
+        float aspect3D, factor, scaleX, scaleY;
+        uint32_t offsetX;
+    };
+    const Case cases[] = {
+        {false, true, true, 16.0f / 9.0f, 4.0f / 3.0f, 2.25f, 2.25f, 240}, // front end: wide 3D, 4:3 2D
+        {false, false, false, 4.0f / 3.0f, 1.0f, 2.25f, 2.25f, 240},       // front end, off: 4:3 throughout
+        {true, true, false, 16.0f / 9.0f, 4.0f / 3.0f, 3.0f, 2.25f, 0},     // a level: wide, unchanged
+        {true, false, false, 16.0f / 9.0f, 4.0f / 3.0f, 3.0f, 2.25f, 0},
+    };
+    bool ok = true;
+    for (const Case& c : cases) {
+        GameVariable<void*>(0x007CE478) = c.inLevel ? skater : nullptr;
+        Nx::WidescreenMenus() = c.setting;
+        bool frontEndWidescreen = Nx::FrontEndWidescreen();
+        GameVariable<float>(0x00701340) = -3.0f;
+        Nx::SetScreenAspectRatio(1.25f);
+        float aspect = GameVariable<float>(0x00701340);
+        float factor = Nx::GetScreenAngleFactor();
+        Nx::SetLetterbox(true);
+        bool match = frontEndWidescreen == c.frontEndWidescreen && closeTo(aspect, c.aspect3D) &&
+                     closeTo(factor, c.factor) && closeTo(GameVariable<float>(0x00786D80), c.scaleX) &&
+                     closeTo(GameVariable<float>(0x00786D84), c.scaleY) && GameVariable<uint32_t>(0x00786D88) == c.offsetX;
+        if (!match)
+            Log("  widescreen menus (level %d, setting %d): front end wide %d, aspect %f, factor %f, scale %f x %f, "
+                "x offset %u",
+                c.inLevel, c.setting, frontEndWidescreen, aspect, factor, GameVariable<float>(0x00786D80),
+                GameVariable<float>(0x00786D84), GameVariable<uint32_t>(0x00786D88));
+        ok = ok && match;
+    }
+    Nx::WidescreenMenus() = widescreenMenus;
+    Sys::WindowWidth() = windowWidth;
+    Sys::WindowHeight() = windowHeight;
+    Check(ok, "gfx: widescreen_menus (front end 3D wide, 2D 4:3; levels unchanged)");
+}
+
+// After each test (also one that crashed): whatever it left patched or saved is put back, newest first.
+void Cleanup()
+{
+    while (!g_live.empty()) {
+        Undo* undo = g_live.back();
+        g_live.pop_back();
+        undo->Restore();
+    }
 }
 
 } // namespace
 
-SELFTEST(Early, TestSetCamera);
-SELFTEST(Early, TestDrawScreenBlur);
-SELFTEST(Early, TestRenderWorld);
+
+SELFTEST(Early, TestSetCamera, Cleanup);
+SELFTEST(Early, TestDrawScreenBlur, Cleanup);
+SELFTEST(Early, TestRenderWorld, Cleanup);
+SELFTEST(Early, TestWidescreenMenus, Cleanup);

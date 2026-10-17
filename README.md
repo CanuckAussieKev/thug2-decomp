@@ -14,10 +14,11 @@ DLL, which puts our code inside the game process at startup. On load it:
 
 Everything not yet rewritten still runs the original code, so the game works at every step.
 
-The PC port's fixes (an SDL2 window and input, controller and keyboard bindings, widescreen, the OpenSpy
-online service and more) are part of the game's source here, with their settings in `thug2-decomp.ini`
-(sections `[Graphics]`, `[Miscellaneous]`, `[Keybinds]`, `[Gamepad]`, `[Logging]`) - MIT-licensed
-code, see `THIRD_PARTY_NOTICES.md`. `SDL2.dll` (2.30.9) must be in the game folder.
+The fixes from [PartyMod](https://github.com/PARTYMANX/partymod-thug2) v1.0.4 by PARTYMANX (an SDL2 window and
+input, controller and keyboard bindings, widescreen, the OpenSpy online service and more) are part of the game's
+source here, marked "Originally from PartyMod Fixes", with their settings in `thug2-decomp.ini` (sections
+`[Graphics]`, `[Miscellaneous]`, `[Keybinds]`, `[Gamepad]`, `[Logging]`) - MIT, (c) 2024 PARTYMANX, see
+`THIRD_PARTY_NOTICES.md`. `SDL2.dll` (2.30.9) must be in the game folder.
 
 ## Build
 

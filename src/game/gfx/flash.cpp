@@ -1,5 +1,5 @@
 // Screen flashes: a coloured (optionally textured) rectangle over part of the screen.
-// Contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md (the PC port's changes in it).
+// Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md (PartyMod's changes in it).
 
 #include "game/gfx/flash.h"
 
@@ -60,7 +60,7 @@ void DrawFlash(const Flash* flash)
     GameFunction<void(__cdecl*)(int)>(0x004D9DB0)(0x144); // the vertex format
     ++GameVariable<int>(0x00786EBC); // draw calls
     GameVariable<int>(0x00786EC0) += 2; // triangles
-    // The PC port (its reorder_flash_vertices at 0x004B91E7): the original passes the first three vertices in the
+    // Originally from PartyMod Fixes (its reorder_flash_vertices at 0x004B91E7): the original passes the first three vertices in the
     // wrong order; rotate them.
     FlashVertex first = vertices[0];
     vertices[0] = vertices[1];

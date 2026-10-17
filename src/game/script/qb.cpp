@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <cstring>
 #include <new>
+#include <string>
+#include <unordered_map>
 
 #include "game/core/crc.h"
 #include "game/core/manager.h"
@@ -243,6 +245,29 @@ void FreeScriptChecksumNames()
     }
     Mem::FreeMalloc(ScriptNames());
     ScriptNames() = nullptr;
+}
+
+namespace {
+bool g_keepQbNames;
+std::unordered_map<uint32_t, std::string>& KeptNames()
+{
+    static std::unordered_map<uint32_t, std::string> names;
+    return names;
+}
+} // namespace
+
+void KeepQbNames(bool keep) { g_keepQbNames = keep; }
+
+void NoteQbName(uint32_t checksum, const char* name)
+{
+    if (g_keepQbNames && name && *name)
+        KeptNames()[checksum] = name;
+}
+
+const char* KeptQbName(uint32_t checksum)
+{
+    auto it = KeptNames().find(checksum);
+    return it == KeptNames().end() ? nullptr : it->second.c_str();
 }
 
 // 0x0046FA60 (a checksum already there is added again)

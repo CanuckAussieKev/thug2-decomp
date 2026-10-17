@@ -16,7 +16,7 @@ their creation function here.
 | DSOUND | 2 | 2 | 0x4d7c80–0x5f59d0 | DirectSound 8 device creation |
 | D3D9 | 1 | 1 | 0x4d8650 | `Direct3DCreate9` — renderer init (D3D9 device pointer at 0x7d69e0) |
 | GDI32 | 1 | 1 | 0x5d01e5 | `DeleteObject` only |
-| DINPUT8 | 1 | 1 | 0x5f44f0 | `DirectInput8Create` — input init (the PC port skips this and uses SDL2) |
+| DINPUT8 | 1 | 1 | 0x5f44f0 | `DirectInput8Create` — input init (PartyMod skips this and uses SDL2) |
 
 ## Proxy DLL candidates (for loading our hook DLL)
 
@@ -24,7 +24,7 @@ The game statically imports both of these, so Windows loads them before the game
 
 - **`dinput8.dll`**: a system DLL, but Windows checks the game folder first, so a `dinput8.dll` placed next to
   the exe gets loaded instead. Our proxy forwards `DirectInput8Create` to the real one in System32. This is a
-  common modding technique; the old THUG2 widescreen mod used it (the PC port's README says to remove that mod).
+  common modding technique; the old THUG2 widescreen mod used it (PartyMod's README says to remove that mod).
   Only 1 export to forward.
 - **`binkw32.dll`**: already ships in the game folder. Would mean renaming the original and forwarding 14 exports.
 

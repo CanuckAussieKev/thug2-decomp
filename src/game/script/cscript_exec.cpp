@@ -40,6 +40,8 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/front/frontend_objects.h"
+#include "game/obj/object.h"
 #include "game/script/cache.h"
 #include "game/script/cscript.h"
 #include "game/script/names.h"
@@ -82,13 +84,13 @@ bool ComponentCallMemberFunction(Obj::CBaseComponent* component, CMemberFunction
     return reinterpret_cast<uint32_t(__thiscall*)(Obj::CBaseComponent*, CMemberFunctionEntry*, CStruct*, CScript*)>(
                vtable[11])(component, entry, params, script) != 0;
 }
-// 0x0045DB90: the object's component of `type` (its list at +0x100), or null.
+// The object's component of `type` (CCompositeObject::GetComponent).
 Obj::CBaseComponent* GetComponent(Obj::CObject* object, uint32_t type)
 {
-    return GameFunction<Obj::CBaseComponent*(__thiscall*)(Obj::CObject*, uint32_t)>(0x0045DB90)(object, type);
+    return static_cast<Obj::CCompositeObject*>(object)->GetComponent(type);
 }
-// 0x00460AD0: the object named `name` (the object tracker 0x006F0FC0, 0x00462120), or null.
-Obj::CObject* FindObject(uint32_t name) { return GameFunction<Obj::CObject*(__cdecl*)(uint32_t)>(0x00460AD0)(name); }
+// The object named `name` (Obj::FindObject: the object tracker's), or null.
+Obj::CObject* FindObject(uint32_t name) { return Obj::FindObject(name); }
 // 0x0044E4F0 on GameNet::Manager (0x007CCE14): called where a member function has no object to run on, its
 // result unused - what is left of a compiled-out assert.
 void NoObjectCheck() { GameFunction<bool(__thiscall*)(void*)>(0x0044E4F0)(GameVariable<void*>(0x007CCE14)); }
@@ -214,6 +216,11 @@ bool CScript::ExecuteCommand()
         auto function = reinterpret_cast<CFunction>(Read4Bytes(m_pc));
         m_pc += 4;
         ParseFunctionParams();
+        // Not original - the menu_backdrop feature (game/front/frontend_objects.h): Cleanup... put the front end's
+        // objects back first.
+        // Original behaviour: the C function is called at once; with menu_backdrop, before Cleanup /
+        // UnloadAllLevelGeometry / UnloadScene the front-end objects moved into LA are put back.
+        Front::FrontEndObjects::BeforeCFunction(reinterpret_cast<const void*>(function));
         return function(m_functionParams, this);
     }
     }
@@ -302,6 +309,10 @@ bool CScript::ExecuteCommand()
         return true;
     }
     case ESYMBOLTYPE_CFUNCTION:
+        // Not original - the menu_backdrop feature (as above).
+        // Original behaviour: the C function is called at once; with menu_backdrop, before Cleanup /
+        // UnloadAllLevelGeometry / UnloadScene the front-end objects moved into LA are put back.
+        Front::FrontEndObjects::BeforeCFunction(reinterpret_cast<const void*>(symbol->raw));
         return reinterpret_cast<CFunction>(symbol->raw)(m_functionParams, this);
     case ESYMBOLTYPE_MEMBERFUNCTION: {
         auto* entry = reinterpret_cast<CMemberFunctionEntry*>(symbol->raw);

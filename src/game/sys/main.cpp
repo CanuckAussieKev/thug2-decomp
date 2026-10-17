@@ -1,5 +1,5 @@
 // The game's main.
-// Contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md (the PC port's changes in it).
+// Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md (PartyMod's changes in it).
 
 #include "game/sys/main.h"
 
@@ -15,15 +15,22 @@
 #include "game/core/stubs.h"
 #include "game/file/async.h"
 #include "game/file/pre.h"
+#include "game/front/front_end.h"
+#include "game/front/level_editor.h"
 #include "game/mc/memcard.h"
 #include "game/mth/math.h"
 #include "game/mth/random.h"
+#include "game/net/net_manager.h"
+#include "game/obj/compositemgr.h"
+#include "game/obj/objman.h"
+#include "game/obj/tracker.h"
 #include "game/script/cache.h"
 #include "game/script/struct.h"
 #include "game/sio/device.h"
 #include "game/sys/mlp.h"
 #include "game/sys/pc_setup.h"
 #include "game/sys/timer.h"
+#include "game/script/node_manager.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -117,7 +124,7 @@ int __cdecl Main(int argc, char** argv)
         Mem::PopMemProfile();
 
         Mem::PushMemProfile("System Singletons");
-        Create(0x00463730);
+        Obj::CreateTracker(true);
         auto* mlp = reinterpret_cast<uint8_t*>(Mlp::CreateManager(true));
         uint8_t* mdl = Create(0x0044F6F0);
         auto* sio = reinterpret_cast<uint8_t*>(Sio::CreateManager(true));
@@ -127,6 +134,10 @@ int __cdecl Main(int argc, char** argv)
         Mem::PopMemProfile();
         GameFunction<void(__thiscall*)(void*, bool)>(0x0044E610)(GameVariable<void*>(0x00696D40), true); // (+0x10C)
         GameFunction<void(__cdecl*)()>(0x005A5E70)();
+        // Not original - the level editor (game/front/level_editor.h): its script commands (LevelEditor_Start...)
+        // registered after the game's own.
+        // Original behaviour: only the game's table (0x0067F3A0) and its member functions are registered.
+        Front::LevelEditor::RegisterScriptFunctions();
         GameFunction<void(__cdecl*)()>(0x005A5B20)();
 
         Mem::PushMemProfile("Game Singletons");
@@ -134,20 +145,20 @@ int __cdecl Main(int argc, char** argv)
         Script::CScriptCache* scriptCache = Script::CreateScriptCache(true);
         uint8_t* module4088E0 = Create(0x004088E0);
         Create(0x0047BA60);
-        Create(0x00455880);
-        Create(0x0045F7A0);
+        Net::CreateManager(true);
+        Obj::CreateCompositeObjectManager(true);
         GameFunction<void(__cdecl*)()>(0x004E4860)();
         Create(0x00589180);
         Create(0x00553DB0);
         Create(0x0057C0D0);
         Create(0x0057EED0);
         uint8_t* module5691A0 = Create(0x005691A0);
-        uint8_t* module54FF80 = Create(0x0054FF80);
+        auto* frontEnd = reinterpret_cast<uint8_t*>(Mdl::CreateFrontEnd(true));
         Create(0x0053F520);
         GameVariable<void*>(0x006FA7D0) = GameVariable<void*>(0x007CCE14); // (the network manager)
         uint8_t* module590160 = Create(0x00590160);
         Create(0x004ACAF0);
-        Create(0x0045D690);
+        SkateScript::CreateNodeManager(true);
         Create(0x00574540);
         Mem::PopMemProfile();
 
@@ -157,12 +168,12 @@ int __cdecl Main(int argc, char** argv)
         AddTask(mlp, 0x04, *reinterpret_cast<void**>(singleton44E7F0));
         RegisterModule(mdl, scriptCache);
         RegisterModule(mdl, module590160);
-        RegisterModule(mdl, module54FF80);
+        RegisterModule(mdl, frontEnd);
         RegisterModule(mdl, module5691A0);
         RegisterModule(mdl, asyncLoader);
         RegisterModule(mdl, module4088E0);
         StartModule(mdl, scriptCache);
-        StartModule(mdl, module54FF80);
+        StartModule(mdl, frontEnd);
         StartModule(mdl, module5691A0);
         StartModule(mdl, module590160);
         StartModule(mdl, asyncLoader);
@@ -175,14 +186,14 @@ int __cdecl Main(int argc, char** argv)
 
         Mem::PushMemProfile("MainLoop");
         MainLoop(mlp);
-        // PC port: the process ends here (FastExit, in place of the original's PopMemProfile() - the PC port's call
+        // Originally from PartyMod Fixes: the process ends here (FastExit, in place of the original's PopMemProfile() - PartyMod's call
         // at 0x004E2492). The
         // original went on to tear everything down and, unless quitting, start again from the top.
         FastExit();
 
         StopAllModules(mdl);
         UnregisterModule(mdl, module5691A0); // (the script cache isn't unregistered)
-        UnregisterModule(mdl, module54FF80);
+        UnregisterModule(mdl, frontEnd);
         UnregisterModule(mdl, module590160);
         UnregisterModule(mdl, asyncLoader);
         UnregisterModule(mdl, module4088E0);
@@ -190,18 +201,18 @@ int __cdecl Main(int argc, char** argv)
         RemoveAllTasks(mlp, 0x04);
         RemoveAllTasks(mlp, 0x7C);
         Release(0x00574910);
-        Release(0x0045D6E0);
+        SkateScript::ReleaseNodeManager();
         Release(0x004AACF0);
         Release(0x0058D290);
         Release(0x005395C0);
-        Release(0x0054EBE0);
+        Mdl::ReleaseFrontEnd();
         Release(0x00564C10);
         Release(0x0057FDB0);
         Release(0x0057C120);
         Release(0x00552F70);
         Release(0x005880E0);
-        Release(0x0045F1E0);
-        Release(0x004558D0);
+        Obj::ReleaseCompositeObjectManager();
+        Net::ReleaseManager();
         Release(0x0047C6C0);
         Release(0x00407980);
         Script::ReleaseScriptCache();
@@ -211,7 +222,7 @@ int __cdecl Main(int argc, char** argv)
         Sio::ReleaseManager();
         Release(0x0044F740);
         Mlp::ReleaseManager();
-        Release(0x00461FA0);
+        Obj::ReleaseTracker();
         Pre::DestroyManager();
         Mem::PopMemProfile(); // (Everything)
         Stubs::IgnoreArgument(0x10);

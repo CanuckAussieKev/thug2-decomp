@@ -1,10 +1,10 @@
 #pragma once
 
-// Contains MIT-licensed code (c) 2024 PARTYMANX - see THIRD_PARTY_NOTICES.md
+// Contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md
 
 namespace Sys {
 
-// The PC port's start-up, at the start of WinMain (before the command line is read): the settings file
+// PartyMod's start-up, at the start of WinMain (before the command line is read): the settings file
 // (thug2-decomp.ini) and its log - with [Miscellaneous] Debug=1 a console too -, the patched scripts, the SDL event
 // pump, the music shuffle's random numbers seeded from the time (the C runtime's rand, Pcm::ShuffleRandom), the
 // online service's host names, the button glyph settings and the graphics settings. The window
