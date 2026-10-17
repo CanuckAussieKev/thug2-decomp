@@ -28,34 +28,23 @@ uint32_t& References() { return GameVariable<uint32_t>(0x006F0FBC); }
 
 // The components of each type (index = the type's index in m_components), linked through their +0x14.
 CBaseComponent*& ComponentList(uint32_t index) { return GameVariable<CBaseComponent*>(0x006F0DB8 + 4 * index); }
-// A component's type (+0x04) and its link to the next of its type (+0x14).
-uint32_t TypeOf(CBaseComponent* component) { return reinterpret_cast<uint32_t*>(component)[1]; }
-CBaseComponent*& NextOfType(CBaseComponent* component) { return reinterpret_cast<CBaseComponent**>(component)[5]; }
+// A component's type and its link to the next of its type.
+uint32_t TypeOf(CBaseComponent* component) { return component->m_type; }
+CBaseComponent*& NextOfType(CBaseComponent* component) { return component->mp_nextOfType; }
 
-// A composite object's +0x104 flags.
-uint32_t& CompositeFlags(CCompositeObject* object)
-{
-    return *reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(object) + 0x104);
-}
+// A composite object's flags.
+uint32_t& CompositeFlags(CCompositeObject* object) { return object->m_compositeFlags; }
 
-// CCompositeObject's code (wt/cobj's range, not rewritten here).
-CCompositeObject* ConstructCompositeObject(void* memory) // -> 0x0045E510 (wt/cobj)
+// CCompositeObject's code (composite.cpp).
+CCompositeObject* ConstructCompositeObject(void* memory)
 {
-    return GameFunction<CCompositeObject*(__thiscall*)(void*)>(0x0045E510)(memory);
+    return static_cast<CCompositeObject*>(memory)->Construct();
 }
-void UpdateCompositeObject(CCompositeObject* object) // -> 0x0045D920 (wt/cobj)
+void UpdateCompositeObject(CCompositeObject* object) { object->Update(); }
+void InitFromStructure(CCompositeObject* object, Script::CStruct* nodeData) { object->InitFromStructure(nodeData); }
+void CreateComponentsFromArray(CCompositeObject* object, Script::CArray* components, Script::CStruct* nodeData)
 {
-    GameFunction<void(__thiscall*)(CCompositeObject*)>(0x0045D920)(object);
-}
-void InitFromStructure(CCompositeObject* object, Script::CStruct* nodeData) // -> 0x0045DAD0 (wt/cobj)
-{
-    GameFunction<void(__thiscall*)(CCompositeObject*, Script::CStruct*)>(0x0045DAD0)(object, nodeData);
-}
-void CreateComponentsFromArray(CCompositeObject* object, Script::CArray* components,
-                               Script::CStruct* nodeData) // -> 0x0045DA90 (wt/cobj)
-{
-    GameFunction<void(__thiscall*)(CCompositeObject*, Script::CArray*, Script::CStruct*)>(0x0045DA90)(
-        object, components, nodeData);
+    object->CreateComponentsFromArray(components, nodeData);
 }
 void Finalize(CCompositeObject* object) // its vtable +0x20
 {

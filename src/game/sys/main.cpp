@@ -28,6 +28,7 @@
 #include "game/sys/mlp.h"
 #include "game/sys/pc_setup.h"
 #include "game/sys/timer.h"
+#include "game/script/node_manager.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -151,7 +152,7 @@ int __cdecl Main(int argc, char** argv)
         GameVariable<void*>(0x006FA7D0) = GameVariable<void*>(0x007CCE14); // (the network manager)
         uint8_t* module590160 = Create(0x00590160);
         Create(0x004ACAF0);
-        Create(0x0045D690);
+        SkateScript::CreateNodeManager(true);
         Create(0x00574540);
         Mem::PopMemProfile();
 
@@ -194,7 +195,7 @@ int __cdecl Main(int argc, char** argv)
         RemoveAllTasks(mlp, 0x04);
         RemoveAllTasks(mlp, 0x7C);
         Release(0x00574910);
-        Release(0x0045D6E0);
+        SkateScript::ReleaseNodeManager();
         Release(0x004AACF0);
         Release(0x0058D290);
         Release(0x005395C0);

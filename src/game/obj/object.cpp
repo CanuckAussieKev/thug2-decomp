@@ -618,27 +618,6 @@ void DestroyIfUnlocked(CObject* object, void* /*data*/)
         object->VirtualDestroy(1);
 }
 
-namespace {
-// What GetComponent sees of a component.
-struct ComponentLink {
-    void** m_vtable;
-    uint32_t m_type;
-    uint32_t unknown8[2];
-    CBaseComponent* mp_next;
-};
-} // namespace
-
-// 0x0045DB90
-CBaseComponent* CCompositeObject::GetComponent(uint32_t type)
-{
-    for (CBaseComponent* component = mp_components; component;
-         component = reinterpret_cast<ComponentLink*>(component)->mp_next) {
-        if (reinterpret_cast<ComponentLink*>(component)->m_type == type)
-            return component;
-    }
-    return nullptr;
-}
-
 } // namespace Obj
 
 REPLACE_SOURCE_ONLY(0x00460920, &Obj::CObjectRef::DestroyBody); // a jump to 0x00463870
@@ -651,7 +630,8 @@ REPLACE_SOURCE_ONLY(0x00420060, &Obj::CObject::DestroyBody); // a jump to 0x0046
 REPLACE(0x00461900, &Obj::CObject::Destroy);
 REPLACE(0x00460930, &Obj::CObject::DestroyIfUnlocked);
 REPLACE(0x00461710, &Obj::CObject::SetProperties);
-REPLACE(0x004608F0, &Obj::CObject::CallMemberFunction);
+REPLACE(0x004608F0, static_cast<bool (Obj::CObject::*)(uint32_t, Script::CStruct*, Script::CScript*)>(
+                         &Obj::CObject::CallMemberFunction));
 REPLACE(0x00461140, &Obj::CObject::PassEventToScript);
 REPLACE(0x00460A50, &Obj::CObject::MarkAsDead);
 REPLACE(0x00461290, &Obj::CObject::CreateScriptIfNeeded);
@@ -696,4 +676,3 @@ REPLACE(0x004618A0, &Obj::CObject::Obj_SwitchScript);
 REPLACE(0x00460AD0, Obj::FindObject);
 REPLACE(0x00460AC0, Obj::Unlock);
 REPLACE(0x00460AA0, Obj::DestroyIfUnlocked);
-REPLACE(0x0045DB90, &Obj::CCompositeObject::GetComponent);

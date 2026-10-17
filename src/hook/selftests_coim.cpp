@@ -217,14 +217,14 @@ void InstallStandIns(StandIns& s)
     record({0x00461DF0, AddressOf(&Obj::CGeneralManager::DestroyBody)}, 0, 0x1DF0, 0, true, 0);
     // CObject::SetType; CCompositeObject's constructor, update and set-up (wt/cobj).
     record({0x00461970, AddressOf(&CObject::SetType)}, 4, 0x1970, 1, true, 0);
-    s.At({0x0045E510}, 0, [](Regs& r) {
+    s.At({0x0045E510, AddressOf(&Obj::CCompositeObject::Construct)}, 0, [](Regs& r) {
         Rec(0xE510, {r.ecx});
         *reinterpret_cast<void***>(r.ecx) = g_coim_objectVtable;
         return r.ecx;
     });
-    s.At({0x0045D920}, 0, OnUpdate);
-    record({0x0045DAD0}, 4, 0xDAD0, 1, true, 0);
-    record({0x0045DA90}, 8, 0xDA90, 2, true, 0);
+    s.At({0x0045D920, AddressOf(&Obj::CCompositeObject::Update)}, 0, OnUpdate);
+    record({0x0045DAD0, AddressOf(&Obj::CCompositeObject::InitFromStructure)}, 4, 0xDAD0, 1, true, 0);
+    record({0x0045DA90, AddressOf(&Obj::CCompositeObject::CreateComponentsFromArray)}, 8, 0xDA90, 2, true, 0);
     // The task system.
     record({0x00406890}, 4, 0x6890, 1, true, 0xEC);
     record({0x00406C90}, 4, 0x6C90, 1, true, 0);

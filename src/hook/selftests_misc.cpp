@@ -37,6 +37,7 @@
 #include "game/sys/mlp.h"
 #include "game/sys/pc_setup.h"
 #include "game/sys/timer.h"
+#include "game/script/node_manager.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -575,7 +576,7 @@ void TestMain()
             {0x00476040, AddressOf(&Script::CreateScriptCache)}, {0x004088E0, 0},
             {0x0047BA60, 0}, {0x00455880, 0}, {0x0045F7A0, AddressOf(&Obj::CreateCompositeObjectManager)}, {0x00589180, 0}, {0x00553DB0, 0}, {0x0057C0D0, 0},
             {0x0057EED0, 0}, {0x005691A0, 0}, {0x0054FF80, AddressOf(&Mdl::CreateFrontEnd)}, {0x0053F520, 0}, {0x00590160, 0}, {0x004ACAF0, 0},
-            {0x0045D690, 0}, {0x00574540, 0}};
+            {0x0045D690, AddressOf(&SkateScript::CreateNodeManager)}, {0x00574540, 0}};
         int index = 0;
         for (const Create& c : creates) {
             Handler handler = [index](Regs& r) {
@@ -589,7 +590,7 @@ void TestMain()
             ++index;
         }
         const Create releases[] = {
-            {0x00574910, 0}, {0x0045D6E0, 0}, {0x004AACF0, 0}, {0x0058D290, 0}, {0x005395C0, 0}, {0x0054EBE0, AddressOf(&Mdl::ReleaseFrontEnd)},
+            {0x00574910, 0}, {0x0045D6E0, AddressOf(&SkateScript::ReleaseNodeManager)}, {0x004AACF0, 0}, {0x0058D290, 0}, {0x005395C0, 0}, {0x0054EBE0, AddressOf(&Mdl::ReleaseFrontEnd)},
             {0x00564C10, 0}, {0x0057FDB0, 0}, {0x0057C120, 0}, {0x00552F70, 0}, {0x005880E0, 0}, {0x0045F1E0, AddressOf(&Obj::ReleaseCompositeObjectManager)},
             {0x004558D0, 0}, {0x0047C6C0, 0}, {0x00407980, 0}, {0x00475A00, AddressOf(&Script::ReleaseScriptCache)},
             {0x005B6620, AddressOf(&File::DestroyAsyncLoaderModule)}, {0x0044E6B0, 0},

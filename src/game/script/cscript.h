@@ -108,11 +108,13 @@ struct SStructScript {
 };
 static_assert(sizeof(SStructScript) == 8, "allocated as 8 bytes by 0x0048B200");
 
-// A member function's table entry (the value of a ESYMBOLTYPE_MEMBERFUNCTION symbol, token 0x46).
+// A member function's table entry (the value of a ESYMBOLTYPE_MEMBERFUNCTION symbol, token 0x46), 0x18 bytes: the
+// tables at 0x00683550 (CObject's, filled in by 0x00642940) and 0x00683268 (CCompositeObject's, 0x006425D0).
 struct CMemberFunctionEntry {
     uint32_t mName;
     uint32_t mComponentType; // the object component that runs it; 0x57525413 / 0x0ADA4E74: the object itself
-    // +0x08: the member function, as a 16-byte (virtual-inheritance) member function pointer.
+    // +0x08: the member function, as a 16-byte (virtual-inheritance) member function pointer, `bool (Class::*)(
+    // CStruct* params, CScript* script)`; null: the object looks the name up (CObject::CallMemberFunction 0x0045D850).
     void* mCode;
     int mThisAdjustment;      // +0x0C
     int mVirtualBaseOffsets[2]; // +0x10 (unused by single-inheritance classes)

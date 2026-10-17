@@ -52,8 +52,8 @@ uint32_t& ObjectId(CObject* object) { return object->m_id; }
 // The tracker's aliases of it (compared as a signed count by the original).
 bool HasAliases(const CObject* object) { return static_cast<int>(object->m_aliasCount) > 0; }
 bool HasPosition(const CObject* object) { return (object->m_objectFlags & OBJECT_FLAG_HAS_POSITION) != 0; }
-// The position: CCompositeObject's first field (+0x4C, just after CObject's).
-const float* Position(CObject* object) { return reinterpret_cast<const float*>(object + 1); }
+// The position: CCompositeObject's m_pos (+0x4C, just after CObject's; read on any object).
+const float* Position(CObject* object) { return &static_cast<CCompositeObject*>(object)->m_pos.x; }
 // Its vtable +0x04: take the properties in `params` (SetObjectProps). +0x14: an event targeted at it.
 void SetProperties(CObject* object, Script::CStruct* params)
 {

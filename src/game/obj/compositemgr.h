@@ -20,8 +20,7 @@ using ComponentCreateFunction = CBaseComponent*(__cdecl*)();
 // Called once when the type is registered (its member functions for scripts...).
 using ComponentRegisterFunction = void(__cdecl*)();
 
-// CCompositeObject's +0x104 bits.
-constexpr uint32_t COMPOSITE_FLAG_PAUSED = 0x1; // its update does nothing (Pause: the game paused, PauseObjects)
+// (CCompositeObject's +0x104 bits: COMPOSITE_FLAG_* in object.h.)
 
 class CCompositeObjectManager : public CGeneralManager {
 public:

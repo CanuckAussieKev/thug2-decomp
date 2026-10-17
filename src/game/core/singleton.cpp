@@ -13,6 +13,7 @@
 #include "game/obj/objman.h"
 #include "game/obj/tracker.h"
 #include "game/script/cache.h"
+#include "game/script/node_manager.h"
 #include "game/sio/device.h"
 #include "game/sys/mlp.h"
 #include "hook/game.h"
@@ -107,7 +108,13 @@ using Singleton5691A0 = GameSingleton<0x005691A0, 0x00564C10, 0x0064AFE8>;
 using Singleton53F520 = GameSingleton<0x0053F520, 0x005395C0, 0x0064AFF0>;
 using Singleton590160 = GameSingleton<0x00590160, 0x0058D290, 0x0064AFF4>;
 using Singleton4ACAF0 = GameSingleton<0x004ACAF0, 0x004AACF0, 0x0064AFF8>;
-using Singleton45D690 = GameSingleton<0x0045D690, 0x0045D6E0, 0x0064AFFC>;
+struct NodeManager {
+    using Type = SkateScript::CNodeManager;
+    static constexpr uint32_t kVtable = 0x0064AFFC;
+    static Type* Create(bool create) { return SkateScript::CreateNodeManager(create); }
+    static void Release() { SkateScript::ReleaseNodeManager(); }
+};
+using Singleton45D690 = NodeManager;
 using Singleton574540 = GameSingleton<0x00574540, 0x00574910, 0x0064B000>;
 
 } // namespace
