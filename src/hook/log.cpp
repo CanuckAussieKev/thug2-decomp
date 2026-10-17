@@ -176,6 +176,14 @@ LONG CALLBACK CrashLogger(EXCEPTION_POINTERS* info)
         static_cast<unsigned>(c->Eax), static_cast<unsigned>(c->Ebx), static_cast<unsigned>(c->Ecx),
         static_cast<unsigned>(c->Edx), static_cast<unsigned>(c->Esi), static_cast<unsigned>(c->Edi),
         static_cast<unsigned>(c->Ebp), static_cast<unsigned>(c->Esp));
+    // The top of the stack as it is (arguments, saved registers, locals).
+    for (uintptr_t slot = c->Esp; slot < c->Esp + 0x80; slot += 0x20) {
+        if (!Readable(slot, 0x20, false))
+            break;
+        const uint32_t* w = reinterpret_cast<const uint32_t*>(slot);
+        Log("  [esp+0x%02X] %08X %08X %08X %08X %08X %08X %08X %08X", static_cast<unsigned>(slot - c->Esp), w[0], w[1],
+            w[2], w[3], w[4], w[5], w[6], w[7]);
+    }
     Log("  return addresses on the stack (newest first):");
     int found = 0;
     for (uintptr_t slot = c->Esp; found < 24 && slot < c->Esp + 0x2000; slot += 4) {

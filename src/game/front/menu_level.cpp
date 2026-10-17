@@ -5,9 +5,11 @@
 
 #include <windows.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <string>
+#include <vector>
 
 #include "game/front/menu_backdrop.h"
 #include "game/gfx/camera.h"
@@ -84,6 +86,12 @@ bool OverlayPath(const char* name, char (&path)[260])
     if (attributes == INVALID_FILE_ATTRIBUTES || (attributes & FILE_ATTRIBUTE_DIRECTORY))
         return false;
     std::memcpy(path, full.c_str(), full.size() + 1);
+    // Each file the overlay serves, logged the first time (and how the game asked for it).
+    static std::vector<std::string> logged;
+    if (std::find(logged.begin(), logged.end(), full) == logged.end()) {
+        logged.push_back(full);
+        Log("menu_level: %s read from the overlay (asked for as %s)", relative, name);
+    }
     return true;
 }
 
