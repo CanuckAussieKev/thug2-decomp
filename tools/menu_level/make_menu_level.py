@@ -532,14 +532,11 @@ def main():
         write(levels_with_shop, r"scripts\game\Levels.qb")
         write(skateshop_nodes(shop), r"levels\skateshop\skateshop.qb")
         write(add_skateshop_sign(select), r"scripts\game\menu\gamemenu_levelselect.qb")
-<<<<<<< HEAD
         testlevel = decompile(prx_file(os.path.join(pre, "TestLevel_scripts.prx"), r"levels\testlevel\testlevel.qb"),
                               "TestLevel.qb")
         write(testlevel_nodes(testlevel), r"levels\TestLevel\TestLevel.qb")
-=======
         # Always: the pause menu's LEVEL EDITOR (the DLL's [features] level_editor decides whether it shows).
         write(add_level_editor(pause), r"scripts\game\menu\gamemenu_pause.qb")
->>>>>>> worktree-agent-ae56b46d5b1633ebf
 
         # menu_level: the front end in LA.
         write(edit_levels(levels_with_shop, yaw, offset), r"menu_level\scripts\game\Levels.qb")
