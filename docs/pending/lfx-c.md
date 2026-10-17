@@ -54,3 +54,22 @@ Records for the lead to fold into docs/decomp-progress.md.
     limits, the pools / Init / ShutDown for both levels. 42 deliberate bugs caught (7 after strengthening);
     1 equivalent (fragmentation `<` vs `<=`: the other two conditions exclude equality).
   - tools/ghidra/audit_game_function_calls.py: Ed::GridDims (6 bytes) counts 8 on the stack.
+- [x] Batch lfx-c 3 (NOT run in the game yet): the park editor's manager and cursor, first part -
+  src/game/park/park_editor.cpp (8 functions, all REPLACE). Ed::GridDims (x, signed y, z, width, height,
+  length; 6 bytes, 8 on the stack), the grid of 58 x 58 16-byte cells at manager +0x352C (+0 the floor height),
+  the piece sets (0x154 bytes from +0x1076C: name checksum, name, 40 {type, text name}, count, selected, visible,
+  clipboard set).
+  - CCursor::Destroy 0x0059C900 (static: drops its piece, ~CCursor 0x005988A0, freed), ChangePieceInSet
+    0x0059C950 (wraps; clipboard sets select a clipboard), ChangeSet 0x0059C9B0 (the next visible set; the
+    menu number = visible sets before it; a clipboard set walks to its clipboard, drops the piece, mode 5).
+  - CParkManager::RebuildPark 0x0059CB10 (new park 0x1A4E0EF9 or not loaded: empty grid, "unnamed park";
+    else from the saved map; flag 0x0067F398 off around the floor's rebuild), RebuildArea 0x0059CC70 (with
+    checkMemory: false when the park editor singleton 0x00590160 says it's full), DestroyMetasInArea 0x0059CD20
+    (not the floor's, optionally not restart points / only wholly inside / not locked; the scene updated over
+    the area: corner + size floats), ClearArea 0x0059CEC0 (flattens: pieces moved down by their height, the
+    floor set to 0 under them and in the area), ChangeFloorHeight 0x0059D080 (undone if out of memory).
+  - Test: TestParkEditor (src/hook/selftests_lfxc2.cpp, Early): 12 variants of manager / cursor / pieces /
+    clipboards, every call stood in for. 39 deliberate bugs caught (none needed strengthening); 1 equivalent
+    (the float sum of the corner and size: rounding through double then float is the same as float addition).
+  - (A mutation run once showed "SELFTEST FAIL: PC async handle (synchronous I/O)" - not lfx-c's test; it
+    passed on rerun: probably timing-dependent.)

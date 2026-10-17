@@ -42,7 +42,6 @@ Mem::PoolPair& VectorPools() { return GameVariable<Mem::PoolPair>(0x006F3654); }
 Mem::PoolPair& ArrayPools() { return GameVariable<Mem::PoolPair>(0x006F22B4); }
 // The park editor's: CClipboard, CClipboardEntry, CMapListNode. The second word's bytes say whether each pool
 // was made here (and is deleted by ShutDown).
-Mem::PoolPair& ClipboardPools() { return GameVariable<Mem::PoolPair>(0x007CE5B4); }
 Mem::PoolPair& ClipboardEntryPools() { return GameVariable<Mem::PoolPair>(0x007CE5C4); }
 Mem::PoolPair& MapListNodePools() { return GameVariable<Mem::PoolPair>(0x007CE5F0); }
 uint8_t& PoolMadeHere(Mem::PoolPair& pair) { return reinterpret_cast<uint8_t*>(&pair.unknown4)[pair.current]; }
@@ -101,6 +100,7 @@ float PoolUsage(Mem::PoolPair& pair, const char* baseName, const int& items)
 
 } // namespace
 
+Mem::PoolPair& ClipboardPools() { return GameVariable<Mem::PoolPair>(0x007CE5B4); }
 MemoryStats& Stats() { return GameVariable<MemoryStats>(0x007CE618); }
 Mem::Region*& ParkRegion() { return GameVariable<Mem::Region*>(0x007CE684); }
 Mem::Heap*& ParkHeap() { return GameVariable<Mem::Heap*>(0x007CE688); }

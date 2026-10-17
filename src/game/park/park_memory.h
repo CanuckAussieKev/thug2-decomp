@@ -50,6 +50,7 @@ static_assert(sizeof(MemoryStats) == 0x6C && offsetof(MemoryStats, maxUsage) == 
               "layout must match the original");
 
 MemoryStats& Stats();            // 0x007CE618
+Mem::PoolPair& ClipboardPools(); // 0x007CE5B4 (CClipboard's CPoolable pools)
 Mem::Region*& ParkRegion();      // 0x007CE684
 Mem::Heap*& ParkHeap();          // 0x007CE688
 int& DmaPieces();                // 0x007CE690 the DMA pieces the park's pieces use
