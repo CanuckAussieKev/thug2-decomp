@@ -14,6 +14,7 @@
 #include "game/core/manager.h"
 #include "game/core/pool.h"
 #include "game/obj/event.h"
+#include "game/obj/tracker.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
@@ -129,7 +130,7 @@ void StandInScriptMethods(StandIns& s)
     });
     s.At({0x0045FA60, AddressOf(&Obj::CEventHandlerTable::UnregisterWithTracker)}, 4, [](Regs& r) { Record({0xFA60, Id(r.ecx), Id(r.args[0])}); return 0u; });
     s.At({0x0045FE60, AddressOf(static_cast<void (Obj::CEventHandlerTable::*)(uint32_t)>(&Obj::CEventHandlerTable::RemoveGroup))}, 4, [](Regs& r) { Record({0xFE60, Id(r.ecx), r.args[0]}); return 0u; });
-    s.At({0x00462B90}, 4, [](Regs& r) { Record({0x2B90, Id(r.ecx), Id(r.args[0])}); return 0u; });
+    s.At({0x00462B90, AddressOf(&Obj::CTracker::ForgetScript)}, 4, [](Regs& r) { Record({0x2B90, Id(r.ecx), Id(r.args[0])}); return 0u; });
     // Objects: vtable +0x0C (a member function by name), +0x1C (whether its scripts run).
     for (void*& entry : g_objectVtable)
         entry = nullptr;

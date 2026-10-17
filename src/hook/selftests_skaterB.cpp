@@ -14,6 +14,7 @@
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "game/net/chat.h"
+#include "game/obj/tracker.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/sio/sdl_input.h"
@@ -440,6 +441,8 @@ void TestKeyboardTask()
         std::memcpy(s.bytes.data(), reinterpret_cast<void*>(s.address), s.size);
     }
     Patch exists(0x00462340, Jump(0x00462340, reinterpret_cast<void*>(&StandInObjectExists)));
+    auto ourObjectExists = reinterpret_cast<uint32_t>(CodeAddress(&Obj::CFunc_ObjectExists));
+    Patch existsOurs(ourObjectExists, Jump(ourObjectExists, reinterpret_cast<void*>(&StandInObjectExists)));
     Patch run(0x00475790, Jump(0x00475790, reinterpret_cast<void*>(&StandInRunScript)));
     // (the chat code calls ours directly)
     auto ourRunScript = reinterpret_cast<uint32_t>(

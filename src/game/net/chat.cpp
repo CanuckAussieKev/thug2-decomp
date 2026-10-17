@@ -9,6 +9,7 @@
 #include "game/core/mem.h"
 #include "game/core/pool.h"
 #include "game/core/crc.h"
+#include "game/obj/tracker.h"
 #include "game/script/cscript.h"
 #include "game/script/params.h"
 #include "game/script/struct.h"
@@ -167,11 +168,8 @@ constexpr uint32_t kTauntScript = 0x2C43B5BA;
 constexpr uint32_t kTauntName = 0xB53D0E0F;
 uint32_t& LastTauntTime() { return GameVariable<uint32_t>(0x007CCE20); }
 
-// The script command ObjectExists (0x00462340) with these parameters.
-bool ObjectExists(Script::CStruct* params)
-{
-    return GameFunction<bool(__cdecl*)(Script::CStruct*, void*)>(0x00462340)(params, nullptr);
-}
+// The script command ObjectExists with these parameters.
+bool ObjectExists(Script::CStruct* params) { return Obj::CFunc_ObjectExists(params, nullptr); }
 void RunScriptWith(uint32_t script, Script::CStruct* params)
 {
     Script::RunScript(script, params, nullptr, false, nullptr);
