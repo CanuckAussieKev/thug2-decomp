@@ -320,6 +320,13 @@ def add_skateshop_sign(text):
     sign = ('%s{text="SKATE SHOP" level_num=%d num_goals=0 flag=LEVEL_UNLOCKED_TR level=Load_SkateShopLevel '
             'sign_texture=sign_training dot_pos=(89.0, 82.0)} \n' % (training.group(1), SKATESHOP_SIGN_LEVEL))
     text = text[:training.end()] + sign + text[training.end():]
+    # The developers' TestLevel (all its data ships: scene, collision, peds, scripts) in the list too: its entry was
+    # DEVKIT_ONLY (dropped: CD is always true) and had no sign.
+    test = re.search(r'\{text="TestLevel" level_num=21 [^\n]*DEVKIT_ONLY[^\n]*\}', text)
+    if not test:
+        sys.exit("gamemenu_levelselect.qb: the TestLevel entry not found")
+    text = text.replace(test.group(0), '{text="TEST LEVEL" level_num=21 num_goals=0 flag=LEVEL_UNLOCKED_TR '
+                        'level=load_TestLevel sign_texture=sign_training dot_pos=(89.0, 82.0)}', 1)
     # The info panel's gaps and high score: level 21 has no records (GetLevelGapTotals reads through a null for it):
     # skipped, as the created park's are.
     for script in ("level_select_info_add_gaps", "level_select_info_add_highscore"):
