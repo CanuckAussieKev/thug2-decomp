@@ -191,8 +191,9 @@ void TestSpriteDraw()
 }
 
 // The widescreen front end's rule: on 1920x1080 (layout scale 2.25, offset 240 / 36), an upright sprite's edge at
-// or past the layout's left / right edge goes to the screen's edge; with the setting off or in a level, and for a
-// sprite turned by an angle that isn't a quarter turn, nothing changes. Worked-out x of the four corners (top
+// or past the layout's left / right edge goes to the screen's edge (if the sprite overlaps the layout); with the
+// setting off or in a level, for a sprite wholly outside the layout, and for a sprite turned by an angle that isn't
+// a quarter turn, nothing changes. Worked-out x of the four corners (top
 // left, bottom left, top right, bottom right).
 void TestSpriteWidescreenEdges()
 {
@@ -250,6 +251,15 @@ void TestSpriteWidescreenEdges()
         {true, false, 5.0f, 100.0f, 3.14259f, {251.0f, 251.0f, 0.0f, 0.0f}},
         {false, false, 5.0f, 100.0f, 3.14259f, {251.0f, 251.0f, 26.0f, 26.0f}},
         {true, true, 5.0f, 100.0f, 3.14259f, {251.0f, 251.0f, 26.0f, 26.0f}},
+        // wholly outside the layout (parked off-screen, a band's end strip): drawn where it is
+        {true, false, -100.0f, 50.0f, 0.0f, {15.0f, 15.0f, 127.5f, 127.5f}},
+        {true, false, -50.0f, 50.0f, 0.0f, {127.5f, 127.5f, 240.0f, 240.0f}}, // (right edge exactly at 0)
+        {true, false, 650.0f, 50.0f, 0.0f, {1702.5f, 1702.5f, 1815.0f, 1815.0f}},
+        {true, false, 640.0f, 50.0f, 0.0f, {1680.0f, 1680.0f, 1792.5f, 1792.5f}}, // (left edge exactly at 640)
+        {true, false, -50.0f, 100.0f, 3.14159274f, {127.0f, 127.0f, -97.0f, -97.0f}},     // (-150..-50)
+        {true, false, -1.0f, 100.0f, 3.14159274f, {237.0f, 237.0f, 12.0f, 12.0f}},        // (-101..-1)
+        {true, false, 800.0f, 100.0f, 3.14159274f, {2040.0f, 2040.0f, 1815.0f, 1815.0f}}, // (700..800)
+        {true, false, 740.0f, 100.0f, 3.14159274f, {1905.0f, 1905.0f, 1680.0f, 1680.0f}}, // (640..740)
     };
     bool ok = true;
     std::vector<uint32_t> tilted[2];
