@@ -1917,8 +1917,9 @@ belong with the CScript batch.
       kept in SetButtonEventMappings' `null` handling and the Space key's leaked params. The PC port's UIControls
       setting isn't read by any of this. Left: the front end's destructor 0x54EE70, v_start_cb 0x54EEA0, v_stop_cb
       0x54EF30, the auto-repeat 0x54ECE0, Release 0x54EBE0.
-- [ ] Next: run batches 75-78 in the game (NOT run yet; every event and object goes through them - bisect by file
-      in thug2-decomp.ini: event.cpp, tracker.cpp, object.cpp, objman.cpp, front_end.cpp). Then the gaps they left:
+- [x] Batches 75-78 tested in the game (2026-10-17, by the user): game runs; 1028 of 1028 replacements installed
+      (35 source only), early 116 / late 17 / engine-started 2 self-tests pass, shadow checks no mismatches.
+- [ ] Next: the gaps batches 75-78 left:
       CCompositeObjectInstanceMgr 0x45EFD0-0x45F7A0 (incl. the object update walk 0x45F4A0 and 0x45F5D0, which the
       front end's PauseGame calls); CCompositeObject 0x45D050-0x45EFD0 (incl. its update 0x45D920 - who runs it
       relative to UpdateSpawnedScripts is docs/script-runtime.md section 13's first question - and 0x45D850, the
