@@ -9,6 +9,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/core/pool.h"
+#include "game/obj/event.h"
 #include "game/obj/tracker.h"
 #include "game/script/cache.h"
 #include "game/script/parse.h"
@@ -36,25 +37,6 @@ void FreeStruct(CStruct* structure)
     structure->Clear();
     DeleteStruct(structure);
 }
-
-
-// Not rewritten yet.
-// The event handler table: forget `script` (its handlers' references to it), and handle an event of `type`.
-void ForgetScript(Obj::CEventHandlerTable* table, CScript* script)
-{
-    GameFunction<void(__thiscall*)(Obj::CEventHandlerTable*, CScript*)>(0x0045FA60)(table, script);
-}
-void PassEvent(Obj::CEventHandlerTable* table, uint32_t type)
-{
-    GameFunction<void(__thiscall*)(Obj::CEventHandlerTable*, uint32_t)>(0x0045FE60)(table, type);
-}
-// The event handler table's destructor (frees every handler's parameters, then its array).
-void DestroyEventHandlerTable(Obj::CEventHandlerTable* table)
-{
-    GameFunction<void(__thiscall*)(Obj::CEventHandlerTable*)>(0x0045FB70)(table);
-}
-// The event a stopped script sends its own event handler table (0x8B713E0E).
-constexpr uint32_t kScriptStoppedEvent = 0x8B713E0E;
 
 } // namespace
 
@@ -100,12 +82,11 @@ void CScript::Destroy()
 
     ForgetStoredRandomsOf(reinterpret_cast<uint32_t>(this));
     if (Obj::CEventHandlerTable* table = m_eventHandlers) {
-        auto* bytes = reinterpret_cast<uint8_t*>(table);
-        if (*reinterpret_cast<uint32_t*>(bytes + 0x0C)) {
-            // Its handlers are being run: it is marked dead and freed afterwards.
-            bytes[0x08] = 0;
+        if (table->m_inUse) {
+            // Its handlers are being run: it is marked dead and freed afterwards (by PassEvent).
+            table->m_alive = false;
         } else {
-            DestroyEventHandlerTable(table);
+            table->Destroy();
             Mem::Manager::Get()->Free(table);
         }
     }
@@ -187,8 +168,8 @@ void CScript::RunOnExitScripts()
 void CScript::ReportStopped()
 {
     if (m_eventHandlers) {
-        ForgetScript(m_eventHandlers, this);
-        PassEvent(m_eventHandlers, kScriptStoppedEvent);
+        m_eventHandlers->UnregisterWithTracker(this);
+        m_eventHandlers->RemoveGroup(Obj::kAllGroups);
     }
     if (m_spawnFlags & SCRIPT_FLAG_TRACKER_BLOCKED)
         Obj::Tracker()->ForgetScript(this);

@@ -537,12 +537,16 @@ void TestTracker()
         call(0x00462B90, &CTracker::ForgetScript, ScriptAt(6)); // (an empty table)
 
         // --- event listeners out: the middle one, the first, one that isn't there, the last.
-        call(0x00462000, &CTracker::RemoveEventListener, ListenerAt(1));
-        call(0x00462000, &CTracker::RemoveEventListener, ListenerAt(0));
-        call(0x00462000, &CTracker::RemoveEventListener, ListenerAt(1));
-        call(0x00462000, &CTracker::RemoveEventListener, ListenerAt(2));
+        auto removeListener = [&](int i) {
+            call(0x00462000, &CTracker::RemoveEventListener, ListenerAt(i));
+            Rec(0x2000, {reinterpret_cast<uint32_t>(t->mp_eventListeners)});
+        };
+        removeListener(1);
+        removeListener(0);
+        removeListener(1);
+        removeListener(2);
         ListenerWords(2)[5] = 1;
-        call(0x00462000, &CTracker::RemoveEventListener, ListenerAt(2));
+        removeListener(2);
 
         // --- the log: entries by others, printing, and the ring wrapping.
         uint32_t fakeEvent[5] = {0xE1, 0xE2, 0xE3, 0, 0};
@@ -563,6 +567,13 @@ void TestTracker()
         call(0x00462B70, &CTracker::LogFrame);
         call(0x00462B70, &CTracker::LogFrame);
         print(true, 0x400);
+        // A frame entry given a type (none of the game's calls does that).
+        call(0x00462B40, &CTracker::LogRead, event, 1u, 0u);
+        if (original)
+            Original<void(__thiscall*)(Obj::CEventLog*, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, int)>(
+                0x004627C0)(&t->m_log, 5, 6, 7, 8, 9, Obj::CEventLog::FRAME);
+        else
+            t->m_log.AddEntry(5, 6, 7, 8, 9, Obj::CEventLog::FRAME);
 
         // --- the script commands.
         const uint32_t kTypeName = 0x7321A8D6, kTargetName = 0xB990D003, kSourceName = 0xA075808C;
@@ -703,7 +714,8 @@ void TestTracker()
                 Obj::CRefCounted* result =
                     original ? Original<Obj::CRefCounted*(__thiscall*)(Obj::CRefCounted*)>(0x004637B0)(o)
                              : o->Construct();
-                Rec(0x37B0, {reinterpret_cast<uint32_t>(result)});
+                Rec(0x37B0, {reinterpret_cast<uint32_t>(result), reinterpret_cast<uint32_t>(o->m_vtable)});
+                o->m_vtable = nullptr;
             };
             std::memset(object, 0xEE, 8);
             construct(object);
@@ -711,6 +723,11 @@ void TestTracker()
             for (int i = 0; i < 4; ++i)
                 pointers[i].Set(i == 3 ? elsewhere : object);
             pointers[1].mp_object = elsewhere;
+            // (a stale back link on the first: ClearSmartPointers follows it)
+            P* stray = pointers + 5;
+            stray->mp_object = object;
+            stray->mp_prev = stray->mp_next = nullptr;
+            object->mp_smartPointers->mp_prev = stray;
             if (original)
                 Original<void(__thiscall*)(Obj::CRefCounted*)>(0x00463820)(object);
             else

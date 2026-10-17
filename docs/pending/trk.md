@@ -39,10 +39,11 @@ the handle at +0x34B4; callers 0x004656E0, 0x00466DD0), 0x004639A0 (thiscall: `[
 
 - 0x36B2EE74 is the "no object" id (event target / source none, `kNoObjectId`); its name isn't known.
   0x08114F90 is a global array of event names the log keys by checksum (no check that it has at most 256).
-- CEvent (0x14 bytes; wt/evt's): +0 type, +4 source, +8 target, +0xC flags (bit 1 handled - set by 0x0045F9B0,
-  which also logs; bit 2 owns its data), +0x10 data. tracker.cpp uses a private `SEvent` with that layout and calls
-  the event's methods through GameFunction (0x0045F7F0 constructor, 0x0045F9B0 MarkHandled, 0x00460150 destructor):
-  **the merger should switch these to wt/evt's CEvent** if it defines one.
+- After merging main (wt/evt): tracker.h includes event.h and uses its CEvent (Construct / MarkHandled / Destroy,
+  now direct calls) and CEventListener (mp_nextListener, m_registered, m_busy); event.cpp calls AddListener /
+  RemoveListener / RemoveEventListener / LogHandled directly (its 0x00461FE0 register call stays GameFunction,
+  wt/obj's), and selftests_evt.cpp stands in for ours next to those addresses. 0x004A1090 (an event listener's
+  filter, vtable +0x04 - a 2-instruction thunk outside all ranges) stays GameFunction.
 - CObject (wt/obj's) is used through offsets: +0x08 flags (0x20 = has a position), +0x14 id, +0x3C alias count,
   +0x4C position; vtable +0x04 SetProperties(params), +0x14 an event targeted at it. 0x004619F0 (the object
   manager 0x006F0FB8's lookup by id, wt/obj) and 0x004AC120 (the screen element manager 0x00701440's id lookup from
@@ -52,6 +53,8 @@ the handle at +0x34B4; callers 0x004656E0, 0x00466DD0), 0x004639A0 (thiscall: `[
   calls ReceiveEvent on null; AddAlias / SetObjectProps / TerminateObjectsScripts don't check the object; a radius
   broadcast doesn't check the source object; AddListener / CScriptList::Add don't check their allocations.
   WaitForEvent and AssignAlias read their type / alias uninitialised when missing (ours: 0).
+- find_gaps: the thunk 0x00460920 -> 0x00463870 (CRefCounted::Destruct) is in wt/obj's range - give it source
+  there (a jump to ours).
 - The singleton table (core/singleton.cpp `Singleton463730`) still goes through 0x00463730 by address (now ours
   when hooked); its Release 0x00461FA0 is wt/obj's. Whoever has both can give it a real struct.
 
@@ -70,7 +73,10 @@ taken, slot reuse), RemoveObject (renamed / not), RemoveAliasesOf, RemoveListene
 pool / heap), RemoveEventListener (middle, first, absent, last), the log (handled / read / frames merged, Print
 both headers, wrap), all seven CFunctions (LaunchEvent: one type, array, empty array, structure, empty structure,
 none; target / source given, none, defaulted), the list destructors and CRefCounted.
-MUTATIONS_PLACEHOLDER
+Mutations: 53 + 10 deliberate bugs (tools/mutate.py): 49 caught at once; the 4 misses (a typed FRAME entry, the
+first event listener's removal, ClearSmartPointers' back-link branch, CRefCounted's constructor vtable) were caught
+after strengthening the test, plus 6 more after the event.h switch. One equivalent: ClearSmartPointers' second
+`mp_object = nullptr` (only reached with it already null).
 
 ## For docs/script-runtime.md section 11 (to paste)
 

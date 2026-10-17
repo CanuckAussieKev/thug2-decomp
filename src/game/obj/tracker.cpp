@@ -76,42 +76,10 @@ bool GetObjectId(Script::CStruct* params, uint32_t name, uint32_t* id)
         GameVariable<void*>(0x00701440), params, name, id);
 }
 
-// --- the event listeners (Obj::CEventListener; not rewritten yet) ---
-uint8_t* Bytes(CEventListener* listener) { return reinterpret_cast<uint8_t*>(listener); }
-CEventListener*& NextListener(CEventListener* listener)
-{
-    return *reinterpret_cast<CEventListener**>(Bytes(listener) + 0x10);
-}
-bool& Registered(CEventListener* listener) { return *reinterpret_cast<bool*>(Bytes(listener) + 0x14); }
-int& Busy(CEventListener* listener) { return *reinterpret_cast<int*>(Bytes(listener) + 0x18); }
-// 0x004A1090: give it the event (its vtable +0x04).
+// 0x004A1090: give an event listener the event (its vtable +0x04, the subclass's filter).
 void ListenerReceive(CEventListener* listener, CEvent* event)
 {
     GameFunction<void(__thiscall*)(CEventListener*, CEvent*)>(0x004A1090)(listener, event);
-}
-
-// --- the event (Obj::CEvent, 0x14 bytes; its methods are wt/evt's) ---
-struct SEvent {
-    uint32_t type;
-    uint32_t source;
-    uint32_t target;
-    uint32_t flags; // bit 1: handled; bit 2: owns its data
-    Script::CStruct* data;
-};
-constexpr uint32_t EVENT_HANDLED = 0x2;
-CEvent* AsEvent(SEvent* event) { return reinterpret_cast<CEvent*>(event); }
-// 0x0045F7F0: the constructor (flags 0). -> wt/evt
-void ConstructEvent(SEvent* event, uint32_t type, uint32_t source, uint32_t target, Script::CStruct* data)
-{
-    GameFunction<SEvent*(__thiscall*)(SEvent*, uint32_t, uint32_t, uint32_t, Script::CStruct*)>(0x0045F7F0)(
-        event, type, source, target, data);
-}
-// 0x00460150: the destructor (frees the data if it owns it). -> wt/evt
-void DestroyEvent(SEvent* event) { GameFunction<void(__thiscall*)(SEvent*)>(0x00460150)(event); }
-// 0x0045F9B0: mark it handled by `script` (logged through LogHandled). -> wt/evt
-void MarkHandled(SEvent* event, uint32_t how, uint32_t script)
-{
-    GameFunction<void(__thiscall*)(SEvent*, uint32_t, uint32_t)>(0x0045F9B0)(event, how, script);
 }
 
 // 0x0041A820: the squared distance between two points (x87: (dx*dx + dz*dz) + dy*dy, not rounded to float).
@@ -435,17 +403,17 @@ void CTracker::AddAlias(uint32_t alias, CObject* object)
 void CTracker::RemoveEventListener(CEventListener* listener)
 {
     CEventListener* previous = nullptr;
-    for (CEventListener* other = mp_eventListeners; other; other = NextListener(other)) {
+    for (CEventListener* other = mp_eventListeners; other; other = other->mp_nextListener) {
         if (other == listener) {
             if (previous)
-                NextListener(previous) = NextListener(listener);
+                previous->mp_nextListener = listener->mp_nextListener;
             else
-                mp_eventListeners = NextListener(listener);
+                mp_eventListeners = listener->mp_nextListener;
             break;
         }
         previous = other;
     }
-    Registered(listener) = false;
+    listener->m_registered = false;
 }
 
 // 0x00463370
@@ -543,25 +511,25 @@ bool CTracker::LaunchEvent(uint32_t type, uint32_t target, uint32_t source, Scri
     ++m_launchDepth;
     m_log.AddEntry(type, target, source, static_cast<uint32_t>(m_launchedFromScript), 0, CEventLog::LAUNCHED);
     m_launchedFromScript = 0;
-    SEvent event;
-    ConstructEvent(&event, type, source, target, data);
+    CEvent event;
+    event.Construct(type, source, target, data);
 
     if (!broadcast) {
         // Every event listener, then the target: an object, or else the spawned script with that id.
-        for (CEventListener* listener = mp_eventListeners; listener; listener = NextListener(listener)) {
-            ++Busy(listener);
-            ListenerReceive(listener, AsEvent(&event));
-            --Busy(listener);
+        for (CEventListener* listener = mp_eventListeners; listener; listener = listener->mp_nextListener) {
+            ++listener->m_busy;
+            ListenerReceive(listener, &event);
+            --listener->m_busy;
         }
-        uint32_t eventTarget = event.target;
-        if (eventTarget != kNoObjectId && !(event.flags & EVENT_HANDLED)) {
+        uint32_t eventTarget = event.m_target;
+        if (eventTarget != kNoObjectId && !(event.m_flags & CEvent::FLAG_HANDLED)) {
             if (CObject* object = LookUpObject(eventTarget)) {
-                PassEvent(object, AsEvent(&event));
+                PassEvent(object, &event);
             } else {
                 Script::CScript* script = Script::FindSpawnedScriptWithId(eventTarget);
                 if (!script)
                     m_log.Print(true, kLogSize);
-                script->ReceiveEvent(AsEvent(&event)); // (null when there's no such script - an original crash)
+                script->ReceiveEvent(&event); // (null when there's no such script - an original crash)
             }
         }
     } else if (auto* list = static_cast<CScriptList*>(mp_listeners->GetItem(type, true))) {
@@ -595,7 +563,7 @@ bool CTracker::LaunchEvent(uint32_t type, uint32_t target, uint32_t source, Scri
         if (count == 1) {
             Script::CScript* script = first->mp_data;
             if (inRange(script))
-                script->ReceiveEvent(AsEvent(&event));
+                script->ReceiveEvent(&event);
         } else {
             // Several (or none): first a smart pointer to each, so that one deleted by an earlier one's handler
             // is skipped.
@@ -618,7 +586,7 @@ bool CTracker::LaunchEvent(uint32_t type, uint32_t target, uint32_t source, Scri
             }
             for (int i = 0; i < count; ++i) {
                 if (pointers[i] && inRange(scripts[i]))
-                    scripts[i]->ReceiveEvent(AsEvent(&event));
+                    scripts[i]->ReceiveEvent(&event);
             }
             if (pointers) {
                 uint32_t* block = reinterpret_cast<uint32_t*>(pointers) - 1;
@@ -638,31 +606,29 @@ bool CTracker::LaunchEvent(uint32_t type, uint32_t target, uint32_t source, Scri
             waiter.type = 0;
             if (Script::CScript* script = Script::FindScriptWithUniqueId(waiter.scriptId)) {
                 script->StopWaiting();
-                MarkHandled(&event, 2, script->m_scriptName);
+                event.MarkHandled(2, script->m_scriptName);
                 break;
             }
         }
     }
-    if (!(event.flags & EVENT_HANDLED))
-        m_log.AddEntry(event.type, event.target, event.source, 0, 3, CEventLog::HANDLED);
+    if (!(event.m_flags & CEvent::FLAG_HANDLED))
+        m_log.AddEntry(event.m_type, event.m_target, event.m_source, 0, 3, CEventLog::HANDLED);
     --m_launchDepth;
-    bool handled = (event.flags & EVENT_HANDLED) != 0;
-    DestroyEvent(&event);
+    bool handled = (event.m_flags & CEvent::FLAG_HANDLED) != 0;
+    event.Destroy();
     return handled;
 }
 
 // 0x00462B10
 void CTracker::LogHandled(CEvent* event, uint32_t how, uint32_t script)
 {
-    auto* e = reinterpret_cast<SEvent*>(event);
-    m_log.AddEntry(e->type, e->target, e->source, script, how, CEventLog::HANDLED);
+    m_log.AddEntry(event->m_type, event->m_target, event->m_source, script, how, CEventLog::HANDLED);
 }
 
 // 0x00462B40
 void CTracker::LogRead(CEvent* event, uint32_t how, uint32_t script)
 {
-    auto* e = reinterpret_cast<SEvent*>(event);
-    m_log.AddEntry(e->type, e->target, e->source, script, how, CEventLog::READ);
+    m_log.AddEntry(event->m_type, event->m_target, event->m_source, script, how, CEventLog::READ);
 }
 
 // 0x00462B70

@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "game/lst/hashtable.h"
+#include "game/obj/event.h"
 #include "hook/game.h"
 
 // The object tracker (Obj::CTracker, 0xB21C bytes, the singleton 0x006F0FC0 with its use count 0x006F0FC4):
@@ -26,9 +27,7 @@ class CStruct;
 
 namespace Obj {
 
-class CObject;        // +0x08 flags (0x20: has a position), +0x14 id, +0x3C alias count, +0x4C position
-class CEventListener; // +0x10 the next listener, +0x14 registered, +0x18 busy (0x004A1090 gives it an event)
-struct CEvent;        // 0x14 bytes: +0x00 type, +0x04 source, +0x08 target, +0x0C flags, +0x10 data
+class CObject; // +0x08 flags (0x20: has a position), +0x14 id, +0x3C alias count, +0x4C position
 
 // The "no object" id: the target or source of an event that has none.
 constexpr uint32_t kNoObjectId = 0x36B2EE74;
