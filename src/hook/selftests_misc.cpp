@@ -573,7 +573,7 @@ void TestMain()
             {0x005BC900, AddressOf(&Mc::CreateManager)}, {0x0044E7F0, 0},
             {0x005B6CA0, AddressOf(&File::CreateAsyncLoaderModule)},
             {0x00476040, AddressOf(&Script::CreateScriptCache)}, {0x004088E0, 0},
-            {0x0047BA60, 0}, {0x00455880, 0}, {0x0045F7A0, 0}, {0x00589180, 0}, {0x00553DB0, 0}, {0x0057C0D0, 0},
+            {0x0047BA60, 0}, {0x00455880, 0}, {0x0045F7A0, AddressOf(&Obj::CreateCompositeObjectManager)}, {0x00589180, 0}, {0x00553DB0, 0}, {0x0057C0D0, 0},
             {0x0057EED0, 0}, {0x005691A0, 0}, {0x0054FF80, AddressOf(&Mdl::CreateFrontEnd)}, {0x0053F520, 0}, {0x00590160, 0}, {0x004ACAF0, 0},
             {0x0045D690, 0}, {0x00574540, 0}};
         int index = 0;

@@ -85,6 +85,9 @@ void __cdecl CompositeObjectManagerTask(void* task);
 CCompositeObjectManager*& CompositeObjectManager();
 // 0x0045F1E0: drop a reference; the last one only forgets the instance (it isn't deleted).
 void ReleaseCompositeObjectManager();
+// 0x0045F7A0: the first call with `create` makes it (zeroed, 0x448 bytes); every call takes a reference and returns
+// it.
+CCompositeObjectManager* CreateCompositeObjectManager(bool create);
 
 // --- the COIM heap ---
 // 0x0045EFD0: "Destroying COIM heap": the instance list (0x006F0DB0, never filled in this build) emptied, each

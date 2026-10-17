@@ -93,10 +93,10 @@ struct ObjectTracker {
 using Singleton44E7F0 = GameSingleton<0x0044E7F0, 0x0044E6B0, 0x0064AFC0>;
 using Singleton4088E0 = GameSingleton<0x004088E0, 0x00407980, 0x0064AFCC>;
 using Singleton455880 = GameSingleton<0x00455880, 0x004558D0, 0x0064AFD0>;
-struct CompositeObjectManager { // (its Create 0x0045F7A0 has no source yet)
+struct CompositeObjectManager {
     using Type = Obj::CCompositeObjectManager;
     static constexpr uint32_t kVtable = 0x0064AFD4;
-    static Type* Create(bool create) { return GameFunction<Type*(__cdecl*)(bool)>(0x0045F7A0)(create); }
+    static Type* Create(bool create) { return Obj::CreateCompositeObjectManager(create); }
     static void Release() { Obj::ReleaseCompositeObjectManager(); }
 };
 using Singleton589180 = GameSingleton<0x00589180, 0x005880E0, 0x0064AFD8>;

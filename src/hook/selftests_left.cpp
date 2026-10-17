@@ -11,8 +11,10 @@
 #include <vector>
 
 #include "game/core/crc.h"
+#include "game/core/mem.h"
 #include "game/front/front_end.h"
 #include "game/lst/head.h"
+#include "game/obj/compositemgr.h"
 #include "game/obj/cutscene.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
@@ -452,9 +454,65 @@ void TestHeadAddNode()
     Compare(traces[0], traces[1], "Lst::Head::AddNode (by priority, highest first, equal ones newest first)");
 }
 
+// --- CreateCompositeObjectManager 0x0045F7A0 ---------------------------------------------------------------------
+
+alignas(16) uint8_t g_manager[sizeof(Obj::CCompositeObjectManager)];
+bool g_managerCallocFails;
+
+void TestCreateCompositeObjectManager()
+{
+    std::vector<Saved> globals = {{0x006F0FB8, 8, {}}};
+    g_saved = globals;
+    SaveAll(g_saved);
+    g_saving = true;
+    std::vector<uint32_t> traces[2];
+    {
+        auto* s = new StandIns;
+        s->At({0x00401D00, AddressOf(static_cast<void* (*)(unsigned int, int)>(&Mem::Calloc))}, 0, [](Regs& r) {
+            Record({0xCA2, r.args[0], r.args[1]});
+            return g_managerCallocFails ? 0u : reinterpret_cast<uint32_t>(g_manager);
+        });
+        s->At({0x0045F6E0, AddressOf(&Obj::CCompositeObjectManager::Construct)}, 0, [](Regs& r) {
+            Record({0xF6E0, r.ecx == reinterpret_cast<uint32_t>(g_manager)});
+            return r.ecx;
+        });
+        for (int run = 0; run < 2; ++run) {
+            bool o = run == 0;
+            g_trace.clear();
+            auto create = [o](bool c) {
+                auto* m = o ? Orig<Obj::CCompositeObjectManager*(__cdecl*)(bool)>(0x0045F7A0)(c)
+                            : Obj::CreateCompositeObjectManager(c);
+                uint32_t p = reinterpret_cast<uint32_t>(m);
+                Record({p == reinterpret_cast<uint32_t>(g_manager) ? 1u : p, GameVariable<uint32_t>(0x006F0FBC),
+                        GameVariable<uint32_t>(0x006F0FB8) == reinterpret_cast<uint32_t>(g_manager)
+                            ? 1u
+                            : GameVariable<uint32_t>(0x006F0FB8)});
+            };
+            // None, not asked; made; there already (asked or not); allocation fails.
+            GameVariable<uint32_t>(0x006F0FB8) = 0;
+            GameVariable<uint32_t>(0x006F0FBC) = 5;
+            g_managerCallocFails = false;
+            create(false);
+            create(true);
+            create(true);
+            create(false);
+            GameVariable<uint32_t>(0x006F0FB8) = 0;
+            g_managerCallocFails = true;
+            create(true);
+            create(false);
+            traces[run] = g_trace;
+        }
+        RemoveStandIns();
+    }
+    RestoreAll(g_saved);
+    g_saving = false;
+    Compare(traces[0], traces[1], "CreateCompositeObjectManager (made once, references, out of memory)");
+}
+
 } // namespace
 
 SELFTEST(Early, TestCutsceneNameFromPath, RestoreLeftTest);
 SELFTEST(Early, TestCutsceneData, RestoreLeftTest);
 SELFTEST(Early, TestCutsceneDetails, RestoreLeftTest);
 SELFTEST(Early, TestHeadAddNode);
+SELFTEST(Early, TestCreateCompositeObjectManager, RestoreLeftTest);

@@ -139,7 +139,7 @@ int __cdecl Main(int argc, char** argv)
         uint8_t* module4088E0 = Create(0x004088E0);
         Create(0x0047BA60);
         Create(0x00455880);
-        Create(0x0045F7A0);
+        Obj::CreateCompositeObjectManager(true);
         GameFunction<void(__cdecl*)()>(0x004E4860)();
         Create(0x00589180);
         Create(0x00553DB0);
