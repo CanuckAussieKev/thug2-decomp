@@ -18,7 +18,10 @@
 #include "game/mth/matrix.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/object.h"
+#include "game/core/crc.h"
+#include "game/core/mem.h"
 #include "game/script/cscript.h"
+#include "game/script/node_manager.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -37,7 +40,7 @@ using Script::CMemberFunctionEntry;
 using Script::CScript;
 using Script::CStruct;
 
-constexpr uint32_t kArenaSize = 0x10000;
+constexpr uint32_t kArenaSize = 0x30000; // (the node manager is 0x100FC bytes)
 alignas(16) uint8_t g_cobj_arenas[2][kArenaSize];
 uint32_t g_cobj_base;
 uint32_t g_cobj_bump;
@@ -96,6 +99,8 @@ void* g_cobj_memberCode; // a member function a table entry points to
 void* g_cobj_managerVtable[8];
 uint32_t g_cobj_listHead;  // what the stand-in manager's object list is
 float g_cobj_angle;        // what the stand-in GetAngleInPlane returns
+bool g_cobj_allocFail;     // the stand-in Calloc fails
+std::map<uint32_t, uint32_t> g_cobj_symbolArrays; // the stand-in global arrays (name -> array)
 float g_cobj_quatW;        // the w of the quaternion the stand-in MatrixToQuat makes
 
 // GetAngleInPlane returns its float in ST0: a C++ stand-in, jumped to from the original's start and ours.
@@ -279,6 +284,67 @@ void InstallStandIns(StandIns& s)
         Rec(0xC0B0, {r.args[0], r.args[1]});
         return 0u;
     });
+    // The node manager's helpers: the arrays, the hash functions and node functions before it, sprintf, Calloc.
+    s.At({0x0046CC30, AddressOf(&CArray::GetElement)}, 4, [](Regs& r) {
+        Rec(0xCC30, {r.ecx, r.args[0]});
+        return reinterpret_cast<uint32_t*>(r.ecx + 0x10)[r.args[0]];
+    });
+    s.At({0x0046CB10, AddressOf(&CArray::SetElement)}, 8, [](Regs& r) {
+        Rec(0xCB10, {r.ecx, r.args[0], r.args[1]});
+        reinterpret_cast<uint32_t*>(r.ecx + 0x10)[r.args[0]] = r.args[1];
+        return 0u;
+    });
+    s.At({0x0046CAF0, AddressOf(&CArray::SetType)}, 4, [](Regs& r) {
+        Rec(0xCAF0, {r.ecx, r.args[0] & 0xFF});
+        return 0u;
+    });
+    getter({0x00476860, AddressOf(static_cast<bool (CStruct::*)(uint32_t, CArray**, int)>(&CStruct::GetArray))}, 'A',
+           0x6E55);
+    s.At({0x004776B0, AddressOf(static_cast<void (CStruct::*)(uint32_t)>(&CStruct::RemoveComponent))}, 4,
+         [](Regs& r) {
+             Rec(0x76B0, {r.ecx, r.args[0]});
+             return 0u;
+         });
+    s.At({0x00479070, AddressOf(static_cast<CArray* (*)(uint32_t)>(&Script::GetArray))}, 0, [](Regs& r) {
+        Rec(0x9070, {r.args[0]});
+        auto it = g_cobj_symbolArrays.find(r.args[0]);
+        return it == g_cobj_symbolArrays.end() ? 0u : it->second;
+    });
+    s.At({0x0045CE40}, 0, [](Regs& r) {
+        Rec(0xCE40, {r.args[0]});
+        return 0u;
+    });
+    s.At({0x0045CE60}, 12, [](Regs& r) {
+        Rec(0xCE60, {r.ecx, r.args[0], r.args[1], r.args[2]});
+        return 0u;
+    });
+    s.At({0x0045CEF0}, 4, [](Regs& r) {
+        Rec(0xCEF0, {r.ecx, r.args[0]});
+        return 0u;
+    });
+    s.At({0x0045C900}, 0, [](Regs& r) {
+        Rec(0xC900, {r.args[0]});
+        return 0u;
+    });
+    s.At({0x0045BE40}, 0, [](Regs& r) {
+        Rec(0xBE40, {r.args[0]});
+        return 0xBE400000u + (Rel(r.args[0]) & 0xFFFF);
+    });
+    s.At({0x004694E0}, 0, [](Regs& r) {
+        Rec(0x94E0, {});
+        (void)r;
+        return g_cobj_base + 0x2B00;
+    });
+    s.At({0x004696C0}, 0, [](Regs& r) {
+        Rec(0x96C0, {r.ecx});
+        return 0u;
+    });
+    s.At({0x006234FE}, 0, StandInSprintf); // the game's sprintf (not started offline)
+    s.At({0x00401D40, AddressOf(static_cast<void* (*)(unsigned int, Mem::Heap*, int)>(&Mem::Calloc))}, 0,
+         [](Regs& r) {
+             Rec(0x1D40, {r.args[0], r.args[1], r.args[2]});
+             return g_cobj_allocFail ? 0u : Bump(r.args[0], 0);
+         });
     s.At({0x005BABA0, AddressOf(&Mem::Manager::Free)}, 4, [](Regs& r) {
         Rec(0xBBA0, {r.ecx, r.args[0]});
         return 0u;
@@ -340,6 +406,7 @@ void SaveGlobals()
         {0x007CC979, 1, {}},  // the memory manager is ready
         {0x006F3614, 16, {}}, // the CStruct pools
         {0x006F0FB8, 4, {}},  // the composite object manager
+        {0x006F0D84, 8, {}},  // the node manager and its references
     };
     SaveAll(g_cobj_saved);
 }
@@ -358,6 +425,8 @@ uint8_t* BeginRun(bool original)
     g_cobj_victim = nullptr;
     g_cobj_found = 0;
     g_cobj_nextType = 0;
+    g_cobj_allocFail = false;
+    g_cobj_symbolArrays.clear();
     for (Saved& saved : g_cobj_saved)
         std::memset(reinterpret_cast<void*>(saved.address), 0, saved.size);
     GameVariable<bool>(0x007CC979) = true;
@@ -378,6 +447,12 @@ std::vector<uint32_t> EndRun(uint8_t* arena)
     return result;
 }
 
+template <typename R, typename F, typename... A>
+R CallC(uint32_t address, F ours, A... args)
+{
+    void* code = g_cobj_original ? reinterpret_cast<void*>(address) : reinterpret_cast<void*>(AddressOf(ours));
+    return reinterpret_cast<R(__cdecl*)(A...)>(code)(args...);
+}
 template <typename R, typename F, typename... A>
 R Call(uint32_t address, F ours, void* self, A... args)
 {
@@ -845,6 +920,121 @@ std::vector<uint32_t> RunMathTest(bool original)
     return EndRun(arena);
 }
 
+// --- the node manager --------------------------------------------------------------------------------------------
+// Stand-in arrays: +0x04 the size, the elements from +0x10 (the stand-in GetElement / SetElement use them).
+CArray* NodeArray(uint8_t* arena, uint32_t offset, std::initializer_list<uint32_t> elements)
+{
+    auto* array = reinterpret_cast<CArray*>(arena + offset);
+    array->m_size = static_cast<uint32_t>(elements.size());
+    uint32_t* p = reinterpret_cast<uint32_t*>(arena + offset + 0x10);
+    for (uint32_t e : elements)
+        *p++ = e;
+    return array;
+}
+
+std::vector<uint32_t> RunNodeTest(bool original)
+{
+    uint8_t* arena = BeginRun(original);
+    using M = SkateScript::CNodeManager;
+    auto* m = reinterpret_cast<M*>(arena + 0x10000);
+    std::memset(m, 0xDD, sizeof(M));
+    Result(Rel(Call<M*>(0x0045D370, &M::Construct, m)));
+
+    // Two node arrays: A (3 nodes: the second with position=, the first with links [2, 0]), B (2 nodes).
+    CStruct* nodes[5];
+    for (int i = 0; i < 5; ++i)
+        nodes[i] = Struct(arena, 40 + i);
+    CArray* a = NodeArray(arena, 0x2600, {reinterpret_cast<uint32_t>(nodes[0]), reinterpret_cast<uint32_t>(nodes[1]),
+                                          reinterpret_cast<uint32_t>(nodes[2])});
+    CArray* b = NodeArray(arena, 0x2680, {reinterpret_cast<uint32_t>(nodes[3]), reinterpret_cast<uint32_t>(nodes[4])});
+    CArray* links = NodeArray(arena, 0x2700, {2, 0});
+    Answer('A', nodes[0], 0x2E7D5EE7, {reinterpret_cast<uint32_t>(links)});
+    CArray* noLinks = NodeArray(arena, 0x2780, {});
+    Answer('A', nodes[2], 0x2E7D5EE7, {reinterpret_cast<uint32_t>(noLinks)});
+    Answer('V', nodes[1], 0xB9D31B0A, {Bits(1.5f), Bits(-2.0f), Bits(3.25f), Bits(1.0f)});
+    g_cobj_symbolArrays[0xAAAA] = reinterpret_cast<uint32_t>(a);
+    g_cobj_symbolArrays[0xBBBB] = reinterpret_cast<uint32_t>(b);
+    using Add = bool (M::*)(uint32_t, bool);
+    Result(Call<uint32_t>(0x0045D520, static_cast<Add>(&M::AddNodeArray), m, 0xAAAAu, false) & 0xFF);
+    Result(Call<uint32_t>(0x0045D520, static_cast<Add>(&M::AddNodeArray), m, 0xBBBBu, true) & 0xFF);
+    Result(Call<uint32_t>(0x0045D520, static_cast<Add>(&M::AddNodeArray), m, 0xAAAAu, true) & 0xFF);
+    for (uint32_t name : {0xAAAAu, 0xBBBBu, 0xCCCCu}) {
+        Result(Call<uint32_t>(0x0045D270, &M::HasNodeArray, m, name) & 0xFF);
+        Result(Call<uint32_t>(0x0045D170, &M::HashNodeIn, m, name, 0x11u, 0x22u) & 0xFF);
+    }
+    Result(Rel(Call<CArray*>(0x0045D120, &M::GetLastNodeArray, m)));
+    Result(Call<uint32_t>(0x0045D150, &M::GetLastNodeArrayName, m));
+    Call<void>(0x0045D140, &M::SetOwner, m, static_cast<void*>(arena + 0x2800));
+    *reinterpret_cast<uint32_t*>(arena + 0x2858) = 0x5858;
+    Result(Call<uint32_t>(0x0045D470, &M::GetOwnerValue58, m));
+
+    // The walk: all five nodes from the start, then past the end; from a hashed name (slots set by hand); ended.
+    Call<void>(0x0045D050, &M::StartWalk, m, 0u);
+    for (int i = 0; i < 7; ++i)
+        Result(Rel(Call<CStruct*>(0x0045D3F0, &M::NextNode, m)));
+    const uint32_t name = 0x12340FFF; // (slot 0x3FFF; a collision there wraps to slot 0)
+    m->m_slots[0x3FFF] = {1, 0};
+    m->m_slots[0] = {0, 2};
+    Answer('K', nodes[3], 0xA1DC81F9, {0x99});
+    Answer('K', nodes[2], 0xA1DC81F9, {name});
+    Call<void>(0x0045D050, &M::StartWalk, m, name);
+    Result(m->m_walk.m_array);
+    for (int i = 0; i < 3; ++i)
+        Result(Rel(Call<CStruct*>(0x0045D3F0, &M::NextNode, m)));
+    Call<void>(0x0045D110, &M::EndWalk, m);
+    Result(Rel(Call<CStruct*>(0x0045D3F0, &M::NextNode, m)));
+
+    // Removing: the first (the last moves into its place, its slots follow), a missing one, the last.
+    g_cobj_symbolArrays[0xCCCC] = reinterpret_cast<uint32_t>(b); // (a's links are names now)
+    Result(Call<uint32_t>(0x0045D520, static_cast<Add>(&M::AddNodeArray), m, 0xCCCCu, false) & 0xFF);
+    m->m_slots[5] = {1, 1};
+    m->m_slots[6] = {0, 1};
+    m->m_slots[7] = {2, 0};
+    using Remove = bool (M::*)(uint32_t);
+    for (uint32_t n : {0xBBBBu, 0xDDDDu, 0xAAAAu, 0xCCCCu}) {
+        Result(Call<uint32_t>(0x0045D1C0, static_cast<Remove>(&M::RemoveNodeArray), m, n) & 0xFF);
+        Rec(0xD1C0, {m->m_slots[5].m_array, m->m_slots[6].m_array, m->m_slots[7].m_array});
+    }
+    Result(Call<uint32_t>(0x0045D120, &M::GetLastNodeArray, m));
+    Result(Call<uint32_t>(0x0045D150, &M::GetLastNodeArrayName, m));
+
+    // Names from paths; removing by path.
+    char* out = reinterpret_cast<char*>(arena + 0x2900);
+    const char* paths[] = {"levels\\nj\\nj.qb", "c:/a/b/park.qb", "x\\noext", "dir/a.b.c"};
+    for (int i = 0; i < 4; ++i) {
+        char* path = reinterpret_cast<char*>(arena + 0x2A00 + 0x40 * i);
+        std::memcpy(path, paths[i], std::strlen(paths[i]) + 1);
+        std::memset(out, 0xEE, 0x40);
+        Result(CallC<uint32_t>(0x0045D2A0, &SkateScript::MakeNodeArrayName, static_cast<const char*>(path), out) &
+               0xFF);
+        Result(CallC<uint32_t>(0x0045D310, &SkateScript::NodeArrayChecksum, static_cast<const char*>(path)));
+    }
+    g_cobj_symbolArrays[Crc::GenerateCRCFromString("nj_nodearray")] = reinterpret_cast<uint32_t>(b);
+    Result(Call<uint32_t>(0x0045D520, static_cast<Add>(&M::AddNodeArray), m,
+                          Crc::GenerateCRCFromString("nj_nodearray"), false) & 0xFF);
+    Result(Call<uint32_t>(0x0045D670, &M::RemoveNodeArrayOfFile, m,
+                          static_cast<const char*>(reinterpret_cast<char*>(arena + 0x2A00))) & 0xFF);
+    Result(m->m_count);
+
+    // The singleton: made, referenced, released twice; a failed allocation; no create.
+    GameVariable<uint32_t>(0x006F0D84) = 0;
+    GameVariable<uint32_t>(0x006F0D88) = 0;
+    for (bool create : {false, true, true}) {
+        Result(Rel(CallC<M*>(0x0045D690, &SkateScript::CreateNodeManager, create)));
+        Result(GameVariable<uint32_t>(0x006F0D88));
+    }
+    for (int i = 0; i < 3; ++i) {
+        CallC<void>(0x0045D6E0, &SkateScript::ReleaseNodeManager);
+        Rec(0xD6E0, {GameVariable<uint32_t>(0x006F0D84), GameVariable<uint32_t>(0x006F0D88)});
+    }
+    g_cobj_allocFail = true;
+    Result(Rel(CallC<M*>(0x0045D690, &SkateScript::CreateNodeManager, true)));
+    Result(GameVariable<uint32_t>(0x006F0D88));
+    g_cobj_allocFail = false;
+    CallC<void>(0x0045D6E0, &SkateScript::ReleaseNodeManager);
+    return EndRun(arena);
+}
+
 void RunPair(std::vector<uint32_t> (*run)(bool), const char* what)
 {
     std::vector<uint32_t> expected = run(true);
@@ -861,6 +1051,7 @@ void TestCompositeObjects()
     RunPair(RunStructureTest, "CCompositeObject: components from structures, InitFromStructure");
     RunPair(RunMemberTest, "CCompositeObject: the member functions scripts call");
     RunPair(RunMathTest, "CCompositeObject: orientation, distances, the nearest object");
+    RunPair(RunNodeTest, "SkateScript::CNodeManager: node arrays, the walk, names from paths, the singleton");
     Cleanup();
 }
 

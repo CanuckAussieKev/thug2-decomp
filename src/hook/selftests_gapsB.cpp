@@ -28,6 +28,7 @@
 #include "game/sio/device.h"
 #include "game/sys/mlp.h"
 #include "game/sys/winmain.h"
+#include "game/script/node_manager.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -114,7 +115,7 @@ std::vector<Instance> Instances()
         {0x004E1A80, 0x004E1E00, 0x0064AFF0, 0x005395C0, 0},
         {0x004E1AC0, 0x004E1E30, 0x0064AFF4, 0x0058D290, 0},
         {0x004E1AD0, 0x004E1E60, 0x0064AFF8, 0x004AACF0, 0},
-        {0x004E1AE0, 0x004E1E90, 0x0064AFFC, 0x0045D6E0, 0},
+        {0x004E1AE0, 0x004E1E90, 0x0064AFFC, 0x0045D6E0, AddressOf(&SkateScript::ReleaseNodeManager)},
         {0x004E1AF0, 0x004E1EC0, 0x0064B000, 0x00574910, 0},
     };
 }

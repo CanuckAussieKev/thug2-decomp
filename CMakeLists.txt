@@ -146,6 +146,7 @@ add_library(thug2_code OBJECT
     src/game/mc/memcard.cpp
     src/game/mc/memcard_cfuncs.cpp
     src/game/script/eval.cpp
+    src/game/script/node_manager.cpp
     src/game/script/cache.cpp
     src/game/script/cscript_manager.cpp
     src/game/script/cscript_wait.cpp
