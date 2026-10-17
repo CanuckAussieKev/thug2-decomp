@@ -65,10 +65,16 @@ struct FrontEnd {
     static constexpr uint32_t kPadBack = 0x7EE0FD2A;   // "pad_back"
     static constexpr uint32_t kPadChoose = 0x1E3E253B; // "pad_choose"
 
+    // The menu's direction events (the d-pad, or the PC keyboard's arrows while the on-screen keyboard is up).
+    static constexpr uint32_t kPadLeft = 0x6949DB75;  // "pad_left"
+    static constexpr uint32_t kPadRight = 0x05DDD87C; // "pad_right"
+    static constexpr uint32_t kPadUp = 0x30A4F836;    // "pad_up"
+    static constexpr uint32_t kPadDown = 0x0FD1AC26;  // "pad_down"
+
     struct PadMapping {
-        uint32_t m_unknown0; // (zeroed by the constructor)
-        uint32_t m_unknown4;
-        uint32_t m_mapping;  // 0 inactive, 1 active (the default), 2 use_as_first
+        uint32_t m_repeatState; // a direction held: 0 no, 1 waiting for the auto-repeat delay, 2 repeating
+        uint32_t m_repeatTimer; // ms left until the next repeat
+        uint32_t m_mapping;     // 0 inactive, 1 active (the default), 2 use_as_first
     };
     struct ButtonEvent {
         uint32_t m_button; // the index of the button's name (ButtonEventMappings)
@@ -97,6 +103,25 @@ struct FrontEnd {
     // 0x0054FE00: the constructor (the module, its tasks and handlers; mappings active, 300/50 ms). Returns this.
     FrontEnd* Construct();
 
+    // 0x0054EC20 (destructor body): the logic task and the input handlers deleted (the keyboard task isn't - an
+    // original leak), then the module's.
+    void DestroyBody();
+    // 0x0054EE70 (scalar deleting destructor, vtable slot 0)
+    FrontEnd* Destroy(unsigned int flags);
+    // 0x0054EEA0 (v_start_cb, vtable slot 1): the logic task joins the main loop's logic tasks and each input
+    // handler the handler list of the controller its own index names (not m_deviceServerMap's).
+    void Start();
+    // 0x0054EF30 (v_stop_cb, vtable slot 2): the logic task and the input handlers out of their lists.
+    void Stop();
+    // 0x0054ECA0: whether either handler's controller is plugged in (the script command PadsPluggedIn).
+    bool PadsPluggedIn();
+    // 0x0054ECD0: no more typed keys (the keyboard task out of the logic tasks; StopKeyboardHandler).
+    void RemoveKeyboardHandler();
+    // 0x0054ECE0: the auto-repeat of a held direction for controller `deviceIndex` (InputLogic's first event): the
+    // direction's event when it's first held, then after m_autoRepeatDelay ms, then every m_autoRepeatRate ms; 0
+    // in between. Controller 0 with the on-screen keyboard up also takes the PC keyboard's arrows. Always 0 while
+    // the startup script runs (it's unpaused each time until it ends).
+    uint32_t AutoRepeat(uint32_t held, int deviceIndex);
     // 0x0054EF60: typed keys are reported for `device` from now on (the keyboard task joins the logic tasks).
     void AddKeyboardHandler(int device);
     // 0x0054EF80: the button-event pairs from the `xbox` array of `params` (see the top of this file).
@@ -131,6 +156,8 @@ static_assert(offsetof(FrontEnd, m_logicTask) == 0x14 && offsetof(FrontEnd, m_in
 FrontEnd*& FrontEndInstance();
 // 0x0054FF80: the first call with `create` makes it; every call takes a reference and returns it.
 FrontEnd* CreateFrontEnd(bool create);
+// 0x0054EBE0: gives back a reference; the last one destroys it.
+void ReleaseFrontEnd();
 
 // The script commands.
 // 0x0054F0F0: SetMenuAutoRepeatTimes (delay rate) - seconds.

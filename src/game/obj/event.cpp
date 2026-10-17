@@ -6,6 +6,7 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/obj/object.h"
 #include "game/obj/tracker.h"
 #include "game/script/cscript.h"
 #include "game/script/names.h"
@@ -25,10 +26,6 @@ constexpr uint32_t kParamsName = 0x7031F10C;
 constexpr uint32_t kGroupName = 0x923FBB3A;
 constexpr uint32_t kExceptionFlag = 0x80367192;
 
-// An object whose handlers run as new spawned scripts on it instead of interrupting its script (CObject +0x08
-// bit 0x10000; nothing else about the flag is known yet).
-constexpr uint32_t kObjectFlagSpawnHandlers = 0x10000;
-uint32_t ObjectFlags(const CObject* object) { return reinterpret_cast<const uint32_t*>(object)[2]; }
 
 // The tracker (0x006F0FC0, tracker.h): which scripts listen for which event types, the event listeners, the
 // event log.
@@ -438,7 +435,7 @@ void CEventHandlerTable::PassEvent(CEvent* event, CScript* script)
                     script->Update();
                 }
             } else if (CObject* object = script->m_object.Get();
-                       object && (ObjectFlags(object) & kObjectFlagSpawnHandlers)) {
+                       object && (object->m_objectFlags & Obj::OBJECT_FLAG_SPAWN_HANDLERS)) {
                 // A new spawned script on the object, run at once (a C function as handler returns no script:
                 // null is used [bug: crash]).
                 CScript* spawned = Script::SpawnScript(entry->script, params, 0, nullptr, 0, 0, false, false, false,

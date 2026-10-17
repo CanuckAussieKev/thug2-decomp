@@ -7,6 +7,7 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/lst/head.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -24,13 +25,9 @@ constexpr int kFlushTaskPriority = 1000;
 // The tracker's reference count.
 uint32_t& TrackerReferences() { return GameVariable<uint32_t>(0x006F0FC4); }
 
-// Not rewritten yet: Lst::Head<CObject>'s insert by priority (0x0045A540: before the first node whose priority
-// isn't higher - the highest first, equal ones newest first), Tsk::Task's constructor and the main loop's system
-// task list's add.
-void AddNodeByPriority(Mem::ListNode* head, Mem::ListNode* node)
-{
-    GameFunction<void(__thiscall*)(Mem::ListNode*, Mem::ListNode*)>(0x0045A540)(head, node);
-}
+// Lst::Head<CObject>'s insert by priority (the highest first, equal ones newest first).
+void AddNodeByPriority(Mem::ListNode* head, Mem::ListNode* node) { reinterpret_cast<Lst::Head*>(head)->AddNode(node); }
+// Not rewritten yet: Tsk::Task's constructor and the main loop's system task list's add.
 void ConstructTask(void* task, int priority) { GameFunction<void*(__thiscall*)(void*, int)>(0x00406890)(task, priority); }
 void AddSystemTask(void* task)
 {

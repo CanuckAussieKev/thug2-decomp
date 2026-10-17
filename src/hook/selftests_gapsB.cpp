@@ -18,6 +18,7 @@
 #include "game/core/singleton.h"
 #include "game/file/async.h"
 #include "game/file/pre.h"
+#include "game/front/front_end.h"
 #include "game/mc/memcard.h"
 #include "game/obj/flip_rotate.h"
 #include "game/obj/compositemgr.h"
@@ -109,7 +110,7 @@ std::vector<Instance> Instances()
         {0x004E1A40, 0x004E1D40, 0x0064AFE0, 0x0057C120, 0},
         {0x004E1A50, 0x004E1D70, 0x0064AFE4, 0x0057FDB0, 0},
         {0x004E1A60, 0x004E1DA0, 0x0064AFE8, 0x00564C10, 0},
-        {0x004E1A70, 0x004E1DD0, 0x0064AFEC, 0x0054EBE0, 0},
+        {0x004E1A70, 0x004E1DD0, 0x0064AFEC, 0x0054EBE0, AddressOf(&Mdl::ReleaseFrontEnd)},
         {0x004E1A80, 0x004E1E00, 0x0064AFF0, 0x005395C0, 0},
         {0x004E1AC0, 0x004E1E30, 0x0064AFF4, 0x0058D290, 0},
         {0x004E1AD0, 0x004E1E60, 0x0064AFF8, 0x004AACF0, 0},

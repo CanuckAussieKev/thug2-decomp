@@ -271,6 +271,17 @@ void __cdecl CompositeObjectManagerTask(void* task)
     static_cast<CCompositeObjectManager*>(static_cast<void**>(task)[7])->Update();
 }
 
+// 0x0045F7A0
+CCompositeObjectManager* CreateCompositeObjectManager(bool create)
+{
+    if (!CompositeObjectManager() && create) {
+        void* memory = Mem::Calloc(sizeof(CCompositeObjectManager), 1);
+        CompositeObjectManager() = memory ? static_cast<CCompositeObjectManager*>(memory)->Construct() : nullptr;
+    }
+    ++References();
+    return CompositeObjectManager();
+}
+
 // 0x0045F1E0
 void ReleaseCompositeObjectManager()
 {
@@ -402,6 +413,7 @@ REPLACE(0x0045F5D0, &Obj::CCompositeObjectManager::Pause);
 REPLACE(0x0045F6D0, Obj::CompositeObjectManagerTask);
 REPLACE(0x0045F1E0, Obj::ReleaseCompositeObjectManager);
 REPLACE(0x0045EFD0, Obj::DestroyCoimHeap);
+REPLACE(0x0045F7A0, Obj::CreateCompositeObjectManager);
 REPLACE(0x0045F0B0, Obj::CreateCoimHeap);
 REPLACE(0x0045F160, Obj::InitCoim);
 REPLACE(0x0045F1C0, Obj::ResizeCoimHeap);
