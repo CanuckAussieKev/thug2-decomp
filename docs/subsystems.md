@@ -13,8 +13,8 @@ Not decompiled: GameSpy SDK, D3DX9, MSVC CRT, STL helpers, compiler funclets (se
 | 0x406460-0x41a6d0 | Animation & skeleton / skinned model data | 423 | 75 KB | 0% |
 | 0x41a6d0-0x445b50 | Object components & level/scene loading | 584 | 157 KB | 3% |
 | 0x445b50-0x44e6b0 | Engine script commands (lighting/fog, memory heaps, script utils, arrays, music & streams) | 246 | 32 KB | 89% |
-| 0x44e6b0-0x456910 | Movies (Bink) & streamed audio | 277 | 30 KB | 0% |
-| 0x456910-0x45bda0 | Low-level networking (engine net library) | 95 | 18 KB | 0% |
+| 0x44e6b0-0x4544e0 | Movies (Bink) & streamed audio | 167 | 22 KB | 1% |
+| 0x4544e0-0x45bda0 | Low-level networking (engine net library: Net::Manager getters, message types, Conn, App, Client/Server, Dispatcher; boundary moved from 0x456910 in batch 86) | 205 | 26 KB | 0% |
 | 0x45bda0-0x45efd0 | Level nodes & composite objects (node array, node names/prefixes, CCompositeObject, components) | 88 | 10 KB | 0% |
 | 0x45efd0-0x47dc40 | Object system & script runtime (composite objects, events, particles, pathfinding, QB parser/executor; runtime behaviour: `script-runtime.md`) | 685 | 112 KB | 1% |
 | 0x47dc40-0x490d80 | Skater models / faces / textures (create-a-skater) | 523 | 67 KB | 3% |

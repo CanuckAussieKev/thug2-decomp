@@ -2055,14 +2055,178 @@ belong with the CScript batch.
       rightmost corners in layout space are the sides moved to the screen's edges (a turned sprite's own left corners
       are on the right). TestSpriteWidescreenEdges gained the pi + 0.001 case (on / off / in a level); 2 deliberate
       bugs caught. [features] debug_sprites=1 (new, off by default) logs front-end sprites reaching past the layout.
-- [ ] Next: the widescreen front end's Element3d backdrop (UI_bg.mdl on the network menu: decompile the Element3d
-      draw and decide how it should fill a wide screen - batch 82's finding). Then the gaps batches 79-81 left: **0x45E9E0**
+- [x] Batch 83, Element3d and the widescreen front end's backdrop (branch wt/el3d, 24 functions; **NOT run in the game
+      yet**; disable with `[replacements] disable=element3d.cpp` - the class and the rule; the matrix helpers are in
+      matrix.cpp, the aspect / angle getters in screen.cpp, the layout getters in screen_element.cpp; the rule alone
+      is off with `[features] widescreen_menus=0`, which also turns off the rest of the widescreen front end):
+      **Front::CElement3d** (src/game/front/element3d.*; vtable 0x649FF4, 0x510 bytes): constructor 0x4A6060,
+      destructor body 0x4A6240, scalar deleting destructor 0x4A6D00, SetProperties 0x4A6630, SetMorph 0x4A6BA0, Update
+      0x4A6D30, ClearModels 0x4A5E30, ApplyViewport 0x4A5E80, AddModel 0x4A6540 (`RET 0x14`: a Vector by value),
+      ScaleToScreenDims 0x4A62B0, ApplyAngles 0x4A6BD0, **ScreenToWorld 0x4A5EE0** (EAX = centre, ESI = out matrix,
+      then cdecl args: naked stub, REPLACE_UNCHECKED). CScreenElement GetLayoutWidth 0x4A87A0 / GetLayoutHeight
+      0x4A87B0 (return the x87 product unrounded: `double`; the layout's fields named up to sizeof 0x178).
+      Mth::Matrix Ident 0x41A640, Scale 0x41BA30, Translate 0x48A230, RotateX/Y/Z 0x41A6A0/0x41A6D0/0x41A700,
+      `Vector * Matrix` 0x41F470 (x87 summation order). Nx GetScreenAspect 0x4A0790, Set/GetScreenAngle 0x4A07A0 /
+      0x4A07B0 (0x701348, from camera_fov).
+      How it draws: its models (up to 25) are ordinary composite objects drawn by the 3D pass with the world - not
+      clipped by the 2D pass's 4:3 viewport. ScreenToWorld maps the layout centre into the camera's frame
+      (x' = (x - 320) * aspect * 0.75 * z / -448, y' = (y - 224) * z / 448, * 0.9 on back buffers wider than 640,
+      z' = CameraZ, -500 for the backdrops), so in the widescreen front end 3D elements away from x 320 sit further out
+      than 4:3 layout positions would (the goals menu's sign) - the original's own behaviour, unchanged. With
+      ParentParams it follows an object (gone -> spawns KillElement3d) or a node. Models: angles in AngleOrder
+      (default Y X Z) about the pivot, scaled, hover sin(2 pi t / period) * Amp, hidden below alpha 0.0001.
+      Quirks kept: ScaleToScreenDims' vertical fit uses the width in its perspective factor; uninitialised bounds /
+      look-at target (zeros here); NaN comparisons follow the x87 flag tests.
+      **Widescreen rule (front end only, widescreen_menus=1)**: the backdrop panel (UI_bg.mdl from
+      make_mainmenu_3d_plane, used by the network, goals, Create-A-Graphic, high scores, options, dialog and keyboard
+      menus; also catmenu's cat_bg.mdl) is a hard-edged model sized for 4:3, so Update stretches the models' x column
+      by k when the element is on the layout facing the camera, every model corner is in front of the camera and its
+      projected left / right corners reach within 5% of the 4:3 area's edges or past them; k = the smallest stretch
+      bringing a corner to each window edge + 1% (never below 1). Signs, icons, boards, decks are left alone. The
+      panel's picture is stretched by about 1.33 on 16:9. A model without geometry yet leaves the element unchanged.
+      **Sprite change (sprite.cpp, same branch)**: the edge rule now extends a side only for sprites that overlap the
+      4:3 layout (left only if the right edge > 0, right only if the left edge < 640); a sprite wholly outside (the
+      bottom band's end strip, about layout -87..-10, which used to be stretched to screen 0..217 over the next strip:
+      the bottom-left "shade") is drawn where it is.
+      Tests (selftests_el3d.cpp): TestElement3dMath, TestElement3dClass (original vs ours on stand-ins, setting off:
+      constructor, SetProperties, SetMorph, Update in 7 layout cases + following node / object / object gone,
+      destructors; element and arena compared after each step), TestElement3dWidescreenRule (worked-out k on
+      1920x1080 and 7 unchanged cases), TestElement3dWidescreenUpdate; 73 mutations, 69 caught (9 after
+      strengthening), 4 equivalent (float vs double `* 0.9`, an unused w, slot release order, a w rebuilt by
+      OrthoNormalizeAbout). TestSpriteWidescreenEdges gained 8 wholly-outside cases; 8 mutations caught.
+      To look at in the game (16:9 window, widescreen_menus=1): the network ACTIONS menu, Select Goals,
+      Create-A-Graphic, High Scores - the dark purple panel should reach both screen edges (no skate shop showing at
+      the sides), its picture stretched by about a third; menu boxes, text, signs, skater / board / deck models
+      unchanged; the bottom-left band no longer shaded. widescreen_menus=0 and levels exactly as before. If the
+      panel's edge shows a seam, say which menu and window size.
+      Left: 0x41A680 (another class's Vector getter, between Ident and RotateX); 0x4A57D0 / 0x4A5D30 (another element
+      class); the rest of the screen element code 0x4A74E0-0x4A8790 and CScreenElement itself (0x4A8F90, 0x4AAB30,
+      0x4A96B0, 0x4A9AA0); the camera lookups 0x4A09C0 / 0x4A06D0, getters 0x485A00 / 0x485A10 / 0x485B10, model
+      bounding box 0x493CD0 / 0x48DE80, viewport mask 0x494970, node lookups 0x45C1B0 / 0x45C050 (GameFunction).
+- [x] Batch 84, engine net library 0x456910-0x457EB0 (branch wt/netA, 47 functions, nothing skipped; **NOT run in
+      the game yet**): src/game/net/net_latency.* (**Net::LatencyTest** 0x38: ctor 0x456970, InputLatencyValue
+      0x4569B0), net_lists.* (the library's Lst::Node / Head / Search destructors, **BannedConn**, the Dispatcher's
+      handler-list array destructor 0x457260), net_app_view.* (**Net::App** methods on `AppView`, a view of App's
+      fields at their offsets - App's constructor is batch 85's; Conn's 0x455C80 is below the range, hence
+      `ConnView`), Lst::Head::AddNodeFromTail 0x457350 (head.cpp). Functions: Encrypt 0x456910 / Decrypt 0x456CC0
+      (16-bit checksum = CRC halves added, XOR with its low byte; Encrypt's args are (data, out, length,
+      &outLength) - Ghidra's order was wrong, found by a test crash), task getters 0x456A50-0x456A80, ReportError,
+      IsSendDue (with wrap), VirtualSlot5Jump 0x456B30 (naked `jmp [vtable+0x14]`, linker-folded), Bind 0x456BA0,
+      NewQueuedMsg 0x456D90, SendTo / Send / SendMessageTo, Init 0x457110 / Deinit 0x457490 (App vtable slots 4/5),
+      TerminateConnection, BanConnection, NextConnection, DispatchQueuedSequencedMessages 0x457560, the destructor
+      body 0x457710, GetConnectionByAddress / ByHandle, ImportantMessagesDue 0x457970, MessagesDue 0x457AC0,
+      FreeMessages 0x457C80.
+      Layouts: App (vtable 0x6475B4; +0x08 time, +0x0C Dispatcher, +0x1428 SOCKET, +0x143C connected, +0x1440
+      Net::Manager*, +0x1444..+0x1450 four tasks, +0x145C scrambled-packet buffer, +0x1E84 flags (1 broadcast, 8 local,
+      0x20 secure), +0x1E8C Lst::Head<Conn>, +0x1EA0 banned list, +0x1EB8 name); Conn (0x3D20: three outgoing queues
+      +0x00/+0x14/+0x28, handle +0x3C, ip +0x40, port +0x48, next expected sequence per group +0x478, received-ahead
+      lists +0x87C, LatencyTest +0x1CA4, node +0x3CF8, alias +0x3D0C); queued messages (SeqQueuedMsg 0x10, ctor
+      0x455040; both kinds freed by 0x4550F0); MsgHandlerContext (0xA4, ctor 0x454A20).
+      Quirks kept: Bind's first argument is never read and its Manager +0x128 call only sets INADDR_ANY again;
+      MessagesDue treats an important / sequenced link as due when the time is *before* its +0x24 time (JC);
+      DispatchQueuedSequencedMessages bumps the sequence before dispatch and reuses one context (fields carry over);
+      handler results 1 next, 3 return false untouched, 5 keep queued, else delete.
+      Tests (selftests_netA.cpp): TestNetLatency, TestNetLists, TestNetSockets (Winsock stood in at the import slots
+      and in ws2_32 itself - no real socket), TestNetQueues; original vs ours, call traces and object memory
+      compared. 54 mutations: 45 caught at first, 7 after strengthening, 2 rewritten to build, 1 equivalent
+      (HandlerLists::Destroy's order).
+- [x] Batch 85, engine net library 0x457EB0-0x4598C0, Net::App (branch wt/netB, 19 functions incl. two task callbacks
+      Ghidra never made functions, 0x4593C0 / 0x4594A0; **NOT run in the game yet**): src/game/net/net_app.*:
+      EnqueueMessage 0x457EB0 (93 callers), StreamMessageToConn 0x458740, StreamMessage 0x458AB0, FirstConnection,
+      SendEnqueuedMessages 0x458C10, SendData 0x458CA0, IsConnectionBanned, GetBandwidthUsed 0x458DB0,
+      BandwidthExceeded 0x458E60, GetFreeHandle, TerminateInvalidConnections, ProcessStreamMessages 0x4590C0, the
+      tasks ReceiveNetworkData 0x4593C0 (tail-jumps to slot 2: "not checked" by thug2_check) / NetworkMetrics
+      0x4593E0 / SendNetworkData 0x4594A0, the constructor 0x4594C0, deleting destructor 0x459660, ProcessData
+      0x459690 (slot 1), NewConnection 0x4597C0. `struct App : AppView` adds only methods (same size); the tasks are
+      +0x1444 process (0x456CA0, priority 0), +0x1448 send (-2000, built by the Client's / Server's constructors),
+      +0x144C receive (1000), +0x1450 metrics (-2500). Vtables: App 0x6475B4 = [0x459660, 0x459690, purecall
+      ReceiveData, purecall SendData(Conn*), 0x457110 Init, 0x457490 Deinit]; **Client** 0x6475CC (constructor
+      0x45A250) = [0x45B8E0, 0x459690, 0x45A300, 0x459FD0, 0x459EC0, 0x45B820]; **Server** 0x6475EC (constructor
+      0x45B830) = [0x45B8E0, 0x459690, 0x45BBD0, 0x45B920, 0x45B7A0, 0x45B820] (netB's record had Client and
+      Server swapped; batch 86 settled it from the code). Net::MsgDesc (0x20, ctor 0x4549F0: id, stream piece, length,
+      data, priority, queue 0/1/2 = default / important / sequenced, group, singular, delay, forced sequence,
+      compression 0 / 1 RLE / 2 LZSS) and StreamDesc (0x44) are in net_app.h; Conn's other fields (send / receive
+      buffers, status, flags 1 local / 2 remote / 4 foreign, metrics +0x1CDC / +0x2CE8, bandwidth) by offset.
+      Findings: StreamMessageToConn / ProcessStreamMessages leave the stack MsgDesc's singular and compression
+      uninitialised (a stray compression value would garble every piece, so in practice 0) - ours zeroes them;
+      the stream start message's length is 3 bytes past the copied data. Quirks kept: a sequenced broadcast gives
+      each link the queue number (2) as its priority; default-queue messages to a single handle also go to a
+      not-ready connection when the id is 9; GetConnectionByHandle's result and allocations are never checked.
+      Tests (selftests_netB.cpp): TestNetAppMessages, TestNetAppConnections (stand-in memory manager, app and
+      connections in a 64 KB-aligned arena; the game's own queue / link / stream helpers run; arena and call log
+      compared, stream timing per frame); 68 mutations, all caught (10 after strengthening), 2 equivalent dropped.
+- [x] Batch 86, engine net library 0x4598C0-0x45BDA0 - the library from 0x456910 up is now complete (branch wt/netC,
+      36 functions incl. 6 message handlers Ghidra never made functions; **NOT run in the game yet**):
+      net_dispatcher.* (**Net::Dispatcher** at App+0x0C: 255 handler lists, one per message id; **MsgHandler** 0x20:
+      code `int __cdecl(MsgHandlerContext*)`, data, packet-flags mask; AddHandler 0x45A5C0, Init 0x45A640, Deinit
+      0x45A690, DispatchMsg 0x45A750 (Neversoft's DispatchMessage, renamed for the windows.h macro),
+      DispatchMsgHandlers 0x45A830), net_client.* (**Net::Client**, ctor 0x45A250: StreamMessageToServer 0x459DC0,
+      EnqueueMessageToServer 0x459E50, Init 0x459EC0, ConnectToServer 0x459F40, SendData 0x459FD0, ReceiveData
+      0x45A300, HandleTimestamp 0x45AA70, HandleConnectionAccepted 0x45ABC0 / Refused 0x45ABD0; the shared deleting
+      destructor 0x45B8E0 and the jump thunks 0x45B820 -> Deinit / 0x45B910 -> ~App, REPLACE_SOURCE_ONLY),
+      net_server.* (**Net::Server**, ctor 0x45B830: Init 0x45B7A0, SendData 0x45B920, ReceiveData 0x45BBD0,
+      HandleTimestamp 0x45AA30, HandleConnectionRequest 0x45ADB0, HandleDisconnRequest 0x45AE50),
+      net_app_messages.cpp (App::BundleMessages 0x4598C0 and the handlers App::Init registers: latency test /
+      response 0x45AD60 / 0x45AB60, compressed 0x45ABF0 (id 0x12 - batch 84's record called it "disconnect"),
+      sequenced 0x45AF10, ack 0x45B0B0, stream 0x45B2F0), Lst::Head::AddUniqueSequence 0x45AEB0 (head.cpp; game code
+      0x567257 / 0x567465 calls it too).
+      Client vs Server from the code: 0x45A250's Init registers 4 "connection accepted" and 5 / 6 "refused /
+      terminated", it connect()s to a server address, and chat sends "to the server" through it (GameNet manager
+      +0x08); 0x45B830's Init registers 3 "connection request" and 0xB "disconnect request" and its ReceiveData makes
+      connections for unknown senders. Message ids: 1 latency test, 2 response, 3 connection request, 4 accepted,
+      5 refused, 6 terminated, 7 sequenced, 8 ack, 9 timestamp, 0xB / 0xC disconnect request / accepted, 0xE / 0xF
+      stream start / data, 0x12 compressed. Handler results: 0 error, 1 continue, 2 halt, 3 connection destroyed,
+      4 done, 5 keep.
+      Integration: the three ranges call each other directly (Dispatcher derives from batch 84's HandlerLists, Conn
+      is `using Conn = ConnView`, Client / Server derive from `struct App : AppView`; App::Init registers the C++
+      handlers; ProcessData calls DispatchMsgHandlers); each test file stands in for the others' C++ functions.
+      Quirks kept: a message without a length field copies a whole 0x514-byte buffer and advances by the previous
+      length; 32 timestamps to ack with no bounds check; Client::ReceiveData looks the sender up by the server's
+      stored address; 16-bit packet size checks wrap; an unknown compression method uses the buffer as is; a full
+      stream start skips the checksum check; ConnectToServer loops forever on WSAEWOULDBLOCK; failed allocations
+      crash. Difference: Client::ReceiveData's sockaddr is zero-initialised (uninitialised in the original; only the
+      foreign-packet callback sees it).
+      Tests (selftests_netC.cpp, 9 Early): original vs ours on identical stand-in worlds (App, three Conns, WS2_32
+      through its import slots): the dispatcher, DispatchMsgHandlers (14), BundleMessages (26), every handler,
+      Client / Server construct / destroy / init / connect / enqueue, ReceiveData (10 each), SendData (19 each);
+      90 mutations: 81 caught at once, 5 after strengthening, 4 equivalent.
+      **To test batches 84-86 in the game**: the network menu; host a LAN game and join it from another machine or a
+      second instance (connecting), chat, a client joining mid-game (level data and big messages are streamed),
+      play a game mode, disconnect / leave and rejoin; online play if available; check thug2-decomp.log. Disable
+      with `[replacements] disable=net_app.cpp,net_app_view.cpp,net_lists.cpp,net_latency.cpp,net_client.cpp,
+      net_server.cpp,net_dispatcher.cpp,net_app_messages.cpp` (head.cpp also holds AddNodeFromTail and
+      AddUniqueSequence, but disabling it also disables Lst::Head::AddNode).
+      **Subsystem map**: the net library starts at **0x4544E0**, not 0x456910 (data/subsystems.csv and
+      subsystems.md split: Movies (Bink) & streamed audio 0x44E6B0-0x4544E0, 167 functions / 22 KB; net library
+      0x4544E0-0x45BDA0, 205 / 26 KB). Evidence: the Pcm / Bink stream code runs through 0x454490 (71 bytes, ending
+      0x4544D7: a handle setter calling the GetLastError helper 0x454370) - 0x452910-0x454490 use BinkOpen /
+      BinkSetVolume / BinkClose / BinkGoto, the pcm.wad / music .bik strings and the stream mutexes, and every
+      caller is in 0x450xxx-0x453xxx (plus 0x4677F0 / 0x54F380 / 0x5A8F70 calling the shuffle 0x452910). From
+      0x4544E0 everything is net: 0x4544E0 is the Metrics constructor (0x100C bytes, zeroes +0x800..+0x1008), called
+      only by Conn's constructor 0x455C80; 0x454520 the Metrics getter (+0x1008) used by GetBandwidthUsed /
+      BandwidthExceeded; 0x454530-0x4549C0 Net::Manager getters called from game code (0x52Exxx-0x53Fxxx,
+      0x5A0xxx) (0x4548F0 inet_addr, 0x454910 gethostbyname / "localhost"); then MsgDesc 0x4549F0,
+      MsgHandlerContext 0x454A20, QueuedMsg / SeqQueuedMsg 0x454FA0 / 0x455040, the link constructors, Conn's
+      methods 0x455970-0x456790.
+- [ ] Next: the rest of the net library below 0x456910: Conn and the message types 0x4544E0-0x456910 (Metrics
+      0x4544E0 / 0x454520 / update 0x454D00, the Net::Manager getters 0x454530-0x4549C0, StreamDesc 0x4549D0 /
+      0x454E00, MsgDesc 0x4549F0, MsgHandlerContext 0x454A20, RLE / LZSS compression 0x454C20 / 0x454E30, QueuedMsg /
+      SeqQueuedMsg 0x454FA0 / 0x455040 and their destructor 0x4550F0, the link constructors 0x4555F0-0x455680 and
+      Search destructors 0x455Axx, Conn's methods 0x455970-0x456790 incl. the constructor 0x455C80 and ~Conn
+      0x456790), plus batch 85's still-by-address 0x457010 (the handler lists' constructor) and 0x456CA0 (the process
+      task callback) - in batch 84's range but not Ghidra functions. Cleanups once Conn's constructor is written:
+      fold AppView / ConnView into App / Conn (drop the derivation and `using Conn = ConnView`, net_access_c.h's
+      by-offset accessors), and unify chat.cpp's and cscript_manager.cpp's local MsgDesc copies with net_app.h's.
+      Widescreen follow-up: if the user still sees the bottom-left band overlap, don't draw sprites wholly outside the
+      layout in the widescreen front end (they were never visible in the original's 4:3 screen). Then the gaps
+      batches 79-81 left: **0x45E9E0**
       (Obj_GetCollision, the last of table 0x683268's 30 entries) with the collision feeler 0x417760 / 0x4172F0; the
       rest of the cutscene system up to 0x4680B0 (0x463AA0 quaternion + translation to matrix, 0x463BA0,
       0x463C70-0x464360, the pool pair 0x4645A0 / 0x4645E0, 0x464640-0x4680B0: loading 0x466620, the details' slots
       0 / 2 / 5 / 7 / 8, the big updates 0x4648D0 / 0x465C00); the task-list area 0x406850-0x406E00 (~25 functions,
       incl. Tsk::Task 0x406890 / 0x406C90 -> 0x406A80 and the list run 0x406AC0 the frame order rests on); 0x4AAD40
-      (CGeneralManager slot 6). The earlier gaps: the module manager Mdl::Manager 0x44F300-0x44F7E0,
+      (CGeneralManager slot 6); the rest of the screen element code 0x4A74E0-0x4A8790 and CScreenElement itself
+      (batch 83's Left). The earlier gaps: the module manager Mdl::Manager 0x44F300-0x44F7E0,
       0x4B2270-0x4B2320 (9 glue functions), CFlipRotateComponent::Update 0x4E2D20 and its base 0x481710-0x481740,
       0x46C470-0x46C6A0 (a CStruct wrapper class), the sound functions 0x47AC10-0x47AD80. GameSpy's host names become
       configuration when the SDK is linked.
