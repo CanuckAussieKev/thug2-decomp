@@ -870,6 +870,17 @@ void Update(Mdl::FrontEnd* frontEnd)
     bool menus = manager && RootElement(manager) && (Nx::CurrentLevel() == 0 || frontEnd->m_paused);
     if (menus && InParkEditor() && !frontEnd->m_paused)
         menus = false;
+    if (DebugEnabled()) {
+        // (debug_mouse: each change of whether the mouse drives the menus, with what decided it)
+        static int s_lastMenus = -1, s_lastPaused = -1;
+        if (static_cast<int>(menus) != s_lastMenus || static_cast<int>(frontEnd->m_paused) != s_lastPaused) {
+            s_lastMenus = menus;
+            s_lastPaused = frontEnd->m_paused;
+            Log("mouse: menus %s (level %u, front end paused %d, element manager %d, root %d, park editor %d)",
+                menus ? "active" : "inactive", Nx::CurrentLevel(), frontEnd->m_paused, manager != nullptr,
+                manager && RootElement(manager) != nullptr, InParkEditor());
+        }
+    }
     ShowCursor(menus);
     if (!menus) {
         ClearPending("the menus are gone");
