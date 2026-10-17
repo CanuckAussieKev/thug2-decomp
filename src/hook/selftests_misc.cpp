@@ -26,6 +26,7 @@
 #include "game/mth/math.h"
 #include "game/mth/random.h"
 #include "game/net/service.h"
+#include "game/obj/compositemgr.h"
 #include "game/obj/objman.h"
 #include "game/obj/tracker.h"
 #include "game/script/cache.h"
@@ -589,7 +590,7 @@ void TestMain()
         }
         const Create releases[] = {
             {0x00574910, 0}, {0x0045D6E0, 0}, {0x004AACF0, 0}, {0x0058D290, 0}, {0x005395C0, 0}, {0x0054EBE0, AddressOf(&Mdl::ReleaseFrontEnd)},
-            {0x00564C10, 0}, {0x0057FDB0, 0}, {0x0057C120, 0}, {0x00552F70, 0}, {0x005880E0, 0}, {0x0045F1E0, 0},
+            {0x00564C10, 0}, {0x0057FDB0, 0}, {0x0057C120, 0}, {0x00552F70, 0}, {0x005880E0, 0}, {0x0045F1E0, AddressOf(&Obj::ReleaseCompositeObjectManager)},
             {0x004558D0, 0}, {0x0047C6C0, 0}, {0x00407980, 0}, {0x00475A00, AddressOf(&Script::ReleaseScriptCache)},
             {0x005B6620, AddressOf(&File::DestroyAsyncLoaderModule)}, {0x0044E6B0, 0},
             {0x005BC950, AddressOf(&Mc::ReleaseManager)}, {0x005BDCF0, AddressOf(&Sio::ReleaseManager)},

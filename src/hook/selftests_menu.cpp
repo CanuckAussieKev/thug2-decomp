@@ -21,6 +21,7 @@
 #include "game/core/pool.h"
 #include "game/core/string.h"
 #include "game/front/front_end.h"
+#include "game/obj/compositemgr.h"
 #include "game/obj/tracker.h"
 #include "game/pcm/music.h"
 #include "game/script/cscript.h"
@@ -371,7 +372,10 @@ void InstallStandIns(StandIns& s, bool autoRepeat)
     thiscall1(0x00564F60, 0x4F60, nullptr);
     thiscall1(0x005665C0, 0x65C0,
               [](uint32_t i) { return i < 4 ? reinterpret_cast<uint32_t>(g_skaterAt[i]) : 0u; });
-    thiscall1(0x0045F5D0, 0xF5D0, nullptr);
+    s.At({0x0045F5D0, AddressOf(&Obj::CCompositeObjectManager::Pause)}, 4, [](Regs& r) {
+        Record({0xF5D0, Id(r.ecx), r.args[0] & 0xFF});
+        return 0u;
+    });
     thiscall1(0x004AAEE0, 0xAEE0, nullptr);
     thiscall1(0x0044E610, 0xE610, nullptr);
     thiscall1(0x00406C90, 0x6C90, nullptr);
