@@ -173,8 +173,14 @@ CScreenElement* Make(Tree& tree, CScreenElement* parent, uint32_t type, float x,
     At<float>(e, 0x164) = height;
     GameFunction<void(__thiscall*)(void*, void*)>(0x004A8C30)(e, reinterpret_cast<uint8_t*>(e) + 0x7C);
     if (parent) {
-        At<float>(e, 0x134) = At<float>(parent, 0x134) + At<float>(parent, 0x13C) * At<float>(e, 0x9C);
-        At<float>(e, 0x138) = At<float>(parent, 0x138) + At<float>(parent, 0x140) * At<float>(e, 0xA0);
+        // The parent's angle turns the scaled local top left (0x004A9D30); the element starts with that angle (Turn
+        // adds its own).
+        double angle = At<float>(parent, 0x14C);
+        double c = std::cos(angle), s = std::sin(angle);
+        double lx = At<float>(parent, 0x13C) * At<float>(e, 0x9C), ly = At<float>(parent, 0x140) * At<float>(e, 0xA0);
+        At<float>(e, 0x134) = static_cast<float>(At<float>(parent, 0x134) + (c * lx - s * ly));
+        At<float>(e, 0x138) = static_cast<float>(At<float>(parent, 0x138) + (s * lx + c * ly));
+        At<float>(e, 0x14C) = At<float>(parent, 0x14C);
         At<float>(e, 0x13C) = At<float>(parent, 0x13C) * scale;
         At<float>(e, 0x140) = At<float>(parent, 0x140) * scaleY;
         At<float>(e, 0x114) = At<float>(parent, 0x114) * alpha;
@@ -204,6 +210,13 @@ CScreenElement* Menu(Tree& tree, CScreenElement* parent, bool vertical, bool foc
 }
 
 bool FocusedOnly(CScreenElement* menu) { return MouseMenus::MenuHasFocus(menu); }
+
+// An element's own rotation (rot_angle, radians), before its children are made: added to its absolute angle.
+void Turn(CScreenElement* e, float angle)
+{
+    At<float>(e, 0xB4) = angle;
+    At<float>(e, 0x14C) += angle;
+}
 
 void TestMouseHitTest()
 {
@@ -460,8 +473,311 @@ void TestMouseStepping()
     }
 }
 
+// --- item shapes: theme menus, the spin menu ------------------------------------------------------------------------
+
+constexpr uint32_t kSprite = 0xB12B510A;
+constexpr float kDegrees = 3.14159265358979f / 180.0f;
+
+// A point `along` and `across` an element turned by `degrees` from (x, y).
+void Along(float x, float y, float degrees, float along, float across, float* outX, float* outY)
+{
+    double a = degrees * kDegrees;
+    *outX = static_cast<float>(x + std::cos(a) * along - std::sin(a) * across);
+    *outY = static_cast<float>(y + std::sin(a) * along + std::cos(a) * across);
+}
+
+void TestMouseItemShapes()
+{
+    static Tree tree;
+    tree.used = 0;
+    // Tags: `blank`; `active = 0`; `active = 1`; tag_not_focusable.
+    static Script::CComponent blankFlag, activeOff, activeOn, notFocusable;
+    static Script::CStruct blankTags, offTags, onTags, notFocusableTags;
+    blankFlag = {};
+    blankFlag.typeAndFlag = static_cast<uint8_t>(Script::ESYMBOLTYPE_NAME << 1);
+    blankFlag.checksum = 0xC3D43B9A;
+    activeOff = {};
+    activeOff.typeAndFlag = static_cast<uint8_t>(Script::ESYMBOLTYPE_INTEGER << 1);
+    activeOff.name = 0xB4E103FD;
+    activeOff.integer = 0;
+    activeOn = activeOff;
+    activeOn.integer = 1;
+    notFocusable = blankFlag;
+    notFocusable.checksum = 0xF33A3321;
+    blankTags = {};
+    blankTags.m_head = &blankFlag;
+    offTags = {};
+    offTags.m_head = &activeOff;
+    onTags = {};
+    onTags.m_head = &activeOn;
+    notFocusableTags = {};
+    notFocusableTags.m_head = &notFocusable;
+
+    CScreenElement* root = Make(tree, nullptr, kWindow, 0, 0, -1, -1, 640, 448);
+
+    // T: a theme menu (theme_menu_add_item, as the network lobby's ACTIONS box) at (219,125), 222 wide: items are
+    // 200 x 20 containers centred on (111, 10 + 20 i) - (230, 125 + 20 i)-(430, 145 + 20 i) - each with its text
+    // centred at (85, -5): 100 x 20, (265, 110 + 20 i)-(365, 130 + 20 i), mostly above the container.
+    CScreenElement* t = Menu(tree, root, true, true, 219, 125, 222, 60);
+    CScreenElement* items[3];
+    for (int i = 0; i < 3; ++i) {
+        items[i] = Make(tree, t, kContainer, 111, 10.0f + 20 * i, 0, 0, 200, 20);
+        Make(tree, items[i], kText, 85, -5, 0, 0, 100, 20);
+    }
+    // Item 1: an invisible sprite (alpha 0) right of the menu: (450,145)-(480,155) - still the item's.
+    Make(tree, items[1], kSprite, 220, 0, -1, -1, 30, 10, 1.0f, 0.0f);
+    // Item 2: an empty container far below (no area: not part of it); a hidden sprite (190..210) with a child.
+    Make(tree, items[2], kContainer, 0, 100, -1, -1, 0, 0);
+    CScreenElement* hiddenSprite = Make(tree, items[2], kSprite, 0, 25, -1, -1, 100, 20);
+    At<uint32_t>(hiddenSprite, 0x08) = 0x400000;
+    Make(tree, hiddenSprite, kSprite, 0, 0, -1, -1, 100, 20);
+
+    // S: the main menu's spin menu: a 1 x 1 vmenu with its top left at (45.5, 213.5), turned -22.5 degrees (item 1
+    // in front); 1 x 1 items at its top left turned 0, 22.5, ... 112.5 degrees; each with a 150 x 20 text from the
+    // item's top left (item 1's faded out under the roundbar). Item 4 is disabled (active = 0), item 5 a blank.
+    CScreenElement* spin = Menu(tree, root, true, true, 45.5f, 213.5f, 1, 1);
+    Turn(spin, -22.5f * kDegrees);
+    CScreenElement* spinItems[6];
+    for (int i = 0; i < 6; ++i) {
+        spinItems[i] = Make(tree, spin, kContainer, 0.5f, 0.5f, 0, 0, 1, 1);
+        Turn(spinItems[i], 22.5f * i * kDegrees);
+        Make(tree, spinItems[i], kText, 0, 0, -1, -1, 150, 20, 1.0f, i == 1 ? 0.0f : 1.0f);
+    }
+    At<Script::CStruct*>(spinItems[4], 0x20) = &offTags;
+    At<Script::CStruct*>(spinItems[5], 0x20) = &blankTags;
+    At<Script::CStruct*>(spinItems[3], 0x20) = &onTags;
+
+    // R: a 300 x 100 vertical menu turned 0.5 rad at (300,300) with an item turned back (-0.5: upright),
+    // (310,305)-(350,325) unturned: not widened to R's width (R is turned).
+    CScreenElement* r = Menu(tree, root, true, true, 300, 300, 300, 100);
+    Turn(r, 0.5f);
+    CScreenElement* r0 = Make(tree, r, kText, 10, 5, -1, -1, 40, 20);
+    Turn(r0, -0.5f);
+    float r0x = At<float>(r0, 0x134), r0y = At<float>(r0, 0x138);
+
+    struct Expect {
+        float x, y;
+        CScreenElement* menu;
+        CScreenElement* item;
+        int index;
+    };
+    float sx[8], sy[8];
+    Along(45.5f, 213.5f, 0.0f, 120, 10, &sx[0], &sy[0]);    // along item 1 (in front)
+    Along(45.5f, 213.5f, 22.5f, 120, 10, &sx[1], &sy[1]);   // item 2
+    Along(45.5f, 213.5f, -22.5f, 120, 10, &sx[2], &sy[2]);  // item 0
+    Along(45.5f, 213.5f, 45.0f, 140, 18, &sx[3], &sy[3]);   // item 3
+    Along(45.5f, 213.5f, 67.5f, 120, 10, &sx[4], &sy[4]);   // item 4 (disabled)
+    Along(45.5f, 213.5f, 90.0f, 120, 10, &sx[5], &sy[5]);   // item 5 (blank)
+    Along(45.5f, 213.5f, 22.5f, 120, -3, &sx[6], &sy[6]);   // just outside item 2's text (and item 1's)
+    Along(45.5f, 213.5f, 45.0f, 151, 10, &sx[7], &sy[7]);   // past the end of item 3's text
+    const Expect expects[] = {
+        {300, 112, t, items[0], 0}, // item 0's text, above its container
+        {225, 112, t, items[0], 0}, // across the menu's width
+        {300, 128, t, items[0], 0},
+        {300, 132, t, items[1], 1}, // item 1's text over item 0's container (later wins)
+        {300, 147, t, items[1], 1}, // the rest of item 1's text (below item 0's container)
+        {300, 152, t, items[2], 2}, // item 2's text over item 1's container
+        {300, 108, nullptr, nullptr, 0},
+        {460, 150, t, items[1], 1}, // the invisible sprite
+        {300, 183, t, items[2], 2}, // item 2's container's bottom
+        {300, 200, nullptr, nullptr, 0}, // the hidden sprite and its child
+        {300, 230, nullptr, nullptr, 0}, // the empty container
+        {sx[0], sy[0], spin, spinItems[1], 1},
+        {sx[1], sy[1], spin, spinItems[2], 2},
+        {sx[2], sy[2], spin, spinItems[0], 0},
+        {sx[3], sy[3], spin, spinItems[3], 3},
+        {sx[4], sy[4], nullptr, nullptr, 0},
+        {sx[5], sy[5], nullptr, nullptr, 0},
+        {sx[6], sy[6], nullptr, nullptr, 0},
+        {sx[7], sy[7], nullptr, nullptr, 0},
+        {150, 250, nullptr, nullptr, 0}, // inside the turned texts' surrounding rectangles, outside the texts
+        {r0x + 20, r0y + 10, r, r0, 0},
+        {r0x + 100, r0y + 10, nullptr, nullptr, 0}, // across R's (unturned) width: not widened
+    };
+    char what[96];
+    for (const Expect& x : expects) {
+        MouseMenus::Hit hit = {nullptr, nullptr, -1};
+        bool found = MouseMenus::FindItemAt(root, x.x, x.y, FocusedOnly, &hit);
+        std::snprintf(what, sizeof(what), "mouse item shapes at (%g, %g)", x.x, x.y);
+        bool ok = x.item ? found && hit.menu == x.menu && hit.item == x.item && hit.index == x.index : !found;
+        Check(ok, what);
+        if (!ok)
+            Log("  found %d: menu %p item %p index %d", found, hit.menu, hit.item, hit.index);
+    }
+
+    // ItemBounds: theme item 1 (its text, container and invisible sprite), across the menu; spin item 2 (the
+    // turned text's corners).
+    MouseMenus::Rect b = MouseMenus::ItemBounds(items[1], t);
+    Check(Near(b.left, 219) && Near(b.top, 130) && Near(b.right, 480) && Near(b.bottom, 165), "mouse ItemBounds theme");
+    if (!(Near(b.left, 219) && Near(b.top, 130) && Near(b.right, 480) && Near(b.bottom, 165)))
+        Log("  (%f, %f)-(%f, %f)", b.left, b.top, b.right, b.bottom);
+    float cx[3], cy[3];
+    Along(45.5f, 213.5f, 22.5f, 150, 0, &cx[0], &cy[0]);
+    Along(45.5f, 213.5f, 22.5f, 0, 20, &cx[1], &cy[1]);
+    Along(45.5f, 213.5f, 22.5f, 150, 20, &cx[2], &cy[2]);
+    b = MouseMenus::ItemBounds(spinItems[2], spin);
+    bool boundsOk = Near(b.left, cx[1]) && Near(b.top, 213.5f) && Near(b.right, cx[0]) && Near(b.bottom, cy[2]);
+    Check(boundsOk, "mouse ItemBounds turned");
+    if (!boundsOk)
+        Log("  (%f, %f)-(%f, %f)", b.left, b.top, b.right, b.bottom);
+
+    // The pieces.
+    Check(MouseMenus::IsRotatingMenu(spin) && !MouseMenus::IsRotatingMenu(t) && MouseMenus::IsRotatingMenu(r),
+          "mouse IsRotatingMenu");
+    // A menu at angle 0 with one turned item (as the spin menu with item 0 in front); a whole turn isn't turned.
+    CScreenElement* u = Menu(tree, root, true, true, 0, 0, 10, 10);
+    CScreenElement* u0 = Make(tree, u, kText, 0, 0, -1, -1, 5, 5);
+    Make(tree, u, kText, 0, 5, -1, -1, 5, 5);
+    Check(!MouseMenus::IsRotatingMenu(u), "mouse IsRotatingMenu flat");
+    Turn(u0, 6.2831855f);
+    Check(!MouseMenus::IsRotatingMenu(u), "mouse IsRotatingMenu a whole turn");
+    At<float>(u0, 0x14C) = 0.4f;
+    Check(MouseMenus::IsRotatingMenu(u), "mouse IsRotatingMenu one item");
+    Check(!MouseMenus::Rotated(0.0f) && !MouseMenus::Rotated(6.2831855f) && !MouseMenus::Rotated(-6.2831855f) &&
+              !MouseMenus::Rotated(0.0005f) && MouseMenus::Rotated(0.01f) && MouseMenus::Rotated(-0.01f) &&
+              MouseMenus::Rotated(3.14159f) && MouseMenus::Rotated(6.3f),
+          "mouse Rotated");
+    MouseMenus::Box flipped = {10, 10, -20, 5, 0};
+    Check(MouseMenus::BoxContains(flipped, 0, 12) && MouseMenus::BoxContains(flipped, -10, 10) &&
+              !MouseMenus::BoxContains(flipped, 11, 12) && !MouseMenus::BoxContains(flipped, 0, 16) &&
+              !MouseMenus::BoxContains(flipped, 0, 9),
+          "mouse BoxContains negative width");
+    MouseMenus::Box upright = {0, 0, 10, 5, 1.5707964f}; // a quarter turn: along +y, across -x
+    Check(MouseMenus::BoxContains(upright, -2, 5) && !MouseMenus::BoxContains(upright, 2, 5) &&
+              !MouseMenus::BoxContains(upright, -2, 11) && !MouseMenus::BoxContains(upright, -6, 5) &&
+              !MouseMenus::BoxContains(upright, -2, -1),
+          "mouse BoxContains turned");
+    MouseMenus::Box tall = {0, 0, 10, -5, 0};
+    Check(MouseMenus::BoxContains(tall, 5, -2) && !MouseMenus::BoxContains(tall, 5, 2), "mouse BoxContains negative height");
+    Check(MouseMenus::ItemPassedOver(spinItems[4]) && MouseMenus::ItemPassedOver(spinItems[5]) &&
+              !MouseMenus::ItemPassedOver(spinItems[3]) && !MouseMenus::ItemPassedOver(spinItems[0]),
+          "mouse ItemPassedOver");
+    At<Script::CStruct*>(spinItems[0], 0x20) = &notFocusableTags;
+    Check(!MouseMenus::ItemPassedOver(spinItems[0]), "mouse ItemPassedOver other tags");
+    // A named tag holding the name `blank` (icon = blank) isn't the flag.
+    static Script::CComponent namedBlank;
+    static Script::CStruct namedTags;
+    namedBlank = blankFlag;
+    namedBlank.name = 0x9A6BD624; // icon
+    namedTags = {};
+    namedTags.m_head = &namedBlank;
+    At<Script::CStruct*>(spinItems[0], 0x20) = &namedTags;
+    Check(!MouseMenus::ItemPassedOver(spinItems[0]), "mouse ItemPassedOver a named tag");
+    At<Script::CStruct*>(spinItems[0], 0x20) = nullptr;
+}
+
+// --- a selection on its way over several frames ---------------------------------------------------------------------
+
+// A menu taking a frame at a time: after a move it ignores the events for `lockAfter` frames (the spin menu's
+// spin_menu_input_timer); with `drift` it moves one way by itself each frame (a blank item's focus script).
+struct FrameModel {
+    MenuModel menu;
+    int lockAfter = 0;
+    int lock = 0;
+    int drift = 0;
+
+    void Tick()
+    {
+        if (lock > 0)
+            --lock;
+        if (drift)
+            menu.Move(drift);
+    }
+};
+
+int ReadFrameModel(void* context) { return ReadModel(&static_cast<FrameModel*>(context)->menu); }
+
+void SendFrameModel(void* context, int direction)
+{
+    auto* m = static_cast<FrameModel*>(context);
+    m->menu.events.push_back(direction);
+    if (m->menu.locked || m->lock > 0)
+        return;
+    m->menu.Move(direction);
+    m->lock = m->lockAfter;
+}
+
+void TestMouseTargets()
+{
+    struct Case {
+        const char* what;
+        int count;
+        bool wraps;
+        int lockAfter;   // frames ignored after each move
+        bool locked;     // never moves
+        int drift;
+        bool wait;       // AdvanceTarget told to send nothing
+        int from, to;
+        int destroyAfter;
+        MouseMenus::TargetState end;
+        int frames;      // the frame it ended in (1 = the first call)
+        int events;
+        int selected;
+    };
+    using S = MouseMenus::TargetState;
+    const Case cases[] = {
+        {"already there", 5, false, 0, false, 0, false, 2, 2, -1, S::Reached, 1, 0, 2},
+        {"a menu that moves at once", 5, false, 0, false, 0, false, 0, 3, -1, S::Reached, 1, 3, 3},
+        // (a move frame sends two events: the move, then one ignored - StepSelection stops there)
+        {"the spin menu: a move every 9 frames", 16, true, 9, false, 0, false, 0, 3, -1, S::Reached, 19, 21, 3},
+        {"the spin menu the short way round", 16, true, 9, false, 0, false, 1, 14, -1, S::Reached, 19, 21, 14},
+        {"stuck: gives up", 5, false, 0, true, 0, false, 0, 3, -1, S::GaveUp, 1 + MouseMenus::kMaxStuckFrames + 1,
+         1 + MouseMenus::kMaxStuckFrames + 1, 0},
+        {"out of frames", 40, false, 9, false, 0, false, 0, 39, -1, S::GaveUp, MouseMenus::kTargetFrames + 1,
+         MouseMenus::kTargetFrames + 34, 34},
+        {"waiting: the menu moves by itself", 8, false, 0, false, 1, true, 0, 3, -1, S::Reached, 4, 0, 3},
+        {"waiting and stuck", 8, false, 0, false, 0, true, 0, 3, -1, S::GaveUp, 1 + MouseMenus::kMaxStuckFrames + 1, 0,
+         0},
+        {"menu destroyed", 8, false, 9, false, 0, false, 0, 5, 1, S::GaveUp, 1, 1, 1},
+        {"no selection", 8, false, 0, false, 0, false, -1, 5, -1, S::GaveUp, 1, 0, -1},
+    };
+    char what[128];
+    for (const Case& c : cases) {
+        FrameModel model;
+        model.menu.focusable.assign(c.count, true);
+        model.menu.wraps = c.wraps;
+        model.menu.locked = c.locked;
+        model.menu.selected = c.from;
+        model.menu.destroyAfter = c.destroyAfter;
+        model.lockAfter = c.lockAfter;
+        model.drift = c.drift;
+        MouseMenus::Target target = MouseMenus::StartTarget(c.to, c.count, c.wraps);
+        S state = S::Moving;
+        int frame = 0;
+        while (state == S::Moving && frame < 1000) {
+            ++frame;
+            if (frame > 1)
+                model.Tick();
+            state = MouseMenus::AdvanceTarget(target, c.wait, ReadFrameModel, SendFrameModel, &model);
+        }
+        int events = static_cast<int>(model.menu.events.size());
+        bool ok = state == c.end && frame == c.frames && events == c.events && model.menu.selected == c.selected;
+        std::snprintf(what, sizeof(what), "mouse targets: %s", c.what);
+        Check(ok, what);
+        if (!ok)
+            Log("  state %d after %d frames, %d events, selected %d; expected %d, %d, %d, %d", static_cast<int>(state),
+                frame, events, model.menu.selected, static_cast<int>(c.end), c.frames, c.events, c.selected);
+    }
+    // Already there / no selection: decided before a frame is counted.
+    for (int from : {2, -1}) {
+        MenuModel m;
+        m.focusable.assign(5, true);
+        m.selected = from;
+        MouseMenus::Target there = MouseMenus::StartTarget(2, 5, false);
+        MouseMenus::AdvanceTarget(there, false, ReadModel, SendModel, &m);
+        Check(there.framesLeft == MouseMenus::kTargetFrames && there.lastSeen == -2 && m.events.empty(),
+              from < 0 ? "mouse targets: no selection, no frame counted" : "mouse targets: there, no frame counted");
+    }
+    MouseMenus::Target t = MouseMenus::StartTarget(4, 9, true);
+    Check(t.index == 4 && t.count == 9 && t.wraps && t.framesLeft == MouseMenus::kTargetFrames && t.stuckFrames == 0 &&
+              t.lastSeen == -2,
+          "mouse StartTarget");
+}
+
 } // namespace
 
 SELFTEST(Early, TestMouseMapping);
 SELFTEST(Early, TestMouseHitTest);
 SELFTEST(Early, TestMouseStepping);
+SELFTEST(Early, TestMouseItemShapes);
+SELFTEST(Early, TestMouseTargets);
