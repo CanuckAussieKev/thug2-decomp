@@ -102,12 +102,12 @@ public:
     // wrong; secure packets lose their checksum (`length` - 2 bytes copied).
     bool Decrypt(const uint8_t* packet, uint8_t* out, int length);
 
-    // 0x00456A50 / 0x00456A60 / 0x00456A70 / 0x00456A80: the app's main-loop tasks (Neversoft's are receive,
-    // send, process and metrics tasks; which is which isn't established).
-    void* Task1448() { return m_task1448; }
-    void* Task144C() { return m_task144C; }
-    void* Task1444() { return m_task1444; }
-    void* Task1450() { return m_task1450; }
+    // 0x00456A50 / 0x00456A60 / 0x00456A70 / 0x00456A80: the app's main-loop tasks (made by App::Construct and,
+    // the send task, by the Server's and the Client's constructors).
+    void* SendTask() { return m_sendTask; }
+    void* ReceiveTask() { return m_receiveTask; }
+    void* ProcessTask() { return m_processTask; }
+    void* MetricsTask() { return m_metricsTask; }
     // 0x00456AF0
     void* NetManager() { return m_manager; }
     // 0x00456B60
@@ -172,19 +172,21 @@ public:
     uint32_t m_unknown4;      // +0x0004
     uint32_t m_time;          // +0x0008 the current time (ms)
     HandlerLists m_dispatcher; // +0x000C the Dispatcher (wt/netC) starts with its handler lists
-    uint32_t m_unknown13F8;
+    AppView* m_dispatcherApp; // +0x13F8 the Dispatcher's app
     uint32_t m_counters[6];   // +0x13FC (zeroed by Init)
-    Mem::ListNode m_list1414; // +0x1414 (vtable 0x006474D8)
+    Mem::ListNode m_list1414; // +0x1414 Lst::Node<App> (vtable 0x006474D8, data = the app)
     uint32_t m_socket;        // +0x1428
     uint8_t m_localAddress[0x10]; // +0x142C sockaddr_in (Bind)
     bool m_connected;         // +0x143C
     void* m_manager;          // +0x1440 the Net::Manager
-    void* m_task1444;         // +0x1444
-    void* m_task1448;
-    void* m_task144C;
-    void* m_task1450;
-    uint32_t m_unknown1454;   // +0x1454 (zeroed by Init)
-    uint32_t m_unknown1458;
+    // Tsk::Task<App>s (vtable 0x006476F0): process 0x00456CA0 (priority 0), send 0x004594A0 (-2000),
+    // receive 0x004593C0 (1000), metrics 0x004593E0 (-2500).
+    void* m_processTask;      // +0x1444
+    void* m_sendTask;         // +0x1448
+    void* m_receiveTask;      // +0x144C
+    void* m_metricsTask;      // +0x1450
+    int m_numConnections;     // +0x1454 (zeroed by Init)
+    int m_maxConnections;     // +0x1458 (App::NewConnection makes no more)
     uint8_t m_scrambled[0x1E84 - 0x145C]; // +0x145C a secure packet being sent
     uint32_t m_flags;         // +0x1E84
     uint32_t m_unknown1E88;
@@ -195,8 +197,8 @@ public:
 };
 static_assert(offsetof(AppView, m_dispatcher) == 0x0C && offsetof(AppView, m_counters) == 0x13FC &&
                   offsetof(AppView, m_list1414) == 0x1414 && offsetof(AppView, m_socket) == 0x1428 &&
-                  offsetof(AppView, m_connected) == 0x143C && offsetof(AppView, m_task1444) == 0x1444 &&
-                  offsetof(AppView, m_unknown1454) == 0x1454 && offsetof(AppView, m_scrambled) == 0x145C &&
+                  offsetof(AppView, m_connected) == 0x143C && offsetof(AppView, m_processTask) == 0x1444 &&
+                  offsetof(AppView, m_numConnections) == 0x1454 && offsetof(AppView, m_scrambled) == 0x145C &&
                   offsetof(AppView, m_flags) == 0x1E84 && offsetof(AppView, m_connections) == 0x1E8C &&
                   offsetof(AppView, m_banned) == 0x1EA0 && offsetof(AppView, m_name) == 0x1EB8,
               "layout must match the original");

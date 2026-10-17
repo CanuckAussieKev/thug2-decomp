@@ -309,10 +309,10 @@ std::vector<uint32_t> RunLists(bool original)
     AppView* app = App();
 
     // The getters and flags.
-    app->m_task1444 = reinterpret_cast<void*>(0x1444);
-    app->m_task1448 = reinterpret_cast<void*>(0x1448);
-    app->m_task144C = reinterpret_cast<void*>(0x144C);
-    app->m_task1450 = reinterpret_cast<void*>(0x1450);
+    app->m_processTask = reinterpret_cast<void*>(0x1444);
+    app->m_sendTask = reinterpret_cast<void*>(0x1448);
+    app->m_receiveTask = reinterpret_cast<void*>(0x144C);
+    app->m_metricsTask = reinterpret_cast<void*>(0x1450);
     app->m_manager = reinterpret_cast<void*>(0x1440);
     app->m_socket = 0x1428;
     for (uint32_t address : {0x00456A50u, 0x00456A60u, 0x00456A70u, 0x00456A80u, 0x00456AF0u, 0x00456B60u})
@@ -948,10 +948,10 @@ std::vector<uint32_t> RunQueues(bool original)
         uint32_t* tasks = Misc<uint32_t>(0x1E00);
         for (int i = 0; i < 4; ++i)
             tasks[i * 4] = reinterpret_cast<uint32_t>(g_linkVtable);
-        app->m_task1444 = variant ? tasks : nullptr;
-        app->m_task1448 = tasks + 4;
-        app->m_task144C = variant ? tasks + 8 : nullptr;
-        app->m_task1450 = tasks + 12;
+        app->m_processTask = variant ? tasks : nullptr;
+        app->m_sendTask = tasks + 4;
+        app->m_receiveTask = variant ? tasks + 8 : nullptr;
+        app->m_metricsTask = tasks + 12;
         for (Net::MsgHandlerNode& list : app->m_dispatcher.m_lists)
             InitHead(&list, 0x006475A8);
         if (variant)

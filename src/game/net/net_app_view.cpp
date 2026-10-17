@@ -281,7 +281,7 @@ bool AppView::Init()
             return false;
         }
     }
-    m_unknown1454 = 0;
+    m_numConnections = 0;
     for (uint32_t& counter : m_counters)
         counter = 0;
     DispatcherInit(&m_dispatcher);
@@ -394,7 +394,7 @@ void AppView::DestroyBody()
         if (banned)
             DeleteVirtual(banned, 0);
     }
-    for (void* task : {m_task1448, m_task144C, m_task1444, m_task1450}) {
+    for (void* task : {m_sendTask, m_receiveTask, m_processTask, m_metricsTask}) {
         if (task)
             DeleteVirtual(task, 2);
     }
@@ -506,10 +506,10 @@ void AppView::FreeMessages(ConnView* conn, int queue, uint8_t id)
 
 REPLACE(0x00456910, &Net::AppView::Encrypt);
 REPLACE(0x00456CC0, &Net::AppView::Decrypt);
-REPLACE(0x00456A50, &Net::AppView::Task1448);
-REPLACE(0x00456A60, &Net::AppView::Task144C);
-REPLACE(0x00456A70, &Net::AppView::Task1444);
-REPLACE(0x00456A80, &Net::AppView::Task1450);
+REPLACE(0x00456A50, &Net::AppView::SendTask);
+REPLACE(0x00456A60, &Net::AppView::ReceiveTask);
+REPLACE(0x00456A70, &Net::AppView::ProcessTask);
+REPLACE(0x00456A80, &Net::AppView::MetricsTask);
 REPLACE(0x00456AF0, &Net::AppView::NetManager);
 REPLACE(0x00456B60, &Net::AppView::Socket);
 REPLACE(0x00456B70, &Net::AppView::SetValue1E88);
