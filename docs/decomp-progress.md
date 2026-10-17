@@ -2223,15 +2223,111 @@ belong with the CScript batch.
       differ only in a stale high half next to the 0xCD fill - likely the 3 bytes the original's stream start reads
       past the copied data, which hold whatever is there in the game; the test needs to make them identical in both
       runs or mask them).
-- [ ] Next: the rest of the net library below 0x456910: Conn and the message types 0x4544E0-0x456910 (Metrics
-      0x4544E0 / 0x454520 / update 0x454D00, the Net::Manager getters 0x454530-0x4549C0, StreamDesc 0x4549D0 /
-      0x454E00, MsgDesc 0x4549F0, MsgHandlerContext 0x454A20, RLE / LZSS compression 0x454C20 / 0x454E30, QueuedMsg /
-      SeqQueuedMsg 0x454FA0 / 0x455040 and their destructor 0x4550F0, the link constructors 0x4555F0-0x455680 and
-      Search destructors 0x455Axx, Conn's methods 0x455970-0x456790 incl. the constructor 0x455C80 and ~Conn
-      0x456790), plus batch 85's still-by-address 0x457010 (the handler lists' constructor) and 0x456CA0 (the process
-      task callback) - in batch 84's range but not Ghidra functions. Cleanups once Conn's constructor is written:
-      fold AppView / ConnView into App / Conn (drop the derivation and `using Conn = ConnView`, net_access_c.h's
-      by-offset accessors), and unify chat.cpp's and cscript_manager.cpp's local MsgDesc copies with net_app.h's.
+- [x] Batch 87, engine net library 0x454FA0-0x455970 (branch wt/netE, 28 functions, nothing skipped; **NOT run in
+      the game yet**): net_messages.* - QueuedMsg / SeqQueuedMsg constructors 0x454FA0 / 0x455040 (they take the id
+      and length back from CompressMessage 0x454E30, which can change them to 0x12 and the compressed size), their
+      destructor body 0x4550F0, the link constructors MsgNormalLink / MsgImpLink / MsgSeqLink / StreamLink
+      0x4555F0-0x455680 and scalar deleting destructors 0x4557C0-0x455850, the Lst::Node<T> deleting destructors
+      0x455130-0x455230 (StreamLink / MsgNormal / MsgImp / MsgSeq / App nodes, vtables 0x6474C8-0x6474D8),
+      AppNode::DestroyBody 0x455110, Lst::Head<App>'s deleting destructor 0x4556B0 (the link structs moved from
+      net_access_c.h into net_messages.h; MsgSeqLink +0x16 = m_StreamMessage); the Manager's app code (now
+      net_manager_apps.cpp, see batch 89): constructor 0x4556E0, destructor body 0x4555A0, CreateNewAppServer
+      0x455270 / CreateNewAppClient 0x4553F0 (Server 0x2308 bytes, Client 0x1F18), DestroyApp 0x455550,
+      CreateManager 0x455880 / ReleaseManager 0x4558D0 (singleton 0x6EFDD8; singleton.cpp's `NetManager`, main.cpp
+      calls them directly); net_conn_times.cpp - Conn::UpdateCommTime 0x455920, GetTimeElapsedSinceCommunication
+      0x455940, SetSendInterval 0x455960 (+0x6C last communication time).
+      Findings: CreateNewApp* bind to the configured local IP (+0x134 via inet_addr) instead of the address argument
+      when +0x2E5 (DHCP) is set and the connection type is neither 1 nor 3; a local app (flag 8) isn't bound; a
+      local server, or flags bit 0, counts as connected (+0x143C); allocations unchecked. The constructor clears
+      message flags 0-254 only (ids 8 ack / 9 timestamp: no length field). Quirks kept: DestroyApp checks the app
+      for null only after using it; the compression argument is passed as a whole dword.
+      Tests (selftests_netE.cpp, 3 Early: TestNetMessages, TestNetManager, TestNetConnTimes - stand-in memory
+      manager, compressor, Server / Client constructors, app vtable, Bind, Winsock, timer; call traces, memory and
+      lists compared): 63 mutations, 60 caught at once, 2 after strengthening, 1 equivalent (CreateManager's
+      `Instance() = nullptr` on a failed allocation).
+- [x] Batch 88, engine net library 0x455970-0x456910, Net::Conn (branch wt/netF, 41 functions incl. three pieces
+      Ghidra never made functions; **NOT run in the game yet**): net_conn.* - constructor 0x455C80 and destructor
+      0x456790, the getters / setters 0x455970-0x455A40 (GetSendInterval 0x455970 REPLACE_SOURCE_ONLY, 4 bytes;
+      IsForeign / IsLocal / IsRemote = flags +0x64 bits 4 / 1 / 2; SetBandwidthType: 0 broadband 400000, 1 modem
+      4200, 2 LAN 800000 bytes/s, others keep the bandwidth), GetAveLatency 0x455B40 (0 for local), Invalidate /
+      IsValid 0x455C10 / 0x455C20 (status +0x60: bit 0 ready, bit 2 invalid), GetResendThreshold 0x455C30 (status
+      bit 1: 1000 ms, else twice the average latency, at least 500, signed), DestroyReceivedSequencedMessages
+      0x455E50, DestroyLinks 0x455F30, DestroyImportantMessages 0x456210, ReleaseQueuedMessages 0x456370,
+      GetHighestResendCount 0x456540, GetNumQueuedStreamPieces 0x4565E0, ClearResendCounts 0x456630,
+      FlagMessagesForResending 0x4566D0, DestroyMessageQueues 0x456770; the list types (Lst::Search<T> destructor
+      bodies 0x4559D0-0x455A00 / deleting destructors 0x455A80-0x455B10, Lst::Node<T> destructor bodies
+      0x455B50-0x455BB0, Lst::Node<Conn>'s 0x455BD0 in net_lists.cpp, Lst::Head<MsgSeqLink>'s constructor
+      **0x455C60**); and batch 85's two by-address pieces **0x457010** (Lst::Head<MsgHandler>'s constructor) and
+      **0x456CA0** App::ProcessNetworkData (++frames, tail jump to vtable slot 1; "not checked" like 0x4593C0).
+      Conn (0x3D20): three queues +0x00 / +0x14 / +0x28, handle +0x3C, ip +0x40, id +0x44 (running global
+      0x67D800), port +0x48, write / read buffers +0x4C / +0x54 (0x514 / 0xA28), status +0x60, flags +0x64, App
+      +0x68, last comm / send time +0x6C / +0x70, send interval +0x74, sequence ids out / expected per group +0x78 /
+      +0x478, next stream id +0x878, 256 received queues +0x87C, received / sent streams +0x1C7C / +0x1C90,
+      LatencyTest +0x1CA4, Metrics in / out +0x1CDC / +0x2CE8, force-send +0x3CF4, app node +0x3CF8, alias +0x3D0C,
+      bandwidth type +0x3D10, timestamps +0x3D14 / +0x3D18, bandwidth +0x3D1C (400000).
+      Correction: **netC's GetNumPendingMessages is really GetHighestResendCount** (the most resends of any
+      important / sequenced message, not a count; the old name wraps it). Quirks kept: the constructor zeroes only
+      the first 64 groups' sequence ids (both arrays); the bandwidth type stays uninitialised.
+      Tests (selftests_netF.cpp, TestNetConn, Early: four connections built by the original / our constructor on
+      dirty memory in a 64 KB-aligned arena, filled through the game's link constructors, every function run, the
+      whole arena compared): 56 mutations, 54 caught at once, 1 after strengthening, 1 equivalent (`<` vs `<=`
+      against the 500 ms minimum).
+      **Net clean-up** (wt/netF after merging netE; no behaviour change): **Net::Conn** is a real struct
+      (net_conn.h, every field named and static_asserted; ConnView gone); **Net::App** is one struct in net_app.h
+      (AppView folded in, sizeof 0x1F08; the Client adds m_serverAddress, 0x1F18); net_access_c.h's by-offset
+      accessors became members; chat.cpp's and cscript_manager.cpp's MsgDesc copies are net_app.h's Net::MsgDesc.
+      Renames: App::m_counters[6] -> m_totalBytesOut / m_totalBytesIn / m_lostPackets / m_latePackets /
+      m_dupePackets / m_frameCount, m_unknown1E88 -> m_foreignPacketHandler, kFlag10 -> kAcceptForeign (+
+      kMeasureLatency 4), Conn::m_unknown44 -> m_id, m_unknown878 -> m_nextStreamId, CreatedTime / LastCommTime ->
+      Conn::m_lastCommTime; IsNew / MarkNewConnection wrap IsValid / Invalidate.
+- [x] Batch 89, engine net library 0x4544E0-0x454FA0 (branch wt/netD, 44 functions, nothing skipped; **NOT run in
+      the game yet**): net_metrics.* - **Net::Metrics** (0x100C: packets[256] {size, time}, count +0x800, messages
+      and message data per id +0x804 / +0xC04, total bytes +0x1004, bytes/s +0x1008): constructor 0x4544E0,
+      GetBytesPerSec 0x454520, GetTotalMessageData 0x454530, GetTotalNumMessagesOfId 0x454540, AddMessage 0x454550,
+      CalculateUsage 0x454D00, AddPacket 0x454D90; net_manager.* - **Net::Manager** (0x37C; netE's ManagerView folded
+      in, net_manager_view.cpp renamed net_manager_apps.cpp): Connect / DisconnectFromInternet 0x454580 / 0x454590,
+      the getters and setters 0x4545A0-0x4549B0 (dial-up number / user / password, gateway / subnet mask / local IP
+      (copy only if different), local address, connection type 0x454770 (bandwidth 1: 4200, 2 / 4: 400000, 3:
+      300000), device type, DHCP, SetFlag2E6 (name unknown, pref checksum 0xE5ADE642), DNS servers, host / domain
+      name, GetLocalAddress 0x4548F0, GetLocalIP 0x454910, message flags, modem state), LoadNetworkDrivers 0x4549C0
+      (returns true), AddAppTasks 0x454CB0 (the app's receive / send / process / metrics tasks), GetDialupNumber
+      0x454DE0; layout +0x00 / +0x14 server / client lists, +0x28 message flags[256], +0x128 connection type, +0x130
+      device type, +0x134 local IP, +0x144 local address, +0x148 DNS[3], +0x178 gateway, +0x188 subnet mask, +0x198
+      dial-up index, +0x19C numbers[3], +0x1FC user, +0x24C password, +0x29C host, +0x2BC domain, +0x2DC apps made,
+      +0x2E0 last error, +0x2E4 online, +0x2E5 DHCP, +0x2E6 flag, +0x2E8 modem state (5), +0x374 baud rate (?),
+      +0x378 bandwidth (400000) - names from the network preferences GameNet copies in (0x535040);
+      net_descs.cpp - StreamDesc::Construct 0x4549D0 / DestroyBody 0x454E00, MsgDesc::Construct 0x4549F0,
+      MsgHandlerContext::Construct 0x454A20; net_compress.* - RleCompress 0x454A60, RleDecompress 0x454C20,
+      CompressMessage 0x454E30 (cdecl, RLE or LZSS). Every caller calls them directly now (Conn's Metrics typed).
+      Correction: **MsgDesc's constructor DOES set singular and compression** - batch 85's note that
+      StreamMessageToConn / ProcessStreamMessages leave them uninitialised was wrong (comments fixed).
+      Findings / quirks kept: RleCompress codes a 1-byte input to nothing (returns 0), runs 2-0x81 bytes (0x80 +
+      n - 2), literals 1-0x80 (n - 1), the output size argument is never read; RleDecompress reads past the end on
+      a literal longer than the input left; CompressMessage's 16-bit size wraps from 0xFFFD and overflows its
+      copy, an unknown method "succeeds" with a 3-byte message, the compressed size is compared with the data's
+      length; SetHostName / SetDomainName(null) clear the field and then crash; GetLocalIP reads Winsock's
+      per-thread hostent after the second lookup.
+      **netB's flaky test fixed** ("net app: queued and streamed messages", failed in the game in the first copy):
+      not the bytes past the stream start - the six differing words are the stream starts' QueuedMsg headers (id
+      0x0E, a 0xCD pad byte, length 0x0130); the test's half-pointer normalisation took the length 0x0130 for a
+      stale pointer half because our run's arena landed at 0x012A0000 (segments 0x12A-0x130). Fix: both runs use
+      one arena (selftests_netB.cpp Arena()); nothing masked, the whole arena still compared.
+      Tests (selftests_netD.cpp, 6 Early: Metrics, Manager (Winsock and the Mlp task list stood in), descriptors,
+      RLE compress (~140 inputs + round trips) / decompress, CompressMessage): 96 mutations, 95 caught at once, 1
+      after strengthening; equivalent, not run: the setters' copy-only-if-different guard, SetDeviceType / SetDHCP's
+      compare. After merging all three: thug2_check 0 MISMATCHED, 157 early tests pass, call audit / code writes /
+      register scan clean (only the known 0x4EFF92 RISK).
+- [x] **The whole engine net library 0x4544E0-0x45BDA0 is done** (batches 84-89, 205/205 functions; 87-89 NOT run
+      in the game yet). To test: the network menu (settings shown / saved), host / join a LAN game
+      (allow_multiple_instances=1 for two copies on one PC), chat, a client joining mid-game (streamed level data
+      and big messages), disconnect / leave and rejoin; check thug2-decomp.log. Disable everything net with
+      `[replacements] disable=net_app.cpp,net_app_view.cpp,net_lists.cpp,net_latency.cpp,net_client.cpp,
+      net_server.cpp,net_dispatcher.cpp,net_app_messages.cpp,net_messages.cpp,net_manager_apps.cpp,
+      net_conn_times.cpp,net_conn.cpp,net_metrics.cpp,net_manager.cpp,net_descs.cpp,net_compress.cpp` (the callers
+      call each other directly, so disabling only unhooks the game's own callers; head.cpp also holds
+      AddUniqueSequence).
+- [ ] Next: small net follow-ups: App::m_manager (+0x1440) could become `Manager*` (it is `void*`), name the
+      Manager's +0x2E6 flag (pref checksum 0xE5ADE642) and check +0x374 (modem baud rate?).
       Widescreen follow-up: if the user still sees the bottom-left band overlap, don't draw sprites wholly outside the
       layout in the widescreen front end (they were never visible in the original's 4:3 screen). Then the gaps
       batches 79-81 left: **0x45E9E0**

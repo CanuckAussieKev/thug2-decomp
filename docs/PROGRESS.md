@@ -2,7 +2,7 @@
 
 Generated 2026-10-17 by `tools/progress_report.py` - regenerate after each batch.
 
-**Game code: ██░░░░░░░░░░░░░░░░░░ 11.8%** of the code rewritten (1,228 of 8,382 functions, 190.8 KB of 1,617.8 KB).
+**Game code: ██░░░░░░░░░░░░░░░░░░ 12.3%** of the code rewritten (1,338 of 8,382 functions, 199.0 KB of 1,617.8 KB).
 
 Progress is by code size: function counts make a 10-byte helper look like as much work as a 2 KB routine. Subsystem boundaries come from the exe map (`docs/subsystems.md`) and are approximate (give or take a few functions); totals are exact.
 
@@ -13,7 +13,7 @@ Progress is by code size: function counts make a 10-byte helper look like as muc
 | Object components & level/scene loading | `0x41a6d0`-`0x445b50` | ░░░░░░░░░░░░░░░░░░░░ 0% | 6 / 584 | 0.4 KB / 157.7 KB |
 | Engine script commands (lighting/fog, memory heaps, script utils, arrays, music & streams) | `0x445b50`-`0x44e6b0` | ░░░░░░░░░░░░░░░░░░░░ 1% | 7 / 246 | 0.5 KB / 32.5 KB |
 | Movies (Bink) & streamed audio | `0x44e6b0`-`0x4544e0` | █████░░░░░░░░░░░░░░░ 28% | 40 / 167 | 6.3 KB / 22.1 KB |
-| Low-level networking (engine net library) | `0x4544e0`-`0x45bda0` | █████████████░░░░░░░ 69% | 95 / 205 | 18.3 KB / 26.5 KB |
+| Low-level networking (engine net library) | `0x4544e0`-`0x45bda0` | ████████████████████ 100% | 205 / 205 | 26.5 KB / 26.5 KB |
 | Level nodes & composite objects (node array, node names/prefixes, CCompositeObject, components) | `0x45bda0`-`0x45efd0` | █████████░░░░░░░░░░░ 48% | 47 / 88 | 4.9 KB / 10.0 KB |
 | Object system & script runtime (composite objects, events, object anims, particles, pathfinding, QB parser/executor) | `0x45efd0`-`0x47dc40` | ███████████░░░░░░░░░ 56% | 467 / 685 | 63.8 KB / 112.3 KB |
 | Models / faces / textures for skaters (CAS) | `0x47dc40`-`0x490d80` | ░░░░░░░░░░░░░░░░░░░░ 1% | 7 / 523 | 0.7 KB / 67.5 KB |
