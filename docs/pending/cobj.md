@@ -1,0 +1,114 @@
+# wt/cobj: CCompositeObject and CBaseComponent (0x0045D050-0x0045EFD0)
+
+## Batches (NOT run in the game yet)
+
+- [x] Batch cobj-A (NOT run in the game yet): `src/game/obj/composite.cpp` - Obj::CCompositeObject (vtable 0x00647650)
+  and the base of its components, Obj::CBaseComponent (vtable 0x00647618), 46 functions:
+  - CObject's vtable slot 2 0x0045D850 (a member function table entry: its member function pointer on `this` +
+    the entry's adjustment, or slot 3 by the entry's name).
+  - CBaseComponent: constructor 0x0045D730, destructor body 0x0045D740 (ComponentDestroyedAllScripts if a script
+    waited on it), deleting destructor 0x0045D780, Suspend 0x0045D760 (+0x1C), CallMemberFunction(entry) 0x0045D720
+    (+0x2C: a jump to +0x30 with the entry's name - components ignore the entry's member function pointer).
+  - CCompositeObject: constructor 0x0045E510, destructor body 0x0045D890, deleting destructor 0x0045E620, Update
+    0x0045D920, Hide 0x0045D990, Suspend 0x0045D9E0, SetTeleported 0x0045E4C0, ShouldUpdateScripts 0x0045E500 (slot
+    7), MarkAsDead 0x0045D7C0 (slot 6), AddComponent 0x0045DA30, CreateComponentsFromArray 0x0045DA90,
+    CreateComponentFromStructure 0x0045EE20 (+0x24), InitFromStructure 0x0045DAD0, Finalize 0x0045DB30 (+0x20),
+    GetComponent 0x0045DB90 (moved here from object.cpp), CallMemberFunction(name) 0x0045E450 (slot 3).
+  - The member functions scripts call (table 0x00683268, filled in by 0x006425D0 - 13 of the 30 entries point at
+    code Ghidra never made functions of): Obj_GetPosition 0x0045DBC0, Obj_PrintDetails 0x0045D7F0, 0x406998A5
+    0x0045D810 (a component from the parameters), 0x2BFFEAA3 0x0045DBF0 (has a component of the type name=),
+    Obj_SetPosition 0x0045D830, Obj_ForceUpdate 0x0045DC40, Obj_GetVelocity 0x0045DC50, GetSpeed 0x0045DC80,
+    Hide / Unhide / IsHidden 0x0045DCD0 / 0x0045DD20 / 0x0045DD70, 0x10C1C887 0x0045DD80 (moves along its own axes by
+    x= y= z=), Suspend / Unsuspend 0x0045DED0 / 0x0045DF20, Obj_GetDistanceToObject 0x0045E0B0 (in feet),
+    0xF8CFD515 0x0045E260 (velocity against the at axis < 0), 0x7DCC5FB9 / 0xE5DF66D7 / 0xDD468509 0x0045E2A0 /
+    0x0045E310 / 0x0045E380 (speed within 0.1 of / above / below the unnamed float), Obj_GetType 0x0045E3F0,
+    Obj_HasComponent 0x0045E410, Pause / Unpause 0x0045E9B0 / 0x0045E9D0. (Names recovered by checksumming
+    candidates; bracketed checksums are names not found.)
+  - Calls into wt/coim's range stay GameFunction: 0x0045F3E0 / 0x0045F420 (the composite object manager's
+    per-type component lists), 0x0045F2A0 (makes a component of a type).
+  - Test: selftests_cobj.cpp (TestCompositeObjects, 3 runs, original vs ours on stand-in objects / components /
+    structures, call by call and the whole arena). N deliberate bugs caught (see below).
+  - Quirks kept: CreateComponentFromStructure and Obj_HasComponent with no type use the parameter structure's
+    address as the type; a type the manager can't make gives a null component that is added anyway (crash);
+    AddComponent doesn't clear the component's next pointer.
+
+## Header changes (for the merger)
+
+- `src/game/script/cscript.h`: CMemberFunctionEntry is now the full 0x18 bytes: `unknown0` (+0x00, the name -
+  kept under its old name), `mComponentType`, `mpCode` (+0x08), `mThisAdjustment` (+0x0C), `unknown10`, `unknown14`;
+  static_assert on the size. Existing aggregate initialisers (selftests_csB.cpp) still compile.
+- `src/game/obj/object.h` (additive apart from the CCompositeObject block, which was replaced by the full class):
+  includes game/mth/matrix.h and vector.h; `Script::CMemberFunctionEntry` forward declared; new
+  `CObject::CallMemberFunction(CMemberFunctionEntry*, CStruct*, CScript*)` overload (0x0045D850) - so
+  `&CObject::CallMemberFunction` now needs a static_cast (fixed in object.cpp's REPLACE and selftests_obj.cpp);
+  new class CBaseComponent, flags COMPONENT_FLAG_*, COMPOSITE_FLAG_*, OBJECT_FLAG_HAS_POSITION (0x20); full
+  CCompositeObject layout (m_pos +0x4C, m_oldPos +0x5C, m_matrix +0x6C, m_vel +0xAC, +0xBC byte, m_displayMatrix
+  +0xC0, mp_components +0x100, m_compositeFlags +0x104).
+- `object.cpp`: GetComponent (0x0045DB90) moved to composite.cpp (with its REPLACE).
+
+## For script-runtime.md
+
+### Section 12 additions (Objects and their scripts)
+
+- **CCompositeObject** (code: `src/game/obj/composite.cpp`; vtable 0x00647650, 11 slots; CObject's fields then
+  position +0x4C, orientation matrix +0x6C, velocity +0xAC, display matrix +0xC0, components +0x100, flags +0x104).
+  Its constructor (0x0045E510) sets CObject flag **0x20** - the "has a position" flag the tracker's broadcast radius
+  check reads (answers half of the 0x20 open question). Its flags (+0x104): 1 paused, 2 suspended, 4 hidden, 8
+  teleported (cleared at the end of each update), 0x20/0x40 finalized, 0x80 being destroyed.
+- **One object update** (0x0045D920, code + test): paused -> nothing at all. Otherwise, unless suspended: the
+  object's own script gets **one Update** (if it has one), then if that killed the object (MarkAsDead) the update
+  stops there; then its own update (vtable +0x28: subclasses' - the skater's etc.; empty in the base). Then each
+  component's Update in list order (the order they were added), skipping suspended components, **stopping as soon
+  as a component kills the object**; then position w = 1 and TELEPORTED cleared. A suspended object's components
+  still update; its script doesn't.
+- **PAUSE_WITH_OBJECT** (section 2): the object's vtable +0x1C is 0x0045E500 for composite objects: "not paused"
+  (flag 1). (CObject's own is 0x005B9760: always true.) So a spawned script with PAUSE_WITH_OBJECT waits exactly
+  while its object is paused (Pause member function, or PauseGame through the composite object manager 0x0045F5D0,
+  which sets/clears flag 1 on its objects - wt/coim's range).
+- **Member functions on composite objects** (code): `obj:Name` first asks each component in turn (vtable +0x30:
+  0 = false, 1 = true, 2 = not mine), then CObject's names (SetProps, Die). A member function table entry with a
+  member function pointer is called directly (0x0045D850, `this` moved by the entry's adjustment); with none, by
+  name as above. A component given a table entry (0x0045D720) always goes by the entry's name.
+  The table is 0x18-byte entries `{name, component type, 16-byte member function pointer}`: CObject's at
+  0x00683550 (type 0x57525413), CCompositeObject's at 0x00683268 (type 0x0ADA4E74, 30 entries).
+- **Obj_ForceUpdate** (0x0045DC40, test): a whole object update (its script included) runs at once, nested inside
+  the calling script's statement - when called by the object's own script, that script's Update runs re-entrantly.
+
+### Section 13 answers
+
+- **Who updates object scripts, and when** (code, not run): the composite object manager (0x006F0FB8) makes a task
+  in its constructor (0x0045F6E0, wt/coim's range): a Tsk::Task (vtable 0x006476F0) of **priority -900** whose code
+  0x0045F6D0 calls the object update walk 0x0045F4A0 on the manager, added straight to Mlp::Manager's **logic task
+  list** (+0x04, 0x00406C90). Task lists are kept sorted highest priority first (0x0045A540 inserts a node before
+  the first one whose priority is <= its own) and run from the head (0x00406AC0). The front end's logic task
+  (UpdateSpawnedScripts, section 2) is priority -2000 on the same list and its keyboard task -1000. So **every frame
+  the composite objects update (their own scripts, then their components) before UpdateSpawnedScripts runs the
+  spawned scripts.** Consequences: an event a spawned script sends to an object is handled by the object's script
+  (ReceiveEvent, synchronous) during the spawned walk, but the object's next ordinary Update is the next frame; an
+  object script's one-per-frame wait sees "one-per-frame released" (0x006F352C) as the previous frame's spawned walk
+  left it (UpdateSpawnedScripts clears it at its start, after the objects have run). Other tasks on the logic list
+  between -900 and -2000 (if any) aren't identified yet.
+  - The task's kind mask (+0x14) is left 0 by the task constructor 0x00406890, so the pause restriction (the list's
+    +0x04 word = 0xC while paused; a task runs when `mask & task+0x14` is 0) never stops it; pausing works through
+    the objects' own paused flag instead (above).
+  - Updates outside the walk (code): Obj_ForceUpdate 0x0045DC40 (script); 0x00501600 (a skater component's member
+    function 0x8819DD8B: after moving the skater it calls SetTeleported(true) and, when the object's +0xBC byte is
+    set and 0x00580880 returns non-null, updates the object at once); 0x00583DA0 (vtable 0x0064EF48's class, on a
+    restart: the object named 0x967C138C or 0xE17B231A gets SetTeleported(false) and an immediate update).
+- **What an object does with a targeted event** (code): CObject's vtable +0x14 (0x00461140, PassEventToScript) is
+  **not overridden** by CCompositeObject (0x00647650) nor by any of its three subclasses (vtables 0x0064EC44,
+  0x0064EF48, 0x0064F138: constructors around 0x0057826D, 0x00582DC3, 0x0058987F). Components never see targeted
+  events through it: an event to a skater/ped/level object goes to that object's own script only. Of the 21
+  vtables with CObject's slot 2 (0x0045D850), the only ones with a different +0x14 are in the screen element range:
+  0x004A8100 (vtable 0x0064A048), 0x004AA560 (0x0064A0BC), 0x004AE6A0 (0x0064A154 / 0x0064A188 / 0x0064A1BC) -
+  screen elements handle targeted events themselves (not decompiled; likely where the menus' pad events become
+  actions, section 11.5).
+- **Unidentified checksums** found: 0x406998A5, 0x2BFFEAA3, 0x10C1C887, 0xF8CFD515, 0x7DCC5FB9, 0xE5DF66D7,
+  0xDD468509, 0x37185D8A (CCompositeObject member functions, by what they do: component from params, component
+  exists (name=), move along own axes, moving backwards, speed near / above / below, nearest-of-type outside an
+  angle), 0x976B04A3 (Obj_GetDistanceToObject's result), 0x24495505 (Obj_GetType's result), 0xC97F3AA9
+  (Obj_GetOrientationToObject's angle result).
+
+## Not done in this range (and why)
+
+(filled in at the end)

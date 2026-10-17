@@ -1,0 +1,685 @@
+// Self-tests for CCompositeObject and CBaseComponent (src/game/obj/composite.cpp): the original and ours run the
+// same calls on identical stand-in objects and components in an arena. Everything they call outside the batch
+// (the structure functions, CObject's methods, the script's Update, the composite object manager, the memory
+// manager, the objects' and components' virtual functions) is stood in for by recording code (written over the
+// game's function and ours alike), so the two are compared call by call, return value by return value, then the
+// whole arena word by word.
+
+#include <windows.h>
+
+#include <cmath>
+#include <cstdint>
+#include <cstring>
+#include <map>
+#include <tuple>
+#include <vector>
+
+#include "game/core/manager.h"
+#include "game/obj/object.h"
+#include "game/script/cscript.h"
+#include "game/script/struct.h"
+#include "hook/game.h"
+#include "hook/hook.h"
+#include "hook/log.h"
+#include "hook/selftest.h"
+#include "hook/standins.h"
+
+namespace {
+
+using namespace TestStandIns;
+using Obj::CBaseComponent;
+using Obj::CCompositeObject;
+using Obj::CObject;
+using Script::CArray;
+using Script::CMemberFunctionEntry;
+using Script::CScript;
+using Script::CStruct;
+
+constexpr uint32_t kArenaSize = 0x10000;
+alignas(16) uint8_t g_cobj_arenas[2][kArenaSize];
+uint32_t g_cobj_base;
+uint32_t g_cobj_bump;
+bool g_cobj_original;
+uint32_t g_cobj_killOn;      // the stand-in update (0x5C: the script's; else a component, arena-relative) that kills
+CObject* g_cobj_victim;      // the object it kills
+uint32_t g_cobj_found;       // what the stand-in FindObject returns (arena-relative or 0)
+uint32_t g_cobj_nextType;    // the type of the next component the stand-in manager makes (0: none made)
+std::vector<Saved> g_cobj_saved;
+std::map<std::tuple<char, uint32_t, uint32_t>, std::vector<uint32_t>> g_cobj_answers;
+
+bool InArena(uint32_t word) { return word >= g_cobj_base && word <= g_cobj_base + kArenaSize; }
+uint32_t Rel(uint32_t word) { return InArena(word) ? 0xA0000000u + (word - g_cobj_base) : word; }
+uint32_t Rel(const void* p) { return Rel(reinterpret_cast<uint32_t>(p)); }
+void Rec(uint32_t tag, std::initializer_list<uint32_t> values)
+{
+    g_trace.push_back(tag);
+    for (uint32_t v : values)
+        g_trace.push_back(Rel(v));
+}
+void Result(uint32_t value) { Rec(0x2E5, {value}); }
+uint32_t Bits(float f)
+{
+    uint32_t bits;
+    std::memcpy(&bits, &f, 4);
+    return bits;
+}
+uint32_t Bump(uint32_t size, uint8_t fill)
+{
+    uint32_t block = g_cobj_bump;
+    g_cobj_bump += (size + 15) & ~15u;
+    std::memset(reinterpret_cast<void*>(block), fill, size);
+    return block;
+}
+// A stand-in structure's answer: kind 'K' checksum, 'F' float, 'V' vector (4 words), 'S' string, 'L' flag.
+void Answer(char kind, const void* structure, uint32_t name, std::vector<uint32_t> value)
+{
+    g_cobj_answers[{kind, Rel(structure), name}] = std::move(value);
+}
+const std::vector<uint32_t>* Lookup(char kind, uint32_t structure, uint32_t name)
+{
+    auto it = g_cobj_answers.find({kind, Rel(structure), name});
+    return it == g_cobj_answers.end() ? nullptr : &it->second;
+}
+
+void Cleanup()
+{
+    RemoveStandIns();
+    RestoreAll(g_cobj_saved);
+    g_cobj_saved.clear();
+}
+
+void* g_cobj_componentVtable[13];
+void* g_cobj_objectVtable[11];
+void* g_cobj_memberCode; // a member function a table entry points to
+
+// Our stand-ins kill the object for the update that `g_cobj_killOn` names.
+void MaybeKill(uint32_t who)
+{
+    if (g_cobj_killOn && Rel(who) == g_cobj_killOn)
+        g_cobj_victim->m_objectFlags |= Obj::OBJECT_FLAG_DEAD;
+}
+
+void InstallStandIns(StandIns& s)
+{
+    // --- the structure functions ---
+    auto getter = [&](std::initializer_list<uint32_t> addresses, char kind, uint32_t tag) {
+        s.At(addresses, 12, [kind, tag](Regs& r) {
+            Rec(tag, {r.ecx, r.args[0], r.args[2] & 0xFF});
+            const std::vector<uint32_t>* value = Lookup(kind, r.ecx, r.args[0]);
+            if (!value)
+                return 0u;
+            std::memcpy(reinterpret_cast<void*>(r.args[1]), value->data(), value->size() * 4);
+            return 1u;
+        });
+    };
+    getter({0x00476950, AddressOf(static_cast<bool (CStruct::*)(uint32_t, uint32_t*, int)>(&CStruct::GetChecksum))},
+           'K', 0x6E50);
+    getter({0x004766D0, AddressOf(static_cast<bool (CStruct::*)(uint32_t, float*, int)>(&CStruct::GetFloat))}, 'F',
+           0x6E51);
+    getter({0x00476FB0, AddressOf(static_cast<bool (CStruct::*)(uint32_t, Script::VectorValue*, int)>(
+                            &CStruct::GetVector))},
+           'V', 0x6E52);
+    getter({0x00476C60, AddressOf(static_cast<bool (CStruct::*)(uint32_t, const char**, int)>(&CStruct::GetString))},
+           'S', 0x6E53);
+    s.At({0x00476B40, AddressOf(static_cast<bool (CStruct::*)(uint32_t)>(&CStruct::ContainsFlag))}, 4, [](Regs& r) {
+        Rec(0x6E54, {r.ecx, r.args[0]});
+        return Lookup('L', r.ecx, r.args[0]) ? 1u : 0u;
+    });
+    s.At({0x00477E20, AddressOf(static_cast<void (CStruct::*)(uint32_t, float, float, float)>(&CStruct::AddVector))},
+         16, [](Regs& r) {
+             Rec(0x6E60, {r.ecx, r.args[0], r.args[1], r.args[2], r.args[3]});
+             return 0u;
+         });
+    s.At({0x00477C60, AddressOf(static_cast<void (CStruct::*)(uint32_t, float)>(&CStruct::AddFloat))}, 8,
+         [](Regs& r) {
+             Rec(0x6E61, {r.ecx, r.args[0], r.args[1]});
+             return 0u;
+         });
+    s.At({0x00477D40, AddressOf(static_cast<void (CStruct::*)(uint32_t, uint32_t)>(&CStruct::AddChecksum))}, 8,
+         [](Regs& r) {
+             Rec(0x6E62, {r.ecx, r.args[0], r.args[1]});
+             return 0u;
+         });
+    s.At({0x00478480, AddressOf(&CStruct::AppendStructure)}, 4, [](Regs& r) {
+        Rec(0x6E63, {r.ecx, r.args[0]});
+        return r.ecx;
+    });
+    s.At({0x00476410, AddressOf(&CStruct::Init)}, 0, [](Regs& r) {
+        Rec(0x6E64, {r.ecx});
+        reinterpret_cast<uint32_t*>(r.ecx)[0] = 0x1717;
+        reinterpret_cast<uint32_t*>(r.ecx)[1] = 0;
+        return r.ecx;
+    });
+    s.At({0x00477130, AddressOf(&CStruct::Clear)}, 0, [](Regs& r) {
+        Rec(0x6E65, {r.ecx});
+        return 0u;
+    });
+    s.At({0x00409070, AddressOf(&Script::DeleteStruct)}, 0, [](Regs& r) {
+        Rec(0x6E66, {r.args[0]});
+        return 0u;
+    });
+    s.At({0x0046CB00, AddressOf(&CArray::GetArrayPointer)}, 0, [](Regs& r) {
+        Rec(0x6E67, {r.ecx});
+        return r.ecx + 0x10; // (the stand-in arrays keep their elements right after them)
+    });
+    // A new structure: the original's inlined pool allocation (0x005BA3D0 on the pool 0x006F361C), ours NewStruct.
+    s.At({0x005BA3D0}, 0, [](Regs& r) {
+        Rec(0x6E68, {});
+        (void)r;
+        return Bump(8, 0xEE);
+    });
+    s.At({AddressOf(&Script::NewStruct)}, 0, [](Regs& r) {
+        Rec(0x6E68, {});
+        (void)r;
+        return Bump(8, 0xEE);
+    });
+    // --- CObject and the script ---
+    s.At({0x00460B80, AddressOf(&CObject::Construct)}, 0, [](Regs& r) {
+        Rec(0x0B80, {r.ecx});
+        reinterpret_cast<CObject*>(r.ecx)->m_objectFlags = 0x100;
+        return r.ecx;
+    });
+    s.At({0x004615D0, AddressOf(&CObject::DestroyBody)}, 0, [](Regs& r) {
+        Rec(0x15D0, {r.ecx, *reinterpret_cast<uint32_t*>(r.ecx)});
+        return 0u;
+    });
+    s.At({0x00460A50, AddressOf(&CObject::MarkAsDead)}, 0, [](Regs& r) {
+        Rec(0x0A50, {r.ecx});
+        return 0u;
+    });
+    s.At({0x00461930, AddressOf(&CObject::SetID)}, 4, [](Regs& r) {
+        Rec(0x1930, {r.ecx, r.args[0]});
+        return 0u;
+    });
+    s.At({0x004608F0, AddressOf(static_cast<bool (CObject::*)(uint32_t, CStruct*, CScript*)>(
+                           &CObject::CallMemberFunction))},
+         12, [](Regs& r) {
+             Rec(0x08F0, {r.ecx, r.args[0], r.args[1], r.args[2]});
+             return 0x5A01u;
+         });
+    s.At({0x00460AD0, AddressOf(&Obj::FindObject)}, 0, [](Regs& r) {
+        Rec(0x0AD0, {r.args[0]});
+        return g_cobj_found ? g_cobj_base + (g_cobj_found & 0xFFFF) : 0u;
+    });
+    s.At({0x004750B0, AddressOf(&CScript::Update)}, 0, [](Regs& r) {
+        Rec(0x50B0, {r.ecx});
+        MaybeKill(0x5C);
+        return 2u;
+    });
+    s.At({0x00472E70, AddressOf(&Script::ComponentDestroyedAllScripts)}, 0, [](Regs& r) {
+        Rec(0x2E70, {r.args[0]});
+        return 0u;
+    });
+    // --- the composite object manager (wt/coim), the position getters, the memory manager ---
+    s.At({0x0045F3E0}, 4, [](Regs& r) {
+        Rec(0xF3E0, {r.ecx, r.args[0]});
+        return 0u;
+    });
+    s.At({0x0045F420}, 4, [](Regs& r) {
+        Rec(0xF420, {r.ecx, r.args[0]});
+        return 0u;
+    });
+    s.At({0x0045F2A0}, 4, [](Regs& r) {
+        Rec(0xF2A0, {r.ecx, r.args[0]});
+        if (!g_cobj_nextType)
+            return 0u;
+        auto* component = reinterpret_cast<CBaseComponent*>(Bump(0x20, 0));
+        component->m_vtable = g_cobj_componentVtable;
+        component->m_type = g_cobj_nextType;
+        return reinterpret_cast<uint32_t>(component);
+    });
+    s.At({0x0045C050}, 0, [](Regs& r) {
+        Rec(0xC050, {r.args[0], r.args[1]});
+        return 0u;
+    });
+    s.At({0x0045C0B0}, 0, [](Regs& r) {
+        Rec(0xC0B0, {r.args[0], r.args[1]});
+        return 0u;
+    });
+    s.At({0x005BABA0, AddressOf(&Mem::Manager::Free)}, 4, [](Regs& r) {
+        Rec(0xBBA0, {r.ecx, r.args[0]});
+        return 0u;
+    });
+
+    // --- the components' virtual functions (+0x18 of a stand-in component: what +0x30 returns) ---
+    for (void*& slot : g_cobj_componentVtable)
+        slot = nullptr;
+    const uint16_t pops[13] = {4, 0, 4, 0, 0, 0, 8, 4, 4, 0, 0, 12, 12};
+    for (int i = 0; i < 13; ++i) {
+        if (i == 11)
+            continue; // (+0x2C: CBaseComponent::CallMemberFunction itself, set below)
+        g_cobj_componentVtable[i] = s.Thunk(pops[i], [i](Regs& r) {
+            g_trace.push_back(0xC0000 + i);
+            g_trace.push_back(Rel(r.ecx));
+            if (i == 0 || i == 2 || i == 7 || i == 8)
+                g_trace.push_back(Rel(r.args[0]));
+            if (i == 12) {
+                for (int a = 0; a < 3; ++a)
+                    g_trace.push_back(Rel(r.args[a]));
+                return reinterpret_cast<uint32_t*>(r.ecx)[6];
+            }
+            if (i == 1)
+                MaybeKill(r.ecx);
+            return i == 0 ? r.ecx : 0u;
+        });
+    }
+    // --- the object's: slot 3 (a member function by name), 9 (a component from a structure), 10 (its update) ---
+    for (void*& slot : g_cobj_objectVtable)
+        slot = nullptr;
+    g_cobj_objectVtable[3] = s.Thunk(12, [](Regs& r) {
+        Rec(0x0B03, {r.ecx, r.args[0], r.args[1], r.args[2]});
+        return 0x77000001u;
+    });
+    g_cobj_objectVtable[9] = s.Thunk(8, [](Regs& r) {
+        Rec(0x0B09, {r.ecx, r.args[0], r.args[1]});
+        return 0u;
+    });
+    g_cobj_objectVtable[10] = s.Thunk(0, [](Regs& r) {
+        Rec(0x0B0A, {r.ecx});
+        return 0u;
+    });
+    g_cobj_memberCode = s.Thunk(8, [](Regs& r) {
+        Rec(0x3E3B, {r.ecx, r.args[0], r.args[1]});
+        return 0x66000101u;
+    });
+}
+
+void SaveGlobals()
+{
+    g_cobj_saved = {
+        {0x007D1800, 4, {}},  // the memory manager
+        {0x007CC979, 1, {}},  // the memory manager is ready
+        {0x006F3614, 16, {}}, // the CStruct pools
+        {0x006F0FB8, 4, {}},  // the composite object manager
+    };
+    SaveAll(g_cobj_saved);
+}
+
+uint8_t* BeginRun(bool original)
+{
+    g_cobj_original = original;
+    g_trace.clear();
+    g_cobj_answers.clear();
+    uint8_t* arena = g_cobj_arenas[original ? 0 : 1];
+    std::memset(arena, 0, kArenaSize);
+    std::memset(arena + 0x8000, 0xDD, kArenaSize - 0x8000);
+    g_cobj_base = reinterpret_cast<uint32_t>(arena);
+    g_cobj_bump = g_cobj_base + 0x8000;
+    g_cobj_killOn = 0;
+    g_cobj_victim = nullptr;
+    g_cobj_found = 0;
+    g_cobj_nextType = 0;
+    for (Saved& saved : g_cobj_saved)
+        std::memset(reinterpret_cast<void*>(saved.address), 0, saved.size);
+    GameVariable<bool>(0x007CC979) = true;
+    GameVariable<uint8_t*>(0x007D1800) = arena + 0x6000;
+    GameVariable<uint8_t*>(0x006F0FB8) = arena + 0x6100;
+    GameVariable<uint8_t*>(0x006F361C) = arena + 0x6200; // (the struct pool: the original allocates from it)
+    return arena;
+}
+
+std::vector<uint32_t> EndRun(uint8_t* arena)
+{
+    std::vector<uint32_t> result = g_trace;
+    std::vector<uint32_t> image(kArenaSize / 4);
+    std::memcpy(image.data(), arena, kArenaSize);
+    for (uint32_t& word : image)
+        word = Rel(word);
+    result.insert(result.end(), image.begin(), image.end());
+    return result;
+}
+
+template <typename R, typename F, typename... A>
+R Call(uint32_t address, F ours, void* self, A... args)
+{
+    void* code = g_cobj_original ? reinterpret_cast<void*>(address) : reinterpret_cast<void*>(AddressOf(ours));
+    return reinterpret_cast<R(__thiscall*)(void*, A...)>(code)(self, args...);
+}
+// The member functions scripts call: (params, script), the result's low byte (they return AL).
+template <typename F>
+void Member(uint32_t address, F ours, CCompositeObject* object, CStruct* params, CScript* script)
+{
+    uint32_t result = Call<uint32_t>(address, ours, object, params, script);
+    Result(result & 0xFF);
+}
+
+CBaseComponent* MakeComponent(uint8_t* arena, int i, uint32_t type, uint32_t flags, uint32_t answer)
+{
+    auto* component = reinterpret_cast<CBaseComponent*>(arena + 0x1000 + 0x40 * i);
+    component->m_vtable = g_cobj_componentVtable;
+    component->m_type = type;
+    component->m_flags = flags;
+    component->m_object = nullptr;
+    component->mp_next = nullptr;
+    component->mp_nextOfType = reinterpret_cast<CBaseComponent*>(0x0BADF00D);
+    reinterpret_cast<uint32_t*>(component)[6] = answer;
+    return component;
+}
+CStruct* Struct(uint8_t* arena, int i) { return reinterpret_cast<CStruct*>(arena + 0x3000 + 0x10 * i); }
+
+// --- the object's life, its frame, its components -------------------------------------------------------------
+std::vector<uint32_t> RunLifeTest(bool original)
+{
+    uint8_t* arena = BeginRun(original);
+    using C = CCompositeObject;
+    auto* a = reinterpret_cast<C*>(arena + 0x100);
+    std::memset(a, 0xDD, sizeof(C));
+    Result(Rel(Call<C*>(0x0045E510, &C::Construct, a)));
+    a->m_vtable = reinterpret_cast<void**>(g_cobj_objectVtable);
+    a->m_script = reinterpret_cast<CScript*>(arena + 0x2000);
+
+    // Four components added (the second suspended).
+    CBaseComponent* c[4];
+    for (int i = 0; i < 4; ++i) {
+        c[i] = MakeComponent(arena, i, 0x7000 + i, i == 1 ? 1u : 0u, 2);
+        Call<void>(0x0045DA30, &C::AddComponent, a, c[i]);
+    }
+    Result(Rel(Call<CBaseComponent*>(0x0045DB90, &C::GetComponent, a, 0x7002u)));
+
+    // Update: plain; paused; suspended; no script; killed by its script; killed by a component.
+    auto update = [&](uint32_t flags, uint32_t killOn) {
+        a->m_compositeFlags = flags | Obj::COMPOSITE_FLAG_TELEPORTED;
+        a->m_pos.w = 5.0f;
+        a->m_objectFlags &= ~Obj::OBJECT_FLAG_DEAD;
+        g_cobj_killOn = killOn;
+        g_cobj_victim = a;
+        Call<void>(0x0045D920, &C::Update, a);
+        Rec(0xD920, {a->m_compositeFlags, Bits(a->m_pos.w), a->m_objectFlags});
+        g_cobj_killOn = 0;
+    };
+    update(0, 0);
+    update(Obj::COMPOSITE_FLAG_PAUSED, 0);
+    update(Obj::COMPOSITE_FLAG_SUSPENDED | 0x40, 0);
+    update(0, 0x5C);
+    update(Obj::COMPOSITE_FLAG_SUSPENDED, Rel(c[2]));
+    update(0, Rel(c[0]));
+    a->m_script = nullptr;
+    update(0, 0);
+    a->m_objectFlags &= ~Obj::OBJECT_FLAG_DEAD;
+
+    // Hide / Suspend: on, on again (no change), off; SetTeleported; ShouldUpdateScripts.
+    a->m_compositeFlags = 0x10;
+    for (bool on : {true, true, false, false}) {
+        Call<void>(0x0045D990, &C::Hide, a, on);
+        Result(a->m_compositeFlags);
+    }
+    for (bool on : {true, true, false, false}) {
+        Call<void>(0x0045D9E0, &C::Suspend, a, on);
+        Result(a->m_compositeFlags);
+    }
+    Call<void>(0x0045E4C0, &C::SetTeleported, a, false);
+    Result(a->m_compositeFlags);
+    a->m_compositeFlags = 0;
+    Call<void>(0x0045E4C0, &C::SetTeleported, a, true);
+    for (uint32_t flags : {0u, 1u, 0xFEu, 0xFFu}) {
+        a->m_compositeFlags = flags;
+        Result(Call<uint32_t>(0x0045E500, &C::ShouldUpdateScripts, a) & 0xFF);
+    }
+    a->m_compositeFlags = 0;
+    Call<void>(0x0045D7C0, &C::MarkAsDead, a);
+    Call<void>(0x0045DB30, &C::Finalize, a);
+    Result(a->m_compositeFlags);
+
+    // A member function by name: the third component says true; the second false; none knows it.
+    CStruct* params = Struct(arena, 1);
+    auto* script = reinterpret_cast<CScript*>(arena + 0x2000);
+    using ByName = bool (C::*)(uint32_t, CStruct*, CScript*);
+    for (uint32_t answers : {0x2212u, 0x2202u, 0x2222u, 0x1222u}) {
+        for (int i = 0; i < 4; ++i)
+            reinterpret_cast<uint32_t*>(c[i])[6] = (answers >> (12 - 4 * i)) & 0xF;
+        Result(Call<uint32_t>(0x0045E450, static_cast<ByName>(&C::CallMemberFunction), a, 0xFACEu, params, script) &
+               0xFF);
+    }
+    a->mp_components = nullptr;
+    Result(Call<uint32_t>(0x0045E450, static_cast<ByName>(&C::CallMemberFunction), a, 0xFACFu, params, script) & 0xFF);
+
+    // A table entry: with a member function pointer (and an adjustment); without (by name, slot 3).
+    using ByEntry = bool (CObject::*)(CMemberFunctionEntry*, CStruct*, CScript*);
+    auto* entry = reinterpret_cast<CMemberFunctionEntry*>(arena + 0x2800);
+    *entry = {0xE1E1, 0x0ADA4E74, g_cobj_memberCode, 0x24, 0, 0};
+    Result(Call<uint32_t>(0x0045D850, static_cast<ByEntry>(&CObject::CallMemberFunction), a, entry, params, script) & 0xFF);
+    entry->mThisAdjustment = -8;
+    Result(Call<uint32_t>(0x0045D850, static_cast<ByEntry>(&CObject::CallMemberFunction), a, entry, params, script) & 0xFF);
+    entry->mpCode = nullptr;
+    Result(Call<uint32_t>(0x0045D850, static_cast<ByEntry>(&CObject::CallMemberFunction), a, entry, params, script) & 0xFF);
+    // A component's: by the entry's name.
+    using CompEntry = int (CBaseComponent::*)(CMemberFunctionEntry*, CStruct*, CScript*);
+    reinterpret_cast<uint32_t*>(c[3])[6] = 7;
+    Result(Call<uint32_t>(0x0045D720, static_cast<CompEntry>(&CBaseComponent::CallMemberFunction), c[3], entry,
+                          params, script));
+
+    // CBaseComponent: constructor (dirty memory), destructor body (a script waited / not), Destroy, Suspend.
+    auto* d = reinterpret_cast<CBaseComponent*>(arena + 0x1800);
+    std::memset(d, 0xDD, 0x20);
+    Result(Rel(Call<CBaseComponent*>(0x0045D730, &CBaseComponent::Construct, d)));
+    Result(d->m_flags);
+    d->m_flags = 0xFD;
+    Call<void>(0x0045D740, &CBaseComponent::DestroyBody, d);
+    Result(0xD740);
+    d->m_flags = 0x02;
+    Call<void>(0x0045D740, &CBaseComponent::DestroyBody, d);
+    Result(0xD741);
+    for (unsigned int flags : {0u, 1u, 2u}) {
+        d->m_flags = flags == 2 ? 0x3u : 0x0u;
+        Result(Rel(Call<CBaseComponent*>(0x0045D780, &CBaseComponent::Destroy, d, flags)));
+    }
+    d->m_flags = 0xF0;
+    for (bool on : {true, true, false, false}) {
+        Call<void>(0x0045D760, &CBaseComponent::Suspend, d, on);
+        Result(d->m_flags);
+    }
+
+    // Destruction: B with three components (deleted first to last), DestroyBody and Destroy(1).
+    for (unsigned int flags : {0xFFu, 0u, 1u, 2u}) {
+        auto* b = reinterpret_cast<C*>(arena + 0x400);
+        std::memset(b, 0xDD, sizeof(C));
+        b->m_compositeFlags = 0x10;
+        b->mp_components = nullptr;
+        for (int i = 0; i < 3; ++i) {
+            CBaseComponent* e = MakeComponent(arena, 8 + i, 0x7100 + i, 0, 2);
+            e->mp_next = b->mp_components;
+            b->mp_components = e;
+        }
+        if (flags == 0xFF)
+            Call<void>(0x0045D890, &C::DestroyBody, b);
+        else
+            Result(Rel(Call<C*>(0x0045E620, &C::Destroy, b, flags)));
+        Result(b->m_compositeFlags);
+    }
+    return EndRun(arena);
+}
+
+// --- components from structures, InitFromStructure --------------------------------------------------------------
+std::vector<uint32_t> RunStructureTest(bool original)
+{
+    uint8_t* arena = BeginRun(original);
+    using C = CCompositeObject;
+    auto* a = reinterpret_cast<C*>(arena + 0x100);
+    a->m_vtable = reinterpret_cast<void**>(g_cobj_objectVtable);
+    a->mp_components = MakeComponent(arena, 0, 0x7000, 0, 2);
+
+    // An array of three structures; an empty one.
+    auto* array = reinterpret_cast<CArray*>(arena + 0x2400);
+    array->m_size = 3;
+    auto* elements = reinterpret_cast<uint32_t*>(arena + 0x2410);
+    for (int i = 0; i < 3; ++i)
+        elements[i] = reinterpret_cast<uint32_t>(Struct(arena, 10 + i));
+    Call<void>(0x0045DA90, &C::CreateComponentsFromArray, a, array, Struct(arena, 20));
+    array->m_size = 0;
+    Call<void>(0x0045DA90, &C::CreateComponentsFromArray, a, array, static_cast<CStruct*>(nullptr));
+
+    // CreateComponentFromStructure: no extra; with extra (a merged copy); no component= (the params' address).
+    CStruct* params = Struct(arena, 1);
+    Answer('K', params, 0xB6015EA8, {0x7EE1});
+    g_cobj_nextType = 0x7EE1;
+    Call<void>(0x0045EE20, &C::CreateComponentFromStructure, a, params, static_cast<CStruct*>(nullptr));
+    Call<void>(0x0045EE20, &C::CreateComponentFromStructure, a, params, Struct(arena, 2));
+    CStruct* bare = Struct(arena, 3);
+    g_cobj_nextType = 0x7EE2;
+    Call<void>(0x0045EE20, &C::CreateComponentFromStructure, a, bare, static_cast<CStruct*>(nullptr));
+
+    // InitFromStructure: name= and permanent; neither.
+    CStruct* init = Struct(arena, 4);
+    Answer('K', init, 0xA1DC81F9, {0x1D1D});
+    Answer('L', init, 0x23627FD7, {1});
+    a->m_objectFlags = 0x100;
+    Call<void>(0x0045DAD0, &C::InitFromStructure, a, init);
+    Result(a->m_objectFlags);
+    a->m_objectFlags = 0x100;
+    Call<void>(0x0045DAD0, &C::InitFromStructure, a, Struct(arena, 5));
+    Result(a->m_objectFlags);
+    return EndRun(arena);
+}
+
+// --- the member functions scripts call ------------------------------------------------------------------------
+std::vector<uint32_t> RunMemberTest(bool original)
+{
+    uint8_t* arena = BeginRun(original);
+    using C = CCompositeObject;
+    auto* a = reinterpret_cast<C*>(arena + 0x100);
+    auto* b = reinterpret_cast<C*>(arena + 0x400);
+    a->m_vtable = reinterpret_cast<void**>(g_cobj_objectVtable);
+    a->m_type = 0x7A7E;
+    auto* script = reinterpret_cast<CScript*>(arena + 0x2000);
+    script->m_params = Struct(arena, 0);
+    CStruct* params = Struct(arena, 1);
+    CStruct* empty = Struct(arena, 2);
+    // Components of the types 0x7000, 0x7001, `empty`'s address and 0 (what lookups with nothing given find).
+    const uint32_t types[4] = {0x7000, 0x7001, reinterpret_cast<uint32_t>(empty), 0};
+    for (int i = 0; i < 4; ++i) {
+        CBaseComponent* c = MakeComponent(arena, i, types[i], 0, 2);
+        c->mp_next = a->mp_components;
+        a->mp_components = c;
+    }
+    a->m_pos = {1.5f, -2.25f, 1000.125f, 0.5f};
+    a->m_vel = {3.0f, 4.0f, 12.0f, 1.0f};
+    a->m_matrix.row[0] = {0.1f, 0.7f, -0.3f, 0.25f};
+    a->m_matrix.row[1] = {-0.6f, 0.2f, 0.9f, 0.125f};
+    a->m_matrix.row[2] = {0.33f, -0.44f, 0.55f, 0.0625f};
+    a->m_matrix.row[3] = {7.0f, 8.0f, 9.0f, 1.0f};
+    b->m_pos = {101.7f, 12.3f, -55.5f, 1.0f};
+
+    Member(0x0045DBC0, &C::Obj_GetPosition, a, params, script);
+    Member(0x0045DC50, &C::Obj_GetVelocity, a, params, script);
+    Member(0x0045DC80, &C::GetSpeed, a, params, script);
+    a->m_vel = {0.1f, -0.2f, 0.3f, 1.0f};
+    Member(0x0045DC80, &C::GetSpeed, a, params, script);
+    Answer('S', params, 0, {0x1234});
+    Member(0x0045D7F0, &C::Obj_PrintDetails, a, params, script);
+    Member(0x0045D810, &C::Obj_CreateComponent, a, params, script);
+    Answer('V', params, 0xB9D31B0A, {Bits(4.0f), Bits(5.0f), Bits(6.0f), Bits(1.0f)});
+    Member(0x0045D830, &C::Obj_SetPosition, a, empty, script);
+    Result(Bits(a->m_pos.x));
+    Member(0x0045D830, &C::Obj_SetPosition, a, params, script);
+    a->m_pos = {1.5f, -2.25f, 1000.125f, 0.5f};
+    // Component checks: by name= / unnamed, found and missing.
+    Answer('K', params, 0xA1DC81F9, {0x7000});
+    Member(0x0045DBF0, &C::Obj_ComponentExists, a, params, script);
+    Member(0x0045DBF0, &C::Obj_ComponentExists, a, empty, script);
+    Answer('K', params, 0, {0x7001});
+    Member(0x0045E410, &C::Obj_HasComponent, a, params, script);
+    Answer('K', empty, 0xA1DC81F9, {0x7001});
+    Member(0x0045E410, &C::Obj_HasComponent, a, empty, script);
+    a->mp_components->m_type = 0x7777; // (no component of type 0 now)
+    Member(0x0045E410, &C::Obj_HasComponent, a, empty, script);
+    a->mp_components->m_type = 0;
+    Member(0x0045DBF0, &C::Obj_ComponentExists, a, empty, script);
+    // Flags.
+    a->m_compositeFlags = 0x10;
+    Member(0x0045DCD0, &C::Obj_Hide, a, params, script);
+    Member(0x0045DD70, &C::Obj_IsHidden, a, params, script);
+    Member(0x0045DD20, &C::Obj_Unhide, a, params, script);
+    Member(0x0045DD70, &C::Obj_IsHidden, a, params, script);
+    Member(0x0045DED0, &C::Obj_Suspend, a, params, script);
+    Result(a->m_compositeFlags);
+    Member(0x0045DF20, &C::Obj_Unsuspend, a, params, script);
+    Result(a->m_compositeFlags);
+    Member(0x0045E9B0, &C::Obj_Pause, a, params, script);
+    Result(a->m_compositeFlags);
+    Member(0x0045E9D0, &C::Obj_Unpause, a, params, script);
+    Result(a->m_compositeFlags);
+    Member(0x0045DC40, &C::Obj_ForceUpdate, a, params, script);
+    Member(0x0045E3F0, &C::Obj_GetType, a, params, script);
+    // Moving along its axes (y missing).
+    CStruct* move = Struct(arena, 3);
+    Answer('F', move, 0x7323E97C, {Bits(3.3f)});
+    Answer('F', move, 0x9D2D8850, {Bits(-17.77f)});
+    Member(0x0045DD80, &C::Obj_MoveLocal, a, move, script);
+    Answer('F', move, 0x0424D9EA, {Bits(1e-3f)});
+    Member(0x0045DD80, &C::Obj_MoveLocal, a, move, script);
+    // (values where rounding the x product to a float first changes the result)
+    a->m_pos.x = -7.128984451293945f;
+    a->m_matrix.row[0].x = 0.8972200155258179f;
+    Answer('F', move, 0x7323E97C, {Bits(-46.11112976074219f)});
+    Member(0x0045DD80, &C::Obj_MoveLocal, a, move, script);
+    Result(Bits(a->m_pos.x));
+    // The distance to an object: found, not found.
+    Answer('K', params, 0, {0xB0B});
+    g_cobj_found = Rel(b);
+    Member(0x0045E0B0, &C::Obj_GetDistanceToObject, a, params, script);
+    g_cobj_found = 0;
+    Member(0x0045E0B0, &C::Obj_GetDistanceToObject, a, empty, script);
+    // The velocity against its at row: backwards, forwards, square (0); the speed against a value.
+    for (float z : {-1.0f, 1.0f, 0.0f}) {
+        a->m_vel = {0.44f, 0.55f * z, z, 1.0f};
+        Member(0x0045E260, &C::Obj_MovingBackward, a, params, script);
+    }
+    a->m_vel = {0.0f, 0.0f, 0.0f, 1.0f};
+    Member(0x0045E260, &C::Obj_MovingBackward, a, params, script);
+    a->m_vel = {3.0f, 4.0f, 0.0f, 1.0f};
+    CStruct* speed = Struct(arena, 4);
+    for (float value : {5.0f, 4.95f, 5.0999f, 5.1f, 4.9f, 4.89f, 7.0f, 3.0f}) {
+        Answer('F', speed, 0, {Bits(value)});
+        Member(0x0045E2A0, &C::Obj_SpeedNear, a, speed, script);
+        Member(0x0045E310, &C::Obj_SpeedAbove, a, speed, script);
+        Member(0x0045E380, &C::Obj_SpeedBelow, a, speed, script);
+    }
+    Member(0x0045E2A0, &C::Obj_SpeedNear, a, empty, script);
+    Member(0x0045E310, &C::Obj_SpeedAbove, a, empty, script);
+    Member(0x0045E380, &C::Obj_SpeedBelow, a, empty, script);
+    // Exactly 0.1 apart (not near); a speed whose sum of squares rounds differently in another order or in floats
+    // (16777215^2 + 2 * 0.15^2); speeds that aren't floats, against their rounded values.
+    a->m_vel = {0.2f, 0.0f, 0.0f, 1.0f};
+    Answer('F', speed, 0, {Bits(0.1f)});
+    Member(0x0045E2A0, &C::Obj_SpeedNear, a, speed, script);
+    a->m_vel = {0.15f, 0.15f, 16777215.0f, 1.0f};
+    Answer('F', speed, 0, {Bits(16777215.0f)});
+    Member(0x0045E310, &C::Obj_SpeedAbove, a, speed, script);
+    Member(0x0045E380, &C::Obj_SpeedBelow, a, speed, script);
+    a->m_vel = {16777215.0f, 0.15f, 0.15f, 1.0f};
+    Member(0x0045E310, &C::Obj_SpeedAbove, a, speed, script);
+    Member(0x0045E380, &C::Obj_SpeedBelow, a, speed, script);
+    Member(0x0045E2A0, &C::Obj_SpeedNear, a, speed, script);
+    const float odd[4][3] = {{0.1f, -0.2f, 0.3f}, {1.1f, 2.3f, -0.7f}, {7.7f, 0.01f, 3.3f}, {0.5f, 0.6f, 0.7f}};
+    for (const auto& v : odd) {
+        a->m_vel = {v[0], v[1], v[2], 1.0f};
+        double length = std::sqrt(static_cast<double>(v[0]) * v[0] + static_cast<double>(v[1]) * v[1] +
+                                  static_cast<double>(v[2]) * v[2]);
+        Answer('F', speed, 0, {Bits(static_cast<float>(length))});
+        Member(0x0045E380, &C::Obj_SpeedBelow, a, speed, script);
+        Member(0x0045E310, &C::Obj_SpeedAbove, a, speed, script);
+    }
+    return EndRun(arena);
+}
+
+void RunPair(std::vector<uint32_t> (*run)(bool), const char* what)
+{
+    std::vector<uint32_t> expected = run(true);
+    std::vector<uint32_t> actual = run(false);
+    Compare(expected, actual, what);
+}
+
+void TestCompositeObjects()
+{
+    SaveGlobals();
+    auto* s = new StandIns;
+    InstallStandIns(*s);
+    RunPair(RunLifeTest, "CCompositeObject: construction, update, hide / suspend, components, member function calls");
+    RunPair(RunStructureTest, "CCompositeObject: components from structures, InitFromStructure");
+    RunPair(RunMemberTest, "CCompositeObject: the member functions scripts call");
+    Cleanup();
+}
+
+} // namespace
+
+SELFTEST(Early, TestCompositeObjects, Cleanup);

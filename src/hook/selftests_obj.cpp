@@ -648,7 +648,9 @@ std::vector<uint32_t> RunObjectTest(bool original)
 
     // CallMemberFunction: SetProps, Die, another name.
     for (uint32_t name : {0x6C63C7C5u, 0xC6870028u, 0x12345678u})
-        Result(Call<bool>(0x004608F0, &CObject::CallMemberFunction, a, name, params, caller));
+        Result(Call<bool>(0x004608F0,
+                          static_cast<bool (CObject::*)(uint32_t, CStruct*, CScript*)>(&CObject::CallMemberFunction),
+                          a, name, params, caller));
 
     // Unlock, DestroyIfUnlocked (free and member), FindObject, the events.
     b->m_objectFlags = 0x7;
