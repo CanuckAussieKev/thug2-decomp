@@ -7,6 +7,7 @@
 
 #include "game/file/async.h"
 #include "game/file/pre.h"
+#include "game/front/front_end.h"
 #include "game/mc/memcard.h"
 #include "game/obj/objman.h"
 #include "game/obj/tracker.h"
@@ -76,6 +77,12 @@ struct MlpManager {
 // Named by their Create functions where there's no better name yet (Sys::Main makes them all).
 using MdlManager = GameSingleton<0x0044F6F0, 0x0044F740, 0x0064AFB8>;   // the module manager
 using SoundManager = GameSingleton<0x0047BA60, 0x0047C6C0, 0x006472B4>; // the sound effects manager
+struct FrontEnd {
+    using Type = Mdl::FrontEnd;
+    static constexpr uint32_t kVtable = 0x0064AFEC;
+    static Type* Create(bool create) { return Mdl::CreateFrontEnd(create); }
+    static void Release() { Mdl::ReleaseFrontEnd(); }
+};
 struct ObjectTracker {
     using Type = Obj::CTracker;
     static constexpr uint32_t kVtable = 0x0064AFB4;
@@ -91,7 +98,6 @@ using Singleton553DB0 = GameSingleton<0x00553DB0, 0x00552F70, 0x0064AFDC>;
 using Singleton57C0D0 = GameSingleton<0x0057C0D0, 0x0057C120, 0x0064AFE0>;
 using Singleton57EED0 = GameSingleton<0x0057EED0, 0x0057FDB0, 0x0064AFE4>;
 using Singleton5691A0 = GameSingleton<0x005691A0, 0x00564C10, 0x0064AFE8>;
-using Singleton54FF80 = GameSingleton<0x0054FF80, 0x0054EBE0, 0x0064AFEC>;
 using Singleton53F520 = GameSingleton<0x0053F520, 0x005395C0, 0x0064AFF0>;
 using Singleton590160 = GameSingleton<0x00590160, 0x0058D290, 0x0064AFF4>;
 using Singleton4ACAF0 = GameSingleton<0x004ACAF0, 0x004AACF0, 0x0064AFF8>;
@@ -139,8 +145,8 @@ REPLACE(0x004E1A50, &Spt::SingletonPtr<Spt::Singleton57EED0>::DestroyBody);
 REPLACE(0x004E1D70, &Spt::SingletonPtr<Spt::Singleton57EED0>::Destroy);
 REPLACE(0x004E1A60, &Spt::SingletonPtr<Spt::Singleton5691A0>::DestroyBody);
 REPLACE(0x004E1DA0, &Spt::SingletonPtr<Spt::Singleton5691A0>::Destroy);
-REPLACE(0x004E1A70, &Spt::SingletonPtr<Spt::Singleton54FF80>::DestroyBody);
-REPLACE(0x004E1DD0, &Spt::SingletonPtr<Spt::Singleton54FF80>::Destroy);
+REPLACE(0x004E1A70, &Spt::SingletonPtr<Spt::FrontEnd>::DestroyBody);
+REPLACE(0x004E1DD0, &Spt::SingletonPtr<Spt::FrontEnd>::Destroy);
 REPLACE(0x004E1A80, &Spt::SingletonPtr<Spt::Singleton53F520>::DestroyBody);
 REPLACE(0x004E1E00, &Spt::SingletonPtr<Spt::Singleton53F520>::Destroy);
 REPLACE(0x004E1AC0, &Spt::SingletonPtr<Spt::Singleton590160>::DestroyBody);

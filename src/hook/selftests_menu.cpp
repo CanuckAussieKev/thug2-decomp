@@ -47,6 +47,10 @@ alignas(16) uint8_t g_skate[0x400];
 alignas(16) uint8_t g_nodes[5][0x10];        // the skate module's skater list
 alignas(16) uint8_t g_skaters[4][0x10];      // +0 vtable
 void* g_skaterVtable[16];
+void* g_nodeVtable[4];
+void* g_frontEndVtable[4];
+alignas(16) uint8_t g_padDevices[2][sizeof(Sio::Device)];
+bool g_scriptFound;                   // FindScriptWithUniqueId: found
 alignas(16) uint8_t g_mlp[0xD0];
 alignas(16) uint8_t g_manager[0x600];
 alignas(16) uint8_t g_input[0x200];          // the input manager
@@ -169,7 +173,8 @@ std::vector<Saved> SavedGlobals()
 {
     return {{0x007CE464, 8, {}}, {0x007CE46C, 4, {}}, {0x007CE4A0, 1, {}}, {0x006FA7D4, 1, {}}, {0x007CE478, 4, {}},
             {0x006F0FC0, 4, {}}, {0x006F0FB8, 4, {}}, {0x00701440, 4, {}}, {0x006F85A8, 4, {}}, {0x00696D68, 4, {}},
-            {0x007D1800, 4, {}}, {0x007D1E20, 4, {}}, {0x006F3614, 16, {}}, {0x007CC979, 1, {}}, {0x00690FA0, 4, {}}};
+            {0x007D1800, 4, {}}, {0x007D1E20, 4, {}}, {0x006F3614, 16, {}}, {0x007CC979, 1, {}}, {0x00690FA0, 4, {}},
+            {0x00696D40, 4, {}}, {0x00684FC8, 4, {}}};
 }
 
 // (run even if a test crashes)
@@ -182,7 +187,7 @@ void RestoreMenuTest()
 }
 
 // Every call the front end makes.
-void InstallStandIns(StandIns& s)
+void InstallStandIns(StandIns& s, bool autoRepeat)
 {
     // Structures: allocation, construction, the calls on them.
     s.At({0x005BA3D0, AddressOf(&Mem::Pool::Allocate)}, 0, [](Regs& r) {
@@ -384,9 +389,27 @@ void InstallStandIns(StandIns& s)
         Record({0xFD90, Id(r.args[0]), Id(r.args[1])});
         return 1u;
     });
-    s.At({0x0054ECE0}, 8, [](Regs& r) {
-        Record({0xECE0, Id(r.ecx), r.args[0], r.args[1]});
-        return Next(g_repeats, 0u);
+    if (autoRepeat) {
+        s.At({0x0054ECE0, AddressOf(&FrontEnd::AutoRepeat)}, 8, [](Regs& r) {
+            Record({0xECE0, Id(r.ecx), r.args[0], r.args[1]});
+            return Next(g_repeats, 0u);
+        });
+    }
+    s.At({0x004734B0, AddressOf(&Script::FindScriptWithUniqueId)}, 0, [](Regs& r) {
+        Record({0x34B0, r.args[0]});
+        return g_scriptFound ? reinterpret_cast<uint32_t>(g_script) : 0u;
+    });
+    s.At({0x00472DC0, AddressOf(&Script::UnpauseSpawnedScript)}, 0, [](Regs& r) {
+        Record({0x2DC0, Id(r.args[0])});
+        return 0u;
+    });
+    s.At({0x0044F790}, 0, [](Regs& r) { // Mdl::Module's destructor body
+        Record({0xF790, Id(r.ecx)});
+        return 0u;
+    });
+    s.At({0x005BABA0, AddressOf(&Mem::Manager::Free)}, 4, [](Regs& r) {
+        Record({0xF4EE, Id(r.ecx), Id(r.args[0])});
+        return 0u;
     });
     s.At({0x00462F00, AddressOf(&Obj::CTracker::LaunchEvent)}, 0x18, [](Regs& r) { // LaunchEvent
         Record({0x2F00, Id(r.ecx), r.args[0], r.args[1], r.args[2], Id(r.args[3]), r.args[4], r.args[5]});
@@ -411,6 +434,19 @@ void InstallStandIns(StandIns& s)
         Record({0x5C30, Id(r.ecx)});
         return 0u;
     });
+    // Task list nodes: slot 2 the scalar deleting destructor; the front end's own slot 0.
+    for (void*& entry : g_nodeVtable)
+        entry = nullptr;
+    g_nodeVtable[2] = s.Thunk(4, [](Regs& r) {
+        Record({0xDE7, Id(r.ecx), r.args[0]});
+        return r.ecx;
+    });
+    for (void*& entry : g_frontEndVtable)
+        entry = nullptr;
+    g_frontEndVtable[0] = s.Thunk(4, [](Regs& r) {
+        Record({0xFED0, Id(r.ecx), r.args[0]});
+        return r.ecx;
+    });
 }
 
 FrontEnd* Fe() { return reinterpret_cast<FrontEnd*>(g_frontEnd); }
@@ -429,6 +465,9 @@ void BeginRun()
     g_flags.clear();
     g_globals.clear();
     g_repeats.clear();
+    g_scriptFound = false;
+    GameVariable<float>(0x00684FC8) = 1.0f;
+    GameVariable<void*>(0x00696D40) = g_input;
     for (size_t i = 0; i < sizeof(g_frontEnd); ++i)
         g_frontEnd[i] = static_cast<uint8_t>(0x30 + i * 7);
     std::memset(g_skate, 0, sizeof(g_skate));
@@ -485,7 +524,7 @@ void RecordState()
 }
 
 // Runs `steps` once with the originals and once with ours (inside the stand-ins) and compares the traces.
-void CompareRuns(const char* what, const std::function<void(bool)>& steps)
+void CompareRuns(const char* what, const std::function<void(bool)>& steps, bool standInAutoRepeat = true)
 {
     g_saved = SavedGlobals();
     SaveAll(g_saved);
@@ -496,7 +535,7 @@ void CompareRuns(const char* what, const std::function<void(bool)>& steps)
     std::vector<uint32_t> traces[2];
     {
         auto* s = new StandIns;
-        InstallStandIns(*s);
+        InstallStandIns(*s, standInAutoRepeat);
         for (int run = 0; run < 2; ++run) {
             BeginRun();
             steps(run == 0);
@@ -943,6 +982,190 @@ void TestFrontEndConstruction()
     });
 }
 
+// --- the auto-repeat ------------------------------------------------------------------------------------------
+
+uint32_t Repeat(bool o, uint32_t held, int device)
+{
+    uint32_t event = o ? Orig<uint32_t(__thiscall*)(FrontEnd*, uint32_t, int)>(0x0054ECE0)(Fe(), held, device)
+                       : Fe()->AutoRepeat(held, device);
+    Record({0xA7, event});
+    for (int i = 0; i < 2; ++i)
+        Record({Fe()->m_padMappings[i].m_repeatState, Fe()->m_padMappings[i].m_repeatTimer});
+    return event;
+}
+
+void TestFrontEndAutoRepeat()
+{
+    CompareRuns("front end: the auto-repeat (directions, the PC arrows, delay and rate, the startup script)",
+                [](bool o) {
+        for (int i = 0; i < 2; ++i) {
+            Fe()->m_padMappings[i].m_repeatState = 0;
+            Fe()->m_padMappings[i].m_repeatTimer = 0x1234;
+        }
+        Fe()->m_startupScriptOn = false;
+        Fe()->m_startupScriptId = 0xABCD0123;
+        Fe()->m_autoRepeatDelay = 300;
+        Fe()->m_autoRepeatRate = 50;
+        GameVariable<uint8_t>(0x007CE46E) = 0;
+        // Each direction (and its priority over the others), held through the delay and some repeats, with
+        // frames of 1/60, 1/20 (exactly the rate) and 1/3 s (past the timer), then let go.
+        const uint32_t helds[] = {0x8000, 0x2000, 0x1000, 0x4000, 0xF000, 0x7000, 0x5000, 0x4FFF};
+        const float slomos[] = {1.0f, 3.0f, 20.0f, 7.3f};
+        int frame = 0;
+        for (uint32_t held : helds) {
+            for (int device : {0, 1}) {
+                for (int i = 0; i < 9; ++i) {
+                    GameVariable<float>(0x00684FC8) = slomos[(frame++ / 3) % 4];
+                    Repeat(o, held, device);
+                }
+                Repeat(o, 0x0800, device); // let go (another button)
+                Repeat(o, 0, device);
+            }
+        }
+        // Odd times: a negative delay (a huge unsigned timer), a rate of 0.
+        Fe()->m_autoRepeatDelay = -5;
+        Fe()->m_autoRepeatRate = 0;
+        GameVariable<float>(0x00684FC8) = 3.0f;
+        for (int i = 0; i < 4; ++i)
+            Repeat(o, 0x1000, 1);
+        // A state that isn't 1 stays as it is when the timer runs out.
+        Fe()->m_padMappings[1].m_repeatState = 7;
+        Fe()->m_padMappings[1].m_repeatTimer = 10;
+        Repeat(o, 0x1000, 1);
+        // Long frames against a long delay (the milliseconds' rounding).
+        Fe()->m_autoRepeatDelay = 2000;
+        GameVariable<float>(0x00684FC8) = 59.97f;
+        Repeat(o, 0, 0);
+        for (int i = 0; i < 3; ++i)
+            Repeat(o, 0x8000, 0);
+        GameVariable<float>(0x00684FC8) = 3.0f;
+        Fe()->m_autoRepeatDelay = 120;
+        Fe()->m_autoRepeatRate = 70;
+        // The PC arrows: controller 0 only, the on-screen keyboard up, no direction held; the first arrow.
+        const char* const keys[] = {"\x14", "\x15", "\x16", "\x17", "ab\x17\x14", "\x13\x18", "", "\x16\x15",
+                                    "\x14\x17"};
+        for (int keyboardUp : {0, 1})
+            for (int device : {0, 1})
+                for (uint32_t held : {0u, 0x2000u})
+                    for (const char* k : keys) {
+                        GameVariable<uint8_t>(0x007CE46E) = static_cast<uint8_t>(keyboardUp);
+                        g_keys = k;
+                        Repeat(o, held, device);
+                        Repeat(o, held, device);
+                        g_keys.clear();
+                        Repeat(o, 0, device);
+                    }
+        GameVariable<uint8_t>(0x007CE46E) = 0;
+        // The startup script: controller 0 gets nothing while it runs (unpaused each frame), then it's over.
+        Fe()->m_startupScriptOn = true;
+        for (bool found : {true, true, false, false}) {
+            g_scriptFound = found;
+            Repeat(o, 0x8000, 1);
+            Repeat(o, 0x8000, 0);
+            Record({Fe()->m_startupScriptOn});
+        }
+    }, false);
+}
+
+// --- the module: start, stop, destruction --------------------------------------------------------------------
+
+void SetModuleNodes()
+{
+    Fe()->m_logicTask = reinterpret_cast<Mdl::FrontEndTask*>(g_tasks[0]);
+    Fe()->m_keyboardTask = reinterpret_cast<Mdl::FrontEndTask*>(g_tasks[1]);
+    for (int i = 0; i < 2; ++i) {
+        *reinterpret_cast<void***>(g_tasks[i]) = g_nodeVtable;
+        *reinterpret_cast<void***>(g_handlers[i]) = g_nodeVtable;
+        Fe()->m_inputHandlers[i] = reinterpret_cast<Mdl::FrontEndInputHandler*>(g_handlers[i]);
+    }
+}
+
+void TestFrontEndModule()
+{
+    CompareRuns("front end: v_start_cb, v_stop_cb, PadsPluggedIn, RemoveKeyboardHandler, destructor, Release",
+                [](bool o) {
+        SetModuleNodes();
+        for (int d = 0; d < 2; ++d)
+            *reinterpret_cast<uint8_t**>(g_input + 4 + d * 0x84) = g_devices[d];
+        // Start: each handler to its own index's controller (the map is ignored), the logic task.
+        Fe()->m_deviceServerMap[0] = 1;
+        Fe()->m_deviceServerMap[1] = 0;
+        Fe()->m_inputHandlers[0]->m_index = 1;
+        Fe()->m_inputHandlers[1]->m_index = 0;
+        auto start = [o] {
+            if (o)
+                Orig<void(__thiscall*)(FrontEnd*)>(0x0054EEA0)(Fe());
+            else
+                Fe()->Start();
+            RecordState();
+            for (int d = 0; d < 2; ++d)
+                for (size_t i = 0; i < 0x2C; i += 4)
+                    g_trace.push_back(Id(*reinterpret_cast<uint32_t*>(g_handlers[d] + i)));
+        };
+        start();
+        Fe()->m_inputHandlers[0]->m_index = 0;
+        start();
+        // Stop; the keyboard handler out.
+        if (o)
+            Orig<void(__thiscall*)(FrontEnd*)>(0x0054EF30)(Fe());
+        else
+            Fe()->Stop();
+        for (int task : {1, 0}) {
+            Fe()->m_keyboardTask = reinterpret_cast<Mdl::FrontEndTask*>(g_tasks[task]);
+            if (o)
+                Orig<void(__thiscall*)(FrontEnd*)>(0x0054ECD0)(Fe());
+            else
+                Fe()->RemoveKeyboardHandler();
+        }
+        // PadsPluggedIn: either controller.
+        for (int i = 0; i < 2; ++i)
+            Fe()->m_inputHandlers[i]->m_device = g_padDevices[i];
+        for (int mask = 0; mask < 4; ++mask) {
+            std::memset(g_padDevices, 0x5A, sizeof(g_padDevices));
+            for (int i = 0; i < 2; ++i)
+                reinterpret_cast<Sio::Device*>(g_padDevices[i])->m_pluggedIn = ((mask >> i) & 1) != 0;
+            bool r = o ? Orig<bool(__thiscall*)(FrontEnd*)>(0x0054ECA0)(Fe()) : Fe()->PadsPluggedIn();
+            Record({0x9106, r});
+        }
+        // The destructor: freed or not; missing tasks and handlers.
+        auto destroy = [o](unsigned int flags) {
+            FrontEnd* r = o ? Orig<FrontEnd*(__thiscall*)(FrontEnd*, unsigned int)>(0x0054EE70)(Fe(), flags)
+                            : Fe()->Destroy(flags);
+            Record({0xDE57, Id(reinterpret_cast<uint32_t>(r))});
+            RecordState();
+        };
+        Fe()->m_vtable = g_frontEndVtable;
+        destroy(0);
+        SetModuleNodes();
+        Fe()->m_logicTask = nullptr;
+        Fe()->m_inputHandlers[1] = nullptr;
+        destroy(3);
+        SetModuleNodes();
+        Fe()->m_inputHandlers[0] = nullptr;
+        destroy(2);
+        SetModuleNodes();
+        if (o)
+            Orig<void(__thiscall*)(FrontEnd*)>(0x0054EC20)(Fe());
+        else
+            Fe()->DestroyBody();
+        RecordState();
+        // Release: references left; the last one; none made.
+        auto release = [o] {
+            (o ? Orig<void(__cdecl*)()>(0x0054EBE0) : &Mdl::ReleaseFrontEnd)();
+            RecordState();
+        };
+        for (uint32_t refs : {3u, 2u, 1u, 0u}) {
+            Fe()->m_vtable = g_frontEndVtable;
+            GameVariable<FrontEnd*>(0x007CE464) = Fe();
+            GameVariable<uint32_t>(0x007CE468) = refs;
+            release();
+        }
+        GameVariable<FrontEnd*>(0x007CE464) = nullptr;
+        GameVariable<uint32_t>(0x007CE468) = 1;
+        release();
+    });
+}
+
 // --- the competition pieces ----------------------------------------------------------------------------------
 
 alignas(16) uint8_t g_competition[2][0x160];
@@ -1014,4 +1237,6 @@ SELFTEST(Early, TestFrontEndUpdate, RestoreMenuTest);
 SELFTEST(Early, TestFrontEndPauseGame, RestoreMenuTest);
 SELFTEST(Early, TestFrontEndInputLogic, RestoreMenuTest);
 SELFTEST(Early, TestFrontEndConstruction, RestoreMenuTest);
+SELFTEST(Early, TestFrontEndAutoRepeat, RestoreMenuTest);
+SELFTEST(Early, TestFrontEndModule, RestoreMenuTest);
 SELFTEST(Early, TestCompetitionPieces, RestoreMenuTest);

@@ -1,5 +1,5 @@
-// Mdl::FrontEnd (0x0054EF60-0x0055001F, with 0x0054EBE0-0x0054EF5F still in the game): the menus' input - pad and
-// button events, typed keys - and pausing the game. See front_end.h.
+// Mdl::FrontEnd (0x0054EBE0-0x0055001F): the menus' input - pad and button events, typed keys - and pausing the
+// game. See front_end.h.
 
 #include "game/front/front_end.h"
 
@@ -15,6 +15,7 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/sio/device.h"
+#include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -64,6 +65,19 @@ bool& GamePaused() { return GameVariable<bool>(0x006FA7D4); }
 uint8_t* Skate() { return GameVariable<uint8_t*>(0x007CE478); } // Mdl::Skate
 void* Tracker() { return GameVariable<void*>(0x006F0FC0); }    // Obj::CTracker
 uint8_t* MainLoopManager() { return GameVariable<uint8_t*>(0x00696D68); }
+uint8_t* InputManager() { return GameVariable<uint8_t*>(0x00696D40); } // Inp::Manager
+
+// The typed arrow keys (Sio::GetKeyboardChars).
+constexpr char kKeyLeft = 0x14;
+constexpr char kKeyRight = 0x15;
+constexpr char kKeyUp = 0x16;
+constexpr char kKeyDown = 0x17;
+
+// The held buttons that are directions.
+constexpr uint32_t kButtonLeft = 0x8000;
+constexpr uint32_t kButtonRight = 0x2000;
+constexpr uint32_t kButtonUp = 0x1000;
+constexpr uint32_t kButtonDown = 0x4000;
 
 // The CRT's _ftol: truncation, the low 32 bits of the 64-bit result.
 int Ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
@@ -77,9 +91,16 @@ bool ObjectExists(Script::CStruct* params) // the script command ObjectExists
     return Obj::CFunc_ObjectExists(params, nullptr);
 }
 void ConstructModule(void* module) { GameFunction<void*(__thiscall*)(void*)>(0x0044F7E0)(module); }
+void DestroyModule(void* module) { GameFunction<void(__thiscall*)(void*)>(0x0044F790)(module); }
 void ConstructNode(void* node, int priority) { GameFunction<void*(__thiscall*)(void*, int)>(0x00406890)(node, priority); }
 void AddNode(void* list, void* node) { GameFunction<void(__thiscall*)(void*, void*)>(0x00406C90)(list, node); }
 void RemoveNode(void* node) { GameFunction<void(__thiscall*)(void*)>(0x004068F0)(node); }
+
+// A task list node's scalar deleting destructor (vtable slot 2).
+void DeleteNode(void* node)
+{
+    reinterpret_cast<void(__thiscall*)(void*, unsigned int)>((*static_cast<void***>(node))[2])(node, 1);
+}
 
 // A reference to the input manager (Spt::SingletonPtr<Inp::Manager>, 0x0044E7F0 / 0x0044E6B0), not making it.
 struct InputManagerRef {
@@ -117,6 +138,151 @@ bool AnchorExists(Script::CStruct* params, uint32_t id, bool clear = true)
 } // namespace
 
 FrontEnd*& FrontEndInstance() { return GameVariable<FrontEnd*>(0x007CE464); }
+
+// 0x0054EBE0
+void ReleaseFrontEnd()
+{
+    if (FrontEndRefs() > 1) {
+        --FrontEndRefs();
+        return;
+    }
+    if (FrontEnd* frontEnd = FrontEndInstance())
+        reinterpret_cast<void(__thiscall*)(FrontEnd*, unsigned int)>(frontEnd->m_vtable[0])(frontEnd, 1);
+    FrontEndInstance() = nullptr;
+    FrontEndRefs() = 0;
+}
+
+// 0x0054EC20
+void FrontEnd::DestroyBody()
+{
+    m_vtable = reinterpret_cast<void**>(0x0064D724);
+    if (m_logicTask)
+        DeleteNode(m_logicTask);
+    // (m_keyboardTask is never deleted)
+    for (FrontEndInputHandler*& handler : m_inputHandlers) {
+        if (handler)
+            DeleteNode(handler);
+        handler = nullptr;
+    }
+    DestroyModule(this);
+}
+
+// 0x0054ECA0
+bool FrontEnd::PadsPluggedIn()
+{
+    for (FrontEndInputHandler* handler : m_inputHandlers) {
+        if (reinterpret_cast<Sio::Device*>(handler->m_device)->IsPluggedIn())
+            return true;
+    }
+    return false;
+}
+
+// 0x0054ECD0
+void FrontEnd::RemoveKeyboardHandler()
+{
+    RemoveNode(m_keyboardTask);
+}
+
+// 0x0054ECE0
+uint32_t FrontEnd::AutoRepeat(uint32_t held, int deviceIndex)
+{
+    uint32_t event = 0;
+    if (held & kButtonLeft)
+        event = kPadLeft;
+    else if (held & kButtonRight)
+        event = kPadRight;
+    else if (held & kButtonUp)
+        event = kPadUp;
+    else if (held & kButtonDown)
+        event = kPadDown;
+    if (deviceIndex == 0 && event == 0 && KeyboardOnScreen()) {
+        // The PC keyboard's arrows: the first one typed (the keys are left for the others to read).
+        char keys[256];
+        int count = Sio::GetKeyboardChars(keys);
+        for (int i = 0; i < count; ++i) {
+            char key = keys[i];
+            if (key == kKeyLeft) {
+                event = kPadLeft;
+                break;
+            }
+            if (key == kKeyRight) {
+                event = kPadRight;
+                break;
+            }
+            if (key == kKeyUp) {
+                event = kPadUp;
+                break;
+            }
+            if (key == kKeyDown) {
+                event = kPadDown;
+                break;
+            }
+        }
+    }
+
+    PadMapping& pad = m_padMappings[deviceIndex];
+    if (pad.m_repeatState == 0) {
+        if (event) { // first held: sent now, repeated after the delay
+            pad.m_repeatTimer = static_cast<uint32_t>(m_autoRepeatDelay);
+            pad.m_repeatState = 1;
+        }
+    } else if (event) {
+        uint32_t elapsed = static_cast<uint32_t>(Ftol(Tmr::GetSlomoFrameSeconds() * 1000.0f));
+        pad.m_repeatTimer = elapsed < pad.m_repeatTimer ? pad.m_repeatTimer - elapsed : 0;
+        if (pad.m_repeatTimer == 0) { // due: sent, then again after the rate
+            if (pad.m_repeatState == 1)
+                pad.m_repeatState = 2;
+            pad.m_repeatTimer = static_cast<uint32_t>(m_autoRepeatRate);
+        } else {
+            event = 0;
+        }
+    } else {
+        pad.m_repeatState = 0; // let go
+    }
+
+    // While the startup script runs, nothing (and it's unpaused).
+    if (m_startupScriptOn && deviceIndex == 0) {
+        if (Script::CScript* script = Script::FindScriptWithUniqueId(m_startupScriptId))
+            Script::UnpauseSpawnedScript(script);
+        else
+            m_startupScriptOn = false;
+        return 0;
+    }
+    return event;
+}
+
+// 0x0054EE70
+FrontEnd* FrontEnd::Destroy(unsigned int flags)
+{
+    DestroyBody();
+    if (flags & 1)
+        Mem::Manager::Get()->Free(this);
+    return this;
+}
+
+// 0x0054EEA0
+void FrontEnd::Start()
+{
+    Mem::Manager::Get()->PushContext(Mem::Manager::Get()->m_frontEndHeap);
+    AddNode(MainLoopManager() + 4, m_logicTask); // the logic tasks
+    uint8_t* input = InputManager();
+    for (FrontEndInputHandler* handler : m_inputHandlers) {
+        // The controller's place in the input manager (see UpdateInputMappings).
+        AddNode(input + handler->m_index * 0x84 + 8, handler);
+        uint8_t* server = input + handler->m_index * 0x84;
+        handler->m_controlData = reinterpret_cast<InputControlData*>(server + 0x44);
+        handler->m_device = *reinterpret_cast<uint8_t**>(server + 4);
+    }
+    Mem::Manager::Get()->PopContext();
+}
+
+// 0x0054EF30
+void FrontEnd::Stop()
+{
+    RemoveNode(m_logicTask);
+    for (FrontEndInputHandler* handler : m_inputHandlers)
+        RemoveNode(handler);
+}
 
 // 0x0054EF60
 void FrontEnd::AddKeyboardHandler(int device)
@@ -399,9 +565,7 @@ void __cdecl FrontEnd::InputLogic(FrontEndInputHandler* handler)
                 }
                 frontEnd->m_checkStartupScript = false;
             }
-            // (the auto-repeat of held directions)
-            uint32_t repeated = GameFunction<uint32_t(__thiscall*)(FrontEnd*, uint32_t, int)>(0x0054ECE0)(
-                frontEnd, handler->m_controlData->m_held, handler->m_index);
+            uint32_t repeated = frontEnd->AutoRepeat(handler->m_controlData->m_held, handler->m_index);
             if (repeated)
                 event = repeated;
         }
@@ -490,7 +654,7 @@ FrontEnd* FrontEnd::Construct()
             handler->m_data = this;
         }
         m_inputHandlers[i] = handler;
-        m_padMappings[i].m_unknown0 = 0;
+        m_padMappings[i].m_repeatState = 0;
         m_padMappings[i].m_mapping = 1;
     }
     m_paused = false;
@@ -520,6 +684,14 @@ FrontEnd* CreateFrontEnd(bool create)
 
 } // namespace Mdl
 
+REPLACE(0x0054EBE0, Mdl::ReleaseFrontEnd);
+REPLACE(0x0054EC20, &Mdl::FrontEnd::DestroyBody);
+REPLACE(0x0054ECA0, &Mdl::FrontEnd::PadsPluggedIn);
+REPLACE(0x0054ECD0, &Mdl::FrontEnd::RemoveKeyboardHandler);
+REPLACE(0x0054ECE0, &Mdl::FrontEnd::AutoRepeat);
+REPLACE(0x0054EE70, &Mdl::FrontEnd::Destroy);
+REPLACE(0x0054EEA0, &Mdl::FrontEnd::Start);
+REPLACE(0x0054EF30, &Mdl::FrontEnd::Stop);
 REPLACE(0x0054EF60, &Mdl::FrontEnd::AddKeyboardHandler);
 REPLACE(0x0054EF80, &Mdl::FrontEnd::UpdateButtonEventMappings);
 REPLACE(0x0054F0F0, Mdl::CFunc_SetMenuAutoRepeatTimes);

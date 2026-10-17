@@ -15,6 +15,7 @@
 #include "game/core/stubs.h"
 #include "game/file/async.h"
 #include "game/file/pre.h"
+#include "game/front/front_end.h"
 #include "game/mc/memcard.h"
 #include "game/mth/math.h"
 #include "game/mth/random.h"
@@ -144,7 +145,7 @@ int __cdecl Main(int argc, char** argv)
         Create(0x0057C0D0);
         Create(0x0057EED0);
         uint8_t* module5691A0 = Create(0x005691A0);
-        uint8_t* module54FF80 = Create(0x0054FF80);
+        auto* frontEnd = reinterpret_cast<uint8_t*>(Mdl::CreateFrontEnd(true));
         Create(0x0053F520);
         GameVariable<void*>(0x006FA7D0) = GameVariable<void*>(0x007CCE14); // (the network manager)
         uint8_t* module590160 = Create(0x00590160);
@@ -159,12 +160,12 @@ int __cdecl Main(int argc, char** argv)
         AddTask(mlp, 0x04, *reinterpret_cast<void**>(singleton44E7F0));
         RegisterModule(mdl, scriptCache);
         RegisterModule(mdl, module590160);
-        RegisterModule(mdl, module54FF80);
+        RegisterModule(mdl, frontEnd);
         RegisterModule(mdl, module5691A0);
         RegisterModule(mdl, asyncLoader);
         RegisterModule(mdl, module4088E0);
         StartModule(mdl, scriptCache);
-        StartModule(mdl, module54FF80);
+        StartModule(mdl, frontEnd);
         StartModule(mdl, module5691A0);
         StartModule(mdl, module590160);
         StartModule(mdl, asyncLoader);
@@ -184,7 +185,7 @@ int __cdecl Main(int argc, char** argv)
 
         StopAllModules(mdl);
         UnregisterModule(mdl, module5691A0); // (the script cache isn't unregistered)
-        UnregisterModule(mdl, module54FF80);
+        UnregisterModule(mdl, frontEnd);
         UnregisterModule(mdl, module590160);
         UnregisterModule(mdl, asyncLoader);
         UnregisterModule(mdl, module4088E0);
@@ -196,7 +197,7 @@ int __cdecl Main(int argc, char** argv)
         Release(0x004AACF0);
         Release(0x0058D290);
         Release(0x005395C0);
-        Release(0x0054EBE0);
+        Mdl::ReleaseFrontEnd();
         Release(0x00564C10);
         Release(0x0057FDB0);
         Release(0x0057C120);
