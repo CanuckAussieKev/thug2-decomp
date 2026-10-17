@@ -8,6 +8,7 @@
 #include "game/file/async.h"
 #include "game/file/pre.h"
 #include "game/mc/memcard.h"
+#include "game/obj/compositemgr.h"
 #include "game/obj/objman.h"
 #include "game/obj/tracker.h"
 #include "game/script/cache.h"
@@ -85,7 +86,12 @@ struct ObjectTracker {
 using Singleton44E7F0 = GameSingleton<0x0044E7F0, 0x0044E6B0, 0x0064AFC0>;
 using Singleton4088E0 = GameSingleton<0x004088E0, 0x00407980, 0x0064AFCC>;
 using Singleton455880 = GameSingleton<0x00455880, 0x004558D0, 0x0064AFD0>;
-using Singleton45F7A0 = GameSingleton<0x0045F7A0, 0x0045F1E0, 0x0064AFD4>;
+struct CompositeObjectManager { // (its Create 0x0045F7A0 has no source yet)
+    using Type = Obj::CCompositeObjectManager;
+    static constexpr uint32_t kVtable = 0x0064AFD4;
+    static Type* Create(bool create) { return GameFunction<Type*(__cdecl*)(bool)>(0x0045F7A0)(create); }
+    static void Release() { Obj::ReleaseCompositeObjectManager(); }
+};
 using Singleton589180 = GameSingleton<0x00589180, 0x005880E0, 0x0064AFD8>;
 using Singleton553DB0 = GameSingleton<0x00553DB0, 0x00552F70, 0x0064AFDC>;
 using Singleton57C0D0 = GameSingleton<0x0057C0D0, 0x0057C120, 0x0064AFE0>;
@@ -127,8 +133,8 @@ REPLACE(0x004E19F0, &Spt::SingletonPtr<Spt::Singleton4088E0>::DestroyBody);
 REPLACE(0x004E1C50, &Spt::SingletonPtr<Spt::Singleton4088E0>::Destroy);
 REPLACE(0x004E1A00, &Spt::SingletonPtr<Spt::Singleton455880>::DestroyBody);
 REPLACE(0x004E1C80, &Spt::SingletonPtr<Spt::Singleton455880>::Destroy);
-REPLACE(0x004E1A10, &Spt::SingletonPtr<Spt::Singleton45F7A0>::DestroyBody);
-REPLACE(0x004E1CB0, &Spt::SingletonPtr<Spt::Singleton45F7A0>::Destroy);
+REPLACE(0x004E1A10, &Spt::SingletonPtr<Spt::CompositeObjectManager>::DestroyBody);
+REPLACE(0x004E1CB0, &Spt::SingletonPtr<Spt::CompositeObjectManager>::Destroy);
 REPLACE(0x004E1A20, &Spt::SingletonPtr<Spt::Singleton589180>::DestroyBody);
 REPLACE(0x004E1CE0, &Spt::SingletonPtr<Spt::Singleton589180>::Destroy);
 REPLACE(0x004E1A30, &Spt::SingletonPtr<Spt::Singleton553DB0>::DestroyBody);

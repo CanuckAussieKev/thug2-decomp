@@ -20,6 +20,7 @@
 #include "game/file/pre.h"
 #include "game/mc/memcard.h"
 #include "game/obj/flip_rotate.h"
+#include "game/obj/compositemgr.h"
 #include "game/obj/objman.h"
 #include "game/script/cache.h"
 #include "game/script/struct.h"
@@ -102,7 +103,7 @@ std::vector<Instance> Instances()
         {0x004E19E0, 0x004E1C20, 0x0064AFC8, 0x00475A00, AddressOf(&Script::ReleaseScriptCache)},
         {0x004E19F0, 0x004E1C50, 0x0064AFCC, 0x00407980, 0},
         {0x004E1A00, 0x004E1C80, 0x0064AFD0, 0x004558D0, 0},
-        {0x004E1A10, 0x004E1CB0, 0x0064AFD4, 0x0045F1E0, 0},
+        {0x004E1A10, 0x004E1CB0, 0x0064AFD4, 0x0045F1E0, AddressOf(&Obj::ReleaseCompositeObjectManager)},
         {0x004E1A20, 0x004E1CE0, 0x0064AFD8, 0x005880E0, 0},
         {0x004E1A30, 0x004E1D10, 0x0064AFDC, 0x00552F70, 0},
         {0x004E1A40, 0x004E1D40, 0x0064AFE0, 0x0057C120, 0},

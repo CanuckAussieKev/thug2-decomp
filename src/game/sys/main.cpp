@@ -18,6 +18,7 @@
 #include "game/mc/memcard.h"
 #include "game/mth/math.h"
 #include "game/mth/random.h"
+#include "game/obj/compositemgr.h"
 #include "game/obj/objman.h"
 #include "game/obj/tracker.h"
 #include "game/script/cache.h"
@@ -202,7 +203,7 @@ int __cdecl Main(int argc, char** argv)
         Release(0x0057C120);
         Release(0x00552F70);
         Release(0x005880E0);
-        Release(0x0045F1E0);
+        Obj::ReleaseCompositeObjectManager();
         Release(0x004558D0);
         Release(0x0047C6C0);
         Release(0x00407980);
