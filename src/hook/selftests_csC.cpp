@@ -17,6 +17,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/obj/smtptr.h"
+#include "game/obj/tracker.h"
 #include "game/script/cache.h"
 #include "game/script/cscript.h"
 #include "game/script/parse.h"
@@ -162,11 +163,11 @@ void InstallStandIns(StandIns& s)
         s.Bytes(address, code);
     }
     // The tracker.
-    s.At({0x00463370}, 8, [](Regs& r) {
+    s.At({0x00463370, AddressOf(&Obj::CTracker::AddListener)}, 8, [](Regs& r) {
         Rec(0x7A01, {r.ecx, r.args[0], r.args[1]});
         return 0u;
     });
-    s.At({0x00463450}, 8, [](Regs& r) {
+    s.At({0x00463450, AddressOf(&Obj::CTracker::RemoveListener)}, 8, [](Regs& r) {
         Rec(0x7A02, {r.ecx, r.args[0], r.args[1]});
         return 0u;
     });

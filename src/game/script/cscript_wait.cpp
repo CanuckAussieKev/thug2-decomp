@@ -10,6 +10,7 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/obj/tracker.h"
 #include "game/script/cache.h"
 #include "game/script/parse.h"
 #include "game/script/qb.h"
@@ -34,19 +35,6 @@ constexpr uint32_t kExceptionFlag = 0x80367192;
 
 // An event's type (CEvent +0x00).
 uint32_t EventType(const Obj::CEvent* event) { return *reinterpret_cast<const uint32_t*>(event); }
-
-// The object tracker (0x006F0FC0): which scripts listen for which event types. Still the game's.
-void* Tracker() { return GameVariable<void*>(0x006F0FC0); }
-// 0x00463370: `script` waits for / handles events of type `type`.
-void TrackerAddListener(uint32_t type, CScript* script)
-{
-    GameFunction<void(__thiscall*)(void*, uint32_t, CScript*)>(0x00463370)(Tracker(), type, script);
-}
-// 0x00463450: no longer.
-void TrackerRemoveListener(uint32_t type, CScript* script)
-{
-    GameFunction<void(__thiscall*)(void*, uint32_t, CScript*)>(0x00463450)(Tracker(), type, script);
-}
 
 // The event handler table's methods (Obj::CEventHandlerTable, 0x10 bytes: the entries, their count, +0x08
 // alive, +0x09 changed, +0x0C in use; an entry is 0x14 bytes: type, script, group, params, flags - bit 0
@@ -236,7 +224,7 @@ void CScript::Block(uint32_t eventType)
     m_waitType = WAIT_TYPE_BLOCKED;
     m_waitArg = eventType;
     if (eventType) {
-        TrackerAddListener(eventType, this);
+        Obj::Tracker()->AddListener(eventType, this);
         m_spawnFlags |= SCRIPT_FLAG_TRACKER_BLOCKED;
     }
 }
@@ -435,7 +423,7 @@ void CScript::ClearEventHandler(uint32_t eventType)
 {
     if (m_eventHandlers) {
         TableRemoveType(m_eventHandlers, eventType);
-        TrackerRemoveListener(eventType, this);
+        Obj::Tracker()->RemoveListener(eventType, this);
     }
 }
 
