@@ -19,10 +19,7 @@ void** const kMsgHandlerSearchVtable = reinterpret_cast<void**>(0x006475E4);
 void** const kMsgHandlerVtable = reinterpret_cast<void**>(0x006475E8);
 constexpr uint32_t kFixedSizeCopy = 0x514; // what a message without a length field copies
 
-void ConstructContext(MsgHandlerContext* context)
-{
-    GameFunction<MsgHandlerContext*(__thiscall*)(MsgHandlerContext*)>(0x00454A20)(context);
-}
+void ConstructContext(MsgHandlerContext* context) { context->Construct(); }
 
 } // namespace
 
@@ -139,7 +136,7 @@ int Dispatcher::DispatchMsgHandlers(Conn* conn, uint32_t flags)
     context.m_MsgLength = 0;
     char*& readBuffer = conn->m_readBuffer;
     char*& readPtr = conn->m_readPtr;
-    void* metrics = conn->m_receiveMetrics;
+    void* metrics = &conn->m_receiveMetrics;
 
     for (char* p = readBuffer; p < readPtr; p += context.m_MsgLength) {
         context.m_MsgId = static_cast<uint8_t>(*p++);

@@ -12,6 +12,7 @@
 #include <type_traits>
 #include <vector>
 
+#include "game/core/dbg.h"
 #include "game/core/alloc.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
@@ -276,7 +277,7 @@ std::vector<uint32_t> Run(bool original)
     SetUpArena(arena);
     auto* s = new StandIns;
     // Dbg::Printf (~StreamDesc's message; the game's C runtime)
-    s->At({0x00401C30}, 0, [](Regs& r) {
+    s->At({0x00401C30, TestStandIns::AddressOf(&Dbg::Printf)}, 0, [](Regs& r) {
         Log2({0xDB6u, TestStandIns::Hash(reinterpret_cast<const char*>(r.args[0]))});
         return 0u;
     });

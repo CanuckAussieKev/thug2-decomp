@@ -48,7 +48,7 @@ static_assert(sizeof(ChatPacket) == 0x94);
 
 // Net::MsgDesc (net_app.h): a message to be sent; its constructor (0x004549F0) sets the defaults.
 using ::Net::MsgDesc;
-void InitMsgDesc(MsgDesc* desc) { GameFunction<void(__thiscall*)(MsgDesc*)>(0x004549F0)(desc); }
+void InitMsgDesc(MsgDesc* desc) { desc->Construct(); }
 
 // The local player's info (not decompiled yet): name at +0x38, flags at +0x1D0, team at [+0x14]+0x14.
 struct PlayerInfo;

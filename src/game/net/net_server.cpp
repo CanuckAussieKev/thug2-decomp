@@ -74,7 +74,7 @@ void Server::ReceiveData()
                 readPtr + size < conn->m_readBuffer + kConnReceiveBufferSize) {
                 if (ReadPacket(this, buffer, readPtr, received)) {
                     readPtr += size;
-                    AddPacketMetric(conn->m_receiveMetrics, received + 0x1C,
+                    AddPacketMetric(&conn->m_receiveMetrics, received + 0x1C,
                                     Timestamp(this));
                     conn->m_lastCommTime = Tmr::GetTime();
                 } else if (auto handler = m_foreignPacketHandler) {
@@ -166,7 +166,7 @@ void Server::SendData(Conn* conn)
                 break;
             }
             m_totalBytesOut += size;
-            AddPacketMetric(conn->m_sendMetrics, size + 0x1C, Timestamp(this));
+            AddPacketMetric(&conn->m_sendMetrics, size + 0x1C, Timestamp(this));
             SetForceSendThisFrame(conn, false);
             conn->m_lastSendTime = Timestamp(this);
             writePtr = conn->m_writeBuffer;

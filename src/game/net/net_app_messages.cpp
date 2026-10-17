@@ -9,6 +9,7 @@
 #include "game/core/mem.h"
 #include "game/lst/search.h"
 #include "game/net/net_access_c.h"
+#include "game/net/net_compress.h"
 #include "game/util/lzss.h"
 #include "hook/hook.h"
 
@@ -21,15 +22,12 @@ constexpr uint32_t kMaxStreamStartData = 0x100; // the first piece of a stream, 
 uint32_t Timestamp(App* app) { return app->m_time; }
 Dispatcher* GetDispatcher(App* app) { return &app->m_dispatcher; }
 
-void ConstructContext(MsgHandlerContext* context)
-{
-    GameFunction<MsgHandlerContext*(__thiscall*)(MsgHandlerContext*)>(0x00454A20)(context);
-}
+void ConstructContext(MsgHandlerContext* context) { context->Construct(); }
 
-// (0x00454C20) method 1's decompressor: 0 when it worked; `size` gets the expanded size.
+// Method 1's decompressor: 0 when it worked; `size` gets the expanded size.
 int Decompress(const char* in, int inSize, char* out, int* size)
 {
-    return GameFunction<int(__cdecl*)(const char*, int, char*, int*)>(0x00454C20)(in, inSize, out, size);
+    return RleDecompress(reinterpret_cast<const uint8_t*>(in), inSize, reinterpret_cast<uint8_t*>(out), size);
 }
 
 void FreeQueuedMsg(QueuedMsg* msg)
@@ -58,7 +56,7 @@ bool AppendMessage(App* app, Conn* conn, QueuedMsg* msg)
         std::memcpy(writePtr, msg->m_data, msg->m_length);
         writePtr += msg->m_length;
     }
-    AddMessageMetric(conn->m_sendMetrics, msg->m_id, msg->m_length);
+    AddMessageMetric(&conn->m_sendMetrics, msg->m_id, msg->m_length);
     return true;
 }
 
@@ -83,7 +81,7 @@ bool AppendSequencedMessage(Conn* conn, MsgSeqLink* link)
         std::memcpy(writePtr, msg->m_data, msg->m_length);
         writePtr += msg->m_length;
     }
-    AddMessageMetric(conn->m_sendMetrics, msg->m_id, msg->m_length);
+    AddMessageMetric(&conn->m_sendMetrics, msg->m_id, msg->m_length);
     return true;
 }
 

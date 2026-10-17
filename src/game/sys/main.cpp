@@ -19,7 +19,7 @@
 #include "game/mc/memcard.h"
 #include "game/mth/math.h"
 #include "game/mth/random.h"
-#include "game/net/net_manager_view.h"
+#include "game/net/net_manager.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/objman.h"
 #include "game/obj/tracker.h"

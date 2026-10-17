@@ -93,7 +93,7 @@ bool InNetGame(NetManager* net) { return GameFunction<bool(__thiscall*)(NetManag
 void* GetClient(NetManager* net, int index) { return GameFunction<void*(__thiscall*)(NetManager*, int)>(0x00532EA0)(net, index); }
 // Net::MsgDesc (net_app.h): a message to be sent; the constructor 0x004549F0 sets the defaults.
 using ::Net::MsgDesc;
-void InitMsgDesc(MsgDesc* desc) { GameFunction<void(__thiscall*)(MsgDesc*)>(0x004549F0)(desc); }
+void InitMsgDesc(MsgDesc* desc) { desc->Construct(); }
 // 0x00459E50: queue a message for the server.
 void EnqueueMessageToServer(void* client, MsgDesc* desc)
 {

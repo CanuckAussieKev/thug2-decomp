@@ -25,7 +25,7 @@
 #include "game/mc/memcard_cfuncs.h"
 #include "game/mth/math.h"
 #include "game/mth/random.h"
-#include "game/net/net_manager_view.h"
+#include "game/net/net_manager.h"
 #include "game/net/service.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/objman.h"

@@ -1,8 +1,8 @@
 // Net::Manager: its constructor and destructor, the singleton, and making / destroying its apps. See
-// net_manager_view.h.
+// net_manager.h.
 
 #define _WINSOCK_DEPRECATED_NO_WARNINGS // inet_addr, inet_ntoa: what the game uses
-#include "game/net/net_manager_view.h"
+#include "game/net/net_manager.h"
 
 #include <winsock2.h>
 
@@ -31,7 +31,7 @@ constexpr int kClientMaxConnections = 1;
 constexpr uint32_t kServerSize = 0x2308;
 constexpr uint32_t kClientSize = 0x1F18;
 
-ManagerView*& Instance() { return GameVariable<ManagerView*>(0x006EFDD8); }
+Manager*& Instance() { return GameVariable<Manager*>(0x006EFDD8); }
 uint32_t& References() { return GameVariable<uint32_t>(0x006EFDDC); }
 
 void InitHead(Mem::ListNode* head)
@@ -52,12 +52,6 @@ void AddToTail(Mem::ListNode* head, Mem::ListNode* node)
     head->prev = node;
 }
 
-// -> 0x00454CB0 (wt/netD): the app's four tasks added to the main loop.
-void AddAppTasks(ManagerView* manager, App* app)
-{
-    GameFunction<void(__thiscall*)(ManagerView*, App*)>(0x00454CB0)(manager, app);
-}
-
 void CopyString(char* out, const char* text) { std::memcpy(out, text, std::strlen(text) + 1); }
 
 // (strncpy: zero-padded, unterminated if `text` is longer)
@@ -72,46 +66,46 @@ bool InitApp(App* app) { return reinterpret_cast<bool(__thiscall*)(App*)>(app->m
 } // namespace
 
 // 0x004556E0
-ManagerView* ManagerView::Construct()
+Manager* Manager::Construct()
 {
     InitHead(&m_servers);
     InitHead(&m_clients);
     for (int id = 0; id < kMaxMsgIds; ++id)
-        m_msgFlags[id] = 0;
-    m_msgFlags[kMsgTimestamp] = kMsgNoLength;
-    m_msgFlags[kMsgAck] = kMsgNoLength;
-    CopyString(m_localIp, "<Unknown>");
+        m_messageFlags[id] = 0;
+    m_messageFlags[kMsgTimestamp] = kMsgNoLength;
+    m_messageFlags[kMsgAck] = kMsgNoLength;
+    CopyString(m_localIP, "<Unknown>");
     CopyString(m_gateway, "192.168.55.99");
     CopyString(m_subnetMask, "255.255.0.0");
     m_numApps = 0;
     m_connectionType = 0;
-    m_useLocalIp = false;
-    m_unknown2E4 = false;
-    m_unknown2E6 = false;
-    m_unknown2E0 = 0;
-    m_unknown2E8 = 5;
+    m_useDHCP = false;
+    m_online = false;
+    m_flag2E6 = false;
+    m_lastError = 0;
+    m_modemState = 5;
     m_unknown2EC = 0;
     for (char* server : m_dnsServers)
         server[0] = '\0';
-    m_unknown198 = 0;
-    m_totalBandwidth = 400000;
+    m_dialupNumberIndex = 0;
+    m_bandwidth = 400000;
     return this;
 }
 
 // 0x004555A0
-void ManagerView::DestroyBody()
+void Manager::DestroyBody()
 {
     m_clients.DestroyBody();
     m_servers.DestroyBody();
 }
 
 // 0x00455270
-Server* ManagerView::CreateNewAppServer(int id, const char* name, int maxClients, uint16_t port, int address,
+Server* Manager::CreateNewAppServer(int id, const char* name, int maxClients, uint16_t port, int address,
                                         int flags)
 {
     Mem::Manager::Get()->PushContext(Mem::Manager::Get()->m_networkHeap);
-    if (m_connectionType != kConnectionType3 && m_connectionType != kConnectionTypeNone && m_useLocalIp)
-        address = static_cast<int>(inet_addr(m_localIp));
+    if (m_connectionType != kConnectionType3 && m_connectionType != kConnectionTypeNone && m_useDHCP)
+        address = static_cast<int>(inet_addr(m_localIP));
     void* memory = Mem::New(kServerSize);
     Server* server = memory ? static_cast<Server*>(memory)->Construct(flags) : nullptr;
     server->m_manager = this;
@@ -127,7 +121,7 @@ Server* ManagerView::CreateNewAppServer(int id, const char* name, int maxClients
         if (flags & 1)
             server->m_connected = true;
     }
-    AddAppTasks(this, server);
+    AddAppTasks(server);
     in_addr ip;
     ip.s_addr = static_cast<ULONG>(address);
     Dbg::Printf("Created new: %s server %p, Max Clients: %d, IP: %s, Port: %d", name, server, maxClients,
@@ -138,11 +132,11 @@ Server* ManagerView::CreateNewAppServer(int id, const char* name, int maxClients
 }
 
 // 0x004553F0
-Client* ManagerView::CreateNewAppClient(int id, const char* name, uint16_t port, int address, int flags)
+Client* Manager::CreateNewAppClient(int id, const char* name, uint16_t port, int address, int flags)
 {
     Mem::Manager::Get()->PushContext(Mem::Manager::Get()->m_networkHeap);
-    if (m_connectionType != kConnectionType3 && m_connectionType != kConnectionTypeNone && m_useLocalIp)
-        address = static_cast<int>(inet_addr(m_localIp));
+    if (m_connectionType != kConnectionType3 && m_connectionType != kConnectionTypeNone && m_useDHCP)
+        address = static_cast<int>(inet_addr(m_localIP));
     void* memory = Mem::New(kClientSize);
     Client* client = memory ? static_cast<Client*>(memory)->Construct(flags) : nullptr;
     CopyName(client->m_name, name);
@@ -153,7 +147,7 @@ Client* ManagerView::CreateNewAppClient(int id, const char* name, uint16_t port,
     AddToTail(&m_clients, &client->m_list1414);
     if (!client->IsLocal())
         client->Bind(static_cast<uint32_t>(address), port);
-    AddAppTasks(this, client);
+    AddAppTasks(client);
     Dbg::Printf("Created new: %s client %p on port %d\n", name, client, port);
     ++m_numApps;
     Mem::Manager::Get()->PopContext();
@@ -161,7 +155,7 @@ Client* ManagerView::CreateNewAppClient(int id, const char* name, uint16_t port,
 }
 
 // 0x00455550
-void ManagerView::DestroyApp(App* app)
+void Manager::DestroyApp(App* app)
 {
     Mem::ListNode& node = app->m_list1414;
     node.prev->next = node.next;
@@ -175,11 +169,11 @@ void ManagerView::DestroyApp(App* app)
 }
 
 // 0x00455880
-ManagerView* CreateManager(bool create)
+Manager* CreateManager(bool create)
 {
     if (!Instance() && create) {
-        if (void* memory = Mem::Calloc(sizeof(ManagerView), nullptr, 1)) {
-            Instance() = static_cast<ManagerView*>(memory)->Construct();
+        if (void* memory = Mem::Calloc(sizeof(Manager), nullptr, 1)) {
+            Instance() = static_cast<Manager*>(memory)->Construct();
             ++References();
             return Instance();
         }
@@ -196,7 +190,7 @@ void ReleaseManager()
         --References();
         return;
     }
-    if (ManagerView* manager = Instance()) {
+    if (Manager* manager = Instance()) {
         manager->DestroyBody();
         Mem::Manager::Get()->Free(manager);
     }
@@ -206,10 +200,10 @@ void ReleaseManager()
 
 } // namespace Net
 
-REPLACE(0x004556E0, &Net::ManagerView::Construct);
-REPLACE(0x004555A0, &Net::ManagerView::DestroyBody);
-REPLACE(0x00455270, &Net::ManagerView::CreateNewAppServer);
-REPLACE(0x004553F0, &Net::ManagerView::CreateNewAppClient);
-REPLACE(0x00455550, &Net::ManagerView::DestroyApp);
+REPLACE(0x004556E0, &Net::Manager::Construct);
+REPLACE(0x004555A0, &Net::Manager::DestroyBody);
+REPLACE(0x00455270, &Net::Manager::CreateNewAppServer);
+REPLACE(0x004553F0, &Net::Manager::CreateNewAppClient);
+REPLACE(0x00455550, &Net::Manager::DestroyApp);
 REPLACE(0x00455880, Net::CreateManager);
 REPLACE(0x004558D0, Net::ReleaseManager);

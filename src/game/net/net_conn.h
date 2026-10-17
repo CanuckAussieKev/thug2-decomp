@@ -12,6 +12,7 @@
 #include "game/net/net_latency.h"
 #include "game/net/net_lists.h"
 #include "game/net/net_messages.h"
+#include "game/net/net_metrics.h"
 
 namespace Net {
 
@@ -149,8 +150,8 @@ struct Conn {
     Mem::ListNode m_receivedStreams; // +0x1C7C Lst::Head<StreamLink>: streams being received
     Mem::ListNode m_sendStreams;    // +0x1C90 Lst::Head<StreamLink>: streams being sent
     LatencyTest m_latencyTest;      // +0x1CA4
-    uint8_t m_receiveMetrics[0x100C]; // +0x1CDC Net::Metrics (wt/netD)
-    uint8_t m_sendMetrics[0x100C];  // +0x2CE8
+    Metrics m_receiveMetrics;       // +0x1CDC
+    Metrics m_sendMetrics;          // +0x2CE8
     bool m_sendNow;                 // +0x3CF4 force a send this frame
     uint8_t m_pad3CF5[3];
     ConnNode m_appNode;             // +0x3CF8 in the App's connection list (data = the connection)

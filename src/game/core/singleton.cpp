@@ -9,7 +9,7 @@
 #include "game/file/pre.h"
 #include "game/front/front_end.h"
 #include "game/mc/memcard.h"
-#include "game/net/net_manager_view.h"
+#include "game/net/net_manager.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/objman.h"
 #include "game/obj/tracker.h"
@@ -95,7 +95,7 @@ struct ObjectTracker {
 using Singleton44E7F0 = GameSingleton<0x0044E7F0, 0x0044E6B0, 0x0064AFC0>;
 using Singleton4088E0 = GameSingleton<0x004088E0, 0x00407980, 0x0064AFCC>;
 struct NetManager {
-    using Type = Net::ManagerView;
+    using Type = Net::Manager;
     static constexpr uint32_t kVtable = 0x0064AFD0;
     static Type* Create(bool create) { return Net::CreateManager(create); }
     static void Release() { Net::ReleaseManager(); }

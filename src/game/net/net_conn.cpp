@@ -33,10 +33,8 @@ constexpr uint32_t kStatus2ResendThreshold = 1000;
 // The running number each connection gets (+0x44).
 uint32_t& NextConnId() { return GameVariable<uint32_t>(0x0067D800); }
 
-// -> Net::Metrics's constructor (wt/netD)
-void ConstructMetrics(void* metrics) { GameFunction<void*(__thiscall*)(void*)>(0x004544E0)(metrics); }
-// -> ~StreamDesc: frees the data unless it was sent in place (wt/netD)
-void DestroyStreamDescBody(StreamDesc* stream) { GameFunction<void(__thiscall*)(StreamDesc*)>(0x00454E00)(stream); }
+// ~StreamDesc: frees the data unless it was sent in place.
+void DestroyStreamDescBody(StreamDesc* stream) { stream->DestroyBody(); }
 
 // A link deleted through its vtable (the scalar deleting destructor).
 void DeleteLink(void* link)
@@ -128,8 +126,8 @@ Conn* Conn::Construct(int flags)
     InitConnListHead(&m_receivedStreams, kStreamLinkVtable);
     InitConnListHead(&m_sendStreams, kStreamLinkVtable);
     m_latencyTest.Construct();
-    ConstructMetrics(m_receiveMetrics);
-    ConstructMetrics(m_sendMetrics);
+    m_receiveMetrics.Construct();
+    m_sendMetrics.Construct();
     m_appNode.vtable = kConnNodeVtable;
     m_appNode.data = this;
     m_appNode.priority = 0;

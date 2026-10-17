@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "game/core/alloc.h"
+#include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/net/net_app.h"
 #include "hook/game.h"
@@ -41,7 +42,7 @@ constexpr uint32_t kMiscOffset = 0x16400;   // settings, the app's manager, data
 constexpr uint32_t kHeapOffset = 0x1A000;   // the default heap
 constexpr uint32_t kNetHeapOffset = 0x3A000; // the network heap
 
-uint8_t* g_netB_arenas[2];
+uint8_t* g_netB_arena;
 std::vector<TestStandIns::Saved> g_netB_saved;
 bool g_netB_swapped = false;
 
@@ -84,12 +85,15 @@ void CleanUp()
     RestoreGlobals();
 }
 
-uint8_t* Arena(bool original)
+// One arena for both runs (64 KB aligned: nothing else shares its segments - the half-pointer pass). At the same
+// address the pass treats both runs alike: with an arena each, a 16-bit field that happened to equal one arena's
+// segment number was "relocated" in that run only - in the game, a stream start's QueuedMsg length 0x0130 with
+// our run's arena at 0x012A0000 (the end segment is in the range), six words "0130CD0E" vs "A006CD0E".
+uint8_t* Arena(bool /*original*/)
 {
-    uint8_t*& arena = g_netB_arenas[original ? 0 : 1];
-    if (!arena) // 64 KB aligned: nothing else shares the arena's segments (the half-pointer pass)
-        arena = static_cast<uint8_t*>(VirtualAlloc(nullptr, kArenaSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
-    return arena;
+    if (!g_netB_arena)
+        g_netB_arena = static_cast<uint8_t*>(VirtualAlloc(nullptr, kArenaSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
+    return g_netB_arena;
 }
 
 // The stand-in manager over a fresh (dirty) arena: a default heap, and a network heap.
@@ -145,8 +149,8 @@ std::vector<uint32_t> Image(uint8_t* arena)
     return image;
 }
 
-// Clears the stack below the caller: the originals send uninitialised stack bytes (the stream start's padding,
-// the descriptor's compression), which ours zeroes.
+// Clears the stack below the caller: the originals send uninitialised stack bytes (the stream start's padding and
+// the 3 bytes past a short first piece), which ours zeroes.
 __declspec(noinline) void ZeroStack()
 {
     volatile uint8_t area[0x4000];
@@ -275,8 +279,8 @@ void** StandInAppVtable(StandIns& s)
 // App's methods that ours calls directly, our functions too).
 void StandInLibrary(StandIns& s)
 {
-    // Dbg::Printf (the game's C runtime).
-    s.At({0x00401C30}, 0, [](Regs& r) {
+    // Dbg::Printf (the game's C runtime; ours too: StreamDesc::DestroyBody calls it).
+    s.At({0x00401C30, TestStandIns::AddressOf(&Dbg::Printf)}, 0, [](Regs& r) {
         Log2({0xDB6u, TestStandIns::Hash(reinterpret_cast<const char*>(r.args[0]))});
         return 0u;
     });

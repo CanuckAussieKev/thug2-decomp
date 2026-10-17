@@ -20,7 +20,7 @@
 #include "game/file/pre.h"
 #include "game/front/front_end.h"
 #include "game/mc/memcard.h"
-#include "game/net/net_manager_view.h"
+#include "game/net/net_manager.h"
 #include "game/obj/flip_rotate.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/objman.h"

@@ -1,4 +1,4 @@
-// Self-tests for the net library's 0x00454FA0-0x00455970 (game/net/net_messages, net_manager_view,
+// Self-tests for the net library's 0x00454FA0-0x00455970 (game/net/net_messages, net_manager_apps,
 // net_conn_times): the original against ours on identical stand-in objects, with everything they call outside
 // (the memory manager, the message compressor, the links' destructor bodies, the Server's / Client's
 // constructors, the apps' virtual functions, Bind, the task registration, Winsock's inet_addr / inet_ntoa, the
@@ -21,7 +21,8 @@
 #include "game/core/mem.h"
 #include "game/net/net_app_view.h"
 #include "game/net/net_client.h"
-#include "game/net/net_manager_view.h"
+#include "game/net/net_compress.h"
+#include "game/net/net_manager.h"
 #include "game/net/net_messages.h"
 #include "game/net/net_server.h"
 #include "game/sys/timer.h"
@@ -206,7 +207,7 @@ using ThisCall5 = uint32_t(__thiscall*)(void*, uint32_t, uint32_t, uint32_t, uin
 void StandInMessages(StandIns& s)
 {
     // -> the compressor (wt/netD): 1 succeeds (half the size), 3 succeeds (one byte less), else fails
-    s.At({0x00454E30}, 0, [](Regs& r) {
+    s.At({0x00454E30, AddressOf(&Net::CompressMessage)}, 0, [](Regs& r) {
         auto* id = reinterpret_cast<uint8_t*>(r.args[0]);
         auto* length = reinterpret_cast<uint16_t*>(r.args[1]);
         auto* data = reinterpret_cast<const uint8_t*>(r.args[2]);
@@ -394,8 +395,8 @@ void StandInManager(StandIns& s)
         Record({0xB1D, Rel(r.ecx), r.args[0], r.args[1] & 0xFFFF});
         return 1u;
     });
-    // -> 0x00454CB0 (wt/netD): the app's tasks
-    s.At({0x00454CB0}, 4, [](Regs& r) {
+    // 0x00454CB0 (Manager::AddAppTasks): the app's tasks
+    s.At({0x00454CB0, AddressOf(&Net::Manager::AddAppTasks)}, 4, [](Regs& r) {
         Record({0x4CB0, Rel(r.ecx), Rel(r.args[0])});
         return 0u;
     });

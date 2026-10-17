@@ -9,6 +9,7 @@
 #include "game/core/mem.h"
 #include "game/net/net_access_c.h"
 #include "game/net/net_app_view.h"
+#include "game/net/net_compress.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -18,11 +19,11 @@ namespace {
 
 void ReleaseMemory(void* memory) { Mem::Manager::Get()->Free(memory); }
 
-// -> 0x00454E30 (wt/netD): `data` compressed with `method` (1 RLE, 2 LZSS) into a new block that starts with a
-// message header; null (and nothing changed) if that isn't smaller. Else *id = 0x12 and *length = its size.
+// `data` compressed with `method` (1 RLE, 2 LZSS) into a new block that starts with a message header; null (and
+// nothing changed) if that isn't smaller. Else *id = 0x12 and *length = its size. (net_compress.cpp)
 char* CompressMessage(uint8_t* id, uint16_t* length, void* data, uint8_t method)
 {
-    return GameFunction<char*(__cdecl*)(uint8_t*, uint16_t*, void*, uint32_t)>(0x00454E30)(id, length, data, method);
+    return reinterpret_cast<char*>(Net::CompressMessage(id, length, data, static_cast<char>(method)));
 }
 
 // The data a queued message keeps: a copy, compressed if asked and smaller (then the id and length change).

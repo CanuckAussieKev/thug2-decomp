@@ -23,6 +23,7 @@
 #include "game/net/net_access_c.h"
 #include "game/net/net_app_messages.h"
 #include "game/net/net_client.h"
+#include "game/net/net_compress.h"
 #include "game/net/net_dispatcher.h"
 #include "game/net/net_latency.h"
 #include "game/net/net_server.h"
@@ -222,11 +223,11 @@ void SetUpStandIns(StandIns& s)
         Record({0x69B0, Rel(r.ecx), r.args[0]});
         return 0u;
     });
-    s.At({0x00454550}, 8, [](Regs& r) {
+    s.At({0x00454550, AddressOf(&Net::Metrics::AddMessage)}, 8, [](Regs& r) {
         Record({0x4550, Rel(r.ecx), r.args[0], r.args[1]});
         return 0u;
     });
-    s.At({0x00454D90}, 8, [](Regs& r) {
+    s.At({0x00454D90, AddressOf(&Net::Metrics::AddPacket)}, 8, [](Regs& r) {
         Record({0x4D90, Rel(r.ecx), r.args[0], r.args[1]});
         return 0u;
     });
@@ -286,7 +287,7 @@ void SetUpStandIns(StandIns& s)
         return 0u;
     });
     // method 1's decompressor: writes the script's size and pattern
-    s.At({0x00454C20}, 0, [](Regs& r) {
+    s.At({0x00454C20, AddressOf(&Net::RleDecompress)}, 0, [](Regs& r) {
         Record({0x4C20, Rel(r.args[0]), r.args[1], Rel(r.args[2]), Hash(reinterpret_cast<void*>(r.args[0]), r.args[1])});
         uint32_t size = Next(0x4C21, 0);
         for (uint32_t i = 0; i < size; ++i)

@@ -10,6 +10,8 @@
 #include "game/core/mem.h"
 #include "game/lst/head.h"
 #include "game/lst/search.h"
+#include "game/net/net_manager.h"
+#include "game/net/net_metrics.h"
 #include "game/net/net_messages.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
@@ -55,8 +57,8 @@ App*& OwnerApp(Conn* conn) { return conn->m_app; }
 uint32_t& NextSequenceId(Conn* conn, uint8_t group) { return conn->m_nextSequenceIds[group]; }
 int& NextStreamId(Conn* conn) { return conn->m_nextStreamId; }
 ListNode* Streams(Conn* conn) { return &conn->m_sendStreams; } // Lst::Head<StreamLink>
-void* InMetrics(Conn* conn) { return conn->m_receiveMetrics; } // Net::Metrics (0x100C bytes)
-void* OutMetrics(Conn* conn) { return conn->m_sendMetrics; }
+void* InMetrics(Conn* conn) { return &conn->m_receiveMetrics; } // Net::Metrics (0x100C bytes)
+void* OutMetrics(Conn* conn) { return &conn->m_sendMetrics; }
 // The send buffer (its start, the end of what's written): a local connection takes its alias's (the other end,
 // in this process) straight into its own receive buffer.
 uint8_t*& SendBufferStart(Conn* conn) { return reinterpret_cast<uint8_t*&>(conn->m_writeBuffer); }
@@ -77,15 +79,12 @@ void SetForceSend(Conn* conn, bool force) { conn->SetForceSendThisFrame(force); 
 int NumStreamPiecesQueued(Conn* conn) { return conn->GetNumQueuedStreamPieces(); }
 
 // Net::Metrics: bytes over the last second.
-int BytesPerSecond(void* metrics) { return GameFunction<int(__thiscall*)(void*)>(0x00454520)(metrics); }
-void UpdateMetrics(void* metrics, uint32_t time)
-{
-    GameFunction<void(__thiscall*)(void*, uint32_t)>(0x00454D00)(metrics, time);
-}
-// +0x378 of the app's manager: the bandwidth allowed over all connections.
-int TotalBandwidth(void* manager) { return GameFunction<int(__thiscall*)(void*)>(0x004545B0)(manager); }
-// The Net::Manager's +0x128: 1 = a slow connection.
-int ConnectionType(void* manager) { return GameFunction<int(__thiscall*)(void*)>(0x00454960)(manager); }
+int BytesPerSecond(void* metrics) { return static_cast<Metrics*>(metrics)->GetBytesPerSec(); }
+void UpdateMetrics(void* metrics, uint32_t time) { static_cast<Metrics*>(metrics)->CalculateUsage(static_cast<int>(time)); }
+// The app's manager: the bandwidth allowed over all connections.
+int TotalBandwidth(void* manager) { return static_cast<Manager*>(manager)->GetBandwidth(); }
+// 1 = a modem: a slow connection.
+int ConnectionType(void* manager) { return static_cast<Manager*>(manager)->GetConnectionType(); }
 
 // --- Messages ---------------------------------------------------------------------------------------------------
 // QueuedMsg (0x0C) and SeqQueuedMsg (0x10, made by App::NewQueuedMsg): a copy of a message shared by the
@@ -126,12 +125,9 @@ ListNode* ConstructStreamLink(void* memory, StreamDesc* stream)
     return &static_cast<StreamLink*>(memory)->Construct(stream)->m_node;
 }
 StreamDesc* StreamOf(ListNode* link) { return LinkField<StreamDesc*>(link, 0x14); }
-StreamDesc* ConstructStreamDesc(void* memory)
-{
-    return GameFunction<StreamDesc*(__thiscall*)(void*)>(0x004549D0)(memory);
-}
+StreamDesc* ConstructStreamDesc(void* memory) { return static_cast<StreamDesc*>(memory)->Construct(); }
 // ~StreamDesc: frees the data unless it was sent in place ("Destroying StreamDesc's Data").
-void DestroyStreamDescBody(StreamDesc* stream) { GameFunction<void(__thiscall*)(StreamDesc*)>(0x00454E00)(stream); }
+void DestroyStreamDescBody(StreamDesc* stream) { stream->DestroyBody(); }
 
 // strcpy: the original copies descriptions with no length limit (32 bytes are kept for them).
 void CopyString(char* out, const char* source)
@@ -140,7 +136,7 @@ void CopyString(char* out, const char* source)
     }
 }
 
-void InitMsgDesc(MsgDesc* desc) { GameFunction<void(__thiscall*)(MsgDesc*)>(0x004549F0)(desc); }
+void InitMsgDesc(MsgDesc* desc) { desc->Construct(); }
 
 // A node's deleting destructor (virtual slot 0).
 void DeleteNode(ListNode* node)
@@ -376,8 +372,8 @@ void App::EnqueueMessage(int handle, MsgDesc* desc)
 void App::StreamMessageToConn(Conn* conn, uint8_t msgId, uint16_t size, void* data, const char* desc,
                               uint8_t groupId, bool allAtOnce, bool sendInPlace)
 {
-    // The original leaves the descriptor's singular and compression fields (and the start's padding)
-    // uninitialised; they are zero here (a non-zero compression would garble the pieces).
+    // The original leaves the start message uninitialised on the stack (the 3 bytes sent past a short first
+    // piece, the padding after a full one); it's zeroed here. (MsgDesc's constructor sets every field.)
     MsgDesc message = {};
     InitMsgDesc(&message);
     StreamStart start = {};
@@ -572,10 +568,10 @@ void App::TerminateInvalidConnections()
 // finished streams are deleted.
 void App::ProcessStreamMessages()
 {
-    MsgDesc message = {}; // (singular and compression uninitialised in the original - see StreamMessageToConn)
+    MsgDesc message = {};
     InitMsgDesc(&message);
     StreamData piece;
-    void* manager = GameVariable<void*>(0x006EFDD8); // the Net::Manager
+    Manager* manager = Manager::Instance();
     Lst::Search<Conn> search;
     for (Conn* conn = search.FirstItem(&m_connections); conn; conn = search.NextItem()) {
         int maxQueued = 5;

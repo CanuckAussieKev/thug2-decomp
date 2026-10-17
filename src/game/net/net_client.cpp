@@ -158,7 +158,7 @@ void Client::ReceiveData()
                 uint32_t time = Tmr::GetTime();
                 if (ReadPacket(this, buffer, readPtr, received)) {
                     readPtr += size;
-                    AddPacketMetric(conn->m_receiveMetrics, received + 0x1C,
+                    AddPacketMetric(&conn->m_receiveMetrics, received + 0x1C,
                                     Timestamp(this));
                     if (time > conn->m_lastCommTime)
                         conn->m_lastCommTime = time;
@@ -249,7 +249,7 @@ void Client::SendData(Conn* conn)
                 return;
             }
             m_totalBytesOut += size;
-            AddPacketMetric(conn->m_sendMetrics, size + 0x1C, Timestamp(this));
+            AddPacketMetric(&conn->m_sendMetrics, size + 0x1C, Timestamp(this));
             conn->m_lastSendTime = Timestamp(this);
             SetForceSendThisFrame(conn, false);
             writePtr = conn->m_writeBuffer;
