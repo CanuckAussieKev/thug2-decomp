@@ -453,6 +453,12 @@ def name_value(payload):
     return struct.unpack("<I", payload)[0]
 
 
+# Per level (folder, lower case): sector name prefixes left out. Warehouse: its lights flicker in THPS3
+# (JKU_Ware_RoomFlicker toggles SkWare_Light_* / SkWare_Dark_*, the same surfaces lit and dark); without that script
+# both sets were drawn - z-fighting. Kept lit, as THPS3's observer mode (JKU_Ware_IsObserver kills SkWare_Dark).
+LEFT_OUT_PREFIXES = {"ware": ("skware_dark",)}
+
+
 def created_at_start(q, global_qbs, names_all, base, start_scripts):
     # What THPS3's scripts create when a level starts (Create name= / prefix=), followed statically from its start
     # scripts through the scripts they call or spawn (both branches of every if): Load_<base> (its <base>_Startup),
@@ -553,6 +559,13 @@ def convert_node_array(q, global_qbs, name, base, start_scripts):
                isinstance(n.get("TriggerScript"), qb.Name)]
     created, prefixes = created_at_start(q, global_qbs, names, base, starts)
     hidden = set()
+    # Sector sets a level's scripts keep switching between, left out (LEFT_OUT_PREFIXES): with both drawn they
+    # fight over the same surfaces (flicker).
+    for node in array:
+        if isinstance(node, qb.Struct) and isinstance(node.get("Name"), qb.Name):
+            text = names.get(node.get("Name").value, "").lower()
+            if any(text.startswith(p) for p in LEFT_OUT_PREFIXES.get(base.lower(), ())):
+                hidden.add(node.get("Name").value)
     for node in array:
         if isinstance(node, qb.Struct) and isinstance(node.get("Class"), qb.Name) and \
                 node.get("Class").value == environment and isinstance(node.get("Name"), qb.Name) and \
