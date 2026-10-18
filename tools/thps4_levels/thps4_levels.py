@@ -46,7 +46,9 @@ SIGN_NUMBERS = [19, 20, 22, 23, 24, 25, 26, 27, 28, 29, 31]
 # The levels whose peds and cars are brought over (tools/level_port/peds_cars.py): the skate shop's pros on the
 # halfpipe, the people walking by and the cars on the road (also the front end's: make_menu_level.py copies them);
 # every level's walkers and Car_Generic01 cars.
-PEDS_CARS = {name.lower() for name in LEVELS}
+# College left out: with its walker and car its node array came out null in the game (a crash loading; cause not
+# found - its other peds are THUG2 standing peds, its car a LevelObject of its model).
+PEDS_CARS = {name.lower() for name in LEVELS} - {"sch"}
 # For the level select: where each level is, and a THUG2 sign that suits it.
 INFO = {
     "alc": ("San Francisco Bay, USA", "sign_skatopia"),
@@ -179,7 +181,9 @@ def cmd_convert(args):
             level_sources = [script_port.Source(open(p, "rb").read(), "level")
                              for p in [files["qb"]] + glob.glob(os.path.join(folder, "*_scripts.qb"))]
             converted, kills, brought, extra_text, has_setup, line, _ = thps4_scripts.convert(
-                port, array, names, level_sources, kills, {s["checksum"] for s in scene4["sectors"]}, moving, struct,
+                port, array, names, level_sources, kills,
+                {s["checksum"] for s in scene4["sectors"] if s["bone"] == -1 and not s["flags"] & thps4.SEC_WEIGHTS},
+                moving, struct,
                 name, vehicle_sectors=set(plan), collides={o["checksum"] for o in col4["objects"]
                                                            if o["faces"]} | vehicle_collides)
             report.append("  " + line)
@@ -188,6 +192,10 @@ def cmd_convert(args):
             kills = nodes.add_kill_restarts(converted, kills, names)
         triggers = nodes.kill_trigger_names(converted, kills)
         if port is not None:
+            # (THUG2's script pools are fixed - 9500 vectors for every script's: College's node array with the
+            # objects, waypoints and peds didn't fit and came out null, a crash loading. The rails' and sectors'
+            # zero Angles - most of them - aren't needed.)
+            thps4_scripts.drop_zero_angles(converted, names)
             # (the sectors whose trigger script runs keep their trigger faces)
             triggers |= {n.get("Name").value for n in converted if isinstance(n.get("TriggerScript"), qb.Name)
                          and isinstance(n.get("Name"), qb.Name) and nodes.class_of(n, names) == "levelgeometry"}

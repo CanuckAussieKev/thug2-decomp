@@ -21,6 +21,7 @@
 # object) and THPS4's level structure's setup_script / startup_script, run from the level's own setup script.
 
 import os
+import struct
 
 import nodes
 import peds_cars
@@ -51,6 +52,39 @@ COMPONENTS = {script_port.SKATER: {"skaterstate", "skatercorephysics"}}
 # The skater's member functions by name (no table entry): TriggerType - THUG2's own LA trigger scripts ask it too
 # (`if TriggerType <trigger_array>`).
 BY_NAME = {script_port.SKATER: {"TriggerType"}}
+# THPS4's trigger types (skutils.qb's TRIGGER_* - `if TriggerType TRIGGER_LIP_ON`, `if TriggerType [A B]`) as THUG2's
+# trigger arrays (skutils.qb's GetTriggerArray: each an array of conditions that must all hold - skate 1, jump 2,
+# onto 3, off 4, offedge 5, lip 7, land 8, bonk 9; -1 none, i.e. any; an array of them: any of them). THUG2's
+# TriggerType reads its first argument as such an array: THPS4's bare name crashed it (null read, 0x004349B2).
+TRIGGER_ARRAYS = {"TRIGGER_THROUGH": [-1], "TRIGGER_SKATE_OFF_EDGE": [5], "TRIGGER_JUMP_OFF": [2, 4],
+                  "TRIGGER_LAND_ON": [8], "TRIGGER_SKATE_OFF": [1, 4], "TRIGGER_SKATE_ONTO": [1, 3],
+                  "TRIGGER_BONK": [9], "TRIGGER_LIP_ON": [7, 3], "TRIGGER_LIP_OFF": [7, 4], "TRIGGER_LIP_JUMP": [7, 2]}
+
+
+def trigger_type(toks):
+    # `TriggerType <a THPS4 trigger type or a list of them>` -> `TriggerType [[...] ...]`, or None (left out).
+    by_value = {checksum(k): v for k, v in TRIGGER_ARRAYS.items()}
+    values = []
+    for t in toks[1:]:
+        if t.t == 0x16:
+            if t.name() not in by_value:
+                return None
+            values.append(by_value[t.name()])
+        elif t.t not in (0x05, 0x06, 0x09):
+            return None
+    if not values:
+        return None
+    i = toks[0].i
+    out = [toks[0], script_port.Tok(0x05, b"", i)]
+    for conditions in values:
+        out.append(script_port.Tok(0x05, b"", i))
+        out += [script_port.Tok(0x17, struct.pack("<i", c), i) for c in conditions]
+        out.append(script_port.Tok(0x06, b"", i))
+    out.append(script_port.Tok(0x06, b"", i))
+    return out
+
+
+REWRITES = {checksum("TriggerType"): trigger_type}
 # The made peds' trigger script (THUG2's ped AI, standing).
 PED_STAND = "thps4_ped_stand"
 # How many kinds of left-out statements the report lists.
@@ -345,6 +379,8 @@ class VehicleModels:
             scene, model_tex, col = self.model(path)
             merged = merge_sectors(scene["sectors"], name)
             if merged is None:
+                # (no sector: no LevelObject - THUG2's creates one's collision from its sector, a null read)
+                del plan[name]
                 continue
             sector, turn = merged
             scene4["sectors"].append(sector)
@@ -377,6 +413,18 @@ def ped_paths(array, names, moving):
     return out
 
 
+def drop_zero_angles(converted, names):
+    # Angles=(0, 0, 0) taken off the rails and level geometry nodes (THUG2's CVector pool: 9500 for all scripts).
+    dropped = 0
+    for node in converted:
+        angles = node.get("Angles")
+        if nodes.class_of(node, names) in ("railnode", "levelgeometry") and isinstance(angles, tuple) and \
+                not any(angles[1]):
+            node.remove("Angles")
+            dropped += 1
+    return dropped
+
+
 def moving_names(moving):
     return {n.get("Name").value for n in moving if isinstance(n.get("Name"), Name)}
 
@@ -391,40 +439,85 @@ def convert(port, array, names, level_sources, kills, sectors, moving, struct, l
     # scripts), whether there's a setup script, report line, the Translator).
     made = Nodes(array, names, sectors, moving_names(moving), ped_paths(array, names, moving), port.assets,
                  vehicle_sectors, collides)
-    kept = []
+    made_kept = []
     for node in array:
         new = made.convert(node) if isinstance(node, Struct) else made._left_out(None)
-        kept.append(node if new is None else new)
+        made_kept.append(node if new is None else new)
     # trigger scripts of the sectors and rails (the skater's) and the made nodes', wanted before convert_nodes
-    wanted = {node.get("TriggerScript").value for node in kept if isinstance(node.get("TriggerScript"), Name)
+    wanted = {node.get("TriggerScript").value for node in made_kept if isinstance(node.get("TriggerScript"), Name)
               and nodes.class_of(node, names) in ("levelgeometry", "railnode")} - set(kills)
-    converted, stats = nodes.convert_nodes(kept, names, kills, as_is=made.ids, scripts=wanted)
-    kills = nodes.add_kill_restarts(converted, kills, names)
-
-    # the scripts
     sources = list(port.sources) + list(level_sources)
     allowed = set(SOURCES) | {"level"}
     all_names = {n.get("Name").value for n in array if isinstance(n, Struct) and isinstance(n.get("Name"), Name)}
-    node_names = {n.get("Name").value for n in list(converted) + list(moving) if isinstance(n.get("Name"), Name)}
-    objects = dict(made.objects)
-    for node in moving:
-        if isinstance(node.get("Name"), Name) and nodes.class_of(node, names) in ("pedestrian", "vehicle"):
-            objects[node.get("Name").value] = (script_port.NONE, node.has_flag("CreatedAtStart"))
-    objects[checksum("Skater")] = (script_port.SKATER, True)
-    provided = set(kills) | {checksum(s) for s in ("LoadTerrain", PED_STAND)}
-    tr = script_port.Translator(sources, port.thug2, lambda label: label in allowed, node_names, all_names, names,
-                                provided=provided, left_out=LEFT_OUT, objects=objects, components=COMPONENTS,
-                                full=True, by_name=BY_NAME)
-    roots = [(s, script_port.SKATER) for s in wanted]
-    roots += [(script, context) for _, script, context in made.triggers]
-    starts = []
-    for key in ("setup_script", "startup_script"):
-        value = struct.get(key) if struct else None
-        if isinstance(value, Name) and tr.can_bring(value.value):
-            starts.append(value.value)
-    starts += [s for s in made.proxim_scripts if tr.can_bring(s)]
-    roots += [(s, script_port.NONE) for s in starts]
-    out = tr.run(roots)
+    # geometry nodes the converted scene has no sector for (script_port's undrawn: Visible / Kill... of them crash)
+    undrawn = {n.get("Name").value for n in array if isinstance(n, Struct) and isinstance(n.get("Name"), Name)
+               and nodes.class_of(n, names) in ("levelgeometry", "levelobject")} - set(sectors)
+    kills_in = kills
+    # Twice: the made objects not there at the start that no brought script creates (goals' peds, pick-ups, the
+    # goals' level objects...) are left out the second time - THUG2's script heap didn't hold College's node
+    # array with all of them (the array came out null: a crash loading).
+    never = set()
+    for _ in range(2):
+        kept = [made._left_out(None) if id(n) in made.ids and isinstance(n.get("Name"), Name) and
+                n.get("Name").value in never else n for n in made_kept]
+        ids = {id(n) for n in kept} & made.ids
+        converted, stats = nodes.convert_nodes(kept, names, kills_in, as_is=ids, scripts=wanted)
+        kills = nodes.add_kill_restarts(converted, kills_in, names)
+
+        # the scripts
+        node_names = {n.get("Name").value for n in list(converted) + list(moving) if isinstance(n.get("Name"), Name)}
+        objects = {k: v for k, v in made.objects.items() if k not in never}
+        for node in moving:
+            if isinstance(node.get("Name"), Name) and nodes.class_of(node, names) in ("pedestrian", "vehicle"):
+                objects[node.get("Name").value] = (script_port.NONE, node.has_flag("CreatedAtStart"))
+        objects[checksum("Skater")] = (script_port.SKATER, True)
+        provided = set(kills) | {checksum(s) for s in ("LoadTerrain", PED_STAND)}
+        tr = script_port.Translator(sources, port.thug2, lambda label: label in allowed, node_names, all_names,
+                                    names, provided=provided, undrawn=undrawn, left_out=LEFT_OUT, objects=objects,
+                                    components=COMPONENTS, full=True, by_name=BY_NAME, rewrites=REWRITES)
+        roots = [(s, script_port.SKATER) for s in wanted]
+        roots += [(script, context) for node_name, script, context in made.triggers if node_name not in never]
+        starts = []
+        for key in ("setup_script", "startup_script"):
+            value = struct.get(key) if struct else None
+            if isinstance(value, Name) and tr.can_bring(value.value):
+                starts.append(value.value)
+        starts += [s for s in made.proxim_scripts if tr.can_bring(s)]
+        roots += [(s, script_port.NONE) for s in starts]
+        out = tr.run(roots)
+        if never:
+            break
+        waypoints = {n.get("Name").value for n in made_kept if id(n) in made.ids and
+                     isinstance(n.get("Name"), Name) and nodes.class_of(n, names) == "waypoint"}
+        never = {k for k, (_, at_start) in made.objects.items()
+                 if not at_start and k not in tr.created and k not in tr.referenced and k not in waypoints and
+                 not any(names.get(k, "").lower().startswith(p) for p in tr.created_prefixes)}
+        made.counts["not created (left out)"] = len(never)
+        # The waypoints no kept object's path and no brought script reaches, left out too (THUG2's script pools
+        # are fixed: College's node array with every node didn't fit - it came out null, a crash loading).
+        named = set()
+        for code in out.values():
+            for t, p in script_port._plain_tokens(code):
+                if t == 0x16:
+                    named.add(int.from_bytes(p, "little"))
+        index = {n.get("Name").value: i for i, n in enumerate(made_kept) if isinstance(n.get("Name"), Name)}
+        todo = [index[k] for k in named & waypoints if k in index]
+        for n in made_kept:
+            if nodes.class_of(n, names) != "waypoint" and isinstance(n.get("Name"), Name) and \
+                    n.get("Name").value not in never:
+                todo += [v for v in n.get("Links") or [] if isinstance(v, int)]
+        reached = set()
+        while todo:
+            i = todo.pop()
+            if i in reached or not 0 <= i < len(made_kept):
+                continue
+            reached.add(i)
+            todo += [v for v in made_kept[i].get("Links") or [] if isinstance(v, int)]
+        unused = {k for k in waypoints if index.get(k) not in reached}
+        made.counts["waypoints no path or script uses (left out)"] = len(unused)
+        never |= unused
+        if not never:
+            break
 
     def available(script):
         return script in out or script in port.thug2.scripts or script in provided
