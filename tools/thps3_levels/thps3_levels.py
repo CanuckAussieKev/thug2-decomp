@@ -267,6 +267,73 @@ def scene_sectors(sectors, materials, checksums, skip):
     return out
 
 
+def frame_transform(frames, index):
+    # A clump frame's matrix with its parents' as (rotation rows right / up / at, position): a point p maps to
+    # p.x * right + p.y * up + p.z * at + position.
+    def apply(frame, p):
+        r = frame["rotation"]
+        return tuple(p[0] * r[k] + p[1] * r[3 + k] + p[2] * r[6 + k] + frame["position"][k] for k in range(3))
+    chain = []
+    while 0 <= index < len(frames) and len(chain) <= len(frames):
+        chain.append(frames[index])
+        index = frames[index]["parent"]
+    def transform(p):
+        for frame in chain:
+            p = apply(frame, p)
+        return p
+    return transform
+
+
+def object_sectors(clumps, node_array, names, level, first_material):
+    # The game objects there at the start (CreatedAtStart GameObjects / BouncyObjects without a model= of their own:
+    # Foundry's fans, Tokyo's lamps, Skater Island's cannons...) as static scene sectors, no collision: each clump's
+    # geometry through its frames (a Z-up model turned Y-up: (x, z, -y)), turned by the node's heading and moved to
+    # its Position (z negated, as the world's geometry). Returns (sectors as thps3.read_bsp makes them, their
+    # materials as (checksum, THPS3 material), numbered from first_material).
+    by_name = {}
+    for node in node_array:
+        if isinstance(node, qb.Struct) and isinstance(node.get("Name"), qb.Name):
+            by_name[node.get("Name").value] = node
+    sectors, materials = [], []
+    for clump in clumps:
+        node = by_name.get(clump["checksum"])
+        if node is None or not node.has_flag("CreatedAtStart") or node.get("model") is not None or \
+                nodes.class_of(node, names) not in ("gameobject", "bouncyobject"):
+            continue
+        position = node.get("Position")
+        angles = node.get("Angles")
+        if not (isinstance(position, tuple) and position[0] == "vector"):
+            continue
+        px, py, pz = position[1]
+        heading = angles[1][1] if isinstance(angles, tuple) and angles[0] == "vector" else 0.0
+        cos, sin = math.cos(heading), math.sin(heading)
+        for n, atomic in enumerate(clump["atomics"]):
+            if not 0 <= atomic["geometry"] < len(clump["geometries"]):
+                continue
+            g = clump["geometries"][atomic["geometry"]]
+            if not g["positions"] or not g["triangles"]:
+                continue
+            to_object = frame_transform(clump["frames"], atomic["frame"])
+            positions = []
+            for p in g["positions"]:
+                x, y, z = to_object(p)
+                positions.append((x * cos + z * sin + px, y + py, -x * sin + z * cos - pz))
+            base = first_material + len(materials)
+            for i, m in enumerate(g["materials"]):
+                materials.append((qb.checksum("%s_object_%08X_%d_%d" % (level, clump["checksum"], n, i)), m))
+            sec = {"checksum": qb.checksum("%s_object_%08X_%d" % (level, clump["checksum"], n)),
+                   "material_base": 0, "positions": positions, "colors": g["colors"] or None,
+                   "uvs": g["uvs"], "uv_sets": g["uv_sets"],
+                   "triangles": [(base + m, a, b, c) for m, a, b, c in g["triangles"]],
+                   "binmesh": None}
+            if g["binmesh"] and g["binmesh"]["strips"]:
+                sec["binmesh"] = {"strips": True, "meshes": [{"material": base + mesh["material"],
+                                                              "indices": mesh["indices"]}
+                                                             for mesh in g["binmesh"]["meshes"]]}
+            sectors.append(sec)
+    return sectors, materials
+
+
 FACE_KEEP = 0x1FFF  # THPS3's face flags have THUG2's meanings (0x80: the camera collides, as THUG2's)
 
 
@@ -296,17 +363,24 @@ def collision_objects(sectors, materials, skip):
 
 
 def convert_world(world, tdx, name, out_dir, report, with_col=True, keep_triggers=lambda checksum: False,
-                  skip=frozenset(), mips=True):
+                  skip=frozenset(), mips=True, objects=None):
+    # objects: object_sectors' (sectors, materials) - drawn, not collided with.
     warnings = []
     textures = convert_textures(tdx, mips)
     known = {t["checksum"] for t in textures["textures"]}
-    checksums = [qb.checksum("%s_material_%d" % (name, i)) for i in range(len(world["materials"]))]
-    materials = [to_thug2_material(checksums[i], m, known) for i, m in enumerate(world["materials"])]
-    for m in world["materials"]:
+    raw = list(world["materials"])
+    checksums = [qb.checksum("%s_material_%d" % (name, i)) for i in range(len(raw))]
+    object_list = []
+    if objects:
+        object_list = objects[0]
+        raw += [m for _, m in objects[1]]
+        checksums += [c for c, _ in objects[1]]
+    materials = [to_thug2_material(checksums[i], m, known) for i, m in enumerate(raw)]
+    for m in raw:
         info = (m["ns"] or {}).get("texture") or m["texture"]
         if info and texture_checksum(info["name"]) not in known:
             warnings.append("texture %s not in the dictionary - untextured" % info["name"])
-    scene_in = {"sectors": scene_sectors(world["sectors"], world["materials"], checksums, skip)}
+    scene_in = {"sectors": scene_sectors(world["sectors"] + object_list, raw, checksums, skip)}
     used = {mesh["material"] for s in scene_in["sectors"] for mesh in s["meshes"]}
     scene = geometry.convert_scene(scene_in, warnings, [m for m in materials if m["checksum"] in used])
     col = None
@@ -607,8 +681,16 @@ def cmd_convert(args):
         common.ns_compile(args.ns, text, os.path.join(level_dir, name + ".qb"))
         world = thps3.read_bsp(read(files["bsp"]), files["bsp"])
         tdx = thps3.read_tdx(read(files["tdx"]), files["tdx"])
+        objects = None
+        if "dff" in files and not args.no_objects:
+            names = dict(q.names)
+            for g in global_qbs:
+                names.update(g.names)
+            objects = object_sectors(thps3.read_dff(read(files["dff"]), files["dff"]), q.get("NodeArray"), names,
+                                     name, len(world["materials"]))
+            report.append("  game objects there at the start: %d drawn (no collision)" % len(objects[0]))
         convert_world(world, tdx, name, level_dir, report, keep_triggers=lambda checksum: checksum in triggers,
-                      skip=hidden, mips=not args.no_mips)
+                      skip=hidden, mips=not args.no_mips, objects=objects)
         report.append("  " + node_report)
 
         # The sky (scene and textures, no collision - as THUG2's own skies).
@@ -690,6 +772,7 @@ def main():
     parser.add_argument("--thps3", default=r"C:\Games\THPS3")
     parser.add_argument("--out", help="where convert writes (default: <thug2>\\%s)" % STAGING)
     parser.add_argument("--ns", default=common.NS)
+    parser.add_argument("--no-objects", action="store_true", help="convert: the game objects (.dff) left out")
     parser.add_argument("--no-mips", action="store_true", help="convert: no mip levels made (faster)")
     parser.add_argument("--extra", nargs="*", default=[], help="selfcheck: more THUG2 archives (Data\\pre\\*.prx)")
     args = parser.parse_args()
