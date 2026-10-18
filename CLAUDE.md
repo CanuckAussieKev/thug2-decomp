@@ -74,6 +74,8 @@ installed); functions PartyMod patched get source with PartyMod's behaviour. Lat
   helpers (write bytes or a jump over game code for a test's length).
 - Parallel agents work (one git worktree + branch each, own Ghidra snapshot copy and `data/derived/`, records
   in `docs/pending/<name>.md`) but cost a lot of usage - keep each to a few functions, and merge yourself.
+  Give every agent `docs/agent-rules.md`; game-run scripts and the workspace maker are in `tools/game` (README);
+  `tools/fold_pending.py` folds an agent's batch records into decomp-progress.md.
 - Commit messages end with the Co-Authored-By line given in the session.
 - **Never reference, read or copy** https://github.com/Morten1337/thugpro, .../thugpro_proxy or .../thugpro_toolchain
   (or any other private Morten1337 repository) - the user can see them but has no permission to use them. His
