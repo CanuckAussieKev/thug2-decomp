@@ -341,8 +341,15 @@ void __cdecl PlayMovieFile(const char* name)
                 break;
             if (DeviceLost()) {
                 Mlp::Manager::ResetDeviceIfLost(); // (through the jump at 0x0044F250)
-                if (DeviceLost())
+                if (DeviceLost()) {
+                    // Not original - the original (0x00450053-0x00450066) tries again at once, without handling the
+                    // window's messages: with the device lost (another full-screen program on the display) it
+                    // never gets it back and spins at full CPU, hung. Here it waits and lets the window be
+                    // restored, as the inactive-app wait above does.
+                    Sleep(100);
+                    Platform::ProcessWindowEvents();
                     continue;
+                }
                 BinkPause(CurrentMovie(), 0);
             }
             if (BinkWait(CurrentMovie()))
