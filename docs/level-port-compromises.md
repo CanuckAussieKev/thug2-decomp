@@ -85,7 +85,8 @@ back: the crash is in THUG2's code, which we are rewriting.
 | A shader pass blending on an unwritten register | THUG2's ps.1.1 builder 0x004DD2C0 | A third pass blending like the second is dropped | One Santa Monica material |
 | Particle boxes not there at the start | LoadQBData, Kyoto (cause unknown) | Left out | JA 9, SZ 1, SV 1, BH 14 boxes |
 | Peds / cars added to THPS4 College | CNodeManager::HashNodes (cause unknown) | College has no THUG2 walkers or cars | College traffic |
-| An object following a path in a network game (no path manager there) | 0x004695D0 from Obj_FollowPathLinked | nodes.absent_path_followers_in_net: CreatedAtStart path followers get AbsentInNetGames (all games) | Tokyo's shinkansen, College's blimp, Alcatraz / SF objects absent online |
+| An object following a path in a network game (no path manager there) | 0x004695D0 from Obj_FollowPathLinked | nodes.absent_in_net_games: CreatedAtStart path followers get AbsentInNetGames (all games) | Tokyo's shinkansen, College's blimp, Alcatraz / SF objects absent online |
+| A pedestrian in a network game (THUG2 loads no ped animations there) | 0x00482BA0 from the anim controller's PlayAnim | The same pass: CreatedAtStart peds and vehicles get AbsentInNetGames (as THUG2's own levels) | No peds or cars online (THPS4's skate shop guy) |
 | A ported level named in a network game (2026-10-19) | GameNet::Manager::GetLevelName 0x005369A0 (THUG2's list only) | Fixed in the engine (batch 122): the ported lists are searched too | None |
 
 ## 4. THPS3

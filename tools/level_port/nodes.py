@@ -358,10 +358,14 @@ def _name_value(text):
     return int(text[1:], 16) if text.startswith("#") else checksum(text)
 
 
-def absent_path_followers_in_net(text, scripts=None):
-    # The node array (NeverScript text) with AbsentInNetGames on every CreatedAtStart node whose TriggerScript
-    # follows a path (itself or through scripts it names) - what the shipped levels do for such objects. `text`'s
-    # own scripts are read, and `scripts` ({checksum: compiled code}, added after compiling:
+def absent_in_net_games(text, scripts=None):
+    # The node array (NeverScript text) with AbsentInNetGames on every CreatedAtStart node a network game can't
+    # have - what the shipped levels do for such objects:
+    # - one whose TriggerScript follows a path (itself or through scripts it names): no path manager there;
+    # - a pedestrian or vehicle: THUG2 loads no ped animations in network games (skutils.qb do_load_unloadable:
+    #   `if inNetGame { load_peds = 0 }`), and a ped's first animation reads through the missing one (0x00482BA0 -
+    #   THPS4's skate shop's standing ped crashed a network game). THUG2's own levels keep all of them out.
+    # `text`'s own scripts are read, and `scripts` ({checksum: compiled code}, added after compiling:
     # script_port.append_scripts). Returns (text, nodes marked).
     calls = {}  # script -> the names it uses
     for name, body in re.findall(r"(?:^|\n)script (#?\w+) \{(.*?)\n\}", text, re.S):
@@ -387,9 +391,11 @@ def absent_path_followers_in_net(text, scripts=None):
     def fix(match):
         nonlocal marked
         node = match.group(0)
+        if not re.search(r"\bCreatedAtStart\b", node) or re.search(r"\bAbsentInNetGames\b", node):
+            return node
         script = re.search(r"\bTriggerScript=(#?\w+)", node)
-        if not script or _name_value(script.group(1)) not in followers or \
-                not re.search(r"\bCreatedAtStart\b", node) or re.search(r"\bAbsentInNetGames\b", node):
+        follows = script and _name_value(script.group(1)) in followers
+        if not follows and not re.search(r"\bClass=(Pedestrian|Vehicle)\b", node, re.IGNORECASE):
             return node
         marked += 1
         return re.sub(r"\bCreatedAtStart\b", "CreatedAtStart AbsentInNetGames", node, count=1)

@@ -361,10 +361,10 @@ class Port:
 
 def write_level_qb(ns, text, path, scripts, names):
     # The node array's NeverScript text compiled, the brought scripts added (script_port.append_scripts).
-    # (path followers kept out of network games: THUG2 has no path manager there)
-    text, marked = nodes.absent_path_followers_in_net(text, scripts)
+    # (path followers, peds and cars kept out of network games: no path manager or ped animations there)
+    text, marked = nodes.absent_in_net_games(text, scripts)
     if marked:
-        print("  %s: %d path-following node(s) kept out of network games" % (os.path.basename(path), marked))
+        print("  %s: %d node(s) kept out of network games" % (os.path.basename(path), marked))
     common.ns_compile(ns, text, path)
     if scripts:
         data = script_port.append_scripts(open(path, "rb").read(), scripts, names)
