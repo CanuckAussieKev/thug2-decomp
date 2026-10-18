@@ -199,7 +199,10 @@ def convert_level_nodes(files, code, name, ns, out_dir, report, port=None, struc
         anims = [qb.name_text(c, names) for c, _ in q.calls(qb.checksum("load_level_anims"))
                  if c in port.thug2.scripts]
         extra = globals_text + thug1_port.level_scripts_ns(made, anims)
-    text = nodes.node_array_ns(name + "_NodeArray", converted, names, kills) + extra
+    includes = ""
+    if port is not None:
+        converted, includes = thug1_port.compress_includes(converted, names, name, sectors)
+    text = includes + nodes.node_array_ns(name + "_NodeArray", converted, names, kills) + extra
     # (a LevelGeometry TrickObject / Cluster whose sector the scene hasn't crashes ParseNodeArray)
     text, cleared = nodes.strip_missing_trick_objects(text, sectors)
     os.makedirs(out_dir, exist_ok=True)

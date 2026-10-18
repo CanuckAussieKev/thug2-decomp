@@ -388,6 +388,8 @@ class Translator:
         self.names.setdefault(checksum(NEVER), NEVER)
         self.names.setdefault(checksum("GotParam"), "GotParam")
         self.names.setdefault(checksum("IsAlive"), "IsAlive")
+        self.names.setdefault(checksum("Wait"), "Wait")
+        self.names.setdefault(checksum("frame"), "frame")
         self.names.setdefault(checksum("Name"), "Name")
         self.skaters = {checksum(n) for n in ("Skater", "Skater2")}
 
@@ -545,14 +547,14 @@ class Translator:
             if t.t == 0x16 and k + 2 < len(toks) and toks[k + 1].t == 0x07 and toks[k + 2].t == 0x16 and \
                     "anim" in self.text(t.name()).lower():
                 v = toks[k + 2].name()
-                if v not in self.thug2.anims and v not in self.thug2.globals and v not in self.thug2.scripts and \
-                        v not in self.where:
-                    if v in self.globals:
-                        self.note("anim list not in THUG2: " + self.text(v))
-                        k += 3
-                        continue
-                    self.note("anim not in THUG2: " + self.text(v))
-                    return None
+                # (a single animation: dropped too, even one THUG2 has - it may be in a set the level doesn't load,
+                # e.g. THPS6_human_unloadable, and playing an animation that isn't loaded crashes: 0x00482BA0 on a
+                # null, seen with THUG1 Hawaii's peds)
+                if v not in self.thug2.globals and v not in self.thug2.scripts and v not in self.where:
+                    self.note(("anim list not in THUG2: " if v in self.globals else "anim parameter dropped: ")
+                              + self.text(v))
+                    k += 3
+                    continue
             out.append(t)
             k += 1
         return out
@@ -672,6 +674,7 @@ class Translator:
         stmts = statements(body)
         ifs = []
         switches = []
+        loops = []   # per open begin: whether a statement of it was left out
         counter = [0]
         for n, st in enumerate(stmts):
             content = [t for t in st if t.t not in EOL]
@@ -742,11 +745,22 @@ class Translator:
                     items.append(("tok", t, t.i))
                 continue
             elif head.t in CONTROL:
+                if head.t == 0x20:
+                    loops.append(False)
+                elif head.t == 0x21 and loops:
+                    emptied = loops.pop()
+                    if emptied and len(content) == 1:
+                        # (an endless loop that lost statements - its waits may have gone with them: THUG1's
+                        # `while { random { Obj_PlayAnim ... } Obj_WaitAnimFinished }` became a loop that never yields
+                        # and hung the game loading; a frame's wait keeps it from spinning)
+                        items += self.token_items([name_tok(checksum("Wait"), orig), Tok(0x17, struct.pack("<i", 1), orig),
+                                                   name_tok(checksum("frame"), orig), Tok(0x01, b"", orig)])
                 items += self.token_items(content)
             else:
                 self.guard = None
                 kept = self.command(content, contexts, discover)
                 if kept is None:
+                    loops[:] = [True] * len(loops)
                     continue
                 if self.guard is not None:
                     # (a member of one of the level's objects: only while it is alive)

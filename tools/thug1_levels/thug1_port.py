@@ -37,14 +37,20 @@ LEVEL = "level"
 LEFT_OUT = ("initialize_secret_tapes", "initialize_oldskool_icons", "goal_want_to_save", "Create_Panel_Message",
             "Create_Panel_Block", "Create_Panel_Sprite", "PlaySkaterCamAnim", "ClearExceptionGroup",
             "SetSkaterCamAnimShouldPause", "PlayCutscene", "PlayMovie_ChapterMovie", "UnlockLevel", "SetFlag",
-            "UnsetFlag", "StartGoal", "SpawnSkaterScript")
+            "UnsetFlag", "StartGoal", "SpawnSkaterScript",
+            # (THUG1's level / career flags are its own numbers - FLAG_NY_JPIN_INSIDE_BOT isn't THUG2's: GetFlag of
+            # it read far outside the flag bits, 0x005844C0 - Manhattan crashed loading)
+            "GetFlag", "GetGlobalFlag", "IsFlagSet")
 LEFT_OUT_PREFIXES = ("GoalManager_", "Goal_", "Chapter_", "CS_", "Cutscene")
 # script_port's left-out commands THUG1's level scripts may use: THUG2 has their sounds (LoadSound is checked against
-# Data\sounds) and the objects' animations are checked (anim_check).
-KEPT_IN = ("LoadSound", "Obj_PlayAnim", "Obj_WaitAnimFinished", "Obj_CycleAnim", "Obj_SetAnimCycleMode")
+# Data\sounds). (Obj_PlayAnim & co stay out: an animation THUG2 has may still not be loaded in the level - playing
+# one that isn't crashed Hawaii loading; the peds' THUG2 AI plays its own.)
+KEPT_IN = ("LoadSound",)
 
 # Skeletons / animations THUG2's peds use (THUG1's THPS5_human ones aren't loaded by THUG2).
 HUMAN = ("THPS6_human", "animload_THPS6_human")
+# THUG1's skeleton names THUG2 calls otherwise (its ped_add_components maps shark itself; dog it doesn't).
+SKELETONS = {"dog": "anl_dog", "shark": "anl_shark"}
 
 
 def _name(names, text):
@@ -105,6 +111,19 @@ class Thug1Port:
                 if f.lower().endswith(".snd"):
                     rel = os.path.relpath(os.path.join(folder, f), root)
                     self.sounds.add(rel[:-4].lower())
+        # The skeletons THUG2 loads (scripts\game\skeleton.qb's LoadSkeleton ... <name>): an object with any other
+        # skeleton crashes being made (0x004A3D30 on a null - THUG1 Hawaii's bus, skeleton car_6).
+        self.skeletons = set()
+        blob = prx.find(os.path.join(thug2, "Data", "pre", "qb_scripts.prx"), r"scripts\game\skeleton.qb")
+        toks = list(qb.tokens(blob, weights=True)) if blob else []
+        load = checksum("LoadSkeleton")
+        for k, (_, t, p) in enumerate(toks):
+            if t == 0x16 and int.from_bytes(p, "little") == load:
+                for _, t2, p2 in toks[k + 1:k + 8]:
+                    if t2 in (0x01, 0x02):
+                        break
+                    if t2 == 0x16 and int.from_bytes(p2, "little") != checksum("name"):
+                        self.skeletons.add(int.from_bytes(p2, "little"))
         self.models = set()
         root = os.path.join(data, "models")
         for folder, _, files in os.walk(root):
@@ -190,11 +209,15 @@ class NodePass:
         if cls == "vehicle":
             if not self.port.model_exists(node.get("model")):
                 return self.left_out("vehicles (model not in THUG2)")
+            if not self.skeleton_ok(node):
+                return self.left_out("vehicles (skeleton THUG2 doesn't load)")
             return self.whole(node, "vehicles")
         if cls == "gameobject":
             model = node.get("model")
             if isinstance(model, str) and model.lower() != "none" and not self.port.model_exists(model):
                 return self.left_out("game objects (model not in THUG2)")
+            if not self.skeleton_ok(node):
+                return self.left_out("game objects (skeleton THUG2 doesn't load)")
             return self.whole(node, "game objects")
         if cls == "particleobject":
             texture = node.get("Texture")
@@ -205,10 +228,23 @@ class NodePass:
             return self.whole(node, "particles")
         return self.left_out(cls or "?")
 
+    def skeleton_ok(self, node):
+        value = node.get("SkeletonName")
+        return value is None or (isinstance(value, Name) and value.value in self.port.skeletons)
+
     def pedestrian(self, node):
         n = self.names
+        skeleton = _text(node.get("SkeletonName"), n).lower()
+        if skeleton in SKELETONS:
+            # (THUG1's names for THUG2's animal skeletons)
+            node = Struct(list(node.entries))
+            node.set("SkeletonName", _name(n, SKELETONS[skeleton]))
+            skeleton = SKELETONS[skeleton].lower()
+        if skeleton not in ("thps5_human", "thps6_human", "ped_female", ""):
+            # (animals: THUG2's ped AI plays human animations - one the skeleton's set hasn't crashes the game,
+            # 0x00482BA0 on a null; THUG1 Hawaii's dog / shark)
+            return self.left_out("animal peds")
         s = self.whole(node, "peds")
-        skeleton = _text(s.get("SkeletonName"), n).lower()
         if skeleton in ("thps5_human", ""):
             # (THUG2's humans: THPS6_human; THUG1's THPS5_human animations aren't loaded)
             s.remove("SkeletonName")
@@ -264,6 +300,52 @@ def resolve_duplicate_triggers(array, script_qbs, names):
         else:
             node.remove("TriggerScript")
     return count
+
+
+# Keys every node keeps for itself when the rest is shared (compress_includes).
+OWN_KEYS = {checksum(k) for k in ("Pos", "Position", "Angles", "Name", "Links", "TriggerScript")}
+
+
+def compress_includes(converted, names, prefix, sectors):
+    # The node array's shared parts made global structures again, as THUG1's and THUG2's own levels have them
+    # (`ncomp_RailNode_574`: an unnamed name in a node that is a global structure - THUG2's structure lookups follow
+    # it). Expanded (nodes.expand_includes) the THUG1 node arrays with their objects run THUG2 out of script components
+    # while loading (a null from its component pool: crashes in ParseQB / the loading screen - HI and NJ in the game).
+    # Done last: the terrain fix and the TrickObject / Cluster strip (geometry nodes without a scene sector) first,
+    # since they read the nodes' own entries. Returns (nodes, the globals as NeverScript text).
+    nodes.fix_terrains(converted, names)
+    trick, cluster = checksum("TrickObject"), checksum("Cluster")
+    for node in converted:
+        name = node.get("Name")
+        if nodes.class_of(node, names) == "levelgeometry" and isinstance(name, Name) and name.value not in sectors:
+            node.entries = [(k, v) for k, v in node.entries
+                            if not (k is None and isinstance(v, Name) and v.value == trick)
+                            and not (k is not None and k.value == cluster)]
+    groups = {}
+    shared_of = []
+    for node in converted:
+        shared = [(k, v) for k, v in node.entries if k is None or k.value not in OWN_KEYS]
+        key = qb.to_ns(Struct(shared), names) if len(shared) > 1 else None
+        shared_of.append((shared, key))
+        if key is not None:
+            groups.setdefault(key, []).append(shared)
+    made = {}
+    lines = []
+    for key, members in groups.items():
+        if len(members) < 2:
+            continue
+        inc = "%s_inc_%d" % (prefix, len(made))
+        made[key] = _name(names, inc)
+        lines.append("%s = %s" % (inc, key))
+    out = []
+    for node, (shared, key) in zip(converted, shared_of):
+        if key in made:
+            own = [(k, v) for k, v in node.entries if k is not None and k.value in OWN_KEYS]
+            node = Struct([e for e in own if e[0].value != checksum("Links")
+                                     and e[0].value != checksum("TriggerScript")] + [(None, made[key])] +
+                          [e for e in own if e[0].value in (checksum("Links"), checksum("TriggerScript"))])
+        out.append(node)
+    return out, "\n".join(lines) + ("\n" if lines else "")
 
 
 def runs_by(node, names):
