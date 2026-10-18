@@ -1,0 +1,218 @@
+#pragma once
+
+// Shared pieces of the front-end range's self-tests (selftests_fe*.cpp): an arena pair (the original's run and
+// ours), a call trace with arena-relative words, stand-in parameter structures (their getters answer from a
+// table; adders are recorded), stand-ins returning floats in ST0, and the run-both-and-compare loop.
+
+#include <windows.h>
+
+#include <cstdint>
+#include <cstring>
+#include <functional>
+#include <map>
+#include <tuple>
+#include <vector>
+
+#include "game/core/crc.h"
+#include "game/script/struct.h"
+#include "hook/standins.h"
+
+namespace FeTest {
+
+using namespace TestStandIns;
+using Script::CStruct;
+
+// The arenas: 64K-aligned (VirtualAlloc), so stale half-pointers map the same in both runs.
+constexpr uint32_t kArenaSize = 0x40000;
+inline uint8_t* g_arenas = nullptr;
+inline uint32_t g_base = 0;
+inline void AllocateArenas()
+{
+    if (!g_arenas)
+        g_arenas = static_cast<uint8_t*>(VirtualAlloc(nullptr, 2 * kArenaSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
+}
+inline bool InArena(uint32_t word) { return word - g_base <= kArenaSize; }
+inline uint32_t Rel(uint32_t word) { return InArena(word) ? 0xA0000000u + (word - g_base) : word; }
+inline uint32_t At(uint32_t offset) { return g_base + offset; }
+template <typename T>
+T* Ptr(uint32_t offset)
+{
+    return reinterpret_cast<T*>(g_base + offset);
+}
+inline void Rec(uint32_t tag, std::initializer_list<uint32_t> values)
+{
+    g_trace.push_back(tag);
+    for (uint32_t v : values)
+        g_trace.push_back(Rel(v));
+}
+inline uint32_t Bits(float f)
+{
+    uint32_t b;
+    std::memcpy(&b, &f, 4);
+    return b;
+}
+inline float FloatOf(uint32_t b)
+{
+    float f;
+    std::memcpy(&f, &b, 4);
+    return f;
+}
+// The arena's words (pointers made relative; stale half-pointers too), appended to the trace.
+inline void Snapshot(uint32_t offset, uint32_t size, uint32_t mark)
+{
+    g_trace.push_back(0x5AA50000u + mark);
+    const auto* w = reinterpret_cast<const uint32_t*>(g_base + offset);
+    for (uint32_t i = 0; i < size / 4; ++i) {
+        uint32_t word = Rel(w[i]);
+        uint32_t high = word >> 16;
+        if (!InArena(w[i]) && high >= (g_base >> 16) && high <= ((g_base + kArenaSize) >> 16))
+            word = (word & 0xFFFF) | ((0xA000u + high - (g_base >> 16)) << 16);
+        g_trace.push_back(word);
+    }
+}
+
+// Starts a run: its arena (zeroed, then `dirty` bytes of 0xCD from `dirtyFrom`), an empty trace.
+inline void BeginRun(bool original, uint32_t dirtyFrom = 0, uint32_t dirty = 0)
+{
+    AllocateArenas();
+    g_base = reinterpret_cast<uint32_t>(g_arenas + (original ? 0 : kArenaSize));
+    std::memset(g_arenas + (original ? 0 : kArenaSize), 0, kArenaSize);
+    if (dirty)
+        std::memset(reinterpret_cast<void*>(At(dirtyFrom)), 0xCD, dirty);
+    g_trace.clear();
+}
+
+// --- stand-in parameter structures --------------------------------------------------------------------------
+// Answers by (kind, structure, name): 'K' checksum, 'F' float, 'I' integer, 'S' structure / array pointer,
+// 'V' vector, 'T' string (a pointer), 'C' contains (component), 'L' flag.
+inline std::map<std::tuple<char, uint32_t, uint32_t>, std::vector<uint32_t>> g_answers;
+inline void Answer(char kind, uint32_t structure, uint32_t name, std::vector<uint32_t> value)
+{
+    g_answers[{kind, Rel(structure), name}] = std::move(value);
+}
+inline const std::vector<uint32_t>* Lookup(char kind, uint32_t structure, uint32_t name)
+{
+    auto it = g_answers.find({kind, Rel(structure), name});
+    return it == g_answers.end() ? nullptr : &it->second;
+}
+
+inline void StandInStructGetters(StandIns& s)
+{
+    using Script::VectorValue;
+    auto getter = [&](std::initializer_list<uint32_t> addresses, char kind, uint32_t tag, bool byString) {
+        s.At(addresses, 12, [kind, tag, byString](Regs& r) {
+            uint32_t name = byString ? Crc::GenerateCRCFromString(reinterpret_cast<const char*>(r.args[0]))
+                                     : r.args[0];
+            Rec(tag, {r.ecx, name, r.args[2] & 0xFF});
+            const std::vector<uint32_t>* value = Lookup(kind, r.ecx, name);
+            if (!value)
+                return 0u;
+            std::memcpy(reinterpret_cast<void*>(r.args[1]), value->data(), value->size() * 4);
+            return 1u;
+        });
+    };
+    getter({0x00476950, AddressOf(static_cast<bool (CStruct::*)(uint32_t, uint32_t*, int)>(&CStruct::GetChecksum))},
+           'K', 0x6E50, false);
+    getter({0x004766D0, AddressOf(static_cast<bool (CStruct::*)(uint32_t, float*, int)>(&CStruct::GetFloat))}, 'F',
+           0x6E51, false);
+    getter({0x00476FB0, AddressOf(static_cast<bool (CStruct::*)(uint32_t, VectorValue*, int)>(&CStruct::GetVector))},
+           'V', 0x6E52, false);
+    getter({0x00476630, AddressOf(static_cast<bool (CStruct::*)(uint32_t, int*, int)>(&CStruct::GetInteger))}, 'I',
+           0x6E54, false);
+    getter({0x004767C0, AddressOf(static_cast<bool (CStruct::*)(uint32_t, CStruct**, int)>(&CStruct::GetStructure))},
+           'S', 0x6E55, false);
+    getter({0x00476860,
+            AddressOf(static_cast<bool (CStruct::*)(uint32_t, Script::CArray**, int)>(&CStruct::GetArray))},
+           'S', 0x6E56, false);
+    getter({0x00476590,
+            AddressOf(static_cast<bool (CStruct::*)(uint32_t, const char**, int)>(&CStruct::GetString))},
+           'T', 0x6E57, false);
+    getter({0x00476770,
+            AddressOf(static_cast<bool (CStruct::*)(uint32_t, float*, float*, int)>(&CStruct::GetPair))},
+           'P', 0x6E58, false);
+    auto flag = [&](std::initializer_list<uint32_t> addresses, uint32_t tag, char kind, bool byString) {
+        s.At(addresses, 4, [tag, kind, byString](Regs& r) {
+            uint32_t name = byString ? Crc::GenerateCRCFromString(reinterpret_cast<const char*>(r.args[0]))
+                                     : r.args[0];
+            Rec(tag, {r.ecx, name});
+            return Lookup(kind, r.ecx, name) ? 1u : 0u;
+        });
+    };
+    flag({0x00476AF0, AddressOf(static_cast<bool (CStruct::*)(uint32_t)>(&CStruct::ContainsComponentNamed))}, 0x6AF0,
+         'C', false);
+    flag({0x00476B40, AddressOf(static_cast<bool (CStruct::*)(uint32_t)>(&CStruct::ContainsFlag))}, 0x6B40, 'L',
+         false);
+    flag({0x00476BA0, AddressOf(static_cast<bool (CStruct::*)(const char*)>(&CStruct::ContainsFlag))}, 0x6BA0, 'L',
+         true);
+}
+inline void StandInStructAdders(StandIns& s)
+{
+    s.At({0x00477B80, AddressOf(static_cast<void (CStruct::*)(uint32_t, int)>(&CStruct::AddInteger))}, 8,
+         [](Regs& r) {
+             Rec(0x7B80, {r.ecx, r.args[0], r.args[1]});
+             return 0u;
+         });
+    s.At({0x00477C60, AddressOf(static_cast<void (CStruct::*)(uint32_t, float)>(&CStruct::AddFloat))}, 8,
+         [](Regs& r) {
+             Rec(0x7C60, {r.ecx, r.args[0], r.args[1]});
+             return 0u;
+         });
+    s.At({0x00477D40, AddressOf(static_cast<void (CStruct::*)(uint32_t, uint32_t)>(&CStruct::AddChecksum))}, 8,
+         [](Regs& r) {
+             Rec(0x7D40, {r.ecx, r.args[0], r.args[1]});
+             return 0u;
+         });
+}
+
+// --- stand-ins returning a float in ST0 ---------------------------------------------------------------------
+// The handler gets the registers and the arguments as for an ordinary stand-in and returns the float.
+inline float g_floatResult;
+inline uint8_t* g_floatCode = nullptr;
+inline size_t g_floatUsed = 0;
+inline void AtFloat(StandIns& s, std::initializer_list<uint32_t> addresses, uint16_t pop,
+                    std::function<float(Regs&)> handler)
+{
+    if (!g_floatCode)
+        g_floatCode = static_cast<uint8_t*>(VirtualAlloc(nullptr, 0x1000, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE));
+    // The inner thunk sees one more return address (the wrapper's): the arguments shifted back for the handler.
+    void* inner = s.Thunk(0, [handler](Regs& r) {
+        Regs shifted = r;
+        shifted.ret = r.args[0];
+        std::memmove(shifted.args, r.args + 1, sizeof(r.args) - 4);
+        g_floatResult = handler(shifted);
+        r.ecx = shifted.ecx;
+        r.edx = shifted.edx;
+        return 0u;
+    });
+    if (g_floatUsed + 16 > 0x1000)
+        g_floatUsed = 0;
+    uint8_t* p = g_floatCode + g_floatUsed;
+    g_floatUsed += 16;
+    int32_t rel = static_cast<int32_t>(reinterpret_cast<uintptr_t>(inner) - (reinterpret_cast<uintptr_t>(p) + 5));
+    p[0] = 0xE8;
+    std::memcpy(p + 1, &rel, 4);
+    p[5] = 0xD9;
+    p[6] = 0x05;
+    uint32_t where = reinterpret_cast<uint32_t>(&g_floatResult);
+    std::memcpy(p + 7, &where, 4);
+    p[11] = 0xC2;
+    p[12] = static_cast<uint8_t>(pop);
+    p[13] = static_cast<uint8_t>(pop >> 8);
+    FlushInstructionCache(GetCurrentProcess(), p, 16);
+    for (uint32_t address : addresses)
+        s.Bytes(address, Branch(0xE9, address, p));
+}
+
+// --- the comparison -----------------------------------------------------------------------------------------
+// Runs `body` for the original (true) and ours (false), each in a fresh arena, and compares the traces.
+inline void RunBoth(const char* what, const std::function<void(bool)>& body)
+{
+    std::vector<uint32_t> traces[2];
+    for (int run = 0; run < 2; ++run) {
+        body(run == 0);
+        traces[run] = g_trace;
+    }
+    Compare(traces[0], traces[1], what);
+}
+
+} // namespace FeTest
