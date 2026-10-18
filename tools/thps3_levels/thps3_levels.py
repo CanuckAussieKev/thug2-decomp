@@ -29,8 +29,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(HERE), "level_port"))
 import common  # noqa: E402
 import geometry  # noqa: E402
 import nodes  # noqa: E402
+import peds_cars  # noqa: E402
 import ported_levels  # noqa: E402
 import qb  # noqa: E402
+import script_port  # noqa: E402
 import tex  # noqa: E402
 import thps3  # noqa: E402
 import thug2_col  # noqa: E402
@@ -329,18 +331,62 @@ def frame_transform(frames, index):
     return transform
 
 
-def object_sectors(clumps, node_array, names, level, first_material):
+def moving_sector(clump, level, first_material):
+    # A game object's clump as one sector in the object's own space (THUG2's LevelObject: the model component clones
+    # the sector of the node's name and draws it at the object's position and orientation - THUG2's own LevelObject
+    # sectors are centred on their origin), its atomics' geometry through their frames (a Z-up model turned Y-up:
+    # (x, z, -y)) put together. Returns (sector as thps3.read_bsp makes them, materials as object_sectors's) or None.
+    positions, colors, uvs, triangles, strips, materials = [], [], [], [], [], []
+    all_strips = True
+    for n, atomic in enumerate(clump["atomics"]):
+        if not 0 <= atomic["geometry"] < len(clump["geometries"]):
+            continue
+        g = clump["geometries"][atomic["geometry"]]
+        if not g["positions"] or not g["triangles"]:
+            continue
+        to_object = frame_transform(clump["frames"], atomic["frame"])
+        base_vertex = len(positions)
+        base = first_material + len(materials)
+        for i, m in enumerate(g["materials"]):
+            materials.append((qb.checksum("%s_object_%08X_%d_%d" % (level, clump["checksum"], n, i)), m))
+        positions += [to_object(p) for p in g["positions"]]
+        colors += g["colors"] or [(255, 255, 255, 255)] * len(g["positions"])
+        uvs += g["uvs"] or [(0.0, 0.0)] * len(g["positions"])
+        triangles += [(base + m, a + base_vertex, b + base_vertex, c + base_vertex) for m, a, b, c in g["triangles"]]
+        if g["binmesh"] and g["binmesh"]["strips"]:
+            strips += [{"material": base + mesh["material"], "indices": [v + base_vertex for v in mesh["indices"]]}
+                       for mesh in g["binmesh"]["meshes"]]
+        else:
+            all_strips = False
+    if not triangles:
+        return None
+    sec = {"checksum": clump["checksum"], "material_base": 0, "positions": positions, "colors": colors,
+           "uvs": [uv[:2] for uv in uvs], "uv_sets": 1, "triangles": triangles, "binmesh": None}
+    if all_strips and strips:
+        sec["binmesh"] = {"strips": True, "meshes": strips}
+    return sec, materials
+
+
+def object_sectors(clumps, node_array, names, level, first_material, moving=frozenset()):
     # The game objects there at the start (CreatedAtStart GameObjects / BouncyObjects without a model= of their own:
     # Foundry's fans, Tokyo's lamps, Skater Island's cannons...) as static scene sectors, no collision: each clump's
     # geometry through its frames (a Z-up model turned Y-up: (x, z, -y)), turned by the node's heading and moved to
-    # its Position (z negated, as the world's geometry). Returns (sectors as thps3.read_bsp makes them, their
-    # materials as (checksum, THPS3 material), numbered from first_material).
+    # its Position (z negated, as the world's geometry). The clumps of the nodes in `moving` (THUG2 LevelObjects:
+    # moved by their scripts) are one sector each in their own space instead (moving_sector), there at the start or
+    # not. Returns (sectors as thps3.read_bsp makes them, their materials as (checksum, THPS3 material), numbered from
+    # first_material).
     by_name = {}
     for node in node_array:
         if isinstance(node, qb.Struct) and isinstance(node.get("Name"), qb.Name):
             by_name[node.get("Name").value] = node
     sectors, materials = [], []
     for clump in clumps:
+        if clump["checksum"] in moving:
+            made = moving_sector(clump, level, first_material + len(materials))
+            if made:
+                sectors.append(made[0])
+                materials += made[1]
+            continue
         node = by_name.get(clump["checksum"])
         if node is None or not node.has_flag("CreatedAtStart") or node.get("model") is not None or \
                 nodes.class_of(node, names) not in ("gameobject", "bouncyobject"):
@@ -533,7 +579,260 @@ def statements_of(lines):
     return out
 
 
-def convert_node_array(q, global_qbs, name, base, start_scripts):
+class Port:
+    # What bringing a level's scripts along needs: THUG2's commands (script_port.Thug2), THPS3's script files
+    # (script_port.Source), levels.qb (the levels' load scripts), and per level its own .qb (Source) and the names of
+    # its .dff's clumps.
+    def __init__(self, thug2, sources, levels_q, thps3_dir):
+        self.thug2, self.sources, self.levels_q = thug2, sources, levels_q
+        self.models_dir = os.path.join(thps3_dir, "Data", "Models")
+        self.level = None
+        self.clumps = set()
+        self.moving = set()
+        self.vehicles = {}   # node name -> model name (the level's vehicles made LevelObjects of their models)
+        self._models = {}
+        self.assets = peds_cars.Thug2Assets(thug2.root)
+
+    def model(self, name):
+        # THPS3's Data\Models\<name>\<name>.dff (a rigid clump: cars, trains, planes) and its .tdx, or None (skinned
+        # models - .skn: peds, birds - aren't converted).
+        key = name.lower()
+        if key not in self._models:
+            found = None
+            folder = find_folder(self.models_dir, name) if os.path.isdir(self.models_dir) else None
+            files = level_files(folder, name) if folder else {}
+            if "dff" in files and "tdx" in files:
+                clumps = thps3.read_dff(read(files["dff"]), files["dff"])
+                if clumps:
+                    found = (clumps[0], thps3.read_tdx(read(files["tdx"]), files["tdx"]))
+            self._models[key] = found
+        return self._models[key]
+
+
+def _key(names, text):
+    value = qb.checksum(text)
+    names.setdefault(value, text)
+    return qb.Name(value)
+
+
+class PortedNodes:
+    # THPS3's game objects and waypoints made THUG2's nodes (kept whole by nodes.convert_nodes):
+    #   a GameObject with a clump of its name in the .dff (fans, presses, valve wheels, buckets): a LevelObject - the
+    #       clump is a sector of that name in the scene (moving_sector), moved by the object's scripts;
+    #   a GameObject with neither a clump nor a model (a script's controller: Foundry's Obj_Bucket_Controller): a
+    #       ghost (THUG2's Type=Ghost model="none" game objects) running its script;
+    #   a GameObject with a model (goal letters, stat points, tapes: THPS3's goal models): left out;
+    #   a Waypoint: THUG2's, its Links to waypoints kept (Obj_MoveToNode / Obj_FollowPathLinked targets).
+    # Their trigger scripts are added once known to be brought along (port_scripts).
+    def __init__(self, names, array, port=None):
+        self.names = names
+        self.array = array
+        self.port = port
+        # the waypoints the peds walk (from their Links): THUG2's ped AI waypoints too
+        self.ped_paths = set()
+        for node in array:
+            if isinstance(node, qb.Struct) and nodes.class_of(node, names) == "pedestrian":
+                for link in self._links_to_waypoints(node) or []:
+                    self.ped_paths.update(peds_cars.follow(array, link, names))
+        self.ids = set()
+        self.triggers = []   # (node name, script, context)
+        self.scripts = set()
+        self.moving = set()  # the LevelObjects' names (their clumps become sectors in their own space)
+        self.counts = {}
+
+    def _count(self, what):
+        self.counts[what] = self.counts.get(what, 0) + 1
+
+    def _links_to_waypoints(self, node):
+        links = node.get("Links")
+        if not isinstance(links, list):
+            return None
+        out = [v for v in links if isinstance(v, int) and 0 <= v < len(self.array) and
+               isinstance(self.array[v], qb.Struct) and nodes.class_of(self.array[v], self.names) == "waypoint"]
+        return sorted(set(out), key=out.index) or None
+
+    def _base(self, node, cls):
+        n = self.names
+        entries = [(_key(n, "Position"), node.get("Position")), (_key(n, "Angles"), node.get("Angles")
+                                                                 or ("vector", (0.0, 0.0, 0.0))),
+                   (_key(n, "Name"), node.get("Name")), (_key(n, "Class"), _key(n, cls))]
+        return entries
+
+    def _made(self, entries, node, context):
+        s = qb.Struct(entries)
+        self.ids.add(id(s))
+        script = node.get("TriggerScript")
+        if isinstance(script, qb.Name) and isinstance(node.get("Name"), qb.Name):
+            self.triggers.append((node.get("Name").value, script.value, context))
+            self.scripts.add(script.value)
+        return s
+
+    def convert(self, node, clumps):
+        n = self.names
+        cls = nodes.class_of(node, n)
+        name = node.get("Name")
+        if not isinstance(name, qb.Name) or not isinstance(node.get("Position"), tuple):
+            return None
+        if cls == "gameobject":
+            if node.get("model") is not None:
+                self._count("game objects with THPS3 models left out")
+                return qb.Struct([(_key(n, "Class"), _key(n, "LeftOut"))])
+            flags = [(None, _key(n, f)) for f in ("CreatedAtStart", "AbsentInNetGames") if node.has_flag(f)]
+            links = self._links_to_waypoints(node)
+            tail = [(_key(n, "Links"), links)] if links else []
+            if name.value in clumps:
+                self.moving.add(name.value)
+                self._count("moving objects")
+                return self._made(self._base(node, "LevelObject") + [(_key(n, "Type"), _key(n, "Normal"))] + flags + [
+                    (_key(n, "SuspendDistance"), 0), (_key(n, "lod_dist1"), 10000), (_key(n, "lod_dist2"), 10001)]
+                    + tail, node, script_port.OBJECT)
+            self._count("script objects")
+            return self._made(self._base(node, "GameObject") + [(_key(n, "Type"), _key(n, "Ghost"))] + flags + [
+                (None, _key(n, "NeverSuspend")), (_key(n, "model"), "none"), (_key(n, "lod_dist1"), 400),
+                (_key(n, "lod_dist2"), 401)] + tail, node, script_port.OBJECT)
+        if cls == "vehicle":
+            # THPS3's vehicles (cars, Tokyo's bullet trains and planes) are path followers moved by their scripts
+            # (Obj_FollowPathLinked...): LevelObjects of their models' geometry.
+            model = node.get("model")
+            if not (isinstance(model, str) and self.port is not None and self.port.model(model)):
+                self._count("vehicles without a rigid model left out")
+                return qb.Struct([(_key(n, "Class"), _key(n, "LeftOut"))])
+            self.port.vehicles[name.value] = model
+            self.moving.add(name.value)
+            self._count("vehicles")
+            flags = [(None, _key(n, f)) for f in ("CreatedAtStart", "AbsentInNetGames") if node.has_flag(f)]
+            links = self._links_to_waypoints(node)
+            tail = [(_key(n, "Links"), links)] if links else []
+            return self._made(self._base(node, "LevelObject") + [(_key(n, "Type"), _key(n, "Normal"))] + flags + [
+                (_key(n, "SuspendDistance"), 0), (_key(n, "lod_dist1"), 10000), (_key(n, "lod_dist2"), 10001)]
+                + tail, node, script_port.OBJECT)
+        if cls == "waypoint":
+            links = self._links_to_waypoints(node)
+            flags = [(None, _key(n, "CreatedAtStart"))] if node.has_flag("CreatedAtStart") else []
+            self._count("waypoints")
+            ped = []
+            if self.index_of(node) in self.ped_paths:
+                # (as THUG2's LA's ped paths; THPS3's objects moved along the same waypoints don't mind)
+                ped = [(_key(n, "Type"), _key(n, "PedAI")), (None, _key(n, "Continue")),
+                       (_key(n, "PedType"), _key(n, "Walk")), (_key(n, "Priority"), _key(n, "Normal")),
+                       (_key(n, "ContinueWeight"), 1.0)]
+            s = qb.Struct(self._base(node, "Waypoint") + flags + ped + ([(_key(n, "Links"), links)] if links else []))
+            self.ids.add(id(s))
+            return s
+        if cls == "pedestrian":
+            return self.pedestrian(node)
+        return None
+
+    def index_of(self, node):
+        if not hasattr(self, "_index"):
+            self._index = {id(x): k for k, x in enumerate(self.array)}
+        return self._index.get(id(node))
+
+    def profile(self, model):
+        # A THUG2 ped profile like THPS3's model: its pro, a worker, a guard, a woman, else any man.
+        assets = self.port.assets if self.port is not None else None
+        text = model.lower() if isinstance(model, str) else ""
+        if text.startswith("pedpro_") and assets:
+            for candidate in ("PedPro_%s" % model[7:], "PedPro_%s_skateboard" % model[7:]):
+                if assets.profile_exists(candidate):
+                    return candidate
+        for part, profile in (("constr", "Ped_Construction_Worker_01"), ("welder", "Ped_Construction_Worker_01"),
+                              ("security", "Ped_Security_Guard_01"), ("fem", "random_female_profile"),
+                              ("girl", "random_female_profile")):
+            if part in text and (assets is None or assets.profile_exists(profile)):
+                return profile
+        return "random_male_profile"
+
+    def pedestrian(self, node):
+        # THPS3's peds (skinned models, animations and scripts THUG2 can't run) as THUG2's own ped AI at the same
+        # place: walking the waypoints they link to (THPS3's walkers), else standing (the workers at their posts,
+        # the photographers...). There at the start as in THPS3; the others when a script creates them.
+        n = self.names
+        links = self._links_to_waypoints(node)
+        walking = bool(links)
+        entries = self._base(node, "Pedestrian") + [(_key(n, "Type"), _key(n, "Ped_From_Profile"))]
+        entries += [(None, _key(n, f)) for f in ("CreatedAtStart", "AbsentInNetGames") if node.has_flag(f)]
+        entries += [(_key(n, "PedAI_Type"), _key(n, "Stand")), (_key(n, "skeletonName"), _key(n, "THPS6_human")),
+                    (_key(n, "AnimName"), _key(n, "animload_THPS6_human")),
+                    (_key(n, "profile"), _key(n, self.profile(node.get("model")))),
+                    (_key(n, "SuspendDistance"), 10000), (_key(n, "lod_dist1"), 200), (_key(n, "lod_dist2"), 201),
+                    (_key(n, "TriggerScript"), _key(n, PED_WALK if walking else PED_STAND))]
+        if links:
+            entries.append((_key(n, "Links"), links))
+        self._count("walking peds" if walking else "standing peds")
+        s = qb.Struct(entries)
+        self.ids.add(id(s))
+        return s
+
+
+# The made peds' trigger scripts (THUG2's ped AI), in every level's .qb.
+PED_WALK, PED_STAND = "thps3_ped_walk", "thps3_ped_stand"
+PED_SCRIPTS = "script %s {\n    Ped_InitAI \n}\nscript %s {\n    Ped_InitAI stand \n}\n" % (PED_WALK, PED_STAND)
+
+
+def port_scripts(q, port, converted, array, kills, names, level, base, player1, made):
+    # The level's scripts brought along (tools/level_port/script_port.py) from its nodes' trigger scripts - the
+    # sectors' and rails' (run by the skater), the made objects' (run by them) - and its start scripts: the scripts
+    # THPS3's Load_<base> calls (Foun_Startup...) and the Player1 restart's trigger script (THPS3 runs it when the
+    # skater starts: Foundry's sets the press up, makes the bucket). Those run from a setup script THUG2's load_level
+    # calls (the level structure's setup_script). Trigger scripts that aren't brought along are taken off their nodes
+    # (THUG2 runs a TriggerScript without checking it exists). Returns ({name: bytes}, the setup script as
+    # NeverScript text or None, the THPS3 globals the scripts use as NeverScript text, a report line).
+    sources = list(port.sources) + [port.level]
+    allowed = set(script_port.DEFAULT_SOURCES) | {"level"}
+    all_names = {n.get("Name").value for n in array if isinstance(n, qb.Struct) and isinstance(n.get("Name"), qb.Name)}
+    node_names = {n.get("Name").value for n in converted if isinstance(n.get("Name"), qb.Name)}
+    # (the kill scripts and LoadTerrain are the node array text's own - nodes.node_array_ns)
+    provided = set(kills) | {qb.checksum(s) for s in ("LoadTerrain", PED_WALK, PED_STAND)}
+    tr = script_port.Translator(sources, port.thug2, lambda label: label in allowed, node_names, all_names, names,
+                                provided=provided)
+    roots = []
+    for node in converted:
+        script = node.get("TriggerScript")
+        if isinstance(script, qb.Name) and script.value not in kills and \
+                nodes.class_of(node, names) in ("levelgeometry", "railnode"):
+            roots.append((script.value, script_port.SKATER))
+    roots += [(script, context) for _, script, context in made.triggers]
+    starts = []
+    for command, _ in statements(port.levels_q, qb.checksum("Load_" + base)):
+        if tr.can_bring(command):
+            starts.append(command)
+    if player1 is not None and isinstance(player1.get("TriggerScript"), qb.Name):
+        starts.append(player1.get("TriggerScript").value)
+    roots += [(s, script_port.NONE) for s in starts]
+    out = tr.run(roots)
+
+    def available(script):
+        return script in out or script in port.thug2.scripts or script in provided
+
+    trigger = qb.checksum("TriggerScript")
+    dropped = 0
+    for node in converted:
+        script = node.get("TriggerScript")
+        if isinstance(script, qb.Name) and not available(script.value):
+            node.remove("TriggerScript")
+            dropped += 1
+    by_name = {n.get("Name").value: n for n in converted if isinstance(n.get("Name"), qb.Name)}
+    for node_name, script, _ in made.triggers:
+        if node_name in by_name and available(script):
+            by_name[node_name].entries.append((qb.Name(trigger), qb.Name(script)))
+    setup = None
+    run = [s for s in starts if s in out]
+    if run:
+        setup = "script %s_setup {\n%s}\n" % (level, "".join("    SpawnScript %s \n" % qb.name_text(s, names)
+                                                             for s in run))
+    worst = sorted(tr.left_out.items(), key=lambda kv: -kv[1])
+    report = "scripts: %d brought along (%d bytes), %d trigger scripts not; made %s; left out %d statements: %s" % (
+        len(out), sum(map(len, out.values())), dropped, made.counts, sum(tr.left_out.values()),
+        ", ".join("%s x%d" % kv for kv in worst[:12]))
+    return out, setup, tr.globals_ns(), report
+
+
+def convert_node_array(q, global_qbs, name, base, start_scripts, port=None):
+    # port: a Port (the level's scripts brought along, its game objects, waypoints, peds...) or None (static: only
+    # the geometry's nodes, restarts, rails and kill zones). Returns (NeverScript text, sectors left out, sectors
+    # keeping their trigger faces, report, the brought scripts {name: THUG2 bytes}, whether there's a setup script).
+    later = set()
     array = q.get("NodeArray")
     if not isinstance(array, list):
         raise FormatError("%s: no NodeArray" % q.name)
@@ -574,21 +873,31 @@ def convert_node_array(q, global_qbs, name, base, start_scripts):
             text = names.get(checksum, "").lower()
             if checksum in created or (text and any(text.startswith(p) for p in prefixes)):
                 continue
-            hidden.add(checksum)
+            if port is None:
+                hidden.add(checksum)
+            else:
+                # (kept, not there at the start: the level's scripts create them - a press's other position)
+                later.add(checksum)
     # (every node keeps its place: the Links are indices into the array - nodes.convert_nodes renumbers them; one
     # left out here is a placeholder of a class it drops)
     kept = []
+    made = PortedNodes(names, array, port) if port is not None else None
     for node in array:
         if not isinstance(node, qb.Struct) or (isinstance(node.get("Name"), qb.Name) and
                                                node.get("Name").value in hidden):
             kept.append(qb.Struct([(qb.Name(qb.checksum("Class")), qb.Name(qb.checksum("LeftOut")))]))
             continue
+        if made is not None:
+            new = made.convert(node, port.clumps)
+            if new is not None:
+                kept.append(new)
+                continue
         if isinstance(node.get("Class"), qb.Name) and node.get("Class").value == environment:
             # (THPS3's sector nodes: THUG2's LevelGeometry)
             node = qb.Struct(list(node.entries))
             node.set("Class", qb.Name(qb.checksum("LevelGeometry")))
             names.setdefault(qb.checksum("LevelGeometry"), "LevelGeometry")
-            if not node.has_flag("CreatedAtStart"):
+            if not node.has_flag("CreatedAtStart") and node.get("Name").value not in later:
                 # (made by the level's start scripts)
                 node.entries.append((None, qb.Name(qb.checksum("CreatedAtStart"))))
                 names.setdefault(qb.checksum("CreatedAtStart"), "CreatedAtStart")
@@ -607,12 +916,46 @@ def convert_node_array(q, global_qbs, name, base, start_scripts):
     restarts = {n.get("Name").value for n in kept if nodes.class_of(n, names) == "restart"
                 and isinstance(n.get("Name"), qb.Name)}
     kills = nodes.kill_commands([q] + global_qbs, restarts, names)
-    converted, stats = nodes.convert_nodes(kept, names, kills)
+    wanted = set()
+    if port is not None:
+        # the trigger scripts of the sectors and rails (run by the skater) and of the made nodes
+        for node in kept:
+            script = node.get("TriggerScript")
+            if isinstance(script, qb.Name) and script.value not in kills and \
+                    nodes.class_of(node, names) in ("levelgeometry", "railnode"):
+                wanted.add(script.value)
+        wanted |= set(made.scripts)
+    converted, stats = nodes.convert_nodes(kept, names, kills, as_is=made.ids if made else (), scripts=wanted)
     kills = nodes.add_kill_restarts(converted, kills, names)
+    scripts, setup, globals_text, script_report = {}, None, "", ""
+    if port is not None:
+        port.moving = made.moving
+        scripts, setup, globals_text, script_report = port_scripts(q, port, converted, array, kills, names, name,
+                                                                   base, player1, made)
     triggers = nodes.kill_trigger_names(converted, kills)
+    if port is not None:
+        # (the sectors whose trigger script runs keep their trigger faces)
+        triggers |= {n.get("Name").value for n in converted if isinstance(n.get("TriggerScript"), qb.Name)
+                     and isinstance(n.get("Name"), qb.Name) and nodes.class_of(n, names) == "levelgeometry"}
     text = nodes.node_array_ns(name + "_NodeArray", converted, names, kills)
-    return text, hidden, triggers, "nodes: %d of %d kept %s; %d kill zones, %d sectors not there at the start" % (
-        len(converted), len(array), stats, len(triggers), len(hidden))
+    if port is not None:
+        text += globals_text + (setup or "") + PED_SCRIPTS
+    report = "nodes: %d of %d kept %s; %d kill zones, %d sectors not there at the start" % (
+        len(converted), len(array), stats, len(triggers), len(hidden) + len(later))
+    if script_report:
+        report += "\n  " + script_report
+    return text, hidden, triggers, report, scripts, setup is not None
+
+
+def write_level_qb(ns, text, path, scripts, port):
+    # The node array's NeverScript text compiled, the brought scripts added (script_port.append_scripts).
+    common.ns_compile(ns, text, path)
+    if scripts:
+        names = {}
+        for s in list(port.sources) + [port.level]:
+            names.update(s.names)
+        data = script_port.append_scripts(open(path, "rb").read(), scripts, names)
+        open(path, "wb").write(data)
 
 
 # --- level structures ----------------------------------------------------------------------------------------------
@@ -724,6 +1067,11 @@ def cmd_convert(args):
     levels_q = qb.QbFile(read(os.path.join(scripts, "levels.qb")), "levels.qb")
     lights_q = qb.QbFile(read(os.path.join(scripts, "lights.qb")), "lights.qb")
     global_qbs = script_names(args.thps3)
+    port = None
+    if not args.no_scripts:
+        port = Port(script_port.Thug2(args.thug2),
+                    [script_port.Source(read(p), os.path.basename(p).lower())
+                     for p in sorted(glob.glob(os.path.join(scripts, "*.qb")))], levels_q, args.thps3)
     master = {}
     for value in levels_q.get("master_level_list") or []:
         if isinstance(value, qb.Struct) and isinstance(value.get("load_script"), qb.Name):
@@ -754,24 +1102,39 @@ def cmd_convert(args):
         q = qb.QbFile(read(files["qb"]), files["qb"])
         entry_struct = master.get(qb.checksum("Load_" + base))
         once = entry_struct.get("once_on_startup") if entry_struct else None
-        text, hidden, triggers, node_report = convert_node_array(
-            q, global_qbs, name, base, [once.value] if isinstance(once, qb.Name) else [])
-        common.ns_compile(args.ns, text, os.path.join(level_dir, name + ".qb"))
+        clumps = thps3.read_dff(read(files["dff"]), files["dff"]) if "dff" in files and not args.no_objects else []
+        if port is not None:
+            port.level = script_port.Source(read(files["qb"]), "level")
+            port.clumps = {c["checksum"] for c in clumps}
+            port.moving = set()
+            port.vehicles = {}
+        text, hidden, triggers, node_report, scripts, has_setup = convert_node_array(
+            q, global_qbs, name, base, [once.value] if isinstance(once, qb.Name) else [], port=port)
+        qb_path = os.path.join(level_dir, name + ".qb")
+        write_level_qb(args.ns, text, qb_path, scripts, port)
         world = thps3.read_bsp(read(files["bsp"]), files["bsp"])
         tdx = thps3.read_tdx(read(files["tdx"]), files["tdx"])
         objects = None
-        if "dff" in files and not args.no_objects:
+        # (each vehicle its own copy of its model: a LevelObject draws the sector of its node's name)
+        vehicles = []
+        if port is not None:
+            for node_name, model in sorted(port.vehicles.items()):
+                clump, model_tdx = port.model(model)
+                vehicles.append(dict(clump, checksum=node_name))
+                tdx = tdx + model_tdx
+        if clumps or vehicles:
             names = dict(q.names)
             for g in global_qbs:
                 names.update(g.names)
-            objects = object_sectors(thps3.read_dff(read(files["dff"]), files["dff"]), q.get("NodeArray"), names,
-                                     name, len(world["materials"]))
-            report.append("  game objects there at the start: %d drawn (no collision)" % len(objects[0]))
+            objects = object_sectors(clumps + vehicles, q.get("NodeArray"), names, name, len(world["materials"]),
+                                     moving=port.moving if port is not None else frozenset())
+            report.append("  game objects: %d sectors (%d moving; no collision)" % (
+                len(objects[0]), len(port.moving) if port is not None else 0))
         convert_world(world, tdx, name, level_dir, report, keep_triggers=lambda checksum: checksum in triggers,
                       skip=hidden, mips=not args.no_mips, objects=objects)
         text, cleared = without_missing_trick_objects(text, os.path.join(level_dir, name + ".scn.xbx"))
         if cleared:
-            common.ns_compile(args.ns, text, os.path.join(level_dir, name + ".qb"))
+            write_level_qb(args.ns, text, qb_path, scripts, port)
             report.append("  %d geometry nodes without a scene sector: TrickObject / Cluster dropped" % cleared)
         report.append("  " + node_report)
 
@@ -803,6 +1166,8 @@ def cmd_convert(args):
             "default_stats": 6,
             "lighting": lighting(lights_q, lights_script),
         })
+        if has_setup:
+            manifest["levels"][-1]["setup_script"] = name + "_setup"
     ported_levels.write_manifest(os.path.join(out, ported_levels.MANIFEST), manifest)
     print("\n".join(report))
     print("wrote %s (%d levels); install with tools\\menu_level\\make_menu_level.py" % (out, len(manifest["levels"])))
@@ -855,6 +1220,8 @@ def main():
     parser.add_argument("--out", help="where convert writes (default: <thug2>\\%s)" % STAGING)
     parser.add_argument("--ns", default=common.NS)
     parser.add_argument("--no-objects", action="store_true", help="convert: the game objects (.dff) left out")
+    parser.add_argument("--no-scripts", action="store_true",
+                        help="convert: the level's scripts, moving objects and waypoints left out (static levels)")
     parser.add_argument("--no-mips", action="store_true", help="convert: no mip levels made (faster)")
     parser.add_argument("--extra", nargs="*", default=[], help="selfcheck: more THUG2 archives (Data\\pre\\*.prx)")
     args = parser.parse_args()
