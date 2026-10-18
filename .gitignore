@@ -11,3 +11,5 @@ out/
 # Data extracted from the game exe (regenerable with tools/, not ours to publish)
 data/derived/
 .claude/worktrees/
+__pycache__/
+*.pyc
