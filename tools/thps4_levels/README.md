@@ -41,5 +41,9 @@ back - they must come out byte-identical - and parses every THPS4 level file.
   faces are kept only for kill zones (water, out of bounds), which get THUG2's SK3_KillSkater(_Water).
 - Level structure: THPS4's name, sky and lighting (from its Levels.qb); no music, no goals.
 
+The THUG2 writers, the geometry conversion, the node arrays and the installing are shared with `tools/thug1_levels`
+(`tools/level_port`); this folder has THPS4's own reader (`thps4.py`) and `thps4_levels.py`. `levels.json` also
+carries `game`, `location` and `icon` per level for the level select (`tools/level_port/ported_levels.py`).
+
 Format reference: the io_thps_scene Blender add-on (denetii) - read as documentation only (it has no licence); the
 formats were checked against THUG2's loaders (see docs/pending/thps4.md).

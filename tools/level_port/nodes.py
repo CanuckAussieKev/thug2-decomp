@@ -1,9 +1,9 @@
-# THPS4 node arrays -> THUG2: keep what THUG2 understands without THPS4's scripts and assets (restarts, rails, level
-# geometry, KOTH crowns), drop the rest (peds, vehicles, game objects with THPS4 models, goal nodes, waypoints),
-# renumber the Links.
+# THPS4 / THUG1 node arrays -> THUG2: keep what THUG2 understands without the other game's scripts and assets
+# (restarts, rails, level geometry, KOTH crowns), drop the rest (peds, vehicles, game objects with the game's models,
+# goal nodes, waypoints, particles, lights...), renumber the Links.
 
-import qb4
-from qb4 import Name, Struct, checksum
+import qb
+from qb import Name, Struct, checksum
 
 KEEP_CLASSES = {"restart", "railnode", "levelgeometry", "levelobject", "genericnode"}
 GENERIC_TYPES = {"crown"}  # GenericNode kept: KOTH crowns
@@ -45,8 +45,88 @@ def kill_scripts(node_q, level_q):
     return found
 
 
-def convert_nodes(array, names, kills=None):
+# The kill call's parameters kept (THUG2's SK3_KillSkater takes the same: the restart to go back to, the messages, the
+# fade colour, bail; THUG1's own death sounds aren't in THUG2).
+KILL_VALUES = {"nodename", "node", "message1", "message2", "message3", "message4", "r", "g", "b"}
+KILL_FLAGS = {"bail", "nomessage"}
+
+
+def kill_commands(script_qbs, restarts, names):
+    # THUG1's trigger scripts that kill the skater: TriggerScript -> the THUG2 command line that does the same. A
+    # script counts when one of its statements calls something with "killskater" in its name (SK3_Killskater,
+    # Sk3_Killskater_Water, the levels' own RU_KillSkater / HI_KillSkater_LittleDogs) or a level script that does
+    # (NY_KillWater: goal checks around Sk3_Killskater_Water): it becomes THUG2's SK3_KillSkater (_Water when the
+    # name says water, or the level script's call does) with the call's parameters that THUG2's takes - nodename
+    # (node= too) only when it names a restart (restarts: their checksums).
+    wrappers = {}
+    for q in script_qbs:
+        for script in q.scripts:
+            for called, _ in q.calls(script):
+                text = names.get(called, "").lower()
+                if "killskater" in text:
+                    wrappers[script] = wrappers.get(script, False) or "water" in text
+    found = {}
+    for q in script_qbs:
+        for script in q.scripts:
+            if script in found:
+                continue
+            for called, line in q.calls(script):
+                text = names.get(called, "").lower()
+                if "killskater" not in text and called not in wrappers:
+                    continue
+                water = "water" in text or wrappers.get(called, False)
+                args = []
+                i = 1
+                while i < len(line):
+                    t, payload = line[i]
+                    if t == 0x16:
+                        key = int.from_bytes(payload, "little")
+                        key_text = names.get(key, "").lower()
+                        if i + 2 < len(line) and line[i + 1][0] == 0x07:
+                            vt, vp = line[i + 2]
+                            if key_text in ("nodename", "node") and vt == 0x16:
+                                node = int.from_bytes(vp, "little")
+                                if node in restarts:
+                                    args.append("nodename=%s" % qb.name_text(node, names))
+                            elif key_text in KILL_VALUES and vt == 0x1B:
+                                args.append('%s="%s"' % (key_text, vp.rstrip(b"\0").decode("latin-1")
+                                                         .replace("\\", "\\\\").replace('"', '\\"')))
+                            elif key_text in KILL_VALUES and vt == 0x17:
+                                args.append("%s=%d" % (key_text, int.from_bytes(vp, "little", signed=True)))
+                            i += 3
+                            continue
+                        if key_text in KILL_FLAGS:
+                            args.append({"bail": "Bail", "nomessage": "NoMessage"}[key_text])
+                    i += 1
+                command = "SK3_KillSkater_Water" if water else "SK3_KillSkater"
+                found[script] = " ".join([command] + args)
+                break
+    return found
+
+
+def expand_includes(array, globals_by_checksum):
+    # THUG1's node arrays share their common parts: a node lists a global structure by name (ncomp_RailNode_574 =
+    # {Class=RailNode Type=Metal ...}) - an unnamed Name entry naming a global structure, whose entries the node gets
+    # (the script's AppendStructure). They are put in the nodes themselves here.
+    out = []
+    for node in array:
+        if isinstance(node, Struct):
+            entries = []
+            for key, value in node.entries:
+                included = globals_by_checksum.get(value.value) if key is None and isinstance(value, Name) else None
+                if isinstance(included, Struct):
+                    entries.extend(included.entries)
+                else:
+                    entries.append((key, value))
+            node = Struct(entries)
+        out.append(node)
+    return out
+
+
+def convert_nodes(array, names, kills=None, extra_keys=()):
+    # extra_keys: more keys kept (THUG1's Pos).
     kills = kills or {}
+    keep_keys = _KEYS | {checksum(k) for k in extra_keys}
     kept, index_map = [], {}
     for i, node in enumerate(array):
         if not isinstance(node, Struct):
@@ -72,7 +152,7 @@ def convert_nodes(array, names, kills=None):
             if key.value == checksum("TriggerScript") and isinstance(value, Name) and value.value in kills:
                 entries.append((key, value))
                 continue
-            if key.value not in _KEYS:
+            if key.value not in keep_keys:
                 continue
             if key.value == checksum("Links"):
                 value = [index_map[v] for v in value if isinstance(v, int) and v in index_map]
@@ -116,10 +196,10 @@ def kill_trigger_names(nodes, kills):
 def node_array_ns(array_name, nodes, names, kills=None):
     lines = ["%s = [" % array_name]
     for node in nodes:
-        lines.append("    " + qb4.to_ns(node, names, 1))
+        lines.append("    " + qb.to_ns(node, names, 1))
     lines.append("]")
     used = {node.get("TriggerScript").value for node in nodes if isinstance(node.get("TriggerScript"), Name)}
     for script, command in sorted((kills or {}).items()):
         if script in used:
-            lines.append("script %s {\n    %s\n}" % (qb4.name_text(script, names), command))
+            lines.append("script %s {\n    %s\n}" % (qb.name_text(script, names), command))
     return "\n".join(lines) + "\n"

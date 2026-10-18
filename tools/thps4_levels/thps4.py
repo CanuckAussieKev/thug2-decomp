@@ -1,5 +1,5 @@
 # THPS4 PC level files (Game\data\levels\<Lvl>\): <lvl>scn.dat (scene) and <lvl>col.dat (collision, version 8).
-# The texture dictionary <lvl>tex.dat is THUG2's format already (tex.py).
+# The texture dictionary <lvl>tex.dat is THUG2's format already (tools/level_port/tex.py).
 
 from binio import Reader, FormatError
 
@@ -157,3 +157,48 @@ def read_col(data, name="col"):
     if (len(data) - r.offset) % 2 or index_count < large_faces + small_faces - 1:
         raise FormatError("%s: %d bytes of face indices after the nodes" % (name, len(data) - r.offset))
     return {"objects": objects, "node_size": node_size, "index_count": index_count}
+
+
+# --- to THUG2 ---------------------------------------------------------------------------------------------------
+
+def to_thug2_material(m):
+    # THUG2's material: THPS4's without the passes' lighting colours, with THUG2's name checksum, z bias, no
+    # specular, env-map tiling 3 x 3; up to 4 passes, the vertex colour wibble only on the first.
+    out = {
+        "checksum": m["checksum"],
+        "name_checksum": m["checksum"],
+        "alpha_cutoff": m["alpha_cutoff"],
+        "sorted": m["sorted"],
+        "draw_order": m["draw_order"],
+        "single_sided": m["single_sided"],
+        "no_backface_culling": 0,
+        "z_bias": 0,
+        "grassify": m["grassify"],
+        "specular_power": 0.0,
+        "passes": [],
+    }
+    if m["grassify"]:
+        out["grass"] = m["grass"]
+    for index, p in enumerate(m["passes"][:4]):
+        q = {k: p[k] for k in ("texture", "flags", "has_color", "color", "blend_mode", "fixed_alpha", "u_address",
+                                "v_address", "filtering", "mip")}
+        q["envmap_tiling"] = (3.0, 3.0)
+        for key in ("uv_wibble", "vc_wibble", "animation"):
+            if key in p:
+                q[key] = p[key]
+        if index > 0:
+            q["flags"] &= ~PASS_VC_WIBBLE
+        out["passes"].append(q)
+    return out
+
+
+# THPS4's face flag 0x80 means the camera goes through the face; THUG2's 0x80 means the camera collides with it.
+FACE_CAMERA = 0x0080
+# The face flags kept (the ones THUG2's own levels use: wall ride, vert, non-collidable, decal, trigger, camera,
+# shadow, no-shadow wall, invisible). THPS4 sets 0x2000 on every face and 0x4000 / 0x8000 (render passes) on some -
+# none of them in THUG2's collision files.
+FACE_KEEP = 0x15FC
+
+
+def face_flags(flags):
+    return (flags ^ FACE_CAMERA) & FACE_KEEP

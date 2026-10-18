@@ -44,11 +44,14 @@ FACE_UNDER_OK = 0x0800
 FACE_INVISIBLE = 0x1000
 
 
-def read_col(data, name="col"):
+def read_col(data, name="col", versions=(VERSION,)):
+    # versions: (9,) reads THUG1's collision, which is version 10 without the reaches: no byte array after the large
+    # faces, the small faces' 4th byte 0 (padding), the objects' reach scale 0.
     r = Reader(data, name=name)
     version, count, total_verts, large_faces, small_faces, large_verts, small_verts, pad = r.read("8i")
-    if version != VERSION:
-        raise FormatError("%s: collision version %d, not %d" % (name, version, VERSION))
+    if version not in versions:
+        raise FormatError("%s: collision version %d, not %s" % (name, version, " / ".join(map(str, versions))))
+    has_reaches = version >= 10
     objects = []
     for _ in range(count):
         o = {}
@@ -64,7 +67,7 @@ def read_col(data, name="col"):
     face_base = (intensity_base + total_verts + 3) & ~3
     face_size = large_faces * 10 + small_faces * 8
     face_bytes_base = face_base + face_size
-    node_size_at = (face_bytes_base + large_faces + 3) & ~3
+    node_size_at = (face_bytes_base + (large_faces if has_reaches else 0) + 3) & ~3
     r.offset = node_size_at
     node_size = r.u32()
     node_base = r.offset
@@ -91,12 +94,14 @@ def read_col(data, name="col"):
         o["faces"] = faces
         if o["small_faces"]:
             o["reach"] = bytes(reaches)
+        elif not has_reaches:
+            o["reach"] = bytes(nfaces)
         else:
             o["reach"] = data[face_bytes_at:face_bytes_at + nfaces]
             face_bytes_at += nfaces
         o["bsp"] = read_tree(data, node_base, bsp_off, index_base, name)
         o["_bsp_off"] = bsp_off
-    col = {"objects": objects, "pad": pad}
+    col = {"objects": objects, "pad": pad, "version": version}
     # (the nodes are read per object from its root; any not reached are a format surprise)
     col["_node_size"] = node_size
     col["_index_count"] = (len(data) - index_base) // 2
