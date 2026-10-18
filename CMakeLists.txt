@@ -79,6 +79,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_gapsB.cpp
     src/hook/selftests_qb.cpp
     src/hook/selftests_gapsA.cpp
+    src/hook/selftests_mvb.cpp
     src/hook/selftests_csD.cpp
     src/hook/selftests_cobj.cpp
     src/hook/selftests_coim.cpp
