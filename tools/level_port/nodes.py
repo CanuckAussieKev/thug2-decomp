@@ -51,20 +51,50 @@ KILL_VALUES = {"nodename", "node", "message1", "message2", "message3", "message4
 KILL_FLAGS = {"bail", "nomessage"}
 
 
+def kill_args(line, restarts, names):
+    # The parameters of a kill call (a statement's tokens after the called name) that THUG2's SK3_KillSkater takes,
+    # as {key: NeverScript text}: nodename (node= too) only when it names a restart, messages, colour, Bail /
+    # NoMessage.
+    args = {}
+    i = 1
+    while i < len(line):
+        t, payload = line[i]
+        if t == 0x16:
+            key_text = names.get(int.from_bytes(payload, "little"), "").lower()
+            if i + 2 < len(line) and line[i + 1][0] == 0x07:
+                vt, vp = line[i + 2]
+                if key_text in ("nodename", "node") and vt == 0x16:
+                    node = int.from_bytes(vp, "little")
+                    if node in restarts:
+                        args["nodename"] = "nodename=%s" % qb.name_text(node, names)
+                elif key_text in KILL_VALUES and vt == 0x1B:
+                    args[key_text] = '%s="%s"' % (key_text, vp.rstrip(b"\0").decode("latin-1")
+                                                  .replace("\\", "\\\\").replace('"', '\\"'))
+                elif key_text in KILL_VALUES and vt == 0x17:
+                    args[key_text] = "%s=%d" % (key_text, int.from_bytes(vp, "little", signed=True))
+                i += 3
+                continue
+            if key_text in KILL_FLAGS:
+                args[key_text] = {"bail": "Bail", "nomessage": "NoMessage"}[key_text]
+        i += 1
+    return args
+
+
 def kill_commands(script_qbs, restarts, names):
     # THUG1's trigger scripts that kill the skater: TriggerScript -> the THUG2 command line that does the same. A
     # script counts when one of its statements calls something with "killskater" in its name (SK3_Killskater,
     # Sk3_Killskater_Water, the levels' own RU_KillSkater / HI_KillSkater_LittleDogs) or a level script that does
-    # (NY_KillWater: goal checks around Sk3_Killskater_Water): it becomes THUG2's SK3_KillSkater (_Water when the
-    # name says water, or the level script's call does) with the call's parameters that THUG2's takes - nodename
-    # (node= too) only when it names a restart (restarts: their checksums).
+    # (NY_KillWater, HI_Pool_Water: goal checks around Sk3_Killskater_Water): it becomes THUG2's SK3_KillSkater
+    # (_Water when the name says water, or the level script's call does) with the call's parameters that THUG2's
+    # takes (kill_args); a level script's own kill call gives the ones the trigger script's call doesn't
+    # (HI_Pool_Water's nodename=TRG_Restart_Boardwalk).
     wrappers = {}
     for q in script_qbs:
         for script in q.scripts:
-            for called, _ in q.calls(script):
+            for called, line in q.calls(script):
                 text = names.get(called, "").lower()
-                if "killskater" in text:
-                    wrappers[script] = wrappers.get(script, False) or "water" in text
+                if "killskater" in text and script not in wrappers:
+                    wrappers[script] = ("water" in text, kill_args(line, restarts, names))
     found = {}
     for q in script_qbs:
         for script in q.scripts:
@@ -74,32 +104,12 @@ def kill_commands(script_qbs, restarts, names):
                 text = names.get(called, "").lower()
                 if "killskater" not in text and called not in wrappers:
                     continue
-                water = "water" in text or wrappers.get(called, False)
-                args = []
-                i = 1
-                while i < len(line):
-                    t, payload = line[i]
-                    if t == 0x16:
-                        key = int.from_bytes(payload, "little")
-                        key_text = names.get(key, "").lower()
-                        if i + 2 < len(line) and line[i + 1][0] == 0x07:
-                            vt, vp = line[i + 2]
-                            if key_text in ("nodename", "node") and vt == 0x16:
-                                node = int.from_bytes(vp, "little")
-                                if node in restarts:
-                                    args.append("nodename=%s" % qb.name_text(node, names))
-                            elif key_text in KILL_VALUES and vt == 0x1B:
-                                args.append('%s="%s"' % (key_text, vp.rstrip(b"\0").decode("latin-1")
-                                                         .replace("\\", "\\\\").replace('"', '\\"')))
-                            elif key_text in KILL_VALUES and vt == 0x17:
-                                args.append("%s=%d" % (key_text, int.from_bytes(vp, "little", signed=True)))
-                            i += 3
-                            continue
-                        if key_text in KILL_FLAGS:
-                            args.append({"bail": "Bail", "nomessage": "NoMessage"}[key_text])
-                    i += 1
+                water, args = wrappers.get(called, (False, {}))
+                water = water or "water" in text
+                args = dict(args)
+                args.update(kill_args(line, restarts, names))
                 command = "SK3_KillSkater_Water" if water else "SK3_KillSkater"
-                found[script] = " ".join([command] + args)
+                found[script] = " ".join([command] + list(args.values()))
                 break
     return found
 
