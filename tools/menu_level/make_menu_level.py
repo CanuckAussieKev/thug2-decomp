@@ -10,7 +10,9 @@
 #                              node array; level number LevelNum_Default, as the game's test levels).
 #   levels\skateshop\skateshop.qb  the shop's node array (skateshop_NodeArray) without the front end's parts: the
 #                              shadow skater's trigger script and the menus' 3D backgrounds.
-#   scripts\game\menu\gamemenu_levelselect.qb  the level select with a SKATE SHOP sign.
+#   scripts\game\menu\gamemenu_levelselect.qb  the level select with a SKATE SHOP sign, in sections per game (THUG2,
+#                              THPS4...) with stars and signs for our levels (level_select.py); scripts\game\menu\
+#                              sprites.qb and images\LevelSelectSprites\sign_*.img.xbx for those signs.
 #   scripts\game\menu\gamemenu_pause.qb  the pause menu with LEVEL EDITOR (src/game/front/level_editor.h) and its
 #                              scripts level_editor_enter / level_editor_exit.
 #   menu_level\scripts\game\Levels.qb  as above, and level_Mainmenu pointing at LA's scene, sky and collision, the
@@ -22,7 +24,7 @@
 #   menu_level\levels\mainmenu\mainmenu_cas.qb  Create-A-Skater's camera angle turned into LA.
 #   levels\thps4_*\            the THPS4 levels converted by tools/thps4_levels/thps4_levels.py, when it has made
 #                              <game>\thug2-decomp-thps4: copied in, their level structures added to both Levels.qb
-#                              and their signs to the level select after SKATE SHOP.
+#                              and their signs to the level select's THPS4 section.
 # Nothing of the game is stored in the repo: the files are made from the game folder each time.
 #
 # The move is one turn about the up axis plus a shift: it takes the main menu camera's place in the shop
@@ -44,6 +46,8 @@ import zlib
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(REPO, "tools", "thps4_levels"))
 import thps4_levels  # noqa: E402 (the converted THPS4 levels: added when <game>\thug2-decomp-thps4 exists)
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import level_select  # noqa: E402 (the level select's sections, stars and signs)
 
 # The main menu camera in the skate shop (menu_backdrop debug log, the camera steady: "placed for camera FCC018D3 at
 # (59.833, -12.740, 181.704), field of view 45"): the skater at TRG_Playerrestart (84.833, -63.740, 61.704) +
@@ -710,7 +714,15 @@ def main():
             print("THPS4 levels: %d added to the level select; copied %s" % (len(thps4["levels"]), ", ".join(installed)))
         write(levels_with_shop, r"scripts\game\Levels.qb")
         write(skateshop_nodes(shop), r"levels\skateshop\skateshop.qb")
-        write(add_skateshop_sign(select, thps4), r"scripts\game\menu\gamemenu_levelselect.qb")
+        # The level select in sections, one per game, with stars and signs for our levels (level_select.py).
+        section_list = level_select.sections(thps4=thps4)
+        write(level_select.edit_level_select(add_skateshop_sign(select), section_list),
+              r"scripts\game\menu\gamemenu_levelselect.qb")
+        sprites = decompile(prx_file(qb_scripts, r"scripts\game\menu\sprites.qb"), "sprites.qb")
+        write(level_select.edit_sprites(sprites, section_list), r"scripts\game\menu\sprites.qb")
+        frame = prx_file(os.path.join(pre, "Levelselect.prx"), level_select.level_select_icons.FRAME_SOURCE)
+        print("level select signs: %s" % ", ".join(level_select.write_signs(frame, section_list, out)))
+        print(level_select.describe(section_list))
         testlevel = decompile(prx_file(os.path.join(pre, "TestLevel_scripts.prx"), r"levels\testlevel\testlevel.qb"),
                               "TestLevel.qb")
         write(testlevel_nodes(testlevel), r"levels\TestLevel\TestLevel.qb")
