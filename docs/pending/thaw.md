@@ -73,3 +73,8 @@ Agent "thaw". How to run it: tools/thaw_levels/README.md.
   LevelGeometry nodes marked TrickObject / with a Cluster whose sector the scene doesn't have. The THPS3 guard moved
   to `level_port/nodes.strip_missing_trick_objects` and the THAW convert runs it after the scene is written: all 15
   levels had some (2 to 89 nodes each). Installed; NOT confirmed in the game yet.
+- (lead) Santa Monica crashed in the loading screen (0x004DD754): THUG2 builds a ps.1.1 pixel shader per material from
+  its passes' blend modes (0x004DD2C0) and doesn't check that D3DX assembled it. Modes 12/13 mix by the previous
+  pass's alpha (r1.a), and a 12/13 pass writes only r1.rgb - so 12/13 after 12/13 reads an unwritten r1.a and the
+  shader doesn't assemble. One material in all the ported levels (Santa Monica 734D2826: 0, 13, 13); the converter
+  leaves the second such pass out. Installed; NOT confirmed in the game yet.

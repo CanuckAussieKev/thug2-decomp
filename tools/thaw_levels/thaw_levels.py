@@ -66,6 +66,10 @@ FACE_KEEP = 0x1FFF
 PASS_KEEP = (thug2_scene.PASS_TEXTURED | thug2_scene.PASS_ENVIRONMENT | thug2_scene.PASS_DECAL |
              thug2_scene.PASS_SMOOTH | thug2_scene.PASS_TRANSPARENT | thug2_scene.PASS_IGNORE_VERTEX_ALPHA)
 BLEND_MODES = 14    # THUG2's blend modes 0..13; THAW's others (rare) become 5 (blend)
+# Blend modes that mix by the previous pass's alpha: THUG2's pixel shader (0x004DD2C0) reads it from r1 after a pass
+# that wrote r1.a - after another of these (which writes only r1.rgb) the ps.1.1 doesn't assemble and the game
+# crashes loading (Santa Monica: one material 0, 13, 13). Such a pass is left out.
+BLEND_BY_PREVIOUS = (12, 13)
 DEFAULT_MIP = (1, 4, -8.0, -8.0)  # as nearly every material of THUG2's own levels
 
 
@@ -129,6 +133,9 @@ def to_thug2_material(m):
                "envmap_tiling": p["env_tiling"], "filtering": p["filtering"], "mip": DEFAULT_MIP}
         if flags & thug2_scene.PASS_UV_WIBBLE:
             out["uv_wibble"] = p["uv_wibble"][:8]
+        if len(passes) >= 2 and out["blend_mode"] in BLEND_BY_PREVIOUS and \
+                passes[-1]["blend_mode"] in BLEND_BY_PREVIOUS:
+            continue
         passes.append(out)
     return {"checksum": m["checksum"], "name_checksum": m["name_checksum"], "passes": passes,
             "alpha_cutoff": m["alpha_cutoff"], "sorted": 0, "draw_order": m["draw_order"], "single_sided": 0,
