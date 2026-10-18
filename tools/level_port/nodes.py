@@ -244,7 +244,22 @@ def load_terrain_ns():
     return "script LoadTerrain {\n%s}" % "".join("    LoadTerrainSounds terrain=TERRAIN_%s \n" % t for t in TERRAINS)
 
 
+def default_rail_terrains(nodes, names):
+    # THUG2 looks a rail node's TerrainType up in its terrain table and reads through a null pointer when the rail has
+    # none (THPS3 Rio: one rail without it crashed the game loading the level): such rails get TERRAIN_METALSMOOTH.
+    key, terrain = checksum("TerrainType"), checksum("TERRAIN_METALSMOOTH")
+    names.setdefault(key, "TerrainType")
+    names.setdefault(terrain, "TERRAIN_METALSMOOTH")
+    count = 0
+    for node in nodes:
+        if class_of(node, names) == "railnode" and node.get("TerrainType") is None:
+            node.entries.append((Name(key), Name(terrain)))
+            count += 1
+    return count
+
+
 def node_array_ns(array_name, nodes, names, kills=None):
+    default_rail_terrains(nodes, names)
     lines = ["%s = [" % array_name]
     for node in nodes:
         lines.append("    " + qb.to_ns(node, names, 1))
