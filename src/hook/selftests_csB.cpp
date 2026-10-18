@@ -45,7 +45,8 @@ using Script::CStruct;
 using Script::CSymbolTableEntry;
 
 constexpr uint32_t kArenaSize = 0x40000;
-alignas(16) uint8_t g_csb_arenas[2][kArenaSize];
+ArenaPair<kArenaSize> g_csb_storage; // (aligned to 64K: see ArenaWordOrHigh)
+uint8_t (*const g_csb_arenas)[kArenaSize] = g_csb_storage.Get();
 
 // --- token streams ----------------------------------------------------------------------------------------------
 
@@ -821,10 +822,7 @@ void TestScriptInterpreter()
         manager->m_scriptHeap = scriptHeap;
         manager->PushContext(heap);
         reinterpret_cast<CExpressionEvaluator*>(0x006F2370)->Init();
-        auto base = reinterpret_cast<uint32_t>(arena);
-        auto relocate = [&](uint32_t word) {
-            return word >= base && word <= base + kArenaSize ? 0xA0000000u + (word - base) : word;
-        };
+        auto relocate = [&](uint32_t word) { return ArenaWord(g_csb_arenas, kArenaSize, word); };
 
         std::vector<OriginalCode*> guards;
         if (original) {
@@ -927,12 +925,8 @@ void TestScriptInterpreter()
             word = relocate(word);
         std::vector<uint32_t> image(kArenaSize / 4);
         std::memcpy(image.data(), arena, kArenaSize);
-        for (uint32_t& word : image) {
-            word = relocate(word);
-            uint32_t high = word >> 16;
-            if (high >= (base >> 16) && high < ((base + kArenaSize) >> 16))
-                word = (word & 0xFFFF) | ((0xA000u + high - (base >> 16)) << 16);
-        }
+        for (uint32_t& word : image) // (the flags word 0x02000001 once fell in the original's arena's range)
+            word = ArenaWordOrHigh(g_csb_arenas, kArenaSize, word);
         trace.insert(trace.end(), image.begin(), image.end());
         GameVariable<void*>(0x007D1800) = nullptr;
         return trace;
