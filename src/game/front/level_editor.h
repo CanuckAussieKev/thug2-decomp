@@ -41,7 +41,8 @@ class CScript;
 //   - Editing: Ctrl+D duplicates; Delete hides scenery (deletes copies of objects); Home puts it back where the level
 //     had it; Ctrl+Z / Ctrl+Y undo / redo (64 steps, this session).
 //   - Adding: B lists the level's scenery and objects; Enter places a copy where the cursor points.
-//   - Saving: Ctrl+S. Leaving: Escape, Enter (the Pause key) or a controller's Start (level_editor_exit).
+//   - Saving: Ctrl+S. Leaving: Escape, Enter (the Pause key) or a controller's Start (level_editor_exit) - Escape
+//     first cancels a drag, closes a panel or drops the selection.
 //
 // thug2-decomp.ini [features] level_editor=1 (default; 0: LevelEditor_Available is false - no menu item - and
 // LevelEditor_Start refuses), debug_editor=1 logs picks, moves and the view.

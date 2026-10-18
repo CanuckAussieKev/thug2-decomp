@@ -381,9 +381,9 @@ void HandleEvent(SDL_Event* event)
         g_mouse.wheel += event->wheel.direction == SDL_MOUSEWHEEL_FLIPPED ? -event->wheel.y : event->wheel.y;
         break;
     case SDL_KEYDOWN:
-        // Escape: first what's open (a drag put back, the browser, the help), then leave.
+        // Escape: first what's open (a drag put back, the browser, the help), then the selection, then leave.
         if (event->key.keysym.scancode == SDL_SCANCODE_ESCAPE && !event->key.repeat) {
-            if (g_dragging || g_browser.open || g_help)
+            if (g_dragging || g_browser.open || g_help || !g_objects.empty() || Scenery::HasSelection())
                 g_cancelRequested = true;
             else
                 g_exitRequested = true;
@@ -977,9 +977,9 @@ bool PassKey(bool* released, bool down)
 
 bool PassPauseKey(bool down)
 {
-    // (while dragging, browsing or reading the help the key closes that instead - HandleEvent - and counts again
+    // (while dragging, browsing, reading the help or with something selected the key closes / deselects that instead - HandleEvent - and counts again
     // only once it has been up)
-    if (g_dragging || g_cancelRequested || g_browser.open || g_help) {
+    if (g_dragging || g_cancelRequested || g_browser.open || g_help || HaveSelection()) {
         g_pauseKeyReleased = false;
         return false;
     }
@@ -1237,7 +1237,7 @@ void UpdateHud()
     } else if (HaveSelection()) {
         Hud::SetLine(5, Key("Drag") + " move  " + Key("Arrows") + " one axis  " + Key("WASDQE") + " nudge  " + Key("ZX") +
                             " turn  " + Key("G") + " drop");
-        Hud::SetLine(6, Key("Ctrl+D") + " copy  " + Key("Del") + " hide  " + Key("Home") + " reset  " + Key("Bksp") +
+        Hud::SetLine(6, Key("Ctrl+D") + " copy  " + Key("Del") + " hide  " + Key("Home") + " reset  " + Key("Esc") +
                             " deselect  " + Key("F1") + " help");
     } else {
         Hud::SetLine(5, Key("WASD") + " fly  " + Key("QE") + " down / up  " + Key("Shift") + " fast  " + Key("RMB") +
@@ -1256,7 +1256,7 @@ void ShowHelp()
         "             wheel forward / back   - / = flying speed",
         "Selecting    click an object or scenery (a piece of scenery takes its group)",
         "             Shift+click adds / removes   Alt+click (middle click) one piece",
-        "             Backspace deselects",
+        "             Esc or Backspace deselects",
         "Moving       hold and drag (Shift: up / down, wheel: push / pull, Ctrl: snap)",
         "             drag an arrow to move along that axis only",
         "             W A S D / Q E nudge   Z / X turn   G drops it to the ground",
@@ -1264,7 +1264,7 @@ void ShowHelp()
         "             Ctrl+Z undo   Ctrl+Y redo",
         "Adding       B lists the level's pieces and objects: Enter places a copy",
         "Saving       Ctrl+S saves this level's layout - it comes back with the level",
-        "Leaving      Esc (first it cancels a drag or closes a panel)",
+        "Leaving      Esc (first it cancels a drag, closes a panel or deselects)",
     };
     Hud::ShowPanel(lines, 96.0f, 104.0f, 448.0f);
 }
@@ -1571,7 +1571,7 @@ void Update()
     if (!HaveSelection())
         g_dragging = false;
 
-    // Escape: a drag put back, else the browser or the help closed.
+    // Escape: a drag put back, else the browser or the help closed, else the selection dropped.
     if (g_cancelRequested) {
         g_cancelRequested = false;
         if (g_dragging) {
@@ -1588,6 +1588,8 @@ void Update()
         } else if (g_help) {
             g_help = false;
             Hud::HidePanel();
+        } else if (HaveSelection()) {
+            Deselect();
         }
     }
 
