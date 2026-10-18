@@ -28,9 +28,12 @@ import nodes  # noqa: E402
 import ported_levels  # noqa: E402
 import prx  # noqa: E402
 import qb  # noqa: E402
+import script_port  # noqa: E402
 import tex  # noqa: E402
 import thug1  # noqa: E402
+import thug1_port  # noqa: E402
 import thug2_col  # noqa: E402
+import thug2_scene  # noqa: E402
 from binio import FormatError  # noqa: E402
 
 STAGING = "thug2-decomp-thug1"
@@ -114,6 +117,14 @@ def level_structs(args):
     return found
 
 
+def scene_sectors(files, code):
+    # The checksums of the sectors the converted scene has (geometry.convert_scene leaves the skinned ones out).
+    base = "levels\\%s\\%s" % (code.lower(), code.lower())
+    scene1 = thug1.read_scene(files[base + ".scn.xbx"], base + ".scn.xbx")
+    return {s["checksum"] for s in scene1["sectors"]
+            if not (s["flags"] & thug2_scene.SEC_WEIGHTS or s["bone"] != -1)}
+
+
 def convert_geometry(files, code, out_dir, out_name, report, keep_triggers=None):
     # The scene, textures and (for a level, not a sky) collision of levels\<code>\<code>.*.
     base = "levels\\%s\\%s" % (code.lower(), code.lower())
@@ -134,9 +145,14 @@ def convert_geometry(files, code, out_dir, out_name, report, keep_triggers=None)
     common.report_level(report, out_name, scene, textures, col, warnings, converted)
 
 
-def convert_level_nodes(files, code, name, ns, out_dir, report):
-    # The node array: kept nodes and kill zones (THUG2's SK3_KillSkater) as <name>.qb. Returns the checksums of the
-    # nodes whose collision keeps its trigger faces.
+def convert_level_nodes(files, code, name, ns, out_dir, report, port=None, struct=None, sectors=None):
+    # sectors: the converted scene's sector checksums (scene_sectors).
+    if sectors is None:
+        sectors = scene_sectors(files, code)
+    # The node array: kept nodes and kill zones (THUG2's SK3_KillSkater) as <name>.qb; with a port
+    # (thug1_port.Thug1Port) also the level's peds, vehicles, objects, particles and its scripts (thug1_port.py).
+    # Returns the checksums of the nodes whose collision keeps its trigger faces, and the level structure's
+    # startup_script / setup_script kept ({key: name}).
     base = "levels\\%s\\%s" % (code.lower(), code.lower())
     if base + ".qb" not in files:
         raise FormatError("%s: no %s.qb" % (code, base))
@@ -154,14 +170,53 @@ def convert_level_nodes(files, code, name, ns, out_dir, report):
     restarts = {n.get("Name").value for n in array if isinstance(n, qb.Struct) and isinstance(n.get("Name"), qb.Name)
                 and nodes.class_of(n, names) == "restart"}
     kills = nodes.kill_commands(script_qbs, restarts, names)
-    converted, stats = nodes.convert_nodes(array, names, kills, extra_keys=("pos",))
+    made, scripts, extra, starts, script_report = None, {}, "", {}, ""
+    kept, wanted = array, set()
+    level_sources = []
+    if port is not None:
+        level_sources = [script_port.Source(files[base + suffix], thug1_port.LEVEL, weights=True)
+                         for suffix in (".qb", "_scripts.qb", "_sfx.qb") if base + suffix in files]
+        for s in list(port.shared) + level_sources:
+            for value, text in s.names.items():
+                names.setdefault(value, text)
+        duplicates = thug1_port.resolve_duplicate_triggers(array, script_qbs, names)
+        made = thug1_port.NodePass(port, array, names, sectors)
+        if duplicates:
+            made.counts["DuplicateTrigger nodes given their link's script"] = duplicates
+        kept = made.kept
+        wanted = {n.get("TriggerScript").value for n in kept if isinstance(n, qb.Struct)
+                  and isinstance(n.get("TriggerScript"), qb.Name) and n.get("TriggerScript").value not in kills}
+    converted, stats = nodes.convert_nodes(kept, names, kills, extra_keys=("pos",),
+                                           as_is=made.as_is if made else (), scripts=wanted)
     kills = nodes.add_kill_restarts(converted, kills, names)
     triggers = nodes.kill_trigger_names(converted, kills)
-    text = nodes.node_array_ns(name + "_NodeArray", converted, names, kills)
+    if port is not None:
+        scripts, globals_text, starts, script_report, _ = thug1_port.port_scripts(
+            port, level_sources, converted, array, kills, names, struct, sectors)
+        # (the sectors whose trigger script runs keep their trigger faces)
+        triggers |= {n.get("Name").value for n in converted if isinstance(n.get("TriggerScript"), qb.Name)
+                     and isinstance(n.get("Name"), qb.Name) and nodes.class_of(n, names) == "levelgeometry"}
+        anims = [qb.name_text(c, names) for c, _ in q.calls(qb.checksum("load_level_anims"))
+                 if c in port.thug2.scripts]
+        extra = globals_text + thug1_port.level_scripts_ns(made, anims, set(scripts) | port.thug2.scripts)
+    includes = ""
+    if port is not None:
+        converted, includes = thug1_port.compress_includes(converted, names, name, sectors)
+    text = includes + nodes.node_array_ns(name + "_NodeArray", converted, names, kills) + extra
+    # (a LevelGeometry TrickObject / Cluster whose sector the scene hasn't crashes ParseNodeArray)
+    text, cleared = nodes.strip_missing_trick_objects(text, sectors)
     os.makedirs(out_dir, exist_ok=True)
-    common.ns_compile(ns, text, os.path.join(out_dir, name + ".qb"))
-    report.append("  nodes: %d of %d kept %s; %d kill zones" % (len(converted), len(array), stats, len(triggers)))
-    return triggers
+    path = os.path.join(out_dir, name + ".qb")
+    common.ns_compile(ns, text, path)
+    if scripts:
+        data = script_port.append_scripts(open(path, "rb").read(), scripts, names)
+        open(path, "wb").write(data)
+    report.append("  nodes: %d of %d kept %s; %d kill zones; TrickObject taken off %d geometry nodes without a sector"
+                  % (len(converted), len(array), stats, len(triggers), cleared))
+    if made is not None:
+        report.append("  made: %s" % ", ".join("%s %d" % kv for kv in sorted(made.counts.items())))
+        report.append("  " + script_report)
+    return triggers, starts
 
 
 def cmd_convert(args):
@@ -171,6 +226,8 @@ def cmd_convert(args):
     if not pre_path(args, "qb.pre"):
         sys.exit("%s: THUG1's Data\\pre not found" % args.thug1)
     structs = level_structs(args)
+    # (--static: only the geometry's nodes, restarts, rails and kill zones, as before the scripts were brought)
+    port = None if args.static else thug1_port.Thug1Port(args.thug2, pre_path(args, "qb.pre"))
     wanted = args.levels or [code for code, _, _, _, _, default in LEVELS if default]
     if os.path.isdir(out):
         shutil.rmtree(out)
@@ -188,7 +245,7 @@ def cmd_convert(args):
         name = "thug1_" + code.lower()
         level_dir = os.path.join(out, "levels", name)
         node_report = []
-        triggers = convert_level_nodes(files, code, name, args.ns, level_dir, node_report)
+        triggers, starts = convert_level_nodes(files, code, name, args.ns, level_dir, node_report, port, struct)
         convert_geometry(files, code, level_dir, name, report, keep_triggers=lambda checksum: checksum in triggers)
         report += node_report
 
@@ -214,6 +271,7 @@ def cmd_convert(args):
             else 6,
             "lighting": common.lighting(struct) if struct else {},
         }
+        entry.update(starts)   # (startup_script / setup_script: THUG1's own, brought along)
         manifest["levels"].append(entry)
     ported_levels.write_manifest(os.path.join(out, ported_levels.MANIFEST), manifest)
     print("\n".join(report))
@@ -272,6 +330,8 @@ def main():
     parser.add_argument("--thug1", default=r"C:\Games\THUG1")
     parser.add_argument("--out", help="where convert writes (default: <thug2>\\%s)" % STAGING)
     parser.add_argument("--ns", default=common.NS)
+    parser.add_argument("--static", action="store_true",
+                        help="convert: no scripts, peds, vehicles or objects (only geometry, rails, restarts, kills)")
     parser.add_argument("--extra", nargs="*", default=[], help="selfcheck: more THUG2 archives (Data\\pre\\*.prx)")
     args = parser.parse_args()
     if args.command == "selfcheck":
