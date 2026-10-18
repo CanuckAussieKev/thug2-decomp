@@ -1,8 +1,8 @@
 # Decompilation progress
 
-Generated 2026-10-18 by `tools/progress_report.py` - regenerate after each batch.
+Generated 2026-10-19 by `tools/progress_report.py` - regenerate after each batch.
 
-**Game code: ███░░░░░░░░░░░░░░░░░ 16.2%** of the code rewritten (1,688 of 8,382 functions, 261.3 KB of 1,617.8 KB).
+**Game code: ███░░░░░░░░░░░░░░░░░ 18.5%** of the code rewritten (1,825 of 8,382 functions, 299.4 KB of 1,617.8 KB).
 
 Progress is by code size: function counts make a 10-byte helper look like as much work as a 2 KB routine. Subsystem boundaries come from the exe map (`docs/subsystems.md`) and are approximate (give or take a few functions); totals are exact.
 
@@ -26,7 +26,7 @@ Progress is by code size: function counts make a 10-byte helper look like as muc
 | Online & network game modes (CTF, servers, lobby, buddies, NAT negotiation) | `0x533f20`-`0x54ef60` | ░░░░░░░░░░░░░░░░░░░░ 3% | 12 / 457 | 3.0 KB / 91.9 KB |
 | Menu input mapping | `0x54ef60`-`0x550040` | ████████████████████ 100% | 20 / 20 | 4.0 KB / 4.0 KB |
 | Goals & career (GoalManager, create-a-trick, trick objects, level launching) | `0x550040`-`0x56c920` | ░░░░░░░░░░░░░░░░░░░░ 0% | 0 / 666 | 0.0 KB / 103.8 KB |
-| Time-of-day manager & world state | `0x56c920`-`0x577300` | ░░░░░░░░░░░░░░░░░░░░ 0% | 0 / 137 | 0.0 KB / 38.1 KB |
+| Time-of-day manager & world state | `0x56c920`-`0x577300` | ████████████████████ 100% | 137 / 137 | 38.1 KB / 38.1 KB |
 | Viewer / gaps / records / career save info | `0x577300`-`0x588180` | ░░░░░░░░░░░░░░░░░░░░ 0% | 0 / 304 | 0.0 KB / 60.7 KB |
 | Park editor & graffiti | `0x588180`-`0x595030` | ░░░░░░░░░░░░░░░░░░░░ 0% | 1 / 289 | 0.1 KB / 47.3 KB |
 | Park editor (Create-A-Park) & skate script commands | `0x595030`-`0x59f610` | ████████████████████ 100% | 169 / 169 | 40.1 KB / 40.1 KB |
