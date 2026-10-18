@@ -91,6 +91,19 @@ def read(path):
 
 # --- materials and textures ----------------------------------------------------------------------------------------
 
+def drawn_sectors(world):
+    # The atomic sectors the scene will have a sector for (scene_sectors: at least one triangle of a material that
+    # isn't invisible) - the others are collision-only.
+    out = set()
+    for sec in world["sectors"]:
+        for material, _, _, _ in sec["triangles"]:
+            m = world["materials"][material + sec["material_base"]]
+            if not (m["ns"] and m["ns"]["flags"] & thps3.MAT_INVISIBLE):
+                out.add(sec["checksum"])
+                break
+    return out
+
+
 def without_missing_trick_objects(text, scene_path):
     # (nodes.strip_missing_trick_objects with the converted scene's sectors: THPS3 Airport crashed loading)
     sectors = {s["checksum"] for s in thug2_scene.read_scene(open(scene_path, "rb").read())["sectors"]}
@@ -569,6 +582,7 @@ class Port:
         self.clumps = set()
         self.moving = set()
         self.vehicles = {}   # node name -> model name (the level's vehicles made LevelObjects of their models)
+        self.drawn = set()   # the level's atomic sectors with a scene sector (drawn_sectors)
         self.copies = {}     # node name -> clump checksum (game objects drawn with another clump of the level: model=)
         self._models = {}
         self.assets = peds_cars.Thug2Assets(thug2.root)
@@ -709,8 +723,12 @@ class PortedNodes:
                 (None, _key(n, "NeverSuspend")), (_key(n, "model"), "none"), (_key(n, "lod_dist1"), 400),
                 (_key(n, "lod_dist2"), 401)] + tail, node, script_port.OBJECT)
         if cls == "vehicle":
-            # THPS3's vehicles (cars, Tokyo's bullet trains and planes, Cruise Ship's boats) are path followers moved
-            # by their scripts (Obj_FollowPathLinked...): LevelObjects of their models' geometry.
+            # THPS3's traffic (a trigger script calling Car_Generic01, as THUG2's): THUG2's own cars on the same
+            # waypoints (car).
+            if self.calls_car_generic(node):
+                return self.car(node)
+            # THPS3's other vehicles (Tokyo's bullet trains and planes, Cruise Ship's boats, the snowmobiles) are path
+            # followers moved by their scripts (Obj_FollowPathLinked...): LevelObjects of their models' geometry.
             model = node.get("model")
             if not (isinstance(model, str) and self.port is not None and self.port.model(model)):
                 return self._left_out("vehicles without a rigid model left out")
@@ -783,6 +801,43 @@ class PortedNodes:
         self.ids.add(id(s))
         return s
 
+    def calls_car_generic(self, node):
+        # Whether the node's trigger script calls Car_Generic01 (THPS3's traffic script; THUG2 has its own of the name,
+        # for its Vehicle objects - run by a LevelObject it crashes: no vehicle components).
+        script = node.get("TriggerScript")
+        if not isinstance(script, qb.Name) or self.port is None:
+            return False
+        car = qb.checksum("Car_Generic01")
+        for source in [self.port.level] + list(self.port.sources):
+            body = source.scripts.get(script.value)
+            if body is not None:
+                return any(t.t == 0x16 and t.name() == car for t in body)
+        return False
+
+    def car(self, node):
+        # A THPS3 car as THUG2's level cars (THUG2's LA: Class=Vehicle, a THUG2 car model, skeletonName=car, running
+        # THUG2's Car_Generic01 along the linked waypoints) - a THUG2 model like THPS3's (THUG2 can't draw THPS3's
+        # models as a vehicle: skeleton). Only the ones there at the start: THPS3's spare cars (not CreatedAtStart)
+        # are made by its car scripts, not brought along.
+        n = self.names
+        links = self._links_to_waypoints(node)
+        if not node.has_flag("CreatedAtStart") or not links:
+            return self._left_out("cars not there at the start left out")
+        model = node.get("model") if isinstance(node.get("model"), str) else ""
+        text = model.lower()
+        name = n.get(node.get("Name").value, "")
+        choices = next((c for parts, c in CAR_MODELS if any(p in text for p in parts)), CAR_MODELS[-1][1])
+        assets = self.port.assets
+        choices = [c for c in choices if assets.model_exists(c)] or [peds_cars.FALLBACK_CAR]
+        chosen = choices[qb.checksum(name) % len(choices)]
+        self._count("cars (THUG2's)")
+        s = qb.Struct(self._base(node, "Vehicle") + [(_key(n, "Type"), _key(n, "Car"))] + self._flags(node) + [
+            (_key(n, "model"), chosen), (_key(n, "skeletonName"), _key(n, "car")),
+            (_key(n, "SuspendDistance"), 10000), (_key(n, "lod_dist1"), 400), (_key(n, "lod_dist2"), 401),
+            (_key(n, "TriggerScript"), _key(n, CAR_BUS if "bus" in text else CAR)), (_key(n, "Links"), links)])
+        self.ids.add(id(s))
+        return s
+
     def animating(self, node):
         # THPS3's AnimatingObjects (skinned, animated by its own scripts): the crowds as THUG2's standing peds (a mix
         # of men and women, watching), the resting birds as THUG2's pigeons / seagulls (flying off when the skater
@@ -840,6 +895,18 @@ class PortedNodes:
 PED_WALK, PED_STAND = "thps3_ped_walk", "thps3_ped_stand"
 PED_SCRIPTS = "script %s {\n    Ped_InitAI \n}\nscript %s {\n    Ped_InitAI stand \n}\n" % (PED_WALK, PED_STAND)
 FEMALE = "random_female_profile"
+# THPS3's cars as THUG2's (the models THUG2's own levels drive with Car_Generic01): (parts of THPS3's model name, THUG2
+# models - one picked by the car's name), the last the default. Their trigger scripts: THUG2's Car_Generic01, silent
+# (THPS3's car sounds aren't converted).
+CAR_MODELS = [
+    (("police",), ["veh\\veh_cop\\veh_cop.mdl"]),
+    (("van", "microbus", "icecream", "bus"), ["veh\\veh_van\\veh_van.mdl"]),
+    (("pickup",), ["veh\\veh_rust\\veh_rust.mdl", "veh\\veh_van\\veh_van.mdl"]),
+    ((), ["veh\\veh_sedan\\veh_sedan.mdl", "veh\\veh_galaxie\\veh_galaxie.mdl",
+          "veh\\veh_chevy_impala\\veh_chevy_impala.mdl", "veh\\veh_custom\\veh_custom.mdl"]),
+]
+CAR, CAR_BUS = "thps3_car", "thps3_car_bus"
+CAR_SCRIPTS = "script %s {\n    Car_Generic01 NoSound \n}\nscript %s {\n    Car_Generic01 NoSound Bus \n}\n" % (CAR, CAR_BUS)
 # THPS3's goal models (career pickups): left out.
 GOAL_MODELS = ("letter_", "stat_point", "deck_icon", "secret_tape")
 
@@ -917,7 +984,7 @@ script %(b)s_out {
 """ % {"b": base, "r": inner, "o": inner + 2.0, "s": script}, base
 
 
-def port_scripts(q, port, converted, array, kills, names, level, base, player1, made):
+def port_scripts(q, port, converted, array, kills, names, level, base, player1, made, undrawn=()):
     # The level's scripts brought along (tools/level_port/script_port.py) from its nodes' trigger scripts - the
     # sectors' and rails' (run by the skater), the made objects' (run by them) - and its start scripts: the scripts
     # THPS3's Load_<base> calls (Foun_Startup...) and the Player1 restart's trigger script (THPS3 runs it when the
@@ -930,9 +997,9 @@ def port_scripts(q, port, converted, array, kills, names, level, base, player1, 
     all_names = {n.get("Name").value for n in array if isinstance(n, qb.Struct) and isinstance(n.get("Name"), qb.Name)}
     node_names = {n.get("Name").value for n in converted if isinstance(n.get("Name"), qb.Name)}
     # (the kill scripts and LoadTerrain are the node array text's own - nodes.node_array_ns)
-    provided = set(kills) | {qb.checksum(s) for s in ("LoadTerrain", PED_WALK, PED_STAND, ANIMAL_BIRD, ANIMAL_SHARK)}
+    provided = set(kills) | {qb.checksum(s) for s in ("LoadTerrain", PED_WALK, PED_STAND, ANIMAL_BIRD, ANIMAL_SHARK, CAR, CAR_BUS)}
     tr = script_port.Translator(sources, port.thug2, lambda label: label in allowed, node_names, all_names, names,
-                                provided=provided, inherit_params=True)
+                                provided=provided, inherit_params=True, undrawn=undrawn)
     roots = []
     for node in converted:
         script = node.get("TriggerScript")
@@ -1086,8 +1153,14 @@ def convert_node_array(q, global_qbs, name, base, start_scripts, port=None):
     scripts, setup, globals_text, script_report = {}, None, "", ""
     if port is not None:
         port.moving = made.moving
+        # the geometry nodes the scene has no sector for (collision-only, or left out): their Visible / Kill...
+        # crash THUG2 (script_port Translator.without_undrawn)
+        undrawn = {n.get("Name").value for n in array if isinstance(n, qb.Struct) and
+                   isinstance(n.get("Class"), qb.Name) and n.get("Class").value == environment and
+                   isinstance(n.get("Name"), qb.Name) and (n.get("Name").value not in port.drawn or
+                                                          n.get("Name").value in hidden)}
         scripts, setup, globals_text, script_report = port_scripts(q, port, converted, array, kills, names, name,
-                                                                   base, player1, made)
+                                                                   base, player1, made, undrawn)
     triggers = nodes.kill_trigger_names(converted, kills)
     if port is not None:
         # (the sectors whose trigger script runs keep their trigger faces)
@@ -1095,7 +1168,7 @@ def convert_node_array(q, global_qbs, name, base, start_scripts, port=None):
                      and isinstance(n.get("Name"), qb.Name) and nodes.class_of(n, names) == "levelgeometry"}
     text = nodes.node_array_ns(name + "_NodeArray", converted, names, kills)
     if port is not None:
-        text += globals_text + (setup or "") + PED_SCRIPTS + ANIMAL_SCRIPTS + load_anims_ns(made.animals)
+        text += globals_text + (setup or "") + PED_SCRIPTS + ANIMAL_SCRIPTS + CAR_SCRIPTS + load_anims_ns(made.animals)
     report = "nodes: %d of %d kept %s; %d kill zones, %d sectors not there at the start" % (
         len(converted), len(array), stats, len(triggers), len(hidden) + len(later))
     if script_report:
@@ -1259,7 +1332,9 @@ def cmd_convert(args):
         entry_struct = master.get(qb.checksum("Load_" + base))
         once = entry_struct.get("once_on_startup") if entry_struct else None
         clumps = thps3.read_dff(read(files["dff"]), files["dff"]) if "dff" in files and not args.no_objects else []
+        world = thps3.read_bsp(read(files["bsp"]), files["bsp"])
         if port is not None:
+            port.drawn = drawn_sectors(world)
             port.level = script_port.Source(read(files["qb"]), "level")
             port.clumps = {c["checksum"] for c in clumps}
             port.moving = set()
@@ -1269,7 +1344,6 @@ def cmd_convert(args):
             q, global_qbs, name, base, [once.value] if isinstance(once, qb.Name) else [], port=port)
         qb_path = os.path.join(level_dir, name + ".qb")
         write_level_qb(args.ns, text, qb_path, scripts, port)
-        world = thps3.read_bsp(read(files["bsp"]), files["bsp"])
         tdx = thps3.read_tdx(read(files["tdx"]), files["tdx"])
         objects = None
         # (each vehicle its own copy of its model: a LevelObject draws the sector of its node's name)
