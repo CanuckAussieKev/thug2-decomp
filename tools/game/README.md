@@ -5,6 +5,9 @@ game is only launched when the user allows it, C:\Games\THUG2 is the main instal
 lead), and parallel work uses the workspace copies C:\Games\THUG2-1 ... THUG2-4 (one agent each). Every script takes
 `-Game <folder>` (default C:\Games\THUG2).
 
+- `make_workspace.ps1 -Number <n>` - makes or refreshes C:\Games\THUG2-<n> as a mirror of the main install (1280x720
+  window, allow_multiple_instances=1, debug_collision=0). Refuses while its lock is held or a game runs. Refresh a
+  workspace before giving it to a new agent, so it starts from main.
 - `game_lock.ps1 -Action acquire|release|status -Owner <name> -Game <folder>` - one game per folder. Acquire waits
   (default 8 min; prints BUSY and exits 1 if still held), refuses while a game from that folder runs, and backs up
   the deployed dinput8.dll and thug2-decomp.ini into `<folder>\.game-lock`; release puts them back and never closes a

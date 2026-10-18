@@ -25,13 +25,14 @@ State when the session was handed over (the user changed Claude accounts). Read 
 - Parallel agents: one git worktree + branch each, one workspace game folder each (C:\Games\THUG2-1 ... -4), the rules
   in docs/agent-rules.md (pass the private Morten1337 repository ban on to every agent). The lead merges, builds
   (tools\verify_build.cmd + out\build\verify\thug2_check.exe), folds docs/pending/<name>.md batches into
-  docs/decomp-progress.md with batch numbers (the next is **122**), regenerates PROGRESS.md
+  docs/decomp-progress.md with batch numbers (`python -I tools/fold_pending.py docs/pending/<name>.md <TAG> "<agent>"`;
+  the next is **122**), regenerates PROGRESS.md
   (`python -I tools/progress_report.py`), commits, pushes, then installs main into C:\Games\THUG2 under its lock
   (tools/game: copy the DLL over both the game's and the lock's `.backup` copy; converters + `make_menu_level.py`).
 - Game test scripts: tools/game (README there). User rules: launch only when allowed, never capture the whole screen,
   never close a game you didn't start, hand interactive tests to the user.
-- The workspaces may still hold older branch data (THUG2-1: THUG1, THUG2-2: THAW, THUG2-3 / -4: decomp builds); refresh
-  one with the converters' `--thug2 <folder>` and `make_menu_level.py --game <folder>` before using it.
+- The workspaces may still hold older branch data (THUG2-1: THUG1, THUG2-2: THAW, THUG2-3: a decomp build; THUG2-4 was
+  refreshed from main); refresh one with `tools/game/make_workspace.ps1 -Number <n>` before giving it to an agent.
 - `.claude/worktrees/` holds old agents' worktrees, all merged; they can be removed (`git worktree remove`).
 
 ## Notes not folded into decomp-progress.md
