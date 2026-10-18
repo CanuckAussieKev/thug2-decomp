@@ -3774,6 +3774,354 @@ belong with the CScript batch.
         - Pitfall found: a crash inside an original with its own SEH frame (here Initialize, reading a flag through a
           null symbol table) kills thug2_check outright (the game's frame handler runs first, without its CRT) instead
           of being logged as a SELFTEST CRASH.
+- [x] Batch 107: "Movies (Bink) & streamed audio" (0x44E6B0-0x4544E0) and "Level nodes & composite objects"
+      (0x45BDA0-0x45EFD0) finished by four agents in parallel (worktrees, the shared game lock). The movie range is
+      mostly not movies: the input manager, the game clock, the module manager, the music front end, playlists,
+      streams and the PC's Bink-audio stream platform layer. Merge fixes by the lead: Sfx::sVolume is 0x2C bytes
+      (mv-b had 0x18: a run-time check failure in the game); mv-b's and mv-c's same-named files kept as
+      stream_commands.* / bink_stream_files.cpp; same-named functions told apart (Pcm::PlayTrackByName 0x450820,
+      Pcm::InitPlatform 0x453670, Pcm::PlatformStopMusic 0x453AA0); the nodes test no longer depends on an unset
+      stack value. Also: PlayMovieFile waits and pumps window messages while the device is lost (the original spins
+      forever - hung with another full-screen program up). Tested in the game (merged): LA loads and plays with
+      music, 1719 replacements installed, all 202 early / 17 late / 2 engine-started self-tests pass. The records:
+      ### 0x44E6B0-0x450F70 (mv-a)
+      # mv-a: 0x44E6B0-0x450F70 (the start of "Movies (Bink) & streamed audio")
+
+      The range turned out to hold four things: the input manager (Inp), the game clock, the module manager (Mdl) and
+      the music/streams front end (Pcm) - the movie code itself (0x44F830-0x450220) was already done.
+
+      ## Classes defined here (full layouts)
+      - `Inp::RecordedData`, `Inp::Data`, `Inp::Server`, `Inp::Manager` (src/game/sio/inpman.h) - the constructor and most
+        methods are in this range (0x44E4F0-0x44E660, outside it, stay GameFunction calls: the manager's destructor
+        0x44E530, the server's 0x44E520, the task 0x44E660, the getters/setters 0x44E590-0x44E640).
+        front_end.h's `InputControlData` is the first part of `Inp::Data` (left as it is).
+      - `Mdl::Module`, `Mdl::Manager`, `Mdl::ModuleListDestructors` (src/game/sys/module.h). Mdl::FrontEnd and
+        File::AsyncLoaderModule still spell the module's fields as bytes (left as they are).
+      - `Pcm::FamData` (src/game/pcm/music_api.h). Stream fields used by music_api.cpp are a local struct
+        (`StreamFields`, anonymous namespace) so music.h's `Pcm::Stream` isn't changed.
+
+      ## Batches
+      - [x] mv-a batch 1 (NOT run in the game yet): the input manager and the game clock - 13 functions, all REPLACE.
+        - Inp::Data (0x44E840 MaskDigitalInput, 0x44E860 MaskAnalogInput, 0x44E8C0 ConvertDigitalToAnalog (table at
+          0x67D730), 0x44E900 HandleAnalogTolerance (dead zone 50), 0x44EA30 OverridePadWithStick (the left stick
+          works the d-pad; quirk kept: up's pressure is y + 0x80, growing towards the centre)); Inp::Server (0x44E9E0
+          constructor, 0x44EAA0 ServiceHandlers: playback of a recording, else the device's PS2 control data by pad
+          type 4/5/7, recording, the per-device button words 0x696D48/50/58, the handlers); Inp::Manager (0x44E700
+          constructor; 0x44E7F0 / 0x44E6B0 the singleton).
+        - The game clock (src/game/sys/game_clock): 0x44ECE0 GameClockElapsed (235 callers; the unsigned real time since
+          the last change times the speed, _ftol truncation), 0x44ED10 PauseGameClock, 0x44ED70 SetGameClockSpeed.
+        - Test (selftests_mva.cpp: TestInpManager, TestGameClock): 43 deliberate bugs, 42 caught (4 after splitting the
+          manager's constructor test from the singleton's, whose stand-in had covered our constructor). cre1
+          (`Instance() = nullptr` dropped on the out-of-memory path) is equivalent: only reached when it's null.
+
+      - [x] mv-a batch 2 (run in the game: see below): the module manager (src/game/sys/module) - 17 functions, all REPLACE.
+        Mdl::Module (0x44F7E0 constructor - m_command left unset, as the original; 0x44F790 / 0x44F7B0 destructors),
+        Mdl::Manager (0x44F5E0 constructor: the list head and its task, priority -1000; 0x44F680 destructor;
+        0x44F3C0 RegisterModule (onto the end); 0x44F3E0 UnregisterModule (`this` unused); 0x44F310 StartModule (not
+        when locked); 0x44F530 StopAllModules; 0x44F440 ProcessModules, the task: start / stop / restart by command and
+        state), the singleton 0x44F6F0 / 0x44F740, and the module list's Lst destructors (Node 0x44F360 / 0x44F380,
+        Head 0x44F410, Search 0x44F300 / 0x44F330). singleton.cpp's SingletonPtr instances for this and the input
+        manager now call our Create/Release (selftests_gapsB's table updated to match).
+        Test (selftests_mva2.cpp: TestModules): 25 deliberate bugs, 25 caught.
+      - [x] mv-a batch 3 (run in the game: see below): the music and streams front end (src/game/pcm/music_api) - 22
+        functions, all REPLACE: NoMusicPlease 0x4505F0, StreamsDisabled 0x450620, StreamExists 0x450500,
+        Get/SetCurrentTrack 0x450520 / 0x450530, StopMusic 0x450650, PlayTrack 0x450820 (the user soundtrack's next
+        track), PlayMusicStream 0x450EF0 (its name unused on PC), PreLoadMusicStream 0x4509E0,
+        PreLoadMusicStreamDone 0x450A50, StartPreLoadedMusicStream 0x450A80, StopStreams 0x450690, StopStream 0x4506D0,
+        SetStreamVolume 0x450780, SetStreamPitch 0x4507D0 (a stub on PC), PreLoadStreamDone 0x450940,
+        StartPreLoadedStream 0x450980, RemoveStream 0x450AE0 (pops the stream's queue head), UpdateStreamVolume
+        0x450BE0 (positional streams; quirk kept: the playing check is of stream `slot`, not the one found), Init
+        0x450D60 (quirk kept: only the first two of the three playlists emptied), UsingCD 0x450EB0, FamData::Load
+        0x450540 (fam\<hex>.fam lip-sync data, < 4 KB).
+        Test (selftests_mva3.cpp: TestMusicApi): 400 seeded cases over every function with the whole platform layer
+        stood in (2200 seeded cases; extra ones for PlayTrack's user soundtrack and RemoveStream's queue): 40 deliberate
+        bugs, 39 caught (8 after adding those cases and steering UpdateStreamVolume's owner ids onto streams). Not
+        caught offline: SfxVolume back at 0x18 bytes (the overrun found in the game; the static_assert keeps it).
+
+      ## In-game findings
+      - First in-game run (batches 1-3, before commit): crash in Pcm::UpdateStreamVolume (0x450BE0) in the front end -
+        Sfx::sVolume is 0x2C bytes, not 0x18 (0x0047BE10 also writes a direction at +0x18 and a float at +0x28), so our
+        smaller local was overrun. Fixed (SfxVolume 0x2C). Offline tests couldn't see it (the stand-in for 0x0047BE10
+        doesn't write the volume).
+      - After the fix: intros skipped - starts, front end, a level loads and plays (music track shown), pause menu; log
+        clean (no exceptions, run-time checks or self-test failures).
+      - Intros on (skip_intro_movies=0): the game hangs in the first intro movie, the main thread spinning (1 s CPU per s,
+        not responding). Sampled with SuspendThread/GetThreadContext: it's in Nx::PlayMovieFile's loop
+        `if (DeviceLost()) { ResetDeviceIfLost(); if (DeviceLost()) continue; }` (movie.cpp, 0x0044FDC0 - not this
+        range). The original does the same (0x00450053-0x00450066: no Sleep, no window events while the device is lost),
+        so once the D3D device is lost during a movie (here: the game started while another full-screen program had the
+        display) nothing restores it. A quirk of the original; worth a Sleep + ProcessWindowEvents there as a fix.
+        Not caused by this range's code.
+      - Final DLL (all three batches + the Sio::Manager change), intros skipped: starts, a level loads and plays (music
+        "25 Ta Life" shown), pause menu; log clean. Tested in the game 2026-10-18.
+      - Intros on, same DLL, then the same DLL with all 52 of this range's replacements disabled by the ini
+        (inpman/game_clock/module/music_api.cpp): both times the game never shows a window and spins one core
+        (CPU 1 s per s, "responding") once the intro movies start. So it isn't this range's code. The earlier sample
+        put the main thread in PlayMovieFile's device-lost retry loop. That's for whoever owns movie.cpp (0x44FDC0).
+      ### 0x450F70-0x452D20 (mv-b)
+      # mv-b: Movies (Bink) & streamed audio, 0x450F70-0x452D20
+
+      ## Batch mv-b-1 (NOT run in the game yet): the playlist and music track commands (src/game/pcm/music.cpp)
+      - 0x450F70 PauseMusic, 0x4510B0 SetMusicVolume, 0x451130 SetMusicStreamVolume, 0x4511A0 AddTrackToPlaylist,
+        0x4512D0 ClearPlaylist, 0x451350 SkipMusicTrack, 0x451380 SetRandomMode, 0x451400 ApplyTrackVolume,
+        0x451450 IsTrackPlaying, 0x4514C0 GetNumTracks, 0x451500 GetTrackName, 0x4515A0 SetMusicMode,
+        0x4515E0 LoadMusicHeader, 0x451C70 ChangeTrackState, 0x4520D0 PlayTrack - 15 REPLACE. The script commands of
+        the same names (0x44D4D0... in cfuncs.csv) call them.
+      - Findings: 0x0069BAAC is what the music's channel plays (0 a track, 1 a music stream - 0x450EF0, 2 - 0x4509E0);
+        0x0067D7E8 (GetSfxVolume's) is really the music *stream* volume; 0x0069BAA1 is set by the music's init
+        (0x450D60). PauseMusic(-1) unpauses only if the music wasn't already paused when last paused (0x0069CAD0).
+        Playlist 0's titles are one table by track index at 0x6999F8 (100 chars, "No title provided"). GetTrackName
+        with the music off writes "Empty." over playlist 0's first track. Original quirk kept: ChangeTrackState's
+        "any track on?" test checks every track against both masks, so only an empty playlist gets marked "nothing to
+        play" (unknownCA8). Script::GetInteger(0xD7BB618D) is read and ignored (compiled-out debug print). The
+        0x005B9760 `return true` stub is the PS2's file check (AddTrack, LoadMusicHeader).
+      - Test: TestPlaylistCommands (src/hook/selftests_mvb.cpp), original vs ours on stand-ins for the platform music
+        calls. 40 deliberate bugs caught, 4 after strengthening (title terminator, the "no track" flag, a track one
+        past the count, "Empty." length).
+
+      ## Batch mv-b-2 (NOT run in the game yet): the streams and the PC's Bink stream files
+      - src/game/pcm/stream.cpp: 0x451010 PauseStream, 0x451620 LoadStreamHeader, 0x451660 IsStreamPlaying,
+        0x4516A0 LoadStreamFrameAmp, 0x4516E0 GetStreamFrameAmp, 0x451720 FreeStreamFrameAmp, 0x451770 StartStream,
+        0x451960 PlayStream, 0x451A50 PreLoadStream, 0x451B80 AddStream, 0x451E20 PlayStreamFromObject (11 REPLACE)
+        + 0x451E7D REPLACE_SOURCE_ONLY (not a function: Ghidra split 0x451E20's body there).
+      - src/game/pcm/bink_stream.cpp: 0x452A90 LoadStreamFile (12-slot cache of stream files read into memory with the
+        game's C runtime), 0x452C00 BinkStreamView::Construct, 0x452C60 BinkStreamView::Open (BinkOpen from memory,
+        video off; BinkSetSoundSystem(DirectSound) once) - 3 REPLACE.
+      - Findings: Pcm::Stream's fields filled in (volume, dropoff, priority, option, nameCount, startFrame, usePosInfo,
+        dropoffFunction, names[8]; `listener` is the stream's FrameAmp slot). A new stream takes a free channel or the
+        one with the lowest priority / oldest start (unsigned frames) if the new priority is at least that. PlayStream
+        callers push a 7th argument that's ignored; StreamIdFinished's answer is ignored. 0x0069BAAA blocks new streams
+        (nothing sets it). AddStream has no bound on its 8 names (original quirk). PC streams are audio-only Bink files.
+      - Tests: TestStreamCommands, TestBinkStreamFiles (selftests_mvb.cpp). 58 deliberate bugs: 54 caught (6 after
+        strengthening: equal start frames, usePosInfo cleared, name counts kept in bounds, equal LRU ages); 4 equivalent:
+        ChannelStatus != 2 vs == 1 (0x453270 returns only 1 or 2), the start frame as int (compared unsigned anyway),
+        SetSilent after the sVolume constructor (it already zeroes), the volume scale's association (same float).
+
+      ## Classes / types
+      - Pcm::Stream (music.h, existed): filled in its unknown fields - check against mv-a if it also did (0x450BE0 reads them).
+      - Pcm::FrameAmp (stream.h, new): the frame-amplitude slot {checksum, size, data[0x1000]} - 3 of its 4 functions are
+        mine (0x450540, its load, is mv-a's and is called by address).
+      - Pcm::BinkStreamView (stream.h, new): only the Bink stream's constructor and Open, over offsets (no layout). The
+        class (0x1C0 bytes, made at 0x453500) has its other methods in mv-c's range: if mv-c defines it, fold these two
+        methods in there and delete BinkStreamView.
+      ### 0x452D20-0x4544E0 (mv-c)
+      # mv-c: Movies (Bink) & streamed audio, 0x452D20-0x4544E0
+
+      The PC's streamed-audio platform layer: the music and three sound streams, each a Bink file played for its sound
+      (binkw32 through DirectSound), serviced by a thread every 5 ms under a mutex (0x006EE01C). The console versions'
+      raw pcm.wad stream class (WadStream) is still created in places but its playing is compiled out on PC (its update,
+      volume and "ready" calls are linker-folded stubs; nothing opens one with a real file).
+
+      ## Classes defined (src/game/pcm/stream.h)
+      - `Pcm::WadStream` (0xA8): constructor 0x454340 and all its own methods are in this range.
+      - `Pcm::BinkStream` (0x1C0): 6 of its 8 methods are here (Open, Pause, SetVolume, SetVolumeAndPan, the
+        destructor, Update); its constructor 0x452C00 and OpenFromWad 0x452C60 are mv-b's - called by address here.
+      - `Pcm::StreamSlot` (0x14; the music's at 0x6EDFF4, three streams' at 0x6EDFB8), `Pcm::WadEntry` (pcm.dat's
+        index entries, 12 bytes), `Pcm::StreamVolume` (5 levels + a type).
+      - `Nx::Bink` (movie.h): three header fields added (lastFrameNum, frameRate, frameRateDiv) - additive.
+
+      ## Batches
+      - [x] Batch mv-c-1 (run in the game: see below): the stream classes, src/game/pcm/bink_stream.cpp.
+        BinkStream: Open 0x452D20 (Bink's DirectSound set up once - "Bink can't use DSound" - I/O size 0x40000, BinkOpen
+        with BINKIOSIZE, video off, path kept for reopening; E_INVALIDARG if it won't open), Pause 0x452DC0 (a request
+        the thread carries out; a lock-out flag 0x69CB98 that's never set), SetVolume 0x452DE0 (0-100 -> 0-32768 by
+        327.68; BinkSetVolume even with no Bink), SetVolumeAndPan 0x452FC0 (volume = mean; level of the louder side,
+        capped 32768; pan = right/(left+right) * 65536 with the float-rounded total), the destructor 0x452E30
+        (BinkClose even of null, the file closed unless shared, the pcm.wad Bink entry's users counted down and last
+        use noted), Update 0x452EA0 (thread: pause = close the Bink noting the frame, resume = reopen and BinkGoto;
+        frames decoded while the window has focus; plays counted down at the last frame, finished at 0).
+        WadStream: constructor 0x454340, StartRead 0x454370 (overlapped ReadFile of 8 KB; ERROR_IO_PENDING = 0,
+        errors <= 0 returned raw, else HRESULT_FROM_WIN32), OpenFromWad 0x454450, Open 0x454490 (an invalid handle:
+        HRESULT_FROM_WIN32(GetLastError()) with GetLastError called twice), PreloadDone 0x4543F0 (false unless
+        preloading), Pause 0x454430, SetChannelVolumes 0x454440 (empty RET 0x14, also used for BinkStreams; source-only).
+        Tests (src/hook/selftests_pcmstream.cpp, TestBinkStream / TestWadStream): original vs ours against stand-ins
+        for binkw32's import slots, CloseHandle/ReadFile/GetLastError, Dbg::Printf and Mem free; 43 deliberate bugs
+        caught, 9 of them after strengthening (volumes with fractions >= .5, a level of exactly 0x8001, a total not
+        representable as a float, wad entry 0, an error above 0xFFFF, a non-preloading state with the read done,
+        a negative pause).
+
+      - [x] Batch mv-c-2 (run in the game: see below): the slots and the platform layer, src/game/pcm/stream.cpp.
+        StreamSlot::Create 0x453500 (new WadStream / BinkStream), Open 0x453090 (on a pcm.wad entry; -1 with no
+        stream), SetVolumeAndPan 0x4530E0, Free 0x4538F0; StreamThread 0x453100 (every 5 ms under the lock: each
+        stream's Update; skipped on WAIT_TIMEOUT), StopStreamThread 0x4531A0 (the handle isn't closed),
+        NewOverlapped 0x4535E0 (a ring of 256; loops for ever if all are in use), Init 0x453670 (slots cleared, user
+        soundtracks counted, pcm.wad opened overlapped + unbuffered, pcm.dat's index read and exchange-sorted by
+        checksum, the thread started above normal priority), FindWadEntry 0x4533A0 (EBX; binary search; naked stub),
+        StreamExists 0x4533E0, MusicStatus 0x453250 / StreamStatus 0x453270 (1 free, 2 playing; -1 = any of the
+        three), MusicPreloadDone 0x453220 / StreamPreloadDone 0x4531D0, PauseStreams 0x4532C0, UpdateStreams
+        0x453940 (frees what finished - unless E_PENDING - or was asked to stop), UserSoundtrackCount 0x4542D0 /
+        Name 0x454300 / Tracks 0x454320 (none on PC).
+      - [x] Batch mv-c-3 (run in the game: see below): playing, src/game/pcm/stream_play.cpp.
+        LoadMusicTrack 0x453C20 (<root>data\streams\music\%.8x.bik as a Bink stream), LoadMusicTrackByName
+        0x453D70, PlayMusicTrack 0x453DB0, StartPreloadedMusic 0x453BF0, PlayUserTrack 0x453850 (always false on PC,
+        leaving a WadStream in the music slot), StopMusic 0x453AA0, SetMusicVolume 0x453400, SyncMusicToTime 0x453470
+        (cutscenes: BinkGoto when more than 5 frames off; assumes a Bink stream with a Bink open), SetStreamVolume
+        0x453DF0 (levels x the sound effects volume / 100; 5 channels or left/right), LoadStream 0x454080, PlayStream
+        0x454200, StartPreloadedStream 0x454270, StopStream 0x453B30, StopStreams 0x453BD0.
+        Tests (src/hook/selftests_pcmplay.cpp, TestStreamPlatform / TestStreamPlay): original vs ours against stand-ins
+        for the stream classes' methods (both addresses), the memory manager, Win32 (mutex, Sleep, files, thread),
+        binkw32's BinkGoto slot, the sound manager and the C runtime's sprintf / strrchr. Batches 2 and 3: 77 deliberate
+        bugs, 76 caught (14 after strengthening: both classes in one slot, flags differing between them, soundtrack
+        index = count, a positive open error, the constructors' start flags, a frame exactly 5 off, 60 random
+        five-channel volumes for the mean's rounding); 1 equivalent (the stream buffer's address: Bink streams don't
+        use it, and LoadStream only makes Bink streams).
+
+      - [x] Batches mv-c-1..3 tested in the game (worktree build, under the lock): self-tests all pass (194 early, 17 late,
+        2 engine-started), 1597/1597 replacements installed; Free Skate into a level, the pause menu (music paused) with
+        the playing music track shown ("25 Ta Life - Over the Years": a Bink music stream loaded by LoadMusicTrack and
+        run by the stream thread); a second run with intro movies on (Escape pressed through them) into a level. No
+        crashes, debug-CRT reports or run-time check failures in thug2-decomp.log.
+
+      ## Findings
+      - 0x5B9760 / 0x5BA1D0 / 0x5BAB90 / 0x48DCD0 / 0x454440 are the stream classes' linker-folded stubs on PC: they're
+        written as inline members (ReadyToFree / PreloadDone true, Update 0, the volume calls empty).
+      - 0x8000000A (E_PENDING) in a stream's status word keeps a finished stream from being freed.
+      - 0x453100 (the stream thread's function) isn't a function in Ghidra (only referenced by CreateThread's argument).
+      ### 0x45BDA0-0x45EFD0 (nodes)
+      # Agent "nodes": Level nodes & composite objects, 0x45BDA0-0x45EFD0
+
+      Range finished: the 41 functions not yet rewritten, all with REPLACE (none source-only).
+
+      - [x] Batch nodes-1 (NOT run in the game yet when committed; see below): SkateScript's node functions, the node
+        name hash, the prefix tables, the scan of scripts for calls, Obj_GetCollision.
+        - **src/game/script/nodes.cpp / nodes.h** (new, 25): a node's name / links / position / angles / orientation by
+          its structure (0x45BE40 GetNodeName, 0x45C020 GetLinkCount, 0x45BE10 GetLink, 0x45C420 GetLinkedNode,
+          0x45C4B0 IsLinkedTo, 0x45C050 GetPosition, 0x45C180 GetAngles, 0x45C0B0 GetOrientation) and by name
+          (0x45C1B0 GetNode, 0x45BE70 NodeExists, 0x45C3A0, 0x45C3E0, 0x45C460, 0x45C560, 0x45C590, 0x45C520);
+          0x45C2D0 GetNearestNodeByPrefix; the instance wrappers 0x45C1D0-0x45C230 (walk, last node array); 0x45C950
+          ForEachScriptCall and 0x45CCA0 ForEachNodeScriptCall (the gap list, 0x578AC0, finds every EndGap call in the
+          nodes' TriggerScript= this way).
+        - **src/game/script/node_prefixes.cpp / .h** (new, 12): the nodes by name prefix: PrefixNodes::Add 0x45BDA0,
+          PrefixTable (Construct 0x45C5D0, Destruct 0x45CD30, Add 0x45C650, Compact 0x45C240), PrefixTables (instance
+          0x6F0D80: AddNodeArray 0x45C700, RemoveNodeArray 0x45CDF0, GetNodes 0x45BE90), 0x45C900 AddNodeArrayPrefixes
+          (on the script heap), 0x45CE40 RemoveNodeArrayPrefixes, 0x45BF90 / 0x45BFB0 GetPrefixedNodes (checksum / text).
+        - **node_manager.cpp**: CNodeManager::HashNode 0x45CE60, UnhashNodeArray 0x45CEF0, GetNode 0x45CFC0; the
+          manager's own calls to these and to the node / prefix functions are now direct.
+        - **composite.cpp**: CCompositeObject::Obj_GetCollision 0x45E9E0 (member function 0x0168B09C).
+        - Findings: nodes of class=link (0xC953660E) aren't hashed. A node name's prefixes are the text before each '_'
+          (except "TRG", case-insensitive) and the name without trailing digits; "X_" and "X" both become known checksum
+          names. GetNodes' static buffer (0x6EFDE0, 1000 names) and the 100- / 1000-byte name buffers aren't bounds
+          checked (kept). GetLink reads a null links array if a node has none (kept). GetNearestNodeByPrefix doesn't reset
+          its position between nodes: a node without pos= is measured where the previous one was (the first such node:
+          ours uses the origin, the original stack garbage). The scan follows script calls, SetEventHandler's scr= and
+          EndGap's gapscript= to depth 5; names that aren't calls are passed over alone, so their arguments are scanned
+          as statements. Obj_GetCollision: a feeler from pos + up*height + at*distance + right*shift (feet, height and
+          length default 3) along right (side) / down (down) / at; returns whether it hit (several sums kept at 53 bits:
+          written out in double).
+        - Names recovered from the .qb files' checksum tables: link, EndGap, gapscript, shift, objectDistance.
+        - Test: src/hook/selftests_nodes.cpp (TestNodes, Early): four original-vs-ours runs on stand-ins (hash with
+          collisions and wrap-round, lookups, links, positions, quaternions incl. clamping; prefix tables over three node
+          arrays, growth, removal from the middle, a chained bucket; the scan over a script exercising every token case,
+          the depth limit, the node walk; Obj_GetCollision's seven parameter sets). 71 deliberate bugs: 65 caught at
+          first, 5 more after strengthening the test data; 1 equivalent (an empty name text vs a null one in
+          AddNodeArray: the loop doesn't run either way). selftests_cobj.cpp's stand-ins now also cover our versions of the
+          functions the node manager calls directly.
+        - Checks: 0 MISMATCHED argument sizes, all early self-tests pass, register scan (every function whose result is
+          read returns one), audit of GameFunction calls (no MISMATCH), check_code_writes (no overlaps), find_gaps
+          (nothing left in the range, 0 thunks).
+
+      ## Classes defined
+      - SkateScript::PrefixNodes, PrefixTable, PrefixTables (node_prefixes.h; all their code is in this range).
+      - No new layout for Nx's collision feeler: composite.cpp uses a 0xB0-byte buffer with offset accessors
+        (CollisionFeeler, anonymous namespace), as park_floor.cpp / level_editor.cpp do.
+      - Extended (additively): SkateScript::CNodeManager (three methods, NodeManagerInstance()), Obj::CCompositeObject
+        (Obj_GetCollision).
+- [x] Batch 108: THPS4's levels in THUG2 (tools/thps4_levels, agent thps4): the 11 THPS4 levels with a scene
+      convert (scene, collision with computed face reach bytes and BSP, textures, node arrays, kill zones) and load
+      and skate in the game from the level select; grinding not confirmed by hand yet. The record:
+      ### THPS4 levels (thps4)
+      # thps4 - THPS4 levels in THUG2 (tools/thps4_levels)
+
+      Agent "thps4", branch worktree-agent-a581fc09e82f1f3e3. How to run it: tools/thps4_levels/README.md.
+
+      ## Result
+
+      All 11 THPS4 levels with a scene convert and were run in the game from the level select (signs after SKATE SHOP):
+      Alcatraz, Carnival, Chicago (Hoffman), Shipyard (Jnk), Kona, London, San Francisco, College (Sch), Zoo, the
+      THPS4 skate shop, and Motox, each with its sky (Motox uses Hoffman's). For each: the level loads with no errors in
+      thug2-decomp.log, the skater starts at THPS4's Player1 restart, skates (screenshots after a few pushes), textures
+      right, skies right. The game-run check is short (load, push a few times). Grinding is NOT confirmed: two tries
+      with scripted key taps (a test restart moved next to a Kona rail, ollie + grind key) didn't land a grind - with
+      300 ms taps that proves little either way; it needs a person with a pad. Kill zones not tried. The overlay keeps the
+      converted levels installed (screenshots: scratchpad t4\shots\<lvl>-step*.png).
+
+      ## Formats (checked against THUG2's loaders and its files)
+
+      ### THUG2 scene (.scn.xbx) - loader 0x004B36D0, sectors 0x004C6B10, meshes 0x004D6100
+      - u32 x3 versions (1, 1, 1), materials (0x004D3390), sectors, i32 hierarchy count + 0x50 bytes each.
+      - Per mesh: sphere, box, u32 flags (0x400 -> no skater shadow, 0x20000 on every shipped mesh), material,
+        u32 LOD count + per LOD {u32 n, u16 x n} - **read and thrown away** (0x004C6B10 frees them); then
+        **8 x {u16 n, u16 x n}** index buffers (the "14 bytes of padding" in io_thps_scene are the 7 empty ones);
+        u8 stride, u16 vertex count, **u8** buffer count, per buffer {u8 flag (nonzero: 0x004D4350 converts it),
+        u32 size, data}; 2 x u32 vertex shader (0..6 built-in, else an FVF); 3 bytes (normal / colour / uv offsets);
+        u8 colour wibble flag (+ a byte per vertex); u32 index sets (> 1: a u32 each); u32 pixel shader:
+        1 = {u32, u32 size, data} **skipped** (0x004DA6D0) and the shader made from the material at run time
+        (0x004DDC00) - used for 2+ passes; 2..18 = built-in shaders (0x004D3ED0; 2 textured with vertex alpha, 3 textured
+        with the pass's fixed alpha (IGNORE_VERTEX_ALPHA), 4 untextured - the ps.1.1 sources are in the exe).
+      - Vertex colours: 128 = full (the shaders multiply by 4 / 2).
+
+      ### THUG2 textures (.tex.xbx) - 0x004CAE90
+      u32 version 1, count; per texture checksum, w, h, levels, texel depth, palette depth, DXT (1/2 -> DXT1, 5 -> DXT5;
+      0: 8 -> P8, 16 -> A1R5G5B5, 32 -> A8R8G8B8), palette size (non-zero: a separate path, made 32-bit), per level
+      {u32 size, data}. THPS4 PC's tex.dat is the same format; its 8-bit paletted textures are **Xbox-swizzled**
+      (Morton order) - converted to 32-bit, unswizzled.
+
+      ### THUG2 collision (.col.xbx, version 10) - 0x0049CBB0, 0x004169C0, 0x00410BC0
+      Layout in tools/thps4_levels/thug2_col.py. Findings beyond io_thps_scene:
+      - Float vertices are all stored before the fixed-point ones (offsets per object say where).
+      - **The byte after a small face's 3 indices, and the array of a byte per large face after the faces, are not
+        padding**: they are each face's "reach" - ceil(distance of its farthest vertex from the object's box minimum x the
+        object's scale), where the scale (the object's last u32, a float: io_thps_scene writes 0 "padding") is
+        ~254 / the farthest vertex. The ray test 0x00413B50 skips a face whose reach is below the ray's distance from the
+        box minimum x scale. With zeros (what io_thps_scene's exporter writes) faces are found by the skater's downward
+        test but miss the others: the skater lands in an "in air" pose, can't push. Verified by rebuilding LA's collision
+        with this writer (own BSP, reaches): LA plays normally.
+      - Empty objects (no faces) are kept, scale 1.0, an empty leaf.
+      - BSP: a split word = axis | (point in sixteenths << 2), absolute coordinates; children side by side, written depth
+        first; the leaves' face indices in node order (per object, from 0). Rebuilt for the THPS4 geometry.
+
+      ### THPS4 scene (scn.dat), collision (col.dat v8), qb
+      - Scene: as io_thps_scene describes (per-sector vertex arrays: positions, normals, weights, uv sets, colours,
+        wibble indices; meshes = flags, material, strip); all levels parse to the end.
+      - Collision v8: vertices 16 bytes (3f + 4 intensity bytes), first vertex is an index; faces 12 bytes; 20-byte BSP
+        nodes (not used). Face flag 0x80 is the reverse of THUG2's (set on 80% of THPS4's faces); 0x2000 is on every face
+        and 0x4000 / 0x8000 on some - none of the three in THUG2's files: dropped.
+      - QB: the same tokens as THUG2's except the random tokens (0x2F/0x37/0x40/0x41 = u32 count + u32 offsets, no u16
+        weights) - why NeverScript stops on THPS4 files ("Byte not recognised ... 0x2f"). qb4.py reads the globals,
+        checksum names and script statements; node arrays are written out as NeverScript text and compiled for THUG2.
+      - THPS4's node array is plain "NodeArray"; THUG2 wants <file name>_NodeArray. Position= is kept: THUG2's
+        AddNodeArray turns it into Pos with z negated, as THPS4 did.
+
+      ## Decisions
+      - Level structures are made from THPS4's Levels.qb (name, sky, lighting; mod factors as THUG2's _lo / _hi pairs),
+        level_number LevelNum_Default (as the skate shop), no pre files: the overlay serves the loose files
+        (LoadScene / LoadCollision / NodeArrayManLoad read them through File / Pip, which check the overlay first).
+      - Signs: level numbers 19, 20, 22..29, 31 (unused; no records - the info panel skips them as it does 18 / 21).
+      - Kept nodes: Restart, RailNode, LevelGeometry, LevelObject (as LevelGeometry: THPS4 moves them by script), KOTH
+        GenericNodes; keys Position, Angles, Name, Class, Type, RestartName, restart_types (added from Type if missing),
+        TerrainType, Links (renumbered), Cluster, CollisionMode; flags CreatedAtStart, TrickObject, AbsentInNetGames,
+        NetEnabled. Dropped: peds, vehicles, game objects (THPS4 models / goal pickups), waypoints, goal nodes, scripts.
+      - Trigger faces: THUG2's collision trigger looks the node up by name and reads its TriggerScript unchecked
+        (see make_menu_level.py), so trigger flags are removed except on kill zones: a THPS4 trigger script calling
+        something with "kill" in its name (ALC_KillWater, *_KillSkater...) becomes SK3_KillSkater (or _Water), THUG2's own.
+      - Skies: THPS4 lights them at 255 - halved for THUG2's 128 = full.
+      - make_menu_level.py empties the overlay on each run, so it does the install: when <thug2>\thug2-decomp-thps4\
+        levels.json exists it copies the levels in and adds their structures (both Levels.qb) and signs.
+
+      ## Reference bugs (io_thps_scene; nothing of it copied - it has no licence)
+      - Collision export: small faces' 4th byte and the large faces' byte array written as 0, the object's last float
+        written 0 -> faces culled by THUG2's ray test (above). Ours computes them.
+      - Scene import: reads "14 bytes of padding" and a u16 buffer count (really 7 empty index buffers, a u8 count and the
+        first buffer's flag byte); the per-LOD index lists are inside the vertex loop (wrong for LOD > 1; unused anyway).
+      - THPS4 paletted textures: its importer unswizzles (right); its exporter halves alpha for 32-bit textures (PS2 habit,
+        not THUG2 PC's).
+      - THUGPRO (thugpro-tools; only its public tools were looked at) wasn't needed: it ships no format code we used.
+
+      ## Left
+      - Grinding to be checked by hand (rails converted with links, TerrainType, Type, TrickObject Cluster); gaps, goals, peds, vehicles,
+        moving objects (LevelObjects are static), THPS4's music and sounds (THUG2's terrain sounds come with level pres we
+        don't load: check the log for missing sounds), net games (load_level uses <level>scn.pre there: not made).
+      - Park editor sets (Sk4Ed*) not converted (their 32-bit textures may be swizzled too).
 - [ ] Next: small net follow-ups: App::m_manager (+0x1440) could become `Manager*` (it is `void*`), name the
       Manager's +0x2E6 flag (pref checksum 0xE5ADE642) and check +0x374 (modem baud rate?).
       Widescreen follow-up: if the user still sees the bottom-left band overlap, don't draw sprites wholly outside the

@@ -2,7 +2,7 @@
 
 Generated 2026-10-18 by `tools/progress_report.py` - regenerate after each batch.
 
-**Game code: ██░░░░░░░░░░░░░░░░░░ 14.9%** of the code rewritten (1,520 of 8,382 functions, 240.4 KB of 1,617.8 KB).
+**Game code: ███░░░░░░░░░░░░░░░░░ 16.2%** of the code rewritten (1,688 of 8,382 functions, 261.3 KB of 1,617.8 KB).
 
 Progress is by code size: function counts make a 10-byte helper look like as much work as a 2 KB routine. Subsystem boundaries come from the exe map (`docs/subsystems.md`) and are approximate (give or take a few functions); totals are exact.
 
@@ -12,9 +12,9 @@ Progress is by code size: function counts make a 10-byte helper look like as muc
 | Animation & skeleton / skinned model data | `0x406460`-`0x41a6d0` | ░░░░░░░░░░░░░░░░░░░░ 0% | 7 / 423 | 0.4 KB / 75.5 KB |
 | Object components & level/scene loading | `0x41a6d0`-`0x445b50` | ░░░░░░░░░░░░░░░░░░░░ 0% | 8 / 584 | 1.1 KB / 157.7 KB |
 | Engine script commands (lighting/fog, memory heaps, script utils, arrays, music & streams) | `0x445b50`-`0x44e6b0` | ░░░░░░░░░░░░░░░░░░░░ 1% | 7 / 246 | 0.5 KB / 32.5 KB |
-| Movies (Bink) & streamed audio | `0x44e6b0`-`0x4544e0` | █████░░░░░░░░░░░░░░░ 28% | 40 / 167 | 6.3 KB / 22.1 KB |
+| Movies (Bink) & streamed audio | `0x44e6b0`-`0x4544e0` | ████████████████████ 100% | 167 / 167 | 22.1 KB / 22.1 KB |
 | Low-level networking (engine net library) | `0x4544e0`-`0x45bda0` | ████████████████████ 100% | 205 / 205 | 26.5 KB / 26.5 KB |
-| Level nodes & composite objects (node array, node names/prefixes, CCompositeObject, components) | `0x45bda0`-`0x45efd0` | █████████░░░░░░░░░░░ 48% | 47 / 88 | 4.9 KB / 10.0 KB |
+| Level nodes & composite objects (node array, node names/prefixes, CCompositeObject, components) | `0x45bda0`-`0x45efd0` | ████████████████████ 100% | 88 / 88 | 10.0 KB / 10.0 KB |
 | Object system & script runtime (composite objects, events, object anims, particles, pathfinding, QB parser/executor) | `0x45efd0`-`0x47dc40` | ███████████░░░░░░░░░ 56% | 467 / 685 | 63.8 KB / 112.3 KB |
 | Models / faces / textures for skaters (CAS) | `0x47dc40`-`0x490d80` | ░░░░░░░░░░░░░░░░░░░░ 1% | 19 / 523 | 1.3 KB / 67.5 KB |
 | Renderer: textures, geometry, particles, 2D/3D screen | `0x490d80`-`0x4a4500` | ░░░░░░░░░░░░░░░░░░░░ 0% | 7 / 559 | 0.2 KB / 73.1 KB |
