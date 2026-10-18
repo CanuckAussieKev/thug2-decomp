@@ -824,14 +824,14 @@ script main_menu_skate_stop {
     change main_menu_skating=0
     kill_start_key_binding
     SetButtonEventMappings block_menu_input
-    fadetoblack on time=0.15 alpha=1.0 id=main_menu_skate_fader z_priority=9500
-    wait 0.15 seconds
+    fadetoblack on time=0.1 alpha=1.0 id=main_menu_skate_fader z_priority=9500
+    wait 0.1 seconds
     spin_menu_skater_script reset
     spin_menu_camera_init
     create_main_menu
-    wait 0.4 seconds
+    wait 3 gameframes
     SetButtonEventMappings unblock_menu_input
-    fadetoblack off time=0.2 id=main_menu_skate_fader
+    fadetoblack off time=0.15 id=main_menu_skate_fader
 }
 """
 

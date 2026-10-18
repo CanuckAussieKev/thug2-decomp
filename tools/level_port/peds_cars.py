@@ -29,6 +29,8 @@ from qb import Name, Struct, checksum
 FALLBACK_CAR = "veh\\veh_sedan\\veh_sedan.mdl"
 # A pro without a THUG2 PedPro profile: a random skateboarder (THUG2's profiles.qb).
 FALLBACK_SKATER = "Ped_Skateboard_a"
+# Pros left out altogether (the user: THUG2's Bam Margera skates the vert loop with broken-looking animations).
+LEFT_OUT_PROS = {"margera"}
 # Vert jumps: the height over the lip (THPS4's pros: Obj_Jump speed=350 gravity=-400, ~150).
 JUMP_HEIGHT = 100.0
 
@@ -224,6 +226,8 @@ def convert(array, names, script_qbs, profile_exists, model_exists):
             # A pro: the THUG2 pro with the THPS4 pro's name skates; the others stand watching.
             pro = node.get("pro_name")
             pro = _text(pro, names) if isinstance(pro, Name) else ""
+            if pro.lower() in LEFT_OUT_PROS:
+                continue
             skating = None
             for candidate in ("PedPro_%s_skateboard" % pro, "PedPro_%s" % pro):
                 if pro and profile_exists(candidate):
