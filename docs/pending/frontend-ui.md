@@ -204,3 +204,32 @@ decomp-progress.md (the lead numbers them when merging).
       (a string, an array of strings, a line end before the next string, a first word wider than the width,
       exactly 0x60 characters, the last word starting a line). 37 deliberate bugs, all caught (13 after
       strengthening: CreateElement's own stand-in had hidden the creation test at first).
+- [x] Batch FE-8 (NOT run in the game yet; early test passes offline): the text elements (new
+      src/game/front/text_element.* and text_block.*). CBlurEffect (the blur_effect object, 0x47C bytes: 16 copies,
+      target / current settings, a morph clock, blur_rgba): GetCopy 0x4A5770 and SetTarget 0x4A5CF0 (functions
+      Ghidra hadn't found), StartMorph 0x4A5780, Update 0x4A57D0, SetFromParams 0x4A5D30. CTextElement
+      (TextElement, vtable 0x0064A290, 0x1B0 bytes: the string, font, text objects with optional shadow objects,
+      blur, internal_just, encoded-colour overrides): Construct 0x4B0920, DestroyBody 0x4B1830, Destroy 0x4B2030,
+      SetProperties 0x4B18E0, SetMorph 0x4B09D0, Update 0x4AFE70 (text / shadow / 16 blur copies), GetLength
+      0x4AF650, SetViewports 0x4AF670, SetText 0x4AF8C0 (\, \_ and \m<c> button glyphs), SetTextRotation
+      0x4AFA00, SetCharProperties 0x4AFBB0, Concatenate 0x4AFD00, Backspace 0x4AFDD0, MakeTextObjects 0x4B0620,
+      FreeTextObjects 0x4B0760, EnableBlur 0x4B0A20, DisableBlur 0x4B0AE0. CTextBlockElement (TextBlockElement,
+      vtable 0x0064A264, 0x1C4 bytes: word-wrapped lines as text element children): Construct 0x4B0810,
+      DestroyBody 0x4B08B0, Destroy 0x4B0B30, SetProperties 0x4B1B60 (a string or an array of up to 29 - the
+      original overran its stack with more), SetMorph 0x4B0B60 (each line's blur aimed at the block's middle),
+      Update 0x4B1EC0, SetFont 0x4AF6C0, AddWords 0x4AF720, SetText 0x4B0CD0 (the last lines that fit, or the block
+      grows with allow_expansion), GetText 0x4B11C0, GetLength 0x4B1390, Backspace 0x4B14A0, Concatenate 0x4B16D0
+      (enforce_max_width / last_line), UpdateLines 0x4B1540. 36 functions. Original quirks kept: a line break
+      from an empty line clears the byte before the line buffer if it is a space; the blur's memory isn't
+      initialised (its constructor 0x005902E0 only returns it); Update walks as many children as lines were made.
+      Early test (src/hook/selftests_fe_text.cpp): the text element's construction, text escapes and sizes,
+      concatenating / backspacing (escaped and single backslashes), text objects with and without shadow and blur,
+      destruction; properties (each flag alone and together), rotation about each internal_just, per-character
+      properties, morphs; updates over pos3D / off screen / hidden / the band's edges / NaN, with shadow and blur;
+      the blur's clock (part way, past the end, gone back, a huge time left), targets and parameters. The text
+      block against real text elements (the original's or ours) with the manager's registering / parenting /
+      destroying stood in: fonts, wrapping (wider first word, line ends, more lines than fit, expansion with
+      truncating line heights, a negative count), the text back, adding (widths at the edge), backspacing,
+      properties, updates, morphs. 81 deliberate bugs: 79 caught (15 after strengthening); 2 equivalent: the half
+      height rounded before or after halving (x0.5 is exact), and the blur copies' alpha without the 0.0001
+      threshold (below it the alpha byte truncates to 0 anyway).
