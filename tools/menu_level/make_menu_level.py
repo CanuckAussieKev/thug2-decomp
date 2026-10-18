@@ -26,7 +26,7 @@
 #                              the front end's scripts with create_main_menu building a standard vertical menu (a
 #                              roundbar menu, as Game Options and Create-A-Modes) instead of the spinning wheel - the
 #                              same items doing the same things, after SKATE NOW (the menu slides away and the skater
-#                              skates in the shop; Esc brings the menu back); the shop's collision loaded at the
+#                              walks round the shop, off his board; Esc brings the menu back); the shop's collision loaded at the
 #                              start; the skater standing idle.
 #   front_end\levels\mainmenu\mainmenu.qb  the front end's nodes with the skater's restarts moved into THPS4's shop.
 # Nothing of the game is stored in the repo: the files are made from the game folder each time.
@@ -798,9 +798,11 @@ script main_menu_skater_skate {
         SwitchToSkatingPhysics
     }
     UnpausePhysics
+    SwitchToWalkingPhysics
     SetRollingFriction `default`
+    AllowRailTricks
     EnablePlayerInput
-    goto OnGroundAI
+    goto JustStoppedSkatingState params={Restart}
 }
 script main_menu_skate_stop {
     if (main_menu_skating = 0) {
@@ -814,9 +816,10 @@ script main_menu_skate_stop {
 
 # The front end's skater stands in THPS4's shop (the DLL draws only that shop in the front end): its restarts
 # (TRG_Playerrestart - the main menu, Create-A-Skater and the other menus' skater; SS_player_restart - the skate
-# shop menu's) moved to the floor on the left of the held view, in front of the counter, facing across the shop.
+# shop menu's) moved to the floor on the left of the held view, in front of the counter, facing the camera (yaw:
+# the skater faces (sin yaw, 0, cos yaw); the held view's camera is at (565, 74, -1114)).
 FRONT_END_SKATER_POS = (449.0, 0.0, -1340.0)
-FRONT_END_SKATER_ANGLES = (0.0, 1.570796, 0.0)
+FRONT_END_SKATER_ANGLES = (0.0, 0.474, 0.0)
 
 
 def front_end_nodes(text):

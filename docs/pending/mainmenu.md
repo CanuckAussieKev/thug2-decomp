@@ -92,5 +92,9 @@ DLL, ini and overlay). Built, offline self-tests all pass (197), mutations caugh
 - mainmenu_startup also loads the shop's collision (`LoadCollision scene="thps4_skateshop"`) and
   `do_load_unloadable` (the skater's gameplay animations: load_level skips them for front-end levels - without them
   he skated in his bind pose).
-- Tested: the menu over the shop with the skater on the left; SKATE NOW, skating round the shop, Esc back, a second
-  SKATE NOW and Esc. Not yet: the other front-end menus with the skater in THPS4's shop, tricks / rails in the shop.
+- Then (the user's request): SKATE NOW puts him off his board, walking (main_menu_skater_skate: a real switch to skating
+  physics, then SwitchToWalkingPhysics - the front end's 'walking' mode is an uninitialised default that doesn't move -,
+  then JustStoppedSkatingState Restart: the stand pose and the walk camera); he faces the camera (restart yaw 0.474:
+  he faces (sin yaw, 0, cos yaw)). Movement is the arrow keys (the user's bindings), not WSAD.
+- Tested: the menu over the shop with the skater on the left, facing the camera; SKATE NOW, walking round the shop
+  with the board in hand, Esc back. Not yet: the other front-end menus with the skater in THPS4's shop, tricks / rails in the shop.
