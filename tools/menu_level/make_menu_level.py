@@ -824,14 +824,14 @@ script main_menu_skate_stop {
     change main_menu_skating=0
     kill_start_key_binding
     SetButtonEventMappings block_menu_input
-    fadetoblack on time=0.15 alpha=1.0 id=main_menu_skate_fader z_priority=9500
-    wait 0.15 seconds
+    fadetoblack on time=0.1 alpha=1.0 id=main_menu_skate_fader z_priority=9500
+    wait 0.1 seconds
     spin_menu_skater_script reset
     spin_menu_camera_init
     create_main_menu
-    wait 0.4 seconds
+    wait 3 gameframes
     SetButtonEventMappings unblock_menu_input
-    fadetoblack off time=0.2 id=main_menu_skate_fader
+    fadetoblack off time=0.15 id=main_menu_skate_fader
 }
 """
 
@@ -885,6 +885,34 @@ def front_end_nodes(text, backdrop_nodes):
 
 # The converted shop's peds, cars and their waypoints (tools/level_port/peds_cars.py: the last nodes of its array).
 MOVING_CLASSES = {"pedestrian", "vehicle", "waypoint"}
+
+
+def front_end_rails(text, backdrop_nodes):
+    # The front end's node array with the converted shop's rails (RailNode: THPS4's coping rails on the halfpipes, the
+    # ledges...) added at its end - grindable after SKATE NOW. Their Links (to other rails) renumbered; the legacy
+    # Position written as Pos (z negated, as the engine reads Position: copied as Position, a node made the front end
+    # quit at start-up).
+    elements, _, _ = array_elements(backdrop_nodes, BACKDROP_LEVEL + "_NodeArray")
+    rails = [i for i, e in enumerate(elements) if re.search(r"\bClass=RailNode\b", e)]
+    own, _, close = array_elements(text, "mainmenu_NodeArray")
+    index = {old: len(own) + new for new, old in enumerate(rails)}
+
+    def renumber(match):
+        links = [int(v) for v in re.split(r"[,\s]+", match.group(1).strip()) if v]
+        if any(v not in index for v in links):
+            sys.exit("%s: a rail linked to a node that isn't a rail" % BACKDROP_LEVEL)
+        return "Links=[%s]" % ", ".join(str(index[v]) for v in links)
+
+    def pos(match):
+        x, y, z = (float(v) for v in match.group(1).split(","))
+        return "Pos=(%.4f, %.4f, %.4f)" % (x, y, -z)
+
+    added = ""
+    for i in rails:
+        node = re.sub(r"Links=\[([^\]]*)\]", renumber, elements[i])
+        added += "    %s \n" % re.sub(r"\bPosition=\(([^)]*)\)", pos, node)
+    print("front end: %d rail nodes from %s" % (len(rails), BACKDROP_LEVEL))
+    return text[:close] + added + text[close:]
 
 
 def front_end_peds_cars(text, backdrop_nodes):
@@ -1056,7 +1084,8 @@ def main():
             write(front_end_scripts(front_end), r"front_end\levels\mainmenu\mainmenu_scripts.qb")
             backdrop_nodes = decompile(open(os.path.join(out, "levels", BACKDROP_LEVEL, BACKDROP_LEVEL + ".qb"), "rb").read(),
                                        "backdrop.qb")
-            write(front_end_peds_cars(front_end_nodes(shop, backdrop_nodes), backdrop_nodes),
+            write(front_end_peds_cars(front_end_rails(front_end_nodes(shop, backdrop_nodes), backdrop_nodes),
+                                      backdrop_nodes),
                   r"front_end\levels\mainmenu\mainmenu.qb")
             # THUG2's own shop's collision without its objects: the DLL hides THUG2's shop, but its collision stayed -
             # x -1372..764, z -1377..471 overlaps THPS4's outside halfpipe (x 465..1155): invisible walls after SKATE
