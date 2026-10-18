@@ -20,6 +20,10 @@ Jnk, Kon, Lon, SF2, Sch, Zoo, SkateShop, Motox (Foo has no scene; the park edito
 the converted levels into the overlay and adds them to `Levels.qb` and the level select. Run it again after every
 `convert`. Delete `thug2-decomp-thps4` and run it again to take the levels out.
 
+The THPS4 skate shop is also the front end's backdrop (`[features] menu_backdrop`, on by default: see
+src/game/front/menu_backdrop.h): with it installed, the front end shows it behind the menus and the overlay's
+standard main menu; without it the game's own front end is used.
+
     python -I tools/thps4_levels/thps4_levels.py selfcheck
 
 reads THUG2's LA and TestLevel scene / collision / textures (and any `--extra Data\pre` archives) and writes them

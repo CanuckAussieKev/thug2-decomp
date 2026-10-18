@@ -1,6 +1,5 @@
 #include "game/obj/motion.h"
 
-#include "game/front/menu_level.h"
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "game/obj/object.h"
@@ -52,11 +51,6 @@ void CMotionComponent::RotateTo(Script::CStruct* params)
     }
     if (GetAngles(params, kAbsolute, &angles)) {
         target.SetFromEulerAngles(angles.x, angles.y, angles.z);
-        // Not original - the menu_level feature (game/front/menu_level.h): in the front end built in Los Angeles, an
-        // orientation given in the skate shop's terms is turned with the shop's move into LA (the wheel spins in its
-        // own plane instead of turning back to the shop's heading).
-        // Original behaviour: the orientation of the angles as given.
-        Front::MenuLevel::TurnOrientation(&target);
         StartRotation(this, params, &target);
     }
 }

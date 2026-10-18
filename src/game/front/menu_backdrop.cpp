@@ -3,10 +3,13 @@
 
 #include "game/front/menu_backdrop.h"
 
+#include <windows.h>
+
 #include <cmath>
 #include <cstring>
+#include <string>
 
-#include "game/front/frontend_objects.h"
+#include "game/front/data_overlay.h"
 #include "game/gfx/camera.h"
 #include "game/gfx/scene.h"
 #include "game/gfx/screen.h"
@@ -21,16 +24,18 @@ namespace {
 constexpr uint32_t kScene = 0x26861025; // scene
 constexpr uint32_t kIsNet = 0x417149C8; // is_net
 
-// The views the user picked with /where in Los Angeles (level 15).
-constexpr View kViews[] = {
-    {{-1808.255f, -342.621f, 5804.185f}, {0.618382f, 0.178992f, -0.765223f}, {-0.112357f, 0.983850f, 0.139335f}},
-    {{-1995.710f, -342.599f, 6016.290f}, {-0.683391f, 0.179143f, 0.707732f}, {0.124546f, 0.983823f, -0.128765f}},
-};
+// The view the user took with the level editor's P key in THPS4's skate shop (level 11, scene 072538EB): looking
+// over the shop's desk.
+constexpr View kView = {
+    {564.790f, 74.075f, -1114.151f}, {0.007642f, 0.023744f, 0.999689f}, {-0.000181f, 0.999718f, -0.023743f}};
+
+// The backdrop's scene file in the data overlay.
+constexpr const char* kBackdropFile = "levels\\thps4_skateshop\\thps4_skateshop.scn.xbx";
 
 // The front-end menu cameras (skater camera animations, levels\mainmenu\*.ska and the network menu's).
 constexpr uint32_t kMenuCameras[] = {
     0x4C17CD39, // mainmenu_camera
-    0xFCC018D3, // mainmenu_camera02: the main menu (the spinning skater)
+    0xFCC018D3, // mainmenu_camera02: the main menu
     0x8BC72845, // mainmenu_camera03: play_no_skater_cam (options, network, memory card... menus)
     0x89ECAF5C, // SS_MenuCam: the network select menu
     0x7A99B2EB, // level_select_cam: the level select (the skater hidden)
@@ -61,6 +66,8 @@ uint32_t PlayingCameraAnim()
 
 bool On(int setting) { return ViewFor(setting) != nullptr; }
 
+int g_forcedInstalled = -1;
+
 } // namespace
 
 bool BackdropLoaded()
@@ -72,12 +79,6 @@ bool BackdropLoaded()
     return false;
 }
 
-uint32_t PlayingMenuCamera()
-{
-    uint32_t anim = PlayingCameraAnim();
-    return IsMenuCamera(anim) ? anim : 0;
-}
-
 // (0x004A09C0, cdecl)
 Gfx::Camera* ViewportCamera(int viewport) { return GameFunction<Gfx::Camera*(__cdecl*)(int)>(0x004A09C0)(viewport); }
 
@@ -87,12 +88,30 @@ int& Setting()
     return setting;
 }
 
-const View* ViewFor(int setting)
+bool Installed()
 {
-    if (setting < 1 || setting > static_cast<int>(sizeof(kViews) / sizeof(kViews[0])))
-        return nullptr;
-    return &kViews[setting - 1];
+    if (g_forcedInstalled >= 0)
+        return g_forcedInstalled != 0;
+    static const bool installed = [] {
+        std::string path = DataOverlay::Folder() + "\\" + kBackdropFile;
+        DWORD attributes = GetFileAttributesA(path.c_str());
+        bool found = attributes != INVALID_FILE_ATTRIBUTES && !(attributes & FILE_ATTRIBUTE_DIRECTORY);
+        // (logged only when the ini asks for the backdrop: self-tests set the setting for their run)
+        if (ConfigInt("features", "menu_backdrop", 1) != 0)
+            Log(found ? "menu_backdrop: the front end in THPS4's skate shop (%s)"
+                      : "menu_backdrop: %s not found - convert the THPS4 levels (tools/thps4_levels) and run "
+                        "tools/menu_level/make_menu_level.py; the original front end is used",
+                path.c_str());
+        return found;
+    }();
+    return installed;
 }
+
+void ForceInstalled(int installed) { g_forcedInstalled = installed; }
+
+bool Active() { return On(Setting()) && Installed(); }
+
+const View* ViewFor(int setting) { return setting != 0 ? &kView : nullptr; }
 
 Mth::Matrix ViewMatrix(const View& view)
 {
@@ -115,11 +134,10 @@ Mth::Matrix ViewMatrix(const View& view)
 
 void OnSceneLoaded(const char* name, bool isNet)
 {
-    // (only the front end's: the playable skate shop - menu_level's data - uses the same scene)
-    if (!On(Setting()) || !name || _stricmp(name, "mainmenu") != 0 || Nx::CurrentLevel() != 0)
+    // (only the front end's: the playable skate shop - the data overlay's - uses the same scene)
+    if (!name || _stricmp(name, "mainmenu") != 0 || Nx::CurrentLevel() != 0 || !Active())
         return;
-    Log("menu_backdrop: loading the scenes %s and %s behind the front end (view %d)", kBackdropSky, kBackdropScene,
-        Setting());
+    Log("menu_backdrop: loading the scenes %s and %s behind the front end", kBackdropSky, kBackdropScene);
     for (const char* scene : {kBackdropSky, kBackdropScene}) {
         alignas(4) uint8_t memory[8];
         Script::CStruct* params = reinterpret_cast<Script::CStruct*>(memory)->Init();
@@ -129,8 +147,6 @@ void OnSceneLoaded(const char* name, bool isNet)
         Nx::CFunc_LoadScene(params, nullptr);
         params->Clear();
     }
-    // The front-end objects may be moved into the backdrop again (frontend_objects.h).
-    FrontEndObjects::OnBackdropLoaded();
 }
 
 bool IsMenuCamera(uint32_t animName)
@@ -186,90 +202,11 @@ void ApplyView(Gfx::Camera* camera, const View& view)
     }
 }
 
-namespace {
-// The pose the game last gave the viewport camera while it was held (before the view replaced it).
-struct GamePose {
-    bool pos, matrix;
-    Mth::Vector p;
-    Mth::Matrix m;
-};
-GamePose g_gamePose;
-// The field of view the game gave it (horizontal, degrees at 4:3) and the menu camera playing then.
-bool g_gameFovNoted;
-float g_gameFov;
-uint32_t g_gameFovCamera;
-
-void NoteFov(float degrees)
-{
-    g_gameFov = degrees;
-    g_gameFovCamera = PlayingMenuCamera();
-    g_gameFovNoted = true;
-}
-} // namespace
-
-void NoteCameraFov(Gfx::Camera* camera, float degrees)
-{
-    if (!camera || !Holding() || camera != ViewportCamera(0))
-        return;
-    NoteFov(degrees);
-}
-
-float GameCameraFov(uint32_t menuCamera)
-{
-    return g_gameFovNoted && g_gameFovCamera == menuCamera ? g_gameFov : 0.0f;
-}
-
-void NoteCameraPos(Gfx::Camera* camera, const Mth::Vector& pos)
-{
-    if (!camera || !Holding() || camera != ViewportCamera(0))
-        return;
-    g_gamePose.p = pos;
-    g_gamePose.pos = true;
-}
-
-void NoteCameraMatrix(Gfx::Camera* camera, const Mth::Matrix& matrix)
-{
-    if (!camera || !Holding() || camera != ViewportCamera(0))
-        return;
-    g_gamePose.m = matrix;
-    g_gamePose.matrix = true;
-}
-
-bool GameCameraPose(Mth::Vector* pos, Mth::Matrix* matrix)
-{
-    if (!g_gamePose.pos || !g_gamePose.matrix)
-        return false;
-    *pos = g_gamePose.p;
-    *matrix = g_gamePose.m;
-    return true;
-}
-
-void ForgetGameCameraPose() { g_gamePose.pos = g_gamePose.matrix = g_gameFovNoted = false; }
-
 void HoldCamera(Gfx::Camera* camera)
 {
     if (!camera || !Holding() || camera != ViewportCamera(0))
         return;
     ApplyView(camera, *ViewFor(Setting()));
-}
-
-void NoteAndHoldCamera(Gfx::Camera* camera)
-{
-    if (!camera || !Holding() || camera != ViewportCamera(0))
-        return;
-    const View& view = *ViewFor(Setting());
-    // The game's own pose, whichever way it got there (the camera component doesn't go through SetPos / SetMatrix in
-    // the game - a debug_backdrop log showed "camera from nowhere"): if the camera isn't at the held view when it's
-    // about to be drawn, the game moved it since we last held it - note that as the menu camera's pose.
-    if (camera->m_pos.x != view.pos[0] || camera->m_pos.y != view.pos[1] || camera->m_pos.z != view.pos[2]) {
-        g_gamePose.p = camera->m_pos;
-        g_gamePose.m = camera->m_matrix;
-        g_gamePose.pos = g_gamePose.matrix = true;
-    }
-    // Its field of view likewise: one that isn't the held view's was written by the game since.
-    if (camera->m_hFov != Nx::GetScreenAngle())
-        NoteFov(camera->m_hFov);
-    ApplyView(camera, view);
 }
 
 } // namespace Front::MenuBackdrop

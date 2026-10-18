@@ -15,11 +15,12 @@ installed); functions PartyMod patched get source with PartyMod's behaviour. Lat
   folder: our `dinput8.dll`, `thug2-decomp.ini` (`[replacements] disable=` by file/name/address, `*` = all;
   `[selftests] enabled=`; `[features] skip_intro_movies=1` skips the start-up logo/intro movies,
   `widescreen_menus=0` brings back PartyMod's pillarboxed 4:3 front end, `allow_multiple_instances=1` lets a second
-  copy run - its log is `thug2-decomp-2.log`, `mouse_menus=0` turns off mouse control of the menus (`debug_mouse=1` logs each click), `menu_backdrop`
-  0/1/2 picks the main menu's backdrop - the skate shop or Los Angeles at one of two views, 3 = the front end as a
-  level in LA (files made by `tools/menu_level/make_menu_level.py` into `thug2-decomp-data\menu_level`; Page Up / Down
-  zoom the main menu, `menu_zoom=<percent>` keeps a zoom); the same tool makes the skate shop a playable level
-  (`thug2-decomp-data`, used at every setting: SKATE SHOP in the level select); `debug_backdrop=1` logs its decisions; `level_editor=0` hides the pause menu's
+  copy run - its log is `thug2-decomp-2.log`, `mouse_menus=0` turns off mouse control of the menus (`debug_mouse=1` logs each click), `menu_backdrop=0`
+  brings back the original front end (THUG2's skate shop, the spinning wheel); any other value (default 1) shows
+  THPS4's skate shop behind the menus with a standard vertical main menu over its desk - src/game/front/menu_backdrop.h;
+  needs the THPS4 levels converted (tools/thps4_levels) and installed by `tools/menu_level/make_menu_level.py`, which
+  makes the data overlay `thug2-decomp-data` (the menu's script in its `front_end` folder; at the top: the skate shop
+  as a playable level - SKATE SHOP in the level select -, TEST LEVEL, the THPS4 levels); `level_editor=0` hides the pause menu's
   LEVEL EDITOR - src/game/front/level_editor.h; the item is in the same tool's overlay; its saved layouts are in
   `thug2-decomp-layouts\<scene>.txt` and load with their level - and `debug_editor=1` logs its picks and moves), `thug2-decomp.log` (read it after every game run). The retail THUG2.exe is
   SafeDisc-encrypted and not used.

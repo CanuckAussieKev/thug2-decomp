@@ -99,7 +99,6 @@ add_library(thug2_code OBJECT
     src/hook/selftests_netF.cpp
     src/hook/selftests_netA.cpp
     src/hook/selftests_netE.cpp
-    src/hook/selftests_feobj.cpp
     src/hook/selftests_menulvl.cpp
     src/hook/selftests_motion.cpp
     src/hook/selftests_editor.cpp
@@ -127,9 +126,8 @@ add_library(thug2_code OBJECT
     src/game/front/screen_element.cpp
     src/game/front/front_end.cpp
     src/game/front/mouse_menus.cpp
-    src/game/front/frontend_objects.cpp
+    src/game/front/data_overlay.cpp
     src/game/front/menu_backdrop.cpp
-    src/game/front/menu_level.cpp
     src/game/front/level_editor.cpp
     src/game/front/level_editor_hud.cpp
     src/game/front/level_editor_layout.cpp

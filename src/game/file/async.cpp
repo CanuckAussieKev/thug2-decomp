@@ -10,7 +10,7 @@
 #include "game/core/mem.h"
 #include "game/file/file.h"
 #include "game/file/pre.h"
-#include "game/front/menu_level.h"
+#include "game/front/data_overlay.h"
 #include "hook/hook.h"
 
 namespace File {
@@ -150,11 +150,11 @@ bool AsyncFileHandle::Open(const char* name, bool blocking, int priority)
     m_priority = priority;
     m_blocking = blocking;
     m_operation = kAsyncOpen;
-    // Not original - the menu_level feature (game/front/menu_level.h): a file of the data overlay isn't taken from an
+    // Not original - the data overlay (game/front/data_overlay.h): a file of the data overlay isn't taken from an
     // archive (the platform's open reads the overlay's).
     // Original behaviour: a loaded archive's copy first.
     char overlay[260];
-    if (Pre::Manager() && !Front::MenuLevel::OverlayPath(name, overlay)) {
+    if (Pre::Manager() && !Front::DataOverlay::OverlayPath(name, overlay)) {
         m_preFile = Pre::Open(name, "rb", true);
         if (m_preFile) {
             m_result = 1;
@@ -512,9 +512,9 @@ bool PcAsyncFileHandle::PlatOpen(const char* name)
 {
     m_position = 0;
     char path[260];
-    // Not original - the menu_level feature: a file of the data overlay is opened there.
+    // Not original - the data overlay: a file of it is opened there.
     // Original behaviour: the data folder's file.
-    if (!Front::MenuLevel::OverlayPath(name, path))
+    if (!Front::DataOverlay::OverlayPath(name, path))
         MakeDiskPath(reinterpret_cast<char(&)[256]>(path), name);
     BusyCount() = BusyCount() + 1;
     m_busyCount = m_busyCount + 1;

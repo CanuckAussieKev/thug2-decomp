@@ -9,7 +9,7 @@
 #include "game/file/async.h"
 #include "game/file/file.h"
 #include "game/file/pre.h"
-#include "game/front/menu_level.h"
+#include "game/front/data_overlay.h"
 #include "game/script/params.h"
 #include "game/util/lzss.h"
 #include "hook/game.h"
@@ -93,11 +93,11 @@ PreEntry* FindPreEntry(uint32_t checksum)
 void* Load(const char* name, bool async, void* callback, void* callback_arg0, void* callback_arg1)
 {
     uint32_t checksum = Crc::GenerateCRCFromString(name);
-    // Not original - the menu_level feature (game/front/menu_level.h): a file of the data overlay is read from it,
+    // Not original - the data overlay (game/front/data_overlay.h): a file of the data overlay is read from it,
     // before any archive (synchronously, through File::Open, which opens the overlay's file).
     // Original behaviour: archives first, then the cache and the data folder.
     char overlay_path[260];
-    bool overlay = Front::MenuLevel::OverlayPath(name, overlay_path);
+    bool overlay = Front::DataOverlay::OverlayPath(name, overlay_path);
 
     // Already loaded?
     if (PreEntry* entry = overlay ? nullptr : FindPreEntry(checksum)) {
@@ -169,10 +169,10 @@ void* Load(const char* name, bool async, void* callback, void* callback_arg0, vo
 void* LoadFileInto(const char* name, int* size, void* buffer)
 {
     int file_size = 0;
-    // Not original - the menu_level feature: a file of the data overlay is read from it (File::Open), not an archive.
+    // Not original - the data overlay: a file of it is read from there (File::Open), not an archive.
     // Original behaviour: archives first, then the cache and the data folder.
     char overlay_path[260];
-    bool overlay = Front::MenuLevel::OverlayPath(name, overlay_path);
+    bool overlay = Front::DataOverlay::OverlayPath(name, overlay_path);
     void* data = overlay ? nullptr : Pre::Instance()->LoadFile(name, &file_size, static_cast<uint8_t*>(buffer));
     if (!data) {
         file_size = overlay ? 0 : File::CachedFileSize(name);

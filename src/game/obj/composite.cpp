@@ -7,7 +7,6 @@
 #include <cstdint>
 
 #include "game/core/manager.h"
-#include "game/front/frontend_objects.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/objman.h"
 #include "game/obj/object.h"
@@ -293,11 +292,6 @@ void CCompositeObject::Update()
 {
     if (m_compositeFlags & COMPOSITE_FLAG_PAUSED)
         return;
-    // Not original - the menu_backdrop feature (see game/front/frontend_objects.h): a front-end object moved into
-    // the backdrop is at its real place for its own update...
-    // Original behaviour: nothing here - the object updates where it is; with menu_backdrop a moved one is put back at
-    // its real (shop) place for its update.
-    Front::FrontEndObjects::BeforeUpdate(this);
     if (!(m_compositeFlags & COMPOSITE_FLAG_SUSPENDED)) {
         if (m_script)
             m_script->Update();
@@ -312,10 +306,6 @@ void CCompositeObject::Update()
         if (m_objectFlags & OBJECT_FLAG_DEAD)
             break;
     }
-    // ...and moved back into it after. (Nothing for objects that aren't moved.)
-    // Original behaviour: nothing here - the update ends with w = 1 and the teleported flag cleared; with
-    // menu_backdrop a moved object is moved into LA again from wherever its update left it.
-    Front::FrontEndObjects::AfterComponents(this);
     m_pos.w = 1.0f;
     m_compositeFlags &= ~COMPOSITE_FLAG_TELEPORTED;
 }

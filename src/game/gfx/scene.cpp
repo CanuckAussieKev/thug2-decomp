@@ -6,7 +6,6 @@
 #include "game/core/crc.h"
 #include "game/core/dbg.h"
 #include "game/core/str.h"
-#include "game/front/frontend_objects.h"
 #include "game/front/level_editor_layout.h"
 #include "game/front/menu_backdrop.h"
 #include "game/script/params.h"
@@ -45,11 +44,6 @@ void* LoadSceneFile(const char* name, void* texDict, bool addSuperSectors, bool 
 // 0x00445130
 bool __cdecl CFunc_LoadScene(Script::CStruct* params, Script::CScript* /*script*/)
 {
-    // Not original - the menu_backdrop feature (see game/front/frontend_objects.h): a level is loading, the front
-    // end's objects go back where they were.
-    // Original behaviour: the scene is just loaded; with menu_backdrop any front-end objects moved into LA are put
-    // back first and kept there until the backdrop is loaded again.
-    Front::FrontEndObjects::OnLevelChange();
     bool isDictionary = params->ContainsFlag(kIsDictionary);
     bool isSky = params->ContainsFlag(kIsSky);
     bool isNet = params->ContainsFlag(kIsNet);
@@ -86,7 +80,8 @@ bool __cdecl CFunc_LoadScene(Script::CStruct* params, Script::CScript* /*script*
     description->Clear();
 
     // Not original - the menu_backdrop feature (see menu_backdrop.h): the front end's scene brings the backdrop's.
-    // Original behaviour: only the scene asked for is loaded; with menu_backdrop "mainmenu" also loads LA_Sky and LA.
+    // Original behaviour: only the scene asked for is loaded; with menu_backdrop "mainmenu" also loads THPS4's skate
+    // shop (its sky and scene).
     Front::MenuBackdrop::OnSceneLoaded(name, isNet);
     // Not original - the level editor's saved layouts (level_editor_layout.h): put back once the level is up.
     Front::LevelEditor::Layout::OnSceneLoaded(name, isNet);
