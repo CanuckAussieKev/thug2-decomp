@@ -74,3 +74,23 @@ DLL, ini and overlay). Built, offline self-tests all pass (197), mutations caugh
    Multiplayer -> network select held view; Quit dialog and No); back from each to the main menu with the focus on
    the item chosen; level select (held view), SKATE SHOP / TEST LEVEL / THPS4 levels load; mouse hover and click;
    menu_backdrop=0 (the wheel back); no exceptions in the log.
+
+## Skate Now, the skater in THPS4's shop, the menu's layout (lead, 2026-10-18 - tested in the game)
+- The front end's skater stands in THPS4's shop: the overlay's `front_end\levels\mainmenu\mainmenu.qb` moves
+  TRG_Playerrestart / SS_player_restart to (449, 0, -1340) (the floor left of the held view, by the counter). Every
+  front-end camera that follows the skater (Create-A-Skater, skater select...) now looks at him there, so the DLL
+  never draws THUG2's shop in the front end any more (ShouldHideScene: the front end's scene only, whatever the
+  camera) - those menus NOT checked in the game yet.
+- The main menu: SKATE NOW first; the list centred over the glass counter, above it (main_menu_list_pos (229, 98),
+  220 wide, spacing 2, text scale 0.85); the dark backing sized from the item count with 16 / 9 padding (white2 is
+  8 units). The skater's main-menu animation is Idle (no wheel to reach for).
+- SKATE NOW (main_menu_skate_now): the menu slides out (generic_menu_animate_out), the camera animation is killed
+  (the skater camera follows him), the skater gets main_menu_skater_skate (SkaterInit, then **SwitchToSkatingPhysics
+  when walking** - the front end's skater is in walking physics mode, so UnpausePhysics alone resumed the walking
+  physics and he pushed on the spot - UnpausePhysics, default friction, input on, OnGroundAI), and root_window's
+  pad_start (Esc) runs main_menu_skate_stop: create_main_menu (the skater back at his restart, idle, physics paused).
+- mainmenu_startup also loads the shop's collision (`LoadCollision scene="thps4_skateshop"`) and
+  `do_load_unloadable` (the skater's gameplay animations: load_level skips them for front-end levels - without them
+  he skated in his bind pose).
+- Tested: the menu over the shop with the skater on the left; SKATE NOW, skating round the shop, Esc back, a second
+  SKATE NOW and Esc. Not yet: the other front-end menus with the skater in THPS4's shop, tricks / rails in the shop.

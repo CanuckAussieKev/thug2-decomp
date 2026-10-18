@@ -25,7 +25,10 @@
 #   front_end\levels\mainmenu\mainmenu_scripts.qb  (when the THPS4 skate shop is among them: the front end's backdrop)
 #                              the front end's scripts with create_main_menu building a standard vertical menu (a
 #                              roundbar menu, as Game Options and Create-A-Modes) instead of the spinning wheel - the
-#                              same items doing the same things.
+#                              same items doing the same things, after SKATE NOW (the menu slides away and the skater
+#                              skates in the shop; Esc brings the menu back); the shop's collision loaded at the
+#                              start; the skater standing idle.
+#   front_end\levels\mainmenu\mainmenu.qb  the front end's nodes with the skater's restarts moved into THPS4's shop.
 # Nothing of the game is stored in the repo: the files are made from the game folder each time.
 # Needs NeverScript (tools/build_neverscript.ps1 -> out/neverscript/ns.exe).
 
@@ -466,9 +469,15 @@ BACKDROP_LEVEL = "thps4_skateshop"
 # spin_menu_selected_index). Items the game makes inactive (active=0) are shown but not focusable; the 2 player
 # item's tag `active` is switched by the game's enable / disable_two_player_option as before, and main_menu_choose
 # doesn't run an inactive item.
-MAIN_MENU_SCRIPTS = r"""main_menu_list_pos = (195.0, 100.0)
+MAIN_MENU_SCRIPTS = r"""main_menu_list_pos = (229.0, 98.0)
+main_menu_list_width = 220.0
+main_menu_list_spacing = 2
+main_menu_text_scale = 0.85
+main_menu_backing_pad_x = 16.0
+main_menu_backing_pad_y = 9.0
 main_menu_list_index = 0
 main_menu_list_items = 0
+main_menu_skating = 0
 script create_main_menu {
     change main_menu_return_to_createamodes=0
     SetNetworkMode
@@ -490,8 +499,8 @@ script create_main_menu {
         vmenu_id=main_vmenu
         title="MAIN MENU"
         pos=main_menu_list_pos
-        dims=(250.0, 480.0)
-        spacing=6
+        dims=(main_menu_list_width * (1.0, 0.0) + (0.0, 480.0))
+        spacing=main_menu_list_spacing
         use_icons
         helper_text=generic_helper_text_no_back
         pad_back_sound=nullscript
@@ -516,15 +525,17 @@ script create_main_menu {
         ]
     }
     roundbar_menu_finish build_pause_parts=0 data={grid_index=(main_menu_list_index)}
+    backing_width = (main_menu_list_width + 40.0 + 2.0 * main_menu_backing_pad_x)
+    backing_height = ((main_menu_list_items) * (18.0 + main_menu_list_spacing) - main_menu_list_spacing + 2.0 * main_menu_backing_pad_y)
     CreateScreenElement {
         type=SpriteElement
         parent=current_menu_anchor
         id=main_menu_backing
         texture=white2
-        pos=(main_menu_list_pos + (-14.0, 2.0))
+        pos=(main_menu_list_pos - (20.0 + main_menu_backing_pad_x) * (1.0, 0.0) - main_menu_backing_pad_y * (0.0, 1.0))
         just=[left top]
         rgba=[0 0 0 112]
-        scale=(76.0, 23.5)
+        scale=((<backing_width> / 8.0) * (1.0, 0.0) + (<backing_height> / 8.0) * (0.0, 1.0))
         z_priority=-1
     }
     FireEvent type=focus target=attract_container
@@ -551,6 +562,13 @@ script create_main_menu {
 }
 script add_main_menu_list_items {
     demo_build_item_active = 1
+    main_menu_list_item {
+        text="SKATE NOW"
+        id=menu_skate_now
+        pad_choose_script=main_menu_skate_now
+        mark_first_input
+        icon=mainicon_score
+    }
     main_menu_list_item {
         text="STORY MODE"
         id=menu_career
@@ -663,20 +681,22 @@ script add_main_menu_list_items {
         icon=mainicon_mode
     }
 }
-script main_menu_list_item {active = 1 pad_choose_params = {}
+script main_menu_list_item {active = 1 pad_choose_params = {} pad_choose_script = main_menu_choose
     if (<active> = 1) {
         add_roundbar_menu_item {
             text=<text>
             id=<id>
-            pad_choose_script=main_menu_choose
+            pad_choose_script=<pad_choose_script>
             pad_choose_params=<pad_choose_params>
             icon=<icon>
+            scale=main_menu_text_scale
         }
     } else {
         add_roundbar_menu_item {
             text=<text>
             id=<id>
             icon=<icon>
+            scale=main_menu_text_scale
             not_focusable
         }
     }
@@ -746,7 +766,87 @@ script main_menu_choose {
         <new_menu_script> <...>
     }
 }
+script main_menu_skate_now {
+    if (main_menu_spinning = 1) {
+        return
+    }
+    change main_menu_list_index=0
+    change main_menu_spinning=1
+    KillSpawnedScript name=TemporarilyDisableInput
+    KillSpawnedScript name=attract_mode_timer
+    SetButtonEventMappings block_menu_input
+    generic_menu_animate_out force
+    if ObjectExists id=current_menu_anchor {
+        DestroyScreenElement id=current_menu_anchor
+    }
+    change main_menu_spinning=0
+    SetButtonEventMappings unblock_menu_input
+    change main_menu_skating=1
+    KillSkaterCamAnim all
+    MakeSkaterGoto main_menu_skater_skate
+    SetScreenElementProps {
+        id=root_window
+        event_handlers=[{pad_start main_menu_skate_stop}]
+        replace_handlers
+    }
+    FireEvent type=focus target=root_window
+}
+script main_menu_skater_skate {
+    SkaterInit NoEndRun ReturnControl
+    if walking {
+        CleanUp_WalkingtoSkating
+        SwitchToSkatingPhysics
+    }
+    UnpausePhysics
+    SetRollingFriction `default`
+    EnablePlayerInput
+    goto OnGroundAI
+}
+script main_menu_skate_stop {
+    if (main_menu_skating = 0) {
+        return
+    }
+    change main_menu_skating=0
+    kill_start_key_binding
+    create_main_menu
+}
 """
+
+# The front end's skater stands in THPS4's shop (the DLL draws only that shop in the front end): its restarts
+# (TRG_Playerrestart - the main menu, Create-A-Skater and the other menus' skater; SS_player_restart - the skate
+# shop menu's) moved to the floor on the left of the held view, in front of the counter, facing across the shop.
+FRONT_END_SKATER_POS = (449.0, 0.0, -1340.0)
+FRONT_END_SKATER_ANGLES = (0.0, 1.570796, 0.0)
+
+
+def front_end_nodes(text):
+    # The front end's node array (levels\mainmenu\mainmenu.qb) with its restarts moved into THPS4's shop.
+    for name in ("TRG_Playerrestart", "SS_player_restart"):
+        node = re.search(r"\n( *)Pos=\([^)]*\) *\n *Angles=\([^)]*\) *\n *Name=%s *\n" % name, text)
+        if not node:
+            sys.exit("mainmenu.qb: the restart %s not found" % name)
+        indent = node.group(1)
+        moved = "\n%sPos=(%.1f, %.1f, %.1f) \n%sAngles=(%.6f, %.6f, %.6f) \n%sName=%s \n" % (
+            (indent,) + FRONT_END_SKATER_POS + (indent,) + FRONT_END_SKATER_ANGLES + (indent, name))
+        text = text[:node.start()] + moved + text[node.end():]
+    return text
+
+
+def front_end_scripts(text):
+    # The front end's scripts for THPS4's shop: the standard main menu; at the start, the shop's collision (the DLL
+    # loads its scene; the skater skates there after SKATE NOW) and the skater's gameplay animations
+    # (do_load_unloadable: load_level skips them for the front end - without them the skater skates in its bind
+    # pose; once loaded they stay, as after any level); the skater standing idle instead of reaching for the wheel
+    # (the main menu's skater animations).
+    text = standard_main_menu(text)
+    start = "script mainmenu_startup {\n"
+    if text.count(start) != 1:
+        sys.exit("mainmenu_scripts.qb: mainmenu_startup not found")
+    text = text.replace(start, start + "    LoadCollision scene=\"%s\" \n    do_load_unloadable \n" % BACKDROP_LEVEL, 1)
+    anim = re.search(r"script SpinMenuGetSkaterAnim \{\n.*?\n\} \n", text, re.S)
+    if not anim:
+        sys.exit("mainmenu_scripts.qb: SpinMenuGetSkaterAnim not found")
+    return text[:anim.start()] + "script SpinMenuGetSkaterAnim {\n    return anim=Idle \n} \n" + text[anim.end():]
 
 
 def standard_main_menu(text):
@@ -864,7 +964,8 @@ def main():
         # The standard main menu, for the front end in THPS4's skate shop (the DLL uses front_end\ while
         # menu_backdrop is on and the shop is installed).
         if thps4 and any(level["level"] == BACKDROP_LEVEL for level in thps4["levels"]):
-            write(standard_main_menu(front_end), r"front_end\levels\mainmenu\mainmenu_scripts.qb")
+            write(front_end_scripts(front_end), r"front_end\levels\mainmenu\mainmenu_scripts.qb")
+            write(front_end_nodes(shop), r"front_end\levels\mainmenu\mainmenu.qb")
         else:
             print("%s not converted (tools/thps4_levels): no front end backdrop, the game's main menu kept" % BACKDROP_LEVEL)
 

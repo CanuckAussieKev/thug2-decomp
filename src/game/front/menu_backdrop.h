@@ -22,12 +22,13 @@ class Camera;
 // (geometry and textures only: no collision, nodes or scripts of that level). While a front-end menu camera plays
 // (mainmenu_camera, mainmenu_camera02 / 03 - the main menu and the menus without the skater -, SS_MenuCam - the
 // network menu - and level_select_cam), the viewport's camera is held at the view (position, orientation, the
-// default field of view) and THUG2's shop scene isn't drawn; with any other camera (Create-A-Skater, the skater
-// select, the story / create-a-modes menus' turning camera round the skater...) THUG2's shop is drawn as before and
-// THPS4's isn't. THUG2's shop and its objects (the skater, the wheel) are ~1,100 units behind the held view, out of
-// sight. Leaving the front end unloads every scene, the backdrop's too.
+// default field of view). THUG2's shop scene is never drawn: the front end's skater stands in THPS4's shop (the
+// overlay's front_end mainmenu.qb moves the front end's restarts there), so the cameras that follow the skater
+// (Create-A-Skater, the skater select, the story / create-a-modes menus' turning camera...) show THPS4's shop too.
+// Leaving the front end unloads every scene, the backdrop's too.
 // The main menu itself is a script change: the data overlay's front_end folder (used first while Active) has
-// mainmenu_scripts.qb with create_main_menu building a roundbar menu (make_menu_level.py, MAIN_MENU_SCRIPTS).
+// mainmenu_scripts.qb with create_main_menu building a roundbar menu, SKATE NOW (skating in the shop) first, and the
+// shop's collision loaded at the front end's start (make_menu_level.py, MAIN_MENU_SCRIPTS).
 namespace Front::MenuBackdrop {
 
 // The setting (read from the ini once; self-tests set it for their run). 0 = off.
@@ -69,9 +70,10 @@ bool IsMenuCamera(uint32_t animName);
 // scene is in the scene list, `menuCamera` = the playing skater camera animation is a menu camera.
 // Holding: the setting is on, in the front end, the backdrop loaded and a menu camera playing.
 bool ShouldHold(int setting, bool frontEnd, bool backdropLoaded, bool menuCamera);
-// A scene not drawn: while holding, the front end's own scene; otherwise (setting on, front end, backdrop loaded)
-// the backdrop's two scenes. Nothing is hidden otherwise.
-bool ShouldHideScene(uint32_t sceneName, int setting, bool frontEnd, bool backdropLoaded, bool holding);
+// A scene not drawn: with the setting on, in the front end with the backdrop loaded, the front end's own scene (THUG2's
+// shop) - whatever the camera: the front end's skater stands in THPS4's shop (the overlay moves its restarts there).
+// Nothing is hidden otherwise.
+bool ShouldHideScene(uint32_t sceneName, int setting, bool frontEnd, bool backdropLoaded);
 
 // The same from the game's state now.
 bool Holding();

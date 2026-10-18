@@ -163,13 +163,9 @@ bool ShouldHold(int setting, bool frontEnd, bool backdropLoaded, bool menuCamera
     return On(setting) && frontEnd && backdropLoaded && menuCamera;
 }
 
-bool ShouldHideScene(uint32_t sceneName, int setting, bool frontEnd, bool backdropLoaded, bool holding)
+bool ShouldHideScene(uint32_t sceneName, int setting, bool frontEnd, bool backdropLoaded)
 {
-    if (!On(setting) || !frontEnd || !backdropLoaded)
-        return false;
-    if (holding)
-        return sceneName == kFrontEndSceneName;
-    return sceneName == kBackdropSceneName || sceneName == kBackdropSkyName;
+    return On(setting) && frontEnd && backdropLoaded && sceneName == kFrontEndSceneName;
 }
 
 bool Holding()
@@ -185,8 +181,7 @@ bool HideScene(uint32_t sceneName)
     int setting = Setting();
     if (!On(setting) || Nx::CurrentLevel() != 0 || !BackdropLoaded())
         return false;
-    bool holding = IsMenuCamera(PlayingCameraAnim());
-    return ShouldHideScene(sceneName, setting, true, true, holding);
+    return ShouldHideScene(sceneName, setting, true, true);
 }
 
 void ApplyView(Gfx::Camera* camera, const View& view)
