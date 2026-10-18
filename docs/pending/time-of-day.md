@@ -44,7 +44,7 @@ Not recovered: 0xE5B6C568, 0xDF1A695F, 0x8F639F94 (SetSceneColor's sectors-only 
 
 ## Batches
 
-- [x] Batch TOD-1 (NOT run in the game yet): the time-of-day manager, 0x00571140-0x00574910 - all 53 functions:
+- [x] Batch TOD-1 (run in the game: see below; NOT judged by a player yet): the time-of-day manager, 0x00571140-0x00574910 - all 53 functions:
   Gfx::CTODManager (src/game/gfx/tod_manager.{h,cpp}; TODParams 0xA4 bytes, TODSystem 0x188, the manager 0x340 -
   full layouts), its 18 TODManager_* script commands, CreateTODManager / ReleaseTODManager (Sys::Main now calls them
   instead of the generic Create / Release by address), and 0x00572821 (ApplyColor's body after its first test, a
@@ -75,7 +75,7 @@ Not recovered: 0xE5B6C568, 0xDF1A695F, 0x8F639F94 (SetSceneColor's sectors-only 
   a few minutes: the sky, level light and fog should change through morning / afternoon / evening / night as before;
   TODManager_GetCurrentTODParams-driven menus (the pause menu's time of day, if shown).
 
-- [x] Batch TOD-2 (NOT run in the game yet): the victory conditions and the viewer module's pieces,
+- [x] Batch TOD-2 (run in the game: see below; NOT judged by a player yet): the victory conditions and the viewer module's pieces,
   0x00576610-0x005772E0 - 32 functions (6 Ghidra had missed: 0x005766E0 / 0x00576700 elimination,
   0x00576CB0 / 0x00576CF0 the viewer's script helpers, 0x00576F00 / 0x00577140 its handlers) plus 0x005772A0
   Mth::Matrix::RotateLocal(axis, angle). Game::CVictoryCondition and its 7 types (src/game/skate/victory_conditions.{h,cpp}:
@@ -96,7 +96,7 @@ Not recovered: 0xE5B6C568, 0xDF1A695F, 0x8F639F94 (SetSceneColor's sectors-only 
   What to check in the game: a network game mode's end (target score, elimination, scavenger hunt) and the
   viewer (debug builds only - not reachable in retail).
 
-- [x] Batch TOD-3 (NOT run in the game yet): the trick goals, 0x0056F090-0x00570F60, 0x005710B0-0x00571110 and
+- [x] Batch TOD-3 (run in the game: see below; NOT judged by a player yet): the trick goals, 0x0056F090-0x00570F60, 0x005710B0-0x00571110 and
   0x00574960-0x00576520 - 49 functions (src/game/skate/trick_goals.{h,cpp}): Game::CTetrisGoal (Skatetris: 0x458
   bytes, 30 tricks of 0x20; constructor / destructors, Win, ClearTricks / ClearTricksAndMenu / Init, the combo /
   single combo / TrickTris variants, UpdateAlphas, Expire, Activate / Deactivate, RemoveTrick, AddTricks, CheckCombos,
@@ -122,7 +122,7 @@ Not recovered: 0xE5B6C568, 0xDF1A695F, 0x8F639F94 (SetSceneColor's sectors-only 
   What to check in the game: a Skatetris goal (e.g. a career level's Skatetris), a TrickBeat goal, a trick objects
   goal (hitting the marked objects): tricks appear, turn red, disappear when done, and the goals win / lose as before.
 
-- [x] Batch TOD-4 (NOT run in the game yet): the skate module's network side, 0x0056C920-0x0056F090 - 12 functions
+- [x] Batch TOD-4 (run in the game: see below; NOT judged by a player yet): the skate module's network side, 0x0056C920-0x0056F090 - 12 functions
   (4 Ghidra had missed: 0x0056CDF0, 0x0056CEC0, 0x0056E380, 0x0056E470 - handlers it only saw as data) in
   src/game/skate/skate_net.{h,cpp} (Mdl::SkateNet: the module itself isn't rewritten): CreateNetworkTasks (the two
   Tsk::Task<Skate>s), StartServer (CFunc StartServer: the server app and its 36 handlers), AddClientHandlers
@@ -155,3 +155,37 @@ Not recovered: 0xE5B6C568, 0xDF1A695F, 0x8F639F94 (SetSceneColor's sectors-only 
   What to check in the game: a network game (hosting a LAN / online game with a second instance -
   allow_multiple_instances=1 - joining): the level loads for both, scores and the leader messages show, other
   skaters move smoothly, the game ends with won / lost; a scavenger hunt / elimiskate / graffiti game if possible.
+
+## In the game
+
+- 2026-10-19, workspace C:\Games\THUG2-4, the build with all four batches (commit e87d771): 1864 of 1864
+  replacements installed, early (209), late (17) and engine-started (2) self-tests all passed. Three runs: main
+  menu -> High Score / Free Skate -> skater -> level select -> the skate shop level (about 3 minutes idle), the
+  created park menu, and TEST LEVEL (sky visible, about 3.5 minutes idle). No exception, run-time check failure or
+  debug CRT report in thug2-decomp.log; the game kept responding until closed. (Free skate doesn't advance the time
+  of day - only career mode does - so the transitions themselves weren't exercised; the multiplayer Actions menu
+  was opened once - Host / Join / Refresh, no game found - but no network game was played.)
+
+## The range: done
+
+All 137 functions of 0x0056C920-0x00577300 in the survey plus the 10 Ghidra had missed (0x0056CDF0, 0x0056CEC0,
+0x0056E380, 0x0056E470, 0x005766E0, 0x00576700, 0x00576CB0, 0x00576CF0, 0x00576F00, 0x00577140) are rewritten -
+147 REPLACE / REPLACE_SOURCE_ONLY lines, plus Mth::Matrix::RotateLocal(axis, angle) (0x005772A0). Nothing skipped.
+
+To switch a batch off: `[replacements] disable=` tod_manager.cpp (batch 1), victory_conditions.cpp, viewer.cpp
+(batch 2; RotateLocal is in matrix.cpp, shared), trick_goals.cpp (batch 3), skate_net.cpp (batch 4). Sys::Main
+calls Gfx::CreateTODManager / ReleaseTODManager directly (not through their game addresses), as before through
+main.cpp.
+
+## For the player to judge
+
+1. Time of day: a career (story) level with the day cycle (e.g. Boston), skated for several minutes: the sky, the
+   level's light and the fog should go morning -> afternoon -> evening -> night as in the original, with the
+   in-between blends smooth (no flashing parts of the level), bloom as before; the pause menu's time of day if shown.
+2. Goals: a Skatetris goal (tricks appear in the stack, turn red near full, go when done; the goal won / lost), a
+   TrickBeat goal (the beat's sounds, the tricks pulsing on the beat, landed tricks counted), a trick objects goal.
+3. Network: host a game and join it from a second copy (allow_multiple_instances=1): the level loads on both, the
+   other skater moves smoothly (the object updates), scores / leader messages show, the game ends with won / lost;
+   if possible a scavenger hunt, elimiskate and graffiti game, and a kick (the "removed you" dialog).
+4. The victory conditions (target score, last man standing, elimination, collect all objects) end network games
+   as before.
