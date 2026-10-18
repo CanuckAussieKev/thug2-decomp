@@ -184,6 +184,12 @@ def read_material_list(data, offset, size, name):
 #   u32 6, u16 face flags per triangle (THUG2's collision flag meanings), u32 0, u32 checksum (the object's name),
 #   u8, u8, u8 has vertex data (+ 2 bytes per vertex: wibble data, not used).
 
+def read_uv_sets(r, sets, count):
+    # RenderWare stores each uv set as its own array (all of set 0, then all of set 1): per vertex (u0, v0, u1, v1).
+    arrays = [[r.read("2f") for _ in range(count)] for _ in range(sets)]
+    return [sum((arrays[k][i] for k in range(sets)), ()) for i in range(count)] if sets else []
+
+
 def read_binmesh(data, offset, size, name):
     r = Reader(data[offset:offset + size], name=name)
     face_type, count, total = r.read("3I")
@@ -208,7 +214,7 @@ def read_sector(data, offset, size, flags, name):
     if flags & GEO_PRELIT:
         sec["colors"] = [r.read("4B") for _ in range(nvert)]
     sets = 2 if flags & GEO_TEXTURED2 else (1 if flags & GEO_TEXTURED else 0)
-    sec["uvs"] = [r.read("%df" % (2 * sets)) for _ in range(nvert)] if sets else []
+    sec["uvs"] = read_uv_sets(r, sets, nvert)
     sec["uv_sets"] = sets
     sec["triangles"] = [r.read("4H") for _ in range(ntri)]  # (material, a, b, c)
     r.expect_end()
@@ -292,7 +298,7 @@ def read_geometry(data, offset, size, name):
     g = {"flags": flags}
     g["colors"] = [r.read("4B") for _ in range(nvert)] if flags & GEO_PRELIT else []
     sets = 2 if flags & GEO_TEXTURED2 else (1 if flags & GEO_TEXTURED else 0)
-    g["uvs"] = [r.read("%df" % (2 * sets)) for _ in range(nvert)] if sets else []
+    g["uvs"] = read_uv_sets(r, sets, nvert)
     g["uv_sets"] = sets
     g["triangles"] = []
     for _ in range(ntri):

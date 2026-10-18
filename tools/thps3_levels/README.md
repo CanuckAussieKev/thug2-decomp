@@ -48,19 +48,20 @@ RenderWare 3.1 binary streams (chunks: u32 type, u32 size, u32 version 0x310) wi
   after), the fixed alpha, the uv wibble.
 - `.tdx` - a texture dictionary of D3D8 texture natives: every texture THPS3 PC ships is 32-bit BGRA with one level
   (THUG2's 32-bit textures exactly; mip levels are made by the converter).
-- `.dff` - clumps (the GameObjects: fans, doors, rubble, pumpkins...), read by the self-check but not converted: almost
-  all are made by goal scripts. Each clump's declared size leaves out 12 bytes of its Neversoft extension.
+- `.dff` - clumps (the GameObjects: fans, doors, rubble, pumpkins...): only the ones there at the start are converted
+  (static scene sectors, no collision; `--no-objects` leaves them out) - almost all are made by goal scripts. Each clump's declared size leaves out 12 bytes of its Neversoft extension.
 - `.qb` - THPS4's token format (tools/level_port/qb.py; Cruise Ship's node array has a `<...>`). Nodes use
   `Position`, z negated from the geometry's - as THPS4's, which THUG2 reads the same way: the geometry is kept as is.
 
 ## What's converted
 
 - Scene: a THUG2 sector per atomic sector with its meshes per material (the bin mesh's strips; triangle lists joined
-  into strips), invisible materials left out, vertex colours halved (THUG2's 128 = full).
+  into strips), invisible materials left out, vertex colours halved (THUG2's 128 = full), the first uv set (RenderWare stores the sets one after
+  another; THPS3's second is never written).
 - Textures: 32-bit as they are, with mip levels down to 8 x 8.
 - Collision: a THUG2 object per atomic sector, every face with its flags and its material's terrain; THUG2's BSP
   trees, fixed-point vertices and reaches made (tools/level_port/geometry.convert_col).
-- Nodes: EnvironmentObjects become LevelGeometry; restarts, rails, KOTH crowns kept; peds, vehicles, game objects,
+- Nodes: EnvironmentObjects become LevelGeometry (their Links, to restarts for THPS3's scripts, dropped); restarts, rails, KOTH crowns kept; peds, vehicles, game objects,
   waypoints, proximity nodes and scripts left out. Kill zones: trigger scripts that call SK3_KillSkater(_Water) or a
   level script that does (CJR_Foun_Kill_Skater_Molten...) become THUG2's SK3_KillSkater(_Water) with the call's
   messages and colour and a restart (tools/level_port/nodes.py).

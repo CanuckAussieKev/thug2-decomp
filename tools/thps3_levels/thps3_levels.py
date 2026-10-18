@@ -259,8 +259,9 @@ def scene_sectors(sectors, materials, checksums, skip):
         s = {"checksum": sec["checksum"], "bone": -1, "flags": flags, "bbox": tuple(lo + hi),
              "sphere": (center[0], center[1], center[2], radius), "positions": positions,
              "colors": [(b >> 1, g >> 1, r >> 1, a >> 1) for r, g, b, a in colors],
-             "uv_sets": max(1, sec["uv_sets"]),
-             "uvs": sec["uvs"] or [(0.0, 0.0)] * len(positions), "meshes": meshes}
+             # (the first uv set only: THPS3's second one is never written - uninitialised memory, NaNs)
+             "uv_sets": 1,
+             "uvs": [uv[:2] for uv in sec["uvs"]] or [(0.0, 0.0)] * len(positions), "meshes": meshes}
         if "normals" in sec:
             s["normals"] = sec["normals"]
         out.append(s)
@@ -510,11 +511,13 @@ def convert_node_array(q, global_qbs, name, base, start_scripts):
             if checksum in created or (text and any(text.startswith(p) for p in prefixes)):
                 continue
             hidden.add(checksum)
+    # (every node keeps its place: the Links are indices into the array - nodes.convert_nodes renumbers them; one
+    # left out here is a placeholder of a class it drops)
     kept = []
     for node in array:
-        if not isinstance(node, qb.Struct):
-            continue
-        if isinstance(node.get("Name"), qb.Name) and node.get("Name").value in hidden:
+        if not isinstance(node, qb.Struct) or (isinstance(node.get("Name"), qb.Name) and
+                                               node.get("Name").value in hidden):
+            kept.append(qb.Struct([(qb.Name(qb.checksum("Class")), qb.Name(qb.checksum("LeftOut")))]))
             continue
         if isinstance(node.get("Class"), qb.Name) and node.get("Class").value == environment:
             # (THPS3's sector nodes: THUG2's LevelGeometry)
@@ -525,6 +528,17 @@ def convert_node_array(q, global_qbs, name, base, start_scripts):
                 # (made by the level's start scripts)
                 node.entries.append((None, qb.Name(qb.checksum("CreatedAtStart"))))
                 names.setdefault(qb.checksum("CreatedAtStart"), "CreatedAtStart")
+        links = node.get("Links")
+        if links is not None and nodes.class_of(node, names) != "railnode":
+            # (sector nodes link to restarts and each other for THPS3's scripts: nothing for THUG2 - its node
+            # loader follows non-rail links as paths)
+            node = qb.Struct(list(node.entries))
+            node.remove("Links")
+            links = None
+        if isinstance(links, list) and len(set(links)) != len(links):
+            # (Foundry's TRG_117 has Links=[70, 70]: once is enough)
+            node = qb.Struct(list(node.entries))
+            node.set("Links", sorted(set(links), key=links.index))
         kept.append(node)
     restarts = {n.get("Name").value for n in kept if nodes.class_of(n, names) == "restart"
                 and isinstance(n.get("Name"), qb.Name)}

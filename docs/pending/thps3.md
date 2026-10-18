@@ -17,7 +17,12 @@ Agent "thps3". How to run it and THPS3's formats: tools/thps3_levels/README.md.
   60-73; new pictograms gear (Foundry), pine (Canada), redeemer (Rio), torii (Tokyo), ship (Cruise Ship), crate
   (Warehouse), ufo (Roswell); stars for Canada (BC, inferred), Rio, LA, Tokyo, Warehouse (Woodland Hills), Burnside
   (Portland), Roswell; the fictional places spin the globe.
-- Game runs: NOT run in the game yet.
+- Game runs (2026-10-18, under the lock): the level select's THPS3 section shows (header, signs, Foundry's gear sign,
+  the globe). Foundry with only its restarts (and with half its rails) loads and skates - collision works; the
+  user saw the textures broken. The full node array hung the loading screen: a crash (read of 0) in
+  CNodeManager::NextNode under 0x004696C0 (the loader's walk over linked non-rail nodes; found in the minidump
+  CrashDumps\THUG2PM.exe.4092.dmp, symbolised against our dinput8.pdb), the process then stuck in Windows' error
+  reporting. Both causes found and fixed offline (below); NOT run in the game again yet (the user stopped game runs).
 
 ## Changes to shared code
 
@@ -49,9 +54,20 @@ Agent "thps3". How to run it and THPS3's formats: tools/thps3_levels/README.md.
   the checksum - the field is a u32 version 6 at the start, and the trailer is 3 bytes (u8 flags, u8, u8 has vertex
   data + 2 bytes per vertex when set); its material extension isn't decoded. Not ours to fix; noted.
 
+## Bugs found in our tool (fixed after the game runs)
+
+- Textures broken: RenderWare stores each uv set as its own array (all of set 0, then all of set 1) - the reader
+  took them as interleaved per vertex, so the first set was half another vertex's. THPS3's second set is never
+  written (uninitialised memory, NaNs): only the first is converted.
+- The hang: the node pre-pass dropped the nodes not there at the start before nodes.convert_nodes, so the Links
+  (indices into the array) pointed at the wrong nodes - rails linked to restarts and sector nodes, which THUG2's
+  loader walks as paths. The nodes now keep their places (placeholders), rails link only to rails (checked: Foun,
+  Ap, LA, Tok), Links on non-rail nodes are dropped (THPS3's sector nodes link to restarts for its scripts), and a
+  rail linked twice to the same node (Foundry's TRG_117: Links=[70, 70]) once.
+
 ## Left
 
-- Game runs (load, skate, grind, kill zones, textures, sky) - waiting for the game lock.
+- Game runs again with the fixes (load, textures, rails, kill zones, sky), every level.
 - GameObjects (.dff: fans, doors, presses, pumpkins) not converted - almost all are made by goal scripts; the
   CreatedAtStart ones could be added as static scene sectors.
 - Vertex colour wibbles, env-mapped passes (uv flag 0x80), the second passes, music, goals, peds, vehicles.
