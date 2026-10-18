@@ -330,7 +330,85 @@ def script_names(thps3_dir):
     return out
 
 
-def convert_node_array(q, global_qbs, name):
+def name_value(payload):
+    return struct.unpack("<I", payload)[0]
+
+
+def created_at_start(q, global_qbs, names_all, base, start_scripts):
+    # What THPS3's scripts create when a level starts (Create name= / prefix=), followed statically from its start
+    # scripts through the scripts they call or spawn (both branches of every if): Load_<base> (its <base>_Startup),
+    # the level's once_on_startup, the Player1 restart's trigger script, and the start scripts of the goal /
+    # competition parameters StartRunScript gives this level (Goal_Start_Script... - not the goal complete ones).
+    # Airport's areas, the tutorials' rooms and the like are made there; a press's other position, an open door or
+    # LA's earthquake rubble are not.
+    scripts = {}
+    structs = {}
+    for g in global_qbs + [q]:
+        scripts.update(g.scripts)
+        for key, value in g.globals:
+            if isinstance(value, qb.Struct):
+                structs[key.value] = value
+    c = qb.checksum
+    entries = list(start_scripts) + [c("Load_" + base)]
+    # StartRunScript's branch for this level: `if CareerLevelIs LevelNum_X` ... GameStart / CompIntroSequence <params>
+    level_num = None
+    for command, args in statements_of(scripts.get(c("Load_" + base), [])):
+        if command == c("CareerStartLevel") and c("level") in args:
+            level_num = args[c("level")]
+    in_branch = False
+    for line in scripts.get(c("StartRunScript"), []):
+        tokens = [(t, p) for t, p in line]
+        if any(t == 0x16 and name_value(p) == c("CareerLevelIs") for t, p in tokens):
+            in_branch = any(t == 0x16 and name_value(p) == level_num for t, p in tokens)
+            continue
+        if in_branch:
+            for t, p in tokens:
+                if t == 0x16 and name_value(p) in structs:
+                    for key, value in structs[name_value(p)].entries:
+                        text = names_all.get(key.value, "") if key is not None else ""
+                        if isinstance(value, qb.Name) and "start_script" in text.lower() and \
+                                "complete" not in text.lower() and "scripted" not in text.lower():
+                            entries.append(value.value)
+    names, prefixes, seen = set(), [], set()
+    todo = [e for e in entries if e is not None]
+    while todo:
+        script = todo.pop()
+        if script in seen or script not in scripts:
+            continue
+        seen.add(script)
+        for line in scripts[script]:
+            if not line or line[0][0] != 0x16:
+                continue
+            command = name_value(line[0][1])
+            if command in scripts:
+                todo.append(command)
+            if command in (c("SpawnScript"), c("RunScriptOnObject")) and len(line) > 1 and line[1][0] == 0x16:
+                todo.append(name_value(line[1][1]))
+            if command == c("Create"):
+                for i in range(1, len(line) - 2):
+                    if line[i][0] == 0x16 and line[i + 1][0] == 0x07:
+                        key, (vt, vp) = name_value(line[i][1]), line[i + 2]
+                        if key == c("Name") and vt == 0x16:
+                            names.add(name_value(vp))
+                        elif key == c("prefix") and vt in (0x1B, 0x1C):
+                            prefixes.append(vp.rstrip(b"\0").decode("latin-1").lower())
+    return names, prefixes
+
+
+def statements_of(lines):
+    out = []
+    for line in lines:
+        if not line or line[0][0] != 0x16:
+            continue
+        args = {}
+        for i in range(1, len(line) - 2):
+            if line[i][0] == 0x16 and line[i + 1][0] == 0x07 and line[i + 2][0] == 0x16:
+                args[name_value(line[i][1])] = name_value(line[i + 2][1])
+        out.append((name_value(line[0][1]), args))
+    return out
+
+
+def convert_node_array(q, global_qbs, name, base, start_scripts):
     array = q.get("NodeArray")
     if not isinstance(array, list):
         raise FormatError("%s: no NodeArray" % q.name)
@@ -339,14 +417,25 @@ def convert_node_array(q, global_qbs, name):
         names.update(g.names)
     names.update(q.names)
     environment = qb.checksum("EnvironmentObject")
-    # Environment objects not there at the start (a press's other position, a door open, LA's earthquake rubble)
-    # are made by goal scripts THUG2 doesn't have: their sectors are left out, as their nodes.
+    # Environment objects not there at the start and not made by the level's start scripts (a press's other
+    # position, a door open, LA's earthquake rubble: made by goal scripts THUG2 doesn't have) are left out, sectors
+    # and nodes.
+    player1 = next((n for n in array if isinstance(n, qb.Struct) and nodes.class_of(n, names) == "restart"
+                    and isinstance(n.get("Type"), qb.Name) and n.get("Type").value == qb.checksum("Player1")), None)
+    starts = list(start_scripts)
+    if player1 is not None and isinstance(player1.get("TriggerScript"), qb.Name):
+        starts.append(player1.get("TriggerScript").value)
+    created, prefixes = created_at_start(q, global_qbs, names, base, starts)
     hidden = set()
     for node in array:
         if isinstance(node, qb.Struct) and isinstance(node.get("Class"), qb.Name) and \
                 node.get("Class").value == environment and isinstance(node.get("Name"), qb.Name) and \
                 not node.has_flag("CreatedAtStart"):
-            hidden.add(node.get("Name").value)
+            checksum = node.get("Name").value
+            text = names.get(checksum, "").lower()
+            if checksum in created or (text and any(text.startswith(p) for p in prefixes)):
+                continue
+            hidden.add(checksum)
     kept = []
     for node in array:
         if not isinstance(node, qb.Struct):
@@ -358,6 +447,10 @@ def convert_node_array(q, global_qbs, name):
             node = qb.Struct(list(node.entries))
             node.set("Class", qb.Name(qb.checksum("LevelGeometry")))
             names.setdefault(qb.checksum("LevelGeometry"), "LevelGeometry")
+            if not node.has_flag("CreatedAtStart"):
+                # (made by the level's start scripts)
+                node.entries.append((None, qb.Name(qb.checksum("CreatedAtStart"))))
+                names.setdefault(qb.checksum("CreatedAtStart"), "CreatedAtStart")
         kept.append(node)
     restarts = {n.get("Name").value for n in kept if nodes.class_of(n, names) == "restart"
                 and isinstance(n.get("Name"), qb.Name)}
@@ -479,7 +572,6 @@ def cmd_convert(args):
     levels_q = qb.QbFile(read(os.path.join(scripts, "levels.qb")), "levels.qb")
     lights_q = qb.QbFile(read(os.path.join(scripts, "lights.qb")), "lights.qb")
     global_qbs = script_names(args.thps3)
-    names = dict(levels_q.names)
     master = {}
     for value in levels_q.get("master_level_list") or []:
         if isinstance(value, qb.Struct) and isinstance(value.get("load_script"), qb.Name):
@@ -508,7 +600,10 @@ def cmd_convert(args):
         # The node array first: the collision keeps the trigger faces of the kill zones it keeps, and the sectors
         # not there at the start are left out of both.
         q = qb.QbFile(read(files["qb"]), files["qb"])
-        text, hidden, triggers, node_report = convert_node_array(q, global_qbs, name)
+        entry_struct = master.get(qb.checksum("Load_" + base))
+        once = entry_struct.get("once_on_startup") if entry_struct else None
+        text, hidden, triggers, node_report = convert_node_array(
+            q, global_qbs, name, base, [once.value] if isinstance(once, qb.Name) else [])
         common.ns_compile(args.ns, text, os.path.join(level_dir, name + ".qb"))
         world = thps3.read_bsp(read(files["bsp"]), files["bsp"])
         tdx = thps3.read_tdx(read(files["tdx"]), files["tdx"])
@@ -529,7 +624,6 @@ def cmd_convert(args):
                                   thps3.read_tdx(read(sky_files["tdx"]), sky_files["tdx"]), sky,
                                   os.path.join(out, "levels", sky), report, with_col=False, mips=not args.no_mips)
                     skies_done.add(sky)
-        entry_struct = master.get(qb.checksum("Load_" + base))
         display_name = entry_struct.get("level_name") if entry_struct and \
             isinstance(entry_struct.get("level_name"), str) else sign.title()
         manifest["levels"].append({
@@ -545,7 +639,6 @@ def cmd_convert(args):
             "default_stats": 6,
             "lighting": lighting(lights_q, lights_script),
         })
-    del names
     ported_levels.write_manifest(os.path.join(out, ported_levels.MANIFEST), manifest)
     print("\n".join(report))
     print("wrote %s (%d levels); install with tools\\menu_level\\make_menu_level.py" % (out, len(manifest["levels"])))

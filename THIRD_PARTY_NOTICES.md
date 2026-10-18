@@ -51,3 +51,32 @@ original's README (kept in the fork) says:
 > me a thing.
 
 Thanks to byxor for the compiler and decompiler, and to violetvandal for making them work with THUG2.
+
+## thps-formats (Morten1337) (MIT)
+
+Source: https://github.com/Morten1337/thps-formats (commit e0a6e06), MIT licence (its pyproject.toml; author "MK").
+Its experimental RenderWare reader for THPS3 (`thps_formats/experimental/chunky.py`, `enums.py`) was read as
+documentation for tools/thps3_levels (the chunk ids, the geometry and atomic sector field order); no code was copied.
+Thanks to Morten1337.
+
+```
+MIT License
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
