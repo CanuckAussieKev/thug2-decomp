@@ -66,5 +66,5 @@ Agent "thaw". How to run it: tools/thaw_levels/README.md.
   THUG2's traversal). Also hit in the 8 other recentred levels: JA 24220/34402 faces unreachable, SZ 30472/44225,
   BH 15587/26020, EL 12273/22293, SM 16708/24737, SR 20169/31550, LV 16775/25502, OI 27791/37809; CH, DN, SV2, SV,
   HO, DT not moved - fine. THAW's face bits 0x2000/0x4000/0x8000 (dropped) aren't it: the faces hit are 0x4 / 0x0,
-  drawn, and 0x8000 is on most floors (2140 Mall faces). NOT tested in the game yet.
+  drawn, and 0x8000 is on most floors (2140 Mall faces). Reconverted and installed (all 15 levels: every face reachable in the installed files). NOT tested in the game yet.
 - (lead) The Mall's glass still stopped the skater (user, sticker-slappable): the entrance glass (Z_MA_Sk_JOW_Mall_Entrance04...) kept THAW's Type=Crate (its physics breakables) and THAW's face flags 0xF0. Breakables now lose Type, and their faces are written as THUG2's own (AP_Shatter_Roof: 0x1150). Also: dropped nodes (LOD copies, night sectors, LEFT_OUT) were removed after convert_nodes renumbered the Links - every later node's links one off (The Mall hung loading); now placeholders before converting; all 15 levels' rail links checked.
