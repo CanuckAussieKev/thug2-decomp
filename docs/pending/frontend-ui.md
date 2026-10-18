@@ -162,3 +162,25 @@ decomp-progress.md (the lead numbers them when merging).
       bugs, all caught (6 after strengthening). Several mutation builds failed with "cannot open program
       database" / LNK1318 RPC errors (the build's PDBs; deleting out\build\verify's vc140.pdb / thug2_check.pdb
       fixed it) - re-run.
+- [x] Batch FE-6 (NOT run in the game yet; early test passes offline): the picture elements and the window element
+      (new src/game/front/sprite_element.*) and the engine's platform calls at the range's end (new
+      src/game/gfx/engine_glue.*). CTextureElement (TextureElement, vtable 0x0064A1F8, 0x180 bytes): Construct
+      0x4AED90, DestroyBody 0x4AEDF0, Destroy 0x4AEE60, SetProperties 0x4AEE90 (Texture, rot_angle, Blend),
+      GetProperties 0x4AEFD0 (only the summed colour as rgba), Update 0x4AEF40. CSpriteElement (SpriteElement,
+      vtable 0x0064A228, 0x184 bytes): Construct 0x4AF1A0, DestroyBody 0x4AF0D0, Destroy 0x4AF210, SetTexture
+      0x4AF130 (the element takes the texture's size), SetSpriteRotation 0x4AF240, SetProperties 0x4AF520
+      (Texture, rot_angle, Blend, no_zwrite, the window's viewport), GetProperties 0x4AF4E0, SetMorph 0x4AF5E0,
+      Update 0x4AF2C0 (hidden off the layout's -200..648 top band, position / size / flips / rotation / just /
+      scale / z_priority or pos3D depth (+5000 to the float's bits with kKeepScale, as the original) / z write /
+      colour). CWindowElement (WindowElement, vtable 0x0064A2C0): Construct 0x4B2060 (a 640x448 2D window),
+      DestroyBody 0x4B2100, Destroy 0x4B2170, GetWindow2d 0x4B2160, Update 0x4B21A0. Nx platform calls:
+      ToggleMemView 0x4B2270 (the MemViewToggle command's flag), StartRender 0x4B2280 (BeginScene unless the
+      device is lost), DeleteObject 0x4B22A0, AddDebugShape 0x4B22C0, PlatformExtension 0x4B2320 ("Xbx"), and
+      REPLACE_SOURCE_ONLY for the jumps SetScreenClip 0x4B22B0, FlagDebugLines 0x4B22F0, ClearDebugLines
+      0x4B2300, SphereVisible 0x4B2310 (0x4B2230 / 0x4B2240 were already in singleton.cpp). 29 functions.
+      Early test (src/hook/selftests_fe_sprite.cpp): construction / destruction with and without pieces,
+      properties, rotation (target / shown equal, NaN, now or not), the morph, updates over the flag sets (pos3D,
+      off screen, keep scale, flips, the 0x1000000 angle, hidden parents), tops and alphas at the band's edges and
+      NaN; the platform calls against stand-ins of the PC engine. 40 deliberate bugs: 38 caught; 2 equivalent: the
+      alpha threshold's >= vs > and the NaN case (the alpha byte is 0 either way: 255 x 0.0001 truncates to 0, and
+      a NaN's _ftol is 0x80000000).
