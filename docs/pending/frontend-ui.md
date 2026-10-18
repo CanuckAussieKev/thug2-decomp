@@ -117,3 +117,29 @@ decomp-progress.md (the lead numbers them when merging).
       the container's unfocus, self-assignment, a 1.1 padding scale); 2 equivalent / below float precision: the
       menu's dirty flag taken from its items (it is already set), and the unrounded vs rounded half item
       length (differences under a float's rounding of the offsets).
+- [x] Batch FE-4 (NOT run in the game yet; early test passes offline): the screen element manager (new
+      src/game/front/screen_element_manager.*), CScreenElementManager (0x00701440, 0x6A4 bytes, a CBaseManager with
+      an event listener at +0x28, the root +0x44, 48 focus entries in two lists, 10 pad-event priorities, the
+      pad_event_types). Construct 0x4AB990, DestroyBody 0x4ABB00, Destroy 0x4ACB40, the listener's Destroy
+      0x4ABAF0, UnregisterObject 0x4AAFF0 (a removed root: the first other parentless element), GetObjectList
+      0x4AAD40 (4 bytes: REPLACE_SOURCE_ONLY), GetElement 0x4AAE20, SetRoot 0x4AB730, SetParent 0x4ABBE0,
+      DestroyTree 0x4AC400, DestroyElement 0x4AD100, FindByLocalId 0x4AB130, ResolveId 0x4AC120 (nested
+      {id child = ...} structures, local ids, aliases, child indexes), ResolveElement 0x4AD1E0, Update 0x4ABD00
+      (the layout pass with the tree locked), LockTree 0x4AAF90, SetPausedAll 0x4AAEE0, AddFocusEntry 0x4AB250
+      (a new entry goes after the last entry looked at - list 1's tail when it has entries, whatever list it is
+      for: as the original), RemoveFocusEntries 0x4AB330, ClearMarks 0x4AB4D0, ListenerReceive 0x4ABD40 (focus /
+      unfocus / the focus flag's events, pad events to the focused elements with priorities and the device
+      check), HasPriorities 0x4AAD80, IsPadEvent 0x4AAD50, IsTopPriority 0x4AB7C0, PushPriority 0x4AC570,
+      UpdatePriorities 0x4AB5D0, CreateScreenElementManager 0x4ACAF0, DeleteScreenElementManager 0x4AACF0,
+      SetScoreText 0x4AB910. 29 functions (CreateElement 0x4ACB70 is with the script commands, FE-6).
+      The elements' own calls into the manager still go through the game's addresses (now ours when hooked).
+      Early test (src/hook/selftests_fe_manager.cpp: a real manager over the element world): construction, the
+      singleton's use counts, unregistering roots, SetParent with the root / no root, local ids, every ResolveId
+      form, frames and the tree lock (counts checked between locks, a negative count), pausing, destruction with
+      and without recursion / keeping the element, both focus lists (an element in the other list, entries from
+      the parent on, marks, the entries full), every event path, priorities (pushes into free slots, the lowest
+      replaced or refused, equal to the lowest, an inactive slot's priority), the score text. 46 deliberate bugs:
+      44 caught (9 after strengthening); 2 equivalent: GetElement's assert argument (unused) in SetRoot, and
+      ResolveId's own release of the element being resolved on the plain-id path (the caller releases it too).
+      Note: thug2_check.exe crashed silently (exit -1) on 2 of 4 runs once, right after a build, in another
+      area's tests (the last lines were the movie / script-trace tests); 12 later runs passed - not reproduced.
