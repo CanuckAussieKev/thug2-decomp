@@ -143,3 +143,22 @@ decomp-progress.md (the lead numbers them when merging).
       ResolveId's own release of the element being resolved on the plain-id path (the caller releases it too).
       Note: thug2_check.exe crashed silently (exit -1) on 2 of 4 runs once, right after a build, in another
       area's tests (the last lines were the movie / script-trace tests); 12 later runs passed - not reproduced.
+- [x] Batch FE-5 (NOT run in the game yet; early test passes offline): the scrolling menus (new
+      src/game/front/scrolling_menu.*), CScrollingMenu (vscrollingmenu / hscrollingmenu, 0x1C0 bytes: a screen
+      element with its own event listener at +0x178; the menu inside it, the window's start / length,
+      scroll_speed, num_items_to_show). Construct 0x4AE050, ConstructVertical 0x4AE170, ConstructHorizontal
+      0x4AE1C0, the three destructor bodies 0x4AE110 / 0x4AE1A0 / 0x4AE1F0 and deleting destructors 0x4AE240 /
+      0x4AE270 / 0x4AE2A0, the listener's three slot-0 adapters 0x4AE210 / 0x4AE220 / 0x4AE230, FindMenu
+      0x4AE2D0 (the last vmenu / hmenu child; the window from regular spacing x items shown, else the size),
+      ItemPlace 0x4AE450 (an item's place and size in the menu's scale), SetProperties 0x4AE520
+      (internal_just, scroll_speed, num_items_to_show, reset_window_top / reset_window_bottom / rearrange),
+      PassEventToScript 0x4AE6A0 (the focus flag's event, focus / unfocus passed to the menu), ListenerReceive
+      0x4AE7E0 (the menu's events: its focus flag re-arranges, an item's focus selects it), Update 0x4AE960 (the
+      window follows the selection by scroll_speed with margins that keep it mid-window, the menu moved, the
+      items outside hidden). 18 functions.
+      Early test (src/hook/selftests_fe_scroll.cpp): construction / destruction of each kind, FindMenu (vertical /
+      horizontal with both menu kinds present, 0 / -1 items shown), ItemPlace, every property, the events, Update
+      over sizes and regular spacing, each margin case, scrolling back / forward and the clamps. 31 deliberate
+      bugs, all caught (6 after strengthening). Several mutation builds failed with "cannot open program
+      database" / LNK1318 RPC errors (the build's PDBs; deleting out\build\verify's vc140.pdb / thug2_check.pdb
+      fixed it) - re-run.
