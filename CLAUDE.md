@@ -54,7 +54,7 @@ installed); functions PartyMod patched get source with PartyMod's behaviour. Lat
   doc, and record "tested in the game" when they report back.
 - **Don't launch the game unless the user says so** (they may be playing; a running game also locks the
   DLL), and never copy DLLs into the game folder - except while holding the game lock: the user allowed agents to
-  test in the game through it (acquire / release with the lead's `game_lock.ps1 -Game <folder>`, which backs
+  test in the game through it (acquire / release with `tools/game/game_lock.ps1 -Game <folder>`, which backs
   up the deployed DLL and ini and puts them back on release). Under the lock an agent may copy its own build's
   dinput8.dll into its folder, edit thug2-decomp.ini, launch and close the game. Files we made in the game
   folders (the lock, overlays, layouts, logs) may be deleted; original game files never.
