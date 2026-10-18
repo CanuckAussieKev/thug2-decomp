@@ -41,15 +41,28 @@ void __cdecl PlayNextTrackInOrder();
 // and it isn't the user's playlist) - if the music is audible or it's playlist 1.
 void __cdecl Update();
 
-// The three streams (0x74 bytes each, at 0x0069B938).
+struct FrameAmp;
+
+// The three streams (0x74 bytes each, at 0x0069B938; started by StartStream / PlayStream, stream.h).
 struct Stream {
-    uint32_t name;      // +0 what's playing (a checksum)
+    uint32_t name;      // +0 what's playing (a checksum: the id asked for, or the stream's)
     uint32_t id;        // +4 the stream's id
-    uint8_t unknown8[8];
+    float volume;       // +8 percent (100; PlayStreamFromObject scales it)
+    float dropoff;      // +0xC (1020)
     int channel;        // +0x10 the platform's stream (-1: any; 0x00453270 says whether it's playing)
-    uint8_t unknown14[0x1C];
-    uint32_t* listener; // +0x30 two words cleared when the stream ends
-    uint8_t unknown34[0x40];
+    int priority;       // +0x14
+    int option;         // +0x18 PlayStream's (the script's 0xE46111E0)
+    uint32_t unknown1C; // +0x1C (set 0)
+    int nameCount;      // +0x20 names in use
+    uint32_t startFrame; // +0x24 the frame it started (Tmr::GetRenderFrame)
+    uint8_t usePosInfo; // +0x28 its volume follows the owner's position (PlayStreamFromObject)
+    uint8_t pad29[3];
+    int dropoffFunction; // +0x2C
+    uint32_t* listener; // +0x30 the stream's frame amplitudes (a FrameAmp: checksum and size cleared when it ends)
+    struct {
+        uint32_t checksum;
+        FrameAmp* frameAmp;
+    } names[8];         // +0x34 its names (AddStream adds more) and their frame amplitudes
 };
 static_assert(sizeof(Stream) == 0x74, "layout must match the original");
 

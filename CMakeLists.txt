@@ -138,7 +138,9 @@ add_library(thug2_code OBJECT
     src/game/gfx/text.cpp
     src/game/gfx/device.cpp
     src/game/gfx/movie.cpp
+    src/game/pcm/bink_stream.cpp
     src/game/pcm/music.cpp
+    src/game/pcm/stream.cpp
     src/game/gfx/loading_bar.cpp
     src/game/gfx/render.cpp
     src/game/gfx/sprite.cpp

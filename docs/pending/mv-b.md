@@ -18,5 +18,28 @@
   calls. 40 deliberate bugs caught, 4 after strengthening (title terminator, the "no track" flag, a track one
   past the count, "Empty." length).
 
+## Batch mv-b-2 (NOT run in the game yet): the streams and the PC's Bink stream files
+- src/game/pcm/stream.cpp: 0x451010 PauseStream, 0x451620 LoadStreamHeader, 0x451660 IsStreamPlaying,
+  0x4516A0 LoadStreamFrameAmp, 0x4516E0 GetStreamFrameAmp, 0x451720 FreeStreamFrameAmp, 0x451770 StartStream,
+  0x451960 PlayStream, 0x451A50 PreLoadStream, 0x451B80 AddStream, 0x451E20 PlayStreamFromObject (11 REPLACE)
+  + 0x451E7D REPLACE_SOURCE_ONLY (not a function: Ghidra split 0x451E20's body there).
+- src/game/pcm/bink_stream.cpp: 0x452A90 LoadStreamFile (12-slot cache of stream files read into memory with the
+  game's C runtime), 0x452C00 BinkStreamView::Construct, 0x452C60 BinkStreamView::Open (BinkOpen from memory,
+  video off; BinkSetSoundSystem(DirectSound) once) - 3 REPLACE.
+- Findings: Pcm::Stream's fields filled in (volume, dropoff, priority, option, nameCount, startFrame, usePosInfo,
+  dropoffFunction, names[8]; `listener` is the stream's FrameAmp slot). A new stream takes a free channel or the
+  one with the lowest priority / oldest start (unsigned frames) if the new priority is at least that. PlayStream
+  callers push a 7th argument that's ignored; StreamIdFinished's answer is ignored. 0x0069BAAA blocks new streams
+  (nothing sets it). AddStream has no bound on its 8 names (original quirk). PC streams are audio-only Bink files.
+- Tests: TestStreamCommands, TestBinkStreamFiles (selftests_mvb.cpp). 58 deliberate bugs: 54 caught (6 after
+  strengthening: equal start frames, usePosInfo cleared, name counts kept in bounds, equal LRU ages); 4 equivalent:
+  ChannelStatus != 2 vs == 1 (0x453270 returns only 1 or 2), the start frame as int (compared unsigned anyway),
+  SetSilent after the sVolume constructor (it already zeroes), the volume scale's association (same float).
+
 ## Classes / types
-- (none yet)
+- Pcm::Stream (music.h, existed): filled in its unknown fields - check against mv-a if it also did (0x450BE0 reads them).
+- Pcm::FrameAmp (stream.h, new): the frame-amplitude slot {checksum, size, data[0x1000]} - 3 of its 4 functions are
+  mine (0x450540, its load, is mv-a's and is called by address).
+- Pcm::BinkStreamView (stream.h, new): only the Bink stream's constructor and Open, over offsets (no layout). The
+  class (0x1C0 bytes, made at 0x453500) has its other methods in mv-c's range: if mv-c defines it, fold these two
+  methods in there and delete BinkStreamView.
