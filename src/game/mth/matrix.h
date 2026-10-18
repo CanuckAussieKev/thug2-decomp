@@ -46,6 +46,8 @@ public:
 
     // this = this * rotation(axis, angle).
     Matrix& Rotate(const Vector& axis, float angle);
+    // 0x005772A0: this = rotation(axis, angle) * this (about the matrix's own axes).
+    Matrix& RotateLocal(const Vector& axis, float angle);
 
     // Scale all 16 values (skipped when scale is exactly 1).
     Matrix& operator*=(float scale);

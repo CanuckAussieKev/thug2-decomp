@@ -74,3 +74,24 @@ Not recovered: 0xE5B6C568, 0xDF1A695F, 0x8F639F94 (SetSceneColor's sectors-only 
   What to check in the game: a career level with a day cycle (any THUG2 level - e.g. Boston), left in free skate for
   a few minutes: the sky, level light and fog should change through morning / afternoon / evening / night as before;
   TODManager_GetCurrentTODParams-driven menus (the pause menu's time of day, if shown).
+
+- [x] Batch TOD-2 (NOT run in the game yet): the victory conditions and the viewer module's pieces,
+  0x00576610-0x005772E0 - 32 functions (6 Ghidra had missed: 0x005766E0 / 0x00576700 elimination,
+  0x00576CB0 / 0x00576CF0 the viewer's script helpers, 0x00576F00 / 0x00577140 its handlers) plus 0x005772A0
+  Mth::Matrix::RotateLocal(axis, angle). Game::CVictoryCondition and its 7 types (src/game/skate/victory_conditions.{h,cpp}:
+  highest_score, target_score, complete_goals, best_combo, last_man_standing, elimination, collect_all_objects;
+  CreateVictoryCondition, the scalar deleting destructors, IsHighestScore, ConditionComplete / IsWinner, the debug
+  prints; 0x00576CA0 is a jump to complete_goals' ConditionComplete: source-only); Mdl::Viewer (src/game/sys/viewer.{h,cpp}:
+  the input / shift handlers - buttons into command bits, sticks into velocities, the UserViewer* scripts -, the
+  viewer object made from the bottom-up or debug heap, runnow.qb reloading, the script commands SetViewMode /
+  SetMovementVelocity / SetRotateVelocity, MoveObjectLocal).
+  Findings: target_score counts team totals in a team game, else each skater; complete_goals counts, per team or
+  per skater, the goals that count (pointer word non-zero and not hidden) won by the skater; last_man_standing wins
+  with a score above 0, elimination by not being eliminated (player +0x38); collect_all_objects needs one skater's
+  score equal to every player's objects added up (0 objects: not complete). The viewer's input: R2 + select
+  (0x200) sets command bit 0x4000.
+  Tests (src/hook/selftests_tod2.cpp): TestVictoryConditions, TestViewer, TestMatrixRotateLocalAxis (the CRT's
+  sin / cos patched to ours so both use the same). 39 deliberate bugs caught, 2 after strengthening (a skater
+  above the objects' total for collect_all_objects; the manager's heaps told apart for the viewer object).
+  What to check in the game: a network game mode's end (target score, elimination, scavenger hunt) and the
+  viewer (debug builds only - not reachable in retail).
