@@ -8,6 +8,8 @@
 #include "game/core/crc.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/script/node_prefixes.h"
+#include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -27,25 +29,64 @@ constexpr uint32_t kPos = 0x7F261953;      // pos
 CNodeManager*& Instance() { return GameVariable<CNodeManager*>(0x006F0D84); }
 uint32_t& References() { return GameVariable<uint32_t>(0x006F0D88); }
 
-// The node functions and hash helpers just before this code (not rewritten yet).
-void ForgetNodeArray(uint32_t name) { GameFunction<void(__cdecl*)(uint32_t)>(0x0045CE40)(name); }
-void HashNode(CNodeManager* manager, uint32_t array, uint32_t index, CStruct* node)
-{
-    GameFunction<void(__thiscall*)(CNodeManager*, uint32_t, uint32_t, CStruct*)>(0x0045CE60)(manager, array, index,
-                                                                                             node);
-}
-void HashNodeRaw(CNodeManager* manager, uint32_t array, uint32_t a, uint32_t b)
-{
-    GameFunction<void(__thiscall*)(CNodeManager*, uint32_t, uint32_t, uint32_t)>(0x0045CE60)(manager, array, a, b);
-}
-void UnhashNodeArray(CNodeManager* manager, uint32_t index)
-{
-    GameFunction<void(__thiscall*)(CNodeManager*, uint32_t)>(0x0045CEF0)(manager, index);
-}
-void NodeArrayAdded(uint32_t name) { GameFunction<void(__cdecl*)(uint32_t)>(0x0045C900)(name); }
-uint32_t NodeName(CStruct* node) { return GameFunction<uint32_t(__cdecl*)(CStruct*)>(0x0045BE40)(node); }
+constexpr uint32_t kClass = 0x12B4E660;    // class
+constexpr uint32_t kLink = 0xC953660E;     // link (a class= whose nodes aren't hashed)
 
 } // namespace
+
+// 0x0045CE60
+void CNodeManager::HashNode(uint32_t array, uint32_t index, CStruct* node)
+{
+    uint32_t nodeClass = 0;
+    node->GetChecksum(kClass, &nodeClass, 0);
+    if (nodeClass == kLink)
+        return;
+    uint32_t name = 0;
+    if (!node->GetChecksum(kName, &name, 0))
+        return;
+    uint32_t slot = name & (kSlots - 1);
+    while (m_slots[slot].m_node != -1)
+        slot = (slot + 1) & (kSlots - 1);
+    m_slots[slot].m_node = static_cast<int16_t>(index);
+    m_slots[slot].m_array = static_cast<uint16_t>(array);
+}
+
+// 0x0045CEF0
+void CNodeManager::UnhashNodeArray(uint32_t array)
+{
+    for (NodeSlot& slot : m_slots) {
+        if (slot.m_node != -1 && slot.m_array == array)
+            slot.m_node = -1;
+    }
+    // (A node may land in a later slot and be met - and moved - again.)
+    for (NodeSlot& slot : m_slots) {
+        if (slot.m_node == -1)
+            continue;
+        NodeSlot moved = slot;
+        slot.m_node = -1;
+        auto* node = reinterpret_cast<CStruct*>(m_arrays[moved.m_array].mp_nodes->GetElement(moved.m_node));
+        uint32_t name = 0;
+        node->GetChecksum(kName, &name, 1);
+        uint32_t to = name & (kSlots - 1);
+        while (m_slots[to].m_node != -1)
+            to = (to + 1) & (kSlots - 1);
+        m_slots[to] = moved;
+    }
+}
+
+// 0x0045CFC0
+CStruct* CNodeManager::GetNode(uint32_t name, bool /*assert*/)
+{
+    for (uint32_t slot = name & (kSlots - 1); m_slots[slot].m_node != -1; slot = (slot + 1) & (kSlots - 1)) {
+        const NodeSlot& s = m_slots[slot];
+        auto* node = reinterpret_cast<CStruct*>(m_arrays[s.m_array].mp_nodes->GetElement(s.m_node));
+        uint32_t nodeName = 0;
+        node->GetChecksum(kName, &nodeName, 1);
+        if (nodeName == name)
+            return node;
+    }
+    return nullptr;
+}
 
 // 0x0045D370
 CNodeManager* CNodeManager::Construct()
@@ -124,7 +165,7 @@ bool CNodeManager::HashNodeIn(uint32_t name, uint32_t a, uint32_t b)
 {
     for (uint32_t i = 0; i < m_count; ++i) {
         if (m_arrays[i].m_name == name) {
-            HashNodeRaw(this, i, a, b);
+            HashNode(i, a, reinterpret_cast<CStruct*>(b));
             return true;
         }
     }
@@ -136,7 +177,7 @@ void CNodeManager::HashNodes(uint32_t index)
 {
     CArray* nodes = m_arrays[index].mp_nodes;
     for (uint32_t i = 0; i < nodes->m_size; ++i)
-        HashNode(this, index, i, reinterpret_cast<CStruct*>(nodes->GetElement(i)));
+        HashNode(index, i, reinterpret_cast<CStruct*>(nodes->GetElement(i)));
 }
 
 // 0x0045D480
@@ -151,7 +192,7 @@ void CNodeManager::ResolveLinks(CArray* nodes)
         uint32_t linkCount = links->m_size;
         for (uint32_t j = 0; j < linkCount; ++j) {
             auto* linked = reinterpret_cast<CStruct*>(nodes->GetElement(links->GetElement(j)));
-            links->SetElement(j, NodeName(linked));
+            links->SetElement(j, GetNodeName(linked));
         }
         links->SetType(Script::ESYMBOLTYPE_NAME);
     }
@@ -168,7 +209,7 @@ bool CNodeManager::AddNodeArray(uint32_t name, bool flag)
     m_arrays[m_count].m_flag = flag;
     ++m_count;
     HashNodes(m_count - 1);
-    NodeArrayAdded(name);
+    AddNodeArrayPrefixes(name);
     int count = static_cast<int>(nodes->m_size);
     for (int i = 0; i < count; ++i) {
         auto* node = reinterpret_cast<CStruct*>(nodes->GetElement(i));
@@ -189,13 +230,13 @@ bool CNodeManager::AddNodeArray(uint32_t name, bool flag)
 // 0x0045D1C0
 bool CNodeManager::RemoveNodeArray(uint32_t name)
 {
-    ForgetNodeArray(name);
+    RemoveNodeArrayPrefixes(name);
     uint32_t index = 0;
     while (index < m_count && m_arrays[index].m_name != name)
         ++index;
     if (index >= m_count)
         return false;
-    UnhashNodeArray(this, index);
+    UnhashNodeArray(index);
     --m_count;
     if (index != m_count) {
         m_arrays[index] = m_arrays[m_count];
@@ -264,6 +305,9 @@ void ReleaseNodeManager()
 
 } // namespace SkateScript
 
+REPLACE(0x0045CE60, &SkateScript::CNodeManager::HashNode);
+REPLACE(0x0045CEF0, &SkateScript::CNodeManager::UnhashNodeArray);
+REPLACE(0x0045CFC0, &SkateScript::CNodeManager::GetNode);
 REPLACE(0x0045D370, &SkateScript::CNodeManager::Construct);
 REPLACE(0x0045D050, &SkateScript::CNodeManager::StartWalk);
 REPLACE(0x0045D110, &SkateScript::CNodeManager::EndWalk);
