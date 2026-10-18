@@ -521,6 +521,11 @@ script_port.BY_NAME.setdefault(SKATER, script_port.BY_NAME[script_port.SKATER])
 
 class Translator(script_port.Translator):
     def command(self, toks, contexts, discover):
+        if any(t.t == 0x16 and t.name() in self.undrawn for t in toks):
+            # (a collision-only geometry node named anywhere - passed on to a script's Kill / Visible / Shatter
+            # name=<x> too: THUG2 looks its scene sector up and reads through the null)
+            self.note("geometry without a scene sector named")
+            return None
         if toks and toks[0].t == 0x16:
             text = self.text(toks[0].name()).lower()
             if text in LEFT_OUT or text.startswith(LEFT_OUT_PREFIXES):
@@ -529,7 +534,8 @@ class Translator(script_port.Translator):
         return super().command(toks, contexts, discover)
 
 
-def port_scripts(converted, array, made, sources, thug2, names, provided):
+def port_scripts(converted, array, made, sources, thug2, names, provided, undrawn=frozenset()):
+    # undrawn: the geometry nodes with no scene sector (collision-only): no statement names them (see Translator).
     # The scripts brought along from the kept nodes' trigger scripts: the geometry's and rails' (run by the skater),
     # the made objects' (run by them). Trigger scripts that can't be are taken off their nodes. Returns ({name: THUG2
     # bytes}, the THAW globals they use as NeverScript text, a report line).
@@ -537,7 +543,7 @@ def port_scripts(converted, array, made, sources, thug2, names, provided):
     node_names = {x.get("Name").value for x in converted if isinstance(x.get("Name"), Name)}
     allowed = set(GLOBAL_SOURCES) | {LEVEL}
     tr = Translator(sources, thug2, lambda label: label in allowed, node_names, all_names, names,
-                                provided=provided)
+                                provided=provided, undrawn=undrawn)
     roots = []
     for node in converted:
         script = node.get("TriggerScript")
@@ -546,6 +552,12 @@ def port_scripts(converted, array, made, sources, thug2, names, provided):
             roots.append((script.value, SKATER))
     roots += [(script, context) for _, script, context in made.triggers]
     out = tr.run(roots)
+    # (checked: no brought script names a collision-only geometry node anywhere - default parameters included)
+    for script, code in out.items():
+        for t, p in script_port._plain_tokens(code):
+            if t == 0x16 and u32(p) in undrawn:
+                raise FormatError("script %s names %s, which has no scene sector" % (
+                    names.get(script, "%08X" % script), names.get(u32(p), "%08X" % u32(p))))
 
     def available(script):
         return script in out or script in thug2.scripts or script in provided

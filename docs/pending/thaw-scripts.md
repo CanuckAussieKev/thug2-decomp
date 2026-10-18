@@ -65,6 +65,15 @@ New: `tools/thaw_levels/thaw_scripts.py`; `thaw_levels.py convert` runs it for e
 statements, mostly printf, RailAccelerate (THAW's rail speed-ups), Triggertype / IsCreated conditions, object member
 calls, goal commands.)
 
+## Collision-only geometry (lead's Airport crash)
+
+Geometry nodes with no scene sector (2-89 per level) are never named by a converted statement: script_port's
+`undrawn` (Visible / Invisible / Create / Kill / Shatter, prefix= expanded) plus, in THAW's Translator, any statement
+naming one anywhere (so `<x>` passed on to a Kill name=<x> can't reach one) - 1-74 statements per level left out.
+convert checks every brought script's tokens and fails if one still names such a node (none in all 15 levels).
+Breakables only for nodes with a sector (after: CH 10, MA 14, DN 68, JA 8, SZ 18, SV2 5, SV 1, HO 31, BH 5, DT 9,
+EL 38, SM 1, SR 0, LV 98, OI 0) - the others' glass is collision-only in the net scene.
+
 ## Left out / not done
 
 - THAW's own ped AI and models, goal peds, animals (pigeons), THAW-model game objects (chairs, tables, barricades,

@@ -312,7 +312,7 @@ def move_positions(value, shift):
 SHATTERS = (qb.checksum("ShatterAndDie"), qb.checksum("Shatter"), qb.checksum("ShatterFromSkater"))
 
 
-def breakable_scripts(array, script_qbs, names):
+def breakable_scripts(array, script_qbs, names, drawn=None):
     # Breakable pieces (The Mall's glass doors and panes...): a node whose TriggerScript - or a script it calls -
     # shatters the node (THAW: MA_BreakGlass name=<the node> = Kill + ShatterAndDie, a THAW command). As THUG2's own
     # breakables (its Airport's AP_Shatter): Shatter name=<the node> ..., then Kill. Returns {trigger script: the
@@ -338,6 +338,9 @@ def breakable_scripts(array, script_qbs, names):
         if not isinstance(node, qb.Struct) or nodes.class_of(node, names) != "levelgeometry":
             continue
         trigger, name = node.get("TriggerScript"), node.get("Name")
+        if drawn is not None and isinstance(name, qb.Name) and name.value not in drawn:
+            # (collision-only: Shatter / Kill look the scene sector up and read through the null)
+            continue
         if isinstance(trigger, qb.Name) and isinstance(name, qb.Name) and shatters(trigger.value):
             text = qb.name_text(name.value, names)
             out[trigger.value] = ("PlaySound HitGlassPane2x vol=100\n"
@@ -390,7 +393,7 @@ def convert_level_nodes(files, zone, name, ns, out_dir, report, names, shift, dr
     restarts = {n.get("Name").value for n in array if isinstance(n, qb.Struct) and isinstance(n.get("Name"), qb.Name)
                 and nodes.class_of(n, names) == "restart"}
     kills = nodes.kill_commands(script_qbs, restarts, names)
-    breakables = breakable_scripts(array, script_qbs, names)
+    breakables = breakable_scripts(array, script_qbs, names, (set(sectors) - lods - set(drop)) if sectors else None)
     # The nodes left out (LOD copies, `drop`) become placeholders of a class convert_nodes drops, before it renumbers
     # the Links - removed after, every node after one pointed its Links one place off (rails linked to the wrong
     # nodes: The Mall hung loading once its story blocker was left out).
@@ -427,7 +430,9 @@ def convert_level_nodes(files, zone, name, ns, out_dir, report, names, shift, dr
         provided = set(kills) | set(breakables) | {qb.checksum(s) for s in (
             "LoadTerrain", thaw_scripts.PED_WALK, thaw_scripts.PED_STAND, thaw_scripts.CAR_DRIVE)}
         scripts, globals_text, script_report, _ = thaw_scripts.port_scripts(
-            converted, original, made, port.globals + sources, port.thug2, names, provided)
+            converted, original, made, port.globals + sources, port.thug2, names, provided,
+            {n.get("Name").value for n in converted if isinstance(n.get("Name"), qb.Name) and
+             nodes.class_of(n, names) == "levelgeometry" and n.get("Name").value not in made.sectors})
         extra = globals_text + thaw_scripts.MADE_SCRIPTS + thaw_scripts.load_particle_textures_ns(made.particle_textures)
         local, objects_gone = made.local, made.gone
     else:
