@@ -29,8 +29,10 @@ import nodes  # noqa: E402
 import peds_cars  # noqa: E402
 import ported_levels  # noqa: E402
 import qb  # noqa: E402
+import script_port  # noqa: E402
 import tex  # noqa: E402
 import thps4  # noqa: E402
+import thps4_scripts  # noqa: E402
 from binio import FormatError  # noqa: E402
 
 STAGING = "thug2-decomp-thps4"
@@ -42,8 +44,9 @@ LEVELS = ["Alc", "Cnv", "Hof", "Jnk", "Kon", "Lon", "SF2", "Sch", "Zoo", "SkateS
 # panel skips them, as make_menu_level.py's SKATE SHOP / TEST LEVEL at 18 / 21).
 SIGN_NUMBERS = [19, 20, 22, 23, 24, 25, 26, 27, 28, 29, 31]
 # The levels whose peds and cars are brought over (tools/level_port/peds_cars.py): the skate shop's pros on the
-# halfpipe, the people walking by and the cars on the road (also the front end's: make_menu_level.py copies them).
-PEDS_CARS = {"skateshop"}
+# halfpipe, the people walking by and the cars on the road (also the front end's: make_menu_level.py copies them);
+# every level's walkers and Car_Generic01 cars.
+PEDS_CARS = {name.lower() for name in LEVELS}
 # For the level select: where each level is, and a THUG2 sign that suits it.
 INFO = {
     "alc": ("San Francisco Bay, USA", "sign_skatopia"),
@@ -88,19 +91,29 @@ def level_structs(thps4_dir):
     return found
 
 
-def convert_geometry(folder, base, out_dir, out_name, report, keep_triggers=lambda checksum: False):
+def read_geometry(folder, base):
+    # The level's THPS4 scene, its texture dictionary (THUG2's format) and its THPS4 collision.
+    files = level_files(folder, base)
+    for kind in ("scn", "col", "tex"):
+        if kind not in files:
+            raise FormatError("%s: no %s file for %s" % (folder, kind, base))
+    return (thps4.read_scene(open(files["scn"], "rb").read(), files["scn"]),
+            tex.read_tex(open(files["tex"], "rb").read(), files["tex"]),
+            thps4.read_col(open(files["col"], "rb").read(), files["col"]))
+
+
+def convert_geometry(folder, base, out_dir, out_name, report, keep_triggers=lambda checksum: False, read=None):
+    # read: read_geometry's (scene, textures, collision), changed (the vehicles' models added), or None.
     files = level_files(folder, base)
     for kind in ("scn", "col", "tex"):
         if kind not in files:
             raise FormatError("%s: no %s file for %s" % (folder, kind, base))
     warnings = []
-    scene4 = thps4.read_scene(open(files["scn"], "rb").read(), files["scn"])
+    scene4, textures, col4 = read or read_geometry(folder, base)
     # THPS4's vertex colours are 255 = full (rgb; alpha 128 = full), levels and skies alike: halved for THUG2.
     scene = geometry.convert_scene(scene4, warnings, [thps4.to_thug2_material(m) for m in scene4["materials"]],
                                    halve_colors=True)
-    textures = tex.read_tex(open(files["tex"], "rb").read(), files["tex"])
     converted = tex.depalettise(textures)
-    col4 = thps4.read_col(open(files["col"], "rb").read(), files["col"])
     col = geometry.convert_col(col4, keep_triggers, warnings, thps4.face_flags)
     common.write_level(out_dir, out_name, scene, textures, col)
     common.report_level(report, out_name, scene, textures, col, warnings, converted)
@@ -114,6 +127,7 @@ def cmd_convert(args):
         sys.exit("%s not found: build it with tools\\build_neverscript.ps1" % args.ns)
     structs = level_structs(args.thps4)
     thug2 = peds_cars.Thug2Assets(args.thug2)
+    port = None if args.no_scripts else thps4_scripts.Port(args.thps4, args.thug2)
     wanted = args.levels or LEVELS
     if os.path.isdir(out):
         shutil.rmtree(out)
@@ -144,23 +158,62 @@ def cmd_convert(args):
         if level_scripts:
             for key, value in level_scripts.names.items():
                 names.setdefault(key, value)
-        converted, stats = nodes.convert_nodes(array, names, kills)
-        kills = nodes.add_kill_restarts(converted, kills, names)
-        triggers = nodes.kill_trigger_names(converted, kills)
         # The peds and cars (THUG2's own ped AI and cars, tools/level_port/peds_cars.py), after the converted nodes.
         moving, moving_scripts = [], {}
         if base.lower() in PEDS_CARS:
+            # (THPS4's animals - Zoo's penguins, Carnival's pigs... - walk their paths too: not as people)
+            people = [qb.Struct([]) if isinstance(n, qb.Struct) and nodes.type_of(n, names).startswith("anl_")
+                      else n for n in array]
             moving, moving_scripts, moving_stats = peds_cars.convert(
-                array, names, [q] + ([level_scripts] if level_scripts else []), thug2.profile_exists, thug2.model_exists)
-            peds_cars.offset_links(moving, len(converted))
+                people, names, [q] + ([level_scripts] if level_scripts else []), thug2.profile_exists,
+                thug2.model_exists)
             report.append("  peds and cars: %d nodes, %s" % (len(moving), moving_stats))
+        geometry_read = read_geometry(folder, base)
+        scene4, textures4, col4 = geometry_read
+        brought, extra_text, has_setup, stats = {}, "", False, None
+        if port is not None:
+            # The level's scripts, game objects, waypoints, peds and vehicles (thps4_scripts.py); the vehicles moved
+            # by its scripts get their models (sectors, textures, collision added to the level's).
+            plan = port.vehicles.plan(array, names, thps4_scripts.moving_names(moving))
+            vehicle_collides = port.vehicles.add_to(plan, scene4, textures4, col4)
+            level_sources = [script_port.Source(open(p, "rb").read(), "level")
+                             for p in [files["qb"]] + glob.glob(os.path.join(folder, "*_scripts.qb"))]
+            converted, kills, brought, extra_text, has_setup, line, _ = thps4_scripts.convert(
+                port, array, names, level_sources, kills, {s["checksum"] for s in scene4["sectors"]}, moving, struct,
+                name, vehicle_sectors=set(plan), collides={o["checksum"] for o in col4["objects"]
+                                                           if o["faces"]} | vehicle_collides)
+            report.append("  " + line)
+        else:
+            converted, stats = nodes.convert_nodes(array, names, kills)
+            kills = nodes.add_kill_restarts(converted, kills, names)
+        triggers = nodes.kill_trigger_names(converted, kills)
+        if port is not None:
+            # (the sectors whose trigger script runs keep their trigger faces)
+            triggers |= {n.get("Name").value for n in converted if isinstance(n.get("TriggerScript"), qb.Name)
+                         and isinstance(n.get("Name"), qb.Name) and nodes.class_of(n, names) == "levelgeometry"}
+        peds_cars.offset_links(moving, len(converted))
         text = nodes.node_array_ns(name + "_NodeArray", converted + moving, names, kills)
-        text += peds_cars.scripts_ns(moving_scripts)
+        text += peds_cars.scripts_ns(moving_scripts) + extra_text
+        # (a TrickObject without its sector crashes the loader: convert_scene leaves skinned sectors out)
+        text, cleared = nodes.strip_missing_trick_objects(text, {
+            s["checksum"] for s in scene4["sectors"] if s["bone"] == -1 and not s["flags"] & thps4.SEC_WEIGHTS})
+        if cleared:
+            report.append("  %d geometry nodes without a scene sector: TrickObject / Cluster dropped" % cleared)
         os.makedirs(os.path.join(out, "levels", name), exist_ok=True)
-        common.ns_compile(args.ns, text, os.path.join(out, "levels", name, name + ".qb"))
+        qb_path = os.path.join(out, "levels", name, name + ".qb")
+        common.ns_compile(args.ns, text, qb_path)
+        if brought:
+            all_names = {}
+            for s in port.sources + level_sources:
+                all_names.update(s.names)
+            all_names.update(names)
+            data = script_port.append_scripts(open(qb_path, "rb").read(), brought, all_names)
+            open(qb_path, "wb").write(data)
         convert_geometry(folder, base, os.path.join(out, "levels", name), name, report,
-                         keep_triggers=lambda checksum: checksum in triggers)
-        report.append("  nodes: %d of %d kept %s; %d kill zones" % (len(converted), len(array), stats, len(triggers)))
+                         keep_triggers=lambda checksum: checksum in triggers, read=geometry_read)
+        if stats is not None:
+            report.append("  nodes: %d of %d kept %s" % (len(converted), len(array), stats))
+        report.append("  %d kill zones" % len(triggers))
 
         # The sky.
         sky = None
@@ -188,6 +241,8 @@ def cmd_convert(args):
             else 6,
             "lighting": common.lighting(struct) if struct else {},
         }
+        if has_setup:
+            entry["setup_script"] = name + "_setup"
         manifest["levels"].append(entry)
     ported_levels.write_manifest(os.path.join(out, ported_levels.MANIFEST), manifest)
     print("\n".join(report))
@@ -242,6 +297,8 @@ def main():
     parser.add_argument("--thps4", default=r"C:\Games\THPS4")
     parser.add_argument("--out", help="where convert writes (default: <thug2>\\%s)" % STAGING)
     parser.add_argument("--ns", default=common.NS)
+    parser.add_argument("--no-scripts", action="store_true",
+                        help="convert: the levels' scripts, game objects and vehicles left out (static levels)")
     parser.add_argument("--extra", nargs="*", default=[], help="selfcheck: more THUG2 archives (Data\\pre\\*.prx)")
     args = parser.parse_args()
     if args.command == "selfcheck":
