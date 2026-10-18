@@ -40,6 +40,8 @@ CONTROL = (0x26, 0x28, 0x20, 0x21, 0x22, 0x29)
 
 # Contexts: who runs a script.
 OBJECT, SKATER, NONE = "object", "skater", "none"
+# (THUG1's levels keep their own peds, vehicles and bouncy LevelObjects: THUG2's objects of those classes)
+PED, VEHICLE, BOUNCY = "ped", "vehicle", "bouncy"
 
 # Member function components (THUG2's member function tables) each context's objects have. A LevelObject / ghost
 # GameObject is a composite object with motion, suspend, sound and object proximity components (and a model); the
@@ -48,6 +50,12 @@ SAFE_COMPONENTS = {
     OBJECT: {"motion", "compositeobject", "object", "objectproximity", "sound", "suspend"},
     SKATER: {"compositeobject", "object"},
     NONE: set(),
+    # (THUG2's ped_add_components and the C++ base: the components THUG2's own levels' ped / car scripts use on them;
+    # a bouncy LevelObject: bouncyobj_add_components - suspend, rigidbody, model, sound)
+    PED: {"compositeobject", "object", "objectproximity", "motion", "animblender", "pedlogic", "suspend", "skeleton",
+          "avoid", "fam"},
+    VEHICLE: {"compositeobject", "object", "motion", "sound", "suspend", "skeleton"},
+    BOUNCY: {"compositeobject", "object", "suspend", "rigidbody", "sound"},
 }
 COMPONENT_NAMES = ("motion", "compositeobject", "object", "objectproximity", "sound", "suspend", "stream",
                    "skeleton", "animblender", "pedlogic", "vehicle", "rigidbody", "walk", "skatercorephysics",
@@ -59,6 +67,9 @@ BY_NAME = {
     OBJECT: {"die", "obj_movetonode", "obj_stopsound"},
     SKATER: {"startgap", "endgap"},
     NONE: set(),
+    PED: {"die", "obj_movetonode"},
+    VEHICLE: {"die", "obj_movetonode"},
+    BOUNCY: {"die"},
 }
 
 # C functions / THUG2 scripts left out although THUG2 has them: they'd change the game outside the level (global
@@ -150,7 +161,7 @@ class Thug2:
             raise FileNotFoundError("no THUG2PM.exe in %s" % thug2)
         self.cfuncs = {checksum(n) for n in self._cfunc_names(exe)}
         self.members = self._members(exe)
-        self.scripts, self.globals = set(), set()
+        self.scripts, self.globals, self.anims = set(), set(), set()
         self.bodies, self.needs = {}, {}
         for name, data in prx.entries(os.path.join(thug2, "Data", "pre", "qb_scripts.prx"),
                                       lambda n: n.lower().endswith(".qb")):
@@ -214,6 +225,11 @@ class Thug2:
                     not (k + 1 < len(toks) and toks[k + 1][1] == 0x42):
                 # (the names a script uses - not `object:` nor what follows it: those run on another object)
                 self.bodies[current].add(u32(p))
+            if t == 0x16 and u32(p) == self.DESC and k + 2 < len(toks) and toks[k + 2][1] == 0x16:
+                # (the animations THUG2 loads: LoadAnim ... descChecksum=<anim> in its animload scripts)
+                self.anims.add(u32(toks[k + 2][2]))
+
+    DESC = checksum("descChecksum")
 
     def component(self, name):
         return self.members.get(name)
@@ -240,11 +256,12 @@ class Thug2:
 
 class Source:
     # A .qb file's scripts as token lists (jumps as the indices of their target tokens) and its names / globals.
-    def __init__(self, data, label):
+    # weights: the random tokens carry u16 weights before their offsets (THUG1's, THUG2's - not THPS3's); kept.
+    def __init__(self, data, label, weights=False):
         self.label = label
         self.names = {}
         self.scripts = {}
-        toks = list(qb.tokens(data))
+        toks = list(qb.tokens(data, weights))
         at = {off: k for k, (off, _, _) in enumerate(toks)}
         k = 0
         while k < len(toks):
@@ -256,19 +273,21 @@ class Source:
                 body, j = [], k + 2
                 while toks[j][1] != 0x24:
                     o2, t2, p2 = toks[j]
-                    targets = None
+                    targets = w = None
                     if t2 == 0x2E:
                         targets = [at[o2 + 5 + struct.unpack("<i", p2)[0]]]
                     elif t2 in RANDOMS:
                         n = u32(p2)
-                        targets = [at[o2 + 5 + 4 * m + 4 + u32(p2, 4 + 4 * m)] for m in range(n)]
-                    body.append(Tok(t2, p2, j, targets))
+                        base = 4 + (2 * n if weights else 0)
+                        targets = [at[o2 + 1 + base + 4 * m + 4 + u32(p2, base + 4 * m)] for m in range(n)]
+                        w = list(struct.unpack_from("<%dH" % n, p2, 4)) if weights else None
+                    body.append(Tok(t2, p2, j, targets, w))
                     j += 1
                 self.scripts[name] = body
                 k = j
             k += 1
         try:
-            self.globals = dict((key.value, value) for key, value in qb.QbFile(data, label).globals)
+            self.globals = dict((key.value, value) for key, value in qb.QbFile(data, label, weights).globals)
         except Exception:  # (a file whose globals the reader can't take: its scripts are still usable)
             self.globals = {}
 
@@ -328,23 +347,39 @@ def args_of(toks):
 class Translator:
     def __init__(self, sources, thug2, translatable, node_names, all_node_names, names, provided=(),
                  inherit_params=False, undrawn=(), left_out=(), renames=None, objects=None, components=None,
-                 full=False, by_name=None, rewrites=None):
+                 full=False, by_name=None, rewrites=None, left_out_prefixes=(), anim_check=False, kept_in=(),
+                 strict_conditions=False):
         # sources: Source list (later ones win); translatable(source label) -> may its scripts be brought along;
         # node_names: the converted level's nodes; all_node_names: the THPS3 level's; provided: scripts the level's
         # .qb defines otherwise (its kill scripts) - used as THUG2's own. inherit_params: a call of a brought script
         # with no arguments passes the caller's (`<...>` added): THPS3's scripts rely on it (a proximity node's script
         # calls ALF_SUB_Hide_Const_Pool, which tests `inside`); THUG2's callee gets only what it's given.
-        # left_out / renames: more of LEFT_OUT / RENAMES (another game's). objects: {node name checksum: (context,
-        # created at start)} - the objects `name:command` statements (token 0x42, THPS4's) may address; None: those
-        # statements aren't looked at. components: {context: more SAFE_COMPONENTS}; by_name: {context: more
-        # BY_NAME}. full: `name = value` statements kept and `not` conditions looked into (THPS4's; off: as before,
-        # left out / kept unchecked). rewrites: {command checksum: fn(statement tokens) -> tokens} applied first.
+        # left_out / renames: more of LEFT_OUT / RENAMES (another game's). objects: the converted level's objects
+        # `name:command` statements (token 0x42) may address - {node name checksum: (context, created at start)}
+        # (THPS4's: checked as run by that object, kept only when it's there or a kept Create makes it) or {node name
+        # checksum: context} (THUG1's: checked as run by it, run only while it is alive - guarded with IsAlive);
+        # None: those statements are left out (THAW's, THPS3's). components: {context: more SAFE_COMPONENTS};
+        # by_name: {context: more BY_NAME}. full: `name = value` statements kept with their script values brought
+        # along, `not` conditions looked into, node names passed on checked (THPS4's). rewrites: {command checksum:
+        # fn(statement tokens) -> tokens} applied first. left_out_prefixes: more commands left out by prefix
+        # (THUG1's goal manager calls...). anim_check: a parameter whose key says anim (anim=, standing_anims=)
+        # naming an animation THUG2 doesn't load leaves its statement out, one naming the other game's global (a
+        # list of its animations) is dropped (THUG2's scripts use their default). kept_in: names of LEFT_OUT this
+        # game's scripts may use (THUG1's LoadSound: THUG2 has its sounds). strict_conditions: `not` conditions
+        # looked into, and a condition naming anything left out is false (THUG1's).
         self.extra_left_out = {n.lower() for n in left_out}
-        self.objects = objects
+        self.left_out_prefixes = tuple(p.lower() for p in left_out_prefixes)
+        self.object_calls = objects is not None
+        self.objects = dict(objects or {})
+        self.object_states = any(isinstance(v, tuple) for v in self.objects.values())  # THPS4's form
         self.full = full
         self.rewrites = rewrites or {}
         self.safe = {c: set(SAFE_COMPONENTS[c]) | set((components or {}).get(c, ())) for c in SAFE_COMPONENTS}
         self.by_name = {c: set(BY_NAME[c]) | {n.lower() for n in (by_name or {}).get(c, ())} for c in BY_NAME}
+        self.anim_check = anim_check
+        self.kept_in = {n.lower() for n in kept_in}
+        self.strict_conditions = strict_conditions
+        self.guard = None
         self.created = set()         # objects a kept Create makes (`name:` on them is kept)
         self.created_prefixes = set()  # and the prefix= of kept Creates (lower case)
         self.referenced = set()        # node names kept statements pass as values (discovery)
@@ -373,7 +408,11 @@ class Translator:
             self.names.setdefault(checksum(b), b)
         self.names.setdefault(checksum(NEVER), NEVER)
         self.names.setdefault(checksum("GotParam"), "GotParam")
+        self.names.setdefault(checksum("IsAlive"), "IsAlive")
+        self.names.setdefault(checksum("Wait"), "Wait")
+        self.names.setdefault(checksum("frame"), "frame")
         self.names.setdefault(checksum("Name"), "Name")
+        self.skaters = {checksum(n) for n in ("Skater", "Skater2")}
 
     def text(self, value):
         return self.names.get(value, "#%08X" % value)
@@ -422,13 +461,24 @@ class Translator:
         # The statement's tokens (no line end) as THUG2 tokens, or None to leave it out (noted). `discover`: also
         # queue the scripts it needs.
         first = toks[0]
-        if self.objects is not None and len(toks) > 2 and toks[1].t == 0x42:
-            return self.on_object(toks, contexts, discover)
+        if first.t == 0x2D and self.objects and len(toks) > 3 and toks[1].t == 0x16 and toks[2].t == 0x42:
+            # (<param>:command - an object the script was handed: checked as a game object's, run while it's alive)
+            if toks[3].t != 0x16:
+                self.note("object call form")
+                return None
+            kept = self.command(toks[3:], {OBJECT}, discover)
+            if kept is None:
+                return None
+            self.guard = toks[:2]
+            return toks[:3] + kept
         if len(toks) > 1 and toks[1].t == 0x42:
-            # (`object:member ...` without `objects` - THAW's: THUG2 runs the rest on the first skater when the object
-            # isn't there, and crashes on a member the object hasn't)
-            self.note("object member call")
-            return None
+            if not self.object_calls:
+                # (`object:member ...` - THAW's, THPS3's: THUG2 runs the rest on the first skater when the object isn't
+                # there, and crashes on a member the object hasn't)
+                self.note("object member call")
+                return None
+            if len(toks) > 2 and self.object_states:
+                return self.on_object(toks, contexts, discover)
         if first.t != 0x16:
             return toks
         if first.name() in self.rewrites:
@@ -451,9 +501,18 @@ class Translator:
         if len(toks) > 1 and toks[1].t == 0x07:
             # (`name = value`: sets a parameter of the running script; with `full` handled above)
             return toks
-        if text in LEFT_OUT or text in self.extra_left_out:
+        if self.is_left_out(text):
             self.note("left out: " + self.text(name))
             return None
+        if len(toks) > 1 and toks[1].t == 0x07:
+            # (name = value: a parameter set)
+            return toks
+        if len(toks) > 2 and toks[1].t == 0x42:
+            return self.object_call(toks, discover)
+        if self.anim_check:
+            toks = self.checked_anims(toks)
+            if toks is None:
+                return None
         args = args_of(toks[1:])
         if text in SECTOR_COMMANDS and self.undrawn:
             toks = self.without_undrawn(toks, args)
@@ -562,6 +621,55 @@ class Translator:
         rest = self.command(toks[2:], {context}, discover)
         return None if rest is None else toks[:2] + rest
 
+    def checked_anims(self, toks):
+        # (anim_check) the statement without its key=<the other game's anim list> parameters, or None when it names
+        # an animation THUG2 doesn't load.
+        out, k = list(toks[:1]), 1
+        while k < len(toks):
+            t = toks[k]
+            if t.t == 0x16 and k + 2 < len(toks) and toks[k + 1].t == 0x07 and toks[k + 2].t == 0x16 and \
+                    "anim" in self.text(t.name()).lower():
+                v = toks[k + 2].name()
+                # (a single animation: dropped too, even one THUG2 has - it may be in a set the level doesn't load,
+                # e.g. THPS6_human_unloadable, and playing an animation that isn't loaded crashes: 0x00482BA0 on a
+                # null, seen with THUG1 Hawaii's peds)
+                if v not in self.thug2.globals and v not in self.thug2.scripts and v not in self.where:
+                    self.note(("anim list not in THUG2: " if v in self.globals else "anim parameter dropped: ")
+                              + self.text(v))
+                    k += 3
+                    continue
+            out.append(t)
+            k += 1
+        return out
+
+    def is_left_out(self, text):
+        return (text in LEFT_OUT and text not in self.kept_in) or text in self.extra_left_out or \
+            (bool(self.left_out_prefixes) and text.startswith(self.left_out_prefixes))
+
+    def object_call(self, toks, discover):
+        # `object:command args` - on the skater (checked as run by the skater), or on one of the level's objects
+        # (`objects`: checked as run by it; the statement is then run only while the object is alive - for a missing
+        # object THUG2 runs the rest of the statement on object 0, the skater: self.guard asks for the IsAlive).
+        obj = toks[0].name()
+        if obj in self.skaters:
+            context = SKATER
+        elif obj in self.objects:
+            context = self.objects[obj]
+        else:
+            if obj in self.all_node_names and obj not in self.node_names:
+                self.note("node not converted: " + self.text(obj))
+            else:
+                self.note("object call on: " + self.text(obj))
+            return None
+        if toks[2].t != 0x16:
+            self.note("object call form")
+            return None
+        kept = self.command(toks[2:], {context}, discover)
+        if kept is None:
+            return None
+        self.guard = None if obj in self.skaters else toks[:1]
+        return toks[:2] + kept
+
     def without_undrawn(self, toks, args):
         # Visible / Invisible / Create / Kill / Shatter of geometry nodes with no scene sector (collision-only: THUG2
         # looks the sector up and reads through the null - THPS3 Airport crashed loading): name= one of them -> left
@@ -600,7 +708,7 @@ class Translator:
     def condition(self, toks, contexts, discover):
         # An if's condition: kept, or always false (`not <condition>`, 0x39, too).
         content = [t for t in toks if t.t not in EOL]
-        if len(content) > 1 and content[0].t == 0x39 and self.full:
+        if len(content) > 1 and content[0].t == 0x39 and (self.full or self.strict_conditions):
             kept = self.condition(content[1:], contexts, discover)
             return kept if kept[-1].t == 0x16 and kept[-1].name() == checksum(NEVER) else content[:1] + kept
         if len(content) > 1 and content[0].t == 0x39 and content[1].t == 0x16:
@@ -609,10 +717,22 @@ class Translator:
             if kept is None:
                 return [name_tok(checksum("GotParam"), content[0].i), name_tok(checksum(NEVER), content[0].i)]
             return [content[0]] + kept
+        if self.strict_conditions and \
+                any(t.t == 0x16 and self.is_left_out(self.text(t.name()).lower()) for t in content):
+            # (an expression calling something left out: GoalManager_HasWonGoal inside (... or ...))
+            self.note("condition uses something left out")
+            i = toks[0].i if toks else 0
+            return [name_tok(checksum("GotParam"), i), name_tok(checksum(NEVER), i)]
         if len(content) == 1 and content[0].t == 0x16 and self.text(content[0].name()).lower() == "inside":
             # (a THPS3 proximity node's script: `if inside` - our proximity ghost passes `inside`)
             return [name_tok(checksum("GotParam"), content[0].i), content[0]]
+        self.guard = None
         kept = self.command(content, contexts, discover) if content else None
+        if kept is not None and self.guard is not None:
+            # (a member of one of the level's objects as a condition: false - the object may not be there)
+            self.note("condition on an object")
+            kept = None
+        self.guard = None
         if kept is None:
             i = toks[0].i if toks else 0
             return [name_tok(checksum("GotParam"), i), name_tok(checksum(NEVER), i)]
@@ -641,6 +761,7 @@ class Translator:
         stmts = statements(body)
         ifs = []
         switches = []
+        loops = []   # per open begin: whether a statement of it was left out
         counter = [0]
         for n, st in enumerate(stmts):
             content = [t for t in st if t.t not in EOL]
@@ -672,50 +793,102 @@ class Translator:
                     items.append(("label", ("else", number), orig))
                 items.append(("label", ("end", number), orig))
                 items.append(("tok", head, orig))
-            elif head.t == 0x3C:
-                # switch (THPS4): THPS4's case / default carry no jumps; THUG2's are `3E 49 <to the next case>
-                # value` and `3F 49 <to the endswitch>`, each case body but the last ended by `49 <to the endswitch>`.
-                counter[0] += 1
-                switches.append([counter[0], 0])
-                items += self.token_items(content)
             elif head.t in (0x3E, 0x3F) and len(content) > 1 and content[1].t == 0x49:
                 # (a THUG2-format case / default - THAW's: its jump already there, kept as a short jump)
                 items += self.token_items(content)
-            elif head.t in (0x3E, 0x3F):
-                if not switches:
-                    raise ValueError("%s: case without switch" % self.text(name))
-                sw = switches[-1]
-                if sw[1]:
-                    items.append(("break", sw[0], orig))
-                items.append(("label", ("case", sw[0], sw[1]), orig))
-                items.append(("case" if head.t == 0x3E else "default", (sw[0], sw[1]), orig))
-                sw[1] += 1
-                items += self.token_items(content[1:])
-            elif head.t == 0x3D:
-                if not switches:
-                    raise ValueError("%s: endswitch without switch" % self.text(name))
-                number, cases = switches.pop()
-                items.append(("label", ("case", number, cases), orig))
-                items.append(("label", ("endswitch", number), orig))
-                items.append(("tok", head, orig))
             elif head.t in RANDOMS:
                 items.append(("random", head, orig))
                 continue
             elif head.t == 0x2E:
                 items.append(("jump", head, orig))
                 continue
+            elif head.t == 0x3C:
+                # switch <value> (THPS4's, THUG1's: no jumps - THUG2's cases jump to the next case, their bodies past
+                # the endswitch: made here, as the ifs'; THAW's cases carry theirs - above)
+                if switches:
+                    switches[-1]["body"] += 1
+                counter[0] += 1
+                switches.append({"id": counter[0], "k": 0, "open": None, "body": 0})
+                items += self.token_items(content)
+                for t in eol:
+                    items.append(("tok", t, t.i))
+                continue
+            elif head.t in (0x3E, 0x3F, 0x3D):
+                if not switches:
+                    raise ValueError("%s: case outside a switch" % self.text(name))
+                sw = switches[-1]
+                self.close_case(sw, items, orig)
+                if head.t == 0x3E:
+                    sw["k"] += 1
+                    items.append(("case", (sw["id"], sw["k"]), orig))
+                    items += self.token_items(content[1:])
+                    sw["open"], sw["body"] = "case", 0
+                elif head.t == 0x3F:
+                    items.append(("default", sw["id"], orig))
+                    sw["open"], sw["body"] = "default", 0
+                else:
+                    items.append(("label", ("end", sw["id"]), orig))
+                    items.append(("tok", head, orig))
+                    items.append(("label", ("past", sw["id"]), orig))
+                    switches.pop()
+                for t in eol:
+                    items.append(("tok", t, t.i))
+                continue
             elif head.t in CONTROL:
+                if head.t == 0x20:
+                    loops.append(False)
+                elif head.t == 0x21 and loops:
+                    emptied = loops.pop()
+                    if emptied and len(content) == 1:
+                        # (an endless loop that lost statements - its waits may have gone with them: THUG1's
+                        # `while { random { Obj_PlayAnim ... } Obj_WaitAnimFinished }` became a loop that never yields
+                        # and hung the game loading; a frame's wait keeps it from spinning)
+                        items += self.token_items([name_tok(checksum("Wait"), orig), Tok(0x17, struct.pack("<i", 1), orig),
+                                                   name_tok(checksum("frame"), orig), Tok(0x01, b"", orig)])
                 items += self.token_items(content)
             else:
+                self.guard = None
                 kept = self.command(content, contexts, discover)
                 if kept is None:
+                    loops[:] = [True] * len(loops)
                     continue
-                items += self.token_items(kept)
+                if self.guard is not None:
+                    # (a member of one of the level's objects: only while it is alive)
+                    counter[0] += 1
+                    number = counter[0]
+                    items.append(("if", number, orig))
+                    items += self.token_items([name_tok(checksum("IsAlive"), orig), name_tok(checksum("name"), orig),
+                                               Tok(0x07, b"", orig)] + list(self.guard) + [Tok(0x01, b"", orig)])
+                    items += self.token_items(kept + [Tok(0x01, b"", orig)])
+                    items.append(("label", ("else", number), orig))
+                    items.append(("label", ("end", number), orig))
+                    items.append(("tok", Tok(0x28, b"", orig), orig))
+                    self.guard = None
+                else:
+                    items += self.token_items(kept)
+            if switches:
+                switches[-1]["body"] += 1
             for t in eol:
                 items.append(("tok", t, t.i))
         if ifs:
             raise ValueError("%s: if without endif" % self.text(name))
+        if switches:
+            raise ValueError("%s: switch without endswitch" % self.text(name))
         return self.assemble(name, items)
+
+    @staticmethod
+    def close_case(sw, items, orig):
+        # The end of a case's body: a statement that does nothing when it has none (THUG2 takes case labels right
+        # after a matched one as fall-through labels), the jump past the endswitch, and where the case's jump to the
+        # next case lands.
+        if sw["open"] != "case":
+            return
+        if sw["body"] == 0:
+            items.append(("tok", name_tok(checksum("GotParam"), orig), orig))
+            items.append(("tok", name_tok(checksum(NEVER), orig), orig))
+            items.append(("tok", Tok(0x01, b"", orig), orig))
+        items.append(("swjump", sw["id"], orig))
+        items.append(("label", ("next", sw["id"], sw["k"]), orig))
 
     @staticmethod
     def token_items(toks):
@@ -729,7 +902,7 @@ class Translator:
 
     def assemble(self, name, items):
         head = b"\x23\x16" + struct.pack("<I", name)
-        size = {"if": 3, "else": 3, "jump": 5, "label": 0, "break": 3, "case": 4, "default": 4, "short": 3}
+        size = {"if": 3, "else": 3, "jump": 5, "label": 0, "case": 4, "default": 4, "swjump": 3, "short": 3}
         positions, pos = [], len(head)
         for kind, value, orig in items:
             positions.append(pos)
@@ -761,15 +934,16 @@ class Translator:
                 out += b"\x48" + struct.pack("<H", labels[("end", value)] - (here + 1))
             elif kind == "jump":
                 out += b"\x2E" + struct.pack("<i", at(value.targets[0]) - (here + 5))
-            elif kind == "break":
-                out += b"I" + struct.pack("<H", labels[("endswitch", value)] - (here + 1))
             elif kind == "case":
-                out += b">I" + struct.pack("<H", labels[("case", value[0], value[1] + 1)] - (here + 2))
+                # 3E 49 <to the next case / default / endswitch> (the offset from its own field, as the ifs')
+                out += b"\x3E\x49" + struct.pack("<H", labels[("next",) + value] - (here + 2))
             elif kind == "default":
-                out += b"?I" + struct.pack("<H", labels[("endswitch", value[0])] - (here + 2))
+                out += b"\x3F\x49" + struct.pack("<H", labels[("end", value)] - (here + 2))
+            elif kind == "swjump":
+                out += b"\x49" + struct.pack("<H", labels[("past", value)] - (here + 1))
             elif kind == "short":
                 # (a THUG2-format switch's own short jump - THAW's: its offset from the 0x49 itself)
-                out += b"I" + struct.pack("<H", at(value.targets[0]) - value.adjust - here)
+                out += b"\x49" + struct.pack("<H", at(value.targets[0]) - value.adjust - here)
             elif kind == "random":
                 n = len(value.targets)
                 out += bytes([value.t]) + struct.pack("<I", n) + struct.pack("<%dH" % n, *(value.weights or [1] * n))

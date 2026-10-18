@@ -17,6 +17,7 @@
 #   lighting      THUG2 level structure keys (ambient / directional lights)
 #   setup_script  (optional) a script of the level's .qb the level structure names as its setup_script (THPS3's
 #                 start scripts)
+#   startup_script (optional) the same for the level structure's startup_script (THUG1's: loads its sounds)
 
 import json
 import os
@@ -76,6 +77,9 @@ def levels_qb_text(manifest):
                  '    level="%s" ' % entry["level"]]
         if entry.get("sky"):
             lines.append('    sky="%s" ' % entry["sky"])
+        if entry.get("startup_script"):
+            # (load_level runs it before the node array is parsed: THUG1's load its sounds there)
+            lines.append("    startup_script=%s " % entry["startup_script"])
         if entry.get("setup_script"):
             # (load_level runs it once the node array is up, and reset_level again)
             lines.append("    setup_script=%s " % entry["setup_script"])
