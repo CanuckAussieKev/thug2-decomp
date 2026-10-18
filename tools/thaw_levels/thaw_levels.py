@@ -234,12 +234,23 @@ def night_sectors(geom, names):
 
 # --- collision --------------------------------------------------------------------------------------------------
 
-def convert_col(col, keep_triggers, shift):
+# Per zone: pieces left out altogether (scene, collision, node) - story blockers THAW's goal scripts take away, which
+# free skate here doesn't run. The Mall: an invisible wall across the glass doors by the start (the way in shut).
+LEFT_OUT = {"Z_MA": ("Z_MA_Mall_First_Rail_Blocker",)}
+
+
+def left_out(zone):
+    return {qb.checksum(n) for n in LEFT_OUT.get(zone.upper(), ())}
+
+
+def convert_col(col, keep_triggers, shift, drop=frozenset()):
     # THAW's collision is THUG2's (with the reaches and BSP trees): the face flags THUG2 doesn't have dropped, trigger
     # faces only for kill zones (THUG2 runs a trigger face's node's TriggerScript without checking it exists), moved
     # by `shift` (whole sixteenths: the fixed-point vertices are relative to the box, which moves with them).
     objects = []
     for o in col["objects"]:
+        if o["checksum"] in drop:
+            continue
         o = dict(o)
         keep = keep_triggers(o["checksum"])
         o["faces"] = [((flags & FACE_KEEP) if keep else (flags & FACE_KEEP & ~thug2_col.FACE_TRIGGER), terrain, a, b, c)
@@ -266,6 +277,42 @@ def move_positions(value, shift):
                 node.entries[i] = (key, ("vector", tuple(v[1][k] + shift[k] for k in range(3))))
 
 
+SHATTERS = (qb.checksum("ShatterAndDie"), qb.checksum("Shatter"))
+
+
+def breakable_scripts(array, script_qbs, names):
+    # Breakable pieces (The Mall's glass doors and panes...): a node whose TriggerScript - or a script it calls -
+    # shatters the node (THAW: MA_BreakGlass name=<the node> = Kill + ShatterAndDie, a THAW command). As THUG2's own
+    # breakables (its Airport's AP_Shatter): Shatter name=<the node> ..., then Kill. Returns {trigger script: the
+    # commands}, kept with the nodes' trigger faces as the kill zones are (without them the glass was a wall: the
+    # Mall's way in from the start was shut).
+    scripts = {}
+    for q in script_qbs:
+        scripts.update(q.scripts)
+
+    def shatters(script, depth=0):
+        for line in scripts.get(script, []):
+            for t, p in line:
+                if t == 0x16:
+                    value = struct.unpack("<I", p)[0]
+                    if value in SHATTERS:
+                        return True
+                    if depth < 2 and value in scripts and value != script and shatters(value, depth + 1):
+                        return True
+        return False
+
+    out = {}
+    for node in array:
+        if not isinstance(node, qb.Struct) or nodes.class_of(node, names) != "levelgeometry":
+            continue
+        trigger, name = node.get("TriggerScript"), node.get("Name")
+        if isinstance(trigger, qb.Name) and isinstance(name, qb.Name) and shatters(trigger.value):
+            text = qb.name_text(name.value, names)
+            out[trigger.value] = ("Shatter name=%s area=4000 variance=4 vel_x=50 vel_y=50 vel_z=50 spread=1\n"
+                                  "    Kill name=%s" % (text, text))
+    return out
+
+
 def convert_level_nodes(files, zone, name, ns, out_dir, report, names, shift, drop=frozenset()):
     # The node array: kept nodes and kill zones (THUG2's SK3_KillSkater, each naming a restart) as <name>.qb.
     # Returns (the checksums of the nodes whose collision keeps its trigger faces, the LOD sectors to leave out).
@@ -288,18 +335,21 @@ def convert_level_nodes(files, zone, name, ns, out_dir, report, names, shift, dr
     restarts = {n.get("Name").value for n in array if isinstance(n, qb.Struct) and isinstance(n.get("Name"), qb.Name)
                 and nodes.class_of(n, names) == "restart"}
     kills = nodes.kill_commands(script_qbs, restarts, names)
-    converted, stats = nodes.convert_nodes(array, names, kills, extra_keys=("pos",))
+    breakables = breakable_scripts(array, script_qbs, names)
+    converted, stats = nodes.convert_nodes(array, names, {**kills, **breakables}, extra_keys=("pos",))
     gone = lods | set(drop)
     converted = [n for n in converted if not (isinstance(n.get("Name"), qb.Name) and n.get("Name").value in gone)]
     if any(shift):
         move_positions(converted, shift)
     kills = nodes.add_kill_restarts(converted, kills, names)
+    kills.update(breakables)
     triggers = nodes.kill_trigger_names(converted, kills)
     text = nodes.node_array_ns(name + "_NodeArray", converted, names, kills)
     os.makedirs(out_dir, exist_ok=True)
     common.ns_compile(ns, text, os.path.join(out_dir, name + ".qb"))
-    report.append("  nodes: %d of %d kept %s; %d kill zones; %d LOD sectors left out"
-                  % (len(converted), len(array), stats, len(triggers), len(lods)))
+    breaking = len(nodes.kill_trigger_names(converted, breakables))
+    report.append("  nodes: %d of %d kept %s; %d kill zones, %d breakables; %d LOD sectors left out"
+                  % (len(converted), len(array), stats, len(triggers) - breaking, breaking, len(lods)))
     return triggers, lods
 
 
@@ -365,14 +415,14 @@ def cmd_convert(args):
         if any(shift):
             report.append("%s: moved by (%g, %g, %g)" % (name, shift[0], shift[1], shift[2]))
         geom = thaw.read_geom(files[".geom"], zone + ".geom")
-        night = night_sectors(geom, names)
+        night = night_sectors(geom, names) | left_out(zone)
         node_report = ["  %d night-time sectors left out" % len(night)] if night else []
         triggers, lods = convert_level_nodes(files, zone, name, args.ns, level_dir, node_report, names, shift,
                                              night)
         warnings = []
         scene = convert_scene(geom, warnings, shift, lods | night)
         textures = thaw.read_tex(files[".tex"], zone + ".tex")
-        col = convert_col(col_in, lambda checksum: checksum in triggers, shift)
+        col = convert_col(col_in, lambda checksum: checksum in triggers, shift, left_out(zone))
         common.write_level(level_dir, name, scene, textures, col)
         common.report_level(report, name, scene, textures, col, warnings)
         report += node_report
