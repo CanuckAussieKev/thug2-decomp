@@ -232,6 +232,18 @@ def kill_trigger_names(nodes, kills):
     return found
 
 
+# The terrains whose sounds (rolling, landing, grinding) a ported level loads: load_level runs SetTerrainDefault, then
+# the level's own LoadTerrain script - without it only TERRAIN_DEFAULT's sounds are loaded, and rolling over wood,
+# metal, concrete... is silent. THUG2's own LA loads these.
+TERRAINS = ("DEFAULT", "CONCSMOOTH", "CONCROUGH", "METALSMOOTH", "METALGRATING", "WOOD", "BRICK", "TILE", "ASPHALT",
+            "GRAVEL", "SIDEWALK", "GRASS", "WATER", "PLEXIGLASS", "CHAINLINK", "GRINDWIRE", "GRINDCONC",
+            "GRINDCHAINLINK", "GRINDMETAL", "GRINDWOOD", "GRINDELECTRICWIRE", "GRINDGLASSMONSTER", "GRINDBANYONTREE")
+
+
+def load_terrain_ns():
+    return "script LoadTerrain {\n%s}" % "".join("    LoadTerrainSounds terrain=TERRAIN_%s \n" % t for t in TERRAINS)
+
+
 def node_array_ns(array_name, nodes, names, kills=None):
     lines = ["%s = [" % array_name]
     for node in nodes:
@@ -241,4 +253,5 @@ def node_array_ns(array_name, nodes, names, kills=None):
     for script, command in sorted((kills or {}).items()):
         if script in used:
             lines.append("script %s {\n    %s\n}" % (qb.name_text(script, names), command))
+    lines.append(load_terrain_ns())
     return "\n".join(lines) + "\n"

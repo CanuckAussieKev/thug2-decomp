@@ -47,6 +47,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 sys.path.insert(0, os.path.join(REPO, "tools", "level_port"))
 import ported_levels  # noqa: E402 (the converted THPS4 / THUG1 levels: added when <game>\thug2-decomp-thps4 / -thug1 exist)
 import thug2_col  # noqa: E402 (the front end's collision without THUG2's shop)
+import nodes as level_port_nodes  # noqa: E402 (the terrain sounds a level loads)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import level_select  # noqa: E402 (the level select's sections, stars and signs)
 
@@ -852,6 +853,12 @@ def front_end_nodes(text, backdrop_nodes):
     # The front end's node array (levels\mainmenu\mainmenu.qb) with its restarts moved into THPS4's shop, and THPS4's
     # drop-in restart added at the end (from the converted shop's node array `backdrop_nodes`, as NeverScript text;
     # added last, the front end's node indices and links are unchanged).
+    # The front end loaded only TERRAIN_DEFAULT's sounds (its LoadTerrain): THPS4's shop is wood, metal... - silent
+    # rolling after SKATE NOW. Every terrain's, as the ported levels (level_port nodes.load_terrain_ns).
+    terrain = re.search(r"script LoadTerrain \{\n.*?\n\} \n", text, re.S)
+    if not terrain:
+        sys.exit("mainmenu.qb: LoadTerrain not found")
+    text = text[:terrain.start()] + level_port_nodes.load_terrain_ns() + " \n" + text[terrain.end():]
     for name in ("TRG_Playerrestart", "SS_player_restart"):
         node = re.search(r"\n( *)Pos=\([^)]*\) *\n *Angles=\([^)]*\) *\n *Name=%s *\n" % name, text)
         if not node:
