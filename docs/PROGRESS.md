@@ -2,7 +2,7 @@
 
 Generated 2026-10-19 by `tools/progress_report.py` - regenerate after each batch.
 
-**Game code: ███░░░░░░░░░░░░░░░░░ 18.5%** of the code rewritten (1,825 of 8,382 functions, 299.4 KB of 1,617.8 KB).
+**Game code: ████░░░░░░░░░░░░░░░░ 21.5%** of the code rewritten (2,047 of 8,382 functions, 347.1 KB of 1,617.8 KB).
 
 Progress is by code size: function counts make a 10-byte helper look like as much work as a 2 KB routine. Subsystem boundaries come from the exe map (`docs/subsystems.md`) and are approximate (give or take a few functions); totals are exact.
 
@@ -18,8 +18,8 @@ Progress is by code size: function counts make a 10-byte helper look like as muc
 | Object system & script runtime (composite objects, events, object anims, particles, pathfinding, QB parser/executor) | `0x45efd0`-`0x47dc40` | ███████████░░░░░░░░░ 56% | 467 / 685 | 63.8 KB / 112.3 KB |
 | Models / faces / textures for skaters (CAS) | `0x47dc40`-`0x490d80` | ░░░░░░░░░░░░░░░░░░░░ 1% | 19 / 523 | 1.3 KB / 67.5 KB |
 | Renderer: textures, geometry, particles, 2D/3D screen | `0x490d80`-`0x4a4500` | ░░░░░░░░░░░░░░░░░░░░ 0% | 7 / 559 | 0.2 KB / 73.1 KB |
-| Front-end UI: screen elements & text | `0x4a4500`-`0x4b2280` | █░░░░░░░░░░░░░░░░░░░ 9% | 14 / 228 | 5.0 KB / 52.5 KB |
-| Renderer: screen FX, image/texture formats, fonts, grass | `0x4b2280`-`0x4d6d40` | █░░░░░░░░░░░░░░░░░░░ 7% | 17 / 488 | 9.1 KB / 114.8 KB |
+| Front-end UI: screen elements & text | `0x4a4500`-`0x4b2280` | ████████████████████ 100% | 228 / 228 | 52.5 KB / 52.5 KB |
+| Renderer: screen FX, image/texture formats, fonts, grass | `0x4b2280`-`0x4d6d40` | █░░░░░░░░░░░░░░░░░░░ 8% | 25 / 488 | 9.2 KB / 114.8 KB |
 | Application main & game object rendering glue | `0x4d6d40`-`0x4e6b80` | ███░░░░░░░░░░░░░░░░░ 17% | 56 / 202 | 10.4 KB / 59.5 KB |
 | Goal & rail editors / skater camera | `0x4e6b80`-`0x500020` | ░░░░░░░░░░░░░░░░░░░░ 0% | 1 / 341 | 0.7 KB / 85.7 KB |
 | Skater (physics, tricks, walking, stats, sticker tags) | `0x500020`-`0x533f20` | █░░░░░░░░░░░░░░░░░░░ 5% | 9 / 544 | 10.1 KB / 186.9 KB |
