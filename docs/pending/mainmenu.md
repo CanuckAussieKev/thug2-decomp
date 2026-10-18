@@ -122,3 +122,4 @@ DLL, ini and overlay). Built, offline self-tests all pass (197), mutations caugh
   unused by THUG2 itself (no reference in the exe or scripts), made for that restart; level, at the coping, he rode
   off sideways. Tested in the game frame by frame: drop-in, down the wall, out across the flat, no snap; Esc back
   and a second drop-in.
+- Then (the user: the menu didn't come back all at once): captured frame by frame after Esc - the old menu items slid in over the skating view, then the camera cut, the skater still on his board, then the title. main_menu_skate_stop now fades to black (0.15 s), resets the skater (spin_menu_skater_script reset) and the camera, builds the menu, waits 0.4 s with menu input blocked, fades in (0.2 s). Tested frame by frame: one clean fade, the whole scene at once.
