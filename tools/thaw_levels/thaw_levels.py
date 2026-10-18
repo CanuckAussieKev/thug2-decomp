@@ -243,7 +243,12 @@ def left_out(zone):
     return {qb.checksum(n) for n in LEFT_OUT.get(zone.upper(), ())}
 
 
-def convert_col(col, keep_triggers, shift, drop=frozenset()):
+# A breakable's faces, as THUG2's own (its Airport's AP_Shatter_Roof pieces): non-collidable, trigger, no skater
+# shadow, invisible - THAW's had decal and camera collidable too (0xF0).
+BREAKABLE_FACE = 0x1150
+
+
+def convert_col(col, keep_triggers, shift, drop=frozenset(), breakables=frozenset()):
     # THAW's collision is THUG2's (with the reaches and BSP trees): the face flags THUG2 doesn't have dropped, trigger
     # faces only for kill zones (THUG2 runs a trigger face's node's TriggerScript without checking it exists), moved
     # by `shift` (whole sixteenths: the fixed-point vertices are relative to the box, which moves with them).
@@ -255,6 +260,8 @@ def convert_col(col, keep_triggers, shift, drop=frozenset()):
         keep = keep_triggers(o["checksum"])
         o["faces"] = [((flags & FACE_KEEP) if keep else (flags & FACE_KEEP & ~thug2_col.FACE_TRIGGER), terrain, a, b, c)
                       for flags, terrain, a, b, c in o["faces"]]
+        if o["checksum"] in breakables:
+            o["faces"] = [(BREAKABLE_FACE, terrain, a, b, c) for _, terrain, a, b, c in o["faces"]]
         if any(shift):
             b = o["bbox"]
             o["bbox"] = (b[0] + shift[0], b[1] + shift[1], b[2] + shift[2], b[3],
@@ -336,21 +343,32 @@ def convert_level_nodes(files, zone, name, ns, out_dir, report, names, shift, dr
                 and nodes.class_of(n, names) == "restart"}
     kills = nodes.kill_commands(script_qbs, restarts, names)
     breakables = breakable_scripts(array, script_qbs, names)
-    converted, stats = nodes.convert_nodes(array, names, {**kills, **breakables}, extra_keys=("pos",))
+    # The nodes left out (LOD copies, `drop`) become placeholders of a class convert_nodes drops, before it renumbers
+    # the Links - removed after, every node after one pointed its Links one place off (rails linked to the wrong
+    # nodes: The Mall hung loading once its story blocker was left out).
     gone = lods | set(drop)
-    converted = [n for n in converted if not (isinstance(n.get("Name"), qb.Name) and n.get("Name").value in gone)]
+    placeholder = qb.Struct([(qb.Name(qb.checksum("Class")), qb.Name(qb.checksum("LeftOut")))])
+    array = [placeholder if isinstance(n, qb.Struct) and isinstance(n.get("Name"), qb.Name) and
+             n.get("Name").value in gone else n for n in array]
+    converted, stats = nodes.convert_nodes(array, names, {**kills, **breakables}, extra_keys=("pos",))
     if any(shift):
         move_positions(converted, shift)
     kills = nodes.add_kill_restarts(converted, kills, names)
     kills.update(breakables)
+    breaking_names = nodes.kill_trigger_names(converted, breakables)
+    # (a breakable keeps no Type: THAW's Type=Crate - its physics breakables - made the glass a solid object here)
+    type_key = qb.checksum("Type")
+    for node in converted:
+        if isinstance(node.get("Name"), qb.Name) and node.get("Name").value in breaking_names:
+            node.entries = [(k, v) for k, v in node.entries if k is None or k.value != type_key]
     triggers = nodes.kill_trigger_names(converted, kills)
     text = nodes.node_array_ns(name + "_NodeArray", converted, names, kills)
     os.makedirs(out_dir, exist_ok=True)
     common.ns_compile(ns, text, os.path.join(out_dir, name + ".qb"))
-    breaking = len(nodes.kill_trigger_names(converted, breakables))
+    breaking = len(breaking_names)
     report.append("  nodes: %d of %d kept %s; %d kill zones, %d breakables; %d LOD sectors left out"
                   % (len(converted), len(array), stats, len(triggers) - breaking, breaking, len(lods)))
-    return triggers, lods
+    return triggers, lods, breaking_names
 
 
 # --- converting -------------------------------------------------------------------------------------------------
@@ -417,12 +435,12 @@ def cmd_convert(args):
         geom = thaw.read_geom(files[".geom"], zone + ".geom")
         night = night_sectors(geom, names) | left_out(zone)
         node_report = ["  %d night-time sectors left out" % len(night)] if night else []
-        triggers, lods = convert_level_nodes(files, zone, name, args.ns, level_dir, node_report, names, shift,
+        triggers, lods, breakables = convert_level_nodes(files, zone, name, args.ns, level_dir, node_report, names, shift,
                                              night)
         warnings = []
         scene = convert_scene(geom, warnings, shift, lods | night)
         textures = thaw.read_tex(files[".tex"], zone + ".tex")
-        col = convert_col(col_in, lambda checksum: checksum in triggers, shift, left_out(zone))
+        col = convert_col(col_in, lambda checksum: checksum in triggers, shift, left_out(zone), breakables)
         common.write_level(level_dir, name, scene, textures, col)
         common.report_level(report, name, scene, textures, col, warnings)
         report += node_report
