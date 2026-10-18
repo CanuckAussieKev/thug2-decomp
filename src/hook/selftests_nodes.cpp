@@ -660,6 +660,11 @@ std::vector<uint32_t> RunPrefixTest(bool original)
     Answer('V', Struct(arena, 42), kPos, {Bits(-3.0f), Bits(2.0f), Bits(1.0f), Bits(1.0f)});
     Answer('V', Struct(arena, 2), kPos, {Bits(7.0f), Bits(7.0f), Bits(-7.0f), Bits(1.0f)}); // (the only "Car")
     Answer('V', Struct(arena, 10), kPos, {Bits(1.0f), Bits(1.0f), Bits(1.0f), Bits(1.0f)});
+    // (every other node placed too: the original measures a node without pos= where the last one was - for the
+    // first such node, a stack value it never set; the result then depended on what the stack held, matching ours
+    // offline by chance and not in the game)
+    for (int i : {1, 3, 5, 6, 7, 8, 9, 11})
+        Answer('V', Struct(arena, i), kPos, {Bits(-20.0f + i), Bits(5.0f), Bits(2.0f * i), Bits(1.0f)});
     auto* pos = reinterpret_cast<Mth::Vector*>(arena + 0x5A00);
     const float targets[][3] = {{0, 0, 0}, {-3, 2, 1}, {3, -2, -1}, {100, 0, 0}, {0.5f, -0.25f, 3.9f}};
     for (const auto& t : targets) {
