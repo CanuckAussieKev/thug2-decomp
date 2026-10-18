@@ -137,6 +137,7 @@ def cmd_convert(args):
         kills = nodes.kill_scripts(q, level_scripts)
         names = dict(q.names)
         converted, stats = nodes.convert_nodes(array, names, kills)
+        kills = nodes.add_kill_restarts(converted, kills, names)
         triggers = nodes.kill_trigger_names(converted, kills)
         text = nodes.node_array_ns(name + "_NodeArray", converted, names, kills)
         os.makedirs(os.path.join(out, "levels", name), exist_ok=True)

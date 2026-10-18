@@ -193,6 +193,35 @@ def convert_nodes(array, names, kills=None, extra_keys=()):
     return out, stats
 
 
+def node_position(node):
+    value = node.get("Pos")
+    if value is None:
+        value = node.get("Position")
+    return value[1] if isinstance(value, tuple) and value[0] == "vector" else None
+
+
+def add_kill_restarts(nodes, kills, names):
+    # THUG2's SK3_KillSkater needs a restart: without nodename= it passes the global kill_skater_nodename (0 until a
+    # kill names one) to KillSkater node=, which finds no node - the skater stays dead, never put back (seen in THUG1
+    # Hawaii's pool). A kill command without one gets the restart nearest to the first trigger node that runs it.
+    restarts = [(node_position(n), n.get("Name")) for n in nodes
+                if class_of(n, names) == "restart" and node_position(n) and isinstance(n.get("Name"), Name)]
+    if not restarts:
+        return kills
+    out = dict(kills)
+    for script, command in kills.items():
+        if "nodename=" in command:
+            continue
+        where = next((node_position(n) for n in nodes if isinstance(n.get("TriggerScript"), Name)
+                      and n.get("TriggerScript").value == script and node_position(n)), None)
+        if where is None:
+            continue
+        _, restart = min(restarts, key=lambda r: sum((r[0][k] - where[k]) ** 2 for k in range(3)))
+        out[script] = command.split(" ", 1)[0] + " nodename=%s" % qb.name_text(restart.value, names) + \
+            (" " + command.split(" ", 1)[1] if " " in command else "")
+    return out
+
+
 def kill_trigger_names(nodes, kills):
     # The checksums of the kept nodes whose TriggerScript is a kill script: their collision keeps its trigger faces.
     found = set()

@@ -56,3 +56,25 @@ THUG1 40-58 (unique; no records - the info panel skips them as before).
 
 - Game runs (load, skate, grind, kill zones) when the lead allows them again.
 - THUG1's music, sounds, goals, peds, vehicles, moving objects (LevelObjects static), net games (no scn_NET).
+
+## Game runs (2026-10-18, after main's levelselect merge)
+
+- **The Hawaii pool bug - cause:** THUG2's SK3_KillSkater needs a restart. Without nodename= it passes the global
+  kill_skater_nodename (0 until some kill names one) to `KillSkater node=`, which finds no node: the skater stays
+  dead and is never put back. Hawaii's pool (Pool_Water) runs HI_Pool_Water, a level script whose own
+  Sk3_Killskater_Water names TRG_Restart_Boardwalk; the converter took the call from the trigger script
+  (`HI_Pool_Water`, no parameters) and wrote a bare SK3_KillSkater_Water. THPS4's kill zones were all written bare,
+  so they had the same bug.
+- **Fix:** a level script's own kill parameters are carried over (nodes.kill_args / kill_commands), and any kill
+  left without a restart gets the restart nearest its trigger node (nodes.add_kill_restarts; THPS4 and THUG1). Now
+  every kill script of the 27 levels names a restart (scratch check).
+- **Tested in the game:** Hawaii with the Player1 restart moved over the pool for the test: the skater falls in,
+  "WATER... BAAAD", and is put back at TRG_Restart_Boardwalk. Hawaii from its own start and Moscow load and skate.
+  The level select's THUG1 section shows (Down from THUG2), NEW JERSEY ... MOSCOW signs; no globe stars showed for
+  THUG1 levels.
+- **Also fixed (level_select.py, from the levelselect merge):** switching to the THUG1 section crashed the game
+  (0x0057F550 null read under GetLevelRecords): the high-score panel's skip list for our level numbers was empty -
+  the numbers already in `text` (the gaps script's, added just before) were taken as present. Now each script's own
+  body is checked.
+- Trigger faces: kept for every kill node whose THUG1 collision has them (e.g. FL 15 objects); some THUG1 kill
+  scripts sit on objects with no trigger faces in THUG1 itself (FL_boa_ground_01...): nothing to keep there.

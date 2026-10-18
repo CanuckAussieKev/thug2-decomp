@@ -155,6 +155,7 @@ def convert_level_nodes(files, code, name, ns, out_dir, report):
                 and nodes.class_of(n, names) == "restart"}
     kills = nodes.kill_commands(script_qbs, restarts, names)
     converted, stats = nodes.convert_nodes(array, names, kills, extra_keys=("pos",))
+    kills = nodes.add_kill_restarts(converted, kills, names)
     triggers = nodes.kill_trigger_names(converted, kills)
     text = nodes.node_array_ns(name + "_NodeArray", converted, names, kills)
     os.makedirs(out_dir, exist_ok=True)

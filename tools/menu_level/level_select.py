@@ -407,8 +407,12 @@ def edit_level_select(text, section_list):
     # The info panel's gaps and high score: no records for our levels (as make_menu_level does for 18 / 21).
     for script in ("level_select_info_add_gaps", "level_select_info_add_highscore"):
         head = "script %s {\n    if (<level_num> = <created_park_number>) {\n        return \n    } \n" % script
+        # (the numbers this script skips already - its own body only: the first script's skips are in `text` by the
+        # time the second is done; looking in all of `text` left the high score's out: GetLevelRecords crashed)
+        at = text.find(head)
+        body = text[at:text.find("\nscript ", at + 1)] if at >= 0 else ""
         skips = "".join("    if (<level_num> = %d) {\n        return \n    } \n" % n
-                        for n in sorted(set(numbers)) if "(<level_num> = %d)" % n not in text)
+                        for n in sorted(set(numbers)) if "(<level_num> = %d)" % n not in body)
         text = _replace_once(text, head, head + skips, script + "'s start")
     return text
 
