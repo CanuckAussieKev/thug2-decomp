@@ -947,6 +947,46 @@ def front_end_peds_cars(text, backdrop_nodes):
     return text[:at] + "".join(scripts) + text[at:]
 
 
+# The dark backing the front end's roundbar menus get (Game Options, Create-A-Modes, the network menus...): over
+# THPS4's lit skate shop their items were hard to read (the main menu has its own, main_menu_backing). Sized from the
+# menu's own dims and width, as main_menu_backing (white2 is 8 units).
+ROUNDBAR_BACKING = r"""    if LevelIs Load_MainMenu {
+        if ! ObjectExists id=main_menu {
+            if ObjectExists id=current_menu {
+                GetScreenElementDims id=current_menu
+                current_menu:GetSingleTag menu_pos
+                current_menu:GetSingleTag width
+                if ScreenElementExists id=front_end_menu_backing {
+                    DestroyScreenElement id=front_end_menu_backing
+                }
+                CreateScreenElement {
+                    type=SpriteElement
+                    parent=current_menu_anchor
+                    id=front_end_menu_backing
+                    texture=white2
+                    pos=(<menu_pos> - (36.0, 9.0))
+                    just=[left top]
+                    rgba=[0 0 0 112]
+                    scale=(((<width> + 72.0) / 8.0) * (1.0, 0.0) + ((<height> + 18.0) / 8.0) * (0.0, 1.0))
+                    z_priority=-1
+                }
+            }
+        }
+    }
+"""
+
+
+def front_end_roundbar(text):
+    # The game's roundbar menu scripts (scripts\game\menu\roundbarmenu.qb) with roundbar_menu_finish giving the menu a
+    # dark backing in the front end (ROUNDBAR_BACKING; the overlay's front_end folder is read in levels too: the
+    # LevelIs check keeps the pause menu as it is).
+    start = text.find("script roundbar_menu_finish {")
+    end = text.find("\n} \n", start)
+    if start < 0 or end < 0:
+        sys.exit("roundbarmenu.qb: roundbar_menu_finish not found")
+    return text[:end + 1] + ROUNDBAR_BACKING + text[end + 1:]
+
+
 def front_end_scripts(text):
     # The front end's scripts for THPS4's shop: the standard main menu; at the start, the shop's collision (the DLL
     # loads its scene; the skater skates there after SKATE NOW) and the skater's gameplay animations
@@ -1082,6 +1122,8 @@ def main():
         # menu_backdrop is on and the shop is installed).
         if thps4 and any(level["level"] == BACKDROP_LEVEL for level in thps4["levels"]):
             write(front_end_scripts(front_end), r"front_end\levels\mainmenu\mainmenu_scripts.qb")
+            roundbar = decompile(prx_file(qb_scripts, r"scripts\game\menu\roundbarmenu.qb"), "roundbarmenu.qb")
+            write(front_end_roundbar(roundbar), r"front_end\scripts\game\menu\roundbarmenu.qb")
             backdrop_nodes = decompile(open(os.path.join(out, "levels", BACKDROP_LEVEL, BACKDROP_LEVEL + ".qb"), "rb").read(),
                                        "backdrop.qb")
             write(front_end_peds_cars(front_end_rails(front_end_nodes(shop, backdrop_nodes), backdrop_nodes),
