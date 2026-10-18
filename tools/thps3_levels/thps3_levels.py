@@ -17,6 +17,7 @@ import argparse
 import glob
 import math
 import os
+import re
 import shutil
 import struct
 import sys
@@ -87,6 +88,33 @@ def read(path):
 
 
 # --- materials and textures ----------------------------------------------------------------------------------------
+
+def without_missing_trick_objects(text, scene_path):
+    # The node array (NeverScript text) with TrickObject / Cluster taken off the geometry nodes whose sector isn't in
+    # the converted scene (collision-only or invisible ones, left out of the scene): ParseNodeArray registers a
+    # TrickObject's sector - its cluster's - without checking it's there (0x00588630 reads through the null: THPS3
+    # Airport crashed loading). Returns (text, how many nodes changed).
+    sectors = {s["checksum"] for s in thug2_scene.read_scene(open(scene_path, "rb").read())["sectors"]}
+    cleared = 0
+
+    def fix(match):
+        nonlocal cleared
+        node = match.group(0)
+        name = re.search(r"\bName=(#?\w+)", node)
+        # (only LevelGeometry: ParseNodeArray's TrickObject branch is for them; rails keep theirs - no sectors)
+        if not name or not re.search(r"\bClass=LevelGeometry\b", node, re.IGNORECASE) or \
+                not re.search(r"\bTrickObject\b|\bCluster=", node):
+            return node
+        value = name.group(1)
+        checksum = int(value[1:], 16) if value.startswith("#") else qb.checksum(value)
+        if checksum in sectors:
+            return node
+        cleared += 1
+        node = re.sub(r"\n[ \t]*TrickObject[ \t]*(?=\n)", "", node)
+        return re.sub(r"\n[ \t]*Cluster=\S+[ \t]*(?=\n)", "", node)
+
+    return re.sub(r"\{[^{}]*\}", fix, text), cleared
+
 
 def usable_normals(sec):
     # The sector's normals, or None: THPS3's PC files leave them (near) zero on almost every sector (Foundry: 533 of
@@ -516,6 +544,13 @@ def convert_node_array(q, global_qbs, name, base, start_scripts):
     starts = list(start_scripts)
     if player1 is not None and isinstance(player1.get("TriggerScript"), qb.Name):
         starts.append(player1.get("TriggerScript").value)
+    # The ProximNodes' trigger scripts too: THPS3 swaps level-of-detail with them - Airport's escalators: outside, the
+    # static escalator (Create name=Escalator01, not CreatedAtStart); inside, moving game objects (the steps, not
+    # converted). Left out, the static escalators were holes.
+    proxim = qb.checksum("ProximNode")
+    starts += [n.get("TriggerScript").value for n in array if isinstance(n, qb.Struct) and
+               isinstance(n.get("Class"), qb.Name) and n.get("Class").value == proxim and
+               isinstance(n.get("TriggerScript"), qb.Name)]
     created, prefixes = created_at_start(q, global_qbs, names, base, starts)
     hidden = set()
     for node in array:
@@ -721,6 +756,10 @@ def cmd_convert(args):
             report.append("  game objects there at the start: %d drawn (no collision)" % len(objects[0]))
         convert_world(world, tdx, name, level_dir, report, keep_triggers=lambda checksum: checksum in triggers,
                       skip=hidden, mips=not args.no_mips, objects=objects)
+        text, cleared = without_missing_trick_objects(text, os.path.join(level_dir, name + ".scn.xbx"))
+        if cleared:
+            common.ns_compile(args.ns, text, os.path.join(level_dir, name + ".qb"))
+            report.append("  %d geometry nodes without a scene sector: TrickObject / Cluster dropped" % cleared)
         report.append("  " + node_report)
 
         # The sky (scene and textures, no collision - as THUG2's own skies).
