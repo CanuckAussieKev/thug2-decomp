@@ -89,6 +89,7 @@ back: the crash is in THUG2's code, which we are rewriting.
 | A pedestrian in a network game (THUG2 loads no ped animations there) | 0x00482BA0 from the anim controller's PlayAnim | The same pass: CreatedAtStart peds and vehicles get AbsentInNetGames (as THUG2's own levels) | No peds or cars online (THPS4's skate shop guy) |
 | A restart whose own script "kills" (respawn loop) | a restart's TriggerScript runs when the skater is put there | nodes.is_kill_call: camera animations (KillSkaterCamAnim) and other "kill" names that aren't kills don't count; add_kill_restarts never gives a restart a kill | THPS4 skate shop's start point and THAW BH's Gap14 restart lose their (camera / goal) scripts |
 | No Multiplayer restart (single-player levels) | a network game's spawn | nodes.net_restarts: Player1 restarts also Multiplayer and Horse (as THUG2's skate shop) | None |
+| A restart over nothing (THAW's shop interiors: separate zones) or over a kill zone (respawn loop / under the world) | the kill's nodename= restart, a network spawn | nodes.ground_restarts (after the collision is written, all games): no network spawn there; kills sent there go to the nearest grounded restart | East L.A.'s freeway kill no longer goes "into" the CAS shop; Hollywood's hill kills skip the sign restart; Suburbia's hell box |
 | A ported level named in a network game (2026-10-19) | GameNet::Manager::GetLevelName 0x005369A0 (THUG2's list only) | Fixed in the engine (batch 122): the ported lists are searched too | None |
 
 ## 4. THPS3
@@ -121,6 +122,8 @@ counts across all levels:
 - Skinned game objects missing (Suburbia 2, LA 1).
 
 ## 5. THPS4
+
+- The skate shop's door is open (2026-10-19, the user's request): thps4_levels.OPENINGS leaves out the front face of InvisColl01, the invisible box THPS4 put round its menu room; the street outside is skateable collision, its far edges may have no walls.
 
 **Rendering**: vertex colours halved (THPS4's PC files are 255 = full, THUG2's 128). Without it every level drew twice
 as bright.

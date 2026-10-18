@@ -555,6 +555,11 @@ def cmd_convert(args):
         textures = thaw.read_tex(files[".tex"], zone + ".tex")
         col = convert_col(col_in, lambda checksum: checksum in triggers, shift, left_out(zone) | objects_gone,
                           breakables, local)
+        # (restarts over nothing - the shops' interiors - or over a kill zone: no network spawns, no kill targets)
+        node_text, ground_report = nodes.ground_restarts(node_text, col)
+        if ground_report:
+            write_level_qb(args.ns, node_text, os.path.join(level_dir, name + ".qb"), scripts, names)
+            node_report += ground_report
         common.write_level(level_dir, name, scene, textures, col)
         common.report_level(report, name, scene, textures, col, warnings)
         report += node_report

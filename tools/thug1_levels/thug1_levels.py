@@ -211,16 +211,27 @@ def convert_level_nodes(files, code, name, ns, out_dir, report, port=None, struc
     text, marked = nodes.net_game_nodes(text, scripts)
     if marked:
         report.append("  %d node(s) changed for network games" % marked)
-    common.ns_compile(ns, text, path)
-    if scripts:
-        data = script_port.append_scripts(open(path, "rb").read(), scripts, names)
-        open(path, "wb").write(data)
+
+    def write_qb(text):
+        common.ns_compile(ns, text, path)
+        if scripts:
+            data = script_port.append_scripts(open(path, "rb").read(), scripts, names)
+            open(path, "wb").write(data)
+
+    write_qb(text)
     report.append("  nodes: %d of %d kept %s; %d kill zones; TrickObject taken off %d geometry nodes without a sector"
                   % (len(converted), len(array), stats, len(triggers), cleared))
     if made is not None:
         report.append("  made: %s" % ", ".join("%s %d" % kv for kv in sorted(made.counts.items())))
         report.append("  " + script_report)
-    return triggers, starts
+    # (cmd_convert redoes the .qb with this once the collision is written: nodes.ground_restarts)
+    def recheck(level_dir):
+        changed, ground_report = nodes.ground_restarts_at(text, level_dir, name)
+        if ground_report:
+            write_qb(changed)
+        return ground_report
+
+    return triggers, starts, recheck
 
 
 def cmd_convert(args):
@@ -249,8 +260,10 @@ def cmd_convert(args):
         name = "thug1_" + code.lower()
         level_dir = os.path.join(out, "levels", name)
         node_report = []
-        triggers, starts = convert_level_nodes(files, code, name, args.ns, level_dir, node_report, port, struct)
+        triggers, starts, recheck = convert_level_nodes(files, code, name, args.ns, level_dir, node_report, port,
+                                                         struct)
         convert_geometry(files, code, level_dir, name, report, keep_triggers=lambda checksum: checksum in triggers)
+        node_report += recheck(level_dir)
         report += node_report
 
         # The sky: Levels.qb's sky=, else <code>_sky when the scene archive has one.

@@ -1374,9 +1374,13 @@ def cmd_convert(args):
         convert_world(world, tdx, name, level_dir, report, keep_triggers=lambda checksum: checksum in triggers,
                       skip=hidden, mips=not args.no_mips, objects=objects)
         text, cleared = without_missing_trick_objects(text, os.path.join(level_dir, name + ".scn.xbx"))
-        if cleared:
+        # (restarts over nothing or over a kill zone: no network spawns, no kill targets - nodes.ground_restarts)
+        text, ground_report = nodes.ground_restarts_at(text, level_dir, name)
+        if cleared or ground_report:
             write_level_qb(args.ns, text, qb_path, scripts, port)
+        if cleared:
             report.append("  %d geometry nodes without a scene sector: TrickObject / Cluster dropped" % cleared)
+        report += ground_report
         report.append("  " + node_report)
 
         # The sky (scene and textures, no collision - as THUG2's own skies).

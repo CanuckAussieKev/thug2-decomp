@@ -449,3 +449,123 @@ def net_game_nodes(text, scripts=None):
     text, absent = absent_in_net_games(text, scripts)
     text, restarts = net_restarts(text)
     return text, absent + restarts
+
+
+# --- restarts against the converted collision -----------------------------------------------------------------------
+
+NET_RESTART_TYPES = ("multiplayer", "horse", "ctf", "ctf_1", "ctf_2", "team")
+
+
+def _ground(col, p):
+    # The highest collidable face below (or 30 units above) the point p, as (height, object checksum, face flags),
+    # or None: nothing under it.
+    best = None
+    for o in col["objects"]:
+        box = o["bbox"]
+        if not (box[0] - 1 <= p[0] <= box[4] + 1 and box[2] - 1 <= p[2] <= box[6] + 1):
+            continue
+        vs = o["verts"]
+        for f in o["faces"]:
+            if f[0] & 0x0010:  # non-collidable
+                continue
+            a, b, c = vs[f[2]], vs[f[3]], vs[f[4]]
+            den = (b[2] - c[2]) * (a[0] - c[0]) + (c[0] - b[0]) * (a[2] - c[2])
+            if abs(den) < 1e-9:
+                continue
+            l1 = ((b[2] - c[2]) * (p[0] - c[0]) + (c[0] - b[0]) * (p[2] - c[2])) / den
+            l2 = ((c[2] - a[2]) * (p[0] - c[0]) + (a[0] - c[0]) * (p[2] - c[2])) / den
+            if l1 < 0 or l2 < 0 or l1 + l2 > 1:
+                continue
+            y = l1 * a[1] + l2 * b[1] + (1 - l1 - l2) * c[1]
+            if y <= p[1] + 30 and (best is None or y > best[0]):
+                best = (y, o["checksum"], f[0])
+    return best
+
+
+def _node_pos(node):
+    # A node's position in THUG2's space: Pos= as it is, Position= (THPS4 / THUG1 style) with z negated.
+    m = re.search(r"\bPos=\(([^)]*)\)", node)
+    if m:
+        return tuple(float(x) for x in m.group(1).split(","))
+    m = re.search(r"\bPosition=\(([^)]*)\)", node)
+    if m:
+        x, y, z = (float(v) for v in m.group(1).split(","))
+        return x, y, -z
+    return None
+
+
+def ground_restarts(text, col):
+    # The node array (NeverScript text) checked against the converted collision (thug2_col's form): a restart with
+    # nothing under it (THAW's shop interiors - separate zones we don't port - are at y -600 over nothing) or over a
+    # kill zone's trigger faces (East L.A.'s TransitionParkTeleport restarts, a network game's spawns, above the
+    # freeway kill that took THAW to the CAS shop) is no network spawn (its Multiplayer / Horse / CTF / Team types
+    # go), and the kills sending the skater to one send it to the nearest grounded restart instead (East L.A.'s
+    # freeway sent it to the CAS shop's interior: under the world for good). Returns (text, report lines).
+    scripts = dict(re.findall(r"(?:^|\n)script (#?\w+) \{(.*?)\n\}", text, re.S))
+    elements = re.findall(r"\{[^{}]*\}", text)
+    kill_nodes = {}
+    for e in elements:
+        script, name = re.search(r"\bTriggerScript=(#?\w+)", e), re.search(r"\bName=(#?\w+)", e)
+        if script and name and re.search(r"\bSK3_KillSkater", scripts.get(script.group(1), ""), re.IGNORECASE):
+            kill_nodes[_name_value(name.group(1))] = script.group(1)
+    restarts, bad = {}, set()
+    for e in elements:
+        if not re.search(r"\bClass=Restart\b", e, re.IGNORECASE):
+            continue
+        name, p = re.search(r"\bName=(#?\w+)", e), _node_pos(e)
+        if not name or not p:
+            continue
+        restarts[name.group(1)] = p
+        ground = _ground(col, p)
+        if ground is None or (ground[1] in kill_nodes and ground[2] & 0x0040):
+            bad.add(name.group(1))
+    report = []
+    if not bad:
+        return text, report
+
+    def fix_node(match):
+        node = match.group(0)
+        name = re.search(r"\bName=(#?\w+)", node)
+        types = re.search(r"\brestart_types=\[([^\]]*)\]", node)
+        if not name or name.group(1) not in bad or not types:
+            return node
+        listed = [t for t in re.split(r"[\s,]+", types.group(1).strip()) if t]
+        kept = [t for t in listed if t.lower() not in NET_RESTART_TYPES] or ["Generic"]
+        if kept != listed:
+            report.append("  restart %s: no ground or over a kill zone - no network spawn" % name.group(1))
+        return node[:types.start()] + "restart_types=[%s]" % " ".join(kept) + node[types.end():]
+
+    text = re.sub(r"\{[^{}]*\}", fix_node, text)
+    good = {n: p for n, p in restarts.items() if n not in bad}
+    if not good:
+        return text, report
+    # Each kill script's trigger node positions (the nearest good restart to the first).
+    where = {}
+    for e in elements:
+        script, p = re.search(r"\bTriggerScript=(#?\w+)", e), _node_pos(e)
+        if script and p and script.group(1) not in where:
+            where[script.group(1)] = p
+
+    def fix_script(match):
+        name, body = match.group(1), match.group(2)
+        target = re.search(r"\b(SK3_KillSkater\w*\s+nodename=)(#?\w+)", body, re.IGNORECASE)
+        if not target or target.group(2) not in bad:
+            return match.group(0)
+        p = where.get(name) or restarts[target.group(2)]
+        best = min(good, key=lambda n: sum((good[n][k] - p[k]) ** 2 for k in range(3)))
+        report.append("  kill %s: to %s, not %s (no ground there)" % (name, best, target.group(2)))
+        body = body[:target.start(2)] + best + body[target.end(2):]
+        return match.group(0)[:match.start(2) - match.start(0)] + body + match.group(0)[match.end(2) - match.start(0):]
+
+    text = re.sub(r"(?:(?<=^)|(?<=\n))script (#?\w+) \{(.*?)\n\}", fix_script, text, flags=re.S)
+    return text, report
+
+
+def ground_restarts_at(text, level_dir, name):
+    # ground_restarts against the collision just written (<level_dir>\<name>.col.xbx). Returns (text, report lines).
+    import os
+    import thug2_col
+    path = os.path.join(level_dir, name + ".col.xbx")
+    if not os.path.exists(path):
+        return text, []
+    return ground_restarts(text, thug2_col.read_col(open(path, "rb").read(), path))
