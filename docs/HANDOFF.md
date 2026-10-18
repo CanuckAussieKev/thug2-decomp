@@ -16,8 +16,9 @@ State when the session was handed over (the user changed Claude accounts). Read 
   docs/pending/thps3-scripts.md, thps4-scripts.md, thug1-scripts.md, thaw-scripts.md).
 
 ## Waiting on the user
-- Playtests: the four games' scripts / peds / cars / moving objects; THAW glass sound; Minneapolis and Santa Monica
-  (fixed crashes); time of day in a career level; the front-end menus; a hosted network game.
+- Playtests: the network fix (batch 122: host a game, change to ported levels); the four games' scripts / moving
+  objects in play; time of day in a career level; a hosted network game. Reported fine 2026-10-19: Minneapolis and
+  Santa Monica load, THAW glass sound, peds and cars show, the front-end menus.
 - **The exact-assets work** (originals' particles, sounds, car models, ped / animal skeletons and animations instead of
   THUG2 stand-ins): proposed, not started - the user's go is needed. Order: docs/level-port-compromises.md section 8.
 
@@ -26,7 +27,7 @@ State when the session was handed over (the user changed Claude accounts). Read 
   in docs/agent-rules.md (pass the private Morten1337 repository ban on to every agent). The lead merges, builds
   (tools\verify_build.cmd + out\build\verify\thug2_check.exe), folds docs/pending/<name>.md batches into
   docs/decomp-progress.md with batch numbers (`python -I tools/fold_pending.py docs/pending/<name>.md <TAG> "<agent>"`;
-  the next is **122**), regenerates PROGRESS.md
+  the next is **123**), regenerates PROGRESS.md
   (`python -I tools/progress_report.py`), commits, pushes, then installs main into C:\Games\THUG2 under its lock
   (tools/game: copy the DLL over both the game's and the lock's `.backup` copy; converters + `make_menu_level.py`).
 - Game test scripts: tools/game (README there). User rules: launch only when allowed, never capture the whole screen,

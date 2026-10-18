@@ -4529,21 +4529,38 @@ belong with the CScript batch.
       properties, updates, morphs. 81 deliberate bugs: 79 caught (15 after strengthening); 2 equivalent: the half
       height rounded before or after halving (x0.5 is exact), and the blur copies' alpha without the 0.0001
       threshold (below it the alpha byte truncates to 0 anyway).
-- [ ] Next: small net follow-ups: App::m_manager (+0x1440) could become `Manager*` (it is `void*`), name the
-      Manager's +0x2E6 flag (pref checksum 0xE5ADE642) and check +0x374 (modem baud rate?).
-      Widescreen follow-up: if the user still sees the bottom-left band overlap, don't draw sprites wholly outside the
-      layout in the widescreen front end (they were never visible in the original's 4:3 screen). Then the gaps
-      batches 79-81 left: **0x45E9E0**
-      (Obj_GetCollision, the last of table 0x683268's 30 entries) with the collision feeler 0x417760 / 0x4172F0; the
-      rest of the cutscene system up to 0x4680B0 (0x463AA0 quaternion + translation to matrix, 0x463BA0,
-      0x463C70-0x464360, the pool pair 0x4645A0 / 0x4645E0, 0x464640-0x4680B0: loading 0x466620, the details' slots
-      0 / 2 / 5 / 7 / 8, the big updates 0x4648D0 / 0x465C00); the task-list area 0x406850-0x406E00 (~25 functions,
-      incl. Tsk::Task 0x406890 / 0x406C90 -> 0x406A80 and the list run 0x406AC0 the frame order rests on); 0x4AAD40
-      (CGeneralManager slot 6); the rest of the screen element code 0x4A74E0-0x4A8790 and CScreenElement itself
-      (batch 83's Left). The earlier gaps: the module manager Mdl::Manager 0x44F300-0x44F7E0,
-      0x4B2270-0x4B2320 (9 glue functions), CFlipRotateComponent::Update 0x4E2D20 and its base 0x481710-0x481740,
-      0x46C470-0x46C6A0 (a CStruct wrapper class), the sound functions 0x47AC10-0x47AD80. GameSpy's host names become
-      configuration when the SDK is linked.
+- [x] Batch 122 (NOT run in the game yet): a network game crash in the ported levels. The user's report
+      (2026-10-19): a hosted network game loads in Boston but crashed loading a ported level (the log: THUG1's New
+      Jersey). Crash: strlen(null) in CStruct::AddString from 0x005311F0 (the client's handler for the server's
+      level change), whose level name comes from GameNet::Manager::GetLevelName 0x005369A0 - it looks in
+      level_select_menu_level_info only (THUG2's own levels; the only code reading that list), and the ported
+      levels are in tools/menu_level's own lists, so it gave null. Rewritten (new src/game/net/gamenet_manager.*,
+      the first of GameNet::Manager 0x00533F20-0x0054EF60) with the ported levels' four lists searched after THUG2's
+      (a change from the original, noted in the header; the other callers 0x0052DD40, 0x0053BA6A, 0x0053F960,
+      0x0054CE80 get the ported names too). Quirk kept: an entry without `level` compares the value left from before
+      (at first the manager's own address). Early test (src/hook/selftests_gamenet.cpp): original vs ours on stand-in
+      lists - the quirk, a match, the created park's entry with / without the park name asked (valid / invalid map),
+      not found, a one-element list; ours alone: a ported level, THUG2's list first, not found with a ported list.
+      13 deliberate bugs, all caught. Also checked: New Jersey's peds / cars created at start are all
+      AbsentInNetGames (the path manager doesn't exist in net games - see make_menu_level.py testlevel_nodes).
+      New tools/symbolize.py: a crash report's DINPUT8.dll+0x... offsets to functions and lines (dbghelp + the
+      build's PDB).
+- [x] User's play-test report 2026-10-19: Minneapolis and Santa Monica load (fixed crashes), the Mall's glass sound
+      works, peds and cars show in the ported levels, the front-end menus are fine (batches 114-121 judged).
+      Time of day (110-113) still to be judged.
+- [ ] Next: check the network fix in the game (host a game, change to a ported level of each game). Small net
+      follow-ups: App::m_manager (+0x1440) could become `Manager*` (it is `void*`), name the Manager's +0x2E6 flag
+      (pref checksum 0xE5ADE642) and check +0x374 (modem baud rate?). Widescreen follow-up: if the user still sees
+      the bottom-left band overlap, don't draw sprites wholly outside the layout in the widescreen front end.
+      Then the gaps left (checked 2026-10-19; done since: Obj_GetCollision 0x45E9E0, 0x4172F0, 0x4AAD40, the screen
+      element code, Mdl::Manager, the 0x4B2270 glue): the collision feeler 0x417760; the cutscene system
+      0x463AA0-0x4680B0 (39 of 42 left: 0x463AA0 quaternion + translation to matrix, 0x463BA0, 0x463C70-0x464360,
+      the pool pair 0x4645A0 / 0x4645E0, 0x464640-0x4680B0: loading 0x466620, the details' slots 0 / 2 / 5 / 7 /
+      8, the big updates 0x4648D0 / 0x465C00); the task list 0x406850-0x406E00 (24 functions, incl. Tsk::Task
+      0x406890 / 0x406C90 -> 0x406A80 and the list run 0x406AC0 the frame order rests on);
+      CFlipRotateComponent::Update 0x4E2D20 and its base 0x481710-0x481740; 0x46C470-0x46C6A0 (a CStruct wrapper
+      class, 12 functions); the sound functions 0x47AC10-0x47AD80 (5). The rest of GameNet::Manager
+      (0x00533F20-0x0054EF60, 3%). GameSpy's host names become configuration when the SDK is linked.
 - [x] Safety tool (`tools/ghidra/scan_register_assumptions.py`): scans every call site of every replaced function
       for original callers that read ECX/EDX after the call without writing them first (ignoring push-to-reserve,
       lea reg,[reg], or reg,-1 and zeroing idioms; callers that are themselves replaced count as safe).

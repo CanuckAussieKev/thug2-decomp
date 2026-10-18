@@ -113,6 +113,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_netE.cpp
     src/hook/selftests_menulvl.cpp
     src/hook/selftests_motion.cpp
+    src/hook/selftests_gamenet.cpp
     src/hook/selftests_editor.cpp
     src/hook/selftests_pcmstream.cpp
     src/hook/selftests_pcmplay.cpp
@@ -189,6 +190,7 @@ add_library(thug2_code OBJECT
     src/game/lst/search.cpp
     src/game/net/chat.cpp
     src/game/net/stats.cpp
+    src/game/net/gamenet_manager.cpp
     src/game/ed/park_accessors.cpp
     src/game/ed/cursor_tools.cpp
     src/game/ed/upper_menu.cpp
