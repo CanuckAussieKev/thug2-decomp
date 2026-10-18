@@ -545,14 +545,8 @@ void TestMenuBackdropDecisions()
             bool hold = MB::ShouldHold(setting, frontEnd, loaded, menu);
             ok = ok && hold == (on && frontEnd && loaded && menu);
             for (uint32_t scene : {MB::kFrontEndSceneName, MB::kBackdropSceneName, MB::kBackdropSkyName, 0x12345678u}) {
-                for (bool holding : {false, true}) {
-                    bool hide = MB::ShouldHideScene(scene, setting, frontEnd, loaded, holding);
-                    bool expected = false;
-                    if (on && frontEnd && loaded)
-                        expected = holding ? scene == MB::kFrontEndSceneName
-                                           : scene == MB::kBackdropSceneName || scene == MB::kBackdropSkyName;
-                    ok = ok && hide == expected;
-                }
+                bool hide = MB::ShouldHideScene(scene, setting, frontEnd, loaded);
+                ok = ok && hide == (on && frontEnd && loaded && scene == MB::kFrontEndSceneName);
             }
         }
     }
@@ -628,9 +622,8 @@ void TestMenuBackdropState()
                         bool holding = setting != 0 && level == 0 && loaded && anim == mainmenu02;
                         bool backdropShown = setting != 0 && level == 0 && loaded;
                         ok = ok && MB::Holding() == holding;
-                        ok = ok && MB::HideScene(MB::kFrontEndSceneName) == holding;
-                        ok = ok && MB::HideScene(MB::kBackdropSceneName) == (backdropShown && !holding);
-                        ok = ok && MB::HideScene(MB::kBackdropSkyName) == (backdropShown && !holding);
+                        ok = ok && MB::HideScene(MB::kFrontEndSceneName) == backdropShown;
+                        ok = ok && !MB::HideScene(MB::kBackdropSceneName) && !MB::HideScene(MB::kBackdropSkyName);
                         ok = ok && !MB::HideScene(kOther);
 
                         // The setters: held -> the view, else what was set.
@@ -694,13 +687,13 @@ void TestMenuBackdropState()
         }
     }
 done:
-    // No skate module: never held, nothing hidden.
+    // No skate module: never held (the camera animation can't be read); the front end's scene still hidden.
     GameVariable<uint8_t*>(0x007CE478) = nullptr;
     {
         SettingScope scope(1);
         SetScenes({MB::kFrontEndSceneName, MB::kBackdropSceneName});
         g_ms_anim = mainmenu02;
-        ok = ok && !MB::Holding() && MB::HideScene(MB::kBackdropSceneName) && !MB::HideScene(MB::kFrontEndSceneName);
+        ok = ok && !MB::Holding() && !MB::HideScene(MB::kBackdropSceneName) && MB::HideScene(MB::kFrontEndSceneName);
     }
     Check(ok, "menu_backdrop: held camera and hidden scenes on stand-in game state");
     Cleanup();
