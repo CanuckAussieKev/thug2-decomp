@@ -173,6 +173,28 @@ THUG1_LEVELS = {
     "NJ_Skateshop": dict(icon="skateboard"),
 }
 
+# THAW's levels (tools/thaw_levels' manifest, by zone), classic mode's first, then the story's areas. Places: the
+# classic levels' cities (Chicago, Minneapolis, Kyoto, Santa Cruz; The Mall and The Ruins name none: no star); the
+# story's areas are all Los Angeles - each at its own neighbourhood (Hollywood, Beverly Hills, Downtown, East LA,
+# Santa Monica); Vans Park, the Skate Ranch, the Casino and the Oil Rig name none in LA: around the city.
+THAW_LEVELS = {
+    "Z_CH": dict(text="CHICAGO", icon="skyline", place="Chicago", location=(-87.65, 41.85)),
+    "Z_MA": dict(text="THE MALL", icon="crate", place="a shopping mall (no place named)", location=None),
+    "Z_DN": dict(text="MINNEAPOLIS", icon="pine", place="Minneapolis, Minnesota", location=(-93.27, 44.98)),
+    "Z_JA": dict(text="KYOTO", icon="torii", place="Kyoto, Japan", location=(135.77, 35.01)),
+    "Z_SZ": dict(text="SANTA CRUZ", icon="wave", place="Santa Cruz, California", location=(-122.03, 36.97)),
+    "Z_SV2": dict(text="THE RUINS", icon="dome", place="ruins (no place named)", location=None),
+    "Z_SV": dict(text="VANS PARK", icon="ramp", place="Los Angeles", location=(-118.10, 33.95)),
+    "Z_HO": dict(text="HOLLYWOOD", icon="torch", place="Hollywood, Los Angeles", location=(-118.33, 34.10)),
+    "Z_BH": dict(text="BEVERLY HILLS", icon="palm", place="Beverly Hills, Los Angeles", location=(-118.40, 34.07)),
+    "Z_DT": dict(text="DOWNTOWN", icon="skyline", place="Downtown Los Angeles", location=(-118.25, 34.05)),
+    "Z_EL": dict(text="EAST L.A.", icon="house", place="East Los Angeles", location=(-118.17, 34.02)),
+    "Z_SM": dict(text="SANTA MONICA", icon="ferris", place="Santa Monica, Los Angeles", location=(-118.49, 34.01)),
+    "Z_SR": dict(text="SKATE RANCH", icon="skateboard", place="Los Angeles", location=(-118.55, 34.20)),
+    "Z_LV": dict(text="CASINO", icon="sun", place="Los Angeles", location=(-118.20, 34.15)),
+    "Z_OI": dict(text="OIL RIG", icon="anchor", place="off Los Angeles", location=(-118.60, 33.85)),
+}
+
 # Places a manifest's location text may name (the first found, longest names first), as (longitude, latitude).
 # A text naming none of them (a skate shop, Hell) gets no star.
 PLACES = {
@@ -222,7 +244,7 @@ THUG2_EXTRA = {
 }
 
 
-def sections(thps4=None, thug1=None, thps3=None):
+def sections(thps4=None, thug1=None, thps3=None, thaw=None):
     # [(id, title, array name, levels we add to it or list)] in Up / Down order: newest game first. THUG2's array is
     # the game's own; the others are new arrays of our levels.
     out = [("thug2", "TONY HAWK'S UNDERGROUND 2", "level_select_menu_level_info", None)]
@@ -235,6 +257,9 @@ def sections(thps4=None, thug1=None, thps3=None):
     if thps3:
         out.append(("thps3", "TONY HAWK'S PRO SKATER 3", "level_select_menu_thps3_level_info",
                     manifest_levels(thps3, THPS3_LEVELS, "THPS3")))
+    if thaw:
+        out.append(("thaw", "TONY HAWK'S AMERICAN WASTELAND", "level_select_menu_thaw_level_info",
+                    manifest_levels(thaw, THAW_LEVELS, "THAW")))
     return out
 
 

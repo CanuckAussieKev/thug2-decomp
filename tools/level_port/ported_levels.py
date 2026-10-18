@@ -25,7 +25,7 @@ import sys
 
 MANIFEST = "levels.json"
 # The staging folders, in the order their levels are listed.
-STAGINGS = ("thug2-decomp-thps4", "thug2-decomp-thug1", "thug2-decomp-thps3")
+STAGINGS = ("thug2-decomp-thps4", "thug2-decomp-thug1", "thug2-decomp-thps3", "thug2-decomp-thaw")
 
 
 def read_manifest(path):
