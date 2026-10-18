@@ -231,7 +231,10 @@ def _replace_once(text, old, new, what):
 def sign_entry(lv):
     texture = lv["icon"][len("texture:"):] if lv["icon"].startswith("texture:") else lv["sign"]
     dot = " dot_pos=(%.1f, %.1f)" % map_position(*lv["location"]) if lv["location"] else ""
-    return ('    {text="%s" level_num=%d num_goals=0 flag=LEVEL_UNLOCKED_TR level=%s sign_texture=%s%s} \n'
+    # seen_flag: outside career / classic, check_level_dot_valid shows a level's star only when its seen_flag is set
+    # (no seen_flag, no star) - ours are seen as soon as they're unlocked.
+    return ('    {text="%s" level_num=%d num_goals=0 flag=LEVEL_UNLOCKED_TR seen_flag=LEVEL_UNLOCKED_TR level=%s '
+            'sign_texture=%s%s} \n'
             % (lv["text"], lv["level_num"], lv["load"], texture, dot))
 
 
