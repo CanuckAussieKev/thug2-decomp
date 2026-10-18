@@ -36,6 +36,9 @@ struct Bink {
     uint32_t height;
     uint32_t frames;
     uint32_t frameNum; // the frame decoded last, from 1
+    uint32_t lastFrameNum;
+    uint32_t frameRate;    // frames per frameRateDiv seconds
+    uint32_t frameRateDiv;
 };
 
 // 0x0044FDC0 (also reached by a jump at 0x0044F830): play data\movies\bik\<name>.bik (a path before the last

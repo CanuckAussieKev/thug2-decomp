@@ -33,6 +33,32 @@ volume and "ready" calls are linker-folded stubs; nothing opens one with a real 
   representable as a float, wad entry 0, an error above 0xFFFF, a non-preloading state with the read done,
   a negative pause).
 
+- [x] Batch mv-c-2 (NOT run in the game yet): the slots and the platform layer, src/game/pcm/stream.cpp.
+  StreamSlot::Create 0x453500 (new WadStream / BinkStream), Open 0x453090 (on a pcm.wad entry; -1 with no
+  stream), SetVolumeAndPan 0x4530E0, Free 0x4538F0; StreamThread 0x453100 (every 5 ms under the lock: each
+  stream's Update; skipped on WAIT_TIMEOUT), StopStreamThread 0x4531A0 (the handle isn't closed),
+  NewOverlapped 0x4535E0 (a ring of 256; loops for ever if all are in use), Init 0x453670 (slots cleared, user
+  soundtracks counted, pcm.wad opened overlapped + unbuffered, pcm.dat's index read and exchange-sorted by
+  checksum, the thread started above normal priority), FindWadEntry 0x4533A0 (EBX; binary search; naked stub),
+  StreamExists 0x4533E0, MusicStatus 0x453250 / StreamStatus 0x453270 (1 free, 2 playing; -1 = any of the
+  three), MusicPreloadDone 0x453220 / StreamPreloadDone 0x4531D0, PauseStreams 0x4532C0, UpdateStreams
+  0x453940 (frees what finished - unless E_PENDING - or was asked to stop), UserSoundtrackCount 0x4542D0 /
+  Name 0x454300 / Tracks 0x454320 (none on PC).
+- [x] Batch mv-c-3 (NOT run in the game yet): playing, src/game/pcm/stream_play.cpp.
+  LoadMusicTrack 0x453C20 (<root>data\streams\music\%.8x.bik as a Bink stream), LoadMusicTrackByName
+  0x453D70, PlayMusicTrack 0x453DB0, StartPreloadedMusic 0x453BF0, PlayUserTrack 0x453850 (always false on PC,
+  leaving a WadStream in the music slot), StopMusic 0x453AA0, SetMusicVolume 0x453400, SyncMusicToTime 0x453470
+  (cutscenes: BinkGoto when more than 5 frames off; assumes a Bink stream with a Bink open), SetStreamVolume
+  0x453DF0 (levels x the sound effects volume / 100; 5 channels or left/right), LoadStream 0x454080, PlayStream
+  0x454200, StartPreloadedStream 0x454270, StopStream 0x453B30, StopStreams 0x453BD0.
+  Tests (src/hook/selftests_pcmplay.cpp, TestStreamPlatform / TestStreamPlay): original vs ours against stand-ins
+  for the stream classes' methods (both addresses), the memory manager, Win32 (mutex, Sleep, files, thread),
+  binkw32's BinkGoto slot, the sound manager and the C runtime's sprintf / strrchr. Batches 2 and 3: 77 deliberate
+  bugs, 76 caught (14 after strengthening: both classes in one slot, flags differing between them, soundtrack
+  index = count, a positive open error, the constructors' start flags, a frame exactly 5 off, 60 random
+  five-channel volumes for the mean's rounding); 1 equivalent (the stream buffer's address: Bink streams don't
+  use it, and LoadStream only makes Bink streams).
+
 ## Findings
 - 0x5B9760 / 0x5BA1D0 / 0x5BAB90 / 0x48DCD0 / 0x454440 are the stream classes' linker-folded stubs on PC: they're
   written as inline members (ReadyToFree / PreloadDone true, Update 0, the volume calls empty).

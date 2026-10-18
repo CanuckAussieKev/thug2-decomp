@@ -99,6 +99,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_motion.cpp
     src/hook/selftests_editor.cpp
     src/hook/selftests_pcmstream.cpp
+    src/hook/selftests_pcmplay.cpp
     src/game/core/alloc.cpp
     src/game/core/crc.cpp
     src/game/core/dbg.cpp
@@ -140,6 +141,8 @@ add_library(thug2_code OBJECT
     src/game/gfx/movie.cpp
     src/game/pcm/music.cpp
     src/game/pcm/bink_stream.cpp
+    src/game/pcm/stream.cpp
+    src/game/pcm/stream_play.cpp
     src/game/gfx/loading_bar.cpp
     src/game/gfx/render.cpp
     src/game/gfx/sprite.cpp
