@@ -1265,6 +1265,7 @@ void ShowHelp()
         "Adding       B lists the level's pieces and objects: Enter places a copy",
         "Saving       Ctrl+S saves this level's layout - it comes back with the level",
         "Leaving      Esc (first it cancels a drag, closes a panel or deselects)",
+        "Camera       P writes where the camera is to the log (a menu backdrop view)",
     };
     Hud::ShowPanel(lines, 96.0f, 104.0f, 448.0f);
 }
@@ -1637,6 +1638,17 @@ void Update()
         Pressed(keys, SDL_SCANCODE_Y, &yKey);
         Pressed(keys, SDL_SCANCODE_S, &sKey);
         Pressed(keys, SDL_SCANCODE_D, &dKey);
+    }
+    // P: the camera written to the log as a menu backdrop view (menu_backdrop.cpp kViews: position, back, up).
+    static bool poseKey;
+    if (Pressed(keys, SDL_SCANCODE_P, &poseKey) && !ctrl) {
+        Frame view = FrameFromYawPitch(g_yaw, g_pitch);
+        uint32_t scene = Scenery::SceneName(Scenery::MainScene());
+        Log("level editor: camera in level %d (scene %s), yaw %.1f, pitch %.1f - as a kViews entry:", Nx::CurrentLevel(),
+            Objects::Label(scene).c_str(), g_yaw * 180.0f / kPi, g_pitch * 180.0f / kPi);
+        Log("    {{%.3ff, %.3ff, %.3ff}, {%.6ff, %.6ff, %.6ff}, {%.6ff, %.6ff, %.6ff}},", g_pos.x, g_pos.y, g_pos.z,
+            view.back.x, view.back.y, view.back.z, view.up.x, view.up.y, view.up.z);
+        Hud::Message("The camera is written to thug2-decomp.log");
     }
     if (Pressed(keys, SDL_SCANCODE_BACKSPACE, &backspace) && HaveSelection() && !g_dragging)
         Deselect();
