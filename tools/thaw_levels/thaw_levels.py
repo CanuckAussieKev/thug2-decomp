@@ -25,9 +25,12 @@ sys.path.insert(0, os.path.join(os.path.dirname(HERE), "level_port"))
 import common  # noqa: E402
 import geometry  # noqa: E402
 import nodes  # noqa: E402
+import peds_cars  # noqa: E402
 import ported_levels  # noqa: E402
 import qb  # noqa: E402
+import script_port  # noqa: E402
 import thaw  # noqa: E402
+import thaw_scripts  # noqa: E402
 import thug2_col  # noqa: E402
 import thug2_scene  # noqa: E402
 from binio import FormatError  # noqa: E402
@@ -179,9 +182,10 @@ def mesh_vertices(m, shift):
     return bytes(out), 12 + (12 if has_normals else 0) + 4 + 8 * sets, new_fvf, has_normals
 
 
-def convert_scene(geom, warnings, shift=(0.0, 0.0, 0.0), drop=frozenset()):
+def convert_scene(geom, warnings, shift=(0.0, 0.0, 0.0), drop=frozenset(), local=frozenset()):
     # THAW's scene as THUG2's: the materials mapped (to_thug2_material), a THUG2 sector per THAW sector with its
-    # meshes' vertices and strips as they are. `drop`: sector checksums left out (the far-away LOD copies).
+    # meshes' vertices and strips as they are. `drop`: sector checksums left out (the far-away LOD copies). `local`:
+    # sectors in their own space (the LevelObjects'), not moved by `shift`.
     materials = [to_thug2_material(m) for m in geom["materials"]]
     by_checksum = {m["checksum"]: m for m in materials}
     sectors = []
@@ -202,7 +206,7 @@ def convert_scene(geom, warnings, shift=(0.0, 0.0, 0.0), drop=frozenset()):
             if material is None:
                 warnings.append("sector %08X: material %08X missing - mesh left out" % (s["checksum"], m["material"]))
                 continue
-            data, stride, fvf, has_normals = mesh_vertices(m, shift)
+            data, stride, fvf, has_normals = mesh_vertices(m, (0.0, 0.0, 0.0) if s["checksum"] in local else shift)
             if has_normals:
                 out["flags"] |= thug2_scene.SEC_NORMALS
             positions = [struct.unpack_from("<3f", data, i * stride) for i in range(m["vertex_count"])]
@@ -266,7 +270,7 @@ def move_tree(node, shift):
     return ("split", axis, point + int(round(shift[axis] * 16.0)), move_tree(left, shift), move_tree(right, shift))
 
 
-def convert_col(col, keep_triggers, shift, drop=frozenset(), breakables=frozenset()):
+def convert_col(col, keep_triggers, shift, drop=frozenset(), breakables=frozenset(), local=frozenset()):
     # THAW's collision is THUG2's (with the reaches and BSP trees): the face flags THUG2 doesn't have dropped, trigger
     # faces only for kill zones (THUG2 runs a trigger face's node's TriggerScript without checking it exists), moved
     # by `shift` (whole sixteenths: the fixed-point vertices are relative to the box, which moves with them; the BSP
@@ -281,7 +285,8 @@ def convert_col(col, keep_triggers, shift, drop=frozenset(), breakables=frozense
                       for flags, terrain, a, b, c in o["faces"]]
         if o["checksum"] in breakables:
             o["faces"] = [(BREAKABLE_FACE, terrain, a, b, c) for _, terrain, a, b, c in o["faces"]]
-        if any(shift):
+        if any(shift) and o["checksum"] not in local:
+            # (not the LevelObjects': in their own space)
             b = o["bbox"]
             o["bbox"] = (b[0] + shift[0], b[1] + shift[1], b[2] + shift[2], b[3],
                          b[4] + shift[0], b[5] + shift[1], b[6] + shift[2], b[7])
@@ -304,7 +309,7 @@ def move_positions(value, shift):
                 node.entries[i] = (key, ("vector", tuple(v[1][k] + shift[k] for k in range(3))))
 
 
-SHATTERS = (qb.checksum("ShatterAndDie"), qb.checksum("Shatter"))
+SHATTERS = (qb.checksum("ShatterAndDie"), qb.checksum("Shatter"), qb.checksum("ShatterFromSkater"))
 
 
 def breakable_scripts(array, script_qbs, names):
@@ -341,9 +346,30 @@ def breakable_scripts(array, script_qbs, names):
     return out
 
 
-def convert_level_nodes(files, zone, name, ns, out_dir, report, names, shift, drop=frozenset()):
-    # The node array: kept nodes and kill zones (THUG2's SK3_KillSkater, each naming a restart) as <name>.qb.
-    # Returns (the checksums of the nodes whose collision keeps its trigger faces, the LOD sectors to leave out).
+class Port:
+    # What bringing a level's scripts, objects, peds and cars along needs (thaw_scripts.py): THUG2's commands
+    # (script_port.Thug2) and assets (peds_cars.Thug2Assets), THAW's game script files brought along.
+    def __init__(self, args, names):
+        self.thug2 = script_port.Thug2(args.thug2)
+        self.assets = peds_cars.Thug2Assets(args.thug2)
+        self.globals = thaw_scripts.global_sources(find_path(args.thaw, "Game", "data", "pak", "qb.pak.wpc"), names)
+
+
+def write_level_qb(ns, text, path, scripts, names):
+    # The node array's NeverScript text compiled, the brought scripts added (script_port.append_scripts).
+    common.ns_compile(ns, text, path)
+    if scripts:
+        data = script_port.append_scripts(open(path, "rb").read(), scripts, names)
+        open(path, "wb").write(data)
+
+
+def convert_level_nodes(files, zone, name, ns, out_dir, report, names, shift, drop=frozenset(), port=None,
+                        sectors=frozenset(), col_objects=frozenset()):
+    # The node array: kept nodes and kill zones (THUG2's SK3_KillSkater, each naming a restart) as <name>.qb; with a
+    # Port, the level's scripts, moving objects, peds and cars too (thaw_scripts.py; sectors / col_objects: the
+    # checksums the scene and collision have). Returns (the checksums of the nodes whose collision keeps its trigger
+    # faces, the LOD sectors to leave out, the breakables, the node array text, the brought scripts, the LevelObjects
+    # in their own space, the moving objects left out).
     low = zone.lower()
     if low + ".qb" not in files:
         raise FormatError("%s: no %s.qb in its archive" % (zone, low))
@@ -369,12 +395,42 @@ def convert_level_nodes(files, zone, name, ns, out_dir, report, names, shift, dr
     # nodes: The Mall hung loading once its story blocker was left out).
     gone = lods | set(drop)
     placeholder = qb.Struct([(qb.Name(qb.checksum("Class")), qb.Name(qb.checksum("LeftOut")))])
+    original = array
     array = [placeholder if isinstance(n, qb.Struct) and isinstance(n.get("Name"), qb.Name) and
              n.get("Name").value in gone else n for n in array]
-    converted, stats = nodes.convert_nodes(array, names, {**kills, **breakables}, extra_keys=("pos",))
+    made = None
+    wanted = set()
+    if port is not None:
+        # (in place: the Links stay indices into the array)
+        made = thaw_scripts.PortedNodes(array, names, set(sectors) - gone, col_objects, script_qbs, port.thug2,
+                                        port.assets)
+        array = [(made.convert(n) or n) if isinstance(n, qb.Struct) else n for n in array]
+        for node in array:
+            script = node.get("TriggerScript") if isinstance(node, qb.Struct) else None
+            if isinstance(script, qb.Name) and nodes.class_of(node, names) in ("levelgeometry", "railnode"):
+                wanted.add(script.value)
+    else:
+        # (static: THAW's LevelObjects are in their own space - left out rather than drawn at the origin)
+        made_gone = {n.get("Name").value for n in array if isinstance(n, qb.Struct) and
+                     nodes.class_of(n, names) == "levelobject" and isinstance(n.get("Name"), qb.Name)}
+        array = [placeholder if isinstance(n, qb.Struct) and isinstance(n.get("Name"), qb.Name) and
+                 n.get("Name").value in made_gone else n for n in array]
+    converted, stats = nodes.convert_nodes(array, names, {**kills, **breakables}, extra_keys=("pos",),
+                                           as_is=made.ids if made else (), scripts=wanted)
     if any(shift):
         move_positions(converted, shift)
     kills = nodes.add_kill_restarts(converted, kills, names)
+    scripts, extra, script_report, local, objects_gone = {}, "", "", set(), set()
+    if made is not None:
+        sources = [thaw_scripts.ThawSource(x, thaw_scripts.LEVEL, names) for x in script_qbs] + port.globals
+        provided = set(kills) | set(breakables) | {qb.checksum(s) for s in (
+            "LoadTerrain", thaw_scripts.PED_WALK, thaw_scripts.PED_STAND, thaw_scripts.CAR_DRIVE)}
+        scripts, globals_text, script_report, _ = thaw_scripts.port_scripts(
+            converted, original, made, port.globals + sources, port.thug2, names, provided)
+        extra = globals_text + thaw_scripts.MADE_SCRIPTS
+        local, objects_gone = made.local, made.gone
+    else:
+        objects_gone = made_gone
     kills.update(breakables)
     breaking_names = nodes.kill_trigger_names(converted, breakables)
     # (a breakable keeps no Type: THAW's Type=Crate - its physics breakables - made the glass a solid object here)
@@ -383,7 +439,12 @@ def convert_level_nodes(files, zone, name, ns, out_dir, report, names, shift, dr
         if isinstance(node.get("Name"), qb.Name) and node.get("Name").value in breaking_names:
             node.entries = [(k, v) for k, v in node.entries if k is None or k.value != type_key]
     triggers = nodes.kill_trigger_names(converted, kills)
-    text = nodes.node_array_ns(name + "_NodeArray", converted, names, kills)
+    kill_zones = len(triggers) - len(breaking_names)
+    if made is not None:
+        # (the geometry whose trigger script runs keeps its trigger faces: gaps, sounds...)
+        triggers |= {n.get("Name").value for n in converted if isinstance(n.get("TriggerScript"), qb.Name)
+                     and isinstance(n.get("Name"), qb.Name) and nodes.class_of(n, names) == "levelgeometry"}
+    text = nodes.node_array_ns(name + "_NodeArray", converted, names, kills) + extra
     if breaking_names:
         # The breakables' glass sound (THAW's MA_BreakGlass plays HitGlassPane2x; THUG2 has it too, loaded per level):
         # loaded by the level's LoadTerrain, which load_level runs while loading (the level-specific sounds script
@@ -393,11 +454,12 @@ def convert_level_nodes(files, zone, name, ns, out_dir, report, names, shift, dr
             raise FormatError("%s: LoadTerrain not found once" % name)
         text = text.replace(start, start + '    LoadSound "Shared\\\\Hits\\\\HitGlassPane2x" vol=100 dropoff=0 \n')
     os.makedirs(out_dir, exist_ok=True)
-    common.ns_compile(ns, text, os.path.join(out_dir, name + ".qb"))
-    breaking = len(breaking_names)
+    write_level_qb(ns, text, os.path.join(out_dir, name + ".qb"), scripts, names)
     report.append("  nodes: %d of %d kept %s; %d kill zones, %d breakables; %d LOD sectors left out"
-                  % (len(converted), len(array), stats, len(triggers) - breaking, breaking, len(lods)))
-    return triggers, lods, breaking_names, text
+                  % (len(converted), len(array), stats, kill_zones, len(breaking_names), len(lods)))
+    if script_report:
+        report.append("  " + script_report)
+    return triggers, lods, breaking_names, text, scripts, local, objects_gone
 
 
 # --- converting -------------------------------------------------------------------------------------------------
@@ -443,6 +505,7 @@ def cmd_convert(args):
     os.makedirs(out)
     manifest = {"levels": []}
     report = []
+    port = None if args.static else Port(args, names)
     sky = convert_sky(args, out, report)
     for requested in wanted:
         info = BY_ZONE.get(requested.lower()) or BY_ZONE.get("z_" + requested.lower())
@@ -464,16 +527,24 @@ def cmd_convert(args):
         geom = thaw.read_geom(files[".geom"], zone + ".geom")
         night = night_sectors(geom, names) | left_out(zone)
         node_report = ["  %d night-time sectors left out" % len(night)] if night else []
-        triggers, lods, breakables, node_text = convert_level_nodes(files, zone, name, args.ns, level_dir, node_report, names, shift,
-                                             night)
+        drawn = {s["checksum"] for s in geom["sectors"] if not s["flags"] & thug2_scene.SEC_BILLBOARD and
+                 any(len(m["strip"]) >= 3 and m["vertex_count"] for m in s["meshes"])}
+        triggers, lods, breakables, node_text, scripts, local, objects_gone = convert_level_nodes(
+            files, zone, name, args.ns, level_dir, node_report, names, shift, night, port, drawn,
+            {o["checksum"] for o in col_in["objects"]})
         warnings = []
-        scene = convert_scene(geom, warnings, shift, lods | night)
-        node_text, cleared = nodes.strip_missing_trick_objects(node_text, {s["checksum"] for s in scene["sectors"]})
+        scene = convert_scene(geom, warnings, shift, lods | night | objects_gone, local)
+        scene_sectors = {s["checksum"] for s in scene["sectors"]}
+        if local - scene_sectors:
+            raise FormatError("%s: LevelObjects without a sector: %s" % (zone, ", ".join(
+                qb.name_text(c, names) for c in sorted(local - scene_sectors))))
+        node_text, cleared = nodes.strip_missing_trick_objects(node_text, scene_sectors)
         if cleared:
-            common.ns_compile(args.ns, node_text, os.path.join(level_dir, name + ".qb"))
+            write_level_qb(args.ns, node_text, os.path.join(level_dir, name + ".qb"), scripts, names)
             node_report.append("  %d geometry nodes without a scene sector: TrickObject / Cluster dropped" % cleared)
         textures = thaw.read_tex(files[".tex"], zone + ".tex")
-        col = convert_col(col_in, lambda checksum: checksum in triggers, shift, left_out(zone), breakables)
+        col = convert_col(col_in, lambda checksum: checksum in triggers, shift, left_out(zone) | objects_gone,
+                          breakables, local)
         common.write_level(level_dir, name, scene, textures, col)
         common.report_level(report, name, scene, textures, col, warnings)
         report += node_report
@@ -552,6 +623,8 @@ def main():
     parser.add_argument("--ns", default=common.NS)
     parser.add_argument("--recentre", type=float, default=20000.0,
                         help="move an area whose collision reaches further than this from the origin (x / z)")
+    parser.add_argument("--static", action="store_true",
+                        help="convert: the levels' scripts, moving objects, peds and cars left out")
     args = parser.parse_args()
     if args.command == "selfcheck":
         sys.exit(cmd_selfcheck(args))

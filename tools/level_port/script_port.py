@@ -105,10 +105,13 @@ def u32(b, at=0):
 
 
 class Tok:
-    __slots__ = ("t", "p", "i", "targets")
+    # weights: a random's own weights (THUG2-format sources: THAW's), else 1 each. adjust: a 0x49 short jump that lands
+    # one byte before its target token (a switch case's first short break: one before the next case).
+    __slots__ = ("t", "p", "i", "targets", "weights", "adjust")
 
-    def __init__(self, t, p, i, targets=None):
+    def __init__(self, t, p, i, targets=None, weights=None, adjust=0):
         self.t, self.p, self.i, self.targets = t, p, i, targets
+        self.weights, self.adjust = weights, adjust
 
     def name(self):
         return u32(self.p) if self.t == 0x16 else None
@@ -359,10 +362,18 @@ class Translator:
         # The statement's tokens (no line end) as THUG2 tokens, or None to leave it out (noted). `discover`: also
         # queue the scripts it needs.
         first = toks[0]
+        if len(toks) > 1 and toks[1].t == 0x42:
+            # (`object:member ...` - THAW's: THUG2 runs the rest on the first skater when the object isn't there, and
+            # crashes on a member the object hasn't)
+            self.note("object member call")
+            return None
         if first.t != 0x16:
             return toks
         name = first.name()
         text = self.text(name).lower()
+        if len(toks) > 1 and toks[1].t == 0x07:
+            # (`name = value`: sets a parameter of the running script)
+            return toks
         if text in LEFT_OUT:
             self.note("left out: " + self.text(name))
             return None
@@ -429,6 +440,12 @@ class Translator:
     def condition(self, toks, contexts, discover):
         # An if's condition: kept, or always false.
         content = [t for t in toks if t.t not in EOL]
+        if len(content) > 1 and content[0].t == 0x39 and content[1].t == 0x16:
+            # `if NOT <command>`: the command checked as any other (left out: the condition is false)
+            kept = self.command(content[1:], contexts, discover)
+            if kept is None:
+                return [name_tok(checksum("GotParam"), content[0].i), name_tok(checksum(NEVER), content[0].i)]
+            return [content[0]] + kept
         if len(content) == 1 and content[0].t == 0x16 and self.text(content[0].name()).lower() == "inside":
             # (a THPS3 proximity node's script: `if inside` - our proximity ghost passes `inside`)
             return [name_tok(checksum("GotParam"), content[0].i), content[0]]
@@ -515,13 +532,14 @@ class Translator:
         # A statement's tokens as output items (an argument random's tokens re-encoded, jumps made again).
         out = []
         for t in toks:
-            kind = "random" if t.t in RANDOMS else "jump" if t.t == 0x2E else "tok"
+            kind = "random" if t.t in RANDOMS else "jump" if t.t == 0x2E else \
+                "short" if t.t == 0x49 and t.targets else "tok"
             out.append((kind, t, t.i))
         return out
 
     def assemble(self, name, items):
         head = b"\x23\x16" + struct.pack("<I", name)
-        size = {"if": 3, "else": 3, "jump": 5, "label": 0}
+        size = {"if": 3, "else": 3, "jump": 5, "label": 0, "short": 3}
         positions, pos = [], len(head)
         for kind, value, orig in items:
             positions.append(pos)
@@ -553,9 +571,12 @@ class Translator:
                 out += b"\x48" + struct.pack("<H", labels[("end", value)] - (here + 1))
             elif kind == "jump":
                 out += b"\x2E" + struct.pack("<i", at(value.targets[0]) - (here + 5))
+            elif kind == "short":
+                # (a switch's short break: its offset from the 0x49 itself)
+                out += b"\x49" + struct.pack("<H", at(value.targets[0]) - value.adjust - here)
             elif kind == "random":
                 n = len(value.targets)
-                out += bytes([value.t]) + struct.pack("<I", n) + struct.pack("<%dH" % n, *([1] * n))
+                out += bytes([value.t]) + struct.pack("<I", n) + struct.pack("<%dH" % n, *(value.weights or [1] * n))
                 for m, target in enumerate(value.targets):
                     field = here + 5 + 2 * n + 4 * m
                     out += struct.pack("<I", at(target) - (field + 4))
