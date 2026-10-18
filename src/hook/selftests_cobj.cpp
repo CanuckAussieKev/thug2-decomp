@@ -22,6 +22,8 @@
 #include "game/core/mem.h"
 #include "game/script/cscript.h"
 #include "game/script/node_manager.h"
+#include "game/script/node_prefixes.h"
+#include "game/script/nodes.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -310,23 +312,23 @@ void InstallStandIns(StandIns& s)
         auto it = g_cobj_symbolArrays.find(r.args[0]);
         return it == g_cobj_symbolArrays.end() ? 0u : it->second;
     });
-    s.At({0x0045CE40}, 0, [](Regs& r) {
+    s.At({0x0045CE40, AddressOf(&SkateScript::RemoveNodeArrayPrefixes)}, 0, [](Regs& r) {
         Rec(0xCE40, {r.args[0]});
         return 0u;
     });
-    s.At({0x0045CE60}, 12, [](Regs& r) {
+    s.At({0x0045CE60, AddressOf(&SkateScript::CNodeManager::HashNode)}, 12, [](Regs& r) {
         Rec(0xCE60, {r.ecx, r.args[0], r.args[1], r.args[2]});
         return 0u;
     });
-    s.At({0x0045CEF0}, 4, [](Regs& r) {
+    s.At({0x0045CEF0, AddressOf(&SkateScript::CNodeManager::UnhashNodeArray)}, 4, [](Regs& r) {
         Rec(0xCEF0, {r.ecx, r.args[0]});
         return 0u;
     });
-    s.At({0x0045C900}, 0, [](Regs& r) {
+    s.At({0x0045C900, AddressOf(&SkateScript::AddNodeArrayPrefixes)}, 0, [](Regs& r) {
         Rec(0xC900, {r.args[0]});
         return 0u;
     });
-    s.At({0x0045BE40}, 0, [](Regs& r) {
+    s.At({0x0045BE40, AddressOf(&SkateScript::GetNodeName)}, 0, [](Regs& r) {
         Rec(0xBE40, {r.args[0]});
         return 0xBE400000u + (Rel(r.args[0]) & 0xFFFF);
     });

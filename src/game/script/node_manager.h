@@ -5,9 +5,8 @@
 
 // The node arrays the level's objects come from (SkateScript::CNodeManager, a reference-counted singleton at
 // 0x006F0D84 / 0x006F0D88): up to 20 named script arrays of node structures, and a hash from every node's name
-// to where it is (0x4000 slots, open addressing). From the disassembly of 0x0045D050-0x0045D6E0; its hash helpers
-// (0x0045CE40 / 0x0045CE60 / 0x0045CEF0, the lookup 0x0045CFC0) and the node functions (0x0045BE40, 0x0045C900...)
-// sit just before it and aren't rewritten yet.
+// to where it is (0x4000 slots, open addressing). From the disassembly of 0x0045CE60-0x0045D6E0; the node
+// functions (nodes.h) and the prefix tables (node_prefixes.h) sit just before it.
 namespace Script {
 class CArray;
 class CStruct;
@@ -38,23 +37,31 @@ public:
     CNodeManager* Construct();
 
     // 0x0045D520: `name` (a global array of nodes) added as the next node array, unless it is there already
-    // (false): its nodes hashed (0x0045CE60), 0x0045C900(name), every node's position= turned into pos= with z
-    // negated, its links turned from indices into node names (ResolveLinks); with `flag`, 0x004696C0 on
+    // (false): its nodes hashed, its prefixes added (AddNodeArrayPrefixes), every node's position= turned into pos=
+    // with z negated, its links turned from indices into node names (ResolveLinks); with `flag`, 0x004696C0 on
     // 0x004694E0's object. True.
     bool AddNodeArray(uint32_t name, bool flag);
-    // 0x0045D1C0: the node array `name` taken out (0x0045CE40(name) first, then 0x0045CEF0 unhashes it): the last
+    // 0x0045D1C0: the node array `name` taken out (its prefixes first, then UnhashNodeArray): the last
     // one moves into its place (the slots that pointed at the last one now point there). Whether it was there.
     bool RemoveNodeArray(uint32_t name);
     // 0x0045D670: RemoveNodeArray of the node array named after the file `path` (NodeArrayChecksum).
     bool RemoveNodeArrayOfFile(const char* path);
     // 0x0045D270: whether there is a node array `name`.
     bool HasNodeArray(uint32_t name);
-    // 0x0045D170: 0x0045CE60(its index, a, b) for the node array `name`; false if there is none.
+    // 0x0045D170: HashNode(its index, a, b) for the node array `name`; false if there is none.
     bool HashNodeIn(uint32_t name, uint32_t a, uint32_t b);
-    // 0x0045D3A0: every node of node array `index` hashed (0x0045CE60(index, node index, node)).
+    // 0x0045D3A0: every node of node array `index` hashed (HashNode(index, node index, node)).
     void HashNodes(uint32_t index);
+    // 0x0045CE60: node `index` of node array `array` put in the hash under its name= (in the first empty slot from
+    // the name's low 14 bits on), unless it has none or its class= is "link".
+    void HashNode(uint32_t array, uint32_t index, Script::CStruct* node);
+    // 0x0045CEF0: the slots of node array `array` emptied, then every other node hashed again (slot by slot, each
+    // taken out and put back in the first empty slot from its name on).
+    void UnhashNodeArray(uint32_t array);
+    // 0x0045CFC0: the node named `name` (null if there's none; `assert` isn't used).
+    Script::CStruct* GetNode(uint32_t name, bool assert);
     // 0x0045D480 (`this` isn't used): each node's links= array (indices into `nodes`) becomes the names of those
-    // nodes (0x0045BE40), as a checksum array.
+    // nodes (GetNodeName), as a checksum array.
     void ResolveLinks(Script::CArray* nodes);
     // 0x0045D120 / 0x0045D150: the last node array's nodes / name (none: null / 0).
     Script::CArray* GetLastNodeArray();
@@ -93,6 +100,7 @@ uint32_t NodeArrayChecksum(const char* path);
 // 0x0045D690: the instance, made (zeroed memory on the current heap) by the first call with `create`; every call
 // takes a reference. 0x0045D6E0: drop a reference; the last frees it (no destructor runs).
 CNodeManager* CreateNodeManager(bool create);
+inline CNodeManager*& NodeManagerInstance() { return *reinterpret_cast<CNodeManager**>(0x006F0D84); }
 void ReleaseNodeManager();
 
 } // namespace SkateScript

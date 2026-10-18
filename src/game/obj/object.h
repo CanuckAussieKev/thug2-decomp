@@ -359,6 +359,10 @@ public:
     bool Obj_HasComponent(Script::CStruct* params, Script::CScript* script);        // 0x0045E410
     bool Obj_Pause(Script::CStruct* params, Script::CScript* script);               // 0x0045E9B0 (Pause)
     bool Obj_Unpause(Script::CStruct* params, Script::CScript* script);             // 0x0045E9D0 (Unpause)
+    // 0x0045E9E0 (Obj_GetCollision): whether the collision feeler hits anything along a line from its position
+    // + up * height= + at * distance= + right * shift= (feet; height 3), length= (feet, 3) along right (side),
+    // down (down) or at.
+    bool Obj_GetCollision(Script::CStruct* params, Script::CScript* script);
     bool Obj_GetOrientation(Script::CStruct* params, Script::CScript* script);      // 0x0045DF70
     bool Obj_GetDistToNode(Script::CStruct* params, Script::CScript* script);       // 0x0045E020
     bool Obj_GetOrientationToObject(Script::CStruct* params, Script::CScript* script); // 0x0045E140

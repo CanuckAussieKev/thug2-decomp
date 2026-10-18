@@ -11,6 +11,7 @@
 #include "game/obj/compositemgr.h"
 #include "game/obj/objman.h"
 #include "game/obj/object.h"
+#include "game/obj/smtptr.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
@@ -34,6 +35,12 @@ constexpr uint32_t kName = 0xA1DC81F9;           // name
 constexpr uint32_t kPermanent = 0x23627FD7;      // permanent
 constexpr uint32_t kComponent = 0xB6015EA8;      // component
 constexpr uint32_t kPos = 0x7F261953;            // pos
+constexpr uint32_t kLength = 0xFE82614D;         // length
+constexpr uint32_t kHeight = 0x0AB21AF0;         // height
+constexpr uint32_t kDistance = 0xE36D657E;       // distance
+constexpr uint32_t kShift = 0x5AF4C4BA;          // shift
+constexpr uint32_t kSide = 0xDC7EE44A;           // side
+constexpr uint32_t kDown = 0xE3006FC4;           // down
 constexpr uint32_t kPosition = 0xB9D31B0A;       // position
 constexpr uint32_t kVel = 0x0C4C809E;            // vel
 constexpr uint32_t kSpeed = 0xF0D90109;          // speed
@@ -151,6 +158,30 @@ void AddScaled(Mth::Vector& pos, const Mth::Vector& row, float scale)
 
 // Debug output of an object's details: compiled out of this build (the text is still read).
 inline void PrintObjectDetails(const char* /*text*/) {}
+
+// The collision feeler (Nx's ray, 0xB0 bytes; its code isn't in this file): constructed by 0x00417760, its line
+// from +0x00 to +0x10, tested by 0x004172F0; what it hit is held by a smart pointer at +0x98, its only destructor.
+class CollisionFeeler {
+public:
+    CollisionFeeler() { GameFunction<void*(__thiscall*)(void*)>(0x00417760)(m_bytes); }
+    ~CollisionFeeler()
+    {
+        reinterpret_cast<Obj::CSmtPtr<Obj::CRefCounted>*>(m_bytes + 0x98)->~CSmtPtr();
+    }
+    CollisionFeeler(const CollisionFeeler&) = delete;
+    CollisionFeeler& operator=(const CollisionFeeler&) = delete;
+    Mth::Vector& Start() { return *reinterpret_cast<Mth::Vector*>(m_bytes); }
+    Mth::Vector& End() { return *reinterpret_cast<Mth::Vector*>(m_bytes + 0x10); }
+    bool GetCollision(bool a, bool b)
+    {
+        return GameFunction<bool(__thiscall*)(void*, int, int)>(0x004172F0)(m_bytes, a, b);
+    }
+
+private:
+    alignas(16) uint8_t m_bytes[0xB0];
+};
+
+float FeetToInches() { return GameVariable<float>(0x0064546C); } // 12
 
 } // namespace
 
@@ -599,6 +630,58 @@ bool CCompositeObject::Obj_HasComponent(CStruct* params, CScript* /*script*/)
     return GetComponent(type) != nullptr;
 }
 
+// 0x0045E9E0
+bool CCompositeObject::Obj_GetCollision(CStruct* params, CScript* /*script*/)
+{
+    CollisionFeeler feeler;
+    float length = 3.0f;
+    params->GetFloat(kLength, &length, 0);
+    length *= FeetToInches();
+    float height = 3.0f;
+    params->GetFloat(kHeight, &height, 0);
+    height *= FeetToInches();
+    float distance = 0.0f;
+    params->GetFloat(kDistance, &distance, 0);
+    distance *= FeetToInches();
+    float shift = 0.0f;
+    params->GetFloat(kShift, &shift, 0);
+    shift *= FeetToInches();
+    const Mth::Vector& right = m_matrix.row[0];
+    const Mth::Vector& up = m_matrix.row[1];
+    const Mth::Vector& at = m_matrix.row[2];
+    // The start: pos + up * height + at * distance + right * shift (x87: some sums kept at 53 bits, as below).
+    float shiftX = shift * right.x, shiftY = shift * right.y, shiftZ = shift * right.z;
+    double shiftW = static_cast<double>(shift) * right.w;
+    float atX = distance * at.x, atY = distance * at.y;
+    double atZ = static_cast<double>(distance) * at.z, atW = static_cast<double>(distance) * at.w;
+    float upX = height * up.x, upY = height * up.y;
+    double upZ = static_cast<double>(height) * up.z, upW = static_cast<double>(height) * up.w;
+    float w1 = static_cast<float>(upW + m_pos.w);
+    double z1 = upZ + m_pos.z;
+    float y1 = upY + m_pos.y;
+    float x1 = upX + m_pos.x;
+    w1 = static_cast<float>(w1 + atW);
+    float z2 = static_cast<float>(z1 + atZ);
+    y1 = y1 + atY;
+    x1 = x1 + atX;
+    Mth::Vector start = {x1 + shiftX, y1 + shiftY, z2 + shiftZ, static_cast<float>(shiftW + w1)};
+    feeler.Start() = start;
+    Mth::Vector& end = feeler.End();
+    end = start;
+    // The end: `length` along the right (side), down (down) or ahead.
+    if (params->ContainsFlag(kSide)) {
+        for (int i = 0; i < 4; ++i)
+            (&end.x)[i] = static_cast<float>(static_cast<double>(length) * (&right.x)[i] + (&end.x)[i]);
+    } else if (params->ContainsFlag(kDown)) {
+        for (int i = 0; i < 4; ++i)
+            (&end.x)[i] = static_cast<float>((&end.x)[i] - static_cast<double>(length) * (&up.x)[i]);
+    } else {
+        for (int i = 0; i < 4; ++i)
+            (&end.x)[i] = static_cast<float>(static_cast<double>(length) * (&at.x)[i] + (&end.x)[i]);
+    }
+    return feeler.GetCollision(true, false);
+}
+
 // 0x0045E9B0 / 0x0045E9D0
 bool CCompositeObject::Obj_Pause(CStruct* /*params*/, CScript* /*script*/)
 {
@@ -819,6 +902,7 @@ REPLACE(0x0045E380, &Obj::CCompositeObject::Obj_SpeedBelow);
 REPLACE(0x0045E3F0, &Obj::CCompositeObject::Obj_GetType);
 REPLACE(0x0045E410, &Obj::CCompositeObject::Obj_HasComponent);
 REPLACE(0x0045E9B0, &Obj::CCompositeObject::Obj_Pause);
+REPLACE(0x0045E9E0, &Obj::CCompositeObject::Obj_GetCollision);
 REPLACE(0x0045E9D0, &Obj::CCompositeObject::Obj_Unpause);
 REPLACE(0x0045DF70, &Obj::CCompositeObject::Obj_GetOrientation);
 REPLACE(0x0045E020, &Obj::CCompositeObject::Obj_GetDistToNode);
