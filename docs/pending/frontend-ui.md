@@ -184,3 +184,23 @@ decomp-progress.md (the lead numbers them when merging).
       NaN; the platform calls against stand-ins of the PC engine. 40 deliberate bugs: 38 caught; 2 equivalent: the
       alpha threshold's >= vs > and the NaN case (the alpha byte is 0 either way: 255 x 0.0001 truncates to 0, and
       a NaN's _ftol is 0x80000000).
+- [x] Batch FE-7 (NOT run in the game yet; early test passes offline): the screen element script commands (new
+      src/game/front/screen_element_cfuncs.*) and the manager's CreateElement 0x4ACB70 (every element type on the
+      heap the parameters name - Default: the current one, none given: the front end's -, its id, registered, its
+      properties and morph, a pad-event Priority). CFunctions: ScreenElementSystemInit 0x4AAD90 (the root window),
+      CreateScreenElement 0x4AD240, DestroyScreenElement 0x4AD300 (dont_recurse / preserve_parent),
+      RunScriptOnScreenElement 0x4AD370 (a member function, else a spawned script with callback / Params /
+      callback_params, run once), SetScreenElementProps 0x4AD4C0, DoScreenElementMorph 0x4AD540,
+      SetScreenElementLock 0x4AD5C0, GetScreenElementDims 0x4AD650, GetScreenElementProps 0x4AC750 (an Element3d's
+      angles too), SetRootScreenElement 0x4AC900, GetScreenElementChildren 0x4AC940, TextElementConcatenate
+      0x4AD710, TextElementBackspace 0x4AD800, GetTextElementString 0x4AD8D0 (always false, as the original),
+      GetTextElementLength 0x4AD9C0, GetScreenElementPosition 0x4ADA80, MenuSelectedIndexIs 0x4ADB20,
+      ScreenElementExists 0x4ADC10, CreateMultipleTextElements 0x4ADC80 (word wrap into text elements; a last
+      word that starts a new line is lost, as in the original). 20 functions. The text elements' own pieces are
+      still called by address here (now ours when hooked, FE-8 / FE-9).
+      Early test (src/hook/selftests_fe_cfuncs.cpp): creation of every type on every heap (and an unknown type),
+      the root window; each command with resolved / unresolved ids and each option; the text commands on a block,
+      a text element and another element; the selected index (none / by number / first / last); word wrapping
+      (a string, an array of strings, a line end before the next string, a first word wider than the width,
+      exactly 0x60 characters, the last word starting a line). 37 deliberate bugs, all caught (13 after
+      strengthening: CreateElement's own stand-in had hidden the creation test at first).

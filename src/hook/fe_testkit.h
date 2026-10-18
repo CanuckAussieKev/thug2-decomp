@@ -57,6 +57,7 @@ inline void Rec(uint32_t tag, std::initializer_list<uint32_t> values)
     for (uint32_t v : values)
         g_trace.push_back(Rel(v));
 }
+inline void CopyText(char* to, const char* from) { std::memcpy(to, from, std::strlen(from) + 1); }
 inline uint32_t Bits(float f)
 {
     uint32_t b;
