@@ -205,6 +205,7 @@ add_library(thug2_code OBJECT
     src/game/sio/sdl_input.cpp
     src/game/skater/controls.cpp
     src/game/skater/core_physics.cpp
+    src/game/skater/debug_collision.cpp
     src/game/sys/platform.cpp
     src/game/sys/platform_cfuncs.cpp
     src/game/sys/config.cpp
