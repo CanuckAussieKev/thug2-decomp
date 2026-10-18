@@ -20,9 +20,10 @@
 #   menu_level\levels\mainmenu\mainmenu.qb  the shop's node array with every node moved into LA by that move, after a
 #                              stand-in for each of LA's nodes (LA's collision triggers nodes by name).
 #   menu_level\levels\mainmenu\mainmenu_cas.qb  Create-A-Skater's camera angle turned into LA.
-#   levels\thps4_*\            the THPS4 levels converted by tools/thps4_levels/thps4_levels.py, when it has made
-#                              <game>\thug2-decomp-thps4: copied in, their level structures added to both Levels.qb
-#                              and their signs to the level select after SKATE SHOP.
+#   levels\thps4_*\, thug1_*\  the THPS4 / THUG1 levels converted by tools/thps4_levels / tools/thug1_levels, when
+#                              they have made <game>\thug2-decomp-thps4 / -thug1: copied in, their level structures
+#                              added to both Levels.qb and their signs to the level select after SKATE SHOP
+#                              (tools/level_port/ported_levels.py).
 # Nothing of the game is stored in the repo: the files are made from the game folder each time.
 #
 # The move is one turn about the up axis plus a shift: it takes the main menu camera's place in the shop
@@ -42,8 +43,8 @@ import tempfile
 import zlib
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, os.path.join(REPO, "tools", "thps4_levels"))
-import thps4_levels  # noqa: E402 (the converted THPS4 levels: added when <game>\thug2-decomp-thps4 exists)
+sys.path.insert(0, os.path.join(REPO, "tools", "level_port"))
+import ported_levels  # noqa: E402 (the converted THPS4 / THUG1 levels: added when <game>\thug2-decomp-thps4 / -thug1 exist)
 
 # The main menu camera in the skate shop (menu_backdrop debug log, the camera steady: "placed for camera FCC018D3 at
 # (59.833, -12.740, 181.704), field of view 45"): the skater at TRG_Playerrestart (84.833, -63.740, 61.704) +
@@ -330,8 +331,8 @@ def add_skateshop_sign(text, thps4=None):
             'sign_texture=sign_training dot_pos=(89.0, 82.0)} \n' % (training.group(1), SKATESHOP_SIGN_LEVEL))
     extra_numbers = []
     if thps4:
-        sign += thps4_levels.signs_text(thps4, training.group(1))
-        extra_numbers = thps4_levels.sign_numbers(thps4)
+        sign += ported_levels.signs_text(thps4, training.group(1))
+        extra_numbers = ported_levels.sign_numbers(thps4)
     text = text[:training.end()] + sign + text[training.end():]
     # The developers' TestLevel (all its data ships: scene, collision, peds, scripts) in the list too: its entry was
     # DEVKIT_ONLY (dropped: CD is always true) and had no sign.
@@ -703,11 +704,11 @@ def main():
 
         # Always: the playable skate shop; and the THPS4 levels when tools/thps4_levels has converted them.
         levels_with_shop = add_skateshop_level(levels)
-        thps4 = thps4_levels.load_manifest(args.game)
+        thps4 = ported_levels.load_manifest(args.game)
         if thps4:
-            levels_with_shop = thps4_levels.add_to_levels(levels_with_shop, thps4)
-            installed = thps4_levels.install_files(args.game, out)
-            print("THPS4 levels: %d added to the level select; copied %s" % (len(thps4["levels"]), ", ".join(installed)))
+            levels_with_shop = ported_levels.add_to_levels(levels_with_shop, thps4)
+            installed = ported_levels.install_files(args.game, out)
+            print("Converted levels (THPS4 / THUG1): %d added to the level select; copied %s" % (len(thps4["levels"]), ", ".join(installed)))
         write(levels_with_shop, r"scripts\game\Levels.qb")
         write(skateshop_nodes(shop), r"levels\skateshop\skateshop.qb")
         write(add_skateshop_sign(select, thps4), r"scripts\game\menu\gamemenu_levelselect.qb")

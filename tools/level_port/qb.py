@@ -1,9 +1,10 @@
-# THPS4 .qb files: read the global data (`name = value` at the top level: node arrays, level structures) and the
-# checksum names, and write values as NeverScript text (tools/neverscript compiles that to THUG2 .qb).
+# THPS4 / THUG1 .qb files: read the global data (`name = value` at the top level: node arrays, level structures) and
+# the checksum names, and write values as NeverScript text (tools/neverscript compiles that to THUG2 .qb).
 #
-# The token stream is THUG2's (src/game/script/qb.h) except for the random tokens: THPS4's 0x2F / 0x37 / 0x40 /
-# 0x41 are {u32 count, count x u32 jump offset} - THUG2 added a u16 weight per entry - which is why NeverScript's
-# THUG2 decompiler stops in THPS4 files. Scripts (0x23 ... 0x24) are skipped here, not decoded.
+# The token stream is THUG2's (src/game/script/qb.h) in both. THUG1's is THUG2's exactly; THPS4's differs in the
+# random tokens: its 0x2F / 0x37 / 0x40 / 0x41 are {u32 count, count x u32 jump offset} - THUG1 / THUG2 have a u16
+# weight per entry before the offsets - which is why NeverScript's THUG2 decompiler stops in THPS4 files (QbFile's
+# `weights`). Scripts (0x23 ... 0x24) are split into statements, not decoded further.
 
 import struct
 import zlib
@@ -94,8 +95,8 @@ FIXED = {0x02: 4, 0x16: 4, 0x17: 4, 0x18: 4, 0x19: 4, 0x1A: 4, 0x1E: 12, 0x1F: 8
          0x45: 4, 0x46: 4, 0x47: 2, 0x48: 2, 0x49: 2}
 
 
-def tokens(data):
-    # (offset, token, payload) for every token.
+def tokens(data, weights=False):
+    # (offset, token, payload) for every token; `weights`: the random tokens have the u16 weights (THUG1 / THUG2).
     i, n = 0, len(data)
     while i < n:
         t = data[i]
@@ -114,8 +115,9 @@ def tokens(data):
             i = end + 1
         elif t in (0x2F, 0x37, 0x40, 0x41):
             count = struct.unpack_from("<I", data, i)[0]
-            payload = data[i:i + 4 + 4 * count]
-            i += 4 + 4 * count
+            size = 4 + (6 if weights else 4) * count
+            payload = data[i:i + size]
+            i += size
         else:
             payload = b""
         yield start, t, payload
@@ -124,11 +126,11 @@ def tokens(data):
 
 
 class QbFile:
-    def __init__(self, data, name="qb"):
+    def __init__(self, data, name="qb", weights=False):
         self.name = name
         self.names = {}       # checksum -> text, from the file's 0x2B entries
         self.globals = []     # (Name, value) in file order
-        toks = list(tokens(data))
+        toks = list(tokens(data, weights))
         for _, t, payload in toks:
             if t == 0x2B:
                 value = struct.unpack_from("<I", payload, 0)[0]

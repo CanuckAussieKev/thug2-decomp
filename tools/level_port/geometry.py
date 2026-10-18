@@ -1,9 +1,10 @@
-# THPS4 -> THUG2 conversion of a level's scene, collision and textures (in memory; thps4_levels.py writes them).
+# Level geometry in THUG2's form: scenes whose sectors keep one vertex array per sector (THPS4's scn.dat, THUG1's
+# scn.xbx) become THUG2's per-mesh vertex buffers, and collision objects become THUG2's version 10 ones (in memory;
+# tools/thps4_levels and tools/thug1_levels write them).
 
 import math
 import struct
 
-import thps4
 import thug2_col
 import thug2_scene
 
@@ -17,35 +18,6 @@ PS_FROM_MATERIAL = 1      # {u32, u32 size, data}: the data is skipped and the s
                           # (0x004DA6D0, then 0x004DDC00) - what the shipped files do for 2+ passes
 
 MESH_THUG2 = 0x20000      # set on every mesh of the shipped levels (the loader copies it to the mesh)
-
-
-def convert_material(m):
-    out = {
-        "checksum": m["checksum"],
-        "name_checksum": m["checksum"],
-        "alpha_cutoff": m["alpha_cutoff"],
-        "sorted": m["sorted"],
-        "draw_order": m["draw_order"],
-        "single_sided": m["single_sided"],
-        "no_backface_culling": 0,
-        "z_bias": 0,
-        "grassify": m["grassify"],
-        "specular_power": 0.0,
-        "passes": [],
-    }
-    if m["grassify"]:
-        out["grass"] = m["grass"]
-    for index, p in enumerate(m["passes"][:4]):
-        q = {k: p[k] for k in ("texture", "flags", "has_color", "color", "blend_mode", "fixed_alpha", "u_address",
-                                "v_address", "filtering", "mip")}
-        q["envmap_tiling"] = (3.0, 3.0)
-        for key in ("uv_wibble", "vc_wibble", "animation"):
-            if key in p:
-                q[key] = p[key]
-        if index > 0:
-            q["flags"] &= ~thps4.PASS_VC_WIBBLE
-        out["passes"].append(q)
-    return out
 
 
 def pixel_shader(material):
@@ -67,19 +39,22 @@ def bounds(points):
     return lo, hi, center, radius
 
 
-def convert_scene(scene4, warnings, is_sky=False):
-    materials = [convert_material(m) for m in scene4["materials"]]
+def convert_scene(scene_in, warnings, materials, halve_colors=False):
+    # scene_in: {"sectors"} as thps4.read_scene / thug1.read_scene make them (a sector: checksum, bone, flags, box,
+    # sphere, the vertex arrays positions / normals / uvs (uv_sets per vertex) / colors (BGRA), meshes {flags,
+    # material, strip}); materials: the scene's materials in THUG2's form. halve_colors: vertex colours made
+    # 128 = full from 255 = full (THPS4's skies).
     by_checksum = {m["checksum"]: m for m in materials}
     sectors = []
-    for s in scene4["sectors"]:
+    for s in scene_in["sectors"]:
         flags = s["flags"]
-        if flags & thps4.SEC_WEIGHTS or s["bone"] != -1:
+        if flags & thug2_scene.SEC_WEIGHTS or s["bone"] != -1:
             warnings.append("sector %08X: skinned - left out" % s["checksum"])
             continue
-        has_normals = bool(flags & thps4.SEC_NORMALS)
-        has_colors = bool(flags & thps4.SEC_COLORS)
-        has_uvs = bool(flags & thps4.SEC_TEXCOORDS)
-        out_flags = (flags & ~(thps4.SEC_COLOR_WIBBLES | thps4.SEC_WEIGHTS)) | thug2_scene.SEC_COLORS
+        has_normals = bool(flags & thug2_scene.SEC_NORMALS)
+        has_colors = bool(flags & thug2_scene.SEC_COLORS)
+        has_uvs = bool(flags & thug2_scene.SEC_TEXCOORDS)
+        out_flags = (flags & ~(thug2_scene.SEC_COLOR_WIBBLES | thug2_scene.SEC_WEIGHTS)) | thug2_scene.SEC_COLORS
         sector = {"checksum": s["checksum"], "bone": -1, "flags": out_flags, "bbox": s["bbox"],
                   "sphere": s["sphere"], "meshes": []}
         if "billboard" in s:
@@ -107,7 +82,7 @@ def convert_scene(scene4, warnings, is_sky=False):
                     data += struct.pack("<3f", *s["normals"][v])
                 if has_colors:
                     b, g, r, a = s["colors"][v]
-                    if is_sky:
+                    if halve_colors:
                         # THPS4's skies are lit 255 (full); THUG2's shaders take 128 as full (x4 / x2 of
                         # 0.5): halved, or the sky comes out twice as bright, washed out.
                         b, g, r = b >> 1, g >> 1, r >> 1
@@ -154,27 +129,20 @@ def convert_scene(scene4, warnings, is_sky=False):
 
 # --- collision --------------------------------------------------------------------------------------------------
 
-# THPS4's face flag 0x80 means the camera goes through the face; THUG2's 0x80 means the camera collides with it.
-FACE_CAMERA = 0x0080
-# The face flags kept (the ones THUG2's own levels use: wall ride, vert, non-collidable, decal, trigger, camera,
-# shadow, no-shadow wall, invisible). THPS4 sets 0x2000 on every face and 0x4000 / 0x8000 (render passes) on some -
-# none of them in THUG2's collision files.
-FACE_KEEP = 0x15FC
-
-
-def convert_col(col4, keep_triggers, warnings):
+def convert_col(col_in, keep_triggers, warnings, face_flags):
+    # col_in: {"objects"}: checksum, flags, box, verts (3f), intensities, faces (flags, terrain, a, b, c) - as
+    # thps4.read_col makes them; face_flags(flags): a face's flags in THUG2's meaning. The vertices are put on
+    # THUG2's fixed-point grid where they fit, and the BSP trees and reaches made.
     objects = []
-    for o in col4["objects"]:
+    for o in col_in["objects"]:
         verts = o["verts"]
         if not verts or not o["faces"]:
             # (kept, as the shipped files keep theirs: an empty leaf, the box as it was)
-            objects.append({"checksum": o["checksum"], "flags": o["flags"], "small_faces": 1, "fixed_verts": 1,
-                            "value": struct.pack("<f", 1.0), "bbox": tuple(o["bbox"]), "verts": [],
-                            "intensities": b"", "faces": [], "reach": b"", "bsp": ("leaf", (), 3)})
+            objects.append(empty_object(o))
             continue
         faces = []
         for flags, terrain, a, b, c in o["faces"]:
-            flags = (flags ^ FACE_CAMERA) & FACE_KEEP
+            flags = face_flags(flags)
             if not keep_triggers(o["checksum"]):
                 flags &= ~thug2_col.FACE_TRIGGER
             faces.append((flags, terrain, a, b, c))
@@ -192,9 +160,16 @@ def convert_col(col4, keep_triggers, warnings):
             hi = [max(v[k] for v in verts) for k in range(3)]
         out["bbox"] = (lo[0], lo[1], lo[2], 1.0, hi[0], hi[1], hi[2], 1.0)
         out["verts"] = verts
-        out["intensities"] = bytes(i[0] for i in o["intensities"])
+        ints = o["intensities"]
+        out["intensities"] = ints if isinstance(ints, bytes) else bytes(i[0] for i in ints)
         out["faces"] = faces
         thug2_col.set_reaches(out)
         out["bsp"] = thug2_col.build_tree(verts, faces)
         objects.append(out)
     return {"objects": objects, "pad": 0}
+
+
+def empty_object(o):
+    return {"checksum": o["checksum"], "flags": o["flags"], "small_faces": 1, "fixed_verts": 1,
+            "value": struct.pack("<f", 1.0), "bbox": tuple(o["bbox"]), "verts": [], "intensities": b"", "faces": [],
+            "reach": b"", "bsp": ("leaf", (), 3)}
