@@ -6,18 +6,23 @@
 #   objects     64 bytes each: u32 checksum (the scene sector / node it belongs to), u16 flags, u16 vertex count,
 #               u16 face count, u8 small faces, u8 fixed-point vertices, u32 first face (byte offset in the faces),
 #               4f box min, 4f box max, u32 first vertex (byte offset), u32 BSP root (byte offset in the nodes),
-#               u32 first intensity (index), f32 (kept; the game stores it beside the per-face bytes below)
+#               u32 first intensity (index), f32 reach scale (below)
 #   (aligned to 16)
 #   vertices    float: 3f; fixed-point: 3 x u16 sixteenths above the object's box minimum
 #   intensities a byte per vertex
 #   (aligned to 4)
-#   faces       large: u16 flags, u16 terrain, 3 x u16 vertex; small: u16 flags, u16 terrain, 3 x u8 vertex, u8 0
-#   face bytes  a byte per large face (aligned to 4 after)
+#   faces       large: u16 flags, u16 terrain, 3 x u16 vertex; small: u16 flags, u16 terrain, 3 x u8 vertex, u8 reach
+#   reaches     a byte per large face (aligned to 4 after)
 #   u32 size of the BSP nodes, nodes (8 bytes: a split {i32 axis | (sixteenths of the split point << 2),
 #               u32 byte offset of the left child, the right one after it} or a leaf {u8 3, u8 0, u16 face count,
 #               u32 first face index}), then the leaves' face indices (u16, per object)
+#
+# A face's reach byte is how far its farthest vertex is from the object's box minimum, times the object's reach
+# scale (254 / the farthest vertex of the object), rounded up. A ray test (0x00413B50) skips the faces whose reach is
+# below the ray's distance from the box minimum times the scale: 0 there makes a face all but uncollidable.
 
 import math
+import struct
 
 from binio import Reader, Writer, FormatError
 
@@ -75,18 +80,19 @@ def read_col(data, name="col"):
             o["verts"] = [v.read("3f") for _ in range(nverts)]
         o["intensities"] = data[intensity_base + intensity_off:intensity_base + intensity_off + nverts]
         f = Reader(data, face_base + face_off, name)
-        faces = []
+        faces, reaches = [], []
         for _ in range(nfaces):
             if o["small_faces"]:
-                flags, terrain, a, b, c, zero = f.read("HH4B")
-                if zero:
-                    o.setdefault("small_pad", {})[len(faces)] = zero
+                flags, terrain, a, b, c, reach = f.read("HH4B")
+                reaches.append(reach)
             else:
                 flags, terrain, a, b, c = f.read("HH3H")
             faces.append((flags, terrain, a, b, c))
         o["faces"] = faces
-        if not o["small_faces"]:
-            o["face_bytes"] = data[face_bytes_at:face_bytes_at + nfaces]
+        if o["small_faces"]:
+            o["reach"] = bytes(reaches)
+        else:
+            o["reach"] = data[face_bytes_at:face_bytes_at + nfaces]
             face_bytes_at += nfaces
         o["bsp"] = read_tree(data, node_base, bsp_off, index_base, name)
         o["_bsp_off"] = bsp_off
@@ -143,14 +149,17 @@ def write_col(col):
             else:
                 verts.write("3f", *v)
         intensities.raw(o["intensities"])
-        pads = o.get("small_pad", {})
+        reach = o["reach"]
+        if len(reach) != len(o["faces"]):
+            raise FormatError("collision object %08X: %d reaches for %d faces" % (o["checksum"], len(reach),
+                                                                                 len(o["faces"])))
         for i, (flags, terrain, a, b, c) in enumerate(o["faces"]):
             if o["small_faces"]:
-                faces.write("HH4B", flags, terrain, a, b, c, pads.get(i, 0))
+                faces.write("HH4B", flags, terrain, a, b, c, reach[i])
             else:
                 faces.write("HH3H", flags, terrain, a, b, c)
         if not o["small_faces"]:
-            face_bytes.raw(o.get("face_bytes") or bytes(len(o["faces"])))
+            face_bytes.raw(reach)
     w.pad_to(16)
     w.raw(large_verts_out.getvalue())
     w.raw(small_verts_out.getvalue())
@@ -192,6 +201,21 @@ def write_tree(tree, nodes, indices):
 
 
 # --- building collision for new geometry ----------------------------------------------------------------------
+
+def set_reaches(o):
+    # The reach scale and each face's reach (see the top): as the shipped files (to within one; one more is safe -
+    # it only lets the ray test look at the face).
+    origin = o["bbox"][:3]
+    if not o["faces"]:
+        o["value"] = struct.pack("<f", 1.0)
+        o["reach"] = b""
+        return
+    farthest = max(math.dist(v, origin) for v in o["verts"]) or 1.0
+    scale = struct.unpack("<f", struct.pack("<f", 254.0 / farthest))[0]
+    o["value"] = struct.pack("<f", scale)
+    o["reach"] = bytes(min(255, math.ceil(max(math.dist(o["verts"][i], origin) for i in face[2:]) * scale) + 1)
+                       for face in o["faces"])
+
 
 LEAF_FACES = 50  # faces in a leaf before it's split (as the shipped trees: leaves of up to ~50 faces)
 

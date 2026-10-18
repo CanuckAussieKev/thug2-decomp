@@ -159,6 +159,10 @@ def convert_col(col4, keep_triggers, warnings):
     for o in col4["objects"]:
         verts = o["verts"]
         if not verts or not o["faces"]:
+            # (kept, as the shipped files keep theirs: an empty leaf, the box as it was)
+            objects.append({"checksum": o["checksum"], "flags": o["flags"], "small_faces": 1, "fixed_verts": 1,
+                            "value": struct.pack("<f", 1.0), "bbox": tuple(o["bbox"]), "verts": [],
+                            "intensities": b"", "faces": [], "reach": b"", "bsp": ("leaf", (), 3)})
             continue
         faces = []
         for flags, terrain, a, b, c in o["faces"]:
@@ -173,7 +177,7 @@ def convert_col(col4, keep_triggers, warnings):
         fixed = all(hi[k] - lo[k] < 4000.0 for k in range(3))
         small = len(verts) <= 256
         out = {"checksum": o["checksum"], "flags": o["flags"], "small_faces": int(small),
-               "fixed_verts": int(fixed), "value": struct.pack("<f", 1.0)}
+               "fixed_verts": int(fixed)}
         if fixed:
             lo = [math.floor(x * 16.0) / 16.0 for x in lo]
             verts = [tuple(lo[k] + round((v[k] - lo[k]) * 16.0) / 16.0 for k in range(3)) for v in verts]
@@ -182,8 +186,7 @@ def convert_col(col4, keep_triggers, warnings):
         out["verts"] = verts
         out["intensities"] = bytes(i[0] for i in o["intensities"])
         out["faces"] = faces
-        if not small:
-            out["face_bytes"] = bytes([0x80]) * len(faces)
+        thug2_col.set_reaches(out)
         out["bsp"] = thug2_col.build_tree(verts, faces)
         objects.append(out)
     return {"objects": objects, "pad": 0}
