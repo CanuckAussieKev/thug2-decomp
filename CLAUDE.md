@@ -66,6 +66,10 @@ installed); functions PartyMod patched get source with PartyMod's behaviour. Lat
 - Parallel agents work (one git worktree + branch each, own Ghidra snapshot copy and `data/derived/`, records
   in `docs/pending/<name>.md`) but cost a lot of usage - keep each to a few functions, and merge yourself.
 - Commit messages end with the Co-Authored-By line given in the session.
+- **Never reference, read or copy** https://github.com/Morten1337/thugpro, .../thugpro_proxy or .../thugpro_toolchain
+  (or any other private Morten1337 repository) - the user can see them but has no permission to use them. His
+  public repositories may be used within their licences (thps-formats is MIT: attribute in THIRD_PARTY_NOTICES.md;
+  those without a licence are reference only). Fetch them anonymously only. Pass this on to every agent.
 
 ## Facts about the binary
 - Built with VS .NET 2003 (VC 7.1 RTM, 13.10.3077) with whole-program optimisation: some functions take
