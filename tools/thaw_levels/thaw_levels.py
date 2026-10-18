@@ -328,7 +328,8 @@ def breakable_scripts(array, script_qbs, names):
         trigger, name = node.get("TriggerScript"), node.get("Name")
         if isinstance(trigger, qb.Name) and isinstance(name, qb.Name) and shatters(trigger.value):
             text = qb.name_text(name.value, names)
-            out[trigger.value] = ("Shatter name=%s area=4000 variance=4 vel_x=50 vel_y=50 vel_z=50 spread=1\n"
+            out[trigger.value] = ("PlaySound HitGlassPane2x vol=100\n"
+                                  "    Shatter name=%s area=4000 variance=4 vel_x=50 vel_y=50 vel_z=50 spread=1\n"
                                   "    Kill name=%s" % (text, text))
     return out
 
@@ -376,6 +377,14 @@ def convert_level_nodes(files, zone, name, ns, out_dir, report, names, shift, dr
             node.entries = [(k, v) for k, v in node.entries if k is None or k.value != type_key]
     triggers = nodes.kill_trigger_names(converted, kills)
     text = nodes.node_array_ns(name + "_NodeArray", converted, names, kills)
+    if breaking_names:
+        # The breakables' glass sound (THAW's MA_BreakGlass plays HitGlassPane2x; THUG2 has it too, loaded per level):
+        # loaded by the level's LoadTerrain, which load_level runs while loading (the level-specific sounds script
+        # goes by the career level's prefix, shared by every ported level).
+        start = "script LoadTerrain {\n"
+        if text.count(start) != 1:
+            raise FormatError("%s: LoadTerrain not found once" % name)
+        text = text.replace(start, start + '    LoadSound "Shared\\\\Hits\\\\HitGlassPane2x" vol=100 dropoff=0 \n')
     os.makedirs(out_dir, exist_ok=True)
     common.ns_compile(ns, text, os.path.join(out_dir, name + ".qb"))
     breaking = len(breaking_names)
