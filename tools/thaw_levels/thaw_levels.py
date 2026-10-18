@@ -353,6 +353,7 @@ class Port:
         self.thug2 = script_port.Thug2(args.thug2)
         self.assets = peds_cars.Thug2Assets(args.thug2)
         self.globals = thaw_scripts.global_sources(find_path(args.thaw, "Game", "data", "pak", "qb.pak.wpc"), names)
+        self.particles = thaw_scripts.particle_textures(args.thug2)
 
 
 def write_level_qb(ns, text, path, scripts, names):
@@ -403,7 +404,7 @@ def convert_level_nodes(files, zone, name, ns, out_dir, report, names, shift, dr
     if port is not None:
         # (in place: the Links stay indices into the array)
         made = thaw_scripts.PortedNodes(array, names, set(sectors) - gone, col_objects, script_qbs, port.thug2,
-                                        port.assets)
+                                        port.assets, port.particles, shift)
         array = [(made.convert(n) or n) if isinstance(n, qb.Struct) else n for n in array]
         for node in array:
             script = node.get("TriggerScript") if isinstance(node, qb.Struct) else None
@@ -427,7 +428,7 @@ def convert_level_nodes(files, zone, name, ns, out_dir, report, names, shift, dr
             "LoadTerrain", thaw_scripts.PED_WALK, thaw_scripts.PED_STAND, thaw_scripts.CAR_DRIVE)}
         scripts, globals_text, script_report, _ = thaw_scripts.port_scripts(
             converted, original, made, port.globals + sources, port.thug2, names, provided)
-        extra = globals_text + thaw_scripts.MADE_SCRIPTS
+        extra = globals_text + thaw_scripts.MADE_SCRIPTS + thaw_scripts.load_particle_textures_ns(made.particle_textures)
         local, objects_gone = made.local, made.gone
     else:
         objects_gone = made_gone

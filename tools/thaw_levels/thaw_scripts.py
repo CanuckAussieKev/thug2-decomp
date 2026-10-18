@@ -230,11 +230,44 @@ def profile_for(texts, assets):
     return "random_male_profile"
 
 
+# THAW particle textures THUG2 hasn't, and the THUG2 one used instead.
+PARTICLE_STAND_INS = {"apm_smokepuff_rot_01": "BA_APM_smokePuff01", "apm_flame_rot01": "apm_flame_01"}
+
+
+def particle_textures(thug2):
+    # THUG2's particle textures (Data\images\particles\<name>.img.xbx): {name lower: name}.
+    folder = os.path.join(thug2, "Data", "images", "particles")
+    out = {}
+    if os.path.isdir(folder):
+        for entry in os.listdir(folder):
+            if entry.lower().endswith(".img.xbx"):
+                out[entry[:-len(".img.xbx")].lower()] = entry[:-len(".img.xbx")]
+    return out
+
+
+def rgba(value):
+    # THAW's packed particle colour (r << 24 | g << 16 | b << 8 | a) as ([r, g, b], a).
+    value &= 0xFFFFFFFF
+    return [value >> 24, (value >> 16) & 0xFF, (value >> 8) & 0xFF], value & 0xFF
+
+
+def load_particle_textures_ns(textures):
+    # THUG2's load_level runs a level's LoadAllParticleTextures (when it has one) before its nodes.
+    if not textures:
+        return ""
+    return "script LoadAllParticleTextures {\n%s}\n" % "".join(
+        '    LoadParticleTexture "particles\\\\%s" \n' % t for t in sorted(textures))
+
+
 class PortedNodes:
     # THAW's game objects, waypoints, peds, life nodes and cars made THUG2's nodes (see the top), in place in the array
     # (the Links stay indices into it; nodes.convert_nodes renumbers them).
-    def __init__(self, array, names, sectors, col_objects, script_qbs, thug2, assets):
+    def __init__(self, array, names, sectors, col_objects, script_qbs, thug2, assets, particles=None,
+                 shift=(0.0, 0.0, 0.0)):
         self.array, self.names = array, names
+        self.particles = particles or {}   # THUG2's particle textures (particle_textures)
+        self.shift = shift                 # (the particles' mid / end positions: Pos is moved later)
+        self.particle_textures = set()     # the ones the made particle objects use
         self.sectors, self.col_objects = sectors, col_objects
         self.script_qbs = script_qbs
         self.thug2, self.assets = thug2, assets
@@ -299,7 +332,7 @@ class PortedNodes:
         n = self.names
         cls = nodes.class_of(node, n)
         name = node.get("Name")
-        if cls not in ("levelobject", "gameobject", "waypoint", "pedestrian", "lifenode", "vehicle"):
+        if cls not in ("levelobject", "gameobject", "waypoint", "pedestrian", "lifenode", "vehicle", "particleobject"):
             return None
         if not isinstance(name, Name) or not isinstance(node.get("Pos"), tuple):
             return self._left_out("%s nodes without a name or Pos" % cls)
@@ -321,7 +354,46 @@ class PortedNodes:
             return self.pedestrian(node)
         if cls == "lifenode":
             return self.life_node(node)
+        if cls == "particleobject":
+            return self.particle(node)
         return self.vehicle(node)
+
+    # A THAW particle box's keys -> THUG2's (LA's falling rocks): THAW keeps the start / mid / end values in arrays
+    # (BoxDims, BoxPositions, Radii, RadiusSpread, BoxRGBAs), THUG2 in keys of their own.
+    PARTICLE_KEYS = {checksum(k) for k in (
+        "Type", "BlendMode", "FixedAlpha", "AlphaCutoff", "MaxStreams", "SuspendDistance", "lod_dist1", "lod_dist2",
+        "EmitRate", "Lifetime", "MidPointPCT", "ColorMidTime")}
+    PARTICLE_FLAGS = {checksum(k) for k in ("CreatedAtStart", "AbsentInNetGames", "UseMidPoint", "UseColorMidTime")}
+
+    def particle(self, node):
+        n = self.names
+        texture = self._text(node.get("Texture")).lower()
+        texture = self.particles.get(texture) or self.particles.get(PARTICLE_STAND_INS.get(texture, "").lower())
+        dims, positions = node.get("BoxDims"), node.get("BoxPositions")
+        radii, spread, colours = node.get("Radii"), node.get("RadiusSpread"), node.get("BoxRGBAs")
+        if texture is None or not all(isinstance(v, list) and len(v) == 3 for v in (dims, positions, colours)) or \
+                not all(isinstance(v, tuple) for v in (radii, spread)):
+            return self._left_out("particle boxes left out (no THUG2 texture)")
+        self.particle_textures.add(texture)
+        moved = [("vector", tuple(p[1][k] + self.shift[k] for k in range(3))) for p in positions]
+        entries = self._base(node, "ParticleObject")
+        for key, value in node.entries:
+            if key is None:
+                if isinstance(value, Name) and value.value in self.PARTICLE_FLAGS:
+                    entries.append((key, value))
+            elif key.value in self.PARTICLE_KEYS:
+                entries.append((key, value))
+        entries.append((_key(n, "Texture"), _key(n, texture)))
+        for k, part in enumerate(("Start", "Mid", "End")):
+            entries.append((_key(n, "BoxDims" + part), dims[k]))
+            if k:
+                entries.append((_key(n, part + "Position"), moved[k]))
+            entries.append((_key(n, part + "Radius"), float(radii[1][k])))
+            entries.append((_key(n, part + "RadiusSpread"), float(spread[1][k])))
+            rgb, alpha = rgba(colours[k])
+            entries += [(_key(n, part + "RGB"), rgb), (_key(n, part + "Alpha"), alpha)]
+        self._count("particle boxes")
+        return self._made(entries)
 
     def _links(self, node):
         links = self._waypoint_links(node)
