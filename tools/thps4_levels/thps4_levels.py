@@ -209,10 +209,10 @@ def cmd_convert(args):
             report.append("  %d geometry nodes without a scene sector: TrickObject / Cluster dropped" % cleared)
         os.makedirs(os.path.join(out, "levels", name), exist_ok=True)
         qb_path = os.path.join(out, "levels", name, name + ".qb")
-        # (path followers, peds and cars kept out of network games: no path manager or ped animations there)
-        text, marked = nodes.absent_in_net_games(text, brought)
+        # (network games: path followers, peds and cars kept out - no path manager or ped animations there -, restarts for the players)
+        text, marked = nodes.net_game_nodes(text, brought)
         if marked:
-            report.append("  %d node(s) kept out of network games" % marked)
+            report.append("  %d node(s) changed for network games" % marked)
         common.ns_compile(args.ns, text, qb_path)
         if brought:
             all_names = {}

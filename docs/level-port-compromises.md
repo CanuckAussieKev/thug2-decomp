@@ -87,6 +87,8 @@ back: the crash is in THUG2's code, which we are rewriting.
 | Peds / cars added to THPS4 College | CNodeManager::HashNodes (cause unknown) | College has no THUG2 walkers or cars | College traffic |
 | An object following a path in a network game (no path manager there) | 0x004695D0 from Obj_FollowPathLinked | nodes.absent_in_net_games: CreatedAtStart path followers get AbsentInNetGames (all games) | Tokyo's shinkansen, College's blimp, Alcatraz / SF objects absent online |
 | A pedestrian in a network game (THUG2 loads no ped animations there) | 0x00482BA0 from the anim controller's PlayAnim | The same pass: CreatedAtStart peds and vehicles get AbsentInNetGames (as THUG2's own levels) | No peds or cars online (THPS4's skate shop guy) |
+| A restart whose own script "kills" (respawn loop) | a restart's TriggerScript runs when the skater is put there | nodes.is_kill_call: camera animations (KillSkaterCamAnim) and other "kill" names that aren't kills don't count; add_kill_restarts never gives a restart a kill | THPS4 skate shop's start point and THAW BH's Gap14 restart lose their (camera / goal) scripts |
+| No Multiplayer restart (single-player levels) | a network game's spawn | nodes.net_restarts: Player1 restarts also Multiplayer and Horse (as THUG2's skate shop) | None |
 | A ported level named in a network game (2026-10-19) | GameNet::Manager::GetLevelName 0x005369A0 (THUG2's list only) | Fixed in the engine (batch 122): the ported lists are searched too | None |
 
 ## 4. THPS3

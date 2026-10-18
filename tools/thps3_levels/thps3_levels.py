@@ -1178,10 +1178,10 @@ def convert_node_array(q, global_qbs, name, base, start_scripts, port=None):
 
 def write_level_qb(ns, text, path, scripts, port):
     # The node array's NeverScript text compiled, the brought scripts added (script_port.append_scripts).
-    # (path followers, peds and cars kept out of network games: no path manager or ped animations there)
-    text, marked = nodes.absent_in_net_games(text, scripts)
+    # (network games: path followers, peds and cars kept out - no path manager or ped animations there -, restarts for the players)
+    text, marked = nodes.net_game_nodes(text, scripts)
     if marked:
-        print("  %s: %d node(s) kept out of network games" % (os.path.basename(path), marked))
+        print("  %s: %d node(s) changed for network games" % (os.path.basename(path), marked))
     common.ns_compile(ns, text, path)
     if scripts:
         names = {}

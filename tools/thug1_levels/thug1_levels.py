@@ -207,10 +207,10 @@ def convert_level_nodes(files, code, name, ns, out_dir, report, port=None, struc
     text, cleared = nodes.strip_missing_trick_objects(text, sectors)
     os.makedirs(out_dir, exist_ok=True)
     path = os.path.join(out_dir, name + ".qb")
-    # (path followers, peds and cars kept out of network games: no path manager or ped animations there)
-    text, marked = nodes.absent_in_net_games(text, scripts)
+    # (network games: path followers, peds and cars kept out - no path manager or ped animations there -, restarts for the players)
+    text, marked = nodes.net_game_nodes(text, scripts)
     if marked:
-        report.append("  %d node(s) kept out of network games" % marked)
+        report.append("  %d node(s) changed for network games" % marked)
     common.ns_compile(ns, text, path)
     if scripts:
         data = script_port.append_scripts(open(path, "rb").read(), scripts, names)

@@ -27,6 +27,18 @@ def type_of(node, names):
     return (names.get(value.value, "") if isinstance(value, Name) else "").lower()
 
 
+# Names with "kill" in them that don't kill the skater: the Kill command (removes objects), KillSpawnedScript,
+# KillSkaterCamAnim (stops a camera animation - THPS4's skate shop's start point runs it: taken as a kill, it made the
+# start point respawn the skater on itself forever), and THPS4's key bindings, kill radius / clusters, goal adding,
+# arrows, cars, race checks.
+NOT_KILLS = ("camanim", "killspawned", "key_binding", "radius", "cluster", "addgoal", "arrow", "cars", "checkfor")
+
+
+def is_kill_call(text):
+    # Whether a called name (lower case) is a kill of the skater (SK3_KillSkater, ALC_KillWater, xxx_Kill_Plane...).
+    return "kill" in text and text != "kill" and not any(word in text for word in NOT_KILLS)
+
+
 def kill_scripts(node_q, level_q):
     # THPS4's trigger scripts that kill the skater (out of bounds, water): TriggerScript -> the THUG2 command that
     # does the same (THUG2's global SK3_KillSkater / SK3_KillSkater_Water: back to a restart). A trigger script
@@ -38,7 +50,7 @@ def kill_scripts(node_q, level_q):
     for script in node_q.scripts:
         for called, line in node_q.calls(script):
             text = names.get(called, "").lower()
-            if "kill" not in text or text in ("kill", "killspawnedscript") or text.startswith("killspawned"):
+            if "kill" not in text or not is_kill_call(text):
                 continue
             water = "water" in text or any(t == 0x16 and names.get(int.from_bytes(p, "little"), "").lower() == "water"
                                            for t, p in line)
@@ -95,7 +107,7 @@ def kill_commands(script_qbs, restarts, names):
         for script in q.scripts:
             for called, line in q.calls(script):
                 text = names.get(called, "").lower()
-                if "killskater" in text and script not in wrappers:
+                if "killskater" in text and is_kill_call(text) and script not in wrappers:
                     wrappers[script] = ("water" in text, kill_args(line, restarts, names))
     found = {}
     for q in script_qbs:
@@ -104,7 +116,7 @@ def kill_commands(script_qbs, restarts, names):
                 continue
             for called, line in q.calls(script):
                 text = names.get(called, "").lower()
-                if "killskater" not in text and called not in wrappers:
+                if ("killskater" not in text or not is_kill_call(text)) and called not in wrappers:
                     continue
                 water, args = wrappers.get(called, (False, {}))
                 water = water or "water" in text
@@ -225,6 +237,11 @@ def add_kill_restarts(nodes, kills, names):
     # THUG2's SK3_KillSkater needs a restart: without nodename= it passes the global kill_skater_nodename (0 until a
     # kill names one) to KillSkater node=, which finds no node - the skater stays dead, never put back (seen in THUG1
     # Hawaii's pool). A kill command without one gets the restart nearest to the first trigger node that runs it.
+    # A restart's own TriggerScript runs when the skater is put there: never a kill (it would put the skater back on
+    # itself forever).
+    kills = {script: command for script, command in kills.items()
+             if not any(class_of(n, names) == "restart" and isinstance(n.get("TriggerScript"), Name) and
+                        n.get("TriggerScript").value == script for n in nodes)}
     restarts = [(node_position(n), n.get("Name")) for n in nodes
                 if class_of(n, names) == "restart" and node_position(n) and isinstance(n.get("Name"), Name)]
     if not restarts:
@@ -401,3 +418,34 @@ def absent_in_net_games(text, scripts=None):
         return re.sub(r"\bCreatedAtStart\b", "CreatedAtStart AbsentInNetGames", node, count=1)
 
     return re.sub(r"\{[^{}]*\}", fix, text), marked
+
+
+def net_restarts(text):
+    # A level with no Multiplayer restart (THPS4's skate shop and MotoX, THPS3's tutorials, THUG1's Downhill Jam,
+    # Philly and School: single-player levels in their games) has nowhere for a network game to put the players: its
+    # Player1 restarts become Multiplayer and Horse ones too, as THUG2's own skate shop's are. Returns (text, changed).
+    if re.search(r"\brestart_types=\[[^\]]*\bMultiplayer\b", text, re.IGNORECASE):
+        return text, 0
+    changed = 0
+
+    def fix(match):
+        nonlocal changed
+        node = match.group(0)
+        types = re.search(r"\brestart_types=\[([^\]]*)\]", node)
+        if not re.search(r"\bClass=Restart\b", node, re.IGNORECASE) or not types or \
+                not re.search(r"\bPlayer1\b", types.group(1), re.IGNORECASE):
+            return node
+        changed += 1
+        listed = [t for t in re.split(r"[\s,]+", types.group(1).strip()) if t]
+        listed += [t for t in ("Multiplayer", "Horse") if t.lower() not in {x.lower() for x in listed}]
+        return node[:types.start()] + "restart_types=[%s]" % " ".join(listed) + node[types.end():]
+
+    return re.sub(r"\{[^{}]*\}", fix, text), changed
+
+
+def net_game_nodes(text, scripts=None):
+    # What a network game needs of a ported level's node array: absent_in_net_games, then net_restarts. Returns
+    # (text, nodes changed).
+    text, absent = absent_in_net_games(text, scripts)
+    text, restarts = net_restarts(text)
+    return text, absent + restarts
