@@ -1,6 +1,6 @@
 # level_port - shared code of the level converters
 
-Used by `tools/thps4_levels` (THPS4) and `tools/thug1_levels` (THUG1); `ported_levels.py` also by
+Used by `tools/thps4_levels` (THPS4), `tools/thug1_levels` (THUG1), `tools/thps3_levels` and `tools/thaw_levels` (THAW); `ported_levels.py` also by
 `tools/menu_level/make_menu_level.py`, which installs what they convert.
 
 - `binio.py` - little-endian reading / writing.
