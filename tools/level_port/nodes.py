@@ -2,6 +2,8 @@
 # (restarts, rails, level geometry, KOTH crowns), drop the rest (peds, vehicles, game objects with the game's models,
 # goal nodes, waypoints, particles, lights...), renumber the Links.
 
+import re
+
 import qb
 from qb import Name, Struct, checksum
 
@@ -318,3 +320,28 @@ def node_array_ns(array_name, nodes, names, kills=None):
             lines.append("script %s {\n    %s\n}" % (qb.name_text(script, names), command))
     lines.append(load_terrain_ns())
     return "\n".join(lines) + "\n"
+
+
+def strip_missing_trick_objects(text, sectors):
+    # The node array (NeverScript text) with TrickObject / Cluster taken off the LevelGeometry nodes whose sector isn't
+    # in the converted scene (`sectors`: collision-only or invisible pieces, left out of the scene): ParseNodeArray
+    # registers a TrickObject's sector without checking it's there (0x00588630 reads through the null - THPS3
+    # Airport and THAW Minneapolis crashed loading). Rails keep theirs (no sectors). Returns (text, nodes changed).
+    cleared = 0
+
+    def fix(match):
+        nonlocal cleared
+        node = match.group(0)
+        name = re.search(r"\bName=(#?\w+)", node, re.IGNORECASE)
+        if not name or not re.search(r"\bClass=LevelGeometry\b", node, re.IGNORECASE) or \
+                not re.search(r"\bTrickObject\b|\bCluster=", node, re.IGNORECASE):
+            return node
+        value = name.group(1)
+        value = int(value[1:], 16) if value.startswith("#") else checksum(value)
+        if value in sectors:
+            return node
+        cleared += 1
+        node = re.sub(r"\n[ \t]*TrickObject[ \t]*(?=\n)", "", node, flags=re.IGNORECASE)
+        return re.sub(r"\n[ \t]*Cluster=\S+[ \t]*(?=\n)", "", node, flags=re.IGNORECASE)
+
+    return re.sub(r"\{[^{}]*\}", fix, text), cleared

@@ -390,7 +390,7 @@ def convert_level_nodes(files, zone, name, ns, out_dir, report, names, shift, dr
     breaking = len(breaking_names)
     report.append("  nodes: %d of %d kept %s; %d kill zones, %d breakables; %d LOD sectors left out"
                   % (len(converted), len(array), stats, len(triggers) - breaking, breaking, len(lods)))
-    return triggers, lods, breaking_names
+    return triggers, lods, breaking_names, text
 
 
 # --- converting -------------------------------------------------------------------------------------------------
@@ -457,10 +457,14 @@ def cmd_convert(args):
         geom = thaw.read_geom(files[".geom"], zone + ".geom")
         night = night_sectors(geom, names) | left_out(zone)
         node_report = ["  %d night-time sectors left out" % len(night)] if night else []
-        triggers, lods, breakables = convert_level_nodes(files, zone, name, args.ns, level_dir, node_report, names, shift,
+        triggers, lods, breakables, node_text = convert_level_nodes(files, zone, name, args.ns, level_dir, node_report, names, shift,
                                              night)
         warnings = []
         scene = convert_scene(geom, warnings, shift, lods | night)
+        node_text, cleared = nodes.strip_missing_trick_objects(node_text, {s["checksum"] for s in scene["sectors"]})
+        if cleared:
+            common.ns_compile(args.ns, node_text, os.path.join(level_dir, name + ".qb"))
+            node_report.append("  %d geometry nodes without a scene sector: TrickObject / Cluster dropped" % cleared)
         textures = thaw.read_tex(files[".tex"], zone + ".tex")
         col = convert_col(col_in, lambda checksum: checksum in triggers, shift, left_out(zone), breakables)
         common.write_level(level_dir, name, scene, textures, col)
