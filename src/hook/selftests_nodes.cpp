@@ -69,8 +69,8 @@ constexpr uint32_t kPosition = 0xB9D31B0A;
 constexpr uint32_t kAngles = 0x9D2D0915;
 constexpr uint32_t kOrientation = 0xC97F3AA9;
 
-bool InArena(uint32_t word) { return word >= g_nodes_base && word <= g_nodes_base + kArenaSize; }
-uint32_t Rel(uint32_t word) { return InArena(word) ? 0xA0000000u + (word - g_nodes_base) : word; }
+// (either run's arena: see ArenaWord - CRC("Ped_") fell inside the original's in the game now and then)
+uint32_t Rel(uint32_t word) { return ArenaWord(g_nodes_arenas, kArenaSize, word); }
 uint32_t Rel(const void* p) { return Rel(reinterpret_cast<uint32_t>(p)); }
 void Rec(uint32_t tag, std::initializer_list<uint32_t> values)
 {
@@ -661,8 +661,7 @@ std::vector<uint32_t> RunPrefixTest(bool original)
     Answer('V', Struct(arena, 2), kPos, {Bits(7.0f), Bits(7.0f), Bits(-7.0f), Bits(1.0f)}); // (the only "Car")
     Answer('V', Struct(arena, 10), kPos, {Bits(1.0f), Bits(1.0f), Bits(1.0f), Bits(1.0f)});
     // (every other node placed too: the original measures a node without pos= where the last one was - for the
-    // first such node, a stack value it never set; the result then depended on what the stack held, matching ours
-    // offline by chance and not in the game)
+    // first such node, a stack value it never set, which is undefined)
     for (int i : {1, 3, 5, 6, 7, 8, 9, 11})
         Answer('V', Struct(arena, i), kPos, {Bits(-20.0f + i), Bits(5.0f), Bits(2.0f * i), Bits(1.0f)});
     auto* pos = reinterpret_cast<Mth::Vector*>(arena + 0x5A00);

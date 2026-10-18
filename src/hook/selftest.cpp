@@ -5661,7 +5661,8 @@ void TestScriptParser()
     }
 }
 
-alignas(16) uint8_t g_load_arenas[2][0x80000];
+ArenaPair<0x80000> g_load_storage; // (aligned to 64K: see ArenaWordOrHigh)
+uint8_t (*const g_load_arenas)[0x80000] = g_load_storage.Get();
 
 const uint8_t* CallParseSymbolDefinitionRegisters(void* code, const uint8_t* token, uint32_t symbolName,
                                                   const char* fileName)
@@ -5826,10 +5827,7 @@ void TestScriptLoading()
         manager->m_topDownHeap = heap;
         manager->PushContext(heap);
         reinterpret_cast<CExpressionEvaluator*>(0x006F2370)->Init();
-        auto base = reinterpret_cast<uint32_t>(arena);
-        auto relocate = [&](uint32_t word) {
-            return word >= base && word <= base + sizeof(g_load_arenas[0]) ? 0xA0000000u + (word - base) : word;
-        };
+        auto relocate = [&](uint32_t word) { return ArenaWord(g_load_arenas, sizeof(g_load_arenas[0]), word); };
         auto dump = [&] {
             for (CSymbolTableEntry* s = GetNextSymbol(nullptr); s; s = GetNextSymbol(s)) {
                 trace.push_back(s->name);
@@ -5948,14 +5946,11 @@ void TestScriptLoading()
             word = relocate(word);
         std::vector<uint32_t> image(sizeof(g_load_arenas[0]) / 4);
         std::memcpy(image.data(), arena, sizeof(g_load_arenas[0]));
-        for (uint32_t& word : image) {
-            word = relocate(word);
-            // (uninitialised 16-bit fields - a symbol's unknown2 - can hold the top half of a stale pointer
-            // into this run's arena)
-            uint32_t high = word >> 16;
-            if (high >= (base >> 16) && high <= ((base + sizeof(g_load_arenas[0])) >> 16))
-                word = (word & 0xFFFF) | ((0xA000u + high - (base >> 16)) << 16);
-        }
+        // (uninitialised 16-bit fields - a symbol's unknown2 - can hold the top half of a stale pointer into this
+        // run's arena; both mappings are the same for both runs - two values in the DLL once fell in the original's
+        // arena's range)
+        for (uint32_t& word : image)
+            word = ArenaWordOrHigh(g_load_arenas, sizeof(g_load_arenas[0]), word);
         trace.insert(trace.end(), image.begin(), image.end());
         GameVariable<void*>(0x007D1800) = nullptr;
         return trace;
@@ -5965,8 +5960,7 @@ void TestScriptLoading()
     for (Saved& s : saved)
         std::memcpy(reinterpret_cast<void*>(s.address), s.bytes.data(), s.size);
     RestoreSymbolTable();
-    Check(expected == actual, "script loading: .qb files, redefinitions, restarts");
-    if (expected.size() != actual.size())
+    Check(expected == actual, "script loading: .qb files, redefinitions, restarts");    if (expected.size() != actual.size())
         Log("  loading trace sizes: original %u ours %u", static_cast<unsigned>(expected.size()),
             static_cast<unsigned>(actual.size()));
     for (size_t i = 0, shown = 0; i < expected.size() && i < actual.size() && shown < 8; ++i) {
