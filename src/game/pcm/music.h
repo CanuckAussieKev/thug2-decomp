@@ -13,7 +13,7 @@ struct Playlist {
     uint32_t unknownC84;
     uint64_t off[2];    // tracks 0-63, 64-127
     uint64_t played[2];
-    uint8_t unknownCA8; // set: no next track
+    uint8_t unknownCA8; // set: no next track (cleared by AddTrackToPlaylist, set by ClearPlaylist / ChangeTrackState)
     uint8_t padCA9[7];
 };
 static_assert(sizeof(Playlist) == 0xCB0, "layout must match the original");
@@ -41,15 +41,28 @@ void __cdecl PlayNextTrackInOrder();
 // and it isn't the user's playlist) - if the music is audible or it's playlist 1.
 void __cdecl Update();
 
-// The three streams (0x74 bytes each, at 0x0069B938).
+struct FrameAmp;
+
+// The three streams (0x74 bytes each, at 0x0069B938; started by StartStream / PlayStream, stream.h).
 struct Stream {
-    uint32_t name;      // +0 what's playing (a checksum)
+    uint32_t name;      // +0 what's playing (a checksum: the id asked for, or the stream's)
     uint32_t id;        // +4 the stream's id
-    uint8_t unknown8[8];
+    float volume;       // +8 percent (100; PlayStreamFromObject scales it)
+    float dropoff;      // +0xC (1020)
     int channel;        // +0x10 the platform's stream (-1: any; 0x00453270 says whether it's playing)
-    uint8_t unknown14[0x1C];
-    uint32_t* listener; // +0x30 two words cleared when the stream ends
-    uint8_t unknown34[0x40];
+    int priority;       // +0x14
+    int option;         // +0x18 PlayStream's (the script's 0xE46111E0)
+    uint32_t unknown1C; // +0x1C (set 0)
+    int nameCount;      // +0x20 names in use
+    uint32_t startFrame; // +0x24 the frame it started (Tmr::GetRenderFrame)
+    uint8_t usePosInfo; // +0x28 its volume follows the owner's position (PlayStreamFromObject)
+    uint8_t pad29[3];
+    int dropoffFunction; // +0x2C
+    uint32_t* listener; // +0x30 the stream's frame amplitudes (a FrameAmp: checksum and size cleared when it ends)
+    struct {
+        uint32_t checksum;
+        FrameAmp* frameAmp;
+    } names[8];         // +0x34 its names (AddStream adds more) and their frame amplitudes
 };
 static_assert(sizeof(Stream) == 0x74, "layout must match the original");
 
@@ -91,5 +104,50 @@ void __cdecl GetTracksOff(uint64_t* low, uint64_t* high);
 void __cdecl SetTracksOff(uint64_t low, uint64_t high);
 // 0x004504E0: the volume of the user soundtrack, when it's the one playing (0x00453400, not rewritten yet).
 void __cdecl SetUserSoundtrackVolume(float volume);
+
+// The playlists and the music track (the script commands of the same names call these). Each does nothing
+// (returns 0 / false) while the music is off: no sound, the null sound platform (0x007CEFA8 == 2), or the music
+// header not loaded.
+
+// 0x00450F70: pause (1) or unpause (0) the music; -1 unpauses only if it wasn't paused when last paused with 1
+// (pausing notes whether it was). Script::GetInteger(0xD7BB618D) is read and ignored (a compiled-out debug print).
+void __cdecl PauseMusic(int pause);
+// 0x004510B0: the music volume (0-100; others ignored). Applied to the track playing if it's the music's
+// (stream type 0) - for playlists other than 0 only when the script integer 0x450BAE2D is set.
+void __cdecl SetMusicVolume(float volume);
+// 0x00451130: the volume of streams played on the music's channel (PlayMusicStream: stream type 1) - 0-100;
+// applied if one is playing. (The value GetSfxVolume reads.)
+void __cdecl SetMusicStreamVolume(float volume);
+// 0x004511A0: add a track (the stream's file name, upper-cased; at most 80) to playlist `list`; for playlist 0 also
+// its title (at most 99 characters; "No title provided" for none) - kept in one table by the track's index.
+void __cdecl AddTrackToPlaylist(const char* name, int list, const char* title);
+// 0x004512D0: empty playlist `list` (its masks cleared; marked as having no track to play).
+void __cdecl ClearPlaylist(int list);
+// 0x00451350: skip to the next track (stops the one playing; playlist 0 only).
+void __cdecl SkipMusicTrack();
+// 0x00451380: tracks in random order (non-zero) or in order; a positive mode also shuffles the user soundtrack
+// and starts it from the top. The current playlist's round starts again.
+void __cdecl SetRandomMode(int mode);
+// 0x00451400: the volume of the track starting: the music volume for a user soundtrack, the sound effects volume
+// for playlist 1 unless the script integer 0x450BAE2D is set, else unchanged.
+void __cdecl ApplyTrackVolume();
+// 0x00451450: whether track `track` of playlist `list` is the one playing (same name).
+bool __cdecl IsTrackPlaying(int list, int track);
+// 0x004514C0: the number of tracks in playlist `list`.
+int __cdecl GetNumTracks(int list);
+// 0x00451500: track `track` of playlist `list`'s file name after its last \ or /. With the music off: "Empty."
+// (written over playlist 0's first track).
+const char* __cdecl GetTrackName(int track, int list);
+// 0x004515A0: play from playlist `list` (the track playing stops if it changes).
+void __cdecl SetMusicMode(int list);
+// 0x004515E0: load the music's header (PC: nothing to load) - the music is on while it succeeds.
+bool __cdecl LoadMusicHeader(const char* name);
+// 0x00451C70: switch track `track` of playlist `list` off (stopping it if it's playing) or on; the shuffle starts
+// again. Marks the playlist as having no track to play only when it's empty (the original's check, see source).
+void __cdecl ChangeTrackState(int track, bool off, int list);
+// 0x004520D0: play the music track `name` (copied to 0x0069806C; looping or not) at the music volume (the sound
+// effects volume for playlists other than 0 unless the script integer 0x450BAE2D is set). A track that doesn't
+// start is switched off in the current playlist (unless the debug checks are on). Not while a music stream plays.
+void __cdecl PlayTrack(const char* name, bool loop);
 
 } // namespace Pcm

@@ -79,6 +79,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_gapsB.cpp
     src/hook/selftests_qb.cpp
     src/hook/selftests_gapsA.cpp
+    src/hook/selftests_mvb.cpp
     src/hook/selftests_csD.cpp
     src/hook/selftests_cobj.cpp
     src/hook/selftests_nodes.cpp
@@ -138,7 +139,9 @@ add_library(thug2_code OBJECT
     src/game/gfx/text.cpp
     src/game/gfx/device.cpp
     src/game/gfx/movie.cpp
+    src/game/pcm/bink_stream.cpp
     src/game/pcm/music.cpp
+    src/game/pcm/stream.cpp
     src/game/gfx/loading_bar.cpp
     src/game/gfx/render.cpp
     src/game/gfx/sprite.cpp
