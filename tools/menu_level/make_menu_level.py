@@ -450,7 +450,8 @@ BACKDROP_LEVEL = "thps4_skateshop"
 # add_roundbar_menu_item, as Game Options and Create-A-Modes) where it made the spinning wheel (make_spin_menu: a
 # turned VMenu with filler items, a copy of the items, the highlight bar and icon, the wheel's level objects turned
 # with it). The menu's ids stay main_menu / main_vmenu (scripts find main_vmenu); its place on screen is
-# main_menu_list_pos, the 640 x 480 layout's top left of the items: centred, above the THPS4 shop's counter in the
+# main_menu_list_pos, the 640 x 480 layout's top left of the items, on a dark backing (main_menu_backing: the shop's
+# wall of decks behind made the items hard to read): centred, above the THPS4 shop's counter in the
 # held view (its glass counter's top - the wheels and decks on it, ~y 20 - projects to screen y ~300; worked out
 # from the node positions, not yet seen in the game). The skater, its camera (mainmenu_camera02 - the
 # DLL holds the view while it plays), the wheel's objects (left as the game shows them: in THUG2's shop, out of
@@ -511,6 +512,17 @@ script create_main_menu {
         ]
     }
     roundbar_menu_finish build_pause_parts=0 data={grid_index=(main_menu_list_index)}
+    CreateScreenElement {
+        type=SpriteElement
+        parent=current_menu_anchor
+        id=main_menu_backing
+        texture=white2
+        pos=(main_menu_list_pos + (-14.0, 2.0))
+        just=[left top]
+        rgba=[0 0 0 112]
+        scale=(76.0, 23.5)
+        z_priority=-1
+    }
     FireEvent type=focus target=attract_container
     unpauseskaters
     UnpauseMusicAndStreams
