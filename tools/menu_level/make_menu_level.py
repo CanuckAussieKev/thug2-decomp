@@ -990,7 +990,8 @@ def main():
         for entry in (thps4 or {"levels": []})["levels"]:
             by_game.setdefault(entry["staging"], {"levels": []})["levels"].append(entry)
         section_list = level_select.sections(thps4=by_game.get("thug2-decomp-thps4"),
-                                             thug1=by_game.get("thug2-decomp-thug1"))
+                                             thug1=by_game.get("thug2-decomp-thug1"),
+                                             thps3=by_game.get("thug2-decomp-thps3"))
         write(level_select.edit_level_select(add_skateshop_sign(select), section_list),
               r"scripts\game\menu\gamemenu_levelselect.qb")
         sprites = decompile(prx_file(qb_scripts, r"scripts\game\menu\sprites.qb"), "sprites.qb")

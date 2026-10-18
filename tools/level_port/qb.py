@@ -49,6 +49,11 @@ class Arg:
         self.value = value
 
 
+class AllArgs:
+    # <...>: all of the script's parameters (THPS3 has one in a node array: Cruise Ship's).
+    __slots__ = ()
+
+
 class Expr:
     __slots__ = ("left", "op", "right")
 
@@ -213,6 +218,8 @@ class QbFile:
         if t == 0x0A and toks[i + 1][1] in (0x17, 0x18, 0x1A):  # a negative number
             value, i = self._single(i + 1)
             return -value, i
+        if t == 0x2C:  # <...>
+            return AllArgs(), i + 1
         if t == 0x2D and toks[i + 1][1] == 0x16:  # <name>: a parameter
             return Arg(struct.unpack("<I", toks[i + 1][2])[0]), i + 2
         if t == 0x03:
@@ -272,6 +279,8 @@ def to_ns(value, names, indent=0):
     pad = "    " * indent
     if isinstance(value, Name):
         return name_text(value.value, names)
+    if isinstance(value, AllArgs):
+        return "<...>"
     if isinstance(value, Arg):
         return "<%s>" % name_text(value.value, names)
     if isinstance(value, Expr):

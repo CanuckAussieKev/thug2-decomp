@@ -1,5 +1,5 @@
 # NOT ORIGINAL - what tools/menu_level/make_menu_level.py adds to the data overlay for the levels converted from other
-# games (tools/thps4_levels, tools/thug1_levels): their files, their level structures in Levels.qb and their signs in
+# games (tools/thps4_levels, tools/thug1_levels, tools/thps3_levels): their files, their level structures in Levels.qb and their signs in
 # the level select.
 #
 # Each converter writes a staging folder in the THUG2 folder (not read by the game): <thug2>\<staging>\levels\<level>\
@@ -9,7 +9,7 @@
 #   sky           the sky level's name, or null
 #   display       the level select's sign text ("THUG1 NEW JERSEY")
 #   name          the level's own name (the level structure's name=)
-#   game          the game it comes from ("THPS4", "THUG1")
+#   game          the game it comes from ("THPS4", "THUG1", "THPS3")
 #   location      where it is in the real world ("New Jersey, USA") - for the level select
 #   icon          a level select sign texture that suits it (THUG2's own, e.g. "sign_philly")
 #   level_num     the level select's number for its sign (unique; no career records - the info panel skips them)
@@ -23,7 +23,7 @@ import sys
 
 MANIFEST = "levels.json"
 # The staging folders, in the order their levels are listed.
-STAGINGS = ("thug2-decomp-thps4", "thug2-decomp-thug1")
+STAGINGS = ("thug2-decomp-thps4", "thug2-decomp-thug1", "thug2-decomp-thps3")
 
 
 def read_manifest(path):

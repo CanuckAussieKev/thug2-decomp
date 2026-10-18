@@ -1,5 +1,5 @@
 # NOT ORIGINAL - the level select in sections, one per game, for make_menu_level.py's data overlay:
-#   - Up / Down switch between the games (THUG2, then THUG1 when it has been converted, then THPS4); Left / Right
+#   - Up / Down switch between the games (THUG2, then THUG1, THPS4, THPS3 when converted); Left / Right
 #     move through the section's levels as before. A header above the signs names the section; the helper text
 #     says "Up/Down = Game". Classic mode (its brackets use Up / Down) keeps the game's own list.
 #   - every level we add gets a star (the game's level_dot) at its real-world place on the globe, which turns to it
@@ -125,6 +125,32 @@ THPS4_LEVELS = {
                   location=(-87.65, 41.92)),
 }
 
+# THPS3's levels (tools/thps3_levels' manifest, by its folder), in THPS3's own level order (levels.qb's
+# master_level_list: the career's nine, then the classics, then the tutorials and the skate shop). Places:
+#   - Foundry, Suburbia, Airport, Skater Island and the Cruise Ship name no real place: no star.
+#   - Canada: a logging camp and ski slope in the Canadian woods - put in British Columbia (inferred).
+#   - Rio: Rio de Janeiro; Los Angeles; Tokyo.
+#   - The THPS1 / THPS2 classics: the Warehouse (Woodland Hills, California - THPS1's), Burnside (under the Burnside
+#     Bridge, Portland, Oregon), Roswell (New Mexico).
+THPS3_LEVELS = {
+    "Foun": dict(text="FOUNDRY", icon="gear", place="a foundry (no place named)", location=None),
+    "Can": dict(text="CANADA", icon="pine", place="the Canadian woods - British Columbia (inferred)",
+                location=(-121.0, 50.5)),
+    "Rio": dict(text="RIO", icon="redeemer", place="Rio de Janeiro", location=(-43.17, -22.91)),
+    "Sub": dict(text="SUBURBIA", icon="house", place="an American suburb (no place named)", location=None),
+    "Ap": dict(text="AIRPORT", icon="texture:sign_airport", place="an airport (no place named)", location=None),
+    "SI": dict(text="SKATER ISLAND", icon="ramp", place="Skater Island (no place named)", location=None),
+    "LA": dict(text="LOS ANGELES", icon="texture:sign_la", place="Los Angeles", location=(-118.24, 34.05)),
+    "Tok": dict(text="TOKYO", icon="torii", place="Tokyo", location=(139.7, 35.7)),
+    "Shp": dict(text="CRUISE SHIP", icon="ship", place="a cruise ship at sea (no place)", location=None),
+    "Ware": dict(text="WAREHOUSE", icon="crate", place="Woodland Hills, California", location=(-118.61, 34.17)),
+    "Burn": dict(text="BURNSIDE", icon="bridge", place="Burnside skatepark, Portland, Oregon",
+                 location=(-122.66, 45.52)),
+    "Ros": dict(text="ROSWELL", icon="ufo", place="Roswell, New Mexico", location=(-104.52, 33.39)),
+    "Tut": dict(text="TUTORIALS", icon="cone", place="THPS3's tutorials (no place)", location=None),
+    "SkateShop": dict(text="SKATE SHOP", icon="skateboard", place="THPS3's skate shop (no place)", location=None),
+}
+
 # THUG1's levels (its conversion's manifest, <game>\thug2-decomp-thug1\levels.json, by folder): signs only - the
 # sign text comes from the manifest's display name, the place from its location text (PLACES). Classic levels
 # that THUG2 has signs for keep THUG2's.
@@ -196,7 +222,7 @@ THUG2_EXTRA = {
 }
 
 
-def sections(thps4=None, thug1=None):
+def sections(thps4=None, thug1=None, thps3=None):
     # [(id, title, array name, levels we add to it or list)] in Up / Down order: newest game first. THUG2's array is
     # the game's own; the others are new arrays of our levels.
     out = [("thug2", "TONY HAWK'S UNDERGROUND 2", "level_select_menu_level_info", None)]
@@ -206,6 +232,9 @@ def sections(thps4=None, thug1=None):
     if thps4:
         out.append(("thps4", "TONY HAWK'S PRO SKATER 4", "level_select_menu_thps4_level_info",
                     manifest_levels(thps4, THPS4_LEVELS, "THPS4")))
+    if thps3:
+        out.append(("thps3", "TONY HAWK'S PRO SKATER 3", "level_select_menu_thps3_level_info",
+                    manifest_levels(thps3, THPS3_LEVELS, "THPS3")))
     return out
 
 
