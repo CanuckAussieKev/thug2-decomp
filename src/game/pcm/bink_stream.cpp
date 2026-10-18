@@ -1,12 +1,16 @@
-// The PC's streams are Bink files (sound only), opened from memory: the cache of stream files read into memory,
-// and the Bink stream's constructor and open (its other methods, 0x00452D20 on, are with the platform's streams).
-
-#include <cstdint>
-#include <cstdio>
+// The PC's stream classes: a Bink file played for its sound (BinkStream), and the raw pcm.wad stream left from
+// the console versions (WadStream).
 
 #include "game/pcm/stream.h"
 
+#include <windows.h>
+
+#include <cstdint>
+#include <cstring>
+
 #include "game/core/dbg.h"
+#include "game/core/mem.h"
+#include "game/gfx/movie.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -14,142 +18,276 @@ namespace Pcm {
 
 namespace {
 
-// A stream file read into memory (12, at 0x0069CAD8): its key (-1: none), the data, the use count when it was last
-// asked for, and how many streams use it (only unused ones are reused).
-struct CachedStreamFile {
-    uint32_t key;
-    void* data;
-    uint32_t lastUse;
-    int users;
-};
-static_assert(sizeof(CachedStreamFile) == 16, "layout must match the original");
-CachedStreamFile* StreamFiles() { return reinterpret_cast<CachedStreamFile*>(0x0069CAD8); }
-constexpr int kStreamFiles = 12;
-bool& StreamFilesReady() { return GameVariable<bool>(0x0069CBA0); }
-uint32_t& StreamFileUses() { return GameVariable<uint32_t>(0x0069CB9C); }
-
-// The game's C runtime (its heap and files; until the runtime is linked).
-FILE* CrtFopen(const char* path, const char* mode) { return GameFunction<FILE*(__cdecl*)(const char*, const char*)>(0x006241E8)(path, mode); }
-int CrtFseek(FILE* file, long offset, int origin) { return GameFunction<int(__cdecl*)(FILE*, long, int)>(0x006240D2)(file, offset, origin); }
-size_t CrtFread(void* buffer, size_t size, size_t count, FILE* file)
-{
-    return GameFunction<size_t(__cdecl*)(void*, size_t, size_t, FILE*)>(0x00623F3E)(buffer, size, count, file);
-}
-int CrtFclose(FILE* file) { return GameFunction<int(__cdecl*)(FILE*)>(0x00623E04)(file); }
-void* CrtMalloc(size_t size) { return GameFunction<void*(__cdecl*)(size_t)>(0x00624031)(size); }
-void CrtFree(void* block) { GameFunction<void(__cdecl*)(void*)>(0x0062411B)(block); }
-
 // The Bink SDK (binkw32.dll), through the game's import table until it's linked.
 template <typename F>
 F Import(uintptr_t slot) { return GameVariable<F>(slot); }
+using Nx::Bink;
+Bink* BinkOpen(const void* name, uint32_t flags) { return Import<Bink*(__stdcall*)(const void*, uint32_t)>(0x006452E8)(name, flags); }
+void BinkDoFrame(Bink* bink) { Import<int(__stdcall*)(Bink*)>(0x006452EC)(bink); }
+void BinkSetPan(Bink* bink, uint32_t track, int pan) { Import<void(__stdcall*)(Bink*, uint32_t, int)>(0x006452F0)(bink, track, pan); }
+void BinkGoto(Bink* bink, uint32_t frame, int flags) { Import<void(__stdcall*)(Bink*, uint32_t, int)>(0x006452F4)(bink, frame, flags); }
+void BinkSetIOSize(uint32_t size) { Import<void(__stdcall*)(uint32_t)>(0x006452F8)(size); }
+void BinkSetVideoOnOff(Bink* bink, int on) { Import<int(__stdcall*)(Bink*, int)>(0x006452FC)(bink, on); }
+void* BinkOpenDirectSound() { return GameVariable<void*>(0x00645300); } // the function, passed to the next
 int BinkSetSoundSystem(void* open, void* param) { return Import<int(__stdcall*)(void*, void*)>(0x00645304)(open, param); }
-void* BinkOpenDirectSound() { return GameVariable<void*>(0x00645300); } // the function, passed to the above
-void* BinkOpen(const void* source, uint32_t flags) { return Import<void*(__stdcall*)(const void*, uint32_t)>(0x006452E8)(source, flags); }
-void BinkSetVideoOnOff(void* bink, int on) { Import<int(__stdcall*)(void*, int)>(0x006452FC)(bink, on); }
-constexpr uint32_t kBinkFromMemory = 0x04000000;
-constexpr long kInvalidArg = static_cast<long>(0x80070057); // E_INVALIDARG
-bool& BinkSoundSet() { return GameVariable<bool>(0x0069CB99); }
+void BinkSetVolume(Bink* bink, uint32_t track, int volume) { Import<void(__stdcall*)(Bink*, uint32_t, int)>(0x00645310)(bink, track, volume); }
+int BinkWait(Bink* bink) { return Import<int(__stdcall*)(Bink*)>(0x00645318)(bink); }
+void BinkClose(Bink* bink) { Import<void(__stdcall*)(Bink*)>(0x0064531C)(bink); }
+void BinkNextFrame(Bink* bink) { Import<void(__stdcall*)(Bink*)>(0x00645320)(bink); }
 
-// 0x004535E0: the next of the platform's 256 stream buffers (0x14 bytes each, at 0x0069CBB8) not in use (not
-// rewritten yet).
-void* NextStreamBuffer() { return GameFunction<void*(__cdecl*)()>(0x004535E0)(); }
+constexpr uint32_t kBinkIoSize = 0x01000000;     // BinkOpen: use the I/O buffer size set (BinkSetIOSize)
+constexpr uint32_t kBinkFileHandle = 0x04000000; // BinkOpen: the name is (the address of) an open file handle
+constexpr uint32_t kIoSize = 0x40000;
+constexpr Result kInvalidArgument = static_cast<Result>(0x80070057);
+
+bool& SoundSystemSet() { return GameVariable<bool>(0x0069CB99); } // also set by 0x00452C60
+uint32_t& IoSize() { return GameVariable<uint32_t>(0x0069CBA4); }
+bool PauseLocked() { return GameVariable<bool>(0x0069CB98); }
+bool Focused() { return GameVariable<bool>(0x007CCBE4); }
+void* SoundDevice() { return GameVariable<void*>(0x007D6A38); }
+
+// The pcm.wad entries open as Bink streams (16 bytes each, at 0x0069CADC; opened by 0x00452A90): the file,
+// when last let go of (the counter at 0x0069CB9C), and how many streams use it.
+struct WadFile {
+    Handle* file;
+    uint32_t lastUse;
+    uint32_t users;
+    uint32_t unknownC;
+};
+WadFile* WadFiles() { return reinterpret_cast<WadFile*>(0x0069CADC); }
+uint32_t UseCounter() { return GameVariable<uint32_t>(0x0069CB9C); }
+
+// The C runtime's _ftol (0x006236FC): truncation, the low 32 bits of the 64-bit result.
+int Ftol(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
+
+constexpr float kBinkVolumeScale = 327.68f; // 0-100 to Bink's 0-32768
+constexpr int kBinkMaxVolume = 0x8000;
+constexpr float kBinkPanScale = 65536.0f;   // Bink's pan: 0 left, 32768 centre, 65536 right
+
+// HRESULT_FROM_WIN32 (positive codes only).
+Result FromWin32(DWORD error) { return static_cast<Result>((error & 0xFFFF) | 0x80070000u); }
 
 } // namespace
 
-// 0x00452A90
-int __cdecl LoadStreamFile(uint32_t key, const char* path, long offset, size_t size)
-{
-    if (!StreamFilesReady()) {
-        for (int i = 0; i < kStreamFiles; ++i)
-            StreamFiles()[i] = {0xFFFFFFFFu, nullptr, 0, 0};
-        StreamFilesReady() = true;
-    }
-    uint32_t now = ++StreamFileUses();
-    int slot = -1;
-    bool foundFree = false;
-    uint32_t longest = 0;
-    for (int i = 0; i < kStreamFiles; ++i) {
-        CachedStreamFile& file = StreamFiles()[i];
-        if (file.key == key) {
-            file.lastUse = now;
-            ++file.users;
-            return i;
-        }
-        if (!file.data) { // (the last free slot wins)
-            foundFree = true;
-            slot = i;
-        } else if (!foundFree && file.users == 0 && now - file.lastUse > longest) {
-            longest = now - file.lastUse;
-            slot = i;
-        }
-    }
-    if (slot == -1)
-        return -1;
-    FILE* in = CrtFopen(path, reinterpret_cast<const char*>(0x00647344)); // "rb"
-    if (!in)
-        return -1;
-    CachedStreamFile& file = StreamFiles()[slot];
-    if (file.data)
-        CrtFree(file.data);
-    ++file.users;
-    file.data = nullptr;
-    file.lastUse = StreamFileUses();
-    CrtFseek(in, offset, SEEK_SET);
-    file.data = CrtMalloc(size);
-    CrtFread(file.data, size, 1, in);
-    file.key = key;
-    CrtFclose(in);
-    return slot;
-}
+// --- BinkStream --------------------------------------------------------------------------------------------
 
-// 0x00452C00
-BinkStreamView* BinkStreamView::Construct(bool unknown19, int unknown24)
+// 0x00452D20
+Result BinkStream::Open(const char* path)
 {
-    At<int>(0xC) = -1; // the stream file's slot
-    At<uint8_t>(0x10) = 0;
-    At<uint8_t>(0x11) = 0;
-    At<void*>(0x28) = nullptr; // the Bink
-    At<uint32_t>(0x1A8) = 0;
-    At<uint32_t>(0x2C) = 0;
-    At<uint32_t>(0x1AC) = 0;
-    At<int>(0) = -1;
-    At<uint32_t>(4) = 0;
-    At<bool>(0x19) = unknown19;
-    At<uint8_t>(0x6B) = 1;
-    At<int>(0x24) = unknown24;
-    At<uint32_t>(0x58) = 0;
-    At<uint8_t>(0x61) = 0;
-    At<uint8_t>(0x60) = 0;
-    At<void*>(8) = NextStreamBuffer();
-    return this;
-}
-
-// 0x00452C60
-long BinkStreamView::Open(uint32_t key, const char* path, long offset, size_t size)
-{
-    if (!BinkSoundSet()) {
-        if (!BinkSetSoundSystem(BinkOpenDirectSound(), GameVariable<void*>(0x007D6A38)))
+    if (!SoundSystemSet()) {
+        if (!BinkSetSoundSystem(BinkOpenDirectSound(), SoundDevice()))
             Dbg::Printf(reinterpret_cast<const char*>(0x006472D4)); // "Bink can't use DSound\n"
-        BinkSoundSet() = true;
+        SoundSystemSet() = true;
     }
-    int slot = LoadStreamFile(key, path, offset, size);
-    if (slot < 0)
-        return kInvalidArg;
-    void* data = StreamFiles()[slot].data;
-    void* bink = BinkOpen(data, kBinkFromMemory);
-    At<void*>(0x28) = bink;
-    if (!bink)
-        return kInvalidArg;
-    BinkSetVideoOnOff(bink, 0);
-    // (the file's first four bytes, "BIKi"; unaligned)
-    At<uint32_t>(0x89) = *static_cast<const uint32_t*>(StreamFiles()[slot].data);
-    At<int>(0xC) = slot;
-    At<uint8_t>(0x88) = 1;
+    if (IoSize() != kIoSize) {
+        BinkSetIOSize(kIoSize);
+        IoSize() = kIoSize;
+    }
+    m_bink = BinkOpen(path, kBinkIoSize);
+    if (!m_bink)
+        return kInvalidArgument;
+    BinkSetVideoOnOff(m_bink, 0);
+    std::memcpy(m_source, path, std::strlen(path) + 1); // (unbounded, as the original's strcpy)
+    m_fromHandle = false;
     return 0;
 }
 
+// 0x00452DC0
+void BinkStream::Pause(int pause)
+{
+    if (!PauseLocked())
+        m_pauseRequested = pause != 0;
+}
+
+// 0x00452DE0
+void BinkStream::SetVolume(float volume)
+{
+    m_volume = volume;
+    int level = 0;
+    if (volume > 0.0f)
+        level = Ftol(static_cast<double>(volume) * kBinkVolumeScale);
+    BinkSetVolume(m_bink, 0, level); // (even with no Bink open)
+    m_silent = level == 0;
+}
+
+// 0x00452FC0
+void BinkStream::SetVolumeAndPan(float left, float right)
+{
+    double sum = static_cast<double>(left) + right;
+    m_volume = static_cast<float>(sum * 0.5f);
+    float total = static_cast<float>(sum);
+    int level = 0;
+    int pan = 0;
+    if (right > 0.0f || left > 0.0f) {
+        float louder = left > right ? left : right;
+        pan = Ftol(static_cast<double>(right) / total * kBinkPanScale);
+        if (louder > 0.0f) {
+            level = Ftol(static_cast<double>(louder) * kBinkVolumeScale);
+            if (level > kBinkMaxVolume)
+                level = kBinkMaxVolume;
+        }
+    }
+    if (m_bink) {
+        BinkSetVolume(m_bink, 0, level);
+        BinkSetPan(m_bink, 0, pan);
+    }
+    m_silent = level == 0;
+}
+
+// 0x00452E30
+void BinkStream::Destruct()
+{
+    Bink* bink = m_bink;
+    m_bink = nullptr;
+    BinkClose(bink); // (even with none open)
+    if (m_file != INVALID_HANDLE_VALUE && !m_sharedFile)
+        CloseHandle(m_file);
+    if (m_wadEntry >= 0) {
+        WadFile& entry = WadFiles()[m_wadEntry];
+        entry.lastUse = UseCounter();
+        if (entry.users > 0)
+            --entry.users;
+    }
+    if (m_memory)
+        Mem::Free(m_memory);
+}
+
+// 0x00452EA0
+int BinkStream::Update()
+{
+    if (m_silent)
+        return 0;
+    if (m_pauseRequested != m_paused) {
+        if (!m_pauseRequested) {
+            if (!m_bink) {
+                // Reopen where it was paused.
+                m_bink = BinkOpen(m_source, m_fromHandle ? kBinkFileHandle : kBinkIoSize);
+                if (m_bink) {
+                    BinkSetVideoOnOff(m_bink, 0);
+                    BinkGoto(m_bink, m_resumeFrame, 1);
+                    SetVolume(m_volume);
+                }
+            }
+        } else if (m_bink) {
+            m_resumeFrame = m_bink->frameNum;
+            BinkClose(m_bink);
+            m_bink = nullptr;
+        }
+        m_paused = m_pauseRequested;
+    }
+    if (!m_bink)
+        return 0;
+    while (BinkWait(m_bink) == 0) {
+        if (!Focused())
+            break;
+        BinkDoFrame(m_bink);
+        BinkNextFrame(m_bink);
+        if (m_bink->frameNum == m_bink->frames) {
+            if (m_plays > 0)
+                --m_plays;
+            if (m_plays == 0)
+                m_finished = true;
+        }
+    }
+    return 0;
+}
+
+// --- WadStream ---------------------------------------------------------------------------------------------
+
+// 0x00454340
+WadStream* WadStream::Construct(bool unknown15)
+{
+    m_unknown90 = 0;
+    m_unknown20 = 0;
+    m_unknown24 = 0;
+    m_buffer = nullptr;
+    m_unknown04 = 0;
+    m_file = INVALID_HANDLE_VALUE;
+    m_unknown15 = unknown15;
+    m_unknown5F = true;
+    return this;
+}
+
+// 0x00454370
+Result WadStream::StartRead()
+{
+    m_reading = true;
+    m_readDone = false;
+    m_loaded = 0;
+    m_played = 0;
+    m_unknown10 = 0;
+    m_overlapped->Offset = m_fromWad ? m_offset : 0;
+    m_overlapped->OffsetHigh = 0;
+    if (ReadFile(m_file, m_buffer, 0x2000, nullptr, m_overlapped)) {
+        m_readDone = true;
+        return 0;
+    }
+    DWORD error = GetLastError();
+    if (error == ERROR_IO_PENDING)
+        return 0;
+    if (static_cast<int>(error) <= 0)
+        return static_cast<Result>(error);
+    return FromWin32(error);
+}
+
+// 0x00454450
+Result WadStream::OpenFromWad(Handle wad, uint32_t offset, uint32_t size, void* buffer)
+{
+    m_file = wad;
+    m_offset = offset;
+    m_unknown50 = 0;
+    m_fromWad = true;
+    m_size = size;
+    m_buffer = buffer;
+    return StartRead();
+}
+
+// 0x00454490
+Result WadStream::Open(Handle file, void* buffer)
+{
+    m_unknown50 = 0;
+    m_file = file;
+    if (file == INVALID_HANDLE_VALUE) {
+        // HRESULT_FROM_WIN32(GetLastError()), the macro calling it twice
+        if (static_cast<int>(GetLastError()) <= 0)
+            return static_cast<Result>(GetLastError());
+        return FromWin32(GetLastError());
+    }
+    m_buffer = buffer;
+    return StartRead();
+}
+
+// 0x004543F0
+bool WadStream::PreloadDone()
+{
+    if (m_state != 1)
+        return false;
+    if (m_readDone)
+        return true;
+    return m_loaded >= m_played + 0x2000;
+}
+
+// 0x00454430
+void WadStream::Pause(int pause)
+{
+    m_paused = static_cast<uint32_t>(pause) > 0;
+}
+
+// 0x00454440
+void WadStream::SetChannelVolumes(float, float, float, float, float) {}
+
 } // namespace Pcm
 
-REPLACE(0x00452A90, Pcm::LoadStreamFile);
-REPLACE(0x00452C00, &Pcm::BinkStreamView::Construct);
-REPLACE(0x00452C60, &Pcm::BinkStreamView::Open);
+REPLACE(0x00452D20, &Pcm::BinkStream::Open);
+REPLACE(0x00452DC0, &Pcm::BinkStream::Pause);
+REPLACE(0x00452DE0, &Pcm::BinkStream::SetVolume);
+REPLACE(0x00452FC0, &Pcm::BinkStream::SetVolumeAndPan);
+REPLACE(0x00452E30, &Pcm::BinkStream::Destruct);
+REPLACE(0x00452EA0, &Pcm::BinkStream::Update);
+REPLACE(0x00454340, &Pcm::WadStream::Construct);
+REPLACE(0x00454370, &Pcm::WadStream::StartRead);
+REPLACE(0x00454450, &Pcm::WadStream::OpenFromWad);
+REPLACE(0x00454490, &Pcm::WadStream::Open);
+REPLACE(0x004543F0, &Pcm::WadStream::PreloadDone);
+REPLACE(0x00454430, &Pcm::WadStream::Pause);
+REPLACE_SOURCE_ONLY(0x00454440, &Pcm::WadStream::SetChannelVolumes); // 3 bytes

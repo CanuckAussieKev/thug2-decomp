@@ -1,15 +1,14 @@
-// Streams: starting, preloading and pausing the streams on the three channels, their frame amplitudes.
+// The PC's streamed audio: the music's and the three streams' slots, the thread servicing them, pcm.wad's
+// index, pausing, freeing what finished, and the (absent) user soundtracks.
 
 #include "game/pcm/stream.h"
 
-#include <cmath>
+#include <windows.h>
+
 #include <cstdint>
 #include <cstring>
 
-#include "game/core/stubs.h"
-#include "game/pcm/music.h"
-#include "game/script/struct.h"
-#include "game/sys/timer.h"
+#include "game/core/mem.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -17,347 +16,371 @@ namespace Pcm {
 
 namespace {
 
-bool SoundOn() { return GameVariable<void*>(0x007D6A38) && GameVariable<int>(0x007CEFA8) != 2; }
-bool& StreamHeaderLoaded() { return GameVariable<bool>(0x0067D7E1); }
-bool StreamsOn() { return SoundOn() && StreamHeaderLoaded(); }
-bool& StreamsPaused() { return GameVariable<bool>(0x0069BAA9); }
-bool& StreamsPausedBefore() { return GameVariable<bool>(0x0069CAD1); }
-// Set: no new streams play (nothing in the game sets it).
-bool StreamsBlocked() { return GameVariable<bool>(0x0069BAAA); }
+// The lock the game thread and the stream thread take around the streams (a mutex made at start-up).
+HANDLE StreamLock() { return GameVariable<HANDLE>(0x006EE01C); }
+HANDLE& ThreadHandle() { return GameVariable<HANDLE>(0x006EE014); }
+bool& StopThread() { return GameVariable<bool>(0x006EE018); }
 
-Stream* Streams() { return reinterpret_cast<Stream*>(0x0069B938); }
-constexpr int kStreams = 3;
-// The stream components that started each stream (null: none); they note the stream's id at +0x18 + 4 * stream.
-void** Owners() { return reinterpret_cast<void**>(0x00698060); }
-uint32_t& OwnerId(void* owner, int stream) { return *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(owner) + 0x18 + 4 * stream); }
-// The stream PlayStream started last.
-int& LastStream() { return GameVariable<int>(0x0069BA94); }
+// pcm.wad (opened for streaming) and pcm.dat's index of it.
+HANDLE& WadFile() { return GameVariable<HANDLE>(0x0067D7FC); }
+WadEntry*& WadEntries() { return GameVariable<WadEntry*>(0x006EE00C); }
+uint32_t& WadEntryCount() { return GameVariable<uint32_t>(0x006EE010); }
 
-FrameAmp* FrameAmps() { return reinterpret_cast<FrameAmp*>(0x0069BAC8); }
-constexpr int kFrameAmps = 1;
+// The ring of OVERLAPPED blocks streams read with, and the next one to try.
+OVERLAPPED* Overlapped() { return reinterpret_cast<OVERLAPPED*>(0x0069CBB8); }
+constexpr int kNumOverlapped = 256;
+int& NextOverlapped() { return GameVariable<int>(0x006EE008); }
 
-// The platform's streams (not rewritten yet): whether a channel is free (0x00453270: 1), pause (0x004532C0:
-// streams 0), stop a channel (0x00453B30), preload (0x00454200) or play (0x00454080) a stream on one.
-int ChannelStatus(int channel) { return GameFunction<int(__cdecl*)(int)>(0x00453270)(channel); }
-void PlatformPause(bool pause, int music) { GameFunction<void(__cdecl*)(bool, int)>(0x004532C0)(pause, music); }
-void StopChannel(int channel) { GameFunction<void(__cdecl*)(int, int)>(0x00453B30)(channel, 1); }
-bool PreloadOnChannel(uint32_t checksum, int channel, int stopped)
-{
-    return GameFunction<bool(__cdecl*)(uint32_t, int, int)>(0x00454200)(checksum, channel, stopped);
-}
-bool PlayOnChannel(uint32_t checksum, int channel, const void* volume, float pitch, int stopped, int unknown, int option)
-{
-    return GameFunction<bool(__cdecl*)(uint32_t, int, const void*, float, int, int, int)>(0x00454080)(
-        checksum, channel, volume, pitch, stopped, unknown, option);
-}
-// 0x00450540 (FrameAmp's load, a method: data\fam\<checksum>.fam into the slot; not rewritten yet).
-bool LoadFrameAmp(FrameAmp* slot, uint32_t checksum)
-{
-    return GameFunction<bool(__thiscall*)(FrameAmp*, uint32_t)>(0x00450540)(slot, checksum);
-}
-// A script integer that's read and ignored: what used it is compiled out (debug output).
-void ReadDebugFlag() { Script::GetInteger(0xD7BB618Du); }
+// The user soundtracks (0x4C bytes each at 0x006EE024: the track count, then the name at +8).
+bool& SoundtracksCounted() { return GameVariable<bool>(0x006EFDD0); }
+int& SoundtrackCount() { return GameVariable<int>(0x006EFDD4); }
+uint8_t* Soundtrack(int index) { return reinterpret_cast<uint8_t*>(0x006EE024 + index * 0x4C); }
 
-// The sound effects manager (0x006F85A8) and its Sfx::sVolume (24 bytes: five channel volumes and their kind),
-// not rewritten yet: the constructor, SetSilent, the loudest channel, whether sound is off (the manager's
-// NoSoundPlease), and the volume of a sound at a position (SetVolumeFromPos). sVolume's destructor is empty.
-void* SoundManager() { return GameVariable<void*>(0x006F85A8); }
-// A sound's volume (Sfx::sVolume, 0x2C bytes: its constructor 0x0047B030 writes all of them - with 0x18 here the
-// run-time checks caught it overrunning the local; the first two words are the channels set below).
-struct Volume {
-    uint32_t words[11];
-};
-static_assert(sizeof(Volume) == 0x2C, "Sfx::sVolume is 0x2C bytes");
-void ConstructVolume(Volume* volume) { GameFunction<void(__thiscall*)(Volume*)>(0x0047B030)(volume); }
-void SetSilent(Volume* volume) { GameFunction<void(__thiscall*)(Volume*)>(0x0047AD60)(volume); }
-float LoudestChannel(Volume* volume) { return GameFunction<float(__thiscall*)(Volume*)>(0x0047B080)(volume); }
-inline void DestroyVolume(Volume*) {} // (0x005480A0)
-bool NoSoundPlease(void* manager) { return GameFunction<bool(__thiscall*)(void*)>(0x0047B340)(manager); }
-bool SetVolumeFromPos(void* manager, Volume* volume, const float* position, float dropoff, int dropoffFunction,
-                      void* emitter, const float* emitterDirection)
+constexpr uint32_t kPending = 0x8000000Au; // E_PENDING
+
+// 0x00452C00 / 0x00452C60 (not rewritten here): the BinkStream constructor, and its open of a pcm.wad entry.
+BinkStream* ConstructBinkStream(void* memory, bool unknown, int plays)
 {
-    return GameFunction<bool(__thiscall*)(void*, Volume*, const float*, float, int, void*, const float*)>(0x0047BE10)(
-        manager, volume, position, dropoff, dropoffFunction, emitter, emitterDirection);
+    return GameFunction<BinkStream*(__thiscall*)(void*, bool, int)>(0x00452C00)(memory, unknown, plays);
 }
-// The emitter nearest to a position (0x004A09E0; its distance through the second argument), and the stream
-// component's position for it and its emitter's direction (0x00433CD0 / 0x00433D30, methods; not rewritten yet).
-void* NearestEmitter(const float* position) { return GameFunction<void*(__cdecl*)(const float*, float*)>(0x004A09E0)(position, nullptr); }
-float* SoundPosition(void* component, float* out, void* emitter)
+Result OpenBinkFromWad(BinkStream* bink, uint32_t checksum, const char* path, uint32_t offset, uint32_t size)
 {
-    return GameFunction<float*(__thiscall*)(void*, float*, void*)>(0x00433CD0)(component, out, emitter);
-}
-bool EmitterDirection(void* component, void* emitter, float* out)
-{
-    return GameFunction<bool(__thiscall*)(void*, void*, float*)>(0x00433D30)(component, emitter, out);
+    return GameFunction<Result(__thiscall*)(BinkStream*, uint32_t, const char*, uint32_t, uint32_t)>(0x00452C60)(
+        bink, checksum, path, offset, size);
 }
 
-// A new stream's record: volume 100, dropoff 1020, one name (the stream's own).
-void SetUpStream(Stream& stream, uint32_t checksum, int option)
+// Whether the slot's stream uses this OVERLAPPED block.
+bool UsesOverlapped(const StreamSlot& slot, const OVERLAPPED* overlapped)
 {
-    stream.dropoff = 1020.0f;
-    stream.volume = 100.0f;
-    stream.unknown1C = 0;
-    stream.nameCount = 1;
-    stream.option = option;
-    stream.names[0].checksum = checksum;
+    if (slot.wad)
+        return slot.wad->m_overlapped == overlapped;
+    if (slot.bink)
+        return slot.bink->m_overlapped == overlapped;
+    return false;
+}
+
+// A stream that finished (and isn't pending) or was asked to stop and may go.
+template <typename Stream>
+bool Over(Stream* stream)
+{
+    if (stream->m_finished && stream->Status() != kPending)
+        return true;
+    return stream->m_stopRequested && stream->ReadyToFree();
+}
+bool Over(const StreamSlot& slot)
+{
+    if (slot.wad)
+        return Over(slot.wad);
+    if (slot.bink)
+        return Over(slot.bink);
+    return false;
+}
+
+bool PreloadDone(const StreamSlot& slot)
+{
+    if (slot.wad)
+        return slot.wad->PreloadDone();
+    if (slot.bink)
+        return slot.bink->PreloadDone();
+    return true;
 }
 
 } // namespace
 
-// 0x00451010
-void __cdecl PauseStream(int pause)
+StreamSlot* StreamSlots() { return reinterpret_cast<StreamSlot*>(0x006EDFB8); }
+StreamSlot& MusicSlot() { return GameVariable<StreamSlot>(0x006EDFF4); }
+
+// --- StreamSlot --------------------------------------------------------------------------------------------
+
+// 0x00453500
+void StreamSlot::Create(int type, bool unknown, int plays)
 {
-    if (!StreamsOn())
+    if (type == 0) {
+        void* memory = Mem::Calloc(sizeof(WadStream));
+        wad = memory ? static_cast<WadStream*>(memory)->Construct(unknown) : nullptr;
+    } else if (type == 1) {
+        void* memory = Mem::Calloc(sizeof(BinkStream));
+        bink = memory ? ConstructBinkStream(memory, unknown, plays) : nullptr;
+    }
+}
+
+// 0x00453090
+Result StreamSlot::Open(uint32_t checksum, const char* path, Handle wadFile, uint32_t offset, uint32_t size, void* buffer)
+{
+    if (wad)
+        return wad->OpenFromWad(wadFile, offset, size, buffer);
+    if (bink)
+        return OpenBinkFromWad(bink, checksum, path, offset, size);
+    return -1;
+}
+
+// 0x004530E0
+void StreamSlot::SetVolumeAndPan(float left, float right)
+{
+    if (wad)
+        wad->SetVolumeAndPan(left, right);
+    else if (bink)
+        bink->SetVolumeAndPan(left, right);
+}
+
+// 0x004538F0
+void StreamSlot::Free()
+{
+    if (WadStream* stream = wad) {
+        stream->Destruct();
+        Mem::Free(stream);
+        wad = nullptr;
+    }
+    if (BinkStream* stream = bink) {
+        stream->Destruct();
+        Mem::Free(stream);
+        bink = nullptr;
+    }
+}
+
+// --- The stream thread -------------------------------------------------------------------------------------
+
+namespace {
+
+void UpdateSlot(StreamSlot& slot)
+{
+    if (slot.wad)
+        slot.wad->Update();
+    else if (slot.bink)
+        slot.bink->Update();
+}
+
+} // namespace
+
+// 0x00453100
+unsigned long __stdcall StreamThread(void*)
+{
+    while (!StopThread()) {
+        if (WaitForSingleObject(StreamLock(), INFINITE) != WAIT_TIMEOUT) {
+            UpdateSlot(MusicSlot());
+            for (int i = 0; i < kNumStreams; ++i)
+                UpdateSlot(StreamSlots()[i]);
+            ReleaseMutex(StreamLock());
+        }
+        Sleep(5);
+    }
+    return 0;
+}
+
+// 0x004531A0
+void __cdecl StopStreamThread()
+{
+    if (HANDLE thread = ThreadHandle()) {
+        StopThread() = true;
+        WaitForSingleObject(thread, INFINITE);
+        ThreadHandle() = nullptr;
+    }
+}
+
+// 0x004535E0
+_OVERLAPPED* __cdecl NewOverlapped()
+{
+    for (;;) {
+        // (loops for ever if all 256 are in use)
+        OVERLAPPED* overlapped = &Overlapped()[NextOverlapped()];
+        int next = NextOverlapped() + 1;
+        NextOverlapped() = next >= kNumOverlapped ? 0 : next;
+        if (UsesOverlapped(MusicSlot(), overlapped))
+            continue;
+        bool used = false;
+        for (int i = 0; i < kNumStreams && !used; ++i)
+            used = UsesOverlapped(StreamSlots()[i], overlapped);
+        if (used)
+            continue;
+        std::memset(overlapped, 0, sizeof(*overlapped));
+        return overlapped;
+    }
+}
+
+// 0x00453670
+void __cdecl Init()
+{
+    std::memset(&MusicSlot(), 0, sizeof(StreamSlot));
+    std::memset(StreamSlots(), 0, kNumStreams * sizeof(StreamSlot));
+    UserSoundtrackCount();
+    WadFile() = CreateFileA("data\\streams\\pcm\\pcm.wad", GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING,
+                            FILE_FLAG_OVERLAPPED | FILE_FLAG_NO_BUFFERING, nullptr);
+    HANDLE index = CreateFileA("data\\streams\\pcm\\pcm.dat", GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING,
+                               FILE_FLAG_SEQUENTIAL_SCAN, nullptr);
+    if (index != INVALID_HANDLE_VALUE) {
+        DWORD read;
+        ReadFile(index, &WadEntryCount(), 4, &read, nullptr);
+        WadEntries() = static_cast<WadEntry*>(Mem::New(WadEntryCount() * sizeof(WadEntry)));
+        ReadFile(index, WadEntries(), WadEntryCount() * sizeof(WadEntry), &read, nullptr);
+        CloseHandle(index);
+    }
+    // Sorted by checksum for FindWadEntry (an exchange sort).
+    WadEntry* entries = WadEntries();
+    for (uint32_t i = 0; i < WadEntryCount(); ++i) {
+        for (uint32_t j = i + 1; j < WadEntryCount(); ++j) {
+            if (entries[i].checksum > entries[j].checksum) {
+                WadEntry swap = entries[i];
+                entries[i] = entries[j];
+                entries[j] = swap;
+            }
+        }
+    }
+    if (!ThreadHandle()) {
+        DWORD id = 0;
+        ThreadHandle() = CreateThread(nullptr, 0, StreamThread, nullptr, 0, &id);
+        SetThreadPriority(ThreadHandle(), THREAD_PRIORITY_ABOVE_NORMAL);
+    }
+}
+
+// --- pcm.wad's index ---------------------------------------------------------------------------------------
+
+// 0x004533A0
+int FindWadEntry(uint32_t checksum)
+{
+    int low = 0;
+    int high = static_cast<int>(WadEntryCount()) - 1;
+    while (low <= high) {
+        int middle = (low + high) / 2;
+        uint32_t found = WadEntries()[middle].checksum;
+        if (found < checksum)
+            low = middle + 1;
+        else if (found == checksum)
+            return middle;
+        else
+            high = middle - 1;
+    }
+    return -1;
+}
+
+// 0x004533A0: the checksum in EBX (ECX and EDX not kept).
+__declspec(naked) void FindWadEntryStub()
+{
+    __asm {
+        push ebx
+        call FindWadEntry
+        add esp, 4
+        ret
+    }
+}
+
+// 0x004533E0
+uint32_t __cdecl StreamExists(uint32_t checksum, int music)
+{
+    if (music)
+        return 0;
+    return FindWadEntry(checksum) != -1 ? checksum : 0;
+}
+
+// --- State -------------------------------------------------------------------------------------------------
+
+// 0x00453250
+int __cdecl MusicStatus()
+{
+    return MusicSlot().Playing() ? 2 : 1;
+}
+
+// 0x00453270
+int __cdecl StreamStatus(int slot)
+{
+    int first = slot == -1 ? 0 : slot;
+    int end = slot == -1 ? kNumStreams : slot + 1;
+    for (int i = first; i < end; ++i)
+        if (!StreamSlots()[i].Playing())
+            return 1;
+    return 2;
+}
+
+// 0x00453220
+bool __cdecl MusicPreloadDone()
+{
+    return PreloadDone(MusicSlot());
+}
+
+// 0x004531D0
+bool __cdecl StreamPreloadDone(int slot)
+{
+    return PreloadDone(StreamSlots()[slot]);
+}
+
+// 0x004532C0
+void __cdecl PauseStreams(bool pause, int which)
+{
+    if (which == 1) {
+        StreamSlot& music = MusicSlot();
+        music.paused = pause;
+        if (music.wad)
+            music.wad->Pause(pause ? 1 : 0);
+        else if (music.bink)
+            music.bink->Pause(pause ? 1 : 0);
         return;
-    if (pause == -1) {
-        if (StreamsPausedBefore())
-            return;
-        pause = 0;
     }
-    if (pause == 0) {
-        ReadDebugFlag();
-        StreamsPaused() = false;
-        PlatformPause(false, 0);
-    } else if (pause == 1) {
-        ReadDebugFlag();
-        StreamsPausedBefore() = StreamsPaused();
-        StreamsPaused() = true;
-        PlatformPause(true, 0);
+    for (int i = 0; i < kNumStreams; ++i) {
+        StreamSlot& slot = StreamSlots()[i];
+        if (!slot.Playing())
+            continue;
+        if (slot.wad)
+            slot.wad->Pause(pause ? 1 : 0);
+        else if (slot.bink)
+            slot.bink->Pause(pause ? 1 : 0);
+        slot.paused = pause;
     }
 }
 
-// 0x00451620
-bool __cdecl LoadStreamHeader(const char* name)
+// 0x00453940
+int __cdecl UpdateStreams()
 {
-    if (!StreamsOn())
-        return false;
-    StreamHeaderLoaded() = Stubs::ReturnTrue(); // (0x005B9760 with the name: the PS2's file check)
-    (void)name;
-    return StreamHeaderLoaded();
+    WaitForSingleObject(StreamLock(), INFINITE);
+    if (Over(MusicSlot()))
+        MusicSlot().Free();
+    for (int i = 0; i < kNumStreams; ++i)
+        if (Over(StreamSlots()[i]))
+            StreamSlots()[i].Free();
+    ReleaseMutex(StreamLock());
+    return 0;
 }
 
-// 0x00451660
-bool __cdecl IsStreamPlaying(uint32_t id) { return StreamsOn() && FindPlayingStream(id) >= 0; }
+// --- User soundtracks --------------------------------------------------------------------------------------
 
-// 0x004516A0
-FrameAmp* __cdecl LoadStreamFrameAmp(uint32_t checksum)
+// 0x004542D0
+int __cdecl UserSoundtrackCount()
 {
-    for (int i = 0; i < kFrameAmps; ++i)
-        if (FrameAmps()[i].checksum == 0)
-            return LoadFrameAmp(&FrameAmps()[i], checksum) ? &FrameAmps()[i] : nullptr;
-    return nullptr;
-}
-
-// 0x004516E0
-FrameAmp* __cdecl GetStreamFrameAmp(uint32_t checksum)
-{
-    for (int i = 0; i < kFrameAmps; ++i)
-        if (FrameAmps()[i].checksum == checksum)
-            return &FrameAmps()[i];
-    return nullptr;
-}
-
-// 0x00451720
-bool __cdecl FreeStreamFrameAmp(uint32_t checksum)
-{
-    FrameAmp* slot = GetStreamFrameAmp(checksum);
-    if (!slot || slot->checksum == 0)
-        return false;
-    slot->checksum = 0;
-    slot->size = 0;
-    return true;
-}
-
-// 0x00451770
-int __cdecl StartStream(uint32_t checksum, const void* volume, float pitch, int option, int priority, uint32_t name,
-                        bool preload)
-{
-    if (!StreamsOn())
-        return -1;
-    uint32_t oldest = Streams()[0].startFrame;
-    int lowest = Streams()[0].priority;
-    int channel = 0;
-    uint32_t id = FreeStreamId(name);
-    int free = -1;
-    for (int i = 0; i < kStreams; ++i) {
-        if (ChannelStatus(i) == 1) {
-            free = i;
-            break;
-        }
-        const Stream& stream = Streams()[i];
-        if (stream.priority < lowest || (stream.priority == lowest && stream.startFrame < oldest)) {
-            lowest = stream.priority;
-            oldest = stream.startFrame;
-            channel = i;
-        }
+    if (!SoundtracksCounted()) {
+        SoundtracksCounted() = true;
+        SoundtrackCount() = 0; // (none on PC)
     }
-    bool started;
-    if (free >= 0) {
-        channel = free;
-        started = preload ? PreloadOnChannel(checksum, channel, 0)
-                          : PlayOnChannel(checksum, channel, volume, pitch, 0, 0, option);
-    } else {
-        if (priority < lowest)
-            return -1;
-        StopChannel(channel);
-        started = preload ? PreloadOnChannel(checksum, channel, 1)
-                          : PlayOnChannel(checksum, channel, volume, pitch, 1, 0, option);
-    }
-    if (!started)
-        return -1;
-    ReadDebugFlag();
-    Stream& stream = Streams()[channel];
-    stream.name = name;
-    stream.id = id;
-    stream.channel = channel;
-    stream.priority = priority;
-    stream.startFrame = static_cast<uint32_t>(Tmr::GetRenderFrame()); // (the low half)
-    stream.listener = reinterpret_cast<uint32_t*>(GetStreamFrameAmp(checksum));
-    return channel;
+    return SoundtrackCount();
 }
 
-// 0x00451960
-uint32_t __cdecl PlayStream(uint32_t checksum, const void* volume, float pitch, int option, int priority, uint32_t id)
+// 0x00454300
+const wchar_t* __cdecl UserSoundtrackName(int index)
 {
-    if (!StreamsOn() || StreamsBlocked() || StreamsPaused())
-        return 0;
-    if (!id)
-        id = checksum;
-    StreamIdFinished(id); // (its answer unused)
-    int channel = StartStream(checksum, volume, pitch, option, priority, id, false);
-    if (channel == -1)
-        return 0;
-    Stream& stream = Streams()[channel];
-    SetUpStream(stream, checksum, option);
-    stream.names[0].frameAmp = GetStreamFrameAmp(checksum);
-    LastStream() = channel;
-    return stream.id;
+    return index < SoundtrackCount() ? reinterpret_cast<const wchar_t*>(Soundtrack(index) + 8) : nullptr;
 }
 
-// 0x00451A50
-uint32_t __cdecl PreLoadStream(uint32_t checksum, int priority)
+// 0x00454320
+int __cdecl UserSoundtrackTracks(int index)
 {
-    if (!StreamsOn())
-        return 0;
-    Volume volume;
-    ConstructVolume(&volume);
-    SetSilent(&volume);
-    uint32_t id = 0;
-    int channel = StartStream(checksum, &volume, 0.0f, 0, priority, checksum, true);
-    if (channel != -1) {
-        Stream& stream = Streams()[channel];
-        SetUpStream(stream, checksum, 0);
-        stream.names[0].frameAmp = GetStreamFrameAmp(checksum);
-        id = stream.id;
-    }
-    DestroyVolume(&volume);
-    return id;
-}
-
-// 0x00451B80
-bool __cdecl AddStream(uint32_t stream, uint32_t name, void* owner)
-{
-    if (!StreamsOn())
-        return false;
-    int found = -1;
-    if (owner) {
-        for (int i = 0; i < kStreams; ++i) {
-            if (Owners()[i] == owner && Streams()[i].name == stream && ChannelStatus(Streams()[i].channel) != 1) {
-                found = i;
-                break;
-            }
-        }
-        if (found < 0)
-            return false;
-    } else {
-        found = FindPlayingStream(stream);
-        if (found < 0)
-            return false;
-    }
-    Stream& playing = Streams()[found];
-    int n = playing.nameCount++;
-    playing.names[n].checksum = name;
-    playing.names[n].frameAmp = GetStreamFrameAmp(name);
-    return true;
-}
-
-// 0x00451E20
-uint32_t __cdecl PlayStreamFromObject(void* component, uint32_t checksum, float dropoff, float volume, float pitch,
-                                      int option, int priority, int usePosInfo, int dropoffFunction, uint32_t id)
-{
-    void* manager = SoundManager();
-    if (NoSoundPlease(manager) || !StreamsOn())
-        return 0;
-    Volume streamVolume;
-    ConstructVolume(&streamVolume);
-    SetSilent(&streamVolume);
-    if (usePosInfo) {
-        void* object = *reinterpret_cast<void**>(static_cast<uint8_t*>(component) + 0xC);
-        void* emitter = NearestEmitter(reinterpret_cast<const float*>(static_cast<uint8_t*>(object) + 0x4C));
-        bool audible = true;
-        if (emitter) {
-            float direction[4];
-            const float* towards = EmitterDirection(component, emitter, direction) ? direction : nullptr;
-            float position[4];
-            audible = SetVolumeFromPos(manager, &streamVolume, SoundPosition(component, position, emitter), dropoff,
-                                       dropoffFunction, emitter, towards);
-        } else {
-            SetSilent(&streamVolume);
-        }
-        if (std::fabs(LoudestChannel(&streamVolume)) < 2.0f) { // (NaN: on)
-            ReadDebugFlag();
-            if (!audible) {
-                DestroyVolume(&streamVolume);
-                return 0;
-            }
-        }
-    } else {
-        std::memcpy(&streamVolume.words[0], &volume, 4);
-        std::memcpy(&streamVolume.words[1], &volume, 4);
-    }
-    uint32_t playing = PlayStream(checksum, &streamVolume, pitch, option, priority, id);
-    if (playing) {
-        int last = LastStream();
-        if (Owners()[last]) {
-            OwnerId(Owners()[last], last) = 0;
-            Owners()[last] = nullptr;
-        }
-        Owners()[last] = component;
-        OwnerId(component, last) = playing;
-        if (volume != 100.0f) {
-            for (int i = 0; i < kStreams; ++i) {
-                if (Streams()[i].id == playing) {
-                    Streams()[i].dropoff = dropoff;
-                    Streams()[i].volume = static_cast<float>(static_cast<double>(Streams()[i].volume) * volume * 0.01f);
-                }
-            }
-        }
-        for (int i = 0; i < kStreams; ++i) {
-            if (Streams()[i].id != playing)
-                continue;
-            if (usePosInfo) {
-                Streams()[i].usePosInfo = 1;
-                Streams()[i].dropoffFunction = dropoffFunction;
-            } else {
-                Streams()[i].usePosInfo = 0;
-            }
-        }
-    }
-    DestroyVolume(&streamVolume);
-    return playing;
+    return index < SoundtrackCount() ? *reinterpret_cast<int*>(Soundtrack(index)) : 0;
 }
 
 } // namespace Pcm
 
-REPLACE(0x00451010, Pcm::PauseStream);
-REPLACE(0x00451620, Pcm::LoadStreamHeader);
-REPLACE(0x00451660, Pcm::IsStreamPlaying);
-REPLACE(0x004516A0, Pcm::LoadStreamFrameAmp);
-REPLACE(0x004516E0, Pcm::GetStreamFrameAmp);
-REPLACE(0x00451720, Pcm::FreeStreamFrameAmp);
-REPLACE(0x00451770, Pcm::StartStream);
-REPLACE(0x00451960, Pcm::PlayStream);
-REPLACE(0x00451A50, Pcm::PreLoadStream);
-REPLACE(0x00451B80, Pcm::AddStream);
-REPLACE(0x00451E20, Pcm::PlayStreamFromObject);
-REPLACE_SOURCE_ONLY(0x00451E7D, Pcm::PlayStreamFromObject); // (not a function: the rest of 0x00451E20's body)
+REPLACE(0x00453500, &Pcm::StreamSlot::Create);
+REPLACE(0x00453090, &Pcm::StreamSlot::Open);
+REPLACE(0x004530E0, &Pcm::StreamSlot::SetVolumeAndPan);
+REPLACE(0x004538F0, &Pcm::StreamSlot::Free);
+REPLACE(0x00453100, Pcm::StreamThread);
+REPLACE(0x004531A0, Pcm::StopStreamThread);
+REPLACE(0x004535E0, Pcm::NewOverlapped);
+REPLACE(0x00453670, Pcm::Init);
+REPLACE_UNCHECKED(0x004533A0, Pcm::FindWadEntryStub);
+REPLACE(0x004533E0, Pcm::StreamExists);
+REPLACE(0x00453250, Pcm::MusicStatus);
+REPLACE(0x00453270, Pcm::StreamStatus);
+REPLACE(0x00453220, Pcm::MusicPreloadDone);
+REPLACE(0x004531D0, Pcm::StreamPreloadDone);
+REPLACE(0x004532C0, Pcm::PauseStreams);
+REPLACE(0x00453940, Pcm::UpdateStreams);
+REPLACE(0x004542D0, Pcm::UserSoundtrackCount);
+REPLACE(0x00454300, Pcm::UserSoundtrackName);
+REPLACE(0x00454320, Pcm::UserSoundtrackTracks);

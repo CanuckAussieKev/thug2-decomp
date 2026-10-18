@@ -14,7 +14,7 @@
 #include "game/core/dbg.h"
 #include "game/core/stubs.h"
 #include "game/pcm/music.h"
-#include "game/pcm/stream.h"
+#include "game/pcm/stream_commands.h"
 #include "game/script/struct.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
