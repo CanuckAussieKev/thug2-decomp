@@ -67,7 +67,7 @@ def bounds(points):
     return lo, hi, center, radius
 
 
-def convert_scene(scene4, warnings):
+def convert_scene(scene4, warnings, is_sky=False):
     materials = [convert_material(m) for m in scene4["materials"]]
     by_checksum = {m["checksum"]: m for m in materials}
     sectors = []
@@ -105,7 +105,15 @@ def convert_scene(scene4, warnings):
                 data += struct.pack("<3f", *s["positions"][v])
                 if has_normals:
                     data += struct.pack("<3f", *s["normals"][v])
-                data += bytes(s["colors"][v]) if has_colors else b"\x80\x80\x80\x80"
+                if has_colors:
+                    b, g, r, a = s["colors"][v]
+                    if is_sky:
+                        # THPS4's skies are lit 255 (full); THUG2's shaders take 128 as full (x4 / x2 of
+                        # 0.5): halved, or the sky comes out twice as bright, washed out.
+                        b, g, r = b >> 1, g >> 1, r >> 1
+                    data += bytes((b, g, r, a))
+                else:
+                    data += b"\x80\x80\x80\x80"
                 if has_uvs:
                     uvs = s["uvs"][v]
                     for k in range(sets):

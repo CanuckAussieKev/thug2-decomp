@@ -89,7 +89,7 @@ def convert_geometry(folder, base, out_dir, out_name, report, keep_triggers=lamb
     warnings = []
     os.makedirs(out_dir, exist_ok=True)
     scene4 = thps4.read_scene(open(files["scn"], "rb").read(), files["scn"])
-    scene = convert.convert_scene(scene4, warnings)
+    scene = convert.convert_scene(scene4, warnings, is_sky=out_name.lower().endswith("_sky"))
     data = thug2_scene.write_scene(scene)
     thug2_scene.read_scene(data, out_name)  # (reads back)
     open(os.path.join(out_dir, out_name + ".scn.xbx"), "wb").write(data)
@@ -153,19 +153,26 @@ def cmd_convert(args):
         base = folder_name
         struct = structs.get(base.lower())
         name = "thps4_" + base.lower()
-        convert_geometry(folder, base, os.path.join(out, "levels", name), name, report)
 
-        # The node array.
+        # The node array (first: the collision keeps the trigger faces of the kill zones it keeps).
         files = level_files(folder, base)
         q = qb4.QbFile(open(files["qb"], "rb").read(), files["qb"])
         array = q.get("NodeArray")
         if not isinstance(array, list):
             raise FormatError("%s: no NodeArray" % files["qb"])
+        level_scripts = None
+        for path in glob.glob(os.path.join(folder, "*_scripts.qb")):
+            level_scripts = qb4.QbFile(open(path, "rb").read(), path)
+        kills = nodes.kill_scripts(q, level_scripts)
         names = dict(q.names)
-        converted, stats = nodes.convert_nodes(array, names)
-        text = nodes.node_array_ns(name + "_NodeArray", converted, names)
+        converted, stats = nodes.convert_nodes(array, names, kills)
+        triggers = nodes.kill_trigger_names(converted, kills)
+        text = nodes.node_array_ns(name + "_NodeArray", converted, names, kills)
+        os.makedirs(os.path.join(out, "levels", name), exist_ok=True)
         ns_compile(args.ns, text, os.path.join(out, "levels", name, name + ".qb"))
-        report.append("  nodes: %d of %d kept %s" % (len(converted), len(array), stats))
+        convert_geometry(folder, base, os.path.join(out, "levels", name), name, report,
+                         keep_triggers=lambda checksum: checksum in triggers)
+        report.append("  nodes: %d of %d kept %s; %d kill zones" % (len(converted), len(array), stats, len(triggers)))
 
         # The sky.
         sky = None

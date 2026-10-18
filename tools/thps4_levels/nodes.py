@@ -25,7 +25,28 @@ def type_of(node, names):
     return (names.get(value.value, "") if isinstance(value, Name) else "").lower()
 
 
-def convert_nodes(array, names):
+def kill_scripts(node_q, level_q):
+    # THPS4's trigger scripts that kill the skater (out of bounds, water): TriggerScript -> the THUG2 command that
+    # does the same (THUG2's global SK3_KillSkater / SK3_KillSkater_Water: back to a restart). A trigger script
+    # counts when it calls a script or command with "kill" in its name (ALC_KillWater, SK3_KillSkater,
+    # xxx_Kill_Plane...; not the Kill command, which removes objects, or KillSpawnedScript).
+    names = dict(level_q.names) if level_q else {}
+    names.update(node_q.names)
+    found = {}
+    for script in node_q.scripts:
+        for called, line in node_q.calls(script):
+            text = names.get(called, "").lower()
+            if "kill" not in text or text in ("kill", "killspawnedscript") or text.startswith("killspawned"):
+                continue
+            water = "water" in text or any(t == 0x16 and names.get(int.from_bytes(p, "little"), "").lower() == "water"
+                                           for t, p in line)
+            found[script] = "SK3_KillSkater_Water" if water else "SK3_KillSkater"
+            break
+    return found
+
+
+def convert_nodes(array, names, kills=None):
+    kills = kills or {}
     kept, index_map = [], {}
     for i, node in enumerate(array):
         if not isinstance(node, Struct):
@@ -47,6 +68,9 @@ def convert_nodes(array, names):
             if key is None:
                 if isinstance(value, Name) and value.value in _FLAGS:
                     entries.append((None, value))
+                continue
+            if key.value == checksum("TriggerScript") and isinstance(value, Name) and value.value in kills:
+                entries.append((key, value))
                 continue
             if key.value not in _KEYS:
                 continue
@@ -79,9 +103,23 @@ def convert_nodes(array, names):
     return out, stats
 
 
-def node_array_ns(array_name, nodes, names):
+def kill_trigger_names(nodes, kills):
+    # The checksums of the kept nodes whose TriggerScript is a kill script: their collision keeps its trigger faces.
+    found = set()
+    for node in nodes:
+        script, name = node.get("TriggerScript"), node.get("Name")
+        if isinstance(script, Name) and script.value in kills and isinstance(name, Name):
+            found.add(name.value)
+    return found
+
+
+def node_array_ns(array_name, nodes, names, kills=None):
     lines = ["%s = [" % array_name]
     for node in nodes:
         lines.append("    " + qb4.to_ns(node, names, 1))
     lines.append("]")
+    used = {node.get("TriggerScript").value for node in nodes if isinstance(node.get("TriggerScript"), Name)}
+    for script, command in sorted((kills or {}).items()):
+        if script in used:
+            lines.append("script %s {\n    %s\n}" % (qb4.name_text(script, names), command))
     return "\n".join(lines) + "\n"

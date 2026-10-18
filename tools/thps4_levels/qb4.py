@@ -133,8 +133,36 @@ class QbFile:
             if t == 0x2B:
                 value = struct.unpack_from("<I", payload, 0)[0]
                 self.names[value] = payload[4:-1].decode("latin-1")
+        # Scripts: name -> statements, each the list of its (token, payload) - not decoded further.
+        self.scripts = {}
+        i = 0
+        while i < len(toks):
+            if toks[i][1] == 0x23 and i + 1 < len(toks) and toks[i + 1][1] == 0x16:
+                name = struct.unpack("<I", toks[i + 1][2])[0]
+                statements, line = [], []
+                i += 2
+                while i < len(toks) and toks[i][1] != 0x24:
+                    if toks[i][1] in (0x01, 0x02):
+                        if line:
+                            statements.append(line)
+                        line = []
+                    else:
+                        line.append((toks[i][1], toks[i][2]))
+                    i += 1
+                if line:
+                    statements.append(line)
+                self.scripts[name] = statements
+            i += 1
         self._toks = [x for x in toks if x[1] not in (0x01, 0x02, 0x2B)]
         self._parse()
+
+    def calls(self, script):
+        # The names each statement of `script` starts with (the commands / scripts it calls), and the whole statement.
+        out = []
+        for line in self.scripts.get(script, []):
+            if line and line[0][0] == 0x16:
+                out.append((struct.unpack("<I", line[0][1])[0], line))
+        return out
 
     def _parse(self):
         toks = self._toks
