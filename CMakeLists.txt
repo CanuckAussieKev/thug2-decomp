@@ -78,6 +78,8 @@ add_library(thug2_code OBJECT
     src/hook/selftests_winmain.cpp
     src/hook/selftests_gapsB.cpp
     src/hook/selftests_mva.cpp
+    src/hook/selftests_mva2.cpp
+    src/hook/selftests_mva3.cpp
     src/hook/selftests_qb.cpp
     src/hook/selftests_gapsA.cpp
     src/hook/selftests_csD.cpp
@@ -139,6 +141,7 @@ add_library(thug2_code OBJECT
     src/game/gfx/device.cpp
     src/game/gfx/movie.cpp
     src/game/pcm/music.cpp
+    src/game/pcm/music_api.cpp
     src/game/gfx/loading_bar.cpp
     src/game/gfx/render.cpp
     src/game/gfx/sprite.cpp
@@ -207,6 +210,7 @@ add_library(thug2_code OBJECT
     src/game/sys/main.cpp
     src/game/sys/mlp.cpp
     src/game/sys/game_clock.cpp
+    src/game/sys/module.cpp
     src/game/sys/winmain.cpp
     src/game/mc/memcard.cpp
     src/game/mc/memcard_cfuncs.cpp

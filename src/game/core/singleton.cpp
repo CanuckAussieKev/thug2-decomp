@@ -16,7 +16,9 @@
 #include "game/script/cache.h"
 #include "game/script/node_manager.h"
 #include "game/sio/device.h"
+#include "game/sio/inpman.h"
 #include "game/sys/mlp.h"
+#include "game/sys/module.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -78,7 +80,12 @@ struct MlpManager {
 };
 
 // Named by their Create functions where there's no better name yet (Sys::Main makes them all).
-using MdlManager = GameSingleton<0x0044F6F0, 0x0044F740, 0x0064AFB8>;   // the module manager
+struct MdlManager {
+    using Type = Mdl::Manager;
+    static constexpr uint32_t kVtable = 0x0064AFB8;
+    static Type* Create(bool create) { return Mdl::CreateManager(create); }
+    static void Release() { Mdl::ReleaseManager(); }
+};
 using SoundManager = GameSingleton<0x0047BA60, 0x0047C6C0, 0x006472B4>; // the sound effects manager
 struct FrontEnd {
     using Type = Mdl::FrontEnd;
@@ -92,7 +99,12 @@ struct ObjectTracker {
     static Type* Create(bool create) { return Obj::CreateTracker(create); }
     static void Release() { Obj::ReleaseTracker(); }
 };
-using Singleton44E7F0 = GameSingleton<0x0044E7F0, 0x0044E6B0, 0x0064AFC0>;
+struct InputManager {
+    using Type = Inp::Manager;
+    static constexpr uint32_t kVtable = 0x0064AFC0;
+    static Type* Create(bool create) { return Inp::CreateManager(create); }
+    static void Release() { Inp::ReleaseManager(); }
+};
 using Singleton4088E0 = GameSingleton<0x004088E0, 0x00407980, 0x0064AFCC>;
 struct NetManager {
     using Type = Net::Manager;
@@ -142,8 +154,8 @@ REPLACE(0x004E19A0, &Spt::SingletonPtr<Spt::MdlManager>::DestroyBody);
 REPLACE(0x004E1B60, &Spt::SingletonPtr<Spt::MdlManager>::Destroy);
 REPLACE(0x004E19B0, &Spt::SingletonPtr<Spt::McManager>::DestroyBody);
 REPLACE(0x004E1B90, &Spt::SingletonPtr<Spt::McManager>::Destroy);
-REPLACE(0x004E19C0, &Spt::SingletonPtr<Spt::Singleton44E7F0>::DestroyBody);
-REPLACE(0x004E1BC0, &Spt::SingletonPtr<Spt::Singleton44E7F0>::Destroy);
+REPLACE(0x004E19C0, &Spt::SingletonPtr<Spt::InputManager>::DestroyBody);
+REPLACE(0x004E1BC0, &Spt::SingletonPtr<Spt::InputManager>::Destroy);
 REPLACE(0x004E19D0, &Spt::SingletonPtr<Spt::AsyncLoader>::DestroyBody);
 REPLACE(0x004E1BF0, &Spt::SingletonPtr<Spt::AsyncLoader>::Destroy);
 REPLACE(0x004E19E0, &Spt::SingletonPtr<Spt::ScriptCache>::DestroyBody);
