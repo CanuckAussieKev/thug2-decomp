@@ -69,3 +69,7 @@ Agent "thaw". How to run it: tools/thaw_levels/README.md.
   drawn, and 0x8000 is on most floors (2140 Mall faces). Reconverted and installed (all 15 levels: every face reachable in the installed files). NOT tested in the game yet.
 - (lead) The Mall's glass still stopped the skater (user, sticker-slappable): the entrance glass (Z_MA_Sk_JOW_Mall_Entrance04...) kept THAW's Type=Crate (its physics breakables) and THAW's face flags 0xF0. Breakables now lose Type, and their faces are written as THUG2's own (AP_Shatter_Roof: 0x1150). Also: dropped nodes (LOD copies, night sectors, LEFT_OUT) were removed after convert_nodes renumbered the Links - every later node's links one off (The Mall hung loading); now placeholders before converting; all 15 levels' rail links checked.
 - (lead) Breakables had no sound (user): the breakable script plays HitGlassPane2x (THAW's MA_BreakGlass does; THUG2 has the sound, loaded per level), loaded by the level's LoadTerrain in levels with breakables (the level-specific LoadingSounds script goes by the career prefix, shared by all ported levels).
+- Minneapolis crashed in the loading screen (0x0058977C ParseNodeArray TrickObject registration, checksum 0xFDF3290B):
+  LevelGeometry nodes marked TrickObject / with a Cluster whose sector the scene doesn't have. The THPS3 guard moved
+  to `level_port/nodes.strip_missing_trick_objects` and the THAW convert runs it after the scene is written: all 15
+  levels had some (2 to 89 nodes each). Installed; NOT confirmed in the game yet.
