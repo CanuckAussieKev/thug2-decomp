@@ -1,12 +1,15 @@
-# Level ports: the compromises so far
+# Level ports: state and compromises
 
-What the THPS3, THPS4, THUG1 and THAW level ports in THUG2 don't bring over exactly as the original, as of
-2026-10-18. This is the baseline before the "exact assets" work: the original game's own models, particles, sounds and
-animations, with THUG2's behaviour only where the original logic is engine code that can't run.
+What the THPS3, THPS4, THUG1 and THAW level ports in THUG2 bring over, what they don't bring over exactly as the
+original, and what an authentic copy still needs. State of main as of 2026-10-19 (all four "scripts, peds, vehicles"
+branches merged; all 56 levels installed in C:\Games\THUG2).
 
-**Sources:** docs/pending/thps3.md, thps3-scripts.md, thug1.md, thaw.md, pedscars.md, and the three agents' branches
-(not merged yet when this was written): thps4-scripts, thug1-scripts, thaw-scripts. The THPS4, THUG1 and THAW
-scripts / peds work has **not been run in the game yet**. THPS3's has: all 14 levels load.
+The goal ("exact assets"): the original game's own models, particles, sounds and animations, with THUG2's behaviour
+only where the original's logic is engine code that can't run.
+
+**Sources:** the converters (`tools/<game>_levels/`, shared `tools/level_port/`) and their records in docs/pending:
+thps3.md, thps3-scripts.md, thps4-scripts.md, thps4-lighting.md, pedscars.md, thug1.md, thug1-scripts.md, thaw.md,
+thaw-scripts.md.
 
 How to read the tables:
 - **Original**: the original's own data, converted.
@@ -14,115 +17,173 @@ How to read the tables:
 - **Static**: there, but doesn't move or react.
 - **Missing**: not brought over.
 
-## 1. Across all four games
+## 1. Status per game
+
+| | THPS3 | THPS4 | THUG1 | THAW |
+|---|---|---|---|---|
+| Levels | 14: Foundry, Canada, Rio, Suburbia, Airport, Skater Island, Los Angeles, Tokyo, Cruise Ship, Warehouse, Burnside, Roswell, Tutorials, Skate shop | 11: Alcatraz, Carnival, Chicago, Shipyard, Kona, London, San Francisco, College, Zoo, Skate shop, Motocross | 16: NJ, NY, FL, SD, HI, VC, SJ, RU, SE, SC, DJ, PH, VN, HN, SC2, NJ skate shop | 15: Chicago, The Mall, Minneapolis, Kyoto, Santa Cruz, The Ruins, Vans Park, Hollywood, Beverly Hills, Downtown, East LA, Santa Monica, Skate Ranch, Casino, Oil Rig |
+| Converter | `tools/thps3_levels` | `tools/thps4_levels` (+ `thps4_scripts.py`) | `tools/thug1_levels` (+ `thug1_port.py`) | `tools/thaw_levels` (+ `thaw_scripts.py`) |
+| Static-only switch | (none) | `--no-scripts` | `--static` | `--static` |
+| Every level loads in free skate | Yes | Yes | Yes | Yes |
+| Played by a person | Geometry, glass, grinds; scripts / peds not yet | Not yet (scripts, peds, vehicles) | Not yet | Glass; scripts / peds not yet |
+
+The agents' game runs only loaded each level and let it run (about 10-60 s each, nobody skating), so gaps, peds, cars
+and moving objects have mostly not been seen working. The "what to try" lists are in the pending records above.
+
+## 2. Across all four games
 
 | What | THPS3 | THPS4 | THUG1 | THAW |
 |---|---|---|---|---|
-| Level geometry, textures | Original | Original | Original | Original (online `_net` version, see 5) |
-| Collision, rails, restarts, kill zones | Original | Original | Original | Original |
-| Level scripts (gaps, triggers, moving things) | Original, translated | Original, translated | Original, translated | Original, translated |
-| Peds: who they are (model) | Stand-in (THUG2 people) | Stand-in (THUG2 people) | Original profile where THUG2 has it, else a random THUG2 one | Stand-in (THUG2 people, chosen by keyword) |
-| Peds: where they stand or walk | Original | Original | Original | Original (story and goal peds missing) |
-| Peds: how they move (AI, animations) | Stand-in (THUG2 ped AI) | Stand-in | THUG2's ped AI (THUG1's is its predecessor) | Stand-in |
-| Animals | Stand-in (THUG2 pigeons, seagulls, sharks); flying birds missing | Missing (Zoo's animals among them) | Kept as nodes where THUG2 has the model | Missing (pigeons) |
-| Traffic cars: model | Stand-in (a THUG2 car like it) | THUG2's car of the same name, else a sedan | Original (THUG2 ships most of THUG1's cars); others missing | THUG2's car of the same name, else a sedan |
-| Traffic cars: driving | THUG2's Car_Generic01 on the original roads | Same | Same | Same |
-| Other vehicles (trains, trams, boats, rides) | Original models | Original models; skinned ones body only (no wheels, guessed orientation) | Original where THUG2 has the model | Story vehicles missing |
-| Moving objects (fans, doors, presses) | Original models, moved by their scripts | Original | Original | Original |
-| Bouncy objects (cones, trash cans, boxes) | Static, no collision | (as level objects) | Original, with physics | Original, with physics; story-only props missing |
+| Level geometry, textures | Original | Original (vertex colours halved to THUG2's scale) | Original | Original, from the online (`_net`) version (see 6) |
+| Collision, rails, restarts, kill zones | Original | Original | Original | Original (3 face flags dropped) |
+| Level scripts (gaps, triggers, moving things) | Original, translated | Original, translated | Original, translated (node array nearly whole) | Original, translated |
+| Gap checks that test how you landed (TriggerType) | Missing: those lip gaps never score | Translated to THUG2's form | Missing: those conditions read false | Missing: those conditions read false |
+| Peds: model | Stand-in (THUG2 people) | Stand-in (THUG2 people) | Original profile where THUG2 has it, else a random THUG2 one | Stand-in (THUG2 people, chosen by keyword) |
+| Peds: where they stand or walk | Original | Original (walkers only; others stand) | Original | Original; ambient "life node" spots get standing peds (max 24) |
+| Peds: AI and animations | Stand-in (THUG2 ped AI) | Stand-in | THUG2's ped AI (THUG1's is its predecessor); THUG1-only animations dropped | Stand-in |
+| Story and goal peds | Missing | Missing | Missing | Missing |
+| Crowds | Stand-in (THUG2 standing peds) | n/a | Missing (SJ's MonsterPed crowd) | n/a |
+| Animals | Stand-in (THUG2 pigeons, seagulls, sharks); flying birds missing | Missing (Zoo's among them) | Missing (dogs, sharks crash THUG2's ped AI) | Missing (pigeons) |
+| Traffic cars: model | Stand-in (THUG2 look-alike) | THUG2's car of the same name, else a sedan | Original (THUG2 ships most of THUG1's cars) | THUG2's car of the same name, else a sedan |
+| Traffic cars: driving | THUG2's Car_Generic01 on the original roads | Same (only the skate shop and Chicago have any; College none) | Same | Same |
+| Other vehicles (trains, trams, boats, rides) | Original models | Original models; skinned ones body only (no wheels, orientation guessed) | Original where THUG2 has the model and skeleton | Story vehicles missing |
+| Moving objects (fans, doors, presses) | Original models, moved by their scripts | Original | Original | Original (now drawn at their nodes, not the origin) |
+| Bouncy objects (cones, trash cans, boxes) | Static, no collision | Static (as level objects) | Original, with physics | Original, with physics; story-only props missing |
 | Collision on moving objects and vehicles | Missing (skater passes through) | Where the original had collision | Original | Where the original had collision |
-| Particles (smoke, steam, sparks, fire) | Missing | Missing (emitters left out) | Original where THUG2 has the texture | Converted; textures THUG2's same-named or a stand-in |
-| Proximity areas (things that appear or switch near you) | Original | Missing: their scripts run once at the start | Original | Missing |
-| Sound effects | Missing | Missing | Mostly original (THUG2 ships THUG1's level sounds; 29 missing) | Missing (glass uses THUG2's own breaking sound) |
+| Ride cars locked to a head (Obj_LockToObject) | n/a | Missing: they stay put | Missing | n/a |
+| Proximity areas (things that appear or switch near you) | Original (watched by generated ghost objects) | Missing: their scripts run once at the start | Original (THUG2 node) | Missing |
+| Ladders and ledges (hang, climb) | n/a | n/a | Original | Missing (ClimbingNode) |
+| Skitching | n/a | n/a | Original (THUG2's cars) | Missing |
+| Particles (smoke, steam, sparks, fire) | Missing | Missing (emitters left out) | Original where THUG2 has the texture | Converted (those there at the start); THUG2 texture of the same name or a stand-in |
+| Sound effects | Missing | Missing | Mostly original (THUG2 ships THUG1's level sounds; 29 missing) | Missing (glass uses THUG2's breaking sound) |
+| Ambient sound emitters | Missing | Missing | Original | Missing (Casino's EmitterObjects) |
 | Music, ambient streams | Missing (THUG2's soundtrack plays) | Missing | Missing | Missing |
 | Goals, career, pickups (letters, tapes, stat points) | Missing | Missing | Missing | Missing |
 | Cutscenes, panels, skater-state scripts | Missing | Missing | Missing | Missing |
+| Object variables (Obj_Var*) | Missing | Missing | (THUG2 has them) | (THUG2 has them) |
 | Lighting | Original (THPS3's lights) | Original | Original; LevelLights missing | Stand-in (THUG2's default; THAW's time of day not converted) |
 | Sky | Original | Original | Original | Stand-in (one shared sky for every level) |
 
-## 2. THPS3
+## 3. Workarounds for THUG2 crashes (each one costs something)
+
+Each of these was found in a game run and is fixed in the data we write, not in the engine. The decomp may let some go
+back: the crash is in THUG2's code, which we are rewriting.
+
+| Crash | Where in THUG2 | What the converters do now | Cost |
+|---|---|---|---|
+| A TrickObject / Cluster on geometry with no drawn sector | ParseNodeArray | Strip the marking (all games) | 2-89 nodes per THAW level aren't trick objects |
+| Visible / Kill / Shatter of collision-only geometry | CFunc_Visible 0x5A5050 | Leave the statement out, or expand `prefix=` to drawn nodes only | 1-74 statements per THAW level; a few in THPS3 |
+| THUG2's Car_Generic01 on a LevelObject | its member calls on missing components | Traffic made a real THUG2 Vehicle | THPS3 cars are THUG2 look-alikes |
+| TriggerType with a bare name | 0x004349B2 | THPS4: made THUG2's array form; others: left out (false) | THPS3 / THUG1 / THAW landing-test gaps |
+| IsAlive / other commands naming a missing node | CFunc_IsAlive | Parameters naming nodes the level lacks are checked | Statements left out |
+| Too many script components | THUG2's script component pool | THUG1's shared node parts made global structures again | None (NJ 58k -> 40k) |
+| An animation the ped's set hasn't | 0x00482BA0 | All object animation commands left out; animal peds left out | THUG1 anims, animals |
+| A skeleton THUG2 doesn't load | 0x004A3D30 | Vehicles needing `car_6` left out | HI's bus, VC's 6 trucks |
+| GetFlag of a THUG1 flag number | 0x005844C0 | Flag commands left out | THUG1 story flags |
+| An endless loop that lost its waits | hang | `Wait 1 frame` added to such loops | One frame per loop |
+| A gap script that isn't defined (gap scan) | ForEachScriptCall 0x0045C950 | Empty scripts defined for the kept models' gap scripts | Car-hop gaps of THUG1 models do nothing |
+| A shader pass blending on an unwritten register | THUG2's ps.1.1 builder 0x004DD2C0 | A third pass blending like the second is dropped | One Santa Monica material |
+| Particle boxes not there at the start | LoadQBData, Kyoto (cause unknown) | Left out | JA 9, SZ 1, SV 1, BH 14 boxes |
+| Peds / cars added to THPS4 College | CNodeManager::HashNodes (cause unknown) | College has no THUG2 walkers or cars | College traffic |
+
+## 4. THPS3
 
 **Rendering**
 - Vertex colour wibbles (animated vertex colours) not converted.
-- The env-mapped passes (uv flag 0x80) and the 23 materials' second passes not converted.
+- The env-mapped passes (uv flag 0x80) and 23 materials' second passes not converted.
 - Reflection overlays (PS2 blend 0x8) drawn as additive: an approximation that fixed Foundry's black halfpipe.
-- Warehouse: the dark set (SkWare_Dark_*) dropped. THPS3 flickers between the lit and dark sets; we keep the lit one
-  always.
+- Warehouse: the dark set (SkWare_Dark_*) dropped. THPS3 flickers between the lit and dark sets; we keep the lit one.
 
-**Scripts**: statements left out (counts across all levels):
-- SetParticleSysVisibility: 743 (no particles to show).
-- Sound and music commands.
+**Scripts** (THPS3's own, translated; a called script gets its caller's parameters as in THPS3). Statements left out,
+counts across all levels:
+- SetParticleSysVisibility: 743 (no particles).
+- Sound and music commands (LoadSound, PlayStream, Obj_PlaySound...).
 - BouncyObj_Go: 191 (no bounce physics).
-- TriggerType lip checks: 112. Those lip gaps never score in Roswell, Cruise Ship and Skater Island.
+- TriggerType lip checks: 112. Those lip gaps never score (Roswell, Cruise Ship, Skater Island).
 - DuplicateTrigger: 71.
 - Object variables (Obj_VarSet / VarEQ / VarInc).
-- Clump animations and scaling (Obj_PlayAnim, Obj_ApplyScaling).
-- Obj_SetGroundOffset.
-- Skater state, cutscenes and panels.
-- The tutorials' lessons.
+- Clump animations and scaling (Obj_PlayAnim, Obj_ApplyScaling), Obj_SetGroundOffset.
+- Skater state and cutscenes (MakeSkaterGoto, SpawnSkaterScript, PlaySkaterCamAnim), panels.
+- The tutorials' lessons and goals.
 
 **Life**
-- Peds and crowds are THUG2 people. Women now use THUG2's female setup.
-- Resting birds become THUG2 pigeons and seagulls; flying birds are missing (Canada 55, Suburbia 8, Skater Island 23).
-- Sharks become THUG2's.
-- Traffic uses THUG2 look-alike cars. Spare cars made by THPS3's car scripts are missing (Burnside 44, LA 1).
+- Peds and crowds are THUG2 people on THPS3's places and paths. Women use THUG2's female setup.
+- Resting birds are THUG2 pigeons / seagulls (fly up within 15 ft); flying birds missing (Canada 55, Suburbia 8,
+  Skater Island 23). Sharks are THUG2's.
+- Traffic: THUG2 look-alike cars (police -> veh_cop, vans / buses -> veh_van...). THPS3's spare cars, made by its car
+  scripts, missing (Burnside 44, LA 1).
+- Other vehicles (bullet trains, planes, boats, snowmobiles, karts) use their THPS3 models.
 - Skinned game objects missing (Suburbia 2, LA 1).
 
-## 3. THPS4
+## 5. THPS4
+
+**Rendering**: vertex colours halved (THPS4's PC files are 255 = full, THUG2's 128). Without it every level drew twice
+as bright.
 
 **Scripts**: statements left out:
 - Sounds and streams.
 - Goal manager, panels, screen elements, flags.
 - MakeSkaterGoto, Printf.
-- Obj_Var* (object variables; THUG2 has tags instead).
+- Obj_Var* (object variables).
 - DuplicateTrigger, setup_ped_speech.
 - Obj_LockToObject: Carnival's coaster and train cars stay put while the head moves.
 
 **Vehicles**
-- Skinned vehicle models (cars and trams with a skeleton) keep only the body. The wheels are missing because the bones
-  aren't converted, and the orientation is a guess.
+- Traffic cars (Car_Generic01): THUG2's cars. Only the skate shop (2) and Chicago (2) have any.
+- Other vehicles keep their THPS4 model. Skinned ones (with a skeleton) keep only the body: wheels missing (bones not
+  converted), orientation a guess.
 - 8 vehicles have no model found (Carnival 4, London 4).
 
 **Peds**
-- Walkers use THUG2's ped AI on their THPS4 paths. Other peds stand.
-- The skate shop's pros: the ones THUG2 has skate the halfpipe with THUG2's ped AI. Bam Margera is left out (his vert
-  loop looked broken). The places of the pros THUG2 lacks get random skateboarders standing.
+- Walkers use THUG2's ped AI on their THPS4 paths. Other peds stand, with a THUG2 profile chosen from the THPS4 type
+  (pros, guards, workers, women...).
+- Skate shop pros: the ones THUG2 has (Burnquist, Koston, Mullen, Hawk) skate the halfpipe with THUG2's ped AI.
+  Bam Margera is left out (his vert loop looked broken). The places of pros THUG2 lacks get random skateboarders
+  standing.
+- Goal peds and objects never created in free skate: left out (22-143 per level).
 
 **Also missing**
 - Animals.
 - Proximity nodes: their scripts run once at the start, so anything they switch stays as it starts.
 - Particle emitters.
-- Goal objects (money, letters, icons, tapes).
+- Goal objects (money, letters, icons, tapes, combo letters).
 
-## 4. THUG1
+## 6. THUG1
 
-THUG1 is THUG2's predecessor, so its nodes are kept nearly whole and checked against what THUG2 has.
+THUG1 is THUG2's predecessor: its node arrays use THUG2's classes, so they're kept nearly whole and checked against
+what THUG2 has. Peds, cars, bouncy objects, emitters, proximity nodes, ladders, ledges and particles are THUG1's own
+nodes, run by THUG2's code.
 
 **Left out**
 - LevelLights, goal nodes, CAS submesh nodes.
 - Skinned sectors, plus two skinned level objects (NJ 1, SE 1).
 - Vehicles and game objects whose model THUG2 lacks: NJ 22, FL 64 (goal pickups and THUG1's own flags), RU 35 + 4
-  vehicles, VC 2 vehicles.
+  vehicles, VC 2 vehicles. Vehicles needing the `car_6` skeleton (HI's bus, VC's 6 trucks).
+- Particle objects whose texture THUG2 lacks.
+- Animal peds (dogs, sharks, SJ's MonsterPed crowd).
 
 **Peds**
 - Where THUG2 lacks a ped's THUG1 profile, a random THUG2 one is used: NJ 80, NY 51, FL 43, SD 49, HI 34, VC 22,
   SJ 91, RU 74, SE 8, VN 5, HN 1, SC2 5.
-- THUG1's own animation lists (drunk, bum and others) are dropped; THUG2's defaults play instead.
+- All object animation commands and THUG1's own animation lists (drunk, bum, drug dealer...) are dropped; THUG2's
+  defaults play.
 
 **Scripts**
-- TriggerType (43, THUG1's gap landing test): those gap conditions read false.
-- Also left out: Obj_LockToObject, Obj_ObjectInRadius, Obj_AdjustSound, light members, goal manager, cutscene cameras.
-- 29 LoadSound calls of sounds THUG2 lacks.
-- Music and voice streams.
+- TriggerType (THUG1's gap landing test): those conditions read false.
+- Goal manager calls (and conditions on them: false), panels, printf, cutscene cameras, MakeSkaterGoto / KillSkater.
+- THUG1 level / career flags (GetFlag, SetFlag...).
+- Obj_LockToObject, Obj_ObjectInRadius, Obj_AdjustSound, light members.
+- 29 LoadSound calls of sounds THUG2 lacks. Music and voice streams.
+- Classic levels: DuplicateTrigger gap sectors get the trigger script of the node they link to (as THUG1).
 
-## 5. THAW
+## 7. THAW
 
 **Which version of each level**
-- The converter reads each level's online (`_net`) archive, not the story one. Story-only pieces aren't there.
-- 12-15 props per level exist only in the story version (shop shelves, parking meters, planters, roof edges).
-- Story-only bouncy props: Chicago 79, Santa Cruz 40, Vans Park 78, Santa Monica 82.
-- Story peds, goal peds and story vehicles.
-- Nodes the story creates from its own flags stay absent.
+- The converter reads each level's online (`_net`) archive, not the story one. Story-only pieces aren't there:
+  - 12-15 props per level (shop shelves, parking meters, planters, roof edges);
+  - bouncy props: Chicago 79, Santa Cruz 40, Vans Park 78, Santa Monica 82;
+  - story peds, goal peds and story vehicles;
+  - nodes the story creates from its own flags.
 
 **Moved**
 - Levels whose collision reaches beyond 20,000 units are moved to the origin: The Mall, Kyoto, Santa Cruz, Beverly
@@ -136,51 +197,76 @@ THUG1 is THUG2's predecessor, so its nodes are kept nearly whole and checked aga
 - Pass features THUG2 lacks are dropped: texture animation (0x800), 0x80, 0x80000.
 - Blend modes above 13 become plain blend.
 - Guesses in the material reader: double-sided, z bias, uv wibble (12 floats down to 8).
-- Santa Monica: one material's third pass dropped. It crashed THUG2's shader builder.
+- Santa Monica: one material's third pass dropped (section 3).
 
 **Collision and nodes**
 - Collision face bits 0x2000, 0x4000 and 0x8000 dropped.
-- Collision-only geometry loses its TrickObject / Cluster marking (2-89 nodes per level). Scripts may not name it;
-  1-74 statements per level are left out for that.
+- Collision-only geometry loses its TrickObject / Cluster marking, and statements naming it are left out (section 3).
 - The Mall: an invisible story blocker across the entrance doors removed (Z_MA_Mall_First_Rail_Blocker).
 - How THAW closes the open ends of the LA areas in online mode: not checked.
 
+**Scripts** (THAW's own; its token stream is THUG2's plus an inline structure token). Left out:
+- RailAccelerate (THAW's rail speed-ups).
+- TriggerType / IsCreated conditions (false).
+- `object:member` calls.
+- Goal commands, screen elements and panels, flags, slow motion, IGC cameras.
+- Renamed to THUG2's: SpawnScriptLater/Now -> SpawnScript, ShatterFromSkater -> Shatter.
+
 **Glass and gameplay**
 - Breakable glass and fences run a generated THUG2 script: THUG2's glass sound and shatter. Only for glass that has
-  visible geometry in the online version.
-- Scripts left out: RailAccelerate (THAW's rail speed-ups), Triggertype / IsCreated conditions, object member calls,
-  goal commands.
-- Skitching missing. Ladders (ClimbingNode) missing. Casino's EmitterObjects missing.
+  visible geometry in the online version (0-98 per level).
+- Skitching, ladders (ClimbingNode) and Casino's EmitterObjects missing.
 
 **Life**
-- Peds are THUG2 people picked by words in THAW's profile (female, skater, guard...).
-- THAW's ambient "life node" spots get a standing ped each, at most 24 per level.
+- Peds are THUG2 people picked by words in THAW's profile (female, skater, guard...), walking THAW's waypoints or
+  standing. Only those there in free skate (CreatedAtStart / permanent).
+- THAW's "life node" spots get a standing ped each, at most 24 per level.
 - Animals missing.
-- Cars use THUG2's car of the same name, else a sedan.
+- Cars: THUG2's car of the same name, else a sedan; those whose script drives follow THAW's paths, the others parked.
 - Game objects with THAW models (chairs, tables, barricades, goal letters) missing.
-- Particle boxes are converted, with THUG2's particle texture of the same name or a stand-in (THAW's own textures not
-  converted).
+- Particle boxes there at the start are converted, with THUG2's particle texture of the same name or a stand-in.
 - THAW's own sounds are silent.
 
-## 6. The exact-assets work, by size
+## 8. What an authentic copy needs
 
-1. **Particles: THAW's own textures, and THPS3's and THPS4's systems.** The textures are a format conversion we
-   already do for levels. THPS3's and THPS4's particle definitions need a reader each.
-2. **Sounds: THPS3, THPS4, THAW, and THUG1's 29.** One sound converter into THUG2's format, installed in the data
-   overlay. Per-level ambient streams come with it.
-3. **Cars: the original models in THUG2's car setup.** First check whether each game's car models already have
-   separate wheels. If so it's renaming parts; if not, splitting off the wheel geometry by position. The same work
-   fixes THPS4's wheel-less skinned vehicles.
-4. **Peds and animals: original models with their own skeletons and animations.** One skeleton and animation
-   converter per game (THPS3, THPS4, THAW; THUG1's may already match THUG2's). THUG2's ped AI then plays the original
-   animations through a name map. This is the biggest job.
+### Where the originals' assets are
+
+Formats marked "not identified" haven't been looked into yet.
+
+| | THPS3 (`C:\Games\THPS3`) | THPS4 (`C:\Games\THPS4`) | THUG1 (`C:\Games\THUG1`) | THAW (`C:\Games\THAW`) |
+|---|---|---|---|---|
+| Engine family | RenderWare 3.1 + Neversoft plugins | Neversoft's own (THUG2's ancestor) | THUG2's direct predecessor | Later engine (GH3 family) |
+| Models | `Data\Models` (.dff; 339 .skn skins); ped folders Pedestrian_A-D, Pedfem_A-F, PedPro_* | `Game\data\models` (.dat: mdl / tex / col) | `Game\Data\models` (.mdl, .skin, .tex, .col) | `Game\data\models`, inside .pak.wpc archives |
+| Skeletons, animations | `Data\Anims` (958 .ska; pedestrian_a, Pedfem_a) | `Game\data\skeletons` (34 .ske), `Game\data\anims` | in the .pre archives (format close to THUG2's) | `Game\data\anims`, in archives |
+| Sounds | `Data\Sounds` (495 .wav) | `Game\data\sounds` (506 .wav) | `Game\Data\sounds` (720 .snd); THUG2 already ships most | `Game\data\sounds`, likely the two .wad files (490 MB, not identified) |
+| Music, ambient streams | `Data\Streams`, `Data\music` (.mp3, .mus) | `Game\data\streams`, `Game\data\Music` | `Game\Data\streams` | `Game\data\streams` |
+| Particle definitions | in level scripts / data (reader needed) | script-driven emitters (reader needed) | THUG2's node format already | particle boxes (converted); textures in archives |
+
+### The work, in order
+
+1. **Particles.** THAW's own particle textures (a format conversion we already do for levels). Readers for THPS3's
+   and THPS4's particle systems. THUG1 only needs the textures THUG2 lacks.
+2. **Sounds.** One sound converter into THUG2's format, installed in the data overlay: THPS3, THPS4, THAW, and THUG1's
+   29. This brings back LoadSound / PlaySound statements now left out, THAW's glass sound and the ambient emitters.
+   Per-level ambient streams come with it.
+3. **Cars.** The original models in THUG2's car setup. First check whether each game's car models have separate
+   wheels. If so it's renaming parts; if not, splitting off the wheel geometry by position. The same work fixes
+   THPS4's wheel-less skinned vehicles and THUG1's `car_6` vehicles (ship that skeleton in the overlay).
+4. **Peds and animals.** The original models with their own skeletons and animations: one skeleton and animation
+   converter per game (THPS3, THPS4, THAW; THUG1's are probably close to THUG2's). THUG2's ped AI then plays the
+   original animations through a name map. This brings back THUG1's animation lists, crowds, animals and flying
+   birds. The biggest job.
 5. **Gameplay gaps.**
-   - Collision on THPS3's moving objects and its bouncy physics.
-   - The TriggerType gap checks (THPS3, THUG1, THAW): THUG2 takes a different array format, which can be translated.
-   - THPS4's and THAW's proximity areas.
-   - THPS4's linked ride cars (Obj_LockToObject).
-   - THAW's ladders and skitching.
+   - TriggerType gap checks for THPS3, THUG1 and THAW (THPS4's translation already works).
+   - Collision on THPS3's moving objects, and its bouncy physics.
+   - THPS4's and THAW's proximity areas (THPS3's approach: watcher ghost objects).
+   - Linked ride cars (Obj_LockToObject: THPS4, THUG1).
+   - THAW's ladders, skitching, rail speed-ups (RailAccelerate) and EmitterObjects.
+   - Object variables (THPS3, THPS4) mapped to THUG2's tags.
+   - Each workaround in section 3 that costs content, once the crash is understood in the decomp.
 6. **THAW's story content.** Read the story archive alongside the online one for the missing props, peds and
    vehicles.
-7. **Music, and THAW's lighting and skies.** Separate features.
-8. **Goals and pickups.** A project of their own (porting career mode), outside free skate.
+7. **Lighting and skies.** THAW's time of day, night sectors and per-level skies; THUG1's LevelLights. THPS3's
+   vertex colour wibbles, env-mapped passes and Warehouse's dark set.
+8. **Music.** Each game's soundtrack and level streams.
+9. **Goals and pickups.** A project of its own (porting career mode), outside free skate.
