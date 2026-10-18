@@ -65,3 +65,9 @@ the music/streams front end (Pcm) - the movie code itself (0x44F830-0x450220) wa
   so once the D3D device is lost during a movie (here: the game started while another full-screen program had the
   display) nothing restores it. A quirk of the original; worth a Sleep + ProcessWindowEvents there as a fix.
   Not caused by this range's code.
+- Final DLL (all three batches + the Sio::Manager change), intros skipped: starts, a level loads and plays (music
+  "25 Ta Life" shown), pause menu; log clean. Tested in the game 2026-10-18.
+- Intros on, same DLL, then the same DLL with all 52 of this range's replacements disabled by the ini
+  (inpman/game_clock/module/music_api.cpp): both times the game never shows a window and spins one core
+  (CPU 1 s per s, "responding") once the intro movies start. So it isn't this range's code. The earlier sample
+  put the main thread in PlayMovieFile's device-lost retry loop. That's for whoever owns movie.cpp (0x44FDC0).
