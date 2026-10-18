@@ -65,6 +65,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_gfx2.cpp
     src/hook/selftests_el3d.cpp
     src/hook/selftests_fe_anim.cpp
+    src/hook/selftests_fe_element.cpp
     src/hook/selftests_mouse.cpp
     src/hook/selftests_sprite.cpp
     src/hook/selftests_netB.cpp

@@ -16,6 +16,8 @@ public:
     Vector& operator+=(const Vector& other);
     Vector& operator-=(const Vector& other);
     Vector& operator*=(float scale);
+    // 0x004A86D0: any of the four components differs (or is NaN).
+    bool operator!=(const Vector& other) const;
 
     // Removes the part of this vector that lies along `normal` (all four components are adjusted by
     // dot(xyz, normal.xyz) * normal). With a unit-length normal this projects onto the plane.

@@ -246,6 +246,12 @@ Vector CrossProduct(const Vector& a, const Vector& b)
 // 0x00402600
 Line::Line(const Vector& from, const Vector& to) : start(from), end(to) {}
 
+// 0x004A86D0
+bool Vector::operator!=(const Vector& other) const
+{
+    return other.x != x || other.y != y || other.z != z || other.w != w;
+}
+
 } // namespace Mth
 
 // --- replacements -------------------------------------------------------------------------------------
@@ -277,6 +283,7 @@ REPLACE(0x00402310, &Vector::operator[]);
 REPLACE(0x00402320, &Vector::operator=);
 REPLACE(0x00402340, &Vector::operator+=);
 REPLACE(0x00402370, &Vector::operator*=);
+REPLACE(0x004A86D0, &Vector::operator!=);
 REPLACE(0x00405EB0, &Vector::RotateY90);
 REPLACE(0x00405EF0, &Vector::DegreesToRadians);
 REPLACE(0x00405F20, &Vector::RadiansToDegrees);

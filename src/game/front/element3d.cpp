@@ -77,17 +77,11 @@ float Pi() { return Constant(0x00649FC8); }
 float Degrees() { return Constant(0x00645464); }        // pi / 180
 float VisibleAlpha() { return Constant(0x006453D4); }   // 0.0001
 
-// The CScreenElement pieces not rewritten yet (thiscall).
-void BaseConstruct(CScreenElement* e) { GameFunction<void*(__thiscall*)(void*)>(0x004A8F90)(e); }
-void BaseDestroyBody(CScreenElement* e) { GameFunction<void(__thiscall*)(void*)>(0x004AAB30)(e); }
-void BaseSetProperties(CScreenElement* e, CStruct* params)
-{
-    GameFunction<void(__thiscall*)(void*, CStruct*)>(0x004A96B0)(e, params);
-}
-void BaseSetMorph(CScreenElement* e, CStruct* params)
-{
-    GameFunction<void(__thiscall*)(void*, CStruct*)>(0x004A9AA0)(e, params);
-}
+// CScreenElement's pieces.
+void BaseConstruct(CScreenElement* e) { e->CScreenElement::Construct(); }
+void BaseDestroyBody(CScreenElement* e) { e->CScreenElement::DestroyBody(); }
+void BaseSetProperties(CScreenElement* e, CStruct* params) { e->CScreenElement::SetProperties(params); }
+void BaseSetMorph(CScreenElement* e, CStruct* params) { e->CScreenElement::SetMorph(params); }
 
 // The viewport's camera (0x004A09C0, cdecl; null if none) and the camera's matrix, position and horizontal angle
 // in degrees (thiscall getters).
@@ -132,7 +126,7 @@ CStruct* NodeStructure(uint32_t name) { return GameFunction<CStruct*(__cdecl*)(u
 void NodePosition(CStruct* node, Mth::Vector* out) { GameFunction<void(__cdecl*)(CStruct*, Mth::Vector*)>(0x0045C050)(node, out); }
 
 // The composite objects' vtable slots used here.
-void MarkAsDead(Obj::CCompositeObject* object)
+void MarkObjectDead(Obj::CCompositeObject* object)
 {
     reinterpret_cast<void(__thiscall*)(void*)>(object->m_vtable[6])(object);
 }
@@ -225,7 +219,7 @@ void CElement3d::ClearModels()
     for (Model& model : m_models) {
         if (model.object) {
             model.object->Hide(true);
-            MarkAsDead(model.object.Get());
+            MarkObjectDead(model.object.Get());
         }
         model.offset = {0.0f, 0.0f, 0.0f, 1.0f};
     }
@@ -298,9 +292,9 @@ void CElement3d::ScaleToScreenDims()
     float extentY = maxY - minY;
     float extentZ = maxZ - minZ;
     double extent = extentX > extentZ ? extentX : extentZ;
-    double width = m_unknown160, z = m_cameraZ;
+    double width = m_width, z = m_cameraZ;
     float horizontal = static_cast<float>(width * z / ((width * Inv1280() + 1.0) * 640.0f) / extent);
-    double vertical = z * m_unknown164 / ((width * Inv896() + 1.0) * 448.0f) / extentY;
+    double vertical = z * m_height / ((width * Inv896() + 1.0) * 448.0f) / extentY;
     horizontal = -horizontal;
     vertical = -vertical;
     m_fitScale = static_cast<float>(horizontal < vertical ? horizontal : vertical);
@@ -603,8 +597,8 @@ void CElement3d::Update()
         Mth::Vector centre = {static_cast<float>(static_cast<double>(m_centre.x) * m_fitScale),
                               static_cast<float>(static_cast<double>(m_centre.y) * m_fitScale),
                               static_cast<float>(static_cast<double>(m_centre.z) * m_fitScale), 1.0f};
-        float y = static_cast<float>(GetLayoutHeight() * 0.5f + m_y);
-        float x = static_cast<float>(GetLayoutWidth() * 0.5f + m_x);
+        float y = static_cast<float>(GetLayoutHeight() * 0.5f + m_summed.top);
+        float x = static_cast<float>(GetLayoutWidth() * 0.5f + m_summed.left);
         ScreenToWorld(&centre, &m_matrix, m_viewport, x, y, m_cameraZ, &place);
         onLayout = m_pointAt == kPointAtNothing;
         Mth::Vector target; // (left uninitialised by the original if the object isn't found)
@@ -653,8 +647,8 @@ void CElement3d::Update()
     local.row[3].z += m_pivot.z;
     local.row[3].w += m_pivot.w;
 
-    float scaleX = static_cast<float>(static_cast<double>(m_scaleX) * m_fitScale);
-    Mth::Vector scale = {scaleX, static_cast<float>(static_cast<double>(m_scaleY) * m_fitScale), scaleX, 1.0f};
+    float scaleX = static_cast<float>(static_cast<double>(m_summed.scaleX) * m_fitScale);
+    Mth::Vector scale = {scaleX, static_cast<float>(static_cast<double>(m_summed.scaleY) * m_fitScale), scaleX, 1.0f};
     void* camera = nullptr;
     if (m_scaleWithDistance && (camera = ViewportCamera(m_viewport)) != nullptr) {
         Mth::Vector away = m_matrix.row[3] - *CameraPosition(camera);
@@ -715,7 +709,7 @@ void CElement3d::Update()
         hover.z = static_cast<float>(s * m_matrix.row[1].z);
         hover.w = static_cast<float>(s * m_matrix.row[1].w);
     }
-    bool visible = m_alpha >= VisibleAlpha();
+    bool visible = m_summed.alpha >= VisibleAlpha();
     for (int i = 0; i < m_numModels; ++i) {
         Model& model = m_models[i];
         if (!model.object)

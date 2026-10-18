@@ -211,10 +211,10 @@ void TestElement3dMath()
         // The layout getters and the screen's aspect.
         alignas(16) uint8_t element[0x178] = {};
         auto* e = reinterpret_cast<Front::CScreenElement*>(element);
-        e->m_unknown144 = 1.37f;
-        e->m_unknown148 = 0.61f;
-        e->m_unknown160 = 333.3f;
-        e->m_unknown164 = 77.7f;
+        e->m_summed.baseScaleX = 1.37f;
+        e->m_summed.baseScaleY = 0.61f;
+        e->m_width = 333.3f;
+        e->m_height = 77.7f;
         double w, h;
         if (original) {
             w = Original<double(__thiscall*)(void*)>(0x004A87A0)(e);
@@ -380,20 +380,20 @@ void InstallStandIns(StandIns& s)
     });
 
     // CScreenElement's pieces, the object's type, the memory manager.
-    s.At({0x004A8F90}, 0, [](Regs& r) {
+    s.At({0x004A8F90, AddressOf(&Front::CScreenElement::Construct)}, 0, [](Regs& r) {
         Rec(0x8F90, {r.ecx});
         reinterpret_cast<uint32_t*>(r.ecx)[1] = 0; // (CRefCounted's: no smart pointers)
         return r.ecx;
     });
-    s.At({0x004AAB30}, 0, [](Regs& r) {
+    s.At({0x004AAB30, AddressOf(&Front::CScreenElement::DestroyBody)}, 0, [](Regs& r) {
         Rec(0xAB30, {r.ecx});
         return 0u;
     });
-    s.At({0x004A96B0}, 4, [](Regs& r) {
+    s.At({0x004A96B0, AddressOf(&Front::CScreenElement::SetProperties)}, 4, [](Regs& r) {
         Rec(0x96B0, {r.ecx, r.args[0]});
         return 0u;
     });
-    s.At({0x004A9AA0}, 4, [](Regs& r) {
+    s.At({0x004A9AA0, AddressOf(&Front::CScreenElement::SetMorph)}, 4, [](Regs& r) {
         Rec(0x9AA0, {r.ecx, r.args[0]});
         return 0u;
     });
@@ -620,8 +620,8 @@ std::vector<uint32_t> RunClass(bool original)
     call(0x004A6630, &CElement3d::SetProperties, reinterpret_cast<CStruct*>(Params(2)));
     snapshot();
     // SetMorph without and with scale_to_screen_dims (the element's size changed first).
-    e->m_unknown160 = 300.0f;
-    e->m_unknown164 = 150.0f;
+    e->m_width = 300.0f;
+    e->m_height = 150.0f;
     call(0x004A6BA0, &CElement3d::SetMorph, reinterpret_cast<CStruct*>(Params(8)));
     call(0x004A6BA0, &CElement3d::SetMorph, reinterpret_cast<CStruct*>(Params(9)));
     snapshot();
@@ -636,8 +636,8 @@ std::vector<uint32_t> RunClass(bool original)
         box(2, -12.0f, -4.0f, -40.0f, 9.0f, 6.0f, 45.0f);
         call(0x004A62B0, &CElement3d::ScaleToScreenDims);
         snapshot();
-        e->m_unknown160 = 100.0f;
-        e->m_unknown164 = 80.0f;
+        e->m_width = 100.0f;
+        e->m_height = 80.0f;
         box(1, -10.0f, -500.0f, -1.0f, 10.0f, 450.0f, 1.0f);
         box(2, -12.0f, -400.0f, -2.0f, 9.0f, 600.0f, 2.0f);
         call(0x004A62B0, &CElement3d::ScaleToScreenDims);
@@ -648,13 +648,13 @@ std::vector<uint32_t> RunClass(bool original)
     }
 
     // Updates on the layout: pointing at nothing / a node / an object, hover, distance scaling, angle orders.
-    e->m_alpha = 1.0f;
-    e->m_x = 100.25f;
-    e->m_y = 50.5f;
-    e->m_scaleX = 2.1f;
-    e->m_scaleY = 2.2f;
-    e->m_unknown144 = 1.25f;
-    e->m_unknown148 = 0.75f;
+    e->m_summed.alpha = 1.0f;
+    e->m_summed.left = 100.25f;
+    e->m_summed.top = 50.5f;
+    e->m_summed.scaleX = 2.1f;
+    e->m_summed.scaleY = 2.2f;
+    e->m_summed.baseScaleX = 1.25f;
+    e->m_summed.baseScaleY = 0.75f;
     e->m_parentObject = 0;
     e->m_parentNode = 0;
     struct UpdateCase {
@@ -686,7 +686,7 @@ std::vector<uint32_t> RunClass(bool original)
         e->m_scaleWithDistance = c.distance;
         e->m_tilt = 15.0f + c.order;       // (pointing at something: tilted)
         e->m_pivot.w = 0.25f * c.order;   // (a pivot's w isn't always 1)
-        e->m_alpha = c.alpha;
+        e->m_summed.alpha = c.alpha;
         e->m_distanceScale = c.distanceScale;
         e->m_maxScale = c.maxScale;
         e->m_angle[0] = c.angle0;
@@ -902,15 +902,15 @@ void TestElement3dWidescreenUpdate()
             *reinterpret_cast<uint32_t*>(At(kObjects + 0x400 + 0x140 + 0x208)) = 0;
         }
         e->m_cameraZ = -500.0f;
-        e->m_alpha = 1.0f;
-        e->m_x = 0.0f;
-        e->m_y = 0.0f;
-        e->m_unknown160 = 640.0f;
-        e->m_unknown144 = 1.0f;
-        e->m_unknown164 = 448.0f;
-        e->m_unknown148 = 1.0f;
-        e->m_scaleX = 2.1f;
-        e->m_scaleY = 2.2f;
+        e->m_summed.alpha = 1.0f;
+        e->m_summed.left = 0.0f;
+        e->m_summed.top = 0.0f;
+        e->m_width = 640.0f;
+        e->m_summed.baseScaleX = 1.0f;
+        e->m_height = 448.0f;
+        e->m_summed.baseScaleY = 1.0f;
+        e->m_summed.scaleX = 2.1f;
+        e->m_summed.scaleY = 2.2f;
         e->m_angleOrder = 2;
         e->Update();
         auto* object = reinterpret_cast<Obj::CCompositeObject*>(At(kObjects));

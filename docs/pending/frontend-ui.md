@@ -45,3 +45,51 @@ decomp-progress.md (the lead numbers them when merging).
       every case incl. missing parameters, NaN / equal / backwards updates, the wobble's clamps with positive and
       negative amplitudes, the pool paths of new / delete. 41 deliberate bugs caught (2 after strengthening: the
       wobble's clamps).
+- [x] Batch FE-2 (NOT run in the game yet; early test passes offline): CScreenElement, the base of every front-end
+      element (src/game/front/screen_element.*, rewritten from the stub), 0x4A8610-0x4AAB30. The class now
+      derives from Obj::CObject and has its whole layout: the four smart-pointer links (+0x4C parent, +0x58 first
+      child, +0x64 next, +0x70 previous sibling), three 0x44-byte states (SElementState: alpha, pos3D, x / y, z,
+      top left, scale, base scale, angle, rgba) - +0x7C the one shown, +0xC0 the one morphed to, +0x114 the summed
+      one the layout pass leaves (the parents' included) -, the morph's start / length / last fractions
+      (+0x104..+0x110), justification +0x158, size +0x160, z_priority +0x16C, remembered alpha +0x170, priority
+      +0x174, and the flag bits (0x400 dirty, 0x800 children dirty, 0x1000 / 0x8000 z, 0x2000 dims locked, 0x4000
+      the focus flag, 0x20000 / 0x40000 paused, 0x80000 pos3D, 0x100000 behind the camera, 0x200000
+      block_events, 0x400000 hidden, 0x800000, 0x1000000, flip_h / flip_v, 0x10000000 priority). Rewritten:
+      state copy 0x4A8730, Construct 0x4A8F90, DestroyBody 0x4AAB30 (out of the tree; id 0xDEADBEEF), Destroy
+      0x4AAC90; GetJust 0x4A8610, GetPos 0x4A87C0, GetTopLeft 0x4A87E0, GetPriority 0x4A86C0 (source only, 7
+      bytes), ManagerUsesPriorities 0x4A86B0, EventsBlocked / HasPriority / IsHidden 0x4A8F00 / 0x4A8F20 /
+      0x4A8F40, SetPaused 0x4A8680, SetFocusSent 0x4A8940 (the element's 0x3056434F / 0x4A57316B event);
+      PlaceTopLeft 0x4A8C30, SetPos 0x4A9100, SetPos3d 0x4A91F0, SetDims 0x4A92D0, SetJust 0x4A9390 (the position
+      moves so the element stays put), SetScale 0x4A94A0 (relative: times the base scale; else it becomes the
+      base), SetAlpha 0x4A8630, SetRotation 0x4A8800 (degrees -> radians plus 0.001, compared unrounded),
+      SetRGBA 0x4A88C0 (the shown colour set without comparing), StartMorph 0x4A8870, SetZPriority 0x4AA390
+      (+1 per generation; an element's own z_priority wins), SetChildrenPriority 0x4AA470; GetParent 0x4A8B80,
+      GetWindow 0x4A8BB0, GetLastChild 0x4A95E0, CountChildren 0x4A9600, GetChild 0x4AA2A0 (by id, or by index
+      when the id is 0), GetChildById 0x4AA690, GetChildByIndex 0x4AA6D0, SetParent 0x4AA8E0 (out of the old
+      parent's list, last in the new one's; the second argument is unused); the layout pass UpdateLayout
+      0x4A9D30 (pos3D projected through the first viewport's camera - behind it: -320, -224 -, the morph: four
+      curves (linear, 0xF5B95CE4 ease out 2t - t^2, fast_in t^2, gentle (3 - 2t)t^2) - the position follows the
+      curve, scale / angle / alpha / rgba the time, both as fractions of what was left last frame -, the summed
+      state from the parent's (rotated by its angle: x87 FSIN / FCOS), slot 10, the children); ResolvePos 0x4A8C80,
+      ResolveJust 0x4A8DC0, ResolveRGBA 0x4A8E90 (shifts past 31 bits wrap as SHL does); the vtable's
+      SetProperties 0x4A96B0, CallMemberFunction 0x4A89B0 (SetProps, DoMorph - the script waits `time` -, Die,
+      GetProps), GetProperties 0x4AA710, SetMorph 0x4A9AA0 (+ 0x4AEE50, a jump to it, source only); and
+      Mth::Vector::operator!= 0x4A86D0 (any component differs or is NaN). 45 functions.
+      Findings: the original's x87 products come in two operand orders for the top left (dims then scale, scale
+      then dims) - kept, as they round differently; SetMorph's ResolvePos can return true without writing x / y
+      (a Pos structure without relative / proportional): the original then passes its argument's slot (the
+      params' address) as y - kept; CObject's +0x3C (m_aliasCount) is the element's use count during the layout
+      pass. Element3d now calls CScreenElement's functions directly and uses the named fields.
+      Early test (src/hook/selftests_fe_element.cpp on the shared world src/hook/fe_element_fixture.h: element
+      trees in an arena with real smart-pointer links and patterned states, a recording vtable): every function,
+      original vs ours, the trace of calls out (the object base and tags, the tracker's events, the manager, the
+      camera's projection, the clock, structure getters / adders, arrays, memory) and the whole arena after each
+      step: construction on dirty memory, destruction of inner / first / root elements, flags up parent chains,
+      the focus flag's odd values, every placement setter (different / equal / NaN, now or not), the tree queries
+      and SetParent moves (middle, first, last child, into an empty parent, out of the tree), the layout pass
+      (each curve, time before / at / past the end, paused, pos3D in front / behind / keeping its scale, a
+      changed parent, the root), the parameter helpers (each Pos form, each justification form, rgba arrays of
+      2 / 4 / 6), properties / morph / GetProps / the member functions. 61 deliberate bugs caught (6 after
+      strengthening: a NaN left in a position masked two; the object base's flags; an exactly finished morph;
+      restore_alpha alone); 1 equivalent (DestroyBody's own release of the next-sibling link: SetParent already
+      released it).
