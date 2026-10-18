@@ -181,6 +181,10 @@ def convert_scene(geom, warnings, shift=(0.0, 0.0, 0.0), drop=frozenset()):
     for s in geom["sectors"]:
         if s["checksum"] in drop:
             continue
+        if s["flags"] & thug2_scene.SEC_BILLBOARD:
+            # (every vertex at the pivot: THAW's shader spreads them out to face the camera)
+            warnings.append("sector %08X: billboard - left out" % s["checksum"])
+            continue
         out = {"checksum": s["checksum"], "bone": -1, "flags": thug2_scene.SEC_TEXCOORDS | thug2_scene.SEC_COLORS,
                "meshes": []}
         points = []
@@ -218,6 +222,16 @@ def convert_scene(geom, warnings, shift=(0.0, 0.0, 0.0), drop=frozenset()):
     return {"versions": (1, 1, 1), "materials": materials, "sectors": sectors, "hierarchy_count": 0, "tail": b""}
 
 
+NIGHT_NAMES = ("nighton", "_tod_light")
+
+
+def night_sectors(geom, names):
+    # The sectors THAW shows only at night (its time of day scripts: NightOn_* lamps and glows, *_tod_light_*
+    # glows): left out, the levels being lit as by day.
+    return {s["checksum"] for s in geom["sectors"]
+            if any(word in names.get(s["checksum"], "").lower() for word in NIGHT_NAMES)}
+
+
 # --- collision --------------------------------------------------------------------------------------------------
 
 def convert_col(col, keep_triggers, shift):
@@ -252,7 +266,7 @@ def move_positions(value, shift):
                 node.entries[i] = (key, ("vector", tuple(v[1][k] + shift[k] for k in range(3))))
 
 
-def convert_level_nodes(files, zone, name, ns, out_dir, report, names, shift):
+def convert_level_nodes(files, zone, name, ns, out_dir, report, names, shift, drop=frozenset()):
     # The node array: kept nodes and kill zones (THUG2's SK3_KillSkater, each naming a restart) as <name>.qb.
     # Returns (the checksums of the nodes whose collision keeps its trigger faces, the LOD sectors to leave out).
     low = zone.lower()
@@ -275,7 +289,8 @@ def convert_level_nodes(files, zone, name, ns, out_dir, report, names, shift):
                 and nodes.class_of(n, names) == "restart"}
     kills = nodes.kill_commands(script_qbs, restarts, names)
     converted, stats = nodes.convert_nodes(array, names, kills, extra_keys=("pos",))
-    converted = [n for n in converted if not (isinstance(n.get("Name"), qb.Name) and n.get("Name").value in lods)]
+    gone = lods | set(drop)
+    converted = [n for n in converted if not (isinstance(n.get("Name"), qb.Name) and n.get("Name").value in gone)]
     if any(shift):
         move_positions(converted, shift)
     kills = nodes.add_kill_restarts(converted, kills, names)
@@ -349,10 +364,13 @@ def cmd_convert(args):
         shift = recentre_shift(col_in, args.recentre)
         if any(shift):
             report.append("%s: moved by (%g, %g, %g)" % (name, shift[0], shift[1], shift[2]))
-        node_report = []
-        triggers, lods = convert_level_nodes(files, zone, name, args.ns, level_dir, node_report, names, shift)
+        geom = thaw.read_geom(files[".geom"], zone + ".geom")
+        night = night_sectors(geom, names)
+        node_report = ["  %d night-time sectors left out" % len(night)] if night else []
+        triggers, lods = convert_level_nodes(files, zone, name, args.ns, level_dir, node_report, names, shift,
+                                             night)
         warnings = []
-        scene = convert_scene(thaw.read_geom(files[".geom"], zone + ".geom"), warnings, shift, lods)
+        scene = convert_scene(geom, warnings, shift, lods | night)
         textures = thaw.read_tex(files[".tex"], zone + ".tex")
         col = convert_col(col_in, lambda checksum: checksum in triggers, shift)
         common.write_level(level_dir, name, scene, textures, col)
