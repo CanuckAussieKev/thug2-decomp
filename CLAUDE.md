@@ -52,7 +52,11 @@ installed); functions PartyMod patched get source with PartyMod's behaviour. Lat
   user tests later and reverts or disables a batch that breaks; say "NOT run in the game yet" in the progress
   doc, and record "tested in the game" when they report back.
 - **Don't launch the game unless the user says so** (they may be playing; a running game also locks the
-  DLL), and never copy DLLs into the game folder.
+  DLL), and never copy DLLs into the game folder - except while holding the game lock: the user allowed agents to
+  test in the game through it (one game at a time; acquire / release with the lead's `game_lock.ps1`, which backs
+  up the deployed DLL and ini and puts them back on release). Under the lock an agent may copy its own build's
+  dinput8.dll into C:\Games\THUG2, edit thug2-decomp.ini, launch and close the game. Files we made in the game
+  folder (the lock, overlays, layouts, logs) may be deleted; original game files never.
 - PartyMod (SDL2 window/input, settings in `thug2-decomp.ini`, glyphs, letterbox...) is part of the game's
   source now (MIT: notice in `THIRD_PARTY_NOTICES.md`); its DLL isn't loaded and nothing patches rewritten code.
   The only run-time writes into the exe are the GameSpy host names (`src/game/net/online_hosts.cpp`, until
