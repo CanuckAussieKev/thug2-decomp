@@ -26,7 +26,7 @@
 #                              the front end's scripts with create_main_menu building a standard vertical menu (a
 #                              roundbar menu, as Game Options and Create-A-Modes) instead of the spinning wheel - the
 #                              same items doing the same things, after SKATE NOW (the menu slides away and the skater
-#                              walks round the shop, off his board; Esc brings the menu back); the shop's collision loaded at the
+#                              drops in on the outside halfpipe, as THPS4's practice; Esc brings the menu back); the shop's collision loaded at the
 #                              start; the skater standing idle.
 #   front_end\levels\mainmenu\mainmenu.qb  the front end's nodes with the skater's restarts moved into THPS4's shop.
 # Nothing of the game is stored in the repo: the files are made from the game folder each time.
@@ -798,19 +798,12 @@ script main_menu_skater_skate {
         SwitchToSkatingPhysics
     }
     UnpausePhysics
-    SwitchToWalkingPhysics
     SetRollingFriction `default`
     AllowRailTricks
-    while {
-        if ! ControllerPressed X {
-            break
-        }
-        wait 1 gameframe
-    }
-    wait 2 gameframes
     ClearEventBuffer
-    EnablePlayerInput
-    goto JustStoppedSkatingState params={Restart}
+    PausePhysics
+    Obj_MoveToNode name=TRG_SS_SkaterDropIn Orient NoReset
+    goto DropIn
 }
 script main_menu_skate_stop {
     if (main_menu_skating = 0) {
@@ -831,8 +824,15 @@ FRONT_END_SKATER_POS = (467.0, 0.0, -1304.0)
 FRONT_END_SKATER_ANGLES = (0.0, 0.474, 0.0)
 
 
-def front_end_nodes(text):
-    # The front end's node array (levels\mainmenu\mainmenu.qb) with its restarts moved into THPS4's shop.
+# THPS4's practice start (its start_practice_run_skater: ResetSkaters node_name=TRG_SS_SkaterDropIn, MakeSkaterGoto
+# Dropin): the restart on the outside halfpipe's coping that SKATE NOW drops in from.
+DROP_IN_NODE = "TRG_SS_SkaterDropIn"
+
+
+def front_end_nodes(text, backdrop_nodes):
+    # The front end's node array (levels\mainmenu\mainmenu.qb) with its restarts moved into THPS4's shop, and THPS4's
+    # drop-in restart added at the end (from the converted shop's node array `backdrop_nodes`, as NeverScript text;
+    # added last, the front end's node indices and links are unchanged).
     for name in ("TRG_Playerrestart", "SS_player_restart"):
         node = re.search(r"\n( *)Pos=\([^)]*\) *\n *Angles=\([^)]*\) *\n *Name=%s *\n" % name, text)
         if not node:
@@ -841,7 +841,17 @@ def front_end_nodes(text):
         moved = "\n%sPos=(%.1f, %.1f, %.1f) \n%sAngles=(%.6f, %.6f, %.6f) \n%sName=%s \n" % (
             (indent,) + FRONT_END_SKATER_POS + (indent,) + FRONT_END_SKATER_ANGLES + (indent, name))
         text = text[:node.start()] + moved + text[node.end():]
-    return text
+    node = re.search(r"\n *Position=\(([^)]*)\) *\n *Angles=\(([^)]*)\) *\n *Name=%s *\n" % DROP_IN_NODE, backdrop_nodes)
+    end = text.find("\n] \n")
+    if not node or end < 0 or text.find("\n] \n", end + 1) >= 0:
+        sys.exit("the front end's node array / %s's %s not as expected" % (BACKDROP_LEVEL, DROP_IN_NODE))
+    # (written as THUG2's own nodes are: Pos - the legacy Position's z negated, as the engine reads it -, no
+    # CreatedAtStart)
+    x, y, z = (float(v) for v in node.group(1).split(","))
+    drop_in = ("    {\n        Pos=(%r, %r, %r) \n        Angles=(%s) \n        Name=%s \n        Class=Restart \n"
+               "        Type=Generic \n        RestartName=\"DropIn\" \n        restart_types=[Generic] \n    } \n"
+               % (x, y, -z, node.group(2), DROP_IN_NODE))
+    return text[:end + 1] + drop_in + text[end + 1:]
 
 
 def front_end_scripts(text):
@@ -977,7 +987,9 @@ def main():
         # menu_backdrop is on and the shop is installed).
         if thps4 and any(level["level"] == BACKDROP_LEVEL for level in thps4["levels"]):
             write(front_end_scripts(front_end), r"front_end\levels\mainmenu\mainmenu_scripts.qb")
-            write(front_end_nodes(shop), r"front_end\levels\mainmenu\mainmenu.qb")
+            backdrop_nodes = decompile(open(os.path.join(out, "levels", BACKDROP_LEVEL, BACKDROP_LEVEL + ".qb"), "rb").read(),
+                                       "backdrop.qb")
+            write(front_end_nodes(shop, backdrop_nodes), r"front_end\levels\mainmenu\mainmenu.qb")
         else:
             print("%s not converted (tools/thps4_levels): no front end backdrop, the game's main menu kept" % BACKDROP_LEVEL)
 

@@ -103,3 +103,13 @@ DLL, ini and overlay). Built, offline self-tests all pass (197), mutations caugh
   walking state's Release_X jump: main_menu_skater_skate waits until X is up, then ClearEventBuffer, before
   EnablePlayerInput). Tested in the game (with the current DLL - the old one draws THUG2's shop once the menu
   camera stops).
+- Then: SKATE NOW drops in on the outside halfpipe, as THPS4's practice start does (its start_practice_run_skater:
+  ResetSkaters node_name=TRG_SS_SkaterDropIn, MakeSkaterGoto Dropin). The overlay's front-end node array gets that
+  restart copied from the converted shop (as Pos, z negated, without CreatedAtStart - with it, copied as the legacy
+  Position node, the game quit at start-up); main_menu_skater_skate: SkaterInit, skating physics, PausePhysics,
+  Obj_MoveToNode TRG_SS_SkaterDropIn (with physics running the move doesn't stick; ResetSkaters node_name= didn't
+  move him either), goto DropIn (THUG2's: the DropIn animation with input off). The earlier wait-until-X-is-up loop
+  never ended (ControllerPressed X stays true there) - not needed: DropIn's input is off while the Enter's release
+  arrives. Tested in the game: menu -> SKATE NOW -> drop-in onto the ramp, skating outside; Esc back to the menu.
+- Not done: THPS4's peds and its cars driving the road (its node array has them: Skateshop_Pedestrian / PedPro
+  nodes with nav paths, TRG_SS_Car01-03 with CarNav paths; the converter strips them).
