@@ -54,4 +54,17 @@ Agent "thaw". How to run it: tools/thaw_levels/README.md.
   the main-menu room, shops, CAP shells.
 - (lead) Merged into main (9cb6031). Converted with main's level_port (LoadTerrain, fix_terrains) and installed; Chicago (the first THAW level) loads and skates in the game - the other 14 not tried yet.
 - (lead) The Mall: the glass doors by the start couldn't be passed (user). Two parts: (1) breakables - a LevelGeometry node whose TriggerScript (or a script it calls, 2 deep) shatters it (THAW's MA_BreakGlass = Kill + ShatterAndDie) gets THUG2's Shatter name=<it> ... + Kill as its trigger script, with its trigger faces kept (breakable_scripts; 14 in The Mall, 0-98 per level); the glass faces are already non-collidable triggers. (2) the actual wall: Z_MA_Mall_First_Rail_Blocker, an invisible collidable wall across the doors that THAW's story scripts remove - LEFT_OUT per zone (scene, nodes and now collision). NOT confirmed in the game yet.
+- (mall-collision) The Mall: invisible walls at both ends of the escalator (user, after the level editor). Cause: the
+  recentring moved each collision object's vertices and box but not its BSP tree, whose split points are world
+  coordinates (sixteenths; all 1362 of THAW's Mall splits lie inside their boxes in world terms, none relative). A
+  moved object's queries then went down one side of every split: 6242 of the Mall's 15719 faces (197 objects) could
+  never be found - among them the floors at both ends of the escalator (Z_MA_Mall_TB_Room_02, split x -36652 /
+  TB_Room_03b_top, split z -18627: the halves under the escalator's foot and head), Wall040, the elevator glass,
+  railings. The walker stops at a drop with nothing below: the "walls". The debug_collision log had no hit at the
+  ends (only the escalator's own side walls/railings, drawn and collidable in THAW too). Fixed (move_tree); every
+  face of every level is now reachable through its tree (offline check: a segment through each face's centroid,
+  THUG2's traversal). Also hit in the 8 other recentred levels: JA 24220/34402 faces unreachable, SZ 30472/44225,
+  BH 15587/26020, EL 12273/22293, SM 16708/24737, SR 20169/31550, LV 16775/25502, OI 27791/37809; CH, DN, SV2, SV,
+  HO, DT not moved - fine. THAW's face bits 0x2000/0x4000/0x8000 (dropped) aren't it: the faces hit are 0x4 / 0x0,
+  drawn, and 0x8000 is on most floors (2140 Mall faces). NOT tested in the game yet.
 - (lead) The Mall's glass still stopped the skater (user, sticker-slappable): the entrance glass (Z_MA_Sk_JOW_Mall_Entrance04...) kept THAW's Type=Crate (its physics breakables) and THAW's face flags 0xF0. Breakables now lose Type, and their faces are written as THUG2's own (AP_Shatter_Roof: 0x1150). Also: dropped nodes (LOD copies, night sectors, LEFT_OUT) were removed after convert_nodes renumbered the Links - every later node's links one off (The Mall hung loading); now placeholders before converting; all 15 levels' rail links checked.

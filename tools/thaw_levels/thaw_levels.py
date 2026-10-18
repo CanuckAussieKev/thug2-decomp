@@ -248,10 +248,22 @@ def left_out(zone):
 BREAKABLE_FACE = 0x1150
 
 
+def move_tree(node, shift):
+    # A BSP tree moved by `shift`: its split points are world coordinates (in sixteenths), not relative to the box.
+    # Left where they were, a moved object's queries all went down one side of each split and never found the faces
+    # on the other: The Mall's floors at both ends of its escalator were missing (the walker stopped there, as at a
+    # drop with no bottom) - 198 of its 1074 objects have splits.
+    if node[0] != "split":
+        return node
+    _, axis, point, left, right = node
+    return ("split", axis, point + int(round(shift[axis] * 16.0)), move_tree(left, shift), move_tree(right, shift))
+
+
 def convert_col(col, keep_triggers, shift, drop=frozenset(), breakables=frozenset()):
     # THAW's collision is THUG2's (with the reaches and BSP trees): the face flags THUG2 doesn't have dropped, trigger
     # faces only for kill zones (THUG2 runs a trigger face's node's TriggerScript without checking it exists), moved
-    # by `shift` (whole sixteenths: the fixed-point vertices are relative to the box, which moves with them).
+    # by `shift` (whole sixteenths: the fixed-point vertices are relative to the box, which moves with them; the BSP
+    # trees' split points are world coordinates and move too).
     objects = []
     for o in col["objects"]:
         if o["checksum"] in drop:
@@ -267,6 +279,7 @@ def convert_col(col, keep_triggers, shift, drop=frozenset(), breakables=frozense
             o["bbox"] = (b[0] + shift[0], b[1] + shift[1], b[2] + shift[2], b[3],
                          b[4] + shift[0], b[5] + shift[1], b[6] + shift[2], b[7])
             o["verts"] = [(v[0] + shift[0], v[1] + shift[1], v[2] + shift[2]) for v in o["verts"]]
+            o["bsp"] = move_tree(o["bsp"], shift)
         objects.append(o)
     return {"objects": objects, "pad": col["pad"]}
 
