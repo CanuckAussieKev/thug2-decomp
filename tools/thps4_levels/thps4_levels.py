@@ -95,9 +95,9 @@ def convert_geometry(folder, base, out_dir, out_name, report, keep_triggers=lamb
             raise FormatError("%s: no %s file for %s" % (folder, kind, base))
     warnings = []
     scene4 = thps4.read_scene(open(files["scn"], "rb").read(), files["scn"])
-    is_sky = out_name.lower().endswith("_sky")
+    # THPS4's vertex colours are 255 = full (rgb; alpha 128 = full), levels and skies alike: halved for THUG2.
     scene = geometry.convert_scene(scene4, warnings, [thps4.to_thug2_material(m) for m in scene4["materials"]],
-                                   halve_colors=is_sky)
+                                   halve_colors=True)
     textures = tex.read_tex(open(files["tex"], "rb").read(), files["tex"])
     converted = tex.depalettise(textures)
     col4 = thps4.read_col(open(files["col"], "rb").read(), files["col"])

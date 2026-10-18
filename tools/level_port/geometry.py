@@ -42,8 +42,8 @@ def bounds(points):
 def convert_scene(scene_in, warnings, materials, halve_colors=False):
     # scene_in: {"sectors"} as thps4.read_scene / thug1.read_scene make them (a sector: checksum, bone, flags, box,
     # sphere, the vertex arrays positions / normals / uvs (uv_sets per vertex) / colors (BGRA), meshes {flags,
-    # material, strip}); materials: the scene's materials in THUG2's form. halve_colors: vertex colours made
-    # 128 = full from 255 = full (THPS4's skies).
+    # material, strip}); materials: the scene's materials in THUG2's form. halve_colors: vertex colours' rgb made
+    # 128 = full from 255 = full (THPS4's levels and skies; their alpha is 128 = full already and kept).
     by_checksum = {m["checksum"]: m for m in materials}
     sectors = []
     for s in scene_in["sectors"]:
@@ -83,8 +83,9 @@ def convert_scene(scene_in, warnings, materials, halve_colors=False):
                 if has_colors:
                     b, g, r, a = s["colors"][v]
                     if halve_colors:
-                        # THPS4's skies are lit 255 (full); THUG2's shaders take 128 as full (x4 / x2 of
-                        # 0.5): halved, or the sky comes out twice as bright, washed out.
+                        # THPS4's PC files light rgb at 255 = full (median ~150 in its levels, alpha 128 = full);
+                        # THUG2's shaders take 128 as full (x4 / x2 of 0.5): halved, or the level comes out
+                        # twice as bright, washed out (light colours clipped to white).
                         b, g, r = b >> 1, g >> 1, r >> 1
                     data += bytes((b, g, r, a))
                 else:
