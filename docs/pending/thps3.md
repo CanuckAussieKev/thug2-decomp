@@ -71,3 +71,4 @@ Agent "thps3". How to run it and THPS3's formats: tools/thps3_levels/README.md.
 - GameObjects (.dff: fans, doors, presses, pumpkins) not converted - almost all are made by goal scripts; the
   CreatedAtStart ones could be added as static scene sectors.
 - Vertex colour wibbles, env-mapped passes (uv flag 0x80), the second passes, music, goals, peds, vehicles.
+- (lead) Foundry's halfpipe drew black (the user's screenshot): THPS3's reflection overlays (Foun_CG_QP_Reflect_01 over the quarter / half pipes, Lamp_02_reflect, the vats' ripples) use PS2 blend 0x8 = Cs * As + 0, which blend_mode turned into opaque - a dark gradient drawn over the ramp. Now additive. Also: THPS3's vertex normals are zero on almost every sector (Foundry 533 of 534): sectors are written without normals unless all of theirs are usable (usable_normals). The user confirmed the halfpipe looks right.

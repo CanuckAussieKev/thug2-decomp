@@ -88,6 +88,16 @@ def read(path):
 
 # --- materials and textures ----------------------------------------------------------------------------------------
 
+def usable_normals(sec):
+    # The sector's normals, or None: THPS3's PC files leave them (near) zero on almost every sector (Foundry: 533 of
+    # 534) - lit by zero normals in THUG2, a sector drew black (Foundry's halfpipe). Without normals THUG2 draws a
+    # sector by its vertex colours (THPS3's prelighting), as the rest of the level.
+    normals = sec.get("normals")
+    if not normals or any(n[0] * n[0] + n[1] * n[1] + n[2] * n[2] < 0.25 for n in normals):
+        return None
+    return normals
+
+
 def blend_mode(code):
     # THPS3's blend: the PS2's alpha register, (A - B) * C + D, two bits each from the bottom (A, B, D: 0 source
     # colour, 1 destination colour, 2 zero; C: 0 source alpha, 1 destination alpha, 2 the fixed alpha) - the
@@ -100,6 +110,11 @@ def blend_mode(code):
         return (6 if fixed else 5), fixed               # blend
     if (a, b, d) == (0, 2, 1):
         return (2 if fixed else 1), fixed               # add
+    if (a, b, d) == (0, 2, 0):
+        # Cs * C with nothing of the destination: THPS3 uses it for its reflection / light overlays
+        # (Foun_CG_QP_Reflect_01 on the quarter / half pipes, Lamp_02_reflect, the vats' ripples) - as opaque (the
+        # fallback below) a dark gradient covered Foundry's halfpipe black. Added, as the overlays look.
+        return (2 if fixed else 1), fixed
     if (a, b, d) == (2, 0, 1):
         return (4 if fixed else 3), fixed               # subtract
     if (a, b, d) == (1, 2, 2):
@@ -254,7 +269,8 @@ def scene_sectors(sectors, materials, checksums, skip):
             continue
         positions = sec["positions"]
         colors = sec.get("colors") or [(255, 255, 255, 255)] * len(positions)
-        flags = SECTOR_FLAGS | (thug2_scene.SEC_NORMALS if "normals" in sec else 0)
+        normals = usable_normals(sec)
+        flags = SECTOR_FLAGS | (thug2_scene.SEC_NORMALS if normals else 0)
         lo, hi, center, radius = geometry.bounds(positions)
         s = {"checksum": sec["checksum"], "bone": -1, "flags": flags, "bbox": tuple(lo + hi),
              "sphere": (center[0], center[1], center[2], radius), "positions": positions,
@@ -262,8 +278,8 @@ def scene_sectors(sectors, materials, checksums, skip):
              # (the first uv set only: THPS3's second one is never written - uninitialised memory, NaNs)
              "uv_sets": 1,
              "uvs": [uv[:2] for uv in sec["uvs"]] or [(0.0, 0.0)] * len(positions), "meshes": meshes}
-        if "normals" in sec:
-            s["normals"] = sec["normals"]
+        if normals:
+            s["normals"] = normals
         out.append(s)
     return out
 
