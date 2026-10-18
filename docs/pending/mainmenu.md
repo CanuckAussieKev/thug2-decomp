@@ -98,3 +98,8 @@ DLL, ini and overlay). Built, offline self-tests all pass (197), mutations caugh
   he faces (sin yaw, 0, cos yaw)). Movement is the arrow keys (the user's bindings), not WSAD.
 - Tested: the menu over the shop with the skater on the left, facing the camera; SKATE NOW, walking round the shop
   with the board in hand, Esc back. Not yet: the other front-end menus with the skater in THPS4's shop, tricks / rails in the shop.
+- Then: in the menu he stands on foot (SpinMenuGetSkaterAnim: WStand, the board in his hand) a few steps nearer the
+  camera (467, 0, -1304), clear of the desk; SKATE NOW no longer jumps (the Enter / X that chose it fired the
+  walking state's Release_X jump: main_menu_skater_skate waits until X is up, then ClearEventBuffer, before
+  EnablePlayerInput). Tested in the game (with the current DLL - the old one draws THUG2's shop once the menu
+  camera stops).

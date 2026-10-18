@@ -801,6 +801,14 @@ script main_menu_skater_skate {
     SwitchToWalkingPhysics
     SetRollingFriction `default`
     AllowRailTricks
+    while {
+        if ! ControllerPressed X {
+            break
+        }
+        wait 1 gameframe
+    }
+    wait 2 gameframes
+    ClearEventBuffer
     EnablePlayerInput
     goto JustStoppedSkatingState params={Restart}
 }
@@ -816,9 +824,10 @@ script main_menu_skate_stop {
 
 # The front end's skater stands in THPS4's shop (the DLL draws only that shop in the front end): its restarts
 # (TRG_Playerrestart - the main menu, Create-A-Skater and the other menus' skater; SS_player_restart - the skate
-# shop menu's) moved to the floor on the left of the held view, in front of the counter, facing the camera (yaw:
+# shop menu's) moved to the floor on the left of the held view, a few steps in front of the counter, facing the
+# camera (yaw:
 # the skater faces (sin yaw, 0, cos yaw); the held view's camera is at (565, 74, -1114)).
-FRONT_END_SKATER_POS = (449.0, 0.0, -1340.0)
+FRONT_END_SKATER_POS = (467.0, 0.0, -1304.0)
 FRONT_END_SKATER_ANGLES = (0.0, 0.474, 0.0)
 
 
@@ -840,7 +849,7 @@ def front_end_scripts(text):
     # loads its scene; the skater skates there after SKATE NOW) and the skater's gameplay animations
     # (do_load_unloadable: load_level skips them for the front end - without them the skater skates in its bind
     # pose; once loaded they stay, as after any level); the skater standing idle instead of reaching for the wheel
-    # (the main menu's skater animations).
+    # (the main menu's skater animation: WStand, standing on foot, the board in his hand).
     text = standard_main_menu(text)
     start = "script mainmenu_startup {\n"
     if text.count(start) != 1:
@@ -849,7 +858,7 @@ def front_end_scripts(text):
     anim = re.search(r"script SpinMenuGetSkaterAnim \{\n.*?\n\} \n", text, re.S)
     if not anim:
         sys.exit("mainmenu_scripts.qb: SpinMenuGetSkaterAnim not found")
-    return text[:anim.start()] + "script SpinMenuGetSkaterAnim {\n    return anim=Idle \n} \n" + text[anim.end():]
+    return text[:anim.start()] + "script SpinMenuGetSkaterAnim {\n    return anim=WStand \n} \n" + text[anim.end():]
 
 
 def standard_main_menu(text):
