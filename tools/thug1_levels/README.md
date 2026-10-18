@@ -8,7 +8,7 @@ repo: the files are made from your copies each time.
 
 Needs Python 3 and NeverScript (`tools\build_neverscript.ps1` -> `out\neverscript\ns.exe`).
 
-    python -I tools/thug1_levels/thug1_levels.py convert [--thug1 C:\Games\THUG1] [--thug2 C:\Games\THUG2]
+    python -I tools/thug1_levels/thug1_levels.py convert [--thug1 C:\Games\THUG1] [--thug2 C:\Games\THUG2] [--static]
     python -I tools/menu_level/make_menu_level.py
 
 `convert` reads `<thug1>\Game\Data\pre` (`<LV>scn.pre`, `<LV>col.pre`, `<LV>.pre`, and `qb.pre`'s Levels.qb) and
@@ -54,12 +54,24 @@ its BSP trees, textures written back byte-identical, qb files): 333 files.
 ## What's converted
 
 - Scene, textures, collision as above; sectors with weights (skinned) are left out.
-- Nodes: restarts (the Player1 restart first), rails, level geometry (LevelObjects as static geometry), KOTH crowns.
-  Peds, vehicles, game objects, goals, particles, lights, waypoints and scripts are left out; trigger faces are kept
-  only for kill zones: a trigger script calling `SK3_Killskater(_Water)`, a level's own `xx_KillSkater` or a level
-  script that calls one (NY_KillWater) becomes THUG2's `SK3_KillSkater(_Water)` with the call's restart
-  (`nodename=`), messages, colour and `Bail` / `NoMessage`.
-- Level structure: THUG1's name, sky and lighting (from its Levels.qb); no music, no goals.
+- Nodes: restarts (the Player1 restart first), rails, level geometry, KOTH crowns; kill zones: a trigger script
+  calling `SK3_Killskater(_Water)`, a level's own `xx_KillSkater` or a level script that calls one (NY_KillWater)
+  becomes THUG2's `SK3_KillSkater(_Water)` with the call's restart (`nodename=`), messages, colour and `Bail` /
+  `NoMessage`.
+- The level's life (`thug1_port.py`; `--static` leaves it out): THUG1's nodes are THUG2's predecessors, so they are
+  kept nearly whole - waypoints, ledges / ladders (ClimbingNode), proximity nodes, sound emitters; LevelObjects as
+  LevelObjects (moving and bouncy: cones, trash cans, chairs, with their rigid body settings); peds (THUG2's
+  THPS6_human skeleton and animations, their THUG1 profile when THUG2 has it, else a random one); vehicles and game
+  objects whose model THUG2 has (Data\models - THUG2 ships most of THUG1's cars); particle objects whose texture THUG2
+  has. Lights and goal nodes are left out.
+- Scripts: from the nodes' trigger scripts and the level structure's startup_script / setup_script, through
+  everything they call, from the level's .qb / _scripts.qb / _sfx.qb and THUG1's level designers' shared files - by
+  `tools/level_port/script_port.py` (THUG1's long if / else / switch made THUG2's jump forms, `object:command` calls
+  checked against the object's components and run only while it is alive). Left out: the goal manager, panels,
+  cutscenes, the skater's state, commands THUG2 doesn't have, animations / sounds THUG2 doesn't load. The classic
+  levels' `DuplicateTrigger` gap sectors get the trigger script of the node they link to.
+- Level structure: THUG1's name, sky, lighting, startup_script and setup_script (from its Levels.qb); no music, no
+  goals.
 
 The shared code (THUG2 writers, geometry conversion, nodes, installing) is in `tools/level_port`, used by
 `tools/thps4_levels` too.
