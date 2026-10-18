@@ -233,3 +233,34 @@ decomp-progress.md (the lead numbers them when merging).
       properties, updates, morphs. 81 deliberate bugs: 79 caught (15 after strengthening); 2 equivalent: the half
       height rounded before or after halving (x0.5 is exact), and the blur copies' alpha without the 0.0001
       threshold (below it the alpha byte truncates to 0 anyway).
+
+## Game runs (C:\Games\THUG2-3, the build at FE-8 + main merged, all 2084 replacements installed)
+- 4 runs, scripted keys only (no player judgement): the THPS4 skate-shop main menu (menu_backdrop) drew and moved,
+  Classic Mode's options opened and closed with Esc, Skate Now's demo level ran and Esc went back to the menu, High
+  Score / Free Skate -> skater select -> the level globe (Training) -> the level loaded with the HUD (score /
+  special / switch), the pause menu opened (with LEVEL EDITOR and the song's title text), moved, and Continue
+  returned to the game. No exception, run-time check failure or debug CRT report in thug2-decomp.log; late and
+  engine-started self-tests passed. Early self-tests passed in 3 runs; in the first, "PC async handle
+  (synchronous I/O)" (selftest.cpp, file I/O - not this range) failed once (a byte count 604 vs 272) and passed
+  in the next three.
+
+## What's left
+- Nothing in 0x4A4500-0x4B2280 (and the glue up to 0x4B2320): every function Ghidra lists there, plus the five it
+  missed (0x4A5770, 0x4A5CF0, 0x4A7690, 0x4AA530, 0x4AB250), has source (find_gaps: no gaps in the range).
+- Calls between the range's own classes that still go by address (they reach our code when hooked): the elements'
+  manager calls (0x4AAD80 / 0x4AC120 / 0x4AAE20 / 0x4ABBE0 / 0x4AD100), the camera projection 0x4A06D0 /
+  0x4A1090, and the script commands' calls into the text elements (0x4B16D0, 0x4AFD00, 0x4B14A0, 0x4AFDD0,
+  0x4B11C0, 0x4B1390, 0x4AF650). They could become direct calls in a later tidy-up (the tests stand in for the
+  addresses only).
+
+## For the user to check by hand
+- Menus that scroll (vscrollingmenu / hscrollingmenu: e.g. long option lists, the level select's lists): the
+  window follows the selection, items outside it are hidden, wrapping at the ends.
+- Text entry (the name / keyboard screens): typing (TextElementConcatenate), backspace (also after "\\"), long
+  names refused at 0x60 characters; text blocks that wrap (help / description panels), including blur and shadow
+  text (e.g. the goal / trick text with blur_effect).
+- Sprites and textures in menus (icons, the PAUSED sign, the boombox), rotations and fades (rot_angle morphs).
+- Element3d and the mouse menus (mouse_menus=1) still pick and highlight the right items.
+- If anything in the front end breaks: `[replacements] disable=` with screen_element_manager.cpp,
+  screen_element_cfuncs.cpp, scrolling_menu.cpp, sprite_element.cpp, text_element.cpp, text_block.cpp,
+  engine_glue.cpp, menu_element.cpp, screen_element.cpp, anim_controller.cpp (one at a time to find it).
