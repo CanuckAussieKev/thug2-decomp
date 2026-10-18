@@ -198,7 +198,7 @@ def convert_level_nodes(files, code, name, ns, out_dir, report, port=None, struc
                      and isinstance(n.get("Name"), qb.Name) and nodes.class_of(n, names) == "levelgeometry"}
         anims = [qb.name_text(c, names) for c, _ in q.calls(qb.checksum("load_level_anims"))
                  if c in port.thug2.scripts]
-        extra = globals_text + thug1_port.level_scripts_ns(made, anims)
+        extra = globals_text + thug1_port.level_scripts_ns(made, anims, set(scripts) | port.thug2.scripts)
     includes = ""
     if port is not None:
         converted, includes = thug1_port.compress_includes(converted, names, name, sectors)

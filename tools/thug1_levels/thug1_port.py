@@ -67,6 +67,11 @@ def placeholder(names):
     return Struct([(_name(names, "Class"), _name(names, "LeftOut"))])
 
 
+# THUG2 gap scripts whose gap script parameter must be given (Thug1Translator.command): script -> (key, default).
+GAP_SCRIPT_DEFAULTS = {checksum("GetGap"): ("GapScript", "EmptyScript"),
+                       checksum("Gap_CarHop"): ("gapscript", "CarHopGapScript")}
+
+
 class Thug1Translator(script_port.Translator):
     # script_port's translator, plus: LoadSound of a sound THUG2 doesn't have is left out.
     def __init__(self, *args, sounds=frozenset(), **kwargs):
@@ -92,6 +97,16 @@ class Thug1Translator(script_port.Translator):
             if path is None or path.lower().replace("/", "\\") not in self.sounds:
                 self.note("sound not in THUG2")
                 return None
+        if toks and toks[0].t == 0x16 and toks[0].name() in GAP_SCRIPT_DEFAULTS:
+            # (THUG2's GetGap / Gap_CarHop end their gap with GapScript=<GapScript>: called without one, the loader's
+            # scan of the trigger scripts for gaps (ForEachScriptCall 0x0045C950) follows a gap script that isn't
+            # there and reads through a null - Manhattan's cars crashed it loading. Given explicitly: the default.)
+            key, value = GAP_SCRIPT_DEFAULTS[toks[0].name()]
+            if not any(t.t == 0x16 and t.name() == checksum(key) for t in toks[1:]):
+                self.names.setdefault(checksum(key), key)
+                self.names.setdefault(checksum(value), value)
+                toks = list(toks) + [script_port.name_tok(checksum(key), toks[0].i), script_port.Tok(0x07, b"", toks[0].i),
+                                     script_port.name_tok(checksum(value), toks[0].i)]
         return super().command(toks, contexts, discover)
 
 
@@ -100,6 +115,8 @@ class Thug1Port:
     # particle textures and sounds; THUG1's shared script files (qb.pre).
     def __init__(self, thug2, qb_pre):
         self.thug2 = script_port.Thug2(thug2)
+        self.root = thug2
+        self._model_refs = {}
         self.assets = peds_cars.Thug2Assets(thug2)
         data = os.path.join(thug2, "Data")
         self.particles = {f.lower()[:-len(".img.xbx")] for f in os.listdir(os.path.join(data, "images", "particles"))
@@ -138,6 +155,28 @@ class Thug1Port:
             except (KeyError, ValueError, IndexError):
                 continue
 
+    def model_script_refs(self, model):
+        # The scripts a THUG2 model's own qb hands out as gap / trick scripts (Data\models\<model>.qb: THUG2 ships
+        # THUG1's cars with their rails and car-hop triggers - veh_cab_ny's gapscript=NY_Goal_BurningTaxi_Got1, a
+        # THUG1 Manhattan goal script): {checksum: name}. The level has to define them - the loader's gap scan follows
+        # every gap script of every trigger script and reads through a null for one that isn't there.
+        key = model.lower().replace("/", "\\")
+        if key not in self._model_refs:
+            refs = {}
+            path = os.path.join(self.root, "Data", "models", os.path.splitext(key)[0] + ".qb")
+            if os.path.exists(path):
+                data = open(path, "rb").read()
+                toks = list(qb.tokens(data, weights=True))
+                text = {int.from_bytes(p[:4], "little"): p[4:-1].decode("latin-1") for _, t, p in toks if t == 0x2B}
+                keys = {checksum(k) for k in ("gapscript", "trickscript", "scr")}
+                for k in range(len(toks) - 2):
+                    if toks[k][1] == 0x16 and int.from_bytes(toks[k][2], "little") in keys and \
+                            toks[k + 1][1] == 0x07 and toks[k + 2][1] == 0x16:
+                        value = int.from_bytes(toks[k + 2][2], "little")
+                        refs[value] = text.get(value, "#%08X" % value)
+            self._model_refs[key] = refs
+        return self._model_refs[key]
+
     def model_exists(self, model):
         return isinstance(model, str) and model.lower().replace("/", "\\") in self.models
 
@@ -161,6 +200,7 @@ class NodePass:
         self.counts = {}
         self.particle_textures = set()
         self.extra_anims = set()
+        self.model_refs = {}   # the gap / trick scripts the kept objects' THUG2 models name
         self.kept = [self.node(n) for n in array]
 
     def count(self, what):
@@ -211,6 +251,7 @@ class NodePass:
                 return self.left_out("vehicles (model not in THUG2)")
             if not self.skeleton_ok(node):
                 return self.left_out("vehicles (skeleton THUG2 doesn't load)")
+            self.model_refs.update(self.port.model_script_refs(node.get("model")))
             return self.whole(node, "vehicles")
         if cls == "gameobject":
             model = node.get("model")
@@ -218,6 +259,8 @@ class NodePass:
                 return self.left_out("game objects (model not in THUG2)")
             if not self.skeleton_ok(node):
                 return self.left_out("game objects (skeleton THUG2 doesn't load)")
+            if isinstance(model, str) and model.lower() != "none":
+                self.model_refs.update(self.port.model_script_refs(model))
             return self.whole(node, "game objects")
         if cls == "particleobject":
             texture = node.get("Texture")
@@ -405,13 +448,17 @@ def port_scripts(port, level_sources, converted, array, kills, names, struct, se
     return out, tr.globals_ns(), kept_starts, report, tr
 
 
-def level_scripts_ns(made, thug1_anims):
+def level_scripts_ns(made, thug1_anims, defined=()):
     # The load scripts THUG2's load_level runs when the level's .qb has them: the particle textures of the kept
     # particle objects, the peds' extra animations (the THUG1 level's load_level_anims list where THUG2 has them).
     parts = []
     if made.particle_textures:
         parts.append("script LoadAllParticleTextures {\n%s}\n" % "".join(
             '    LoadParticleTexture "particles\\\\%s" \n' % t for t in sorted(made.particle_textures)))
+    # (the models' gap scripts the level doesn't define: empty - their THUG1 ones are goal scripts)
+    for value, text in sorted(made.model_refs.items()):
+        if value not in defined:
+            parts.append("script %s {\n}\n" % text)
     anims = sorted(made.extra_anims | set(thug1_anims))
     if anims:
         parts.append("script load_level_anims {\n%s}\n" % "".join("    %s \n" % a for a in anims))
