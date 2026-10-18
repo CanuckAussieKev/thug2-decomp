@@ -35,7 +35,7 @@ New: `tools/thaw_levels/thaw_scripts.py`; `thaw_levels.py convert` runs it for e
 - **Cars**: CreatedAtStart vehicles whose script drives (Car_Generic01 / Obj_FollowPathLinked, 2 calls deep) and that
   link to waypoints: THUG2's Car_Generic01 on the same path; the others parked. THUG2's model of the same name
   (veh_liberty, veh_cop, veh_wrangler, veh_van...), else Veh_Sedan.
-- **Particles**: THAW's particle boxes as THUG2 ParticleObjects (THAW's BoxDims / BoxPositions / Radii /
+- **Particles**: THAW's particle boxes there at the start as THUG2 ParticleObjects (THAW's BoxDims / BoxPositions / Radii /
   RadiusSpread / BoxRGBAs arrays -> THUG2's Start/Mid/End keys; mid / end positions recentred), with THUG2's particle
   texture of the same name (apm_spark_0x, BA_APM_smokePuff01s, dt_nj_waterdrop05...) or a stand-in
   (apm_smokepuff_rot_01 -> BA_APM_smokePuff01, apm_flame_rot01 -> apm_flame_01), loaded by a LoadAllParticleTextures
@@ -48,18 +48,18 @@ New: `tools/thaw_levels/thaw_scripts.py`; `thaw_levels.py convert` runs it for e
 | CH Chicago | 159 | 2 / 0 | 0 | 10 | - | - | 10 |
 | MA The Mall | 137 | 1 / 12 | 1 | 5 | 0/1 | 5 | 14 |
 | DN Minneapolis | 249 | - | 0 | 24 (life) | 2/0 | - | 68 |
-| JA Kyoto | 342 | - | 5 | 4 | - | 9 | 9 |
-| SZ Santa Cruz | 369 | - | 10 | 12 | 0/1 | 1 | 18 |
+| JA Kyoto | 342 | - | 5 | 4 | - | 0 | 8 |
+| SZ Santa Cruz | 369 | - | 10 | 12 | 0/1 | 0 | 18 |
 | SV2 The Ruins | 196 | 10 / 0 | 8 | 10 | - | 34 | 5 |
-| SV Vans Park | 361 | 12 / 22 | 14 | 15 | - | 1 | 3 |
-| HO Hollywood | 276 | 15 / 12 | 16 | 17 (2 walk) | 4/0 | - | 33 |
-| BH Beverly Hills | 270 | 3 / 0 | 51 | 29 | 3/0 | 14 | 5 |
-| DT Downtown | 435 | 4 / 1 | 46 | 23 | 8/0 | 13 | 25 |
-| EL East LA | 382 | 5 / 0 | 64 | 8 | - | 7 | 40 |
-| SM Santa Monica | 364 | 4 / 0 | 32 | 10 | - | - | 4 |
+| SV Vans Park | 361 | 12 / 22 | 14 | 15 | - | 0 | 1 |
+| HO Hollywood | 276 | 15 / 12 | 16 | 17 (2 walk) | 4/0 | - | 31 |
+| BH Beverly Hills | 270 | 3 / 0 | 51 | 29 | 3/0 | 0 | 5 |
+| DT Downtown | 435 | 4 / 1 | 46 | 23 | 8/0 | 13 | 9 |
+| EL East LA | 382 | 5 / 0 | 64 | 8 | - | 7 | 38 |
+| SM Santa Monica | 364 | 4 / 0 | 32 | 10 | - | - | 1 |
 | SR Skate Ranch | 331 | 12 / 0 | 18 | 2 | 0/1 | - | 0 |
 | LV Casino | 421 | 8 / 0 | 17 | 6 | - | - | 98 |
-| OI Oil Rig | 356 | 4 / 0 | 3 | 1 | - | - | 14 |
+| OI Oil Rig | 356 | 4 / 0 | 3 | 1 | - | - | 0 |
 
 (scripts: brought along, most of them gap scripts - StartGap / EndGap on the skater. Left out per level: 11-431
 statements, mostly printf, RailAccelerate (THAW's rail speed-ups), Triggertype / IsCreated conditions, object member
@@ -94,9 +94,15 @@ EL 38, SM 1, SR 0, LV 98, OI 0) - the others' glass is collision-only in the net
 - (thaw_scripts adds its own context `thaw_skater` to script_port.SAFE_COMPONENTS / BY_NAME at import - THAW's process
   only.) THPS3's convert was re-run with these changes: 14 levels, every jump of its 6157 scripts lands on a token.
 
-## Game runs
+## Game runs (2026-10-19, workspace C:\Games\THUG2-2, this branch's levels installed)
 
-NOT run in the game yet (the game lock was held by thps3-scripts).
+Load check, free skate through the main menu's SKATE NOW (patched to load the level): **all 15 levels load and the
+skater skates** (CH, MA, DN, JA, SZ, SV2, SV, HO, BH, DT, EL, SM, SR, LV, OI; no exception in the log). Nothing
+checked beyond the start point (peds / cars / objects not seen from there in the pictures) - see the list below.
+- Kyoto crashed loading first (EXCEPTION writing 0x4 under LoadQBData 0x0046ED90, after thaw_ja.qb was read):
+  bisected to its 9 particle boxes, all not CreatedAtStart (neon sparks its scripts make). Particle boxes not there
+  at the start are now left out (JA 9, SZ 1, SV 1, BH 14); the CreatedAtStart ones (SV2, DT, EL, MA) load. Cause in
+  the engine not looked into.
 
 ## For the user to try (per level, free skate)
 

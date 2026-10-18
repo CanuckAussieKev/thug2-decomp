@@ -367,6 +367,10 @@ class PortedNodes:
 
     def particle(self, node):
         n = self.names
+        if not node.has_flag("CreatedAtStart"):
+            # (Kyoto's neon sparks, made by its scripts: the level crashed loading with them - in ParseQB / the node
+            # array's load, writing through a null; the ones there at the start load fine, as in The Ruins)
+            return self._left_out("particle boxes not there at the start left out")
         texture = self._text(node.get("Texture")).lower()
         texture = self.particles.get(texture) or self.particles.get(PARTICLE_STAND_INS.get(texture, "").lower())
         dims, positions = node.get("BoxDims"), node.get("BoxPositions")
