@@ -4189,6 +4189,117 @@ belong with the CScript batch.
       - In the game: NOT run with this build yet. The lead stopped game runs (the user was playing). The four runs
         made before then didn't use this build: the DLL copy failed because a game was already running, so they
         prove nothing. Still to do: 4 consecutive runs with all early, late and engine-started self-tests passing.
+- [x] Batch 110 (TOD-1; time-of-day agent, merged 2026-10-19; run in the game: docs/pending/time-of-day.md; NOT judged by a player yet): the time-of-day manager, 0x00571140-0x00574910 - all 53 functions:
+  Gfx::CTODManager (src/game/gfx/tod_manager.{h,cpp}; TODParams 0xA4 bytes, TODSystem 0x188, the manager 0x340 -
+  full layouts), its 18 TODManager_* script commands, CreateTODManager / ReleaseTODManager (Sys::Main now calls them
+  instead of the generic Create / Release by address), and 0x00572821 (ApplyColor's body after its first test, a
+  function Ghidra made: source-only, ApplyColor's source).
+  Findings: the day is two "systems" (system=1, and a sky system=2) of four states (morning -> afternoon -> evening
+  -> night, a night ending counts a day); time passes only in career mode, unless tod_manager_inactive is 1, a
+  temporary state (TODManager_SetTempTOD) is up, TODManager_SetActive 0 or the game is paused. While transitioning,
+  each frame blends the two states (Lerp: integers truncated through doubles, floats in double, bloom colours byte
+  by byte) and colours one part of one light group: (100 / parts)% of each scene's sector table (sectors of the
+  group's light_group; reset_light_group's back to neutral 0x81808080), the level scene, and - for the outdoor group
+  (0xE3714DC1 = "outdoor") or no group, on the first part only - the scenes' own colour and every model whose object
+  has no sector of its name or an outdoor one. tod_manager_state_transition runs half-way through a transition
+  (evening's at once), with level_specific_transition_script. Quirks kept: GetLevelColor / GetTODParams index past
+  the end (system 2) when both are sky systems; SetTODInstant to a state that never comes loops forever; GetTODParams
+  blends leave +0x14..+0x24 and fog_on unset in the original (stack garbage, ours: the "from" state's - fog_on is
+  given back by GetCurrentTODParams); ResetLevelLights(state) reads its parameters into an uninitialised local (ours
+  zeroed: only what the state gives is defined); SetSceneColor's colours' fourth byte is garbage (ours 0); the
+  x87's own FSIN / FCOS for the light directions; RefreshAll's part size rounded to a float (UpdateSystem's isn't).
+  Tests (src/hook/selftests_tod.cpp, stand-ins for every call out: structures, arrays, scripts, memory, engine):
+  TestTODBlend (Lerp, GetTODParams, GetLevelColor, UpdateSun, ApplyTODParams, light directions, SetFogActive),
+  TestTODStates (Construct, SetParams, ReadGroup, NextState, 90 frames of Update through states and transitions,
+  SetTODInstant / AdvanceTODState, RefreshAll, ResetLevelLights, temporary states and bloom, EnableBloom, the other
+  script commands, the dead objects, Reset, the destructor, the singleton), TestTODColor (ApplyColorToScene,
+  ApplyColor, SetSceneColor on stand-in scenes, sectors and models). 64 deliberate bugs caught, 8 after
+  strengthening (a bloom_on of 1, the manager after SetParams, a 128-sector level scene so a percentage off by one
+  shows, temporary bloom over more frames, RefreshAll with the manager inactive, EnableBloom with bloom already off).
+  What to check in the game: a career level with a day cycle (any THUG2 level - e.g. Boston), left in free skate for
+  a few minutes: the sky, level light and fog should change through morning / afternoon / evening / night as before;
+  TODManager_GetCurrentTODParams-driven menus (the pause menu's time of day, if shown).
+
+- [x] Batch 111 (TOD-2; time-of-day agent, merged 2026-10-19; run in the game: docs/pending/time-of-day.md; NOT judged by a player yet): the victory conditions and the viewer module's pieces,
+  0x00576610-0x005772E0 - 32 functions (6 Ghidra had missed: 0x005766E0 / 0x00576700 elimination,
+  0x00576CB0 / 0x00576CF0 the viewer's script helpers, 0x00576F00 / 0x00577140 its handlers) plus 0x005772A0
+  Mth::Matrix::RotateLocal(axis, angle). Game::CVictoryCondition and its 7 types (src/game/skate/victory_conditions.{h,cpp}:
+  highest_score, target_score, complete_goals, best_combo, last_man_standing, elimination, collect_all_objects;
+  CreateVictoryCondition, the scalar deleting destructors, IsHighestScore, ConditionComplete / IsWinner, the debug
+  prints; 0x00576CA0 is a jump to complete_goals' ConditionComplete: source-only); Mdl::Viewer (src/game/sys/viewer.{h,cpp}:
+  the input / shift handlers - buttons into command bits, sticks into velocities, the UserViewer* scripts -, the
+  viewer object made from the bottom-up or debug heap, runnow.qb reloading, the script commands SetViewMode /
+  SetMovementVelocity / SetRotateVelocity, MoveObjectLocal).
+  Findings: target_score counts team totals in a team game, else each skater; complete_goals counts, per team or
+  per skater, the goals that count (pointer word non-zero and not hidden) won by the skater; last_man_standing wins
+  with a score above 0, elimination by not being eliminated (player +0x38); collect_all_objects needs one skater's
+  score equal to every player's objects added up (0 objects: not complete). The viewer's input: R2 + select
+  (0x200) sets command bit 0x4000.
+  Tests (src/hook/selftests_tod2.cpp): TestVictoryConditions, TestViewer, TestMatrixRotateLocalAxis (the CRT's
+  sin / cos patched to ours so both use the same). 39 deliberate bugs caught, 2 after strengthening (a skater
+  above the objects' total for collect_all_objects; the manager's heaps told apart for the viewer object).
+  What to check in the game: a network game mode's end (target score, elimination, scavenger hunt) and the
+  viewer (debug builds only - not reachable in retail).
+
+- [x] Batch 112 (TOD-3; time-of-day agent, merged 2026-10-19; run in the game: docs/pending/time-of-day.md; NOT judged by a player yet): the trick goals, 0x0056F090-0x00570F60, 0x005710B0-0x00571110 and
+  0x00574960-0x00576520 - 49 functions (src/game/skate/trick_goals.{h,cpp}): Game::CTetrisGoal (Skatetris: 0x458
+  bytes, 30 tricks of 0x20; constructor / destructors, Win, ClearTricks / ClearTricksAndMenu / Init, the combo /
+  single combo / TrickTris variants, UpdateAlphas, Expire, Activate / Deactivate, RemoveTrick, AddTricks, CheckCombos,
+  CheckTricks, Update), Game::CTimedScoreRunGoal (constructor, destructors, IsRunning), Game::CTrickBeatGoal
+  (TrickBeat: 0x47C bytes; the beat pattern and tempo, the beat clock with its sounds and the trick window,
+  TrickLanded / ClearLanded / PulseTricks / RemoveLandedTricks, AddTricks, Update), Game::CTrickObjectsGoal
+  (CheckScore, GetObjectByCluster, ObjectHit). Only CGoal's first 0x70 bytes are described (GoalBase); CGoal itself
+  (0x00550040-0x0056C920) isn't rewritten.
+  Findings: a Skatetris trick comes every current_trick_time ms (shortened by acceleration_percent every
+  acceleration_interval tricks); the stack turns red past three quarters of max_tricks and is lost when a new block
+  would overflow it; key combos come from the skater's trick mapping (a special slot: the skater's own special),
+  double taps through the trick's ExtraTricks; TrickTris adds blocks of tricktris_block_size until
+  tricktris_total_to_win are done. TrickBeat's beat is 15000 / tempo ms (slowed by slow motion), each of the 16
+  steps' sounds played on it, the window beat_window_time / 2 ms either side of a pulse step. Quirks kept: "Perfect "
+  is written and then overwritten by the spin text; ClearTricks of TrickBeat stores free = true then false;
+  GetObjectByCluster matches an entry without cluster_id against the last one read; RemoveTrick of TrickBeat reads
+  two values it doesn't use; the beat's time compared as unsigned.
+  Tests (src/hook/selftests_tod3.cpp): TestTetrisGoal, TestTrickBeatGoal, TestSmallGoals. 51 deliberate bugs caught,
+  10 after strengthening (UpdateAlphas with no no_alpha_check given - our local now zeroed, as it's only read when
+  given -, a stack exactly full and exactly three quarters full, the groups after CheckCombos, TrickTris at exactly
+  its total, the trick interval reached exactly, a trick landed twice, the goal's words after AddTricks and the beat
+  frames, the time limit with flag 0x10 and no time left).
+  What to check in the game: a Skatetris goal (e.g. a career level's Skatetris), a TrickBeat goal, a trick objects
+  goal (hitting the marked objects): tricks appear, turn red, disappear when done, and the goals win / lose as before.
+
+- [x] Batch 113 (TOD-4; time-of-day agent, merged 2026-10-19; run in the game: docs/pending/time-of-day.md; NOT judged by a player yet): the skate module's network side, 0x0056C920-0x0056F090 - 12 functions
+  (4 Ghidra had missed: 0x0056CDF0, 0x0056CEC0, 0x0056E380, 0x0056E470 - handlers it only saw as data) in
+  src/game/skate/skate_net.{h,cpp} (Mdl::SkateNet: the module itself isn't rewritten): CreateNetworkTasks (the two
+  Tsk::Task<Skate>s), StartServer (CFunc StartServer: the server app and its 36 handlers), AddClientHandlers
+  (JoinServer: the client's 45 handlers - 48 for client 0 - and each own skater's 6), and the handlers HandleServerRemovedYou (0x51 /
+  0x56), HandleScavengerHunt (0x91-0x95), HandleScavengerKillObject (0x90), HandleScavengerDropObjects (0x8F),
+  HandleGraffitiColors (0x5C), HandleScores (0x40), HandleStartInfo (0x33), HandleRunScript (0x48),
+  HandleObjectUpdates (0x23). The handlers they register outside the range (0x00569xxx-0x0056C8C0, 0x005xxxxx)
+  are passed by address.
+  Findings: the start info message (0x33) carries the network settings, level, game mode and its time / score limits
+  (+0x20 / +0x24), the pro set geometry flags (+3) and the goal script variant (+0x4C: ElimiSkate's interval / break
+  period, the scavenger hunt's interval / collect); victory_conditions are built from targetScoreArray /
+  highestScoreArray. The scores message (0x40) is [0] a value for the game mode, [4] a checksum compared with the
+  skate module's (notify_cheating), [8] the game's end, [9] count, then id + score per skater; in netfirefight a
+  skater dropping to 0 is eliminated. Object updates (0x23) are a bit stream: a mask of 8 objects, then per object a
+  16-bit time stamp, 9 field bits (x / y / z position as 16-bit halves - y quarters -, three angles in 1/4096,
+  a state group of 4+6+1+1 bits, 5+3 bits, 32 bits), added to the skater's 20-entry state history (+0x27C). Quirks
+  kept: the removed / moved-on dialogs are run without the structure made for them; with no local player the
+  scavenger hunt's team message reads the name at address 0x38; the leader's LostGame goes to the leader's own
+  skater; HandleStartInfo's goal script, when a type has no goal_script, is the skate module's address (the
+  argument's slot reused); bit 7 of a 4-bit value (always 0) as the state entry's +0x74; graffiti colour arrays
+  never freed.
+  Tests (src/hook/selftests_tod4.cpp): TestSkateNetRegistration, TestSkateNetHandlers, TestSkateNetObjectUpdates
+  (60 random bit-stream messages over 8 skaters, the histories compared). 64 deliberate bugs caught, 3 after
+  strengthening (a skater present to be eliminated with a non-zero score; a single player; first updates without
+  fields and the histories hashed after every message). The mutation builds
+  needed the compiler / linker PDBs dropped each time (they got corrupt: C1033 / C2471 / LNK1201).
+  The calls into code not rewritten go through a Call<R>(address, object, args...) helper, which
+  audit_game_function_calls.py doesn't see: their argument sizes are checked by the tests instead (every one is
+  stood in for with the original caller's stack size - a wrong size would unbalance the original's stack).
+  What to check in the game: a network game (hosting a LAN / online game with a second instance -
+  allow_multiple_instances=1 - joining): the level loads for both, scores and the leader messages show, other
+  skaters move smoothly, the game ends with won / lost; a scavenger hunt / elimiskate / graffiti game if possible.
 - [ ] Next: small net follow-ups: App::m_manager (+0x1440) could become `Manager*` (it is `void*`), name the
       Manager's +0x2E6 flag (pref checksum 0xE5ADE642) and check +0x374 (modem baud rate?).
       Widescreen follow-up: if the user still sees the bottom-left band overlap, don't draw sprites wholly outside the
