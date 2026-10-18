@@ -34,6 +34,26 @@ def write_tex(tex):
     return w.getvalue()
 
 
+def unswizzle_order(w, h):
+    # THPS4's 8-bit textures are stored swizzled, as on the Xbox: a texel's index has the bits of x and y
+    # interleaved (x first) while both have bits left, then the rest of the longer one. Returns, for each texel in
+    # row order, its index in the stored data.
+    order = []
+    for y in range(h):
+        for x in range(w):
+            index, shift, bit = 0, 0, 0
+            while (1 << bit) < w or (1 << bit) < h:
+                if (1 << bit) < w:
+                    index |= ((x >> bit) & 1) << shift
+                    shift += 1
+                if (1 << bit) < h:
+                    index |= ((y >> bit) & 1) << shift
+                    shift += 1
+                bit += 1
+            order.append(index)
+    return order
+
+
 def depalettise(tex):
     # THPS4's 8-bit paletted textures (a few skies, one London texture: 256 x BGRA palette, indices row by row)
     # as 32-bit A8R8G8B8 - the texture loader (0x004CAE90) makes paletted ones 32-bit textures but its palette path
@@ -46,7 +66,14 @@ def depalettise(tex):
             raise FormatError("texture %08X: %d-bit with a %d-byte palette" % (t["checksum"], t["texel_depth"],
                                                                                 len(t["palette"])))
         colors = [t["palette"][i:i + 4] for i in range(0, 1024, 4)]
-        t["levels"] = [b"".join(colors[i] for i in level) for level in t["levels"]]
+        levels = []
+        for n, level in enumerate(t["levels"]):
+            w, h = max(1, t["width"] >> n), max(1, t["height"] >> n)
+            if len(level) != w * h:
+                raise FormatError("texture %08X level %d: %d bytes for %dx%d" % (t["checksum"], n, len(level), w, h))
+            order = unswizzle_order(w, h)
+            levels.append(b"".join(colors[level[i]] for i in order))
+        t["levels"] = levels
         t["palette"] = b""
         t["texel_depth"] = 32
         t["palette_depth"] = 32  # (as every texture of the shipped files)
