@@ -33,6 +33,7 @@
 # Needs NeverScript (tools/build_neverscript.ps1 -> out/neverscript/ns.exe).
 
 import argparse
+import math
 import os
 import re
 import shutil
@@ -469,6 +470,11 @@ BACKDROP_LEVEL = "thps4_skateshop"
 # spin_menu_selected_index). Items the game makes inactive (active=0) are shown but not focusable; the 2 player
 # item's tag `active` is switched by the game's enable / disable_two_player_option as before, and main_menu_choose
 # doesn't run an inactive item.
+# SKATE NOW (main_menu_skate_now): the menu slides out, the skater gets skating physics (main_menu_skater_skate: the
+# front end's skater is in walking physics mode), then THPS4's practice start: the restart TRG_SS_SkaterDropIn
+# (front_end_nodes) and DropIn. The restart is KillSkater node= - the skater's real restart (ResetSkaters skips the
+# front end's skater; Obj_MoveToNode left the physics behind: the drop-in ended with a snap); it restarts the skater's
+# script, so DropIn is started after it. Esc (root_window's pad_start) brings the menu back.
 MAIN_MENU_SCRIPTS = r"""main_menu_list_pos = (229.0, 98.0)
 main_menu_list_width = 220.0
 main_menu_list_spacing = 2
@@ -784,6 +790,10 @@ script main_menu_skate_now {
     change main_menu_skating=1
     KillSkaterCamAnim all
     MakeSkaterGoto main_menu_skater_skate
+    wait 2 gameframes
+    skater:KillSkater node=TRG_SS_SkaterDropIn
+    wait 1 gameframe
+    MakeSkaterGoto DropIn
     SetScreenElementProps {
         id=root_window
         event_handlers=[{pad_start main_menu_skate_stop}]
@@ -801,9 +811,7 @@ script main_menu_skater_skate {
     SetRollingFriction `default`
     AllowRailTricks
     ClearEventBuffer
-    PausePhysics
-    Obj_MoveToNode name=TRG_SS_SkaterDropIn Orient NoReset
-    goto DropIn
+    goto OnGroundAI
 }
 script main_menu_skate_stop {
     if (main_menu_skating = 0) {
@@ -845,12 +853,15 @@ def front_end_nodes(text, backdrop_nodes):
     end = text.find("\n] \n")
     if not node or end < 0 or text.find("\n] \n", end + 1) >= 0:
         sys.exit("the front end's node array / %s's %s not as expected" % (BACKDROP_LEVEL, DROP_IN_NODE))
-    # (written as THUG2's own nodes are: Pos - the legacy Position's z negated, as the engine reads it -, no
-    # CreatedAtStart)
+    # Written as THUG2's own nodes are: Pos = the legacy Position with z negated (as the engine reads it), THPS4's
+    # angles kept (the skater pitched 90 degrees against the vert at the coping: DropIn's animation - THPS4's, never
+    # used by THUG2 itself - is made for that). Copied verbatim instead (Position= with CreatedAtStart), the game quit
+    # at start-up.
     x, y, z = (float(v) for v in node.group(1).split(","))
-    drop_in = ("    {\n        Pos=(%r, %r, %r) \n        Angles=(%s) \n        Name=%s \n        Class=Restart \n"
-               "        Type=Generic \n        RestartName=\"DropIn\" \n        restart_types=[Generic] \n    } \n"
-               % (x, y, -z, node.group(2), DROP_IN_NODE))
+    pitch, yaw, roll = (float(v) for v in node.group(2).split(","))
+    drop_in = ("    {\n        Pos=(%.3f, %.5f, %.3f) \n        Angles=(%.6f, %.6f, %.6f) \n        Name=%s \n"
+               "        Class=Restart \n        Type=Generic \n        CreatedAtStart \n        RestartName=\"DropIn\" \n"
+               "        restart_types=[Generic] \n    } \n" % (x, y, -z, pitch, yaw, roll, DROP_IN_NODE))
     return text[:end + 1] + drop_in + text[end + 1:]
 
 

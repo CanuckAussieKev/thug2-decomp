@@ -113,3 +113,12 @@ DLL, ini and overlay). Built, offline self-tests all pass (197), mutations caugh
   arrives. Tested in the game: menu -> SKATE NOW -> drop-in onto the ramp, skating outside; Esc back to the menu.
 - Not done: THPS4's peds and its cars driving the road (its node array has them: Skateshop_Pedestrian / PedPro
   nodes with nav paths, TRG_SS_Car01-03 with CarNav paths; the converter strips them).
+- Then (the user: "when the drop in animation finishes, it does not cleanly go into skating"): the restart is now
+  `skater:KillSkater node=TRG_SS_SkaterDropIn` from main_menu_skate_now (the skater's real restart, its vtable +0x3C
+  - ResetSkaters (0x005AC3B0 -> 0x00566980) skips skaters whose +0xBC byte is clear, as the front end's is;
+  Obj_MoveToNode moved the object but left the physics, which snapped him round 90 degrees when the animation
+  ended), then MakeSkaterGoto DropIn (KillSkater restarts the skater's script, so DropIn comes after it). The node
+  keeps THPS4's angles (pitched 90 degrees against the vert): THUG2's DropIn script and animation are THPS4's,
+  unused by THUG2 itself (no reference in the exe or scripts), made for that restart; level, at the coping, he rode
+  off sideways. Tested in the game frame by frame: drop-in, down the wall, out across the flat, no snap; Esc back
+  and a second drop-in.
