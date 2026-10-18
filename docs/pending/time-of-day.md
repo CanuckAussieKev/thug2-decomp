@@ -121,3 +121,37 @@ Not recovered: 0xE5B6C568, 0xDF1A695F, 0x8F639F94 (SetSceneColor's sectors-only 
   frames, the time limit with flag 0x10 and no time left).
   What to check in the game: a Skatetris goal (e.g. a career level's Skatetris), a TrickBeat goal, a trick objects
   goal (hitting the marked objects): tricks appear, turn red, disappear when done, and the goals win / lose as before.
+
+- [x] Batch TOD-4 (NOT run in the game yet): the skate module's network side, 0x0056C920-0x0056F090 - 12 functions
+  (4 Ghidra had missed: 0x0056CDF0, 0x0056CEC0, 0x0056E380, 0x0056E470 - handlers it only saw as data) in
+  src/game/skate/skate_net.{h,cpp} (Mdl::SkateNet: the module itself isn't rewritten): CreateNetworkTasks (the two
+  Tsk::Task<Skate>s), StartServer (CFunc StartServer: the server app and its 36 handlers), AddClientHandlers
+  (JoinServer: the client's 45 handlers - 48 for client 0 - and each own skater's 6), and the handlers HandleServerRemovedYou (0x51 /
+  0x56), HandleScavengerHunt (0x91-0x95), HandleScavengerKillObject (0x90), HandleScavengerDropObjects (0x8F),
+  HandleGraffitiColors (0x5C), HandleScores (0x40), HandleStartInfo (0x33), HandleRunScript (0x48),
+  HandleObjectUpdates (0x23). The handlers they register outside the range (0x00569xxx-0x0056C8C0, 0x005xxxxx)
+  are passed by address.
+  Findings: the start info message (0x33) carries the network settings, level, game mode and its time / score limits
+  (+0x20 / +0x24), the pro set geometry flags (+3) and the goal script variant (+0x4C: ElimiSkate's interval / break
+  period, the scavenger hunt's interval / collect); victory_conditions are built from targetScoreArray /
+  highestScoreArray. The scores message (0x40) is [0] a value for the game mode, [4] a checksum compared with the
+  skate module's (notify_cheating), [8] the game's end, [9] count, then id + score per skater; in netfirefight a
+  skater dropping to 0 is eliminated. Object updates (0x23) are a bit stream: a mask of 8 objects, then per object a
+  16-bit time stamp, 9 field bits (x / y / z position as 16-bit halves - y quarters -, three angles in 1/4096,
+  a state group of 4+6+1+1 bits, 5+3 bits, 32 bits), added to the skater's 20-entry state history (+0x27C). Quirks
+  kept: the removed / moved-on dialogs are run without the structure made for them; with no local player the
+  scavenger hunt's team message reads the name at address 0x38; the leader's LostGame goes to the leader's own
+  skater; HandleStartInfo's goal script, when a type has no goal_script, is the skate module's address (the
+  argument's slot reused); bit 7 of a 4-bit value (always 0) as the state entry's +0x74; graffiti colour arrays
+  never freed.
+  Tests (src/hook/selftests_tod4.cpp): TestSkateNetRegistration, TestSkateNetHandlers, TestSkateNetObjectUpdates
+  (60 random bit-stream messages over 8 skaters, the histories compared). 64 deliberate bugs caught, 3 after
+  strengthening (a skater present to be eliminated with a non-zero score; a single player; first updates without
+  fields and the histories hashed after every message). The mutation builds
+  needed the compiler / linker PDBs dropped each time (they got corrupt: C1033 / C2471 / LNK1201).
+  The calls into code not rewritten go through a Call<R>(address, object, args...) helper, which
+  audit_game_function_calls.py doesn't see: their argument sizes are checked by the tests instead (every one is
+  stood in for with the original caller's stack size - a wrong size would unbalance the original's stack).
+  What to check in the game: a network game (hosting a LAN / online game with a second instance -
+  allow_multiple_instances=1 - joining): the level loads for both, scores and the leader messages show, other
+  skaters move smoothly, the game ends with won / lost; a scavenger hunt / elimiskate / graffiti game if possible.
