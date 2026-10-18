@@ -324,12 +324,27 @@ def args_of(toks):
 
 class Translator:
     def __init__(self, sources, thug2, translatable, node_names, all_node_names, names, provided=(),
-                 inherit_params=False, undrawn=()):
+                 inherit_params=False, undrawn=(), left_out=(), renames=None, objects=None, components=None,
+                 full=False, by_name=None, rewrites=None):
         # sources: Source list (later ones win); translatable(source label) -> may its scripts be brought along;
         # node_names: the converted level's nodes; all_node_names: the THPS3 level's; provided: scripts the level's
         # .qb defines otherwise (its kill scripts) - used as THUG2's own. inherit_params: a call of a brought script
         # with no arguments passes the caller's (`<...>` added): THPS3's scripts rely on it (a proximity node's script
         # calls ALF_SUB_Hide_Const_Pool, which tests `inside`); THUG2's callee gets only what it's given.
+        # left_out / renames: more of LEFT_OUT / RENAMES (another game's). objects: {node name checksum: (context,
+        # created at start)} - the objects `name:command` statements (token 0x42, THPS4's) may address; None: those
+        # statements aren't looked at. components: {context: more SAFE_COMPONENTS}; by_name: {context: more
+        # BY_NAME}. full: `name = value` statements kept and `not` conditions looked into (THPS4's; off: as before,
+        # left out / kept unchecked). rewrites: {command checksum: fn(statement tokens) -> tokens} applied first.
+        self.extra_left_out = {n.lower() for n in left_out}
+        self.objects = objects
+        self.full = full
+        self.rewrites = rewrites or {}
+        self.safe = {c: set(SAFE_COMPONENTS[c]) | set((components or {}).get(c, ())) for c in SAFE_COMPONENTS}
+        self.by_name = {c: set(BY_NAME[c]) | {n.lower() for n in (by_name or {}).get(c, ())} for c in BY_NAME}
+        self.created = set()         # objects a kept Create makes (`name:` on them is kept)
+        self.created_prefixes = set()  # and the prefix= of kept Creates (lower case)
+        self.referenced = set()        # node names kept statements pass as values (discovery)
         self.thug2 = thug2
         self.inherit_params = inherit_params
         # undrawn: geometry nodes the converted scene has no sector for (without_undrawn)
@@ -349,8 +364,9 @@ class Translator:
         self.left_out = {}           # reason -> count
         self.used_globals = set()
         self.components = {checksum(c): c for c in COMPONENT_NAMES}
-        self.renames = {checksum(a): checksum(b) for a, b in RENAMES.items()}
-        for b in RENAMES.values():
+        all_renames = dict(RENAMES, **(renames or {}))
+        self.renames = {checksum(a): checksum(b) for a, b in all_renames.items()}
+        for b in all_renames.values():
             self.names.setdefault(checksum(b), b)
         self.names.setdefault(checksum(NEVER), NEVER)
         self.names.setdefault(checksum("GotParam"), "GotParam")
@@ -403,11 +419,28 @@ class Translator:
         # The statement's tokens (no line end) as THUG2 tokens, or None to leave it out (noted). `discover`: also
         # queue the scripts it needs.
         first = toks[0]
+        if self.objects is not None and len(toks) > 2 and toks[1].t == 0x42:
+            return self.on_object(toks, contexts, discover)
         if first.t != 0x16:
             return toks
+        if first.name() in self.rewrites:
+            toks = self.rewrites[first.name()](toks)
+            if toks is None:
+                self.note("left out (rewrite): " + self.text(first.name()))
+                return None
+        if self.full and len(toks) > 2 and toks[1].t == 0x07:
+            # `name = value` (a parameter set): a script as the value brought along (run as the caller's: goto <it>)
+            for value in toks[2:]:
+                if value.t == 0x16 and self.is_thps3_script(value.name()):
+                    if not (all(self.require(value.name(), c) for c in contexts) if discover else
+                            self.script_available(value.name())):
+                        self.note("script not available: " + self.text(value.name()))
+                        return None
+            return [name_tok(self.renames[t.name()], t.i) if t.t == 0x16 and t.name() in self.renames else t
+                    for t in toks]
         name = first.name()
         text = self.text(name).lower()
-        if text in LEFT_OUT:
+        if text in LEFT_OUT or text in self.extra_left_out:
             self.note("left out: " + self.text(name))
             return None
         args = args_of(toks[1:])
@@ -422,6 +455,20 @@ class Translator:
                     value.name() in self.all_node_names and value.name() not in self.node_names:
                 self.note("node not converted: " + self.text(value.name()))
                 return None
+        if self.full:
+            # (any parameter: THPS4's scripts pass node names on - SF2_CheckThenCreateCar carname=X does
+            # `IsAlive name=<carname>`, which reads through a null for a node the array hasn't; and global
+            # structures of them - CJR_SF2_Fisherman_Box_Hit Fisherman03Params)
+            for key, value in args:
+                if value.t != 0x16:
+                    continue
+                found = [value.name()]
+                if key is None and isinstance(self.globals.get(value.name()), qb.Struct):
+                    found = [v.value for _, v in self.globals[value.name()].entries if isinstance(v, qb.Name)]
+                missing = [n for n in found if n in self.all_node_names and n not in self.node_names]
+                if missing:
+                    self.note("node not converted (passed on): " + self.text(missing[0]))
+                    return None
         # scripts passed as values
         for key, value in args:
             if value.t != 0x16:
@@ -458,10 +505,10 @@ class Translator:
                 return None
         elif name in self.thug2.members:
             component = self.components.get(self.thug2.members[name], "%08X" % self.thug2.members[name])
-            if not all(component in SAFE_COMPONENTS[c] for c in contexts):
+            if not all(component in self.safe[c] for c in contexts):
                 self.note("member of %s: %s" % (component, self.text(name)))
                 return None
-        elif all(text in BY_NAME[c] for c in contexts):
+        elif all(text in self.by_name[c] for c in contexts):
             pass
         else:
             self.note("not in THUG2: " + self.text(name))
@@ -472,6 +519,12 @@ class Translator:
             if value.t == 0x16 and value.name() in self.globals and value.name() not in self.thug2.globals and \
                     value.name() not in self.where and not self.text(value.name()).upper().startswith("EX_"):
                 self.used_globals.add(value.name())
+        if discover:
+            self.referenced.update(v.name() for _, v in args if v.t == 0x16 and v.name() in self.all_node_names)
+        if discover and text == "create":
+            self.created.update(v.name() for k, v in args if k == checksum("name") and v.t == 0x16)
+            self.created_prefixes.update(v.p.rstrip(b"\0").decode("latin-1").lower() for k, v in args
+                                         if k == checksum("prefix") and v.t in (0x1B, 0x1C))
         # names THUG2 calls otherwise
         out = []
         for tok in toks:
@@ -481,6 +534,22 @@ class Translator:
         if self.inherit_params and len(toks) == 1 and self.is_thps3_script(name):
             out.append(Tok(0x2C, b"", first.i))
         return out
+
+    def on_object(self, toks, contexts, discover):
+        # `object:command args` (THPS4): the command checked as run by that object - one of `objects`, there at the
+        # start or made by a kept Create (THUG2 runs a missing object's command on object 0, the skater: a member
+        # function it hasn't crashes).
+        target = toks[0].name()
+        found = self.objects.get(target) if target is not None else None
+        if found is None:
+            self.note("object not converted: " + (self.text(target) if target is not None else "<param>"))
+            return None
+        context, at_start = found
+        if not discover and not at_start and target not in self.created:
+            self.note("object never created: " + self.text(target))
+            return None
+        rest = self.command(toks[2:], {context}, discover)
+        return None if rest is None else toks[:2] + rest
 
     def without_undrawn(self, toks, args):
         # Visible / Invisible / Create / Kill / Shatter of geometry nodes with no scene sector (collision-only: THUG2
@@ -518,8 +587,11 @@ class Translator:
         return toks
 
     def condition(self, toks, contexts, discover):
-        # An if's condition: kept, or always false.
+        # An if's condition: kept, or always false (`not <condition>`, 0x39, too).
         content = [t for t in toks if t.t not in EOL]
+        if len(content) > 1 and content[0].t == 0x39 and self.full:
+            kept = self.condition(content[1:], contexts, discover)
+            return kept if kept[-1].t == 0x16 and kept[-1].name() == checksum(NEVER) else content[:1] + kept
         if len(content) == 1 and content[0].t == 0x16 and self.text(content[0].name()).lower() == "inside":
             # (a THPS3 proximity node's script: `if inside` - our proximity ghost passes `inside`)
             return [name_tok(checksum("GotParam"), content[0].i), content[0]]
@@ -551,6 +623,7 @@ class Translator:
         items = []   # (kind, value, orig index)
         stmts = statements(body)
         ifs = []
+        switches = []
         counter = [0]
         for n, st in enumerate(stmts):
             content = [t for t in st if t.t not in EOL]
@@ -582,6 +655,29 @@ class Translator:
                     items.append(("label", ("else", number), orig))
                 items.append(("label", ("end", number), orig))
                 items.append(("tok", head, orig))
+            elif head.t == 0x3C:
+                # switch (THPS4): THPS4's case / default carry no jumps; THUG2's are `3E 49 <to the next case>
+                # value` and `3F 49 <to the endswitch>`, each case body but the last ended by `49 <to the endswitch>`.
+                counter[0] += 1
+                switches.append([counter[0], 0])
+                items += self.token_items(content)
+            elif head.t in (0x3E, 0x3F):
+                if not switches:
+                    raise ValueError("%s: case without switch" % self.text(name))
+                sw = switches[-1]
+                if sw[1]:
+                    items.append(("break", sw[0], orig))
+                items.append(("label", ("case", sw[0], sw[1]), orig))
+                items.append(("case" if head.t == 0x3E else "default", (sw[0], sw[1]), orig))
+                sw[1] += 1
+                items += self.token_items(content[1:])
+            elif head.t == 0x3D:
+                if not switches:
+                    raise ValueError("%s: endswitch without switch" % self.text(name))
+                number, cases = switches.pop()
+                items.append(("label", ("case", number, cases), orig))
+                items.append(("label", ("endswitch", number), orig))
+                items.append(("tok", head, orig))
             elif head.t in RANDOMS:
                 items.append(("random", head, orig))
                 continue
@@ -612,7 +708,7 @@ class Translator:
 
     def assemble(self, name, items):
         head = b"\x23\x16" + struct.pack("<I", name)
-        size = {"if": 3, "else": 3, "jump": 5, "label": 0}
+        size = {"if": 3, "else": 3, "jump": 5, "label": 0, "break": 3, "case": 4, "default": 4}
         positions, pos = [], len(head)
         for kind, value, orig in items:
             positions.append(pos)
@@ -644,6 +740,12 @@ class Translator:
                 out += b"\x48" + struct.pack("<H", labels[("end", value)] - (here + 1))
             elif kind == "jump":
                 out += b"\x2E" + struct.pack("<i", at(value.targets[0]) - (here + 5))
+            elif kind == "break":
+                out += b"\x49" + struct.pack("<H", labels[("endswitch", value)] - (here + 1))
+            elif kind == "case":
+                out += b"\x3E\x49" + struct.pack("<H", labels[("case", value[0], value[1] + 1)] - (here + 2))
+            elif kind == "default":
+                out += b"\x3F\x49" + struct.pack("<H", labels[("endswitch", value[0])] - (here + 2))
             elif kind == "random":
                 n = len(value.targets)
                 out += bytes([value.t]) + struct.pack("<I", n) + struct.pack("<%dH" % n, *([1] * n))
@@ -658,11 +760,24 @@ class Translator:
         lines = []
         for value in sorted(self.used_globals):
             v = self.globals[value]
+            if _has_local(v):
+                # (NeverScript doesn't read 'local strings': THPS4's trick structures' names)
+                continue
             try:
                 lines.append("%s = %s" % (qb.name_text(value, self.names), qb.to_ns(v, self.names)))
             except TypeError:
                 continue
         return "\n".join(lines) + ("\n" if lines else "")
+
+
+def _has_local(value):
+    if isinstance(value, qb.Local):
+        return True
+    if isinstance(value, list):
+        return any(_has_local(v) for v in value)
+    if isinstance(value, qb.Struct):
+        return any(_has_local(v) for _, v in value.entries)
+    return False
 
 
 def append_scripts(compiled, scripts, names):

@@ -39,10 +39,14 @@ back - they must come out byte-identical - and parses every THPS4 level file.
 - Textures: the same format (DXT1/2/5); THPS4's few 8-bit paletted ones (skies, London) become 32-bit, unswizzled.
 - Collision: version 8 -> 10, with THUG2's BSP trees, fixed-point vertices, small faces and the per-face "reach"
   bytes THUG2's ray test needs. Face flags: THPS4's camera flag inverted, flags THUG2 doesn't use dropped.
-- Nodes: restarts (the Player1 restart first), rails, level geometry (THPS4's scripted LevelObjects as static
-  geometry), KOTH crowns. Peds and vehicles as below; game objects (THPS4 models), goals and scripts are left out; trigger
-  faces are kept only for kill zones (water, out of bounds), which get THUG2's SK3_KillSkater(_Water).
-- Peds and cars (the skate shop only: `PEDS_CARS` in thps4_levels.py; `tools/level_port/peds_cars.py`): made again
+- Nodes: restarts (the Player1 restart first), rails, level geometry, KOTH crowns; kill zones (water, out of bounds)
+  get THUG2's SK3_KillSkater(_Water).
+- Scripts and moving objects (`thps4_scripts.py`; `--no-scripts` leaves them out): LevelObjects, ghost game objects
+  and waypoints kept, run by THPS4's own scripts translated to THUG2's (tools/level_port/script_port.py: the
+  sectors' / rails' trigger scripts - gaps -, the objects', the level's setup / startup scripts); the vehicles moved
+  by scripts (trams, rides, trains, cranes...) LevelObjects of their THPS4 models; peds that don't walk stand as THUG2
+  peds; goals, goal objects, animals, particles and proximity nodes left out. See docs/pending/thps4-scripts.md.
+- Peds and cars (every level: `PEDS_CARS` in thps4_levels.py; `tools/level_port/peds_cars.py`): made again
   as THUG2's own, run by THUG2's scripts, added after the converted nodes. The cars (Car_Generic01 in THPS4) keep
   their model when THUG2 has it (`Data\models\veh\...`, else a sedan) and drive the same waypoints with THUG2's
   Car_Generic01; the people walking by (THPS4's Obj_FollowPathLinked peds) walk their paths with THUG2's ped AI

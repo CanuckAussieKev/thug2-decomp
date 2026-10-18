@@ -910,6 +910,8 @@ def front_end_rails(text, backdrop_nodes):
     added = ""
     for i in rails:
         node = re.sub(r"Links=\[([^\]]*)\]", renumber, elements[i])
+        # (the shop's gap scripts are in its own .qb, not the front end's)
+        node = re.sub(r"\n[ \t]*TriggerScript=\w+[ \t]*(?=\n)", "", node)
         added += "    %s \n" % re.sub(r"\bPosition=\(([^)]*)\)", pos, node)
     print("front end: %d rail nodes from %s" % (len(rails), BACKDROP_LEVEL))
     return text[:close] + added + text[close:]
@@ -921,7 +923,18 @@ def front_end_peds_cars(text, backdrop_nodes):
     # scripts copied.
     elements, _, _ = array_elements(backdrop_nodes, BACKDROP_LEVEL + "_NodeArray")
     kinds = [m.group(1).lower() if m else "" for m in (re.search(r"\bClass=(\w+)", e) for e in elements)]
-    first = next((i for i, kind in enumerate(kinds) if kind in MOVING_CLASSES), None)
+    # (the last run of them: the converted shop's own waypoints - its scripts' objects' paths - come earlier)
+    first = len(kinds)
+    while first > 0 and kinds[first - 1] in MOVING_CLASSES:
+        first -= 1
+
+    def links_before(start):
+        return any(int(v) < start for e in elements[start:] for m in re.finditer(r"Links=\[([^\]]*)\]", e)
+                   for v in re.split(r"[,\s]+", m.group(1).strip()) if v)
+
+    while first < len(kinds) and links_before(first):
+        first += 1
+    first = first if first < len(kinds) else None
     if first is None:
         print("%s has no peds or cars: none in the front end" % BACKDROP_LEVEL)
         return text
