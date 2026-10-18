@@ -628,7 +628,9 @@ struct MovieRunScript {
 MovieRunScript g_mr;
 struct {
     int wait, nextFrame, reset, lock, read, events, inactivePumps;
+    bool lostWait; // (ours: a reset left the device lost - the next window pump is our wait, not the original's)
 } g_mc;
+bool g_pm_ours; // (the run of Nx::PlayMovieFile, not the original)
 alignas(16) uint8_t g_pm_bink[64];
 alignas(16) uint8_t g_pm_bits[64];
 alignas(16) uint8_t g_pm_devices[4][0x100];
@@ -697,9 +699,18 @@ void __cdecl PmResetDevice()
     PmNote({0x7E5u});
     if (++g_mc.reset >= g_mr.lostResets)
         GameVariable<bool>(0x00786AB4) = false;
+    // Ours waits and pumps the window's messages while the device stays lost (the original spins without - hung
+    // for good with another full-screen program up): that pump is the one deliberate difference, left out.
+    if (g_mc.lostWait)
+        PmNote({0xBADu}); // (ours didn't pump after the last reset that left it lost)
+    g_mc.lostWait = g_pm_ours && GameVariable<bool>(0x00786AB4);
 }
 void __cdecl PmEvents()
 {
+    if (g_mc.lostWait) {
+        g_mc.lostWait = false;
+        return;
+    }
     ++g_mc.events;
     PmNote({0xE7u});
     // Inactive for three pumps (the first may be the every-other-frame one, before the loop sees it).
@@ -899,6 +910,7 @@ void TestPlayMovieFile()
     std::vector<uint32_t> traces[2];
     for (int run = 0; run < 2; ++run) {
         bool original = run == 0;
+        g_pm_ours = !original;
         for (const MovieRunScript& script : scripts) {
             g_mr = script;
             g_mc = {};
