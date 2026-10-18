@@ -46,6 +46,7 @@ import zlib
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(REPO, "tools", "level_port"))
 import ported_levels  # noqa: E402 (the converted THPS4 / THUG1 levels: added when <game>\thug2-decomp-thps4 / -thug1 exist)
+import thug2_col  # noqa: E402 (the front end's collision without THUG2's shop)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import level_select  # noqa: E402 (the level select's sections, stars and signs)
 
@@ -1049,6 +1050,12 @@ def main():
                                        "backdrop.qb")
             write(front_end_peds_cars(front_end_nodes(shop, backdrop_nodes), backdrop_nodes),
                   r"front_end\levels\mainmenu\mainmenu.qb")
+            # THUG2's own shop's collision without its objects: the DLL hides THUG2's shop, but its collision stayed -
+            # x -1372..764, z -1377..471 overlaps THPS4's outside halfpipe (x 465..1155): invisible walls after SKATE
+            # NOW. The front end's skater stands in THPS4's shop (its collision: mainmenu_startup's LoadCollision).
+            target = os.path.join(out, "front_end", "levels", "mainmenu", "mainmenu.col.xbx")
+            open(target, "wb").write(thug2_col.write_col({"objects": [], "pad": 0}))
+            print("wrote", target)
         else:
             print("%s not converted (tools/thps4_levels): no front end backdrop, the game's main menu kept" % BACKDROP_LEVEL)
 
