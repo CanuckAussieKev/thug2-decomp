@@ -49,37 +49,53 @@ peds, vehicles, etc into free skate." This is THPS4's part (tools/thps4_levels).
     case>`, `3F 49 <endswitch>`, `49 <endswitch>` before each later case - only taken when a script has a switch
     (THPS3 has none).
   - globals_ns skips values with 'local strings' (NeverScript can't compile them: THPS4's trick structures).
-- `tools/menu_level/make_menu_level.py`: front_end_peds_cars takes the trailing run of peds / vehicles / waypoints
-  (the shop's own waypoints now come earlier) whose Links stay inside it; front_end_rails drops the rails'
-  TriggerScript (the shop's gap scripts aren't in the front end's .qb).
-
+  - Merged with main's (undrawn, inherit_params): my parameters come after theirs; `rewrites={command: fn}` (statement
+    rewrites: THPS4's TriggerType), `full` also checks every parameter value naming a node the level hasn't (and a
+    global structure of them) - SF2_CheckThenCreateCar carname=X runs `IsAlive name=<carname>`, a null read for a
+    missing node; `created_prefixes` / `referenced` recorded in discovery (what a caller may drop as never made).
+  - THPS3 output unchanged (Airport's .qb decompiles the same but for the order of its checksum-name list).
 ## Per level (convert report)
 
-| level | level objects | vehicles (models) | THUG2 cars / walkers | standing peds | ghosts | waypoints | scripts brought |
-|---|---|---|---|---|---|---|---|
-| Alcatraz | 61 | 10 | 0 / 0 | 110 | 34 | 228 | 673 |
-| Carnival | 50 | 29 (4 without a model) | 0 / 0 | 59 | 43 | 271 | 449 |
-| Chicago | 9 | 10 | 2 / 0 | 38 | 7 | 70 | 331 |
-| Shipyard | 104 | 38 | 0 / 0 | 57 | 37 | 271 | 495 |
-| Kona | 30 | 0 | 0 / 0 | 41 | 10 | 39 | 346 |
-| London | 131 | 45 (4 without) | 0 / 0 | 51 | 13 | 191 | 525 |
-| San Francisco | 56 | 21 | 0 / 0 | 52 | 22 | 148 | 511 |
-| College | 78 | 19 | 1 / 1 | 121 | 16 | 367 | 588 |
-| Zoo | 38 | 11 | 0 / 1 | 58 | 28 | 351 | 419 |
-| Skate shop | 9 | 0 | 2 / 5 (+ 4 pros skating, 8 standing) | 6 | 15 | 292 | 18 |
-| Motocross | 0 | 0 | 0 / 0 | 1 | 1 | 0 | 4 |
+| level | level objects | vehicles (models) | THUG2 cars / walkers | standing peds | ghosts | waypoints kept | nodes kept | scripts brought |
+|---|---|---|---|---|---|---|---|---|
+| Alcatraz | 61 | 10 | 0 / 0 | 110 made, 103 objects never created left out | 34 | 85 | 2923 | 640 |
+| Carnival | 50 | 29 (4 without a model) | 0 / 0 | 59 | 43 | 209 | 2611 | 396 |
+| Chicago | 9 | 10 | 2 / 0 | 38 | 7 | 20 | 2283 | 324 |
+| Shipyard | 104 | 38 | 0 / 0 | 57 | 37 | 45 | 3601 | 477 |
+| Kona | 30 | 0 | 0 / 0 | 41 | 10 | 0 | 2598 | 302 |
+| London | 131 | 45 (4 without) | 0 / 0 | 51 | 13 | 64 | 2570 | 486 |
+| San Francisco | 56 | 21 | 0 / 0 | 52 | 22 | 41 | 2897 | 463 |
+| College | 78 | 20 | - (left out, see below) | 122 | 16 | 40 | 3193 | 544 |
+| Zoo | 38 | 11 | 0 / 1 | 58 | 28 | 60 | 2603 | 386 |
+| Skate shop | 9 | 0 | 2 / 5 (+ 4 pros skating, 8 standing) | 6 | 15 | 0 (+ peds_cars') | 298 + 138 | 10 |
+| Motocross | 0 | 0 | 0 / 0 | 1 | 1 | 0 | 371 | 4 |
 
-(Standing peds include goal peds that are never created in free skate.) Most-left-out statements: LoadSound / streams
-(THPS4's sounds aren't converted), Printf, panels, goal manager calls, MakeSkaterGoto, Obj_Var* (THPS4's object
-variables: THUG2 has tags instead), Obj_LockToObject (THPS4's coaster / train cars locked to their heads: they stay
-put), DuplicateTrigger.
+The made objects not there at the start that no brought script creates or passes on (goal peds, goal level objects,
+goal pick-up controllers: 22-143 per level) and the waypoints no kept object's path or brought script reaches are left
+out on a second pass. Most-left-out statements: LoadSound / streams (THPS4's sounds aren't converted), Printf, panels,
+goal manager calls, MakeSkaterGoto, Obj_Var* (THPS4's object variables: THUG2 has tags), Obj_LockToObject (coaster /
+train cars locked to their heads stay put), DuplicateTrigger, ShatterAndDie / Car_Generic01 from objects lacking the
+components (main's check).
 
 Offline checks: every converted .qb's jumps land on tokens and NeverScript decompiles each; all four converters'
 selfchecks pass (THPS4 139, THPS3 323, THUG1 333, THAW 735 files); THPS3 Foundry still converts.
 
-## Game runs
+## Game runs (2026-10-18/19, under the lock, this branch's data, the deployed DLL)
 
-NOT run in the game yet.
+- Every one of the 11 levels loads into free skate and keeps running ~10 s with no exception in the log
+  (College, San Francisco, Alcatraz, Kona, Shipyard, London, Zoo, Carnival, Chicago, Skate shop, Motocross);
+  screenshots: San Francisco's tram (a vehicle made a LevelObject of its model, upright) and a standing THUG2 ped;
+  Alcatraz's peds on the dock. The front end (THPS4 shop backdrop, peds / cars after SKATE NOW untouched) starts.
+- Crashes found and fixed on the way:
+  - Alcatraz: THUG2's TriggerType reads its argument as an array of condition arrays; THPS4's
+    `if TriggerType TRIGGER_LIP_ON` crashed (null read at 0x004349B2). Now made THUG2's form (TRIGGER_ARRAYS).
+  - San Francisco: `IsAlive name=<carname>` with a car the array hasn't (null read in CFunc_IsAlive's node lookup):
+    parameter values naming missing nodes are now checked.
+  - College: its node array came out null (crash in CNodeManager::HashNodes) with peds_cars.py's walker / car added
+    (main's static College loads; with them it doesn't - cause not found). College is left out of PEDS_CARS.
+- The user was playing at the same time on some runs (the skater moved) - nothing was verified by driving.
+- After the runs the game folder was put back as main has it (main's converter + make_menu_level) and the lock
+  released.
 
 ## For the user to try (per level, free skate)
 
@@ -88,7 +104,7 @@ NOT run in the game yet.
 - Carnival: ferris wheel cars, teacups, the gravitron, coasters (heads move; bodies don't follow: Obj_LockToObject).
 - Shipyard: cranes, trains, the island bridge and the buoy.
 - London: buses, taxis, the elephant truck; Chicago: the El train, the two THUG2 cars; San Francisco: the tram.
-- College: the floats (parade), the garbage truck, the walker and the car.
+- College: the floats (parade), the garbage truck (no THUG2 walker / car there).
 - Zoo: the zoo tram; Kona: its level objects.
 - Skate shop (and the front end after SKATE NOW): as before - pros on the halfpipe, walkers, cars.
 - Look for: vehicles turned the wrong way or without wheels (skinned models: body only), objects at wrong places.
