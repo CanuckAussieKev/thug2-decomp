@@ -62,9 +62,12 @@ void ReadDebugFlag() { Script::GetInteger(0xD7BB618Du); }
 // not rewritten yet: the constructor, SetSilent, the loudest channel, whether sound is off (the manager's
 // NoSoundPlease), and the volume of a sound at a position (SetVolumeFromPos). sVolume's destructor is empty.
 void* SoundManager() { return GameVariable<void*>(0x006F85A8); }
+// A sound's volume (Sfx::sVolume, 0x2C bytes: its constructor 0x0047B030 writes all of them - with 0x18 here the
+// run-time checks caught it overrunning the local; the first two words are the channels set below).
 struct Volume {
-    uint32_t words[6];
+    uint32_t words[11];
 };
+static_assert(sizeof(Volume) == 0x2C, "Sfx::sVolume is 0x2C bytes");
 void ConstructVolume(Volume* volume) { GameFunction<void(__thiscall*)(Volume*)>(0x0047B030)(volume); }
 void SetSilent(Volume* volume) { GameFunction<void(__thiscall*)(Volume*)>(0x0047AD60)(volume); }
 float LoudestChannel(Volume* volume) { return GameFunction<float(__thiscall*)(Volume*)>(0x0047B080)(volume); }
