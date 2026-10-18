@@ -68,6 +68,18 @@ class Thug1Translator(script_port.Translator):
         self.sounds = sounds
         self.load_sound = checksum("LoadSound")
 
+    # THUG2's own scripts for its own objects of these classes (Thug2.script_needs follows every branch of them -
+    # the skater-ped and car-skitching paths - so it would refuse THUG2's ped AI on a ped): by name prefix / name.
+    TRUSTED = {script_port.PED: ("ped_",), script_port.VEHICLE: ("car_",),
+               script_port.SKATER: ("shatteranddie",), script_port.OBJECT: ("shatteranddie",),
+               script_port.BOUNCY: ("shatteranddie",)}
+
+    def thug2_script_ok(self, name, contexts):
+        text = self.text(name).lower()
+        if all(text.startswith(self.TRUSTED.get(c, ())) for c in contexts):
+            return True
+        return super().thug2_script_ok(name, contexts)
+
     def command(self, toks, contexts, discover):
         if toks and toks[0].t == 0x16 and toks[0].name() == self.load_sound:
             path = next((t.p.rstrip(b"\0").decode("latin-1") for t in toks[1:] if t.t in (0x1B, 0x1C)), None)
@@ -263,7 +275,7 @@ def runs_by(node, names):
     return object_context(node, names) or script_port.NONE
 
 
-def port_scripts(port, level_sources, converted, array, kills, names, struct):
+def port_scripts(port, level_sources, converted, array, kills, names, struct, sectors=None):
     # The scripts brought along (see the top). Returns ({name: THUG2 bytes}, the THUG1 globals they use as NeverScript
     # text, the level structure's startup / setup script names kept, report line). Trigger scripts not brought along
     # are taken off their nodes.
@@ -273,8 +285,12 @@ def port_scripts(port, level_sources, converted, array, kills, names, struct):
                if isinstance(x.get("Name"), Name) and object_context(x, names)}
     provided = set(kills) | {checksum(s) for s in ("LoadTerrain", "LoadAllParticleTextures", "load_level_anims")}
     allowed = set(SHARED_SOURCES) | {LEVEL}
+    # (geometry nodes the scene has no sector for: Visible / Create / Kill... of them read through a null)
+    undrawn = set() if sectors is None else {
+        x.get("Name").value for x in array if isinstance(x, Struct) and isinstance(x.get("Name"), Name)
+        and nodes.class_of(x, names) == "levelgeometry" and x.get("Name").value not in sectors}
     tr = Thug1Translator(list(port.shared) + list(level_sources), port.thug2, lambda label: label in allowed,
-                         node_names, all_names, names, provided=provided, objects=objects, left_out=LEFT_OUT,
+                         node_names, all_names, names, provided=provided, undrawn=undrawn, objects=objects, left_out=LEFT_OUT,
                          left_out_prefixes=LEFT_OUT_PREFIXES, anim_check=True, kept_in=KEPT_IN, sounds=port.sounds)
     roots = []
     for node in converted:

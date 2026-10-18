@@ -192,7 +192,7 @@ def convert_level_nodes(files, code, name, ns, out_dir, report, port=None, struc
     triggers = nodes.kill_trigger_names(converted, kills)
     if port is not None:
         scripts, globals_text, starts, script_report, _ = thug1_port.port_scripts(
-            port, level_sources, converted, array, kills, names, struct)
+            port, level_sources, converted, array, kills, names, struct, sectors)
         # (the sectors whose trigger script runs keep their trigger faces)
         triggers |= {n.get("Name").value for n in converted if isinstance(n.get("TriggerScript"), qb.Name)
                      and isinstance(n.get("Name"), qb.Name) and nodes.class_of(n, names) == "levelgeometry"}

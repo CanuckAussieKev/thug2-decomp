@@ -61,8 +61,12 @@ RenderWare 3.1 binary streams (chunks: u32 type, u32 size, u32 version 0x310) wi
 - Textures: 32-bit as they are, with mip levels down to 8 x 8.
 - Collision: a THUG2 object per atomic sector, every face with its flags and its material's terrain; THUG2's BSP
   trees, fixed-point vertices and reaches made (tools/level_port/geometry.convert_col).
-- Nodes: EnvironmentObjects become LevelGeometry (their Links, to restarts for THPS3's scripts, dropped); restarts, rails, KOTH crowns kept; peds, vehicles, game objects,
-  waypoints, proximity nodes and scripts left out. Kill zones: trigger scripts that call SK3_KillSkater(_Water) or a
+- Nodes: EnvironmentObjects become LevelGeometry (their Links, to restarts for THPS3's scripts, dropped); restarts, rails, KOTH crowns kept.
+- Scripts, peds, vehicles, objects (`--no-scripts` leaves them out): the level's scripts translated to THUG2's
+  (tools/level_port/script_port.py) and run from a setup script; peds and crowds as THUG2's ped AI, resting birds and
+  sharks as THUG2's animals, traffic as THUG2's cars (Car_Generic01), other vehicles and moving game objects as
+  LevelObjects of their THPS3 models, proximity nodes as ghosts watching their radius - what's brought and what's
+  left out per level: docs/pending/thps3-scripts.md. Kill zones: trigger scripts that call SK3_KillSkater(_Water) or a
   level script that does (CJR_Foun_Kill_Skater_Molten...) become THUG2's SK3_KillSkater(_Water) with the call's
   messages and colour and a restart (tools/level_port/nodes.py).
 - Objects not there at the start: an EnvironmentObject without CreatedAtStart is kept only when the level's start
