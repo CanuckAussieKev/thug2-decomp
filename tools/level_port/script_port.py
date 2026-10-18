@@ -85,6 +85,8 @@ SCRIPT_KEYS = {"scr": "same", "gapscript": SKATER, "trickscript": SKATER, "callb
 # Commands whose first unnamed name is a script, and who runs it.
 SCRIPT_COMMANDS = {"spawnscript": NONE, "goto": "same", "gotopreserveparams": "same", "obj_spawnscript": "same",
                    "obj_switchscript": "same", "gotorandomscript": "same"}
+# C functions that look a geometry node's scene sector up (Translator.without_undrawn).
+SECTOR_COMMANDS = {"visible", "invisible", "create", "kill", "shatter"}
 # Parameters naming a node or object (the statement is left out when the converted level hasn't it).
 NODE_KEYS = {"name", "node", "nodename", "target"}
 
@@ -149,6 +151,7 @@ class Thug2:
         self.cfuncs = {checksum(n) for n in self._cfunc_names(exe)}
         self.members = self._members(exe)
         self.scripts, self.globals = set(), set()
+        self.bodies, self.needs = {}, {}
         for name, data in prx.entries(os.path.join(thug2, "Data", "pre", "qb_scripts.prx"),
                                       lambda n: n.lower().endswith(".qb")):
             self._read_qb(data)
@@ -196,17 +199,41 @@ class Thug2:
     def _read_qb(self, data):
         toks = list(qb.tokens(data, weights=True))
         depth = 0
+        current = None
         for k, (_, t, p) in enumerate(toks):
             if t == 0x23 and k + 1 < len(toks) and toks[k + 1][1] == 0x16:
-                self.scripts.add(u32(toks[k + 1][2]))
+                current = u32(toks[k + 1][2])
+                self.scripts.add(current)
+                self.bodies[current] = set()
                 depth += 1
             elif t == 0x24:
                 depth -= 1
             elif t == 0x16 and depth == 0 and k + 1 < len(toks) and toks[k + 1][1] == 0x07:
                 self.globals.add(u32(p))
+            elif t == 0x16 and depth > 0 and current is not None and toks[k - 1][1] != 0x42 and \
+                    not (k + 1 < len(toks) and toks[k + 1][1] == 0x42):
+                # (the names a script uses - not `object:` nor what follows it: those run on another object)
+                self.bodies[current].add(u32(p))
 
     def component(self, name):
         return self.members.get(name)
+
+    def script_needs(self, name, _seen=None):
+        # The components (member function table checksums) a THUG2 script needs of the object running it: its member
+        # function calls and those of the THUG2 scripts it names (calls, exception scripts), all the way down.
+        if name in self.needs:
+            return self.needs[name]
+        seen = _seen if _seen is not None else set()
+        seen.add(name)
+        out = set()
+        for used in self.bodies.get(name, ()):
+            if used in self.members:
+                out.add(self.members[used])
+            elif used in self.scripts and used not in seen:
+                out |= self.script_needs(used, seen)
+        if _seen is None:
+            self.needs[name] = out
+        return out
 
 
 # --- THPS3's scripts -----------------------------------------------------------------------------------------------
@@ -299,11 +326,17 @@ def args_of(toks):
 
 
 class Translator:
-    def __init__(self, sources, thug2, translatable, node_names, all_node_names, names, provided=()):
+    def __init__(self, sources, thug2, translatable, node_names, all_node_names, names, provided=(),
+                 inherit_params=False, undrawn=()):
         # sources: Source list (later ones win); translatable(source label) -> may its scripts be brought along;
         # node_names: the converted level's nodes; all_node_names: the THPS3 level's; provided: scripts the level's
-        # .qb defines otherwise (its kill scripts) - used as THUG2's own.
+        # .qb defines otherwise (its kill scripts) - used as THUG2's own. inherit_params: a call of a brought script
+        # with no arguments passes the caller's (`<...>` added): THPS3's scripts rely on it (a proximity node's script
+        # calls ALF_SUB_Hide_Const_Pool, which tests `inside`); THUG2's callee gets only what it's given.
         self.thug2 = thug2
+        self.inherit_params = inherit_params
+        # undrawn: geometry nodes the converted scene has no sector for (without_undrawn)
+        self.undrawn = set(undrawn)
         self.provided = set(provided)
         self.names = names
         self.where = {}
@@ -324,6 +357,7 @@ class Translator:
             self.names.setdefault(checksum(b), b)
         self.names.setdefault(checksum(NEVER), NEVER)
         self.names.setdefault(checksum("GotParam"), "GotParam")
+        self.names.setdefault(checksum("Name"), "Name")
 
     def text(self, value):
         return self.names.get(value, "#%08X" % value)
@@ -344,10 +378,20 @@ class Translator:
     def script_available(self, name):
         return name in self.thug2.scripts or name in self.provided or self.can_bring(name)
 
-    def require(self, name, context):
-        # A script needed in a context: True when THUG2 has it or it is brought along (queued).
-        if name in self.thug2.scripts or name in self.provided:
+    def thug2_script_ok(self, name, contexts):
+        # A THUG2 script run by these contexts' objects: every component it needs (Thug2.script_needs) they have.
+        if name in self.provided:
             return True
+        needs = [self.components.get(c, "%08X" % c) for c in self.thug2.script_needs(name)]
+        return all(n in SAFE_COMPONENTS[c] for n in needs for c in contexts)
+
+    def require(self, name, context):
+        # A script needed in a context: True when THUG2 has it (and the context's objects can run it) or it is
+        # brought along (queued).
+        if name in self.provided:
+            return True
+        if name in self.thug2.scripts:
+            return self.thug2_script_ok(name, [context])
         if not self.can_bring(name):
             return False
         have = self.contexts.setdefault(name, set())
@@ -378,6 +422,11 @@ class Translator:
             self.note("left out: " + self.text(name))
             return None
         args = args_of(toks[1:])
+        if text in SECTOR_COMMANDS and self.undrawn:
+            toks = self.without_undrawn(toks, args)
+            if toks is None:
+                return None
+            args = args_of(toks[1:])
         # node / object names the level hasn't
         for key, value in args:
             if key is not None and self.text(key).lower() in NODE_KEYS and value.t == 0x16 and \
@@ -398,8 +447,9 @@ class Translator:
                     return None
                 continue
             for context in contexts:
-                ok = self.require(value.name(), context if runner == "same" else runner) if discover else \
-                    self.script_available(value.name())
+                runs = context if runner == "same" else runner
+                ok = self.require(value.name(), runs) if discover else self.script_available(value.name()) and (
+                    value.name() not in self.thug2.scripts or self.thug2_script_ok(value.name(), [runs]))
                 if not ok:
                     self.note("script not available: " + self.text(value.name()))
                     return None
@@ -411,8 +461,12 @@ class Translator:
             if discover:
                 for context in contexts:
                     self.require(name, context)
-        elif name in self.thug2.scripts or name in self.thug2.cfuncs or name in self.provided:
+        elif name in self.thug2.cfuncs or name in self.provided:
             pass
+        elif name in self.thug2.scripts:
+            if not self.thug2_script_ok(name, contexts):
+                self.note("THUG2 script needing components the runner hasn't: " + self.text(name))
+                return None
         elif name in self.thug2.members:
             component = self.components.get(self.thug2.members[name], "%08X" % self.thug2.members[name])
             if not all(component in SAFE_COMPONENTS[c] for c in contexts):
@@ -435,7 +489,44 @@ class Translator:
             if tok.t == 0x16 and tok.name() in self.renames:
                 tok = name_tok(self.renames[tok.name()], tok.i)
             out.append(tok)
+        if self.inherit_params and len(toks) == 1 and self.is_thps3_script(name):
+            out.append(Tok(0x2C, b"", first.i))
         return out
+
+    def without_undrawn(self, toks, args):
+        # Visible / Invisible / Create / Kill / Shatter of geometry nodes with no scene sector (collision-only: THUG2
+        # looks the sector up and reads through the null - THPS3 Airport crashed loading): name= one of them -> left
+        # out; prefix= matching one -> the statement once per matching node that has a sector (name=), or left out.
+        for key, value in args:
+            if key is None:
+                continue
+            key_text = self.text(key).lower()
+            if key_text == "name" and value.t == 0x16 and value.name() in self.undrawn:
+                self.note("geometry without a scene sector: " + self.text(value.name()))
+                return None
+            if key_text == "prefix" and value.t in (0x1B, 0x1C):
+                prefix = value.p.rstrip(b"\0").decode("latin-1").lower()
+                matching = [n for n in sorted(self.all_node_names)
+                            if self.names.get(n, "").lower().startswith(prefix)]
+                if not any(n in self.undrawn for n in matching):
+                    return toks
+                self.note("prefix matching geometry without a scene sector: " + prefix)
+                keep = [n for n in matching if n not in self.undrawn and n in self.node_names]
+                if not keep:
+                    return None
+                out = []
+                for n in keep:
+                    if out:
+                        out.append(Tok(0x01, b"", toks[0].i))
+                    for t in toks:
+                        if t is value:
+                            out.append(name_tok(n, t.i))
+                        elif t.t == 0x16 and t.name() == key:
+                            out.append(name_tok(checksum("Name"), t.i))
+                        else:
+                            out.append(t)
+                return out
+        return toks
 
     def condition(self, toks, contexts, discover):
         # An if's condition: kept, or always false.
@@ -616,6 +707,19 @@ def append_scripts(compiled, scripts, names):
             out += b"\x2B" + struct.pack("<I", value) + text.encode("latin-1") + b"\0"
     out += tail + b"\0"
     return bytes(out)
+
+
+def does_something(code):
+    # Whether a translated script (Translator.run's bytes) has a statement left besides if / else and their
+    # conditions: a name starting a line (after a line end, not after an `if`).
+    previous = None
+    for _, t, _ in qb.tokens(code[6:] + b"\0", weights=True):
+        if t == 0x00:
+            break
+        if t == 0x16 and previous in EOL:
+            return True
+        previous = t
+    return False
 
 
 def _plain_tokens(code):
