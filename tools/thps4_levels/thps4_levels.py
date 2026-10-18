@@ -26,6 +26,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(HERE), "level_port"))
 import common  # noqa: E402
 import geometry  # noqa: E402
 import nodes  # noqa: E402
+import peds_cars  # noqa: E402
 import ported_levels  # noqa: E402
 import qb  # noqa: E402
 import tex  # noqa: E402
@@ -40,6 +41,9 @@ LEVELS = ["Alc", "Cnv", "Hof", "Jnk", "Kon", "Lon", "SF2", "Sch", "Zoo", "SkateS
 # The level select's numbers for the signs (each sign needs its own; none of them has career records - the info
 # panel skips them, as make_menu_level.py's SKATE SHOP / TEST LEVEL at 18 / 21).
 SIGN_NUMBERS = [19, 20, 22, 23, 24, 25, 26, 27, 28, 29, 31]
+# The levels whose peds and cars are brought over (tools/level_port/peds_cars.py): the skate shop's pros on the
+# halfpipe, the people walking by and the cars on the road (also the front end's: make_menu_level.py copies them).
+PEDS_CARS = {"skateshop"}
 # For the level select: where each level is, and a THUG2 sign that suits it.
 INFO = {
     "alc": ("San Francisco Bay, USA", "sign_skatopia"),
@@ -109,6 +113,7 @@ def cmd_convert(args):
     if not os.path.exists(args.ns):
         sys.exit("%s not found: build it with tools\\build_neverscript.ps1" % args.ns)
     structs = level_structs(args.thps4)
+    thug2 = peds_cars.Thug2Assets(args.thug2)
     wanted = args.levels or LEVELS
     if os.path.isdir(out):
         shutil.rmtree(out)
@@ -136,10 +141,21 @@ def cmd_convert(args):
             level_scripts = qb.QbFile(open(path, "rb").read(), path)
         kills = nodes.kill_scripts(q, level_scripts)
         names = dict(q.names)
+        if level_scripts:
+            for key, value in level_scripts.names.items():
+                names.setdefault(key, value)
         converted, stats = nodes.convert_nodes(array, names, kills)
         kills = nodes.add_kill_restarts(converted, kills, names)
         triggers = nodes.kill_trigger_names(converted, kills)
-        text = nodes.node_array_ns(name + "_NodeArray", converted, names, kills)
+        # The peds and cars (THUG2's own ped AI and cars, tools/level_port/peds_cars.py), after the converted nodes.
+        moving, moving_scripts = [], {}
+        if base.lower() in PEDS_CARS:
+            moving, moving_scripts, moving_stats = peds_cars.convert(
+                array, names, [q] + ([level_scripts] if level_scripts else []), thug2.profile_exists, thug2.model_exists)
+            peds_cars.offset_links(moving, len(converted))
+            report.append("  peds and cars: %d nodes, %s" % (len(moving), moving_stats))
+        text = nodes.node_array_ns(name + "_NodeArray", converted + moving, names, kills)
+        text += peds_cars.scripts_ns(moving_scripts)
         os.makedirs(os.path.join(out, "levels", name), exist_ok=True)
         common.ns_compile(args.ns, text, os.path.join(out, "levels", name, name + ".qb"))
         convert_geometry(folder, base, os.path.join(out, "levels", name), name, report,

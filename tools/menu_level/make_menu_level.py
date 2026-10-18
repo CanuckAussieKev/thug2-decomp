@@ -854,6 +854,42 @@ def front_end_nodes(text, backdrop_nodes):
     return text[:end + 1] + drop_in + text[end + 1:]
 
 
+# The converted shop's peds, cars and their waypoints (tools/level_port/peds_cars.py: the last nodes of its array).
+MOVING_CLASSES = {"pedestrian", "vehicle", "waypoint"}
+
+
+def front_end_peds_cars(text, backdrop_nodes):
+    # The front end's node array with the converted shop's peds and cars (the pros on the outside halfpipe, the people
+    # walking by, the cars on the road: seen after SKATE NOW) added at its end - their Links renumbered, their trigger
+    # scripts copied.
+    elements, _, _ = array_elements(backdrop_nodes, BACKDROP_LEVEL + "_NodeArray")
+    kinds = [m.group(1).lower() if m else "" for m in (re.search(r"\bClass=(\w+)", e) for e in elements)]
+    first = next((i for i, kind in enumerate(kinds) if kind in MOVING_CLASSES), None)
+    if first is None:
+        print("%s has no peds or cars: none in the front end" % BACKDROP_LEVEL)
+        return text
+    if any(kind not in MOVING_CLASSES for kind in kinds[first:]):
+        sys.exit("%s: its peds and cars aren't the last nodes of its array" % BACKDROP_LEVEL)
+    own, _, close = array_elements(text, "mainmenu_NodeArray")
+    base = len(own)
+
+    def renumber(match):
+        return "Links=[%s]" % ", ".join(str(int(v) - first + base) for v in re.split(r"[,\s]+", match.group(1).strip()))
+
+    added = "".join("    %s \n" % re.sub(r"Links=\[([^\]]*)\]", renumber, e) for e in elements[first:])
+    text = text[:close] + added + text[close:]
+    scripts = []
+    for name in dict.fromkeys(re.findall(r"\bTriggerScript=(\w+)", "".join(elements[first:]))):
+        found = re.search(r"(?:^|\n)(script %s \{\n.*?\n\} \n)" % re.escape(name), backdrop_nodes, re.S)
+        if not found:
+            sys.exit("%s: the trigger script %s not found" % (BACKDROP_LEVEL, name))
+        scripts.append(found.group(1))
+    register = text.find("\n__register_checksums__")
+    at = register + 1 if register >= 0 else len(text)
+    print("front end: %d peds / cars / waypoints from %s" % (len(elements) - first, BACKDROP_LEVEL))
+    return text[:at] + "".join(scripts) + text[at:]
+
+
 def front_end_scripts(text):
     # The front end's scripts for THPS4's shop: the standard main menu; at the start, the shop's collision (the DLL
     # loads its scene; the skater skates there after SKATE NOW) and the skater's gameplay animations
@@ -989,7 +1025,8 @@ def main():
             write(front_end_scripts(front_end), r"front_end\levels\mainmenu\mainmenu_scripts.qb")
             backdrop_nodes = decompile(open(os.path.join(out, "levels", BACKDROP_LEVEL, BACKDROP_LEVEL + ".qb"), "rb").read(),
                                        "backdrop.qb")
-            write(front_end_nodes(shop, backdrop_nodes), r"front_end\levels\mainmenu\mainmenu.qb")
+            write(front_end_peds_cars(front_end_nodes(shop, backdrop_nodes), backdrop_nodes),
+                  r"front_end\levels\mainmenu\mainmenu.qb")
         else:
             print("%s not converted (tools/thps4_levels): no front end backdrop, the game's main menu kept" % BACKDROP_LEVEL)
 

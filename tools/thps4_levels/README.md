@@ -38,8 +38,17 @@ back - they must come out byte-identical - and parses every THPS4 level file.
 - Collision: version 8 -> 10, with THUG2's BSP trees, fixed-point vertices, small faces and the per-face "reach"
   bytes THUG2's ray test needs. Face flags: THPS4's camera flag inverted, flags THUG2 doesn't use dropped.
 - Nodes: restarts (the Player1 restart first), rails, level geometry (THPS4's scripted LevelObjects as static
-  geometry), KOTH crowns. Peds, vehicles, game objects (THPS4 models), goals and scripts are left out; trigger
+  geometry), KOTH crowns. Peds and vehicles as below; game objects (THPS4 models), goals and scripts are left out; trigger
   faces are kept only for kill zones (water, out of bounds), which get THUG2's SK3_KillSkater(_Water).
+- Peds and cars (the skate shop only: `PEDS_CARS` in thps4_levels.py; `tools/level_port/peds_cars.py`): made again
+  as THUG2's own, run by THUG2's scripts, added after the converted nodes. The cars (Car_Generic01 in THPS4) keep
+  their model when THUG2 has it (`Data\models\veh\...`, else a sedan) and drive the same waypoints with THUG2's
+  Car_Generic01; the people walking by (THPS4's Obj_FollowPathLinked peds) walk their paths with THUG2's ped AI
+  (Ped_InitAI, PedAI walk waypoints, random_male_profile); the pros on the halfpipe (Skateshop_PedProTest's two lines)
+  that THUG2 has (Burnquist, Koston, Margera, Mullen, Hawk: PedPro_<name>) skate it with THUG2's ped AI (the two lines
+  one loop, each lip a Vert_Flip, as THUG2's LA vert skaters) from their places on the deck; the other pros' places
+  get random skateboarders standing there. `make_menu_level.py` copies them into the front end too (seen after SKATE
+  NOW).
 - Level structure: THPS4's name, sky and lighting (from its Levels.qb); no music, no goals.
 
 The THUG2 writers, the geometry conversion, the node arrays and the installing are shared with `tools/thug1_levels`
