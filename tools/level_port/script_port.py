@@ -140,6 +140,7 @@ class Thug2:
             if os.path.exists(path):
                 exe = open(path, "rb").read()
                 break
+        self.root = thug2
         if exe is None:
             raise FileNotFoundError("no THUG2PM.exe in %s" % thug2)
         self.cfuncs = {checksum(n) for n in self._cfunc_names(exe)}
