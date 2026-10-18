@@ -95,3 +95,29 @@ Not recovered: 0xE5B6C568, 0xDF1A695F, 0x8F639F94 (SetSceneColor's sectors-only 
   above the objects' total for collect_all_objects; the manager's heaps told apart for the viewer object).
   What to check in the game: a network game mode's end (target score, elimination, scavenger hunt) and the
   viewer (debug builds only - not reachable in retail).
+
+- [x] Batch TOD-3 (NOT run in the game yet): the trick goals, 0x0056F090-0x00570F60, 0x005710B0-0x00571110 and
+  0x00574960-0x00576520 - 49 functions (src/game/skate/trick_goals.{h,cpp}): Game::CTetrisGoal (Skatetris: 0x458
+  bytes, 30 tricks of 0x20; constructor / destructors, Win, ClearTricks / ClearTricksAndMenu / Init, the combo /
+  single combo / TrickTris variants, UpdateAlphas, Expire, Activate / Deactivate, RemoveTrick, AddTricks, CheckCombos,
+  CheckTricks, Update), Game::CTimedScoreRunGoal (constructor, destructors, IsRunning), Game::CTrickBeatGoal
+  (TrickBeat: 0x47C bytes; the beat pattern and tempo, the beat clock with its sounds and the trick window,
+  TrickLanded / ClearLanded / PulseTricks / RemoveLandedTricks, AddTricks, Update), Game::CTrickObjectsGoal
+  (CheckScore, GetObjectByCluster, ObjectHit). Only CGoal's first 0x70 bytes are described (GoalBase); CGoal itself
+  (0x00550040-0x0056C920) isn't rewritten.
+  Findings: a Skatetris trick comes every current_trick_time ms (shortened by acceleration_percent every
+  acceleration_interval tricks); the stack turns red past three quarters of max_tricks and is lost when a new block
+  would overflow it; key combos come from the skater's trick mapping (a special slot: the skater's own special),
+  double taps through the trick's ExtraTricks; TrickTris adds blocks of tricktris_block_size until
+  tricktris_total_to_win are done. TrickBeat's beat is 15000 / tempo ms (slowed by slow motion), each of the 16
+  steps' sounds played on it, the window beat_window_time / 2 ms either side of a pulse step. Quirks kept: "Perfect "
+  is written and then overwritten by the spin text; ClearTricks of TrickBeat stores free = true then false;
+  GetObjectByCluster matches an entry without cluster_id against the last one read; RemoveTrick of TrickBeat reads
+  two values it doesn't use; the beat's time compared as unsigned.
+  Tests (src/hook/selftests_tod3.cpp): TestTetrisGoal, TestTrickBeatGoal, TestSmallGoals. 51 deliberate bugs caught,
+  10 after strengthening (UpdateAlphas with no no_alpha_check given - our local now zeroed, as it's only read when
+  given -, a stack exactly full and exactly three quarters full, the groups after CheckCombos, TrickTris at exactly
+  its total, the trick interval reached exactly, a trick landed twice, the goal's words after AddTricks and the beat
+  frames, the time limit with flag 0x10 and no time left).
+  What to check in the game: a Skatetris goal (e.g. a career level's Skatetris), a TrickBeat goal, a trick objects
+  goal (hitting the marked objects): tricks appear, turn red, disappear when done, and the goals win / lose as before.

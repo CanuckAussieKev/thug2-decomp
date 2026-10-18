@@ -66,6 +66,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_el3d.cpp
     src/hook/selftests_tod.cpp
     src/hook/selftests_tod2.cpp
+    src/hook/selftests_tod3.cpp
     src/hook/selftests_mouse.cpp
     src/hook/selftests_sprite.cpp
     src/hook/selftests_netB.cpp
@@ -144,6 +145,7 @@ add_library(thug2_code OBJECT
     src/game/gfx/text.cpp
     src/game/gfx/tod_manager.cpp
     src/game/skate/victory_conditions.cpp
+    src/game/skate/trick_goals.cpp
     src/game/sys/viewer.cpp
     src/game/gfx/device.cpp
     src/game/gfx/movie.cpp
