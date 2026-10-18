@@ -17,6 +17,7 @@
 #include "game/file/pre.h"
 #include "game/front/front_end.h"
 #include "game/front/level_editor.h"
+#include "game/gfx/tod_manager.h"
 #include "game/mc/memcard.h"
 #include "game/mth/math.h"
 #include "game/mth/random.h"
@@ -159,7 +160,7 @@ int __cdecl Main(int argc, char** argv)
         uint8_t* module590160 = Create(0x00590160);
         Create(0x004ACAF0);
         SkateScript::CreateNodeManager(true);
-        Create(0x00574540);
+        Gfx::CreateTODManager(true);
         Mem::PopMemProfile();
 
         Mem::PushMemProfile("Resgistering and starting modules");
@@ -200,7 +201,7 @@ int __cdecl Main(int argc, char** argv)
         RemoveAllTasks(mlp, 0x40);
         RemoveAllTasks(mlp, 0x04);
         RemoveAllTasks(mlp, 0x7C);
-        Release(0x00574910);
+        Gfx::ReleaseTODManager();
         SkateScript::ReleaseNodeManager();
         Release(0x004AACF0);
         Release(0x0058D290);

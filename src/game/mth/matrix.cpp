@@ -373,6 +373,13 @@ Matrix& Matrix::Rotate(const Vector& axis, float angle)
     return Multiply(*this, *this, CreateRotateMatrix(rotation, axis, angle));
 }
 
+// 0x005772A0 (the original: D3DXMatrixMultiply(this, &rotation, this))
+Matrix& Matrix::RotateLocal(const Vector& axis, float angle)
+{
+    Matrix rotation;
+    return Multiply(*this, CreateRotateMatrix(rotation, axis, angle), *this);
+}
+
 // 0x00404120
 Matrix& Matrix::operator*=(float scale)
 {
@@ -493,7 +500,8 @@ REPLACE(0x00404100, static_cast<Mth::Matrix& (Mth::Matrix::*)(const Mth::MatrixP
 REPLACE(0x00405170, &Mth::Matrix::OrthoNormalizeAbout);
 REPLACE(0x00405310, &Mth::Matrix::GetRotationAxisAngle);
 REPLACE_SHADOW(0x004062D0, Mth::GetAngleInPlane);
-REPLACE(0x00405850, &Mth::Matrix::RotateLocal);
+REPLACE(0x00405850, static_cast<void (Mth::Matrix::*)(const Mth::Vector&)>(&Mth::Matrix::RotateLocal));
+REPLACE(0x005772A0, static_cast<Mth::Matrix& (Mth::Matrix::*)(const Mth::Vector&, float)>(&Mth::Matrix::RotateLocal));
 REPLACE(0x00404BA0, &Mth::Matrix::Print);
 REPLACE(0x00404EC0,static_cast<Mth::Matrix& (*)(Mth::Matrix&, int, float)>(&Mth::CreateRotateMatrix));
 REPLACE(0x00404F50, Mth::CreateLookAtMatrix);
