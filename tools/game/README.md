@@ -22,6 +22,13 @@ lead), and parallel work uses the workspace copies C:\Games\THUG2-1 ... THUG2-4 
   `game_shot.ps1 -Path <png>` - the game's window while it's in front. **Never capture the whole screen.**
 - `boot_level.py <level> <folder>` - TEST ONLY: patches the installed overlay's SKATE NOW to load a level in free skate
   (e.g. `thps3_foun`, `thaw_dt`). `make_menu_level.py --game <folder>` puts the real one back.
+- `load_check.ps1 -Game <folder> -Levels a, b, ...` - boot_level + run_game for each level in turn, then reads the log:
+  `<level> : running after 50 s; responding=True loaded=True` or the errors. Puts the real SKATE NOW back at the end.
+
+Reference sources the agents read (re-fetch anonymously if needed; none of their code is in the repo except where
+THIRD_PARTY_NOTICES.md says): https://github.com/Morten1337/thps-formats (MIT), https://github.com/denetii/io_thps_scene
+(no licence: documentation only), https://github.com/Morten1337/thugpro-tools (public; looked at, nothing used).
+Morten1337's private repositories are never used (CLAUDE.md).
 
 After every run read `<folder>\thug2-decomp.log` (locked while the game runs): replacements installed, self-test
 stages passed, no EXCEPTION / RUN-TIME CHECK FAILURE / DEBUG CRT REPORT.
