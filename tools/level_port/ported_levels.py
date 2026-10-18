@@ -15,6 +15,8 @@
 #   level_num     the level select's number for its sign (unique; no career records - the info panel skips them)
 #   default_stats the skater's stats there
 #   lighting      THUG2 level structure keys (ambient / directional lights)
+#   setup_script  (optional) a script of the level's .qb the level structure names as its setup_script (THPS3's
+#                 start scripts)
 
 import json
 import os
@@ -74,6 +76,9 @@ def levels_qb_text(manifest):
                  '    level="%s" ' % entry["level"]]
         if entry.get("sky"):
             lines.append('    sky="%s" ' % entry["sky"])
+        if entry.get("setup_script"):
+            # (load_level runs it once the node array is up, and reset_level again)
+            lines.append("    setup_script=%s " % entry["setup_script"])
         lines += ['    qb="levels\\\\%s\\\\%s.qb" ' % (entry["level"], entry["level"]),
                   "    default_stats=%d " % entry["default_stats"],
                   "    default_stats_classic=%d " % entry["default_stats"],

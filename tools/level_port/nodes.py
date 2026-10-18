@@ -133,13 +133,20 @@ def expand_includes(array, globals_by_checksum):
     return out
 
 
-def convert_nodes(array, names, kills=None, extra_keys=()):
-    # extra_keys: more keys kept (THUG1's Pos).
+def convert_nodes(array, names, kills=None, extra_keys=(), as_is=(), scripts=()):
+    # extra_keys: more keys kept (THUG1's Pos). as_is: nodes (by id) already made THUG2's - kept whole, their Links
+    # renumbered (THPS3's game objects, waypoints, peds). scripts: trigger scripts that are kept besides the kill
+    # scripts (THPS3's, brought along by tools/level_port/script_port.py).
     kills = kills or {}
+    as_is = set(as_is)
     keep_keys = _KEYS | {checksum(k) for k in extra_keys}
     kept, index_map = [], {}
     for i, node in enumerate(array):
         if not isinstance(node, Struct):
+            continue
+        if id(node) in as_is:
+            index_map[i] = len(kept)
+            kept.append(node)
             continue
         cls = class_of(node, names)
         if cls not in KEEP_CLASSES:
@@ -153,13 +160,25 @@ def convert_nodes(array, names, kills=None, extra_keys=()):
     for node in kept:
         cls = class_of(node, names)
         stats[cls] = stats.get(cls, 0) + 1
+        if id(node) in as_is:
+            links = checksum("Links")
+            entries = []
+            for key, value in node.entries:
+                if key is not None and key.value == links:
+                    value = [index_map[v] for v in value if isinstance(v, int) and v in index_map]
+                    if not value:
+                        continue
+                entries.append((key, value))
+            out.append(Struct(entries))
+            continue
         entries = []
         for key, value in node.entries:
             if key is None:
                 if isinstance(value, Name) and value.value in _FLAGS:
                     entries.append((None, value))
                 continue
-            if key.value == checksum("TriggerScript") and isinstance(value, Name) and value.value in kills:
+            if key.value == checksum("TriggerScript") and isinstance(value, Name) and \
+                    (value.value in kills or value.value in scripts):
                 entries.append((key, value))
                 continue
             if key.value not in keep_keys:
