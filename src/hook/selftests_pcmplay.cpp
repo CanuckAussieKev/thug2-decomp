@@ -431,7 +431,7 @@ void TestStreamPlatform()
                 if (original)
                     Original<void(__cdecl*)()>(0x00453670)();
                 else
-                    Pcm::Init();
+                    Pcm::InitPlatform();
                 RecordState();
                 Record({GameVariable<uint32_t>(0x006EE010), Rel(GameVariable<uint32_t>(0x006EE00C)), GameVariable<uint32_t>(0x006EE014)});
             }
@@ -600,7 +600,7 @@ void TestStreamPlay()
                 if (original)
                     Original<void(__cdecl*)()>(0x00453AA0)();
                 else
-                    Pcm::StopMusic();
+                    Pcm::PlatformStopMusic();
                 RecordState();
             }
             for (const char* name : {"music\\Track01.bik", "a/b/C", "x\\y/z.BIK", "plain", "dir/"}) {

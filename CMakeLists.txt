@@ -77,6 +77,9 @@ add_library(thug2_code OBJECT
     src/hook/selftests_text.cpp
     src/hook/selftests_winmain.cpp
     src/hook/selftests_gapsB.cpp
+    src/hook/selftests_mva.cpp
+    src/hook/selftests_mva2.cpp
+    src/hook/selftests_mva3.cpp
     src/hook/selftests_qb.cpp
     src/hook/selftests_gapsA.cpp
     src/hook/selftests_mvb.cpp
@@ -147,6 +150,7 @@ add_library(thug2_code OBJECT
     src/game/pcm/stream.cpp
     src/game/pcm/stream_play.cpp
     src/game/pcm/stream_commands.cpp
+    src/game/pcm/music_api.cpp
     src/game/gfx/loading_bar.cpp
     src/game/gfx/render.cpp
     src/game/gfx/sprite.cpp
@@ -199,6 +203,7 @@ add_library(thug2_code OBJECT
     src/game/obj/tracker.cpp
     src/game/skater/rotation.cpp
     src/game/sio/device.cpp
+    src/game/sio/inpman.cpp
     src/game/sio/sdl_input.cpp
     src/game/skater/controls.cpp
     src/game/skater/core_physics.cpp
@@ -213,6 +218,8 @@ add_library(thug2_code OBJECT
     src/game/sys/timer.cpp
     src/game/sys/main.cpp
     src/game/sys/mlp.cpp
+    src/game/sys/game_clock.cpp
+    src/game/sys/module.cpp
     src/game/sys/winmain.cpp
     src/game/mc/memcard.cpp
     src/game/mc/memcard_cfuncs.cpp

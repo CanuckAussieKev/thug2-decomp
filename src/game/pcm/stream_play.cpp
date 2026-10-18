@@ -162,7 +162,7 @@ bool __cdecl PlayUserTrack(int soundtrack, int track)
 }
 
 // 0x00453AA0
-void __cdecl StopMusic()
+void __cdecl PlatformStopMusic()
 {
     Stop(MusicSlot());
 }
@@ -315,7 +315,7 @@ REPLACE(0x00453D70, Pcm::LoadMusicTrackByName);
 REPLACE(0x00453DB0, Pcm::PlayMusicTrack);
 REPLACE(0x00453BF0, Pcm::StartPreloadedMusic);
 REPLACE(0x00453850, Pcm::PlayUserTrack);
-REPLACE(0x00453AA0, Pcm::StopMusic);
+REPLACE(0x00453AA0, Pcm::PlatformStopMusic);
 REPLACE(0x00453400, Pcm::SetMusicVolume);
 REPLACE(0x00453470, Pcm::SyncMusicToTime);
 REPLACE(0x00453DF0, Pcm::SetStreamVolume);

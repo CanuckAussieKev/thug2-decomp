@@ -27,7 +27,9 @@
 #include "game/script/cache.h"
 #include "game/script/struct.h"
 #include "game/sio/device.h"
+#include "game/sio/inpman.h"
 #include "game/sys/mlp.h"
+#include "game/sys/module.h"
 #include "game/sys/winmain.h"
 #include "game/script/node_manager.h"
 #include "hook/game.h"
@@ -99,9 +101,9 @@ std::vector<Instance> Instances()
         {0x004B2230, 0x004B2240, 0x0064A2EC, 0x0044F2B0, AddressOf(&Mlp::ReleaseManager)},
         {0x004E1980, 0x004E1B00, 0x0064AFB0, 0x005B9510, AddressOf(&Pre::DestroyManager)},
         {0x004E1990, 0x004E1B30, 0x0064AFB4, 0x00461FA0, AddressOf(&Obj::ReleaseTracker)},
-        {0x004E19A0, 0x004E1B60, 0x0064AFB8, 0x0044F740, 0},
+        {0x004E19A0, 0x004E1B60, 0x0064AFB8, 0x0044F740, AddressOf(&Mdl::ReleaseManager)},
         {0x004E19B0, 0x004E1B90, 0x0064AFBC, 0x005BC950, AddressOf(&Mc::ReleaseManager)},
-        {0x004E19C0, 0x004E1BC0, 0x0064AFC0, 0x0044E6B0, 0},
+        {0x004E19C0, 0x004E1BC0, 0x0064AFC0, 0x0044E6B0, AddressOf(&Inp::ReleaseManager)},
         {0x004E19D0, 0x004E1BF0, 0x0064AFC4, 0x005B6620, AddressOf(&File::DestroyAsyncLoaderModule)},
         {0x004E19E0, 0x004E1C20, 0x0064AFC8, 0x00475A00, AddressOf(&Script::ReleaseScriptCache)},
         {0x004E19F0, 0x004E1C50, 0x0064AFCC, 0x00407980, 0},

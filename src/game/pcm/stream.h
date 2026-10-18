@@ -210,7 +210,7 @@ _OVERLAPPED* __cdecl NewOverlapped();
 // 0x00453670: start-up: the slots emptied, the user soundtracks counted, pcm.wad opened for streaming (kept in
 // 0x0067D7FC), pcm.dat's index of it (checksum, offset, size per entry) loaded and sorted by checksum, and the
 // stream thread started (above normal priority).
-void __cdecl Init();
+void __cdecl InitPlatform();
 
 // pcm.wad's index (12 bytes each, sorted by checksum).
 struct WadEntry {
@@ -253,7 +253,7 @@ bool __cdecl StartPreloadedMusic();
 // slot).
 bool __cdecl PlayUserTrack(int soundtrack, int track);
 // 0x00453AA0: stop the music (freed now, or asked to stop if it can't go yet).
-void __cdecl StopMusic();
+void __cdecl PlatformStopMusic();
 // 0x00453400: the music's volume (0-100), if music is loaded. 1.
 int __cdecl SetMusicVolume(float volume);
 // 0x00453470: keep the music within 5 frames of `seconds` in (cutscenes) - a Bink stream with a Bink open is

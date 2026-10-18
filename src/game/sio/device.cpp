@@ -20,6 +20,8 @@
 #include "game/core/mem.h"
 #include "game/core/stubs.h"
 #include "game/lst/search.h"
+#include "game/pcm/music.h"
+#include "game/pcm/music_api.h"
 #include "game/script/cscript.h"
 #include "game/sio/sdl_input.h"
 #include "hook/game.h"
@@ -679,9 +681,6 @@ void Device::ReadData(int)
 namespace {
 void** const kManagerVtable = reinterpret_cast<void**>(0x00658AD4);
 
-// Not rewritten yet: whether 0x00450D60 / 0x00450420 (set up / shut down a network-related block of player
-// state) are skipped.
-bool SkipPlayerStateSetup() { return GameFunction<bool(__cdecl*)()>(0x004505F0)(); }
 } // namespace
 
 // 0x005BE1F0
@@ -715,8 +714,8 @@ Manager::Manager()
         device->Acquire();
         ++index;
     }
-    if (!SkipPlayerStateSetup())
-        GameFunction<void(__cdecl*)()>(0x00450D60)();
+    if (!Pcm::NoMusicPlease()) // (the music system is set up with the controllers)
+        Pcm::Init();
 }
 
 // 0x005BE300
@@ -732,8 +731,8 @@ void Manager::DestroyBody()
     if (auto* task = static_cast<void***>(m_task))
         reinterpret_cast<void*(__thiscall*)(void*, unsigned int)>((*task)[2])(task, 1);
     Stubs::ReturnZero(); // (a folded empty function - compiled-out code)
-    if (!SkipPlayerStateSetup())
-        GameFunction<void(__cdecl*)()>(0x00450420)();
+    if (!Pcm::NoMusicPlease())
+        Pcm::StopUserSoundtrack();
     m_devices.UnlinkAs(reinterpret_cast<void**>(0x00658A70));
 }
 

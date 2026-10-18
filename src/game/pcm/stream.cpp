@@ -198,7 +198,7 @@ _OVERLAPPED* __cdecl NewOverlapped()
 }
 
 // 0x00453670
-void __cdecl Init()
+void __cdecl InitPlatform()
 {
     std::memset(&MusicSlot(), 0, sizeof(StreamSlot));
     std::memset(StreamSlots(), 0, kNumStreams * sizeof(StreamSlot));
@@ -372,7 +372,7 @@ REPLACE(0x004538F0, &Pcm::StreamSlot::Free);
 REPLACE(0x00453100, Pcm::StreamThread);
 REPLACE(0x004531A0, Pcm::StopStreamThread);
 REPLACE(0x004535E0, Pcm::NewOverlapped);
-REPLACE(0x00453670, Pcm::Init);
+REPLACE(0x00453670, Pcm::InitPlatform);
 REPLACE_UNCHECKED(0x004533A0, Pcm::FindWadEntryStub);
 REPLACE(0x004533E0, Pcm::StreamExists);
 REPLACE(0x00453250, Pcm::MusicStatus);
