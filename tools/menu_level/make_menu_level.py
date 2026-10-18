@@ -474,7 +474,9 @@ BACKDROP_LEVEL = "thps4_skateshop"
 # front end's skater is in walking physics mode), then THPS4's practice start: the restart TRG_SS_SkaterDropIn
 # (front_end_nodes) and DropIn. The restart is KillSkater node= - the skater's real restart (ResetSkaters skips the
 # front end's skater; Obj_MoveToNode left the physics behind: the drop-in ended with a snap); it restarts the skater's
-# script, so DropIn is started after it. Esc (root_window's pad_start) brings the menu back.
+# script, so DropIn is started after it. Esc (root_window's pad_start) brings the menu back (main_menu_skate_stop)
+# behind a short fade to black: built as it is, the menu came back in pieces over a few frames (the items sliding in
+# over the skating view, then the camera, the skater still on his board, then the title).
 MAIN_MENU_SCRIPTS = r"""main_menu_list_pos = (229.0, 98.0)
 main_menu_list_width = 220.0
 main_menu_list_spacing = 2
@@ -819,7 +821,15 @@ script main_menu_skate_stop {
     }
     change main_menu_skating=0
     kill_start_key_binding
+    SetButtonEventMappings block_menu_input
+    fadetoblack on time=0.15 alpha=1.0 id=main_menu_skate_fader z_priority=9500
+    wait 0.15 seconds
+    spin_menu_skater_script reset
+    spin_menu_camera_init
     create_main_menu
+    wait 0.4 seconds
+    SetButtonEventMappings unblock_menu_input
+    fadetoblack off time=0.2 id=main_menu_skate_fader
 }
 """
 
