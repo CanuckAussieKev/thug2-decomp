@@ -93,3 +93,27 @@ decomp-progress.md (the lead numbers them when merging).
       strengthening: a NaN left in a position masked two; the object base's flags; an exactly finished morph;
       restore_alpha alone); 1 equivalent (DestroyBody's own release of the next-sibling link: SetParent already
       released it).
+- [x] Batch FE-3 (NOT run in the game yet; early test passes offline): the menus and the container element (new
+      src/game/front/menu_element.*), 0x4A74E0-0x4A8100 and 0x4AA530-0x4AACC0. CBaseMenu (vmenu / hmenu, vtable
+      0x0064A048, 0x1A8 bytes; fields named: selected index / id, focus, controller, internal_just, vertical,
+      regular_space_amount, padding_scale, spacing_between, pad handling, allow_wrap, grid index): Construct
+      0x4A74E0, ConstructVMenu 0x4A75C0, ConstructHMenu 0x4A7630, DestroyBody 0x4A7620, Destroy 0x4A76C0,
+      SetProperties 0x4A76F0, GetRegularSpace 0x4A7550, SetSelectionTags 0x4A7580, MoveSelection 0x4A7850 (twice
+      the item count of tries; wrap or turn back at the ends; skips not_focusable / block_events items), Step
+      0x4A7A40 (pad: unfocus, move, focus with controller and grid index), Arrange 0x4A7B80 (regular spacing or
+      sizes x padding + spacing_between; locked dims only grow; the first item focused when nothing is
+      selected), PassEventToScript 0x4A8100 (vtable slot 5: pad-event priorities, the focus flag event re-finds
+      the selection and arranges, focus with grid_index / child_id, unfocus, the four pad directions).
+      CContainerElement (ContainerElement, vtable 0x0064A0BC): Construct 0x4AAC20, DestroyBody 0x4AAC80,
+      Destroy 0x4AACC0, SetProperties 0x4AA530 (focusable_child - a function Ghidra hadn't found),
+      PassEventToScript 0x4AA560 (focus / unfocus passed to the focusable child with the controller). The
+      screen elements' smart-pointer instances: ConstructFrom 0x4A7820, ConstructCopy 0x4A7690 (also not found
+      by Ghidra), Assign 0x4A8F60 (CSmtPtr gained these three; Assign releases first, so self-assignment
+      clears). 21 functions.
+      Early test (src/hook/selftests_fe_menu.cpp on the element world): construction, properties, the moves over
+      every end / wrap / skip case and empty menus, steps, arranging both orientations x regular / sized x
+      locked / not, every event path, the container's events with and without priorities, the smart-pointer
+      constructors and assignment. 47 deliberate bugs caught (4 after strengthening: refocusing without focus,
+      the container's unfocus, self-assignment, a 1.1 padding scale); 2 equivalent / below float precision: the
+      menu's dirty flag taken from its items (it is already set), and the unrounded vs rounded half item
+      length (differences under a float's rounding of the offsets).

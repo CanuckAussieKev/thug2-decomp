@@ -58,6 +58,29 @@ public:
         }
     }
 
+    // In-place constructors (return this): from a pointer, from another smart pointer (the screen elements'
+    // instances are 0x004A7820 / 0x004A7690).
+    CSmtPtr* ConstructFrom(T* object)
+    {
+        mp_prev = nullptr;
+        mp_next = nullptr;
+        mp_object = object;
+        if (object)
+            Object()->AddSmartPointer(Generic());
+        return this;
+    }
+    CSmtPtr* ConstructCopy(const CSmtPtr* other) { return ConstructFrom(other->mp_object); }
+    // Assignment as a function (returns this; the screen elements' instance is 0x004A8F60). Unlike operator=,
+    // the old object is let go first, so a pointer assigned to itself ends up null.
+    CSmtPtr* Assign(const CSmtPtr* other)
+    {
+        Release();
+        mp_object = other->mp_object;
+        if (mp_object)
+            Object()->AddSmartPointer(Generic());
+        return this;
+    }
+
     // Point at `object` instead: out of the old object's list, onto the front of the new one's.
     void Set(T* object)
     {
