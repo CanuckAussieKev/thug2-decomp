@@ -1,7 +1,8 @@
 # thps4_levels - Tony Hawk's Pro Skater 4 levels in THUG2
 
 Converts the levels of your own THPS4 (PC) install to THUG2's formats and puts them in THUG2's level select
-(THPS4 ALCATRAZ, THPS4 CARNIVAL, ... after SKATE SHOP). Nothing of either game is in the repo: the files are
+(its THPS4 section: Up / Down in the level select switches games; signs and globe stars from
+tools/menu_level/level_select.py). Nothing of either game is in the repo: the files are
 made from your copies each time.
 
 ## Running it

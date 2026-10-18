@@ -13,12 +13,14 @@
 #   levels\skateshop\skateshop.qb  the shop's node array (skateshop_NodeArray) without the front end's parts: the
 #                              shadow skater's trigger script and the menus' 3D backgrounds.
 #   levels\TestLevel\TestLevel.qb  the developers' test level's nodes (path followers kept out of net games).
-#   scripts\game\menu\gamemenu_levelselect.qb  the level select with SKATE SHOP and TEST LEVEL signs.
+#   scripts\game\menu\gamemenu_levelselect.qb  the level select with SKATE SHOP and TEST LEVEL signs, in sections per
+#                              game (THUG2, THUG1, THPS4) with stars and signs for our levels (level_select.py);
+#                              scripts\game\menu\sprites.qb and images\LevelSelectSprites\sign_*.img.xbx for those signs.
 #   scripts\game\menu\gamemenu_pause.qb  the pause menu with LEVEL EDITOR (src/game/front/level_editor.h) and its
 #                              scripts level_editor_enter / level_editor_exit.
 #   levels\thps4_*\, thug1_*\  the THPS4 / THUG1 levels converted by tools/thps4_levels / tools/thug1_levels, when
-#                              they have made <game>	hug2-decomp-thps4 / -thug1: copied in, their level structures
-#                              added to both Levels.qb and their signs to the level select after SKATE SHOP
+#                              they have made <game>\thug2-decomp-thps4 / -thug1: copied in, their level structures
+#                              added to both Levels.qb and their signs to the level select's THUG1 / THPS4 sections
 #                              (tools/level_port/ported_levels.py).
 #   front_end\levels\mainmenu\mainmenu_scripts.qb  (when the THPS4 skate shop is among them: the front end's backdrop)
 #                              the front end's scripts with create_main_menu building a standard vertical menu (a
@@ -40,6 +42,8 @@ import zlib
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(REPO, "tools", "level_port"))
 import ported_levels  # noqa: E402 (the converted THPS4 / THUG1 levels: added when <game>\thug2-decomp-thps4 / -thug1 exist)
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import level_select  # noqa: E402 (the level select's sections, stars and signs)
 
 def checksum(name):
     return (zlib.crc32(name.lower().encode()) ^ 0xFFFFFFFF) & 0xFFFFFFFF
@@ -450,7 +454,8 @@ BACKDROP_LEVEL = "thps4_skateshop"
 # add_roundbar_menu_item, as Game Options and Create-A-Modes) where it made the spinning wheel (make_spin_menu: a
 # turned VMenu with filler items, a copy of the items, the highlight bar and icon, the wheel's level objects turned
 # with it). The menu's ids stay main_menu / main_vmenu (scripts find main_vmenu); its place on screen is
-# main_menu_list_pos, the 640 x 480 layout's top left of the items: centred, above the THPS4 shop's counter in the
+# main_menu_list_pos, the 640 x 480 layout's top left of the items, on a dark backing (main_menu_backing: the shop's
+# wall of decks behind made the items hard to read): centred, above the THPS4 shop's counter in the
 # held view (its glass counter's top - the wheels and decks on it, ~y 20 - projects to screen y ~300; worked out
 # from the node positions, not yet seen in the game). The skater, its camera (mainmenu_camera02 - the
 # DLL holds the view while it plays), the wheel's objects (left as the game shows them: in THUG2's shop, out of
@@ -511,6 +516,17 @@ script create_main_menu {
         ]
     }
     roundbar_menu_finish build_pause_parts=0 data={grid_index=(main_menu_list_index)}
+    CreateScreenElement {
+        type=SpriteElement
+        parent=current_menu_anchor
+        id=main_menu_backing
+        texture=white2
+        pos=(main_menu_list_pos + (-14.0, 2.0))
+        just=[left top]
+        rgba=[0 0 0 112]
+        scale=(76.0, 23.5)
+        z_priority=-1
+    }
     FireEvent type=focus target=attract_container
     unpauseskaters
     UnpauseMusicAndStreams
@@ -826,7 +842,19 @@ def main():
             print("Converted levels (THPS4 / THUG1): %d added to the level select; copied %s" % (len(thps4["levels"]), ", ".join(installed)))
         write(levels_with_shop, r"scripts\game\Levels.qb")
         write(skateshop_nodes(shop), r"levels\skateshop\skateshop.qb")
-        write(add_skateshop_sign(select, thps4), r"scripts\game\menu\gamemenu_levelselect.qb")
+        # The level select in sections, one per game, with stars and signs for our levels (level_select.py).
+        by_game = {}
+        for entry in (thps4 or {"levels": []})["levels"]:
+            by_game.setdefault(entry["staging"], {"levels": []})["levels"].append(entry)
+        section_list = level_select.sections(thps4=by_game.get("thug2-decomp-thps4"),
+                                             thug1=by_game.get("thug2-decomp-thug1"))
+        write(level_select.edit_level_select(add_skateshop_sign(select), section_list),
+              r"scripts\game\menu\gamemenu_levelselect.qb")
+        sprites = decompile(prx_file(qb_scripts, r"scripts\game\menu\sprites.qb"), "sprites.qb")
+        write(level_select.edit_sprites(sprites, section_list), r"scripts\game\menu\sprites.qb")
+        frame = prx_file(os.path.join(pre, "Levelselect.prx"), level_select.level_select_icons.FRAME_SOURCE)
+        print("level select signs: %s" % ", ".join(level_select.write_signs(frame, section_list, out)))
+        print(level_select.describe(section_list))
         testlevel = decompile(prx_file(os.path.join(pre, "TestLevel_scripts.prx"), r"levels\testlevel\testlevel.qb"),
                               "TestLevel.qb")
         write(testlevel_nodes(testlevel), r"levels\TestLevel\TestLevel.qb")
