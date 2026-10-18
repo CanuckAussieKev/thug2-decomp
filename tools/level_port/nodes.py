@@ -244,22 +244,51 @@ def load_terrain_ns():
     return "script LoadTerrain {\n%s}" % "".join("    LoadTerrainSounds terrain=TERRAIN_%s \n" % t for t in TERRAINS)
 
 
-def default_rail_terrains(nodes, names):
-    # THUG2 looks a rail node's TerrainType up in its terrain table and reads through a null pointer when the rail has
-    # none (THPS3 Rio: one rail without it crashed the game loading the level): such rails get TERRAIN_METALSMOOTH.
-    key, terrain = checksum("TerrainType"), checksum("TERRAIN_METALSMOOTH")
+# THUG2's terrain types (scripts\game\terrain.qb): a node's TerrainType has to be one of them.
+THUG2_TERRAINS = (
+    "ASPHALT BRICK CARPET CHAINLINK CONCROUGH CONCSMOOTH CONVEYOR DEFAULT DIRT DIRTPACKED FIBERGLASS GENERIC1 GENERIC2 "
+    "GRASS GRASSDRIED GRAVEL GRINDBANYONTREE GRINDBRASSRAIL GRINDCABLE GRINDCATWALK GRINDCHAIN GRINDCHAINLINK "
+    "GRINDCONC GRINDELECTRICWIRE GRINDGLASSMONSTER GRINDMETAL GRINDNEONLIGHT GRINDPLASTIC GRINDPLASTICBARRIER GRINDROPE "
+    "GRINDROUNDMETALPOLE GRINDTANKTURRET GRINDTRAIN GRINDWIRE GRINDWOOD GRINDWOODLOG GRINDWOODRAILING ICE "
+    "METALCORRUGATED METALFENCE METALFUTURE METALGRATING METALROUGH METALSMOOTH METALTIN PLEXIGLASS ROCK SAND SIDEWALK "
+    "SNOW TILE WATER WETCONC WHEELS WOOD WOODFLIMSY WOODMASONITE WOODPIER WOODPLYWOOD WOODSHINGLE").split()
+
+
+def fix_terrains(nodes, names):
+    # THUG2 looks a rail node's TerrainType up in its terrain table and reads through a null pointer when it's missing
+    # or not one of THUG2_TERRAINS (THPS3 Rio: a rail without one; Tokyo: THPS3's own typo TERRAIN_MEATALSMOOTH -
+    # both crashed the game loading the level). Missing on a rail: TERRAIN_METALSMOOTH; unknown on any node: THUG2's
+    # nearest name (difflib), else TERRAIN_METALSMOOTH. Returns how many were changed.
+    import difflib
+    key = checksum("TerrainType")
     names.setdefault(key, "TerrainType")
-    names.setdefault(terrain, "TERRAIN_METALSMOOTH")
+    known = {checksum("TERRAIN_" + t): "TERRAIN_" + t for t in THUG2_TERRAINS}
+
+    def terrain(text):
+        value = checksum(text)
+        names.setdefault(value, text)
+        return Name(value)
+
     count = 0
     for node in nodes:
-        if class_of(node, names) == "railnode" and node.get("TerrainType") is None:
-            node.entries.append((Name(key), Name(terrain)))
-            count += 1
+        value = node.get("TerrainType")
+        if value is None:
+            if class_of(node, names) == "railnode":
+                node.entries.append((Name(key), terrain("TERRAIN_METALSMOOTH")))
+                count += 1
+            continue
+        if isinstance(value, Name) and value.value in known:
+            continue
+        text = names.get(value.value, "").upper() if isinstance(value, Name) else ""
+        close = difflib.get_close_matches(text, list(known.values()), n=1, cutoff=0.8) if text else []
+        replacement = terrain(close[0] if close else "TERRAIN_METALSMOOTH")
+        node.entries = [(k, replacement if k is not None and k.value == key else v) for k, v in node.entries]
+        count += 1
     return count
 
 
 def node_array_ns(array_name, nodes, names, kills=None):
-    default_rail_terrains(nodes, names)
+    fix_terrains(nodes, names)
     lines = ["%s = [" % array_name]
     for node in nodes:
         lines.append("    " + qb.to_ns(node, names, 1))
