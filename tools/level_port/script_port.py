@@ -107,10 +107,13 @@ def u32(b, at=0):
 
 
 class Tok:
-    __slots__ = ("t", "p", "i", "targets")
+    # weights: a random's own weights (THUG2-format sources: THAW's), else 1 each. adjust: a 0x49 short jump that lands
+    # one byte before its target token (a switch case's first short break: one before the next case).
+    __slots__ = ("t", "p", "i", "targets", "weights", "adjust")
 
-    def __init__(self, t, p, i, targets=None):
+    def __init__(self, t, p, i, targets=None, weights=None, adjust=0):
         self.t, self.p, self.i, self.targets = t, p, i, targets
+        self.weights, self.adjust = weights, adjust
 
     def name(self):
         return u32(self.p) if self.t == 0x16 else None
@@ -421,6 +424,11 @@ class Translator:
         first = toks[0]
         if self.objects is not None and len(toks) > 2 and toks[1].t == 0x42:
             return self.on_object(toks, contexts, discover)
+        if len(toks) > 1 and toks[1].t == 0x42:
+            # (`object:member ...` without `objects` - THAW's: THUG2 runs the rest on the first skater when the object
+            # isn't there, and crashes on a member the object hasn't)
+            self.note("object member call")
+            return None
         if first.t != 0x16:
             return toks
         if first.name() in self.rewrites:
@@ -440,6 +448,9 @@ class Translator:
                     for t in toks]
         name = first.name()
         text = self.text(name).lower()
+        if len(toks) > 1 and toks[1].t == 0x07:
+            # (`name = value`: sets a parameter of the running script; with `full` handled above)
+            return toks
         if text in LEFT_OUT or text in self.extra_left_out:
             self.note("left out: " + self.text(name))
             return None
@@ -592,6 +603,12 @@ class Translator:
         if len(content) > 1 and content[0].t == 0x39 and self.full:
             kept = self.condition(content[1:], contexts, discover)
             return kept if kept[-1].t == 0x16 and kept[-1].name() == checksum(NEVER) else content[:1] + kept
+        if len(content) > 1 and content[0].t == 0x39 and content[1].t == 0x16:
+            # `if NOT <command>`: the command checked as any other (left out: the condition is false)
+            kept = self.command(content[1:], contexts, discover)
+            if kept is None:
+                return [name_tok(checksum("GotParam"), content[0].i), name_tok(checksum(NEVER), content[0].i)]
+            return [content[0]] + kept
         if len(content) == 1 and content[0].t == 0x16 and self.text(content[0].name()).lower() == "inside":
             # (a THPS3 proximity node's script: `if inside` - our proximity ghost passes `inside`)
             return [name_tok(checksum("GotParam"), content[0].i), content[0]]
@@ -661,6 +678,9 @@ class Translator:
                 counter[0] += 1
                 switches.append([counter[0], 0])
                 items += self.token_items(content)
+            elif head.t in (0x3E, 0x3F) and len(content) > 1 and content[1].t == 0x49:
+                # (a THUG2-format case / default - THAW's: its jump already there, kept as a short jump)
+                items += self.token_items(content)
             elif head.t in (0x3E, 0x3F):
                 if not switches:
                     raise ValueError("%s: case without switch" % self.text(name))
@@ -702,13 +722,14 @@ class Translator:
         # A statement's tokens as output items (an argument random's tokens re-encoded, jumps made again).
         out = []
         for t in toks:
-            kind = "random" if t.t in RANDOMS else "jump" if t.t == 0x2E else "tok"
+            kind = "random" if t.t in RANDOMS else "jump" if t.t == 0x2E else \
+                "short" if t.t == 0x49 and t.targets else "tok"
             out.append((kind, t, t.i))
         return out
 
     def assemble(self, name, items):
         head = b"\x23\x16" + struct.pack("<I", name)
-        size = {"if": 3, "else": 3, "jump": 5, "label": 0, "break": 3, "case": 4, "default": 4}
+        size = {"if": 3, "else": 3, "jump": 5, "label": 0, "break": 3, "case": 4, "default": 4, "short": 3}
         positions, pos = [], len(head)
         for kind, value, orig in items:
             positions.append(pos)
@@ -741,14 +762,17 @@ class Translator:
             elif kind == "jump":
                 out += b"\x2E" + struct.pack("<i", at(value.targets[0]) - (here + 5))
             elif kind == "break":
-                out += b"\x49" + struct.pack("<H", labels[("endswitch", value)] - (here + 1))
+                out += b"I" + struct.pack("<H", labels[("endswitch", value)] - (here + 1))
             elif kind == "case":
-                out += b"\x3E\x49" + struct.pack("<H", labels[("case", value[0], value[1] + 1)] - (here + 2))
+                out += b">I" + struct.pack("<H", labels[("case", value[0], value[1] + 1)] - (here + 2))
             elif kind == "default":
-                out += b"\x3F\x49" + struct.pack("<H", labels[("endswitch", value[0])] - (here + 2))
+                out += b"?I" + struct.pack("<H", labels[("endswitch", value[0])] - (here + 2))
+            elif kind == "short":
+                # (a THUG2-format switch's own short jump - THAW's: its offset from the 0x49 itself)
+                out += b"I" + struct.pack("<H", at(value.targets[0]) - value.adjust - here)
             elif kind == "random":
                 n = len(value.targets)
-                out += bytes([value.t]) + struct.pack("<I", n) + struct.pack("<%dH" % n, *([1] * n))
+                out += bytes([value.t]) + struct.pack("<I", n) + struct.pack("<%dH" % n, *(value.weights or [1] * n))
                 for m, target in enumerate(value.targets):
                     field = here + 5 + 2 * n + 4 * m
                     out += struct.pack("<I", at(target) - (field + 4))
