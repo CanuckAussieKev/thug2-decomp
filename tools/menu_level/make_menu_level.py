@@ -449,7 +449,9 @@ BACKDROP_LEVEL = "thps4_skateshop"
 # add_roundbar_menu_item, as Game Options and Create-A-Modes) where it made the spinning wheel (make_spin_menu: a
 # turned VMenu with filler items, a copy of the items, the highlight bar and icon, the wheel's level objects turned
 # with it). The menu's ids stay main_menu / main_vmenu (scripts find main_vmenu); its place on screen is
-# main_menu_list_pos (over the THPS4 shop's desk in the held view). The skater, its camera (mainmenu_camera02 - the
+# main_menu_list_pos, the 640 x 480 layout's top left of the items: centred, above the THPS4 shop's counter in the
+# held view (its glass counter's top - the wheels and decks on it, ~y 20 - projects to screen y ~300; worked out
+# from the node positions, not yet seen in the game). The skater, its camera (mainmenu_camera02 - the
 # DLL holds the view while it plays), the wheel's objects (left as the game shows them: in THUG2's shop, out of
 # sight), the attract mode timer, the second controller check and the rest are as the game's.
 # The items are add_main_menu_items' (the same conditions, ids, scripts and parameters), each chosen through
@@ -458,7 +460,7 @@ BACKDROP_LEVEL = "thps4_skateshop"
 # spin_menu_selected_index). Items the game makes inactive (active=0) are shown but not focusable; the 2 player
 # item's tag `active` is switched by the game's enable / disable_two_player_option as before, and main_menu_choose
 # doesn't run an inactive item.
-MAIN_MENU_SCRIPTS = r"""main_menu_list_pos = (195.0, 130.0)
+MAIN_MENU_SCRIPTS = r"""main_menu_list_pos = (195.0, 100.0)
 main_menu_list_index = 0
 main_menu_list_items = 0
 script create_main_menu {
