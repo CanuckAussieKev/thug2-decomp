@@ -296,11 +296,15 @@ def args_of(toks):
 
 
 class Translator:
-    def __init__(self, sources, thug2, translatable, node_names, all_node_names, names, provided=()):
+    def __init__(self, sources, thug2, translatable, node_names, all_node_names, names, provided=(),
+                 inherit_params=False):
         # sources: Source list (later ones win); translatable(source label) -> may its scripts be brought along;
         # node_names: the converted level's nodes; all_node_names: the THPS3 level's; provided: scripts the level's
-        # .qb defines otherwise (its kill scripts) - used as THUG2's own.
+        # .qb defines otherwise (its kill scripts) - used as THUG2's own. inherit_params: a call of a brought script
+        # with no arguments passes the caller's (`<...>` added): THPS3's scripts rely on it (a proximity node's script
+        # calls ALF_SUB_Hide_Const_Pool, which tests `inside`); THUG2's callee gets only what it's given.
         self.thug2 = thug2
+        self.inherit_params = inherit_params
         self.provided = set(provided)
         self.names = names
         self.where = {}
@@ -424,6 +428,8 @@ class Translator:
             if tok.t == 0x16 and tok.name() in self.renames:
                 tok = name_tok(self.renames[tok.name()], tok.i)
             out.append(tok)
+        if self.inherit_params and len(toks) == 1 and self.is_thps3_script(name):
+            out.append(Tok(0x2C, b"", first.i))
         return out
 
     def condition(self, toks, contexts, discover):
@@ -595,6 +601,19 @@ def append_scripts(compiled, scripts, names):
             out += b"\x2B" + struct.pack("<I", value) + text.encode("latin-1") + b"\0"
     out += tail + b"\0"
     return bytes(out)
+
+
+def does_something(code):
+    # Whether a translated script (Translator.run's bytes) has a statement left besides if / else and their
+    # conditions: a name starting a line (after a line end, not after an `if`).
+    previous = None
+    for _, t, _ in qb.tokens(code[6:] + b"\0", weights=True):
+        if t == 0x00:
+            break
+        if t == 0x16 and previous in EOL:
+            return True
+        previous = t
+    return False
 
 
 def _plain_tokens(code):
