@@ -7,7 +7,6 @@
 #include <cstring>
 #include <vector>
 
-#include "game/front/menu_backdrop.h"
 #include "game/mth/matrix.h"
 #include "game/obj/motion.h"
 #include "game/script/struct.h"
@@ -148,33 +147,28 @@ void TestMotionRotateTo()
         {0, 0, 0, 0, true}, {kRelative, 30.0f, -10.0f, 45.0f, false, true},
     };
     bool ok = true;
-    int saved = Front::MenuBackdrop::Setting();
-    for (int setting : {0, 1, 2}) {
-        Front::MenuBackdrop::Setting() = setting; // (not 3: in the game the level may be active)
-        for (const Case& c : cases) {
-            Params params(c.name, c.x, c.y, c.z, c.convert, c.both);
-            std::vector<Started> expected, actual;
-            bool ran = Run(true, params, &expected) && Run(false, params, &actual);
-            bool same = ran && expected.size() == actual.size() && expected.size() == (c.name ? 1u : 0u);
-            for (size_t i = 0; same && i < expected.size(); ++i)
-                same = SameMatrix(expected[i].target, actual[i].target);
-            if (!same) {
-                ok = false;
-                Log("  Obj_Rotate %08X (%g %g %g) convert %d setting %d: %u / %u turns started", c.name, c.x, c.y, c.z,
-                    c.convert, setting, static_cast<unsigned>(expected.size()), static_cast<unsigned>(actual.size()));
-                if (!expected.empty() && !actual.empty())
-                    for (int r = 0; r < 4; ++r)
-                        for (int k = 0; k < 4; ++k) {
-                            uint32_t e, a;
-                            std::memcpy(&e, &(&expected[0].target.row[r].x)[k], 4);
-                            std::memcpy(&a, &(&actual[0].target.row[r].x)[k], 4);
-                            if (e != a)
-                                Log("    [%d][%d] %08X / %08X", r, k, e, a);
-                        }
-            }
+    for (const Case& c : cases) {
+        Params params(c.name, c.x, c.y, c.z, c.convert, c.both);
+        std::vector<Started> expected, actual;
+        bool ran = Run(true, params, &expected) && Run(false, params, &actual);
+        bool same = ran && expected.size() == actual.size() && expected.size() == (c.name ? 1u : 0u);
+        for (size_t i = 0; same && i < expected.size(); ++i)
+            same = SameMatrix(expected[i].target, actual[i].target);
+        if (!same) {
+            ok = false;
+            Log("  Obj_Rotate %08X (%g %g %g) convert %d: %u / %u turns started", c.name, c.x, c.y, c.z,
+                c.convert, static_cast<unsigned>(expected.size()), static_cast<unsigned>(actual.size()));
+            if (!expected.empty() && !actual.empty())
+                for (int r = 0; r < 4; ++r)
+                    for (int k = 0; k < 4; ++k) {
+                        uint32_t e, a;
+                        std::memcpy(&e, &(&expected[0].target.row[r].x)[k], 4);
+                        std::memcpy(&a, &(&actual[0].target.row[r].x)[k], 4);
+                        if (e != a)
+                            Log("    [%d][%d] %08X / %08X", r, k, e, a);
+                    }
         }
     }
-    Front::MenuBackdrop::Setting() = saved;
     Check(ok, "Obj_Rotate: original vs ours (relative, absolute, converted, neither)");
 }
 

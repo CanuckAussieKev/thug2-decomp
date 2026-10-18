@@ -22,7 +22,7 @@
 #include "game/obj/object.h"
 #include "game/core/str.h"
 #include "game/front/menu_backdrop.h"
-#include "game/front/menu_level.h"
+#include "game/front/data_overlay.h"
 #include "game/gfx/camera.h"
 #include "game/gfx/scene.h"
 #include "game/script/struct.h"
@@ -45,11 +45,19 @@ uint32_t Bits(float f)
     return bits;
 }
 
-// The setting for one test (put back after).
+// The setting for one test (put back after), the backdrop taken as installed (offline there is no data overlay).
 struct SettingScope {
     int saved;
-    explicit SettingScope(int value) : saved(MB::Setting()) { MB::Setting() = value; }
-    ~SettingScope() { MB::Setting() = saved; }
+    explicit SettingScope(int value, int installed = 1) : saved(MB::Setting())
+    {
+        MB::Setting() = value;
+        MB::ForceInstalled(installed);
+    }
+    ~SettingScope()
+    {
+        MB::Setting() = saved;
+        MB::ForceInstalled(-1);
+    }
 };
 
 std::vector<Saved> g_menulvl_saved;
@@ -414,31 +422,33 @@ void TestLoadScene()
 {
     auto* s = new StandIns;
     InstallLoadSceneStandIns(*s);
-    const char* names[] = {"mainmenu", "MainMenu", "LA", "AU_Sky", "la_SKY_x", "Sk5ed_shell", "skyline"};
+    const char* names[] = {"mainmenu", "MainMenu", "LA", "AU_Sky", "la_SKY_x", "Sk5ed_shell", "skyline",
+                           "thps4_skateshop"};
     bool ok = true;
-    for (int setting : {0, 1, 2}) {
-        SettingScope scope(setting);
+    for (int run = 0; run < 6; ++run) {
+        int setting = run / 2, installed = run % 2;
+        SettingScope scope(setting, installed);
         for (const char* name : names) {
             bool frontEnd = _stricmp(name, "mainmenu") == 0;
-            if (setting != 0 && frontEnd)
+            if (setting != 0 && installed && frontEnd)
                 continue; // (below: ours loads more)
             for (uint32_t flags = 0; flags < 16; ++flags) {
                 std::vector<uint32_t> expected = RunLoadScene(true, name, flags);
                 std::vector<uint32_t> actual = RunLoadScene(false, name, flags);
                 if (expected != actual) {
                     ok = false;
-                    Log("  LoadScene %s flags %u setting %d:", name, flags, setting);
+                    Log("  LoadScene %s flags %u setting %d installed %d:", name, flags, setting, installed);
                     Compare(expected, actual, "LoadScene");
                 }
             }
         }
     }
-    Check(ok, "LoadScene: original vs ours (menu_backdrop off, or not the front end's scene)");
+    Check(ok, "LoadScene: original vs ours (menu_backdrop off or not installed, or not the front end's scene)");
 
     // The front end's scene with the backdrop on: ours loads it as the original does, then the backdrop's sky and
     // scene (is_net passed on, nothing else), each from a structure of its own, freed after.
     ok = true;
-    for (int setting : {1, 2}) {
+    for (int setting : {1, 2, 3}) {
         SettingScope scope(setting);
         for (uint32_t flags = 0; flags < 16; ++flags) {
             std::vector<uint32_t> expected = RunLoadScene(true, "MainMenu", flags);
@@ -451,8 +461,10 @@ void TestLoadScene()
                         std::equal(expected.begin(), expected.end() - 2, actual.begin()) &&
                         actual.back() == 1u && SameLoad(g_ls_loads[0], first.name.c_str(), first.texture.c_str(),
                                                         first.addSuperSectors, first.sky, first.net, first.dictionary) &&
-                        SameLoad(g_ls_loads[1], "LA_Sky", "levels\\LA_Sky\\LA_Sky.tex", false, true, net) &&
-                        SameLoad(g_ls_loads[2], "LA", "levels\\LA\\LA.tex", true, false, net);
+                        SameLoad(g_ls_loads[1], "thps4_skateshop_sky",
+                                 "levels\\thps4_skateshop_sky\\thps4_skateshop_sky.tex", false, true, net) &&
+                        SameLoad(g_ls_loads[2], "thps4_skateshop", "levels\\thps4_skateshop\\thps4_skateshop.tex", true,
+                                 false, net);
             if (!good) {
                 ok = false;
                 Log("  backdrop setting %d flags %u: %u loads, %u structures made, %u cleared", setting, flags,
@@ -477,33 +489,27 @@ bool RowIs(const Mth::Vector& v, double x, double y, double z, double w)
 
 void TestMenuBackdropViews()
 {
-    bool ok = MB::ViewFor(0) == nullptr && MB::ViewFor(3) == nullptr && MB::ViewFor(-1) == nullptr &&
-              MB::ViewFor(1) != nullptr && MB::ViewFor(2) != nullptr;
-    Check(ok, "menu_backdrop: views 1 and 2 only");
+    bool ok = MB::ViewFor(0) == nullptr && MB::ViewFor(1) != nullptr && MB::ViewFor(1) == MB::ViewFor(2) &&
+              MB::ViewFor(1) == MB::ViewFor(3) && MB::ViewFor(-1) == MB::ViewFor(1);
+    Check(ok, "menu_backdrop: one view, at any setting but 0");
     const MB::View* v1 = MB::ViewFor(1);
-    const MB::View* v2 = MB::ViewFor(2);
-    ok = v1->pos[0] == -1808.255f && v1->pos[1] == -342.621f && v1->pos[2] == 5804.185f && v1->back[0] == 0.618382f &&
-         v1->up[1] == 0.983850f && v2->pos[0] == -1995.710f && v2->pos[2] == 6016.290f && v2->back[2] == 0.707732f &&
-         v2->up[2] == -0.128765f;
-    Check(ok, "menu_backdrop: the views as captured");
+    ok = v1->pos[0] == 564.790f && v1->pos[1] == 74.075f && v1->pos[2] == -1114.151f && v1->back[0] == 0.007642f &&
+         v1->back[2] == 0.999689f && v1->up[0] == -0.000181f && v1->up[1] == 0.999718f && v1->up[2] == -0.023743f;
+    Check(ok, "menu_backdrop: the view as captured");
 
     // Worked out (double precision, the captured floats): row 0 = up x back normalized.
     Mth::Matrix m1 = MB::ViewMatrix(*v1);
-    ok = RowIs(m1.row[0], -0.777805, 0.000184, -0.628506, 0) && RowIs(m1.row[1], -0.112357, 0.983850, 0.139335, 0) &&
-         RowIs(m1.row[2], 0.618382, 0.178992, -0.765223, 0) && RowIs(m1.row[3], 0, 0, 0, 1);
-    Mth::Matrix m2 = MB::ViewMatrix(*v2);
-    ok = ok && RowIs(m2.row[0], 0.719350, -0.000148, 0.694647, 0) &&
-         RowIs(m2.row[1], 0.124546, 0.983823, -0.128765, 0) && RowIs(m2.row[2], -0.683391, 0.179143, 0.707732, 0) &&
-         RowIs(m2.row[3], 0, 0, 0, 1);
+    ok = RowIs(m1.row[0], 0.99997078, -0.00000050, -0.00764414, 0) &&
+         RowIs(m1.row[1], -0.00018100, 0.99971808, -0.02374300, 0) &&
+         RowIs(m1.row[2], 0.00764200, 0.02374400, 0.99968886, 0) && RowIs(m1.row[3], 0, 0, 0, 1);
     // A right-handed rotation: row 0 . (row 1 x row 2) = +1, rows of length 1.
-    for (const Mth::Matrix* m : {&m1, &m2}) {
+    for (const Mth::Matrix* m : {&m1}) {
         const Mth::Vector &a = m->row[0], &b = m->row[1], &c = m->row[2];
         double det = a.x * (b.y * c.z - b.z * c.y) - a.y * (b.x * c.z - b.z * c.x) + a.z * (b.x * c.y - b.y * c.x);
         ok = ok && std::fabs(det - 1.0) < 1e-5;
     }
     if (!ok)
-        Log("  view 1 row 0 %.6f %.6f %.6f, view 2 row 0 %.6f %.6f %.6f", m1.row[0].x, m1.row[0].y, m1.row[0].z,
-            m2.row[0].x, m2.row[0].y, m2.row[0].z);
+        Log("  view row 0 %.8f %.8f %.8f", m1.row[0].x, m1.row[0].y, m1.row[0].z);
     // An unnormalized view is normalized.
     MB::View scaled = {{1, 2, 3}, {0, 0, 2}, {0, 3, 0}};
     Mth::Matrix m3 = MB::ViewMatrix(scaled);
@@ -533,7 +539,7 @@ void TestMenuBackdropDecisions()
 
     ok = true;
     for (int setting : {-1, 0, 1, 2, 3}) {
-        bool on = setting == 1 || setting == 2;
+        bool on = setting != 0;
         for (int bits = 0; bits < 8; ++bits) {
             bool frontEnd = bits & 1, loaded = (bits & 2) != 0, menu = (bits & 4) != 0;
             bool hold = MB::ShouldHold(setting, frontEnd, loaded, menu);
@@ -702,61 +708,37 @@ done:
 
 } // namespace
 
-// --- the menu_level feature (src/game/front/menu_level.*) ---------------------------------------------------------
+// --- the data overlay (src/game/front/data_overlay.*) -------------------------------------------------------------
 
-void TestMenuLevel()
+void TestDataOverlay()
 {
-    namespace ML = Front::MenuLevel;
+    namespace DO = Front::DataOverlay;
     auto name = [](const char* in, const char* want) {
         char out[260];
-        ML::OverlayName(in, out);
+        DO::OverlayName(in, out);
         if (std::strcmp(out, want) != 0)
-            Log("  menu_level: '%s' -> '%s' (expected '%s')", in, out, want);
+            Log("  data overlay: '%s' -> '%s' (expected '%s')", in, out, want);
         return std::strcmp(out, want) == 0;
     };
     bool ok = name("levels\\mainmenu\\mainmenu.qb", "levels\\mainmenu\\mainmenu.qb") &&
               name("Data/Scripts/Game/Levels.qb", "scripts\\game\\levels.qb") &&
               name("c:\\ports\\THUG2\\THUG2XB\\Skate6\\data\\scripts\\game\\Levels.qb", "scripts\\game\\levels.qb") &&
               name("models\\metadata\\x.qb", "models\\metadata\\x.qb") && name("", "");
-    Check(ok, "menu_level: overlay file names");
+    Check(ok, "data overlay: file names");
 
-    // The move tools/menu_level/make_menu_level.py makes for view 1 takes the shop's main menu camera
-    // (59.833, -12.74, 181.704) to the view's place; a turn about up adds to the heading atan2(x, z).
-    ML::Move move = {-3.821257f, {-1875.924702f, -329.881f, 5983.118348f}};
-    float camera[3] = {59.833f, -12.74f, 181.704f}, moved[3];
-    ML::MovePoint(move, camera, moved);
-    ok = std::fabs(moved[0] - -1808.255f) < 0.01f && std::fabs(moved[1] - -342.621f) < 0.001f &&
-         std::fabs(moved[2] - 5804.185f) < 0.01f;
-    ML::Move quarter = {1.5707963f, {0, 0, 0}};
-    float forward[3] = {0, 0, 1}, side[3] = {0, 2, 0}, turned[3], up[3];
-    ML::TurnDirection(quarter, forward, turned);
-    ML::TurnDirection(quarter, side, up);
-    ok = ok && std::fabs(turned[0] - 1) < 1e-6f && std::fabs(turned[1]) < 1e-6f && std::fabs(turned[2]) < 1e-6f &&
-         up[0] == 0 && up[1] == 2 && std::fabs(up[2]) < 1e-6f;
-    if (!ok)
-        Log("  menu_level: camera moved to %.3f %.3f %.3f, (0 0 1) turned to %f %f %f", moved[0], moved[1], moved[2],
-            turned[0], turned[1], turned[2]);
-    Check(ok, "menu_level: the move");
-
-    float view[3] = {-1808.255f, -342.621f, 5804.185f}, wheel[3] = {0.0f, -12.75f, -7.07f};
-    Check(ML::InShop(camera) && ML::InShop(wheel) && !ML::InShop(view) && !ML::InShop(moved),
-          "menu_level: the shop's coordinates");
-
-    // Off unless menu_backdrop is 3: nothing hidden, no overlay files, the camera left alone.
+    // The front_end folder only while the backdrop is on and installed.
     int saved = MB::Setting();
-    char path[260];
     ok = true;
-    for (int setting : {0, 1, 2}) {
+    for (int setting : {0, 1, 2, 3}) {
         MB::Setting() = setting;
-        ok = ok && !ML::Active() && !ML::HideScene(MB::kFrontEndSceneName) &&
-             (!ML::OverlayPath("scripts\\game\\levels.qb", path) || !std::strstr(path, "\\menu_level\\"));
+        for (int installed : {0, 1}) {
+            MB::ForceInstalled(installed);
+            ok = ok && MB::Active() == (setting != 0 && installed != 0);
+        }
     }
-    Camera dummy{};
-    dummy.m_pos = {1, 2, 3, 1};
-    ML::PlaceCamera(&dummy);
-    ok = ok && dummy.m_pos.x == 1 && dummy.m_pos.y == 2 && dummy.m_pos.z == 3;
+    MB::ForceInstalled(-1);
     MB::Setting() = saved;
-    Check(ok, "menu_level: off at settings 0-2");
+    Check(ok, "menu_backdrop: on at any setting but 0, once installed");
 }
 
 SELFTEST(Early, TestCameraMethods, Cleanup);
@@ -764,4 +746,4 @@ SELFTEST(Early, TestLoadScene, Cleanup);
 SELFTEST(Early, TestMenuBackdropViews);
 SELFTEST(Early, TestMenuBackdropDecisions);
 SELFTEST(Early, TestMenuBackdropState, Cleanup);
-SELFTEST(Early, TestMenuLevel);
+SELFTEST(Early, TestDataOverlay);
