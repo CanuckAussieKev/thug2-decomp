@@ -52,3 +52,4 @@ Agent "thaw". How to run it: tools/thaw_levels/README.md.
   EL, SM, SR, LV, OI (Oil Rig by 56,064 in z).
 - Not converted: peds, vehicles, goals, ladders (ClimbingNode), moving / bouncy objects (static), particles, music,
   the main-menu room, shops, CAP shells.
+- (lead) Merged into main (9cb6031). Converted with main's level_port (LoadTerrain, fix_terrains) and installed; Chicago (the first THAW level) loads and skates in the game - the other 14 not tried yet.
