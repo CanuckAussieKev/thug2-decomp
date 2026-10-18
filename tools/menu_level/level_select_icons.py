@@ -281,8 +281,60 @@ def flame():
             (CUT, poly((32, 27), (36, 33), (36.5, 38), (34, 42), (30, 42), (27.5, 38), (28.5, 32), (30.5, 35)))]
 
 
+def gear():
+    # A cog (THPS3's Foundry).
+    shapes = []
+    for i in range(8):
+        a = math.radians(i * 45)
+        shapes.append((INK, line(32 + 8 * math.cos(a), 31 + 8 * math.sin(a),
+                                 32 + 14 * math.cos(a), 31 + 14 * math.sin(a), 4.2)))
+    shapes += [(INK, circle(32, 31, 11)), (CUT, circle(32, 31, 4))]
+    return shapes
+
+
+def pine():
+    # A fir tree (Canada).
+    return [(INK, poly((32, 11), (39, 20), (36, 20), (42, 28), (38.5, 28), (45, 37), (19, 37), (25.5, 28), (22, 28),
+                       (28, 20), (25, 20))),
+            (INK, rect(29.5, 37, 34.5, 45))]
+
+
+def redeemer():
+    # Christ the Redeemer (Rio): a figure with its arms out, on its pedestal.
+    return [(INK, circle(32, 15, 2.6)), (INK, rect(17, 18.5, 47, 21.5)), (INK, poly((28.5, 18.5), (35.5, 18.5),
+                                                                                    (35, 40), (29, 40))),
+            (INK, rect(27.5, 40, 36.5, 46))]
+
+
+def torii():
+    # A shrine gate (Tokyo).
+    return [(INK, poly((15.5, 16), (48.5, 16), (46, 21), (18, 21))), (INK, rect(19.5, 25, 44.5, 27.5)),
+            (INK, rect(22, 20, 25.5, 47)), (INK, rect(38.5, 20, 42, 47)), (INK, rect(30.5, 20, 33.5, 25.5))]
+
+
+def ship():
+    # A cruise liner.
+    shapes = [(INK, poly((15, 34), (49, 34), (44, 43), (20, 43))), (INK, rect(20, 28, 44, 34)),
+              (INK, rect(24, 23, 40, 28)), (INK, poly((33, 16), (38, 16), (38.5, 23), (32.5, 23)))]
+    shapes += [(CUT, circle(x, 31, 1.1)) for x in (23.5, 28, 32.5, 37, 41.5)]
+    return shapes
+
+
+def crate():
+    # A shipping crate (the Warehouse).
+    return [(INK, rect(19, 19, 45, 45)), (CUT, rect(22, 22, 42, 42)), (INK, line(22, 22, 42, 42, 3.4)),
+            (INK, line(42, 22, 22, 42, 3.4)), (INK, rect(19, 30.5, 45, 33.5))]
+
+
+def ufo():
+    # Roswell.
+    return [(INK, ellipse(32, 30, 16, 5)), (INK, ellipse(32, 26, 7.5, 6)), (CUT, ellipse(32, 30, 13.5, 1.2)),
+            (INK, line(25, 34, 21, 44, 2.0)), (INK, line(39, 34, 43, 44, 2.0)), (INK, line(32, 35, 32, 45, 2.0))]
+
+
 PICTOGRAMS = {f.__name__: f for f in (skateboard, cone, bars, bridge, mortarboard, palm, anchor, bigben, paw, ferris,
-                                       skyline, motorbike, torch, wave, sun, house, ramp, dome, flame)}
+                                       skyline, motorbike, torch, wave, sun, house, ramp, dome, flame, gear, pine,
+                                       redeemer, torii, ship, crate, ufo)}
 
 SAMPLES = 4
 
