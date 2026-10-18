@@ -345,3 +345,53 @@ def strip_missing_trick_objects(text, sectors):
         return re.sub(r"\n[ \t]*Cluster=\S+[ \t]*(?=\n)", "", node, flags=re.IGNORECASE)
 
     return re.sub(r"\{[^{}]*\}", fix, text), cleared
+
+
+# The path commands that need the path manager, which THUG2 makes only outside network games (load_level's
+# AllocatePathManMemory): an object following a path in a network game reads through the missing manager
+# (0x004695D0 / 0x00469620 - THPS4 College's blimp crashed a network game, as TestLevel's beach ball did).
+PATH_COMMANDS = ("Obj_FollowPath", "Obj_FollowPathLinked", "Obj_FollowPathStored")
+_PATH_COMMANDS = {checksum(c) for c in PATH_COMMANDS}
+
+
+def _name_value(text):
+    return int(text[1:], 16) if text.startswith("#") else checksum(text)
+
+
+def absent_path_followers_in_net(text, scripts=None):
+    # The node array (NeverScript text) with AbsentInNetGames on every CreatedAtStart node whose TriggerScript
+    # follows a path (itself or through scripts it names) - what the shipped levels do for such objects. `text`'s
+    # own scripts are read, and `scripts` ({checksum: compiled code}, added after compiling:
+    # script_port.append_scripts). Returns (text, nodes marked).
+    calls = {}  # script -> the names it uses
+    for name, body in re.findall(r"(?:^|\n)script (#?\w+) \{(.*?)\n\}", text, re.S):
+        calls[_name_value(name)] = {_name_value(w) for w in re.findall(r"#[0-9A-Fa-f]{8}\b|\b[A-Za-z_]\w*", body)}
+    for name, code in (scripts or {}).items():
+        used = set()
+        for _, t, p in qb.tokens(bytes(code) + b"\0", weights=True):
+            if t == 0x00:
+                break
+            if t == 0x16:
+                used.add(int.from_bytes(p[:4], "little"))
+        calls[name] = calls.get(name, set()) | used
+    followers = {name for name, used in calls.items() if used & _PATH_COMMANDS}
+    grew = True
+    while grew:
+        grew = False
+        for name, used in calls.items():
+            if name not in followers and used & followers:
+                followers.add(name)
+                grew = True
+    marked = 0
+
+    def fix(match):
+        nonlocal marked
+        node = match.group(0)
+        script = re.search(r"\bTriggerScript=(#?\w+)", node)
+        if not script or _name_value(script.group(1)) not in followers or \
+                not re.search(r"\bCreatedAtStart\b", node) or re.search(r"\bAbsentInNetGames\b", node):
+            return node
+        marked += 1
+        return re.sub(r"\bCreatedAtStart\b", "CreatedAtStart AbsentInNetGames", node, count=1)
+
+    return re.sub(r"\{[^{}]*\}", fix, text), marked
