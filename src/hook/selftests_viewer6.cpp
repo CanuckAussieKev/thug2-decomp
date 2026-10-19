@@ -333,6 +333,7 @@ void TestRailManager()
             else
                 (m->*ours)();
         };
+        std::memset(m, 0xCD, sizeof(CRailManager)); // (so every field Init sets shows)
         t.push_back(Rel(reinterpret_cast<uint32_t>(original ? Original<void*(__thiscall*)(void*)>(0x0057CC10)(m) : m->Init())));
         t.push_back(Rel(reinterpret_cast<uint32_t>(m->m_nodes)));
         // The level.
@@ -440,6 +441,11 @@ void TestRailManager()
                 Original<void(__thiscall*)(void*, uint32_t, const void*)>(0x0057C3F0)(m, name, &moved);
             else
                 m->MoveNode(name, &moved);
+        }
+        for (int i = 0; i < 3; ++i) { // (the moved node's box, and its previous one's, as they are now)
+            const auto* words = reinterpret_cast<const uint32_t*>(&nodes[i]);
+            for (int w = 0; w < 8; ++w)
+                t.push_back(words[w]);
         }
         moved = {40.0f, 10.0f, 0.0f, 1.0f};
         if (original)
@@ -617,6 +623,48 @@ void TestRailManager()
                                      : scene->FindRail(&from, &to, &dir, Ptr<void>(kChecker), Ptr<Obj::Record34>(kRecords + 0x40), 5.0f));
                 t.push_back(Rel(Ptr<uint32_t>(kRecords + 0x40)[12]));
             }
+            // Grind rails: a vertical line (alignment 1); a good rail then a better-scoring one out of reach (none
+            // found); a lone node's doubled distance against a later rail.
+            auto grind = [&](int first, int count, Mth::Vector from, Mth::Vector to) {
+                scene->m_nodes = &extra[first];
+                scene->m_count = count;
+                g_hits.clear();
+                Mth::Vector point = {};
+                CRailNode* found = nullptr;
+                t.push_back(original ? Original<bool(__thiscall*)(void*, const void*, const void*, void*, void*, const void*, float, int)>(0x0057E2D0)(
+                                           scene, &from, &to, &point, &found, nullptr, 1.0f, 0)
+                                     : scene->FindGrindRail(&from, &to, &point, &found, nullptr, 1.0f, 0));
+                RecVector(reinterpret_cast<uint32_t>(&point));
+                t.push_back(Rel(reinterpret_cast<uint32_t>(found)));
+            };
+            node(24, 0.0f, 5.0f, 0.0f, 25, SA, 0x318);
+            node(25, 10.0f, 5.0f, 0.0f, -1, SA, 0x319);
+            node(26, 10.0f, 3.0f, -5.0f, 27, SA, 0x31A);
+            node(27, 10.0f, 3.0f, 5.0f, -1, SA, 0x31B);
+            node(28, 5.5f, 8.5f, -2.18f, 29, SA, 0x31C);
+            node(29, 14.5f, 8.5f, 2.18f, -1, SA, 0x31D);
+            node(30, 3.0f, 4.0f, 0.0f, -1, SA, 0x31E);
+            node(31, 15.0f, 4.46f, -5.0f, 32, SA, 0x31F);
+            node(32, 15.0f, 4.46f, 5.0f, -1, SA, 0x320);
+            boxes(33);
+            grind(24, 2, {5.0f, 0.0f, 7.0f, 1.0f}, {5.0f, 10.0f, 7.0f, 1.0f});
+            grind(26, 4, {0.0f, 0.0f, 0.0f, 1.0f}, {20.0f, 0.0f, 0.0f, 1.0f});
+            grind(30, 3, {0.0f, 0.0f, 0.0f, 1.0f}, {20.0f, 0.0f, 0.0f, 1.0f});
+            // A joining rail: the node there is excluded by its flags, its previous one isn't.
+            node(33, 90.0f, 0.0f, 100.0f, 34, SA, 0x321);
+            node(34, 100.0f, 0.0f, 100.0f, 35, SA | 2, 0x322);
+            node(35, 110.0f, 0.0f, 100.0f, -1, SA, 0x323);
+            node(36, 100.0f, 0.0f, 100.0f, -1, SA, 0x324);
+            boxes(37);
+            scene->m_nodes = &extra[33];
+            scene->m_count = 4;
+            {
+                CRailNode* found = nullptr;
+                g_hits.clear();
+                t.push_back(original ? Original<bool(__thiscall*)(void*, const void*, uint32_t, void*)>(0x0057E170)(scene, &extra[36], 2u, &found)
+                                     : scene->FindJoiningRail(&extra[36], 2u, &found));
+                t.push_back(Rel(reinterpret_cast<uint32_t>(found)));
+            }
             // Overlapping rails: parallel and close (the lower goes), opposite and close, angled.
             node(12, 0.0f, 10.0f, 0.0f, 13, SA, 0x30C);
             node(13, 20.0f, 10.0f, 0.0f, -1, SA, 0x30D);
@@ -658,7 +706,7 @@ void TestRailManager()
             uint32_t node = At(kParams + 0x10 * i);
             array->m_elements[i] = node;
             g_params[{node, 0x12B4E660}] = classes[i];
-            g_nodeNames[node] = 0x4000u * (i % 2) + 0x200u + i; // (two share a hash slot: probing)
+            g_nodeNames[node] = 0x4000u * (i % 2) + 0x200u + i / 2; // (pairs share a hash slot: probing)
             g_nodesByName[g_nodeNames[node]] = node;
             g_positions[node] = {10.0f * i, 2.0f * i, -3.0f * i, 1.0f};
             g_params[{node, 0xA1DC81F9}] = 0xA0 + i;
@@ -676,7 +724,7 @@ void TestRailManager()
             if (i == 2)
                 g_flagsSet.insert({node, 0xF6DD21CA}), g_flagsSet.insert({node, 0xF22BFC6D});
             if (i == 5)
-                g_flagsSet.insert({node, 0x5E9CE29B});
+                g_flagsSet.insert({node, 0x5E9CE29B}), g_flagsSet.insert({node, 0x4DE721DE});
         }
         g_skippedNodes.insert(At(kParams + 0x10 * 4));
         // Links: 0 -> 1 -> 5, 2 -> 1 (1 already has a next: 2 isn't DefaultLine), 5 none.
@@ -695,6 +743,7 @@ void TestRailManager()
         links(0, {1}, kArrays + 0x40);
         links(1, {5, 2}, kArrays + 0x80);
         links(2, {1, 0}, kArrays + 0xC0);
+        links(5, {1}, kArrays + 0x100); // (5 is DefaultLine: it becomes 1's previous over 0)
         for (int all : {0, 1}) {
             g_integers[0xB675F8F6] = all;
             if (original)

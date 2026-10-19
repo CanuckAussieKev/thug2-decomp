@@ -341,11 +341,15 @@ void TestProfileManager()
         // The destructors.
         voidCall(0x0057BC20, &CPlayerProfileManager::DestroyBody);
         PushManager(t, m);
+        other->m_templates.m_count = 5; // (no nodes, but a count: cleared)
         if (original)
             Original<void(__thiscall*)(void*)>(0x0057BBF0)(&other->m_templates);
         else
             other->m_templates.Destroy();
         PushManager(t, other);
+        // A template again: the last release deletes it.
+        t.push_back(original ? Original<bool(__thiscall*)(void*, CStruct*)>(0x0057BB40)(m, reinterpret_cast<CStruct*>(At(kParams)))
+                             : m->AddTemplate(reinterpret_cast<CStruct*>(At(kParams))));
         create(false);
         release();
         release();

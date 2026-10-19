@@ -102,6 +102,15 @@ public:
     // geometry heap -, shadow, a local skater's input / vibration / two more), Finalize, a local skater's pad
     // settings and SkaterInit, its profile and stats, ... its trick infos and projectiles, its controls' textures.
     void Init(CSkaterProfile* profile);
+    // 0x005822A0: Init, then a local skater's network message handlers (when 0x005A11B0 says so), and never suspended.
+    void InitFromProfile(CSkaterProfile* profile);
+    // 0x005823A0: its state script 0xE740F458 started (with Walk / 0x7B738580 flags), run once if local.
+    void RunStateScript(bool walk, bool other);
+    // 0x00582510: its script switched to `name` (flip-and-rotate told first) and run once.
+    void SwitchToScript(uint32_t name, Script::CStruct* params);
+    // 0x005825E0: the CAT info written to `save` (tricks). 0x00582740: the +0x28C list's 70 entries written.
+    void WriteCATInfo(Script::CStruct* save);
+    void WriteList44B66A9F(Script::CStruct* save);
 
     uint32_t m_pushStyle;        // +0x108 (the profile's pushstyle)
     uint32_t m_style;            // +0x10C (skatestyle)

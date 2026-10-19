@@ -7,6 +7,7 @@
 #include <cstring>
 #include <vector>
 
+#include "game/net/net_dispatcher.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/game_objects.h"
 #include "game/obj/objman.h"
@@ -31,7 +32,7 @@ uint32_t Block(int i) { return At(kBlocks + 0x100 * i); }
 
 void* g_skaterVtable[24];
 void* g_modelVtable[16];
-bool g_cameraFound, g_assetInfo, g_noCollisionData, g_customTag, g_sticker;
+bool g_cameraFound, g_assetInfo, g_noCollisionData, g_customTag, g_sticker, g_noSuspend, g_noFlip, g_netRule;
 
 uint32_t ComponentFor(uint32_t type)
 {
@@ -47,6 +48,8 @@ uint32_t ComponentFor(uint32_t type)
     case 0x726E85AA: return Block(9);  // Walk
     case 0x5E43A604: return Block(10); // (the camera's) skatercamera
     case 0xC7D37EC2: return Block(11); // walkcamera
+    case 0xCE0CA665: return g_noSuspend ? 0u : Block(26); // suspend
+    case 0x488AF07A: return g_noFlip ? 0u : Block(27);    // SkaterFlipAndRotate
     default: return 0u;
     }
 }
@@ -163,6 +166,33 @@ void Install(StandIns& s)
         Rec(0xE380, {r.args[0]});
         return 0u;
     });
+    // The scripts, the network, arrays.
+    s.At({0x005A11B0}, 0, [](Regs& r) {
+        Rec(0x11B0, {r.args[0], r.args[1]});
+        return g_netRule ? 1u : 0u;
+    });
+    Simple(s, {0x00532EA0}, 4, 28, true);
+    Simple(s, {0x0045A5C0, AddressOf(&Net::Dispatcher::AddHandler)}, 20);
+    Simple(s, {0x004747A0, AddressOf(static_cast<void (Script::CScript::*)(uint32_t, CStruct*, Obj::CObject*)>(&Script::CScript::SetScript))}, 12);
+    Simple(s, {0x004750B0, AddressOf(&Script::CScript::Update)}, 0);
+    Simple(s, {0x00511570}, 0);
+    s.At({0x0046CAA0, AddressOf(&Script::CArray::Init)}, 0, [](Regs& r) {
+        Rec(0xCAA0, {r.ecx});
+        std::memset(reinterpret_cast<void*>(r.ecx), 0, 12);
+        return r.ecx;
+    });
+    s.At({0x0046CC50, AddressOf(&Script::CArray::SetSizeAndType)}, 8, [](Regs& r) {
+        Rec(0xCC50, {r.ecx, r.args[0], r.args[1] & 0xFF});
+        return 0u;
+    });
+    Simple(s, {0x0046CB10, AddressOf(&Script::CArray::SetElement)}, 8);
+    Simple(s, {0x00478670, AddressOf(static_cast<void (CStruct::*)(uint32_t, CStruct*)>(&CStruct::AddStructure))}, 8);
+    Simple(s, {0x00478B00, AddressOf(static_cast<void (CStruct::*)(uint32_t, Script::CArray*)>(&CStruct::AddArray))}, 8);
+    Simple(s, {0x004780D0, AddressOf(static_cast<void (CStruct::*)(uint32_t, Script::CArray*)>(&CStruct::AddArrayPointer))}, 8);
+    s.At({0x0051C470}, 4, [](Regs& r) {
+        Rec(0xC470, {r.ecx, r.args[0]});
+        return r.args[0] * 3 + 1;
+    });
     // The skater's vtable: Finalize (+0x20), CreateComponentFromStructure (+0x24); the model's +0x34.
     g_skaterVtable[8] = s.Thunk(0, [](Regs& r) {
         Rec(0x5120, {r.ecx});
@@ -244,6 +274,83 @@ void TestSkaterInit()
     Compare(traces[0], traces[1], "skater init");
 }
 
+// InitFromProfile (local with the network rule, local without, not local; with and without a suspend component), the
+// state script (each flag combination, local and not, with and without a script), switching scripts (with and
+// without a script and the flip component), writing the CAT info and the list.
+void TestSkaterScripts()
+{
+    SaveGlobals({{0x007CCE14, 4, {}}, {0x006F3548, 16, {}}});
+    StandIns* s = new StandIns;
+    Install(*s);
+    Simple(*s, {0x00581850, AddressOf(&CSkater::Init)}, 4);
+    std::vector<uint32_t> traces[2];
+    for (int run = 0; run < 2; ++run) {
+        bool original = run == 0;
+        SetUpArena(run);
+        std::vector<uint32_t>& t = traces[run];
+        GameVariable<uint32_t>(0x007CCE14) = Block(29);
+        std::memset(reinterpret_cast<void*>(0x006F3548), 0, 16);
+        auto* skater = Ptr<CSkater>(kSkater);
+        std::memset(skater, 0, sizeof(CSkater));
+        skater->m_vtable = g_skaterVtable;
+        skater->m_viewport = 1;
+        for (int i = 0; i < 11; ++i) {
+            skater->m_trickInfo[i] = Ptr<uint8_t>(0x4000 + 0x10 * i);
+            *Ptr<uint32_t>(0x4000 + 0x10 * i + 4) = 0x4100u + i;
+            *Ptr<uint32_t>(0x4000 + 0x10 * i + 8) = 0x4200u + i;
+            *Ptr<uint32_t>(0x4000 + 0x10 * i + 0xC) = 0x4300u + i;
+        }
+        skater->m_list28C = Ptr<void>(0x4400);
+        struct Case {
+            bool local, rule, suspend;
+        };
+        for (const Case& c : {Case{true, true, true}, Case{true, false, false}, Case{false, true, true}}) {
+            skater->m_unknownBC = c.local ? 1 : 0;
+            g_netRule = c.rule;
+            g_noSuspend = !c.suspend;
+            if (original)
+                Original<void(__thiscall*)(void*, void*)>(0x005822A0)(skater, Ptr<void>(kProfile));
+            else
+                skater->InitFromProfile(Ptr<Obj::CSkaterProfile>(kProfile));
+        }
+        g_noSuspend = false;
+        for (int local : {1, 0}) {
+            skater->m_unknownBC = static_cast<uint8_t>(local);
+            for (int flags = 0; flags < 4; ++flags) {
+                skater->m_script = flags == 1 ? nullptr : skater->m_script;
+                if (original)
+                    Original<void(__thiscall*)(void*, bool, bool)>(0x005823A0)(skater, (flags & 1) != 0, (flags & 2) != 0);
+                else
+                    skater->RunStateScript((flags & 1) != 0, (flags & 2) != 0);
+                t.push_back(Rel(reinterpret_cast<uint32_t>(skater->m_script)));
+            }
+        }
+        for (int flip : {1, 0}) {
+            g_noFlip = flip == 0;
+            skater->m_script = flip ? nullptr : skater->m_script;
+            if (original)
+                Original<void(__thiscall*)(void*, uint32_t, void*)>(0x00582510)(skater, 0x5C2A, Ptr<void>(0x4800));
+            else
+                skater->SwitchToScript(0x5C2A, Ptr<CStruct>(0x4800));
+            t.push_back(Rel(reinterpret_cast<uint32_t>(skater->m_script)));
+        }
+        g_noFlip = false;
+        if (original)
+            Original<void(__thiscall*)(void*, void*)>(0x005825E0)(skater, Ptr<void>(0x4900));
+        else
+            skater->WriteCATInfo(Ptr<CStruct>(0x4900));
+        if (original)
+            Original<void(__thiscall*)(void*, void*)>(0x00582740)(skater, Ptr<void>(0x4900));
+        else
+            skater->WriteList44B66A9F(Ptr<CStruct>(0x4900));
+        PushArena(t);
+        t.insert(t.end(), g_trace.begin(), g_trace.end());
+    }
+    Cleanup();
+    Compare(traces[0], traces[1], "skater scripts");
+}
+
 } // namespace
 
 SELFTEST(Early, TestSkaterInit, ViewerTestKit::Cleanup);
+SELFTEST(Early, TestSkaterScripts, ViewerTestKit::Cleanup);

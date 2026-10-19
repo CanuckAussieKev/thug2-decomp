@@ -12,6 +12,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/mth/matrix.h"
+#include "game/net/net_dispatcher.h"
 #include "game/script/nodes.h"
 #include "game/sio/device.h"
 #include "game/skate/profile_manager.h"
@@ -902,6 +903,99 @@ void CSkater::Init(CSkaterProfile* profile)
         GameFunction<void(__thiscall*)(void*, const char*)>(0x0051DA20)(controls, sticker);
 }
 
+// 0x005822A0
+void CSkater::InitFromProfile(CSkaterProfile* profile)
+{
+    Init(profile);
+    void* net = Net();
+    if (m_unknownBC && GameFunction<bool(__cdecl*)(int, int)>(0x005A11B0)(0, 0)) {
+        // Its network messages.
+        uint8_t* client = GameFunction<uint8_t*(__thiscall*)(void*, int)>(0x00532EA0)(net, m_viewport);
+        auto* dispatcher = reinterpret_cast<Net::Dispatcher*>(client + 0xC);
+        const struct {
+            uint8_t id;
+            uint32_t code;
+        } handlers[] = {{0x3B, 0x005626F0}, {0x44, 0x00519C10}, {0x43, 0x00519C10},
+                        {0x85, 0x00519870}, {0x84, 0x00519870}, {0x4B, 0x005136F0}};
+        for (const auto& handler : handlers)
+            dispatcher->AddHandler(handler.id, reinterpret_cast<Net::MsgHandlerCode>(handler.code), 0, this, 0x80);
+    }
+    // Never suspended (its suspend component's distances).
+    if (auto* suspend = reinterpret_cast<uint8_t*>(GetComponent(0xCE0CA665))) {
+        At<float>(suspend, 0x34) = 3000.0f;
+        At<float>(suspend, 0x38) = 5000.0f;
+        At<float>(suspend, 0x3C) = 10000000.0f;
+        At<float>(suspend, 0x40) = 10000000.0f;
+    }
+}
+
+// 0x005823A0
+void CSkater::RunStateScript(bool walk, bool other)
+{
+    if (!m_script) {
+        void* memory = Script::CScript::operator new(0xF4);
+        m_script = memory ? static_cast<Script::CScript*>(memory)->Construct() : nullptr;
+    }
+    Script::CStruct* params = nullptr;
+    if (walk || other) {
+        Script::CStruct* memory = Script::NewStruct();
+        params = memory ? memory->Init() : nullptr;
+        if (walk)
+            params->AddChecksum(0u, 0x726E85AA); // Walk
+        if (other)
+            params->AddChecksum(0u, 0x7B738580);
+    }
+    m_script->SetScript(0xE740F458, params, this);
+    if (m_unknownBC)
+        m_script->Update();
+    if (params) {
+        params->Clear();
+        Script::DeleteStruct(params);
+    }
+}
+
+// 0x00582510
+void CSkater::SwitchToScript(uint32_t name, Script::CStruct* params)
+{
+    if (!m_script) {
+        void* memory = Script::CScript::operator new(0xF4);
+        m_script = memory ? static_cast<Script::CScript*>(memory)->Construct() : nullptr;
+    }
+    if (CBaseComponent* flipAndRotate = GetComponent(kSkaterFlipAndRotate))
+        GameFunction<void(__thiscall*)(void*)>(0x00511570)(flipAndRotate);
+    m_script->SetScript(name, params, this);
+    m_script->Update();
+}
+
+// 0x005825E0
+void CSkater::WriteCATInfo(Script::CStruct* save)
+{
+    Script::CArray* memory = Script::NewArray();
+    Script::CArray* tricks = memory ? memory->Init() : nullptr;
+    tricks->SetSizeAndType(11, Script::ESYMBOLTYPE_STRUCTURE);
+    for (int i = 0; i < 11; ++i) {
+        Script::CStruct* structMemory = Script::NewStruct();
+        Script::CStruct* trick = structMemory ? structMemory->Init() : nullptr;
+        uint8_t* info = m_trickInfo[i];
+        trick->AddStructure(kOther, At<Script::CStruct*>(info, 4));
+        trick->AddArray(kAnimations, At<Script::CArray*>(info, 0xC));
+        trick->AddArray(kRotations, At<Script::CArray*>(info, 8));
+        tricks->SetElement(i, reinterpret_cast<uint32_t>(trick));
+    }
+    save->AddArrayPointer(kTricks, tricks);
+}
+
+// 0x00582740
+void CSkater::WriteList44B66A9F(Script::CStruct* save)
+{
+    Script::CArray* memory = Script::NewArray();
+    Script::CArray* entries = memory ? memory->Init() : nullptr;
+    entries->SetSizeAndType(0x46, Script::ESYMBOLTYPE_INTEGER);
+    for (int i = 0; i < 0x46; ++i)
+        entries->SetElement(i, GameFunction<uint32_t(__thiscall*)(void*, int)>(0x0051C470)(m_list28C, i));
+    save->AddArrayPointer(kList44B66A9F, entries);
+}
+
 } // namespace Obj
 
 REPLACE(0x0057FE30, &Obj::CSkater::SetStatOverride);
@@ -943,3 +1037,8 @@ REPLACE(0x005815C0, &Obj::CSkater::MoveToNode);
 REPLACE(0x00581760, &Obj::CSkater::Pause);
 REPLACE(0x005817F0, &Obj::CSkater::Unpause);
 REPLACE(0x00581850, &Obj::CSkater::Init);
+REPLACE(0x005822A0, &Obj::CSkater::InitFromProfile);
+REPLACE(0x005823A0, &Obj::CSkater::RunStateScript);
+REPLACE(0x00582510, &Obj::CSkater::SwitchToScript);
+REPLACE(0x005825E0, &Obj::CSkater::WriteCATInfo);
+REPLACE(0x00582740, &Obj::CSkater::WriteList44B66A9F);

@@ -169,6 +169,7 @@ void TestObjectSetup()
             else
                 Obj::AddNodeComponents(object, reinterpret_cast<CStruct*>(node));
         }
+        *Ptr<uint32_t>(kComponents + 0x1C) = 0x81; // (the motion's flags: one more set)
         for (uint32_t node : {nodes[0], nodes[1]}) {
             if (original)
                 Original<void(__cdecl*)(CStruct*)>(0x0057B4E0)(reinterpret_cast<CStruct*>(node));

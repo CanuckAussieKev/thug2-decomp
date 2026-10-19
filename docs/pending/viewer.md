@@ -226,6 +226,14 @@ Shared files touched: CMakeLists.txt (each new .cpp listed, additive).
       projectile names (CRCs of projectile_0-4), 0x42E380, the tag (a custom skater's own if has_custom_tag) and
       sticker textures. Self-test (new src/hook/selftests_viewer12.cpp): TestSkaterInit (four cases).
 
+- [x] Batch VW-12 (NOT run in the game yet; early tests pass offline; mutation run pending): InitFromProfile
+      0x5822A0 (Init; a local skater's six network message handlers when 0x5A11B0 says so; its suspend distances
+      3000 / 5000 / 1e7), RunStateScript 0x5823A0 (script 0xE740F458 with Walk / 0x7B738580, run once if local),
+      SwitchToScript 0x582510, WriteCATInfo 0x5825E0, the +0x28C list written 0x582740. Self-test:
+      TestSkaterScripts (selftests_viewer12.cpp). Tests strengthened after the VW-6 / VW-7 mutation runs (the moved
+      rail node's box seen before it moves back, the table's count cleared, the last release with a template, the
+      ped motion's flags kept).
+
 - [ ] Next: (state for resuming)
       - Batch VW-2 (cars / KOTH crown 0x5780E0-0x578490 in src/game/obj/game_objects.*; the skater trick code's two
         list entry types 0x578670 / 0x578740 / 0x5787F0 / 0x579570-0x579820 in src/game/skater/trick_lists.*) and
