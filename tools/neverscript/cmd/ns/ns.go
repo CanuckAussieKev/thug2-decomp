@@ -60,6 +60,7 @@ type CommandLineArguments struct {
 	ShowHexDump       *bool
 	ShowCode          *bool
 	RemoveChecksums   *bool
+	Lenient           *bool
 	ShowDecompiledRoq *bool
 }
 
@@ -83,6 +84,7 @@ func ParseCommandLineArguments() CommandLineArguments {
 		ShowCode:          flag.Bool("showCode", false, ""),
 		ShowDecompiledRoq: flag.Bool("showDecompiledRoq", false, ""),
 		RemoveChecksums:   flag.Bool("removeChecksums", false, ""),
+		Lenient:           flag.Bool("lenient", false, ""),
 	}
 	flag.Parse()
 	return args
@@ -169,6 +171,7 @@ func RunNeverscript(arguments CommandLineArguments) error {
 			return err
 		}
 
+		decompiler.Lenient = *arguments.Lenient
 		decompiledCode, err := decompiler.Decompile(qb)
 		if err != nil {
 			return err
