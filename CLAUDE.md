@@ -59,7 +59,8 @@ installed); functions PartyMod patched get source with PartyMod's behaviour. Lat
   dinput8.dll into its folder, edit thug2-decomp.ini, launch and close the game. Files we made in the game
   folders (the lock, overlays, layouts, logs) may be deleted; original game files never.
 - **C:\Games\THUG2 is the main install: only ever merged (main) work is installed there**, by the lead after
-  merging. Parallel work and agents' tests use the workspace copies C:\Games\THUG2-1 ... THUG2-4 (one agent each,
+  merging. It's the user's own, for manual testing: its self-tests are off (`[selftests] enabled=0`) and nobody runs
+  test games in it - the lead's own test runs too go to a workspace. Parallel work and agents' tests use the workspace copies C:\Games\THUG2-1 ... THUG2-4 (one agent each,
   1280x720 window, allow_multiple_instances=1; the lead assigns them): converters `--thug2 <folder>`,
   `make_menu_level.py --game <folder>`, games run in the background (keys posted, PrintWindow captures).
 - PartyMod (SDL2 window/input, settings in `thug2-decomp.ini`, glyphs, letterbox...) is part of the game's

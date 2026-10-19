@@ -14,6 +14,15 @@ Build: `powershell -ExecutionPolicy Bypass -File tools\build_neverscript.ps1` ->
     ns -d levels\mainmenu\mainmenu_scripts.qb -o mainmenu_scripts.ns      decompile
     ns -c mainmenu_scripts.ns -o mainmenu_scripts.qb -targetGame thug2    compile
 
+## -lenient (2026-10-19)
+
+`ns -lenient -d file.qb -o file.ns` decompiles malformed QB that other tools let through (RoQ, 2007-2011 mods): a
+`(` with no `)` before the line ends, a `[` / `{` still open when the script ends, 0x00 padding before the end of the
+file. The text closes what was left open and marks it `/* lenient: ... */`; compiled again, the missing bracket is
+added (the bytes differ - it's the fix). Without -lenient nothing changes (every retail script decompiles exactly as
+before). The game itself: an unclosed `(` makes the expression fail at run time ("Non-zero parentheses count",
+src/game/script/eval.cpp).
+
 ## Round trip over the game's files (tested 2026-10-17)
 
 Every `.qb` under `C:\Games\THUG2\Data` (470), decompiled then compiled back:

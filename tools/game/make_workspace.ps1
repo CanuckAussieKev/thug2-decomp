@@ -1,6 +1,8 @@
 param([Parameter(Mandatory = $true)][ValidateRange(1, 9)][int]$Number, [string]$From = 'C:\Games\THUG2')
 # Makes (or refreshes) a workspace copy of the game, C:\Games\THUG2-<Number>, from the main install, for an agent's
-# game runs alongside the user's: a 1280x720 window (not borderless), allow_multiple_instances=1, debug_collision=0.
+# game runs alongside the user's: a 1280x720 window (not borderless), allow_multiple_instances=1, debug_collision=0,
+# and the self-tests on ([selftests] enabled=1 - the main install, the user's own, has them off: all testing happens in
+# the workspaces).
 #   make_workspace.ps1 -Number 3
 # A refresh mirrors the main install over it (main's DLL, levels and overlay; files only the workspace had - its logs,
 # an agent's levels - go). Refuses while the workspace's lock is held or a game runs from either folder.
@@ -19,7 +21,9 @@ foreach ($kv in @(@('ResolutionX', '1280'), @('ResolutionY', '720'), @('Borderle
                   @('allow_multiple_instances', '1'), @('debug_collision', '0'))) {
     $text = [regex]::Replace($text, "(?m)^$($kv[0])=.*$", "$($kv[0])=$($kv[1])")
 }
+# (the self-tests on - the main install's are off)
+$text = [regex]::Replace($text, '(?m)^enabled=\d', 'enabled=1')  # ([selftests] has the ini's only enabled=)
 [IO.File]::WriteAllText($ini, $text)
 "made $to from $From"
-Select-String -Path $ini -Pattern '^(ResolutionX|ResolutionY|Borderless|allow_multiple_instances|debug_collision)=' | % Line
+Select-String -Path $ini -Pattern '^(ResolutionX|ResolutionY|Borderless|allow_multiple_instances|debug_collision|enabled)=' | % Line
 exit 0
