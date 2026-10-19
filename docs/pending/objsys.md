@@ -117,8 +117,29 @@ Shared files touched (small, additive): CMakeLists.txt (new sources and selftest
     originals into buffers big enough, exactly enough and too small.
   - Mutations: 41 deliberate bugs, all caught (the array-alone and 300-name cases added for 2).
 
-- [ ] Next: OS-4 emitters + follow trail (src/game/obj/emitter.{h,cpp}, selftests_objsys4.cpp written: add to
-  CMakeLists.txt, build, test, mutate), OS-5 node objects / movie details / class node list (node_objects.{h,cpp},
+- [x] Batch OS-4 (NOT run in the game yet; sound emitter nodes, the follow trail): src/game/obj/emitter.{h,cpp} (new).
+  - Emitter nodes (a Lst::HashTable at 0x006F2260 of EmitterNode, 0x60 bytes): 0x004680E0 Emitter_GetNode, 0x00468120
+    IsInside (box: the sector's bounding box; sphere: the squared distance summed unrounded z, x, y against the
+    radius squared; other shapes never), 0x004681A0 GetClosestPoint (the point itself inside; the box's closest
+    surface point; the sphere's along the direction), 0x004682B0 Emitter_Cleanup (every node freed and flushed; the
+    table stays), 0x00468340 Emitter_SetActive (the first node with that name), 0x004683B0 Emitter_Init (the table
+    made with 4 bits, or emptied), 0x00468450 Emitter_AddNode (from the node's parameters: name= renames it, the
+    shape names 0x03F1E5A7 other / 0xAA069978 sphere / 0xE460ABDE box, the sector of that name - its box for box
+    emitters -, position, radius, script).
+  - CFollowTrail (64 points spaced over 40 units behind an object): 0x00468AC0 Init, 0x004685D0 Reset, 0x00468610
+    Update (the object's position added when it's moved more than 40 from the newest point), 0x00468730
+    GetPosition (the point m_distance back along the trail, and the matrix turned to face along it: level or free).
+  - Tests (selftests_objsys4.cpp): TestEmitters - 24 seeds of 2-9 nodes from random parameters (each shape name and
+    none, renamed - some to the same new name -, sectors or not, radius or not), 30 lookups / activations (by old,
+    new and unknown names) / inside tests and nearest points (points inside, outside and on a sphere's exact edge),
+    the clean-up or Init on the full table - on a stood-in memory manager, the arena and every call compared.
+    TestFollowTrail: 30 seeds of 10-259 updates (missing object, steps under, exactly at and over 40, the ring
+    wrapping), positions and facings back along the trail at distances within, across and past it, both facing
+    modes; the reset on dirty memory.
+  - Mutations: 33 deliberate bugs, all caught (25 at first; the exact sphere edge, shared new names, the reset on
+    dirty memory, longer trails and the exact spacing were added for 8).
+
+- [ ] Next: OS-5 node objects / movie details / class node list (node_objects.{h,cpp},
   selftests_objsys5.cpp), OS-6 path manager (path_manager.{h,cpp}, selftests_objsys6.cpp), OS-7 path follower
   (path_follower.{h,cpp}, selftests_objsys7.cpp); OS-8 sound effects manager part 1 0x47AC10-0x47B7C0
   (src/game/sfx/sfx.{h,cpp}, selftests_objsys8.cpp written), OS-9 part 2 0x47B8E0-0x47D390 (sfx_voices.cpp written,
