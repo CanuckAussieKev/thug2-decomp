@@ -26,6 +26,10 @@ KNOWN_EXES = {
     "c34ea46e041d08d7d85565a262473c29b90ed8a4d5b740d6cc04d4fe48d52347":
         "THUG2.exe retail (SafeDisc-encrypted, 3,926,726 bytes - the PC CD's): needs PartyMod's patch to become "
         "THUG2PM.exe; the DLL can't run on it",
+    "99b8f88aaf957a437cb990c618b82aca3374506b7a8d25044de4127d7372313b":
+        "THUG2.exe no-CD (a 2024 repack's, 2,695,168 bytes): already unwrapped - the same layout as THUG2PM.exe, "
+        "172 bytes apart (PartyMod's patch and title, the repack's OpenSpy host names and a few code bytes); the DLL "
+        "needs THUG2PM.exe",
 }
 EXE_NAMES = {"thug2pm.exe", "thug2.exe"}
 # Ours or the player's (top-level names, lower case; "thug2-decomp" also covers every thug2-decomp-* name).
