@@ -17,6 +17,17 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DEFAULT_MANIFEST = os.path.join(ROOT, "data", "install_manifest.json")
+# Game executables by SHA-256. Most installs have the retail exe, SafeDisc-encrypted (old-school DRM): this project
+# needs THUG2PM.exe, the build with SafeDisc removed that PartyMod's patch makes, and every replacement's address is
+# for that exact file. (Until the game is built from this source - then only the data files matter.)
+KNOWN_EXES = {
+    "7eb982acfa06ee0cb6884c4334d4c049258903ceaa287fd1d2e700a731b91632":
+        "THUG2PM.exe - the reference build this project's addresses are for",
+    "c34ea46e041d08d7d85565a262473c29b90ed8a4d5b740d6cc04d4fe48d52347":
+        "THUG2.exe retail (SafeDisc-encrypted, 3,926,726 bytes - the PC CD's): needs PartyMod's patch to become "
+        "THUG2PM.exe; the DLL can't run on it",
+}
+EXE_NAMES = {"thug2pm.exe", "thug2.exe"}
 # Ours or the player's (top-level names, lower case; "thug2-decomp" also covers every thug2-decomp-* name).
 SKIP = {"dinput8.dll", "backup", "save", "faces", ".game-lock", ".anteara-backup", "thug2pm_ghidra_mcp.lock",
         "thug2pm_ghidra_mcp.lock~"}
@@ -28,9 +39,16 @@ def skipped(top):
     return top in SKIP or top.startswith("thug2-decomp")
 
 
+def game_root(folder):
+    # A stock install keeps the game in a Game subfolder (Game\Data, Game\THUG2.exe); PartyMod's and ours at the top.
+    if not os.path.isdir(os.path.join(folder, "Data")) and os.path.isdir(os.path.join(folder, "Game", "Data")):
+        return os.path.join(folder, "Game")
+    return folder
+
+
 def kind(rel):
     low = rel.lower()
-    if low == "thug2pm.exe":
+    if low in EXE_NAMES:
         return "exe"
     return "partymod" if low in PARTYMOD else "game"
 
@@ -81,7 +99,12 @@ def make(args):
 def check(args):
     with open(args.manifest, encoding="utf-8") as f:
         reference = json.load(f)["manifest"]
-    files = scan(args.game)
+    root = game_root(args.game)
+    files = scan(root)
+    # The executables apart: which one this is, by its hash; the rest compared file by file.
+    exes = {p: f for p, f in files.items() if f["kind"] == "exe"}
+    files = {p: f for p, f in files.items() if f["kind"] != "exe"}
+    reference = {p: f for p, f in reference.items() if f["kind"] != "exe"}
     ref_lower = {k.lower(): k for k in reference}
     have_lower = {k.lower(): k for k in files}
     missing = sorted(ref_lower[k] for k in ref_lower.keys() - have_lower.keys())
@@ -97,17 +120,20 @@ def check(args):
             counts[k] = counts.get(k, 0) + 1
         return ", ".join("%s %d" % kv for kv in sorted(counts.items())) or "none"
 
-    print("%s against %s:" % (args.game, args.manifest))
-    print("  identical: %d of %d" % (same, len(reference)))
-    print("  changed:   %d (%s)" % (len(changed), by_kind(changed)))
-    print("  missing:   %d (%s)" % (len(missing), by_kind(missing)))
-    print("  extra:     %d (%s)" % (len(extra), by_kind(extra)))
-    exe = next((k for k in changed + missing if k.lower() == "thug2pm.exe"), None)
-    if exe:
-        print("  THUG2PM.exe differs or is missing: the replacements' addresses are for the reference exe - "
-              "expect crashes until it's identical")
-    else:
-        print("  THUG2PM.exe identical: the DLL's addresses fit")
+    print("%s against %s:" % (root, args.manifest))
+    print("  executables:")
+    for path, f in sorted(exes.items()):
+        print("    %s: %s" % (path, KNOWN_EXES.get(f["sha256"], "unknown (sha256 %s) - not a build this project "
+                                                                  "knows" % f["sha256"])))
+    if not exes:
+        print("    none found")
+    if not any(f["sha256"] == next(iter(KNOWN_EXES)) for f in exes.values()):
+        print("    -> no reference THUG2PM.exe: the DLL needs it (its addresses are for that exact file)")
+    print("  game files (the executables apart):")
+    print("    identical: %d of %d" % (same, len(reference)))
+    print("    changed:   %d (%s)" % (len(changed), by_kind(changed)))
+    print("    missing:   %d (%s)" % (len(missing), by_kind(missing)))
+    print("    extra:     %d (%s)" % (len(extra), by_kind(extra)))
     for title, paths in (("changed", changed), ("missing", missing), ("extra", extra)):
         for p in paths[:args.list]:
             print("    %s %s" % (title, p))

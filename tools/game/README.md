@@ -46,5 +46,6 @@ scripted keys: hand it to the user with a list of what to try.
 ## install_manifest.py - which version of the game is this?
 `python -I tools/game/install_manifest.py make` writes `data/install_manifest.json`: the size and SHA-256 of every file
 of the reference install (C:\Games\THUG2; our files, Backup, Save and Faces left out). `... check --game <folder>`
-compares another install with it - identical / changed / missing / extra, by kind (exe, partymod, game) - and says
-whether THUG2PM.exe is the one the DLL's addresses are for. Exit code 1 when anything differs or is missing.
+compares another install with it - identical / changed / missing / extra, by kind (exe, partymod, game) - and names
+the executables by hash: the reference THUG2PM.exe the DLL's addresses are for, or the retail SafeDisc-encrypted
+THUG2.exe most installs have (it needs PartyMod's patch first). A stock install's Game subfolder is found by itself. Exit code 1 when anything differs or is missing.
