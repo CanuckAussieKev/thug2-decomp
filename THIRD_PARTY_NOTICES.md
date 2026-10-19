@@ -6,7 +6,8 @@ from this repo include them, so keep these notices with any distributed `dinput8
 | Component | Where | Licence |
 |---|---|---|
 | PartyMod v1.0.4 (PARTYMANX) - https://github.com/PARTYMANX/partymod-thug2 | moved into the game's source (`src/game/`; each file with its code says so; code doing what PartyMod did is marked "Originally from PartyMod Fixes") - PartyMod's window, input, widescreen, settings and fixes | MIT - below |
-| SDL2 2.30.9 | downloaded at configure time (FetchContent) | zlib - https://github.com/libsdl-org/SDL/blob/release-2.30.9/LICENSE.txt |
+| SDL2 2.30.9 | downloaded at configure time (FetchContent); its SDL2.dll copied into the game folder by the build | zlib - https://github.com/libsdl-org/SDL/blob/release-2.30.9/LICENSE.txt |
+| SDL_GameControllerDB, commit 8b2d1a7 (2022-09-06) - https://github.com/mdqinc/SDL_GameControllerDB | gamecontrollerdb.txt, downloaded at configure time and copied into the game folder by the build | zlib - https://github.com/mdqinc/SDL_GameControllerDB/blob/8b2d1a791c8e5004c736e5137699e8e97ae558c5/LICENSE |
 | MinHook 1.3.3 (Tsuda Kageyu) | downloaded at configure time (FetchContent) | BSD 2-clause - https://github.com/TsudaKageyu/minhook/blob/v1.3.3/LICENSE.txt |
 | NeverScript (byxor), THUG2 fork by violetvandal - https://github.com/violetvandal/NeverScript, commit 73fe0f9 | copied into `tools/neverscript/` (a tool, not part of the DLL) | no licence; the original author's permission - below |
 | go-difflib 1.0.0 (Patrick Mezard) | downloaded by Go when building NeverScript (`tools/build_neverscript.ps1`) | BSD 3-clause - https://github.com/pmezard/go-difflib/blob/v1.0.0/LICENSE |

@@ -29,6 +29,16 @@ set_target_properties(sdl2 PROPERTIES
     IMPORTED_IMPLIB "${sdl2_SOURCE_DIR}/lib/x86/SDL2.lib"
     IMPORTED_LOCATION "${sdl2_SOURCE_DIR}/lib/x86/SDL2.dll"
     INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_BINARY_DIR}/sdl2-include")
+# The package's SDL2.dll is byte-for-byte the one PartyMod ships (SHA-256 921e4c99...): copied into the game folder
+# with dinput8.dll (below), so a game folder needs no PartyMod files. SDL's controller mappings, the same way: the
+# gamecontrollerdb.txt PartyMod ships is SDL_GameControllerDB's at commit 8b2d1a7 (2022-09-06), zlib.
+set(THUG2_CONTROLLER_DB "${CMAKE_BINARY_DIR}/gamecontrollerdb.txt")
+if(NOT EXISTS "${THUG2_CONTROLLER_DB}")
+    file(DOWNLOAD
+        https://raw.githubusercontent.com/mdqinc/SDL_GameControllerDB/8b2d1a791c8e5004c736e5137699e8e97ae558c5/gamecontrollerdb.txt
+        "${THUG2_CONTROLLER_DB}"
+        EXPECTED_HASH SHA256=ada0fe3998a5c7914b57ee15a3900f8b43acb604bf8314abca92231ebea057eb)
+endif()
 
 # --- MinHook (BSD 2-clause, see THIRD_PARTY_NOTICES.md) --------------------------------------------------
 # Installs the replacement jumps and builds trampolines, so the original code of a replaced function can
@@ -394,7 +404,9 @@ set_target_properties(thug2_decomp PROPERTIES OUTPUT_NAME dinput8)
 if(EXISTS "${THUG2_GAME_DIR}")
     add_custom_command(TARGET thug2_decomp POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:thug2_decomp> "${THUG2_GAME_DIR}"
-        COMMENT "Copying dinput8.dll into ${THUG2_GAME_DIR}")
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${sdl2_SOURCE_DIR}/lib/x86/SDL2.dll" "${THUG2_GAME_DIR}"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${THUG2_CONTROLLER_DB}" "${THUG2_GAME_DIR}"
+        COMMENT "Copying dinput8.dll, SDL2.dll and gamecontrollerdb.txt into ${THUG2_GAME_DIR}")
 endif()
 
 # thug2_check: the start-up checks and the early self-tests against THUG2PM.exe's code, without starting the
