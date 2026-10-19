@@ -161,6 +161,8 @@ void TestProfileRest()
     for (int run = 0; run < 2; ++run) {
         bool original = run == 0;
         SetUpArena(run);
+        *Ptr<uint32_t>(0x7000 + 0x124) = 0x00124000; // the script heap
+        *Ptr<uint32_t>(0x7000 + 0x5D4) = 0x005D4000; // the skater info heap
         g_answers.clear();
         g_nextComponent.clear();
         g_written = 0;

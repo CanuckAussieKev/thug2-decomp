@@ -169,6 +169,9 @@ void TestAnimMovies()
         std::memset(c, 0xCD, sizeof(*c));
         t.push_back(Rel(reinterpret_cast<uint32_t>(original ? Original<void*(__thiscall*)(void*)>(0x005871B0)(o) : o->Construct())));
         t.push_back(Rel(reinterpret_cast<uint32_t>(original ? Original<void*(__thiscall*)(void*)>(0x005873F0)(c) : c->Construct())));
+        for (uint32_t at : {kObjects, kCamera}) // (as constructed)
+            for (uint32_t i = 0; i < 0x94 / 4; ++i)
+                t.push_back(Rel(Ptr<uint32_t>(at)[i]));
         mark(1);
         o->m_base.m_camera = Ptr<Gfx::Camera>(0x0600);
         c->m_base.m_camera = Ptr<Gfx::Camera>(0x0640);
@@ -176,6 +179,9 @@ void TestAnimMovies()
         auto loadBoth = [&]() {
             t.push_back(Call<bool>(original, 0x005875D0, o, [&](CStruct* q) { return o->Load(q); }, p));
             t.push_back(Call<bool>(original, 0x00587F70, c, [&](CStruct* q) { return c->Load(q); }, p));
+            for (uint32_t at : {kObjects, kCamera}) // (each load kept: the next overwrites it)
+                for (uint32_t i = 0; i < 0x94 / 4; ++i)
+                    t.push_back(Rel(Ptr<uint32_t>(at)[i]));
         };
         g_asset = false;
         loadBoth();
@@ -199,6 +205,10 @@ void TestAnimMovies()
         g_answers[{params, 0x906642BF}] = {0x7FC00000, 0, 0, 0x3F800000}; // a NaN: set
         loadBoth();
         mark(5);
+        g_answers.erase({params, 0x906642BF}); // (no target offset: its default kept)
+        g_answers.erase({params, 0xA00D3D6E});
+        loadBoth();
+        mark(55);
         // Start, IsDone, the held check, with each flag.
         for (int i = 0; i < 8; ++i) {
             g_complete = (i & 1) != 0;
@@ -240,7 +250,7 @@ void TestAnimMovies()
         // callback; a cluster's params set and emptied; the list's constructor.
         GameVariable<void**>(0x007CE500) = reinterpret_cast<void**>(At(0x0700));
         *Ptr<void**>(0x0700) = g_managerVtable;
-        for (uint32_t count : {3u, 1u, 0u}) {
+        for (uint32_t count : {3u, 2u, 1u, 0u}) {
             GameVariable<uint32_t>(0x007CE504) = count;
             if (original)
                 Original<void(__cdecl*)()>(0x005880E0)();

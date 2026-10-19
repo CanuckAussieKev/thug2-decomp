@@ -59,7 +59,7 @@ void Install(StandIns& s)
         auto* positions = reinterpret_cast<float*>(r.args[1]);
         for (int i = 0; i < count; ++i) {
             const float q[4] = {0.1f * i, 0.5f, -0.3f, 0.8f};
-            if (quats)
+            if (quats && i != 1) // (the second keeps what Update put there)
                 std::memcpy(quats + 4 * i, q, 16);
             const float p[4] = {10.0f + i, -2.5f, 3.0f * i, 1.0f};
             std::memcpy(positions + 4 * i, p, 16);
@@ -187,6 +187,8 @@ void TestAnimMovieUpdates()
                 Original<void(__thiscall*)(void*)>(0x00587A50)(c);
             else
                 c->PlaceCamera();
+            for (int i = 0; i < 20; ++i) // (each placing kept: the next overwrites it)
+                t.push_back(Ptr<uint32_t>(kCamPos)[i < 4 ? i : 0x10 + i - 4]);
             mark(m);
         };
         c->m_hasTarget = false;

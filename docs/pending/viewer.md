@@ -328,7 +328,21 @@ Shared files touched: CMakeLists.txt (each new .cpp listed, additive).
       original stores. Self-test (new src/hook/selftests_viewer21.cpp): TestAnimMovieUpdates (the maths helpers run
       for real). find_gaps now shows no gap in the range.
 
-- [ ] Next: the range is written; progress_report for the range; mutation runs with the fast setup.
-      Mutations: specs for VW-15..17 not written (VW-18/19: scratch mut18.py, running); suspect CAUGHTs (named a flaky test: PC async handle, anim
-      controllers: partial, memory cards: free space) to rerun with scratchpad mutate_v.py; known misses: launch_best,
-      restart_walking (mut10), profile_style_zero, input_mirror. A game run (THUG2-3, debug_mode=1 viewer) still due.
+- [x] Range done: progress_report shows "Viewer / gaps / records / career save info" 304 / 304 (100%), find_gaps
+      none. Main merged at a4109cb (the fast mutation setup).
+      Mutations, VW-18..21 (fast setup: TESTS filter, build without re-configure, ~4.5 s each): VW-18 14/14 caught;
+      VW-19 23/24 caught (read_heap after the test gave the manager distinct heaps); the miss sfp_keep (the integer
+      slot's starting value) only shows when asserted lookups fail - equivalent here. VW-20/21 45/48 caught after the
+      tests were strengthened (each load / placing recorded before the next overwrites it; a release at count 2; a
+      load without the offsets; one quaternion left as Update set it); equivalent: pc_look_start (a dead write),
+      pc_right_w (row 0's w is already 0 from the identity), pc_row0_norm (row 0's y is always 0: row 1 is (0,1,0)).
+      Game run (C:\Games\THUG2-3 under the lock, -Level BO, debug_mode=1): 2572/2572 replacements installed, late and
+      engine-started self-tests pass, no exception / run-time check / CRT report; the level loads and plays, F9 free
+      camera moves with the arrows (pictures differ), the level's intro camera ran. One early self-test failed in the
+      game only: "skater init" (VW-12) - the arena manager's skater info heap word (+0x5D4) changed during our run
+      (0xA0010000 vs 0x7B000000), passes offline every time: looks like the game touching the arena's stand-in manager
+      while the early tests run (a race, as the known flaky ones); not chased further.
+
+- [ ] Next: mutation specs for VW-15..17 (fast setup); suspect CAUGHTs of the slow runs (named a flaky test: PC async
+      handle, anim controllers: partial, memory cards: free space) to rerun; known misses: launch_best, restart_walking
+      (mut10), profile_style_zero, input_mirror.
