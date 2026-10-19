@@ -289,4 +289,31 @@ Shared files touched (small, additive): CMakeLists.txt (new sources and selftest
   - Mutations: 36 deliberate bugs; 34 caught (33 at first; right-angle rotations added for 1). The other 2: BlendTo's
     `!(period != 0)` (the same test, equivalent) and the dot product's summing order (changes only a sign that
     rounding decides - not reached by the test data).
-- [ ] Next: OS-11+ the cutscene system 0x463AA0-0x4680B0 (+ 0x464340).
+- [x] Batch OS-11 (NOT run in the game yet; the cutscene's objects, assets, lights, camera and poses):
+  src/game/obj/cutscene_data.cpp (new); cutscene.h (CCutsceneData's layout filled in: the object entries +0x60,
+  their count +0x2054, the animation entries +0x2058 / +0x2C58, the asset names +0x2C5C / +0x345C, +0x34B0...).
+  - 0x00463AA0 QuatToMatrix (cdecl; the quaternion's x, y, z negated in place, as the original; x87: the squares
+    and w*z unrounded, w*x and w*y rounded), 0x00464340 IdentityQuat::Set (code Ghidra missed; nothing calls it:
+    source only), 0x00463BA0 SkaterModelName (the profile's model from array 0xCA1DB456, else "Male1" when
+    0x3F813177 is 1, "Female1" otherwise), 0x00463DA0 ReadColour (percent; white when the structure is missing
+    or 0x5A96985D is set; returns out), 0x00463E80 / 0x00463ED0 Add / RemoveCutsceneLights (the nodes of array
+    0x2A79C44E: 0x00490570 makes a light from a node, 0x0048FCA0 removes it by node name), 0x004640D0
+    SetUpCutsceneHeaps.
+  - CCutsceneData: 0x00463C70 DestroyObjects (the objects that stood in for level objects give those back their
+    model settings and the cutscene's colour; every object deleted), 0x00463F20 LoadAsset / 0x00463F70
+    LoadAnimation (the asset manager 0x00408060; listed), 0x00464000 CreateObject (a composite object of type
+    0xCDEB9229 from scripts 0x1F29C5A5 and 0x2E20EA32), 0x004641A0 ShowHiddenObjects, 0x00464220 UpdateCamera (the
+    camera animation's rotation and position at the cutscene's time; the object animations updated unless
+    skipped), 0x00464360 UpdateObjectPoses (each object's skeleton posed by its animation; within the first
+    twelfth of a second without the bone list).
+  - Found while testing: SkaterModelName's integer picks "Male1" when 1 (first written the other way round).
+    Values read with the assert flag start at 0 in ours (the original's are uninitialised).
+  - Tests (selftests_objsys11.cpp): TestCutsceneObjects - 120 seeds of random cutscene data (object entries,
+    animations, times, flags) and a world of stood-in structures / arrays (answers from a hash of what's asked),
+    objects, components, models, skeletons, the asset and memory managers, scripts and the camera animation; 10
+    random calls each; every call, result, the data, the objects, the camera and the pose buffers compared. (The
+    original's unchecked reads - a missing profiles array, objects or components in DestroyObjects - left out.)
+  - Mutations: 40 deliberate bugs, all caught (37 at first; more integer values, the made object's memory and
+    the twelfth-of-a-second boundary added for 3).
+- [ ] Next: OS-12+ the rest of the cutscene system 0x4645A0-0x4680B0 (OS-12: the pools, the data's constructor,
+  0x464780, the big loader 0x4648D0 and its neighbours to 0x465AB0; then 0x465C00-0x466DD0; then 0x467710-0x4680B0).

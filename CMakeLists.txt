@@ -131,6 +131,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_objsys8.cpp
     src/hook/selftests_objsys9.cpp
     src/hook/selftests_objsys10.cpp
+    src/hook/selftests_objsys11.cpp
     src/hook/selftests_gapsB.cpp
     src/hook/selftests_mva.cpp
     src/hook/selftests_mva2.cpp
@@ -297,6 +298,7 @@ add_library(thug2_code OBJECT
     src/game/obj/composite.cpp
     src/game/obj/compositemgr.cpp
     src/game/obj/cutscene.cpp
+    src/game/obj/cutscene_data.cpp
     src/game/obj/control_pad.cpp
     src/game/obj/proxim.cpp
     src/game/script/preferences.cpp
