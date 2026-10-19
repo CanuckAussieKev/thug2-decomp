@@ -123,7 +123,7 @@ counts across all levels:
 
 ## 5. THPS4
 
-- The skate shop's door and the fence's gap at the end of the halfpipe are open (2026-10-19, the user's request): thps4_levels.OPENINGS leaves out both end faces of InvisColl01, the invisible box THPS4 put round the skate park outside its menu shop, and the shop's (Object10's) two invisible faces that closed the doorway; the street is skateable collision, its far edges may have no walls.
+- The skate shop's door is open (2026-10-19, the user's request): thps4_levels.OPENINGS leaves out the shop-side face of InvisColl01, the invisible box THPS4 put round the skate park outside its menu shop, and the shop's (Object10's) two invisible faces that closed the doorway (the fence's gap at the end of the halfpipe stays closed); the street is skateable collision, its far edges may have no walls.
 
 **Rendering**: vertex colours halved (THPS4's PC files are 255 = full, THUG2's 128). Without it every level drew twice
 as bright.

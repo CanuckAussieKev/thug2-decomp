@@ -96,10 +96,10 @@ def level_structs(thps4_dir):
 # Invisible walls opened: (collision object, axis, "min" / "max") - the object's faces lying in its box's plane on that
 # side are left out -, or (collision object, "invisible") - its invisible faces (THPS4's face flag 0x1000) are.
 # THPS4's skate shop was a menu: InvisColl01 boxes in the skate park outside the shop (sides, roof, both ends) - its
-# z-max face the fence's gap at the end of the halfpipe, its z-min face the shop's side; the shop's door itself is
-# closed by Object10's (the shop's) two invisible faces, x 699-777 at z -1074 (the Occlusion plane at z -1082 has the
-# doorway's hole there). The user, 2026-10-19: all open.
-OPENINGS = {"skateshop": [("InvisColl01", 2, "max"), ("InvisColl01", 2, "min"), ("Object10", "invisible")]}
+# z-min face is the shop's side, across the door too; the door itself is also closed by Object10's (the shop's) two
+# invisible faces, x 699-777 at z -1074 (the Occlusion plane at z -1082 has the doorway's hole there). The user,
+# 2026-10-19: the door open; InvisColl01's z-max face (the fence's gap at the end of the halfpipe) kept.
+OPENINGS = {"skateshop": [("InvisColl01", 2, "min"), ("Object10", "invisible")]}
 FACE_INVISIBLE = 0x1000
 
 
