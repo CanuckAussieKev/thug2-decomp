@@ -1,0 +1,354 @@
+
+script anteara_focus {
+    Theme_GetPauseBarColor return_value=bar_color 
+    Theme_GetHighlightedTextColorNew return_value=on_color 
+    SetScreenElementProps {
+        id={<id> child=text} 
+        rgba=<on_color> 
+        shadow_rgba=[128, 128, 128, 0] 
+    } 
+    SetScreenElementProps {
+        id={<id> child=roundbar_middle} 
+        rgba=<bar_color> 
+    } 
+    SetScreenElementProps {
+        id={<id> child=roundbar_right} 
+        rgba=<bar_color> 
+    } 
+    if ! current_menu:GetSingleTag no_bar_edges {
+        SetScreenElementProps {
+            id={<id> child=roundbar_left} 
+            rgba=<bar_color> 
+        } 
+        SetScreenElementProps {
+            id={<id> child=roundbar_right} 
+            rgba=<bar_color> 
+        } 
+    } 
+    RunScriptOnScreenElement id={<id> child=roundbar_highlight} roundbar_menu_highlight 
+    if current_menu:GetSingleTag additional_focus_script {
+        <additional_focus_script> <...> 
+    } 
+    menu3d_show2 
+} 
+script anteara_focus2 {
+    Theme_GetPauseBarColor return_value=bar_color 
+    Theme_GetHighlightedTextColorNew return_value=on_color 
+    SetScreenElementProps {
+        id={<id> child=text} 
+        rgba=<on_color> 
+        shadow_rgba=[128, 128, 128, 0] 
+    } 
+    SetScreenElementProps {
+        id={<id> child=roundbar_middle} 
+        rgba=<bar_color> 
+    } 
+    SetScreenElementProps {
+        id={<id> child=roundbar_right} 
+        rgba=<bar_color> 
+    } 
+    if ! current_menu:GetSingleTag no_bar_edges {
+        SetScreenElementProps {
+            id={<id> child=roundbar_left} 
+            rgba=<bar_color> 
+        } 
+        SetScreenElementProps {
+            id={<id> child=roundbar_right} 
+            rgba=<bar_color> 
+        } 
+    } 
+    RunScriptOnScreenElement id={<id> child=roundbar_highlight} roundbar_menu_highlight 
+    if current_menu:GetSingleTag additional_focus_script {
+        <additional_focus_script> <...> 
+    } 
+    menu3d_show3 
+} 
+script anteara_focus3 {
+    Theme_GetPauseBarColor return_value=bar_color 
+    Theme_GetHighlightedTextColorNew return_value=on_color 
+    SetScreenElementProps {
+        id={<id> child=text} 
+        rgba=<on_color> 
+        shadow_rgba=[128, 128, 128, 0] 
+    } 
+    SetScreenElementProps {
+        id={<id> child=roundbar_middle} 
+        rgba=<bar_color> 
+    } 
+    SetScreenElementProps {
+        id={<id> child=roundbar_right} 
+        rgba=<bar_color> 
+    } 
+    if ! current_menu:GetSingleTag no_bar_edges {
+        SetScreenElementProps {
+            id={<id> child=roundbar_left} 
+            rgba=<bar_color> 
+        } 
+        SetScreenElementProps {
+            id={<id> child=roundbar_right} 
+            rgba=<bar_color> 
+        } 
+    } 
+    RunScriptOnScreenElement id={<id> child=roundbar_highlight} roundbar_menu_highlight 
+    if current_menu:GetSingleTag additional_focus_script {
+        <additional_focus_script> <...> 
+    } 
+    menu3d_show4 
+} 
+script anteara_focus4 {
+    Theme_GetPauseBarColor return_value=bar_color 
+    Theme_GetHighlightedTextColorNew return_value=on_color 
+    SetScreenElementProps {
+        id={<id> child=text} 
+        rgba=<on_color> 
+        shadow_rgba=[128, 128, 128, 0] 
+    } 
+    SetScreenElementProps {
+        id={<id> child=roundbar_middle} 
+        rgba=<bar_color> 
+    } 
+    SetScreenElementProps {
+        id={<id> child=roundbar_right} 
+        rgba=<bar_color> 
+    } 
+    if ! current_menu:GetSingleTag no_bar_edges {
+        SetScreenElementProps {
+            id={<id> child=roundbar_left} 
+            rgba=<bar_color> 
+        } 
+        SetScreenElementProps {
+            id={<id> child=roundbar_right} 
+            rgba=<bar_color> 
+        } 
+    } 
+    RunScriptOnScreenElement id={<id> child=roundbar_highlight} roundbar_menu_highlight 
+    if current_menu:GetSingleTag additional_focus_script {
+        <additional_focus_script> <...> 
+    } 
+    menu3d_show5 
+} 
+script anteara_focus5 {
+    Theme_GetPauseBarColor return_value=bar_color 
+    Theme_GetHighlightedTextColorNew return_value=on_color 
+    SetScreenElementProps {
+        id={<id> child=text} 
+        rgba=<on_color> 
+        shadow_rgba=[128, 128, 128, 0] 
+    } 
+    SetScreenElementProps {
+        id={<id> child=roundbar_middle} 
+        rgba=<bar_color> 
+    } 
+    SetScreenElementProps {
+        id={<id> child=roundbar_right} 
+        rgba=<bar_color> 
+    } 
+    if ! current_menu:GetSingleTag no_bar_edges {
+        SetScreenElementProps {
+            id={<id> child=roundbar_left} 
+            rgba=<bar_color> 
+        } 
+        SetScreenElementProps {
+            id={<id> child=roundbar_right} 
+            rgba=<bar_color> 
+        } 
+    } 
+    RunScriptOnScreenElement id={<id> child=roundbar_highlight} roundbar_menu_highlight 
+    if current_menu:GetSingleTag additional_focus_script {
+        <additional_focus_script> <...> 
+    } 
+    menu3d_show6 
+} 
+script anteara_focus6 {
+    Theme_GetPauseBarColor return_value=bar_color 
+    Theme_GetHighlightedTextColorNew return_value=on_color 
+    SetScreenElementProps {
+        id={<id> child=text} 
+        rgba=<on_color> 
+        shadow_rgba=[128, 128, 128, 0] 
+    } 
+    SetScreenElementProps {
+        id={<id> child=roundbar_middle} 
+        rgba=<bar_color> 
+    } 
+    SetScreenElementProps {
+        id={<id> child=roundbar_right} 
+        rgba=<bar_color> 
+    } 
+    if ! current_menu:GetSingleTag no_bar_edges {
+        SetScreenElementProps {
+            id={<id> child=roundbar_left} 
+            rgba=<bar_color> 
+        } 
+        SetScreenElementProps {
+            id={<id> child=roundbar_right} 
+            rgba=<bar_color> 
+        } 
+    } 
+    RunScriptOnScreenElement id={<id> child=roundbar_highlight} roundbar_menu_highlight 
+    if current_menu:GetSingleTag additional_focus_script {
+        <additional_focus_script> <...> 
+    } 
+    menu3d_show7 
+} 
+script anteara_focus7 {
+    Theme_GetPauseBarColor return_value=bar_color 
+    Theme_GetHighlightedTextColorNew return_value=on_color 
+    SetScreenElementProps {
+        id={<id> child=text} 
+        rgba=<on_color> 
+        shadow_rgba=[128, 128, 128, 0] 
+    } 
+    SetScreenElementProps {
+        id={<id> child=roundbar_middle} 
+        rgba=<bar_color> 
+    } 
+    SetScreenElementProps {
+        id={<id> child=roundbar_right} 
+        rgba=<bar_color> 
+    } 
+    if ! current_menu:GetSingleTag no_bar_edges {
+        SetScreenElementProps {
+            id={<id> child=roundbar_left} 
+            rgba=<bar_color> 
+        } 
+        SetScreenElementProps {
+            id={<id> child=roundbar_right} 
+            rgba=<bar_color> 
+        } 
+    } 
+    RunScriptOnScreenElement id={<id> child=roundbar_highlight} roundbar_menu_highlight 
+    if current_menu:GetSingleTag additional_focus_script {
+        <additional_focus_script> <...> 
+    } 
+    menu3d_show8 
+} 
+script anteara_focus8 {
+    Theme_GetPauseBarColor return_value=bar_color 
+    Theme_GetHighlightedTextColorNew return_value=on_color 
+    SetScreenElementProps {
+        id={<id> child=text} 
+        rgba=<on_color> 
+        shadow_rgba=[128, 128, 128, 0] 
+    } 
+    SetScreenElementProps {
+        id={<id> child=roundbar_middle} 
+        rgba=<bar_color> 
+    } 
+    SetScreenElementProps {
+        id={<id> child=roundbar_right} 
+        rgba=<bar_color> 
+    } 
+    if ! current_menu:GetSingleTag no_bar_edges {
+        SetScreenElementProps {
+            id={<id> child=roundbar_left} 
+            rgba=<bar_color> 
+        } 
+        SetScreenElementProps {
+            id={<id> child=roundbar_right} 
+            rgba=<bar_color> 
+        } 
+    } 
+    RunScriptOnScreenElement id={<id> child=roundbar_highlight} roundbar_menu_highlight 
+    if current_menu:GetSingleTag additional_focus_script {
+        <additional_focus_script> <...> 
+    } 
+    menu3d_show9 
+} 
+script anteara_focus9 {
+    Theme_GetPauseBarColor return_value=bar_color 
+    Theme_GetHighlightedTextColorNew return_value=on_color 
+    SetScreenElementProps {
+        id={<id> child=text} 
+        rgba=<on_color> 
+        shadow_rgba=[128, 128, 128, 0] 
+    } 
+    SetScreenElementProps {
+        id={<id> child=roundbar_middle} 
+        rgba=<bar_color> 
+    } 
+    SetScreenElementProps {
+        id={<id> child=roundbar_right} 
+        rgba=<bar_color> 
+    } 
+    if ! current_menu:GetSingleTag no_bar_edges {
+        SetScreenElementProps {
+            id={<id> child=roundbar_left} 
+            rgba=<bar_color> 
+        } 
+        SetScreenElementProps {
+            id={<id> child=roundbar_right} 
+            rgba=<bar_color> 
+        } 
+    } 
+    RunScriptOnScreenElement id={<id> child=roundbar_highlight} roundbar_menu_highlight 
+    if current_menu:GetSingleTag additional_focus_script {
+        <additional_focus_script> <...> 
+    } 
+    menu3d_show10 
+} 
+script anteara_focus10 {
+    Theme_GetPauseBarColor return_value=bar_color 
+    Theme_GetHighlightedTextColorNew return_value=on_color 
+    SetScreenElementProps {
+        id={<id> child=text} 
+        rgba=<on_color> 
+        shadow_rgba=[128, 128, 128, 0] 
+    } 
+    SetScreenElementProps {
+        id={<id> child=roundbar_middle} 
+        rgba=<bar_color> 
+    } 
+    SetScreenElementProps {
+        id={<id> child=roundbar_right} 
+        rgba=<bar_color> 
+    } 
+    if ! current_menu:GetSingleTag no_bar_edges {
+        SetScreenElementProps {
+            id={<id> child=roundbar_left} 
+            rgba=<bar_color> 
+        } 
+        SetScreenElementProps {
+            id={<id> child=roundbar_right} 
+            rgba=<bar_color> 
+        } 
+    } 
+    RunScriptOnScreenElement id={<id> child=roundbar_highlight} roundbar_menu_highlight 
+    if current_menu:GetSingleTag additional_focus_script {
+        <additional_focus_script> <...> 
+    } 
+    menu3d_show11 
+} 
+script anteara_focus11 {
+    Theme_GetPauseBarColor return_value=bar_color 
+    Theme_GetHighlightedTextColorNew return_value=on_color 
+    SetScreenElementProps {
+        id={<id> child=text} 
+        rgba=<on_color> 
+        shadow_rgba=[128, 128, 128, 0] 
+    } 
+    SetScreenElementProps {
+        id={<id> child=roundbar_middle} 
+        rgba=<bar_color> 
+    } 
+    SetScreenElementProps {
+        id={<id> child=roundbar_right} 
+        rgba=<bar_color> 
+    } 
+    if ! current_menu:GetSingleTag no_bar_edges {
+        SetScreenElementProps {
+            id={<id> child=roundbar_left} 
+            rgba=<bar_color> 
+        } 
+        SetScreenElementProps {
+            id={<id> child=roundbar_right} 
+            rgba=<bar_color> 
+        } 
+    } 
+    RunScriptOnScreenElement id={<id> child=roundbar_highlight} roundbar_menu_highlight 
+    if current_menu:GetSingleTag additional_focus_script {
+        <additional_focus_script> <...> 
+    } 
+    menu3d_show12 
+} 
+__register_checksums__ anteara_focus Theme_GetPauseBarColor return_value bar_color Theme_GetHighlightedTextColorNew return_value on_color SetScreenElementProps id id child text rgba on_color shadow_rgba SetScreenElementProps id id child roundbar_middle rgba bar_color SetScreenElementProps id id child roundbar_right rgba bar_color current_menu GetSingleTag no_bar_edges SetScreenElementProps id id child roundbar_left rgba bar_color SetScreenElementProps id id child roundbar_right rgba bar_color RunScriptOnScreenElement id id child roundbar_highlight roundbar_menu_highlight current_menu GetSingleTag additional_focus_script additional_focus_script menu3d_show2 anteara_focus2 Theme_GetPauseBarColor return_value bar_color Theme_GetHighlightedTextColorNew return_value on_color SetScreenElementProps id id child text rgba on_color shadow_rgba SetScreenElementProps id id child roundbar_middle rgba bar_color SetScreenElementProps id id child roundbar_right rgba bar_color current_menu GetSingleTag no_bar_edges SetScreenElementProps id id child roundbar_left rgba bar_color SetScreenElementProps id id child roundbar_right rgba bar_color RunScriptOnScreenElement id id child roundbar_highlight roundbar_menu_highlight current_menu GetSingleTag additional_focus_script additional_focus_script menu3d_show3 anteara_focus3 Theme_GetPauseBarColor return_value bar_color Theme_GetHighlightedTextColorNew return_value on_color SetScreenElementProps id id child text rgba on_color shadow_rgba SetScreenElementProps id id child roundbar_middle rgba bar_color SetScreenElementProps id id child roundbar_right rgba bar_color current_menu GetSingleTag no_bar_edges SetScreenElementProps id id child roundbar_left rgba bar_color SetScreenElementProps id id child roundbar_right rgba bar_color RunScriptOnScreenElement id id child roundbar_highlight roundbar_menu_highlight current_menu GetSingleTag additional_focus_script additional_focus_script menu3d_show4 anteara_focus4 Theme_GetPauseBarColor return_value bar_color Theme_GetHighlightedTextColorNew return_value on_color SetScreenElementProps id id child text rgba on_color shadow_rgba SetScreenElementProps id id child roundbar_middle rgba bar_color SetScreenElementProps id id child roundbar_right rgba bar_color current_menu GetSingleTag no_bar_edges SetScreenElementProps id id child roundbar_left rgba bar_color SetScreenElementProps id id child roundbar_right rgba bar_color RunScriptOnScreenElement id id child roundbar_highlight roundbar_menu_highlight current_menu GetSingleTag additional_focus_script additional_focus_script menu3d_show5 anteara_focus5 Theme_GetPauseBarColor return_value bar_color Theme_GetHighlightedTextColorNew return_value on_color SetScreenElementProps id id child text rgba on_color shadow_rgba SetScreenElementProps id id child roundbar_middle rgba bar_color SetScreenElementProps id id child roundbar_right rgba bar_color current_menu GetSingleTag no_bar_edges SetScreenElementProps id id child roundbar_left rgba bar_color SetScreenElementProps id id child roundbar_right rgba bar_color RunScriptOnScreenElement id id child roundbar_highlight roundbar_menu_highlight current_menu GetSingleTag additional_focus_script additional_focus_script menu3d_show6 anteara_focus6 Theme_GetPauseBarColor return_value bar_color Theme_GetHighlightedTextColorNew return_value on_color SetScreenElementProps id id child text rgba on_color shadow_rgba SetScreenElementProps id id child roundbar_middle rgba bar_color SetScreenElementProps id id child roundbar_right rgba bar_color current_menu GetSingleTag no_bar_edges SetScreenElementProps id id child roundbar_left rgba bar_color SetScreenElementProps id id child roundbar_right rgba bar_color RunScriptOnScreenElement id id child roundbar_highlight roundbar_menu_highlight current_menu GetSingleTag additional_focus_script additional_focus_script menu3d_show7 anteara_focus7 Theme_GetPauseBarColor return_value bar_color Theme_GetHighlightedTextColorNew return_value on_color SetScreenElementProps id id child text rgba on_color shadow_rgba SetScreenElementProps id id child roundbar_middle rgba bar_color SetScreenElementProps id id child roundbar_right rgba bar_color current_menu GetSingleTag no_bar_edges SetScreenElementProps id id child roundbar_left rgba bar_color SetScreenElementProps id id child roundbar_right rgba bar_color RunScriptOnScreenElement id id child roundbar_highlight roundbar_menu_highlight current_menu GetSingleTag additional_focus_script additional_focus_script menu3d_show8 anteara_focus8 Theme_GetPauseBarColor return_value bar_color Theme_GetHighlightedTextColorNew return_value on_color SetScreenElementProps id id child text rgba on_color shadow_rgba SetScreenElementProps id id child roundbar_middle rgba bar_color SetScreenElementProps id id child roundbar_right rgba bar_color current_menu GetSingleTag no_bar_edges SetScreenElementProps id id child roundbar_left rgba bar_color SetScreenElementProps id id child roundbar_right rgba bar_color RunScriptOnScreenElement id id child roundbar_highlight roundbar_menu_highlight current_menu GetSingleTag additional_focus_script additional_focus_script menu3d_show9 anteara_focus9 Theme_GetPauseBarColor return_value bar_color Theme_GetHighlightedTextColorNew return_value on_color SetScreenElementProps id id child text rgba on_color shadow_rgba SetScreenElementProps id id child roundbar_middle rgba bar_color SetScreenElementProps id id child roundbar_right rgba bar_color current_menu GetSingleTag no_bar_edges SetScreenElementProps id id child roundbar_left rgba bar_color SetScreenElementProps id id child roundbar_right rgba bar_color RunScriptOnScreenElement id id child roundbar_highlight roundbar_menu_highlight current_menu GetSingleTag additional_focus_script additional_focus_script menu3d_show10 anteara_focus10 menu3d_show11 anteara_focus11 menu3d_show12

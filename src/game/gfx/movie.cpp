@@ -10,6 +10,8 @@
 #include <cstring>
 
 #include "game/core/dbg.h"
+#include "game/core/crc.h"
+#include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/sio/device.h"
 #include "game/sys/mlp.h"
@@ -414,6 +416,15 @@ bool IsIntroMovie(const char* name)
     }
     return false;
 }
+
+// NOT ORIGINAL (with skip_intro_movies): any movie the start-up script itself plays (startup_loading_screen - where
+// the game plays its logos and intro) counts as an intro movie too: e.g. the Anteara Mod's Shorty's movie
+// (tools/anteara), while the same movie from GAME MOVIES still plays.
+bool FromStartUpScript(void* script)
+{
+    static const uint32_t startUp = Crc::GenerateCRCFromString("startup_loading_screen");
+    return script && static_cast<Script::CScript*>(script)->m_scriptName == startUp;
+}
 } // namespace
 
 bool& SkipIntroMovies()
@@ -424,12 +435,12 @@ bool& SkipIntroMovies()
 
 // 0x0059F0C0: the PlayMovie script command: play the movie named by the unnamed string (through the jump at
 // 0x0044F830).
-bool __cdecl PlayMovie(Script::CStruct* params, void*)
+bool __cdecl PlayMovie(Script::CStruct* params, void* script)
 {
     const char* name = nullptr;
     if (!params->GetString(0u, &name, 1))
         return false;
-    if (SkipIntroMovies() && IsIntroMovie(name)) {
+    if (SkipIntroMovies() && (IsIntroMovie(name) || FromStartUpScript(script))) {
         Log("skipping intro movie %s (thug2-decomp.ini [features] skip_intro_movies)", name);
         return true;
     }

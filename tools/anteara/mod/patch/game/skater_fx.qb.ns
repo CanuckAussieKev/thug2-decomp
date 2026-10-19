@@ -1,0 +1,44 @@
+script make_skater_explode {
+    GetCurrentSkaterProfileIndex 
+    GetSkaterNumber 
+    stored_scales = [
+        {group=torso_bone_group X=100 Y=100 Z=100} 
+    ] 
+    GetArraySize <stored_scales> 
+    index = 0 
+    while {
+        scalingmenu_get_xyz part=(<stored_scales> [<index>].group) 
+        SetArrayElement ArrayName=stored_scales index=<index> newvalue={group=(<stored_scales> [<index>].group) X=<X> Y=<Y> Z=<Z>} 
+        index = (<index> + 1) 
+    } <array_size> 
+    // MERGE: FIX (never worked in the original) - these four bone names were compiled byte-reversed
+    // (#f1c35735 #0bcc6a56 #96ec22f2 #0aa1482b), so the bones were never found
+    Dismember Bone=Bone_Collar_L 
+    Dismember Bone=Bone_Collar_R 
+    Dismember Bone=Bone_Chest 
+    Dismember Bone=Cloth_breast 
+} 
+script make_skater_lose_head {
+    Dismember Bone=Bone_head 
+} 
+// MERGE: name written out - 2011 compiled make_skater_lol byte-reversed (#5d84ddbd); nothing calls it
+script make_skater_lol {
+    GetCurrentSkaterProfileIndex 
+    GetSkaterNumber 
+    stored_scales = [
+        {group=head_bone_group X=100 Y=100 Z=100} 
+        {group=headtop_bone_group X=100 Y=100 Z=100} 
+        {group=Nose_bone_group X=100 Y=100 Z=100} 
+        {group=Jaw_bone_group X=100 Y=100 Z=100} 
+    ] 
+    GetArraySize <stored_scales> 
+    index = 0 
+    while {
+        scalingmenu_get_xyz part=(<stored_scales> [<index>].group) 
+        SetArrayElement ArrayName=stored_scales index=<index> newvalue={group=(<stored_scales> [<index>].group) X=<X> Y=<Y> Z=<Z>} 
+        index = (<index> + 1) 
+    } <array_size> 
+    Dismember Bone=Bone_head 
+    Obj_WaitAnimFinished 
+    PlayAnim anim=WStandIdle3 speed=2.0 
+} 

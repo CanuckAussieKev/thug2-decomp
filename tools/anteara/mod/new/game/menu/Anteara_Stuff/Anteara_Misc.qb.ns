@@ -1,0 +1,179 @@
+
+script flickering_skater {
+    exit_pause_menu 
+    while {
+        Skater:add_skater_to_world 
+        wait 1 gameframe 
+        Skater:remove_skater_from_world 
+        wait 1 gameframe 
+    } 
+} 
+script kirillgta_chainsaw {
+    exit_pause_menu 
+    Skater:AddGeom name=Vehicle model="models\\SpecialItems\\Chainsaw\\SI_chainsaw.skin" 
+} 
+script kirillgta_bustedboard {
+    exit_pause_menu 
+    Skater:AddGeom name=Vehicle model="models\\SpecialItems\\BustedBoard\\BustedBoard.skin" 
+} 
+script kirillgta_extraboard {
+    exit_pause_menu 
+    Skater:AddGeom name=Vehicle model="models\\SpecialItems\\Extraboard\\Extraboard.skin" 
+} 
+script kirillgta_sword {
+    exit_pause_menu 
+    Skater:AddGeom name=Vehicle model="models\\SpecialItems\\Sword\\SI_Sword.skin" 
+} 
+script kirillgta_spraycan {
+    exit_pause_menu 
+    Skater:AddGeom name=Vehicle model="models\\SpecialItems\\Spraycan\\SI_SprayCan_Double.skin" 
+} 
+script kirillgta_flag {
+    exit_pause_menu 
+    Skater:AddGeom name=Vehicle model="models\\SpecialItems\\Flag\\SI_Flag.skin" 
+} 
+script kirillgta_kite {
+    exit_pause_menu 
+    Skater:AddGeom name=Vehicle model="models\\SpecialItems\\FranklinKite\\FranklinKite.skin" 
+} 
+script kirillgta_balls {
+    exit_pause_menu 
+    Skater:AddGeom name=Vehicle model="models\\SpecialItems\\JugglingBalls\\SI_JugglingBalls.skin" 
+} 
+script kirillgta_hoagie {
+    exit_pause_menu 
+    Skater:AddGeom name=Vehicle model="models\\SpecialItems\\Hoagie\\SI_Hoagie.skin" 
+} 
+script kirillgta_shark {
+    exit_pause_menu 
+    Skater:AddGeom name=Vehicle model="models\\animals\\Anl_Shark\\anl_shark.skin" 
+} 
+script kirillgta_all {
+    exit_pause_menu 
+    Skater:AddGeom name=Vehicle model="models\\SpecialItems\\Chainsaw\\SI_chainsaw.skin" 
+    Skater:AddGeom name=Vehicle model="models\\SpecialItems\\BustedBoard\\BustedBoard.skin" 
+    Skater:AddGeom name=Vehicle model="models\\SpecialItems\\Extraboard\\Extraboard.skin" 
+    Skater:AddGeom name=Vehicle model="models\\SpecialItems\\Sword\\SI_Sword.skin" 
+    Skater:AddGeom name=Vehicle model="models\\SpecialItems\\Spraycan\\SI_SprayCan_Double.skin" 
+    Skater:AddGeom name=Vehicle model="models\\SpecialItems\\Flag\\SI_Flag.skin" 
+    Skater:AddGeom name=Vehicle model="models\\SpecialItems\\FranklinKite\\FranklinKite.skin" 
+    Skater:AddGeom name=Vehicle model="models\\SpecialItems\\JugglingBalls\\SI_JugglingBalls.skin" 
+    Skater:AddGeom name=Vehicle model="models\\SpecialItems\\Hoagie\\SI_Hoagie.skin" 
+    Skater:AddGeom name=Vehicle model="models\\animals\\Anl_Shark\\anl_shark.skin" 
+} 
+script kirillgta_clear_models {
+    exit_pause_menu 
+    Skater:ClearGeom name=Vehicle 
+    Skater:ClearGeom name=Vehicle 
+    Skater:ClearGeom name=Vehicle 
+    Skater:ClearGeom name=Vehicle 
+    Skater:ClearGeom name=Vehicle 
+    Skater:ClearGeom name=Vehicle 
+    Skater:ClearGeom name=Vehicle 
+    Skater:ClearGeom name=Vehicle 
+    Skater:ClearGeom name=Vehicle 
+    Skater:ClearGeom name=Vehicle 
+    Skater:ClearGeom name=Vehicle 
+    Skater:ClearGeom name=Vehicle 
+    Skater:ClearGeom name=Vehicle 
+    Skater:ClearGeom name=Vehicle 
+    Skater:ClearGeom name=Vehicle 
+    Skater:ClearGeom name=Vehicle 
+} 
+script flickering_deck {
+    exit_pause_menu 
+    while {
+        Skater:SwitchOffBoard 
+        wait 1 gameframe 
+        Skater:TurnOnBoard 
+        wait 1 gameframe 
+    } 
+} 
+script anteara_nightON {
+    TODManager_Create prefix="NightOn" NoPrefixWarning 
+} 
+script anteara_nightOFF {
+    kill prefix="NightOn" NoPrefixWarning 
+} 
+script random_function {
+    a = 1337 
+    myArray = [
+        {
+            One=1 
+            Two=3 
+            Three=3 
+            Four=7 
+            Five=5 
+        } 
+    ] 
+    <hmm> = ((<myArray> [0]).Four) /* lenient: no ')' here in the original */ 
+    b = (<a> - <hmm>) 
+    c = (<b> - 1337) 
+    d = (<c> + (2 * (-1 * <c>))) 
+    FormatText TextName=random_text "%d" d=<d> 
+    SendChatMessage string=<random_text> 
+} 
+script anteara_unfocus {
+    Theme_GetUnhighlightedTextColorNew return_value=off_color 
+    SetScreenElementProps {
+        id={<id> child=text} 
+        rgba=<off_color> 
+        shadow_rgba=UI_text_shadow_color 
+    } 
+    SetScreenElementProps {
+        id={<id> child=roundbar_middle} 
+        rgba=[128, 128, 128, 0] 
+    } 
+    if ! current_menu:GetSingleTag no_bar_edges {
+        SetScreenElementProps {
+            id={<id> child=roundbar_left} 
+            rgba=[128, 128, 128, 0] 
+        } 
+        SetScreenElementProps {
+            id={<id> child=roundbar_right} 
+            rgba=[128, 128, 128, 0] 
+        } 
+    } 
+    KillSpawnedScript name=roundbar_menu_highlight 
+    DoScreenElementMorph id={<id> child=roundbar_highlight} alpha=0 time=0 
+    if current_menu:GetSingleTag additional_unfocus_script {
+        <additional_unfocus_script> <...> 
+    } 
+    SpawnScript menu3d_animate_out params={Die} 
+    menu3d_hide 
+} 
+script Suphey {
+} 
+script anteara_cam_test1 {
+    Create name=BO_BarrierQP01 
+    GoalEditorCursor:Obj_GetPosition 
+    BO_BarrierQP01:Obj_SetPosition position=<pos> 
+    BO_BarrierQP01:Obj_SetOrientation X=0 y=<angle> z=0 
+} 
+script Spawn_Try {
+    Create name=BO_BarrierQP01 
+    Skater:Obj_GetPosition 
+    BO_BarrierQP01:Obj_SetPosition position=<pos> 
+} 
+script Spawn_Try2 {
+    Create name=BO_BarrierQP01 
+    Skater:Obj_GetPosition 
+    BO_BarrierQP01:Obj_SetPosition position=<pos> 
+    BO_BarrierQP01:Obj_Rotate absolute=(0.0, 180.0, 0.0) 
+} 
+script Spin_Try {
+    Create name=BO_BarrierQP01 
+    <id>:Obj_GetPosition 
+    BO_BarrierQP01:Obj_SetPosition position=<pos> 
+    BO_BarrierQP01:Rotate X=180 
+    Create name=BA_JG_FountainWater 
+    <id>:Obj_GetPosition 
+    BA_JG_FountainWater:Obj_SetPosition position=<pos> 
+    Create name=BA_Hospital_Fountain01 
+    <id>:Obj_GetPosition 
+    BA_Hospital_Fountain01:Obj_SetPosition position=<pos> 
+    Create name=BA_Billboard01 
+    <id>:Obj_GetPosition 
+    BA_Billboard01:Obj_SetPosition position=<pos> 
+} 
+__register_checksums__ flickering_skater exit_pause_menu Skater add_skater_to_world wait gameframe Skater remove_skater_from_world wait gameframe kirillgta_chainsaw exit_pause_menu Skater AddGeom name Vehicle model kirillgta_bustedboard exit_pause_menu Skater AddGeom name Vehicle model kirillgta_extraboard exit_pause_menu Skater AddGeom name Vehicle model kirillgta_sword exit_pause_menu Skater AddGeom name Vehicle model kirillgta_spraycan exit_pause_menu Skater AddGeom name Vehicle model kirillgta_flag exit_pause_menu Skater AddGeom name Vehicle model kirillgta_kite exit_pause_menu Skater AddGeom name Vehicle model kirillgta_balls exit_pause_menu Skater AddGeom name Vehicle model kirillgta_hoagie exit_pause_menu Skater AddGeom name Vehicle model kirillgta_shark exit_pause_menu Skater AddGeom name Vehicle model kirillgta_all exit_pause_menu Skater AddGeom name Vehicle model Skater AddGeom name Vehicle model Skater AddGeom name Vehicle model Skater AddGeom name Vehicle model Skater AddGeom name Vehicle model Skater AddGeom name Vehicle model Skater AddGeom name Vehicle model Skater AddGeom name Vehicle model Skater AddGeom name Vehicle model Skater AddGeom name Vehicle model kirillgta_clear_models exit_pause_menu Skater ClearGeom name Vehicle Skater ClearGeom name Vehicle Skater ClearGeom name Vehicle Skater ClearGeom name Vehicle Skater ClearGeom name Vehicle Skater ClearGeom name Vehicle Skater ClearGeom name Vehicle Skater ClearGeom name Vehicle Skater ClearGeom name Vehicle Skater ClearGeom name Vehicle Skater ClearGeom name Vehicle Skater ClearGeom name Vehicle Skater ClearGeom name Vehicle Skater ClearGeom name Vehicle Skater ClearGeom name Vehicle Skater ClearGeom name Vehicle flickering_deck exit_pause_menu Skater SwitchOffBoard wait gameframe Skater TurnOnBoard wait gameframe anteara_nightON TODManager_Create prefix NoPrefixWarning anteara_nightOFF kill prefix NoPrefixWarning random_function a myArray One Two Three Four Five hmm myArray Four b a hmm c b d c c FormatText TextName random_text d d SendChatMessage string random_text anteara_unfocus Theme_GetUnhighlightedTextColorNew return_value off_color SetScreenElementProps id id child text rgba off_color shadow_rgba UI_text_shadow_color SetScreenElementProps id id child roundbar_middle rgba current_menu GetSingleTag no_bar_edges SetScreenElementProps id id child roundbar_left rgba SetScreenElementProps id id child roundbar_right rgba KillSpawnedScript name roundbar_menu_highlight DoScreenElementMorph id id child roundbar_highlight alpha time current_menu GetSingleTag additional_unfocus_script additional_unfocus_script SpawnScript menu3d_animate_out params Die menu3d_hide Suphey anteara_cam_test1 Create name BO_BarrierQP01 GoalEditorCursor Obj_GetPosition BO_BarrierQP01 Obj_SetPosition position pos BO_BarrierQP01 Obj_SetOrientation X y angle z Spawn_Try Create name BO_BarrierQP01 Skater Obj_GetPosition BO_BarrierQP01 Obj_SetPosition position pos Spawn_Try2 Create name BO_BarrierQP01 Skater Obj_GetPosition BO_BarrierQP01 Obj_SetPosition position pos BO_BarrierQP01 Obj_Rotate absolute Spin_Try Create name BO_BarrierQP01 id Obj_GetPosition BO_BarrierQP01 Obj_SetPosition position pos BO_BarrierQP01 Rotate X Create name BA_JG_FountainWater id Obj_GetPosition BA_JG_FountainWater Obj_SetPosition position pos Create name BA_Hospital_Fountain01 id Obj_GetPosition BA_Hospital_Fountain01 Obj_SetPosition position pos Create name BA_Billboard01 id Obj_GetPosition BA_Billboard01 Obj_SetPosition position pos

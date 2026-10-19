@@ -17,11 +17,6 @@ namespace Front::DataOverlay {
 
 namespace {
 
-const std::string& FrontEndFolder()
-{
-    static const std::string folder = Folder() + "\\front_end";
-    return folder;
-}
 bool IsFolder(const std::string& path)
 {
     DWORD attributes = GetFileAttributesA(path.c_str());
@@ -57,6 +52,35 @@ void OverlayName(const char* name, char (&out)[260])
         std::memmove(out, rest, std::strlen(rest) + 1);
 }
 
+int SearchFolders(bool anteara, bool frontEnd, const char* (&folders)[4])
+{
+    int count = 0;
+    if (anteara && frontEnd)
+        folders[count++] = "anteara\\front_end\\";
+    if (anteara)
+        folders[count++] = "anteara\\";
+    if (frontEnd)
+        folders[count++] = "front_end\\";
+    folders[count++] = "";
+    return count;
+}
+
+bool AntearaMod()
+{
+    static const bool on = [] {
+        bool setting = ConfigInt("features", "anteara_mod", 0) != 0;
+        if (setting) {
+            std::string folder = Folder() + "\\anteara";
+            Log(IsFolder(folder) ? "anteara_mod: on - the Anteara Mod's scripts from %s (tools/anteara)"
+                                 : "anteara_mod: on, but %s not found - run tools/menu_level/make_menu_level.py; the "
+                                   "game's scripts are used",
+                folder.c_str());
+        }
+        return setting;
+    }();
+    return on;
+}
+
 bool OverlayPath(const char* name, char (&path)[260])
 {
     static const bool overlay = IsFolder(Folder());
@@ -65,11 +89,14 @@ bool OverlayPath(const char* name, char (&path)[260])
     char relative[260];
     OverlayName(name, relative);
     std::string full;
-    if (MenuBackdrop::Active() && IsFile(FrontEndFolder() + "\\" + relative))
-        full = FrontEndFolder() + "\\" + relative;
-    else if (IsFile(Folder() + "\\" + relative))
-        full = Folder() + "\\" + relative;
-    else
+    const char* folders[4];
+    int count = SearchFolders(AntearaMod(), MenuBackdrop::Active(), folders);
+    for (int i = 0; i < count && full.empty(); ++i) {
+        std::string candidate = Folder() + "\\" + folders[i] + relative;
+        if (IsFile(candidate))
+            full = candidate;
+    }
+    if (full.empty())
         return false;
     if (full.size() >= sizeof(path))
         return false;

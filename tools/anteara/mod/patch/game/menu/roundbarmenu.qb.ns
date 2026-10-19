@@ -1,0 +1,200 @@
+script make_new_roundbar_menu {{menu_id=main_menu_anchor 
+        vmenu_id=main_menu 
+        pad_back_script=nullscript 
+        pos=(130.0, 100.0) 
+        dims=(350.0, 480.0) 
+        parent=root_window 
+        internal_text_just=left 
+        internal_text_offset=(0.0, 0.0) 
+        spacing=6 
+        helper_text=generic_helper_text 
+        arrow_up=arrow_up 
+        arrow_down=arrow_down 
+        arrow_rgba=[128 128 128 128] 
+        pad_back_sound=generic_pause_exit_sound 
+    } 
+    SetScreenElementLock id=<parent> off 
+    if ! GotParam keep_current {
+        generic_animate_out_last_menu 
+        if ObjectExists id=current_menu_anchor {
+            DestroyScreenElement id=current_menu_anchor 
+        } 
+    } 
+    CreateScreenElement {
+        type=ContainerElement 
+        parent=<parent> 
+        id=<menu_id> 
+        just=[top left] 
+        focusable_child=<vmenu_id> 
+    } 
+    AssignAlias id=<menu_id> alias=current_menu_anchor 
+    if GotParam title {
+        build_theme_sub_title title=<title> add_tab=<add_tab> add_bar=<add_bar> 
+    } 
+    if ! GotParam no_helper_text {
+        create_helper_text <helper_text> 
+    } 
+    if GotParam scrolling {
+        <arrow_pos> = (<pos> + (((<dims>.(1.0, 0.0)) / 2) * (1.0, 0.0)) + (-14.0, -6.0)) 
+        CreateScreenElement {
+            type=SpriteElement 
+            parent=current_menu_anchor 
+            id=<arrow_up> 
+            texture=up_arrow 
+            pos=<arrow_pos> 
+            just=[left top] 
+            z_priority=5 
+            scale=1 
+            rgba=<arrow_rgba> 
+        } 
+        <scroll_menu_pos> = (<pos> + (0.0, 10.0)) 
+        <scroll_menu_dims> = (<dims> + (0.0, -40.0)) 
+        CreateScreenElement {
+            type=VScrollingMenu 
+            parent=current_menu_anchor 
+            dims=<scroll_menu_dims> 
+            pos=<scroll_menu_pos> 
+            just=[left top] 
+        } 
+        <parent_id> = <id> 
+        AssignAlias id=<parent_id> alias=current_scrolling_menu 
+        <arrow_pos> = (<arrow_pos> + ((<dims>.(0.0, 1.0)) * (0.0, 1.0)) + (0.0, -18.0)) 
+        CreateScreenElement {
+            type=SpriteElement 
+            parent=current_menu_anchor 
+            id=<arrow_down> 
+            texture=down_arrow 
+            pos=<arrow_pos> 
+            just=[left top] 
+            z_priority=5 
+            scale=1 
+            rgba=<arrow_rgba> 
+        } 
+        <vmenu_pos> = (0.0, 0.0) 
+    } else {
+        <parent_id> = current_menu_anchor 
+        <vmenu_pos> = <pos> 
+    } 
+    CreateScreenElement {
+        type=VMenu 
+        parent=<parent_id> 
+        id=<vmenu_id> 
+        pos=<vmenu_pos> 
+        font=small 
+        just=[left top] 
+    } 
+    if GotParam scrolling {
+        SetScreenElementProps {
+            id=<vmenu_id> 
+            dims=<scroll_menu_dims> 
+        } 
+    } 
+    if GotParam no_event_handlers {
+        KillEventHandlers 
+    } else {
+        SetScreenElementProps {
+            id=<vmenu_id> 
+            event_handlers=[{pad_back <pad_back_sound>} 
+                {pad_back <pad_back_script> params=<pad_back_params>} 
+                {pad_up generic_menu_up_or_down_sound params={up}} 
+                {pad_down generic_menu_up_or_down_sound params={down}} 
+                {pad_up blink_arrow params={id=<arrow_up>}} 
+                {pad_down blink_arrow params={id=<arrow_down>}} 
+            ] 
+        } 
+    } 
+    SetScreenElementProps {
+        id=<vmenu_id> 
+        spacing_between=<spacing> 
+    } 
+    AssignAlias id=<vmenu_id> alias=current_menu 
+    width = (<dims>.(1.0, 0.0)) 
+    current_menu:SetTags width=<width> 
+    current_menu:SetTags internal_text_just=<internal_text_just> 
+    current_menu:SetTags internal_text_offset=<internal_text_offset> 
+    current_menu:SetTags right_edge=(<width> * (1.0, 0.0)) 
+    current_menu:SetTags menu_pos=<pos> 
+    if GotParam no_bar_edges {
+        current_menu:SetTags no_bar_edges=1 
+    } 
+    if GotParam use_icons {
+        current_menu:SetTags use_icons=1 
+    } 
+    if ! GotParam no_animate {
+        current_menu:SetTags animate_me=1 
+    } 
+    if GotParam add_3d_bg {
+        current_menu:SetTags add_3d_bg=1 
+    } 
+    if GotParam add_3d_bg1 {
+        current_menu:SetTags add_3d_bg1=1 
+    } 
+    if GotParam additional_create_script {
+        current_menu:SetTags additional_create_script=<additional_create_script> 
+    } 
+    if GotParam additional_focus_script {
+        current_menu:SetTags additional_focus_script=<additional_focus_script> 
+    } 
+    if GotParam additional_unfocus_script {
+        current_menu:SetTags additional_unfocus_script=<additional_unfocus_script> 
+    } 
+    if GotParam additional_menu_create_script {
+        <additional_menu_create_script> <additional_menu_create_params> 
+    } 
+} 
+script roundbar_menu_finish {build_pause_parts = 1 
+    if (<build_pause_parts>) {
+        build_pause_menu_parts <...> 
+    } 
+    if ScreenElementExists id=music_track_anchor {
+        generic_menu_animate_in force menu=music_track_anchor no_wait 
+    } 
+    if current_menu:GetSingleTag add_3d_bg {
+        menu3d_show 
+        menu3d_animate_in 
+    } 
+    if current_menu:GetSingleTag add_3d_bg1 {
+        menu3d_show1 
+        menu3d_animate_in 
+    } 
+    if ObjectExists id=current_menu_anchor {
+        if ObjectExists id=current_menu {
+            generic_menu_animate_in menu=current_menu 
+        } 
+    } 
+    if ObjectExists id=current_menu_anchor {
+        if ObjectExists id=current_menu {
+            FireEvent type=focus target=current_menu data=<data> 
+        } 
+    } 
+} 
+script generic_menu_animate_out {menu = current_menu_anchor 
+    if GotParam force {
+        <menu>:SetTags animate_me=1 
+    } 
+    if ! <menu>:GetSingleTag animate_me {
+        if <menu>:GetSingleTag add_3d_bg {
+            menu3d_hide 
+        } 
+        return 
+    } 
+    if <menu>:GetSingleTag add_3d_bg {
+        spawnscript menu3d_animate_out params={die} 
+    } 
+    if ! <menu>:GetSingleTag animate_me {
+        if <menu>:GetSingleTag add_3d_bg1 {
+            menu3d_hide 
+        } 
+        return 
+    } 
+    if <menu>:GetSingleTag add_3d_bg1 {
+        spawnscript menu3d_animate_out params={die} 
+    } 
+    if GotParam pos {
+        ScreenElementPos = <pos> 
+    } else {
+        GetScreenElementPosition id=<menu> 
+    } 
+    DoScreenElementMorph id=<menu> pos=(<ScreenElementPos> + (640.0, 0.0)) time=0.15 
+    wait 0.2 seconds 
+} 

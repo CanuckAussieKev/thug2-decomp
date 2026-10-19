@@ -1,0 +1,478 @@
+// MERGE: the 2010 Anteara Mod's menu features that 2011 doesn't have, in one place: Anteara Menu > 2010.
+// MERGE: The menus below are 2010's own scripts, unchanged (their Back still goes where it went in 2010, mostly
+// MERGE: to the Anteara Menu). Where they call a script 2011 also has (anteara_theme_menu, anteara_timeron,
+// MERGE: walljumpon, anteara_noclipoff, flickering_deck...), 2011's version runs.
+anteara_2010_keyboard = 0
+script anteara_2010_menu {
+    make_new_themed_scrolling_menu title="2010 MENU"
+    SetScreenElementProps {
+        id=sub_menu
+        event_handlers=[{pad_back generic_menu_pad_back params={callback=create_anteara_menu}}]
+        replace_handlers
+    }
+    // 2010's Anteara Menu items 2011 removed
+    theme_menu_add_item text="ON/OFF MENU" pad_choose_script=anteara_onoff_menu no_bg centered=centered
+    theme_menu_add_item text="CUSTOM RESTARTS" pad_choose_script=create_customrestart_menu no_bg centered=centered
+    theme_menu_add_item text="AMMO MENU" pad_choose_script=create_ammoyeah_menu no_bg centered=centered
+    theme_menu_add_item text="OBSERVE MENU" pad_choose_script=anteara_observing_menu no_bg centered=centered
+    theme_menu_add_item text="SPAWN NPCS" pad_choose_script=create_mynpc_menu no_bg centered=centered
+    theme_menu_add_item text="NIGHT MENU" pad_choose_script=night_menu no_bg centered=centered
+    // 2010's THEME MENU
+    theme_menu_add_item text="Balance Meter Colour" pad_choose_script=anteara_bal_menu no_bg centered=centered
+    theme_menu_add_item text="Balance Arrow Colour" pad_choose_script=anteara_arrow_menu no_bg centered=centered
+    // 2010's VEHICLE MENU and 3D MODEL MENU items
+    theme_menu_add_item text="Sit Down Luge" pad_choose_script=anteara_slalom no_bg centered=centered
+    theme_menu_add_item text="Halfpipe" pad_choose_script=#fcaa1c10 no_bg centered=centered
+    // 2010's MISCELLANEOUS MENU items
+    theme_menu_add_item text="FLICKERING SKATER" pad_choose_script=flickering_skater no_bg centered=centered
+    theme_menu_add_item text="FLICKERING DECK" pad_choose_script=flickering_deck no_bg centered=centered
+    theme_menu_add_item text="CREATE 3D TEXT" pad_choose_script=create_3dtext no_bg centered=centered
+    // 2010's SCREEN MODE (its aspect ratio menu)
+    theme_menu_add_item text="SCREEN MODE" pad_choose_script=anteara_2010_screen_menu no_bg centered=centered 
+    // 2010 scripts no 2010 menu reached (chat commands, or not wired up at all)
+    theme_menu_add_item text="GUITAR MENU" pad_choose_script=anteara_guitar_menu no_bg centered=centered
+    theme_menu_add_item text="CHAT SPAM (/df)" pad_choose_script=kirillgta_spam no_bg centered=centered
+    theme_menu_add_item text="CHAT SPAM: ALX THE BEST (/2010)" pad_choose_script=kirillgta_spam2 no_bg centered=centered
+    theme_menu_add_item text="MIDDLEMAN: CLEAN + HELP" pad_choose_script=anteara_middleman no_bg centered=centered
+    theme_menu_add_item text="MIDDLEMAN 2: CLEAN + LIGHTS" pad_choose_script=anteara_middleman2 no_bg centered=centered
+    theme_menu_add_item text="VEHICLE TEST (TRICYCLE)" pad_choose_script=anteara_vehtest no_bg centered=centered
+    theme_menu_add_item text="HIDE BOARD" pad_choose_script=anteara_hide_board no_bg centered=centered
+    theme_menu_add_item text="UNHIDE BOARD" pad_choose_script=anteara_unhide_board no_bg centered=centered
+    theme_menu_add_item text="MODELS MENU" pad_choose_script=models_menu no_bg centered=centered
+    theme_menu_add_item text="Morning RGB2" pad_choose_script=morning_shadows2 no_bg centered=centered
+    theme_menu_add_item text="TIME OF DAY TEST MENU" pad_choose_script=test_func3 no_bg centered=centered
+    theme_menu_add_item text="TIME OF DAY CYCLE (LOOPS)" pad_choose_script=test_func no_bg centered=centered
+    theme_menu_add_item text="CUSTOM POPUP MESSAGE" pad_choose_script=launch_popup_keyboard no_bg centered=centered
+    // 2010's keyboard symbols (engine\menu\keyboard.qb) - off: 2011's keyboard
+    if (anteara_2010_keyboard = 1) {
+        text = "KEYBOARD SYMBOLS (2010): ON"
+    } else {
+        text = "KEYBOARD SYMBOLS (2010): OFF"
+    }
+    theme_menu_add_item text=<text> pad_choose_script=toggle_anteara_2010_keyboard no_bg centered=centered
+    theme_menu_add_item text="Done" pad_choose_script=create_anteara_menu last_item last_menu_item=1 no_bg centered=centered
+    finish_themed_scrolling_menu
+}
+script toggle_anteara_2010_keyboard {
+    if (anteara_2010_keyboard = 1) {
+        Change anteara_2010_keyboard=0
+    } else {
+        Change anteara_2010_keyboard=1
+    }
+    anteara_2010_menu
+}
+// MERGE: 2010's own scripts from its gamemenu_pause.qb (2011 dropped them)
+script anteara_onoff_menu {
+    make_new_roundbar_menu title="On/Off Menu" pad_back_script=generic_menu_pad_back pad_back_params={callback=create_anteara_menu} 
+    add_roundbar_menu_item {text="Infinite Combo Run Out Timer" pad_choose_script=anteara_timeronoff 
+    } 
+    add_roundbar_menu_item {text="Infinite Wall Jumps" pad_choose_script=anteara_walljumponoff 
+    } 
+    add_roundbar_menu_item {text="Infinite WallShuffles" pad_choose_script=anteara_wallshuffleonoff 
+    } 
+    add_roundbar_menu_item {text="Skate on Walls" pad_choose_script=anteara_wallskateonoff 
+    } 
+    add_roundbar_menu_item {text="No Clip" pad_choose_script=anteara_nocliponoff 
+    } 
+    add_roundbar_menu_item {text="Night Lights" pad_choose_script=anteara_lightsonoff 
+    } 
+    roundbar_menu_finish 
+} 
+script anteara_timeronoff {
+    make_new_roundbar_menu title="Infinite Combo Run Out Timer" pad_back_script=generic_menu_pad_back pad_back_params={callback=anteara_onoff_menu} 
+    add_roundbar_menu_item {text="On" pad_choose_script=anteara_timeron 
+    } 
+    add_roundbar_menu_item {text="Off" pad_choose_script=anteara_timeroff 
+    } 
+    roundbar_menu_finish 
+} 
+script anteara_walljumponoff {
+    make_new_roundbar_menu title="Infinite Wall Jumps" pad_back_script=generic_menu_pad_back pad_back_params={callback=anteara_onoff_menu} 
+    add_roundbar_menu_item {text="On" pad_choose_script=walljumpon 
+    } 
+    add_roundbar_menu_item {text="Off" pad_choose_script=walljumpoff 
+    } 
+    roundbar_menu_finish 
+} 
+script anteara_wallshuffleonoff {
+    make_new_roundbar_menu title="Infinite WallShuffles" pad_back_script=generic_menu_pad_back pad_back_params={callback=anteara_onoff_menu} 
+    add_roundbar_menu_item {text="On" pad_choose_script=wallshuffleon 
+    } 
+    add_roundbar_menu_item {text="Off" pad_choose_script=wallshuffleoff 
+    } 
+    roundbar_menu_finish 
+} 
+script anteara_wallskateonoff {
+    make_new_roundbar_menu title="Skate on Walls" pad_back_script=generic_menu_pad_back pad_back_params={callback=anteara_onoff_menu} 
+    add_roundbar_menu_item {text="On" pad_choose_script=wallskateon 
+    } 
+    add_roundbar_menu_item {text="Off" pad_choose_script=wallskateoff 
+    } 
+    roundbar_menu_finish 
+} 
+script anteara_nocliponoff {
+    make_new_roundbar_menu title="No Clip" pad_back_script=generic_menu_pad_back pad_back_params={callback=anteara_onoff_menu} 
+    pause_menu_gradient 
+    GoalManager_HideGoalPoints 
+    GoalManager_HidePoints 
+    unhide_root_window 
+    add_roundbar_menu_item {text="On" pad_choose_script=NoClipOn 
+    } 
+    add_roundbar_menu_item {text="Off" pad_choose_script=anteara_noclipoff 
+    } 
+    roundbar_menu_finish 
+} 
+script anteara_lightsonoff {
+    make_new_roundbar_menu title="Night Lights" pad_back_script=generic_menu_pad_back pad_back_params={callback=anteara_onoff_menu} 
+    add_roundbar_menu_item {text="On" pad_choose_script=anteara_nightON 
+    } 
+    add_roundbar_menu_item {text="Off" pad_choose_script=anteara_nightOFF 
+    } 
+    roundbar_menu_finish 
+} 
+script create_ammoyeah_menu {
+    make_new_themed_sub_menu title="AMMO MENU" 
+    SetScreenElementProps {
+        id=sub_menu 
+        event_handlers=[{pad_back generic_menu_pad_back params={callback=create_anteara_menu}} 
+        ] 
+        replace_handlers 
+    } 
+    skater:GetAmmo 
+    theme_menu_add_number_item {
+        text="Ammo  --  " 
+        id=proj_menu_amount 
+        min=0 
+        max=10000 
+        step=10 
+        value=<ammo> 
+        pad_choose_script=proj_menu_remove_amount 
+        pad_left_script=proj_menu_update_amount 
+        pad_right_script=proj_menu_update_amount 
+        first_item 
+        text_pos=(75.0, -5.0) 
+    } 
+    theme_menu_add_item text="Choose Item" pad_choose_script=create_ammoitem_menu 
+    theme_menu_add_item text="Done" pad_choose_script=create_anteara_menu last_item last_menu_item=1 
+    finish_themed_sub_menu 
+} 
+script create_ammoitem_menu {
+    make_new_themed_sub_menu title="ITEM MENU" 
+    SetScreenElementProps {
+        id=sub_menu 
+        event_handlers=[{pad_back generic_menu_pad_back params={callback=create_pause_menu}} 
+        ] 
+        replace_handlers 
+    } 
+    theme_menu_add_item text="Apple" pad_choose_script=give_me_ammo pad_choose_params={type=apple} {callback=create_pause_menu} 
+    theme_menu_add_item text="Beads" pad_choose_script=give_me_ammo pad_choose_params={type=Beads} 
+    theme_menu_add_item text="Shrimp" pad_choose_script=give_me_ammo pad_choose_params={type=shrimp} 
+    theme_menu_add_item text="Smokebomb" pad_choose_script=give_me_ammo pad_choose_params={type=smokebomb} 
+    theme_menu_add_item text="Skateboard" pad_choose_script=give_me_ammo pad_choose_params={type=skateboard} 
+    theme_menu_add_item text="Crystal Ball" pad_choose_script=give_me_ammo pad_choose_params={type=Crystal_Ball} 
+    theme_menu_add_item text="Fire" pad_choose_script=give_me_ammo pad_choose_params={type=Anteara_Fire} 
+    theme_menu_add_item text="Done" pad_choose_script=create_ammoyeah_menu last_item last_menu_item=1 
+    finish_themed_sub_menu 
+} 
+script give_me_ammo {
+    skater:SetAmmoType <type> 
+    ammo_type = tomato 
+    ammo_type = apple 
+    ammo_type = shrimp 
+    ammo_type = smokebomb 
+    ammo_type = tomato 
+    ammo_type = paintcan 
+    ammo_type = skateboard 
+    ammo_type = Crystal_Ball 
+    ammo_type = Anteara_Fire 
+    create_ammoyeah_menu 
+} 
+script anteara_observing_menu {
+    make_new_roundbar_menu title="Observe Menu" pad_back_script=generic_menu_pad_back pad_back_params={callback=create_anteara_menu} 
+    add_roundbar_menu_item {text="Start Observing" pad_choose_script=anteara_start_observing 
+    } 
+    add_roundbar_menu_item {text="Stop Observing" pad_choose_script=anteara_stop_observing 
+    } 
+    roundbar_menu_finish 
+} 
+script anteara_start_observing {
+    skater:remove_skater_from_world 
+    EnterSurveyorMode 
+    exit_pause_menu 
+} 
+script anteara_stop_observing {
+    skater:add_skater_to_world 
+    ExitSurveyorMode 
+    exit_pause_menu 
+} 
+script anteara_bal_menu {
+    make_new_roundbar_menu title="Balance Meter Menu" pad_back_script=generic_menu_pad_back pad_back_params={callback=anteara_theme_menu} 
+    add_roundbar_menu_item {text="Pink" pad_choose_script=bal_pink 
+    } 
+    add_roundbar_menu_item {text="Green" pad_choose_script=bal_green 
+    } 
+    add_roundbar_menu_item {text="Red" pad_choose_script=bal_red 
+    } 
+    add_roundbar_menu_item {text="Light Blue" pad_choose_script=bal_lightblue 
+    } 
+    add_roundbar_menu_item {text="Yellow" pad_choose_script=bal_yellow 
+    } 
+    add_roundbar_menu_item {text="Black" pad_choose_script=bal_black 
+    } 
+    add_roundbar_menu_item {text="White" pad_choose_script=bal_white 
+    } 
+    roundbar_menu_finish 
+} 
+script anteara_arrow_menu {
+    make_new_roundbar_menu title="Balance Arrow Menu" pad_back_script=generic_menu_pad_back pad_back_params={callback=anteara_theme_menu} 
+    add_roundbar_menu_item {text="Pink" pad_choose_script=arrow_pink 
+    } 
+    add_roundbar_menu_item {text="Green" pad_choose_script=arrow_green 
+    } 
+    add_roundbar_menu_item {text="Red" pad_choose_script=arrow_red 
+    } 
+    add_roundbar_menu_item {text="Light Blue" pad_choose_script=arrow_lightblue 
+    } 
+    add_roundbar_menu_item {text="Yellow" pad_choose_script=arrow_yellow 
+    } 
+    add_roundbar_menu_item {text="Black" pad_choose_script=arrow_black 
+    } 
+    add_roundbar_menu_item {text="White" pad_choose_script=arrow_white 
+    } 
+    roundbar_menu_finish 
+} 
+script bal_pink {
+    Change DE_BALANCE_METER_COLOR=[225 18 213 100] 
+    anteara_theme_menu 
+} 
+script arrow_pink {
+    Change DE_BALANCE_ARROW_COLOR=[225 18 213 100] 
+    anteara_theme_menu 
+} 
+script bal_green {
+    Change DE_BALANCE_METER_COLOR=[0 255 18 100] 
+    anteara_theme_menu 
+} 
+script arrow_green {
+    Change DE_BALANCE_ARROW_COLOR=[0 255 18 100] 
+    anteara_theme_menu 
+} 
+script bal_red {
+    Change DE_BALANCE_METER_COLOR=[255 78 78 100] 
+    anteara_theme_menu 
+} 
+script arrow_red {
+    Change DE_BALANCE_ARROW_COLOR=[255 78 78 100] 
+    anteara_theme_menu 
+} 
+script bal_lightblue {
+    Change DE_BALANCE_METER_COLOR=[0 252 255 100] 
+    anteara_theme_menu 
+} 
+script arrow_lightblue {
+    Change DE_BALANCE_ARROW_COLOR=[0 252 255 100] 
+    anteara_theme_menu 
+} 
+script bal_yellow {
+    Change DE_BALANCE_METER_COLOR=[234 255 0 100] 
+    anteara_theme_menu 
+} 
+script arrow_yellow {
+    Change DE_BALANCE_ARROW_COLOR=[234 255 0 100] 
+    anteara_theme_menu 
+} 
+script bal_black {
+    Change DE_BALANCE_METER_COLOR=[0 0 0 100] 
+    anteara_theme_menu 
+} 
+script arrow_black {
+    Change DE_BALANCE_ARROW_COLOR=[0 0 0 100] 
+    anteara_theme_menu 
+} 
+script bal_white {
+    Change DE_BALANCE_METER_COLOR=[255 255 255 100] 
+    anteara_theme_menu 
+} 
+script arrow_white {
+    Change DE_BALANCE_ARROW_COLOR=[255 255 255 100] 
+    anteara_theme_menu 
+} 
+script create_mynpc_menu {
+    make_new_roundbar_menu title="NPC Menu" pad_back_script=generic_menu_pad_back pad_back_params={callback=create_anteara_menu} 
+    add_roundbar_menu_item {text="Spawn an NPC" pad_choose_script=create_existing_goals_menu 
+    } 
+    roundbar_menu_finish 
+} 
+script anteara_guitar_menu {
+    make_new_roundbar_menu title="Guitar Menu" pad_back_script=generic_menu_pad_back pad_back_params={callback=create_anteara_menu} 
+    add_roundbar_menu_item {text="Play All" pad_choose_script=anteara_guitar 
+    } 
+    add_roundbar_menu_item {text="Play Guitar 1" pad_choose_script=anteara_guitar1 
+    } 
+    add_roundbar_menu_item {text="Play Guitar 2" pad_choose_script=anteara_guitar2 
+    } 
+    add_roundbar_menu_item {text="Play Guitar 3" pad_choose_script=anteara_guitar3 
+    } 
+    add_roundbar_menu_item {text="Play Guitar 4" pad_choose_script=anteara_guitar4 
+    } 
+    roundbar_menu_finish 
+} 
+script anteara_slalom {
+    Vehicle_Start params=slalom_params 
+    exit_pause_menu 
+} 
+// MERGE: 2010's Halfpipe. 2010 compiled its name (anteara_pipe) byte-reversed, as #fcaa1c10, which keeps it apart from
+// MERGE: 2011's own anteara_pipe (3D MODEL MENU > Halfpipe) - so it stays #fcaa1c10 here
+script #fcaa1c10 {
+    skater:Obj_GetPosition 
+    CreateCompositeObject {
+        Components=[
+            {
+                component=model 
+                model="Veh\\Veh_Half_Pipe\\Veh_Half_Pipe.mdl" 
+            } 
+            {
+                component=rigidbody 
+            } 
+        ] 
+        params={name=pipe212 
+            pos=(<pos> + (40.0, 20.0, 0.0)) 
+            NeverSuspend 
+        } 
+    } 
+} 
+script anteara_vehtest {
+    skater:AddGeom name=vehicle model="models\\Veh\\veh_tricycle\\veh_tricycle_skin.skin" 
+} 
+script anteara_hide_board {
+    skater:exit_pause_menu 
+    skater:SetBoardMissing 
+    skater:SetBoardMissing 
+    skater:display 
+} 
+script anteara_unhide_board {
+    skater:exit_pause_menu 
+    skater:SetBoardMissing 
+    skater:UnsetBoardMissing 
+    skater:display 
+} 
+script create_3dtext {
+    if ScreenElementExists id=current_menu_anchor {
+        DestroyScreenElement id=current_menu_anchor 
+    } 
+    create_onscreen_keyboard allow_cancel no_buttons pos=(320.0, 260.0) keyboard_done_script=Create3dText_final keyboard_cancel_script=create_tool_menu display_text="Enter text:" keyboard_title="" min_length=1 max_length=127 display_text_scale=0.5 
+} 
+script Create3dText_final {
+    skater:Obj_GetPosition 
+    GetTextElementString id=keyboard_current_string 
+    CreateScreenElement {
+        id=dynamictext_id 
+        type=TextElement 
+        parent=root_window 
+        font=small 
+        text=<string> 
+        scale=3.000003 
+        pos3D=(<pos> + (0.0, 5.0, 0.0)) 
+    } 
+    destroy_onscreen_keyboard 
+    exit_pause_menu 
+} 
+script anteara_screen_set_menu {
+    if gotparam standard {
+        change_screen_mode standard callback=screen_setup_standard set_screen_flags 
+    } 
+    if gotparam wide {
+        change_screen_mode wide callback=screen_setup_widescreen set_screen_flags 
+    } 
+    if gotparam letter {
+        change_screen_mode letter callback=screen_setup_letterbox set_screen_flags 
+    } 
+    create_anteara_menu 
+} 
+script kirillgta_spam {
+    exit_pause_menu 
+    while {
+        SendChatMessage string="\\c4FAAAGGOOTTT!" 
+        Wait 1 gameframe 
+        SendChatMessage string="\\c1FAAAGGOOTTT!" 
+        Wait 1 gameframe 
+        SendChatMessage string="\\c2FAAAGGOOTTT!" 
+        Wait 1 gameframe 
+        SendChatMessage string="\\c3FAAAGGOOTTT!" 
+        Wait 1 gameframe 
+        SendChatMessage string="\\c4FAAAGGOOTTT!" 
+        Wait 1 gameframe 
+        SendChatMessage string="\\c5FAAAGGOOTTT!" 
+        Wait 1 gameframe 
+        SendChatMessage string="\\c6FAAAGGOOTTT!" 
+        Wait 1 gameframe 
+        SendChatMessage string="\\c7FAAAGGOOTTT!" 
+        Wait 1 gameframe 
+        SendChatMessage string="\\c8FAAAGGOOTTT!" 
+        Wait 1 gameframe 
+        SendChatMessage string="\\cbFAAAGGOOTTT!" 
+        Wait 1 gameframe 
+        SendChatMessage string="\\cvFAAAGGOOTTT!" 
+        Wait 1 gameframe 
+    } 
+} 
+script kirillgta_spam2 {
+    exit_pause_menu 
+    while {
+        SendChatMessage string="\\c1  Alx The Best" 
+        Wait 1 gameframe 
+        SendChatMessage string="\\c2  Alx The Best" 
+        Wait 1 gameframe 
+        SendChatMessage string="\\c3  Alx The Best" 
+        Wait 1 gameframe 
+        SendChatMessage string="\\c4  Alx The Best" 
+        Wait 1 gameframe 
+        SendChatMessage string="\\c5  Alx The Best" 
+        Wait 1 gameframe 
+        SendChatMessage string="\\c6  Alx The Best" 
+        Wait 1 gameframe 
+        SendChatMessage string="\\c7  Alx The Best" 
+        Wait 1 gameframe 
+        SendChatMessage string="\\c8  Alx The Best" 
+        Wait 1 gameframe 
+        SendChatMessage string="\\cb  Alx The Best" 
+        Wait 1 gameframe 
+        SendChatMessage string="\\cv  Alx The Best" 
+        Wait 1 gameframe 
+    } 
+} 
+script anteara_middleman {
+    kirillgta_clean 
+    anteara_text_help 
+} 
+script anteara_middleman2 {
+    kirillgta_clean 
+    anteara_nightON 
+} 
+// MERGE: 2010's create_antearascreen_menu (2011 has its own under that name), renamed
+script anteara_2010_screen_menu {callback_script = create_anteara_menu 
+    make_new_themed_sub_menu title="ASPECT RATIO MENU" 
+    callback_script = create_anteara_menu 
+    SetScreenElementProps {
+        id=sub_menu 
+        event_handlers=[{pad_back generic_menu_pad_back params={callback=<callback_script>}}] 
+        replace_handlers 
+    } 
+    theme_menu_add_item text="\\c4Standard" extra_text="\\cB4:3" pad_choose_script=anteara_screen_set_menu pad_choose_params={standard} 
+    theme_menu_add_item text="\\cBWidescreen" extra_text="\\cL16:9" pad_choose_script=anteara_screen_set_menu pad_choose_params={wide} 
+    theme_menu_add_item text="\\cLLetterbox" extra_text="\\c416:9" pad_choose_script=anteara_screen_set_menu pad_choose_params={letter} 
+    theme_menu_add_item text="\\c6Done" pad_choose_script=create_anteara_menu last_item last_menu_item=1 
+    finish_themed_sub_menu 
+} 
+// MERGE: 2010's menu also had "test" (ped_spawn_test), a script the 2010 file ends in the middle of (its ']' and
+// MERGE: two '}' are missing, so it never ran). Kept here as a comment only:
+// script ped_spawn_test {
+//     skater:Obj_GetPosition
+//     CreateCompositeObject {
+//         Components=[
+//             {
+//                 component=mesh
+//                 mesh="Models/Peds/Ped_SkatopiaGuy/ped_skatopiaguy.skin"
+//             }
+// (the 2010 file ends here)
+__register_checksums__ Create3dText_final anteara_2010_keyboard anteara_2010_menu anteara_2010_screen_menu anteara_arrow_menu anteara_bal_menu anteara_guitar_menu anteara_hide_board anteara_lightsonoff anteara_middleman anteara_middleman2 anteara_nocliponoff anteara_observing_menu anteara_onoff_menu anteara_screen_set_menu anteara_slalom anteara_start_observing anteara_stop_observing anteara_timeronoff anteara_unhide_board anteara_vehtest anteara_walljumponoff anteara_wallshuffleonoff anteara_wallskateonoff arrow_black arrow_green arrow_lightblue arrow_pink arrow_red arrow_white arrow_yellow bal_black bal_green bal_lightblue bal_pink bal_red bal_white bal_yellow create_3dtext create_ammoitem_menu create_ammoyeah_menu create_mynpc_menu give_me_ammo kirillgta_spam kirillgta_spam2 toggle_anteara_2010_keyboard

@@ -1,0 +1,73 @@
+script request_level {
+    GetPreferenceChecksum pref_type=network Anteara_Resolution 
+    switch <checksum>
+        case standard {
+            change_screen_mode standard callback=screen_setup_standard set_screen_flags 
+        }
+        case Widescreen {
+            change_screen_mode wide callback=screen_setup_widescreen set_screen_flags 
+        }
+    endswitch    
+    if ObjectExists Id=PlayerVehicle {
+        Anteara_ExitVehicle_Working 
+    } 
+    if gotparam level {
+        RequestLevel <level> 
+    } else {
+        script_assert "request_level needs a level param" 
+    } 
+} 
+Level_sk5ed_defaults = 
+{
+    park_editor 
+    load_script=Load_Sk5Ed 
+    name="Created Park" 
+    loading_screen="loadscrn_editor_play" 
+    loading_time=6.81 
+    loading_time_xbox=9 
+    startup_script=Sk5Ed_Startup 
+    goals_script=Sk5Ed_goals 
+    default_stats=10 
+    default_stats_classic=10 
+    level_number=LevelNum_Sk5ed 
+    pre="sk5ed_scripts.pre" 
+    level="sk5ed" 
+    level_name="sk5ed" 
+    colpre="sk5edcol.pre" 
+    pedpre="sk5edped.pre" 
+    level_qb="levels\\sk5ed\\sk5ed_scripts.qb" 
+    qb="scripts\\game\\menu\\anteara_stuff\\sk5ed.qb" 
+    menu3d_name="menu3d\\SK5ED_menu3d\\SK5ED_menu3d.mdl" 
+    menu3d_sprites=[
+        "PanelSprites/Menu3d/SK5ED_icon_1" 
+        "PanelSprites/Menu3d/SK5ED_icon_2" 
+    ] 
+    more_level_qbs=[
+        "levels\\sk5ed\\ParkEd_node_scripts.qb" 
+        "levels\\sk5ed\\ParkEd_fast_particle_data.qb" 
+    ] 
+    ambient_red=72 
+    ambient_green=72 
+    ambient_blue=72 
+    ambient_mod_factor_lo=0.5 
+    ambient_mod_factor_hi=0.0 
+    heading_0=90.0 
+    pitch_0=-60.0 
+    red_0=75 
+    green_0=75 
+    blue_0=75 
+    mod_factor_0_lo=0.7 
+    mod_factor_0_hi=0.0 
+    heading_1=0.0 
+    pitch_1=-90.0 
+    red_1=0 
+    green_1=0 
+    blue_1=0 
+    mod_factor_1_lo=1.0 
+    mod_factor_1_hi=0.0 
+    fog_red=0 
+    fog_green=0 
+    fog_blue=0 
+    fog_alpha=0 
+    fog_dist=0 
+} 

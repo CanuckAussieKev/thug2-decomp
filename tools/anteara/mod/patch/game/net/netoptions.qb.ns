@@ -1,0 +1,58 @@
+default_network_preferences = {
+    Veh_Anteara={ui_string="Minikart" checksum=Minikart} 
+    TextColor={checksum=color_c0} 
+    Anteara_Resolution={checksum=standard} 
+    game_type={ui_string="Trick Attack" checksum=nettrickattack} 
+    num_players={ui_string="8 Players" checksum=num_8 value=8} 
+    num_observers={ui_string="No Observers" checksum=num_0 value=0} 
+    player_collision={ui_string="Off" checksum=boolean_false} 
+    friendly_fire={ui_string="Off" checksum=boolean_false} 
+    team_mode={ui_string="None" checksum=teams_none} 
+    password={ui_string=""} 
+    level={ui_string="Boston" checksum=load_bo} 
+    goals={ui_string="Classic Goals" checksum=goals_classic} 
+    server_name={ui_string="Beenox"} 
+    network_id={ui_string="ProSkater"} 
+    ip_address={ui_string="192.168.0.10"} 
+    gateway={ui_string="192.168.0.1"} 
+    subnet_mask={ui_string="255.255.255.0"} 
+    auto_dns={ui_string="Yes" checksum=boolean_true} 
+    dns_server={ui_string="192.168.0.1"} 
+    dns_server2={ui_string="192.168.0.2"} 
+    device_type={ui_string="None" checksum=device_none} 
+    broadband_type={ui_string="Auto-Detect (DHCP)" checksum=ip_dhcp} 
+    dialup_number={ui_string=""} 
+    dialup_username={ui_string=""} 
+    dialup_password={ui_string=""} 
+    time_limit={ui_string="2 minutes" checksum=time_120 time=120} 
+    target_score={ui_string="1,000,000 points" checksum=score_1000000 score=1000000} 
+    host_name={ui_string=""} 
+    domain_name={ui_string=""} 
+    dialup_authentication={ui_string="Yes" checksum=boolean_true} 
+    skill_level={ui_string="3: Hold My Own" checksum=num_3} 
+    use_default_master_servers={ui_string="Yes" checksum=boolean_true} 
+    master_server1={ui_string="0.0.0.0"} 
+    master_server2={ui_string="0.0.0.0"} 
+    dialup_number2={ui_string=""} 
+    dialup_number3={ui_string=""} 
+    signed_disclaimer={ui_string="No" checksum=boolean_false} 
+    profile_email={ui_string=""} 
+    profile_password={ui_string=""} 
+    profile_password_confirm={ui_string=""} 
+    profile_success={ui_string="No" checksum=boolean_false} 
+    profile_warning_shown={ui_string="No" checksum=boolean_false} 
+    config_type={ui_string="None" checksum=config_sony} 
+    unique_id={ui_string="123456789"} 
+    auto_brake={ui_string="On" checksum=boolean_true} 
+    show_names={ui_string="On" checksum=boolean_true} 
+    score_display={ui_string="Show Players" checksum=score_players} 
+    ctf_game_type={ui_string="Use Time Limit" checksum=timed_ctf} 
+    stop_at_zero={ui_string="No" checksum=boolean_false} 
+    score_reset={ui_string="No" checksum=boolean_false} 
+    face_dl_key={ui_string=""} 
+    fireball_difficulty={ui_string="3" checksum=num_3 fireball_level=3} 
+    rank_limit={ui_string="9" checksum=num_9 num=9} 
+    rank_test={ui_string="None" checksum=rank_test_none} 
+    team_graffiti_mode={ui_string="Combined" checksum=graffiti_team_scoring} 
+    buddy_array=[] 
+} 

@@ -1,0 +1,31 @@
+Trick_Airshuffle = {Scr=Airshuffle Params={Name=%"Airshuffle" Score=250}} 
+Trick_Test = {Scr=OneButtonTest Params={Name=%"test" Score=250}} 
+GroundTricks = 
+[
+    {Trigger={InOrder, Up, Left, 300} Trick_PrimoSpin} 
+    {Trigger={TripleInOrder, a=Down, b=Down, R1, 500} Scr=ToggleSwitchRegular Params={PowerSlide}} 
+    {Trigger={PressAndRelease, Up, X, 300} Scr=NoComply Params={Name=%"No Comply" Score=100}} 
+    {Trigger={TripleInOrder, a=L1, b=L1, Triangle, 500} Scr=Props Params={string_id=props_string}} 
+    {Trigger={TripleInOrder, a=L1, b=L1, Square, 500} Scr=Taunt Params={Anim=Taunt1 string_id=your_daddy_string}} 
+    {Trigger={TripleInOrder, a=L1, b=L1, Circle, 500} Scr=Taunt Params={Anim=Taunt2 string_id=no_way_string}} 
+    {Trigger={TripleInOrder, a=L1, b=L1, X, 500} Scr=Taunt Params={Anim=Taunt3 string_id=get_some_string}} 
+    {Trigger={Press, L2, 20} Scr=ToggleNollieRegular NGC_Trigger={TripleInOrderSloppy, a=Left, b=Right, R1, 400}} 
+    {Trigger={Release, L2, 20} Scr=ToggleNollieRegular NGC_Trigger={TripleInOrderSloppy, a=Up, b=Up, R1, 400} Params={Nollie=1}} 
+    {Trigger={Press, R2, 20} Scr=ToggleSwitchRegular NGC_Trigger={Press, R1, 20}} 
+] 
+script Airshuffle {
+    if GetGlobalFlag flag=ANTEARA_AIRSHUFFLE {
+        ClearTrickQueue 
+        ClearEventBuffer Buttons=Dpad OlderThan=TRICK_PRELOAD_TIME 
+        Jump BonelessHeight 
+        InAirExceptions 
+        Vibrate Actuator=1 Percent=80 duration=0.1 
+        SetTrickName <Name> 
+        SetTrickScore <Score> 
+        Display 
+        PlayAnim Anim=HalfCabImpossible duration=2 Seconds 
+        WaitAnimFinished 
+        BailOff 
+        Goto Airborne 
+    } 
+} 

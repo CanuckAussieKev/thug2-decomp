@@ -1,0 +1,12 @@
+time_limit_options = [
+    {name="1 second" checksum=time_01 time=1} 
+    {name="3 seconds" checksum=time_03 time=3} 
+    {name="10 seconds" checksum=time_10 time=10} 
+    {name="30 seconds" checksum=time_30 time=30} 
+    {name="1 minute" checksum=time_60 time=60} 
+    {name="2 minutes" checksum=time_120 time=120} 
+    {name="5 minutes" checksum=time_300 time=300} 
+    {name="10 minutes" checksum=time_600 time=600} 
+    // MERGE: 2010 - the Infinite time limit
+    {name="Infinite" checksum=time_9001 time=0} 
+] 

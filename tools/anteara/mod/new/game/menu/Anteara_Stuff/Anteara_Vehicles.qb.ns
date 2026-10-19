@@ -1,0 +1,476 @@
+
+script anteara_blinking_arrow {
+    if ScreenElementExists id=<id> {
+        RunScriptOnScreenElement id=<id> menu_blink_arrow 
+    } 
+} 
+script anteara_vehicle_menu {
+    make_new_themed_scrolling_menu title="ULTIMATE VEHICLE MENU" 
+    callback_script = Create_anteara_menu 
+    SetScreenElementProps {
+        id=sub_menu 
+        event_handlers=[{pad_back generic_menu_pad_back Params={callback=BackFromVehMenu}}] 
+        replace_handlers 
+    } 
+    toggle_anteara_veh 
+    theme_menu_add_item text="\\c1Select a car by pressing" pad_choose_script=NullScript no_bg centered=centered not_focusable 
+    theme_menu_add_item text="\\cbLeft \\c1or \\cbRight" pad_choose_script=NullScript no_bg centered=centered not_focusable 
+    theme_menu_add_item text="By \\c4Quazz and \\c3 Anteara :D" pad_choose_script=NullScript no_bg centered=centered not_focusable 
+    theme_menu_add_item text="" pad_choose_script=NullScript no_bg centered=centered not_focusable 
+    theme_menu_add_number_item {
+        min=0 
+        max=21 
+        text="Vehicle:        " 
+        text_pos=(75.0, -5.0) 
+        id=change_veh_anteara 
+        value=0 
+        pad_right_script=anteara_right_script 
+        pad_left_script=anteara_left_script 
+        no_bg 
+        centered=centered 
+    } 
+    update_veh_text 
+    theme_menu_add_item text="Enter Vehicle" pad_choose_script=drive_anteara_veh no_bg centered=centered 
+    theme_menu_add_item text="Exit Vehicle" pad_choose_script=Anteara_Easy_ExitVehicle no_bg centered=centered 
+    theme_menu_add_item text="Back" pad_choose_script=BackFromVehMenu last_item last_menu_item=1 no_bg centered=centered 
+    finish_themed_scrolling_menu 
+} 
+script update_veh_text {
+    GetPreferenceString pref_type=network veh_Anteara 
+    SetScreenElementProps {id={change_veh_anteara child=3} text=<ui_string>} 
+    GetStackedScreenElementPos X id={change_veh_anteara child=3} offset=(3.0, 2.0) 
+    SetScreenElementProps {id={change_veh_anteara child=5} pos=<pos>} 
+} 
+script anteara_blink_effect {
+    DoScreenElementMorph {
+        id={change_veh_anteara child=4} 
+        time=0.3 
+        alpha=0} 
+    wait 0.3 seconds 
+    DoScreenElementMorph {
+        id={change_veh_anteara child=4} 
+        time=0.3 
+        rgba=[35 57 107 128] 
+        alpha=1} 
+} 
+script anteara_blink_effect2 {
+    DoScreenElementMorph {
+        id={change_veh_anteara child=5} 
+        time=0.3 
+        alpha=0} 
+    wait 0.3 seconds 
+    DoScreenElementMorph {
+        id={change_veh_anteara child=5} 
+        time=0.3 
+        rgba=[35 57 107 128] 
+        alpha=1} 
+} 
+script anteara_left_script {
+    RunScriptOnScreenElement id=change_veh_anteara anteara_blink_effect 
+    update_veh_text 
+    GetPreferenceChecksum pref_type=network veh_Anteara 
+    change case_anteara_veh=(case_anteara_veh - 1) 
+    if (case_anteara_veh < 0) {
+        change case_anteara_veh=16 
+    } 
+    toggle_anteara_veh 
+    update_veh_text 
+} 
+script anteara_right_script {
+    RunScriptOnScreenElement id=change_veh_anteara anteara_blink_effect2 
+    update_veh_text 
+    GetPreferenceChecksum pref_type=network veh_Anteara 
+    change case_anteara_veh=(case_anteara_veh + 1) 
+    if (case_anteara_veh > 21) {
+        change case_anteara_veh=0 
+    } 
+    toggle_anteara_veh 
+    update_veh_text 
+} 
+case_anteara_veh = 0 
+script toggle_anteara_veh {
+    switch case_anteara_veh
+        case 2 {
+            SetScreenElementProps id={change_veh_anteara child=3} text="Muscle Car" 
+            SetPreferencesFromUI prefs=network field="veh_Anteara" checksum=veh_MuscleCar string="Muscle Car" 
+        }
+        case 3 {
+            SetScreenElementProps id={change_veh_anteara child=3} text="Jeep" 
+            SetPreferencesFromUI prefs=network field="veh_Anteara" checksum=veh_Jeep string="Jeep" 
+        }
+        case 4 {
+            SetScreenElementProps id={change_veh_anteara child=3} text="Mini Baja" 
+            SetPreferencesFromUI prefs=network field="veh_Anteara" checksum=veh_MiniBaja string="Mini Baja" 
+        }
+        case 5 {
+            SetScreenElementProps id={change_veh_anteara child=3} text="Police Car" 
+            SetPreferencesFromUI prefs=network field="veh_Anteara" checksum=veh_PoliceCar string="Police Car" 
+        }
+        case 6 {
+            SetScreenElementProps id={change_veh_anteara child=3} text="UK Bus" 
+            SetPreferencesFromUI prefs=network field="veh_Anteara" checksum=veh_UKBus string="UK Bus" 
+        }
+        case 7 {
+            SetScreenElementProps id={change_veh_anteara child=3} text="Security Cart" 
+            SetPreferencesFromUI prefs=network field="veh_Anteara" checksum=veh_SecurityCart string="Security Cart" 
+        }
+        case 8 {
+            SetScreenElementProps id={change_veh_anteara child=3} text="Forklift" 
+            SetPreferencesFromUI prefs=network field="veh_Anteara" checksum=veh_Forklift string="Forklift" 
+        }
+        case 9 {
+            SetScreenElementProps id={change_veh_anteara child=3} text="Taurus" 
+            SetPreferencesFromUI prefs=network field="veh_Anteara" checksum=veh_Taurus string="Taurus" 
+        }
+        case 10 {
+            SetScreenElementProps id={change_veh_anteara child=3} text="Old Van" 
+            SetPreferencesFromUI prefs=network field="veh_Anteara" checksum=veh_Oldvan string="Old Van" 
+        }
+        case 11 {
+            SetScreenElementProps id={change_veh_anteara child=3} text="Smart Car" 
+            SetPreferencesFromUI prefs=network field="veh_Anteara" checksum=veh_SmartCar string="Smart Car" 
+        }
+        case 12 {
+            SetScreenElementProps id={change_veh_anteara child=3} text="Impala" 
+            SetPreferencesFromUI prefs=network field="veh_Anteara" checksum=veh_Impala string="Impala" 
+        }
+        case 13 {
+            SetScreenElementProps id={change_veh_anteara child=3} text="Gardners Cart" 
+            SetPreferencesFromUI prefs=network field="veh_Anteara" checksum=veh_GardenersCart string="Gardners Cart" 
+        }
+        case 14 {
+            SetScreenElementProps id={change_veh_anteara child=3} text="Limo" 
+            SetPreferencesFromUI prefs=network field="veh_Anteara" checksum=veh_Limo string="Limo" 
+        }
+        case 15 {
+            SetScreenElementProps id={change_veh_anteara child=3} text="RC Car" 
+            SetPreferencesFromUI prefs=network field="veh_Anteara" checksum=veh_RCCar string="RC Car" 
+        }
+        case 16 {
+            SetScreenElementProps id={change_veh_anteara child=3} text="Pickup Truck" 
+            SetPreferencesFromUI prefs=network field="veh_Anteara" checksum=veh_PickupTruck string="Pickup Truck" 
+        }
+        case 17 {
+            SetScreenElementProps id={change_veh_anteara child=3} text="Blimp" 
+            SetPreferencesFromUI prefs=network field="veh_Anteara" checksum=veh_Blimp string="Blimp" 
+        }
+        case 18 {
+            SetScreenElementProps id={change_veh_anteara child=3} text="Segway" 
+            SetPreferencesFromUI prefs=network field="veh_Anteara" checksum=veh_Segway string="Segway" 
+        }
+        case 19 {
+            SetScreenElementProps id={change_veh_anteara child=3} text="Tricycle" 
+            SetPreferencesFromUI prefs=network field="veh_Anteara" checksum=veh_Tricycle string="Tricycle" 
+        }
+        case 20 {
+            SetScreenElementProps id={change_veh_anteara child=3} text="Wheelchair" 
+            SetPreferencesFromUI prefs=network field="veh_Anteara" checksum=veh_Wheelchair string="Wheelchair" 
+        }
+        case 21 {
+            SetScreenElementProps id={change_veh_anteara child=3} text="Mechanical Bull" 
+            SetPreferencesFromUI prefs=network field="veh_Anteara" checksum=veh_MechBull string="Mechanical Bull" 
+        }
+        case 0 {
+            SetScreenElementProps id={change_veh_anteara child=3} text="MiniKart" 
+            SetPreferencesFromUI prefs=network field="veh_Anteara" checksum=veh_MiniKart string="MiniKart" 
+        }
+        case 1 {
+            SetScreenElementProps id={change_veh_anteara child=3} text="Rally Car" 
+            SetPreferencesFromUI prefs=network field="veh_Anteara" checksum=veh_RallyCar string="Rally Car" 
+        }
+    endswitch    
+} 
+script drive_anteara_veh {
+    skater:UnpausePhysics 
+    Anteara_board 
+    exit_pause_menu 
+    GoToCarType 
+    skater:BashOff 
+    skater:NollieOff 
+    skater:PressureOff 
+    skater:LandSkaterTricks 
+    skater:ResetSwitched 
+    skater:ClearTrickQueues 
+    skater:DestroyAllSpecialItems 
+    skater:SparksOff 
+    skater:VibrateOff 
+    skater:StopBalanceTrick 
+    skater:KillExtraTricks 
+} 
+script GoToCarType {
+    if (case_anteara_veh = 1) {
+        SetTags control_type=<control_type> restart_node=<restart_node> exit_node=<exit_node> destroy_car=<destroy_car> 
+        GetTags 
+        goal_initialize_skater control_type=Rallycar restart_node=<restart_node> 
+    } 
+    if (case_anteara_veh = 2) {
+        goal_initialize_skater control_type=JunkerCar 
+    } 
+    if (case_anteara_veh = 3) {
+        goal_initialize_skater control_type=WranglerCar 
+    } 
+    if (case_anteara_veh = 4) {
+        goal_initialize_skater control_type=MiniBajaCar 
+    } 
+    if (case_anteara_veh = 5) {
+        goal_initialize_skater control_type=PoliceCar 
+    } 
+    if (case_anteara_veh = 6) {
+        goal_initialize_skater control_type=BusUK 
+    } 
+    if (case_anteara_veh = 7) {
+        goal_initialize_skater control_type=SecurityCart 
+    } 
+    if (case_anteara_veh = 8) {
+        goal_initialize_skater control_type=ForkLift 
+    } 
+    if (case_anteara_veh = 9) {
+        goal_initialize_skater control_type=TaurusCar 
+    } 
+    if (case_anteara_veh = 10) {
+        goal_initialize_skater control_type=OldVan 
+    } 
+    if (case_anteara_veh = 11) {
+        goal_initialize_skater control_type=SmartCar 
+    } 
+    if (case_anteara_veh = 12) {
+        goal_initialize_skater control_type=ImpalaCar 
+    } 
+    if (case_anteara_veh = 13) {
+        goal_initialize_skater control_type=GardnersCart 
+    } 
+    if (case_anteara_veh = 14) {
+        goal_initialize_skater control_type=LimoCar 
+    } 
+    if (case_anteara_veh = 15) {
+        goal_initialize_skater control_type=RCCar 
+    } 
+    if (case_anteara_veh = 16) {
+        goal_initialize_skater control_type=PickupTruck 
+    } 
+    if (case_anteara_veh = 17) {
+        goal_initialize_skater control_type=BlimpSetup 
+    } 
+    if (case_anteara_veh = 18) {
+        goal_initialize_skater control_type=Segway 
+    } 
+    if (case_anteara_veh = 19) {
+        goal_initialize_skater control_type=Tricycle 
+    } 
+    if (case_anteara_veh = 20) {
+        goal_initialize_skater control_type=Wheelchair 
+    } 
+    if (case_anteara_veh = 21) {
+        goal_initialize_skater control_type=mechbull 
+    } 
+    if (case_anteara_veh = 0) {
+        Anteara_board 
+        goal_initialize_skater control_type=mini_kart 
+    } 
+} 
+script BackFromVehMenu {
+    Create_anteara_menu 
+} 
+script Anteara_ExitVehicle_Working2 {
+    skater:GetCameraId 
+    if ! GameIsPaused {
+        <CameraId>:unpause 
+    } 
+    SetActiveCamera id=<CameraId> 
+    PlayerVehicle:die 
+    PlayerVehicleCamera:die 
+    skater:UnsetDriving 
+    skater:ReturnBoardToSkater 
+    skater:Obj_ShadowOn ShadowType=Detailed 
+    skater:ResetRigidBodyCollisionRadiusBoost 
+    GoalManager_HideAllGoalPeds 0 
+    change driving_parked_car=0 
+} 
+script Vehicle_Model_Create {
+    GetCurrentSkaterProfileIndex 
+    EditPlayerAppearance {
+        profile=<currentSkaterProfileIndex> 
+        target=SetPart targetParams={part=board desc_id=<Vehicle_Name>} 
+    } 
+    test_number_id 
+} 
+script anteara_tricycle {
+    Anteara_ExitVehicle_Working2 
+    MakeSkaterGoto SkaterInit 
+    skater:SwitchToSkatingPhysics 
+    skater:MotoSkateboardOff 
+    skater:SkaterVehicleOff 
+    skater:NoSkaterVehicleSounds 
+    skater:SkaterLoopingSound_TurnOff 
+    Vehicle_Model_Create Vehicle_Name=Tricycle 
+    Vehicle_Start Params=tricycle_params 
+    skater:remove_all_anim_subsets 
+    exit_pause_menu 
+} 
+script anteara_scooter {
+    Anteara_ExitVehicle_Working2 
+    MakeSkaterGoto SkaterInit 
+    skater:SwitchToSkatingPhysics 
+    skater:MotoSkateboardOff 
+    skater:SkaterVehicleOff 
+    skater:NoSkaterVehicleSounds 
+    skater:SkaterLoopingSound_TurnOff 
+    Vehicle_Model_Create Vehicle_Name=Segway 
+    Vehicle_Start Params=segway_params 
+    skater:remove_all_anim_subsets 
+    MakeSkaterGoto SkaterInit 
+    exit_pause_menu 
+} 
+script anteara_minikart {
+    Anteara_ExitVehicle_Working2 
+    MakeSkaterGoto SkaterInit 
+    skater:SwitchToSkatingPhysics 
+    skater:MotoSkateboardOff 
+    skater:SkaterVehicleOff 
+    skater:NoSkaterVehicleSounds 
+    skater:SkaterLoopingSound_TurnOff 
+    Vehicle_Model_Create Vehicle_Name=minikart 
+    Vehicle_Start Params=minikart_params 
+    skater:remove_all_anim_subsets 
+} 
+script anteara_bull {
+    Anteara_ExitVehicle_Working2 
+    MakeSkaterGoto SkaterInit 
+    skater:SwitchToSkatingPhysics 
+    skater:MotoSkateboardOff 
+    skater:SkaterVehicleOff 
+    skater:NoSkaterVehicleSounds 
+    skater:SkaterLoopingSound_TurnOff 
+    Vehicle_Model_Create Vehicle_Name=mechbull 
+    Vehicle_Start Params=mechbull_params 
+    skater:remove_all_anim_subsets 
+    exit_pause_menu 
+} 
+script anteara_chair {
+    Anteara_ExitVehicle_Working2 
+    MakeSkaterGoto SkaterInit 
+    skater:SwitchToSkatingPhysics 
+    skater:MotoSkateboardOff 
+    skater:SkaterVehicleOff 
+    skater:NoSkaterVehicleSounds 
+    skater:SkaterLoopingSound_TurnOff 
+    Vehicle_Model_Create Vehicle_Name=Wheelchair 
+    Vehicle_Start Params=wheelchair_params 
+    skater:remove_all_anim_subsets 
+    exit_pause_menu 
+} 
+script anteara_luge {
+    Anteara_ExitVehicle_Working2 
+    MakeSkaterGoto SkaterInit 
+    skater:SwitchToSkatingPhysics 
+    skater:MotoSkateboardOff 
+    skater:SkaterVehicleOff 
+    skater:NoSkaterVehicleSounds 
+    skater:SkaterLoopingSound_TurnOn 
+    Vehicle_Start Params=luge_params 
+    skater:remove_all_anim_subsets 
+    Vehicle_Model_Create Vehicle_Name=`default` 
+    MakeSkaterGoto SkaterInit 
+    exit_pause_menu 
+} 
+script Anteara_board {
+    Anteara_ExitVehicle_Working2 
+    MakeSkaterGoto SkaterInit 
+    skater:MotoSkateboardOff 
+    skater:SkaterVehicleOff 
+    skater:NoSkaterVehicleSounds 
+    skater:remove_all_anim_subsets 
+    skater:SkaterLoopingSound_TurnOn 
+    Vehicle_Model_Create Vehicle_Name=`default` 
+} 
+script anteara_wings {
+    wait 1 gameframe 
+    MakeSkaterGoto SkaterInit 
+    wait 1 gameframe 
+    skater:remove_all_anim_subsets 
+    wait 1 gameframe 
+    Anteara_ExitVehicle_Working2 
+    skater:SwitchToSkatingPhysics 
+    skater:MotoSkateboardOff 
+    skater:SkaterVehicleOff 
+    skater:NoSkaterVehicleSounds 
+    skater:SkaterLoopingSound_TurnOff 
+    wait 1 gameframe 
+    Vehicle_Start Params=wings_params 
+    skater:remove_all_anim_subsets 
+    MakeSkaterGoto SkaterInit 
+    exit_pause_menu 
+} 
+script anteara_gurney {
+    wait 1 gameframe 
+    MakeSkaterGoto SkaterInit 
+    wait 1 gameframe 
+    skater:remove_all_anim_subsets 
+    wait 1 gameframe 
+    Anteara_ExitVehicle_Working2 
+    skater:SwitchToSkatingPhysics 
+    skater:MotoSkateboardOff 
+    skater:SkaterVehicleOff 
+    skater:NoSkaterVehicleSounds 
+    skater:SkaterLoopingSound_TurnOff 
+    wait 1 gameframe 
+    Vehicle_Start Params=gurney_params 
+    Vehicle_Model_Create Vehicle_Name=Gurney 
+    skater:remove_all_anim_subsets 
+    MakeSkaterGoto SkaterInit 
+    exit_pause_menu 
+} 
+my_skater_index = 0 
+script test_number_id {
+    <SkaterNum> = 0 
+    while {
+        if SkaterExists skater=<SkaterNum> {
+            if <objId>:IsLocalSkater {
+                my_skater_index = <SkaterNum> 
+                if (<my_skater_index> = 0) {
+                    RefreshSkaterModel profile=<currentSkaterProfileIndex> skater=0 
+                } 
+                if (<my_skater_index> = 1) {
+                    RefreshSkaterModel profile=<currentSkaterProfileIndex> skater=1 
+                } 
+                if (<my_skater_index> = 2) {
+                    RefreshSkaterModel profile=<currentSkaterProfileIndex> skater=2 
+                } 
+                if (<my_skater_index> = 3) {
+                    RefreshSkaterModel profile=<currentSkaterProfileIndex> skater=3 
+                } 
+                if (<my_skater_index> = 4) {
+                    RefreshSkaterModel profile=<currentSkaterProfileIndex> skater=4 
+                } 
+                if (<my_skater_index> = 5) {
+                    RefreshSkaterModel profile=<currentSkaterProfileIndex> skater=5 
+                } 
+                if (<my_skater_index> = 6) {
+                    RefreshSkaterModel profile=<currentSkaterProfileIndex> skater=6 
+                } 
+                if (<my_skater_index> = 7) {
+                    RefreshSkaterModel profile=<currentSkaterProfileIndex> skater=7 
+                } 
+            } 
+        } 
+        <SkaterNum> = (<SkaterNum> + 1) 
+    } 8 
+} 
+script Anteara_Easy_ExitVehicle {
+    Anteara_board 
+    skater:UnpausePhysics 
+    skater:AddSkaterToWorld 
+    MakeSkaterGoto Switch_OnGroundAi Params={NewScript=Walking_OnGroundAi Restart} 
+    exit_pause_menu 
+} 
+script LoadExtraVehicleSounds {
+    LoadSound "Vehicles\\Vehicle_Tire_Loop" vol=100 
+    LoadSound "Vehicles\\VC_LeafBlowerEngineLoop" vol=100 
+    LoadSound "SD\\SD_CartLoop" vol=100 
+    LoadSound "Shared\\auto\\UKBusEngineLoop" vol=100 
+    LoadSound "nj\\nj_nasalracer04" vol=100 
+    LoadSound "shared\\auto\\zootramengineloop" vol=100 
+    LoadSound "shared\\auto\\lowriderloop" vol=100 
+    LoadSound "shared\\auto\\ElectricBusEngineLoop" vol=100 
+} 
+__register_checksums__ anteara_vehicle_menu make_new_themed_scrolling_menu title callback_script create_anteara_menu SetScreenElementProps id sub_menu event_handlers pad_back generic_menu_pad_back params callback create_anteara_menu replace_handlers case_anteara_veh text text text text text text text text text text theme_menu_add_item text pad_choose_script nullscript no_bg centered centered not_focusable theme_menu_add_item text pad_choose_script nullscript no_bg centered centered not_focusable theme_menu_add_item text pad_choose_script nullscript no_bg centered centered not_focusable theme_menu_add_item text text id menu_change_veh pad_choose_script toggle_anteara_veh no_bg centered centered theme_menu_add_item text pad_choose_script drive_anteara_veh no_bg centered centered theme_menu_add_item text pad_choose_script Anteara_Easy_ExitVehicle no_bg centered centered theme_menu_add_item text pad_choose_script create_anteara_menu last_item last_menu_item no_bg centered centered finish_themed_scrolling_menu case_anteara_veh toggle_anteara_veh case_anteara_veh change case_anteara_veh SetScreenElementProps id menu_change_veh child text goal_initialize_skater control_type JunkerCar change case_anteara_veh SetScreenElementProps id menu_change_veh child text goal_initialize_skater control_type Wranglercar change case_anteara_veh SetScreenElementProps id menu_change_veh child text goal_initialize_skater control_type minibajacar change case_anteara_veh SetScreenElementProps id menu_change_veh child text goal_initialize_skater control_type PoliceCar change case_anteara_veh SetScreenElementProps id menu_change_veh child text goal_initialize_skater control_type BusUK change case_anteara_veh SetScreenElementProps id menu_change_veh child text goal_initialize_skater control_type SecurityCart change case_anteara_veh SetScreenElementProps id menu_change_veh child text goal_initialize_skater control_type Forklift change case_anteara_veh SetScreenElementProps id menu_change_veh child text goal_initialize_skater control_type TaurusCar change case_anteara_veh SetScreenElementProps id menu_change_veh child text goal_initialize_skater control_type mini_kart Skater PausePhysics anteara_vehicle_menu anteara_board anteara_vehicle_menu Skater UnpausePhysics change case_anteara_veh SetScreenElementProps id menu_change_veh child text goal_initialize_skater control_type RallyCar drive_anteara_veh Skater UnpausePhysics exit_pause_menu Skater Driving GetVehicleSetup control_type control_type StructureContains Structure VehicleSetup make_skater_visible Skater Hide Skater Obj_ShadowOff Skater SwitchOffAtomic Board case_anteara_veh goal_initialize_skater control_type RallyCar Skater Driving case_anteara_veh goal_initialize_skater control_type JunkerCar case_anteara_veh goal_initialize_skater control_type WranglerCar case_anteara_veh goal_initialize_skater control_type MiniBajaCar case_anteara_veh goal_initialize_skater control_type PoliceCar case_anteara_veh goal_initialize_skater control_type BusUK case_anteara_veh goal_initialize_skater control_type SecurityCart case_anteara_veh goal_initialize_skater control_type ForkLift case_anteara_veh goal_initialize_skater control_type TaurusCar case_anteara_veh goal_initialize_skater control_type mini_kart control_type NO_trycicle control_type mini_kart SetActiveCamera id PlayerVehicleCamera create_panel_block id current_goal text style panel_message_goal wait seconds DestroyScreenElement id current_goal Anteara_ExitVehicle_Working2 Skater GetCameraId GameIsPaused CameraId unpause SetActiveCamera id CameraId PlayerVehicle Die PlayerVehicleCamera Die Skater UnsetDriving Skater ReturnBoardToSkater Skater Obj_ShadowOn ShadowType Detailed Skater ResetRigidBodyCollisionRadiusBoost GoalManager_HideAllGoalPeds change driving_parked_car MakeSkaterGoto SkaterInit exit_pause_menu console_clear Vehicle_Model_Create GetCurrentSkaterProfileIndex EditPlayerAppearance profile currentSkaterProfileIndex target SetPart targetParams part deck_graphic desc_id Vehicle_Name test_number_id anteara_tricycle Anteara_ExitVehicle_Working2 Skater SwitchToSkatingPhysics Skater MotoSkateboardOff Skater SkaterVehicleOff Skater NoSkaterVehicleSounds Skater SkaterLoopingSound_TurnOff Vehicle_Model_Create Vehicle_Name tricycle Vehicle_Start params tricycle_params Skater remove_all_anim_subsets Skater SwitchOffBoard exit_pause_menu anteara_scooter Anteara_ExitVehicle_Working2 Skater SwitchToSkatingPhysics Skater MotoSkateboardOff Skater SkaterVehicleOff Skater NoSkaterVehicleSounds Skater SkaterLoopingSound_TurnOff Vehicle_Model_Create Vehicle_Name segway Vehicle_Start params segway_params Skater remove_all_anim_subsets Skater SwitchOffBoard MakeSkaterGoto SkaterInit exit_pause_menu anteara_minikart Anteara_ExitVehicle_Working2 Skater SwitchToSkatingPhysics Skater MotoSkateboardOff Skater SkaterVehicleOff Skater NoSkaterVehicleSounds Skater SkaterLoopingSound_TurnOff Vehicle_Model_Create Vehicle_Name minikart Vehicle_Start params minikart_params Skater remove_all_anim_subsets Skater SwitchOffBoard exit_pause_menu anteara_bull Anteara_ExitVehicle_Working2 Skater SwitchToSkatingPhysics Skater MotoSkateboardOff Skater SkaterVehicleOff Skater NoSkaterVehicleSounds Skater SkaterLoopingSound_TurnOff Vehicle_Model_Create Vehicle_Name mechbull Vehicle_Start params mechbull_params Skater remove_all_anim_subsets Skater SwitchOffBoard exit_pause_menu anteara_chair Anteara_ExitVehicle_Working2 Skater SwitchToSkatingPhysics Skater MotoSkateboardOff Skater SkaterVehicleOff Skater NoSkaterVehicleSounds Skater SkaterLoopingSound_TurnOff Vehicle_Model_Create Vehicle_Name wheelchair Vehicle_Start params wheelchair_params Skater remove_all_anim_subsets Skater SwitchOffBoard exit_pause_menu anteara_luge Anteara_ExitVehicle_Working2 Skater SwitchToSkatingPhysics Skater MotoSkateboardOff Skater SkaterVehicleOff Skater NoSkaterVehicleSounds Skater SkaterLoopingSound_TurnOn Vehicle_Start params luge_params Skater remove_all_anim_subsets Vehicle_Model_Create Vehicle_Name Fi_Deck_2 MakeSkaterGoto SkaterInit exit_pause_menu anteara_board Anteara_ExitVehicle_Working2 Skater MotoSkateboardOff Skater SkaterVehicleOff Skater NoSkaterVehicleSounds Skater remove_all_anim_subsets Skater SkaterLoopingSound_TurnOn Vehicle_Model_Create Vehicle_Name Fi_Deck_2 exit_pause_menu anteara_wings wait gameframe MakeSkaterGoto SkaterInit wait gameframe Skater remove_all_anim_subsets wait gameframe Anteara_ExitVehicle_Working2 Skater SwitchToSkatingPhysics Skater MotoSkateboardOff Skater SkaterVehicleOff Skater NoSkaterVehicleSounds Skater SkaterLoopingSound_TurnOff wait gameframe Vehicle_Start params wings_params Skater remove_all_anim_subsets MakeSkaterGoto SkaterInit exit_pause_menu my_skater_index test_number_id SkaterNum SkaterExists Skater SkaterNum objId IsLocalSkater my_skater_index SkaterNum my_skater_index RefreshSkaterModel profile currentSkaterProfileIndex Skater my_skater_index RefreshSkaterModel profile currentSkaterProfileIndex Skater my_skater_index RefreshSkaterModel profile currentSkaterProfileIndex Skater my_skater_index RefreshSkaterModel profile currentSkaterProfileIndex Skater my_skater_index RefreshSkaterModel profile currentSkaterProfileIndex Skater my_skater_index RefreshSkaterModel profile currentSkaterProfileIndex Skater my_skater_index RefreshSkaterModel profile currentSkaterProfileIndex Skater my_skater_index RefreshSkaterModel profile currentSkaterProfileIndex Skater SkaterNum SkaterNum Anteara_Easy_ExitVehicle PlayerVehicleCamera Die MakeSkaterGoto Switch_OnGroundAi Params NewScript Walking_OnGroundAi Skater UnpausePhysics exit_pause_menu ScreenElementExists current_menu_anchor current_menu_anchor skater die hideskaterandmiscskatereffects AddSkaterToWorld Rallycar BashOff NollieOff PressureOff LandSkaterTricks ResetSwitched ClearTrickQueues DestroyAllSpecialItems SparksOff VibrateOff StopBalanceTrick KillExtraTricks Obj_GetPosition restart pos pos Restart GotoCarType GotoCarType GoToCarType LoadSound vol BackFromVehMenu BackFromVehMenu Anteara_board Create_anteara_menu RestartWalking anteara_LR_menu anteara_LR_menu pad_left pad_right pad_left pad_right anteara_left_script anteara_right_script anteara_left_script anteara_right_script anteara_left_script anteara_right_script theme_menu_add_number_item text_pos value NullScript pad_left_script pad_right_script theme_menu_toggle_number_item CreateScreenElement type SpriteElement parent anchor_id texture left_arrow ScreenElementPos alpha just right top rgba arrow_rgba z_priority scale CreateScreenElement type SpriteElement parent anchor_id texture right_arrow alpha just left top rgba arrow_rgba z_priority scale GalaxieCar LoadExtraVehicleSounds OldVan SmartCar ImpalaCar GardnersCart LimoCar RCCar PickupTruck BlimpSetup board anteara_gurney gurney_params Gurney change_veh_anteara update_veh_text update_veh_text GetPreferenceString pref_type network veh_Anteara change_veh_anteara ui_string GetStackedScreenElementPos X change_color_text offset change_veh_anteara GetPreferenceChecksum pref_type network veh_Anteara update_veh_text GetPreferenceChecksum pref_type network veh_Anteara update_veh_text SetPreferencesFromUI prefs network field checksum veh_MuscleCar string veh_Jeep veh_MiniBaja veh_PoliceCar veh_UKBus veh_SecurityCart veh_Forklift veh_Taurus veh_Oldvan veh_SmartCar veh_Impala veh_GardenersCart veh_Limo veh_RCCar veh_PickupTruck veh_Blimp veh_MiniKart veh_RallyCar min max RunScriptOnScreenElement menu_blink_arrow char_guide_left_arrow anteara_blinking_arrow anteara_blinking_arrow anteara_blinking_arrow menu_vert_blink_arrow menu_vert_blink_arrow DoScreenElementMorph DoScreenElementMorph time DoMorph DoMorph anteara_blink_effect anteara_blink_effect anteara_blink_effect anteara_blink_effect2 anteara_blink_effect2 Theme_GetHighlightedTextColorNew return_value highlighted_text_rgba held Theme_GetHighlightedTextColor highlight_rgba highlight_rgba DE_HIGHLIGHT_BAR_COLOR restart_node restart_node SetTags exit_node exit_node destroy_car destroy_car GetTags veh_Segway veh_Tricycle veh_Wheelchair veh_MechBull Segway Tricycle Wheelchair `default` `default` BOARD_VALUE

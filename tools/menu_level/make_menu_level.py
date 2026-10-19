@@ -29,6 +29,8 @@
 #                              drops in on the outside halfpipe, as THPS4's practice; Esc brings the menu back); the shop's collision loaded at the
 #                              start; the skater standing idle.
 #   front_end\levels\mainmenu\mainmenu.qb  the front end's nodes with the skater's restarts moved into THPS4's shop.
+#   anteara\                  the Anteara Mod's script set (tools/anteara/README.md; the DLL reads it first while
+#                              [features] anteara_mod=1), with the edits above re-applied to the files it changes.
 # Nothing of the game is stored in the repo: the files are made from the game folder each time.
 # Needs NeverScript (tools/build_neverscript.ps1 -> out/neverscript/ns.exe).
 
@@ -51,6 +53,8 @@ import nodes as level_port_nodes  # noqa: E402 (the terrain sounds a level loads
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import level_select  # noqa: E402 (the level select's sections, stars and signs)
 import career_complete  # noqa: E402 (GAME OPTIONS' CREATE 100% CAS)
+sys.path.insert(0, os.path.join(REPO, "tools", "anteara"))
+import anteara  # noqa: E402 (the Anteara Mod's script set: anteara\, with this overlay's edits re-applied)
 
 def checksum(name):
     return (zlib.crc32(name.lower().encode()) ^ 0xFFFFFFFF) & 0xFFFFFFFF
@@ -455,7 +459,8 @@ def add_level_editor(text):
     # my_exit_pause_menu does (the game stays paused: no UnpauseGame), the skater out of the world as its edit_goal
     # does (PauseSkaters, HideSkaterAndMiscSkaterEffects), and Start / Select over to the editor (Start leaves it).
     # level_editor_exit brings the skater back and the pause menu again (its CONTINUE unpauses as ever).
-    options = re.search(r'\n( *)add_roundbar_menu_item text="YOUR OPTIONS" id=menu_your_options '
+    # (Id= in the Anteara Mod's pause menu: tools/anteara)
+    options = re.search(r'\n( *)add_roundbar_menu_item text="YOUR OPTIONS" [Ii]d=menu_your_options '
                         r'pad_choose_script=create_your_options_menu \n', text)
     if not options or text.count('text="YOUR OPTIONS"') != 1:
         sys.exit("gamemenu_pause.qb: the YOUR OPTIONS item not found once")
@@ -1187,10 +1192,13 @@ def main():
         pause = decompile(prx_file(qb_scripts, r"scripts\game\menu\gamemenu_pause.qb"), "pause.qb")
 
         # Always: the playable skate shop; and the THPS4 levels when tools/thps4_levels has converted them.
-        levels_with_shop = add_skateshop_level(levels)
         thps4 = ported_levels.load_manifest(args.game)
+
+        def overlay_levels(text):
+            text = add_skateshop_level(text)
+            return ported_levels.add_to_levels(text, thps4) if thps4 else text
+        levels_with_shop = overlay_levels(levels)
         if thps4:
-            levels_with_shop = ported_levels.add_to_levels(levels_with_shop, thps4)
             installed = ported_levels.install_files(args.game, out)
             print("Converted levels (THPS4 / THUG1): %d added to the level select; copied %s" % (len(thps4["levels"]), ", ".join(installed)))
         write(levels_with_shop, r"scripts\game\Levels.qb")
@@ -1203,11 +1211,16 @@ def main():
                                              thug1=by_game.get("thug2-decomp-thug1"),
                                              thps3=by_game.get("thug2-decomp-thps3"),
                                              thaw=by_game.get("thug2-decomp-thaw"))
-        write(level_select.edit_level_select(drop_uninstalled_default(add_skateshop_sign(select), args.game),
-                                             section_list),
-              r"scripts\game\menu\gamemenu_levelselect.qb")
+
+        def overlay_select(text):
+            return level_select.edit_level_select(drop_uninstalled_default(add_skateshop_sign(text), args.game),
+                                                  section_list)
+
+        def overlay_sprites(text):
+            return level_select.edit_sprites(text, section_list)
+        write(overlay_select(select), r"scripts\game\menu\gamemenu_levelselect.qb")
         sprites = decompile(prx_file(qb_scripts, r"scripts\game\menu\sprites.qb"), "sprites.qb")
-        write(level_select.edit_sprites(sprites, section_list), r"scripts\game\menu\sprites.qb")
+        write(overlay_sprites(sprites), r"scripts\game\menu\sprites.qb")
         frame = prx_file(os.path.join(pre, "Levelselect.prx"), level_select.level_select_icons.FRAME_SOURCE)
         print("level select signs: %s" % ", ".join(level_select.write_signs(frame, section_list, out)))
         print(level_select.describe(section_list))
@@ -1221,7 +1234,8 @@ def main():
 
         # The standard main menu, for the front end in THPS4's skate shop (the DLL uses front_end\ while
         # menu_backdrop is on and the shop is installed).
-        if thps4 and any(level["level"] == BACKDROP_LEVEL for level in thps4["levels"]):
+        backdrop = bool(thps4 and any(level["level"] == BACKDROP_LEVEL for level in thps4["levels"]))
+        if backdrop:
             write(front_end_scripts(front_end), r"front_end\levels\mainmenu\mainmenu_scripts.qb")
             roundbar = decompile(prx_file(qb_scripts, r"scripts\game\menu\roundbarmenu.qb"), "roundbarmenu.qb")
             write(front_end_roundbar(roundbar), r"front_end\scripts\game\menu\roundbarmenu.qb")
@@ -1239,6 +1253,16 @@ def main():
             print("wrote", target)
         else:
             print("%s not converted (tools/thps4_levels): no front end backdrop, the game's main menu kept" % BACKDROP_LEVEL)
+
+        # The Anteara Mod (tools/anteara; the DLL reads anteara\ first while [features] anteara_mod=1): its script
+        # set, with the edits above re-applied to the files it also changes or this overlay changes.
+        print(anteara.install(args.game, out, args.ns,
+                              {r"scripts\game\levels.qb": overlay_levels,
+                               r"scripts\game\menu\gamemenu_levelselect.qb": overlay_select,
+                               r"scripts\game\menu\sprites.qb": overlay_sprites,
+                               r"scripts\game\menu\gamemenu_pause.qb": add_level_editor},
+                              {r"scripts\game\menu\roundbarmenu.qb": front_end_roundbar} if backdrop else {})
+              or r"Anteara Mod: the game has no Data\scripts\qdir.txt - not installed")
 
 
 if __name__ == "__main__":

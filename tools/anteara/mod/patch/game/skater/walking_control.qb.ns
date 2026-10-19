@@ -1,0 +1,26 @@
+script spawned_wall_tag {Anim = Standing_Tag2 
+    OnExitRun TagClearFlagsScript 
+    ProjectilesOff 
+    EnterTagging 
+    ClearExceptionGroup WalkingStateExceptions AllowCameraControl 
+    SetException ex=SkaterCollideBail scr=SkaterCollideBail 
+    Walk_ScaleAnimSpeed off 
+    if SkaterIsNamed Skater_Shrek {
+        if GotParam is_hanging {
+            Anim = Shrek_BurpHangingTag 
+        } else {
+            Anim = Shrek_BurpTag 
+        } 
+    } else {
+        Obj_SpawnScript THUG2_SFX_Tag_Spray_Wallplant 
+        TurnOnSpecialItem specialitem_details=spraycan_details 
+    } 
+    PlayAnim Anim=<Anim> BlendPeriod=0.0 
+    Obj_WaitAnimFinished 
+    EnablePlayerInput 
+    if GotParam is_hanging {
+        GOTO HangState 
+    } else {
+        GOTO GroundOrAirWaitState 
+    } 
+} 

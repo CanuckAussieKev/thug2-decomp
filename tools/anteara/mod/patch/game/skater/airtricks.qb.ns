@@ -1,0 +1,2 @@
+// MERGE: 2010 - 2010: AirBorne
+Trick_FFImpossible = {Scr=FlipTrick Params={name=%"Front Foot Impossible" score=525 Anim=FrontFootImposs trickslack=25 Speed=1 ExtraTricks=Extra_FFImpossible AirBorne}} 

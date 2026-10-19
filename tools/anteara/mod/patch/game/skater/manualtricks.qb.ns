@@ -1,0 +1,37 @@
+FlatLandBranches = 
+[
+    // MERGE: 2010 - Left, Right, Square: Boneless
+    {Trigger={TripleInOrder, Left, Right, Square, 400} Trick_Boneless} 
+    {Trigger={InOrder, DownLeft, Square, 300} Trick_Airshuffle} 
+    {Trigger={Press, L1, 300} SkateInOrBail} 
+    {Trigger={InOrder, Square, Circle, 300} Trick_AntiCasper} 
+    {Trigger={InOrder, Square, Circle, 300} Trick_NoseManual} 
+    {Trigger={InOrder, Square, Triangle, 300} Trick_Casper} 
+    {Trigger={InOrder, Square, Triangle, 300} Trick_Manual} 
+    {Trigger={InOrder, Circle, Square, 300} Trick_ToRail} 
+    {Trigger={InOrder, Circle, Square, 300} Trick_Manual} 
+    {Trigger={InOrder, Circle, Triangle, 300} Trick_OneFootManual} 
+    {Trigger={InOrder, Circle, Triangle, 300} Trick_OneFootNosemanual} 
+    {Trigger={TripleInOrder, Left, Right, Square, 500} Trick_Spacewalk} 
+    {Trigger={InOrder, a=Circle, b=Circle, 300} Trick_Handstand} 
+    {Trigger={InOrder, a=Triangle, b=Triangle, 300} Trick_Pogo} 
+    {Trigger={InOrder, a=Triangle, b=Triangle, 300} Trick_Manual} 
+    {Trigger={InOrder, Triangle, Square, 300} Trick_Truckstand} 
+    {Trigger={InOrder, Triangle, Square, 300} Trick_ Manual} 
+    {Trigger={InOrder, Triangle, Circle, 300} Trick_SwitchFootPogo} 
+    {Trigger={InOrder, Triangle, Circle, 300} Trick_Manual} 
+    {Trigger={InOrder, a=Circle, b=Circle, 300} Trick_Manual} 
+] 
+script OneButtonTest {
+    ClearTrickQueue 
+    ClearEventBuffer Buttons=Dpad OlderThan=TRICK_PRELOAD_TIME 
+    SetTrickName <Name> 
+    SetTrickScore <Score> 
+    display 
+    SetException Ex=Landed Scr=TrickLand Params={<...>} 
+    BlendPeriodOut 0 
+    Obj_WaitAnimFinished 
+    SetException Ex=GroundGone Scr=GroundGone 
+    LandSkaterTricks 
+    DoNextManualTrick 
+} 

@@ -1,0 +1,3 @@
+script set_custom_restart {
+    skater:SetCustomRestart Set 
+} 

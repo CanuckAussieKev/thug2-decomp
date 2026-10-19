@@ -1,0 +1,187 @@
+
+script anteara_pedtest1 {
+    objId:Obj_PlayAnim Anim=PED_Mime_Pull cycle 
+    exit_pause_menu 
+} 
+script anteara_pedtest2 {
+    exit_pause_menu 
+    Skater:PlayAnim Anim=PED_Mime_idle2Push BlendPeriod=0.3 
+    Skater:WaitAnimFinished 
+    Skater:PlayAnim Anim=PED_Mime_Push2Wall BlendPeriod=0.3 
+    Skater:WaitAnimFinished 
+    Skater:PlayAnim Anim=PED_Mime_Wall2Push BlendPeriod=0.3 
+    Skater:WaitAnimFinished 
+    Skater:PlayAnim Anim=PED_Mime_Push2idle BlendPeriod=0.3 
+    Skater:WaitAnimFinished 
+} 
+script anteara_starwars {
+    exit_pause_menu 
+    Skater:PlayAnim Anim=PED_Starwarskid_clip01 
+    Skater:WaitAnimFinished 
+    Skater:PlayAnim Anim=PED_Starwarskid_clip02 
+    Skater:WaitAnimFinished 
+    Skater:PlayAnim Anim=PED_Starwarskid_clip01 
+    Skater:WaitAnimFinished 
+    Skater:PlayAnim Anim=PED_Starwarskid_clip02 
+    Skater:WaitAnimFinished 
+} 
+script anteara_guitar {
+    exit_pause_menu 
+    Skater:PlayAnim Anim=PED_Guitarist_play01 BlendPeriod=0.3 
+    Skater:WaitAnimFinished 
+    Skater:PlayAnim Anim=PED_Guitarist__play02 BlendPeriod=0.3 
+    Skater:WaitAnimFinished 
+    Skater:PlayAnim Anim=PED_Guitarist_play03 BlendPeriod=0.3 
+    Skater:WaitAnimFinished 
+    Skater:PlayAnim Anim=PED_Guitarist_play_pick BlendPeriod=0.3 
+    Skater:WaitAnimFinished 
+    Skater:PlayAnim Anim=PED_Guitarist_back2idle BlendPeriod=0.3 
+    Skater:WaitAnimFinished 
+} 
+script anteara_guitar1 {
+    exit_pause_menu 
+    Skater:PlayAnim Anim=PED_Guitarist_play01 cycle 
+} 
+script anteara_guitar2 {
+    exit_pause_menu 
+    Skater:PlayAnim Anim=PED_Guitarist__play02 cycle 
+} 
+script anteara_guitar3 {
+    exit_pause_menu 
+    Skater:PlayAnim Anim=PED_Guitarist_play03 cycle 
+} 
+script anteara_guitar4 {
+    exit_pause_menu 
+    Skater:PlayAnim Anim=PED_Guitarist_play_pick cycle 
+} 
+script anteara_airidle {
+    Skater:PlayAnim Anim=CoffinGrind_Range cycle 
+} 
+script anteara_lugebrake {
+    Skater:PlayAnim Anim=CoffinGrind_Init cycle 
+} 
+script anteara_flail {
+    Skater:PlayAnim Anim=CoffinGrind_Out cycle 
+} 
+script anteara_lugeidle {
+    Skater:PlayAnim Anim=Luge_Idle cycle 
+} 
+script anteara_lugeollie {
+    Skater:PlayAnim Anim=Luge_Ollie cycle 
+} 
+script kirillgta_dance {
+    exit_pause_menu 
+    Skater:PlayAnim Anim=Ped_Suit_Dance cycle NoRestart 
+} 
+script kirillgta_starwars {
+    exit_pause_menu 
+    Skater:PlayAnim Anim=PED_Starwarskid_clip01 cycle NoRestart 
+    Skater:Obj_WaitAnimFinished 
+} 
+script kirillgta_guitar {
+    exit_pause_menu 
+    Skater:PlayAnim Anim=PED_Guitarist_play01 cycle NoRestart 
+} 
+script kirillgta_mime_wall {
+    exit_pause_menu 
+    Skater:PlayAnim Anim=PED_Mime_Push2Wall cycle NoRestart 
+} 
+script kirillgta_mime_pull {
+    exit_pause_menu 
+    Skater:PlayAnim Anim=PED_Mime_Pull cycle NoRestart 
+} 
+script kirillgta_holdboard {
+    exit_pause_menu 
+    Skater:PlayAnim Anim=FrontEnd_CAS_HoldBoard_Bot cycle NoRestart 
+} 
+script kirillgta_drunk_1 {
+    exit_pause_menu 
+    Skater:PlayAnim Anim=PED_GermanDrunk_idle cycle NoRestart 
+} 
+script kirillgta_drunk_2 {
+    exit_pause_menu 
+    Skater:PlayAnim Anim=Ped_GermanDrunk_walk cycle NoRestart 
+} 
+script kirillgta_fight {
+    exit_pause_menu 
+    Skater:PlayAnim Anim=Ped_M_Punch cycle NoRestart 
+} 
+script kirillgta_airwalk {
+    exit_pause_menu 
+    Skater:SwitchOffBoard 
+    Skater:PlayAnim Anim=Ped_M_WalkTired cycle NoRestart 
+} 
+script kirillgta_alien_med {
+    exit_pause_menu 
+    Skater:SwitchOffBoard 
+    Skater:PlayAnim Anim=Ped_Alien_Avoid 
+    Skater:Obj_WaitAnimFinished 
+    Skater:PlayAnim Anim=Ped_Alien_Avoid_Idle cycle NoRestart 
+} 
+script kirillgta_sit {
+    exit_pause_menu 
+    Skater:PlayAnim Anim=PED_SIT_Idle cycle NoRestart 
+} 
+script kirillgta_ScratchButt {
+    exit_pause_menu 
+    Skater:PlayAnim Anim=Ped_FatGuy_ScratchButt cycle NoRestart 
+} 
+script kirillgta_sit2stnd {
+    exit_pause_menu 
+    Skater:PlayAnim Anim=PED_SIT2STND cycle NoRestart 
+} 
+script kirillgta_jumpleft {
+    exit_pause_menu 
+    Skater:PlayAnim Anim=Ped_M_JumpLeft cycle NoRestart 
+} 
+script kirillgta_blocker {
+    exit_pause_menu 
+    Skater:PlayAnim Anim=Ped_Blocker_BlockA_idle cycle NoRestart 
+} 
+script kirillgta_pissed {
+    exit_pause_menu 
+    Skater:PlayAnim Anim=PED_M_Pissed01 cycle NoRestart 
+} 
+script kirillgta_attent {
+    exit_pause_menu 
+    Skater:PlayAnim Anim=Ped_FatGuy_GetAttention01 cycle NoRestart 
+} 
+script kirillgta_disgust {
+    exit_pause_menu 
+    Skater:PlayAnim Anim=Ped_M_Disgust cycle NoRestart 
+} 
+script kirillgta_arcade {
+    exit_pause_menu 
+    Skater:PlayAnim Anim=Ped_M_ArcadeIdle cycle NoRestart 
+} 
+script kirillgta_tuba {
+    exit_pause_menu 
+    Skater:PlayAnim Anim=Ped_Jazzman_Play_01 cycle NoRestart 
+} 
+script kirillgta_crane {
+    exit_pause_menu 
+    Skater:PlayAnim Anim=Ped_CraneOperator cycle NoRestart 
+} 
+script kirillgta_sitlook {
+    exit_pause_menu 
+    Skater:PlayAnim Anim=PED_SIT_LookR cycle NoRestart 
+    exit_pause_menu 
+    Skater:PlayAnim Anim=PED_SIT_LookL cycle NoRestart 
+} 
+script kirillgta_push {
+    exit_pause_menu 
+    Skater:PlayAnim Anim=Ped_FatGuy_Push cycle NoRestart 
+} 
+script kirillgta_graffiti {
+    exit_pause_menu 
+    Skater:PlayAnim Anim=Ped_Graffiti_BigTag01 cycle NoRestart 
+} 
+script kirillgta_griller_calling {
+    exit_pause_menu 
+    Skater:PlayAnim Anim=Ped_Griller_CallingCustomers cycle NoRestart 
+} 
+script kirillgta_lay {
+    exit_pause_menu 
+    Skater:PlayAnim Anim=Ped_LoungeSinger_LayIdle1 cycle NoRestart 
+} 
+__register_checksums__ anteara_pedtest1 objId Obj_PlayAnim Anim PED_Mime_Pull cycle exit_pause_menu anteara_pedtest2 exit_pause_menu Skater PlayAnim Anim PED_Mime_idle2Push BlendPeriod Skater WaitAnimFinished Skater PlayAnim Anim PED_Mime_Push2Wall BlendPeriod Skater WaitAnimFinished Skater PlayAnim Anim PED_Mime_Wall2Push BlendPeriod Skater WaitAnimFinished Skater PlayAnim Anim PED_Mime_Push2idle BlendPeriod Skater WaitAnimFinished anteara_starwars exit_pause_menu Skater PlayAnim Anim PED_Starwarskid_clip01 Skater WaitAnimFinished Skater PlayAnim Anim PED_Starwarskid_clip02 Skater WaitAnimFinished Skater PlayAnim Anim PED_Starwarskid_clip01 Skater WaitAnimFinished Skater PlayAnim Anim PED_Starwarskid_clip02 Skater WaitAnimFinished anteara_guitar exit_pause_menu Skater PlayAnim Anim PED_Guitarist_play01 BlendPeriod Skater WaitAnimFinished Skater PlayAnim Anim PED_Guitarist__play02 BlendPeriod Skater WaitAnimFinished Skater PlayAnim Anim PED_Guitarist_play03 BlendPeriod Skater WaitAnimFinished Skater PlayAnim Anim PED_Guitarist_play_pick BlendPeriod Skater WaitAnimFinished Skater PlayAnim Anim PED_Guitarist_back2idle BlendPeriod Skater WaitAnimFinished anteara_guitar1 exit_pause_menu Skater PlayAnim Anim PED_Guitarist_play01 cycle anteara_guitar2 exit_pause_menu Skater PlayAnim Anim PED_Guitarist__play02 cycle anteara_guitar3 exit_pause_menu Skater PlayAnim Anim PED_Guitarist_play03 cycle anteara_guitar4 exit_pause_menu Skater PlayAnim Anim PED_Guitarist_play_pick cycle anteara_airidle Skater PlayAnim Anim CoffinGrind_Range cycle anteara_lugebrake Skater PlayAnim Anim CoffinGrind_Init cycle anteara_flail Skater PlayAnim Anim CoffinGrind_Out cycle anteara_lugeidle Skater PlayAnim Anim Luge_Idle cycle anteara_lugeollie Skater PlayAnim Anim Luge_Ollie cycle kirillgta_dance exit_pause_menu Skater PlayAnim Anim Ped_Suit_Dance cycle NoRestart kirillgta_starwars exit_pause_menu Skater PlayAnim Anim PED_Starwarskid_clip01 cycle NoRestart Skater Obj_WaitAnimFinished kirillgta_guitar exit_pause_menu Skater PlayAnim Anim PED_Guitarist_play01 cycle NoRestart kirillgta_mime_wall exit_pause_menu Skater PlayAnim Anim PED_Mime_Push2Wall cycle NoRestart kirillgta_mime_pull exit_pause_menu Skater PlayAnim Anim PED_Mime_Pull cycle NoRestart kirillgta_holdboard exit_pause_menu Skater PlayAnim Anim FrontEnd_CAS_HoldBoard_Bot cycle NoRestart kirillgta_drunk_1 exit_pause_menu Skater PlayAnim Anim PED_GermanDrunk_idle cycle NoRestart kirillgta_drunk_2 exit_pause_menu Skater PlayAnim Anim Ped_GermanDrunk_walk cycle NoRestart kirillgta_fight exit_pause_menu Skater PlayAnim Anim Ped_M_Punch cycle NoRestart kirillgta_airwalk exit_pause_menu Skater SwitchOffBoard Skater PlayAnim Anim Ped_M_WalkTired cycle NoRestart kirillgta_alien_med exit_pause_menu Skater SwitchOffBoard Skater PlayAnim Anim Ped_Alien_Avoid Skater Obj_WaitAnimFinished Skater PlayAnim Anim Ped_Alien_Avoid_Idle cycle NoRestart kirillgta_sit exit_pause_menu Skater PlayAnim Anim PED_SIT_Idle cycle NoRestart kirillgta_ScratchButt exit_pause_menu Skater PlayAnim Anim Ped_FatGuy_ScratchButt cycle NoRestart kirillgta_sit2stnd exit_pause_menu Skater PlayAnim Anim PED_SIT2STND cycle NoRestart kirillgta_jumpleft exit_pause_menu Skater PlayAnim Anim Ped_M_JumpLeft cycle NoRestart kirillgta_blocker exit_pause_menu Skater PlayAnim Anim Ped_Blocker_BlockA_idle cycle NoRestart kirillgta_pissed exit_pause_menu Skater PlayAnim Anim PED_M_Pissed01 cycle NoRestart kirillgta_attent exit_pause_menu Skater PlayAnim Anim Ped_FatGuy_GetAttention01 cycle NoRestart kirillgta_disgust exit_pause_menu Skater PlayAnim Anim Ped_M_Disgust cycle NoRestart kirillgta_arcade exit_pause_menu Skater PlayAnim Anim Ped_M_ArcadeIdle cycle NoRestart kirillgta_tuba exit_pause_menu Skater PlayAnim Anim Ped_Jazzman_Play_01 cycle NoRestart kirillgta_crane exit_pause_menu Skater PlayAnim Anim Ped_CraneOperator cycle NoRestart kirillgta_sitlook exit_pause_menu Skater PlayAnim Anim PED_SIT_LookR cycle NoRestart exit_pause_menu Skater PlayAnim Anim PED_SIT_LookL cycle NoRestart kirillgta_push exit_pause_menu Skater PlayAnim Anim Ped_FatGuy_Push cycle NoRestart kirillgta_graffiti exit_pause_menu Skater PlayAnim Anim Ped_Graffiti_BigTag01 cycle NoRestart kirillgta_griller_calling exit_pause_menu Skater PlayAnim Anim Ped_Griller_CallingCustomers cycle NoRestart kirillgta_lay exit_pause_menu Skater PlayAnim Anim Ped_LoungeSinger_LayIdle1 cycle NoRestart

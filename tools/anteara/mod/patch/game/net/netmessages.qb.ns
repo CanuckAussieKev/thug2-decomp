@@ -1,0 +1,23 @@
+script server_enter_free_skate {
+    Restore_skater_camera 
+    Skater:Obj_SetFlag ANTEARA_FAILSAFE_FLAG 
+    anteara_failsafe 
+    if InTeamGame {
+        create_net_panel_message text="Choose a team by grabbing a flag. Press \\b8 to Begin Game." style=generic_net_panel_message 
+    } else {
+        create_net_panel_message text="Entering Free Skate. Press \\b8 to Begin Game." style=generic_net_panel_message 
+    } 
+    if OnServer {
+        LoadPendingPlayers 
+    } 
+} 
+script client_enter_free_skate {
+    Restore_skater_camera 
+    Skater:Obj_SetFlag ANTEARA_FAILSAFE_FLAG 
+    anteara_failsafe 
+    if InTeamGame {
+        create_net_panel_message text="Choose a team by grabbing a flag." style=generic_net_panel_message 
+    } else {
+        create_net_panel_message text="Entering Free Skate." style=generic_net_panel_message 
+    } 
+} 

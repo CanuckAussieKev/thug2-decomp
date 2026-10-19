@@ -1,0 +1,18 @@
+script controller_config_focus {
+    GetTags 
+    Theme_GetHighlightedTextColorNew return_value=on_color 
+    Theme_GetUnhighlightedTextColor return_value=off_color 
+    main_theme_focus <...> 
+    SetScreenElementProps {id={<id> child=4} rgba=<on_color>} 
+    SetScreenElementProps {id={<id> child=5} rgba=<off_color>} 
+    SetScreenElementProps {id={<id> child=6} rgba=<off_color>} 
+    menu3d_show2 
+} 
+script controller_config_unfocus {
+    GetTags 
+    Theme_GetUnhighlightedTextColorNew return_value=off_color 
+    main_theme_unfocus <...> 
+    SetScreenElementProps {id={<id> child=4} rgba=<on_color>} 
+    SetScreenElementProps {id={<id> child=5} rgba=[128 128 128 0]} 
+    SetScreenElementProps {id={<id> child=6} rgba=[128 128 128 0]} 
+} 
