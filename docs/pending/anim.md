@@ -311,7 +311,34 @@ ProjectToPlane made exact).
     AddDebugShape stood in for (each quad's 16 floats and the id recorded): 25 quads.
   - Mutations: 24 deliberate bugs; 22 caught (15 at first: the ordered cases above and the 0.16 lift added for 7).
     Not caught: one edge's z rounded to a float (x87 detail, below the tolerance), < for <= at the tolerance.
-- [ ] Next: AN-11 - the face / line tests 0x0040B420 onwards, 0x00410C90, 0x004110B0, 0x004114E0, 0x004128B0,
+- [x] Batch AN-11 (NOT run in the game yet; the collision intersection tests; 3 functions): src/game/nx/
+  coll_tests.h / .cpp (new), mth/vector.cpp.
+  - Nx::RayHitsTriangle 0x0040B420 (cdecl: Moller-Trumbore from the front only - a determinant below 0.03
+    misses -, the barycentric bounds allowing the determinant times 1.00001, t in 0..1 written once it's reached),
+    Nx::LineHitsSphere 0x0040B610 (the line's distance from the centre against the radius, then the nearer crossing
+    against a limit), Nx::SegmentsCross2D 0x0040B750 (2D segments crossing for s and u in 0..1; s = 0 below a
+    1e-11 denominator; the first sign test uses the denominator before it's rounded to a float). The arithmetic
+    rounds to floats only where the x87 code stores. LineHitsSphere and SegmentsCross2D are registered through
+    naked adapters that keep EDX: their callers 0x0040EC90 / 0x0040D370 (not rewritten yet) keep a value in it,
+    which the originals don't touch (scan_register_assumptions still lists those 6 sites as RISK until the callers
+    are rewritten - it can't see the adapters; TestAnimCollIntersectionsKeepEdx proves it).
+  - Mth::CrossProduct 0x00402550 made exact: each component's products kept unrounded and the difference rounded
+    once, as the original (ours rounded each product to a float - last-bit differences; its old test only checked
+    within a tolerance).
+  - Tests (selftests_anim10.cpp): TestAnimCollIntersections - 4000 random rays at triangles (from either side,
+    near edges and corners, along the plane, too short, going away, degenerate triangles, NaN / infinite / huge /
+    tiny values) plus exact cases (t = 1, u = 0, inside and beyond the 1.00001 slack, from behind and below), 4000
+    lines at spheres (each called again with the limit at the crossing found) and 4000 segment pairs (parallel,
+    collinear, touching, nearly parallel, through the middle; a crossing with a 1e-12 denominator): results and
+    outputs bit for bit (any NaN counted as one: x87 and SSE pass different NaNs on). TestAnimCollIntersections-
+    KeepEdx: both adapters called with a marker in EDX.
+  - Mutations: 35 deliberate bugs; 30 caught (24 at first: the exact ray cases, the second sphere call and the tiny
+    denominator added for 6). Not caught: the determinant's sum order, the bound from the unrounded determinant, u
+    kept unrounded (rounding below what the comparisons see), >= for > against the bound and the unrounded
+    denominator's sign (exact equality / underflow only).
+- [ ] Next: AN-12 - 0x0040B860 (the point / triangle distance, 16 callers), then 0x0040BDC0, 0x0040D370,
+  0x0040E280, 0x0040E560, 0x0040E940, 0x0040EC90, 0x0040F9E0, 0x0040FC00, 0x0040FEC0, 0x0040FEE0, 0x00410240,
+  0x004106C0, 0x00410930, 0x00410A30, 0x00410AA0, 0x00410BC0, 0x00410C90, 0x004110B0, 0x004114E0, 0x004128B0,
   0x004131F0, 0x004137B0, 0x00413B50, 0x00413FF0, 0x00414460, the 0x00417xxx feelers / registration (0x004177B0,
   0x00417800...). Hidden code to give source to later (found by scratchpad hidden.py - runs between Ghidra's
   functions that aren't padding): 0x00412730, 0x00417110, 0x00419690, 0x00419750, 0x004198D0, 0x00419AD0,

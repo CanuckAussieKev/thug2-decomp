@@ -246,10 +246,13 @@ float DotProduct(const Vector& a, const Vector& b)
     return a.x * b.x + a.y * b.y + a.z * b.z;
 }
 
-// 0x00402550
+// 0x00402550 (each difference of products rounded once, as the original's x87 code does)
 Vector CrossProduct(const Vector& a, const Vector& b)
 {
-    return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x, 0.0f};
+    auto term = [](float p, float q, float r, float s) {
+        return static_cast<float>(static_cast<double>(p) * q - static_cast<double>(r) * s);
+    };
+    return {term(a.y, b.z, a.z, b.y), term(a.z, b.x, a.x, b.z), term(a.x, b.y, a.y, b.x), 0.0f};
 }
 
 // 0x00402600
