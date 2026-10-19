@@ -12,6 +12,22 @@ then the "- [ ] Next:" line of docs/decomp-progress.md.
   - the leaked-source ban.
 - **Decomp:** 28.27% before the object-system merge (docs/PROGRESS.md). The next batch number is **156**.
 
+## Update 2 (2026-10-19, latest)
+- **Anteara Mod is part of the project**, merged from branch anteara-mod.
+  - It's switched by `[features] anteara_mod=1` (default 0); the main install's ini has `anteara_mod=0`.
+  - tools/anteara (README) holds only the mod's own changes. make_menu_level.py builds the mod's script set into
+    the overlay's `anteara` folder from the game's loose Data\scripts.
+  - skip_intro_movies also skips the mod's start-up movie.
+  - The record is docs/pending/anteara.md (not a decomp batch).
+- **A stock no-CD THUG2.exe runs the project unmodified.** Tested in C:\Games\THUG2-THPSX-ORIGINAL (the user's stock
+  install, with our files added):
+  - tools/game finds either exe;
+  - `install_manifest.py check` names the executables;
+  - the early self-tests put THUG2PM.exe's bytes in the 10 differing spots while they run.
+- **The build copies SDL2.dll and gamecontrollerdb.txt into the game folder.** Both are byte-for-byte PartyMod's,
+  downloaded from upstream and checked by SHA-256.
+- Installed in C:\Games\THUG2 at 3cc9d3b, with the overlay regenerated.
+
 ## Update (later the same night): items 1 and 2 below are DONE
 - Object system: merged and folded as batches 156-170, so progress is 31.27%. It ran 70 s in Boston in THUG2-4
   (2790 replacements, every self-test passed, no exceptions). It is installed in C:\Games\THUG2. Its cutscene code
