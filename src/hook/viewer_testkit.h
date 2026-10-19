@@ -91,6 +91,8 @@ inline std::map<uint32_t, bool> g_scripts;                         // scripts th
 inline std::map<std::pair<uint32_t, uint32_t>, uint32_t> g_params; // (structure, name checksum or hash) -> value
 inline std::map<std::pair<uint32_t, uint32_t>, std::vector<float>> g_vectors;
 
+// Debug output's arguments recorded after the format (the first as text; a test sets how many).
+inline int g_printfArgs = 0;
 inline std::vector<Saved> g_saved;
 inline void Cleanup()
 {
@@ -98,13 +100,21 @@ inline void Cleanup()
     RestoreAll(g_saved);
     g_saved.clear();
     g_codeAliases.clear();
+    g_printfArgs = 0;
 }
 
-// Memory, structures, scripts and debug output.
-inline void InstallCommon(StandIns& s)
+// Memory, structures, scripts and debug output. Without `deleteStruct`, Script::DeleteStruct isn't stood in for
+// (for code whose original inlines it: both then reach the memory manager's Free).
+inline void InstallCommon(StandIns& s, bool deleteStruct = true)
 {
     s.At({0x00401C30, AddressOf(&Dbg::Printf)}, 0, [](Regs& r) {
-        Rec(0x1C30, {Text(r.args[0])}); // (tests that print arguments record them themselves)
+        Rec(0x1C30, {Text(r.args[0])});
+        // (only as many as the format has conversions)
+        int conversions = 0;
+        for (const char* p = reinterpret_cast<const char*>(r.args[0]); *p; ++p)
+            conversions += *p == '%';
+        for (int i = 0; i < g_printfArgs && i < conversions; ++i)
+            g_trace.push_back(i == 0 ? Text(r.args[1]) : Rel(r.args[1 + i]));
         return 0u;
     });
     s.At({0x005BAFC0, AddressOf(&Mem::Manager::Allocate)}, 12, [](Regs& r) {
@@ -139,10 +149,11 @@ inline void InstallCommon(StandIns& s)
         Rec(0x7130, {r.ecx});
         return 0u;
     });
-    s.At({0x00409070, AddressOf(&Script::DeleteStruct)}, 0, [](Regs& r) {
-        Rec(0x9070, {r.args[0]});
-        return 0u;
-    });
+    if (deleteStruct)
+        s.At({0x00409070, AddressOf(&Script::DeleteStruct)}, 0, [](Regs& r) {
+            Rec(0x9070, {r.args[0]});
+            return 0u;
+        });
     s.At({0x00478390, AddressOf(static_cast<void (CStruct::*)(uint32_t, uint32_t, const char*)>(&CStruct::AddString))},
          12, [](Regs& r) {
              Rec(0x8390, {r.ecx, r.args[0], r.args[1], Text(r.args[2])});
