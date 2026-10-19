@@ -48,10 +48,19 @@ Vector& Vector::operator-=(const Vector& other)
 // 0x00406080
 Vector& Vector::ProjectToPlane(const Vector& normal)
 {
-    // All products are taken before writing, so this also works when `normal` is this vector.
-    float dot = DotProduct(*this, normal);
-    Vector along = normal * dot;
-    return *this -= along;
+    // All products are taken before writing, so this also works when `normal` is this vector. As the original's x87
+    // code: the dot product and x's part along the normal stay in double; the other parts are rounded to floats
+    // first, each difference rounded once more.
+    double dot = (static_cast<double>(normal.x) * x + static_cast<double>(z) * normal.z) + static_cast<double>(y) * normal.y;
+    double alongX = dot * normal.x;
+    float alongY = static_cast<float>(dot * normal.y);
+    float alongZ = static_cast<float>(dot * normal.z);
+    float alongW = static_cast<float>(dot * normal.w);
+    x = static_cast<float>(x - alongX);
+    y = static_cast<float>(static_cast<double>(y) - alongY);
+    z = static_cast<float>(static_cast<double>(z) - alongZ);
+    w = static_cast<float>(static_cast<double>(w) - alongW);
+    return *this;
 }
 
 // 0x004060F0
@@ -252,6 +261,84 @@ bool Vector::operator!=(const Vector& other) const
     return other.x != x || other.y != y || other.z != z || other.w != w;
 }
 
+namespace {
+// The cosine as the originals take it: rounded to a float, limited to [-1, 1] (NaN passes through).
+double ClampedCosine(double dot)
+{
+    float cosine = static_cast<float>(dot);
+    if (cosine > 1.0f)
+        cosine = 1.0f;
+    else if (cosine < -1.0f)
+        cosine = -1.0f;
+    return cosine;
+}
+} // namespace
+
+// 0x00406460 (x87 code: the lengths, the unit vectors and the dot product in double, the dot product rounded to a
+// float; the result is returned unrounded in ST0)
+double GetAngle(const Vector& a, const Vector& b)
+{
+    double ax = a.x, ay = a.y, az = a.z;
+    double length = std::sqrt((az * az + ax * ax) + ay * ay);
+    if (length > 0.0) {
+        double scale = 1.0 / length;
+        ax *= scale;
+        ay *= scale;
+        az *= scale;
+    }
+    double bx = b.x, by = b.y, bz = b.z;
+    length = std::sqrt((bz * bz + by * by) + bx * bx);
+    if (length > 0.0) {
+        double scale = 1.0 / length;
+        bx *= scale;
+        by *= scale;
+        bz *= scale;
+    }
+    return std::acos(ClampedCosine((bz * az + bx * ax) + by * ay)) * 57.2957763671875; // (the float at 0x00645468)
+}
+
+// 0x00406630
+double GetAngleAbout(const Vector& a, const Vector& b, const Vector& axis)
+{
+    Vector normal = axis;
+    double length = std::sqrt((static_cast<double>(normal.z) * normal.z + static_cast<double>(normal.y) * normal.y) +
+                              static_cast<double>(normal.x) * normal.x);
+    if (length > 0.0) {
+        double scale = 1.0 / length;
+        normal.x = static_cast<float>(normal.x * scale);
+        normal.y = static_cast<float>(normal.y * scale);
+        normal.z = static_cast<float>(normal.z * scale);
+    }
+    Vector from = a;
+    Vector to = b;
+    from.ProjectToPlane(normal);
+    to.ProjectToPlane(normal);
+    length = std::sqrt((static_cast<double>(from.z) * from.z + static_cast<double>(from.y) * from.y) +
+                       static_cast<double>(from.x) * from.x);
+    if (length > 0.0) {
+        double scale = 1.0 / length;
+        from.x = static_cast<float>(from.x * scale);
+        from.y = static_cast<float>(from.y * scale);
+        from.z = static_cast<float>(from.z * scale);
+    }
+    double tx = to.x, ty = to.y, tz = to.z;
+    length = std::sqrt((tz * tz + ty * ty) + tx * tx);
+    if (length > 0.0) {
+        double scale = 1.0 / length;
+        tx *= scale;
+        ty *= scale;
+        tz *= scale;
+    }
+    double dot = (from.z * tz + ty * from.y) + tx * from.x;
+    // Which way round: (normal x from) . to.
+    double cx = static_cast<double>(from.z) * normal.y - static_cast<double>(from.y) * normal.z;
+    double cy = static_cast<double>(normal.z) * from.x - static_cast<double>(from.z) * normal.x;
+    double cz = static_cast<double>(from.y) * normal.x - static_cast<double>(normal.y) * from.x;
+    float side = static_cast<float>((cz * tz + cy * ty) + cx * tx);
+    double angle = std::acos(ClampedCosine(dot));
+    return side < 0.0f ? -angle : angle;
+}
+
 } // namespace Mth
 
 // --- replacements -------------------------------------------------------------------------------------
@@ -290,6 +377,8 @@ REPLACE(0x00405F20, &Vector::RadiansToDegrees);
 REPLACE(0x00405F50, &Vector::FeetToInches);
 REPLACE(0x00405F80, &Vector::NegateXRotateX90);
 REPLACE(0x00406050, &Vector::operator-=);
+REPLACE(0x00406460, Mth::GetAngle);
+REPLACE(0x00406630, Mth::GetAngleAbout);
 REPLACE(0x00406080, &Vector::ProjectToPlane);
 REPLACE(0x004060F0, &Vector::RotateToPlane);
 REPLACE(0x004061A0, &Vector::SetDirection);

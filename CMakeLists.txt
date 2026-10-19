@@ -126,6 +126,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_appmain5.cpp
     src/hook/selftests_appmain6.cpp
     src/hook/selftests_appmain7.cpp
+    src/hook/selftests_anim.cpp
     src/hook/selftests_appmain8.cpp
     src/hook/selftests_appmain9.cpp
     src/hook/selftests_appmain10.cpp
@@ -182,6 +183,7 @@ add_library(thug2_code OBJECT
     src/game/core/pool.cpp
     src/game/core/singleton.cpp
     src/game/core/stubs.cpp
+    src/game/core/task.cpp
     src/game/core/str.cpp
     src/game/core/string.cpp
     src/game/file/asset_bundle.cpp

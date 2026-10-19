@@ -59,6 +59,12 @@ float DotProduct(const Vector& a, const Vector& b);
 // Cross product of the x, y, z parts; w of the result is 0.
 Vector CrossProduct(const Vector& a, const Vector& b);
 
+// The angle between a and b in degrees (0 to 180; a zero vector counts as itself).
+double GetAngle(const Vector& a, const Vector& b);
+// The angle in radians (-pi to pi) from a to b seen along `axis`: both projected onto the plane across it,
+// negative when b is clockwise of a.
+double GetAngleAbout(const Vector& a, const Vector& b, const Vector& axis);
+
 // A pair of points. Name not confirmed yet: only its constructor (0x00402600) has been seen so far.
 struct Line {
     Vector start;
