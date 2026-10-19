@@ -113,15 +113,47 @@ int CrashFilter(EXCEPTION_POINTERS* info, const char* name)
     return EXCEPTION_EXECUTE_HANDLER;
 }
 
+// The watchdog: a test still running after this long is taken to hang (original or rewritten code looping on bad
+// data) - it's named in the log and the process ends, rather than thug2_check (or the game) hanging unnoticed.
+constexpr ULONGLONG kHangMilliseconds = 45000;
+const char* volatile g_runningTest = nullptr;
+volatile ULONGLONG g_runningSince = 0;
+
+DWORD WINAPI Watchdog(void*)
+{
+    for (;;) {
+        Sleep(1000);
+        const char* name = g_runningTest;
+        if (name && GetTickCount64() - g_runningSince > kHangMilliseconds) {
+            Log("SELFTEST HANG in %s: still running after %u s - the process ended", name,
+                static_cast<unsigned>(kHangMilliseconds / 1000));
+            TerminateProcess(GetCurrentProcess(), 3);
+        }
+    }
+}
+
+void StartWatchdog()
+{
+    static bool started = false;
+    if (started)
+        return;
+    started = true;
+    if (HANDLE thread = CreateThread(nullptr, 0, &Watchdog, nullptr, 0, nullptr))
+        CloseHandle(thread);
+}
+
 // No C++ objects in here: __try can't be used in a function that needs destructors unwound. (A crashed
 // test's own destructors don't run; its cleanup function does.)
 void RunGuarded(const RegisteredTest& t)
 {
+    g_runningSince = GetTickCount64();
+    g_runningTest = t.name;
     __try {
         t.test();
     } __except (CrashFilter(GetExceptionInformation(), t.name)) {
         ++g_failures;
     }
+    g_runningTest = nullptr;
     if (t.cleanup)
         t.cleanup();
 }
@@ -174,6 +206,7 @@ void RunSelfTests(TestStage stage)
     if (filter[0])
         Log("%s self-tests: only those named after %s (THUG2_SELFTESTS)", StageName(stage), filter);
     Log("%s self-tests: running %d", StageName(stage), count);
+    StartWatchdog();
     // [selftests] trace=1 logs each test as it starts - for finding one that hangs.
     static const bool trace = ConfigInt("selftests", "trace", 0) != 0;
     // The ini's menu_backdrop doesn't take part: off while the tests run (the tests that need it set it themselves).

@@ -399,6 +399,34 @@ ProjectToPlane made exact).
   - Mutations: 32 deliberate bugs; 25 caught (22 at first: the threshold-255 lines, the tree and the movable's box
     added for 3). Not caught: the corner's scale, transform and placing (dead: see above), and four roundings in
     the rejection distance (below the threshold's integer steps).
+- [x] Batch AN-15 (NOT run in the game yet; the animation blender component; 47 functions, 0x00419690-0x0041A6D0
+  with the hidden runs 0x00419690, 0x00419750, 0x004198D0, 0x00419AD0, 0x00419BF0, 0x00419E90, 0x0041A1A0):
+  src/game/obj/anim_blender.h / .cpp (new). Started by the previous session, finished here.
+  - Obj::CAnimBlenderComponent (type 0x7149B753, 0x44 bytes, vtable 0x00645D8C): Create 0x0041A5B0, Construct
+    0x0041A410, DestroyBody 0x0041A4C0 (the observer list emptied twice, as the original), Destroy 0x0041A610;
+    member functions registered 0x00419690 (table 0x00682350); the vtable: Update 0x0041A260 (channels after the
+    first below weight 0.00001 only reset; several channels: Gfx::BlendPosesById set by set up to the highest bone
+    set; observers told; the skeleton given the pose), InitFromStructure 0x00419DD0, Finalize 0x004196D0,
+    PassToChannels 0x00419980, CallMemberFunction 0x00419950; the script member functions AddChannelFromScript
+    0x0041A1A0, WaitOnChannel 0x00419E90, RemoveChannel 0x00419750, BlendChannel 0x004197C0, ChannelExists
+    0x00419F10, PassToChannel 0x004198D0; the channel walks FindChannel 0x00419D40, AddChannel 0x00419FD0,
+    NotifyObservers 0x0041A220, VisitChannels 0x004199C0, PassToEachChannel 0x004199F0, ResetChannels 0x00419A20,
+    AnyChannel 0x00419C10, AllChannelsFlag29 0x00419C70, ModelReady 0x00419CA0; the first channel's calls
+    0x00419730, 0x00419A90, 0x00419B50, 0x00419B90, 0x00419BB0, 0x00419BD0, 0x00419BF0, SetFlag4C 0x00419B30,
+    GetValue / HasValue 0x00419AF0 / 0x00419B10 (Gfx::CBlendChannel's, by their established names), GetAnimSet
+    0x00419AB0, 0x00419AD0, IsAnimComplete 0x00419CD0, 0x00419F80, 0x0041A0A0, GetTimes 0x0041A0E0; the channel
+    links' destructors 0x00419D70 / 0x00419D90 / 0x0041A170 and a channel's GetTimes 0x00419CF0; LargerOf
+    0x004196B0; VectorAt1C::Get 0x0041A680. The original's crashes on missing channels kept (commented).
+  - Script structures through CStruct's own methods (GetChecksum / GetFloat / AddChecksum / ContainsFlag), the pose
+    blend through Gfx::BlendPosesById.
+  - Tests (selftests_anim13.cpp): TestAnimBlenderComponent - stand-in channels (a fake vtable), observers, script
+    structures and channel methods (ours and the originals' alike); every function with and without channels, ids
+    found and not, channels at the front / back, the update with no change, one and several channels (weights
+    below the threshold after the first, bone sets), the observers, destroyed. Calls out, results and the arena.
+  - Mutations: 60 deliberate bugs, all caught.
+  - The self-test runner got a watchdog (src/hook/selftest_runner.cpp, shared): a test still running after 45 s
+    is named in the log ("SELFTEST HANG in ...") and the process ends (exit 3) - an earlier anim test once hung
+    thug2_check. tools/mutate.py lists those lines too.
 - [ ] Next: AN-15 - slots 15-17 of the sector / instance: 0x00410C90 / 0x004128B0, 0x004110B0, 0x004114E0; then
   0x0040BDC0, 0x0040D370, 0x0040E280, 0x0040E560, 0x0040E940, 0x0040EC90, 0x0040F9E0, 0x0040FC00, 0x0040FEC0,
   0x0040FEE0, 0x00410240, 0x004106C0, 0x00410930, 0x00410AA0, 0x00410BC0, the 0x00417xxx feelers / registration

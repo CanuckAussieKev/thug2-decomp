@@ -45,7 +45,7 @@ for path, name, old, new in spec["MUTS"]:
             try:
                 code = process.wait(timeout=60)
                 failed = [line.strip() for line in open(log_path, errors="replace")
-                          if "SELFTEST FAIL" in line or "SELFTEST CRASH" in line]
+                          if "SELFTEST FAIL" in line or "SELFTEST CRASH" in line or "SELFTEST HANG" in line]
                 # (every failing test, so an unrelated flaky one doesn't hide which test caught it)
                 print(name, "CAUGHT" if code != 0 else "missed", code, ("- " + " | ".join(failed[:4])) if failed else "",
                       flush=True)
