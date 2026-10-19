@@ -66,7 +66,7 @@ Shared files touched: CMakeLists.txt (each new .cpp listed, additive).
       0x578740 with its own script array, DestroyBody 0x579570, Destroy 0x579820, SetFlag 0x578670) and TrickNameEntry
       (0x34 bytes, vtable 0x0064EC84: Construct 0x5787F0, DestroyBody 0x579630, Destroy 0x579600). Found: our String
       constructor clears m_capacity where the original's leaves it (string.cpp says so) - the test zeroes that word.
-      Self-tests (new src/hook/selftests_viewer2.cpp): TestGameObjects, TestTrickLists. 29 deliberate bugs: all caught
+      Self-tests (new src/hook/selftests_viewer2.cpp): TestGameObjects, TestTrickLists. 28 deliberate bugs: all caught
       (4 after strengthening: constructors now run on 0xCD-filled memory and their objects are compared right after
       construction).
 
