@@ -97,6 +97,8 @@ add_library(thug2_code OBJECT
     src/hook/selftests_appmain7.cpp
     src/hook/selftests_appmain8.cpp
     src/hook/selftests_appmain9.cpp
+    src/hook/selftests_appmain10.cpp
+    src/hook/selftests_appmain12.cpp
     src/hook/selftests_gapsB.cpp
     src/hook/selftests_mva.cpp
     src/hook/selftests_mva2.cpp
@@ -205,6 +207,11 @@ add_library(thug2_code OBJECT
     src/game/gfx/texture.cpp
     src/game/gfx/texture_file.cpp
     src/game/sys/key_names.cpp
+    src/game/obj/avoid.cpp
+    src/game/obj/camera_lookaround.cpp
+    src/game/obj/camera_util.cpp
+    src/game/obj/component_types.cpp
+    src/game/ed/goal_editor_util.cpp
     src/game/file/async.cpp
     src/game/file/file.cpp
     src/game/file/pip.cpp

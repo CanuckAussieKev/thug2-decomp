@@ -264,3 +264,49 @@ that never returns and end it from a stand-in).
   unlisted, a plain listed texture, a failing re-creation, the stage-3 cache and format 0x10 were added for 8).
   The other (lf_pal) changes how much palette is read where the test's file always has a whole one (a shorter one
   leaves the original's stack bytes in it).
+- [x] Batch AM-10 (NOT run in the game yet; the Avoid and CameraLookAround components, the cameras' helpers, the
+  component types, the goal editor's helpers): src/game/obj/avoid.{h,cpp}, camera_lookaround.{h,cpp},
+  camera_util.{h,cpp}, component_types.{h,cpp}, src/game/ed/goal_editor_util.{h,cpp} (new); shared test helpers in
+  src/hook/appmain_components.h.
+  - CAvoidComponent (type 0x6EB050ED "Avoid", 0xDC bytes: a ped jumping out of the local skater's way along a slerp,
+    playing JumpLeft / JumpRight / JumpBack / JumpForward): 0x004E39E0 `Create`, 0x004E3310 `RegisterMemberFunctions`
+    (not a Ghidra function), 0x004E3660 `Construct`, 0x004E3330 `DestroyBody`, 0x004E36C0 `Destroy`, 0x004E34C0
+    `SideAwayFromSkater`, 0x004E3A40 `TryJump`, 0x004E3340 `PlayJump`, 0x004E3270 `AvoidDistance` (params in ESI:
+    a naked stub), 0x004E3930 `LineCollides` (EDI / ESI: a naked stub), and its script member functions (the table at
+    0x006839E8, names unknown): 0x004E3BD0 `Jump`, 0x004E36F0 `DebugBox`, 0x004E3EC0 `StepJump`, 0x004E37D0
+    `JumpFinished`, 0x004E3810 `StorePosition`, 0x004E3850 `StoreTarget`, 0x004E38C0 `HoldMotion`, 0x004E38F0
+    `RestoreMotion` (0x004E37D0 / 0x004E3810 / 0x004E3BD0 / 0x004E3EC0 aren't Ghidra functions). Kept from the
+    original: the quarter from _ftol2's low half (not a number: ahead), the herd check passing for not a number, the
+    fourth try's angle in radians where the others are degrees, the checksum / distance read into the parameters'
+    own argument slot.
+  - CCameraLookAroundComponent (type 0x81C7122D, 0x44 bytes): 0x004E42E0 `Create`, 0x004E3F60 `DestroyBody`,
+    0x004E4010 `Destroy`, 0x004E3F70 `InitFromStructure`, 0x004E4040 `Finalize`, 0x004E4060 `Update` (the pad's
+    sticks eased into heading and tilt, a button for a script, one to lock), 0x004E4220 `CallMemberFunction`,
+    0x004E3FA0 `TurnTo` (not a Ghidra function), 0x004E4000 `SetLocked`; 0x004E3F90 (a shared vtable stub: a tail
+    jump to slot 2; REPLACE_UNCHECKED).
+  - Cameras: 0x004E4340 `FrameBlend(rate, seconds)` (returns double: the original leaves it on the x87 stack),
+    0x004E4360 `AvoidCameraCollisions` (pulled in to the target, pushed off side walls, refocused).
+  - 0x004E4860 `RegisterComponentTypes`: the 81 component types with their create / member-function-register
+    functions, in the original's order (names where the checksum's is known).
+  - Goal editor: 0x004E6600 `GoalObjectModel`, 0x004E66A0 `GoalObjectName` (fastcall), 0x004E6730
+    `EditedGoalNodeName` (TRG_EditedGoal%d_Pro / _Restart / _Object_%d), 0x004E67A0 `GoalTypeStructure`, 0x004E6890
+    `GoalTypeDefaults` (type in EAX: a naked stub), 0x004E69C0 (returns 0x82), 0x004E69D0 `InitEditedGoal` (its
+    callers keep using ECX: a naked stub keeps it), 0x004E6AE0 `RunMarkerObjectScript`.
+  Test (src/hook/selftests_appmain10.cpp, Early): TestAvoidComponent (6 seeds in a stand-in world: made / failing,
+  the distance per quarter incl. borders and not a number, the side away for every skater heading, ten jumps tried,
+  every jump animation case, eight jumps with steps and ends incl. a not-a-number progress, the points and motion
+  flag), TestCameraLookAround (6 seeds x 40 frames: both pads, the globals, either object, sticks at rest / moved,
+  turning with and without time, member functions), TestCameraUtil (30 blends, 24 collision cases with every probe
+  outcome), TestComponentTypes, TestGoalEditorUtil (every type and index, node names, structures, defaults, the
+  marker script).
+  - 0x004E2D20 `CFlipRotateComponent::GetPose` (the FlipRotate animation controller, src/game/obj/flip_rotate.{h,cpp} -
+    a shared file, additive): the bone 0x98971FAF turned half round when the object's SkaterFlipAndRotate component
+    says so; flipped, each bone from its mirror bone with x mirrored. Test: src/hook/selftests_appmain12.cpp
+    (TestFlipRotatePose: 12 seeds, the component missing / off / on, bone found / not / 0, flipped or not, 0 / 3 / 64
+    bones, mirror bones of every kind).
+  Mutations: 47 deliberate bugs; 42 caught (after recording the motion flags after each restore, a turn lasting
+  exactly one frame and bone 0). The other 5 only move a comparison's border onto exact equality (fromSkater 30, the
+  ease's 0.001, the minimum distance 13.9) or can't change the result (a quarter of exactly 0 and 4 are both ahead;
+  a stick of exactly 0 scales to 0 either way).
+  - Note for the lead: the verify build's PDB kept breaking under load (C1033 / C2471, LNK1102 out of memory in the
+    32-bit linker); a private PDB server (`set _MSPDBSRV_ENDPOINT_=<name>`) and a clean rebuild fixed it.
