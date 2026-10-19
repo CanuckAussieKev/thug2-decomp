@@ -35,7 +35,7 @@ int g_failures = 0;
 // THUG2.exe (a no-CD build: the same layout and addresses - tools/game/install_manifest.py) differs from it in these
 // few spots: PartyMod's exe patch (its DLL's loading in WinMain, the code cave, the DLL's name), and the no-CD build's
 // own edits (SetScreenBlur returning at once, the network service loop, loading from the memory card, the GameSpy
-// key client). While the early tests run - before the game has started - THUG2PM.exe's bytes are written there, and
+// key client), and two string constants its maker damaged. While the early tests run - before the game has started - THUG2PM.exe's bytes are written there, and
 // the exe's own put back after; the game itself runs the exe as it is (each of these functions but the key client's
 // is rewritten anyway, and the patch's code is only reached from the original WinMain).
 struct ReferenceBytes {
@@ -59,6 +59,16 @@ const ReferenceBytes kReferenceBytes[] = {
       0x75},
      {0x48, 0x55, 0x47, 0x32, 0x00, 0x00, 0x00, 0x70, 0x61, 0x72, 0x74, 0x79, 0x6D, 0x6F, 0x64, 0x2E, 0x64, 0x6C, 0x6C,
       0x00}},
+    // The park editor's "MaxPlayers" and "MaxPlayersPossible" (read by GetParkEditorMaxPlayers 0x0058E120 and
+    // GetParkEditorMaxPlayersPossible 0x0058E140): 0x90 filler in the stock exe - damage from the no-CD build's
+    // maker, not an intended edit. Ours write the names as literals (src/game/ed/park_cfuncs.cpp), so the game is
+    // right on either exe; the names are put back here so that the originals they're compared with are the
+    // undamaged ones (TestParkMaxPlayersDamagedNames writes the filler back over them itself).
+    {0x0064F29C,
+     {0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90,
+      0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90, 0x90},
+     {0x4D, 0x61, 0x78, 0x50, 0x6C, 0x61, 0x79, 0x65, 0x72, 0x73, 0x00, 0x00, 0x4D, 0x61, 0x78,
+      0x50, 0x6C, 0x61, 0x79, 0x65, 0x72, 0x73, 0x50, 0x6F, 0x73, 0x73, 0x69, 0x62, 0x6C, 0x65}},
 };
 
 // Writes THUG2PM.exe's bytes over the stock exe's (only where the stock exe's are there); Restore puts them back.
