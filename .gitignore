@@ -13,3 +13,6 @@ data/derived/
 .claude/worktrees/
 __pycache__/
 *.pyc
+
+# Claude Code personal settings
+.claude/settings.local.json

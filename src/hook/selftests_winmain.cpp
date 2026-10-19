@@ -14,6 +14,7 @@
 
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
+#include "game/net/online_identity.h"
 #include "game/sys/main.h"
 #include "game/sys/pc_setup.h"
 #include "game/sys/platform.h"
@@ -315,7 +316,13 @@ void TestWinMain()
                 return 0u;
             };
         };
-        s->At({0x005F8690}, 0, [](Regs& r) { Record({0x8690, Hash(reinterpret_cast<const char*>(r.args[0]))}); return 0u; });
+        // (the game name: the original's at 0x0064B1CC stands for the one [Miscellaneous] OnlineGameName picks -
+        // game/net/online_identity.h; ours passes that)
+        s->At({0x005F8690}, 0, [](Regs& r) {
+            const char* name = reinterpret_cast<const char*>(r.args[0]);
+            Record({0x8690, Hash(name == reinterpret_cast<const char*>(0x0064B1CC) ? Net::GameName() : name)});
+            return 0u;
+        });
         s->At({0x005F8840}, 0, [](Regs&) {
             Record({0x8840});
             int answer = g_case->gsi[g_gsiIndex];

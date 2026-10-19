@@ -30,7 +30,7 @@ installed); functions PartyMod patched get source with PartyMod's behaviour. Lat
   (the DLL also runs on a stock, already unwrapped no-CD `THUG2.exe` unchanged - the same layout, 172 bytes apart:
   the exe is never modified; tools/game finds either exe, `tools/game/install_manifest.py check` names them, and the
   early self-tests put THUG2PM.exe's bytes back in the differing spots while they run - src/hook/selftest_runner.cpp;
-  the retail SafeDisc THUG2.exe can't run anything); `restart_tester=0` turns off F8, which puts the skater at the level's next unvisited restart - src/game/front/restart_tester.h; `debug_mode=1` makes the script command CD false / NotCD true after start-up: Neversoft's DEBUG OPTIONS in the pause menu, DEVKIT_ONLY levels, the viewer's free camera on F9 and its keys - src/game/sys/debug_mode.h; `start_level=<name>` or the command line `-level <name>` starts straight in that level in free skate - src/game/front/start_level.h; `anteara_mod=1` (default 0) plays the user's own Anteara Mod (2010+2011 merged, a 2010 submenu in its pause menu) from the overlay's `anteara` folder, which make_menu_level.py builds from the game's loose Data\scripts and the mod's own changes in tools/anteara - README there), `thug2-decomp.log` (read it after every game run). The retail THUG2.exe is
+  the retail SafeDisc THUG2.exe can't run anything); `restart_tester=0` turns off F8, which puts the skater at the level's next unvisited restart - src/game/front/restart_tester.h; `debug_mode=1` makes the script command CD false / NotCD true after start-up: Neversoft's DEBUG OPTIONS in the pause menu, DEVKIT_ONLY levels, the viewer's free camera on F9 and its keys - src/game/sys/debug_mode.h; `start_level=<name>` or the command line `-level <name>` starts straight in that level in free skate - src/game/front/start_level.h; `anteara_mod=1` (default 0) plays the user's own Anteara Mod (2010+2011 merged, a 2010 submenu in its pause menu) from the overlay's `anteara` folder, which make_menu_level.py builds from the game's loose Data\scripts and the mod's own changes in tools/anteara - README there; `[Miscellaneous] OnlineGameName=` / `OnlineGameKey=` pick the online identity - the GameSpy game name and its 6-character secret key; empty (the default) keeps THUG2's own, thps6pc / AdLWaZ, OpenSpy's "Beenox" lobby; `OnlineGameName=thugpro` (key left empty: THUGPRO keeps THUG2's) is THUGPRO's, its "General" / "Newbies" lobbies - joining THUGPRO players' sessions may not work, their scripts and DLL differ; test online only by hand, tools and agents never go online - src/game/net/online_identity.h), `thug2-decomp.log` (read it after every game run). The retail THUG2.exe is
   SafeDisc-encrypted and not used.
 - Ghidra 12.1.4 at `C:\ghidra`; project `C:\Games\THUG2-ghidra` (the Ghidra MCP server uses it); a read-only
   copy for scripts at `C:\Games\THUG2-ghidra-snapshot` (refresh: `tools\ghidra\snapshot_project.ps1`).
@@ -74,7 +74,8 @@ installed); functions PartyMod patched get source with PartyMod's behaviour. Lat
 - PartyMod (SDL2 window/input, settings in `thug2-decomp.ini`, glyphs, letterbox...) is part of the game's
   source now (MIT: notice in `THIRD_PARTY_NOTICES.md`); its DLL isn't loaded and nothing patches rewritten code.
   The only run-time writes into the exe are the GameSpy host names (`src/game/net/online_hosts.cpp`, until
-  the SDK is linked) and the IsPS2 and (debug mode) CD / NotCD CFunction table entries - `python -I tools/check_code_writes.py` checks
+  the SDK is linked), the online identity when OnlineGameName / OnlineGameKey are set (`src/game/net/online_identity.cpp`:
+  the name's address over 6 push operands, the key over its 3 stored copies) and the IsPS2 and (debug mode) CD / NotCD CFunction table entries - `python -I tools/check_code_writes.py` checks
   none lands in a rewritten function.
 - Python on this machine defaults to cp1252: always `encoding="utf-8"`. Use the Write/Edit tools for C++
   text with backslashes (shell heredocs mangle them).
@@ -86,13 +87,14 @@ installed); functions PartyMod patched get source with PartyMod's behaviour. Lat
   Give every agent `docs/agent-rules.md`; game-run scripts and the workspace maker are in `tools/game` (README);
   `tools/fold_pending.py` folds an agent's batch records into decomp-progress.md.
 - Commit messages end with the Co-Authored-By line given in the session.
-- **Never reference, read or copy** https://github.com/Morten1337/thugpro, .../thugpro_proxy or .../thugpro_toolchain
-  (or any other private Morten1337 repository) - the user can see them but has no permission to use them. His
-  public repositories may be used within their licences (thps-formats is MIT: attribute in THIRD_PARTY_NOTICES.md;
-  those without a licence are reference only). Fetch them anonymously only. Pass this on to every agent.
-  THUGPRO's distributed game is not its source: its installed binaries (C:\Users\kevin\AppData\Local\THUG Pro,
-  C:\Games\THUGPRO) may be inspected, disassembled and decompiled for facts (the user, 2026-10-20: clean room);
-  never write into those folders.
+- **Morten1337's private repositories** (thugpro, thugpro_proxy, thugpro_toolchain, thug2-decomp and the others the
+  user's account can reach - cloned with the machine's stored git credentials): since 2026-10-20 the user has his
+  permission to use them, including insights gained from their code. **Never copy them 1:1** - code taken from them
+  must be modified (rewritten in this project's style and structure), and say where an idea came from in a comment
+  (e.g. "approach from Morten1337's thugpro"). Nothing of theirs is pushed anywhere else or published wholesale. His
+  public repositories may be used within their licences (thps-formats is MIT: attribute in THIRD_PARTY_NOTICES.md).
+  THUGPRO's installed binaries (C:\Users\kevin\AppData\Local\THUG Pro, C:\Games\THUGPRO) may be inspected too; never
+  write into those folders. Pass this on to every agent.
 - **Never read, reference or copy leaked Neversoft / Activision source code** - e.g. https://github.com/thug1src/thug
   (THUG1's source) or any other leak of a Tony Hawk game's code: our code comes from our own decompilation of the game,
   and leaked code would taint it. Pass this on to every agent too.

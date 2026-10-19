@@ -162,6 +162,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_csC.cpp
     src/hook/selftests_csB.cpp
     src/hook/selftests_parkedA.cpp
+    src/hook/selftests_parkmax.cpp
     src/hook/selftests_netC.cpp
     src/hook/selftests_netD.cpp
     src/hook/selftests_netF.cpp
@@ -293,8 +294,10 @@ add_library(thug2_code OBJECT
     src/game/ed/upper_menu.cpp
     src/game/ed/park_lists.cpp
     src/game/ed/park_io.cpp
+    src/game/ed/park_cfuncs.cpp
     src/game/net/service.cpp
     src/game/net/online_hosts.cpp
+    src/game/net/online_identity.cpp
     src/game/net/net_dispatcher.cpp
     src/game/net/net_app_messages.cpp
     src/game/net/net_client.cpp

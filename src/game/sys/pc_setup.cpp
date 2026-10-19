@@ -12,6 +12,7 @@
 #include "game/gfx/glyphs.h"
 #include "game/gfx/settings.h"
 #include "game/net/online_hosts.h"
+#include "game/net/online_identity.h"
 #include "game/script/patched.h"
 #include "game/sys/config.h"
 #include "game/sys/debug_log.h"
@@ -45,6 +46,7 @@ void InitPcSetup()
     DebugLog::Printf(Level::kInfo, "Patch Initialized\n");
 
     Net::SetUpOnlineHosts();
+    Net::SetUpOnlineIdentity();
     Nx::LoadGlyphSettings();
     Nx::LoadGraphicsSettings();
 }
