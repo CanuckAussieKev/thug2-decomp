@@ -202,6 +202,18 @@ Shared files touched: CMakeLists.txt (each new .cpp listed, additive).
       light reversed, kept 0.65 below the horizon - found: z is read back as stored, x not -, faded over 16 frames
       towards straight down). Self-test (new src/hook/selftests_viewer10.cpp): TestSkater.
 
+- [x] Batch VW-10 (NOT run in the game yet; early tests pass offline; mutation run pending): more of the skater
+      (skater.*), 0x580BE0-0x581845: SetStatsFromProfile 0x580BE0 (the ten stats from the profile, or the classic
+      stats in classic mode), UpdateFromProfile 0x580EB0 (in its skater heap: pushstyle, stance, pro, display name,
+      is_male, skatestyle, first_name - copied unchecked into its 0x40-byte buffer, as the original -, name; a local
+      skater's stance flag and flip-and-rotate component), ResetInput 0x580FF0 (24 input flags pressed then released,
+      the 8th also mirrored at +0x1514's +0x1E), ResetState 0x5810E0, SetUpNetwork 0x5811E0, ShowBoardElement
+      0x581260 (four board types: a texture element over a parent, its size, an optional quarter turn and overlay, the
+      model's swap), Reset27C / HideSkater / ShowSkater 0x5814D0 / 0x581510 / 0x581550, GetDisplayName 0x581580
+      (online: the player's name), MoveToNode 0x5815C0 (orientation reset first; then the node's position and angles,
+      teleported, the physics' copies, the shadow), Pause / Unpause 0x581760 / 0x5817F0 (displays off, a script, the
+      pad's vibration paused, the sounds). Self-test (new src/hook/selftests_viewer11.cpp): TestSkaterProfile.
+
 - [ ] Next: (state for resuming)
       - Batch VW-2 (cars / KOTH crown 0x5780E0-0x578490 in src/game/obj/game_objects.*; the skater trick code's two
         list entry types 0x578670 / 0x578740 / 0x5787F0 / 0x579570-0x579820 in src/game/skater/trick_lists.*) and

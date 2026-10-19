@@ -7,6 +7,12 @@
 #include <cstring>
 
 #include "game/core/dbg.h"
+#include "game/core/manager.h"
+#include "game/core/mem.h"
+#include "game/mth/matrix.h"
+#include "game/script/nodes.h"
+#include "game/sio/device.h"
+#include "game/skate/profile_manager.h"
 #include "game/mth/random.h"
 #include "game/mth/vector.h"
 #include "game/obj/compositemgr.h"
@@ -443,6 +449,281 @@ void CSkater::UpdateShadowLight(int, int)
     GameFunction<void(__thiscall*)(void*, Mth::Vector*)>(0x00431360)(m_shadow, &direction);
 }
 
+namespace {
+
+constexpr uint32_t kStatNames[10] = {0x439F4704, 0xAF895B3F, 0x9B65D7B8, 0xF0D90109, 0xEDF5DB70,
+                                     0x6DCB497C, 0x9016B4E7, 0xF73A13E3, 0xAE798769, 0xB1FC0722};
+constexpr uint32_t kPushStyle = 0xC15DBF86;          // pushstyle
+constexpr uint32_t kSkateStyle = 0x76FD33E8;         // skatestyle
+constexpr uint32_t kFirstName = 0x562E3ECD;          // first_name
+constexpr uint32_t kSkaterFlipAndRotate = 0x488AF07A; // SkaterFlipAndRotate (a component)
+
+int Clock() { return GameFunction<int(__cdecl*)()>(0x0044ECE0)() + GameVariable<int>(0x00696D60); }
+
+// The score's two balance displays off (0x00563370 / 0x00563390).
+void BalanceDisplaysOff(void* score)
+{
+    GameFunction<void(__thiscall*)(void*, int, float)>(0x00563370)(score, 0, 0.0f);
+    GameFunction<void(__thiscall*)(void*, int, float)>(0x00563390)(score, 0, 0.0f);
+}
+
+// An input flag (a byte and the clock when it last changed) set to `on` if it isn't already.
+void SetInputFlag(uint8_t* flag, uint8_t on)
+{
+    if (flag[0] == on)
+        return;
+    flag[0] = on;
+    *reinterpret_cast<int*>(flag + 4) = Clock();
+}
+
+void* Elements() { return GameVariable<void*>(0x00700F1C); }
+
+} // namespace
+
+// 0x00580BE0
+void CSkater::SetStatsFromProfile(CSkaterProfile* profile)
+{
+    void* classicStats = At<void*>(Skate(), 0x20);
+    if (GameFunction<bool(__thiscall*)(void*, uint32_t)>(0x00553220)(GameVariable<void*>(0x007CE470), kIsClassic)) {
+        for (int i = 0; i < 10; ++i)
+            SetStatOverride(i, static_cast<float>(GameFunction<int(__thiscall*)(void*, uint32_t)>(0x00584540)(classicStats, kStatNames[i])));
+        return;
+    }
+    for (int i = 0; i < 10; ++i)
+        SetStatOverride(i, static_cast<float>(profile->GetStat(kStatNames[i])));
+}
+
+// 0x00580EB0
+void CSkater::UpdateFromProfile(CSkaterProfile* profile)
+{
+    Mem::Manager* manager = Mem::Manager::Get();
+    manager->PushContext(manager->m_skaterHeaps[m_skaterNumber]);
+    auto checksum = [profile](uint32_t name) {
+        return GameFunction<uint32_t(__thiscall*)(CSkaterProfile*, uint32_t)>(0x005860C0)(profile, name);
+    };
+    m_pushStyle = checksum(kPushStyle);
+    m_goofy = checksum(kStance) == kGoofy;
+    m_pro = profile->IsPro();
+    m_displayName = profile->GetDisplayName();
+    Script::CStruct* info = profile->InfoStructure();
+    m_style = 0;
+    info->GetInteger(kIsMale, &m_male, 1);
+    info->GetChecksum(kSkateStyle, &m_style, 0);
+    const char* firstName;
+    info->GetString(kFirstName, &firstName, 1);
+    for (int i = 0; (m_firstName[i] = firstName[i]) != 0; ++i) { // (copied inline, unchecked)
+    }
+    m_name = profile->GetName();
+    if (m_unknownBC) {
+        uint8_t* stanceFlag = At<uint8_t*>(m_corePhysics, 0x1528) + 0x28;
+        SetInputFlag(stanceFlag, m_goofy ? 0 : 1);
+        GameFunction<void(__thiscall*)(void*)>(0x00511420)(GetComponent(kSkaterFlipAndRotate));
+    }
+    Mem::Manager::Get()->PopContext();
+}
+
+// 0x00580FF0
+void CSkater::ResetInput()
+{
+    GameFunction<void(__thiscall*)(void*)>(0x00518630)(m_scoreHolder);
+    GameFunction<void(__thiscall*)(void*)>(0x004F8D80)(GetComponent(0x589E5FB3));
+    reinterpret_cast<void(__thiscall*)(CSkater*)>(m_vtable[0x48 / 4])(this);
+    for (int i = 0; i < 24; ++i) {
+        SetInputFlag(At<uint8_t*>(m_corePhysics, 0x1528) + 0x20 + 8 * i, 1);
+        if (i == 7)
+            At<uint8_t>(At<uint8_t*>(m_corePhysics, 0x1514), 0x1E) = 1;
+        SetInputFlag(At<uint8_t*>(m_corePhysics, 0x1528) + 0x20 + 8 * i, 0);
+        if (i == 7)
+            At<uint8_t>(At<uint8_t*>(m_corePhysics, 0x1514), 0x1E) = 0;
+    }
+    GameFunction<void(__thiscall*)(void*)>(0x0046BC60)(m_unknown264 + 0x20);
+    Script::RunScript(0xAE5438AF, nullptr, this, false, nullptr);
+}
+
+// 0x005810E0
+void CSkater::ResetState()
+{
+    auto* physicsControl = reinterpret_cast<uint8_t*>(GetComponent(kSkaterPhysicsControl));
+    if (physicsControl[0x18])
+        GameFunction<void(__thiscall*)(void*, int)>(0x005178B0)(physicsControl, 0);
+    GameFunction<void(__thiscall*)(void*)>(0x00511310)(GetComponent(kSkaterFlipAndRotate));
+    for (uint32_t reset : {0x0051EAB0u, 0x0051EB30u, 0x0051EF00u, 0x0051EB00u, 0x0051ED10u, 0x005232E0u})
+        GameFunction<void(__thiscall*)(void*)>(reset)(m_unknown258);
+    GameFunction<void(__thiscall*)(void*)>(0x00519650)(GetComponent(0x43686585));
+    m_unknown250[0x1F4] = 0;
+    BalanceDisplaysOff(At<void*>(m_scoreHolder, 0x18));
+    if (m_unknown25C)
+        GameFunction<void(__thiscall*)(void*)>(0x0043D520)(m_unknown25C);
+    GameFunction<void(__thiscall*)(void*, Mth::Vector*)>(0x004317C0)(m_shadow, &m_pos);
+    GameFunction<void(__thiscall*)(void*, Mth::Vector*)>(0x004317E0)(m_shadow, &m_matrix.row[1]);
+    At<int>(GetComponent(0x21FC3301), 0x18) = -1;
+}
+
+// 0x005811E0
+void CSkater::SetUpNetwork()
+{
+    uint8_t* client = GameFunction<uint8_t*(__thiscall*)(void*, int)>(0x00532EA0)(Net(), m_skaterNumber);
+    CBaseComponent* flipAndRotate = GetComponent(kSkaterFlipAndRotate);
+    GameFunction<void(__thiscall*)(void*, uint32_t, int, uint32_t, uint32_t)>(0x00511390)(
+        flipAndRotate, m_id, 0, At<uint32_t>(client, 8), m_unknownBC);
+    GameFunction<void(__thiscall*)(void*)>(0x00511420)(flipAndRotate);
+    GameFunction<void(__thiscall*)(void*, uint32_t, int, uint32_t)>(0x004202A0)(m_unknown250, 0xA7A9D4B8, 0, m_unknownBC);
+    GameFunction<void(__thiscall*)(void*)>(0x00419A20)(m_unknown24C);
+}
+
+// 0x00581260
+void CSkater::ShowBoardElement(uint32_t type)
+{
+    uint32_t name;
+    switch (type) {
+    case 0x23A1DF80: name = 0x53409C6B; break;
+    case 0x07CB4FA9: name = 0xC4BFAEC3; break;
+    case 0x5B288E0B: name = 0xEF76A8DB; break;
+    case 0xD0C656A2: name = 0xFFE9F52A; break;
+    default: return;
+    }
+    Script::CStruct* params = Script::GetStructure(name);
+    if (!params)
+        return;
+    Mem::Manager::Get()->PushContext(Mem::Manager::Get()->m_topDownHeap);
+    uint32_t modelSwap, modelSwap2;
+    float width, height;
+    const char* texture;
+    params->GetChecksum(0xA01371B1, &modelSwap, 1);
+    params->GetFloat(0x6AA8D676, &width, 1);
+    params->GetFloat(0xCCDFDDC2, &height, 1);
+    params->GetChecksum(0x676F1DF1, &modelSwap2, 1);
+    params->GetString(0xC553C612, &texture, 1);
+    auto newElement = [](const char* text) {
+        return GameFunction<void*(__thiscall*)(void*, const char*, int, int, int)>(0x0049F9B0)(Elements(), text, 0, 0, 1);
+    };
+    auto reset = [](void* element) { GameFunction<void(__thiscall*)(void*, int, int)>(0x0048D060)(element, 0, 0); };
+    void* element = newElement(texture);
+    reset(element);
+    void* parent = GameFunction<void*(__thiscall*)(void*)>(0x00553E90)(GetComponent(0x5B512EDC));
+    reset(parent);
+    GameFunction<void(__thiscall*)(void*, void*, int)>(0x0048DE80)(element, parent, 1);
+    GameFunction<void(__thiscall*)(void*, uint32_t)>(0x0048DED0)(element, 0); // (black)
+    GameFunction<void(__thiscall*)(void*, float, float)>(0x0048DEB0)(element, width, height);
+    int flag;
+    if (params->GetInteger(0xC876ADF3, &flag, 0))
+        GameFunction<void(__thiscall*)(void*, float, float, float)>(0x0049F360)(element, 1.5707964f, -1.0f, -1.0f);
+    bool second = false;
+    void* overlay = nullptr;
+    int unused;
+    if (params->GetInteger(0x25A0E7E9, &unused, 0)) {
+        second = true;
+        const char* overlayTexture;
+        params->GetString(0x499F4BE9, &overlayTexture, 1);
+        overlay = newElement(overlayTexture);
+        reset(overlay);
+        GameFunction<void(__thiscall*)(void*, void*, int)>(0x0049F420)(overlay, element, 1);
+        GameFunction<void(__thiscall*)(void*, int, int)>(0x0048DE30)(overlay, 1, 0);
+    }
+    GameFunction<void(__thiscall*)(void*, int, int)>(0x0048DE30)(element, 1, 0);
+    const char* model;
+    params->GetString(0x49B318FD, &model, 1);
+    GameFunction<void(__thiscall*)(void*, uint32_t, const char*, uint32_t)>(0x00420110)(GetComponent(kModelComponent), modelSwap,
+                                                                                        model, modelSwap2);
+    if (second)
+        GameFunction<void(__thiscall*)(void*, void*)>(0x0049F500)(Elements(), overlay);
+    GameFunction<void(__thiscall*)(void*, void*)>(0x0049F500)(Elements(), element);
+    GameFunction<void(__thiscall*)(void*)>(0x0048E4C0)(parent);
+    Mem::Manager::Get()->PopContext();
+}
+
+// 0x005814D0
+void CSkater::Reset27C()
+{
+    if (!m_unknownBC)
+        GameFunction<void(__thiscall*)(void*)>(0x005144D0)(GetComponent(0x850EEF66));
+    At<uint32_t>(m_unknown27C, 0x18) = 0;
+}
+
+// 0x00581510
+void CSkater::HideSkater()
+{
+    if (m_unknownBC)
+        GameFunction<void(__thiscall*)(void*)>(0x00513AB0)(GetComponent(0xB5F1E9D2));
+    GameFunction<void(__thiscall*)(void*)>(0x00431780)(m_shadow);
+    Hide(true);
+    m_flag2C4 = false;
+}
+
+// 0x00581550
+void CSkater::ShowSkater()
+{
+    GameFunction<void(__thiscall*)(void*, CSkater*)>(0x00565BF0)(Skate(), this);
+    Hide(false);
+    m_flag2C4 = true;
+}
+
+// 0x00581580
+const char* CSkater::GetDisplayName()
+{
+    if (GameFunction<bool(__thiscall*)(void*)>(0x0044E4F0)(Net()))
+        return reinterpret_cast<const char*>(
+                   GameFunction<uint8_t*(__thiscall*)(void*, uint32_t)>(0x0053AEA0)(Net(), static_cast<uint16_t>(m_id))) +
+               0x38;
+    return m_displayName.c_str();
+}
+
+// 0x005815C0
+void CSkater::MoveToNode(uint32_t name)
+{
+    m_matrix.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
+    m_matrix.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
+    m_matrix.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
+    m_matrix.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    if (!name)
+        return;
+    Script::CStruct* node = SkateScript::GetNode(name, !GameFunction<bool(__thiscall*)(void*)>(0x0044E4F0)(Net()));
+    if (!node)
+        return;
+    SkateScript::GetPosition(name, &m_pos);
+    m_oldPos = m_pos;
+    At<Mth::Vector>(m_corePhysics, 0x98) = m_pos;
+    SetTeleported(true);
+    Mth::Vector angles;
+    SkateScript::GetAngles(node, &angles);
+    GameFunction<Mth::Matrix*(__thiscall*)(Mth::Matrix*, const Mth::Vector*)>(0x0041A730)(&m_matrix, &angles);
+    auto* object = At<CCompositeObject*>(m_corePhysics, 0xC);
+    At<Mth::Matrix>(m_corePhysics, 0x18) = object->m_matrix;
+    At<Mth::Vector>(m_corePhysics, 0x68) = m_matrix.row[1];
+    At<Mth::Vector>(m_corePhysics, 0x78) = At<Mth::Vector>(m_corePhysics, 0x68);
+    At<Mth::Vector>(m_corePhysics, 0x58) = At<Mth::Vector>(m_corePhysics, 0x78);
+    GameFunction<void(__thiscall*)(void*, Mth::Vector*)>(0x004317C0)(m_shadow, &m_pos);
+    GameFunction<void(__thiscall*)(void*, Mth::Vector*)>(0x004317E0)(m_shadow, &m_matrix.row[1]);
+    m_displayMatrix = At<Mth::Matrix>(m_corePhysics, 0x18);
+}
+
+// 0x00581760
+void CSkater::Pause()
+{
+    if (m_paused || !m_unknownBC)
+        return;
+    m_paused = true;
+    m_compositeFlags |= 1;
+    BalanceDisplaysOff(At<void*>(m_scoreHolder, 0x18));
+    Script::RunScript(0x1277E3FD, nullptr, nullptr, false, nullptr);
+    if (uint8_t* input = m_unknown264)
+        At<Sio::Device*>(At<uint8_t*>(input, 0x490), 0x1C)->PauseActuators();
+    GameFunction<void(__thiscall*)(void*)>(0x0047B2A0)(GameVariable<void*>(0x006F85A8));
+}
+
+// 0x005817F0
+void CSkater::Unpause()
+{
+    if (!m_paused || !m_unknownBC)
+        return;
+    m_paused = false;
+    m_compositeFlags &= ~1u;
+    if (uint8_t* input = m_unknown264)
+        At<Sio::Device*>(At<uint8_t*>(input, 0x490), 0x1C)->UnpauseActuators();
+    if (auto* component = reinterpret_cast<uint8_t*>(GetComponent(0xB5F1E9D2)))
+        component[0xFE] = 1;
+}
+
 } // namespace Obj
 
 REPLACE(0x0057FE30, &Obj::CSkater::SetStatOverride);
@@ -470,3 +751,16 @@ REPLACE(0x00580830, &Obj::CSkater::PickRandomBoard);
 REPLACE(0x00580880, &Obj::CSkater::GetSkaterCamera);
 REPLACE(0x005808A0, &Obj::CSkater::SetPauseState);
 REPLACE(0x005809C0, &Obj::CSkater::UpdateShadowLight);
+REPLACE(0x00580BE0, &Obj::CSkater::SetStatsFromProfile);
+REPLACE(0x00580EB0, &Obj::CSkater::UpdateFromProfile);
+REPLACE(0x00580FF0, &Obj::CSkater::ResetInput);
+REPLACE(0x005810E0, &Obj::CSkater::ResetState);
+REPLACE(0x005811E0, &Obj::CSkater::SetUpNetwork);
+REPLACE(0x00581260, &Obj::CSkater::ShowBoardElement);
+REPLACE(0x005814D0, &Obj::CSkater::Reset27C);
+REPLACE(0x00581510, &Obj::CSkater::HideSkater);
+REPLACE(0x00581550, &Obj::CSkater::ShowSkater);
+REPLACE(0x00581580, &Obj::CSkater::GetDisplayName);
+REPLACE(0x005815C0, &Obj::CSkater::MoveToNode);
+REPLACE(0x00581760, &Obj::CSkater::Pause);
+REPLACE(0x005817F0, &Obj::CSkater::Unpause);

@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "game/core/string.h"
 #include "game/obj/object.h"
 
 // Pieces of the skater object (Obj::CSkater, a composite object; 0x0057FE30-0x00580BD8): its stats (overrides at
@@ -16,6 +17,8 @@ class CStruct;
 }
 
 namespace Obj {
+
+struct CSkaterProfile;
 
 class CSkater : public CCompositeObject {
 public:
@@ -67,16 +70,44 @@ public:
     // 0x005809C0: its shadow's light direction (the model's light, clamped below the horizon), faded in or out
     // over 16 frames as it is in the air or not.
     void UpdateShadowLight(int unused1, int unused2);
+    // 0x00580BE0: the ten stats from `profile` (or, in classic mode, the skate module's classic stats).
+    void SetStatsFromProfile(CSkaterProfile* profile);
+    // 0x00580EB0: its looks and identity from `profile` (in its skater heap): push style, stance, pro, display name,
+    // male, skate style, first name, name; its stance flag set again and the flip-and-rotate component told.
+    void UpdateFromProfile(CSkaterProfile* profile);
+    // 0x00580FF0: its score, a component (0x589E5FB3), its vtable +0x48 reset; the 24 input flags pressed then
+    // released; its +0x264's +0x20 reset; the script 0xAE5438AF.
+    void ResetInput();
+    // 0x005810E0: its state reset (physics control, flip and rotate, its +0x258's resets, the balance displays off,
+    // the shadow placed, 0x21FC3301's +0x18 -1).
+    void ResetState();
+    // 0x005811E0: its net client's id told to its flip-and-rotate component, its +0x250 told; then +0x24C's
+    // 0x00419A20.
+    void SetUpNetwork();
+    // 0x00581260: the board element for `type` (four kinds; their structures say the texture, sizes, model swaps...).
+    void ShowBoardElement(uint32_t type);
+    // 0x005814D0 / 0x00581510 / 0x00581550: a component's reset (not local); hidden; shown.
+    void Reset27C();
+    void HideSkater();
+    void ShowSkater();
+    // 0x00581580: its display name (online: the player's).
+    const char* GetDisplayName();
+    // 0x005815C0: moved to the node named `node` (no node: only the orientation reset).
+    void MoveToNode(uint32_t node);
+    // 0x00581760 / 0x005817F0: paused (the displays off, a script, the pad's vibration, the sounds) / unpaused.
+    void Pause();
+    void Unpause();
 
-    uint8_t m_unknown108[0x10C - sizeof(CCompositeObject)];
-    uint32_t m_style;            // +0x10C
+    uint32_t m_pushStyle;        // +0x108 (the profile's pushstyle)
+    uint32_t m_style;            // +0x10C (skatestyle)
     bool m_goofy;                // +0x110
     bool m_pro;                  // +0x111
     uint8_t pad112[2];
     int m_male;                  // +0x114
-    uint8_t m_unknown118[0x158 - 0x118];
+    char m_firstName[0x40];      // +0x118
     uint32_t m_name;             // +0x158
-    uint8_t m_unknown15C[0x16C - 0x15C];
+    Str::String m_displayName;   // +0x15C
+    uint8_t m_unknown168[0x16C - 0x168];
     uint32_t m_board;            // +0x16C
     bool m_sparks;               // +0x170
     uint8_t pad171[3];
@@ -84,11 +115,17 @@ public:
     uint8_t m_unknown178[4];
     uint8_t* m_trickInfo[11];    // +0x17C (each: +4 a structure, +8 / +0xC arrays)
     uint8_t m_unknown1A8[0x238 - 0x1A8];
-    uint8_t m_block238[0x254 - 0x238];
+    uint8_t m_block238[0x24C - 0x238];
+    void* m_unknown24C;          // +0x24C
+    uint8_t* m_unknown250;       // +0x250
     void* m_shadow;              // +0x254
-    uint8_t m_unknown258[0x278 - 0x258];
+    void* m_unknown258;          // +0x258
+    void* m_unknown25C;          // +0x25C
+    uint8_t m_unknown260[4];
+    uint8_t* m_unknown264;       // +0x264 (+0x20: reset; +0x490 -> +0x1C its input device)
+    uint8_t m_unknown268[0x278 - 0x268];
     uint8_t* m_scoreHolder;      // +0x278 (+0x18 the score)
-    uint8_t m_unknown27C[4];
+    uint8_t* m_unknown27C;       // +0x27C
     uint8_t* m_corePhysics;      // +0x280
     uint8_t* m_state284;         // +0x284
     uint8_t* m_state288;         // +0x288
@@ -98,11 +135,15 @@ public:
     int m_viewport;              // +0x2BC
     int m_pauseState;            // +0x2C0
     bool m_flag2C4;              // +0x2C4
+    uint8_t m_unknown2C5[0x320 - 0x2C5];
+    bool m_paused;               // +0x320
+    uint8_t pad321[3];
 };
 static_assert(offsetof(CSkater, m_style) == 0x10C && offsetof(CSkater, m_name) == 0x158 &&
                   offsetof(CSkater, m_trickInfo) == 0x17C && offsetof(CSkater, m_shadow) == 0x254 &&
                   offsetof(CSkater, m_statOverrides) == 0x290 && offsetof(CSkater, m_skaterNumber) == 0x2B8 &&
-                  offsetof(CSkater, m_flag2C4) == 0x2C4,
+                  offsetof(CSkater, m_flag2C4) == 0x2C4 && offsetof(CSkater, m_displayName) == 0x15C &&
+                  offsetof(CSkater, m_unknown264) == 0x264 && offsetof(CSkater, m_paused) == 0x320,
               "layout must match the original");
 
 // 0x005802E0: the physics structure for what `skater` rides (null or not a skater: skater_physics).

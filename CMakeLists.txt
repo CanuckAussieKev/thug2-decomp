@@ -84,6 +84,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_viewer8.cpp
     src/hook/selftests_viewer9.cpp
     src/hook/selftests_viewer10.cpp
+    src/hook/selftests_viewer11.cpp
     src/hook/selftests_tod3.cpp
     src/hook/selftests_tod4.cpp
     src/hook/selftests_mouse.cpp

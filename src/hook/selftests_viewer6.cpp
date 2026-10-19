@@ -537,6 +537,111 @@ void TestRailManager()
                                  : m->FindJoiningRail(&nodes[k], k & 1 ? 2u : 0u, &found));
             t.push_back(Rel(reinterpret_cast<uint32_t>(found)));
         }
+        {
+            // Small scenes on a second manager: ladders near a line (the closer one first, then a farther one;
+            // TRG_Ladder03 counted 4 times as far; one going down), two rails near a line (the one above counted a
+            // third nearer), rails overlapping (parallel, opposite, angled; the count printed), a ladder node with
+            // both links.
+            auto* scene = Ptr<CRailManager>(0x2200);
+            std::memset(scene, 0, sizeof(CRailManager));
+            auto* extra = Ptr<CRailNode>(0x2300);
+            auto node = [&](int i, float x, float y, float z, int next, uint32_t flags, uint32_t name) {
+                CRailNode* n = &extra[i];
+                std::memset(n, 0, sizeof(CRailNode));
+                n->m_pos = {x, y, z, 1.0f};
+                n->m_next = next >= 0 ? &extra[next] : nullptr;
+                n->m_flags = flags;
+                n->m_name = name;
+            };
+            auto boxes = [&](int count) {
+                for (int i = 0; i < count; ++i) {
+                    CRailNode* n = &extra[i];
+                    if (n->m_next)
+                        n->m_next->m_prev = n;
+                    const Mth::Vector& a = n->m_pos;
+                    const Mth::Vector& b = n->m_next ? n->m_next->m_pos : n->m_pos;
+                    n->m_min = {std::fmin(a.x, b.x), std::fmin(a.y, b.y), std::fmin(a.z, b.z), 1.0f};
+                    n->m_max = {std::fmax(a.x, b.x), std::fmax(a.y, b.y), std::fmax(a.z, b.z), 1.0f};
+                }
+            };
+            auto onLine = [&](int first, int count, Mth::Vector from, Mth::Vector to) {
+                scene->m_nodes = &extra[first];
+                scene->m_count = count;
+                g_checks = {1, 1, 1, 1, 1, 1};
+                CRailNode* found = nullptr;
+                t.push_back(original ? Original<bool(__thiscall*)(void*, const void*, const void*, void*, void*, void*)>(0x0057DA20)(
+                                           scene, &from, &to, Ptr<void>(kChecker), Ptr<void>(kRecords), &found)
+                                     : scene->FindLadderOnLine(&from, &to, Ptr<void>(kChecker), Ptr<Obj::Record24>(kRecords), &found));
+                t.push_back(Rel(reinterpret_cast<uint32_t>(found)));
+            };
+            constexpr uint32_t SA = Obj::RAIL_FLAG_ACTIVE, SL = Obj::RAIL_FLAG_LADDER | Obj::RAIL_FLAG_CLIMBING;
+            node(0, 0.0f, 0.0f, 0.0f, 1, SA | SL, 0x300);
+            node(1, 0.0f, 10.0f, 0.0f, -1, SA | SL, 0x301);
+            node(2, 2.0f, 0.0f, 0.0f, 3, SA | SL, 0x302);
+            node(3, 2.0f, 10.0f, 0.0f, -1, SA | SL, 0x303);
+            node(4, 5.0f, 0.0f, 0.0f, 5, SA | SL, 0xF5B17B09);
+            node(5, 5.0f, 10.0f, 0.0f, -1, SA | SL, 0x305);
+            node(6, 0.0f, 10.0f, 0.0f, 7, SA | SL, 0x306);
+            node(7, 0.0f, 0.0f, 0.0f, -1, SA | SL, 0x307);
+            boxes(8);
+            onLine(0, 4, {-1.0f, 5.0f, -1.0f, 1.0f}, {1.0f, 5.0f, 1.0f, 1.0f});
+            onLine(4, 2, {0.0f, 5.0f, -1.0f, 1.0f}, {0.0f, 5.0f, 1.0f, 1.0f});
+            onLine(6, 2, {-1.0f, 4.0f, -1.0f, 1.0f}, {1.0f, 6.0f, 1.0f, 1.0f});
+            // A ladder node with both links: the next one is the other end.
+            extra[2].m_prev = &extra[7];
+            scene->m_nodes = &extra[0];
+            scene->m_count = 4;
+            for (int up : {0, 1}) {
+                g_checks = {0, 1};
+                Mth::Vector at = {2.0f, 1.0f, 0.5f, 1.0f};
+                CRailNode* found = nullptr;
+                t.push_back(original ? Original<bool(__thiscall*)(void*, const void*, float, float, bool, void*, uint32_t, void*)>(0x0057D880)(
+                                           scene, &at, 3.0f, 4.0f, up != 0, Ptr<void>(kChecker), 0x88u, &found)
+                                     : scene->FindLadder(&at, 3.0f, 4.0f, up != 0, Ptr<void>(kChecker), 0x88u, &found));
+                t.push_back(Rel(reinterpret_cast<uint32_t>(found)));
+            }
+            // Two rails near a line.
+            node(8, 0.0f, -1.2f, 0.0f, 9, SA, 0x308);
+            node(9, 10.0f, -1.2f, 0.0f, -1, SA, 0x309);
+            node(10, 0.0f, 3.0f, 0.0f, 11, SA, 0x30A);
+            node(11, 10.0f, 3.0f, 0.0f, -1, SA, 0x30B);
+            boxes(12);
+            scene->m_nodes = &extra[8];
+            scene->m_count = 4;
+            {
+                Mth::Vector from = {2.0f, 0.0f, -1.0f, 1.0f}, to = {8.0f, 0.0f, 1.0f, 1.0f}, dir = {0.0f, 1.0f, 0.0f, 0.0f};
+                g_checks = {1, 1, 1, 1};
+                g_hits.clear();
+                t.push_back(original ? Original<bool(__thiscall*)(void*, const void*, const void*, const void*, void*, void*, float)>(0x0057DDA0)(
+                                           scene, &from, &to, &dir, Ptr<void>(kChecker), Ptr<void>(kRecords + 0x40), 5.0f)
+                                     : scene->FindRail(&from, &to, &dir, Ptr<void>(kChecker), Ptr<Obj::Record34>(kRecords + 0x40), 5.0f));
+                t.push_back(Rel(Ptr<uint32_t>(kRecords + 0x40)[12]));
+            }
+            // Overlapping rails: parallel and close (the lower goes), opposite and close, angled.
+            node(12, 0.0f, 10.0f, 0.0f, 13, SA, 0x30C);
+            node(13, 20.0f, 10.0f, 0.0f, -1, SA, 0x30D);
+            node(14, 2.0f, 11.0f, 1.0f, 15, SA, 0x30E);
+            node(15, 18.0f, 11.0f, 1.0f, -1, SA, 0x30F);
+            node(16, 20.0f, 30.0f, 50.0f, 17, SA, 0x310);
+            node(17, 0.0f, 30.0f, 50.0f, -1, SA, 0x311);
+            node(18, 1.0f, 29.0f, 51.0f, 19, SA, 0x312);
+            node(19, 19.0f, 29.0f, 51.0f, -1, SA, 0x313);
+            node(20, 0.0f, 50.0f, 0.0f, 21, SA, 0x314);
+            node(21, 20.0f, 50.0f, 3.5f, -1, SA, 0x315);
+            node(22, 1.0f, 50.5f, 0.0f, 23, SA, 0x316);
+            node(23, 19.0f, 50.5f, 0.0f, -1, SA, 0x317);
+            boxes(24);
+            scene->m_nodes = &extra[12];
+            scene->m_count = 12;
+            g_printfArgs = 1;
+            if (original)
+                Original<void(__thiscall*)(void*)>(0x0057D260)(scene);
+            else
+                scene->RemoveOverlaps();
+            g_printfArgs = 0;
+            for (int i = 12; i < 24; ++i)
+                t.push_back(extra[i].m_flags);
+        }
         // Overlaps.
         call0(0x0057D260, &CRailManager::RemoveOverlaps);
         for (int i = 0; i < 10; ++i)
