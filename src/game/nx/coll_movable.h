@@ -99,6 +99,8 @@ public:
     void SetScale(const Mth::Vector* scale);
     // 0x00412490: the inverse: the rotation's transpose divided by the scale, the position turned back.
     void UpdateInverse();
+    // 0x00410A30: `line` (both ends, w included) through the inverse - into the object's space.
+    void LineToLocal(const Mth::Line* line, Mth::Line* out) const;
     // 0x004109C0 / 0x00412060 / 0x00412050 (slots 7, 8, 25)
     Mth::Vector* GetWorldPosition();
     // 0x004109D0 (slot 9): vertex `index` scaled (w the scale's w), through the matrix.

@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 
 #include "game/mth/geometry.h"
 #include "game/mth/vector.h"
@@ -65,7 +66,8 @@ struct CCollObjTriData {
     void* m_vertices;         // +0x30 float[3] each, or uint16_t[3] when compressed
     CCollBSPNode* m_bsp;      // +0x34
     uint8_t* m_vertexBytes;   // +0x38 one byte per vertex (copied and freed with the geometry), or null
-    uint32_t m_unknown3C;     // +0x3C (a movable triangle object keeps it)
+    uint32_t m_unknown3C;     // +0x3C a float: the face-rejection scale (cleared when turned or scaled; a movable
+                              // triangle object keeps a copy)
 
     // 0x0040B230: vertex `index` (w = 0).
     Mth::Vector GetRawVertexPos(int index) const;
@@ -115,6 +117,14 @@ struct CCollObjTriData {
     bool IsPointBehindFaces(const Mth::Vector* point, int unused);
     // 0x004161D0: its walk (always true).
     bool CountFacesBehind(const CCollBSPNode* node, const Mth::Vector* point, int unused);
+
+    // +0x3C as the line tests read it: a float.
+    float RejectionScale() const
+    {
+        float scale;
+        std::memcpy(&scale, &m_unknown3C, 4);
+        return scale;
+    }
 
     uint32_t FaceVertex(int face, int corner) const
     {

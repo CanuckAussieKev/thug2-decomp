@@ -316,6 +316,16 @@ void CCollScaled::SetScale(const Mth::Vector* scale)
     UpdateInverse();
 }
 
+// 0x00410A30
+void CCollScaled::LineToLocal(const Mth::Line* line, Mth::Line* out) const
+{
+    Mth::Vector moved;
+    m_inverse.Transform(moved, line->start);
+    out->start = moved;
+    m_inverse.Transform(moved, line->end);
+    out->end = moved;
+}
+
 // 0x00412490 (each 1 / scale kept unrounded for its row's three products)
 void CCollScaled::UpdateInverse()
 {
@@ -374,6 +384,7 @@ REPLACE(0x0040AE60, &Nx::CCollMovBBox::GetFaceFlags);
 REPLACE(0x0040AE70, &Nx::CCollMovBBox::GetFaceTerrain);
 REPLACE(0x004126E0, &Nx::CCollMovBBox::DebugRender);
 REPLACE(0x00414BE0, &Nx::CCollMovBBox::Clone);
+REPLACE(0x00410A30, &Nx::CCollScaled::LineToLocal);
 REPLACE(0x004123C0, &Nx::CCollScaled::Construct);
 REPLACE(0x00413F80, &Nx::CCollScaled::ConstructCopy);
 REPLACE(0x00412460, &Nx::CCollScaled::Destruct);

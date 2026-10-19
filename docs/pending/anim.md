@@ -377,10 +377,31 @@ ProjectToPlane made exact).
   - Mutations: 35 deliberate bugs; 33 caught (26 + 4 at first: the callback changing more of the record added for
     the copy's fields). Equivalent: the box pre-check (LineIntersect rejects those lines anyway) and the placed
     point's w (ReportHit recomputes the point).
-- [ ] Next: AN-14 - the triangle objects' line tests (slot 14): 0x00413B50 (sector), 0x00413FF0 (instance),
-  0x00414460 (movable triangles); slots 15-17: 0x00410C90 / 0x004128B0, 0x004110B0, 0x004114E0; then 0x0040BDC0,
-  0x0040D370, 0x0040E280, 0x0040E560, 0x0040E940, 0x0040EC90, 0x0040F9E0, 0x0040FC00, 0x0040FEC0, 0x0040FEE0,
-  0x00410240, 0x004106C0, 0x00410930, 0x00410A30, 0x00410AA0, 0x00410BC0, the 0x00417xxx feelers / registration
+- [x] Batch AN-14 (NOT run in the game yet; the triangle objects' line tests; 4 functions): src/game/nx/coll_line.cpp,
+  coll_static.h, coll_movable.h / .cpp, coll_tri.h.
+  - Slot 14 of the three triangle classes: Nx::CCollStatic::CollideWithLine 0x00413B50 (the faces of the line's box
+    - GetFacesInBox -, each skipped when its rejection byte - the sector's buffer for 10-byte faces, the face's last
+    byte for 8-byte ones - is below a threshold: the line's distance from the geometry's minimum corner times the
+    geometry's +0x3C read as a float, truncated; past 255 nothing is tested; each face tried with RayHitsTriangle,
+    its normal (v1 - v0) x (v2 - v0) normalised, offered to ReportHit with the corner), CCollStaticInstance::
+    CollideWithLine 0x00413FF0 (the same in the instance's space, no rejection; the normal normalised inline and
+    turned by the matrix), CCollMovTri::CollideWithLine 0x00414460 (in the object's space; rejection only for 8-byte
+    faces; the normal's length and inverse rounded to floats, its x kept unrounded for the turn). Each rounds where
+    its x87 code stores - they differ. The corner each passes on as the hit point is dead (ReportHit recomputes the
+    point from the line).
+  - Nx::CCollScaled::LineToLocal 0x00410A30: both ends through the inverse (Transform, w included).
+  - Tests (selftests_anim12.cpp): TestAnimCollTriangleLines - a 60-face random mesh, plain (10-byte faces) and
+    compressed (8-byte faces), with rejection bytes (some 255) and scale; a sector over it, an instance (scaled,
+    turned, placed) and a movable object (turned, placed), re-placed every 100 lines; 1500 lines per mesh through
+    and around them, half with a BSP tree (a split on x: the line's box decides the faces), the record's distance
+    and flags varied, nearest / farthest, scales rejecting nothing / everything; 200 lines at exactly threshold 255
+    (only the 255 faces tested); LineToLocal on random lines. 559 hits of 3000.
+  - Mutations: 32 deliberate bugs; 25 caught (22 at first: the threshold-255 lines, the tree and the movable's box
+    added for 3). Not caught: the corner's scale, transform and placing (dead: see above), and four roundings in
+    the rejection distance (below the threshold's integer steps).
+- [ ] Next: AN-15 - slots 15-17 of the sector / instance: 0x00410C90 / 0x004128B0, 0x004110B0, 0x004114E0; then
+  0x0040BDC0, 0x0040D370, 0x0040E280, 0x0040E560, 0x0040E940, 0x0040EC90, 0x0040F9E0, 0x0040FC00, 0x0040FEC0,
+  0x0040FEE0, 0x00410240, 0x004106C0, 0x00410930, 0x00410AA0, 0x00410BC0, the 0x00417xxx feelers / registration
   (0x004177B0, 0x00417800...). Hidden code to give source to later (found by scratchpad hidden.py - runs between
   Ghidra's functions that aren't padding): 0x00412730, 0x00417110, 0x00419690, 0x00419750, 0x004198D0,
   0x00419AD0, 0x00419BF0, 0x00419E90, 0x0041A1A0-0x0041A21C.

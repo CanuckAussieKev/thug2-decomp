@@ -10,6 +10,8 @@
 
 namespace Nx {
 
+struct CollisionHit;
+
 // The triangle collision objects: a level sector's (in world space), an instance of one (scaled and placed) and a
 // movable one. Their faces come from the geometry: face flags (u16 at face +0) and terrain (u16 at +2), faces of
 // 8 bytes when the geometry's "small faces" byte (+0x0A) is set, else 10.
@@ -37,6 +39,12 @@ public:
     const Mth::Matrix* GetOrientation() const;
     // 0x00410980 (slot 9): the vertex, w = 1.
     Mth::Vector GetVertexPos(int index) const;
+    // 0x00413B50 (slot 14): the line against each face of the geometry in the line's box (GetFacesInBox) that
+    // isn't rejected - its rejection byte (the buffer's for 10-byte faces, the face's last byte for 8-byte ones)
+    // below the line's distance from the geometry's minimum corner times the rejection scale (none at all past
+    // 255) -, each hit offered to `hit` (ReportHit). Whether any was taken.
+    bool CollideWithLine(const Mth::Line* line, const Mth::Vector* direction, CollisionHit* hit,
+                         const Mth::BBox* lineBox);
     // 0x00410C70 (slot 13) / 0x00412750 (slot 21): the geometry's box.
     bool WithinBBox(const Mth::BBox* box) const;
     const Mth::BBox* GetGeometryBBox() const;
@@ -67,6 +75,10 @@ public:
     void SetScale(const Mth::Vector* scale);
     // 0x004113B0: the world box from every vertex scaled and placed.
     void UpdateWorldBBox();
+    // 0x00413FF0 (slot 14): as the sector's, in the instance's space (no rejection); the point (scaled, placed)
+    // and normal (turned) back in world space.
+    bool CollideWithLine(const Mth::Line* line, const Mth::Vector* direction, CollisionHit* hit,
+                         const Mth::BBox* lineBox);
     // 0x00411460 (slot 13) / 0x00412830 (slot 21)
     bool WithinBBox(const Mth::BBox* box) const;
     Mth::BBox* GetWorldBBox();
@@ -97,6 +109,10 @@ public:
     void SetGeometry(CCollObjTriData* geometry);
     // 0x00412F90 (slot 5; not a function in Ghidra)
     void SetWorldPosition(const Mth::Vector* position);
+    // 0x00414460 (slot 14): as the sector's, in the object's space (rejection only for 8-byte faces); the point
+    // and normal turned and placed back.
+    bool CollideWithLine(const Mth::Line* line, const Mth::Vector* direction, CollisionHit* hit,
+                         const Mth::BBox* lineBox);
     // 0x00411810 (slot 13) / 0x00412FC0 (slot 20): the box (made again if the object moved).
     bool WithinBBox(const Mth::BBox* box);
     Mth::BBox* GetBBox();
