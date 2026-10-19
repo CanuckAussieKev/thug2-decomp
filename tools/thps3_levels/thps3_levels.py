@@ -1460,7 +1460,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("command", choices=("convert", "selfcheck"))
     parser.add_argument("levels", nargs="*", help="THPS3 level folders (default: all but the park editor's)")
-    parser.add_argument("--thug2", default=r"C:\Games\THUG2")
+    parser.add_argument("--thug2", default=r"C:\Games\THUG2\Game")
     parser.add_argument("--thps3", default=r"C:\Games\THPS3")
     parser.add_argument("--out", help="where convert writes (default: <thug2>\\%s)" % STAGING)
     parser.add_argument("--ns", default=common.NS)
@@ -1470,6 +1470,9 @@ def main():
     parser.add_argument("--no-mips", action="store_true", help="convert: no mip levels made (faster)")
     parser.add_argument("--extra", nargs="*", default=[], help="selfcheck: more THUG2 archives (Data\\pre\\*.prx)")
     args = parser.parse_args()
+    # (a stock install keeps the game in a Game subfolder: C:\Games\THUG2 -> C:\Games\THUG2\Game)
+    if not os.path.isdir(os.path.join(args.thug2, "Data")) and os.path.isdir(os.path.join(args.thug2, "Game", "Data")):
+        args.thug2 = os.path.join(args.thug2, "Game")
     if args.command == "selfcheck":
         sys.exit(cmd_selfcheck(args))
     cmd_convert(args)

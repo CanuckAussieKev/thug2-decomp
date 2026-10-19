@@ -11,7 +11,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Static CRT so the DLL doesn't need a separate runtime installed next to the game.
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
-set(THUG2_GAME_DIR "C:/Games/THUG2" CACHE PATH "Game folder the built dinput8.dll is copied into")
+set(THUG2_GAME_DIR "C:/Games/THUG2/Game" CACHE PATH "Game folder the built dinput8.dll is copied into")
 
 # --- SDL2 (PartyMod's window and input: src/game/sys/sdl_*.cpp, src/game/sio/sdl_input.cpp) --------------
 # The official 2.30.9 Visual C++ development package: the same version as the SDL2.dll PartyMod ships with (the
@@ -401,12 +401,17 @@ target_compile_options(thug2_decomp PRIVATE /W4 /permissive- /utf-8)
 # The proxy has to be called dinput8.dll for Windows to load it instead of the system one.
 set_target_properties(thug2_decomp PROPERTIES OUTPUT_NAME dinput8)
 
-if(EXISTS "${THUG2_GAME_DIR}")
+# A stock install keeps the game in a Game subfolder (C:/Games/THUG2/Game): a cached C:/Games/THUG2 steps into it.
+set(THUG2_DEPLOY_DIR "${THUG2_GAME_DIR}")
+if(NOT EXISTS "${THUG2_DEPLOY_DIR}/Data" AND EXISTS "${THUG2_DEPLOY_DIR}/Game/Data")
+    set(THUG2_DEPLOY_DIR "${THUG2_DEPLOY_DIR}/Game")
+endif()
+if(EXISTS "${THUG2_DEPLOY_DIR}")
     add_custom_command(TARGET thug2_decomp POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:thug2_decomp> "${THUG2_GAME_DIR}"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${sdl2_SOURCE_DIR}/lib/x86/SDL2.dll" "${THUG2_GAME_DIR}"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${THUG2_CONTROLLER_DB}" "${THUG2_GAME_DIR}"
-        COMMENT "Copying dinput8.dll, SDL2.dll and gamecontrollerdb.txt into ${THUG2_GAME_DIR}")
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:thug2_decomp> "${THUG2_DEPLOY_DIR}"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${sdl2_SOURCE_DIR}/lib/x86/SDL2.dll" "${THUG2_DEPLOY_DIR}"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${THUG2_CONTROLLER_DB}" "${THUG2_DEPLOY_DIR}"
+        COMMENT "Copying dinput8.dll, SDL2.dll and gamecontrollerdb.txt into ${THUG2_DEPLOY_DIR}")
 endif()
 
 # thug2_check: the start-up checks and the early self-tests against THUG2PM.exe's code, without starting the

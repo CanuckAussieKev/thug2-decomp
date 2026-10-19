@@ -12,7 +12,25 @@ then the "- [ ] Next:" line of docs/decomp-progress.md.
   - the leaked-source ban.
 - **Decomp:** 28.27% before the object-system merge (docs/PROGRESS.md). The next batch number is **156**.
 
-## Update 2 (2026-10-19, latest)
+## Update 3 (2026-10-20): the main install changed
+- **The main install changed.** C:\Games\THUG2 is now a stock install (the user copied it from
+  C:\Games\THUG2-THPSX-ORIGINAL).
+  - The game is in **C:\Games\THUG2\Game** (THUG2.exe: an unwrapped no-CD exe, never modified).
+  - Our files went in on 2026-10-20: the DLL, the ini from the old install (self-tests off, anteara_mod=0), the
+    converted levels, and the overlay rebuilt with make_menu_level.py.
+- **The old main install is C:\Games\THUG2_PM_BAK** (THUG2PM.exe; the user's backup - don't write to it). Its Backup
+  folder holds the user's Anteara backups (scripts_2010, scripts_2011, scripts_unified) and its Save folder their old
+  saves.
+- C:\Games\THUG2-THPSX-ORIGINAL is the stock install's untouched backup. The lead's test files there were removed;
+  install_manifest check shows it as installed.
+- **Tools and defaults:**
+  - The tools' defaults point at C:\Games\THUG2\Game, and they step into a stock install's Game folder (Python
+    --game/--thug2, tools/game/*.ps1, CMake's copy step).
+  - Analysis tools and thug2_check default to C:\Games\THUG2_PM_BAK\THUG2PM.exe.
+  - Workspaces THUG2-1..4 still hold THUG2PM.exe. Refreshing one now copies the stock install's Game folder (a
+    THUG2.exe) - both work.
+
+## Update 2 (2026-10-19)
 - **Anteara Mod is part of the project**, merged from branch anteara-mod.
   - It's switched by `[features] anteara_mod=1` (default 0); the main install's ini has `anteara_mod=0`.
   - tools/anteara (README) holds only the mod's own changes. make_menu_level.py builds the mod's script set into

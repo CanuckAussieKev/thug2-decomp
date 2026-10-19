@@ -17,19 +17,21 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 DEFAULT_MANIFEST = os.path.join(ROOT, "data", "install_manifest.json")
-# Game executables by SHA-256. Most installs have the retail exe, SafeDisc-encrypted (old-school DRM): this project
-# needs THUG2PM.exe, the build with SafeDisc removed that PartyMod's patch makes, and every replacement's address is
-# for that exact file. (Until the game is built from this source - then only the data files matter.)
+# Game executables by SHA-256, and whether the DLL runs on them (it's never modified). Most installs have the retail
+# exe, SafeDisc-encrypted (old-school DRM): nothing can run on it - its code is encrypted and SafeDisc's driver doesn't
+# run on modern Windows. The DLL's addresses are for the unwrapped build: THUG2PM.exe (PartyMod's patch) and a no-CD
+# THUG2.exe have the same layout, 172 bytes apart, and the DLL runs on either (the early self-tests put THUG2PM.exe's
+# bytes in those spots while they run - src/hook/selftest_runner.cpp). (Once the game is built from this source, only
+# the data files matter.)
 KNOWN_EXES = {
     "7eb982acfa06ee0cb6884c4334d4c049258903ceaa287fd1d2e700a731b91632":
-        "THUG2PM.exe - the reference build this project's addresses are for",
-    "c34ea46e041d08d7d85565a262473c29b90ed8a4d5b740d6cc04d4fe48d52347":
-        "THUG2.exe retail (SafeDisc-encrypted, 3,926,726 bytes - the PC CD's): needs PartyMod's patch to become "
-        "THUG2PM.exe; the DLL can't run on it",
+        (True, "THUG2PM.exe - the reference build this project's addresses are named after"),
     "99b8f88aaf957a437cb990c618b82aca3374506b7a8d25044de4127d7372313b":
-        "THUG2.exe no-CD (a 2024 repack's, 2,695,168 bytes): already unwrapped - the same layout as THUG2PM.exe, "
-        "172 bytes apart (PartyMod's patch and title, the repack's OpenSpy host names and a few code bytes); the DLL "
-        "needs THUG2PM.exe",
+        (True, "THUG2.exe no-CD (a 2024 repack's, 2,695,168 bytes): already unwrapped - THUG2PM.exe's layout, 172 bytes "
+               "apart (PartyMod's patch, the repack's OpenSpy host names and a few code bytes); the DLL runs on it"),
+    "c34ea46e041d08d7d85565a262473c29b90ed8a4d5b740d6cc04d4fe48d52347":
+        (False, "THUG2.exe retail (SafeDisc-encrypted, 3,926,726 bytes - the PC CD's): the DLL can't run on it - "
+                "it needs an unwrapped exe"),
 }
 EXE_NAMES = {"thug2pm.exe", "thug2.exe"}
 # Ours or the player's (top-level names, lower case; "thug2-decomp" also covers every thug2-decomp-* name).
@@ -127,12 +129,12 @@ def check(args):
     print("%s against %s:" % (root, args.manifest))
     print("  executables:")
     for path, f in sorted(exes.items()):
-        print("    %s: %s" % (path, KNOWN_EXES.get(f["sha256"], "unknown (sha256 %s) - not a build this project "
-                                                                  "knows" % f["sha256"])))
+        known = KNOWN_EXES.get(f["sha256"], (False, "unknown (sha256 %s) - not a build this project knows" % f["sha256"]))
+        print("    %s: %s" % (path, known[1]))
     if not exes:
         print("    none found")
-    if not any(f["sha256"] == next(iter(KNOWN_EXES)) for f in exes.values()):
-        print("    -> no reference THUG2PM.exe: the DLL needs it (its addresses are for that exact file)")
+    if not any(KNOWN_EXES.get(f["sha256"], (False,))[0] for f in exes.values()):
+        print("    -> no exe the DLL runs on: it needs THUG2PM.exe or a known unwrapped no-CD THUG2.exe")
     print("  game files (the executables apart):")
     print("    identical: %d of %d" % (same, len(reference)))
     print("    changed:   %d (%s)" % (len(changed), by_kind(changed)))
@@ -150,7 +152,7 @@ def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="action", required=True)
     m = sub.add_parser("make", help="write a manifest of an install")
-    m.add_argument("--game", default=r"C:\Games\THUG2")
+    m.add_argument("--game", default=r"C:\Games\THUG2\Game")
     m.add_argument("--out", default=DEFAULT_MANIFEST)
     c = sub.add_parser("check", help="compare an install with a manifest")
     c.add_argument("--game", required=True)

@@ -3,7 +3,7 @@ param([int]$Seconds = 40, [string]$Shot = 'shot', [string]$Keys = '', [string]$G
 # -Level <name>: the game started with -level <name> - straight into free skate there (src/game/front/start_level.h).
 # Starts the game in the -Game folder (C:\Games\THUG2, or a workspace copy C:\Games\THUG2-1, -2...), waits, takes a
 # picture of its window (half size), optionally sends keys, then closes that game (only the one it started).
-# Workspace folders (anything but C:\Games\THUG2) never take the foreground: keys are posted to the window
+# Workspace folders (anything but the main install, C:\Games\THUG2\Game) never take the foreground: keys are posted to the window
 # (KEYS_POST) and pictures taken with PrintWindow (window_shot.ps1), so several can run while the user uses the PC.
 $dir = $PSScriptRoot
 # (pictures: -ShotDir, else %TEMP%\thug2-shots - never into the repo)
@@ -13,7 +13,7 @@ New-Item -ItemType Directory -Force $ShotDir | Out-Null
 $Game = Resolve-GameFolder $Game
 $exe = Find-GameExe $Game
 if (-not $exe) { "NO GAME IN $Game"; exit 2 }
-$workspace = $Game -ne 'C:\Games\THUG2'
+$workspace = $Game -notin @('C:\Games\THUG2', 'C:\Games\THUG2\Game')
 function Get-GamesHere { Get-GameProcesses | Where-Object { $_.Path -and (Split-Path $_.Path -Parent) -eq $Game } }
 # Never close a game that's already running: the user may be playing. Refuse instead.
 if (Get-GamesHere) { "THUG2 IS ALREADY RUNNING FROM $Game (the user may be playing) - not started; try later"; exit 3 }

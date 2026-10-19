@@ -46,7 +46,7 @@ def offsets_from_log(path):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--pdb-dir", default=os.path.join("out", "build", "verify"))
-    ap.add_argument("items", nargs="*", default=[r"C:\Games\THUG2\thug2-decomp.log"])
+    ap.add_argument("items", nargs="*", default=[r"C:\Games\THUG2\Game\thug2-decomp.log"])
     args = ap.parse_args()
     offsets = []
     for item in args.items:

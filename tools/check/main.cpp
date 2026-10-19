@@ -1,6 +1,6 @@
 // thug2_check: the start-up checks and the early self-tests, without starting the game.
 //
-//   thug2_check [<path to THUG2PM.exe>]      (default C:\Games\THUG2\THUG2PM.exe)
+//   thug2_check [<path to THUG2PM.exe>]      (default C:\Games\THUG2_PM_BAK\THUG2PM.exe; a stock no-CD THUG2.exe works too)
 //
 // The game's code only runs at its own addresses (0x400000 up), and Windows puts its own data there in any
 // process before main() runs. So this starts a second copy of itself suspended, reserves the game's address
@@ -212,7 +212,7 @@ int main(int argc, char** argv)
     if (argc > 2 && std::strcmp(argv[1], "--child") == 0)
         return Child(argv[2]);
 
-    const char* exe_path = argc > 1 ? argv[1] : "C:\\Games\\THUG2\\THUG2PM.exe";
+    const char* exe_path = argc > 1 ? argv[1] : "C:\\Games\\THUG2_PM_BAK\\THUG2PM.exe";
     std::vector<unsigned char> bytes;
     if (!ReadFileBytes(exe_path, bytes)) {
         std::printf("can't open %s\n", exe_path);

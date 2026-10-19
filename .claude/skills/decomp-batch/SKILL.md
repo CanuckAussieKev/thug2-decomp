@@ -8,9 +8,10 @@ description: Decompile the next batch of THUG2PM.exe functions into this repo - 
 The goal is readable C++ that behaves like the original (not byte-identical code). A batch is a coherent group
 of functions (a class, a subsystem slice), typically 10-40. Work autonomously; commit each batch; the user
 tests in the game later (say "not yet tested in-game"). Never launch the game while the user may be playing
-(check no THUG2PM.exe runs); never copy DLLs into C:\Games\THUG2 - the user's Visual Studio build does that.
+(check no THUG2PM.exe runs); never copy DLLs into C:\Games\THUG2\Game (the main install) - the user's Visual Studio build does that.
 
-Paths: repo C:\Dev\thug2-decomp; game C:\Games\THUG2\THUG2PM.exe (base 0x400000, VC 7.1 with whole-program
+Paths: repo C:\Dev\thug2-decomp; game C:\Games\THUG2\Game\THUG2.exe (the user's main install, a stock no-CD exe; the
+reference THUG2PM.exe - the same addresses - is in C:\Games\THUG2_PM_BAK and the workspaces) (base 0x400000, VC 7.1 with whole-program
 optimisation: custom register conventions happen); Ghidra snapshot C:\Games\THUG2-ghidra-snapshot (refresh
 with tools\ghidra\snapshot_project.ps1). `inspect` below means:
 

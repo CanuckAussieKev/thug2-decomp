@@ -11,7 +11,11 @@ installed); functions PartyMod patched get source with PartyMod's behaviour. Lat
 `GameFunction`, and link the libraries (D3DX9, GameSpy, CRT) instead of decompiling them.
 
 ## Where things are
-- Game: `C:\Games\THUG2\THUG2PM.exe` - the patched PC build (SafeDisc removed, base 0x400000). Also in that
+- Game (the main install, since 2026-10-20): `C:\Games\THUG2\Game\THUG2.exe` - a stock install with an already unwrapped
+  no-CD exe (never modified; the game's root is the `Game` folder, the tools step into it). The reference build the
+  addresses are named after, `THUG2PM.exe` (PartyMod's patch; SafeDisc removed, base 0x400000; the same layout, 172
+  bytes apart), is in `C:\Games\THUG2_PM_BAK` (the old main install, the user's backup - don't change it) and in the
+  workspaces; `C:\Games\THUG2-THPSX-ORIGINAL` is the stock install's untouched backup (never write there). Also in that
   folder: our `dinput8.dll`, `thug2-decomp.ini` (`[replacements] disable=` by file/name/address, `*` = all;
   `[selftests] enabled=`; `[features] skip_intro_movies=1` skips the start-up logo/intro movies,
   `widescreen_menus=0` brings back PartyMod's pillarboxed 4:3 front end, `allow_multiple_instances=1` lets a second

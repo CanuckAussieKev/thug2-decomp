@@ -26,9 +26,11 @@ Requires Visual Studio 2022 or later with "Desktop development with C++" (x86 to
 
 1. In Visual Studio: **File > Open > Folder...** and pick this folder.
 2. Choose the **x86 Debug** configuration in the toolbar.
-3. **Build > Build All**. The DLL is copied to `C:\Games\THUG2` automatically
-   (change `THUG2_GAME_DIR` in `CMakeLists.txt` or the CMake cache if your game is elsewhere).
-4. Run the game (`THUG2PM.exe`) and check `thug2-decomp.log` in the game folder.
+3. **Build > Build All**. The DLL (with SDL2.dll and gamecontrollerdb.txt) is copied to `C:\Games\THUG2\Game`
+   automatically (change `THUG2_GAME_DIR` in `CMakeLists.txt` or the CMake cache if your game is elsewhere). The game
+   folder needs an unwrapped exe: a no-CD `THUG2.exe` or PartyMod's `THUG2PM.exe` (the same addresses; the exe is never
+   modified) - not the retail SafeDisc-encrypted one (`tools/game/install_manifest.py check --game <folder>` says which).
+4. Run the game and check `thug2-decomp.log` in the game folder.
 
 Prefer a solution file? Generate one (it lands in the git-ignored `out\` folder and regenerates itself when
 `CMakeLists.txt` changes; add new source files to `CMakeLists.txt`, not the solution):

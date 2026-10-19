@@ -395,10 +395,13 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("action", choices=["extract", "check", "install"])
     parser.add_argument("--unified")
-    parser.add_argument("--game", default=r"C:\Games\THUG2")
+    parser.add_argument("--game", default=r"C:\Games\THUG2\Game")
     parser.add_argument("--overlay")
     parser.add_argument("--ns", default=os.path.join(REPO, "out", "neverscript", "ns.exe"))
     args = parser.parse_args()
+    # (a stock install keeps the game in a Game subfolder: C:\Games\THUG2 -> C:\Games\THUG2\Game)
+    if not os.path.isdir(os.path.join(args.game, "Data")) and os.path.isdir(os.path.join(args.game, "Game", "Data")):
+        args.game = os.path.join(args.game, "Game")
     if args.action == "extract":
         extract(args.unified, args.game, args.ns)
     elif args.action == "check":

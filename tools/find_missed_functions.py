@@ -1,6 +1,6 @@
 # Find code that data points to (vtables, callback tables) but Ghidra never made into a function:
 # 16-byte aligned, preceded by CC padding, inside game code, not inside any known function.
-#   python tools/find_missed_functions.py C:\Games\THUG2\THUG2PM.exe data/derived/functions.json data/derived/missed_functions.txt
+#   python tools/find_missed_functions.py C:\Games\THUG2_PM_BAK\THUG2PM.exe data/derived/functions.json data/derived/missed_functions.txt
 import json, struct, sys, bisect
 
 exe_path, funcs_path, out_path = sys.argv[1:4]

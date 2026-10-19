@@ -1148,10 +1148,13 @@ def ns(tool, *args):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--game", default=r"C:\Games\THUG2")
+    parser.add_argument("--game", default=r"C:\Games\THUG2\Game")
     parser.add_argument("--out", help="the overlay folder (default: <game>\\thug2-decomp-data)")
     parser.add_argument("--ns", default=os.path.join(REPO, "out", "neverscript", "ns.exe"))
     args = parser.parse_args()
+    # (a stock install keeps the game in a Game subfolder: C:\Games\THUG2 -> C:\Games\THUG2\Game)
+    if not os.path.isdir(os.path.join(args.game, "Data")) and os.path.isdir(os.path.join(args.game, "Game", "Data")):
+        args.game = os.path.join(args.game, "Game")
     out = args.out or os.path.join(args.game, "thug2-decomp-data")
     if not os.path.exists(args.ns):
         sys.exit("%s not found: build it with tools\\build_neverscript.ps1" % args.ns)

@@ -3,7 +3,8 @@
 Scripts for testing builds and converted levels in the game without disturbing the user. Read CLAUDE.md first: the
 game is only launched when the user allows it, C:\Games\THUG2 is the main install (merged work only, installed by the
 lead; the user's own for manual testing - self-tests off, no test runs there), and parallel work uses the workspace copies C:\Games\THUG2-1 ... THUG2-4 (one agent each). Every script takes
-`-Game <folder>` (default C:\Games\THUG2).
+`-Game <folder>` (default C:\Games\THUG2 - a stock install: the scripts step into its Game folder; the exe can be
+THUG2.exe or THUG2PM.exe, tools/game/game_exe.ps1).
 
 - `make_workspace.ps1 -Number <n>` - makes or refreshes C:\Games\THUG2-<n> as a mirror of the main install (1280x720
   window, allow_multiple_instances=1, debug_collision=0). Refuses while its lock is held or a game runs. Refresh a
@@ -45,7 +46,8 @@ scripted keys: hand it to the user with a list of what to try.
 
 ## install_manifest.py - which version of the game is this?
 `python -I tools/game/install_manifest.py make` writes `data/install_manifest.json`: the size and SHA-256 of every file
-of the reference install (C:\Games\THUG2; our files, Backup, Save and Faces left out). `... check --game <folder>`
+of the reference install (made from C:\Games\THUG2 when it held THUG2PM.exe - now C:\Games\THUG2_PM_BAK; our files,
+Backup, Save and Faces left out). `... check --game <folder>`
 compares another install with it - identical / changed / missing / extra, by kind (exe, partymod, game) - and names
 the executables by hash: the reference THUG2PM.exe the DLL's addresses are for, or the retail SafeDisc-encrypted
 THUG2.exe most installs have (it needs PartyMod's patch first). A stock install's Game subfolder is found by itself. Exit code 1 when anything differs or is missing.

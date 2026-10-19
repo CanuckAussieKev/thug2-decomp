@@ -6,9 +6,10 @@ param([Parameter(Mandatory = $true)][ValidateRange(1, 9)][int]$Number, [string]$
 #   make_workspace.ps1 -Number 3
 # A refresh mirrors the main install over it (main's DLL, levels and overlay; files only the workspace had - its logs,
 # an agent's levels - go). Refuses while the workspace's lock is held or a game runs from either folder.
-$From = $From.TrimEnd('\')
-$to = "C:\Games\THUG2-$Number"
 . (Join-Path $PSScriptRoot 'game_exe.ps1')
+# (the main install is a stock one: its game is in C:\Games\THUG2\Game - a workspace is a copy of that folder)
+$From = Resolve-GameFolder $From
+$to = "C:\Games\THUG2-$Number"
 if (-not (Find-GameExe $From)) { "NO GAME IN $From"; exit 2 }
 if (Test-Path (Join-Path $to '.game-lock')) { "LOCKED: $to (game_lock.ps1 -Action status -Game $to)"; exit 1 }
 $running = Get-GameProcesses | Where-Object { $_.Path -and (Split-Path $_.Path -Parent) -in @($From, $to) }

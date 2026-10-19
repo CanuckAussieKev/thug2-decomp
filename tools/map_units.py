@@ -5,7 +5,7 @@
 #   - membership of the same small pointer table (vtables, callback tables), found by scanning the exe
 #   - references to nearby data (each file's strings/constants sit together in .rdata/.data)
 # The Rich header says ~483 C++ objects were linked, which is a sanity check for the unit count.
-#   python tools/map_units.py C:\Games\THUG2\THUG2PM.exe data/derived/functions.json data/derived/units.csv
+#   python tools/map_units.py C:\Games\THUG2_PM_BAK\THUG2PM.exe data/derived/functions.json data/derived/units.csv
 import json, re, sys, struct, collections, csv, statistics
 
 GAME_LO, GAME_HI = 0x401000, 0x5f8130

@@ -632,7 +632,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("command", choices=("convert", "selfcheck"))
     parser.add_argument("levels", nargs="*", help="THAW zones (Z_CH, CH, ...; default: all in LEVELS)")
-    parser.add_argument("--thug2", default=r"C:\Games\THUG2")
+    parser.add_argument("--thug2", default=r"C:\Games\THUG2\Game")
     parser.add_argument("--thaw", default=r"C:\Games\THAW")
     parser.add_argument("--out", help="where convert writes (default: <thug2>\\%s)" % STAGING)
     parser.add_argument("--ns", default=common.NS)
@@ -641,6 +641,9 @@ def main():
     parser.add_argument("--static", action="store_true",
                         help="convert: the levels' scripts, moving objects, peds and cars left out")
     args = parser.parse_args()
+    # (a stock install keeps the game in a Game subfolder: C:\Games\THUG2 -> C:\Games\THUG2\Game)
+    if not os.path.isdir(os.path.join(args.thug2, "Data")) and os.path.isdir(os.path.join(args.thug2, "Game", "Data")):
+        args.thug2 = os.path.join(args.thug2, "Game")
     if args.command == "selfcheck":
         sys.exit(cmd_selfcheck(args))
     cmd_convert(args)

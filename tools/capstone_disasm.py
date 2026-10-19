@@ -8,7 +8,7 @@ import sys
 
 import capstone
 
-exe_path = sys.argv[3] if len(sys.argv) > 3 else r"C:\Games\THUG2\THUG2PM.exe"
+exe_path = sys.argv[3] if len(sys.argv) > 3 else r"C:\Games\THUG2_PM_BAK\THUG2PM.exe"
 exe = open(exe_path, "rb").read()
 pe = struct.unpack_from("<I", exe, 0x3C)[0]
 sections = struct.unpack_from("<H", exe, pe + 6)[0]

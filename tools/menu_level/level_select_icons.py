@@ -399,8 +399,11 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("out")
     parser.add_argument("names", nargs="*")
-    parser.add_argument("--game", default=r"C:\Games\THUG2")
+    parser.add_argument("--game", default=r"C:\Games\THUG2\Game")
     args = parser.parse_args()
+    # (a stock install keeps the game in a Game subfolder: C:\Games\THUG2 -> C:\Games\THUG2\Game)
+    if not os.path.isdir(os.path.join(args.game, "Data")) and os.path.isdir(os.path.join(args.game, "Game", "Data")):
+        args.game = os.path.join(args.game, "Game")
     frame = prx_file(os.path.join(args.game, "Data", "pre", "Levelselect.prx"), FRAME_SOURCE)
     names = args.names or list(PICTOGRAMS)
     scale, cols, grey = 3, 7, 90
