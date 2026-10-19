@@ -44,8 +44,10 @@ constexpr uint32_t kLoadMainMenu = 0xE92ECAFE; // load_mainmenu (the skate modul
 
 constexpr int kDefaultPressFrames = 3;
 constexpr int kReleaseFrames = 3;
+constexpr int kPressWaitSeconds = 5; // press: at most this long for the menus to take pad events
 constexpr int kDefaultChooseSeconds = 10;
 constexpr int kDefaultWaitSeconds = 90;
+constexpr int kSettleFrames = 60;      // waitfor level / ingame: how long the condition must hold
 constexpr int kPartialLineFrames = 30; // a last line without its end of line, once the file has been still this long
 
 uint32_t Checksum(const std::string& name) { return Crc::GenerateCRCFromString(name.c_str()); }
@@ -501,6 +503,7 @@ std::string StatusJson(const Status& status)
     field("main_menu", boolean(status.mainMenu));
     field("where", JsonString(status.where));
     field("paused", boolean(status.paused));
+    field("loading", boolean(status.loading));
     field("level", JsonString(status.level));
     field("game_mode", JsonString(status.gameMode));
     field("focus", JsonList(status.focus));
@@ -733,6 +736,9 @@ struct Runner {
     // -run
     bool runDone = false;
     int readyFrames = 0;
+    // the main menu: frames in a row it has been up, and whether that's a second
+    int menuFrames = 0;
+    bool menuSettled = false;
 };
 
 Runner& State()
@@ -778,9 +784,9 @@ void PollFile(Runner& runner)
     uint64_t time = FileTimeValue(info.ftLastWriteTime);
     if (!runner.looked) {
         runner.looked = true;
-        // (a file from before this run - more than 2 minutes before the game started - isn't run)
+        // (a file from before this run - written more than 10 s before the game started - isn't run)
         uint64_t start = ProcessStart();
-        if (start && time + 120ull * 10000000ull < start) {
+        if (start && time + 10ull * 10000000ull < start) {
             Log("automation: %s is older than this run - not run", path.c_str());
             runner.size = runner.offset = size;
             runner.time = time;
@@ -911,6 +917,66 @@ void SendStep(void* context, int direction)
     MouseMenus::SendMenuPadEvent(frontEnd, event);
 }
 
+// Whether the front end drops menu pad events now (as InputLogic / SendMenuPadEvent check): the first controller's
+// mapping inactive, menu input blocked, no input device.
+bool MenuInputBlocked(Mdl::FrontEnd* frontEnd)
+{
+    if (!frontEnd || frontEnd->m_padMappings[0].m_mapping == 0 || frontEnd->m_blockMenuInput)
+        return true;
+    Mdl::FrontEndInputHandler* handler = frontEnd->m_inputHandlers[0];
+    return !handler || !handler->m_device;
+}
+
+// Whether a pad press would be lost on the menus now: in the front end or the pause menu, menu input blocked, or a
+// menu has the focus but none of the focused menus takes pad events (a menu still coming in).
+bool MenusIgnorePad(Mdl::FrontEnd* frontEnd)
+{
+    if (!InFrontEnd() && !(frontEnd && frontEnd->m_paused))
+        return false;
+    if (MenuInputBlocked(frontEnd))
+        return true;
+    std::vector<CScreenElement*> focused, selected;
+    FocusedElements(&focused, &selected);
+    bool anyMenu = false;
+    for (CScreenElement* element : focused) {
+        if (!IsMenu(element))
+            continue;
+        anyMenu = true;
+        if (MouseMenus::MenuGetsPadEvents(element))
+            return false;
+    }
+    return anyMenu;
+}
+
+// Why pressing the button now is refused ("" if it isn't): a button that can choose, with a focused element (or a
+// focused menu's selected item) that leads online.
+std::string PressRefusal(const Button& button)
+{
+    if (!ButtonChooses(button))
+        return {};
+    std::vector<CScreenElement*> focused, selected;
+    FocusedElements(&focused, &selected);
+    for (auto* list : {&selected, &focused}) {
+        for (CScreenElement* element : *list) {
+            std::string refusal = RefusalOfElement(element);
+            if (!refusal.empty())
+                return refusal;
+        }
+    }
+    return {};
+}
+
+// Whether a loading screen is up: the script's DisplayLoadingScreen flag (0x006FC49C: set by 0x00490890, cleared by
+// 0x004908C0), or the PC loading screen's drawing thread (its handle 0x00786D08, set at 0x004B7445; its running flag
+// 0x00786D04, set at 0x004B7ABB; both cleared by 0x004B6F10 - also the start-up screen, shown without the script
+// flag). Menus made under one are usually still being set up by their scripts (choosing one away under the loading
+// logo left the logo up), so choose / press wait for it - at most kPressWaitSeconds.
+bool LoadingScreenUp()
+{
+    return GameVariable<uint8_t>(0x006FC49C) != 0 || GameVariable<uint32_t>(0x00786D08) != 0 ||
+           GameVariable<uint8_t>(0x00786D04) != 0;
+}
+
 // choose / focus, once a frame until done.
 void StepChoose(Runner& runner, Mdl::FrontEnd* frontEnd)
 {
@@ -923,24 +989,47 @@ void StepChoose(Runner& runner, Mdl::FrontEnd* frontEnd)
             Fail(runner, item ? "the element is hidden" : "no element " + runner.command.target, false);
         return;
     }
-    std::string why = RefusalOfElement(item);
+    // A menu given: its selected item (choose) - or the focus event to the menu (focus).
+    CScreenElement* menu = nullptr;
+    CScreenElement* chosen = item;
+    if (IsMenu(item)) {
+        if (!choose) {
+            std::string why = RefusalOfElement(item);
+            if (!why.empty())
+                return Fail(runner, why, true);
+            Obj::Tracker()->LaunchEvent(kFocusEvent, id, kSystem, nullptr, false, -1.0f);
+            return Finish(runner, "ok (focus sent to the menu)");
+        }
+        menu = item;
+        chosen = ChildAt(menu, SelectedIndex(menu));
+        if (!chosen) {
+            if (TimedOut(runner, runner.command.seconds))
+                Fail(runner, "the menu " + NameOf(id) + " has no item selected", false);
+            return;
+        }
+    } else {
+        menu = Parent(item);
+    }
+    std::string why = RefusalOfElement(chosen);
     if (!why.empty())
         return Fail(runner, why, true);
-    CScreenElement* menu = Parent(item);
     if (!menu || !IsMenu(menu)) {
         // Not a menu's item: the event goes to it.
         Obj::Tracker()->LaunchEvent(choose ? kPadChoose : kFocusEvent, id, kSystem, nullptr, false, -1.0f);
         return Finish(runner, choose ? "ok (pad_choose sent to the element)" : "ok (focus sent to the element)");
     }
-    int index = IndexOf(menu, item);
+    int index = IndexOf(menu, chosen);
     CScreenElement* current = ChildAt(menu, SelectedIndex(menu));
-    bool wait = !MouseMenus::MenuGetsPadEvents(menu) || (current && MouseMenus::ItemPassedOver(current));
+    // (nothing sent while the menu doesn't take pad events, the front end blocks menu input - SetButtonEventMappings
+    // block_menu_input, TemporarilyDisableInput - or the menu is on an item it passes over by itself)
+    bool wait = !MouseMenus::MenuGetsPadEvents(menu) || MenuInputBlocked(frontEnd) ||
+                (current && MouseMenus::ItemPassedOver(current)) ||
+                (LoadingScreenUp() && !TimedOut(runner, kPressWaitSeconds));
+    if (wait && TimedOut(runner, runner.command.seconds))
+        return Fail(runner, "its menu " + NameOf(Id(menu)) + " didn't take pad events", false);
     if (!runner.targetSet || TargetMenu().Get() != menu) {
-        if (wait) { // (not yet: the menu doesn't take pad events)
-            if (TimedOut(runner, runner.command.seconds))
-                Fail(runner, "its menu " + NameOf(Id(menu)) + " didn't take pad events", false);
+        if (wait)
             return;
-        }
         TargetMenu().Set(menu);
         runner.target = MouseMenus::StartTarget(index, ChildCount(menu), MouseMenus::MenuWraps(menu));
         runner.targetSet = true;
@@ -951,6 +1040,8 @@ void StepChoose(Runner& runner, Mdl::FrontEnd* frontEnd)
         return;
     if (state == MouseMenus::TargetState::GaveUp)
         return Fail(runner, "its menu's selection didn't get to it", false);
+    if (wait)
+        return; // (there - the choose waits for the menu to take it)
     if (choose)
         MouseMenus::SendMenuPadEvent(frontEnd, kPadChoose);
     Finish(runner, "ok");
@@ -959,7 +1050,7 @@ void StepChoose(Runner& runner, Mdl::FrontEnd* frontEnd)
 bool ConditionHolds(const Command& command)
 {
     switch (command.condition) {
-    case Condition::Ready: return MainMenuUp();
+    case Condition::Ready: return State().menuSettled;
     case Condition::FrontEnd: return InFrontEnd();
     case Condition::InGame: {
         auto* frontEnd = GameVariable<Mdl::FrontEnd*>(0x007CE464);
@@ -991,6 +1082,19 @@ bool ConditionHolds(const Command& command)
     }
 }
 
+// The condition has held long enough: a level / in game for a second in a row (the level's first frames - its intro
+// camera, the skater set down - pass first), the others at once.
+bool ConditionMet(Runner& runner)
+{
+    if (!ConditionHolds(runner.command)) {
+        runner.counter = 0;
+        return false;
+    }
+    Condition condition = runner.command.condition;
+    int frames = condition == Condition::Level || condition == Condition::InGame ? kSettleFrames : 1;
+    return ++runner.counter >= frames;
+}
+
 // Start the next command; true if it's done already (the next can start this frame).
 bool Start(Runner& runner, Mdl::FrontEnd* frontEnd)
 {
@@ -1018,6 +1122,8 @@ bool Start(Runner& runner, Mdl::FrontEnd* frontEnd)
     runner.command = command;
     runner.text = Describe(command);
     Remember(command.target);
+    if (command.op == Op::Level || command.condition == Condition::Level)
+        Remember(_strnicmp(command.target.c_str(), "load_", 5) == 0 ? command.target : "Load_" + command.target);
     Log("automation: %s", runner.text.c_str());
     std::string why = RefusalByName(command);
     if (why.empty() && command.op != Op::Wait && command.op != Op::Echo && command.op != Op::Quit &&
@@ -1055,21 +1161,12 @@ bool Start(Runner& runner, Mdl::FrontEnd* frontEnd)
         return false;
     }
     case Op::Press: {
-        const Button* button = FindButton(command.target);
-        if (ButtonChooses(*button)) {
-            std::vector<CScreenElement*> focused, selected;
-            FocusedElements(&focused, &selected);
-            for (auto* list : {&selected, &focused}) {
-                for (CScreenElement* element : *list) {
-                    std::string refusal = RefusalOfElement(element);
-                    if (!refusal.empty()) {
-                        Fail(runner, refusal, true);
-                        return true;
-                    }
-                }
-            }
+        std::string refusal = PressRefusal(*FindButton(command.target));
+        if (!refusal.empty()) {
+            Fail(runner, refusal, true);
+            return true;
         }
-        runner.held = button;
+        runner.phase = 0; // (Continue: held once the menus take it - looked at again then)
         return false;
     }
     case Op::Choose:
@@ -1083,7 +1180,7 @@ bool Start(Runner& runner, Mdl::FrontEnd* frontEnd)
         }
         return false;
     case Op::WaitFor:
-        if (ConditionHolds(command)) {
+        if (ConditionMet(runner)) {
             Finish(runner, "ok");
             return true;
         }
@@ -1097,12 +1194,25 @@ void Continue(Runner& runner, Mdl::FrontEnd* frontEnd)
 {
     switch (runner.command.op) {
     case Op::Press:
-        ++runner.counter;
-        if (runner.phase == 0 && runner.counter >= runner.command.frames) {
-            runner.held = nullptr;
+        if (runner.phase == 0) {
+            // In the menus, not while they'd drop it (at most kPressWaitSeconds).
+            if ((MenusIgnorePad(frontEnd) || LoadingScreenUp()) && !TimedOut(runner, kPressWaitSeconds))
+                return;
+            std::string refusal = PressRefusal(*FindButton(runner.command.target));
+            if (refusal.empty())
+                refusal = NetRefusal();
+            if (!refusal.empty())
+                return Fail(runner, refusal, true);
+            runner.held = FindButton(runner.command.target);
             runner.phase = 1;
             runner.counter = 0;
-        } else if (runner.phase == 1 && runner.counter >= kReleaseFrames) {
+        }
+        ++runner.counter;
+        if (runner.phase == 1 && runner.counter >= runner.command.frames) {
+            runner.held = nullptr;
+            runner.phase = 2;
+            runner.counter = 0;
+        } else if (runner.phase == 2 && runner.counter >= kReleaseFrames) {
             Finish(runner, "ok");
         }
         return;
@@ -1111,7 +1221,7 @@ void Continue(Runner& runner, Mdl::FrontEnd* frontEnd)
             Finish(runner, "ok");
         return;
     case Op::WaitFor:
-        if (ConditionHolds(runner.command))
+        if (ConditionMet(runner))
             Finish(runner, "ok");
         else if (TimedOut(runner, runner.command.seconds))
             Fail(runner, "timed out after " + std::to_string(runner.command.seconds) + " s", false);
@@ -1133,9 +1243,10 @@ void WriteStatus(Runner& runner)
     Status status = {};
     status.frames = Mlp::FramesRun();
     status.ready = runner.ready;
-    status.mainMenu = MainMenuUp();
+    status.mainMenu = runner.menuSettled;
     auto* frontEnd = GameVariable<Mdl::FrontEnd*>(0x007CE464);
     status.paused = frontEnd && frontEnd->m_paused;
+    status.loading = LoadingScreenUp();
     uint32_t load = LevelLoad();
     status.where = !load ? "starting" : load == kLoadMainMenu ? "front_end" : "level";
     status.level = load ? NameOf(load) : "";
@@ -1175,11 +1286,15 @@ void WriteStatus(Runner& runner)
     CloseHandle(file);
 }
 
+// The command line as the DLL found it, read while the DLL loads: the game's own parsing cuts the process's command
+// line buffer into words later (a 0 after the first word: "... -run").
+const std::string g_commandLine = GetCommandLineA();
+
 // -run <script>, --run <script> or --run=<script> ("" if none).
 const std::string& RequestedRun()
 {
     static const std::string script = [] {
-        std::string line = GetCommandLineA();
+        const std::string& line = g_commandLine;
         for (const char* option : {"--run=", "--run ", "-run "}) {
             size_t at = line.find(option);
             if (at == std::string::npos)
@@ -1234,7 +1349,18 @@ void Update(Mdl::FrontEnd* frontEnd)
     if (!Enabled() && RequestedRun().empty())
         return;
     Runner& runner = State();
-    if (!runner.ready && MainMenuUp()) {
+    static bool s_named = false;
+    if (!s_named) { // (-level's level by name in the status)
+        s_named = true;
+        std::string level = StartLevel::Requested();
+        if (!level.empty())
+            Remember(_strnicmp(level.c_str(), "load_", 5) == 0 ? level : "Load_" + level);
+    }
+    // (the main menu counts once it has taken pad events for a second: chosen away at once, while its start-up
+    // scripts still ran, the next menu came up under a loading logo that stayed)
+    runner.menuFrames = MainMenuUp() ? runner.menuFrames + 1 : 0;
+    runner.menuSettled = runner.menuFrames >= kSettleFrames;
+    if (!runner.ready && runner.menuSettled) {
         runner.ready = true;
         Log("automation: the main menu is up (frame %u)", Mlp::FramesRun());
     }

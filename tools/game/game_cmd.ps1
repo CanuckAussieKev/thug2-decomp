@@ -4,6 +4,7 @@ param([string]$Game = 'C:\Games\THUG2', [string[]]$Commands = @(), [int]$Timeout
 # automation=1, the workspaces' setting): appends them to <folder>\thug2-decomp-commands.txt, waits until the game has
 # done them (its status file, <folder>\thug2-decomp-status.json), prints the result and the status.
 #   game_cmd.ps1 -Game C:\Games\THUG2-4 -Commands "waitfor ready","choose menu_singlesess","waitfor menu ss_play_level"
+#   powershell -File game_cmd.ps1 -Game C:\Games\THUG2-4 -Commands "waitfor ready;choose menu_options"   (';' too)
 #   game_cmd.ps1 -Game C:\Games\THUG2-4 -Status            (only the status)
 #   -Shot <png>: a picture of the game's window afterwards (PrintWindow, window_shot.ps1).
 # Exit code: 0 done, 1 a command failed or was refused, 2 timed out / the game exited, 3 the channel is off / no game.
@@ -19,7 +20,10 @@ $lines = Add-GameCommands $Game $Commands
 $r = Wait-GameCommands $Game $lines $Timeout $process
 "{0} after {1:N1} s: {2}" -f ($(if ($r.ok) { 'done' } else { 'FAILED' })), $r.seconds, $r.why
 Format-GameStatus $r.status
-if ($Shot -and -not $process.HasExited) { & (Join-Path $PSScriptRoot 'window_shot.ps1') -ProcessId $process.Id -Path $Shot }
+# (in a child PowerShell: window_shot's Add-Type fails in some hosts)
+if ($Shot -and -not $process.HasExited) {
+    powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'window_shot.ps1') -ProcessId $process.Id -Path $Shot
+}
 if ($r.ok) { exit 0 }
 if ($r.why -match '^(error|refused):') { exit 1 }
 exit 2

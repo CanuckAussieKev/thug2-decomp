@@ -104,4 +104,9 @@ if ($p.HasExited) { "exited early (code $($p.ExitCode)) after {0:N1} s" -f $star
     Stop-Process -Id $p.Id -Force
 }
 Start-Sleep -Seconds 2
-if (Get-Process -Id $p.Id -ErrorAction SilentlyContinue) { "STILL RUNNING" } else { "closed" }
+if (Get-Process -Id $p.Id -ErrorAction SilentlyContinue) { "STILL RUNNING" } else {
+    "closed"
+    # (the commands are done with: a later start mustn't run them again - the status stays for reading)
+    $cmdFile = Get-CommandFile $Game
+    if (Test-Path $cmdFile) { Remove-Item $cmdFile -Force -ErrorAction SilentlyContinue }
+}

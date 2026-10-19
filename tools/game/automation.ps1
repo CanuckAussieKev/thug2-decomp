@@ -31,8 +31,10 @@ function Read-GameStatus([string]$folder) {
     } catch { return $null }
 }
 
-# Append command lines (UTF-8 without a BOM, each ended); returns the file's line count after them.
+# Append command lines (UTF-8 without a BOM, each ended); returns the file's line count after them. A ';' also
+# separates commands (`powershell -File` passes an array as one string: use "waitfor ready;choose menu_options").
 function Add-GameCommands([string]$folder, [string[]]$commands) {
+    $commands = @($commands | ForEach-Object { $_ -split ';' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
     $path = Get-CommandFile $folder
     $text = ($commands | ForEach-Object { $_ + "`n" }) -join ''
     $enc = New-Object Text.UTF8Encoding($false)
@@ -68,7 +70,7 @@ function Wait-GameCommands([string]$folder, [int]$lines, [int]$timeoutSeconds = 
 # One line about a status.
 function Format-GameStatus($s) {
     if (-not $s) { return 'no status' }
-    "frames=$($s.frames) ready=$($s.ready) where=$($s.where) level=$($s.level) mode=$($s.game_mode) paused=$($s.paused) " +
+    "frames=$($s.frames) ready=$($s.ready) where=$($s.where) level=$($s.level) mode=$($s.game_mode) paused=$($s.paused) loading=$($s.loading) " +
     "focus=[$($s.focus -join ',')] selected=[$($s.selected -join ',')] done=$($s.lines_done)/$($s.lines_read) " +
     "last='$($s.last)' result='$($s.result)' errors=$($s.errors) refusals=$($s.refusals)"
 }

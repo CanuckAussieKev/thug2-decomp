@@ -22,8 +22,8 @@ class CStruct;
 // logic, also paused and in a level) the DLL looks at <game folder>\thug2-decomp-commands.txt (its size and time
 // first) and runs the lines added since, in order; each command and its result go to the log and to
 // <game folder>\thug2-decomp-status.json (rewritten when something in it changes, readable while the game runs).
-// A command file older than the game's start (written before the last run) is ignored; tools delete it before a
-// run and may write commands before starting the game. If the file gets shorter (rewritten), it's read from the
+// A command file written more than 10 s before the game started (a last run's) is ignored; tools delete it before
+// and after a run and may write commands just before starting the game. If the file gets shorter (rewritten), it's read from the
 // start again.
 //
 // Commands, one a line (keywords in any case; `#` starts a comment; an <id> is a name - its checksum - or 0x<hex>):
@@ -39,10 +39,13 @@ class CStruct;
 //                                         l1 r1 l2 r2 l3 r3
 //   wait <frames>
 //   waitfor <condition> [seconds]         until the condition holds (default 90 s; then an error):
-//                                         ready (the main menu up, taking pad events), frontend, ingame (a level with
-//                                         the skater, not paused), level <name> (the level's scene - Level_<name>'s
-//                                         `level`, or <name> itself), menu <id> (the element exists), focus <id> (the
-//                                         element is focused, or its menu's selected item)
+//                                         ready (the main menu up, taking pad events for a second: chosen away at
+//                                         once, the next menu came up under a loading logo that stayed), frontend (the front end's
+//                                         level loaded - SKATE NOW skates there too), ingame (a level other than the
+//                                         front end, with the skater, not paused), level <name> (the skate module's
+//                                         level is Load_<name>, with the skater) - those two for a second in a row,
+//                                         past the level's first frames -, menu <id> (the element exists), focus <id>
+//                                         (the element is focused, or a focused menu's selected item)
 //   level <name>                          free skate in a level, as -level (game/front/start_level.h)
 //   echo <text>                           logged and shown as the result (a marker for tools)
 //   quit                                  the game closes (as its window's close button)
@@ -50,7 +53,8 @@ class CStruct;
 // are skipped (counted as done, logged).
 //
 // Status file (JSON, one object): frames, ready (the main menu has been up), main_menu (it's up now), where
-// ("starting", "front_end", "level"), paused, level (the main scene: a name if known, else 0x<hex>), game_mode,
+// ("starting", "front_end", "level"), paused, loading (a loading screen is up - choose and press wait for it to go,
+// at most 5 s), level (the skate module's level without Load_: Mainmenu, BO...; 0x<hex> if not known), game_mode,
 // focus (the focused elements' ids), selected (the focused menus' selected items), lines_read, lines_done, queued,
 // current (the command running), last (the last command finished), result ("ok", "error: ...", "refused: ...",
 // or the echo's text), errors, refusals. Ids show as names when the name is known (the game's menu ids, game
@@ -146,7 +150,7 @@ std::string Describe(const Command& command);
 // The status file's contents.
 struct Status {
     uint32_t frames;
-    bool ready, mainMenu, paused;
+    bool ready, mainMenu, paused, loading;
     std::string where, level, gameMode;
     std::vector<std::string> focus, selected;
     int linesRead, linesDone, queued;

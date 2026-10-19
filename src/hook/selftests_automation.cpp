@@ -189,7 +189,7 @@ void TestAutomationDenyList()
                                   "join_chosen",              "create_online_stats_menu", "launch_homie_list",
                                   "my_online_test",           "GoInternetNow",       "SERVER_start",
                                   "x_net",                    "net",                 "please_join_x",
-                                  "gamespyconnect"};
+                                  "gamespyconnect",           "my_lan_game"};
     for (const char* name : denied)
         Check(ScriptDenied(name), (std::string("automation: deny ") + name).c_str());
     const char* const allowed[] = {"launch_level_select_menu", "main_menu_choose",   "launch_select_skater_menu",
@@ -228,6 +228,9 @@ void TestAutomationDenyList()
         {"run foo online", true},
         {"run foo name=\"select_lan_play\"", true},
         {"run foo internet_mode=1", true},
+        // (named after a denied script, without an online word: by the table only)
+        {"run foo select_xbox_multiplayer", true},
+        {"run foo log_in_profile=1", true},
         {"run foo text=\"hello\" count=2", false},
         {"choose menu_net", true},
         {"choose mm_net_play", true},
@@ -407,6 +410,7 @@ void TestAutomationStatus()
     status.ready = true;
     status.mainMenu = false;
     status.paused = true;
+    status.loading = false;
     status.where = "level";
     status.level = "BO";
     status.gameMode = "freeskate";
@@ -426,6 +430,7 @@ void TestAutomationStatus()
                            "  \"main_menu\": false,\n"
                            "  \"where\": \"level\",\n"
                            "  \"paused\": true,\n"
+                           "  \"loading\": false,\n"
                            "  \"level\": \"BO\",\n"
                            "  \"game_mode\": \"freeskate\",\n"
                            "  \"focus\": [\"main_vmenu\", \"0x0000BEEF\"],\n"

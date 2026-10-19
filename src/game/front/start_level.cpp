@@ -31,10 +31,14 @@ bool IsScript(uint32_t name)
     return symbol && symbol->type == Script::ESYMBOLTYPE_QSCRIPT;
 }
 
+// The command line as the DLL found it, read while the DLL loads: the game's own parsing cuts the process's command
+// line buffer into words later (a 0 after the first word, "... -level" - seen with the stock THUG2.exe, 2026-10-20).
+const std::string g_commandLine = GetCommandLineA();
+
 // -level <name>, --level <name> or --level=<name> on the command line ("" if none).
 std::string FromCommandLine()
 {
-    std::string line = GetCommandLineA();
+    const std::string& line = g_commandLine;
     for (const char* option : {"--level=", "--level ", "-level "}) {
         size_t at = line.find(option);
         if (at == std::string::npos)
