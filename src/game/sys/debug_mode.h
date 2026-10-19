@@ -33,7 +33,7 @@ class CScript;
 //
 // The viewer on the keyboard (in a level, not paused; the controller's Select combos work too):
 //   F9          free camera on / off (Select+X: UserSelectX - ToggleViewMode)
-//   F10         render mode: wireframe, wireframe skins, normal (Select+Triangle)
+//   F10         render mode: wireframe, wireframe skins, normal (Select+Triangle) - drawn by game/gfx/wireframe.h
 //   F11         in a wireframe mode: the next wireframe style; otherwise: the skater put where the camera is and the
 //               free camera off (Select+Circle)
 //   F12         a screenshot (Select+Square)

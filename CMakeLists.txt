@@ -226,6 +226,7 @@ add_library(thug2_code OBJECT
     src/game/pcm/music_api.cpp
     src/game/gfx/loading_bar.cpp
     src/game/gfx/render.cpp
+    src/game/gfx/wireframe.cpp
     src/game/gfx/sprite.cpp
     src/game/gfx/camera.cpp
     src/game/gfx/scene.cpp
