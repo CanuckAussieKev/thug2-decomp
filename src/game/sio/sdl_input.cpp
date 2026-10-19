@@ -290,6 +290,20 @@ uint8_t InParkEditor()
 uint8_t s_inMenu = 0;
 uint8_t s_editingPark = 0;
 
+// Not original (PartyMod reads a Caveman binding and never uses it) - the Caveman key / button steps off the board
+// and back on: L1 and R1 together, the game's SwitchControl_Trigger (PressTwoAnyOrder L1 R1, 400 ms -
+// game\skater\switch_control.qb), as the original PC game's Key Pad 1 did. Not in a menu or while editing a park,
+// where L1 / R1 mean something else. (Without it: press Nollie and Switch together - they hold L1 and R1 too.)
+// Original behaviour (PartyMod v1.0.4): the binding is read, nothing presses it.
+void PressCaveman(uint8_t* data)
+{
+    if (s_inMenu || s_editingPark)
+        return;
+    data[3] |= (1 << 2) | (1 << 3); // L1, R1
+    data[16] = 0xFF;
+    data[17] = 0xFF;
+}
+
 // The control data's bytes: 2 and 3 the button bits (set while down here; inverted at the end - the game's
 // format has a bit set while a button is up), 4-7 the sticks, 8-19 the pressures, 20 the Xbox's black (bit 0)
 // and white (bit 1).
@@ -385,6 +399,8 @@ void PollController(Device* device, SDL_GameController* controller)
         if (ButtonDown(controller, s_pad.rightSpin))
             data[20] |= 1 << 0;
     }
+    if (ButtonDown(controller, s_pad.caveman))
+        PressCaveman(data);
 
     // the d-pad (plain buttons: not the triggers)
     if (SDL_GameControllerGetButton(controller, static_cast<SDL_GameControllerButton>(s_pad.up))) {
@@ -618,6 +634,9 @@ void PollKeyboard(Device* device)
         if (down(s_keys.rightSpin) || menuDown(s_menuKeys.zoom))
             data[20] |= 1 << 0;
     }
+
+    if (down(s_keys.caveman))
+        PressCaveman(data);
 
     // the d-pad: the item keys
     if (down(s_keys.itemUp) || menuDown(s_menuKeys.up)) {
@@ -886,7 +905,8 @@ void LoadPadBinds()
     s_pad.cameraToggle = Button("ViewToggle", kButtonBack);
     s_pad.cameraSwivelLock = Button("SwivelLock", kButtonRightStick);
     s_pad.focus = Button("Focus", kButtonLeftStick);
-    s_pad.caveman = Button("Caveman", 0);
+    // (unbound unless set: PartyMod's fallback 0 is the A button - Ollie - harmless only while nothing used it)
+    s_pad.caveman = Button("Caveman", kUnbound);
 
     s_pad.grind = Button("Grind", kButtonY);
     s_pad.grab = Button("Grab", kButtonB);
