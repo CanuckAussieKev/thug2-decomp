@@ -113,12 +113,12 @@ CCutsceneData* CCutsceneData::Construct()
 {
     m_vtable = reinterpret_cast<void**>(0x00647908);
     m_unknown8 = 0;
-    m_unknown3468 = 0;
-    m_unknown3464 = 0;
-    m_unknown10 = 0;
-    m_unknown14 = 0;
-    m_unknown18[0] = 0;
-    m_unknown18[1] = 0;
+    m_objectPart = 0;
+    m_cameraPart = 0;
+    m_cameraParts = 0;
+    m_cameraSource = nullptr;
+    m_objectParts = 0;
+    m_objectSource = nullptr;
     m_objectCount = 0;
     m_assetCount = 0;
     m_unknown3460 = 0;
@@ -127,7 +127,7 @@ CCutsceneData* CCutsceneData::Construct()
     m_time = 0.0f;
     m_unknown3480 = 0.0f;
     m_cameraStart = 0.0f;
-    m_unknown348C = 0;
+    m_unknown348C = 0.0f;
     m_vblanks = 0;
     m_lastVblanks = 0;
     m_endTime = 0.0f;

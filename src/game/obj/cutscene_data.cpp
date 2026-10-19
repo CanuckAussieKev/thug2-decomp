@@ -291,7 +291,7 @@ void CCutsceneData::UpdateCamera(void* camera)
     bool flag = false;
     GameFunction<void(__thiscall*)(void*, float*, float*, bool*, float, uint32_t)>(0x004844C0)(
         mp_cameraAnim, rotation, translation, &flag, static_cast<float>(m_time - static_cast<double>(m_cameraStart)),
-        m_unknown14);
+        reinterpret_cast<uint32_t>(m_cameraSource));
     std::memcpy(position, translation, 16);
     float origin[4] = {0.0f, 0.0f, 0.0f, 1.0f};
     QuatToMatrix(rotation, origin, matrix);

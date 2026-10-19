@@ -15,10 +15,12 @@
 #include "game/core/mem.h"
 #include "game/gfx/camera.h"
 #include "game/obj/cutscene.h"
+#include "game/obj/node_objects.h"
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
+#include "game/sys/timer.h"
 #include "hook/appmain_testkit.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -631,9 +633,14 @@ void StandInLoading(StandIns& s)
     });
     s.At({0x0048CF70}, 0, [](Regs& r) {
         Record({0x48CF7000, r.ecx});
+        *reinterpret_cast<void***>(r.ecx) = g_objectVtable; // (a source can be deleted later)
         return r.ecx;
     });
-    for (uint32_t address : {0x0048CFD0u, 0x0048CFA0u, 0x00493B90u}) {
+    s.At({0x0048CFD0}, 4, [](Regs& r) {
+        Record({0x48CFD000, r.ecx, r.args[0]});
+        return reinterpret_cast<uint32_t>(g_animList); // (the animation: its length at +0, its count at +8)
+    });
+    for (uint32_t address : {0x0048CFA0u, 0x00493B90u}) {
         s.At({address}, 4, [address](Regs& r) {
             Record({address, r.ecx, r.args[0]});
             return 0u;
@@ -753,5 +760,260 @@ void TestCutsceneLoading()
     ObjsysTests::CleanUp();
 }
 SELFTEST(Early, TestCutsceneLoading, ObjsysTests::CleanUp);
+
+// --- OS-13: the objects table, the clock, stand-ins, transforms, the details ----------------------------------
+
+alignas(16) uint8_t g_details[0x70];
+alignas(16) uint32_t g_table[2 + 5 * 6];
+
+void StandInUpdating(StandIns& s)
+{
+    s.At({0x0046CAA0, AddressOf(&Script::CArray::Init)}, 0, [](Regs& r) {
+        Record({0x46CAA000, r.ecx});
+        return r.ecx;
+    });
+    s.At({0x0046CC50, AddressOf(&Script::CArray::SetSizeAndType)}, 8, [](Regs& r) {
+        Record({0x46CC5000, r.ecx, r.args[0], r.args[1]});
+        return 0u;
+    });
+    s.At({0x0046CB10, AddressOf(&Script::CArray::SetElement)}, 8, [](Regs& r) {
+        Record({0x46CB1000, r.ecx, r.args[0], r.args[1]});
+        return 0u;
+    });
+    using AddArrayFn = void (CStruct::*)(uint32_t, Script::CArray*);
+    s.At({0x004780D0, AddressOf(static_cast<AddArrayFn>(&CStruct::AddArrayPointer))}, 8, [](Regs& r) {
+        Record({0x4780D000, r.ecx, r.args[0], r.args[1]});
+        return 0u;
+    });
+    s.At({0x005BE8E0, AddressOf(&Tmr::GetVblanks)}, 0, [](Regs& r) {
+        static const uint32_t kHigh[] = {0, 0, 1, 0x80000000, 0xFFFFFFFF};
+        uint32_t low = g_answers.Next(), high = g_answers.Pick(kHigh);
+        r.edx = high;
+        Record({0x5BE8E000, low, high});
+        return low;
+    });
+    s.At({0x00463910, AddressOf(&Obj::CCutsceneData::NameChecksum)}, 8, [](Regs& r) {
+        Record({0x46391000, r.ecx, TestStandIns::Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1]});
+        return 0xA1000000 + r.args[1];
+    });
+    s.At({0x00482F10}, 0, [](Regs& r) {
+        Record({0x482F1000, r.ecx});
+        return 0u;
+    });
+    s.At({0x00532EB0}, 0, [](Regs& r) {
+        uint32_t fader = Hash(21, r.ecx, 0) % 3 ? 0xFADE0000 + (r.ecx & 0xFFF) : 0;
+        Record({0x532EB000, r.ecx, fader});
+        return fader;
+    });
+    s.At({0x0048E830}, 8, [](Regs& r) {
+        Record({0x48E83000, r.ecx, r.args[0], r.args[1]});
+        return 1u;
+    });
+    s.At({0x00404090}, 4, [](Regs& r) {
+        std::memcpy(reinterpret_cast<void*>(r.ecx), reinterpret_cast<const void*>(r.args[0]), 64);
+        Record({0x40409000, r.args[0]});
+        return r.ecx;
+    });
+    s.At({0x00493090}, 12, [](Regs& r) {
+        Record({0x49309000, r.ecx, HashBytes(reinterpret_cast<const uint8_t*>(r.args[0]), 64), r.args[1], r.args[2]});
+        return 0u;
+    });
+    s.At({0x0041CAC0}, 4, [](Regs& r) {
+        Record({0x41CAC000, r.ecx, r.args[0]});
+        return 0u;
+    });
+    for (uint32_t address : {0x004A3870u, 0x004A36E0u}) {
+        s.At({address}, 8, [address](Regs& r) {
+            auto* out = reinterpret_cast<float*>(r.args[1]);
+            for (int i = 0; i < (address == 0x004A3870 ? 4 : 16); ++i)
+                out[i] = static_cast<float>(static_cast<int>(g_answers.Below(2001)) - 1000) / 64.0f;
+            Record({address, r.ecx, r.args[0]});
+            return 0u;
+        });
+    }
+    // a vector by a matrix, a matrix by a matrix (the out's contents from the inputs)
+    s.At({0x0041F470}, 0, [](Regs& r) {
+        auto* out = reinterpret_cast<float*>(r.args[0]);
+        const auto* v = reinterpret_cast<const float*>(r.args[1]);
+        const auto* m = reinterpret_cast<const float*>(r.args[2]);
+        uint32_t h = HashBytes(reinterpret_cast<const uint8_t*>(m), 64);
+        for (int i = 0; i < 4; ++i)
+            out[i] = v[i] * 0.5f + static_cast<float>(h >> (8 * i) & 0xFF);
+        Record({0x41F47000, h});
+        return r.args[0];
+    });
+    s.At({0x005BFA8C}, 12, [](Regs& r) { // (D3DXMatrixMultiply: stdcall)
+        uint32_t a = HashBytes(reinterpret_cast<const uint8_t*>(r.args[1]), 64);
+        uint32_t b = HashBytes(reinterpret_cast<const uint8_t*>(r.args[2]), 64);
+        auto* out = reinterpret_cast<float*>(r.args[0]);
+        for (int i = 0; i < 16; ++i)
+            out[i] = static_cast<float>((a >> i & 0xFF) + (b >> (i + 8) & 0xFF));
+        Record({0x5BFA8C00, a, b});
+        return r.args[0];
+    });
+    // the movie details
+    s.At({0x00468FB0, AddressOf(&Obj::CMovieDetails::Construct)}, 0, [](Regs& r) {
+        Record({0x468FB000, r.ecx});
+        return r.ecx;
+    });
+    s.At({0x00469230, AddressOf(&Obj::CMovieDetails::DestroyBody)}, 0, [](Regs& r) {
+        Record({0x46923000, r.ecx});
+        return 0u;
+    });
+    s.At({0x00407B90}, 8, [](Regs& r) {
+        Record({0x407B9000, r.ecx, r.args[0], r.args[1]});
+        return 0xA55E0B90u;
+    });
+    s.At({0x00407B20}, 4, [](Regs& r) {
+        Record({0x407B2000, r.ecx, r.args[0]});
+        return 0u;
+    });
+    s.At({0x0048E970}, 0, [](Regs& r) {
+        Record({0x48E97000, r.args[0], r.args[1]});
+        return 0u;
+    });
+    s.At({0x0048E990}, 0, [](Regs& r) {
+        Record({0x48E99000, r.args[0], r.args[1], r.args[2]});
+        return 0u;
+    });
+}
+
+void TestCutsceneUpdate()
+{
+    ObjsysTests::SaveGlobals({{0x006F1158, 1}, {0x006F1160, 0x1000}, {0x007D1800, 4}, {0x006F0FB8, 4},
+                              {0x006918DC, 4}, {0x006FA7C0, 4}, {0x006F3614, 0x10}, {0x006FA7F4, 0x10},
+                              {0x006F22B4, 0x10}, {0x007CC979, 1}, {0x007CE478, 4}, {0x006F115C, 4},
+                              {0x00684FB4, 4}, {0x006F0FD8, 0x40}});
+    StandIns& s = *new StandIns();
+    StandInScript(s);
+    StandInObjects(s);
+    StandInLoading(s);
+    StandInUpdating(s);
+    GameVariable<uint32_t>(0x007D1800) = reinterpret_cast<uint32_t>(g_manager);
+    GameVariable<uint32_t>(0x006F0FB8) = reinterpret_cast<uint32_t>(g_objectManager);
+    GameVariable<uint32_t>(0x006918DC) = 0xA55E7000;
+    GameVariable<uint32_t>(0x007CE478) = 0x5CA7E000;
+    GameVariable<uint8_t>(0x007CC979) = 1;
+    std::memset(&GameVariable<uint8_t>(0x006F3614), 0, 0x10); // (no pools: memory from the manager)
+    std::memset(&GameVariable<uint8_t>(0x006FA7F4), 0, 0x10);
+    std::memset(&GameVariable<uint8_t>(0x006F22B4), 0, 0x10);
+    for (uint32_t seed = 1; seed <= 200; ++seed) {
+        auto run = [&](bool original) {
+            g_trace.clear();
+            g_seed = seed;
+            Lcg random(0x60000000 + seed);
+            g_answers = Lcg(0x600A0000 + seed);
+            g_arenaUsed = 0;
+            RandomWorld(random);
+            for (int i = 0; i < 6; ++i) {
+                for (auto& byte : g_models[i])
+                    byte = static_cast<uint8_t>(random.Next());
+                *reinterpret_cast<uint32_t*>(g_components[i] + 0x208) = reinterpret_cast<uint32_t>(g_models[i]);
+            }
+            auto& data = *reinterpret_cast<Obj::CCutsceneData*>(g_data);
+            data.m_objectCount = static_cast<int>(random.Below(5));
+            for (int i = 0; i < 256; ++i) {
+                auto& entry = data.m_objects[i];
+                entry.name = 0x9F000000 + random.Below(5);
+                entry.part = static_cast<int>(random.Below(3));
+                entry.object = reinterpret_cast<Obj::CCompositeObject*>(Object(static_cast<int>(random.Below(6))));
+                entry.parent = random.Below(3) == 0
+                                   ? reinterpret_cast<Obj::CCompositeObject*>(Object(static_cast<int>(random.Below(6))))
+                                   : nullptr;
+                entry.animIndex = random.Below(3) == 0 ? -1 : static_cast<int>(random.Below(8));
+                entry.animation = random.Below(3) ? &data.m_animations[random.Below(6)] : nullptr;
+            }
+            data.m_animationCount = static_cast<int>(random.Below(8));
+            for (int i = 0; i < 256; ++i) {
+                data.m_animations[i].name = 0x9F000000 + random.Below(25);
+                data.m_animations[i].source =
+                    random.Below(2) ? reinterpret_cast<void*>(Object(static_cast<int>(random.Below(6)))) : nullptr;
+            }
+            data.m_unknown34A8 = reinterpret_cast<void*>(0xA99EA000);
+            data.m_unknown34AC = reinterpret_cast<void*>(kFakeStruct + 0x500);
+            data.mp_params = reinterpret_cast<Script::CStruct*>(kFakeStruct + 0x600);
+            data.mp_animList = g_animList;
+            data.mp_cameraAnim = g_animList;
+            static const float kLengths[] = {0.5f, 1.0f, 10.0f, 0.0f};
+            *reinterpret_cast<float*>(g_animList) = random.Below(8) ? random.Pick(kLengths) : std::nanf("");
+            *reinterpret_cast<int*>(g_animList + 8) = static_cast<int>(random.Below(6));
+            data.m_cameraSource = random.Below(2) ? reinterpret_cast<void*>(Object(0)) : nullptr;
+            data.m_objectSource = random.Below(4) ? reinterpret_cast<void*>(Object(1)) : nullptr;
+            data.m_cameraParts = static_cast<int>(random.Below(3));
+            data.m_objectParts = static_cast<int>(random.Below(3));
+            data.m_cameraPart = static_cast<int>(random.Below(3));
+            data.m_objectPart = static_cast<int>(random.Below(3));
+            data.m_unknown3474 = static_cast<uint8_t>(random.Below(2));
+            static const float kRates[] = {1.0f, 2.0f, 0.5f, -1.0f, 0.0f};
+            data.m_unknown3470 = random.Pick(kRates);
+            static const float kEnds[] = {0.0f, 0.5f, 10.0f, -1.0f, 0.51666665f};
+            data.m_unknown348C = random.Pick(kEnds);
+            data.m_unknown3488 = Bits(0.125f);
+            data.m_time = random.Below(2) ? 0.5f : static_cast<float>(random.Below(2000)) / 100.0f;
+            if (random.Below(4) == 0) // (a loop point the clock lands on exactly)
+                data.m_unknown348C = data.m_time;
+            data.m_vblanks = random.Next();
+            data.m_pausedVblanks = random.Below(3) == 0 ? 0xFFFFFFFFFFFFFF00ull : random.Below(1000);
+            GameVariable<int>(0x006F115C) = static_cast<int>(random.Below(1000));
+            static const int kVblankRates[] = {60, 50, 1};
+            GameVariable<int>(0x00684FB4) = random.Pick(kVblankRates);
+            for (auto& word : g_table)
+                word = random.Next() ^ random.Next() << 16;
+            g_table[1] = random.Below(6);
+            for (auto& byte : g_details)
+                byte = static_cast<uint8_t>(random.Next());
+            g_componentsAlways = true; // (the original uses the objects and components it finds unchecked)
+            void* p = g_data;
+            switch (random.Below(8)) {
+            case 0:
+                Record({Fn<uint32_t(__stdcall*)(uint32_t, const uint32_t*)>(original, 0x00465510)(kFakeStruct + 7,
+                                                                                                  g_table) & 0xFF});
+                break;
+            case 1:
+            case 2:
+                Fn<void(__thiscall*)(void*, int)>(original, 0x004656E0)(p, 0x7E57);
+                break;
+            case 3:
+                Fn<void(__thiscall*)(void*, uint32_t)>(original, 0x00465AB0)(p, Object(static_cast<int>(random.Below(6))));
+                break;
+            case 4:
+            case 5:
+                Fn<void(__thiscall*)(void*)>(original, 0x00465C00)(p);
+                break;
+            case 6:
+                Fn<void(__thiscall*)(void*)>(original, 0x00466450)(p);
+                break;
+            default: {
+                uint32_t settings[3] = {random.Next(), random.Next(), random.Next()};
+                if (random.Below(2))
+                    settings[2] &= ~0xFFu; // (doesn't own its data)
+                Record({Fn<uint32_t(__thiscall*)(void*, const uint32_t*)>(original, 0x00466490)(g_details, settings) ==
+                        reinterpret_cast<uint32_t>(g_details)});
+                if (random.Below(2))
+                    reinterpret_cast<uint32_t*>(g_details)[0x2C / 4] = random.Below(2) ? 0xDA7A0000 : 0;
+                Fn<void(__thiscall*)(void*)>(original, 0x00466560)(g_details);
+                PushState(reinterpret_cast<uint32_t>(g_details), reinterpret_cast<uint32_t>(g_details) + 0x70);
+                break;
+            }
+            }
+            g_componentsAlways = false;
+            PushData();
+            for (int i = 0; i < 6; ++i)
+                PushState(reinterpret_cast<uint32_t>(g_objects[i]) + 0x4C, reinterpret_cast<uint32_t>(g_objects[i]) + 0x100);
+            g_trace.push_back(HashBytes(g_arena, sizeof(g_arena)));
+            std::vector<uint32_t> trace = g_trace;
+            return trace;
+        };
+        std::vector<uint32_t> expected = run(true);
+        std::vector<uint32_t> actual = run(false);
+        Compare(expected, actual, "cutscene data: table, clock, stand-ins, transforms, details");
+        if (expected != actual) {
+            Log("  (seed %u)", seed);
+            break;
+        }
+    }
+    ObjsysTests::CleanUp();
+}
+SELFTEST(Early, TestCutsceneUpdate, ObjsysTests::CleanUp);
 
 } // namespace

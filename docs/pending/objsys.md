@@ -344,6 +344,28 @@ Shared files touched (small, additive): CMakeLists.txt (new sources and selftest
   - Mutations: 51 deliberate bugs, all caught (38 at first; the loader's kinds / models in the answers, names in
     one domain so parents, animations and object animations match, models as memory, rarer hidden parts and the
     offsets' contents added for 13).
-- [ ] Next: OS-13 0x465510-0x46661A (cutscene_update.cpp written: the objects table, the clock, stand-ins,
-  transforms, restart, the details' constructor / destructor - test to write); then 0x466620-0x466DD0; then
-  0x467710-0x4680B0.
+- [x] Batch OS-13 (NOT run in the game yet; the cutscene's objects table, clock, stand-ins and transforms, the
+  details' constructor and destructor): src/game/obj/cutscene_update.cpp (new); cutscene.h (+0x10-0x1C the
+  camera / object animation part counts and sources, +0x3464 / +0x3468 the current parts, +0x348C the loop point
+  (a float), +0x3490 the paused vblanks; the entries' part; CCutsceneDetails' +0x30-0x60).
+  - 0x00465510 ObjectsFromTable (stdcall: a binary table of {name, model, skeleton, anim, flags} as the
+    parameters' version and objects array; flag bits 30 / 31 the skater flags), 0x004656E0 UpdateTime (the clock:
+    the frame counter when 0x0C00425A is set; a fixed step - looping at +0x348C with scripts 0x4C0FD1D7 and
+    0xDEFF69FF - when +0x3474; else the vblanks since the start less the paused ones, as an unsigned 64-bit number
+    the way the x87 does it; then past the camera animation's end the next "_CAM" / "_OBA" parts and each object's
+    next animation part), 0x00465AB0 UpdateStandIn (a stand-in fades the level object out and moves it along; else
+    the model fades in), 0x00465C00 UpdateObjectTransforms (the object animation applied to the level's animated
+    objects and the cutscene's; children hang from their parents' bone 0x5A0E0860), 0x00466450 RestartObjects,
+    0x00466490 / 0x00466560 CCutsceneDetails' constructor and destructor body (on the movie details').
+  - Found while testing: D3DXMatrixMultiply (0x005BFA8C) is stdcall (first called as cdecl: the stack would have
+    gone wrong in the game); +0x348C is a float; +0x5C keeps the third setting's low byte as it is.
+  - Tests (selftests_objsys11.cpp): TestCutsceneUpdate - 200 seeds, one of the seven functions on random data
+    (tables with every flag bit, clocks landing on the loop point exactly, NaN animation lengths, vblank counts
+    past 2^63, parts, sources, parents, animation indices, owned and unowned details) with the world of OS-11/12
+    plus arrays, vblanks, names, faders, bones and matrix products stood in for; every call, the data, the objects
+    and the arena compared.
+  - Mutations: 56 deliberate bugs, all caught (42 at first, 11 of the rest not built for a broken PDB; full flag
+    bits, a loop point hit exactly, NaN lengths and the details' memory randomised added for the others).
+  - The verify build now uses embedded debug information (/Z7: CMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded in
+    this agent's own configure) - the shared compile PDB kept breaking under the mutation runs.
+- [ ] Next: OS-14 0x466620-0x466DD0 (the cutscene script commands and .qb loading); then 0x467710-0x4680B0.

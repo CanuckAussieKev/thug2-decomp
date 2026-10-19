@@ -18,6 +18,13 @@ namespace Obj {
 
 class CCompositeObject;
 
+// 0x00465510 (stdcall): a cutscene's binary objects table (version, count, then {name, model, skeleton, anim,
+// flags} each) as `params`' 0x40E32C3C and array 0x4DE5330C. True.
+bool __stdcall ObjectsFromTable(Script::CStruct* params, const uint32_t* table);
+// 0x004645A0 / 0x004645E0: the animation sources' pools (0x006FA7F4).
+void* __cdecl AnimSourceAllocate(unsigned int size);
+void __cdecl AnimSourceFree(void* item);
+
 // 0x00463AA0: a matrix from a rotation (quaternion: its x, y and z negated in place - the original's) and a
 // translation (w 1).
 void __cdecl QuatToMatrix(float* quat, const float* translation, float* matrix);
@@ -100,7 +107,7 @@ public:
     struct ObjectEntry {
         uint32_t name;              // +0x00: its id (a child's is its parent's + 1)
         uint32_t skeleton;          // +0x04
-        uint32_t unknown8;
+        int part;                   // +0x08: the animation part it plays (its animation: name + part * 10)
         bool active;                // +0x0C: it stands in for an object of the level
         uint8_t padD[3];
         AnimationEntry* animation;  // +0x10
@@ -112,14 +119,27 @@ public:
     ObjectEntry* FindEntry(uint32_t name);
     void CopySkeleton(ObjectEntry& from, ObjectEntry& to);
     void ApplySkaterLook(ObjectEntry& entry);
+    // 0x004656E0: the cutscene's clock (from the frame counter when 0x0C00425A is set, a fixed step when +0x3474,
+    // else the vblanks); with +0x34B0, past the camera animation's end the next camera / object animation parts
+    // and every object's next animation part.
+    void UpdateTime(int unused);
+    // 0x00465AB0: a cutscene object's model shown; a stand-in fades out the level object it replaces and moves it
+    // along. The sound component (0x208353AC) gets the object's matrix.
+    void UpdateStandIn(CCompositeObject* object);
+    // 0x00465C00: the object animation applied: the level's animated objects, then the cutscene's (children hang
+    // from their parents' bone 0x5A0E0860).
+    void UpdateObjectTransforms();
+    // 0x00466450: (without +0x34B0) the objects made again from the parameters, the clock back to 0.
+    void RestartObjects();
 
     void** m_vtable;              // +0x00 (0x00647908)
     uint32_t m_unknown4;
     uint32_t m_unknown8;
     uint32_t m_unknownC;
-    uint32_t m_unknown10;
-    uint32_t m_unknown14;         // +0x14
-    uint32_t m_unknown18[2];
+    int m_cameraParts;            // +0x10: the camera animation's parts (after the first)
+    void* m_cameraSource;         // +0x14: its animation source
+    int m_objectParts;            // +0x18: the object animation's parts
+    void* m_objectSource;         // +0x1C
     void* mp_objectAnims;         // +0x20
     void* mp_cameraAnim;          // +0x24
     void* mp_animList;            // +0x28: the object animations' names (count at +8, 0x00482F00 the n-th)
@@ -140,8 +160,8 @@ public:
     bool m_skippable;             // +0x3461
     bool m_skipped;               // +0x3462
     uint8_t m_unknown3463;
-    uint32_t m_unknown3464;
-    uint32_t m_unknown3468;
+    int m_cameraPart;             // +0x3464
+    int m_objectPart;             // +0x3468
     float m_endTime;              // +0x346C: seconds
     float m_unknown3470;          // +0x3470 (1 at first)
     uint8_t m_unknown3474;
@@ -151,8 +171,8 @@ public:
     float m_unknown3480;          // +0x3480
     float m_cameraStart;          // +0x3484
     uint32_t m_unknown3488;
-    uint32_t m_unknown348C;
-    uint8_t m_unknown3490[8];
+    float m_unknown348C;          // +0x348C: where a fixed-step cutscene loops (0: never)
+    uint64_t m_pausedVblanks;     // +0x3490
     uint64_t m_vblanks;           // +0x3498: counted by UpdateVblanks
     uint64_t m_lastVblanks;       // +0x34A0: the timer's count at the last UpdateVblanks
     void* m_unknown34A8;          // +0x34A8: the skater's appearance
@@ -179,10 +199,24 @@ public:
     // 0x00464580 (vtable slot 9): whether the loaded cutscene may be skipped (false if none is loaded).
     bool IsSkippable();
 
+    // 0x00466490 (returns this): the movie details' constructor, then the cutscene's: no data, a parameters
+    // structure, the three settings (the third's low byte: whether it owns its data).
+    CCutsceneDetails* Construct(const uint32_t* settings);
+    // 0x00466560: the destructor body: the parameters freed; when it owns its data, the data's asset unloaded
+    // (0x00407B90 / 0x00407B20) and 0x0048E970 / 0x0048E990 given back the three values; the movie details'.
+    void DestroyBody();
+
     void** m_vtable;
     uint8_t m_unknown4[0x2C - 4];
     CCutsceneData* m_data;        // +0x2C
-    uint8_t m_unknown30[0x5D - 0x30];
+    uint32_t m_asset;             // +0x30
+    uint8_t m_unknown34[0x0C];
+    Script::CStruct* m_params;    // +0x40
+    uint32_t m_unknown44;         // +0x44
+    uint32_t m_unknown48;         // +0x48
+    uint32_t m_unknown4C;         // +0x4C
+    uint32_t m_settings[3];       // +0x50
+    uint8_t m_ownsData;           // +0x5C (the third setting's low byte, as it is)
     bool m_flag5D;                // +0x5D
     uint8_t m_unknown5E[2];
     int m_unknown60;              // +0x60
@@ -199,6 +233,9 @@ static_assert(offsetof(CCutsceneData, m_objects) == 0x54 && offsetof(CCutsceneDa
 static_assert(offsetof(CCutsceneData, m_skippable) == 0x3461 && offsetof(CCutsceneData, m_endTime) == 0x346C &&
                   offsetof(CCutsceneData, m_time) == 0x347C && offsetof(CCutsceneData, m_vblanks) == 0x3498 &&
                   offsetof(CCutsceneData, m_name) == 0x34B4 && offsetof(CCutsceneData, m_nextSubtitle) == 0x34C8,
+              "layout must match the original");
+static_assert(offsetof(CCutsceneDetails, m_params) == 0x40 && offsetof(CCutsceneDetails, m_settings) == 0x50 &&
+                  offsetof(CCutsceneDetails, m_ownsData) == 0x5C && offsetof(CCutsceneData, m_pausedVblanks) == 0x3490,
               "layout must match the original");
 static_assert(offsetof(CCutsceneDetails, m_data) == 0x2C && offsetof(CCutsceneDetails, m_flag5D) == 0x5D &&
                   offsetof(CCutsceneDetails, m_unknown60) == 0x60,
