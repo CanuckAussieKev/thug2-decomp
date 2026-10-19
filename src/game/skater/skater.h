@@ -97,6 +97,11 @@ public:
     // 0x00581760 / 0x005817F0: paused (the displays off, a script, the pad's vibration, the sounds) / unpaused.
     void Pause();
     void Unpause();
+    // 0x00581850: set up from `profile`: a local skater's camera (found or made from skatercam_composite_structure),
+    // its script, its components (motion, an anim set's, skeleton, model - its geometry loaded in the skater's
+    // geometry heap -, shadow, a local skater's input / vibration / two more), Finalize, a local skater's pad
+    // settings and SkaterInit, its profile and stats, ... its trick infos and projectiles, its controls' textures.
+    void Init(CSkaterProfile* profile);
 
     uint32_t m_pushStyle;        // +0x108 (the profile's pushstyle)
     uint32_t m_style;            // +0x10C (skatestyle)
@@ -114,7 +119,12 @@ public:
     int m_shadowFade;            // +0x174
     uint8_t m_unknown178[4];
     uint8_t* m_trickInfo[11];    // +0x17C (each: +4 a structure, +8 / +0xC arrays)
-    uint8_t m_unknown1A8[0x238 - 0x1A8];
+    uint8_t m_unknown1A8[0x1C0 - 0x1A8];
+    struct Projectile {
+        uint32_t name;           // projectile_0 ... projectile_4
+        bool active;
+        uint8_t m_unknown5[0x13];
+    } m_projectiles[5];          // +0x1C0
     uint8_t m_block238[0x24C - 0x238];
     void* m_unknown24C;          // +0x24C
     uint8_t* m_unknown250;       // +0x250
@@ -123,7 +133,10 @@ public:
     void* m_unknown25C;          // +0x25C
     uint8_t m_unknown260[4];
     uint8_t* m_unknown264;       // +0x264 (+0x20: reset; +0x490 -> +0x1C its input device)
-    uint8_t m_unknown268[0x278 - 0x268];
+    void* m_unknown268;          // +0x268 (component 0x187574FA)
+    void* m_unknown26C;          // +0x26C (component 0x1859F772)
+    uint8_t* m_unknown270;       // +0x270
+    uint8_t m_unknown274[4];
     uint8_t* m_scoreHolder;      // +0x278 (+0x18 the score)
     uint8_t* m_unknown27C;       // +0x27C
     uint8_t* m_corePhysics;      // +0x280
@@ -143,7 +156,8 @@ static_assert(offsetof(CSkater, m_style) == 0x10C && offsetof(CSkater, m_name) =
                   offsetof(CSkater, m_trickInfo) == 0x17C && offsetof(CSkater, m_shadow) == 0x254 &&
                   offsetof(CSkater, m_statOverrides) == 0x290 && offsetof(CSkater, m_skaterNumber) == 0x2B8 &&
                   offsetof(CSkater, m_flag2C4) == 0x2C4 && offsetof(CSkater, m_displayName) == 0x15C &&
-                  offsetof(CSkater, m_unknown264) == 0x264 && offsetof(CSkater, m_paused) == 0x320,
+                  offsetof(CSkater, m_unknown264) == 0x264 && offsetof(CSkater, m_projectiles) == 0x1C0 &&
+                  offsetof(CSkater, m_block238) == 0x238 && offsetof(CSkater, m_unknown270) == 0x270 && offsetof(CSkater, m_paused) == 0x320,
               "layout must match the original");
 
 // 0x005802E0: the physics structure for what `skater` rides (null or not a skater: skater_physics).

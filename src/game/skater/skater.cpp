@@ -3,9 +3,11 @@
 #include "game/skater/skater.h"
 
 #include <cmath>
+#include <cstdio>
 #include <cstdint>
 #include <cstring>
 
+#include "game/core/crc.h"
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
@@ -16,6 +18,7 @@
 #include "game/mth/random.h"
 #include "game/mth/vector.h"
 #include "game/obj/compositemgr.h"
+#include "game/obj/game_objects.h"
 #include "game/obj/objman.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
@@ -724,6 +727,181 @@ void CSkater::Unpause()
         component[0xFE] = 1;
 }
 
+namespace {
+
+constexpr uint32_t kComponentName = 0xB6015EA8; // component
+constexpr uint32_t kNameChecksum = 0xA1DC81F9;  // name
+constexpr uint32_t kCustomSkater = 0x0A7BE964;  // custom
+
+// A component made from a structure the caller fills (CreateComponentFromStructure, vtable +0x24), the structure
+// freed after.
+template <typename Fill>
+void AddComponentFromStructure(CSkater* skater, Fill fill)
+{
+    Script::CStruct* memory = Script::NewStruct();
+    Script::CStruct* params = memory ? memory->Init() : nullptr;
+    fill(params);
+    skater->VirtualCreateComponentFromStructure(params, nullptr);
+    if (params) {
+        params->Clear();
+        Script::DeleteStruct(params);
+    }
+}
+
+} // namespace
+
+// 0x00581850
+void CSkater::Init(CSkaterProfile* profile)
+{
+    uint8_t* skate = Skate();
+    Mem::Manager* manager = Mem::Manager::Get();
+    if (m_unknownBC) {
+        // Its camera: found, or made from skatercam_composite_structure.
+        manager->PushContext(manager->m_skaterInfoHeap);
+        uint32_t cameraName = m_viewport == 1 ? kSkaterCam1 : kSkaterCam0;
+        auto* camera = static_cast<CCompositeObject*>(CompositeObjectManager()->GetObjectByID(cameraName));
+        if (camera) {
+            GameFunction<void(__thiscall*)(void*, CSkater*)>(0x004FA3C0)(camera->GetComponent(0x5E43A604), this); // skatercamera
+            auto* walkCamera = reinterpret_cast<uint8_t*>(camera->GetComponent(0xC7D37EC2));                     // walkcamera
+            GameFunction<void(__thiscall*)(void*, CSkater*)>(0x00524C50)(walkCamera, this);
+            *reinterpret_cast<int*>(walkCamera + 0x18) = 3;
+        } else {
+            Script::CStruct* memory = Script::NewStruct();
+            Script::CStruct* params = memory ? memory->Init() : nullptr;
+            params->AddChecksum(0x4C48DA58, m_id);
+            params->AddChecksum(kNameChecksum, cameraName);
+            camera = CompositeObjectManager()->CreateCompositeObjectFromNode(Script::GetArray("skatercam_composite_structure"),
+                                                                             params, true);
+            if (params) {
+                params->Clear();
+                Script::DeleteStruct(params);
+            }
+        }
+        GameFunction<void(__thiscall*)(void*, CCompositeObject*)>(0x00525E60)(GetComponent(0x726E85AA), camera); // Walk
+        GameFunction<void(__cdecl*)(uint32_t, int, int)>(0x0059F890)(cameraName, m_viewport, 0);
+        At<uint32_t>(camera, 8) |= 2;
+        GameFunction<void(__thiscall*)(void*, int, int)>(0x004F9AE0)(camera->GetComponent(0x5E43A604), 2, 0);
+        Mem::Manager::Get()->PopContext();
+    }
+    // Its script; its anim set (skater_asset_info's skater_skeleton, else thps6_human).
+    void* script = Script::CScript::operator new(0xF4);
+    m_script = script ? static_cast<Script::CScript*>(script)->Construct() : nullptr;
+    uint32_t skeleton = 0x9FE476E2;
+    if (Script::CStruct* assetInfo = Script::GetStructure(0x962E5CF7))
+        assetInfo->GetChecksum(0xCEEFD662, &skeleton, 0);
+    AddMotionComponents(this);
+    AddComponentFromStructure(this, [skeleton](Script::CStruct* params) {
+        params->AddChecksum(kComponentName, 0x7149B753); // animblender
+        params->AddChecksum(0x09794932, skeleton);        // skeletonName
+        params->AddChecksum(0x5B8C6DC2, 0x3FEC31A6);      // AnimEventTableName SkaterAnimEventTable
+    });
+    m_unknown24C = GetComponent(0x7149B753);
+    AddComponentFromStructure(this, [skeleton](Script::CStruct* params) {
+        params->AddChecksum(kComponentName, 0x222756D5); // skeleton
+        params->AddChecksum(0x222756D5, skeleton);
+        params->AddInteger(0xD3982061, 0); // max_bone_skip_lod
+    });
+    GameFunction<void(__thiscall*)(void*, int)>(0x00419B30)(m_unknown24C, 1);
+    bool local = m_unknownBC != 0;
+    AddComponentFromStructure(this, [local](Script::CStruct* params) {
+        params->AddChecksum(0u, 0x10079F2D);       // UseModelLights
+        params->AddInteger(0xD223B8BD, 1);         // max_scene_lights
+        params->AddInteger(0x2A1F92C0, local ? 1 : 0);
+        params->AddChecksum(kComponentName, kModelComponent);
+    });
+    m_unknown250 = reinterpret_cast<uint8_t*>(GetComponent(kModelComponent));
+    // Its geometry, in its geometry heap, with the asset manager's flag off meanwhile.
+    Mem::Manager::Get()->PushContext(Mem::Manager::Get()->m_skaterGeomHeaps[m_skaterNumber]);
+    void* assets = GameVariable<void*>(0x006918DC);
+    bool flag = GameFunction<bool(__thiscall*)(void*)>(0x00407A60)(assets);
+    GameFunction<void(__thiscall*)(void*, bool)>(0x00407A50)(assets, false);
+    reinterpret_cast<void(__thiscall*)(void*, CSkaterProfile*, int, int, int)>((*reinterpret_cast<void***>(m_unknown250))[0x34 / 4])(
+        m_unknown250, profile, 0, m_skaterNumber, 0);
+    GameFunction<void(__thiscall*)(void*, bool)>(0x00407A50)(assets, flag);
+    Mem::Manager::Get()->PopContext();
+    AddComponentFromStructure(this, [](Script::CStruct* params) {
+        params->AddChecksum(kComponentName, 0x8A897DD2); // shadow
+        params->AddChecksum(0x9AC24B18, 0x76A54CD1);     // ShadowType
+    });
+    m_shadow = GetComponent(0x8A897DD2);
+    At<uint8_t>(m_shadow, 0x44) = 0;
+    if (m_unknownBC) {
+        AddComponentFromStructure(this, [](Script::CStruct* params) { params->AddChecksum(kComponentName, 0x404EB936); }); // vibration
+        m_unknown25C = GetComponent(0x404EB936);
+        AddComponentFromStructure(this, [](Script::CStruct* params) { params->AddChecksum(kComponentName, 0x21FC3301); }); // SkaterStancePanel
+    } else {
+        m_unknown25C = nullptr;
+    }
+    if (m_unknownBC) {
+        AddComponentFromStructure(this, [](Script::CStruct* params) { params->AddChecksum(kComponentName, 0x187574FA); }); // skatersound
+        m_unknown268 = GetComponent(0x187574FA);
+        m_unknown26C = GetComponent(0x1859F772); // SkaterVehicleSound
+    }
+    reinterpret_cast<void(__thiscall*)(CSkater*)>(m_vtable[0x20 / 4])(this); // Finalize
+    if (m_unknownBC) {
+        // The pad's settings for its viewport (the skate module's, 8 bytes each from +0x394).
+        At<uint8_t>(m_corePhysics, 0x2D9) = skate[0x395 + 8 * m_viewport];
+        At<uint8_t>(m_corePhysics, 0x2DA) = skate[0x396 + 8 * m_viewport];
+        GameFunction<void(__thiscall*)(void*, uint32_t)>(0x0043D560)(m_unknown25C, skate[0x394 + 8 * m_viewport]);
+        if (m_unknownBC)
+            m_script->SetScript("SkaterInit", nullptr, this);
+    }
+    UpdateFromProfile(profile);
+    SetStatsFromProfile(profile);
+    if (m_unknownBC) {
+        float maxSpeed = GetScaledPhysics(0xCC5F87AA); // Skater_Max_Max_Speed_Stat
+        At<float>(GetComponent(0x187574FA), 0x20) = maxSpeed;
+    }
+    if (void* state = m_unknown258) {
+        GameFunction<void(__thiscall*)(void*, CSkaterProfile*)>(0x00522410)(state, profile);
+        for (uint32_t reset : {0x0051EB00u, 0x0051ED10u, 0x0051EB30u, 0x0051EF00u})
+            GameFunction<void(__thiscall*)(void*)>(reset)(m_unknown258);
+        At<void*>(m_unknown258, 0x1C) = At<void*>(m_scoreHolder, 0x18);
+    }
+    if (uint8_t* other = m_unknown270)
+        At<void*>(other, 0x44) = At<void*>(m_scoreHolder, 0x18);
+    if (CBaseComponent* collision = GetComponent(0xA432DC41)) {
+        if (GameFunction<uint8_t*(__thiscall*)(CBaseComponent*)>(0x005480F0)(collision))
+            GameFunction<uint8_t*(__thiscall*)(CBaseComponent*)>(0x005480F0)(collision)[8] |= 2;
+    }
+    GameFunction<void(__thiscall*)(void*)>(0x00420480)(m_unknown250); // the model's update
+    Script::RunScript(0xAE5438AF, nullptr, this, false, nullptr);
+    GameFunction<void(__thiscall*)(void*, uint32_t, float)>(0x00419A90)(m_unknown24C, 0x1CA1FF20, 0.3f); // default
+    if (m_unknownBC) {
+        for (int i = 0; i < 11; ++i) {
+            void* memory = Mem::New(0x10);
+            m_trickInfo[i] = memory ? GameFunction<uint8_t*(__thiscall*)(void*)>(0x00552560)(memory) : nullptr;
+        }
+        Script::RunScript(0x0BDC1C89, nullptr, this, false, nullptr); // spawn_add_premade_cats_to_skater
+        CCompositeObject::CallMemberFunction(0x5C038F9B, nullptr, nullptr); // SkaterPhysicsControl_SwitchWalkingToSkating
+        for (int i = 0; i < 5; ++i) {
+            char name[32];
+            std::snprintf(name, sizeof(name), "projectile_%i", i);
+            m_projectiles[i].name = Crc::GenerateCRCFromString(name);
+            m_projectiles[i].active = false;
+        }
+    }
+    GameFunction<void(__cdecl*)(CSkater*)>(0x0042E380)(this);
+    // Its controls' tag (a custom skater's own, if it has one) and sticker.
+    Script::CStruct* info = profile->InfoStructure();
+    const char* tag;
+    info->GetString(0x4FA8DF27, &tag, 1); // tag_texture
+    CBaseComponent* controls = GetComponent(0x5B512EDC);
+    if (m_name == kCustomSkater) {
+        int hasCustomTag;
+        info->GetInteger(0xB78D4AAE, &hasCustomTag, 1);
+        if (hasCustomTag)
+            GameFunction<void(__thiscall*)(void*)>(0x0051D830)(controls);
+        else
+            GameFunction<void(__thiscall*)(void*, const char*)>(0x0051D9C0)(controls, tag);
+    } else {
+        GameFunction<void(__thiscall*)(void*, const char*)>(0x0051D9C0)(controls, tag);
+    }
+    const char* sticker;
+    if (info->GetString(0x130618A0, &sticker, 0)) // sticker_texture
+        GameFunction<void(__thiscall*)(void*, const char*)>(0x0051DA20)(controls, sticker);
+}
+
 } // namespace Obj
 
 REPLACE(0x0057FE30, &Obj::CSkater::SetStatOverride);
@@ -764,3 +942,4 @@ REPLACE(0x00581580, &Obj::CSkater::GetDisplayName);
 REPLACE(0x005815C0, &Obj::CSkater::MoveToNode);
 REPLACE(0x00581760, &Obj::CSkater::Pause);
 REPLACE(0x005817F0, &Obj::CSkater::Unpause);
+REPLACE(0x00581850, &Obj::CSkater::Init);

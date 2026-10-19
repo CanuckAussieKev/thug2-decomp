@@ -214,6 +214,18 @@ Shared files touched: CMakeLists.txt (each new .cpp listed, additive).
       teleported, the physics' copies, the shadow), Pause / Unpause 0x581760 / 0x5817F0 (displays off, a script, the
       pad's vibration paused, the sounds). Self-test (new src/hook/selftests_viewer11.cpp): TestSkaterProfile.
 
+- [x] Batch VW-11 (NOT run in the game yet; early tests pass offline; mutation run pending): the skater's set-up,
+      CSkater::Init 0x581850 (2.6 KB): a local skater's camera (skatercam0 / 1 found and told, or made from
+      skatercam_composite_structure; Walk told; 0x59F890; the skatercamera mode), its script, the anim set
+      (skater_asset_info's skater_skeleton, else thps6_human), the motion components, the components made from
+      structures (animblender with SkaterAnimEventTable, skeleton, model - geometry loaded in the skater's geometry heap
+      with the asset manager's flag off meanwhile -, shadow, and for a local skater vibration, SkaterStancePanel and
+      skatersound), Finalize, the pad's settings from the skate module and SkaterInit (local), UpdateFromProfile and
+      SetStatsFromProfile, Skater_Max_Max_Speed_Stat, the +0x258 / +0x270 pieces, the collision's flag, the model's
+      update, the default anim, the eleven trick infos, spawn_add_premade_cats_to_skater, the switch to skating, the
+      projectile names (CRCs of projectile_0-4), 0x42E380, the tag (a custom skater's own if has_custom_tag) and
+      sticker textures. Self-test (new src/hook/selftests_viewer12.cpp): TestSkaterInit (four cases).
+
 - [ ] Next: (state for resuming)
       - Batch VW-2 (cars / KOTH crown 0x5780E0-0x578490 in src/game/obj/game_objects.*; the skater trick code's two
         list entry types 0x578670 / 0x578740 / 0x5787F0 / 0x579570-0x579820 in src/game/skater/trick_lists.*) and
