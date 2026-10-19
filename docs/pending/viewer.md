@@ -319,8 +319,16 @@ Shared files touched: CMakeLists.txt (each new .cpp listed, additive).
       component's list constructor / Clear 0x588170 / 0x588180 (0x588180 lies just past the range, but find_gaps showed
       it between rewritten ones). Self-test (new src/hook/selftests_viewer20.cpp): TestAnimMovies.
 
-- [ ] Next: VW-21: the object movie's Update 0x5876A0 (and its thunk 0x587F60) and the camera movie's PlaceCamera
-      0x587A50 (now called through the game from anim_movies.cpp); then find_gaps / progress_report for the range.
+- [x] Batch VW-21 (NOT run in the game yet; early tests pass offline; mutation run pending): the movies' updates, in
+      anim_movies.cpp: the object movie's Update 0x5876A0 (and its jump 0x587F60): each object the asset names gets
+      its frame's rotation (matrix and display matrix) and position, a missing one is reported; and the camera
+      movie's PlaceCamera 0x587A50: the camera from the asset's frame or at rest (field of view: its own or the
+      script global 0x99529205), then aimed at the target object (offsets in its frame) or the fixed point
+      (0xC588EEBC), its axes rebuilt by cross products. The x87 arithmetic is done in double, rounded where the
+      original stores. Self-test (new src/hook/selftests_viewer21.cpp): TestAnimMovieUpdates (the maths helpers run
+      for real). find_gaps now shows no gap in the range.
+
+- [ ] Next: the range is written; progress_report for the range; mutation runs with the fast setup.
       Mutations: specs for VW-15..17 not written (VW-18/19: scratch mut18.py, running); suspect CAUGHTs (named a flaky test: PC async handle, anim
       controllers: partial, memory cards: free space) to rerun with scratchpad mutate_v.py; known misses: launch_best,
       restart_walking (mut10), profile_style_zero, input_mirror. A game run (THUG2-3, debug_mode=1 viewer) still due.

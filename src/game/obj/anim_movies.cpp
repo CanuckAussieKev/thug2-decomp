@@ -2,9 +2,15 @@
 
 #include "game/obj/anim_movies.h"
 
+#include <cmath>
 #include <cstdint>
+#include <cstring>
 
+#include "game/core/dbg.h"
 #include "game/core/manager.h"
+#include "game/core/mem.h"
+#include "game/obj/object.h"
+#include "game/script/names.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -58,6 +64,37 @@ void StepAsset(void* anim, float from, float to, Gfx::Camera* camera, bool first
 }
 
 float SecondsPerFrame() { return GameVariable<float>(0x006463B8); } // 1/60
+
+constexpr uint32_t kFixedTarget = 0xC588EEBC; // a camera target that is a point (the target offset), not an object
+
+template <typename T>
+T& Field(void* base, uint32_t offset)
+{
+    return *reinterpret_cast<T*>(static_cast<uint8_t*>(base) + offset);
+}
+
+// 0x00463AA0 (cdecl): a rotation matrix from a quaternion (negated in place on the way) with `origin` as its last row.
+void QuatToMatrix(float* quat, float* origin, float* matrix)
+{
+    GameFunction<void(__cdecl*)(float*, float*, float*)>(0x00463AA0)(quat, origin, matrix);
+}
+
+void SetIdentity(float* m)
+{
+    for (int i = 0; i < 16; ++i)
+        m[i] = (i % 5 == 0) ? 1.0f : 0.0f;
+}
+
+// out = a x b (x, y and z; each a difference of products, rounded once).
+void CrossInto(float* out, const float* a, const float* b)
+{
+    double x = static_cast<double>(a[1]) * b[2] - static_cast<double>(a[2]) * b[1];
+    double y = static_cast<double>(a[2]) * b[0] - static_cast<double>(a[0]) * b[2];
+    double z = static_cast<double>(a[0]) * b[1] - static_cast<double>(a[1]) * b[0];
+    out[0] = static_cast<float>(x);
+    out[1] = static_cast<float>(y);
+    out[2] = static_cast<float>(z);
+}
 
 // Play: the asset's length (its first word) from 0, or backwards from a frame before its end to 0.
 void PlayOn(CAnimTimeline* t, void* anim, int loopType, bool backwards)
@@ -279,8 +316,163 @@ void CCameraAnimMovie::Update()
     PlaceCamera();
 }
 
-// 0x00587A50 (a later batch)
-void CCameraAnimMovie::PlaceCamera() { GameFunction<void(__thiscall*)(CCameraAnimMovie*)>(0x00587A50)(this); }
+// 0x00587A50
+void CCameraAnimMovie::PlaceCamera()
+{
+    float* pos = GameFunction<float*(__thiscall*)(Gfx::Camera*)>(0x00485A00)(m_base.m_camera);
+    float* m = GameFunction<float*(__thiscall*)(Gfx::Camera*)>(0x00485A10)(m_base.m_camera);
+    // A skater (of the two) whose 0x40 flag is up: the base's 0x00468F20(1).
+    uint8_t** skaters = reinterpret_cast<uint8_t**>(GameVariable<uint8_t*>(0x007CE464) + 0x20);
+    for (int i = 0; i < 2; ++i) {
+        if (Field<uint8_t>(Field<uint8_t*>(skaters[i], 0x18), 0x20) & 0x40)
+            GameFunction<void(__thiscall*)(void*, int)>(0x00468F20)(this, 1);
+    }
+    if (m_anim) {
+        // The camera from the asset's frame: its position and its rotation.
+        float quat[4] = {0.0f, 0.0f, 0.0f, 1.0f};
+        float at[4];
+        bool flag = false;
+        GameFunction<void(__thiscall*)(void*, float*, float*, bool*, float, int)>(0x004844C0)(m_anim, quat, at, &flag,
+                                                                                            m_timeline.m_current, 0);
+        for (int i = 0; i < 4; ++i)
+            pos[i] = at[i];
+        float origin[4] = {0.0f, 0.0f, 0.0f, 1.0f};
+        QuatToMatrix(quat, origin, m);
+    } else {
+        // Where it is; the field of view (0: the script global's).
+        pos[0] = pos[1] = pos[2] = 0.0f;
+        pos[3] = 1.0f;
+        SetIdentity(m);
+        float fov = m_fov;
+        if (fov == GameVariable<float>(0x0066D520))
+            fov = Script::GetFloat(0x99529205);
+        GameFunction<void(__thiscall*)(Gfx::Camera*, float)>(0x00485B20)(m_base.m_camera, fov);
+    }
+    if (!m_hasTarget)
+        return;
+    float dir[4];
+    if (m_target != kFixedTarget) {
+        // Aimed at an object (none: as it was): from its position (moved by the offsets in its frame).
+        uint8_t* object = GameFunction<uint8_t*(__thiscall*)(void*, uint32_t)>(0x004619F0)(GameVariable<void*>(0x006F0FB8),
+                                                                                        m_target);
+        if (!object)
+            return;
+        float target[4] = {Field<float>(object, 0x4C), Field<float>(object, 0x50), Field<float>(object, 0x54), 1.0f};
+        float frame[16];
+        auto moved = [&](float* offset) {
+            GameFunction<void*(__thiscall*)(float*, const float*)>(0x00404090)(frame, reinterpret_cast<float*>(object + 0x6C));
+            frame[12] = target[0];
+            frame[13] = target[1];
+            frame[14] = target[2];
+            frame[15] = 1.0f;
+            GameFunction<void*(__thiscall*)(float*, const float*)>(0x0048A260)(frame, offset); // TranslateLocal
+        };
+        if (m_targetOffsetSet) {
+            moved(m_targetOffset);
+            for (int i = 0; i < 4; ++i)
+                target[i] = frame[12 + i];
+        }
+        if (m_lookOffsetSet) {
+            for (int i = 0; i < 4; ++i)
+                pos[i] = target[i];
+            moved(m_lookOffset);
+            for (int i = 0; i < 4; ++i)
+                pos[i] = frame[12 + i];
+        }
+        for (int i = 0; i < 4; ++i)
+            dir[i] = pos[i] - target[i];
+        GameFunction<void*(__thiscall*)(float*)>(0x004023F0)(dir); // Normalize
+        SetIdentity(m);
+        for (int i = 0; i < 4; ++i)
+            m[8 + i] = dir[i];
+        CrossInto(m, m + 4, m + 8); // the right axis: up x at
+        m[3] = 0.0f;
+        GameFunction<void*(__thiscall*)(float*)>(0x004023F0)(m); // Normalize
+    } else {
+        // A fixed point (the target offset), seen from the look offset.
+        for (int i = 0; i < 4; ++i)
+            pos[i] = m_lookOffset[i];
+        // (x and y stay unrounded; z is stored and squared as its unrounded value times the stored one)
+        double x = static_cast<double>(pos[0]) - m_targetOffset[0];
+        double y = static_cast<double>(pos[1]) - m_targetOffset[1];
+        double zExact = static_cast<double>(pos[2]) - m_targetOffset[2];
+        float z = static_cast<float>(zExact);
+        double length = std::sqrt(zExact * z + y * y + x * x);
+        if (length > GameVariable<float>(0x0066D520)) {
+            double inverse = GameVariable<float>(0x006453A8) / length;
+            x *= inverse;
+            y *= inverse;
+            z = static_cast<float>(z * inverse);
+        }
+        SetIdentity(m);
+        m[8] = static_cast<float>(x);
+        m[10] = z;
+        m[9] = static_cast<float>(y);
+        m[11] = 0.0f;
+        CrossInto(m, m + 4, m + 8);
+        m[3] = 0.0f;
+        double a = m[0], b = m[1], c = m[2];
+        double size = std::sqrt(a * a + b * b + c * c);
+        if (size > GameVariable<float>(0x0066D520)) {
+            double inverse = GameVariable<float>(0x006453A8) / size;
+            m[0] = static_cast<float>(inverse * m[0]);
+            m[1] = static_cast<float>(inverse * m[1]);
+            m[2] = static_cast<float>(m[2] * inverse);
+        }
+    }
+    // The up axis: at x right.
+    CrossInto(m + 4, m + 8, m);
+    m[7] = 0.0f;
+}
+
+// 0x005876A0 (and the thunk 0x00587F60)
+void CObjectAnimMovie::Update()
+{
+    float from = m_timeline.m_current;
+    UpdateTimeline(&m_timeline);
+    if (m_anim)
+        StepAsset(m_anim, from, m_timeline.m_current, m_base.m_camera, false);
+    // Every object the asset moves: its frame's rotation and position.
+    int count = Field<int>(m_anim, 8);
+    auto* quats = static_cast<float*>(Mem::New(count * 16));
+    if (quats) {
+        for (int i = 0; i < count; ++i) {
+            quats[4 * i] = quats[4 * i + 1] = quats[4 * i + 2] = 0.0f;
+            quats[4 * i + 3] = 1.0f;
+        }
+    }
+    auto* positions = static_cast<float*>(Mem::New(Field<int>(m_anim, 8) * 16));
+    auto* flags = static_cast<bool*>(Mem::New(Field<int>(m_anim, 8)));
+    GameFunction<void(__thiscall*)(void*, float*, float*, bool*, float, int)>(0x004844C0)(m_anim, quats, positions, flags,
+                                                                                        m_timeline.m_current, 0);
+    for (int i = 0; i < Field<int>(m_anim, 8); ++i) {
+        uint32_t name = GameFunction<uint32_t(__thiscall*)(void*, int)>(0x00482F00)(m_anim, i);
+        uint8_t* object = reinterpret_cast<uint8_t*>(Obj::FindObject(name));
+        if (!object) {
+            Dbg::Printf(reinterpret_cast<const char*>(0x0064F058), Script::FindChecksumNameOrUnknown(name));
+            continue;
+        }
+        float origin[4] = {0.0f, 0.0f, 0.0f, 1.0f};
+        float matrix[16];
+        QuatToMatrix(quats + 4 * i, origin, matrix);
+        std::memcpy(object + 0x6C, matrix, sizeof(matrix)); // its matrix
+        std::memcpy(object + 0xC0, matrix, sizeof(matrix)); // and its display matrix
+        std::memcpy(object + 0x4C, positions + 4 * i, 16);  // its position
+        if (Script::GetInteger(0x2F510F45)) {
+            Dbg::Printf(reinterpret_cast<const char*>(0x0064F084), Script::FindChecksumNameOrUnknown(name),
+                        static_cast<double>(m_timeline.m_current));
+            GameFunction<void(__thiscall*)(void*)>(0x00405FA0)(object + 0x4C); // (printed)
+            GameFunction<void(__thiscall*)(void*)>(0x00404BA0)(object + 0x6C);
+        }
+        // The object's model told (slot 1 of its 0x286A8D26 component).
+        void* component = reinterpret_cast<CCompositeObject*>(object)->GetComponent(0x286A8D26);
+        if (component)
+            reinterpret_cast<void(__thiscall*)(void*)>((*static_cast<void***>(component))[1])(component);
+    }
+    Mem::Manager::Get()->Free(quats);
+    Mem::Manager::Get()->Free(positions);
+    Mem::Manager::Get()->Free(flags);
+}
 
 } // namespace Obj
 
@@ -303,3 +495,6 @@ REPLACE(0x00587590, &Obj::CCameraAnimMovie::CallMemberFunction);
 REPLACE(0x005875D0, &Obj::CObjectAnimMovie::Load);
 REPLACE(0x00587F70, &Obj::CCameraAnimMovie::Load);
 REPLACE(0x00588090, &Obj::CCameraAnimMovie::Update);
+REPLACE(0x005876A0, &Obj::CObjectAnimMovie::Update);
+REPLACE(0x00587A50, &Obj::CCameraAnimMovie::PlaceCamera);
+REPLACE(0x00587F60, &Obj::CObjectAnimMovie::Update); // (a jump to 0x005876A0)

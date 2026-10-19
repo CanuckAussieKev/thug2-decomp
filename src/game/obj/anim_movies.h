@@ -37,6 +37,11 @@ struct CObjectAnimMovie {
     // 0x005872A0 (slot 6): +0x18 set and the timeline complete.
     bool IsDone();
     int IsHeldAndComplete();
+    // 0x005876A0 (slot 2, through the jump 0x00587F60): Update: the timeline stepped, the asset told the step, and
+    // every object it names (by id) given its frame's rotation (matrix and display matrix) and position, and its
+    // model told (component 0x286A8D26, slot 1); a missing object is reported. With the script global 0x2F510F45
+    // each is printed too.
+    void Update();
 };
 static_assert(offsetof(CObjectAnimMovie, m_timeline) == 0x30 && sizeof(CObjectAnimMovie) == 0x64,
               "layout must match the original");

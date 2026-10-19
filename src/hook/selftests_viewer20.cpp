@@ -128,7 +128,7 @@ void Install(StandIns& s)
         Rec(0x5A50, {r.ecx});
         return 0u;
     });
-    s.At({0x00587A50}, 0, [](Regs& r) {
+    s.At({0x00587A50, AddressOf(&CCameraAnimMovie::PlaceCamera)}, 0, [](Regs& r) {
         Rec(0x7A50, {r.ecx});
         return 0u;
     });
