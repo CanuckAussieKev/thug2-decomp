@@ -223,6 +223,20 @@ Vector& Matrix::RotateVector(Vector& out, const Vector& in) const
     return out;
 }
 
+// 0x00416D80
+bool Matrix::operator==(const Matrix& other) const
+{
+    for (int i = 0; i < 4; ++i) {
+        const float* mine = &row[i].x;
+        const float* theirs = &other.row[i].x;
+        for (int j = 0; j < 4; ++j) {
+            if (!(mine[j] == theirs[j]))
+                return false;
+        }
+    }
+    return true;
+}
+
 // 0x0040B100
 Matrix& Matrix::ScaleRows(const Vector& scale)
 {
@@ -568,6 +582,7 @@ REPLACE(0x0040AF60, &Mth::Matrix::Transform);
 REPLACE(0x0040B000, &Mth::Matrix::TransformAsPos);
 REPLACE(0x0040B090, &Mth::Matrix::RotateVector);
 REPLACE(0x0040B100, &Mth::Matrix::ScaleRows);
+REPLACE(0x00416D80, &Mth::Matrix::operator==);
 REPLACE(0x0041BA30, &Mth::Matrix::Scale);
 REPLACE(0x0048A230, &Mth::Matrix::Translate);
 REPLACE(0x0041F470, static_cast<Mth::Vector (*)(const Mth::Vector&, const Mth::Matrix&)>(&Mth::operator*));

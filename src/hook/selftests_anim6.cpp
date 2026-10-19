@@ -58,7 +58,7 @@ void TestAnimCollMovables()
         Record({0xF4EE0000u, r.args[0]});
         return 0u;
     });
-    s.At({0x00416970}, 0, [](Regs& r) {
+    s.At({0x00416970, AddressOf(&Nx::CCollObjTriData::Destruct)}, 0, [](Regs& r) {
         Record({0x6E0D0000u, r.ecx});
         return 0u;
     });

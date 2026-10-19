@@ -7,6 +7,7 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/nx/coll_cache.h"
+#include "game/nx/coll_tri.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -21,8 +22,8 @@ void** const kHeadVtable = reinterpret_cast<void**>(0x00645D34); // Lst::Head<CC
 
 void* const kHeadData = reinterpret_cast<void*>(-1);
 
-// 0x00416970: the geometry's destructor (not rewritten yet).
-void DestroyGeometry(CCollObjTriData* geometry) { GameFunction<void(__thiscall*)(CCollObjTriData*)>(0x00416970)(geometry); }
+// 0x00416970: the geometry's destructor.
+void DestroyGeometry(CCollObjTriData* geometry) { geometry->Destruct(); }
 
 Mem::ListNode* NewHead()
 {

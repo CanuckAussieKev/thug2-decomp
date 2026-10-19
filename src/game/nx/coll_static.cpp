@@ -22,15 +22,9 @@ void** const kMovTriVtable = reinterpret_cast<void**>(0x00645CE0);
 void** const kScaledVtable = reinterpret_cast<void**>(0x00645B58);
 void** const kCollObjVtable = reinterpret_cast<void**>(0x00645A30);
 
-// The geometry's own methods (not rewritten yet): 0x00416BF0 a copy, 0x00416400 moved.
-CCollObjTriData* CloneGeometry(CCollObjTriData* geometry, int a, int b)
-{
-    return GameFunction<CCollObjTriData*(__thiscall*)(CCollObjTriData*, int, int)>(0x00416BF0)(geometry, a, b);
-}
-void TranslateGeometry(CCollObjTriData* geometry, const Mth::Vector* delta)
-{
-    GameFunction<void(__thiscall*)(CCollObjTriData*, const Mth::Vector*)>(0x00416400)(geometry, delta);
-}
+// The geometry's own methods: 0x00416BF0 a copy, 0x00416400 moved.
+CCollObjTriData* CloneGeometry(CCollObjTriData* geometry, int a, int b) { return geometry->Clone(a, b != 0); }
+void TranslateGeometry(CCollObjTriData* geometry, const Mth::Vector* delta) { geometry->Translate(delta); }
 // 0x00414D60 through our stub (the original's is the same empty function).
 void DrawGeometry(CCollObjTriData* geometry, const Mth::Matrix* transform, int a, int b)
 {

@@ -234,7 +234,43 @@ ProjectToPlane made exact).
     a stand-in for the debug render added for 10). Equivalent: the scaled vertex's w in UpdateWorldBBox (unused by
     the box), the constructor's dirty flag (SetGeometry sets it), the radius compare's > vs >= and its sum order
     (the same float after the square root).
-- [ ] Next: AN-8 - 0x0040AE80-0x0040AEC0 (forwarders to the geometry), the face / line tests 0x0040B420
-  onwards, the geometry's own methods (0x00416400, 0x00416970, 0x00416BF0...). Hidden code to give source to later
-  (found by scratchpad hidden.py - runs between Ghidra's functions that aren't padding): 0x00412730, 0x00414D70,
-  0x00417110, 0x00419690, 0x00419750, 0x004198D0, 0x00419AD0, 0x00419BF0, 0x00419E90, 0x0041A1A0-0x0041A21C.
+- [x] Batch AN-8 (NOT run in the game yet; the collision geometry and its BSP tree; 27 functions): src/game/nx/
+  coll_tri.h / .cpp, mth/matrix.cpp; coll_obj.cpp / coll_static.cpp now call the geometry's methods directly.
+  - Nx::CCollBSPNode (8 bytes, new[]'d: +0 the axis in the low 2 bits - 3 a leaf - and the split in sixteenths
+    above; a leaf's face count at +2 and face index list at +4; a split node's two children at +4, bit 0 swapping
+    which is the "less" side): 0x00414D70 constructor (hidden code, zeroed), 0x00415C90 / 0x00415CE0 node /
+    face counts, 0x00415D30 the first face list (the lowest pointer: the shared array), 0x00415D80 Translate,
+    0x00415E00 RotateY (quarter turns about Y around a centre: x and z splits swap axis, some negated with their
+    sides swapped), 0x00415F30 Scale, 0x00416000 Relocate (a file's offsets to pointers; cdecl), 0x00416A10
+    Clone (nodes and face lists copied, pointers moved; the argument unused).
+  - Nx::CCollObjTriData: +0x34 the tree, +0x38 one byte per vertex. 0x00414EE0 SetRawVertexPos (compressed:
+    sixteenths toward zero, x's offset not rounded to a float first), 0x00414F90 GetRawVertices (0x00415C00
+    jumps to it: source only), 0x00415C10 SetRawVertices (the box first), 0x00414D80 GetFaceNormal ((v1 - v0) x
+    (v2 - v0); one edge's z unrounded in the x term, as the original's x87 code), 0x00415B70 CopyFrom, 0x00416BF0
+    Clone (vertices, faces, vertex bytes, tree; null without vertices when asked, or when an array isn't
+    allocated), 0x00416970 destructor, 0x00416080 DeleteBSP (delete[]'s element destructor 0x005480A0 is
+    empty), 0x004169C0 Relocate (first argument unused), 0x00416400 Translate (plain vertices, box with w, tree),
+    0x00416320 GetFacesInBox / 0x004160E0 its walk (globals 0x00691968 buffer, 0x0069196C count - -1 on
+    overflow, then every face: the index table 0x0067C6B8 - and 0x00691970 the buffer size, only stored),
+    0x004163B0 IsPointBehindFaces / 0x004161D0 its walk (down the "less" sides only; a leaf's faces counted until
+    the point is in front of one; true when that's every face of the geometry).
+  - Mth::Matrix::operator== 0x00416D80 (all 16 values; NaN unequal).
+  - Tests (selftests_anim8.cpp): TestAnimCollGeometry - two hand-made geometries (plain with 10-byte faces,
+    compressed with 8-byte faces) and trees with swapped sides: counts, first lists, every face's normal (one
+    degenerate), raw vertices got and set (one offset not exact in a float), boxes reaching some leaves, all
+    (overflowing at 2, 4, 8 faces; exactly 9 of 9), none, no tree; points down each path and on a face's plane;
+    moves, each quarter turn with and without the centre, scaling (a split needing more than a float's bits), a
+    file's geometry fixed up, copies with / without vertex bytes and vertices, the tree's copy and a leaf's, a
+    16-bit leaf count, deletion; Matrix == with one value changed, NaN, -0 / +0. Our run's stand-ins also cover
+    our own Destruct / Clone / Translate in the AN-5..AN-7 tests.
+  - Mutations: 72 deliberate bugs; 68 caught (57 at first: the leaf count's high byte, an offset not exact in a
+    float, vertex bytes on an empty copy, overflow early and exactly at the face count, a point on a face's plane,
+    a big split added for 11). Not caught: the squared length's sum order (below a float), the buffer size
+    global (stored and cleared, never read), the point's x offset kept unrounded (x87 detail too small for the
+    test data), the nodes' constructor before the copy overwrites them.
+- [ ] Next: AN-9 - 0x004164F0 / 0x00416730 (the geometry turned / scaled), 0x00414990, 0x00414BE0, 0x00414D30,
+  0x00414FE0, the forwarders 0x0040AE80-0x0040AEC0, then the face / line tests 0x0040B420 onwards, 0x00410C90,
+  0x004110B0, 0x004114E0, 0x004128B0, 0x004131F0, 0x004137B0, 0x00413B50, 0x00413FF0, 0x00414460. Hidden code
+  to give source to later (found by scratchpad hidden.py - runs between Ghidra's functions that aren't padding):
+  0x00412730, 0x00417110, 0x00419690, 0x00419750, 0x004198D0, 0x00419AD0, 0x00419BF0, 0x00419E90,
+  0x0041A1A0-0x0041A21C.

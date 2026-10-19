@@ -37,6 +37,8 @@ public:
     Matrix& OrthoNormalizeAbout(int axis);
 
     Matrix& operator=(const Matrix& other);
+    // 0x00416D80: all 16 values equal (NaN never is).
+    bool operator==(const Matrix& other) const;
     Vector& operator[](int index);
 
     // this = rotation * this: rotate about the matrix's own (local) axis.

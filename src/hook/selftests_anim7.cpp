@@ -89,15 +89,15 @@ void TestAnimCollTriObjects()
         Record({0xC7A10000u});
         return 0u;
     });
-    s.At({0x00416970}, 0, [](Regs& r) {
+    s.At({0x00416970, AddressOf(&Nx::CCollObjTriData::Destruct)}, 0, [](Regs& r) {
         Record({0x6E0D0000u, r.ecx});
         return 0u;
     });
-    s.At({0x00416BF0}, 8, [](Regs& r) {
+    s.At({0x00416BF0, AddressOf(&Nx::CCollObjTriData::Clone)}, 8, [](Regs& r) {
         Record({0x6C10E000u, r.ecx, r.args[0], r.args[1]});
         return g_cloneFails ? 0u : reinterpret_cast<uint32_t>(g_tri.geometry[2]);
     });
-    s.At({0x00416400}, 4, [](Regs& r) {
+    s.At({0x00416400, AddressOf(&Nx::CCollObjTriData::Translate)}, 4, [](Regs& r) {
         Record({0x74A40000u, r.ecx});
         const auto* d = reinterpret_cast<const uint32_t*>(r.args[0]);
         g_trace.insert(g_trace.end(), d, d + 4);
