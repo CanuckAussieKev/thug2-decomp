@@ -11,6 +11,8 @@ workspace (C:\Games\THUG2-n) and its pending-doc name. Agents cost a lot of usag
   be rewritten in this project's style, with a comment naming where the idea came from. Clone them with the machine's
   git credentials into your scratch folder; never push them anywhere. THUGPRO's installed binaries
   (C:\Users\kevin\AppData\Local\THUG Pro, C:\Games\THUGPRO) may be inspected; never write there. Don't start sub-agents.
+- Naming: follow this project's established names and conventions - accurate and consistent, not Neversoft's. Outside
+  names (Morten's dump, symbol lists) may help you understand code; they don't decide our names or rename existing code.
 - **Never read, reference or copy leaked Neversoft / Activision source code** - e.g. https://github.com/thug1src/thug
   (THUG1's source) or any other leak of a Tony Hawk game's code. Our code comes from our own decompilation of the
   game; leaked code would taint it.
