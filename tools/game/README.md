@@ -2,7 +2,7 @@
 
 Scripts for testing builds and converted levels in the game without disturbing the user. Read CLAUDE.md first: the
 game is only launched when the user allows it, C:\Games\THUG2 is the main install (merged work only, installed by the
-lead), and parallel work uses the workspace copies C:\Games\THUG2-1 ... THUG2-4 (one agent each). Every script takes
+lead; the user's own for manual testing - self-tests off, no test runs there), and parallel work uses the workspace copies C:\Games\THUG2-1 ... THUG2-4 (one agent each). Every script takes
 `-Game <folder>` (default C:\Games\THUG2).
 
 - `make_workspace.ps1 -Number <n>` - makes or refreshes C:\Games\THUG2-<n> as a mirror of the main install (1280x720

@@ -21,7 +21,8 @@ workspace (C:\Games\THUG2-n) and its pending-doc name. Agents cost a lot of usag
 
 ## The game: the agent's workspace only
 - C:\Games\THUG2 is the main install (the user's decision, 2026-10-19): only merged main work, installed by the lead.
-  Agents never use it, not even with its lock. Each agent gets one workspace: C:\Games\THUG2-1 ... THUG2-4 (1280x720
+  It's the user's own, for manual testing (its self-tests are off); agents never use it, not even with its lock. All
+  test runs happen in the workspaces (make_workspace.ps1 turns their self-tests on). Each agent gets one workspace: C:\Games\THUG2-1 ... THUG2-4 (1280x720
   window, allow_multiple_instances=1). Never touch another workspace.
 - Scripts in tools/game (see its README): `game_lock.ps1 -Action acquire|release -Owner <you> -Game <workspace>`,
   `run_game.ps1 -Game <workspace> -Seconds N [-Keys ...]` (posts keys without focus, PrintWindow pictures; never pipe
