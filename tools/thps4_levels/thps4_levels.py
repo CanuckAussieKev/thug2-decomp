@@ -94,9 +94,11 @@ def level_structs(thps4_dir):
 
 
 # Invisible walls opened: (collision object, axis, "min" / "max") - the object's faces lying in its box's plane on that
-# side are left out. THPS4's skate shop was a menu room: InvisColl01 boxes it in (back, sides, roof), its z-max face
-# closing the door onto the street outside (the user, 2026-10-19: "allow us to go through the door").
-OPENINGS = {"skateshop": [("InvisColl01", 2, "max")]}
+# side are left out. THPS4's skate shop was a menu: InvisColl01 boxes in the skate park outside the shop (sides,
+# roof, both ends); its z-min face closes the shop's door (Object10, the shop, is behind it - the Occlusion plane
+# at z -1082 has the doorway's hole, x 699-788), its z-max face the fence's gap at the end of the halfpipe (the user,
+# 2026-10-19: both open).
+OPENINGS = {"skateshop": [("InvisColl01", 2, "max"), ("InvisColl01", 2, "min")]}
 
 
 def open_walls(col4, base, report):
