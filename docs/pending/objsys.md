@@ -388,5 +388,24 @@ Shared files touched (small, additive): CMakeLists.txt (new sources and selftest
   - Mutations: 64 deliberate bugs; 63 caught (56 at first; a skinned-model group, the two end-time animations apart,
     sizes at the limit, the skin globals reset per run and more seeds added for 7). The other one is equivalent:
     0x006F1158 cleared again (DestroyObjects clears it too).
-- [ ] Next: OS-15 0x467710-0x4680B0 (the level / bundle loader 0x4678A0, the details' remaining vtable slots, the
-  data's deleting destructor 0x468080).
+- [x] Batch OS-15 (NOT run in the game yet - see the game run below; loading a cutscene file and playing it):
+  src/game/obj/cutscene_play.cpp (new); cutscene.h (+0x0C loaded, +0x3460 ready, +0x34B0 kept as the byte it's
+  given; the details' +0x14 camera, +0x18-0x1B flags, +0x38 begun).
+  - CCutsceneData: 0x00467710 MarkLoadedModels, 0x004677F0 FinishLoading (on the cutscene's or the bottom-up heap;
+    a skater cutscene then waits - Pcm::Update / WaitForVblank - for its music stream), 0x004678A0 Load (the
+    settings {appearance, profile, skater cutscene}; the music "<name>_<skater model>" or "<name>" preloaded, none:
+    ready; the screenshot name; the cutscene heaps; the bundle made on its heaps and loaded), 0x00467B50 IsLoaded,
+    0x00467BA0 Update (the first update starts the cutscene - script 0xE794A164, the camera's field of view from
+    0x99529205 -; the music synced to the vblanks since; the clock, skipping, camera, subtitles, poses,
+    transforms; the time shown / a screenshot a frame when asked), 0x00467EA0 Play, 0x00468080 the deleting
+    destructor.
+  - CCutsceneDetails: 0x00467F30 the deleting destructor, 0x00467F60 Update, 0x00468040 IsDone, 0x004680B0
+    IsReady.
+  - Tests (selftests_objsys11.cpp): TestCutscenePlay - 1000 seeds, one of the eleven on random data and details
+    (loaded / ready / skater flags, raw flag bytes, frame counters, times, countdowns) with the cutscene's parts
+    from OS-11..14 recorded (stood in for at both addresses), the bundle, music, clock, camera and screenshots
+    stood in for; every call, the data, the details and the globals compared.
+  - Mutations: 59 deliberate bugs, all caught (56 at first; the "cutscene loading" global reset per run and more
+    seeds added for 3).
+  - With this batch every function of 0x45EFD0-0x47DC40 has source: find_gaps.py lists nothing in the range.
+- [ ] Next: the range is done (find_gaps.py: nothing left in 0x45EFD0-0x47DC40); a final game run.

@@ -121,7 +121,7 @@ CCutsceneData* CCutsceneData::Construct()
     m_objectSource = nullptr;
     m_objectCount = 0;
     m_assetCount = 0;
-    m_unknown3460 = 0;
+    m_ready = false;
     m_unknown3470 = 1.0f;
     m_unknown3474 = 0;
     m_time = 0.0f;

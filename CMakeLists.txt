@@ -302,6 +302,7 @@ add_library(thug2_code OBJECT
     src/game/obj/cutscene_load.cpp
     src/game/obj/cutscene_update.cpp
     src/game/obj/cutscene_package.cpp
+    src/game/obj/cutscene_play.cpp
     src/game/obj/control_pad.cpp
     src/game/obj/proxim.cpp
     src/game/script/preferences.cpp

@@ -33,6 +33,10 @@
 #include "hook/selftest.h"
 #include "hook/standins.h"
 
+namespace Pcm {
+void __cdecl SyncMusicToTime(float seconds);
+}
+
 namespace {
 
 using namespace AppMainTests;
@@ -89,6 +93,7 @@ alignas(16) uint8_t g_animEntries[4][0x10];
 alignas(16) uint8_t g_manager[0x200];
 alignas(16) uint8_t g_camera[0x100];
 alignas(16) uint8_t g_objectMemory[0x110];
+alignas(16) uint8_t g_bigMemory[0x2400];
 void* g_objectVtable[16];
 void* g_componentVtable[16];
 void* g_managerVtable[4];
@@ -262,8 +267,12 @@ void StandInObjects(StandIns& s)
     }
     // making an object
     s.At({0x00401CC0, AddressOf(static_cast<void* (*)(unsigned int)>(&Mem::Calloc))}, 0, [](Regs& r) {
-        std::memset(g_objectMemory, 0, sizeof(g_objectMemory));
         Record({0x401CC000, r.args[0]});
+        if (r.args[0] > sizeof(g_objectMemory)) { // (a bundle)
+            std::memset(g_bigMemory, 0, sizeof(g_bigMemory));
+            return reinterpret_cast<uint32_t>(g_bigMemory);
+        }
+        std::memset(g_objectMemory, 0, sizeof(g_objectMemory));
         return reinterpret_cast<uint32_t>(g_objectMemory);
     });
     s.At({0x0045E510, AddressOf(&Obj::CCompositeObject::Construct)}, 0, [](Regs& r) {
@@ -1336,5 +1345,274 @@ void TestCutscenePackage()
     ObjsysTests::CleanUp();
 }
 SELFTEST(Early, TestCutscenePackage, ObjsysTests::CleanUp);
+
+// --- OS-15: loading and playing ----------------------------------------------------------------------------
+
+void* g_detailsVtable[16];
+double g_frameSeconds;
+
+double __cdecl FrameSecondsStandIn()
+{
+    Record({0x5BE91000});
+    return g_frameSeconds;
+}
+float __cdecl GlobalFloatStandIn(uint32_t name)
+{
+    Record({0x478F0000, name});
+    return 62.5f;
+}
+
+void StandInPlay(StandIns& s)
+{
+    using File::AssetBundle;
+    using Obj::CCutsceneData;
+    s.At({0x005B6E60, AddressOf(&AssetBundle::HasAsset)}, 8, [](Regs& r) {
+        uint32_t yes = Hash(30, r.args[0], r.args[1]) % 2;
+        Record({0x5B6E6000, r.ecx, r.args[0], r.args[1], yes});
+        return yes;
+    });
+    s.At({0x005B6D50, AddressOf(&AssetBundle::IsLoaded)}, 0, [](Regs& r) {
+        uint32_t yes = g_answers.Below(3) != 0;
+        Record({0x5B6D5000, r.ecx, yes});
+        return yes;
+    });
+    s.At({0x005B6D30, AddressOf(&AssetBundle::SetHeaps)}, 8, [](Regs& r) {
+        Record({0x5B6D3000, r.ecx, r.args[0], r.args[1]});
+        return 0u;
+    });
+    s.At({0x005B7090, AddressOf(&AssetBundle::Load)}, 12, [](Regs& r) {
+        Record({0x5B709000, r.ecx, TestStandIns::Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1], r.args[2]});
+        return 1u;
+    });
+    s.At({0x005B6EA0, AddressOf(&AssetBundle::Destroy)}, 4, [](Regs& r) {
+        Record({0x5B6EA000, r.ecx, r.args[0]});
+        return r.ecx;
+    });
+    s.At({0x00452910, AddressOf(&Pcm::Update)}, 0, [](Regs&) {
+        Record({0x45291000});
+        return 0u;
+    });
+    s.At({0x00450A50, AddressOf(&Pcm::PreLoadMusicStreamDone)}, 0, [](Regs&) {
+        uint32_t done = g_answers.Below(2);
+        Record({0x450A5000, done});
+        return done;
+    });
+    s.At({0x00450A80, AddressOf(&Pcm::StartPreLoadedMusicStream)}, 0, [](Regs& r) {
+        Record({0x450A8000, r.args[0]});
+        return 1u;
+    });
+    s.At({0x004509E0, AddressOf(&Pcm::PreLoadMusicStream)}, 0, [](Regs& r) {
+        uint32_t yes = g_answers.Below(2);
+        Record({0x4509E000, r.args[0], yes});
+        return yes;
+    });
+    s.At({0x00453470, AddressOf(&Pcm::SyncMusicToTime)}, 0, [](Regs& r) {
+        Record({0x45347000, r.args[0]});
+        return 0u;
+    });
+    s.At({0x005BE920, AddressOf(&Tmr::WaitForVblank)}, 0, [](Regs&) {
+        Record({0x5BE92000});
+        return 0u;
+    });
+    s.Bytes(0x005BE910, Branch(0xE9, 0x005BE910, reinterpret_cast<void*>(&FrameSecondsStandIn)));
+    s.Bytes(AddressOf(&Tmr::GetFrameSeconds), Branch(0xE9, AddressOf(&Tmr::GetFrameSeconds),
+                                                      reinterpret_cast<void*>(&FrameSecondsStandIn)));
+    using GlobalFloatFn = float (*)(uint32_t);
+    uint32_t oursFloat = AddressOf(static_cast<GlobalFloatFn>(&Script::GetFloat));
+    s.Bytes(0x00478F00, Branch(0xE9, 0x00478F00, reinterpret_cast<void*>(&GlobalFloatStandIn)));
+    s.Bytes(oursFloat, Branch(0xE9, oursFloat, reinterpret_cast<void*>(&GlobalFloatStandIn)));
+    s.At({0x00485B20, AddressOf(&Gfx::Camera::SetHFOV)}, 4, [](Regs& r) {
+        Record({0x485B2000, r.ecx, r.args[0]});
+        return 0u;
+    });
+    using AddStringFn = void (CStruct::*)(const char*, const char*);
+    s.At({0x00477A90, AddressOf(static_cast<AddStringFn>(&CStruct::AddString))}, 8, [](Regs& r) {
+        Record({0x477A9000, r.ecx, TestStandIns::Hash(reinterpret_cast<const char*>(r.args[0])),
+                TestStandIns::Hash(reinterpret_cast<const char*>(r.args[1]))});
+        return 0u;
+    });
+    s.At({0x0048C100}, 0, [](Regs& r) {
+        Record({0x48C10000, TestStandIns::Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1]});
+        return 0u;
+    });
+    // the cutscene's parts tested elsewhere (OS-11..14): recorded
+    struct Part {
+        uint32_t address;
+        uint32_t ours;
+        uint16_t pop;
+    };
+    const Part parts[] = {
+        {0x004648D0, AddressOf(&CCutsceneData::AddObjects), 4},
+        {0x00466DD0, AddressOf(&CCutsceneData::LoadFromBundle), 0},
+        {0x00463E80, AddressOf(&Obj::AddCutsceneLights), 0},
+        {0x004656E0, AddressOf(&CCutsceneData::UpdateTime), 4},
+        {0x00464120, AddressOf(&CCutsceneData::CheckSkip), 0},
+        {0x00464220, AddressOf(&CCutsceneData::UpdateCamera), 4},
+        {0x004644A0, AddressOf(&CCutsceneData::UpdateSubtitles), 0},
+        {0x00464360, AddressOf(&CCutsceneData::UpdateObjectPoses), 0},
+        {0x00465C00, AddressOf(&CCutsceneData::UpdateObjectTransforms), 0},
+        {0x004641A0, AddressOf(&CCutsceneData::ShowHiddenObjects), 0},
+        {0x00464780, AddressOf(&CCutsceneData::RefreshObjects), 0},
+        {0x00466450, AddressOf(&CCutsceneData::RestartObjects), 0},
+        {0x004639C0, AddressOf(&CCutsceneData::UpdateVblanks), 0},
+        {0x00466C20, AddressOf(&CCutsceneData::DestroyBody), 0},
+        {0x00466560, AddressOf(&Obj::CCutsceneDetails::DestroyBody), 0},
+        {0x004640D0, AddressOf(&Obj::SetUpCutsceneHeaps), 0},
+    };
+    for (const Part& part : parts) {
+        uint32_t address = part.address;
+        uint16_t pop = part.pop;
+        // (ours of the free functions has no `this`: ECX not recorded for them)
+        bool member = address != 0x00463E80 && address != 0x004640D0;
+        s.At({part.address, part.ours}, part.pop, [address, pop, member](Regs& r) {
+            Record({address, member ? r.ecx : 0, pop ? r.args[0] : 0});
+            return 0u;
+        });
+    }
+    s.At({0x004639A0, AddressOf(&CCutsceneData::IsDone)}, 0, [](Regs& r) {
+        uint32_t done = g_answers.Below(2);
+        Record({0x4639A000, r.ecx, done});
+        return done;
+    });
+    s.At({0x00463BA0, AddressOf(&Obj::SkaterModelName)}, 0, [](Regs& r) {
+        Record({0x463BA000, r.args[0]});
+        return reinterpret_cast<uint32_t>("skater_x");
+    });
+    for (int i = 0; i < 16; ++i) {
+        g_detailsVtable[i] = s.Thunk(4, [i](Regs& r) {
+            Record({0xDE7A0000u + static_cast<uint32_t>(i), r.ecx, r.args[0]});
+            return 0u;
+        });
+    }
+}
+
+void TestCutscenePlay()
+{
+    ObjsysTests::SaveGlobals({{0x006F1158, 1}, {0x006F1058, 0x100}, {0x007D1800, 4}, {0x006F0FB8, 4},
+                              {0x006918DC, 4}, {0x006FA7C0, 4}, {0x006F3614, 0x10}, {0x006FA7F4, 0x10},
+                              {0x006F22B4, 0x10}, {0x007CC979, 1}, {0x007CE478, 4}, {0x006F2160, 0x100},
+                              {0x006F115C, 4}, {0x00684FB4, 4}});
+    StandIns& s = *new StandIns();
+    StandInScript(s);
+    StandInObjects(s);
+    StandInLoading(s);
+    StandInUpdating(s);
+    StandInPackage(s);
+    StandInPlay(s);
+    GameVariable<uint32_t>(0x007D1800) = reinterpret_cast<uint32_t>(g_manager);
+    GameVariable<uint32_t>(0x006F0FB8) = reinterpret_cast<uint32_t>(g_objectManager);
+    GameVariable<uint32_t>(0x006918DC) = 0xA55E7000;
+    GameVariable<uint32_t>(0x007CE478) = 0x5CA7E000;
+    GameVariable<uint32_t>(0x006FA7C0) = 0x0B1A7C00;
+    GameVariable<uint8_t>(0x007CC979) = 1;
+    std::memset(&GameVariable<uint8_t>(0x006F3614), 0, 0x10);
+    std::memset(&GameVariable<uint8_t>(0x006FA7F4), 0, 0x10);
+    std::memset(&GameVariable<uint8_t>(0x006F22B4), 0, 0x10);
+    for (uint32_t seed = 1; seed <= 1000; ++seed) {
+        auto run = [&](bool original) {
+            g_trace.clear();
+            g_seed = seed;
+            Lcg random(0x60200000 + seed);
+            g_answers = Lcg(0x602A0000 + seed);
+            g_arenaUsed = 0;
+            RandomWorld(random);
+            GameVariable<uint8_t>(0x006F1158) = 0;
+            auto& data = *reinterpret_cast<Obj::CCutsceneData*>(g_data);
+            data.mp_bundle = random.Below(4) ? reinterpret_cast<File::AssetBundle*>(g_bundle) : nullptr;
+            *reinterpret_cast<void***>(g_bundle) = g_objectVtable;
+            data.mp_params = reinterpret_cast<Script::CStruct*>(kFakeStruct + 0x600);
+            data.m_unknown34AC = reinterpret_cast<void*>(kFakeStruct + 0x500);
+            data.m_loaded = random.Below(3) == 0;
+            data.m_ready = random.Below(2) != 0;
+            data.m_flag34B0 = static_cast<uint8_t>(random.Below(2) ? 0 : random.Below(2) ? 1 : 0x40);
+            data.m_skippable = random.Below(2) != 0;
+            data.m_vtable = g_objectVtable;
+            static const float kTimes[] = {0.0f, 1.5f, 61.25f};
+            data.m_time = random.Pick(kTimes);
+            data.m_endTime = random.Pick(kTimes);
+            data.m_pausedVblanks = random.Below(1000);
+            GameVariable<int>(0x00684FB4) = 60;
+            static const int kFrames[] = {0, 1, 1830, 59, -31};
+            GameVariable<int>(0x006F115C) = random.Pick(kFrames);
+            static const double kSeconds[] = {1.0 / 60.0, 0.5, 0.0};
+            g_frameSeconds = random.Pick(kSeconds);
+            for (auto& a : g_arrays)
+                a[1] = random.Below(4);
+            for (auto& byte : g_details)
+                byte = static_cast<uint8_t>(random.Next());
+            auto& details = *reinterpret_cast<Obj::CCutsceneDetails*>(g_details);
+            details.m_vtable = g_detailsVtable;
+            details.m_data = random.Below(5) ? &data : nullptr;
+            details.m_ownsData = static_cast<uint8_t>(random.Below(2));
+            details.m_begun = random.Below(2) != 0;
+            details.m_beginScript = random.Below(3) ? 0xBE910000 : 0;
+            details.m_flag5D = random.Below(3) == 0;
+            static const int kCounts[] = {-1, 1, 2, -5, 0};
+            details.m_unknown60 = random.Pick(kCounts);
+            details.m_done = random.Below(4) == 0;
+            details.m_flag18 = random.Below(4) == 0;
+            std::memcpy(&GameVariable<uint8_t>(0x006F2160), "previous", 9);
+            std::memset(&GameVariable<uint8_t>(0x006F1058), 0x55, 0x40);
+            uint32_t settings[3] = {random.Next(), kFakeStruct + 0x510, random.Below(3) == 0 ? 0 : 0x1700 + random.Below(3)};
+            g_componentsAlways = true;
+            switch (random.Below(12)) {
+            case 0:
+                Fn<void(__thiscall*)(void*)>(original, 0x00467710)(g_data);
+                break;
+            case 1:
+                Record({Fn<uint32_t(__thiscall*)(void*, int)>(original, 0x004677F0)(g_data, 5) & 0xFF});
+                break;
+            case 2:
+                Record({Fn<uint32_t(__thiscall*)(void*, const char*, int, int, const uint32_t*)>(original, 0x004678A0)(
+                            g_data, kModelNames[random.Below(3)], 7, 9, random.Below(4) ? settings : nullptr) &
+                        0xFF});
+                break;
+            case 3:
+                Record({Fn<uint32_t(__thiscall*)(void*)>(original, 0x00467B50)(g_data) & 0xFF});
+                break;
+            case 4:
+                Fn<void(__thiscall*)(void*, void*, uint32_t)>(original, 0x00467BA0)(g_data, g_camera, kFakeStruct + 9);
+                break;
+            case 5:
+                Fn<void(__thiscall*)(void*, void*, uint32_t)>(original, 0x00467EA0)(g_data, g_camera, kFakeStruct + 9);
+                break;
+            case 6:
+                Record({Fn<uint32_t(__thiscall*)(void*, unsigned int)>(original, 0x00468080)(g_data, random.Below(4))});
+                break;
+            case 7:
+                Record({Fn<uint32_t(__thiscall*)(void*, unsigned int)>(original, 0x00467F30)(g_details, random.Below(4))});
+                break;
+            case 8:
+            case 9:
+                Fn<void(__thiscall*)(void*)>(original, 0x00467F60)(g_details);
+                break;
+            case 10:
+                Record({Fn<uint32_t(__thiscall*)(void*)>(original, 0x00468040)(g_details) & 0xFF});
+                break;
+            default:
+                Record({Fn<uint32_t(__thiscall*)(void*)>(original, 0x004680B0)(g_details) & 0xFF});
+                break;
+            }
+            g_componentsAlways = false;
+            PushData();
+            PushState(reinterpret_cast<uint32_t>(g_details), reinterpret_cast<uint32_t>(g_details) + 0x70);
+            g_trace.push_back(HashBytes(&GameVariable<uint8_t>(0x006F1058), 0x40));
+            g_trace.push_back(static_cast<uint32_t>(GameVariable<int>(0x006F115C)));
+            g_trace.push_back(GameVariable<uint8_t>(0x006F1158));
+            g_trace.push_back(HashBytes(g_bigMemory, sizeof(g_bigMemory)));
+            std::vector<uint32_t> trace = g_trace;
+            return trace;
+        };
+        std::vector<uint32_t> expected = run(true);
+        std::vector<uint32_t> actual = run(false);
+        Compare(expected, actual, "cutscene: loading and playing");
+        if (expected != actual) {
+            Log("  (seed %u)", seed);
+            break;
+        }
+    }
+    ObjsysTests::CleanUp();
+}
+SELFTEST(Early, TestCutscenePlay, ObjsysTests::CleanUp);
 
 } // namespace

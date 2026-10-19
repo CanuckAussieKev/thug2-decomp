@@ -132,6 +132,24 @@ public:
     void UpdateObjectTransforms();
     // 0x00466450: (without +0x34B0) the objects made again from the parameters, the clock back to 0.
     void RestartObjects();
+    // 0x00467710: the objects whose models the bundle holds keep their skeletons (0x0CBEC8AC); then (+0x34B0) the
+    // objects made.
+    void MarkLoadedModels();
+    // 0x004677F0: the bundle taken in (on the cutscene's or the bottom-up heap), the objects and lights made, the
+    // bundle dropped; a skater cutscene waits for its music stream. True.
+    bool FinishLoading(int unused);
+    // 0x004678A0: the cutscene file `path` loaded (asynchronously: `a2` passed on) with the settings {appearance,
+    // profile, skater cutscene}; its music and heaps set up first. True.
+    bool Load(const char* path, int a2, int unused, const uint32_t* settings);
+    // 0x00467B50: whether the file has loaded (a skater cutscene's finished loading the first time it has).
+    bool IsLoaded();
+    // 0x00467BA0: a frame of the cutscene: the clock, skipping, the camera, subtitles, poses and transforms (and
+    // the debug time / screenshots).
+    void Update(void* camera, Script::CStruct* params);
+    // 0x00467EA0: Update once the music is ready (the objects refreshed first).
+    void Play(void* camera, Script::CStruct* params);
+    // 0x00468080 (vtable slot 0): the scalar deleting destructor.
+    CCutsceneData* Destroy(unsigned int flags);
     // 0x00466C20: the destructor body: the bundle, the animation sources, the objects, the lights and every asset
     // dropped; the cutscene's .qb unloaded.
     void DestroyBody();
@@ -143,7 +161,8 @@ public:
     void** m_vtable;              // +0x00 (0x00647908)
     uint32_t m_unknown4;
     File::AssetBundle* mp_bundle; // +0x08: the cutscene's loaded bundle
-    uint32_t m_unknownC;
+    bool m_loaded;                // +0x0C
+    uint8_t m_unknownD[3];
     int m_cameraParts;            // +0x10: the camera animation's parts (after the first)
     void* m_cameraSource;         // +0x14: its animation source
     int m_objectParts;            // +0x18: the object animation's parts
@@ -164,7 +183,7 @@ public:
     int m_animationCount;         // +0x2C58
     uint32_t m_assets[512];       // +0x2C5C
     int m_assetCount;             // +0x345C
-    uint8_t m_unknown3460;
+    bool m_ready;                 // +0x3460: the music started (or none to wait for)
     bool m_skippable;             // +0x3461
     bool m_skipped;               // +0x3462
     uint8_t m_unknown3463;
@@ -185,7 +204,7 @@ public:
     uint64_t m_lastVblanks;       // +0x34A0: the timer's count at the last UpdateVblanks
     void* m_unknown34A8;          // +0x34A8: the skater's appearance
     void* m_unknown34AC;          // +0x34AC: the skater's profile structure
-    bool m_flag34B0;              // +0x34B0
+    uint8_t m_flag34B0;           // +0x34B0: a skater cutscene with its own heaps, music, camera (kept as given)
     uint8_t m_unknown34B1[3];
     uint32_t m_name;              // +0x34B4: the cutscene's name checksum
     Script::CArray* m_subtitles;  // +0x34B8
@@ -206,6 +225,15 @@ public:
     void UpdateSlot12();
     // 0x00464580 (vtable slot 9): whether the loaded cutscene may be skipped (false if none is loaded).
     bool IsSkippable();
+    // 0x00467F30 (vtable slot 0): the scalar deleting destructor.
+    CCutsceneDetails* Destroy(unsigned int flags);
+    // 0x00467F60 (vtable slot 2): once loaded: the begin script (once), then the cutscene played - or, with +0x5D,
+    // only its clock and objects; +0x60 counts down to a call of slot 12.
+    void Update();
+    // 0x00468040 (vtable slot 5): done (the movie details' flag, or the cutscene loaded and at its end).
+    bool IsDone();
+    // 0x004680B0 (vtable slot 7): a skater cutscene loaded with its music started.
+    bool IsReady();
 
     // 0x00466490 (returns this): the movie details' constructor, then the cutscene's: no data, a parameters
     // structure, the three settings (the third's low byte: whether it owns its data).
@@ -222,11 +250,18 @@ public:
     void DestroyBody();
 
     void** m_vtable;
-    uint8_t m_unknown4[0x2C - 4];
+    uint8_t m_unknown4[0x10];
+    void* m_camera;               // +0x14 (the movie details')
+    bool m_flag18;                // +0x18
+    bool m_flag19;
+    bool m_done;                  // +0x1A
+    bool m_flag1B;
+    uint8_t m_unknown1C[0x10];
     CCutsceneData* m_data;        // +0x2C
     uint32_t m_asset;             // +0x30
     uint32_t m_beginScript;       // +0x34: the cutscene's name + "_begin"
-    uint32_t m_unknown38;
+    bool m_begun;                 // +0x38: the begin script run
+    uint8_t m_unknown39[3];
     uint32_t m_endScript;         // +0x3C: + "_end"
     Script::CStruct* m_params;    // +0x40
     float m_musicVolume;          // +0x44: the volumes before the cutscene (given back at its end)
