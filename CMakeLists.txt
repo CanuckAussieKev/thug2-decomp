@@ -74,6 +74,27 @@ add_library(thug2_code OBJECT
     src/hook/selftests_fe_text.cpp
     src/hook/selftests_tod.cpp
     src/hook/selftests_tod2.cpp
+    src/hook/selftests_viewer.cpp
+    src/hook/selftests_viewer2.cpp
+    src/hook/selftests_viewer3.cpp
+    src/hook/selftests_viewer4.cpp
+    src/hook/selftests_viewer5.cpp
+    src/hook/selftests_viewer6.cpp
+    src/hook/selftests_viewer7.cpp
+    src/hook/selftests_viewer8.cpp
+    src/hook/selftests_viewer9.cpp
+    src/hook/selftests_viewer10.cpp
+    src/hook/selftests_viewer11.cpp
+    src/hook/selftests_viewer12.cpp
+    src/hook/selftests_viewer13.cpp
+    src/hook/selftests_viewer14.cpp
+    src/hook/selftests_viewer15.cpp
+    src/hook/selftests_viewer16.cpp
+    src/hook/selftests_viewer17.cpp
+    src/hook/selftests_viewer18.cpp
+    src/hook/selftests_viewer19.cpp
+    src/hook/selftests_viewer20.cpp
+    src/hook/selftests_viewer21.cpp
     src/hook/selftests_tod3.cpp
     src/hook/selftests_tod4.cpp
     src/hook/selftests_mouse.cpp
@@ -181,6 +202,19 @@ add_library(thug2_code OBJECT
     src/game/skate/trick_goals.cpp
     src/game/skate/skate_net.cpp
     src/game/sys/viewer.cpp
+    src/game/obj/game_objects.cpp
+    src/game/skater/trick_lists.cpp
+    src/game/skate/gap_checklist.cpp
+    src/game/skater/manual.cpp
+    src/game/obj/movie_manager.cpp
+    src/game/obj/anim_movies.cpp
+    src/game/obj/trick_objects.cpp
+    src/game/obj/rail_manager.cpp
+    src/game/skate/profile_manager.cpp
+    src/game/skate/records.cpp
+    src/game/skate/career.cpp
+    src/game/skate/skater_profile.cpp
+    src/game/skater/skater.cpp
     src/game/gfx/device.cpp
     src/game/gfx/movie.cpp
     src/game/pcm/bink_stream.cpp
