@@ -16,6 +16,7 @@
 import argparse
 import glob
 import os
+import re
 import shutil
 import sys
 
@@ -101,6 +102,22 @@ def level_structs(thps4_dir):
 # 2026-10-19: the door open; InvisColl01's z-max face (the fence's gap at the end of the halfpipe) kept.
 OPENINGS = {"skateshop": [("InvisColl01", 2, "min"), ("Object10", "invisible")]}
 FACE_INVISIBLE = 0x1000
+
+
+# Nodes the playable level has at the start although THPS4's node array doesn't create them: its game scripts did
+# when play started. The skate shop: the menu kills SSO_Fence05 (create_ss_menu) and the practice run creates it
+# again (start_practice_run_skater) - the fence piece at the end of the halfpipe (the user, 2026-10-19: a gap there).
+CREATED_IN_PLAY = {"skateshop": ["SSO_Fence05"]}
+
+
+def created_in_play(text, base, report):
+    for name in CREATED_IN_PLAY.get(base.lower(), ()):
+        node = re.search(r"\{[^{}]*\bName=%s\b[^{}]*\}" % re.escape(name), text)
+        if node and not re.search(r"\bCreatedAtStart\b", node.group(0)):
+            fixed = re.sub(r"\bName=%s\b" % re.escape(name), "Name=%s CreatedAtStart" % name, node.group(0), count=1)
+            text = text[:node.start()] + fixed + text[node.end():]
+            report.append("  %s: %s created at the start (THPS4's practice run created it)" % (base, name))
+    return text
 
 
 def open_walls(col4, base, report):
@@ -231,6 +248,7 @@ def cmd_convert(args):
         text = nodes.node_array_ns(name + "_NodeArray", converted + moving, names, kills)
         text += peds_cars.scripts_ns(moving_scripts) + extra_text
         # (a TrickObject without its sector crashes the loader: convert_scene leaves skinned sectors out)
+        text = created_in_play(text, base, report)
         text, cleared = nodes.strip_missing_trick_objects(text, {
             s["checksum"] for s in scene4["sectors"] if s["bone"] == -1 and not s["flags"] & thps4.SEC_WEIGHTS})
         if cleared:
