@@ -344,3 +344,19 @@ that never returns and end it from a stand-in).
   - Note for the lead: the session scratchpad is shared with another agent ("viewer", worktree agent-a12992d40fe5be1e3):
     its build.cmd replaced mine for a while, so a few of my mutation builds ran in its worktree (nothing of mine was
     written there; the results were re-run with a private build script).
+
+## Range done
+
+- `tools/progress_report.py`: 0x4D6D40-0x4E6B80 202 / 202 functions (100%); `find_gaps.py` lists nothing in the range;
+  the code Ghidra has no function for (0x4D6FB0, 0x4D7C20, 0x4D8BB0, 0x4DA690, 0x4DDD50, 0x4E16B0, 0x4E1A90, 0x4E3310,
+  0x4E37D0, 0x4E3810, 0x4E3BD0, 0x4E3EC0, 0x4E3FA0) all have source; the other non-function bytes are jump tables and
+  padding.
+- Safety scans after batch 11 and the merge of main: scan_register_assumptions - the only RISK lines are the known
+  0x4EFF92 one and 0x4E69D0 `InitEditedGoalStub`'s callers reading ECX, which the naked stub preserves (push / pop);
+  every function in the range with callers reading EAX / AL returns a value. audit_game_function_calls: no MISMATCH.
+  check_code_writes: no overlaps. thug2_check: 0 MISMATCHED, 251 early self-tests passed.
+- [x] Game run (workspace C:\Games\THUG2-4, after merging main; the verify build's DLL): 2241 of 2241 replacements
+  installed, early / late / engine-started self-tests all passed, no EXCEPTION / RUN-TIME CHECK FAILURE / DEBUG CRT
+  REPORT. `-level BO` loaded Boston into free skate (running after 75 s); `-level Sk5Ed` loaded the park editor (the
+  editor camera's Update every frame, cursor and menus up, running after 70 s). Not driven by hand: moving the park
+  editor's / create-a-goal's cursor, zoom, raise / lower, and anything played in the levels - for the user.
