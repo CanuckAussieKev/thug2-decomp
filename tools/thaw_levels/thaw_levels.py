@@ -361,10 +361,10 @@ class Port:
 
 def write_level_qb(ns, text, path, scripts, names):
     # The node array's NeverScript text compiled, the brought scripts added (script_port.append_scripts).
-    # (path followers kept out of network games: THUG2 has no path manager there)
-    text, marked = nodes.absent_path_followers_in_net(text, scripts)
+    # (network games: path followers, peds and cars kept out - no path manager or ped animations there -, restarts for the players)
+    text, marked = nodes.net_game_nodes(text, scripts)
     if marked:
-        print("  %s: %d path-following node(s) kept out of network games" % (os.path.basename(path), marked))
+        print("  %s: %d node(s) changed for network games" % (os.path.basename(path), marked))
     common.ns_compile(ns, text, path)
     if scripts:
         data = script_port.append_scripts(open(path, "rb").read(), scripts, names)
@@ -555,6 +555,11 @@ def cmd_convert(args):
         textures = thaw.read_tex(files[".tex"], zone + ".tex")
         col = convert_col(col_in, lambda checksum: checksum in triggers, shift, left_out(zone) | objects_gone,
                           breakables, local)
+        # (restarts over nothing - the shops' interiors - or over a kill zone: no network spawns, no kill targets)
+        node_text, ground_report = nodes.ground_restarts(node_text, col)
+        if ground_report:
+            write_level_qb(args.ns, node_text, os.path.join(level_dir, name + ".qb"), scripts, names)
+            node_report += ground_report
         common.write_level(level_dir, name, scene, textures, col)
         common.report_level(report, name, scene, textures, col, warnings)
         report += node_report

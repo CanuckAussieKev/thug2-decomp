@@ -1178,10 +1178,10 @@ def convert_node_array(q, global_qbs, name, base, start_scripts, port=None):
 
 def write_level_qb(ns, text, path, scripts, port):
     # The node array's NeverScript text compiled, the brought scripts added (script_port.append_scripts).
-    # (path followers kept out of network games: THUG2 has no path manager there)
-    text, marked = nodes.absent_path_followers_in_net(text, scripts)
+    # (network games: path followers, peds and cars kept out - no path manager or ped animations there -, restarts for the players)
+    text, marked = nodes.net_game_nodes(text, scripts)
     if marked:
-        print("  %s: %d path-following node(s) kept out of network games" % (os.path.basename(path), marked))
+        print("  %s: %d node(s) changed for network games" % (os.path.basename(path), marked))
     common.ns_compile(ns, text, path)
     if scripts:
         names = {}
@@ -1374,9 +1374,13 @@ def cmd_convert(args):
         convert_world(world, tdx, name, level_dir, report, keep_triggers=lambda checksum: checksum in triggers,
                       skip=hidden, mips=not args.no_mips, objects=objects)
         text, cleared = without_missing_trick_objects(text, os.path.join(level_dir, name + ".scn.xbx"))
-        if cleared:
+        # (restarts over nothing or over a kill zone: no network spawns, no kill targets - nodes.ground_restarts)
+        text, ground_report = nodes.ground_restarts_at(text, level_dir, name)
+        if cleared or ground_report:
             write_level_qb(args.ns, text, qb_path, scripts, port)
+        if cleared:
             report.append("  %d geometry nodes without a scene sector: TrickObject / Cluster dropped" % cleared)
+        report += ground_report
         report.append("  " + node_report)
 
         # The sky (scene and textures, no collision - as THUG2's own skies).

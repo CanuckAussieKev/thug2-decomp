@@ -93,6 +93,26 @@ def level_structs(thps4_dir):
     return found
 
 
+# Invisible walls opened: (collision object, axis, "min" / "max") - the object's faces lying in its box's plane on that
+# side are left out. THPS4's skate shop was a menu: InvisColl01 boxes in the skate park outside the shop (sides,
+# roof, both ends); its z-min face closes the shop's door (Object10, the shop, is behind it - the Occlusion plane
+# at z -1082 has the doorway's hole, x 699-788), its z-max face the fence's gap at the end of the halfpipe (the user,
+# 2026-10-19: both open).
+OPENINGS = {"skateshop": [("InvisColl01", 2, "max"), ("InvisColl01", 2, "min")]}
+
+
+def open_walls(col4, base, report):
+    for name, axis, side in OPENINGS.get(base.lower(), ()):
+        wanted = qb.checksum(name)
+        for o in col4["objects"]:
+            if o["checksum"] != wanted or not o["verts"]:
+                continue
+            plane = (max if side == "max" else min)(v[axis] for v in o["verts"])
+            kept = [f for f in o["faces"] if not all(abs(o["verts"][i][axis] - plane) < 0.01 for i in f[2:5])]
+            report.append("  %s: %d face(s) of %s left out (an opening)" % (base, len(o["faces"]) - len(kept), name))
+            o["faces"] = kept
+
+
 def read_geometry(folder, base):
     # The level's THPS4 scene, its texture dictionary (THUG2's format) and its THPS4 collision.
     files = level_files(folder, base)
@@ -172,6 +192,7 @@ def cmd_convert(args):
             report.append("  peds and cars: %d nodes, %s" % (len(moving), moving_stats))
         geometry_read = read_geometry(folder, base)
         scene4, textures4, col4 = geometry_read
+        open_walls(col4, base, report)
         brought, extra_text, has_setup, stats = {}, "", False, None
         if port is not None:
             # The level's scripts, game objects, waypoints, peds and vehicles (thps4_scripts.py); the vehicles moved
@@ -209,20 +230,29 @@ def cmd_convert(args):
             report.append("  %d geometry nodes without a scene sector: TrickObject / Cluster dropped" % cleared)
         os.makedirs(os.path.join(out, "levels", name), exist_ok=True)
         qb_path = os.path.join(out, "levels", name, name + ".qb")
-        # (path followers kept out of network games: THUG2 has no path manager there)
-        text, marked = nodes.absent_path_followers_in_net(text, brought)
+        # (network games: path followers, peds and cars kept out - no path manager or ped animations there -, restarts for the players)
+        text, marked = nodes.net_game_nodes(text, brought)
         if marked:
-            report.append("  %d path-following node(s) kept out of network games" % marked)
-        common.ns_compile(args.ns, text, qb_path)
-        if brought:
-            all_names = {}
-            for s in port.sources + level_sources:
-                all_names.update(s.names)
-            all_names.update(names)
-            data = script_port.append_scripts(open(qb_path, "rb").read(), brought, all_names)
-            open(qb_path, "wb").write(data)
+            report.append("  %d node(s) changed for network games" % marked)
+
+        def write_qb(text):
+            common.ns_compile(args.ns, text, qb_path)
+            if brought:
+                all_names = {}
+                for s in port.sources + level_sources:
+                    all_names.update(s.names)
+                all_names.update(names)
+                data = script_port.append_scripts(open(qb_path, "rb").read(), brought, all_names)
+                open(qb_path, "wb").write(data)
+
+        write_qb(text)
         convert_geometry(folder, base, os.path.join(out, "levels", name), name, report,
                          keep_triggers=lambda checksum: checksum in triggers, read=geometry_read)
+        # (restarts over nothing or over a kill zone: no network spawns, no kill targets - nodes.ground_restarts)
+        text, ground_report = nodes.ground_restarts_at(text, os.path.join(out, "levels", name), name)
+        if ground_report:
+            write_qb(text)
+            report += ground_report
         if stats is not None:
             report.append("  nodes: %d of %d kept %s" % (len(converted), len(array), stats))
         report.append("  %d kill zones" % len(triggers))
