@@ -3,8 +3,11 @@
     python -I tools/mutate.py <spec.py> [names...]
 
 <spec.py> defines MUTS = [(file, name, old_text, new_text), ...] (old_text must occur exactly once in the
-file) and may define BUILD = a command that builds out/build/verify (default: tools/verify_build.cmd). Each
-mutation is applied, built and checked with out/build/verify/thug2_check.exe, then the file is restored.
+file) and may define BUILD = a command that builds out/build/verify (default: tools/verify_build.cmd), and
+TESTS = "TestA,TestB" - only the self-tests whose names contain one of those words run (THUG2_SELFTESTS; all of
+them run otherwise: a full check takes ~25 s, a batch's own tests a second or two). Each mutation is applied, built
+and checked with out/build/verify/thug2_check.exe, then the file is restored. BUILD needn't configure cmake again:
+`cmake --build` alone (after VsDevCmd) is enough once the folder is configured.
 With names, only those mutations run.
 
 A mutation that makes the checker hang counts as caught. The checker's output goes to a file rather than a
@@ -21,6 +24,9 @@ build = spec.get("BUILD", os.path.join(REPO, "tools", "verify_build.cmd"))
 checker = os.path.join(REPO, "out", "build", "verify", "thug2_check.exe")
 log_path = os.path.join(REPO, "out", "mutate_check_output.txt")  # (per checkout: parallel runs don't clash)
 only = sys.argv[2:]
+env = dict(os.environ)
+if spec.get("TESTS"):
+    env["THUG2_SELFTESTS"] = spec["TESTS"]
 
 for path, name, old, new in spec["MUTS"]:
     if only and name not in only:
@@ -34,13 +40,14 @@ for path, name, old, new in spec["MUTS"]:
             print(name, "BUILD FAILED (fix the mutation)", flush=True)
             continue
         with open(log_path, "w") as out:
-            process = subprocess.Popen([checker], stdout=out, stderr=out, cwd=REPO)
+            process = subprocess.Popen([checker], stdout=out, stderr=out, cwd=REPO, env=env)
             try:
                 code = process.wait(timeout=60)
                 failed = [line.strip() for line in open(log_path, errors="replace") if "SELFTEST FAIL" in line]
                 print(name, "CAUGHT" if code != 0 else "missed", code, ("- " + failed[0]) if failed else "", flush=True)
             except subprocess.TimeoutExpired:
-                subprocess.run(["taskkill", "/F", "/T", "/IM", "thug2_check.exe"], capture_output=True)
+                # (this run's checker only, by its id: other checkouts' checks may be running)
+                subprocess.run(["taskkill", "/F", "/T", "/PID", str(process.pid)], capture_output=True)
                 process.wait()
                 print(name, "CAUGHT (hang)", flush=True)
     finally:
