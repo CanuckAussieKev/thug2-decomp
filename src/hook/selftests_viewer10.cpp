@@ -322,10 +322,10 @@ void TestSkater()
             t.push_back(Bits(v));
         };
         // Overrides.
-        const float values[] = {12.0f, -3.0f, 5.0f, std::numeric_limits<float>::quiet_NaN(), 10.0f, 0.0f};
+        const float values[] = {12.0f, -3.0f, 5.0f, std::numeric_limits<float>::quiet_NaN(), 10.0f, 0.0f, 9.5f, -0.5f};
         for (int rule = 0; rule < 2; ++rule) {
             g_rule = rule != 0;
-            for (int i = 0; i < 6; ++i) {
+            for (int i = 0; i < 8; ++i) {
                 if (original)
                     Original<void(__thiscall*)(void*, int, float)>(0x0057FE30)(skater, 6 + (i & 1), values[i]);
                 else
@@ -547,11 +547,11 @@ void TestSkater()
             if (original)
                 Original<void(__thiscall*)(void*)>(0x00580830)(skater);
             else
-                skater->PickRandomBoard();
-            t.push_back(skater->m_board);
+                skater->MoveToRandomRestart();
+            t.push_back(skater->m_lastRestart);
         };
         g_boards = {0x0B0A0003, 0x0B0A0003, 0x0B0A0005};
-        skater->m_board = 0x0B0A0003;
+        skater->m_lastRestart = 0x0B0A0003;
         board();
         g_boards.assign(25, 0x0B0A0005);
         board(); // (the same every time: 20 tries)
@@ -614,7 +614,7 @@ void TestSkater()
         }
         Byte(Block(6), 0x118) = 1;
         skater->m_state288 = Ptr<uint8_t>(kBlocks + 0x40 * 11);
-        for (uint32_t state : {1u, 0u, 1u, 1u}) {
+        for (uint32_t state : {1u, 0u, 1u, 2u, 1u}) {
             Word(Block(11), 0x18) = state;
             shadow();
         }

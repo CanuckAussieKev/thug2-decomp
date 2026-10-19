@@ -181,6 +181,10 @@ void TestRecords()
             t.push_back(static_cast<uint32_t>(original ? Original<int(__thiscall*)(void*, int, int)>(0x0057EFE0)(table, value, number)
                                                        : table->MaybeNewEntry(value, number)));
         };
+        for (int i = 0; i < 5; ++i) { // (distinct initials, to see them move down)
+            char* initials = level->m_highScores->m_records[i].m_initials;
+            initials[0] = static_cast<char>('A' + i), initials[1] = 'Q', initials[2] = static_cast<char>('a' + i);
+        }
         entry(level->m_highScores, 500, 1);
         entry(level->m_highScores, 2000, 2);
         entry(level->m_highScores, 1500, 3);
@@ -244,7 +248,8 @@ void TestRecords()
         for (int l = 0; l < 3; ++l) {
             uint32_t ls = levels[l];
             g_params[{ls, 0xFA60D92F}] = tables[0];
-            g_params[{ls, 0xD91F1F72}] = l == 2 ? tables[1] : tables[3];
+            if (l != 1) // (level 1: none - the high scores' structure is read again)
+                g_params[{ls, 0xD91F1F72}] = l == 2 ? tables[1] : tables[3];
             if (l != 1)
                 g_params[{ls, 0xDBE683AF}] = tables[2];
             g_params[{ls, 0x3F544EA0}] = RecordToRead(21 + l, 100 + l, 1, 1);

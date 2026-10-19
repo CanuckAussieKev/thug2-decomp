@@ -4,6 +4,8 @@
 #include <cstdint>
 
 #include "game/core/string.h"
+#include "game/mth/matrix.h"
+#include "game/mth/vector.h"
 #include "game/obj/object.h"
 
 // Pieces of the skater object (Obj::CSkater, a composite object; 0x0057FE30-0x00580BD8): its stats (overrides at
@@ -62,9 +64,9 @@ public:
     void ReadChapterInfo(Script::CStruct* save);
     // 0x005802C0: 0x0042BD60 with this and `value`.
     void Set42BD60(float value);
-    // 0x00580830: a new random board (0-7, through the skate module; up to 20 tries for one other than the
-    // current), set through its vtable (+0x3C).
-    void PickRandomBoard();
+    // 0x00580830: moved to a random restart (0-7, through the skate module; up to 20 tries for one other than the
+    // last), through its vtable (+0x3C: SkipToRestart(node, walking)).
+    void MoveToRandomRestart();
     // 0x005808A0: its pause state (0 running, 1 frozen, 2 physics paused): the game paused or the physics control
     // told.
     void SetPauseState(int state);
@@ -120,6 +122,17 @@ public:
     // 0xBAF9B341, number and id (skaters 0 and 1 get tracker aliases), registered with `manager`, its viewport, and
     // its components (a local skater's full set, a remote one's few). Returns this.
     CSkater* Construct(int viewport, CCompositeObjectManager* manager, bool local, uint32_t id, int skaterNumber, int unused);
+    // 0x00583400: a local skater's +0x270 and 0x589E5FB3 reset, 0xF27A294D's, the anim blender's; its script deleted.
+    void ResetComponents();
+    // 0x00583470: restarted (a walking skater back to skating, the script's exit scripts, its physics, its camera,
+    // vtable +0x44, ResetComponents, +0x48, +0x4C with `a` and `b`, 0xB1D5A3E1 told).
+    void Restart(uint32_t a, uint32_t b);
+    // 0x005835D0: its script member functions (KillSkater, AddSkaterToWorld, SkaterIsNamed, ShouldMongo, the
+    // sparks, SetCustomRestart / SkipToCustomRestart, IsLocalSkater, GetCameraId, GetStat, GetScriptedStat,
+    // MoveToRandomRestart, PlaceBeforeCamera, GetSkaterNumber...); the rest the composite object's.
+    bool CallMemberFunction(uint32_t name, Script::CStruct* params, Script::CScript* script);
+    // (the code SkipToCustomRestart and SetCustomRestart share)
+    void SkipToCustomRestart();
 
     uint32_t m_pushStyle;        // +0x108 (the profile's pushstyle)
     uint32_t m_style;            // +0x10C (skatestyle)
@@ -131,7 +144,7 @@ public:
     uint32_t m_name;             // +0x158
     Str::String m_displayName;   // +0x15C
     uint8_t m_unknown168[0x16C - 0x168];
-    uint32_t m_board;            // +0x16C
+    uint32_t m_lastRestart;      // +0x16C
     bool m_sparks;               // +0x170
     uint8_t pad171[3];
     int m_shadowFade;            // +0x174
@@ -166,7 +179,13 @@ public:
     int m_viewport;              // +0x2BC
     int m_pauseState;            // +0x2C0
     bool m_flag2C4;              // +0x2C4
-    uint8_t m_unknown2C5[0x320 - 0x2C5];
+    uint8_t pad2C5[3];
+    Mth::Vector m_customRestartPos;    // +0x2C8 (SetCustomRestart)
+    Mth::Matrix m_customRestartMatrix; // +0x2D8
+    bool m_customRestartWalking; // +0x318
+    bool m_customRestartSet;     // +0x319
+    uint8_t pad31A[2];
+    uint32_t m_unknown31C;       // +0x31C
     bool m_paused;               // +0x320
     uint8_t pad321[3];
 };
@@ -174,7 +193,8 @@ static_assert(offsetof(CSkater, m_style) == 0x10C && offsetof(CSkater, m_name) =
                   offsetof(CSkater, m_trickInfo) == 0x17C && offsetof(CSkater, m_shadow) == 0x254 &&
                   offsetof(CSkater, m_statOverrides) == 0x290 && offsetof(CSkater, m_skaterNumber) == 0x2B8 &&
                   offsetof(CSkater, m_flag2C4) == 0x2C4 && offsetof(CSkater, m_displayName) == 0x15C &&
-                  offsetof(CSkater, m_unknown264) == 0x264 && offsetof(CSkater, m_projectiles) == 0x1C0 &&
+                  offsetof(CSkater, m_unknown264) == 0x264 && offsetof(CSkater, m_customRestartPos) == 0x2C8 &&
+                  offsetof(CSkater, m_customRestartWalking) == 0x318 && offsetof(CSkater, m_projectiles) == 0x1C0 &&
                   offsetof(CSkater, m_block238) == 0x238 && offsetof(CSkater, m_unknown270) == 0x270 && offsetof(CSkater, m_paused) == 0x320,
               "layout must match the original");
 

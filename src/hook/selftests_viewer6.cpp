@@ -336,6 +336,9 @@ void TestRailManager()
         std::memset(m, 0xCD, sizeof(CRailManager)); // (so every field Init sets shows)
         t.push_back(Rel(reinterpret_cast<uint32_t>(original ? Original<void*(__thiscall*)(void*)>(0x0057CC10)(m) : m->Init())));
         t.push_back(Rel(reinterpret_cast<uint32_t>(m->m_nodes)));
+        t.push_back(static_cast<uint32_t>(m->m_count));
+        t.push_back(m->m_onObject);
+        t.push_back(Rel(reinterpret_cast<uint32_t>(m->m_nodeArray)));
         // The level.
         constexpr uint32_t A = Obj::RAIL_FLAG_ACTIVE, L = Obj::RAIL_FLAG_LADDER | Obj::RAIL_FLAG_CLIMBING,
                            D = Obj::RAIL_FLAG_DEFAULT_LINE;

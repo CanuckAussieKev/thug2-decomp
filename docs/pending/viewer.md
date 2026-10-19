@@ -242,6 +242,19 @@ Shared files touched: CMakeLists.txt (each new .cpp listed, additive).
       priority -500; the D: debug lines; a local skater's 24 components and a remote one's 8, from one structure;
       the controls told the skater number). Self-test (new src/hook/selftests_viewer13.cpp): TestSkaterLaunch.
 
+- [x] Batch VW-14 (NOT run in the game yet; early tests pass offline; mutation run pending): ResetComponents
+      0x583400, Restart 0x583470 (a walking skater switched back to skating first) and the skater's script member
+      functions 0x5835D0 (KillSkater - by prefix checksum or string, node, a linked restart, else the skate module
+      unless in the park editor; found: the RestartWalking flag is kept in the low byte of the params slot and the
+      restart is passed that whole word -, AddSkaterToWorld / RemoveSkaterFromWorld, SkaterIsNamed, ShouldMongo
+      (mongo_when_switch / always_mongo), LaunchDirtyProjectile, SparksOn / SparksOff, SetCustomRestart (Set: here,
+      then skipped to; clear; asked) / SkipToCustomRestart, IsLocalSkater, ResetRigidBodyCollisionRadiusBoost,
+      GetCameraId, GetStat, GetScriptedStat, MoveToRandomRestart, PlaceBeforeCamera (144 in front of the camera,
+      turned to face it), die, GetSkaterNumber; the rest the composite object's). 0x580830 renamed MoveToRandomRestart
+      (vtable +0x3C is SkipToRestart). Self-test (new src/hook/selftests_viewer14.cpp): TestSkaterMembers. Tests
+      strengthened after the VW-6 / VW-8 / VW-9 runs (Init's fields, a level without best combos, a stat override of
+      9.5, distinct initials moving down, a +0x288 state of 2).
+
 - [ ] Next: (state for resuming)
       - Batch VW-2 (cars / KOTH crown 0x5780E0-0x578490 in src/game/obj/game_objects.*; the skater trick code's two
         list entry types 0x578670 / 0x578740 / 0x5787F0 / 0x579570-0x579820 in src/game/skater/trick_lists.*) and
