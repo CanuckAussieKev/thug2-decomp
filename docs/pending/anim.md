@@ -153,7 +153,33 @@ ProjectToPlane made exact).
   - Mutations: 37 deliberate bugs; 36 caught (24 at first: lengths at the 0.5 limit, angles at their limit, the
     cancelling matrices, the whole grown box recorded, removals of the other part's objects, the stale registry
     pointer added for 12). The other is equivalent: the grown box's w (AddPoint ignores it).
-- [ ] Next: AN-5 - the collision objects (vtables 0x00645A30-0x00645CD8; 0x0040AE10-0x0040AEC0 and 0x0040B230
-  onwards). Hidden code to give source to later (found by scratchpad hidden.py - runs between Ghidra's
+- [x] Batch AN-5 (NOT run in the game yet; the collision object base and the multi-object): src/game/nx/coll_obj.h /
+  coll_obj.cpp (new).
+  - Nx::CCollObj (0x10 bytes, vtable 0x00645A30: +0x04 checksum, +0x08 flags - 0x8000 owns its geometry, 0x4000
+    shares it -, +0x0A terrain, +0x0C geometry; the vtable slots as far as known are listed in coll_obj.h):
+    0x0040B370 SetGeometry (the geometry's checksum kept), 0x00413390 the scalar deleting destructor (the base's
+    body: an owned, unshared geometry destroyed - 0x00416970 - and freed).
+  - The lists of collision objects: 0x004131D0 / 0x00411880 Lst::Node<CCollObj> (vtable 0x00645AA0), 0x00413180 /
+    0x004131A0 Lst::Head<CCollObj> (0x00645D34).
+  - Nx::CCollMulti (0x3C bytes, vtable 0x00645AA8: +0x10 its children's list, +0x14 their box, +0x34 dirty, +0x35
+    the box valid, +0x38 a value): 0x004133E0 constructor, 0x00411D10 copy constructor, 0x00411B10 destructor
+    (each child and its node deleted, the head, out of the caches, the base's body), 0x00413460 scalar deleting,
+    0x00413490 Clone (the copy flagged 0x8000, a clone of each child), 0x00411BE0 AddChild, and the slots
+    0x00411D90 (1: every child's, stopping at the first false), 0x00411CC0 / 0x00411C30 / 0x00411C80 (4, 5, 6:
+    passed to the children; 4 and 5 mark the box dirty), 0x00411F60 / 0x00411F80 (7, 8: the first child's - a
+    tail jump; no children crashes, as in the original), 0x00410960 (9: a zero vector), 0x0040AE20 / 0x0040AE10
+    (10, 11: +0x38; the getter source only, 4 bytes), 0x0040AE30 (3: terrain 0; source only), 0x00411E80 (13:
+    false only if the box is known and misses), 0x00411EC0 (14: every child asked, any hit), 0x00411F20 (19),
+    0x00411E50 (20: the box, recomputed when dirty; null if a child has none), 0x00411DD0 RecomputeBBox.
+  - Tests (selftests_anim5.cpp): TestAnimCollMulti - three multis on dirty memory, stand-in children (every slot
+    recorded with its arguments), a nested multi, a child that answers false, one without a box; each slot (the
+    dirty flag after each pass-down), the box tests far and near (also with no box), Clone, the copy, deletion with
+    an owned / shared / unowned geometry and a registered cache holding them, the base's deleting destructor
+    freeing and not, the list node / head functions; allocation and frees stood in for, our vtables in our run.
+  - Mutations: 35 deliberate bugs, all caught (28 at first; the unowned geometry, freeing with flag 1, a registered
+    cache, the clone's flags, the dirty flag after each call and the box test with no box added for 7).
+- [ ] Next: AN-6 - the other collision objects: the movable (vtable 0x00645B00, 0x00411FA0 ...), 0x00645B58,
+  0x00645BC0, the statics (0x00645C18 / 0x00645C78 / 0x00645CD8), their helpers 0x0040AE40-0x0040AEC0,
+  0x0040B230-0x0040B390, then the face / line tests 0x0040B420 onwards. Hidden code to give source to later (found by scratchpad hidden.py - runs between Ghidra's
   functions that aren't padding): 0x00412730, 0x00412F90, 0x004139A0, 0x00413F30, 0x00414D70, 0x00417110,
   0x00419690, 0x00419750, 0x004198D0, 0x00419AD0, 0x00419BF0, 0x00419E90, 0x0041A1A0-0x0041A21C.

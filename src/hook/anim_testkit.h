@@ -55,4 +55,22 @@ inline void UseOurVtables()
     }
 }
 
+// The same for other vtables: (address, slots) pairs.
+inline void UseOurSlots(std::initializer_list<std::pair<uint32_t, int>> vtables)
+{
+    for (auto [vtable, slots] : vtables) {
+        for (int slot = 0; slot < slots; ++slot) {
+            uint32_t target = reinterpret_cast<uint32_t*>(vtable)[slot];
+            if (void* ours = OursAt(target))
+                RunPatch(vtable + 4 * slot, Dword(Resolve(ours)));
+        }
+    }
+}
+// The collision objects' vtables (0x00645A30 ... 0x00645CD8) and their lists' node / head ones.
+inline void UseOurCollisionVtables()
+{
+    UseOurSlots({{0x00645A30, 21}, {0x00645AA0, 1}, {0x00645AA8, 21}, {0x00645B00, 21}, {0x00645B58, 26},
+                 {0x00645BC0, 22}, {0x00645C18, 24}, {0x00645C78, 24}, {0x00645CD8, 24}, {0x00645D34, 1}});
+}
+
 } // namespace AnimTests
