@@ -309,8 +309,18 @@ Shared files touched: CMakeLists.txt (each new .cpp listed, additive).
       integers, read with assert 0 for 0x27EB9B9D). Self-test (new src/hook/selftests_viewer19.cpp): TestProfileRest;
       selftests_viewer7's stand-ins for Construct / WriteToSave / Reset now also cover ours.
 
-- [ ] Next: 0x5871B0-0x5873F0, 0x587450-0x587540 (missed), 0x587590, 0x5875D0, 0x5876A0, 0x587A50, 0x587F60 (thunk), 0x587F70, 0x588090
-      (missed), 0x5880E0, 0x588120 (missed), 0x588150, 0x588170; then find_gaps / progress_report for the range.
+- [x] Batch VW-20 (NOT run in the game yet; early tests pass offline; mutation run pending): the movie manager's two
+      animation movies (new src/game/obj/anim_movies.*): the object animation movie (vtable 0x64EFE8: constructor
+      0x5871B0, destructors 0x587210 / 0x587370, Start 0x587270, IsDone 0x587280, 0x5872A0, Play 0x5873A0, Load
+      0x5875D0) and the camera animation movie (vtable 0x64F020: 0x5872C0, Start 0x587320, IsDone 0x587330, 0x587350,
+      constructor 0x5873F0, 0x587450, LoadTarget 0x587480, Play 0x587540, CallMemberFunction 0x587590, Load 0x587F70,
+      Update 0x588090); and the trick object pieces at the end of the range (new src/game/obj/trick_objects.*): the
+      manager's Release 0x5880E0, a cluster-count callback 0x588120, a cluster's SetParams 0x588150, the trick
+      component's list constructor / Clear 0x588170 / 0x588180 (0x588180 lies just past the range, but find_gaps showed
+      it between rewritten ones). Self-test (new src/hook/selftests_viewer20.cpp): TestAnimMovies.
+
+- [ ] Next: VW-21: the object movie's Update 0x5876A0 (and its thunk 0x587F60) and the camera movie's PlaceCamera
+      0x587A50 (now called through the game from anim_movies.cpp); then find_gaps / progress_report for the range.
       Mutations: specs for VW-15..17 not written (VW-18/19: scratch mut18.py, running); suspect CAUGHTs (named a flaky test: PC async handle, anim
       controllers: partial, memory cards: free space) to rerun with scratchpad mutate_v.py; known misses: launch_best,
       restart_walking (mut10), profile_style_zero, input_mirror. A game run (THUG2-3, debug_mode=1 viewer) still due.
