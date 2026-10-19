@@ -108,6 +108,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_objsys6.cpp
     src/hook/selftests_objsys7.cpp
     src/hook/selftests_objsys8.cpp
+    src/hook/selftests_objsys9.cpp
     src/hook/selftests_gapsB.cpp
     src/hook/selftests_mva.cpp
     src/hook/selftests_mva2.cpp
@@ -269,6 +270,7 @@ add_library(thug2_code OBJECT
     src/game/obj/path_manager.cpp
     src/game/obj/path_follower.cpp
     src/game/sfx/sfx.cpp
+    src/game/sfx/sfx_voices.cpp
     src/game/obj/event.cpp
     src/game/obj/flip_rotate.cpp
     src/game/obj/motion.cpp

@@ -229,5 +229,42 @@ Shared files touched (small, additive): CMakeLists.txt (new sources and selftest
   - Mutations: 37 deliberate bugs; 35 caught (33 at first; ids drawn from the playing table added for 2). The other
     2 are equivalent: UnloadGroup's count stored only when positive (unchanged otherwise), and SetPitch's clamp as
     `pitch < 0.01` (differs only at exactly 0.01, which it sets anyway).
-- [ ] Next: OS-9 part 2 0x47B8E0-0x47D390 (sfx_voices.cpp written, test to write); then the animation blending
-  0x47D420-0x47DC31 (+ 0x47D580 / 0x47D660, code Ghidra missed), the cutscene system 0x463AA0-0x4680B0 (+ 0x464340).
+- [x] Batch OS-9 (NOT run in the game yet; the sound effects manager, part 2: positional sounds and the PC
+  driver's voices): src/game/sfx/sfx_voices.cpp (new); sfx.cpp now calls the voices directly.
+  - CSfxManager: 0x0047B8E0 DopplerShift (the pitch moved by how fast the sound nears the camera; nothing past 360
+    units a 60th - equal shifts), 0x0047BA00 GetPositionalProps, 0x0047BAB0 IsUniqueIdFree, 0x0047BB20
+    GetUniqueId, 0x0047BB50 StopObjectSounds / 0x0047BC30 StopObjectSound, 0x0047BD20 PlaySound, 0x0047BE10
+    GetVolume (falloff smooth / linear / squared / root; 5 % past the dropoff still "in range"; 3D; the
+    stereo-positional branch is dead code - the type was just set to 3D), 0x0047C140 PlayObjectSound (a silent
+    looping sound handed to the object to start later), 0x0047C360 UpdatePositionalSound (480 units past the
+    dropoff: stopped, checked every 2 s; NaN dropoffs go on), 0x0047C560 UpdatePositionalSounds; 0x0047BA60
+    CreateManager / 0x0047C6C0 ReleaseManager (reference counted).
+  - The driver: 0x0047C720 GetFreeVoice, 0x0047C790 GroupCount (source only, 4 bytes), 0x0047C7A0 StopVoice,
+    0x0047C7C0 / 0x0047C7D0 the voice volume and pitch, 0x0047C7E0 IsVoicePlaying, 0x0047C810 UpdateVoiceStates
+    (0x0047B000, a jump to it: source only), 0x0047C870 PCWave::Load (the .wav chunks: fmt, data, smpl loops;
+    the IMA ADPCM conversion 0x005F5A20 stays the game's; the samples buffer is the format's bytes-per-second long,
+    as the original), 0x0047CA50 InitVoices (the voice count from the free hardware mixing buffers, 3D and the
+    listener), 0x0047CBD0 StopAllVoices, 0x0047CC10 FreePermanentWaves, 0x0047CC70 LoadWave (data\sounds\*.snd),
+    0x0047CD70 SetVoiceParameters (3D: the position relative to the camera, turned to the viewport's when another
+    camera hears it; stereo: volume and pan in hundredths of a decibel; the frequency clamped 100-200000), 0x0047D130
+    PlayVoice (a buffer made when the voice held another wave; locked, filled, played), 0x0047D390 SilenceVoices.
+  - Found while testing: the CRT's _ftol is a 64-bit truncation (a frequency over 2^31 wraps instead of clamping to
+    100; an infinite pan is 0) - kept; DopplerShift shifted at exactly the limit (the predecessor's `<=` was wrong);
+    UpdatePositionalSound goes on for a NaN dropoff.
+  - Tests (selftests_objsys9.cpp): TestSfxPositional - 80 seeds of random positional lists (duplicates too),
+    playing sounds, wave tables, cameras and objects, 25 random calls each (every list entry's props first), with
+    the cameras, the objects' sound parts, the clock, the voices, script globals and memory stood in for.
+    TestSfxVoices - 100 seeds over recording DirectSound objects (device, buffers, 3D buffers, listener: creation,
+    QueryInterface, Lock, Play, GetStatus and GetCaps answers scripted, failures too), every driver function at
+    random. TestSfxWaveLoad - 60 seeds of random .wav files (chunk orders, sizes, loops, files cut short, a missing
+    one) in a scratch folder, through LoadWave and PCWave::Load (the original's C runtime routed to ours). (States
+    the original can't take - a voice with a wave but no buffer, a negative voice count, a failed primary buffer -
+    left out.) The OS-8 test now stands in for our voice functions as well.
+  - Mutations: 113 deliberate bugs; 107 caught (100 at first; two mutations rewritten to build; duplicates in the
+    list, every entry's props, distances and pitches at the limits added). The other 6 are equivalent: the Doppler
+    limit's `<=` (differs only at exactly the limit), the sign of a vector whose length is taken, a failed manager
+    allocation (the instance was null already), GetVolume's `<=` on the loudest channel (always 0 there: nothing
+    changes), the smpl read limit 0x20 (the loop count still read, the rest skipped alike), LoadWave freeing samples
+    on failure (there are none yet).
+- [ ] Next: the animation blending 0x47D420-0x47DC31 (+ 0x47D580 / 0x47D660, code Ghidra missed), the cutscene
+  system 0x463AA0-0x4680B0 (+ 0x464340).

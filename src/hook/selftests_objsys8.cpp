@@ -1,7 +1,8 @@
 // Self-tests for the objsys agent's batch OS-8: the sound effects manager's tables, volumes and parameters
 // (src/game/sfx/sfx.cpp, 0x0047AC10-0x0047B8DB). The original and ours on the same sound state (the wave tables,
 // the playing sounds, the positional list, the settings - random but consistent), with the driver's voices, the
-// wave loader, script globals and the soundtrack stood in for; every call, result and the whole state compared.
+// wave loader, script globals and the soundtrack stood in for (the game's and ours); every call, result and the
+// whole state compared.
 
 #include <windows.h>
 
@@ -58,37 +59,37 @@ uint32_t g_voicePlaying; // bit per voice
 
 void StandInSfxWorld(StandIns& s)
 {
-    s.At({0x0047C7E0}, 0, [](Regs& r) {
+    s.At({0x0047C7E0, AddressOf(&Sfx::IsVoicePlaying)}, 0, [](Regs& r) {
         uint32_t playing = (g_voicePlaying >> (r.args[0] & 31)) & 1;
         Record({0x701CE000, r.args[0], playing});
         return playing;
     });
-    s.At({0x0047C7A0}, 0, [](Regs& r) {
+    s.At({0x0047C7A0, AddressOf(&Sfx::StopVoice)}, 0, [](Regs& r) {
         Record({0x701CE001, r.args[0]});
         return 0u;
     });
-    s.At({0x0047CD70}, 0, [](Regs& r) {
+    s.At({0x0047CD70, AddressOf(&Sfx::SetVoiceParameters)}, 0, [](Regs& r) {
         auto* volume = reinterpret_cast<const uint32_t*>(r.args[1]);
         Record({0x701CE002, r.args[0], volume[0], volume[1], volume[2], volume[3], volume[4], volume[5], r.args[2]});
         return 0u;
     });
-    s.At({0x0047CBD0}, 0, [](Regs&) {
+    s.At({0x0047CBD0, AddressOf(&Sfx::StopAllVoices)}, 0, [](Regs&) {
         Record({0x701CE003});
         return 0u;
     });
-    s.At({0x0047CC10}, 0, [](Regs&) {
+    s.At({0x0047CC10, AddressOf(&Sfx::FreePermanentWaves)}, 0, [](Regs&) {
         Record({0x701CE004});
         return 0u;
     });
-    s.At({0x0047CA50}, 0, [](Regs& r) {
+    s.At({0x0047CA50, AddressOf(&Sfx::InitVoices)}, 0, [](Regs& r) {
         Record({0x701CE005, r.args[0]});
         return 0u;
     });
-    s.At({0x0047D390}, 0, [](Regs&) {
+    s.At({0x0047D390, AddressOf(&Sfx::SilenceVoices)}, 0, [](Regs&) {
         Record({0x701CE006});
         return 0u;
     });
-    s.At({0x0047CC70}, 0, [](Regs& r) {
+    s.At({0x0047CC70, AddressOf(&Sfx::LoadWave)}, 0, [](Regs& r) {
         uint32_t ok = g_sfxAnswers.Below(4) != 0;
         auto* slot = reinterpret_cast<uint32_t*>(r.args[2]);
         if (ok) {

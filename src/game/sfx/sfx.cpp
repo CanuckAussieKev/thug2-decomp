@@ -38,26 +38,6 @@ float& Pitch() { return GameVariable<float>(0x0067DA3C); }
 // Whether a missing sound goes unreported (the report itself is compiled out; only the global is read).
 bool QuietMisses() { return GameVariable<bool>(0x00684FA8); }
 
-// The driver's voices (sfx_voices.cpp; through the game's until that batch).
-bool DriverIsVoicePlaying(int voice) { return GameFunction<int(__cdecl*)(int)>(0x0047C7E0)(voice) != 0; }
-void DriverStopVoice(int voice) { GameFunction<void(__cdecl*)(int)>(0x0047C7A0)(voice); }
-void DriverSetVoiceParameters(int voice, sVolume* volume, float pitch)
-{
-    GameFunction<void(__cdecl*)(int, sVolume*, float)>(0x0047CD70)(voice, volume, pitch);
-}
-void DriverStopAllVoices() { GameFunction<void(__cdecl*)()>(0x0047CBD0)(); }
-void DriverFreePermanentWaves() { GameFunction<void(__cdecl*)()>(0x0047CC10)(); }
-void DriverInitVoices(CSfxManager* manager) { GameFunction<void(__cdecl*)(CSfxManager*)>(0x0047CA50)(manager); }
-void DriverUpdateVoices() { GameFunction<void(__cdecl*)()>(0x0047D390)(); }
-int DriverGroupCount() { return GameFunction<int(__cdecl*)(int)>(0x0047C790)(0); }
-bool DriverLoadWave(const char* path, uint32_t checksum, WaveTableEntry* entry, int loadType, int group)
-{
-    return GameFunction<bool(__cdecl*)(const char*, uint32_t, PCWave**, int, int)>(0x0047CC70)(
-        path, checksum, &entry->wave, loadType, group);
-}
-void DriverSetVoiceVolume(float volume) { GameVariable<float>(0x0067DB08) = volume; }
-void DriverSetVoicePitch(float pitch) { GameVariable<float>(0x0067DB0C) = pitch; }
-
 // The missing-sound report (compiled out; the global still read).
 void ReportMissing()
 {
@@ -154,7 +134,7 @@ int CountPlayingVoices()
 {
     int playing = 0;
     for (int voice = 0; voice < kMaxPlaying; ++voice) {
-        if (DriverIsVoicePlaying(voice))
+        if (IsVoicePlaying(voice))
             ++playing;
     }
     return playing;
@@ -165,7 +145,7 @@ CSfxManager* CSfxManager::Construct()
 {
     if (!NoSound()) {
         m_defaultVolumeType = sVolume::TYPE_STEREO;
-        DriverInitVoices(this);
+        InitVoices(this);
         for (int i = 0; i < kMaxPlaying; ++i) {
             Playing()[i].uniqueId = 0;
             Playing()[i].checksum = 0;
@@ -178,11 +158,11 @@ CSfxManager* CSfxManager::Construct()
 int CSfxManager::GetPlayingIndex(uint32_t id)
 {
     for (int i = 0; i < kMaxPlaying; ++i) {
-        if (Playing()[i].uniqueId == id && DriverIsVoicePlaying(i))
+        if (Playing()[i].uniqueId == id && IsVoicePlaying(i))
             return i;
     }
     for (int i = 0; i < kMaxPlaying; ++i) {
-        if (Playing()[i].checksum == id && DriverIsVoicePlaying(i)) {
+        if (Playing()[i].checksum == id && IsVoicePlaying(i)) {
             // (a debug report, compiled out)
             if (Script::GetInteger(kDebugA) == 0)
                 Script::GetInteger(kDebugB);
@@ -222,7 +202,7 @@ void CSfxManager::AddPositionalSound(uint32_t uniqueId, uint32_t checksum, Obj::
 void CSfxManager::StopGroup(int group)
 {
     (void)group;
-    DriverGroupCount();
+    GroupCount();
 }
 
 // 0x0047AEA0
@@ -246,7 +226,7 @@ void CSfxManager::UnloadGroup(int group)
 // 0x0047AF10
 void CSfxManager::UnloadAllGroups()
 {
-    for (int group = 0; group < DriverGroupCount(); ++group)
+    for (int group = 0; group < GroupCount(); ++group)
         UnloadGroup(group);
 }
 
@@ -286,7 +266,7 @@ void CSfxManager::CleanUp()
     PositionalCount() = 0;
     for (int i = 0; i < kMaxPositional; ++i)
         PositionalPool()[i].inUse = 0;
-    DriverFreePermanentWaves();
+    FreePermanentWaves();
     PermanentCount() = 0;
     DefaultDropoff() = 1020.0f;
 }
@@ -303,7 +283,7 @@ void CSfxManager::StopAllSounds()
 {
     if (NoSound())
         return;
-    DriverStopAllVoices();
+    StopAllVoices();
     PositionalHead() = nullptr;
     PositionalCount() = 0;
     for (int i = 0; i < kMaxPositional; ++i)
@@ -314,7 +294,7 @@ void CSfxManager::StopAllSounds()
 void CSfxManager::UpdateVoiceVolumes()
 {
     if (!NoSound())
-        DriverUpdateVoices();
+        SilenceVoices();
 }
 
 // 0x0047B2C0
@@ -362,14 +342,14 @@ bool CSfxManager::LoadSound(const char* path, uint16_t flags, int loadType, int 
         if (LevelCount() >= kMaxWaves)
             return false;
         entry = &LevelWaves()[LevelCount()];
-        if (!DriverLoadWave(path, checksum, entry, loadType, group))
+        if (!LoadWave(path, checksum, &entry->wave, loadType, group))
             return false;
         ++LevelCount();
     } else {
         if (PermanentCount() >= kMaxWaves)
             return false;
         entry = &PermanentWaves()[PermanentCount()];
-        if (!DriverLoadWave(path, checksum, entry, loadType, group))
+        if (!LoadWave(path, checksum, &entry->wave, loadType, group))
             return false;
         ++PermanentCount();
     }
@@ -403,7 +383,7 @@ bool CSfxManager::StopSound(uint32_t id)
     int index = GetPlayingIndex(id);
     if (index < 0)
         return false;
-    DriverStopVoice(index);
+    StopVoice(index);
     return true;
 }
 
@@ -422,7 +402,7 @@ bool CSfxManager::SetSoundParams(uint32_t id, sVolume* volume, float pitch)
         return false;
     if (!volume->IsSilent())
         AdjustVolumeAndPitch(volume, &pitch, entry);
-    DriverSetVoiceParameters(index, volume, pitch);
+    SetVoiceParameters(index, volume, pitch);
     return true;
 }
 
@@ -436,7 +416,7 @@ void CSfxManager::SetMainVolume(float volume)
     float scaled = static_cast<float>(static_cast<double>(GameVariable<float>(0x00684FAC)) * volume * 0.0099999998f);
     if (scaled < 0.1f)
         scaled = 0.0f;
-    DriverSetVoiceVolume(scaled);
+    SetVoiceVolume(scaled);
     Pcm::SetUserSoundtrackVolume(scaled);
 }
 
@@ -449,7 +429,7 @@ void CSfxManager::SetPitch(float pitch, int /*unused1*/, int /*unused2*/)
     if (!(pitch > 0.0099999998f) && !std::isnan(pitch))
         pitch = 0.0099999998f;
     Pitch() = pitch;
-    DriverSetVoicePitch(pitch);
+    SetVoicePitch(pitch);
     GameFunction<bool(__cdecl*)(float)>(0x004504F0)(pitch); // (a stub: false)
 }
 
@@ -467,7 +447,7 @@ bool CSfxManager::IsSoundPlaying(uint32_t uniqueId, int* index)
         return false;
     for (int i = 0; i < kMaxPlaying; ++i) {
         if (Playing()[i].uniqueId == uniqueId) {
-            if (!DriverIsVoicePlaying(i))
+            if (!IsVoicePlaying(i))
                 return false;
             if (index)
                 *index = i;
@@ -498,7 +478,7 @@ bool CSfxManager::SetSoundParamsScaled(uint32_t uniqueId, sVolume* volume, float
         if (Playing()[index].uniqueId == uniqueId)
             break;
     }
-    if (index == kMaxPlaying || !DriverIsVoicePlaying(index)) {
+    if (index == kMaxPlaying || !IsVoicePlaying(index)) {
         ReportMissing();
         return false;
     }
@@ -514,7 +494,7 @@ bool CSfxManager::SetSoundParamsScaled(uint32_t uniqueId, sVolume* volume, float
         return false;
     if (!volume->IsSilent())
         AdjustVolumeAndPitch(volume, &pitch, entry);
-    DriverSetVoiceParameters(index, volume, pitch);
+    SetVoiceParameters(index, volume, pitch);
     return true;
 }
 
