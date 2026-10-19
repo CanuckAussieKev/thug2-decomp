@@ -268,6 +268,10 @@ ProjectToPlane made exact).
     a big split added for 11). Not caught: the squared length's sum order (below a float), the buffer size
     global (stored and cleared, never read), the point's x offset kept unrounded (x87 detail too small for the
     test data), the nodes' constructor before the copy overwrites them.
+- [x] Game run (2026-10-20, C:\Games\THUG2-1, stock THUG2.exe, AN-1..AN-8): free skate in Boston (-level BO), 90 s
+  standing and 45 s skating (keys posted: forward, turns; the skater rode along the plaza and up a wall) - running
+  and responding; 3087 of 3087 replacements installed (69 source only), early (314), late (17) and engine-started
+  (2) self-tests passed; no EXCEPTION / RUN-TIME CHECK FAILURE / DEBUG CRT REPORT.
 - [ ] Next: AN-9 - 0x004164F0 / 0x00416730 (the geometry turned / scaled), 0x00414990, 0x00414BE0, 0x00414D30,
   0x00414FE0, the forwarders 0x0040AE80-0x0040AEC0, then the face / line tests 0x0040B420 onwards, 0x00410C90,
   0x004110B0, 0x004114E0, 0x004128B0, 0x004131F0, 0x004137B0, 0x00413B50, 0x00413FF0, 0x00414460. Hidden code
