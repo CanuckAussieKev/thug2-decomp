@@ -51,3 +51,9 @@ Backup, Save and Faces left out). `... check --game <folder>`
 compares another install with it - identical / changed / missing / extra, by kind (exe, partymod, game) - and names
 the executables by hash: the reference THUG2PM.exe the DLL's addresses are for, or the retail SafeDisc-encrypted
 THUG2.exe most installs have (it needs PartyMod's patch first). A stock install's Game subfolder is found by itself. Exit code 1 when anything differs or is missing.
+
+## exe_audit.py - do two exes differ where our code is?
+`python -I tools/game/exe_audit.py [--a <THUG2PM.exe>] [--b <THUG2.exe>]`: every differing byte between two same-layout
+builds, the function or data it's in, which rewritten functions' original code differs, and which functions refer to
+the differing data. (THUG2PM.exe vs the stock no-CD THUG2.exe, 2026-10-20: 172 bytes in 35 runs; 4 rewritten
+functions touched - SetScreenBlur, WinMain, ServiceTask, LoadFromMemoryCard - all replaced by our source.)
