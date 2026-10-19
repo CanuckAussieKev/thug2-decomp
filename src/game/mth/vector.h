@@ -18,6 +18,8 @@ public:
     Vector& operator*=(float scale);
     // 0x004A86D0: any of the four components differs (or is NaN).
     bool operator!=(const Vector& other) const;
+    // 0x0040AED0: all four components equal (NaN is unequal).
+    bool operator==(const Vector& other) const;
 
     // Removes the part of this vector that lies along `normal` (all four components are adjusted by
     // dot(xyz, normal.xyz) * normal). With a unit-length normal this projects onto the plane.
@@ -58,6 +60,11 @@ Vector operator-(const Vector& v);
 float DotProduct(const Vector& a, const Vector& b);
 // Cross product of the x, y, z parts; w of the result is 0.
 Vector CrossProduct(const Vector& a, const Vector& b);
+
+// v times 1 / divisor (all four components).
+Vector operator/(const Vector& v, float divisor);
+// Whether a and b are more than `degrees` apart (false if either is shorter than 0.5).
+bool IsAngleBeyond(const Vector& a, const Vector& b, float degrees);
 
 // The angle between a and b in degrees (0 to 180; a zero vector counts as itself).
 double GetAngle(const Vector& a, const Vector& b);

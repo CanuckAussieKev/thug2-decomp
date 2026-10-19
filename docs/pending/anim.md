@@ -129,8 +129,31 @@ ProjectToPlane made exact).
   REPORT. Two early self-tests failed that aren't this branch's: "anim controllers: partial" (fe_anim) and "text
   elements: updates" - the fe test kit's half-pointer mapping: the arenas landed near 0x00FC0000 in the game, where
   plain values 0x00FF0006 / 0x01000000 look like halves of arena pointers in our run only (also seen once offline).
-- [ ] Next: AN-4 - code Ghidra never made functions of: 0x00406560 (called from the skater code, 0x00514320 ...;
-  an angle-limit test of two vectors), then 0x0040A910-0x0040AB00 (an 8-slot registry at 0x006918EC) and
-  0x0040AB40 onwards. Hidden code to give source to later (found by scratchpad hidden.py - runs between Ghidra's
+- [x] Batch AN-4 (NOT run in the game yet; math helpers and the collision caches): src/game/nx/coll_cache.h /
+  coll_cache.cpp (new), src/game/mth/vector.cpp / matrix.cpp / geometry.cpp (+ headers).
+  - Mth: 0x00406560 IsAngleBeyond (not a function in Ghidra; called by the skater code: whether two vectors are
+    more than `degrees` apart - false if either is shorter than 0.5; x87 FCOS of the limit, the rest in double),
+    0x0040AED0 Vector::operator==, 0x0040AF20 operator/(Vector, float) (the reciprocal rounded to a float for x, y, z,
+    w multiplied by the unrounded one), Matrix 0x0040AF60 Transform / 0x0040B000 TransformAsPos / 0x0040B090
+    RotateVector (each sum in the original's order, rounded once), 0x0040B100 ScaleRows, BBox 0x0040AB00
+    operator=, 0x0040B170 Intersects (x, z, y; NaN doesn't rule it out), 0x0040B1D0 Contains (NaN does).
+  - Nx::CCollCache (0xFCC bytes: a box, 500 (object, geometry) entries - the static ones first -, the counts at
+    +0xFC0 / +0xFC4 / +0xFC8): 0x0040AB50 constructor (registered), 0x0040AB40 destructor, 0x0040ABA0 Update (the
+    grid lists along the box's diagonal - 0x0048C980 -, each list's objects - 0x004188C0 - and the movable list
+    0x00691984 (objects with flags 2 / 4 skipped) tested against the box grown by 0.5 - vtable slot 13; the
+    geometry from slot 21 / 20), 0x0040A910 RemoveStatic (shifts), 0x0040A990 RemoveMovable (the last moved in);
+    the registry (8 caches at 0x006918EC, bits 0x0069190C): 0x0040AA00 / 0x0040AA40 / 0x0040AA80 / 0x0040AAC0;
+    0x0040ADD0 ShapeTypeFromChecksum (box and two others 1, sector 4).
+  - Tests (selftests_anim4.cpp): TestAnimMathHelpers - 4000 random cases (zeros, -0, NaN, small integers, +-3e19,
+    equal vectors, scaled copies; vectors 0.25-0.6 long; b exactly 0..179 degrees from a with limits on and around
+    it; 81 matrices of cancelling columns), each helper's result bit for bit, in place too; TestAnimCollCaches -
+    three caches and six more registered (the ninth refused), updated with no grid lists and with lists and
+    movables (flags 2 / 4 / null data), removals from each part and from all caches, a double registration and
+    unregistrations, the shape types; the grid / list queries and the objects' slots stood in for (recorded).
+  - Mutations: 37 deliberate bugs; 36 caught (24 at first: lengths at the 0.5 limit, angles at their limit, the
+    cancelling matrices, the whole grown box recorded, removals of the other part's objects, the stale registry
+    pointer added for 12). The other is equivalent: the grown box's w (AddPoint ignores it).
+- [ ] Next: AN-5 - the collision objects (vtables 0x00645A30-0x00645CD8; 0x0040AE10-0x0040AEC0 and 0x0040B230
+  onwards). Hidden code to give source to later (found by scratchpad hidden.py - runs between Ghidra's
   functions that aren't padding): 0x00412730, 0x00412F90, 0x004139A0, 0x00413F30, 0x00414D70, 0x00417110,
   0x00419690, 0x00419750, 0x004198D0, 0x00419AD0, 0x00419BF0, 0x00419E90, 0x0041A1A0-0x0041A21C.

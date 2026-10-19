@@ -38,6 +38,38 @@ void BBox::AddPoint(const Vector& point)
         max.z = point.z;
 }
 
+// 0x0040AB00
+BBox& BBox::operator=(const BBox& other)
+{
+    min = other.min;
+    max = other.max;
+    return *this;
+}
+
+// 0x0040B170 (x, then z, then y; each failing only when strictly beyond)
+bool BBox::Intersects(const BBox& other) const
+{
+    if (min.x > other.max.x || other.min.x > max.x)
+        return false;
+    if (min.z > other.max.z || other.min.z > max.z)
+        return false;
+    if (min.y > other.max.y || other.min.y > max.y)
+        return false;
+    return true;
+}
+
+// 0x0040B1D0
+bool BBox::Contains(const BBox& other) const
+{
+    if (!(other.min.x >= min.x) || !(other.max.x <= max.x))
+        return false;
+    if (!(other.min.y >= min.y) || !(other.max.y <= max.y))
+        return false;
+    if (!(other.min.z >= min.z) || !(other.max.z <= max.z))
+        return false;
+    return true;
+}
+
 // 0x00404060 (Ghidra's signature database labels this MFC's CRect constructor; it is the same simple code)
 Rect::Rect(int l, int t, int r, int b) : left(l), top(t), right(r), bottom(b) {}
 
@@ -548,3 +580,6 @@ REPLACE_SHADOW(0x00403390, &Capsule::Volume);
 REPLACE(0x004033E0, &GeometryAdapter::ConstructBBox);
 REPLACE(0x00403410, &GeometryAdapter::ConstructBBoxAt);
 REPLACE(0x00403450, &BBox::AddPoint);
+REPLACE(0x0040AB00, &BBox::operator=);
+REPLACE(0x0040B170, &BBox::Intersects);
+REPLACE(0x0040B1D0, &BBox::Contains);

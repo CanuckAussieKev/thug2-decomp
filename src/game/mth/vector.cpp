@@ -261,6 +261,40 @@ bool Vector::operator!=(const Vector& other) const
     return other.x != x || other.y != y || other.z != z || other.w != w;
 }
 
+// 0x0040AED0 (all four components exactly; NaN is unequal)
+bool Vector::operator==(const Vector& other) const
+{
+    return x == other.x && y == other.y && z == other.z && w == other.w;
+}
+
+// 0x0040AF20 (x87: the reciprocal rounded to a float for x, y, z; w is multiplied by the unrounded one)
+Vector operator/(const Vector& v, float divisor)
+{
+    double inverse = 1.0 / static_cast<double>(divisor);
+    float rounded = static_cast<float>(inverse);
+    return {rounded * v.x, rounded * v.y, rounded * v.z, static_cast<float>(inverse * v.w)};
+}
+
+// 0x00406560
+bool IsAngleBeyond(const Vector& a, const Vector& b, float degrees)
+{
+    double lengthA = std::sqrt((static_cast<double>(a.x) * a.x + static_cast<double>(a.y) * a.y) +
+                               static_cast<double>(a.z) * a.z);
+    if (lengthA < 0.5)
+        return false;
+    double cosine = ((static_cast<double>(a.x) * b.x + static_cast<double>(b.z) * a.z) +
+                     static_cast<double>(a.y) * b.y) / lengthA;
+    double lengthB = std::sqrt((static_cast<double>(b.y) * b.y + static_cast<double>(b.z) * b.z) +
+                               static_cast<double>(b.x) * b.x);
+    if (lengthB < 0.5)
+        return false;
+    cosine /= lengthB;
+    double limit = std::cos(static_cast<double>(degrees) * 0.01745329238474369); // (the float at 0x00645464)
+    if (!(cosine >= 0.0) && limit >= 0.0) // (more than 90 degrees apart, a limit of 90 or less)
+        return true;
+    return cosine < limit;
+}
+
 namespace {
 // The cosine as the originals take it: rounded to a float, limited to [-1, 1] (NaN passes through).
 double ClampedCosine(double dot)
@@ -378,6 +412,9 @@ REPLACE(0x00405F50, &Vector::FeetToInches);
 REPLACE(0x00405F80, &Vector::NegateXRotateX90);
 REPLACE(0x00406050, &Vector::operator-=);
 REPLACE(0x00406460, Mth::GetAngle);
+REPLACE(0x00406560, Mth::IsAngleBeyond);
+REPLACE(0x0040AED0, &Vector::operator==);
+REPLACE(0x0040AF20, static_cast<Mth::Vector (*)(const Mth::Vector&, float)>(&Mth::operator/));
 REPLACE(0x00406630, Mth::GetAngleAbout);
 REPLACE(0x00406080, &Vector::ProjectToPlane);
 REPLACE(0x004060F0, &Vector::RotateToPlane);

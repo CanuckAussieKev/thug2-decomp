@@ -52,6 +52,15 @@ public:
     // Scale all 16 values (skipped when scale is exactly 1).
     Matrix& operator*=(float scale);
 
+    // 0x0040AF60: out = in (all four components) times this matrix.
+    Vector& Transform(Vector& out, const Vector& in) const;
+    // 0x0040B000: out = in as a point (w taken as 1) times this matrix.
+    Vector& TransformAsPos(Vector& out, const Vector& in) const;
+    // 0x0040B090: out = in's x, y, z through the rotation part; w copied.
+    Vector& RotateVector(Vector& out, const Vector& in) const;
+    // 0x0040B100: rows 0, 1 and 2 (all four components) times scale.x, .y and .z.
+    Matrix& ScaleRows(const Vector& scale);
+
     // The identity.
     Matrix& Ident();
     // Each row's x, y, z and w multiplied by scale.x, .y, .z and .w (the columns scaled: as if followed by a

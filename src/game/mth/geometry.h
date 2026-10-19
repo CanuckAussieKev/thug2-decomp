@@ -21,8 +21,14 @@ public:
     // A zero-size box at `point`.
     explicit BBox(const Vector& point);
 
+    // 0x0040AB00
+    BBox& operator=(const BBox& other);
     // Grow the box to include `point` (x, y, z only).
     void AddPoint(const Vector& point);
+    // 0x0040B170: whether the boxes overlap (edges touching counts; NaN doesn't rule it out).
+    bool Intersects(const BBox& other) const;
+    // 0x0040B1D0: whether `other` lies within this box (edges included; NaN rules it out).
+    bool Contains(const BBox& other) const;
     // Centre of the box (w = 1).
     Vector& GetCenter(Vector& out) const;
 

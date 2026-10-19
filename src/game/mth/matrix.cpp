@@ -187,6 +187,55 @@ Matrix& Matrix::operator=(const MatrixProduct& product)
     return Multiply(*this, *product.left, *product.right);
 }
 
+// 0x0040AF60 (x87: each sum in double, rounded once; `in` may be `out`)
+Vector& Matrix::Transform(Vector& out, const Vector& in) const
+{
+    double x = in.x, y = in.y, z = in.z, w = in.w;
+    double rx = ((row[3].x * w + row[1].x * y) + row[2].x * z) + x * row[0].x;
+    double ry = ((row[3].y * w + row[1].y * y) + row[0].y * x) + row[2].y * z;
+    double rz = ((row[3].z * w + row[1].z * y) + row[0].z * x) + row[2].z * z;
+    double rw = ((row[3].w * w + row[1].w * y) + row[0].w * x) + row[2].w * z;
+    out = {static_cast<float>(rx), static_cast<float>(ry), static_cast<float>(rz), static_cast<float>(rw)};
+    return out;
+}
+
+// 0x0040B000
+Vector& Matrix::TransformAsPos(Vector& out, const Vector& in) const
+{
+    double x = in.x, y = in.y, z = in.z;
+    double rx = ((row[2].x * z + row[1].x * y) + x * row[0].x) + row[3].x;
+    double ry = ((row[2].y * z + row[1].y * y) + row[0].y * x) + row[3].y;
+    double rz = ((row[2].z * z + row[1].z * y) + row[0].z * x) + row[3].z;
+    double rw = ((row[2].w * z + row[1].w * y) + row[0].w * x) + row[3].w;
+    out = {static_cast<float>(rx), static_cast<float>(ry), static_cast<float>(rz), static_cast<float>(rw)};
+    return out;
+}
+
+// 0x0040B090
+Vector& Matrix::RotateVector(Vector& out, const Vector& in) const
+{
+    double x = in.x, y = in.y, z = in.z;
+    float w = in.w;
+    double rx = (row[2].x * z + row[1].x * y) + x * row[0].x;
+    double ry = (row[2].y * z + row[1].y * y) + row[0].y * x;
+    double rz = (row[2].z * z + row[1].z * y) + row[0].z * x;
+    out = {static_cast<float>(rx), static_cast<float>(ry), static_cast<float>(rz), w};
+    return out;
+}
+
+// 0x0040B100
+Matrix& Matrix::ScaleRows(const Vector& scale)
+{
+    const float factors[3] = {scale.x, scale.y, scale.z};
+    for (int i = 0; i < 3; ++i) {
+        row[i].x *= factors[i];
+        row[i].y *= factors[i];
+        row[i].z *= factors[i];
+        row[i].w *= factors[i];
+    }
+    return *this;
+}
+
 // 0x004062D0
 float GetAngleInPlane(const Matrix& m, const Vector& v, int ref_axis, int normal_axis)
 {
@@ -515,6 +564,10 @@ REPLACE(0x0041A6A0, &Mth::Matrix::RotateX);
 REPLACE(0x0041A6D0, &Mth::Matrix::RotateY);
 REPLACE(0x0041A700, &Mth::Matrix::RotateZ);
 REPLACE(0x0041A640, &Mth::Matrix::Ident);
+REPLACE(0x0040AF60, &Mth::Matrix::Transform);
+REPLACE(0x0040B000, &Mth::Matrix::TransformAsPos);
+REPLACE(0x0040B090, &Mth::Matrix::RotateVector);
+REPLACE(0x0040B100, &Mth::Matrix::ScaleRows);
 REPLACE(0x0041BA30, &Mth::Matrix::Scale);
 REPLACE(0x0048A230, &Mth::Matrix::Translate);
 REPLACE(0x0041F470, static_cast<Mth::Vector (*)(const Mth::Vector&, const Mth::Matrix&)>(&Mth::operator*));
