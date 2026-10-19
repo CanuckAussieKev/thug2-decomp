@@ -252,6 +252,21 @@ CCollScaled* CCollScaled::Construct()
     return this;
 }
 
+// 0x00413F80
+CCollScaled* CCollScaled::ConstructCopy(const CCollScaled* other)
+{
+    m_vtable = kCollObjVtable;
+    m_checksum = other->m_checksum;
+    m_flags = other->m_flags;
+    m_terrain = other->m_terrain;
+    m_geometry = other->m_geometry;
+    m_vtable = kScaledVtable;
+    m_scale = other->m_scale;
+    m_matrix = other->m_matrix;
+    m_inverse = other->m_inverse;
+    return this;
+}
+
 // 0x00412460 (only the base's body)
 void CCollScaled::Destruct()
 {
@@ -348,6 +363,7 @@ REPLACE(0x0040AE60, &Nx::CCollMovBBox::GetFaceFlags);
 REPLACE(0x0040AE70, &Nx::CCollMovBBox::GetFaceTerrain);
 REPLACE(0x004126E0, &Nx::CCollMovBBox::DebugRender);
 REPLACE(0x004123C0, &Nx::CCollScaled::Construct);
+REPLACE(0x00413F80, &Nx::CCollScaled::ConstructCopy);
 REPLACE(0x00412460, &Nx::CCollScaled::Destruct);
 REPLACE(0x004135E0, &Nx::CCollScaled::ScalarDelete);
 REPLACE(0x00413610, &Nx::CCollScaled::SetWorldPosition);

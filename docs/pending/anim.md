@@ -203,8 +203,38 @@ ProjectToPlane made exact).
   - Mutations: 35 deliberate bugs; 33 caught (26 at first: each object recorded right after construction, distinct
     terrain and +0xCA bytes for the copies added for 7). Equivalent: the movable vertex's w (always 0 + the
     position's), the box destructor's own vtable write (overwritten at once by the base's).
-- [ ] Next: AN-7 - the static collision objects (vtables 0x00645C18 / 0x00645C78 / 0x00645CD8 - constructors and
-  slots), 0x0040AE80-0x0040AEC0 (forwarders to the geometry), 0x0040B390, then the face / line tests 0x0040B420
-  onwards. Hidden code to give source to later (found by scratchpad hidden.py - runs between Ghidra's
-  functions that aren't padding): 0x00412730, 0x00412F90, 0x004139A0, 0x00413F30, 0x00414D70, 0x00417110,
-  0x00419690, 0x00419750, 0x004198D0, 0x00419AD0, 0x00419BF0, 0x00419E90, 0x0041A1A0-0x0041A21C.
+- [x] Batch AN-7 (NOT run in the game yet; the triangle collision objects - a sector's, an instance, a movable
+  one; 37 functions): src/game/nx/coll_static.h / .cpp (new), coll_movable.cpp (CCollScaled copy), coll_tri.h.
+  - Faces: 0x00410BF0 / 0x00411750 the face flags (u16 at face +0, zero-extended) / terrain (u16 at +2), faces of
+    8 bytes when the geometry's +0x0A byte is set, else 10 (slots 2, 3 of all three objects).
+  - Nx::CCollStatic (0x18 bytes, vtable 0x00645C18; +0x10 the "face-rejection optimization" buffer, a byte per
+    face): 0x00412760 destructor (the buffer freed only if owned, flag 0x8000), 0x004139A0 Clone (hidden code:
+    an instance - a CCollStaticInstance sharing the geometry - or a copy with the geometry copied by 0x00416BF0
+    and the buffer copied on the bottom-up heap; null if the geometry copy fails), 0x00410C20 SetWorldPosition
+    (the geometry moved by the difference from slot 7's, 0x00416400), 0x004123A0 / 0x004123B0 (the shared origin
+    0x00691914 / orientation 0x00691928), 0x00410980 GetVertexPos (w = 1), 0x00410C70 / 0x00412750 the box.
+  - Nx::CCollStaticInstance (0xC8 bytes, vtable 0x00645C78: a CCollScaled with a world box): 0x004127C0
+    constructor, 0x00414C30 copy, 0x00412840 / 0x00413ED0 destructors, 0x00414CD0 Clone (shares the geometry),
+    0x00411480 SetSharedGeometry (flags |= 0xC000, the geometry's box), 0x00413F00 / 0x00413F30 (hidden) /
+    0x00413F50 set position / orientation / scale (the inverse and world box made again), 0x004113B0
+    UpdateWorldBBox, 0x00411460, 0x00412830, 0x00411330 RescaleIfAt (only at its exact position), 0x00412F50
+    DebugRender (the scaled matrix to 0x00414D60). CCollScaled's copy constructor 0x00413F80.
+  - Nx::CCollMovTri (0xD4 bytes, vtable 0x00645CE0: radius, dirty flag, box): 0x00413000 constructor, 0x00413080
+    copy, 0x00413070 / 0x004143D0 destructors, 0x00414400 Clone (geometry copied), 0x00411780 SetGeometry (the
+    bounding radius from the raw vertices), 0x00412F90 SetWorldPosition (hidden code), 0x00411810 / 0x00412FC0
+    (the box made again when dirty), 0x0040B390 UpdateBBox, 0x00413130 DebugRender. 0x00414D60 the geometry's
+    debug render (empty; source only).
+  - Tests (selftests_anim7.cpp): TestAnimCollTriObjects - a sector object built by hand on compressed and plain
+    stand-in geometry: faces small and not, the slots, the vertex, the clones (instance, copy with and without
+    its buffer, geometry copy failing); the instance's setters (recorded after each), world box, rescale at /
+    not at / off only in y, clone, render (0x00414D60 stood in for, recording the matrix); the movable's geometry,
+    radius, position, box (recorded after each step), clone, render; destructors with owned and unowned buffers.
+  - Mutations: 42 deliberate bugs; 38 caught (28 at first: the origin's w, owned / unowned buffers in the
+    destructors, the buffer before SetSharedGeometry, recording after each setter, a position off only in y and
+    a stand-in for the debug render added for 10). Equivalent: the scaled vertex's w in UpdateWorldBBox (unused by
+    the box), the constructor's dirty flag (SetGeometry sets it), the radius compare's > vs >= and its sum order
+    (the same float after the square root).
+- [ ] Next: AN-8 - 0x0040AE80-0x0040AEC0 (forwarders to the geometry), the face / line tests 0x0040B420
+  onwards, the geometry's own methods (0x00416400, 0x00416970, 0x00416BF0...). Hidden code to give source to later
+  (found by scratchpad hidden.py - runs between Ghidra's functions that aren't padding): 0x00412730, 0x00414D70,
+  0x00417110, 0x00419690, 0x00419750, 0x004198D0, 0x00419AD0, 0x00419BF0, 0x00419E90, 0x0041A1A0-0x0041A21C.

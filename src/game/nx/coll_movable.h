@@ -79,6 +79,8 @@ class CCollScaled : public CCollObj {
 public:
     // 0x004123C0: unscaled, unrotated, at the origin (returns this).
     CCollScaled* Construct();
+    // 0x00413F80: a copy (returns this).
+    CCollScaled* ConstructCopy(const CCollScaled* other);
     // 0x00412460 / 0x004135E0
     void Destruct();
     CCollScaled* ScalarDelete(uint8_t flags);

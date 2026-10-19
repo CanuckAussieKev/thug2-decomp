@@ -12,12 +12,18 @@ namespace Nx {
 // is laid out here.
 struct CCollObjTriData {
     uint32_t m_checksum;      // +0x00 the sector's name
-    uint8_t pad04[7];
+    uint16_t m_unknown04;
+    uint16_t m_numVertices;   // +0x06
+    uint16_t m_numFaces;      // +0x08 (also the size of a sector object's own buffer)
+    bool m_smallFaces;        // +0x0A faces of 8 bytes (else 10)
     bool m_compressed;        // +0x0B the vertices are 16-bit
-    uint8_t pad0C[4];
+    uint8_t* m_faces;         // +0x0C each: u16 flags, u16 terrain, the vertex indices
     Mth::Vector m_min;        // +0x10 the box (+0x20 its max)
     Mth::Vector m_max;
     void* m_vertices;         // +0x30 float[3] each, or uint16_t[3] when compressed
+    uint32_t m_unknown34;
+    uint32_t m_unknown38;
+    uint32_t m_unknown3C;     // +0x3C (a movable triangle object keeps it)
 
     // 0x0040B230: vertex `index` (w = 0).
     Mth::Vector GetRawVertexPos(int index) const;
