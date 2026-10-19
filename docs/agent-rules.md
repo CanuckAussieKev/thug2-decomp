@@ -52,6 +52,9 @@ workspace (C:\Games\THUG2-n) and its pending-doc name. Agents cost a lot of usag
 - "Start to finish": every function in the range that isn't REPLACEd yet gets source (REPLACE / REPLACE_SOURCE_ONLY /
   naked stubs) - skip nothing. Batches of 10-40 coherent functions, one commit each, until `find_gaps.py` and
   `progress_report.py` show the range done. Calls out of the range into un-rewritten code stay `GameFunction`.
+- Game runs start faster without the early self-tests: workspaces have `[selftests] early=0` (thug2_check runs them
+  offline); use `run_game.ps1 -Tests "<your test names' words>"` for the tests of your work, and `-FullTests` for your
+  final game run.
 - Self-tests in the agent's own src/hook/selftests_<topic>.cpp (listed in CMakeLists.txt), not selftest.cpp.
 - Ghidra: a private copy of the read-only snapshot (copy C:\Games\THUG2-ghidra-snapshot to
   C:\Games\THUG2-ghidra-snapshot-<name> once) and its own data/derived/. Don't rename in the live project (MCP) -

@@ -152,10 +152,26 @@ void RunSelfTests(TestStage stage)
         Log("%s self-tests: skipped (thug2-decomp.ini)", StageName(stage));
         return;
     }
-    // The environment variable THUG2_SELFTESTS (tools/mutate.py's spec TESTS): only the tests whose names contain one
-    // of its comma-separated words run - a mutation run checks its batch's tests in a second, not every test.
+    // A game run can skip the early tests: thug2_check already runs every one of them offline, against both exes, before
+    // any game run, and they're most of a game's start-up time. [selftests] early=0 (the workspaces' default -
+    // tools/game/make_workspace.ps1) skips them in the game; the environment variable THUG2_SELFTESTS_EARLY=1 runs them
+    // anyway (tools/game/run_game.ps1 -FullTests: a range's final run). thug2_check has no ini: it always runs them.
+    if (stage == TestStage::Early) {
+        char early[8] = {};
+        bool forced = GetEnvironmentVariableA("THUG2_SELFTESTS_EARLY", early, sizeof(early)) && early[0] == '1';
+        if (!forced && !ConfigInt("selftests", "early", 1)) {
+            Log("early self-tests: skipped ([selftests] early=0 - thug2_check runs them offline; "
+                "THUG2_SELFTESTS_EARLY=1 runs them)");
+            return;
+        }
+    }
+    // Only the tests whose names contain one of a comma-separated list of words run: the environment variable
+    // THUG2_SELFTESTS (tools/mutate.py's spec TESTS; tools/game/run_game.ps1 -Tests) or [selftests] filter= in the ini -
+    // a mutation run checks its batch's tests in a second, a game run only those of the work it's testing.
     char filter[512] = {};
-    GetEnvironmentVariableA("THUG2_SELFTESTS", filter, sizeof(filter));
+    if (!GetEnvironmentVariableA("THUG2_SELFTESTS", filter, sizeof(filter)))
+        GetPrivateProfileStringA("selftests", "filter", "", filter, sizeof(filter),
+                                 GameFolderPath("thug2-decomp.ini").c_str());
     auto wanted = [&filter](const char* name) {
         if (!filter[0])
             return true;

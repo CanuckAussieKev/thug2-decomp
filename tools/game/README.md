@@ -14,6 +14,10 @@ THUG2.exe or THUG2PM.exe, tools/game/game_exe.ps1).
   the deployed dinput8.dll and thug2-decomp.ini into `<folder>\.game-lock`; release puts them back and never closes a
   game. Under the lock you may copy your build's DLL in, edit the ini, launch and close the game you started. To
   install something permanently (the lead installing main), also copy it over the `.backup` file before releasing.
+- **Faster start-up (self-tests):** workspaces skip the early self-tests in the game (`[selftests] early=0`, set by
+  make_workspace.ps1 - thug2_check already runs them offline against both exes). `run_game.ps1 -Tests "anim,coll"` runs
+  only the self-tests whose names contain one of those words (the work being tested); `-FullTests` runs every stage and
+  test (a range's final run). In the ini: `[selftests] filter=` does what -Tests does.
 - `run_game.ps1 -Game <folder> -Seconds N [-Keys "down,enter,shot,..."] [-Shot name] [-ShotDir dir]` - starts the game,
   waits, takes a picture of its window, sends the keys, closes the game it started (refuses if one is already running
   from that folder). In a workspace it never takes the foreground: keys are posted to the window (KEYS_POST +
