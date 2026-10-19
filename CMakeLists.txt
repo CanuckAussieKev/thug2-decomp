@@ -105,6 +105,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_objsys3.cpp
     src/hook/selftests_objsys4.cpp
     src/hook/selftests_objsys5.cpp
+    src/hook/selftests_objsys6.cpp
     src/hook/selftests_gapsB.cpp
     src/hook/selftests_mva.cpp
     src/hook/selftests_mva2.cpp
@@ -263,6 +264,7 @@ add_library(thug2_code OBJECT
     src/game/script/struct_buffer.cpp
     src/game/obj/emitter.cpp
     src/game/obj/node_objects.cpp
+    src/game/obj/path_manager.cpp
     src/game/obj/event.cpp
     src/game/obj/flip_rotate.cpp
     src/game/obj/motion.cpp

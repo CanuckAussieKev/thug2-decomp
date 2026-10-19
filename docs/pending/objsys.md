@@ -163,8 +163,26 @@ Shared files touched (small, additive): CMakeLists.txt (new sources and selftest
   - Also: selftests_objsys3.cpp's arenas at fixed high addresses (a misaligned name in the buffers equal to a low
     arena's address was relocated in one run only) and its names changed to match.
 
-- [ ] Next: OS-6 path manager (path_manager.{h,cpp}, selftests_objsys6.cpp), OS-7 path follower
-  (path_follower.{h,cpp}, selftests_objsys7.cpp); OS-8 sound effects manager part 1 0x47AC10-0x47B7C0
-  (src/game/sfx/sfx.{h,cpp}, selftests_objsys8.cpp written), OS-9 part 2 0x47B8E0-0x47D390 (sfx_voices.cpp written,
-  test to write); then the animation blending 0x47D420-0x47DC31 (+ 0x47D580 / 0x47D660, code Ghidra missed), the
-  cutscene system 0x463AA0-0x4680B0 (+ 0x464340).
+- [x] Batch OS-6 (NOT run in the game yet; the path manager and its object groups): src/game/obj/path_manager.{h,cpp}
+  (new).
+  - CObjectGroup (smart pointers to objects, new[]'d): 0x004694A0 Destruct (code Ghidra never made a function of:
+    every slot released, the array freed), 0x004698C0 Init(size), 0x00469540 ReleaseAll, 0x00469580 Remove,
+    0x004695D0 Add (the first free slot; nothing when full).
+  - CPathManager (singleton 0x006F2264): 0x004694E0 Instance, 0x00469620 AddToPath (the node's PathNum group),
+    0x00469670 AddToExtraGroup, 0x004696C0 NumberPaths (every node walked: classes 0x8E6B02AD / 0x30C19600 and
+    0x4C23A77E with type 0xCBA10FFA skipped, nodes without links unless 0x4C23A77E, nodes numbered already; down the
+    first links numbering, a numbered node giving its number to the whole chain from the start), 0x00469820 Free,
+    0x00469960 Allocate (on the bottom-up heap), 0x00469A80 CFunc_AllocatePathManMemory (defaults 200 groups of 20,
+    an extra group of 200).
+  - Tests (selftests_objsys6.cpp): TestPathManager - 30 seeds of random node graphs (every skipped class and type,
+    numbered nodes, chains running into numbered ones, loops), the manager made (as built) and allocated, 30 random
+    adds / removes / releases on groups and the extra group, a group of its own destroyed while holding objects,
+    numbering, freeing (twice), the script command with no sizes, some or all given - on a stood-in memory manager,
+    the arena after the group operations, after numbering and at the end compared, and every call.
+  - Mutations: 30 deliberate bugs; 29 caught (22 at first; the arena images, the manager as made, the defaults and
+    the destroyed group added for 7). The other is equivalent: a slot cleared again after Release (which clears it).
+
+- [ ] Next: OS-7 path follower (path_follower.{h,cpp}, selftests_objsys7.cpp); OS-8 sound effects manager part 1
+  0x47AC10-0x47B7C0 (src/game/sfx/sfx.{h,cpp}, selftests_objsys8.cpp written), OS-9 part 2 0x47B8E0-0x47D390
+  (sfx_voices.cpp written, test to write); then the animation blending 0x47D420-0x47DC31 (+ 0x47D580 / 0x47D660,
+  code Ghidra missed), the cutscene system 0x463AA0-0x4680B0 (+ 0x464340).
