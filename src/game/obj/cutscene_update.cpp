@@ -349,9 +349,9 @@ void CCutsceneDetails::DestroyBody()
             GameFunction<void(__thiscall*)(void*, void*)>(0x00407B20)(assets, asset);
             m_data = nullptr;
         }
-        GameFunction<void(__cdecl*)(uint32_t, int)>(0x0048E970)(m_unknown44, 0);
-        GameFunction<void(__cdecl*)(int, uint32_t, int)>(0x0048E990)(0, m_unknown48, 0);
-        GameFunction<void(__cdecl*)(int, uint32_t, int)>(0x0048E990)(1, m_unknown4C, 0);
+        GameFunction<void(__cdecl*)(float, int)>(0x0048E970)(m_musicVolume, 0);
+        GameFunction<void(__cdecl*)(int, float, int)>(0x0048E990)(0, m_streamVolume0, 0);
+        GameFunction<void(__cdecl*)(int, float, int)>(0x0048E990)(1, m_streamVolume1, 0);
     }
     reinterpret_cast<CMovieDetails*>(this)->DestroyBody();
 }

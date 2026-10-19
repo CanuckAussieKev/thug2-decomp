@@ -112,7 +112,7 @@ void __cdecl AnimSourceFree(void* item)
 CCutsceneData* CCutsceneData::Construct()
 {
     m_vtable = reinterpret_cast<void**>(0x00647908);
-    m_unknown8 = 0;
+    mp_bundle = nullptr;
     m_objectPart = 0;
     m_cameraPart = 0;
     m_cameraParts = 0;

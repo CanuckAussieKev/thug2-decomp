@@ -368,4 +368,25 @@ Shared files touched (small, additive): CMakeLists.txt (new sources and selftest
     bits, a loop point hit exactly, NaN lengths and the details' memory randomised added for the others).
   - The verify build now uses embedded debug information (/Z7: CMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded in
     this agent's own configure) - the shared compile PDB kept breaking under the mutation runs.
-- [ ] Next: OS-14 0x466620-0x466DD0 (the cutscene script commands and .qb loading); then 0x467710-0x4680B0.
+- [x] Batch OS-14 (NOT run in the game yet; starting and ending a cutscene, taking in its bundle, the data's
+  destructor): src/game/obj/cutscene_package.cpp (new); cutscene.h (+0x08 the bundle - File::AssetBundle; the
+  details' begin / end scripts +0x34 / +0x3C and the music volumes +0x44-0x4C).
+  - 0x00466620 CCutsceneDetails::InitFromStructure (vtable slot 1: the cutscene 0xA1DC81F9 - an asset found by name,
+    or, when the details own their data, its file: the loading screen, the music volumes kept and muted, the bundle
+    loaded with flags 0xCDF2B13E / 0x9A4BDFF5 from "no music" and "force", start time and loop length in ms,
+    <name>_params / _begin / _end / _subtitles; whether it's there), 0x00466A10 End (vtable slot 8), 0x00466C20
+    CCutsceneData::DestroyBody (as the original, the animations' data pointers are cleared, not their sources'),
+    0x00466DD0 LoadFromBundle (2.3 KB: every bundle entry taken in by type - parameters, objects table, .qb,
+    "_CAM" / "_OBA" animation parts, animations, images, models with their textures and extras; a skinned
+    model's colours from the skater's appearance, loaded only when the skin variant - name + 1..4 - matches the
+    skater's face and sex; then the end time).
+  - Tests (selftests_objsys11.cpp): TestCutscenePackage - 600 seeds: one of the four on random details and data
+    over a stand-in bundle of up to 12 random entries (a skinned model group with 0-4 variants half the time,
+    sizes at the 0x96 limit), with the asset manager, the game's sprintf (routed to ours), structures, volumes
+    (x87 results), scripts and the loaders stood in for; every call, the data, the details and the skin colour
+    globals compared. (The original's unchecked reads - asserted bundle entries, the loaded data - always there.)
+  - Mutations: 64 deliberate bugs; 63 caught (56 at first; a skinned-model group, the two end-time animations apart,
+    sizes at the limit, the skin globals reset per run and more seeds added for 7). The other one is equivalent:
+    0x006F1158 cleared again (DestroyObjects clears it too).
+- [ ] Next: OS-15 0x467710-0x4680B0 (the level / bundle loader 0x4678A0, the details' remaining vtable slots, the
+  data's deleting destructor 0x468080).

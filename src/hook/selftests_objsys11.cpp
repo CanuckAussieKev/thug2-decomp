@@ -14,6 +14,11 @@
 #include "game/core/manager.h"
 #include "game/core/mem.h"
 #include "game/gfx/camera.h"
+#include "game/file/asset_bundle.h"
+#include "game/pcm/music.h"
+#include "game/pcm/music_api.h"
+#include "game/script/load.h"
+#include "game/script/struct_buffer.h"
 #include "game/obj/cutscene.h"
 #include "game/obj/node_objects.h"
 #include "game/obj/object.h"
@@ -88,7 +93,7 @@ void* g_objectVtable[16];
 void* g_componentVtable[16];
 void* g_managerVtable[4];
 alignas(16) uint8_t g_objectManager[8];
-const char* const kModelNames[] = {"model_a", "model_b", "skater_c"};
+const char* const kModelNames[] = {"model_a", "cutscenes\\cs_intro.cut", "data/cs/skater_c.cut"};
 
 constexpr uint32_t kDataSize = 0x34D0;
 alignas(16) uint8_t g_data[kDataSize];
@@ -273,7 +278,15 @@ void StandInObjects(StandIns& s)
     // assets
     s.At({0x00408060}, 0x24, [](Regs& r) {
         Record({0x40806000, r.ecx, r.args[0], r.args[1], r.args[2], r.args[3], r.args[4], r.args[5], r.args[6],
-                r.args[7], r.args[8]});
+                Rel(r.args[7]), r.args[8]});
+        // (the load parameters' fields: a model's, a texture set's)
+        if (const auto* p = reinterpret_cast<const uint8_t*>(r.args[7])) {
+            if (r.args[1] == 7)
+                Record({p[0], *reinterpret_cast<const uint32_t*>(p + 4), *reinterpret_cast<const uint32_t*>(p + 8),
+                        *reinterpret_cast<const uint32_t*>(p + 12), p[0x10], p[0x11]});
+            else if (r.args[1] == 3)
+                Record({p[0], *reinterpret_cast<const uint32_t*>(p + 4), p[8], p[9]});
+        }
         return 0xA55E0000u;
     });
     s.At({0x0048CF50}, 0, [](Regs& r) {
@@ -1015,5 +1028,313 @@ void TestCutsceneUpdate()
     ObjsysTests::CleanUp();
 }
 SELFTEST(Early, TestCutsceneUpdate, ObjsysTests::CleanUp);
+
+// --- OS-14: starting and ending, the bundle, the data's destructor ---------------------------------------------
+
+// A fake asset bundle: the vtable, then (at +0x10) the count; entries and their data apart.
+alignas(16) uint8_t g_bundle[0x20];
+File::AssetBundle::Entry g_entries[12];
+int g_entryCount;
+alignas(16) uint8_t g_colourBlock[8 + 12 * 4];
+alignas(16) uint8_t g_data2[0x34D0];
+alignas(16) uint8_t g_animList2[0x10];
+
+void* EntryData(const File::AssetBundle::Entry& e, int i)
+{
+    if (e.type == 0x5AC14717)
+        return g_table;
+    if (e.type == 0x2CD4107D)
+        return g_colourBlock;
+    return reinterpret_cast<void*>(0xDA7A0000 + static_cast<uint32_t>(i) * 0x100);
+}
+int FindBundleEntry(uint32_t name, uint32_t type)
+{
+    for (int i = 0; i < g_entryCount; ++i) {
+        if (g_entries[i].name == name && g_entries[i].type == type)
+            return i;
+    }
+    return -1;
+}
+
+// The volumes (results in ST0).
+float __cdecl MusicVolumeStandIn(int which)
+{
+    Record({0x48E9B000, static_cast<uint32_t>(which)});
+    return 0.75f;
+}
+float __cdecl StreamVolumeStandIn(int stream, int which)
+{
+    Record({0x48E9D000, static_cast<uint32_t>(stream), static_cast<uint32_t>(which)});
+    return stream ? 0.25f : 0.5f;
+}
+
+void StandInPackage(StandIns& s)
+{
+    using File::AssetBundle;
+    s.At({0x005B6D70, AddressOf(&AssetBundle::GetEntry)}, 4, [](Regs& r) {
+        Record({0x5B6D7000, r.ecx, r.args[0]});
+        return reinterpret_cast<uint32_t>(&g_entries[r.args[0]]);
+    });
+    s.At({0x005B6D60, AddressOf(&AssetBundle::GetAsset)}, 4, [](Regs& r) {
+        Record({0x5B6D6000, r.ecx, r.args[0]});
+        return reinterpret_cast<uint32_t>(EntryData(g_entries[r.args[0]], static_cast<int>(r.args[0])));
+    });
+    s.At({0x005B6D80, AddressOf(&AssetBundle::FindEntry)}, 12, [](Regs& r) {
+        int i = FindBundleEntry(r.args[0], r.args[1]);
+        Record({0x5B6D8000, r.ecx, r.args[0], r.args[1], r.args[2], static_cast<uint32_t>(i)});
+        // (asked for with the assert flag: always there)
+        static File::AssetBundle::Entry asserted = {0, 0x123, 0x7E570000, 0x1512808D};
+        if (i < 0)
+            return r.args[2] ? reinterpret_cast<uint32_t>(&asserted) : 0u;
+        return reinterpret_cast<uint32_t>(&g_entries[i]);
+    });
+    s.At({0x005B6DC0, AddressOf(&AssetBundle::FindAsset)}, 12, [](Regs& r) {
+        int i = FindBundleEntry(r.args[0], r.args[1]);
+        Record({0x5B6DC000, r.ecx, r.args[0], r.args[1], r.args[2], static_cast<uint32_t>(i)});
+        if (i < 0)
+            return r.args[2] ? 0xDA7AA55Eu : 0u;
+        return reinterpret_cast<uint32_t>(EntryData(g_entries[i], i));
+    });
+    s.At({0x005B6E00, AddressOf(&AssetBundle::FreeAsset)}, 8, [](Regs& r) {
+        Record({0x5B6E0000, r.ecx, r.args[0], r.args[1]});
+        return 1u;
+    });
+    s.At({0x0047A0C0, AddressOf(&Script::ReadFromBuffer)}, 0, [](Regs& r) {
+        Record({0x47A0C000, r.args[0], r.args[1]});
+        return r.args[1];
+    });
+    s.At({0x0046ED90, AddressOf(&Script::LoadQBData)}, 0, [](Regs& r) {
+        Record({0x46ED9000, TestStandIns::Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1], r.args[2],
+                r.args[3], r.args[4]});
+        return 0u;
+    });
+    s.At({0x0046EEC0, AddressOf(&Script::UnloadQB)}, 0, [](Regs& r) {
+        Record({0x46EEC000, r.args[0]});
+        return 0u;
+    });
+    s.At({0x006234FE}, 0, StandInSprintf);
+    using GetStringFn = bool (CStruct::*)(uint32_t, const char**, int);
+    s.At({0x00476C60}, 12, [](Regs& r) { // (the bool-assert string getter: as the plain one)
+        uint32_t h = Hash(2, r.ecx, r.args[0]);
+        uint32_t found = h % 4 != 0 || (r.args[2] & 0xFF) != 0;
+        if (found)
+            *reinterpret_cast<const char**>(r.args[1]) = kModelNames[(h >> 8) % 3];
+        Record({0x47659000, r.ecx, r.args[0], r.args[2] & 0xFF, found});
+        return found;
+    });
+    (void)sizeof(GetStringFn);
+    using GetFloatFn = bool (CStruct::*)(uint32_t, float*, int);
+    s.At({0x004766D0, AddressOf(static_cast<GetFloatFn>(&CStruct::GetFloat))}, 12, [](Regs& r) {
+        uint32_t h = Hash(22, r.ecx, r.args[0]);
+        uint32_t found = h % 3 != 0;
+        static const float kValues[] = {1500.0f, 0.0f, 250.5f, 12.0f};
+        if (found)
+            *reinterpret_cast<float*>(r.args[1]) = kValues[(h >> 8) % 4];
+        Record({0x4766D000, r.ecx, r.args[0], r.args[2], found});
+        return found;
+    });
+    using ContainsComponentFn = bool (CStruct::*)(uint32_t);
+    s.At({0x00476AF0, AddressOf(static_cast<ContainsComponentFn>(&CStruct::ContainsComponentNamed))}, 4,
+         [](Regs& r) {
+             uint32_t yes = Hash(23, r.ecx, r.args[0]) % 2;
+             Record({0x476AF000, r.ecx, r.args[0], yes});
+             return yes;
+         });
+    s.At({0x00478540, AddressOf(&CStruct::AppendStructureIfAny)}, 4, [](Regs& r) {
+        Record({0x47854000, r.ecx, r.args[0]});
+        return 0u;
+    });
+    s.At({0x00469050, AddressOf(&Obj::CMovieDetails::InitFromStructure)}, 4, [](Regs& r) {
+        Record({0x46905000, r.ecx, r.args[0]});
+        return 0u;
+    });
+    s.At({0x0048C090}, 0, [](Regs& r) {
+        const auto* t = reinterpret_cast<const uint32_t*>(r.args[0]);
+        Record({0x48C09000, t[0] - reinterpret_cast<uint32_t>(g_colourBlock),
+                t[1] - reinterpret_cast<uint32_t>(g_colourBlock), t[2], t[3],
+                HashBytes(&GameVariable<uint8_t>(0x0067D860), 0x50)});
+        return 0u;
+    });
+    s.At({0x00408440}, 0x24, [](Regs& r) {
+        uint32_t data = reinterpret_cast<uint32_t>(g_data2); // (used unchecked)
+        Record({0x40844000, r.ecx, TestStandIns::Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1],
+                r.args[7] - reinterpret_cast<uint32_t>(g_details), r.args[8], data});
+        return data;
+    });
+    s.At({0x00407C70}, 8, [](Regs& r) {
+        uint32_t found = Hash(25, 0, 0) % 3 == 0;
+        Record({0x407C7000, r.ecx, TestStandIns::Hash(reinterpret_cast<const char*>(r.args[0])), r.args[1], found});
+        return found;
+    });
+    s.Bytes(0x0048E9B0, Branch(0xE9, 0x0048E9B0, reinterpret_cast<void*>(&MusicVolumeStandIn)));
+    s.Bytes(0x0048E9D0, Branch(0xE9, 0x0048E9D0, reinterpret_cast<void*>(&StreamVolumeStandIn)));
+    for (uint32_t address : {0x00490890u, 0x004904E0u, 0x00487D20u, 0x00487D30u, 0x0048FDE0u}) {
+        s.At({address}, 0, [address](Regs& r) {
+            Record({address});
+            if (address == 0x00490890) // (the loading screen: image, freeze, blank)
+                Record({r.args[0], r.args[1] & 0xFF, r.args[2] & 0xFF});
+            return 0u;
+        });
+    }
+    s.At({0x0049A9D0}, 0, [](Regs& r) {
+        Record({0x49A9D000, r.ecx});
+        return 0u;
+    });
+    s.At({0x00450F70, AddressOf(&Pcm::PauseMusic)}, 0, [](Regs& r) {
+        Record({0x450F7000, r.args[0]});
+        return 0u;
+    });
+    s.At({0x00450650, AddressOf(&Pcm::StopMusic)}, 0, [](Regs&) {
+        Record({0x45065000});
+        return 0u;
+    });
+    s.At({0x005BAC90, AddressOf(&Mem::Manager::DeleteCutsceneHeaps)}, 0, [](Regs& r) {
+        Record({0x5BAC9000, r.ecx});
+        return 0u;
+    });
+}
+
+void TestCutscenePackage()
+{
+    ObjsysTests::SaveGlobals({{0x006F1158, 1}, {0x006F1160, 0x1000}, {0x007D1800, 4}, {0x006F0FB8, 4},
+                              {0x006918DC, 4}, {0x006FA7C0, 4}, {0x006F3614, 0x10}, {0x006FA7F4, 0x10},
+                              {0x006F22B4, 0x10}, {0x007CC979, 1}, {0x007CE478, 4}, {0x006F2160, 0x100},
+                              {0x0067D810, 0xA0}});
+    StandIns& s = *new StandIns();
+    StandInScript(s);
+    StandInObjects(s);
+    StandInLoading(s);
+    StandInUpdating(s);
+    StandInPackage(s);
+    GameVariable<uint32_t>(0x007D1800) = reinterpret_cast<uint32_t>(g_manager);
+    GameVariable<uint32_t>(0x006F0FB8) = reinterpret_cast<uint32_t>(g_objectManager);
+    GameVariable<uint32_t>(0x006918DC) = 0xA55E7000;
+    GameVariable<uint32_t>(0x007CE478) = 0x5CA7E000;
+    GameVariable<uint32_t>(0x006FA7C0) = 0x0B1A7C00;
+    GameVariable<uint8_t>(0x007CC979) = 1;
+    std::memset(&GameVariable<uint8_t>(0x006F3614), 0, 0x10);
+    std::memset(&GameVariable<uint8_t>(0x006FA7F4), 0, 0x10);
+    std::memset(&GameVariable<uint8_t>(0x006F22B4), 0, 0x10);
+    static const uint32_t kTypes[] = {0x508AE2F2, 0x2BBEA5C3, 0xFD8697E1, 0xE7308C1F, 0x0524FD4E, 0x05CA1497,
+                                      0x1512808D, 0x2CD4107D, 0x2E4BF21B, 0xEDD8D75F, 0x5AC14717, 0xEAB51346,
+                                      0xFFC529F4, 0x12345678, 0x1512808D, 0xFD8697E1};
+    for (uint32_t seed = 1; seed <= 600; ++seed) {
+        auto run = [&](bool original) {
+            g_trace.clear();
+            g_seed = seed;
+            Lcg random(0x60100000 + seed);
+            g_answers = Lcg(0x601A0000 + seed);
+            g_arenaUsed = 0;
+            RandomWorld(random);
+            for (int i = 0; i < 6; ++i) {
+                for (auto& byte : g_models[i])
+                    byte = static_cast<uint8_t>(random.Next());
+                *reinterpret_cast<uint32_t*>(g_components[i] + 0x208) = reinterpret_cast<uint32_t>(g_models[i]);
+            }
+            auto& data = *reinterpret_cast<Obj::CCutsceneData*>(g_data);
+            data.m_objectCount = static_cast<int>(random.Below(3));
+            for (int i = 0; i < 256; ++i) {
+                data.m_objects[i].object = reinterpret_cast<Obj::CCompositeObject*>(Object(static_cast<int>(random.Below(6))));
+                data.m_animations[i].source =
+                    random.Below(2) ? reinterpret_cast<void*>(Object(static_cast<int>(random.Below(6)))) : nullptr;
+            }
+            data.m_animationCount = static_cast<int>(random.Below(5));
+            data.m_assetCount = static_cast<int>(random.Below(5));
+            data.mp_bundle = reinterpret_cast<File::AssetBundle*>(g_bundle);
+            *reinterpret_cast<void***>(g_bundle) = g_objectVtable;
+            g_entryCount = static_cast<int>(random.Below(13));
+            *reinterpret_cast<int*>(g_bundle + 0x10) = g_entryCount;
+            for (auto& e : g_entries) {
+                e.offset = 0;
+                e.size = random.Below(3) ? 0x200 : random.Below(2) ? 0x96 : 0x40 + random.Below(0x60);
+                e.name = 0x5E000000 + random.Below(6);
+                e.type = random.Pick(kTypes);
+            }
+            if (random.Below(2)) { // (a skinned model group: model, textures, colours, then 0-4 variants)
+                uint32_t name = g_entries[0].name;
+                g_entries[0].type = 0xFD8697E1;
+                g_entries[1] = {0, 0x300, name, 0x1512808D};
+                g_entries[2] = {0, 0x30, name, 0x2CD4107D};
+                uint32_t variants = random.Below(5);
+                for (uint32_t v = 0; v < variants; ++v)
+                    g_entries[3 + v] = {0, 0x200, name + 1 + v, 0xFD8697E1};
+                if (g_entryCount < 8)
+                    g_entryCount = 8;
+                *reinterpret_cast<int*>(g_bundle + 0x10) = g_entryCount;
+            }
+            for (int i = 0; i < 12; ++i) // (every model with its textures, so the loads find them)
+                if (g_entries[i].type == 0xFD8697E1 && i + 1 < 12 && random.Below(2)) {
+                    g_entries[i + 1].type = 0x1512808D;
+                    g_entries[i + 1].name = g_entries[i].name;
+                }
+            *reinterpret_cast<int*>(g_colourBlock + 4) = static_cast<int>(random.Below(4));
+            for (auto& word : g_table)
+                word = random.Next() ^ random.Next() << 16;
+            g_table[1] = random.Below(3);
+            data.mp_params = reinterpret_cast<Script::CStruct*>(kFakeStruct + 0x600);
+            data.m_unknown34A8 = reinterpret_cast<void*>(0xA99EA000);
+            data.m_unknown34AC = reinterpret_cast<void*>(kFakeStruct + 0x500);
+            data.mp_cameraAnim = random.Below(2) ? g_animList2 : nullptr;
+            *reinterpret_cast<float*>(g_animList2) = 7.25f;
+            for (uint32_t a = 0x0067D810; a < 0x0067D8B0; a += 4)
+                GameVariable<uint32_t>(a) = random.Next();
+            data.mp_animList = random.Below(2) ? g_animList : nullptr;
+            data.mp_objectAnims = random.Below(2) ? g_animList : nullptr;
+            data.m_cameraSource = random.Below(2) ? reinterpret_cast<void*>(Object(0)) : nullptr;
+            data.m_objectSource = random.Below(2) ? reinterpret_cast<void*>(Object(1)) : nullptr;
+            data.m_name = random.Next();
+            *reinterpret_cast<float*>(g_animList) = 3.5f;
+            std::memset(g_data2, 0, sizeof(g_data2));
+            for (auto& byte : g_details)
+                byte = static_cast<uint8_t>(random.Next());
+            auto& details = *reinterpret_cast<Obj::CCutsceneDetails*>(g_details);
+            details.m_params = reinterpret_cast<Script::CStruct*>(kFakeStruct + 0x700);
+            details.m_data = random.Below(3) ? reinterpret_cast<Obj::CCutsceneData*>(g_data) : nullptr;
+            details.m_ownsData = static_cast<uint8_t>(random.Below(2));
+            details.m_endScript = random.Below(3) ? 0xE5D00000 : 0;
+            std::memcpy(&GameVariable<uint8_t>(0x006F2160), "previous", 9);
+            g_componentsAlways = true;
+            switch (random.Below(5)) {
+            case 0:
+            case 1:
+                if (!data.mp_cameraAnim)
+                    data.mp_cameraAnim = g_animList2; // (the end time comes from one of them, unchecked)
+                if (!data.mp_animList)
+                    data.mp_animList = g_animList;
+                Fn<void(__thiscall*)(void*)>(original, 0x00466DD0)(g_data);
+                break;
+            case 2:
+                Fn<void(__thiscall*)(void*)>(original, 0x00466C20)(g_data);
+                break;
+            case 3:
+                Record({Fn<uint32_t(__thiscall*)(void*, uint32_t)>(original, 0x00466620)(g_details,
+                                                                                        kFakeStruct + random.Below(16)) &
+                        0xFF});
+                break;
+            default:
+                Fn<void(__thiscall*)(void*)>(original, 0x00466A10)(g_details);
+                break;
+            }
+            g_componentsAlways = false;
+            PushData();
+            PushState(reinterpret_cast<uint32_t>(g_details), reinterpret_cast<uint32_t>(g_details) + 0x70);
+            PushState(reinterpret_cast<uint32_t>(g_data2) + 0x3470, reinterpret_cast<uint32_t>(g_data2) + 0x3490);
+            PushState(0x0067D810, 0x0067D8B0);
+            g_trace.push_back(HashBytes(&GameVariable<uint8_t>(0x006F2160), 0x40));
+            g_trace.push_back(HashBytes(g_arena, sizeof(g_arena)));
+            std::vector<uint32_t> trace = g_trace;
+            return trace;
+        };
+        std::vector<uint32_t> expected = run(true);
+        std::vector<uint32_t> actual = run(false);
+        Compare(expected, actual, "cutscene: start, end, the bundle, the data's destructor");
+        if (expected != actual) {
+            Log("  (seed %u)", seed);
+            break;
+        }
+    }
+    ObjsysTests::CleanUp();
+}
+SELFTEST(Early, TestCutscenePackage, ObjsysTests::CleanUp);
 
 } // namespace

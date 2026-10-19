@@ -13,6 +13,7 @@ namespace Script {
 class CArray;
 class CStruct;
 }
+#include "game/file/asset_bundle.h"
 
 namespace Obj {
 
@@ -131,10 +132,17 @@ public:
     void UpdateObjectTransforms();
     // 0x00466450: (without +0x34B0) the objects made again from the parameters, the clock back to 0.
     void RestartObjects();
+    // 0x00466C20: the destructor body: the bundle, the animation sources, the objects, the lights and every asset
+    // dropped; the cutscene's .qb unloaded.
+    void DestroyBody();
+    // 0x00466DD0: the bundle's assets taken in by type (parameters, objects, .qb, camera / object / plain
+    // animations, images, models with their textures - a skater's skin only when it's the skater's); the end time.
+    void LoadFromBundle();
+    void LoadModel(int index, File::AssetBundle::Entry* entry, void* data);
 
     void** m_vtable;              // +0x00 (0x00647908)
     uint32_t m_unknown4;
-    uint32_t m_unknown8;
+    File::AssetBundle* mp_bundle; // +0x08: the cutscene's loaded bundle
     uint32_t m_unknownC;
     int m_cameraParts;            // +0x10: the camera animation's parts (after the first)
     void* m_cameraSource;         // +0x14: its animation source
@@ -202,6 +210,13 @@ public:
     // 0x00466490 (returns this): the movie details' constructor, then the cutscene's: no data, a parameters
     // structure, the three settings (the third's low byte: whether it owns its data).
     CCutsceneDetails* Construct(const uint32_t* settings);
+    // 0x00466620 (vtable slot 1): the cutscene named by 0xA1DC81F9 set up: an asset found by name, or (when it
+    // owns its data) its bundle loaded with the loading screen up and the music muted (start time / loop length
+    // in milliseconds, subtitles from <name>_subtitles). Whether it's there.
+    bool InitFromStructure(Script::CStruct* params);
+    // 0x00466A10 (vtable slot 8): the cutscene over: its objects (or its asset, heaps, the music...) dropped and its
+    // end scripts run.
+    void End();
     // 0x00466560: the destructor body: the parameters freed; when it owns its data, the data's asset unloaded
     // (0x00407B90 / 0x00407B20) and 0x0048E970 / 0x0048E990 given back the three values; the movie details'.
     void DestroyBody();
@@ -210,11 +225,13 @@ public:
     uint8_t m_unknown4[0x2C - 4];
     CCutsceneData* m_data;        // +0x2C
     uint32_t m_asset;             // +0x30
-    uint8_t m_unknown34[0x0C];
+    uint32_t m_beginScript;       // +0x34: the cutscene's name + "_begin"
+    uint32_t m_unknown38;
+    uint32_t m_endScript;         // +0x3C: + "_end"
     Script::CStruct* m_params;    // +0x40
-    uint32_t m_unknown44;         // +0x44
-    uint32_t m_unknown48;         // +0x48
-    uint32_t m_unknown4C;         // +0x4C
+    float m_musicVolume;          // +0x44: the volumes before the cutscene (given back at its end)
+    float m_streamVolume0;        // +0x48
+    float m_streamVolume1;        // +0x4C
     uint32_t m_settings[3];       // +0x50
     uint8_t m_ownsData;           // +0x5C (the third setting's low byte, as it is)
     bool m_flag5D;                // +0x5D
