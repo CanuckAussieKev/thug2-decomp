@@ -87,13 +87,14 @@ installed); functions PartyMod patched get source with PartyMod's behaviour. Lat
   Give every agent `docs/agent-rules.md`; game-run scripts and the workspace maker are in `tools/game` (README);
   `tools/fold_pending.py` folds an agent's batch records into decomp-progress.md.
 - Commit messages end with the Co-Authored-By line given in the session.
-- **Never reference, read or copy** https://github.com/Morten1337/thugpro, .../thugpro_proxy or .../thugpro_toolchain
-  (or any other private Morten1337 repository) - the user can see them but has no permission to use them. His
-  public repositories may be used within their licences (thps-formats is MIT: attribute in THIRD_PARTY_NOTICES.md;
-  those without a licence are reference only). Fetch them anonymously only. Pass this on to every agent.
-  THUGPRO's distributed game is not its source: its installed binaries (C:\Users\kevin\AppData\Local\THUG Pro,
-  C:\Games\THUGPRO) may be inspected, disassembled and decompiled for facts (the user, 2026-10-20: clean room);
-  never write into those folders.
+- **Morten1337's private repositories** (thugpro, thugpro_proxy, thugpro_toolchain, thug2-decomp and the others the
+  user's account can reach - cloned with the machine's stored git credentials): since 2026-10-20 the user has his
+  permission to use them, including insights gained from their code. **Never copy them 1:1** - code taken from them
+  must be modified (rewritten in this project's style and structure), and say where an idea came from in a comment
+  (e.g. "approach from Morten1337's thugpro"). Nothing of theirs is pushed anywhere else or published wholesale. His
+  public repositories may be used within their licences (thps-formats is MIT: attribute in THIRD_PARTY_NOTICES.md).
+  THUGPRO's installed binaries (C:\Users\kevin\AppData\Local\THUG Pro, C:\Games\THUGPRO) may be inspected too; never
+  write into those folders. Pass this on to every agent.
 - **Never read, reference or copy leaked Neversoft / Activision source code** - e.g. https://github.com/thug1src/thug
   (THUG1's source) or any other leak of a Tony Hawk game's code: our code comes from our own decompilation of the game,
   and leaked code would taint it. Pass this on to every agent too.

@@ -6,10 +6,11 @@ workspace (C:\Games\THUG2-n) and its pending-doc name. Agents cost a lot of usag
 ## Every agent
 - Repo C:\Dev\thug2-decomp. The agent works in its own git worktree + branch and commits there, never on main; the lead
   merges. Read CLAUDE.md first.
-- **Never reference, read or copy** https://github.com/Morten1337/thugpro, .../thugpro_proxy, .../thugpro_toolchain or
-  any other private Morten1337 repository. His public repositories may be used within their licences (fetched
-  anonymously). Don't start sub-agents. THUGPRO's installed binaries (C:\Users\kevin\AppData\Local\THUG Pro,
-  C:\Games\THUGPRO) may be inspected / disassembled for facts - clean room; its source repositories never.
+- **Morten1337's private repositories** (thugpro, thugpro_proxy, thugpro_toolchain, thug2-decomp, ...) may be read and
+  their insights used (the user has his permission since 2026-10-20) - but **never copied 1:1**: anything taken must
+  be rewritten in this project's style, with a comment naming where the idea came from. Clone them with the machine's
+  git credentials into your scratch folder; never push them anywhere. THUGPRO's installed binaries
+  (C:\Users\kevin\AppData\Local\THUG Pro, C:\Games\THUGPRO) may be inspected; never write there. Don't start sub-agents.
 - **Never read, reference or copy leaked Neversoft / Activision source code** - e.g. https://github.com/thug1src/thug
   (THUG1's source) or any other leak of a Tony Hawk game's code. Our code comes from our own decompilation of the
   game; leaked code would taint it.
