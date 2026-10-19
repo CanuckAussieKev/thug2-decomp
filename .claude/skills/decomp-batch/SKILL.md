@@ -72,7 +72,9 @@ with tools\ghidra\snapshot_project.ps1). `inspect` below means:
 - Write an Early self-test in src/hook/selftest.cpp from [test-template.cpp](test-template.cpp): original
   vs ours on identical stand-in state, trace every result (return values too), compare the whole arena.
   Cover every case/branch you read in step 2; drive register stubs through inline asm.
-- **Mutations**: write a spec (MUTS = [(file, name, old, new), ...]) of 10-40 deliberate bugs - one per
+- **Mutations**: write a spec (MUTS = [(file, name, old, new), ...]; TESTS = "YourTest,YourOtherTest" - only the
+  batch's own self-tests run, a second instead of ~25 s; BUILD = a .cmd that only runs `cmake --build` after
+  VsDevCmd - no re-configure: a mutation then costs ~3-4 s) of 10-40 deliberate bugs - one per
   branch/constant/order/convention - and run `python -I tools/mutate.py spec.py`. Every non-equivalent
   mutation must be CAUGHT; for each miss, add the test case that exposes it (a miss is a hole in the test,
   not luck). Note truly equivalent ones in the record.

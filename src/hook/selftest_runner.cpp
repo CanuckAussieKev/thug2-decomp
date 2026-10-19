@@ -2,6 +2,8 @@
 
 #include <windows.h>
 
+#include <cstring>
+#include <string>
 #include <vector>
 
 #include "game/front/menu_backdrop.h"
@@ -88,9 +90,27 @@ void RunSelfTests(TestStage stage)
         Log("%s self-tests: skipped (thug2-decomp.ini)", StageName(stage));
         return;
     }
+    // The environment variable THUG2_SELFTESTS (tools/mutate.py's spec TESTS): only the tests whose names contain one
+    // of its comma-separated words run - a mutation run checks its batch's tests in a second, not every test.
+    char filter[512] = {};
+    GetEnvironmentVariableA("THUG2_SELFTESTS", filter, sizeof(filter));
+    auto wanted = [&filter](const char* name) {
+        if (!filter[0])
+            return true;
+        for (const char* word = filter; *word;) {
+            const char* end = std::strchr(word, ',');
+            size_t length = end ? static_cast<size_t>(end - word) : std::strlen(word);
+            if (length && std::string(name).find(std::string(word, length)) != std::string::npos)
+                return true;
+            word = end ? end + 1 : word + length;
+        }
+        return false;
+    };
     int failures_before = g_failures, count = 0;
     for (const RegisteredTest& t : Registry())
-        count += t.stage == stage;
+        count += t.stage == stage && wanted(t.name);
+    if (filter[0])
+        Log("%s self-tests: only those named after %s (THUG2_SELFTESTS)", StageName(stage), filter);
     Log("%s self-tests: running %d", StageName(stage), count);
     // [selftests] trace=1 logs each test as it starts - for finding one that hangs.
     static const bool trace = ConfigInt("selftests", "trace", 0) != 0;
@@ -99,7 +119,7 @@ void RunSelfTests(TestStage stage)
     int backdrop = Front::MenuBackdrop::Setting();
     Front::MenuBackdrop::Setting() = 0;
     for (const RegisteredTest& t : Registry()) {
-        if (t.stage == stage) {
+        if (t.stage == stage && wanted(t.name)) {
             if (trace)
                 Log("  %s", t.name);
             RunGuarded(t);
