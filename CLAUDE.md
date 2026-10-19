@@ -22,7 +22,7 @@ installed); functions PartyMod patched get source with PartyMod's behaviour. Lat
   makes the data overlay `thug2-decomp-data` (the menu's script in its `front_end` folder; at the top: the skate shop
   as a playable level - SKATE SHOP in the level select -, TEST LEVEL, the THPS4 levels); `level_editor=0` hides the pause menu's
   LEVEL EDITOR - src/game/front/level_editor.h; the item is in the same tool's overlay; its saved layouts are in
-  `thug2-decomp-layouts\<scene>.txt` and load with their level - and `debug_editor=1` logs its picks and moves; `restart_tester=0` turns off F8, which puts the skater at the level's next unvisited restart - src/game/front/restart_tester.h; `debug_mode=1` makes the script command CD false after start-up: Neversoft's DEBUG OPTIONS in the pause menu, DEVKIT_ONLY levels - src/game/sys/debug_mode.h), `thug2-decomp.log` (read it after every game run). The retail THUG2.exe is
+  `thug2-decomp-layouts\<scene>.txt` and load with their level - and `debug_editor=1` logs its picks and moves; `restart_tester=0` turns off F8, which puts the skater at the level's next unvisited restart - src/game/front/restart_tester.h; `debug_mode=1` makes the script command CD false / NotCD true after start-up: Neversoft's DEBUG OPTIONS in the pause menu, DEVKIT_ONLY levels, the viewer's free camera on F9 and its keys - src/game/sys/debug_mode.h), `thug2-decomp.log` (read it after every game run). The retail THUG2.exe is
   SafeDisc-encrypted and not used.
 - Ghidra 12.1.4 at `C:\ghidra`; project `C:\Games\THUG2-ghidra` (the Ghidra MCP server uses it); a read-only
   copy for scripts at `C:\Games\THUG2-ghidra-snapshot` (refresh: `tools\ghidra\snapshot_project.ps1`).
@@ -65,7 +65,7 @@ installed); functions PartyMod patched get source with PartyMod's behaviour. Lat
 - PartyMod (SDL2 window/input, settings in `thug2-decomp.ini`, glyphs, letterbox...) is part of the game's
   source now (MIT: notice in `THIRD_PARTY_NOTICES.md`); its DLL isn't loaded and nothing patches rewritten code.
   The only run-time writes into the exe are the GameSpy host names (`src/game/net/online_hosts.cpp`, until
-  the SDK is linked) and the IsPS2 and (debug mode) CD CFunction table entries - `python -I tools/check_code_writes.py` checks
+  the SDK is linked) and the IsPS2 and (debug mode) CD / NotCD CFunction table entries - `python -I tools/check_code_writes.py` checks
   none lands in a rewritten function.
 - Python on this machine defaults to cp1252: always `encoding="utf-8"`. Use the Write/Edit tools for C++
   text with backslashes (shell heredocs mangle them).

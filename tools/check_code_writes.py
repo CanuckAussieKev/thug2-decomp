@@ -26,8 +26,11 @@ text = open("src/game/sys/debug_mode.cpp", encoding="utf-8").read()
 m = re.search(r"kCDEntry = 0x([0-9A-Fa-f]{8})", text)
 if m:
     writes.append((int(m.group(1), 16) + 4, "debug_mode.cpp"))
-if len(writes) != 16:
-    print(f"expected 16 writes (14 host names, 2 table entries), found {len(writes)}: update this script")
+m = re.search(r"kNotCDEntry = 0x([0-9A-Fa-f]{8})", text)
+if m:
+    writes.append((int(m.group(1), 16) + 4, "debug_mode.cpp"))
+if len(writes) != 17:
+    print(f"expected 17 writes (14 host names, 3 table entries), found {len(writes)}: update this script")
     sys.exit(1)
 
 registered = set()
