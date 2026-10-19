@@ -66,9 +66,9 @@ void __cdecl HitCallback(CollisionHit* hit)
     Record({0xCA11BAC0u, hit->callbackData});
     RecordHit(*hit, hit->object != reinterpret_cast<Nx::CCollObj*>(g_line.box));
     // a callback may change the record (when the hit isn't the better one, all of it is put back)
-    hit->unknown44 += 1;
+    hit->owner += 1;
     hit->unknown38 ^= 0x10;
-    hit->unknown4C += 3;
+    hit->scene += 3;
     hit->requireFlags ^= 0x0100;
     hit->ignoreFlags ^= 0x0200;
     hit->callbackData += 7;

@@ -427,6 +427,38 @@ ProjectToPlane made exact).
   - The self-test runner got a watchdog (src/hook/selftest_runner.cpp, shared): a test still running after 45 s
     is named in the log ("SELFTEST HANG in ...") and the process ends (exit 3) - an earlier anim test once hung
     thug2_check. tools/mutate.py lists those lines too.
+- [x] Batch AN-16 (NOT run in the game yet; the world's line queries, the movables' list and the collision feeler;
+  20 functions): src/game/nx/coll_world.h / .cpp, feeler.h / .cpp (new), gfx/debug_lines.h (new), coll_line.h /
+  .cpp (two fields named), skater/debug_collision.cpp / .h.
+  - Nx::RegisterMovable 0x004177B0 / UnregisterMovable 0x00417800 (the movable objects' list at 0x00691978).
+  - Nx::CollideWithStatics 0x004106C0 (the hit's distance to beat 1.01 / -0.01; through the cache when it holds
+    the line's box - its statics whose boxes touch the line's box grown by 0.5 - else the scenes' grids along
+    the line, each object's slot 13 first, the hit's scene noted), CollideWithStaticsFarthest 0x00410930,
+    CollideWithMovables 0x004118C0 (the distance only reset when the hit has nothing; the cache's movables with a
+    box, or the list's without flags 2 / 4; the object's owner on the hit while it's tested; the owner of the
+    last object hit returned), CollideWithMovablesFarthest 0x00411AE0.
+  - Nx::CFeeler (0xB0 bytes): Construct 0x00417760 and with a line 0x00417250, SetIgnore 0x004170F0, SetStart /
+    SetEnd / SetLine 0x00417190 / 0x004171B0 / 0x004171D0, GetCollision 0x004172F0 (static then movables, the
+    feeler's cache or the current one 0x00691974; the object hit in the smart pointer, its id; distance, point
+    and normal copied; 1 / 0 in EAX), GetCollisionAlong 0x00417710, IsHitTriangleCollision 0x00417120,
+    GetTestedOwner 0x00417140, HitObjectAlive 0x00417210, GetHitObject 0x00417240, DebugDraw 0x00417150
+    (compiled out: Gfx::AddDebugLine), CallbackRelay 0x00417110 (hidden code: the feeler's callback given the
+    feeler).
+  - CollisionHit's +0x44 is the tested movable's owner (`owner`), +0x4C the scene of the static object hit
+    (`scene`).
+  - debug_collision: its REPLACE_FALLBACK wrapper on 0x004172F0 is gone; GetCollision calls
+    DebugCollision::NoteFeelerQuery (NOT ORIGINAL, logs only with [features] debug_collision).
+  - Other code still reaches the feeler through its addresses (local wrappers in park_floor, rail_manager,
+    camera_util, editor_camera, avoid, composite, level_editor): left as they are.
+  - Tests (selftests_anim14.cpp): TestAnimFeelerQueries - 12 stand-in collision objects (fake vtable answering
+    slots 1, 10, 13, 14 from a per-query script: touching, hitting at random distances, owners; ReportHit's
+    nearer / farther rule emulated, the callback called), the scenes' grids (none, 0-3, an object in two), a
+    cache holding or not holding the line's box (entries without a box), the movables registered and
+    unregistered (twice-registered, the first, an unknown one, an empty list); 300 feeler queries (callback or
+    not, its cache / the current one / none, ignore flags, movables, nearest / farthest, the three ways of setting
+    the line, the object gone afterwards) and 100 direct queries on a record with and without a hit.
+  - Mutations: 57 deliberate bugs, all caught (55 at first: unregistering the list's first node and the line's
+    w added for 2).
 - [ ] Next: AN-15 - slots 15-17 of the sector / instance: 0x00410C90 / 0x004128B0, 0x004110B0, 0x004114E0; then
   0x0040BDC0, 0x0040D370, 0x0040E280, 0x0040E560, 0x0040E940, 0x0040EC90, 0x0040F9E0, 0x0040FC00, 0x0040FEC0,
   0x0040FEE0, 0x00410240, 0x004106C0, 0x00410930, 0x00410AA0, 0x00410BC0, the 0x00417xxx feelers / registration

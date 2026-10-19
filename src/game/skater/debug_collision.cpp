@@ -44,15 +44,15 @@
 // - Shatter (0x005A5090) on a LevelGeometry node: the sector made invisible (0x005A3B80) and shattered (sector
 //   vtable +0x04, 0x004A1090); it doesn't touch the collision. Kill on it: the killed flag above, plus 0x004D8C90.
 //
-// The hook wraps 0x004172F0 and calls the original; nothing else changes. It's a REPLACE_FALLBACK, so it steps
-// aside (and the logging with it) once 0x004172F0 gets real source - move the logging into that source then.
+// Nx::CFeeler::GetCollision (0x004172F0, src/game/nx/feeler.cpp) calls NoteFeelerQuery after each query; nothing
+// else changes.
 
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
-#include <intrin.h>
 #include <windows.h>
 
+#include "game/skater/debug_collision.h"
 #include "game/script/names.h"
 #include "game/script/qb.h"
 #include "hook/game.h"
@@ -179,29 +179,17 @@ void LogHit(const void* feeler, uint32_t caller)
         start[2], end[0], end[1], end[2], skater, caller);
 }
 
-class Feeler {
-public:
-    // 0x004172F0 (wrapped: the original runs, then the hit is logged)
-    uint32_t GetCollision(bool movables, bool reverse);
-};
-
-uint32_t Feeler::GetCollision(bool movables, bool reverse)
-{
-    uint32_t caller = static_cast<uint32_t>(reinterpret_cast<uintptr_t>(_ReturnAddress()));
-    // (the original returns 0 or 1 in EAX; passed on whole)
-    uint32_t hit =
-        Original<uint32_t(__thiscall*)(void*, int, int)>(0x004172F0)(this, movables ? 1 : 0, reverse ? 1 : 0);
-    if (Mode() == 0)
-        return hit;
-    if (caller == 0x005003E0) // the skater's feeler check: this feeler is its core physics component's +0xA8
-        g_skaterComponent = reinterpret_cast<uintptr_t>(this) - 0xA8;
-    if (hit & 0xFF)
-        LogHit(this, caller);
-    return hit;
-}
-
 } // namespace
 
-} // namespace DebugCollision
+// Called by Nx::CFeeler::GetCollision (0x004172F0) after each query.
+void NoteFeelerQuery(const void* feeler, int hit, uint32_t caller)
+{
+    if (Mode() == 0)
+        return;
+    if (caller == 0x005003E0) // the skater's feeler check: this feeler is its core physics component's +0xA8
+        g_skaterComponent = reinterpret_cast<uintptr_t>(feeler) - 0xA8;
+    if (hit)
+        LogHit(feeler, caller);
+}
 
-REPLACE_FALLBACK(0x004172F0, &DebugCollision::Feeler::GetCollision);
+} // namespace DebugCollision

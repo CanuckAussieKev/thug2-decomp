@@ -58,10 +58,10 @@ CollisionHit* CollisionHit::CopyFrom(const CollisionHit& other)
     unknown38 = other.unknown38;
     callback = other.callback;
     callbackData = other.callbackData;
-    unknown44 = other.unknown44;
+    owner = other.owner;
     hit = other.hit;
     faceFlag40 = other.faceFlag40;
-    unknown4C = other.unknown4C;
+    scene = other.scene;
     return this;
 }
 
