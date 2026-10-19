@@ -315,5 +315,10 @@ Shared files touched (small, additive): CMakeLists.txt (new sources and selftest
     original's unchecked reads - a missing profiles array, objects or components in DestroyObjects - left out.)
   - Mutations: 40 deliberate bugs, all caught (37 at first; more integer values, the made object's memory and
     the twelfth-of-a-second boundary added for 3).
+- [x] Game run (C:\Games\THUG2-4, this branch at OS-11 merged with main): BO free skate for 70 s - 2763 of 2763
+  replacements installed, the level plays (skater, HUD, peds), late and engine-started self-tests all passed, no
+  EXCEPTION / RUN-TIME CHECK FAILURE / DEBUG CRT REPORT. Two early self-tests failed in the game only (not offline):
+  "skate net registration" / "skate net handlers" (selftests_tod4.cpp, the time-of-day agent's, from main: a handler
+  address the original and ours record differently in the game) - not this range's.
 - [ ] Next: OS-12+ the rest of the cutscene system 0x4645A0-0x4680B0 (OS-12: the pools, the data's constructor,
   0x464780, the big loader 0x4648D0 and its neighbours to 0x465AB0; then 0x465C00-0x466DD0; then 0x467710-0x4680B0).
