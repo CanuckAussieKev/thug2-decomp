@@ -2,8 +2,15 @@
 
 #include "game/gfx/sprite.h"
 
+#include <windows.h>
+
+#include <d3d9.h>
+
 #include <cmath>
 
+#include "game/core/manager.h"
+#include "game/gfx/draw2d.h"
+#include "game/gfx/render_state.h"
 #include "game/gfx/screen.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -35,8 +42,6 @@ void SetTextureStageState(int stage, int type, int value)
 {
     DeviceMethod<long(__stdcall*)(void*, int, int, int)>(0x10C)(Device(), stage, type, value);
 }
-// The renderer's vertex format set (not rewritten yet; cdecl).
-void SetVertexFormat(uint32_t fvf) { GameFunction<void(__cdecl*)(uint32_t)>(0x004D9DB0)(fvf); }
 // Two triangles of a quad: 0 1 2, 1 3 2.
 const uint16_t* QuadIndices() { return reinterpret_cast<const uint16_t*>(0x0067EFA8); }
 
@@ -238,6 +243,65 @@ void SSprite::Draw()
     }
 }
 
+// 0x004DFC50
+SSprite* SSprite::Construct(float priority)
+{
+    auto* draw = reinterpret_cast<SDraw2D*>(this);
+    draw->priority = priority;
+    draw->hidden = true;
+    z = 0.0f;
+    draw->next = nullptr;
+    vtable = reinterpret_cast<void**>(0x0064AD28);
+    texture = nullptr;
+    return this;
+}
+
+// 0x004DFC80
+void SSprite::DestroyBody()
+{
+    vtable = reinterpret_cast<void**>(0x0064AD28);
+    reinterpret_cast<SDraw2D*>(this)->DestroyBody();
+}
+
+// 0x004DFCC0
+SSprite* SSprite::Destroy(unsigned int flags)
+{
+    DestroyBody();
+    if (flags & 1)
+        Mem::Manager::Instance()->Free(this);
+    return this;
+}
+
+// 0x004DF990
+void SSprite::BeginDraw()
+{
+    Nx::SetVertexFormat(0x144); // xyzrhw, diffuse, one texture
+    SetPixelShader(nullptr, nullptr);
+    if (texture) {
+        SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE2X);
+        SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE2X);
+        Nx::SetTexture(0, *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(texture) + 0x10));
+    } else {
+        SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG2);
+        SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_SELECTARG2);
+        Nx::SetTexture(0, nullptr);
+    }
+    SetTextureStageState(0, D3DTSS_COLORARG2, D3DTA_CURRENT);
+    SetTextureStageState(0, D3DTSS_ALPHAARG2, D3DTA_CURRENT);
+}
+
+// 0x004DFA40
+void SSprite::EndDraw()
+{
+    SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_MODULATE);
+    SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_MODULATE);
+}
+
 } // namespace Nx
 
 REPLACE(0x004DFCF0, &Nx::SSprite::Draw);
+REPLACE(0x004DFC50, &Nx::SSprite::Construct);
+REPLACE(0x004DFC80, &Nx::SSprite::DestroyBody);
+REPLACE(0x004DFCC0, &Nx::SSprite::Destroy);
+REPLACE(0x004DF990, &Nx::SSprite::BeginDraw);
+REPLACE(0x004DFA40, &Nx::SSprite::EndDraw);

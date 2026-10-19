@@ -175,3 +175,24 @@ that never returns and end it from a stand-in).
   skippers).
   Mutations: 30 deliberate bugs; 29 caught (27 at first; cache items left without a shader and all 18 names in
   the constructor were added for 2). The other (gen_reg) changes the unreachable "texture only" branch.
+- [x] Batch AM-6 (NOT run in the game yet; screen effects and the 2D draw list): src/game/gfx/screen_fx.{h,cpp},
+  draw2d.{h,cpp} (new); sprite.{h,cpp} and selftests_sprite.cpp (shared files, additive: the SSprite methods
+  below; SSprite::Draw now calls Nx::SetVertexFormat directly and its tests stand in for ours too).
+  - 0x004DE5E0 `DrawScreenQuad(blend, target, source, du, dv, colour, shader)` (fog off meanwhile; the target's size
+    read unsigned; textured with half a texel of the target, or flat with the vertex-colour shader), 0x004DEA80
+    `BeginScreenEffects` (motion blur or bloom: the screen copy as the target, cleared to the fog's colour or
+    0x786CC0), 0x004DE980 `CopyScreenQuarter`, 0x004DEB70 `Bloom` (the cut-off shader into a copy, two blur passes
+    at an eighth and a sixteenth, then both added over the frame as the original builds the quads).
+  - SDraw2D (the 2D draw list at 0x7CC248, by priority: `priority <= head` goes first, equal ones after the others,
+    not a number as the original's comparisons give): 0x004DF900 `Insert`, 0x004DF950 `Remove`, 0x004DFA70
+    `Construct`, 0x004DFAA0 `DestroyBody`, 0x004DFC90 `Destroy`, 0x004DFAE0 `SetPriority`, 0x004DFB20 `SetZ`
+    (above 0: priority 0), 0x004DFB70 `SetHidden`, 0x004DFB90 `Draw2D` (each shown item's begin / draw / end; the
+    next frame's z test on if any is above z 0). SSprite: 0x004DFC50 `Construct`, 0x004DFC80 `DestroyBody`,
+    0x004DFCC0 `Destroy`, 0x004DF990 `BeginDraw`, 0x004DFA40 `EndDraw`.
+  Test (src/hook/selftests_appmain6.cpp, Early): TestScreenEffects (6 seeds: quads of every blend with / without a
+  source and shader, sizes over 2^31, both screen effect modes, the fog / clip flags, bloom on / off, real screen
+  sizes); TestDrawList (12 items and sprites, 300 random operations with priorities equal / -0 / not a number,
+  then Draw2D with z only 0 / -0 / below / not a number, the z test from the last frame on and off, a listed item
+  marked hidden).
+  Mutations: 29 deliberate bugs, all caught (25 at first; the end phase of Draw2D and real screen sizes were added
+  for the other 4).
