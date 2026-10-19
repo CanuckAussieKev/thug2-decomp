@@ -964,6 +964,46 @@ def front_end_peds_cars(text, backdrop_nodes):
     return text[:at] + "".join(scripts) + text[at:]
 
 
+def front_end_triggers(text, backdrop_nodes):
+    # The front end's node array with the converted shop's trigger geometry added at its end: the LevelGeometry nodes
+    # with a TriggerScript (the outside halfpipe's vert sections SSO_Vert_Section01-03 - their gaps), and the scripts
+    # their triggers run (the trigger scripts and the level's scripts they call, as the backdrop has them). The front
+    # end has the shop's collision (loaded at its start, front_end_scripts), whose trigger faces name these nodes: a
+    # trigger face is looked up by its object's name and the node's TriggerScript read without a check (0x00434A60) -
+    # without the nodes, landing on the vert sections after SKATE NOW crashed (the user, 2026-10-19). Position written
+    # as Pos (z negated); TrickObject / Cluster left out (the front end registers no trick objects).
+    elements, _, _ = array_elements(backdrop_nodes, BACKDROP_LEVEL + "_NodeArray")
+    triggers = [e for e in elements
+                if re.search(r"\bClass=LevelGeometry\b", e) and re.search(r"\bTriggerScript=\w+", e)]
+    if not triggers:
+        return text
+
+    def pos(match):
+        x, y, z = (float(v) for v in match.group(1).split(","))
+        return "Pos=(%.4f, %.4f, %.4f)" % (x, y, -z)
+
+    added = ""
+    for node in triggers:
+        node = re.sub(r"\n[ \t]*(TrickObject|Cluster=\S+)[ \t]*(?=\n)", "", node)
+        added += "    %s \n" % re.sub(r"\bPosition=\(([^)]*)\)", pos, node)
+    _, _, close = array_elements(text, "mainmenu_NodeArray")
+    text = text[:close] + added + text[close:]
+    # The scripts: the trigger scripts, then every script of the backdrop's they name (not the front end's own).
+    defined = {m.group(1): m.group(0) for m in re.finditer(r"^script (\w+) \{\n.*?\n\} \n", backdrop_nodes,
+                                                           re.S | re.M)}
+    wanted = list(dict.fromkeys(re.findall(r"\bTriggerScript=(\w+)", added)))
+    for name in wanted:
+        if name not in defined:
+            sys.exit("%s: the trigger script %s not found" % (BACKDROP_LEVEL, name))
+        for word in re.findall(r"\b[A-Za-z_]\w*\b", defined[name].split("{", 1)[1]):
+            if word in defined and word not in wanted and not re.search(r"\nscript %s \{" % re.escape(word), text):
+                wanted.append(word)
+    register = text.find("\n__register_checksums__")
+    at = register + 1 if register >= 0 else len(text)
+    print("front end: %d trigger geometry nodes and %d scripts from %s" % (len(triggers), len(wanted), BACKDROP_LEVEL))
+    return text[:at] + "".join(defined[name] for name in wanted) + text[at:]
+
+
 # The dark backing the front end's roundbar menus get (Game Options, Create-A-Modes, the network menus...): over
 # THPS4's lit skate shop their items were hard to read (the main menu has its own, main_menu_backing). Sized from the
 # menu's own dims and width, as main_menu_backing (white2 is 8 units).
@@ -1143,8 +1183,9 @@ def main():
             write(front_end_roundbar(roundbar), r"front_end\scripts\game\menu\roundbarmenu.qb")
             backdrop_nodes = decompile(open(os.path.join(out, "levels", BACKDROP_LEVEL, BACKDROP_LEVEL + ".qb"), "rb").read(),
                                        "backdrop.qb")
-            write(front_end_peds_cars(front_end_rails(front_end_nodes(shop, backdrop_nodes), backdrop_nodes),
-                                      backdrop_nodes),
+            write(front_end_triggers(front_end_peds_cars(front_end_rails(front_end_nodes(shop, backdrop_nodes),
+                                                                         backdrop_nodes), backdrop_nodes),
+                                     backdrop_nodes),
                   r"front_end\levels\mainmenu\mainmenu.qb")
             # THUG2's own shop's collision without its objects: the DLL hides THUG2's shop, but its collision stayed -
             # x -1372..764, z -1377..471 overlaps THPS4's outside halfpipe (x 465..1155): invisible walls after SKATE

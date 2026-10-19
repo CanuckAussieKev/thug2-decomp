@@ -126,6 +126,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_menulvl.cpp
     src/hook/selftests_motion.cpp
     src/hook/selftests_gamenet.cpp
+    src/hook/selftests_trigger.cpp
     src/hook/selftests_editor.cpp
     src/hook/selftests_pcmstream.cpp
     src/hook/selftests_pcmplay.cpp
@@ -261,6 +262,7 @@ add_library(thug2_code OBJECT
     src/game/park/park_memory.cpp
     src/game/obj/smtptr.cpp
     src/game/obj/tracker.cpp
+    src/game/obj/trigger_component.cpp
     src/game/skater/rotation.cpp
     src/game/sio/device.cpp
     src/game/sio/inpman.cpp
