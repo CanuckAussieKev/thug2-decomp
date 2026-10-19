@@ -35,6 +35,21 @@ bool SegmentsCross2D(float ax, float ay, float adx, float ady, float bx, float b
 double PointTriangleDistanceSquared(const Mth::Vector& point, const Mth::Vector& v0, const Mth::Vector& v1,
                                     const Mth::Vector& v2, float* s, float* t);
 
+// A parallelogram: a corner and its two sides (the rect queries' shape).
+struct CollRect {
+    Mth::Vector origin;
+    Mth::Vector sideA;
+    Mth::Vector sideB;
+};
+
+// 0x0040D370 (cdecl): where the rect and the triangle v0 v1 v2 cross - two points, true. The triangle's edges cut
+// by the rect's plane give a segment P Q (each end on an edge: 1 v0-v1, 2 v1-v2, 3 v2-v0); in the plane the normal
+// is largest across, each end inside the rect is a point, and each rect side crossing P Q another (kind 0). Points
+// go to points[0], points[1] and their kinds to kinds[0], kinds[1]; false unless two were found (one may still have
+// been written).
+bool RectHitsTriangle(const CollRect& rect, const Mth::Vector& v0, const Mth::Vector& v1, const Mth::Vector& v2,
+                      Mth::Vector* points, int* kinds);
+
 // LineHitsSphere / SegmentsCross2D as the game calls them: their callers (0x0040EC90, 0x0040D370) keep a value in
 // EDX across the call, which the originals don't touch - these adapters keep it.
 void LineHitsSphereKeepingEdx();
