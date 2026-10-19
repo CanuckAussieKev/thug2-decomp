@@ -97,9 +97,30 @@ Shared files touched (small, additive): CMakeLists.txt (new sources and selftest
     only; the folded one-pointer getter); tools/mutate.py lists every failing / crashing test of a mutation (an
     unrelated flaky test - "PC async handle" fails now and then on this busy machine - hid which test caught it).
 
-- [ ] Next: OS-3 the structure buffer (src/game/script/struct_buffer.{h,cpp} + selftests_objsys3.cpp written: add
-  to CMakeLists.txt, build, test, mutate), OS-4 emitters + follow trail (emitter.{h,cpp}, selftests_objsys4.cpp
-  written), OS-5 node objects / movie details / class node list (node_objects.{h,cpp} written, test to write),
-  OS-6 path manager (path_manager.{h,cpp} written, test to write), OS-7 path follower (path_follower.{h,cpp},
-  selftests_objsys7.cpp written); then the sound effects manager 0x47AC10-0x47D390, the animation blending
-  0x47D420-0x47DC31 (+ 0x47D580 / 0x47D660, code Ghidra missed), the cutscene system 0x463AA0-0x4680B0 (+ 0x464340).
+- [x] Batch OS-3 (NOT run in the game yet; script structures to and from byte buffers - the network / save
+  serializer): src/game/script/struct_buffer.{h,cpp} (new).
+  - 0x00479840 WriteNameAndType (a name as a one-byte index into the global name array 0x35115A20 (type | 0x80), a
+    two-byte index into 0x25231F42 (type | 0x40), else the checksum), 0x004798F0 WriteInteger (the smallest form:
+    zero, unsigned / signed byte or short, else four bytes; name in ECX, value in EBX - a naked stub), 0x00479A50
+    WriteFloat (zero floats as their own type; buffer ECX, name EDX, size ESI - stub), 0x00479AC0 / 0x00479B20
+    WriteString / WriteLocalString (buffer EAX, string ECX - stubs), 0x00479B80 WriteArrayToBuffer (type, two-byte
+    count, elements; strings, pairs, vectors, nested structures and arrays), 0x00479E20 WriteToBuffer (every
+    component; scripts as the placeholder name 0xB9C4F664; the callback per component; 0 when it doesn't fit),
+    0x0047A070 CalculateBufferSize (a write into a scratch buffer), 0x0047A0C0 ReadFromBuffer (the structure
+    cleared and rebuilt; unknown types: only the name read), 0x0047A440 ReadArrayFromBuffer (arrays made on the
+    script heap).
+  - Tests (selftests_objsys3.cpp): TestStructBuffer - 30 seeds of random nested structures (every component type,
+    names from the two index arrays or not) written in full, measured, into short buffers of every length near the
+    end, an array alone into 0-4 byte buffers, the 300-name array read back alone (a two-byte count), read back and
+    written again, a crafted buffer of every short form and unknown types - on a stood-in memory manager over an
+    arena, the whole arena and every call compared. TestStructBufferStubs: the register entry points against the
+    originals into buffers big enough, exactly enough and too small.
+  - Mutations: 41 deliberate bugs, all caught (the array-alone and 300-name cases added for 2).
+
+- [ ] Next: OS-4 emitters + follow trail (src/game/obj/emitter.{h,cpp}, selftests_objsys4.cpp written: add to
+  CMakeLists.txt, build, test, mutate), OS-5 node objects / movie details / class node list (node_objects.{h,cpp},
+  selftests_objsys5.cpp), OS-6 path manager (path_manager.{h,cpp}, selftests_objsys6.cpp), OS-7 path follower
+  (path_follower.{h,cpp}, selftests_objsys7.cpp); OS-8 sound effects manager part 1 0x47AC10-0x47B7C0
+  (src/game/sfx/sfx.{h,cpp}, selftests_objsys8.cpp written), OS-9 part 2 0x47B8E0-0x47D390 (sfx_voices.cpp written,
+  test to write); then the animation blending 0x47D420-0x47DC31 (+ 0x47D580 / 0x47D660, code Ghidra missed), the
+  cutscene system 0x463AA0-0x4680B0 (+ 0x464340).

@@ -102,6 +102,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_appmain11.cpp
     src/hook/selftests_objsys1.cpp
     src/hook/selftests_objsys2.cpp
+    src/hook/selftests_objsys3.cpp
     src/hook/selftests_gapsB.cpp
     src/hook/selftests_mva.cpp
     src/hook/selftests_mva2.cpp
@@ -257,6 +258,7 @@ add_library(thug2_code OBJECT
     src/game/obj/control_pad.cpp
     src/game/obj/proxim.cpp
     src/game/script/preferences.cpp
+    src/game/script/struct_buffer.cpp
     src/game/obj/event.cpp
     src/game/obj/flip_rotate.cpp
     src/game/obj/motion.cpp
