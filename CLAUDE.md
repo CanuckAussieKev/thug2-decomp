@@ -22,7 +22,7 @@ installed); functions PartyMod patched get source with PartyMod's behaviour. Lat
   makes the data overlay `thug2-decomp-data` (the menu's script in its `front_end` folder; at the top: the skate shop
   as a playable level - SKATE SHOP in the level select -, TEST LEVEL, the THPS4 levels); `level_editor=0` hides the pause menu's
   LEVEL EDITOR - src/game/front/level_editor.h; the item is in the same tool's overlay; its saved layouts are in
-  `thug2-decomp-layouts\<scene>.txt` and load with their level - and `debug_editor=1` logs its picks and moves), `thug2-decomp.log` (read it after every game run). The retail THUG2.exe is
+  `thug2-decomp-layouts\<scene>.txt` and load with their level - and `debug_editor=1` logs its picks and moves; `restart_tester=0` turns off F8, which puts the skater at the level's next unvisited restart - src/game/front/restart_tester.h), `thug2-decomp.log` (read it after every game run). The retail THUG2.exe is
   SafeDisc-encrypted and not used.
 - Ghidra 12.1.4 at `C:\ghidra`; project `C:\Games\THUG2-ghidra` (the Ghidra MCP server uses it); a read-only
   copy for scripts at `C:\Games\THUG2-ghidra-snapshot` (refresh: `tools\ghidra\snapshot_project.ps1`).

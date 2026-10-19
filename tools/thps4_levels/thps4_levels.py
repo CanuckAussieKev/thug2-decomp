@@ -16,6 +16,7 @@
 import argparse
 import glob
 import os
+import re
 import shutil
 import sys
 
@@ -94,21 +95,44 @@ def level_structs(thps4_dir):
 
 
 # Invisible walls opened: (collision object, axis, "min" / "max") - the object's faces lying in its box's plane on that
-# side are left out. THPS4's skate shop was a menu: InvisColl01 boxes in the skate park outside the shop (sides,
-# roof, both ends); its z-min face closes the shop's door (Object10, the shop, is behind it - the Occlusion plane
-# at z -1082 has the doorway's hole, x 699-788), its z-max face the fence's gap at the end of the halfpipe (the user,
-# 2026-10-19: both open).
-OPENINGS = {"skateshop": [("InvisColl01", 2, "max"), ("InvisColl01", 2, "min")]}
+# side are left out -, or (collision object, "invisible") - its invisible faces (THPS4's face flag 0x1000) are.
+# THPS4's skate shop was a menu: InvisColl01 boxes in the skate park outside the shop (sides, roof, both ends) - its
+# z-min face is the shop's side, across the door too; the door itself is also closed by Object10's (the shop's) two
+# invisible faces, x 699-777 at z -1074 (the Occlusion plane at z -1082 has the doorway's hole there). The user,
+# 2026-10-19: the door open; InvisColl01's z-max face (the fence's gap at the end of the halfpipe) kept.
+OPENINGS = {"skateshop": [("InvisColl01", 2, "min"), ("Object10", "invisible")]}
+FACE_INVISIBLE = 0x1000
+
+
+# Nodes the playable level has at the start although THPS4's node array doesn't create them: its game scripts did
+# when play started. The skate shop: the menu kills SSO_Fence05 (create_ss_menu) and the practice run creates it
+# again (start_practice_run_skater) - the fence piece at the end of the halfpipe (the user, 2026-10-19: a gap there).
+CREATED_IN_PLAY = {"skateshop": ["SSO_Fence05"]}
+
+
+def created_in_play(text, base, report):
+    for name in CREATED_IN_PLAY.get(base.lower(), ()):
+        node = re.search(r"\{[^{}]*\bName=%s\b[^{}]*\}" % re.escape(name), text)
+        if node and not re.search(r"\bCreatedAtStart\b", node.group(0)):
+            fixed = re.sub(r"\bName=%s\b" % re.escape(name), "Name=%s CreatedAtStart" % name, node.group(0), count=1)
+            text = text[:node.start()] + fixed + text[node.end():]
+            report.append("  %s: %s created at the start (THPS4's practice run created it)" % (base, name))
+    return text
 
 
 def open_walls(col4, base, report):
-    for name, axis, side in OPENINGS.get(base.lower(), ()):
+    for opening in OPENINGS.get(base.lower(), ()):
+        name = opening[0]
         wanted = qb.checksum(name)
         for o in col4["objects"]:
             if o["checksum"] != wanted or not o["verts"]:
                 continue
-            plane = (max if side == "max" else min)(v[axis] for v in o["verts"])
-            kept = [f for f in o["faces"] if not all(abs(o["verts"][i][axis] - plane) < 0.01 for i in f[2:5])]
+            if opening[1] == "invisible":
+                kept = [f for f in o["faces"] if not f[0] & FACE_INVISIBLE]
+            else:
+                _, axis, side = opening
+                plane = (max if side == "max" else min)(v[axis] for v in o["verts"])
+                kept = [f for f in o["faces"] if not all(abs(o["verts"][i][axis] - plane) < 0.01 for i in f[2:5])]
             report.append("  %s: %d face(s) of %s left out (an opening)" % (base, len(o["faces"]) - len(kept), name))
             o["faces"] = kept
 
@@ -224,6 +248,7 @@ def cmd_convert(args):
         text = nodes.node_array_ns(name + "_NodeArray", converted + moving, names, kills)
         text += peds_cars.scripts_ns(moving_scripts) + extra_text
         # (a TrickObject without its sector crashes the loader: convert_scene leaves skinned sectors out)
+        text = created_in_play(text, base, report)
         text, cleared = nodes.strip_missing_trick_objects(text, {
             s["checksum"] for s in scene4["sectors"] if s["bone"] == -1 and not s["flags"] & thps4.SEC_WEIGHTS})
         if cleared:

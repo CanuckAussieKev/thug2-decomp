@@ -153,6 +153,7 @@ add_library(thug2_code OBJECT
     src/game/front/data_overlay.cpp
     src/game/front/menu_backdrop.cpp
     src/game/front/level_editor.cpp
+    src/game/front/restart_tester.cpp
     src/game/front/level_editor_hud.cpp
     src/game/front/level_editor_layout.cpp
     src/game/front/level_editor_objects.cpp
