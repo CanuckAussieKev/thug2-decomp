@@ -114,6 +114,24 @@ public:
 };
 static_assert(sizeof(CCollMovTri) == 0xD4 && offsetof(CCollMovTri, m_box) == 0xAC, "layout must match the original");
 
+// Slots every collision object shares that pass straight on to its geometry (m_geometry; a multi-object has none).
+struct CollGeometryForwarders : CCollObj {
+    // 0x0040AE80 / 0x0040AE90 (a sector's slots 22, 23): the geometry turned / scaled.
+    void RotateY(const Mth::Vector* centre, int quarterTurns);
+    void Scale(const Mth::Vector* centre, const Mth::Vector* scale);
+    // 0x0040AEA0 (a sector's slot 19): the geometry's debug rendering (0x0048DCD0, compiled out).
+    void DebugRender(int a, int b);
+    // 0x0040AEB0: 0x00414FE0 on the geometry (not rewritten yet).
+    void ProcessGeometry();
+    // 0x0040AEC0 (slot 18 of every collision class): CCollObjTriData::IsPointBehindFaces.
+    bool IsPointBehindFaces(const Mth::Vector* point, int unused);
+};
+
+// 0x00414990 (cdecl): a movable collision object made from `count` geometries (consecutive in memory): type 1 a box
+// around them all, type 4 a movable triangle object (several: a multi-object of them); null for other types or
+// no geometry. `value` is set through slot 11 and the object registered with it (0x004177B0).
+CCollObj* CreateMovableCollision(int type, CCollObjTriData* geometries, int count, int value);
+
 // 0x00414D60: the geometry's debug rendering (compiled out: returns).
 struct CollGeometryStubs {
     void DebugRender(const Mth::Matrix* transform, int a, int b, int c);

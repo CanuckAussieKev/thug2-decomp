@@ -93,6 +93,14 @@ struct CCollObjTriData {
                   uint32_t nodeBase, uint32_t faceListBase);
     // 0x00416400: vertices (uncompressed), box and tree moved by `delta`.
     void Translate(const Mth::Vector* delta);
+    // 0x004164F0: turned by `quarterTurns` quarter turns about Y around `centre` (compressed vertices through a
+    // temporary array on the top-down heap); the box made from its turned corners.
+    void RotateY(const Mth::Vector* centre, int quarterTurns);
+    // 0x00416730: scaled by `scale` around `centre`; the box's corners scaled (w kept, not re-sorted).
+    void Scale(const Mth::Vector* centre, const Mth::Vector* scale);
+    // 0x00414D30: the shared index table 0x0067C6B8 filled with 0..2047 the first time (its first entry is
+    // 0xFFFF until then); whether the geometry has a tree.
+    bool SetUpAllFaces();
     // 0x00416320: the faces in leaves `box` reaches, gathered into `buffer` (`count` set). Without a tree, or
     // more faces than the geometry has, every face: the shared index table 0x0067C6B8.
     uint16_t* GetFacesInBox(const Mth::BBox* box, int* count, uint16_t* buffer, int bufferSize);

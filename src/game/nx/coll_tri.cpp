@@ -210,6 +210,94 @@ void CCollObjTriData::Translate(const Mth::Vector* delta)
     m_max = max;
 }
 
+// 0x004164F0 (a failed allocation of the temporary array crashes - the vertices are read into null - as in the
+// original; the array's element constructor, 0x005902E0, does nothing)
+void CCollObjTriData::RotateY(const Mth::Vector* centre, int quarterTurns)
+{
+    Mth::Vector back{-centre->x, -centre->y, -centre->z, -centre->w};
+    Translate(&back);
+    if (m_bsp)
+        m_bsp->RotateY(centre, quarterTurns, false);
+    Mth::Vector* positions = nullptr;
+    if (m_compressed) {
+        Mem::PushContext(Mem::TopDownHeap());
+        positions = static_cast<Mth::Vector*>(Mem::New(m_numVertices * sizeof(Mth::Vector)));
+        Mem::PopContext();
+        GetRawVertices(positions);
+    }
+    for (int i = 0; i < m_numVertices; ++i) {
+        if (positions) {
+            positions[i].RotateY90(quarterTurns);
+            continue;
+        }
+        Mth::Vector v;
+        GetRawVertexPos(i, &v);
+        v.RotateY90(quarterTurns);
+        float* stored = static_cast<float*>(m_vertices) + 3 * i;
+        stored[0] = v.x;
+        stored[1] = v.y;
+        stored[2] = v.z;
+    }
+    Mth::Vector min = m_min;
+    Mth::Vector max = m_max;
+    min.RotateY90(quarterTurns);
+    max.RotateY90(quarterTurns);
+    auto* box = reinterpret_cast<Mth::BBox*>(&m_min);
+    box->min = {10000000.0f, 10000000.0f, 10000000.0f, 1.0f};
+    box->max = {-10000000.0f, -10000000.0f, -10000000.0f, 1.0f};
+    box->AddPoint(min);
+    box->AddPoint(max);
+    if (positions) {
+        for (int i = 0; i < m_numVertices; ++i)
+            SetRawVertexPos(i, &positions[i]);
+        Mem::Manager::Get()->Free(positions);
+    }
+    Translate(centre);
+    m_unknown3C = 0;
+}
+
+// 0x00416730 (a failed allocation crashes, as in RotateY)
+void CCollObjTriData::Scale(const Mth::Vector* centre, const Mth::Vector* scale)
+{
+    Mth::Vector back{-centre->x, -centre->y, -centre->z, -centre->w};
+    Translate(&back);
+    if (m_bsp)
+        m_bsp->Scale(centre, scale, false);
+    Mth::Vector* positions = nullptr;
+    if (m_compressed) {
+        Mem::PushContext(Mem::TopDownHeap());
+        positions = static_cast<Mth::Vector*>(Mem::New(m_numVertices * sizeof(Mth::Vector)));
+        Mem::PopContext();
+        GetRawVertices(positions);
+    }
+    for (int i = 0; i < m_numVertices; ++i) {
+        float* v = positions ? &positions[i].x : static_cast<float*>(m_vertices) + 3 * i;
+        v[0] *= scale->x;
+        v[1] *= scale->y;
+        v[2] *= scale->z;
+    }
+    m_min = {m_min.x * scale->x, m_min.y * scale->y, m_min.z * scale->z, m_min.w};
+    m_max = {m_max.x * scale->x, m_max.y * scale->y, m_max.z * scale->z, m_max.w};
+    if (positions) {
+        for (int i = 0; i < m_numVertices; ++i)
+            SetRawVertexPos(i, &positions[i]);
+        Mem::Manager::Get()->Free(positions);
+    }
+    Translate(centre);
+    m_unknown3C = 0;
+}
+
+// 0x00414D30
+bool CCollObjTriData::SetUpAllFaces()
+{
+    uint16_t* table = AllFaces();
+    if (table[0] != 0) {
+        for (int i = 0; i < 0x800; ++i)
+            table[i] = static_cast<uint16_t>(i);
+    }
+    return m_bsp != nullptr;
+}
+
 // 0x00416320
 uint16_t* CCollObjTriData::GetFacesInBox(const Mth::BBox* box, int* count, uint16_t* buffer, int bufferSize)
 {
@@ -462,6 +550,9 @@ REPLACE(0x00416080, &Nx::CCollObjTriData::DeleteBSP);
 REPLACE(0x004169C0, &Nx::CCollObjTriData::Relocate);
 REPLACE(0x00416400, &Nx::CCollObjTriData::Translate);
 REPLACE(0x00416320, &Nx::CCollObjTriData::GetFacesInBox);
+REPLACE(0x004164F0, &Nx::CCollObjTriData::RotateY);
+REPLACE(0x00416730, &Nx::CCollObjTriData::Scale);
+REPLACE(0x00414D30, &Nx::CCollObjTriData::SetUpAllFaces);
 REPLACE(0x004160E0, &Nx::CCollObjTriData::GatherFaces);
 REPLACE(0x004163B0, &Nx::CCollObjTriData::IsPointBehindFaces);
 REPLACE(0x004161D0, &Nx::CCollObjTriData::CountFacesBehind);

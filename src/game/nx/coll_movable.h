@@ -63,6 +63,8 @@ public:
     // 0x0040AE60 / 0x0040AE70 (slots 2, 3)
     uint32_t GetFaceFlags(int face) const;
     uint16_t GetFaceTerrain(int face) const;
+    // 0x00414BE0 (slot 12): a copy (no geometry, flag 0x8000; a failed allocation crashes, as in the original).
+    CCollMovBBox* Clone(int argument);
     // 0x004126E0 (slot 19): the box drawn where the object is (0x0048D090; the arguments unused).
     void DebugRender(int a, int b);
 

@@ -396,6 +396,77 @@ void CollGeometryStubs::DebugRender(const Mth::Matrix* /*transform*/, int /*a*/,
 {
 }
 
+// 0x0040AE80
+void CollGeometryForwarders::RotateY(const Mth::Vector* centre, int quarterTurns)
+{
+    m_geometry->RotateY(centre, quarterTurns);
+}
+
+// 0x0040AE90
+void CollGeometryForwarders::Scale(const Mth::Vector* centre, const Mth::Vector* scale)
+{
+    m_geometry->Scale(centre, scale);
+}
+
+// 0x0040AEA0
+void CollGeometryForwarders::DebugRender(int a, int b)
+{
+    GameFunction<void(__thiscall*)(CCollObjTriData*, int, int)>(0x0048DCD0)(m_geometry, a, b);
+}
+
+// 0x0040AEB0
+void CollGeometryForwarders::ProcessGeometry()
+{
+    GameFunction<void(__thiscall*)(CCollObjTriData*)>(0x00414FE0)(m_geometry);
+}
+
+// 0x0040AEC0
+bool CollGeometryForwarders::IsPointBehindFaces(const Mth::Vector* point, int unused)
+{
+    return m_geometry->IsPointBehindFaces(point, unused);
+}
+
+// 0x00414990 (a failed allocation of the box crashes when there are geometries, as in the original)
+CCollObj* CreateMovableCollision(int type, CCollObjTriData* geometries, int count, int value)
+{
+    CCollObj* made;
+    if (type == 1) {
+        void* memory = Mem::New(sizeof(CCollMovBBox));
+        CCollMovBBox* box = memory ? static_cast<CCollMovBBox*>(memory)->Construct() : nullptr;
+        if (count >= 1) {
+            Mth::BBox bounds;
+            for (int i = 0; i < count; ++i) {
+                bounds.AddPoint(geometries[i].m_min);
+                bounds.AddPoint(geometries[i].m_max);
+            }
+            box->m_box = bounds;
+        }
+        made = box;
+    } else if (type == 4) {
+        if (count == 1) {
+            void* memory = Mem::New(sizeof(CCollMovTri));
+            made = memory ? static_cast<CCollMovTri*>(memory)->Construct(geometries) : nullptr;
+        } else if (count > 1) {
+            void* memory = Mem::New(sizeof(CCollMulti));
+            CCollMulti* multi = memory ? static_cast<CCollMulti*>(memory)->Construct() : nullptr;
+            for (int i = 0; i < count; ++i) {
+                void* part = Mem::New(sizeof(CCollMovTri));
+                multi->AddChild(part ? static_cast<CCollMovTri*>(part)->Construct(&geometries[i]) : nullptr);
+            }
+            made = multi;
+        } else {
+            return nullptr;
+        }
+    } else {
+        return nullptr;
+    }
+    if (made) {
+        made->Call<void>(11, value);
+        GameFunction<void(__cdecl*)(CCollObj*, int)>(0x004177B0)(made, value);
+    }
+    return made;
+}
+
 } // namespace Nx
 
 REPLACE(0x00410BF0, &Nx::CollFaceAccess::GetFaceFlags);
@@ -434,3 +505,9 @@ REPLACE(0x00412FC0, &Nx::CCollMovTri::GetBBox);
 REPLACE(0x0040B390, &Nx::CCollMovTri::UpdateBBox);
 REPLACE(0x00413130, &Nx::CCollMovTri::DebugRender);
 REPLACE_SOURCE_ONLY(0x00414D60, &Nx::CollGeometryStubs::DebugRender); // 3 bytes (RET 0x10)
+REPLACE(0x0040AE80, &Nx::CollGeometryForwarders::RotateY);
+REPLACE(0x0040AE90, &Nx::CollGeometryForwarders::Scale);
+REPLACE(0x0040AEA0, &Nx::CollGeometryForwarders::DebugRender);
+REPLACE(0x0040AEB0, &Nx::CollGeometryForwarders::ProcessGeometry);
+REPLACE(0x0040AEC0, &Nx::CollGeometryForwarders::IsPointBehindFaces);
+REPLACE(0x00414990, Nx::CreateMovableCollision);

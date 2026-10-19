@@ -5,6 +5,7 @@
 #include <new>
 
 #include "game/core/manager.h"
+#include "game/core/mem.h"
 #include "game/nx/coll_cache.h"
 #include "game/nx/coll_tri.h"
 #include "hook/game.h"
@@ -232,6 +233,16 @@ uint16_t CCollMovBBox::GetFaceTerrain(int /*face*/) const
     return m_terrain;
 }
 
+// 0x00414BE0
+CCollMovBBox* CCollMovBBox::Clone(int)
+{
+    void* memory = Mem::New(sizeof(CCollMovBBox));
+    CCollMovBBox* copy = memory ? static_cast<CCollMovBBox*>(memory)->ConstructCopy(this) : nullptr;
+    copy->m_flags |= 0x8000;
+    copy->m_geometry = nullptr;
+    return copy;
+}
+
 // 0x004126E0
 void CCollMovBBox::DebugRender(int /*a*/, int /*b*/)
 {
@@ -362,6 +373,7 @@ REPLACE(0x00412600, &Nx::CCollMovBBox::SetGeometry);
 REPLACE(0x0040AE60, &Nx::CCollMovBBox::GetFaceFlags);
 REPLACE(0x0040AE70, &Nx::CCollMovBBox::GetFaceTerrain);
 REPLACE(0x004126E0, &Nx::CCollMovBBox::DebugRender);
+REPLACE(0x00414BE0, &Nx::CCollMovBBox::Clone);
 REPLACE(0x004123C0, &Nx::CCollScaled::Construct);
 REPLACE(0x00413F80, &Nx::CCollScaled::ConstructCopy);
 REPLACE(0x00412460, &Nx::CCollScaled::Destruct);

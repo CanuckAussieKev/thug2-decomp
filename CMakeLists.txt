@@ -134,6 +134,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_anim6.cpp
     src/hook/selftests_anim7.cpp
     src/hook/selftests_anim8.cpp
+    src/hook/selftests_anim9.cpp
     src/hook/selftests_appmain8.cpp
     src/hook/selftests_appmain9.cpp
     src/hook/selftests_appmain10.cpp

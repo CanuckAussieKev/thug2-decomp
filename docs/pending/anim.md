@@ -272,9 +272,31 @@ ProjectToPlane made exact).
   standing and 45 s skating (keys posted: forward, turns; the skater rode along the plaza and up a wall) - running
   and responding; 3087 of 3087 replacements installed (69 source only), early (314), late (17) and engine-started
   (2) self-tests passed; no EXCEPTION / RUN-TIME CHECK FAILURE / DEBUG CRT REPORT.
-- [ ] Next: AN-9 - 0x004164F0 / 0x00416730 (the geometry turned / scaled), 0x00414990, 0x00414BE0, 0x00414D30,
-  0x00414FE0, the forwarders 0x0040AE80-0x0040AEC0, then the face / line tests 0x0040B420 onwards, 0x00410C90,
-  0x004110B0, 0x004114E0, 0x004128B0, 0x004131F0, 0x004137B0, 0x00413B50, 0x00413FF0, 0x00414460. Hidden code
-  to give source to later (found by scratchpad hidden.py - runs between Ghidra's functions that aren't padding):
-  0x00412730, 0x00417110, 0x00419690, 0x00419750, 0x004198D0, 0x00419AD0, 0x00419BF0, 0x00419E90,
-  0x0041A1A0-0x0041A21C.
+- [x] Batch AN-9 (NOT run in the game yet; the geometry turned and scaled, the forwarding slots, the movable
+  collision factory; 11 functions): src/game/nx/coll_tri.cpp, coll_movable.cpp, coll_static.h / .cpp.
+  - Nx::CCollObjTriData: 0x004164F0 RotateY (quarter turns about Y around a centre: moved there, the tree turned,
+    compressed vertices through a temporary array on the top-down heap, the box rebuilt from its turned corners,
+    moved back, +0x3C cleared; a failed allocation of the array crashes, as in the original), 0x00416730 Scale
+    (the same; the box's corners scaled - w kept, not re-sorted), 0x00414D30 SetUpAllFaces (the shared index
+    table 0x0067C6B8 filled with 0..2047 while its first entry isn't 0; whether there's a tree).
+  - Nx::CCollMovBBox::Clone 0x00414BE0 (slot 12: a copy, flag 0x8000, no geometry).
+  - The slots that pass on to the geometry (Nx::CollGeometryForwarders): 0x0040AE80 / 0x0040AE90 (a sector's slots
+    22, 23: turned / scaled), 0x0040AEA0 (its slot 19: the geometry's debug render 0x0048DCD0, compiled out),
+    0x0040AEB0 (0x00414FE0 - not rewritten yet), 0x0040AEC0 (slot 18 of every collision class:
+    IsPointBehindFaces).
+  - Nx::CreateMovableCollision 0x00414990 (cdecl): type 1 a box around all the geometries' boxes, type 4 a movable
+    triangle object (several: a multi-object of them; none: null), other types null; the value set through slot
+    11 and the object registered (0x004177B0, not rewritten yet).
+  - Tests (selftests_anim9.cpp): TestAnimCollTurnScale - plain and compressed geometry with and without a tree,
+    each quarter turn 0-4 and a scale with a negative factor, around centres; the face table filled (first entry
+    0xFFFF, another non-zero value) and not (0); the box's clone; each forwarding slot on a sector object (the
+    debug render, 0x00414FE0 and the registration stood in for); the factory for types 1, 4, 2, 0 with 0, 1 and 3
+    geometries.
+  - Mutations: 36 deliberate bugs; 35 caught (33 at first: +0x3C set before the scale, a first table entry that's
+    neither 0 nor 0xFFFF added for 2). Equivalent: the turn's move-there w (the box is rebuilt with w 1 before the
+    move back).
+- [ ] Next: AN-10 - 0x00414FE0 (the geometry's face pass), then the face / line tests 0x0040B420 onwards,
+  0x00410C90, 0x004110B0, 0x004114E0, 0x004128B0, 0x004131F0, 0x004137B0, 0x00413B50, 0x00413FF0, 0x00414460,
+  the 0x00417xxx feelers / registration (0x004177B0, 0x00417800...). Hidden code to give source to later (found by
+  scratchpad hidden.py - runs between Ghidra's functions that aren't padding): 0x00412730, 0x00417110, 0x00419690,
+  0x00419750, 0x004198D0, 0x00419AD0, 0x00419BF0, 0x00419E90, 0x0041A1A0-0x0041A21C.
