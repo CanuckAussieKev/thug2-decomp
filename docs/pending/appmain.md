@@ -74,3 +74,36 @@ that never returns and end it from a stand-in).
   (each language, timer, device missing; run 0-3 frames and ended from the stand-in Present with CallEscapable).
   Mutations: 55 deliberate bugs, all caught (52 at first; the handles-equal variant, the first-surface-missing case and
   a stand-in that changes the query size were added for the other 3).
+- [x] Batch AM-2 (NOT run in the game yet; occlusion polygons and view culling): src/game/gfx/occlusion.{h,cpp} (new).
+  - Occlusion polygons (0x787360, 0x58 bytes: in use, enabled, checksum, four corners, normal) and occluders
+    (0x792360, eight of 0x5C: the polygon, five planes, what each hid in the last two frames):
+    0x004D8D70 `AddOcclusionPoly(p0, p1, p2, p3, checksum)` (normal (p1 - p0) x (p3 - p0) with p3.x - p0.x kept in
+    double precision, then Mth::Vector::Normalize), 0x004D8C90 `EnableOcclusionPoly`, 0x004D8CC0
+    `RemoveAllOcclusionPolys`, 0x004D8BB0 `CompareOccluders` (qsort's comparison - not a Ghidra function; disabled
+    polygons' counts cleared, more hidden first), 0x004D8C10 `SortOccluders` (the game's qsort; occluders that hid
+    nothing in two frames dropped from the end, this frame's count cleared), 0x004D8CE0 `AddOccluders` (up to four
+    more enabled polygons a frame - counted even when the eight are full - carrying on from the last),
+    0x004D8ED0 `BuildOccluders(eye, frame)` (which side the eye is on - not a number counts as behind - picks the
+    corner order; ten inlined cross-product / normalise / distance sequences, each kept as the original rounds it:
+    SetPlane's length order (x,z,y / z,y,x), one plane with the unrounded inverse for x, the distance products in
+    z,y,x order for the polygon's own plane), 0x004D9AC0 `SphereOccluded(centre, radius, weight)` (behind all five
+    planes of an occluder: a distance that isn't a number counts as behind; the occluder credited; the object
+    transform's position added unrounded).
+  - Culling against the camera (Engine glue's "SphereVisible" 0x4B2310 jumps to the first): 0x004DB570
+    `SphereOutsideView` (int 1 / 0), 0x004DB790 `SphereInView` (bool; the object transform's position added and
+    rounded; leaves -z - radius in 0x7CA978), 0x004DB6D0 `BeyondClipDistance` (with distance clipping 0x7D643A on:
+    |view position| - radius past the far clip). Near plane 0x786CA8, far 0x786CAC, the side planes' factors
+    0x786E20-2C. D3DXVec3Transform (0x5BF19F, a dispatch thunk) stays a library call.
+  - Note for engine_glue.cpp (another range): its AddDebugShape / FlagDebugLines / ClearDebugLines are really
+    AddOcclusionPoly (type 4 = four corners) / EnableOcclusionPoly / RemoveAllOcclusionPolys.
+  Test (src/hook/selftests_appmain2.cpp, Early): TestOcclusion - four seeds of 15-18 polygons (quads at random
+  places and turns; degenerate ones; reversed; one with a corner that isn't a number; one whose differences don't fit
+  a float), 60 frames each of enabling by checksum, eyes moving (also on a polygon's plane, behind them all), 40
+  spheres a frame (some not a number, weights -2..4, the object transform on / off), SortOccluders / AddOccluders
+  called directly, RemoveAll part way; all the memory compared. TestViewCulling - exact edges first (radius - z ==
+  near, radius == a + b, == c - d, and one float either side) then 3 x 3000 random spheres through all three tests
+  with a stand-in D3DXVec3Transform, random view / clip values, the transform on / off.
+  Mutations: 34 deliberate bugs; 29 caught (24 at first, 5 after adding the NaN polygon / NaN spheres, the
+  wide-range polygon and the exact edges). The other 5 only change the order of a sum of squares or of products
+  before a float rounding (length orders, distance orders) - below float precision for any input the test could
+  find; they're kept as the original orders them.
