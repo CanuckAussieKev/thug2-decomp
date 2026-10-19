@@ -1,0 +1,116 @@
+// MERGE: 2010's night_menu.qb (2011 doesn't have it): NIGHT MENU, MODELS MENU, Morning RGB2 and the two
+// MERGE: time-of-day tests, all in the 2010 menu
+script night_menu {
+    make_new_roundbar_menu {
+        pos=(50.0, 100.0) 
+        pad_back_script=create_anteara_menu title="NIGHT MENU" 
+    } 
+    add_roundbar_menu_item text="Night (Lights) ON" pad_choose_script=kirillgta_nightON 
+    add_roundbar_menu_item text="Night (Lights) OFF" pad_choose_script=kirillgta_nightOFF 
+    add_roundbar_menu_item text="Morning RGB" pad_choose_script=morning_shadows 
+    add_roundbar_menu_item text="Morning RGB2" pad_choose_script=morning_shadows 
+    add_roundbar_menu_item text="Day RGB" pad_choose_script=day_shadows 
+    add_roundbar_menu_item text="Evening RGB" pad_choose_script=evening_shadows 
+    add_roundbar_menu_item text="Night RGB" pad_choose_script=night_shadows 
+    roundbar_menu_finish 
+} 
+script models_menu {
+    make_new_roundbar_menu {
+        pos=(255.0, 100.0) 
+        pad_back_script=create_anteara_menu title="MODELS MENU" 
+    } 
+    add_roundbar_menu_item text="THPS4 Logo" pad_choose_script=load_3d_obj_01 
+    add_roundbar_menu_item text="Secret Tape" pad_choose_script=load_3d_obj_02 
+    add_roundbar_menu_item text="Dog Food" pad_choose_script=load_3d_obj_03 
+    add_roundbar_menu_item text="Crown" pad_choose_script=load_3d_obj_04 
+    add_roundbar_menu_item text="Scavenger Coin" pad_choose_script=load_3d_obj_05 
+    add_roundbar_menu_item text="BA Boat" pad_choose_script=load_3d_obj_06 
+    add_roundbar_menu_item text="BA Tram" pad_choose_script=load_3d_obj_07 
+    roundbar_menu_finish 
+} 
+// MERGE: night_shadows is 2011's now (anteara_tod.qb; it also turns the night lights on/off)
+
+// MERGE: morning_shadows is 2011's now (anteara_tod.qb; it also turns the night lights on/off)
+
+script morning_shadows2 {
+    change state_length=90000 
+    change sun_theta=0.0 
+    change sun_phi=-1.0 
+    change sun_red=25.0 
+    change sun_green=21.0 
+    change sun_blue=17.0 
+    change lev_red=43 
+    change lev_green=62 
+    change lev_blue=71 
+    change sky_red=97 
+    change sky_green=97 
+    change sky_blue=97 
+    change fog_on=1 
+    change fog_red=75 
+    change fog_green=90 
+    change fog_blue=95 
+    change fog_alpha=0 
+    change fog_dist=2500 
+    change ambient_red=36 
+    change ambient_green=38 
+    change ambient_blue=39 
+    change ambient_mod_factor_lo=0.18 
+    change ambient_mod_factor_hi=0.0 
+    change heading_0=188 
+    change pitch_0=340 
+    change red_0=13 
+    change green_0=15 
+    change blue_0=21 
+    change mod_factor_0_lo=0.12 
+    change mod_factor_0_hi=0.0 
+    change heading_1=0 
+    change pitch_1=0 
+    change red_1=29 
+    change green_1=36 
+    change blue_1=39 
+    change mod_factor_1_lo=0.1 
+    change mod_factor_1_hi=0.0 
+    change headlights_on=0 
+    change bloom_on=1 
+    change bloom_color=[150 100 200] 
+    change bloom1=30 
+    change bloom2=100 
+    change bloom_strength=[48 64 76] 
+    change entry_script=nullscript 
+    <bla_um> = (lev_red + (lev_green * 256) + (lev_blue * 65536)) 
+    SetSceneColor color=<bla_um> level=<bla_dois> lightgroup=outdoor 
+    <bla_dois> = (sky_red + (sky_green * 256) + (sky_blue * 65536)) 
+    SetSceneColor color=<bla_um> sky=<bla_dois> lightgroup=outdoor 
+} 
+// MERGE: day_shadows is 2011's now (anteara_tod.qb; it also turns the night lights on/off)
+
+// MERGE: evening_shadows is 2011's now (anteara_tod.qb; it also turns the night lights on/off)
+
+// MERGE: kirillgta_nightON is 2011's now (anteara_tod.qb; it also turns the night lights on/off)
+
+// MERGE: kirillgta_nightOFF is 2011's now (anteara_tod.qb; it also turns the night lights on/off)
+
+script test_func {
+    exit_pause_menu 
+    morning_shadows 
+    wait 5.0 seconds 
+    day_shadows 
+    wait 5.0 seconds 
+    evening_shadows 
+    wait 5.0 seconds 
+    night_shadows 
+    wait 5.0 seconds 
+    test_func 
+} 
+script test_func3 {
+    make_new_roundbar_menu {
+        pos=(255.0, 100.0) 
+        pad_back_script=create_anteara_menu title="test MENU" 
+    } 
+    make_text_sub_menu_item text="Day" id=menu_day pad_choose_script=tod_light_set_instant pad_choose_params={tod_state=afternoon} 
+    make_text_sub_menu_item text="Morning" id=menu_morn pad_choose_script=tod_light_set_instant pad_choose_params={tod_state=morning} 
+    make_text_sub_menu_item text="Evening" id=menu_even pad_choose_script=tod_light_set_instant pad_choose_params={tod_state=evening} 
+    make_text_sub_menu_item text="Night" pad_choose_script=tod_light_set_instant pad_choose_params={tod_state=night} 
+    roundbar_menu_finish 
+} 
+__register_checksums__ models_menu morning_shadows2 night_menu test_func test_func3

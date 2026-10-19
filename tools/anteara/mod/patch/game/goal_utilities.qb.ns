@@ -1,0 +1,305 @@
+script goal_passive_start {
+    GoalManager_GetGoalParams name=<goal_id> 
+    GetCurrentLevel 
+    if ChecksumEquals a=<level> b=Load_Sk5Ed {
+        GoalManager_EditGoal name=<goal_id> params={testing_goal} 
+    } 
+    if InNetGame {
+        GoalManager_AnnounceGoalStarted name=<goal_id> 
+    } 
+    if GotParam custom_score_record {
+        GoalManager_EditGoal name=<goal_id> params={custom_score_record=0} 
+    } 
+    if GotParam edited_goal {
+        if GotParam control_type {
+            if ! ((<control_type> = Skate) or (<control_type> = Walk) or (<control_type> = WalkOnly) or (<control_type> = Mini_kart)) {
+                GoalManager_GetLevelPrefix 
+                FormatText ChecksumName=ReadyLevelScript "%l_KillVehicles" l=<level_prefix> 
+                if ScriptExists <ReadyLevelScript> {
+                    <ReadyLevelScript> 
+                } 
+            } 
+        } 
+    } 
+    if GotParam use_hud_counter {
+        goal_create_counter goal_id=<goal_id> hud_counter_caption=<hud_counter_caption> 
+    } 
+    if GotParam goal_start_script {
+        <goal_start_script> <goal_start_script_params> 
+    } 
+    <trigger_exists> = 0 
+    if GotParam trigger_obj_id {
+        if NodeExists <trigger_obj_id> {
+            <trigger_exists> = 1 
+        } 
+    } 
+    if (<trigger_exists> = 1) {
+        if GotParam kill_radius {
+            <trigger_obj_id>:Obj_SetOuterRadius <kill_radius> 
+            <trigger_obj_id>:Obj_SetException ex=ObjectOutofRadius scr=goal_crossed_kill_radius params={goal_id=<goal_id>} 
+        } 
+    } 
+} 
+script goal_deactivate {
+    GoalManager_GetGoalParams name=<goal_id> 
+    <trigger_exists> = 0 
+    if GotParam trigger_obj_id {
+        if NodeExists <trigger_obj_id> {
+            if IsAlive name=<trigger_obj_id> {
+                <trigger_exists> = 1 
+            } 
+        } 
+    } 
+    if GameModeEquals is_goal_attack {
+        KillSpawnedScript name=goal_cam_anim_play 
+        KillSpawnedScript name=goal_cam_anim_play_single_element 
+        KillSpawnedScript name=TemporarilyDisableInput 
+        KillSkaterCamAnim all 
+        restore_skater_camera 
+        speech_box_exit anchor_id=goal_description_anchor no_pad_start 
+        if ! IsObserving {
+            Skater:NetEnablePlayerInput 
+        } 
+        SetButtonEventMappings unblock_menu_input 
+        restore_start_key_binding 
+        if ! IsObserving {
+            if ! GoalManager_CanStartGoal {
+                MakeSkaterGoto OnGroundAI 
+            } 
+        } 
+        GoalManager_SetCanStartGoal 1 
+    } 
+    KillAllTextureSplats 
+    KillSpawnedScript name=goal_show_tips 
+    KillSpawnedScript name=goal_wait_and_show_key_combo_text 
+    goal_destroy_counter 
+    if GoalManager_EndRunCalled name=<goal_id> {
+        if GoalManager_StartedEndOfRun name=<goal_id> {
+            SpawnSkaterScript goal_init_after_end_of_run params={goal_id=<goal_id>} 
+        } else {
+            GoalManager_ClearEndRun name=<goal_id> 
+        } 
+    } 
+    GoalManager_StopLastStream name=<goal_id> 
+    GoalManager_UnloadLastFam name=<goal_id> 
+    if GotParam quick_start {
+        GoalManager_EditGoal name=<goal_id> params={last_start_was_quick_start=1} 
+    } else {
+        GoalManager_EditGoal name=<goal_id> params={last_start_was_quick_start=0} 
+    } 
+    if GotParam goal_intro_script {
+        KillSpawnedScript name=goal_intro_script 
+    } 
+    if GotParam goal_deactivate_script {
+        <goal_deactivate_script> <goal_deactivate_script_params> 
+    } 
+    KillSpawnedScript name=goal_description_and_speech 
+    KillSpawnedScript name=goal_wait_for_cam_anim 
+    if ScreenElementExists id=current_goal {
+        DestroyScreenElement id=current_goal 
+    } 
+    if ScreenElementExists id=current_goal_key_combo_text {
+        DestroyScreenElement id=current_goal_key_combo_text 
+    } 
+    if ObjectExists id=current_goal_description {
+        DestroyScreenElement id=current_goal_description 
+    } 
+    if ! GotParam quick_start {
+        if (<trigger_exists> = 1) {
+            if ! GotParam just_won_goal {
+                goal_pro_stop_anim_scripts <...> 
+                if GotParam trigger_wait_script {
+                    <trigger_obj_id>:Obj_SpawnScript <trigger_wait_script> params={goal_id=<goal_id> pro=<pro>} 
+                } else {
+                    <trigger_obj_id>:Obj_SpawnScript GenericProWaiting params={goal_id=<goal_id> type="wait" pro=<pro>} 
+                } 
+            } 
+        } 
+    } 
+    if GotParam control_type {
+        if ! ((<control_type> = Skate) or (<control_type> = Walk)) {
+            if GotParam exit_node {
+                ResetSkaters Node_Name=<exit_node> 
+            } else {
+                ResetSkaters Node_Name=<restart_node> 
+            } 
+            MakeSkaterGoto HandBrake 
+            if GameIsPaused {
+                Skater:Pause 
+            } 
+            if GotParam edited_goal {
+                GoalManager_GetLevelPrefix 
+                FormatText ChecksumName=ReadyLevelScript "%l_CreateVehicles" l=<level_prefix> 
+                if ScriptExists <ReadyLevelScript> {
+                    <ReadyLevelScript> 
+                } 
+            } 
+        } 
+    } 
+    if GotParam geo_prefix {
+        goal_kill_geo_prefix geo_prefix=<geo_prefix> 
+    } else {
+        if GotParam geo_prefixes {
+            GetArraySize <geo_prefixes> 
+            <index> = 0 
+            while {
+                goal_kill_geo_prefix geo_prefix=(<geo_prefixes> [<index>]) 
+                <index> = (<index> + 1) 
+            } <array_size> 
+        } 
+    } 
+    if GotParam trigger_prefix {
+        kill prefix=<trigger_prefix> 
+    } 
+    if ! GotParam quick_start {
+        if (<trigger_exists> = 1) {
+            <trigger_obj_id>:Obj_Visible 
+        } 
+        GoalManager_ShowGoalPoints 
+        if ! IsTrue ALWAYSPLAYMUSIC {
+            if ! goalmanager_haswongoal name=<goal_id> {
+                PauseMusic 1 
+            } 
+        } 
+    } 
+    if (<trigger_exists> = 1) {
+        if ! GotParam just_won_goal {
+            if ! GotParam quick_start {
+                if ! goalmanager_haswongoal name=<goal_id> {
+                    goal_add_ped_arrow goal_id=<goal_id> 
+                } 
+            } 
+        } 
+    } 
+    if goalmanager_haswongoal name=<goal_id> {
+        if ! GotParam quick_start {
+            if GotParam just_won_goal {
+            } else {
+                GoalManager_UninitializeGoal name=<goal_id> 
+            } 
+        } 
+    } 
+    if (<control_type> = Mini_kart) {
+        anteara_board 
+    } 
+    if (<control_type> = WalkOnly) {
+        Skater:ReturnBoardToSkater 
+    } 
+} 
+script goal_initialize_skater {
+    Skater:RunStarted 
+    if ! GotParam control_type {
+        NonVehicleControlType = 1 
+    } else {
+        if ((<control_type> = Skate) or (<control_type> = Walk) or (<control_type> = WalkOnly) or (<control_type> = Mini_kart) or (<control_type> = mechbull) or (<control_type> = wheelchair) or (<control_type> = Tricycle) or (<control_type> = Segway)) {
+            NonVehicleControlType = 1 
+        } 
+    } 
+    if GotParam NonVehicleControlType {
+        switch <control_type>
+            case WalkOnly {
+                Skater:TakeBoardFromSkater 
+                if GotParam restart_node {
+                    ResetSkaters Node_Name=<restart_node> RestartWalking 
+                } 
+            }
+            case Walk {
+                if GotParam restart_node {
+                    ResetSkaters Node_Name=<restart_node> RestartWalking 
+                } 
+            }
+            case Skate {
+                if GotParam restart_node {
+                    ResetSkaters Node_Name=<restart_node> 
+                } 
+                if GotParam start_skater_standing {
+                    MakeSkaterGoto HandBrake 
+                } 
+            }
+            case Segway {
+                if GotParam restart_node {
+                    ResetSkaters Node_Name=<restart_node> 
+                } 
+                if GotParam start_skater_standing {
+                    MakeSkaterGoto HandBrake 
+                } 
+                anteara_scooter 
+            }
+            case Tricycle {
+                if GotParam restart_node {
+                    ResetSkaters Node_Name=<restart_node> 
+                } 
+                if GotParam start_skater_standing {
+                    MakeSkaterGoto HandBrake 
+                } 
+                anteara_tricycle 
+            }
+            case wheelchair {
+                if GotParam restart_node {
+                    ResetSkaters Node_Name=<restart_node> 
+                } 
+                if GotParam start_skater_standing {
+                    MakeSkaterGoto HandBrake 
+                } 
+                anteara_chair 
+            }
+            case mechbull {
+                if GotParam restart_node {
+                    ResetSkaters Node_Name=<restart_node> 
+                } 
+                if GotParam start_skater_standing {
+                    MakeSkaterGoto HandBrake 
+                } 
+                anteara_bull 
+            }
+            case Mini_kart {
+                if GotParam restart_node {
+                    ResetSkaters Node_Name=<restart_node> 
+                } 
+                if GotParam start_skater_standing {
+                    MakeSkaterGoto HandBrake 
+                } 
+                Anteara_Minikart 
+            }
+            default {
+                if GotParam restart_node {
+                    ResetSkaters Node_Name=<restart_node> 
+                } 
+                if GotParam start_skater_standing {
+                    MakeSkaterGoto HandBrake 
+                } 
+            }
+        endswitch        
+    } else {
+        GetVehicleSetup control_type=<control_type> 
+        LoadExtraVehicleSounds 
+        if ! GotParam Exitable {
+            if GotParam edited_goal {
+                MakeSkaterGoto Switch_OnGroundAI params={NewScript=TransAm VehicleSetup=<VehicleSetup> edited_goal} 
+            } else {
+                Skater:Obj_GetOrientation 
+                Skater:Obj_GetPosition 
+                MakeSkaterGoto Switch_OnGroundAI params={NewScript=TransAm VehicleSetup=<VehicleSetup>} 
+            } 
+        } else {
+            if GotParam edited_goal {
+                MakeSkaterGoto Switch_OnGroundAI params={NewScript=TransAm VehicleSetup=<VehicleSetup> Exitable edited_goal} 
+            } else {
+                Skater:GetHeading 
+                Skater:Obj_GetPosition 
+                MakeSkaterGoto Switch_OnGroundAI params={NewScript=TransAm VehicleSetup=<VehicleSetup>} 
+            } 
+        } 
+        if GotParam restart_node {
+            PlayerVehicle:Vehicle_MoveToRestart <restart_node> 
+        } 
+        PlayerVehicleCamera:VehicleCamera_Reset 
+        SetActiveCamera id=PlayerVehicleCamera 
+        if GotParam edited_goal {
+            PlayerVehicle:Vehicle_Wake 
+        } 
+        if GotParam goal_id {
+            GoalManager_SetEndRunType name=<goal_id> None 
+        } 
+    } 
+} 

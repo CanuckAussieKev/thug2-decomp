@@ -1,0 +1,103 @@
+script generate_control_name {
+    switch <control_type>
+        case junkercar {
+            return control_text="Muscle Car" 
+        }
+        case RallyCar {
+            return control_text="Rally Car" 
+        }
+        case ImpalaCar {
+            return control_text="Trashed Car" 
+        }
+        case TaxiCar {
+            return control_text="Taxi Car" 
+        }
+        case PoliceCar {
+            return control_text="Police Car" 
+        }
+        case ElCaminoCar {
+            return control_text="Surfer Car" 
+        }
+        case LadaCar {
+            return control_text="Russian Car" 
+        }
+        case MiniBajaCar {
+            return control_text="Mini Baja Car" 
+        }
+        case LimoCar {
+            return control_text="Limousine" 
+        }
+        case Forklift {
+            return control_text="Forklift" 
+        }
+        case walk {
+            return control_text="Walk" 
+        }
+        case skate {
+            return control_text="Skate" 
+        }
+        case walkOnly {
+            return control_text="Walk Only" 
+        }
+        case SecurityCart {
+            return control_text="Security Cart" 
+        }
+        case GardnersCart {
+            return control_text="Gardener's Cart" 
+        }
+        case Blimp {
+            return control_text="Blimp" 
+        }
+        case BusUK {
+            return control_text="Bus UK" 
+        }
+        case RCCar {
+            return control_text="RC Car" 
+        }
+        case TaurusCar {
+            return control_text="Taurus" 
+        }
+        case pickuptruck {
+            return control_text="Pickup Truck" 
+        }
+        case wranglercar {
+            return control_text="Jeep Wrangler" 
+        }
+        case sportscar {
+            return control_text="Sports Car" 
+        }
+        case mini_kart {
+            return control_text="Go Kart" 
+        }
+        default {
+            return control_text="Update goal_editor_menu.q !!" 
+        }
+    endswitch    
+} 
+control_types_Sk5Ed = [skate skate walk RallyCar junkercar ImpalaCar PoliceCar SecurityCart GardnersCart ElCaminoCar LadaCar MiniBajaCar LimoCar Forklift BusUK RCCar TaurusCar wranglercar pickuptruck sportscar mini_kart] 
+script goal_update_control {dir = 1 
+    GoalEditor:GetCurrentEditedGoalInfo 
+    control_types = control_types_Sk5Ed 
+    GetArraySize <control_types> 
+    i = 0 
+    while {
+        if ChecksumEquals a=(<control_types> [<i>]) b=<control_type> {
+            break 
+        } 
+        i = (<i> + 1) 
+    } <array_size> 
+    if ! (<i> < <array_size>) {
+        printf "Control type %s not found in list of available types!" s=<control_type> 
+        return 
+    } 
+    i = (<i> + <dir>) 
+    if ! (<i> < <array_size>) {
+        i = 0 
+    } 
+    if (<i> < 0) {
+        i = (<array_size> -1) 
+    } 
+    control_type = (<control_types> [<i>]) 
+    GoalEditor:SetGoalControlType <control_type> 
+    update_control_text control_type=<control_type> 
+} 

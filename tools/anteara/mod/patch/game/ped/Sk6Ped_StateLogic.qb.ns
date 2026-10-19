@@ -1,0 +1,34 @@
+// MERGE: 2010 - 2010: a disgusted ped gives chase
+script STATECONTROL_disgust {
+    ped_initialize_projectile_exceptions 
+    GetSingleTag should_look_at_skater 
+    if (<should_look_at_skater> = 1) {
+        ped_rotate_to_skater_from_idle 
+    } 
+    ped_play_disgust_anim 
+    ped_initialize_movement 
+    Ped_SetLogicState STATE_chase Table=Ped_StateLogic_Table 
+    goto ped_return_to_precollision_state 
+} 
+// MERGE: 2010 - the pedestrian knock-down: knocks the skater down, counts and shows a message
+// MERGE: (the counter's name, ped_chase_count, was also stored byte-reversed in 2010: #a3c76f73)
+ped_chase_count = 0 
+script STATECONTROL_chasecatch {
+    ped_play_attack_anim no_block 
+    MakeSkaterGoto PedKnockDown params={SetVelDir=<VelDir> SetVelSpeed=700} 
+    ped_chase_count (<ped_chase_count> + 1) 
+    printf "I gotcha!" 
+    // MERGE: FIX (never worked in the original) - 2010 compiled FormatText, TextName, text,
+    // create_console_message, rgba and wait_and_die in these two lines byte-reversed, so neither call ran.
+    // As written, the line above calls ped_chase_count instead of changing it (the count stays 0)
+    FormatText TextName=text "You suck!\\n%a Knock dows? " a=<ped_chase_count> 
+    create_console_message text=<text> rgba=[45 45 128 100] wait_and_die=1 time=3 
+    Wait 3 seconds 
+    Ped_SetLogicState STATE_DEFAULT 
+    if GetSingleTag CatchScript {
+        goto <CatchScript> 
+    } else {
+        Wait 3 seconds 
+        Ped_SetLogicState STATE_gohome 
+    } 
+} 

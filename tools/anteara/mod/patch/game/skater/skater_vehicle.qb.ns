@@ -1,0 +1,320 @@
+Anteara_Is_In_Story_Vehicle = 0 
+script Vehicle_Start {
+    change Anteara_Is_In_Story_Vehicle=1 
+    // MERGE: slalom_params added back to the list (as in retail) for the 2010 slalom
+    skater:RemoveTags tags=[gurney_params segway_params tricycle_params wheelchair_params minikart_params mechbull_params luge_params riskblade_params wings_params slalom_params] 
+    skater:SetTags {<params> InAirTrick=0} 
+    MakeSkaterGoto Vehicle_Start2 
+} 
+script vehicle_land2 {RevertTime = 5 
+    if LandedFromVert {
+        if (<allow_vert> = 0) {
+            Goto Vehicle_Bail 
+        } 
+        OverrideCancelGround 
+        Obj_ClearFlag FLAG_SKATER_MANUALCHEESE 
+        if gotparam revert_trick {
+            GetSpeed 
+            if (<speed> > 250) {
+                SetExtraTricks_Reverts Duration=<RevertTime> 
+            } 
+        } 
+    } else {
+        if gotparam canmanual {
+            DoNextManualTrick 
+        } 
+    } 
+    OnExceptionRun LandSkaterTricks 
+    SetException Ex=Ollied Scr=Vehicle_Ollie 
+    SetException Ex=RunHasEnded Scr=EndOfRun 
+    SetException Ex=GoalHasEnded Scr=Goal_EndOfRun 
+    GetTags 
+    if gotparam land_sound {
+        PlaySound <land_sound> vol=150 pitch=random { 1 { 95 } 1 { 98 } 1 { 100 } 1 { 103 } 1 { 105 } } 
+    } 
+    if gotparam soft_land_anim {
+        if AirTimeGreaterThan 1 seconds {
+            PlayAnim Anim=<land_anim> Blendperiod=0.1 
+        } else {
+            if AirTimeGreaterThan 0.1 seconds {
+                PlayAnim Anim=<soft_land_anim> Blendperiod=0.1 
+            } 
+        } 
+    } else {
+        PlayAnim Anim=<land_anim> Blendperiod=0.1 
+    } 
+    GetTags 
+    if (<racemode> = gurney) {
+        if SkaterSpeedGreaterThan 0 {
+            if ! IsSoundPlaying ShoppingCartLoop {
+                if (LevelIs load_bo) {
+                    printf "vehicle_land2 - Quickly Stopping then starting shoppingcartloop sound" 
+                    skater:Obj_StopSound ShoppingCartLoop 
+                    skater:Obj_PlaySound ShoppingCartLoop 
+                    SetSoundParams ShoppingCartLoop vol=0 pitch=0 
+                } 
+            } 
+        } 
+    } 
+    if gotparam spin_time {
+        wait <spin_time> seconds 
+        CancelRotateDisplay 
+    } 
+    if gotparam revert_trick {
+        if LandedFromVert {
+            ResetLandedFromVert 
+            while {
+                wait 1 gameframe 
+            } <RevertTime> 
+        } else {
+            while {
+                DoNextManualTrick FromAir 
+                wait 1 gameframe 
+            } 10 
+        } 
+    } 
+    LandSkaterTricks 
+    if GameModeEquals is_career {
+        if (<racemode> = Wheelchair) {
+            Paulie_TalkShit 
+        } 
+    } 
+    Obj_WaitAnimFinished 
+    Goto Vehicle_OnGround 
+} 
+gurney_params = {
+    struct=gurney_params 
+    racemode=gurney 
+    startspeed=0 
+    turn_friction=4 
+    canbrake=1 
+    autokick=1 
+    board=1 
+    trick_score=100 
+    allow_vert=1 
+    allow_backwards=0 
+    canmanual=1 
+    canwallplant=1 
+    BonelessHeight=1 
+    cangrind=1 
+    only_idle_when_stopped=1 
+    bailspeed=100 
+    blend_turn_anims=1 
+    trick_name=%"Gurney Air" 
+    trick_score=100 
+    trick_name2=%"Kidding With Patient" 
+    trick_score2=50 
+    manual_trick=%"Heart Massage" 
+    manual_Score=50 
+    revert_trick=%"Die!" 
+    start_script=gurney_start_script 
+    onground_script=veh_OnGroundAI 
+    bail_script=tricycle_bail 
+    idle_anim=Gurney_stand_idle 
+    crouch_anim=Gurney_Run 
+    left_anim=Gurney_Run_TurnLeft 
+    right_anim=Gurney_Run_TurnRight 
+    leftidle_anim=Gurney_Run_TurnLeft 
+    rightidle_anim=Gurney_Run_TurnRight 
+    crouch_left_anim=Gurney_Run_TurnLeft 
+    crouch_right_anim=Gurney_Run_TurnRight 
+    crouch_leftidle_anim=Gurney_Run_TurnLeft 
+    crouch_rightidle_anim=Gurney_Run_TurnRight 
+    flail_anim=Gurney_Bump 
+    ollie_anim=Gurney_Ollie 
+    air_idle_anim=Gurney_AirIdle 
+    land_anim=Gurney_Land 
+    grind_init_anim=gurney_grind_init 
+    grind_idle_anim=gurney_grind_range 
+    grind_Out_Anim=gurney_grind_out 
+    manual_init_anim=veh_bull_wheelie_init 
+    manual_balance_anim=veh_bull_wheelie_range 
+    accel_anim=Gurney_Stand_To_Run 
+    brake_anim=Gurney_stop 
+    air_trick_init=Segway_Trick1_Init 
+    air_trick_idle=Segway_Trick1_Idle 
+    air_trick_out=Segway_Trick1_Out 
+    air_trick2=Segway_FlipTrick1 
+    wallplant_anim=Segway_FlipTrick1 
+    soundstruct=BO_Gurney 
+    bail_sound=ShoppingCartBail 
+    land_sound=ShoppingCartLand 
+} 
+script gurney_start_script {
+    if GameModeEquals is_career {
+        kill name=gurney 
+        BO_AllParticlesOff 
+        skater:AddGeom name=vehicle model="models\\veh\\veh_gurney\\veh_gurney.skin" 
+        skater:SwitchOffAtomic board 
+        kill name=TRG_Ped_Sick_Kid 
+        kill name=TRG_Gurney_Ghost 
+        create name=TRG_Ped_Sick_Kid 
+        TRG_Ped_Sick_Kid:Obj_LockToObject ObjectName=skater (0.0, 7.0, 5.0) 
+        spawnscript gurney_play_appropriate_sick_kid_anims 
+        TRG_Ped_Sick_Kid:SwitchOffBoard 
+    } 
+} 
+luge_params = {
+    struct=luge_params 
+    racemode=luge 
+    startspeed=600 
+    turn_friction=4 
+    accelerate_to=800 
+    acceleration=10.0 
+    canbrake=1 
+    autokick=1 
+    board=1 
+    allow_vert=1 
+    allow_backwards=0 
+    cangrind=1 
+    auto_correct_direction=1 
+    jump_name=%"Luge Hop" 
+    jump_score=100 
+    grind_trick="Luge Grind" 
+    grind_score=100 
+    start_script=luge_start_script 
+    onground_script=veh_OnGroundAI 
+    bail_script=luge_bail_script 
+    idle_anim=CoffinGrind_Range 
+    crouch_anim=CoffinGrind_Range 
+    left_anim=CoffinGrind_Range 
+    right_anim=CoffinGrind_Range 
+    leftidle_anim=CoffinGrind_Range 
+    rightidle_anim=CoffinGrind_Range 
+    crouch_left_anim=CoffinGrind_Range 
+    crouch_right_anim=CoffinGrind_Range 
+    crouch_leftidle_anim=CoffinGrind_Range 
+    crouch_rightidle_anim=CoffinGrind_Range 
+    flail_anim=CoffinGrind_Range 
+    ollie_anim=CoffinGrind_Range 
+    air_idle_anim=CoffinGrind_Range 
+    land_anim=CoffinGrind_Init 
+    accel_anim=CoffinGrind_Range 
+    brake_anim=CoffinGrind_Range 
+    revert_anim=CoffinGrind_Range 
+    air_trick_init=CoffinGrind_Range 
+    air_trick_idle=CoffinGrind_Range 
+    air_trick_out=CoffinGrind_Range 
+    air_trick2=CoffinGrind_Range 
+    wallplant_anim=CoffinGrind_Range 
+    wheel_anim=CoffinGrind_Range 
+} 
+script luge_start_script {
+    PlayAnim Anim=CoffinGrind_Init 
+    Obj_WaitAnimFinished 
+} 
+script luge_bail_script {
+    if NotInBail {
+        Vehicle_Start params=luge_params 
+    } 
+} 
+riskblade_params = {
+    struct=riskblade_params 
+    racemode=riskblade 
+    startspeed=600 
+    turn_friction=4 
+    accelerate_to=800 
+    acceleration=10.0 
+    canbrake=1 
+    autokick=1 
+    board=1 
+    allow_vert=1 
+    allow_backwards=0 
+    cangrind=1 
+    auto_correct_direction=1 
+    jump_name=%"Jump" 
+    jump_score=100 
+    grind_trick="Slide" 
+    grind_score=100 
+    trick_name=%"Doll" 
+    trick_score=100 
+    trick_name2=%"Skatewalk" 
+    trick_score2=50 
+    revert_trick=%"Revert" 
+    manual_trick=%"BackSide" 
+    manual_Score=50 
+    onground_script=veh_OnGroundAI 
+    idle_anim=Ped_RollerBlader_SkateCycle 
+    crouch_anim=Ped_RollerBlader_SkateCycle 
+    left_anim=Ped_RollerBlader_SkateCycle 
+    right_anim=Ped_RollerBlader_SkateCycle 
+    leftidle_anim=Ped_RollerBlader_SkateCycle 
+    rightidle_anim=Ped_RollerBlader_SkateCycle 
+    crouch_left_anim=Ped_RollerBlader_SkateCycle 
+    crouch_right_anim=Ped_RollerBlader_SkateCycle 
+    crouch_leftidle_anim=Ped_RollerBlader_SkateCycle 
+    crouch_rightidle_anim=Ped_RollerBlader_SkateCycle 
+    grind_init_anim=Ped_RollerBlader_HipPrance 
+    grind_idle_anim=Ped_RollerBlader_HipPrance 
+    grind_Out_Anim=Ped_RollerBlader_HipPrance 
+    flail_anim=Gurney_Bump 
+    ollie_anim=Gurney_Ollie 
+    air_idle_anim=Gurney_Bump 
+    land_anim=Ped_RollerBlader_HipPrance 
+    accel_anim=Ped_RollerBlader_SkateCycle 
+    brake_anim=Ped_RollerBlader_BackSkate 
+    revert_anim=RevertFS 
+    air_trick_init=wheelchair_airtrick_init 
+    air_trick_idle=wheelchair_airtrick_idle 
+    air_trick_out=wheelchair_airtrick_out 
+    air_trick2=OllieAirWalk 
+    manual_init_anim=Ped_RollerBlader_BackSkate 
+    manual_balance_anim=Ped_RollerBlader_BackSkate 
+    wallplant_anim=Ped_RollerBlader_SkateCycle 
+} 
+wings_params = {
+    struct=wings_params 
+    racemode=wings 
+    startspeed=0 
+    turn_friction=0 
+    canbrake=1 
+    autokick=1 
+    board=1 
+    allow_vert=1 
+    allow_backwards=1 
+    cangrind=1 
+    auto_correct_direction=1 
+    canwallplant=1 
+    allow_vert=1 
+    allow_backwards=1 
+    BonelessHeight=1 
+    dont_bail=1 
+    jump_name=%"Airswing" 
+    jump_score=30 
+    grind_trick="Over The Rail" 
+    grind_score=20 
+    trick_name=%"" 
+    trick_score=0 
+    trick_name2=%"" 
+    trick_score2=0 
+    start_script=segway_start_script 
+    onground_script=veh_OnGroundAI 
+    bail_script=segway_bail_script 
+    idle_anim=PED_Imp_Fly 
+    crouch_anim=PED_Imp_Fly 
+    left_anim=PED_Imp_Fly 
+    right_anim=PED_Imp_Fly 
+    leftidle_anim=PED_Imp_Fly 
+    rightidle_anim=PED_Imp_Fly 
+    crouch_left_anim=PED_Imp_Fly 
+    crouch_right_anim=PED_Imp_Fly 
+    crouch_leftidle_anim=PED_Imp_Fly 
+    crouch_rightidle_anim=PED_Imp_Fly 
+    flail_anim=PED_Imp_idle 
+    ollie_anim=PED_Imp_Idle2Fly 
+    air_idle_anim=PED_Imp_Fly 
+    land_anim=PED_Imp_Fly2Idle 
+    accel_anim=PED_Imp_idle 
+    brake_anim=PED_Imp_Fly2Idle 
+    revert_anim=tricycle_revert 
+    air_trick_init=PED_Imp_Idle2Fly 
+    air_trick_idle=PED_Imp_Idle2Fly 
+    air_trick_out=PED_Imp_Idle2Fly 
+    air_trick2=PED_Imp_Idle2Fly 
+    wallplant_anim=PED_Imp_Idle2Fly 
+    wheel_anim=Segway_wheels_partial 
+    soundstruct=BO_Segway 
+    ollie_sound=SK6_BO_JesseRide_Jump 
+    land_sound=SK6_BO_JesseRide_Land 
+    grind_sound=SK6_BO_JesseRide_Grind 
+} 

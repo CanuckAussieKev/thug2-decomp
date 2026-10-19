@@ -1,0 +1,81 @@
+
+script anteara_parked_setup_main_menu {
+    SetParkEditorPauseMode pause 
+    ParkUpdateUsageInfo 
+    dialog_box_exit no_pad_start 
+    destroy_onscreen_keyboard 
+    make_new_roundbar_menu {
+        menu_id=pause_menu 
+        vmenu_id=pause_vmenu 
+        pad_back_script=parked_continue_editing 
+        pos=(200.0, 60.0) 
+        dims=(300.0, 480.0) 
+        internal_text_just=right 
+        add_3d_bg 
+    } 
+    kill_start_key_binding 
+    do_localized_pause_title pos=(500.0, 60.0) 
+    create_helper_text generic_helper_text 
+    add_roundbar_menu_item text="CONTINUE" id=menu_continue pad_choose_script=parked_continue_editing 
+    add_roundbar_menu_item text="TEST PLAY" id=menu_test_park pad_choose_script=parked_test_play 
+    add_roundbar_menu_item text="CREATE A GOAL" id=menu_create_a_goal pad_choose_script=parked_create_a_goal 
+    add_roundbar_menu_item text="SWITCH THEME" id=menu_switch_theme pad_choose_script=parked_setup_switch_theme_menu 
+    add_roundbar_menu_item text="TIME OF DAY" id=menu_tod pad_choose_script=parked_setup_tod_menu not_focusable 
+    add_roundbar_menu_item text="RESIZE PARK" id=menu_resize_park pad_choose_script=parked_setup_new_resize_screen 
+    add_roundbar_menu_item text="NUKE PARK" id=menu_clear_park pad_choose_script=menu_confirm_quit pad_choose_params={yes_script=parked_clear_park title="CLEAR PARK?"} 
+    add_roundbar_menu_item text="SET MAX PLAYERS" id=menu_set_max_players pad_choose_script=parked_setup_max_players_menu 
+    if ! IsTrue Bootstrap_Build {
+        add_roundbar_menu_item text="SAVE PARK" id=menu_save_park_mem pad_choose_script=launch_pause_menu_save_park_sequence 
+        add_roundbar_menu_item text="LOAD PARK" id=menu_load_park_mem pad_choose_script=parked_confirm_load_park 
+        if ! CD {
+            add_roundbar_menu_item text="SAVE PRE-MADE PARK" id=menu_save_park pad_choose_script=parked_setup_disk_save_menu 
+        } 
+        add_roundbar_menu_item text="LOAD PRE-MADE PARK" id=menu_load_park pad_choose_script=parked_confirm_disk_load_park 
+    } 
+    if ! CD {
+        add_roundbar_menu_item text="PARK-ED DEBUG MENU" id=menu_ParkEd_debug pad_choose_script=parked_setup_debug_menu 
+    } 
+    add_roundbar_menu_item text="QUIT" id=menu_skateshop pad_choose_script=parked_quit_chosen 
+    roundbar_menu_finish 
+} 
+script anteara_parked_setup_test_play_menu {
+    SetParkEditorPauseMode pause 
+    make_new_roundbar_menu {
+        menu_id=pause_menu 
+        vmenu_id=pause_vmenu 
+        pad_back_script=parked_continue_test_play 
+        pos=(260.0, 100.0) 
+        dims=(220.0, 480.0) 
+        internal_text_just=right 
+        add_3d_bg 
+    } 
+    do_localized_pause_title pos=(480.0, 100.0) 
+    kill_start_key_binding 
+    create_helper_text generic_helper_text 
+    if Skater:Driving {
+        add_roundbar_menu_item text="EXIT VEHICLE" id=menu_ditch_vehicle pad_choose_script=Anteara_Easy_ExitVehicle 
+    } 
+    add_roundbar_menu_item text="CONTINUE" id=menu_continue pad_choose_script=parked_continue_test_play 
+    if GoalManager_CanRetryGoal {
+        if GoalManager_GetLastGoalId {
+            if ! GoalManager_HasWonGoal name=<goal_id> {
+                add_roundbar_menu_item text="RETRY LAST GOAL" id=menu_retry_goal pad_choose_script=menu_select pad_choose_params={stop_streams menu_select_script=RetryCurrentGoal} 
+            } 
+        } 
+    } 
+    if GoalManager_HasActiveGoals {
+        add_roundbar_menu_item text="END CURRENT GOAL" id=menu_end_current_goal pad_choose_script=menu_select pad_choose_params={menu_select_script=end_current_goal_run} 
+    } 
+    add_roundbar_menu_item text="VIEW GOALS" id=menu_view_goals pad_choose_script=view_created_goals_menu_create 
+    add_roundbar_menu_item text="ANTEARA MENU" id=menu_anteara pad_choose_script=create_anteara_menu 
+    add_roundbar_menu_item text="GOTO RESTART" id=menu_skip_to_restart pad_choose_script=generic_menu_pad_choose pad_choose_params={callback=launch_restart_menu} 
+    add_roundbar_menu_item text="VIEW GAPS" id=menu_skip_to_gap pad_choose_script=launch_gap_menu 
+    add_roundbar_menu_item text="SOUND OPTIONS" id=menu_sound_options pad_choose_script=launch_sound_options_menu pad_choose_params={from_parked} 
+    add_roundbar_menu_item text="BACK TO EDITOR" id=menu_skateshop pad_choose_script=anteara_parked_test_play_back_to_editor 
+    roundbar_menu_finish 
+} 
+script anteara_parked_test_play_back_to_editor {
+    anteara_board 
+    ParkEd_exit_testplay 
+} 
+__register_checksums__ anteara_parked_setup_main_menu SetParkEditorPauseMode pause ParkUpdateUsageInfo dialog_box_exit no_pad_start destroy_onscreen_keyboard make_new_roundbar_menu menu_id pause_menu vmenu_id pause_vmenu pad_back_script parked_continue_editing pos dims internal_text_just right add_3d_bg kill_start_key_binding do_localized_pause_title pos create_helper_text generic_helper_text add_roundbar_menu_item text id menu_continue pad_choose_script parked_continue_editing add_roundbar_menu_item text id menu_test_park pad_choose_script parked_test_play add_roundbar_menu_item text id menu_create_a_goal pad_choose_script parked_create_a_goal add_roundbar_menu_item text id menu_switch_theme pad_choose_script parked_setup_switch_theme_menu add_roundbar_menu_item text id menu_tod pad_choose_script parked_setup_tod_menu add_roundbar_menu_item text id menu_resize_park pad_choose_script parked_setup_new_resize_screen add_roundbar_menu_item text id menu_clear_park pad_choose_script menu_confirm_quit pad_choose_params yes_script parked_clear_park title add_roundbar_menu_item text id menu_set_max_players pad_choose_script parked_setup_max_players_menu IsTrue Bootstrap_Build add_roundbar_menu_item text id menu_save_park_mem pad_choose_script launch_pause_menu_save_park_sequence add_roundbar_menu_item text id menu_load_park_mem pad_choose_script parked_confirm_load_park CD add_roundbar_menu_item text id menu_save_park pad_choose_script parked_setup_disk_save_menu add_roundbar_menu_item text id menu_load_park pad_choose_script parked_confirm_disk_load_park CD add_roundbar_menu_item text id menu_ParkEd_debug pad_choose_script parked_setup_debug_menu add_roundbar_menu_item text id menu_skateshop pad_choose_script parked_quit_chosen roundbar_menu_finish anteara_parked_setup_test_play_menu SetParkEditorPauseMode pause make_new_roundbar_menu menu_id pause_menu vmenu_id pause_vmenu pad_back_script parked_continue_test_play pos dims internal_text_just right add_3d_bg do_localized_pause_title pos kill_start_key_binding create_helper_text generic_helper_text add_roundbar_menu_item text id menu_continue pad_choose_script parked_continue_test_play GoalManager_CanRetryGoal GoalManager_GetLastGoalId GoalManager_HasWonGoal name goal_id add_roundbar_menu_item text id menu_retry_goal pad_choose_script menu_select pad_choose_params stop_streams menu_select_script RetryCurrentGoal GoalManager_HasActiveGoals add_roundbar_menu_item text id menu_end_current_goal pad_choose_script menu_select pad_choose_params menu_select_script end_current_goal_run add_roundbar_menu_item text id menu_view_goals pad_choose_script view_created_goals_menu_create add_roundbar_menu_item text id menu_anteara pad_choose_script create_anteara_menu add_roundbar_menu_item text id menu_skip_to_restart pad_choose_script generic_menu_pad_choose pad_choose_params callback launch_restart_menu add_roundbar_menu_item text id menu_skip_to_gap pad_choose_script launch_gap_menu add_roundbar_menu_item text id menu_sound_options pad_choose_script launch_sound_options_menu pad_choose_params from_parked add_roundbar_menu_item text id menu_skateshop pad_choose_script parked_test_play_back_to_editor roundbar_menu_finish anteara_parked_exit_test_play GoalManager_DeactivateAllGoals HideSkaterAndMiscSkaterEffects ResetScore ResetScorePot Skater Vibrate off destroy_goal_panel_messages all SetParkEditorState state edit SetParkEditorPauseMode unpause dialog_box_exit exit_pause_menu end_current_goal_run SwitchToParkEditorCamera speech_box_exit script_change_tod tod_action set_tod_rainoff script_change_tod tod_action set_tod_day anteara_parked_test_play_back_to_editor destroy_goal_panel_messages root_window GetTags GotParam pause_controller pause_controller device_num menu_confirm_quit yes_script anteara_parked_exit_test_play anteara_parked_test_play anteara_parked_set_tod GetParkEditorTimeOfDayScript tod_script tod_script anteara_parked_test_play SwitchOffRailEditor test_play command build_floor DisassociateFromObject ResetLevel ResetSkaters SetViewMode spawnscript anteara_post_parked_test_play NotSessionSpecific anteara_post_parked_test_play InitialiseCreatedGoals create_menu_camera GoalManager_InitializeAllGoals MakeSkaterGoto SkaterInit anteara_parked_set_tod anteara_parked_setup_tod_menu ObjectExists current_menu_anchor DestroyScreenElement current_menu_anchor FormatText ChecksumName title_icon i THEME_PREFIXES current_theme_prefix make_new_themed_sub_menu title_icon title_icon SetScreenElementProps sub_menu event_handlers pad_back generic_menu_pad_back params create_pause_menu theme_menu_add_item tod_day anteara_parked_change_tod centered theme_menu_add_item tod_morn anteara_parked_change_tod set_tod_morning centered theme_menu_add_item tod_even anteara_parked_change_tod set_tod_evening centered theme_menu_add_item tod_night anteara_parked_change_tod set_tod_night centered last_menu_item finish_themed_sub_menu anteara_parked_change_tod SetParkEditorTimeOfDay antera_post_parked_test_play not_focusable Driving Anteara_Easy_ExitVehicle anteara_board ParkEd_exit_testplay menu_ditch_vehicle

@@ -1,0 +1,143 @@
+script SK3_KillSkater {
+    if ! GetGlobalFlag flag=FREEMAN_BOUND {
+        if Obj_FlagNotSet FLAG_SKATER_KILLING {
+            Obj_SetFlag FLAG_SKATER_KILLING 
+            InBail 
+            if GotParam DeathSound {
+                PlaySound <DeathSound> 
+            } else {
+                PlaySound BailBodyPunch01_11 
+                PlaySound BailSlap01 
+                PlaySound BailBodyFall01 
+            } 
+            if ! GotParam NoMessage {
+                if ! GetGlobalFlag flag=NO_DISPLAY_HUD {
+                    if ! InSplitScreenGame {
+                        if GotParam Message1 {
+                            Create_Panel_Message {
+                                style=panel_message_death 
+                                id=death_message 
+                                text=random {
+1 { <Message1> 
+ } 1 { <message2> 
+ } 1 { <message3> 
+ } 1 { <message4> 
+ } } 
+                            } 
+                        } else {
+                            if Driving {
+                                Create_Panel_Message {
+                                    style=panel_message_death 
+                                    id=death_message 
+                                    text=random {
+1 { "Don't drink and drive!" 
+ } 1 { "Learn to drive!" 
+ } 2 { "Out of bounds!" 
+ } } 
+                                } 
+                            } else {
+                                Create_Panel_Message {
+                                    style=panel_message_death 
+                                    id=death_message 
+                                    text=random {
+1 { "Oops!" 
+ } 1 { "What the fuck are you doing here?" 
+ } 1 { "Noob" 
+ } 1 { "Apparently it's hard..." 
+ } 1 { "Hey. Hey. Hey. Hey. You suck. " 
+ } 1 { "You suck like ProSkater!" 
+ } 1 { "lol" 
+ } 1 { "-.-" 
+ } 1 { "THUG2 isn't hard..." 
+ } 4 { ".......!" 
+ } } 
+                                } 
+                            } 
+                        } 
+                    } 
+                } 
+            } 
+            SK3_Killskater_Finish <...> 
+        } 
+    } 
+} 
+script SK3_KillSkater_Water {
+    if ! GetGlobalFlag flag=FREEMAN_BOUND {
+        if Obj_FlagNotSet FLAG_SKATER_KILLING {
+            Obj_SetFlag FLAG_SKATER_KILLING 
+            if GotParam DeathSound {
+                PlaySound <DeathSound> 
+            } else {
+                PlaySound FallWater 
+            } 
+            if ! InSplitScreenGame {
+                if ! GetGlobalFlag flag=NO_DISPLAY_HUD {
+                    if GotParam Message1 {
+                        Create_Panel_Message {
+                            style=panel_message_death 
+                            id=death_message 
+                            text=random {
+1 { <Message1> 
+ } 1 { <message2> 
+ } 1 { <message3> 
+ } 1 { <message4> 
+ } } 
+                        } 
+                    } else {
+                        Create_Panel_Message {
+                            style=panel_message_death 
+                            id=death_message 
+                            text=random {
+1 { "All wet" 
+ } 1 { "You big drip!" 
+ } 1 { "WATER... BAAAD!" 
+ } 1 { "No swimming" 
+ } 1 { "You're drowning!" 
+ } 1 { "You're hosed!" 
+ } } 
+                        } 
+                    } 
+                } 
+            } 
+            SK3_Killskater_Finish water r=100 g=100 b=200 <...> 
+        } 
+    } 
+} 
+script SK3_KillSkater_Pungee {
+    if ! GetGlobalFlag flag=FREEMAN_BOUND {
+        if Obj_FlagNotSet FLAG_SKATER_KILLING {
+            Obj_SetFlag FLAG_SKATER_KILLING 
+            PlaySound FallPungee_11 
+            if ! InSplitScreenGame {
+                if ! GetGlobalFlag flag=NO_DISPLAY_HUD {
+                    if ! GotParam Lava {
+                        Create_Panel_Message {
+                            style=panel_message_death 
+                            id=death_message 
+                            text=random {
+1 { "You got shafted" 
+ } 1 { "Who built that?!" 
+ } 1 { "Serve, set, spike!" 
+ } 1 { "Shish kabob?" 
+ } 1 { "Don't build this at home!" 
+ } } 
+                        } 
+                    } else {
+                        Create_Panel_Message {
+                            style=panel_message_death 
+                            id=death_message 
+                            text=random {
+1 { "Toasted toes!" 
+ } 1 { "Burnt to a crisp!" 
+ } 1 { "Grilled to perfection!" 
+ } 1 { "Ouch!" 
+ } 1 { "Death by hot lava!" 
+ } } 
+                        } 
+                    } 
+                } 
+            } 
+            SK3_Killskater_Finish r=150 g=50 b=50 <...> 
+        } 
+    } 
+} 

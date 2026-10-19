@@ -1,0 +1,528 @@
+{
+ "qdir": {
+  "remove": [
+   "game\\misc\\tagsdb.qb",
+   "game\\skater\\deprecated_tricks.qb"
+  ],
+  "insert_after": [
+   [
+    "night_menu.qb",
+    "allanims.qb"
+   ],
+   [
+    "game\\menu\\Car_ModelViewer.qb",
+    "game\\menu\\arcade_machine.qb"
+   ],
+   [
+    "game\\menu\\Anteara_Stuff\\Anteara_Parked.qb",
+    "gamemodes\\gamemode.qb"
+   ],
+   [
+    "game\\menu\\Anteara_Stuff\\Anteara_Vehicles.qb",
+    "game\\menu\\Anteara_Stuff\\Anteara_Parked.qb"
+   ],
+   [
+    "game\\menu\\Anteara_Stuff\\Anteara_Menus.qb",
+    "game\\menu\\Anteara_Stuff\\Anteara_Vehicles.qb"
+   ],
+   [
+    "game\\menu\\Anteara_Stuff\\Anteara_TOD.qb",
+    "game\\menu\\Anteara_Stuff\\Anteara_Menus.qb"
+   ],
+   [
+    "game\\menu\\Anteara_Stuff\\Anteara_Animations.qb",
+    "game\\menu\\Anteara_Stuff\\Anteara_TOD.qb"
+   ],
+   [
+    "game\\menu\\Anteara_Stuff\\Anteara_Chat.qb",
+    "game\\menu\\Anteara_Stuff\\Anteara_Animations.qb"
+   ],
+   [
+    "game\\menu\\Anteara_Stuff\\Anteara_Misc.qb",
+    "game\\menu\\Anteara_Stuff\\Anteara_Chat.qb"
+   ],
+   [
+    "game\\menu\\Anteara_Stuff\\Anteara_Models.qb",
+    "game\\menu\\Anteara_Stuff\\Anteara_Misc.qb"
+   ],
+   [
+    "game\\menu\\Anteara_Stuff\\anteara_2010.qb",
+    "game\\menu\\Anteara_Stuff\\Anteara_Models.qb"
+   ]
+  ],
+  "move_after": [
+   [
+    "game\\cas_logos.qb",
+    "game\\animtags.qb"
+   ],
+   [
+    "game\\cas_parts.qb",
+    "game\\cas_logos.qb"
+   ],
+   [
+    "game\\cas_skater_f.qb",
+    "game\\cas_parts.qb"
+   ],
+   [
+    "game\\cas_skater_m.qb",
+    "game\\cas_skater_f.qb"
+   ],
+   [
+    "game\\cas_skater_shared.qb",
+    "game\\cas_skater_m.qb"
+   ],
+   [
+    "game\\cas_team.qb",
+    "game\\cas_skater_shared.qb"
+   ],
+   [
+    "game\\goal_utilities.qb",
+    "game\\gameflow.qb"
+   ],
+   [
+    "game\\player_controlled_vehicle.qb",
+    "game\\ped.qb"
+   ]
+  ]
+ },
+ "files": {
+  "allanims.qb": {
+   "insert_after": {
+    "animload_THPS6_LugeandSlalom": "animload_Vallely_Head"
+   },
+   "path": "allanims.qb.ns"
+  },
+  "night_menu.qb": {
+   "new": true,
+   "path": "night_menu.qb.ns"
+  },
+  "engine\\menu\\keyboard.qb": {
+   "path": "engine/menu/keyboard.qb.ns"
+  },
+  "engine\\menu\\lighttool.qb": {
+   "path": "engine/menu/lighttool.qb.ns"
+  },
+  "game\\cas_skater_f.qb": {
+   "path": "game/cas_skater_f.qb.ns"
+  },
+  "game\\decks.qb": {
+   "path": "game/decks.qb.ns"
+  },
+  "game\\EdPieces2.qb": {
+   "path": "game/EdPieces2.qb.ns"
+  },
+  "game\\game.qb": {
+   "remove": [
+    "entered_chat_message"
+   ]
+  },
+  "game\\goal_utilities.qb": {
+   "path": "game/goal_utilities.qb.ns"
+  },
+  "game\\Levels.qb": {
+   "path": "game/Levels.qb.ns"
+  },
+  "game\\player_controlled_vehicle.qb": {
+   "insert_after": {
+    "DrivingAi": "",
+    "ToggleUserControlledVehicleMode": "DrivingAi",
+    "createPlayerVehicle": "ToggleUserControlledVehicleMode",
+    "NonLocalClientInVehicle": "createPlayerVehicle",
+    "NonLocalClientExitVehicle": "NonLocalClientInVehicle",
+    "lock_car_to_non_local_skater": "NonLocalClientExitVehicle",
+    "remove_car_from_non_local_skater": "lock_car_to_non_local_skater",
+    "DrivingCollisionLost": "remove_car_from_non_local_skater",
+    "GetVehicleSetup": "DrivingCollisionLost",
+    "VehicleCameraSetup": "GetVehicleSetup",
+    "RCCarvehicleCameraSetup": "VehicleCameraSetup",
+    "BusUKvehicleCameraSetup": "RCCarvehicleCameraSetup",
+    "Vehicle_BodyCollision": "BusUKvehicleCameraSetup",
+    "artificial_collision_duration": "Vehicle_BodyCollision",
+    "coll_forward_imp": "artificial_collision_duration",
+    "coll_sideways_imp": "coll_forward_imp",
+    "coll_upwards_imp": "coll_sideways_imp",
+    "coll_spin_rot": "coll_upwards_imp",
+    "coll_flip_rot": "coll_spin_rot",
+    "vehicle_physics_artificial_collision_duration": "coll_flip_rot",
+    "vehicle_physics_netcoll_forward_impulse": "vehicle_physics_artificial_collision_duration",
+    "vehicle_physics_netcoll_sideways_impulse": "vehicle_physics_netcoll_forward_impulse",
+    "vehicle_physics_netcoll_upwards_impulse": "vehicle_physics_netcoll_sideways_impulse",
+    "vehicle_physics_netcoll_spin_impulse": "vehicle_physics_netcoll_upwards_impulse",
+    "vehicle_physics_netcoll_flip_impulse": "vehicle_physics_netcoll_spin_impulse",
+    "TransCarSetup": "vehicle_physics_netcoll_flip_impulse",
+    "CustomCarSetup": "TransCarSetup",
+    "BlimpSetup": "CustomCarSetup",
+    "GardnersCartSetup": "BlimpSetup",
+    "SecurityCartSetup": "GardnersCartSetup",
+    "ForkliftSetup": "SecurityCartSetup",
+    "ImpalaCarSetup": "ForkliftSetup",
+    "PoliceCarSetup": "ImpalaCarSetup",
+    "ElCaminoCarSetup": "PoliceCarSetup",
+    "LimoCarSetup": "ElCaminoCarSetup",
+    "MiniBajaCarSetup": "LimoCarSetup",
+    "TaurusCarSetup": "MiniBajaCarSetup",
+    "LadaCarSetup": "TaurusCarSetup",
+    "BusUKSetup": "LadaCarSetup",
+    "rcCarSetup": "BusUKSetup",
+    "PickupTruckSetup": "rcCarSetup",
+    "wranglerCarSetup": "PickupTruckSetup",
+    "SportsCarSetup": "wranglerCarSetup",
+    "OldVanSetup": "SportsCarSetup",
+    "SmartCarSetup": "OldVanSetup",
+    "defaultCarSetup": "SmartCarSetup"
+   },
+   "path": "game/player_controlled_vehicle.qb.ns"
+  },
+  "game\\playervehiclesounds.qb": {
+   "path": "game/playervehiclesounds.qb.ns"
+  },
+  "game\\skater_fx.qb": {
+   "remove": [
+    "make_skater_explode_exit",
+    "make_skater_explode_cleanup",
+    "make_skater_explode_cleanup_all_parts",
+    "make_skater_lose_head_exit",
+    "make_skater_lose_head_cleanup"
+   ],
+   "insert_after": {
+    "make_skater_lol": "make_skater_lose_head"
+   },
+   "path": "game/skater_fx.qb.ns"
+  },
+  "game\\skutils.qb": {
+   "remove": [
+    "kill_blur",
+    "pulse_blur",
+    "pulse_blur_script_down",
+    "pulse_blur_script_up"
+   ]
+  },
+  "game\\menu\\Car_ModelViewer.qb": {
+   "new": true,
+   "path": "game/menu/Car_ModelViewer.qb.ns"
+  },
+  "game\\menu\\edit_tricks_menu.qb": {
+   "path": "game/menu/edit_tricks_menu.qb.ns"
+  },
+  "game\\menu\\gamemenu.qb": {
+   "path": "game/menu/gamemenu.qb.ns"
+  },
+  "game\\menu\\gamemenu_helpers.qb": {
+   "path": "game/menu/gamemenu_helpers.qb.ns"
+  },
+  "game\\menu\\gamemenu_options.qb": {
+   "path": "game/menu/gamemenu_options.qb.ns"
+  },
+  "game\\menu\\gamemenu_pause.qb": {
+   "remove": [
+    "do_localized_pause_title"
+   ],
+   "insert_after": {
+    "Veh_Camera_fix": "exit_pause_menu",
+    "proj_menu_update_amount": "pause_launch_level",
+    "proj_menu_remove_amount": "proj_menu_update_amount",
+    "Remove_my_board": "proj_menu_remove_amount",
+    "fall_underground": "Remove_my_board",
+    "fall_underground1": "fall_underground",
+    "fall_sideways": "fall_underground1",
+    "fall_up": "fall_sideways",
+    "fall_up1": "fall_up",
+    "noclipon": "fall_up1",
+    "MakeSkaterFly": "noclipon",
+    "FlyAi": "MakeSkaterFly",
+    "obs_is_on": "FlyAi",
+    "anteara_observe_obs": "obs_is_on",
+    "set_custom_restart1": "anteara_observe_obs",
+    "skip_to_custom_restart1": "set_custom_restart1",
+    "kirillgta_clean": "skip_to_custom_restart1",
+    "test_widescreen": "kirillgta_clean",
+    "test_standard": "test_widescreen",
+    "case_hair": "test_standard",
+    "toggle_TakeAwayHair": "case_hair",
+    "case_head": "toggle_TakeAwayHair",
+    "toggle_TakeAwayHead": "case_head",
+    "case_torso": "toggle_TakeAwayHead",
+    "toggle_TakeAwayTorso": "case_torso",
+    "case_legs": "toggle_TakeAwayTorso",
+    "toggle_TakeAwayLegs": "case_legs",
+    "case_hands": "toggle_TakeAwayLegs",
+    "toggle_TakeAwayHands": "case_hands",
+    "case_shoes": "toggle_TakeAwayHands",
+    "toggle_TakeAwayShoes": "case_shoes",
+    "TakeAwayHair": "toggle_TakeAwayShoes",
+    "TakeAwayHead": "TakeAwayHair",
+    "TakeAwayTorso": "TakeAwayHead",
+    "TakeAwayLegs": "TakeAwayTorso",
+    "TakeAwayHands": "TakeAwayLegs",
+    "TakeAwayShoes": "TakeAwayHands",
+    "TurnOnHair": "TakeAwayShoes",
+    "TurnOnHead": "TurnOnHair",
+    "TurnOnTorso": "TurnOnHead",
+    "TurnOnLegs": "TurnOnTorso",
+    "TurnOnShoes": "TurnOnLegs",
+    "TurnOnHands": "TurnOnShoes",
+    "anteara_bounds": "TurnOnHands",
+    "case_RunOutTimer": "anteara_bounds",
+    "toggle_SwitchOffTimer": "case_RunOutTimer",
+    "case_WallJump": "toggle_SwitchOffTimer",
+    "toggle_SwitchOffWallJump": "case_WallJump",
+    "case_WallSkate": "toggle_SwitchOffWallJump",
+    "toggle_SwitchOffWallSkate": "case_WallSkate",
+    "case_NoClip": "toggle_SwitchOffWallSkate",
+    "toggle_SwitchOffNoClip": "case_NoClip",
+    "case_NO_BOUNDS": "toggle_SwitchOffNoClip",
+    "toggle_SwitchNoBounds": "case_NO_BOUNDS",
+    "case_Observe": "toggle_SwitchNoBounds",
+    "toggle_SwitchOffObserve": "case_Observe",
+    "case_Airshuffle": "toggle_SwitchOffObserve",
+    "toggle_SwitchOffAirshuffle": "case_Airshuffle",
+    "anteara_noclipoff": "toggle_SwitchOffAirshuffle",
+    "walljumpon": "anteara_noclipoff",
+    "walljumpoff": "walljumpon",
+    "wallskateon": "walljumpoff",
+    "wallskateoff": "wallskateon",
+    "anteara_timeron": "wallskateoff",
+    "anteara_timeroff": "anteara_timeron",
+    "wallshuffleon": "anteara_timeroff",
+    "wallshuffleoff": "wallshuffleon",
+    "case_anteara_text_colour": "wallshuffleoff",
+    "toggle_SwitchTextColour": "case_anteara_text_colour",
+    "case_give_ammo": "toggle_SwitchTextColour",
+    "toggle_SwitchAmmoNum": "case_give_ammo",
+    "case_Color": "toggle_SwitchAmmoNum",
+    "toggle_SwitchColor": "case_Color",
+    "case_ColorTwo": "toggle_SwitchColor",
+    "toggle_SwitchColorTwo": "case_ColorTwo",
+    "case_Ammo": "toggle_SwitchColorTwo",
+    "toggle_SwitchAmmo": "case_Ammo"
+   },
+   "path": "game/menu/gamemenu_pause.qb.ns"
+  },
+  "game\\menu\\goal_editor_menu.qb": {
+   "remove": [
+    "control_types_basic"
+   ],
+   "path": "game/menu/goal_editor_menu.qb.ns"
+  },
+  "game\\menu\\menu3d.qb": {
+   "insert_after": {
+    "menu3d_show1": "menu3d_show",
+    "menu3d_show2": "menu3d_show1",
+    "menu3d_show3": "menu3d_show2",
+    "menu3d_show4": "menu3d_show3",
+    "menu3d_show5": "menu3d_show4",
+    "menu3d_show6": "menu3d_show5",
+    "menu3d_show7": "menu3d_show6",
+    "menu3d_show8": "menu3d_show7",
+    "menu3d_show9": "menu3d_show8",
+    "menu3d_show10": "menu3d_show9",
+    "menu3d_show11": "menu3d_show10",
+    "menu3d_show12": "menu3d_show11",
+    "menu3d_show_sign1": "menu3d_show_sign",
+    "menu3d_show_sign2": "menu3d_show_sign1",
+    "menu3d_show_sign3": "menu3d_show_sign2",
+    "rotate_pause_deck3": "menu3d_show_sign3",
+    "menu3d_show_sign4": "rotate_pause_deck3",
+    "rotate_pause_deck4": "menu3d_show_sign4",
+    "menu3d_show_sign5": "rotate_pause_deck4",
+    "rotate_pause_deck5": "menu3d_show_sign5",
+    "menu3d_show_sign6": "rotate_pause_deck5",
+    "rotate_pause_deck6": "menu3d_show_sign6",
+    "menu3d_show_sign7": "rotate_pause_deck6",
+    "rotate_pause_deck7": "menu3d_show_sign7",
+    "menu3d_show_sign8": "rotate_pause_deck7",
+    "rotate_pause_deck8": "menu3d_show_sign8",
+    "menu3d_show_sign9": "rotate_pause_deck8",
+    "rotate_pause_deck9": "menu3d_show_sign9",
+    "menu3d_show_sign10": "rotate_pause_deck9",
+    "rotate_pause_deck10": "menu3d_show_sign10",
+    "menu3d_show_sign11": "rotate_pause_deck10",
+    "rotate_pause_deck11": "menu3d_show_sign11",
+    "menu3d_show_sign12": "rotate_pause_deck11",
+    "rotate_pause_deck12": "menu3d_show_sign12",
+    "rotate_pause_deck2": "rotate_pause_deck12",
+    "rotate_pause_deck1": "rotate_pause_deck2",
+    "rotate_pause_deck": "rotate_pause_deck1"
+   },
+   "path": "game/menu/menu3d.qb.ns"
+  },
+  "game\\menu\\models.qb": {
+   "path": "game/menu/models.qb.ns"
+  },
+  "game\\menu\\roundbarmenu.qb": {
+   "path": "game/menu/roundbarmenu.qb.ns"
+  },
+  "game\\menu\\themes.qb": {
+   "path": "game/menu/themes.qb.ns"
+  },
+  "game\\misc\\car_scripts.qb": {
+   "insert_after": {
+    "accelCarRot": "",
+    "decelCarRot": "accelCarRot",
+    "speedCarRot": "decelCarRot",
+    "accelCarRotFactor": "speedCarRot",
+    "driving_parked_car": "accelCarRotFactor",
+    "SetupDrivableCar": "driving_parked_car",
+    "car_set_exceptions": "SetupDrivableCar",
+    "car_inner_radius_handler": "car_set_exceptions",
+    "car_refuse": "car_inner_radius_handler",
+    "car_accept": "car_refuse",
+    "car_begin_driving_run": "car_accept",
+    "car_wait_for_exit_request": "car_begin_driving_run",
+    "handle_exit_vehicle_request": "car_wait_for_exit_request",
+    "car_end_driving_run": "handle_exit_vehicle_request"
+   },
+   "path": "game/misc/car_scripts.qb.ns"
+  },
+  "game\\misc\\gameoptions.qb": {
+   "path": "game/misc/gameoptions.qb.ns"
+  },
+  "game\\misc\\global_flags.qb": {
+   "insert_after": {
+    "FREEMAN_WEAK_PEDS": "TRICK_UNLOCKED_BEAVERBLAST",
+    "FREEMAN_HACKED_CHAT": "FREEMAN_WEAK_PEDS",
+    "FREEMAN_BOUND": "FREEMAN_HACKED_CHAT",
+    "FREEMAN_WATER": "FREEMAN_BOUND",
+    "FREEMAN_PUNGEE": "FREEMAN_WATER",
+    "FREEMAN_CR": "FREEMAN_PUNGEE",
+    "FREEMAN_BAIL": "FREEMAN_CR",
+    "ANTEARA_AIRSHUFFLE": "FREEMAN_BAIL",
+    "ANTEARA_FAILSAFE_FLAG": "ANTEARA_AIRSHUFFLE",
+    "ANTEARA_MOD_NOT_ENABLED": "ANTEARA_FAILSAFE_FLAG"
+   },
+   "path": "game/misc/global_flags.qb.ns"
+  },
+  "game\\misc\\loading_screens.qb": {
+   "path": "game/misc/loading_screens.qb.ns"
+  },
+  "game\\misc\\SK4_Scripts.qb": {
+   "path": "game/misc/SK4_Scripts.qb.ns"
+  },
+  "game\\net\\net.qb": {
+   "insert_after": {
+    "popup_noob": "judge_full_name",
+    "popup_gay": "popup_noob",
+    "popup_cum": "popup_gay",
+    "popup_slap": "popup_cum",
+    "teleport_to": "popup_slap",
+    "idSkater_pos": "teleport_to",
+    "idSkater_speed": "idSkater_pos",
+    "launch_popup_keyboard": "idSkater_speed",
+    "menu_pupup_message": "launch_popup_keyboard",
+    "popup_enter_mess": "menu_pupup_message"
+   },
+   "path": "game/net/net.qb.ns"
+  },
+  "game\\net\\netmessages.qb": {
+   "path": "game/net/netmessages.qb.ns"
+  },
+  "game\\net\\netoptions.qb": {
+   "path": "game/net/netoptions.qb.ns"
+  },
+  "game\\net\\scavenger.qb": {
+   "path": "game/net/scavenger.qb.ns"
+  },
+  "game\\ped\\Sk6Ped_StateLogic.qb": {
+   "insert_after": {
+    "ped_chase_count": "STATECONTROL_chasepause"
+   },
+   "path": "game/ped/Sk6Ped_StateLogic.qb.ns"
+  },
+  "game\\skater\\airtricks.qb": {
+   "path": "game/skater/airtricks.qb.ns"
+  },
+  "game\\skater\\grindscripts.qb": {
+   "insert_after": {
+    "natas_spin": "PointRailSpin",
+    "natas_extra_tricks": "natas_spin"
+   },
+   "path": "game/skater/grindscripts.qb.ns"
+  },
+  "game\\skater\\groundtricks.qb": {
+   "insert_after": {
+    "Trick_Airshuffle": "Trick_Boneless",
+    "Trick_Test": "Trick_Airshuffle",
+    "Airshuffle": "Boneless"
+   },
+   "path": "game/skater/groundtricks.qb.ns"
+  },
+  "game\\skater\\manualtricks.qb": {
+   "insert_after": {
+    "OneButtonTest": "manual_turnaround2"
+   },
+   "path": "game/skater/manualtricks.qb.ns"
+  },
+  "game\\skater\\projectiles.qb": {
+   "path": "game/skater/projectiles.qb.ns"
+  },
+  "game\\skater\\skater_vehicle.qb": {
+   "remove": [
+    "shoppingcart_params",
+    "shoppingcart_start_script",
+    "shoppingcart_bail_script",
+    "chainsaw_params"
+   ],
+   "insert_after": {
+    "Anteara_Is_In_Story_Vehicle": "",
+    "luge_bail_script": "luge_start_script",
+    "riskblade_params": "luge_bail_script",
+    "wings_params": "riskblade_params"
+   },
+   "path": "game/skater/skater_vehicle.qb.ns"
+  },
+  "game\\skater\\walking_control.qb": {
+   "path": "game/skater/walking_control.qb.ns"
+  },
+  "gamemodes\\gamemode.qb": {
+   "path": "gamemodes/gamemode.qb.ns"
+  },
+  "game\\menu\\Anteara_Stuff\\Anteara_Parked.qb": {
+   "new": true,
+   "path": "game/menu/Anteara_Stuff/Anteara_Parked.qb.ns"
+  },
+  "game\\menu\\Anteara_Stuff\\Anteara_Vehicles.qb": {
+   "new": true,
+   "path": "game/menu/Anteara_Stuff/Anteara_Vehicles.qb.ns"
+  },
+  "game\\menu\\Anteara_Stuff\\Anteara_Menus.qb": {
+   "new": true,
+   "path": "game/menu/Anteara_Stuff/Anteara_Menus.qb.ns"
+  },
+  "game\\menu\\Anteara_Stuff\\Anteara_TOD.qb": {
+   "new": true,
+   "path": "game/menu/Anteara_Stuff/Anteara_TOD.qb.ns"
+  },
+  "game\\menu\\Anteara_Stuff\\Anteara_Animations.qb": {
+   "new": true,
+   "path": "game/menu/Anteara_Stuff/Anteara_Animations.qb.ns"
+  },
+  "game\\menu\\Anteara_Stuff\\Anteara_Chat.qb": {
+   "new": true,
+   "path": "game/menu/Anteara_Stuff/Anteara_Chat.qb.ns"
+  },
+  "game\\menu\\Anteara_Stuff\\Anteara_Misc.qb": {
+   "new": true,
+   "path": "game/menu/Anteara_Stuff/Anteara_Misc.qb.ns"
+  },
+  "game\\menu\\Anteara_Stuff\\Anteara_Models.qb": {
+   "new": true,
+   "path": "game/menu/Anteara_Stuff/Anteara_Models.qb.ns"
+  },
+  "game\\menu\\Anteara_Stuff\\anteara_2010.qb": {
+   "new": true,
+   "path": "game/menu/Anteara_Stuff/anteara_2010.qb.ns"
+  },
+  "localtext.qb": {
+   "edits": [
+    {
+     "old": "        English=\"TEAM FLAGS\" \n",
+     "new": "        English=\"lolsuplols\" \n"
+    },
+    {
+     "old": "        English=\"Team Flags\" \n",
+     "new": "        English=\"lolsuplols\" \n"
+    }
+   ]
+  }
+ }
+}

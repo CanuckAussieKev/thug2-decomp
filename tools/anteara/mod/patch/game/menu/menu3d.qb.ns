@@ -1,0 +1,742 @@
+script menu3d_show1 {parent = root_window 
+    KillSpawnedScript name=menu3d_animate_out 
+    menu3d_hide 
+    SetScreenElementLock id=<parent> off 
+    CreateScreenElement {
+        type=ContainerElement 
+        parent=<parent> 
+        id=menu3d_anchor 
+    } 
+    GoalManager_GetLevelPrefix 
+    FormatText ChecksumName=sign_element_script "%l_2d_sign_element_create" l=<level_prefix> 
+    if ScriptExists <sign_element_script> {
+        <sign_element_script> parent=menu3d_anchor 
+    } 
+    menu3d_show_sign1 parent=menu3d_anchor 
+} 
+script menu3d_show2 {parent = root_window 
+    KillSpawnedScript name=menu3d_animate_out 
+    menu3d_hide 
+    SetScreenElementLock id=<parent> off 
+    CreateScreenElement {
+        type=ContainerElement 
+        parent=<parent> 
+        id=menu3d_anchor 
+    } 
+    GoalManager_GetLevelPrefix 
+    FormatText ChecksumName=sign_element_script "%l_2d_sign_element_create" l=<level_prefix> 
+    if ScriptExists <sign_element_script> {
+        <sign_element_script> parent=menu3d_anchor 
+    } 
+    menu3d_show_sign2 parent=menu3d_anchor 
+} 
+script menu3d_show3 {parent = root_window 
+    KillSpawnedScript name=menu3d_animate_out 
+    menu3d_hide 
+    SetScreenElementLock id=<parent> off 
+    CreateScreenElement {
+        type=ContainerElement 
+        parent=<parent> 
+        id=menu3d_anchor 
+    } 
+    GoalManager_GetLevelPrefix 
+    FormatText ChecksumName=sign_element_script "%l_2d_sign_element_create" l=<level_prefix> 
+    if ScriptExists <sign_element_script> {
+        <sign_element_script> parent=menu3d_anchor 
+    } 
+    menu3d_show_sign3 parent=menu3d_anchor 
+} 
+script menu3d_show4 {parent = root_window 
+    KillSpawnedScript name=menu3d_animate_out 
+    menu3d_hide 
+    SetScreenElementLock id=<parent> off 
+    CreateScreenElement {
+        type=ContainerElement 
+        parent=<parent> 
+        id=menu3d_anchor 
+    } 
+    GoalManager_GetLevelPrefix 
+    FormatText ChecksumName=sign_element_script "%l_2d_sign_element_create" l=<level_prefix> 
+    if ScriptExists <sign_element_script> {
+        <sign_element_script> parent=menu3d_anchor 
+    } 
+    menu3d_show_sign4 parent=menu3d_anchor 
+} 
+script menu3d_show5 {parent = root_window 
+    KillSpawnedScript name=menu3d_animate_out 
+    menu3d_hide 
+    SetScreenElementLock id=<parent> off 
+    CreateScreenElement {
+        type=ContainerElement 
+        parent=<parent> 
+        id=menu3d_anchor 
+    } 
+    GoalManager_GetLevelPrefix 
+    FormatText ChecksumName=sign_element_script "%l_2d_sign_element_create" l=<level_prefix> 
+    if ScriptExists <sign_element_script> {
+        <sign_element_script> parent=menu3d_anchor 
+    } 
+    menu3d_show_sign5 parent=menu3d_anchor 
+} 
+script menu3d_show6 {parent = root_window 
+    KillSpawnedScript name=menu3d_animate_out 
+    menu3d_hide 
+    SetScreenElementLock id=<parent> off 
+    CreateScreenElement {
+        type=ContainerElement 
+        parent=<parent> 
+        id=menu3d_anchor 
+    } 
+    GoalManager_GetLevelPrefix 
+    FormatText ChecksumName=sign_element_script "%l_2d_sign_element_create" l=<level_prefix> 
+    if ScriptExists <sign_element_script> {
+        <sign_element_script> parent=menu3d_anchor 
+    } 
+    menu3d_show_sign6 parent=menu3d_anchor 
+} 
+script menu3d_show7 {parent = root_window 
+    KillSpawnedScript name=menu3d_animate_out 
+    menu3d_hide 
+    SetScreenElementLock id=<parent> off 
+    CreateScreenElement {
+        type=ContainerElement 
+        parent=<parent> 
+        id=menu3d_anchor 
+    } 
+    GoalManager_GetLevelPrefix 
+    FormatText ChecksumName=sign_element_script "%l_2d_sign_element_create" l=<level_prefix> 
+    if ScriptExists <sign_element_script> {
+        <sign_element_script> parent=menu3d_anchor 
+    } 
+    menu3d_show_sign7 parent=menu3d_anchor 
+} 
+script menu3d_show8 {parent = root_window 
+    KillSpawnedScript name=menu3d_animate_out 
+    menu3d_hide 
+    SetScreenElementLock id=<parent> off 
+    CreateScreenElement {
+        type=ContainerElement 
+        parent=<parent> 
+        id=menu3d_anchor 
+    } 
+    GoalManager_GetLevelPrefix 
+    FormatText ChecksumName=sign_element_script "%l_2d_sign_element_create" l=<level_prefix> 
+    if ScriptExists <sign_element_script> {
+        <sign_element_script> parent=menu3d_anchor 
+    } 
+    menu3d_show_sign8 parent=menu3d_anchor 
+} 
+script menu3d_show9 {parent = root_window 
+    KillSpawnedScript name=menu3d_animate_out 
+    menu3d_hide 
+    SetScreenElementLock id=<parent> off 
+    CreateScreenElement {
+        type=ContainerElement 
+        parent=<parent> 
+        id=menu3d_anchor 
+    } 
+    GoalManager_GetLevelPrefix 
+    FormatText ChecksumName=sign_element_script "%l_2d_sign_element_create" l=<level_prefix> 
+    if ScriptExists <sign_element_script> {
+        <sign_element_script> parent=menu3d_anchor 
+    } 
+    menu3d_show_sign9 parent=menu3d_anchor 
+} 
+script menu3d_show10 {parent = root_window 
+    KillSpawnedScript name=menu3d_animate_out 
+    menu3d_hide 
+    SetScreenElementLock id=<parent> off 
+    CreateScreenElement {
+        type=ContainerElement 
+        parent=<parent> 
+        id=menu3d_anchor 
+    } 
+    GoalManager_GetLevelPrefix 
+    FormatText ChecksumName=sign_element_script "%l_2d_sign_element_create" l=<level_prefix> 
+    if ScriptExists <sign_element_script> {
+        <sign_element_script> parent=menu3d_anchor 
+    } 
+    menu3d_show_sign10 parent=menu3d_anchor 
+} 
+script menu3d_show11 {parent = root_window 
+    KillSpawnedScript name=menu3d_animate_out 
+    menu3d_hide 
+    SetScreenElementLock id=<parent> off 
+    CreateScreenElement {
+        type=ContainerElement 
+        parent=<parent> 
+        id=menu3d_anchor 
+    } 
+    GoalManager_GetLevelPrefix 
+    FormatText ChecksumName=sign_element_script "%l_2d_sign_element_create" l=<level_prefix> 
+    if ScriptExists <sign_element_script> {
+        <sign_element_script> parent=menu3d_anchor 
+    } 
+    menu3d_show_sign11 parent=menu3d_anchor 
+} 
+script menu3d_show12 {parent = root_window 
+    KillSpawnedScript name=menu3d_animate_out 
+    menu3d_hide 
+    SetScreenElementLock id=<parent> off 
+    CreateScreenElement {
+        type=ContainerElement 
+        parent=<parent> 
+        id=menu3d_anchor 
+    } 
+    GoalManager_GetLevelPrefix 
+    FormatText ChecksumName=sign_element_script "%l_2d_sign_element_create" l=<level_prefix> 
+    if ScriptExists <sign_element_script> {
+        <sign_element_script> parent=menu3d_anchor 
+    } 
+    menu3d_show_sign12 parent=menu3d_anchor 
+} 
+script menu3d_show_sign {active_viewport = 0 parent = root_window 
+    if ! ScreenElementExists id=<parent> {
+        printf "WARNING: menu3d_show_sign couldn't find parent %s" s=<parent> 
+        return 
+    } 
+    SetScreenElementLock id=<parent> off 
+    if GotParam no_slide {
+        pos = (360.0, 220.0) 
+    } else {
+        pos = (800.0, 220.0) 
+    } 
+    GetPausePosByResolution 
+    <menu3d_name> = "Board_default\\Board_default.mdl" 
+    CreateScreenElement {
+        parent=<parent> 
+        type=Element3d 
+        id=menu3d_sign 
+        Model=<menu3d_name> 
+        pos=<pos> 
+        CameraZ=-6 
+        scale=0.12 
+        Tilt=0 
+        PivotPoint=(0.0, 4.12, 0.0) 
+        active_viewport=<active_viewport> 
+        AngleOrderXYZ 
+        anglex=-1.57 
+        angley=0 
+        anglez=0.4 
+        just=[Right center] 
+    } 
+    spawnscript rotate_pause_deck <no_slide> 
+} 
+script menu3d_show_sign1 {active_viewport = 0 parent = root_window 
+    if ! ScreenElementExists id=<parent> {
+        printf "WARNING: menu3d_show_sign couldn't find parent %s" s=<parent> 
+        return 
+    } 
+    SetScreenElementLock id=<parent> off 
+    GetPausePosByResolution 
+    CreateScreenElement {
+        parent=<parent> 
+        type=Element3d 
+        id=menu3d_sign1 
+        Model="Mdl_Cone\\Mdl_Cone.mdl" 
+        pos=(150.0, 280.0) 
+        CameraZ=-6 
+        scale=0.08 
+        Tilt=0 
+        PivotPoint=(0.0, 4.12, 0.0) 
+        active_viewport=<active_viewport> 
+        AngleOrderXYZ 
+        anglex=0.0 
+        angley=90 
+        anglez=0.0 
+        just=[Right center] 
+    } 
+    spawnscript rotate_pause_deck1 <no_slide> 
+} 
+script menu3d_show_sign2 {active_viewport = 0 parent = root_window 
+    if ! ScreenElementExists id=<parent> {
+        printf "WARNING: menu3d_show_sign couldn't find parent %s" s=<parent> 
+        return 
+    } 
+    SetScreenElementLock id=<parent> off 
+    GetPausePosByResolution 
+    CreateScreenElement {
+        parent=<parent> 
+        type=Element3d 
+        id=menu3d_sign2 
+        Model="veh\\veh_custom\\veh_custom.mdl" 
+        SkeletonName=car 
+        Class=Vehicle 
+        pos=(150.0, 280.0) 
+        CameraZ=-6 
+        scale=0.02 
+        PivotPoint=(0.0, 4.12, 0.0) 
+        active_viewport=<active_viewport> 
+        AngleOrderXYZ 
+        anglex=-1.57 
+        angley=0 
+        anglez=0.0 
+        just=[Left center] 
+    } 
+    spawnscript rotate_pause_deck2 <no_slide> 
+} 
+script menu3d_show_sign3 {active_viewport = 0 parent = root_window 
+    if ! ScreenElementExists id=<parent> {
+        printf "WARNING: menu3d_show_sign couldn't find parent %s" s=<parent> 
+        return 
+    } 
+    SetScreenElementLock id=<parent> off 
+    GetPausePosByResolution 
+    CreateScreenElement {
+        parent=<parent> 
+        type=Element3d 
+        id=menu3d_sign3 
+        Model="Veh\\Veh_ATV\\Veh_ATV.mdl" 
+        SkeletonName=car 
+        Class=Vehicle 
+        pos=(150.0, 280.0) 
+        CameraZ=-6 
+        scale=0.02 
+        PivotPoint=(0.0, 4.12, 0.0) 
+        active_viewport=<active_viewport> 
+        AngleOrderXYZ 
+        anglex=-1.57 
+        angley=0 
+        anglez=0.0 
+        just=[Left center] 
+    } 
+    spawnscript rotate_pause_deck3 <no_slide> 
+} 
+script rotate_pause_deck3 {
+    if ! ObjectExists id=menu3d_sign3 {
+        return 
+    } 
+    rot_angle = 0 
+    DoScreenElementMorph time=0.25 id=menu3d_sign3 pos=(150.0, 280.0) 
+    while {
+        if ! ObjectExists id=menu3d_sign3 {
+            return 
+        } 
+        SetScreenElementProps id=menu3d_sign3 angley=<rot_angle> 
+        rot_angle = (<rot_angle> + 0.0625) 
+        wait 1 gameframes 
+    } 
+} 
+script menu3d_show_sign4 {active_viewport = 0 parent = root_window 
+    if ! ScreenElementExists id=<parent> {
+        printf "WARNING: menu3d_show_sign couldn't find parent %s" s=<parent> 
+        return 
+    } 
+    SetScreenElementLock id=<parent> off 
+    GetPausePosByResolution 
+    CreateScreenElement {
+        parent=<parent> 
+        type=Element3d 
+        id=menu3d_sign4 
+        Model="Veh\\Veh_Blimp\\Veh_Blimp.mdl" 
+        SkeletonName=car 
+        Class=Vehicle 
+        pos=(150.0, 280.0) 
+        CameraZ=-6 
+        scale=0.02 
+        PivotPoint=(0.0, 4.12, 0.0) 
+        active_viewport=<active_viewport> 
+        AngleOrderXYZ 
+        anglex=-1.57 
+        angley=0 
+        anglez=0.0 
+        just=[Left center] 
+    } 
+    spawnscript rotate_pause_deck4 <no_slide> 
+} 
+script rotate_pause_deck4 {
+    if ! ObjectExists id=menu3d_sign4 {
+        return 
+    } 
+    rot_angle = 0 
+    DoScreenElementMorph time=0.25 id=menu3d_sign4 pos=(150.0, 280.0) 
+    while {
+        if ! ObjectExists id=menu3d_sign4 {
+            return 
+        } 
+        SetScreenElementProps id=menu3d_sign4 angley=<rot_angle> 
+        rot_angle = (<rot_angle> + 0.0625) 
+        wait 1 gameframes 
+    } 
+} 
+script menu3d_show_sign5 {active_viewport = 0 parent = root_window 
+    if ! ScreenElementExists id=<parent> {
+        printf "WARNING: menu3d_show_sign couldn't find parent %s" s=<parent> 
+        return 
+    } 
+    SetScreenElementLock id=<parent> off 
+    GetPausePosByResolution 
+    CreateScreenElement {
+        parent=<parent> 
+        type=Element3d 
+        id=menu3d_sign5 
+        Model="veh\\Veh_SDKart_Gardens\\Veh_SDKart_Gardens.mdl" 
+        SkeletonName=car 
+        Class=Vehicle 
+        pos=(150.0, 280.0) 
+        CameraZ=-6 
+        scale=0.02 
+        PivotPoint=(0.0, 4.12, 0.0) 
+        active_viewport=<active_viewport> 
+        AngleOrderXYZ 
+        anglex=-1.57 
+        angley=0 
+        anglez=0.0 
+        just=[Left center] 
+    } 
+    spawnscript rotate_pause_deck5 <no_slide> 
+} 
+script rotate_pause_deck5 {
+    if ! ObjectExists id=menu3d_sign5 {
+        return 
+    } 
+    rot_angle = 0 
+    DoScreenElementMorph time=0.25 id=menu3d_sign5 pos=(150.0, 280.0) 
+    while {
+        if ! ObjectExists id=menu3d_sign5 {
+            return 
+        } 
+        SetScreenElementProps id=menu3d_sign5 angley=<rot_angle> 
+        rot_angle = (<rot_angle> + 0.0625) 
+        wait 1 gameframes 
+    } 
+} 
+script menu3d_show_sign6 {active_viewport = 0 parent = root_window 
+    if ! ScreenElementExists id=<parent> {
+        printf "WARNING: menu3d_show_sign couldn't find parent %s" s=<parent> 
+        return 
+    } 
+    SetScreenElementLock id=<parent> off 
+    GetPausePosByResolution 
+    CreateScreenElement {
+        parent=<parent> 
+        type=Element3d 
+        id=menu3d_sign6 
+        Model="veh\\Veh_SDKart_Security\\Veh_SDKart_Security.mdl" 
+        SkeletonName=car 
+        Class=Vehicle 
+        pos=(150.0, 280.0) 
+        CameraZ=-6 
+        scale=0.02 
+        PivotPoint=(0.0, 4.12, 0.0) 
+        active_viewport=<active_viewport> 
+        AngleOrderXYZ 
+        anglex=-1.57 
+        angley=0 
+        anglez=0.0 
+        just=[Left center] 
+    } 
+    spawnscript rotate_pause_deck6 <no_slide> 
+} 
+script rotate_pause_deck6 {
+    if ! ObjectExists id=menu3d_sign6 {
+        return 
+    } 
+    rot_angle = 0 
+    DoScreenElementMorph time=0.25 id=menu3d_sign6 pos=(150.0, 280.0) 
+    while {
+        if ! ObjectExists id=menu3d_sign6 {
+            return 
+        } 
+        SetScreenElementProps id=menu3d_sign6 angley=<rot_angle> 
+        rot_angle = (<rot_angle> + 0.0625) 
+        wait 1 gameframes 
+    } 
+} 
+script menu3d_show_sign7 {active_viewport = 0 parent = root_window 
+    if ! ScreenElementExists id=<parent> {
+        printf "WARNING: menu3d_show_sign couldn't find parent %s" s=<parent> 
+        return 
+    } 
+    SetScreenElementLock id=<parent> off 
+    GetPausePosByResolution 
+    CreateScreenElement {
+        parent=<parent> 
+        type=Element3d 
+        id=menu3d_sign7 
+        Model="Veh\\Veh_Chevy_Impala\\Veh_Chevy_Impala.mdl" 
+        SkeletonName=car 
+        Class=Vehicle 
+        pos=(150.0, 280.0) 
+        CameraZ=-6 
+        scale=0.02 
+        PivotPoint=(0.0, 4.12, 0.0) 
+        active_viewport=<active_viewport> 
+        AngleOrderXYZ 
+        anglex=-1.57 
+        angley=0 
+        anglez=0.0 
+        just=[Left center] 
+    } 
+    spawnscript rotate_pause_deck7 <no_slide> 
+} 
+script rotate_pause_deck7 {
+    if ! ObjectExists id=menu3d_sign7 {
+        return 
+    } 
+    rot_angle = 0 
+    DoScreenElementMorph time=0.25 id=menu3d_sign7 pos=(150.0, 280.0) 
+    while {
+        if ! ObjectExists id=menu3d_sign7 {
+            return 
+        } 
+        SetScreenElementProps id=menu3d_sign7 angley=<rot_angle> 
+        rot_angle = (<rot_angle> + 0.0625) 
+        wait 1 gameframes 
+    } 
+} 
+script menu3d_show_sign8 {active_viewport = 0 parent = root_window 
+    if ! ScreenElementExists id=<parent> {
+        printf "WARNING: menu3d_show_sign couldn't find parent %s" s=<parent> 
+        return 
+    } 
+    SetScreenElementLock id=<parent> off 
+    GetPausePosByResolution 
+    CreateScreenElement {
+        parent=<parent> 
+        type=Element3d 
+        id=menu3d_sign8 
+        Model="veh\\fl\\veh_policecar_fl\\veh_policecar_fl.mdl" 
+        SkeletonName=car 
+        Class=Vehicle 
+        pos=(150.0, 280.0) 
+        CameraZ=-6 
+        scale=0.02 
+        PivotPoint=(0.0, 4.12, 0.0) 
+        active_viewport=<active_viewport> 
+        AngleOrderXYZ 
+        anglex=-1.57 
+        angley=0 
+        anglez=0.0 
+        just=[Left center] 
+    } 
+    spawnscript rotate_pause_deck8 <no_slide> 
+} 
+script rotate_pause_deck8 {
+    if ! ObjectExists id=menu3d_sign8 {
+        return 
+    } 
+    rot_angle = 0 
+    DoScreenElementMorph time=0.25 id=menu3d_sign8 pos=(150.0, 280.0) 
+    while {
+        if ! ObjectExists id=menu3d_sign8 {
+            return 
+        } 
+        SetScreenElementProps id=menu3d_sign8 angley=<rot_angle> 
+        rot_angle = (<rot_angle> + 0.0625) 
+        wait 1 gameframes 
+    } 
+} 
+script menu3d_show_sign9 {active_viewport = 0 parent = root_window 
+    if ! ScreenElementExists id=<parent> {
+        printf "WARNING: menu3d_show_sign couldn't find parent %s" s=<parent> 
+        return 
+    } 
+    SetScreenElementLock id=<parent> off 
+    GetPausePosByResolution 
+    CreateScreenElement {
+        parent=<parent> 
+        type=Element3d 
+        id=menu3d_sign9 
+        Model="veh\\veh_camino\\veh_camino.mdl" 
+        SkeletonName=car 
+        Class=Vehicle 
+        pos=(150.0, 280.0) 
+        CameraZ=-6 
+        scale=0.02 
+        PivotPoint=(0.0, 4.12, 0.0) 
+        active_viewport=<active_viewport> 
+        AngleOrderXYZ 
+        anglex=-1.57 
+        angley=0 
+        anglez=0.0 
+        just=[Left center] 
+    } 
+    spawnscript rotate_pause_deck9 <no_slide> 
+} 
+script rotate_pause_deck9 {
+    if ! ObjectExists id=menu3d_sign9 {
+        return 
+    } 
+    rot_angle = 0 
+    DoScreenElementMorph time=0.25 id=menu3d_sign9 pos=(150.0, 280.0) 
+    while {
+        if ! ObjectExists id=menu3d_sign9 {
+            return 
+        } 
+        SetScreenElementProps id=menu3d_sign9 angley=<rot_angle> 
+        rot_angle = (<rot_angle> + 0.0625) 
+        wait 1 gameframes 
+    } 
+} 
+script menu3d_show_sign10 {active_viewport = 0 parent = root_window 
+    if ! ScreenElementExists id=<parent> {
+        printf "WARNING: menu3d_show_sign couldn't find parent %s" s=<parent> 
+        return 
+    } 
+    SetScreenElementLock id=<parent> off 
+    GetPausePosByResolution 
+    CreateScreenElement {
+        parent=<parent> 
+        type=Element3d 
+        id=menu3d_sign10 
+        Model="veh\\veh_limo\\veh_limo.mdl" 
+        SkeletonName=car 
+        Class=Vehicle 
+        pos=(150.0, 280.0) 
+        CameraZ=-6 
+        scale=0.02 
+        PivotPoint=(0.0, 4.12, 0.0) 
+        active_viewport=<active_viewport> 
+        AngleOrderXYZ 
+        anglex=-1.57 
+        angley=0 
+        anglez=0.0 
+        just=[Left center] 
+    } 
+    spawnscript rotate_pause_deck10 <no_slide> 
+} 
+script rotate_pause_deck10 {
+    if ! ObjectExists id=menu3d_sign10 {
+        return 
+    } 
+    rot_angle = 0 
+    DoScreenElementMorph time=0.25 id=menu3d_sign10 pos=(150.0, 280.0) 
+    while {
+        if ! ObjectExists id=menu3d_sign10 {
+            return 
+        } 
+        SetScreenElementProps id=menu3d_sign10 angley=<rot_angle> 
+        rot_angle = (<rot_angle> + 0.0625) 
+        wait 1 gameframes 
+    } 
+} 
+script menu3d_show_sign11 {active_viewport = 0 parent = root_window 
+    if ! ScreenElementExists id=<parent> {
+        printf "WARNING: menu3d_show_sign couldn't find parent %s" s=<parent> 
+        return 
+    } 
+    SetScreenElementLock id=<parent> off 
+    GetPausePosByResolution 
+    CreateScreenElement {
+        parent=<parent> 
+        type=Element3d 
+        id=menu3d_sign11 
+        Model="veh\\veh_minibaja\\veh_minibaja.mdl" 
+        SkeletonName=car 
+        Class=Vehicle 
+        pos=(150.0, 280.0) 
+        CameraZ=-6 
+        scale=0.02 
+        PivotPoint=(0.0, 4.12, 0.0) 
+        active_viewport=<active_viewport> 
+        AngleOrderXYZ 
+        anglex=-1.57 
+        angley=0 
+        anglez=0.0 
+        just=[Left center] 
+    } 
+    spawnscript rotate_pause_deck11 <no_slide> 
+} 
+script rotate_pause_deck11 {
+    if ! ObjectExists id=menu3d_sign11 {
+        return 
+    } 
+    rot_angle = 0 
+    DoScreenElementMorph time=0.25 id=menu3d_sign11 pos=(150.0, 280.0) 
+    while {
+        if ! ObjectExists id=menu3d_sign11 {
+            return 
+        } 
+        SetScreenElementProps id=menu3d_sign11 angley=<rot_angle> 
+        rot_angle = (<rot_angle> + 0.0625) 
+        wait 1 gameframes 
+    } 
+} 
+script menu3d_show_sign12 {active_viewport = 0 parent = root_window 
+    if ! ScreenElementExists id=<parent> {
+        printf "WARNING: menu3d_show_sign couldn't find parent %s" s=<parent> 
+        return 
+    } 
+    SetScreenElementLock id=<parent> off 
+    GetPausePosByResolution 
+    CreateScreenElement {
+        parent=<parent> 
+        type=Element3d 
+        id=menu3d_sign12 
+        Model="veh\\veh_lada\\veh_lada.mdl" 
+        SkeletonName=car 
+        Class=Vehicle 
+        pos=(150.0, 280.0) 
+        CameraZ=-6 
+        scale=0.02 
+        PivotPoint=(0.0, 4.12, 0.0) 
+        active_viewport=<active_viewport> 
+        AngleOrderXYZ 
+        anglex=-1.57 
+        angley=0 
+        anglez=0.0 
+        just=[Left center] 
+    } 
+    spawnscript rotate_pause_deck12 <no_slide> 
+} 
+script rotate_pause_deck12 {
+    if ! ObjectExists id=menu3d_sign12 {
+        return 
+    } 
+    rot_angle = 0 
+    DoScreenElementMorph time=0.25 id=menu3d_sign12 pos=(150.0, 280.0) 
+    while {
+        if ! ObjectExists id=menu3d_sign12 {
+            return 
+        } 
+        SetScreenElementProps id=menu3d_sign12 angley=<rot_angle> 
+        rot_angle = (<rot_angle> + 0.0625) 
+        wait 1 gameframes 
+    } 
+} 
+script rotate_pause_deck2 {
+    if ! ObjectExists id=menu3d_sign2 {
+        return 
+    } 
+    rot_angle = 0 
+    DoScreenElementMorph time=0.25 id=menu3d_sign2 pos=(150.0, 280.0) 
+    while {
+        if ! ObjectExists id=menu3d_sign2 {
+            return 
+        } 
+        SetScreenElementProps id=menu3d_sign2 angley=<rot_angle> 
+        rot_angle = (<rot_angle> + 0.0625) 
+        wait 1 gameframes 
+    } 
+} 
+script rotate_pause_deck1 {
+    if ! ObjectExists id=menu3d_sign1 {
+        return 
+    } 
+    rot_angle = 0 
+    DoScreenElementMorph time=0.25 id=menu3d_sign1 pos=(150.0, 280.0) 
+    while {
+        if ! ObjectExists id=menu3d_sign1 {
+            return 
+        } 
+        SetScreenElementProps id=menu3d_sign1 angley=<rot_angle> 
+        rot_angle = (<rot_angle> + 0.0625) 
+        wait 1 gameframes 
+    } 
+} 
+script rotate_pause_deck {
+    if ! ObjectExists id=menu3d_sign {
+        return 
+    } 
+    rot_angle = 0 
+    DoScreenElementMorph time=0.25 id=menu3d_sign pos=(360.0, 220.0) 
+    while {
+        if ! ObjectExists id=menu3d_sign {
+            return 
+        } 
+        SetScreenElementProps id=menu3d_sign angley=<rot_angle> 
+        rot_angle = (<rot_angle> + 0.0625) 
+        wait 1 gameframes 
+    } 
+} 

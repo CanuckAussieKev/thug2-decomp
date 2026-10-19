@@ -1,0 +1,22 @@
+// MERGE: 2010 - 2010: the tricycle model line
+script create_cutscene_heads_model_set {
+    make_select_view_model_line text="CAS Head" modelname="Cutscenes\\Head_Cas_Male01.skin" animLoadScript=animload_Head_Cas_Male01 skeletonName=head_cas_male01 skeletonFileName="skeletons\\head_cas_male01.ske" 
+    make_select_view_model_line text="CAS Female Head" modelname="Cutscenes\\Head_CAS_Female01.skin" animLoadScript=animload_Head_CAS_Female01 skeletonName=Head_CAS_Female01 skeletonFileName="skeletons\\Head_CAS_Female01.ske" 
+    make_select_view_model_line text="AnchorMan_HEAD" modelname="Cutscenes\\AnchorMan_HEAD.skin" animLoadScript=animload_AnchorMan_HEAD skeletonName=AnchorMan_HEAD skeletonFileName="skeletons\\AnchorMan_HEAD.ske" 
+    make_select_view_model_line text="BostonGuy_HEAD" modelname="Cutscenes\\BostonGuy_HEAD.skin" animLoadScript=animload_BostonGuy_HEAD skeletonName=bostonguy_head skeletonFileName="skeletons\\bostonguy_head.ske" 
+    make_select_view_model_line text="Burnquist_Head" modelname="Cutscenes\\Burnquist_Head.skin" animLoadScript=animload_Burnquist_Head skeletonName=burnquist_head skeletonFileName="skeletons\\burnquist_head.ske" 
+    make_select_view_model_line text="Hawk_Head" modelname="Cutscenes\\Hawk_Head.skin" animLoadScript=animload_Hawk_Head skeletonName=hawk_head skeletonFileName="skeletons\\hawk_head.ske" 
+    make_select_view_model_line text="Koston_Head" modelname="Cutscenes\\Koston_Head.skin" animLoadScript=animload_Koston_Head skeletonName=koston_head skeletonFileName="skeletons\\koston_head.ske" 
+    make_select_view_model_line text="Muska_Head" modelname="Cutscenes\\Muska_Head.skin" animLoadScript=animload_Muska_Head skeletonName=muska_head skeletonFileName="skeletons\\muska_head.ske" 
+    make_select_view_model_line text="Margera_Head" modelname="Cutscenes\\Margera_Head.skin" animLoadScript=animload_Margera_Head skeletonName=margera_head skeletonFileName="skeletons\\margera_head.ske" 
+    make_select_view_model_line text="Margera_HOODY" modelname="Cutscenes\\Margera_HOOD_FULL.skin" animLoadScript=animload_thps6_human skeletonName=head_cas_male01 skeletonName=thps6_human defaultAnim=Ped_M_Idle1 skeletonName=thps6_human 
+    make_select_view_model_line text="Mullen_Head" modelname="Cutscenes\\Mullen_Head.skin" animLoadScript=animload_Mullen_Head skeletonName=mullen_head skeletonFileName="skeletons\\mullen_head.ske" 
+    make_select_view_model_line text="Nigel_Head" modelname="Cutscenes\\Nigel_Head.skin" animLoadScript=animload_Nigel_Head skeletonName=nigel_head skeletonFileName="skeletons\\nigel_head.ske" 
+    make_select_view_model_line text="NODrunk1_Head" modelname="Cutscenes\\Cut_NODrunk1_Head.skin" animLoadScript=animload_NODrunk1_HEAD skeletonName=NODrunk1_Head skeletonFileName="skeletons\\NODrunk1_Head.ske" 
+    make_select_view_model_line text="NODrunk2_Head" modelname="Cutscenes\\Cut_NODrunk2_Head.skin" animLoadScript=animload_NODrunk2_HEAD skeletonName=NODrunk2_Head skeletonFileName="skeletons\\NODrunk2_Head.ske" 
+    make_select_view_model_line text="Phil_Head" modelname="Cutscenes\\Phil_Head.skin" animLoadScript=animload_Phil_Head skeletonName=phil_head skeletonFileName="skeletons\\phil_head.ske" 
+    make_select_view_model_line text="Rampkid_Head" modelname="Cutscenes\\Rampkid_Head.skin" animLoadScript=animload_Rampkid_Head skeletonName=Rampkid_head skeletonFileName="skeletons\\Rampkid_head.ske" 
+    make_select_view_model_line text="Vallely_Head" modelname="Cutscenes\\Vallely_Head.skin" animLoadScript=animload_Vallely_Head skeletonName=vallely_head skeletonFileName="skeletons\\vallely_head.ske" 
+    make_select_view_model_line text="Sparrow_Head" modelname="Cutscenes\\Sparrow_Head.skin" animLoadScript=animload_Sparrow_Head skeletonName=sparrow_head skeletonFileName="skeletons\\sparrow_head.ske" 
+    make_select_view_model_line name=vehicle model="Veh\\veh_tricycle\\Veh_Tricycle_Skin.skin" skeletonName=thps6_human 
+} 

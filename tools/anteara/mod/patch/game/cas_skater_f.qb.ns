@@ -1,0 +1,1193 @@
+skater_f_head = [
+    {
+        desc_id=`Light Skin 1` 
+        frontend_desc=%"\\CLFuQ FACE1" 
+        mesh="models/skater_female/head_Female_01.skin" 
+        mesh_if_facemapped="models/skater_female/Facemap_female_01.skin" 
+        script disqualify_script {
+            SetPart part=body desc_id=FemaleBody 
+        } 
+        skintone=light 
+        default_h=30 
+        default_s=35 
+        default_v=58 
+    } 
+    {
+        desc_id=`Light Head 1` 
+        frontend_desc=%"Head A" 
+        mesh="models/skater_female/head_Female_01.skin" 
+        replace="CS_NSN_F_wht_Head01" 
+        with="textures/skater_male/CS_MBF_F_Gry_Head01.png" 
+        mesh_if_facemapped="models/skater_female/Facemap_female_01.skin" 
+        script SetPart {part = body desc_id = FemaleBody 
+        } 
+        skintone=light 
+        eyecolor=1 
+        default_h=15 
+        default_s=23 
+        default_v=56 
+        nose_bone_group={x=110 y=116 z=100 use_default_scale=0} 
+        Jaw_bone_group={x=98 y=100 z=100 use_default_scale=0} 
+        headtop_bone_group={x=104 y=108 z=100 use_default_scale=0} 
+    } 
+    {
+        desc_id=`Light Head 2` 
+        frontend_desc=%"Head B" 
+        mesh="models/skater_female/head_Female_01.skin" 
+        replace="CS_NSN_F_wht_Head01" 
+        with="textures/skater_male/CS_MBF_F_Gry_Head02.png" 
+        mesh_if_facemapped="models/skater_female/Facemap_female_01.skin" 
+        script disqualify_script {
+            SetPart part=body desc_id=FemaleBody 
+        } 
+        skintone=light 
+        eyecolor=2 
+        default_h=15 
+        default_s=20 
+        default_v=56 
+    } 
+    {
+        desc_id=`Light Head 3` 
+        frontend_desc=%"Head C" 
+        mesh="models/skater_female/head_Female_01.skin" 
+        replace="CS_NSN_F_wht_Head01" 
+        with="textures/skater_male/CS_MBF_F_Gry_Head03.png" 
+        mesh_if_facemapped="models/skater_female/Facemap_female_01.skin" 
+        script disqualify_script {
+            SetPart part=body desc_id=FemaleBody 
+        } 
+        skintone=light 
+        eyecolor=1 
+        default_h=15 
+        default_s=23 
+        default_v=56 
+    } 
+    {
+        desc_id=`Light Head 4` 
+        frontend_desc=%"Head D" 
+        mesh="models/skater_female/head_Female_01.skin" 
+        replace="CS_NSN_F_wht_Head01" 
+        with="textures/skater_male/CS_MBF_F_Gry_Head04.png" 
+        mesh_if_facemapped="models/skater_female/Facemap_female_01.skin" 
+        script disqualify_script {
+            SetPart part=body desc_id=FemaleBody 
+        } 
+        skintone=light 
+        eyecolor=4 
+        default_h=15 
+        default_s=23 
+        default_v=56 
+    } 
+    {
+        desc_id=`Light Head 5` 
+        frontend_desc=%"Head E" 
+        mesh="models/skater_female/head_Female_01.skin" 
+        replace="CS_NSN_F_wht_Head01" 
+        with="textures/skater_male/CS_MBF_F_Gry_Head05.png" 
+        mesh_if_facemapped="models/skater_female/Facemap_female_01.skin" 
+        script disqualify_script {
+            SetPart part=body desc_id=FemaleBody 
+        } 
+        skintone=light 
+        eyecolor=2 
+        default_h=15 
+        default_s=23 
+        default_v=56 
+        head_bone_group={x=108 y=107 z=107 use_defaultault_scale=0} 
+        nose_bone_group={x=95 y=116 z=106 use_default_scale=0} 
+        Jaw_bone_group={x=102 y=100 z=104 use_default_scale=0} 
+    } 
+    {
+        desc_id=`Dark Head 1` 
+        frontend_desc=%"Head F" 
+        mesh="models/skater_female/head_Female_01.skin" 
+        replace="CS_NSN_F_wht_Head01" 
+        with="textures/skater_male/CS_MBF_F_Gry_Head06.png" 
+        mesh_if_facemapped="models/skater_female/Facemap_female_01.skin" 
+        script disqualify_script {
+            SetPart part=body desc_id=FemaleBody 
+        } 
+        skintone=light 
+        eyecolor=2 
+        default_h=15 
+        default_s=20 
+        default_v=30 
+        {nose_bone_group={x=122 y=116 z=89 use_default_scale=0} 
+            Jaw_bone_group={x=95 y=107 z=97 use_default_scale=0} 
+            headtop_bone_group={x=104 y=108 z=100 use_default_scale=0} 
+            head_bone_group={x=99 y=97 z=105 use_default_scale=0} 
+        } 
+    } 
+    {
+        desc_id=`Dark Head 2` 
+        frontend_desc=%"Head G" 
+        mesh="models/skater_female/head_Female_01.skin" 
+        replace="CS_NSN_F_wht_Head01" 
+        with="textures/skater_male/CS_MBF_F_Gry_Head07.png" 
+        mesh_if_facemapped="models/skater_female/Facemap_female_01.skin" 
+        script disqualify_script {
+            SetPart part=body desc_id=FemaleBody 
+        } 
+        skintone=light 
+        eyecolor=2 
+        default_h=5 
+        default_s=26 
+        default_v=30 
+        nose_bone_group={x=120 y=106 z=129 use_default_scale=0} 
+        Jaw_bone_group={x=98 y=100 z=104 use_default_scale=0} 
+        headtop_bone_group={x=104 y=96 z=96 use_default_scale=0} 
+    } 
+    {
+        desc_id=`Dark Head 3` 
+        frontend_desc=%"Head H" 
+        mesh="models/skater_female/head_Female_01.skin" 
+        replace="CS_NSN_F_wht_Head01" 
+        with="textures/skater_male/CS_MBF_F_Gry_Head08.png" 
+        mesh_if_facemapped="models/skater_female/Facemap_female_01.skin" 
+        script disqualify_script {
+            SetPart part=body desc_id=FemaleBody 
+        } 
+        skintone=light 
+        eyecolor=2 
+        default_h=10 
+        default_s=20 
+        default_v=30 
+        skater_f_hair={desc_id=Medium2 h=20 s=15 v=12 use_default_hsv=0} 
+        nose_bone_group={x=88 y=112 z=116 use_default_ 
+            scale=0} 
+        head_bone_group={x=95 y=100 z=99 use_default_scale=0} 
+        Jaw_bone_group={x=100 y=105 z=94 use_default_scale=0} 
+        headtop_bone_group={x=100 y=107 z=100 use_default_scale=0} 
+    } 
+    {
+        desc_id=`Dark Head 4` 
+        frontend_desc=%"Head I" 
+        mesh="models/skater_female/head_Female_01.skin" 
+        replace="CS_NSN_F_wht_Head01" 
+        with="textures/skater_male/CS_MBF_F_Gry_Head09.png" 
+        mesh_if_facemapped="models/skater_female/Facemap_female_01.skin" 
+        script disqualify_script {
+            SetPart part=body desc_id=FemaleBody 
+        } 
+        skintone=light 
+        eyecolor=2 
+        default_h=10 
+        default_s=25 
+        default_v=25 
+    } 
+    {
+        desc_id=`Dark Head 5` 
+        frontend_desc=%"Head J" 
+        mesh="models/skater_female/head_Female_01.skin" 
+        replace="CS_NSN_F_wht_Head01" 
+        with="textures/skater_male/CS_MBF_F_Gry_Head10.png" 
+        mesh_if_facemapped="models/skater_female/Facemap_female_01.skin" 
+        script disqualify_script {
+            SetPart part=body desc_id=FemaleBody 
+        } 
+        skintone=light 
+        eyecolor=2 
+        default_h=10 
+        default_s=20 
+        default_v=30 
+        head_bone_group={x=103 y=101 z=98 use_default_scale=0} 
+        nose_bone_group={x=117 y=102 z=110 use_default_scale=0} 
+        Jaw_bone_group={x=92 y=99 z=92 use_default_scale=0} 
+        headtop_bone_group={x=97 y=99 z=87 use_default_scale=0} 
+    } 
+    {
+        desc_id=`Tan Head 1` 
+        frontend_desc=%"Head K" 
+        mesh="models/skater_female/head_Female_01.skin" 
+        replace="CS_NSN_F_wht_Head01" 
+        with="textures/skater_male/CS_MBF_F_Gry_Head11.png" 
+        mesh_if_facemapped="models/skater_female/Facemap_female_01.skin" 
+        script disqualify_script {
+            SetPart part=body desc_id=FemaleBody 
+        } 
+        skintone=light 
+        eyecolor=2 
+        default_h=25 
+        default_s=29 
+        default_v=40 
+        nose_bone_group={x=110 y=116 z=100 use_default_scale=0} 
+        Jaw_bone_group={x=98 y=100 z=100 use_default_scale=0} 
+        headtop_bone_group={x=104 y=108 z=100 use_default_scale=0} 
+    } 
+    {
+        desc_id=`Tan Head 2` 
+        frontend_desc=%"Head L" 
+        mesh="models/skater_female/head_Female_01.skin" 
+        replace="CS_NSN_F_wht_Head01" 
+        with="textures/skater_male/CS_MBF_F_Gry_Head12.png" 
+        mesh_if_facemapped="models/skater_female/Facemap_female_01.skin" 
+        script disqualify_script {
+            SetPart part=body desc_id=FemaleBody 
+        } 
+        skintone=light 
+        eyecolor=2 
+        default_h=25 
+        default_s=29 
+        default_v=40 
+    } 
+    {
+        desc_id=`Tan Head 3` 
+        frontend_desc=%"Head M" 
+        mesh="models/skater_female/head_Female_01.skin" 
+        replace="CS_NSN_F_wht_Head01" 
+        with="textures/skater_male/CS_MBF_F_Gry_Head13.png" 
+        mesh_if_facemapped="models/skater_female/Facemap_female_01.skin" 
+        script disqualify_script {
+            SetPart part=body desc_id=FemaleBody 
+        } 
+        skintone=light 
+        eyecolor=2 
+        default_h=25 
+        default_s=29 
+        default_v=40 
+        head_bone_group={x=107 y=104 z=108 use_defaultault_scale=0} 
+        nose_bone_group={x=100 y=88 z=131 use_default_scale=0} 
+        headtop_bone_group={x=112 y=119 z=113 use_default_scale=0} 
+    } 
+    {
+        desc_id=`Tan Head 4` 
+        frontend_desc=%"Head N" 
+        mesh="models/skater_female/head_Female_01.skin" 
+        replace="CS_NSN_F_wht_Head01" 
+        with="textures/skater_male/CS_MBF_F_Gry_Head14.png" 
+        mesh_if_facemapped="models/skater_female/Facemap_female_01.skin" 
+        script disqualify_script {
+            SetPart part=body desc_id=FemaleBody 
+        } 
+        skintone=light 
+        eyecolor=2 
+        default_h=25 
+        default_s=29 
+        default_v=40 
+        head_bone_group={x=105 y=100 z=114 use_default_scale=0} 
+        nose_bone_group={x=100 y=107 z=131 use_default_scale=0} 
+        headtop_bone_group={x=112 y=98 z=113 use_default_scale=0} 
+    } 
+    {
+        desc_id=`Tan Head 5` 
+        frontend_desc=%"Head O" 
+        mesh="models/skater_female/head_Female_01.skin" 
+        replace="CS_NSN_F_wht_Head01" 
+        with="textures/skater_male/CS_MBF_F_Gry_Head15.png" 
+        mesh_if_facemapped="models/skater_female/Facemap_female_01.skin" 
+        script disqualify_script {
+            SetPart part=body desc_id=FemaleBody 
+        } 
+        skintone=light 
+        eyecolor=2 
+        default_h=25 
+        default_s=29 
+        default_v=40 
+        head_bone_group={use_defaultault_scale=0 x=98 y=104 z=98 use_default_scale=0} 
+        nose_bone_group={x=101 y=109 z=109 use_default_scale=0} 
+        Jaw_bone_group={x=107 y=108 z=93 use_default_scale=0} 
+        headtop_bone_group={x=115 y=103 z=107 use_default_scale=0} 
+    } 
+    {
+        desc_id=`Old Lady` 
+        frontend_desc=%"Head P" 
+        mesh="models/skater_female/head_Female_01.skin" 
+        replace="CS_NSN_F_wht_Head01" 
+        with="textures/skater_male/CS_MBF_F_Gry_Head16.png" 
+        mesh_if_facemapped="models/skater_female/Facemap_female_01.skin" 
+        script disqualify_script {
+            SetPart part=body desc_id=FemaleBody 
+        } 
+        skintone=light 
+        eyecolor=1 
+        default_h=15 
+        default_s=26 
+        default_v=56 
+        nose_bone_group={x=110 y=116 z=100 use_default_scale=0} 
+        Jaw_bone_group={x=98 y=100 z=100 use_default_scale=0} 
+        headtop_bone_group={x=104 y=108 z=100 use_default_scale=0} 
+    } 
+    {
+        desc_id=Goth 
+        frontend_desc=%"Head Q" 
+        mesh="models/skater_female/head_Female_01.skin" 
+        replace="CS_NSN_F_wht_Head01" 
+        with="textures/skater_male/CS_MBF_F_Gry_Head17.png" 
+        mesh_if_facemapped="models/skater_female/Facemap_female_01.skin" 
+        script disqualify_script {
+            SetPart part=body desc_id=FemaleBody 
+        } 
+        skintone=light 
+        eyecolor=2 
+        default_h=15 
+        default_s=14 
+        default_v=56 
+    } 
+    {
+        desc_id=`Cat Girl` 
+        frontend_desc=%"Head R" 
+        mesh="models/skater_female/head_Female_01.skin" 
+        replace="CS_NSN_F_wht_Head01" 
+        with="textures/skater_male/CS_MBF_F_Gry_Head18.png" 
+        mesh_if_facemapped="models/skater_female/Facemap_female_01.skin" 
+        script disqualify_script {
+            SetPart part=body desc_id=FemaleBody 
+        } 
+        skintone=light 
+        eyecolor=7 
+        default_h=25 
+        default_s=17 
+        default_v=56 
+    } 
+    {
+        desc_id=Zombie 
+        frontend_desc=%"Zombie" 
+        mesh="models/skater_female/head_Female_01.skin" 
+        replace="CS_NSN_F_wht_Head01" 
+        with="textures/skater_male/CS_MBF_F_Gry_Head19.png" 
+        mesh_if_facemapped="models/skater_female/Facemap_female_01.skin" 
+        script disqualify_script {
+            SetPart part=body desc_id=FemaleBody 
+        } 
+        skintone=light 
+        eyecolor=3 
+        default_h=170 
+        default_s=26 
+        default_v=46 
+        head_bone_group={x=108 y=107 z=107 use_defaultault_scale=0} 
+        nose_bone_group={x=95 y=116 z=106 use_default_scale=0} 
+        Jaw_bone_group={x=102 y=100 z=104 use_default_scale=0} 
+    } 
+    {
+        desc_id=Skull 
+        frontend_desc=%"Skull" 
+        mesh="models/skater_male/Head_Skull01.skin" 
+        mesh_if_facemapped="models/skater_female/Facemap_female_01.skin" 
+        no_color 
+        script disqualify_script {
+            ClearPart part=eyes 
+        } 
+        lockout_parts=[eyes] 
+        NoCutsceneHead 
+        skintone=light 
+        default_h=30 
+        default_s=35 
+        default_v=58 
+    } 
+    {
+        desc_id=eyes 
+        frontend_desc=%"Eyes" 
+        mesh="models/skater_male/Skin_Extra_eyes.skin" 
+        mesh_if_facemapped="models/skater_female/Facemap_female_01.skin" 
+        script disqualify_script {
+            ClearPart part=eyes 
+            ClearPart part=skater_f_hair 
+        } 
+        lockout_parts=[eyes skater_f_hair] 
+        no_color 
+        NoCutsceneHead 
+        skintone=light 
+        default_h=30 
+        default_s=35 
+        default_v=58 
+    } 
+    {
+        desc_id=PaperBag 
+        frontend_desc=%"Paper Bag" 
+        mesh="models/skater_male/Hat_PaperBag.skin" 
+        mesh_if_facemapped="models/skater_female/Facemap_female_01.skin" 
+        script disqualify_script {
+            ClearPart part=skater_f_hair 
+            ClearPart part=skater_f_hat_hair 
+            ClearPart part=glasses 
+            ClearPart part=eyes 
+            ClearPart part=head_tattoo 
+            ClearPart part=hat 
+        } 
+        lockout_parts=[skater_f_hair skater_f_hat_hair glasses eyes head_tattoo hat] 
+        NoCutsceneHead 
+        skintone=light 
+        default_h=30 
+        default_s=35 
+        default_v=58 
+    } 
+    {
+        desc_id=Bigfoot 
+        frontend_desc=%"Bigfoot" 
+        mesh="models/skater_male/Head_bigfoot.skin" 
+        mesh_if_facemapped="models/skater_female/Facemap_female_01.skin" 
+        script disqualify_script {
+            ClearPart part=skater_f_hair 
+            ClearPart part=skater_f_hat_hair 
+            ClearPart part=glasses 
+            ClearPart part=eyes 
+            ClearPart part=head_tattoo 
+            ClearPart part=hat 
+        } 
+        NoCutsceneHead 
+        skintone=light 
+        lockout_parts=[skater_f_hair skater_f_hat_hair glasses head_tattoo eyes hat] 
+        default_h=30 
+        default_s=35 
+        default_v=58 
+    } 
+    {
+        desc_id=None 
+        frontend_desc=%"None" 
+    } 
+] 
+skater_f_torso = [
+    {
+        desc_id=None 
+        // MERGE: FIX - a stray 0x16 byte here swallowed this '}' and the next '{'
+    } 
+    {
+        desc_id=Shirtless 
+        frontend_desc=%"\\CLSPORTB" 
+        no_color 
+        is_clowny 
+        force_bare_torso 
+    } 
+    {
+        desc_id=Sleeveless 
+        frontend_desc=%"Sleeveless" 
+        supports_logo 
+        multicolor=1 h=100 s=38 v=30 use_default_hsv=0 
+    } 
+    {
+        desc_id=`Baseball-T` 
+        frontend_desc=%"Baseball-T" 
+        mesh="models/skater_female/Shirt_baseball-t.skin" 
+        supports_logo 
+        force_big_elbowpads 
+        multicolor=1 
+        default_h=25 
+        default_s=59 
+        default_v=50 
+    } 
+    {
+        desc_id=`T-shirt` 
+        frontend_desc=%"T-Shirt" 
+        mesh="models/skater_female/shirt_tshirt.skin" 
+        replace="CS_NSN_F_TShirt01.png" 
+        with="textures/skater_male/CS_NSN_Tshirt0" 
+        replace1="CS_NSN_F_TSleeve01.png" 
+        with1="textures/skater_male/CS_NSN_TSleeve0" 
+        supports_logo 
+        multicolor=1 
+        force_big_elbowpads 
+        script disqualify_script {
+            ClearPart part=chest_tattoo 
+            ClearPart part=back_tattoo 
+        } 
+        lockout_parts=[chest_tattoo back_tattoo] 
+    } 
+    {
+        desc_id=`Shirt line` 
+        frontend_desc=%"Shirt Line" 
+        mesh="models/skater_female/shirt_tshirt.skin" 
+        supports_logo 
+        multicolor=1 
+        force_big_elbowpads 
+        script disqualify_script {
+            ClearPart part=chest_tattoo 
+            ClearPart part=back_tattoo 
+        } 
+        lockout_parts=[chest_tattoo back_tattoo] 
+    } 
+    {
+        desc_id=`Camo T-shirt` 
+        frontend_desc=%"Camo T-Shirt" 
+        mesh="models/skater_female/shirt_tshirt.skin" 
+        replace="CS_NSN_F_TShirt01.png" 
+        with="textures/skater_male/CS_NSN_shirt_camo01" 
+        replace1="CS_NSN_F_TSleeve01.png" 
+        with1="textures/skater_male/CS_NSN_shirtslv_camo_short01" 
+        supports_logo 
+        multicolor=1 
+        force_big_elbowpads 
+        script disqualify_script {
+            ClearPart part=chest_tattoo 
+            ClearPart part=back_tattoo 
+        } 
+        lockout_parts=[chest_tattoo back_tattoo] 
+    } 
+    {
+        desc_id=`Tie-Dye` 
+        frontend_desc=%"Tie-Dye" 
+        mesh="models/skater_female/shirt_tshirt.skin" 
+        replace="CS_NSN_F_TShirt01.png" 
+        with="textures/skater_male/CS_JB_shirt_tiedye" 
+        replace1="CS_NSN_F_TSleeve01.png" 
+        with1="textures/skater_male/CS_JB_sleeve_short_tiedye" 
+        supports_logo 
+        multicolor=1 
+        force_big_elbowpads 
+        script disqualify_script {
+            ClearPart part=chest_tattoo 
+            ClearPart part=back_tattoo 
+        } 
+        lockout_parts=[chest_tattoo back_tattoo] 
+    } 
+    {
+        desc_id=`Button SS` 
+        frontend_desc=%"Button SS" 
+        mesh="models/skater_female/shirt_collar.skin" 
+        replace="CS_NSN_Shirt_Colur01.png" 
+        with="textures/skater_male/CS_NSN_Shirt_button03" 
+        replace1="CS_NSN_TSleeve01.png" 
+        with1="textures/skater_male/CS_NSN_TSleeve0" 
+        script disqualify_script {
+            ClearPart part=chest_tattoo 
+            ClearPart part=back_tattoo 
+        } 
+        lockout_parts=[chest_tattoo back_tattoo] 
+    } 
+    {
+        desc_id=`Button Open SS` 
+        frontend_desc=%"Button Open SS" 
+        mesh="models/skater_female/shirt_button_open_ss.skin" 
+        replace="CS_NSN_F_Wht_Torso.png" 
+        with="textures/skater_male/CS_NSN_f_gry_torso" 
+        in=all 
+        script disqualify_script {
+            ClearPart part=back_tattoo 
+            ClearPart part=skater_f_backpack 
+        } 
+        lockout_parts=[back_tattoo skater_f_backpack] 
+    } 
+    {
+        desc_id=Collar 
+        frontend_desc=%"Collar" 
+        mesh="models/skater_female/shirt_collar.skin" 
+        default_h=345 
+        default_s=29 
+        default_v=56 
+        script disqualify_script {
+            ClearPart part=chest_tattoo 
+            ClearPart part=back_tattoo 
+        } 
+        lockout_parts=[chest_tattoo back_tattoo] 
+    } 
+    {
+        desc_id=Jersey 
+        frontend_desc=%"Jersey" 
+        mesh="models/skater_female/shirt_jersey.skin" 
+        supports_logo 
+        multicolor=1 
+        shows_panties 
+        script disqualify_script {
+            ClearPart part=chest_tattoo 
+            ClearPart part=back_tattoo 
+        } 
+        lockout_parts=[chest_tattoo back_tattoo] 
+        default_h=70 
+        default_s=50 
+        default_v=50 
+    } 
+    {
+        desc_id=`V-Neck` 
+        frontend_desc=%"V-Neck" 
+        mesh="models/skater_female/shirt_SSVneck.skin" 
+        replace="CS_NSN_F_Wht_Torso.png" 
+        with="textures/skater_male/CS_NSN_f_gry_torso" 
+        in=all 
+        multicolor=1 
+    } 
+    {
+        desc_id=`Tanktop short` 
+        frontend_desc=%"Tanktop Short" 
+        mesh="models/skater_female/shirt_tanktop_2.skin" 
+        replace="CS_NSN_F_Wht_Torso.png" 
+        with="textures/skater_male/CS_NSN_f_gry_torso" 
+        in=all 
+        supports_logo 
+    } 
+    {
+        desc_id=Tanktop 
+        frontend_desc=%"Tanktop" 
+        mesh="models/skater_female/shirt_tanktop.skin" 
+        replace="CS_NSN_F_Wht_Torso.png" 
+        with="textures/skater_male/CS_NSN_f_gry_torso" 
+        in=all 
+        supports_logo 
+    } 
+    {
+        desc_id=`Tie-Dye Tank` 
+        frontend_desc=%"Tie-Dye Tank" 
+        mesh="models/skater_female/shirt_tanktop.skin" 
+        replace="CS_NSN_Shirt_Under01.png" 
+        with="textures/skater_male/CS_NSN_f_tanktop_dye" 
+        replace1="CS_NSN_F_Wht_Torso.png" 
+        with1="textures/skater_male/CS_NSN_f_gry_torso" 
+        in1=all 
+        supports_logo 
+    } 
+    {
+        desc_id=`Floral Tank` 
+        frontend_desc=%"Floral Tank" 
+        mesh="models/skater_female/shirt_tanktop.skin" 
+        replace="CS_NSN_Shirt_Under01.png" 
+        with="textures/skater_male/CS_NSN_f_tanktop_floral" 
+        replace1="CS_NSN_F_Wht_Torso.png" 
+        with1="textures/skater_male/CS_NSN_f_gry_torso" 
+        in1=all 
+        supports_logo 
+    } 
+    {
+        desc_id=Shirt_Knotted 
+        frontend_desc=%"Knotted" 
+        mesh="models/skater_female/Shirt_Knotted.skin" 
+        replace="CS_NSN_F_Wht_Torso.png" 
+        with="textures/skater_male/CS_NSN_f_gry_torso" 
+        replace="CS_NSN_F_Wht_Torso.png" 
+        with="textures/skater_male/CS_NSN_f_gry_torso" 
+        in=all 
+        default_h=320 
+        default_s=0 
+        default_v=54 
+    } 
+    {
+        desc_id=`Halter Top` 
+        frontend_desc=%"Halter Top" 
+        mesh="models/skater_female/Shirt_haltertop.skin" 
+        replace="CS_NSN_F_Wht_Torso.png" 
+        with="textures/skater_male/CS_NSN_f_gry_torso" 
+        in=all 
+    } 
+    {
+        desc_id=Longsleeve 
+        frontend_desc=%"Longsleeve" 
+        mesh="models/skater_female/Shirt_Longsleeve.skin" 
+        supports_logo 
+        force_big_elbowpads 
+        force_big_elbowpads 
+        script disqualify_script {
+            cas_temp_disq_remove_longsleeve_parts 
+        } 
+        lockout_parts=f_longsleeve_lockouts 
+    } 
+    {
+        desc_id=`T-shirt Long Sleeve` 
+        frontend_desc=%"T-shirt LS" 
+        mesh="models/skater_female/shirt_T_longsleeve.skin" 
+        supports_logo 
+        force_big_elbowpads 
+        script disqualify_script {
+            cas_temp_disq_remove_longsleeve_parts 
+        } 
+        lockout_parts=f_longsleeve_lockouts 
+        multicolor=1 
+        default_h=220 
+        default_s=50 
+        default_v=52 
+    } 
+    {
+        desc_id=`Button LS` 
+        frontend_desc=%"Button LS" 
+        mesh="models/skater_female/shirt_button_ls.skin" 
+        force_big_elbowpads 
+        script disqualify_script {
+            cas_temp_disq_remove_longsleeve_parts 
+        } 
+        lockout_parts=f_longsleeve_lockouts 
+        default_h=100 
+        default_s=42 
+        default_v=44 
+    } 
+    {
+        desc_id=`Button Open LS` 
+        frontend_desc=%"Button Open LS" 
+        mesh="models/skater_female/Shirt_button_open_ls.skin" 
+        force_big_elbowpads 
+        script disqualify_script {
+            ClearPart part=back_tattoo 
+            ClearPart part=left_sleeve_tattoo 
+            ClearPart part=left_bicep_tattoo 
+            ClearPart part=left_forearm_tattoo 
+            ClearPart part=right_sleeve_tattoo 
+            ClearPart part=right_bicep_tattoo 
+            ClearPart part=right_forearm_tattoo 
+            ClearPart part=accessory1 
+            ClearPart part=accessory2 
+            ClearPart part=skater_f_backpack 
+        } 
+        lockout_parts=[back_tattoo skater_f_backpack 
+            left_sleeve_tattoo l 
+            left_bicep_tattoo 
+            left_forearm_tattoo 
+            right_sleeve_tattoo 
+            right_bicep_tattoo 
+            right_forearm_tattoo 
+            accessory1 
+            accessory2] 
+    } 
+    {
+        desc_id=`Baggy Vest` 
+        frontend_desc=%"Baggy Vest" 
+        mesh="models/skater_female/shirt_baggyvest.skin" 
+        replace="CS_NSN_F_Wht_Torso.png" 
+        with="textures/skater_male/CS_NSN_f_gry_torso" 
+        in=all 
+        shows_panties 
+        script disqualify_script {
+            ClearPart part=left_bicep_tattoo 
+            ClearPart part=skater_f_backpack 
+        } 
+        lockout_parts=[left_bicep_tattoo skater_f_backpack] 
+    } 
+    {
+        desc_id=`Leather Vest` 
+        frontend_desc=%"Leather Vest" 
+        mesh="models/skater_female/shirt_baggyvest.skin" 
+        replace="CS_NH_baggyvest.png" 
+        with="textures/skater_male/CS_NH_leathervest" 
+        replace1="CS_NSN_F_Wht_Torso.png" 
+        with1="textures/skater_male/CS_NSN_f_gry_torso" 
+        in1=all 
+        shows_panties 
+        script disqualify_script {
+            ClearPart part=left_bicep_tattoo 
+            ClearPart part=skater_f_backpack 
+        } 
+        lockout_parts=[left_bicep_tattoo skater_f_backpack] 
+    } 
+    {
+        desc_id=`Hoody Up` 
+        frontend_desc=%"Hoody Up" 
+        mesh="models/skater_female/shirt_F_Hoodyup.skin" 
+        supports_logo 
+        no_back_logo 
+        script disqualify_script {
+            ClearPart part=chest_tattoo 
+            ClearPart part=back_tattoo 
+            ClearPart part=left_sleeve_tattoo 
+            ClearPart part=left_bicep_tattoo 
+            ClearPart part=left_forearm_tattoo 
+            ClearPart part=right_sleeve_tattoo 
+            ClearPart part=right_bicep_tattoo 
+            ClearPart part=right_forearm_tattoo 
+            ClearPart part=accessory1 
+            ClearPart part=accessory2 
+            ClearPart part=hat 
+            ClearPart part=skater_f_hat_hair 
+            ClearPart part=skater_f_hair 
+        } 
+        lockout_parts=[
+            chest_tattoo 
+            back_tattoo 
+            left_sleeve_tattoo 
+            left_bicep_tattoo 
+            left_forearm_tattoo 
+            right_sleeve_tattoo 
+            right_bicep_tattoo 
+            right_forearm_tattoo 
+            accessory1 
+            accessory2 
+            hat 
+            skater_f_hat_hair 
+            skater_f_hair 
+        ] 
+        force_big_elbowpads 
+        default_h=15 
+        default_s=5 
+        default_v=26 
+    } 
+    {
+        desc_id=`Hoody Down` 
+        frontend_desc=%"Hoody Down" 
+        mesh="models/skater_female/shirt_F_Hoodydown.skin" 
+        supports_logo 
+        not_with_backpack 
+        script disqualify_script {
+            ClearPart part=chest_tattoo 
+            ClearPart part=back_tattoo 
+            ClearPart part=left_sleeve_tattoo 
+            ClearPart part=left_bicep_tattoo 
+            ClearPart part=left_forearm_tattoo 
+            ClearPart part=right_sleeve_tattoo 
+            ClearPart part=right_bicep_tattoo 
+            ClearPart part=right_forearm_tattoo 
+            ClearPart part=accessory1 
+            ClearPart part=accessory2 
+            ClearPart part=skater_f_backpack 
+        } 
+        lockout_parts=[
+            chest_tattoo 
+            back_tattoo 
+            left_sleeve_tattoo 
+            left_bicep_tattoo 
+            left_forearm_tattoo 
+            right_sleeve_tattoo 
+            right_bicep_tattoo 
+            right_forearm_tattoo 
+            accessory1 
+            accessory2 
+            skater_f_backpack 
+        ] 
+        force_big_elbowpads 
+        default_h=20 
+        default_s=20 
+        default_v=34 
+    } 
+    {
+        desc_id=`Russian coat` 
+        frontend_desc=%"Russian coat" 
+        mesh="models/skater_male/shirt_jacket_bomber.skin" 
+        script disqualify_script {
+            ClearPart part=chest_tattoo 
+            ClearPart part=back_tattoo 
+            ClearPart part=left_sleeve_tattoo 
+            ClearPart part=left_bicep_tattoo 
+            ClearPart part=left_forearm_tattoo 
+            ClearPart part=right_sleeve_tattoo 
+            ClearPart part=right_bicep_tattoo 
+            ClearPart part=right_forearm_tattoo 
+            ClearPart part=accessory1 
+            ClearPart part=accessory2 
+            ClearPart part=elbowpads 
+            ClearPart part=backpack 
+            ClearPart part=skater_f_backpack 
+        } 
+        lockout_parts=[
+            chest_tattoo 
+            back_tattoo 
+            left_sleeve_tattoo 
+            left_bicep_tattoo 
+            left_forearm_tattoo 
+            right_sleeve_tattoo 
+            right_bicep_tattoo 
+            right_forearm_tattoo 
+            accessory1 
+            accessory2 
+            elbowpads 
+            backpack 
+            skater_f_backpack 
+        ] 
+        multicolor=1 
+    } 
+    {
+        desc_id=`Denim Jacket` 
+        frontend_desc=%"Denim Jacket" 
+        mesh="models/skater_female/shirt_denimjacket.skin" 
+        shows_panties 
+        script disqualify_script {
+            ClearPart part=left_bicep_tattoo 
+            ClearPart part=skater_f_backpack 
+            ClearPart part=accessory1 
+            ClearPart part=accessory2 
+            ClearPart part=elbowpads 
+            ClearPart part=backpack 
+        } 
+        lockout_parts=[skater_f_backpack 
+            accessory1 
+            accessory2 
+            elbowpads 
+        ] 
+    } 
+    {
+        desc_id=`Jacket 1` 
+        frontend_desc=%"Jogger Jacket" 
+        mesh="models/skater_female/shirt_jogger.skin" 
+        default_h=325 
+        default_s=50 
+        default_v=50 
+        script disqualify_script {
+            ClearPart part=chest_tattoo 
+            ClearPart part=back_tattoo 
+            ClearPart part=left_sleeve_tattoo 
+            ClearPart part=left_bicep_tattoo 
+            ClearPart part=left_forearm_tattoo 
+            ClearPart part=right_sleeve_tattoo 
+            ClearPart part=right_bicep_tattoo 
+            ClearPart part=right_forearm_tattoo 
+            ClearPart part=accessory1 
+            ClearPart part=accessory2 
+            ClearPart part=elbowpads 
+            ClearPart part=backpack 
+        } 
+        lockout_parts=[
+            chest_tattoo 
+            back_tattoo 
+            left_sleeve_tattoo 
+            left_bicep_tattoo 
+            left_forearm_tattoo 
+            right_sleeve_tattoo 
+            right_bicep_tattoo 
+            right_forearm_tattoo 
+            accessory1 
+            accessory2 
+            elbowpads 
+            backpack 
+        ] 
+    } 
+    {
+        desc_id=`Tube Top` 
+        frontend_desc=%"Tube Top" 
+        mesh="models/skater_female/shirt_tube.skin" 
+        replace="CS_NSN_F_Wht_Torso.png" 
+        with="textures/skater_male/CS_NSN_f_gry_torso" 
+        in=all 
+    } 
+    {
+        desc_id=`Coconut Bra` 
+        frontend_desc=%"FuQ YEAH!!!" 
+        replace="CS_NSN_F_Wht_Torso.png" 
+        with="textures/skater_male/CS_NSN_f_gry_torso" 
+        in=all 
+        script disqualify_script {
+            ClearPart part=skater_f_backpack 
+        } 
+        lockout_parts=[skater_f_backpack] 
+    } 
+    {
+        desc_id=`Butterfinger T` 
+        frontend_desc=%"Butterfinger T" 
+        mesh="models/skater_female/Shirt_baseball-t.skin" 
+        replace2="CS_NSN_logo_none.png" 
+        with2="textures/logos/Sht_Butterfinger02" 
+        force_big_elbowpads 
+        multicolor=1 h=5 s=45 v=52 use_default_hsv=0 
+        default_h=320 
+        default_s=0 
+        default_v=54 
+    } 
+] 
+skater_f_legs = [
+    {
+        desc_id=None 
+        frontend_desc=%"None" 
+        script disqualify_script {
+            cas_temp_disq_set_lower_legs 
+        } 
+        force_lower_legs_full 
+        no_color 
+    } 
+    {
+        desc_id=Shorts 
+        frontend_desc=%"Shorts" 
+        mesh="models/skater_female/pant_shorts.skin" 
+        script disqualify_script {
+            cas_temp_disq_set_lower_legs 
+        } 
+        force_lower_legs_calves 
+        shows_panties 
+    } 
+    {
+        desc_id=`Shorts Denim` 
+        frontend_desc=%"Shorts Denim" 
+        mesh="models/skater_female/pant_shorts.skin" 
+        script disqualify_script {
+            cas_temp_disq_set_lower_legs 
+        } 
+        force_lower_legs_calves 
+        replace="CAS_CRS_Shorts_Cargo.png" 
+        with="textures/skater_male/CAS_CRS_Shorts_Denim02" 
+        shows_panties 
+    } 
+    {
+        desc_id=`Short Shorts Denim` 
+        frontend_desc=%"Short Shorts Denim" 
+        mesh="models/skater_female/pant_shortshorts.skin" 
+        script disqualify_script {
+            cas_temp_disq_set_lower_legs 
+        } 
+        force_lower_legs_calves 
+        shows_panties 
+    } 
+    {
+        desc_id=`Short Flowers` 
+        frontend_desc=%"Short Flowers" 
+        mesh="models/skater_female/pant_shortshorts.skin" 
+        script disqualify_script {
+            cas_temp_disq_set_lower_legs 
+        } 
+        force_lower_legs_calves 
+        replace="CAS_CRS_Shorts_Denim.png" 
+        with="textures/skater_male/CAS_CRS_Shorts_Pattern" 
+        shows_panties 
+    } 
+    {
+        desc_id=`Shorts Daisy` 
+        frontend_desc=%"Shorts Daisy" 
+        mesh="models/skater_female/pant_daisy.skin" 
+        script disqualify_script {
+            cas_temp_disq_set_lower_legs 
+        } 
+        force_lower_legs_full 
+    } 
+    {
+        desc_id=`Shorts Cargo` 
+        frontend_desc=%"Shorts Cargo" 
+        mesh="models/skater_female/pants_shortcargo.skin" 
+        script disqualify_script {
+            cas_temp_disq_set_lower_legs 
+            ClearPart part=kneepads 
+        } 
+        lockout_parts=[kneepads] 
+        force_lower_legs_calves 
+    } 
+    {
+        desc_id=`Mini Skirt` 
+        frontend_desc=%"Mini Skirt" 
+        mesh="models/skater_female/pant_miniskirt.skin" 
+        script disqualify_script {
+            cas_temp_disq_set_lower_legs 
+        } 
+        force_lower_legs_full 
+        default_h=200 
+        default_s=53 
+        default_v=36 
+    } 
+    {
+        desc_id=`Ankle Pants` 
+        frontend_desc=%"Ankle Pants" 
+        mesh="models/skater_female/pant_ankle.skin" 
+        script disqualify_script {
+            cas_temp_disq_set_lower_legs 
+        } 
+        force_lower_legs_calves 
+        shows_panties 
+        force_big_kneepads 
+    } 
+    {
+        desc_id=Regular 
+        frontend_desc=%"Regular" 
+        mesh="models/skater_female/pant_regular.skin" 
+        script disqualify_script {
+            cas_temp_disq_set_lower_legs 
+            ClearPart part=socks 
+            ClearPart part=left_leg_tattoo 
+            ClearPart part=right_leg_tattoo 
+        } 
+        lockout_parts=[socks left_leg_tattoo right_leg_tattoo] 
+        force_lower_legs_none 
+        force_big_kneepads 
+    } 
+    {
+        desc_id=Tight 
+        frontend_desc=%"Tight" 
+        mesh="models/skater_female/pant_tight.skin" 
+        script disqualify_script {
+            cas_temp_disq_set_lower_legs 
+            ClearPart part=socks 
+            ClearPart part=left_leg_tattoo 
+            ClearPart part=right_leg_tattoo 
+        } 
+        lockout_parts=[socks left_leg_tattoo right_leg_tattoo] 
+        force_lower_legs_none 
+        force_big_kneepads 
+    } 
+    {
+        desc_id=Leather 
+        frontend_desc=%"Leather" 
+        mesh="models/skater_female/pant_leather.skin" 
+        script disqualify_script {
+            cas_temp_disq_set_lower_legs 
+            ClearPart part=socks 
+            ClearPart part=left_leg_tattoo 
+            ClearPart part=right_leg_tattoo 
+        } 
+        lockout_parts=[socks left_leg_tattoo right_leg_tattoo] 
+        default_h=210 
+        default_s=0 
+        default_v=12 
+        force_lower_legs_calves 
+        force_big_kneepads 
+    } 
+    {
+        desc_id=Baggy 
+        frontend_desc=%"Baggy" 
+        mesh="models/skater_female/pant_baggy.skin" 
+        script disqualify_script {
+            cas_temp_disq_set_lower_legs 
+            ClearPart part=socks 
+            ClearPart part=left_leg_tattoo 
+            ClearPart part=right_leg_tattoo 
+            ClearPart part=kneepads 
+        } 
+        lockout_parts=[socks left_leg_tattoo right_leg_tattoo kneepads] 
+        force_lower_legs_none 
+        default_h=55 
+        default_s=35 
+        default_v=34 
+    } 
+    {
+        desc_id=`Snow Pants` 
+        frontend_desc=%"Snow Pants" 
+        mesh="models/skater_female/Pants_Snow.skin" 
+        script disqualify_script {
+            cas_temp_disq_set_lower_legs 
+            ClearPart part=socks 
+            ClearPart part=left_leg_tattoo 
+            ClearPart part=right_leg_tattoo 
+            ClearPart part=kneepads 
+        } 
+        lockout_parts=[socks left_leg_tattoo right_leg_tattoo kneepads] 
+        force_lower_legs_none 
+    } 
+    {
+        desc_id=`Baggy Cargo` 
+        frontend_desc=%"Baggy Cargo" 
+        mesh="models/skater_female/pants_cargolong.skin" 
+        script disqualify_script {
+            cas_temp_disq_set_lower_legs 
+            ClearPart part=socks 
+            ClearPart part=left_leg_tattoo 
+            ClearPart part=right_leg_tattoo 
+            ClearPart part=kneepads 
+        } 
+        lockout_parts=[socks left_leg_tattoo right_leg_tattoo kneepads] 
+        force_lower_legs_none 
+        default_h=45 
+        default_s=9 
+        default_v=36 
+    } 
+    {
+        desc_id=`Baggy CargoCamo` 
+        frontend_desc=%"Baggy CargoCamo" 
+        mesh="models/skater_female/pants_cargolong.skin" 
+        replace="CS_NSN_pants_cargo.png" 
+        with="textures/skater_male/CS_NSN_pants_cargocamo" 
+        script disqualify_script {
+            cas_temp_disq_set_lower_legs 
+            ClearPart part=socks 
+            ClearPart part=left_leg_tattoo 
+            ClearPart part=right_leg_tattoo 
+            ClearPart part=kneepads 
+        } 
+        lockout_parts=[socks left_leg_tattoo right_leg_tattoo kneepads] 
+        force_lower_legs_none 
+    } 
+    {
+        desc_id=Bellbottoms 
+        frontend_desc=%"Bellbottoms" 
+        mesh="models/skater_female/pant_bellbottoms.skin" 
+        script disqualify_script {
+            cas_temp_disq_set_lower_legs 
+            ClearPart part=socks 
+            ClearPart part=left_leg_tattoo 
+            ClearPart part=right_leg_tattoo 
+            ClearPart part=kneepads 
+        } 
+        lockout_parts=[socks left_leg_tattoo right_leg_tattoo kneepads] 
+        force_lower_legs_none 
+    } 
+    {
+        desc_id=Jogger 
+        frontend_desc=%"Jogger" 
+        mesh="models/skater_male/pants_jogger.skin" 
+        default_h=330 
+        default_s=47 
+        default_v=26 
+        script disqualify_script {
+            cas_temp_disq_set_lower_legs 
+            ClearPart part=socks 
+            ClearPart part=left_leg_tattoo 
+            ClearPart part=right_leg_tattoo 
+        } 
+        lockout_parts=[socks left_leg_tattoo right_leg_tattoo] 
+        force_lower_legs_none 
+        force_big_kneepads 
+    } 
+] 

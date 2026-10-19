@@ -1,0 +1,10 @@
+// MERGE: 2010 - 2010's colour (pink - what 2011's theme menu calls its first value)
+DE_BALANCE_METER_COLOR = [225 18 213 100] 
+// MERGE: 2010 - 2010's colour
+DE_BALANCE_ARROW_COLOR = [0 255 96 100] 
+// MERGE: 2010 - 2010's colour
+DE_ALT_COLOR = [180 67 92 128] 
+// MERGE: 2010 - 2010's colour
+DE_HIGHLIGHTED_TEXT_COLOR_NEW = [39 230 223 118] 
+// MERGE: 2010 - 2010's colour
+DE_UNHIGHLIGHTED_TEXT_COLOR_NEW = [39 230 223 118] 

@@ -1,0 +1,36 @@
+script create_debug_options_menu {
+    menu3d_hide 
+    hide_current_goal 
+    make_new_themed_option_menu title="DEBUG OPTIONS" 
+    GoalManager_HideGoalPoints 
+    GoalManager_HidePoints 
+    unhide_root_window 
+    SetScreenElementProps {id=options_menu 
+        event_handlers=[
+            {pad_back generic_menu_pad_back params={callback=create_anteara_menu}} 
+        ] 
+    } 
+    make_theme_menu_item text="Cheats: Debug" id=menu_cheats pad_choose_script=launch_cheats_menu 
+    make_theme_menu_item text="Goto Restart" id=menu_skip_to_restart pad_choose_script=launch_restart_menu 
+    make_theme_menu_item text="Debug Menu" id=debug_menu pad_choose_script=create_debug_menu 
+    make_theme_menu_item text="Test Menu" id=test_menu pad_choose_script=create_test_menu 
+    pause_menu_gradient 
+    <show_cutscene_menu> = 1 
+    if Pal {
+        if isngc {
+            <show_cutscene_menu> = 0 
+        } 
+    } 
+    if (<show_cutscene_menu> = 1) {
+        if GameModeEquals is_career {
+            has_cutscenes 
+            if (<does_have_cutscenes> = 1) {
+                make_theme_menu_item text="Watch Cutscenes" id=menu_watch_cutscenes pad_choose_script=create_watch_cutscenes_menu 
+            } else {
+                make_theme_menu_item text="Watch Cutscenes" id=menu_watch_cutscenes not_focusable 
+            } 
+        } 
+    } 
+    add_music_track_text 
+    FireEvent type=focus target=current_menu_anchor 
+} 

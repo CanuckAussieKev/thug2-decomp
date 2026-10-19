@@ -1,0 +1,528 @@
+
+script anteara_boat {
+    Skater:Obj_GetPosition 
+    CreateCompositeObject {
+        Components=[
+            {
+                component=model 
+                model="Veh\\BA\\Veh_BA_Boat\\Veh_BA_Boat.mdl" 
+            } 
+            {
+                component=skeleton 
+                SkeletonName=car 
+            } 
+            {
+                component=Vehicle 
+            } 
+        ] 
+        params={name=boat212 
+            pos=(<pos> + (40.0, 20.0, 0.0)) 
+            NeverSuspend 
+        } 
+    } 
+} 
+script anteara_cone {
+    Skater:Obj_GetPosition 
+    CreateCompositeObject {
+        Components=[
+            {
+                component=model 
+                model="Mdl_Cone\\Mdl_Cone.mdl" 
+            } 
+            {
+                component=rigidbody 
+            } 
+        ] 
+        params={name=cone212 
+            pos=(<pos> + (40.0, 20.0, 0.0)) 
+            NeverSuspend 
+        } 
+    } 
+} 
+script anteara_board2 {
+    Skater:Obj_GetPosition 
+    CreateCompositeObject {
+        Components=[
+            {
+                component=model 
+                model="Board_default\\Board_default.mdl" 
+            } 
+            {
+                component=rigidbody 
+            } 
+        ] 
+        params={name=board212 
+            pos=(<pos> + (40.0, 20.0, 0.0)) 
+            NeverSuspend 
+        } 
+    } 
+} 
+script anteara_crown {
+    Skater:Obj_GetPosition 
+    CreateCompositeObject {
+        Components=[
+            {
+                component=model 
+                model="Crown\\Crown.mdl" 
+            } 
+            {
+                component=rigidbody 
+            } 
+        ] 
+        params={name=crown212 
+            pos=(<pos> + (40.0, 20.0, 0.0)) 
+            NeverSuspend 
+        } 
+    } 
+} 
+script anteara_drivingicon {
+    Skater:Obj_GetPosition 
+    CreateCompositeObject {
+        Components=[
+            {
+                component=model 
+                model="GameObjects\\driving_icon\\driving_icon.mdl" 
+            } 
+            {
+                component=rigidbody 
+            } 
+        ] 
+        params={name=driving_icon212 
+            pos=(<pos> + (40.0, 20.0, 0.0)) 
+            NeverSuspend 
+        } 
+    } 
+} 
+script anteara_tram {
+    Skater:Obj_GetPosition 
+    CreateCompositeObject {
+        Components=[
+            {
+                component=model 
+                model="Veh\\BA\\Veh_BA_Tram\\Veh_BA_Tram.mdl" 
+            } 
+            {
+                component=rigidbody 
+            } 
+        ] 
+        params={name=tram212 
+            pos=(<pos> + (40.0, 20.0, 0.0)) 
+            NeverSuspend 
+        } 
+    } 
+} 
+script anteara_Camino {
+    Skater:Obj_GetPosition 
+    CreateCompositeObject {
+        Components=[
+            {
+                component=model 
+                model="Veh\\Veh_Camino\\Veh_Camino.mdl" 
+            } 
+            {
+                component=rigidbody 
+            } 
+        ] 
+        params={name=camino212 
+            pos=(<pos> + (40.0, 20.0, 0.0)) 
+            NeverSuspend 
+        } 
+    } 
+} 
+script Anteara_Forklift {
+    Skater:Obj_GetPosition 
+    CreateCompositeObject {
+        Components=[
+            {
+                component=model 
+                model="Veh\\Veh_Forklift\\Veh_Forklift.mdl" 
+            } 
+            {
+                component=rigidbody 
+            } 
+        ] 
+        params={name=forklift212 
+            pos=(<pos> + (40.0, 20.0, 0.0)) 
+            NeverSuspend 
+        } 
+    } 
+} 
+script anteara_SUV {
+    Skater:Obj_GetPosition 
+    CreateCompositeObject {
+        Components=[
+            {
+                component=model 
+                model="Veh\\Veh_SUV_THUG\\Veh_SUV_THUG.mdl" 
+            } 
+            {
+                component=rigidbody 
+            } 
+        ] 
+        params={name=suv212 
+            pos=(<pos> + (40.0, 20.0, 0.0)) 
+            NeverSuspend 
+        } 
+    } 
+} 
+script anteara_cursor2 {
+    Skater:Obj_GetPosition 
+    CreateCompositeObject {
+        Components=[
+            {
+                component=model 
+                model="Ed_Cursors\\Ed_Cursor_P2\\Ed_Cursor_P2.mdl" 
+            } 
+            {
+                component=rigidbody 
+            } 
+        ] 
+        params={name=cursortwo212 
+            pos=(<pos> + (40.0, 20.0, 0.0)) 
+            NeverSuspend 
+        } 
+    } 
+} 
+script anteara_cursor {
+    Skater:Obj_GetPosition 
+    CreateCompositeObject {
+        Components=[
+            {
+                component=model 
+                model="Ed_Cursors\\Ed_Cursor_Rail\\Ed_Cursor_Rail.mdl" 
+            } 
+            {
+                component=rigidbody 
+            } 
+        ] 
+        params={name=cursor212 
+            pos=(<pos> + (40.0, 20.0, 0.0)) 
+            NeverSuspend 
+        } 
+    } 
+} 
+script thps4_logo {
+    Skater:Obj_GetPosition 
+    CreateCompositeObject {
+        Components=[
+            {
+                component=model 
+                model="logo\\logo.mdl" 
+            } 
+            {
+                component=rigidbody 
+            } 
+        ] 
+        params={name=logo212 
+            pos=(<pos> + (40.0, 20.0, 0.0)) 
+            NeverSuspend 
+        } 
+    } 
+} 
+script anteara_green {
+    Skater:Obj_GetPosition 
+    CreateCompositeObject {
+        Components=[
+            {
+                component=model 
+                model="GameObjects\\Flags\\Flag_Green_Base\\Flag_Green_Base.mdl" 
+            } 
+            {
+                component=rigidbody 
+            } 
+        ] 
+        params={name=green212 
+            pos=(<pos> + (40.0, 20.0, 0.0)) 
+            NeverSuspend 
+        } 
+    } 
+} 
+script anteara_letterc {
+    Skater:Obj_GetPosition 
+    CreateCompositeObject {
+        Components=[
+            {
+                component=model 
+                model="GameObjects\\COMBO\\Goal_COMBO_C\\Goal_COMBO_C.mdl" 
+            } 
+            {
+                component=rigidbody 
+            } 
+        ] 
+        params={name=letterc212 
+            pos=(<pos> + (40.0, 20.0, 0.0)) 
+            NeverSuspend 
+        } 
+    } 
+} 
+script anteara_lettero {
+    Skater:Obj_GetPosition 
+    CreateCompositeObject {
+        Components=[
+            {
+                component=model 
+                model="GameObjects\\COMBO\\Goal_COMBO_O\\Goal_COMBO_O.mdl" 
+            } 
+            {
+                component=rigidbody 
+            } 
+        ] 
+        params={name=lettero212 
+            pos=(<pos> + (40.0, 20.0, 0.0)) 
+            NeverSuspend 
+        } 
+    } 
+} 
+script anteara_letterm {
+    Skater:Obj_GetPosition 
+    CreateCompositeObject {
+        Components=[
+            {
+                component=model 
+                model="GameObjects\\COMBO\\Goal_COMBO_M\\Goal_COMBO_M.mdl" 
+            } 
+            {
+                component=rigidbody 
+            } 
+        ] 
+        params={name=letterm212 
+            pos=(<pos> + (40.0, 20.0, 0.0)) 
+            NeverSuspend 
+        } 
+    } 
+} 
+script anteara_letterb {
+    Skater:Obj_GetPosition 
+    CreateCompositeObject {
+        Components=[
+            {
+                component=model 
+                model="GameObjects\\COMBO\\Goal_COMBO_B\\Goal_COMBO_B.mdl" 
+            } 
+            {
+                component=rigidbody 
+            } 
+        ] 
+        params={name=letterb212 
+            pos=(<pos> + (40.0, 20.0, 0.0)) 
+            NeverSuspend 
+        } 
+    } 
+} 
+script anteara_menu3d {
+    Skater:Obj_GetPosition 
+    CreateCompositeObject {
+        Components=[
+            {
+                component=model 
+                model="menu3d\\NO_menu3d\\NO_menu3d.mdl" 
+            } 
+            {
+                component=rigidbody 
+            } 
+        ] 
+        params={name=menu3d212 
+            pos=(<pos> + (40.0, 20.0, 0.0)) 
+            NeverSuspend 
+        } 
+    } 
+} 
+script anteara_pipe {
+    Skater:Obj_GetPosition 
+    CreateCompositeObject {
+        Components=[
+            {
+                component=model 
+                model="Veh\\Veh_Half_Pipe\\Veh_Half_Pipe.mdl" 
+            } 
+            {
+                component=rigidbody 
+            } 
+        ] 
+        params={name=pipe212 
+            pos=(<pos> + (40.0, 20.0, 0.0)) 
+            NeverSuspend 
+        } 
+    } 
+} 
+script anteara_ATV {
+    Skater:Obj_GetPosition 
+    CreateCompositeObject {
+        Components=[
+            {
+                component=model 
+                model="Veh\\Veh_ATV\\Veh_ATV.mdl" 
+            } 
+            {
+                component=rigidbody 
+            } 
+        ] 
+        params={name=atv212 
+            pos=(<pos> + (40.0, 20.0, 0.0)) 
+            NeverSuspend 
+        } 
+    } 
+} 
+script anteara_robot {
+    Skater:Obj_GetPosition 
+    CreateCompositeObject {
+        Components=[
+            {
+                component=model 
+                model="Veh\\veh_smallrobot\\veh_smallrobot.mdl" 
+            } 
+            {
+                component=rigidbody 
+            } 
+        ] 
+        params={name=robot212 
+            pos=(<pos> + (40.0, 20.0, 0.0)) 
+            NeverSuspend 
+        } 
+    } 
+} 
+script anteara_bemenu {
+    Skater:Obj_GetPosition 
+    CreateCompositeObject {
+        Components=[
+            {
+                component=model 
+                model="menu3d\\BE_menu3d\\BE_menu3d.mdl" 
+            } 
+            {
+                component=rigidbody 
+            } 
+        ] 
+        params={name=bemenu212 
+            pos=(<pos> + (40.0, 20.0, 0.0)) 
+            NeverSuspend 
+        } 
+    } 
+} 
+script anteara_bomenu {
+    Skater:Obj_GetPosition 
+    CreateCompositeObject {
+        Components=[
+            {
+                component=model 
+                model="menu3d\\se_menu3d\\se_menu3d.mdl" 
+            } 
+            {
+                component=rigidbody 
+            } 
+        ] 
+        params={name=semenu212 
+            pos=(<pos> + (40.0, 20.0, 0.0)) 
+            NeverSuspend 
+        } 
+    } 
+} 
+script anteara_semenu {
+    Skater:Obj_GetPosition 
+    CreateCompositeObject {
+        Components=[
+            {
+                component=model 
+                model="menu3d\\Bo_menu3d\\Bo_menu3d.mdl" 
+            } 
+            {
+                component=rigidbody 
+            } 
+        ] 
+        params={name=bomenu212 
+            pos=(<pos> + (40.0, 20.0, 0.0)) 
+            NeverSuspend 
+        } 
+    } 
+} 
+script anteara_sk5 {
+    Skater:Obj_GetPosition 
+    CreateCompositeObject {
+        Components=[
+            {
+                component=model 
+                model="menu3d\\SK5ED_menu3d\\SK5ED_menu3d.mdl" 
+            } 
+            {
+                component=rigidbody 
+            } 
+        ] 
+        params={name=skfive212 
+            pos=(<pos> + (40.0, 20.0, 0.0)) 
+            NeverSuspend 
+        } 
+    } 
+} 
+script anteara_tapas {
+    Skater:Obj_GetPosition 
+    CreateCompositeObject {
+        Components=[
+            {
+                component=model 
+                model="GameObjects\\pickups\\Tapas\\Tapas.mdl" 
+            } 
+            {
+                component=rigidbody 
+            } 
+        ] 
+        params={name=tapas212 
+            pos=(<pos> + (40.0, 20.0, 0.0)) 
+            NeverSuspend 
+        } 
+    } 
+} 
+script anteara_clouds {
+    Skater:Obj_GetPosition 
+    CreateCompositeObject {
+        Components=[
+            {
+                component=model 
+                model="options_clouds\\options_clouds.mdl" 
+            } 
+            {
+                component=rigidbody 
+            } 
+        ] 
+        params={name=clouds212 
+            pos=(<pos> + (40.0, 20.0, 0.0)) 
+            NeverSuspend 
+        } 
+    } 
+} 
+script anteara_mainmenu {
+    Skater:Obj_GetPosition 
+    CreateCompositeObject {
+        Components=[
+            {
+                component=model 
+                model="mainmenu_bg\\mainmenu_bg.mdl" 
+            } 
+            {
+                component=rigidbody 
+            } 
+        ] 
+        params={name=mainmenu212 
+            pos=(<pos> + (40.0, 20.0, 0.0)) 
+            NeverSuspend 
+        } 
+    } 
+} 
+script anteara_UIBG {
+    Skater:Obj_GetPosition 
+    CreateCompositeObject {
+        Components=[
+            {
+                component=model 
+                model="UI_bg\\UI_bg.mdl" 
+            } 
+            {
+                component=rigidbody 
+            } 
+        ] 
+        params={name=uibg212 
+            pos=(<pos> + (40.0, 20.0, 0.0)) 
+            NeverSuspend 
+        } 
+    } 
+} 
+__register_checksums__ anteara_boat Skater Obj_GetPosition CreateCompositeObject Components component model model component skeleton SkeletonName car component Vehicle params name boat212 pos pos NeverSuspend anteara_cone Skater Obj_GetPosition CreateCompositeObject Components component model model component rigidbody params name cone212 pos pos NeverSuspend anteara_board2 Skater Obj_GetPosition CreateCompositeObject Components component model model component rigidbody params name board212 pos pos NeverSuspend anteara_crown Skater Obj_GetPosition CreateCompositeObject Components component model model component rigidbody params name crown212 pos pos NeverSuspend anteara_drivingicon Skater Obj_GetPosition CreateCompositeObject Components component model model component rigidbody params name driving_icon212 pos pos NeverSuspend anteara_tram Skater Obj_GetPosition CreateCompositeObject Components component model model component rigidbody params name tram212 pos pos NeverSuspend anteara_Camino Skater Obj_GetPosition CreateCompositeObject Components component model model component rigidbody params name camino212 pos pos NeverSuspend Anteara_Forklift Skater Obj_GetPosition CreateCompositeObject Components component model model component rigidbody params name forklift212 pos pos NeverSuspend anteara_SUV Skater Obj_GetPosition CreateCompositeObject Components component model model component rigidbody params name suv212 pos pos NeverSuspend anteara_cursor2 Skater Obj_GetPosition CreateCompositeObject Components component model model component rigidbody params name cursortwo212 pos pos NeverSuspend anteara_cursor Skater Obj_GetPosition CreateCompositeObject Components component model model component rigidbody params name cursor212 pos pos NeverSuspend thps4_logo Skater Obj_GetPosition CreateCompositeObject Components component model model component rigidbody params name logo212 pos pos NeverSuspend anteara_green Skater Obj_GetPosition CreateCompositeObject Components component model model component rigidbody params name green212 pos pos NeverSuspend anteara_letterc Skater Obj_GetPosition CreateCompositeObject Components component model model component rigidbody params name letterc212 pos pos NeverSuspend anteara_lettero Skater Obj_GetPosition CreateCompositeObject Components component model model component rigidbody params name lettero212 pos pos NeverSuspend anteara_letterm Skater Obj_GetPosition CreateCompositeObject Components component model model component rigidbody params name letterm212 pos pos NeverSuspend anteara_letterb Skater Obj_GetPosition CreateCompositeObject Components component model model component rigidbody params name letterb212 pos pos NeverSuspend anteara_menu3d Skater Obj_GetPosition CreateCompositeObject Components component model model component rigidbody params name menu3d212 pos pos NeverSuspend anteara_pipe Skater Obj_GetPosition CreateCompositeObject Components component model model component rigidbody params name pipe212 pos pos NeverSuspend anteara_ATV Skater Obj_GetPosition CreateCompositeObject Components component model model component rigidbody params name atv212 pos pos NeverSuspend anteara_robot Skater Obj_GetPosition CreateCompositeObject Components component model model component rigidbody params name robot212 pos pos NeverSuspend anteara_bemenu Skater Obj_GetPosition CreateCompositeObject Components component model model component rigidbody params name bemenu212 pos pos NeverSuspend anteara_bomenu Skater Obj_GetPosition CreateCompositeObject Components component model model component rigidbody params name semenu212 pos pos NeverSuspend anteara_semenu Skater Obj_GetPosition CreateCompositeObject Components component model model component rigidbody params name bomenu212 pos pos NeverSuspend anteara_sk5 Skater Obj_GetPosition CreateCompositeObject Components component model model component rigidbody params name skfive212 pos pos NeverSuspend anteara_tapas Skater Obj_GetPosition CreateCompositeObject Components component model model component rigidbody params name tapas212 pos pos NeverSuspend anteara_clouds Skater Obj_GetPosition CreateCompositeObject Components component model model component rigidbody params name clouds212 pos pos NeverSuspend anteara_mainmenu Skater Obj_GetPosition CreateCompositeObject Components component model model component rigidbody params name mainmenu212 pos pos NeverSuspend anteara_UIBG Skater Obj_GetPosition CreateCompositeObject Components component model model component rigidbody params name uibg212 pos pos NeverSuspend

@@ -1,0 +1,536 @@
+script SkateInOrBail {moveleft = 1 moveright = -1 movey = -5 
+    GetTags 
+    if IsSkaterOnVehicle {
+        OutAnim = <grind_out_anim> 
+        GrindBail = vehicle_bail 
+    } 
+    NoRailTricks 
+    StopBalanceTrick 
+    KillExtraTricks 
+    SetExtraTricks NoTricks 
+    if ! IsSkaterOnVehicle {
+        OnGroundExceptions NoEndRun 
+    } 
+    if ! (<GrindBail> = Airborne) {
+        OnExceptionRun SkateInOrBail_Out 
+    } 
+    SetQueueTricks NoTricks 
+    ClearManualTrick 
+    if GotParam Fallingright {
+        Goto SkateIn_Right Params={<...>} 
+    } 
+    if GotParam FallingLeft {
+        Goto SkateIn_Left Params={<...>} 
+    } 
+    if GotParam GrindRelease {
+        TriggerGrindOff 
+        if Held Right {
+            Goto SkateIn_Right Params={<...>} 
+        } 
+        if Held Left {
+            Goto SkateIn_Left Params={<...>} 
+        } 
+        if SkateInAble Left {
+            Goto SkateIn_Left Params={<...>} 
+        } else {
+            Goto SkateIn_Right Params={<...>} 
+        } 
+    } 
+    
+    if GotParam GrindBail {
+        Goto <GrindBail> 
+    } else {
+        Goto FiftyFiftyFall 
+    } 
+} 
+script SkateIn_Right {
+    if SkateInAble Right {
+        skatein = 1 
+    } else {
+        if NearGround Right {
+            skatein = 1 
+            Params = {no_land_anim=1} 
+        } 
+    } 
+    if GotParam skatein {
+        
+        SetLandedFromVert 
+        SetState ground 
+        Move y=-5 
+        Move x=-1 
+        OrientToNormal 
+        Rotate y=-30 Duration=0.2 seconds 
+        if ! IsSkaterOnVehicle {
+            OnGroundExceptions_NoOllieAfterEndofRun 
+        } 
+        OnExceptionRun SkateInOrBail_Out 
+        SetQueueTricks NoTricks 
+        SetManualTricks NoTricks 
+        SetExtraTricks_Reverts 
+        if IsSkaterOnVehicle {
+            Goto vehicle_rail_exit Params={callback=vehicle_land} 
+        } else {
+            if GotParam OutAnim {
+                PlayAnim Anim=<OutAnim> BlendPeriod=0.3 
+            } else {
+                PlayAnim Anim=<initanim> Backwards BlendPeriod=0.3 
+            } 
+            WaitAnimWhilstChecking 
+            Goto SkateInLand Params=<Params> 
+        } 
+    } else {
+        Move y=<movey> 
+        Move x=<moveright> 
+        if IsSkaterOnVehicle {
+            vehicle_rail_exit Params={callback=vehicle_bail} 
+        } else {
+            SkateIn_Bail <...> dir=Right 
+        } 
+    } 
+} 
+script SkateIn_Left {
+    if SkateInAble Left {
+        skatein = 1 
+    } else {
+        if NearGround Left {
+            skatein = 1 
+            Params = {no_land_anim=1} 
+        } 
+    } 
+    if GotParam skatein {
+        SetLandedFromVert 
+        
+        SetState ground 
+        Move x=1 
+        Move y=-5 
+        OrientToNormal 
+        Rotate y=30 Duration=0.2 seconds 
+        SetState ground 
+        if ! IsSkaterOnVehicle {
+            OnGroundExceptions_NoOllieAfterEndofRun 
+        } 
+        OnExceptionRun SkateInOrBail_Out 
+        SetQueueTricks NoTricks 
+        SetManualTricks NoTricks 
+        SetExtraTricks_Reverts 
+        if IsSkaterOnVehicle {
+            Goto vehicle_rail_exit Params={callback=vehicle_land} 
+        } else {
+            if GotParam OutAnim {
+                PlayAnim Anim=<OutAnim> BlendPeriod=0.3 
+            } else {
+                PlayAnim Anim=<initanim> Backwards BlendPeriod=0.3 
+            } 
+            WaitAnimWhilstChecking 
+            Goto SkateInLand Params=<Params> 
+        } 
+    } else {
+        
+        Move y=<movey> 
+        Move x=<moveright> 
+        if IsSkaterOnVehicle {
+            vehicle_rail_exit Params={callback=vehicle_bail} 
+        } else {
+            SkateIn_Bail <...> dir=Left 
+        } 
+    } 
+} 
+script SkateInOrBail_Out {
+    KillExtraTricks 
+    if ! InAir {
+        
+        LandSkaterTricks 
+    } 
+    ResetLandedFromVert 
+    
+} 
+GrindRelease = 
+[
+    {Trigger={Press, White, 100} Scr=SkateInOrBail Params={GrindRelease GrindBail=Airborne moveright=-5 movey=5}} 
+    {Trigger={Press, R2, 100} Scr=SkateInOrBail NGC_Trigger={Press, R1, 100} Xbox_Trigger={AirTrickLogic, L2, R2, 200} Params={GrindRelease GrindBail=Airborne moveright=-5 movey=5}} 
+] 
+GrindTaps_FS = [
+    {Trigger={TripleInOrderSloppy, DownRight, b=Triangle, c=Triangle, GRINDTAP_TIME} Scr=Trick_Darkslide_FS Params={IsExtra=1}} 
+    {Trigger={TripleInOrderSloppy, DownLeft, b=Triangle, c=Triangle, GRINDTAP_TIME} Scr=Trick_DoubleBluntSlide2 Params={IsExtra=1}} 
+    {Trigger={TripleInOrderSloppy, UpLeft, b=Triangle, c=Triangle, GRINDTAP_TIME} Scr=Trick_HangTenNoseGrind_FS Params={IsExtra=1}} 
+    {Trigger={TripleInOrderSloppy, Up, b=Triangle, c=Triangle, GRINDTAP_TIME} Scr=Trick_NosegrindPivot_FS Params={IsExtra=1}} 
+    {Trigger={TripleInOrderSloppy, Right, b=Triangle, c=Triangle, GRINDTAP_TIME} Scr=Trick_Salad_FS Params={IsExtra=1}} 
+    {Trigger={TripleInOrderSloppy, Left, b=Triangle, c=Triangle, GRINDTAP_TIME} Scr=Trick_Hurricane_FS Params={IsExtra=1}} 
+    {Trigger={TripleInOrderSloppy, Down, b=Triangle, c=Triangle, GRINDTAP_TIME} Scr=Trick_GrindOverturn_FS Params={IsExtra=1}} 
+] 
+GrindTaps_BS = [
+    {Trigger={TripleInOrderSloppy, DownRight, b=Triangle, c=Triangle, GRINDTAP_TIME} Scr=Trick_Darkslide_BS Params={IsExtra=1}} 
+    {Trigger={TripleInOrderSloppy, DownLeft, b=Triangle, c=Triangle, GRINDTAP_TIME} Scr=Trick_DoubleBluntSlide2 Params={IsExtra=1}} 
+    {Trigger={TripleInOrderSloppy, UpLeft, b=Triangle, c=Triangle, GRINDTAP_TIME} Scr=Trick_HangTenNoseGrind_BS Params={IsExtra=1}} 
+    {Trigger={TripleInOrderSloppy, Up, b=Triangle, c=Triangle, GRINDTAP_TIME} Scr=Trick_NosegrindPivot_BS Params={IsExtra=1}} 
+    {Trigger={TripleInOrderSloppy, Right, b=Triangle, c=Triangle, GRINDTAP_TIME} Scr=Trick_Salad_BS Params={IsExtra=1}} 
+    {Trigger={TripleInOrderSloppy, Down, b=Triangle, c=Triangle, GRINDTAP_TIME} Scr=Trick_GrindOverturn_BS Params={IsExtra=1}} 
+    {Trigger={TripleInOrderSloppy, Left, b=Triangle, c=Triangle, GRINDTAP_TIME} Scr=Trick_Hurricane_BS Params={IsExtra=1}} 
+] 
+script Grind {GrindTweak = 7 boardscuff = 0 InitSpeed = 1.0 SparksPos = rear 
+    Obj_GetType 
+    if (<ObjType> = OBJECT_TYPE_PED) {
+        Goto Ped_Skater_BeginGrind Params=<...> 
+        return 
+    } 
+    KillExtraTricks 
+    if IsSkaterOnVehicle {
+        Goto vehicle_grind 
+    } 
+    if IsOnMotoskateboard {
+        if ! GotParam motoskateboard_grind {
+            Goto Trick_Motoskateboard_Grind 
+        } 
+        NoSpecial = NoSpecial 
+    } 
+    if BailIsOn {
+        SetState Air 
+        Goto DoingTrickBail 
+    } 
+    if InNetGame {
+        if BailIsOn {
+            SetState Air 
+            Goto DoingTrickBail 
+        } 
+    } 
+    BailOff 
+    TurnOffSpecialItem 
+    LaunchStateChangeEvent State=Skater_OnRail 
+    ResetProjectileInput 
+    if ! GotParam IsATap {
+        if ! GotParam IsExtra {
+            if ChecksumEquals a=<Extratricks> b=Extra_BS_Grinds {
+                SetExtraTricks GrindTaps_BS 
+            } else {
+                SetExtraTricks GrindTaps_FS 
+            } 
+        } 
+    } 
+    SetTags OutAnim=<OutAnim> initanim=<initanim> InitSpeed=<InitSpeed> Anim=<Anim> 
+    SetTrickName "" 
+    SetTrickScore 0 
+    Display Blockspin 
+    Obj_ClearFlag FLAG_SKATER_MANUALCHEESE 
+    Obj_ClearFlag FLAG_SKATER_REVERTCHEESE 
+    if GotParam SpecialItem_details {
+        TurnOnSpecialItem SpecialItem_details=<SpecialItem_details> 
+    } 
+    if GotParam SwitchBoardOff {
+        SwitchoffBoard 
+    } 
+    if GotParam IsSpecial {
+        BroadcastEvent type=SkaterEnterSpecialTrick 
+        OnExitRun Exit_Special_Grind 
+    } else {
+        OnExitRun Exit_Grind 
+    } 
+    if GotParam SpecialSounds {
+        Obj_SpawnScript <SpecialSounds> 
+    } 
+    Vibrate Actuator=1 Percent=50 Duration=0.25 
+    Vibrate Actuator=0 Percent=50 
+    ClearExceptions 
+    if GotParam Nollie {
+        SetException Ex=Ollied Scr=NollieNoDisplay 
+        NollieOn 
+    } else {
+        if GotParam OutAnimOnOllie {
+            SetException Ex=Ollied Scr=Ollie Params={<...>} 
+        } else {
+            SetException Ex=Ollied Scr=Ollie 
+        } 
+        NollieOff 
+    } 
+    PressureOff 
+    <is_grind> = 0 
+    if GotParam type {
+        if (<type> = Grind) {
+            <is_grind> = 1 
+        } 
+    } else {
+        script_assert "No type specified on grind trick" 
+    } 
+    SetSparksPos <SparksPos> 
+    if (<is_grind> = 1) {
+        SparksOn 
+    } else {
+        GetBoardScuff 
+        <boardscuff> = (<boardscuff> + 1) 
+        SetTags boardscuff=<boardscuff> 
+        DoBoardScuff boardscuff=<boardscuff> 
+        SparksOff 
+        SparksOn type=slide 
+    } 
+    SetException Ex=OffRail Scr=OffRail Params={KissedRail initanim=<initanim> InitSpeed=<InitSpeed> OutAnim=<OutAnim> BoardRotate=<BoardRotate> OutAnimBackwards=<OutAnimBackwards>} 
+    SetException Ex=Landed Scr=Grind_to_Land 
+    SetException Ex=OffMeterTop Scr=SkateInOrBail Params={<...> FallingLeft} 
+    SetException Ex=OffMeterBottom Scr=SkateInOrBail Params={<...> Fallingright} 
+    SetException Ex=SkaterCollideBail Scr=SkaterCollideBail 
+    SetEventHandler Ex=MadeOtherSkaterBail Scr=MadeOtherSkaterBail_Called 
+    OnExceptionRun Grind_Kissed 
+    ClearTrickQueue 
+    ClearManualTrick 
+    ClearExtraGrindTrick 
+    SetQueueTricks NoTricks 
+    SetManualTricks NoTricks 
+    SetRailSound <type> 
+    if GotParam IsSpecial {
+        SetGrindTweak 36 
+        <score> = SPECIALGRIND_SCORE 
+    } else {
+        if GotParam IsATap {
+            SetGrindTweak GRINDTAP_TWEAK 
+            <score> = GRINDTAP_SCORE 
+        } else {
+            SetGrindTweak <GrindTweak> 
+        } 
+    } 
+    if GotParam IsExtra {
+        LaunchExtraMessage 
+    } 
+    if GotParam Profile {
+        if ProfileEquals is_named=<Profile> {
+            SwitchOnAtomic special_item 
+            SwitchOffAtomic special_item_2 
+        } 
+    } 
+    if GotParam FullScreenEffect {
+        <FullScreenEffect> 
+        OnExitRun Exit_FullScreenEffect 
+    } 
+    if ! AnimEquals JumpAirTo5050 {
+        if GotParam NoBlend {
+            PlayAnim Anim=<initanim> BlendPeriod=0.0 Speed=<InitSpeed> 
+        } else {
+            PlayAnim Anim=<initanim> BlendPeriod=0.3 Speed=<InitSpeed> 
+        } 
+    } 
+    if GotParam IsATap {
+        DoBalanceTrick ButtonA=Right ButtonB=Left type=<type> DoFlipCheck ClearCheese IsATap=1 
+    } else {
+        if GotParam IsExtra {
+            DoBalanceTrick ButtonA=Right ButtonB=Left type=<type> DoFlipCheck ClearCheese IsATap=1 
+        } else {
+            DoBalanceTrick ButtonA=Right ButtonB=Left type=<type> DoFlipCheck 
+        } 
+    } 
+    GetSingleTag AcidDropCheese 
+    if GotParam AcidDropCheese {
+        if (<AcidDropCheese> > 0) {
+            
+            AdjustBalance TimeAdd=0 SpeedMult=2 LeanMult=3.2 
+            RemoveTags tags=[AcidDropCheese] 
+        } 
+    } 
+    Wait 15 frames 
+    SetExtraTricks GrindRelease 
+    Wait 1 frame 
+    if GotParam Stream {
+        if ! IsStreamPlaying SFXSpecialStream {
+            PlayStream <Stream> vol=200 priority=StreamPriorityHigh id=SFXSpecialStream 
+        } 
+    } 
+    if GotParam IsSpecial {
+        LaunchSpecialMessage text="Special Grind" 
+    } 
+    SetException Ex=OffRail Scr=OffRail Params={initanim=<initanim> InitSpeed=<InitSpeed> OutAnim=<OutAnim> BoardRotate=<BoardRotate> OutAnimBackwards=<OutAnimBackwards>} 
+    OnExceptionRun Normal_Grind 
+    SetTrickName <Name> 
+    
+    SetTrickScore <score> 
+    Display Blockspin NoSpecial=<NoSpecial> 
+    if AnimEquals JumpAirTo5050 {
+        Obj_WaitAnimFinished 
+        PlayAnim Anim=<initanim> BlendPeriod=0.3 Speed=<InitSpeed> 
+    } 
+    Obj_WaitAnimFinished 
+    if GotParam FlipAfterInit {
+        Flip 
+        PlayBonkSound 
+        BoardRotate 
+        BlendperiodOut 0 
+    } 
+    if GotParam Idle {
+        PlayAnim Anim=<Anim> Cycle NoRestart 
+    } else {
+        if GotParam Anim3 {
+            if GotParam Anim2 {
+                PlayAnim random { 1 { Anim=<Anim> } 1 { Anim=<Anim2> } 1 { Anim=<Anim3> } } wobble wobbleparams=grindwobble_params 
+            } else {
+                ScriptAssert "Script Assert: Added Anim3 to a grind without a valid anim2...check grindscripts.q Problem Anim = %a" a=<Anim> 
+            } 
+        } else {
+            if GotParam Anim2 {
+                PlayAnim random { 1 { Anim=<Anim> } 1 { Anim=<Anim2> } } wobble wobbleparams=grindwobble_params 
+            } else {
+                PlayAnim Anim=<Anim> wobble wobbleparams=grindwobble_params 
+            } 
+        } 
+    } 
+    if GotParam FlipBeforeOutAnim {
+        BlendperiodOut 0.0 
+        FlipAfter 
+    } 
+    if AnimEquals [FiftyFifty_Range NoseGrind_Range TailGrind_Range] {
+        Wait 0.25 seconds 
+    } 
+    if ! IsOnMotoskateboard {
+        if GotParam Extratricks {
+            SetExtraTricks <Extratricks> ignore=<Name> GrindRelease 
+        } else {
+            SetExtraTricks GrindRelease 
+        } 
+    } 
+    if GotParam ScreenShake {
+        Grind_ScreenShake ScreenShake=<ScreenShake> 
+    } 
+    if GotParam specialtrick_particles {
+        
+        Emit_SpecialTrickParticles specialitem_particles=<specialitem_particles> 
+    } 
+    WaitWhilstChecking_ForPressure <...> 
+} 
+script Grind_ScreenShake {ScreenShake = 60 
+    if AnimEquals [ElbowSmash_Idle FlipKickDad] {
+        while {
+            Wait 1 frame 
+            if FrameIs <ScreenShake> {
+                
+                BloodSplat 
+                PlaySound BailSlap03 
+                ShakeCamera {
+                    Duration=0.5 
+                    vert_amp=9.0 
+                    horiz_amp=3.0 
+                    vert_vel=10.27 
+                    horiz_vel=5.92 
+                } 
+            } 
+        } 
+    } 
+} 
+script OffRail {InitSpeed = 1.0 
+    if GotParam KissedRail {
+        SetTrickScore 50 
+        SetTrickName "Kissed the Rail" 
+        Display Blockspin NoMult 
+    } 
+    StopBalanceTrick 
+    KillExtraTricks 
+    Vibrate Actuator=0 Percent=0 
+    SetState Air 
+    SetException Ex=Landed Scr=Land 
+    SetException Ex=WallRideLeft Scr=WallRide Params={Left} 
+    SetException Ex=WallRideRight Scr=WallRide Params={Right} 
+    DoNextTrick 
+    if GotParam EarlyOut {
+        PlayAnim Anim=<EarlyOut> BlendPeriod=0.1 Backwards 
+    } else {
+        if GotParam OutAnim {
+            if GotParam OutAnimBackwards {
+                
+                PlayAnim Anim=<OutAnim> Backwards BlendPeriod=0.1 Speed=<InitSpeed> 
+            } else {
+                PlayAnim Anim=<OutAnim> BlendPeriod=0.1 Speed=<InitSpeed> 
+            } 
+        } else {
+            PlayAnim Anim=<initanim> BlendPeriod=0.1 Backwards Speed=<InitSpeed> 
+        } 
+    } 
+    if GotParam BoardRotate {
+        
+        BlendperiodOut 0 
+        BoardRotateAfter 
+    } 
+    if GotParam FlipAfter {
+        
+        FlipAfter 
+    } 
+    Obj_WaitAnimFinished 
+    Goto Airborne 
+} 
+script Trick_Crooked_FS_180 {
+    if Backwards {
+        
+    } 
+    FlipAndRotate 
+    BoardRotateAfter 
+    Goto Trick_Crooked_BS Params={NoBlend=yes} 
+} 
+script Trick_NGCRook_FS_rot {
+    Rotate 
+    
+    Goto Trick_NGCRook_FS 
+} 
+script PointRailSpin {
+    natas_spin {Name=%"Natas Spin" init_anim=natas_spin_init range_anim=natas_spin_range PlaySound} 
+} 
+script natas_spin {
+    if ! GotParam PlaySound {
+        PlaySound ExtraTrick 
+    } 
+    SetTrickName "" 
+    SetTrickScore 0 
+    Display Blockspin 
+    DoBalanceTrick ButtonA=Right ButtonB=Left type=Grind 
+    SetException Ex=Ollied Scr=ExitPointRailSpin 
+    SetException Ex=OffMeterTop Scr=PointRailSpinBail 
+    SetException Ex=OffMeterBottom Scr=PointRailSpinBail 
+    SetException Ex=SkaterCollideBail Scr=SkaterCollideBail 
+    SetQueueTricks NoTricks 
+    SetTrickName <Name> 
+    SetTrickScore 50 
+    Display natas 
+    PlayAnim Anim=<init_anim> 
+    Obj_WaitAnimFinished 
+    PlayAnim Anim=<range_anim> wobble 
+    SetExtraTricks natas_extra_tricks 
+} 
+natas_extra_tricks = 
+[
+    {Trigger={InOrder, a=Triangle, b=Triangle, 300} Scr=natas_spin Params={Name=%"Natas Spin" init_anim=natas_spin_init range_anim=natas_spin_range}} 
+    {Trigger={InOrder, a=Circle, b=Circle, 300} Scr=natas_spin Params={Name=%"Handstand Spin" init_anim=HandstandHandFlip_Range range_anim=HandstandHandFlip_Range}} 
+    {Trigger={InOrder, a=Square, b=Square, 300} Scr=natas_spin Params={Name=%"One Foot Spin" init_anim=special_natas_spin_init range_anim=special_natas_spin_range}} 
+] 
+script ExitPointRailSpin {
+    KillExtraTricks 
+    StopBalanceTrick 
+    NoRailTricks 
+    Obj_KillSpawnedScript Name=turn_on_rail_tricks 
+    Obj_SpawnScript turn_on_rail_tricks 
+    if UpPressed {
+        if RightPressed {
+            CheckNatasExitDirection dir=UpRight 
+        } else {
+            if LeftPressed {
+                CheckNatasExitDirection dir=UpLeft 
+            } else {
+                CheckNatasExitDirection dir=Up 
+            } 
+        } 
+    } else {
+        if DownPressed {
+            if RightPressed {
+                CheckNatasExitDirection dir=DownRight 
+            } else {
+                if LeftPressed {
+                    CheckNatasExitDirection dir=DownLeft 
+                } else {
+                    CheckNatasExitDirection dir=Down 
+                } 
+            } 
+        } else {
+            if RightPressed {
+                CheckNatasExitDirection dir=Right 
+            } else {
+                if LeftPressed {
+                    CheckNatasExitDirection dir=Left 
+                } 
+            } 
+        } 
+    } 
+    SetSpeed natas_exit_speed 
+    Jump 
+    DoNextTrick 
+    Ollie OutAnim=Natas_spin_out JumpSpeed=0 
+} 

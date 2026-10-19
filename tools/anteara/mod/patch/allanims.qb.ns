@@ -1,0 +1,130 @@
+script animload_THPS6_human {LoadFunction = LoadAnim 
+    animload_AnchorMan_HEAD 
+    animload_Anl_Bull 
+    animload_anl_Cat 
+    animload_anl_dog 
+    animload_anl_pigeon 
+    animload_anl_seagull 
+    animload_anl_shark 
+    animload_anl_w_gorilla 
+    animload_BostonGuy_HEAD 
+    animload_Burnquist_Head 
+    animload_Hawk_Head 
+    animload_Head_CAS_Female01 
+    animload_Head_Cas_Male01 
+    animload_Koston_Head 
+    animload_Margera_Head 
+    animload_Mullen_Head 
+    animload_Muska_Head 
+    animload_Nigel_Head 
+    animload_NODrunk1_HEAD 
+    animload_NODrunk2_HEAD 
+    animload_Ped_Alien 
+    animload_Ped_Baha 
+    animload_Ped_Bikini 
+    animload_Ped_Female 
+    animload_Ped_Blocker 
+    animload_PED_M_Pissed 
+    animload_Ped_CraneOperator 
+    animload_Ped_DJQBert 
+    animload_Ped_Driver 
+    animload_THPS6_human_0 <...> 
+    animload_THPS6_human_1 <...> 
+    animload_THPS6_human_unloadable 
+    animload_THPS6_human_net <...> 
+    animload_PED_FluteGuy 
+    animload_Ped_F_MardisGras 
+    animload_Ped_F_Zombie 
+    animload_Ped_GermanCop 
+    animload_Ped_GermanDrunk 
+    animload_Ped_Graffiti 
+    animload_Ped_Griller 
+    animload_PED_Guitarist 
+    animload_PED_Imp 
+    animload_Ped_Jazzman 
+    animload_Ped_Jester 
+    animload_Ped_LostSoul 
+    animload_Ped_LoungeSinger 
+    animload_Ped_MetalDetect 
+    animload_PED_Mime 
+    animload_THPS6_FrontEnd 
+    animload_THPS6_NO_7 
+    animload_Ped_Photo 
+    animload_Ped_RampKid 
+    animload_Ped_RollerBlade 
+    animload_Ped_Soldier 
+    animload_PED_Starwarskid 
+    animload_Ped_Suit 
+    animload_Phil_Head 
+    animload_Rampkid_HEAD 
+    animload_SI_BustedBoard 
+    animload_SI_ExtraBoard 
+    animload_SI_FranklinKite 
+    animload_SI_Prop_1 
+    animload_SI_Prop2 
+    animload_SI_Prop_3 
+    animload_SI_shark 
+    animload_SI_Flag 
+    animload_Sparrow_Head 
+    animload_THPS6_Veh_Bull 
+    animload_THPS6_Veh_Gurney 
+    animload_THPS6_Veh_MiniKart 
+    animload_THPS6_Veh_MotoSkateboard 
+    animload_THPS6_Veh_Segway 
+    animload_THPS6_Veh_Tricycle 
+    animload_THPS6_Veh_WheelChair 
+    // MERGE: 2010 - the luge and slalom animations
+    animload_THPS6_LugeandSlalom 
+    animload_Vallely_Head 
+    LoadSound "BO\\SK6_BO_JesseRide_Loop" <...> 
+    LoadSound "BO\\SK6_BO_JesseRide_Grind" <...> 
+    LoadSound "BO\\SK6_BO_JesseRide_Jump" <...> 
+    LoadSound "BO\\SK6_BO_JesseRide_Land" <...> 
+    LoadSound "NO\\SK6_NO_HeloLoop" <...> 
+    LoadSound "NO\\SK6_NO_TrikeSqueak" <...> 
+    LoadSound "NO\\SK6_NO_TrikeLand" <...> 
+    LoadSound "NO\\SK6_NO_TrikeJump" <...> 
+    LoadSound "NO\\SK6_NO_Trike_Grind" <...> 
+    LoadSound "BE\\SK6_BE_Paulie_Loop" <...> 
+    LoadSound "BE\\SK6_BE_Paulie_Grind" <...> 
+    LoadSound "BE\\SK6_BE_Paulie_Jump" <...> 
+    LoadSound "BE\\SK6_BE_Paulie_Land" <...> 
+    LoadSound "BA\\SK6_BA_SteveOElecLoop" <...> 
+    LoadSound "BA\\SK6_BA_Steveo_Buck_11" <...> 
+    LoadSound "BA\\SK6_BA_Steveo_Buck02_11" <...> 
+    LoadSound "BA\\SK6_BA_SteveO_Grind" <...> 
+    LoadSound "BA\\SK6_BA_Steveo_Jump" <...> 
+    LoadSound "AU\\AU_KartLoop" <...> 
+    LoadSound "AU\\AU_KartLand" <...> 
+    LoadSound "AU\\AU_KartJump" <...> 
+    LoadSound "AU\\AU_KartGrind" <...> 
+    LoadSound "BO\\ShoppingCartBail" <...> 
+    LoadSound "BO\\ShoppingCartLand" <...> 
+    LoadSound "BO\\ShoppingCartLoop" <...> 
+} 
+// MERGE: 2010 - the luge and slalom animations (Sit Down Luge in the 2010 menu)
+script animload_THPS6_LugeandSlalom {LoadFunction = LoadAnim 
+    SetReferenceChecksum THPS6_human 
+    if <LoadFunction> <...> name="anims\\skater_luge\\Luge_AirIdle.ska" descChecksum=Luge_AirIdle {
+        <LoadFunction> <...> name="anims\\skater_luge\\Luge_Brake.ska" descChecksum=Luge_Brake 
+        <LoadFunction> <...> name="anims\\skater_luge\\Luge_Fullstop.ska" descChecksum=Luge_Fullstop 
+        <LoadFunction> <...> name="anims\\skater_luge\\Luge_Idle.ska" descChecksum=Luge_Idle 
+        <LoadFunction> <...> name="anims\\skater_luge\\Luge_IdleToLeanLeft.ska" descChecksum=Luge_IdleToLeanLeft 
+        <LoadFunction> <...> name="anims\\skater_luge\\Luge_IdleToLeanRight.ska" descChecksum=Luge_IdleToLeanRight 
+        <LoadFunction> <...> name="anims\\skater_luge\\Luge_Land.ska" descChecksum=Luge_Land 
+        <LoadFunction> <...> name="anims\\skater_luge\\Luge_LookLeft.ska" descChecksum=Luge_LookLeft 
+        <LoadFunction> <...> name="anims\\skater_luge\\Luge_LookRight.ska" descChecksum=Luge_LookRight 
+        <LoadFunction> <...> name="anims\\skater_luge\\Luge_Ollie.ska" descChecksum=Luge_Ollie 
+        <LoadFunction> <...> name="anims\\skater_luge\\Luge_Push.ska" descChecksum=Luge_Push 
+        <LoadFunction> <...> name="anims\\skater_luge\\Luge_Sit.ska" descChecksum=Luge_Sit 
+        <LoadFunction> <...> name="anims\\skater_luge\\Luge_Flail.ska" descChecksum=Luge_Flail 
+        <LoadFunction> <...> name="anims\\skater_slalom\\slalom_AirIdle.ska" descChecksum=slalom_AirIdle 
+        <LoadFunction> <...> name="anims\\skater_slalom\\slalom_Idle.ska" descChecksum=slalom_Idle 
+        <LoadFunction> <...> name="anims\\skater_slalom\\slalom_IdleToLeanLeft.ska" descChecksum=slalom_IdleToLeanLeft 
+        <LoadFunction> <...> name="anims\\skater_slalom\\slalom_IdleToLeanRight.ska" descChecksum=slalom_IdleToLeanRight 
+        <LoadFunction> <...> name="anims\\skater_slalom\\slalom_Land.ska" descChecksum=slalom_Land 
+        <LoadFunction> <...> name="anims\\skater_slalom\\slalom_Ollie.ska" descChecksum=slalom_Ollie 
+        <LoadFunction> <...> name="anims\\skater_slalom\\slalom_Flail.ska" descChecksum=slalom_Flail 
+    } 
+    SetReferenceChecksum 0 
+} 

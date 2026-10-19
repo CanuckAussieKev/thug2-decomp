@@ -1,0 +1,1029 @@
+script create_pause_menu {
+    Skater:Obj_SetFlag ANTEARA_FAILSAFE_FLAG 
+    anteara_failsafe 
+    if GotParam no_exit {
+        set_pause_menu_allow_continue off 
+    } else {
+        if root_window:GetSingleTag no_exit_pause_menu {
+            no_exit = no_exit 
+        } 
+    } 
+    if CustomParkMode editing {
+        SetParkEditorPauseMode pause 
+    } 
+    if ! GotParam no_sound {
+    } 
+    unhide_root_window 
+    if (inside_pause = 1) {
+    } 
+    hide_all_hud_items 
+    unhide_current_goal 
+    if inNetGame {
+        if ! IsObserving {
+            Skater:NetDisablePlayerInput 
+        } 
+    } else {
+        if CustomParkMode editing {
+            anteara_parked_setup_main_menu 
+            PauseMusicAndStreams 1 
+            build_pause_menu_parts 
+            return 
+        } 
+        if CustomParkMode testing {
+            anteara_parked_setup_test_play_menu 
+            PauseMusicAndStreams 1 
+            build_pause_menu_parts 
+            return 
+        } 
+        if InSplitScreenGame {
+            create_mp_pause_menu 
+            PauseMusicAndStreams 1 
+            build_pause_menu_parts 
+            return 
+        } 
+    } 
+    if (inside_pause = 0) {
+        if MusicIsPaused {
+            Change music_was_paused=1 
+        } else {
+            Change music_was_paused=0 
+        } 
+    } 
+    PauseMusicAndStreams 1 
+    pause_rain 
+    if (in_cat_preview_mode = 1) {
+        create_CAT_pause_menu 
+        return 
+    } 
+    if ! GotParam no_exit {
+        helper = generic_helper_text 
+    } else {
+        helper = generic_helper_text_no_back 
+    } 
+    if GotParam no_exit {
+        make_new_roundbar_menu {
+            menu_id=pause_menu 
+            vmenu_id=pause_vmenu 
+            pad_back_script=NullScript 
+            Pos=(250.0, 95.0) 
+            dims=(250.0, 480.0) 
+            internal_text_just=right 
+            helper_text=<helper> 
+            add_3d_bg 
+        } 
+    } else {
+        if Skater:driving {
+            make_new_roundbar_menu {
+                menu_id=pause_menu 
+                vmenu_id=pause_vmenu 
+                pad_back_script=handle_start_pressed 
+                Pos=(250.0, 75.0) 
+                dims=(250.0, 480.0) 
+                internal_text_just=right 
+                helper_text=<helper> 
+                add_3d_bg 
+            } 
+        } else {
+            make_new_roundbar_menu {
+                menu_id=pause_menu 
+                vmenu_id=pause_vmenu 
+                pad_back_script=handle_start_pressed 
+                Pos=(250.0, 95.0) 
+                dims=(250.0, 480.0) 
+                internal_text_just=right 
+                helper_text=<helper> 
+                add_3d_bg 
+            } 
+        } 
+    } 
+    do_localized_pause_title Pos=(500.0, 95.0) 
+    kill_start_key_binding 
+    pause_menu_gradient right 
+    add_music_track_text Pos=(575.0, 320.0) 
+    if Skater:driving {
+        add_roundbar_menu_item {text="EXIT VEHICLE" 
+            Id=ditch_vehicle_id 
+            pad_choose_script=Anteara_Easy_ExitVehicle 
+            pad_choose_sound=generic_pause_exit_sound 
+        } 
+    } 
+    if GameModeEquals is_singlesession {
+        add_roundbar_menu_item {text="CONTINUE" 
+            Id=menu_continue 
+            pad_choose_script=handle_pause_continue 
+            pad_choose_sound=generic_pause_exit_sound 
+        } 
+        if GoalManager_goalIsActive name=TrickAttack {
+            add_roundbar_menu_item {
+                text="RETRY HIGH SCORE RUN" 
+                Id=menu_retry_high_score_run 
+                pad_choose_script=menu_select 
+                pad_choose_params={stop_streams menu_select_script=RetryCurrentGoal} 
+            } 
+            add_roundbar_menu_item {
+                text="END HIGH SCORE RUN" 
+                Id=menu_end_high_score_run 
+                pad_choose_script=menu_select 
+                pad_choose_params={menu_select_script=end_high_score_run} 
+            } 
+        } else {
+            add_roundbar_menu_item {
+                text="START HIGH SCORE RUN" 
+                Id=menu_start_high_score_run 
+                pad_choose_script=menu_select 
+                pad_choose_params={menu_select_script=TrickAttack_MenuStartRun} 
+            } 
+        } 
+    } else {
+        if ! GotParam no_exit {
+            add_roundbar_menu_item {text="CONTINUE" 
+                Id=menu_continue 
+                pad_choose_script=handle_pause_continue 
+                pad_choose_sound=generic_pause_exit_sound 
+            } 
+        } 
+    } 
+    if GameModeEquals is_goal_attack {
+        if ! IsObserving {
+            GetGoalsMode 
+            if (<goals> = goals_created) {
+                if GoalManager_CanRetryGoal {
+                    if GoalManager_GetLastGoalId {
+                        if ! GoalManager_HasWonGoal name=<goal_id> {
+                            add_roundbar_menu_item text="RETRY LAST GOAL" Id=menu_retry_goal pad_choose_script=menu_select pad_choose_params={stop_vibration menu_select_script=RetryCurrentGoal} 
+                        } 
+                    } 
+                } 
+            } 
+        } 
+        add_roundbar_menu_item text="VIEW GOALS" Id=menu_view_goals pad_choose_script=create_view_selected_goals_menu pad_choose_params={from_pause} 
+    } 
+    if GameModeEquals is_career {
+        goal_id = (goal_utility_allow_end_goal_name) 
+        if ! ChecksumEquals A=<goal_id> B=null {
+            if GoalManager_GoalExists name=<goal_id> {
+                if GoalManager_goalIsActive name=<goal_id> {
+                    add_roundbar_menu_item text="END CURRENT RUN" Id=menu_end_run pad_choose_script=arcade_machine_end_run pad_choose_params={goal_id=<goal_id>} 
+                } 
+            } 
+        } 
+        if GoalManager_CanRetryGoal {
+            add_roundbar_menu_item text="RETRY LAST GOAL" Id=menu_retry_goal pad_choose_script=menu_select pad_choose_params={stop_vibration stop_streams menu_select_script=RetryCurrentGoal} 
+        } 
+        if ! LevelIs load_se {
+            add_roundbar_menu_item text="VIEW GOALS" Id=menu_chapters pad_choose_script=view_goals_menu_create 
+        } 
+        add_roundbar_menu_item text="TEXT MESSAGES" Id=menu_pager pad_choose_script=pager_window_create 
+    } else {
+        if GameModeEquals is_creategoals {
+            if GoalManager_HasActiveGoals {
+                add_roundbar_menu_item text="END CURRENT GOAL" Id=menu_end_current_goal pad_choose_script=menu_select pad_choose_params={menu_select_script=end_current_goal_run} 
+            } 
+            add_roundbar_menu_item text="VIEW GOALS" Id=menu_view_goals pad_choose_script=view_created_goals_menu_create 
+            if ! LevelIs load_sk5ed_gameplay {
+                add_roundbar_menu_item text="CREATE A GOAL" Id=menu_create_a_goal pad_choose_script=create_existing_goals_menu 
+            } 
+        } 
+    } 
+    if GameModeEquals is_classic {
+        classic_mode_menu_add_pause_options 
+    } 
+    if GameModeEquals is_creategoals {
+        if ! LevelIs load_sk5ed_gameplay {
+            add_roundbar_menu_item text="LOAD GOALS" Id=menu_load_goals pad_choose_script=prompt_launch_cag_pause_load 
+            GoalEditor:GetNumEditedGoals ExcludeParkEditorGoals 
+            if (<NumGoals> = 0) {
+                no_edited_goals = 1 
+            } 
+            add_roundbar_menu_item text="SAVE GOALS" Id=menu_save_goals pad_choose_script=launch_pause_menu_save_created_goals not_focusable=<no_edited_goals> 
+        } 
+    } 
+    display_level_select = 1 
+    if inNetGame {
+        display_level_select = 0 
+    } 
+    if GameModeEquals is_classic {
+        if ! GotParam no_exit {
+            display_level_select = 0 
+        } 
+    } 
+    if (<display_level_select> = 1) {
+        add_roundbar_menu_item {text="CHANGE LEVEL" 
+            Id=menu_level_select 
+            pad_choose_script=launch_level_select_menu 
+            tag_grid_x=1 
+        } 
+    } 
+    if inNetGame {
+        if IsHost {
+            if GameModeEquals is_lobby {
+                if ! NetworkGamePending {
+                    if ! ChangeLevelPending {
+                        add_roundbar_menu_item text="START GAME" Id=menu_network_start_select pad_choose_script=network_game_options_selected 
+                    } 
+                } 
+            } else {
+                add_roundbar_menu_item text="END CURRENT GAME" Id=menu_network_end_select pad_choose_script=network_end_game_selected 
+            } 
+        } 
+    } 
+    if inNetGame {
+        if ! NetworkGamePending {
+            if OnServer {
+                if OnXbox {
+                    add_roundbar_menu_item text="HOST OPTIONS" Id=menu_network_server_opts_select pad_choose_script=network_options_selected 
+                } else {
+                    add_roundbar_menu_item text="SERVER OPTIONS" Id=menu_network_server_opts_select pad_choose_script=network_options_selected 
+                } 
+            } 
+            if IsHost {
+                if GameModeEquals is_lobby {
+                    if ! OnServer {
+                        if OnXbox {
+                            add_roundbar_menu_item text="HOST OPTIONS" Id=menu_network_server_opts_select pad_choose_script=network_options_selected 
+                        } else {
+                            add_roundbar_menu_item text="SERVER OPTIONS" Id=menu_network_server_opts_select pad_choose_script=network_options_selected 
+                        } 
+                    } 
+                } 
+            } 
+        } 
+    } 
+    if inNetGame {
+        if ! IsObserving {
+            <game_active> = 0 
+            if GoalManager_HasActiveGoals count_all {
+                <game_active> = 1 
+            } 
+            if (<game_active> = 1) {
+                <trick_text> = "EDIT TRICKS" 
+                <trick_helper> = view_tricks_helper_desc 
+            } else {
+                if ! GoalManager_HasActiveGoals {
+                    <trick_text> = "EDIT TRICKS" 
+                    <trick_helper> = edit_tricks_helper_desc 
+                } else {
+                    <trick_text> = "EDIT TRICKS" 
+                    <trick_helper> = view_tricks_helper_desc 
+                } 
+            } 
+            add_roundbar_menu_item text=<trick_text> Id=menu_cas pad_choose_script=create_edit_tricks_menu 
+        } 
+    } 
+    if inNetGame {
+        if IsHost {
+            if GameModeEquals is_lobby {
+                if ! NetworkGamePending {
+                    if ! ChangeLevelPending {
+                        add_roundbar_menu_item text="CHANGE LEVEL" Id=menu_level_select pad_choose_script=launch_level_select_menu pad_choose_params={show_warning} 
+                    } 
+                } 
+            } 
+        } 
+        if OnXbox {
+            if IsTrue Bootstrap_Build {
+                add_roundbar_menu_item text="PLAYER LIST" Id=menu_network_remove_select pad_choose_script=launch_remove_players_menu not_focusable=not_focusable 
+            } else {
+                add_roundbar_menu_item text="PLAYER LIST" Id=menu_network_player_list_select pad_choose_script=launch_player_list_menu 
+                if ProfileLoggedIn {
+                    add_roundbar_menu_item text="HOMIE LIST" Id=menu_network_homie_list_select pad_choose_script=launch_homie_list 
+                    if AnyBuddyMessagesLeft {
+                        add_roundbar_menu_item text="VIEW MESSAGES" Id=menu_network_homie_list_view pad_choose_script=view_buddy_messages 
+                    } 
+                } 
+            } 
+        } 
+    } 
+    if ! inNetGame {
+        if GameModeEquals is_career {
+            GetChapterSelectableProCount 
+            if (<selectable_pro_count> > 1) {
+                GetCurrentSkaterProfileIndex 
+                GetSkaterProfileInfo Player=<currentSkaterProfileIndex> 
+                if ChecksumEquals A=<skater_family> B=family_pro {
+                    if Skater:IsInBail {
+                        pro_focus_param = not_focusable 
+                    } else {
+                        pro_focus_param = {} 
+                    } 
+                    add_roundbar_menu_item text="CHANGE PRO" Id=menu_change_pro pad_choose_script=create_select_pro_menu <pro_focus_param> 
+                } 
+            } 
+        } 
+    } 
+    if ! inNetGame {
+        add_roundbar_menu_item text="YOUR OPTIONS" Id=menu_your_options pad_choose_script=create_your_options_menu 
+    } 
+    add_roundbar_menu_item text="ANTEARA MENU" Id=menu_anteara_options pad_choose_script=create_anteara_menu 
+    add_roundbar_menu_item text="GAME OPTIONS" Id=menu_game_options pad_choose_script=create_options_menu 
+    if ! CD {
+        if (main_menu_jump_to_cas = 1) {
+            add_roundbar_menu_item text="BACK TO CAS" Id=debug_cas_menu pad_choose_script=create_pre_cas_menu pad_choose_params={load_assets=1} 
+        } 
+    } 
+    if inNetGame {
+        add_roundbar_menu_item text="CHAT MESSAGE" Id=menu_chat pad_choose_script=launch_chat_keyboard 
+        if ! OnServer {
+            if ! IsObserving {
+                if InInternetMode {
+                    if IsTrue Bootstrap_Build {
+                        if ! GoalManager_HasActiveGoals {
+                            add_roundbar_menu_item text="OBSERVE" Id=menu_network_observe_select pad_choose_script=chose_observe not_focusable=not_focusable 
+                        } 
+                    } else {
+                        if ! GoalManager_HasActiveGoals {
+                            add_roundbar_menu_item text="OBSERVE" Id=menu_network_observe_select pad_choose_script=chose_observe 
+                        } 
+                    } 
+                } 
+            } 
+        } 
+        add_roundbar_menu_item text="QUIT" Id=menu_quit pad_choose_script=generic_menu_pad_choose pad_choose_params={callback=launch_quit_game_dialog} 
+    } else {
+        if CustomParkMode testing {
+            printf "PARK EDITOR TEST PLAY MENU" 
+            add_roundbar_menu_item text="BACK TO EDITOR" Id=menu_skateshop pad_choose_script=menu_confirm_quit pad_choose_params={yes_script=exit_test_play} 
+        } else {
+            if GameModeEquals is_classic {
+                classic_mode_menu_add_quit_option 
+            } else {
+                add_roundbar_menu_item {text="QUIT" 
+                    Id=menu_skateshop 
+                    pad_choose_script=generic_menu_pad_choose 
+                    pad_choose_params={callback=menu_confirm_quit} 
+                    tip_text="Seeya!" 
+                } 
+            } 
+        } 
+    } 
+    kill_blur start=0 
+    if root_window:GetSingleTag highlight_change_level {
+        focus_data = {grid_index=1} 
+        root_window:RemoveTags tags=[highlight_change_level] 
+    } 
+    roundbar_menu_finish show_deck=show_deck data=<focus_data> 
+} 
+script exit_pause_menu {menu_id = current_menu_anchor 
+    Change check_for_unplugged_controllers=0 
+    if ScreenElementExists Id=current_menu_anchor {
+        FireEvent Type=unfocus target=current_menu_anchor 
+    } 
+    ClearViewerObject 
+    Debounce x time=0.3 
+    Debounce Triangle time=0.3 
+    pause_menu_gradient off 
+    Change inside_pause=0 
+    Change no_focus_sound=1 
+    if ! CD {
+        Change viewer_buttons_enabled=1 
+    } 
+    show_all_hud_items 
+    if inNetGame {
+        if ! IsObserving {
+            if ObjectExists Id=Skater {
+                Skater:NetEnablePlayerInput 
+            } 
+        } 
+    } 
+    UnpauseGame 
+    possibly_add_temp_special_trick 
+    PauseStream 0 
+    if (music_was_paused = 0) {
+        PauseMusic 0 
+    } 
+    if root_window:GetSingleTag need_music_zone_refresh {
+        root_window:RemoveTags tags=[need_music_zone_refresh] 
+        spawnscript SFX_refresh_music_box_triggers params={Wait} 
+    } 
+    unpause_rain 
+    GoalManager_UnPauseAllGoals 
+    if ObjectExists Id=<menu_id> {
+        DestroyScreenElement Id=<menu_id> 
+    } 
+    SetScreenElementProps Id=root_window tags={menu_state=off} 
+    if CustomParkMode editing {
+        if ! GotParam DoNotSwitchEditorState {
+            SetParkEditorState state=edit 
+            SetParkEditorPauseMode UnPause 
+            SwitchToParkEditorCamera 
+        } 
+    } 
+    if ! GotParam dont_restore_start_key_binding {
+        restore_start_key_binding 
+    } 
+    menu3d_hide 
+    if ! inNetGame {
+        if ! GameModeEquals is_horse {
+            unpauseskaters 
+        } 
+    } 
+    Change check_for_unplugged_controllers=1 
+    KillSpawnedScript name=do_localized_pause_title 
+    if ! inNetGame {
+        if ObjectExists Id=PlayerVehicleCamera {
+            if ! ((((case_anteara_veh = 4) or (case_anteara_veh = 7) or (case_anteara_veh = 8) or (case_anteara_veh = 13)))) {
+                Skater:hide 
+            } 
+            SetActiveCamera Id=PlayerVehicleCamera 
+        } 
+    } 
+} 
+script Veh_Camera_fix {
+    PlayerVehicleCamera:VehicleCamera_Reset 
+    SetActiveCamera Id=PlayerVehicleCamera 
+} 
+script proj_menu_update_amount {
+    Skater:GetAmmo 
+    Skater:SetAmmo <value> 
+} 
+script proj_menu_remove_amount {
+    Skater:GetAmmo 
+    Skater:SetAmmo 0 
+} 
+script Remove_my_board {
+    Wait 1 gameframe 
+    Skater:SwitchOffBoard 
+    Wait 1 gameframe 
+    Skater:SetBoardMissing 
+} 
+script fall_underground {
+    exit_pause_menu 
+    Skater:move Y=-99.0 
+} 
+script fall_underground1 {
+    exit_pause_menu 
+    Skater:move Y=-29.0 
+} 
+script fall_sideways {
+    exit_pause_menu 
+    Skater:move x=99.0 
+} 
+script fall_up {
+    exit_pause_menu 
+    Skater:move Y=99.0 
+} 
+script fall_up1 {
+    exit_pause_menu 
+    Skater:move Y=999.0 
+} 
+script noclipon {
+    MakeSkaterFly 
+    Skater:pausephysics 
+    exit_pause_menu 
+} 
+script MakeSkaterFly {
+    MakeSkaterGoto FlyAi 
+} 
+script FlyAi {move = 8 
+    ClearExceptions 
+    SetQueueTricks NoTricks 
+    SetSpeed 0 
+    setstate Air 
+    SetRollingFriction 1000 
+    NoRailTricks 
+    while {
+        if Held R2 {
+            move Y=-6 
+        } 
+        if Held L1 {
+            move Y=6 
+        } 
+        if Held L2 {
+            if Held Square {
+                move x=18 
+            } 
+            if Held Circle {
+                move x=-18 
+            } 
+            if Held Triangle {
+                move z=18 
+            } 
+            if Held x {
+                move z=-18 
+            } 
+        } else {
+            if Held Square {
+                move x=6 
+            } 
+            if Held Circle {
+                move x=-6 
+            } 
+            if Held Triangle {
+                move z=8 
+            } 
+            if Held x {
+                move z=-8 
+            } 
+        } 
+        waitonegameframe 
+    } 
+    AllowRailTricks 
+    MakeSkaterGoto OnGroundAI 
+} 
+obs_is_on = 0 
+script anteara_observe_obs {
+    switch obs_is_on
+        case 0 {
+            Skater:remove_skater_from_world 
+            EnterSurveyorMode 
+            Change obs_is_on=1 
+        }
+        case 1 {
+            Skater:add_skater_to_world 
+            ExitSurveyorMode 
+            Change obs_is_on=0 
+        }
+    endswitch    
+} 
+script set_custom_restart1 {
+    if ObjectExists Id=PlayerVehicle {
+        NullScript 
+    } else {
+        Skater:SetCustomRestart Set 
+    } 
+} 
+script skip_to_custom_restart1 {
+    if ObjectExists Id=PlayerVehicle {
+        NullScript 
+    } else {
+        Skater:SkipToCustomRestart 
+    } 
+} 
+script kirillgta_clean {
+    exit_pause_menu 
+    SendChatMessage String="\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n\\n" 
+} 
+script test_widescreen {
+    SetPreferencesFromUI prefs=network field="Anteara_Resolution" checksum=Widescreen 
+    change_screen_mode wide callback=screen_setup_widescreen set_screen_flags 
+    create_anteara_menu 
+} 
+script test_standard {
+    SetPreferencesFromUI prefs=network field="Anteara_Resolution" checksum=standard 
+    change_screen_mode standard callback=screen_setup_standard set_screen_flags 
+    create_anteara_menu 
+} 
+case_hair = 1 
+script toggle_TakeAwayHair {
+    printf "un/Hide Hair" 
+    switch case_hair
+        case 0 {
+            Change case_hair=1 
+            SetScreenElementProps Id={menu_TakeAwayHair child=0} text="Hair: Visible" 
+            Skater:TurnOnHair 
+        }
+        case 1 {
+            Change case_hair=0 
+            SetScreenElementProps Id={menu_TakeAwayHair child=0} text="Hair: Invisible" 
+            Skater:TakeAwayHair 
+        }
+    endswitch    
+} 
+case_head = 1 
+script toggle_TakeAwayHead {
+    printf "un/Hide Head" 
+    switch case_head
+        case 0 {
+            Change case_head=1 
+            SetScreenElementProps Id={menu_TakeAwayHead child=0} text="Head: Visible" 
+            Skater:TurnOnHead 
+        }
+        case 1 {
+            Change case_head=0 
+            SetScreenElementProps Id={menu_TakeAwayHead child=0} text="Head: Invisible" 
+            Skater:TakeAwayHead 
+        }
+    endswitch    
+} 
+case_torso = 1 
+script toggle_TakeAwayTorso {
+    printf "un/Hide Torso" 
+    switch case_torso
+        case 0 {
+            Change case_torso=1 
+            SetScreenElementProps Id={menu_TakeAwayTorso child=0} text="Torso: Visible" 
+            Skater:TurnOnTorso 
+        }
+        case 1 {
+            Change case_torso=0 
+            SetScreenElementProps Id={menu_TakeAwayTorso child=0} text="Torso: Invisible" 
+            Skater:TakeAwayTorso 
+        }
+    endswitch    
+} 
+case_legs = 1 
+script toggle_TakeAwayLegs {
+    printf "un/Hide Legs" 
+    switch case_legs
+        case 0 {
+            Change case_legs=1 
+            SetScreenElementProps Id={menu_TakeAwayLegs child=0} text="Legs: Visible" 
+            Skater:TurnOnLegs 
+        }
+        case 1 {
+            Change case_legs=0 
+            SetScreenElementProps Id={menu_TakeAwayLegs child=0} text="Legs: Invisible" 
+            Skater:TakeAwayLegs 
+        }
+    endswitch    
+} 
+case_hands = 1 
+script toggle_TakeAwayHands {
+    printf "un/Hide Hands" 
+    switch case_hands
+        case 0 {
+            Change case_hands=1 
+            SetScreenElementProps Id={menu_TakeAwayHand child=0} text="Hands: Visible" 
+            Skater:TurnOnHands 
+        }
+        case 1 {
+            Change case_hands=0 
+            SetScreenElementProps Id={menu_TakeAwayHand child=0} text="Hands: Invisible" 
+            Skater:TakeAwayHands 
+        }
+    endswitch    
+} 
+case_shoes = 1 
+script toggle_TakeAwayShoes {
+    printf "un/Hide Shoes" 
+    switch case_shoes
+        case 0 {
+            Change case_shoes=1 
+            SetScreenElementProps Id={menu_TakeAwayShoes child=0} text="Shoes: Visible" 
+            Skater:TurnOnShoes 
+        }
+        case 1 {
+            Change case_shoes=0 
+            SetScreenElementProps Id={menu_TakeAwayShoes child=0} text="Shoes: Invisible" 
+            Skater:TakeAwayShoes 
+        }
+    endswitch    
+} 
+script TakeAwayHair {
+    SwitchOffAtomic skater_m_hair 
+    SwitchOffAtomic skater_f_hair 
+    SwitchOffAtomic skater_f_hat_hair 
+} 
+script TakeAwayHead {
+    SwitchOffAtomic skater_m_head 
+    SwitchOffAtomic skater_f_head 
+} 
+script TakeAwayTorso {
+    SwitchOffAtomic skater_m_torso 
+    SwitchOffAtomic skater_f_torso 
+} 
+script TakeAwayLegs {
+    SwitchOffAtomic skater_m_legs 
+    SwitchOffAtomic skater_f_legs 
+} 
+script TakeAwayHands {
+    SwitchOffAtomic skater_m_hands 
+    SwitchOffAtomic skater_f_hands 
+} 
+script TakeAwayShoes {
+    SwitchOffAtomic shoes 
+} 
+script TurnOnHair {
+    SwitchOnAtomic skater_m_hair 
+    SwitchOnAtomic skater_f_hair 
+    SwitchOnAtomic skater_f_hat_hair 
+} 
+script TurnOnHead {
+    SwitchOnAtomic skater_m_head 
+    SwitchOnAtomic skater_f_head 
+} 
+script TurnOnTorso {
+    SwitchOnAtomic skater_m_torso 
+    SwitchOnAtomic skater_f_torso 
+} 
+script TurnOnLegs {
+    SwitchOnAtomic skater_m_legs 
+    SwitchOnAtomic skater_f_legs 
+} 
+script TurnOnShoes {
+    SwitchOnAtomic shoes 
+} 
+script TurnOnHands {
+    SwitchOnAtomic skater_m_hands 
+    SwitchOnAtomic skater_f_hands 
+} 
+script anteara_bounds {
+    Change TODManager_SetActive 1 
+    Change tod_manager_active=1 
+    Change TOD_OFF=0 
+} 
+case_RunOutTimer = 1 
+script toggle_SwitchOffTimer {
+    printf "On/Off Timer" 
+    switch case_RunOutTimer
+        case 0 {
+            Change case_RunOutTimer=1 
+            SetScreenElementProps Id={menu_SwitchOffRunOutTimer child=0} text="Infinite Run Out Timer: Off" 
+            anteara_timeroff 
+        }
+        case 1 {
+            Change case_RunOutTimer=0 
+            SetScreenElementProps Id={menu_SwitchOffRunOutTimer child=0} text="Infinite Run Out Timer: On" 
+            anteara_timeron 
+        }
+    endswitch    
+} 
+case_WallJump = 1 
+script toggle_SwitchOffWallJump {
+    printf "On/Off Walljump" 
+    switch case_WallJump
+        case 0 {
+            Change case_WallJump=1 
+            SetScreenElementProps Id={menu_SwitchOffWallJump child=0} text="Infinite Wall Jumps: Off" 
+            walljumpoff 
+        }
+        case 1 {
+            Change case_WallJump=0 
+            SetScreenElementProps Id={menu_SwitchOffWallJump child=0} text="Infinite Wall Jumps: On" 
+            walljumpon 
+        }
+    endswitch    
+} 
+case_WallSkate = 1 
+script toggle_SwitchOffWallSkate {
+    printf "On/Off Wallskate" 
+    switch case_WallSkate
+        case 0 {
+            Change case_WallSkate=1 
+            SetScreenElementProps Id={menu_SwitchOffWallSkate child=0} text="Skate on Walls: Off" 
+            wallskateoff 
+        }
+        case 1 {
+            Change case_WallSkate=0 
+            SetScreenElementProps Id={menu_SwitchOffWallSkate child=0} text="Skate on Walls: On" 
+            Skater:wallskateon 
+        }
+    endswitch    
+} 
+case_NoClip = 1 
+script toggle_SwitchOffNoClip {
+    printf "on/Off NoClip" 
+    switch case_NoClip
+        case 0 {
+            Change case_NoClip=1 
+            SetScreenElementProps Id={menu_SwitchOffNoClip child=0} text="No Clip: Off" 
+            anteara_noclipoff 
+        }
+        case 1 {
+            Change case_NoClip=0 
+            SetScreenElementProps Id={menu_SwitchOffNoClip child=0} text="No Clip: On" 
+            MakeSkaterFly 
+            Skater:pausephysics 
+        }
+    endswitch    
+} 
+case_NO_BOUNDS = 1 
+script toggle_SwitchNoBounds {
+    switch case_NO_BOUNDS
+        case 0 {
+            Change case_NO_BOUNDS=1 
+            SetScreenElementProps Id={menu_SwitchNoBounds child=0} text="No Out Of Bounds: Off" 
+            UnSetGlobalFlag flag=FREEMAN_BOUND 
+        }
+        case 1 {
+            Change case_NO_BOUNDS=0 
+            SetScreenElementProps Id={menu_SwitchNoBounds child=0} text="No Out Of Bounds: On" 
+            SetGlobalFlag flag=FREEMAN_BOUND 
+        }
+    endswitch    
+} 
+case_Observe = 1 
+script toggle_SwitchOffObserve {
+    printf "On/Off Observe" 
+    switch case_Observe
+        case 0 {
+            Change case_Observe=1 
+            SetScreenElementProps Id={menu_SwitchOffObserve child=0} text="Observing: Off" 
+            Skater:add_skater_to_world 
+            ExitSurveyorMode 
+            Change obs_is_on=0 
+        }
+        case 1 {
+            Change case_Observe=0 
+            SetScreenElementProps Id={menu_SwitchOffObserve child=0} text="Observing: On" 
+            Skater:remove_skater_from_world 
+            EnterSurveyorMode 
+            Change obs_is_on=1 
+        }
+    endswitch    
+} 
+case_Airshuffle = 1 
+script toggle_SwitchOffAirshuffle {
+    switch case_Airshuffle
+        case 0 {
+            Change case_Airshuffle=1 
+            SetScreenElementProps Id={menu_SwitchOffAirshuffle child=0} text="Airshuffle (DownLeft + Flip): Off" 
+            UnSetGlobalFlag flag=ANTEARA_AIRSHUFFLE 
+        }
+        case 1 {
+            Change case_Airshuffle=0 
+            SetScreenElementProps Id={menu_SwitchOffAirshuffle child=0} text="Airshuffle (DownLeft + Flip): On" 
+            SetGlobalFlag flag=ANTEARA_AIRSHUFFLE 
+        }
+    endswitch    
+} 
+script anteara_noclipoff {
+    Skater:unpausephysics 
+} 
+script walljumpon {
+    Change Physics_Disallow_Rewallplant_Duration=0 
+} 
+script walljumpoff {
+    Change Physics_Disallow_Rewallplant_Duration=850 
+} 
+script wallskateon {
+    Change Wall_Non_Skatable_Angle=0 
+} 
+script wallskateoff {
+    Change Wall_Non_Skatable_Angle=25 
+} 
+script anteara_timeron {
+    Change Physics_RunTimer_Duration={(50000.0, 20000.0) STATS_RUN `switch`=no_switch} 
+} 
+script anteara_timeroff {
+    Change Physics_RunTimer_Duration={(2.0, 3.0) STATS_RUN `switch`=no_switch} 
+} 
+script wallshuffleon {
+    Change wall_ride_delay=0.0 
+} 
+script wallshuffleoff {
+    Change wall_ride_delay=0.666 
+} 
+case_anteara_text_colour = 5 
+script toggle_SwitchTextColour {
+    printf "Text Colour" 
+    switch case_anteara_text_colour
+        case 5 {
+            Change case_anteara_text_colour=6 
+            SetScreenElementProps Id={menu_SwitchTextColour child=0} text="Text Colour: Orange" 
+            SetPreferencesFromUI prefs=network field="TextColor" checksum=color_cb 
+        }
+        case 6 {
+            Change case_anteara_text_colour=7 
+            SetScreenElementProps Id={menu_SwitchTextColour child=0} text="Text Colour: Green" 
+            SetPreferencesFromUI prefs=network field="TextColor" checksum=color_c4 
+        }
+        case 7 {
+            Change case_anteara_text_colour=8 
+            SetScreenElementProps Id={menu_SwitchTextColour child=0} text="Text Colour: Pink" 
+            SetPreferencesFromUI prefs=network field="TextColor" checksum=color_cL 
+        }
+        case 8 {
+            Change case_anteara_text_colour=5 
+            SetScreenElementProps Id={menu_SwitchTextColour child=0} text="Text Colour: White" 
+            SetPreferencesFromUI prefs=network field="TextColor" checksum=color_c0 
+        }
+    endswitch    
+} 
+case_give_ammo = 5 
+script toggle_SwitchAmmoNum {
+    printf "On/Off Ammo" 
+    switch case_give_ammo
+        case 5 {
+            Change case_give_ammo=6 
+            SetScreenElementProps Id={menu_SwitchAmmoNum child=0} text="Ammo: 500" 
+            Skater:GetAmmo 
+            Skater:SetAmmo 500 
+        }
+        case 6 {
+            Change case_give_ammo=7 
+            SetScreenElementProps Id={menu_SwitchAmmoNum child=0} text="Ammo: 1000" 
+            Skater:GetAmmo 
+            Skater:SetAmmo 1000 
+        }
+        case 7 {
+            Change case_give_ammo=5 
+            SetScreenElementProps Id={menu_SwitchAmmoNum child=0} text="Ammo: 0" 
+            Skater:GetAmmo 
+            Skater:SetAmmo 0 
+        }
+    endswitch    
+} 
+case_Color = 5 
+script toggle_SwitchColor {
+    printf "On/Off Color" 
+    switch case_Color
+        case 5 {
+            Change case_Color=6 
+            SetScreenElementProps Id={menu_SwitchColor child=0} text="Balance Bar Colour: Green" 
+            Change DE_BALANCE_METER_COLOR=[0 255 18 100] 
+        }
+        case 6 {
+            Change case_Color=7 
+            SetScreenElementProps Id={menu_SwitchColor child=0} text="Balance Bar Colour: Red" 
+            Change DE_BALANCE_METER_COLOR=[255 0 0 100] 
+        }
+        case 7 {
+            Change case_Color=8 
+            SetScreenElementProps Id={menu_SwitchColor child=0} text="Balance Bar Colour: Light Blue" 
+            Change DE_BALANCE_METER_COLOR=[0 252 255 100] 
+        }
+        case 8 {
+            Change case_Color=9 
+            SetScreenElementProps Id={menu_SwitchColor child=0} text="Balance Bar Colour: Yellow" 
+            Change DE_BALANCE_METER_COLOR=[234 255 0 100] 
+        }
+        case 9 {
+            Change case_Color=10 
+            SetScreenElementProps Id={menu_SwitchColor child=0} text="Balance Bar Colour: Black" 
+            Change DE_BALANCE_METER_COLOR=[0 0 0 100] 
+        }
+        case 10 {
+            Change case_Color=11 
+            SetScreenElementProps Id={menu_SwitchColor child=0} text="Balance Bar Colour: White" 
+            Change DE_BALANCE_METER_COLOR=[255 255 255 100] 
+        }
+        case 11 {
+            Change case_Color=5 
+            SetScreenElementProps Id={menu_SwitchColor child=0} text="Balance Bar Colour: Pink" 
+            Change DE_BALANCE_METER_COLOR=[225 18 213 100] 
+        }
+    endswitch    
+} 
+case_ColorTwo = 8 
+script toggle_SwitchColorTwo {
+    printf "On/Off ColorTwo" 
+    switch case_ColorTwo
+        case 5 {
+            Change case_ColorTwo=6 
+            SetScreenElementProps Id={menu_SwitchColorTwo child=0} text="Balance Arrow Colour: Green" 
+            Change DE_BALANCE_ARROW_COLOR=[0 255 18 100] 
+        }
+        case 6 {
+            Change case_ColorTwo=7 
+            SetScreenElementProps Id={menu_SwitchColorTwo child=0} text="Balance Arrow Colour: Red" 
+            Change DE_BALANCE_ARROW_COLOR=[255 0 0 100] 
+        }
+        case 7 {
+            Change case_ColorTwo=8 
+            SetScreenElementProps Id={menu_SwitchColorTwo child=0} text="Balance Arrow Colour: Light Blue" 
+            Change DE_BALANCE_ARROW_COLOR=[0 252 255 100] 
+        }
+        case 8 {
+            Change case_ColorTwo=9 
+            SetScreenElementProps Id={menu_SwitchColorTwo child=0} text="Balance Arrow Colour: Yellow" 
+            Change DE_BALANCE_ARROW_COLOR=[234 255 0 100] 
+        }
+        case 9 {
+            Change case_ColorTwo=10 
+            SetScreenElementProps Id={menu_SwitchColorTwo child=0} text="Balance Arrow Colour: Black" 
+            Change DE_BALANCE_ARROW_COLOR=[0 0 0 100] 
+        }
+        case 10 {
+            Change case_ColorTwo=11 
+            SetScreenElementProps Id={menu_SwitchColorTwo child=0} text="Balance Arrow Colour: White" 
+            Change DE_BALANCE_ARROW_COLOR=[255 255 255 100] 
+        }
+        case 11 {
+            Change case_ColorTwo=5 
+            SetScreenElementProps Id={menu_SwitchColorTwo child=0} text="Balance Arrow Colour: Pink" 
+            Change DE_BALANCE_ARROW_COLOR=[225 18 213 100] 
+        }
+    endswitch    
+} 
+case_Ammo = 5 
+script toggle_SwitchAmmo {
+    printf "Select Ammo type" 
+    switch case_Ammo
+        case 5 {
+            Change case_Ammo=6 
+            SetScreenElementProps Id={menu_SwitchAmmo child=0} text="Ammo Type: Apple" 
+            Skater:SetAmmoType apple 
+        }
+        case 6 {
+            Change case_Ammo=7 
+            SetScreenElementProps Id={menu_SwitchAmmo child=0} text="Ammo Type: Shrimp" 
+            Skater:SetAmmoType shrimp 
+        }
+        case 7 {
+            Change case_Ammo=8 
+            SetScreenElementProps Id={menu_SwitchAmmo child=0} text="Ammo Type: Smokebomb" 
+            Skater:SetAmmoType smokebomb 
+        }
+        case 8 {
+            Change case_Ammo=9 
+            SetScreenElementProps Id={menu_SwitchAmmo child=0} text="Ammo Type: Paintcan" 
+            Skater:SetAmmoType paintcan 
+        }
+        case 9 {
+            Change case_Ammo=10 
+            SetScreenElementProps Id={menu_SwitchAmmo child=0} text="Ammo Type: Skateboard" 
+            Skater:SetAmmoType skateboard 
+        }
+        case 10 {
+            Change case_Ammo=11 
+            SetScreenElementProps Id={menu_SwitchAmmo child=0} text="Ammo Type: Crystal Ball" 
+            Skater:SetAmmoType Crystal_Ball 
+        }
+        case 11 {
+            Change case_Ammo=5 
+            SetScreenElementProps Id={menu_SwitchAmmo child=0} text="Ammo Type: Tomato" 
+            Skater:SetAmmoType tomato 
+        }
+    endswitch    
+} 

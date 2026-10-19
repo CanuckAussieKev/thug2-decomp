@@ -1,0 +1,7 @@
+script startup_loading_screen {
+    // MERGE: 2010 - the Shorty's movie at start-up (2010 then kept the screen blank; 2011 shows loadscrn)
+    intro_movie = "movies\\shortys" 
+    Displayloadingscreen blank 
+    PlayMovie <intro_movie> 
+    Displayloadingscreen "loadscrn" 
+} 

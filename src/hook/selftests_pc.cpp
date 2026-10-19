@@ -6,6 +6,7 @@
 #include <windows.h>
 
 #include <cstdarg>
+#include <cstddef>
 #include <cstdlib>
 #include <initializer_list>
 #include <cstdint>
@@ -14,6 +15,7 @@
 #include <cstring>
 #include <vector>
 
+#include "game/core/crc.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/gfx/flash.h"
@@ -589,8 +591,25 @@ void TestPlayMovie()
         *reinterpret_cast<uint8_t**>(params + 4) = component;
         skippedAll &= Nx::PlayMovie(reinterpret_cast<Script::CStruct*>(params), nullptr);
     }
+    bool introOnly = g_play_log == std::vector<std::string>{"credits"};
+    // A movie played by the start-up script (the Anteara Mod's Shorty's movie) is skipped too; the same movie from
+    // another script plays. (A stand-in script: only its m_scriptName is read.)
+    g_play_log.clear();
+    for (const char* scriptName : {"startup_loading_screen", "play_movie_from_menu"}) {
+        const char* name = "movies\\shortys";
+        alignas(16) uint8_t component[16] = {};
+        alignas(8) uint8_t params[8] = {};
+        component[0] = static_cast<uint8_t>(Script::ESYMBOLTYPE_STRING << 1);
+        std::memcpy(component + 8, &name, 4);
+        *reinterpret_cast<uint8_t**>(params + 4) = component;
+        alignas(16) uint8_t script[sizeof(Script::CScript)] = {};
+        uint32_t checksum = Crc::GenerateCRCFromString(scriptName);
+        std::memcpy(script + offsetof(Script::CScript, m_scriptName), &checksum, 4);
+        skippedAll &= Nx::PlayMovie(reinterpret_cast<Script::CStruct*>(params), script);
+    }
+    bool startUp = g_play_log == std::vector<std::string>{"movies\\shortys"};
     Nx::SkipIntroMovies() = savedSkip;
-    Check(skippedAll && g_play_log == std::vector<std::string>{"credits"}, "gfx: PlayMovie (flag on)");
+    Check(skippedAll && introOnly && startUp, "gfx: PlayMovie (flag on)");
 }
 
 

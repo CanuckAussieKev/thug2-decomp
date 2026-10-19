@@ -1,0 +1,81 @@
+// MERGE: 2010 - 2010: skateboard, Crystal_Ball and Anteara_Fire models (2011's ammo menu offers Skateboard and Crystal Ball too)
+script ClientLaunchProjectile {
+    index = 0 
+    while {
+        FormatText checksumname=name "projectile_%i" i=<index> 
+        if ! ObjectExists id=<name> {
+            break 
+        } 
+        if (<index> = 4) {
+            return 
+        } 
+        index = (<index> + 1) 
+    } 
+    pos = <skater_pos> 
+    TheParams = {
+        owner_id=<owner_id> 
+        pos=<pos> 
+        vel=<vel> 
+        orient_to_vel 
+        scale=1.0 
+        radius=24 
+        name=<name> 
+        SystemLifetime=1 
+        NeverSuspend 
+        death_script=projectile_die 
+        DieUponSettling 
+    } 
+    switch <ammo_type>
+        case tomato {
+            model = [{component=model model="gameobjects\\projectiles\\tomato\\tomato.mdl"}] 
+        }
+        case skateboard {
+            model = [{component=model model="Board_default\\Board_default.mdl"}] 
+        }
+        case Crystal_Ball {
+            model = [{component=model model="GameObjects\\pickups\\Crystal_Ball\\Crystal_Ball.mdl"}] 
+        }
+        case Anteara_Fire {
+            model = [{component=model model="fireball\\fireball.mdl"}] 
+        }
+        case apple {
+            model = [{component=model model="gameobjects\\projectiles\\apple\\apple.mdl"}] 
+        }
+        case beads {
+            model = [{component=model model="gameobjects\\projectiles\\beads\\beads.mdl"}] 
+        }
+        case shrimp {
+            model = [{component=model model="gameobjects\\projectiles\\shrimp\\shrimp.mdl"}] 
+        }
+        case smokebomb {
+            model = [{component=model model="gameobjects\\projectiles\\smokebomb\\smokebomb.mdl"}] 
+        }
+        case paintcan {
+            model = [{component=model model="gameobjects\\projectiles\\paintcan\\paintcan.mdl"}] 
+        }
+        default {
+            model = [{component=model model="GameObjects\\COMBO\\Goal_COMBO_O\\Goal_COMBO_O.mdl"}] 
+        }
+    endswitch    
+    printf "create projectile" 
+    if OnServer {
+        if InNetGame {
+            CreateCompositeObject {
+                Components=(net_server_projectile_composite_structure + <model>) 
+                Params=<TheParams> 
+            } 
+        } else {
+            CreateCompositeObject {
+                Components=(server_projectile_composite_structure + <model>) 
+                Params=<TheParams> 
+            } 
+        } 
+    } else {
+        CreateCompositeObject {
+            Components=(client_projectile_composite_structure + <model>) 
+            Params=<TheParams> 
+        } 
+    } 
+    <name>:RigidBody_IgnoreSkater 15 frames 
+    <name>:RigidBody_Wake 
+} 

@@ -1,0 +1,126 @@
+script keyboard_button_pressed {
+    if (<text> = "\\\\") {
+        <text> = "\\" 
+    } 
+    if (<text> = "") {
+        <text> = "\\" 
+    } 
+    if (<text> = "\\") {
+        PlaySound GUI_Buzzer01 
+        return 
+    } 
+    if (<text> = "%") {
+        PlaySound GUI_Buzzer01 
+        return 
+    } 
+    if GotParam max_length {
+        GetTextElementLength id=keyboard_current_string 
+        if (<length> > (<max_length> - 1)) {
+            PlaySound GUI_Buzzer01 
+            return 
+        } 
+    } 
+    keyboard_current_string:GetTags 
+    if GotParam allowed_characters {
+        if ArrayContains array=<allowed_characters> contains=<text> {
+            PlaySound MenuUp 
+        } else {
+            PlaySound GUI_Buzzer01 
+            return 
+        } 
+    } else {
+        PlaySound MenuUp 
+    } 
+    // MERGE: 2010 - the 2010 keyboard's symbol keys: [ ] { } ` * ^ & # ! typed button glyphs / "Anteara Mod".
+    // 2011 types those characters as they are; the 2010 menu's "KEYBOARD SYMBOLS (2010)" turns these on
+    if (anteara_2010_keyboard = 1) {
+        if (<text> = "[") {
+            <text> = "©" 
+        } 
+        if (<text> = "]") {
+            <text> = "®" 
+        } 
+        if (<text> = "{") {
+            <text> = "™" 
+        } 
+        if (<text> = "}") {
+            <text> = "¦" 
+        } 
+        if (<text> = "`") {
+            <text> = "%" 
+        } 
+        if (<text> = "*") {
+            <text> = "¬" 
+        } 
+        if (<text> = "^") {
+            <text> = "«" 
+        } 
+        if (<text> = "&") {
+            <text> = "œ" 
+        } 
+        if (<text> = "#") {
+            <text> = "\\cLA\\c4n\\cBt\\c4e\\cLa\\c4r\\cBa \\c4M\\cLo\\c4d" 
+        } 
+        if (<text> = "!") {
+            <text> = " \\cb™©®¦%¬«œ" 
+        } 
+    } 
+    GetScreenElementDims id=keyboard_display_string 
+    if (<height> > 40) {
+        <last_line> = last_line 
+    } 
+    if TextElementConcatenate id=keyboard_current_string <text> enforce_max_width <last_line> {
+        keyboard_anchor:GetTags 
+        if GotParam password {
+            TextElementBackspace id=keyboard_display_string 
+            FormatText TextName=text_w_cursor "%s_" s="*" 
+            TextElementConcatenate id=keyboard_display_string <text_w_cursor> enforce_max_width <last_line> 
+        } else {
+            TextElementBackspace id=keyboard_display_string 
+            FormatText TextName=text_w_cursor "%s_" s=<text> 
+            TextElementConcatenate id=keyboard_display_string <text_w_cursor> enforce_max_width <last_line> 
+        } 
+        GetScreenElementDims id=keyboard_display_string 
+        if GotParam no_buttons {
+            max_string_width = 550 
+        } else {
+            max_string_width = 300 
+        } 
+        if ScreenElementExists id=keyboard_display_string_container {
+            if (<width> > <max_string_width>) {
+                TextElementBackspace id=keyboard_display_string 
+                TextElementBackspace id=keyboard_display_string 
+                TextElementBackspace id=keyboard_current_string 
+                PlaySound GUI_Buzzer01 
+            } 
+        } else {
+            printf "%s %t" s=<height> t=<width> 
+            if (<height> > 80) {
+                TextElementBackspace id=keyboard_display_string 
+                TextElementBackspace id=keyboard_current_string 
+                if ! (<text> = " ") {
+                    TextElementBackspace id=keyboard_display_string 
+                    TextElementConcatenate id=keyboard_display_string " " enforce_max_width <last_line> 
+                } 
+                printf "string reached end of keyboard!" 
+                PlaySound GUI_Buzzer01 
+            } 
+        } 
+        switch keyboard_current_charset
+            case alphanumeric_lower {
+                if IsTrue keyboard_caps_lock {
+                    keyboard_change_charset charset=alphanumeric_charset_upper max_length=<max_length> 
+                    change keyboard_current_charset=alphanumeric_upper 
+                } 
+            }
+            case alphanumeric_upper {
+                if ! IsTrue keyboard_caps_lock {
+                    keyboard_change_charset charset=alphanumeric_charset_lower max_length=<max_length> 
+                    change keyboard_current_charset=alphanumeric_lower 
+                } 
+            }
+        endswitch        
+    } else {
+        printf "string too long!" 
+    } 
+} 

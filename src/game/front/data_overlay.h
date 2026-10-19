@@ -9,6 +9,12 @@
 // the async file system).
 //   - Files at the top of the folder are always used.
 //   - Files in its front_end folder are used first while the skate-shop front end is on (menu_backdrop.h Active).
+//   - Files in its anteara folder (anteara\front_end first while the front end is on) are used before both while
+//     thug2-decomp.ini [features] anteara_mod=1 (default 0): the Anteara Mod, the user's own 2010/2011 script mod
+//     (tools/anteara/README.md). make_menu_level.py writes there the mod's complete script set - its qdir.txt, every
+//     file it lists, localtext.qb - made from the game's loose Data\scripts with the mod's changes and this overlay's
+//     own edits (levels, level select, LEVEL EDITOR, the front end's roundbar menu) re-applied. Off: the game as
+//     before. One switch for the whole mod for now (per-feature switches would go in the mod's scripts).
 namespace Front::DataOverlay {
 
 // The overlay folder (<game folder>\thug2-decomp-data).
@@ -17,6 +23,14 @@ const std::string& Folder();
 // The overlay's file for a game file name ("levels\mainmenu\mainmenu.qb", "data/..." or a development machine's
 // "c:\...\data\..." path), if it exists: its full path in `path`.
 bool OverlayPath(const char* name, char (&path)[260]);
+
+// [features] anteara_mod (read once; logs a line at start-up when on).
+bool AntearaMod();
+
+// The folders under the overlay folder a file is looked for in, first match wins ("anteara\front_end\",
+// "anteara\", "front_end\", "" - the last always): the Anteara Mod's while it's on, the front end's while the
+// skate-shop front end is on. Returns how many are in `folders`.
+int SearchFolders(bool anteara, bool frontEnd, const char* (&folders)[4]);
 
 // The game file name as the overlay keeps it: '/' as '\', lower case, without anything up to "data\" (exposed for
 // the self-tests).

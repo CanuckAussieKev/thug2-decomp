@@ -1,0 +1,3 @@
+script toggle_color_lock {
+    lock_color_values = 0 
+} 

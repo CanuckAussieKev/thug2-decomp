@@ -732,6 +732,32 @@ void TestDataOverlay()
     MB::ForceInstalled(-1);
     MB::Setting() = saved;
     Check(ok, "menu_backdrop: on at any setting but 0, once installed");
+
+    // Where a file is looked for: the Anteara Mod's folders first while anteara_mod is on (its front_end first while
+    // the skate-shop front end is on), then the front end's, then the overlay's top - every combination.
+    struct Case {
+        bool anteara, frontEnd;
+        std::vector<std::string> want;
+    };
+    const Case cases[] = {
+        {false, false, {""}},
+        {false, true, {"front_end\\", ""}},
+        {true, false, {"anteara\\", ""}},
+        {true, true, {"anteara\\front_end\\", "anteara\\", "front_end\\", ""}},
+    };
+    ok = true;
+    for (const Case& c : cases) {
+        const char* folders[4] = {};
+        int count = DO::SearchFolders(c.anteara, c.frontEnd, folders);
+        bool same = count == static_cast<int>(c.want.size());
+        for (int i = 0; same && i < count; ++i)
+            same = c.want[i] == folders[i];
+        if (!same)
+            Log("  data overlay: anteara=%d front_end=%d -> %d folders, first '%s'", c.anteara, c.frontEnd, count,
+                count ? folders[0] : "");
+        ok = ok && same;
+    }
+    Check(ok, "data overlay: the folders searched, anteara_mod and the front end on and off");
 }
 
 SELFTEST(Early, TestCameraMethods, Cleanup);

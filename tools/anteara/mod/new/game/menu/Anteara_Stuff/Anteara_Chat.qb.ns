@@ -1,0 +1,479 @@
+
+script kirillgta_spam3 {
+    SendChatMessage string="\\c4S_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4Sh_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4Shu_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4Shut_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4Shut _ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4Shut u_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4Shut up_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4Shut up!_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4Shut up! _ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4Shut up!  \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4Shut up! _ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4Shut up!  \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4Shut up! _ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4Shut up! l_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4Shut up! lo_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4Shut up! lo_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4Shut up! lol_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4Shut up! lol  \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4Shut up! lol_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4Shut up! lol  \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4Shut up! lol_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4Shut up! lol  \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4Shut up! lol_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4Shut up! lol  \\n \\n \\n " 
+    wait 10 gameframe 
+} 
+script kirillgta_spam4 {
+    SendChatMessage string="\\c4_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4  \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4O_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4OH_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4OHA_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4OHAI_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4OHAI _  \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4OHAI T_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4OHAI TH_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4OHAI THU_  \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4OHAI THUR_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4OHAI THUR  \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4OHAI THUR_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4OHAI THUR  \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4OHAI THUR_  \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4OHAI THUR  \\n \\n \\n " 
+    wait 10 gameframe 
+} 
+script kirillgta_spam5 {
+    SendChatMessage string="\\cb_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\cb  \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\cb_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\cba_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\cbaf_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\cbafk_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\cbafk  \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\cbafk_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\cbafk 2_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\cbafk 2 _ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\cbafk 2 m_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\cbafk 2 mi_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\cbafk 2 min_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\cbafk 2 min  \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\cbafk 2 min_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\cbafk 2 min  \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\cbafk 2 min_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\cbafk 2 min  \\n \\n \\n " 
+    wait 10 gameframe 
+} 
+script kirillgta_spam6 {
+    SendChatMessage string="\\c4_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4  \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4n_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4na_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4naw_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4nawl_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4nawli_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4nawlin_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4nawlins_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4nawlins _ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4nawlins p_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4nawlins pl_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4nawlins plz_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4nawlins plz  \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4nawlins plz_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4nawlins plz  \\n \\n \\n " 
+    wait 10 gameframe 
+} 
+script kirillgta_spam7 {
+    SendChatMessage string="\\c4S_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4Sh_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4Shu_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4Shut_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4Shut _ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4Shut u_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4Shut up_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4Shut up!_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4Shut up! \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4Shut up!_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4Shut up! \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4Shut up!_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4Shut up! \\n \\n \\n " 
+    wait 10 gameframe 
+} 
+script kirillgta_spam8 {
+    SendChatMessage string="\\c4_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4  \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4h_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4hi_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4hi _ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4hi =_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4hi =  \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4hi =_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4hi =  \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4hi =_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4hi =)_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4hi =)  \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4hi =)_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4hi =)  \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4hi =)_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4hi =)  \\n \\n \\n " 
+    wait 10 gameframe 
+} 
+script anteara_spam1 {
+    SendChatMessage string="\\c4_ \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4   \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4O_  \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4OH_  \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4OHA_  \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4OHAI_  \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4OHAI,_  \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4OHAI,    \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4OHAI,_    \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4OHAI, _    \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4OHAI, G_    \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4OHAI, GA_    \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4OHAI, GAM_    \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4OHAI, GAME_    \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4OHAI, GAME _    \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4OHAI, GAME P_    \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4OHAI, GAME PL_   \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4OHAI, GAME PLX_  \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4OHAI, GAME PLX   \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4OHAI, GAME PLX_  \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4OHAI, GAME PLX   \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4OHAI, GAME PLX_  \\n \\n \\n " 
+    wait 10 gameframe 
+    SendChatMessage string="\\c4OHAI, GAME PLX   \\n \\n \\n " 
+    wait 10 gameframe 
+} 
+case_Auto_Text_Colour = 0 
+script entered_chat_message {
+    GetTextElementString id=keyboard_current_string 
+    if (<string> = "/hi") {
+        kirillgta_spam8 
+    } 
+    if (<string> = "/hai") {
+        kirillgta_spam4 
+    } 
+    if (<string> = "/afk") {
+        kirillgta_spam5 
+    } 
+    if (<string> = "/naw") {
+        kirillgta_spam6 
+    } 
+    if (<string> = "/su") {
+        kirillgta_spam7 
+    } 
+    if (<string> = "//") {
+        kirillgta_clean 
+    } 
+    if (<string> = "/k") {
+        kirillgta_dance 
+    } 
+    if (<string> = "/obs") {
+        anteara_observe_obs 
+    } 
+    if (<string> = "/rotate") {
+        Spawn_Try2lol 
+    } 
+    if (<string> = "/fs") {
+        flickering_skater 
+    } 
+    if (<string> = "/set") {
+        set_custom_restart1 
+    } 
+    if (<string> = "/help") {
+        anteara_text_help 
+    } 
+    if (<string> = "/noclip") {
+        MakeSkaterFly 
+        Skater:PausePhysics 
+    } 
+    if (<string> = "/goto") {
+        skip_to_custom_restart1 
+    } 
+    if (<string> = "/lights") {
+        anteara_nightON 
+    } 
+    if (<string> = "/ohai") {
+        anteara_spam1 
+    } 
+    // MERGE: 2010 - the chat commands 2011 dropped (2010's /ohai is 2011's /hai; 2011's /ohai stays)
+    if (<string> = "/df") {
+        kirillgta_spam 
+    } 
+    if (<string> = "/2010") {
+        kirillgta_spam2 
+    } 
+    if (<string> = "/type") {
+        kirillgta_spam3 
+    } 
+    if (<string> = "/lolwtf") {
+        anteara_spam1 
+    } 
+    if (<string> = "/norotate") {
+        Spawn_Trylol 
+    } 
+    if (<string> = "/floor") {
+        Spawn_floorlol 
+    } 
+    if (<string> = "/test") {
+        Spawn_All_Stuff 
+    } 
+    if ! ((((((((((((((((((((<string> = "/k") or (<string> = "/floor") or (<string> = "/test") or (<string> = "/floor") or (<string> = "/df") or (<string> = "/obs") or (<string> = "/norotate") or (<string> = "/hi") or (<string> = "/hai") or (<string> = "/afk") or (<string> = "/naw") or (<string> = "/su") or (<string> = "//") or (<string> = "/fs") or (<string> = "/set") or (<string> = "/goto") or (<string> = "/lights") or (<string> = "/ohai") or (<string> = "/help") or (<string> = "/noclip") or (<string> = "/rotate") or (<string> = "/2010") or (<string> = "/type") or (<string> = "/lolwtf")))))))))))))))))))) {
+        GetPreferenceChecksum pref_type=network TextColor 
+        switch <checksum>
+            case color_ca {
+                color = "\\ca" 
+            }
+            case color_cL {
+                color = "\\cL" 
+            }
+            case color_c4 {
+                color = "\\c4" 
+            }
+            case color_c0 {
+                color = "\\c0" 
+            }
+            case color_cb {
+                color = "\\cb" 
+            }
+        endswitch        
+        GetTextElementString id=keyboard_current_string 
+        if (<string> = "/colora") {
+            SetPreferencesFromUI prefs=network field="TextColor" checksum=color_ca 
+        } 
+        if (<string> = "/colorb") {
+            SetPreferencesFromUI prefs=network field="TextColor" checksum=color_cb 
+        } 
+        FormatText TextName=colour_text "%c%s" c=<color> s=<string> 
+        if ! ((<string> = "/colora") or (<string> = "/colorb")) {
+            SendChatMessage string=<colour_text> 
+        } else {
+            GetPreferenceChecksum pref_type=network TextColor 
+            switch <checksum>
+                case color_ca {
+                    color = "\\\\ca" 
+                }
+                case color_cb {
+                    color = "\\\\cb" 
+                }
+            endswitch            
+            FormatText TextName=msg "Text color changed to %c" c=<color> 
+            SendChatMessage string=<msg> 
+        } 
+    } 
+    destroy_onscreen_keyboard 
+} 
+script anteara_3d_text {
+    if ScreenElementExists id=current_menu_anchor {
+        DestroyScreenElement id=current_menu_anchor 
+    } 
+    create_onscreen_keyboard {
+        allow_cancel 
+        no_buttons 
+        pos=(320.0, 260.0) 
+        keyboard_done_script=Add_text_to_world 
+        keyboard_cancel_script=create_more_menu 
+        display_text="Create 3D Text: " 
+        keyboard_title="Lolol." 
+        min_length=1 
+        max_length=127 
+        display_text_scale=0.5 
+    } 
+} 
+script Add_text_to_world {
+    Skater:Obj_GetPosition 
+    GetTextElementString id=keyboard_current_string 
+    CreateScreenElement {
+        id=anteara_3d_text 
+        type=TextElement 
+        parent=root_window 
+        font=dialog 
+        text=<string> 
+        scale=3.000003 
+        pos3D=(<pos> + (0.0, 5.0, 0.0)) 
+    } 
+    destroy_onscreen_keyboard 
+    exit_pause_menu 
+} 
+script Spawn_Trylol {
+    Create Name=BO_BarrierQP01 
+    GoalEditorCursor:Obj_GetPosition 
+    GoalEditorCursor:Obj_GetOrientation 
+    BO_BarrierQP01:Obj_SetPosition Position=(<pos> + (0.0, 35.75, 0.0)) 
+    BO_BarrierQP01:Obj_Rotate y=<angle> 
+} 
+script Spawn_Try2lol {
+    Create Name=BO_BarrierQP01 
+    Skater:Obj_GetPosition 
+    BO_BarrierQP01:Obj_SetPosition Position=(<pos> + (0.0, 35.75, 0.0)) 
+    BO_BarrierQP01:Obj_Rotate absolute=(0.0, 180.0, 0.0) 
+    FormatText TextName=c_popup "Rotated Pos:\\cB %p" p=<pos> 
+    SendChatMessage string=<c_popup> 
+} 
+script Spawn_floorlol {
+    Create Name=BO_Scaffolding02 
+    Skater:Obj_GetPosition 
+    BO_Scaffolding02:Obj_SetPosition Position=(<pos> + (0.0, 35.75, 0.0)) 
+    FormatText TextName=c_popup "Floor Pos:\\cB %p" p=<pos> 
+    SendChatMessage string=<c_popup> 
+} 
+script Spawn_All_Stuff {
+    MakeSkaterGoto Switch_OnGroundAi params={NewScript=Walking_OnGroundAi Restart} 
+    OneTest 
+    TwoTest 
+    ThreeTest 
+    FourTest 
+    FiveTest 
+    SixTest 
+    Skater:Obj_SetPosition Position=(3997.803, 1143.375, -402.154) 
+    Skater:Obj_Rotate absolute=(0.0, 270.0, 0.0) 
+} 
+script OneTest {
+    Create Name=BO_BarrierQP01 
+    BO_BarrierQP01:Obj_SetPosition Position=(3597.803, 1143.375, -402.154) 
+    BO_BarrierQP01:Obj_Rotate absolute=(0.0, 180.0, 0.0) 
+} 
+script TwoTest {
+    Create Name=BO_BarrierQP01 
+    BO_BarrierQP01:Obj_SetPosition Position=(3505.414, 654.313, -402.154) 
+} 
+script ThreeTest {
+    Create Name=BO_BarrierQP01 
+    BO_BarrierQP01:Obj_SetPosition Position=(2942.508, 654.313, -402.154) 
+    BO_BarrierQP01:Obj_Rotate absolute=(0.0, 180.0, 0.0) 
+} 
+script FourTest {
+    Create Name=BO_BarrierQP01 
+    BO_BarrierQP01:Obj_SetPosition Position=(2841.433, 391.313, -402.154) 
+} 
+script FiveTest {
+    Create Name=BO_Scaffolding02 
+    BO_Scaffolding02:Obj_SetPosition Position=(2673.386, 355.313, -402.154) 
+} 
+script SixTest {
+    Create Name=BO_BarrierQP01 
+    BO_BarrierQP01:Obj_SetPosition Position=(2581.008, 393.875, -402.154) 
+    BO_BarrierQP01:Obj_Rotate absolute=(0.0, 180.0, 0.0) 
+} 
+__register_checksums__ kirillgta_spam3 SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe kirillgta_spam4 SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe kirillgta_spam5 SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe kirillgta_spam6 SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe kirillgta_spam7 SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe kirillgta_spam8 SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe anteara_spam1 SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe SendChatMessage string wait gameframe case_Auto_Text_Colour entered_chat_message GetTextElementString id keyboard_current_string string kirillgta_spam8 string kirillgta_spam4 string kirillgta_spam5 string kirillgta_spam6 string kirillgta_spam7 string kirillgta_clean string kirillgta_dance string anteara_observe_obs string flickering_skater string set_custom_restart1 string anteara_text_help string MakeSkaterFly Skater PausePhysics string Spawn_Try string skip_to_custom_restart1 string anteara_nightON string anteara_spam1 string string string string string string string string string string string string string string string string string string GetPreferenceChecksum pref_type network TextColor checksum color_ca color color_cL color color_c4 color color_c0 color color_cb color GetTextElementString id keyboard_current_string string SetPreferencesFromUI prefs network field checksum color_ca string SetPreferencesFromUI prefs network field checksum color_cb FormatText TextName colour_text c color s string string string SendChatMessage string colour_text GetPreferenceChecksum pref_type network TextColor checksum color_ca color color_cb color FormatText TextName msg c color SendChatMessage string msg destroy_onscreen_keyboard anteara_3d_text ScreenElementExists id current_menu_anchor DestroyScreenElement id current_menu_anchor create_onscreen_keyboard allow_cancel no_buttons pos keyboard_done_script Add_text_to_world keyboard_cancel_script create_more_menu display_text keyboard_title min_length max_length display_text_scale Add_text_to_world Skater Obj_GetPosition GetTextElementString id keyboard_current_string CreateScreenElement id anteara_3d_text type TextElement parent root_window font dialog text string scale pos3D pos destroy_onscreen_keyboard exit_pause_menu spawn_try2 spawn_try Create name BO_BarrierQP01 BO_BarrierQP01 Obj_SetPosition position nick_text n Name p nick_text Spawn_Try2 Create name BO_BarrierQP01 BO_BarrierQP01 Obj_SetPosition position BO_BarrierQP01 Obj_Rotate absolute nick_text n Name p nick_text c_popup c_popup c_popup c_popup spawn_try2lol spawn_trylol Spawn_Trylol Spawn_Try2lol Position Position Position JG_3B_WoodPlanks JG_3B_WoodPlanks BO_Scaffolding02 BO_Scaffolding02 BO_Scaffolding BO_Scaffolding BO_Scaffolding01 BO_Scaffolding01 spawn_floorlol Spawn_floorlol Spawn_All_Stuff Spawn_All_Stuff OneTest TwoTest ThreeTest FourTest FiveTest SixTest OneTest TwoTest ThreeTest FourTest FiveTest SixTest MakeSkaterGoto Switch_OnGroundAi params NewScript Walking_OnGroundAi Restart OnGroundAi Restore_skater_camera GoalEditorCursor Obj_SetOrientation X y angle z Rotate Obj_GetOrientation x

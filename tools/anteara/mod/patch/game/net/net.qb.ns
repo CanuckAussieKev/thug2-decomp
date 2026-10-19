@@ -1,0 +1,153 @@
+// MERGE: 2010 - 2010: the popup / teleport / position / speed entries (the scripts are at the end of this file)
+script create_player_options_dialog {
+    if GotParam allow_remove_homie {
+        DestroyScreenElement id=current_menu_anchor 
+        if OnServer {
+            create_dialog_box {title="Player Options" 
+                text=<Name> 
+                pad_back_script=cancel_remove_player 
+                buttons=[{text="cancel" pad_choose_script=cancel_remove_player} 
+                    {text="kick" pad_choose_script=kick_player_confirm pad_choose_params=<...>} 
+                    {text="ban" pad_choose_script=ban_player_confirm pad_choose_params=<...>} 
+                    {text="remove homie" pad_choose_script=remove_buddy pad_choose_params=<...>} 
+                ] 
+                no_animate 
+            } 
+        } else {
+            create_dialog_box {title="Player Options" 
+                text=<Name> 
+                pad_back_script=cancel_remove_player 
+                buttons=[{text="cancel" pad_choose_script=cancel_remove_player} 
+                    {text="remove homie" pad_choose_script=remove_buddy pad_choose_params=<...>} 
+                ] 
+                no_animate 
+            } 
+        } 
+    } else {
+        if GotParam allow_add_homie {
+            DestroyScreenElement id=current_menu_anchor 
+            if OnServer {
+                create_dialog_box {title="Player Options" 
+                    text=<Name> 
+                    pad_back_script=cancel_remove_player 
+                    buttons=[{text="cancel" pad_choose_script=cancel_remove_player} 
+                        {text="kick" pad_choose_script=kick_player_confirm pad_choose_params=<...>} 
+                        {text="ban" pad_choose_script=ban_player_confirm pad_choose_params=<...>} 
+                        {text="add homie" pad_choose_script=add_buddy pad_choose_params=<...>} 
+                    ] 
+                    no_animate 
+                } 
+            } else {
+                create_dialog_box {title="Player Options" 
+                    text=<Name> 
+                    pad_back_script=cancel_remove_player 
+                    buttons=[{text="cancel" pad_choose_script=cancel_remove_player} 
+                        {text="add homie" pad_choose_script=add_buddy pad_choose_params=<...>} 
+                    ] 
+                    no_animate 
+                } 
+            } 
+        } else {
+            if OnServer {
+                DestroyScreenElement id=current_menu_anchor 
+                create_dialog_box {title="Player Options" 
+                    text=<Name> 
+                    pad_back_script=cancel_remove_player 
+                    buttons=[{text="cancel" pad_choose_script=cancel_remove_player} 
+                        {text="kick" pad_choose_script=kick_player_confirm pad_choose_params=<...>} 
+                        {text="ban" pad_choose_script=ban_player_confirm pad_choose_params=<...>} 
+                        {text="STFU NOOB" pad_choose_script=popup_noob pad_choose_params=<...>} 
+                        {text="is a Gay" pad_choose_script=popup_gay pad_choose_params=<...>} 
+                        {text="like cumshots" pad_choose_script=popup_cum pad_choose_params=<...>} 
+                        {text="keyboard" pad_choose_script=popup_slap pad_choose_params=<...>} 
+                        {text="Teleport to host" pad_choose_script=teleport_to pad_choose_params=<...>} 
+                        {text="Show Host Position" pad_choose_script=idSkater_pos pad_choose_params=<...>} 
+                        {text="Show Host Speed On chat" pad_choose_script=idSkater_speed pad_choose_params=<...>} 
+                    ] 
+                    no_animate 
+                } 
+            } else {
+                DestroyScreenElement id=current_menu_anchor 
+                create_dialog_box {title="Popups List" 
+                    text=<Name> 
+                    pad_back_script=cancel_remove_player 
+                    buttons=[{text="cancel" pad_choose_script=cancel_remove_player} 
+                        {text="STFU NOOB" pad_choose_script=popup_noob pad_choose_params=<...>} 
+                        {text="is a Gay" pad_choose_script=popup_gay pad_choose_params=<...>} 
+                        {text="like cumshots" pad_choose_script=popup_cum pad_choose_params=<...>} 
+                        {text="keyboard" pad_choose_script=popup_slap pad_choose_params=<...>} 
+                        {text="Teleport to Host" pad_choose_script=teleport_to pad_choose_params=<...>} 
+                        {text="Show Host Position" pad_choose_script=idSkater_pos pad_choose_params=<...>} 
+                        {text="Show Host Speed On chat" pad_choose_script=idSkater_speed pad_choose_params=<...>} 
+                    ] 
+                    no_animate 
+                } 
+            } 
+        } 
+    } 
+} 
+script StartingNewNetGame {
+    sound_options_exit just_remove 
+    edit_tricks_menu_exit just_remove 
+    kill_all_panel_messages 
+    if ! IsObserving {
+        Skater:RunStarted 
+    } 
+    ClearPowerups 
+    if ! IsObserving {
+        ExitSurveyorMode 
+    } 
+    Restore_skater_camera 
+} 
+// MERGE: 2010 - the player options dialog's popups and the custom popup keyboard (2011 dropped them)
+script popup_noob {
+    FormatText TextName=nick_text "\\c2STFU \\c/%n \\c0n00b!" n=<Name> 
+    SendChatMessage string=<nick_text> 
+    exit_pause_menu 
+} 
+script popup_gay {
+    FormatText TextName=nick_text "%n \\c2i\\c3s \\c4a \\clG\\cea\\cby\\c7!\\c4!\\c7!\\c4!" n=<Name> 
+    SendChatMessage string=<nick_text> 
+    exit_pause_menu 
+} 
+script popup_cum {
+    FormatText TextName=nick_text "%n \\c2like \\c3cumshots \\c4on \\c5His \\c6face\\cb!" n=<Name> 
+    SendChatMessage string=<nick_text> 
+    exit_pause_menu 
+} 
+script popup_slap {
+    FormatText TextName=nick_text "\\c2slaps \\c/%n \\c2around a bit with an old \\c0keyboard!" n=<Name> 
+    SendChatMessage string=<nick_text> 
+    exit_pause_menu 
+} 
+script teleport_to {
+    <id>:Obj_GetPosition 
+    skater:Obj_SetPosition position=<pos> 
+    exit_pause_menu 
+} 
+script idSkater_pos {
+    <id>:Obj_GetPosition position=<pos> 
+    FormatText TextName=nick_text "%n \\c/Position is: \\c2%p!" n=<Name> p=<pos> 
+    SendChatMessage string=<nick_text> 
+    exit_pause_menu 
+} 
+script idSkater_speed {
+    <id>:GetSpeed 
+    FormatText TextName=SSpeed_text "%n \\c/Speed: \\c2%s!" n=<Name> s=<speed> 
+    SendChatMessage string=<SSpeed_text> 
+    exit_pause_menu 
+} 
+script launch_popup_keyboard {
+    hide_current_goal 
+    DestroyScreenElement id=current_menu_anchor 
+    create_onscreen_keyboard allow_cancel no_buttons pos=(320.0, 260.0) keyboard_done_script=menu_pupup_message display_text="CUSTOM POPUP MESSAGE: " keyboard_title="ENTER MESSAGE" min_length=1 max_length=127 display_text_scale=0.5 
+} 
+script menu_pupup_message {
+    popup_enter_mess 
+} 
+script popup_enter_mess {
+    GetTextElementString id=keyboard_current_string 
+    FormatText TextName=c_popup "%n %s %p" n=<Name> s=<string> p=<pos> 
+    SendChatMessage string=<c_popup> 
+    exit_pause_menu 
+} 
