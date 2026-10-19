@@ -446,7 +446,28 @@ void TestRailManager()
             Original<void(__thiscall*)(void*, uint32_t, const void*)>(0x0057C3F0)(m, 0x101, &moved);
         else
             m->MoveNode(0x101, &moved);
+        for (int i = 0; i < 10; ++i) { // (the boxes moving changed)
+            const auto* words = reinterpret_cast<const uint32_t*>(&nodes[i]);
+            for (size_t w = 0; w < sizeof(CRailNode) / 4; ++w)
+                t.push_back(Rel(words[w]));
+        }
         SetBoxes(10);
+        {
+            // Two nodes near in x and z but not y; four values near but the last.
+            auto* a = Ptr<CRailNode>(0x2000);
+            auto* b = Ptr<CRailNode>(0x2060);
+            a->m_pos = {0.0f, 0.0f, 0.0f, 1.0f};
+            b->m_pos = {0.5f, 3.0f, 0.5f, 1.0f};
+            t.push_back(original ? Original<bool(__stdcall*)(const void*, const void*)>(0x0057C5A0)(a, b) : Obj::NodesTogether(a, b));
+            t.push_back(static_cast<uint32_t>(original ? Original<int(__cdecl*)(float, float, float, float, float)>(0x0057C3A0)(1.0f, 1.0f, 1.0f, 20.0f, 6.0f)
+                                                       : Obj::NearlyEqual4(1.0f, 1.0f, 1.0f, 20.0f, 6.0f)));
+            // No nodes but a count: none found.
+            CRailNode* held = m->m_nodes;
+            m->m_nodes = nullptr;
+            t.push_back(Rel(reinterpret_cast<uint32_t>(original ? Original<void*(__thiscall*)(void*, uint32_t)>(0x0057CBD0)(m, 0x100u)
+                                                                : m->FindNode(0x100u))));
+            m->m_nodes = held;
+        }
         // The feelers: which side has a wall, whether a rail is clear.
         const int hitPlans[][4] = {{0, 0, 0, 0}, {1, 0, 0, 0}, {0, 1, 0, 0}, {2, 1, 0, 0}, {0, 2, 0, 0}};
         Mth::Vector direction = {1.0f, 0.2f, -0.5f, 0.0f};
@@ -464,7 +485,7 @@ void TestRailManager()
         } clearPlans[] = {{{1, 0, 0, 0}, {0, 0}},   {{0, 2, 0, 0}, {0, 0}},     {{0, 0, 0, 0}, {0, 0}},
                           {{0, 0, 1, 0}, {3, 0}},   {{0, 0, 2, 1}, {3, 3}},     {{0, 0, 1, 1}, {14.0f, 14.5f}},
                           {{0, 0, 1, 1}, {9, 14}},  {{0, 0, 1, 1}, {15.5f, 9}}, {{0, 0, 1, 1}, {6.0f, 15.0f}},
-                          {{0, 0, 1, 1}, {16, 16}}};
+                          {{0, 0, 1, 1}, {16, 16}},  {{0, 0, 1, 1}, {12.0f, 7.5f}}};
         for (const auto& plan : clearPlans) {
             g_hits.assign(plan.hits, plan.hits + 4);
             g_hitHeights.assign(plan.heights, plan.heights + 2);

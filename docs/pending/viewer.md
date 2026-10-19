@@ -184,6 +184,24 @@ Shared files touched: CMakeLists.txt (each new .cpp listed, additive).
       displays on one side), the movie manager (the other by-name call on an empty queue, ending with nothing queued,
       one movie's counts and its last update), the rail manager (Cleanup clears the on-object flag).
 
+- [x] Batch VW-9 (NOT run in the game yet; early tests pass offline; mutation run pending): pieces of the skater
+      object (new src/game/skater/skater.*, Obj::CSkater - only the fields these use named), 0x57FE30-0x580BD8 incl.
+      the missed 0x580830 / 0x5809C0: SetStatOverride 0x57FE30 (0-10 when 0x5A1180 says so), GetStat 0x580490 (the
+      override or Skater_Default_Stats, the skate module's +0x3D0 if set, online: 1 / 6 / 10 by the player's rules,
+      CHEAT_STATS_13: 15, +3 with the score's flag), GetScaledValue 0x5805B0 (the unnamed pair scaled by a stat, the
+      switch pair clamped 0-1 when riding switch, the diff pair by difficulty (+1 in classic), the limit as a maximum
+      for a rising range and a minimum otherwise), GetScaledPhysics 0x580790, GetScaledParam 0x5807F0,
+      GetPhysicsStructure 0x5802E0 (skater_physics or the vehicle's: segway / mechbull / minikart / wheelchair /
+      tricycle / gurney / chainsaw; slalom and shopping cart use the skater's), GetPhysicsFloat / GetPhysicsInt
+      0x580400 / 0x580440 (90 / 7 callers), MatchesParams 0x57FED0 (is_pro, its opposite 0x5A3264BB, is_male /
+      is_female, is_named, stance, style), SparksOn / SparksOff 0x57FFE0 / 0x580000, the getters 0x57FEB0 / 0x57FEC0 /
+      0x580040 / 0x580050 / 0x580480 / 0x580880 (skatercam0 / 1), LoadCATInfo 0x580060, the +0x28C list's 70 entries
+      0x580150, Write / ReadChapterInfo 0x5801B0 / 0x580210, 0x5802C0 (0x42BD60), PickRandomBoard 0x580830 (up to 20
+      tries for a different one), SetPauseState 0x5808A0 ("Freezing game" / "UnPausing game" when the physics value
+      0x9816E1E3 says the whole game pauses, else the physics control told), UpdateShadowLight 0x5809C0 (the model's
+      light reversed, kept 0.65 below the horizon - found: z is read back as stored, x not -, faded over 16 frames
+      towards straight down). Self-test (new src/hook/selftests_viewer10.cpp): TestSkater.
+
 - [ ] Next: (state for resuming)
       - Batch VW-2 (cars / KOTH crown 0x5780E0-0x578490 in src/game/obj/game_objects.*; the skater trick code's two
         list entry types 0x578670 / 0x578740 / 0x5787F0 / 0x579570-0x579820 in src/game/skater/trick_lists.*) and
