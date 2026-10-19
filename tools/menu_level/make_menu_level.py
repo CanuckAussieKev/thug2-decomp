@@ -50,6 +50,7 @@ import thug2_col  # noqa: E402 (the front end's collision without THUG2's shop)
 import nodes as level_port_nodes  # noqa: E402 (the terrain sounds a level loads)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import level_select  # noqa: E402 (the level select's sections, stars and signs)
+import career_complete  # noqa: E402 (GAME OPTIONS' CREATE 100% CAS)
 
 def checksum(name):
     return (zlib.crc32(name.lower().encode()) ^ 0xFFFFFFFF) & 0xFFFFFFFF
@@ -453,6 +454,30 @@ def add_level_editor(text):
     register = text.find("\n__register_checksums__")
     at = register + 1 if register >= 0 else len(text)
     return text[:at] + LEVEL_EDITOR_SCRIPTS + text[at:]
+
+
+# --- GAME OPTIONS' CREATE 100% CAS (career_complete.py; the DLL's src/game/front/career_complete.h) --------------
+
+OPTIONS_MENU_QB = r"levels\mainmenu\mainmenu_options.qb"
+
+
+def add_create_100_cas(decompile, write, pre, levels):
+    # The front end's GAME OPTIONS scripts with CREATE 100% CAS: the story's chapters, goals and rewards read from
+    # the game's scripts (Levels.qb's text `levels`, chapter_info, goal_utilities, stats, each story level's scripts).
+    qb_scripts = os.path.join(pre, "qb_scripts.prx")
+
+    def script_file(name):
+        return decompile(prx_file(qb_scripts, name), os.path.basename(name))
+
+    def level_scripts(prefix, qb, pre_name):
+        return decompile(prx_file(os.path.join(pre, os.path.splitext(pre_name)[0] + ".prx"), qb), prefix + "_scripts.qb")
+
+    data = career_complete.career_data(levels, script_file(r"scripts\game\menu\chapter_info.qb"),
+                                       script_file(r"scripts\game\goal_utilities.qb"),
+                                       script_file(r"scripts\game\menu\stats.qb"), level_scripts)
+    options = decompile(prx_file(os.path.join(pre, "mainmenu_scripts.prx"), OPTIONS_MENU_QB), "mainmenu_options.qb")
+    write(career_complete.options_menu(options, data), OPTIONS_MENU_QB)
+    print("CREATE 100%% CAS (GAME OPTIONS):\n%s" % career_complete.describe(data))
 
 
 # --- the standard main menu (src/game/front/menu_backdrop.h) ------------------------------------------------------
@@ -1174,6 +1199,8 @@ def main():
         write(testlevel_nodes(testlevel), r"levels\TestLevel\TestLevel.qb")
         # Always: the pause menu's LEVEL EDITOR (the DLL's [features] level_editor decides whether it shows).
         write(add_level_editor(pause), r"scripts\game\menu\gamemenu_pause.qb")
+        # Always: GAME OPTIONS' CREATE 100% CAS (the DLL's [features] create_100_cas decides whether it shows).
+        add_create_100_cas(decompile, write, pre, levels)
 
         # The standard main menu, for the front end in THPS4's skate shop (the DLL uses front_end\ while
         # menu_backdrop is on and the shop is installed).

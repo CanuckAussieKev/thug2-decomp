@@ -21,6 +21,7 @@
 #include "game/file/async.h"
 #include "game/file/pre.h"
 #include "game/gfx/tod_manager.h"
+#include "game/front/career_complete.h"
 #include "game/front/front_end.h"
 #include "game/front/level_editor.h"
 #include "game/mc/memcard.h"
@@ -614,6 +615,9 @@ void TestMain()
         s->At({0x005A5B20}, 0, plain(0x5B20));
         // (not original - the level editor's script commands, registered after 0x005A5E70: ours only, not recorded)
         s->At({Resolve(reinterpret_cast<const void*>(&Front::LevelEditor::RegisterScriptFunctions))}, 0,
+              [](Regs&) { return 0u; });
+        // (and CREATE 100% CAS's - game/front/career_complete.h)
+        s->At({Resolve(reinterpret_cast<const void*>(&Front::CareerComplete::RegisterScriptFunctions))}, 0,
               [](Regs&) { return 0u; });
         s->At({0x004694E0}, 0, plain(0x94E0));
         s->At({0x004E4860}, 0, plain(0x4860));

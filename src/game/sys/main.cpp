@@ -15,6 +15,7 @@
 #include "game/core/stubs.h"
 #include "game/file/async.h"
 #include "game/file/pre.h"
+#include "game/front/career_complete.h"
 #include "game/front/front_end.h"
 #include "game/front/level_editor.h"
 #include "game/gfx/tod_manager.h"
@@ -135,10 +136,12 @@ int __cdecl Main(int argc, char** argv)
         Mem::PopMemProfile();
         GameFunction<void(__thiscall*)(void*, bool)>(0x0044E610)(GameVariable<void*>(0x00696D40), true); // (+0x10C)
         GameFunction<void(__cdecl*)()>(0x005A5E70)();
-        // Not original - the level editor (game/front/level_editor.h): its script commands (LevelEditor_Start...)
+        // Not original - the level editor (game/front/level_editor.h) and CREATE 100% CAS
+        // (game/front/career_complete.h): their script commands (LevelEditor_Start..., Career100_Apply...)
         // registered after the game's own.
         // Original behaviour: only the game's table (0x0067F3A0) and its member functions are registered.
         Front::LevelEditor::RegisterScriptFunctions();
+        Front::CareerComplete::RegisterScriptFunctions();
         GameFunction<void(__cdecl*)()>(0x005A5B20)();
 
         Mem::PushMemProfile("Game Singletons");
