@@ -91,6 +91,18 @@ add_library(thug2_code OBJECT
     src/hook/selftests_scache.cpp
     src/hook/selftests_text.cpp
     src/hook/selftests_winmain.cpp
+    src/hook/selftests_appmain.cpp
+    src/hook/selftests_appmain2.cpp
+    src/hook/selftests_appmain3.cpp
+    src/hook/selftests_appmain4.cpp
+    src/hook/selftests_appmain5.cpp
+    src/hook/selftests_appmain6.cpp
+    src/hook/selftests_appmain7.cpp
+    src/hook/selftests_appmain8.cpp
+    src/hook/selftests_appmain9.cpp
+    src/hook/selftests_appmain10.cpp
+    src/hook/selftests_appmain12.cpp
+    src/hook/selftests_appmain11.cpp
     src/hook/selftests_gapsB.cpp
     src/hook/selftests_mva.cpp
     src/hook/selftests_mva2.cpp
@@ -117,6 +129,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_menulvl.cpp
     src/hook/selftests_motion.cpp
     src/hook/selftests_gamenet.cpp
+    src/hook/selftests_trigger.cpp
     src/hook/selftests_editor.cpp
     src/hook/selftests_pcmstream.cpp
     src/hook/selftests_pcmplay.cpp
@@ -189,6 +202,26 @@ add_library(thug2_code OBJECT
     src/game/gfx/camera.cpp
     src/game/gfx/scene.cpp
     src/game/gfx/engine_glue.cpp
+    src/game/gfx/render_state.cpp
+    src/game/gfx/occlusion.cpp
+    src/game/gfx/shadow.cpp
+    src/game/gfx/mesh_list.cpp
+    src/game/gfx/pixel_shaders.cpp
+    src/game/gfx/simple_material.cpp
+    src/game/gfx/screen_fx.cpp
+    src/game/gfx/draw2d.cpp
+    src/game/gfx/mesh.cpp
+    src/game/gfx/scene_render.cpp
+    src/game/gfx/glow.cpp
+    src/game/gfx/texture.cpp
+    src/game/gfx/texture_file.cpp
+    src/game/sys/key_names.cpp
+    src/game/obj/avoid.cpp
+    src/game/obj/camera_lookaround.cpp
+    src/game/obj/camera_util.cpp
+    src/game/obj/component_types.cpp
+    src/game/ed/goal_editor_util.cpp
+    src/game/obj/editor_camera.cpp
     src/game/file/async.cpp
     src/game/file/file.cpp
     src/game/file/pip.cpp
@@ -235,6 +268,7 @@ add_library(thug2_code OBJECT
     src/game/park/park_memory.cpp
     src/game/obj/smtptr.cpp
     src/game/obj/tracker.cpp
+    src/game/obj/trigger_component.cpp
     src/game/skater/rotation.cpp
     src/game/sio/device.cpp
     src/game/sio/inpman.cpp

@@ -2,7 +2,7 @@
 
 Generated 2026-10-19 by `tools/progress_report.py` - regenerate after each batch.
 
-**Game code: ████░░░░░░░░░░░░░░░░ 21.5%** of the code rewritten (2,048 of 8,382 functions, 347.2 KB of 1,617.8 KB).
+**Game code: ████░░░░░░░░░░░░░░░░ 24.5%** of the code rewritten (2,195 of 8,382 functions, 396.6 KB of 1,617.8 KB).
 
 Progress is by code size: function counts make a 10-byte helper look like as much work as a 2 KB routine. Subsystem boundaries come from the exe map (`docs/subsystems.md`) and are approximate (give or take a few functions); totals are exact.
 
@@ -10,7 +10,7 @@ Progress is by code size: function counts make a 10-byte helper look like as muc
 |---|---|---|---:|---:|
 | Core utilities (CRC/checksums, string helpers, rect, random) | `0x401000`-`0x406460` | ███████████████████░ 99% | 129 / 130 | 19.8 KB / 19.8 KB |
 | Animation & skeleton / skinned model data | `0x406460`-`0x41a6d0` | ░░░░░░░░░░░░░░░░░░░░ 0% | 7 / 423 | 0.4 KB / 75.5 KB |
-| Object components & level/scene loading | `0x41a6d0`-`0x445b50` | ░░░░░░░░░░░░░░░░░░░░ 0% | 8 / 584 | 1.1 KB / 157.7 KB |
+| Object components & level/scene loading | `0x41a6d0`-`0x445b50` | ░░░░░░░░░░░░░░░░░░░░ 0% | 9 / 584 | 1.4 KB / 157.7 KB |
 | Engine script commands (lighting/fog, memory heaps, script utils, arrays, music & streams) | `0x445b50`-`0x44e6b0` | ░░░░░░░░░░░░░░░░░░░░ 1% | 7 / 246 | 0.5 KB / 32.5 KB |
 | Movies (Bink) & streamed audio | `0x44e6b0`-`0x4544e0` | ████████████████████ 100% | 167 / 167 | 22.1 KB / 22.1 KB |
 | Low-level networking (engine net library) | `0x4544e0`-`0x45bda0` | ████████████████████ 100% | 205 / 205 | 26.5 KB / 26.5 KB |
@@ -20,7 +20,7 @@ Progress is by code size: function counts make a 10-byte helper look like as muc
 | Renderer: textures, geometry, particles, 2D/3D screen | `0x490d80`-`0x4a4500` | ░░░░░░░░░░░░░░░░░░░░ 0% | 7 / 559 | 0.2 KB / 73.1 KB |
 | Front-end UI: screen elements & text | `0x4a4500`-`0x4b2280` | ████████████████████ 100% | 228 / 228 | 52.5 KB / 52.5 KB |
 | Renderer: screen FX, image/texture formats, fonts, grass | `0x4b2280`-`0x4d6d40` | █░░░░░░░░░░░░░░░░░░░ 8% | 25 / 488 | 9.2 KB / 114.8 KB |
-| Application main & game object rendering glue | `0x4d6d40`-`0x4e6b80` | ███░░░░░░░░░░░░░░░░░ 17% | 56 / 202 | 10.4 KB / 59.5 KB |
+| Application main & game object rendering glue | `0x4d6d40`-`0x4e6b80` | ████████████████████ 100% | 202 / 202 | 59.5 KB / 59.5 KB |
 | Goal & rail editors / skater camera | `0x4e6b80`-`0x500020` | ░░░░░░░░░░░░░░░░░░░░ 0% | 1 / 341 | 0.7 KB / 85.7 KB |
 | Skater (physics, tricks, walking, stats, sticker tags) | `0x500020`-`0x533f20` | █░░░░░░░░░░░░░░░░░░░ 5% | 9 / 544 | 10.1 KB / 186.9 KB |
 | Online & network game modes (CTF, servers, lobby, buddies, NAT negotiation) | `0x533f20`-`0x54ef60` | ░░░░░░░░░░░░░░░░░░░░ 3% | 13 / 457 | 3.2 KB / 91.9 KB |
