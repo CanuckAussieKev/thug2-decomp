@@ -94,21 +94,28 @@ def level_structs(thps4_dir):
 
 
 # Invisible walls opened: (collision object, axis, "min" / "max") - the object's faces lying in its box's plane on that
-# side are left out. THPS4's skate shop was a menu: InvisColl01 boxes in the skate park outside the shop (sides,
-# roof, both ends); its z-min face closes the shop's door (Object10, the shop, is behind it - the Occlusion plane
-# at z -1082 has the doorway's hole, x 699-788), its z-max face the fence's gap at the end of the halfpipe (the user,
-# 2026-10-19: both open).
-OPENINGS = {"skateshop": [("InvisColl01", 2, "max"), ("InvisColl01", 2, "min")]}
+# side are left out -, or (collision object, "invisible") - its invisible faces (THPS4's face flag 0x1000) are.
+# THPS4's skate shop was a menu: InvisColl01 boxes in the skate park outside the shop (sides, roof, both ends) - its
+# z-max face the fence's gap at the end of the halfpipe, its z-min face the shop's side; the shop's door itself is
+# closed by Object10's (the shop's) two invisible faces, x 699-777 at z -1074 (the Occlusion plane at z -1082 has the
+# doorway's hole there). The user, 2026-10-19: all open.
+OPENINGS = {"skateshop": [("InvisColl01", 2, "max"), ("InvisColl01", 2, "min"), ("Object10", "invisible")]}
+FACE_INVISIBLE = 0x1000
 
 
 def open_walls(col4, base, report):
-    for name, axis, side in OPENINGS.get(base.lower(), ()):
+    for opening in OPENINGS.get(base.lower(), ()):
+        name = opening[0]
         wanted = qb.checksum(name)
         for o in col4["objects"]:
             if o["checksum"] != wanted or not o["verts"]:
                 continue
-            plane = (max if side == "max" else min)(v[axis] for v in o["verts"])
-            kept = [f for f in o["faces"] if not all(abs(o["verts"][i][axis] - plane) < 0.01 for i in f[2:5])]
+            if opening[1] == "invisible":
+                kept = [f for f in o["faces"] if not f[0] & FACE_INVISIBLE]
+            else:
+                _, axis, side = opening
+                plane = (max if side == "max" else min)(v[axis] for v in o["verts"])
+                kept = [f for f in o["faces"] if not all(abs(o["verts"][i][axis] - plane) < 0.01 for i in f[2:5])]
             report.append("  %s: %d face(s) of %s left out (an opening)" % (base, len(o["faces"]) - len(kept), name))
             o["faces"] = kept
 
