@@ -178,8 +178,33 @@ ProjectToPlane made exact).
     freeing and not, the list node / head functions; allocation and frees stood in for, our vtables in our run.
   - Mutations: 35 deliberate bugs, all caught (28 at first; the unowned geometry, freeing with flag 1, a registered
     cache, the clone's flags, the dirty flag after each call and the box test with no box added for 7).
-- [ ] Next: AN-6 - the other collision objects: the movable (vtable 0x00645B00, 0x00411FA0 ...), 0x00645B58,
-  0x00645BC0, the statics (0x00645C18 / 0x00645C78 / 0x00645CD8), their helpers 0x0040AE40-0x0040AEC0,
-  0x0040B230-0x0040B390, then the face / line tests 0x0040B420 onwards. Hidden code to give source to later (found by scratchpad hidden.py - runs between Ghidra's
+- [x] Batch AN-6 (NOT run in the game yet; the movable collision objects and raw vertices): src/game/nx/
+  coll_movable.h / .cpp, coll_tri.h / .cpp (new).
+  - Nx::CCollObjTriData (the geometry; only what's used so far): 0x0040B230 / 0x0040B2D0 GetRawVertexPos (16-bit
+    vertices in sixteenths from the box's minimum, or floats - the second copies those as raw words; w = 0).
+  - Nx::CCollMovable (0xA4 bytes, vtable 0x00645B00: +0x10 position, +0x20 orientation, +0x60 its transpose,
+    +0xA0 a value): 0x00411FA0 constructor, 0x00412660 copy, 0x004121A0 destructor (out of the caches' movables),
+    0x004135B0 scalar deleting, 0x00412070 SetOrientation (rows 0-2, the transpose of the whole matrix; 0x00412FF0
+    jumps to it - source only), 0x00412050 / 0x00412060 (source only: 4 bytes, shared with the scaled object),
+    0x00412230 GetVertexPos, 0x004122C0 BoxToLocal, 0x0040AE50 / 0x0040AE40. 0x004120D0 / 0x00412150 the matrix
+    transpose (from another / in place).
+  - Nx::CCollMovBBox (0xD0 bytes, vtable 0x00645BC0: a box, one set of face flags and terrain): 0x00412550
+    constructor (the default box (-50, -20, -90)..(30, 36, 90)), 0x00413700 copy, 0x004125F0 / 0x004136D0
+    destructors, 0x00412600 SetGeometry (also its box; a null geometry crashes, as in the original), 0x0040AE60 /
+    0x0040AE70 face flags / terrain, 0x004126E0 DebugRender (the box through 0x0048D090).
+  - Nx::CCollScaled (0xA0 bytes, vtable 0x00645B58: scale, matrix, inverse): 0x004123C0 constructor, 0x00412460 /
+    0x004135E0 destructors, 0x00413610 / 0x00413640 / 0x004136A0 set position / orientation / scale,
+    0x00412490 UpdateInverse (each row's 1 / scale unrounded for its three products), 0x004109C0 (source only),
+    0x004109D0 GetVertexPos (scaled, w the scale's w, through Matrix::Transform - row 3 counts by that w).
+  - Tests (selftests_anim6.cpp): TestAnimCollMovables - every function on objects built on dirty memory with random
+    transforms and compressed / plain geometry (each object recorded after its constructor), copies of objects
+    with distinct fields, transposes in place and not, the debug box, the destructors with owned and shared
+    geometry and a registered cache holding the movables.
+  - Mutations: 35 deliberate bugs; 33 caught (26 at first: each object recorded right after construction, distinct
+    terrain and +0xCA bytes for the copies added for 7). Equivalent: the movable vertex's w (always 0 + the
+    position's), the box destructor's own vtable write (overwritten at once by the base's).
+- [ ] Next: AN-7 - the static collision objects (vtables 0x00645C18 / 0x00645C78 / 0x00645CD8 - constructors and
+  slots), 0x0040AE80-0x0040AEC0 (forwarders to the geometry), 0x0040B390, then the face / line tests 0x0040B420
+  onwards. Hidden code to give source to later (found by scratchpad hidden.py - runs between Ghidra's
   functions that aren't padding): 0x00412730, 0x00412F90, 0x004139A0, 0x00413F30, 0x00414D70, 0x00417110,
   0x00419690, 0x00419750, 0x004198D0, 0x00419AD0, 0x00419BF0, 0x00419E90, 0x0041A1A0-0x0041A21C.
