@@ -25,6 +25,9 @@ foreach ($kv in @(@('ResolutionX', '1280'), @('ResolutionY', '720'), @('Borderle
 }
 # (the self-tests on - the main install's are off)
 $text = [regex]::Replace($text, '(?m)^enabled=\d', 'enabled=1')  # ([selftests] has the ini's only enabled=)
+# (and the early tests skipped in game runs: thug2_check runs them offline - run_game.ps1 -FullTests runs everything)
+if ($text -match '(?m)^early=') { $text = [regex]::Replace($text, '(?m)^early=.*$', 'early=0') }
+else { $text = [regex]::Replace($text, '(?m)^enabled=1', "enabled=1`r`nearly=0") }
 [IO.File]::WriteAllText($ini, $text)
 "made $to from $From"
 Select-String -Path $ini -Pattern '^(ResolutionX|ResolutionY|Borderless|allow_multiple_instances|debug_collision|enabled)=' | % Line

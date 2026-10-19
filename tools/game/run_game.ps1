@@ -1,6 +1,10 @@
 param([int]$Seconds = 40, [string]$Shot = 'shot', [string]$Keys = '', [string]$Game = 'C:\Games\THUG2',
-      [string]$ShotDir = '', [string]$Level = '')
+      [string]$ShotDir = '', [string]$Level = '', [string]$Tests = '', [switch]$FullTests)
 # -Level <name>: the game started with -level <name> - straight into free skate there (src/game/front/start_level.h).
+# Self-tests (start-up time): workspaces skip the early tests ([selftests] early=0 - thug2_check runs them offline).
+#   -Tests "anim,coll": only the self-tests whose names contain one of those words run (THUG2_SELFTESTS) - the ones of
+#                       the work being tested; -FullTests: every stage and test (THUG2_SELFTESTS_EARLY=1) - a range's
+#                       final run.
 # Starts the game in the -Game folder (C:\Games\THUG2, or a workspace copy C:\Games\THUG2-1, -2...), waits, takes a
 # picture of its window (half size), optionally sends keys, then closes that game (only the one it started).
 # Workspace folders (anything but the main install, C:\Games\THUG2\Game) never take the foreground: keys are posted to the window
@@ -29,6 +33,8 @@ public static class FocusBack {
 "@
 }
 $before = if ($workspace) { [FocusBack]::GetForegroundWindow() } else { [IntPtr]::Zero }
+$env:THUG2_SELFTESTS = if ($FullTests) { '' } else { $Tests }  # (the game inherits these)
+$env:THUG2_SELFTESTS_EARLY = if ($FullTests) { '1' } else { '' }
 if ($Level) { $p = Start-Process -FilePath $exe -WorkingDirectory $Game -ArgumentList @('-level', $Level) -PassThru }
 else { $p = Start-Process -FilePath $exe -WorkingDirectory $Game -PassThru }
 if ($workspace) {
