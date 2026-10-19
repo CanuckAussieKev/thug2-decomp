@@ -19,6 +19,7 @@ class CStruct;
 namespace Obj {
 
 struct CSkaterProfile;
+class CCompositeObjectManager;
 
 class CSkater : public CCompositeObject {
 public:
@@ -111,6 +112,14 @@ public:
     // 0x005825E0: the CAT info written to `save` (tricks). 0x00582740: the +0x28C list's 70 entries written.
     void WriteCATInfo(Script::CStruct* save);
     void WriteList44B66A9F(Script::CStruct* save);
+    // 0x00582800: a projectile launched (LaunchProjectile) from a wrist, at the nearest target ahead (projectile
+    // proximity components within Physics_Projectile_Targeting_Dist / _Angle; peds not yet shot, at a bone they
+    // choose) when there's one beyond 100.
+    void LaunchProjectile();
+    // 0x00582D90: the constructor (vtable 0x0064EF48): its skater-list node, local or not, base components, type
+    // 0xBAF9B341, number and id (skaters 0 and 1 get tracker aliases), registered with `manager`, its viewport, and
+    // its components (a local skater's full set, a remote one's few). Returns this.
+    CSkater* Construct(int viewport, CCompositeObjectManager* manager, bool local, uint32_t id, int skaterNumber, int unused);
 
     uint32_t m_pushStyle;        // +0x108 (the profile's pushstyle)
     uint32_t m_style;            // +0x10C (skatestyle)

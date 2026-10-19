@@ -592,7 +592,7 @@ void TestRailManager()
             boxes(8);
             onLine(0, 4, {-1.0f, 5.0f, -1.0f, 1.0f}, {1.0f, 5.0f, 1.0f, 1.0f});
             onLine(4, 2, {0.0f, 5.0f, -1.0f, 1.0f}, {0.0f, 5.0f, 1.0f, 1.0f});
-            onLine(6, 2, {-1.0f, 4.0f, -1.0f, 1.0f}, {1.0f, 6.0f, 1.0f, 1.0f});
+            onLine(6, 2, {-1.0f, 2.0f, -1.0f, 1.0f}, {1.0f, 4.0f, 1.0f, 1.0f}); // (not half way: t and 1 - t differ)
             // A ladder node with both links: the next one is the other end.
             extra[2].m_prev = &extra[7];
             scene->m_nodes = &extra[0];

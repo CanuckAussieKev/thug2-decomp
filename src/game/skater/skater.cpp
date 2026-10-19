@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <cstdint>
 #include <cstring>
+#include <new>
 
 #include "game/core/crc.h"
 #include "game/core/dbg.h"
@@ -21,6 +22,7 @@
 #include "game/obj/compositemgr.h"
 #include "game/obj/game_objects.h"
 #include "game/obj/objman.h"
+#include "game/obj/tracker.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
@@ -996,6 +998,220 @@ void CSkater::WriteList44B66A9F(Script::CStruct* save)
     save->AddArrayPointer(kList44B66A9F, entries);
 }
 
+// 0x00582800
+void CSkater::LaunchProjectile()
+{
+    // Its flat heading.
+    float headingX = m_matrix.row[2].x, headingY = 0.0f, headingZ = m_matrix.row[2].z;
+    float best = 1000.0f;
+    CCompositeObject* target = nullptr;
+    double length = std::sqrt(static_cast<double>(headingZ) * headingZ + static_cast<double>(headingX) * headingX);
+    if (length > 0.0) {
+        double inverse = 1.0 / length;
+        headingX = static_cast<float>(headingX * inverse);
+        headingY = static_cast<float>(0.0 * inverse);
+        headingZ = static_cast<float>(headingZ * inverse);
+    }
+    // From a wrist (the right one, or the left by its stance and whether it's walking).
+    uint8_t* walking = At<uint8_t*>(m_state284, 0x2C);
+    bool flipped = At<uint8_t>(At<uint8_t*>(m_corePhysics, 0x1528), 0x28) != 0;
+    bool walk = !At<bool>(walking, 0x118) && At<int>(walking, 0x1C) == 1;
+    uint32_t wrist = (walk ? flipped : !flipped) ? 0x7EE14CFE : 0x84EE719D; // Bone_Wrist_L / Bone_Wrist_R
+    Mth::Vector bone, rotated;
+    GameFunction<void(__thiscall*)(void*, uint32_t, Mth::Vector*)>(0x00431C60)(GetComponent(0x222756D5), wrist, &bone);
+    const Mth::Vector* turned = GameFunction<Mth::Vector*(__thiscall*)(Mth::Matrix*, Mth::Vector*, const Mth::Vector*)>(0x0040B090)(
+        &m_matrix, &rotated, &bone);
+    const Mth::Vector origin = {static_cast<float>(static_cast<double>(turned->x) + m_pos.x),
+                                static_cast<float>(static_cast<double>(turned->y) + m_pos.y),
+                                static_cast<float>(static_cast<double>(turned->z) + m_pos.z),
+                                static_cast<float>(static_cast<double>(turned->w) + m_pos.w)};
+    // The nearest projectile target (projectileproximity) ahead within the targeting distance and angle; a ped
+    // that's been shot is left out, and a ped is aimed at a bone it chooses.
+    float toTargetX = 0.0f, toTargetZ = 0.0f;
+    Mth::Vector aim = {};
+    for (CBaseComponent* component = CompositeObjectManager()->GetFirstComponentByType(0x3618B878); component;
+         component = component->mp_nextOfType) {
+        CCompositeObject* object = component->m_object;
+        if (!object)
+            continue;
+        bool ped = false;
+        if (object->GetComponent(0x6EFDDFB8)) { // PedLogic
+            uint32_t state = GameFunction<uint32_t(__thiscall*)(void*)>(0x004ED140)(object->GetComponent(0x6EFDDFB8));
+            ped = true;
+            if (state == 0x54F87744) // shot
+                continue;
+        }
+        double dz = static_cast<double>(object->m_pos.z) - origin.z;
+        double dy = static_cast<double>(object->m_pos.y) - origin.y;
+        double dx = static_cast<double>(object->m_pos.x) - origin.x;
+        float distance = static_cast<float>(std::sqrt(dx * dx + dy * dy + dz * dz));
+        float toZ = static_cast<float>(dz);
+        float toX = static_cast<float>(dx);
+        double toY = 0.0;
+        float flat = static_cast<float>(std::sqrt(static_cast<double>(toX) * toX + static_cast<double>(toZ) * toZ));
+        if (flat > 0.0f) {
+            float inverse = static_cast<float>(1.0 / flat);
+            toX = static_cast<float>(static_cast<double>(toX) * inverse);
+            toY = static_cast<double>(inverse) * 0.0;
+            toZ = static_cast<float>(static_cast<double>(toZ) * inverse);
+        }
+        float dot = static_cast<float>(static_cast<double>(toZ) * headingZ + toY * headingY + static_cast<double>(toX) * headingX);
+        if (!(Script::GetFloat(0x39186247) > distance)) // Physics_Projectile_Targeting_Dist
+            continue;
+        double cone = std::cos(Script::GetFloat(0x195A7DBA) * static_cast<double>(0.017453292f)); // ..._Angle
+        if (!(cone < dot))
+            continue;
+        if (!(distance < best))
+            continue;
+        target = object;
+        best = distance;
+        toTargetX = toX;
+        toTargetZ = toZ;
+        if (ped) {
+            Script::RunScript(0x5DB74F79, nullptr, nullptr, false, nullptr); // choose_projectile_target_bone
+            uint32_t targetBone = Script::GetSymbolValue(0x07A15639);       // target_bone
+            Mth::Vector at;
+            GameFunction<void(__thiscall*)(void*, uint32_t, Mth::Vector*)>(0x00431C60)(object->GetComponent(0x222756D5),
+                                                                                       targetBone, &at);
+            GameFunction<void(__thiscall*)(Mth::Vector*, const Mth::Matrix*)>(0x00411840)(&at, &object->m_matrix);
+            aim = {static_cast<float>(static_cast<double>(at.x) + object->m_pos.x),
+                   static_cast<float>(static_cast<double>(at.y) + object->m_pos.y),
+                   static_cast<float>(static_cast<double>(at.z) + object->m_pos.z),
+                   static_cast<float>(static_cast<double>(at.w) + object->m_pos.w)};
+        } else {
+            aim = object->m_pos;
+        }
+    }
+    // LaunchProjectile from there (at the target, when there is one beyond 100).
+    Script::CStruct* memory = Script::NewStruct();
+    Script::CStruct* params = memory ? memory->Init() : nullptr;
+    params->AddVector("pos", {origin.x, origin.y, origin.z, origin.w});
+    if (target && best > 100.0f) {
+        params->AddFloat("ped_dist", best);
+        params->AddFloat("heading_x", toTargetX);
+        params->AddFloat("heading_z", toTargetZ);
+        params->AddVector("ped_pos", {aim.x, aim.y, aim.z, aim.w});
+    }
+    CallScript(0x86919CB6, params); // LaunchProjectile
+    if (params) {
+        params->Clear();
+        Script::DeleteStruct(params);
+    }
+}
+
+// 0x00582D90
+CSkater* CSkater::Construct(int viewport, CCompositeObjectManager* manager, bool local, uint32_t id, int skaterNumber,
+                            int /*unused*/)
+{
+    CCompositeObject::Construct();
+    m_vtable = reinterpret_cast<void**>(0x0064EF48);
+    new (&m_displayName) Str::String();
+    // Its node in the skater list (Lst::Node: vtable, data, priority, next, prev).
+    auto* node = reinterpret_cast<uint32_t*>(m_block238);
+    node[0] = 0x0064E544;
+    node[1] = reinterpret_cast<uint32_t>(this);
+    node[2] = 0;
+    node[3] = reinterpret_cast<uint32_t>(node);
+    node[4] = reinterpret_cast<uint32_t>(node);
+    m_unknownBC = local;
+    AddBaseComponents(this);
+    m_type = 0xBAF9B341;
+    m_flag2C4 = false;
+    m_skaterNumber = skaterNumber;
+    m_id = id;
+    if (skaterNumber == 0)
+        Tracker()->AddAlias(0x5B8AB877, this);
+    else if (skaterNumber == 1)
+        Tracker()->AddAlias(0x06ED3FA7, this);
+    At<int>(this, 0x30) = -500;
+    reinterpret_cast<void(__thiscall*)(CCompositeObjectManager*, CSkater*)>((*reinterpret_cast<void***>(manager))[1])(manager, this);
+    m_viewport = viewport;
+    At<uint32_t>(this, 0x31C) = 0;
+    Dbg::Printf("D:%s:%i: m_skater_number = %i\n", "jects\\skater.cpp", 0x43C, viewport);
+    Dbg::Printf("D:%s:%i: m_id = %i\n", "jects\\skater.cpp", 0x43D, m_id);
+    m_unknown24C = nullptr;
+    m_unknown250 = nullptr;
+    m_shadow = nullptr;
+    m_unknown258 = nullptr;
+    m_unknown25C = nullptr;
+    m_unknown264 = nullptr;
+    m_unknown268 = nullptr;
+    m_unknown270 = nullptr;
+    m_scoreHolder = nullptr;
+    m_corePhysics = nullptr;
+    m_list28C = nullptr;
+    m_state288 = nullptr;
+    m_state284 = nullptr;
+    // Its components, one structure (component = ...) changed for each.
+    Script::CStruct* memory = Script::NewStruct();
+    Script::CStruct* params = memory ? memory->Init() : nullptr;
+    auto add = [this, params](uint32_t type) {
+        params->AddChecksum(kComponentName, type);
+        CreateComponentFromStructure(params, nullptr);
+    };
+    add(0x43686585);
+    add(0xF27A294D);
+    if (m_unknownBC) {
+        add(0x27D7CD28);
+        m_unknown264 = reinterpret_cast<uint8_t*>(GetComponent(0x27D7CD28));
+        add(0xD262802F);
+        m_scoreHolder = reinterpret_cast<uint8_t*>(GetComponent(0xD262802F));
+        add(0xBF518E27);
+        add(0x270F56E1);
+        m_unknown258 = GetComponent(0x270F56E1);
+        add(0xD9151D4D); // SkaterPhysicsControl
+        m_state284 = reinterpret_cast<uint8_t*>(GetComponent(0xD9151D4D));
+        add(0x5BD63B29); // SkaterCorePhysics
+        m_corePhysics = reinterpret_cast<uint8_t*>(GetComponent(0x5BD63B29));
+        add(0x52D61A0D);
+        add(0x11B4C67F);
+        m_unknown270 = reinterpret_cast<uint8_t*>(GetComponent(0x11B4C67F));
+        add(0x9F9CC949);
+        add(0xE594F0A2);
+        add(0x9B373E58);
+        add(0xD8CC3428);
+        add(0x726E85AA); // Walk
+        m_state288 = reinterpret_cast<uint8_t*>(GetComponent(0x726E85AA));
+        add(0x7CD3E6D5);
+        add(0xB1D5A3E1);
+        add(0x589E5FB3);
+        add(0xB5F1E9D2);
+        add(0x1859F772); // SkaterVehicleSound
+        add(0x4FF8DAC6);
+        m_list28C = GetComponent(0x4FF8DAC6);
+        add(0x408D2AA9);
+        add(0x8BCE7E66);
+        add(0x380D909A);
+    } else {
+        add(0xD262802F);
+        m_scoreHolder = reinterpret_cast<uint8_t*>(GetComponent(0xD262802F));
+        add(0x850EEF66);
+        add(0xD8CC3428);
+        add(0x125044E2);
+        add(0xB1D5A3E1);
+        add(0xB5F1E9D2);
+    }
+    add(0x18223FD6);
+    m_unknown27C = reinterpret_cast<uint8_t*>(GetComponent(0x18223FD6));
+    add(kSkaterFlipAndRotate);
+    // The controls, told its skater number.
+    Script::CStruct* extraMemory = Script::NewStruct();
+    Script::CStruct* extra = extraMemory ? extraMemory->Init() : nullptr;
+    extra->AddInteger(0xA2B033FD, m_skaterNumber);
+    params->AddChecksum(kComponentName, 0x5B512EDC);
+    CreateComponentFromStructure(params, extra);
+    add(0xD1515392);
+    if (extra) {
+        extra->Clear();
+        Script::DeleteStruct(extra);
+    }
+    if (params) {
+        params->Clear();
+        Script::DeleteStruct(params);
+    }
+    return this;
+}
+
 } // namespace Obj
 
 REPLACE(0x0057FE30, &Obj::CSkater::SetStatOverride);
@@ -1042,3 +1258,5 @@ REPLACE(0x005823A0, &Obj::CSkater::RunStateScript);
 REPLACE(0x00582510, &Obj::CSkater::SwitchToScript);
 REPLACE(0x005825E0, &Obj::CSkater::WriteCATInfo);
 REPLACE(0x00582740, &Obj::CSkater::WriteList44B66A9F);
+REPLACE(0x00582800, &Obj::CSkater::LaunchProjectile);
+REPLACE(0x00582D90, &Obj::CSkater::Construct);

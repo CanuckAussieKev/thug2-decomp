@@ -234,6 +234,14 @@ Shared files touched: CMakeLists.txt (each new .cpp listed, additive).
       rail node's box seen before it moves back, the table's count cleared, the last release with a template, the
       ped motion's flags kept).
 
+- [x] Batch VW-13 (NOT run in the game yet; early tests pass offline; mutation run pending): LaunchProjectile
+      0x582800 (from Bone_Wrist_L / _R by stance and walking, through its matrix; the nearest projectileproximity
+      object ahead within Physics_Projectile_Targeting_Dist / _Angle - a ped that's been shot left out, a ped aimed at
+      the target_bone choose_projectile_target_bone picks; found: the target is only given when it's beyond 100) and
+      the constructor 0x582D90 (vtable 0x64EF48; skater-list node; type 0xBAF9B341; tracker aliases for skaters 0 / 1;
+      priority -500; the D: debug lines; a local skater's 24 components and a remote one's 8, from one structure;
+      the controls told the skater number). Self-test (new src/hook/selftests_viewer13.cpp): TestSkaterLaunch.
+
 - [ ] Next: (state for resuming)
       - Batch VW-2 (cars / KOTH crown 0x5780E0-0x578490 in src/game/obj/game_objects.*; the skater trick code's two
         list entry types 0x578670 / 0x578740 / 0x5787F0 / 0x579570-0x579820 in src/game/skater/trick_lists.*) and
