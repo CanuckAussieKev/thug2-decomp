@@ -68,12 +68,15 @@ void Install(StandIns& s)
         Rec(0xD890, {r.ecx, *reinterpret_cast<uint32_t*>(r.ecx)});
         return 0u;
     });
-    for (uint32_t address : {0x0057B250u, 0x0057B2F0u})
-        s.At({address}, 0, [address](Regs& r) {
-            Rec(address & 0xFFFF, {r.args[0]});
-            return 0u;
-        });
-    s.At({0x0057B420}, 0, [](Regs& r) {
+    s.At({0x0057B250, AddressOf(&Obj::AddBaseComponents)}, 0, [](Regs& r) {
+        Rec(0xB250, {r.args[0]});
+        return 0u;
+    });
+    s.At({0x0057B2F0, AddressOf(&Obj::AddMotionComponents)}, 0, [](Regs& r) {
+        Rec(0xB2F0, {r.args[0]});
+        return 0u;
+    });
+    s.At({0x0057B420, AddressOf(&Obj::AddNodeComponents)}, 0, [](Regs& r) {
         Rec(0xB420, {r.args[0], r.args[1]});
         return 0u;
     });

@@ -35,16 +35,24 @@ constexpr uint32_t kObjectTypeCrown = 0xD2156C50;
 
 void** const kCrownVtable = reinterpret_cast<void**>(0x0064EC44);
 
-// Every composite object's base components (0x0057B250), those of objects with a motion (0x0057B2F0), and those a
-// node asks for (0x0057B420).
-void AddBaseComponents(CCompositeObject* object) { GameFunction<void(__cdecl*)(CCompositeObject*)>(0x0057B250)(object); }
-void AddMotionComponents(CCompositeObject* object)
+constexpr uint32_t kTriggerScript = 0x2CA8A299;    // TriggerScript
+constexpr uint32_t kParams = 0x7031F10C;           // params
+constexpr uint32_t kObjectTypePed = 0xD2DB7F97;    // OBJECT_TYPE_PED
+constexpr uint32_t kPedAddComponents = 0xF3EEC45E; // ped_add_components (a script)
+constexpr uint32_t kPedInitModel = 0x955A2767;     // ped_init_model (a script)
+constexpr uint32_t kPedDisableBones = 0x48CA2D26;  // ped_disable_bones (a script)
+
+// A new component of `size` bytes from its constructor at `constructor` (null if there's no memory).
+CBaseComponent* NewComponent(unsigned int size, uint32_t constructor)
 {
-    GameFunction<void(__cdecl*)(CCompositeObject*)>(0x0057B2F0)(object);
+    void* memory = Mem::Calloc(size);
+    return memory ? GameFunction<CBaseComponent*(__thiscall*)(void*)>(constructor)(memory) : nullptr;
 }
-void AddNodeComponents(CCompositeObject* object, Script::CStruct* params)
+// A component's InitFromStructure (vtable +0x08).
+void InitComponentFromStructure(CBaseComponent* component, Script::CStruct* params)
 {
-    GameFunction<void(__cdecl*)(CCompositeObject*, Script::CStruct*)>(0x0057B420)(object, params);
+    reinterpret_cast<void(__thiscall*)(CBaseComponent*, Script::CStruct*)>((*reinterpret_cast<void***>(component))[2])(
+        component, params);
 }
 // The model component's update after the object is finished (0x00420480).
 void UpdateModel(CBaseComponent* model) { GameFunction<void(__thiscall*)(CBaseComponent*)>(0x00420480)(model); }
@@ -68,6 +76,69 @@ void DeleteStructure(Script::CStruct* structure)
 }
 
 } // namespace
+
+// 0x0057B250
+void AddBaseComponents(CCompositeObject* object)
+{
+    object->AddComponent(NewComponent(0x4C, 0x00433F50)); // suspend
+    object->AddComponent(NewComponent(0x4C, 0x0041AAD0)); // (type 0xB87C8E43)
+}
+
+// 0x0057B2F0
+void AddMotionComponents(CCompositeObject* object)
+{
+    object->AddComponent(NewComponent(0x24C, 0x00424AA0)); // motion
+    object->AddComponent(NewComponent(0x30, 0x004EC370));  // objectproximity
+    object->AddComponent(NewComponent(0xC0, 0x00432D90));  // sound
+    object->AddComponent(NewComponent(0x2C, 0x00433C10));  // stream
+    object->AddComponent(NewComponent(0x90, 0x0041F500));  // lockobj
+}
+
+// 0x0057B420
+void AddNodeComponents(CCompositeObject* object, Script::CStruct* node)
+{
+    CBaseComponent* motion = object->GetComponent(kMotion);
+    if (!motion)
+        AddMotionComponents(object); // (sic: not looked up again - the motion stays null below)
+    GameFunction<void(__thiscall*)(CBaseComponent*, Script::CStruct*)>(0x00425970)(motion, node);
+    if (uint32_t name = SkateScript::GetNodeName(node))
+        object->SetID(name);
+    uint32_t script = 0;
+    if (node->GetChecksum(kTriggerScript, &script, 0)) {
+        Script::CStruct* params = nullptr;
+        node->GetStructure(kParams, &params, 0);
+        object->SwitchScript(script, params);
+    }
+    InitComponentFromStructure(motion, node);
+    InitComponentFromStructure(object->GetComponent(kSuspend), node);
+}
+
+// 0x0057B4E0
+void CreatePed(Script::CStruct* params)
+{
+    void* memory = Mem::Calloc(sizeof(CCompositeObject));
+    auto* ped = memory ? static_cast<CCompositeObject*>(memory)->Construct() : nullptr;
+    AddBaseComponents(ped);
+    AddMotionComponents(ped);
+    ped->SetType(kObjectTypePed);
+    CompositeObjectManager()->VirtualRegisterObject(ped);
+    SkateScript::GetPosition(params, &ped->m_pos);
+    AddNodeComponents(ped, params);
+    Script::RunScript(kPedAddComponents, params, ped, false, nullptr);
+    VirtualFinalize(ped);
+    Script::RunScript(kPedInitModel, params, ped, false, nullptr);
+    auto* motion = reinterpret_cast<uint8_t*>(ped->GetComponent(kMotion));
+    *reinterpret_cast<float*>(motion + 0x2C) = 44.0f;
+    *reinterpret_cast<float*>(motion + 0x24) = 48.0f;
+    *reinterpret_cast<float*>(motion + 0x28) = 12.0f;
+    *reinterpret_cast<float*>(motion + 0x34) = 24.0f;
+    GameFunction<void(__thiscall*)(void*, CCompositeObject*)>(0x00423C90)(motion, ped);
+    auto* path = GameFunction<uint8_t*(__thiscall*)(void*)>(0x00423510)(motion);
+    *reinterpret_cast<float*>(path + 0x94) = 24.0f;
+    *reinterpret_cast<uint32_t*>(motion + 0x1C) |= 0x400;
+    UpdateModel(ped->GetComponent(kModel));
+    Script::RunScript(kPedDisableBones, nullptr, ped, false, nullptr);
+}
 
 // 0x005780E0
 void InitCar(CCompositeObject* car, Script::CStruct* params)
@@ -205,6 +276,10 @@ void CCrownObject::InitFromNode(CCompositeObjectManager* manager, Script::CStruc
 
 } // namespace Obj
 
+REPLACE(0x0057B250, Obj::AddBaseComponents);
+REPLACE(0x0057B2F0, Obj::AddMotionComponents);
+REPLACE(0x0057B420, Obj::AddNodeComponents);
+REPLACE(0x0057B4E0, Obj::CreatePed);
 REPLACE(0x005780E0, Obj::InitCar);
 REPLACE(0x00578170, Obj::CreateCar);
 REPLACE(0x00578240, &Obj::CCrownObject::Construct);

@@ -255,9 +255,12 @@ void TestMovieManager()
         };
         // Empty.
         count();
-        for (uint32_t name : {0u, 0x71u})
+        for (uint32_t name : {0u, 0x71u}) {
             t.push_back(original ? Original<bool(__thiscall*)(void*, uint32_t, uint32_t)>(0x0057A940)(m, name, 5)
                                  : m->MovieCall468F40(name, 5));
+            t.push_back(original ? Original<bool(__thiscall*)(void*, uint32_t, uint32_t)>(0x0057A9B0)(m, name, 6)
+                                 : m->MovieCall468F50(name, 6));
+        }
         t.push_back(original ? Original<bool(__thiscall*)(void*, uint32_t)>(0x0057AA20)(m, 0x71) : m->IsMovieGone(0x71));
         t.push_back(original ? Original<bool(__thiscall*)(void*, uint32_t)>(0x0057AA70)(m, 0x71) : m->MovieFlag18(0x71));
         t.push_back(original ? Original<uint32_t(__thiscall*)(void*, uint32_t)>(0x0057AF60)(m, 0x71) : m->MovieValue(0x71));
@@ -308,7 +311,6 @@ void TestMovieManager()
                                        m, 0x3E3B3E3B, Ptr<CStruct>(0x0F00), Ptr<Script::CScript>(0x0F80))
                                  : m->CallMemberFunction(0x3E3B3E3B, Ptr<CStruct>(0x0F00), Ptr<Script::CScript>(0x0F80)));
         }
-        Log("movie test: kept camera (%d)", run);
         // The kept camera.
         auto keep = [&](uint32_t movie) {
             if (original)
@@ -333,7 +335,6 @@ void TestMovieManager()
             Ptr<uint32_t>(kCameras)[i] = 0xCA000000u + i * 3; // the first movie's camera
         keep(first);
         count();
-        Log("movie test: updates");
         // Updates.
         const struct {
             bool paused;
@@ -351,7 +352,6 @@ void TestMovieManager()
             PushQueue(t);
         }
         GameVariable<bool>(0x006FA7D4) = false;
-        Log("movie test: ending");
         // Ending and killing.
         add(0xA1, 0xB46E218F, {1, 0, 1, 1, 0, 0, 0});
         add(0xB1, 0xB46E218F, {1, 0, 0, 1, 0, 0, 0});
@@ -379,7 +379,13 @@ void TestMovieManager()
         PushQueue(t);
         voidCall(0x0057A640, &CMovieManager::ClearMovies); // empty
         count();
-        Log("movie test: helpers");
+        for (bool skippable : {true, false}) // (nothing to end)
+            t.push_back(original ? Original<bool(__thiscall*)(void*, bool)>(0x0057A7E0)(m, skippable) : m->EndMovies(skippable));
+        // One movie: the counts; done, an update ends it and leaves none.
+        add(0xF7, 0x66B7DD11, {1, 1, 1, 1, 0, 0, 0});
+        count();
+        t.push_back(original ? Original<bool(__thiscall*)(void*)>(0x0057AE60)(m) : m->Update());
+        count();
         // The list helpers and the copies.
         auto* head = Ptr<Mem::ListNode>(kOther);
         Mem::ListNode* nodes[3];
@@ -423,7 +429,6 @@ void TestMovieManager()
         t.push_back(Rel(reinterpret_cast<uint32_t>(
             original ? Original<void*(__thiscall*)(void*, void*)>(0x0057A220)(Ptr<void>(kOther + 0x400), Ptr<void>(kOther + 0x200))
                      : Ptr<Obj::CameraAssignment>(kOther + 0x400)->Assign(Ptr<Gfx::Camera>(kOther + 0x200)))));
-        Log("movie test: destructors");
         // The destructors.
         add(0x1A0, 0x66B7DD11, {1, 0, 1, 1, 0, 0, 0});
         voidCall(0x0057B1A0, &CMovieManager::DestroyBody);
@@ -435,7 +440,6 @@ void TestMovieManager()
     }
     Cleanup();
     Compare(traces[0], traces[1], "movie manager");
-    Log("movie test: done");
 }
 
 } // namespace

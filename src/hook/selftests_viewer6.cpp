@@ -335,7 +335,6 @@ void TestRailManager()
         };
         t.push_back(Rel(reinterpret_cast<uint32_t>(original ? Original<void*(__thiscall*)(void*)>(0x0057CC10)(m) : m->Init())));
         t.push_back(Rel(reinterpret_cast<uint32_t>(m->m_nodes)));
-        Log("rail test: level (%d)", run);
         // The level.
         constexpr uint32_t A = Obj::RAIL_FLAG_ACTIVE, L = Obj::RAIL_FLAG_LADDER | Obj::RAIL_FLAG_CLIMBING,
                            D = Obj::RAIL_FLAG_DEFAULT_LINE;
@@ -394,7 +393,6 @@ void TestRailManager()
             t.push_back(Rel(reinterpret_cast<uint32_t>(original ? Original<void*(__thiscall*)(void*, const void*)>(0x0057C540)(r34, Ptr<void>(kNodes + 4))
                                                                 : r34->Assign(Ptr<Obj::Record34>(kNodes + 4)))));
         }
-        Log("rail test: positions");
         // Positions, finding, switching.
         auto world = [&]() {
             for (int i = 0; i < 3; ++i) {
@@ -449,7 +447,6 @@ void TestRailManager()
         else
             m->MoveNode(0x101, &moved);
         SetBoxes(10);
-        Log("rail test: feelers");
         // The feelers: which side has a wall, whether a rail is clear.
         const int hitPlans[][4] = {{0, 0, 0, 0}, {1, 0, 0, 0}, {0, 1, 0, 0}, {2, 1, 0, 0}, {0, 2, 0, 0}};
         Mth::Vector direction = {1.0f, 0.2f, -0.5f, 0.0f};
@@ -479,7 +476,6 @@ void TestRailManager()
                              : Obj::RailClear(nodes[2].m_pos, nodes[3].m_pos));
         call0(0x0057D7A0, &CRailManager::RemoveOverlapsIfNotPark);
         *Ptr<uint32_t>(0x0E00 + 0x40) = 0;
-        Log("rail test: ladders");
         // Ladders.
         for (int k = 0; k < 6; ++k) {
             g_checks = {k % 3 == 0 ? 1 : 0, 1};
@@ -496,7 +492,6 @@ void TestRailManager()
                                  : m->FindLadderOnLine(&from, &to, Ptr<void>(kChecker), Ptr<Obj::Record24>(kRecords), &found));
             t.push_back(Rel(reinterpret_cast<uint32_t>(found)));
         }
-        Log("rail test: rails");
         // Rails near a line, grind rails, joining rails.
         for (int k = 0; k < 8; ++k) {
             Mth::Vector from = {5.0f + 9 * k, 14.0f, -4.0f + k, 1.0f}, to = {15.0f + 9 * k, 8.0f, 4.0f - k, 1.0f};
@@ -521,12 +516,10 @@ void TestRailManager()
                                  : m->FindJoiningRail(&nodes[k], k & 1 ? 2u : 0u, &found));
             t.push_back(Rel(reinterpret_cast<uint32_t>(found)));
         }
-        Log("rail test: overlaps");
         // Overlaps.
         call0(0x0057D260, &CRailManager::RemoveOverlaps);
         for (int i = 0; i < 10; ++i)
             t.push_back(nodes[i].m_flags);
-        Log("rail test: build");
         // Building from a node array.
         auto* other = Ptr<CRailManager>(kOther);
         std::memset(other, 0, sizeof(CRailManager));
@@ -597,6 +590,7 @@ void TestRailManager()
             Original<void(__thiscall*)(void*, void*)>(0x0057E960)(Ptr<void>(kOther + 0x60), array);
         else
             Ptr<CRailManager>(kOther + 0x60)->AddFromNodeArray(array);
+        m->m_onObject = true; // (cleared too)
         call0(0x0057C330, &CRailManager::Cleanup);
         PushArena(t);
         t.insert(t.end(), g_trace.begin(), g_trace.end());

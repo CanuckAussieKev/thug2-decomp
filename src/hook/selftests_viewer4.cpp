@@ -225,7 +225,7 @@ void TestBalance()
         auto setType = [&](uint32_t type) { *Ptr<uint32_t>(kTrick + 0x18) = type; };
         auto hold = [&](uint32_t button, bool held) { *Ptr<uint8_t>(kButtons + (button & 0xFF)) = held; };
         const uint32_t types[] = {0x255ED86F, 0x8D10119D, 0x0AC90769, 0xEF24413B, 0x12345678};
-        const float speeds[] = {0.0f, 5.0f, -5.0f, 30.0f, -30.0f, 0.0f};
+        const float speeds[] = {0.0f, 5.0f, -8.0f, 30.0f, -30.0f, 0.0f}; // (-8: repeated, under the minimum)
         const float leans[] = {0.0f, 100.0f, -1400.0f, 1300.0f, -50.0f, 2.0f};
         const float runs[] = {0.25f, 2.0f, 0.4f, 0.75f};
         int step = 0;
@@ -241,6 +241,7 @@ void TestBalance()
                 g_sameRail = step % 2 == 0;
                 *Ptr<float>(kScoreObject + 0x154C) = runs[step % 4];
                 g_clock = 1000 + step * 37;
+                b->m_showMeter = step % 2 == 0; // (Start hides it)
                 start(0x10 + (step & 1), 0x20 + (step & 2), 0x7A1C0000u + step, step % 3 == 1, step % 5 == 2);
             }
         }
@@ -275,9 +276,35 @@ void TestBalance()
                     setType(types[set]);
                 if (frame == 20)
                     b->m_cheese = 0.005f;
+                if (frame % 8 == 4)
+                    b->m_leanSpeed = set & 1 ? -3.0f : 3.0f; // (slow: the small random shake)
                 call(0x00579CC0, &CBalance::Update);
             }
             call(0x00579920, &CBalance::KeepBestTime);
+        }
+        // Buttons from the start: the right one alone first (not a release), then the left held through the
+        // ignore period (exactly at its end: not yet).
+        setType(types[0]);
+        b->m_leanSpeed = 5.0f;
+        b->m_lean = 10.0f;
+        g_clock = 7000;
+        start(0x10, 0x20, 0x7A1C0200u, false, false);
+        for (int frame = 0; frame < 5; ++frame) {
+            hold(0x10, frame > 0);
+            hold(0x20, frame == 0);
+            g_clock = 7000 + 50 * frame;
+            call(0x00579CC0, &CBalance::Update);
+        }
+        // The displays: up / down on one side only, then both.
+        const uint32_t sides[][2] = {{0xBC6B118F, 0x20}, {0x10, 0xE3006FC4}, {0xE3006FC4, 0xBC6B118F}};
+        for (const auto& side : sides) {
+            setType(types[0]);
+            b->m_lean = 0.0f;
+            b->m_leanSpeed = 1.0f;
+            b->m_hideDisplay = false;
+            *Ptr<uint32_t>(kScore + 0x18) = At(kScoreObject);
+            start(side[0], side[1], 0x7A1C0300u, false, false);
+            call(0x00579CC0, &CBalance::Update);
         }
         b->m_leftButton = 0;
         call(0x00579CC0, &CBalance::Update); // not started: nothing

@@ -145,6 +145,45 @@ Shared files touched: CMakeLists.txt (each new .cpp listed, additive).
       call; the checkers stood in; building from a stand-in node array with a hash collision). The x87 original of
       ClosestPointsBetweenLines differs from ours by an ulp now and then: both runs use ours there.
 
+- [x] Batch VW-7 (NOT run in the game yet; early tests pass offline; mutation run pending): the component set-up
+      helpers and peds (game_objects.*: AddBaseComponents 0x57B250 - suspend and a 0xB87C8E43 component; AddMotionComponents
+      0x57B2F0 - motion, objectproximity, sound, stream, lockobj; AddNodeComponents 0x57B420 - found: with no motion
+      it adds the motion components but goes on with a null motion; CreatePed 0x57B4E0 - OBJECT_TYPE_PED,
+      ped_add_components / ped_init_model / ped_disable_bones, the motion's speeds) and the player profile manager (new
+      src/game/skate/profile_manager.*, Obj::CPlayerProfileManager, 0x40 bytes: a Lst::LookupTable of template
+      profiles - its generic code 0x557F10 / 0x561430 / 0x5628B0 / 0x562970 called - two profiles in use, the current
+      index (what sio/device.cpp's MenuPort 0x553E90 reads), a lock flag, three extra profiles), 0x57B620-0x57C120:
+      SetCurrentIndex / GetCurrentProfile / GetProfile / GetExtraProfile / SetLocked 0x57B620-0x57B680, Init 0x57B690
+      (init_pro_skaters; the first player's profile is the first template itself, the second's a copy),
+      GetTemplateName 0x57B770 (found: returns the key, not the profile), ResetSecondProfile 0x57B790, GetTemplate
+      0x57B7E0, ResetTemplates 0x57B800, WritePros 0x57B840 (CurrentSkater, DisplayName), WriteCustomSkaters
+      0x57B920, AddExtraProfile 0x57B970, the table's Clear 0x57B9E0 and destructor 0x57BBF0, SetCurrentSkater
+      0x57BA20, ReadPros 0x57BAA0, AddTemplate 0x57BB40, Construct 0x57BC00, DestroyBody 0x57BC20, ReadCustomSkater
+      0x57BD70 (version 2 saves only: the appearance, FaceTexture, the info; the ten stats and max_specials and the
+      specials put back unless the save's are kept; returns the last lookup's result), Create / Release 0x57C0D0 /
+      0x57C120 (0x7CE4B4 / 0x7CE4B8). CSkaterProfile's own methods (0x585xxx-0x586xxx) called through the game for now.
+      Self-tests (new src/hook/selftests_viewer7.cpp, selftests_viewer9.cpp): TestProfileManager (the real lookup
+      table, stand-in profiles; every path above), TestObjectSetup. selftests_viewer2.cpp's stand-ins for the helpers
+      now cover ours too.
+
+- [x] Batch VW-8 (NOT run in the game yet; early tests pass offline; mutation run pending): the records (new
+      src/game/skate/records.*, namespace Records), 0x57ECD0-0x57FE27 incl. the missed 0x57EF20: CRecord (0x10 bytes:
+      initials buffer, value, number, new) Construct 0x57EF20 (XXX, 1000, 0), MaybeNewRecord 0x57ECD0,
+      ReadFromStructure 0x57ED00; CRecordTable (count + a new[]-style array) Construct 0x57EF60, MaybeNewEntry 0x57EFE0
+      (the later ones moved down, the last dropped), UpdateInitials 0x57ED80, ReadFromStructure 0x57F0C0 ("RecordTable",
+      only if the sizes match), WriteToStructure 0x57F4E0; CLevelRecords (0x1C: high scores 5, best combos 5, arcade
+      scores 10, the longest combo / grind / lip trick / manual - their values 0) Construct 0x57F120, DestroyBody
+      0x57F670, UpdateInitials 0x57EDD0, ReadFromStructure 0x57F340 (found: one structure pointer for all - a missing
+      one reads the one before again), WriteToStructure 0x57F7B0; CGameRecords (0xC) Construct 0x57EE70 (ABC),
+      SetDefaultInitials 0x57EEA0, GetLevelRecords 0x57EEC0, InitLevels 0x57FBC0, ReadFromStructure 0x57F440
+      ("GameRecords", "DefaultInitials"), WriteToStructure 0x57FC50, Create / Release 0x57EED0 / 0x57FDB0 (0x7CE4BC /
+      0x7CE4C0). The CRT's vector constructor / destructor iterators written as loops (same order). Self-test (new
+      src/hook/selftests_viewer8.cpp): TestRecords.
+      Tests strengthened after VW-4/5/6's mutation runs: the balance (a repeated lean speed under the minimum, the
+      meter shown before a start, the slow random shake, buttons from the start through the ignore period, the up/down
+      displays on one side), the movie manager (the other by-name call on an empty queue, ending with nothing queued,
+      one movie's counts and its last update), the rail manager (Cleanup clears the on-object flag).
+
 - [ ] Next: (state for resuming)
       - Batch VW-2 (cars / KOTH crown 0x5780E0-0x578490 in src/game/obj/game_objects.*; the skater trick code's two
         list entry types 0x578670 / 0x578740 / 0x5787F0 / 0x579570-0x579820 in src/game/skater/trick_lists.*) and
