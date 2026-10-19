@@ -82,6 +82,9 @@ installed); functions PartyMod patched get source with PartyMod's behaviour. Lat
   (or any other private Morten1337 repository) - the user can see them but has no permission to use them. His
   public repositories may be used within their licences (thps-formats is MIT: attribute in THIRD_PARTY_NOTICES.md;
   those without a licence are reference only). Fetch them anonymously only. Pass this on to every agent.
+- **Never read, reference or copy leaked Neversoft / Activision source code** - e.g. https://github.com/thug1src/thug
+  (THUG1's source) or any other leak of a Tony Hawk game's code: our code comes from our own decompilation of the game,
+  and leaked code would taint it. Pass this on to every agent too.
 
 ## Facts about the binary
 - Built with VS .NET 2003 (VC 7.1 RTM, 13.10.3077) with whole-program optimisation: some functions take
