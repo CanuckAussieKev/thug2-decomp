@@ -302,8 +302,8 @@ float CSkater::GetScaledValue(Script::CStruct* params)
         result = static_cast<float>(scale * result);
     }
     // The game's difficulty (one more in classic mode): times the diff pair's first (0) or second (2).
-    void* mode = GameFunction<void*(__thiscall*)(void*, int)>(0x00564D90)(Skate(), 0);
-    int difficulty = GameFunction<int(__thiscall*)(void*)>(0x00559050)(mode);
+    void* mode = GameFunction<void*(__thiscall*)(void*)>(0x00564D90)(Skate());
+    int difficulty = GameFunction<int(__thiscall*)(void*, bool)>(0x00559050)(mode, false);
     if (GameFunction<bool(__thiscall*)(void*, uint32_t)>(0x00553220)(GameVariable<void*>(0x007CE470), kIsClassic))
         ++difficulty;
     if (difficulty != 1) {

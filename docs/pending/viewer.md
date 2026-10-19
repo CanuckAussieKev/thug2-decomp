@@ -286,24 +286,24 @@ Shared files touched: CMakeLists.txt (each new .cpp listed, additive).
       module's career, +0x20), the destructors 0x585E40 / 0x585EA0, and CGapChecklist::DestroyBody 0x585520 (into
       gap_checklist.*). Self-test (new src/hook/selftests_viewer17.cpp): TestCareerSave.
 
-- [ ] Next: (state for resuming)
-      - Batch VW-2 (cars / KOTH crown 0x5780E0-0x578490 in src/game/obj/game_objects.*; the skater trick code's two
-        list entry types 0x578670 / 0x578740 / 0x5787F0 / 0x579570-0x579820 in src/game/skater/trick_lists.*) and
-        VW-3 (the gap checklist 0x578680-0x5796C0, src/game/skate/gap_checklist.*): written, built, early tests pass
-        (selftests_viewer2.cpp, selftests_viewer3.cpp). Test holes the mutation run found (fix, then rerun those
-        mutations): constructors tested on zeroed memory (fill with 0xCD first: crown_worn_init, list_key, list_38),
-        the constructor's vtable overwritten by the destructor before the arena is compared (push the object's
-        words right after construction: list_vtable), Build on an already-built list (build_flag: use a fresh
-        checklist), Reset with every gap already in the level (reset_inlevel: clear one first).
-      - Written, NOT in CMakeLists / not built yet: src/game/skater/manual.* (VW-4, the balance class
-        0x579850-0x579CC0, test selftests_viewer4.cpp, mutation spec in my scratch mut4.py), src/game/obj/movie_manager.*
-        (VW-5, 0x57A180-0x57B240 incl. missed functions 0x57B070 / 0x57B0B0, test selftests_viewer5.cpp - its Printf
-        needs the kit to record %ld arguments raw), src/game/obj/rail_manager.* (VW-6, in progress: 0x57C170-0x57CC10,
-        0x57CC30, 0x57CFB0, 0x57D090, 0x57D260, 0x57D7A0-0x57D840, 0x57D880, 0x57DA20, 0x57DDA0 written; still to
-        write: 0x57C600 RailClear (feelers; by-value Vector args), 0x57E170, 0x57E2D0, 0x57E960, 0x57ECD0, 0x57ED00,
-        0x57ED80, 0x57EDD0, 0x57EE70; no test yet).
-      - Then: 0x57B250 / 0x57B2F0 / 0x57B420 / 0x57B4E0 (component helpers and CreatePed: add to game_objects.cpp),
-        the profile manager 0x57B620-0x57BD70 + its singleton 0x57C0D0 / 0x57C120 (with the profiles 0x585xxx-0x586xxx),
-        then 0x57EE70 on (records 0x57EF60-0x57FEA1, then 0x57FEB0-0x58808F, 0x5880E0-0x58817C).
-      - Speed: mutation runs take ~2.5 min each (build + link + check); keep batches to ~20 mutations, or run them in a
-        copy of the tree so building can go on.
+- [x] Batch VW-18 (NOT run in the game yet; early tests pass offline; mutation run pending): the skater profile's
+      small methods (new src/game/skate/skater_profile.cpp; declarations in profile_manager.h, whose GameFunction
+      wrappers for them are gone): CopyFrom 0x585ED0, ReadFromSave 0x585F00, GetStat / SetStat 0x585FB0 / 0x585FD0,
+      the info counters 0x586000-0x5860A0, GetChecksumValue 0x5860C0 (stance / pushstyle only), 0x586110-0x586210
+      (structure, specials, name, is_pro, a flag, an integer, a string with "Unimplemented" default, display_name),
+      the special trick slots Get / Set 0x586630 / 0x586710 (Set tells the current skater's trick component,
+      0x522410, if asked), SpecialTrick's constructor / IsEmpty 0x587100 / 0x587110, and a distinct-checksum list
+      0x587120 / 0x587130 (ChecksumSet, filled from the global array 0x5004A967). Self-test (new
+      src/hook/selftests_viewer18.cpp): TestProfileMethods; selftests_viewer7 / viewer11's profile stand-ins now also
+      cover our methods (AddressOf). Values an asserted lookup leaves unset are garbage in both and not compared.
+      Also fixed (found by the audit; from VW-10): GetScaledPhysics called 0x564D90 with a stray argument and
+      0x559050 without its bool - it's 0x564D90(skate) then 0x559050(mode, false); the test stand-ins' pops fixed too.
+
+- [ ] Next: VW-19, the rest of the profile: 0x586230 (load, ret 0xC; the only gap find_gaps shows between rewritten
+      ones), Reset 0x586810, 0x586A40, WriteToSave 0x586B00, the constructor 0x586D60, 0x586DC0, 0x586E70, 0x587050
+      (still GameFunction wrappers in profile_manager.cpp: Construct, WriteToSave, Reset). Then 0x5871B0-0x5873F0,
+      0x587450-0x587540 (missed), 0x587590, 0x5875D0, 0x5876A0, 0x587A50, 0x587F60 (thunk), 0x587F70, 0x588090
+      (missed), 0x5880E0, 0x588120 (missed), 0x588150, 0x588170; then find_gaps / progress_report for the range.
+      Mutations: specs for VW-15..18 not written; suspect CAUGHTs (named a flaky test: PC async handle, anim
+      controllers: partial, memory cards: free space) to rerun with scratchpad mutate_v.py; known misses: launch_best,
+      restart_walking (mut10), profile_style_zero, input_mirror. A game run (THUG2-3, debug_mode=1 viewer) still due.

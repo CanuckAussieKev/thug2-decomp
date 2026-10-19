@@ -91,6 +91,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_viewer15.cpp
     src/hook/selftests_viewer16.cpp
     src/hook/selftests_viewer17.cpp
+    src/hook/selftests_viewer18.cpp
     src/hook/selftests_tod3.cpp
     src/hook/selftests_tod4.cpp
     src/hook/selftests_mouse.cpp
@@ -207,6 +208,7 @@ add_library(thug2_code OBJECT
     src/game/skate/profile_manager.cpp
     src/game/skate/records.cpp
     src/game/skate/career.cpp
+    src/game/skate/skater_profile.cpp
     src/game/skater/skater.cpp
     src/game/gfx/device.cpp
     src/game/gfx/movie.cpp

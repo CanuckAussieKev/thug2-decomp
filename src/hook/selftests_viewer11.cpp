@@ -112,23 +112,23 @@ void Install(StandIns& s)
         Rec(0x4540, {r.ecx, r.args[0]});
         return 5u + (r.args[0] & 3);
     });
-    s.At({0x00585FB0}, 4, [](Regs& r) {
+    s.At({0x00585FB0, AddressOf(&Obj::CSkaterProfile::GetStat)}, 4, [](Regs& r) {
         Rec(0x5FB0, {r.ecx, r.args[0]});
         return r.args[0] & 7;
     });
-    s.At({0x005860C0}, 4, [](Regs& r) {
+    s.At({0x005860C0, AddressOf(&Obj::CSkaterProfile::GetChecksumValue)}, 4, [](Regs& r) {
         Rec(0x60C0, {r.ecx, r.args[0]});
         return r.args[0] == 0x7D02BCC3 ? g_stance : 0xA5A50000u;
     });
-    s.At({0x00586170}, 0, [](Regs& r) {
+    s.At({0x00586170, AddressOf(&Obj::CSkaterProfile::IsPro)}, 0, [](Regs& r) {
         Rec(0x6170, {r.ecx});
         return 1u;
     });
-    s.At({0x00586210}, 0, [](Regs& r) {
+    s.At({0x00586210, AddressOf(&Obj::CSkaterProfile::GetDisplayName)}, 0, [](Regs& r) {
         Rec(0x6210, {r.ecx});
         return TextAt(1);
     });
-    s.At({0x00586150}, 0, [](Regs& r) {
+    s.At({0x00586150, AddressOf(&Obj::CSkaterProfile::GetName)}, 0, [](Regs& r) {
         Rec(0x6150, {r.ecx});
         return 0x4A3Eu;
     });

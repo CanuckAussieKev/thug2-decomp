@@ -66,33 +66,6 @@ CSkaterProfile* CSkaterProfile::Construct()
 {
     return GameFunction<CSkaterProfile*(__thiscall*)(CSkaterProfile*)>(0x00586D60)(this);
 }
-uint32_t CSkaterProfile::GetName() { return GameFunction<uint32_t(__thiscall*)(CSkaterProfile*)>(0x00586150)(this); }
-bool CSkaterProfile::IsPro() { return GameFunction<bool(__thiscall*)(CSkaterProfile*)>(0x00586170)(this); }
-const char* CSkaterProfile::GetDisplayName()
-{
-    return GameFunction<const char*(__thiscall*)(CSkaterProfile*)>(0x00586210)(this);
-}
-Script::CStruct* CSkaterProfile::GetSpecials()
-{
-    return GameFunction<Script::CStruct*(__thiscall*)(CSkaterProfile*)>(0x00586130)(this);
-}
-int CSkaterProfile::GetMaxSpecials() { return GameFunction<int(__thiscall*)(CSkaterProfile*)>(0x005860A0)(this); }
-int CSkaterProfile::GetStat(uint32_t name)
-{
-    return GameFunction<int(__thiscall*)(CSkaterProfile*, uint32_t)>(0x00585FB0)(this, name);
-}
-bool CSkaterProfile::SetStat(uint32_t name, int value)
-{
-    return GameFunction<bool(__thiscall*)(CSkaterProfile*, uint32_t, int)>(0x00585FD0)(this, name, value);
-}
-CSkaterProfile* CSkaterProfile::CopyFrom(CSkaterProfile* other)
-{
-    return GameFunction<CSkaterProfile*(__thiscall*)(CSkaterProfile*, CSkaterProfile*)>(0x00585ED0)(this, other);
-}
-void CSkaterProfile::ReadFromSave(uint32_t name, Script::CStruct* save)
-{
-    GameFunction<void(__thiscall*)(CSkaterProfile*, uint32_t, Script::CStruct*)>(0x00585F00)(this, name, save);
-}
 void CSkaterProfile::WriteToSave(Script::CStruct* save)
 {
     GameFunction<void(__thiscall*)(CSkaterProfile*, Script::CStruct*)>(0x00586B00)(this, save);

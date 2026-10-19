@@ -171,12 +171,12 @@ void Install(StandIns& s)
         Rec(0x4CC0, {r.ecx, r.args[0]});
         return g_cheat ? 1u : 0u;
     });
-    s.At({0x00564D90}, 4, [](Regs& r) {
-        Rec(0x4D90, {r.ecx, r.args[0]});
+    s.At({0x00564D90}, 0, [](Regs& r) {
+        Rec(0x4D90, {r.ecx});
         return Block(30);
     });
-    s.At({0x00559050}, 0, [](Regs& r) {
-        Rec(0x9050, {r.ecx});
+    s.At({0x00559050}, 4, [](Regs& r) {
+        Rec(0x9050, {r.ecx, r.args[0] & 0xFF});
         return static_cast<uint32_t>(g_difficulty);
     });
     s.At({0x00553220}, 4, [](Regs& r) {

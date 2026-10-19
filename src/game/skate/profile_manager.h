@@ -38,8 +38,46 @@ struct CSkaterProfile {
     Script::CStruct* InfoStructure() { return reinterpret_cast<Script::CStruct*>(m_info); }
     // The destructor (inlined by the manager): the info cleared, the appearance's destructor body, freed.
     void Delete();
+
+    // (skater_profile.cpp) 0x00586000 / 0x00586040: the info's 0x471FC4DD integer increased (true) / read.
+    // 0x00586060: max_specials increased (true). 0x005860C0: the info's stance or pushstyle (anything else: 0).
+    // 0x00586110: an info structure by name. 0x00586190: the info's 0xF3149AC5 flag. 0x005861A0: its 0x09F350E5
+    // integer set. 0x005861C0 / 0x005861F0: its 0xF36C1878 string ("Unimplemented" if none) / set.
+    bool AddToInfo471FC4DD(int amount);
+    int GetInfo471FC4DD();
+    bool AddMaxSpecials(int amount);
+    uint32_t GetChecksumValue(uint32_t name);
+    Script::CStruct* GetInfoStructure(uint32_t name);
+    bool HasFlagF3149AC5();
+    void SetValue09F350E5(uint8_t value);
+    const char* GetStringF36C1878();
+    void SetStringF36C1878(const char* text);
+
+    // A special trick slot: the trick's name and keys, and a flag.
+    struct SpecialTrick {
+        uint32_t trick;
+        uint32_t keys;
+        bool flag;
+        uint8_t pad9[3];
+        // 0x00587100: the flag cleared. 0x00587110: whether it's the empty one (0xF60C9090).
+        SpecialTrick* Construct();
+        bool IsEmpty();
+    };
+    // 0x00586630: special trick slot `index` (returned through `out`). 0x00586710: set (an empty one stored as
+    // 0xF60C9090 both), the skater's trick state told if `apply`. False for a slot out of range.
+    SpecialTrick* GetSpecialTrick(SpecialTrick* out, int index);
+    bool SetSpecialTrick(int index, SpecialTrick* trick, bool apply);
 };
 static_assert(sizeof(CSkaterProfile) == 0x64, "layout must match the original");
+
+// 0x00587120 / 0x00587130: a list of distinct checksums (up to 256, its count at +0x400): emptied / filled from the
+// global array 0x5004A967.
+struct ChecksumSet {
+    uint32_t m_items[256];
+    int m_count; // +0x400
+    ChecksumSet* Construct();
+    void Fill();
+};
 
 // Lst::LookupTable<CSkaterProfile> (0x14 bytes): a singly linked list of {key, item, next} nodes (0xC bytes) with a
 // cursor for walking it by index. Its generic code (0x00557F10 by index, 0x00561430 by key, 0x005628B0 add,

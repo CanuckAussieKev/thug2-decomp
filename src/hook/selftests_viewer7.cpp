@@ -98,32 +98,32 @@ void Install(StandIns& s)
         ++g_profilesMade;
         return r.ecx;
     });
-    s.At({0x00586150}, 0, [](Regs& r) {
+    s.At({0x00586150, AddressOf(&CSkaterProfile::GetName)}, 0, [](Regs& r) {
         Rec(0x6150, {r.ecx});
         return Word(r.ecx, kProfileName);
     });
-    s.At({0x00586170}, 0, [](Regs& r) {
+    s.At({0x00586170, AddressOf(&CSkaterProfile::IsPro)}, 0, [](Regs& r) {
         Rec(0x6170, {r.ecx});
         return Word(r.ecx, kProfilePro);
     });
-    s.At({0x00586210}, 0, [](Regs& r) {
+    s.At({0x00586210, AddressOf(&CSkaterProfile::GetDisplayName)}, 0, [](Regs& r) {
         Rec(0x6210, {r.ecx});
         return Word(r.ecx, kProfileDisplay);
     });
-    s.At({0x00586130}, 0, [](Regs& r) {
+    s.At({0x00586130, AddressOf(&CSkaterProfile::GetSpecials)}, 0, [](Regs& r) {
         Rec(0x6130, {r.ecx});
         return Word(r.ecx, kProfileSpecials);
     });
-    s.At({0x005860A0}, 0, [](Regs& r) {
+    s.At({0x005860A0, AddressOf(&CSkaterProfile::GetMaxSpecials)}, 0, [](Regs& r) {
         Rec(0x60A0, {r.ecx});
         return Word(r.ecx, kProfileMaxSpecials);
     });
-    s.At({0x00585FB0}, 4, [](Regs& r) {
+    s.At({0x00585FB0, AddressOf(&CSkaterProfile::GetStat)}, 4, [](Regs& r) {
         Rec(0x5FB0, {r.ecx, r.args[0]});
         int i = StatIndex(r.args[0]);
         return i < 0 ? 0x77u : Word(r.ecx, kProfileStats + 4 * i);
     });
-    s.At({0x00585FD0}, 8, [](Regs& r) {
+    s.At({0x00585FD0, AddressOf(&CSkaterProfile::SetStat)}, 8, [](Regs& r) {
         Rec(0x5FD0, {r.ecx, r.args[0], r.args[1]});
         int i = StatIndex(r.args[0]);
         if (i >= 0)
@@ -132,13 +132,13 @@ void Install(StandIns& s)
             Word(r.ecx, kProfileMaxSpecials) = r.args[1];
         return r.args[1] <= 10 ? 1u : 0u;
     });
-    s.At({0x00585ED0}, 4, [](Regs& r) {
+    s.At({0x00585ED0, AddressOf(&CSkaterProfile::CopyFrom)}, 4, [](Regs& r) {
         Rec(0x5ED0, {r.ecx, r.args[0]});
         if (r.args[0] && r.args[0] != r.ecx)
             std::memcpy(reinterpret_cast<void*>(r.ecx), reinterpret_cast<void*>(r.args[0]), 0x3C);
         return r.ecx;
     });
-    s.At({0x00585F00}, 8, [](Regs& r) {
+    s.At({0x00585F00, AddressOf(&CSkaterProfile::ReadFromSave)}, 8, [](Regs& r) {
         Rec(0x5F00, {r.ecx, r.args[0], r.args[1]});
         return 0u;
     });
