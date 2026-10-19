@@ -14,6 +14,7 @@
 
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
+#include "game/net/online_identity.h"
 #include "game/sio/device.h"
 #include "hook/log.h"
 #include "game/sys/main.h"
@@ -238,7 +239,8 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE /*previous*/, char* commandLine
     // (THUG2PM.exe's own patch loads a DLL here - LoadLibraryA(<the name at 0x0064B198>) in a code cave (0x005480A1)
     // called in place of GsiStartAvailableCheck, which the cave then jumps to. PartyMod is part of the game's
     // source here, so nothing is loaded.)
-    GsiStartAvailableCheck("thps6pc");
+    // (the game name: "thps6pc", or [Miscellaneous] OnlineGameName - game/net/online_identity.h)
+    GsiStartAvailableCheck(Net::GameName());
     int available;
     while ((available = GsiAvailableCheckThink()) == 0)
         Msleep(5);

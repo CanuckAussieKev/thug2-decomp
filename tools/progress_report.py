@@ -71,7 +71,7 @@ out.append("")
 out.append("## PartyMod\n")
 out.append("PartyMod's changes (MIT, (c) 2024 PARTYMANX, see `THIRD_PARTY_NOTICES.md`) are part of the game's source: the SDL window and "
            "input, widescreen, the settings file and the rest, by subsystem. Still written into the exe at start-up: "
-           "the GameSpy SDK's host names (library code, `src/game/net/online_hosts.cpp`) and, with PS2 controls, "
+           "the GameSpy SDK's host names (library code, `src/game/net/online_hosts.cpp`), the online identity when it's set (`src/game/net/online_identity.cpp`) and, with PS2 controls, "
            "the CFunction table's IsPS2 entry (`src/game/sys/platform_cfuncs.cpp`).")
 
 open("docs/PROGRESS.md", "w", encoding="utf-8").write("\n".join(out) + "\n")

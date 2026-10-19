@@ -290,6 +290,7 @@ add_library(thug2_code OBJECT
     src/game/ed/park_io.cpp
     src/game/net/service.cpp
     src/game/net/online_hosts.cpp
+    src/game/net/online_identity.cpp
     src/game/net/net_dispatcher.cpp
     src/game/net/net_app_messages.cpp
     src/game/net/net_client.cpp

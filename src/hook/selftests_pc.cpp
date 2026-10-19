@@ -26,6 +26,7 @@
 #include "game/sys/mlp.h"
 #include "game/sys/platform.h"
 #include "game/net/online_hosts.h"
+#include "game/net/online_identity.h"
 #include "game/net/stats.h"
 #include "game/sio/sdl_input.h"
 #include "game/skater/controls.h"
@@ -319,6 +320,91 @@ void TestRetrieveTopStats()
         if (logs[0][i] != logs[1][i])
             Log("  top stats %u: original %s / ours %s", static_cast<unsigned>(i), logs[0][i].c_str(), logs[1][i].c_str());
     Check(logs[0] == logs[1] && fields[0] == fields[1] && logs[1].size() == 10, "net: RetrieveTopStats (PartyMod's host and not)");
+}
+
+
+// --- the online identity (game/net/online_identity.cpp) -----------------------------------------------------
+
+// Where the game name and key are, in the exe as it is (the Early stage: nothing written yet) - each write site
+// checked against the instruction it's in by its own bytes - then a name and a key written and read back (the raw
+// bytes too, so the NOT-ed sites are proved NOT-ed), a bad key refused, and everything put back.
+void TestOnlineIdentity()
+{
+    // the sites' instructions: push imm32 (0x68) of the name's address, or the stored key bytes
+    const uint32_t nameSites[Net::kGameNameSites] = {0x0053BE86, 0x0053BA1F, 0x0053F936, 0x00542F8B, 0x00542FA0, 0x0054CAD9};
+    bool layout = true;
+    for (int i = 0; i < Net::kGameNameSites; ++i) {
+        const auto* at = reinterpret_cast<const uint8_t*>(nameSites[i]);
+        uint32_t operand;
+        std::memcpy(&operand, at + 1, 4);
+        layout = layout && at[0] == 0x68 && operand == 0x0064B1CC &&
+                 Net::GameNameAt(i) == reinterpret_cast<const char*>(0x0064B1CC);
+    }
+    layout = layout && std::strcmp(reinterpret_cast<const char*>(0x0064B1CC), "thps6pc") == 0;
+    const uint8_t inverted[6] = {0xBE, 0x9B, 0xB3, 0xA8, 0x9E, 0xA5}; // ~"AdLWaZ"
+    layout = layout && std::memcmp(reinterpret_cast<const void*>(0x0067F120), inverted, 6) == 0 &&
+             std::memcmp(reinterpret_cast<const void*>(0x0067F154), inverted, 6) == 0 &&
+             std::strcmp(reinterpret_cast<const char*>(0x0064D58C), "AdLWaZ") == 0;
+    for (int i = 0; i < Net::kGameKeySites; ++i) {
+        char key[7];
+        Net::GameKeyAt(i, key);
+        layout = layout && std::strcmp(key, "AdLWaZ") == 0;
+    }
+    Check(layout, "net: the online identity's sites (thps6pc, AdLWaZ)");
+
+    // save everything a write may touch (and a byte either side of each key)
+    std::vector<std::vector<uint8_t>> saved;
+    const uint32_t keySites[Net::kGameKeySites] = {0x0067F120, 0x0067F154, 0x0064D58C};
+    for (uint32_t site : nameSites)
+        saved.emplace_back(reinterpret_cast<const uint8_t*>(site), reinterpret_cast<const uint8_t*>(site) + 5);
+    for (uint32_t site : keySites)
+        saved.emplace_back(reinterpret_cast<const uint8_t*>(site - 1), reinterpret_cast<const uint8_t*>(site) + 8);
+    auto unchanged = [&]() {
+        size_t k = 0;
+        bool same = true;
+        for (uint32_t site : nameSites)
+            same = same && std::memcmp(reinterpret_cast<const void*>(site), saved[k++].data(), 5) == 0;
+        for (uint32_t site : keySites)
+            same = same && std::memcmp(reinterpret_cast<const void*>(site - 1), saved[k++].data(), 8) == 0;
+        return same;
+    };
+
+    static const char name[] = "testname12";
+    bool refused = !Net::WriteOnlineIdentity(name, "short") && !Net::WriteOnlineIdentity(nullptr, "toolong") && unchanged();
+    bool none = Net::WriteOnlineIdentity(nullptr, nullptr) && unchanged();
+
+    bool written = Net::WriteOnlineIdentity(name, "Xy12#z");
+    for (int i = 0; i < Net::kGameNameSites; ++i) {
+        const auto* at = reinterpret_cast<const uint8_t*>(nameSites[i]);
+        uint32_t operand;
+        std::memcpy(&operand, at + 1, 4);
+        written = written && at[0] == 0x68 && operand == reinterpret_cast<uint32_t>(name) && Net::GameNameAt(i) == name;
+    }
+    const uint8_t newInverted[6] = {0xA7, 0x86, 0xCE, 0xCD, 0xDC, 0x85}; // ~"Xy12#z"
+    written = written && std::memcmp(reinterpret_cast<const void*>(0x0067F120), newInverted, 6) == 0 &&
+              std::memcmp(reinterpret_cast<const void*>(0x0067F154), newInverted, 6) == 0 &&
+              std::strcmp(reinterpret_cast<const char*>(0x0064D58C), "Xy12#z") == 0;
+    for (int i = 0; i < Net::kGameKeySites; ++i) {
+        char key[7];
+        Net::GameKeyAt(i, key);
+        written = written && std::strcmp(key, "Xy12#z") == 0;
+        // nothing either side of the key's 6 bytes
+        const auto* at = reinterpret_cast<const uint8_t*>(keySites[i]);
+        written = written && at[-1] == saved[Net::kGameNameSites + i][0] && at[6] == saved[Net::kGameNameSites + i][7];
+    }
+    // only the key: the name stays
+    static const char other[] = "othername";
+    Net::WriteOnlineIdentity(other, nullptr);
+    bool keyKept = Net::GameNameAt(3) == other && std::strcmp(reinterpret_cast<const char*>(0x0064D58C), "Xy12#z") == 0;
+    Net::WriteOnlineIdentity(nullptr, "AdLWaZ");
+    keyKept = keyKept && Net::GameNameAt(0) == other && std::memcmp(reinterpret_cast<const void*>(0x0067F120), inverted, 6) == 0;
+
+    size_t k = 0;
+    for (uint32_t site : nameSites)
+        WriteGameCode(site, saved[k++].data(), 5);
+    for (uint32_t site : keySites)
+        WriteGameCode(site - 1, saved[k++].data(), 8);
+    Check(refused && none && written && keyKept && unchanged(), "net: the online identity written (name, key, a bad key)");
 }
 
 
@@ -1205,6 +1291,7 @@ void TestPlayNextTrack()
 SELFTEST(Early, TestSkaterPlatformStructure);
 SELFTEST(Early, TestSkaterAcidDrops);
 SELFTEST(Early, TestRetrieveTopStats);
+SELFTEST(Early, TestOnlineIdentity);
 SELFTEST(Early, TestDrawFlash);
 SELFTEST(Early, TestDrawMovieFrame);
 SELFTEST(Early, TestPlayMovie);
