@@ -22,6 +22,7 @@
 
 namespace Script {
 class CArray;
+class CScript;
 class CStruct;
 } // namespace Script
 
@@ -429,7 +430,10 @@ public:
     void SetPiecesHighlighted(int on) { GameFunction<void(__thiscall*)(CParkGenerator*, int)>(0x00592290)(this, on); }
     // 0x00591D20 (sets +0x20)
     void SetMaxPlayers(int count) { GameFunction<void(__thiscall*)(CParkGenerator*, int)>(0x00591D20)(this, count); }
-    int GetMaxPlayers() { return *reinterpret_cast<uint8_t*>(reinterpret_cast<uint8_t*>(this) + 0x20); }
+    // +0x20: the most players the park is set up for (a whole int; the compressed map keeps its low byte)
+    int GetMaxPlayers() { return *reinterpret_cast<int*>(reinterpret_cast<uint8_t*>(this) + 0x20); }
+    // 0x00591D30: the most players the park has room for (from the park memory's use and MaxPlayers)
+    int GetMaxPlayersPossible() { return GameFunction<int(__thiscall*)(CParkGenerator*)>(0x00591D30)(this); }
     // 0x00591C70: the destructor
     void Destroy() { GameFunction<void(__thiscall*)(CParkGenerator*)>(0x00591C70)(this); }
     // 0x00592550 / 0x00594410: a placed piece into the scene and into the collision
@@ -925,5 +929,11 @@ static_assert(offsetof(CCursor, m_target) == 0x14 && offsetof(CCursor, mp_meta) 
                   offsetof(CCursor, mp_clipboards) == 0x58 && offsetof(CCursor, m_mode) == 0x6C &&
                   offsetof(CCursor, m_gap) == 0x70 && sizeof(CCursor) == 200,
               "layout must match the original");
+
+// Park editor script commands (park_cfuncs.cpp).
+// 0x0058E120 GetParkEditorMaxPlayers: <MaxPlayers> = the park's player count.
+bool __cdecl CFunc_GetParkEditorMaxPlayers(Script::CStruct* params, Script::CScript* script);
+// 0x0058E140 GetParkEditorMaxPlayersPossible: <MaxPlayersPossible> = how many players the park has room for.
+bool __cdecl CFunc_GetParkEditorMaxPlayersPossible(Script::CStruct* params, Script::CScript* script);
 
 } // namespace Ed
