@@ -121,8 +121,8 @@ struct CollGeometryForwarders : CCollObj {
     void Scale(const Mth::Vector* centre, const Mth::Vector* scale);
     // 0x0040AEA0 (a sector's slot 19): the geometry's debug rendering (0x0048DCD0, compiled out).
     void DebugRender(int a, int b);
-    // 0x0040AEB0: 0x00414FE0 on the geometry (not rewritten yet).
-    void ProcessGeometry();
+    // 0x0040AEB0: the geometry's occlusion polygons (CCollObjTriData::AddOcclusionPolys).
+    void AddOcclusionPolys();
     // 0x0040AEC0 (slot 18 of every collision class): CCollObjTriData::IsPointBehindFaces.
     bool IsPointBehindFaces(const Mth::Vector* point, int unused);
 };

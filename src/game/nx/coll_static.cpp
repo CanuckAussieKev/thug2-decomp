@@ -415,9 +415,9 @@ void CollGeometryForwarders::DebugRender(int a, int b)
 }
 
 // 0x0040AEB0
-void CollGeometryForwarders::ProcessGeometry()
+void CollGeometryForwarders::AddOcclusionPolys()
 {
-    GameFunction<void(__thiscall*)(CCollObjTriData*)>(0x00414FE0)(m_geometry);
+    m_geometry->AddOcclusionPolys();
 }
 
 // 0x0040AEC0
@@ -508,6 +508,6 @@ REPLACE_SOURCE_ONLY(0x00414D60, &Nx::CollGeometryStubs::DebugRender); // 3 bytes
 REPLACE(0x0040AE80, &Nx::CollGeometryForwarders::RotateY);
 REPLACE(0x0040AE90, &Nx::CollGeometryForwarders::Scale);
 REPLACE(0x0040AEA0, &Nx::CollGeometryForwarders::DebugRender);
-REPLACE(0x0040AEB0, &Nx::CollGeometryForwarders::ProcessGeometry);
+REPLACE(0x0040AEB0, &Nx::CollGeometryForwarders::AddOcclusionPolys);
 REPLACE(0x0040AEC0, &Nx::CollGeometryForwarders::IsPointBehindFaces);
 REPLACE(0x00414990, Nx::CreateMovableCollision);

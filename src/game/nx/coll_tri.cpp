@@ -7,6 +7,7 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/gfx/engine_glue.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -298,6 +299,108 @@ bool CCollObjTriData::SetUpAllFaces()
     return m_bsp != nullptr;
 }
 
+// 0x00414FE0 (the original also reads each face's flags and tests a sign they can't have, and reads the first
+// face's corners before each pass; neither has an effect)
+void CCollObjTriData::AddOcclusionPolys()
+{
+    constexpr float kSameDirection = 0.05f;
+    Mth::Vector points[4];
+    for (int i = 0; i < m_numFaces - 1; ++i) {
+        for (int j = i + 1; j < m_numFaces; ++j) {
+            // the corners shared: shared[k] is face i's corner k if face j has it, other[m] face j's corner m if
+            // face i has it
+            int shared[3] = {-1, -1, -1};
+            int other[3] = {-1, -1, -1};
+            int matches = 0;
+            for (int k = 0; k < 3; ++k) {
+                uint16_t corner = static_cast<uint16_t>(FaceVertex(i, k));
+                for (int m = 0; m < 3; ++m) {
+                    if (corner == static_cast<uint16_t>(FaceVertex(j, m))) {
+                        shared[k] = corner;
+                        other[m] = static_cast<int>(FaceVertex(j, m));
+                        ++matches;
+                        break;
+                    }
+                }
+            }
+            if (matches != 2)
+                continue;
+            // both normals ((v1 - v0) x (v2 - v0)), rounded where the original's x87 code stores them
+            Mth::Vector a = GetRawVertexPos(FaceVertex(i, 0));
+            Mth::Vector b = GetRawVertexPos(FaceVertex(i, 1));
+            Mth::Vector c = GetRawVertexPos(FaceVertex(i, 2));
+            double cx = static_cast<double>(c.x) - a.x;
+            double cy = static_cast<double>(c.y) - a.y;
+            double cz = static_cast<double>(c.z) - a.z;
+            float bx = static_cast<float>(static_cast<double>(b.x) - a.x);
+            float by = static_cast<float>(static_cast<double>(b.y) - a.y);
+            double bz = static_cast<double>(b.z) - a.z;
+            float n1x = static_cast<float>(by * cz - bz * cy);
+            float n1y = static_cast<float>(bz * cx - cz * bx);
+            float n1z = static_cast<float>(cy * bx - by * cx);
+            Mth::Vector a2 = GetRawVertexPos(FaceVertex(j, 0));
+            Mth::Vector b2 = GetRawVertexPos(FaceVertex(j, 1));
+            Mth::Vector c2 = GetRawVertexPos(FaceVertex(j, 2));
+            points[0] = a2;
+            points[1] = b2;
+            points[2] = c2;
+            auto difference = [](float p, float q) { return static_cast<float>(static_cast<double>(p) - q); };
+            float cx2 = difference(c2.x, a2.x), cy2 = difference(c2.y, a2.y), cz2 = difference(c2.z, a2.z);
+            float bx2 = difference(b2.x, a2.x), by2 = difference(b2.y, a2.y), bz2 = difference(b2.z, a2.z);
+            double n2x = static_cast<double>(by2) * cz2 - static_cast<double>(bz2) * cy2;
+            float n2y = static_cast<float>(static_cast<double>(bz2) * cx2 - static_cast<double>(cz2) * bx2);
+            float n2z = static_cast<float>(static_cast<double>(cy2) * bx2 - static_cast<double>(by2) * cx2);
+            double unit1x = n1x;
+            double length1 = std::sqrt((unit1x * n1x + static_cast<double>(n1z) * n1z) + static_cast<double>(n1y) * n1y);
+            if (length1 > 0.0) {
+                double inverse = 1.0 / length1;
+                unit1x = n1x * inverse;
+                n1y = static_cast<float>(n1y * inverse);
+                n1z = static_cast<float>(n1z * inverse);
+            }
+            double length2 = std::sqrt((n2x * n2x + static_cast<double>(n2z) * n2z) + static_cast<double>(n2y) * n2y);
+            if (length2 > 0.0) {
+                double inverse = 1.0 / length2;
+                n2x *= inverse;
+                n2y = static_cast<float>(n2y * inverse);
+                n2z = static_cast<float>(n2z * inverse);
+            }
+            if (!(std::fabs(n2x - unit1x) <= kSameDirection) ||
+                !(std::fabs(static_cast<double>(n2y) - n1y) <= kSameDirection) ||
+                !(std::fabs(static_cast<double>(n2z) - n1z) <= kSameDirection))
+                continue;
+            // the quad: face i's corners with face j's other corner between the two shared ones
+            int extra = -1;
+            for (int m = 0; m < 3; ++m) {
+                if (other[m] == -1) {
+                    extra = static_cast<int>(FaceVertex(j, m));
+                    break;
+                }
+            }
+            auto corner = [this, i](int k) { return GetRawVertexPos(FaceVertex(i, k)); };
+            if (shared[0] >= 0 && shared[1] >= 0) {
+                points[0] = corner(0);
+                points[1] = GetRawVertexPos(extra);
+                points[2] = corner(1);
+                points[3] = corner(2);
+            } else if (shared[0] < 0 && shared[1] >= 0 && shared[2] >= 0) {
+                points[0] = corner(0);
+                points[1] = corner(1);
+                points[2] = GetRawVertexPos(extra);
+                points[3] = corner(2);
+            } else if (shared[0] >= 0 && shared[2] >= 0) {
+                points[0] = corner(0);
+                points[1] = corner(1);
+                points[2] = corner(2);
+                points[3] = GetRawVertexPos(extra);
+            }
+            // (otherwise - not possible with two shared corners - face j's corners as they are)
+            AddDebugShape(4, points, m_checksum);
+            break;
+        }
+    }
+}
+
 // 0x00416320
 uint16_t* CCollObjTriData::GetFacesInBox(const Mth::BBox* box, int* count, uint16_t* buffer, int bufferSize)
 {
@@ -553,6 +656,7 @@ REPLACE(0x00416320, &Nx::CCollObjTriData::GetFacesInBox);
 REPLACE(0x004164F0, &Nx::CCollObjTriData::RotateY);
 REPLACE(0x00416730, &Nx::CCollObjTriData::Scale);
 REPLACE(0x00414D30, &Nx::CCollObjTriData::SetUpAllFaces);
+REPLACE(0x00414FE0, &Nx::CCollObjTriData::AddOcclusionPolys);
 REPLACE(0x004160E0, &Nx::CCollObjTriData::GatherFaces);
 REPLACE(0x004163B0, &Nx::CCollObjTriData::IsPointBehindFaces);
 REPLACE(0x004161D0, &Nx::CCollObjTriData::CountFacesBehind);

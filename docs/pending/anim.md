@@ -295,8 +295,24 @@ ProjectToPlane made exact).
   - Mutations: 36 deliberate bugs; 35 caught (33 at first: +0x3C set before the scale, a first table entry that's
     neither 0 nor 0xFFFF added for 2). Equivalent: the turn's move-there w (the box is rebuilt with w 1 before the
     move back).
-- [ ] Next: AN-10 - 0x00414FE0 (the geometry's face pass), then the face / line tests 0x0040B420 onwards,
-  0x00410C90, 0x004110B0, 0x004114E0, 0x004128B0, 0x004131F0, 0x004137B0, 0x00413B50, 0x00413FF0, 0x00414460,
-  the 0x00417xxx feelers / registration (0x004177B0, 0x00417800...). Hidden code to give source to later (found by
-  scratchpad hidden.py - runs between Ghidra's functions that aren't padding): 0x00412730, 0x00417110, 0x00419690,
-  0x00419750, 0x004198D0, 0x00419AD0, 0x00419BF0, 0x00419E90, 0x0041A1A0-0x0041A21C.
+- [x] Batch AN-10 (NOT run in the game yet; the geometry's occlusion polygons; 1 function, 2.9 KB):
+  src/game/nx/coll_tri.cpp, coll_static.cpp.
+  - Nx::CCollObjTriData::AddOcclusionPolys 0x00414FE0 (0x0040AEB0 passes on to it): each face paired with the first
+    later face sharing exactly two corners (compared as 16 bits, each of face i's corners matched with the first
+    equal corner of face j) whose normal ((v1 - v0) x (v2 - v0), normalised unless zero, rounded where the x87 code
+    stores) is within 0.05 on each axis; the quad - face i's corners with face j's other corner between the shared
+    ones - to Nx::AddDebugShape(4, ...) (0x0048BF80's jump target: an occlusion polygon, 0x004D8D70) with the
+    geometry's checksum. Each face's flags are read and tested for a sign they can't have (no effect).
+  - Tests (selftests_anim9.cpp): TestAnimCollOcclusion - a 4x4 grid split into triangle pairs (diagonals, corner
+    orders and some windings random; vertices lifted within, near and beyond the tolerance), stray, repeated and
+    degenerate triangles, shuffled; then in order a collinear and a degenerate face sharing two corners, a tilted
+    quad's triangles with face i's shared corners at 0-1, 1-2, 0-2, corner indices above 255 differing only above
+    the low byte, a last adjacent pair; plain (10-byte faces) and compressed (8-byte faces), and with 0-2 faces.
+    AddDebugShape stood in for (each quad's 16 floats and the id recorded): 25 quads.
+  - Mutations: 24 deliberate bugs; 22 caught (15 at first: the ordered cases above and the 0.16 lift added for 7).
+    Not caught: one edge's z rounded to a float (x87 detail, below the tolerance), < for <= at the tolerance.
+- [ ] Next: AN-11 - the face / line tests 0x0040B420 onwards, 0x00410C90, 0x004110B0, 0x004114E0, 0x004128B0,
+  0x004131F0, 0x004137B0, 0x00413B50, 0x00413FF0, 0x00414460, the 0x00417xxx feelers / registration (0x004177B0,
+  0x00417800...). Hidden code to give source to later (found by scratchpad hidden.py - runs between Ghidra's
+  functions that aren't padding): 0x00412730, 0x00417110, 0x00419690, 0x00419750, 0x004198D0, 0x00419AD0,
+  0x00419BF0, 0x00419E90, 0x0041A1A0-0x0041A21C.

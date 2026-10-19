@@ -15,6 +15,7 @@
 #include "game/mth/matrix.h"
 #include "game/nx/coll_movable.h"
 #include "game/nx/coll_static.h"
+#include "game/gfx/engine_glue.h"
 #include "game/nx/coll_tri.h"
 #include "hook/anim_testkit.h"
 #include "hook/hook.h"
@@ -104,7 +105,7 @@ void TestAnimCollTurnScale()
         Record({0xD4DC0000u, r.ecx, r.args[0], r.args[1]});
         return 0u;
     });
-    s.At({0x00414FE0}, 0, [](Regs& r) {
+    s.At({0x00414FE0, AddressOf(&Nx::CCollObjTriData::AddOcclusionPolys)}, 0, [](Regs& r) {
         Record({0x414FE000u, r.ecx});
         return 0u;
     });
@@ -251,5 +252,146 @@ void TestAnimCollTurnScale()
     CompareTraces(expected, actual, "Nx geometry turned / scaled, face table, box clone, forwarders, factory");
 }
 SELFTEST(Early, TestAnimCollTurnScale, TestStandIns::RemoveStandIns);
+
+// Occlusion polygons from a 4x4 grid of vertices (some lifted, a few just within or beyond the 0.05 normal
+// tolerance) split into triangle pairs in shuffled corner orders and windings, with stray, repeated and degenerate
+// triangles; plain with 10-byte faces and compressed with 8-byte faces. The quads handed on are recorded.
+struct OccArena {
+    float plain[276][3];
+    uint16_t packed[276][3];
+    uint8_t faces10[48 * 10];
+    uint8_t faces8[48 * 8];
+    CCollObjTriData geometry[2];
+};
+OccArena g_occ;
+bool g_occOriginal;
+
+void TestAnimCollOcclusion()
+{
+    StandIns& s = *new StandIns();
+    s.At({0x004B22C0, AddressOf(&Nx::AddDebugShape)}, 0, [](Regs& r) {
+        Record({0x0CC10000u, r.args[0], r.args[2]});
+        const auto* w = reinterpret_cast<const uint32_t*>(r.args[1]);
+        g_trace.insert(g_trace.end(), w, w + 16);
+        return 0u;
+    });
+    auto runOnce = [&](bool original) {
+        g_occOriginal = original;
+        g_trace.clear();
+        std::memset(&g_occ, 0, sizeof(g_occ));
+        Lcg random(0x414FE0);
+        // (a lift of 0.16 tilts a triangle's normal by about 0.04: within the 0.05 tolerance, beyond 0.03)
+        const float lifts[] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.03f, 0.4f, 0.0f, 0.0f, 0.16f, 0.0f, 0.0f, 0.0f, 0.0f, 2.0f, 0.0f};
+        for (int v = 0; v < 16; ++v) {
+            g_occ.plain[v][0] = static_cast<float>(v % 4) * 4.0f;
+            g_occ.plain[v][1] = static_cast<float>(v / 4) * 4.0f;
+            g_occ.plain[v][2] = lifts[v];
+        }
+        // a tilted plane's quad T0..T3 (z = x / 2 + 10) at 272..275, and the same points at 16..19 (the same low
+        // byte): corner indices compared as 16 bits
+        const float tilted[4][3] = {{20, 0, 20}, {24, 0, 22}, {24, 4, 22}, {20, -4, 20}};
+        for (int t = 0; t < 4; ++t) {
+            std::memcpy(g_occ.plain[272 + t], tilted[t], 12);
+            std::memcpy(g_occ.plain[16 + t], tilted[t], 12);
+        }
+        for (int v = 0; v < 276; ++v)
+            for (int k = 0; k < 3; ++k)
+                g_occ.packed[v][k] = static_cast<uint16_t>((g_occ.plain[v][k] + 8.0f) * 16.0f);
+        int faces = 0;
+        auto add = [&](int c0, int c1, int c2) {
+            auto* wide = reinterpret_cast<uint16_t*>(g_occ.faces10 + faces * 10);
+            uint8_t* small = g_occ.faces8 + faces * 8;
+            wide[0] = static_cast<uint16_t>(random.Next());
+            wide[1] = static_cast<uint16_t>(random.Next());
+            const int corners[3] = {c0, c1, c2};
+            for (int k = 0; k < 3; ++k) {
+                wide[2 + k] = static_cast<uint16_t>(corners[k]);
+                small[4 + k] = static_cast<uint8_t>(corners[k]);
+            }
+            ++faces;
+        };
+        for (int y = 0; y < 3; ++y) {
+            for (int x = 0; x < 3; ++x) {
+                int v00 = y * 4 + x, v10 = v00 + 1, v01 = v00 + 4, v11 = v00 + 5;
+                int t1[3] = {v00, v10, v11}, t2[3] = {v00, v11, v01};
+                if (random.Below(2)) {
+                    t1[0] = v00; t1[1] = v10; t1[2] = v01;
+                    t2[0] = v10; t2[1] = v11; t2[2] = v01;
+                }
+                int r1 = static_cast<int>(random.Below(3)), r2 = static_cast<int>(random.Below(3));
+                bool flip = random.Below(5) == 0;
+                add(t1[r1], t1[(r1 + 1) % 3], t1[(r1 + 2) % 3]);
+                if (flip)
+                    add(t2[r2], t2[(r2 + 2) % 3], t2[(r2 + 1) % 3]);
+                else
+                    add(t2[r2], t2[(r2 + 1) % 3], t2[(r2 + 2) % 3]);
+            }
+        }
+        add(0, 5, 10);  // a stray triangle across the grid
+        add(5, 5, 6);   // degenerate
+        add(0, 1, 5);   // a repeat of a corner pair
+        add(15, 14, 10);
+        add(1, 1, 0);   // repeated corners
+        add(3, 2, 6);
+        // the pairs shuffled
+        for (int f = faces - 1; f > 0; --f) {
+            int g = static_cast<int>(random.Below(static_cast<uint32_t>(f + 1)));
+            uint8_t tmp[10];
+            std::memcpy(tmp, g_occ.faces10 + f * 10, 10);
+            std::memcpy(g_occ.faces10 + f * 10, g_occ.faces10 + g * 10, 10);
+            std::memcpy(g_occ.faces10 + g * 10, tmp, 10);
+            std::memcpy(tmp, g_occ.faces8 + f * 8, 8);
+            std::memcpy(g_occ.faces8 + f * 8, g_occ.faces8 + g * 8, 8);
+            std::memcpy(g_occ.faces8 + g * 8, tmp, 8);
+        }
+        // at the end, in order: a collinear face and a degenerate one sharing two corners (both normals zero); the
+        // tilted quad's two triangles with face i's shared corners at 0 and 1, 1 and 2, 0 and 2; two faces
+        // sharing a corner and a corner whose index differs only above the low byte; a last adjacent pair
+        add(0, 1, 2);
+        add(1, 1, 2);
+        add(16, 273, 274);
+        add(272, 274, 275);
+        add(272, 273, 274);
+        add(273, 272, 275);
+        add(274, 272, 273);
+        add(273, 272, 275);
+        add(273, 274, 272);
+        add(273, 272, 275);
+        CCollObjTriData& plain = g_occ.geometry[0];
+        plain.m_checksum = 0x0CC1A;
+        plain.m_numVertices = 276;
+        plain.m_numFaces = static_cast<uint16_t>(faces);
+        plain.m_faces = g_occ.faces10;
+        plain.m_vertices = g_occ.plain;
+        CCollObjTriData& packed = g_occ.geometry[1];
+        packed = plain;
+        packed.m_checksum = 0x0CC1B;
+        packed.m_smallFaces = true;
+        packed.m_compressed = true;
+        packed.m_faces = g_occ.faces8;
+        packed.m_vertices = g_occ.packed;
+        packed.m_min = {-8.0f, -8.0f, -8.0f, 1.0f};
+        auto occlude = reinterpret_cast<void(__thiscall*)(void*)>(Code(original, 0x00414FE0));
+        for (CCollObjTriData& g : g_occ.geometry) {
+            occlude(&g);
+            Record({0xE0D00000u});
+        }
+        uint16_t numFaces = plain.m_numFaces;
+        for (uint16_t n : {0, 1, 2}) {
+            plain.m_numFaces = n;
+            occlude(&plain);
+            Record({0xE0D10000u + n});
+        }
+        plain.m_numFaces = numFaces;
+        return g_trace;
+    };
+    std::vector<uint32_t> expected = runOnce(true);
+    std::vector<uint32_t> actual = runOnce(false);
+    delete &s;
+    Log("occlusion polys: %u trace words", static_cast<unsigned>(expected.size()));
+    Check(expected.size() > 100, "occlusion polys: the test geometry makes quads");
+    CompareTraces(expected, actual, "Nx geometry occlusion polygons");
+}
+SELFTEST(Early, TestAnimCollOcclusion, TestStandIns::RemoveStandIns);
 
 } // namespace

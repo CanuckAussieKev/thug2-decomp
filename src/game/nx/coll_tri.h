@@ -101,6 +101,10 @@ struct CCollObjTriData {
     // 0x00414D30: the shared index table 0x0067C6B8 filled with 0..2047 the first time (its first entry is
     // 0xFFFF until then); whether the geometry has a tree.
     bool SetUpAllFaces();
+    // 0x00414FE0: occlusion polygons: each face paired with the first later face that shares an edge with it and
+    // faces the same way (normals within 0.05 on each axis) - the four corners to Nx::AddDebugShape (a quad: an
+    // occlusion polygon) with the checksum.
+    void AddOcclusionPolys();
     // 0x00416320: the faces in leaves `box` reaches, gathered into `buffer` (`count` set). Without a tree, or
     // more faces than the geometry has, every face: the shared index table 0x0067C6B8.
     uint16_t* GetFacesInBox(const Mth::BBox* box, int* count, uint16_t* buffer, int bufferSize);
