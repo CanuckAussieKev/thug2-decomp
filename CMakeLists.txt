@@ -121,6 +121,17 @@ add_library(thug2_code OBJECT
     src/hook/selftests_appmain10.cpp
     src/hook/selftests_appmain12.cpp
     src/hook/selftests_appmain11.cpp
+    src/hook/selftests_objsys1.cpp
+    src/hook/selftests_objsys2.cpp
+    src/hook/selftests_objsys3.cpp
+    src/hook/selftests_objsys4.cpp
+    src/hook/selftests_objsys5.cpp
+    src/hook/selftests_objsys6.cpp
+    src/hook/selftests_objsys7.cpp
+    src/hook/selftests_objsys8.cpp
+    src/hook/selftests_objsys9.cpp
+    src/hook/selftests_objsys10.cpp
+    src/hook/selftests_objsys11.cpp
     src/hook/selftests_gapsB.cpp
     src/hook/selftests_mva.cpp
     src/hook/selftests_mva2.cpp
@@ -288,6 +299,22 @@ add_library(thug2_code OBJECT
     src/game/obj/composite.cpp
     src/game/obj/compositemgr.cpp
     src/game/obj/cutscene.cpp
+    src/game/obj/cutscene_data.cpp
+    src/game/obj/cutscene_load.cpp
+    src/game/obj/cutscene_update.cpp
+    src/game/obj/cutscene_package.cpp
+    src/game/obj/cutscene_play.cpp
+    src/game/obj/control_pad.cpp
+    src/game/obj/proxim.cpp
+    src/game/script/preferences.cpp
+    src/game/script/struct_buffer.cpp
+    src/game/obj/emitter.cpp
+    src/game/obj/node_objects.cpp
+    src/game/obj/path_manager.cpp
+    src/game/obj/path_follower.cpp
+    src/game/sfx/sfx.cpp
+    src/game/sfx/sfx_voices.cpp
+    src/game/gfx/anim_blend.cpp
     src/game/obj/event.cpp
     src/game/obj/flip_rotate.cpp
     src/game/obj/motion.cpp

@@ -31,6 +31,12 @@ PointerMember* PointerMember::Construct(void* pointer)
     return this;
 }
 
+// 0x00469490
+void* PointerMember::Get()
+{
+    return m_pointer;
+}
+
 namespace {
 
 // A singleton without source yet: its Create (cdecl, bool) and Release (cdecl) in the game.
@@ -192,3 +198,4 @@ REPLACE(0x004E1EC0, &Spt::SingletonPtr<Spt::Singleton574540>::Destroy);
 // The one constructor out of line (called by 0x004F75F0; it builds the instance pointer through 0x004E1970).
 REPLACE(0x004E1A90, &Spt::SingletonPtr<Spt::Singleton590160>::Construct);
 REPLACE(0x004E1970, &Spt::PointerMember::Construct);
+REPLACE_SOURCE_ONLY(0x00469490, &Spt::PointerMember::Get); // 3 bytes

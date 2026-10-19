@@ -11,7 +11,8 @@ and checked with out/build/verify/thug2_check.exe, then the file is restored. BU
 With names, only those mutations run.
 
 A mutation that makes the checker hang counts as caught. The checker's output goes to a file rather than a
-pipe: its helper child process would hold a pipe open past the timeout, and taskkill /T ends both.
+pipe: its helper child process would hold a pipe open past the timeout, and taskkill /T (by our process id)
+ends both.
 """
 import os
 import runpy
@@ -43,8 +44,11 @@ for path, name, old, new in spec["MUTS"]:
             process = subprocess.Popen([checker], stdout=out, stderr=out, cwd=REPO, env=env)
             try:
                 code = process.wait(timeout=60)
-                failed = [line.strip() for line in open(log_path, errors="replace") if "SELFTEST FAIL" in line]
-                print(name, "CAUGHT" if code != 0 else "missed", code, ("- " + failed[0]) if failed else "", flush=True)
+                failed = [line.strip() for line in open(log_path, errors="replace")
+                          if "SELFTEST FAIL" in line or "SELFTEST CRASH" in line]
+                # (every failing test, so an unrelated flaky one doesn't hide which test caught it)
+                print(name, "CAUGHT" if code != 0 else "missed", code, ("- " + " | ".join(failed[:4])) if failed else "",
+                      flush=True)
             except subprocess.TimeoutExpired:
                 # (this run's checker only, by its id: other checkouts' checks may be running)
                 subprocess.run(["taskkill", "/F", "/T", "/PID", str(process.pid)], capture_output=True)
