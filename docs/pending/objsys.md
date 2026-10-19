@@ -182,7 +182,29 @@ Shared files touched (small, additive): CMakeLists.txt (new sources and selftest
   - Mutations: 30 deliberate bugs; 29 caught (22 at first; the arena images, the manager as made, the defaults and
     the destroyed group added for 7). The other is equivalent: a slot cleared again after Release (which clears it).
 
-- [ ] Next: OS-7 path follower (path_follower.{h,cpp}, selftests_objsys7.cpp); OS-8 sound effects manager part 1
-  0x47AC10-0x47B7C0 (src/game/sfx/sfx.{h,cpp}, selftests_objsys8.cpp written), OS-9 part 2 0x47B8E0-0x47D390
-  (sfx_voices.cpp written, test to write); then the animation blending 0x47D420-0x47DC31 (+ 0x47D580 / 0x47D660,
-  code Ghidra missed), the cutscene system 0x463AA0-0x4680B0 (+ 0x464340).
+- [x] Batch OS-7 (NOT run in the game yet; following a path of linked nodes): src/game/obj/path_follower.{h,cpp}
+  (new).
+  - CPathFollower (vtable 0x00647A84; used by the path component): 0x0046A1D0 Construct, 0x00469B50 the deleting
+    destructor, 0x00469B00 ReadNodePosition, 0x0046A120 NextNode (a random link when the owner's component
+    0x0A015E17 says so, else the first), 0x00469F60 UpdatePosition (along the segment), 0x0046A000 CheckCorner (the
+    cut short of the node: half the next segment when that's shorter than the corner distance), 0x0046A250
+    StartSegment, 0x00469B80 ComputeArc (the arc through the corner: its centre on the bisector, radius, angle and
+    frame; 0 = blend instead, 1 = arc, 2 = degenerate), 0x0046A320 ArcStep (the frame turned about Y via
+    D3DXMatrixMultiply), 0x0046A550 StartCorner, 0x0046A3F0 Start (nodes within 1 unit skipped), 0x0046A640 Update
+    (a distance, optionally weighed by a direction: straight / arc / blend / done; the component told of each node
+    passed - at the arc's or blend's half), 0x0046A1B0 GetHeading. The original's x87 comparisons kept (unordered
+    counts as nearer where it does).
+  - Tests (selftests_objsys7.cpp): TestPathFollower - 60 seeds of random node graphs (close nodes, dead ends, random
+    links), corner distances none / small / large, a start on, near or away from the path, 80 updates of random
+    distances (some weighed by directions, perpendicular ones too), headings; the follower as constructed and after
+    every step compared (a NaN's sign not compared: once a degenerate corner has made the state NaN, the x87's
+    choice between two NaN operands differs from SSE's) - the vector maths routed to ours in both runs, acos the
+    same for both.
+  - Mutations: 36 deliberate bugs; 32 caught (the constructed state added for 1). The other 4 are equivalent: the
+    carry added in StartSegment (always 0 there), the zero-distance arc (unreachable: FLAG_CORNER returns first),
+    the along value set before StartSegment overwrites it, and the done state after a failed NextNode (a node
+    without links is always the last node).
+
+- [ ] Next: OS-8 sound effects manager part 1 0x47AC10-0x47B7C0 (src/game/sfx/sfx.{h,cpp}, selftests_objsys8.cpp
+  written), OS-9 part 2 0x47B8E0-0x47D390 (sfx_voices.cpp written, test to write); then the animation blending
+  0x47D420-0x47DC31 (+ 0x47D580 / 0x47D660, code Ghidra missed), the cutscene system 0x463AA0-0x4680B0 (+ 0x464340).
