@@ -139,8 +139,31 @@ Shared files touched (small, additive): CMakeLists.txt (new sources and selftest
   - Mutations: 33 deliberate bugs, all caught (25 at first; the exact sphere edge, shared new names, the reset on
     dirty memory, longer trails and the exact spacing were added for 8).
 
-- [ ] Next: OS-5 node objects / movie details / class node list (node_objects.{h,cpp},
-  selftests_objsys5.cpp), OS-6 path manager (path_manager.{h,cpp}, selftests_objsys6.cpp), OS-7 path follower
+- [x] Batch OS-5 (NOT run in the game yet; objects made for level nodes, movie details, the class node list):
+  src/game/obj/node_objects.{h,cpp} (new).
+  - 0x00468B00 CreateParticleObject (moving_particle_composite_structure when the node has HasMotion, else
+    particle_composite_structure), 0x00468B60 StartNodeObject (finalised, switched to the node's script 0x2CA8A299
+    with its params 0x7031F10C, the creation script 0x413B766D run with the node's name and its integer 0x99A9B716
+    if it has one), 0x00468CB0 CreateGameObject (the components of 0x735A20BA, two more around the script
+    0xF3B84DA6, finalised, the creation script, component 0x286A8D26's set-up, the node script), 0x00468EB0
+    CreateGameObjectFromNode, 0x00468EC0 CreateNodeObject (flag 0x69C257E9: a plain composite object from the
+    structure with script 0xA98F5C63; else a game object).
+  - CMovieDetails (a list node + settings + a camera): 0x00468FB0 Construct, 0x00469230 DestroyBody (the camera
+    deleted unless a viewport uses it), 0x004692D0 / 0x00468F70 the deleting destructors, 0x00469050
+    InitFromStructure, 0x00469180 GetSettings, 0x00468F20 CheckDone, 0x00468F40 / 0x00468F50 / 0x00468F60 setters.
+  - CClassNodeList: 0x004693C0 Init, 0x00469300 Clear (0x004693D0, a jump to it: source only), 0x00469340
+    SetTransform, 0x00469350 Transform, 0x004693E0 AddEntry, 0x00469430 SetNodes (an entry per node of class
+    0xD18719D5).
+  - Tests (selftests_objsys5.cpp): TestNodeObjects - 40 seeds of nodes with random parameters made into particle,
+    game and plain objects (the object manager, components, scripts and structures stood in for; every call
+    compared). TestMovieDetails: construct (the node as built), random settings / setters / CheckDone, the three
+    destructors with flags 0-3 on a linked node; the class node list from random node arrays, transformed or not,
+    cleared through both entry points - the arena compared.
+  - Mutations: 35 deliberate bugs, all caught (the constructed node and destructor flags 2-3 added for 2).
+  - Also: selftests_objsys3.cpp's arenas at fixed high addresses (a misaligned name in the buffers equal to a low
+    arena's address was relocated in one run only) and its names changed to match.
+
+- [ ] Next: OS-6 path manager (path_manager.{h,cpp}, selftests_objsys6.cpp), OS-7 path follower
   (path_follower.{h,cpp}, selftests_objsys7.cpp); OS-8 sound effects manager part 1 0x47AC10-0x47B7C0
   (src/game/sfx/sfx.{h,cpp}, selftests_objsys8.cpp written), OS-9 part 2 0x47B8E0-0x47D390 (sfx_voices.cpp written,
   test to write); then the animation blending 0x47D420-0x47DC31 (+ 0x47D580 / 0x47D660, code Ghidra missed), the

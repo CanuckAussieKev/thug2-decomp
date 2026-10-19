@@ -47,8 +47,14 @@ std::vector<uint32_t> g_bufTrace;
 uint8_t* BufArena(bool original)
 {
     uint8_t*& arena = g_bufArenas[original ? 0 : 1];
-    if (!arena)
-        arena = static_cast<uint8_t*>(VirtualAlloc(nullptr, kArenaSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
+    if (!arena) {
+        // (high addresses, unlike the buffers' data: a byte pattern mistaken for a pointer into an arena low in
+        // memory would be relocated in one run only)
+        void* at = reinterpret_cast<void*>(original ? 0x6B300000u : 0x6B380000u);
+        arena = static_cast<uint8_t*>(VirtualAlloc(at, kArenaSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
+        if (!arena)
+            arena = static_cast<uint8_t*>(VirtualAlloc(nullptr, kArenaSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
+    }
     return arena;
 }
 
@@ -109,7 +115,7 @@ void BuildNameArrays()
         auto* elements = reinterpret_cast<uint32_t*>(p + 0x10);
         array->m_elements = elements;
         for (uint32_t i = 0; i < count; ++i)
-            elements[i] = (which == 0 ? 0x51000000u : 0x4D000000u) + i;
+            elements[i] = (which == 0 ? 0x517A0000u : 0x4D7A0000u) + i;
     }
 }
 
@@ -119,8 +125,8 @@ void __cdecl Callback() { ++g_bufCalls; }
 uint32_t RandomName(Lcg& random)
 {
     switch (random.Below(3)) {
-    case 0: return 0x51000000u + random.Below(22);  // (some past the short array's end)
-    case 1: return 0x4D000000u + random.Below(302);
+    case 0: return 0x517A0000u + random.Below(22);  // (some past the short array's end)
+    case 1: return 0x4D7A0000u + random.Below(302);
     default: return 0x60000000u + random.Below(1000);
     }
 }
@@ -466,7 +472,7 @@ void TestStructBufferStubs()
         }
     };
     const int integers[] = {0, 1, 0xFF, 0x100, 0xFFFF, 0x10000, -1, -0x80, -0x81, -0x8000, -0x8001, 0x7FFFFFFF};
-    const uint32_t names[] = {0x51000003, 0x4D000100, 0x60001234};
+    const uint32_t names[] = {0x517A0003, 0x4D7A0100, 0x60001234};
     int which = 0;
     for (uint32_t name : names) {
         for (int value : integers) {
