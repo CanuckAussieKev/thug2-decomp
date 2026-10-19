@@ -27,7 +27,7 @@ State when the session was handed over (the user changed Claude accounts). Read 
   in docs/agent-rules.md (pass the private Morten1337 repository ban on to every agent). The lead merges, builds
   (tools\verify_build.cmd + out\build\verify\thug2_check.exe), folds docs/pending/<name>.md batches into
   docs/decomp-progress.md with batch numbers (`python -I tools/fold_pending.py docs/pending/<name>.md <TAG> "<agent>"`;
-  the next is **124**), regenerates PROGRESS.md
+  the next is **135**), regenerates PROGRESS.md
   (`python -I tools/progress_report.py`), commits, pushes, then installs main into C:\Games\THUG2 under its lock
   (tools/game: copy the DLL over both the game's and the lock's `.backup` copy; converters + `make_menu_level.py`).
 - Game test scripts: tools/game (README there). User rules: launch only when allowed, never capture the whole screen,
