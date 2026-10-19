@@ -31,10 +31,6 @@ using namespace AnimTests;
 using Ass::CAsset;
 using Ass::CAssMan;
 
-// The asset vtables: the base's and each type's (22 slots).
-const uint32_t kAssetVtables[] = {0x00645568, 0x006454B0, 0x00645600, 0x00645698, 0x00645700,
-                                  0x00645778, 0x00645810, 0x00645888, 0x00645928, 0x006459A8};
-
 struct AssetArena {
     alignas(16) uint8_t heap[0x8000];
     uint8_t assets[6][0x60];
@@ -53,22 +49,6 @@ template <typename F>
 F AssetFn(uint32_t address)
 {
     return reinterpret_cast<F>(Code(g_assetOriginal, address));
-}
-
-// Every slot of the asset vtables that holds a function we replaced points at ours (as with the hooks in).
-void UseOurVtables()
-{
-    for (uint32_t vtable : kAssetVtables) {
-        for (int slot = 0; slot < 22; ++slot) {
-            uint32_t target = reinterpret_cast<uint32_t*>(vtable)[slot];
-            if (void* ours = OursAt(target))
-                RunPatch(vtable + 4 * slot, Dword(Resolve(ours)));
-        }
-    }
-    for (uint32_t slot : {0x00645658u, 0x0064565Cu, 0x00645660u, 0x006454A4u, 0x006454A8u, 0x0064549Cu}) {
-        if (void* ours = OursAt(*reinterpret_cast<uint32_t*>(slot)))
-            RunPatch(slot, Dword(Resolve(ours)));
-    }
 }
 
 uint32_t Bump(uint32_t size)
@@ -328,7 +308,7 @@ void TestAnimAssetManager()
         return 0u;
     });
     // The cutscene asset's IsLoaded asks its cutscene data: the asset's state instead.
-    s.At({0x00408AA0}, 0, [](Regs& r) {
+    s.At({0x00408AA0, AddressOf(&Ass::CCutsceneAsset::IsLoaded)}, 0, [](Regs& r) {
         Record({0xC0710000u});
         return static_cast<uint32_t>(reinterpret_cast<CAsset*>(r.ecx)->m_state == Ass::kLoaded);
     });

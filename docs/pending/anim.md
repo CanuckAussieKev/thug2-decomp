@@ -80,6 +80,51 @@ ProjectToPlane made exact).
     construction on dirty memory, the manager really destroyed (three references), a cutscene's IsLoaded counted,
     a name whose only "extension" is its first letters added for 7). The other one can't be tested: a cutscene
     from LoadAssetFromStream (the original crashes).
-- [ ] Next: AN-3 - the asset types' methods (Animation 0x004071C0-0x004074F0, Cutscene 0x00408A40-0x00408AD0,
-  Node Array 0x00408BD0-0x00408F00, 0x004090D0, Scene 0x00409240-0x00409520, SceneColl 0x00409610-0x00409890,
-  Skeleton 0x00409990-0x00409B80, skin 0x00409C70-0x0040A140, SkinColl / TexDict up to 0x0040AB00).
+- [x] Batch AN-3 (NOT run in the game yet; the asset types): src/game/ass/asset_types.cpp (new), asset.h.
+  - The load parameters' pool: 0x00407730 AllocLoadParams (4 blocks of 0x60 at 0x00691758; the size ignored),
+    0x00407770 FreeLoadParams. 0x00408A70 the types' Reload (Unload, then Load(name, 0, 0, 0, 0) == 0).
+  - Animation: 0x004072E0 / 0x004072D0, 0x004071C0 LoadFromBuffer, 0x00407300 Load ("<name>.<platform
+    extension>", from a file or through Pip - then the lowercased name's checksum kept at +0x4C), 0x004074F0
+    FinishLoading (Gfx's anim frame data, 0x3C bytes: 0x00482AF0 / 0x004856C0; Load is called on a failed
+    allocation too), 0x004074A0 Unload, 0x00407290 FreeBuffer (also the node arrays').
+  - Cutscene: 0x00408AC0 / 0x00408AB0, 0x00408AD0 Load (a CCutsceneData loaded; no StartLoading; the data leaks
+    if Load fails), 0x00408A40 Unload (only the data deleted), 0x00408AA0 IsLoaded (the data's).
+  - Node array: 0x00408BE0 GetType (10, or 11 when the node manager's owner) / 0x00408BD0, 0x00408EA0 /
+    0x00408D10 (the file read on the top-down heap; a missing file returns with the heap context still pushed, as in
+    the original), 0x00408C10 FinishLoading (0x005A5990 parses the script, the node array added to the node manager,
+    the script array kept), 0x00408F00 Unload (each node's object found by its name and told - vtable slot 6 -, the
+    node array removed, the script unloaded by 0x005A59B0), 0x004090D0 CreateNodeArray (a new array of empty
+    structures made a global symbol).
+  - Scene: 0x004093D0, 0x004092D0 SetUpParams (textures checksum 0xDC8116B2, four flags), 0x00409520 / 0x004093F0
+    (the file name from 0x0048C390), 0x00409240 FinishLoading (0x0048CD80 with the group's textures), 0x00409380
+    Unload (0x0048C690). Scene collision: 0x00409750, 0x00409690, 0x00409890 / 0x00409760 (0x0049CA20),
+    0x00409610 (added to the group's scene: 0x0049D590 / 0x0049C9F0), 0x00409700 (0x0049CFB0).
+  - Skeleton: 0x00409A40 / 0x00409A30, 0x00409990 LoadFromBuffer (never copies), 0x00409A50 Load (the buffer on
+    the top-down heap), 0x00409B80 FinishLoading (the skeleton data, 0x598 bytes: 0x004A2C20 / 0x004A39C0; false and
+    a leak if it fails), 0x004099E0 Unload, 0x00409A10 FreeBuffer.
+  - Skinned model (0x60: +0x4C archive, +0x50 parameters, +0x54 / +0x58 the .cas file and its contents, +0x5C the
+    files still being read): 0x00409E00 / 0x00409DF0, 0x00409E10 SetUpParams, 0x00409E90 the parameters' Clear,
+    0x0040A140 / 0x00409EB0 Load ("<base>.skin|mdl.<ext>" - 0x0048BFE0 says whether the name has a .cas file -
+    through Pip when it has one and the load isn't async; then "<base>.cas.<ext>"), 0x00409C70 FinishLoading
+    (0x0048C030), 0x00409D30 Unload, 0x00409D70 Abort (the .cas read too), 0x00409DA0 FreeBuffer, 0x00409C60
+    SetRead (the async read's: read only once both files are; not a function in Ghidra).
+  - Skin collision: 0x0040A290 / 0x0040A280, 0x0040A400 / 0x0040A2A0 (0x00490AD0), 0x0040A510 (added to the
+    group's model: 0x00490B80; the data its +0x8C), 0x0040A230 (0x00490A90). Texture dictionary: 0x0040A710,
+    0x0040A620 SetUpParams, 0x0040A840 / 0x0040A720 (0x0049EF90), 0x0040A5A0 (0x0049F050), 0x0040A6C0 (0x0049EFD0).
+  - Tests (selftests_anim3.cpp): TestAnimAssetTypes - for every type: 10 Loads (blocking / async, file / archive,
+    parameters / a structure / neither, the file - or the .cas file - missing, a mixed-case name), each then unloaded;
+    4 LoadFromBuffers (copied or not, parameters with the skin's heap flag set); FinishLoading on its own with the
+    engine's loader failing and working, then Unload with a buffer still there; FreeBuffer with an archive, a buffer,
+    nothing; the names and types. Also the owned node array's type, CreateNodeArray (an old symbol and none), the
+    skin's Abort / SetRead / Clear, Reload, the parameter pool exhausted. Every engine, file, Pip, script, node
+    manager and cutscene call stood in for (recorded); in our run the asset vtables point at ours; the asset, the
+    parameter pool and the arena compared after each step.
+  - Mutations: 70 deliberate bugs; 69 caught (62 at first: dirty file handles, distinct object vtable slots, a
+    hashed flag answer, a clean parameter pool per case, FinishLoading's result and Unload with a buffer, the
+    skin's copy with its heap flag added for 7). The other is equivalent: the archive name's lowercasing (the
+    checksum ignores case).
+- [ ] Next: AN-4 - code Ghidra never made functions of: 0x00406560 (called from the skater code, 0x00514320 ...;
+  an angle-limit test of two vectors), then 0x0040A910-0x0040AB00 (an 8-slot registry at 0x006918EC) and
+  0x0040AB40 onwards. Hidden code to give source to later (found by scratchpad hidden.py - runs between Ghidra's
+  functions that aren't padding): 0x00412730, 0x00412F90, 0x004139A0, 0x00413F30, 0x00414D70, 0x00417110,
+  0x00419690, 0x00419750, 0x004198D0, 0x00419AD0, 0x00419BF0, 0x00419E90, 0x0041A1A0-0x0041A21C.

@@ -128,6 +128,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_appmain7.cpp
     src/hook/selftests_anim.cpp
     src/hook/selftests_anim2.cpp
+    src/hook/selftests_anim3.cpp
     src/hook/selftests_appmain8.cpp
     src/hook/selftests_appmain9.cpp
     src/hook/selftests_appmain10.cpp
@@ -176,6 +177,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_pcmstream.cpp
     src/hook/selftests_pcmplay.cpp
     src/game/ass/asset.cpp
+    src/game/ass/asset_types.cpp
     src/game/ass/assman.cpp
     src/game/core/alloc.cpp
     src/game/core/crc.cpp

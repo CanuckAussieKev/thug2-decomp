@@ -162,4 +162,196 @@ struct AssetConstructors : CAsset {
     void MakeNodeArrayOwner();
 };
 
+// The load parameters' pool: 4 blocks of 0x60 bytes (0x00691758, in use: the bits of 0x006918D8). 0x00407730: a
+// free block (the size is ignored; null if all four are in use). 0x00407770: one given back.
+void* AllocLoadParams(uint32_t size);
+void FreeLoadParams(void* params);
+
+// The types' own methods (the slots their vtables override, and their helpers). Each Load is (name, async,
+// useArchive, params, structure) and LoadFromBuffer (data, size, copy, params, structure): `params` a copy of the
+// type's parameters to start from (or null), `structure` a script structure to read them from (or null). Both
+// return 0, or -1 if the file couldn't be opened.
+
+// Animation (+0x4C the checksum of the archive file it came from).
+struct CAnimAsset : CAsset {
+    uint32_t m_archive;
+    // 0x004072E0 / 0x004072D0
+    int GetType() const;
+    const char* GetName() const;
+    // 0x004071C0 / 0x00407300 (an archive file: through Pip, the lowercased name's checksum kept)
+    int LoadFromBuffer(void* data, uint32_t size, bool copy, void* params, void* structure);
+    int Load(const char* name, bool async, bool useArchive, void* params, void* structure);
+    // 0x004074F0: the frames made from the buffer (null if that fails).
+    bool FinishLoading(void* buffer, uint32_t size);
+    // 0x004074A0: the frames deleted, the buffer freed.
+    int Unload();
+    // 0x00407290 (also the node arrays'): the archive file unloaded, or the buffer freed.
+    void FreeBuffer();
+};
+static_assert(sizeof(CAnimAsset) == 0x50, "layout");
+
+// 0x00408A70: the types' Reload (the animation's, the cutscene's, the node array's): unloaded, then Load(name);
+// whether that worked.
+bool ReloadAsset(CAsset* asset, const char* name);
+struct ReloadAdapter : CAsset {
+    bool Reload(const char* name) { return ReloadAsset(this, name); }
+};
+
+// Cutscene (the data a CCutsceneData).
+struct CCutsceneAsset : CAsset {
+    // 0x00408AC0 / 0x00408AB0
+    int GetType() const;
+    const char* GetName() const;
+    // 0x00408AD0: the cutscene data made and loaded from "<name>.<platform extension>" (the data leaks if that
+    // fails, as in the original).
+    int Load(const char* name, bool async, bool useArchive, void* params, void* structure);
+    // 0x00408A40: the cutscene data deleted.
+    int Unload();
+    // 0x00408AA0: its cutscene data's.
+    bool IsLoaded();
+};
+
+// Node array (a .qb file: its nodes, added to the node manager).
+struct CNodeArrayAsset : CAsset {
+    uint32_t m_archive;    // +0x4C
+    uint32_t m_fileName;   // +0x50 the checksum of the file name (its script's)
+    uint32_t m_arrayName;  // +0x54 the node array's checksum
+    void* m_nodes;         // +0x58 its script array
+    char* m_params;        // +0x5C (0x40 bytes, the file name)
+    bool m_owned;          // +0x60 the node manager's owner
+    uint8_t pad61[3];
+    // 0x00408BE0: kNodeArray, or kOwnedNodeArray when owned; 0x00408BD0
+    int GetType() const;
+    const char* GetName() const;
+    // 0x00408EA0 / 0x00408D10 (the file read on the top-down heap)
+    int LoadFromBuffer(void* data, uint32_t size, bool copy, void* params, void* structure);
+    int Load(const char* name, bool async, bool useArchive, void* params, void* structure);
+    // 0x00408C10: the script parsed, the node array added to the node manager.
+    bool FinishLoading(void* buffer, uint32_t size);
+    // 0x00408F00: each node's object told (slot 6), the node array removed, the script unloaded.
+    int Unload();
+    // 0x004090D0: a new array of `count` empty structures made the global symbol `name` (any old one removed)
+    // and the node array's (returns it).
+    void* CreateNodeArray(uint32_t name, int count);
+};
+static_assert(sizeof(CNodeArrayAsset) == 0x64, "layout");
+
+// Scene (+0x4C its load parameters: +0x00 the textures' checksum, +0x04-0x07 four flags, +0x08 the name).
+struct CSceneAsset : CAsset {
+    uint8_t* m_params;
+    // 0x004093D0
+    const char* GetName() const;
+    // 0x004092D0: the parameters from the pool (from `params`, then `structure`'s values).
+    void SetUpParams(void* params, void* structure);
+    // 0x00409520 / 0x004093F0
+    int LoadFromBuffer(void* data, uint32_t size, bool copy, void* params, void* structure);
+    int Load(const char* name, bool async, bool useArchive, void* params, void* structure);
+    // 0x00409240: the scene made, with its group's (the textures') data.
+    bool FinishLoading(void* buffer, uint32_t size);
+    // 0x00409380
+    int Unload();
+};
+
+// Scene collision (+0x4C: +0x00 a checksum, +0x04 a flag, +0x05 the name).
+struct CSceneCollisionAsset : CAsset {
+    uint8_t* m_params;
+    // 0x00409750
+    const char* GetName() const;
+    // 0x00409690
+    void SetUpParams(void* params, void* structure);
+    // 0x00409890 / 0x00409760
+    int LoadFromBuffer(void* data, uint32_t size, bool copy, void* params, void* structure);
+    int Load(const char* name, bool async, bool useArchive, void* params, void* structure);
+    // 0x00409610: the collision added to its group's (the scene's) data.
+    bool FinishLoading(void* buffer, uint32_t size);
+    // 0x00409700
+    int Unload();
+};
+
+// Skeleton.
+struct CSkeletonAsset : CAsset {
+    // 0x00409A40 / 0x00409A30
+    int GetType() const;
+    const char* GetName() const;
+    // 0x00409990 / 0x00409A50 (the buffer from the top-down heap)
+    int LoadFromBuffer(void* data, uint32_t size, bool copy, void* params, void* structure);
+    int Load(const char* name, bool async, bool useArchive, void* params, void* structure);
+    // 0x00409B80: the skeleton data made (false and nothing kept if that fails).
+    bool FinishLoading(void* buffer, uint32_t size);
+    // 0x004099E0 / 0x00409A10
+    int Unload();
+    void FreeBuffer();
+};
+
+// The skinned model's load parameters (0x14 bytes from the pool): 0x00409E90 clears them (returns them).
+struct SkinParams {
+    uint8_t flag0;      // +0x00
+    uint8_t pad01[3];
+    int value;          // +0x04
+    void* casData;      // +0x08 the .cas file's contents
+    uint32_t unknown0C;
+    uint8_t hasCas;     // +0x10
+    uint8_t onHeap;     // +0x11 (cleared by Load; a pop of the heap context when set)
+    uint8_t pad12[2];
+    SkinParams* Clear();
+};
+
+// Skinned model (+0x4C archive, +0x50 parameters, +0x54 / +0x58 the .cas file and its contents, +0x5C the files
+// still being read).
+struct CSkinAsset : CAsset {
+    uint32_t m_archive;
+    SkinParams* m_params;
+    File::AsyncFileHandle* m_casFile;
+    void* m_casBuffer;
+    int m_filesReading;
+    // 0x00409E00 / 0x00409DF0
+    int GetType() const;
+    const char* GetName() const;
+    // 0x00409E10
+    void SetUpParams(void* params, void* structure);
+    // 0x0040A140 / 0x00409EB0 (the model file "<base>.skin|mdl.<ext>", and the base's .cas file if it has one)
+    int LoadFromBuffer(void* data, uint32_t size, bool copy, void* params, void* structure);
+    int Load(const char* name, bool async, bool useArchive, void* params, void* structure);
+    // 0x00409C70: the model made (with its group's textures).
+    bool FinishLoading(void* buffer, uint32_t size);
+    // 0x00409D30 / 0x00409D70 / 0x00409DA0
+    int Unload();
+    bool Abort();
+    void FreeBuffer();
+    // 0x00409C60: read only when both files are.
+    bool SetRead();
+};
+static_assert(sizeof(CSkinAsset) == 0x60, "layout");
+
+// Skin collision (+0x4C: +0x00 a checksum, +0x04 the name).
+struct CSkinCollisionAsset : CAsset {
+    uint8_t* m_params;
+    // 0x0040A290 / 0x0040A280
+    int GetType() const;
+    const char* GetName() const;
+    // 0x0040A400 / 0x0040A2A0
+    int LoadFromBuffer(void* data, uint32_t size, bool copy, void* params, void* structure);
+    int Load(const char* name, bool async, bool useArchive, void* params, void* structure);
+    // 0x0040A510: the collision added to its group's (the model's) data.
+    bool FinishLoading(void* buffer, uint32_t size);
+    // 0x0040A230
+    int Unload();
+};
+
+// Texture dictionary (+0x4C: +0x00 a flag (set), +0x04 a value, +0x08 / +0x09 flags, +0x0A the name).
+struct CTexDictAsset : CAsset {
+    uint8_t* m_params;
+    // 0x0040A710
+    const char* GetName() const;
+    // 0x0040A620
+    void SetUpParams(void* params, void* structure);
+    // 0x0040A840 / 0x0040A720
+    int LoadFromBuffer(void* data, uint32_t size, bool copy, void* params, void* structure);
+    int Load(const char* name, bool async, bool useArchive, void* params, void* structure);
+    // 0x0040A5A0
+    bool FinishLoading(void* buffer, uint32_t size);
+    // 0x0040A6C0
+    int Unload();
+};
+
 } // namespace Ass
