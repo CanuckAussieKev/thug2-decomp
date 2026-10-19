@@ -6,10 +6,12 @@
 
 #include <cctype>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <string>
 
 #include "game/core/crc.h"
+#include "game/file/file.h"
 #include "game/front/front_end.h"
 #include "game/gfx/screen.h"
 #include "game/script/cscript.h"
@@ -54,6 +56,20 @@ std::string FromIni()
     return value;
 }
 
+// Whether Level_<name>'s scene can load: a level without a scene pre (scnpre) needs levels\<level>\<level>.scn.xbx
+// (data folder or overlay). The DEVKIT_ONLY level Default has none on PC (only its scripts and sky ship): the game's
+// scene load returns no scene for it and writes through it (0x0048C5AA). Levels with a scene pre aren't checked.
+bool SceneInstalled(const std::string& name)
+{
+    Script::CStruct* info = Script::GetStructure(("Level_" + name).c_str());
+    const char* scene = nullptr;
+    if (!info || info->ContainsComponentNamed("scnpre") || !info->GetString("level", &scene, 0) || !scene)
+        return true;
+    char path[160];
+    std::snprintf(path, sizeof(path), "levels\\%s\\%s.scn.xbx", scene, scene);
+    return File::Exist(path);
+}
+
 int s_frames;  // the front end's frames with the main menu's scripts loaded
 bool s_done;
 
@@ -85,6 +101,12 @@ void Update(Mdl::FrontEnd* frontEnd)
     uint32_t load = Checksum(level.c_str());
     if (!IsScript(load)) {
         Log("start level: %s isn't a level's load script - the main menu stays", level.c_str());
+        return;
+    }
+    if (!SceneInstalled(level.substr(5))) {
+        Log("start level: %s - the level's scene isn't installed (the game would crash loading it) - the main menu "
+            "stays",
+            level.c_str());
         return;
     }
     Log("start level: %s (free skate)", level.c_str());

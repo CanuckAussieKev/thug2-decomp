@@ -13,7 +13,8 @@ struct FrontEnd;
 // <name>: a level's load script without its Load_ (thps4_zoo, thaw_dt, BO, TR, TestLevel, SkateShopLevel...) or with
 // it (Load_BO). Once the main menu has been up a moment, what SKATE NOW does with a level chosen runs: EnableSun,
 // SetGameType freeskate, SetCurrentGameType, level_select_change_level level=Load_<name> (as tools/game/boot_level.py
-// makes SKATE NOW do). Once per run; an unknown name is logged and the main menu stays.
+// makes SKATE NOW do). Once per run; an unknown name, or a level whose scene file isn't installed (Default: the PC
+// release ships only its scripts and sky), is logged and the main menu stays.
 namespace Front::StartLevel {
 
 // The level asked for ("" if none).
