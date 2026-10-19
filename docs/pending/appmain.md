@@ -196,3 +196,22 @@ that never returns and end it from a stand-in).
   marked hidden).
   Mutations: 29 deliberate bugs, all caught (25 at first; the end phase of Draw2D and real screen sizes were added
   for the other 4).
+- [x] Batch AM-7 (NOT run in the game yet; a mesh's operations): src/game/gfx/mesh.{h,cpp} (new; Nx::sMesh 0xD8 bytes,
+  sVertexBuffer, sIndexBuffer, sBillboard).
+  - 0x004D6D40 `sMesh::AddVertexBuffers(count)` (copies of the first buffer), 0x004D6E00 `MoveTo(position)` (the
+    transform made if needed; vertices, collision positions and the sphere moved by the difference; the
+    transform's position all four), 0x004D6FB0 `TurnY(turns)` (quarter turns about the transform's position, the
+    original's rounding per case; Ghidra splits it - REPLACE_SOURCE_ONLY(0x004D6FBA) registers the second
+    "function"), 0x004D71F0 `Clone(share)` (shared: flag 1; else new vertex / index buffers copied - the original
+    uploads the source's indices again too -, per-vertex data, the extra vertex buffers, per-vertex bytes; the
+    collision triangles and positions always copied), 0x004D7580 `MakeBillboard(type, pivot, axis)` (the quad's
+    plane from its first triangle; type 1 screen-aligned, 2 about the axis unless it's within 0.99 of vertical;
+    the four vertices rewritten in the billboard's axes about the pivot).
+  - Note: Mth::CrossProduct (0x00402550, vector.cpp, another range) computes in float; the original's products are
+    double. mesh.cpp (and camera_util.cpp) use a local exact copy; vector.cpp's own may want the same fix.
+  Test (src/hook/selftests_appmain7.cpp, Early): TestMeshOperations (stand-in buffers / allocation: move (also w),
+  every turn count, clone shared / not with every optional part, more vertex buffers, billboards of each type and
+  axis incl. vertical and degenerate quads).
+  Mutations: 27 deliberate bugs; 23 caught (22 at first; a position with w other than 1 was added for 1). Of the
+  other 4, two re-copy fields the memcpy already copied (no effect), one (cl_9c) didn't compile, and one only
+  reorders a sum before a float rounding.
