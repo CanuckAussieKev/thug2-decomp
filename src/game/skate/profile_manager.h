@@ -16,8 +16,8 @@ class CStruct;
 namespace Obj {
 
 // A skater profile (0x64 bytes: a model appearance - constructor 0x00488EA0, destructor body 0x004890F0 - and its
-// info structure at +0x5C: name, display_name, is_pro, the stats, specials, ...). Its own code (0x00585xxx-
-// 0x00586xxx) is a later batch: called through the game here.
+// info structure at +0x5C: name, display_name, is_pro, the stats, specials, ...). Its own code is in
+// skater_profile.cpp (0x00585ED0-0x005871A0); the appearance's (0x00488xxx-0x00489xxx) is called through the game.
 struct CSkaterProfile {
     uint8_t m_appearance[0x5C];
     uint8_t m_info[8]; // +0x5C (a Script::CStruct)
@@ -33,7 +33,7 @@ struct CSkaterProfile {
     CSkaterProfile* CopyFrom(CSkaterProfile* other);       // 0x00585ED0
     void ReadFromSave(uint32_t name, Script::CStruct* save); // 0x00585F00 (its part of a save, by name)
     void WriteToSave(Script::CStruct* save);               // 0x00586B00
-    void Reset(Script::CStruct* params);                   // 0x00586810 (its defaults, then `params`)
+    bool Reset(Script::CStruct* params);                   // 0x00586810 (its defaults, then `params`; true)
     void SetAppearance(Script::CStruct* appearance, bool update); // 0x00488F40
     Script::CStruct* InfoStructure() { return reinterpret_cast<Script::CStruct*>(m_info); }
     // The destructor (inlined by the manager): the info cleared, the appearance's destructor body, freed.
@@ -67,6 +67,18 @@ struct CSkaterProfile {
     // 0xF60C9090 both), the skater's trick state told if `apply`. False for a slot out of range.
     SpecialTrick* GetSpecialTrick(SpecialTrick* out, int index);
     bool SetSpecialTrick(int index, SpecialTrick* trick, bool apply);
+
+    // 0x00586230: from `params` (none: nothing): with `info`, the appearance (by name) and the info's names, stats
+    // and checksums (a custom skater gets a face texture); with `specials`, the specials, max_specials, the trick
+    // style structure and every stat named in the global stat list. True.
+    bool SetFromParams(Script::CStruct* params, bool info, bool specials);
+    // The network copy (in the script heap): 0x00587050 the appearance, the trick style structure, the specials and
+    // the chosen info names written to `buffer` (returns the bytes); 0x00586DC0 read back (returns the end).
+    // 0x00586E70 / 0x00586A40: the info's part alone.
+    int WriteToBuffer(uint8_t* buffer, int size, int flags);
+    uint8_t* ReadFromBuffer(uint8_t* buffer);
+    int WriteInfoToBuffer(uint8_t* buffer, int size);
+    uint8_t* ReadInfoFromBuffer(uint8_t* buffer);
 };
 static_assert(sizeof(CSkaterProfile) == 0x64, "layout must match the original");
 

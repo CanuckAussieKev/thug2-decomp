@@ -88,7 +88,7 @@ void Install(StandIns& s)
         return 0u;
     });
     // The profile.
-    s.At({0x00586D60}, 0, [](Regs& r) {
+    s.At({0x00586D60, AddressOf(&CSkaterProfile::Construct)}, 0, [](Regs& r) {
         Rec(0x6D60, {r.ecx});
         Word(r.ecx, kProfileDisplay) = At(kText);
         Word(r.ecx, kProfileSpecials) = At(kSpecials + 0x10 * g_profilesMade);
@@ -142,11 +142,11 @@ void Install(StandIns& s)
         Rec(0x5F00, {r.ecx, r.args[0], r.args[1]});
         return 0u;
     });
-    s.At({0x00586B00}, 4, [](Regs& r) {
+    s.At({0x00586B00, AddressOf(&CSkaterProfile::WriteToSave)}, 4, [](Regs& r) {
         Rec(0x6B00, {r.ecx, r.args[0]});
         return 0u;
     });
-    s.At({0x00586810}, 4, [](Regs& r) {
+    s.At({0x00586810, AddressOf(&CSkaterProfile::Reset)}, 4, [](Regs& r) {
         Rec(0x6810, {r.ecx, r.args[0]});
         if (r.args[0]) {
             Word(r.ecx, kProfileName) = Word(r.args[0], 0);

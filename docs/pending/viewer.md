@@ -299,11 +299,18 @@ Shared files touched: CMakeLists.txt (each new .cpp listed, additive).
       Also fixed (found by the audit; from VW-10): GetScaledPhysics called 0x564D90 with a stray argument and
       0x559050 without its bool - it's 0x564D90(skate) then 0x559050(mode, false); the test stand-ins' pops fixed too.
 
-- [ ] Next: VW-19, the rest of the profile: 0x586230 (load, ret 0xC; the only gap find_gaps shows between rewritten
-      ones), Reset 0x586810, 0x586A40, WriteToSave 0x586B00, the constructor 0x586D60, 0x586DC0, 0x586E70, 0x587050
-      (still GameFunction wrappers in profile_manager.cpp: Construct, WriteToSave, Reset). Then 0x5871B0-0x5873F0,
-      0x587450-0x587540 (missed), 0x587590, 0x5875D0, 0x5876A0, 0x587A50, 0x587F60 (thunk), 0x587F70, 0x588090
+- [x] Batch VW-19 (NOT run in the game yet; early tests pass offline; mutation run pending): the rest of the skater
+      profile, in skater_profile.cpp: SetFromParams 0x586230 (the appearance and info from params, and/or the
+      specials, trick style and the global stat list's stats), Reset 0x586810 (now returns bool, as the original),
+      WriteToSave 0x586B00, the constructor 0x586D60, and the network copy: ReadFromBuffer 0x586DC0 /
+      ReadInfoFromBuffer 0x586A40 / WriteToBuffer 0x587050 / WriteInfoToBuffer 0x586E70 (only the info names it lists
+      are sent). profile_manager.cpp's last wrappers for them are gone. Where the original leaves a value that a
+      lookup didn't find in a reused argument slot, ours starts the variable with that argument (SetFromParams'
+      integers, read with assert 0 for 0x27EB9B9D). Self-test (new src/hook/selftests_viewer19.cpp): TestProfileRest;
+      selftests_viewer7's stand-ins for Construct / WriteToSave / Reset now also cover ours.
+
+- [ ] Next: 0x5871B0-0x5873F0, 0x587450-0x587540 (missed), 0x587590, 0x5875D0, 0x5876A0, 0x587A50, 0x587F60 (thunk), 0x587F70, 0x588090
       (missed), 0x5880E0, 0x588120 (missed), 0x588150, 0x588170; then find_gaps / progress_report for the range.
-      Mutations: specs for VW-15..18 not written; suspect CAUGHTs (named a flaky test: PC async handle, anim
+      Mutations: specs for VW-15..17 not written (VW-18/19: scratch mut18.py, running); suspect CAUGHTs (named a flaky test: PC async handle, anim
       controllers: partial, memory cards: free space) to rerun with scratchpad mutate_v.py; known misses: launch_best,
       restart_walking (mut10), profile_style_zero, input_mirror. A game run (THUG2-3, debug_mode=1 viewer) still due.

@@ -61,19 +61,6 @@ void* FaceOf(CSkaterProfile* profile) { return GameFunction<void*(__thiscall*)(C
 
 } // namespace
 
-// The profile's own code (a later batch).
-CSkaterProfile* CSkaterProfile::Construct()
-{
-    return GameFunction<CSkaterProfile*(__thiscall*)(CSkaterProfile*)>(0x00586D60)(this);
-}
-void CSkaterProfile::WriteToSave(Script::CStruct* save)
-{
-    GameFunction<void(__thiscall*)(CSkaterProfile*, Script::CStruct*)>(0x00586B00)(this, save);
-}
-void CSkaterProfile::Reset(Script::CStruct* params)
-{
-    GameFunction<void(__thiscall*)(CSkaterProfile*, Script::CStruct*)>(0x00586810)(this, params);
-}
 void CSkaterProfile::SetAppearance(Script::CStruct* appearance, bool update)
 {
     GameFunction<void(__thiscall*)(CSkaterProfile*, Script::CStruct*, bool)>(0x00488F40)(this, appearance, update);
