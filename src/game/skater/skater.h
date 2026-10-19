@@ -133,6 +133,13 @@ public:
     bool CallMemberFunction(uint32_t name, Script::CStruct* params, Script::CScript* script);
     // (the code SkipToCustomRestart and SetCustomRestart share)
     void SkipToCustomRestart();
+    // 0x00583DA0 (vtable +0x3C): skipped to the restart node `node` (none: where it is), walking or not: a local
+    // skater's input and pad reset, vtable +0x40 with the node, Restart, the camera updated, the node's TriggerScript
+    // run; teleported; in three game modes the server told (message 0x57).
+    void SkipToRestart(uint32_t node, uint32_t walking);
+    // 0x00583FB0: the destructor body. 0x005840E0: the scalar deleting destructor.
+    void DestroyBody();
+    CSkater* Destroy(unsigned int flags);
 
     uint32_t m_pushStyle;        // +0x108 (the profile's pushstyle)
     uint32_t m_style;            // +0x10C (skatestyle)

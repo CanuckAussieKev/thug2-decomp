@@ -255,6 +255,14 @@ Shared files touched: CMakeLists.txt (each new .cpp listed, additive).
       strengthened after the VW-6 / VW-8 / VW-9 runs (Init's fields, a level without best combos, a stat override of
       9.5, distinct initials moving down, a +0x288 state of 2).
 
+- [x] Batch VW-15 (NOT run in the game yet; early tests pass offline; mutation run pending): the rest of the
+      skater: SkipToRestart 0x583DA0 (vtable +0x3C: a local skater's input / pad / online flag reset, vtable +0x40
+      with the node, Restart, the camera updated unless paused, the node's TriggerScript spawned on it; teleported; in
+      game modes 0x6C5FF266 / 0x6EF8FDA0 / 0x5D32129C the server sent message 0x57, sequenced, group 8), the
+      destructor body 0x583FB0 (actuators unpaused and stopped for a paused local skater; script 0xF429E0AC; the trick
+      infos deleted; skatercam1 marked; out of the skater list; its name) and the scalar deleting destructor 0x5840E0.
+      Self-test (new src/hook/selftests_viewer15.cpp): TestSkaterRestart.
+
 - [ ] Next: (state for resuming)
       - Batch VW-2 (cars / KOTH crown 0x5780E0-0x578490 in src/game/obj/game_objects.*; the skater trick code's two
         list entry types 0x578670 / 0x578740 / 0x5787F0 / 0x579570-0x579820 in src/game/skater/trick_lists.*) and

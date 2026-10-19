@@ -14,6 +14,8 @@
 #include "game/core/mem.h"
 #include "game/gfx/camera.h"
 #include "game/mth/matrix.h"
+#include "game/net/net_app.h"
+#include "game/net/net_client.h"
 #include "game/net/net_dispatcher.h"
 #include "game/script/nodes.h"
 #include "game/sio/device.h"
@@ -1259,7 +1261,7 @@ void CSkater::Restart(uint32_t a, uint32_t b)
 namespace {
 
 // The restart (vtable +0x3C): skipped to the restart node `node`, walking or not.
-void SkipToRestart(CSkater* skater, uint32_t node, uint32_t walking)
+void SkipToRestartVirtual(CSkater* skater, uint32_t node, uint32_t walking)
 {
     reinterpret_cast<void(__thiscall*)(CSkater*, uint32_t, uint32_t)>(skater->m_vtable[0x3C / 4])(skater, node, walking);
 }
@@ -1272,7 +1274,7 @@ Script::CStruct* ScriptResults(Script::CScript* script) { return At<Script::CStr
 // The custom restart's position and orientation put back (SkipToCustomRestart, and SetCustomRestart Set).
 void CSkater::SkipToCustomRestart()
 {
-    SkipToRestart(this, 0, m_customRestartWalking);
+    SkipToRestartVirtual(this, 0, m_customRestartWalking);
     m_pos = m_customRestartPos;
     m_matrix = m_customRestartMatrix;
     At<Mth::Vector>(m_corePhysics, 0x98) = m_pos;
@@ -1299,12 +1301,12 @@ bool CSkater::CallMemberFunction(uint32_t name, Script::CStruct* params, Script:
             prefix = Crc::GenerateCRCFromString(text);
         if (prefix) {
             Script::CStruct* node = SkateScript::GetNearestNodeByPrefix(prefix, &m_pos);
-            SkipToRestart(this, SkateScript::GetNodeName(node), walking);
+            SkipToRestartVirtual(this, SkateScript::GetNodeName(node), walking);
             return true;
         }
         uint32_t node = 0;
         if (params->GetChecksum(0x7A8017BA, &node, 0)) { // node
-            SkipToRestart(this, node, walking);
+            SkipToRestartVirtual(this, node, walking);
             return true;
         }
         // The first restart linked from the script's node; none: the skate module's (unless in the park editor).
@@ -1314,7 +1316,7 @@ bool CSkater::CallMemberFunction(uint32_t name, Script::CStruct* params, Script:
         for (; i < count; ++i) {
             uint32_t link = SkateScript::GetLink(from, i);
             if (GameFunction<bool(__cdecl*)(uint32_t)>(0x0046B680)(link)) {
-                SkipToRestart(this, link, walking);
+                SkipToRestartVirtual(this, link, walking);
                 break;
             }
         }
@@ -1431,6 +1433,102 @@ bool CSkater::CallMemberFunction(uint32_t name, Script::CStruct* params, Script:
     }
 }
 
+// 0x00583DA0 (vtable +0x3C)
+void CSkater::SkipToRestart(uint32_t node, uint32_t walking)
+{
+    void* net = Net();
+    At<uint8_t>(GetComponent(kSkaterPhysicsControl), 0x26) = 1;
+    if (m_unknownBC) {
+        m_unknown264[0x498] = 0;
+        reinterpret_cast<void(__thiscall*)(CSkater*)>(m_vtable[0x30 / 4])(this);
+        if (void* list = m_list28C)
+            At<uint8_t>(list, 0x18) = 1;
+        if (GameFunction<bool(__thiscall*)(void*)>(0x0044E4F0)(net)) {
+            GameFunction<void(__cdecl*)(int, int)>(0x005A1050)(0, 0);
+            uint8_t* flag = At<uint8_t*>(m_corePhysics, 0x1528) + 0x70;
+            if (flag[0]) {
+                flag[0] = 0;
+                *reinterpret_cast<int*>(flag + 4) = Clock();
+            }
+        }
+    }
+    if (m_unknown25C)
+        GameFunction<void(__thiscall*)(void*)>(0x0043D550)(m_unknown25C);
+    if (node)
+        reinterpret_cast<void(__thiscall*)(CSkater*, uint32_t)>(m_vtable[0x40 / 4])(this, node);
+    Restart(walking, 0);
+    if (m_unknownBC) {
+        GameFunction<void(__thiscall*)(void*)>(0x00511420)(GetComponent(kSkaterFlipAndRotate));
+        if (m_unknownBC) {
+            if (m_pauseState == 0) {
+                SetTeleported(false);
+                auto* camera = static_cast<CCompositeObject*>(
+                    CompositeObjectManager()->GetObjectByID(m_viewport == 1 ? kSkaterCam1 : kSkaterCam0));
+                if (camera)
+                    camera->Update();
+            }
+            // The restart node's TriggerScript, run on it.
+            if (node && SkateScript::GetNode(node, !GameFunction<bool(__thiscall*)(void*)>(0x0044E4F0)(Net()))) {
+                uint32_t script;
+                if (SkateScript::GetNode(node, true)->GetChecksum(0x2CA8A299, &script, 0))
+                    SpawnAndRunScript(script, static_cast<int>(node), false, false, nullptr);
+            }
+        }
+    }
+    SetTeleported(true);
+    // In these game modes the server is told (message 0x57).
+    auto mode = [] { return GameFunction<uint32_t(__thiscall*)(void*)>(0x005532A0)(GameVariable<void*>(0x007CE470)); };
+    if (mode() == 0x6C5FF266 || mode() == 0x6EF8FDA0 || mode() == 0x5D32129C) {
+        Net::MsgDesc message;
+        message.Construct();
+        auto* client = static_cast<Net::Client*>(GameFunction<void*(__thiscall*)(void*, int)>(0x00532EA0)(net, m_viewport));
+        if (uint8_t* player = GameFunction<uint8_t*(__thiscall*)(void*, uint32_t)>(0x0053AEA0)(net, m_id))
+            GameFunction<void(__thiscall*)(uint8_t*)>(0x00543340)(player);
+        message.m_id = 0x57;
+        message.m_queue = Net::MsgDesc::kQueueSequenced;
+        message.m_groupId = 8;
+        client->EnqueueMessageToServer(&message);
+    }
+}
+
+// 0x00583FB0
+void CSkater::DestroyBody()
+{
+    m_vtable = reinterpret_cast<void**>(0x0064EF48);
+    if (m_paused && m_unknownBC && m_unknown264) {
+        At<Sio::Device*>(At<uint8_t*>(m_unknown264, 0x490), 0x1C)->UnpauseActuators();
+        At<Sio::Device*>(At<uint8_t*>(m_unknown264, 0x490), 0x1C)->StopActuators();
+    }
+    ResetComponents();
+    Script::RunScript(0xF429E0AC, nullptr, this, false, nullptr);
+    for (int i = 0; i < 11; ++i) {
+        if (uint8_t* info = m_trickInfo[i])
+            reinterpret_cast<void*(__thiscall*)(void*, int)>((*reinterpret_cast<void***>(info))[0])(info, 1);
+    }
+    if (m_unknownBC && m_viewport == 1) {
+        if (CObject* camera = CompositeObjectManager()->GetObjectByID(kSkaterCam1))
+            reinterpret_cast<void(__thiscall*)(CObject*)>(camera->m_vtable[0x18 / 4])(camera); // (marked dead)
+    }
+    // Out of the skater list.
+    auto* node = reinterpret_cast<uint32_t*>(m_block238);
+    node[0] = 0x0064E544;
+    reinterpret_cast<uint32_t*>(node[4])[3] = node[3];
+    reinterpret_cast<uint32_t*>(node[3])[4] = node[4];
+    node[3] = reinterpret_cast<uint32_t>(node);
+    node[4] = reinterpret_cast<uint32_t>(node);
+    m_displayName.~String();
+    CCompositeObject::DestroyBody();
+}
+
+// 0x005840E0
+CSkater* CSkater::Destroy(unsigned int flags)
+{
+    DestroyBody();
+    if (flags & 1)
+        Mem::Manager::Get()->Free(this);
+    return this;
+}
+
 } // namespace Obj
 
 REPLACE(0x0057FE30, &Obj::CSkater::SetStatOverride);
@@ -1482,3 +1580,6 @@ REPLACE(0x00582D90, &Obj::CSkater::Construct);
 REPLACE(0x00583400, &Obj::CSkater::ResetComponents);
 REPLACE(0x00583470, &Obj::CSkater::Restart);
 REPLACE(0x005835D0, &Obj::CSkater::CallMemberFunction);
+REPLACE(0x00583DA0, &Obj::CSkater::SkipToRestart);
+REPLACE(0x00583FB0, &Obj::CSkater::DestroyBody);
+REPLACE(0x005840E0, &Obj::CSkater::Destroy);
