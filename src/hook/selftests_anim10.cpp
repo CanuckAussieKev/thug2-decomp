@@ -232,4 +232,94 @@ void TestAnimCollIntersectionsKeepEdx()
 }
 SELFTEST(Early, TestAnimCollIntersectionsKeepEdx);
 
+// The squared point / triangle distance: points over and beside random triangles in every region (the
+// parameters spread over -1..2 on both edges, lifted off the plane), on corners and edges, with degenerate
+// (collinear, repeated, zero) triangles, NaN / infinite / huge / tiny values, and with each output pointer left
+// null; the distance (all 64 bits), s and t compared.
+void TestAnimCollPointTriangle()
+{
+    using DistanceFn = double(__cdecl*)(const Vector*, const Vector*, const Vector*, const Vector*, float*, float*);
+    auto runOnce = [&](bool original) {
+        std::vector<uint32_t> trace;
+        auto distance = reinterpret_cast<DistanceFn>(Code(original, 0x0040B860));
+        Lcg random(0x40B860);
+        int regions[9] = {};
+        for (int n = 0; n < 12000; ++n) {
+            float scale = n % 3 == 0 ? 60.0f : n % 3 == 1 ? 3.0f : 0.05f;
+            Vector v0 = RandomVector(random, scale), v1 = RandomVector(random, scale), v2 = RandomVector(random, scale);
+            switch (n % 41) {
+            case 0:
+                v2 = v1;
+                break;
+            case 1:
+                v2 = {v0.x + 2.0f * (v1.x - v0.x), v0.y + 2.0f * (v1.y - v0.y), v0.z + 2.0f * (v1.z - v0.z), 1.0f};
+                break;
+            case 2:
+                v1 = v0;
+                v2 = v0;
+                break;
+            default:
+                break;
+            }
+            float ps = Spread(random, 1.5f) + 0.5f, pt = Spread(random, 1.5f) + 0.5f;
+            if (n % 7 == 0) { // on a corner or an edge
+                ps = static_cast<float>(random.Below(3)) * 0.5f;
+                pt = n % 2 ? 0.0f : 1.0f - ps;
+            }
+            float lift = n % 5 == 0 ? 0.0f : Spread(random, scale);
+            Vector point{v0.x + ps * (v1.x - v0.x) + pt * (v2.x - v0.x) + lift * 0.3f,
+                         v0.y + ps * (v1.y - v0.y) + pt * (v2.y - v0.y) - lift,
+                         v0.z + ps * (v1.z - v0.z) + pt * (v2.z - v0.z) + lift * 0.7f, Spread(random, 1.0f)};
+            point.x = Awkward(random, point.x);
+            v1.y = Awkward(random, v1.y);
+            float so = -777.0f, to = -777.0f;
+            float* sp = n % 13 == 0 ? nullptr : &so;
+            float* tp = n % 11 == 0 ? nullptr : &to;
+            double result = distance(&point, &v0, &v1, &v2, sp, tp);
+            uint64_t bits;
+            std::memcpy(&bits, &result, 8);
+            if (result != result)
+                bits = 0x7FF8000000000000ull;
+            trace.push_back(static_cast<uint32_t>(bits));
+            trace.push_back(static_cast<uint32_t>(bits >> 32));
+            trace.push_back(Bits(so));
+            trace.push_back(Bits(to));
+            // a rough region tally, from the outputs
+            int region = so == 0.0f ? (to == 0.0f ? 0 : to == 1.0f ? 1 : 2) : to == 0.0f ? (so == 1.0f ? 3 : 4) : 5;
+            ++regions[region];
+        }
+        // exact ties (integer triangles and points: d = 0, e + c = d + b, sums at 0 ...)
+        const Vector triangles[][3] = {
+            {{0, 0, 0, 1}, {2, 0, 0, 1}, {0, 2, 0, 1}},  {{0, 0, 0, 1}, {4, 0, 0, 1}, {1, 3, 0, 1}},
+            {{1, 1, 0, 1}, {-2, 1, 0, 1}, {1, 4, 2, 1}}, {{0, 0, 0, 1}, {2, 2, 0, 1}, {-2, 2, 0, 1}},
+            {{0, 0, 0, 1}, {-3, -3, 0, 1}, {-2, 3, 0, 1}}, // (1, -1, 0): d = 0 below both edges (-0 from a clamp)
+        };
+        for (const auto& tri : triangles) {
+            for (int x = -3; x <= 5; ++x) {
+                for (int y = -3; y <= 5; ++y) {
+                    for (int z : {0, 1, -2}) {
+                        Vector point{static_cast<float>(x), static_cast<float>(y), static_cast<float>(z), 1.0f};
+                        float so = -777.0f, to = -777.0f;
+                        double result = distance(&point, &tri[0], &tri[1], &tri[2], &so, &to);
+                        uint64_t bits;
+                        std::memcpy(&bits, &result, 8);
+                        trace.push_back(static_cast<uint32_t>(bits));
+                        trace.push_back(static_cast<uint32_t>(bits >> 32));
+                        trace.push_back(Bits(so));
+                        trace.push_back(Bits(to));
+                    }
+                }
+            }
+        }
+        if (original)
+            Log("point / triangle: corner v0 %d, v2 %d, edge 1 %d, v1 %d, edge 0 %d, other %d", regions[0], regions[1],
+                regions[2], regions[3], regions[4], regions[5]);
+        return trace;
+    };
+    std::vector<uint32_t> expected = runOnce(true);
+    std::vector<uint32_t> actual = runOnce(false);
+    CompareTraces(expected, actual, "Nx point / triangle squared distance");
+}
+SELFTEST(Early, TestAnimCollPointTriangle);
+
 } // namespace

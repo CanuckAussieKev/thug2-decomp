@@ -336,10 +336,26 @@ ProjectToPlane made exact).
     denominator added for 6). Not caught: the determinant's sum order, the bound from the unrounded determinant, u
     kept unrounded (rounding below what the comparisons see), >= for > against the bound and the unrounded
     denominator's sign (exact equality / underflow only).
-- [ ] Next: AN-12 - 0x0040B860 (the point / triangle distance, 16 callers), then 0x0040BDC0, 0x0040D370,
-  0x0040E280, 0x0040E560, 0x0040E940, 0x0040EC90, 0x0040F9E0, 0x0040FC00, 0x0040FEC0, 0x0040FEE0, 0x00410240,
-  0x004106C0, 0x00410930, 0x00410A30, 0x00410AA0, 0x00410BC0, 0x00410C90, 0x004110B0, 0x004114E0, 0x004128B0,
-  0x004131F0, 0x004137B0, 0x00413B50, 0x00413FF0, 0x00414460, the 0x00417xxx feelers / registration (0x004177B0,
-  0x00417800...). Hidden code to give source to later (found by scratchpad hidden.py - runs between Ghidra's
-  functions that aren't padding): 0x00412730, 0x00417110, 0x00419690, 0x00419750, 0x004198D0, 0x00419AD0,
-  0x00419BF0, 0x00419E90, 0x0041A1A0-0x0041A21C.
+- [x] Batch AN-12 (NOT run in the game yet; the point / triangle distance; 1 function, 1.4 KB of x87):
+  src/game/nx/coll_tests.h / .cpp.
+  - Nx::PointTriangleDistanceSquared 0x0040B860 (cdecl; 16 callers in 0x0040BDC0-0x0040FAE1): Eberly's squared
+    distance with its seven regions, the nearest point's s and t written when their pointers aren't null. Returned
+    as a double: the original leaves the unrounded value in ST0 and some callers compare it before storing it. One
+    region keeps the original's slip - below the first edge's start (s < 0, t >= 0) e is compared with c without
+    its sign flipped (a missing FCHS), so it always clamps along the second edge. Most of its tests read the flags
+    so that NaN counts as "less"; the C++ follows that ("below").
+  - Tests (selftests_anim10.cpp): TestAnimCollPointTriangle - 12000 points over and beside random triangles (the
+    parameters spread over -1..2, lifted off the plane; corners and edges; collinear, repeated and zero triangles;
+    NaN / infinite / huge / tiny values; each output pointer left null at times) and every integer point of a
+    9 x 9 x 3 grid around five integer triangles (exact ties); the distance's 64 bits, s and t compared.
+  - Mutations: 34 deliberate bugs; 29 caught (28 at first: a triangle where d = 0 below both edges, found by a
+    brute-force search over integer cases, added for 1). Not caught: the NaN-as-less reading in two places a NaN
+    can't reach (it would have made s or t NaN first), s * (1 / det) for s / det (rounding below a float), >= for >
+    and < for <= in region 2 (the same results either way - checked over all small integer cases).
+- [ ] Next: AN-13 - 0x0040BDC0 (5.5 KB, the main triangle / sphere collision?), 0x0040D370, 0x0040E280, 0x0040E560,
+  0x0040E940, 0x0040EC90, 0x0040F9E0, 0x0040FC00, 0x0040FEC0, 0x0040FEE0, 0x00410240, 0x004106C0, 0x00410930,
+  0x00410A30, 0x00410AA0, 0x00410BC0, 0x00410C90, 0x004110B0, 0x004114E0, 0x004128B0, 0x004131F0, 0x004137B0,
+  0x00413B50, 0x00413FF0, 0x00414460, the 0x00417xxx feelers / registration (0x004177B0, 0x00417800...). Hidden
+  code to give source to later (found by scratchpad hidden.py - runs between Ghidra's functions that aren't
+  padding): 0x00412730, 0x00417110, 0x00419690, 0x00419750, 0x004198D0, 0x00419AD0, 0x00419BF0, 0x00419E90,
+  0x0041A1A0-0x0041A21C.

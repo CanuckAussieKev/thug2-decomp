@@ -28,6 +28,13 @@ bool LineHitsSphere(const Mth::Vector& start, const Mth::Vector& base, const Col
 // 0..1; *s set (0 for parallel ones).
 bool SegmentsCross2D(float ax, float ay, float adx, float ady, float bx, float by, float bdx, float bdy, float* s);
 
+// 0x0040B860: the squared distance from `point` to the triangle v0 v1 v2 (Eberly's regions), and where the nearest
+// point is: v0 + s (v1 - v0) + t (v2 - v0) (*s, *t when not null). Returned unrounded (the original leaves it in
+// ST0 and some callers compare it before storing). One region keeps the original's slip: below the first edge's
+// start (s < 0, t >= 0) e is compared with c without its sign flipped, so it always clamps along the second edge.
+double PointTriangleDistanceSquared(const Mth::Vector& point, const Mth::Vector& v0, const Mth::Vector& v1,
+                                    const Mth::Vector& v2, float* s, float* t);
+
 // LineHitsSphere / SegmentsCross2D as the game calls them: their callers (0x0040EC90, 0x0040D370) keep a value in
 // EDX across the call, which the originals don't touch - these adapters keep it.
 void LineHitsSphereKeepingEdx();
