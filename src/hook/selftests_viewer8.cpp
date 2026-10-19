@@ -124,7 +124,7 @@ void TestRecords()
         std::vector<uint32_t>& t = traces[run];
         const char* texts[] = {"", "KEV", "ZZZ", "QQQ", "DEF", "AB", "MNO", "PQR"};
         for (int i = 0; i < 8; ++i)
-            std::strcpy(reinterpret_cast<char*>(Text16(i)), texts[i]);
+            std::memcpy(reinterpret_cast<char*>(Text16(i)), texts[i], std::strlen(texts[i]) + 1);
         GameVariable<uint32_t>(0x007CE4BC) = 0;
         GameVariable<uint32_t>(0x007CE4C0) = 0;
         auto create = [&](bool make) {

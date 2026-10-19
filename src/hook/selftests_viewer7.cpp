@@ -196,7 +196,7 @@ void TestProfileManager()
         g_profilesMade = 0;
         g_printfArgs = 0;
         std::vector<uint32_t>& t = traces[run];
-        std::strcpy(Ptr<char>(kText), "Tony Hawk");
+        std::memcpy(Ptr<char>(kText), "Tony Hawk", sizeof("Tony Hawk"));
         // The singleton.
         GameVariable<uint32_t>(0x007CE4B4) = 0;
         GameVariable<uint32_t>(0x007CE4B8) = 0;
