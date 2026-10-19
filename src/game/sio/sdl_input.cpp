@@ -634,17 +634,17 @@ void PollKeyboard(Device* device)
             data[3] |= 1 << 1;
             data[19] = 0xFF;
         }
-        // Not PartyMod's - [Miscellaneous] VanillaSpinKeys=1: the spin keys the original PC game's way round (its
-        // keyboard, 0x005F5BC0: the key table's spin left -> the Xbox pad's black, spin right -> white). Without
-        // UsePS2Controls the game reads the Xbox triggers (Component::PlatformStructure), where black steps off the
-        // board (SwitchControl_Trigger's Xbox_Trigger): spin left alone does it again, as in the original game.
-        // Original behaviour (PartyMod): spin left white, spin right black, always:
+        // Not PartyMod's - without UsePS2Controls, the spin keys the original PC game's way round (its keyboard,
+        // 0x005F5BC0: the key table's spin left -> the Xbox pad's black, spin right -> white). The game reads the Xbox
+        // triggers then (Component::PlatformStructure), where black steps off the board (SwitchControl_Trigger's
+        // Xbox_Trigger): spin left alone does it, as in the original game.
+        // Original behaviour (PartyMod v1.0.4): the other way round - spin left white, spin right black:
         //     if (down(s_keys.leftSpin)) data[20] |= 1 << 1;
         //     if (down(s_keys.rightSpin) || menuDown(s_menuKeys.zoom)) data[20] |= 1 << 0;
         if (down(s_keys.leftSpin))
-            data[20] |= s_settings.vanillaSpinKeys ? 1 << 0 : 1 << 1;
+            data[20] |= 1 << 0; // black
         if (down(s_keys.rightSpin))
-            data[20] |= s_settings.vanillaSpinKeys ? 1 << 1 : 1 << 0;
+            data[20] |= 1 << 1; // white
         if (menuDown(s_menuKeys.zoom))
             data[20] |= 1 << 0;
     }
@@ -864,9 +864,7 @@ void WriteGameKeyBindings()
 void LoadInputSettings()
 {
     s_settings.ps2Controls = Config::GetBool(Config::kMiscellaneous, "UsePS2Controls", true);
-    s_settings.uiControls = static_cast<uint8_t>(Config::GetInt(Config::kMiscellaneous, "UIControls", 1));
-    s_settings.vanillaSpinKeys = Config::GetBool(Config::kMiscellaneous, "VanillaSpinKeys", false);
-}
+    s_settings.uiControls = static_cast<uint8_t>(Config::GetInt(Config::kMiscellaneous, "UIControls", 1));}
 
 SDL_Scancode Key(const char* name, SDL_Scancode fallback)
 {
