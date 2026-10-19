@@ -9,6 +9,7 @@
 #include <cstring>
 #include <vector>
 
+#include "game/gfx/render_state.h"
 #include "game/gfx/screen.h"
 #include "game/gfx/sprite.h"
 #include "hook/game.h"
@@ -115,6 +116,9 @@ void TestSpriteDraw()
     SpriteState state;
     Nx::WidescreenMenus() = false;
     Patch format(0x004D9DB0, Branch(0xE9, 0x004D9DB0, reinterpret_cast<void*>(&SpriteVertexFormat)));
+    // (ours calls the renderer's SetVertexFormat directly: appmain batch)
+    uint32_t ourFormat = TestStandIns::AddressOf(&Nx::SetVertexFormat);
+    Patch ourFormatPatch(ourFormat, Branch(0xE9, ourFormat, reinterpret_cast<void*>(&SpriteVertexFormat)));
     GameVariable<void*>(0x007D69E0) = StandInDevice();
     GameVariable<void*>(0x007CE478) = nullptr; // the front end
 
@@ -199,6 +203,9 @@ void TestSpriteWidescreenEdges()
 {
     SpriteState state;
     Patch format(0x004D9DB0, Branch(0xE9, 0x004D9DB0, reinterpret_cast<void*>(&SpriteVertexFormat)));
+    // (ours calls the renderer's SetVertexFormat directly: appmain batch)
+    uint32_t ourFormat = TestStandIns::AddressOf(&Nx::SetVertexFormat);
+    Patch ourFormatPatch(ourFormat, Branch(0xE9, ourFormat, reinterpret_cast<void*>(&SpriteVertexFormat)));
     GameVariable<void*>(0x007D69E0) = StandInDevice();
     GameVariable<bool>(0x007D1EC0) = false;
     SetScreen({1920, 1080, 2.25f, 2.25f, 240, 36});

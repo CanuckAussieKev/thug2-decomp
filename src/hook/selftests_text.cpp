@@ -15,6 +15,7 @@
 
 #include "game/gfx/device.h"
 #include "game/gfx/glyphs.h"
+#include "game/gfx/render_state.h"
 #include "game/gfx/text.h"
 #include "game/sio/sdl_input.h"
 #include "game/sys/sdl_window.h"
@@ -22,6 +23,7 @@
 #include "hook/hook.h"
 #include "hook/log.h"
 #include "hook/selftest.h"
+#include "hook/standins.h"
 
 
 namespace {
@@ -469,6 +471,11 @@ void TestInitDirect3D()
     JumpTo(0x004D7D70, reinterpret_cast<void*>(&StandInRenderDefaults));
     JumpTo(0x004D8420, reinterpret_cast<void*>(&StandInTextures));
     JumpTo(0x004D7B60, reinterpret_cast<void*>(&StandInRegistry));
+    // (ours calls them directly; appmain batch)
+    JumpTo(TestStandIns::AddressOf(&Nx::CreateDevice), reinterpret_cast<void*>(&StandInCreateDevice));
+    JumpTo(TestStandIns::AddressOf(&Nx::ResetRenderState), reinterpret_cast<void*>(&StandInRenderDefaults));
+    JumpTo(TestStandIns::AddressOf(&Nx::CreateRenderTargets), reinterpret_cast<void*>(&StandInTextures));
+    JumpTo(TestStandIns::AddressOf(&Nx::LoadGamma), reinterpret_cast<void*>(&StandInRegistry));
     JumpTo(0x005BA1D0, reinterpret_cast<void*>(&StandInDebugFont));
     JumpTo(0x005BE7C0, reinterpret_cast<void*>(&StandInLast));
     // PartyMod's bytes that don't depend on the run: no ShowWindow, no SetWindowPos, no ShowCursor loop.
