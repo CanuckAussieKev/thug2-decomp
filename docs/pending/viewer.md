@@ -263,6 +263,19 @@ Shared files touched: CMakeLists.txt (each new .cpp listed, additive).
       infos deleted; skatercam1 marked; out of the skater list; its name) and the scalar deleting destructor 0x5840E0.
       Self-test (new src/hook/selftests_viewer15.cpp): TestSkaterRestart.
 
+- [x] Batch VW-16 (NOT run in the game yet; early tests pass offline; mutation run pending): the skater's career
+      (new src/game/skate/career.*, Obj::CSkaterCareer, 0x6AC bytes: per level (21) 256 goal bits and 256 flag bits,
+      their level-start copies, cash / a second amount (1000 each, total 6000) / a counter per level with totals, 256
+      global flags (cheats), the current level, gap checklists, visited levels, an info structure), 0x584110-0x584CF3
+      incl. the missed 0x584BC0: GetGapChecklist, GetLevel, Set / UnSet / Get / JustGot Goal and Flag (the unset ones
+      also clear the level-start copy), CountGoals (the first 64), CountTotalGoals / CountLevelsWithGoals (levels left
+      out at 0x7CE4E8), the global flags, Get / SetInfoInteger, the 0x471FC4DD info count, AddCash (returns a pointer
+      to the level's cash), SetLevelAmount, IncrementCounter / GetCounter, +0x5EF, +0x634 (with its highest), Reset
+      0x584680 (gaps; parts 0x4DA4937B - bits 0-199 of every level, cash, amounts, totals - and 0x4C10DE52 - bits
+      200-255 of 18 levels, counters, the info's defaults 0x0486FD79), ResetPart 0x584BA0, AllGapsGot 0x584BC0 (the
+      levels 0xEB1A4BC9 lists: visited and all their gaps), StartLevel 0x584C60, GetCheat 0x584CC0. Self-test (new
+      src/hook/selftests_viewer16.cpp): TestCareer.
+
 - [ ] Next: (state for resuming)
       - Batch VW-2 (cars / KOTH crown 0x5780E0-0x578490 in src/game/obj/game_objects.*; the skater trick code's two
         list entry types 0x578670 / 0x578740 / 0x5787F0 / 0x579570-0x579820 in src/game/skater/trick_lists.*) and
