@@ -30,7 +30,7 @@ int __cdecl ClipShadowTriangles(const uint16_t* indices, uint32_t count);
 void __cdecl ShadowTextureMatrix(const float* a, const float* b, float* out, const float* first);
 // 0x004DB9D0: the stencil shadow volumes of the scene's meshes in view (both faces in one pass with two-sided
 // stencil 0x007CA97C, else front and back faces apart).
-void __cdecl DrawShadowVolumes(const void* scene);
+void __cdecl DrawShadowVolumes(const void* scene, int viewport); // (the viewport isn't read)
 // 0x004DBBD0: each caster's model into its shadow texture.
 void __cdecl RenderShadowTextures();
 // 0x004DBF50: each caster's shadow onto the meshes in view (`meshes`, `count`).

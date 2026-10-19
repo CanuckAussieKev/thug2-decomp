@@ -215,3 +215,27 @@ that never returns and end it from a stand-in).
   Mutations: 27 deliberate bugs; 23 caught (22 at first; a position with w other than 1 was added for 1). Of the
   other 4, two re-copy fields the memcpy already copied (no effect), one (cl_9c) didn't compile, and one only
   reorders a sum before a float rounding.
+- [x] Batch AM-8 (NOT run in the game yet; drawing a scene's meshes and the light glows): src/game/gfx/scene_render.{h,cpp},
+  glow.{h,cpp} (new).
+  - 0x004DC700 `RenderScene(scene, flags, viewport)` (flags: opaque 1, transparent 2, occlusion 4, no culling 8, near
+    first 0x10 - not with 0x1000 or more opaque meshes -, shadow volumes only 0x20, statistics 0x40): each mesh shown
+    and not hidden, in the viewport's bit, in view and not occluded; the material set when it changes; near first:
+    meshes up to depth 600 now (not a number: never), the rest after; the meshes drawn remembered for the shadows
+    (0x792640, 4096 at most, the last slot reused) with z writes off and the anisotropic filter dropped meanwhile;
+    then the transparent ones, the flagged ones sorted by depth (0x004DA690 `CompareDistances`, the game's qsort)
+    and the rest.
+  - 0x004DCC70 `UpdateGlows(queries)` (the glow table 0x7CA9D8: with queries, each glow with fewer than three
+    outstanding gets a free query of the 1024 - none free: the last, unmarked - and its quad written; else each
+    glow's oldest query read (0x005F4C80; not on a Radeon 8500): answered - pixels or not -, still pending - the
+    last answer -, the size grown toward its maximum or shrunk by its rate; its quad written at alpha 0x40. The
+    quad goes to 0x7CA9F0 and nothing draws it in this build).
+  Test (src/hook/selftests_appmain8.cpp, Early): TestRenderScene (24 seeds over every flag combination that
+  matters: 40 meshes shown / hidden / culled / occluded in random viewports, depths around 600 (also exactly and not
+  a number), many flagged ones with equal depths, two scenes of over 4096 meshes - the drawn list's cap, the
+  transparent limit -, the unknown +0x40 set, shadows on / off, the anisotropic filter on / off); TestGlows (12
+  seeds: queries handed out / all in use / three outstanding / a single glow with query 0 free, answers 0 / 1 /
+  other, the Radeon flag, the camera's column of every kind incl. a zero z and a tiny one).
+  - DrawShadowVolumes (batch AM-3) now takes the viewport the original passes it (unused).
+  Mutations: 28 deliberate bugs; 27 caught (17 at first; the flag table, many flagged meshes, scenes of 4096 and
+  more, a culling-free unknown +0x40 case, single glows and zero / tiny camera columns were added for 10). The
+  other (gl_u) only changes the sign of a zero that later sums lose.

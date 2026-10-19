@@ -189,7 +189,7 @@ void __cdecl ShadowTextureMatrix(const float* a, const float* b, float* out, con
 }
 
 // 0x004DB9D0
-void __cdecl DrawShadowVolumes(const void* scene)
+void __cdecl DrawShadowVolumes(const void* scene, int /*viewport*/)
 {
     void* vertexColour = GameVariable<void*>(0x007CA94C);
     SetPixelShader(vertexColour, nullptr);
