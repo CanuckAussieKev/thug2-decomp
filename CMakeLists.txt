@@ -108,6 +108,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_tod3.cpp
     src/hook/selftests_tod4.cpp
     src/hook/selftests_mouse.cpp
+    src/hook/selftests_automation.cpp
     src/hook/selftests_sprite.cpp
     src/hook/selftests_netB.cpp
     src/hook/selftests_mainloop.cpp
@@ -208,6 +209,7 @@ add_library(thug2_code OBJECT
     src/game/front/restart_tester.cpp
     src/game/front/career_complete.cpp
     src/game/front/start_level.cpp
+    src/game/front/automation.cpp
     src/game/front/level_editor_hud.cpp
     src/game/front/level_editor_layout.cpp
     src/game/front/level_editor_objects.cpp

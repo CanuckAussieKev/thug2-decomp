@@ -9,6 +9,7 @@
 
 #include <SDL2/SDL.h>
 
+#include "game/front/automation.h"
 #include "game/front/level_editor.h"
 #include "game/front/mouse_menus.h"
 #include "game/sio/device.h"
@@ -1023,6 +1024,8 @@ void ProcessSdlDevice(Device* device)
     auto port = static_cast<uint32_t>(device->m_port);
     if (port < kMaxPlayers && s_players[port].controller && !s_players[port].lockedOut)
         PollController(device, s_players[port].controller);
+    // (not original: the buttons the test-automation channel presses - game/front/automation.h)
+    Front::Automation::AddPadButtons(device->m_port, data);
 
     data[2] = static_cast<uint8_t>(~data[2]);
     data[3] = static_cast<uint8_t>(~data[3]);

@@ -158,6 +158,11 @@ TargetState AdvanceTarget(Target& target, bool wait, int (*read)(void* context),
 // elements under the cursor when none), its menu's state, and which events were sent or why none were.
 bool& DebugEnabled();
 
+// For the test-automation channel (game/front/automation.h): whether a menu takes the pad events now (the game's
+// test, as hovering uses it), and a menu pad event launched as InputLogic launches it (pad_up, pad_choose...).
+bool MenuGetsPadEvents(Front::CScreenElement* menu);
+void SendMenuPadEvent(Mdl::FrontEnd* frontEnd, uint32_t event);
+
 // A click on an item with its own pad_left / pad_right handlers: -1 in its left 30%, +1 in its right 30%, else 0
 // (pad_choose).
 int OptionSide(const Rect& item, float x);

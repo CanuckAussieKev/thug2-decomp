@@ -95,19 +95,28 @@ void Update(Mdl::FrontEnd* frontEnd)
     if (++s_frames < 60)
         return;
     s_done = true;
-    std::string level = Requested();
+    Load(Requested(), nullptr);
+}
+
+bool Load(const char* name, std::string* why)
+{
+    std::string level = name;
     if (_strnicmp(level.c_str(), "load_", 5) != 0)
         level = "Load_" + level;
     uint32_t load = Checksum(level.c_str());
     if (!IsScript(load)) {
         Log("start level: %s isn't a level's load script - the main menu stays", level.c_str());
-        return;
+        if (why)
+            *why = level + " isn't a level's load script";
+        return false;
     }
     if (!SceneInstalled(level.substr(5))) {
         Log("start level: %s - the level's scene isn't installed (the game would crash loading it) - the main menu "
             "stays",
             level.c_str());
-        return;
+        if (why)
+            *why = level + ": the level's scene isn't installed";
+        return false;
     }
     Log("start level: %s (free skate)", level.c_str());
     Script::RunScript(Checksum("EnableSun"), nullptr, nullptr, false, "EnableSun");
@@ -120,6 +129,7 @@ void Update(Mdl::FrontEnd* frontEnd)
     Script::SpawnScript(Checksum("level_select_change_level"), params, 0, nullptr, 0, 0, false, false, false, false);
     params->Clear();
     Script::DeleteStruct(params);
+    return true;
 }
 
 } // namespace Front::StartLevel

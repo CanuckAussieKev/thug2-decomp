@@ -1,10 +1,18 @@
 param([int]$Seconds = 40, [string]$Shot = 'shot', [string]$Keys = '', [string]$Game = 'C:\Games\THUG2',
-      [string]$ShotDir = '', [string]$Level = '', [string]$Tests = '', [switch]$FullTests)
+      [string]$ShotDir = '', [string]$Level = '', [string]$Tests = '', [switch]$FullTests, [string[]]$Commands = @(),
+      [switch]$WaitReady, [string]$Run = '')
 # -Level <name>: the game started with -level <name> - straight into free skate there (src/game/front/start_level.h).
 # Self-tests (start-up time): workspaces skip the early tests ([selftests] early=0 - thug2_check runs them offline).
 #   -Tests "anim,coll": only the self-tests whose names contain one of those words run (THUG2_SELFTESTS) - the ones of
 #                       the work being tested; -FullTests: every stage and test (THUG2_SELFTESTS_EARLY=1) - a range's
 #                       final run.
+# Commands (the test-automation channel, src/game/front/automation.h - [features] automation=1, set in the workspaces):
+#   -Commands "waitfor ready","choose menu_singlesess",...: written to <folder>\thug2-decomp-commands.txt before the
+#                       game starts; the run waits until the game has done them (its status file) - -Seconds is then
+#                       the most it waits - and the picture is taken right after. No fixed waits, no posted keys.
+#   -WaitReady: wait until the main menu is up (the status file's "ready") instead of -Seconds (then the most).
+#   -Run <script>: the game started with -run <script> (run once the main menu is up).
+#   game_cmd.ps1 sends more commands to a game that runs. -Keys still works (after the commands).
 # Starts the game in the -Game folder (C:\Games\THUG2, or a workspace copy C:\Games\THUG2-1, -2...), waits, takes a
 # picture of its window (half size), optionally sends keys, then closes that game (only the one it started).
 # Workspace folders (anything but the main install, C:\Games\THUG2\Game) never take the foreground: keys are posted to the window
@@ -14,6 +22,7 @@ $dir = $PSScriptRoot
 if (-not $ShotDir) { $ShotDir = Join-Path $env:TEMP 'thug2-shots' }
 New-Item -ItemType Directory -Force $ShotDir | Out-Null
 . (Join-Path $dir 'game_exe.ps1')
+. (Join-Path $dir 'automation.ps1')
 $Game = Resolve-GameFolder $Game
 $exe = Find-GameExe $Game
 if (-not $exe) { "NO GAME IN $Game"; exit 2 }
@@ -35,7 +44,17 @@ public static class FocusBack {
 $before = if ($workspace) { [FocusBack]::GetForegroundWindow() } else { [IntPtr]::Zero }
 $env:THUG2_SELFTESTS = if ($FullTests) { '' } else { $Tests }  # (the game inherits these)
 $env:THUG2_SELFTESTS_EARLY = if ($FullTests) { '1' } else { '' }
-if ($Level) { $p = Start-Process -FilePath $exe -WorkingDirectory $Game -ArgumentList @('-level', $Level) -PassThru }
+$useStatus = $Commands.Count -gt 0 -or $WaitReady
+if ($useStatus -and -not (Test-AutomationOn $Game)) {
+    "THE AUTOMATION CHANNEL IS OFF in $Game ([features] automation=1 - make_workspace.ps1 sets it) - not started"; exit 4
+}
+if (Test-AutomationOn $Game) { Clear-AutomationFiles $Game }  # (the last run's commands never run again)
+$lines = if ($Commands.Count) { Add-GameCommands $Game $Commands } else { 0 }
+$gameArgs = @()
+if ($Level) { $gameArgs += @('-level', $Level) }
+if ($Run) { $gameArgs += @('-run', $Run) }
+$started = [Diagnostics.Stopwatch]::StartNew()
+if ($gameArgs.Count) { $p = Start-Process -FilePath $exe -WorkingDirectory $Game -ArgumentList $gameArgs -PassThru }
 else { $p = Start-Process -FilePath $exe -WorkingDirectory $Game -PassThru }
 if ($workspace) {
     # (a new window takes the front: once the game's window is up, the window the user had in front gets it back)
@@ -54,11 +73,24 @@ function Snap($name) {
     if ($workspace) { & "$dir\window_shot.ps1" -ProcessId $p.Id -Path "$ShotDir\$name.png" }
     else { & "$dir\game_shot.ps1" -Path "$ShotDir\$name.png" }
 }
-for ($i = 0; $i -lt $Seconds; $i++) {
-    Start-Sleep -Seconds 1
-    if ($p.HasExited) { break }
+if ($Commands.Count) {
+    $r = Wait-GameCommands $Game $lines $Seconds $p
+    "commands {0} after {1:N1} s from the start: {2}" -f ($(if ($r.ok) { 'done' } else { 'FAILED' })), $started.Elapsed.TotalSeconds, $r.why
+    Format-GameStatus $r.status
+} elseif ($WaitReady) {
+    while ($started.Elapsed.TotalSeconds -lt $Seconds -and -not $p.HasExited) {
+        $s = Read-GameStatus $Game
+        if ($s -and $s.ready) { break }
+        Start-Sleep -Milliseconds 100
+    }
+    "ready after {0:N1} s: {1}" -f $started.Elapsed.TotalSeconds, (Format-GameStatus (Read-GameStatus $Game))
+} else {
+    for ($i = 0; $i -lt $Seconds; $i++) {
+        Start-Sleep -Seconds 1
+        if ($p.HasExited) { break }
+    }
 }
-if ($p.HasExited) { "exited early (code $($p.ExitCode)) after $i s" } else {
+if ($p.HasExited) { "exited early (code $($p.ExitCode)) after {0:N1} s" -f $started.Elapsed.TotalSeconds } else {
     Snap "$Shot-1"
     if ($Keys -ne '') {
         if ($workspace) { $env:KEYS_POST = '1'; $env:KEYS_NO_FOCUS = '1' }
@@ -68,7 +100,7 @@ if ($p.HasExited) { "exited early (code $($p.ExitCode)) after $i s" } else {
         Start-Sleep -Seconds 3
         Snap "$Shot-2"
     }
-    "running after $Seconds s; responding=$($p.Responding)"
+    "running after {0:N1} s; responding=$($p.Responding)" -f $started.Elapsed.TotalSeconds
     Stop-Process -Id $p.Id -Force
 }
 Start-Sleep -Seconds 2

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 namespace Mdl {
 struct FrontEnd;
 }
@@ -21,5 +23,9 @@ namespace Front::StartLevel {
 const char* Requested();
 // Once a frame from the front end's input logic (MouseMenus::Update).
 void Update(Mdl::FrontEnd* frontEnd);
+// What Update does once the menu is up: the level `name` (with or without Load_) in free skate. False (logged, and
+// why in `why` if given) for an unknown level or one whose scene isn't installed. (Also the automation channel's
+// `level` command - game/front/automation.h.)
+bool Load(const char* name, std::string* why);
 
 } // namespace Front::StartLevel
