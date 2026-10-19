@@ -95,6 +95,10 @@ installed); functions PartyMod patched get source with PartyMod's behaviour. Lat
   public repositories may be used within their licences (thps-formats is MIT: attribute in THIRD_PARTY_NOTICES.md).
   THUGPRO's installed binaries (C:\Users\kevin\AppData\Local\THUG Pro, C:\Games\THUGPRO) may be inspected too; never
   write into those folders. Pass this on to every agent.
+- **Naming: keep this project's own established names and conventions** (the user, 2026-10-20). Names only need to be
+  accurate and consistent with what we already have - not Neversoft's. Outside names (Morten1337's thug2-decomp dump,
+  the Downhill Jam map, the skate7 symbols) may help to understand what code does, but they never decide what we call
+  it, and existing code is not renamed to match them.
 - **Never read, reference or copy leaked Neversoft / Activision source code** - e.g. https://github.com/thug1src/thug
   (THUG1's source) or any other leak of a Tony Hawk game's code: our code comes from our own decompilation of the game,
   and leaked code would taint it. Pass this on to every agent too.
