@@ -27,6 +27,8 @@ public:
 
     // 0x0040B370 (slot 4): the geometry, and its checksum (the sector's name) as the object's.
     void SetGeometry(CCollObjTriData* geometry);
+    // 0x0040FEC0: the checksum, the geometry's too (if it has one).
+    void SetChecksum(uint32_t checksum);
     // 0x00413390: the scalar deleting destructor (the base's body inlined: the geometry deleted if it's owned and
     // not shared).
     CCollObj* ScalarDelete(uint8_t flags);

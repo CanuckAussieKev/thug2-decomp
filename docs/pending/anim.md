@@ -489,6 +489,33 @@ ProjectToPlane made exact).
     the 0.5-unit extension below a float's resolution at the line's ends.
   - Also: the self-test runner's watchdog; a flaky "vector insert iterator out-of-range" DEBUG CRT REPORT seen
     once in a full offline run (THUG2PM.exe) and not again in four more - not traced to a test.
+- [x] Batch AN-18 (NOT run in the game yet; the rect queries and the rect feeler; 14 functions): src/game/nx/coll_tests.h /
+  .cpp (RectHitsTriangle), coll_rect.h / .cpp (new), coll_static.h, coll_movable.h, coll_obj.h.
+  - Nx::RectHitsTriangle 0x0040D370 (a parallelogram - corner and two sides, Nx::CollRect - against a triangle:
+    the triangle's edges cut by the rect's plane give P Q (each on an edge kind 1-3, crossing points rounded in the
+    original's two different ways); in the plane the normal is largest across, each end inside all four sides a
+    point, then each rect side crossing P Q (kind 0); true only with two points - one may be written and false
+    returned, as in the original).
+  - Nx::RectHit (0x60: two ends - point, the triangle edge, on-edge flag -, normal, checksum, flag 0x40) and its
+    copies 0x00417AD0 / 0x00417B60; Nx::RectHits (0xC08: 32 hits, count, ignore / require flags).
+  - CCollStatic::CollideWithRect 0x00410C90 (slot 15) and CCollStaticInstance::CollideWithRect 0x004128B0 (in the
+    instance's space, its own box; points scaled and placed, normals turned back), CCollScaled::RectToLocal
+    0x00410AA0, the in-place vector turn 0x00411840; CollideRectWithStatics 0x0040FEE0 (cache or the scenes' grids
+    along the rect's diagonal; the grid's ObjectsInBox called and its answer dropped, as the original).
+  - Nx::CRectFeeler (0x1844): Construct 0x004182D0, Query 0x00417840 (its cache or 0x0069198C), JoinHits 0x00417C00
+    (duplicates dropped, pieces lying along each other joined end to end), DebugDraw 0x00417860 (compiled out).
+  - Small ones next to them: CCollObj::SetChecksum 0x0040FEC0, CCollStatic::TakeBuffer 0x00410BC0.
+  - Tests (selftests_anim16.cpp): TestAnimCollRectTriangle - 20000 random rect / triangle pairs (axis planes,
+    degenerate rects, corners on / near the plane, NaN) and 6000 exact ones (a unit rect in z = 0 with corners at
+    0, +-1e-5, ...; rects whose normal has two equal largest parts); TestAnimCollRectQueries - a 60-face mesh plain
+    and compressed (with and without a tree), sector and instance (scaled, turned, placed), 1600 rects with flags
+    and a nearly full / full list; rects into the instance's space; the world query through a cache and through
+    stand-in grids; the rect feeler built, queried and 400 crafted hit lists joined; the copies and small pieces.
+  - Mutations: 80 deliberate bugs; 72 caught (66 at first: exact plane distances, normal ties, a tree, the
+    rejection scale added for 6). Not caught: rounding changes below a float's resolution in RectHitsTriangle
+    (the order of a plane distance's sum, Q's side values as double or float, the second side direction test as
+    float or double - rounding can't change its sign), the w part of a scaled point (TransformAsPos ignores it),
+    of a kind-1 edge (raw vertices have w 0) and of a hit's direction (never read).
 - [ ] Next: AN-15 - slots 15-17 of the sector / instance: 0x00410C90 / 0x004128B0, 0x004110B0, 0x004114E0; then
   0x0040BDC0, 0x0040D370, 0x0040E280, 0x0040E560, 0x0040E940, 0x0040EC90, 0x0040F9E0, 0x0040FC00, 0x0040FEC0,
   0x0040FEE0, 0x00410240, 0x004106C0, 0x00410930, 0x00410AA0, 0x00410BC0, the 0x00417xxx feelers / registration

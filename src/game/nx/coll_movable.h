@@ -10,6 +10,7 @@
 namespace Nx {
 
 struct CollisionHit;
+struct CollRect;
 
 // A movable collision object (0xA4 bytes, vtable 0x00645B00; a car, a level object...): its world position and
 // orientation, and the orientation's inverse (the transpose).
@@ -101,6 +102,9 @@ public:
     void UpdateInverse();
     // 0x00410A30: `line` (both ends, w included) through the inverse - into the object's space.
     void LineToLocal(const Mth::Line* line, Mth::Line* out) const;
+    // 0x00410AA0: `rect` into the object's space: its corner and the far ends of its sides through the inverse,
+    // the sides measured from the new corner.
+    void RectToLocal(const CollRect* rect, CollRect* out) const;
     // 0x004109C0 / 0x00412060 / 0x00412050 (slots 7, 8, 25)
     Mth::Vector* GetWorldPosition();
     // 0x004109D0 (slot 9): vertex `index` scaled (w the scale's w), through the matrix.

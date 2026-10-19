@@ -16,6 +16,54 @@ constexpr float kParallel = 1e-11f;
 
 float Difference(float a, float b) { return static_cast<float>(static_cast<double>(a) - b); }
 
+// A plane distance this small counts as on the plane (0x006453B8).
+constexpr float kOnPlane = 0.00001f;
+
+float Component(const Mth::Vector& v, int axis) { return axis == 0 ? v.x : axis == 1 ? v.y : v.z; }
+
+// Where the triangle edge from `a` to `b` - plane distances da and db, on either side - meets the plane:
+// a + (b - a) da / (da - db); a itself when the distances are (nearly) equal. Rounded as the original's x87 code
+// does it for P (and for Q on v0 v2): the x and w parts of (b - a) da rounded before the division, y and z not.
+Mth::Vector EdgeCrossing(const Mth::Vector& a, const Mth::Vector& b, float da, float db)
+{
+    double difference = static_cast<double>(da) - db;
+    if (!(std::fabs(difference) > kOnPlane))
+        return a;
+    double ex = static_cast<double>(b.x) - a.x;
+    double ey = static_cast<double>(b.y) - a.y;
+    float ez = Difference(b.z, a.z);
+    float ew = Difference(b.w, a.w);
+    float sx = static_cast<float>(ex * da);
+    float sw = static_cast<float>(static_cast<double>(ew) * da);
+    float inverse = static_cast<float>(1.0 / difference);
+    Mth::Vector p;
+    p.x = static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(sx) * inverse)) + a.x);
+    p.y = static_cast<float>(static_cast<double>(static_cast<float>(ey * da * inverse)) + a.y);
+    p.z = static_cast<float>(static_cast<double>(ez) * da * inverse + a.z);
+    p.w = static_cast<float>(static_cast<double>(static_cast<float>(static_cast<double>(sw) * inverse)) + a.w);
+    return p;
+}
+
+// The same as Q's other form computes it: (b - a) da rounded part by part, divided by (da - db) as a float
+// (Mth::operator/), added to a.
+Mth::Vector EdgeCrossingScaled(const Mth::Vector& a, const Mth::Vector& b, float da, float db)
+{
+    double difference = static_cast<double>(da) - db;
+    if (!(std::fabs(difference) > kOnPlane))
+        return a;
+    float ez = Difference(b.z, a.z);
+    float ew = Difference(b.w, a.w);
+    Mth::Vector scaled{static_cast<float>((static_cast<double>(b.x) - a.x) * da),
+                       static_cast<float>((static_cast<double>(b.y) - a.y) * da),
+                       static_cast<float>(static_cast<double>(ez) * da), static_cast<float>(static_cast<double>(ew) * da)};
+    Mth::Vector r = Mth::operator/(scaled, static_cast<float>(difference));
+    return {a.x + r.x, r.y + a.y, r.z + a.z, r.w + a.w};
+}
+
+// Whether a point is on the rect's side of a side's line: the line value at or above 0 when the rect lies towards
+// positive values, else at or below.
+bool Inside(bool towardsPositive, double value) { return towardsPositive ? value >= 0.0 : value <= 0.0; }
+
 } // namespace
 
 // 0x0040B420 (NaN in the determinant or the first barycentric coordinate doesn't rule a hit out by itself)
@@ -304,9 +352,174 @@ __declspec(naked) void SegmentsCross2DKeepingEdx()
     }
 }
 
+// 0x0040D370 (P's side tests use its line values unrounded, Q's rounded to floats; each pair of sides' direction
+// test the first time unrounded, the second time rounded - as the original's x87 code keeps them)
+bool RectHitsTriangle(const CollRect& rect, const Mth::Vector& v0, const Mth::Vector& v1, const Mth::Vector& v2,
+                      Mth::Vector* points, int* kinds)
+{
+    const Mth::Vector& o = rect.origin;
+    const Mth::Vector& a = rect.sideA;
+    const Mth::Vector& b = rect.sideB;
+    // the rect's plane: n = a x b, and the triangle's corners' distances from it
+    float nx = static_cast<float>(static_cast<double>(b.z) * a.y - static_cast<double>(b.y) * a.z);
+    float ny = static_cast<float>(static_cast<double>(a.z) * b.x - static_cast<double>(b.z) * a.x);
+    float nz = static_cast<float>(static_cast<double>(b.y) * a.x - static_cast<double>(a.y) * b.x);
+    double d = -((static_cast<double>(ny) * o.y + static_cast<double>(nz) * o.z) + static_cast<double>(nx) * o.x);
+    float d0 = static_cast<float>(
+        ((static_cast<double>(nz) * v0.z + static_cast<double>(ny) * v0.y) + static_cast<double>(nx) * v0.x) + d);
+    float d1 = static_cast<float>(
+        ((static_cast<double>(nx) * v1.x + static_cast<double>(ny) * v1.y) + static_cast<double>(nz) * v1.z) + d);
+    float d2 = static_cast<float>(
+        ((static_cast<double>(nx) * v2.x + static_cast<double>(nz) * v2.z) + static_cast<double>(ny) * v2.y) + d);
+    if (d0 > 0.0f && d1 > 0.0f && d2 > 0.0f)
+        return false;
+    if (d0 < 0.0f && d1 < 0.0f && d2 < 0.0f)
+        return false;
+    if (std::fabs(d0) < kOnPlane)
+        d0 = 0.0f;
+    if (std::fabs(d1) < kOnPlane)
+        d1 = 0.0f;
+    if (std::fabs(d2) < kOnPlane)
+        d2 = 0.0f;
+
+    // the segment P Q where the plane cuts the triangle
+    Mth::Vector p, q;
+    int pKind, qKind;
+    if ((d0 <= 0.0f && d1 >= 0.0f) || (d0 >= 0.0f && d1 <= 0.0f)) {
+        pKind = 1;
+        p = EdgeCrossing(v0, v1, d0, d1);
+        if ((d1 <= 0.0f && d2 >= 0.0f) || (d1 >= 0.0f && d2 <= 0.0f)) {
+            qKind = 2;
+            q = EdgeCrossingScaled(v1, v2, d1, d2);
+        } else {
+            qKind = 3;
+            q = EdgeCrossingScaled(v2, v0, d2, d0);
+        }
+    } else {
+        pKind = 2;
+        p = EdgeCrossing(v1, v2, d1, d2);
+        qKind = 3;
+        q = EdgeCrossing(v0, v2, d0, d2);
+    }
+
+    // in the plane the normal is largest across
+    float ax = std::fabs(nx), ay = std::fabs(ny), az = std::fabs(nz);
+    int i = 1, j = 2;
+    if (ax < az && ay < az) {
+        i = 0;
+        j = 1;
+    } else if (ax < ay && az < ay) {
+        i = 0;
+        j = 2;
+    }
+    float o1 = Component(o, i), o2 = Component(o, j);
+    float a1 = Component(a, i), a2 = Component(a, j);
+    float b1 = Component(b, i), b2 = Component(b, j);
+    float p1 = Component(p, i), p2 = Component(p, j);
+    float q1 = Component(q, i), q2 = Component(q, j);
+
+    // each end against the sides' lines: side 0 (o along a), side 1 (o + b along a) ...
+    float negA1 = -a1;
+    float c0 = static_cast<float>(static_cast<double>(a1) * o2 - static_cast<double>(a2) * o1);
+    double pAlongA = static_cast<double>(negA1) * p2 + static_cast<double>(a2) * p1;
+    double qAlongA = static_cast<double>(negA1) * q2 + static_cast<double>(q1) * a2;
+    float qAlongAf = static_cast<float>(qAlongA);
+    double bSide = static_cast<double>(negA1) * b2 + static_cast<double>(b1) * a2;
+    float bSidef = static_cast<float>(bSide);
+    bool pIn0 = Inside(bSide > 0.0, c0 + pAlongA);
+    bool qIn0 = Inside(bSide > 0.0, static_cast<float>(qAlongA + c0));
+    if (!pIn0 && !qIn0)
+        return false;
+    float far2 = b2 + o2, far1 = b1 + o1;
+    float c1 = static_cast<float>(static_cast<double>(far2) * a1 - static_cast<double>(far1) * a2);
+    bool pIn1 = bSidef < 0.0f ? pAlongA + c1 >= 0.0 : pAlongA + c1 <= 0.0;
+    float qEnd1 = qAlongAf + c1;
+    bool qIn1 = bSidef < 0.0f ? qEnd1 >= 0.0f : qEnd1 <= 0.0f;
+    if (!pIn1 && !qIn1)
+        return false;
+    // ... side 2 (o along b), side 3 (o + a along b)
+    float negB1 = -b1;
+    float c2 = static_cast<float>(static_cast<double>(b1) * o2 - static_cast<double>(b2) * o1);
+    double pAlongB = static_cast<double>(negB1) * p2 + static_cast<double>(p1) * b2;
+    double qAlongB = static_cast<double>(negB1) * q2 + static_cast<double>(q1) * b2;
+    float qAlongBf = static_cast<float>(qAlongB);
+    double aSide = static_cast<double>(negB1) * a2 + static_cast<double>(b2) * a1;
+    float aSidef = static_cast<float>(aSide);
+    bool pIn2 = Inside(aSide > 0.0, c2 + pAlongB);
+    bool qIn2 = Inside(aSide > 0.0, static_cast<float>(qAlongB + c2));
+    if (!pIn2 && !qIn2)
+        return false;
+    float far4 = a2 + o2, far3 = a1 + o1;
+    float c3 = static_cast<float>(static_cast<double>(far4) * b1 - static_cast<double>(far3) * b2);
+    bool pIn3 = aSidef < 0.0f ? pAlongB + c3 >= 0.0 : pAlongB + c3 <= 0.0;
+    float qEnd3 = qAlongBf + c3;
+    bool qIn3 = aSidef < 0.0f ? qEnd3 >= 0.0f : qEnd3 <= 0.0f;
+    if (!pIn3 && !qIn3)
+        return false;
+
+    // the ends inside the rect, then the sides crossing P Q
+    int found = 0;
+    bool pInside = pIn0 && pIn1 && pIn2 && pIn3;
+    bool qInside = qIn0 && qIn1 && qIn2 && qIn3;
+    if (pInside) {
+        points[0] = p;
+        kinds[0] = pKind;
+        if (qInside) {
+            points[1] = q;
+            kinds[1] = qKind;
+            return true;
+        }
+        found = 1;
+    } else if (qInside) {
+        points[0] = q;
+        kinds[0] = qKind;
+        found = 1;
+    }
+    float dq1 = q1 - p1, dq2 = q2 - p2;
+    float s;
+    auto take = [&](const Mth::Vector& point) { // (true: that was the second)
+        points[found] = point;
+        kinds[found] = 0;
+        bool second = found == 1;
+        found = 1;
+        return second;
+    };
+    if (SegmentsCross2D(o1, o2, a1, a2, p1, p2, dq1, dq2, &s)) {
+        Mth::Vector point{s * a.x, s * a.y, s * a.z, s * a.w};
+        point = {o.x + point.x, point.y + o.y, point.z + o.z, o.w + point.w};
+        if (take(point))
+            return true;
+    }
+    if (SegmentsCross2D(far1, far2, a1, a2, p1, p2, dq1, dq2, &s)) {
+        Mth::Vector point{s * a.x, s * a.y, s * a.z, s * a.w};
+        point = {o.x + point.x, point.y + o.y, point.z + o.z, o.w + point.w};
+        point = {b.x + point.x, b.y + point.y, b.z + point.z, b.w + point.w};
+        if (take(point))
+            return true;
+    }
+    if (SegmentsCross2D(o1, o2, b1, b2, p1, p2, dq1, dq2, &s)) {
+        Mth::Vector point = b;
+        point *= s;
+        point += o;
+        if (take(point))
+            return true;
+    }
+    // (the last side only counts as the second point)
+    if (!SegmentsCross2D(far3, far4, b1, b2, p1, p2, dq1, dq2, &s) || found != 1)
+        return false;
+    Mth::Vector point = b;
+    point *= s;
+    point += o;
+    point += a;
+    points[1] = point;
+    kinds[1] = 0;
+    return true;
+}
+
 } // namespace Nx
 
 REPLACE(0x0040B420, Nx::RayHitsTriangle);
 REPLACE(0x0040B860, Nx::PointTriangleDistanceSquared);
+REPLACE(0x0040D370, Nx::RectHitsTriangle);
 REPLACE_UNCHECKED(0x0040B610, Nx::LineHitsSphereKeepingEdx);
 REPLACE_UNCHECKED(0x0040B750, Nx::SegmentsCross2DKeepingEdx);

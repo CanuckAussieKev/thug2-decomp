@@ -11,6 +11,8 @@
 namespace Nx {
 
 struct CollisionHit;
+struct CollRect;
+struct RectHits;
 
 // The triangle collision objects: a level sector's (in world space), an instance of one (scaled and placed) and a
 // movable one. Their faces come from the geometry: face flags (u16 at face +0) and terrain (u16 at +2), faces of
@@ -48,6 +50,13 @@ public:
     // 0x00410C70 (slot 13) / 0x00412750 (slot 21): the geometry's box.
     bool WithinBBox(const Mth::BBox* box) const;
     const Mth::BBox* GetGeometryBBox() const;
+    // 0x00410C90 (slot 15): the rect against each face of the geometry in `box` (not rejected by its flags): each
+    // crossing (RectHitsTriangle) a hit - its ends' triangle edges, the face's normal (when it has one), the
+    // checksum and flag 0x40. True as soon as the list is full and another is found; else whether it has any.
+    bool CollideWithRect(const CollRect* rect, const Mth::BBox* box, RectHits* hits);
+    // 0x00410BC0: the face-rejection buffer taken from `block` (8-byte faces keep theirs: nothing taken) and the
+    // geometry's rejection scale kept (+0x14). The block's next free byte.
+    uint8_t* TakeBuffer(uint8_t* block, const CCollObjTriData* geometry);
 
     uint8_t* m_buffer;   // +0x10
     int m_unknown14;     // +0x14
@@ -82,6 +91,9 @@ public:
     // 0x00411460 (slot 13) / 0x00412830 (slot 21)
     bool WithinBBox(const Mth::BBox* box) const;
     Mth::BBox* GetWorldBBox();
+    // 0x004128B0 (slot 15): as the sector's, with the rect in the instance's space (its box from the rect's
+    // corners; `box` unused); each hit's points scaled and placed, its normals turned back into world space.
+    bool CollideWithRect(const CollRect* rect, const Mth::BBox* box, RectHits* hits);
     // 0x00411330 (slot 23): rescaled by `scale` times the current scale, if `position` is where it is already.
     void RescaleIfAt(const Mth::Vector* position, const Mth::Vector* scale);
     // 0x00412F50 (slot 19): the geometry drawn with the scaled matrix (0x00414D60).
