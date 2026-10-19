@@ -239,3 +239,28 @@ that never returns and end it from a stand-in).
   Mutations: 28 deliberate bugs; 27 caught (17 at first; the flag table, many flagged meshes, scenes of 4096 and
   more, a culling-free unknown +0x40 case, single glows and zero / tiny camera columns were added for 10). The
   other (gl_u) only changes the sign of a zero that later sums lose.
+- [x] Batch AM-9 (NOT run in the game yet; textures, image loaders, key names): src/game/gfx/texture.{h,cpp},
+  texture_file.cpp, src/game/sys/key_names.{h,cpp} (new).
+  - Nx::sTexture (0x20 bytes) and its list (0x7CC254, doubly linked): 0x004E04B0 `Construct` (listed first),
+    0x004E0500 `ConstructCopy` (a managed Direct3D texture of the source's size, levels and format, each level's
+    rows copied - 4x4 blocks for DXT1 (8 bytes) / others (16)), 0x004E06A0 `DestroyBody` (unlisted; released; off
+    any of the first four stages it was cached on), 0x004E03F0 `Unlist`, 0x004E0380 `Set`, 0x004E03A0 `Lock`
+    (null when it fails), 0x004E03D0 `Unlock`, 0x004E03E0 `PaletteOwner`, 0x004E0700 `CreateRenderTarget` (the
+    surface asked for even when the creation fails, as the original), 0x004E0320 `ReleaseRenderTargetTextures`
+    (the eight stages emptied straight on the device; every render target's texture and surface released),
+    0x004E0440 `RestoreRenderTargetTextures`.
+  - 0x004E0790 `LoadTextureFile(name)` / 0x004E0A90 `LoadTextureMemory(data)`: the engine's image format (a
+    32-byte header, a palette for formats under 0x10 and 0x13, the texels swizzled unless a size isn't a power of
+    two or - memory only - the id is 0x9B), into an A8R8G8B8 managed texture; unswizzling (0x005F5AF0) and the
+    palette (0x005F45E0) are still the game's.
+  - 0x004E0DA0 `SetKeyNames` / 0x004E0FE0 `SetGermanKeyNames`: the keyboard's short key names (the German keypad
+    "ZB"), Main's language start-up.
+  Test (src/hook/selftests_appmain9.cpp, Early): TestTextures (6 seeds: construct, render targets made and failing,
+  copies of 1-3 levels in A8R8G8B8 / DXT1 / DXT5 with their own pitches, unlisting the head / the middle / a
+  stranger, release / restore incl. a listed plain texture and a failing re-creation, destroyed while cached on
+  stage 3, lock failing); TestTextureLoaders (every format incl. 0x10, sizes power of two or not or zero, the 0x9B
+  id, a missing file, a failing texture); TestKeyNames (both languages' calls and texts).
+  Mutations: 29 deliberate bugs; 28 caught (20 at first; textures with distinct contents and pitches, the head
+  unlisted, a plain listed texture, a failing re-creation, the stage-3 cache and format 0x10 were added for 8).
+  The other (lf_pal) changes how much palette is read where the test's file always has a whole one (a shorter one
+  leaves the original's stack bytes in it).
