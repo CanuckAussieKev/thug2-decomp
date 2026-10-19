@@ -13,6 +13,8 @@ namespace Nx {
 struct CollisionHit;
 struct CollRect;
 struct RectHits;
+struct CollSphere;
+struct SphereHits;
 
 // The triangle collision objects: a level sector's (in world space), an instance of one (scaled and placed) and a
 // movable one. Their faces come from the geometry: face flags (u16 at face +0) and terrain (u16 at +2), faces of
@@ -54,6 +56,10 @@ public:
     // crossing (RectHitsTriangle) a hit - its ends' triangle edges, the face's normal (when it has one), the
     // checksum and flag 0x40. True as soon as the list is full and another is found; else whether it has any.
     bool CollideWithRect(const CollRect* rect, const Mth::BBox* box, RectHits* hits);
+    // 0x004110B0 (slot 16, an instance's too: its faces are taken unplaced): the sphere (moving when `hits` has a
+    // sweep) against each face in `box` not rejected by its flags (SphereHitsTriangle / SweptSphereHitsTriangle):
+    // each touch a hit (with its time when moving). True as soon as one is found with the list full or in mode 2.
+    bool CollideWithSphere(const CollSphere* sphere, const Mth::BBox* box, SphereHits* hits);
     // 0x00410BC0: the face-rejection buffer taken from `block` (8-byte faces keep theirs: nothing taken) and the
     // geometry's rejection scale kept (+0x14). The block's next free byte.
     uint8_t* TakeBuffer(uint8_t* block, const CCollObjTriData* geometry);

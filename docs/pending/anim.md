@@ -516,6 +516,33 @@ ProjectToPlane made exact).
     (the order of a plane distance's sum, Q's side values as double or float, the second side direction test as
     float or double - rounding can't change its sign), the w part of a scaled point (TransformAsPos ignores it),
     of a kind-1 edge (raw vertices have w 0) and of a hit's direction (never read).
+- [x] Batch AN-19 (NOT run in the game yet; the sphere queries and the sphere feeler; 9 functions): src/game/nx/coll_sphere.h /
+  .cpp (new), coll_static.h.
+  - Nx::SegmentCrossesSphere 0x0040E280 (0-2 crossings along a segment), SweptSphereHitsEdge 0x0040E560 (a moving
+    sphere against a segment - touching already, else the capsule round it against the centre's path; the edge's
+    nearest point then; the edge's own move is (0, 0, 0, 1) in practice: the point's w counts the time),
+    SweptSphereHitsCorner 0x0040E940 (a corner and the edge from / to it the path heads for; a corner inside the
+    sphere sets *t 0 and misses), SweptSphereHitsTriangle 0x0040EC90 (the face's unit normal out; a sphere apart
+    from the plane classified by its centre against the three edges - the face if the move's capsule holds its
+    nearest point, an edge, a corner; one within reach by where its front meets the plane - the face up to the
+    limit, an edge, a corner's line test), SphereHitsTriangle 0x0040F9E0 (standing, from the front only).
+  - Nx::SphereHit (0x2C) / SphereHits (0x5A4: 32 hits, the move's direction and sweep, count, flags, mode);
+    CCollStatic::CollideWithSphere 0x004110B0 (slot 16 of sectors and instances alike: an instance's faces taken
+    unplaced, as the original); CollideSphereWithStatics 0x00410240 (the sphere's box and the moved sphere's; cache
+    or grids along the grown box's diagonal); Nx::CSphereFeeler (0xB60): Construct 0x00418330, Query 0x00418300 (mode
+    1, its cache or 0x00691990).
+  - The original's Line::DistanceSqrToLine / DistanceSqrToPoint (0x00402640 / 0x00402D60, an earlier batch's
+    rewrites, through Capsule::IntersectsSegment / ContainsPoint) keep doubles where ours round to floats - the
+    sphere tests let both runs use the original's there. Worth making exact some time (outside this range).
+  - Tests (selftests_anim17.cpp): TestAnimCollSphereTests - 6000 random cases (segments through / grazing / missing
+    spheres, moving spheres against still and moving edges, corners with their edges, triangles from both sides,
+    touching or not, moving or not, limits; standing spheres; NaN) and exact ones (ends and grazes on the surface,
+    a corner on the surface, a zero divisor deciding the edge, a flat triangle touched exactly / reached at the
+    limit, no area); TestAnimCollSphereQueries - a mesh's sector (plain / compressed; flags; full lists; modes; sweeps
+    0, positive, negative), the world query through a cache and stand-in grids, the feeler.
+  - Mutations: 74 deliberate bugs; 67 caught (57 at first: the exact cases, moving edges, negative sweeps added for
+    10). Not caught: equivalent ones (the capsule test always gives the edge parameter within 0..1; a triangle with
+    no area misses either way), NaN-only differences (2), and roundings below a float's resolution (3).
 - [ ] Next: AN-15 - slots 15-17 of the sector / instance: 0x00410C90 / 0x004128B0, 0x004110B0, 0x004114E0; then
   0x0040BDC0, 0x0040D370, 0x0040E280, 0x0040E560, 0x0040E940, 0x0040EC90, 0x0040F9E0, 0x0040FC00, 0x0040FEC0,
   0x0040FEE0, 0x00410240, 0x004106C0, 0x00410930, 0x00410AA0, 0x00410BC0, the 0x00417xxx feelers / registration
