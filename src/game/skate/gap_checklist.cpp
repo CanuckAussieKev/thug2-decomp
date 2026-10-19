@@ -452,6 +452,9 @@ bool __cdecl CFunc_GiveAllGaps(Script::CStruct* params, Script::CScript* /*scrip
     return true;
 }
 
+// 0x00585520
+void CGapChecklist::DestroyBody() { m_gaps.UnlinkAs(kGapNodeVtable); }
+
 } // namespace Game
 
 REPLACE(0x00578680, &Game::CGapCheckNode::DestroyBody);
@@ -486,3 +489,4 @@ REPLACE(0x005794E0, &Game::CGapCheck::Destroy);
 REPLACE(0x00579510, &Game::CGapCheck::DestroyBody);
 REPLACE(0x00579690, &Game::CGapChecklist::Construct);
 REPLACE(0x005796C0, &Game::CGapChecklist::AwardPendingGaps);
+REPLACE(0x00585520, &Game::CGapChecklist::DestroyBody);

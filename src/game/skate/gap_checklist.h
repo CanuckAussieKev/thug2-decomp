@@ -56,6 +56,8 @@ class CGapChecklist {
 public:
     // 0x00579690: no gaps, not built. Returns this.
     CGapChecklist* Construct();
+    // 0x00585520: the destructor body (its list head unlinked, as a Lst::Node<CGapCheck>; the gaps aren't freed).
+    void DestroyBody();
 
     // 0x00578840: every gap deleted, not built.
     void Clear();

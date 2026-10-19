@@ -276,6 +276,16 @@ Shared files touched: CMakeLists.txt (each new .cpp listed, additive).
       levels 0xEB1A4BC9 lists: visited and all their gaps), StartLevel 0x584C60, GetCheat 0x584CC0. Self-test (new
       src/hook/selftests_viewer16.cpp): TestCareer.
 
+- [x] Batch VW-17 (NOT run in the game yet; early tests pass offline; mutation run pending): the career's save half:
+      ReadFromStructure 0x584D00 (the save's 0x4DA4937B structure: goals, flags, global flags, each level's gap
+      checklist rebuilt - got gaps with their positions -, visited levels, cash / amounts and totals, counters - an
+      older save without the counter total sums them, +0x5EF 0x8C once past it -, +0x634 / +0x638, the info; found:
+      two totals and the info structure are left as the stack had them when a save lacks them - ours reads 0 / none),
+      the constructor 0x585270 (vtable 0x64EFD4, 21 gap checklists, the info, a full reset), WriteToStructure
+      0x585550 (the same, with the skate module's +0x378 and the game mode), GetCareerSaveInfo 0x585E20 (the skate
+      module's career, +0x20), the destructors 0x585E40 / 0x585EA0, and CGapChecklist::DestroyBody 0x585520 (into
+      gap_checklist.*). Self-test (new src/hook/selftests_viewer17.cpp): TestCareerSave.
+
 - [ ] Next: (state for resuming)
       - Batch VW-2 (cars / KOTH crown 0x5780E0-0x578490 in src/game/obj/game_objects.*; the skater trick code's two
         list entry types 0x578670 / 0x578740 / 0x5787F0 / 0x579570-0x579820 in src/game/skater/trick_lists.*) and

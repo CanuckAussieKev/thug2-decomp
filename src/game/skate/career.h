@@ -12,6 +12,7 @@ namespace Game {
 class CGapChecklist;
 }
 namespace Script {
+class CScript;
 class CStruct;
 }
 
@@ -73,12 +74,23 @@ public:
     void StartLevel(int level);
     // 0x00584CC0: the global flag a script integer names (a cheat); also left at 0x007CE4FD.
     bool GetCheat(uint32_t name);
+    // 0x00585270: the constructor: a gap checklist per level (none visited), an info structure, Reset(true, 0).
+    // 0x00585E40: the destructor body (the checklists and the info freed). 0x00585EA0: the scalar deleting one.
+    CSkaterCareer* Construct();
+    void DestroyBody();
+    CSkaterCareer* Destroy(unsigned int flags);
+    // 0x00584D00: read from a save's career structure (0x4DA4937B): goals, flags, global flags, each level's gaps
+    // (got ones with their positions), visited levels, cash / amounts and totals, counters (an older save without the
+    // counter total: it's summed), +0x634 / +0x638, the info. 0x00585550: written there the same way (with the skate
+    // module's +0x378 and the game mode).
+    void ReadFromStructure(Script::CStruct* save);
+    void WriteToStructure(Script::CStruct* save);
 
     // The goal / flag words of every level, in one run (level * 8 + word).
     uint32_t* GoalWords() { return &m_goals[0][0]; }
     uint32_t* FlagWords() { return &m_flags[0][0]; }
 
-    uint32_t m_unknown0;
+    void** m_vtable;                     // +0x000 (0x0064EFD4)
     uint32_t m_goals[kLevels][8];        // +0x004
     uint32_t m_flags[kLevels][8];        // +0x2A4
     uint32_t m_startGoals[8];            // +0x544
@@ -105,5 +117,8 @@ static_assert(offsetof(CSkaterCareer, m_flags) == 0x2A4 && offsetof(CSkaterCaree
                   offsetof(CSkaterCareer, m_level) == 0x630 && offsetof(CSkaterCareer, m_gaps) == 0x63C &&
                   offsetof(CSkaterCareer, m_visited) == 0x690 && offsetof(CSkaterCareer, m_info) == 0x6A8,
               "layout must match the original");
+
+// 0x00585E20 (GetCareerSaveInfo): the skate module's career (+0x20) written to the script's results.
+bool __cdecl CFunc_GetCareerSaveInfo(Script::CStruct* params, Script::CScript* script);
 
 } // namespace Obj
