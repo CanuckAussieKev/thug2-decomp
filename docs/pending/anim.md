@@ -123,6 +123,12 @@ ProjectToPlane made exact).
     hashed flag answer, a clean parameter pool per case, FinishLoading's result and Unload with a buffer, the
     skin's copy with its heap flag added for 7). The other is equivalent: the archive name's lowercasing (the
     checksum ignores case).
+- [x] Game run (2026-10-20, C:\Games\THUG2-1, stock THUG2.exe, AN-1..AN-3): free skate in Boston (-level BO) for
+  90 s - running and responding, the skater in the level; 2953 of 2953 replacements installed, late and
+  engine-started self-tests passed, shadow checks no mismatches; no EXCEPTION / RUN-TIME CHECK FAILURE / DEBUG CRT
+  REPORT. Two early self-tests failed that aren't this branch's: "anim controllers: partial" (fe_anim) and "text
+  elements: updates" - the fe test kit's half-pointer mapping: the arenas landed near 0x00FC0000 in the game, where
+  plain values 0x00FF0006 / 0x01000000 look like halves of arena pointers in our run only (also seen once offline).
 - [ ] Next: AN-4 - code Ghidra never made functions of: 0x00406560 (called from the skater code, 0x00514320 ...;
   an angle-limit test of two vectors), then 0x0040A910-0x0040AB00 (an 8-slot registry at 0x006918EC) and
   0x0040AB40 onwards. Hidden code to give source to later (found by scratchpad hidden.py - runs between Ghidra's
