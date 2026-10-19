@@ -230,7 +230,7 @@ void CCutsceneData::LoadAnimation(uint32_t name, uint32_t a2, uint32_t a3)
     m_assets[m_assetCount] = name;
     ++m_assetCount;
     void* data = GameFunction<void*(__cdecl*)(uint32_t, int)>(0x0048CF50)(name, 1);
-    entry.unknown4 = 0;
+    entry.source = nullptr;
     entry.name = name;
     if (!entry.data)
         entry.data = data;
@@ -317,21 +317,21 @@ void CCutsceneData::UpdateObjectPoses()
         if (!component)
             continue;
         uint8_t* skeleton = GameFunction<uint8_t*(__thiscall*)(CBaseComponent*)>(0x005480F0)(component);
-        uint8_t* bones = *reinterpret_cast<uint8_t**>(entry.animation + 4);
-        void* animation = *reinterpret_cast<void**>(entry.animation + 8);
+        auto* source = static_cast<uint8_t*>(entry.animation->source);
+        void* animation = entry.animation->data;
         GameFunction<void(__thiscall*)(void*, int)>(0x004A3090)(skeleton, 0);
         uint8_t* data = *reinterpret_cast<uint8_t**>(skeleton + 8);
-        *reinterpret_cast<uint8_t**>(bones + 0x20C) = data ? data + 0x408 : nullptr;
-        *reinterpret_cast<uint32_t*>(bones + 0x210) = *reinterpret_cast<uint32_t*>(skeleton + 0xC);
+        *reinterpret_cast<uint8_t**>(source + 0x20C) = data ? data + 0x408 : nullptr;
+        *reinterpret_cast<uint32_t*>(source + 0x210) = *reinterpret_cast<uint32_t*>(skeleton + 0xC);
         const uint8_t* basePose = *reinterpret_cast<uint8_t**>(*reinterpret_cast<uint8_t**>(skeleton + 8) + 0x590);
         uint32_t count = GameFunction<uint32_t(__thiscall*)(void*)>(0x004A2BA0)(skeleton);
         std::memcpy(translations, basePose, count * 16);
-        // (within the first twelfth of a second, without the bones)
+        // (within the first twelfth of a second, without the source)
         if (m_time - static_cast<double>(m_unknown3480) < 0.083333336f)
-            bones = nullptr;
+            source = nullptr;
         GameFunction<void(__thiscall*)(void*, float*, float*, void*, float, int, void*)>(0x00485730)(
             animation, rotations, translations, &GameVariable<uint8_t>(0x006F0FD8),
-            static_cast<float>(m_time - static_cast<double>(m_cameraStart)), -1, bones);
+            static_cast<float>(m_time - static_cast<double>(m_cameraStart)), -1, source);
         GameFunction<void(__thiscall*)(void*, float*, float*)>(0x004A4240)(skeleton, rotations, translations);
     }
 }

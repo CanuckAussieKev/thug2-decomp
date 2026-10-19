@@ -81,36 +81,56 @@ public:
     void UpdateCamera(void* camera);
     // 0x00464360: each object's skeleton posed by its animation at the cutscene's time.
     void UpdateObjectPoses();
+    // 0x00464640 (returns this): nothing loaded, a new parameters structure.
+    CCutsceneData* Construct();
+    // 0x00464780: (when +0x34B0 and the global integer 0x4AF50A5B is set) script 0x2E20EA32 run again on every
+    // object with a model and the skater; the global cleared.
+    void RefreshObjects();
+    // 0x004648D0: the objects of `params`' array 0x4DE5330C made (their models, skeletons, animations; the
+    // skater's from its profile and appearance), linked to their parents and the level objects they stand in for.
+    void AddObjects(Script::CStruct* params);
 
-    // An object of the cutscene (0x20 bytes).
-    struct ObjectEntry {
-        bool active;              // +0x00: it stands in for an object of the level
-        uint8_t pad1[3];
-        uint8_t* animation;       // +0x04
-        CCompositeObject* object; // +0x08
-        uint8_t unknownC[0x14];
-    };
     // An animation it loaded (12 bytes).
     struct AnimationEntry {
         uint32_t name;
-        uint32_t unknown4;
-        void* data;
+        void* source;             // +0x04: an animation source (0x214 bytes, made when an object uses it)
+        void* data;               // +0x08
+    };
+    // An object of the cutscene (0x20 bytes).
+    struct ObjectEntry {
+        uint32_t name;              // +0x00: its id (a child's is its parent's + 1)
+        uint32_t skeleton;          // +0x04
+        uint32_t unknown8;
+        bool active;                // +0x0C: it stands in for an object of the level
+        uint8_t padD[3];
+        AnimationEntry* animation;  // +0x10
+        CCompositeObject* object;   // +0x14
+        CCompositeObject* parent;   // +0x18: the object of the entry named name - 1
+        int animIndex;              // +0x1C: its index in the object animations (-1: none)
     };
 
-    uint8_t m_unknown0[0x14];
+    ObjectEntry* FindEntry(uint32_t name);
+    void CopySkeleton(ObjectEntry& from, ObjectEntry& to);
+    void ApplySkaterLook(ObjectEntry& entry);
+
+    void** m_vtable;              // +0x00 (0x00647908)
+    uint32_t m_unknown4;
+    uint32_t m_unknown8;
+    uint32_t m_unknownC;
+    uint32_t m_unknown10;
     uint32_t m_unknown14;         // +0x14
-    uint8_t m_unknown18[8];
+    uint32_t m_unknown18[2];
     void* mp_objectAnims;         // +0x20
     void* mp_cameraAnim;          // +0x24
-    uint8_t m_unknown28[4];
+    void* mp_animList;            // +0x28: the object animations' names (count at +8, 0x00482F00 the n-th)
     uint8_t m_lent2C[0x10];       // +0x2C: given back to the objects' models
     uint8_t m_lent3C;             // +0x3C
     uint8_t m_lent3D;             // +0x3D
     uint8_t m_unknown3E[2];
-    float m_colour[4];            // +0x40
-    uint8_t m_unknown50[0x10];
-    ObjectEntry m_objects[255];   // +0x60
-    uint8_t m_unknown2040[0x14];
+    float m_colour[4];            // +0x40: the colour of the first level object a cutscene object stood in for
+    bool m_colourSaved;           // +0x50: (and its model's settings, +0x2C-0x3D) saved
+    uint8_t m_unknown51[3];
+    ObjectEntry m_objects[256];   // +0x54
     int m_objectCount;            // +0x2054
     AnimationEntry m_animations[256]; // +0x2058
     int m_animationCount;         // +0x2C58
@@ -119,17 +139,24 @@ public:
     uint8_t m_unknown3460;
     bool m_skippable;             // +0x3461
     bool m_skipped;               // +0x3462
-    uint8_t m_unknown3463[0x346C - 0x3463];
+    uint8_t m_unknown3463;
+    uint32_t m_unknown3464;
+    uint32_t m_unknown3468;
     float m_endTime;              // +0x346C: seconds
-    uint8_t m_unknown3470[8];
+    float m_unknown3470;          // +0x3470 (1 at first)
+    uint8_t m_unknown3474;
+    uint8_t m_unknown3475[3];
     uint32_t m_unknown3478;       // +0x3478
     float m_time;                 // +0x347C: seconds into the cutscene
     float m_unknown3480;          // +0x3480
     float m_cameraStart;          // +0x3484
-    uint8_t m_unknown3488[0x3498 - 0x3488];
+    uint32_t m_unknown3488;
+    uint32_t m_unknown348C;
+    uint8_t m_unknown3490[8];
     uint64_t m_vblanks;           // +0x3498: counted by UpdateVblanks
     uint64_t m_lastVblanks;       // +0x34A0: the timer's count at the last UpdateVblanks
-    uint8_t m_unknown34A8[8];
+    void* m_unknown34A8;          // +0x34A8: the skater's appearance
+    void* m_unknown34AC;          // +0x34AC: the skater's profile structure
     bool m_flag34B0;              // +0x34B0
     uint8_t m_unknown34B1[3];
     uint32_t m_name;              // +0x34B4: the cutscene's name checksum
@@ -138,6 +165,7 @@ public:
     float m_subtitleTime;         // +0x34C0: when the last subtitle started
     float m_nextSubtitleTime;     // +0x34C4: -1: no more
     uint32_t m_nextSubtitle;      // +0x34C8: its index
+    Script::CStruct* mp_params;   // +0x34CC
 };
 
 // The cutscene kind of the movie manager's movie details (vtable 0x00647920).
@@ -160,7 +188,10 @@ public:
     int m_unknown60;              // +0x60
 };
 
-static_assert(offsetof(CCutsceneData, m_objects) == 0x60 && offsetof(CCutsceneData, m_objectCount) == 0x2054 &&
+static_assert(sizeof(CCutsceneData) == 0x34D0 && offsetof(CCutsceneData, m_unknown3470) == 0x3470 &&
+                  offsetof(CCutsceneData, m_unknown348C) == 0x348C && offsetof(CCutsceneData, mp_animList) == 0x28,
+              "layout must match the original");
+static_assert(offsetof(CCutsceneData, m_objects) == 0x54 && offsetof(CCutsceneData, m_objectCount) == 0x2054 &&
                   offsetof(CCutsceneData, m_animationCount) == 0x2C58 && offsetof(CCutsceneData, m_assetCount) == 0x345C &&
                   offsetof(CCutsceneData, m_unknown3478) == 0x3478 && offsetof(CCutsceneData, m_flag34B0) == 0x34B0 &&
                   sizeof(CCutsceneData::ObjectEntry) == 0x20,

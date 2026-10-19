@@ -320,5 +320,30 @@ Shared files touched (small, additive): CMakeLists.txt (new sources and selftest
   EXCEPTION / RUN-TIME CHECK FAILURE / DEBUG CRT REPORT. Two early self-tests failed in the game only (not offline):
   "skate net registration" / "skate net handlers" (selftests_tod4.cpp, the time-of-day agent's, from main: a handler
   address the original and ours record differently in the game) - not this range's.
-- [ ] Next: OS-12+ the rest of the cutscene system 0x4645A0-0x4680B0 (OS-12: the pools, the data's constructor,
-  0x464780, the big loader 0x4648D0 and its neighbours to 0x465AB0; then 0x465C00-0x466DD0; then 0x467710-0x4680B0).
+- [x] Batch OS-12 (NOT run in the game yet; the cutscene data's constructor and the objects a cutscene adds):
+  src/game/obj/cutscene_load.cpp (new); cutscene.h (the object entries really start at +0x54: name, skeleton,
+  part, active, animation, object, parent, animation index; the animation entries' +4 is an animation source;
+  +0x10-0x28 the camera / object animation parts, sources and lists; +0x50 colour saved; +0x34A8 / +0x34AC the
+  skater's appearance and profile; +0x34CC the parameters).
+  - 0x004645A0 / 0x004645E0 AnimSourceAllocate / AnimSourceFree (the animation sources' pool pair 0x006FA7F4),
+    0x00464640 CCutsceneData::Construct, 0x00464780 RefreshObjects (once the global 0x4AF50A5B is set: script
+    0x2E20EA32 again on every object with a model and on the skater; the global cleared), 0x004648D0 AddObjects
+    (3115 bytes: each structure of array 0x4DE5330C - version 2 and later name everything by the object's name
+    and kind - becomes a cutscene object: its model asset (0x00407C00) or "no model"; the skater's model file from
+    its face and sex; not made when the skater's appearance hides a part; a stand-in hides the level object it
+    replaces (its model's settings and colour saved once, its offset, flags and a model value swapped); its
+    animation source; then skeletons copied from the level objects, model flags merged with the parents', children
+    linked to their parents, coloured from the skater's appearance (hue / saturation / value), and given their
+    index in the object animations).
+  - Tests (selftests_objsys11.cpp): TestCutsceneLoading - 150 seeds: the constructor, RefreshObjects or AddObjects
+    on random data (objects in name families, animations, saved colour) with structures answering kinds, models,
+    flags and integers from a hash (including the loader's special kinds and models), a manager arena, the asset
+    manager, the skater's appearance and profile, models as memory; then the source pools' new / delete; every
+    call, the data, the objects and the arena compared. TestCutsceneObjects (OS-11) now records the offset vectors
+    passed to models and the components' argument counts properly.
+  - Mutations: 51 deliberate bugs, all caught (38 at first; the loader's kinds / models in the answers, names in
+    one domain so parents, animations and object animations match, models as memory, rarer hidden parts and the
+    offsets' contents added for 13).
+- [ ] Next: OS-13 0x465510-0x46661A (cutscene_update.cpp written: the objects table, the clock, stand-ins,
+  transforms, restart, the details' constructor / destructor - test to write); then 0x466620-0x466DD0; then
+  0x467710-0x4680B0.
