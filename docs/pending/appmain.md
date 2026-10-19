@@ -132,3 +132,25 @@ that never returns and end it from a stand-in).
   Mutations: 31 deliberate bugs, all caught (24 at first; the exact-limit triangle, the blend override cleared,
   the lock recorded in the draw, the model-less caster moved before others, a missing depth surface, the x-only
   aim case and near-identity caster matrices - so triangles are really drawn - were added for the other 7).
+- [x] Batch AM-4 (NOT run in the game yet; a scene's mesh list): src/game/gfx/mesh_list.{h,cpp} (new; Nx::sScene).
+  - 0x004DDD50 `CompareMeshes` (qsort's: the material's sort key - not a number counts as different, greater
+    later -, its +0xC, the same material, its flag 0x10, the mesh's +0x44, the material's address), 0x004DE300
+    `sScene::Construct`, 0x004DE490 `DestroyBody` (the material table and its buckets, each mesh's first vertex
+    buffer, the list, the records array, the COM object), 0x004DE340 `UpdateSphere` (x and y halves in double,
+    z's size rounded first, as the original), 0x004DE3E0 `AllocateMeshList`, 0x004DDDF0 `CountMeshes`,
+    0x004DDE20 `AddMeshes`, 0x004DDE60 `RemoveMeshes` (each gap closed; a null already in the list is taken for
+    one - with none to be found the original never ends, and neither does this), 0x004DDFA0 `SortMeshes` (the
+    game's qsort, then the transparent / flagged ranges recounted), 0x004DE020 `FindMesh` (by load index),
+    0x004DE420 `FindMaterial` (by checksum, through the table's iterator), 0x004DE060 `BreakStrips` (records
+    that match the mask mark a strip break in their mesh's indices; each mesh with breaks gets a rebuilt index
+    buffer with the break's index repeated twice more; the original's 64-entry break table is overrun by load
+    indices of 64 and up - here those are skipped), 0x004DE560 `DeleteScene` (each material destroyed and
+    freed, then the scene).
+  Test (src/hook/selftests_appmain4.cpp, Early): TestMeshList - 4 seeds of 24 meshes over 8 materials (sort keys
+  equal / different / not a number, flags), CompareMeshes on every pair, then construct (state recorded), count
+  (recorded), allocate, add, sort, find (also missing), find materials (also a checksum of 0, no table), the
+  sphere from 300 bounds of every size, strip breaks (masks, records found at the first place looked or later,
+  some not matching, none), remove (also absent and repeated), destroy or delete; the buffers / allocation /
+  vertex buffers stood in; all memory compared. Load indices kept under 64 (see above).
+  Mutations: 26 deliberate bugs, all caught (20 at first; the states recorded after construct / count, more
+  bounds, a material checksum of 0 and records matching at once were added for the other 6).
