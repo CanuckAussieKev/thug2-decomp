@@ -42,7 +42,7 @@ public:
     void** m_vtable;
     uint32_t m_checksum;           // +0x04
     uint16_t m_flags;              // +0x08
-    uint8_t m_terrain;             // +0x0A
+    uint8_t m_visitStamp;          // +0x0A the grid queries' mark (0x00693998): already listed this query
     uint8_t pad0B;
     CCollObjTriData* m_geometry;   // +0x0C
 };

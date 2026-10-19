@@ -1,6 +1,7 @@
 // Collision caches.
 
 #include "game/nx/coll_cache.h"
+#include "game/nx/coll_grid.h"
 
 #include <new>
 
@@ -23,7 +24,7 @@ Mem::ListNode* FirstMovable() { return GameVariable<Mem::ListNode*>(0x00691984);
 void** GridListsAlong(Mth::Line* line) { return GameFunction<void**(__cdecl*)(Mth::Line*)>(0x0048C980)(line); }
 CCollObj** ObjectsAlong(void* list, Mth::Line* line)
 {
-    return GameFunction<CCollObj**(__thiscall*)(void*, Mth::Line*, int)>(0x004188C0)(list, line, 0);
+    return static_cast<CCollGrid*>(list)->ObjectsAlongLine(line, nullptr);
 }
 
 // The collision objects' virtual methods the cache uses.

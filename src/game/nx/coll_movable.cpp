@@ -56,7 +56,7 @@ CCollMovable* CCollMovable::ConstructCopy(const CCollMovable* other)
     m_vtable = kCollObjVtable;
     m_checksum = other->m_checksum;
     m_flags = other->m_flags;
-    m_terrain = other->m_terrain;
+    m_visitStamp = other->m_visitStamp;
     m_geometry = other->m_geometry;
     m_vtable = kMovableVtable;
     m_position = other->m_position;
@@ -269,7 +269,7 @@ CCollScaled* CCollScaled::ConstructCopy(const CCollScaled* other)
     m_vtable = kCollObjVtable;
     m_checksum = other->m_checksum;
     m_flags = other->m_flags;
-    m_terrain = other->m_terrain;
+    m_visitStamp = other->m_visitStamp;
     m_geometry = other->m_geometry;
     m_vtable = kScaledVtable;
     m_scale = other->m_scale;

@@ -132,7 +132,7 @@ void TestAnimCollMovables()
         words(&g_mov.boxes[1], 8);
         MovFn<void(__thiscall*)(void*, int)>(0x0040AE40)(obj(0), 0xA0A0);
         Record({static_cast<uint32_t>(MovFn<int(__thiscall*)(void*)>(0x0040AE50)(obj(0)))});
-        obj(0)->m_terrain = 0x33;
+        obj(0)->m_visitStamp = 0x33;
         Record({reinterpret_cast<uint32_t>(MovFn<void*(__thiscall*)(void*, const void*)>(0x00412660)(obj(1), obj(0)))});
         // transposes: in place and from another
         Matrix t = g_mov.matrices[2];

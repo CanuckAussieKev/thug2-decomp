@@ -167,7 +167,7 @@ void TestAnimCollTriObjects()
         sector->m_vtable = reinterpret_cast<void**>(0x00645C18);
         sector->m_checksum = 0x5EC70000;
         sector->m_flags = 0x0102;
-        sector->m_terrain = 0x44;
+        sector->m_visitStamp = 0x44;
         sector->m_geometry = reinterpret_cast<CCollObjTriData*>(g_tri.geometry[0]);
         sector->m_buffer = g_tri.buffer;
         for (int g = 0; g < 2; ++g) {

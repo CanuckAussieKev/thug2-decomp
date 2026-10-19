@@ -5,6 +5,7 @@
 #include "game/core/mem.h"
 #include "game/mth/geometry.h"
 #include "game/nx/coll_cache.h"
+#include "game/nx/coll_grid.h"
 #include "game/nx/coll_obj.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -23,18 +24,13 @@ bool& s_wantFarthest = GameVariable<bool>(0x00691910);
 constexpr float kNearestStart = 1.01f;
 constexpr float kFarthestStart = -0.01f;
 
-// The scenes' collision grids the line passes near (null-terminated; null: none), the scenes themselves in the
-// same order (0x0048C980 / 0x0048C0B0), and a grid's objects near the line (null-terminated; 0x004188C0, not
-// rewritten yet).
-void** GridsAlong(const Mth::Line* line)
+// The scenes' collision grids the line passes near (null-terminated; null: none) and the scenes themselves in the
+// same order (0x0048C980 / 0x0048C0B0).
+CCollGrid** GridsAlong(const Mth::Line* line)
 {
-    return GameFunction<void**(__cdecl*)(const Mth::Line*)>(0x0048C980)(line);
+    return GameFunction<CCollGrid**(__cdecl*)(const Mth::Line*)>(0x0048C980)(line);
 }
 uint32_t* GridScenes() { return GameFunction<uint32_t*(__cdecl*)()>(0x0048C0B0)(); }
-CCollObj** ObjectsAlong(void* grid, const Mth::Line* line, int* count)
-{
-    return GameFunction<CCollObj**(__thiscall*)(void*, const Mth::Line*, int*)>(0x004188C0)(grid, line, count);
-}
 
 // What every query starts with: the line's box (grown by 0.5 each way), whether the cache holds the unchanged box,
 // and the line's direction.
@@ -134,14 +130,14 @@ bool CollideWithStatics(const Mth::Line* line, CollisionHit* hit, CollisionHitCa
         }
         return any;
     }
-    void** grids = GridsAlong(line);
+    CCollGrid** grids = GridsAlong(line);
     if (!grids)
         return false;
     uint32_t* scenes = GridScenes();
     hit->scene = 0;
     for (; *grids; ++grids, ++scenes) {
         int count;
-        for (CCollObj** objects = ObjectsAlong(*grids, line, &count); *objects; ++objects) {
+        for (CCollObj** objects = (*grids)->ObjectsAlongLine(line, &count); *objects; ++objects) {
             if (MayTouch(*objects, &query.box) &&
                 CollideWithLine(*objects, line, &query.direction, hit, &query.box)) {
                 any = true;

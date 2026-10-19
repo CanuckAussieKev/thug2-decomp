@@ -13,6 +13,7 @@
 #include "game/core/mem.h"
 #include "game/mth/geometry.h"
 #include "game/nx/coll_cache.h"
+#include "game/nx/coll_grid.h"
 #include "game/nx/coll_line.h"
 #include "game/nx/coll_world.h"
 #include "game/nx/feeler.h"
@@ -204,7 +205,7 @@ void TestAnimFeelerQueries()
         Record({0x48C0B000u});
         return P(g_wa.scenes);
     });
-    s.At({0x004188C0}, 8, [](Regs& r) {
+    s.At({0x004188C0, AddressOf(&Nx::CCollGrid::ObjectsAlongLine)}, 8, [](Regs& r) {
         uint32_t grid = r.ecx & 0xF;
         Record({0x4188C000u, r.ecx, r.args[1] != 0});
         Words(reinterpret_cast<void*>(r.args[0]), 8);

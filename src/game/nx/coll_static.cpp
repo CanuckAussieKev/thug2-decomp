@@ -88,7 +88,7 @@ CCollObj* CCollStatic::Clone(bool instance)
     // (a failed allocation crashes here, as in the original)
     made->m_checksum = m_checksum;
     made->m_flags = m_flags;
-    made->m_terrain = m_terrain;
+    made->m_visitStamp = m_visitStamp;
     made->m_geometry = m_geometry;
     if (copyInstance) {
         copyInstance->SetSharedGeometry(geometry);

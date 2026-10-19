@@ -136,7 +136,7 @@ CCollMulti* CCollMulti::ConstructCopy(const CCollMulti* other)
     m_vtable = kCollObjVtable;
     m_checksum = other->m_checksum;
     m_flags = other->m_flags;
-    m_terrain = other->m_terrain;
+    m_visitStamp = other->m_visitStamp;
     m_geometry = other->m_geometry;
     m_vtable = kCollMultiVtable;
     m_children = other->m_children;

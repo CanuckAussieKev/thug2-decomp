@@ -459,6 +459,36 @@ ProjectToPlane made exact).
     the line, the object gone afterwards) and 100 direct queries on a record with and without a hit.
   - Mutations: 57 deliberate bugs, all caught (55 at first: unregistering the list's first node and the line's
     w added for 2).
+- [x] Batch AN-17 (NOT run in the game yet; a scene's collision grid; 11 functions): src/game/nx/coll_grid.h / .cpp
+  (new); coll_world.cpp and coll_cache.cpp call the grid directly; CCollObj's +0x0A renamed m_visitStamp (it's the
+  grid queries' mark, not a terrain; coll_obj.h / .cpp, coll_movable.cpp, coll_static.cpp, two tests).
+  - Nx::CCollGrid (our name; 0x4B30 bytes: the box, the cell width / depth, 20 x 20, the cells [x][z]) and
+    Nx::CollGridCell (0x30: box, +0x24 count, +0x28 a block, +0x2C the list): CollGridCell::Construct 0x004183B0
+    / Destruct 0x00418410; CCollGrid::Init 0x00418440 (the corners summed in double precision across the cells),
+    Clear 0x004183D0, Fill 0x00418BD0 (two passes over the statics with faces - counts, Malloc'd lists, a
+    top-down scratch block of fill counts; a float inverse cell width but a double inverse depth; indices clamped
+    to 19 only), Update 0x00418F60 (cell by cell: removed / added / moved lists; gaps filled from the end while
+    objects were taken out, extras waiting on a pending list - Lst nodes 0x00645D7C - one replacing each taken out
+    later; ReallocateShrink / ReallocateUp else Realloc; then every list moved to a fresh Malloc block),
+    ObjectsInBox 0x00418710 (box grown 0.5 on x / z; double inverse width, float inverse depth; each object once
+    by the stamp 0x00693998; no limit), ObjectsAlongLine 0x004188C0 (the line made 0.5 longer each way along its
+    unit direction, rounded as the x87 code does; one cell: its objects as they are; more: each once, 2047 at
+    most; the count out); the pending list's node / head destructors 0x00418ED0 / 0x00418EF0 / 0x00418F30.
+  - Quirk kept: in Update a removal that finds nothing in a cell still counts, and a later addition then writes
+    before the cell's list (the game's lists are consistent, so it doesn't happen there).
+  - Tests (selftests_anim15.cpp): TestAnimCollGrid - 40 random bounds (sizes not exact in floats) through Init;
+    40 stand-in statics (a fake slot 21, flags 2 / 4, some without faces, some boxes at cell edges, some where the
+    float and double inverse cell widths truncate differently - found by trying the edges' neighbouring floats)
+    through Fill; 600 box and line queries (clamped, at edges +- 0.5 and nudges, shorter than a unit, zero length,
+    single cell, the count wanted or not); 16 updates with consistent added / removed / moved lists (in-place
+    resizing working or not); a line over 2400 objects in 7 cells (the 2047 limit); Clear; the cell and node
+    pieces. A bump allocator records every allocation; the cells, lists, calls and the arena compared.
+  - Mutations: 45 deliberate bugs; 43 caught (33 at first: aligned boxes and lines, more rounds and additions,
+    the limit reached, distinct heaps, rounding-sensitive values added for 10). Not caught: two roundings of the
+    line's unit direction in ObjectsAlongLine (float vs double inverse length, the x part rounded) - they change
+    the 0.5-unit extension below a float's resolution at the line's ends.
+  - Also: the self-test runner's watchdog; a flaky "vector insert iterator out-of-range" DEBUG CRT REPORT seen
+    once in a full offline run (THUG2PM.exe) and not again in four more - not traced to a test.
 - [ ] Next: AN-15 - slots 15-17 of the sector / instance: 0x00410C90 / 0x004128B0, 0x004110B0, 0x004114E0; then
   0x0040BDC0, 0x0040D370, 0x0040E280, 0x0040E560, 0x0040E940, 0x0040EC90, 0x0040F9E0, 0x0040FC00, 0x0040FEC0,
   0x0040FEE0, 0x00410240, 0x004106C0, 0x00410930, 0x00410AA0, 0x00410BC0, the 0x00417xxx feelers / registration

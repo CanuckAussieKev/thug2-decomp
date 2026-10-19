@@ -13,6 +13,7 @@
 #include "game/mth/matrix.h"
 #include "game/mth/vector.h"
 #include "game/nx/coll_cache.h"
+#include "game/nx/coll_grid.h"
 #include "hook/anim_testkit.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -201,7 +202,7 @@ void TestAnimCollCaches()
         Record({0x6A1D0000u, Bits(line->start.x), Bits(line->end.z)});
         return gridAnswer;
     });
-    s.At({0x004188C0}, 8, [](Regs& r) {
+    s.At({0x004188C0, AddressOf(&Nx::CCollGrid::ObjectsAlongLine)}, 8, [](Regs& r) {
         Record({0x6A1D1000u, r.ecx, r.args[1]});
         return r.ecx; // (each grid list stands for its own null-terminated object array)
     });
