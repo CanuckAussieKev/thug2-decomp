@@ -352,10 +352,35 @@ ProjectToPlane made exact).
     brute-force search over integer cases, added for 1). Not caught: the NaN-as-less reading in two places a NaN
     can't reach (it would have made s or t NaN first), s * (1 / det) for s / det (rounding below a float), >= for >
     and < for <= in region 2 (the same results either way - checked over all small integer cases).
-- [ ] Next: AN-13 - 0x0040BDC0 (5.5 KB, the main triangle / sphere collision?), 0x0040D370, 0x0040E280, 0x0040E560,
-  0x0040E940, 0x0040EC90, 0x0040F9E0, 0x0040FC00, 0x0040FEC0, 0x0040FEE0, 0x00410240, 0x004106C0, 0x00410930,
-  0x00410A30, 0x00410AA0, 0x00410BC0, 0x00410C90, 0x004110B0, 0x004114E0, 0x004128B0, 0x004131F0, 0x004137B0,
-  0x00413B50, 0x00413FF0, 0x00414460, the 0x00417xxx feelers / registration (0x004177B0, 0x00417800...). Hidden
-  code to give source to later (found by scratchpad hidden.py - runs between Ghidra's functions that aren't
-  padding): 0x00412730, 0x00417110, 0x00419690, 0x00419750, 0x004198D0, 0x00419AD0, 0x00419BF0, 0x00419E90,
-  0x0041A1A0-0x0041A21C.
+- [x] Batch AN-13 (NOT run in the game yet; the line tests' hit record and the movable box's line test; 2
+  functions): src/game/nx/coll_line.h / .cpp (new), coll_movable.h, mth/geometry.cpp.
+  - Nx::CollisionHit (our name; 0x50 bytes: normal, point, face, distance, ignore / require flags, the face's flags
+    and terrain, the object and its checksum, a callback (cdecl, given the record) and its data, hit, the face's
+    flag 0x40; +0x38 / +0x44 / +0x4C not known) and its copy 0x004F8160 (fieldwise, the padding left; outside
+    this range - written for ReportHit, not registered).
+  - Nx::ReportHit 0x004131F0 (cdecl; the slot-14 line tests' report): a face hit at a distance along the line is
+    taken unless its flags include an ignored one or lack a required one - the record filled (the point
+    recomputed along the line, w = 1) and the callback called; but unless it's nearer than the record's distance
+    (not nearer while 0x00691910 asks for the farthest), the record is copied back as it was and false returned,
+    the callback having run.
+  - Nx::CCollMovBBox::CollideWithLine 0x004137B0 (slot 14: the line, its direction - unused -, the record, the
+    line's box - unused): the line taken into the box's space, its box against the object's, BBox::LineIntersect,
+    the point and normal turned back (RotateVector) and placed, the distance |hit - start| / |end - start|. The
+    face index handed on is left unset by the original (stack garbage); 0 here - the test leaves that word out.
+  - Mth::BBox::LineIntersect 0x00403550 made exact: the crossing fraction and the crossing point in double,
+    rounded to floats where the original stores them (ours did them in floats - last-bit differences).
+  - Tests (selftests_anim11.cpp): TestAnimCollLineReport - 3000 lines at a movable box placed and turned at random
+    (through it, beside it, starting / ending in it, zero length), records with distances to beat below / at /
+    above the hit, ignored / required flags, a callback (which also changes the record), nearest and farthest
+    wanted, each hit tried again at its own distance; then 400 ReportHit calls on a sector object's faces (each
+    face's flags and terrain). Records (all but padding), callback calls and results compared.
+  - Mutations: 35 deliberate bugs; 33 caught (26 + 4 at first: the callback changing more of the record added for
+    the copy's fields). Equivalent: the box pre-check (LineIntersect rejects those lines anyway) and the placed
+    point's w (ReportHit recomputes the point).
+- [ ] Next: AN-14 - the triangle objects' line tests (slot 14): 0x00413B50 (sector), 0x00413FF0 (instance),
+  0x00414460 (movable triangles); slots 15-17: 0x00410C90 / 0x004128B0, 0x004110B0, 0x004114E0; then 0x0040BDC0,
+  0x0040D370, 0x0040E280, 0x0040E560, 0x0040E940, 0x0040EC90, 0x0040F9E0, 0x0040FC00, 0x0040FEC0, 0x0040FEE0,
+  0x00410240, 0x004106C0, 0x00410930, 0x00410A30, 0x00410AA0, 0x00410BC0, the 0x00417xxx feelers / registration
+  (0x004177B0, 0x00417800...). Hidden code to give source to later (found by scratchpad hidden.py - runs between
+  Ghidra's functions that aren't padding): 0x00412730, 0x00417110, 0x00419690, 0x00419750, 0x004198D0,
+  0x00419AD0, 0x00419BF0, 0x00419E90, 0x0041A1A0-0x0041A21C.

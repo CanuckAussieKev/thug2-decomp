@@ -136,6 +136,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_anim8.cpp
     src/hook/selftests_anim9.cpp
     src/hook/selftests_anim10.cpp
+    src/hook/selftests_anim11.cpp
     src/hook/selftests_appmain8.cpp
     src/hook/selftests_appmain9.cpp
     src/hook/selftests_appmain10.cpp
@@ -299,6 +300,7 @@ add_library(thug2_code OBJECT
     src/game/nx/coll_obj.cpp
     src/game/nx/coll_movable.cpp
     src/game/nx/coll_static.cpp
+    src/game/nx/coll_line.cpp
     src/game/nx/coll_tests.cpp
     src/game/nx/coll_tri.cpp
     src/game/net/chat.cpp

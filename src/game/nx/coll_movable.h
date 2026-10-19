@@ -9,6 +9,8 @@
 
 namespace Nx {
 
+struct CollisionHit;
+
 // A movable collision object (0xA4 bytes, vtable 0x00645B00; a car, a level object...): its world position and
 // orientation, and the orientation's inverse (the transpose).
 class CCollMovable : public CCollObj {
@@ -65,6 +67,10 @@ public:
     uint16_t GetFaceTerrain(int face) const;
     // 0x00414BE0 (slot 12): a copy (no geometry, flag 0x8000; a failed allocation crashes, as in the original).
     CCollMovBBox* Clone(int argument);
+    // 0x004137B0 (slot 14): the line (world space) against the box, in the box's space; a hit is offered to
+    // `hit` (ReportHit) with its point and normal back in world space. The direction and the line's box unused.
+    bool CollideWithLine(const Mth::Line* line, const Mth::Vector* direction, CollisionHit* hit,
+                         const Mth::BBox* lineBox);
     // 0x004126E0 (slot 19): the box drawn where the object is (0x0048D090; the arguments unused).
     void DebugRender(int a, int b);
 

@@ -141,14 +141,15 @@ bool BBox::LineIntersect(const Line& line, Vector& hit, Vector& normal) const
     if (dz == 0.0f)
         dz = 1e-6f;
 
-    // Crossing a face at fraction k along the segment; the hit must be strictly inside the face.
+    // Crossing a face at fraction k along the segment; the hit must be strictly inside the face. (k and the
+    // crossing in double, rounded to floats where the original's x87 code stores them.)
     auto inside_y_z = [&](float y, float z) { return y < max.y && min.y < y && z < max.z && min.z < z; };
     auto inside_x_z = [&](float x, float z) { return x < max.x && min.x < x && z < max.z && min.z < z; };
     auto inside_x_y = [&](float x, float y) { return x < max.x && min.x < x && y < max.y && min.y < y; };
 
     if (max.x < s.x && e.x < max.x && dx < 0.0f) {
-        float k = (1.0f / dx) * (max.x - s.x);
-        float y = k * dy + s.y, z = k * dz + s.z;
+        double k = (1.0 / dx) * (static_cast<double>(max.x) - s.x);
+        float y = static_cast<float>(k * dy + s.y), z = static_cast<float>(k * dz + s.z);
         if (inside_y_z(y, z)) {
             hit = {max.x, y, z, 1.0f};
             normal = {1.0f, 0.0f, 0.0f, 0.0f};
@@ -156,8 +157,8 @@ bool BBox::LineIntersect(const Line& line, Vector& hit, Vector& normal) const
         }
     }
     if (s.x < min.x && min.x < e.x && dx > 0.0f) {
-        float k = (1.0f / dx) * (min.x - s.x);
-        float y = k * dy + s.y, z = k * dz + s.z;
+        double k = (1.0 / dx) * (static_cast<double>(min.x) - s.x);
+        float y = static_cast<float>(k * dy + s.y), z = static_cast<float>(k * dz + s.z);
         if (inside_y_z(y, z)) {
             hit = {min.x, y, z, 1.0f};
             normal = {-1.0f, 0.0f, 0.0f, 0.0f};
@@ -165,8 +166,8 @@ bool BBox::LineIntersect(const Line& line, Vector& hit, Vector& normal) const
         }
     }
     if (max.y < s.y && e.y < max.y && dy < 0.0f) {
-        float k = (1.0f / dy) * (max.y - s.y);
-        float x = k * dx + s.x, z = k * dz + s.z;
+        double k = (1.0 / dy) * (static_cast<double>(max.y) - s.y);
+        float x = static_cast<float>(k * dx + s.x), z = static_cast<float>(k * dz + s.z);
         if (inside_x_z(x, z)) {
             hit = {x, max.y, z, 1.0f};
             normal = {0.0f, 1.0f, 0.0f, 0.0f};
@@ -174,8 +175,8 @@ bool BBox::LineIntersect(const Line& line, Vector& hit, Vector& normal) const
         }
     }
     if (s.y < min.y && min.y < e.y && dy > 0.0f) {
-        float k = (1.0f / dy) * (min.y - s.y);
-        float x = k * dx + s.x, z = k * dz + s.z;
+        double k = (1.0 / dy) * (static_cast<double>(min.y) - s.y);
+        float x = static_cast<float>(k * dx + s.x), z = static_cast<float>(k * dz + s.z);
         if (inside_x_z(x, z)) {
             hit = {x, min.y, z, 1.0f};
             normal = {0.0f, -1.0f, 0.0f, 0.0f};
@@ -183,8 +184,8 @@ bool BBox::LineIntersect(const Line& line, Vector& hit, Vector& normal) const
         }
     }
     if (max.z < s.z && e.z < max.z && dz < 0.0f) {
-        float k = (1.0f / dz) * (max.z - s.z);
-        float x = k * dx + s.x, y = k * dy + s.y;
+        double k = (1.0 / dz) * (static_cast<double>(max.z) - s.z);
+        float x = static_cast<float>(k * dx + s.x), y = static_cast<float>(k * dy + s.y);
         if (inside_x_y(x, y)) {
             hit = {x, y, max.z, 1.0f};
             normal = {0.0f, 0.0f, 1.0f, 0.0f};
@@ -192,8 +193,8 @@ bool BBox::LineIntersect(const Line& line, Vector& hit, Vector& normal) const
         }
     }
     if (s.z < min.z && e.z > min.z && dz > 0.0f) {
-        float k = (1.0f / dz) * (min.z - s.z);
-        float x = k * dx + s.x, y = k * dy + s.y;
+        double k = (1.0 / dz) * (static_cast<double>(min.z) - s.z);
+        float x = static_cast<float>(k * dx + s.x), y = static_cast<float>(k * dy + s.y);
         if (inside_x_y(x, y)) {
             hit = {x, y, min.z, 1.0f};
             normal = {0.0f, 0.0f, -1.0f, 0.0f};
