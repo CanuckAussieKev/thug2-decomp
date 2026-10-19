@@ -20,6 +20,9 @@ class Device;
 struct InputSettings {
     uint8_t ps2Controls; // UsePS2Controls
     uint8_t uiControls;  // UIControls (read, unused)
+    uint8_t vanillaSpinKeys; // VanillaSpinKeys (not PartyMod's): without UsePS2Controls, the keyboard's spin keys press
+                             // black / white the original game's way round - spin left alone steps off the board
+                             // (sdl_input.cpp)
 };
 // The settings (read by InitSdlInput).
 InputSettings& TheInputSettings();

@@ -291,14 +291,19 @@ uint8_t s_inMenu = 0;
 uint8_t s_editingPark = 0;
 
 // Not original (PartyMod reads a Caveman binding and never uses it) - the Caveman key / button steps off the board
-// and back on: L1 and R1 together, the game's SwitchControl_Trigger (PressTwoAnyOrder L1 R1, 400 ms -
-// game\skater\switch_control.qb), as the original PC game's Key Pad 1 did. Not in a menu or while editing a park,
-// where L1 / R1 mean something else. (Without it: press Nollie and Switch together - they hold L1 and R1 too.)
+// and back on, pressing what the game's SwitchControl_Trigger (game\skater\switch_control.qb) waits for in the
+// trigger set it reads (Skater::Component::PlatformStructure): with UsePS2Controls the PS2 one, L1 and R1 together
+// (PressTwoAnyOrder, 400 ms); without, the Xbox one, black (the original PC game's Key Pad 1 / spin left key). Not in a
+// menu or while editing a park, where those mean something else.
 // Original behaviour (PartyMod v1.0.4): the binding is read, nothing presses it.
 void PressCaveman(uint8_t* data)
 {
     if (s_inMenu || s_editingPark)
         return;
+    if (!s_settings.ps2Controls) {
+        data[20] |= 1 << 0; // black
+        return;
+    }
     data[3] |= (1 << 2) | (1 << 3); // L1, R1
     data[16] = 0xFF;
     data[17] = 0xFF;
@@ -629,12 +634,20 @@ void PollKeyboard(Device* device)
             data[3] |= 1 << 1;
             data[19] = 0xFF;
         }
+        // Not PartyMod's - [Miscellaneous] VanillaSpinKeys=1: the spin keys the original PC game's way round (its
+        // keyboard, 0x005F5BC0: the key table's spin left -> the Xbox pad's black, spin right -> white). Without
+        // UsePS2Controls the game reads the Xbox triggers (Component::PlatformStructure), where black steps off the
+        // board (SwitchControl_Trigger's Xbox_Trigger): spin left alone does it again, as in the original game.
+        // Original behaviour (PartyMod): spin left white, spin right black, always:
+        //     if (down(s_keys.leftSpin)) data[20] |= 1 << 1;
+        //     if (down(s_keys.rightSpin) || menuDown(s_menuKeys.zoom)) data[20] |= 1 << 0;
         if (down(s_keys.leftSpin))
-            data[20] |= 1 << 1;
-        if (down(s_keys.rightSpin) || menuDown(s_menuKeys.zoom))
+            data[20] |= s_settings.vanillaSpinKeys ? 1 << 0 : 1 << 1;
+        if (down(s_keys.rightSpin))
+            data[20] |= s_settings.vanillaSpinKeys ? 1 << 1 : 1 << 0;
+        if (menuDown(s_menuKeys.zoom))
             data[20] |= 1 << 0;
     }
-
     if (down(s_keys.caveman))
         PressCaveman(data);
 
@@ -852,6 +865,7 @@ void LoadInputSettings()
 {
     s_settings.ps2Controls = Config::GetBool(Config::kMiscellaneous, "UsePS2Controls", true);
     s_settings.uiControls = static_cast<uint8_t>(Config::GetInt(Config::kMiscellaneous, "UIControls", 1));
+    s_settings.vanillaSpinKeys = Config::GetBool(Config::kMiscellaneous, "VanillaSpinKeys", false);
 }
 
 SDL_Scancode Key(const char* name, SDL_Scancode fallback)
