@@ -90,6 +90,9 @@ installed); functions PartyMod patched get source with PartyMod's behaviour. Lat
   (or any other private Morten1337 repository) - the user can see them but has no permission to use them. His
   public repositories may be used within their licences (thps-formats is MIT: attribute in THIRD_PARTY_NOTICES.md;
   those without a licence are reference only). Fetch them anonymously only. Pass this on to every agent.
+  THUGPRO's distributed game is not its source: its installed binaries (C:\Users\kevin\AppData\Local\THUG Pro,
+  C:\Games\THUGPRO) may be inspected, disassembled and decompiled for facts (the user, 2026-10-20: clean room);
+  never write into those folders.
 - **Never read, reference or copy leaked Neversoft / Activision source code** - e.g. https://github.com/thug1src/thug
   (THUG1's source) or any other leak of a Tony Hawk game's code: our code comes from our own decompilation of the game,
   and leaked code would taint it. Pass this on to every agent too.

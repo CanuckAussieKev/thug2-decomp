@@ -8,7 +8,8 @@ workspace (C:\Games\THUG2-n) and its pending-doc name. Agents cost a lot of usag
   merges. Read CLAUDE.md first.
 - **Never reference, read or copy** https://github.com/Morten1337/thugpro, .../thugpro_proxy, .../thugpro_toolchain or
   any other private Morten1337 repository. His public repositories may be used within their licences (fetched
-  anonymously). Don't start sub-agents.
+  anonymously). Don't start sub-agents. THUGPRO's installed binaries (C:\Users\kevin\AppData\Local\THUG Pro,
+  C:\Games\THUGPRO) may be inspected / disassembled for facts - clean room; its source repositories never.
 - **Never read, reference or copy leaked Neversoft / Activision source code** - e.g. https://github.com/thug1src/thug
   (THUG1's source) or any other leak of a Tony Hawk game's code. Our code comes from our own decompilation of the
   game; leaked code would taint it.
