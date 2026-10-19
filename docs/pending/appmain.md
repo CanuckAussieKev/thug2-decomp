@@ -107,3 +107,28 @@ that never returns and end it from a stand-in).
   wide-range polygon and the exact edges). The other 5 only change the order of a sum of squares or of products
   before a float rounding (length orders, distance orders) - below float precision for any input the test could
   find; they're kept as the original orders them.
+- [x] Batch AM-3 (NOT run in the game yet; shadows): src/game/gfx/shadow.{h,cpp} (new).
+  - Shadow casters (0x10C bytes: render target, model, view, projection (near 5), the receivers' projection (near 80),
+    the texture matrix) in the hash table at 0x7CA970, keyed by the target's address: 0x004DDC90 `AddShadowCaster`,
+    0x004DB0A0 `RemoveShadowCaster`, 0x004DB100 `AimShadowCaster` (up is z when looking straight along y - x and z
+    both equal - else y; D3DX LookAt / Ortho 120 x 120). The casters are walked with the table's own iterator: an
+    item with no value ends the walk (as the original).
+  - 0x004DBBD0 `RenderShadowTextures` (each caster with a model into its texture: fog off for it, the model's
+    active meshes drawn with flag 8 and marked 0x200; casters without a model skipped), 0x004DBF50 `DrawShadows`
+    (each caster's texture projected onto the receivers in view: 0x004DA0F0 `ProjectShadowVertices` (the clip
+    flags from the float bits as the original), 0x004DA190 `ClipShadowTriangles` (dropped when all three are off
+    one side, or facing > -1e-4 worked out in double), DrawPrimitiveUP, the draw / triangle counters 0x786EBC /
+    0x786EC0), 0x004DB880 `ShadowTextureMatrix` (the view's inverse is worked out and not used), 0x004DB9D0
+    `DrawShadowVolumes` (the scene's flagged meshes in view; two-sided stencil, or the two sides apart with
+    blend modes 0x10000002 / 0x10000004; the vertex-colour pixel shader locked meanwhile; ZFUNC GREATEREQUAL
+    without two-sided stencil).
+  Test (src/hook/selftests_appmain3.cpp, Early): TestShadowProjection (random positions / matrices so every clip
+  bit and both facings happen, degenerate and repeated indices, and a triangle facing exactly -1e-4);
+  TestShadowPasses (6 seeds over a stand-in caster table: a model-less caster with more after it, an empty table,
+  render skipped, fog / depth bias / border colour on and off, a render target without a depth surface, receivers
+  hidden / in view / flagged; stand-in D3DX in double precision); TestShadowVolumes (two-sided or not, the blend
+  override cleared, the pixel shader lock recorded during each draw); TestShadowCasters (add three, aim along every
+  case incl. x equal with z not and -0 / 0, remove in buckets / chained / behind an empty value / missing).
+  Mutations: 31 deliberate bugs, all caught (24 at first; the exact-limit triangle, the blend override cleared,
+  the lock recorded in the draw, the model-less caster moved before others, a missing depth surface, the x-only
+  aim case and near-identity caster matrices - so triangles are really drawn - were added for the other 7).

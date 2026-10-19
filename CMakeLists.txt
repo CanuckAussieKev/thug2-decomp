@@ -90,6 +90,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_winmain.cpp
     src/hook/selftests_appmain.cpp
     src/hook/selftests_appmain2.cpp
+    src/hook/selftests_appmain3.cpp
     src/hook/selftests_gapsB.cpp
     src/hook/selftests_mva.cpp
     src/hook/selftests_mva2.cpp
@@ -185,6 +186,7 @@ add_library(thug2_code OBJECT
     src/game/gfx/engine_glue.cpp
     src/game/gfx/render_state.cpp
     src/game/gfx/occlusion.cpp
+    src/game/gfx/shadow.cpp
     src/game/file/async.cpp
     src/game/file/file.cpp
     src/game/file/pip.cpp
