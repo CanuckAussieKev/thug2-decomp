@@ -266,5 +266,27 @@ Shared files touched (small, additive): CMakeLists.txt (new sources and selftest
     allocation (the instance was null already), GetVolume's `<=` on the loudest channel (always 0 there: nothing
     changes), the smpl read limit 0x20 (the loop count still read, the rest skipped alike), LoadWave freeing samples
     on failure (there are none yet).
-- [ ] Next: the animation blending 0x47D420-0x47DC31 (+ 0x47D580 / 0x47D660, code Ghidra missed), the cutscene
-  system 0x463AA0-0x4680B0 (+ 0x464340).
+- [x] Batch OS-10 (NOT run in the game yet; blending animation poses): src/game/gfx/anim_blend.{h,cpp} (new).
+  - Gfx::CPose (0x840 bytes: 64 rotations, 64 translations, 64 valid flags). 0x0047D470 InterpolateRotation (a
+    normalised lerp of quaternions, the shorter way; as the original, the `to` rotation is overwritten with the
+    result - the higher pose's rotations change while blending; x87: two components and the length unrounded),
+    0x0047D680 BlendPoses (weights[0] = 1 - the others; from the top down each pose with a weight goes into the
+    next lower one with a weight, by 1 - lower / (lower + this + the weight taken so far); bones only the higher
+    pose has are copied), 0x0047D8F0 BlendPosesById (the same over the poses with an id; weights under 0.00001
+    left out; copied bones marked valid; as the original, the search for a lower pose doesn't stop at the first
+    unless its id matches). Both copy `bones` poses' worth (bones * 0x840 bytes) to `out` when it isn't the poses
+    - the original's size, kept (its callers pass out == poses).
+  - 0x0047D580 AddTimelineInfo (code Ghidra missed, nothing calls it; stdcall: a timeline's anim, speed, loop type
+    name from 0x006486BC and start / current / end times from 0x004813B0 into a structure).
+  - The blender channel's pieces (Gfx::CBlendChannel, the rest not rewritten): 0x0047D420 SetFlag4C, 0x0047D430
+    BlendTo(target, period), 0x0047D620 GetValue / 0x0047D640 HasValue (0x0048CF50 at the channel's key + an
+    offset), 0x0047D660 ClearFlag (code Ghidra missed: flag 0x5DB4115F out of the owner's parameters).
+  - Tests (selftests_objsys10.cpp): TestAnimBlend - 300 seeds: the rotation blend alone (opposite, zero and
+    right-angle rotations, t outside 0-1), both pose blends over 1-7 random poses with weights 0 / small / negative
+    / NaN, ids, 0-64 bones, out the poses or another buffer; the weights, every pose and the output compared.
+    TestBlendChannel - 60 seeds of random channels: every piece and the timeline info (the structure, the lookup
+    and the timeline's times stood in for).
+  - Mutations: 36 deliberate bugs; 34 caught (33 at first; right-angle rotations added for 1). The other 2: BlendTo's
+    `!(period != 0)` (the same test, equivalent) and the dot product's summing order (changes only a sign that
+    rounding decides - not reached by the test data).
+- [ ] Next: OS-11+ the cutscene system 0x463AA0-0x4680B0 (+ 0x464340).
