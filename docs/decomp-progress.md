@@ -4548,6 +4548,21 @@ belong with the CScript batch.
 - [x] User's play-test report 2026-10-19: Minneapolis and Santa Monica load (fixed crashes), the Mall's glass sound
       works, peds and cars show in the ported levels, the front-end menus are fine (batches 114-121 judged).
       Time of day (110-113) still to be judged.
+- [x] Batch 123 (run in the game: workspace start-up and SKATE NOW, no errors; the halfpipe NOT skated by a player
+      yet): the trigger component's node lookup 0x00434A60, as Obj::CTriggerComponent::TriggerNode (new
+      src/game/obj/trigger_component.*; __thiscall, 4 arguments: the three events, the face's object name, a node array
+      or null, the other object). The node: GetNode, or the array searched from its end (none named so leaves element
+      0 - kept); the other object's node's parameters structure 0x5180A4DB; the TriggerScript; the skate module's skip
+      (0x00565BB0); the events' bits into +0x28; SpawnAndRunScript with the node's NetEnabled / Permanent flags. A
+      deliberate change, the original kept in a comment: a trigger face whose object has no node returns false and is
+      logged once per name - the original read the TriggerScript through the null (the user's crash 2026-10-19: SKATE
+      NOW in the THPS4 shop, landing on the halfpipe's vert sections, whose trigger nodes the front end's node array
+      didn't have). Also: tools/menu_level/make_menu_level.py front_end_triggers gives the front end the shop's trigger
+      geometry nodes (SSO_Vert_Section01-03) and their gap scripts - the gaps score in SKATE NOW. Early test
+      (src/hook/selftests_trigger.cpp): original vs ours with GetNode, 0x00565BB0 and SpawnAndRunScript stood in for -
+      lookup with and without an array, found / not found (element 0 with and without a script), scripts, each flag
+      alone and both, parameters, the skip, six event triples; ours alone: no node. 19 deliberate bugs: 18 caught (3
+      after strengthening), 1 equivalent (the first event's bit added instead of set right after the clear).
 - [ ] Next: check the network fix in the game (host a game, change to a ported level of each game). Small net
       follow-ups: App::m_manager (+0x1440) could become `Manager*` (it is `void*`), name the Manager's +0x2E6 flag
       (pref checksum 0xE5ADE642) and check +0x374 (modem baud rate?). Widescreen follow-up: if the user still sees
