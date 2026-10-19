@@ -36,5 +36,50 @@ ProjectToPlane made exact).
     removal outside a pass, the next task removed during a pass, a node destructor's vtable, freeing with flag 1
     and vectors shorter than 1e-30 added for 6). The other one is equivalent: RemoveAllTasks marking the list
     changed (each Remove marks it already).
-- [ ] Next: AN-2 - the asset types after 0x004071A0 (Animation, Cutscene, Node Array, Scene, SceneColl,
-  Skeleton, skin, SkinColl, TexDict: 0x004071A0-0x0040AB00).
+- [x] Batch AN-2 (NOT run in the game yet; the asset base class and the asset manager):
+  src/game/ass/asset.h / asset.cpp, assman.h / assman.cpp (new).
+  - Ass::CAsset (0x4C bytes, vtable 0x00645568; the slots are listed in asset.h): 0x00407910 constructor,
+    0x00407810 destructor, 0x004093E0 (a jump to it, the types' body; source only), 0x00407950 / 0x00407AF0 the
+    scalar deleting ones, 0x004075F0 the base Load / LoadFromBuffer (loading; 0), 0x00407600 Unload, 0x00407610
+    IsLoaded, 0x00407620 ProcessBuffer, 0x00407630 FinishLoading, 0x00407640 Abort (the read cancelled and closed),
+    0x004076D0 GetName, the setters 0x004076E0 / 0x004072F0 / 0x004076F0 / 0x00407700 / 0x004075D0, the state
+    setters 0x00407670-0x004076C0 (0 unloaded, 1 loading, 2 read, 3 processing, 4 loaded, 5 aborted),
+    0x00407840 AddDependent, 0x00407890 RemoveDependent, 0x00407710 the async read's callback (not a function in
+    Ghidra: found from its references), the dependents list's destructors 0x004077B0 / 0x004077D0 / 0x004078E0.
+    The types' constructors: 0x004071A0 animation, 0x00409220 scene, 0x004095F0 scene collision, 0x00409970
+    skeleton, 0x00409C40 skinned model, 0x0040A210 skin collision, 0x0040A580 texture dictionary, 0x00407A30
+    cutscene, 0x00408BB0 node array, 0x00408BF0 (a node array made the node manager's owner). The type numbers
+    from the extension table 0x0067C650 (BIN 1, SCN/GEOM 2, TEX 3, COL 4, SKA/FAM 5, SKE 6, MDL/SKIN 7, 8 skin
+    collision, CUT 9, QB 10, 11 an owned node array).
+  - Ass::CAssMan (0x3C bytes, a module; vtable 0x00645658): 0x00407F80 constructor, 0x00408930 / 0x00408A10
+    destructors, 0x00407E90 / 0x00407AE0 start / stop (its task into the main loop's logic tasks), 0x00408060
+    LoadAssetFromStream, 0x00408440 LoadAsset, 0x004087B0 LoadOrGetAsset, 0x00408870 LoadAnim, 0x00407EC0
+    ReloadAsset, 0x00407B20 UnloadAsset, 0x00407CF0 / 0x00407D40 / 0x00407F20 / 0x00407F50 the unload-alls,
+    0x00407B90 GetAsset (waits; IsLoaded asked twice first), 0x00407C00 / 0x00407C70 GetAssetData (by name),
+    0x00407CA0 AssetExists, 0x00407A50 / 0x00407A60 (source only, 4 bytes) / 0x00407A70, 0x00407DD0
+    ProcessPendingAssets and 0x00407EB0 its task callback (both not functions in Ghidra), 0x00407A80
+    RemoveFromList, 0x004079C0 GetTypeFromExtension, 0x004088E0 CreateAssetManager, 0x00407980
+    ReleaseAssetManager.
+  - Findings: the script integer 0x25DC7904 set keeps a failed asset (not deleted; a debug leftover, LoadOrGet
+    looks it up for nothing). LoadAssetFromStream has no cutscene case and a type that isn't one crashes (a null
+    asset). The asset lists are circular, but ProcessPendingAssets' walk ends only at a null link and
+    RemoveFromList's search only at null too: with an asset pending, or one in the other list, neither would end -
+    async loading looks unused (every caller in the exe loads synchronously as far as seen). LoadAnim loads with
+    the manager's +0x14 "permanent" flag.
+  - Tests (selftests_anim2.cpp): TestAnimAssetBase - every constructor on dirty memory, the base methods through
+    the vtable, abort with and without a file, the read callback, dependents added / removed (first, middle, last,
+    missing, empty), the destructors; TestAnimAssetManager - made / started / stopped, loads of every type from files
+    and memory (by extension and type, groups, async, failing with and without the debug integer, the one-shot and
+    kept callbacks), lookups (waiting, a key-0 item behind a flushed bucket head), reload, LoadOrGet, LoadAnim,
+    the pending list processed (a null-ended chain: loaded / read / processing that fails / loading / waiting on its
+    group), the unload-alls, RemoveFromList, the extension table, construction on dirty memory, destroyed through
+    the references. The types' Load / LoadFromBuffer / Unload / Reload / FinishLoading, the cutscene's IsLoaded,
+    the memory manager, pool, async file calls, _stricmp and the script integer stood in for; in our run the asset
+    vtables point at ours. Every call and the arena compared.
+  - Mutations: 64 deliberate bugs; 63 caught (56 at first: a base destructor on a typed asset, the key-0 lookup,
+    construction on dirty memory, the manager really destroyed (three references), a cutscene's IsLoaded counted,
+    a name whose only "extension" is its first letters added for 7). The other one can't be tested: a cutscene
+    from LoadAssetFromStream (the original crashes).
+- [ ] Next: AN-3 - the asset types' methods (Animation 0x004071C0-0x004074F0, Cutscene 0x00408A40-0x00408AD0,
+  Node Array 0x00408BD0-0x00408F00, 0x004090D0, Scene 0x00409240-0x00409520, SceneColl 0x00409610-0x00409890,
+  Skeleton 0x00409990-0x00409B80, skin 0x00409C70-0x0040A140, SkinColl / TexDict up to 0x0040AB00).
