@@ -342,6 +342,10 @@ Shared files touched: CMakeLists.txt (each new .cpp listed, additive).
       game only: "skater init" (VW-12) - the arena manager's skater info heap word (+0x5D4) changed during our run
       (0xA0010000 vs 0x7B000000), passes offline every time: looks like the game touching the arena's stand-in manager
       while the early tests run (a race, as the known flaky ones); not chased further.
+      Fixed since: the cause was batch 109's - the test's heap constant 0x7B000000 fell inside our run's arena at that
+      start-up's DLL address (ASLR), so Rel made it an offset in our run only. viewer_testkit.h's Rel now maps a word in
+      either run's arena (ArenaWord over the ArenaPair), as the other kits do. Three start-ups in THUG2-3: all 276 early
+      tests pass each time.
 
 - [ ] Next: mutation specs for VW-15..17 (fast setup); suspect CAUGHTs of the slow runs (named a flaky test: PC async
       handle, anim controllers: partial, memory cards: free space) to rerun; known misses: launch_best, restart_walking

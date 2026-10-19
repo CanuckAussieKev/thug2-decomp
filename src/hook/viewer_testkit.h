@@ -51,10 +51,13 @@ void Alias(F ours, uint32_t game)
     g_codeAliases[reinterpret_cast<uint32_t>(CodeAddress(ours))] = game;
     g_codeAliases[AddressOf(ours)] = game;
 }
+// A word in either run's arena as its offset (both arenas, so that a value the two runs share that happens to lie in
+// one arena - the DLL moves with ASLR - maps the same in both: batch 109).
 inline uint32_t Rel(uint32_t word)
 {
-    if (InArena(word))
-        return 0xA0000000u + (word - g_base);
+    uint32_t start = reinterpret_cast<uint32_t>(g_storage.Get());
+    if (word - start < 2 * kArenaSize)
+        return ArenaWord(g_storage.Get(), kArenaSize, word);
     auto it = g_codeAliases.find(word);
     return it == g_codeAliases.end() ? word : it->second;
 }
