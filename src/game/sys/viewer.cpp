@@ -13,6 +13,7 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/sio/inpman.h"
+#include "game/sys/debug_mode.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -174,6 +175,9 @@ void __cdecl HandleViewerInput(ViewerInputHandler* handler)
     viewer->m_rightY = stick(Inp::Data::kRawRightY);
     viewer->m_leftX = stick(Inp::Data::kRawLeftX);
     viewer->m_leftY = stick(Inp::Data::kRawLeftY);
+    // Not original - debug mode's keyboard flying (game/sys/debug_mode.h): held keys over the sticks, and up / down.
+    Sys::DebugMode::KeyboardViewer(&viewer->m_leftX, &viewer->m_leftY, &viewer->m_rightX, &viewer->m_rightY,
+                                   &viewer->m_commands);
     if (!Script::GetInteger(kViewerButtonsEnabled))
         return;
     auto held = [handler]() { return handler->m_controlData->m_buttons; };

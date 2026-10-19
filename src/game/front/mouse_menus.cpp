@@ -12,6 +12,8 @@
 #include "game/front/front_end.h"
 #include "game/front/level_editor.h"
 #include "game/front/restart_tester.h"
+#include "game/front/start_level.h"
+#include "game/sys/debug_mode.h"
 #include "game/front/screen_element.h"
 #include "game/gfx/screen.h"
 #include "game/obj/event.h"
@@ -874,6 +876,10 @@ void Update(Mdl::FrontEnd* frontEnd)
     }
     // (not original either: the restart tester's key, F8 - game/front/restart_tester.h)
     Front::RestartTester::Update(frontEnd);
+    // (and debug mode's viewer and F keys - game/sys/debug_mode.h)
+    Sys::DebugMode::Update(frontEnd);
+    // (and the start level: -level <name> - game/front/start_level.h)
+    Front::StartLevel::Update(frontEnd);
     if (!Enabled())
         return;
     MouseState input = s_mouse;

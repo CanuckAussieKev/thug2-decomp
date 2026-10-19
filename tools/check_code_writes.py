@@ -1,7 +1,7 @@
 # Checks the game source's run-time writes into the exe's code and data stay clear of rewritten functions.
 #
 # Game source that has to change code it doesn't own yet writes into the exe at start-up: the GameSpy SDK's host
-# names (src/game/net/online_hosts.cpp, until the SDK is linked) and the CFunction table's IsPS2 entry
+# names (src/game/net/online_hosts.cpp, until the SDK is linked), the CFunction table's IsPS2 entry and (debug mode) its CD entry
 # (src/game/sys/platform_cfuncs.cpp, until that table is source). Such a write
 #   - inside a rewritten function would be bypassed (the game runs our version, not the code written into), and
 #   - inside the first bytes of a hooked function would be lost from MinHook's trampoline and break our jump.
@@ -22,8 +22,15 @@ text = open("src/game/sys/platform_cfuncs.cpp", encoding="utf-8").read()
 m = re.search(r"kIsPS2Entry = 0x([0-9A-Fa-f]{8})", text)
 if m:
     writes.append((int(m.group(1), 16) + 4, "platform_cfuncs.cpp"))
-if len(writes) != 15:
-    print(f"expected 15 writes (14 host names, 1 table entry), found {len(writes)}: update this script")
+text = open("src/game/sys/debug_mode.cpp", encoding="utf-8").read()
+m = re.search(r"kCDEntry = 0x([0-9A-Fa-f]{8})", text)
+if m:
+    writes.append((int(m.group(1), 16) + 4, "debug_mode.cpp"))
+m = re.search(r"kNotCDEntry = 0x([0-9A-Fa-f]{8})", text)
+if m:
+    writes.append((int(m.group(1), 16) + 4, "debug_mode.cpp"))
+if len(writes) != 17:
+    print(f"expected 17 writes (14 host names, 3 table entries), found {len(writes)}: update this script")
     sys.exit(1)
 
 registered = set()

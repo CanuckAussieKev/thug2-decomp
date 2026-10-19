@@ -18,6 +18,7 @@
 #include "game/script/names.h"
 #include "game/script/nodes.h"
 #include "game/script/struct.h"
+#include "game/sys/mlp.h"
 #include "hook/log.h"
 
 namespace Front::RestartTester {
@@ -159,7 +160,7 @@ void Update(Mdl::FrontEnd* frontEnd)
     bool down = keys && keys[kKey];
     bool pressed = down && s_keyUp;
     s_keyUp = !down;
-    if (!pressed || Front::LevelEditor::Active() || (frontEnd && frontEnd->m_paused) || Nx::CurrentLevel() == 0)
+    if (!pressed || Mlp::FramesRun() == 0 || Front::LevelEditor::Active() || (frontEnd && frontEnd->m_paused) || Nx::CurrentLevel() == 0)
         return;
     Next();
 }

@@ -1,5 +1,6 @@
 param([int]$Seconds = 40, [string]$Shot = 'shot', [string]$Keys = '', [string]$Game = 'C:\Games\THUG2',
-      [string]$ShotDir = '')
+      [string]$ShotDir = '', [string]$Level = '')
+# -Level <name>: the game started with -level <name> - straight into free skate there (src/game/front/start_level.h).
 # Starts the game in the -Game folder (C:\Games\THUG2, or a workspace copy C:\Games\THUG2-1, -2...), waits, takes a
 # picture of its window (half size), optionally sends keys, then closes that game (only the one it started).
 # Workspace folders (anything but C:\Games\THUG2) never take the foreground: keys are posted to the window
@@ -27,7 +28,8 @@ public static class FocusBack {
 "@
 }
 $before = if ($workspace) { [FocusBack]::GetForegroundWindow() } else { [IntPtr]::Zero }
-$p = Start-Process -FilePath $exe -WorkingDirectory $Game -PassThru
+if ($Level) { $p = Start-Process -FilePath $exe -WorkingDirectory $Game -ArgumentList @('-level', $Level) -PassThru }
+else { $p = Start-Process -FilePath $exe -WorkingDirectory $Game -PassThru }
 if ($workspace) {
     # (a new window takes the front: once the game's window is up, the window the user had in front gets it back)
     for ($i = 0; $i -lt 60 -and -not $p.HasExited; $i++) {
