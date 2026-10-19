@@ -23,10 +23,14 @@ lead), and parallel work uses the workspace copies C:\Games\THUG2-1 ... THUG2-4 
   `now:<key>`, `ctrl:<key>` (the mouse commands only work with the game in front - not in workspaces).
 - `window_shot.ps1 -ProcessId <pid> -Path <png>` - one game window with PrintWindow, also in the background.
   `game_shot.ps1 -Path <png>` - the game's window while it's in front. **Never capture the whole screen.**
-- `boot_level.py <level> <folder>` - TEST ONLY: patches the installed overlay's SKATE NOW to load a level in free skate
-  (e.g. `thps3_foun`, `thaw_dt`). `make_menu_level.py --game <folder>` puts the real one back.
-- `load_check.ps1 -Game <folder> -Levels a, b, ...` - boot_level + run_game for each level in turn, then reads the log:
-  `<level> : running after 50 s; responding=True loaded=True` or the errors. Puts the real SKATE NOW back at the end.
+- `run_game.ps1 ... -Level <name>` - the game started with `-level <name>`: straight into free skate in that level
+  (`thps3_foun`, `thaw_dt`, `BO`, `Load_TR`...; src/game/front/start_level.h - also `[features] start_level=` in the
+  ini). No keys needed, the overlay untouched. Keys: F8 restart tester; with `debug_mode=1` F9-F12, Home, Tab, T
+  (src/game/sys/debug_mode.h).
+- `boot_level.py <level> <folder>` - TEST ONLY, superseded by `-Level`: patches the installed overlay's SKATE NOW to
+  load a level in free skate. `make_menu_level.py --game <folder>` puts the real one back.
+- `load_check.ps1 -Game <folder> -Levels a, b, ...` - run_game -Level for each level in turn, then reads the log:
+  `<level> : running after 50 s; responding=True loaded=True` or the errors.
 
 Reference sources the agents read (re-fetch anonymously if needed; none of their code is in the repo except where
 THIRD_PARTY_NOTICES.md says): https://github.com/Morten1337/thps-formats (MIT), https://github.com/denetii/io_thps_scene

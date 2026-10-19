@@ -12,6 +12,7 @@
 #include "game/front/level_editor.h"
 #include "game/gfx/screen.h"
 #include "game/script/cscript.h"
+#include "game/sys/mlp.h"
 #include "hook/hook.h"
 #include "hook/log.h"
 
@@ -103,7 +104,7 @@ void Install()
 
 void Update(Mdl::FrontEnd* frontEnd)
 {
-    if (!Enabled())
+    if (!Enabled() || Mlp::FramesRun() == 0) // (not in the early self-tests, which run this on stand-in state)
         return;
     const uint8_t* keys = SDL_GetKeyboardState(nullptr);
     if (!keys)

@@ -22,6 +22,12 @@
 
 namespace Mlp {
 
+uint32_t& FramesRun()
+{
+    static uint32_t frames;
+    return frames;
+}
+
 namespace {
 
 // Set for a frame that isn't drawn (running late, the window inactive, the device just reset): the scene isn't
@@ -184,6 +190,7 @@ void Manager::MainLoop()
     uint64_t frameStart = static_cast<uint64_t>(counter.QuadPart);
     m_done = false;
     do {
+        ++FramesRun(); // (not original - see FramesRun)
         if (screenSaverTimeout && framesSinceScreenSaver++ >= 200) {
             SystemParametersInfoA(SPI_SETSCREENSAVETIMEOUT, screenSaverTimeout, nullptr, 0);
             framesSinceScreenSaver = 0;

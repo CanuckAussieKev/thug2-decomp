@@ -46,6 +46,10 @@ static_assert(offsetof(Manager, m_profileFrames) == 0xC4);
 static_assert(offsetof(Manager, m_profiling) == 0xC8);
 static_assert(sizeof(Manager) == 0xCC);
 
+// NOT ORIGINAL: the main loop's passes so far (ours: features that need the game up - the front end's input logic
+// also runs in the early self-tests, on stand-in state - wait for the first).
+uint32_t& FramesRun();
+
 // The singleton (0x00696D68, references 0x00696D6C). 0x0044F260: the first call with `create` makes it (0xCC
 // bytes, zeroed, on the current heap), every call takes a reference and returns it (null if there is none).
 Manager* CreateManager(bool create);
