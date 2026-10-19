@@ -92,6 +92,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_appmain2.cpp
     src/hook/selftests_appmain3.cpp
     src/hook/selftests_appmain4.cpp
+    src/hook/selftests_appmain5.cpp
     src/hook/selftests_gapsB.cpp
     src/hook/selftests_mva.cpp
     src/hook/selftests_mva2.cpp
@@ -190,6 +191,8 @@ add_library(thug2_code OBJECT
     src/game/gfx/occlusion.cpp
     src/game/gfx/shadow.cpp
     src/game/gfx/mesh_list.cpp
+    src/game/gfx/pixel_shaders.cpp
+    src/game/gfx/simple_material.cpp
     src/game/file/async.cpp
     src/game/file/file.cpp
     src/game/file/pip.cpp

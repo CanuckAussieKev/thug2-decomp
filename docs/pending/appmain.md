@@ -154,3 +154,24 @@ that never returns and end it from a stand-in).
   vertex buffers stood in; all memory compared. Load indices kept under 64 (see above).
   Mutations: 26 deliberate bugs, all caught (20 at first; the states recorded after construct / count, more
   bounds, a material checksum of 0 and records matching at once were added for the other 6).
+- [x] Batch AM-5 (NOT run in the game yet; pixel shaders and one-pass materials): src/game/gfx/pixel_shaders.{h,cpp},
+  simple_material.{h,cpp} (new).
+  - 0x004DD7F0 `CreatePixelShaders` (once: the handles cleared; without pixel shaders the stand-in numbers 1-10 the
+    fixed-function stages tell apart, else the six fixed shaders assembled - their sources as literals - and
+    created; the shadow caster table made), 0x004DD2C0 `GeneratedPixelShader` (a material's passes: the key from
+    the pass count, modes, passes and per-pass alpha flags 0x004D1D90; the cache 0x7CA9C0 - the first item with
+    the key and a shader -; else the ps.1.1 text written as the original sprintfs it, assembled, created and
+    cached; the "texture only" branches are unreachable since every pass counts as present, as in the original),
+    0x004DDC00 `MaterialPixelShader` (one pass: the fixed shaders by texture / brighten / alpha flags; more: the
+    generated one).
+  - 0x004D9B80 `sSimpleMaterial::Construct` (the texture dictionary's entry, direct or indirect; a 0x110-byte
+    material: sort key rand() * rand() with the game's rand, one pass, blend mode by name with the fixed alpha in
+    the top byte, colour 0.5, alpha fixed / 128; the shader by mode), 0x004D9CD0 `DestroyBody`, 0x004D9CF0
+    `BlendModeFromName`, 0x004DA6D0 `SkipFileChunk`, 0x004DA710 `SkipMemoryChunk`.
+  Test (src/hook/selftests_appmain5.cpp, Early): TestFixedPixelShaders (with / without pixel shaders, once only,
+  stand-in D3DXAssembleShader recording the text), TestGeneratedPixelShaders (3 x 160 materials of 0-4 passes,
+  every mode, alpha flags, failing assembly, cached keys later left without a shader), TestSimpleMaterial (every
+  blend name and others, textures found / indirect / missing, fixed alphas incl. out of range, destroy, the chunk
+  skippers).
+  Mutations: 30 deliberate bugs; 29 caught (27 at first; cache items left without a shader and all 18 names in
+  the constructor were added for 2). The other (gen_reg) changes the unreachable "texture only" branch.
