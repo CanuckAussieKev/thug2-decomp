@@ -12,7 +12,19 @@ then the "- [ ] Next:" line of docs/decomp-progress.md.
   - the leaked-source ban.
 - **Decomp:** 28.27% before the object-system merge (docs/PROGRESS.md). The next batch number is **156**.
 
-## In flight - pick these up
+## Update (later the same night): items 1 and 2 below are DONE
+- Object system: merged and folded as batches 156-170, so progress is 31.27%. It ran 70 s in Boston in THUG2-4
+  (2790 replacements, every self-test passed, no exceptions). It is installed in C:\Games\THUG2. Its cutscene code
+  (OS-11..15) hasn't run in the game yet: the user should play a story cutscene.
+- scan_register_assumptions lists 2 RISK entries, both from before this merge:
+  - 0x004E69D0 InitEditedGoalStub is handled (it keeps ECX);
+  - 0x00477F70 CStruct::AddVector(uint32_t, VectorValue): its caller at 0x004EFF92 pushes ECX after the call. Look
+    at this.
+- Anteara merge: finished. The mod is in C:\Games\THUG2\Backup\scripts_unified (NOTES.md there); THUG2-3 is restored
+  and unlocked.
+- All workspaces are free; no agents are running.
+
+## In flight - pick these up (as of the handoff; see the update above)
 1. **Object system & script runtime agent - its range is finished, not merged yet.**
    - Branch `worktree-agent-ac4285dede37d3675` (worktree `.claude/worktrees/agent-ac4285dede37d3675`), pushed. It has
      batches OS-1..OS-15, covering every function in 0x45EFD0-0x47DC40 (find_gaps.py lists nothing there). It already
