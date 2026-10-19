@@ -49,7 +49,57 @@ Shared files touched (small, additive): CMakeLists.txt (new sources and selftest
     earlier), `x >= 0` for `x > 0` in StickLength (0 / 127 = 0 / 128), `a >= -pi/4` for `a > -pi/4` (cos is even:
     the same length either way).
 
-- [ ] Next: OS-2 (written, not built yet: src/game/obj/proxim.{h,cpp}, src/game/script/preferences.{h,cpp},
-  src/hook/selftests_objsys2.cpp - add them to CMakeLists.txt, build, test, mutate), then OS-3 the structure
-  buffer (src/game/script/struct_buffer.{h,cpp} written; needs its test on a stand-in memory manager), then the
-  sound effects manager 0x47AC10-0x47DC31, 0x467710-0x46AAA1, the cutscene system 0x463AA0-0x467707.
+- [x] Batch OS-2 (NOT run in the game yet; proximity nodes, restart node lists, preferences):
+  src/game/obj/proxim.{h,cpp}, src/game/script/preferences.{h,cpp} (new).
+  - Proximity nodes (THUG's Obj::Proxim_*; level nodes of class ProximNode; the list 0x006F2268 = {head, entering,
+    in-script}): 0x0046AAC0 ProximShapeFromChecksum (0xE460ABDE box, 0x03F1E5A7 sector box, 0x64FBA415 none,
+    0x6AADF154 sector collision, anything else sphere), 0x0046AB10 / 0x0046AB30 the manager made / emptied
+    (Proxim_Init), 0x0046AB50 Proxim_Cleanup (every node freed), 0x0046AB90 Proxim_GetNode (no null check, as the
+    original), 0x0046ABC0 ProximNode::SetActive (a node going inactive kills its objects (vtable slot 6), or runs its
+    script as the exit for each skater it holds - entering flag clear, in-script set around it; everyone counts as
+    outside after), 0x0046ACB0 Proxim_SetActive(name), 0x0046ACF0 SetSector (the sector's box; for the sector shapes
+    also its world matrix, inverted), 0x0046AD50 IsInside (sphere: z, y, x squares summed unrounded <= radius^2; box;
+    sector box: the point into the sector's frame about the box's centre; the sector's collision object's +0x48; the
+    "none" shape and unknown ones: no), 0x0046AEC0 GetClosestPoint (the sphere's: w's product unrounded; the boxes'
+    surfaces, the sector box through its frame and back by the world matrix; none: `out` left - the original copies
+    uninitialised locals), 0x0046B1F0 Proxim_AddNode (name=, shape, sector, position, ProximType 0x7321A8D6
+    (0x57525413 -> 2, 0xC4E311FA -> 1, else 0), radius and its square, script; ProximObject nodes keep their name as
+    the objects' base id; plain nodes start holding the skaters flagged at +0xBC, end them (SetActive(false)) and
+    take `active`), 0x0046B400 Proxim_Update(mask, object, point, type) (entering: plain nodes spawn their script on
+    the object (or run it) with the entering flag; ProximObject nodes make a composite object (id = base + the
+    skater's id, the node's position, components from proximobj_composite_structure with the sector's name
+    0x08470F2E when there is one, finalised, its script switched to the node's); leaving: the exit script / the
+    object killed).
+  - Restart nodes: 0x0046B680 IsRestartNode (code Ghidra never made a function of), 0x0046B6C0 GetRestartNodes(type,
+    out, start) (class Restart; type 0 = any, else those whose restart_types hold it), 0x0046B790 GetRestartNode(type,
+    index, start) (wrapped past the count; a negative index reads before the list, as the original).
+  - Prefs::Preferences (vtable 0x00647B34: GameNet::Manager's network / taunt preferences): 0x0046C470 Init,
+    0x0046C490 Deinit, 0x0046C680 the scalar deleting destructor, 0x0046C4A0 GetPreference, 0x0046C4D0
+    GetPreferenceArray, 0x0046C500 SetPreferences, 0x0046C510 / 0x0046C550 / 0x0046C590 GetPreferenceString / Value /
+    Checksum (asserting getters: a missing field returns the preference's name - the original reads the value back
+    from the argument's slot; the checksum getter asks for the preference with an assert), 0x0046C5D0 SetPreference,
+    0x0046C610 SetPreferenceArray, 0x0046C650 Load (a global structure's components).
+  - Tests (selftests_objsys2.cpp): TestProxim - 24 seeds of 3-6 nodes from random parameters (every shape name,
+    type, radius or none, ProximObject, renamed by name=, sectors or none, skaters flagged or not), 40 random calls
+    (updates of skaters / no object at points near and far, each mask, each type; nearest points; inside tests;
+    activation by node and by name; lookups), then a directed pass (every node active, entered by two skaters at its
+    centre, one leaving far away, the sphere's exact edge, deactivated), clean-up with and without a manager - the
+    world stood in for (node parameters, objects and their vtables, sectors and collision, scripts, memory), the box
+    / matrix / vector maths routed to ours in both runs, the whole arena and every call compared. TestRestartNodes:
+    the shape names, the lists by type from a start node or the first, IsRestartNode, the n-th. TestPreferences:
+    every method on stand-in structures whose getters find the field or not, the destructor with flags 0-3.
+    objsys_testkit.h: globals saved and restored by the tests' cleanup (also after a crash).
+  - Mutations: 47 deliberate bugs; 45 caught (37 at first; the directed pass, the sphere's edge, w values that round
+    and the destructor flags were added for 8). The other 2 are equivalent: the manager's in-script flag cleared
+    after Calloc (zeroed already), SetActive returning early only when activating (inactive nodes always have
+    m_outside -1).
+  - Also: src/game/core/singleton.{h,cpp} (shared, additive): 0x00469490 Spt::PointerMember::Get (3 bytes, source
+    only; the folded one-pointer getter); tools/mutate.py lists every failing / crashing test of a mutation (an
+    unrelated flaky test - "PC async handle" fails now and then on this busy machine - hid which test caught it).
+
+- [ ] Next: OS-3 the structure buffer (src/game/script/struct_buffer.{h,cpp} + selftests_objsys3.cpp written: add
+  to CMakeLists.txt, build, test, mutate), OS-4 emitters + follow trail (emitter.{h,cpp}, selftests_objsys4.cpp
+  written), OS-5 node objects / movie details / class node list (node_objects.{h,cpp} written, test to write),
+  OS-6 path manager (path_manager.{h,cpp} written, test to write), OS-7 path follower (path_follower.{h,cpp},
+  selftests_objsys7.cpp written); then the sound effects manager 0x47AC10-0x47D390, the animation blending
+  0x47D420-0x47DC31 (+ 0x47D580 / 0x47D660, code Ghidra missed), the cutscene system 0x463AA0-0x4680B0 (+ 0x464340).

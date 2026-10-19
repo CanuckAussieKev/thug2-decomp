@@ -61,6 +61,9 @@ struct PointerMember {
     void* m_pointer;
 
     PointerMember* Construct(void* pointer);
+    // 0x00469490 (3 bytes: source only): its pointer - folded likewise (12 callers: the park editor's list
+    // holders, ...).
+    void* Get();
 };
 
 } // namespace Spt

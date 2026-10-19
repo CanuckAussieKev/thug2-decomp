@@ -101,6 +101,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_appmain12.cpp
     src/hook/selftests_appmain11.cpp
     src/hook/selftests_objsys1.cpp
+    src/hook/selftests_objsys2.cpp
     src/hook/selftests_gapsB.cpp
     src/hook/selftests_mva.cpp
     src/hook/selftests_mva2.cpp
@@ -254,6 +255,8 @@ add_library(thug2_code OBJECT
     src/game/obj/compositemgr.cpp
     src/game/obj/cutscene.cpp
     src/game/obj/control_pad.cpp
+    src/game/obj/proxim.cpp
+    src/game/script/preferences.cpp
     src/game/obj/event.cpp
     src/game/obj/flip_rotate.cpp
     src/game/obj/motion.cpp
