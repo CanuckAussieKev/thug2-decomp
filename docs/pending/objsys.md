@@ -205,6 +205,29 @@ Shared files touched (small, additive): CMakeLists.txt (new sources and selftest
     the along value set before StartSegment overwrites it, and the done state after a failed NextNode (a node
     without links is always the last node).
 
-- [ ] Next: OS-8 sound effects manager part 1 0x47AC10-0x47B7C0 (src/game/sfx/sfx.{h,cpp}, selftests_objsys8.cpp
-  written), OS-9 part 2 0x47B8E0-0x47D390 (sfx_voices.cpp written, test to write); then the animation blending
+- [x] Batch OS-8 (NOT run in the game yet; the sound effects manager, part 1: tables, volumes, parameters):
+  src/game/sfx/sfx.{h,cpp} (new).
+  - sVolume (2 channels, 5 for the surround type; 3D ones carry a position and range): 0x0047B030 Init (the
+    manager's default type, silent; returns this), 0x0047B070 SetType, 0x0047AC50 PercentageAdjustment,
+    0x0047ACF0 IsSilent (never for 3D), 0x0047AD60 SetSilent, 0x0047B080 GetLoudestChannel (signed; first of equals).
+  - Free functions: 0x0047AC10 FalloffFromChecksum, 0x0047AFD0 GetMainVolume, 0x0047AFE0 CountPlayingVoices,
+    0x0047B010 NoSound (no DirectSound device 0x007D6A38, or platform 2 / 6).
+  - CSfxManager: 0x0047B160 Construct, 0x0047AD80 GetPlayingIndex (unique id first, then by name - the name path
+    reads two debug script globals), 0x0047AE20 AddPositionalSound (the count raised even when no entry is free,
+    as the original), 0x0047AE90 StopGroup / 0x0047AEA0 UnloadGroup / 0x0047AF10 UnloadAllGroups (no groups in this
+    build), 0x0047AF40 InitPlaybackProps, 0x0047B1B0 CleanUp (default dropoff back to 1020), 0x0047B210
+    SetDefaultDropoff, 0x0047B240 StopAllSounds, 0x0047B2A0 UpdateVoiceVolumes, 0x0047B2C0 GetWaveTableEntry (level
+    table first), 0x0047B340 IsPaused, 0x0047B360 LoadSound (the name after the last \ or /; 256 per table),
+    0x0047B480 AdjustVolumeAndPitch (the game's 50 % first), 0x0047B4E0 StopSound, 0x0047B520 SetSoundParams,
+    0x0047B5D0 SetMainVolume (below 0.1 silent; the user soundtrack too), 0x0047B650 SetPitch (at most 0.01; NaN
+    kept), 0x0047B6B0 PrintSounds (compiled out), 0x0047B6F0 IsSoundPlaying, 0x0047B760 GetDropoffDistance,
+    0x0047B7C0 SetSoundParamsScaled. The driver's voice calls go through the game's until OS-9.
+  - Tests (selftests_objsys8.cpp): TestSfxManager - 60 seeds of random sound state (wave tables with duplicate
+    names and every count up to full, playing sounds, the positional pool and list, settings, pause flags, the
+    device and platform), 30 random calls each on random ids (mostly ones in the tables), every result and driver
+    call recorded and the whole state compared.
+  - Mutations: 37 deliberate bugs; 35 caught (33 at first; ids drawn from the playing table added for 2). The other
+    2 are equivalent: UnloadGroup's count stored only when positive (unchanged otherwise), and SetPitch's clamp as
+    `pitch < 0.01` (differs only at exactly 0.01, which it sets anyway).
+- [ ] Next: OS-9 part 2 0x47B8E0-0x47D390 (sfx_voices.cpp written, test to write); then the animation blending
   0x47D420-0x47DC31 (+ 0x47D580 / 0x47D660, code Ghidra missed), the cutscene system 0x463AA0-0x4680B0 (+ 0x464340).
