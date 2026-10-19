@@ -1,42 +1,99 @@
-# Handoff (2026-10-19)
+# Handoff (2026-10-19, late)
 
-State when the session was handed over (the user changed Claude accounts). Read CLAUDE.md, then this, then the
-"- [ ] Next:" line of docs/decomp-progress.md.
+State when the session was handed over (the user changed Claude accounts at 100% usage). Read CLAUDE.md, then this,
+then the "- [ ] Next:" line of docs/decomp-progress.md.
 
 ## Where things stand
-- **main** has everything: every agent branch is merged and pushed. No agents are running.
-- **Decomp:** 2047 / 8382 functions (21.45%, docs/PROGRESS.md). Last ranges finished: Time-of-day (batches 110-113)
-  and Front-end UI: screen elements & text (batches 114-121). Both built clean, all 2139 argument sizes match,
-  all 219 early self-tests pass; both ran in a workspace game with no errors. **Neither has been judged by the user
-  yet** - what to check: docs/pending/time-of-day.md and docs/pending/frontend-ui.md ("For the user to check").
-- **C:\Games\THUG2 (main install):** main's dinput8.dll (built at d60f98c) and all 56 ported levels (THPS3 14, THPS4 11,
-  THUG1 16, THAW 15) with their scripts, peds and vehicles; `debug_collision=0`, nothing disabled.
-- **Level ports:** docs/level-port-compromises.md is the state per game, the crash workarounds and the exact-assets
-  plan. Every level loads; the scripts / peds / vehicles haven't been played by the user (lists in
-  docs/pending/thps3-scripts.md, thps4-scripts.md, thug1-scripts.md, thaw-scripts.md).
+- **main** (pushed; installed in C:\Games\THUG2 at 65a062f with the overlay regenerated) has:
+  - batches up to 155;
+  - the Default-level fix (docs/pending/defaultlevel.md);
+  - CREATE 100% CAS (docs/pending/cas100.md);
+  - NeverScript `-lenient`;
+  - the leaked-source ban.
+- **Decomp:** 28.27% before the object-system merge (docs/PROGRESS.md). The next batch number is **156**.
+
+## In flight - pick these up
+1. **Object system & script runtime agent - its range is finished, not merged yet.**
+   - Branch `worktree-agent-ac4285dede37d3675` (worktree `.claude/worktrees/agent-ac4285dede37d3675`), pushed. It has
+     batches OS-1..OS-15, covering every function in 0x45EFD0-0x47DC40 (find_gaps.py lists nothing there). It already
+     merged main once.
+   - Not done: its final game run (it ran once, at OS-11, in THUG2-4: clean) and its final report.
+   - To do:
+     1. Merge the branch, build, run thug2_check, scan_register_assumptions and check_code_writes.
+     2. Do a game run in THUG2-4 (a cutscene if possible).
+     3. Fold the records: `python -I tools/fold_pending.py docs/pending/objsys.md OS "objsys agent"` (from 156).
+     4. Regenerate PROGRESS.md, commit, push, and install into C:\Games\THUG2 (see below).
+2. **Anteara Mod merge agent (about 75% done when the session ended).** This is the user's old script mod: the 2010
+   and 2011 backups are in C:\Games\THUG2\Backup\scripts_2010 / scripts_2011.
+   - The user asked for one unified scripts folder, C:\Games\THUG2\Backup\scripts_unified:
+     - 2011 as the base;
+     - every 2010 feature brought back, the Polish skejt23.qb left out;
+     - the 2010-only menu features in a "2010" submenu of the Anteara pause menu;
+     - 2011's bugs fixed (lost randomrange in sk4_scripts / skater_vehicle / skater_fx, the missing
+       SPECIALGRIND_SCORE, cas_skater_f's stray byte);
+     - calls that never worked because the mod's old compiler stored their checksums byte-reversed, fixed;
+     - the recovered original names used;
+     - a NOTES.md listing everything;
+     - .qb files plus qdir.txt plus src\*.ns.
+   - The work is in the session scratchpad
+     `C:\Users\kevin\AppData\Local\Temp\claude\C--Dev-thug2-decomp\c861af32-ae53-4deb-9c82-1d00b291c5a6\scratchpad\anteara_merge\`
+     (`unified\qb`, `unified\qdir.txt`, make_unified.py and the checks). Built and checked:
+     - all 218 files compile and decompile again;
+     - the 195 unchanged files match 2011;
+     - the merge calls nothing undefined.
+   - In the game: loaded in THUG2-3 with no errors (2010's intro movie and theme colours show).
+   - **Left:**
+     1. Screenshots of the pause / Anteara / "2010" menus.
+     2. Restore THUG2-3: `install_ws3.ps1 -Action restore` in that folder, then release its lock
+        (`tools/game/game_lock.ps1 -Action release -Game C:\Games\THUG2-3`). **THUG2-3's lock is still held (owner
+        anteara) and the mod is still installed in its overlay.**
+     3. Copy to Backup\scripts_unified and write NOTES.md.
+   - If the scratchpad is gone, restart from the inputs below.
+   - **Inputs** (also scratchpad):
+     - `anteara\final\2010|2011` - decompiles with names restored (non-ASCII text lost - the agent restored it from
+       the raw decompiles);
+     - `anteara\ns\retail` - retail decompiles;
+     - `anteara\diff_data.json` - the 2010 vs 2011 comparison, published at
+       https://claude.ai/artifact/8QmkVoLZ5jAukTxCmtYP8J.
+   - Recovered original names (exact checksum matches):
+     - natas_spin (#70322399), natas_extra_tricks (#6f9f0796), freeman_bound (#3c97b174), anteara_pipe (#fcaa1c10);
+     - make_skater_lol (#5d84ddbd), ped_chase_count (#a3c76f73), anteara_explode (#33f42e93), bone_breast
+       (#b5a27768);
+     - getup_ped_chase (#33a24b3f), ped_chase_end (#a90ad5a5), skater_bail_chase (#eaf66a13);
+     - #07b12bd2 is unknown (only a collision matched).
+
+     FREEMAN_BOUND (flag 323) is defined and set by 2011's "No Out Of Bounds"; it isn't a bug.
+3. **Flaky early self-tests (to investigate).** In single game runs (not offline), agents saw early self-tests fail
+   once and pass on re-runs:
+   - "skate net registration" and "skate net handlers" (selftests_tod4);
+   - "anim controllers: partial", "text elements: updates" and "texture / sprite / window elements: updates";
+   - "text blocks: construction, fonts, lines".
+
+   They probably depend on the order or state they run in. The main install has self-tests off, so the user doesn't
+   see them.
 
 ## Waiting on the user
-- Playtests: the network fix (batch 122: host a game, change to ported levels); the four games' scripts / moving
-  objects in play; time of day in a career level; a hosted network game. Reported fine 2026-10-19: Minneapolis and
-  Santa Monica load, THAW glass sound, peds and cars show, the front-end menus.
-- **The exact-assets work** (originals' particles, sounds, car models, ped / animal skeletons and animations instead of
-  THUG2 stand-ins): proposed, not started - the user's go is needed. Order: docs/level-port-compromises.md section 8.
+- **CREATE 100% CAS** (GAME OPTIONS, after GAME PROGRESS; `[features] create_100_cas=0` turns it off): save, quit and
+  load, then check VIEW STATS still allows 10/10. The stat challenges' done state may not be saved. Also check that
+  story levels show their goals done.
+- **Default level:** gone from the level select in debug mode. Its scene and node array were never shipped: not in
+  the PC discs' cabinets and not on the Xbox disc (checked via archive.org dumps). TEST LEVEL is a different level.
+- Older playtests: the network fix (batch 122) and the four games' ported scripts / moving objects, time of day, the
+  exact-assets plan (docs/level-port-compromises.md section 8), and wireframe tier 2 (on hold: "don't start tier 2
+  yet").
 
 ## How work is done
-- Parallel agents: one git worktree + branch each, one workspace game folder each (C:\Games\THUG2-1 ... -4), the rules
-  in docs/agent-rules.md (pass the private Morten1337 repository ban on to every agent). The lead merges, builds
-  (tools\verify_build.cmd + out\build\verify\thug2_check.exe), folds docs/pending/<name>.md batches into
-  docs/decomp-progress.md with batch numbers (`python -I tools/fold_pending.py docs/pending/<name>.md <TAG> "<agent>"`;
-  the next is **156**), regenerates PROGRESS.md
-  (`python -I tools/progress_report.py`), commits, pushes, then installs main into C:\Games\THUG2 under its lock
-  (tools/game: copy the DLL over both the game's and the lock's `.backup` copy; converters + `make_menu_level.py`).
-- Game test scripts: tools/game (README there). User rules: launch only when allowed, never capture the whole screen,
-  never close a game you didn't start, hand interactive tests to the user.
-- The workspaces may still hold older branch data (THUG2-1: THUG1, THUG2-2: THAW, THUG2-3: a decomp build; THUG2-4 was
-  refreshed from main); refresh one with `tools/game/make_workspace.ps1 -Number <n>` before giving it to an agent.
-- `.claude/worktrees/` holds old agents' worktrees, all merged; they can be removed (`git worktree remove`).
-
-## Notes not folded into decomp-progress.md
-docs/pending: collision-debug, levelselect, mainmenu, pedscars, thps3, thps4-lighting, thug1, thaw and the four
-*-scripts records are level-port / tool records (not decomp batches) - kept as the detail behind
-docs/level-port-compromises.md.
+- Parallel agents: one git worktree + branch each, one workspace each (C:\Games\THUG2-1 ... -4), the rules in
+  docs/agent-rules.md. Pass on both bans: private Morten1337 repositories, and leaked Neversoft source.
+- Builds in parallel: each build uses its own PDB server (`set _MSPDBSRV_ENDPOINT_=<name>`) and `-j 2`. Never kill
+  mspdbsrv.
+- The lead builds out\build\lead (a .cmd: VsDevCmd -arch=x86, endpoint thug2lead,
+  `cmake --build out\build\lead -j 2`). Mutation runs can filter tests with THUG2_SELFTESTS (decomp-batch skill).
+- The lead merges, builds and checks, folds the docs/pending batches (`tools/fold_pending.py`), regenerates
+  PROGRESS.md, commits and pushes. It then installs main into C:\Games\THUG2: copy out\build\lead\dinput8.dll over it,
+  then `python -I tools/menu_level/make_menu_level.py --game C:\Games\THUG2`. The user's own manual-test folder: no
+  test runs there, and its self-tests stay off.
+- Game test scripts: tools/game (README there). Launch only when allowed (workspaces under the lock are allowed),
+  never capture the whole screen, never close a game you didn't start, and hand interactive tests to the user.
+- `.claude/worktrees/` holds finished agents' worktrees (defaultlevel a99dc09a…, cas100 a778032d…, merged). They can
+  be removed with `git worktree remove`.
