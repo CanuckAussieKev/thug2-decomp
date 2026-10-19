@@ -90,6 +90,61 @@ Shared files touched: CMakeLists.txt (each new .cpp listed, additive).
       after strengthening: a fresh Build with no gaps, Reset with a gap out of the level, a gap landed twice).
       viewer_testkit.h: InstallCommon(s, deleteStruct) and g_printfArgs (shared kit, my files only).
 
+- [x] Batch VW-4 (NOT run in the game yet; early tests pass offline; mutation run pending): the balance of a balance
+      trick (new src/game/skater/manual.*, Obj::CBalance - a manual, grind, lip or skitch; 0x58 bytes, vtable
+      0x0064ED24), 0x579850-0x579CC0 incl. the missed 0x579900 / 0x579910 / 0x579940 / 0x5799A0 / 0x579A00:
+      DestroyBody 0x579850, Init 0x579860 (SkaterBalanceTrick, SkaterScore, input), Reset 0x5798A0
+      (reset_balance_indicator), ClearBestTime / HideDisplay / ShowDisplay / KeepBestTime / ShowMeter 0x5798F0-0x579940,
+      Construct 0x579950, Destroy 0x5799A0, Stop 0x5799D0, Start 0x579A00 (grinds: Same_Grind_Add_Time /
+      New_Grind_Sub_Time by the rail (0x0057C200), robot_rail_add_time / robot_rail_nudge for runs under half a
+      second; the lean speed repeated (Repeat_Multiplier, at least Repeat_Min; manual / Nosemanual / random side), the
+      lean repeated (Lean_Repeat_Multiplier + the cheese), kept within 0.9 x Lean_Bail_Angle), Update 0x579CC0
+      (CheeseFrames, the score's trick time 0x00564270, the stats manager, the lean's growth (Lean_Gravity_Stat,
+      Instable_Rate / Instable_Base), the buttons (Lean_Acc after BalanceIgnoreButtonPeriod or a release - found: the
+      safe-period scale is an unsigned integer division, so 0 inside it), the random shake (Lean_Min_Speed /
+      Lean_Rnd_Speed), the bail (OffMeterTop / OffMeterBottom), the anim blender's meter (lean + 4096 over 8192,
+      flipped), the score's displays 0x00563370 / 0x00563390 (Up / Down buttons)). x87 rounding followed: sums kept
+      unrounded where the original keeps them on the stack. Self-test (new src/hook/selftests_viewer4.cpp):
+      TestBalance (starts for each balance type and state, 96 frames with every button / period / flip / display
+      case; the physics values, GetFloat, the frame time and Sign stood in by C++ functions jumped to).
+
+- [x] Batch VW-5 (NOT run in the game yet; early tests pass offline; mutation run pending): the movie manager (new
+      src/game/obj/movie_manager.*, Obj::CMovieManager: a CObject, vtable 0x0064ED34, 0x12C bytes - the skate module's
+      +0x368), 0x57A180-0x57B240 incl. the missed 0x57B070 / 0x57B0B0, and the list / copy helpers there: UseKeptCamera
+      0x57A180, CObject's and Gfx::Camera's compiler-made copy assignments 0x57A190 / 0x57A220, Lst::Node<CMovie> /
+      Lst::Head<CMovie> destructors 0x57A200 / 0x57A2C0, the shared Lst::Head DeleteAllNodes 0x57A2F0 (11 callers),
+      Count / GetMovie / FindMovie 0x57A330-0x57A3A0, KeepCamera 0x57A450, Construct 0x57A4B0, GetCamera 0x57A530,
+      StopAll 0x57A5A0, ClearMovies 0x57A640, EndMovie 0x57A6B0 ("Details have been removed %ld" with the 64-bit
+      render frame; the end script with a copy of its parameters), EndMovies 0x57A7E0 (skippable chains; a
+      compiled-out walk kept), the by-name calls 0x57A940 / 0x57A9B0 / 0x57AA20 / 0x57AA70 / 0x57AF60, KillMovie
+      0x57AAC0, AddMovie 0x57AB60 (asset camera animations of kinds 5 / 9, cutscenes, skater cameras clearing the
+      queue; found: a missing asset returns without restoring the kept-camera flag; an unknown type is a null movie),
+      Update 0x57AE60 (vtable slot 8), CallMemberFunction 0x57AFC0 (slot 3), GetPlayingName 0x57B030 (used by
+      menu_backdrop.cpp), PlayingFlag24 0x57B070, AnyMovies 0x57B0B0, Playing2C / Playing30 / Playing34
+      0x57B0E0-0x57B160 (tail jumps through the movie's vtable; found: 0x57B120 passes its caller's argument on),
+      DestroyBody / Destroy 0x57B1A0 / 0x57B220. Self-test (new src/hook/selftests_viewer5.cpp): TestMovieManager
+      (stand-in movies with a recording vtable; every add / query / end / kill / update case, the helpers, the
+      destructors). viewer_testkit.h's debug output records %s arguments as text, the others raw.
+
+- [x] Batch VW-6 (NOT run in the game yet; early tests pass offline; mutation run pending): the rail manager (new
+      src/game/obj/rail_manager.*, Obj::CRailManager and CRailNode - 0x54 bytes), 0x57C170-0x57E960 incl. the missed
+      0x57C200: the box / interval helpers Span4 0x57C170, BoxPair::Swap 0x57C210, BoxOf 0x57C260, Overlap 0x57C360,
+      NearlyEqual4 0x57C3A0, NodesTogether 0x57C5A0 (stdcall), Record24 / Record34 copies 0x57C500 / 0x57C540;
+      Cleanup 0x57C330, MoveNode 0x57C3F0 (found: its previous-node fix-up tests the moved node's own link count
+      times - never fires), SetObjectMatrix 0x57C4F0, RailClear 0x57C600 (cdecl, two Vectors by value: feelers across
+      the rail and down 12 on each side; always clear in the park editor's level), ToWorld / GetWorldPos 0x57CB20 /
+      0x57CB60 (both return their out), FindNode 0x57CBD0, Init 0x57CC10 (returns this), CRailNode::GetWallSide
+      0x57CC30, GetClimbMatrix 0x57CFB0, AddNode 0x57D090 (Class / type / flags / TerrainType / climbing angles),
+      RemoveOverlaps 0x57D260 + RemoveOverlapsIfNotPark 0x57D7A0, SetActive 0x57D7C0, IsActive 0x57D840, FindLadder
+      0x57D880, FindLadderOnLine 0x57DA20 (Climb_Max_Snap; TRG_Ladder03 counted 4 times as far), FindRail 0x57DDA0,
+      FindJoiningRail 0x57E170, FindGrindRail 0x57E2D0 (Rail_Max_Snap; found: a better-scoring rail out of reach still
+      takes the best score and drops what was found), AddFromNodeArray 0x57E960 (RailNode / ClimbingNode, a name hash
+      table with linear probing, TrickObject clusters, Links; DefaultLine wins). Every feeler's x87 rounding followed
+      (some sums kept unrounded, as the original's stack). Self-test (new src/hook/selftests_viewer6.cpp):
+      TestRailManager (a level of rails, an overlapping rail, a ladder, a lone node; feeler hits scripted call by
+      call; the checkers stood in; building from a stand-in node array with a hash collision). The x87 original of
+      ClosestPointsBetweenLines differs from ours by an ulp now and then: both runs use ours there.
+
 - [ ] Next: (state for resuming)
       - Batch VW-2 (cars / KOTH crown 0x5780E0-0x578490 in src/game/obj/game_objects.*; the skater trick code's two
         list entry types 0x578670 / 0x578740 / 0x5787F0 / 0x579570-0x579820 in src/game/skater/trick_lists.*) and

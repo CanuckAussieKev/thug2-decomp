@@ -109,12 +109,19 @@ inline void InstallCommon(StandIns& s, bool deleteStruct = true)
 {
     s.At({0x00401C30, AddressOf(&Dbg::Printf)}, 0, [](Regs& r) {
         Rec(0x1C30, {Text(r.args[0])});
-        // (only as many as the format has conversions)
-        int conversions = 0;
-        for (const char* p = reinterpret_cast<const char*>(r.args[0]); *p; ++p)
-            conversions += *p == '%';
-        for (int i = 0; i < g_printfArgs && i < conversions; ++i)
-            g_trace.push_back(i == 0 ? Text(r.args[1]) : Rel(r.args[1 + i]));
+        // (only as many as the format has conversions: %s as its text, others raw)
+        int i = 0;
+        for (const char* p = reinterpret_cast<const char*>(r.args[0]); *p && i < g_printfArgs; ++p) {
+            if (*p != '%')
+                continue;
+            while (p[1] && !(p[1] >= 'a' && p[1] <= 'z' && p[1] != 'l') && !(p[1] >= 'A' && p[1] <= 'Z'))
+                ++p;
+            while (p[1] == 'l')
+                ++p;
+            ++p;
+            g_trace.push_back(*p == 's' ? Text(r.args[1 + i]) : Rel(r.args[1 + i]));
+            ++i;
+        }
         return 0u;
     });
     s.At({0x005BAFC0, AddressOf(&Mem::Manager::Allocate)}, 12, [](Regs& r) {
