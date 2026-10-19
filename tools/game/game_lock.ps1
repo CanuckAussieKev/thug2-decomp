@@ -10,11 +10,12 @@ param(
 #            on success backs up the deployed dinput8.dll and thug2-decomp.ini into the lock folder.
 #   release: puts the backed-up dinput8.dll and ini back and removes the lock; never closes a running game.
 #   status:  who holds it, since when.
-$game = $Game.TrimEnd('\')
-if (-not (Test-Path (Join-Path $game 'THUG2PM.exe'))) { "NO GAME IN $game"; exit 2 }
+. (Join-Path $PSScriptRoot 'game_exe.ps1')
+$game = Resolve-GameFolder $Game
+if (-not (Find-GameExe $game)) { "NO GAME IN $game"; exit 2 }
 $lock = Join-Path $game '.game-lock'
 # (the games running from this folder only - the other folders' games are someone else's)
-function Get-GamesHere { Get-Process THUG2PM -ErrorAction SilentlyContinue | Where-Object { $_.Path -and (Split-Path $_.Path -Parent) -eq $game } }
+function Get-GamesHere { Get-GameProcesses | Where-Object { $_.Path -and (Split-Path $_.Path -Parent) -eq $game } }
 $ownerFile = Join-Path $lock 'owner.txt'
 
 function Show-Status {

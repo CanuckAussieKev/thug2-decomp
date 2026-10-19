@@ -9,11 +9,12 @@ $dir = $PSScriptRoot
 # (pictures: -ShotDir, else %TEMP%\thug2-shots - never into the repo)
 if (-not $ShotDir) { $ShotDir = Join-Path $env:TEMP 'thug2-shots' }
 New-Item -ItemType Directory -Force $ShotDir | Out-Null
-$Game = $Game.TrimEnd('\')
-$exe = Join-Path $Game 'THUG2PM.exe'
-if (-not (Test-Path $exe)) { "NO GAME IN $Game"; exit 2 }
+. (Join-Path $dir 'game_exe.ps1')
+$Game = Resolve-GameFolder $Game
+$exe = Find-GameExe $Game
+if (-not $exe) { "NO GAME IN $Game"; exit 2 }
 $workspace = $Game -ne 'C:\Games\THUG2'
-function Get-GamesHere { Get-Process THUG2PM -ErrorAction SilentlyContinue | Where-Object { $_.Path -and (Split-Path $_.Path -Parent) -eq $Game } }
+function Get-GamesHere { Get-GameProcesses | Where-Object { $_.Path -and (Split-Path $_.Path -Parent) -eq $Game } }
 # Never close a game that's already running: the user may be playing. Refuse instead.
 if (Get-GamesHere) { "THUG2 IS ALREADY RUNNING FROM $Game (the user may be playing) - not started; try later"; exit 3 }
 if ($workspace -and -not ('FocusBack' -as [type])) {

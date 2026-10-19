@@ -15,7 +15,8 @@ public static class GameShot {
 }
 "@
 }
-$game = Get-Process THUG2PM -ErrorAction SilentlyContinue | Select-Object -First 1
+. (Join-Path $PSScriptRoot 'game_exe.ps1')
+$game = Get-GameProcesses | Select-Object -First 1
 if (-not $game) { "NOT CAPTURED: the game isn't running"; exit 1 }
 $front = [GameShot]::GetForegroundWindow()
 [uint32]$frontPid = 0

@@ -14,7 +14,7 @@ public static class WindowShot {
 "@
 }
 $p = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
-if (-not $p -or $p.ProcessName -ne 'THUG2PM') { "NOT CAPTURED: $ProcessId isn't a running THUG2"; exit 1 }
+if (-not $p -or $p.ProcessName -notin @('THUG2PM', 'THUG2')) { "NOT CAPTURED: $ProcessId isn't a running THUG2"; exit 1 }
 $h = $p.MainWindowHandle
 if ($h -eq [IntPtr]::Zero) { "NOT CAPTURED: the game has no window yet"; exit 1 }
 $r = New-Object WindowShot+RECT

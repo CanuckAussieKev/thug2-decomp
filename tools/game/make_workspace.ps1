@@ -8,9 +8,10 @@ param([Parameter(Mandatory = $true)][ValidateRange(1, 9)][int]$Number, [string]$
 # an agent's levels - go). Refuses while the workspace's lock is held or a game runs from either folder.
 $From = $From.TrimEnd('\')
 $to = "C:\Games\THUG2-$Number"
-if (-not (Test-Path (Join-Path $From 'THUG2PM.exe'))) { "NO GAME IN $From"; exit 2 }
+. (Join-Path $PSScriptRoot 'game_exe.ps1')
+if (-not (Find-GameExe $From)) { "NO GAME IN $From"; exit 2 }
 if (Test-Path (Join-Path $to '.game-lock')) { "LOCKED: $to (game_lock.ps1 -Action status -Game $to)"; exit 1 }
-$running = Get-Process THUG2PM -ErrorAction SilentlyContinue | Where-Object { $_.Path -and (Split-Path $_.Path -Parent) -in @($From, $to) }
+$running = Get-GameProcesses | Where-Object { $_.Path -and (Split-Path $_.Path -Parent) -in @($From, $to) }
 if ($running) { 'A GAME IS RUNNING FROM ONE OF THE FOLDERS - not copied'; exit 3 }
 # (robocopy exit codes below 8 are success: 1 = files copied)
 robocopy $From $to /MIR /XD (Join-Path $From '.game-lock') /XF 'thug2-decomp*.log' /NFL /NDL /NJH /NP | Out-Null

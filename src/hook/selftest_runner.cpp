@@ -2,6 +2,7 @@
 
 #include <windows.h>
 
+#include <cstdint>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -29,6 +30,57 @@ std::vector<RegisteredTest>& Registry()
 }
 
 int g_failures = 0;
+
+// The early tests run the original code as the reference, and expect THUG2PM.exe's. A stock, already unwrapped
+// THUG2.exe (a no-CD build: the same layout and addresses - tools/game/install_manifest.py) differs from it in these
+// few spots: PartyMod's exe patch (its DLL's loading in WinMain, the code cave, the DLL's name), and the no-CD build's
+// own edits (SetScreenBlur returning at once, the network service loop, loading from the memory card, the GameSpy
+// key client). While the early tests run - before the game has started - THUG2PM.exe's bytes are written there, and
+// the exe's own put back after; the game itself runs the exe as it is (each of these functions but the key client's
+// is rewritten anyway, and the patch's code is only reached from the original WinMain).
+struct ReferenceBytes {
+    uint32_t address;
+    std::vector<uint8_t> stock; // the no-CD THUG2.exe's
+    std::vector<uint8_t> reference; // THUG2PM.exe's
+};
+const ReferenceBytes kReferenceBytes[] = {
+    {0x0048C170, {0xB0, 0x01, 0xC3, 0x90, 0x90}, {0x51, 0x8B, 0x4C, 0x24, 0x08}},
+    {0x004E26A1, {0xEB, 0x5F, 0x11}, {0xFC, 0x59, 0x06}},
+    {0x00545B4F, {0xF4, 0x01}, {0x98, 0x3A}},
+    {0x00545CDE, {0x7C, 0xD8, 0x8E, 0x58}, {0x8D, 0x4C, 0xE8, 0xD4}},
+    {0x00545CE8, {0x01}, {0x00}},
+    {0x005480A1, {0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC},
+     {0x67, 0x68, 0x98, 0xB1, 0x64, 0x00, 0x8B, 0x35, 0x30, 0x51, 0x64, 0x00, 0xEB, 0x05}},
+    {0x005480B4, {0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC}, {0xFF, 0xD6, 0xE9, 0xD5, 0x05, 0x0B, 0x00}},
+    {0x005A8A01, {0x90, 0x90}, {0x75, 0x9C}},
+    {0x005F95BB, {0xEB}, {0x75}},
+    {0x0064B191, // the window title's end and the patch's DLL name ("partymod.dll" at 0x0064B198)
+     {0x6F, 0x6E, 0x79, 0x20, 0x48, 0x61, 0x77, 0x6B, 0x27, 0x73, 0x20, 0x55, 0x6E, 0x64, 0x65, 0x72, 0x67, 0x72, 0x6F,
+      0x75},
+     {0x48, 0x55, 0x47, 0x32, 0x00, 0x00, 0x00, 0x70, 0x61, 0x72, 0x74, 0x79, 0x6D, 0x6F, 0x64, 0x2E, 0x64, 0x6C, 0x6C,
+      0x00}},
+};
+
+// Writes THUG2PM.exe's bytes over the stock exe's (only where the stock exe's are there); Restore puts them back.
+// Returns how many spots it wrote.
+int WriteReferenceBytes(bool restore)
+{
+    int written = 0;
+    for (const ReferenceBytes& r : kReferenceBytes) {
+        auto* at = reinterpret_cast<uint8_t*>(r.address);
+        const std::vector<uint8_t>& from = restore ? r.reference : r.stock;
+        const std::vector<uint8_t>& to = restore ? r.stock : r.reference;
+        if (std::memcmp(at, from.data(), from.size()) != 0)
+            continue;
+        DWORD old;
+        VirtualProtect(at, to.size(), PAGE_EXECUTE_READWRITE, &old);
+        std::memcpy(at, to.data(), to.size());
+        VirtualProtect(at, to.size(), old, &old);
+        FlushInstructionCache(GetCurrentProcess(), at, to.size());
+        ++written;
+    }
+    return written;
+}
 
 const char* StageName(TestStage stage)
 {
@@ -118,6 +170,11 @@ void RunSelfTests(TestStage stage)
     // With it on, its hooks in the renderer, file loading and cameras ran inside tests' stand-ins.
     int backdrop = Front::MenuBackdrop::Setting();
     Front::MenuBackdrop::Setting() = 0;
+    // (a stock no-CD THUG2.exe: THUG2PM.exe's bytes where the two differ, for the early tests - see kReferenceBytes)
+    int referenceSpots = stage == TestStage::Early ? WriteReferenceBytes(false) : 0;
+    if (referenceSpots)
+        Log("%s self-tests: a stock THUG2.exe - THUG2PM.exe's bytes in its %d differing spots while they run",
+            StageName(stage), referenceSpots);
     for (const RegisteredTest& t : Registry()) {
         if (t.stage == stage && wanted(t.name)) {
             if (trace)
@@ -125,6 +182,8 @@ void RunSelfTests(TestStage stage)
             RunGuarded(t);
         }
     }
+    if (referenceSpots)
+        WriteReferenceBytes(true);
     Front::MenuBackdrop::Setting() = backdrop;
     int failures = g_failures - failures_before;
     if (failures)
