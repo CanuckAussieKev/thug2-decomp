@@ -118,6 +118,9 @@ void TestCareer()
         t.push_back(static_cast<uint32_t>(original ? Original<int(__thiscall*)(void*)>(0x00584130)(c) : c->GetLevel()));
         t.push_back(static_cast<uint32_t>(original ? Original<int(__thiscall*)(void*)>(0x005842A0)(c) : c->CountTotalGoals()));
         t.push_back(static_cast<uint32_t>(original ? Original<int(__thiscall*)(void*)>(0x00584320)(c) : c->CountLevelsWithGoals()));
+        c->m_goals[3][0] = 1; // (a left-out level with a single goal)
+        c->m_goals[3][1] = 0;
+        t.push_back(static_cast<uint32_t>(original ? Original<int(__thiscall*)(void*)>(0x00584320)(c) : c->CountLevelsWithGoals()));
         for (int flag : {0, 5, 37, 255}) {
             call1(0x005843A0, flag, &CSkaterCareer::SetGlobalFlag);
             ask1(0x00584400, flag + 1, &CSkaterCareer::GetGlobalFlag);
@@ -146,10 +149,16 @@ void TestCareer()
             Original<void(__thiscall*)(void*, uint8_t)>(0x00584650)(c, 0x5A);
         else
             c->SetFlag5EF(0x5A);
+        c->m_maxValue634 = 0;
         for (int value : {10, 4, 30})
             call1(0x00584660, value, &CSkaterCareer::SetValue634);
+        c->m_maxValue634 = 0;
+        call1(0x00584660, 3, &CSkaterCareer::SetValue634);
         for (int level : {-1, 5, -1, 12})
             call1(0x00584C60, level, &CSkaterCareer::StartLevel);
+        // (the career as it is now: the resets below clear the cash, amounts and counters)
+        for (uint32_t i = 0; i < sizeof(CSkaterCareer) / 4; ++i)
+            t.push_back(Rel(words[i]));
         // The gaps check: listed levels 2, 5, 12 (the array's elements name the integers 0x1E0+i).
         *Ptr<uint32_t>(kBlocks + 0x504) = 3;
         g_integers[0x1E0] = 2, g_integers[0x1E1] = 5, g_integers[0x1E2] = 12;

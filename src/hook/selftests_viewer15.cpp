@@ -192,14 +192,14 @@ void TestSkaterRestart()
             skip(c.node, 0x101);
         }
         // The destructor.
-        for (int k = 0; k < 3; ++k) {
+        for (int k = 0; k < 4; ++k) { // (3: not paused, with its +0x264: the actuators left alone)
             auto* d = Ptr<CSkater>(0x1000 + 0x400 * k);
             std::memset(d, 0, sizeof(CSkater));
             new (&d->m_displayName) Str::String();
             d->m_unknownBC = k != 2 ? 1 : 0;
             d->m_paused = k == 0;
             d->m_viewport = k == 1 ? 1 : 0;
-            d->m_unknown264 = k == 0 ? Ptr<uint8_t>(kBlocks + 0x100 * 15) : nullptr;
+            d->m_unknown264 = (k == 0 || k == 3) ? Ptr<uint8_t>(kBlocks + 0x100 * 15) : nullptr;
             for (int i = 0; i < 11; ++i) {
                 d->m_trickInfo[i] = (i + k) % 3 ? Ptr<uint8_t>(kBlocks + 0x100 * 23 + 0x10 * i) : nullptr;
                 *Ptr<void**>(kBlocks + 0x100 * 23 + 0x10 * i) = g_infoVtable;

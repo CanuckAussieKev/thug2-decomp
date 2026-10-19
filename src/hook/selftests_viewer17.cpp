@@ -165,7 +165,12 @@ void TestCareerSave()
         t.push_back(reinterpret_cast<uint32_t>(original ? Original<void*(__thiscall*)(void*)>(0x00585270)(c) : c->Construct()) - g_base);
         *Ptr<uint32_t>(0x3C00 + 0x20) = At(0);
         for (int i = 0; i < CSkaterCareer::kLevels; ++i)
+            t.push_back(c->m_visited[i]); // (as constructed)
+        for (int i = 0; i < CSkaterCareer::kLevels; ++i) {
             c->m_visited[i] = i % 4 == 1;
+            if (c->m_gaps[i])
+                c->m_gaps[i]->m_built = (i & 1) != 0; // (some checklists built: their gaps written)
+        }
         auto* words = reinterpret_cast<uint32_t*>(c);
         for (uint32_t i = 1; i < 0x630 / 4; ++i)
             words[i] ^= i * 0x2545F491u;

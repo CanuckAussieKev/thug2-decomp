@@ -197,6 +197,9 @@ void TestSkaterLaunch()
         *Ptr<uint8_t>(kBlocks + 0x100 * 5 + 0x118) = 1;
         g_firstTarget = 4; // (the ped first: then the nearer object)
         launch();
+        SetTarget(6, 110.0f, 3.0f, 155.0f, 0, -1); // (now the farther one, after the ped: the ped stays the best)
+        launch();
+        SetTarget(6, 70.0f, 3.0f, 90.0f, 0, -1);
         SetTarget(6, 15.0f, 3.0f, 20.0f, 0, -1); // within 100: no target given
         g_firstTarget = 6;
         launch();

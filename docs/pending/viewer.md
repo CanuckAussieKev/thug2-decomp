@@ -347,6 +347,15 @@ Shared files touched: CMakeLists.txt (each new .cpp listed, additive).
       either run's arena (ArenaWord over the ArenaPair), as the other kits do. Three start-ups in THUG2-3: all 276 early
       tests pass each time.
 
-- [ ] Next: mutation specs for VW-15..17 (fast setup); suspect CAUGHTs of the slow runs (named a flaky test: PC async
-      handle, anim controllers: partial, memory cards: free space) to rerun; known misses: launch_best, restart_walking
-      (mut10), profile_style_zero, input_mirror.
+- [x] Mutations finished (fast setup). VW-15..17: 54 mutations, 52 caught after the tests were strengthened (a
+      destructor case not paused; a left-out level with one goal; the career recorded before the resets clear it;
+      +0x634's max from 0; the career's visited bytes as constructed; some gap checklists built so their gaps are
+      written); equivalent: start_visited (StartLevel's level is never -1 by then), read_old_total (the test's
+      counters never make the running total land on 0x82 exactly - not reachable with the stand-in's arrays).
+      The earlier batches' suspect CAUGHTs (they named a flaky test) rerun with TESTS: all 23 caught by our tests. The
+      known misses: profile_style_zero, pause_flags, launch_best, restart_walking now caught (a profile without a
+      skate style; the composite flag recorded after Pause; a farther target after the ped; walking with +0x118 set);
+      input_mirror is equivalent (the byte set at i == 6 instead of 7 is cleared again at 7 and nothing reads it in
+      between).
+
+- [ ] Next: nothing left in the range; hand back.

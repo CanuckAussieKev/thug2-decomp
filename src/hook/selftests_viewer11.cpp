@@ -291,6 +291,12 @@ void TestSkaterProfile()
                 t.push_back(Hash(skater->m_displayName.c_str()));
             }
         }
+        // No skate style in the profile: the style cleared first.
+        g_params.erase({info, 0x76FD33E8});
+        skater->m_style = 0x99;
+        withProfile(0x00580EB0, &CSkater::UpdateFromProfile);
+        t.push_back(skater->m_style);
+        g_params[{info, 0x76FD33E8}] = 0x5717E;
         // Resets.
         for (int i = 0; i < 24; ++i)
             Byte(Block(18), 0x20 + 8 * i) = static_cast<uint8_t>(i % 3 == 0 ? 1 : (i % 3 == 1 ? 0 : 2));
@@ -367,7 +373,9 @@ void TestSkaterProfile()
             skater->m_unknownBC = static_cast<uint8_t>(local);
             for (int device : {1, 0}) {
                 skater->m_unknown264 = device ? Ptr<uint8_t>(kBlocks + 0x100 * 26) : nullptr;
+                skater->m_compositeFlags &= ~1u;
                 call(0x00581760, &CSkater::Pause);
+                t.push_back(skater->m_compositeFlags);
                 call(0x00581760, &CSkater::Pause);
                 t.push_back(skater->m_paused);
                 call(0x005817F0, &CSkater::Unpause);

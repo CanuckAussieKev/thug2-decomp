@@ -249,8 +249,9 @@ void TestSkaterMembers()
                 skater->ResetComponents();
             t.push_back(Rel(reinterpret_cast<uint32_t>(skater->m_script)));
         }
-        for (int walking : {1, 0}) {
-            Byte(Block(15), 0x118) = 0;
+        for (int walking : {1, 0, 2}) { // (2: walking with +0x118 set - not switched)
+            Byte(Block(15), 0x118) = walking == 2 ? 1 : 0;
+            walking = walking != 0 ? 1 : 0;
             Word(Block(15), 0x1C) = static_cast<uint32_t>(walking);
             skater->m_script = walking ? script : nullptr;
             if (original)
