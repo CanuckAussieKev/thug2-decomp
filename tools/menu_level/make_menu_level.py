@@ -214,6 +214,22 @@ def add_skateshop_sign(text, thps4=None):
     return text
 
 
+def drop_uninstalled_default(text, game):
+    # The developers' level Default (level_num=30, DEVKIT_ONLY: shown when CD is false - thug2-decomp.ini
+    # [features] debug_mode=1): the PC release ships only its scripts and sky (Data\levels\default\default_Scripts.qb,
+    # default_sky\) - not its scene or node array (levels\Default\Default.scn.xbx / Default.qb, no pre has them).
+    # Choosing it crashed: LoadScene's load returns no scene and the game writes through it (0x0048C5AA). Its entry
+    # is dropped unless the scene is installed.
+    entry = re.search(r'\n *\{text="Default" level_num=30 [^\n]*level=load_Default[^\n]*\} *(?=\n)', text)
+    if not entry:
+        sys.exit("gamemenu_levelselect.qb: the Default entry not found")
+    level = os.path.join(game, "Data", "levels", "Default")
+    if os.path.exists(os.path.join(level, "Default.scn.xbx")) and os.path.exists(os.path.join(level, "Default.qb")):
+        return text
+    print("level select: Default dropped (its scene isn't installed)")
+    return text[:entry.start()] + text[entry.end():]
+
+
 def testlevel_nodes(text):
     # TestLevel in network games: load_level makes no path memory there (AllocatePathManMemory only outside them), and
     # an object following a path crashes (0x00469620 reads through the missing path manager). The shipped levels keep
@@ -1162,7 +1178,8 @@ def main():
                                              thug1=by_game.get("thug2-decomp-thug1"),
                                              thps3=by_game.get("thug2-decomp-thps3"),
                                              thaw=by_game.get("thug2-decomp-thaw"))
-        write(level_select.edit_level_select(add_skateshop_sign(select), section_list),
+        write(level_select.edit_level_select(drop_uninstalled_default(add_skateshop_sign(select), args.game),
+                                             section_list),
               r"scripts\game\menu\gamemenu_levelselect.qb")
         sprites = decompile(prx_file(qb_scripts, r"scripts\game\menu\sprites.qb"), "sprites.qb")
         write(level_select.edit_sprites(sprites, section_list), r"scripts\game\menu\sprites.qb")
