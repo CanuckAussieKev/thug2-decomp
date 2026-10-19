@@ -1,6 +1,6 @@
 # Park editor player-count commands (agent "parkmax")
 
-- [x] Batch N (parkmax agent; NOT run in the game yet; the park editor's player-count script commands - the stock
+- [x] Batch PM-1 (NOT run in the game yet; the park editor's player-count script commands - the stock
   no-CD exe's damaged parameter names): src/game/ed/park_cfuncs.cpp (new); park.h (CParkGenerator::GetMaxPlayers
   reads the whole int at +0x20 - it had no callers and read a byte -, GetMaxPlayersPossible 0x00591D30 declared;
   the two CFunc declarations); selftest_runner.cpp (kReferenceBytes: the names' run).
