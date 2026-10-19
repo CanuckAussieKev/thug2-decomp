@@ -272,6 +272,25 @@ void TestEditorCamera()
                 trace.push_back(std::bit_cast<uint32_t>(c->m_cursor.y));
             }
             placeGlobal = -1.0f;
+            // Lowering with nothing hit, close in (0.2 a frame): from just over the minimum height (put back on it),
+            // from further up and from under it.
+            for (float height : {5.1f, 5.25f, 4.0f, 7.0f}) {
+                uint8_t* pad = g_world.input + 0x20;
+                std::memset(pad, 0, 0x218);
+                *reinterpret_cast<uint32_t*>(g_world.input + 0x1C) = 0;
+                pad[0xA0] = 1;
+                GameVariable<int>(0x007CEFA8) = 2;
+                c->m_minHeight = 5.0f;
+                c->m_height = height;
+                c->m_zoom = 50.0f;
+                c->m_minZoom = 20.0f;
+                c->m_maxZoom = 2000.0f;
+                float nothing = std::numeric_limits<float>::quiet_NaN();
+                ground = &nothing;
+                Fn<void(__thiscall*)(void*)>(original, 0x004E5C20)(c);
+                ground = nullptr;
+                trace.push_back(std::bit_cast<uint32_t>(c->m_height));
+            }
             Fn<void(__thiscall*)(void*)>(original, 0x004E5100)(c);
             c->m_vtable = reinterpret_cast<void**>(0x0064B2D0);
             trace.push_back(WorldRelocate(Fn<uint32_t(__thiscall*)(void*, unsigned)>(original, 0x004E59A0)(c, seed & 1)));

@@ -310,3 +310,37 @@ that never returns and end it from a stand-in).
   a stick of exactly 0 scales to 0 either way).
   - Note for the lead: the verify build's PDB kept breaking under load (C1033 / C2471, LNK1102 out of memory in the
     32-bit linker); a private PDB server (`set _MSPDBSRV_ENDPOINT_=<name>`) and a clean rebuild fixed it.
+- [x] Batch AM-11 (NOT run in the game yet; the editor camera component): src/game/obj/editor_camera.{h,cpp} (new).
+  - CEditorCameraComponent (type 0xAC8946E2, vtable 0x0064B2D0, 0x9C bytes; the create-a-goal / park editor camera: a
+    cursor walked over the ground with the left stick or the d-pad, the camera orbiting it at a heading and tilt from
+    the right stick, zoom and height buttons by controller type, a "Ped_Shadow" under the cursor): 0x004E5940
+    `Create`, 0x004E5060 `Construct`, 0x004E5100 `DestroyBody`, 0x004E59A0 `Destroy`, 0x004E4ED0 `InitFromStructure`
+    (min_height, the zoom range, SimpleCollision, 0xF5680DEF - no wall check), 0x004E51F0 `Finalize` (the Input
+    component), 0x004E59D0 `Hide`, 0x004E5210 `CallMemberFunction` (0x69CB3AE1 cursor to Position= and update,
+    0xF362BBBF placed quietly with zoom / tilt / height), 0x004E5C20 `Update`, 0x004E5170 `CreateShadow` (the scale
+    written with no null check, as the original), 0x004E5A10 `UpdateShadow`, 0x004E5460 `GroundHeight` (no ground,
+    too steep - normal y under 0.087 -, a flagged object's node script or one in the way: false), 0x004E5640
+    `PlaceCursor` (up: the height lowered by the rise unless simple collision on another object with the global
+    0x71EC75E9 at or over it; down: the drop added unless the camera's at most 1 up and the drop within the step).
+  - The ground checks: 0x004E4F50 `ScriptFlagged` (a script, or one it calls by name - also the `name 0x42 name` form
+    -, is one of the four at 0x0067EFD8; 0x0067EFE8's and those already seen are not; the seen list 0x007CCBE8 has 20
+    places and no bound check, as the original), 0x004E5320 `FlagScriptedHit` (a feeler's callback: an object whose
+    node's TriggerScript is flagged), 0x004E5390 `FlaggedObjectBetween` (`end` in ESI, `start` in EDI: a naked stub).
+  - Kept from the original: the heading wrapped by comparing the unrounded sum, the camera's w from the cursor's
+    pre-move w (then overwritten with 1), the x87 roundings where it stores and doesn't.
+  Test (src/hook/selftests_appmain11.cpp, Early): TestEditorCamera (8 seeds in the components' stand-in world: made /
+  out of memory, every InitFromStructure flag, 30 frames with the controller type changing every frame (pad, 4, 5,
+  7, the 0x7ECA21E5 platform or not), random buttons over all 32 bits, sticks at rest / in the dead band / moved, the
+  d-pad, headings past both ends, feelers hitting or not (ceilings, steep and 0.087 ground, walls, flagged node
+  scripts), in and out of the park editor, hidden / shown, both member functions and an unknown one; the flag search
+  over scripts calling scripts (short jumps with and without 0x39, the 0x42 forms, loops, the excluded script); 96
+  directed PlaceCursor cases (drops under / at / over the step, rises, camera 0.5-2.5 up, simple collision, the
+  editor's own camera, the global under / over the height); four frames lowering onto / past / under the minimum
+  height).
+  Mutations: 66 deliberate bugs; 65 caught (59 at first; the script short jumps with a call after them, controller
+  types per frame with 32-bit buttons, zoom ranges under 100, the directed PlaceCursor cases and four lowering frames
+  around the minimum height were added for 6). The other (up_cross) adds rather than subtracts atZ x the right axis's
+  y, which is always 0.
+  - Note for the lead: the session scratchpad is shared with another agent ("viewer", worktree agent-a12992d40fe5be1e3):
+    its build.cmd replaced mine for a while, so a few of my mutation builds ran in its worktree (nothing of mine was
+    written there; the results were re-run with a private build script).
