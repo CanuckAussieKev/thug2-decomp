@@ -14,6 +14,7 @@
 #include "game/sio/device.h"
 #include "game/sys/config.h"
 #include "game/sys/debug_log.h"
+#include "game/sys/debug_mode.h"
 #include "game/sys/platform_cfuncs.h"
 #include "game/sys/sdl_events.h"
 #include "hook/game.h"
@@ -941,6 +942,8 @@ void InitSdlInput()
     InitControllers();
     if (s_settings.ps2Controls)
         Sys::InstallIsPS2();
+    // (not PartyMod's - [features] debug_mode: CD false, the developers' menus - game/sys/debug_mode.h)
+    Sys::DebugMode::Install();
     WriteGameKeyBindings();
     Platform::RegisterEventHandler(HandleInputEvent);
     // (not PartyMod's - the mouse_menus feature: the mouse's events, when it's on)

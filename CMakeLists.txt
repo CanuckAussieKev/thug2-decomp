@@ -237,6 +237,7 @@ add_library(thug2_code OBJECT
     src/game/skater/debug_collision.cpp
     src/game/sys/platform.cpp
     src/game/sys/platform_cfuncs.cpp
+    src/game/sys/debug_mode.cpp
     src/game/sys/config.cpp
     src/game/sys/debug_log.cpp
     src/game/sys/pc_setup.cpp

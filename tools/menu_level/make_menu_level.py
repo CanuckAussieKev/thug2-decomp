@@ -445,6 +445,10 @@ def add_level_editor(text):
     indent = options.group(1)
     item = ('%sif LevelEditor_Available {\n%s    add_roundbar_menu_item text="LEVEL EDITOR" id=menu_level_editor '
             'pad_choose_script=level_editor_enter \n%s} \n' % (indent, indent, indent))
+    # DEBUG OPTIONS: Neversoft's own hub of debug menus (gamemenu.qb create_debug_options_menu), which the retail
+    # pause menu never offers; shown while CD is false - the DLL's [features] debug_mode (src/game/sys/debug_mode.h).
+    item += ('%sif ! CD {\n%s    add_roundbar_menu_item text="DEBUG OPTIONS" id=menu_debug_options '
+             'pad_choose_script=create_debug_options_menu \n%s} \n' % (indent, indent, indent))
     text = text[:options.end()] + item + text[options.end():]
     register = text.find("\n__register_checksums__")
     at = register + 1 if register >= 0 else len(text)
