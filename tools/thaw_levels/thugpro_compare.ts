@@ -41,18 +41,19 @@ import * as thaw from "./thaw.ts";
 import {
     COMPAT,
     findPath,
-    frameShift,
     LEVELS,
     levelName,
     MULTIPLAYER_NAME,
     multiplayerNames,
     type SpawnEdit,
     STAGING,
+    thugproFrame,
     zoneArray,
     zoneFiles,
     zonePak,
 } from "./thaw_levels.ts";
 import { extractZone, type Sources, thawScriptNames } from "./thugpro_extract.ts";
+import { toEntries } from "./thugpro_new.ts";
 
 // THUGPRO's names for the levels it renamed (its data\pre file names; the others are the zone's): to find its files.
 const THUGPRO_NAMES = COMPAT.levelNames; // (tools/compat/thugpro/thaw_levels.json)
@@ -305,7 +306,7 @@ export function extractSpawns(
     const pak = zonePak(thawFolder, zone);
     if (pak === null) pyExit(`no THAW ${zone}_net.pak.wpc in ${thawFolder}`);
     const own = zoneArray(zoneFiles(pak), zone, names);
-    const shift = frameShift(zone, own, names); // (THUGPRO's frame: the profile's - setCompat("thugpro"))
+    const shift = thugproFrame(zone, own, names); // (THUGPRO's frame: the profile's - setCompat("thugpro"))
     multiplayerNames(own, zone, names);
     const strip = (text: string): string => {
         const prefix = `${zone.toLowerCase()}_`;
@@ -405,12 +406,30 @@ function extract(thugpro: string, thawFolder: string, thug2: string): number {
         removed: { _register: "TP-7", ...EDIT_NOTES } as Record<string, unknown>,
         added: { _register: "TP-8", ...EDIT_NOTES } as Record<string, unknown>,
         collision: { _register: "TP-9", ...EDIT_NOTES } as Record<string, unknown>,
-        awaiting: {
+        notes: {
             _note:
-                "Not applied (the user's decision): THUGPRO's own content - meshes it reshaped or built, its models " +
-                "and scripts. Listed by --extract-thugpro; thaw.md and the register's README say what each side sees.",
+                "What the extraction saw and didn't apply (values our port makes its own way, clusters THAW's scripts " +
+                "name, pieces from THAW's full archive) - information only. Written by --extract-thugpro.",
+        } as Record<string, unknown>,
+        // TPN-THAW-1...TPN-THAW-5: THUGPRO's own content, by reference (thugpro_new.ts) - the user's decision 2026-10-20
+        thugpro_new: {
+            _register: "TPN-THAW-1...TPN-THAW-5",
+            _note:
+                "New in THUGPRO (in no source game): its meshes and collision, reshaped meshes, content nodes, scripts " +
+                "and host-option defaults - by reference only: each entry names THUGPRO's item and a CRC-32 of it; the " +
+                "converter reads the bytes from the THUGPRO install (--thugpro) and skips (with a warning) what is " +
+                "missing or differs. Entries in the differences files' shared form (compat.Entry: id, op add / set / " +
+                "remove, target {zone, kind, name}, why); left_out: what wasn't taken, and why. --no-thugpro-new " +
+                "leaves the whole section out.",
+            _source:
+                "THUGPRO's installed data\\pre\\<level>_scripts.prx / scn.prx / col.prx and thugpro_qb.prx, " +
+                "against THAW's own zone archives; written by `node tools/thaw_levels/thugpro_compare.ts " +
+                "--extract-thugpro` (thugpro_extract.ts)",
         } as Record<string, unknown>,
     };
+    const needs = new Map<string, Set<string>>();
+    const newEntries: unknown[] = [];
+    const newLeftOut: Record<string, unknown> = {};
     for (const [zone] of LEVELS) {
         const z = extractZone(zone, sources);
         const put = (section: Record<string, unknown>, value: Record<string, unknown>): void => {
@@ -426,13 +445,27 @@ function extract(thugpro: string, thawFolder: string, thug2: string): number {
         put(sections.removed, z.removed);
         put(sections.added, z.added);
         put(sections.collision, z.collision);
-        if (z.awaiting.length || z.notes.length) sections.awaiting[zone] = { items: z.awaiting, notes: z.notes };
+        if (z.notes.length) sections.notes[zone] = z.notes;
+        const n = z.thugpro_new;
+        newEntries.push(...toEntries(zone, n));
+        if (n.left_out.length) newLeftOut[zone] = n.left_out;
+        for (const [command, scripts] of Object.entries(n.needs ?? {})) {
+            // (one key per command whatever the case its name texts have)
+            const key = [...needs.keys()].find((k) => k.toLowerCase() === command.toLowerCase()) ?? command;
+            for (const s of scripts) needs.set(key, (needs.get(key) ?? new Set()).add(`${zone}: ${s}`));
+        }
         print(
             `${zone}: ${Object.entries(z.counts)
-                .map(([k, n]) => `${k} ${n}`)
-                .join(", ")}; awaiting ${z.awaiting.length}`,
+                .map(([k, c]) => `${k} ${c}`)
+                .join(", ")}; thugpro_new ${n.entries.length} (left out ${n.left_out.length})`,
         );
     }
+    sections.thugpro_new.entries = newEntries;
+    sections.thugpro_new.left_out = newLeftOut;
+    sections.thugpro_new._needs_cpp = Object.fromEntries(
+        [...needs].sort().map(([command, scripts]) => [command, [...scripts].sort()]),
+    );
+    delete profile.awaiting;
     Object.assign(profile, sections);
     const section: Record<string, unknown> = {
         _register: "TP-4",

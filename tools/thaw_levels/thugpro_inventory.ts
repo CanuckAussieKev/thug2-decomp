@@ -22,7 +22,7 @@ import * as thug2Col from "../level_port/thug2_col.ts";
 import * as thug2Scene from "../level_port/thug2_scene.ts";
 import { hex8, isMain, print, pyExit, pyJoin, pyJsonDumps, runMain, writeTextPy } from "../lib/py.ts";
 import * as thaw from "./thaw.ts";
-import { COMPAT, findPath, frameShift, LEVELS, levelName, MULTIPLAYER_NAME, setCompat } from "./thaw_levels.ts";
+import { COMPAT, findPath, LEVELS, levelName, MULTIPLAYER_NAME, setCompat, thugproFrame } from "./thaw_levels.ts";
 import { nodeArray } from "./thugpro_compare.ts";
 import { SYSTEMATIC } from "./thugpro_extract.ts";
 
@@ -160,7 +160,7 @@ function inventory(zone: string, thawFolder: string, thugpro: string, names: Nam
             for (const [s, body] of q.scripts) thawScripts.set(norm(text(s)), calledNames(body, true));
         }
     }
-    const shift = frameShift(zone, main, names);
+    const shift = thugproFrame(zone, main, names);
     // THUGPRO
     const scriptsPrx = findPath(thugpro, "data", "pre", `${key}_scripts.prx`);
     if (scriptsPrx === null) pyExit(`THUGPRO has no ${key}_scripts.prx`);

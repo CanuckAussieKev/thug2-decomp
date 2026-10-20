@@ -53,7 +53,7 @@ Agent "thaw". How to run it: tools/thaw_levels/README.md.
 - Not converted: peds, vehicles, goals, ladders (ClimbingNode), moving / bouncy objects (static), particles, music,
   the main-menu room, shops, CAP shells.
 - (lead) Merged into main (9cb6031). Converted with main's level_port (LoadTerrain, fix_terrains) and installed; Chicago (the first THAW level) loads and skates in the game - the other 14 not tried yet.
-- (lead) The Mall: the glass doors by the start couldn't be passed (user). Two parts: (1) breakables - a LevelGeometry node whose TriggerScript (or a script it calls, 2 deep) shatters it (THAW's MA_BreakGlass = Kill + ShatterAndDie) gets THUG2's Shatter name=<it> ... + Kill as its trigger script, with its trigger faces kept (breakable_scripts; 14 in The Mall, 0-98 per level); the glass faces are already non-collidable triggers. (2) the actual wall: Z_MA_Mall_First_Rail_Blocker, an invisible collidable wall across the doors that THAW's story scripts remove - LEFT_OUT per zone (scene, nodes and now collision). NOT confirmed in the game yet.
+- (lead) The Mall: the glass doors by the start couldn't be passed (user). Two parts: (1) breakables - a LevelGeometry node whose TriggerScript (or a script it calls, 2 deep) shatters it (THAW's MA_BreakGlass = Kill + ShatterAndDie) gets THUG2's Shatter name=<it> ... + Kill as its trigger script, with its trigger faces kept (breakable_scripts; 14 in The Mall, 0-98 per level); the glass faces are already non-collidable triggers. (2) **Corrected 2026-10-20:** Z_MA_Mall_First_Rail_Blocker is not across the doors - it is a thin invisible wall (12 faces, flag 0x1000, box x -15767..-14044, y 1367..2278, z -5641..-5600 in THUGPRO's frame) running alongside the start area, about 280 units from Z_MA_TRG_restart and ending about 430 units before the entrance glass; THAW and THUGPRO keep it (CreatedAtStart, CollisionMode Geometry, no script removes it). It was left out here (LEFT_OUT) by a miscommunication and is **restored on the user's decision (2026-10-20)**: scene node and collision as THAW's. The doors with the "closed / cerrado" sign are the entrance glass Z_MA_Sk_JOW_Mall_Entrance02/03/04 (sticker ESign08): our THUG2 shatter conversion (port_changes PC-THAW-4).
 - (mall-collision) The Mall: invisible walls at both ends of the escalator (user, after the level editor). Cause: the
   recentring moved each collision object's vertices and box but not its BSP tree, whose split points are world
   coordinates (sixteenths; all 1362 of THAW's Mall splits lie inside their boxes in world terms, none relative). A
@@ -275,7 +275,7 @@ our night-time / LOD pieces left out, THAW's full-archive story nodes, the await
 without collision). `thugpro_compare.ts`: every shared node at THUGPRO's place in all 15 (before: 0-17 per area off),
 crowns, mp restarts and net spawns the same.
 
-Awaiting the user (`awaiting` in the profile; what each side sees without it):
+Awaiting the user (`awaiting` in the profile at the time - **since included as `thugpro_new`, TPN-THAW-1...5, see "THUGPRO's own content" below**; what each side saw without it):
 - New meshes / collision THUGPRO built (74): DN's parking garage `z_dn_pg_*` (8 sectors, 1,303 vertices; 11 collision
   objects, 754 faces, 750 collidable) - THUGPRO players skate a garage ours don't have (they ride on air here, ours
   pass through theirs); JA's DDR machine (633 vertices, 318 collidable faces) - TP-8's 3 DDR rails hang in the air
@@ -314,3 +314,49 @@ reachable (col_check, all 15); links in range, rails linked only to rails; ns.ex
 tests (62, 7 new in thugpro_edits.test.ts). Not run in the game: worth a look - Kyoto (168 poles / bushes and their
 textures now in network games, 97 waypoints, DDR rails), Santa Cruz (93 pieces, rails wood), Minneapolis (cluster
 names), Santa Monica (ferris rails, moved store rails), Vans (7 meshes out), The Mall (lamps moved, wallride doors).
+
+## THUGPRO's own content (thugpro_new, TPN-THAW-1...5) and our own changes (port_changes, PC-THAW-1...12) - agent thaw-tpnew, 2026-10-20 - NOT run in the game
+
+The user's decisions (2026-10-20): THUGPRO's own content goes into our ports under the default `--compat thugpro`, in
+one separate section `thugpro_new`, **by reference** (Morten1337 agreed; his files aren't republished); our own changes
+to THAW's data go in a separate `port_changes` section. Both give every entry `op` add / set / remove, `id`, `target`,
+`why`. Register: tools/compat/thugpro/README.md ("New in THUGPRO", "Our own changes (port_changes) - THAW").
+
+- `thugpro_new.ts` (new): reads THUGPRO's level (`<level>scn.prx` / `col.prx` - its own `levels\<level>\<level>.*`
+  only -, its node array, every script of its level .qb files and thugpro_qb.prx) from `--thugpro` (default
+  %LOCALAPPDATA%\THUG Pro), checks each entry's CRC-32, and gives the converter what to merge. Missing install / item,
+  or a CRC that differs: a warning, that item skipped (checked with an empty folder: all 15 convert, "no THUGPRO level
+  ... skipped"). The extraction (`thugpro_compare.ts --extract-thugpro`, `thugpro_extract.ts`) writes `thugpro_new`
+  and `notes` in place of `awaiting`; every other section came out byte-for-byte the same.
+- Included: TPN-THAW-1 31 new sectors, 32 collision objects (DN's garage, JA's DDR machine, MA's glows, SV's sauce
+  machines, LV's elevator floor, SM's shadows, BH's plants, CH's sign collision); TPN-THAW-2 51 reshaped sectors, 46
+  collision objects, 1 emptied (HO Box04); TPN-THAW-3 58 nodes; TPN-THAW-4 37 scripts, 21 TriggerScripts (CH / SV CTF,
+  SZ meters, EL coin08 and glass, MA door sound); TPN-THAW-5 12 host options in THUGPRO's default state and 11 levels'
+  LoadingSounds (setup script `<level>_thugpro_setup`, the level structure's `setup_script`).
+- Left out (`left_out`, with reasons): `Cylinder01` (THAW's sky dome from THUGPRO's bundled thaw_sky - ours converts
+  THAW's own), peds' scripts (our ped AI), EL's cop car and OI's ferry (not there at the start - no models needed), DN's
+  21 cones / signs / chairs (no sector anywhere), THUGPRO's banners and TOD scripts, ~100 scripts needing commands
+  THUG2 hasn't (`_needs_cpp`: TriggerType first; CinematicCamera_*, PlayIGCCamScene, IGC_Camera_MoveToPlayer,
+  SpawnScriptLater / Now, IsCreated, ChangeNodeFlag, DeleteGapFromScore, StickerOn - our own C++ later, crediting
+  THUGPRO). At convert time a THUGPRO script naming a node ours hasn't is left out (`X:` on a missing object runs on
+  the skater): MA_Dooropening (Z_MA_Obj_Skidmark_Grate01), SZ's SZ_Goal_Gaps17, EL's 2, OI's ferry toggle.
+- `port_changes` (12, `compat.portChanges`, kept under `--compat none`): PC-THAW-1 Zone_Origin frame, -2 night
+  sectors, -3 LOD sectors, -4 breakables as THUG2 shatters (under audit: ShatterAndDie / BloodSplat are THUG2 scripts;
+  MA_KillStickers dropped - not changed here), -6 ground restarts: switchable by `--no-port-changes`; -5 TrickObject
+  guard, -7 trigger faces, -8 blend-by-previous pass, -9 billboards, -10 unknown flags, -11 net-game nodes, -12 objects
+  our way: `required`.
+- The Mall's `Z_MA_Mall_First_Rail_Blocker` restored (LEFT_OUT removed; see the corrected note above).
+
+Checks (outputs in the scratchpad, against baselines converted before any of this): `--compat none` and
+`--no-thugpro-new` the same as before for all 15 but z_ma (the blocker: its node, collision and the Links after it
+renumbered), the .qb files the same code with the same checksum names (their 0x2B texts' case / order vary run to run,
+as before); every collision face reachable (col_check, all 15); links in range, rails to rails; ns.exe decompiles all
+but East LA (known); the blocker's 12 faces in our collision with THUGPRO's flag (0x1000) and box.
+`thugpro_inventory.ts --ours` before -> after: TP-8 only THUGPRO's 3,988 -> 3,932 (levelgeometry 1,296 -> 1,257, peds
+505 -> 495, vehicles 43 -> 36), TP-9 collision 741 -> 676 (objects only THUGPRO's 709 -> 676, other faces 20 -> 0, other
+flags 7 -> 0, other terrain 5 -> 0), geometry 2,826 -> 2,782 (collision elsewhere 14 -> 0, sectors only THUGPRO's 2,812
+-> 2,782); TP-5 / TP-6 / our own unchanged. What still differs: THAW's full-archive story pieces THUGPRO shows (not hand
+edits), the left-out items above, our port's own (PC-THAW-5, peds / cars our way).
+
+Try in the game: Minneapolis' parking garage (on at start, as THUGPRO's default), Kyoto's DDR machine under its rails,
+The Mall's start area (the blocker back), Santa Cruz's parking meters, Vans' / Chicago's CTF bases and flags.
