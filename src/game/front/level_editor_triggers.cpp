@@ -1035,6 +1035,23 @@ void Sync()
     }
 }
 
+} // namespace
+
+bool EditorGaps(const Game::CGapChecklist* checklist, std::vector<std::string>* names,
+                std::vector<std::string>* levelNames)
+{
+    names->clear();
+    levelNames->clear();
+    if (!checklist || checklist != g_checklist || g_gapsAdded.empty())
+        return false;
+    for (const auto& gap : g_gapsAdded)
+        names->push_back(gap.first);
+    *levelNames = g_levelGapNames;
+    return true;
+}
+
+namespace {
+
 // The level's array going (NodeCreate's listener): everything of this level forgotten - its boxes unregistered, the
 // editor's gaps out of its checklist (kept by the career for the level).
 void Forget()

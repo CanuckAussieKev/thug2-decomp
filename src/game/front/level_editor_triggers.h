@@ -10,6 +10,10 @@
 #include "game/front/level_editor_ui.h"
 #include "game/front/level_editor_walls.h"
 
+namespace Game {
+class CGapChecklist;
+}
+
 // NOT ORIGINAL - the level editor's trigger volumes, kill zones, teleports and gaps (ours; see level_editor.h - phase 5
 // of the plan). Edited levels only, offline: everything here is put in place by the editor or a layout, and neither runs
 // in a network session (level_editor_layout.h).
@@ -242,5 +246,11 @@ void ResetAll();
 
 // For the Inspector, the help and the screenshot sidecar: a line about the triggers.
 std::string Describe();
+
+// The career save (level_editor_career.h): the names of the gaps the editor put in `checklist` (false, nothing: it
+// isn't the checklist they went into, or there are none) and the level's own gap names (a level gap of the same name
+// is the level's, not the editor's).
+bool EditorGaps(const Game::CGapChecklist* checklist, std::vector<std::string>* names,
+                std::vector<std::string>* levelNames);
 
 } // namespace Front::LevelEditor::Triggers
