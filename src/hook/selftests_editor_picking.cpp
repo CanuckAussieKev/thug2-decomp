@@ -38,8 +38,12 @@ void TestEditorPickStructure()
     Check(!Structure(Size(1477, 1080, 1036)), "editor pick: a BO building (1477 x 1080 x 1036) is pickable");
     Check(!Structure(Size(4000, 60, 40)), "editor pick: a long rail / ledge (4000 x 60 x 40) is pickable");
     Check(!Structure(Size(300, 2, 300)), "editor pick: a small flat sign (300 x 2 x 300) is pickable");
-    Check(Structure(Size(400, 40, 400)) && !Structure(Size(399, 0, 399)) && !Structure(Size(400, 41, 400)),
+    Check(Structure(Size(400, 400, 40)) && !Structure(Size(399, 399, 0)) && !Structure(Size(400, 400, 41)),
           "editor pick: the slab thresholds (400 wide, a tenth thick)");
+    Check(Structure(Size(360, 60, 924)), "editor pick: TR's low platform SkWare_Main_12 (360 x 60 x 924) is structure");
+    Check(Structure(Size(350, 80, 350)) && !Structure(Size(349, 60, 924)) && !Structure(Size(360, 81, 924)) &&
+              !Structure(Size(924, 60, 349)),
+          "editor pick: the low-and-flat thresholds (80 high, 350 across both ways)");
     Check(Structure(Size(1500, 1500, 10)) && Structure(Size(10, 1500, 1500)) && !Structure(Size(1499, 1499, 1000)),
           "editor pick: the wide threshold (1500 in two dimensions)");
     // Inside: the camera within the box (a room), however small.

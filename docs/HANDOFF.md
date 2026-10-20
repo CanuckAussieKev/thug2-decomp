@@ -29,6 +29,11 @@ then the "- [ ] Next:" line of docs/decomp-progress.md.
   scaling (after C merges - it touches level_editor_scenery.cpp), phase 5 triggers / gaps / kill zones / teleports
   (after 3d - collision drawing / face flags), phase 6 full Inspector + apply_layout.ts bake. Agent A saw "Permission
   denied" creating thug2_check.exe in its worktree's out\build\verify (antivirus?) - mutation runs couldn't build.
+- **2026-10-21, early:** C (picking, c4fd5af), play fixes (help table, group vs floor, low flat pieces = structure,
+  screenshot mouse cross), 3d view options (b1c7534) and 3e scaling (4100b97) merged, installed, pushed. Running: phase 4
+  chains, phase 5 triggers, and a check of face flag 0x80 (the view agent found the camera's feeler IGNORES 0x80 - our
+  converters say 0x80 = camera collides and the THPS4 converter inverts it: possibly wrong; docs/pending/face-flag-0x80.md).
+  Phase 6 (full Inspector + apply_layout.ts) starts after 4 and 5 merge.
 - **Queued (user said yes), after A-C merge:** (D) view options - Show collision (invisible walls in a strong colour,
   surface types, Shift+click selects an invisible wall), editor-only hide / isolate; (E) uniform scaling of scenery
   (render vertices, collision, boxes, rails on it), objects if the model code allows; non-uniform later.

@@ -15,6 +15,7 @@
 #include "game/core/crc.h"
 #include "game/front/level_editor_node_edit.h"
 #include "game/front/level_editor_objects.h"
+#include "game/front/level_editor_scale.h"
 #include "game/gfx/screen.h"
 #include "game/net/net_manager.h"
 #include "game/obj/object.h"
@@ -115,6 +116,20 @@ bool ReadPlaced(std::istringstream& in, Placement* p)
            p->quarters <= 3;
 }
 
+// The key=value fields after a sector / rail / clone record's numbers: scale= (level_editor_scale.h); others (a later
+// version's) skipped. False: a bad scale.
+bool ReadPlacedFields(std::istringstream& in, Placement* p)
+{
+    std::string field;
+    while (in >> field) {
+        if (field.compare(0, 6, "scale=") == 0) {
+            if (!Scale::ReadToken(field, &p->scale))
+                return false;
+        }
+    }
+    return true;
+}
+
 // A `node` record's fields (after "node"): name, class, then key=value (unknown keys skipped; a repeated one, a bad
 // value or a missing place refuse it).
 bool ReadNode(std::istringstream& in, NodeCreate::Spec* spec)
@@ -181,20 +196,21 @@ std::string Write(const File& file)
         out << "sector";
         Hex(out, s.checksum);
         Placed(out, s.placement);
-        out << ' ' << (s.hidden ? 1 : 0);
+        out << ' ' << (s.hidden ? 1 : 0) << Scale::Token(s.placement.scale);
         Comment(out, s.checksum);
     }
     for (const auto& r : file.rails) {
         out << "rail";
         Hex(out, r.name);
         Placed(out, r.placement);
-        out << ' ' << (r.hidden ? 1 : 0);
+        out << ' ' << (r.hidden ? 1 : 0) << Scale::Token(r.placement.scale);
         Comment(out, r.name);
     }
     for (const auto& c : file.clones) {
         out << "clone";
         Hex(out, c.source);
         Placed(out, c.placement);
+        out << Scale::Token(c.placement.scale);
         Comment(out, c.source);
     }
     for (const auto& o : file.objects) {
@@ -305,14 +321,14 @@ bool Read(const std::string& text, File* file, int* lineNumber)
             uint32_t checksum = 0;
             Placement p = {};
             int hidden = 0;
-            ok = ReadHex(in, &checksum) && ReadPlaced(in, &p) && (in >> hidden);
+            ok = ReadHex(in, &checksum) && ReadPlaced(in, &p) && (in >> hidden) && ReadPlacedFields(in, &p);
             if (ok && kind == "sector")
                 file->sectors.push_back({checksum, p, hidden != 0});
             else if (ok)
                 file->rails.push_back({checksum, p, hidden != 0});
         } else if (kind == "clone") {
             CloneRecord c = {};
-            ok = ReadHex(in, &c.source) && ReadPlaced(in, &c.placement);
+            ok = ReadHex(in, &c.source) && ReadPlaced(in, &c.placement) && ReadPlacedFields(in, &c.placement);
             if (ok)
                 file->clones.push_back(c);
         } else if (kind == "object") {

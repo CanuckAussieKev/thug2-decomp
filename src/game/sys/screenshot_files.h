@@ -56,6 +56,10 @@ struct Frame {
 // 6-bit channels widened by repeating their top bits, so white stays 255). False (and `rgb` empty) for an unknown
 // format or too few bytes.
 bool ToRgb(const Frame& frame, std::vector<uint8_t>* rgb);
+// Where the mouse was, marked on the RGB pixels (the cursor isn't in the back buffer): a white cross with a black
+// edge, `size` pixels each way from (x, y), with a gap of a third of that in the middle; clipped to the image. A
+// negative x or y: no mouse over the window - nothing marked.
+void MarkCursor(std::vector<uint8_t>* rgb, int width, int height, int x, int y, int size);
 
 // --- PNG ---------------------------------------------------------------------------------------------------------
 

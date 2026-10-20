@@ -15,6 +15,8 @@ bool IsStructure(V3 min, V3 max, V3 camera)
         camera.y <= max.y + kInsideMargin && camera.z >= min.z - kInsideMargin && camera.z <= max.z + kInsideMargin)
         return true;
     float e[3] = {max.x - min.x, max.y - min.y, max.z - min.z};
+    if (e[1] <= kLowHeight && std::min(e[0], e[2]) >= kLowSpan)
+        return true;
     std::sort(e, e + 3); // e[0] thinnest .. e[2] longest
     if (e[1] >= kWideSpan)
         return true;
