@@ -1,6 +1,6 @@
 // What the level converters (tools/thps4_levels, tools/thug1_levels) share besides the formats: compiling NeverScript,
 // writing a converted level's files (each read back first), the level structure's lighting keys, and the self-check's
-// THUG2 round trips. (TypeScript twin of common.py.)
+// THUG2 round trips.
 
 import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";

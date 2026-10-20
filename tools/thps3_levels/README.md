@@ -2,16 +2,16 @@
 
 Converts the levels of your own THPS3 (PC) install to THUG2's formats and puts them in THUG2's level select (its
 THPS3 section: Up / Down in the level select switches games; signs and globe stars from
-tools/menu_level/level_select.py's `THPS3_LEVELS`). Nothing of either game is in the repo: the files are made from
+tools/menu_level/level_select.ts's `THPS3_LEVELS`). Nothing of either game is in the repo: the files are made from
 your copies each time.
 
 ## Running it
 
 Needs Node 24+ (`npm install` once - docs/typescript.md), NeverScript (`tools\build_neverscript.ps1` ->
-`out\neverscript\ns.exe`) and, to install the levels, Python 3 (make_menu_level.py).
+`out\neverscript\ns.exe`) and, to install the levels, tools/menu_level/make_menu_level.ts.
 
     node tools/thps3_levels/thps3_levels.ts convert [--thps3 C:\Games\THPS3] [--thug2 C:\Games\THUG2]
-    python -I tools/menu_level/make_menu_level.py
+    node tools/menu_level/make_menu_level.ts
 
 `convert` reads `<thps3>\Data\Levels\<Lvl>\` (`<lvl>.bsp`, `.tdx`, `.qb`) and `<thps3>\Data\Scripts\` (levels.qb,
 lights.qb and the global scripts, for the level structures and kill zones) and writes `<thug2>\thug2-decomp-thps3\`
@@ -22,7 +22,7 @@ classics (Ware, Burn, Ros), Tut and SkateShop; the park editor's sets (Sk3Ed_Bch
 when named. `--no-mips` skips making mip levels (faster). The table `LEVELS` in `thps3_levels.ts` is the list (folder,
 sign text, place, a THUG2 sign texture, level select number 60-76, default or not).
 
-`make_menu_level.py` (which makes the data overlay `<thug2>\thug2-decomp-data` from scratch on each run) then copies
+`make_menu_level.ts` (which makes the data overlay `<thug2>\thug2-decomp-data` from scratch on each run) then copies
 the converted levels of every staging folder (thug2-decomp-thps4, -thug1, -thps3) into the overlay and adds them to
 `Levels.qb` and the level select. Run it again after every `convert`. Delete `thug2-decomp-thps3` and run it again to
 take the levels out.

@@ -6,10 +6,10 @@ from your copies each time.
 
 ## Running it
 
-Needs Node 24+ (`npm install` once; docs/typescript.md), Python 3 for make_menu_level.py, and NeverScript (`tools\build_neverscript.ps1` -> `out\neverscript\ns.exe`).
+Needs Node 24+ (`npm install` once; docs/typescript.md) and NeverScript (`tools\build_neverscript.ps1` -> `out\neverscript\ns.exe`).
 
     node tools/thaw_levels/thaw_levels.ts convert [--thaw C:\Games\THAW] [--thug2 C:\Games\THUG2]
-    python -I tools/menu_level/make_menu_level.py
+    node tools/menu_level/make_menu_level.ts
 
 `convert` reads each level's "net" archive (`Game\data\worlds\worldzones\<zone>\<zone>_net.pak.wpc`: the area on its
 own, as THAW loads it for classic and online games - no story props, vehicles or sounds), the sky
@@ -22,7 +22,7 @@ Monica, Z_SR Skate Ranch, Z_LV Casino, Z_OI Oil Rig). Name some to convert only 
 select numbers 80-94. (Converting some levels empties the output folder first: the others go - finish with a
 full `convert`.)
 
-`make_menu_level.py` copies every converted game's levels into the data overlay `<thug2>\thug2-decomp-data`; run it
+`make_menu_level.ts` copies every converted game's levels into the data overlay `<thug2>\thug2-decomp-data`; run it
 after every `convert`. Delete `thug2-decomp-thaw` and run it again to take them out.
 
     node tools/thaw_levels/thaw_levels.ts selfcheck

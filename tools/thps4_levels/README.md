@@ -2,23 +2,23 @@
 
 Converts the levels of your own THPS4 (PC) install to THUG2's formats and puts them in THUG2's level select
 (its THPS4 section: Up / Down in the level select switches games; signs and globe stars from
-tools/menu_level/level_select.py). Nothing of either game is in the repo: the files are
+tools/menu_level/level_select.ts). Nothing of either game is in the repo: the files are
 made from your copies each time.
 
 ## Running it
 
 Needs Node 24+ (`npm install` once - docs/typescript.md), NeverScript (`tools\build_neverscript.ps1` ->
-`out\neverscript\ns.exe`) and, to install the levels, Python 3 (make_menu_level.py).
+`out\neverscript\ns.exe`) and, to install the levels, tools/menu_level/make_menu_level.ts.
 
     node tools/thps4_levels/thps4_levels.ts convert [--thps4 C:\Games\THPS4] [--thug2 C:\Games\THUG2]
-    python -I tools/menu_level/make_menu_level.py
+    node tools/menu_level/make_menu_level.ts
 
 `convert` reads `<thps4>\Game\data\levels` and writes `<thug2>\thug2-decomp-thps4\` (not read by the game):
 `levels\thps4_<lvl>\thps4_<lvl>.scn.xbx / .tex.xbx / .col.xbx / .qb`, the skies the same way, and `levels.json`.
 Name levels to convert only some (`convert Alc Zoo`); the default is every THPS4 level with a scene: Alc, Cnv, Hof,
 Jnk, Kon, Lon, SF2, Sch, Zoo, SkateShop, Motox (Foo has no scene; the park editor sets are left out).
 
-`make_menu_level.py` (which makes the data overlay `<thug2>\thug2-decomp-data` from scratch on each run) then copies
+`make_menu_level.ts` (which makes the data overlay `<thug2>\thug2-decomp-data` from scratch on each run) then copies
 the converted levels into the overlay and adds them to `Levels.qb` and the level select. Run it again after every
 `convert`. Delete `thug2-decomp-thps4` and run it again to take the levels out.
 
@@ -54,7 +54,7 @@ back - they must come out byte-identical - and parses every THPS4 level file.
   (Ped_InitAI, PedAI walk waypoints, random_male_profile); the pros on the halfpipe (Skateshop_PedProTest's two lines)
   that THUG2 has (Burnquist, Koston, Margera, Mullen, Hawk: PedPro_<name>) skate it with THUG2's ped AI (the two lines
   one loop, each lip a Vert_Flip, as THUG2's LA vert skaters) from their places on the deck; the other pros' places
-  get random skateboarders standing there. `make_menu_level.py` copies them into the front end too (seen after SKATE
+  get random skateboarders standing there. `make_menu_level.ts` copies them into the front end too (seen after SKATE
   NOW).
 - Level structure: THPS4's name, sky and lighting (from its Levels.qb); no music, no goals.
 

@@ -1,6 +1,5 @@
 // THPS4 / THUG1 .qb files: read the global data (`name = value` at the top level: node arrays, level structures) and
 // the checksum names, and write values as NeverScript text (tools/neverscript compiles that to THUG2 .qb).
-// (TypeScript twin of qb.py.)
 //
 // The token stream is THUG2's (src/game/script/qb.h) in both. THUG1's is THUG2's exactly; THPS4's differs in the
 // random tokens: its 0x2F / 0x37 / 0x40 / 0x41 are {u32 count, count x u32 jump offset} - THUG1 / THUG2 have a u16

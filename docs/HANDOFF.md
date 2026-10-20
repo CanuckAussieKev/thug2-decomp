@@ -17,7 +17,7 @@ then the "- [ ] Next:" line of docs/decomp-progress.md.
   C:\Games\THUG2-THPSX-ORIGINAL).
   - The game is in **C:\Games\THUG2\Game** (THUG2.exe: an unwrapped no-CD exe, never modified).
   - Our files went in on 2026-10-20: the DLL, the ini from the old install (self-tests off, anteara_mod=0), the
-    converted levels, and the overlay rebuilt with make_menu_level.py.
+    converted levels, and the overlay rebuilt with make_menu_level.py (now make_menu_level.ts).
 - **The old main install is C:\Games\THUG2_PM_BAK** (THUG2PM.exe; the user's backup - don't write to it). Its Backup
   folder holds the user's Anteara backups (scripts_2010, scripts_2011, scripts_unified) and its Save folder their old
   saves.
@@ -33,7 +33,7 @@ then the "- [ ] Next:" line of docs/decomp-progress.md.
 ## Update 2 (2026-10-19)
 - **Anteara Mod is part of the project**, merged from branch anteara-mod.
   - It's switched by `[features] anteara_mod=1` (default 0); the main install's ini has `anteara_mod=0`.
-  - tools/anteara (README) holds only the mod's own changes. make_menu_level.py builds the mod's script set into
+  - tools/anteara (README) holds only the mod's own changes. make_menu_level.ts builds the mod's script set into
     the overlay's `anteara` folder from the game's loose Data\scripts.
   - skip_intro_movies also skips the mod's start-up movie.
   - The record is docs/pending/anteara.md (not a decomp batch).
@@ -137,7 +137,7 @@ then the "- [ ] Next:" line of docs/decomp-progress.md.
   `cmake --build out\build\lead -j 2`). Mutation runs can filter tests with THUG2_SELFTESTS (decomp-batch skill).
 - The lead merges, builds and checks, folds the docs/pending batches (`node tools/fold_pending.ts`), regenerates
   PROGRESS.md, commits and pushes. It then installs main into C:\Games\THUG2: copy out\build\lead\dinput8.dll over it,
-  then `python -I tools/menu_level/make_menu_level.py --game C:\Games\THUG2`. The user's own manual-test folder: no
+  then `node tools/menu_level/make_menu_level.ts --game C:\Games\THUG2`. The user's own manual-test folder: no
   test runs there, and its self-tests stay off.
 - Game test scripts: tools/game (README there). Launch only when allowed (workspaces under the lock are allowed),
   never capture the whole screen, never close a game you didn't start, and hand interactive tests to the user.

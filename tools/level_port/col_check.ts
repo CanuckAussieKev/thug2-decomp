@@ -1,6 +1,5 @@
 // NOT ORIGINAL - offline checks of a THUG2 collision file (levels\<x>\<x>.col.xbx, tools/level_port/thug2_col.ts's
 // form): whether every face can be found through its object's BSP tree, as THUG2's queries walk it.
-// (TypeScript twin of col_check.py.)
 //
 //   node tools/level_port/col_check.ts <file.col.xbx | file.prx> ...
 //

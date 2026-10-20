@@ -3,12 +3,12 @@
 //
 //   node tools/thug1_levels/thug1_levels.ts selfcheck [--thug2 C:\Games\THUG2] [--thug1 C:\Games\THUG1]
 //   node tools/thug1_levels/thug1_levels.ts convert [levels...] [--thug2 ...] [--thug1 ...] [--out <folder>]
-//   then: python -I tools/menu_level/make_menu_level.py   (installs them into the data overlay, with level select signs)
+//   then: node tools/menu_level/make_menu_level.ts   (installs them into the data overlay, with level select signs)
 //
 // convert reads <thug1>\Game\Data\pre (the level archives <LV>scn.pre, <LV>col.pre, <LV>.pre and qb.pre's Levels.qb)
 // and writes <thug2>\thug2-decomp-thug1\ (not read by the game): levels\thug1_<lv>\thug1_<lv>.scn.xbx / .tex.xbx /
 // .col.xbx / .qb (the node array), the skies (scene and textures) the same way, and levels.json (what
-// make_menu_level.py adds to Levels.qb and the level select: tools/level_port/ported_levels.ts).
+// make_menu_level.ts adds to Levels.qb and the level select: tools/level_port/ported_levels.ts).
 //
 // The THUG2 formats, the geometry conversion, the node arrays and the installing are shared with tools/thps4_levels
 // (tools/level_port); this folder has THUG1's own formats (thug1.ts) and its levels.
@@ -376,7 +376,7 @@ export function cmdConvert(args: Args): void {
     }
     portedLevels.writeManifest(pyJoin(out, portedLevels.MANIFEST), manifest);
     print(report.join("\n"));
-    print(`wrote ${out} (${manifest.levels.length} levels); install with tools\\menu_level\\make_menu_level.py`);
+    print(`wrote ${out} (${manifest.levels.length} levels); install with tools\\menu_level\\make_menu_level.ts`);
 }
 
 // --- self-check -------------------------------------------------------------------------------------------------

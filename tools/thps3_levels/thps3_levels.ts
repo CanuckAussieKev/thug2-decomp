@@ -3,11 +3,11 @@
 //
 //   node tools/thps3_levels/thps3_levels.ts selfcheck [--thug2 C:\Games\THUG2] [--thps3 C:\Games\THPS3]
 //   node tools/thps3_levels/thps3_levels.ts convert [levels...] [--thug2 ...] [--thps3 ...] [--out <folder>]
-//   then: python -I tools/menu_level/make_menu_level.py   (installs them into the data overlay, with level select signs)
+//   then: node tools/menu_level/make_menu_level.ts   (installs them into the data overlay, with level select signs)
 //
 // convert writes <thug2>\thug2-decomp-thps3\ (not read by the game): levels\thps3_<lvl>\thps3_<lvl>.scn.xbx /
 // .tex.xbx / .col.xbx / .qb (the node array), the skies (scene and textures) and levels.json (what
-// make_menu_level.py adds to Levels.qb and the level select: tools/level_port/ported_levels.ts).
+// make_menu_level.ts adds to Levels.qb and the level select: tools/level_port/ported_levels.ts).
 //
 // THPS3's own formats (RenderWare worlds, texture dictionaries, Neversoft's plugin data) are read by thps3.ts; the
 // THUG2 writers, the geometry conversion, the node arrays and the installing are shared with tools/thps4_levels and
@@ -52,7 +52,7 @@ import * as thps3 from "./thps3.ts";
 export const STAGING = "thug2-decomp-thps3";
 
 // The THPS3 levels: folder under Data\Levels, sign text, real-world place, THUG2 sign texture to use as an icon
-// (the level select's own table in tools/menu_level/level_select.py takes precedence), level select number (each its
+// (the level select's own table in tools/menu_level/level_select.ts takes precedence), level select number (each its
 // own; no career records - the info panel skips them), converted by default.
 export type LevelRow = [string, string, string, string, number, boolean];
 export const LEVELS: readonly LevelRow[] = [
@@ -1999,7 +1999,7 @@ export function cmdConvert(args: Args): void {
     }
     portedLevels.writeManifest(pyJoin(out, portedLevels.MANIFEST), manifest);
     print(report.join("\n"));
-    print(`wrote ${out} (${manifest.levels.length} levels); install with tools\\menu_level\\make_menu_level.py`);
+    print(`wrote ${out} (${manifest.levels.length} levels); install with tools\\menu_level\\make_menu_level.ts`);
 }
 
 // --- self-check ----------------------------------------------------------------------------------------------------

@@ -1,14 +1,14 @@
 // The games' file archives: THUG2's .prx and THUG1's .pre are the same format (version 0xABCD0003).
 //   i32 total size, u32 version, i32 file count, then per file {i32 size, i32 compressed size (0: stored),
 //   i16 name size, u16 use count, u32 checksum}, its name, and its data (LZSS when compressed) padded to 4 bytes
-//   (src/game/file/pip.cpp NextRawEntry; the LZSS: src/game/util/lzss.cpp). (TypeScript twin of prx.py.)
+//   (src/game/file/pip.cpp NextRawEntry; the LZSS: src/game/util/lzss.cpp).
 
 import * as fs from "node:fs";
 import { decodeAsciiReplace } from "../lib/py.ts";
 import { unpackNumbers } from "../lib/struct.ts";
 
 export function lzssDecode(data: Uint8Array, size: number): Buffer {
-    // A 4096-byte window filled with spaces, writing from 4096 - 18 (as tools/menu_level/make_menu_level.py's).
+    // A 4096-byte window filled with spaces, writing from 4096 - 18 (as tools/menu_level/make_menu_level.ts's).
     const window = Buffer.alloc(4096, 0x20);
     let r = 4096 - 18;
     const out = Buffer.alloc(Math.max(0, size) + 18);

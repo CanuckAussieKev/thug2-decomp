@@ -1,4 +1,4 @@
-// Little-endian binary reading and writing for the level file formats (TypeScript twin of binio.py).
+// Little-endian binary reading and writing for the level file formats.
 //
 // Formats are Python struct strings without the byte order ("8I", "IHHHBBI", `${n}H`): tools/lib/struct.ts, "<"
 // added here.

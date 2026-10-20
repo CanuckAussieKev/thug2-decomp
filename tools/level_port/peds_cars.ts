@@ -1,6 +1,5 @@
 // THPS4 node arrays' pedestrians and cars -> THUG2's own: the nodes nodes.ts leaves out (peds, vehicles, waypoints),
 // made again as THUG2's levels write them, driven by THUG2's scripts (none of THPS4's ped / car scripts run in THUG2):
-// (TypeScript twin of peds_cars.py)
 //
 //   cars     a Vehicle whose trigger script calls Car_Generic01 (THPS4's and THUG2's share it: follow the linked
 //            waypoints, stop for the skater and for other cars) - its model if THUG2 has it (Data\models\veh), else

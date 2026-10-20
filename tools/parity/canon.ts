@@ -1,4 +1,5 @@
-// NOT ORIGINAL - the TypeScript half of the parity drivers' canonical dumps (tools/parity/canon.py: the format).
+// NOT ORIGINAL - the TypeScript half of the parity drivers' canonical dumps (tools/parity/canon.py: the format -
+// deleted in stage 3 with the last Python twins; it is in commit 57d7b5e).
 // TypeScript's structures use camelCase keys; they are written as Python's snake_case ones here.
 
 import { createHash } from "node:crypto";

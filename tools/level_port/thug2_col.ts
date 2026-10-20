@@ -1,5 +1,5 @@
 // THUG2 PC collision files (levels\<x>\<x>.col.xbx), version 10. The layout, as the game's loader takes it apart
-// (0x0049CBB0, the per-object fix-ups 0x004169C0 and 0x00410BC0): (TypeScript twin of thug2_col.py)
+// (0x0049CBB0, the per-object fix-ups 0x004169C0 and 0x00410BC0):
 //
 //   header      i32 version (10), object count, total vertices, large faces, small faces, large (float) vertices,
 //               small (fixed-point) vertices, 0

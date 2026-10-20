@@ -1,6 +1,5 @@
 // THUG2 PC scene files (levels\<x>\<x>.scn.xbx; models' .mdl.xbx have the same layout): materials, then
 // sectors (one per object), each a list of meshes with their own index lists and vertex buffer.
-// (TypeScript twin of thug2_scene.py.)
 //
 //   u32 material version, mesh version, vertex version (1, 1, 1 in the shipped files)
 //   u32 material count, materials

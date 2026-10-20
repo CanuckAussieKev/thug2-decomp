@@ -3,11 +3,11 @@
 //
 //   node tools/thps4_levels/thps4_levels.ts selfcheck [--thug2 C:\Games\THUG2] [--thps4 C:\Games\THPS4]
 //   node tools/thps4_levels/thps4_levels.ts convert [levels...] [--thug2 ...] [--thps4 ...] [--out <folder>]
-//   then: python -I tools/menu_level/make_menu_level.py   (installs them into the data overlay, with level select signs)
+//   then: node tools/menu_level/make_menu_level.ts   (installs them into the data overlay, with level select signs)
 //
 // convert writes <thug2>\thug2-decomp-thps4\ (not read by the game): levels\thps4_<lvl>\thps4_<lvl>.scn.xbx /
-// .tex.xbx / .col.xbx / .qb (the node array), the skies the same way, and levels.json (what make_menu_level.py adds to
-// Levels.qb and the level select: tools/level_port/ported_levels.ts). make_menu_level.py copies the levels folder into
+// .tex.xbx / .col.xbx / .qb (the node array), the skies the same way, and levels.json (what make_menu_level.ts adds to
+// Levels.qb and the level select: tools/level_port/ported_levels.ts). make_menu_level.ts copies the levels folder into
 // the overlay (<thug2>\thug2-decomp-data), which the DLL serves in place of the game's files.
 //
 // The THUG2 formats, the geometry conversion, the node arrays and the installing are shared with tools/thug1_levels
@@ -37,10 +37,10 @@ export const STAGING = "thug2-decomp-thps4";
 // editor's sets. Foo has only a node array (no scene).
 export const LEVELS = ["Alc", "Cnv", "Hof", "Jnk", "Kon", "Lon", "SF2", "Sch", "Zoo", "SkateShop", "Motox"];
 // The level select's numbers for the signs (each sign needs its own; none of them has career records - the info
-// panel skips them, as make_menu_level.py's SKATE SHOP / TEST LEVEL at 18 / 21).
+// panel skips them, as make_menu_level.ts's SKATE SHOP / TEST LEVEL at 18 / 21).
 export const SIGN_NUMBERS = [19, 20, 22, 23, 24, 25, 26, 27, 28, 29, 31];
 // The levels whose peds and cars are brought over (tools/level_port/peds_cars.ts): the skate shop's pros on the
-// halfpipe, the people walking by and the cars on the road (also the front end's: make_menu_level.py copies them);
+// halfpipe, the people walking by and the cars on the road (also the front end's: make_menu_level.ts copies them);
 // every level's walkers and Car_Generic01 cars.
 // College left out: with its walker and car its node array came out null in the game (a crash loading; cause not
 // found - its other peds are THUG2 standing peds, its car a LevelObject of its model).
@@ -420,7 +420,7 @@ export function cmdConvert(args: Args): void {
     });
     portedLevels.writeManifest(pyJoin(out, portedLevels.MANIFEST), manifest);
     print(report.join("\n"));
-    print(`wrote ${out} (${manifest.levels.length} levels); install with tools\\menu_level\\make_menu_level.py`);
+    print(`wrote ${out} (${manifest.levels.length} levels); install with tools\\menu_level\\make_menu_level.ts`);
 }
 
 // --- self-check -------------------------------------------------------------------------------------------------

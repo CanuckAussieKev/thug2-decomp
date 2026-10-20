@@ -1,6 +1,6 @@
 // Level geometry in THUG2's form: scenes whose sectors keep one vertex array per sector (THPS4's scn.dat, THUG1's
 // scn.xbx) become THUG2's per-mesh vertex buffers, and collision objects become THUG2's version 10 ones (in memory;
-// tools/thps4_levels and tools/thug1_levels write them). (TypeScript twin of geometry.py.)
+// tools/thps4_levels and tools/thug1_levels write them).
 
 import { hex8, pyBytes, pyMax, pyMin, pySum, roundHalfEven } from "../lib/py.ts";
 import { pack } from "../lib/struct.ts";
