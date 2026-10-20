@@ -68,8 +68,9 @@ struct Spec {
     // layout records, so it isn't a `node` record.
     std::vector<Field> extra;
     bool owned = false;
-    // Chain points (level_editor_chains.h - RailNode, Waypoint): the node whose fields it copies (0: none), a rail's
-    // TerrainType ("": the default) and its links= (names: kept out of the node manager's ResolveLinks - Sync).
+    // Chain points (level_editor_chains.h - RailNode, Waypoint, a ladder's ClimbingNode of `type` Ladder): the node
+    // whose fields it copies (0: none), a rail's TerrainType ("": the default) and its links= (names: kept out of the
+    // node manager's ResolveLinks - Sync).
     uint32_t like = 0;
     std::string terrain;
     std::vector<uint32_t> links;

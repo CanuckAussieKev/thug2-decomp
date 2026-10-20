@@ -2360,8 +2360,8 @@ void LevelPropsRequest(const Ui::Request& request)
     }
 }
 
-// The Place palette's chain entries (after the node kinds): a new rail, a new path.
-constexpr int kChainEntries = 2;
+// The Place palette's chain entries (after the node kinds): a new rail, a new path, a new ladder.
+constexpr int kChainEntries = 3;
 int ChainEntry(int entry)
 {
     int base = static_cast<int>(PlaceEntries().size());
@@ -2370,13 +2370,27 @@ int ChainEntry(int entry)
 Chains::Draw ChainKindOf(int entry)
 {
     int chain = ChainEntry(entry);
-    return chain == 0 ? Chains::Draw::Rail : chain == 1 ? Chains::Draw::Path : Chains::Draw::None;
+    return chain == 0   ? Chains::Draw::Rail
+           : chain == 1 ? Chains::Draw::Path
+           : chain == 2 ? Chains::Draw::Ladder
+                        : Chains::Draw::None;
 }
 
 // A click while drawing: a point where the cursor's ray meets the level (edges snapped unless Alt; a free end near it
 // taken), linked on from the last.
 void DrawChainPoint(V3 dir, bool alt)
 {
+    if (Chains::Drawing() == Chains::Draw::Ladder) {
+        // (a ladder: its foot on a wall, then its top - level_editor_chains.h)
+        Chains::State before = Chains::Current();
+        std::string message;
+        uint32_t select = 0;
+        bool made = Chains::LadderClick(g_pos, Normalize(dir), kMaxPickDistance, &message, &select);
+        AfterChainChange(before, made ? select : 0, message);
+        if (made && ChainKindOf(g_placeArmed) != Chains::Draw::None)
+            g_placeArmed = -1;
+        return;
+    }
     V3 point;
     uint32_t end = 0;
     if (!Chains::SnapPoint(g_pos, Normalize(dir), kMaxPickDistance, alt, &point, &end)) {
@@ -2415,7 +2429,8 @@ void DeleteNode(bool confirmed)
         return;
     const Nodes::Node node = Nodes::All()[index];
     // A rail or path point: deleted from its chain, its neighbours linked (a level's own hidden - level_editor_chains.h).
-    if (node.family == Nodes::Family::Rail || node.family == Nodes::Family::Path) {
+    if (node.family == Nodes::Family::Rail || node.family == Nodes::Family::Path ||
+        node.family == Nodes::Family::Ladder) { // (a ladder: whole)
         RunChainOp(Chains::kOpDelete, 0);
         return;
     }
@@ -2522,6 +2537,8 @@ std::vector<Ui::BrowserItem> g_uiBrowserItems;
 // The keys for what you're doing (as the HUD's bottom lines).
 std::vector<std::pair<std::string, std::string>> KeysNow()
 {
+    if (Chains::Drawing() == Chains::Draw::Ladder)
+        return {{"Click", Chains::Waiting()}, {"Ctrl+Z", "take the last ladder away"}, {"Esc", "stop"}};
     if (Chains::Drawing() != Chains::Draw::None)
         return {{"Click", "add a point"}, {"Alt+click", "no edge snapping"}, {"Near an end", "links onto it"},
                 {"Enter, right click", "finish"}, {"Ctrl+Z", "take the last point away"}, {"Esc", "stop"}};
@@ -2807,6 +2824,7 @@ Ui::Model BuildModel()
         // (phase 4: chains drawn point by point - level_editor_chains.h)
         model.place.entries.push_back({"Rail (click points; Enter finishes)", 0xFF7FB2D9, ""});
         model.place.entries.push_back({"Path (ped / car waypoints; Enter finishes)", 0xFF8FD18F, ""});
+        model.place.entries.push_back({"Ladder (click a wall at its foot, then its top)", 0xFFC88FD9, ""});
     }
     model.chain = ChainTarget() ? Chains::ViewOf(ChainTarget()) : Chains::View{};
     if (!model.chain.waiting)
@@ -3161,6 +3179,8 @@ void Reset()
         } else {
             Hud::Message("It's where the level has it");
         }
+        if (Chains::IsLadder(g_nodeName))
+            RunChainOp(Chains::kOpFacingHome, 0); // (a level ladder turned: its facing too - its own undo step)
     } else if (!objects.empty()) {
         UndoStep before = Snapshot();
         bool any = false;
@@ -4270,7 +4290,9 @@ void Update()
         // Z / X: turn it - an object 15 degrees, scenery a quarter turn about its centre (the engine turns level
         // geometry by quarter turns only).
         int turn = (Pressed(keys, SDL_SCANCODE_X, &turnRight) ? 1 : 0) - (zPressed && !ctrl ? 1 : 0);
-        if (turn && !g_dragging && !(MovableNode() >= 0 && NodeEdit::IsChain(g_nodeName))) { // (chain points don't turn)
+        if (turn && !g_dragging && MovableNode() >= 0 && Chains::IsLadder(g_nodeName)) {
+            RunChainOp(Chains::kOpTurn, static_cast<uint32_t>(turn)); // (a ladder: its facing, whole)
+        } else if (turn && !g_dragging && !(MovableNode() >= 0 && NodeEdit::IsChain(g_nodeName))) { // (chain points don't turn)
             PushUndo(Snapshot());
             TurnSelection(turn);
             NoteAction("turned (Z / X): %s", DescribeSelection().c_str());

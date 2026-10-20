@@ -1248,6 +1248,9 @@ void Help(const Model& model)
         {"", "End", "(an end point) draw on from it"},
         {"", "J / U", "(a point) link this end to the next end clicked / unlink it from its next point"},
         {"", "Inspector", "a rail's terrain (whole rail); a ped's / car's path: Assign, then click a waypoint"},
+        {"", "N > Ladder", "click a wall where its foot goes, then where its top goes; Z / X turn a ladder, Delete "
+                           "deletes it whole, L off moves its foot or top"},
+        {"", "Inspector", "a rail: Trick object (drawn rails), Grindable on flat ground"},
         {"Moving", "Drag", "moves it (Shift: up / down; wheel: push / pull; Ctrl or Snap 25: snap to 25)"},
         {"", "Drag an arrow", "along that axis only"},
         {"", "W A S D / Q E", "nudge it"},

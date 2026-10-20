@@ -641,3 +641,55 @@ test("install refuses the backups and THUGPRO, and the main install without --al
     assert.equal(installRefusal("C:\\Games\\THUG2\\Game", true), null);
     assert.equal(installRefusal("C:\\Games\\THUG2-1\\Game", false), null);
 });
+
+// (phase 4b - level_editor_chains.h) ladders drawn and turned, drawn rails as trick objects, rails grindable on flat ground.
+test("bake: ladders, trick-object rails, flat-ground rails", () => {
+    const layout = readLayout(
+        [
+            "thug2-decomp layout 2",
+            `scene ${hex(LEVEL)}`,
+            `point ed_ladder01 ClimbingNode pos=10,0,20 links=${hex("ed_ladder02")} facing=1.5`,
+            "point ed_ladder02 ClimbingNode pos=10,200,20 facing=1.5",
+            `point ed_rail01 RailNode pos=0,0,0 links=${hex("ed_rail02")} cluster=${hex("SecA")} grindflat=1`,
+            "point ed_rail02 RailNode pos=50,0,0 cluster=00000ABC",
+            `facing ${hex("Rail01")} -0.5`,
+            `grindflat ${hex("Rail02")}`,
+        ].join("\n"),
+    );
+    assert.equal(layout.points[0]!.facing, 1.5);
+    assert.equal(layout.points[2]!.cluster, checksum("SecA"));
+    assert.equal(layout.points[2]!.grindFlat, true);
+    assert.deepEqual(layout.facings, [{ name: checksum("Rail01"), facing: -0.5 }]);
+    assert.deepEqual(layout.grindFlat, [checksum("Rail02")]);
+    const out = bake(layout, level(), { level: LEVEL, why: "a test" });
+    const nodes = nodesOf(out.qb);
+    const foot = named(nodes, "ed_ladder01");
+    assert.equal((foot.get("Class") as Name).value, checksum("ClimbingNode"));
+    assert.equal((foot.get("Type") as Name).value, checksum("Ladder"), "a ladder's point, as THUG2's");
+    assert.deepEqual((foot.get("Angles") as Vector).values, [0, 1.5, 0]);
+    assert.ok(foot.hasFlag("CreatedAtStart"));
+    assert.equal(foot.get("TerrainType"), undefined, "no terrain on a ladder");
+    assert.deepEqual(foot.get("Links"), [nodes.indexOf(named(nodes, "ed_ladder02"))]);
+    const rail = named(nodes, "ed_rail01");
+    assert.ok(rail.hasFlag("TrickObject"));
+    assert.equal((rail.get("Cluster") as Name).value, checksum("SecA"));
+    assert.ok(rail.hasFlag("ed_grind_flat"));
+    const other = named(nodes, "ed_rail02");
+    assert.equal((other.get("Cluster") as Name).value, 0xabc);
+    assert.equal(other.hasFlag("ed_grind_flat"), false);
+    assert.deepEqual((named(nodes, "Rail01").get("Angles") as Vector).values, [0, -0.5, 0], "a level ladder turned");
+    assert.ok(named(nodes, "Rail02").hasFlag("ed_grind_flat"));
+    assert.ok(out.warnings.some((w) => w.startsWith("2 rail point(s) grindable on flat ground")));
+    for (const what of ["ladder point ed_ladder01 added", "rail Rail02 grindable on flat ground"])
+        assert.ok(
+            out.parity.some((p) => p.startsWith(what)),
+            what,
+        );
+    // Refused as the DLL refuses.
+    for (const line of [
+        "point ed_rail09 RailNode pos=1,2,3 grindflat=2",
+        "facing 00000001",
+        "point x LevelLight pos=1,2,3",
+    ])
+        assert.throws(() => readLayout(`thug2-decomp layout 2\nscene 00000001\n${line}\n`), LayoutError, line);
+});
