@@ -125,5 +125,11 @@ void FinishCopy(const std::shared_ptr<std::vector<FaceCopy>>& faces, uint32_t co
 void Commit(uint8_t* scene);
 // How many pieces have a companion, and their faces (the HUD's debug line, the log).
 int Count(int* faces = nullptr);
+// The collision view (level_editor_view.h): every live companion that is on (its piece's checksum and it); the faces of
+// a level geometry turned off for companions (their indices); a number that changes whenever faces are taken or given
+// back (its cache is made again then).
+void ForEachCompanion(void (*each)(void* context, uint32_t checksum, const Companion& companion), void* context);
+std::vector<int> TakenFaces(const Nx::CCollObjTriData* geometry);
+uint32_t Generation();
 
 } // namespace Front::LevelEditor::SharedCollision

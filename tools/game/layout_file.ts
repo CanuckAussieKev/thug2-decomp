@@ -4,10 +4,11 @@
 // `wall` record). Pure: tools/game/apply_layout.ts bakes a layout into a level's files with it.
 //
 // A record the DLL would refuse (malformed) is an error here too, with its line; a record of a kind this reader
-// doesn't know (a later version's, phase 5's triggers before they're supported) is kept in `unknown` - the bake warns
-// about each instead of skipping it silently.
+// doesn't know (a later version's) is kept in `unknown` - the bake warns about each instead of skipping it silently.
+// Phase 5's `trigger` records are read by tools/game/triggers.ts (the DLL's Triggers::ReadRecord, ported).
 
 import { checksum } from "../level_port/qb.ts";
+import { readTriggerRecord, type TriggerSpec } from "./triggers.ts";
 
 export interface V3 {
     x: number;
@@ -109,8 +110,9 @@ export interface Layout {
     walls: { checksum: number; placement: Placement; off: boolean }[];
     level: LevelProps;
     unknown: { line: number; kind: string; text: string }[];
-    // (phase 5) the editor's trigger volumes: name, kind and their key=value fields as written (level_editor_triggers.h)
-    triggers: { line: number; name: string; kind: string; fields: Record<string, string> }[];
+    // (phase 5) the editor's trigger volumes: name, kind and their key=value fields as written (level_editor_triggers.h),
+    // and the record as the DLL reads it (`spec`)
+    triggers: { line: number; name: string; kind: string; fields: Record<string, string>; spec: TriggerSpec }[];
 }
 
 export class LayoutError extends Error {
@@ -526,7 +528,9 @@ export function readLayout(text: string): Layout {
                 const rest = line.trim().split(/\s+/).slice(3).join(" ");
                 for (const m of rest.matchAll(/(\w+)=("(?:[^"\\]|\\.)*"|\S+)/g)) fields[m[1]!] = m[2]!;
                 if (!fields.pos) fail("a trigger without pos");
-                layout.triggers.push({ line: number, name, kind: triggerKind, fields });
+                // (the DLL's reader refuses the whole file over a record it can't read: a bad value, a repeated key)
+                const spec = readTriggerRecord(line.trim().replace(/^trigger\s+/, "")) ?? fail("bad trigger");
+                layout.triggers.push({ line: number, name, kind: triggerKind, fields, spec });
                 break;
             }
             default:

@@ -1,4 +1,4 @@
-# Level editor phase 4b: chains finished - ladders, trick-object rails, flat ground (NOT ORIGINAL - the user's plan)
+﻿# Level editor phase 4b: chains finished - ladders, trick-object rails, flat ground (NOT ORIGINAL - the user's plan)
 
 Branch `worktree-agent-a3cbcba52d9735182` (off main b853d0d). **NOT run in the game yet** (the user tests the editor by
 hand) - built and checked offline only.
@@ -116,7 +116,7 @@ heading or twice for a node, a `grindflat` record without a checksum.
 ## Checks (offline)
 
 - Clean build in the worktree's own `out/build/chains2` (own PDB endpoint), no warnings.
-- `thug2_check.exe` on THUG2PM.exe and on C:\Games\THUG2\Game\THUG2.exe (stock, read only): 0 MISMATCHED, all 409 early
+- `thug2_check.exe` on THUG2PM.exe and on C:\Games\THUG2\Game\THUG2.exe (stock, read only): 0 MISMATCHED, all 416 early (after merging main)
   tests pass. New: `TestEditorChainsLadder` (facing into +x / -z / diagonal walls, the foot out from the wall and on the
   ground - none below, too far below, floors refused - the top from a flat and a rising ray, too low, looking down the
   line), `TestEditorChainsFlat` (segments either way, tolerance; RailClear passes what its override accepts, before any
@@ -141,8 +141,8 @@ segments grindable on flat ground". Back up `thug2-decomp-layouts\` first.
    floor: refused ("click on a wall"). Click a wall near its foot, then higher up the wall: a two-point purple ladder
    appears (log `added ed_ladder01 / ed_ladder02 (a ladder, facing N degrees)`). Leave the editor, skate to it, press up
    at its foot: the skater climbs it facing the wall, and gets off at the top (if there is a ledge to get onto).
-2. **Facing:** select a ladder point: Inspector *Ladder* - "Facing N°". Z / X (or Turn left / right) 15° steps: climb it
-   again - the skater faces the new way. Turn it 180° (12 presses): the skater climbs with its back to the wall (wrong:
+2. **Facing:** select a ladder point: Inspector *Ladder* - "Facing NÂ°". Z / X (or Turn left / right) 15Â° steps: climb it
+   again - the skater faces the new way. Turn it 180Â° (12 presses): the skater climbs with its back to the wall (wrong:
    that's the check that the sign is right - it should face the wall at 0 turns). Ctrl+Z puts each step back.
 3. **A level ladder:** Boston's TRG_Ladder01 (or New Orleans'): Z twice, *Facing back* (or Home): as the level had it.
    Delete: both points grey; can't climb it; Ctrl+Z: back and climbable.

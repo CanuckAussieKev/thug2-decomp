@@ -75,6 +75,32 @@ void AddDashed(std::vector<Ui::Line>* lines, const Ui::Line& line, float dash, f
 // A colour faded (its alpha at most 0x30) - collision switched off.
 uint32_t Faded(uint32_t argb);
 
+// How a collision face is drawn, from what it is:
+//   - its fill: a level trigger's face (0x40) in its kind's colour (level_editor_triggers.h: kill, teleport, gap...),
+//     else its Surface's; the selected wall lighter, the wall under the cursor (Shift held) yellow; faded when its
+//     collision is switched off, or when it is a face a moved piece took along (shared collision - drawn where it was,
+//     classified as it was before it was turned off);
+//   - its edges: a moved piece's shared collision where it is now (a companion) solid cyan; a face taken from here
+//     dashed cyan; an invisible wall's magenta (the selected one white, the hovered one yellow, thicker), dashed while
+//     switched off; other faces none.
+struct FaceFacts {
+    uint32_t flags = 0;
+    bool collisionOnly = false; // (its sector has nothing drawn: an invisible wall)
+    bool off = false;           // (its sector's collision switched off)
+    bool taken = false;         // (turned off for a moved piece's shared collision)
+    bool companion = false;     // (a moved piece's shared collision)
+    bool selected = false, hovered = false;
+    uint32_t triggerColour = 0; // (a level trigger's kind colour, ARGB; 0: not one)
+};
+struct FaceStyle {
+    uint32_t fill = 0;
+    uint32_t edge = 0; // (0: no edges)
+    bool dashed = false;
+    float thickness = 1.0f;
+};
+constexpr uint32_t kCompanionEdge = 0xE040E0FFu, kTakenEdge = 0xC040E0FFu, kHoverWall = 0xC8FFF080u;
+FaceStyle StyleOf(const FaceFacts& facts);
+
 // --- the game side --------------------------------------------------------------------------------------------------
 
 constexpr int kMaxTriangles = 12000;
@@ -96,6 +122,8 @@ void AddCollision(V3 cameraPos, const Frame& frame, const Lens& lens, const uint
                   std::vector<Ui::Overlay::Triangle>* triangles, std::vector<Ui::Line>* lines);
 struct Stats {
     int triangles = 0, sectors = 0, walls = 0, off = 0; // (off: pieces whose collision is switched off)
+    int companions = 0, taken = 0; // (moved pieces' shared collision drawn; faces drawn where it was taken from)
+    int triggers = 0;              // (level trigger faces coloured by kind)
     bool capped = false;
 };
 Stats LastStats();
@@ -103,6 +131,9 @@ Stats LastStats();
 // Shift+click with the collision shown: the nearest drawn face under the ray, if it is an invisible wall's (a
 // collision-only sector) - its checksum, else 0.
 uint32_t PickWall(V3 origin, V3 unitDir);
+// The wall a Shift+click would take now (drawn highlighted; 0: none) - set each frame while Shift is held.
+void SetHoverWall(uint32_t checksum);
+uint32_t HoverWall();
 void SelectWall(uint32_t checksum);
 uint32_t SelectedWall();
 void ClearWall();
@@ -119,5 +150,7 @@ int Isolate(const std::vector<uint32_t>& sectors, const std::vector<uint32_t>& o
 // Alt+H: everything shown again.
 void ShowAll();
 int HiddenCount();
+// What is hidden while editing: the sectors' checksums and the objects' ids (the Outliner's markers).
+std::vector<uint32_t> HiddenIds();
 
 } // namespace Front::LevelEditor::View
