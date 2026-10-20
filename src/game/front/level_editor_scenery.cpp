@@ -16,6 +16,8 @@
 #include "game/front/level_editor_view.h"
 #include "game/front/level_editor_scale.h"
 #include "game/front/level_editor_shadows.h"
+#include "game/front/level_editor_shared_coll.h"
+#include "game/front/level_editor_walls.h"
 #include "game/gfx/mesh.h"
 #include "game/mth/vector.h"
 #include "game/script/names.h"
@@ -280,6 +282,7 @@ const char* MeshesMovable(uint8_t* geom)
 // What we've done to a sector: the box, turns and position when first touched, the placement since, and the engine's
 // state as we set it (checked again before each use: a level reloaded at the same addresses starts afresh).
 struct Track {
+    uint32_t checksum;
     uint8_t* scene;
     uint8_t* sector;
     uint8_t* geom;
@@ -289,6 +292,7 @@ struct Track {
     Placement placement;
     int quarters;
     V3 position;
+    V3 collisionMoved; // (how far its own collision has been moved since: position - position0 on sixteenths)
     bool moved;
     std::shared_ptr<Scale::Original> original; // (once scaled: its vertices and collision then - level_editor_scale.h)
 };
@@ -318,9 +322,12 @@ Track* TrackOf(uint32_t checksum)
         if (track.sector == sector && track.geom == geom && track.scene == scene && track.quarters == QuartersOf(sector) &&
             SameV3(track.position, GeomPosition(geom)))
             return &track;
+        if (track.sector == sector && track.geom == geom && track.scene == scene)
+            SharedCollision::Rebase(checksum); // (moved by something else: its shared collision's base is now too)
         g_tracks.erase(it); // (another level, or moved by something else: start again from where it is)
     }
     Track track = {};
+    track.checksum = checksum;
     track.scene = scene;
     track.sector = sector;
     track.geom = geom;
@@ -361,6 +368,9 @@ void MarkDirty(uint8_t* scene)
 // on, after the engine's turn and move, they're written again from that copy, scaled.
 void ApplyTrack(Track* track)
 {
+    // (first, while the piece is still where the track started: the level's shared collision that is its -
+    // level_editor_shared_coll.h)
+    SharedCollision::Ensure(track->checksum, track->scene, track->sector, track->geom);
     if (!track->original && track->placement.scale != 1.0f) {
         track->original = Scale::Capture(track->sector, track->geom, track->quarters, track->position);
         if (!track->original) {
@@ -378,18 +388,27 @@ void ApplyTrack(Track* track)
     if (!SameV3(position, track->position)) {
         Mth::Vector to = {position.x, position.y, position.z, 1.0f};
         GameFunction<void(__thiscall*)(void*, const Mth::Vector*)>(0x0048DEC0)(track->geom, &to);
-        if (uint8_t* coll = CollOf(track->sector)) {
+        // The collision by whole sixteenths of a unit from where the track started: its BSP tree's splits are
+        // sixteenths and each Translate (0x00415D80) rounds them towards zero, so fractional steps (every frame of a
+        // drag) would let the tree drift away from its faces; on sixteenths every step is exact and moving back gives
+        // the level's tree again (as level_editor_walls.h keeps walls). The collision is then within 1/32 unit of the
+        // meshes.
+        V3 collisionMoved = Walls::OnGrid(position - track->position0);
+        uint8_t* coll = CollOf(track->sector);
+        if (coll && !SameV3(collisionMoved, track->collisionMoved)) {
             const Mth::Vector* origin = Method<const Mth::Vector*(__thiscall*)(void*)>(coll, 0x1C)(coll);
-            V3 change = position - track->position;
+            V3 change = collisionMoved - track->collisionMoved;
             Mth::Vector moved = {origin->x + change.x, origin->y + change.y, origin->z + change.z, origin->w};
             Method<void(__thiscall*)(void*, const Mth::Vector*)>(coll, 0x14)(coll, &moved);
         }
+        track->collisionMoved = collisionMoved;
         track->position = position;
     }
     if (track->original &&
         !Scale::Rebuild(*track->original, track->sector, track->geom, track->quarters, track->position,
                         track->placement.scale))
         track->original.reset(); // (not the sector copied any more: left as the engine has it)
+    SharedCollision::Place(track->checksum, track->placement);
     if (FlagsOf(track->sector) & 0x40)
         FlagsOf(track->sector) |= 0x20;
     track->moved = true;
@@ -1377,9 +1396,12 @@ void ApplyStates(const std::vector<SectorState>& sectors, const std::vector<Rail
             ApplyTrack(track);
         }
         if (IsActive(track->sector) == saved.hidden) {
+            if (saved.hidden) // (its shared collision taken first, to go off with it)
+                SharedCollision::Ensure(track->checksum, track->scene, track->sector, track->geom);
             SetActive(track->sector, !saved.hidden);
             MarkDirty(track->scene);
         }
+        SharedCollision::SetActive(track->checksum, !saved.hidden);
     }
     std::vector<uint32_t> names;
     for (const RailState& saved : rails) {
@@ -1446,6 +1468,13 @@ uint8_t* MainScene()
     return found;
 }
 
+bool SceneLive(uint8_t* scene)
+{
+    bool live = false;
+    ForEachScene([&](uint8_t* s) { live |= s == scene; });
+    return live && scene;
+}
+
 uint32_t SceneName(uint8_t* scene) { return scene ? *reinterpret_cast<uint32_t*>(scene + 0x84) : 0; }
 
 // --- copies of sectors ---
@@ -1480,6 +1509,8 @@ uint32_t Duplicate(uint32_t source)
         return 0;
     BoundsOf(box, &min, &max);
     Placement sourcePlacement = PlacementOf(source, GeomOf(sector));
+    // (the source's shared collision gathered before the copy is there to tie with it)
+    auto sharedFaces = SharedCollision::PrepareCopy(source);
     uint32_t made = GameFunction<uint32_t(__thiscall*)(void*, uint32_t, void*, int, int, uint32_t)>(0x0049DF30)(
         scene, source, scene, 0, 1, 0);
     uint8_t* copy = made ? LookupSector(scene, made) : nullptr;
@@ -1495,6 +1526,7 @@ uint32_t Duplicate(uint32_t source)
     // - gives a copy with collision on, as a layout makes copies again)
     if (uint8_t* coll = CollOf(copy); coll && IsActive(copy))
         coll[0x08] &= static_cast<uint8_t>(~4);
+    SharedCollision::FinishCopy(sharedFaces, made, scene, copy, geom);
     MarkDirty(scene);
     Clones().push_back({made, source, sourcePlacement});
     char name[96];
@@ -1713,6 +1745,7 @@ void Commit()
         GameFunction<void(__thiscall*)(void*, void*)>(0x0049D780)(scene, nullptr);
         if (manager)
             manager->PopContext();
+        SharedCollision::Commit(scene); // (the pieces' shared collision: level_editor_shared_coll.h)
     }
     if (DebugEnabled())
         Log("level editor: super sectors updated in %u scene%s", static_cast<unsigned>(g_dirtyScenes.size()),
