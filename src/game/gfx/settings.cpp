@@ -37,7 +37,7 @@ void LoadGraphicsSettings()
     s_settings.fog = Config::GetBool(Config::kGraphics, "Fog", false);
     s_blurDisabled = Config::GetBool(Config::kGraphics, "DisableBlur", true);
     // (NOT ORIGINAL: game/gfx/occlusion.h)
-    OcclusionOff() = !Config::GetBool(Config::kGraphics, "OcclusionCulling", false);
+    OcclusionOff() = !Config::GetBool(Config::kGraphics, "OcclusionCulling", true);
 }
 
 void WriteGraphicsSettings()
