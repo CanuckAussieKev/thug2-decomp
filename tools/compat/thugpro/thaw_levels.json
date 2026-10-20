@@ -1,0 +1,19 @@
+{
+  "_comment": "THUGPRO compatibility for the THAW level ports (tools/thaw_levels). Each entry is registered in README.md here (TP-1...). Online a level is known only by its load script's checksum (messages 0x46 / 0x33) and positions travel as world coordinates (0x23): these make our files agree with THUGPRO's own THAW ports. Read by tools/compat/compat.py; `thaw_levels.py convert --compat none` leaves all of it out.",
+  "level_names": {
+    "_register": "TP-1",
+    "Z_CH": "skatepark",
+    "Z_JA": "kyoto",
+    "Z_SZ": "sz",
+    "Z_SV": "vans"
+  },
+  "frame_kept": {
+    "_register": "TP-2",
+    "zones": ["Z_SV"]
+  },
+  "frame_adjust": {
+    "_register": "TP-3",
+    "Z_EL": [-1319.656, -111.047, 269.924],
+    "Z_SM": [-5060.44, -580.625, -3203.87]
+  }
+}

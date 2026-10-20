@@ -22,8 +22,10 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(os.path.dirname(HERE), "level_port"))
+sys.path.insert(0, os.path.join(os.path.dirname(HERE), "compat"))
 
 import common  # noqa: E402
+import compat  # noqa: E402
 import geometry  # noqa: E402
 import nodes  # noqa: E402
 import peds_cars  # noqa: E402
@@ -75,32 +77,30 @@ BY_ZONE = {zone.lower(): (zone, sign, location, icon, num, default)
 #   quarters, signed 16 bits), so both sides have to put the level at the same place. Each area that has a
 #   <zone>_Zone_Origin node is moved by minus its Pos (every axis; nodes, particles, scene and collision alike) - the
 #   rule THUGPRO's toolchain applies (approach from Morten1337's thugpro_toolchain: find_zone_origin.py +
-#   node_position_patcher.py + THUGPRO_SceneObjectTool -origin). FRAME_KEPT: areas left in THAW's own frame although
-#   they have one - Vans Park, which THUGPRO's toolchain didn't move either (it looked the origin up under the level's
-#   new name, "vans"); kept so the two agree. (East LA and Santa Monica THUGPRO moved by offsets of its own choosing,
-#   not THAW data: ONLINE_FRAME_ADJUST.)
-FRAME_KEPT = {"Z_SV"}
-# Online positions travel as world coordinates (message 0x23), so a level's frame must be THUGPRO's for players of
-# both to see each other in place. East LA and Santa Monica THUGPRO moved by offsets of its own (its "LA crash fix":
-# East LA's world_offset.txt, Santa Monica's node_position_patcher.py - Morten1337's thugpro), not by their
-# Zone_Origin: these are what THUGPRO's frame adds to the Zone_Origin one (measured with thugpro_compare.py against
-# THUGPRO's installed data\pre, every node of both off by the same amount). The user's decision, as ONLINE_NAMES.
-ONLINE_FRAME_ADJUST = {"Z_EL": (-1319.656, -111.047, 269.924), "Z_SM": (-5060.44, -580.625, -3203.87)}
+#   node_position_patcher.py + THUGPRO_SceneObjectTool -origin).
+# What THUGPRO chose that isn't THAW data - four level names, Vans Park left unmoved, East LA's and Santa Monica's own
+# offsets - is in the compatibility profile tools/compat/thugpro/thaw_levels.json (its README.md lists every such
+# choice, TP-1...; --compat none leaves them out): set_compat() loads it.
+COMPAT = {"level_names": {}, "frame_kept": set(), "frame_adjust": {}}
 
 
-# Online a level is known only by its load script's checksum (messages 0x46 / 0x33): two players can share a level
-# only when both name it alike. THUGPRO kept THAW's zone name for 11 areas and renamed these four; they're its names,
-# not THAW data, taken as protocol identifiers (as OnlineGameName=thugpro is) so all 15 load across with THUGPRO
-# players (names from Morten1337's THUGPRO, its installed data\pre).
-ONLINE_NAMES = {"Z_CH": "skatepark", "Z_JA": "kyoto", "Z_SZ": "sz", "Z_SV": "vans"}
+def set_compat(name):
+    # The compatibility profile's THAW data (tools/compat/compat.py): "thugpro" (the default) or "none".
+    profile = compat.load(name)
+    COMPAT["level_names"] = profile.section("thaw_levels", "level_names")
+    COMPAT["frame_kept"] = set(profile.section("thaw_levels", "frame_kept").get("zones", []))
+    COMPAT["frame_adjust"] = {z: tuple(v) for z, v in profile.section("thaw_levels", "frame_adjust").items()}
+
+
+set_compat("thugpro")   # (the default, also for the tools that import this one: migrate_layouts, thugpro_compare)
 
 
 def level_name(zone, legacy=False):
-    # The level's THUG2 name: THAW's zone name (z_ma) or its ONLINE_NAMES one, or (legacy) the thaw_<xx> this
+    # The level's THUG2 name: THAW's zone name (z_ma) or the profile's (level_names), or (legacy) the thaw_<xx> this
     # converter used before.
     if legacy:
         return "thaw_" + zone.lower()[2:]
-    return ONLINE_NAMES.get(zone, zone.lower())
+    return COMPAT["level_names"].get(zone.upper(), zone.lower())
 
 
 def sixteenths(v):
@@ -111,12 +111,12 @@ def sixteenths(v):
 
 
 def frame_shift(zone, array, names):
-    # The zone's frame: minus the Pos of its <zone>_Zone_Origin node plus its ONLINE_FRAME_ADJUST (in whole
-    # sixteenths), or no move when it has none or is in FRAME_KEPT.
-    if zone.upper() in FRAME_KEPT:
+    # The zone's frame: minus the Pos of its <zone>_Zone_Origin node plus the profile's frame_adjust (in whole
+    # sixteenths), or no move when it has none or is in the profile's frame_kept.
+    if zone.upper() in COMPAT["frame_kept"]:
         return (0.0, 0.0, 0.0)
     origin = qb.checksum(zone + "_Zone_Origin")
-    adjust = ONLINE_FRAME_ADJUST.get(zone.upper(), (0.0, 0.0, 0.0))
+    adjust = COMPAT["frame_adjust"].get(zone.upper(), (0.0, 0.0, 0.0))
     for node in array:
         if isinstance(node, qb.Struct) and isinstance(node.get("Name"), qb.Name) and node.get("Name").value == origin:
             pos = node.get("Pos")
@@ -750,11 +750,15 @@ def main():
                         "an area reaching further than --recentre moved to the origin, x / z)")
     parser.add_argument("--recentre", type=float, default=20000.0,
                         help="--frame recentre: move an area whose collision reaches further than this (x / z)")
+    parser.add_argument("--compat", choices=compat.PROFILES, default="thugpro",
+                        help="compatibility profile (tools/compat): thugpro - names and frames as THUGPRO's THAW "
+                        "ports (default), or none")
     parser.add_argument("--legacy-names", action="store_true",
                         help="name the levels thaw_<xx> as before, not by their zones (z_ma)")
     parser.add_argument("--static", action="store_true",
                         help="convert: the levels' scripts, moving objects, peds and cars left out")
     args = parser.parse_args()
+    set_compat(args.compat)
     # (a stock install keeps the game in a Game subfolder: C:\Games\THUG2 -> C:\Games\THUG2\Game)
     if not os.path.isdir(os.path.join(args.thug2, "Data")) and os.path.isdir(os.path.join(args.thug2, "Game", "Data")):
         args.thug2 = os.path.join(args.thug2, "Game")

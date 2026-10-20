@@ -25,10 +25,10 @@ import col_check  # noqa: E402
 import prx  # noqa: E402
 import qb  # noqa: E402
 import thug2_col  # noqa: E402
-from thaw_levels import LEVELS, ONLINE_NAMES, STAGING, find_path, level_name  # noqa: E402
+from thaw_levels import COMPAT, LEVELS, STAGING, find_path, level_name  # noqa: E402
 
 # THUGPRO's names for the levels it renamed (its data\pre file names; the others are the zone's): to find its files.
-THUGPRO_NAMES = ONLINE_NAMES
+THUGPRO_NAMES = COMPAT["level_names"]   # (tools/compat/thugpro/thaw_levels.json)
 DEFAULT_THUGPRO = os.path.join(os.environ.get("LOCALAPPDATA", ""), "THUG Pro")
 TOLERANCE = 0.1     # units (the frames differ by under 1/32: ours in whole sixteenths)
 CTF_NAMES = ["TRG_CTF_%s%s" % (c, s) for c in ("Red", "Blue", "Green", "Yellow") for s in ("", "_Base")] + \

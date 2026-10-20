@@ -95,15 +95,15 @@ travel). No THAW level (THAW's or THUGPRO's) has a NetEnabled node, so no 0x49 c
 Changes (tools/thaw_levels):
 - Names: each level is named after its zone (`z_ma`: Load_z_ma, Level_z_ma, levels\z_ma\z_ma.*, z_ma_NodeArray), as
   THUGPRO names 11 of them. Chicago, Kyoto, Santa Cruz and Vans Park THUGPRO renamed (its own choice, not THAW data):
-  (lead, the user's decision) those four take THUGPRO's names - skatepark, kyoto, sz, vans (`ONLINE_NAMES` in
-  thaw_levels.py) - as protocol identifiers, since online the load script's name is the level: all 15 now named as
+  (lead, the user's decision) those four take THUGPRO's names - skatepark, kyoto, sz, vans (TP-1 in the
+  compatibility profile tools/compat/thugpro) - as protocol identifiers, since online the load script's name is the level: all 15 now named as
   THUGPRO's. `--legacy-names`: thaw_<xx>.
 - Frame: an area with a <zone>_Zone_Origin node moves by minus its Pos, every axis, in whole sixteenths (THUGPRO's
   rule; BSP splits stay exact). Vans Park is left in THAW's frame as THUGPRO's toolchain left it. Result vs THUGPRO's
   installed node arrays: CH, MA, DN, JA, SZ, SV2, SV, HO, BH, DT, SR, LV, OI the same (all but 0-17 hand-moved nodes
   within 0.1 unit); East LA and Santa Monica THUGPRO moved by offsets of its own (not in THAW's data:
   THUGPRO = Zone_Origin frame + (-1319.656, -111.047, 269.924) in EL, + (-5060.44, -580.625, -3203.87) in SM) -
-  (lead, the user's decision) taken as ONLINE_FRAME_ADJUST in thaw_levels.py, since positions travel online as world
+  (lead, the user's decision) taken as TP-3 in the compatibility profile, since positions travel online as world
   coordinates: EL 3404/3404 nodes now at THUGPRO's place, SM 3644/3661 (the rest THUGPRO's hand moves); faces past
   the network range EL 96 -> 88, SM 152 -> 144; every face reachable. `--frame recentre`:
   the older frame. JA and SZ are no longer recentred (THUGPRO's frame: THAW's own; 76 / 7 collidable faces lie past

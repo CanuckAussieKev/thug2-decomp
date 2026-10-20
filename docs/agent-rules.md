@@ -11,6 +11,9 @@ workspace (C:\Games\THUG2-n) and its pending-doc name. Agents cost a lot of usag
   be rewritten in this project's style, with a comment naming where the idea came from. Clone them with the machine's
   git credentials into your scratch folder; never push them anywhere. THUGPRO's installed binaries
   (C:\Users\kevin\AppData\Local\THUG Pro, C:\Games\THUGPRO) may be inspected; never write there. Don't start sub-agents.
+- **THUGPRO compatibility goes in its register**: anything done only to agree with THUGPRO (its level names, offsets,
+  identities - not THAW / THUG2 data) is data in `tools/compat/thugpro/` and an entry (TP-n) in its README.md, read
+  through `tools/compat/compat.py` - never a constant inside a converter or other code. The code comment names the TP-n.
 - Naming: follow this project's established names and conventions - accurate and consistent, not Neversoft's. Outside
   names (Morten's dump, symbol lists) may help you understand code; they don't decide our names or rename existing code.
 - **Never read, reference or copy leaked Neversoft / Activision source code** - e.g. https://github.com/thug1src/thug
