@@ -119,10 +119,29 @@ constexpr ULONGLONG kHangMilliseconds = 45000;
 const char* volatile g_runningTest = nullptr;
 volatile ULONGLONG g_runningSince = 0;
 
+// The watchdog runs beside the tests, so it calls nothing a test may stand in for: StandInApi (standins.h)
+// patches the Windows function itself, process-wide (kernel32's Sleep for the stream thread's and main loop's
+// tests). Its Sleep(1000) used to land in such a stand-in now and then - it then recorded into g_trace from this
+// thread while the test's own thread did (a corrupted trace, "vector insert iterator out-of-range"), counted down
+// the test's scripted sleeps and spun until the test ended. It waits with ntdll's NtDelayExecution instead, and
+// reads the clock with GetTickCount64 (no test stands in for either; keep it that way).
+using DelayFn = LONG(NTAPI*)(BOOLEAN alertable, LARGE_INTEGER* interval);
+DelayFn g_delay = nullptr;
+
+void WatchdogWait()
+{
+    LARGE_INTEGER interval;
+    interval.QuadPart = -10000000LL; // 1 s, relative (100 ns units)
+    if (g_delay)
+        g_delay(FALSE, &interval);
+    else
+        SleepEx(1000, FALSE);
+}
+
 DWORD WINAPI Watchdog(void*)
 {
     for (;;) {
-        Sleep(1000);
+        WatchdogWait();
         const char* name = g_runningTest;
         if (name && GetTickCount64() - g_runningSince > kHangMilliseconds) {
             Log("SELFTEST HANG in %s: still running after %u s - the process ended", name,
@@ -138,6 +157,8 @@ void StartWatchdog()
     if (started)
         return;
     started = true;
+    if (HMODULE ntdll = GetModuleHandleA("ntdll.dll"))
+        g_delay = reinterpret_cast<DelayFn>(GetProcAddress(ntdll, "NtDelayExecution"));
     if (HANDLE thread = CreateThread(nullptr, 0, &Watchdog, nullptr, 0, nullptr))
         CloseHandle(thread);
 }

@@ -1723,10 +1723,14 @@ void TestPcAsyncFileHandle()
         reinterpret_cast<HANDLE*>(handles[original ? 0 : 1] + 0x88)[0] = INVALID_HANDLE_VALUE;
         file->Virtual<bool>(AsyncFileHandle::kPlatInit);
 
+        // After an open the result is the Windows file handle (+0x88), and a synchronous read leaves it there: it's
+        // noted as that, not as its value - which differs between the runs whenever anything else in the process
+        // takes a handle in between ("read 0: result 844" against "848", now and then).
         auto note = [&](const char* step, int value) {
-            trace.push_back(std::string(step) + " " + std::to_string(value) + ": result " +
-                            // after an open the result is the Windows file handle: only whether it's set
-                            std::to_string(step[0] == 'o' || step[0] == 's' ? (file->m_result != 0) : file->m_result) +
+            HANDLE windowsFile = *reinterpret_cast<HANDLE*>(reinterpret_cast<uint8_t*>(file) + 0x88);
+            bool isHandle = windowsFile != INVALID_HANDLE_VALUE && file->m_result == reinterpret_cast<int>(windowsFile);
+            std::string result = isHandle ? std::string("the file's handle") : std::to_string(file->m_result);
+            trace.push_back(std::string(step) + " " + std::to_string(value) + ": result " + result +
                             " size " +
                             std::to_string(file->m_fileSize) + " position " + std::to_string(file->m_position) +
                             " busy " + std::to_string(file->m_busyCount) + "/" +
