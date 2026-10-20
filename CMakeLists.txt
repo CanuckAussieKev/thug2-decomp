@@ -275,6 +275,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_editor_triggers.cpp
     src/hook/selftests_editor_walls.cpp
     src/hook/selftests_editor_scale.cpp
+    src/hook/selftests_collision_component.cpp
     src/hook/selftests_editor_shared_coll.cpp
     src/hook/selftests_editor_chains.cpp
     src/hook/selftests_editor_fields.cpp
@@ -410,6 +411,8 @@ add_library(thug2_code OBJECT
     src/game/obj/anim_blender.cpp
     src/game/obj/ride_tracker.cpp
     src/game/obj/avoid.cpp
+    src/game/obj/collision_component.cpp
+    src/game/obj/matrix_component.cpp
     src/game/obj/camera_lookaround.cpp
     src/game/obj/camera_util.cpp
     src/game/obj/component_types.cpp
