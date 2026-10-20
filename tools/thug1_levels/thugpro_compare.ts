@@ -17,19 +17,18 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { parseArgs } from "node:util";
 import * as colCheck from "../level_port/col_check.ts";
 import * as prx from "../level_port/prx.ts";
 import * as qb from "../level_port/qb.ts";
 import { Name, type QbValue, Struct } from "../level_port/qb.ts";
 import * as thug2Col from "../level_port/thug2_col.ts";
+import { parseCli } from "../lib/cli.ts";
 import {
     Float,
     formatFixed,
     hex8,
     isMain,
     print,
-    pyExit,
     pyJoin,
     pyJsonDumps,
     pyRound,
@@ -276,13 +275,7 @@ const OPTIONS = {
 } as const;
 
 export function main(argv: readonly string[] = process.argv.slice(2)): number {
-    let parsed: ReturnType<typeof parseArgs<{ options: typeof OPTIONS; allowPositionals: true }>>;
-    try {
-        parsed = parseArgs({ args: [...argv], options: OPTIONS, allowPositionals: true, strict: true });
-    } catch (e) {
-        process.stderr.write(`${USAGE}\nthugpro_compare.ts: error: ${(e as Error).message}\n`);
-        pyExit(2);
-    }
+    const parsed = parseCli(USAGE, { args: [...argv], options: OPTIONS, allowPositionals: true, strict: true });
     const v = parsed.values;
     let thug2 = v.thug2 ?? "C:\\Games\\THUG2\\Game";
     if (!fs.existsSync(path.join(thug2, "Data")) && fs.existsSync(path.join(thug2, "Game", "Data"))) {

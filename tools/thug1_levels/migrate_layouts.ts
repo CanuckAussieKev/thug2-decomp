@@ -10,8 +10,8 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { parseArgs } from "node:util";
 import * as qb from "../level_port/qb.ts";
+import { parseCli } from "../lib/cli.ts";
 import { hex8, isMain, print, pyExit, pyJoin, readTextPy, runMain } from "../lib/py.ts";
 import { migrateText } from "../thaw_levels/migrate_layouts.ts";
 import { LEVELS, levelNames } from "./thug1_levels.ts";
@@ -33,13 +33,7 @@ const OPTIONS = {
 } as const;
 
 export function main(argv: readonly string[] = process.argv.slice(2)): number {
-    let parsed: ReturnType<typeof parseArgs<{ options: typeof OPTIONS; allowPositionals: true }>>;
-    try {
-        parsed = parseArgs({ args: [...argv], options: OPTIONS, allowPositionals: true, strict: true });
-    } catch (e) {
-        process.stderr.write(`${USAGE}\nmigrate_layouts.ts: error: ${(e as Error).message}\n`);
-        pyExit(2);
-    }
+    const parsed = parseCli(USAGE, { args: [...argv], options: OPTIONS, allowPositionals: true, strict: true });
     const v = parsed.values;
     if (v.game === undefined) {
         process.stderr.write(`${USAGE}\nmigrate_layouts.ts: error: the following arguments are required: --game\n`);
