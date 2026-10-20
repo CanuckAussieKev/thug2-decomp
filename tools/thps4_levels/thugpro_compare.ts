@@ -14,7 +14,8 @@
 //   node tools/thps4_levels/thugpro_compare.ts [levels...] [--thug2 C:\Games\THUG2-2] [--thugpro <dir>]
 //        [--staging <dir>] [--legacy-names] [--json out]
 //   node tools/thps4_levels/thugpro_compare.ts --extract-thugpro [--thugpro <dir>] [--thps4 C:GamesTHPS4]
-//        (TP-21: writes THUGPRO's skate shop crown and spawns into tools/compat/thugpro/thps4_levels.json)
+//        (TP-21: writes THUGPRO's skate shop crown and spawns into tools/compat/thugpro/thps4_levels.json; TP-22 ...
+//        TP-28: its hand edits of every level - thugpro_edits.ts; TP-29's switch is left as it is)
 
 import * as fs from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -51,6 +52,7 @@ import {
     TOLERANCE,
 } from "../thaw_levels/thugpro_compare.ts";
 import { LEVELS, levelName, loadName, type NetNodes, type Placement, STAGING } from "./thps4_levels.ts";
+import { extractEdits, type LevelEdits, SECTIONS, type SectionName } from "./thugpro_edits.ts";
 
 const DEFAULT_THUGPRO = pyJoin(process.env.LOCALAPPDATA ?? "", "THUG Pro");
 
@@ -242,6 +244,10 @@ export function extractNetNodes(base: string, thugpro: string, thps4Dir: string)
     return out;
 }
 
+const EDITS_SOURCE =
+    "THUGPRO's installed data\\pre\\<level>_scripts.prx / <level>col.prx against THPS4's own Game\\data\\levels files, " +
+    "extracted by `node tools/thps4_levels/thugpro_compare.ts --extract-thugpro` (thugpro_edits.ts; pos = THUG2's Pos axes)";
+
 function extract(thugpro: string, thps4Dir: string): number {
     const profile = JSON.parse(fs.readFileSync(PROFILE_FILE, "utf-8")) as Record<string, unknown>;
     const section: Record<string, unknown> = {
@@ -259,6 +265,51 @@ function extract(thugpro: string, thps4Dir: string): number {
         );
     }
     profile.net_nodes = section;
+    // TP-22 ... TP-28: THUGPRO's hand edits of every level it has (thugpro_edits.ts: node data only)
+    const pick: Record<SectionName, (e: LevelEdits) => unknown> = {
+        node_moves: (e) => e.moves,
+        node_renames: (e) => e.renames,
+        node_flags: (e) => e.flags,
+        trick_objects: (e) => e.tricks,
+        rail_terrains: (e) => e.terrains,
+        removed_nodes: (e) => e.removed,
+        added_nodes: (e) => e.added,
+        collision_duplicates: (e) => e.duplicates,
+    };
+    const sections = new Map<SectionName, Record<string, unknown>>();
+    for (const [s, register] of Object.entries(SECTIONS) as [SectionName, string][]) {
+        sections.set(s, { _register: register, _source: EDITS_SOURCE });
+    }
+    const leftOut: Record<string, unknown> = {
+        _note:
+            "What --extract-thugpro saw and did not take (not node data, or the toolchain's own translation): " +
+            "listed for the user (README.md, docs/pending/thps4-thugpro.md); nothing reads it",
+    };
+    for (const base of LEVELS) {
+        if (prxFile(thugpro, `${thugproName(base)}_scripts.prx`) === null) continue;
+        const e = extractEdits(base, thugproName(base), thugpro, thps4Dir);
+        const sizes: string[] = [];
+        for (const [s, get] of Object.entries(pick) as [SectionName, (e: LevelEdits) => unknown][]) {
+            const v = get(e);
+            const n = Array.isArray(v) ? v.length : Object.keys(v as object).length;
+            if (n) {
+                sections.get(s)![base] = v;
+                sizes.push(`${s} ${n}`);
+            }
+        }
+        if (e.leftOut.length) leftOut[base] = e.leftOut;
+        print(`${base}: ${sizes.join(", ") || "no edits"}${e.leftOut.length ? `; ${e.leftOut.length} left out` : ""}`);
+    }
+    for (const [s, v] of sections) profile[s] = v;
+    profile._not_applied = leftOut;
+    profile.door_walls ??= {
+        _register: "TP-29",
+        _note:
+            "THUGPRO keeps THPS4's invisible door walls of the skate shop (InvisColl01's shop side, Object10's two " +
+            "invisible faces); ours opens the door (the user's request, 2026-10-19: thps4_levels.OPENINGS). Off: " +
+            "enabled true keeps the walls as THUGPRO's",
+        enabled: false,
+    };
     fs.writeFileSync(PROFILE_FILE, `${JSON.stringify(profile, null, 2)}\n`, "utf-8");
     print(`wrote ${PROFILE_FILE}`);
     return 0;

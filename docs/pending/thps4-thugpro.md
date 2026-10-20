@@ -113,14 +113,14 @@ and its 8 added multiplayer spawns, so KOTH and the spawn set agree with a THUGP
 - Streams / music (Playstream, StopStream: Carnival's haunted house...): ~0.5 day.
 - Goals (letters, combo, pro lines, cash icons, goal peds): not ported by design.
 
-## Spawns: nothing left to unify (no TP-22)
+## Spawns: nothing left to unify (TP-22 was free for the hand edits below)
 
 Every restart a network game uses - Multiplayer, Horse, CTF, Team - compared ours (as converted, TP-21 in) with
 THUGPRO's in all 10 shared levels: the same count, order and places for every type in every level (Alc 17 / 12 / 4 / 1,
 Cnv 8 / 8 / 4 / 1, Hof 8 / 12 / 4 / 1, Jnk 12 / 12 / 4 / 1, Kon 8 / 9 / 4 / 1, Lon 21 / 14 / 4 / 1, SF2 12 / 7 / 0 / 1,
 Sch 8 / 11 / 4 / 1, Zoo 8 / 8 / 4 / 1, skate shop 9 / 9 / 0 / 0). THUGPRO moved, renamed or retyped none of its THPS4
-levels' network spawns beyond the skate shop's, which TP-21 covers. So no TP-22 and no converter change; the
-reconvert into THUG2-2 is unchanged. Listed only (not network spawns):
+levels' network spawns beyond the skate shop's, which TP-21 covers. So no spawn entry and no converter change for
+spawns. Not network spawns (now in the register too: TP-22 / TP-23 / TP-27 below):
 - Carnival TRG_G_HS_RestartNode moved 38.5 and straightened, TRG_G_PS_RestartNode rotated; Shipyard
   TRG_Re_Wtr_KillPlne_03 rotated (a kill plane's put-back point); Chicago TRG_G_HighCombo_RestartNode renamed
   TRG_G_PS_RestartNode; goal restarts' trigger scripts dropped (Cnv 2, Kon 1).
@@ -132,7 +132,7 @@ reconvert into THUG2-2 is unchanged. Listed only (not network spawns):
 
 `node tools/thps4_levels/thugpro_inventory.ts --thug2 C:\Games\THUG2-2 [--json out]` (read only on both installs):
 THUGPRO's node arrays, level scripts, `<level>_thugpro.qb` files and collision against THPS4's own files (collision
-against our converted collision, which is THPS4's). Nothing changed in our output; the user decides. "Online" says
+against our converted collision, which is THPS4's). (Its node data is now in the register: "TP-22 ... TP-29" below.) "Online" says
 whether it can make the two sides differ for players sharing the level.
 
 Moved / renamed / reused nodes
@@ -188,6 +188,85 @@ Geometry / collision (THUGPRO's col against ours, by object, vertices to 0.1)
 - Skate shop: THUGPRO keeps THPS4's invisible door walls (InvisColl01 10 faces, Object10's 2) - **online: the shop door
   is open for ours (the user's request), closed for theirs**.
 - Face flags are written differently by the two toolchains everywhere (0x8000 / 0x1 bits in THUGPRO's) - not compared.
+
+## TP-22 ... TP-29: THUGPRO's hand edits in the register (2026-10-20) - NOT run in the game yet
+
+The user: "Everything [THUGPRO] changed needs to be in the differences files that we can control with the compat
+flag." So every hand edit that is node data is now in `tools/compat/thugpro/thps4_levels.json`, extracted from
+THUGPRO's install against THPS4's own files by `node tools/thps4_levels/thugpro_compare.ts --extract-thugpro`
+(`tools/thps4_levels/thugpro_edits.ts` `extractEdits`; never typed in; re-running it gives the same file) and applied
+by the converter (`thugpro_edits.applyEdits` / `removeDuplicateFaces`, called from `thps4_levels.cmdConvert`).
+`--compat thugpro` (the default) applies all of it; `--compat none` gives exactly the output from before.
+
+| Id | Section | What | Applied (ours with the profile / in the profile) |
+|---|---|---|---|
+| TP-22 | `node_moves` | moved / turned nodes: College TRG_53, TRG_813, LO_Elevator_Door_Floor1_01 / 02; Carnival TRG_G_HS_RestartNode, TRG_G_PS_RestartNode, TRG_Goat, TRG_Goat01; Shipyard TRG_Re_Wtr_KillPlne_03 | 7 / 9 (Carnival's two goats aren't in ours: THPS4's animals aren't ported) |
+| TP-23 | `node_renames` | Chicago TRG_G_HighCombo_RestartNode -> TRG_G_PS_RestartNode, TRG_G_HighCombo_Pro -> TRG_G_PS_Pro | 1 / 2 (the goal ped isn't in ours; nothing of ours named the restart) |
+| TP-24 | `node_flags` | CreatedAtStart / AbsentInNetGames / NetEnabled / Permanent on restarts, rails, geometry, objects: Alc 2, Cnv 17, Hof 7, Jnk 74 (68 crane rails + 6), Lon 7, SF2 8, Sch 17, Zoo 13, shop 4 | 149 / 149 |
+| TP-25 | `trick_objects` | College 6 pieces + 6 stair rails TrickObject (Cluster apm_bikerack_06 on the rails) | 12 / 12 |
+| TP-26 | `rail_terrains` | Alc 36, Hof 11, Kon 41, Lon 164, SF2 54, Sch 54 rails' TerrainType / Type | 360 / 360 |
+| TP-27 | `removed_nodes`, `added_nodes` | removed Zoo TRG_meerkat_10; added rails College 6, shop 16, SF2 12, Zoo 5, restarts SF2 TRG_Elev_Warp2, Zoo TRG_ParkingLotRestart01-03, Kona 19 level lights | removed 1 / 1 (it was never in ours), added 62 / 62 |
+| TP-28 | `collision_duplicates` | College: 607 duplicate faces of 69 objects | 69 / 69 objects with THUGPRO's face count |
+| TP-29 | `door_walls` | the skate shop's invisible door walls kept (THUGPRO's) - **off**: conflicts with the user's request of 2026-10-19 (the door open) | not applied; `enabled: true` turns it on (unit-tested) |
+
+How each was checked:
+- `--compat none` against the converter before this change: identical (75 files, the .qb files by code and sorted
+  checksum names - ns.exe writes those in Go map order).
+- `node tools/thps4_levels/thugpro_inventory.ts --thug2 C:\Games\THUG2-2`: a new line per level, "ours with the
+  profile", counts per category how many of the profile's edits our converted level agrees with (the table's last
+  column); `thugpro_compare.ts`: every shared node now at THUGPRO's place in all 10 levels (worst 0.000; before:
+  College 131, Carnival 38.5), crowns and mp restarts the same.
+- Reconverted into C:\Games\THUG2-2: col_check (every face reachable, 21 files), links in range and rails linking
+  rails, every .qb decompiles through ns.exe, thps4 selfcheck 139 files 0 failures, make_menu_level (the backdrop
+  found: now 44 rail nodes - the shop's 16 added rails come along -, 138 peds / cars, 3 trigger nodes + 6 scripts);
+  typecheck / lint / test (tools/thps4_levels/thugpro_edits.test.ts: applying, the check, TP-28's duplicates, TP-29).
+- The added rails and restarts against our collision: 0-18 units from a face, except San Francisco's one-node rail
+  ed_rail_4_0 (50) and Zoo's parking-lot restarts 02 / 03 (52-53 above the ground: the skater drops).
+
+Awaiting the user (THUGPRO-authored content, not data - Morten's permission covers insights, not 1:1 copies). What
+each side sees without it:
+- **Host level options** (THUGPRO's protocol flags SERVER_LEVEL_CHANGE_*, its own messages 155-159, run by its DLL):
+  Chicago's bridge (5 states: hof_thugpro.qb 2.8 KB, 7 one-line scripts), Shipyard's barge (jnk_thugpro.qb 0.8 KB, 1),
+  London's race track and rooftop roll-in (lon_thugpro.qb 4 KB, 2), San Francisco's rooftop objects (sf2_thugpro.qb
+  2 KB, 1), Zoo's hippo bridge (zoo_thugpro.qb 1.3 KB, 1). Without: both sides see the default state; when a THUGPRO
+  host picks another, their players get other geometry and rails than ours. Copying the scripts wouldn't be enough:
+  the options travel in THUGPRO's own messages.
+- **Teleports**: College's elevator (SCH_teleport1, door open / close scripts, 2 proximity triggers in
+  sch_thugpro.qb 4.3 KB), San Francisco's 2 elevators (SF2_teleport1 / 2, 2 proximity triggers; TRG_Elev_Warp2 is
+  TP-27's), London's 2 garage elevator door pairs (4 scripts, 2 proximity triggers, TRG_LON_Televator_Waypoint, and a
+  run-time move of TRG_ParkingGarrage_Elevator by (0, 0, -25)), the skate shop's kill trigger (TRG_TP_SkaterKiller +
+  TP_SS_KillSkater: a wait and Sk3_KillSkater) and London's Lon_Killskater. Without: THUGPRO's players teleport / are
+  killed where ours aren't; ours see them jump (positions sync).
+- **Models**: banners `leveleditor\exported\Big_Banner*.mdl` (815 bytes + a 16 KB texture each: Chicago 5, College 13),
+  London's billboard Lon_CanHouse_build_cw1 (9 KB + 66 KB texture) and National Gallery posters (5 KB + 1 KB).
+  Without: no banners / posters on our side (no collision: they don't change play). Carnival has no THUGPRO posters
+  (its cnv_thugpro.qb only names prosets).
+- The proset names and camera places of THUGPRO's level-options menu (every `<level>_thugpro.qb`): its own menu.
+- The skate shop's menu restarts made ghosts (TRG_SS_Skater01 / _SkaterChoosing / _Appearance): TP-21 keeps
+  TRG_SS_Skater01 as our free-skate start (not a network spawn either way).
+
+Not possible or not safe to match:
+- Nodes ours doesn't have (animals, goal peds): the goats' moves, the goal ped's rename and the meerkat's removal have
+  nothing to act on.
+- Alcatraz's THUGPRO collision doesn't read with our reader: TP-28 couldn't look for duplicates there (and the
+  vertex comparison stays without Alcatraz).
+- The host options and teleports need THUGPRO's run-time code and messages, whatever the files.
+
+Toolchain translation (not applied): peds, animals and particle emitters made game objects (Alc 27, Cnv 17, Hof 2,
+Jnk 1, Kon 2, Lon 18, SF2 7, shop 17), trigger scripts dropped, Pos written for Position, bouncy objects' physics keys,
+skeleton / anim keys, lod distances (the College doors' 200 / 201 -> 2500 / 5000), face-flag bits. `_not_applied` in
+the profile lists what the extraction left out per level.
+
+Concerns:
+- Several TP-24 flags take geometry away at the start for our players too, in free skate as well (Zoo's hippo /
+  giraffe / rhino collision and lion gate, Carnival's goal triggers and shooting gallery, London's garage doors and
+  fountain spits, College's 14 rails): THUGPRO's choices, mostly goal pieces; THPS4's goal scripts (not ported) would
+  have created some of them. Zoo's hippo bridge: up as THUGPRO's default.
+- College's elevator doors (static in ours: their script is empty) now stand 48 units over, open as THUGPRO's; without
+  its teleport the elevator does nothing.
+- Kona's 19 lights are the first LevelLight nodes in a THPS4 port (Brightness 0, as THUGPRO's - lit only by its night
+  lighting); load Kona once. College +6 nodes (its script pools were tight), SF2 +13, Zoo +8, the shop +16.
+- The front end's backdrop (the THPS4 skate shop) carries the 16 added rails now (make_menu_level copies its rails).
 
 ## Untested / concerns
 
