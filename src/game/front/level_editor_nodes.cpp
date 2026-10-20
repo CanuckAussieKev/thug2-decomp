@@ -382,6 +382,26 @@ Script::CStruct* StructOf(const Node& node)
     return NodeAt(manager->m_arrays[node.array].mp_nodes, static_cast<uint32_t>(node.index));
 }
 
+void Reread(int index)
+{
+    if (index < 0 || index >= static_cast<int>(g_nodes.size()))
+        return;
+    Node& node = g_nodes[index];
+    Script::CStruct* s = StructOf(node);
+    if (!s)
+        return;
+    Script::VectorValue v = {0.0f, 0.0f, 0.0f, 1.0f};
+    if (s->GetVector(kPos, &v, 0)) {
+        node.hasPos = true;
+        node.pos = {v.x, v.y, v.z};
+    }
+    Script::VectorValue angles = {0.0f, 0.0f, 0.0f, 1.0f};
+    s->GetVector(kAngles, &angles, 0);
+    node.angles = {angles.x, angles.y, angles.z};
+    if (ShapeOf(node.family) == Shape::Point)
+        node.forward = HeadingOf(node.angles);
+}
+
 uint32_t ArrayName(const Node& node)
 {
     SkateScript::CNodeManager* manager = SkateScript::NodeManagerInstance();

@@ -160,12 +160,182 @@ Use a workspace or the main install with this branch's DLL. Watch `thug2-decomp.
 - The Outliner lists every node array loaded (the level's and any others the node manager holds), in their order.
 - The modes in the toolbar are an indicator (they follow what you do), not tools to pick.
 
-## Notes for phase 2
+## Phase 2: move and turn point nodes
 
-- A node selection exists (`g_nodeSelected`, read-only): moving point nodes means writing `pos` / `angles` in the
-  node's structure (`Nodes::StructOf`) and the gizmo follows on the next rescan - the scan is keyed to the arrays'
-  names and sizes, so a moved node needs `Nodes` told to refresh (add a `Touch` / per-node update).
-- Restart lookups read the node when used (so moved restarts apply live, as the plan expected); crowns are found by
-  index among Crown nodes (`Node::order`), already computed.
-- The Inspector's typed fields are where editing goes (ImGui `DragFloat3` etc.); the Online badge is ready to become
-  a warning on edit.
+Branch `worktree-agent-a6b7d50ff850094b3`. **NOT run in the game yet**: checked offline only, as the lead asked.
+
+### What
+
+- **Which nodes:** a node selected by itself (its gizmo, or its Outliner row) moves and turns when it's a point node:
+  spawns / restarts, crowns, CTF and team flags, lights, sound emitters, proximity nodes (triggers), and "Other"
+  (cameras, generic nodes, unknown classes). Rails, ladders and paths (chains: phase 4), particles, objects and scenery
+  don't: objects and scenery keep moving through their own layers, as before. `NodeEdit::Movable` decides.
+- **Moving it:** the selected node joins the editor's selection, so everything that moves objects moves it:
+  - hold and drag (on the ground plane; Shift: up / down; the wheel pushes / pulls); clicking a node's gizmo selects it
+    and starts the drag, as clicking an object does;
+  - the move arrows (one axis);
+  - W A S D / Q E nudge;
+  - Ctrl or the toolbar's Snap 25 snaps a drag to 25 units;
+  - G drops it onto the ground (the ray from 50 units above its place, as for objects; the ground marker shows where);
+  - Z / X turn it 15 degrees (its Y angle);
+  - Escape puts a drag back;
+  - Home (key or the Inspector's button) puts it back where the level has it.
+  The camera orbits it as it orbits a selected object, so W A S D nudge it rather than fly; Esc / Backspace deselect.
+  Ctrl+D and Delete say that nodes can't be copied or deleted yet.
+- **A flag** is moved as its node. A click on its gizmo, or on its flag object when a CTF / team game has made one,
+  selects the node; the object moves with it. Before, the object was moved as an object, and the place the game makes
+  the flag at stayed put.
+- **The Inspector:**
+  - a movable node gets editable fields: Position (`DragFloat3`) and Heading (the Y angle in degrees). Drag to scrub,
+    Ctrl+click or double-click to type. One undo step a field, from the first change until it's let go
+    (`kNodeSet` / `kNodeSetDone`);
+  - Angles stay read-only text;
+  - "Shows in the game: ..." says when the change takes effect (`NodeEdit::WhenApplied`);
+  - an orange line shows when it's away from the level's place, with Ground (G), Home and Go to buttons;
+  - a crown's order is shown ("#n of N ... moving it keeps it"). Moving never changes it: the order is the node
+    order, which doesn't change.
+- **Undo / redo:** a new step kind `kNodes` (each node's pos / angles before) in the existing 64-step stack covers
+  moves, turns, drops, field edits and Home. A drag or a field edit that changed nothing makes no step: position or
+  angles are compared (`NodeEdit::Differs`), not only the position.
+- **The online warning:** the first time in a game run that a spawn, crown or flag of a level shared with THUGPRO is
+  moved or turned, a window "Online: a level shared with THUGPRO" explains the parity break (layouts aren't used in net
+  games, a baked layout would be). The edit is made; "Understood" closes the window. The old HUD gets the same as a
+  message. The Online box in the Inspector no longer says "read-only".
+
+### What applies live, what needs a reload
+
+Every edit writes the node's own `pos=` / `angles=` vector components in place (the last of each name in the node's
+own list - what `CStruct::Search` reads; one is added if the node had none). Then whatever the game keeps of the node
+is brought up to date, and the node layer is told (`Nodes::Reread`: its gizmo follows at once).
+
+| Node | Read by the game | Live? |
+|---|---|---|
+| Restart (spawn, team / CTF / horse restarts) | each time: `Obj::GetRestartNodes` 0x0046B6C0 walks the nodes, the skate module's lookup 0x00566100, `CSkater::MoveToNode` 0x005815C0 reads pos / angles; the restart tester walks them too | **next respawn / F8** |
+| Crown (GenericNode Type=Crown) | `CFunc_SpawnCrown` 0x00538170 walks the nodes each spawn, takes the n-th Crown's pos and makes the crown from the node (0x00578490) | **next crown spawned**; one already out stays |
+| CTF / team flag (GameObject Flag_*) | the object is made from the node when a CTF / team game starts | node now; **its object moved and turned too** if it exists (`Objects::Restore` with the matrix from the angles, 0x0041A730) |
+| Proximity node (ProximNode) | `Proxim_AddNode` 0x0046B1F0 copies pos into `ProximNode::m_pos` at the level's load | **live**: `m_pos` updated; a sphere (Radius) follows. A BoundingBox / sector shape is the level sector's box - the node moves, its area doesn't |
+| Sound emitter (EmitterObject) | `Emitter_AddNode` 0x00468450 copies pos into `EmitterNode::m_pos` | **live**: `m_pos` updated (sphere); a box shape is the sector's |
+| Light (LevelLight) | `0x00490570` (from `CFunc_ParseNodeArray`'s second loop, and the cutscenes') puts it in two lists by name: dynamic lights (pointers at 0x006FAAF0, count 0x006FAEF0, place +0x04, name +0x28) and level lights (0x24-byte entries at 0x006FAF80, count 0x006FAEF4, max 150, place +0x00, name +0x18) | **places updated live**. A level light also keeps a lazily built list of what it lights (entry +0x20, reset by 0x0048FC00); anything already lit into the scene's colours follows only **after reloading the level** |
+| Camera, GenericNode, others | read by scripts when used | when next read |
+
+Records apply on level load. That happens a second after the skater exists (`Layout::Tick`, as before), so **the
+level's first spawn is at the level's own place**; later respawns use the moved one. They never apply in net games.
+
+### Saved: layout format version 2
+
+`thug2-decomp layout 2` on the first line. A new record:
+
+```
+set 8E1A2B3C pos=-1842,128.5,3306.125 angles=0,1.57079637,0  # TRG_MP_Restart04
+```
+
+- `set <node checksum> key=value...`: `pos=x,y,z` and `angles=x,y,z` (radians); either may be left out. Other keys
+  are skipped, for later versions (`types=`, `order=`...). A malformed or repeated pos / angles refuses the file, as a
+  bad line of any record does.
+- Written for each node the editor changed this level that isn't back at the level's place (`NodeEdit::Changed`).
+  Applied by `Layout::Apply` after the copies and objects: a node the level doesn't have is skipped. The message and
+  log count them ("..., N nodes").
+- The autosave and the crash save are the same text (`Snapshot` -> `Capture`), so they include them. Restoring an
+  autosave puts every changed node back first (`NodeEdit::ResetAll` in `ResetToLevel`).
+- A new level forgets the node changes (`NodeEdit::ForgetLevel`, from `Layout::OnSceneLoaded`). If the same
+  structures are still loaded under those names, the level's places are written back first, so a node array that
+  stays loaded doesn't keep stale edits as its "originals".
+- **Reading:** the header is `thug2-decomp layout <n>`, n >= 1. Version 1 files load as before, and so do later
+  versions (unknown records skipped). **The phase 1 reader (and every older DLL) accepted only the exact line
+  `thug2-decomp layout 1`**, so an older DLL refuses a version 2 file as a whole ("Couldn't read ..."). It doesn't
+  half-apply it. Its unknown-record skipping would have handled `set`, but the header check comes first. Going back to
+  an older DLL means losing its layouts (they stay on disk).
+
+### Checks (offline)
+
+- Clean build (`out/build/verify`, own `_MSPDBSRV_ENDPOINT_`), no warnings.
+- `thug2_check.exe` on THUG2PM.exe and the stock THUG2.exe: all 349 early tests pass, 4 new:
+  - `TestEditorNodeAngles`: wrap, Z / X steps, a node turns the way objects turn (TurnAboutUp), heading in / out;
+  - `TestEditorNodeSnapDrop`: `SnapToGrid`, `GroundRayStart`, `DroppedTo` (the editor's own drag snap and G use them
+    now);
+  - `TestEditorNodeUndo`: capture / put / differs as the editor's history uses them (move, turn, a no-op click, undo,
+    redo, Home as a step, other nodes untouched), and which families are movable;
+  - `TestEditorLayoutV2`: set records round trip with exact floats (pos or angles alone), other fields skipped,
+    malformed ones refused, a v1 file still loads, a v3 header reads, bad headers refused.
+- Mutations (node tools/mutate.ts), all 15 caught: turn direction flipped, a typed heading not wrapped, Differs
+  inverted, Same ignoring the heading, Capture keeping missing nodes, Put writing nothing, rails movable, the half-turn
+  wrap boundary, angles not written, an unknown field read as angles, only version 1 accepted, a repeated pos
+  accepted, version 1 written, snapping by floor, G dropping the position (not the base) to the ground.
+- `node tools/check_code_writes.ts`: no overlaps.
+
+### In-game test checklist (for the user)
+
+Use a workspace (or the main install) with this branch's DLL. Watch `thug2-decomp.log` (`level editor:` lines, and
+`EXCEPTION`, `RUN-TIME CHECK`, `DEBUG CRT`, `SELFTEST FAIL`).
+
+1. **A spawn, live:** `node tools/game/edit_level.ts TR`.
+   - Click a spawn disc. It turns white, arrows appear, the Inspector shows editable Position / Heading and "Shows in
+     the game: At the next respawn here, or F8".
+   - Drag it (ground plane), Shift+drag (up / down), drag an arrow, nudge with W A S D / Q E, Ctrl+drag (snaps to 25)
+     and the same with Snap 25 on. G drops it to the ground (the marker shows where). Z / X turn its heading arrow
+     15 degrees a press. Escape during a drag puts it back.
+   - Leave the editor (Esc until it closes). Press F8 until the log's `restart tester:` line names that restart: the
+     skater stands at the new place, facing the new heading.
+2. **The Inspector fields:** scrub Position x by dragging: the gizmo follows. Ctrl+click Heading, type 90, Enter: the
+   arrow points along +x (east). Ctrl+Z undoes each field edit in one step; Ctrl+Y redoes it. Home (key or button)
+   puts it back where the level has it; Ctrl+Z undoes the Home.
+3. **A crown:** in a level with crowns (most THUG2 levels; Foundry), move a crown diamond. Its `#n` stays, and the
+   Inspector shows the same order. King of the Hill is a net-game mode, and layouts aren't used there (the level
+   reloads anyway), so the live crown spawn can't be checked offline. Check that the diamond moves, and that it's
+   there after save + reload.
+4. **A flag:** Airport or Barcelona: click a CTF flag pennant and move it. In free skate there's no flag object, so
+   only the node moves. In a CTF game (net only) the object would follow.
+5. **A light:** a level with LevelLight bulbs (a THUG1 port, or a THUG2 level that has them): move one near the
+   skater. The bulb and its rings move; any effect on the skater's lighting is a bonus. No crash, no log errors. The
+   level's baked lighting won't change until the level reloads, and then it reloads at the new place.
+6. **A trigger / sound:** move a ProximNode square with a radius (its rings follow). Skate into its new place: its
+   script runs there, not at the old place. A box-shaped one (no rings) keeps its old area: expected.
+7. **Saving:** Ctrl+S. The message ends "..., N nodes". Open `thug2-decomp-layouts\<scene>.txt`: the first line is
+   `thug2-decomp layout 2`, and there are `set <hex> pos=... angles=...  # <name>` lines. Quit to the menu, load the
+   level again: after about a second the log says `Layout loaded: ..., N nodes`. The gizmos are at the moved places,
+   and F8 reaches the moved restart there.
+8. **Autosave / crash restore:** move a node, wait over a minute (log `autosaved`), end the game without saving (Task
+   Manager). Start the editor in the same level again: the "Unsaved changes" window offers Restore. Restore puts the
+   node back at the moved place.
+9. **Online warning:** `node tools/game/edit_level.ts foun` (or z_ma). Move a spawn (or a crown / flag): the blue
+   "Online: a level shared with THUGPRO" window appears once. "Understood" closes it, and later moves in the same run
+   don't bring it back. Moving a light there doesn't warn; a THUG2 level's spawns don't warn.
+10. **A version 1 layout:** a level with a layout saved by the phase 0 / 1 DLL (or edit one so its first line reads
+    `thug2-decomp layout 1`) still loads its sectors / objects. After a Ctrl+S it's written as version 2.
+11. **Unchanged:** objects and scenery drag, turn and save as before. Rails, ladders, paths and particles selected by
+    their gizmo show no arrows and don't move (W A S D fly).
+
+### Known issues / limits (phase 2)
+
+- Nothing run in the game.
+- The first spawn of a level uses the level's own place (the layout applies a second after the skater exists).
+- Light edits: the dynamic and level light lists are updated; the lit scene colours and a light's cached list of what
+  it lights (0x0048FC00's) aren't recomputed until the level reloads. Not re-adding the light was deliberate: the
+  remove / add pair (0x0048FCA0 / 0x00490570, which the cutscenes use) also runs 0x0048FC00. Its effect on vertex
+  colours wasn't decompiled, so it could light things twice.
+- Box-shaped proximity nodes and sound emitters take their area from the level sector of their name: moving the node
+  doesn't move that area (the Inspector says so).
+- Particles aren't movable yet (ParticleObject: a composite object made from the node; it would want the object
+  moved, as flags).
+- A node's name appearing in two loaded node arrays: the one the node manager's hash finds is the one edited (the one
+  the game reads).
+- The camera orbits a selected node (as objects): W A S D nudge it. Phase 1's free flying with a node selected stays
+  only for read-only nodes.
+
+## Notes for phase 3 (creating and deleting nodes)
+
+- **Crowns: at most 10.** `CFunc_SpawnCrown` collects the Crown nodes into two 10-entry stack arrays without a bound
+  check. A level with more than 10 Crown nodes overflows its stack, so creating crowns must stop at 10 (count the
+  level's own first). The crown sent is `net+0x68 % count`, in node-walk order (array order, then index): an overlay
+  array added after the level's keeps the level's crowns' numbers.
+- **Restarts: at most 256** per lookup (`GetRestartNodes` writes into a 256-name stack array, also unchecked).
+- **Lights:** a new LevelLight needs `0x00490570(node)` (the game's own path, as the cutscenes use it); deleting one
+  needs `0x0048FCA0(name)`. Capacity: 256 dynamic lights, 150 level lights (0x96, checked by 0x00490400).
+- **Proximity nodes / emitters:** new ones need `Proxim_AddNode` / `Emitter_AddNode` (ParseNodeArray makes them at
+  load). "Hiding" an original fits the game's own kill path (0x005A32C0 by class: `Proxim_SetActive(name, 0)`,
+  `Emitter_SetActive(name, 0)`, `0x0048FCA0` for lights, objects killed).
+- **The node manager** takes up to 20 node arrays (`AddNodeArray`, hashed by name, links resolved within an array).
+  ParseNodeArray works on the last array added. An overlay array is the natural home for new nodes, as the plan says.
+  Names must be unique; set records key by name and edit the node the hash finds.
+- Set records already cover any node by name, so an overlay node's place can reuse them; `node` records would carry
+  the class / type / defaults.

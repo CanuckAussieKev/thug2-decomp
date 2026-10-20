@@ -90,6 +90,14 @@ struct Model {
         bool nodeOnly = false; // (the selection is the node itself - not an object or scenery)
         bool levelShared = false;
         const char* sharedGame = "";
+        // A point node selected by itself: the editor moves it (level_editor_node_edit.h) - its place now, whether
+        // it's away from the level's (Home), and when a change shows in the game.
+        bool movable = false;
+        V3 pos = {}, angles = {};
+        bool moved = false;
+        const char* whenApplied = "";
+        // The warning for a spawn, crown or flag moved in a level shared with THUGPRO (once a run, until dismissed).
+        bool onlineWarning = false;
     } nodes;
 };
 
@@ -151,9 +159,14 @@ struct Request {
         kFamilies,      // id: the chips' bits
         kSelectNode,    // value: a node (Nodes::All())
         kGoToNode,      // value: a node - the camera taken to it
+        kNodeSet,       // the selected node's place from the Inspector: a = pos, b = angles (radians)
+        kNodeSetDone,   // the Inspector's field let go (the changes since its first kNodeSet: one undo step)
+        kReset,         // Home: the selection back where the level had it
+        kOnlineWarningSeen,
     } kind;
     int value = 0;
     uint32_t id = 0;
+    float a[3] = {}, b[3] = {};
 };
 std::vector<Request> TakeRequests();
 
