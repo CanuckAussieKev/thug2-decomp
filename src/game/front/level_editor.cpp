@@ -29,6 +29,7 @@
 #include "game/front/level_editor_view.h"
 #include "game/front/mouse_menus.h"
 #include "game/gfx/camera.h"
+#include "game/gfx/occlusion.h"
 #include "game/gfx/screen.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/object.h"
@@ -1547,6 +1548,8 @@ bool& DebugEnabled()
 }
 
 bool Active() { return g_active; }
+// Occlusion culling switched off while editing (O; Nx::OcclusionOff).
+static bool g_occlusionOff = true;
 
 bool PassKey(bool* released, bool down)
 {
@@ -1612,6 +1615,8 @@ bool __cdecl CFunc_Start(Script::CStruct*, Script::CScript*)
     // The UI (Dear ImGui) - else the HUD of screen elements.
     bool ui = Ui::Start();
     View::Start();
+    // (occlusion off while flying the editor's camera: O turns it back on - kept for the next time)
+    Nx::OcclusionOff() = g_occlusionOff;
     g_hudTakenDown = 0;
     g_families = static_cast<uint32_t>(ConfigInt("editor", "families", static_cast<int>(Nodes::kAllFamilies))) &
                  Nodes::kAllFamilies;
@@ -1725,6 +1730,7 @@ bool __cdecl CFunc_Stop(Script::CStruct*, Script::CScript*)
     Hud::HidePanel();
     Preview::Hide();
     View::Stop(); // (everything hidden in the editor shown again)
+    Nx::OcclusionOff() = false;
     Ui::Stop();
     SetRelative(false);
     PlaceSkaterBelowCamera();
@@ -3499,7 +3505,13 @@ void Update()
     }
     // C: the collision shown / hidden; H: the selection hidden (Alt+H: everything shown); I or /: isolated
     // (level_editor_view.h - while editing only).
-    static bool cKey, hKey, iKey, slashKey;
+    static bool cKey, hKey, iKey, slashKey, oKey;
+    if (Pressed(keys, SDL_SCANCODE_O, &oKey) && !ctrl && !g_browser.open) {
+        g_occlusionOff = !g_occlusionOff;
+        Nx::OcclusionOff() = g_occlusionOff;
+        Hud::Message(g_occlusionOff ? "Occlusion off: everything in range is drawn (O: the game's occlusion)"
+                                    : "Occlusion on, as in play (O: off) - distant things may vanish behind occluders");
+    }
     if (Pressed(keys, SDL_SCANCODE_C, &cKey) && !ctrl && !g_browser.open)
         ShowCollision(!View::ShowCollision());
     if (Pressed(keys, SDL_SCANCODE_H, &hKey) && !ctrl && !noChange && !g_browser.open) {

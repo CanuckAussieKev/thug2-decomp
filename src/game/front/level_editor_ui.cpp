@@ -1147,6 +1147,8 @@ void Help(const Model& model)
         {"", "H", "hides the selection while editing (from the view and from clicks; never saved, never in play)"},
         {"", "I or /", "isolates the selection: everything else hidden while editing"},
         {"", "Alt+H", "shows everything hidden in the editor again"},
+        {"", "O", "occlusion culling: off while editing (the level's occluders are placed for the skater's view and "
+                   "hide distant things from the flying camera); O turns it on as in play"},
         {"Camera", "P", "writes where the camera is to the log (a menu backdrop view)"},
         {"Panels", "Mouse", "over a panel the UI takes the mouse; the keys stay the editor's unless you type"},
     };
