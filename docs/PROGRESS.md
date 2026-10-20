@@ -1,6 +1,6 @@
 # Decompilation progress
 
-Generated 2026-10-20 by `tools/progress_report.py` - regenerate after each batch.
+Generated 2026-10-20 by `tools/progress_report.ts` - regenerate after each batch.
 
 **Game code: ███████░░░░░░░░░░░░░ 35.9%** of the code rewritten (3,136 of 8,382 functions, 580.9 KB of 1,617.8 KB).
 

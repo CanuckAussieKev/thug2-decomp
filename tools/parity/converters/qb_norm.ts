@@ -60,5 +60,5 @@ function main(): number {
     return result.status ?? 1;
 }
 
-// (imported by tools/parity/menu_level/wrap.ts for normalise: main only when run)
+// (only when run: tools/parity/menu_level/wrap.ts and sandbox.ts import normalise)
 if (isMain(import.meta.url)) process.exitCode = main();

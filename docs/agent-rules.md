@@ -20,7 +20,7 @@ workspace (C:\Games\THUG2-n) and its pending-doc name. Agents cost a lot of usag
   (THUG1's source) or any other leak of a Tony Hawk game's code. Our code comes from our own decompilation of the
   game; leaked code would taint it.
 - Records go in docs/pending/<name>.md, not docs/decomp-progress.md (the lead folds them in with batch numbers). Run
-  tools/progress_report.py but don't commit docs/PROGRESS.md (the lead regenerates it).
+  `node tools/progress_report.ts` but don't commit docs/PROGRESS.md (the lead regenerates it).
 - Commit messages end with the Co-Authored-By line given in the session.
 - **New tools are TypeScript** (docs/typescript.md: erasable TypeScript run by Node, `npm run typecheck`, `lint`,
   `test` before each commit). A tool ported from Python keeps its CLI and is proven output-equivalent with
@@ -44,7 +44,7 @@ workspace (C:\Games\THUG2-n) and its pending-doc name. Agents cost a lot of usag
   window, allow_multiple_instances=1). Never touch another workspace.
 - Scripts in tools/game (see its README): `game_lock.ps1 -Action acquire|release -Owner <you> -Game <workspace>`,
   `run_game.ps1 -Game <workspace> -Seconds N [-Keys ...]` (posts keys without focus, PrintWindow pictures; never pipe
-  it into Select-Object -First), `window_shot.ps1 -ProcessId <pid>`, `boot_level.py <level> <workspace>`.
+  it into Select-Object -First), `window_shot.ps1 -ProcessId <pid>`, `node tools/game/boot_level.ts <level> <workspace>`.
 - **Drive the menus with commands, not posted keys:** `run_game.ps1 -Commands "waitfor ready","choose ...",...` and
   `game_cmd.ps1` (the DLL's test-automation channel, on in the workspaces - tools/game/README.md): no fixed waits, no
   dropped keys, the status file says where the game is. Use `-Keys` only for what commands can't do. The channel
@@ -60,10 +60,10 @@ workspace (C:\Games\THUG2-n) and its pending-doc name. Agents cost a lot of usag
 ## Decompilation agents
 - Follow the `decomp-batch` skill (.claude/skills/decomp-batch/: SKILL.md, pitfalls.md, test-template.cpp) for every
   batch: read the disassembly, write, build (tools\verify_build.cmd in YOUR worktree), self-test original vs ours,
-  prove the tests with tools/mutate.py, the safety scans, commit.
+  prove the tests with tools/mutate.ts, the safety scans, commit.
 - "Start to finish": every function in the range that isn't REPLACEd yet gets source (REPLACE / REPLACE_SOURCE_ONLY /
   naked stubs) - skip nothing. Batches of 10-40 coherent functions, one commit each, until `find_gaps.py` and
-  `progress_report.py` show the range done. Calls out of the range into un-rewritten code stay `GameFunction`.
+  `progress_report.ts` show the range done. Calls out of the range into un-rewritten code stay `GameFunction`.
 - Game runs start faster without the early self-tests: workspaces have `[selftests] early=0` (thug2_check runs them
   offline); use `run_game.ps1 -Tests "<your test names' words>"` for the tests of your work, and `-FullTests` for your
   final game run.

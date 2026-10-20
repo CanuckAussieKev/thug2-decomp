@@ -54,7 +54,7 @@ back - they must come out byte-identical - and parses every THPS4 level file.
   (Ped_InitAI, PedAI walk waypoints, random_male_profile); the pros on the halfpipe (Skateshop_PedProTest's two lines)
   that THUG2 has (Burnquist, Koston, Margera, Mullen, Hawk: PedPro_<name>) skate it with THUG2's ped AI (the two lines
   one loop, each lip a Vert_Flip, as THUG2's LA vert skaters) from their places on the deck; the other pros' places
-  get random skateboarders standing there. `make_menu_level.py` copies them into the front end too (seen after SKATE
+  get random skateboarders standing there. `make_menu_level.ts` copies them into the front end too (seen after SKATE
   NOW).
 - Level structure: THPS4's name, sky and lighting (from its Levels.qb); no music, no goals.
 

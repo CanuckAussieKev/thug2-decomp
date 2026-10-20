@@ -40,7 +40,7 @@ then the "- [ ] Next:" line of docs/decomp-progress.md.
 - **A stock no-CD THUG2.exe runs the project unmodified.** Tested in C:\Games\THUG2-THPSX-ORIGINAL (the user's stock
   install, with our files added):
   - tools/game finds either exe;
-  - `install_manifest.py check` names the executables;
+  - `install_manifest.ts check` names the executables;
   - the early self-tests put THUG2PM.exe's bytes in the 10 differing spots while they run.
 - **The build copies SDL2.dll and gamecontrollerdb.txt into the game folder.** Both are byte-for-byte PartyMod's,
   downloaded from upstream and checked by SHA-256.
@@ -67,7 +67,7 @@ then the "- [ ] Next:" line of docs/decomp-progress.md.
    - To do:
      1. Merge the branch, build, run thug2_check, scan_register_assumptions and check_code_writes.
      2. Do a game run in THUG2-4 (a cutscene if possible).
-     3. Fold the records: `python -I tools/fold_pending.py docs/pending/objsys.md OS "objsys agent"` (from 156).
+     3. Fold the records: `node tools/fold_pending.ts docs/pending/objsys.md OS "objsys agent"` (from 156).
      4. Regenerate PROGRESS.md, commit, push, and install into C:\Games\THUG2 (see below).
 2. **Anteara Mod merge agent (about 75% done when the session ended).** This is the user's old script mod: the 2010
    and 2011 backups are in C:\Games\THUG2\Backup\scripts_2010 / scripts_2011.
@@ -135,7 +135,7 @@ then the "- [ ] Next:" line of docs/decomp-progress.md.
   mspdbsrv.
 - The lead builds out\build\lead (a .cmd: VsDevCmd -arch=x86, endpoint thug2lead,
   `cmake --build out\build\lead -j 2`). Mutation runs can filter tests with THUG2_SELFTESTS (decomp-batch skill).
-- The lead merges, builds and checks, folds the docs/pending batches (`tools/fold_pending.py`), regenerates
+- The lead merges, builds and checks, folds the docs/pending batches (`node tools/fold_pending.ts`), regenerates
   PROGRESS.md, commits and pushes. It then installs main into C:\Games\THUG2: copy out\build\lead\dinput8.dll over it,
   then `node tools/menu_level/make_menu_level.ts --game C:\Games\THUG2`. The user's own manual-test folder: no
   test runs there, and its self-tests stay off.

@@ -1,5 +1,5 @@
 {
-"about": "THUG2 install manifest (tools/game/install_manifest.py): every game file's size and SHA-256; this project's files, Backup, Save and Faces left out",
+"about": "THUG2 install manifest (tools/game/install_manifest.ts): every game file's size and SHA-256; this project's files, Backup, Save and Faces left out",
 "source": "C:\\Games\\THUG2",
 "files": 10689,
 "bytes": 2331192805,
