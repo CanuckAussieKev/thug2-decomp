@@ -86,6 +86,51 @@ export function formatFixed(x: number, digits: number): string {
     return (negative ? "-" : "") + text;
 }
 
+// Python's "%g" % x / "%.<precision>g" % x: `precision` significant digits (the exact binary value correctly
+// rounded, halves to even: "%g" % 100.0625 == "100.062" - toPrecision rounds that half up), fixed notation for
+// exponents -4 ... precision - 1, else d.ddde+XX; trailing zeros and a trailing point dropped; "-0", "inf", "nan".
+export function formatG(x: number, precision = 6): string {
+    if (Number.isNaN(x)) return "nan";
+    if (x === Number.POSITIVE_INFINITY) return "inf";
+    if (x === Number.NEGATIVE_INFINITY) return "-inf";
+    const p = Math.max(precision, 1);
+    const sign = x < 0 || Object.is(x, -0) ? "-" : "";
+    if (x === 0) return `${sign}0`;
+    const { mantissa, exponent } = decompose(x);
+    // |x| = num / den exactly
+    let num = exponent >= 0 ? mantissa << BigInt(exponent) : mantissa;
+    let den = exponent >= 0 ? 1n : 1n << BigInt(-exponent);
+    // the decimal exponent X: 10^X <= |x| < 10^(X + 1)
+    let X = Math.floor(Math.log10(Math.abs(x)));
+    const pow10 = (n: number): bigint => 10n ** BigInt(n);
+    const atLeast = (e: number): boolean => (e >= 0 ? num >= pow10(e) * den : num * pow10(-e) >= den);
+    while (!atLeast(X)) X -= 1;
+    while (atLeast(X + 1)) X += 1;
+    // digits = |x| / 10^(X - p + 1), rounded halves to even
+    const shift = X - p + 1;
+    if (shift >= 0) den *= pow10(shift);
+    else num *= pow10(-shift);
+    let digits = num / den;
+    const twice = (num % den) * 2n;
+    if (twice > den || (twice === den && digits % 2n === 1n)) digits += 1n;
+    if (digits === pow10(p)) {
+        digits /= 10n;
+        X += 1;
+    }
+    let text = digits.toString();
+    const strip = (t: string): string => (t.includes(".") ? t.replace(/0+$/, "").replace(/\.$/, "") : t);
+    if (X < -4 || X >= p) {
+        const body = strip(text.length > 1 ? `${text[0]}.${text.slice(1)}` : text);
+        return `${sign}${body}e${X < 0 ? "-" : "+"}${Math.abs(X).toString().padStart(2, "0")}`;
+    }
+    const decimals = p - 1 - X;
+    if (decimals > 0) {
+        text = text.padStart(decimals + 1, "0");
+        text = `${text.slice(0, text.length - decimals)}.${text.slice(text.length - decimals)}`;
+    }
+    return sign + strip(text);
+}
+
 // The shortest digits that read back as x, and the decimal exponent: x = 0.d1d2d3... * 10^point.
 function shortestDigits(x: number): { digits: string; point: number } {
     const text = String(Math.abs(x)); // (ECMAScript's Number::toString: the shortest round-trip digits)
@@ -335,15 +380,43 @@ export function pyStrip(text: string): string {
 }
 
 // Python's str.splitlines(): splits on \n, \r\n, \r, \v, \f, \x1c-\x1e, \x85, \u2028, \u2029 (not only \n).
-export function pySplitlines(text: string): string[] {
+// keepends: str.splitlines(keepends=True), each line with its line end.
+export function pySplitlines(text: string, keepends = false): string[] {
     const out: string[] = [];
     const re = /\r\n|[\n\r\x0b\x0c\x1c\x1d\x1e\x85\u2028\u2029]/g;
     let last = 0;
     for (let m = re.exec(text); m; m = re.exec(text)) {
-        out.push(text.slice(last, m.index));
+        out.push(text.slice(last, keepends ? m.index + m[0].length : m.index));
         last = m.index + m[0].length;
     }
     if (last < text.length) out.push(text.slice(last));
+    return out;
+}
+
+// Python's str.split() (no arguments): runs of Python's whitespace separate, none at the ends.
+export function pySplit(text: string): string[] {
+    const out: string[] = [];
+    let word = "";
+    for (const ch of text) {
+        if (PY_WHITESPACE.includes(ch)) {
+            if (word) out.push(word);
+            word = "";
+        } else word += ch;
+    }
+    if (word) out.push(word);
+    return out;
+}
+
+// Python's str.title() for cased letters: each run of letters capitalised, the rest lower case ("EAST LOS ANGELES"
+// -> "East Los Angeles", "it's" -> "It'S" as Python).
+export function pyTitle(text: string): string {
+    let out = "";
+    let previousCased = false;
+    for (const ch of text) {
+        const cased = ch.toLowerCase() !== ch.toUpperCase();
+        out += cased ? (previousCased ? ch.toLowerCase() : ch.toUpperCase()) : ch;
+        previousCased = cased;
+    }
     return out;
 }
 

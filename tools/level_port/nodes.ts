@@ -151,7 +151,8 @@ export function killArgs(
 }
 
 export function killCommands(
-    scriptQbs: readonly QbFile[],
+    // (QbFile, or anything with its scripts and calls: THAW's QbItems)
+    scriptQbs: readonly Pick<QbFile, "scripts" | "calls">[],
     restarts: { has(value: number): boolean },
     names: ReadonlyMap<number, string>,
 ): Map<number, string> {
