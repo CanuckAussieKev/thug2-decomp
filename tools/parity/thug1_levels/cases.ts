@@ -27,7 +27,8 @@ function convert(name: string, args: string[], extra: Partial<Case> = {}): Case 
 }
 
 export default function cases(): Case[] {
-    if (!fs.existsSync(THUG1) || !fs.existsSync(THUG2) || !fs.existsSync(NS)) return [];
+    // (the Python twin was deleted once these all passed - commit 4255a5c: the cases stay as the record)
+    if (!fs.existsSync(PY) || !fs.existsSync(THUG1) || !fs.existsSync(THUG2) || !fs.existsSync(NS)) return [];
     return [
         // the default levels, with their scripts, peds, vehicles, objects and particles
         convert("convert all", []),

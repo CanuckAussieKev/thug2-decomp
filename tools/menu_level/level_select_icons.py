@@ -5,7 +5,7 @@
 # The game's level select sprites (Levelselect.prx) are 8-bit paletted images:
 #   u32 version (2), u32 bits per texel (8), u32 width, u32 height, u32 format (0x13 = paletted), u32 0,
 #   u16 width, u16 height, u32 palette size in bytes (64: 16 BGRA colours), the palette, then width * height
-#   indices stored swizzled (tools/thps4_levels/tex.py unswizzle_order) - read by 0x004E0790.
+#   indices stored swizzled (tools/level_port/tex.py unswizzle_order) - read by 0x004E0790.
 # Nothing of the game is stored here: the frame is read from the user's Levelselect.prx each time.
 
 import math

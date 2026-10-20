@@ -185,8 +185,8 @@ Every port is compared with its Python twin on real data before the Python file 
 | tools/level_port/script_diff.py | script_diff.ts | ported + verified (CLI) | 1 |
 | tools/compat/compat.py | compat.ts | ported + verified | 1 |
 | tools/thps3_levels/thps3.py, thps3_levels.py | thps3.ts, thps3_levels.ts | ported + verified, Python deleted (parity: c121a28) | 2 |
-| tools/thps4_levels/thps4.py, thps4_levels.py, thps4_scripts.py | - | pending | 2 |
-| tools/thug1_levels/thug1.py, thug1_levels.py, thug1_port.py | - | pending | 2 |
+| tools/thps4_levels/thps4.py, thps4_levels.py, thps4_scripts.py | thps4.ts, thps4_levels.ts, thps4_scripts.ts | ported + verified, Python deleted (parity: 4255a5c) | 2 |
+| tools/thug1_levels/thug1.py, thug1_levels.py, thug1_port.py | thug1.ts, thug1_levels.ts, thug1_port.ts | ported + verified, Python deleted (parity: 4255a5c) | 2 |
 | tools/thaw_levels/thaw.py, thaw_levels.py, thaw_scripts.py, migrate_layouts.py, thugpro_compare.py | - | pending | 2 |
 | tools/menu_level/make_menu_level.py, level_select.py, level_select_icons.py, career_complete.py, qb_walk.py | - | pending | 3 |
 | tools/anteara/anteara.py | - | pending | 3 |
