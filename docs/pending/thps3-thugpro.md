@@ -136,7 +136,7 @@ flag." **NOT run in the game yet.**
   AbsentInNetGames (THUGPRO drives its trains / cars online; ours has no follower there - harmless, but untested in
   a network game); Foundry's presses created at start; nothing was run in the game.
 
-## Awaiting the user (THUGPRO-authored content, not applied)
+## Awaiting the user (THUGPRO-authored content) - since included: TPN-THPS3, "New in THUGPRO" below
 Each needs a separate decision: Morten's permission is for insights, not 1:1 copies. "Without it": what each side
 sees as things are now (our side lacks it).
 | Level | What | Size | Without it |
@@ -219,3 +219,75 @@ no data) - nothing to convert from. THUGPRO's z_riod (labelled THPS3) - no THPS3
 - tools/game/README.md, tools/game/boot_level.ts: example level name.
 - TP-13 .. TP-19: tools/compat/thugpro/README.md (rows, "Changing approach", the awaiting list) and
   tools/compat/thugpro/thps3_levels.json (new sections, TP-10..12's unchanged) - only THPS3's parts.
+- TPN-THPS3 / PC-THPS3 (below): tools/compat/compat.ts (`portChanges`, `PortChanges`, `PortChange` - additive),
+  tools/level_port/nodes.ts (`netGameNodes(text, scripts, withRestarts = true)`), tools/level_port/ported_levels.ts
+  (`installFiles` copies `<staging>\models` into the overlay's `models`), tools/menu_level/make_menu_level.ts (the
+  overlay may hold a `models` folder), tools/compat/thugpro/README.md (the two new sections). Not touched:
+  tools/level_port/script_port.ts.
+
+## New in THUGPRO, now included (TPN-THPS3, the user's decision 2026-10-20) - **NOT run in the game yet**
+Morten confirmed to the user that THUGPRO's own content may be in our ports. Everything new in THUGPRO (in no THPS3
+file) is in one section of the register, `thugpro_new` (rows TPN-THPS3-1 ... 6 in tools/compat/thugpro/README.md),
+apart from the TP-10 ... TP-19 hand edits. **By reference**: archive, file, name and a CRC-32 per item; the bytes are
+read from THUGPRO's install at convert time (`--thugpro`, default %LOCALAPPDATA%\THUG Pro) - none of THUGPRO's bytes
+are in the repository. Missing or different: warned and skipped.
+- Code: tools/thps3_levels/thugpro_new.ts (reading, CRC checks, applying: nodes, sets, geometry with BSP trees rebuilt,
+  scripts with `replace_calls`), thugpro_new_extract.ts (the rules; run by `thugpro_compare.ts --thug2 <folder>
+  --extract-thugpro ...`), thps3_levels.ts (`--thugpro`, `--no-thugpro-new`, `--no-port-changes`), thugpro_inventory.ts
+  `--applied` (checks each thugpro_new entry in our output), thugpro_new.test.ts (5 tests).
+- Included per level: Foun `foun_wire` (the wires visible, their TrickObject / Cluster kept), 3 `*_coll` quads,
+  `Obj_Bucket` collision + the bucket a Vehicle with THUGPRO's model; Rio `ES_Building_collision`, `TRG_Ped_2084` and
+  its waypoint loop, 3 sound objects, 8 carplant collision vehicles (CreatedAtStart: THUGPRO creates them from its car
+  scripts, which ours replaces with THUG2's cars) + models; Sub 5 `*_collfix` (the picnic collider back), BBQ noise,
+  the ice-cream truck's carplant, the truck and plane as Vehicles with THUGPRO's models; SI the 2 ocean-wave emitters,
+  their scripts (edmsg2 -> printf) and THUGPRO's ocean proximity scripts (the ocean sound back); Tok 23 vehicles
+  (trains, planes with THUGPRO's models; cars with THUG2's), the 2 event restarts, train / plane scripts
+  (THUGPRO_ForceCreate -> Create); Shp waterslide sound, window counter + 64 glass scripts; Ware `Ware_RoomFlicker`;
+  every level THUGPRO's other runnable level scripts.
+- Left out (the register's `_left_out`, with reasons): particles (THUGPRO_SpawnNodeParticles), scripts needing
+  THUGPRO_SafeKill / TP_DoFlash / Editor_LoadCameraAnimParams / THUGPRO_Televator / Obj_PlayRandomStream /
+  Obj_PlayRandomAnim / PlayRandomStream (SI's cannons proximity, Shp's setup, cutscenes, host level changes), the
+  "small unnamed scene-only sectors" - **they are THUGPRO's sky sectors: THPS3's own skies under its toolchain's
+  checksums** (vertex counts equal THPS3's: leftovers, ours converts THPS3's sky), its conversions of THPS3's `.dff`
+  objects, Sub's 3 unnamed geometry nodes (no geometry anywhere: toolchain leftovers), THUGPRO's models of THPS3's
+  Rio / Burnside cars (ours uses THUG2's), script names ours makes itself (load_level_anims, `<level>_setup`, CTF).
+- `thugpro_inventory.ts --applied` (THUGPRO's new content in our output), before -> after: Foun sector 0 -> 1/1,
+  collision 0 -> 4/4, nodes 0 -> 4/4, set 0 -> 1/1, model 0 -> 1/1, scripts 0 -> 7/7; Rio collision 1/1, nodes 21/21,
+  models 2/2, scripts 14/14; Sub collision 5/5, nodes 7/7, set 2/2, models 3/3, scripts 18/18; SI nodes 2/2, scripts
+  6/6, set scripts 2/2; Tok nodes 2/2, set 23/23, models 2/2, scripts 6/6, set scripts 3/5 (`JS_BulletTrainWest/
+  EastControl`: ours doesn't bring those THPS3 scripts - reported, not added, so THUGPRO's train spawning doesn't run);
+  Shp nodes 1/1, scripts 4/4, set scripts 64/64; Ware node 1/1, scripts 8/8; Burn 4/4, Ros 9/9 scripts (all
+  0 before). The TP-13 ... TP-19 checks as before.
+- Checks: `--no-thugpro-new` = the previous default output and `--compat none` = the previous `--compat none` (79
+  files: .qb code and sorted names, the rest byte for byte); an empty `--thugpro` folder gives the `--no-thugpro-new`
+  output with one warning per level; reconverted into THUG2-1: 0 unreachable collision faces in all 14, Links in range,
+  rail links to rails, no duplicate names (thps3_la's 4 as before), ns.exe decompiles every level qb but
+  thps3_skateshop's (as before), make_menu_level fine (the 7 models in the overlay's `models`), thps3 selfcheck 323
+  files 0 failures, npm typecheck / lint / test.
+- C++ THUG2 hasn't (THUGPRO DLL commands - proposals, not implemented; ours would be our own code with a credit
+  comment): `THUGPRO_SpawnNodeParticles` (a particle system of a named type at the running node - a CFunction over
+  THUG2's particle manager, the types as data), `THUGPRO_SafeKill` (Kill only when the object exists and has its
+  geometry - a guard over Kill), `THUGPRO_ForceCreate` (Create ignoring AbsentInNetGames online - offline Create
+  does it; online needs a flag on our Create), `TP_DoFlash` (a timed screen flash - a script over THUG2's DoFlash may
+  do), `Editor_LoadCameraAnimParams` (its cutscene cameras), `THUGPRO_Televator` (teleporting the skater - a script
+  over THUG2's skater move commands may do), `Obj_PlayRandomStream` / `Obj_PlayRandomAnim` / `PlayRandomStream`
+  (random choice helpers - scripts with `random` would do).
+- Not sure "THUG2 lacks it" (for the audit): the extraction counts a name as THUG2's when THUG2's CFunction table, the
+  exe's member tables (`scriptPort.Thug2.members`, incomplete), THUG2's scripts, or a call in any THUG2 script
+  (qb_scripts.prx and every `*_scripts.prx`) has it. `Output`, `edmsg2` were adapted to printf, not dropped; the
+  `Obj_PlayRandom*` / `PlayRandomStream` names might be THUGPRO global scripts rather than DLL commands (then
+  they'd be portable as scripts). Vehicles: our translated Tok / Sub / Foun object scripts now run on a Vehicle (they
+  ran on a LevelObject) - untested.
+
+## Our own changes: port_changes (PC-THPS3-1 ... 14)
+The user's decision 2026-10-20: the converter's own deviations from THPS3's data are data too, in the register's
+`port_changes` section, read through compat.ts `portChanges` whatever the profile (`--compat none` keeps them);
+`--no-port-changes` leaves out all but the `required` ones. The list (op): PC-THPS3-1 remove Warehouse's dark set (its
+prefixes now data, was LEFT_OUT_PREFIXES); 2 set start scripts once from `<level>_setup` (required); 3 set kill zones
+as SK3_KillSkater (required); 4 add net restart types on single-player levels' Player1 restarts; 5 set
+AbsentInNetGames on path followers / peds / cars (required); 6 set TrickObject / Cluster off sector-less geometry
+(required); 7 set restarts over nothing / kill zones not spawns; 8 add CTF from THPS3's bases (kept while TP-10 ...
+TP-12 data is present); 9 set Player1 restart first; 10 set traffic as THUG2's cars (required); 11 set peds / animals
+as THUG2's (required); 12 remove goal pickups and other unconvertible objects (required); 13 remove statements THUG2
+can't run (required); 14 remove non-rail Links (required). Checked: default output unchanged; `--compat none
+--no-port-changes` differs in 13 levels' node arrays and Warehouse's scene / collision (the dark set back).
