@@ -113,6 +113,82 @@ and its 8 added multiplayer spawns, so KOTH and the spawn set agree with a THUGP
 - Streams / music (Playstream, StopStream: Carnival's haunted house...): ~0.5 day.
 - Goals (letters, combo, pro lines, cash icons, goal peds): not ported by design.
 
+## Spawns: nothing left to unify (no TP-22)
+
+Every restart a network game uses - Multiplayer, Horse, CTF, Team - compared ours (as converted, TP-21 in) with
+THUGPRO's in all 10 shared levels: the same count, order and places for every type in every level (Alc 17 / 12 / 4 / 1,
+Cnv 8 / 8 / 4 / 1, Hof 8 / 12 / 4 / 1, Jnk 12 / 12 / 4 / 1, Kon 8 / 9 / 4 / 1, Lon 21 / 14 / 4 / 1, SF2 12 / 7 / 0 / 1,
+Sch 8 / 11 / 4 / 1, Zoo 8 / 8 / 4 / 1, skate shop 9 / 9 / 0 / 0). THUGPRO moved, renamed or retyped none of its THPS4
+levels' network spawns beyond the skate shop's, which TP-21 covers. So no TP-22 and no converter change; the
+reconvert into THUG2-2 is unchanged. Listed only (not network spawns):
+- Carnival TRG_G_HS_RestartNode moved 38.5 and straightened, TRG_G_PS_RestartNode rotated; Shipyard
+  TRG_Re_Wtr_KillPlne_03 rotated (a kill plane's put-back point); Chicago TRG_G_HighCombo_RestartNode renamed
+  TRG_G_PS_RestartNode; goal restarts' trigger scripts dropped (Cnv 2, Kon 1).
+- Added generic restarts: San Francisco TRG_Elev_Warp2 (its elevator teleport's target), Zoo TRG_ParkingLotRestart01-03.
+- Skate shop Player1 restarts: THUGPRO's 9 drop-ins are Player1 too and TRG_SS_Skater01 / _SkaterChoosing /
+  _Appearance became ghosts; ours keep THPS4's TRG_SS_Skater01 as the Player1 start (free skate only, not online).
+
+## THUGPRO hand edits: inventory
+
+`node tools/thps4_levels/thugpro_inventory.ts --thug2 C:\Games\THUG2-2 [--json out]` (read only on both installs):
+THUGPRO's node arrays, level scripts, `<level>_thugpro.qb` files and collision against THPS4's own files (collision
+against our converted collision, which is THPS4's). Nothing changed in our output; the user decides. "Online" says
+whether it can make the two sides differ for players sharing the level.
+
+Moved / renamed / reused nodes
+- College: rail nodes TRG_53 (131 units) and TRG_813 (59) moved - **online: a rail where one side grinds and the other
+  doesn't** (each side grinds its own rail; positions sync, so a THUGPRO player seen grinding beside ours' rail).
+  Elevator doors LO_Elevator_Door_Floor1_01 / 02 moved 48 (THUGPRO's elevator teleport; doors are level objects with
+  collision - a door open on one side).
+- Carnival 2 goats moved (4.5 / 6.0), goal restarts above; Chicago 1 goal ped + 1 goal restart renamed. Online: no.
+
+Added nodes
+- College 6 rails TRG_TP_RailRoofLedge_01-06; skate shop 16 rails roof_ledge_*; San Francisco 12 rails ed_rail_*
+  (level-editor rails) - **online: rails only THUGPRO's players can grind**.
+- Zoo 5 rails TRG_NatasNode_01-05 (a Natas-spin spot) - online: as above.
+- Kona 19 level lights (THUGPRO's night lighting); London 1 waypoint (its teleport); skate shop TRG_TP_SkaterKiller
+  (a kill trigger) - online: no (lights), the kill only on their side.
+- `_thugpro.qb` run-time additions: banners / posters (Chicago 5, College 13, London 1 + 1 billboard + 5 other),
+  proximity-triggered teleports ("televators": College 1 + elevator doors, San Francisco 2, London 2 elevator door
+  pairs) - online: teleports and moving doors only on their side.
+- Host level options (THUGPRO's own protocol flags SERVER_LEVEL_CHANGE_*): Chicago bridge state (5 states: creates /
+  kills bridge geometry and its rails), Shipyard barge, London race track / rooftop roll-in, San Francisco rooftop
+  objects, Zoo hippo bridge - **online: geometry and rails differ whenever the THUGPRO host picks a non-default state**
+  (we have no such options).
+
+Removed nodes, changed flags
+- Removed: Zoo 1 meerkat (an animal). Nothing else removed.
+- **Shipyard: 68 rails lose AbsentInNetGames** (the crane tracks TRG_Rl_Crne_B_Trk_*, Bucky_Rl_*): THUGPRO has them in
+  network games, THPS4 (and we) don't - online: rails one side grinds and the other can't.
+- College: 6 geometry pieces + 6 stair rails made TrickObject (graffiti / trick attack scoring); 14 rails lose
+  CreatedAtStart (TRG_820-828...: not there at the start) - **online: rails ours have and theirs don't**; DT_tennisBall
+  loses AbsentInNetGames, dt_blimp gains it.
+- Created at the start changed on geometry: Zoo 11 (hippo collision, lion gate, rhino collisions, hippo bridge down -
+  and bridge up gained it: **the hippo bridge in the other position**), Carnival 10 + 7 objects (goal triggers, shooting
+  gallery), London elevator / 4 garage doors, San Francisco 7 goal gap triggers (+), Chicago 5 hydrant rails and 2 trash
+  cans, Alcatraz 2 froth, skate shop fences (SSO_Fence02 off, SSO_Fence05 on - ours: SSO_Fence05 on as well) and signs.
+  Online: geometry / rails present on one side only where THPS4's scripts don't create them on ours.
+- Rail sounds: TerrainType / Type on 37-164 rails per level (metal -> grind wire, concrete -> metal...) - online: no
+  (sounds, sparks only).
+- Toolchain-wide (not hand edits): Pos written for Position, bouncy objects' physics keys, peds' skeletons / anims,
+  hundreds of goal / ped / object trigger scripts dropped, goal peds made ghosts, lod distances.
+
+Changed scripts
+- Level scripts THPS4 has that THUGPRO's files don't: Alc 217, Cnv 9, Hof 94, Jnk 145, Kon 138, Lon 238, SF2 264, Sch
+  222, Zoo 228, shop 15 (goals, minigames, peds); added: 0-8 per level (Lon_Killskater, TP_SS_KillSkater, teleports,
+  the option scripts). Shared scripts whose command sequence differs: Alc 420, Cnv 221, Hof 70, Jnk 203, Kon 25, Lon 74,
+  SF2 171, Sch 183, Zoo 85, shop 28 - mostly the toolchain's translation (THPS4 -> THUG2 forms), not hand edits; not
+  told apart further.
+
+Geometry / collision (THUGPRO's col against ours, by object, vertices to 0.1)
+- No object's vertices changed in any level compared (Alcatraz not compared: our reader can't read THUGPRO's file).
+- Objects only in ours: the vehicles' collision (THUGPRO's vehicles are separate models) - Cnv 29, Hof 10, Jnk 38,
+  Lon 40, SF2 21, Sch 20, Zoo 5. Not edits.
+- College: 68 objects with fewer faces (duplicate faces removed, e.g. Box331 24 -> 12) - same surfaces, online: no.
+- Skate shop: THUGPRO keeps THPS4's invisible door walls (InvisColl01 10 faces, Object10's 2) - **online: the shop door
+  is open for ours (the user's request), closed for theirs**.
+- Face flags are written differently by the two toolchains everywhere (0x8000 / 0x1 bits in THUGPRO's) - not compared.
+
 ## Untested / concerns
 
 - Nothing run in the game. College's node array grew by 12 (flags): THUG2's script pools were tight for College
