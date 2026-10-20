@@ -12,6 +12,31 @@ then the "- [ ] Next:" line of docs/decomp-progress.md.
   - the leaked-source ban.
 - **Decomp:** 28.27% before the object-system merge (docs/PROGRESS.md). The next batch number is **156**.
 
+## Update 9 (2026-10-21, evening): account switch - level editor phases 0-2 done, phase 3 and the flaky tests stopped mid-task
+- **On main and installed in C:\Games\THUG2** (DLL from dd6aa98): level editor phase 0 (Dear ImGui UI, Inter / JetBrains
+  Mono, toolbar / Outliner / Inspector / status bar; `editor_ui=0` = old HUD), phase 1 (node browser, read-only
+  Inspector, gizmos, picking, Online badge), phase 2 (move / turn point nodes, live where the game allows, undo, layout
+  v2 `set` records, Online warning). Record + in-game checklists: docs/pending/editor-ui.md. Plan page (this account):
+  claude.ai/artifact/B5EP6Qt7hqJ9RYvnZhkTHt. Not yet run in the game by the user beyond load-crash checks.
+- **Stopped mid-task (WIP on their branches, each with a handoff note in docs/pending/):**
+  - Level editor phase 3 (create / delete point nodes: overlay node array, Place palette, hide originals, limits -
+    10 crowns / 256 restarts / 256+150 lights, crown reorder, `node` / `hide` records): branch
+    worktree-agent-ac73f9426e90a064c, note `docs/pending/editor-phase3-handoff.md` (ed77d6e: research only, no code yet - an 8-step plan; key findings: the game won't parse an added node array, so the editor creates proxim / emitter / light objects itself; the overlay array must be skipped by GetLastNodeArray (park editor) and removed with its level; restarts / crowns are hidden by a marker class; hiding a crown renumbers the ones after it, and the last crown can't be hidden (SpawnCrown divides by zero); CTF / team nodes need their exact names).
+  - Flaky early self-tests (screen element / text / anim controllers fail intermittently; fix root causes, then 50
+    clean runs): branch worktree-agent-a024a86de15fee1b4 (7e4246f: three harness root causes fixed, 14+14 clean full runs; left: the 50/20 verification), note `docs/pending/flaky-selftests-handoff.md`.
+  Resume each from its note, finish, check offline, merge (lead), build, install the DLL in C:\Games\THUG2.
+- **Process check gotcha:** `Get-Process THUG2*` also matches `thug2_check` (self-test runs) - use
+  `Get-Process -Name THUG2,THUG2PM` to see whether the user's game is running.
+- **Promised to the user, when phase 3 + the flaky fix are in:** one complete in-game checklist page (tick boxes that
+  remember, grouped by level) covering everything not yet play-tested: editor phases 0-3, the four games' THUGPRO
+  compatibility / thugpro_new / port_changes, the translator fixes (gaps, glass, teleports, sounds, riding objects),
+  Create 100% CAS (classic, gaps, unlockables), the editor quick start / autosave, and older unconfirmed items. The
+  user is currently only checking for crashes on load.
+- **Open question to the user:** should objects follow their scenery cluster when moved (today sectors + their rails
+  follow the cluster; objects and point nodes don't)?
+- Unified pages (this account): ported levels field guide claude.ai/artifact/TFm2dJdLUgbddNZS9ezYWj. The per-game
+  reports it links were published on the user's other account - offer to republish.
+
 ## Update 8 (2026-10-21): the converters' faulty "THUG2 doesn't have X" assumptions fixed
 Merged (e83b0bb THAW fixes, 0a68944 shared translator) and installed in C:\Games\THUG2; not run in the game. Record:
 docs/pending/translator-fixes.md and docs/pending/thaw.md. Generated member table (tools/extract_members.ts ->
