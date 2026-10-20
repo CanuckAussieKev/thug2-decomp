@@ -108,6 +108,11 @@ void SetEditorNodeArray(uint32_t name);
 uint32_t EditorNodeArray();
 using NodeArrayRemovedHook = void (*)(uint32_t name);
 void SetNodeArrayRemovedHook(NodeArrayRemovedHook hook);
+// NOT ORIGINAL - told after AddNodeArray added an array (its nodes hashed, pos= and links made): the level editor's
+// edited copy writes its layout's field edits into the level's nodes there, before ParseNodeArray makes the level's
+// objects from them (game/front/level_editor_fields.h). Null: none (the original behaviour).
+using NodeArrayAddedHook = void (*)(uint32_t name);
+void SetNodeArrayAddedHook(NodeArrayAddedHook hook);
 
 inline CNodeManager*& NodeManagerInstance() { return *reinterpret_cast<CNodeManager**>(0x006F0D84); }
 void ReleaseNodeManager();

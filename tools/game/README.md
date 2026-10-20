@@ -66,6 +66,11 @@ THUG2.exe or THUG2PM.exe, tools/game/game_exe.ps1).
   levels by game (load names and names); a level starts the game with `-edit <level>` (free skate there, intro movies
   skipped, the level editor opened once it's up - also `[features] edit_level=`). Refuses while a game runs from that
   folder; never closes one. Not for agents' test runs (no lock, no workspace handling).
+- `node tools/game/apply_layout.ts <layout.txt> | --level <name> [--game <folder>] [--out <folder>] [--dry-run]
+  [--install [--allow-main]]` - bakes a level editor layout into a copy of the level's .scn.xbx / .col.xbx / .qb
+  (default out\baked\<level>; `--install` writes the game folder's overlay - a workspace; the main install only with
+  `--allow-main`, the user's own runs). Lists what isn't baked (level properties, trigger records) and every edit that
+  breaks THUGPRO online parity. Header of apply_layout.ts has the record-by-record meaning.
 - `node tools/game/boot_level.ts <level> <folder>` - TEST ONLY, superseded by `-Level`: patches the installed overlay's SKATE NOW to
   load a level in free skate. `make_menu_level.ts --game <folder>` puts the real one back.
 - `load_check.ps1 -Game <folder> -Levels a, b, ...` - run_game -Level for each level in turn, then reads the log:

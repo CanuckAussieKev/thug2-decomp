@@ -6,8 +6,10 @@
 
 #include "game/front/level_editor.h"
 #include "game/front/level_editor_chains.h"
+#include "game/front/level_editor_level_props.h"
 
 union SDL_Event;
+struct ImFont;
 
 // NOT ORIGINAL - the level editor's UI (ours; see level_editor.h): Dear ImGui panels over the game's view, in place of
 // the HUD made of the game's screen elements (level_editor_hud.h - hard to read, no tables or fields, 90 characters a
@@ -183,6 +185,15 @@ struct Model {
         std::string name, family;
         bool crown = false;
     } confirm;
+    // Phase 6: the level's properties (level_editor_level_props.h) - as edited, and the level's own; its restarts
+    // (name, label) for the start; the selected node when it's a restart.
+    struct LevelView {
+        bool inLevel = false;
+        LevelProps::Props props, defaults;
+        bool haveDefaults = false;
+        std::vector<std::pair<uint32_t, std::string>> restarts;
+        uint32_t selectedRestart = 0;
+    } levelProps;
 };
 
 // What's drawn over the view, under the panels: in back buffer pixels (as the editor projects; the UI scales them to
@@ -273,6 +284,13 @@ struct Request {
         kScaleSet,      // the Inspector's Scale (scenery): a[0] = the scale asked for
         kScaleDone,     // that field let go (the changes since its first kScaleSet: one undo step)
         kChainOp,       // value: a Chains::Op on the selected node, id: its argument (a terrain)
+        // Phase 6 (level_editor_fields.h, level_editor_level_props.h): `node` the node, id the field, value its
+        // Fields::Kind, text what was typed, label the field's name as typed (a new field).
+        kFieldSet,
+        kFieldRemove,   // the field taken out (an own field), a flag off
+        kFieldHome,     // the field back as the level has it (id 0: every field of the node)
+        kLevelProps,    // `props`: the level's properties as the panel has them now
+        kLevelPropsDone, // a property's field let go (the changes since its first kLevelProps: one undo step)
         kWallCollision, // value: 0 / 1 - the selected invisible wall's collision off (Delete wall) / on (Restore)
         kSceneryCollision, // value: 0 / 1 - the selected scenery's collision off / on (the Inspector's Collision)
         kMemberRemove,  // value: 1 a rail point, 0 a scenery piece; id: it - removed from the selection
@@ -281,12 +299,20 @@ struct Request {
     int value = 0;
     uint32_t id = 0;
     float a[3] = {}, b[3] = {};
+    uint32_t node = 0;
+    std::string text, label;
+    LevelProps::Props props;
 };
 std::vector<Request> TakeRequests();
 
 // The Inspector's chain section (level_editor_chains_ui.cpp): drawn inside the node's section; what's asked for added
 // to `requests`.
 void ChainSection(const Chains::View& chain, std::vector<Request>* requests);
+// Phase 6 (level_editor_fields_ui.cpp): the Inspector's typed fields of node `nodeIndex` (Nodes::All()) - drawn inside
+// the node's section - and the level properties' section at the Inspector's foot; what's asked for added to
+// `requests`. `mono` / `small`: the UI's fonts.
+void FieldsSection(int nodeIndex, ImFont* mono, ImFont* smallFont, std::vector<Request>* requests);
+void LevelSection(const Model::LevelView& level, ImFont* mono, ImFont* smallFont, std::vector<Request>* requests);
 
 // The preview picture's size in pixels for the window's size now (256 at 1280 x 720, up to 512).
 int PreviewPixels();

@@ -5,6 +5,8 @@
 #include <vector>
 
 #include "game/front/level_editor_chains.h"
+#include "game/front/level_editor_fields.h"
+#include "game/front/level_editor_level_props.h"
 #include "game/front/level_editor_node_create.h"
 #include "game/front/level_editor_picking.h"
 #include "game/front/level_editor_scenery.h"
@@ -70,6 +72,11 @@ class CScript;
 //                                                      ped's / car's path)
 //   drop <node>                                        (phase 4) a level's rail / path point deleted (hidden, relinked)
 //   terrain <node> <TERRAIN_...>                       (phase 4) a level rail point's terrain (level_editor_chains.h)
+//   set <node> ... f.<field>=<value>...                (phase 6) a level node's other fields as edited in the
+//                                                      Inspector (level_editor_fields.h: typed values, `del`)
+//   level [name=<text>] [start=<node>] [tod=<state>] [time=0|1] [ambient=r,g,b] [fog=r,g,b,a,d]
+//                                                      (phase 6) the edited copy's level properties
+//                                                      (level_editor_level_props.h)
 //   wall <checksum> <quarters> <x> <y> <z> <off>       a sector's collision (level_editor_walls.h): an invisible wall's
 //                                                      moved / turned as a sector's, and whether it's switched off;
 //                                                      a drawn piece's collision switched off by itself (no move: its
@@ -104,6 +111,8 @@ struct SetRecord {
     bool hasPos, hasAngles;
     float pos[3];
     float angles[3];
+    // (phase 6) the node's other fields as edited: f.<field>=<value> (level_editor_fields.h)
+    std::vector<Fields::Edit> fields;
 };
 // The version written.
 constexpr int kVersion = 2;
@@ -122,6 +131,7 @@ struct File {
     std::vector<Picking::Lock> locks;     // `lock`
     std::vector<Triggers::Placed> triggers; // `trigger`
     Chains::State chains;                 // (phase 4) `point`, `links`, `drop`, `terrain`
+    LevelProps::Props level;              // (phase 6) `level` (level_editor_level_props.h)
     std::vector<Walls::WallState> walls;  // `wall`: collision moved / switched off
 };
 
@@ -173,6 +183,11 @@ bool Load(std::string* message);
 void OnSceneLoaded(const char* name, bool isNet);
 // Once a frame (the editor's Update, on or off).
 void Tick();
+// (phase 6) The node manager added a node array (SkateScript::SetNodeArrayAddedHook): the edited copy's level array
+// gets its layout's field edits now, before the level's objects are made from it (level_editor_fields.h).
+void OnNodeArrayAdded(uint32_t name);
+// The edited copy's level properties: whether this level's saved layout names one (`props`) - for the level select.
+bool SavedProps(uint32_t scene, LevelProps::Props* props);
 
 // --- the edited copy (see the top) ---------------------------------------------------------------------------------
 

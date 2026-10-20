@@ -693,13 +693,6 @@ void Badge(const char* text, ImU32 colour)
     ImGui::SameLine(0.0f, pad + 4.0f * g_scale);
 }
 
-struct FieldsCache {
-    int node = -1;
-    uint32_t generation = 0;
-    std::vector<Nodes::Field> fields;
-};
-FieldsCache g_fields;
-
 void NodeSection(const Model& model, int index)
 {
     const std::vector<Nodes::Node>& nodes = Nodes::All();
@@ -932,35 +925,8 @@ void NodeSection(const Model& model, int index)
     }
     if (ImGui::Button("Go to"))
         Ask(Request::kGoToNode, index);
-    // Every field of its structure.
-    if (g_fields.node != index || g_fields.generation != Nodes::Generation()) {
-        g_fields.node = index;
-        g_fields.generation = Nodes::Generation();
-        g_fields.fields = Nodes::Fields(node);
-    }
-    ImGui::Spacing();
-    char header[48];
-    std::snprintf(header, sizeof(header), "All fields (%d)###fields", static_cast<int>(g_fields.fields.size()));
-    if (ImGui::CollapsingHeader(header, ImGuiTreeNodeFlags_DefaultOpen)) {
-        if (ImGui::BeginTable("##fields", 2, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp)) {
-            ImGui::PushFont(g_mono);
-            for (const Nodes::Field& field : g_fields.fields) {
-                ImGui::TableNextRow();
-                ImGui::TableNextColumn();
-                if (field.included)
-                    ImGui::TextDisabled("%s", field.name.c_str());
-                else
-                    ImGui::TextUnformatted(field.name.c_str());
-                ImGui::TableNextColumn();
-                ImGui::TextWrapped("%s", field.value.c_str());
-            }
-            ImGui::PopFont();
-            ImGui::EndTable();
-        }
-        ImGui::PushFont(g_small);
-        Muted("Greyed: from its class's shared structure (ncomp_...).");
-        ImGui::PopFont();
-    }
+    // Every field of its structure, typed and editable (phase 6: level_editor_fields_ui.cpp).
+    FieldsSection(index, g_mono, g_small, &g_requests);
 }
 
 // The locks (level_editor_picking.h): each with Unlock.
@@ -1126,6 +1092,7 @@ void Inspector(const Model& model)
     }
     ViewSection(model);
     LockList(model);
+    LevelSection(model.levelProps, g_mono, g_small, &g_requests); // (phase 6: level_editor_fields_ui.cpp)
     ImGui::End();
 }
 
@@ -1215,6 +1182,9 @@ void Help(const Model& model)
         {"", "[ / ]", "scale scenery down / up 10% (Shift: 1%) about its bottom, 0.25x to 4x - or the Inspector's Scale"},
         {"", "G", "drops it onto the ground"},
         {"", "Inspector", "a node's position and heading: drag to scrub, Ctrl+click to type"},
+        {"", "Inspector", "All fields: type a value, Enter sets it (live / on reload says when the game sees it); Home "
+                          "puts one back, x takes one out; Add a field at the foot"},
+        {"", "Inspector", "Level properties (its foot): the edited copy's name, start, time of day, ambient, fog"},
         {"Editing", "Ctrl+D", "duplicates"},
         {"", "Delete", "hides scenery (deletes a copy); an invisible wall: its collision off / on again"},
         {"", "Home", "puts it back where the level had it"},

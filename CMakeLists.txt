@@ -277,6 +277,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_editor_scale.cpp
     src/hook/selftests_editor_shared_coll.cpp
     src/hook/selftests_editor_chains.cpp
+    src/hook/selftests_editor_fields.cpp
     src/hook/selftests_editor_shadows.cpp
     src/hook/selftests_pcmstream.cpp
     src/hook/selftests_pcmplay.cpp
@@ -345,6 +346,9 @@ add_library(thug2_code OBJECT
     src/game/front/level_editor_preview.cpp
     src/game/front/level_editor_chains.cpp
     src/game/front/level_editor_chains_ui.cpp
+    src/game/front/level_editor_fields.cpp
+    src/game/front/level_editor_fields_ui.cpp
+    src/game/front/level_editor_level_props.cpp
     src/game/skate/competition.cpp
     src/game/gfx/anim_controller.cpp
     src/game/gfx/screen.cpp
