@@ -115,3 +115,13 @@ checked beyond the start point (peds / cars / objects not seen from there in the
 - SV Vans Park: 22 bouncy objects, 12 moving (bathroom doors...).
 - BH / DN: the life-node peds stand around (Beverly Hills' old ladies / models, Minneapolis').
 - LV Casino: 98 breakables (glass).
+
+## THUGPRO-compatibility pass (agent thaw-thugpro, 2026-10-20)
+
+See thaw.md "THUGPRO compatibility". Script changes: the thaw_skater context has the skater's animblender / input /
+vibration too (THUG2's TeleportSkaterToNode: THAW's teleports, 5 in The Mall); RailAccelerate written for THUG2 from
+THAW's skutils.qb (provided in every level); trigger_jump_boost (THUG2's = THAW's) allowed for the skater; the made
+LevelObjects / script objects are `objects` for script_port (name:member kept, checked as that object's, IsAlive
+guard: The Mall's Rigidbody_Kick box sets); CTF / team flag game objects made (game-mode flags: 12 per level).
+Still left out (largest): Triggertype conditions (THAW-only C function; THUG2 records the trigger events at
+CTriggerComponent +0x28 but has no script function to read them), THAW goal / story calls, iscreated, printf.
