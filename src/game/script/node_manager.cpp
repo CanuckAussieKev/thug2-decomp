@@ -32,7 +32,15 @@ uint32_t& References() { return GameVariable<uint32_t>(0x006F0D88); }
 constexpr uint32_t kClass = 0x12B4E660;    // class
 constexpr uint32_t kLink = 0xC953660E;     // link (a class= whose nodes aren't hashed)
 
+// NOT ORIGINAL - the level editor's overlay array (see node_manager.h).
+uint32_t g_editorArray;
+NodeArrayRemovedHook g_removedHook;
+
 } // namespace
+
+void SetEditorNodeArray(uint32_t name) { g_editorArray = name; }
+uint32_t EditorNodeArray() { return g_editorArray; }
+void SetNodeArrayRemovedHook(NodeArrayRemovedHook hook) { g_removedHook = hook; }
 
 // 0x0045CE60
 void CNodeManager::HashNode(uint32_t array, uint32_t index, CStruct* node)
@@ -139,10 +147,24 @@ CStruct* CNodeManager::NextNode()
 }
 
 // 0x0045D120
-CArray* CNodeManager::GetLastNodeArray() { return m_count ? m_arrays[m_count - 1].mp_nodes : nullptr; }
+CArray* CNodeManager::GetLastNodeArray()
+{
+    // NOT ORIGINAL: the level editor's overlay array (SetEditorNodeArray) is passed over - callers mean the level's.
+    uint32_t i = m_count;
+    while (i && g_editorArray && m_arrays[i - 1].m_name == g_editorArray)
+        --i;
+    return i ? m_arrays[i - 1].mp_nodes : nullptr;
+}
 
 // 0x0045D150
-uint32_t CNodeManager::GetLastNodeArrayName() { return m_count ? m_arrays[m_count - 1].m_name : 0; }
+uint32_t CNodeManager::GetLastNodeArrayName()
+{
+    // NOT ORIGINAL: as GetLastNodeArray, the editor's overlay array passed over.
+    uint32_t i = m_count;
+    while (i && g_editorArray && m_arrays[i - 1].m_name == g_editorArray)
+        --i;
+    return i ? m_arrays[i - 1].m_name : 0;
+}
 
 // 0x0045D140
 void CNodeManager::SetOwner(void* owner) { mp_owner = owner; }
@@ -245,6 +267,9 @@ bool CNodeManager::RemoveNodeArray(uint32_t name)
                 slot.m_array = static_cast<uint16_t>(index);
         }
     }
+    // NOT ORIGINAL: the level editor's overlay array leaves with the level it was added after.
+    if (g_removedHook)
+        g_removedHook(name);
     return true;
 }
 

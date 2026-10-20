@@ -16,6 +16,7 @@
 #include "game/core/crc.h"
 #include "game/front/level_editor_hud.h"
 #include "game/front/level_editor_layout.h"
+#include "game/front/level_editor_node_create.h"
 #include "game/front/level_editor_node_edit.h"
 #include "game/front/level_editor_nodes.h"
 #include "game/front/level_editor_objects.h"
@@ -394,6 +395,11 @@ bool g_fieldEditing;         // (the Inspector's position / heading fields are b
 bool g_onlineWarned;         // (the warning for a spawn, crown or flag moved in a level shared with THUGPRO: once a run)
 bool g_onlineWarningShown;   // (its window is up)
 int g_hoverNode = -1;
+// Phase 3 (level_editor_node_create.h): the Place palette (N) and its armed entry (a click in the view places it), a
+// level's node waiting for the confirm window before it's hidden.
+bool g_placeOpen;
+int g_placeArmed = -1;
+uint32_t g_confirmHide;
 std::vector<Nodes::Pickable> g_pickables;
 Ui::Overlay g_overlay;
 int g_hudTakenDown;    // (the UI runs: frames the HUD's screen elements have been taken down)
@@ -456,7 +462,8 @@ void HandleEvent(SDL_Event* event)
     case SDL_KEYDOWN:
         // Escape: first what's open (a drag put back, the browser, the help), then the selection, then leave.
         if (event->key.keysym.scancode == SDL_SCANCODE_ESCAPE && !event->key.repeat) {
-            if (g_dragging || g_browser.open || g_help || !g_objects.empty() || Scenery::HasSelection() || g_nodeSelected)
+            if (g_dragging || g_browser.open || g_help || g_placeOpen || g_confirmHide || !g_objects.empty() ||
+                Scenery::HasSelection() || g_nodeSelected)
                 g_cancelRequested = true;
             else
                 g_exitRequested = true;
@@ -518,21 +525,27 @@ bool NodeValues(NodeEdit::Values* values)
 }
 bool HaveSelection() { return Primary() || Scenery::HasSelection() || MovableNode() >= 0; }
 
-// A spawn, crown or flag of a level shared with THUGPRO changed by the editor: the warning, once a run (the edit is
-// made - layouts aren't used in net games, but a layout baked into the level's files would be).
-void NoteOnlineEdit(int index)
+// A spawn, crown or flag of a level shared with THUGPRO changed by the editor (moved, added, hidden, reordered): the
+// warning, once a run (the edit is made - layouts aren't used in net games, but a layout baked into the level's files
+// would be).
+void NoteOnlineChange(Nodes::Family family, const char* what, const char* verb)
 {
-    const std::vector<Nodes::Node>& nodes = Nodes::All();
-    if (g_onlineWarned || index < 0 || index >= static_cast<int>(nodes.size()) || !Nodes::Online(nodes[index].family))
+    if (g_onlineWarned || !Nodes::Online(family))
         return;
     const char* game = "";
     if (!Nodes::LevelIsShared(&game))
         return;
     g_onlineWarned = true;
     g_onlineWarningShown = true;
-    Log("level editor: %s moved in a level shared with THUGPRO (%s) - warned", Nodes::Label(nodes[index].name).c_str(),
-        game);
-    Hud::Message("Online: this level is shared with THUGPRO - moving its spawns, crowns and flags breaks parity", 8.0);
+    Log("level editor: %s %s in a level shared with THUGPRO (%s) - warned", what, verb, game);
+    Hud::Message("Online: this level is shared with THUGPRO - changing its spawns, crowns and flags breaks parity", 8.0);
+}
+void NoteOnlineEdit(int index)
+{
+    const std::vector<Nodes::Node>& nodes = Nodes::All();
+    if (index < 0 || index >= static_cast<int>(nodes.size()))
+        return;
+    NoteOnlineChange(nodes[index].family, Nodes::Label(nodes[index].name).c_str(), "moved");
 }
 
 // The selected node put at `values` (an edit of the editor's: the online warning first time).
@@ -660,7 +673,7 @@ struct MadeCopy {
     Objects::State state;
 };
 struct UndoStep {
-    enum Kind { kObjects, kScenery, kMade, kNodes } kind = kObjects;
+    enum Kind { kObjects, kScenery, kMade, kNodes, kAdded, kHidden, kOrder } kind = kObjects;
     std::vector<Objects::State> objects;
     Scenery::State scenery;
     NodeEdit::Step nodes; // (kNodes: the nodes' places - level_editor_node_edit.h)
@@ -669,6 +682,13 @@ struct UndoStep {
     std::vector<MadeCopy> copies;
     bool exist = false;
     V3 where = {}; // (the selection's position then: whether a drag moved it)
+    // kAdded: nodes the editor added and where in the overlay (exist: whether they're there once put back); kHidden:
+    // a level's nodes and whether they're hidden once put back; kOrder: the overlay's order (names) to put back.
+    std::vector<NodeCreate::Spec> added;
+    std::vector<int> addedAt;
+    std::vector<uint32_t> hiddenNames;
+    bool hidden = false;
+    std::vector<std::string> order;
 };
 std::vector<UndoStep> g_undo, g_redo;
 UndoStep g_pending;
@@ -799,6 +819,40 @@ void Restore(UndoStep& step)
             SelectNodeOnly(index);
         break;
     }
+    case UndoStep::kAdded: {
+        std::string message;
+        if (step.exist) {
+            // (made again where they were in the overlay: lowest index first)
+            std::vector<size_t> byIndex(step.added.size());
+            for (size_t i = 0; i < byIndex.size(); ++i)
+                byIndex[i] = i;
+            std::sort(byIndex.begin(), byIndex.end(), [&](size_t a, size_t b) { return step.addedAt[a] < step.addedAt[b]; });
+            for (size_t i : byIndex)
+                NodeCreate::Create(step.added[i], step.addedAt[i], &message);
+            int index = step.added.empty() ? -1 : Nodes::Find(NodeCreate::Checksum(step.added.front().name));
+            if (index >= 0)
+                SelectNodeOnly(index);
+        } else {
+            for (const NodeCreate::Spec& spec : step.added) {
+                NodeCreate::Spec removed;
+                int at;
+                NodeCreate::Remove(NodeCreate::Checksum(spec.name), &removed, &at);
+            }
+            g_nodeSelected = false;
+        }
+        break;
+    }
+    case UndoStep::kHidden: {
+        for (uint32_t name : step.hiddenNames)
+            NodeCreate::Hide(name, step.hidden);
+        int index = step.hiddenNames.empty() ? -1 : Nodes::Find(step.hiddenNames.front());
+        if (index >= 0)
+            SelectNodeOnly(index);
+        break;
+    }
+    case UndoStep::kOrder:
+        NodeCreate::SetOrder(step.order);
+        break;
     }
 }
 
@@ -828,6 +882,27 @@ UndoStep Current(const UndoStep& step)
         now.nodes = NodeEdit::Capture(names, NodeEdit::Read);
         break;
     }
+    case UndoStep::kAdded: {
+        now.exist = !step.exist;
+        if (now.exist) {
+            // (there now: as they are now - moved since - and where)
+            NodeCreate::List current = NodeCreate::Current();
+            for (size_t i = 0; i < now.added.size(); ++i) {
+                int at = NodeCreate::IndexOf(current, now.added[i].name);
+                if (at >= 0) {
+                    now.added[i] = current[at];
+                    now.addedAt[i] = at;
+                }
+            }
+        }
+        break;
+    }
+    case UndoStep::kHidden:
+        now.hidden = !step.hidden;
+        break;
+    case UndoStep::kOrder:
+        now.order = NodeCreate::Order();
+        break;
     }
     return now;
 }
@@ -1191,7 +1266,7 @@ void AddNodeGizmos(const Frame& frame, int selected)
             continue;
         float depth = -Dot(d, frame.back);
         float r = 6.0f * k;
-        uint32_t c = n.colour;
+        uint32_t c = n.hidden ? 0x90A0A4A8 : n.colour; // (hidden: greyed)
         const uint32_t kOutline = 0xC0101012;
         switch (n.family) {
         case Nodes::Family::Spawn: {
@@ -1220,7 +1295,10 @@ void AddNodeGizmos(const Frame& frame, int selected)
             o.triangles.push_back({px, py - r * 1.4f, px + r, py, px - r, py, c});
             o.triangles.push_back({px - r, py, px + r, py, px, py + r * 1.4f, c});
             char text[16];
-            std::snprintf(text, sizeof(text), "#%d", n.order);
+            if (n.order >= 0)
+                std::snprintf(text, sizeof(text), "#%d", n.order);
+            else
+                std::snprintf(text, sizeof(text), "hidden");
             o.texts.push_back({px + r + 4.0f * k, py - r * 1.4f, c, text});
             break;
         }
@@ -1666,6 +1744,200 @@ void UpdateHud()
     }
 }
 
+// --- adding and deleting nodes (level_editor_node_create.h) ---
+
+struct PlaceEntry {
+    NodeCreate::Kind kind;
+    NodeCreate::Team team;
+    std::string label;
+    uint32_t colour;
+};
+const std::vector<PlaceEntry>& PlaceEntries()
+{
+    static std::vector<PlaceEntry> entries;
+    if (!entries.empty())
+        return entries;
+    using NodeCreate::Kind;
+    using NodeCreate::Team;
+    const Team teams[] = {Team::Red, Team::Blue, Team::Green, Team::Yellow};
+    entries.push_back({Kind::Spawn, Team::Red, "Multiplayer spawn", Nodes::SpawnColour(Nodes::kMultiplayer, 0)});
+    for (Team t : teams) {
+        std::string colour = NodeCreate::TeamName(t);
+        entries.push_back({Kind::TeamSpawn, t, "Team spawn (" + colour + ")",
+                           Nodes::TeamColour(("_" + colour).c_str())});
+    }
+    entries.push_back({Kind::Crown, Team::Red, "Crown", 0xFFFFC233});
+    for (Team t : teams) {
+        std::string colour = NodeCreate::TeamName(t);
+        entries.push_back({Kind::FlagSet, t, "CTF flag set (" + colour + ")", Nodes::TeamColour(("_" + colour).c_str())});
+    }
+    entries.push_back({Kind::Light, Team::Red, "Level light", 0xFFFFE9A8});
+    entries.push_back({Kind::Sound, Team::Red, "Sound emitter (silent for now)", 0xFF4FD1C5});
+    entries.push_back({Kind::Proxim, Team::Red, "Proximity node (sphere)", 0xFFF08A3C});
+    return entries;
+}
+
+Nodes::Family FamilyOf(NodeCreate::Kind kind)
+{
+    switch (kind) {
+    case NodeCreate::Kind::Spawn:
+    case NodeCreate::Kind::TeamSpawn: return Nodes::Family::Spawn;
+    case NodeCreate::Kind::Crown: return Nodes::Family::Crown;
+    case NodeCreate::Kind::FlagSet: return Nodes::Family::Flag;
+    case NodeCreate::Kind::Light: return Nodes::Family::Light;
+    case NodeCreate::Kind::Sound: return Nodes::Family::Sound;
+    case NodeCreate::Kind::Proxim: return Nodes::Family::Trigger;
+    }
+    return Nodes::Family::Other;
+}
+
+// Palette entry `entry` placed at `at` (a point the cursor or the view found): dropped to the ground below it as G
+// drops a node (a light raised 150 units), facing the camera's heading; selected; one undo step.
+void PlaceNode(int entry, V3 at)
+{
+    const std::vector<PlaceEntry>& entries = PlaceEntries();
+    if (entry < 0 || entry >= static_cast<int>(entries.size()))
+        return;
+    const PlaceEntry& e = entries[entry];
+    if (const char* why = NodeCreate::WhyNot(e.kind, e.team)) {
+        Hud::Message(why, 5.0);
+        return;
+    }
+    V3 ground;
+    if (GroundBelow(GroundRayStart(at, at.y, true), &ground))
+        at = DroppedTo(at, at.y, ground.y);
+    if (e.kind == NodeCreate::Kind::Light)
+        at.y += 150.0f;
+    std::string name = NodeCreate::FixedName(e.kind, e.team);
+    if (name.empty())
+        name = NodeCreate::FreshName(NodeCreate::NameStem(e.kind), NodeCreate::NameTaken);
+    std::vector<NodeCreate::Spec> specs = {NodeCreate::Default(e.kind, e.team, at, g_yaw, name)};
+    if (e.kind == NodeCreate::Kind::FlagSet)
+        specs.push_back(NodeCreate::Base(specs.front()));
+    UndoStep step;
+    step.kind = UndoStep::kAdded;
+    step.exist = false; // (undone: they're removed)
+    std::string message;
+    for (const NodeCreate::Spec& spec : specs) {
+        if (!NodeCreate::Create(spec, -1, &message))
+            break;
+        step.added.push_back(spec);
+        step.addedAt.push_back(NodeCreate::IndexOf(NodeCreate::Current(), spec.name));
+    }
+    if (step.added.empty()) {
+        Hud::Message(message, 5.0);
+        return;
+    }
+    PushUndo(step);
+    g_pickables.clear();
+    g_hoverNode = -1;
+    int index = Nodes::Find(NodeCreate::Checksum(specs.front().name));
+    if (index >= 0)
+        SelectNodeOnly(index);
+    NoteOnlineChange(FamilyOf(e.kind), specs.front().name.c_str(), "added");
+    Hud::Message("Added " + specs.front().name + " (" + e.label + ") - Ctrl+Z takes it away");
+    NoteAction("added %s (%s)", specs.front().name.c_str(), e.label.c_str());
+}
+
+// The selected node deleted: an added one removed (undoable); a level's own hidden - after the confirm window when the
+// UI runs (`confirmed`), at once with the old HUD.
+void DeleteNode(bool confirmed)
+{
+    int index = MovableNode();
+    if (index < 0)
+        return;
+    const Nodes::Node node = Nodes::All()[index];
+    if (node.added) {
+        UndoStep step;
+        step.kind = UndoStep::kAdded;
+        step.exist = true; // (undone: made again)
+        NodeCreate::Spec spec;
+        int at;
+        if (!NodeCreate::Remove(node.name, &spec, &at))
+            return;
+        step.added.push_back(spec);
+        step.addedAt.push_back(at);
+        PushUndo(step);
+        g_nodeSelected = false;
+        g_pickables.clear();
+        g_hoverNode = -1;
+        NoteOnlineChange(node.family, spec.name.c_str(), "deleted");
+        Hud::Message("Deleted " + spec.name + " - Ctrl+Z brings it back");
+        NoteAction("deleted the added node %s", spec.name.c_str());
+        return;
+    }
+    if (node.hidden) {
+        Hud::Message("It's hidden already - Home shows it again");
+        return;
+    }
+    const char* why = nullptr;
+    if (!NodeCreate::CanHide(node, &why)) {
+        Hud::Message(why ? why : "It can't be hidden", 5.0);
+        return;
+    }
+    if (Ui::Running() && !confirmed) {
+        g_confirmHide = node.name;
+        return;
+    }
+    if (!NodeCreate::Hide(node.name, true))
+        return;
+    UndoStep step;
+    step.kind = UndoStep::kHidden;
+    step.hiddenNames = {node.name};
+    step.hidden = false; // (undone: shown)
+    PushUndo(step);
+    NoteOnlineChange(node.family, Nodes::Label(node.name).c_str(), "hidden");
+    Hud::Message("Hidden " + Nodes::Label(node.name) + " - Home or Ctrl+Z brings it back");
+    NoteAction("hid the level's node %s", Nodes::Label(node.name).c_str());
+}
+
+// Home on a hidden node: shown again (undoable).
+bool ShowHiddenNode()
+{
+    int index = MovableNode();
+    if (index < 0 || !Nodes::All()[index].hidden)
+        return false;
+    uint32_t name = Nodes::All()[index].name;
+    if (!NodeCreate::Hide(name, false))
+        return false;
+    UndoStep step;
+    step.kind = UndoStep::kHidden;
+    step.hiddenNames = {name};
+    step.hidden = true; // (undone: hidden again)
+    PushUndo(step);
+    Hud::Message("Shown again: " + Nodes::Label(name));
+    NoteAction("showed the level's node %s again", Nodes::Label(name).c_str());
+    return true;
+}
+
+// An added crown earlier / later among the added crowns (one undo step).
+void MoveSelectedCrown(int delta)
+{
+    int index = MovableNode();
+    if (index < 0)
+        return;
+    const Nodes::Node& node = Nodes::All()[index];
+    UndoStep step;
+    step.kind = UndoStep::kOrder;
+    step.order = NodeCreate::Order();
+    std::string message;
+    uint32_t name = node.name;
+    Nodes::Family family = node.family;
+    if (!NodeCreate::MoveCrown(name, delta, &message)) {
+        Hud::Message(message, 5.0);
+        return;
+    }
+    PushUndo(step);
+    int now = Nodes::Find(name);
+    if (now >= 0) {
+        SelectNodeOnly(now);
+        char text[96];
+        std::snprintf(text, sizeof(text), "Now crown #%d", Nodes::All()[now].order);
+        Hud::Message(text);
+    }
+    NoteOnlineChange(family, Nodes::Label(name).c_str(), "reordered");
+}
+
 // --- the UI (level_editor_ui.h): what it shows ---
 
 std::vector<Ui::BrowserItem> g_uiBrowserItems;
@@ -1673,6 +1945,8 @@ std::vector<Ui::BrowserItem> g_uiBrowserItems;
 // The keys for what you're doing (as the HUD's bottom lines).
 std::vector<std::pair<std::string, std::string>> KeysNow()
 {
+    if (g_placeArmed >= 0)
+        return {{"Click", "place it"}, {"Shift+click", "place more"}, {"Esc", "cancel"}, {"N", "close the palette"}};
     if (g_browser.open)
         return {{"Up/Down", "choose"}, {"Left/Right", "scenery / objects"}, {"Enter", "place it"}, {"F", "show me"},
                 {"B, Esc", "close"}};
@@ -1683,7 +1957,7 @@ std::vector<std::pair<std::string, std::string>> KeysNow()
                 {"Esc", "put it back"}};
     if (MovableNode() >= 0)
         return {{"Drag", "move"}, {"Arrows", "one axis"}, {"WASDQE", "nudge"}, {"Z X", "turn 15\xC2\xB0"},
-                {"G", "drop"}, {"Home", "level's place"}, {"Esc", "deselect"}};
+                {"G", "drop"}, {"Del", "delete / hide"}, {"Home", "level's place"}, {"Esc", "deselect"}};
     if (g_nodeSelected)
         return {{"WASD", "fly"}, {"RMB", "look"}, {"Click", "select another"}, {"Esc", "deselect"},
                 {"Outliner", "double-click: go to"}, {"F1", "help"}};
@@ -1691,7 +1965,8 @@ std::vector<std::pair<std::string, std::string>> KeysNow()
         return {{"Drag", "move"}, {"Arrows", "one axis"}, {"WASDQE", "nudge"}, {"Z X", "turn"}, {"G", "drop"},
                 {"Ctrl+D", "copy"}, {"Del", "hide"}, {"Home", "reset"}, {"Esc", "deselect"}};
     return {{"WASD", "fly"}, {"Q E", "down / up"}, {"Shift", "fast"}, {"RMB", "look"}, {"Wheel", "dolly"},
-            {"Click", "select"}, {"B", "add"}, {"Ctrl+S", "save"}, {"Ctrl+Z/Y", "undo / redo"}, {"F1", "help"}};
+            {"Click", "select"}, {"B", "add"}, {"N", "place"}, {"Ctrl+S", "save"}, {"Ctrl+Z/Y", "undo / redo"},
+            {"F1", "help"}};
 }
 
 Ui::Model BuildModel()
@@ -1759,6 +2034,50 @@ Ui::Model BuildModel()
         model.nodes.whenApplied = NodeEdit::WhenApplied(Nodes::All()[model.nodes.selected]);
     }
     model.nodes.onlineWarning = g_onlineWarningShown;
+    if (model.nodes.nodeOnly && model.nodes.selected < static_cast<int>(Nodes::All().size())) {
+        const Nodes::Node& n = Nodes::All()[model.nodes.selected];
+        model.nodes.added = n.added;
+        model.nodes.hidden = n.hidden;
+        const char* why = nullptr;
+        model.nodes.canHide = !n.added && NodeCreate::CanHide(n, &why);
+        model.nodes.whyNoHide = why ? why : "";
+        if (n.added && n.family == Nodes::Family::Crown) {
+            NodeCreate::List list = NodeCreate::Current();
+            std::string name;
+            for (const NodeCreate::Spec& spec : list) {
+                if (NodeCreate::Checksum(spec.name) == n.name)
+                    name = spec.name;
+            }
+            NodeCreate::List up = list, down = list;
+            model.nodes.crownUp = NodeCreate::MoveCrown(&up, name, -1);
+            model.nodes.crownDown = NodeCreate::MoveCrown(&down, name, 1);
+        }
+    }
+    model.place.open = g_placeOpen;
+    model.place.armed = g_placeArmed;
+    if (g_placeOpen) {
+        for (const PlaceEntry& e : PlaceEntries()) {
+            const char* why = NodeCreate::WhyNot(e.kind, e.team);
+            model.place.entries.push_back({e.label, e.colour, why ? why : ""});
+        }
+    }
+    if (g_confirmHide) {
+        int index = Nodes::Find(g_confirmHide);
+        if (index >= 0) {
+            const Nodes::Node& n = Nodes::All()[index];
+            model.confirm.open = true;
+            model.confirm.name = Nodes::Label(n.name);
+            std::string family = Nodes::FamilyName(n.family);
+            if (!family.empty() && family.back() == 's')
+                family.pop_back(); // ("Crowns": "Crown")
+            for (char& ch : family)
+                ch = static_cast<char>(ch >= 'A' && ch <= 'Z' ? ch - 'A' + 'a' : ch);
+            model.confirm.family = family;
+            model.confirm.crown = n.family == Nodes::Family::Crown;
+        } else {
+            g_confirmHide = 0;
+        }
+    }
     return model;
 }
 
@@ -1774,9 +2093,10 @@ void ShowHelp()
         "Moving       hold and drag (Shift: up / down, wheel: push / pull, Ctrl: snap)",
         "             drag an arrow to move along that axis only",
         "             W A S D / Q E nudge   Z / X turn   G drops it to the ground",
-        "Editing      Ctrl+D duplicates   Del hides (a copy: deletes)   Home puts it back",
+        "Editing      Ctrl+D duplicates   Del hides (a copy / added node: deletes)   Home puts back",
         "             Ctrl+Z undo   Ctrl+Y redo",
         "Adding       B lists the level's pieces and objects: Enter places a copy",
+        "             N: new spawns, crowns, flags, lights... - pick one, click in the view",
         "Saving       Ctrl+S saves this level's layout - it comes back with the level",
         "             unsaved changes are autosaved: Ctrl+R restores, Ctrl+Shift+R discards",
         "Leaving      Esc (first it cancels a drag, closes a panel or deselects)",
@@ -1962,7 +2282,7 @@ void Duplicate(const Frame& frame)
 void Delete()
 {
     if (MovableNode() >= 0) {
-        Hud::Message("Level nodes can't be deleted yet - Home puts one back where the level had it");
+        DeleteNode(false);
         return;
     }
     std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
@@ -2005,7 +2325,9 @@ void Reset()
 {
     std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
     NodeEdit::Values node;
-    if (NodeValues(&node)) {
+    if (ShowHiddenNode()) {
+        // (a hidden node: shown first - Home again puts it back where the level has it)
+    } else if (NodeValues(&node)) {
         const NodeEdit::Values* origin = NodeEdit::Origin(g_nodeName);
         if (origin && !NodeEdit::Same(node, *origin)) {
             PushUndo(Snapshot());
@@ -2373,6 +2695,38 @@ void ApplyUiRequests(V3 dir, bool haveRay, const Frame& frame)
             if (HaveSelection())
                 GoToSelection();
             break;
+        case Ui::Request::kPlaceToggle:
+            g_placeOpen = !g_placeOpen;
+            g_placeArmed = -1;
+            break;
+        case Ui::Request::kPlaceArm:
+            g_placeArmed = request.value;
+            break;
+        case Ui::Request::kPlaceHere:
+            if (!noChange) {
+                // (where the view looks: the panel has the mouse)
+                PlaceNode(request.value, CursorPoint(frame.back * -1.0f, false, frame));
+                g_placeArmed = -1;
+            }
+            break;
+        case Ui::Request::kDeleteNode:
+            if (!noChange)
+                DeleteNode(false);
+            break;
+        case Ui::Request::kHideConfirmed: {
+            uint32_t name = g_confirmHide;
+            g_confirmHide = 0;
+            if (!noChange && name && name == g_nodeName)
+                DeleteNode(true);
+            break;
+        }
+        case Ui::Request::kHideCancelled:
+            g_confirmHide = 0;
+            break;
+        case Ui::Request::kCrownMove:
+            if (!noChange)
+                MoveSelectedCrown(request.value);
+            break;
         case Ui::Request::kSelectObject:
             if (!g_dragging) {
                 if (auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(request.id))) {
@@ -2446,6 +2800,12 @@ void Update()
             g_hasPending = false;
             FocusOnSelection();
             Hud::Message("Put back");
+        } else if (g_confirmHide) {
+            g_confirmHide = 0;
+        } else if (g_placeArmed >= 0) {
+            g_placeArmed = -1;
+        } else if (g_placeOpen) {
+            g_placeOpen = false;
         } else if (g_browser.open) {
             g_browser.open = false;
             Hud::HidePanel();
@@ -2458,7 +2818,7 @@ void Update()
     }
 
     static bool backspace, zKey, yKey, sKey, dKey, rKey, homeKey, deleteKey, turnRight, slower, faster, dropKey, helpKey,
-        browseKey, enterKey, focusKey, leftKey, rightKey;
+        browseKey, enterKey, focusKey, leftKey, rightKey, placeKey;
     static uint32_t upSince, downSince, pageUpSince, pageDownSince;
     bool zPressed = Pressed(keys, SDL_SCANCODE_Z, &zKey);
     bool noChange = g_dragging || g_keyMoving || g_fieldEditing;
@@ -2468,6 +2828,14 @@ void Update()
         ToggleHelp();
     if (Pressed(keys, SDL_SCANCODE_B, &browseKey) && !g_dragging)
         ToggleBrowser();
+    if (Pressed(keys, SDL_SCANCODE_N, &placeKey) && !g_dragging && !ctrl) {
+        if (Ui::Running()) {
+            g_placeOpen = !g_placeOpen;
+            g_placeArmed = -1;
+        } else {
+            Hud::Message("The Place palette (N) needs the editor's UI ([features] editor_ui=1)");
+        }
+    }
 
     // Ctrl+ keys: undo / redo, save, duplicate.
     if (ctrl && !noChange) {
@@ -2505,7 +2873,7 @@ void Update()
         Deselect();
     if (Pressed(keys, SDL_SCANCODE_HOME, &homeKey) && !noChange && !g_browser.open)
         Reset();
-    if (Pressed(keys, SDL_SCANCODE_DELETE, &deleteKey) && !noChange && !g_browser.open)
+    if (Pressed(keys, SDL_SCANCODE_DELETE, &deleteKey) && !noChange && !g_browser.open && !g_confirmHide)
         Delete();
 
     // Looking (right button held): about the camera, or orbiting the selection.
@@ -2667,7 +3035,11 @@ void Update()
 
     // A click: on an arrow, dragging along it; on something, selecting it (Shift: adding / removing it; Alt or a
     // middle click: one piece of scenery in / out) and dragging it; on nothing, deselecting.
-    if ((input.leftPresses || input.middlePresses) && haveRay && !g_dragging) {
+    if (input.leftPresses && haveRay && !g_dragging && g_placeArmed >= 0 && g_placeOpen && g_hoverAxis < 0) {
+        PlaceNode(g_placeArmed, CursorPoint(dir, haveRay, frame));
+        if (!shift)
+            g_placeArmed = -1;
+    } else if ((input.leftPresses || input.middlePresses) && haveRay && !g_dragging) {
         Obj::CCompositeObject* hover = Live(g_hover);
         bool one = alt || (input.middlePresses && !input.leftPresses);
         bool drag = false;

@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+#include "game/front/level_editor_node_create.h"
 #include "game/front/level_editor_scenery.h"
 
 // NOT ORIGINAL - the level editor's saved layouts (ours; see level_editor.h): what the editor changed in a level,
@@ -23,6 +24,13 @@
 //   set <node> pos=<x>,<y>,<z> angles=<x>,<y>,<z>      (version 2) a level node's pos= / angles= (a point node moved or
 //                                                      turned - level_editor_node_edit.h); either may be left out,
 //                                                      other key=value fields are skipped (for later versions)
+//   node <name> <Class> type=<T> pos=x,y,z angles=x,y,z [types=A,B] [color=r,g,b] [brightness=b] [inner=i]
+//        [outer=o] [radius=r]                            (version 2, phase 3) a node the editor added
+//                                                      (level_editor_node_create.h: the rest of the node follows from
+//                                                      these); in the overlay's order - the order added crowns count in
+//   order crown <name> <name>...                       the added crowns' order (reordered: as the node records')
+//   hide <node>                                        a level's node hidden (not removed: its indexes stay)
+// An older (phase 2) reader skips node / order / hide records.
 // Checksums are 8 hex digits; numbers are written with 9 significant digits (floats survive the round trip).
 namespace Front::LevelEditor::Layout {
 
@@ -58,6 +66,9 @@ struct File {
     std::vector<ObjectRecord> objects;
     std::vector<CopyRecord> copies;
     std::vector<SetRecord> nodes;
+    std::vector<NodeCreate::Spec> added;  // `node` records, in order
+    std::vector<std::string> crownOrder;  // `order crown`
+    std::vector<uint32_t> hidden;         // `hide`
 };
 
 // The text of a layout, and a layout read back (false: not a layout file; `line` the first line that isn't

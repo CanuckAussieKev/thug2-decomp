@@ -173,6 +173,8 @@ std::vector<Node> g_nodes;
 std::unordered_map<uint32_t, int> g_byName;
 int g_counts[kFamilies];
 std::vector<uint32_t> g_signature; // (the arrays' names and sizes when scanned)
+int g_walkedCrowns, g_walkedSpawns;
+uint32_t g_generation;
 
 std::vector<uint32_t> Signature()
 {
@@ -225,6 +227,7 @@ void Scan()
                           kRadius = Checksum("Radius"), kTerrainType = Checksum("TerrainType"),
                           kTrickObject = Checksum("TrickObject"), kTriggerScript = Checksum("TriggerScript");
     int crowns = 0, restarts = 0;
+    ++g_generation;
     for (uint32_t a = 0; a < manager->m_count && a < SkateScript::CNodeManager::kMaxArrays; ++a) {
         Script::CArray* nodes = manager->m_arrays[a].mp_nodes;
         if (!nodes || nodes->m_type != Script::ESYMBOLTYPE_STRUCTURE)
@@ -239,6 +242,14 @@ void Scan()
             s->GetChecksum(kName, &node.name, 0);
             s->GetChecksum(kClass, &node.cls, 0);
             s->GetChecksum(kType, &node.type, 0);
+            node.added = manager->m_arrays[a].m_name == OverlayArray();
+            if (node.cls == HiddenMarker()) {
+                // (hidden by the editor: its own class and type kept beside the marker)
+                node.hidden = true;
+                node.cls = node.type = 0;
+                s->GetChecksum(HiddenClassKey(), &node.cls, 0);
+                s->GetChecksum(HiddenTypeKey(), &node.type, 0);
+            }
             node.family = Classify(node.cls, node.type);
             Script::VectorValue v = {0.0f, 0.0f, 0.0f, 1.0f};
             if (s->GetVector(kPos, &v, 0)) {
@@ -254,7 +265,7 @@ void Scan()
             const char* name = Objects::NameOf(node.name);
             switch (node.family) {
             case Family::Spawn: {
-                node.order = restarts++;
+                node.order = node.hidden ? -1 : restarts++; // (the game's walks skip a hidden one)
                 Script::CArray* types = nullptr;
                 if (s->GetArray(kRestartTypes, &types, 0) && types) {
                     for (uint32_t t = 0; t < types->m_size; ++t)
@@ -264,7 +275,7 @@ void Scan()
                 break;
             }
             case Family::Crown:
-                node.order = crowns++;
+                node.order = node.hidden ? -1 : crowns++;
                 node.colour = 0xFFFFC233;
                 break;
             case Family::Flag: {
@@ -330,6 +341,8 @@ void Scan()
             g_nodes.push_back(std::move(node));
         }
     }
+    g_walkedCrowns = crowns;
+    g_walkedSpawns = restarts;
     // The links, as indices (links= holds the linked nodes' names once the array is added - ResolveLinks).
     for (Node& node : g_nodes) {
         Script::CStruct* s = NodeAt(manager->m_arrays[node.array].mp_nodes, static_cast<uint32_t>(node.index));
@@ -365,6 +378,42 @@ const int* Counts()
 {
     Refresh();
     return g_counts;
+}
+
+int Walked(Family family)
+{
+    Refresh();
+    return family == Family::Crown ? g_walkedCrowns : family == Family::Spawn ? g_walkedSpawns : g_counts[static_cast<int>(family)];
+}
+
+uint32_t Generation()
+{
+    Refresh();
+    return g_generation;
+}
+
+void Invalidate() { g_signature.clear(); }
+
+const char* const kOverlayArrayName = "thug2_decomp_editor_nodes";
+uint32_t OverlayArray()
+{
+    static const uint32_t name = Checksum(kOverlayArrayName);
+    return name;
+}
+uint32_t HiddenMarker()
+{
+    static const uint32_t name = Checksum("ed_hidden");
+    return name;
+}
+uint32_t HiddenClassKey()
+{
+    static const uint32_t name = Checksum("ed_hidden_class");
+    return name;
+}
+uint32_t HiddenTypeKey()
+{
+    static const uint32_t name = Checksum("ed_hidden_type");
+    return name;
 }
 
 int Find(uint32_t name)

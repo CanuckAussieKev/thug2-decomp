@@ -98,7 +98,31 @@ struct Model {
         const char* whenApplied = "";
         // The warning for a spawn, crown or flag moved in a level shared with THUGPRO (once a run, until dismissed).
         bool onlineWarning = false;
+        // Phase 3 (level_editor_node_create.h): added by the editor (Delete removes it) or a level's node hidden
+        // (Home shows it again); whether a level's node can be hidden (else why not); an added crown's moves.
+        bool added = false, hidden = false;
+        bool canHide = false;
+        std::string whyNoHide;
+        bool crownUp = false, crownDown = false;
     } nodes;
+    // The Place palette (N): what can be added - each entry's label, gizmo colour and, when it can't be now, why -
+    // and the one armed (a click in the view places it; -1: none).
+    struct PlaceView {
+        bool open = false;
+        int armed = -1;
+        struct Entry {
+            std::string label;
+            uint32_t colour;
+            std::string why;
+        };
+        std::vector<Entry> entries;
+    } place;
+    // Deleting a level's own node asks first: it is hidden, not removed.
+    struct ConfirmHide {
+        bool open = false;
+        std::string name, family;
+        bool crown = false;
+    } confirm;
 };
 
 // What's drawn over the view, under the panels: in back buffer pixels (as the editor projects; the UI scales them to
@@ -163,6 +187,13 @@ struct Request {
         kNodeSetDone,   // the Inspector's field let go (the changes since its first kNodeSet: one undo step)
         kReset,         // Home: the selection back where the level had it
         kOnlineWarningSeen,
+        kPlaceToggle,   // N: the Place palette
+        kPlaceArm,      // value: a palette entry (-1: none) - the next click in the view places it
+        kPlaceHere,     // value: a palette entry placed where the view looks
+        kDeleteNode,    // the Inspector's Delete / Hide (as the Delete key)
+        kHideConfirmed, // the confirm window's Hide
+        kHideCancelled,
+        kCrownMove,     // value: -1 / +1 - an added crown earlier / later in the crowns' order
     } kind;
     int value = 0;
     uint32_t id = 0;

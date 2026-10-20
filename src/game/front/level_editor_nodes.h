@@ -80,12 +80,28 @@ struct Node {
     uint32_t terrain = 0;
     bool trickObject = false;
     bool triggerScript = false;
+    bool added = false;  // in the editor's overlay array (level_editor_node_create.h)
+    bool hidden = false; // hidden by the editor: class / type are the marker's, cls / type here its own
 };
+
+// The editor's overlay array and the hidden marker (level_editor_node_create.h): its class and type, and the
+// components that keep a hidden node's own.
+extern const char* const kOverlayArrayName; // "thug2_decomp_editor_nodes"
+uint32_t OverlayArray();
+uint32_t HiddenMarker();      // ed_hidden
+uint32_t HiddenClassKey();    // ed_hidden_class
+uint32_t HiddenTypeKey();     // ed_hidden_type
 
 // The nodes (scanned again when the node arrays change: their names, sizes or count) - empty outside a level.
 const std::vector<Node>& All();
-// The count of each family.
+// The count of each family (hidden ones too).
 const int* Counts();
+// How many of a family the game counts (spawns, crowns: hidden ones not).
+int Walked(Family family);
+// A number that changes whenever the nodes are scanned again (the UI's caches key on it).
+uint32_t Generation();
+// The next All() scans again (a node hidden or shown: the arrays' sizes didn't change).
+void Invalidate();
 // The node named `name` (its index in All(), -1 if none).
 int Find(uint32_t name);
 // The node's structure (null if the arrays changed).

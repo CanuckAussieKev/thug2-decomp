@@ -308,6 +308,17 @@ std::vector<Record> Changed()
     return out;
 }
 
+void Forget(uint32_t name)
+{
+    auto it = g_touchedIndex.find(name);
+    if (it == g_touchedIndex.end())
+        return;
+    g_touched.erase(g_touched.begin() + static_cast<std::ptrdiff_t>(it->second));
+    g_touchedIndex.clear();
+    for (size_t i = 0; i < g_touched.size(); ++i)
+        g_touchedIndex[g_touched[i].name] = i;
+}
+
 void ResetAll()
 {
     std::vector<Touched> touched = g_touched;
