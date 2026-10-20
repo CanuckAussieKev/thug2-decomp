@@ -1,5 +1,6 @@
 # NOT ORIGINAL - GAME OPTIONS' "CREATE 100% CAS" for make_menu_level.py's data overlay (the user's request): a Story
-# Mode career as a player who finished it completely would have it, and the created skater's stats maxed.
+# Mode and Classic Mode career as a player who finished both completely (every goal and gap, everything they
+# unlock) would have it, and the created skater's stats maxed.
 #
 # What the option does (the script cas100_apply, after a Yes in a warning dialog), with the game's own scripts and
 # commands wherever there are any:
@@ -25,14 +26,29 @@
 #     mode (free skate, 2 player...) the level select goes by the LEVEL_SEEN_ flags (level_select_should_use_seen_flags):
 #     the story only gives the 7 story levels and PRO SKATER; SCHOOL, PHILADELPHIA, DOWNHILL JAM, LOS ANGELES, CANADA,
 #     AIRPORT and THE TRIANGLE only come from classic mode. So all 16 THUG2 levels are open there.
-# Not part of it: classic mode itself (its goals stay unbeaten, no GAME_COMPLETED_CLASSIC_ flags), the gaps (each level's gap list only exists once the level has been played) and so
-# the all-gaps reward (the gameplay cheat codes), the stat challenges' own progress (the stats are set directly).
-# Nothing is saved: the player saves with SAVE GAME.
+#   - Classic Mode complete: every classic goal of the 14 classic levels beaten (Career100_Apply classic_goals=: the
+#     goal manager's store, tagged `classic` as a classic goal's save tags it, and each level's classic goal
+#     counter - what GetClassicLevelGoalCount reads), SetClassicTotalGoals 140, CLASSIC_STARTED (so CONTINUE
+#     CLASSIC MODE is offered), classic_game_complete_rewards on Normal and Sick (GAME_COMPLETED_CLASSIC_*, the pro
+#     bails movie, the classic secret skaters) and classic_goal_complete_rewards, with
+#     CLASSIC_SEEN_GAME_COMPLETE_MESSAGE / _GOAL_. The classic goals' names come from each classic level's
+#     <prefix>_Goals script's classic block, read from the compiled .qb (qb_walk.classic_goal_calls - NeverScript
+#     stops in CA_scripts.qb): "<prefix>_classic_goal_<goal type><version>", GoalManager_CreateGoalName's rule;
+#   - every gap of the 15 levels of levels_with_gaps got (Career100_Apply gaps=: each level's gap checklist and the
+#     level marked visited - CSkaterCareer::AllGapsGot), worked out the way the game builds a level's checklist when
+#     it loads (qb_walk.gap_list: every node's TriggerScript followed to its EndGap calls), and the all-gaps reward
+#     as ProcessAllGapsReward gives it (unlock_all_gameplay_cheat_codes, all_gaps_complete_rewards).
+# Not part of it: the stat challenges' own progress (the stats are set directly); what only cheat codes or dead
+# scripts unlock (CHEAT_UNLOCKED_1/3/5/10 - Cool Specials, Kid Mode, RollerSkates, Flame -, GOT_ALL_GOALS,
+# SKATER_UNLOCKED_PEDS / _PEDGROUP9; docs/pending/cas100.md has the audit). Nothing is saved: the player saves with
+# SAVE GAME.
 #
 # make_menu_level.py calls options_menu() with the front end's GAME OPTIONS scripts (levels\mainmenu\
 # mainmenu_options.qb) and writes the result into the overlay.
 
 import re
+
+import qb_walk
 
 # The stats' maximum (the stats menu's "/10"; profile stats are clamped to 0..10 - 0x00585FD0).
 STAT_MAX = 10
@@ -170,10 +186,100 @@ def story_flags_and_tricks(texts):
     return flags, tricks
 
 
-def career_data(levels_qb, chapter_info, goal_utilities, stats, level_scripts):
-    # Everything options_menu needs. levels_qb, chapter_info, goal_utilities, stats: the texts of
-    # scripts\game\levels.qb, menu\chapter_info.qb, goal_utilities.qb, menu\stats.qb; level_scripts(prefix, path,
-    # pre) -> the text of that level's scripts .qb.
+def level_structures(levels_qb):
+    # Levels.qb's level structures: [{load, prefix, number, pre, qb (the node array's file), goals_root}] (those
+    # with a level number).
+    out = []
+    for match in re.finditer(r"^(Level_\w+) = \{", levels_qb, re.M):
+        start, end = braces(levels_qb, match.start())
+        text = levels_qb[start:end]
+        fields = {key: re.search(pattern, text) for key, pattern in (
+            ("load", r"\bload_script=(\w+)"), ("prefix", r'\blevel="(\w+)"'), ("pre", r'\bpre="([^"]+)"'),
+            ("qb", r'\bqb="([^"]+)"'), ("number", r"\blevel_number=(\w+)"), ("goals_root", r"\bgoals_script=(\w+)"))}
+        if not all(fields.values()):
+            continue
+        number = re.search(r"^%s = (\d+)" % re.escape(fields["number"].group(1)), levels_qb, re.M | re.I)
+        if not number:
+            continue
+        out.append({"load": fields["load"].group(1).lower(), "prefix": fields["prefix"].group(1),
+                    "number": int(number.group(1)), "pre": fields["pre"].group(1),
+                    # (NeverScript writes a string's '\' as '\\')
+                    "qb": fields["qb"].group(1).replace("\\\\", "\\"), "goals_root": fields["goals_root"].group(1)})
+    return out
+
+
+def classic_and_gaps(levels_qb, level_select, goal_utilities, global_qbs, level_qbs):
+    # The classic goals of each classic mode level and the gaps of each level of levels_with_gaps:
+    # ({level number: [classic goal name]}, {level number: [(gap name, score)]}, [(prefix, number)] of the classic
+    # levels, [(prefix, number)] of the gap levels). level_select: gamemenu_levelselect.qb's text; global_qbs:
+    # {name: data} of qb_scripts.prx's .qb files; level_qbs(pre) -> {name: data} of a level's scripts archive.
+    structures = level_structures(levels_qb)
+    by_load = {s["load"]: s for s in structures}
+    by_number = {}
+    for s in structures:
+        by_number.setdefault(s["number"], s)
+    classic_list = global_struct_array(level_select, "level_select_menu_classic_level_info")
+    classic_levels = []
+    for load in re.findall(r"\blevel=(\w+)", classic_list):
+        if by_load[load.lower()] not in classic_levels:
+            classic_levels.append(by_load[load.lower()])
+    gap_list_text = global_struct_array(levels_qb, "levels_with_gaps")
+    gap_levels = []
+    for name in re.findall(r"\b(LevelNum_\w+)", gap_list_text):
+        number = int(re.search(r"^%s = (\d+)" % re.escape(name), levels_qb, re.M | re.I).group(1))
+        gap_levels.append(by_number[number])
+    # The game's scripts as loaded (qb_scripts.prx's), then each level's own over them.
+    symbols = {}
+    for data in global_qbs.values():
+        symbols.update(qb_walk.scripts_in(data))
+    types = {qb_walk.checksum(name): value for name, value in goal_types(goal_utilities).items()}
+    classic, gaps = {}, {}
+    for level in classic_levels + [g for g in gap_levels if g not in classic_levels]:
+        files = {name.lower(): data for name, data in level_qbs(level["pre"]).items()}
+        level_symbols = dict(symbols)
+        for data in files.values():
+            level_symbols.update(qb_walk.scripts_in(data))
+        if level in classic_levels:
+            names = []
+            for call, version in qb_walk.classic_goal_calls(level_symbols, qb_walk.checksum(level["goals_root"]),
+                                                             set(types)):
+                with_version, plain = types[call]
+                goal_type = with_version + str(version) if version is not None and with_version is not None else plain
+                name = "%s_classic_goal_%s" % (level["prefix"], goal_type)
+                if name.lower() not in [n.lower() for n in names]:
+                    names.append(name)
+            classic[level["number"]] = names
+        if level in gap_levels:
+            nodes = qb_walk.global_value(files[level["qb"].lower()], qb_walk.checksum(level["prefix"] + "_NodeArray"))
+            gaps[level["number"]] = qb_walk.gap_list(level_symbols, nodes or [])
+    return (classic, gaps, [(s["prefix"], s["number"]) for s in classic_levels],
+            [(s["prefix"], s["number"]) for s in gap_levels])
+
+
+def global_struct_array(text, name):
+    # The text of the global array `name = [ ... ]`.
+    found = re.search(r"^%s = \[" % re.escape(name), text, re.M | re.I)
+    if not found:
+        raise ValueError("%s not found" % name)
+    depth, i = 0, found.end() - 1
+    while True:
+        c = text[i]
+        if c == '"':
+            i = text.index('"', i + 1)
+        elif c == "[":
+            depth += 1
+        elif c == "]":
+            depth -= 1
+            if depth == 0:
+                return text[found.end() - 1:i + 1]
+        i += 1
+
+
+def career_data(levels_qb, chapter_info, goal_utilities, stats, level_scripts, level_select, global_qbs, level_qbs):
+    # Everything options_menu needs. levels_qb, chapter_info, goal_utilities, stats, level_select: the texts of
+    # scripts\game\levels.qb, menu\chapter_info.qb, goal_utilities.qb, menu\stats.qb, menu\gamemenu_levelselect.qb;
+    # level_scripts(prefix, path, pre) -> the text of that level's scripts .qb; global_qbs: {name: data} of
+    # qb_scripts.prx's .qb files; level_qbs(pre) -> {name: data} of a level's scripts archive's .qb files.
     types = goal_types(goal_utilities)
     chapter_list = chapters(chapter_info)
     levels = []
@@ -208,8 +314,11 @@ def career_data(levels_qb, chapter_info, goal_utilities, stats, level_scripts):
     last = re.search(r"script GoToNextChapterPostCutscene \{.*?SetCurrentChapter chapter=(\d+)", chapter_info, re.S)
     stat_list = re.search(r"^stat_names = \[(.*?)^\]", stats, re.M | re.S).group(1)
     stat_names = re.findall(r"\{name=(`?\w+`?)", stat_list)
+    classic, gaps, classic_levels, gap_levels = classic_and_gaps(levels_qb, level_select, goal_utilities, global_qbs,
+                                                                 level_qbs)
     return {"levels": levels, "flags": flags, "tricks": tricks, "final_chapter": int(last.group(1)),
-            "stats": stat_names}
+            "stats": stat_names, "classic": classic, "gaps": gaps, "classic_levels": classic_levels,
+            "gap_levels": gap_levels}
 
 
 SCRIPTS = r"""script cas100_confirm {
@@ -218,7 +327,7 @@ SCRIPTS = r"""script cas100_confirm {
     }
     create_snazzy_dialog_box {
         title="Create 100%% CAS"
-        text="This replaces your current Story Mode progress with a fully completed story (every chapter and goal, with what that unlocks), opens all 16 levels - classic mode's too - and maxes your created skater's stats.\\n\\nSave with SAVE GAME afterwards to keep it.\\nContinue?"
+        text="This replaces your current Story Mode and Classic Mode progress with both fully completed (every chapter, goal and gap, with all they unlock), opens all 16 levels and maxes your created skater's stats.\\n\\nSave with SAVE GAME afterwards to keep it.\\nContinue?"
         text_dims=(400.0, 0.0)
         no_bg
         pad_back_script=cas100_back
@@ -259,6 +368,15 @@ script cas100_apply {
     SetGlobalFlag flag=CAREER_SEEN_GAME_COMPLETE_MESSAGE
     SetGlobalFlag flag=CAREER_SEEN_GOAL_COMPLETE_MESSAGE
     SetGlobalFlag flag=CAREER_STARTED
+    SetClassicTotalGoals %(classic_total)d
+    SetRewardFlagArray flags=((classic_game_complete_rewards [0]).flags)
+    SetRewardFlagArray flags=((classic_game_complete_rewards [1]).flags)
+    SetRewardFlagArray flags=(classic_goal_complete_rewards.flags)
+    SetGlobalFlag flag=CLASSIC_SEEN_GAME_COMPLETE_MESSAGE
+    SetGlobalFlag flag=CLASSIC_SEEN_GOAL_COMPLETE_MESSAGE
+    SetGlobalFlag flag=CLASSIC_STARTED
+    unlock_all_gameplay_cheat_codes
+    SetRewardFlagArray flags=(all_gaps_complete_rewards.flags)
     Career100_Apply levels=[
 %(levels)s    ]
     SetCurrentChapter chapter=%(final_chapter)d
@@ -266,7 +384,7 @@ script cas100_apply {
     printf "Create 100 percent CAS: done"
     create_snazzy_dialog_box {
         title="100%% CAS"
-        text="Story Mode is 100%% complete, all 16 levels are open and your created skater's stats are maxed.\\n\\nUse SAVE GAME to keep it."
+        text="Story Mode and Classic Mode are 100%% complete with every gap, all 16 levels are open and your created skater's stats are maxed.\\n\\nUse SAVE GAME to keep it."
         text_dims=(400.0, 0.0)
         no_bg
         pad_back_script=cas100_back
@@ -346,12 +464,30 @@ def apply_script(data):
     story = "".join("    SetGlobalFlag flag=%s \n" % flag for flag in data["flags"])
     story += "".join("    AwardNewSpecialTrickToProfile {all_profiles trick=%s key_combo=%s} \n" % trick
                      for trick in data["tricks"])
-    levels = ""
+    # One entry per level number: its story part, classic goals and gaps (Career100_Apply).
+    entries = {}
     for level in data["levels"]:
-        levels += ("        {level=%d points=%d total=%d goals=[%s]} \n"
-                   % (level["number"], level["points"], level["total"], " ".join(g for g, _ in level["goals"])))
+        entries.setdefault(level["number"], []).append(
+            "points=%d total=%d goals=[%s]" % (level["points"], level["total"], " ".join(g for g, _ in level["goals"])))
+    for number, names in data["classic"].items():
+        entries.setdefault(number, []).append("classic_goals=[%s]" % " ".join(names))
+    for number, gaps in data["gaps"].items():
+        entries.setdefault(number, []).append("gaps=[%s]" % " ".join(
+            '{name="%s" score=%d%s}' % (ns_string(name), score,
+                                        " pos=(%.3f, %.3f, %.3f)" % pos if pos else "")
+            for name, score, pos in gaps))
+    levels = "".join("        {level=%d %s} \n" % (number, " ".join(parts)) for number, parts in entries.items())
     stats = " ".join("%s=%d" % (name, STAT_MAX) for name in data["stats"])
-    return SCRIPTS % {"story": story, "levels": levels, "final_chapter": data["final_chapter"], "stats": stats}
+    return SCRIPTS % {"story": story, "levels": levels, "final_chapter": data["final_chapter"], "stats": stats,
+                      "classic_total": sum(len(names) for names in data["classic"].values())}
+
+
+def ns_string(text):
+    # A string as NeverScript reads it between double quotes ('\' written '\\'); the game compares gap names byte for
+    # byte, so only plain ASCII without '"' is passed through (none of the game's has any other).
+    if any(ord(c) > 126 or ord(c) < 32 or c == '"' for c in text):
+        raise ValueError("gap name %r: not plain ASCII" % text)
+    return text.replace("\\", "\\\\")
 
 
 def options_menu(text, data):
@@ -378,4 +514,10 @@ def describe(data):
                                                                          level["total"]))
     lines.append("  story flags: %d, special tricks: %d, final chapter %d, stats %s"
                  % (len(data["flags"]), len(data["tricks"]), data["final_chapter"], ", ".join(data["stats"])))
+    lines.append("  classic goals: %s = %d" % (", ".join("%s %d" % (prefix, len(data["classic"][number]))
+                                                         for prefix, number in data["classic_levels"]),
+                                               sum(len(names) for names in data["classic"].values())))
+    lines.append("  gaps: %s = %d" % (", ".join("%s %d" % (prefix, len(data["gaps"][number]))
+                                                for prefix, number in data["gap_levels"]),
+                                      sum(len(gaps) for gaps in data["gaps"].values())))
     return "\n".join(lines)
