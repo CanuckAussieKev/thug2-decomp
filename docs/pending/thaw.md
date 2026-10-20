@@ -101,8 +101,11 @@ Changes (tools/thaw_levels):
 - Frame: an area with a <zone>_Zone_Origin node moves by minus its Pos, every axis, in whole sixteenths (THUGPRO's
   rule; BSP splits stay exact). Vans Park is left in THAW's frame as THUGPRO's toolchain left it. Result vs THUGPRO's
   installed node arrays: CH, MA, DN, JA, SZ, SV2, SV, HO, BH, DT, SR, LV, OI the same (all but 0-17 hand-moved nodes
-  within 0.1 unit); East LA and Santa Monica not: THUGPRO moved those by offsets of its own (not in THAW's data:
-  THUGPRO = ours + (-1319.656, -111.047, 269.924) in EL, + (-5060.44, -580.625, -3203.87) in SM). `--frame recentre`:
+  within 0.1 unit); East LA and Santa Monica THUGPRO moved by offsets of its own (not in THAW's data:
+  THUGPRO = Zone_Origin frame + (-1319.656, -111.047, 269.924) in EL, + (-5060.44, -580.625, -3203.87) in SM) -
+  (lead, the user's decision) taken as ONLINE_FRAME_ADJUST in thaw_levels.py, since positions travel online as world
+  coordinates: EL 3404/3404 nodes now at THUGPRO's place, SM 3644/3661 (the rest THUGPRO's hand moves); faces past
+  the network range EL 96 -> 88, SM 152 -> 144; every face reachable. `--frame recentre`:
   the older frame. JA and SZ are no longer recentred (THUGPRO's frame: THAW's own; 76 / 7 collidable faces lie past
   the network's +-16,384, far from the skate areas).
 - Game modes: TRG_CTF_*, TRG_Flag_*, TRG_KOTH*, TRG_Team_Restart lose the zone prefix (THUG2's net\ctf / SK4_Scripts

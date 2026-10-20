@@ -78,8 +78,14 @@ BY_ZONE = {zone.lower(): (zone, sign, location, icon, num, default)
 #   node_position_patcher.py + THUGPRO_SceneObjectTool -origin). FRAME_KEPT: areas left in THAW's own frame although
 #   they have one - Vans Park, which THUGPRO's toolchain didn't move either (it looked the origin up under the level's
 #   new name, "vans"); kept so the two agree. (East LA and Santa Monica THUGPRO moved by offsets of its own choosing,
-#   not THAW data: those two differ - thaw.md says by how much.)
+#   not THAW data: ONLINE_FRAME_ADJUST.)
 FRAME_KEPT = {"Z_SV"}
+# Online positions travel as world coordinates (message 0x23), so a level's frame must be THUGPRO's for players of
+# both to see each other in place. East LA and Santa Monica THUGPRO moved by offsets of its own (its "LA crash fix":
+# East LA's world_offset.txt, Santa Monica's node_position_patcher.py - Morten1337's thugpro), not by their
+# Zone_Origin: these are what THUGPRO's frame adds to the Zone_Origin one (measured with thugpro_compare.py against
+# THUGPRO's installed data\pre, every node of both off by the same amount). The user's decision, as ONLINE_NAMES.
+ONLINE_FRAME_ADJUST = {"Z_EL": (-1319.656, -111.047, 269.924), "Z_SM": (-5060.44, -580.625, -3203.87)}
 
 
 # Online a level is known only by its load script's checksum (messages 0x46 / 0x33): two players can share a level
@@ -105,16 +111,17 @@ def sixteenths(v):
 
 
 def frame_shift(zone, array, names):
-    # The zone's frame: minus the Pos of its <zone>_Zone_Origin node (in whole sixteenths), or no move when it has
-    # none or is in FRAME_KEPT.
+    # The zone's frame: minus the Pos of its <zone>_Zone_Origin node plus its ONLINE_FRAME_ADJUST (in whole
+    # sixteenths), or no move when it has none or is in FRAME_KEPT.
     if zone.upper() in FRAME_KEPT:
         return (0.0, 0.0, 0.0)
     origin = qb.checksum(zone + "_Zone_Origin")
+    adjust = ONLINE_FRAME_ADJUST.get(zone.upper(), (0.0, 0.0, 0.0))
     for node in array:
         if isinstance(node, qb.Struct) and isinstance(node.get("Name"), qb.Name) and node.get("Name").value == origin:
             pos = node.get("Pos")
             if isinstance(pos, tuple) and pos[0] == "vector":
-                return sixteenths(tuple(-x for x in pos[1]))
+                return sixteenths(tuple(-x + a for x, a in zip(pos[1], adjust)))
     return (0.0, 0.0, 0.0)
 
 
