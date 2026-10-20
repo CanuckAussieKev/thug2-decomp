@@ -56,6 +56,10 @@ Node strips the types and runs what is left, so only syntax that erases to plain
 Each of these changed (or would have changed) an output somewhere; `tools/lib/py.ts` has the helper.
 
 **Numbers**
+- NaN payload bits: Python keeps a float32 NaN's bits (THPS3's uvs hold 0x7FC0817D); V8 may reset them to
+  0x7FC00000 when a NaN is the first value pushed into a fresh array, and only once the code is optimised - so the
+  output can even vary between runs. Start such arrays as doubles (`doubleArray` in `tools/lib/struct.ts`, which
+  `unpackFrom` uses) or build them with `concat`.
 - `round(x)` is banker's rounding (halves to even: `round(2.5) == 2`) - `roundHalfEven`, never `Math.round`.
   `round(x, n)` rounds the exact binary value (`round(2.675, 2) == 2.67`) - `pyRound`.
 - `repr(float)` / `str(float)`: exponent below 1e-4 and from 1e16 (`1e-05`, `1e+16`), always a `.0` - `pyFloatRepr`.
