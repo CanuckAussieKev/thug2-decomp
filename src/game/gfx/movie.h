@@ -28,7 +28,8 @@ namespace Nx {
 // skipped, and so is any movie the start-up script startup_loading_screen plays (the Anteara Mod's Shorty's movie);
 // other movies play as usual.
 bool __cdecl PlayMovie(Script::CStruct* params, void* script);
-// The skip_intro_movies flag (read from the ini once; self-tests set it for their run).
+// The skip_intro_movies flag (read from the ini once - also on for a run started with -edit / edit_level,
+// game/front/start_level.h; self-tests set it for their run).
 bool& SkipIntroMovies();
 
 // A Bink movie's header (binkw32's BINK: the fields the game reads).
