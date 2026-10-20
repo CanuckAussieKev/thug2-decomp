@@ -98,6 +98,25 @@ export function loadManifest(game: string): Manifest | null {
     if (new Set(numbers).size !== numbers.length) {
         pyExit(`converted levels: a level select number is used twice (${pyRepr(numbers)})`);
     }
+    // (the level names are the load scripts' and folders' names: two staging folders naming a level alike - e.g. two
+    // converters using a game's bare level name - would replace one with the other in Levels.qb)
+    // (a sky may serve several levels of one staging folder - THPS4's)
+    const seen = new Map<string, string>();
+    for (const e of levels) {
+        const staging = e.staging ?? "";
+        const level = seen.get(e.level.toLowerCase());
+        if (level !== undefined) pyExit(`converted levels: ${e.level} is named twice (${level} and ${staging})`);
+        seen.set(e.level.toLowerCase(), staging);
+    }
+    for (const e of levels) {
+        if (typeof e.sky !== "string") continue;
+        const mine = `sky:${e.staging ?? ""}`;
+        const other = seen.get(e.sky.toLowerCase());
+        if (other !== undefined && other !== mine) {
+            pyExit(`converted levels: ${e.sky} is named twice (${other.replace(/^sky:/, "")} and ${e.staging})`);
+        }
+        seen.set(e.sky.toLowerCase(), mine);
+    }
     return levels.length ? { levels } : null;
 }
 

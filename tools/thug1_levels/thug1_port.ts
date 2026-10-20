@@ -356,6 +356,13 @@ export class NodePass {
         const cls = nodes.classOf(node, n);
         if (["restart", "railnode", "levelgeometry", "genericnode"].includes(cls)) return node; // (nodes.convertNodes' own handling)
         if (["waypoint", "proximnode", "emitterobject"].includes(cls)) return this.whole(node, `${cls}s`);
+        if (cls === "levellight") {
+            // (THUG1's dynamic lights - Pos, Brightness, Inner / OuterRadius, Color, ExcludeLevel / ExcludeSkater - are
+            // THUG2's LevelLight nodes key for key; THUG2's own levels have 60-230 of them, and THUGPRO's ports run with
+            // THUG1's exactly as they are. THUG2's carry ExcludeGeometry / RenderToViewport / SelectRenderOnly too,
+            // THUG1's don't: kept as THUG1 has them.)
+            return this.whole(node, "level lights");
+        }
         if (cls === "climbingnode") {
             const s = this.whole(node, "climbing nodes");
             // (TrickObject / Cluster: THUG2 registers the cluster's sector without checking it - not needed here)
@@ -457,8 +464,11 @@ export function resolveDuplicateTriggers(
     _names: ReadonlyMap<number, string>,
 ): number {
     // THUG1's classic levels (THPS1 / 2's) give a gap's second trigger sector a trigger script that only calls
-    // DuplicateTrigger (not in THUG2): it runs the trigger script of the node it links to (Gap_CO_01 <-> Plane01). Such
-    // nodes get that node's trigger script itself. Returns how many.
+    // DuplicateTrigger: it runs the trigger script of the node it links to (Gap_CO_01 <-> Plane01). Such nodes get that
+    // node's trigger script itself. Returns how many. (THUG2 still has DuplicateTrigger - not as a CFunction but as a
+    // member function of the skater's SkaterGap component, 0x00512CC0 in THUG2PM.exe, which looks up the linked node's
+    // TriggerScript - so THUGPRO's ports, which keep these scripts, work too; script_port's member table (membersOf)
+    // doesn't see that component's compare chain, so a DuplicateTrigger inside a longer script is still left out.)
     const duplicate = checksum("DuplicateTrigger");
     const only = new Set<number>();
     for (const q of scriptQbs) {

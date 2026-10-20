@@ -3,11 +3,13 @@
 //
 //   node tools/thug1_levels/thug1_levels.ts selfcheck [--thug2 C:\Games\THUG2] [--thug1 C:\Games\THUG1]
 //   node tools/thug1_levels/thug1_levels.ts convert [levels...] [--thug2 ...] [--thug1 ...] [--out <folder>]
+//        [--compat thugpro|none] [--legacy-names]
 //   then: node tools/menu_level/make_menu_level.ts   (installs them into the data overlay, with level select signs)
 //
 // convert reads <thug1>\Game\Data\pre (the level archives <LV>scn.pre, <LV>col.pre, <LV>.pre and qb.pre's Levels.qb)
-// and writes <thug2>\thug2-decomp-thug1\ (not read by the game): levels\thug1_<lv>\thug1_<lv>.scn.xbx / .tex.xbx /
-// .col.xbx / .qb (the node array), the skies (scene and textures) the same way, and levels.json (what
+// and writes <thug2>\thug2-decomp-thug1\ (not read by the game): levels\<name>\<name>.scn.xbx / .tex.xbx / .col.xbx /
+// .qb (the node array; <name>: levelName - nj, hh, thug1_sc...), the skies (scene and textures) the same way, and
+// levels.json (what
 // make_menu_level.ts adds to Levels.qb and the level select: tools/level_port/ported_levels.ts).
 //
 // The THUG2 formats, the geometry conversion, the node arrays and the installing are shared with tools/thps4_levels
@@ -15,6 +17,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import * as compat from "../compat/compat.ts";
 import { FormatError } from "../level_port/binio.ts";
 import * as common from "../level_port/common.ts";
 import * as geometry from "../level_port/geometry.ts";
@@ -79,6 +82,79 @@ interface Args {
     ns: string;
     static: boolean;
     extra: string[];
+    compat: string;
+    legacyNames: boolean;
+}
+
+// --- level names (online: the load script's checksum is the level) ---------------------------------------------------
+//
+// A network game's change-level message (0x46) and start info (0x33) carry only the load script's checksum; the other
+// side runs the script of that checksum. So a level is named as THUG1 itself names it - its Levels.qb structure's
+// level= when its load script is Load_<level> (Load_NJ, Load_hn...) - which is also what THUGPRO's own ports of them
+// load (thugpro_compare.ts checks it). A THUG1 name THUG2 already uses (SE, SC, DJ, PH, TestLevel: THUG2's own load
+// scripts) and a level THUG1's Levels.qb doesn't load by its own name (NJ_Skateshop, the front end's skateshop,
+// CAS_BEDROOM) keep the thug1_ prefix: Levels.qb would otherwise replace THUG2's own level. What THUGPRO chose beyond
+// that (Hotter Than Hell as hh: THUG1's SE is THUG2's SE) is in the compatibility profile
+// tools/compat/thugpro/thug1_levels.json (TP-30...; --compat none leaves it out). --legacy-names: thug1_<code> for
+// every level, as this converter named them before.
+export const COMPAT = { levelNames: new Map<string, string>() };
+
+// The compatibility profile's THUG1 data (tools/compat/compat.ts): "thugpro" (the default) or "none".
+export function setCompat(name: string): void {
+    const profile = compat.load(name);
+    COMPAT.levelNames = new Map(
+        Object.entries(profile.section("thug1_levels", "level_names")).map(([k, v]) => [k.toLowerCase(), String(v)]),
+    );
+}
+
+setCompat("thugpro"); // (the default, also for the tools that import this one: thugpro_compare, migrate_layouts)
+
+// The checksums of THUG2's own load scripts (its Levels.qb, Data\pre\qb_scripts.prx).
+export function thug2LoadScripts(thug2: string): Set<number> {
+    const data = prx.find(pyJoin(thug2, "Data", "pre", "qb_scripts.prx"), "scripts\\game\\levels.qb");
+    if (data === null) throw new TypeError(`${thug2}: no scripts\\game\\levels.qb in qb_scripts.prx`);
+    return new Set(new qb.QbFile(data, "Levels.qb", true).scripts.keys());
+}
+
+// THUG1's own name for the level: its level structure's level= when the structure's load script is Load_<level>.
+export function ownName(struct: Struct | undefined): string | null {
+    const level = struct?.get("level");
+    const load = struct?.get("load_script");
+    if (typeof level !== "string" || !(load instanceof Name) || load.value !== qb.checksum(`Load_${level}`))
+        return null;
+    return level.toLowerCase();
+}
+
+// The level's THUG2 name (its folder and files, Load_<name> / Level_<name>, <name>_NodeArray).
+export function levelName(
+    code: string,
+    struct: Struct | undefined,
+    thug2Loads: ReadonlySet<number>,
+    legacy = false,
+): string {
+    const prefixed = `thug1_${code.toLowerCase()}`;
+    if (legacy) return prefixed;
+    const chosen = COMPAT.levelNames.get(code.toLowerCase());
+    if (chosen !== undefined) return chosen;
+    const own = ownName(struct);
+    if (own === null || thug2Loads.has(qb.checksum(`Load_${own}`))) return prefixed;
+    return own;
+}
+
+// The sky's THUG2 name: the level's name + what follows the level's code in THUG1's (SE_Sky -> hh_sky), else
+// thug1_<sky>.
+export function skyName(code: string, name: string, skyCode: string): string {
+    if (skyCode.toLowerCase().startsWith(code.toLowerCase())) return name + skyCode.slice(code.length).toLowerCase();
+    return `thug1_${skyCode.toLowerCase()}`;
+}
+
+// Every level's THUG2 name ({code in lower case: name}) for the tools that look at converted levels.
+export function levelNames(thug1: string, thug2: string, legacy = false): Map<string, string> {
+    const structs = levelStructs({ thug1 });
+    const loads = thug2LoadScripts(thug2);
+    return new Map(
+        LEVELS.map(([code]) => [code.toLowerCase(), levelName(code, structs.get(code.toLowerCase()), loads, legacy)]),
+    );
 }
 
 export function prePath(args: { thug1: string }, name: string): string | null {
@@ -314,6 +390,8 @@ export function cmdConvert(args: Args): void {
     if (!fs.existsSync(args.ns)) pyExit(`${args.ns} not found: build it with tools\\build_neverscript.ps1`);
     if (!prePath(args, "qb.pre")) pyExit(`${args.thug1}: THUG1's Data\\pre not found`);
     const structs = levelStructs(args);
+    setCompat(args.compat);
+    const thug2Loads = thug2LoadScripts(args.thug2);
     // (--static: only the geometry's nodes, restarts, rails and kill zones, as before the scripts were brought)
     const port = args.static ? null : new thug1Port.Thug1Port(args.thug2, prePath(args, "qb.pre")!);
     const wanted = args.levels.length ? args.levels : LEVELS.filter((info) => info[5]).map((info) => info[0]);
@@ -330,7 +408,7 @@ export function cmdConvert(args: Args): void {
         print("converting", code);
         const files = levelFiles(args, code);
         const struct = structs.get(code.toLowerCase());
-        const name = `thug1_${code.toLowerCase()}`;
+        const name = levelName(code, struct, thug2Loads, args.legacyNames);
         const levelDir = pyJoin(out, "levels", name);
         let nodeReport: string[] = [];
         const { triggers, starts, recheck } = convertLevelNodes(
@@ -352,7 +430,7 @@ export function cmdConvert(args: Args): void {
         const skyValue = struct?.get("sky");
         const skyCode = typeof skyValue === "string" ? skyValue : `${code}_sky`;
         if (files.has(`${baseOf(skyCode)}.scn.xbx`)) {
-            sky = `thug1_${skyCode.toLowerCase()}`;
+            sky = skyName(code, name, skyCode);
             convertGeometry(files, skyCode, pyJoin(out, "levels", sky), sky, report);
         }
         const structName = struct?.get("name");
@@ -443,6 +521,9 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
             ns: { kind: "string", default: common.NS },
             static: { kind: "flag" },
             extra: { kind: "list" },
+            // compatibility profile (tools/compat): thugpro - level names as THUGPRO's THUG1 ports (default), or none
+            compat: { kind: "string", default: "thugpro" },
+            "legacy-names": { kind: "flag" }, // thug1_<code> for every level, as before
         },
         argv,
     );
@@ -455,7 +536,15 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
         ns: parsed.strings.get("ns")!,
         static: parsed.flags.get("static")!,
         extra: parsed.lists.get("extra")!,
+        compat: parsed.strings.get("compat")!,
+        legacyNames: parsed.flags.get("legacy-names")!,
     };
+    if (!(compat.PROFILES as readonly string[]).includes(args.compat)) {
+        process.stderr.write(
+            `thug1_levels.ts: error: argument --compat: invalid choice: '${args.compat}' (choose from ${compat.PROFILES.join(", ")})\n`,
+        );
+        pyExit(2);
+    }
     // (a stock install keeps the game in a Game subfolder: C:\Games\THUG2 -> C:\Games\THUG2\Game)
     const isDir = (p: string): boolean => fs.existsSync(p) && fs.statSync(p).isDirectory();
     if (!isDir(path.join(args.thug2, "Data")) && isDir(path.join(args.thug2, "Game", "Data"))) {

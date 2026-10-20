@@ -10,12 +10,21 @@ Needs Node 24+ (`npm install` once - docs/typescript.md), NeverScript (`tools\bu
 `out\neverscript\ns.exe`) and, to install the levels, tools/menu_level/make_menu_level.ts.
 
     node tools/thug1_levels/thug1_levels.ts convert [--thug1 C:\Games\THUG1] [--thug2 C:\Games\THUG2] [--static]
+         [--compat thugpro|none] [--legacy-names]
     node tools/menu_level/make_menu_level.ts
 
 `convert` reads `<thug1>\Game\Data\pre` (`<LV>scn.pre`, `<LV>col.pre`, `<LV>.pre`, and `qb.pre`'s Levels.qb) and
-writes `<thug2>\thug2-decomp-thug1\` (not read by the game): `levels\thug1_<lv>\thug1_<lv>.scn.xbx / .tex.xbx /
-.col.xbx / .qb`, the skies (`thug1_<lv>_sky`, scene and textures - no collision, as THUG2's own skies) and
-`levels.json`. Name levels to convert only some (`convert NJ SE`). The default is the 9 main levels (NJ, NY, FL, SD,
+writes `<thug2>\thug2-decomp-thug1\` (not read by the game): `levels\<name>\<name>.scn.xbx / .tex.xbx / .col.xbx /
+.qb`, the skies (`<name>_sky`, scene and textures - no collision, as THUG2's own skies) and `levels.json`.
+
+`<name>` is the level's name in THUG2 (its folder, `Load_<name>` / `Level_<name>`, `<name>_NodeArray`). Online a
+level is known only by its load script's checksum, so it's THUG1's own name for the level (its Levels.qb's `level=`
+loaded by `Load_<level>`): `nj`, `ny`, `fl`, `sd`, `hi`, `vc`, `sj`, `ru`, `vn`, `hn`, `sc2` - the names THUGPRO's
+ports load too. A name THUG2 already uses keeps the `thug1_` prefix (`thug1_sc`, `thug1_dj`, `thug1_ph`,
+`thug1_testlevel`: THUG2 has SC, DJ, PH, TestLevel of its own), as do the levels THUG1 doesn't load by their own
+name (`thug1_nj_skateshop`, `thug1_skateshop`, `thug1_cas_bedroom`). Hotter Than Hell (THUG1's SE - THUG2's SE is
+its own) is `hh`, THUGPRO's choice: TP-30 in the compatibility register (tools/compat/thugpro). `--compat none`
+leaves the register out (`thug1_se`); `--legacy-names` names every level `thug1_<code>` as before. Name levels to convert only some (`convert NJ SE`). The default is the 9 main levels (NJ, NY, FL, SD,
 HI, VC, SJ, RU, SE = Hotter Than Hell), the 6 classic ones (SC Old School, DJ Old Downhill Jam, PH Old Philly, VN Old
 Venice, HN Old Hangar, SC2 School II) and NJ_Skateshop; `skateshop` (THPS4's shop again), `CAS_BEDROOM` and
 `TestLevel` convert when named.
@@ -64,7 +73,7 @@ its BSP trees, textures written back byte-identical, qb files): 333 files.
   LevelObjects (moving and bouncy: cones, trash cans, chairs, with their rigid body settings); peds (THUG2's
   THPS6_human skeleton and animations, their THUG1 profile when THUG2 has it, else a random one); vehicles and game
   objects whose model THUG2 has (Data\models - THUG2 ships most of THUG1's cars); particle objects whose texture THUG2
-  has. Lights and goal nodes are left out.
+  has; the dynamic lights (LevelLight nodes, as THUG2's own levels have them). Goal nodes are left out.
 - Scripts: from the nodes' trigger scripts and the level structure's startup_script / setup_script, through
   everything they call, from the level's .qb / _scripts.qb / _sfx.qb and THUG1's level designers' shared files - by
   `tools/level_port/script_port.ts` (THUG1's long if / else / switch made THUG2's jump forms, `object:command` calls
@@ -76,3 +85,16 @@ its BSP trees, textures written back byte-identical, qb files): 333 files.
 
 The shared code (THUG2 writers, geometry conversion, nodes, installing) is in `tools/level_port`, used by
 `tools/thps4_levels` too.
+
+## THUGPRO (online play with THUGPRO's own THUG1 ports)
+
+    node tools/thug1_levels/thugpro_compare.ts [levels...] [--thug2 C:\Games\THUG2-3] [--details] [--json out]
+    node tools/thug1_levels/migrate_layouts.ts --game C:\Games\THUG2-3 [--dry-run]
+
+`thugpro_compare.ts` reads THUGPRO's install (read only: `%LOCALAPPDATA%\THUG Pro\data\pre`) and THUG1's node arrays
+and compares each converted level three ways: the load script's checksum (what the network carries), every node
+shared by name at the same place, the King of the Hill crowns, the multiplayer restarts (and which differ by name), the
+CTF / flag / team game-mode nodes, collision faces unreachable through their BSP trees; `--details` adds the node
+classes, the trigger scripts only THUGPRO's nodes run and the nodes it moved. `migrate_layouts.ts` renames saved
+level-editor layouts (`thug2-decomp-layouts`) from the `thug1_<code>` names to the current ones (no record moves: the
+frame is THUG1's own on both sides). The findings: docs/pending/thug1.md, "THUGPRO".
