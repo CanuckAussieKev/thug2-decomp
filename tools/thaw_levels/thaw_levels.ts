@@ -45,6 +45,7 @@ import {
 import { StructError } from "../lib/struct.ts";
 import * as thaw from "./thaw.ts";
 import * as thawScripts from "./thaw_scripts.ts";
+import * as thugproEdits from "./thugpro_edits.ts";
 
 export const STAGING = "thug2-decomp-thaw";
 const SKY = "TestLevel_Sky"; // every THAW level's sky (levels.qb), coloured by the time of day
@@ -94,7 +95,12 @@ export const COMPAT = {
     frameKept: new Set<string>(),
     frameAdjust: new Map<string, number[]>(),
     spawns: new Map<string, ZoneSpawns>(),
+    // TP-5...TP-9: THUGPRO's other hand edits (thugpro_edits.ts), the profile's sections by name
+    edits: {} as Record<string, Record<string, unknown>>,
 };
+
+// TP-5...TP-9: the zone's edits from the profile, or null (none, or --compat none).
+export const editsFor = (zone: string): thugproEdits.ZoneEdits | null => thugproEdits.zoneEdits(COMPAT.edits, zone);
 
 // TP-4 (tools/compat/thugpro/thaw_levels.json `spawns`): a network spawn - a restart with Multiplayer / Horse / CTF /
 // Team in its restart_types - as THUGPRO's THAW port has it where THUGPRO hand-edited it (moved it, changed its
@@ -130,6 +136,12 @@ export function setCompat(name: string): void {
         Object.entries(profile.section("thaw_levels", "frame_adjust")) as [string, number[]][],
     );
     COMPAT.spawns = new Map(Object.entries(profile.section("thaw_levels", "spawns")) as [string, ZoneSpawns][]);
+    COMPAT.edits = Object.fromEntries(
+        ["node_edits", "node_flags", "removed", "added", "collision"].map((s) => [
+            s,
+            profile.section("thaw_levels", s),
+        ]),
+    );
 }
 
 // The level's drop-in script (TP-4's added spawns run it: the skater drops in, as THUG2's MakeSkaterGoto DropIn).
@@ -330,6 +342,19 @@ export function zoneFiles(file: string): Map<string, Buffer> {
         else if ([".geom", ".tex", ".col"].includes(entry.extension)) files.set(entry.extension, data);
     }
     return files;
+}
+
+// TP-6: THAW's full zone archive (<zone>.pak.wpc, with the story's pieces; without its _sfx sub-zone), for the pieces
+// THUGPRO shows in network games that the net archive hasn't.
+export function fullArchive(thawFolder: string, zone: string): thugproEdits.FullArchive {
+    const file = findPath(thawFolder, "Game", "data", "worlds", "worldzones", zone, `${zone}.pak.wpc`);
+    if (file === null) throw new FormatError(`${zone}: no ${zone}.pak.wpc (TP-6 needs THAW's full archive)`);
+    const files = zoneFiles(file);
+    return {
+        geom: thaw.readGeom(need(files, ".geom"), `${zone}.geom`),
+        col: thaw.readCol(need(files, ".col"), `${zone}.col`),
+        tex: thaw.readTex(need(files, ".tex"), `${zone}.tex`),
+    };
 }
 
 // files[key], raising as Python's dict does
@@ -819,6 +844,9 @@ export function convertLevelNodes(
                 "TRG_Team_Restart)",
         );
     }
+    // TP-5...TP-8: THUGPRO's node edits, on THAW's array as if they were THAW's (thugpro_edits.ts)
+    const edits = editsFor(zone);
+    if (edits !== null) array = thugproEdits.applyNodeEdits(edits, array, names, report);
     const nameOf = (n: QbValue): number | null => {
         const v = n instanceof Struct ? n.get("Name") : undefined;
         return v instanceof Name ? v.value : null;
@@ -1059,8 +1087,18 @@ function cmdConvert(args: Args): void {
             report.push(`${name}: moved by (${formatG(shift[0]!)}, ${formatG(shift[1]!)}, ${formatG(shift[2]!)})`);
         }
         const geom = thaw.readGeom(need(files, ".geom"), `${zone}.geom`);
+        const textures: tex.TexFile = thaw.readTex(need(files, ".tex"), `${zone}.tex`);
+        // TP-5...TP-7: THUGPRO's moves of scene / collision pieces, the pieces it shows from THAW's full archive, the
+        // collision it took out (thugpro_edits.ts; before converting: THAW's frame)
+        const edits = editsFor(zone);
+        const editReport: string[] = [];
+        if (edits !== null) {
+            const full = (): thugproEdits.FullArchive => fullArchive(args.thaw, zone);
+            thugproEdits.applyGeometryEdits(edits, geom, colIn, textures, full, editReport);
+        }
         const night = new Set([...nightSectors(geom, names), ...leftOut(zone)]);
         const nodeReport = night.size ? [`  ${night.size} night-time sectors left out`] : [];
+        nodeReport.push(...editReport);
         const drawn = new Set(
             geom.sectors
                 .filter(
@@ -1107,7 +1145,6 @@ function cmdConvert(args: Args): void {
             writeLevelQb(args.ns, nodeText, pyJoin(levelDir, `${name}.qb`), level.scripts, names);
             nodeReport.push(`  ${cleared} geometry nodes without a scene sector: TrickObject / Cluster dropped`);
         }
-        const textures: tex.TexFile = thaw.readTex(need(files, ".tex"), `${zone}.tex`);
         const col = convertCol(
             colIn,
             (c) => level.triggers.has(c),
@@ -1116,6 +1153,7 @@ function cmdConvert(args: Args): void {
             level.breakables,
             level.local,
         );
+        if (edits !== null) thugproEdits.applyFaceEdits(edits, col, nodeReport); // (TP-9)
         // (restarts over nothing - the shops' interiors - or over a kill zone: no network spawns, no kill targets)
         let groundReport: string[];
         [nodeText, groundReport] = nodes.groundRestarts(nodeText, col);

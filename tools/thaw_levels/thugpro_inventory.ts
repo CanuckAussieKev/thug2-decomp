@@ -12,31 +12,25 @@
 //
 //   node tools/thaw_levels/thugpro_inventory.ts [levels...] [--thaw C:\Games\THAW] [--thugpro <dir>] [--json out]
 
+import * as fs from "node:fs";
 import { parseArgs } from "node:util";
 import * as nodes from "../level_port/nodes.ts";
 import * as prx from "../level_port/prx.ts";
 import * as qb from "../level_port/qb.ts";
 import { Name, type QbValue, Struct, Vector } from "../level_port/qb.ts";
 import * as thug2Col from "../level_port/thug2_col.ts";
+import * as thug2Scene from "../level_port/thug2_scene.ts";
 import { hex8, isMain, print, pyExit, pyJoin, pyJsonDumps, runMain, writeTextPy } from "../lib/py.ts";
 import * as thaw from "./thaw.ts";
-import { COMPAT, findPath, frameShift, LEVELS, MULTIPLAYER_NAME, setCompat } from "./thaw_levels.ts";
+import { COMPAT, findPath, frameShift, LEVELS, levelName, MULTIPLAYER_NAME, setCompat } from "./thaw_levels.ts";
 import { nodeArray } from "./thugpro_compare.ts";
+import { SYSTEMATIC } from "./thugpro_extract.ts";
 
 const DEFAULT_THUGPRO = pyJoin(process.env.LOCALAPPDATA ?? "", "THUG Pro");
 const TOLERANCE = 0.1;
 const ANGLE_TOLERANCE = 0.001;
 const EXAMPLES = 6;
 const NET_TYPES: ReadonlySet<string> = new Set(["multiplayer", "horse", "ctf", "ctf_1", "ctf_2", "team"]);
-// Keys THUGPRO's toolchain changes on every node (thaw_node_array_converter.py: commented-out THPS leftovers, model /
-// profile / sound type checks, the particle keys rewritten) and the ones compared otherwise (positions, Links).
-const SYSTEMATIC: ReadonlySet<string> = new Set([
-    ...["ignoredq", "psylinder", "terrain1", "terrain2", "object", "shatter", "hitpoints", "push0", "push1", "push2"],
-    ...["model", "profile", "soundtype", "skeletonname", "animname", "excludegeometry", "pos", "position", "links"],
-    ...["boxdims", "boxpositions", "boxrgbas", "radii", "radiusspread", "startposition", "midposition", "endposition"],
-    ...["boxdimsstart", "boxdimsmid", "boxdimsend", "startradius", "midradius", "endradius", "startradiusspread"],
-    ...["midradiusspread", "endradiusspread", "startrgb", "midrgb", "endrgb", "startalpha", "midalpha", "endalpha"],
-]);
 
 type Names = Map<number, string>;
 interface Tally {
@@ -371,6 +365,169 @@ function inventory(zone: string, thawFolder: string, thugpro: string, names: Nam
     };
 }
 
+// --ours: our converted level (<staging>\<level>\<level>.qb / .scn.xbx / .col.xbx) against THUGPRO's, per register
+// category (TP-5...TP-9): what still differs after the profile is applied. Only what both can have is compared: our
+// port leaves out THAW's sound, goal and story nodes and makes peds, cars and objects its own way.
+function compareOurs(zone: string, levels: string, thugpro: string, names: Names): Record<string, unknown> {
+    const low = zone.toLowerCase();
+    const key = COMPAT.levelNames.get(zone) ?? low;
+    const mine = levelName(zone);
+    const text = (v: number): string => names.get(v) ?? `#${hex8(v)}`;
+    const norm = (name: string): string => {
+        const l = name.toLowerCase();
+        return l.startsWith(`${low}_`) && MULTIPLAYER_NAME.test(l.slice(low.length + 1)) ? l.slice(low.length + 1) : l;
+    };
+    const qbFile = pyJoin(levels, mine, `${mine}.qb`);
+    if (!fs.existsSync(qbFile)) pyExit(`not converted: ${qbFile}`);
+    const [ours, ourNames] = nodeArray(fs.readFileSync(qbFile), qbFile);
+    for (const [k, v] of ourNames) if (!names.has(k)) names.set(k, v);
+    const scriptsPrx = findPath(thugpro, "data", "pre", `${key}_scripts.prx`);
+    const data = scriptsPrx === null ? null : prx.find(scriptsPrx, `levels\\${key}\\${key}.qb`);
+    if (data === null) pyExit(`THUGPRO has no levels\\${key}\\${key}.qb`);
+    const [theirs, theirNames] = nodeArray(data, key);
+    for (const [k, v] of theirNames) if (!names.has(k)) names.set(k, v);
+    const by = (array: readonly QbValue[]): Map<string, Struct> => {
+        const m = new Map<string, Struct>();
+        for (const n of array) {
+            const v = n instanceof Struct ? n.get("Name") : undefined;
+            if (n instanceof Struct && v instanceof Name && !m.has(norm(text(v.value)))) m.set(norm(text(v.value)), n);
+        }
+        return m;
+    };
+    const ob = by(ours);
+    const tb = by(theirs);
+    const cls = (n: Struct): string => {
+        const c = n.get("Class");
+        return c instanceof Name ? text(c.value).toLowerCase() : "?";
+    };
+    const posOf = (n: Struct): number[] | null => {
+        const v = n.get("Pos");
+        return v instanceof Vector ? [...v.values] : null;
+    };
+    const d3 = (a: readonly number[], b: readonly number[]): number =>
+        Math.max(...[0, 1, 2].map((k) => Math.abs(a[k]! - b[k]!)));
+    const out: Record<string, Map<string, Tally>> = {
+        "TP-5 moved": new Map(),
+        "TP-6 flags / keys": new Map(),
+        "TP-7 only ours": new Map(),
+        "TP-8 only THUGPRO's": new Map(),
+        "TP-9 collision": new Map(),
+        geometry: new Map(),
+        "our port's own (not THUGPRO's)": new Map(),
+    };
+    const own = out["our port's own (not THUGPRO's)"]!;
+    // (the scene first: TrickObject on geometry without a sector is our port's crash guard)
+    const sceneOf = (file: string): Set<number> =>
+        new Set(thug2Scene.readScene(fs.readFileSync(file), file).sectors.map((s) => s.checksum));
+    const ourScene = sceneOf(pyJoin(levels, mine, `${mine}.scn.xbx`));
+    const objects = new Set<number>(); // our LevelObjects: collision in their own space
+    for (const n of ours) {
+        const v = n instanceof Struct ? n.get("Name") : undefined;
+        if (n instanceof Struct && v instanceof Name && cls(n) === "levelobject") objects.add(v.value);
+    }
+    const flagSet = (n: Struct): Set<string> =>
+        new Set(
+            n.entries
+                .filter(([k, v]) => k === null && v instanceof Name)
+                .map(([, v]) => text((v as Name).value).toLowerCase()),
+        );
+    const COMPARED_CLASSES = new Set(["railnode", "levelgeometry", "restart", "levelobject"]);
+    for (const [nm, o] of ob) {
+        const t = tb.get(nm);
+        if (t === undefined) {
+            tally(out["TP-7 only ours"]!, cls(o), nm);
+            continue;
+        }
+        const po = posOf(o);
+        const pt = posOf(t);
+        if (po && pt && d3(po, pt) > TOLERANCE) tally(out["TP-5 moved"]!, cls(o), nm);
+        if (!COMPARED_CLASSES.has(cls(o))) continue;
+        const fo = flagSet(o);
+        const ft = flagSet(t);
+        const nv = (o.get("Name") as Name).value;
+        // (nodes.stripMissingTrickObjects: ParseNodeArray 0x00588630 reads through a missing sector - a crash)
+        const guarded = cls(o) === "levelgeometry" && !ourScene.has(nv);
+        for (const f of ["createdatstart", "absentinnetgames", "netenabled", "trickobject"]) {
+            if (fo.has(f) === ft.has(f)) continue;
+            if (f === "trickobject" && guarded && !fo.has(f))
+                tally(own, "TrickObject off geometry without a sector", nm);
+            else tally(out["TP-6 flags / keys"]!, `${cls(o)} ${f} ${ft.has(f) ? "missing" : "extra"}`, nm);
+        }
+        for (const k of ["TerrainType", "Cluster", "CollisionMode"]) {
+            const a = o.get(k);
+            const b = t.get(k);
+            const ta = a instanceof Name ? text(a.value).toLowerCase() : String(a);
+            const tt = b instanceof Name ? text(b.value).toLowerCase() : String(b);
+            if (ta === tt) continue;
+            if (k === "Cluster" && guarded && a === undefined) tally(own, "Cluster off geometry without a sector", nm);
+            else if (k === "CollisionMode" && cls(o) === "levelobject" && a === undefined) {
+                tally(own, "CollisionMode off objects without collision", nm);
+            } else tally(out["TP-6 flags / keys"]!, `${cls(o)} ${k.toLowerCase()}`, `${nm}: ${ta} vs ${tt}`);
+        }
+        if (cls(o) !== cls(t)) tally(out["TP-6 flags / keys"]!, `class ${cls(o)} vs ${cls(t)}`, nm);
+    }
+    for (const [nm, t] of tb) if (!ob.has(nm)) tally(out["TP-8 only THUGPRO's"]!, cls(t), nm);
+    // collision
+    const colOf = (file: string): Map<number, thug2Col.ColObject> => {
+        const m = new Map<number, thug2Col.ColObject>();
+        for (const o of thug2Col.readCol(fs.readFileSync(file), file).objects) m.set(o.checksum, o);
+        return m;
+    };
+    const ourCol = colOf(pyJoin(levels, mine, `${mine}.col.xbx`));
+    const tpCol = new Map<number, thug2Col.ColObject>();
+    const colPrx = findPath(thugpro, "data", "pre", `${key}col.prx`);
+    for (const [, d] of colPrx === null ? [] : prx.entries(colPrx, (n) => n.toLowerCase().endsWith(".col.xbx"))) {
+        for (const o of thug2Col.readCol(d, key).objects) tpCol.set(o.checksum, o);
+    }
+    const sfx = (c: number): boolean => /_sfx_/i.test(text(c));
+    const COMPARE_FLAGS = 0x1fff & ~thug2Col.FACE_TRIGGER; // (ours keeps trigger faces only where a script runs)
+    for (const [c, o] of ourCol) {
+        const t = tpCol.get(c);
+        if (t === undefined) {
+            tally(out["TP-9 collision"]!, "object only ours", text(c));
+            continue;
+        }
+        if (t.faces.length !== o.faces.length) {
+            tally(out["TP-9 collision"]!, "object with other faces", text(c));
+            continue;
+        }
+        if (o.faces.length && o.faces.every((f) => f[0] === 0x1150)) {
+            tally(own, "breakable glass faces (thaw_levels BREAKABLE_FACE)", text(c));
+            continue;
+        }
+        let flags = 0;
+        let terrain = 0;
+        o.faces.forEach((f, i) => {
+            const g = t.faces[i]!;
+            if ((f[0] & COMPARE_FLAGS) !== (g[0] & COMPARE_FLAGS)) flags += 1;
+            if (f[1] !== g[1]) terrain += 1;
+        });
+        if (flags) tally(out["TP-9 collision"]!, "objects with other face flags", `${text(c)} (${flags})`);
+        if (terrain) tally(out["TP-9 collision"]!, "objects with other face terrain", `${text(c)} (${terrain})`);
+        const box = (x: thug2Col.ColObject): number[] => [...x.bbox.slice(0, 3), ...x.bbox.slice(4, 7)];
+        if (objects.has(c)) continue; // (in its own space)
+        if (o.verts.length && t.verts.length && Math.max(...box(o).map((v, k) => Math.abs(v - box(t)[k]!))) > 0.2) {
+            tally(out.geometry!, "collision object elsewhere", text(c));
+        }
+    }
+    for (const [c] of tpCol)
+        if (!ourCol.has(c) && !sfx(c)) tally(out["TP-9 collision"]!, "object only THUGPRO's", text(c));
+    // scene sectors
+    const tpScene = new Set<number>();
+    const scnPrx = findPath(thugpro, "data", "pre", `${key}scn.prx`);
+    for (const [, d] of scnPrx === null ? [] : prx.entries(scnPrx, (n) => n.toLowerCase().endsWith(".scn.xbx"))) {
+        for (const s of thug2Scene.readScene(d, key).sectors) tpScene.add(s.checksum);
+    }
+    for (const c of ourScene) if (!tpScene.has(c)) tally(out.geometry!, "sector only ours", text(c));
+    for (const c of tpScene) if (!ourScene.has(c)) tally(out.geometry!, "sector only THUGPRO's", text(c));
+    return {
+        zone,
+        level: mine,
+        nodes: { ours: ours.length, thugpro: theirs.length },
+        ...Object.fromEntries(Object.entries(out).map(([k, m]) => [k, sorted(m)])),
+    };
+}
+
 function summary(r: Record<string, unknown>): string[] {
     const counts = (m: unknown): string =>
         Object.entries(m as Record<string, Tally>)
@@ -410,8 +567,14 @@ function summary(r: Record<string, unknown>): string[] {
     return out;
 }
 
-const USAGE = "usage: thugpro_inventory.ts [-h] [--thaw THAW] [--thugpro THUGPRO] [--json JSON] [levels ...]";
-const OPTIONS = { thaw: { type: "string" }, thugpro: { type: "string" }, json: { type: "string" } } as const;
+const USAGE =
+    "usage: thugpro_inventory.ts [-h] [--thaw THAW] [--thugpro THUGPRO] [--json JSON] [--ours LEVELS] [levels ...]";
+const OPTIONS = {
+    thaw: { type: "string" },
+    thugpro: { type: "string" },
+    json: { type: "string" },
+    ours: { type: "string" }, // our converted levels (<thug2>\thug2-decomp-thaw\levels): compareOurs
+} as const;
 
 export function main(argv: readonly string[] = process.argv.slice(2)): number {
     let parsed: ReturnType<typeof parseArgs<{ options: typeof OPTIONS; allowPositionals: true }>>;
@@ -433,6 +596,20 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
     }
     const results: Record<string, unknown> = {};
     for (const zone of zones) {
+        if (v.ours) {
+            const r = compareOurs(zone, v.ours, thugpro, names);
+            results[zone] = r;
+            print(`== ${zone} (ours: ${String(r.level)}) nodes ${JSON.stringify(r.nodes)}`);
+            for (const [k, m] of Object.entries(r)) {
+                if (["zone", "level", "nodes"].includes(k)) continue;
+                const items = Object.entries(m as Record<string, Tally>);
+                const total = items.reduce((a, [, t]) => a + t.count, 0);
+                print(
+                    `  ${k}: ${total}${items.length ? ` - ${items.map(([c, t]) => `${c} ${t.count} (${t.examples.slice(0, 2).join(", ")})`).join("; ")}` : ""}`,
+                );
+            }
+            continue;
+        }
         const r = inventory(zone, thawFolder, thugpro, names);
         results[zone] = r;
         for (const line of summary(r)) print(line);
