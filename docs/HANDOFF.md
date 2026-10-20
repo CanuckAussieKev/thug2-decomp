@@ -21,7 +21,7 @@ then the "- [ ] Next:" line of docs/decomp-progress.md.
 - **Stopped mid-task (WIP on their branches, each with a handoff note in docs/pending/):**
   - Level editor phase 3 (create / delete point nodes: overlay node array, Place palette, hide originals, limits -
     10 crowns / 256 restarts / 256+150 lights, crown reorder, `node` / `hide` records): branch
-    worktree-agent-ac73f9426e90a064c, note `docs/pending/editor-phase3-handoff.md`.
+    worktree-agent-ac73f9426e90a064c, note `docs/pending/editor-phase3-handoff.md` (ed77d6e: research only, no code yet - an 8-step plan; key findings: the game won't parse an added node array, so the editor creates proxim / emitter / light objects itself; the overlay array must be skipped by GetLastNodeArray (park editor) and removed with its level; restarts / crowns are hidden by a marker class; hiding a crown renumbers the ones after it, and the last crown can't be hidden (SpawnCrown divides by zero); CTF / team nodes need their exact names).
   - Flaky early self-tests (screen element / text / anim controllers fail intermittently; fix root causes, then 50
     clean runs): branch worktree-agent-a024a86de15fee1b4 (7e4246f: three harness root causes fixed, 14+14 clean full runs; left: the 50/20 verification), note `docs/pending/flaky-selftests-handoff.md`.
   Resume each from its note, finish, check offline, merge (lead), build, install the DLL in C:\Games\THUG2.
