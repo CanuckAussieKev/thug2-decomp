@@ -12,6 +12,16 @@ then the "- [ ] Next:" line of docs/decomp-progress.md.
   - the leaked-source ban.
 - **Decomp:** 28.27% before the object-system merge (docs/PROGRESS.md). The next batch number is **156**.
 
+## Update 8 (2026-10-21): the converters' faulty "THUG2 doesn't have X" assumptions fixed
+Merged (e83b0bb THAW fixes, 0a68944 shared translator) and installed in C:\Games\THUG2; not run in the game. Record:
+docs/pending/translator-fixes.md and docs/pending/thaw.md. Generated member table (tools/extract_members.ts ->
+tools/level_port/thug2_members.ts), one skater context, thug2ScriptOk / scriptNeeds fixed, shared TriggerType for all
+four games, THAW IsCreated -> IsAlive / InManual / THAW's own glass scripts. Left-out statements 10,136 -> 8,812.
+Face flag 0x2000 kept for THAW only (1% of its faces; THPS4 / THUG1 set it on ~100%, a different meaning there).
+Open: THPS4 still runs 4 THUG2 game-flow scripts (kill_start_key_binding, GoalManager_HideGoalPoints,
+add_multiplayer_mode_goals, goal_wait_and_show_key_combo_text) - LEFT_OUT candidates; ns.exe can't decompile THUG1's
+seven *_thugpro.qb files (worth a look); PC-THUG1-7 needs verification.
+
 ## Update 7 (2026-10-21): update 6's four branches finished and merged
 All four (THPS4 5bb1d44, THAW 957059d, THPS3 d4692b2, THUG1 76cbbcf) are on main and installed in C:\Games\THUG2: every
 game's `thugpro_new` (TPN-<game>-n, by reference to the THUGPRO install) and `port_changes` (PC-<game>-n, `op` /
