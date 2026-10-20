@@ -1379,6 +1379,10 @@ uint32_t Duplicate(uint32_t source)
     float* boxes = reinterpret_cast<float*>(geom + 0x14);
     boxes[0] = min.x, boxes[1] = min.y, boxes[2] = min.z;
     boxes[4] = max.x, boxes[5] = max.y, boxes[6] = max.z;
+    // (the collision's flags are copied with it: a source whose collision is switched off by itself - level_editor_walls.h
+    // - gives a copy with collision on, as a layout makes copies again)
+    if (uint8_t* coll = CollOf(copy); coll && IsActive(copy))
+        coll[0x08] &= static_cast<uint8_t>(~4);
     MarkDirty(scene);
     Clones().push_back({made, source, sourcePlacement});
     char name[96];
@@ -1601,6 +1605,17 @@ void Commit()
         Log("level editor: super sectors updated in %u scene%s", static_cast<unsigned>(g_dirtyScenes.size()),
             g_dirtyScenes.size() == 1 ? "" : "s");
     g_dirtyScenes.clear();
+}
+
+void NoteCollisionMoved(uint32_t checksum)
+{
+    uint8_t* scene = nullptr;
+    uint8_t* sector = FindSector(checksum, &scene);
+    if (!sector)
+        return;
+    if (FlagsOf(sector) & 0x40)
+        FlagsOf(sector) |= 0x20; // (as ApplyTrack / CSector::SetWorldPosition 0x0049E6C0)
+    MarkDirty(scene);
 }
 
 int MovedCount()

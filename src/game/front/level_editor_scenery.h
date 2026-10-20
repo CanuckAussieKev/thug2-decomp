@@ -113,6 +113,9 @@ void Turn(int quarters);
 float SelectionScale();
 float ScaleSelection(float factor);
 void Commit();
+// A sector's collision moved by something else (level_editor_walls.h: an invisible wall): flagged for the super sectors'
+// update as moves are, its scene updated at the next Commit.
+void NoteCollisionMoved(uint32_t checksum);
 // How many sectors have been moved since the level loaded.
 int MovedCount();
 

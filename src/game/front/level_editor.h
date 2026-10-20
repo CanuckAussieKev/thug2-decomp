@@ -58,6 +58,9 @@ class CScript;
 //                             records; the limits (10 crowns, 256 restarts, 256 / 150 lights)
 //   level_editor_view.cpp     the view options: the collision shown (C; invisible walls magenta, Shift+click one), the
 //                             selection hidden (H) or isolated (I or /) while editing only, Alt+H shows all
+//   level_editor_walls.cpp    collision switched off and on with the game's own switch (CSector::SetActive): invisible
+//                             walls deleted (Delete) / restored and moved / turned, a drawn piece's collision off by
+//                             itself (the Inspector's Collision); undo, `wall` layout records
 //   level_editor_hud.cpp      the old HUD ([features] editor_ui=0, or when the UI can't start): a status panel top
 //                             left, the keys at the bottom, a message line, and a panel for the help (F1) and the
 //                             browser (B), made of the game's screen elements
