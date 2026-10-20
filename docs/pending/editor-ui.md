@@ -339,3 +339,221 @@ Use a workspace (or the main install) with this branch's DLL. Watch `thug2-decom
   Names must be unique; set records key by name and edit the node the hash finds.
 - Set records already cover any node by name, so an overlay node's place can reuse them; `node` records would carry
   the class / type / defaults.
+  (Phase 3 found that ParseNodeArray parses the node manager owner's array - the level's - not the last one added:
+  see below.)
+
+## Phase 3: create and delete point nodes
+
+Branch `worktree-agent-ac73f9426e90a064c`. **NOT run in the game yet**: checked offline only, as the lead asked.
+
+### What
+
+- **Place palette (N, or the toolbar's Place (N)):** a window "Place: what to add" with a search box. Its entries:
+  Multiplayer spawn; Team spawn (Red / Blue / Green / Yellow); Crown; CTF flag set (Red / Blue / Green / Yellow);
+  Level light; Sound emitter (silent for now); Proximity node (sphere). An entry that can't be placed now is greyed and
+  its tooltip says why (a limit, or the level already has that team's node). Click an entry to arm it, then click in
+  the view: the node is placed where the cursor points, dropped to the ground as G drops a node (a light 150 units above
+  it), facing the camera's heading (angles (0, yaw, 0)). It is selected, and moves and turns like phase 2's nodes.
+  Shift+click keeps placing; Esc disarms, then closes the palette. A double-click on an entry places one where the view
+  looks. Without the UI (`editor_ui=0`) N only says the palette needs it.
+- **Typed defaults, in THUG2's own levels' form** (the converters' forms):
+  - multiplayer spawn: `Restart`, Type MultiPlayer, CreatedAtStart, RestartName "Multi: Restart", restart_types
+    [MultiPlayer Horse];
+  - team spawn: `TRG_CTF_Restart_<Colour>` (found by name, 0x00566100), Type CTF, RestartName "Team: CTF <Colour>",
+    restart_types [CTF MultiPlayer Horse];
+  - crown: `GenericNode` Type Crown, CreatedAtStart;
+  - CTF flag set (Airport's form): `TRG_CTF_<Colour>` (GameObject Type Flag_<Colour>, NeverSuspend, model
+    gameobjects\flags\flag_<colour>, lod_dist 800 / 801, TriggerScript TRG_CTF_<Colour>Script) and
+    `TRG_CTF_<Colour>_Base` (Flag_<Colour>_Base, its model, no script), both at the same place;
+  - level light: `LevelLight`, Color 255 214 170, Brightness 100, InnerRadius 150, OuterRadius 400;
+  - sound emitter / proximity node: `EmitterObject` / `ProximNode`, Shape Sphere, Radius 300 / 200, CreatedAtStart.
+- **Names:** fresh `ed_restart01`, `ed_crown01`, `ed_light01`, `ed_sound01`, `ed_proxim01`... (the first not used by any
+  loaded node or object). Team spawns and flags keep the exact names the game looks for; placing one is refused when
+  the level already has that name ("move it").
+- **Delete (Del, or the Inspector's button):**
+  - a node the editor added is removed;
+  - a level's own spawn, crown, flag, light, sound or proximity node is hidden after a confirm window ("Delete an
+    original node?"). For a crown it says: "It will be hidden, not removed, so the crowns after it keep their order -
+    each moves up one number while it's hidden". Its gizmo turns grey (a crown shows "hidden"), the Outliner row greys
+    with the tag "hidden", and the Inspector says so. **Home** (or "Show again (Home)") brings it back. Other families
+    (rails, paths, objects, scenery, other nodes) can't be hidden yet; the disabled button's tooltip says why.
+  - Refused: hiding the level's last counted crown (CFunc_SpawnCrown would divide by zero), and the last Player1 /
+    Multiplayer restart.
+- **Crown order:** the Inspector shows "#n of N" (N: the crowns the game counts). An added crown has Move up / Move
+  down: it changes places with the added crown before / after it in the overlay array. **Only added crowns reorder**
+  (the choice): they always come after the level's own crowns, so the level's crowns keep the level's numbers.
+  Reordering the level's own would mean rewriting the level's array, which this design avoids.
+- **Undo / redo:** new step kinds in the 64-step history: added nodes (created / removed, with where they were in the
+  overlay and their place when removed - a moved node comes back where it was), hidden (hidden / shown), order (the
+  overlay's order).
+- **Online:** adding, deleting, hiding or reordering a spawn, crown or flag in a level shared with THUGPRO brings up the
+  same once-a-run window as moving one (its text now covers all four).
+
+### How: the overlay node array
+
+- New nodes are structures (Script::NewStruct, built from the kind's fields) in a global array symbol
+  `thug2_decomp_editor_nodes` (made once with CreateSymbol, reused), registered with the node manager **after the
+  level's array** (`CNodeManager::AddNodeArray(name, false)` - not owned, so 0x004696C0 doesn't run). Each change takes
+  it out (`RemoveNodeArray`), sets its elements again and adds it again: the hash and the prefix tables stay right.
+- Walks go array by array (`Obj::GetRestartNodes` 0x0046B6C0, `CFunc_SpawnCrown` 0x00538170): the level's restarts and
+  crowns keep their numbers; added ones come after.
+- **The game never parses the overlay:** `CFunc_ParseNodeArray` (0x005A34E0) parses the node manager owner's array
+  (0x0045C220: the level's CNodeArrayAsset +0x58), not the last one. So the editor makes what it would: a proximity node
+  (`Proxim_AddNode(name, true)`), a sound emitter (`Emitter_AddNode`), a level light (0x00490570, as the cutscenes do).
+  Neither manager can free a single node, so a removed proximity node / emitter is made inactive and reused (place,
+  radius) if the same name is added again (undo).
+- **NOT ORIGINAL changes in src/game/script/node_manager.cpp** (marked): `GetLastNodeArray` / `GetLastNodeArrayName`
+  pass over the editor's array (`SetEditorNodeArray`; 0 = the original behaviour). Their callers - the park editor
+  (0x00594FD0, and 0x004E8F50, which hashes park nodes with `HashNodeIn(GetLastNodeArrayName(), ...)`), LoadNodeArray,
+  ReLoadNodeArray - mean the level's. And `RemoveNodeArray` tells a hook after an array is taken out
+  (`SetNodeArrayRemovedHook`; null = none): when the level's array goes (CNodeArrayAsset::Unload), the overlay is taken
+  out too and its structures freed. Otherwise the next level's array would be added after it, and every walk would meet
+  the stale added nodes first.
+- **Hidden** (src/game/front/level_editor_node_create.h): the game has no kill path for restarts or crowns (0x005A32C0
+  has no case for Restart or GenericNode). So the node keeps its place in its array, but its class and type become the
+  marker `ed_hidden`, its own kept on it as `ed_hidden_class` / `ed_hidden_type`. The restart walks skip it (class),
+  SpawnCrown skips it (it counts type Crown, whatever the class), Create makes nothing of it (0x005A2E50: an unknown
+  class returns 0). And by class, the game's own kill path: a proximity node and an emitter are made inactive (their
+  state kept for Home), a light goes out of both light lists (0x0048FCA0; Home adds it again with 0x00490570), a live
+  flag object (a CTF game's) is killed. The node layer reads hidden nodes through the marker (family and colour stay;
+  drawn grey).
+
+### What applies live, what after a reload
+
+| Kind | Added | Hidden |
+|---|---|---|
+| Spawn (MP / team) | **live**: the next respawn / F8 (the restart tester walks every array) | **live**: the walks skip it; the restarts after it count one lower |
+| Crown | **live** for the next crown spawned (King of the Hill is net-only, where layouts don't apply) | **live**: not counted; the crowns after it move up one |
+| CTF flag set | node now; flag objects are made only when a CTF game starts (net only) - it matters for a later bake | node now; a live flag object killed |
+| Level light | **live**: in the light lists at once (as cutscenes add lights) | **live**: out of the lists (0x0048FCA0, the cutscenes' path); Home adds it again |
+| Sound emitter | node + emitter now, **silent** (nothing plays on it until a script does - choosing its sound is for later) | **live**: inactive |
+| Proximity node | **live** (a sphere; no script by default) | **live**: inactive |
+
+Layouts apply a second after the skater exists (as in phase 2), never in net games.
+
+### Limits (enforced before adding, with a message)
+
+- **10 crowns:** CFunc_SpawnCrown's two 10-entry stack arrays (unchecked). Counted as the game counts: every node of
+  type Crown in every array; hidden ones not (hiding really takes them out of the walk).
+- **256 restarts:** GetRestartNode's 256-name stack array (unchecked). Class Restart, hidden ones not.
+- **Lights:** 256 dynamic (0x0048FB80, count 0x006FAEF0) and 150 level (0x00490400, count 0x006FAEF4): the lists'
+  counts now. The game only refuses silently when they're full (no corruption); the editor says so instead.
+- The node manager's 20 arrays: if all are in use, the overlay can't be registered (logged; the add is undone).
+
+### Saved: layout records (still version 2)
+
+```
+node ed_restart01 Restart type=MultiPlayer pos=-120.5,8,330.125 angles=0,1.57079637,0 types=MultiPlayer,Horse
+node ed_light01 LevelLight pos=0,250,0 angles=0,0,0 color=255,214,170 brightness=100 inner=150 outer=400
+node ed_proxim01 ProximNode pos=1,2,3 angles=0,-0.25,0 radius=200
+node TRG_CTF_Red GameObject type=Flag_Red pos=7,8,9 angles=0,0,0
+order crown ed_crown02 ed_crown01
+hide 8E1A2B3C  # TRG_KOTH03
+```
+
+- `node <name> <Class> key=value...`: the added nodes in the overlay's order. `pos` is required; `type`, `angles`,
+  `types`, `color`, `brightness`, `inner`, `outer`, `radius` are optional; unknown keys are skipped; a repeated key or a
+  bad value refuses the file. The rest of the node (RestartName, model, script, Shape...) follows from class / type /
+  name, so the record stays short. An added node that was moved is written with its place now (not as a `set`).
+- `order crown <names>`: the added crowns' order (written when there are two or more). Applied after the node records
+  (it fills the crowns' slots in that order).
+- `hide <checksum>`: a level's node hidden.
+- The header stays `thug2-decomp layout 2`: the phase 2 reader skips unknown records, so a phase 2 DLL loads these files
+  without the added / hidden nodes. Phase 2 and version 1 files load as before.
+- Apply order: copies, objects, then node records (one re-registration), order, hide, then set records. The message and
+  log end "..., N nodes, N added, N hidden". The autosave and the crash save are the same text (Capture), so they
+  include them; restoring an autosave first removes every added node and shows every hidden one (`ResetAll`).
+
+### Checks (offline)
+
+- Clean build (`out/build/verify`, own PDB endpoint), no warnings.
+- `thug2_check.exe` on THUG2PM.exe and on the stock THUG2.exe: all 355 early tests pass, 6 new
+  (src/hook/selftests_editor_create.cpp): `TestEditorCreateNames`, `TestEditorCreateKinds` (each kind's fields, the
+  heading, the kind read back), `TestEditorCreateLimits` (the four limits at their edges, the last-restart rule),
+  `TestEditorCreateUndo` (create / delete / undo / redo through the overlay list; crowns moved and reordered by an order
+  record), `TestEditorCreateLayout` (node / order / hide round trip exact, malformed records refused, phase 2 and v1
+  files), `TestEditorCreateNodeManager` (GetLastNodeArray / Name pass over the overlay only when it's named and last).
+- Mutations (node tools/mutate.ts), all 22 caught: a taken name used, one-digit names, the crown / restart limits off
+  by one, the level-light limit ignored, the last-restart check inverted, the heading not wrapped, team spawns without
+  CTF, the flag base given the script, PutBack not clamped, Take not removing, MoveCrown swapping with any node, unnamed
+  crowns dropped by an order, names compared with case, restart types not written, a repeated key accepted, pos
+  optional, the colour range unchecked, hide records misread, other orders read as crowns, GetLastNodeArray not
+  skipping, GetLastNodeArrayName skipping when it shouldn't.
+- `node tools/check_code_writes.ts`: no overlaps.
+
+### In-game test checklist (for the user)
+
+Use a workspace (or the main install) with this branch's DLL. Watch `thug2-decomp.log` (`level editor:` lines; also
+`EXCEPTION`, `RUN-TIME CHECK`, `DEBUG CRT`, `SELFTEST FAIL`).
+
+1. **Add a spawn and F8 to it:** `node tools/game/edit_level.ts TR`. Press N; the palette opens. Click "Multiplayer
+   spawn", then click on the ground in the view. A blue disc appears there facing the way the camera looks; it's
+   selected (Inspector: `ed_restart01`, "Added by the editor", node 0 in thug2_decomp_editor_nodes, "n of N restarts"
+   with N one more than before). Log: `level editor: added ed_restart01 (Restart MultiPlayer) at (...)`. Drag it; Z / X
+   turn it. Leave the editor and press F8 until the log's `restart tester:` line names `ed_restart01`: the skater
+   stands there facing its arrow.
+2. **Add a crown and see its #:** in a level with crowns (Foundry: `edit_level.ts foun`, or a THUG2 level), place a
+   Crown. Its diamond shows `#N` (one past the level's last), the Inspector "#N of N+1". Place a second; select it and
+   press Move up: the two added crowns swap numbers. The first added crown's Move up is disabled (tooltip: the level's
+   own come first). A level crown's Move buttons are disabled.
+3. **Hide an original crown:** select a level crown (say #2), press Del. The window "Delete an original node?" names it
+   and says the crowns after it move up a number. Hide: the diamond turns grey and says "hidden"; the old #3 is now #2,
+   and so on; the Inspector says "not counted while hidden". Home (or "Show again (Home)") brings it back and the
+   numbers return. Hide crowns until one is left: the last is refused (message).
+4. **Add a light:** near the skater, place a Level light: a bulb 150 units above the ground with rings; no crash, no
+   log errors. Any lighting change on the skater is a bonus.
+5. **Delete an added node:** select `ed_restart01`, Del: it's gone at once (no window). Ctrl+Z brings it back where it
+   was (also after moving it first); Ctrl+Y deletes it again.
+6. **Hide and Home:** hide a level spawn (window, Hide). Its disc is grey, the Outliner row grey with "hidden"; F8 never
+   reaches it. Home shows it again. Hiding the level's only Player1 restart is refused.
+7. **Undo / redo:** add, move, hide, reorder, delete - then Ctrl+Z back through all of them and Ctrl+Y forward again.
+   Everything comes back with the same places and numbers.
+8. **Save and reload:** Ctrl+S. The message ends "..., N added, N hidden". In `thug2-decomp-layouts\<scene>.txt`:
+   `node ed_... Restart ...`, `order crown ...` (with two added crowns), `hide <hex>  # <name>`. Quit to the menu and
+   load the level again: after about a second the log says `Layout loaded: ..., N added, N hidden`; the added nodes are
+   back (same names, places, crown order), the hidden ones grey; F8 reaches the added spawn.
+9. **Autosave / crash restore:** add and hide something, wait over a minute (log `autosaved`), end the game from Task
+   Manager. Start the editor in the same level: the "Unsaved changes" window, Restore: the added and hidden nodes come
+   back.
+10. **Limit messages:** with 10 crowns (add up to 10), the palette's Crown entry is greyed ("This level has 10
+    crowns...") and placing is refused. Team spawn (Red) / CTF flag set (Red) in Airport or Barcelona (they have them)
+    are greyed: "This level has that team's ... already". (256 restarts and the light lists are hard to reach by hand;
+    the self-tests cover them.)
+11. **Online warning:** `edit_level.ts foun` (or z_ma). Place a spawn: the blue "Online: a level shared with THUGPRO"
+    window appears once (its text: moving, adding, hiding or reordering). "Understood"; later adds / hides don't bring
+    it back. A light there doesn't warn; a THUG2 level doesn't.
+12. **A sound emitter and a proximity node:** place each; their gizmos (speaker; square with sphere rings). The emitter
+    is silent (expected). Delete and Ctrl+Z each: no errors in the log.
+13. **Leaving the level:** with added nodes, quit to the menu and load another level: the log says `the level's node
+    array left - its N added nodes go with it`; the new level has none of them (no thug2_decomp_editor_nodes in its
+    Inspector); F8 there never names an `ed_` restart.
+14. **Old HUD:** `[features] editor_ui=0`: Del on a level spawn hides it at once (message); N says the palette needs the
+    UI.
+
+### Known issues / limits (phase 3)
+
+- Nothing run in the game.
+- A hidden crown / restart changes the numbers of those after it (the game counts only what it finds); keeping "#2 stays
+  #2" would need CFunc_SpawnCrown rewritten.
+- CTF flag sets reference the level script TRG_CTF_<Colour>Script (Team_Flag <colour>); a level without it would need
+  the script - which matters only in net games (flags are made only there) or for a future bake.
+- An added sound emitter plays nothing until a script plays a sound on it (choosing its sound: later). Added proximity
+  nodes have no script yet (phase 5's script picker).
+- Removed proximity nodes / emitters stay in the game's lists, inactive, until the level is loaded again.
+- Hiding a flag kills its object if a CTF game made one; showing it again doesn't make it again (the game does at the
+  next CTF start).
+- A script that refers to a hidden node by name (Create / Kill) finds the marker class: it does nothing.
+- Hiding works for spawns, crowns, flags, lights, sounds and proximity nodes only.
+
+### What changes phase 4 (chains: rails, ladders, paths)
+
+- Chains go in the same overlay array. `AddNodeArray`'s `ResolveLinks` turns links= **indices within the array** into
+  names, so a chain's links must be built as indices into the overlay (or as name arrays, which ResolveLinks would then
+  misread as indices - write indices). Links to the level's nodes can only be by name (the plan's rule), added after
+  the array is registered.
+- Rails are made by the rail manager from the owner's array at ParseNodeArray (0x0057E960, 0x0057C330, 0x0057D7A0):
+  like proximity nodes, added rails must be made by the editor (or the rail manager rebuilt as the park editor does).
+- The owned-array chain numbering (0x004696C0 when AddNodeArray's flag is true: component 0x9C91C3CA on linked nodes)
+  doesn't run for the overlay; check whether the rail / path code needs it.
+- Hiding rails maps to the game's own kill path (0x005A32C0: RailNode / ClimbingNode -> rail SetActive); the marker
+  class would also stop Create.

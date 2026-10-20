@@ -244,7 +244,7 @@ void Toolbar(const Model& model)
     ImGui::PopFont();
     // Right: undo / redo / save, help, add.
     float right = (ImGui::GetWindowWidth() - ImGui::GetStyle().WindowPadding.x);
-    float width = ImGui::CalcTextSize("Undo  Redo  Save layout  Help (F1)  Add (B)").x + 70.0f * g_scale;
+    float width = ImGui::CalcTextSize("Undo  Redo  Save layout  Help (F1)  Add (B)  Place (N)").x + 84.0f * g_scale;
     ImGui::SameLine(std::max(ImGui::GetCursorPosX() + 10.0f * g_scale, right - width));
     ImGui::BeginDisabled(!model.canUndo);
     if (ImGui::SmallButton("Undo"))
@@ -270,13 +270,23 @@ void Toolbar(const Model& model)
     ImGui::SameLine();
     if (ImGui::SmallButton("Add (B)"))
         Ask(Request::kToggleBrowser);
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Copies of the level's scenery and objects");
+    ImGui::SameLine();
+    if (model.place.open)
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.82f, 0.34f, 0.11f, 0.85f));
+    if (ImGui::SmallButton("Place (N)"))
+        Ask(Request::kPlaceToggle);
+    if (model.place.open)
+        ImGui::PopStyleColor();
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("New nodes: spawns, crowns, CTF flags, lights, sounds, proximity nodes");
     ImGui::End();
 }
 
 // The Outliner's rows: each node's label (made again when the node arrays change) and the families' node lists.
 struct OutlinerCache {
-    const Nodes::Node* data = nullptr;
-    size_t size = 0;
+    uint32_t generation = 0;
     std::vector<std::string> labels;
     std::vector<int> byFamily[Nodes::kFamilies];
 };
@@ -286,10 +296,9 @@ int g_lastSelected = -1;
 void UpdateCache()
 {
     const std::vector<Nodes::Node>& nodes = Nodes::All();
-    if (g_cache.data == nodes.data() && g_cache.size == nodes.size())
+    if (g_cache.generation == Nodes::Generation() && g_cache.labels.size() == nodes.size())
         return;
-    g_cache.data = nodes.data();
-    g_cache.size = nodes.size();
+    g_cache.generation = Nodes::Generation();
     g_cache.labels.clear();
     for (std::vector<int>& list : g_cache.byFamily)
         list.clear();
@@ -300,7 +309,17 @@ void UpdateCache()
 }
 
 // What a row shows after the name: a spawn's types, a crown's index, a flag's colour, a rail's links.
+std::string RowTagOf(const Nodes::Node& node);
 std::string RowTag(const Nodes::Node& node)
+{
+    std::string tag = RowTagOf(node);
+    if (node.hidden)
+        return tag.empty() ? "hidden" : tag + " hidden";
+    if (node.added)
+        return tag.empty() ? "added" : tag + " added";
+    return tag;
+}
+std::string RowTagOf(const Nodes::Node& node)
 {
     char text[48] = "";
     switch (node.family) {
@@ -320,6 +339,8 @@ std::string RowTag(const Nodes::Node& node)
         return tags;
     }
     case Nodes::Family::Crown:
+        if (node.order < 0)
+            return "";
         std::snprintf(text, sizeof(text), "#%d", node.order);
         return text;
     case Nodes::Family::Rail:
@@ -433,8 +454,14 @@ void Outliner(const Model& model)
                                                           ImVec2(pos.x + h * 0.4f, pos.y + h * 0.7f),
                                                           Colour(node.colour), 2.0f);
                 ImGui::SetCursorScreenPos(ImVec2(pos.x + h * 0.6f, pos.y));
-                if (ImGui::Selectable(g_cache.labels[i].c_str(), isSelected,
-                                      ImGuiSelectableFlags_AllowDoubleClick | ImGuiSelectableFlags_SpanAllColumns)) {
+                if (node.hidden)
+                    ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[ImGuiCol_TextDisabled]);
+                bool clicked = ImGui::Selectable(g_cache.labels[i].c_str(), isSelected,
+                                                 ImGuiSelectableFlags_AllowDoubleClick |
+                                                     ImGuiSelectableFlags_SpanAllColumns);
+                if (node.hidden)
+                    ImGui::PopStyleColor();
+                if (clicked) {
                     Ask(Request::kSelectNode, i);
                     if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
                         Ask(Request::kGoToNode, i);
@@ -484,7 +511,7 @@ void Badge(const char* text, ImU32 colour)
 
 struct FieldsCache {
     int node = -1;
-    const Nodes::Node* data = nullptr;
+    uint32_t generation = 0;
     std::vector<Nodes::Field> fields;
 };
 FieldsCache g_fields;
@@ -510,6 +537,21 @@ void NodeSection(const Model& model, int index)
     ImGui::PushFont(g_mono);
     ImGui::TextDisabled("node %d in %s", node.index, Nodes::Label(Nodes::ArrayName(node)).c_str());
     ImGui::PopFont();
+    if (node.added) {
+        ImGui::PushFont(g_small);
+        Badge("Added by the editor", IM_COL32(46, 122, 67, 200));
+        ImGui::NewLine();
+        ImGui::PopFont();
+    }
+    if (node.hidden) {
+        ImGui::PushFont(g_small);
+        Badge("Hidden", IM_COL32(110, 110, 110, 220));
+        ImGui::NewLine();
+        ImGui::TextColored(ImVec4(1.0f, 0.78f, 0.45f, 1.0f), "%s",
+                           "Hidden, not removed: the game skips it (its class is the editor's marker). Home shows it "
+                           "again.");
+        ImGui::PopFont();
+    }
     // Online: spawns, crowns and flags in a level shared with THUGPRO.
     if (Nodes::Online(node.family) && model.nodes.levelShared) {
         ImGui::Spacing();
@@ -592,12 +634,33 @@ void NodeSection(const Model& model, int index)
                 ImGui::NewLine();
             ImGui::PopFont();
             FieldLabel("Order");
-            Mono("%d of %d restarts", node.order + 1, Nodes::Counts()[static_cast<int>(Nodes::Family::Spawn)]);
+            if (node.hidden)
+                Mono("not counted while hidden");
+            else
+                Mono("%d of %d restarts", node.order + 1, Nodes::Walked(Nodes::Family::Spawn));
         }
         if (node.family == Nodes::Family::Crown) {
             FieldLabel("Crown");
-            Mono("#%d of %d (the order the network sends;\nmoving it keeps it)", node.order,
-                 Nodes::Counts()[static_cast<int>(Nodes::Family::Crown)]);
+            if (node.hidden)
+                Mono("not counted while hidden\n(%d crowns count)", Nodes::Walked(Nodes::Family::Crown));
+            else
+                Mono("#%d of %d (the order the network sends;\nmoving it keeps it)", node.order,
+                     Nodes::Walked(Nodes::Family::Crown));
+            if (model.nodes.nodeOnly && !node.hidden) {
+                ImGui::BeginDisabled(!model.nodes.crownUp);
+                if (ImGui::SmallButton("Move up"))
+                    Ask(Request::kCrownMove, -1);
+                ImGui::EndDisabled();
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                    ImGui::SetTooltip(node.added ? "Earlier among the crowns you added (the level's own come first)"
+                                                 : "The level's own crowns keep the level's order: only crowns you "
+                                                   "added can be reordered");
+                ImGui::SameLine();
+                ImGui::BeginDisabled(!model.nodes.crownDown);
+                if (ImGui::SmallButton("Move down"))
+                    Ask(Request::kCrownMove, 1);
+                ImGui::EndDisabled();
+            }
         }
         if (node.family == Nodes::Family::Light) {
             FieldLabel("Colour");
@@ -639,18 +702,35 @@ void NodeSection(const Model& model, int index)
         if (ImGui::Button("Ground (G)"))
             Ask(Request::kDrop);
         ImGui::SameLine();
-        ImGui::BeginDisabled(!model.nodes.moved);
-        if (ImGui::Button("Home"))
+        ImGui::BeginDisabled(!model.nodes.moved && !model.nodes.hidden);
+        if (ImGui::Button(model.nodes.hidden ? "Show again (Home)" : "Home"))
             Ask(Request::kReset);
         ImGui::EndDisabled();
         ImGui::SameLine();
+        if (model.nodes.added || (model.nodes.canHide && !model.nodes.hidden)) {
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.29f, 0.14f, 0.13f, 1.0f));
+            if (ImGui::Button(model.nodes.added ? "Delete (Del)" : "Hide (Del)"))
+                Ask(Request::kDeleteNode);
+            ImGui::PopStyleColor();
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip(model.nodes.added ? "Removed (Ctrl+Z brings it back)"
+                                                    : "A level's node is hidden, not removed (Home brings it back)");
+            ImGui::SameLine();
+        } else if (!model.nodes.added && !model.nodes.hidden && !model.nodes.whyNoHide.empty()) {
+            ImGui::BeginDisabled(true);
+            ImGui::Button("Hide (Del)");
+            ImGui::EndDisabled();
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                ImGui::SetTooltip("%s", model.nodes.whyNoHide.c_str());
+            ImGui::SameLine();
+        }
     }
     if (ImGui::Button("Go to"))
         Ask(Request::kGoToNode, index);
     // Every field of its structure.
-    if (g_fields.node != index || g_fields.data != nodes.data()) {
+    if (g_fields.node != index || g_fields.generation != Nodes::Generation()) {
         g_fields.node = index;
-        g_fields.data = nodes.data();
+        g_fields.generation = Nodes::Generation();
         g_fields.fields = Nodes::Fields(node);
     }
     ImGui::Spacing();
@@ -949,15 +1029,106 @@ void OnlineWarning(const Model& model)
                  ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize |
                      ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove);
     ImGui::PopStyleColor(2);
-    ImGui::TextWrapped("This level is ported from %s and THUGPRO's players have it too. Moving its spawns, crowns or "
-                       "flags changes where players start and where crowns and flags are, against theirs.",
+    ImGui::TextWrapped("This level is ported from %s and THUGPRO's players have it too. Moving, adding, hiding or "
+                       "reordering its spawns, crowns or flags changes where players start and where crowns and flags "
+                       "are (and the crowns' order), against theirs.",
                        model.nodes.sharedGame);
     ImGui::Spacing();
     ImGui::TextWrapped("Your layout isn't used in net games, so playing online is unaffected - but a layout baked into "
-                       "the level's files would be. The edit is made; Ctrl+Z or Home puts it back.");
+                       "the level's files would be. The edit is made; Ctrl+Z puts it back.");
     ImGui::Spacing();
     if (ImGui::Button("Understood"))
         Ask(Request::kOnlineWarningSeen);
+    ImGui::End();
+}
+
+// The Place palette (N): what can be added. A click on an entry arms it - the next click in the view places it there
+// (Shift+click: keep placing); its button places one where the view looks.
+char g_placeSearch[64];
+void Place(const Model& model)
+{
+    if (!model.place.open)
+        return;
+    ImGui::SetNextWindowPos(ImVec2(g_layout.viewport.x + 8.0f * g_scale, g_layout.viewport.y + 8.0f * g_scale),
+                            ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(300.0f * g_scale, 0.0f));
+    bool open = true;
+    ImGui::Begin("Place: what to add###place", &open,
+                 ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize |
+                     ImGuiWindowFlags_AlwaysAutoResize);
+    ImGui::SetNextItemWidth(-1.0f);
+    ImGui::InputTextWithHint("##placesearch", "spawn\xE2\x80\xA6", g_placeSearch, sizeof(g_placeSearch));
+    const std::vector<Model::PlaceView::Entry>& entries = model.place.entries;
+    for (int i = 0; i < static_cast<int>(entries.size()); ++i) {
+        const Model::PlaceView::Entry& e = entries[i];
+        if (!Matches(e.label, g_placeSearch))
+            continue;
+        ImGui::PushID(i);
+        ImVec2 pos = ImGui::GetCursorScreenPos();
+        float h = ImGui::GetTextLineHeight();
+        ImGui::GetWindowDrawList()->AddRectFilled(ImVec2(pos.x, pos.y + h * 0.25f), ImVec2(pos.x + h * 0.5f, pos.y + h * 0.75f),
+                                                  Colour(e.colour), 2.0f);
+        ImGui::SetCursorScreenPos(ImVec2(pos.x + h * 0.8f, pos.y));
+        bool can = e.why.empty();
+        ImGui::BeginDisabled(!can);
+        if (ImGui::Selectable(e.label.c_str(), model.place.armed == i, ImGuiSelectableFlags_AllowDoubleClick)) {
+            Ask(Request::kPlaceArm, model.place.armed == i ? -1 : i);
+            if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+                Ask(Request::kPlaceHere, i);
+        }
+        ImGui::EndDisabled();
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+            ImGui::SetTooltip("%s", can ? "Click, then click in the view to place it (double-click: where the view "
+                                          "looks)"
+                                        : e.why.c_str());
+        ImGui::PopID();
+    }
+    ImGui::Separator();
+    ImGui::PushFont(g_small);
+    if (model.place.armed >= 0 && model.place.armed < static_cast<int>(entries.size()))
+        ImGui::TextWrapped("Click in the view to place: %s (Shift+click: more). Esc cancels.",
+                           entries[model.place.armed].label.c_str());
+    else
+        Muted("Pick one, then click in the view. It's dropped to the ground and faces the way the camera looks.");
+    ImGui::PopFont();
+    ImGui::End();
+    if (!open)
+        Ask(Request::kPlaceToggle);
+}
+
+// Deleting a level's node: hidden, not removed - asked first.
+void ConfirmHide(const Model& model)
+{
+    if (!model.confirm.open)
+        return;
+    ImGuiIO& io = ImGui::GetIO();
+    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, g_layout.viewport.y + 60.0f * g_scale), ImGuiCond_Always,
+                            ImVec2(0.5f, 0.0f));
+    ImGui::SetNextWindowSize(ImVec2(420.0f * g_scale, 0.0f));
+    ImGui::Begin("Delete an original node?###confirmhide", nullptr,
+                 ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize |
+                     ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove);
+    ImGui::PushFont(g_mono);
+    ImGui::TextUnformatted(model.confirm.name.c_str());
+    ImGui::PopFont();
+    ImGui::SameLine();
+    ImGui::TextWrapped("is part of %s.", model.level.c_str());
+    if (model.confirm.crown)
+        ImGui::TextWrapped("It will be hidden, not removed, so the crowns after it keep their order - each moves up one "
+                           "number while it's hidden (the game counts only the crowns it finds). You can bring it back "
+                           "with Home.");
+    else
+        ImGui::TextWrapped("It will be hidden, not removed: the level's nodes keep their indexes and the game skips it. "
+                           "You can bring it back with Home.");
+    ImGui::Spacing();
+    if (ImGui::Button("Cancel"))
+        Ask(Request::kHideCancelled);
+    ImGui::SameLine();
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.29f, 0.14f, 0.13f, 1.0f));
+    std::string hide = "Hide " + model.confirm.family;
+    if (ImGui::Button(hide.c_str()))
+        Ask(Request::kHideConfirmed);
+    ImGui::PopStyleColor();
     ImGui::End();
 }
 
@@ -1132,6 +1303,8 @@ void Frame(const Model& model, const Overlay& overlay)
     Browser(model);
     Help(model);
     AutosaveOffer(model);
+    Place(model);
+    ConfirmHide(model);
     OnlineWarning(model);
     ImGui::PopFont();
     ImGui::Render();

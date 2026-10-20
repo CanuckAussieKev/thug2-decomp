@@ -42,6 +42,11 @@ class CScript;
 //   level_editor_node_edit.cpp point nodes (spawns, crowns, flags, lights, sounds, triggers, cameras and other nodes)
 //                             moved and turned: their pos= / angles= written, what the game keeps of them updated so it
 //                             shows at once (or at the next respawn / crown spawn), their undo steps and `set` records
+//   level_editor_node_create.cpp nodes added (spawns, team spawns, crowns, CTF flag sets, lights, sound emitters,
+//                             proximity nodes) in an overlay node array registered after the level's - its indexes and
+//                             crown order kept - and the game's proximity node / emitter / light made for them; a level's
+//                             own nodes hidden (not removed: a marker class the walks skip); `node` / `order` / `hide`
+//                             records; the limits (10 crowns, 256 restarts, 256 / 150 lights)
 //   level_editor_hud.cpp      the old HUD ([features] editor_ui=0, or when the UI can't start): a status panel top
 //                             left, the keys at the bottom, a message line, and a panel for the help (F1) and the
 //                             browser (B), made of the game's screen elements
@@ -59,11 +64,19 @@ class CScript;
 //     Snap 25 snaps to 25; Escape puts it back), or drag one of the arrows to move along that axis only; W A S D / Q E
 //     nudge; Z / X turn (objects and nodes 15 degrees, scenery a quarter); G drops it onto the ground (a marker shows
 //     where that is). Moving a spawn, crown or flag of a level shared with THUGPRO warns once a run (the edit is made).
-//   - Editing: Ctrl+D duplicates; Delete hides scenery (deletes copies of objects; not nodes); Home puts it back where
-//     the level had it; Ctrl+Z / Ctrl+Y undo / redo (64 steps, this session).
-//   - Adding: B lists the level's scenery and objects; Enter places a copy where the cursor points.
-//   - Saving: Ctrl+S (layout version 2: moved nodes as `set <node> pos=x,y,z angles=x,y,z` records; version 1 files
-//     still load). Unsaved changes are autosaved (every minute, on leaving, and from the crash logger -
+//   - Editing: Ctrl+D duplicates; Delete hides scenery (deletes copies of objects), deletes a node the editor added and
+//     hides a level's own spawn / crown / flag / light / sound / proximity node (asking first: it isn't removed - the
+//     crowns after a hidden crown each move up a number); Home puts it back where the level had it (a hidden node:
+//     shows it again); Ctrl+Z / Ctrl+Y undo / redo (64 steps, this session). An added crown moves up / down among the
+//     added crowns (the Inspector); the level's own crowns keep the level's order.
+//   - Adding: B lists the level's scenery and objects; Enter places a copy where the cursor points. N (Place) lists new
+//     nodes - a multiplayer spawn, a team spawn and a CTF flag set per colour (the exact names the game looks for), a
+//     crown, a level light, a sound emitter (silent for now), a proximity node: pick one, click in the view (dropped to
+//     the ground, facing the camera's heading; Shift+click places more). Adding, hiding or reordering a spawn, crown or
+//     flag of a level shared with THUGPRO warns once a run, as moving one does.
+//   - Saving: Ctrl+S (layout version 2: moved nodes as `set <node> pos=x,y,z angles=x,y,z` records, added nodes as
+//     `node <name> <Class> ...`, the added crowns' `order crown ...`, hidden ones as `hide <node>`; phase 2 and version 1
+//     files still load). Unsaved changes are autosaved (every minute, on leaving, and from the crash logger -
 //     level_editor_layout.h); an autosave newer than the saved layout is offered on entering: Ctrl+R restores it,
 //     Ctrl+Shift+R discards it. A crash logs the editor's last action. Leaving: Escape, Enter (the Pause key) or a controller's Start (level_editor_exit) - Escape
 //     first cancels a drag, closes a panel or drops the selection.

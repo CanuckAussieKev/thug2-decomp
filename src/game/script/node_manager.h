@@ -100,6 +100,15 @@ uint32_t NodeArrayChecksum(const char* path);
 // 0x0045D690: the instance, made (zeroed memory on the current heap) by the first call with `create`; every call
 // takes a reference. 0x0045D6E0: drop a reference; the last frees it (no destructor runs).
 CNodeManager* CreateNodeManager(bool create);
+// NOT ORIGINAL - the level editor's overlay node array (game/front/level_editor_node_create.h): nodes it adds live in
+// an array of their own, added after the level's. GetLastNodeArray / GetLastNodeArrayName pass over the array named
+// here (0: none - the original behaviour), so the park editor and LoadNodeArray still get the level's; the hook is told
+// after RemoveNodeArray took an array out (null: none), so the overlay can leave with its level.
+void SetEditorNodeArray(uint32_t name);
+uint32_t EditorNodeArray();
+using NodeArrayRemovedHook = void (*)(uint32_t name);
+void SetNodeArrayRemovedHook(NodeArrayRemovedHook hook);
+
 inline CNodeManager*& NodeManagerInstance() { return *reinterpret_cast<CNodeManager**>(0x006F0D84); }
 void ReleaseNodeManager();
 

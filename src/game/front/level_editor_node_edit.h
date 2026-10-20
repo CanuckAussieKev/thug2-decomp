@@ -82,6 +82,8 @@ struct Record {
 };
 // Those changed and not back where the level had them, as they are now (layouts save them).
 std::vector<Record> Changed();
+// A node the editor removed (an added one): its changes forgotten.
+void Forget(uint32_t name);
 // Every node the editor has changed put back where the level had it (a layout put in place of another).
 void ResetAll();
 // A new level: the changes forgotten (put back first if the last level's node array is still the one loaded).

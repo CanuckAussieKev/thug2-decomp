@@ -4,6 +4,7 @@
 
 #include <windows.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -109,6 +110,59 @@ bool ReadPlaced(std::istringstream& in, Placement* p)
            p->quarters <= 3;
 }
 
+// A `node` record's fields (after "node"): name, class, then key=value (unknown keys skipped; a repeated one, a bad
+// value or a missing place refuse it).
+bool ReadNode(std::istringstream& in, NodeCreate::Spec* spec)
+{
+    if (!(in >> spec->name >> spec->cls) || !NodeCreate::ValidName(spec->name) || !NodeCreate::ValidName(spec->cls))
+        return false;
+    std::vector<std::string> seen;
+    std::string field;
+    while (in >> field) {
+        size_t equals = field.find('=');
+        if (equals == std::string::npos || equals == 0)
+            return false;
+        std::string key = field.substr(0, equals), value = field.substr(equals + 1);
+        if (std::find(seen.begin(), seen.end(), key) != seen.end())
+            return false;
+        seen.push_back(key);
+        float v[3];
+        char* end = nullptr;
+        if (key == "type") {
+            if (!NodeCreate::ValidName(value))
+                return false;
+            spec->type = value;
+        } else if (key == "pos" || key == "angles") {
+            if (!ReadTriple(value, v))
+                return false;
+            (key == "pos" ? spec->pos : spec->angles) = {v[0], v[1], v[2]};
+        } else if (key == "types") {
+            std::istringstream list(value);
+            std::string type;
+            while (std::getline(list, type, ',')) {
+                if (!NodeCreate::ValidName(type))
+                    return false;
+                spec->types.push_back(type);
+            }
+        } else if (key == "color") {
+            if (!ReadTriple(value, v))
+                return false;
+            for (int i = 0; i < 3; ++i) {
+                if (v[i] < 0.0f || v[i] > 255.0f || v[i] != static_cast<float>(static_cast<int>(v[i])))
+                    return false;
+                spec->colour[i] = static_cast<int>(v[i]);
+            }
+        } else if (key == "brightness" || key == "inner" || key == "outer" || key == "radius") {
+            float number = std::strtof(value.c_str(), &end);
+            if (value.empty() || *end != '\0' || !std::isfinite(number))
+                return false;
+            (key == "brightness" ? spec->brightness : key == "inner" ? spec->inner : key == "outer" ? spec->outer
+                                                                                                    : spec->radius) = number;
+        }
+    }
+    return std::find(seen.begin(), seen.end(), "pos") != seen.end();
+}
+
 } // namespace
 
 std::string Write(const File& file)
@@ -156,6 +210,43 @@ std::string Write(const File& file)
         for (float v : c.rows)
             Number(out, v);
         Comment(out, c.source);
+    }
+    for (const NodeCreate::Spec& a : file.added) {
+        out << "node " << a.name << ' ' << a.cls;
+        if (!a.type.empty())
+            out << " type=" << a.type;
+        const float pos[3] = {a.pos.x, a.pos.y, a.pos.z}, angles[3] = {a.angles.x, a.angles.y, a.angles.z};
+        Triple(out, "pos", pos);
+        Triple(out, "angles", angles);
+        if (!a.types.empty()) {
+            out << " types=";
+            for (size_t i = 0; i < a.types.size(); ++i)
+                out << (i ? "," : "") << a.types[i];
+        }
+        NodeCreate::Kind kind;
+        if (NodeCreate::KindOf(a, &kind) && kind == NodeCreate::Kind::Light) {
+            out << " color=" << a.colour[0] << ',' << a.colour[1] << ',' << a.colour[2];
+            char text[96];
+            std::snprintf(text, sizeof(text), " brightness=%.9g inner=%.9g outer=%.9g", a.brightness, a.inner, a.outer);
+            out << text;
+        }
+        if (a.radius != 0.0f) {
+            char text[32];
+            std::snprintf(text, sizeof(text), " radius=%.9g", a.radius);
+            out << text;
+        }
+        out << '\n';
+    }
+    if (!file.crownOrder.empty()) {
+        out << "order crown";
+        for (const std::string& name : file.crownOrder)
+            out << ' ' << name;
+        out << '\n';
+    }
+    for (uint32_t name : file.hidden) {
+        out << "hide";
+        Hex(out, name);
+        Comment(out, name);
     }
     for (const SetRecord& s : file.nodes) {
         if (!s.hasPos && !s.hasAngles)
@@ -253,6 +344,23 @@ bool Read(const std::string& text, File* file, int* lineNumber)
             }
             if (ok)
                 file->nodes.push_back(s);
+        } else if (kind == "node") {
+            ok = ReadNode(in, &file->added.emplace_back());
+        } else if (kind == "order") {
+            std::string what, name;
+            ok = static_cast<bool>(in >> what);
+            if (ok && what == "crown") { // (an order of something else: a later version's - skipped)
+                file->crownOrder.clear();
+                while (ok && in >> name) {
+                    ok = NodeCreate::ValidName(name);
+                    file->crownOrder.push_back(name);
+                }
+            }
+        } else if (kind == "hide") {
+            uint32_t name = 0;
+            ok = ReadHex(in, &name);
+            if (ok)
+                file->hidden.push_back(name);
         } // (anything else: a later version's record - skipped)
         if (!ok)
             return false;
@@ -406,7 +514,15 @@ bool Capture(File* file)
         RowsOf(object->m_matrix, record.rows);
         file->copies.push_back(record);
     }
+    // Added nodes (as `node` records, where they are now; the crowns' order is theirs), hidden ones.
+    file->added = NodeCreate::Current();
+    std::vector<std::string> crowns = NodeCreate::CrownOrder(file->added);
+    if (crowns.size() > 1)
+        file->crownOrder = crowns;
+    file->hidden = NodeCreate::HiddenNames();
     for (const NodeEdit::Record& node : NodeEdit::Changed()) {
+        if (NodeCreate::IsAdded(node.name))
+            continue; // (its node record has its place)
         const NodeEdit::Values& v = node.values;
         file->nodes.push_back({node.name, true, true, {v.pos.x, v.pos.y, v.pos.z}, {v.angles.x, v.angles.y, v.angles.z}});
     }
@@ -457,6 +573,16 @@ std::string Apply(const File& file)
             Objects::Restore(StateOf(record.name, record.pos, record.rows)))
             ++copies;
     }
+    // Nodes added (in the overlay, in order: one re-registration), the added crowns' order, the level's nodes hidden.
+    std::string message;
+    int added = file.added.empty() ? 0 : NodeCreate::CreateAll(file.added, &message);
+    if (!file.crownOrder.empty())
+        NodeCreate::ApplyCrownOrder(file.crownOrder);
+    int hidden = 0;
+    for (uint32_t name : file.hidden) {
+        if (NodeCreate::Hide(name, true))
+            ++hidden;
+    }
     // Level nodes moved / turned (a node the level no longer has is skipped).
     int nodes = 0;
     for (const SetRecord& record : file.nodes) {
@@ -470,10 +596,13 @@ std::string Apply(const File& file)
         if (NodeEdit::Set(record.name, values))
             ++nodes;
     }
-    char summary[192];
-    std::snprintf(summary, sizeof(summary), "%u pieces, %u copies, %u rail points, %d objects, %d object copies, %d nodes",
+    if (!message.empty())
+        Log("level editor: %s", message.c_str());
+    char summary[256];
+    std::snprintf(summary, sizeof(summary),
+                  "%u pieces, %u copies, %u rail points, %d objects, %d object copies, %d nodes, %d added, %d hidden",
                   static_cast<unsigned>(file.sectors.size()), static_cast<unsigned>(clones.size()),
-                  static_cast<unsigned>(file.rails.size()), objects, copies, nodes);
+                  static_cast<unsigned>(file.rails.size()), objects, copies, nodes, added, hidden);
     return summary;
 }
 
@@ -513,6 +642,7 @@ void ResetToLevel(const File& keep)
             Objects::RemoveCopy(copy.name);
     }
     NodeEdit::ResetAll();
+    NodeCreate::ResetAll(); // (added nodes removed, hidden ones shown: Apply makes the layout's again)
 }
 
 // The crash hook's write: no C++ objects here (structured exception handling), no allocation.
@@ -544,11 +674,13 @@ bool Save(std::string* message)
         Log("level editor: %s", message->c_str());
         return false;
     }
-    char text[160];
-    std::snprintf(text, sizeof(text), "Saved: %u pieces, %u copies, %u rail points, %u objects, %u object copies, %u nodes",
+    char text[224];
+    std::snprintf(text, sizeof(text),
+                  "Saved: %u pieces, %u copies, %u rail points, %u objects, %u object copies, %u nodes, %u added, %u hidden",
                   static_cast<unsigned>(file.sectors.size()), static_cast<unsigned>(file.clones.size()),
                   static_cast<unsigned>(file.rails.size()), static_cast<unsigned>(file.objects.size()),
-                  static_cast<unsigned>(file.copies.size()), static_cast<unsigned>(file.nodes.size()));
+                  static_cast<unsigned>(file.copies.size()), static_cast<unsigned>(file.nodes.size()),
+                  static_cast<unsigned>(file.added.size()), static_cast<unsigned>(file.hidden.size()));
     *message = text;
     Log("level editor: %s - %s", text, path.c_str());
     // (saved: the autosave's changes are in the layout now, or the user chose these over them)
@@ -686,6 +818,7 @@ void OnSceneLoaded(const char* name, bool isNet)
     Scenery::Clones().clear();
     Objects::ForgetLevel();
     NodeEdit::ForgetLevel();
+    NodeCreate::ForgetLevel();
     g_pending = !isNet;
     g_wait = 0;
     ++g_levelLoads;
