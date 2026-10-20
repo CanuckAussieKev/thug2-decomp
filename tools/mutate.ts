@@ -65,7 +65,8 @@ function readCp1252Replace(file: string): string {
 async function loadSpec(specPath: string): Promise<Spec> {
     const full = path.resolve(specPath);
     if (full.toLowerCase().endsWith(".json")) return JSON.parse(fs.readFileSync(full, "utf-8")) as Spec;
-    if (full.toLowerCase().endsWith(".py")) throw new Error(`${specPath}: a Python spec - write it as a .ts or .json spec`);
+    if (full.toLowerCase().endsWith(".py"))
+        throw new Error(`${specPath}: a Python spec - write it as a .ts or .json spec`);
     return (await import(pathToFileURL(full).href)) as Spec;
 }
 
