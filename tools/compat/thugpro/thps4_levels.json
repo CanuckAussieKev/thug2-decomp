@@ -4039,7 +4039,1358 @@
   },
   "door_walls": {
     "_register": "TP-29",
-    "_note": "THUGPRO keeps THPS4's invisible door walls of the skate shop (InvisColl01's shop side, Object10's two invisible faces); ours opens the door (the user's request, 2026-10-19: thps4_levels.OPENINGS). Off: enabled true keeps the walls as THUGPRO's",
+    "_note": "THUGPRO keeps THPS4's invisible door walls of the skate shop (InvisColl01's shop side, Object10's two invisible faces); ours opens the door (the user's request, 2026-10-19: port_changes PC-THPS4-1 / PC-THPS4-2). Off: enabled true keeps the walls as THUGPRO's",
     "enabled": false
+  },
+  "port_changes": {
+    "_register": "PC-THPS4-1 ... PC-THPS4-11 (README.md here: \"Our own changes (port_changes)\")",
+    "_note": "This project's own changes to THPS4's levels - neither THPS4's data nor THUGPRO's. Applied whatever --compat says (they are not THUGPRO data: --compat none keeps them); thps4_levels.ts convert --no-port-changes leaves out all but the required ones (THPS4's data as it is, but what a level needs to load or install). Each entry: id, op (add / set / remove), rule (the converter step that applies it: thps4_levels.portChanges), target (target.level or target.levels: a list or \"*\"), why, required (true: a level needs it to load / make_menu_level needs it - kept with --no-port-changes). A \"set\" on something the level hasn't is an error the converter reports, never an add.",
+    "entries": [
+      {
+        "id": "PC-THPS4-1",
+        "op": "remove",
+        "rule": "open_walls",
+        "required": false,
+        "target": {
+          "level": "SkateShop",
+          "collision": "InvisColl01",
+          "faces": "z-min"
+        },
+        "why": "The skate shop's door open (the user, 2026-10-19; our main menu's backdrop): InvisColl01's shop-side face (its z-min plane, across the door) left out; its z-max face (the fence's gap) kept"
+      },
+      {
+        "id": "PC-THPS4-2",
+        "op": "remove",
+        "rule": "open_walls",
+        "required": false,
+        "target": {
+          "level": "SkateShop",
+          "collision": "Object10",
+          "faces": "invisible"
+        },
+        "why": "The skate shop's door open (as PC-THPS4-1): the shop's own two invisible faces across the doorway (THPS4's face flag 0x1000, x 699-777 at z -1074) left out"
+      },
+      {
+        "id": "PC-THPS4-3",
+        "op": "set",
+        "rule": "created_in_play",
+        "required": false,
+        "target": {
+          "level": "SkateShop",
+          "node": "SSO_Fence05"
+        },
+        "set": {
+          "CreatedAtStart": true
+        },
+        "why": "The fence piece at the end of the halfpipe there at the start (the user, 2026-10-19: a gap there): THPS4's menu killed it and its practice run created it again"
+      },
+      {
+        "id": "PC-THPS4-4",
+        "op": "remove",
+        "rule": "peds_cars",
+        "required": true,
+        "target": {
+          "levels": [
+            "Sch"
+          ],
+          "nodes": "the walkers and Car_Generic01 cars peds_cars.ts makes"
+        },
+        "why": "Crash guard: with College's walker and car its node array came out null in the game (a crash loading; cause not found)"
+      },
+      {
+        "id": "PC-THPS4-5",
+        "op": "remove",
+        "rule": "zero_angles",
+        "required": true,
+        "target": {
+          "levels": "*",
+          "node_key": "Angles",
+          "where": "(0, 0, 0) on RailNode and LevelGeometry nodes"
+        },
+        "why": "Crash guard: THUG2's script vector pool is fixed (9500 for every script's); College's node array with them didn't fit and came out null. Zero Angles are the default: nothing changes in play"
+      },
+      {
+        "id": "PC-THPS4-6",
+        "op": "remove",
+        "rule": "never_created",
+        "required": true,
+        "target": {
+          "levels": "*",
+          "nodes": "made objects not there at the start that no brought script creates, waypoints no path or script uses"
+        },
+        "why": "Crash guard: THUG2's script heap didn't hold College's node array with all of them (it came out null); they are goals' pieces nothing of ours creates"
+      },
+      {
+        "id": "PC-THPS4-7",
+        "op": "remove",
+        "rule": "trick_objects_without_sector",
+        "required": true,
+        "target": {
+          "levels": "*",
+          "node_keys": [
+            "TrickObject",
+            "Cluster"
+          ],
+          "where": "LevelGeometry nodes without a scene sector"
+        },
+        "why": "Crash guard: ParseNodeArray (0x00588630) registers a TrickObject's sector without checking it is there (nodes.stripMissingTrickObjects)"
+      },
+      {
+        "id": "PC-THPS4-8",
+        "op": "remove",
+        "rule": "left_out_commands",
+        "required": false,
+        "target": {
+          "levels": "*",
+          "script_commands": [
+            "GoalManager_ActivateGoal",
+            "GoalManager_DeactivateGoal",
+            "GoalManager_EditGoal",
+            "GoalManager_AddGoal",
+            "GoalManager_WinGoal",
+            "GoalManager_LoseGoal",
+            "GoalManager_UnlockGoal",
+            "GoalManager_SetGoalTimer",
+            "GoalManager_ShowGoalPoints",
+            "GoalManager_ShowPoints",
+            "GoalManager_UninitializeAllGoals",
+            "GoalManager_InitializeAllGoals",
+            "Create_Panel_Message",
+            "create_panel_message",
+            "create_panel_block",
+            "Create_Panel_Block",
+            "PlayCutscene",
+            "PlaySkaterCamAnim",
+            "UnpauseSkaters",
+            "SetSkaterCamAnimShouldPause",
+            "CreateScreenElement",
+            "SetScreenElementLock",
+            "DestroyScreenElement",
+            "SetScreenElementProps",
+            "RunScriptOnScreenElement",
+            "DoScreenElementMorph",
+            "setup_ped_speech",
+            "speech_box_exit",
+            "SetFlag",
+            "UnSetFlag"
+          ]
+        },
+        "why": "THPS4's goals, career, cameras and panels aren't ported: their commands left out of the scripts brought along (besides script_port's own list, shared by every port), although THUG2 has them"
+      },
+      {
+        "id": "PC-THPS4-9",
+        "op": "remove",
+        "rule": "empty_restart_scripts",
+        "required": true,
+        "target": {
+          "levels": "*",
+          "scripts": "a restart's trigger script with no statement left (and the script)"
+        },
+        "why": "THPS4's menu restart's script (FreezeSkater, its camera) has nothing left once translated; an empty script also broke make_menu_level's script parsing"
+      },
+      {
+        "id": "PC-THPS4-10",
+        "op": "set",
+        "rule": "ground_restarts",
+        "required": false,
+        "target": {
+          "levels": "*",
+          "nodes": "restarts over nothing or over a kill zone"
+        },
+        "why": "Not network spawns and not kill targets (nodes.groundRestarts against the written collision): a player put there would fall forever or die again"
+      },
+      {
+        "id": "PC-THPS4-11",
+        "op": "set",
+        "rule": "net_game_nodes",
+        "required": false,
+        "target": {
+          "levels": "*",
+          "nodes": "path followers, peds and cars (AbsentInNetGames); single-player levels' Player1 restarts (Multiplayer, Horse)"
+        },
+        "why": "Network games have no path manager or ped animations, and need restarts for the players (nodes.netGameNodes)"
+      }
+    ]
+  },
+  "thugpro_new": {
+    "_register": "TPN-THPS4-1 ... TPN-THPS4-5 (README.md here: \"New in THUGPRO (not in any source game)\")",
+    "_source": "THUGPRO's installed data\\pre\\<level>_scripts.prx (its level files: <level>.qb, <level>_scripts.qb, <level>_thugpro.qb, models) against THPS4's own Game\\data\\levels files, extracted by `node tools/thps4_levels/thugpro_compare.ts --extract-thugpro` (thugpro_new.ts)",
+    "_note": "THUGPRO's own content, in no source game - by reference only: `files` name THUGPRO's archive, the entry, its size and SHA-256; the converter reads the bytes from the user's install (--thugpro) and leaves a level's content out with a warning when the install or a file differs. --compat none and --no-thugpro-new leave all of it out; models (shown_by_thugpro false: THUGPRO's shipped scripts don't place them) only with --thugpro-banners",
+    "files": {
+      "hof/hof": {
+        "prx": "data\\pre\\HOF_scripts.prx",
+        "entry": "levels\\hof\\hof.qb",
+        "size": 366671,
+        "sha256": "0757c5275fab6a3db0771c3fc33088b2ee7197cc23c7e90d1e4c22668692a60e"
+      },
+      "hof/hof_thugpro": {
+        "prx": "data\\pre\\HOF_scripts.prx",
+        "entry": "levels\\hof\\hof_thugpro.qb",
+        "size": 2789,
+        "sha256": "e2b50dcd189bea493fa8655d41ceb2bb964735a2719b404a203359511dec1f26"
+      },
+      "hof/models\\leveleditor\\exported\\big_banner.mdl.xbx": {
+        "prx": "data\\pre\\HOF_scripts.prx",
+        "entry": "models\\leveleditor\\exported\\Big_Banner.mdl.xbx",
+        "size": 815,
+        "sha256": "814628494f45b3d6e9d154d1e644e6ebcfa8a020591b88639f01f4b5e8d7aec9"
+      },
+      "hof/models\\leveleditor\\exported\\big_banner.tex.xbx": {
+        "prx": "data\\pre\\HOF_scripts.prx",
+        "entry": "models\\leveleditor\\exported\\Big_Banner.tex.xbx",
+        "size": 16492,
+        "sha256": "a481b42c600c5669713a8ac8ffc6fd7ce0405b131a7680f0940bd0e2ed9f6079"
+      },
+      "hof/models\\leveleditor\\exported\\big_banner_alt01.mdl.xbx": {
+        "prx": "data\\pre\\HOF_scripts.prx",
+        "entry": "models\\leveleditor\\exported\\Big_Banner_alt01.mdl.xbx",
+        "size": 815,
+        "sha256": "814628494f45b3d6e9d154d1e644e6ebcfa8a020591b88639f01f4b5e8d7aec9"
+      },
+      "hof/models\\leveleditor\\exported\\big_banner_alt01.tex.xbx": {
+        "prx": "data\\pre\\HOF_scripts.prx",
+        "entry": "models\\leveleditor\\exported\\Big_Banner_alt01.tex.xbx",
+        "size": 16492,
+        "sha256": "a481b42c600c5669713a8ac8ffc6fd7ce0405b131a7680f0940bd0e2ed9f6079"
+      },
+      "hof/models\\leveleditor\\exported\\big_banner_alt02.mdl.xbx": {
+        "prx": "data\\pre\\HOF_scripts.prx",
+        "entry": "models\\leveleditor\\exported\\Big_Banner_alt02.mdl.xbx",
+        "size": 815,
+        "sha256": "814628494f45b3d6e9d154d1e644e6ebcfa8a020591b88639f01f4b5e8d7aec9"
+      },
+      "hof/models\\leveleditor\\exported\\big_banner_alt02.tex.xbx": {
+        "prx": "data\\pre\\HOF_scripts.prx",
+        "entry": "models\\leveleditor\\exported\\Big_Banner_alt02.tex.xbx",
+        "size": 16492,
+        "sha256": "a481b42c600c5669713a8ac8ffc6fd7ce0405b131a7680f0940bd0e2ed9f6079"
+      },
+      "jnk/jnk": {
+        "prx": "data\\pre\\JNK_scripts.prx",
+        "entry": "levels\\jnk\\jnk.qb",
+        "size": 470845,
+        "sha256": "cfeecf9baf29ed2cdd49fbcdbe99f1ff68850b309559b35c882aa103f30c2a0f"
+      },
+      "jnk/jnk_thugpro": {
+        "prx": "data\\pre\\JNK_scripts.prx",
+        "entry": "levels\\jnk\\jnk_thugpro.qb",
+        "size": 848,
+        "sha256": "78752a04564b050cba4578e438459874e2f3059816327a9554645dc7f2bbd2a8"
+      },
+      "lon/lon": {
+        "prx": "data\\pre\\LON_scripts.prx",
+        "entry": "levels\\lon\\lon.qb",
+        "size": 470010,
+        "sha256": "aa29cc994c8000553c9999be84860ea6f4bc6959a48ae8f87fb4132ea3e1b376"
+      },
+      "lon/lon_scripts": {
+        "prx": "data\\pre\\LON_scripts.prx",
+        "entry": "levels\\lon\\lon_scripts.qb",
+        "size": 12296,
+        "sha256": "16ff17f402946e79c8a04dd8f07bdf51d197e8f71dd21856e871a2f7e3800b13"
+      },
+      "lon/lon_thugpro": {
+        "prx": "data\\pre\\LON_scripts.prx",
+        "entry": "levels\\lon\\lon_thugpro.qb",
+        "size": 4013,
+        "sha256": "f031d36c2b41456ee1d861b235f75df0f917c6fc64390f5d95dcbd49ceefb9e7"
+      },
+      "lon/models\\levels\\lon\\lon_canhouse_build_cw1.mdl.xbx": {
+        "prx": "data\\pre\\LON_scripts.prx",
+        "entry": "models\\levels\\lon\\Lon_CanHouse_build_cw1.mdl.xbx",
+        "size": 8894,
+        "sha256": "9b001672d6c955f8a9091d14aae1e1eb415f2a47391a709649713b1148d59671"
+      },
+      "lon/models\\levels\\lon\\lon_canhouse_build_cw1.tex.xbx": {
+        "prx": "data\\pre\\LON_scripts.prx",
+        "entry": "models\\levels\\lon\\Lon_CanHouse_build_cw1.tex.xbx",
+        "size": 65840,
+        "sha256": "c7385b3d905945554afd3c5a4191342ee9e655c805e7eb3c03a527a431ed78c1"
+      },
+      "lon/models\\levels\\lon\\lon_nationalgallery_poters.mdl.xbx": {
+        "prx": "data\\pre\\LON_scripts.prx",
+        "entry": "models\\levels\\lon\\Lon_NationalGallery_poters.mdl.xbx",
+        "size": 5462,
+        "sha256": "c8b2f1b60d84808e328d0330b4ca7e083ea3f67be10497f5dfc4d8670c4afa3e"
+      },
+      "lon/models\\levels\\lon\\lon_nationalgallery_poters.tex.xbx": {
+        "prx": "data\\pre\\LON_scripts.prx",
+        "entry": "models\\levels\\lon\\Lon_NationalGallery_poters.tex.xbx",
+        "size": 1416,
+        "sha256": "85732d86dadd45448d3ffbb0b717e36420e87fc93ff6dfbd7aade75ba4e29b8d"
+      },
+      "practice/practice": {
+        "prx": "data\\pre\\Practice_scripts.prx",
+        "entry": "levels\\practice\\practice.qb",
+        "size": 83760,
+        "sha256": "fcd460e803c55607ebc010f1396b5ce0f31079ea51e58c229d26eb9d90b96bcc"
+      },
+      "sch/models\\leveleditor\\exported\\big_banner.mdl.xbx": {
+        "prx": "data\\pre\\SCH_scripts.prx",
+        "entry": "models\\leveleditor\\exported\\Big_Banner.mdl.xbx",
+        "size": 815,
+        "sha256": "814628494f45b3d6e9d154d1e644e6ebcfa8a020591b88639f01f4b5e8d7aec9"
+      },
+      "sch/models\\leveleditor\\exported\\big_banner.tex.xbx": {
+        "prx": "data\\pre\\SCH_scripts.prx",
+        "entry": "models\\leveleditor\\exported\\Big_Banner.tex.xbx",
+        "size": 16492,
+        "sha256": "a481b42c600c5669713a8ac8ffc6fd7ce0405b131a7680f0940bd0e2ed9f6079"
+      },
+      "sch/models\\leveleditor\\exported\\big_banner_alt01.mdl.xbx": {
+        "prx": "data\\pre\\SCH_scripts.prx",
+        "entry": "models\\leveleditor\\exported\\Big_Banner_alt01.mdl.xbx",
+        "size": 815,
+        "sha256": "814628494f45b3d6e9d154d1e644e6ebcfa8a020591b88639f01f4b5e8d7aec9"
+      },
+      "sch/models\\leveleditor\\exported\\big_banner_alt01.tex.xbx": {
+        "prx": "data\\pre\\SCH_scripts.prx",
+        "entry": "models\\leveleditor\\exported\\Big_Banner_alt01.tex.xbx",
+        "size": 16492,
+        "sha256": "a481b42c600c5669713a8ac8ffc6fd7ce0405b131a7680f0940bd0e2ed9f6079"
+      },
+      "sch/models\\leveleditor\\exported\\big_banner_alt02.mdl.xbx": {
+        "prx": "data\\pre\\SCH_scripts.prx",
+        "entry": "models\\leveleditor\\exported\\Big_Banner_alt02.mdl.xbx",
+        "size": 815,
+        "sha256": "814628494f45b3d6e9d154d1e644e6ebcfa8a020591b88639f01f4b5e8d7aec9"
+      },
+      "sch/models\\leveleditor\\exported\\big_banner_alt02.tex.xbx": {
+        "prx": "data\\pre\\SCH_scripts.prx",
+        "entry": "models\\leveleditor\\exported\\Big_Banner_alt02.tex.xbx",
+        "size": 16492,
+        "sha256": "a481b42c600c5669713a8ac8ffc6fd7ce0405b131a7680f0940bd0e2ed9f6079"
+      },
+      "sch/sch": {
+        "prx": "data\\pre\\SCH_scripts.prx",
+        "entry": "levels\\sch\\sch.qb",
+        "size": 571972,
+        "sha256": "2520d62096c3e49e733790f38ba1cb3c683039d487611495ed2240bb06a39b80"
+      },
+      "sch/sch_scripts": {
+        "prx": "data\\pre\\SCH_scripts.prx",
+        "entry": "levels\\sch\\sch_scripts.qb",
+        "size": 13745,
+        "sha256": "8a1e00b756b223223ee019b27aca8c02837b90db35895af847768c3b0102349a"
+      },
+      "sch/sch_thugpro": {
+        "prx": "data\\pre\\SCH_scripts.prx",
+        "entry": "levels\\sch\\sch_thugpro.qb",
+        "size": 4274,
+        "sha256": "3a93cd850be13e838cbf6f0f41d334e4934b34bfda1ad7a29466966bc237a7a5"
+      },
+      "sf2/sf2": {
+        "prx": "data\\pre\\SF2_scripts.prx",
+        "entry": "levels\\sf2\\sf2.qb",
+        "size": 470814,
+        "sha256": "764ce99377b80552f732d425a8c12b0cbb457f8d1e85ddd412192820f70b8619"
+      },
+      "sf2/sf2_scripts": {
+        "prx": "data\\pre\\SF2_scripts.prx",
+        "entry": "levels\\sf2\\sf2_scripts.qb",
+        "size": 10114,
+        "sha256": "912465ee42f5cc25671a633ad46ae07a9a65763c22bcb390886525fccc44992f"
+      },
+      "sf2/sf2_thugpro": {
+        "prx": "data\\pre\\SF2_scripts.prx",
+        "entry": "levels\\sf2\\sf2_thugpro.qb",
+        "size": 2035,
+        "sha256": "01f7d36b5c4f0d26e4f5532f344059509faa9c3ba1b2d70388470ebce561c98f"
+      },
+      "zoo/zoo": {
+        "prx": "data\\pre\\ZOO_scripts.prx",
+        "entry": "levels\\zoo\\zoo.qb",
+        "size": 450892,
+        "sha256": "c28938260e88c65583ad1a228cbae33b387ec010a2d2bb5485d880919cf2b971"
+      },
+      "zoo/zoo_thugpro": {
+        "prx": "data\\pre\\ZOO_scripts.prx",
+        "entry": "levels\\zoo\\zoo_thugpro.qb",
+        "size": 1261,
+        "sha256": "fa15d182c034d63f1cc01d3c8c5a93bf6f18558978ed2be5cf5e83953299d36d"
+      }
+    },
+    "entries": [
+      {
+        "id": "TPN-THPS4-4",
+        "op": "add",
+        "rule": "model",
+        "target": {
+          "level": "Hof",
+          "name": "hof_thugpro_model_0",
+          "model": "leveleditor\\exported\\Big_Banner.mdl"
+        },
+        "why": "THUGPRO's banner / poster model - its shipped scripts don't place it (replace_texture / billboard: GIVE_ME_BILLBOARDS off), so off unless --thugpro-banners",
+        "file": "hof/hof_thugpro",
+        "array": "HOF_LevelChanges",
+        "index": 0,
+        "models": [
+          "hof/models\\leveleditor\\exported\\big_banner.mdl.xbx",
+          "hof/models\\leveleditor\\exported\\big_banner.tex.xbx"
+        ],
+        "shown_by_thugpro": false
+      },
+      {
+        "id": "TPN-THPS4-4",
+        "op": "add",
+        "rule": "model",
+        "target": {
+          "level": "Hof",
+          "name": "hof_thugpro_model_1",
+          "model": "leveleditor\\exported\\Big_Banner_alt02.mdl"
+        },
+        "why": "THUGPRO's banner / poster model - its shipped scripts don't place it (replace_texture / billboard: GIVE_ME_BILLBOARDS off), so off unless --thugpro-banners",
+        "file": "hof/hof_thugpro",
+        "array": "HOF_LevelChanges",
+        "index": 1,
+        "models": [
+          "hof/models\\leveleditor\\exported\\big_banner_alt02.mdl.xbx",
+          "hof/models\\leveleditor\\exported\\big_banner_alt02.tex.xbx"
+        ],
+        "shown_by_thugpro": false
+      },
+      {
+        "id": "TPN-THPS4-4",
+        "op": "add",
+        "rule": "model",
+        "target": {
+          "level": "Hof",
+          "name": "hof_thugpro_model_2",
+          "model": "leveleditor\\exported\\Big_Banner_alt01.mdl"
+        },
+        "why": "THUGPRO's banner / poster model - its shipped scripts don't place it (replace_texture / billboard: GIVE_ME_BILLBOARDS off), so off unless --thugpro-banners",
+        "file": "hof/hof_thugpro",
+        "array": "HOF_LevelChanges",
+        "index": 2,
+        "models": [
+          "hof/models\\leveleditor\\exported\\big_banner_alt01.mdl.xbx",
+          "hof/models\\leveleditor\\exported\\big_banner_alt01.tex.xbx"
+        ],
+        "shown_by_thugpro": false
+      },
+      {
+        "id": "TPN-THPS4-4",
+        "op": "add",
+        "rule": "model",
+        "target": {
+          "level": "Hof",
+          "name": "hof_thugpro_model_3",
+          "model": "leveleditor\\exported\\Big_Banner_alt02.mdl"
+        },
+        "why": "THUGPRO's banner / poster model - its shipped scripts don't place it (replace_texture / billboard: GIVE_ME_BILLBOARDS off), so off unless --thugpro-banners",
+        "file": "hof/hof_thugpro",
+        "array": "HOF_LevelChanges",
+        "index": 3,
+        "models": [
+          "hof/models\\leveleditor\\exported\\big_banner_alt02.mdl.xbx",
+          "hof/models\\leveleditor\\exported\\big_banner_alt02.tex.xbx"
+        ],
+        "shown_by_thugpro": false
+      },
+      {
+        "id": "TPN-THPS4-4",
+        "op": "add",
+        "rule": "model",
+        "target": {
+          "level": "Hof",
+          "name": "hof_thugpro_model_4",
+          "model": "leveleditor\\exported\\Big_Banner.mdl"
+        },
+        "why": "THUGPRO's banner / poster model - its shipped scripts don't place it (replace_texture / billboard: GIVE_ME_BILLBOARDS off), so off unless --thugpro-banners",
+        "file": "hof/hof_thugpro",
+        "array": "HOF_LevelChanges",
+        "index": 4,
+        "models": [
+          "hof/models\\leveleditor\\exported\\big_banner.mdl.xbx",
+          "hof/models\\leveleditor\\exported\\big_banner.tex.xbx"
+        ],
+        "shown_by_thugpro": false
+      },
+      {
+        "id": "TPN-THPS4-2",
+        "op": "add",
+        "rule": "level_option",
+        "target": {
+          "level": "Hof",
+          "script": "HOF_LEVEL_CHANGE_01",
+          "flag": "SERVER_LEVEL_CHANGE_01_ON"
+        },
+        "why": "THUGPRO's host level option, run with off at the start (its default state; switching needs its protocol)",
+        "file": "hof/hof_thugpro"
+      },
+      {
+        "id": "TPN-THPS4-2",
+        "op": "add",
+        "rule": "level_option",
+        "target": {
+          "level": "Hof",
+          "script": "HOF_LEVEL_CHANGE_02",
+          "flag": "SERVER_LEVEL_CHANGE_02_ON"
+        },
+        "why": "THUGPRO's host level option, run with off at the start (its default state; switching needs its protocol)",
+        "file": "hof/hof_thugpro"
+      },
+      {
+        "id": "TPN-THPS4-2",
+        "op": "add",
+        "rule": "level_option",
+        "target": {
+          "level": "Hof",
+          "script": "HOF_LEVEL_CHANGE_03",
+          "flag": "SERVER_LEVEL_CHANGE_03_ON"
+        },
+        "why": "THUGPRO's host level option, run with off at the start (its default state; switching needs its protocol)",
+        "file": "hof/hof_thugpro"
+      },
+      {
+        "id": "TPN-THPS4-2",
+        "op": "add",
+        "rule": "level_option",
+        "target": {
+          "level": "Hof",
+          "script": "HOF_LEVEL_CHANGE_04",
+          "flag": "SERVER_LEVEL_CHANGE_04_ON"
+        },
+        "why": "THUGPRO's host level option, run with off at the start (its default state; switching needs its protocol)",
+        "file": "hof/hof_thugpro"
+      },
+      {
+        "id": "TPN-THPS4-2",
+        "op": "add",
+        "rule": "level_option",
+        "target": {
+          "level": "Hof",
+          "script": "HOF_LEVEL_CHANGE_05",
+          "flag": "SERVER_LEVEL_CHANGE_05_ON"
+        },
+        "why": "THUGPRO's host level option, run with off at the start (its default state; switching needs its protocol)",
+        "file": "hof/hof_thugpro"
+      },
+      {
+        "id": "TPN-THPS4-2",
+        "op": "add",
+        "rule": "script",
+        "target": {
+          "level": "Hof",
+          "script": "thugpro_hof_bridge_setstate"
+        },
+        "why": "THUGPRO's script, run by the entries above",
+        "file": "hof/hof_thugpro"
+      },
+      {
+        "id": "TPN-THPS4-2",
+        "op": "add",
+        "rule": "script",
+        "target": {
+          "level": "Hof",
+          "script": "thugpro_hof_bridge_cleanup"
+        },
+        "why": "THUGPRO's script, run by the entries above",
+        "file": "hof/hof_thugpro"
+      },
+      {
+        "id": "TPN-THPS4-2",
+        "op": "add",
+        "rule": "level_option",
+        "target": {
+          "level": "Jnk",
+          "script": "JNK_LEVEL_CHANGE_01",
+          "flag": "SERVER_LEVEL_CHANGE_01_ON"
+        },
+        "why": "THUGPRO's host level option, run with off at the start (its default state; switching needs its protocol)",
+        "file": "jnk/jnk_thugpro"
+      },
+      {
+        "id": "TPN-THPS4-3",
+        "op": "set",
+        "rule": "trigger_script",
+        "target": {
+          "level": "Lon",
+          "node": "TRGP_Lon_AdArchKill01",
+          "script": "TRGP_Lon_AdArchKill01Script"
+        },
+        "why": "THUGPRO's version: it calls THUGPRO's own Lon_Killskater",
+        "file": "lon/lon"
+      },
+      {
+        "id": "TPN-THPS4-3",
+        "op": "set",
+        "rule": "trigger_script",
+        "target": {
+          "level": "Lon",
+          "node": "TRGP_Lon_WaterlooBridgeKill01",
+          "script": "TRGP_Lon_WaterlooBridgeKill01Script"
+        },
+        "why": "THUGPRO's version: it calls THUGPRO's own Lon_Killskater",
+        "file": "lon/lon"
+      },
+      {
+        "id": "TPN-THPS4-1",
+        "op": "set",
+        "rule": "trigger_script",
+        "target": {
+          "level": "Lon",
+          "node": "TRG_ParkingGarrage_Elevator",
+          "script": "TRG_ParkingGarrage_ElevatorScript"
+        },
+        "why": "THUGPRO's teleport on it (THUGPRO_Televator: our thps4_tp_televator)",
+        "file": "lon/lon"
+      },
+      {
+        "id": "TPN-THPS4-3",
+        "op": "set",
+        "rule": "trigger_script",
+        "target": {
+          "level": "Lon",
+          "node": "Lon_AdArch_Roof",
+          "script": "Lon_AdArch_RoofScript"
+        },
+        "why": "THUGPRO's version: it calls THUGPRO's own Lon_Killskater",
+        "file": "lon/lon"
+      },
+      {
+        "id": "TPN-THPS4-3",
+        "op": "set",
+        "rule": "trigger_script",
+        "target": {
+          "level": "Lon",
+          "node": "Lon_AdArch_Roof01",
+          "script": "Lon_AdArch_Roof01Script"
+        },
+        "why": "THUGPRO's version: it calls THUGPRO's own Lon_Killskater",
+        "file": "lon/lon"
+      },
+      {
+        "id": "TPN-THPS4-1",
+        "op": "add",
+        "rule": "node",
+        "target": {
+          "level": "Lon",
+          "node": "TRG_LON_Televator_Waypoint"
+        },
+        "why": "THUGPRO's waypoint (a teleport's target)",
+        "file": "lon/lon"
+      },
+      {
+        "id": "TPN-THPS4-4",
+        "op": "add",
+        "rule": "model",
+        "target": {
+          "level": "Lon",
+          "name": "lon_thugpro_model_0",
+          "model": "levels\\LON\\Lon_CanHouse_build_cw1.mdl"
+        },
+        "why": "THUGPRO's banner / poster model - its shipped scripts don't place it (replace_texture / billboard: GIVE_ME_BILLBOARDS off), so off unless --thugpro-banners",
+        "file": "lon/lon_thugpro",
+        "array": "LON_LevelChanges",
+        "index": 0,
+        "models": [
+          "lon/models\\levels\\lon\\lon_canhouse_build_cw1.mdl.xbx",
+          "lon/models\\levels\\lon\\lon_canhouse_build_cw1.tex.xbx"
+        ],
+        "shown_by_thugpro": false
+      },
+      {
+        "id": "TPN-THPS4-4",
+        "op": "add",
+        "rule": "model",
+        "target": {
+          "level": "Lon",
+          "name": "lon_thugpro_model_1",
+          "model": "levels\\LON\\Lon_NationalGallery_poters.mdl"
+        },
+        "why": "THUGPRO's banner / poster model - its shipped scripts don't place it (replace_texture / billboard: GIVE_ME_BILLBOARDS off), so off unless --thugpro-banners",
+        "file": "lon/lon_thugpro",
+        "array": "LON_LevelChanges",
+        "index": 1,
+        "models": [
+          "lon/models\\levels\\lon\\lon_nationalgallery_poters.mdl.xbx",
+          "lon/models\\levels\\lon\\lon_nationalgallery_poters.tex.xbx"
+        ],
+        "shown_by_thugpro": false
+      },
+      {
+        "id": "TPN-THPS4-1",
+        "op": "set",
+        "rule": "level_object",
+        "target": {
+          "level": "Lon",
+          "node": "TRG_Lon_Garage_ElevatorDoor01"
+        },
+        "why": "Made a movable level object at the start (THUGPRO's elevator doors and its run-time moves)",
+        "file": "lon/lon_thugpro",
+        "array": "LON_LevelChanges",
+        "index": 2
+      },
+      {
+        "id": "TPN-THPS4-1",
+        "op": "set",
+        "rule": "level_object",
+        "target": {
+          "level": "Lon",
+          "node": "TRG_Lon_Garage_ElevatorDoor02"
+        },
+        "why": "Made a movable level object at the start (THUGPRO's elevator doors and its run-time moves)",
+        "file": "lon/lon_thugpro",
+        "array": "LON_LevelChanges",
+        "index": 3
+      },
+      {
+        "id": "TPN-THPS4-1",
+        "op": "set",
+        "rule": "level_object",
+        "target": {
+          "level": "Lon",
+          "node": "TRG_Lon_Garage_ElevatorDoor03"
+        },
+        "why": "Made a movable level object at the start (THUGPRO's elevator doors and its run-time moves)",
+        "file": "lon/lon_thugpro",
+        "array": "LON_LevelChanges",
+        "index": 4
+      },
+      {
+        "id": "TPN-THPS4-1",
+        "op": "set",
+        "rule": "level_object",
+        "target": {
+          "level": "Lon",
+          "node": "TRG_Lon_Garage_ElevatorDoor04"
+        },
+        "why": "Made a movable level object at the start (THUGPRO's elevator doors and its run-time moves)",
+        "file": "lon/lon_thugpro",
+        "array": "LON_LevelChanges",
+        "index": 5
+      },
+      {
+        "id": "TPN-THPS4-1",
+        "op": "set",
+        "rule": "level_object",
+        "target": {
+          "level": "Lon",
+          "node": "TRG_ParkingGarrage_Elevator"
+        },
+        "why": "Made a movable level object at the start (THUGPRO's elevator doors and its run-time moves)",
+        "file": "lon/lon_thugpro",
+        "array": "LON_LevelChanges",
+        "index": 6
+      },
+      {
+        "id": "TPN-THPS4-1",
+        "op": "add",
+        "rule": "proxim_object",
+        "target": {
+          "level": "Lon",
+          "name": "Proxim_ElevatorDoors01"
+        },
+        "why": "THUGPRO's radius trigger (an elevator's teleport or its doors)",
+        "file": "lon/lon_thugpro",
+        "array": "LON_LevelChanges",
+        "index": 7
+      },
+      {
+        "id": "TPN-THPS4-1",
+        "op": "add",
+        "rule": "proxim_object",
+        "target": {
+          "level": "Lon",
+          "name": "Proxim_ElevatorDoors02"
+        },
+        "why": "THUGPRO's radius trigger (an elevator's teleport or its doors)",
+        "file": "lon/lon_thugpro",
+        "array": "LON_LevelChanges",
+        "index": 8
+      },
+      {
+        "id": "TPN-THPS4-2",
+        "op": "add",
+        "rule": "level_option",
+        "target": {
+          "level": "Lon",
+          "script": "LON_LEVEL_CHANGE_01",
+          "flag": "SERVER_LEVEL_CHANGE_01_ON"
+        },
+        "why": "THUGPRO's host level option, run with off at the start (its default state; switching needs its protocol)",
+        "file": "lon/lon_thugpro"
+      },
+      {
+        "id": "TPN-THPS4-2",
+        "op": "add",
+        "rule": "level_option",
+        "target": {
+          "level": "Lon",
+          "script": "LON_LEVEL_CHANGE_02",
+          "flag": "SERVER_LEVEL_CHANGE_02_ON"
+        },
+        "why": "THUGPRO's host level option, run with off at the start (its default state; switching needs its protocol)",
+        "file": "lon/lon_thugpro"
+      },
+      {
+        "id": "TPN-THPS4-3",
+        "op": "add",
+        "rule": "script",
+        "target": {
+          "level": "Lon",
+          "script": "Lon_Killskater"
+        },
+        "why": "THUGPRO's script, run by the entries above",
+        "file": "lon/lon_scripts"
+      },
+      {
+        "id": "TPN-THPS4-1",
+        "op": "add",
+        "rule": "script",
+        "target": {
+          "level": "Lon",
+          "script": "thugpro_lon_elevatordoors1OpenScript"
+        },
+        "why": "THUGPRO's script, run by the entries above",
+        "file": "lon/lon_thugpro"
+      },
+      {
+        "id": "TPN-THPS4-1",
+        "op": "add",
+        "rule": "script",
+        "target": {
+          "level": "Lon",
+          "script": "thugpro_lon_elevatordoors2OpenScript"
+        },
+        "why": "THUGPRO's script, run by the entries above",
+        "file": "lon/lon_thugpro"
+      },
+      {
+        "id": "TPN-THPS4-1",
+        "op": "add",
+        "rule": "script",
+        "target": {
+          "level": "Lon",
+          "script": "thugpro_lon_elevatordoors1CloseScript"
+        },
+        "why": "THUGPRO's script, run by the entries above",
+        "file": "lon/lon_thugpro"
+      },
+      {
+        "id": "TPN-THPS4-1",
+        "op": "add",
+        "rule": "script",
+        "target": {
+          "level": "Lon",
+          "script": "thugpro_lon_elevatordoors2CloseScript"
+        },
+        "why": "THUGPRO's script, run by the entries above",
+        "file": "lon/lon_thugpro"
+      },
+      {
+        "id": "TPN-THPS4-1",
+        "op": "add",
+        "rule": "sound",
+        "target": {
+          "level": "Lon",
+          "sound": "Shared\\Misc\\elevatording"
+        },
+        "why": "A sound THUGPRO's teleports / elevator doors play, loaded as THUGPRO's level start-up does",
+        "file": "lon/lon_scripts"
+      },
+      {
+        "id": "TPN-THPS4-1",
+        "op": "add",
+        "rule": "sound",
+        "target": {
+          "level": "Lon",
+          "sound": "Shared\\Misc\\elevatordoorclose"
+        },
+        "why": "A sound THUGPRO's teleports / elevator doors play, loaded as THUGPRO's level start-up does",
+        "file": "lon/lon_scripts"
+      },
+      {
+        "id": "TPN-THPS4-1",
+        "op": "add",
+        "rule": "sound",
+        "target": {
+          "level": "Lon",
+          "sound": "Shared\\Misc\\elevatordooropen"
+        },
+        "why": "A sound THUGPRO's teleports / elevator doors play, loaded as THUGPRO's level start-up does",
+        "file": "lon/lon_scripts"
+      },
+      {
+        "id": "TPN-THPS4-1",
+        "op": "add",
+        "rule": "proxim_object",
+        "target": {
+          "level": "SF2",
+          "name": "Proxim_Elevator01"
+        },
+        "why": "THUGPRO's radius trigger (an elevator's teleport or its doors)",
+        "file": "sf2/sf2_thugpro",
+        "array": "SF2_LevelChanges",
+        "index": 0
+      },
+      {
+        "id": "TPN-THPS4-1",
+        "op": "add",
+        "rule": "proxim_object",
+        "target": {
+          "level": "SF2",
+          "name": "Proxim_Elevator02"
+        },
+        "why": "THUGPRO's radius trigger (an elevator's teleport or its doors)",
+        "file": "sf2/sf2_thugpro",
+        "array": "SF2_LevelChanges",
+        "index": 1
+      },
+      {
+        "id": "TPN-THPS4-2",
+        "op": "add",
+        "rule": "level_option",
+        "target": {
+          "level": "SF2",
+          "script": "SF2_LEVEL_CHANGE_01",
+          "flag": "SERVER_LEVEL_CHANGE_01_ON"
+        },
+        "why": "THUGPRO's host level option, run with off at the start (its default state; switching needs its protocol)",
+        "file": "sf2/sf2_thugpro"
+      },
+      {
+        "id": "TPN-THPS4-1",
+        "op": "add",
+        "rule": "script",
+        "target": {
+          "level": "SF2",
+          "script": "SF2_teleport1"
+        },
+        "why": "THUGPRO's script, run by the entries above",
+        "file": "sf2/sf2_thugpro"
+      },
+      {
+        "id": "TPN-THPS4-1",
+        "op": "add",
+        "rule": "script",
+        "target": {
+          "level": "SF2",
+          "script": "SF2_teleport2"
+        },
+        "why": "THUGPRO's script, run by the entries above",
+        "file": "sf2/sf2_thugpro"
+      },
+      {
+        "id": "TPN-THPS4-1",
+        "op": "add",
+        "rule": "sound",
+        "target": {
+          "level": "SF2",
+          "sound": "VC\\VC_ElevatorDing02"
+        },
+        "why": "A sound THUGPRO's teleports / elevator doors play, loaded as THUGPRO's level start-up does",
+        "file": "sf2/sf2_scripts"
+      },
+      {
+        "id": "TPN-THPS4-4",
+        "op": "add",
+        "rule": "model",
+        "target": {
+          "level": "Sch",
+          "name": "thugpro_banner_stadium01",
+          "model": "leveleditor\\exported\\Big_Banner.mdl"
+        },
+        "why": "THUGPRO's banner / poster model - its shipped scripts don't place it (replace_texture / billboard: GIVE_ME_BILLBOARDS off), so off unless --thugpro-banners",
+        "file": "sch/sch_thugpro",
+        "array": "SCH_LevelChanges",
+        "index": 0,
+        "models": [
+          "sch/models\\leveleditor\\exported\\big_banner.mdl.xbx",
+          "sch/models\\leveleditor\\exported\\big_banner.tex.xbx"
+        ],
+        "shown_by_thugpro": false
+      },
+      {
+        "id": "TPN-THPS4-4",
+        "op": "add",
+        "rule": "model",
+        "target": {
+          "level": "Sch",
+          "name": "thugpro_banner_stadium02",
+          "model": "leveleditor\\exported\\Big_Banner.mdl"
+        },
+        "why": "THUGPRO's banner / poster model - its shipped scripts don't place it (replace_texture / billboard: GIVE_ME_BILLBOARDS off), so off unless --thugpro-banners",
+        "file": "sch/sch_thugpro",
+        "array": "SCH_LevelChanges",
+        "index": 1,
+        "models": [
+          "sch/models\\leveleditor\\exported\\big_banner.mdl.xbx",
+          "sch/models\\leveleditor\\exported\\big_banner.tex.xbx"
+        ],
+        "shown_by_thugpro": false
+      },
+      {
+        "id": "TPN-THPS4-4",
+        "op": "add",
+        "rule": "model",
+        "target": {
+          "level": "Sch",
+          "name": "thugpro_banner_stadium03",
+          "model": "leveleditor\\exported\\Big_Banner.mdl"
+        },
+        "why": "THUGPRO's banner / poster model - its shipped scripts don't place it (replace_texture / billboard: GIVE_ME_BILLBOARDS off), so off unless --thugpro-banners",
+        "file": "sch/sch_thugpro",
+        "array": "SCH_LevelChanges",
+        "index": 2,
+        "models": [
+          "sch/models\\leveleditor\\exported\\big_banner.mdl.xbx",
+          "sch/models\\leveleditor\\exported\\big_banner.tex.xbx"
+        ],
+        "shown_by_thugpro": false
+      },
+      {
+        "id": "TPN-THPS4-4",
+        "op": "add",
+        "rule": "model",
+        "target": {
+          "level": "Sch",
+          "name": "thugpro_banner_stadium04",
+          "model": "leveleditor\\exported\\Big_Banner.mdl"
+        },
+        "why": "THUGPRO's banner / poster model - its shipped scripts don't place it (replace_texture / billboard: GIVE_ME_BILLBOARDS off), so off unless --thugpro-banners",
+        "file": "sch/sch_thugpro",
+        "array": "SCH_LevelChanges",
+        "index": 3,
+        "models": [
+          "sch/models\\leveleditor\\exported\\big_banner.mdl.xbx",
+          "sch/models\\leveleditor\\exported\\big_banner.tex.xbx"
+        ],
+        "shown_by_thugpro": false
+      },
+      {
+        "id": "TPN-THPS4-4",
+        "op": "add",
+        "rule": "model",
+        "target": {
+          "level": "Sch",
+          "name": "thugpro_banner_stadium05",
+          "model": "leveleditor\\exported\\Big_Banner.mdl"
+        },
+        "why": "THUGPRO's banner / poster model - its shipped scripts don't place it (replace_texture / billboard: GIVE_ME_BILLBOARDS off), so off unless --thugpro-banners",
+        "file": "sch/sch_thugpro",
+        "array": "SCH_LevelChanges",
+        "index": 4,
+        "models": [
+          "sch/models\\leveleditor\\exported\\big_banner.mdl.xbx",
+          "sch/models\\leveleditor\\exported\\big_banner.tex.xbx"
+        ],
+        "shown_by_thugpro": false
+      },
+      {
+        "id": "TPN-THPS4-4",
+        "op": "add",
+        "rule": "model",
+        "target": {
+          "level": "Sch",
+          "name": "thugpro_banner_stadium06",
+          "model": "leveleditor\\exported\\Big_Banner.mdl"
+        },
+        "why": "THUGPRO's banner / poster model - its shipped scripts don't place it (replace_texture / billboard: GIVE_ME_BILLBOARDS off), so off unless --thugpro-banners",
+        "file": "sch/sch_thugpro",
+        "array": "SCH_LevelChanges",
+        "index": 5,
+        "models": [
+          "sch/models\\leveleditor\\exported\\big_banner.mdl.xbx",
+          "sch/models\\leveleditor\\exported\\big_banner.tex.xbx"
+        ],
+        "shown_by_thugpro": false
+      },
+      {
+        "id": "TPN-THPS4-4",
+        "op": "add",
+        "rule": "model",
+        "target": {
+          "level": "Sch",
+          "name": "thugpro_banner_stadium07",
+          "model": "leveleditor\\exported\\Big_Banner.mdl"
+        },
+        "why": "THUGPRO's banner / poster model - its shipped scripts don't place it (replace_texture / billboard: GIVE_ME_BILLBOARDS off), so off unless --thugpro-banners",
+        "file": "sch/sch_thugpro",
+        "array": "SCH_LevelChanges",
+        "index": 6,
+        "models": [
+          "sch/models\\leveleditor\\exported\\big_banner.mdl.xbx",
+          "sch/models\\leveleditor\\exported\\big_banner.tex.xbx"
+        ],
+        "shown_by_thugpro": false
+      },
+      {
+        "id": "TPN-THPS4-4",
+        "op": "add",
+        "rule": "model",
+        "target": {
+          "level": "Sch",
+          "name": "thugpro_banner_stadium08",
+          "model": "leveleditor\\exported\\Big_Banner.mdl"
+        },
+        "why": "THUGPRO's banner / poster model - its shipped scripts don't place it (replace_texture / billboard: GIVE_ME_BILLBOARDS off), so off unless --thugpro-banners",
+        "file": "sch/sch_thugpro",
+        "array": "SCH_LevelChanges",
+        "index": 7,
+        "models": [
+          "sch/models\\leveleditor\\exported\\big_banner.mdl.xbx",
+          "sch/models\\leveleditor\\exported\\big_banner.tex.xbx"
+        ],
+        "shown_by_thugpro": false
+      },
+      {
+        "id": "TPN-THPS4-4",
+        "op": "add",
+        "rule": "model",
+        "target": {
+          "level": "Sch",
+          "name": "thugpro_banner_garage01",
+          "model": "leveleditor\\exported\\Big_Banner_alt01.mdl"
+        },
+        "why": "THUGPRO's banner / poster model - its shipped scripts don't place it (replace_texture / billboard: GIVE_ME_BILLBOARDS off), so off unless --thugpro-banners",
+        "file": "sch/sch_thugpro",
+        "array": "SCH_LevelChanges",
+        "index": 8,
+        "models": [
+          "sch/models\\leveleditor\\exported\\big_banner_alt01.mdl.xbx",
+          "sch/models\\leveleditor\\exported\\big_banner_alt01.tex.xbx"
+        ],
+        "shown_by_thugpro": false
+      },
+      {
+        "id": "TPN-THPS4-4",
+        "op": "add",
+        "rule": "model",
+        "target": {
+          "level": "Sch",
+          "name": "thugpro_banner_garage02",
+          "model": "leveleditor\\exported\\Big_Banner_alt01.mdl"
+        },
+        "why": "THUGPRO's banner / poster model - its shipped scripts don't place it (replace_texture / billboard: GIVE_ME_BILLBOARDS off), so off unless --thugpro-banners",
+        "file": "sch/sch_thugpro",
+        "array": "SCH_LevelChanges",
+        "index": 9,
+        "models": [
+          "sch/models\\leveleditor\\exported\\big_banner_alt01.mdl.xbx",
+          "sch/models\\leveleditor\\exported\\big_banner_alt01.tex.xbx"
+        ],
+        "shown_by_thugpro": false
+      },
+      {
+        "id": "TPN-THPS4-4",
+        "op": "add",
+        "rule": "model",
+        "target": {
+          "level": "Sch",
+          "name": "thugpro_banner_garage03",
+          "model": "leveleditor\\exported\\Big_Banner_alt01.mdl"
+        },
+        "why": "THUGPRO's banner / poster model - its shipped scripts don't place it (replace_texture / billboard: GIVE_ME_BILLBOARDS off), so off unless --thugpro-banners",
+        "file": "sch/sch_thugpro",
+        "array": "SCH_LevelChanges",
+        "index": 10,
+        "models": [
+          "sch/models\\leveleditor\\exported\\big_banner_alt01.mdl.xbx",
+          "sch/models\\leveleditor\\exported\\big_banner_alt01.tex.xbx"
+        ],
+        "shown_by_thugpro": false
+      },
+      {
+        "id": "TPN-THPS4-4",
+        "op": "add",
+        "rule": "model",
+        "target": {
+          "level": "Sch",
+          "name": "thugpro_banner_garage04",
+          "model": "leveleditor\\exported\\Big_Banner_alt01.mdl"
+        },
+        "why": "THUGPRO's banner / poster model - its shipped scripts don't place it (replace_texture / billboard: GIVE_ME_BILLBOARDS off), so off unless --thugpro-banners",
+        "file": "sch/sch_thugpro",
+        "array": "SCH_LevelChanges",
+        "index": 11,
+        "models": [
+          "sch/models\\leveleditor\\exported\\big_banner_alt01.mdl.xbx",
+          "sch/models\\leveleditor\\exported\\big_banner_alt01.tex.xbx"
+        ],
+        "shown_by_thugpro": false
+      },
+      {
+        "id": "TPN-THPS4-4",
+        "op": "add",
+        "rule": "model",
+        "target": {
+          "level": "Sch",
+          "name": "thugpro_banner_tower",
+          "model": "leveleditor\\exported\\Big_Banner_alt02.mdl"
+        },
+        "why": "THUGPRO's banner / poster model - its shipped scripts don't place it (replace_texture / billboard: GIVE_ME_BILLBOARDS off), so off unless --thugpro-banners",
+        "file": "sch/sch_thugpro",
+        "array": "SCH_LevelChanges",
+        "index": 12,
+        "models": [
+          "sch/models\\leveleditor\\exported\\big_banner_alt02.mdl.xbx",
+          "sch/models\\leveleditor\\exported\\big_banner_alt02.tex.xbx"
+        ],
+        "shown_by_thugpro": false
+      },
+      {
+        "id": "TPN-THPS4-1",
+        "op": "add",
+        "rule": "proxim_object",
+        "target": {
+          "level": "Sch",
+          "name": "Proxim_Elevator01"
+        },
+        "why": "THUGPRO's radius trigger (an elevator's teleport or its doors)",
+        "file": "sch/sch_thugpro",
+        "array": "SCH_LevelChanges",
+        "index": 13
+      },
+      {
+        "id": "TPN-THPS4-1",
+        "op": "add",
+        "rule": "proxim_object",
+        "target": {
+          "level": "Sch",
+          "name": "Proxim_Sch_ElevatorDoors"
+        },
+        "why": "THUGPRO's radius trigger (an elevator's teleport or its doors)",
+        "file": "sch/sch_thugpro",
+        "array": "SCH_LevelChanges",
+        "index": 14
+      },
+      {
+        "id": "TPN-THPS4-1",
+        "op": "add",
+        "rule": "script",
+        "target": {
+          "level": "Sch",
+          "script": "SCH_teleport1"
+        },
+        "why": "THUGPRO's script, run by the entries above",
+        "file": "sch/sch_thugpro"
+      },
+      {
+        "id": "TPN-THPS4-1",
+        "op": "add",
+        "rule": "script",
+        "target": {
+          "level": "Sch",
+          "script": "Proxim_Sch_ElevatorDoorsOpenScript"
+        },
+        "why": "THUGPRO's script, run by the entries above",
+        "file": "sch/sch_thugpro"
+      },
+      {
+        "id": "TPN-THPS4-1",
+        "op": "add",
+        "rule": "script",
+        "target": {
+          "level": "Sch",
+          "script": "Proxim_Sch_ElevatorDoorsCloseScript"
+        },
+        "why": "THUGPRO's script, run by the entries above",
+        "file": "sch/sch_thugpro"
+      },
+      {
+        "id": "TPN-THPS4-1",
+        "op": "add",
+        "rule": "sound",
+        "target": {
+          "level": "Sch",
+          "sound": "VC\\VC_ElevatorDing02"
+        },
+        "why": "A sound THUGPRO's teleports / elevator doors play, loaded as THUGPRO's level start-up does",
+        "file": "sch/sch_scripts"
+      },
+      {
+        "id": "TPN-THPS4-1",
+        "op": "set",
+        "rule": "trigger_script",
+        "target": {
+          "level": "Zoo",
+          "node": "TRGP_Teleport01",
+          "script": "TRGP_Teleport01Script"
+        },
+        "why": "THUGPRO's teleport on it (THUGPRO_Televator: our thps4_tp_televator)",
+        "file": "zoo/zoo"
+      },
+      {
+        "id": "TPN-THPS4-1",
+        "op": "set",
+        "rule": "trigger_script",
+        "target": {
+          "level": "Zoo",
+          "node": "TRGP_LeavingArea02",
+          "script": "TRGP_LeavingArea02Script"
+        },
+        "why": "THUGPRO's teleport on it (THUGPRO_Televator: our thps4_tp_televator)",
+        "file": "zoo/zoo"
+      },
+      {
+        "id": "TPN-THPS4-1",
+        "op": "set",
+        "rule": "trigger_script",
+        "target": {
+          "level": "Zoo",
+          "node": "TRGP_TeleportZookeeper",
+          "script": "TRGP_TeleportZookeeperScript"
+        },
+        "why": "THUGPRO's teleport on it (THUGPRO_Televator: our thps4_tp_televator)",
+        "file": "zoo/zoo"
+      },
+      {
+        "id": "TPN-THPS4-1",
+        "op": "set",
+        "rule": "trigger_script",
+        "target": {
+          "level": "Zoo",
+          "node": "TRGP_TeleportZookeeper01",
+          "script": "TRGP_TeleportZookeeper01Script"
+        },
+        "why": "THUGPRO's teleport on it (THUGPRO_Televator: our thps4_tp_televator)",
+        "file": "zoo/zoo"
+      },
+      {
+        "id": "TPN-THPS4-2",
+        "op": "add",
+        "rule": "level_option",
+        "target": {
+          "level": "Zoo",
+          "script": "zoo_LEVEL_CHANGE_01",
+          "flag": "SERVER_LEVEL_CHANGE_01_ON"
+        },
+        "why": "THUGPRO's host level option, run with off at the start (its default state; switching needs its protocol)",
+        "file": "zoo/zoo_thugpro"
+      },
+      {
+        "id": "TPN-THPS4-5",
+        "op": "add",
+        "rule": "node",
+        "target": {
+          "level": "SkateShop",
+          "node": "TRG_TP_SkaterKiller"
+        },
+        "why": "THUGPRO's ghost object (its trigger script is empty in THUGPRO: it does nothing)",
+        "file": "practice/practice"
+      },
+      {
+        "id": "TPN-THPS4-5",
+        "op": "add",
+        "rule": "script",
+        "target": {
+          "level": "SkateShop",
+          "script": "TRG_TP_SkaterKillerScript"
+        },
+        "why": "THUGPRO's script, run by the entries above",
+        "file": "practice/practice"
+      }
+    ],
+    "_not_taken": {
+      "Sch": [
+        "sound elevatordooropen: played, but THUGPRO's level start-up doesn't load it",
+        "sound elevatordoorclose: played, but THUGPRO's level start-up doesn't load it"
+      ],
+      "SkateShop": [
+        "PRACTICE_LEVEL_CHANGE_01: the skate shop's host option (Open Fence): its default state force-creates InvisColl01 - the door walls - and the fences: the shop is our main menu's backdrop, its door stays open (TP-29 off)"
+      ]
+    }
   }
 }
