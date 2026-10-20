@@ -1550,6 +1550,7 @@ bool& DebugEnabled()
 bool Active() { return g_active; }
 // Occlusion culling switched off while editing (O; Nx::OcclusionOff).
 static bool g_occlusionOff = true;
+static bool g_occlusionInPlay; // (Nx::OcclusionOff as it was when the editor opened)
 
 bool PassKey(bool* released, bool down)
 {
@@ -1615,7 +1616,9 @@ bool __cdecl CFunc_Start(Script::CStruct*, Script::CScript*)
     // The UI (Dear ImGui) - else the HUD of screen elements.
     bool ui = Ui::Start();
     View::Start();
-    // (occlusion off while flying the editor's camera: O turns it back on - kept for the next time)
+    // (occlusion off while flying the editor's camera: O turns it back on - kept for the next time; the setting from
+    // [Graphics] OcclusionCulling comes back when the editor closes)
+    g_occlusionInPlay = Nx::OcclusionOff();
     Nx::OcclusionOff() = g_occlusionOff;
     g_hudTakenDown = 0;
     g_families = static_cast<uint32_t>(ConfigInt("editor", "families", static_cast<int>(Nodes::kAllFamilies))) &
@@ -1730,7 +1733,7 @@ bool __cdecl CFunc_Stop(Script::CStruct*, Script::CScript*)
     Hud::HidePanel();
     Preview::Hide();
     View::Stop(); // (everything hidden in the editor shown again)
-    Nx::OcclusionOff() = false;
+    Nx::OcclusionOff() = g_occlusionInPlay;
     Ui::Stop();
     SetRelative(false);
     PlaceSkaterBelowCamera();
