@@ -234,8 +234,9 @@ export function installFiles(game: string, overlay: string, manifest: Manifest |
         if (!fs.existsSync(models) || !fs.statSync(models).isDirectory()) continue;
         for (const entry of fs.readdirSync(models)) {
             const target = path.join(overlay, "models", entry);
-            if (fs.existsSync(target)) fs.rmSync(target, { recursive: true });
-            fs.cpSync(path.join(models, entry), target, { recursive: true, preserveTimestamps: true });
+            // (merged, not replaced: two stagings may both bring models\veh\... - THUG1's El train and leaf blower, say;
+            // make_menu_level empties the overlay before each run anyway)
+            fs.cpSync(path.join(models, entry), target, { recursive: true, preserveTimestamps: true, force: true });
             installed.push(`models\\${entry}`);
         }
     }

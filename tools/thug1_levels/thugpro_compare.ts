@@ -14,12 +14,15 @@
 //   - THUGPRO's hand edits the profile applies (TP-32 ... TP-39, hand_edits.checkEdits): per register entry, how many
 //     show in our converted level as THUGPRO has them ("hand edits as THUGPRO's: TP-32 5/5, ..."), with --details why
 //     the others don't (a node our converter leaves out, a key it doesn't keep).
+//   - what is new in THUGPRO (TPN-THUG1-1 ... 4, thugpro_new.checkNew): each model, node, script and file as THUGPRO
+//     has it in our converted level ("new in THUGPRO as THUGPRO's: TPN-THUG1-1 4/4, ..."), with --details why not.
 //
 //   node tools/thug1_levels/thugpro_compare.ts [levels...] [--thug2 C:\Games\THUG2-3] [--thug1 C:\Games\THUG1]
 //        [--thugpro <dir>] [--staging <dir>] [--legacy-names] [--compat thugpro|none] [--json out] [--details]
 //   node tools/thug1_levels/thugpro_compare.ts --extract-thugpro [levels...]
 //        (writes THUGPRO's edits into tools/compat/thugpro/thug1_levels.json - never typed in: TP-31's "spawns"
-//        (thugpro_edits.spawnEdits) and TP-32 ... TP-39's sections (thugpro_edits.handEdits); prints what it leaves out
+//        (thugpro_edits.spawnEdits), TP-32 ... TP-39's sections (thugpro_edits.handEdits) and thugpro_new (thugpro_new.extract,
+//        against --staging's converted levels); prints what it leaves out
 //        and why: translation by THUGPRO's toolchain, THUGPRO's own content)
 //   --details also lists THUGPRO's other edits against THUG1's own data, by kind (thugpro_edits.inventory).
 
@@ -29,6 +32,7 @@ import * as colCheck from "../level_port/col_check.ts";
 import * as prx from "../level_port/prx.ts";
 import * as qb from "../level_port/qb.ts";
 import { Name, type QbValue, Struct } from "../level_port/qb.ts";
+import * as scriptPort from "../level_port/script_port.ts";
 import * as thug2Col from "../level_port/thug2_col.ts";
 import { parseCli } from "../lib/cli.ts";
 import {
@@ -67,6 +71,7 @@ import {
     thug1Side,
     thugproSide,
 } from "./thugpro_edits.ts";
+import * as thugproNew from "./thugpro_new.ts";
 
 const DEFAULT_THUGPRO = pyJoin(process.env.LOCALAPPDATA ?? "", "THUG Pro");
 // The game-mode nodes THUG2's scripts look up by name: CTF bases / flags, their restarts, the team restart.
@@ -289,6 +294,20 @@ export function compare(
     // THUGPRO's hand edits the profile applies (TP-32 ... TP-39): each as THUGPRO has it in our converted level?
     const edits = COMPAT.edits.get(code.toLowerCase());
     if (edits !== undefined) out.hand_edits = checkEdits(edits, ours, names, ourColFile);
+    // What is new in THUGPRO (TPN-THUG1-1 ... 4, thugpro_new.ts): each item in our converted level as THUGPRO has it?
+    const fresh = COMPAT.new.get(code.toLowerCase());
+    if (fresh !== undefined) {
+        const install = new thugproNew.Install(thugpro);
+        out.thugpro_new = thugproNew.checkNew(
+            fresh,
+            path.dirname(oursDir),
+            mine,
+            fs.readFileSync(oursQb),
+            ours,
+            theirs,
+            (e) => install.read(fresh, e),
+        );
+    }
     const theirCol = pyJoin(thugpro, "data", "pre", `${key}col.prx`);
     if (fs.existsSync(theirCol)) {
         for (const [name, cdata] of colCheck.colFiles(theirCol)) {
@@ -332,7 +351,85 @@ function portKeys(thug1: string, thugpro: string, codes: readonly string[]): Map
     return out;
 }
 
-function extract(thug1: string, thugpro: string, codes: readonly string[]): number {
+// THUG2's models (Data\models: "veh\\a\\a.mdl" / "x\\y.skin", lower case).
+function thug2Models(thug2: string): Set<string> {
+    const out = new Set<string>();
+    const root = path.join(thug2, "Data", "models");
+    const walk = (dir: string, rel: string): void => {
+        for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+            const r = rel ? `${rel}\\${e.name}` : e.name;
+            if (e.isDirectory()) walk(path.join(dir, e.name), r);
+            else if (/\.(mdl|skin)\.xbx$/i.test(e.name)) out.add(r.slice(0, -4).toLowerCase());
+        }
+    };
+    if (fs.existsSync(root)) walk(root, "");
+    return out;
+}
+
+// TPN-THUG1-1 ... TPN-THUG1-4: what is new in THUGPRO (thugpro_new.extract) - against our converted level in the staging (the
+// scripts it defines and the nodes it has: a THUGPRO edit of a script ours leaves out isn't listed). Returns the
+// section; prints what isn't taken and why.
+function extractNew(
+    thug1: string,
+    thugpro: string,
+    thug2: string,
+    staging: string,
+    codes: readonly string[],
+): Record<string, unknown> {
+    const section: Record<string, unknown> = {
+        _register: "TPN-THUG1-1 ... TPN-THUG1-4",
+        _comment:
+            "NEW in THUGPRO - content THUGPRO made that is in no source game (the user's decision 2026-10-20, with " +
+            "Morten's agreement): BY REFERENCE ONLY - references and checksums of THUGPRO's files, read from the " +
+            "user's THUGPRO install when converting (--thugpro), never their bytes. Written by `node " +
+            "tools/thug1_levels/thugpro_compare.ts --extract-thugpro` (thugpro_new.extract); its form: " +
+            "tools/thug1_levels/thugpro_new.ts (entries: compat.Entry, target {level, name}; levels: each level's THUGPRO key and archive). --no-thugpro-new or --compat none leave it out.",
+    };
+    const levels = new Map<string, thugproNew.NewLevel>();
+    const install = new thugproNew.Install(thugpro);
+    const models = thug2Models(thug2);
+    const t2 = new scriptPort.Thug2(thug2);
+    const utilsData = install.archive("data\\pre\\thugpro_qb.prx")?.get("qb\\thugpro\\thugpro_utils.qb");
+    const utils = utilsData ? thugproNew.rawScripts(utilsData) : new Map<number, Buffer>();
+    const utilsNames = utilsData ? new qb.QbFile(utilsData, "thugpro_utils.qb", true).names : new Map<number, string>();
+    const mine = levelNames(thug1, thug2);
+    const pre = path.join(thugpro, "data", "pre");
+    const listing = fs.existsSync(pre) ? fs.readdirSync(pre) : [];
+    for (const [code, key] of portKeys(thug1, thugpro, codes)) {
+        const level = mine.get(code.toLowerCase()) ?? `thug1_${code.toLowerCase()}`;
+        const oursQb = pyJoin(staging, level, `${level}.qb`);
+        let ours: { scripts: Set<number>; nodes: Set<number> } | null = null;
+        if (fs.existsSync(oursQb)) {
+            const data = fs.readFileSync(oursQb);
+            const [array] = nodeArray(data, oursQb);
+            ours = {
+                scripts: new Set(new qb.QbFile(data, oursQb, true).scripts.keys()),
+                nodes: new Set(structs(array).flatMap((n) => (nameOf(n) === null ? [] : [nameOf(n)!]))),
+            };
+        } else print(`    (no converted ${oursQb}: script edits listed without checking ours has them)`);
+        const archiveName = listing.find((f) => f.toLowerCase() === `${key}_scripts.prx`.toLowerCase());
+        const got = thugproNew.extract({
+            t1: thug1Side(thug1, code),
+            tp: thugproSide(thugpro, key),
+            key,
+            archive: `data\\pre\\${archiveName ?? `${key}_scripts.prx`}`,
+            install,
+            thug2Models: models,
+            thug2: t2,
+            utils,
+            utilsNames,
+            ours,
+        });
+        levels.set(code, got.level);
+        const counts = new Map<string, number>();
+        for (const e of got.level.entries) counts.set(`${e.id} ${e.op}`, (counts.get(`${e.id} ${e.op}`) ?? 0) + 1);
+        print(`${code}: new in THUGPRO: ${[...counts].map(([k, n]) => `${k} ${n}`).join(", ") || "none"}`);
+        for (const n of got.notes) print(`    new, not taken: ${n}`);
+    }
+    return { ...section, ...thugproNew.toSection(levels) };
+}
+
+function extract(thug1: string, thugpro: string, codes: readonly string[], thug2: string, staging: string): number {
     const profile = JSON.parse(fs.readFileSync(PROFILE_FILE, "utf-8")) as Record<string, unknown>;
     const section: Record<string, unknown> = {
         _register: "TP-31",
@@ -370,6 +467,11 @@ function extract(thug1: string, thugpro: string, codes: readonly string[]): numb
     }
     profile.spawns = section;
     for (const [k, v] of sections) profile[k] = v;
+    // (TPN-THUG1-1 ... TPN-THUG1-4, before port_changes: the user's order - THUGPRO's data, what is new in THUGPRO, our own)
+    const own = profile.port_changes;
+    delete profile.port_changes;
+    profile.thugpro_new = extractNew(thug1, thugpro, thug2, staging, codes);
+    if (own !== undefined) profile.port_changes = own;
     fs.writeFileSync(PROFILE_FILE, `${formatJson(profile)}\n`, "utf-8");
     print(`wrote ${path.normalize(decodeURIComponent(PROFILE_FILE.pathname.slice(1)))}`);
     return 0;
@@ -436,7 +538,7 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
         const wanted = parsed.positionals.length
             ? parsed.positionals.map((c) => BY_CODE.get(c.toLowerCase())?.[0] ?? c)
             : LEVELS.filter((l) => l[5]).map((l) => l[0]);
-        return extract(thug1, thugpro, wanted);
+        return extract(thug1, thugpro, wanted, thug2, v.staging || pyJoin(thug2, STAGING, "levels"));
     }
     const oursDir = v.staging || pyJoin(thug2, STAGING, "levels");
     const mineByCode = levelNames(thug1, thug2, v["legacy-names"] ?? false);
@@ -485,6 +587,20 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
             // (the JSON report: plain objects)
             r.hand_edits = Object.fromEntries(
                 [...checks].map(([tp, c]) => [tp, { ...c, differ: Object.fromEntries(c.differ) }]),
+            );
+        }
+        const fresh = r.thugpro_new as Map<string, thugproNew.NewCheck> | undefined;
+        if (fresh !== undefined) {
+            print(
+                `    new in THUGPRO as THUGPRO's: ${[...fresh].map(([id, c]) => `${id} ${c.same}/${c.total}`).join(", ")}`,
+            );
+            if (v.details) {
+                for (const [id, c] of fresh)
+                    for (const [reason, list] of c.differ)
+                        print(`      ${id} ${reason}: ${list.length} - ${list.slice(0, 8).join(" ")}`);
+            }
+            r.thugpro_new = Object.fromEntries(
+                [...fresh].map(([id, c]) => [id, { ...c, differ: Object.fromEntries(c.differ) }]),
             );
         }
         if (v.details) {
