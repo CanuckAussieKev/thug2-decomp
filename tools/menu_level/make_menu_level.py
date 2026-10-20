@@ -113,6 +113,24 @@ def prx_file(path, name):
     sys.exit("%s: %s not found" % (path, name))
 
 
+def prx_files(path, extension=".qb"):
+    # {name as stored: data} of an archive's files with `extension` (as prx_file reads one).
+    data = open(path, "rb").read()
+    _, _, count = struct.unpack_from("<iii", data, 0)
+    offset = 12
+    out = {}
+    for _ in range(count):
+        size, compressed, name_size, _, _ = struct.unpack_from("<iihHI", data, offset)
+        stored = compressed or size
+        body = offset + 16 + name_size
+        entry_name = data[offset + 16:body].split(b"\0")[0].decode("ascii", "replace")
+        if entry_name.lower().endswith(extension):
+            raw = data[body:body + stored]
+            out[entry_name] = lzss_decode(raw, size) if compressed else raw
+        offset = body + ((stored + 3) & ~3)
+    return out
+
+
 MARKER = "made-by-make_menu_level.txt"
 # The level numbers of the SKATE SHOP and TEST LEVEL signs (unused / the test level's slot: their records, unlock and
 # dot lookups take them; each sign needs its own - the level select tells signs apart by it).
@@ -483,8 +501,9 @@ OPTIONS_MENU_QB = r"levels\mainmenu\mainmenu_options.qb"
 
 
 def add_create_100_cas(decompile, write, pre, levels):
-    # The front end's GAME OPTIONS scripts with CREATE 100% CAS: the story's chapters, goals and rewards read from
-    # the game's scripts (Levels.qb's text `levels`, chapter_info, goal_utilities, stats, each story level's scripts).
+    # The front end's GAME OPTIONS scripts with CREATE 100% CAS: the story's chapters, goals and rewards, the classic
+    # goals and every level's gaps read from the game's scripts (Levels.qb's text `levels`, chapter_info,
+    # goal_utilities, stats, the level select, and the levels' compiled scripts and node arrays).
     qb_scripts = os.path.join(pre, "qb_scripts.prx")
 
     def script_file(name):
@@ -493,9 +512,14 @@ def add_create_100_cas(decompile, write, pre, levels):
     def level_scripts(prefix, qb, pre_name):
         return decompile(prx_file(os.path.join(pre, os.path.splitext(pre_name)[0] + ".prx"), qb), prefix + "_scripts.qb")
 
+    def level_qbs(pre_name):
+        return prx_files(os.path.join(pre, os.path.splitext(pre_name)[0] + ".prx"))
+
     data = career_complete.career_data(levels, script_file(r"scripts\game\menu\chapter_info.qb"),
                                        script_file(r"scripts\game\goal_utilities.qb"),
-                                       script_file(r"scripts\game\menu\stats.qb"), level_scripts)
+                                       script_file(r"scripts\game\menu\stats.qb"), level_scripts,
+                                       script_file(r"scripts\game\menu\gamemenu_levelselect.qb"),
+                                       prx_files(qb_scripts), level_qbs)
     options = decompile(prx_file(os.path.join(pre, "mainmenu_scripts.prx"), OPTIONS_MENU_QB), "mainmenu_options.qb")
     write(career_complete.options_menu(options, data), OPTIONS_MENU_QB)
     print("CREATE 100%% CAS (GAME OPTIONS):\n%s" % career_complete.describe(data))
