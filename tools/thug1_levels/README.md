@@ -98,3 +98,9 @@ CTF / flag / team game-mode nodes, collision faces unreachable through their BSP
 classes, the trigger scripts only THUGPRO's nodes run and the nodes it moved. `migrate_layouts.ts` renames saved
 level-editor layouts (`thug2-decomp-layouts`) from the `thug1_<code>` names to the current ones (no record moves: the
 frame is THUG1's own on both sides). The findings: docs/pending/thug1.md, "THUGPRO".
+
+`thugpro_compare.ts --details` also lists THUGPRO's hand edits against THUG1's own data, by kind (`thugpro_edits.ts`
+`inventory`: nodes moved / renamed / reused / added / removed / changed with the keys and flags that changed, level
+scripts, scene sectors, collision objects and face flags). `thugpro_compare.ts --extract-thugpro` writes THUGPRO's
+spawn edits into the compatibility profile (TP-31: `tools/compat/thugpro/thug1_levels.json` `spawns`), which
+`convert` applies (`applySpawns`); the comparison's `spawns` column checks the result (names, places, order).
