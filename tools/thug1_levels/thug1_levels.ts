@@ -30,9 +30,10 @@ import * as scriptPort from "../level_port/script_port.ts";
 import * as tex from "../level_port/tex.ts";
 import * as thug2Scene from "../level_port/thug2_scene.ts";
 import { parseConverterArgs } from "../lib/converter_args.ts";
-import { isMain, print, pyExit, pyJoin, pyRepr, runMain } from "../lib/py.ts";
+import { hex8, isMain, print, pyExit, pyJoin, pyRepr, runMain } from "../lib/py.ts";
 import * as thug1 from "./thug1.ts";
 import * as thug1Port from "./thug1_port.ts";
+import type { SpawnEdits } from "./thugpro_edits.ts";
 
 export const STAGING = "thug2-decomp-thug1";
 
@@ -97,7 +98,7 @@ interface Args {
 // that (Hotter Than Hell as hh: THUG1's SE is THUG2's SE) is in the compatibility profile
 // tools/compat/thugpro/thug1_levels.json (TP-30...; --compat none leaves it out). --legacy-names: thug1_<code> for
 // every level, as this converter named them before.
-export const COMPAT = { levelNames: new Map<string, string>() };
+export const COMPAT = { levelNames: new Map<string, string>(), spawns: new Map<string, SpawnEdits>() };
 
 // The compatibility profile's THUG1 data (tools/compat/compat.ts): "thugpro" (the default) or "none".
 export function setCompat(name: string): void {
@@ -105,6 +106,122 @@ export function setCompat(name: string): void {
     COMPAT.levelNames = new Map(
         Object.entries(profile.section("thug1_levels", "level_names")).map(([k, v]) => [k.toLowerCase(), String(v)]),
     );
+    COMPAT.spawns = new Map(
+        Object.entries(profile.section("thug1_levels", "spawns")).map(([k, v]) => [k.toLowerCase(), v as SpawnEdits]),
+    );
+}
+
+// --- TP-31: THUGPRO's network spawns (tools/compat/thugpro/thug1_levels.json "spawns") ------------------------------
+//
+// THUG2 starts player n at the n-th Multiplayer restart of the node array and respawns at one of the first 8 (Skate
+// 0x00566100 -> GetRestartNode 0x0046B790; CSkater::MoveToRandomRestart 0x00580830: Rnd(8)), so for both sides to
+// spawn alike the spawn restarts (Multiplayer / Horse / CTF / Team) need the same places, types and order. THUGPRO
+// moved, re-typed and renamed a few of THUG1's (and reordered VC's); TP-31 (approved by the user 2026-10-20 - the
+// fairness of a competitive start) makes ours the same. The data is extracted from THUGPRO's install by
+// `thugpro_compare.ts --extract-thugpro` (thugpro_edits.spawnEdits); the nodes keep our form. A level with an entry
+// keeps THUG1's own node order (no Player1-first swap: 0x00566100 looks restarts up by type - Multiplayer, else Player1), and
+// its spawns are then put in THUGPRO's order (`order`). Returns a report line.
+
+const NET_SPAWN_TYPES = nodes.NET_RESTART_TYPES;
+
+function nodeText(v: qb.QbValue | undefined, names: ReadonlyMap<number, string>): string {
+    return v instanceof Name ? (names.get(v.value) ?? hex8(v.value)) : "";
+}
+
+function spawnTypes(n: Struct, names: ReadonlyMap<number, string>): string[] {
+    const types = n.get("restart_types");
+    return Array.isArray(types) ? types.map((t) => nodeText(t, names)) : [];
+}
+
+function isSpawnNode(n: Struct, names: ReadonlyMap<number, string>): boolean {
+    return (
+        nodes.classOf(n, names) === "restart" && spawnTypes(n, names).some((t) => NET_SPAWN_TYPES.has(t.toLowerCase()))
+    );
+}
+
+const nameEntry = (names: Map<number, string>, text: string): Name => {
+    const value = qb.checksum(text);
+    if (!names.has(value)) names.set(value, text);
+    return new Name(value);
+};
+
+export function applySpawns(converted: Struct[], names: Map<number, string>, edits: SpawnEdits, code: string): string {
+    const byName = new Map<string, Struct>();
+    for (const n of converted) byName.set(nodeText(n.get("Name"), names).toLowerCase(), n);
+    const node = (name: string): Struct => {
+        const n = byName.get(name.toLowerCase());
+        if (n === undefined) throw new FormatError(`${code}: TP-31 names ${name}, not a node of the level`);
+        return n;
+    };
+    const done: string[] = [];
+    for (const [name, place] of Object.entries(edits.moved ?? {})) {
+        const n = node(name);
+        n.set("Pos", new qb.Vector("vector", place.pos));
+        n.set("Angles", new qb.Vector("vector", place.angles));
+        done.push(`${name} moved`);
+    }
+    for (const [name, types] of Object.entries(edits.types ?? {})) {
+        node(name).set(
+            "restart_types",
+            types.map((t) => nameEntry(names, t)),
+        );
+        done.push(`${name} [${types.join(" ")}]`);
+    }
+    for (const name of edits.removed ?? []) {
+        const n = node(name);
+        n.set(
+            "restart_types",
+            spawnTypes(n, names)
+                .filter((t) => !NET_SPAWN_TYPES.has(t.toLowerCase()))
+                .map((t) => nameEntry(names, t)),
+        );
+        done.push(`${name} no spawn`);
+    }
+    for (const [old, now] of Object.entries(edits.renamed ?? {})) {
+        node(old).set("Name", nameEntry(names, now));
+        done.push(`${old} -> ${now}`);
+    }
+    if (edits.added?.length)
+        throw new FormatError(`${code}: TP-31 adds spawns - not handled (none in THUGPRO's today)`);
+    if (edits.order !== undefined) {
+        // (the spawns' slots in the array, refilled in THUGPRO's order; every node's Links follow)
+        const slots = converted.flatMap((n, i) => (isSpawnNode(n, names) ? [i] : []));
+        const wanted = edits.order.map((name) => converted.indexOf(node(name)));
+        const sorted = [...wanted].sort((a, b) => a - b);
+        if (sorted.join(",") !== slots.join(",")) {
+            throw new FormatError(`${code}: TP-31's spawn order names other restarts than the level's spawns`);
+        }
+        const moveTo = new Map(wanted.map((from, k) => [from, slots[k]!] as const)); // old index -> new
+        const before = [...converted];
+        for (const [from, to] of moveTo) converted[to] = before[from]!;
+        const links = qb.checksum("Links");
+        for (const n of converted) {
+            n.entries = n.entries.map(([k, v]) => [
+                k,
+                k !== null && k.value === links && Array.isArray(v)
+                    ? v.map((x) => (typeof x === "number" && moveTo.has(x) ? moveTo.get(x)! : x))
+                    : v,
+            ]);
+        }
+        if (wanted.some((from, k) => from !== slots[k])) done.push(`spawn order as THUGPRO's (${slots.length})`);
+    }
+    return `  TP-31 spawns: ${done.length ? done.join(", ") : "THUG1's order kept"}`;
+}
+
+// A renamed spawn still named by a script would lose its target: refused.
+export function checkRenamed(
+    edits: SpawnEdits | undefined,
+    scripts: ReadonlyMap<number, Uint8Array>,
+    code: string,
+): void {
+    for (const old of Object.keys(edits?.renamed ?? {})) {
+        const bytes = Buffer.alloc(4);
+        bytes.writeUInt32LE(qb.checksum(old));
+        for (const body of scripts.values()) {
+            if (Buffer.from(body).includes(bytes))
+                throw new FormatError(`${code}: TP-31 renames ${old}, a script names it`);
+        }
+    }
 }
 
 setCompat("thugpro"); // (the default, also for the tools that import this one: thugpro_compare, migrate_layouts)
@@ -313,15 +430,35 @@ export function convertLevelNodes(
             if (script instanceof Name && !kills.has(script.value)) wanted.add(script.value);
         }
     }
-    const convertedStats = nodes.convertNodes(kept, names, kills, ["pos"], made ? made.asIs : [], wanted);
+    const spawnEdits = COMPAT.spawns.get(code.toLowerCase()); // (TP-31)
+    const convertedStats = nodes.convertNodes(
+        kept,
+        names,
+        kills,
+        ["pos"],
+        made ? made.asIs : [],
+        wanted,
+        spawnEdits === undefined,
+    );
     let converted = convertedStats[0];
     const stats = convertedStats[1];
+    if (spawnEdits !== undefined) {
+        report.push(applySpawns(converted, names, spawnEdits, code));
+        for (const [script, call] of kills) {
+            for (const old of Object.keys(spawnEdits.renamed ?? {})) {
+                if (call.toLowerCase().includes(old.toLowerCase())) {
+                    throw new FormatError(`${code}: TP-31 renames ${old}, the kill ${hex8(script)} sends to it`);
+                }
+            }
+        }
+    }
     kills = nodes.addKillRestarts(converted, kills, names);
     const triggers = nodes.killTriggerNames(converted, kills);
     let scriptReport = "";
     if (port !== null && made !== null) {
         const ported = thug1Port.portScripts(port, levelSources, converted, array, kills, names, struct, sectors);
         scripts = ported.scripts;
+        checkRenamed(spawnEdits, scripts, code);
         starts = ported.starts;
         scriptReport = ported.report;
         // (the sectors whose trigger script runs keep their trigger faces)

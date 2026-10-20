@@ -14,6 +14,9 @@
 //
 //   node tools/thug1_levels/thugpro_compare.ts [levels...] [--thug2 C:\Games\THUG2-3] [--thug1 C:\Games\THUG1]
 //        [--thugpro <dir>] [--staging <dir>] [--legacy-names] [--compat thugpro|none] [--json out] [--details]
+//   node tools/thug1_levels/thugpro_compare.ts --extract-thugpro [levels...]
+//        (TP-31: writes THUGPRO's spawn edits into tools/compat/thugpro/thug1_levels.json "spawns" - never typed in)
+//   --details also lists THUGPRO's other edits against THUG1's own data, by kind (thugpro_edits.inventory).
 
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -48,6 +51,7 @@ import {
     TOLERANCE,
 } from "../thaw_levels/thugpro_compare.ts";
 import { BY_CODE, LEVELS, levelNames, levelStructs, prePath, STAGING, setCompat } from "./thug1_levels.ts";
+import { type Item, inventory, isSpawn, nodeName, spawnEdits, thug1Side, thugproSide } from "./thugpro_edits.ts";
 
 const DEFAULT_THUGPRO = pyJoin(process.env.LOCALAPPDATA ?? "", "THUG Pro");
 // The game-mode nodes THUG2's scripts look up by name: CTF bases / flags, their restarts, the team restart.
@@ -209,6 +213,22 @@ export function compare(
     out.crowns = sameSequence(sequence(ours, isCrown), sequence(theirs, isCrown))[0];
     out.mp_restarts = sameSequence(sequence(ours, isMpRestart), sequence(theirs, isMpRestart))[0];
     out.mp_restarts_vs_thug1 = sameSequence(sequence(ours, isMpRestart), sequence(orig, isMpRestart))[0];
+    // every network spawn (Multiplayer / Horse / CTF / Team restarts): the same names, places and order (TP-31)
+    const spawnSeq = (a: readonly Struct[]) => a.filter((n) => isSpawn(n, names));
+    const [sa, sb] = [spawnSeq(ours), spawnSeq(theirs)];
+    const differ = sb
+        .map((n, i) => [n, sa[i]] as const)
+        .filter(
+            ([t, o]) =>
+                o === undefined ||
+                nodeName(o, names).toLowerCase() !== nodeName(t, names).toLowerCase() ||
+                maxDiff(position(o) ?? [0, 0, 0], position(t) ?? [0, 0, 0]) > TOLERANCE,
+        )
+        .map(([t]) => nodeName(t, names));
+    out.spawns =
+        sa.length === sb.length && !differ.length
+            ? "same"
+            : `${sa.length} vs ${sb.length}, differ: ${differ.join(" ")}`;
     const ourMp = mpNames(ours, names);
     const theirMp = mpNames(theirs, names);
     out.mp_ours_only = ourMp.filter((n) => !theirMp.includes(n));
@@ -261,7 +281,7 @@ export function compare(
 
 const USAGE =
     "usage: thugpro_compare.ts [-h] [--thug2 THUG2] [--thug1 THUG1] [--thugpro THUGPRO] [--staging STAGING] " +
-    "[--legacy-names] [--compat {thugpro,none}] [--json JSON] [--details] [levels ...]";
+    "[--legacy-names] [--compat {thugpro,none}] [--json JSON] [--details] [--extract-thugpro] [levels ...]";
 
 const OPTIONS = {
     thug2: { type: "string" },
@@ -271,8 +291,64 @@ const OPTIONS = {
     "legacy-names": { type: "boolean" }, // ours converted with --legacy-names (thug1_<code>)
     compat: { type: "string" },
     json: { type: "string" },
-    details: { type: "boolean" }, // also the classes and THUGPRO-only trigger scripts
+    details: { type: "boolean" }, // also the classes, THUGPRO-only trigger scripts and the inventory of its edits
+    // TP-31: (re)write the profile's spawns from THUGPRO's install (and THUG1's, to tell its edits apart)
+    "extract-thugpro": { type: "boolean" },
 } as const;
+
+export const PROFILE_FILE = new URL("../compat/thugpro/thug1_levels.json", import.meta.url);
+
+// The THUGPRO port's key (its data\pre\<key>_scripts.prx) of every THUG1 level THUGPRO ports, by THUG1 code.
+function portKeys(thug1: string, thugpro: string, codes: readonly string[]): Map<string, string> {
+    const all = thugproLevels(thugpro);
+    const structs = levelStructs({ thug1 });
+    const out = new Map<string, string>();
+    for (const code of codes) {
+        const nm = structs.get(code.toLowerCase())?.get("name");
+        const them = theirLevel(all, code, typeof nm === "string" ? nm : "");
+        if (them && fs.existsSync(pyJoin(thugpro, "data", "pre", `${them.level}_scripts.prx`)))
+            out.set(code, them.level);
+    }
+    return out;
+}
+
+function extract(thug1: string, thugpro: string, codes: readonly string[]): number {
+    const profile = JSON.parse(fs.readFileSync(PROFILE_FILE, "utf-8")) as Record<string, unknown>;
+    const section: Record<string, unknown> = {
+        _register: "TP-31",
+        _source:
+            "THUGPRO's installed data\\pre\\<level>_scripts.prx node arrays against THUG1's own, extracted by " +
+            "`node tools/thug1_levels/thugpro_compare.ts --extract-thugpro` (pos = THUG2's Pos axes; order: every " +
+            "Multiplayer / Horse / CTF / Team restart in THUGPRO's order, by THUG1's names)",
+    };
+    for (const [code, key] of portKeys(thug1, thugpro, codes)) {
+        const edits = spawnEdits(thug1Side(thug1, code), thugproSide(thugpro, key));
+        section[code] = edits;
+        const kinds = Object.entries(edits)
+            .filter(([k]) => k !== "order")
+            .map(([k, v]) => `${k} ${Array.isArray(v) ? v.length : Object.keys(v as object).length}`);
+        print(`${code}: ${kinds.join(", ") || "no edits"}; ${edits.order?.length ?? 0} spawns in order`);
+    }
+    profile.spawns = section;
+    fs.writeFileSync(PROFILE_FILE, `${JSON.stringify(profile, null, 2)}\n`, "utf-8");
+    print(`wrote ${path.normalize(decodeURIComponent(PROFILE_FILE.pathname.slice(1)))}`);
+    return 0;
+}
+
+// The inventory's lines for one level: per kind, the count and up to `examples` names.
+export function inventoryLines(items: readonly Item[], examples = 5): string[] {
+    const byKind = new Map<string, Item[]>();
+    for (const i of items) byKind.set(i.kind, [...(byKind.get(i.kind) ?? []), i]);
+    return [...byKind]
+        .sort((a, b) => (a[0] < b[0] ? -1 : 1))
+        .map(
+            ([kind, list]) =>
+                `${kind}: ${list.length} - ${list
+                    .slice(0, examples)
+                    .map((i) => `${i.name}${i.detail ? ` (${i.detail.slice(0, 120)})` : ""}`)
+                    .join("; ")}`,
+        );
+}
 
 export function main(argv: readonly string[] = process.argv.slice(2)): number {
     const parsed = parseCli(USAGE, { args: [...argv], options: OPTIONS, allowPositionals: true, strict: true });
@@ -284,6 +360,12 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
     const thug1 = v.thug1 ?? "C:\\Games\\THUG1";
     const thugpro = v.thugpro ?? DEFAULT_THUGPRO;
     setCompat(v.compat ?? "thugpro");
+    if (v["extract-thugpro"]) {
+        const wanted = parsed.positionals.length
+            ? parsed.positionals.map((c) => BY_CODE.get(c.toLowerCase())?.[0] ?? c)
+            : LEVELS.filter((l) => l[5]).map((l) => l[0]);
+        return extract(thug1, thugpro, wanted);
+    }
     const oursDir = v.staging || pyJoin(thug2, STAGING, "levels");
     const mineByCode = levelNames(thug1, thug2, v["legacy-names"] ?? false);
     const t1structs = levelStructs({ thug1 });
@@ -318,7 +400,7 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
             `${code.padEnd(13)} ${r.level}${r.same_name ? "" : ` (THUGPRO: ${String(r.thugpro_load)} - differs)`}: ` +
                 `nodes ${nodes[0]}/${nodes[1]} (THUG1 ${nodes[2]}), ${r.shared} shared, ${r.same_place} at the same place ` +
                 `(worst ${formatFixed(worst[0].value, 3)} ${worst[1] || ""}); crowns ${r.crowns}; mp restarts ` +
-                `${r.mp_restarts} (vs THUG1 ${r.mp_restarts_vs_thug1})` +
+                `${r.mp_restarts} (vs THUG1 ${r.mp_restarts_vs_thug1}); spawns ${String(r.spawns)}` +
                 `${(r.mp_ours_only as string[]).length ? `, ours only ${(r.mp_ours_only as string[]).join(" ")}` : ""}` +
                 `${(r.mp_thugpro_only as string[]).length ? `, THUGPRO only ${(r.mp_thugpro_only as string[]).join(" ")}` : ""}; ` +
                 `mode nodes ${mode[0]}/${mode[1]} (THUG1 ${mode[2]}), flags ${fl[0]}/${fl[1]} (THUG1 ${fl[2]}); ` +
@@ -340,6 +422,11 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
             print(`    THUGPRO-only trigger scripts (${only.length}): ${only.join(" ")}`);
             if ((r.mode_missing as string[]).length)
                 print(`    THUG1 mode nodes missing: ${(r.mode_missing as string[]).join(" ")}`);
+            // (THUGPRO's edits against THUG1's own data: thugpro_edits.inventory)
+            const items = inventory(thug1Side(thug1, code), thugproSide(thugpro, String(r.thugpro_level)));
+            r.inventory = items;
+            print("    THUGPRO's edits against THUG1:");
+            for (const line of inventoryLines(items)) print(`      ${line}`);
         }
         const shared = r.shared as number;
         if (shared - (r.same_place as number) > Math.floor(shared / 100) || r.crowns !== "same" || !r.same_name)

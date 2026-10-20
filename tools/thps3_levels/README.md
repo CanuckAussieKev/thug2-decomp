@@ -85,7 +85,10 @@ Comparison with THUGPRO's own ports (read only): `node tools/thps3_levels/thugpr
   by the user): TP-10 puts the Red / Blue flags and bases where THUGPRO has them in Rio, Sub, SI, Tok, Shp and Ware
   (the team restart then THPS3's CTF restart nearest to the flag), and TP-11 adds THUGPRO's Green / Yellow flags (their
   restarts THPS3's multiplayer restarts nearest to them), the lobby's TRG_Flag_* and TRG_Team_Restart in the 9 levels
-  THUGPRO shares. Only places and colours come from the data; the nodes are ours as above. The data is read from
+  THUGPRO shares; TP-12 then makes every network spawn (multiplayer, horse, team, CTF restarts) as THUGPRO has it -
+  place, angles, types; added ones appended, ones THUGPRO dropped no longer spawns. Only places, angles, types and
+  colours come from the data; the nodes are ours as above. `thugpro_inventory.ts` lists THUGPRO's other hand edits
+  (not applied). The data is read from
   THUGPRO's install by `thugpro_compare.ts --extract-thugpro tools/compat/thugpro/thps3_levels.json`.
 - Scripts, peds, vehicles, objects (`--no-scripts` leaves them out): the level's scripts translated to THUG2's
   (tools/level_port/script_port.ts) and run from a setup script; peds and crowds as THUG2's ped AI, resting birds and

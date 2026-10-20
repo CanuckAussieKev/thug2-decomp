@@ -1,5 +1,5 @@
 {
-  "_comment": "THUGPRO compatibility for the THPS3 level ports (tools/thps3_levels), approved by the user 2026-10-20. Each entry is registered in README.md here (TP-10, TP-11). Capture the flag is decided on the server against its own flags; each side draws them from its own node array: these put our flags where THUGPRO's are. Level keys are our (= THUGPRO's = THPS3's) level names. Read by tools/compat/compat.ts; `thps3_levels.ts convert --compat none` leaves all of it out (THPS3's own two bases). Regenerate: node tools/thps3_levels/thugpro_compare.ts --extract-thugpro tools/compat/thugpro/thps3_levels.json",
+  "_comment": "THUGPRO compatibility for the THPS3 level ports (tools/thps3_levels), approved by the user 2026-10-20. Each entry is registered in README.md here (TP-10, TP-11, TP-12). Capture the flag is decided on the server against its own flags; each side draws them from its own node array: these put our flags where THUGPRO's are, and our spawn points as THUGPRO's. Level keys are our (= THUGPRO's = THPS3's) level names. Read by tools/compat/compat.ts; `thps3_levels.ts convert --compat none` leaves all of it out (THPS3's own two bases). Regenerate: node tools/thps3_levels/thugpro_compare.ts --extract-thugpro tools/compat/thugpro/thps3_levels.json",
   "ctf_flags": {
     "_register": "TP-10",
     "_source": "THUGPRO's installed data\\pre\\<level>_scripts.prx, levels\\<level>\\<level>.qb: TRG_CTF_Red / _Blue (+ _Base) - pos in THUG2's world (Pos; Position with z negated), angles as they are. Extracted by tools/thps3_levels/thugpro_compare.ts --extract-thugpro.",
@@ -1296,6 +1296,926 @@
           0
         ]
       }
+    }
+  },
+  "spawns": {
+    "_register": "TP-12",
+    "_source": "THUGPRO's installed data\\pre\\<level>_scripts.prx, levels\\<level>\\<level>.qb against THPS3's Data\\Levels\\<Lvl>\\<lvl>.qb: every restart with a network type (MultiPlayer, Horse, Team, CTF*) THUGPRO moved, retyped, renamed or added (changed: pos in THUG2's world, angles, type, restart_types, restart_name, created), and THPS3's network restarts THUGPRO hasn't (removed). Extracted by tools/thps3_levels/thugpro_compare.ts --extract-thugpro.",
+    "foun": {
+      "changed": {
+        "TRG_CTF1_Restart_1P": {
+          "pos": [
+            -4730.154296875,
+            134.36178588867188,
+            4081.93505859375
+          ],
+          "angles": [
+            0,
+            3.1241390705108643,
+            0
+          ],
+          "type": "MultiPlayer",
+          "restart_types": [
+            "MultiPlayer"
+          ],
+          "restart_name": "Multi: Restart",
+          "created": true
+        },
+        "TRG_CTF1_Restart_2P": {
+          "pos": [
+            -4412.1044921875,
+            -293.2485656738281,
+            3008.0009765625
+          ],
+          "angles": [
+            0,
+            -3.1415929794311523,
+            0
+          ],
+          "type": "MultiPlayer",
+          "restart_types": [
+            "MultiPlayer"
+          ],
+          "restart_name": "Multi: Restart",
+          "created": true
+        },
+        "TRG_CTF_Restart_Blue": {
+          "pos": [
+            -4060.5830078125,
+            133.32781982421875,
+            4081.53076171875
+          ],
+          "angles": [
+            0,
+            1.5750000476837158,
+            0
+          ],
+          "type": "CTF",
+          "restart_types": [
+            "CTF",
+            "MultiPlayer",
+            "Horse"
+          ],
+          "restart_name": "Team: CTF Blue",
+          "created": true
+        },
+        "TRG_CTF_Restart_Red": {
+          "pos": [
+            -4060.81103515625,
+            -84.01118469238281,
+            -1720.9769287109375
+          ],
+          "angles": [
+            0,
+            0.800000011920929,
+            0
+          ],
+          "type": "CTF",
+          "restart_types": [
+            "CTF",
+            "MultiPlayer",
+            "Horse"
+          ],
+          "restart_name": "Team: CTF Red",
+          "created": true
+        },
+        "TRG_CTF_Restart_Green": {
+          "pos": [
+            -4920,
+            -226.2449951171875,
+            840
+          ],
+          "angles": [
+            3.1415929794311523,
+            -0.10471999645233154,
+            3.1415929794311523
+          ],
+          "type": "CTF",
+          "restart_types": [
+            "CTF",
+            "MultiPlayer",
+            "Horse"
+          ],
+          "restart_name": "Team: CTF Green",
+          "created": true
+        },
+        "TRG_CTF_Restart_Yellow": {
+          "pos": [
+            -3040,
+            -118.24400329589844,
+            820
+          ],
+          "angles": [
+            0,
+            -0.800000011920929,
+            0
+          ],
+          "type": "CTF",
+          "restart_types": [
+            "CTF",
+            "MultiPlayer",
+            "Horse"
+          ],
+          "restart_name": "Team: CTF Yellow",
+          "created": true
+        }
+      },
+      "removed": []
+    },
+    "rio": {
+      "changed": {
+        "TRG_CTF_Restart_Blue": {
+          "pos": [
+            -2550,
+            -298.031005859375,
+            -650
+          ],
+          "angles": [
+            0,
+            0.800000011920929,
+            0
+          ],
+          "type": "CTF",
+          "restart_types": [
+            "CTF",
+            "MultiPlayer",
+            "Horse"
+          ],
+          "restart_name": "Team: CTF Blue",
+          "created": true
+        },
+        "TRG_CTF_Restart_Red": {
+          "pos": [
+            2550,
+            -305.3500061035156,
+            4450
+          ],
+          "angles": [
+            0,
+            -2.200000047683716,
+            0
+          ],
+          "type": "CTF",
+          "restart_types": [
+            "CTF",
+            "MultiPlayer",
+            "Horse"
+          ],
+          "restart_name": "Team: CTF Red",
+          "created": true
+        },
+        "TRG_CTF_Restart_Green": {
+          "pos": [
+            2550,
+            -305.24700927734375,
+            -650
+          ],
+          "angles": [
+            0,
+            -0.4000000059604645,
+            0
+          ],
+          "type": "CTF",
+          "restart_types": [
+            "CTF",
+            "MultiPlayer",
+            "Horse"
+          ],
+          "restart_name": "Team: CTF Green",
+          "created": true
+        },
+        "TRG_CTF_Restart_Yellow": {
+          "pos": [
+            -2550,
+            -305.3580017089844,
+            4450
+          ],
+          "angles": [
+            0,
+            -3.4000000953674316,
+            0
+          ],
+          "type": "CTF",
+          "restart_types": [
+            "CTF",
+            "MultiPlayer",
+            "Horse"
+          ],
+          "restart_name": "Team: CTF Yellow",
+          "created": true
+        }
+      },
+      "removed": []
+    },
+    "sub": {
+      "changed": {
+        "TRG_CTF_Restart_Red": {
+          "pos": [
+            2039.0150146484375,
+            66.09600067138672,
+            -2770.049072265625
+          ],
+          "angles": [
+            0,
+            -1,
+            0
+          ],
+          "type": "CTF",
+          "restart_types": [
+            "CTF",
+            "Multiplayer",
+            "Horse"
+          ],
+          "restart_name": "Team: CTF Red",
+          "created": false
+        },
+        "TRG_CTF_Restart_Green": {
+          "pos": [
+            1140,
+            180.4770050048828,
+            2100
+          ],
+          "angles": [
+            0,
+            4.5,
+            0
+          ],
+          "type": "CTF",
+          "restart_types": [
+            "CTF",
+            "Multiplayer",
+            "Horse"
+          ],
+          "restart_name": "Team: CTF Green",
+          "created": false
+        },
+        "TRG_CTF_Restart_Blue": {
+          "pos": [
+            -3060,
+            44.20899963378906,
+            1920
+          ],
+          "angles": [
+            0,
+            0.8999999761581421,
+            0
+          ],
+          "type": "CTF",
+          "restart_types": [
+            "CTF",
+            "Multiplayer",
+            "Horse"
+          ],
+          "restart_name": "Team: CTF Blue",
+          "created": false
+        },
+        "TRG_CTF_Restart_Yellow": {
+          "pos": [
+            -1717.0350341796875,
+            145.4770050048828,
+            -1355.7340087890625
+          ],
+          "angles": [
+            0,
+            0,
+            0
+          ],
+          "type": "CTF",
+          "restart_types": [
+            "CTF",
+            "Multiplayer",
+            "Horse"
+          ],
+          "restart_name": "Team: CTF Yellow",
+          "created": false
+        }
+      },
+      "removed": []
+    },
+    "si": {
+      "changed": {
+        "TRG_Restart_Horse05": {
+          "pos": [
+            -2200.48876953125,
+            340.3511962890625,
+            -1091.751220703125
+          ],
+          "angles": [
+            1.527163028717041,
+            1.570796012878418,
+            0
+          ],
+          "type": "Horse",
+          "restart_types": [
+            "Horse"
+          ],
+          "restart_name": "Ho: Restart5",
+          "created": true
+        },
+        "TRG_CTF_Restart_Red": {
+          "pos": [
+            1580,
+            265.7019958496094,
+            -1800
+          ],
+          "angles": [
+            0,
+            0,
+            0
+          ],
+          "type": "CTF",
+          "restart_types": [
+            "CTF",
+            "Multiplayer",
+            "Horse"
+          ],
+          "restart_name": "Team: CTF Red",
+          "created": false
+        },
+        "TRG_CTF_Restart_Green": {
+          "pos": [
+            -2180,
+            -105.55599975585938,
+            60
+          ],
+          "angles": [
+            0,
+            1.5,
+            0
+          ],
+          "type": "CTF",
+          "restart_types": [
+            "CTF",
+            "Multiplayer",
+            "Horse"
+          ],
+          "restart_name": "Team: CTF Green",
+          "created": false
+        },
+        "TRG_CTF_Restart_Blue": {
+          "pos": [
+            -780,
+            -143.69900512695312,
+            4350
+          ],
+          "angles": [
+            0,
+            3.141592025756836,
+            0
+          ],
+          "type": "CTF",
+          "restart_types": [
+            "CTF",
+            "Multiplayer",
+            "Horse"
+          ],
+          "restart_name": "Team: CTF Blue",
+          "created": false
+        },
+        "TRG_CTF_Restart_Yellow": {
+          "pos": [
+            2800,
+            -105.322998046875,
+            100
+          ],
+          "angles": [
+            0,
+            4.699999809265137,
+            0
+          ],
+          "type": "CTF",
+          "restart_types": [
+            "CTF",
+            "Multiplayer",
+            "Horse"
+          ],
+          "restart_name": "Team: CTF Yellow",
+          "created": false
+        }
+      },
+      "removed": []
+    },
+    "tok": {
+      "changed": {
+        "TRG_Restart_1P": {
+          "pos": [
+            -0.0003809999907389283,
+            420,
+            -528
+          ],
+          "angles": [
+            0,
+            0,
+            0
+          ],
+          "type": "Player1",
+          "restart_types": [
+            "Player1",
+            "MultiPlayer",
+            "Horse"
+          ],
+          "restart_name": "P1: Restart",
+          "created": true
+        },
+        "TRG_CTF_Restart_Red": {
+          "pos": [
+            -320,
+            109.34300231933594,
+            640
+          ],
+          "angles": [
+            0,
+            0,
+            0
+          ],
+          "type": "CTF",
+          "restart_types": [
+            "CTF",
+            "MultiPlayer",
+            "Horse"
+          ],
+          "restart_name": "Team: CTF Red",
+          "created": false
+        },
+        "TRG_CTF_Restart_Blue": {
+          "pos": [
+            -1320,
+            193.75599670410156,
+            3480
+          ],
+          "angles": [
+            0,
+            3.141592025756836,
+            0
+          ],
+          "type": "CTF",
+          "restart_types": [
+            "CTF",
+            "MultiPlayer",
+            "Horse"
+          ],
+          "restart_name": "Team: CTF Blue",
+          "created": false
+        },
+        "TRG_CTF_Restart_Yellow": {
+          "pos": [
+            -80,
+            97.75599670410156,
+            5520
+          ],
+          "angles": [
+            0,
+            3.141592025756836,
+            0
+          ],
+          "type": "CTF",
+          "restart_types": [
+            "CTF",
+            "MultiPlayer",
+            "Horse"
+          ],
+          "restart_name": "Team: CTF Yellow",
+          "created": false
+        },
+        "TRG_CTF_Restart_Green": {
+          "pos": [
+            1680,
+            341.1080017089844,
+            3120
+          ],
+          "angles": [
+            0,
+            -1.570796012878418,
+            0
+          ],
+          "type": "CTF",
+          "restart_types": [
+            "CTF",
+            "MultiPlayer",
+            "Horse"
+          ],
+          "restart_name": "Team: CTF Green",
+          "created": false
+        }
+      },
+      "removed": []
+    },
+    "shp": {
+      "changed": {
+        "TRG_CTF_Restart_Red": {
+          "pos": [
+            420,
+            -728.5289916992188,
+            -3420
+          ],
+          "angles": [
+            0,
+            -0.7070000171661377,
+            0
+          ],
+          "type": "CTF",
+          "restart_types": [
+            "CTF",
+            "Multiplayer",
+            "Horse"
+          ],
+          "restart_name": "Team: CTF Red",
+          "created": false
+        },
+        "TRG_CTF_Restart_Green": {
+          "pos": [
+            420,
+            374.5169982910156,
+            3690
+          ],
+          "angles": [
+            0,
+            3.141592025756836,
+            0
+          ],
+          "type": "CTF",
+          "restart_types": [
+            "CTF",
+            "Multiplayer",
+            "Horse"
+          ],
+          "restart_name": "Team: CTF Green",
+          "created": false
+        },
+        "TRG_CTF_Restart_Blue": {
+          "pos": [
+            -220.2270050048828,
+            -711.4349975585938,
+            5476.65478515625
+          ],
+          "angles": [
+            0,
+            3.3995919227600098,
+            0
+          ],
+          "type": "CTF",
+          "restart_types": [
+            "CTF",
+            "Multiplayer",
+            "Horse"
+          ],
+          "restart_name": "Team: CTF Blue",
+          "created": false
+        },
+        "TRG_CTF_Restart_Yellow": {
+          "pos": [
+            420,
+            -37.0359992980957,
+            360
+          ],
+          "angles": [
+            0,
+            0,
+            0
+          ],
+          "type": "CTF",
+          "restart_types": [
+            "CTF",
+            "Multiplayer",
+            "Horse"
+          ],
+          "restart_name": "Team: CTF Yellow",
+          "created": false
+        }
+      },
+      "removed": []
+    },
+    "ware": {
+      "changed": {
+        "TRG_CTF_Restart_Blue": {
+          "pos": [
+            -300.05780029296875,
+            -267.25042724609375,
+            -357.66552734375
+          ],
+          "angles": [
+            0,
+            -3.1415929794311523,
+            0
+          ],
+          "type": "CTF",
+          "restart_types": [
+            "CTF",
+            "MultiPlayer",
+            "Horse"
+          ],
+          "restart_name": "Team: CTF Blue",
+          "created": true
+        },
+        "TRG_CTF_Restart_Red": {
+          "pos": [
+            -1486.2779541015625,
+            -787.6530151367188,
+            -3667.85791015625
+          ],
+          "angles": [
+            0,
+            0,
+            0
+          ],
+          "type": "CTF",
+          "restart_types": [
+            "CTF",
+            "MultiPlayer",
+            "Horse"
+          ],
+          "restart_name": "Team: CTF Red",
+          "created": true
+        },
+        "TRG_CTF_Restart_Yellow": {
+          "pos": [
+            784.0903930664062,
+            -759.5088500976562,
+            -3591.860107421875
+          ],
+          "angles": [
+            0,
+            0,
+            0
+          ],
+          "type": "CTF",
+          "restart_types": [
+            "CTF",
+            "MultiPlayer",
+            "Horse"
+          ],
+          "restart_name": "Team: CTF Yellow",
+          "created": true
+        },
+        "TRG_CTF_Restart_Green": {
+          "pos": [
+            -923.6939697265625,
+            -616.3989868164062,
+            -1243.60205078125
+          ],
+          "angles": [
+            3.1415929794311523,
+            0,
+            3.1415929794311523
+          ],
+          "type": "CTF",
+          "restart_types": [
+            "CTF",
+            "MultiPlayer",
+            "Horse"
+          ],
+          "restart_name": "Team: CTF Green",
+          "created": true
+        },
+        "TRG_CTF2_Restart_1P": {
+          "pos": [
+            86.11211395263672,
+            -266.4745788574219,
+            -453.1754455566406
+          ],
+          "angles": [
+            0,
+            0,
+            0
+          ],
+          "type": "MultiPlayer",
+          "restart_types": [
+            "MultiPlayer"
+          ],
+          "restart_name": "Multi: Restart",
+          "created": true
+        },
+        "TRG_CTF2_Restart_2P": {
+          "pos": [
+            -84.82518005371094,
+            -266.4745788574219,
+            -453.4853515625
+          ],
+          "angles": [
+            0,
+            0,
+            0
+          ],
+          "type": "MultiPlayer",
+          "restart_types": [
+            "MultiPlayer"
+          ],
+          "restart_name": "Multi: Restart",
+          "created": true
+        },
+        "TRG_CTF2_Restart_3P": {
+          "pos": [
+            -675.3532104492188,
+            -616.3441772460938,
+            -1347.5892333984375
+          ],
+          "angles": [
+            0,
+            0,
+            0
+          ],
+          "type": "MultiPlayer",
+          "restart_types": [
+            "MultiPlayer"
+          ],
+          "restart_name": "Multi: Restart",
+          "created": true
+        },
+        "TRG_CTF2_Restart_4P": {
+          "pos": [
+            -1114.2841796875,
+            -616.3441772460938,
+            -1462.5235595703125
+          ],
+          "angles": [
+            0,
+            0,
+            0
+          ],
+          "type": "MultiPlayer",
+          "restart_types": [
+            "MultiPlayer"
+          ],
+          "restart_name": "Multi: Restart",
+          "created": true
+        }
+      },
+      "removed": [
+        "TRG_CTF1_Restart_1P",
+        "TRG_CTF1_Restart_2P",
+        "TRG_CTF1_Restart_3P",
+        "TRG_CTF1_Restart_4P"
+      ]
+    },
+    "burn": {
+      "changed": {
+        "TRG_CTF_Restart_Blue": {
+          "pos": [
+            854.957275390625,
+            85.99545288085938,
+            2794.47412109375
+          ],
+          "angles": [
+            0,
+            -2.0943949222564697,
+            0
+          ],
+          "type": "CTF",
+          "restart_types": [
+            "CTF",
+            "MultiPlayer",
+            "Horse"
+          ],
+          "restart_name": "Team: CTF Blue",
+          "created": true
+        },
+        "TRG_CTF_Restart_Red": {
+          "pos": [
+            -804.457275390625,
+            0.25140801072120667,
+            251.58139038085938
+          ],
+          "angles": [
+            0,
+            0.785398006439209,
+            0
+          ],
+          "type": "CTF",
+          "restart_types": [
+            "CTF",
+            "MultiPlayer",
+            "Horse"
+          ],
+          "restart_name": "Team: CTF Red",
+          "created": true
+        },
+        "TRG_CTF_Restart_Green": {
+          "pos": [
+            799.8040161132812,
+            1.784000039100647,
+            938.6199951171875
+          ],
+          "angles": [
+            0,
+            -1.5,
+            0
+          ],
+          "type": "CTF",
+          "restart_types": [
+            "CTF",
+            "MultiPlayer",
+            "Horse"
+          ],
+          "restart_name": "Team: CTF Green",
+          "created": true
+        },
+        "TRG_CTF_Restart_Yellow": {
+          "pos": [
+            -1080,
+            0.1720000058412552,
+            1800
+          ],
+          "angles": [
+            0,
+            1.2999999523162842,
+            0
+          ],
+          "type": "CTF",
+          "restart_types": [
+            "CTF",
+            "MultiPlayer",
+            "Horse"
+          ],
+          "restart_name": "Team: CTF Yellow",
+          "created": true
+        }
+      },
+      "removed": []
+    },
+    "ros": {
+      "changed": {
+        "TRG_CTF_Restart_Blue": {
+          "pos": [
+            637.2271728515625,
+            -400.42578125,
+            4016.689453125
+          ],
+          "angles": [
+            0,
+            -3.1415929794311523,
+            0
+          ],
+          "type": "CTF",
+          "restart_types": [
+            "CTF",
+            "MultiPlayer",
+            "Horse"
+          ],
+          "restart_name": "Team: CTF Blue",
+          "created": true
+        },
+        "TRG_CTF_Restart_Red": {
+          "pos": [
+            -2947.03662109375,
+            -296.8183288574219,
+            514.1652221679688
+          ],
+          "angles": [
+            0,
+            0.785398006439209,
+            0
+          ],
+          "type": "CTF",
+          "restart_types": [
+            "CTF",
+            "MultiPlayer",
+            "Horse"
+          ],
+          "restart_name": "Team: CTF Red",
+          "created": true
+        },
+        "TRG_CTF_Restart_Green": {
+          "pos": [
+            809.5579833984375,
+            -94.39700317382812,
+            275.7170104980469
+          ],
+          "angles": [
+            0,
+            0.785398006439209,
+            0
+          ],
+          "type": "CTF",
+          "restart_types": [
+            "CTF",
+            "MultiPlayer",
+            "Horse"
+          ],
+          "restart_name": "Team: CTF Green",
+          "created": true
+        },
+        "TRG_CTF_Restart_Yellow": {
+          "pos": [
+            -1553.14404296875,
+            -295.4930114746094,
+            2917.489990234375
+          ],
+          "angles": [
+            0,
+            3,
+            0
+          ],
+          "type": "CTF",
+          "restart_types": [
+            "CTF",
+            "MultiPlayer",
+            "Horse"
+          ],
+          "restart_name": "Team: CTF Yellow",
+          "created": true
+        }
+      },
+      "removed": []
     }
   }
 }

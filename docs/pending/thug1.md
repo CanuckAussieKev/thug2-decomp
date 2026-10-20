@@ -130,3 +130,69 @@ only the reference and is compared against (`tools/thug1_levels/thugpro_compare.
   41 / 0. Geometry byte-identical to before (scene / collision / textures); only names and node arrays changed.
 - Shared code: `tools/thaw_levels/thugpro_compare.ts` exports its helpers (nameOf, isCrown, isMpRestart, sequence,
   sameSequence, maxDiff, CTF_NAMES, TOLERANCE); `tools/level_port/ported_levels.ts` duplicate level / sky name check.
+- (lead, 2026-10-20) Merged; TP-30 approved by the user.
+
+## TP-31: THUGPRO's spawns (agent thug1-thugpro, 2026-10-20) - approved by the user, implemented, NOT run in the game
+
+Why the order counts: THUG2 starts player n at the n-th Multiplayer restart of the node array and respawns at one of
+the first 8 (Skate 0x00566100 -> GetRestartNode 0x0046B790, which walks the node array; CSkater::MoveToRandomRestart
+0x00580830 passes Rnd(8)). So NJ's Player1-first swap did matter (player 0 started 83 units from where a THUGPRO
+player 0 does), and so do VC's reordering and SJ's removed spawn.
+- Data: `tools/compat/thugpro/thug1_levels.json` `spawns`, written by `node tools/thug1_levels/thugpro_compare.ts
+  --extract-thugpro` (`thugpro_edits.spawnEdits`: THUGPRO's node array against THUG1's, every Multiplayer / Horse /
+  CTF / Team restart - moved, types, renamed, added, removed, and THUGPRO's spawn order by THUG1's names). Found: VC
+  TRG_restart_SCJ moved 326 (onto TRG_Restart_SJ's spot) and made the first spawn; HN TRG_Restart01 moved 43; SC2
+  TRG_CTF_Restart_Yellow moved 165; SJ TRG_G_Collect2_RestartNode [Player1 Multiplayer Horse] -> [Player1]; HI
+  TRG_Proset1_restartnode -> _trg_Proset1_restartnode (no script or kill names it - the converter checks); no spawns
+  added or removed; every other level's order is THUG1's.
+- Applied by `thug1_levels.applySpawns` (our node form; the spawns' array slots refilled in THUGPRO's order, every
+  node's Links renumbered) with `nodes.convertNodes(..., player1First=false)` (shared, additive). THUG2's start-point
+  picker (0x00566100) looks restarts up by type through GetRestartNode (Multiplayer, else Player1), so the
+  single-player start should still be the first Player1 restart without the swap - to confirm in the game (NJ).
+- Checks: `thugpro_compare.ts`: spawns same (names, places, order) in all 12; `--compat none` output equal to before
+  TP-31 (95 files: .qb as code + sorted names, the rest byte for byte); ns.exe whole, links in range, every face
+  reachable in all 16; make_menu_level into THUG2-3; selfchecks THUG1 333 / THPS3 323 / THPS4 139 / THAW 735, 0
+  failures; npm test 52 / 0 (applySpawns' moves, types, renames, order and Links tested).
+
+## THUGPRO hand edits: inventory (`thugpro_compare.ts --details`; nothing changed in our ports but the spawns)
+
+Counts per level (NJ NY FL SD HI VC SJ RU HH VN HN SC2); "play" = whether it can make a THUGPRO player's game differ
+from ours in the same session.
+- **Rails added** (play: yes - grindable only for THUGPRO players, they look floating to ours): NJ 20 ed_rail, NY 11
+  ed_rail, RU 17 natas_* / Natas_Alley_Barrier, VN 3 TRG_TP_VN_Natas, SC2 11 TRG_TP_SC2_Natas. NJ also reuses THUG1's
+  unlinked rail point TRG_rail_e_midhouse4_12 (moved 4468 to the clinic roof, relinked from TRG_rail_e_clinic_24).
+- **Geometry present in net games** (AbsentInNetGames taken off; play: yes - solid only on THUGPRO's side in a net
+  game): NJ 182 geometry + 7 objects (74 with collision, 1087 faces: the LO gates...), NY 11 (2 solid: plants), SD 67
+  geometry + 240 rails + 36 race markers (THUG1's demo skate area - Geo_Demo_LedgeBox / Bowls / BankOb / Pyramid,
+  1799 faces, its ledges grindable: a whole skate area only THUGPRO players have online), HI 3 chopper death planes +
+  the Chopper, VC 350 (184 solid, 2836 faces: g_sj_detail_*, park trees), RU 105 (21 solid, 934 faces: dish base,
+  drain pipes, lights, trees), SC2 Gym_Doors01. The other way (+AbsentInNetGames): HI 15 goal game objects, 4 peds.
+- **Not created at start** (CreatedAtStart off; play: yes where solid): SC2 13 objects (whirly vents, trash cans,
+  cones, boxes, gym doors - 150 faces) gone on THUGPRO's side; VC trp_death_SJ (a kill trigger: THUGPRO players don't
+  die there); NJ NJ_Small_SouthEast07 / IC_StationBlock (160 faces); HI GOLF_BALL_START / HI_ElevatorDoor (84 faces);
+  RU 4 occluders (render only), HN 4 (mountains / trees scenery, a cursor killer); secret tapes and Old Skool icons in
+  all (goal pick-ups). Made created: RU race4 ladders (4 climbing nodes + 2 geometry), VC the leaf blower.
+- **Collision**: face flags - wall-ridable (0x4) added on SD 90, VC 12, RU 238, HN 74 faces (play: yes - THUGPRO
+  players wallride walls ours can't), RU 2 faces made non-collidable; HH: 81 prop objects lost their collision (1915
+  faces: sodas, napkins, trays, dt_choptail - THUGPRO players pass through what ours hit); HN 12 objects with fewer
+  faces (DeltaSign01, dt_planeramp01, fuselage01 - small), SC2 Qtr_Pipes29 (24 -> 20, box 68: a quarterpipe
+  reshaped), SC2 8 shadow objects (47 faces) removed; hundreds of empty (0-face) objects dropped (NY 639, RU 462...: no
+  effect). Unreachable faces in THUGPRO's own trees: NY 1934, RU 2216, SC2 160 (earlier section).
+- **Moved / changed nodes** besides the spawns: NJ train path waypoints (46-85), LO_Fluff_Chopper (2000 down), HI
+  Chopper_Hard_Rotors (16), RU tkr_cannonRail01/02 (1.3-1.8: grind line slightly different); rail terrain / type
+  (grind sound only, no play effect): NY 370, SD 257 (+105 demo rails made trick objects), SC2 25, HI 20, NJ 11;
+  waypoint terrains VN 29, SC2 59; peds: THPS5 -> THPS6 skeletons, profiles, AI types (as ours do; NJ 175, RU 144,
+  SD 129, SJ 111...); goal game objects' models set to "none" (NJ 115, FL 65, VC 49, RU 36...); restarts / rails /
+  geometry losing goal trigger scripts; LevelObject rigid-body settings dropped (NJ 8 folding chairs, SJ crowd, HH
+  freak stage). Dogs / skitch node / a proxim node reused as invisible GameObjects (NJ).
+- **Added nodes** besides rails: NJ El train (2 vehicles), HI boat, HI _trg_ proset restart (the rename), VC / SJ
+  transition arrows and their restart / waypoint (TRG_Restart_SJVC: Player1 only), VN 3 gulls + a bum.
+- **Scripts**: added NJ 49, NY 50, FL 31, SD 27, HI 36, VC 1, SJ 35, RU 46, HH 29, VN 6; removed NJ 417, NY 33, FL
+  199, SD 163, HI 179, VC 234, SJ 91, RU 155 (mostly goal scripts); "changed" NJ 229 ... SC2 14 - largely the
+  recompile (THUG1's long if / else tokens 0x25 / 0x26 written as the short jumps 0x47 / 0x48, as ours are), with
+  real edits among them: VN 58 sand kill zones made Sk3_Killskater_sand (from _Water), NJ occlusion triggers emptied,
+  sound / ped-AI / car parameter changes. Kill zones and gaps are local (no effect on the other player's game).
+- **Scene**: NJ 1287 and SC2 994 sectors with different bounding boxes; their collision is unchanged, so this is
+  rendering data (THUGPRO's exporter) - no play effect.
+- Also THUGPRO-only (not node edits): host-toggled "level changes" in nj / ny / fl / sd / hi / vc / sc2_thugpro.qb
+  (banners, teleports, HI's Luau stage / chopper / kicker) behind SERVER_LEVEL_CHANGE flags - THUGPRO's protocol.

@@ -1576,10 +1576,90 @@ export interface CompatPlacement {
 
 // One level's compatibility data (compat profile thugpro; {} with --compat none): TP-10 `flags` - the Red / Blue flags
 // and bases where THUGPRO has them (TRG_CTF_Red...); TP-11 `extra` - the team nodes THPS3 has no counterpart for
-// (TRG_CTF_Green / _Yellow (+ _Base), the lobby's TRG_Flag_<colour> (+ _Base), TRG_Team_Restart).
+// (TRG_CTF_Green / _Yellow (+ _Base), the lobby's TRG_Flag_<colour> (+ _Base), TRG_Team_Restart); TP-12 `spawns` -
+// the network restarts as THUGPRO has them (applySpawns).
 export interface LevelCompat {
     flags: Record<string, CompatPlacement>;
     extra: Record<string, CompatPlacement>;
+    spawns?: SpawnCompat;
+}
+
+// TP-12: a spawn as THUGPRO has it (place in THUG2's world, angles, Type, restart_types, RestartName, CreatedAtStart).
+export interface SpawnPlacement extends CompatPlacement {
+    type: string | null;
+    restart_types: string[];
+    restart_name: string | null;
+    created: boolean;
+}
+
+export interface SpawnCompat {
+    changed: Record<string, SpawnPlacement>; // by node name
+    removed: string[]; // THPS3's network spawns THUGPRO doesn't have
+}
+
+// TP-12 (approved by the user 2026-10-20: both sides should spawn players alike): the converted node array's network
+// restarts made as THUGPRO's - a restart THUGPRO changed gets its place (Pos), angles, Type, restart_types, RestartName
+// and CreatedAtStart; one THUGPRO added is appended in our restart form; one THUGPRO hasn't stops being a network spawn
+// (Type / restart_types Generic: kept for the kills and scripts that name it). In place; returns a report line or "".
+export function applySpawns(converted: Struct[], names: Names, spawns: SpawnCompat | undefined): string {
+    if (spawns === undefined) return "";
+    const n = (text: string): Name => {
+        const c = text.startsWith("#") ? Number.parseInt(text.slice(1), 16) >>> 0 : qb.checksum(text);
+        if (!text.startsWith("#") && !names.has(c)) names.set(c, text);
+        return new Name(c);
+    };
+    const byName = new Map<number, Struct>();
+    for (const node of converted) {
+        const nm = node.get("Name");
+        if (nm instanceof Name && nodes.classOf(node, names) === "restart") byName.set(nm.value, node);
+    }
+    let moved = 0;
+    let added = 0;
+    let removed = 0;
+    for (const [name, s] of Object.entries(spawns.changed)) {
+        const entries: qb.Entry[] = [
+            [n("Pos"), new Vector("vector", [...s.pos])],
+            [n("Angles"), new Vector("vector", [...s.angles])],
+            [n("Name"), n(name)],
+            [n("Class"), n("Restart")],
+            ...(s.type !== null ? ([[n("Type"), n(s.type)]] as qb.Entry[]) : []),
+            ...(s.created ? ([[null, n("CreatedAtStart")]] as qb.Entry[]) : []),
+            ...(s.restart_name !== null ? ([[n("RestartName"), s.restart_name]] as qb.Entry[]) : []),
+            [n("restart_types"), s.restart_types.map(n)],
+        ];
+        const mine = byName.get(qb.checksum(name));
+        if (mine === undefined) {
+            converted.push(new Struct(entries));
+            added += 1;
+            continue;
+        }
+        // (the node's other entries - TriggerScript, Links... - kept, after ours)
+        const replaced = new Set([
+            "pos",
+            "position",
+            "angles",
+            "name",
+            "class",
+            "type",
+            "restartname",
+            "restart_types",
+        ]);
+        const rest = mine.entries.filter(([k, v]) =>
+            k === null
+                ? !(v instanceof Name && v.value === qb.checksum("CreatedAtStart"))
+                : ![...replaced].some((r) => qb.checksum(r) === k.value),
+        );
+        mine.entries = [...entries, ...rest];
+        moved += 1;
+    }
+    for (const name of spawns.removed) {
+        const mine = byName.get(qb.checksum(name));
+        if (mine === undefined) continue;
+        mine.set("Type", n("Generic"));
+        mine.set("restart_types", [n("Generic")]);
+        removed += 1;
+    }
+    return `TP-12 spawns as THUGPRO's: ${moved} changed, ${added} added, ${removed} no longer network spawns`;
 }
 
 export const NO_COMPAT: LevelCompat = { flags: {}, extra: {} };
@@ -1595,7 +1675,8 @@ function gamePosition(node: Struct): readonly number[] | null {
 // The THUG2 game-mode nodes for THPS3's flag bases (appended to the node array: no Links move) and their trigger
 // scripts (NeverScript text). `array`: THPS3's node array; `names` gets the new names. `compat`: the level's THUGPRO
 // compatibility data (TP-10 / TP-11, approved by the user 2026-10-20): only places and colours come from it - the
-// nodes' form stays THUG2's own (as above); the team restarts are always THPS3's restarts.
+// nodes' form stays THUG2's own (as above); the team restarts are THPS3's restarts here (TP-12's applySpawns then
+// places them as THUGPRO's).
 export function ctfNodes(
     array: readonly QbValue[],
     names: Names,
@@ -1754,11 +1835,13 @@ export function ctfNodes(
     return [out, scripts.join(""), report];
 }
 
-// The level's compatibility data from the profile (tools/compat/compat.ts; TP-10 ctf_flags, TP-11 team_nodes).
+// The level's compatibility data from the profile (tools/compat/compat.ts; TP-10 ctf_flags, TP-11 team_nodes,
+// TP-12 spawns).
 export function levelCompat(profile: compat.Profile, level: string): LevelCompat {
     const get = (key: string): Record<string, CompatPlacement> =>
         (profile.section("thps3_levels", key)[level] ?? {}) as Record<string, CompatPlacement>;
-    return { flags: get("ctf_flags"), extra: get("team_nodes") };
+    const spawns = profile.section("thps3_levels", "spawns")[level] as SpawnCompat | undefined;
+    return { flags: get("ctf_flags"), extra: get("team_nodes"), ...(spawns !== undefined ? { spawns } : {}) };
 }
 
 export function convertNodeArray(
@@ -1927,6 +2010,7 @@ export function convertNodeArray(
     // (after the scripts: their trigger scripts are THUG2's Team_Flag, not THPS3 scripts to bring along)
     const [ctf, ctfScripts, ctfReport] = ctfNodes(array, names, teams, ctfCompat);
     converted.push(...ctf);
+    const spawnReport = applySpawns(converted, names, ctfCompat.spawns); // (TP-12)
     const triggers = nodes.killTriggerNames(converted, kills);
     if (port !== null) {
         // (the sectors whose trigger script runs keep their trigger faces)
@@ -1949,6 +2033,7 @@ export function convertNodeArray(
         `${hidden.size + later.size} sectors not there at the start`;
     if (scriptReport) report += `\n  ${scriptReport}`;
     report += `\n  ${ctfReport}`;
+    if (spawnReport) report += `\n  ${spawnReport}`;
     return [text, hidden, triggers, report, scripts, setup !== null];
 }
 
