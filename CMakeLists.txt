@@ -268,6 +268,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_editor_ui.cpp
     src/hook/selftests_editor_nodes.cpp
     src/hook/selftests_editor_create.cpp
+    src/hook/selftests_editor_levels.cpp
     src/hook/selftests_pcmstream.cpp
     src/hook/selftests_pcmplay.cpp
     src/game/ass/asset.cpp

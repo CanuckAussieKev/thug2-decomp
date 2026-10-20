@@ -58,6 +58,25 @@ void Toggle(uint32_t checksum);
 // The selection's rails: each segment (a rail node to the next) where it is now; how many rail nodes.
 std::vector<std::pair<V3, V3>> SelectedRails();
 int SelectedRailCount();
+
+// Grind rail points one by one (the node layer and the node edits - level_editor_nodes.h, level_editor_node_edit.h).
+// The rail manager's point is where skaters grind (and where a moved sector's rails were taken): the node array's pos=
+// stays as the level has it, so these are what the gizmos, the Inspector and the moves use.
+// A rail point's place now (false: no such point - not a rail node, or the level's rails ride an object). `climbing`:
+// a ladder's point (a ClimbingNode) is one too.
+bool RailPoint(uint32_t name, V3* pos, bool climbing = false);
+// Where the level has it (before the editor moved it, by its scenery or by itself).
+bool RailOrigin(uint32_t name, V3* pos);
+// Put at `pos` (from where the level has it: a plain move - the `rail` record of a layout), its segments' boxes (the
+// one from it and the one to it) made again. False: no such rail point.
+bool SetRailPoint(uint32_t name, V3 pos);
+// Its rail's points: `name` first, then the rest of the rail from its first point to its last (the rail manager's
+// links: next / prev).
+std::vector<uint32_t> RailOf(uint32_t name);
+// A number that changes whenever rail points move (the node layer reads their places again).
+uint32_t RailGeneration();
+// Every rail and ladder point with its place now (the node layer).
+void ForEachRailPoint(void (*each)(void* context, uint32_t name, V3 pos), void* context);
 // The editor starting: no selection, node lookups forgotten.
 void Reset();
 

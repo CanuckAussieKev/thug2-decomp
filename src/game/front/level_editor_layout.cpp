@@ -10,11 +10,16 @@
 #include <cstdlib>
 #include <fstream>
 #include <sstream>
+#include <unordered_map>
 
+#include "game/core/crc.h"
 #include "game/front/level_editor_node_edit.h"
 #include "game/front/level_editor_objects.h"
 #include "game/gfx/screen.h"
+#include "game/net/net_manager.h"
 #include "game/obj/object.h"
+#include "game/script/cscript.h"
+#include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/log.h"
 
@@ -390,6 +395,43 @@ bool AutosaveNewer(bool haveAutosave, uint64_t autosaveTime, bool haveSaved, uin
     return haveAutosave && (!haveSaved || autosaveTime > savedTime);
 }
 
+// --- the edited copy (pure) --------------------------------------------------------------------------------------
+
+bool ApplyEditedCopy(uint32_t request, uint32_t levelLoad, bool network)
+{
+    return !network && request != 0 && request == levelLoad;
+}
+
+uint32_t RequestAfterLoad(uint32_t request, uint32_t levelLoad, bool network)
+{
+    return network || request != levelLoad ? 0 : request;
+}
+
+uint32_t RequestFromPick(uint32_t load, bool edited, bool network) { return edited && !network ? load : 0; }
+
+bool NetworkSession(bool online, bool netGame, bool netScene) { return online || netGame || netScene; }
+
+std::string EditedText(const char* text) { return std::string(text && *text ? text : "LEVEL") + " (EDITED)"; }
+
+bool SavedLayoutScene(const std::string& fileName, uint32_t* scene)
+{
+    // (exactly "XXXXXXXX.txt": "XXXXXXXX.autosave.txt" and "XXXXXXXX.txt.tmp" aren't)
+    if (fileName.size() != 12 || _stricmp(fileName.c_str() + 8, ".txt") != 0)
+        return false;
+    uint32_t value = 0;
+    for (int i = 0; i < 8; ++i) {
+        char c = fileName[i];
+        int digit = c >= '0' && c <= '9' ? c - '0' : c >= 'A' && c <= 'F' ? c - 'A' + 10 : c >= 'a' && c <= 'f' ? c - 'a' + 10 : -1;
+        if (digit < 0)
+            return false;
+        value = value << 4 | static_cast<uint32_t>(digit);
+    }
+    *scene = value;
+    return true;
+}
+
+uint32_t SceneOfLevelText(const char* level) { return level && *level ? Crc::GenerateCRCFromString(level) : 0; }
+
 // --- the game side ----------------------------------------------------------------------------------------------
 
 namespace {
@@ -412,11 +454,27 @@ volatile bool g_snapshotWritten = true;
 bool g_autosaveOurs;
 bool g_offerPending;
 
-// The network game (GameNet::Manager 0x007CCE14): layouts aren't put in levels other players share.
+// The edited copy: the level picked as edited (its load script; 0: none - LevelEditor_PickLevel), whether the level
+// loaded now is its edited copy, whether the last scene was loaded for a network game, and a switch asked for in place
+// (the level picked is the one loaded: +1 to the edited copy, -1 back to the level as shipped) and its wait.
+uint32_t g_request;
+bool g_editedCopy;
+bool g_netScene;
+int g_switch;
+int g_switchWait;
+
+// The network game (GameNet::Manager 0x007CCE14, 0x0044E4F0: a network game is on - host or client).
 bool InNetGame()
 {
     void* net = GameVariable<void*>(0x007CCE14);
     return net && GameFunction<bool(__thiscall*)(void*)>(0x0044E4F0)(net);
+}
+
+// The level loaded: its load script (the skate module 0x007CE478, +0x378 - as automation.h and the node layer read it).
+uint32_t CurrentLoad()
+{
+    uint8_t* skate = GameVariable<uint8_t*>(0x007CE478);
+    return skate ? *reinterpret_cast<uint32_t*>(skate + 0x378) : 0;
 }
 
 std::string Folder() { return GameFolderPath("thug2-decomp-layouts"); }
@@ -700,6 +758,11 @@ bool Load(std::string* message)
         *message = "Not in a level";
         return false;
     }
+    if (NetworkActive()) {
+        *message = "Layouts are offline only - not put in place in a network session";
+        Log("level editor: %s", message->c_str());
+        return false;
+    }
     std::string path = PathFor(Scenery::SceneName(scene));
     File file;
     if (!ReadFor(path, Scenery::SceneName(scene), &file, message, "No saved layout for this level"))
@@ -756,7 +819,7 @@ void WriteAutosaveFromCrash()
 bool AutosaveOffered()
 {
     uint8_t* scene = Scenery::MainScene();
-    if (Nx::CurrentLevel() == 0 || !scene || g_autosaveOurs || InNetGame())
+    if (Nx::CurrentLevel() == 0 || !scene || g_autosaveOurs || NetworkActive())
         return false;
     uint32_t name = Scenery::SceneName(scene);
     uint64_t autosaveTime = 0, savedTime = 0;
@@ -810,6 +873,84 @@ bool DiscardAutosave(std::string* message)
 
 int LevelLoads() { return g_levelLoads; }
 
+namespace {
+
+// A level of its own from now on (an in-place switch between shipped and edited): the editor's unsaved changes and
+// the autosave state start again, as for a new level.
+void ForgetSession()
+{
+    ++g_levelLoads;
+    g_snapshotReady = false;
+    g_snapshotWritten = true;
+    g_autosaveOurs = false;
+    g_offerPending = false;
+}
+
+// The level picked is the one loaded (the level select doesn't load it again): switched to its edited copy (the layout
+// put in place) or back to the level as shipped (everything put back as the level has it).
+void SwitchInPlace(int to)
+{
+    if (NetworkActive())
+        return;
+    std::string message;
+    if (to > 0 && !g_editedCopy) {
+        g_editedCopy = true;
+        Load(&message);
+        Log("level editor: switched to the edited copy in place (%s)", message.c_str());
+    } else if (to < 0 && g_editedCopy) {
+        ResetToLevel(File{});
+        g_editedCopy = false;
+        Log("level editor: switched back to the level as shipped in place");
+    } else {
+        return;
+    }
+    ForgetSession();
+}
+
+// The level structures (levels.qb's Level_<x> - load_script=Load_<x>, level="<scene>", name="<title>" - and the
+// ported levels', which make_menu_level adds the same way): by load script, the scene and the title.
+struct LevelInfo {
+    uint32_t scene;
+    std::string title;
+};
+std::unordered_map<uint32_t, LevelInfo> LevelsByLoad()
+{
+    static const uint32_t kLoadScript = Crc::GenerateCRCFromString("load_script"),
+                          kLevel = Crc::GenerateCRCFromString("level"), kName = Crc::GenerateCRCFromString("name");
+    std::unordered_map<uint32_t, LevelInfo> levels;
+    for (Script::CSymbolTableEntry* e = Script::GetNextSymbol(nullptr); e; e = Script::GetNextSymbol(e)) {
+        if (e->type != Script::ESYMBOLTYPE_STRUCTURE || !e->structure)
+            continue;
+        uint32_t load = 0;
+        const char* level = nullptr;
+        if (!e->structure->GetChecksum(kLoadScript, &load, 0) || !e->structure->GetString(kLevel, &level, 0))
+            continue;
+        const char* title = nullptr;
+        e->structure->GetString(kName, &title, 0);
+        levels.emplace(load, LevelInfo{SceneOfLevelText(level), title ? title : ""});
+    }
+    return levels;
+}
+
+// The scenes with a saved layout (the folder's "<8 hex digits>.txt").
+std::vector<uint32_t> SavedScenes()
+{
+    std::vector<uint32_t> scenes;
+    WIN32_FIND_DATAA found;
+    HANDLE find = FindFirstFileA((Folder() + "\\*.txt").c_str(), &found);
+    if (find == INVALID_HANDLE_VALUE)
+        return scenes;
+    do {
+        uint32_t scene = 0;
+        if (!(found.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) && SavedLayoutScene(found.cFileName, &scene))
+            scenes.push_back(scene);
+    } while (FindNextFileA(find, &found));
+    FindClose(find);
+    return scenes;
+}
+
+} // namespace
+
 void OnSceneLoaded(const char* name, bool isNet)
 {
     (void)name;
@@ -819,26 +960,232 @@ void OnSceneLoaded(const char* name, bool isNet)
     Objects::ForgetLevel();
     NodeEdit::ForgetLevel();
     NodeCreate::ForgetLevel();
-    g_pending = !isNet;
+    g_pending = true; // (Tick decides: the edited copy if it was picked, never in a network session)
     g_wait = 0;
     ++g_levelLoads;
     g_snapshotReady = false;
     g_snapshotWritten = true;
     g_autosaveOurs = false;
     g_offerPending = false;
+    g_editedCopy = false;
+    g_netScene = isNet;
+    g_switch = 0;
 }
 
 void Tick()
 {
-    if (!g_pending || Nx::CurrentLevel() == 0 || !Obj::FindObject(kSkater) || !Scenery::MainScene())
+    bool up = Nx::CurrentLevel() != 0 && Obj::FindObject(kSkater) && Scenery::MainScene();
+    if (g_switch && up && ++g_switchWait >= kSettleFrames) {
+        int to = g_switch;
+        g_switch = 0;
+        SwitchInPlace(to);
+    }
+    if (!g_pending || !up)
         return;
     if (++g_wait < kSettleFrames)
         return;
     g_pending = false;
-    if (InNetGame())
+    // The level as shipped, unless it was picked as its edited copy (and never in a network session).
+    bool network = NetworkActive();
+    uint32_t load = CurrentLoad();
+    bool apply = ApplyEditedCopy(g_request, load, network);
+    g_request = RequestAfterLoad(g_request, load, network);
+    if (!apply) {
+        if (HasSavedLayout())
+            Log("level editor: %s loaded as shipped%s - its edited copy is the level select's (EDITED) entry",
+                LevelTitle().c_str(),
+                network ? " (a network session: layouts are offline only)" : "");
         return;
+    }
+    g_editedCopy = true;
     std::string message;
     Load(&message);
+}
+
+bool NetworkActive()
+{
+    Net::Manager* net = Net::Manager::Instance();
+    return NetworkSession(net && net->IsOnline(), InNetGame(), g_netScene);
+}
+
+bool EditingCopy() { return g_editedCopy; }
+
+bool HasSavedLayout()
+{
+    uint8_t* scene = Scenery::MainScene();
+    uint64_t time = 0;
+    return Nx::CurrentLevel() != 0 && scene && WriteTime(PathFor(Scenery::SceneName(scene)), &time);
+}
+
+std::string LevelTitle()
+{
+    // (the symbols walked once a level: the toolbar asks every frame)
+    static uint32_t cachedLoad = 0, cachedScene = 0;
+    static std::string cached;
+    uint32_t load = CurrentLoad(), scene = Scenery::SceneName(Scenery::MainScene());
+    if (load != cachedLoad || scene != cachedScene || cached.empty()) {
+        cachedLoad = load;
+        cachedScene = scene;
+        std::unordered_map<uint32_t, LevelInfo> levels = LevelsByLoad();
+        auto it = levels.find(load);
+        cached = it != levels.end() && !it->second.title.empty() ? it->second.title
+                 : scene                                         ? Objects::Label(scene)
+                                                                 : "";
+    }
+    return cached;
+}
+
+bool EnterEditedCopy(std::string* message)
+{
+    if (Nx::CurrentLevel() == 0 || !Scenery::MainScene()) {
+        *message = "Not in a level";
+        return false;
+    }
+    if (NetworkActive()) {
+        *message = "The level editor is offline only - not in a network session";
+        return false;
+    }
+    g_switch = 0;
+    g_request = CurrentLoad(); // (loaded again, it stays the edited copy)
+    if (g_editedCopy) {
+        message->clear();
+        return true;
+    }
+    g_editedCopy = true;
+    g_pending = false; // (put in place here, not again by Tick)
+    std::string loaded;
+    if (HasSavedLayout() && Load(&loaded))
+        *message = "Editing the edited copy of " + LevelTitle() + " - its saved layout put in place";
+    else
+        *message = "A new edited copy of " + LevelTitle() + " - made by the first save (Ctrl+S)";
+    Log("level editor: %s (%s)", message->c_str(), loaded.c_str());
+    return true;
+}
+
+bool ResetLevel(std::string* before, std::string* message)
+{
+    File file;
+    if (!Capture(&file)) {
+        *message = "Not in a level";
+        return false;
+    }
+    *before = Write(file);
+    ResetToLevel(File{});
+    // (the edited copy's files: the saved layout - its level select entry - and the autosave)
+    int deleted = 0;
+    for (const std::string& path : {PathFor(file.scene), AutosavePathFor(file.scene)}) {
+        if (DeleteFileA(path.c_str())) {
+            ++deleted;
+            Log("level editor: reset - deleted %s", path.c_str());
+        }
+    }
+    g_snapshotReady = false;
+    g_snapshotWritten = true;
+    g_autosaveOurs = false;
+    g_offerPending = false;
+    *message = deleted ? "Level reset as shipped, its saved layout deleted (Ctrl+Z undoes)"
+                       : "Level reset as shipped (Ctrl+Z undoes)";
+    Log("level editor: %s", message->c_str());
+    return true;
+}
+
+bool CaptureText(std::string* text)
+{
+    File file;
+    if (!Capture(&file))
+        return false;
+    *text = Write(file);
+    return true;
+}
+
+bool PutBack(const std::string& before, std::string* message)
+{
+    File file;
+    int line = 0;
+    uint8_t* scene = Scenery::MainScene();
+    if (Nx::CurrentLevel() == 0 || !scene || !Read(before, &file, &line) || file.scene != Scenery::SceneName(scene)) {
+        *message = "Couldn't put the level's changes back";
+        return false;
+    }
+    ResetToLevel(file);
+    std::string summary = Apply(file);
+    *message = "Reset undone: the level's changes are back (not saved)";
+    Log("level editor: %s - %s", message->c_str(), summary.c_str());
+    return true;
+}
+
+bool __cdecl CFunc_PickLevel(Script::CStruct* params, Script::CScript*)
+{
+    static const uint32_t kLevel = Crc::GenerateCRCFromString("level"),
+                          kEditedLayout = Crc::GenerateCRCFromString("edited_layout");
+    uint32_t load = 0;
+    if (params)
+        params->GetChecksum(kLevel, &load, 0);
+    bool edited = params && params->ContainsFlag(kEditedLayout);
+    bool network = NetworkActive();
+    if (edited && network)
+        Log("level editor: an edited copy picked in a network session - refused (the level as shipped)");
+    g_request = RequestFromPick(load, edited, network);
+    // (the level already loaded: the level select won't load it again - switched in place once its menus are gone)
+    if (load && load == CurrentLoad() && Nx::CurrentLevel() != 0 && !network && (g_request != 0) != g_editedCopy) {
+        g_switch = g_request ? 1 : -1;
+        g_switchWait = 0;
+    }
+    Log("level editor: level picked - %s%s", Objects::Label(load).c_str(),
+        g_request ? " (its edited copy)" : " (as shipped)");
+    return true;
+}
+
+bool __cdecl CFunc_EditedLevels(Script::CStruct*, Script::CScript* script)
+{
+    if (!script || !script->m_params || NetworkActive())
+        return false;
+    std::vector<uint32_t> saved = SavedScenes();
+    if (saved.empty())
+        return false;
+    static const uint32_t kLevel = Crc::GenerateCRCFromString("level"), kText = Crc::GenerateCRCFromString("text"),
+                          kEditedLayout = Crc::GenerateCRCFromString("edited_layout");
+    static const char* const kLists[] = {"level_select_menu_level_info", "level_select_menu_thug1_level_info",
+                                         "level_select_menu_thps4_level_info", "level_select_menu_thps3_level_info",
+                                         "level_select_menu_thaw_level_info"};
+    static const char* const kDropped[] = {"new_vmenu", "hold_vmenu"}; // (columns of the level's own section)
+    std::unordered_map<uint32_t, LevelInfo> levels = LevelsByLoad();
+    std::vector<Script::CStruct*> entries;
+    std::vector<uint32_t> done;
+    for (const char* list : kLists) {
+        Script::CArray* array = Script::GetArray(list);
+        if (!array || array->m_type != Script::ESYMBOLTYPE_STRUCTURE)
+            continue;
+        for (uint32_t i = 0; i < array->m_size; ++i) {
+            auto* entry = reinterpret_cast<Script::CStruct*>(array->GetElement(i));
+            uint32_t load = 0;
+            if (!entry || !entry->GetChecksum(kLevel, &load, 0))
+                continue;
+            auto level = levels.find(load);
+            if (level == levels.end() || std::find(saved.begin(), saved.end(), level->second.scene) == saved.end() ||
+                std::find(done.begin(), done.end(), level->second.scene) != done.end())
+                continue;
+            done.push_back(level->second.scene);
+            const char* text = nullptr;
+            entry->GetString(kText, &text, 0);
+            Script::CStruct* copy = Script::NewStruct()->Init();
+            copy->AppendStructure(entry);
+            for (const char* flag : kDropped)
+                copy->RemoveFlag(Crc::GenerateCRCFromString(flag));
+            copy->AddString(kText, EditedText(text).c_str());
+            copy->AddChecksum(0u, kEditedLayout);
+            entries.push_back(copy);
+        }
+    }
+    if (entries.empty())
+        return false;
+    Script::CArray* array = Script::NewArray()->Init();
+    array->SetSizeAndType(static_cast<uint32_t>(entries.size()), Script::ESYMBOLTYPE_STRUCTURE);
+    for (size_t i = 0; i < entries.size(); ++i)
+        array->SetElement(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(entries[i]));
+    script->m_params->AddArrayPointer("edited_list", array);
+    script->m_params->AddInteger("edited_count", static_cast<int>(entries.size()));
+    return true;
 }
 
 } // namespace Front::LevelEditor::Layout

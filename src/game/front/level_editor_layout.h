@@ -7,9 +7,31 @@
 #include "game/front/level_editor_node_create.h"
 #include "game/front/level_editor_scenery.h"
 
+namespace Script {
+class CStruct;
+class CScript;
+} // namespace Script
+
 // NOT ORIGINAL - the level editor's saved layouts (ours; see level_editor.h): what the editor changed in a level,
-// written to thug2-decomp-layouts\<the level's scene>.txt next to the exe (Ctrl+S in the editor) and put back each
-// time that level loads. Not in network games: the other players' levels would differ.
+// written to thug2-decomp-layouts\<the level's scene>.txt next to the exe (Ctrl+S in the editor).
+//
+// A layout is the level's EDITED COPY - a level of its own, never the level itself (the user's rule, 2026-10-20):
+//   - the level as shipped always loads as shipped: picked from the level select's own entries, by -level / the
+//     automation, by career or any script, it gets no layout;
+//   - the edited copy is the level select's "<LEVEL> (EDITED)" entry, in the section EDITED LEVELS (the last; Up from
+//     the first) - made by the overlay (tools/menu_level/level_select.ts) from LevelEditor_EditedLevels: one entry for
+//     each level with a saved layout. Choosing it runs level_select_change_level with `edited_layout`, whose first
+//     line (the overlay's) is LevelEditor_PickLevel: the request (that load script, edited or not) is kept, and the
+//     layout is put in place once that level is up (Tick) - or at once, when the level picked is the one already
+//     loaded (the level select doesn't load it again: the level switches in place between shipped and edited);
+//   - LEVEL EDITOR in the pause menu of a level as shipped (or -edit <level>) edits its edited copy: the level becomes
+//     the edited copy (its saved layout put in place first, if it has one; the file is made by the first Ctrl+S). The
+//     toolbar (and the old HUD's top line) say which one is being edited. One edited copy per level (its scene).
+//   - Network: never. No layout is put in place, and the editor doesn't start, while a network session is on (online,
+//     a network game - host or client, LAN or online - or a scene loaded for one), whatever entry was picked; the
+//     EDITED LEVELS section isn't offered in the network level select (in_server_options) or in a network game, and
+//     LevelEditor_PickLevel refuses `edited_layout` there.
+//   - Older layout files (no change to the format) are the edited copies of their levels.
 //
 // The file is text, a record a line ('#' starts a comment; unknown records are skipped, so later versions can add
 // some):
@@ -17,7 +39,8 @@
 //                                                      DLL, which knows only 1, refuses a version 2 file as a whole)
 //   scene <checksum>                                   the level's main scene (its sectors' table)
 //   sector <checksum> <quarters> <x> <y> <z> <hidden>  a sector moved by (x, y, z) after `quarters` quarter turns
-//   rail <name> <quarters> <x> <y> <z> <hidden>        a grind rail node, the same
+//   rail <name> <quarters> <x> <y> <z> <hidden>        a grind rail node, the same (moved with its scenery, or by
+//                                                      itself / its whole rail - level_editor_node_edit.h)
 //   clone <source> <quarters> <x> <y> <z>             a copy of a sector, placed relative to its source as loaded
 //   object <id> <x> <y> <z> <9 matrix numbers>         an object's position and orientation (rows: right, up, at)
 //   copy <name> <source> <x> <y> <z> <9 numbers>       a copy of an object (made from its source's node)
@@ -112,11 +135,63 @@ bool RestoreAutosave(std::string* message);
 bool DiscardAutosave(std::string* message);
 // How many times a level's scenes have loaded (the editor's unsaved changes belong to one level).
 int LevelLoads();
-// Ctrl+O / a level loading: the saved layout put back (false: none, or not in a level).
+// The saved layout put in place (false: none, or not in a level, or a network session).
 bool Load(std::string* message);
-// A scene loaded (Nx::CFunc_LoadScene): once the level is up, its layout is put back (Tick).
+// A scene loaded (Nx::CFunc_LoadScene): once the level is up, its layout is put back if it was picked as the edited
+// copy (Tick).
 void OnSceneLoaded(const char* name, bool isNet);
 // Once a frame (the editor's Update, on or off).
 void Tick();
+
+// --- the edited copy (see the top) ---------------------------------------------------------------------------------
+
+// The pure parts (self-tested: src/hook/selftests_editor_levels.cpp).
+// Whether the level that came up (`levelLoad`: its load script's checksum) gets its layout: it was picked as the
+// edited copy (`request`: that load script; 0 none) and no network session is on.
+bool ApplyEditedCopy(uint32_t request, uint32_t levelLoad, bool network);
+// The request once a level has come up: kept for that level (loaded again, it's still the edited copy), dropped for
+// any other level or a network session.
+uint32_t RequestAfterLoad(uint32_t request, uint32_t levelLoad, bool network);
+// What LevelEditor_PickLevel keeps: the load script when `edited` is asked for and no network session is on, else 0.
+uint32_t RequestFromPick(uint32_t load, bool edited, bool network);
+// A network session from its signs: online, a network game, a scene loaded for one.
+bool NetworkSession(bool online, bool netGame, bool netScene);
+// The level select's text for an edited copy ("TRAINING" -> "TRAINING (EDITED)").
+std::string EditedText(const char* text);
+// A file of the layouts' folder that is a saved layout - "<8 hex digits>.txt", not an autosave - and its scene.
+bool SavedLayoutScene(const std::string& fileName, uint32_t* scene);
+// A level structure (levels.qb's Level_TR: load_script=Load_TR, level="TR") seen as `load` -> its scene: the scene's
+// checksum is the checksum of its `level` text (CFunc_LoadScene names the scene by it).
+uint32_t SceneOfLevelText(const char* level);
+
+// The game side.
+// Whether a network session is on now (layouts never apply then).
+bool NetworkActive();
+// The level loaded now is its edited copy (its layout put in place, or the editor opened in it).
+bool EditingCopy();
+// Whether this level has a saved layout (an edited copy in the level select).
+bool HasSavedLayout();
+// The level's name for the toolbar: its level structure's name= ("Training"), else the scene's name.
+std::string LevelTitle();
+// Entering the editor: the level becomes its edited copy - its saved layout put in place first if it wasn't (false,
+// `message` why: not in a level, or a network session - the editor doesn't start).
+bool EnterEditedCopy(std::string* message);
+// Reset level: everything the editor changed in this level put back as the level has it (moved scenery, objects,
+// rails, nodes; hidden things shown; copies and added nodes removed), and the saved layout and its autosave deleted.
+// `before`: the layout as it was (Write's text) - PutBack puts it in place again (undo, this session; the files stay
+// deleted until saved again). False: not in a level.
+bool ResetLevel(std::string* before, std::string* message);
+bool PutBack(const std::string& before, std::string* message);
+// The level's changes as they are now, as a layout's text (false: not in a level) - redo of an undone reset.
+bool CaptureText(std::string* text);
+
+// Script commands (registered with the editor's: LevelEditor::RegisterScriptFunctions).
+// LevelEditor_PickLevel level=<load script> [edited_layout]: the level select chose a level (the first line of
+// level_select_change_level) - the edited copy or the level as shipped.
+bool __cdecl CFunc_PickLevel(Script::CStruct* params, Script::CScript* script);
+// LevelEditor_EditedLevels: the level select's entries for the edited copies (edited_list, edited_count) - each the
+// level's own entry (from level_select_menu_level_info and the ported levels' lists) with the text "<TEXT> (EDITED)"
+// and the flag edited_layout. False (nothing returned) when there are none or a network session is on.
+bool __cdecl CFunc_EditedLevels(Script::CStruct* params, Script::CScript* script);
 
 } // namespace Front::LevelEditor::Layout
