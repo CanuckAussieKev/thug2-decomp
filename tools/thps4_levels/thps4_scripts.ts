@@ -48,41 +48,9 @@ export const SOURCES = [
     "js_scripts.qb",
     "sk4_scripts.qb",
 ];
-// THPS4's commands left out although THUG2 has them (besides script_port.LEFT_OUT): goals, the skater's career,
-// cameras, THPS4's panels.
-export const LEFT_OUT = [
-    "GoalManager_ActivateGoal",
-    "GoalManager_DeactivateGoal",
-    "GoalManager_EditGoal",
-    "GoalManager_AddGoal",
-    "GoalManager_WinGoal",
-    "GoalManager_LoseGoal",
-    "GoalManager_UnlockGoal",
-    "GoalManager_SetGoalTimer",
-    "GoalManager_ShowGoalPoints",
-    "GoalManager_ShowPoints",
-    "GoalManager_UninitializeAllGoals",
-    "GoalManager_InitializeAllGoals",
-    "Create_Panel_Message",
-    "create_panel_message",
-    "create_panel_block",
-    "Create_Panel_Block",
-    "PlayCutscene",
-    "PlaySkaterCamAnim",
-    "UnpauseSkaters",
-    "SetSkaterCamAnimShouldPause",
-    // goal arrows, minigame prompts and other HUD (THPS4's goals' and minigames')
-    "CreateScreenElement",
-    "SetScreenElementLock",
-    "DestroyScreenElement",
-    "SetScreenElementProps",
-    "RunScriptOnScreenElement",
-    "DoScreenElementMorph",
-    "setup_ped_speech",
-    "speech_box_exit",
-    "SetFlag",
-    "UnSetFlag",
-];
+// THPS4's commands left out although THUG2 has them (besides script_port.LEFT_OUT) - goals, the skater's career,
+// cameras, THPS4's panels: a port change (PC-THPS4-8), its list in tools/compat/thugpro/thps4_levels.json port_changes, given
+// to convert() as options.leftOut by thps4_levels.ts.
 // Member functions the skater may run besides script_port's (the gap / trigger scripts of sectors and rails ask it
 // `if onground`, `if skitching`, `if doingtrick`...): THUG2's skater has these components.
 export const COMPONENTS = { [scriptPort.SKATER]: ["skaterstate", "skatercorephysics"] };
@@ -778,6 +746,17 @@ export interface ConvertResult {
     translator: scriptPort.Translator;
 }
 
+// This project's own choices in convert() (port changes - tools/compat/thugpro/thps4_levels.json port_changes, README
+// "Our own changes"; thps4_levels.ts passes them, all off with --no-port-changes):
+//   leftOut              (PC-THPS4-8) THPS4 commands left out of the brought scripts besides script_port's
+//   neverCreated         (PC-THPS4-6) the made objects no script creates and the waypoints nothing uses left out
+//   emptyRestartScripts  (PC-THPS4-9) a restart's trigger script with nothing left in it dropped
+export interface ConvertOptions {
+    leftOut?: readonly string[];
+    neverCreated?: boolean;
+    emptyRestartScripts?: boolean;
+}
+
 export function convert(
     port: Port,
     array: readonly qb.QbValue[],
@@ -790,6 +769,7 @@ export function convert(
     level: string,
     vehicleSectors: ReadonlySet<number> = new Set(),
     collides: ReadonlySet<number> = new Set(),
+    options: ConvertOptions = {},
 ): ConvertResult {
     // The level's node array made THUG2's with its scripts (see the top). levelSources: script_port.Source of the
     // level's own .qb files; killsIn: the kill scripts (nodes.killScripts); sectors: the scene's sector checksums;
@@ -877,7 +857,7 @@ export function convert(
             {
                 provided,
                 undrawn,
-                leftOut: LEFT_OUT,
+                leftOut: options.leftOut ?? [],
                 objects,
                 components: COMPONENTS,
                 full: true,
@@ -898,7 +878,7 @@ export function convert(
         starts.push(...made.proximScripts.filter((s) => translator.canBring(s)));
         for (const s of starts) roots.push([s, scriptPort.NONE]);
         out = translator.run(roots);
-        if (never.size) break;
+        if (never.size || !options.neverCreated) break;
         const waypoints = new Set<number>();
         for (const n of madeKept) {
             const name = nameOf(n);
@@ -960,7 +940,7 @@ export function convert(
     // (a restart's trigger script with nothing left in it - THPS4's menu restart: FreezeSkater, its camera - goes, and
     // the empty script with it when nothing else runs it)
     const emptyRestartScripts = new Set<number>();
-    for (const node of converted) {
+    for (const node of options.emptyRestartScripts ? converted : []) {
         const script = node.get("TriggerScript");
         const code = script instanceof Name ? out.get(script.value) : undefined;
         if (code !== undefined && nodes.classOf(node, names) === "restart" && isEmptyScript(code)) {

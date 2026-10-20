@@ -99,12 +99,11 @@ export const COMPAT = {
     // TP-5...TP-9: THUGPRO's other hand edits (thugpro_edits.ts), the profile's sections by name
     edits: {} as Record<string, Record<string, unknown>>,
     // TPN-THAW-1...TPN-THAW-5: THUGPRO's own content, by reference (thugpro_new.ts; --no-thugpro-new: none)
-    thugproNew: {} as Record<string, unknown>,
+    thugproNew: {} as Record<string, thugproNew.ZoneNew>,
 };
 
 // TPN-THAW-1...TPN-THAW-5: the zone's THUGPRO content entries, or null (none, --compat none or --no-thugpro-new).
-export const newFor = (zone: string): thugproNew.ZoneNew | null =>
-    (COMPAT.thugproNew[zone.toUpperCase()] as thugproNew.ZoneNew | undefined) ?? null;
+export const newFor = (zone: string): thugproNew.ZoneNew | null => COMPAT.thugproNew[zone.toUpperCase()] ?? null;
 
 // TP-5...TP-9: the zone's edits from the profile, or null (none, or --compat none).
 export const editsFor = (zone: string): thugproEdits.ZoneEdits | null => thugproEdits.zoneEdits(COMPAT.edits, zone);
@@ -135,7 +134,7 @@ export interface SpawnEdit {
 // The compatibility profile's THAW data (tools/compat/compat.ts): "thugpro" (the default) or "none".
 export function setCompat(name: string, withThugproNew = true): void {
     const profile = compat.load(name);
-    COMPAT.thugproNew = withThugproNew ? profile.section("thaw_levels", "thugpro_new") : {};
+    COMPAT.thugproNew = withThugproNew ? thugproNew.fromEntries(compat.thugproNew(profile, "thaw_levels")) : {};
     COMPAT.levelNames = new Map(Object.entries(profile.section("thaw_levels", "level_names")) as [string, string][]);
     COMPAT.frameKept = new Set(
         ((profile.section("thaw_levels", "frame_kept") as { zones?: string[] }).zones ?? []) as string[],
@@ -273,7 +272,7 @@ export function setPortChanges(enabled: boolean): void {
         compat
             .portChanges("thaw_levels")
             .filter((e) => enabled || e.required)
-            .map((e) => e.switch),
+            .map((e) => String(e.switch)),
     );
 }
 export const portChange = (name: string): boolean => PORT.on.has(name);

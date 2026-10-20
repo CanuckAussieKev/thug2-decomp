@@ -29,8 +29,9 @@ import * as thug2Col from "../level_port/thug2_col.ts";
 import { hex8, isMain, print, pyExit, pyJoin, pyJsonDumps, runMain, writeTextPy } from "../lib/py.ts";
 import { findPath } from "../thaw_levels/thaw_levels.ts";
 import { maxDiff, nodeArray, position } from "../thaw_levels/thugpro_compare.ts";
-import { editsOf, LEVELS, levelName, loadName, STAGING } from "./thps4_levels.ts";
+import { COMPAT, editsOf, LEVELS, levelName, loadName, STAGING } from "./thps4_levels.ts";
 import { type Check, checkDuplicates, checkEdits } from "./thugpro_edits.ts";
+import { checkNew } from "./thugpro_new.ts";
 
 const DEFAULT_THUGPRO = pyJoin(process.env.LOCALAPPDATA ?? "", "THUG Pro");
 const TOLERANCE = 0.1;
@@ -454,6 +455,8 @@ export function applied(base: string, thugpro: string, thug2: string): Check[] |
         );
         checks.push(checkDuplicates(edits, thug2Col.readCol(fs.readFileSync(ourCol), ourCol), theirs));
     }
+    // (THUGPRO's own content: thugpro_new.ts)
+    checks.push(...checkNew(COMPAT.thugproNew, base, mine, fs.readFileSync(ourQb)));
     return checks.filter((c) => c.total);
 }
 

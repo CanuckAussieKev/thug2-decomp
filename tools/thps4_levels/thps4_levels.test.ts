@@ -11,7 +11,19 @@ import { Tok } from "../level_port/script_port.ts";
 import { hex8 } from "../lib/py.ts";
 import { pack } from "../lib/struct.ts";
 import { KEEP, main as migrate, renames } from "./migrate_layouts.ts";
-import { addNetNodes, COMPAT, levelName, loadName, setCompat, skyName } from "./thps4_levels.ts";
+import {
+    addNetNodes,
+    COMPAT,
+    createdInPlay,
+    levelName,
+    loadName,
+    PORT,
+    pedsCarsWanted,
+    portChange,
+    setCompat,
+    setPortChanges,
+    skyName,
+} from "./thps4_levels.ts";
 import { GAME_MODE_NAMES, isEmptyScript, makeSkaterGoto, setupName } from "./thps4_scripts.ts";
 
 test("levels take THPS4's own names; the skate shop stays prefixed, its load script the profile's", () => {
@@ -112,4 +124,37 @@ test("TP-21: the profile's crown and spawns added in our form; --compat none add
         ["Generic", "Multiplayer", "Horse"].map(qb.checksum),
     );
     assert.equal(addNetNodes("Alc", "alc", [], names, []), "");
+});
+
+test("port changes: every entry has id / op / target / why, read whatever the profile; --no-port-changes none", () => {
+    setCompat("none");
+    setPortChanges(true);
+    const ids = PORT.changes.map((e) => e.id);
+    assert.deepEqual(
+        ids,
+        Array.from({ length: ids.length }, (_, i) => `PC-THPS4-${i + 1}`),
+    );
+    for (const e of PORT.changes) assert.ok(["add", "set", "remove"].includes(e.op) && e.why && e.rule, e.id);
+    assert.ok(portChange("open_walls", "SkateShop") && portChange("open_walls", "skateshop"));
+    assert.ok(!portChange("open_walls", "Alc"));
+    assert.ok(portChange("zero_angles", "Alc")); // (levels "*")
+    assert.ok(!pedsCarsWanted("Sch") && pedsCarsWanted("Alc"));
+    setPortChanges(false);
+    try {
+        // (--no-port-changes: only the required ones - the crash guards)
+        assert.ok(PORT.changes.length > 0 && PORT.changes.every((e) => e.required === true));
+        assert.ok(!pedsCarsWanted("Sch"));
+        assert.ok(!portChange("open_walls", "SkateShop"));
+        const text = "{Name=SSO_Fence05 Class=LevelGeometry}";
+        assert.equal(createdInPlay(text, "SkateShop", []), text);
+    } finally {
+        setPortChanges(true);
+        setCompat("thugpro");
+    }
+    assert.match(createdInPlay("{Name=SSO_Fence05 Class=LevelGeometry}", "SkateShop", []), /CreatedAtStart/);
+    // (a "set" on a node the level hasn't: an error, not an add)
+    assert.throws(
+        () => createdInPlay("{Name=Other Class=LevelGeometry}", "SkateShop", []),
+        /PC-THPS4-3 sets SSO_Fence05/,
+    );
 });

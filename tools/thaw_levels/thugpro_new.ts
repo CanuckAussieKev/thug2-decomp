@@ -33,6 +33,7 @@
 
 import * as fs from "node:fs";
 import { crc32 } from "node:zlib";
+import type * as compat from "../compat/compat.ts";
 import { Reader, Writer } from "../level_port/binio.ts";
 import * as prx from "../level_port/prx.ts";
 import * as qb from "../level_port/qb.ts";
@@ -589,4 +590,35 @@ export function optionsSetupNs(
     if (!options.length && !extra.length) return "";
     const lines = [...extra.map((s) => `    ${s} `), ...options.map((o) => `    ${o.script} ${o.on ? "on" : "off"} `)];
     return `script ${name} {\n${lines.join("\n")}\n}\n`;
+}
+
+// --- the profile's form (compat.Entry: the differences files' shared entry, target {zone, kind, name}) ------------
+
+export function toEntries(zone: string, z: ZoneNew): compat.Entry[] {
+    return z.entries.map(({ op, id, kind, target, why, ...rest }) => ({
+        id,
+        op,
+        target: { zone, kind, name: target },
+        why,
+        ...rest,
+    }));
+}
+
+// The section's entries by zone (ZoneNew; left_out isn't needed to convert).
+export function fromEntries(list: readonly compat.Entry[]): Record<string, ZoneNew> {
+    const out: Record<string, ZoneNew> = {};
+    for (const { id, op, target, why, ...rest } of list) {
+        const zone = String(target.zone).toUpperCase();
+        if (out[zone] === undefined) out[zone] = { entries: [], left_out: [] };
+        const z = out[zone];
+        z.entries.push({
+            ...(rest as Partial<NewEntry>),
+            op,
+            id,
+            kind: target.kind as Kind,
+            target: String(target.name),
+            why,
+        });
+    }
+    return out;
 }

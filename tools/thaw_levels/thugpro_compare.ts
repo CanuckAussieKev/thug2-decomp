@@ -53,6 +53,7 @@ import {
     zonePak,
 } from "./thaw_levels.ts";
 import { extractZone, type Sources, thawScriptNames } from "./thugpro_extract.ts";
+import { toEntries } from "./thugpro_new.ts";
 
 // THUGPRO's names for the levels it renamed (its data\pre file names; the others are the zone's): to find its files.
 const THUGPRO_NAMES = COMPAT.levelNames; // (tools/compat/thugpro/thaw_levels.json)
@@ -417,14 +418,18 @@ function extract(thugpro: string, thawFolder: string, thug2: string): number {
                 "New in THUGPRO (in no source game): its meshes and collision, reshaped meshes, content nodes, scripts " +
                 "and host-option defaults - by reference only: each entry names THUGPRO's item and a CRC-32 of it; the " +
                 "converter reads the bytes from the THUGPRO install (--thugpro) and skips (with a warning) what is " +
-                "missing or differs. op: add / set / remove. --no-thugpro-new leaves the whole section out.",
+                "missing or differs. Entries in the differences files' shared form (compat.Entry: id, op add / set / " +
+                "remove, target {zone, kind, name}, why); left_out: what wasn't taken, and why. --no-thugpro-new " +
+                "leaves the whole section out.",
             _source:
-                "THUGPRO's installed datapre<level>_scripts.prx / scn.prx / col.prx and thugpro_qb.prx, " +
+                "THUGPRO's installed data\\pre\\<level>_scripts.prx / scn.prx / col.prx and thugpro_qb.prx, " +
                 "against THAW's own zone archives; written by `node tools/thaw_levels/thugpro_compare.ts " +
                 "--extract-thugpro` (thugpro_extract.ts)",
         } as Record<string, unknown>,
     };
     const needs = new Map<string, Set<string>>();
+    const newEntries: unknown[] = [];
+    const newLeftOut: Record<string, unknown> = {};
     for (const [zone] of LEVELS) {
         const z = extractZone(zone, sources);
         const put = (section: Record<string, unknown>, value: Record<string, unknown>): void => {
@@ -442,9 +447,12 @@ function extract(thugpro: string, thawFolder: string, thug2: string): number {
         put(sections.collision, z.collision);
         if (z.notes.length) sections.notes[zone] = z.notes;
         const n = z.thugpro_new;
-        if (n.entries.length || n.left_out.length) sections.thugpro_new[zone] = n;
+        newEntries.push(...toEntries(zone, n));
+        if (n.left_out.length) newLeftOut[zone] = n.left_out;
         for (const [command, scripts] of Object.entries(n.needs ?? {})) {
-            for (const s of scripts) needs.set(command, (needs.get(command) ?? new Set()).add(`${zone}: ${s}`));
+            // (one key per command whatever the case its name texts have)
+            const key = [...needs.keys()].find((k) => k.toLowerCase() === command.toLowerCase()) ?? command;
+            for (const s of scripts) needs.set(key, (needs.get(key) ?? new Set()).add(`${zone}: ${s}`));
         }
         print(
             `${zone}: ${Object.entries(z.counts)
@@ -452,6 +460,8 @@ function extract(thugpro: string, thawFolder: string, thug2: string): number {
                 .join(", ")}; thugpro_new ${n.entries.length} (left out ${n.left_out.length})`,
         );
     }
+    sections.thugpro_new.entries = newEntries;
+    sections.thugpro_new.left_out = newLeftOut;
     sections.thugpro_new._needs_cpp = Object.fromEntries(
         [...needs].sort().map(([command, scripts]) => [command, [...scripts].sort()]),
     );
