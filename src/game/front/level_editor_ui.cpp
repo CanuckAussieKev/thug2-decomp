@@ -45,6 +45,11 @@ bool g_offerClosed;
 char g_outlinerSearch[96];
 char g_browserSearch[96];
 int g_browserShownIndex = -1;
+// The preview's entry: the list's row under the mouse (-1: none) and whether the keys moved the highlight since the
+// mouse last moved onto a row (then the highlighted one shows); the entry asked for last.
+int g_browserHovered = -1;
+bool g_browserKeysWon;
+int g_previewAsked = -1;
 
 void Ask(Request::Kind kind, int value = 0, uint32_t id = 0) { g_requests.push_back({kind, value, id}); }
 
@@ -928,6 +933,60 @@ void Help(const Model& model)
         Ask(Request::kToggleHelp);
 }
 
+// The browser's preview (level_editor_preview.h): the picture - a drag in it orbits, the wheel zooms - and what the
+// entry is.
+void BrowserPreview(const Model& model)
+{
+    const Model::PreviewView& preview = model.preview;
+    float width = ImGui::GetContentRegionAvail().x;
+    float side = std::min(width, 210.0f * g_scale);
+    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (width - side) * 0.5f);
+    ImGui::InvisibleButton("##preview", ImVec2(side, side));
+    ImGui::SetItemKeyOwner(ImGuiKey_MouseWheelY);
+    ImVec2 a = ImGui::GetItemRectMin(), b = ImGui::GetItemRectMax();
+    ImDrawList* draw = ImGui::GetWindowDrawList();
+    if (preview.texture)
+        draw->AddImage(static_cast<ImTextureID>(preview.texture), a, b);
+    else
+        draw->AddRectFilled(a, b, IM_COL32(42, 44, 48, 255));
+    draw->AddRect(a, b, ImGui::GetColorU32(ImGuiCol_Border));
+    if (!preview.texture) {
+        const char* text = preview.index < 0 ? "(nothing highlighted)" : "(no preview)";
+        ImVec2 size = ImGui::CalcTextSize(text);
+        draw->AddText(ImVec2((a.x + b.x - size.x) * 0.5f, (a.y + b.y - size.y) * 0.5f),
+                      ImGui::GetColorU32(ImGuiCol_TextDisabled), text);
+    }
+    ImGuiIO& io = ImGui::GetIO();
+    float dx = 0.0f, dy = 0.0f, wheel = 0.0f;
+    if (ImGui::IsItemActive() && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0.0f)) {
+        dx = io.MouseDelta.x;
+        dy = io.MouseDelta.y;
+    }
+    if (ImGui::IsItemHovered())
+        wheel = io.MouseWheel;
+    if (dx != 0.0f || dy != 0.0f || wheel != 0.0f) {
+        Request request{Request::kPreviewOrbit};
+        request.a[0] = dx;
+        request.a[1] = dy;
+        request.a[2] = wheel;
+        g_requests.push_back(request);
+    }
+    if (ImGui::IsItemHovered() && !ImGui::IsItemActive() && preview.texture)
+        ImGui::SetTooltip("Drag to turn it, the wheel to zoom");
+    if (!preview.name.empty()) {
+        ImGui::PushFont(g_mono);
+        ImGui::TextWrapped("%s", preview.name.c_str());
+        ImGui::PopFont();
+        ImGui::PushFont(g_small);
+        if (!preview.size.empty())
+            Muted(preview.size.c_str());
+        if (!preview.type.empty())
+            Muted(preview.type.c_str());
+        ImGui::PopFont();
+    }
+    ImGui::Separator();
+}
+
 void Browser(const Model& model)
 {
     if (!model.browser || !model.browserItems)
@@ -935,11 +994,13 @@ void Browser(const Model& model)
     ImGui::SetNextWindowPos(ImVec2(g_layout.viewport.x + g_layout.viewport.width - 8.0f * g_scale,
                                    g_layout.viewport.y + 8.0f * g_scale),
                             ImGuiCond_Always, ImVec2(1.0f, 0.0f));
-    ImGui::SetNextWindowSize(ImVec2(360.0f * g_scale, std::min(520.0f * g_scale, g_layout.viewport.height - 16.0f * g_scale)));
+    ImGui::SetNextWindowSize(ImVec2(360.0f * g_scale, std::min(760.0f * g_scale, g_layout.viewport.height - 16.0f * g_scale)));
     bool open = true;
     char title[64];
     std::snprintf(title, sizeof(title), "Add  (%d)###browser", static_cast<int>(model.browserItems->size()));
-    ImGui::Begin(title, &open, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize);
+    ImGui::Begin(title, &open, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize |
+                                   ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+    BrowserPreview(model);
     for (int tab = 0; tab < 2; ++tab) {
         if (tab)
             ImGui::SameLine();
@@ -959,6 +1020,9 @@ void Browser(const Model& model)
     const std::vector<BrowserItem>& items = *model.browserItems;
     bool follow = model.browserIndex != g_browserShownIndex; // (the keys moved it: keep it in view)
     g_browserShownIndex = model.browserIndex;
+    if (follow)
+        g_browserKeysWon = true;
+    int hovered = -1;
     if (items.empty())
         Muted(model.browserTab == 0 ? "(no pieces that can be moved)" : "(no objects that can be copied)");
     for (int i = 0; i < static_cast<int>(items.size()); ++i) {
@@ -971,12 +1035,25 @@ void Browser(const Model& model)
             if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
                 Ask(Request::kBrowserPlace);
         }
+        if (ImGui::IsItemHovered())
+            hovered = i;
         if (selected && follow)
             ImGui::SetScrollHereY(0.5f);
         ImGui::PopID();
     }
     ImGui::PopFont();
     ImGui::EndChild();
+    // The preview follows the mouse over the list, or the keys when they moved the highlight since.
+    if (hovered != g_browserHovered) {
+        g_browserHovered = hovered;
+        if (hovered >= 0)
+            g_browserKeysWon = false;
+    }
+    int preview = g_browserHovered >= 0 && !g_browserKeysWon ? g_browserHovered : -1;
+    if (preview != g_previewAsked) {
+        g_previewAsked = preview;
+        Ask(Request::kBrowserPreview, preview);
+    }
     ImGui::BeginDisabled(items.empty());
     if (ImGui::Button("Place (Enter)"))
         Ask(Request::kBrowserPlace);
@@ -1142,6 +1219,12 @@ bool& Enabled()
 
 bool Running() { return g_running; }
 
+int PreviewPixels()
+{
+    float scale = g_scale > 0.0f ? g_scale : 1.0f;
+    return std::clamp(static_cast<int>(256.0f * scale + 0.5f), 256, 512);
+}
+
 bool Start()
 {
     if (g_running)
@@ -1168,6 +1251,8 @@ bool Start()
     g_uiButtons = g_editorButtons = 0;
     g_wantMouse = g_wantKeys = false;
     g_browserShownIndex = -1;
+    g_browserHovered = g_previewAsked = -1;
+    g_browserKeysWon = false;
     return true;
 }
 

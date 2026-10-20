@@ -20,6 +20,7 @@
 #include "game/front/level_editor_node_edit.h"
 #include "game/front/level_editor_nodes.h"
 #include "game/front/level_editor_objects.h"
+#include "game/front/level_editor_preview.h"
 #include "game/front/level_editor_scenery.h"
 #include "game/front/level_editor_ui.h"
 #include "game/front/mouse_menus.h"
@@ -408,6 +409,7 @@ struct Browser {
     int tab = 0; // 0: scenery pieces, 1: objects
     int index = 0;
     int top = 0;
+    int preview = -1; // (the entry the preview shows when not the highlighted one: the one hovered in the list)
     struct Item {
         uint32_t id;
         std::string label;
@@ -1579,6 +1581,7 @@ bool __cdecl CFunc_Stop(Script::CStruct*, Script::CScript*)
     NoteAction("left the editor");
     Scenery::EndTints(Objects::ResolveTint, true);
     Hud::HidePanel();
+    Preview::Hide();
     Ui::Stop();
     SetRelative(false);
     PlaceSkaterBelowCamera();
@@ -2019,6 +2022,10 @@ Ui::Model BuildModel()
     for (const Browser::Item& item : g_browser.items)
         g_uiBrowserItems.push_back({item.id, item.label});
     model.browserItems = &g_uiBrowserItems;
+    model.preview.index = !g_browser.open || g_browser.items.empty() ? -1
+                          : g_browser.preview >= 0 && g_browser.preview < static_cast<int>(g_browser.items.size())
+                              ? g_browser.preview
+                              : g_browser.index;
     model.nodes.families = g_families;
     model.nodes.selected = InspectedNode();
     model.nodes.hovered = g_hoverNode;
@@ -2126,6 +2133,7 @@ void FillBrowser()
             g_browser.items.push_back({entry.name, entry.label});
     }
     g_browser.index = std::min(g_browser.index, std::max(0, static_cast<int>(g_browser.items.size()) - 1));
+    g_browser.preview = -1;
 }
 
 void ShowBrowser()
@@ -2727,6 +2735,12 @@ void ApplyUiRequests(V3 dir, bool haveRay, const Frame& frame)
             if (!noChange)
                 MoveSelectedCrown(request.value);
             break;
+        case Ui::Request::kBrowserPreview:
+            g_browser.preview = request.value;
+            break;
+        case Ui::Request::kPreviewOrbit:
+            Preview::Input(request.a[0], request.a[1], request.a[2]);
+            break;
         case Ui::Request::kSelectObject:
             if (!g_dragging) {
                 if (auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(request.id))) {
@@ -3171,6 +3185,8 @@ void Draw()
     if (Ui::Running()) {
         g_overlay.Clear();
         Ui::Model model = BuildModel();
+        // The Add palette's preview drawn off-screen first (level_editor_preview.h): ImGui shows its picture.
+        Preview::Frame(&model);
         AddNodeGizmos(frame, model.nodes.selected);
         for (size_t i = 0; i + 1 < lines.size(); i += 2)
             g_overlay.lines.push_back({lines[i].x, lines[i].y, lines[i + 1].x, lines[i + 1].y, lines[i].color, 1.0f});

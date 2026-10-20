@@ -346,6 +346,22 @@ bool Restore(const State& state)
     return true;
 }
 
+void* Geometry(Obj::CCompositeObject* object, int index)
+{
+    return object && index >= 0 && index < 16 ? ModelGeometry(object, index) : nullptr;
+}
+
+std::string ModelFile(uint32_t name)
+{
+    static const uint32_t kModel = Crc::GenerateCRCFromString("model");
+    Script::CStruct* node = NodeOf(name);
+    const char* model = nullptr;
+    if (!node || !node->GetString(kModel, &model, 0) || !model || !*model)
+        return {};
+    const char* base = std::max(std::strrchr(model, '\\'), std::strrchr(model, '/'));
+    return base ? base + 1 : model;
+}
+
 bool Tint(Obj::CCompositeObject* object, uint32_t rgba)
 {
     bool any = false;

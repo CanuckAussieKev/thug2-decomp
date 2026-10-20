@@ -52,6 +52,12 @@ State Save(Obj::CCompositeObject* object);
 // Put back (false: no such object now).
 bool Restore(const State& state);
 
+// Its model's geometry `index` (0..15; null past the last - the model component's model +0x208, 0x00494640) - the
+// Add palette's preview draws them (level_editor_preview.h).
+void* Geometry(Obj::CCompositeObject* object, int index);
+// The model file its node names (the file's name without its folders; empty: none).
+std::string ModelFile(uint32_t name);
+
 // Highlighting: each geometry of its model tinted (Scenery::Tint; false: none could be - draw its box instead).
 bool Tint(Obj::CCompositeObject* object, uint32_t rgba);
 // For Scenery::EndTints: an owner's geometry now (sectors and objects).
