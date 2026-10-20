@@ -451,7 +451,7 @@ void TestAnimCollSphereQueries()
                 hits.direction = SpVector(random, 30.0f, n % 2 ? 1.0f : 0.5f);
                 bool result = slot(sector, &sphere, &box, &hits);
                 found += original && hits.count > 0 && hits.count < 30;
-                Record({result & 0xFFu});
+                Record({static_cast<uint32_t>(result)});
                 SaWords(&hits, sizeof(hits));
             }
         }
@@ -485,7 +485,7 @@ void TestAnimCollSphereQueries()
             hits.count = 9;
             hits.sweep = n % 3 == 0 ? 0.0f : SpSpread(random, 2.0f);
             hits.direction = SpVector(random, 40.0f, SpSpread(random, 2.0f));
-            Record({world(&sphere, &hits, n % 3 ? cache : nullptr) & 0xFFu, static_cast<uint32_t>(hits.count)});
+            Record({static_cast<uint32_t>(world(&sphere, &hits, n % 3 ? cache : nullptr)), static_cast<uint32_t>(hits.count)});
         }
         // the sphere feeler
         auto* feeler = reinterpret_cast<Nx::CSphereFeeler*>(g_sa->feeler);

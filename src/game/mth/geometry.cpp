@@ -300,7 +300,7 @@ float Line::DistanceSqrToPoint(const Vector& point, Vector* offset) const
 // distance is a quadratic in (s, t):  a00 s^2 + 2 a01 s t + a11 t^2 + 2 b0 s + 2 b1 t + c.  Its unconstrained
 // minimum is checked against the unit square, and the edge or corner it falls outside of is minimised instead.
 // The branch order follows the original exactly (it matters for which edge wins at region boundaries).
-float Line::DistanceSqrToLine(const Line& other, float* s_out, float* t_out) const
+double Line::DistanceSqrToLine(const Line& other, float* s_out, float* t_out) const
 {
     const float dx = start.x - other.start.x, dy = start.y - other.start.y, dz = start.z - other.start.z;
     const float d0x = end.x - start.x, d0y = end.y - start.y, d0z = end.z - start.z;
@@ -477,7 +477,7 @@ float Line::DistanceSqrToLine(const Line& other, float* s_out, float* t_out) con
 // 0x004032E0
 int Capsule::IntersectsSegment(const Line& segment, float* s, float* t, float* distance_sqr) const
 {
-    float distance = line.DistanceSqrToLine(segment, s, t);
+    float distance = static_cast<float>(line.DistanceSqrToLine(segment, s, t));
     if (distance_sqr)
         *distance_sqr = distance;
     return distance <= radius * radius ? 1 : 0;

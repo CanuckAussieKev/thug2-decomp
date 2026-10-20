@@ -4,6 +4,7 @@
 
 #include <cmath>
 
+#include "game/core/dbg.h"
 #include "hook/hook.h"
 
 namespace Nx {
@@ -13,6 +14,9 @@ namespace {
 constexpr float kMinDeterminant = 0.03f;
 constexpr float kBoundSlack = 1.00001f;
 constexpr float kParallel = 1e-11f;
+// A segment whose direction is this close to across the triangle's normal (squared, relative) counts as parallel
+// to it (0x006453D4).
+constexpr float kParallelSegment = 1e-4f;
 
 float Difference(float a, float b) { return static_cast<float>(static_cast<double>(a) - b); }
 
@@ -314,6 +318,225 @@ double PointTriangleDistanceSquared(const Mth::Vector& point, const Mth::Vector&
     return std::fabs(result);
 }
 
+// 0x0040BDC0 (with e1 = v1 - v0, e2 = v2 - v0, d = end - start, D = v0 - start: the 3x3 system for the segment's
+// t and the triangle's s, t solved by Cramer's rule; rounded where the original's x87 code stores)
+double SegmentTriangleDistanceSquared(const Mth::Line& segment, const Mth::Vector& /*normal*/, const Mth::Vector& v0,
+                                      const Mth::Vector& v1, const Mth::Vector& v2, float* sOut, float* tOut,
+                                      float* alongOut)
+{
+    const Mth::Vector& start = segment.start;
+    const double Dx = static_cast<double>(v0.x) - start.x;
+    const double Dy = static_cast<double>(v0.y) - start.y;
+    const double Dz = static_cast<double>(v0.z) - start.z;
+    const float dx = Difference(segment.end.x, start.x), dy = Difference(segment.end.y, start.y),
+                dz = Difference(segment.end.z, start.z);
+    const float e1x = Difference(v1.x, v0.x), e1y = Difference(v1.y, v0.y), e1z = Difference(v1.z, v0.z);
+    const float e2x = Difference(v2.x, v0.x), e2y = Difference(v2.y, v0.y), e2z = Difference(v2.z, v0.z);
+    auto product = [](float a, float b) { return static_cast<double>(a) * b; };
+
+    const float dd = static_cast<float>((product(dz, dz) + product(dy, dy)) + product(dx, dx));
+    const float de1 = static_cast<float>((product(e1z, -dz) + product(e1y, -dy)) + product(-dx, e1x)); // -(d.e1)
+    const float de2 = static_cast<float>((product(e2y, -dy) + product(-dx, e2x)) + product(-dz, e2z)); // -(d.e2)
+    const float e1e1 = static_cast<float>((product(e1z, e1z) + product(e1y, e1y)) + product(e1x, e1x));
+    const float e1e2 = static_cast<float>((product(e1z, e2z) + product(e2y, e1y)) + product(e2x, e1x));
+    const float e2e2 = static_cast<float>((product(e2y, e2y) + product(e2x, e2x)) + product(e2z, e2z));
+    const float dD = static_cast<float>((dz * -Dz + dy * -Dy) + -Dx * dx); // -(d.D)
+    const float e1D = static_cast<float>((e1z * Dz + e1y * Dy) + e1x * Dx);
+    const float e2D = static_cast<float>((Dz * e2z + e2y * Dy) + e2x * Dx);
+
+    // The triangle's normal (unnormalised), to tell a segment (nearly) parallel to it.
+    const double nx = product(e2y, e1z) - product(e1y, e2z);
+    const double ny = product(e1x, e2z) - product(e1z, e2x);
+    const double nz = product(e1y, e2x) - product(e2y, e1x);
+    const double dn = (dz * nz + dy * ny) + nx * dx;
+    const bool parallel = !((((nx * nx + nz * nz) + ny * ny) * dd) * kParallelSegment <= dn * dn);
+
+    float along = 0.0f, s = 0.0f, t = 0.0f;
+    auto finish = [&](double result) {
+        if (alongOut)
+            *alongOut = along;
+        if (sOut)
+            *sOut = s;
+        if (tOut)
+            *tOut = t;
+        return result;
+    };
+    // The segment against one triangle edge, and against the triangle from one of its ends.
+    auto edge = [&](const Mth::Vector& a, const Mth::Vector& b, float* segmentT, float* edgeT) {
+        return segment.DistanceSqrToLine(Mth::Line(a, b), segmentT, edgeT);
+    };
+    auto fromPoint = [&](const Mth::Vector& point, float* pointS, float* pointT) {
+        return PointTriangleDistanceSquared(point, v0, v1, v2, pointS, pointT);
+    };
+
+    float best = 0.0f;
+    // A later edge, compared unrounded with the best so far: v0 v1 (s along it), v0 v2 (t) or v1 v2 (w: s = 1 - w,
+    // t = w).
+    auto tryEdge01 = [&] {
+        float segmentT, edgeT;
+        double distance = edge(v0, v1, &segmentT, &edgeT);
+        if (distance < best) {
+            best = static_cast<float>(distance);
+            along = segmentT;
+            s = edgeT;
+            t = 0.0f;
+        }
+    };
+    auto tryEdge02 = [&] {
+        float segmentT, edgeT;
+        double distance = edge(v0, v2, &segmentT, &edgeT);
+        if (distance < best) {
+            best = static_cast<float>(distance);
+            along = segmentT;
+            s = 0.0f;
+            t = edgeT;
+        }
+    };
+    auto tryEdge12 = [&] {
+        float segmentT, edgeT;
+        double distance = edge(v1, v2, &segmentT, &edgeT);
+        float rest = static_cast<float>(1.0 - edgeT);
+        if (distance < best) {
+            best = static_cast<float>(distance);
+            along = segmentT;
+            s = rest;
+            t = edgeT;
+        }
+    };
+    // Last, one of the segment's ends (rounded before it's compared), and the result.
+    auto finishWithEnd = [&](bool atEnd) {
+        Mth::Vector point = atEnd ? segment.end : segment.start;
+        float pointS, pointT;
+        float distance = static_cast<float>(fromPoint(point, &pointS, &pointT));
+        if (distance < best) {
+            along = atEnd ? 1.0f : 0.0f;
+            s = pointS;
+            t = pointT;
+            return finish(distance);
+        }
+        return finish(best);
+    };
+
+    if (parallel) {
+        best = static_cast<float>(edge(v0, v1, &along, &s));
+        t = 0.0f;
+        tryEdge02();
+        tryEdge12();
+        float pointS, pointT;
+        double distance = fromPoint(start, &pointS, &pointT);
+        if (distance < best) {
+            best = static_cast<float>(distance);
+            along = 0.0f;
+            s = pointS;
+            t = pointT;
+        }
+        return finishWithEnd(true);
+    }
+
+    // Where the segment's line crosses the triangle's plane.
+    const double cofactor11 = static_cast<double>(e2e2) * e1e1 - static_cast<double>(e1e2) * e1e2;
+    const float cofactor12 = static_cast<float>(product(e1e2, de2) - product(e2e2, de1));
+    const float cofactor13 = static_cast<float>(product(e1e2, de1) - product(e1e1, de2));
+    const float cofactor23 = static_cast<float>(product(de2, de1) - product(e1e2, dd));
+    const double inverse = 1.0 / ((product(cofactor13, de2) + product(cofactor12, de1)) + cofactor11 * dd);
+    const float rhsD = static_cast<float>(-(dD * inverse));
+    const float rhs1 = static_cast<float>(-(e1D * inverse));
+    const double rhs2Exact = -(inverse * e2D);
+    const float rhs2 = static_cast<float>(rhs2Exact);
+    along = static_cast<float>((rhs2Exact * cofactor13 + product(rhs1, cofactor12)) + rhsD * cofactor11);
+    const double sExact = ((product(e2e2, dd) - product(de2, de2)) * rhs1 + product(rhs2, cofactor23)) +
+                          product(rhsD, cofactor12);
+    s = static_cast<float>(sExact);
+    t = static_cast<float>(((product(e1e1, dd) - product(de1, de1)) * rhs2 + product(rhs1, cofactor23)) +
+                           product(rhsD, cofactor13));
+
+    const bool beyondEdge12 = !(t + sExact <= 1.0);
+    const bool belowEdge02 = sExact < 0.0; // (s < 0: on v0 v2's far side)
+    const bool belowEdge01 = t < 0.0f;
+    if (along < 0.0f || !(along <= 1.0f)) {
+        // The crossing is off the segment: the nearer of the nearest edges and the segment's end.
+        const bool atEnd = !(along < 0.0f);
+        if (!beyondEdge12) {
+            if (belowEdge02) {
+                best = static_cast<float>(edge(v0, v2, &along, &t));
+                s = 0.0f;
+                if (belowEdge01)
+                    tryEdge01();
+            } else if (belowEdge01) {
+                best = static_cast<float>(edge(v0, v1, &along, &s));
+                t = 0.0f;
+            } else {
+                double distance = fromPoint(atEnd ? segment.end : start, &s, &t);
+                along = atEnd ? 1.0f : 0.0f;
+                return finish(distance);
+            }
+        } else if (belowEdge02) {
+            best = static_cast<float>(edge(v0, v2, &along, &t));
+            s = 0.0f;
+            tryEdge12();
+        } else if (belowEdge01) {
+            best = static_cast<float>(edge(v0, v1, &along, &s));
+            t = 0.0f;
+            tryEdge12();
+        } else {
+            best = static_cast<float>(edge(v1, v2, &along, &t));
+            s = static_cast<float>(1.0 - t);
+        }
+        return finishWithEnd(atEnd);
+    }
+
+    // The crossing is on the segment: the nearest edges (rounded before they're compared).
+    if (!beyondEdge12) {
+        if (belowEdge02) {
+            if (!belowEdge01) {
+                double distance = edge(v0, v2, &along, &t);
+                s = 0.0f;
+                return finish(distance);
+            }
+            best = static_cast<float>(edge(v0, v2, &along, &t));
+            s = 0.0f;
+            float segmentT, edgeT;
+            float distance = static_cast<float>(edge(v0, v1, &segmentT, &edgeT));
+            if (distance < best) {
+                along = segmentT;
+                s = edgeT;
+                t = 0.0f;
+                return finish(distance);
+            }
+            return finish(best);
+        }
+        if (belowEdge01) {
+            double distance = edge(v0, v1, &along, &s);
+            t = 0.0f;
+            return finish(distance);
+        }
+        Dbg::Printf("uh oh...\n");
+        return finish(0.0f);
+    }
+    if (!belowEdge02 && !belowEdge01) {
+        double distance = edge(v1, v2, &along, &t);
+        s = static_cast<float>(1.0 - t);
+        return finish(distance);
+    }
+    if (belowEdge02) {
+        best = static_cast<float>(edge(v0, v2, &along, &t));
+        s = 0.0f;
+    } else {
+        best = static_cast<float>(edge(v0, v1, &along, &s));
+        t = 0.0f;
+    }
+    float segmentT, edgeT;
+    float distance = static_cast<float>(edge(v1, v2, &segmentT, &edgeT));
+    float rest = static_cast<float>(1.0 - edgeT);
+    if (distance < best) {
+        along = segmentT;
+        s = rest;
+        t = edgeT;
+        return finish(distance);
+    }
+    return finish(best);
+}
+
 // The arguments copied below the saved EDX (each push moves the next one into the same place).
 __declspec(naked) void LineHitsSphereKeepingEdx()
 {
@@ -520,6 +743,7 @@ bool RectHitsTriangle(const CollRect& rect, const Mth::Vector& v0, const Mth::Ve
 
 REPLACE(0x0040B420, Nx::RayHitsTriangle);
 REPLACE(0x0040B860, Nx::PointTriangleDistanceSquared);
+REPLACE(0x0040BDC0, Nx::SegmentTriangleDistanceSquared);
 REPLACE(0x0040D370, Nx::RectHitsTriangle);
 REPLACE_UNCHECKED(0x0040B610, Nx::LineHitsSphereKeepingEdx);
 REPLACE_UNCHECKED(0x0040B750, Nx::SegmentsCross2DKeepingEdx);

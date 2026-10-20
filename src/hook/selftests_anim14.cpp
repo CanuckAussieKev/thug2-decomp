@@ -344,12 +344,12 @@ void TestAnimFeelerQueries()
                 Record({0x5E5017u, static_cast<uint32_t>(result)});
                 RecordHit(&f->m_hit);
                 Words(&f->m_distance, (0xB0 - 0x74) / 4);
-                Record({WaFn<bool(__thiscall*)(CFeeler*)>(0x00417120)(f) & 0xFFu,
+                Record({static_cast<uint32_t>(WaFn<bool(__thiscall*)(CFeeler*)>(0x00417120)(f)),
                         WaFn<uint32_t(__thiscall*)(CFeeler*)>(0x00417140)(f),
                         Where(WaFn<uint32_t(__thiscall*)(CFeeler*)>(0x00417240)(f))});
                 if (q % 5 == 1 && f->m_object.mp_object) // the object gone: its smart pointers cleared
                     GameFunction<void(__thiscall*)(void*)>(0x00463820)(f->m_object.mp_object);
-                Record({WaFn<bool(__thiscall*)(CFeeler*)>(0x00417210)(f) & 0xFFu});
+                Record({static_cast<uint32_t>(WaFn<bool(__thiscall*)(CFeeler*)>(0x00417210)(f))});
                 RecordHit(&f->m_hit);
                 Words(&f->m_object, 4);
                 if (q % 7 == 0) { // the relay itself

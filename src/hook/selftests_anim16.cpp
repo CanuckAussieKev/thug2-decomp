@@ -442,7 +442,7 @@ void TestAnimCollRectQueries()
                 hits.requireFlags = n % 5 == 2 ? static_cast<uint16_t>(1u << random.Below(16)) : 0;
                 bool result = placed ? rectInstance(instance, &rect, &box, &hits) : rectSector(sector, &rect, &box, &hits);
                 found += hits.count > 0 && hits.count != 32;
-                Record({result & 0xFFu});
+                Record({static_cast<uint32_t>(result)});
                 RaWords(&hits, sizeof(hits));
             }
             geometry->m_bsp = nullptr;
@@ -483,7 +483,7 @@ void TestAnimCollRectQueries()
             Nx::RectHits& hits = g_ra->hits;
             std::memset(&hits, 0x6B, sizeof(hits));
             hits.count = 9;
-            Record({world(&rect, &hits, n % 3 ? cache : nullptr) & 0xFFu, static_cast<uint32_t>(hits.count)});
+            Record({static_cast<uint32_t>(world(&rect, &hits, n % 3 ? cache : nullptr)), static_cast<uint32_t>(hits.count)});
         }
 
         // the rect feeler

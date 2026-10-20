@@ -111,7 +111,7 @@ bool SegmentCrossesSphere(const Mth::Line* segment, const CollSphere* sphere, in
 
 // 0x0040E560
 bool SweptSphereHitsEdge(const Mth::Line* edge, const Mth::Vector* edgeMotion, const CollSphere* sphere,
-                         const Mth::Vector* motion, float* t, float limit, int* count, Mth::Vector* point)
+                         const Mth::Vector* motion, float* t, float /*limit*/, int* count, Mth::Vector* point)
 {
     if (SegmentCrossesSphere(edge, sphere, count, point, 0))
         return true;

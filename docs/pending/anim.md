@@ -543,6 +543,29 @@ ProjectToPlane made exact).
   - Mutations: 74 deliberate bugs; 67 caught (57 at first: the exact cases, moving edges, negative sweeps added for
     10). Not caught: equivalent ones (the capsule test always gives the edge parameter within 0..1; a triangle with
     no area misses either way), NaN-only differences (2), and roundings below a float's resolution (3).
+- [x] Batch AN-20 (NOT run in the game yet; the capsule queries; 3 functions): src/game/nx/coll_capsule.h / .cpp
+  (new), coll_tests.h / .cpp, coll_static.h; Mth::Line::DistanceSqrToLine now returns double.
+  - Nx::SegmentTriangleDistanceSquared 0x0040BDC0 (cdecl; Eberly's segment / triangle regions: the 3x3 system by
+    Cramer's rule; a crossing off the segment - the nearest edges and the nearer end (PointTriangleDistanceSquared);
+    on it - the nearest edges; a (nearly) parallel segment - all three edges and both ends; some results rounded
+    to float before they're compared or returned, some not, as the original; a segment through the interior prints
+    "uh oh..." and returns 0; the second argument, the face's normal, isn't read).
+  - Nx::CapsuleHitsTriangle 0x0040FC00 (the face's unit normal (v1 - v0) x (v2 - v0), false for a degenerate face;
+    the nearest points; true when the segment is in front of the face and within the radius), Nx::CapsuleHit
+    (0x3C: point, offset from the segment's nearest point, a time never written, normal, checksum, flag 0x40) /
+    CapsuleHits (0x7A4), CCollStatic::CollideWithCapsule 0x004114E0 (slot 17 of sectors and instances alike; only
+    with a zero sweep - a moving capsule finds nothing).
+  - Line::DistanceSqrToLine returns double: the original leaves its result in ST0 unrounded and 0x0040BDC0 compares
+    it before storing. Ours is still computed in floats (an earlier batch's; outside this range) - the tests let
+    both runs use the original's.
+  - Tests (selftests_anim18.cpp): TestAnimCollCapsuleTests - 8000 random segments against triangles (ends below /
+    inside / beyond each edge and corner, above or below the plane, parallel, nearly parallel, crossing, zero length,
+    no area, NaN) with capsules of random radii, and exact ones on a flat triangle (crossing it, on an edge, through
+    a corner, along an edge, parallel, of no length; radii touching exactly); TestAnimCollCapsuleQueries - a mesh's
+    sector (plain / compressed; flags; full lists; modes; sweeps 0, -0, positive, negative).
+  - Mutations: 73 deliberate bugs; 66 caught (63 at first: exact crossings on the edges, an exactly touching radius
+    and a negative sweep added). Not caught: ties between equal candidates (2), roundings that only matter at a
+    float's resolution (4) and one equivalent (the parallel case's t is 0 before it's set).
 - [ ] Next: AN-15 - slots 15-17 of the sector / instance: 0x00410C90 / 0x004128B0, 0x004110B0, 0x004114E0; then
   0x0040BDC0, 0x0040D370, 0x0040E280, 0x0040E560, 0x0040E940, 0x0040EC90, 0x0040F9E0, 0x0040FC00, 0x0040FEC0,
   0x0040FEE0, 0x00410240, 0x004106C0, 0x00410930, 0x00410AA0, 0x00410BC0, the 0x00417xxx feelers / registration

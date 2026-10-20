@@ -819,7 +819,7 @@ void TestBatch12()
         const Line b(pairs[i].b_start, pairs[i].b_end);
         float es = -7, et = -7, as = -7, at = -7;
         float expected = Original<SegFn>(0x00402640)(&a, &b, &es, &et);
-        float actual = a.DistanceSqrToLine(b, &as, &at);
+        float actual = static_cast<float>(a.DistanceSqrToLine(b, &as, &at));
         // Tolerance scaled to the input size: the result is a sum of large terms that mostly cancel.
         float scale = 1.0f + (a.start - b.start).LengthSqr() + (a.end - a.start).LengthSqr() +
                       (b.end - b.start).LengthSqr();

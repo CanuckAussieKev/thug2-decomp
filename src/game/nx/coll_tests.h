@@ -35,6 +35,17 @@ bool SegmentsCross2D(float ax, float ay, float adx, float ady, float bx, float b
 double PointTriangleDistanceSquared(const Mth::Vector& point, const Mth::Vector& v0, const Mth::Vector& v1,
                                     const Mth::Vector& v2, float* s, float* t);
 
+// 0x0040BDC0 (cdecl): the squared distance between `segment` and the triangle v0 v1 v2 (Eberly's segment /
+// triangle regions). The nearest points: segment.start + *along (segment.end - segment.start) on the segment and
+// v0 + *s (v1 - v0) + *t (v2 - v0) on the triangle (each written when not null). Outside the triangle's interior
+// the edges are measured with Line::DistanceSqrToLine and the segment's ends with PointTriangleDistanceSquared;
+// a segment (nearly) parallel to the triangle tries all three edges and both ends. Some results come back rounded
+// to float, some not, as the original's. `normal` isn't read. A segment crossing the triangle's interior prints
+// "uh oh..." and returns 0 (*along, *s, *t where it crosses).
+double SegmentTriangleDistanceSquared(const Mth::Line& segment, const Mth::Vector& normal, const Mth::Vector& v0,
+                                      const Mth::Vector& v1, const Mth::Vector& v2, float* s, float* t,
+                                      float* along);
+
 // A parallelogram: a corner and its two sides (the rect queries' shape).
 struct CollRect {
     Mth::Vector origin;

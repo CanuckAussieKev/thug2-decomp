@@ -15,6 +15,7 @@ struct CollRect;
 struct RectHits;
 struct CollSphere;
 struct SphereHits;
+struct CapsuleHits;
 
 // The triangle collision objects: a level sector's (in world space), an instance of one (scaled and placed) and a
 // movable one. Their faces come from the geometry: face flags (u16 at face +0) and terrain (u16 at +2), faces of
@@ -60,6 +61,10 @@ public:
     // sweep) against each face in `box` not rejected by its flags (SphereHitsTriangle / SweptSphereHitsTriangle):
     // each touch a hit (with its time when moving). True as soon as one is found with the list full or in mode 2.
     bool CollideWithSphere(const CollSphere* sphere, const Mth::BBox* box, SphereHits* hits);
+    // 0x004114E0 (slot 17, an instance's too): the standing capsule against each face in `box` not rejected by its
+    // flags (CapsuleHitsTriangle): each touch a hit. Nothing when `hits` has a sweep. True as soon as one is found
+    // with the list full or in mode 2; else whether the list has any.
+    bool CollideWithCapsule(const Mth::Capsule* capsule, const Mth::BBox* box, CapsuleHits* hits);
     // 0x00410BC0: the face-rejection buffer taken from `block` (8-byte faces keep theirs: nothing taken) and the
     // geometry's rejection scale kept (+0x14). The block's next free byte.
     uint8_t* TakeBuffer(uint8_t* block, const CCollObjTriData* geometry);
