@@ -10,6 +10,7 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_syswm.h>
 
+#include "game/front/automation.h"
 #include "game/sys/config.h"
 #include "game/sys/debug_log.h"
 #include "game/sys/sdl_events.h"
@@ -64,7 +65,12 @@ void HandleWindowEvent(SDL_Event* event)
         return;
     if (event->window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
         RecreateDevice() = false;
-        Focused() = false;
+        // Not PartyMod's - with the test-automation channel on (game/front/automation.h) the game keeps drawing in
+        // the background, so a test's picture of its window (PrintWindow) shows the frame now, not the last one
+        // drawn before the window lost the focus (the main loop draws nothing while the flag is off).
+        // Original behaviour (PartyMod v1.0.4): Focused() = false always.
+        if (!Front::Automation::Enabled())
+            Focused() = false;
     } else if (event->window.event == SDL_WINDOWEVENT_FOCUS_GAINED) {
         RecreateDevice() = true;
         Focused() = true;

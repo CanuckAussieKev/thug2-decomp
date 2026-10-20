@@ -9,6 +9,7 @@
 
 #include <SDL2/SDL.h>
 
+#include "game/front/automation.h"
 #include "game/front/front_end.h"
 #include "game/front/level_editor.h"
 #include "game/front/restart_tester.h"
@@ -880,6 +881,8 @@ void Update(Mdl::FrontEnd* frontEnd)
     Sys::DebugMode::Update(frontEnd);
     // (and the start level: -level <name> - game/front/start_level.h)
     Front::StartLevel::Update(frontEnd);
+    // (and the test-automation channel: commands from a file - game/front/automation.h)
+    Front::Automation::Update(frontEnd);
     if (!Enabled())
         return;
     MouseState input = s_mouse;
@@ -941,5 +944,9 @@ void Update(Mdl::FrontEnd* frontEnd)
         if (AnyMenu(RootElement(ElementManager()), MenuTakesPadEvents, true))
             SendPadEvent(frontEnd, notches > 0 ? kPadUp : kPadDown);
 }
+
+bool MenuGetsPadEvents(CScreenElement* menu) { return MenuTakesPadEvents(menu); }
+
+void SendMenuPadEvent(Mdl::FrontEnd* frontEnd, uint32_t event) { SendPadEvent(frontEnd, event); }
 
 } // namespace MouseMenus

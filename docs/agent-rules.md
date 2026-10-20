@@ -37,6 +37,10 @@ workspace (C:\Games\THUG2-n) and its pending-doc name. Agents cost a lot of usag
 - Scripts in tools/game (see its README): `game_lock.ps1 -Action acquire|release -Owner <you> -Game <workspace>`,
   `run_game.ps1 -Game <workspace> -Seconds N [-Keys ...]` (posts keys without focus, PrintWindow pictures; never pipe
   it into Select-Object -First), `window_shot.ps1 -ProcessId <pid>`, `boot_level.py <level> <workspace>`.
+- **Drive the menus with commands, not posted keys:** `run_game.ps1 -Commands "waitfor ready","choose ...",...` and
+  `game_cmd.ps1` (the DLL's test-automation channel, on in the workspaces - tools/game/README.md): no fixed waits, no
+  dropped keys, the status file says where the game is. Use `-Keys` only for what commands can't do. The channel
+  refuses anything online - never try to get round it.
 - Take the workspace's lock for every game run, copy in your own build's dinput8.dll if needed, read
   `<workspace>\thug2-decomp.log` after every run, release the lock (it puts the DLL and ini back).
 - Screenshots: the game's window only, never the screen. Never close a game you didn't start. Never delete original

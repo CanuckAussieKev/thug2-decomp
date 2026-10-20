@@ -31,10 +31,14 @@ bool IsScript(uint32_t name)
     return symbol && symbol->type == Script::ESYMBOLTYPE_QSCRIPT;
 }
 
+// The command line as the DLL found it, read while the DLL loads: the game's own parsing cuts the process's command
+// line buffer into words later (a 0 after the first word, "... -level" - seen with the stock THUG2.exe, 2026-10-20).
+const std::string g_commandLine = GetCommandLineA();
+
 // -level <name>, --level <name> or --level=<name> on the command line ("" if none).
 std::string FromCommandLine()
 {
-    std::string line = GetCommandLineA();
+    const std::string& line = g_commandLine;
     for (const char* option : {"--level=", "--level ", "-level "}) {
         size_t at = line.find(option);
         if (at == std::string::npos)
@@ -95,19 +99,28 @@ void Update(Mdl::FrontEnd* frontEnd)
     if (++s_frames < 60)
         return;
     s_done = true;
-    std::string level = Requested();
+    Load(Requested(), nullptr);
+}
+
+bool Load(const char* name, std::string* why)
+{
+    std::string level = name;
     if (_strnicmp(level.c_str(), "load_", 5) != 0)
         level = "Load_" + level;
     uint32_t load = Checksum(level.c_str());
     if (!IsScript(load)) {
         Log("start level: %s isn't a level's load script - the main menu stays", level.c_str());
-        return;
+        if (why)
+            *why = level + " isn't a level's load script";
+        return false;
     }
     if (!SceneInstalled(level.substr(5))) {
         Log("start level: %s - the level's scene isn't installed (the game would crash loading it) - the main menu "
             "stays",
             level.c_str());
-        return;
+        if (why)
+            *why = level + ": the level's scene isn't installed";
+        return false;
     }
     Log("start level: %s (free skate)", level.c_str());
     Script::RunScript(Checksum("EnableSun"), nullptr, nullptr, false, "EnableSun");
@@ -120,6 +133,7 @@ void Update(Mdl::FrontEnd* frontEnd)
     Script::SpawnScript(Checksum("level_select_change_level"), params, 0, nullptr, 0, 0, false, false, false, false);
     params->Clear();
     Script::DeleteStruct(params);
+    return true;
 }
 
 } // namespace Front::StartLevel

@@ -23,6 +23,36 @@ THUG2.exe or THUG2PM.exe, tools/game/game_exe.ps1).
   from that folder). In a workspace it never takes the foreground: keys are posted to the window (KEYS_POST +
   KEYS_NO_FOCUS) and pictures taken with PrintWindow, so it runs while the user uses the PC. Pictures go to
   %TEMP%\thug2-shots unless -ShotDir. Don't pipe it into `Select-Object -First` (that stops it before it closes the game).
+- **Commands instead of keys (prefer these):** the DLL's test-automation channel (src/game/front/automation.h; on in
+  the workspaces - `[features] automation=1`, set by make_workspace.ps1; never on in the main install). The game reads
+  `<folder>\thug2-decomp-commands.txt` once a frame and writes `<folder>\thug2-decomp-status.json` (readable while it
+  runs - the log isn't). Nothing is dropped and nothing waits a fixed time: a cold start to the free-skate level select
+  takes ~8 s (posted keys: ~65 s).
+  - `run_game.ps1 -Game C:\Games\THUG2-4 -Commands "waitfor ready","choose menu_singlesess","choose select_skater_hmenu","choose ss_play_level","waitfor focus level_menu"`
+    writes the commands before the game starts, waits until they're done (`-Seconds` is then the most it waits), takes
+    the picture, closes the game. With `powershell -File` an array arrives as one string: separate commands with `;`.
+    `-WaitReady`: wait for the main menu instead of `-Seconds`. `-Run <script>`: the game started with `-run <script>`.
+    `-Keys` still works (after the commands).
+  - `game_cmd.ps1 -Game <folder> -Commands ... [-Timeout 120] [-Shot <png>]` - more commands to a game that runs (one
+    you started, under the lock); prints the result and the status. `-Status` prints only the status. Exit code 0 done,
+    1 failed / refused, 2 timed out.
+  - Commands (one a line, `#` comments, an id is a name or `0x<hex>`): `run <script> [name=value | flag]...`,
+    `choose <id> [s]` (a menu item: its menu stepped there with pad_up / pad_down as the pad does, then pad_choose -
+    waits for the item, the menu taking pad events, menu input unblocked and no loading screen; a menu id chooses its
+    selected item), `focus <id> [s]`, `press <button> [frames]` (through Sio's control data: up down left right x/enter
+    circle/esc square triangle start select l1 r1 l2 r2 l3 r3), `wait <frames>`, `waitfor ready | frontend | ingame |
+    level <name> | menu <id> | focus <id> [s]`, `level <name>` (as -level), `echo <text>`, `quit`. A failure or refusal
+    skips the rest of the batch.
+  - Status: frames, ready, main_menu, where (front_end / level), paused, loading, level, game_mode, focus (the focused
+    elements' ids), selected (the focused menus' items), lines_read / lines_done, current, last, result, errors,
+    refusals. Unknown ids show as 0x<hex>: name them in a `waitfor` once and they're shown by name.
+  - **Never online:** `run` refuses the network / online scripts (every script of the game's net files, and names with
+    net / online / internet / lobby / login / buddy / homie / gamespy / network / server / join / host / lan), `choose` /
+    `focus` / `press` refuse items whose ids or event handlers lead there (MULTIPLAYER, Network / Online Play...), and
+    nothing but wait / echo / quit runs while the game is online or in a network game mode. The tables are generated:
+    `python -I tools/game/make_automation_tables.py` (reads the game's loose scripts) -> src/game/front/automation_tables.inc.
+  - With the channel on, the game also keeps drawing while its window is in the background (PrintWindow pictures show
+    the current frame; without it the main loop stops drawing when the window loses the focus).
 - `keys.ps1 -ProcessId <pid> -Keys ...` - the key sender run_game uses (scan codes posted to the window: SendInput
   doesn't reach SDL). Keys: down, up, left, right, enter, esc, `pause` (4 s), `shot`, `hold:<key>:<ms>`,
   `now:<key>`, `ctrl:<key>` (the mouse commands only work with the game in front - not in workspaces).
