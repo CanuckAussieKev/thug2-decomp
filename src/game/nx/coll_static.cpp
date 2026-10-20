@@ -49,6 +49,17 @@ uint16_t CollFaceAccess::GetFaceTerrain(int face) const
     return *reinterpret_cast<const uint16_t*>(Face(m_geometry, face) + 2);
 }
 
+// 0x00412730 (not a function in Ghidra: the array constructor's element constructor)
+CCollStatic* CCollStatic::Construct()
+{
+    m_flags = 0;
+    m_geometry = nullptr;
+    m_vtable = kStaticVtable;
+    m_buffer = nullptr;
+    m_unknown14 = 0;
+    return this;
+}
+
 // 0x00412760
 void CCollStatic::Destruct()
 {
@@ -471,6 +482,7 @@ CCollObj* CreateMovableCollision(int type, CCollObjTriData* geometries, int coun
 
 REPLACE(0x00410BF0, &Nx::CollFaceAccess::GetFaceFlags);
 REPLACE(0x00411750, &Nx::CollFaceAccess::GetFaceTerrain);
+REPLACE(0x00412730, &Nx::CCollStatic::Construct);
 REPLACE(0x00412760, &Nx::CCollStatic::Destruct);
 REPLACE(0x004139A0, &Nx::CCollStatic::Clone);
 REPLACE(0x00410C20, &Nx::CCollStatic::SetWorldPosition);

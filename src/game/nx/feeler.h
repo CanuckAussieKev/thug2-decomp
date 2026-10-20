@@ -57,6 +57,10 @@ public:
     bool HitObjectAlive();
     // 0x00417240
     Obj::CCompositeObject* GetHitObject();
+    // 0x004174A0: the hit face's per-vertex bytes (its geometry's, / 255) blended at the hit point: along the line
+    // from the first corner through the point to the opposite edge, the edge's two blended by where it's met. 0.5
+    // without a hit. Returned unrounded, as the original leaves it in ST0. (What the bytes are isn't known yet.)
+    double GetHitVertexValue() const;
     // 0x00417150: the line drawn in colour (r, g, b) - compiled out of this build.
     void DebugDraw(uint32_t r, uint32_t g, uint32_t b, int frames);
 

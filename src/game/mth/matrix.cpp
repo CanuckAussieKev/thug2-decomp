@@ -1,6 +1,7 @@
 #include "game/mth/matrix.h"
 
 #include <cmath>
+#include <utility>
 
 #include "game/core/dbg.h"
 #include "game/mth/math.h"
@@ -512,6 +513,19 @@ Matrix& Matrix::Adjugate(const Matrix& source)
     return *this;
 }
 
+// 0x00416DF0 (the dot products summed in double precision)
+Matrix& Matrix::InvertOrthonormal()
+{
+    const double tx = row[3].x, ty = row[3].y, tz = row[3].z;
+    row[3].x = static_cast<float>(-((ty * row[0].y + tz * row[0].z) + tx * row[0].x));
+    row[3].y = static_cast<float>(-((tz * row[1].z + ty * row[1].y) + tx * row[1].x));
+    row[3].z = static_cast<float>(-((tz * row[2].z + ty * row[2].y) + tx * row[2].x));
+    std::swap(row[0].y, row[1].x);
+    std::swap(row[0].z, row[2].x);
+    std::swap(row[1].z, row[2].y);
+    return *this;
+}
+
 // 0x00405600
 Matrix& Matrix::Invert()
 {
@@ -583,6 +597,7 @@ REPLACE(0x0040B000, &Mth::Matrix::TransformAsPos);
 REPLACE(0x0040B090, &Mth::Matrix::RotateVector);
 REPLACE(0x0040B100, &Mth::Matrix::ScaleRows);
 REPLACE(0x00416D80, &Mth::Matrix::operator==);
+REPLACE(0x00416DF0, &Mth::Matrix::InvertOrthonormal);
 REPLACE(0x0041BA30, &Mth::Matrix::Scale);
 REPLACE(0x0048A230, &Mth::Matrix::Translate);
 REPLACE(0x0041F470, static_cast<Mth::Vector (*)(const Mth::Vector&, const Mth::Matrix&)>(&Mth::operator*));

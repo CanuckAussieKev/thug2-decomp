@@ -4,8 +4,12 @@
 
 #include <intrin.h>
 
+#include <cmath>
+
 #include "game/gfx/debug_lines.h"
+#include "game/mth/geometry.h"
 #include "game/nx/coll_obj.h"
+#include "game/nx/coll_tri.h"
 #include "game/nx/coll_world.h"
 #include "game/obj/object.h"
 #include "game/skater/debug_collision.h"
@@ -26,6 +30,13 @@ void ResetHit(CollisionHit& hit)
     hit.normal = {0.0f, 0.0f, 0.0f, 1.0f};
     hit.point = {0.0f, 0.0f, 0.0f, 1.0f};
 }
+
+// GetHitVertexValue without a hit (0x006453BC), and a vertex byte's scale (1 / 255, 0x00645D70).
+constexpr float kNoHitValue = 0.5f;
+constexpr float kByteScale = 1.0f / 255.0f;
+
+float Difference(float a, float b) { return static_cast<float>(static_cast<double>(a) - b); }
+double LengthSquared(double x, double y, double z) { return (z * z + y * y) + x * x; }
 
 } // namespace
 
@@ -147,6 +158,49 @@ bool CFeeler::HitObjectAlive()
 // 0x00417240
 Obj::CCompositeObject* CFeeler::GetHitObject() { return m_object.Get(); }
 
+// 0x004174A0 (the corners about the hit point; the original's x87 code keeps the lengths and the blend in double
+// precision)
+double CFeeler::GetHitVertexValue() const
+{
+    if (!m_hit.hit)
+        return kNoHitValue;
+    CCollObj* object = m_hit.object;
+    const CCollObjTriData* geometry = object->m_geometry;
+    const Mth::Vector& at = m_hit.point;
+    Mth::Vector corner[3];
+    float value[3];
+    for (int k = 0; k < 3; ++k) {
+        uint32_t vertex = geometry->FaceVertex(static_cast<int>(m_hit.face), k);
+        Mth::Vector position;
+        object->Call<Mth::Vector*>(9, &position, static_cast<int>(vertex)); // (slot 9 returns it through a pointer)
+        corner[k] = {Difference(position.x, at.x), Difference(position.y, at.y), Difference(position.z, at.z), 1.0f};
+        value[k] = static_cast<float>(geometry->m_vertexBytes[vertex]) * kByteScale;
+    }
+    // The line from the first corner through the hit point, where it meets the opposite edge's line.
+    const Mth::Vector hitPoint{0.0f, 0.0f, 0.0f, 1.0f};
+    Mth::Line fromCorner(corner[0], hitPoint), opposite(corner[1], corner[2]);
+    Mth::Vector onLine{0.0f, 0.0f, 0.0f, 0.0f}, onEdge; // (the original's are left unset when the lines are parallel)
+    float s, t;
+    Mth::ClosestPointsBetweenLines(fromCorner, opposite, onLine, onEdge, s, t, false);
+    auto minus = [](const Mth::Vector& a, const Mth::Vector& b, double* x, double* y, double* z) {
+        *x = static_cast<double>(a.x) - b.x;
+        *y = static_cast<double>(a.y) - b.y;
+        *z = static_cast<double>(a.z) - b.z;
+    };
+    double x, y, z;
+    minus(onLine, corner[1], &x, &y, &z);
+    const float alongEdgeSquared = static_cast<float>(LengthSquared(x, y, z));
+    minus(corner[2], corner[1], &x, &y, &z);
+    const float edgeSquared = static_cast<float>(LengthSquared(x, y, z));
+    minus(onLine, corner[0], &x, &y, &z);
+    const double toEdge = std::sqrt(LengthSquared(x, y, z));
+    const double toHit = std::sqrt(LengthSquared(corner[0].x, corner[0].y, corner[0].z));
+    const double fraction = std::sqrt(static_cast<double>(alongEdgeSquared)) /
+                            std::sqrt(static_cast<double>(edgeSquared));
+    const double onEdgeValue = (static_cast<double>(value[2]) - value[1]) * fraction + value[1];
+    return (onEdgeValue - value[0]) * (toHit / toEdge) + value[0];
+}
+
 // 0x00417150 (the colour: alpha 0xFF over the low byte of b, then g and r ORed in whole, as the original)
 void CFeeler::DebugDraw(uint32_t r, uint32_t g, uint32_t b, int frames)
 {
@@ -171,3 +225,4 @@ REPLACE(0x00417140, &Nx::CFeeler::GetTestedOwner);
 REPLACE(0x00417210, &Nx::CFeeler::HitObjectAlive);
 REPLACE(0x00417240, &Nx::CFeeler::GetHitObject);
 REPLACE(0x00417150, &Nx::CFeeler::DebugDraw);
+REPLACE(0x004174A0, &Nx::CFeeler::GetHitVertexValue);

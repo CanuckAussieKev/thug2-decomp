@@ -566,9 +566,30 @@ ProjectToPlane made exact).
   - Mutations: 73 deliberate bugs; 66 caught (63 at first: exact crossings on the edges, an exactly touching radius
     and a negative sweep added). Not caught: ties between equal candidates (2), roundings that only matter at a
     float's resolution (4) and one equivalent (the parallel case's t is 0 before it's set).
-- [ ] Next: AN-15 - slots 15-17 of the sector / instance: 0x00410C90 / 0x004128B0, 0x004110B0, 0x004114E0; then
-  0x0040BDC0, 0x0040D370, 0x0040E280, 0x0040E560, 0x0040E940, 0x0040EC90, 0x0040F9E0, 0x0040FC00, 0x0040FEC0,
-  0x0040FEE0, 0x00410240, 0x004106C0, 0x00410930, 0x00410AA0, 0x00410BC0, the 0x00417xxx feelers / registration
-  (0x004177B0, 0x00417800...). Hidden code to give source to later (found by scratchpad hidden.py - runs between
-  Ghidra's functions that aren't padding): 0x00412730, 0x00417110, 0x00419690, 0x00419750, 0x004198D0,
-  0x00419AD0, 0x00419BF0, 0x00419E90, 0x0041A1A0-0x0041A21C.
+- [x] Batch AN-21 (NOT run in the game yet; the range's last functions; 6 functions): src/game/obj/ride_tracker.h /
+  .cpp (new), mth/matrix.h / .cpp, nx/coll_static.h / .cpp, nx/feeler.h / .cpp.
+  - Mth::Matrix::InvertOrthonormal 0x00416DF0 (in place: translation -(t . each row), the 3x3 transposed; the fourth
+    column untouched; returns this).
+  - Obj::CRideTracker (0xB0, our name; what the skater rides, +0x152C's +0x18 - core_physics.cpp): Construct
+    0x00416E70 (a smart pointer to the object, its matrix and position, nothing carried, not turned), Update
+    0x00416F00 (the object's move since the last update, plus - when its orientation changed - the point turned
+    about the old position by new x inverse(old) (D3DXMatrixMultiply, the library's, through its address); false
+    when the object is gone).
+  - Nx::CCollStatic::Construct 0x00412730 (hidden: the element constructor `new CCollStatic[n]` passes to the
+    array iterator at 0x0049CC88; flags, geometry, buffer, +0x14 cleared; checksum and grid mark left).
+  - Nx::CFeeler::GetHitVertexValue 0x004174A0 (the hit face's per-vertex bytes - geometry +0x38, / 255 - blended at
+    the hit point: the line from the first corner through it meets the opposite edge's (ClosestPointsBetweenLines,
+    unclamped), the edge's two bytes blended there, then towards the first corner; 0.5 without a hit; returned
+    unrounded). What the bytes are isn't known yet (7 callers).
+  - Mth::ClosestPointsBetweenLines (0x00402F00, an earlier batch's) isn't exact against the original: the feeler
+    test lets both runs use the original's. Worth making exact some time (outside this range).
+  - Tests (selftests_anim19.cpp): TestAnimMatrixInvertOrthonormal (3000 rotations / arbitrary matrices / NaN; the
+    element constructor on dirty memory), TestAnimRideTracker (three trackers, 2000 updates: moves only, turns,
+    small turns, w's, a vanished object), TestAnimFeelerHitVertexValue (2000 hits on plain / compressed faces:
+    inside, on edges, off the face; no hit).
+  - Mutations: 33 deliberate bugs; 31 caught. Not caught: two equivalent (the turned offset's w and the corners'
+    w never reach a result).
+- [x] The range 0x00406460-0x0041A6D0 is done: find_gaps lists nothing in it, the scratchpad survey has no function
+  left without source, and the hidden runs between Ghidra's functions are all covered (the rest are jump tables,
+  "RLD!" strings and the continuations of covered functions past a 0xCC byte inside them).
+- [ ] Next: the anim range is finished; in-game testing of AN-15 ... AN-21 (and the earlier batches marked NOT run).

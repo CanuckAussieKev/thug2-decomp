@@ -144,6 +144,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_anim16.cpp
     src/hook/selftests_anim17.cpp
     src/hook/selftests_anim18.cpp
+    src/hook/selftests_anim19.cpp
     src/hook/selftests_appmain8.cpp
     src/hook/selftests_appmain9.cpp
     src/hook/selftests_appmain10.cpp
@@ -291,6 +292,7 @@ add_library(thug2_code OBJECT
     src/game/gfx/texture_file.cpp
     src/game/sys/key_names.cpp
     src/game/obj/anim_blender.cpp
+    src/game/obj/ride_tracker.cpp
     src/game/obj/avoid.cpp
     src/game/obj/camera_lookaround.cpp
     src/game/obj/camera_util.cpp

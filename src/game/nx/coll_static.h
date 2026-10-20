@@ -31,6 +31,9 @@ struct CollFaceAccess : CCollObj {
 // rejection optimization" buffer (as many bytes as the geometry has faces), copied by Clone.
 class CCollStatic : public CCollObj {
 public:
+    // 0x00412730 (as `new CCollStatic[n]` builds each): no flags, geometry or buffer, +0x14 0 (the checksum and
+    // the grid mark left as they were). Returns this.
+    CCollStatic* Construct();
     // 0x00412760: the buffer freed if this object owns it, the base. (The deleting destructor is 0x0049CE00.)
     void Destruct();
     // 0x004139A0 (slot 12; not a function in Ghidra): an instance (a CCollStaticInstance sharing the geometry) or
