@@ -9,7 +9,7 @@
 //     scripts, scene sectors, collision objects), for the user to decide on (docs/pending/thug1.md).
 // Used by thugpro_compare.ts (--extract-thugpro, --details).
 
-import { NET_RESTART_TYPES } from "../level_port/nodes.ts";
+import { NET_RESTART_TYPES, THUG2_TERRAINS } from "../level_port/nodes.ts";
 import * as prx from "../level_port/prx.ts";
 import * as qb from "../level_port/qb.ts";
 import { Name, type QbValue, Struct, Vector } from "../level_port/qb.ts";
@@ -17,8 +17,9 @@ import * as thug2Col from "../level_port/thug2_col.ts";
 import * as thug2Scene from "../level_port/thug2_scene.ts";
 import { hex8, pyJoin } from "../lib/py.ts";
 import { maxDiff, nodeArray, position, TOLERANCE } from "../thaw_levels/thugpro_compare.ts";
+import * as handEditsLib from "./hand_edits.ts";
 import * as thug1 from "./thug1.ts";
-import { prePath } from "./thug1_levels.ts";
+import { FACE_KEEP, prePath } from "./thug1_levels.ts";
 
 // One side's level: its node array (structures), names, level qb files (by lower-case path), and archives.
 export interface Side {
@@ -362,4 +363,344 @@ export function inventory(t1: Side, tp: Side): Item[] {
         if (!cb.has(c))
             items.push({ kind: "removed collision", name: names.get(c) ?? hex8(c), detail: `${o.faces.length} faces` });
     return items;
+}
+
+// --- THUGPRO's hand edits as data (TP-32 ... TP-39: hand_edits.ts) ---------------------------------------------------
+//
+// handEdits: every edit THUGPRO made to a THUG1 level that is data - nodes moved, flags, values, rails added from node
+// data, links, collision face flags / terrain, collision taken out or reshaped - in hand_edits.LevelEdits' form, and
+// notes on what it leaves out and why: the toolchain's translation (peds' THPS5 -> THPS6 skeletons and their AI
+// settings, goal pick-ups' models set to "none", goal trigger scripts dropped, rigid-body settings dropped, the
+// SelectRenderOnly flag misspelt sRenderOnly, empty collision objects, zero-area and duplicate faces dropped) and
+// THUGPRO's own content (nodes other than rails it added, trigger scripts it wrote, collision faces of its own).
+
+// Keys left to their own entries or not taken (see above), by checksum.
+const KEYS_ELSEWHERE = new Set(["Pos", "Position", "Angles", "Name", "Links"].map(qb.checksum));
+const RIGID_BODY = new Set(
+    [
+        "Mass",
+        "Ellasticity",
+        "Friction",
+        "Optimization_Level",
+        "Unyielding",
+        "Inactive",
+        "Disable_Collisions",
+        "Display_Children",
+        "Display_Proxy",
+        "Proxy_Geometry",
+        "Simulation_Geometry",
+        "Use_Display_Proxy",
+    ].map(qb.checksum),
+);
+const ABSENT = qb.checksum("AbsentInNetGames"); // (TP-33)
+const CREATED = qb.checksum("CreatedAtStart"); // (TP-34)
+const MISSPELT = new Set(["SelectRenderOnly", "sRenderOnly"].map(qb.checksum)); // (THUGPRO's compiler's)
+const TERRAIN_TYPE = qb.checksum("TerrainType");
+const THUG2_TERRAIN_SET = new Set(THUG2_TERRAINS.map((t) => qb.checksum(`TERRAIN_${t}`)));
+const REUSED_DISTANCE = 500; // a rail point moved farther than this into a new rail: TP-36's (as the inventory's)
+const VERTEX_TOLERANCE = 0.1; // (THUGPRO's fixed-point vertices: within 1/32)
+
+const flagsOf = (n: Struct): Set<number> =>
+    new Set(n.entries.filter(([k, v]) => k === null && v instanceof Name).map(([, v]) => (v as Name).value));
+
+const keysOf = (n: Struct): Map<number, QbValue> =>
+    new Map(n.entries.filter(([k]) => k !== null).map(([k, v]) => [k!.value, v] as const));
+
+const same = (a: QbValue | undefined, b: QbValue | undefined, names: ReadonlyMap<number, string>): boolean =>
+    a === undefined || b === undefined
+        ? a === b
+        : JSON.stringify(handEditsLib.encode(a, names)) === JSON.stringify(handEditsLib.encode(b, names));
+
+function linkNames(n: Struct, s: Side, names: ReadonlyMap<number, string>): string[] | null {
+    const links = n.get("Links");
+    if (!Array.isArray(links)) return [];
+    const out: string[] = [];
+    for (const i of links) {
+        const m = typeof i === "number" ? s.nodes[i] : undefined;
+        if (m === undefined) return null;
+        out.push(nodeName(m, names));
+    }
+    return out;
+}
+
+export interface HandEdits {
+    edits: handEditsLib.LevelEdits;
+    notes: string[]; // what isn't taken, by kind ("kind: count - examples")
+}
+
+export function handEdits(t1: Side, tp: Side): HandEdits {
+    const names = new Map([...t1.names, ...tp.names]);
+    const text = (v: number): string => handEditsLib.nameText(v, names);
+    const notes = new Map<string, string[]>();
+    const note = (kind: string, what: string): void => {
+        const list = notes.get(kind) ?? [];
+        if (!list.includes(what)) notes.set(kind, [...list, what]);
+    };
+    const count = new Map<string, number>();
+    for (const n of t1.nodes) {
+        const k = nodeName(n, names).toLowerCase();
+        if (k) count.set(k, (count.get(k) ?? 0) + 1);
+    }
+    const theirs = new Map<string, Struct>();
+    for (const m of tp.nodes) {
+        const k = nodeName(m, names).toLowerCase();
+        if (k && !theirs.has(k)) theirs.set(k, m);
+    }
+    const ours = new Set(count.keys());
+    const moved: Record<string, handEditsLib.Placement> = {};
+    const absent: string[] = [];
+    const present: string[] = [];
+    const on: string[] = [];
+    const off: string[] = [];
+    const values: Record<string, Record<string, handEditsLib.Json>> = {};
+    const reused: Record<string, handEditsLib.Placement & { values: Record<string, handEditsLib.Json> }> = {};
+    const links: Record<string, string[]> = {};
+    const added: Record<string, handEditsLib.Json>[] = [];
+    const addedNames = new Set(
+        tp.nodes
+            .filter((m) => classText(m, tp.names).toLowerCase() === "railnode")
+            .map((m) => nodeName(m, names).toLowerCase())
+            .filter((k) => k && !ours.has(k)),
+    );
+    for (const n of t1.nodes) {
+        const name = nodeName(n, names);
+        const them = theirs.get(name.toLowerCase());
+        if (!name || them === undefined) continue;
+        if ((count.get(name.toLowerCase()) ?? 0) > 1) {
+            note("names used by several THUG1 nodes (not matched)", name);
+            continue;
+        }
+        if (isSpawn(n, t1.names) || isSpawn(them, tp.names)) continue; // (TP-31's)
+        const cls = classText(n, t1.names).toLowerCase();
+        const classChanged = cls !== classText(them, tp.names).toLowerCase();
+        const ka = keysOf(n);
+        const kb = keysOf(them);
+        if (cls === "pedestrian" && !classChanged) {
+            // (THPS5 -> THPS6 skeletons as ours, profiles and AI settings: peds are kept out of network games)
+            if ([...new Set([...ka.keys(), ...kb.keys()])].some((key) => !same(ka.get(key), kb.get(key), names)))
+                note("peds' settings (skeletons, profiles, AI: translation / kept out of net games)", name);
+            continue;
+        }
+        // flags
+        const fa = flagsOf(n);
+        const fb = flagsOf(them);
+        if (fa.has(ABSENT) !== fb.has(ABSENT)) (fb.has(ABSENT) ? absent : present).push(name);
+        if (fa.has(CREATED) !== fb.has(CREATED)) (fb.has(CREATED) ? on : off).push(name);
+        const change: Record<string, handEditsLib.Json> = {};
+        for (const f of new Set([...fa, ...fb])) {
+            if (fa.has(f) === fb.has(f) || f === ABSENT || f === CREATED) continue;
+            if (MISSPELT.has(f)) {
+                note("SelectRenderOnly written sRenderOnly (THUGPRO's compiler)", name);
+                continue;
+            }
+            if (text(f).toUpperCase().startsWith("TERRAIN_")) {
+                note("a terrain written as a flag (THUGPRO's slip; the TerrainType stays)", name);
+                continue;
+            }
+            change[`${fb.has(f) ? "+" : "-"}${text(f)}`] = true;
+        }
+        // values
+        for (const key of new Set([...ka.keys(), ...kb.keys()])) {
+            const a = ka.get(key);
+            const b = kb.get(key);
+            if (KEYS_ELSEWHERE.has(key) || same(a, b, names)) continue;
+            if (key === qb.checksum("TriggerScript")) {
+                note(
+                    b === undefined
+                        ? "trigger scripts taken off (goals: THUGPRO doesn't port them)"
+                        : "trigger scripts of THUGPRO's own",
+                    name,
+                );
+                continue;
+            }
+            if (RIGID_BODY.has(key)) {
+                note("rigid-body settings dropped (THUGPRO's toolchain)", name);
+                continue;
+            }
+            if (!classChanged && key === qb.checksum("model") && typeof b === "string" && b.toLowerCase() === "none") {
+                note('goal models set to "none" (not in THUG2: translation)', name);
+                continue;
+            }
+            if (key === TERRAIN_TYPE && b instanceof Name && !THUG2_TERRAIN_SET.has(b.value)) {
+                // (THUG2 reads through a null for a terrain its table hasn't - nodes.fixTerrains: ours keeps THUG1's)
+                note(`terrains THUG2 hasn't (${text(b.value)}: not taken)`, name);
+                continue;
+            }
+            if (!classChanged && key === qb.checksum("Extra_Anims") && b === undefined) {
+                note("extra animations dropped (not in THUG2: translation)", name);
+                continue;
+            }
+            change[text(key)] = b === undefined ? null : handEditsLib.encode(b, names);
+        }
+        const p = position(n);
+        const q = position(them);
+        const far = p !== null && q !== null ? maxDiff(p, q) : 0;
+        const turned = maxDiff(angles(n), angles(them)) > 0.001;
+        if (cls === "railnode" && far > REUSED_DISTANCE) {
+            reused[name] = { pos: [...q!], angles: angles(them), values: change };
+        } else {
+            if (q !== null && (far > TOLERANCE || turned)) moved[name] = { pos: [...q], angles: angles(them) };
+            if (Object.keys(change).length) values[name] = change;
+        }
+        // links (by name; only to nodes ours will have)
+        const la = linkNames(n, t1, names);
+        const lb = linkNames(them, tp, names);
+        if (la !== null && lb !== null && la.join(",").toLowerCase() !== lb.join(",").toLowerCase()) {
+            if (lb.every((l) => ours.has(l.toLowerCase()) || addedNames.has(l.toLowerCase()))) links[name] = lb;
+            else note("links to nodes of THUGPRO's own (not taken)", name);
+        }
+    }
+    // nodes THUGPRO added: rails from their node data; the rest listed
+    for (const m of tp.nodes) {
+        const name = nodeName(m, names);
+        if (!name || ours.has(name.toLowerCase())) continue;
+        if (!addedNames.has(name.toLowerCase())) {
+            note(`nodes of THUGPRO's own (${classText(m, tp.names)})`, name);
+            continue;
+        }
+        const fields: Record<string, handEditsLib.Json> = {};
+        const flags: string[] = [];
+        for (const [k, v] of m.entries) {
+            if (k === null) {
+                if (v instanceof Name) flags.push(text(v.value));
+            } else if (k.value !== qb.checksum("Links")) fields[text(k.value)] = handEditsLib.encode(v, names);
+        }
+        if (flags.length) fields.flags = flags;
+        const l = linkNames(m, tp, names);
+        if (l === null || !l.every((x) => ours.has(x.toLowerCase()) || addedNames.has(x.toLowerCase())))
+            throw new TypeError(`THUGPRO's rail ${name} links to a node of its own that isn't a rail`);
+        if (l.length) fields.Links = l;
+        added.push(fields);
+    }
+    for (const n of t1.nodes) {
+        const name = nodeName(n, names);
+        if (name && !theirs.has(name.toLowerCase()) && !isSpawn(n, t1.names))
+            note(`THUG1 nodes THUGPRO took out or renamed (${classText(n, t1.names)})`, name);
+    }
+    const edits: handEditsLib.LevelEdits = {};
+    if (Object.keys(moved).length) edits.moved_nodes = moved;
+    if (absent.length || present.length) {
+        edits.net_presence = {};
+        if (absent.length) edits.net_presence.absent = absent;
+        if (present.length) edits.net_presence.present = present;
+    }
+    if (on.length || off.length) {
+        edits.created_at_start = {};
+        if (on.length) edits.created_at_start.on = on;
+        if (off.length) edits.created_at_start.off = off;
+    }
+    if (Object.keys(values).length) edits.node_values = values;
+    if (added.length || Object.keys(reused).length || Object.keys(links).length) {
+        edits.rails = {};
+        if (added.length) edits.rails.added = added;
+        if (Object.keys(reused).length) edits.rails.reused = reused;
+        if (Object.keys(links).length) edits.rails.links = links;
+    }
+    colEdits(t1, tp, names, edits, note);
+    return {
+        edits,
+        notes: [...notes].map(([k, list]) => `${k}: ${list.length} - ${list.slice(0, 5).join(" ")}`),
+    };
+}
+
+// The collision part of handEdits: faces matched by index when both have the same faces (vertex indices), else by
+// their vertices' places.
+function colEdits(
+    t1: Side,
+    tp: Side,
+    names: ReadonlyMap<number, string>,
+    edits: handEditsLib.LevelEdits,
+    note: (kind: string, what: string) => void,
+): void {
+    const ca = colObjects(t1.col, true);
+    const cb = colObjects(tp.col, false);
+    const faceValues: Record<string, handEditsLib.FaceValues> = {};
+    const removed: Record<string, handEditsLib.ColRemoval> = {};
+    const reshaped: Record<string, handEditsLib.ColReshape> = {};
+    const near = (a: readonly number[], b: readonly number[]): boolean => maxDiff(a, b) <= VERTEX_TOLERANCE;
+    const corners = (o: thug2Col.ColObject, f: thug2Col.Face): number[][] => [f[2], f[3], f[4]].map((i) => o.verts[i]!);
+    const sameFace = (a: number[][], b: number[][]): boolean => {
+        const used = new Set<number>();
+        return a.every((v) => {
+            const j = b.findIndex((w, k) => !used.has(k) && near(v, w));
+            if (j < 0) return false;
+            used.add(j);
+            return true;
+        });
+    };
+    const area = (c: number[][]): number => {
+        const u = [0, 1, 2].map((k) => c[1]![k]! - c[0]![k]!);
+        const v = [0, 1, 2].map((k) => c[2]![k]! - c[0]![k]!);
+        const x = [u[1]! * v[2]! - u[2]! * v[1]!, u[2]! * v[0]! - u[0]! * v[2]!, u[0]! * v[1]! - u[1]! * v[0]!];
+        return Math.sqrt(x[0]! * x[0]! + x[1]! * x[1]! + x[2]! * x[2]!) / 2;
+    };
+    for (const [c, old] of ca) {
+        const label = handEditsLib.nameText(c, names);
+        const o = cb.get(c);
+        if (o === undefined) {
+            if (old.faces.length) removed[label] = { faces: old.faces.length, remove: "all" };
+            else note("empty collision objects dropped (THUGPRO's exporter)", label);
+            continue;
+        }
+        const pairs: [number, number][] = []; // [THUG1 face, THUGPRO face]
+        const indexed =
+            old.faces.length === o.faces.length &&
+            old.verts.length === o.verts.length &&
+            old.faces.every((f, i) => f[2] === o.faces[i]![2] && f[3] === o.faces[i]![3] && f[4] === o.faces[i]![4]);
+        if (indexed) {
+            for (let i = 0; i < old.faces.length; i++) pairs.push([i, i]);
+            const verts: [number, number, number, number][] = [];
+            old.verts.forEach((v, i) => {
+                const w = o.verts[i]!;
+                if (!near(v, w)) verts.push([i, w[0]!, w[1]!, w[2]!]);
+            });
+            if (verts.length) reshaped[label] = { faces: old.faces.length, verts };
+        } else {
+            const used = new Set<number>();
+            o.faces.forEach((f, j) => {
+                const cf = corners(o, f);
+                const i = old.faces.findIndex((g, k) => !used.has(k) && sameFace(corners(old, g), cf));
+                if (i < 0) note("collision faces of THUGPRO's own (not expressible)", label);
+                else {
+                    used.add(i);
+                    pairs.push([i, j]);
+                }
+            });
+            const gone: number[] = [];
+            old.faces.forEach((g, i) => {
+                if (used.has(i)) return;
+                const cg = corners(old, g);
+                const duplicate = [...used].some((k) => sameFace(corners(old, old.faces[k]!), cg));
+                if (area(cg) < 0.01 || duplicate)
+                    note("zero-area / duplicate faces dropped (THUGPRO's exporter)", label);
+                else gone.push(i);
+            });
+            if (gone.length) removed[label] = { faces: old.faces.length, remove: gone };
+        }
+        const set: Record<string, number[]> = {};
+        const clear: Record<string, number[]> = {};
+        const terrain: [number, number][] = [];
+        for (const [i, j] of pairs) {
+            const a = old.faces[i]![0] & FACE_KEEP;
+            const b = o.faces[j]![0] & FACE_KEEP;
+            for (let bit = 1; bit <= FACE_KEEP; bit <<= 1) {
+                const key = `0x${bit.toString(16).padStart(4, "0")}`;
+                if (b & bit && !(a & bit)) set[key] = [...(set[key] ?? []), i];
+                if (a & bit && !(b & bit)) clear[key] = [...(clear[key] ?? []), i];
+            }
+            if (old.faces[i]![1] !== o.faces[j]![1]) terrain.push([i, o.faces[j]![1]]);
+        }
+        if (Object.keys(set).length || Object.keys(clear).length || terrain.length) {
+            const e: handEditsLib.FaceValues = { faces: old.faces.length };
+            if (Object.keys(set).length) e.set = set;
+            if (Object.keys(clear).length) e.clear = clear;
+            if (terrain.length) e.terrain = terrain;
+            faceValues[label] = e;
+        }
+    }
+    for (const c of cb.keys())
+        if (!ca.has(c)) note("collision objects of THUGPRO's own", handEditsLib.nameText(c, names));
+    if (Object.keys(faceValues).length) edits.face_values = faceValues;
+    if (Object.keys(removed).length) edits.collision_removed = removed;
+    if (Object.keys(reshaped).length) edits.collision_reshaped = reshaped;
 }
