@@ -13,7 +13,8 @@ class CStruct;
 // NOT ORIGINAL - the level editor's node layer (ours; see level_editor.h): every node of the level's node arrays (the
 // node manager's, game/script/node_manager.h - what the game parsed at the level's load), sorted into families by
 // class and type, with what the gizmos need (position, heading, links, colour, radius), and the pure parts of
-// classifying and picking them (self-tested: src/hook/selftests_editor_ui.cpp). Read-only (phase 1 of the plan).
+// classifying and picking them (self-tested: src/hook/selftests_editor_ui.cpp). Read here; point nodes are moved and
+// turned by level_editor_node_edit.h (phase 2 of the plan).
 namespace Front::LevelEditor::Nodes {
 
 // The families, as the Outliner groups them and the chips filter them.
@@ -89,6 +90,9 @@ const int* Counts();
 int Find(uint32_t name);
 // The node's structure (null if the arrays changed).
 Script::CStruct* StructOf(const Node& node);
+// Node `index`'s place read again from its structure (pos, angles, heading) - after the editor moved it: the scan is
+// made again only when the arrays' names or sizes change.
+void Reread(int index);
 // The node array's name (for the Inspector).
 uint32_t ArrayName(const Node& node);
 // "TRG_Restart01" / its checksum in hex.

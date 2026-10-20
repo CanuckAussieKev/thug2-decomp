@@ -12,13 +12,17 @@
 //
 // The file is text, a record a line ('#' starts a comment; unknown records are skipped, so later versions can add
 // some):
-//   thug2-decomp layout 1
+//   thug2-decomp layout 2                              the version: 1 had no `set` records; both are read (an older
+//                                                      DLL, which knows only 1, refuses a version 2 file as a whole)
 //   scene <checksum>                                   the level's main scene (its sectors' table)
 //   sector <checksum> <quarters> <x> <y> <z> <hidden>  a sector moved by (x, y, z) after `quarters` quarter turns
 //   rail <name> <quarters> <x> <y> <z> <hidden>        a grind rail node, the same
 //   clone <source> <quarters> <x> <y> <z>             a copy of a sector, placed relative to its source as loaded
 //   object <id> <x> <y> <z> <9 matrix numbers>         an object's position and orientation (rows: right, up, at)
 //   copy <name> <source> <x> <y> <z> <9 numbers>       a copy of an object (made from its source's node)
+//   set <node> pos=<x>,<y>,<z> angles=<x>,<y>,<z>      (version 2) a level node's pos= / angles= (a point node moved or
+//                                                      turned - level_editor_node_edit.h); either may be left out,
+//                                                      other key=value fields are skipped (for later versions)
 // Checksums are 8 hex digits; numbers are written with 9 significant digits (floats survive the round trip).
 namespace Front::LevelEditor::Layout {
 
@@ -37,13 +41,23 @@ struct CloneRecord {
     uint32_t source;
     Placement placement;
 };
+struct SetRecord {
+    uint32_t name;
+    bool hasPos, hasAngles;
+    float pos[3];
+    float angles[3];
+};
+// The version written.
+constexpr int kVersion = 2;
 struct File {
+    int version = kVersion; // (the file's, as read)
     uint32_t scene = 0;
     std::vector<Scenery::SectorState> sectors;
     std::vector<Scenery::RailState> rails;
     std::vector<CloneRecord> clones;
     std::vector<ObjectRecord> objects;
     std::vector<CopyRecord> copies;
+    std::vector<SetRecord> nodes;
 };
 
 // The text of a layout, and a layout read back (false: not a layout file; `line` the first line that isn't
