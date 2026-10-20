@@ -37,10 +37,11 @@ Agent "thps3". How to run it and THPS3's formats: tools/thps3_levels/README.md.
 - RenderWare 3.1 (chunk version 0x310) with Neversoft plugin chunks 0x0294AF01/02/04. Atomic sectors = Neversoft
   objects (checksum = the EnvironmentObject's name); triangles are (u16 material, 3 x u16 vertex) in world sectors,
   (v2, v1, material, v3) in clump geometry.
-- Face flags (u16 per triangle in the sector's Neversoft extension) have THUG2's meanings: e.g. Foundry's floors 0x80
-  (camera collides), walls 0x480 / 0x484 (no-shadow wall, wall ride), quarter pipes 0x88 / 0xC8 (vert, trigger),
-  railings and decorations 0x10 / 0x110 (non-collidable), water 0x50 (trigger + non-collidable), the invisible
-  collision planes 0x100 / 0x180.
+- Face flags (u16 per triangle in the sector's Neversoft extension) have THUG2's meanings but 0x80 (camera collides;
+  THUG2's 0x80 is the reverse, camera passes through: inverted - docs/pending/face-flag-0x80.md): e.g. Foundry's
+  floors 0x80, walls 0x480 / 0x484 (no-shadow wall, wall ride), quarter pipes 0x88 / 0xC8 (vert, trigger), railings
+  and decorations 0x10 / 0x110 (non-collidable), water 0x50 (trigger + non-collidable), the invisible collision
+  planes 0x100 / 0x180.
 - Material extension: per pass flags (0x02 invisible, 0x08 transparent, 0x10 decal), terrain (THPS3's terrain.qb
   numbering = THUG2's), 4 RGBA colours (the first used, 0x80 neutral), blend = the PS2 ALPHA register (0x44 blend,
   0x48 add, 0x68 add fixed, 0x42 subtract, 0x64 blend fixed...), fixed alpha, has texture + an embedded RW texture
