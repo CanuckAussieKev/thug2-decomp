@@ -13,6 +13,12 @@ Things that are true of this repo's testing and not obvious from the code; each 
   DllMain in the game. Never hold game resources (files) in both runs at once.
 - **Uninitialised fields** (CSymbolTableEntry::unknown2...) hold halves of stale arena pointers: normalise
   the high 16 bits (the template does).
+- **Relocate both arenas in both runs** (ArenaWord / ArenaWordOrHigh, selftest.h; the template does): mapping only
+  the running run's arena turns a constant that happens to lie inside one arena (0x04030605, 0x01000000...) into an
+  offset in one run only - a test that fails now and then, as the arenas move (VirtualAlloc, ASLR, a rebuild).
+- **StandInApi patches the Windows function itself, for every thread**: the self-test watchdog thread must never
+  call a stood-in API (it waits with NtDelayExecution; it used to Sleep into the stream tests' Sleep stand-in).
+- **Don't compare Windows handles by value** between the runs: note "the file's handle" (TestPcAsyncFileHandle).
 - **MSVC inline asm reserves `out`, `type`, `size`** (MASM words) - rename locals used in __asm.
 - **Hangs**: the original sometimes never moves past a token (hex integer as a parameter, unknown tokens in
   arrays/expressions/.qb top level) - test data must avoid them. tools/mutate.ts handles hanging mutations;

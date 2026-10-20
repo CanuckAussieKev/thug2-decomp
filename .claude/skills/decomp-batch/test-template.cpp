@@ -4,11 +4,19 @@
 //
 // - Both runs start from identical state (same globals, same zeroed/dirtied arena), so allocations land at
 //   the same offsets and the arenas can be compared word for word after relocating pointers.
+// - Relocate with ArenaWord / ArenaWordOrHigh (selftest.h): they map a word inside EITHER arena, the same in both
+//   runs. Mapping only the running run's arena makes any value that merely falls inside one of them (a checksum,
+//   flags, packed bytes) compare differently depending on where the arenas land - flaky tests (the front end's,
+//   2026-10-20).
+// - Never stand in (StandInApi) a Windows function the watchdog thread calls: StandInApi patches the function
+//   itself, for every thread (selftest_runner.cpp's Watchdog).
 // - Every global the code touches is saved first and put back after, even on failure.
 // - The original run uses Original<Fn>(address) (and OriginalCode guards so the original's own internal
 //   calls also go to originals when hooks are installed - in the game; offline they always do).
 
-alignas(16) uint8_t g_thing_arenas[2][0x20000]; // bigger if a crash at 0x448386 says the heap ran out
+// (bigger if a crash at 0x448386 says the heap ran out; ArenaPair: 64K-aligned, for the half-pointer pass)
+ArenaPair<0x20000> g_thing_storage;
+uint8_t (*const g_thing_arenas)[0x20000] = g_thing_storage.Get();
 
 void TestThing()
 {
@@ -64,10 +72,7 @@ void TestThing()
         manager->m_heapCount = 1;
         manager->m_scriptHeap = heap;
         manager->PushContext(heap);
-        auto base = reinterpret_cast<uint32_t>(arena);
-        auto relocate = [&](uint32_t word) {
-            return word >= base && word <= base + sizeof(g_thing_arenas[0]) ? 0xA0000000u + (word - base) : word;
-        };
+        auto relocate = [](uint32_t word) { return ArenaWord(g_thing_arenas, sizeof(g_thing_arenas[0]), word); };
 
         // 3. FILL IN: build inputs, then call the original or ours for every case, pushing results (return
         //    values too - not just output buffers) onto `trace`.
@@ -82,21 +87,14 @@ void TestThing()
         for (OriginalCode* guard : guards)
             delete guard;
 
-        // 4. The whole arena, pointers made arena-relative (and stale half-pointers in 16-bit fields).
-        // The half-pointer pass works in whole 64 KB segments, so the segment holding the arena's end also
-        // matches whatever is placed right after the arena (another static -> false differences). If that
-        // bites, allocate the arenas with VirtualAlloc (64 KB aligned, nothing else shares their segments)
-        // instead of as statics.
+        // 4. The whole arena, pointers made arena-relative (and stale half-pointers in 16-bit fields: whole 64 KB
+        // blocks of either arena - hence ArenaPair's alignment).
         for (uint32_t& word : trace)
             word = relocate(word);
         std::vector<uint32_t> image(sizeof(g_thing_arenas[0]) / 4);
         std::memcpy(image.data(), arena, sizeof(g_thing_arenas[0]));
-        for (uint32_t& word : image) {
-            word = relocate(word);
-            uint32_t high = word >> 16;
-            if (high >= (base >> 16) && high <= ((base + sizeof(g_thing_arenas[0])) >> 16))
-                word = (word & 0xFFFF) | ((0xA000u + high - (base >> 16)) << 16);
-        }
+        for (uint32_t& word : image)
+            word = ArenaWordOrHigh(g_thing_arenas, sizeof(g_thing_arenas[0]), word);
         trace.insert(trace.end(), image.begin(), image.end());
         GameVariable<void*>(0x007D1800) = nullptr;
         return trace;
