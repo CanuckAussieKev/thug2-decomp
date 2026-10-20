@@ -159,6 +159,15 @@ test("struct: Python's errors where DataView would wrap", () => {
     assert.equal(pack(">I", 1).toString("hex"), "00000001");
 });
 
+test("struct: a NaN's payload bits survive unpack -> pack, as in Python (THPS3's uvs)", () => {
+    // (many times over: V8 dropped the payload of an array's first value only once the code was optimised)
+    const raw = Buffer.from("7d81c07f7c7dc37f", "hex");
+    for (let i = 0; i < 100000; i++) {
+        const [u, v] = unpackFrom("<2f", raw) as [number, number];
+        assert.equal(pack("<2f", u, v).toString("hex"), "7d81c07f7c7dc37f");
+    }
+});
+
 test("difflib: get_close_matches and unified_diff as Python's", () => {
     assert.deepEqual(getCloseMatches("appel", ["ape", "apple", "peach", "puppy"]), ["apple", "ape"]);
     assert.deepEqual(getCloseMatches("TERRAIN_MEATALSMOOTH", ["TERRAIN_METALSMOOTH", "TERRAIN_METALROUGH"], 1, 0.8), [

@@ -6,7 +6,7 @@ vehicles as LevelObjects, peds as THUG2 ped AI, setup scripts).
 
 ## What a converted THPS3 level brings along now
 
-`python -I tools/thps3_levels/thps3_levels.py convert` (then `tools/menu_level/make_menu_level.py`). Per level, in the
+`node tools/thps3_levels/thps3_levels.ts convert` (then `tools/menu_level/make_menu_level.py`). Per level, in the
 level's .qb:
 
 - **Scripts**: every node's trigger script (sectors and rails: run by the skater; game objects, vehicles, proximity
