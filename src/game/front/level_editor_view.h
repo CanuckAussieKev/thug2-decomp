@@ -19,8 +19,10 @@
 //     box changes (the editor moved it). The nearest sectors first, up to kMaxTriangles drawn, within kRadius (the
 //     collision-only ones within kWallRadius).
 //   - Invisible walls: with the collision shown, Shift+click on a magenta face selects that collision-only sector -
-//     its name, box, faces and their flags in the Inspector, its faces outlined. Not movable or hideable yet: the
-//     editor's moves, undo and layouts go by a sector's geometry (level_editor_scenery.cpp's tracks).
+//     its name, box, faces and their flags in the Inspector, its faces outlined. Delete switches its collision off
+//     (Delete / Home / the Inspector's Restore on again), and it moves and turns like scenery (level_editor_walls.h).
+//     Collision switched off (a wall, or a drawn piece's by the Inspector's Collision) stays drawn faded, a wall's edges
+//     dashed, so it can be found and switched on again.
 //   - Hide (H) / Isolate (I or /) / Show all (Alt+H): the selected scenery and objects hidden from the view and from
 //     clicks, or everything else hidden; while editing only. Scenery: the sector's visibility mask (CSector::
 //     SetVisibility 0x0049E680 / GetVisibility 0x0049E690 -> the geometry's +0x44 and each mesh's viewport bits +0x1B,
@@ -68,6 +70,10 @@ struct HiddenSet {
     bool Add(uint32_t id);
 };
 std::vector<uint32_t> IsolateOthers(const std::vector<uint32_t>& all, const std::vector<uint32_t>& keep);
+// A line drawn as dashes (dash long, gap between, from its start; at most 256 an edge) - collision switched off.
+void AddDashed(std::vector<Ui::Line>* lines, const Ui::Line& line, float dash, float gap);
+// A colour faded (its alpha at most 0x30) - collision switched off.
+uint32_t Faded(uint32_t argb);
 
 // --- the game side --------------------------------------------------------------------------------------------------
 
@@ -89,7 +95,7 @@ void SetShowCollision(bool on);
 void AddCollision(V3 cameraPos, const Frame& frame, const Lens& lens, const uint32_t viewport[4], float nearZ,
                   std::vector<Ui::Overlay::Triangle>* triangles, std::vector<Ui::Line>* lines);
 struct Stats {
-    int triangles = 0, sectors = 0, walls = 0;
+    int triangles = 0, sectors = 0, walls = 0, off = 0; // (off: pieces whose collision is switched off)
     bool capped = false;
 };
 Stats LastStats();
