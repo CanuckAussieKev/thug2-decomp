@@ -42,6 +42,17 @@ constexpr int kTeams = 4;
 const char* KindName(Kind kind); // "Multiplayer spawn"...
 const char* TeamName(Team team); // "Red"...
 
+// One component of a node: a flag (no key), a name, a string, an integer, a float, a vector, an array of names or of
+// integers.
+struct Field {
+    enum Type : uint8_t { kFlag, kName, kString, kInteger, kFloat, kVector, kNames, kIntegers } type;
+    std::string key;
+    std::string text;              // kFlag, kName, kString
+    float value[3] = {};           // kFloat (value[0]), kVector
+    int integer = 0;               // kInteger
+    std::vector<std::string> list; // kNames
+    std::vector<int> integers;     // kIntegers
+};
 // A node the editor adds, as the layout's `node` record keeps it (the rest of the node follows from these: Fields).
 struct Spec {
     std::string name;  // "ed_restart01", "TRG_CTF_Red"...
@@ -52,6 +63,11 @@ struct Spec {
     int colour[3] = {255, 255, 255}; // a light's Color
     float brightness = 0.0f, inner = 0.0f, outer = 0.0f; // a light's
     float radius = 0.0f; // a proximity node's / an emitter's sphere
+    // A node another of the editor's modules makes in the overlay (level_editor_triggers.h: a trigger volume's
+    // node): `extra` fields after the kind's own (its TriggerScript...), and `owned` - its module writes its own
+    // layout records, so it isn't a `node` record.
+    std::vector<Field> extra;
+    bool owned = false;
     // Chain points (level_editor_chains.h - RailNode, Waypoint): the node whose fields it copies (0: none), a rail's
     // TerrainType ("": the default) and its links= (names: kept out of the node manager's ResolveLinks - Sync).
     uint32_t like = 0;
@@ -75,17 +91,6 @@ std::string FreshName(const std::string& stem, const std::function<bool(const st
 // Whether a name may be written in a record (letters, digits, '_', 1-63 characters).
 bool ValidName(const std::string& name);
 
-// One component of a node: a flag (no key), a name, a string, an integer, a float, a vector, an array of names or of
-// integers.
-struct Field {
-    enum Type : uint8_t { kFlag, kName, kString, kInteger, kFloat, kVector, kNames, kIntegers } type;
-    std::string key;
-    std::string text;              // kFlag, kName, kString
-    float value[3] = {};           // kFloat (value[0]), kVector
-    int integer = 0;               // kInteger
-    std::vector<std::string> list; // kNames
-    std::vector<int> integers;     // kIntegers
-};
 // The whole node, in THUG2's own levels' form (as the converters make them): name, pos, angles, class, type and what
 // each kind has (CreatedAtStart, RestartName, restart_types, a flag's model and trigger script, a light's colour and
 // radii, a sphere's Shape and Radius).
@@ -154,6 +159,11 @@ bool CanHide(const Nodes::Node& node, const char** why);
 bool Hide(uint32_t name, bool hide);
 bool Hidden(uint32_t name);
 std::vector<uint32_t> HiddenNames();
+
+// Another module told of every node array the node manager takes out (before the overlay's own handling - the level's
+// array going takes the overlay with it): level_editor_triggers.h drops its trigger volumes with their level. Sets the
+// node manager's hook (this module's).
+void SetArrayRemovedListener(void (*listener)(uint32_t name));
 
 // Everything added removed and everything hidden shown (a layout put in place of another).
 void ResetAll();

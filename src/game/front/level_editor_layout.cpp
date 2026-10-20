@@ -274,6 +274,8 @@ std::string Write(const File& file)
         Hex(out, lock.id);
         Comment(out, lock.id);
     }
+    for (const Triggers::Placed& t : file.triggers)
+        out << "trigger " << Triggers::Record(t) << '\n';
     for (const SetRecord& s : file.nodes) {
         if (!s.hasPos && !s.hasAngles)
             continue;
@@ -401,6 +403,11 @@ bool Read(const std::string& text, File* file, int* lineNumber)
             ok = (in >> what) && ReadHex(in, &id);
             if (ok && (what == "object" || what == "sector"))
                 file->locks.push_back({what == "object" ? Picking::kObjects : Picking::kScenery, id});
+        } else if (kind == "trigger") {
+            std::string rest;
+            std::getline(in, rest);
+            ok = Triggers::ReadRecord(rest.substr(std::min(rest.size(), rest.find_first_not_of(' '))),
+                                      &file->triggers.emplace_back());
         } else if (kind == "wall") {
             // (level_editor_walls.h: later key=value fields skipped, as a sector's)
             Walls::WallState w = {};
@@ -626,6 +633,11 @@ bool Capture(File* file)
     // (rail / path points: the chains' `point` records; the level's points deleted: `drop`, not `hide`)
     file->chains = Chains::Current();
     file->added = NodeCreate::Current();
+    // (a trigger volume's node: its own `trigger` record - level_editor_triggers.h)
+    file->added.erase(std::remove_if(file->added.begin(), file->added.end(),
+                                     [](const NodeCreate::Spec& spec) { return spec.owned; }),
+                      file->added.end());
+    file->triggers = Triggers::CaptureAdded();
     file->added.erase(std::remove_if(file->added.begin(), file->added.end(),
                                      [](const NodeCreate::Spec& s) { return Chains::IsChainClass(s.cls); }),
                       file->added.end());
@@ -723,16 +735,17 @@ std::string Apply(const File& file)
     // the sectors (a piece shown by them gets its switch back).
     Walls::ApplyStates(file.walls);
     Walls::Tick();
+    int triggers = Triggers::Apply(file.triggers, &message);
     if (!message.empty())
         Log("level editor: %s", message.c_str());
     char summary[320];
     std::snprintf(summary, sizeof(summary),
                   "%u pieces, %u copies, %u rail points, %d objects, %d object copies, %d nodes, %d added, %d hidden, "
-                  "%u chain points, %u relinked, %u dropped, %u collision switches / walls",
+                  "%u chain points, %u relinked, %u dropped, %u collision switches / walls, %d triggers",
                   static_cast<unsigned>(file.sectors.size()), static_cast<unsigned>(clones.size()),
                   static_cast<unsigned>(file.rails.size()), objects, copies, nodes, added, hidden,
                   static_cast<unsigned>(file.chains.points.size()), static_cast<unsigned>(file.chains.links.size()),
-                  static_cast<unsigned>(file.chains.dropped.size()), static_cast<unsigned>(file.walls.size()));
+                  static_cast<unsigned>(file.chains.dropped.size()), static_cast<unsigned>(file.walls.size()), triggers);
     return summary;
 }
 
@@ -776,6 +789,7 @@ void ResetToLevel(const File& keep)
             Objects::RemoveCopy(copy.name);
     }
     NodeEdit::ResetAll();
+    Triggers::ResetAll();   // (the editor's trigger volumes and their nodes removed, the level's turned on again)
     NodeCreate::ResetAll(); // (added nodes removed, hidden ones shown: Apply makes the layout's again)
 }
 
@@ -808,13 +822,15 @@ bool Save(std::string* message)
         Log("level editor: %s", message->c_str());
         return false;
     }
-    char text[224];
+    char text[256];
     std::snprintf(text, sizeof(text),
-                  "Saved: %u pieces, %u copies, %u rail points, %u objects, %u object copies, %u nodes, %u added, %u hidden",
+                  "Saved: %u pieces, %u copies, %u rail points, %u objects, %u object copies, %u nodes, %u added, %u hidden, "
+                  "%u triggers",
                   static_cast<unsigned>(file.sectors.size()), static_cast<unsigned>(file.clones.size()),
                   static_cast<unsigned>(file.rails.size()), static_cast<unsigned>(file.objects.size()),
                   static_cast<unsigned>(file.copies.size()), static_cast<unsigned>(file.nodes.size()),
-                  static_cast<unsigned>(file.added.size()), static_cast<unsigned>(file.hidden.size()));
+                  static_cast<unsigned>(file.added.size()), static_cast<unsigned>(file.hidden.size()),
+                  static_cast<unsigned>(file.triggers.size()));
     *message = text;
     Log("level editor: %s - %s", text, path.c_str());
     // (saved: the autosave's changes are in the layout now, or the user chose these over them)

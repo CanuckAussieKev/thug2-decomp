@@ -25,6 +25,8 @@
 #include "game/front/level_editor_picking.h"
 #include "game/front/level_editor_scale.h"
 #include "game/front/level_editor_scenery.h"
+#include "game/front/level_editor_shadows.h"
+#include "game/front/level_editor_triggers.h"
 #include "game/front/level_editor_ui.h"
 #include "game/front/level_editor_view.h"
 #include "game/front/level_editor_walls.h"
@@ -742,7 +744,7 @@ struct MadeCopy {
     Objects::State state;
 };
 struct UndoStep {
-    enum Kind { kObjects, kScenery, kMade, kNodes, kAdded, kHidden, kOrder, kLevel, kChains, kWalls } kind = kObjects;
+    enum Kind { kObjects, kScenery, kMade, kNodes, kAdded, kHidden, kOrder, kLevel, kChains, kWalls, kTriggers } kind = kObjects;
     // kWalls (level_editor_walls.h): collision states to put back - an invisible wall's (wall: selected again) or the
     // selected scenery's switches (sectors: selected again).
     std::vector<Walls::WallState> walls;
@@ -768,6 +770,8 @@ struct UndoStep {
     // place again.
     bool reset = false;
     std::string layout;
+    // kTriggers: the trigger volumes' state to put back (level_editor_triggers.h).
+    Triggers::State triggers;
 };
 std::vector<UndoStep> g_undo, g_redo;
 UndoStep g_pending;
@@ -987,6 +991,9 @@ void Restore(UndoStep& step)
         if (g_nodeSelected && Nodes::Find(g_nodeName) < 0)
             g_nodeSelected = false;
         break;
+    case UndoStep::kTriggers:
+        Triggers::Restore(step.triggers);
+        break;
     }
 }
 
@@ -1053,6 +1060,9 @@ UndoStep Current(const UndoStep& step)
         now.walls = Walls::Save(checksums);
         break;
     }
+    case UndoStep::kTriggers:
+        now.triggers = Triggers::Save();
+        break;
     }
     return now;
 }
@@ -1668,6 +1678,7 @@ bool __cdecl CFunc_Start(Script::CStruct*, Script::CScript*)
     // The UI (Dear ImGui) - else the HUD of screen elements.
     bool ui = Ui::Start();
     View::Start();
+    Triggers::Start(); // (the level's trigger volumes found)
     // (occlusion off while flying the editor's camera: O turns it back on - kept for the next time; the setting from
     // [Graphics] OcclusionCulling comes back when the editor closes)
     g_occlusionInPlay = Nx::OcclusionOff();
@@ -1785,6 +1796,7 @@ bool __cdecl CFunc_Stop(Script::CStruct*, Script::CScript*)
     Hud::HidePanel();
     Preview::Hide();
     View::Stop(); // (everything hidden in the editor shown again)
+    Triggers::Stop();
     Nx::OcclusionOff() = g_occlusionInPlay;
     Ui::Stop();
     SetRelative(false);
@@ -1961,8 +1973,9 @@ void UpdateHud()
     } else if (HaveSelection()) {
         Hud::SetLine(5, Key("Drag") + " move  " + Key("Arrows") + " one axis  " + Key("WASDQE") + " nudge  " + Key("ZX") +
                             " turn  " + (Primary() ? std::string() : Key("[ ]") + " scale  ") + Key("G") + " drop");
-        Hud::SetLine(6, Key("Ctrl+D") + " copy  " + Key("Del") + " hide  " + Key("Home") + " reset  " + Key("Esc") +
-                            " deselect  " + Key("F1") + " help");
+        Hud::SetLine(6, (Primary() ? std::string() : Key("Ctrl+click") + " remove one  ") + Key("Ctrl+D") + " copy  " +
+                            Key("Del") + " hide  " + Key("Home") + " reset  " + Key("Esc") + " deselect  " + Key("F1") +
+                            " help");
     } else {
         Hud::SetLine(5, Key("WASD") + " fly  " + Key("QE") + " down / up  " + Key("Shift") + " fast  " + Key("RMB") +
                             " look  " + Key("Wheel") + " dolly");
@@ -2303,7 +2316,8 @@ std::vector<std::pair<std::string, std::string>> KeysNow()
                 {"Outliner", "double-click: go to"}, {"F1", "help"}};
     if (HaveSelection() && !Primary())
         return {{"Drag", "move"}, {"Arrows", "one axis"}, {"WASDQE", "nudge"}, {"Z X", "turn"}, {"[ ]", "scale"},
-                {"G", "drop"}, {"Ctrl+D", "copy"}, {"Del", "hide"}, {"Home", "reset"}, {"Esc", "deselect"}};
+                {"G", "drop"}, {"Ctrl+click", "remove a piece"}, {"Ctrl+D", "copy"}, {"Del", "hide"}, {"Home", "reset"},
+                {"Esc", "deselect"}};
     if (HaveSelection())
         return {{"Drag", "move"}, {"Arrows", "one axis"}, {"WASDQE", "nudge"}, {"Z X", "turn"}, {"G", "drop"},
                 {"Ctrl+D", "copy"}, {"Del", "hide"}, {"Home", "reset"}, {"Esc", "deselect"}};
@@ -2394,6 +2408,30 @@ Ui::Model BuildModel()
         s.pos = Scenery::Pivot();
         s.scalable = true;
         s.scale = Scenery::SelectionScale();
+        if (s.sectors > 1 || Scenery::SelectedRailCount() > 0) {
+            for (uint32_t checksum : Scenery::Selection()) {
+                Ui::Model::Selection::Member member;
+                member.id = checksum;
+                member.name = Objects::Label(checksum);
+                member.shadow = Scenery::IsShadow(checksum);
+                OrientedBox box;
+                if (Scenery::Box(checksum, &box)) {
+                    char size[48];
+                    float scale = std::sqrt(Dot(box.axes[1], box.axes[1]));
+                    std::snprintf(size, sizeof(size), "%.0f x %.0f x %.0f", (box.max.x - box.min.x) * scale,
+                                  (box.max.y - box.min.y) * scale, (box.max.z - box.min.z) * scale);
+                    member.size = size;
+                }
+                s.members.push_back(member);
+            }
+            for (uint32_t name : Scenery::SelectedRailNames()) {
+                Ui::Model::Selection::Member member;
+                member.rail = true;
+                member.id = name;
+                member.name = Nodes::Label(name);
+                s.members.push_back(member);
+            }
+        }
     }
     model.help = g_help;
     model.browser = g_browser.open;
@@ -2491,6 +2529,7 @@ void ShowHelp()
         "             floors, ceilings, rooms around you and decals are passed by a click",
         "             click again on the same spot: the next thing under the cursor",
         "             Shift+click adds / removes   Alt+click (middle click) one piece, any",
+        "             Ctrl+click removes one piece from the selection (a group takes its shadows too)",
         "             L locks the selection (clicks pass it); L with nothing selected unlocks all",
         "             what clicks take: [editor] pick= in the ini (1 nodes 2 objects 4 scenery)",
         "             Esc or Backspace deselects",
@@ -2510,6 +2549,7 @@ void ShowHelp()
         "Leaving      Esc (first it cancels a drag, closes a panel or deselects)",
         "View         H hides the selection while editing   I or / isolates it   Alt+H shows all",
         "             (never saved, never in play; the collision view, C, needs the UI)",
+        "Triggers     T: kill zones, teleports, gaps - shown and added with the UI only",
         "Camera       P writes where the camera is to the log (a menu backdrop view)",
     };
     Hud::ShowPanel(lines, 96.0f, 104.0f, 448.0f);
@@ -2897,6 +2937,41 @@ void NoteClickForCycle(float x, float y, V3 dir, bool plain)
                       static_cast<int>(g_cycle.order.size()));
         Hud::Message(text, 2.5);
     }
+}
+
+// Ctrl+click: a part of the scenery selection dropped from it - the rail point whose gizmo is under the cursor (from the
+// points carried along), else the nearest selected piece no further than what a plain click takes (a selected shadow
+// or floor in front of it too: level_editor_shadows.h's DropTarget). False: nothing selected there (the click goes on
+// as a plain one).
+bool DropUnderCursor(V3 dir)
+{
+    if (!Scenery::HasSelection())
+        return false;
+    if (g_hoverNode >= 0 && g_hoverNode < static_cast<int>(Nodes::All().size())) {
+        uint32_t name = Nodes::All()[g_hoverNode].name;
+        if (!Scenery::CarriesRail(name))
+            return false;
+        Scenery::DropRail(name);
+        Hud::Message("Rail point " + Nodes::Label(name) + " no longer moves with the selection (" +
+                     std::to_string(Scenery::SelectedRailCount()) + " carried)");
+        return true;
+    }
+    Scenery::Hit first;
+    std::vector<Scenery::Layer> layers;
+    Scenery::Pick(g_pos, Normalize(dir), kMaxPickDistance, &first, &layers);
+    std::vector<bool> passed, selected;
+    for (const Scenery::Layer& layer : layers) {
+        passed.push_back(layer.passed);
+        selected.push_back(Scenery::Selected(layer.checksum));
+    }
+    int index = Members::DropTarget(passed, selected);
+    if (index < 0)
+        return false;
+    uint32_t checksum = layers[index].checksum;
+    Scenery::Toggle(checksum);
+    Hud::Message("Removed " + Objects::Label(checksum) + (Scenery::IsShadow(checksum) ? " (shadow)" : "") +
+                 " from the selection (" + std::to_string(Scenery::Selection().size()) + " left)");
+    return true;
 }
 
 // The selection as locks: the selected objects, else the selected scenery pieces (a node by itself: none).
@@ -3305,6 +3380,33 @@ void ApplyUiRequests(V3 dir, bool haveRay, const Frame& frame)
         case Ui::Request::kSnapAlways:
             g_snapAlways = request.value != 0;
             break;
+        case Ui::Request::kMemberRemove:
+        case Ui::Request::kMemberKeep:
+            // (the Inspector's list of the scenery selection's parts: x / Keep only this)
+            if (g_dragging || !Scenery::HasSelection())
+                break;
+            if (request.value) {
+                if (request.kind == Ui::Request::kMemberRemove) {
+                    Scenery::DropRail(request.id);
+                } else {
+                    // (a rail point by itself: the node selected, as its gizmo would)
+                    const std::vector<Nodes::Node>& nodes = Nodes::All();
+                    for (size_t i = 0; i < nodes.size(); ++i) {
+                        if (nodes[i].name == request.id) {
+                            Deselect();
+                            SelectNode(static_cast<int>(i));
+                            break;
+                        }
+                    }
+                }
+            } else if (Scenery::Selected(request.id)) {
+                if (request.kind == Ui::Request::kMemberRemove)
+                    Scenery::Toggle(request.id);
+                else
+                    Scenery::KeepOnly(request.id);
+            }
+            NoteAction("Inspector - selected: %s", DescribeSelection().c_str());
+            break;
         case Ui::Request::kSelectScenery:
             if (!g_dragging && !Scenery::WhyNotMovable(request.id)) {
                 g_objects.clear();
@@ -3506,6 +3608,7 @@ void ApplyUiRequests(V3 dir, bool haveRay, const Frame& frame)
 void Update()
 {
     Layout::Tick();
+    Triggers::Guard(); // (no editor trigger volumes in a network session)
     Chains::Tick(); // (peds / cars made again after their path changed; old rail node arrays freed)
     if (!g_active)
         return;
@@ -3659,6 +3762,37 @@ void Update()
     if ((Pressed(keys, SDL_SCANCODE_SLASH, &slashKey) || isolateKey) && !ctrl && !noChange && !g_browser.open)
         ViewHide(true);
     View::Tick();
+    // T: the trigger volumes shown (and the Triggers window) - level_editor_triggers.h; their changes, undo steps and
+    // selections.
+    static bool tKey;
+    if (Pressed(keys, SDL_SCANCODE_T, &tKey) && !ctrl && !g_browser.open) {
+        if (Ui::Running()) {
+            Triggers::SetShown(!Triggers::Shown());
+            Hud::Message(Triggers::Shown() ? "Trigger volumes shown (T) - the Triggers window adds kill zones, teleports, gaps"
+                                           : "Trigger volumes hidden (T)");
+        } else {
+            Hud::Message("The trigger volumes (T) need the editor's UI ([features] editor_ui=1)");
+        }
+    }
+    {
+        Frame view = FrameFromYawPitch(g_yaw, g_pitch);
+        Triggers::Tick(g_pos, view.back * -1.0f, g_yaw);
+        UndoStep step;
+        if (Triggers::TakeUndo(&step.triggers)) {
+            step.kind = UndoStep::kTriggers;
+            PushUndo(step);
+        }
+        int select = Triggers::TakeSelect();
+        if (select >= 0 && !g_dragging) {
+            g_pickables.clear();
+            g_hoverNode = -1;
+            SelectNodeOnly(select);
+        }
+        if (uint32_t wall = Triggers::TakeWallSelect(); wall && !g_dragging) {
+            Deselect();
+            View::SelectWall(wall); // (a level trigger volume moved as an invisible wall - level_editor_walls.h)
+        }
+    }
     Walls::Tick(); // (scenery whose collision is switched off kept off - level_editor_walls.h)
     // P: the camera written to the log as a menu backdrop view (menu_backdrop.cpp kViews: position, back, up).
     static bool poseKey;
@@ -3912,7 +4046,8 @@ void Update()
     }
 
     // A click: on an arrow, dragging along it; on something, selecting it (Shift: adding / removing it; Alt or a
-    // middle click: one piece of scenery in / out) and dragging it; on nothing, deselecting.
+    // middle click: one piece of scenery in / out; Ctrl on a part of the scenery selection: that part dropped) and
+    // dragging it; on nothing, deselecting.
     if (input.leftPresses && haveRay && !g_dragging && Chains::WantsPick() && g_hoverAxis < 0) {
         // (an armed Link / path assignment: the node clicked - level_editor_chains.h)
         if (g_hoverNode >= 0) {
@@ -3931,6 +4066,13 @@ void Update()
         PlaceNode(g_placeArmed, CursorPoint(dir, haveRay, frame));
         if (!shift)
             g_placeArmed = -1;
+    } else if (input.leftPresses && haveRay && !g_dragging && ctrl && !alt && !shift && g_hoverAxis < 0 &&
+               DropUnderCursor(dir)) {
+        // (Ctrl+click: one part of the selection dropped - no drag)
+        g_cycle.have = false;
+        NoteAction("ctrl+click - selected: %s", DescribeSelection().c_str());
+        if (DebugEnabled())
+            Log("level editor: ctrl+click - selected: %s", DescribeSelection().c_str());
     } else if ((input.leftPresses || input.middlePresses) && haveRay && !g_dragging) {
         Obj::CCompositeObject* hover = Live(g_hover);
         bool one = alt || (input.middlePresses && !input.leftPresses);
@@ -3946,6 +4088,12 @@ void Update()
                       View::ShowCollision() && View::PickWall(g_pos, Normalize(dir)) == WallOnly();
         if (!wall && !onWall && g_hoverAxis < 0)
             View::ClearWall();
+        // (with the trigger volumes shown, a plain click on one - nearer than the rest: its node; Alt passes them -
+        // level_editor_triggers.h)
+        int triggerNode = -1;
+        uint32_t triggerSector = 0;
+        bool trigger = !wall && input.leftPresses && !alt && g_hoverAxis < 0 && g_hoverNode < 0 &&
+                       Ui::Running() && Triggers::Pick(g_pos, Normalize(dir), &triggerNode, &triggerSector);
         if (wall) {
             Deselect();
             View::SelectWall(wall);
@@ -3959,6 +4107,15 @@ void Update()
         } else if (g_hoverNode >= 0 && input.leftPresses) {
             SelectNode(g_hoverNode);
             drag = HaveSelection() && !shift; // (an object, or a point node: dragged as objects are)
+        } else if (trigger) {
+            if (triggerNode >= 0) {
+                SelectNodeOnly(triggerNode);
+                drag = MovableNode() >= 0 && !shift;
+            } else {
+                Deselect();
+            }
+            Hud::Message(triggerSector ? "Trigger " + Objects::Label(triggerSector) + " (the Triggers window shows it)"
+                                       : std::string("Trigger volume selected (the Inspector has its settings)"));
         } else if (g_hoverSector) {
             g_objects.clear();
             if (one)
@@ -4103,6 +4260,7 @@ void Draw()
         Preview::Frame(&model);
         AddNodeGizmos(frame, model.nodes.selected);
         View::AddCollision(g_pos, frame, g_lens, g_viewport, kNearZ, &g_overlay.under, &g_overlay.lines);
+        Triggers::AddOverlay(g_pos, frame, g_lens, g_viewport, kNearZ, &g_overlay.lines, &g_overlay.texts);
         for (size_t i = 0; i + 1 < lines.size(); i += 2)
             g_overlay.lines.push_back({lines[i].x, lines[i].y, lines[i + 1].x, lines[i + 1].y, lines[i].color, 1.0f});
         Ui::Frame(model, g_overlay);
@@ -4151,6 +4309,7 @@ std::vector<std::pair<std::string, std::string>> DescribeForScreenshot()
                   model.view.collision ? "shown" : "off", model.view.triangles, model.view.sectors, model.view.walls,
                   model.view.capped ? ", capped" : "", model.view.hidden);
     out.emplace_back("view", text);
+    out.emplace_back("triggers", std::string(Triggers::Shown() ? "shown: " : "hidden: ") + Triggers::Describe());
     if (model.view.wall)
         out.emplace_back("invisible wall", model.view.wallName + ": " + model.view.wallInfo);
     const Ui::Model::Selection& sel = model.selection;

@@ -10,10 +10,12 @@
 #include <map>
 #include <unordered_map>
 
+#include "game/core/crc.h"
 #include "game/core/manager.h"
 #include "game/front/level_editor_picking.h"
 #include "game/front/level_editor_view.h"
 #include "game/front/level_editor_scale.h"
+#include "game/front/level_editor_shadows.h"
 #include "game/front/level_editor_shared_coll.h"
 #include "game/front/level_editor_walls.h"
 #include "game/gfx/mesh.h"
@@ -298,6 +300,8 @@ std::map<uint32_t, Track> g_tracks;
 std::vector<uint32_t> g_selection;
 V3 g_pivot;
 float g_halfHeight; // (the selection's bottom is this far below the pivot - quarter turns keep it)
+// The shadows groups have taken (level_editor_shadows.h): each with the member whose name it carries (0: by place).
+std::unordered_map<uint32_t, uint32_t> g_shadowOf;
 std::vector<uint8_t*> g_dirtyScenes;
 
 bool SameV3(V3 a, V3 b) { return a.x == b.x && a.y == b.y && a.z == b.z; }
@@ -487,6 +491,7 @@ struct RailTrack {
 };
 std::map<uint32_t, RailTrack> g_railTracks;
 std::vector<uint32_t> g_rails; // (the selection's rail nodes, by name)
+std::vector<uint32_t> g_droppedRails; // (Ctrl+click / the Inspector's x: not carried until another group is selected)
 
 RailNode* FindRail(uint32_t name)
 {
@@ -559,7 +564,12 @@ void ComputePivot()
 {
     V3 min = {}, max = {};
     bool have = false;
+    // (its shadows left out while it has anything else: a shadow lies wider than its caster, on the floor below)
+    bool casters = std::any_of(g_selection.begin(), g_selection.end(),
+                               [](uint32_t checksum) { return !g_shadowOf.count(checksum); });
     for (uint32_t checksum : g_selection) {
+        if (casters && g_shadowOf.count(checksum))
+            continue;
         OrientedBox box;
         if (!Box(checksum, &box))
             continue;
@@ -591,7 +601,7 @@ void SelectRails()
             clusters.push_back(cluster);
         OrientedBox box;
         V3 min, max;
-        if (Box(checksum, &box)) {
+        if (!g_shadowOf.count(checksum) && Box(checksum, &box)) { // (not by a shadow's box: rails lying over it)
             BoundsOf(box, &min, &max);
             boxes.push_back({min - V3{10.0f, 10.0f, 10.0f}, max + V3{10.0f, 10.0f, 10.0f}});
         }
@@ -611,6 +621,8 @@ void SelectRails()
             continue;
         bool in = listed(node.name) || listed(ClusterOf(node.name)) ||
                   (within(RailPos(&node)) && (!node.next || within(RailPos(node.next))));
+        if (in && std::find(g_droppedRails.begin(), g_droppedRails.end(), node.name) != g_droppedRails.end())
+            in = false;
         if (in && std::find(g_rails.begin(), g_rails.end(), node.name) == g_rails.end())
             g_rails.push_back(node.name);
     }
@@ -625,6 +637,8 @@ Placement PlacementOf(uint32_t checksum, uint8_t* geom)
     return {0, {0.0f, 0.0f, 0.0f}};
 }
 
+bool GeomSeeThrough(uint8_t* geom); // (below)
+
 bool SamePlacement(const Placement& a, const Placement& b)
 {
     return a.quarters == b.quarters && std::fabs(a.scale - b.scale) < 1e-4f && std::fabs(a.offset.x - b.offset.x) < 0.5f &&
@@ -637,7 +651,8 @@ bool SamePlacement(const Placement& a, const Placement& b)
 // doesn't take it in, and a piece moved away from its group no longer brings the group along. Hidden pieces aren't
 // taken, nor structure (Picking::IsStructure by size - a floor, a wall) unless the clicked piece is structure itself:
 // a level's own clusters can join a small piece to the floor it lies on (TR's SkWare_Main_12, 360 x 60 x 924, and the
-// 3000 x 99 x 2431 floor SkWare_Main_9), and a click on the small piece mustn't take the floor.
+// 3000 x 99 x 2431 floor SkWare_Main_9), and a click on the small piece mustn't take the floor. Then the group's shadows
+// (level_editor_shadows.h).
 std::vector<uint32_t> GroupOf(uint32_t checksum)
 {
     std::vector<uint32_t> group;
@@ -650,6 +665,7 @@ std::vector<uint32_t> GroupOf(uint32_t checksum)
         uint32_t checksum;
         V3 min, max;
         bool in;
+        bool seeThrough;
     };
     std::vector<Piece> pieces; // (the scene's shown sectors small enough to move, moved as the clicked one)
     ForEachSector(scene, [&](uint32_t other, uint8_t* sector) {
@@ -658,7 +674,7 @@ std::vector<uint32_t> GroupOf(uint32_t checksum)
         if (!PlainGeom(geom) || !geom[0x48] || !GeomBox(geom, &min, &max) ||
             !SectorSizeMovable(min, max, kMaxSectorExtent) || !SamePlacement(PlacementOf(other, geom), placement))
             return;
-        pieces.push_back({other, min, max, false});
+        pieces.push_back({other, min, max, false, GeomSeeThrough(geom)});
     });
     // (by size only: a camera nowhere near)
     const V3 nowhere = {1.0e9f, 1.0e9f, 1.0e9f};
@@ -722,6 +738,72 @@ std::vector<uint32_t> GroupOf(uint32_t checksum)
                 }
             }
         }
+    }
+    // Its shadows (level_editor_shadows.h): by name, then - for shadow-named pieces nobody owns by name - by place,
+    // under one of its pieces. Not by place for a floor or wall clicked by itself.
+    auto sourceOf = [](uint32_t of) {
+        for (const Clone& clone : Clones()) {
+            if (clone.checksum == of)
+                return clone.source;
+        }
+        return of;
+    };
+    for (Piece& piece : pieces) {
+        if (piece.in || WhyNotMovable(piece.checksum))
+            continue;
+        uint32_t source = sourceOf(piece.checksum);
+        const char* name = NameOf(source);
+        if (!name || !Shadows::ShadowName(name))
+            continue;
+        uint32_t owner = 0;
+        for (const std::string& candidate : Shadows::OwnerNames(name)) {
+            uint32_t crc = Crc::GenerateCRCFromString(candidate.c_str());
+            if (crc != source && LookupSector(scene, crc)) {
+                owner = crc;
+                break;
+            }
+        }
+        uint32_t caster = 0;
+        const char* how = nullptr;
+        if (owner) {
+            // (a copy's shadow: a copy of its owner, and by it - copies of one piece share names)
+            bool clone = source != piece.checksum;
+            for (const Piece& member : pieces) {
+                if (member.in && sourceOf(member.checksum) == owner && (member.checksum != owner) == clone &&
+                    (!clone || Shadows::Beside(piece.min, piece.max, member.min, member.max))) {
+                    caster = member.checksum;
+                    how = "by name";
+                    break;
+                }
+            }
+        } else if (!clickedStructure && piece.seeThrough) {
+            // (under one of the group's pieces - not a shadow taken here - and nearer to it than to anything else
+            // standing there)
+            std::vector<std::pair<V3, V3>> others;
+            for (const Piece& other : pieces) {
+                if (!other.in && !other.seeThrough && Shadows::StandsBy(other.min, piece.max) &&
+                    !Picking::IsStructure(other.min, other.max, nowhere))
+                    others.push_back({other.min, other.max});
+            }
+            for (const Piece& member : pieces) {
+                if (member.in && !g_shadowOf.count(member.checksum) &&
+                    Shadows::FallsUnder(piece.min, piece.max, member.min, member.max) &&
+                    Shadows::NearestToGroup(piece.min, piece.max, member.min, member.max, others)) {
+                    how = "by place";
+                    caster = member.checksum;
+                    break;
+                }
+            }
+        }
+        if (!how)
+            continue;
+        piece.in = true;
+        group.push_back(piece.checksum);
+        g_shadowOf[piece.checksum] = caster;
+        if (DebugEnabled())
+            Log("level editor:   shadow %s: %s (%.0f x %.0f x %.0f)%s%s", how, Label(piece.checksum).c_str(),
+                piece.max.x - piece.min.x, piece.max.y - piece.min.y, piece.max.z - piece.min.z,
+                caster ? " of " : "", caster ? Label(caster).c_str() : "");
     }
     return group;
 }
@@ -986,6 +1068,35 @@ void ClearSelection()
 {
     g_selection.clear();
     g_rails.clear();
+    g_droppedRails.clear();
+}
+
+bool IsShadow(uint32_t checksum, uint32_t* caster)
+{
+    auto it = g_shadowOf.find(checksum);
+    if (it == g_shadowOf.end())
+        return false;
+    if (caster)
+        *caster = it->second;
+    return true;
+}
+
+const std::vector<uint32_t>& SelectedRailNames() { return g_rails; }
+
+bool CarriesRail(uint32_t name) { return std::find(g_rails.begin(), g_rails.end(), name) != g_rails.end(); }
+
+void DropRail(uint32_t name)
+{
+    if (!CarriesRail(name))
+        return;
+    g_droppedRails.push_back(name);
+    g_rails.erase(std::find(g_rails.begin(), g_rails.end(), name));
+}
+
+void KeepOnly(uint32_t checksum)
+{
+    g_droppedRails.clear();
+    SetSelection({checksum});
 }
 
 const std::vector<uint32_t>& HoverGroup(uint32_t checksum)
@@ -1023,6 +1134,7 @@ void LogMeshes()
 void SelectGroup(uint32_t checksum)
 {
     g_selection = GroupOf(checksum);
+    g_droppedRails.clear();
     ComputePivot();
     SelectRails();
     LogMeshes();
@@ -1032,7 +1144,7 @@ void SelectGroup(uint32_t checksum)
             ClusterOf(checksum), static_cast<unsigned>(g_rails.size()), g_rails.size() == 1 ? "" : "s", g_pivot.x,
             g_pivot.y, g_pivot.z);
         for (uint32_t member : g_selection)
-            Log("level editor:   %s", Label(member).c_str());
+            Log("level editor:   %s%s", Label(member).c_str(), IsShadow(member) ? " (shadow)" : "");
     }
 }
 
@@ -1507,6 +1619,7 @@ void Reset()
 {
     ClearSelection();
     g_clusters.clear();
+    g_shadowOf.clear();
     g_hoverGroupOf = 0;
     g_hoverGroup.clear();
 }
