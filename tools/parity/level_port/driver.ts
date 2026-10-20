@@ -226,8 +226,8 @@ function cmdThug2(out: string, game: string): void {
         `anims ${t.anims.size} ${digest(sortedNumbers(t.anims))}`,
         `bodies ${digest(new Map([...t.bodies].map(([k, v]) => [hex8(k), sortedNumbers(v)])))}`,
     ];
-    const needs = new Map<string, number[]>();
-    for (const name of sortedNumbers(t.scripts)) needs.set(hex8(name), sortedNumbers(t.scriptNeeds(name)));
+    const needs = new Map<string, string[]>();
+    for (const name of sortedNumbers(t.scripts)) needs.set(hex8(name), [...t.scriptNeeds(name)].sort());
     lines.push(`needs ${digest(needs)}`);
     lines.push(`component ${pyRepr(members.slice(0, 50).map((n) => t.component(n)))}`);
     write(out, "thug2.txt", `${lines.join("\n")}\n`);

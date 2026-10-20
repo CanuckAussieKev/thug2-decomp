@@ -38,6 +38,7 @@ import { pack, unpackNumbers } from "../lib/struct.ts";
 import * as prx from "./prx.ts";
 import * as qb from "./qb.ts";
 import { checksum } from "./qb.ts";
+import { NAMED_MEMBERS, TABLE_MEMBERS, COMPONENTS as THUG2_COMPONENTS } from "./thug2_members.ts";
 
 export const EOL: readonly number[] = [0x01, 0x02];
 export const RANDOMS: readonly number[] = [0x2f, 0x37, 0x40, 0x41];
@@ -54,70 +55,129 @@ export const BOUNCY = "bouncy";
 export type Context = typeof OBJECT | typeof SKATER | typeof NONE | typeof PED | typeof VEHICLE | typeof BOUNCY;
 const CONTEXTS: Context[] = [OBJECT, SKATER, NONE, PED, VEHICLE, BOUNCY];
 
-// Member function components (THUG2's member function tables) each context's objects have. A LevelObject / ghost
-// GameObject is a composite object with motion, suspend, sound and object proximity components (and a model); the
-// skater's components are its own (none of THPS3's object scripts are meant for it).
+// What each context's objects have: the names of THUG2's components (tools/level_port/thug2_members.ts, generated
+// from the exe by tools/extract_members.ts) and two names of the objects themselves - "object" (every object: CObject's
+// own members, Die, Obj_GetId... and the table 0x57525413) and "skater" (the skater object, CSkater's
+// CallMemberFunction 0x005835D0: SparksOff, SkaterIsNamed...). "compositeobject": a composite object's own table
+// (Obj_GetPosition, Hide...).
+// The base component every composite object made by AddBaseComponents (0x0057B250: suspend and this one) and every
+// game object (0x00468CB0) has: Obj_ObjectInRadius / Obj_ObjectInRect. No THUG2 script names its type 0xB87C8E43.
+export const BASE = "b87c8e43";
+// AddMotionComponents (0x0057B2F0): every moving object's, the skater's, a ped's and a car's.
+export const MOTION_COMPONENTS: readonly string[] = ["motion", "objectproximity", "sound", "stream", "lockobj"];
+// The skater (the local one: the converters' sector and rail scripts run on it): CSkater's constructor (0x00582D90:
+// AddBaseComponents, then one component after another) and Init (0x00581850: AddMotionComponents, the animation
+// blender, skeleton, model, shadow, vibration, stance panel, skater sound) - src/game/skater/skater.cpp.
+export const SKATER_COMPONENTS: readonly string[] = [
+    "compositeobject",
+    "object",
+    "skater",
+    "suspend",
+    BASE,
+    "skaterstate",
+    "specialitem",
+    "input",
+    "skaterscore",
+    "skatermatrixqueries",
+    "trick",
+    "skaterphysicscontrol",
+    "skatercorephysics",
+    "skaterrotate",
+    "skatergap",
+    "skateradjustphysics",
+    "trigger",
+    "skaterfinalizephysics",
+    "skatercleanupstate",
+    "walk",
+    "skaterlocalnetlogic",
+    "skaterendrun",
+    "skaterbalancetrick",
+    "skaterloopingsound",
+    "skatervehiclesound",
+    "statsmanager",
+    "movablecontact",
+    "skaterruntimer",
+    "taggingcontrol",
+    "skaterstatehistory",
+    "skaterflipandrotate",
+    "tagging",
+    "pagermessage",
+    ...MOTION_COMPONENTS,
+    "animblender",
+    "skeleton",
+    "model",
+    "shadow",
+    "vibration",
+    "skaterstancepanel",
+    "skatersound",
+];
+// A component with a table of members (TABLE_MEMBERS) must be there: the script runs the entry on it, a null when the
+// object hasn't it (a crash). One whose members are all by name (NAMED_MEMBERS: model, shadow, lockobj, skitch...)
+// does nothing when it isn't there - such a component is listed where the objects usually have it.
 export const SAFE_COMPONENTS: Readonly<Record<Context, ReadonlySet<string>>> = {
-    [OBJECT]: new Set(["motion", "compositeobject", "object", "objectproximity", "sound", "suspend"]),
-    [SKATER]: new Set(["compositeobject", "object"]),
-    [NONE]: new Set(),
-    // (THUG2's ped_add_components and the C++ base: the components THUG2's own levels' ped / car scripts use on them;
-    // a bouncy LevelObject: bouncyobj_add_components - suspend, rigidbody, model, sound)
-    [PED]: new Set([
+    // A LevelObject / ghost GameObject (CreateGameObject 0x00468CB0): gameobj_composite_structure (suspend, motion,
+    // objectproximity, sound), lockobj, the base component; gameobj_add_components' model (a LevelObject's, a ghost's
+    // with a model - members by name: nothing happens without it). Not stream (only with SupportStreams).
+    [OBJECT]: new Set([
+        "motion",
         "compositeobject",
         "object",
         "objectproximity",
-        "motion",
+        "sound",
+        "suspend",
+        "lockobj",
+        BASE,
+        "model",
+    ]),
+    [SKATER]: new Set(SKATER_COMPONENTS),
+    [NONE]: new Set(),
+    // (CreatePed 0x0057B4E0: AddBaseComponents, AddMotionComponents and THUG2's ped_add_components - avoid, pedlogic,
+    // fam, animblender, skeleton, model, shadow; CreateCar 0x00578170: AddBaseComponents, AddMotionComponents,
+    // car_add_components - model, collision, nodearray, railmanager, objecthookmanager, skitch (by name; not with
+    // NoSkitch), and the skeleton the converters' cars are given; a bouncy LevelObject: bouncyobj_add_components -
+    // suspend, rigidbody, model, sound)
+    [PED]: new Set([
+        "compositeobject",
+        "object",
+        "suspend",
+        BASE,
+        ...MOTION_COMPONENTS,
         "animblender",
         "pedlogic",
-        "suspend",
         "skeleton",
         "avoid",
         "fam",
+        "model",
+        "shadow",
     ]),
-    [VEHICLE]: new Set(["compositeobject", "object", "motion", "sound", "suspend", "skeleton"]),
-    [BOUNCY]: new Set(["compositeobject", "object", "suspend", "rigidbody", "sound"]),
+    [VEHICLE]: new Set([
+        "compositeobject",
+        "object",
+        "suspend",
+        BASE,
+        ...MOTION_COMPONENTS,
+        "skeleton",
+        "model",
+        "skitch",
+    ]),
+    [BOUNCY]: new Set(["compositeobject", "object", "suspend", "rigidbody", "sound", "model"]),
 };
-export const COMPONENT_NAMES = [
-    "motion",
-    "compositeobject",
+// THUG2's component names (by their type checksums).
+export const COMPONENT_NAMES: readonly string[] = [
     "object",
-    "objectproximity",
-    "sound",
-    "suspend",
-    "stream",
-    "skeleton",
-    "animblender",
-    "pedlogic",
-    "vehicle",
-    "rigidbody",
-    "walk",
-    "skatercorephysics",
-    "skaterstate",
-    "input",
-    "particle",
-    "flexibleparticle",
-    "avoid",
-    "skaterphysicscontrol",
-    "statsmanager",
-    "goaleditor",
-    "trick",
-    "skaterruntimer",
-    "pagermessage",
-    "vibration",
-    "fam",
-    "carphysics",
-    "skaterbalancetrick",
-    "skatervehiclesound",
+    "compositeobject",
+    ...THUG2_COMPONENTS.map(([, name]) => name),
 ];
-// Members the object runs itself by name (no table entry), per context: the skater's gap functions; Die.
+// Members the object runs itself by name besides THUG2's NAMED_MEMBERS, per context (a converter's own: addContext,
+// TranslatorOptions.byName). THUG2's own - the skater's gap functions, Die, Obj_MoveToNode... - are in the member
+// table now.
 export const BY_NAME: Readonly<Record<Context, ReadonlySet<string>>> = {
-    [OBJECT]: new Set(["die", "obj_movetonode", "obj_stopsound"]),
-    [SKATER]: new Set(["startgap", "endgap"]),
+    [OBJECT]: new Set(),
+    [SKATER]: new Set(),
     [NONE]: new Set(),
-    [PED]: new Set(["die", "obj_movetonode"]),
-    [VEHICLE]: new Set(["die", "obj_movetonode"]),
-    [BOUNCY]: new Set(["die"]),
+    [PED]: new Set(),
+    [VEHICLE]: new Set(),
+    [BOUNCY]: new Set(),
 };
 
 // A converter's own context (THAW's skater: tools/thaw_levels/thaw_scripts.ts), with its SAFE_COMPONENTS and BY_NAME
@@ -310,31 +370,48 @@ export function nameTok(value: number, i: number): Tok {
     return new Tok(0x16, pack("<I", value), i);
 }
 
-function hasBytesAt(exe: Buffer, start: number, end: number): boolean {
-    // (Python's exe[start:end] != zero: a short slice past the end isn't all of the zero bytes)
-    if (end > exe.length) return true;
-    for (let k = start; k < end; k++) if (exe[k] !== 0) return true;
-    return false;
+// A command a THUG2 script runs on the object running it (Thug2.uses): a member function or a THUG2 script (a call, or
+// one it goes to / spawns on the same object). guards: the parameters of the `if GotParam X` branches it is in - it
+// runs only when the caller passes all of them; passed: for a script call, the parameter names the statement passes
+// (keys and flags), all: it passes the caller's own (<...>).
+export interface Use {
+    name: number;
+    guards: readonly number[];
+    passed: readonly number[];
+    all: boolean;
 }
+
+// THUG2 commands whose first unnamed name is a script run on the same object (scriptNeeds follows them).
+const SAME_OBJECT_SCRIPTS: ReadonlySet<number> = new Set(
+    ["goto", "gotopreserveparams", "gotorandomscript", "obj_spawnscript", "obj_switchscript"].map(checksum),
+);
 
 // --- what THUG2 has ------------------------------------------------------------------------------------------------
 
 // THUG2's commands, read from the user's game: its C functions (the CFunction table in THUG2PM.exe: name, function),
-// its member functions (the components' tables: {u32 name checksum, u32 component, 16 bytes}) and its scripts and
-// globals (Data\pre\qb_scripts.prx).
+// its member functions (tools/level_port/thug2_members.ts: the components' tables and the members registered by name,
+// with the components that run them) and its scripts and globals (Data\pre\qb_scripts.prx).
 export class Thug2 {
     static readonly CFUNC_TABLE = 0x67f3a0;
     static readonly CFUNC_COUNT = 0x4e6;
     static readonly DESC = checksum("descChecksum");
+    static readonly GOT_PARAM = checksum("GotParam");
 
     readonly root: string;
     readonly cfuncs: Set<number>;
-    readonly members: Map<number, number>;
+    // member checksum -> the components (names, as SAFE_COMPONENTS') that run it: one for a table member, those whose
+    // CallMemberFunction takes it for a member by name (none: no object of the converters' has it)
+    readonly members: Map<number, readonly string[]>;
+    // the members registered in tables (an object without the component crashes on them)
+    readonly tableMembers: Set<number>;
     readonly scripts = new Set<number>();
     readonly globals = new Set<number>();
     readonly anims = new Set<number>();
+    // every name a script uses (not `object:` calls) - what THUG2's scripts refer to
     readonly bodies = new Map<number, Set<number>>();
-    readonly needs = new Map<number, Set<number>>();
+    // the commands a script runs on its object (scriptNeeds)
+    readonly uses = new Map<number, Use[]>();
+    readonly needs = new Map<string, Set<string>>();
 
     constructor(thug2: string) {
         let exe: Buffer | null = null;
@@ -348,7 +425,7 @@ export class Thug2 {
         this.root = thug2;
         if (exe === null) throw new Error(`no THUG2PM.exe in ${thug2}`);
         this.cfuncs = new Set(Thug2.cfuncNames(exe).map(checksum));
-        this.members = Thug2.membersOf(exe);
+        [this.members, this.tableMembers] = Thug2.memberTable();
         for (const [, data] of prx.entries(path.join(thug2, "Data", "pre", "qb_scripts.prx"), (n) =>
             n.toLowerCase().endsWith(".qb"),
         )) {
@@ -389,21 +466,17 @@ export class Thug2 {
         return names;
     }
 
-    static membersOf(exe: Buffer): Map<number, number> {
-        // {checksum: component checksum}: runs of 24-byte entries {name, component, 16 zero bytes} with one component.
-        const out = new Map<number, number>();
-        for (let off = 0x200000; off < exe.length - 48; off += 4) {
-            if (hasBytesAt(exe, off + 8, off + 24) || hasBytesAt(exe, off + 32, off + 48)) continue;
-            const n = exe.readUInt32LE(off);
-            const t = exe.readUInt32LE(off + 4);
-            const n2 = exe.readUInt32LE(off + 24);
-            const t2 = exe.readUInt32LE(off + 28);
-            if (t === t2 && n && t && n !== n2) {
-                out.set(n, t);
-                out.set(n2, t2);
-            }
-        }
-        return out;
+    // The member table (thug2_members.ts): {member checksum: its components} and the table members.
+    static memberTable(): [Map<number, readonly string[]>, Set<number>] {
+        const members = new Map<number, string[]>();
+        const add = (name: number, who: readonly string[]): void => {
+            const list = members.get(name) ?? [];
+            for (const w of who) if (!list.includes(w)) list.push(w);
+            members.set(name, list);
+        };
+        for (const [name, component] of TABLE_MEMBERS) add(name, [component]);
+        for (const [name, who] of NAMED_MEMBERS) add(checksum(name), who);
+        return [members, new Set(TABLE_MEMBERS.map(([name]) => name))];
     }
 
     private readQb(data: Buffer): void {
@@ -436,27 +509,134 @@ export class Thug2 {
                 this.anims.add(u32(toks[k + 2]![2]));
             }
         });
+        // the commands each script runs on its object
+        for (let k = 0; k < toks.length; k++) {
+            if (toks[k]![1] === 0x23 && toks[k + 1]?.[1] === 0x16) {
+                let end = k + 2;
+                while (end < toks.length && toks[end]![1] !== 0x24) end += 1;
+                this.uses.set(
+                    u32(toks[k + 1]![2]),
+                    Thug2.commandsOf(toks.slice(k + 2, end).map(([, t, p]) => [t, p])),
+                );
+                k = end;
+            }
+        }
     }
 
-    component(name: number): number | undefined {
+    // The commands a script body (THUG2 tokens) runs on its object: names in command position - a statement's first
+    // name (after a line end, `if`, `not`, `else`, a random's branch), not `object:` calls nor `name = value` - and the
+    // scripts it goes to / spawns on the same object. Each with the `if GotParam X` branches it is in (not their else
+    // parts: those run without X).
+    static commandsOf(toks: readonly (readonly [number, Buffer])[]): Use[] {
+        const out: Use[] = [];
+        const frames: { guard: number | null; inElse: boolean }[] = [];
+        let condition: { guard: number | null } | null = null;
+        let expect = true; // a command may come next
+        let depth = 0; // inside ( ), [ ], { }
+        const guards = (): number[] =>
+            frames.filter((f) => f.guard !== null && !f.inElse).map((f) => f.guard as number);
+        for (let k = 0; k < toks.length; k++) {
+            const [t, p] = toks[k]!;
+            if (t === 0x01 || t === 0x02) {
+                if (condition !== null) {
+                    frames.push({ guard: condition.guard, inElse: false });
+                    condition = null;
+                }
+                expect = depth === 0;
+                continue;
+            }
+            if (t === 0x47 || t === 0x25) {
+                condition = { guard: null };
+                expect = true;
+                continue;
+            }
+            if (t === 0x48 || t === 0x26) {
+                const top = frames[frames.length - 1];
+                if (top) top.inElse = true;
+                expect = true;
+                continue;
+            }
+            if (t === 0x28) {
+                frames.pop();
+                expect = false;
+                continue;
+            }
+            if (t === 0x39 || RANDOMS.includes(t) || t === 0x2e || t === 0x20 || t === 0x49) {
+                // (not: the command follows; a random's / jump's branch starts a statement)
+                continue;
+            }
+            if (t === 0x03 || t === 0x05 || t === 0x0e) depth += 1;
+            else if (t === 0x04 || t === 0x06 || t === 0x0f) depth = Math.max(0, depth - 1);
+            if (t !== 0x16 || !expect) {
+                expect = false;
+                continue;
+            }
+            expect = false;
+            const next = toks[k + 1]?.[0];
+            if (next === 0x42 || next === 0x07) continue; // (`object:...` runs on another object; `name = value`)
+            const name = u32(p);
+            // the statement's arguments
+            const passed: number[] = [];
+            let all = false;
+            let firstUnnamed: number | null = null;
+            let level = 0;
+            for (let j = k + 1; j < toks.length; j++) {
+                const [t2, p2] = toks[j]!;
+                if ((t2 === 0x01 || t2 === 0x02) && level === 0) break;
+                if (t2 === 0x03 || t2 === 0x05 || t2 === 0x0e) level += 1;
+                else if (t2 === 0x04 || t2 === 0x06 || t2 === 0x0f) level -= 1;
+                if (level > 0) continue;
+                if (t2 === 0x2c) all = true;
+                if (t2 === 0x16 && toks[j - 1]?.[0] !== 0x07 && toks[j - 1]?.[0] !== 0x2d) {
+                    passed.push(u32(p2));
+                    if (toks[j + 1]?.[0] !== 0x07 && firstUnnamed === null) firstUnnamed = u32(p2);
+                }
+            }
+            if (condition !== null && name === Thug2.GOT_PARAM && toks[k + 1]?.[0] === 0x16) {
+                // (`if GotParam X`: the branch runs only with X; not `if NOT GotParam X` - its command comes after a 0x39)
+                if (toks[k - 1]?.[0] !== 0x39) condition.guard = u32(toks[k + 1]![1]);
+            }
+            const g = guards();
+            out.push({ name, guards: g, passed, all });
+            if (SAME_OBJECT_SCRIPTS.has(name) && firstUnnamed !== null)
+                out.push({ name: firstUnnamed, guards: g, passed: [], all: false });
+        }
+        return out;
+    }
+
+    component(name: number): readonly string[] | undefined {
         return this.members.get(name);
     }
 
-    scriptNeeds(name: number, seenIn?: Set<number>): Set<number> {
-        // The components (member function table checksums) a THUG2 script needs of the object running it: its member
-        // function calls and those of the THUG2 scripts it names (calls, exception scripts), all the way down.
-        const cached = this.needs.get(name);
+    scriptNeeds(name: number, passed: Iterable<number> | null = null, seenIn?: Set<string>): Set<string> {
+        // What a THUG2 script needs of the object running it: for each member function it runs (and those of the
+        // THUG2 scripts it calls or goes to on the same object, all the way down), the components that run it ("a|b":
+        // either). Only commands in command position count (not the parameter names and values a script uses), and
+        // those in an `if GotParam X` branch only when X is passed (null: the caller isn't known - every branch counts).
+        const given = passed === null ? null : new Set(passed);
+        const key = `${name}:${given === null ? "*" : sortedNumbers(given).join(",")}`;
+        const cached = this.needs.get(key);
         if (cached !== undefined) return cached;
-        const seen = seenIn ?? new Set<number>();
-        seen.add(name);
-        const out = new Set<number>();
-        for (const used of this.bodies.get(name) ?? []) {
-            const member = this.members.get(used);
-            if (member !== undefined) out.add(member);
-            else if (this.scripts.has(used) && !seen.has(used))
-                for (const c of this.scriptNeeds(used, seen)) out.add(c);
+        const seen = seenIn ?? new Set<string>();
+        seen.add(key);
+        const out = new Set<string>();
+        for (const use of this.uses.get(name) ?? []) {
+            if (given !== null && !use.guards.every((g) => given.has(g))) continue;
+            const who = this.members.get(use.name);
+            if (who !== undefined) {
+                out.add(who.length ? [...who].sort().join("|") : "(none)");
+            } else if (this.scripts.has(use.name)) {
+                const inner = use.all
+                    ? given === null
+                        ? null
+                        : [...given, ...use.passed]
+                    : use.passed;
+                const innerKey = `${use.name}:${inner === null ? "*" : sortedNumbers(new Set(inner)).join(",")}`;
+                if (seen.has(innerKey)) continue;
+                for (const c of this.scriptNeeds(use.name, inner, seen)) out.add(c);
+            }
         }
-        if (seenIn === undefined) this.needs.set(name, out);
+        if (seenIn === undefined) this.needs.set(key, out);
         return out;
     }
 }
@@ -671,6 +851,7 @@ export class Translator {
     leftOut = new Map<string, number>(); // reason -> count
     usedGlobals = new Set<number>();
     readonly components: Map<number, string>;
+    protected callArgs: number[] | null = null;
     readonly renames: Map<number, number>;
     readonly skaters: Set<number>;
     protected todo: number[] = [];
@@ -717,7 +898,7 @@ export class Translator {
         this.translatable = translatable;
         this.nodeNames = new Set(nodeNames);
         this.allNodeNames = new Set(allNodeNames);
-        this.components = new Map(COMPONENT_NAMES.map((c) => [checksum(c), c]));
+        this.components = new Map(COMPONENT_NAMES.map((c) => [/^[0-9a-f]{8}$/.test(c) ? Number.parseInt(c, 16) : checksum(c), c]));
         const allRenames = { ...RENAMES, ...(options.renames ?? {}) };
         this.renames = new Map(Object.entries(allRenames).map(([a, b]) => [checksum(a), checksum(b)]));
         const setDefault = (text: string): void => {
@@ -760,9 +941,11 @@ export class Translator {
     thug2ScriptOk(name: number, contexts: Iterable<Context>): boolean {
         // A THUG2 script run by these contexts' objects: every component it needs (Thug2.scriptNeeds) they have.
         if (this.provided.has(name)) return true;
-        const needs = [...this.thug2.scriptNeeds(name)].map((c) => this.components.get(c) ?? hex8(c));
+        // (this.callArgs: the parameters the calling statement passes - `if GotParam X` branches without X don't count;
+        // null: not known, every branch counts)
+        const needs = [...this.thug2.scriptNeeds(name, this.callArgs)];
         const list = [...contexts];
-        return needs.every((n) => list.every((c) => SAFE_COMPONENTS[c].has(n)));
+        return needs.every((n) => list.every((c) => n.split("|").some((w) => this.safe[c].has(w))));
     }
 
     require(name: number, context: Context): boolean {
@@ -923,15 +1106,21 @@ export class Translator {
         } else if (this.thug2.cfuncs.has(name) || this.provided.has(name)) {
             // (THUG2's C function, or a script the level's .qb has)
         } else if (this.thug2.scripts.has(name)) {
-            if (!this.thug2ScriptOk(name, contexts)) {
+            // (the parameters passed: its keys and flags; <...> passes the caller's own - not known here)
+            this.callArgs = toks.some((t) => t.t === 0x2c)
+                ? null
+                : args.filter(([, v]) => v.t === 0x16).map(([k, v]) => k ?? v.name()!);
+            const ok = this.thug2ScriptOk(name, contexts);
+            this.callArgs = null;
+            if (!ok) {
                 this.note(`THUG2 script needing components the runner hasn't: ${this.text(name)}`);
                 return null;
             }
         } else if (this.thug2.members.has(name)) {
-            const table = this.thug2.members.get(name)!;
-            const component = this.components.get(table) ?? hex8(table);
-            if (![...contexts].every((c) => this.safe[c].has(component))) {
-                this.note(`member of ${component}: ${this.text(name)}`);
+            // (a table member: its component; one by name: any of the components that take it)
+            const who = this.thug2.members.get(name)!;
+            if (![...contexts].every((c) => who.some((w) => this.safe[c].has(w)) || this.byName[c].has(text))) {
+                this.note(`member of ${who.length ? who.join("/") : "no converted object"}: ${this.text(name)}`);
                 return null;
             }
         } else if ([...contexts].every((c) => this.byName[c].has(text))) {
