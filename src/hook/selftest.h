@@ -79,6 +79,41 @@ inline unsigned int ArenaWordOrHigh(const void* arenas, unsigned int size, unsig
         return word;
     return (word & 0xFFFFu) | ((0xA000u + (high - first) % (size >> 16)) << 16);
 }
+// The same for a pair allocated apart (each VirtualAlloc'd: 64K-aligned; `size` a multiple of 0x10000 for the top
+// halves; one not allocated yet is null and skipped): a word in either arena maps by its offset there, in both runs.
+// (Should the two be adjacent, the address they share is offset 0 either way, as in ArenaWord.)
+inline unsigned int ArenaStart(const void* arena)
+{
+    return static_cast<unsigned int>(reinterpret_cast<unsigned long long>(arena));
+}
+// The arena (0 or 1) `word` points into (its end included), or -1.
+inline int ArenaOf(const void* first, const void* second, unsigned int size, unsigned int word)
+{
+    if (first && word - ArenaStart(first) <= size)
+        return 0;
+    if (second && word - ArenaStart(second) <= size)
+        return 1;
+    return -1;
+}
+inline unsigned int ArenaWord(const void* first, const void* second, unsigned int size, unsigned int word)
+{
+    int which = ArenaOf(first, second, size, word);
+    if (which < 0)
+        return word;
+    return 0xA0000000u + (word - ArenaStart(which ? second : first)) % size;
+}
+inline unsigned int ArenaWordOrHigh(const void* first, const void* second, unsigned int size, unsigned int word)
+{
+    if (ArenaOf(first, second, size, word) >= 0)
+        return ArenaWord(first, second, size, word);
+    const void* const arenas[2] = {first, second};
+    for (const void* arena : arenas) {
+        unsigned int block = (word >> 16) - (ArenaStart(arena) >> 16);
+        if (arena && block < (size >> 16))
+            return (word & 0xFFFFu) | ((0xA000u + block) << 16);
+    }
+    return word;
+}
 // Storage for such a pair aligned to 64K (`Size` a multiple of 0x10000), used as `uint8_t arenas[2][Size]`:
 //     ArenaPair<0x40000> g_storage;
 //     uint8_t (*const g_arenas)[0x40000] = g_storage.Get();

@@ -34,7 +34,10 @@ using Script::CSymbolTableEntry;
 using Script::SStructScript;
 
 constexpr uint32_t kArenaSize = 0x40000;
-alignas(16) uint8_t g_csA_arenas[2][kArenaSize];
+// (aligned to 64K, and both mapped in either run - ArenaWord / ArenaWordOrHigh, selftest.h: a value that only
+// happens to fall inside one of them maps the same way in each)
+ArenaPair<kArenaSize> g_csA_storage;
+uint8_t (*const g_csA_arenas)[kArenaSize] = g_csA_storage.Get();
 CSymbolTableEntry* g_csA_table[0x1000];
 std::vector<Saved> g_csA_saved;
 bool g_csA_swapped = false;
@@ -113,10 +116,7 @@ void TestCScriptCore()
         manager->m_heapCount = 2;
         manager->m_scriptHeap = heap;
         manager->PushContext(defaultHeap);
-        auto base = reinterpret_cast<uint32_t>(arena);
-        auto relocate = [&](uint32_t word) {
-            return word >= base && word <= base + kArenaSize ? 0xA0000000u + (word - base) : word;
-        };
+        auto relocate = [](uint32_t word) { return ArenaWord(g_csA_arenas, kArenaSize, word); };
 
         // Stand-in objects (CRefCounted: a vtable and the list of smart pointers), the event handler tables, the
         // cache and tracker pointers, the stored randoms (owner +0x00, next +0x58).
@@ -516,10 +516,7 @@ void TestCScriptCore()
         std::vector<uint32_t> image(kArenaSize / 4);
         std::memcpy(image.data(), arena, kArenaSize);
         for (uint32_t& word : image) {
-            word = relocate(word);
-            uint32_t high = word >> 16;
-            if (high >= (base >> 16) && high <= ((base + kArenaSize) >> 16))
-                word = (word & 0xFFFF) | ((0xA000u + high - (base >> 16)) << 16);
+            word = ArenaWordOrHigh(g_csA_arenas, kArenaSize, word);
         }
         trace.insert(trace.end(), image.begin(), image.end());
         GameVariable<void*>(0x007D1800) = nullptr;

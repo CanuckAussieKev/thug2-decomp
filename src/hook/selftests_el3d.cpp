@@ -265,8 +265,10 @@ void TestElement3dMath()
 constexpr uint32_t kArenaSize = 0x10000;
 alignas(16) uint8_t g_el3d_arenas[2][kArenaSize];
 uint32_t g_el3d_base;
-bool InArena(uint32_t word) { return word >= g_el3d_base && word <= g_el3d_base + kArenaSize; }
-uint32_t Rel(uint32_t word) { return InArena(word) ? 0xA0000000u + (word - g_el3d_base) : word; }
+// (both arenas, the same for both runs: a value that only happens to fall inside one of them maps the same way in
+// each - ArenaWord, selftest.h)
+bool InArena(uint32_t word) { return word - reinterpret_cast<uint32_t>(g_el3d_arenas) <= 2 * kArenaSize; }
+uint32_t Rel(uint32_t word) { return ArenaWord(g_el3d_arenas, kArenaSize, word); }
 void Rec(uint32_t tag, std::initializer_list<uint32_t> values)
 {
     g_trace.push_back(tag);

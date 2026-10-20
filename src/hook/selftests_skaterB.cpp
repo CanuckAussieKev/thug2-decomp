@@ -411,7 +411,11 @@ void __cdecl StandInRunScript(uint32_t name, Script::CStruct* params, int a, int
                                         static_cast<uint32_t>(a), static_cast<uint32_t>(b), static_cast<uint32_t>(c)});
 }
 
-alignas(16) uint8_t g_key_arenas[2][0x8000];
+// (64K each, aligned to 64K, and both mapped in either run - ArenaWord / ArenaWordOrHigh, selftest.h: a value that
+// only happens to fall inside one of them maps the same way in each)
+constexpr uint32_t kKeyArenaSize = 0x10000;
+ArenaPair<kKeyArenaSize> g_key_storage;
+uint8_t (*const g_key_arenas)[kKeyArenaSize] = g_key_storage.Get();
 
 // The keyboard task: no key, Enter with each dialog present or none, F1 (0x1F with PartyMod, the original
 // with its byte at 0x00533652), F2-F4, Escape (0x1B) and another key, each at 2000 and 2001 ms since the last
@@ -465,10 +469,7 @@ void TestKeyboardTask()
         manager->m_heapCount = 1;
         manager->m_scriptHeap = heap;
         manager->PushContext(heap);
-        auto base = reinterpret_cast<uint32_t>(arena);
-        auto relocate = [&](uint32_t word) {
-            return word >= base && word <= base + sizeof(g_key_arenas[0]) ? 0xA0000000u + (word - base) : word;
-        };
+        auto relocate = [](uint32_t word) { return ArenaWord(g_key_arenas, kKeyArenaSize, word); };
         GameVariable<float>(0x00684FD0) = 60.0f;
         GameVariable<uint64_t>(0x007D1EC8) = 600; // 10000 ms
         const int keys[] = {-1, 0x19, 0x1F, 0x1C, 0x1D, 0x1E, 0x1B, 0x41};
@@ -500,10 +501,7 @@ void TestKeyboardTask()
         std::vector<uint32_t> image(sizeof(g_key_arenas[0]) / 4);
         std::memcpy(image.data(), arena, sizeof(g_key_arenas[0]));
         for (uint32_t& word : image) {
-            word = relocate(word);
-            uint32_t high = word >> 16;
-            if (high >= (base >> 16) && high <= ((base + sizeof(g_key_arenas[0])) >> 16))
-                word = (word & 0xFFFF) | ((0xA000u + high - (base >> 16)) << 16);
+            word = ArenaWordOrHigh(g_key_arenas, kKeyArenaSize, word);
         }
         trace.insert(trace.end(), image.begin(), image.end());
         GameVariable<void*>(0x007D1800) = nullptr;

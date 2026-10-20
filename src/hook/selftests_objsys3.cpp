@@ -44,27 +44,24 @@ uint8_t* g_bufArenas[2];
 uint8_t* g_bufArena;
 std::vector<uint32_t> g_bufTrace;
 
+// (both allocated at once and both mapped in either run - ArenaWord / ArenaWordOrHigh, selftest.h: a value that
+// only happens to fall inside one of them maps the same way in each)
 uint8_t* BufArena(bool original)
 {
-    uint8_t*& arena = g_bufArenas[original ? 0 : 1];
-    if (!arena) {
-        // (high addresses, unlike the buffers' data: a byte pattern mistaken for a pointer into an arena low in
-        // memory would be relocated in one run only)
-        void* at = reinterpret_cast<void*>(original ? 0x6B300000u : 0x6B380000u);
+    for (int i = 0; i < 2; ++i) {
+        uint8_t*& arena = g_bufArenas[i];
+        if (arena)
+            continue;
+        // (high addresses, unlike the buffers' data, where they're free)
+        void* at = reinterpret_cast<void*>(i == 0 ? 0x6B300000u : 0x6B380000u);
         arena = static_cast<uint8_t*>(VirtualAlloc(at, kArenaSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
         if (!arena)
             arena = static_cast<uint8_t*>(VirtualAlloc(nullptr, kArenaSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
     }
-    return arena;
+    return g_bufArenas[original ? 0 : 1];
 }
 
-uint32_t BufReloc(uint32_t word)
-{
-    auto base = reinterpret_cast<uint32_t>(g_bufArena);
-    if (word - base <= kArenaSize)
-        return 0xA0000000u + (word - base);
-    return word;
-}
+uint32_t BufReloc(uint32_t word) { return ArenaWord(g_bufArenas[0], g_bufArenas[1], kArenaSize, word); }
 
 void SetUpManager(uint8_t* arena)
 {
@@ -87,15 +84,10 @@ void SetUpManager(uint8_t* arena)
 
 std::vector<uint32_t> ArenaImage(uint8_t* arena)
 {
-    auto base = reinterpret_cast<uint32_t>(arena);
     std::vector<uint32_t> image(kArenaSize / 4);
     std::memcpy(image.data(), arena, kArenaSize);
-    for (uint32_t& word : image) {
-        word = BufReloc(word);
-        uint32_t high = word >> 16;
-        if (high >= (base >> 16) && high <= ((base + kArenaSize) >> 16))
-            word = (word & 0xFFFF) | ((0xA000u + high - (base >> 16)) << 16);
-    }
+    for (uint32_t& word : image)
+        word = ArenaWordOrHigh(g_bufArenas[0], g_bufArenas[1], kArenaSize, word);
     return image;
 }
 

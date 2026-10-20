@@ -42,8 +42,10 @@ bool g_coim_original;
 bool g_coim_allocFail;
 std::vector<Saved> g_coim_saved;
 
-bool InArena(uint32_t word) { return word >= g_coim_base && word <= g_coim_base + kArenaSize; }
-uint32_t Rel(uint32_t word) { return InArena(word) ? 0xA0000000u + (word - g_coim_base) : word; }
+// (both arenas, the same for both runs: a value that only happens to fall inside one of them maps the same way in
+// each - ArenaWord, selftest.h)
+bool InArena(uint32_t word) { return word - reinterpret_cast<uint32_t>(g_coim_arenas) <= 2 * kArenaSize; }
+uint32_t Rel(uint32_t word) { return ArenaWord(g_coim_arenas, kArenaSize, word); }
 uint32_t Rel(const void* p) { return Rel(reinterpret_cast<uint32_t>(p)); }
 void Rec(uint32_t tag, std::initializer_list<uint32_t> values)
 {

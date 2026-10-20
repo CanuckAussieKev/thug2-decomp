@@ -542,10 +542,11 @@ void TestUnloadQB()
         manager->m_scriptHeap = heap;
         manager->m_topDownHeap = topHeap;
         manager->PushContext(heap);
-        auto arenaBase = reinterpret_cast<uint32_t>(arena);
-        auto relocate = [&](uint32_t word) {
-            return word >= arenaBase && word <= arenaBase + sizeof(g_unloadArenas[0]) ? 0xA0000000u + (word - arenaBase)
-                                                                                       : ScriptId(word);
+        // (both arenas, the same for both runs: a value that only happens to fall inside one of them maps the same
+        // way in each - ArenaWord, selftest.h)
+        auto relocate = [](uint32_t word) {
+            uint32_t mapped = ArenaWord(g_unloadArenas, sizeof(g_unloadArenas[0]), word);
+            return word - reinterpret_cast<uint32_t>(g_unloadArenas) <= sizeof(g_unloadArenas) ? mapped : ScriptId(word);
         };
 
         // Scripts: 0 still defined, 1 and 2 not, 3 still defined.

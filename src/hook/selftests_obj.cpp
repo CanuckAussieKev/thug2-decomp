@@ -53,8 +53,10 @@ std::vector<Saved> g_obj_saved;
 // The stand-in answers: (kind, structure, name) -> value (arena-relative for pointers).
 std::map<std::tuple<char, uint32_t, uint32_t>, uint32_t> g_obj_answers;
 
-bool InArena(uint32_t word) { return word >= g_obj_base && word <= g_obj_base + kArenaSize; }
-uint32_t Rel(uint32_t word) { return InArena(word) ? 0xA0000000u + (word - g_obj_base) : word; }
+// (both arenas, the same for both runs: a value that only happens to fall inside one of them maps the same way in
+// each - ArenaWord, selftest.h)
+bool InArena(uint32_t word) { return word - reinterpret_cast<uint32_t>(g_obj_arenas) <= 2 * kArenaSize; }
+uint32_t Rel(uint32_t word) { return ArenaWord(g_obj_arenas, kArenaSize, word); }
 uint32_t Rel(const void* p) { return Rel(reinterpret_cast<uint32_t>(p)); }
 uint32_t Abs(uint32_t value) { return (value & 0xFFFF0000u) == 0xA0000000u ? g_obj_base + (value & 0xFFFF) : value; }
 void Rec(uint32_t tag, std::initializer_list<uint32_t> values)

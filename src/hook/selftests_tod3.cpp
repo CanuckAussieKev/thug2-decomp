@@ -53,8 +53,10 @@ T* Ptr(uint32_t offset)
 {
     return reinterpret_cast<T*>(g_tg_base + offset);
 }
-bool InArena(uint32_t word) { return word - g_tg_base <= kArenaSize; }
-uint32_t Rel(uint32_t word) { return InArena(word) ? 0xA0000000u + (word - g_tg_base) : word; }
+// (both arenas, the same for both runs: a value that only happens to fall inside one of them maps the same way in
+// each - ArenaWord, selftest.h)
+bool InArena(uint32_t word) { return word - reinterpret_cast<uint32_t>(g_tg_storage.Get()) <= 2 * kArenaSize; }
+uint32_t Rel(uint32_t word) { return ArenaWord(g_tg_storage.Get(), kArenaSize, word); }
 void Rec(uint32_t tag, std::initializer_list<uint32_t> values)
 {
     g_trace.push_back(tag);

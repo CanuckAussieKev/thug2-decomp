@@ -1958,19 +1958,14 @@ std::vector<uint32_t> RebasedArena(const uint8_t* arena, size_t size)
 {
     std::vector<uint32_t> words(size / 4);
     std::memcpy(words.data(), arena, size);
-    auto base = reinterpret_cast<uint32_t>(arena);
-    for (uint32_t& word : words) {
-        if (word >= base && word < base + size)
-            word = 0xA0000000u + (word - base);
-    }
+    for (uint32_t& word : words)
+        word = ArenaWord(g_alloc_arenas, kArenaSize, word);
     return words;
 }
 
-uint32_t Rebased(const void* pointer, const uint8_t* arena)
+uint32_t Rebased(const void* pointer, const uint8_t* /*arena*/)
 {
-    auto value = reinterpret_cast<uint32_t>(pointer);
-    auto base = reinterpret_cast<uint32_t>(arena);
-    return value >= base && value < base + kArenaSize ? 0xA0000000u + (value - base) : value;
+    return ArenaWord(g_alloc_arenas, kArenaSize, reinterpret_cast<uint32_t>(pointer));
 }
 
 void TestAllocatorLayer()
@@ -2345,9 +2340,7 @@ void TestMemoryManager()
         uint8_t* arena = g_manager_arenas[original ? 0 : 1];
         std::memset(arena, 0, kManagerArenaSize);
         auto put = [&](const void* pointer) {
-            auto value = reinterpret_cast<uint32_t>(pointer);
-            auto base = reinterpret_cast<uint32_t>(arena);
-            trace.push_back(value >= base && value <= base + kManagerArenaSize ? 0xA0000000u + (value - base) : value);
+            trace.push_back(ArenaWord(g_manager_arenas, kManagerArenaSize, reinterpret_cast<uint32_t>(pointer)));
         };
         auto text = [&](const char* string) {
             uint32_t hash = 0;
@@ -2540,11 +2533,8 @@ void TestMemoryManager()
 
         std::vector<uint32_t> image(kManagerArenaSize / 4);
         std::memcpy(image.data(), arena, kManagerArenaSize);
-        for (uint32_t& word : image) {
-            auto base = reinterpret_cast<uint32_t>(arena);
-            if (word >= base && word <= base + kManagerArenaSize) // (a region's end is one past the arena)
-                word = 0xA0000000u + (word - base);
-        }
+        for (uint32_t& word : image) // (a region's end is one past the arena)
+            word = ArenaWord(g_manager_arenas, kManagerArenaSize, word);
         trace.insert(trace.end(), image.begin(), image.end());
         GameVariable<void*>(0x007D1800) = nullptr;
         return trace;
@@ -2593,11 +2583,8 @@ void TestMemoryManagerHeapCreation()
 
     auto run = [&](bool original, uint8_t* arena) {
         std::vector<uint32_t> trace;
-        auto rebased = [&](const void* pointer) {
-            auto value = reinterpret_cast<uint32_t>(pointer);
-            auto base = reinterpret_cast<uint32_t>(arena);
-            return value >= base && value <= base + kSize ? 0xA0000000u + (value - base) : value;
-        };
+        const uint8_t* pair = original ? arena : arena - kSize; // (both halves mapped: ArenaWord)
+        auto rebased = [&](const void* pointer) { return ArenaWord(pair, kSize, reinterpret_cast<uint32_t>(pointer)); };
         std::memset(arena, 0, kSize);
         auto* manager = reinterpret_cast<Manager*>(arena);
         GameVariable<void*>(0x007D1800) = manager;
@@ -2627,14 +2614,11 @@ void TestMemoryManagerHeapCreation()
                     manager->m_heaps[i]->m_name = nullptr;
                 }
             }
-            auto base = reinterpret_cast<uint32_t>(arena);
             const auto* words = reinterpret_cast<const uint32_t*>(arena);
             for (size_t page = 0; page < kSize / 0x1000; ++page) {
                 uint32_t hash = 2166136261u;
                 for (size_t i = page * 0x400; i < (page + 1) * 0x400; ++i) {
-                    uint32_t word = words[i];
-                    if (word >= base && word <= base + kSize)
-                        word = 0xA0000000u + (word - base);
+                    uint32_t word = ArenaWord(pair, kSize, words[i]);
                     hash = (hash ^ word) * 16777619u;
                 }
                 trace.push_back(hash);
@@ -3066,9 +3050,7 @@ void TestScriptStructWriting()
             return original ? Original<CArray*(__thiscall*)(CArray*)>(0x0046CAA0)(a) : a->Init();
         };
         auto put = [&](const void* p) {
-            auto value = reinterpret_cast<uint32_t>(p);
-            auto base = reinterpret_cast<uint32_t>(arena);
-            trace.push_back(value >= base && value <= base + kManagerArenaSize ? 0xA0000000u + (value - base) : value);
+            trace.push_back(ArenaWord(g_manager_arenas, kManagerArenaSize, reinterpret_cast<uint32_t>(p)));
         };
 
         // Components (from the heap: freeing them goes back to it).
@@ -3226,11 +3208,8 @@ void TestScriptStructWriting()
 
         std::vector<uint32_t> image(kManagerArenaSize / 4);
         std::memcpy(image.data(), arena, kManagerArenaSize);
-        auto base = reinterpret_cast<uint32_t>(arena);
-        for (uint32_t& word : image) {
-            if (word >= base && word <= base + kManagerArenaSize)
-                word = 0xA0000000u + (word - base);
-        }
+        for (uint32_t& word : image)
+            word = ArenaWord(g_manager_arenas, kManagerArenaSize, word);
         trace.insert(trace.end(), image.begin(), image.end());
         GameVariable<void*>(0x007D1800) = nullptr;
         return trace;
@@ -3387,11 +3366,8 @@ void TestScriptStructAdding()
 
         std::vector<uint32_t> image(kManagerArenaSize / 4);
         std::memcpy(image.data(), arena, kManagerArenaSize);
-        auto base = reinterpret_cast<uint32_t>(arena);
-        for (uint32_t& word : image) {
-            if (word >= base && word <= base + kManagerArenaSize)
-                word = 0xA0000000u + (word - base);
-        }
+        for (uint32_t& word : image)
+            word = ArenaWord(g_manager_arenas, kManagerArenaSize, word);
         trace.insert(trace.end(), image.begin(), image.end());
         GameVariable<void*>(0x007D1800) = nullptr;
         return trace;
@@ -3624,15 +3600,10 @@ void TestScriptArrays()
 
         std::vector<uint32_t> image(kManagerArenaSize / 4);
         std::memcpy(image.data(), arena, kManagerArenaSize);
-        auto base = reinterpret_cast<uint32_t>(arena);
-        for (uint32_t& word : image) {
-            if (word >= base && word <= base + kManagerArenaSize)
-                word = 0xA0000000u + (word - base);
-        }
-        for (uint32_t& word : trace) {
-            if (word >= base && word <= base + kManagerArenaSize)
-                word = 0xA0000000u + (word - base);
-        }
+        for (uint32_t& word : image)
+            word = ArenaWord(g_manager_arenas, kManagerArenaSize, word);
+        for (uint32_t& word : trace)
+            word = ArenaWord(g_manager_arenas, kManagerArenaSize, word);
         trace.insert(trace.end(), image.begin(), image.end());
         GameVariable<void*>(0x007D1800) = nullptr;
         return trace;
@@ -3899,11 +3870,7 @@ void TestScriptSymbols()
         }
         std::vector<uint32_t> image(kManagerArenaSize / 4);
         std::memcpy(image.data(), arena, kManagerArenaSize);
-        auto base = reinterpret_cast<uint32_t>(arena);
-        auto relocate = [&](uint32_t& word) {
-            if (word >= base && word <= base + kManagerArenaSize)
-                word = 0xA0000000u + (word - base);
-        };
+        auto relocate = [](uint32_t& word) { word = ArenaWord(g_manager_arenas, kManagerArenaSize, word); };
         for (uint32_t& word : image)
             relocate(word);
         for (uint32_t& word : trace)
@@ -4338,11 +4305,7 @@ void TestScriptExpressions()
 
         std::vector<uint32_t> image(kManagerArenaSize / 4);
         std::memcpy(image.data(), arena, kManagerArenaSize);
-        auto base = reinterpret_cast<uint32_t>(arena);
-        auto relocate = [&](uint32_t& word) {
-            if (word >= base && word <= base + kManagerArenaSize)
-                word = 0xA0000000u + (word - base);
-        };
+        auto relocate = [](uint32_t& word) { word = ArenaWord(g_manager_arenas, kManagerArenaSize, word); };
         for (uint32_t& word : image)
             relocate(word);
         for (uint32_t& word : trace)
@@ -4513,8 +4476,7 @@ void TestScriptChecksumNames()
         for (uint32_t& word : trace) {
             if (word >= blockBase && word < blockBase + nameBlock.size())
                 word = 0xB0000000u + (word - blockBase);
-            if (word >= reinterpret_cast<uint32_t>(arena) && word < reinterpret_cast<uint32_t>(arena) + kManagerArenaSize)
-                word = 0xA0000000u + (word - reinterpret_cast<uint32_t>(arena));
+            word = ArenaWord(g_manager_arenas, kManagerArenaSize, word);
         }
         return trace;
     };
@@ -4686,10 +4648,7 @@ void TestScriptTokens()
         manager->m_heapCount = 1;
         manager->m_scriptHeap = heap;
         manager->PushContext(heap);
-        auto base = reinterpret_cast<uint32_t>(arena);
-        auto relocate = [&](uint32_t word) {
-            return word >= base && word <= base + sizeof(g_qb_arenas[0]) ? 0xA0000000u + (word - base) : word;
-        };
+        auto relocate = [](uint32_t word) { return ArenaWord(g_qb_arenas, sizeof(g_qb_arenas[0]), word); };
         using P = const uint8_t*;
 
         // Skipping each token, and the lone tokens that don't step.
@@ -4955,10 +4914,7 @@ void TestScriptSymbolBookkeeping()
         manager->m_scriptHeap = heap;
         manager->m_debugHeap = debugHeap;
         manager->PushContext(heap);
-        auto base = reinterpret_cast<uint32_t>(arena);
-        auto relocate = [&](uint32_t word) {
-            return word >= base && word <= base + sizeof(g_qb_arenas[0]) ? 0xA0000000u + (word - base) : word;
-        };
+        auto relocate = [](uint32_t word) { return ArenaWord(g_qb_arenas, sizeof(g_qb_arenas[0]), word); };
         using S = CSymbolTableEntry*;
         auto remove = [&](S symbol) {
             if (original)
@@ -5509,10 +5465,7 @@ void TestScriptParser()
         manager->m_scriptHeap = heap;
         manager->PushContext(heap);
         reinterpret_cast<CExpressionEvaluator*>(0x006F2370)->Init();
-        auto base = reinterpret_cast<uint32_t>(arena);
-        auto relocate = [&](uint32_t word) {
-            return word >= base && word <= base + sizeof(g_qb_arenas[0]) ? 0xA0000000u + (word - base) : word;
-        };
+        auto relocate = [](uint32_t word) { return ArenaWord(g_qb_arenas, sizeof(g_qb_arenas[0]), word); };
 
         // The globals.
         static CSymbolTableEntry symbols[10];
@@ -6057,10 +6010,7 @@ void TestMemoryCards()
         manager->m_heaps[0] = heap;
         manager->m_heapCount = 1;
         manager->PushContext(heap);
-        auto base = reinterpret_cast<uint32_t>(arena);
-        auto relocate = [&](uint32_t word) {
-            return word >= base && word <= base + sizeof(arenas[0]) ? 0xA0000000u + (word - base) : word;
-        };
+        auto relocate = [](uint32_t word) { return ArenaWord(arenas, sizeof(arenas[0]), word); };
         using M = Mc::Manager*;
         using C = Mc::Card*;
         using F = Mc::File*;
