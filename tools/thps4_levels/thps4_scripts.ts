@@ -468,7 +468,7 @@ export function mergeSectors(sectorsIn: readonly thps4.Sector[], name: number): 
         out.uvSets = sets;
         out.uvs = [];
     }
-    const turned = (v: number[]): number[] => [v[0]!, v[2]!, -v[1]!];
+    const turned = (v: number[]): number[] => thps4.floats(v[0]!, v[2]!, -v[1]!);
     for (const s of sectors) {
         const base = out.positions.length;
         const count = s.positions.length;
@@ -484,8 +484,8 @@ export function mergeSectors(sectorsIn: readonly thps4.Sector[], name: number): 
         if (sets) {
             const have = s.flags & thps4.SEC_TEXCOORDS ? s.uvSets || 0 : 0;
             for (let k = 0; k < count; k++) {
-                const uv = have ? [...s.uvs![k]!] : [];
-                while (uv.length < 2 * sets) uv.push(...(uv.length ? uv.slice(0, 2) : [0.0, 0.0]));
+                const uv = have ? thps4.floats(...s.uvs![k]!) : thps4.floats();
+                while (uv.length < 2 * sets) uv.push(...(uv.length ? uv.slice(0, 2) : thps4.floats(0.0, 0.0)));
                 out.uvs!.push(uv.slice(0, 2 * sets));
             }
         }
@@ -505,7 +505,7 @@ export function mergeCol(objects: readonly thps4.ColObject[], name: number, turn
     const faces: [number, number, number, number, number][] = [];
     for (const o of objects) {
         const base = verts.length;
-        verts.push(...o.verts.map(([x, y, z]) => (turn ? [x!, z!, -y!] : [x!, y!, z!])));
+        verts.push(...o.verts.map(([x, y, z]) => (turn ? thps4.floats(x!, z!, -y!) : thps4.floats(x!, y!, z!))));
         intensities.push(...o.intensities);
         faces.push(
             ...o.faces.map(([f, t, a, b, c]): [number, number, number, number, number] => [

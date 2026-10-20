@@ -5,6 +5,7 @@ import { FormatError, Reader } from "../level_port/binio.ts";
 import type { SourceColObject, SourceSector } from "../level_port/geometry.ts";
 import type * as thug2Scene from "../level_port/thug2_scene.ts";
 import { floorDiv, hex8, pyMax, pyMod } from "../lib/py.ts";
+import { doubleArray } from "../lib/struct.ts";
 
 export const SEC_TEXCOORDS = 0x01;
 export const SEC_COLORS = 0x02;
@@ -16,6 +17,13 @@ export const SEC_BILLBOARD = 0x00800000;
 export const PASS_UV_WIBBLE = 1 << 0;
 export const PASS_VC_WIBBLE = 1 << 1;
 export const PASS_ANIMATES = 1 << 11;
+
+// A new array of float values (doubleArray: a float32 NaN's payload kept - docs/typescript.md, the NaN payload trap).
+export function floats(...values: number[]): number[] {
+    const out = doubleArray();
+    for (const v of values) out.push(v);
+    return out;
+}
 
 const hex = (n: number): string => n.toString(16).toUpperCase();
 
@@ -233,7 +241,7 @@ export function readCol(data: Uint8Array, name = "col"): ColFile {
         const v = new Reader(data, vertBase + vertIndex * 16, name);
         for (let n = 0; n < nverts; n++) {
             const [x, y, z, intensity] = v.readAny("3f4s") as [number, number, number, Buffer];
-            o.verts.push([x, y, z]);
+            o.verts.push(floats(x, y, z));
             o.intensities.push([...intensity]);
         }
         const f = new Reader(data, faceBase + faceOff, name);
