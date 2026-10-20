@@ -51,7 +51,7 @@ import { readScene, type Scene, type Sector, writeScene } from "../level_port/th
 import { parseCli } from "../lib/cli.ts";
 import { Float, hex8, isMain, print, pyExit, runMain } from "../lib/py.ts";
 import { resolveGameFolder } from "./edit_level.ts";
-import { type FieldValue, type Layout, type Placement, readLayout, type V3 } from "./layout_file.ts";
+import { type FieldValue, type Layout, LayoutError, type Placement, readLayout, type V3 } from "./layout_file.ts";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.dirname(path.dirname(HERE));
@@ -202,6 +202,239 @@ function cloneCollision(o: ColObject, name: number): ColObject {
         intensities: Buffer.from(o.intensities),
         reach: Buffer.from(o.reach),
     };
+}
+
+// --- shared collision (src/game/front/level_editor_shared_coll.h, ported) ---------------------------------------------
+//
+// A piece's collision isn't always its own object: collision-only objects (no render sector of their name) often hold
+// the faces of pieces nearby. When the editor moves or hides a piece it takes the faces that belong to it into a
+// collision object of its own (a companion) and switches the originals off (face flag 0x10). A face belongs when it
+// is collidable and not a trigger (0x50 clear), its object is on (no flag 2 / 4) and all three corners are in the
+// piece's box grown by 6 - and either its object is named after the piece (<name>_col / _ic / _col01 / _ic01: then
+// within 100 of the box), or every corner is within 6 of the piece's triangles and the piece is strictly the nearest
+// of the other solid pieces whose boxes hold it. At most 2048 faces. See-through pieces (every mesh's material's first
+// pass transparent - the engine's material flag 0x40) take nothing and don't compete.
+
+export interface FaceCopy {
+    v: V3[];
+    flags: number;
+    terrain: number;
+    bytes: number[];
+}
+
+const NEAR = 6;
+const MOST_FACES = 2048;
+const SUFFIXES = ["_col", "_ic", "_col01", "_ic01"];
+
+function sub(a: V3, b: V3): V3 {
+    return { x: a.x - b.x, y: a.y - b.y, z: a.z - b.z };
+}
+function dot(a: V3, b: V3): number {
+    return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+function cross(a: V3, b: V3): V3 {
+    return { x: a.y * b.z - a.z * b.y, y: a.z * b.x - a.x * b.z, z: a.x * b.y - a.y * b.x };
+}
+function segmentDistance(p: V3, a: V3, b: V3): number {
+    const ab = sub(b, a);
+    const len = dot(ab, ab);
+    const t = len > 0 ? Math.max(0, Math.min(1, dot(sub(p, a), ab) / len)) : 0;
+    const q = { x: a.x + ab.x * t, y: a.y + ab.y * t, z: a.z + ab.z * t };
+    return Math.sqrt(dot(sub(p, q), sub(p, q)));
+}
+export function pointTriangleDistance(p: V3, a: V3, b: V3, c: V3): number {
+    const ab = sub(b, a);
+    const ac = sub(c, a);
+    const n = cross(ab, ac);
+    const n2 = dot(n, n);
+    const scale = Math.max(dot(ab, ab), dot(ac, ac), dot(sub(c, b), sub(c, b)));
+    if (!(n2 > scale * scale * 1e-12))
+        return Math.min(segmentDistance(p, a, b), segmentDistance(p, b, c), segmentDistance(p, a, c));
+    const inside =
+        dot(cross(ab, sub(p, a)), n) >= 0 &&
+        dot(cross(sub(c, b), sub(p, b)), n) >= 0 &&
+        dot(cross(sub(a, c), sub(p, c)), n) >= 0;
+    if (inside) return Math.abs(dot(sub(p, a), n)) / Math.sqrt(n2);
+    return Math.min(segmentDistance(p, a, b), segmentDistance(p, b, c), segmentDistance(p, c, a));
+}
+
+interface Piece {
+    checksum: number;
+    min: V3;
+    max: V3;
+    triangles: [V3, V3, V3][];
+    seeThrough: boolean;
+}
+
+function inside(p: V3, min: V3, max: V3): boolean {
+    return p.x >= min.x && p.x <= max.x && p.y >= min.y && p.y <= max.y && p.z >= min.z && p.z <= max.z;
+}
+
+export class SharedCollision {
+    readonly pieces = new Map<number, Piece>();
+    readonly sources: ColObject[] = [];
+    readonly namedObjects = new Map<number, number>(); // collision-only object -> the piece it's named after
+    private readonly names: ReadonlyMap<number, string>;
+
+    constructor(scene: Scene, col: ColFile, names: ReadonlyMap<number, string>) {
+        this.names = names;
+        const render = new Set(scene.sectors.map((s) => s.checksum));
+        for (const o of col.objects)
+            if (!render.has(o.checksum) && !(o.flags & 6) && o.faces.length) this.sources.push(o);
+        const transparent = new Set<number>();
+        for (const m of scene.materials) if ((m.passes[0]?.flags ?? 0) & 0x40) transparent.add(m.checksum);
+        for (const s of scene.sectors) {
+            const triangles: [V3, V3, V3][] = [];
+            let seeThrough = s.meshes.length > 0;
+            for (const mesh of s.meshes) {
+                if (!transparent.has(mesh.material)) seeThrough = false;
+                const data = mesh.buffers[0]?.[1];
+                const indices = mesh.lods[0] ?? [];
+                if (!data || mesh.flags & 0x10 || mesh.stride < 12) continue;
+                const at = (i: number): V3 => ({
+                    x: data.readFloatLE(i * mesh.stride),
+                    y: data.readFloatLE(i * mesh.stride + 4),
+                    z: data.readFloatLE(i * mesh.stride + 8),
+                });
+                for (let i = 2; i < indices.length; i++) {
+                    const [a, b, c] = [indices[i - 2]!, indices[i - 1]!, indices[i]!];
+                    if (a === b || b === c || a === c || Math.max(a, b, c) >= mesh.vertexCount) continue;
+                    triangles.push([at(a), at(b), at(c)]);
+                }
+            }
+            if (!s.meshes.length || s.flags & 0x00800000) continue; // (billboards left out, as picking does)
+            this.pieces.set(s.checksum, {
+                checksum: s.checksum,
+                min: { x: s.bbox[0]! - NEAR, y: s.bbox[1]! - NEAR, z: s.bbox[2]! - NEAR },
+                max: { x: s.bbox[3]! + NEAR, y: s.bbox[4]! + NEAR, z: s.bbox[5]! + NEAR },
+                triangles,
+                seeThrough,
+            });
+        }
+        const sourceNames = new Set(this.sources.map((o) => o.checksum));
+        for (const piece of this.pieces.keys())
+            for (const n of this.namedFor(piece, sourceNames)) this.namedObjects.set(n, piece);
+    }
+
+    private namedFor(piece: number, sourceNames: ReadonlySet<number>): number[] {
+        const name = this.names.get(piece);
+        if (!name || checksum(name) !== piece) return [];
+        return SUFFIXES.map((s) => checksum(name + s)).filter((c) => sourceNames.has(c));
+    }
+
+    private distance(piece: Piece, p: V3, best: number): number {
+        for (const [a, b, c] of piece.triangles) {
+            const dx = Math.max(Math.min(a.x, b.x, c.x) - p.x, p.x - Math.max(a.x, b.x, c.x), 0);
+            const dy = Math.max(Math.min(a.y, b.y, c.y) - p.y, p.y - Math.max(a.y, b.y, c.y), 0);
+            const dz = Math.max(Math.min(a.z, b.z, c.z) - p.z, p.z - Math.max(a.z, b.z, c.z), 0);
+            if (dx * dx + dy * dy + dz * dz >= best * best) continue;
+            best = Math.min(best, pointTriangleDistance(p, a, b, c));
+        }
+        return best;
+    }
+
+    private faceDistance(piece: Piece, v: V3[], limit: number): number {
+        let worst = 0;
+        const over = limit + 1e-3;
+        for (const p of v) {
+            const d = this.distance(piece, p, over);
+            if (d > limit) return over;
+            worst = Math.max(worst, d);
+        }
+        return worst;
+    }
+
+    // The faces that belong to `piece` (as copies); `take`: the originals switched off (flag 0x10).
+    gather(pieceName: number, take: boolean): FaceCopy[] {
+        const piece = this.pieces.get(pieceName);
+        const out: FaceCopy[] = [];
+        if (!piece || piece.seeThrough) return out;
+        const sourceNames = new Set(this.sources.map((o) => o.checksum));
+        const mine = new Set(this.namedFor(pieceName, sourceNames));
+        const others = [...this.pieces.values()].filter(
+            (o) =>
+                o.checksum !== pieceName &&
+                !o.seeThrough &&
+                !(o.min.x > piece.max.x || o.max.x < piece.min.x || o.min.y > piece.max.y || o.max.y < piece.min.y) &&
+                !(o.min.z > piece.max.z || o.max.z < piece.min.z),
+        );
+        const grow = (d: number): [V3, V3] => [
+            { x: piece.min.x - d, y: piece.min.y - d, z: piece.min.z - d },
+            { x: piece.max.x + d, y: piece.max.y + d, z: piece.max.z + d },
+        ];
+        const [namedMin, namedMax] = grow(100);
+        for (const o of this.sources) {
+            const named = mine.has(o.checksum);
+            if (!named && this.namedObjects.has(o.checksum)) continue;
+            o.faces.forEach((face, f) => {
+                if (out.length >= MOST_FACES || face[0] & 0x50) return;
+                const v = [face[2], face[3], face[4]].map((i) => ({
+                    x: o.verts[i]![0]!,
+                    y: o.verts[i]![1]!,
+                    z: o.verts[i]![2]!,
+                }));
+                if (named) {
+                    if (!v.every((p) => inside(p, namedMin, namedMax))) return;
+                } else {
+                    if (!v.every((p) => inside(p, piece.min, piece.max))) return;
+                    const own = this.faceDistance(piece, v, NEAR);
+                    if (!(own <= NEAR)) return;
+                    let nearest = Infinity;
+                    for (const other of others) {
+                        if (!v.every((p) => inside(p, other.min, other.max))) continue;
+                        nearest = Math.min(nearest, this.faceDistance(other, v, own));
+                        if (!(own < nearest)) return;
+                    }
+                }
+                out.push({
+                    v,
+                    flags: face[0],
+                    terrain: face[1],
+                    bytes: [face[2], face[3], face[4]].map((i) => o.intensities[i] ?? 0x80),
+                });
+                if (take) o.faces[f] = [face[0] | 0x10, face[1], face[2], face[3], face[4]];
+            });
+        }
+        return out;
+    }
+}
+
+// A companion collision object: the faces (corners shared where equal), placed.
+export function companionObject(name: number, faces: readonly FaceCopy[], p: Placement): ColObject {
+    const verts: number[][] = [];
+    const bytes: number[] = [];
+    const out: [number, number, number, number, number][] = [];
+    for (const face of faces) {
+        const idx = face.v.map((v, k) => {
+            const q = applyPlacement(p, v);
+            let i = verts.findIndex(
+                (w, j) => w[0] === q.x && w[1] === q.y && w[2] === q.z && bytes[j] === face.bytes[k],
+            );
+            if (i < 0) {
+                verts.push([q.x, q.y, q.z]);
+                bytes.push(face.bytes[k]!);
+                i = verts.length - 1;
+            }
+            return i;
+        });
+        out.push([face.flags, face.terrain, idx[0]!, idx[1]!, idx[2]!]);
+    }
+    const b = bounds(verts.map((v) => ({ x: v[0]!, y: v[1]!, z: v[2]! })));
+    const o: ColObject = {
+        checksum: name,
+        flags: 0,
+        smallFaces: verts.length < 256 ? 1 : 0,
+        fixedVerts: 0,
+        bbox: [b.min.x, b.min.y, b.min.z, 1, b.max.x, b.max.y, b.max.z, 1],
+        verts,
+        intensities: Buffer.from(bytes),
+        faces: out,
+        reach: Buffer.alloc(0),
+        bsp: { kind: "leaf", faces: [], low: 3 },
+    };
+    o.bsp = buildTree(o.verts, o.faces);
+    setReaches(o);
+    return o;
 }
 
 // An object's rows (right, up, at) as node angles: its heading about up (the editor turns objects only about up -
@@ -634,6 +867,28 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
         if (o !== undefined && col && !loadedCol.has(c.source))
             loadedCol.set(c.source, cloneCollision(col.objects[o]!, c.source));
     }
+    // Shared collision (level_editor_shared_coll.h): a moved / hidden piece takes the faces of collision-only objects
+    // that belong to it - gathered on the level as loaded, in the records' order (a face taken is off for the next).
+    const sharedColl = col ? new SharedCollision(scene, col, qbFile.names) : null;
+    const companions: { piece: number; faces: FaceCopy[]; placement: Placement | null }[] = [];
+    if (sharedColl) {
+        for (const r of layout.sectors) {
+            if (!r.hidden && isIdentity(r.placement)) continue;
+            const taken = sharedColl.gather(r.checksum, true);
+            if (taken.length)
+                companions.push({ piece: r.checksum, faces: taken, placement: r.hidden ? null : r.placement });
+        }
+        for (const c of layout.clones) {
+            const mine = companions.find((x) => x.piece === c.source);
+            const faces = mine ? mine.faces : sharedColl.gather(c.source, false);
+            if (faces.length)
+                companions.push({
+                    piece: c.source,
+                    faces,
+                    placement: { ...c.placement, offset: { ...c.placement.offset } },
+                });
+        }
+    }
     let moved = 0;
     for (const r of layout.sectors) {
         const s = sectorAt.get(r.checksum);
@@ -686,6 +941,22 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
         }
         array.names.set(name, `ed_clone_${hex8(c.source)}_${n}`);
         breaks(`a copy of scenery ${label(c.source)} added`);
+    }
+    if (col) {
+        let faces = 0;
+        companions.forEach((c, k) => {
+            if (!c.placement) return;
+            const name = `ed_coll_${hex8(c.piece)}_${k + 1}`;
+            col.objects.push(companionObject(checksum(name), c.faces, c.placement));
+            array.names.set(checksum(name), name);
+            faces += c.faces.length;
+        });
+        if (companions.length) {
+            report.push(
+                `shared collision: ${companions.length} pieces took ${faces} faces of collision-only objects along ` +
+                    "(the originals switched off with face flag 0x10, as the editor does)",
+            );
+        }
     }
     // (a level trigger an editor trigger stands in for is switched off by its wall record: the trigger isn't baked
     // yet, so the level's own stays on - else the level would lose it)
@@ -985,7 +1256,13 @@ export function main(argv: string[] = process.argv.slice(2)): number {
         layoutPath = path.join(game, "thug2-decomp-layouts", `${hex8(scene)}.txt`);
     }
     if (!fs.existsSync(layoutPath)) pyExit(`no layout file ${layoutPath}`);
-    const layout = readLayout(fs.readFileSync(layoutPath!, "latin1"));
+    let layout: Layout;
+    try {
+        layout = readLayout(fs.readFileSync(layoutPath!, "latin1"));
+    } catch (e) {
+        if (!(e instanceof LayoutError)) throw e;
+        return pyExit(`${layoutPath}: ${e.message} - not a layout this reads (the DLL would refuse it too)`);
+    }
     const found = findLevelDir(game, level, layout.scene);
     if (!found) pyExit(`no level for scene ${hex8(layout.scene)} in ${game} (give --level)`);
     const { dir, level: name } = found!;

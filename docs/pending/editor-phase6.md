@@ -1,8 +1,8 @@
 # Level editor phase 6: full Inspector, level properties, apply_layout.ts bake
 
-Branch `worktree-agent-ad02377db8580f8b0` (merged main at fb4aefe: walls, phase 5 triggers, shadows). **NOT run in the
+Branch `worktree-agent-ad02377db8580f8b0` (merged main at addd72c: walls, phase 5 triggers, shadows, shared collision). **NOT run in the
 game yet** (editor UI work: the user tests it). Checked offline: build (out\build\verify), thug2_check on THUG2PM.exe
-and the stock C:\Games\THUG2\Game\THUG2.exe (402 early self-tests passed on both), `check_code_writes` "No
+and the stock C:\Games\THUG2\Game\THUG2.exe (406 early self-tests passed on both), `check_code_writes` "No
 overlaps", `npm run typecheck / lint / test` (109 tests pass), 10 + 2 mutations of the new self-tests all caught
 (out\scripts\mut_phase6.ts in the worktree), apply_layout dry runs and a real bake of Training (TR) into out\ (its qb
 decompiles with ns.exe; its scn / col read back).
@@ -59,6 +59,12 @@ decompiles with ns.exe; its scn / col read back).
   has it), hide / drop (the DLL's ed_hidden marker), links (names -> indexes), terrain, wall (collision moved / off),
   lock (ignored), level (listed: Levels.qb, not the level's files), trigger (phase 5: read, **not baked yet** - listed
   with what each does; a level trigger it replaces is kept on), anything else listed as unsupported.
+- **Shared collision** (main's level_editor_shared_coll.h, ported): a moved / hidden / copied piece takes the faces of
+  collision-only objects that belong to it (same rules: collidable non-trigger faces in its box grown 6, named
+  `<name>_col / _ic / _col01 / _ic01` or within 6 of its triangles and strictly the nearest solid piece; see-through =
+  every mesh's material's first pass transparent - an approximation of the engine's material flag 0x40): the originals
+  get face flag 0x10, a companion object `ed_coll_<piece>_<n>` holds them placed with the piece. TR's SkWare_Rail01
+  moved: 16 faces taken from SkWare_Main_1, as the DLL's header describes.
 - **THUGPRO parity**: a level in tools/compat/thugpro's register, or THUG2's own, gets "this breaks online parity" for
   every edit of spawns, crowns, flags / CTF / team nodes, gaps / triggers, geometry (scenery, collision, rails).
 - Tests: tools/game/apply_layout.test.ts (a small level made in the test; every record kind).

@@ -54,7 +54,7 @@ function sector(name: string, at: [number, number, number]): Sector {
         checksum: checksum(name),
         bone: -1,
         flags: 0,
-        bbox: [0, 0, 0, 1, 1, 1],
+        bbox: [at[0], at[1], at[2], at[0] + 10, at[1] + 10, at[2] + 5],
         sphere: [0, 0, 0, 1],
         meshes: [mesh],
     };
@@ -188,7 +188,13 @@ function level(): LevelFiles {
         tail: Buffer.alloc(0),
     };
     const col: ColFile = {
-        objects: [collision("SecA", [0, 0, 0]), collision("SecB", [500, 0, 0]), collision("Wall1", [0, 0, 900])],
+        objects: [
+            collision("SecA", [0, 0, 0]),
+            collision("SecB", [500, 0, 0]),
+            collision("Wall1", [0, 0, 900]),
+            collision("Loose", [0, 0, 0]),
+            collision("Far", [0, 0, 300]),
+        ],
     };
     // (through the writers and readers: what the tool reads from disk)
     return {
@@ -383,6 +389,19 @@ test("bake: scenery moved, copied, hidden; collision moved and switched off", ()
     // The files written read back.
     readScene(writeScene(out.scene), "scn");
     readCol(writeCol(out.col!), "col");
+    // Shared collision: the collision-only object's face on SecA's triangle went with it (a companion), the original off.
+    const loose = out.col!.objects.find((o) => o.checksum === checksum("Loose"))!;
+    assert.equal(loose.faces[0]![0] & 0x10, 0x10, "the original face switched off");
+    const far = out.col!.objects.find((o) => o.checksum === checksum("Far"))!;
+    assert.equal(far.faces[0]![0] & 0x10, 0, "a face away from the piece stays");
+    const companion = out.col!.objects.find((o) => o.checksum === checksum(`ed_coll_${hex("SecA")}_1`))!;
+    assert.ok(companion, "the piece's companion");
+    assert.equal(companion.faces.length, 1);
+    assert.deepEqual(companion.verts[1], [100, 0, -10], "placed with the piece");
+    assert.ok(
+        out.col!.objects.some((o) => o.checksum === checksum(`ed_coll_${hex("SecA")}_2`)),
+        "and the copy's",
+    );
     assert.deepEqual(out.parity, [], "not a shared level: no parity warnings");
 });
 
