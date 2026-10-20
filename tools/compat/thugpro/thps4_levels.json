@@ -1,7 +1,128 @@
 {
-  "_comment": "THUGPRO compatibility for the THPS4 level ports (tools/thps4_levels). Each entry is registered in README.md here (TP-20...). Online a level is known only by its load script's checksum (messages 0x46 / 0x33): these make our level structures agree with THUGPRO's own THPS4 ports where THPS4's own names can't. Read by tools/compat/compat.ts; `thps4_levels.ts convert --compat none` leaves all of it out.",
+  "_comment": "THUGPRO compatibility for the THPS4 level ports (tools/thps4_levels). Each entry is registered in README.md here (TP-20, TP-21). Online a level is known only by its load script's checksum (messages 0x46 / 0x33): these make our level structures agree with THUGPRO's own THPS4 ports where THPS4's own names can't. Read by tools/compat/compat.ts; `thps4_levels.ts convert --compat none` leaves all of it out.",
   "load_names": {
     "_register": "TP-20",
     "SkateShop": "practice"
+  },
+  "net_nodes": {
+    "_register": "TP-21",
+    "_source": "THUGPRO's installed data\\pre\\<level>_scripts.prx node arrays, extracted by `node tools/thps4_levels/thugpro_compare.ts --extract-thugpro` (places only: pos = THUG2's Pos axes)",
+    "SkateShop": {
+      "crowns": [
+        {
+          "pos": [
+            1267.031005859375,
+            186.31500244140625,
+            64.50900268554688
+          ],
+          "angles": [
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "restarts": [
+        {
+          "pos": [
+            1153.6265869140625,
+            81.54610443115234,
+            -706.6986083984375
+          ],
+          "angles": [
+            1.570796012878418,
+            -1.570796012878418,
+            0
+          ]
+        },
+        {
+          "pos": [
+            1153.6265869140625,
+            81.54610443115234,
+            -506.6986083984375
+          ],
+          "angles": [
+            1.570796012878418,
+            -1.570796012878418,
+            0
+          ]
+        },
+        {
+          "pos": [
+            1153.6265869140625,
+            81.54610443115234,
+            -206.6986083984375
+          ],
+          "angles": [
+            1.570796012878418,
+            -1.570796012878418,
+            0
+          ]
+        },
+        {
+          "pos": [
+            465.50811767578125,
+            95.91568756103516,
+            -582.9584350585938
+          ],
+          "angles": [
+            1.570796012878418,
+            1.570796012878418,
+            0
+          ]
+        },
+        {
+          "pos": [
+            465.50811767578125,
+            183.92271423339844,
+            430.3743896484375
+          ],
+          "angles": [
+            1.570796012878418,
+            1.570796012878418,
+            0
+          ]
+        },
+        {
+          "pos": [
+            465.50811767578125,
+            97.1007308959961,
+            -26.41218376159668
+          ],
+          "angles": [
+            1.570796012878418,
+            1.570796012878418,
+            0
+          ]
+        },
+        {
+          "pos": [
+            465.50811767578125,
+            83.9431381225586,
+            -108.7619400024414
+          ],
+          "angles": [
+            1.570796012878418,
+            1.570796012878418,
+            0
+          ]
+        },
+        {
+          "pos": [
+            464.47186279296875,
+            153.3236541748047,
+            -804.9776611328125
+          ],
+          "angles": [
+            1.570796012878418,
+            1.570796012878418,
+            0
+          ]
+        }
+      ],
+      "multiplayer": [
+        "TRG_SS_SkaterDropIn"
+      ]
+    }
   }
 }

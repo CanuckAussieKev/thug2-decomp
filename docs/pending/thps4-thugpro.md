@@ -3,8 +3,9 @@
 Goal: a THUGPRO player and one of ours in the same THPS4 level online - the treatment the THAW ports got
 (docs/pending/thaw.md "THUGPRO"). Everything we generate comes from THPS4's own files (C:\Games\THPS4, read only) and
 THUG2's; THUGPRO's installed levels (%LOCALAPPDATA%\THUG Pro\data\pre) were only read to compare
-(`tools/thps4_levels/thugpro_compare.ts`). The one THUGPRO-only choice taken (the skate shop's load script name) is
-in the register (tools/compat/thugpro, TP-20) - approved by the user 2026-10-20.
+(`tools/thps4_levels/thugpro_compare.ts`). The THUGPRO-only choices taken are in the register (tools/compat/thugpro):
+TP-20 (the skate shop's load script name) and TP-21 (the skate shop's crown and spawns) - both approved by the user
+2026-10-20.
 
 ## Before (verified the lead's comparison)
 
@@ -55,20 +56,40 @@ in the register (tools/compat/thugpro, TP-20) - approved by the user 2026-10-20.
 All 11 reconverted into C:\Games\THUG2-2 and installed with make_menu_level (level select: Load_alc ... Load_practice;
 signs sign_alc...; the backdrop found: 28 rails, 138 peds / cars, 3 trigger nodes + 6 scripts from thps4_skateshop).
 - Comparison: names the same in all 10 (Load_alc ... Load_practice); CTF nodes 12/12 in the 9; positions, crowns,
-  MP restarts unchanged (the same); skate shop crowns 0 / 1 and MP restarts 1 / 9 (below).
+  MP restarts unchanged (the same); skate shop crowns 0 / 1 and MP restarts 1 / 9 - now the same with TP-21 (below).
 - Offline checks: every collision face reachable in all 21 (levels and skies); links in range, rails link to rails;
   every .qb decompiles through ns.exe; thps4 selfcheck 139 files 0 failures; THPS3 323 / THUG1 333 / THAW 735: 0.
 - THUGPRO-only trigger scripts on shared nodes (goal letters, combo, pro lines, cash icons, goal peds - goals aren't
   ported - and the rest below): Alc 187 -> 157, Cnv 54 -> 38, Hof 61 -> 45, Jnk 150 -> 109, Kon 96 -> 81, Lon 132 ->
   104, SF2 63 -> 41, Sch 228 -> 214, Zoo 105 -> 90.
 
+## TP-21: the skate shop's crown and spawns (approved by the user 2026-10-20, implemented)
+
+An approved exception to the data rule: THPS4's shop (single player in THPS4) gets THUGPRO's King of the Hill crown
+and its 8 added multiplayer spawns, so KOTH and the spawn set agree with a THUGPRO player there.
+- Data: `tools/compat/thugpro/thps4_levels.json` `net_nodes` - places only (pos in THUG2's axes, angles), extracted
+  from THUGPRO's install by `node tools/thps4_levels/thugpro_compare.ts --extract-thugpro` (its node array's crowns and
+  multiplayer restarts that aren't THPS4's nodes, told apart by THPS4's own SkateShop.qb; THPS4's restarts THUGPRO made
+  multiplayer by name: TRG_SS_SkaterDropIn). Never typed in.
+- Converter: `thps4_levels.addNetNodes` makes the nodes in our form - TRG_Net_Restart01-08 (Class=Restart
+  Type=Multiplayer, restart_types [Multiplayer, Horse]), TRG_KOTH01 (GenericNode Crown) - before the peds and cars
+  (make_menu_level needs those last); TRG_SS_SkaterDropIn gains Multiplayer / Horse. Every spawn runs
+  `thps4_skateshop_net_dropin` (MakeSkaterGoto DropIn: THPS4's practice start dropped in at TRG_SS_SkaterDropIn).
+- THPS4's menu restart TRG_SS_Skater01 is **not** made a ghost: with multiplayer restarts present nodes.netRestarts no
+  longer makes it one, so it stays a Player1 restart and the multiplayer set already matches THUGPRO's (9, same order
+  and places).
+- `--compat none`: the output compared with today's before TP-21 - identical (75 files; the .qb files by code and their
+  sorted checksum names, which ns.exe writes in Go map order, different every run). With the profile, only
+  thps4_skateshop.qb differs.
+- After: thugpro_compare SkateShop: crowns same, mp restarts same (445 / 691 nodes, 436 shared in place); col_check,
+  links, ns.exe all fine; make_menu_level into THUG2-2 - the backdrop found (28 rails, 138 peds / cars, 3 trigger
+  nodes + 6 scripts).
+
 ## Still different (and what it means online)
 
-- Skate shop: THPS4 has 1 Player1 restart (TRG_SS_Skater01, its menu spot), 1 generic one (TRG_SS_SkaterDropIn, its
-  practice start) and no crown; THUGPRO added 8 drop-in restarts and a crown at its own places and made TRG_SS_Skater01
-  a ghost. Online: KOTH there picks crown 0 - none on our side (no crown shown); spawn points differ (positions sync
-  after). Not invented: proposal - make TRG_SS_SkaterDropIn a Multiplayer restart too (THPS4's own practice start; 2
-  spawns), and leave KOTH off there (THUGPRO's level structure already disables CTF there).
+- (Resolved by TP-21, below.) Skate shop: THPS4 has 1 Player1 restart (TRG_SS_Skater01, its menu spot), 1 generic
+  one (TRG_SS_SkaterDropIn, its practice start) and no crown; THUGPRO added 8 drop-in restarts and a crown at its own
+  places and made TRG_SS_Skater01 a ghost.
 - THUGPRO's hand moves (above): one Carnival goal restart, two College rail nodes, College's elevator doors. Rails and
   restarts don't travel; ours are THPS4's.
 - Motocross: THUGPRO has none (ours only).
