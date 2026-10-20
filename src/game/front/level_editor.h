@@ -64,11 +64,14 @@ class CScript;
 //     object's or scenery's node selects the object / scenery; a flag's object selects the flag's node), a
 //     double-click takes the camera there; the Inspector shows the selection's node - a point node's position and
 //     heading are fields to type or drag (one undo step a field), with when the change shows in the game.
-//   - Selecting: a click on an object, scenery or a node's gizmo (scenery takes its group; hovering tints what a click
-//     would take); Shift+click adds / removes; Alt+click or a middle click one piece of scenery; Backspace deselects.
+//   - Selecting: a click on an object, scenery or a node's gizmo (scenery takes its group; hovering tints and outlines
+//     what a click would take); floors, ceilings, rooms around the camera and see-through decals are passed, and a
+//     click again on the same spot takes the next thing under the cursor (level_editor_picking.h); Shift+click adds /
+//     removes; Alt+click or a middle click one piece of scenery, any piece; L locks the selected objects / scenery
+//     (clicks pass them); the toolbar's Pick: what clicks may take; Backspace deselects.
 //   - Rails: a rail's gizmos and the Inspector show its points where skaters grind them (the rail manager's - moved
-//     with their scenery or by themselves); a rail point moves with its whole rail, or by itself (L, the Inspector's
-//     Whole rail), saved as `rail` records; Home puts it (its rail) back.
+//     with their scenery or by themselves); a rail point moves with its whole rail, or by itself (L with a rail point
+//     selected, the Inspector's Whole rail), saved as `rail` records; Home puts it (its rail) back.
 //   - Moving (objects, scenery, rail points and point nodes - spawns, crowns, flags, lights, sounds, triggers, other
 //     nodes; not ladders, paths or particles yet): hold and drag (Shift: up / down; the wheel pushes / pulls; Ctrl or the toolbar's
 //     Snap 25 snaps to 25; Escape puts it back), or drag one of the arrows to move along that axis only; W A S D / Q E

@@ -253,6 +253,11 @@ std::string Write(const File& file)
         Hex(out, name);
         Comment(out, name);
     }
+    for (const Picking::Lock& lock : file.locks) {
+        out << (lock.kind == Picking::kObjects ? "lock object" : "lock sector");
+        Hex(out, lock.id);
+        Comment(out, lock.id);
+    }
     for (const SetRecord& s : file.nodes) {
         if (!s.hasPos && !s.hasAngles)
             continue;
@@ -366,6 +371,12 @@ bool Read(const std::string& text, File* file, int* lineNumber)
             ok = ReadHex(in, &name);
             if (ok)
                 file->hidden.push_back(name);
+        } else if (kind == "lock") {
+            std::string what;
+            uint32_t id = 0;
+            ok = (in >> what) && ReadHex(in, &id);
+            if (ok && (what == "object" || what == "sector"))
+                file->locks.push_back({what == "object" ? Picking::kObjects : Picking::kScenery, id});
         } // (anything else: a later version's record - skipped)
         if (!ok)
             return false;
@@ -578,6 +589,7 @@ bool Capture(File* file)
     if (crowns.size() > 1)
         file->crownOrder = crowns;
     file->hidden = NodeCreate::HiddenNames();
+    file->locks = Picking::Locks();
     for (const NodeEdit::Record& node : NodeEdit::Changed()) {
         if (NodeCreate::IsAdded(node.name))
             continue; // (its node record has its place)
@@ -654,6 +666,7 @@ std::string Apply(const File& file)
         if (NodeEdit::Set(record.name, values))
             ++nodes;
     }
+    Picking::SetLocks(file.locks);
     if (!message.empty())
         Log("level editor: %s", message.c_str());
     char summary[256];
@@ -960,6 +973,7 @@ void OnSceneLoaded(const char* name, bool isNet)
     Objects::ForgetLevel();
     NodeEdit::ForgetLevel();
     NodeCreate::ForgetLevel();
+    Picking::ClearLocks();
     g_pending = true; // (Tick decides: the edited copy if it was picked, never in a network session)
     g_wait = 0;
     ++g_levelLoads;

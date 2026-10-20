@@ -26,13 +26,27 @@
 namespace Front::LevelEditor::Scenery {
 
 // The sector under a ray: the game's collision ray (static collision only) up to `maxT` along the (unit) direction,
-// skipping collision without geometry (invisible walls); sectors without collision by their boxes. `t`: the
-// distance.
+// skipping collision without geometry (invisible walls); sectors without collision by their meshes' triangles (their
+// boxes only to skip the rest quickly). `t`: the distance. Locked pieces (level_editor_picking.h) are passed; so are
+// structure and see-through pieces for a plain click - the nearest of those in front is `passed` (Alt+click takes it).
+// True when either was found.
 struct Hit {
     uint32_t checksum = 0;
     float t = 0.0f;
+    uint32_t passed = 0;
+    float passedT = 0.0f;
 };
-bool Pick(V3 origin, V3 unitDir, float maxT, Hit* hit);
+// `layers` (click-to-cycle): every piece the ray meets (not locked), nearest first, each once.
+struct Layer {
+    uint32_t checksum;
+    float t;
+    bool passed;
+};
+bool Pick(V3 origin, V3 unitDir, float maxT, Hit* hit, std::vector<Layer>* layers = nullptr);
+// Every mesh alpha-blended (the material's flag 0x40, as the scene sorts them): a decal, a web, a shadow, a glow.
+bool SeeThrough(uint32_t checksum);
+// What a plain click passes (level_editor_picking.h): structure for a camera at `camera`, or see-through.
+bool Passed(uint32_t checksum, V3 camera);
 
 // A sector's box where it is now (false: no such sector, or no geometry).
 bool Box(uint32_t checksum, OrientedBox* box);

@@ -21,6 +21,7 @@
 #include "game/front/level_editor_nodes.h"
 #include "game/front/level_editor_objects.h"
 #include "game/front/level_editor_preview.h"
+#include "game/front/level_editor_picking.h"
 #include "game/front/level_editor_scenery.h"
 #include "game/front/level_editor_ui.h"
 #include "game/front/mouse_menus.h"
@@ -309,6 +310,7 @@ bool g_offerPending; // (Ctrl+R / Ctrl+Shift+R)
 char g_lastAction[128] = "none";
 std::string DescribeSelection(); // (the HUD's)
 int InspectedNode();              // (the node layer's)
+std::vector<Picking::Lock> SelectionLocks(); // (picking)
 
 void NoteAction(const char* format, ...)
 {
@@ -396,6 +398,22 @@ bool g_fieldEditing;         // (the Inspector's position / heading fields are b
 bool g_onlineWarned;         // (the warning for a spawn, crown or flag moved in a level shared with THUGPRO: once a run)
 bool g_onlineWarningShown;   // (its window is up)
 int g_hoverNode = -1;
+// Picking (level_editor_picking.h): what a click in the view may take ([editor] pick=), the piece a plain click passes
+// under the cursor (for the status bar: Alt+click takes it), and click-to-cycle - the last click's spot, what was
+// under it in the cycle's order and which of those it took (the hover shows the next one while it holds).
+uint32_t g_pickFilter = Picking::kAll;
+uint32_t g_hoverPassed;
+struct Cycle {
+    bool have = false;
+    float x = 0.0f, y = 0.0f;
+    V3 pos = {};
+    int changes = 0;
+    uint32_t filter = 0;
+    std::vector<Picking::Entry> order;
+    int index = -1;
+};
+Cycle g_cycle;
+int g_hoverCycle = -1; // (the hover is the cycle's next entry: its index)
 // Phase 3 (level_editor_node_create.h): the Place palette (N) and its armed entry (a click in the view places it), a
 // level's node waiting for the confirm window before it's hidden.
 bool g_placeOpen;
@@ -1464,7 +1482,11 @@ void UpdateHighlights()
     if (hover && !IsSelected(hover))
         g_hoverTinted = Objects::Tint(hover, kHoverTint);
     else if (!g_dragging && g_hoverSector && !Scenery::Selected(g_hoverSector) && !Scenery::WhyNotMovable(g_hoverSector))
-        g_hoverTinted = TintSectors(Scenery::HoverGroup(g_hoverSector), kHoverTint);
+        g_hoverTinted = TintSectors(SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_LALT] ||
+                                            SDL_GetKeyboardState(nullptr)[SDL_SCANCODE_RALT]
+                                        ? std::vector<uint32_t>{g_hoverSector}
+                                        : Scenery::HoverGroup(g_hoverSector),
+                                    kHoverTint);
     // (the browser's entry where it is in the level)
     if (g_browser.open && g_browser.index < static_cast<int>(g_browser.items.size())) {
         uint32_t id = g_browser.items[g_browser.index].id;
@@ -1557,6 +1579,10 @@ bool __cdecl CFunc_Start(Script::CStruct*, Script::CScript*)
     g_hudTakenDown = 0;
     g_families = static_cast<uint32_t>(ConfigInt("editor", "families", static_cast<int>(Nodes::kAllFamilies))) &
                  Nodes::kAllFamilies;
+    g_pickFilter = static_cast<uint32_t>(ConfigInt("editor", "pick", static_cast<int>(Picking::kAll))) & Picking::kAll;
+    g_cycle = Cycle{};
+    g_hoverCycle = -1;
+    g_hoverPassed = 0;
     g_nodeSelected = false;
     g_fieldEditing = false;
     g_hoverNode = -1;
@@ -1785,6 +1811,25 @@ const char* ModeName()
     return "FLYING";
 }
 
+// What's under the cursor - what a click would take (level_editor_picking.h): the next of a click-to-cycle with its
+// place, or the piece a plain click passes (Alt+click takes it).
+std::string HoverText()
+{
+    std::string text = g_hoverAxis >= 0 ? std::string("the ") + "XYZ"[g_hoverAxis] + " arrow - drag to move along it"
+                       : g_hoverSector ? Scenery::DescribeHover(g_hoverSector)
+                       : Live(g_hover) ? Objects::Describe(Live(g_hover))
+                                       : "-";
+    if (g_hoverAxis < 0 && g_hoverCycle >= 0) {
+        char place[64];
+        std::snprintf(place, sizeof(place), "  (%d of %d under the cursor: click)", g_hoverCycle + 1,
+                      static_cast<int>(g_cycle.order.size()));
+        text += place;
+    } else if (g_hoverAxis < 0 && !g_hoverSector && !Live(g_hover) && g_hoverPassed) {
+        text = "-  (passing " + Scenery::DescribeHover(g_hoverPassed) + " - Alt+click takes it)";
+    }
+    return text;
+}
+
 void UpdateHud()
 {
     static int frames = 0;
@@ -1797,11 +1842,7 @@ void UpdateHud()
                   g_unsaved ? "   (unsaved)" : "", g_offerPending ? "   (autosave: Ctrl+R)" : "");
     Hud::SetLine(1, text);
     Hud::SetLine(2, "Selected: " + DescribeSelection());
-    std::string hover = g_hoverAxis >= 0 ? std::string("the ") + "XYZ"[g_hoverAxis] + " arrow - drag to move along it"
-                        : g_hoverSector ? Scenery::DescribeHover(g_hoverSector)
-                        : Live(g_hover) ? Objects::Describe(Live(g_hover))
-                                        : "-";
-    Hud::SetLine(3, "Under the cursor: " + hover);
+    Hud::SetLine(3, "Under the cursor: " + HoverText());
     std::snprintf(text, sizeof(text), "Camera (%.0f, %.0f, %.0f)  speed %.0f    %d changes    %d pieces moved", g_pos.x,
                   g_pos.y, g_pos.z, g_speed, g_moves, Scenery::MovedCount());
     Hud::SetLine(4, text);
@@ -2065,10 +2106,7 @@ Ui::Model BuildModel()
     model.confirmReset = g_confirmReset;
     model.mode = ModeName();
     model.selected = DescribeSelection();
-    model.hover = g_hoverAxis >= 0 ? std::string("the ") + "XYZ"[g_hoverAxis] + " arrow - drag to move along it"
-                  : g_hoverSector ? Scenery::DescribeHover(g_hoverSector)
-                  : Live(g_hover) ? Objects::Describe(Live(g_hover))
-                                  : "-";
+    model.hover = HoverText();
     model.message = Hud::CurrentMessage();
     model.keys = KeysNow();
     model.camera = g_pos;
@@ -2080,6 +2118,19 @@ Ui::Model BuildModel()
     model.canUndo = !g_undo.empty();
     model.canRedo = !g_redo.empty();
     model.snapAlways = g_snapAlways;
+    model.pickFilter = g_pickFilter;
+    for (const Picking::Lock& lock : Picking::Locks())
+        model.locks.push_back({lock.kind, lock.id,
+                               std::string(lock.kind == Picking::kObjects ? "object " : "scenery ") +
+                                   Objects::Label(lock.id)});
+    {
+        bool all = true;
+        std::vector<Picking::Lock> selected = SelectionLocks();
+        for (const Picking::Lock& lock : selected)
+            all = all && Picking::Locked(lock.kind, lock.id);
+        model.selectionLockable = !selected.empty();
+        model.selectionLocked = !selected.empty() && all;
+    }
     std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
     Ui::Model::Selection& s = model.selection;
     if (!objects.empty()) {
@@ -2186,7 +2237,11 @@ void ShowHelp()
         "Flying       W A S D move   Q / E down / up   Shift faster   right mouse looks",
         "             wheel forward / back   - / = flying speed",
         "Selecting    click an object or scenery (a piece of scenery takes its group)",
-        "             Shift+click adds / removes   Alt+click (middle click) one piece",
+        "             floors, ceilings, rooms around you and decals are passed by a click",
+        "             click again on the same spot: the next thing under the cursor",
+        "             Shift+click adds / removes   Alt+click (middle click) one piece, any",
+        "             L locks the selection (clicks pass it); L with nothing selected unlocks all",
+        "             what clicks take: [editor] pick= in the ini (1 nodes 2 objects 4 scenery)",
         "             Esc or Backspace deselects",
         "Moving       hold and drag (Shift: up / down, wheel: push / pull, Ctrl: snap)",
         "             drag an arrow to move along that axis only",
@@ -2477,6 +2532,102 @@ void FocusOnSelection()
         return;
     g_orbitDistance = std::max(kMinOrbit, std::min(kMaxOrbit, distance));
     YawPitchFromBack(Normalize(back), &g_yaw, &g_pitch);
+}
+
+// Click-to-cycle (level_editor_picking.h): a plain click on the last click's spot (within 4 pixels at 720 lines), the
+// camera where it was (a click turns it to the selection, it doesn't move it), nothing changed or dragged since and the
+// filter the same - and that click took something with more under it.
+bool CycleHolds(float x, float y, bool shift, bool everything)
+{
+    V3 moved = g_pos - g_cycle.pos;
+    return g_cycle.have && !shift && !everything && g_cycle.index >= 0 && g_cycle.order.size() > 1 &&
+           Picking::SameSpot(x, y, g_cycle.x, g_cycle.y, 4.0f * PixelScale()) && Dot(moved, moved) < 1.0f &&
+           g_cycle.changes == g_changes && g_cycle.filter == g_pickFilter;
+}
+
+// A plain click: the cycle's entry it takes (the hover's), or a new cycle from everything under the cursor now.
+void NoteClickForCycle(float x, float y, V3 dir, bool plain)
+{
+    if (!plain) {
+        g_cycle.have = false;
+        return;
+    }
+    if (g_hoverCycle >= 0) {
+        g_cycle.index = g_hoverCycle;
+    } else {
+        std::vector<Picking::Layered> objects, scenery;
+        for (const auto& hit : Objects::PickAll(g_pos, dir, kMaxPickDistance))
+            objects.push_back({hit.first->m_id, hit.second, false});
+        Scenery::Hit first;
+        std::vector<Scenery::Layer> layers;
+        Scenery::Pick(g_pos, Normalize(dir), kMaxPickDistance, &first, &layers);
+        for (const Scenery::Layer& layer : layers)
+            scenery.push_back({layer.checksum, layer.t, layer.passed});
+        g_cycle = Cycle{};
+        g_cycle.have = true;
+        g_cycle.x = x;
+        g_cycle.y = y;
+        g_cycle.pos = g_pos;
+        g_cycle.filter = g_pickFilter;
+        g_cycle.order = Picking::CycleOrder(g_hoverNode, objects, scenery, g_pickFilter);
+        Obj::CCompositeObject* object = Live(g_hover);
+        g_cycle.index = g_hoverNode >= 0 ? Picking::IndexOf(g_cycle.order, Picking::Choice::kNode, g_hoverNode)
+                        : object       ? Picking::IndexOf(g_cycle.order, Picking::Choice::kObject, object->m_id)
+                        : g_hoverSector ? Picking::IndexOf(g_cycle.order, Picking::Choice::kScenery, g_hoverSector)
+                                        : -1;
+    }
+    if (g_cycle.index >= 0 && g_cycle.order.size() > 1) {
+        char text[64];
+        std::snprintf(text, sizeof(text), "%d of %d under the cursor - click again for the next", g_cycle.index + 1,
+                      static_cast<int>(g_cycle.order.size()));
+        Hud::Message(text, 2.5);
+    }
+}
+
+// The selection as locks: the selected objects, else the selected scenery pieces (a node by itself: none).
+std::vector<Picking::Lock> SelectionLocks()
+{
+    std::vector<Picking::Lock> locks;
+    for (Obj::CCompositeObject* object : SelectedObjects())
+        locks.push_back({Picking::kObjects, object->m_id});
+    if (locks.empty())
+        for (uint32_t sector : Scenery::Selection())
+            locks.push_back({Picking::kScenery, sector});
+    return locks;
+}
+
+// L / the Inspector's Lock: the selection locked and deselected (every click passes it from now - the Inspector lists
+// it to unlock); a selection all locked already (picked in the Outliner) unlocked; nothing selected: every lock dropped.
+void ToggleLock()
+{
+    std::vector<Picking::Lock> locks = SelectionLocks();
+    if (locks.empty() && !g_nodeSelected && !Picking::Locks().empty()) {
+        // (nothing selected: every lock dropped - the old HUD has no Inspector to unlock one)
+        char text[64];
+        std::snprintf(text, sizeof(text), "Unlocked all %d", static_cast<int>(Picking::Locks().size()));
+        Picking::ClearLocks();
+        MarkUnsaved();
+        Hud::Message(text);
+        return;
+    }
+    if (locks.empty()) {
+        Hud::Message(g_nodeSelected ? "Nodes can't be locked - turn off Pick: Nodes in the toolbar"
+                                    : "Nothing selected to lock");
+        return;
+    }
+    bool all = true;
+    for (const Picking::Lock& lock : locks)
+        all = all && Picking::Locked(lock.kind, lock.id);
+    for (const Picking::Lock& lock : locks)
+        Picking::SetLocked(lock.kind, lock.id, !all);
+    MarkUnsaved();
+    NoteAction("%s %d", all ? "unlocked" : "locked", static_cast<int>(locks.size()));
+    if (all) {
+        Hud::Message("Unlocked: clicks take it again");
+    } else {
+        Deselect();
+        Hud::Message("Locked: clicks pass it (the Inspector lists the locks)");
+    }
 }
 
 // The camera taken to look at a point from `distance` away, from the side it looks from now.
@@ -2808,6 +2959,19 @@ void ApplyUiRequests(V3 dir, bool haveRay, const Frame& frame)
             g_families = request.id & Nodes::kAllFamilies;
             ConfigSetInt("editor", "families", static_cast<int>(g_families));
             break;
+        case Ui::Request::kPickFilter:
+            g_pickFilter = request.id & Picking::kAll;
+            ConfigSetInt("editor", "pick", static_cast<int>(g_pickFilter));
+            break;
+        case Ui::Request::kToggleLock:
+            ToggleLock();
+            break;
+        case Ui::Request::kUnlock:
+            if (Picking::SetLocked(static_cast<uint32_t>(request.value), request.id, false)) {
+                MarkUnsaved();
+                Hud::Message("Unlocked: clicks take it again");
+            }
+            break;
         case Ui::Request::kSelectNode:
             SelectNode(request.value);
             if (MovableNode() >= 0)
@@ -3030,9 +3194,15 @@ void Update()
         Pressed(keys, SDL_SCANCODE_D, &dKey);
         Pressed(keys, SDL_SCANCODE_R, &rKey);
     }
-    // L: a rail point moves with its whole rail, or by itself (level_editor_node_edit.h).
-    static bool railKey;
-    if (Pressed(keys, SDL_SCANCODE_L, &railKey) && !ctrl && !noChange) {
+    // L: with a rail point selected, it moves with its whole rail or by itself (level_editor_node_edit.h); otherwise
+    // the selection locked (clicks pass it - level_editor_picking.h) or, all locked, unlocked.
+    static bool lKey;
+    int lNode = MovableNode();
+    bool railPoint = lNode >= 0 && Nodes::All()[lNode].family == Nodes::Family::Rail;
+    bool lPressed = Pressed(keys, SDL_SCANCODE_L, &lKey) && !ctrl;
+    if (lPressed && !railPoint && !g_dragging)
+        ToggleLock();
+    if (lPressed && railPoint && !noChange) {
         g_wholeRail = !g_wholeRail;
         Hud::Message(g_wholeRail ? "Rails: a rail point moves with its whole rail (L: by itself)"
                                  : "Rails: a rail point moves by itself (L: the whole rail)");
@@ -3198,17 +3368,44 @@ void Update()
         g_hoverAxis = haveRay && HaveSelection() ? ArrowAt(frame, backX, backY) : -1;
         Obj::CCompositeObject* hover = nullptr;
         uint32_t hoverSector = 0;
-        // (a node's gizmo under the cursor - what the last frame drew - before what the ray meets)
-        g_hoverNode = haveRay && g_hoverAxis < 0 && Ui::Running()
-                          ? Nodes::PickNearest(g_pickables, backX, backY, 8.0f * PixelScale())
-                          : -1;
-        if (haveRay && g_hoverAxis < 0 && g_hoverNode < 0) {
+        // What a click would take (level_editor_picking.h): the cycle's next entry while a click-to-cycle holds; else
+        // a node's gizmo under the cursor (what the last frame drew), then the nearer of an object and scenery -
+        // structure and see-through pieces passed unless Alt (or a middle click) - as the pick filter allows.
+        g_hoverNode = -1;
+        g_hoverPassed = 0;
+        g_hoverCycle = CycleHolds(input.x, input.y, shift, alt || input.middlePresses)
+                           ? (g_cycle.index + 1) % static_cast<int>(g_cycle.order.size())
+                           : -1;
+        if (haveRay && g_hoverAxis < 0 && g_hoverCycle >= 0) {
+            const Picking::Entry& next = g_cycle.order[g_hoverCycle];
+            if (next.kind == Picking::Choice::kNode)
+                g_hoverNode = static_cast<int>(next.id);
+            else if (next.kind == Picking::Choice::kObject)
+                hover = Live({static_cast<Obj::CCompositeObject*>(Obj::FindObject(next.id)), next.id});
+            else
+                hoverSector = next.id;
+        } else if (haveRay && g_hoverAxis < 0) {
+            Picking::Candidates c;
+            c.node = Ui::Running() ? Nodes::PickNearest(g_pickables, backX, backY, 8.0f * PixelScale()) : -1;
             float objectT = kMaxPickDistance;
-            hover = Objects::Pick(g_pos, dir, kMaxPickDistance, &objectT);
-            Scenery::Hit sceneryHit;
-            if (Scenery::Pick(g_pos, Normalize(dir), hover ? objectT : kMaxPickDistance, &sceneryHit)) {
-                hoverSector = sceneryHit.checksum;
-                hover = nullptr;
+            Obj::CCompositeObject* object = Objects::Pick(g_pos, dir, kMaxPickDistance, &objectT);
+            c.object = object != nullptr;
+            c.objectT = objectT;
+            Scenery::Hit hit;
+            Scenery::Pick(g_pos, Normalize(dir), kMaxPickDistance, &hit);
+            c.scenery = hit.checksum != 0;
+            c.sceneryT = hit.t;
+            c.passed = hit.passed != 0;
+            c.passedT = hit.passedT;
+            switch (Picking::Choose(c, g_pickFilter, alt || input.middlePresses)) {
+            case Picking::Choice::kNode: g_hoverNode = c.node; break;
+            case Picking::Choice::kObject: hover = object; break;
+            case Picking::Choice::kScenery: hoverSector = hit.checksum; break;
+            case Picking::Choice::kPassed: hoverSector = hit.passed; break;
+            case Picking::Choice::kNone:
+                if (g_pickFilter & Picking::kScenery)
+                    g_hoverPassed = hit.passed;
+                break;
             }
         }
         if (DebugEnabled() && hoverSector != g_hoverSector && hoverSector)
@@ -3227,6 +3424,8 @@ void Update()
         Obj::CCompositeObject* hover = Live(g_hover);
         bool one = alt || (input.middlePresses && !input.leftPresses);
         bool drag = false;
+        if (g_hoverAxis < 0)
+            NoteClickForCycle(input.x, input.y, dir, input.leftPresses && !shift && !one);
         if (g_hoverAxis >= 0 && input.leftPresses) {
             g_axis = g_hoverAxis;
             drag = true;
@@ -3272,6 +3471,8 @@ void Update()
         if (Primary() || Scenery::HasSelection())
             g_nodeSelected = false;
         NoteAction("click - selected: %s", DescribeSelection().c_str());
+        if (DebugEnabled())
+            Log("level editor: click - selected: %s", DescribeSelection().c_str());
         if (drag) {
             g_dragging = true;
             g_dragStart = SelectionPos();
@@ -3284,8 +3485,11 @@ void Update()
     }
     // Let go: the selection becomes the frame of reference (the camera turns to it, at the distance it is).
     if (input.leftReleases && !input.left) {
+        if (g_dragging && g_dragMoved)
+            g_cycle.have = false; // (moved: the next click starts afresh)
         EndDrag();
         FocusOnSelection();
+        g_cycle.changes = g_changes;
     }
     UpdateHighlights();
     // The ground marker: the point below the selection's base.
@@ -3310,11 +3514,24 @@ void Draw()
     std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
     Obj::CCompositeObject* hover = g_dragging ? nullptr : Live(g_hover);
     OrientedBox box;
-    if (!g_hoverTinted) {
-        if (hover && !IsSelected(hover) && Objects::ModelBox(hover, &box))
+    // (with the UI the hover's outline is always drawn too - what a click takes: the object, or the scenery's group -
+    // its one piece with Alt)
+    if (!g_hoverTinted || Ui::Running()) {
+        if (hover && !IsSelected(hover) && Objects::ModelBox(hover, &box)) {
             AddBox(box, frame, 0xFFFFFF00, &lines);
-        else if (!g_dragging && g_hoverSector && !Scenery::Selected(g_hoverSector) && Scenery::Box(g_hoverSector, &box))
-            AddBox(box, frame, 0xFFFFFF00, &lines);
+        } else if (!g_dragging && g_hoverSector && !Scenery::Selected(g_hoverSector)) {
+            const uint8_t* keys = SDL_GetKeyboardState(nullptr);
+            bool one = keys[SDL_SCANCODE_LALT] || keys[SDL_SCANCODE_RALT] || Scenery::WhyNotMovable(g_hoverSector);
+            const std::vector<uint32_t>& group = Scenery::HoverGroup(g_hoverSector);
+            if (one || group.empty()) {
+                if (Scenery::Box(g_hoverSector, &box))
+                    AddBox(box, frame, 0xFFFFFF00, &lines);
+            } else {
+                for (size_t i = 0; i < group.size() && i < 64; ++i)
+                    if (Scenery::Box(group[i], &box))
+                        AddBox(box, frame, 0xFFFFFF00, &lines);
+            }
+        }
     }
     if (!g_selectedTinted) {
         for (Obj::CCompositeObject* object : objects) {

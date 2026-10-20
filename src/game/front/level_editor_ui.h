@@ -71,6 +71,15 @@ struct Model {
     bool unsaved, offer; // unsaved changes; an older autosave offered
     bool canUndo, canRedo;
     bool snapAlways;
+    // Picking (level_editor_picking.h): the filter's bits; the locks (each with a label: Unlock in the Inspector);
+    // whether the selection is locked (the Inspector's Lock / Unlock).
+    uint32_t pickFilter = 0;
+    struct LockView {
+        uint32_t kind, id;
+        std::string label;
+    };
+    std::vector<LockView> locks;
+    bool selectionLockable = false, selectionLocked = false;
     // The selection, for the Inspector.
     struct Selection {
         int objects = 0, sectors = 0;
@@ -217,6 +226,9 @@ struct Request {
         kResetConfirmed,
         kResetCancelled,
         kWholeRail,     // value: 0 / 1 - a rail node moves alone / with its whole rail (L)
+        kPickFilter,    // id: the pick filter's bits
+        kToggleLock,    // L: the selection locked / unlocked
+        kUnlock,        // value: the lock's kind, id: its id
     } kind;
     int value = 0;
     uint32_t id = 0;

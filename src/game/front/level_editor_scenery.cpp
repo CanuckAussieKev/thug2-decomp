@@ -11,6 +11,8 @@
 #include <unordered_map>
 
 #include "game/core/manager.h"
+#include "game/front/level_editor_picking.h"
+#include "game/gfx/mesh.h"
 #include "game/mth/vector.h"
 #include "game/script/names.h"
 #include "game/script/qb.h"
@@ -695,49 +697,153 @@ bool CastStatic(V3 from, V3 to, V3* point, uint32_t* checksum)
 
 } // namespace
 
-bool Pick(V3 origin, V3 unitDir, float maxT, Hit* hit)
+namespace {
+
+// The ray against a geometry's meshes as drawn (their vertex copies are where the sector is now: moving it moves
+// them): each mesh's first index buffer as a triangle strip; a billboard (turned to the camera when drawn) by its
+// sphere.
+bool RayMeshes(uint8_t* geom, V3 origin, V3 dir, float maxT, float* t)
+{
+    auto** meshes = *reinterpret_cast<Nx::sMesh***>(geom + 0x3C);
+    uint32_t count = *reinterpret_cast<uint32_t*>(geom + 0x40);
+    bool found = false;
+    float best = maxT;
+    for (uint32_t i = 0; meshes && i < count && i < 4096; ++i) {
+        Nx::sMesh* mesh = meshes[i];
+        if (!mesh)
+            continue;
+        float hit;
+        if (mesh->billboard || (mesh->flags & 0x10)) {
+            if (RaySphere(origin, dir, {mesh->centre[0], mesh->centre[1], mesh->centre[2]}, mesh->radius, &hit) &&
+                hit < best) {
+                best = hit;
+                found = true;
+            }
+            continue;
+        }
+        Nx::sVertexBuffer* vertices = mesh->vertexBufferCount ? mesh->vertexBuffers[0] : nullptr;
+        Nx::sIndexBuffer* indices = mesh->indexBuffers[0];
+        if (!vertices || !vertices->data || !indices || !indices->indices || mesh->stride < 12)
+            continue;
+        if (Picking::RayStrip(origin, dir, vertices->data, mesh->stride, mesh->vertexCount, indices->indices,
+                              mesh->indexCounts[0], best, &hit)) {
+            best = hit;
+            found = true;
+        }
+    }
+    if (found)
+        *t = best;
+    return found;
+}
+
+// Whether a geometry's meshes are all alpha-blended (the scene's own test: the material's +0x20 flag 0x40).
+bool GeomSeeThrough(uint8_t* geom)
+{
+    auto** meshes = *reinterpret_cast<Nx::sMesh***>(geom + 0x3C);
+    uint32_t count = *reinterpret_cast<uint32_t*>(geom + 0x40);
+    if (!meshes || count == 0 || count > 4096)
+        return false;
+    for (uint32_t i = 0; i < count; ++i) {
+        const uint8_t* material = meshes[i] ? meshes[i]->material : nullptr;
+        if (!material || !(material[0x20] & 0x40))
+            return false;
+    }
+    return true;
+}
+
+} // namespace
+
+bool SeeThrough(uint32_t checksum)
+{
+    uint8_t* sector = FindSector(checksum, nullptr);
+    return sector && PlainGeom(GeomOf(sector)) && GeomSeeThrough(GeomOf(sector));
+}
+
+bool Passed(uint32_t checksum, V3 camera)
+{
+    uint8_t* sector = FindSector(checksum, nullptr);
+    uint8_t* geom = sector ? GeomOf(sector) : nullptr;
+    if (!PlainGeom(geom))
+        return false;
+    OrientedBox box;
+    V3 min, max;
+    if (CurrentBox(checksum, geom, &box)) {
+        BoundsOf(box, &min, &max);
+        if (Picking::IsStructure(min, max, camera))
+            return true;
+    }
+    return GeomSeeThrough(geom);
+}
+
+bool Pick(V3 origin, V3 unitDir, float maxT, Hit* hit, std::vector<Layer>* layers)
 {
     float best = maxT;
     bool found = false;
-    // The collision ray, past collision that has no geometry to show (invisible walls), at most a few times.
+    *hit = Hit{};
+    auto note = [&](uint32_t checksum, float t) {
+        // (locked: passed by every click; structure / see-through: by a plain click - the nearest noted for Alt)
+        if (Picking::Locked(Picking::kScenery, checksum))
+            return false;
+        bool passed = Passed(checksum, origin);
+        if (layers && std::none_of(layers->begin(), layers->end(), [&](const Layer& l) { return l.checksum == checksum; }))
+            layers->push_back({checksum, t, passed});
+        if (passed) {
+            if (!hit->passed || t < hit->passedT) {
+                hit->passed = checksum;
+                hit->passedT = t;
+            }
+            return false;
+        }
+        if (t < best) {
+            best = t;
+            hit->checksum = checksum;
+            hit->t = t;
+            found = true;
+        }
+        return true;
+    };
+    // The collision ray, past collision that has no geometry to show (invisible walls) and pieces passed, at most a
+    // few dozen times.
     V3 from = origin;
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < 32; ++i) {
         V3 point;
         uint32_t checksum;
         if (!CastStatic(from, origin + unitDir * maxT, &point, &checksum))
             break;
         float t = Dot(point - origin, unitDir);
-        if (t >= best)
+        if (t >= best && !layers)
             break;
         uint8_t* sector = FindSector(checksum, nullptr);
-        if (sector && GeomOf(sector)) {
-            best = t;
-            hit->checksum = checksum;
-            hit->t = t;
-            found = true;
+        if (sector && GeomOf(sector) && note(checksum, t) && !layers)
             break;
-        }
         from = point + unitDir * 1.0f;
     }
-    // Sectors without collision: by their boxes (not huge ones - a box around the camera would always win).
+    // Sectors without collision: by their triangles (the box only to skip the rest - a decal's box can fill a room).
     ForEachScene([&](uint8_t* scene) {
         ForEachSector(scene, [&](uint32_t checksum, uint8_t* sector) {
             uint8_t* geom = GeomOf(sector);
             if (CollOf(sector) || !PlainGeom(geom) || !geom[0x48])
                 return;
             OrientedBox box;
-            if (!CurrentBox(checksum, geom, &box) || !SectorSizeMovable(box.min, box.max, kMaxSectorExtent))
+            if (!CurrentBox(checksum, geom, &box))
                 return;
             float t;
-            if (RayBox(origin, unitDir, box.origin, box.axes, box.min, box.max, &t) && t < best) {
-                best = t;
-                hit->checksum = checksum;
-                hit->t = t;
-                found = true;
+            bool inside = false;
+            {
+                V3 min, max;
+                BoundsOf(box, &min, &max);
+                inside = origin.x >= min.x && origin.x <= max.x && origin.y >= min.y && origin.y <= max.y &&
+                         origin.z >= min.z && origin.z <= max.z;
             }
+            if (!inside && !RayBox(origin, unitDir, box.origin, box.axes, box.min, box.max, &t))
+                return;
+            if (RayMeshes(geom, origin, unitDir, maxT, &t))
+                note(checksum, t);
         });
     });
-    return found;
+    if (layers)
+        std::stable_sort(layers->begin(), layers->end(), [](const Layer& a, const Layer& b) { return a.t < b.t; });
+    return found || hit->passed;
 }
 
 bool Box(uint32_t checksum, OrientedBox* box)
@@ -1418,16 +1524,17 @@ void LogCensus()
             break;
     }
     ForEachScene([](uint8_t* scene) {
-        int sectors = 0, withGeometry = 0, withCollision = 0, movable = 0;
+        int sectors = 0, withGeometry = 0, withCollision = 0, movable = 0, seeThrough = 0;
         ForEachSector(scene, [&](uint32_t checksum, uint8_t* sector) {
             ++sectors;
             withGeometry += GeomOf(sector) ? 1 : 0;
             withCollision += CollOf(sector) ? 1 : 0;
             movable += WhyNotMovable(checksum) ? 0 : 1;
+            seeThrough += GeomOf(sector) && PlainGeom(GeomOf(sector)) && GeomSeeThrough(GeomOf(sector)) ? 1 : 0;
         });
         uint32_t name = *reinterpret_cast<uint32_t*>(scene + 0x84);
-        Log("level editor: scene %08X (%s): %d sectors, %d with geometry, %d with collision, %d movable", name,
-            NameOf(name) ? NameOf(name) : "?", sectors, withGeometry, withCollision, movable);
+        Log("level editor: scene %08X (%s): %d sectors, %d with geometry, %d with collision, %d movable, %d see-through",
+            name, NameOf(name) ? NameOf(name) : "?", sectors, withGeometry, withCollision, movable, seeThrough);
     });
 }
 
