@@ -781,11 +781,42 @@ export function nameValue(payload: Buffer): number {
     return unpackNumbers("<I", payload)[0]!;
 }
 
+// Our own changes to THPS3's data (the register's port_changes, read by compat.portChanges whatever the profile): an
+// entry applies when on - every entry, or with --no-port-changes (enabled false) the `required` ones - and to the
+// levels its target.levels names (a list of folder names, or "*").
+export class PortChanges {
+    readonly entries: readonly compat.Entry[];
+    readonly enabled: boolean;
+
+    constructor(entries: readonly compat.Entry[], enabled = true) {
+        this.entries = entries;
+        this.enabled = enabled;
+    }
+
+    // The entry when it applies to `level` (lower case), else null; an id the register hasn't is an error.
+    get(id: string, level?: string): compat.Entry | null {
+        const e = this.entries.find((x) => x.id === id);
+        if (e === undefined) throw new RangeError(`port_changes: no entry ${id}`);
+        if (!this.enabled && e.required !== true) return null;
+        const levels = e.target.levels;
+        if (level !== undefined && Array.isArray(levels) && !levels.some((l) => String(l).toLowerCase() === level))
+            return null;
+        return e;
+    }
+
+    on(id: string, level?: string): boolean {
+        return this.get(id, level) !== null;
+    }
+}
+
+export const thps3PortChanges = (enabled = true): PortChanges =>
+    new PortChanges(compat.portChanges("thps3_levels"), enabled);
+
 // PC-THPS3-1 (port_changes, tools/compat/thugpro/thps3_levels.json: `prefixes` per level): sector name prefixes left out.
 // Warehouse: its lights flicker in THPS3 (JKU_Ware_RoomFlicker toggles SkWare_Light_* / SkWare_Dark_*, the same
 // surfaces lit and dark); without that script both sets were drawn - z-fighting. Kept lit, as THPS3's observer mode
 // (JKU_Ware_IsObserver kills SkWare_Dark).
-export function leftOutPrefixes(pc: compat.PortChanges, base: string): readonly string[] {
+export function leftOutPrefixes(pc: PortChanges, base: string): readonly string[] {
     return (pc.get("PC-THPS3-1", base.toLowerCase())?.prefixes as string[] | undefined) ?? [];
 }
 
@@ -2123,7 +2154,7 @@ export function convertNodeArray(
     teams: readonly FlagTeam[] = [],
     ctfCompat: LevelCompat = NO_COMPAT,
     tpNew: thugproNew.LevelNew = thugproNew.emptyNew(),
-    pc: compat.PortChanges = compat.portChanges("thps3_levels"),
+    pc: PortChanges = thps3PortChanges(),
 ): [string, Set<number>, Set<number>, string, Map<number, Buffer>, boolean] {
     // port: a Port (the level's scripts brought along, its game objects, waypoints, peds...) or null (static: only
     // the geometry's nodes, restarts, rails and kill zones). Returns [NeverScript text, sectors left out, sectors
@@ -2573,7 +2604,7 @@ export function cmdConvert(args: Args): void {
     // the compatibility profile (tools/compat: thugpro - TP-10 / TP-11 - or none)
     const profile = compat.load(args.compat);
     // our own changes to THPS3's data (PC-n: kept under --compat none; --no-port-changes keeps only the required ones)
-    const pc = compat.portChanges("thps3_levels", !args.noPortChanges);
+    const pc = thps3PortChanges(!args.noPortChanges);
     if (isDir(out)) fs.rmSync(out, { recursive: true, force: true });
     fs.mkdirSync(out, { recursive: true });
     const manifest: { levels: Record<string, unknown>[] } = { levels: [] };
@@ -2620,7 +2651,7 @@ export function cmdConvert(args: Args): void {
         // TPN-THPS3: THUGPRO's own content, read from its install (--thugpro; --no-thugpro-new or --compat none: none)
         const newEntries = args.noThugproNew
             ? []
-            : ((profile.section("thps3_levels", "thugpro_new")[name] ?? []) as thugproNew.NewEntry[]);
+            : thugproNew.levelEntries(compat.thugproNew(profile, "thps3_levels"), name);
         const tpNew = thugproNew.loadNew(newEntries, args.thugpro);
         const [nodeText, hidden, triggers, nodeReport, scripts, hasSetup] = convertNodeArray(
             q,

@@ -290,7 +290,7 @@ export function extractNew(input: ExtractInput): { entries: NewEntry[]; leftOut:
                 op: "add",
                 id: REGISTER_ID,
                 kind: "sector",
-                target: text(sec.checksum),
+                target: { level, name: text(sec.checksum) },
                 why: `THUGPRO's own mesh (${verts} vertices) - in no THPS3 file`,
                 archive: scnArchive!,
                 file,
@@ -315,7 +315,7 @@ export function extractNew(input: ExtractInput): { entries: NewEntry[]; leftOut:
                     op: "add",
                     id: REGISTER_ID,
                     kind: "collision",
-                    target: text(o.checksum),
+                    target: { level, name: text(o.checksum) },
                     why: own.has(o.checksum)
                         ? `THUGPRO's collision for THPS3's ${text(o.checksum)} (${o.faces.length} faces) - THPS3's has none`
                         : `THUGPRO's own collision (${o.faces.length} faces): a fix or invisible wall in no THPS3 file`,
@@ -433,7 +433,7 @@ export function extractNew(input: ExtractInput): { entries: NewEntry[]; leftOut:
         op,
         id: REGISTER_ID,
         kind: "node",
-        target: text(nm),
+        target: { level, name: text(nm) },
         why,
         archive: scriptsArchive,
         file: levelQb.file,
@@ -533,7 +533,7 @@ export function extractNew(input: ExtractInput): { entries: NewEntry[]; leftOut:
             op: "add",
             id: REGISTER_ID,
             kind: "model",
-            target: prefix.slice("models\\".length, -1),
+            target: { level, name: prefix.slice("models\\".length, -1) },
             why,
             archive: scriptsArchive,
             files: filesOf,
@@ -552,7 +552,7 @@ export function extractNew(input: ExtractInput): { entries: NewEntry[]; leftOut:
             op: replaces ? "set" : "add",
             id: REGISTER_ID,
             kind: "script",
-            target: text(k),
+            target: { level, name: text(k) },
             why: replaces
                 ? "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)"
                 : "THUGPRO's own script - in no THPS3 file",

@@ -6,7 +6,8 @@
 // into the repository. A missing install, archive or item, or an item whose CRC differs, is warned about and skipped;
 // nothing fails the conversion. Register row: TPN-THPS3 (tools/compat/thugpro/README.md, "New in THUGPRO").
 //
-// Every entry has `op` (the register's form for the two newer sections, thugpro_new and port_changes):
+// The section is compat.ts's form for the two newer sections (thugpro_new, port_changes): {entries: [Entry]}, each
+// with `op`, `id`, `target` ({level, name} here) and `why` - read by compat.thugproNew:
 //   add     - something THPS3 hasn't: a scene sector (+ its materials and textures), a collision object, a node, a
 //             script, a model's files;
 //   set     - fields of something our port has (a THPS3 node THUGPRO made a Vehicle with its own model): only the
@@ -16,6 +17,7 @@
 
 import * as fs from "node:fs";
 import { crc32 } from "node:zlib";
+import type * as compat from "../compat/compat.ts";
 import * as geometry from "../level_port/geometry.ts";
 import * as prx from "../level_port/prx.ts";
 import * as qb from "../level_port/qb.ts";
@@ -48,15 +50,11 @@ export function rowId(kind: string, op: string): string {
     return ROWS.models;
 }
 
-export type Op = "add" | "set" | "remove";
 export type Kind = "sector" | "collision" | "node" | "script" | "model";
 
-export interface NewEntry {
-    op: Op;
-    id: string;
+export interface NewEntry extends compat.Entry {
     kind: Kind;
-    target: string;
-    why: string;
+    target: { level: string; name: string }; // our (= THUGPRO's) level, the item's name
     archive: string; // THUGPRO's data\pre\<archive>
     file?: string; // the file in it (sector, collision, node, script)
     crc32?: string; // of the item (itemCrc), 8 hex digits
@@ -81,6 +79,11 @@ export interface NewEntry {
     context?: "object" | "skater" | "none";
     // model: its files {file in the archive: crc32}, written to <staging>\models\...
     files?: Record<string, string>;
+}
+
+// A level's entries of the section (compat.thugproNew: every level's, target.level ours).
+export function levelEntries(entries: readonly compat.Entry[], level: string): NewEntry[] {
+    return entries.filter((e) => String(e.target.level).toLowerCase() === level.toLowerCase()) as NewEntry[];
 }
 
 const crcHex = (data: Uint8Array): string => hex8(crc32(data) >>> 0).toLowerCase();
@@ -264,7 +267,7 @@ export function loadNew(entries: readonly NewEntry[], thugpro: string): LevelNew
     const target = (text: string): number =>
         text.startsWith("#") ? Number.parseInt(text.slice(1), 16) >>> 0 : qb.checksum(text);
     const skip = (e: NewEntry, why: string): void => {
-        out.warnings.push(`${e.kind} ${e.target}: ${why} - left out`);
+        out.warnings.push(`${e.kind} ${e.target.name}: ${why} - left out`);
     };
     const count = (k: string): void => {
         out.counts[k] = (out.counts[k] ?? 0) + 1;
@@ -301,7 +304,7 @@ export function loadNew(entries: readonly NewEntry[], thugpro: string): LevelNew
             }
             if (e.kind === "sector") {
                 const scene = sceneOf(e.archive, e.file);
-                const sec = scene?.sectors.find((s) => s.checksum === target(e.target));
+                const sec = scene?.sectors.find((s) => s.checksum === target(e.target.name));
                 if (!scene || !sec) {
                     skip(e, `not in ${e.archive} ${e.file}`);
                     continue;
@@ -318,7 +321,9 @@ export function loadNew(entries: readonly NewEntry[], thugpro: string): LevelNew
                 for (const [c, crc] of wanted) {
                     const t = texs?.textures.find((x) => x.checksum === Number.parseInt(c, 16) >>> 0);
                     if (t === undefined || itemCrc(texFile.writeTex({ version: 1, textures: [t] })) !== crc) {
-                        out.warnings.push(`sector ${e.target}: texture ${c} missing or different - drawn without it`);
+                        out.warnings.push(
+                            `sector ${e.target.name}: texture ${c} missing or different - drawn without it`,
+                        );
                         continue;
                     }
                     found.push(t);
@@ -336,7 +341,7 @@ export function loadNew(entries: readonly NewEntry[], thugpro: string): LevelNew
                 }
                 count("sectors");
             } else if (e.kind === "collision") {
-                const o = colOf(e.archive, e.file)?.get(target(e.target));
+                const o = colOf(e.archive, e.file)?.get(target(e.target.name));
                 if (o === undefined) {
                     skip(e, `not in ${e.archive} ${e.file}`);
                     continue;
@@ -358,7 +363,7 @@ export function loadNew(entries: readonly NewEntry[], thugpro: string): LevelNew
                 count("collision");
             } else if (e.kind === "node") {
                 const q = qbOf(e.archive, e.file);
-                const node = q?.nodes.get(target(e.target));
+                const node = q?.nodes.get(target(e.target.name));
                 if (!q || !node) {
                     skip(e, `not in ${e.archive} ${e.file}`);
                     continue;
@@ -388,7 +393,7 @@ export function loadNew(entries: readonly NewEntry[], thugpro: string): LevelNew
                     count("nodes added");
                 } else {
                     out.sets.push({
-                        name: target(e.target),
+                        name: target(e.target.name),
                         fields: e.fields ?? {},
                         dropSector: e.drop_sector === true,
                         entry: e,
@@ -397,7 +402,7 @@ export function loadNew(entries: readonly NewEntry[], thugpro: string): LevelNew
                 }
             } else if (e.kind === "script") {
                 const q = qbOf(e.archive, e.file);
-                const code = q?.scripts.get(target(e.target));
+                const code = q?.scripts.get(target(e.target.name));
                 if (!q || code === undefined) {
                     skip(e, `not in ${e.archive} ${e.file}`);
                     continue;
@@ -407,7 +412,7 @@ export function loadNew(entries: readonly NewEntry[], thugpro: string): LevelNew
                     continue;
                 }
                 for (const [k, v] of q.names) out.names.set(k, v);
-                out.scripts.set(target(e.target), { code, entry: e });
+                out.scripts.set(target(e.target.name), { code, entry: e });
                 count("scripts");
             }
         } catch (err) {
@@ -440,7 +445,7 @@ export function applyNodes(converted: Struct[], names: Map<number, string>, n: L
     const adding = n.nodes.filter(({ node, entry }) => {
         const nm = nameOf(node);
         if (nm !== null && index.has(nm)) {
-            report.push(`  ${REGISTER_ID}: node ${entry.target} is in our array already - THUGPRO's left out`);
+            report.push(`  ${REGISTER_ID}: node ${entry.target.name} is in our array already - THUGPRO's left out`);
             clashes += 1;
             return false;
         }
@@ -465,7 +470,7 @@ export function applyNodes(converted: Struct[], names: Map<number, string>, n: L
     for (const s of n.sets) {
         const i = index.get(s.name);
         if (i === undefined) {
-            report.push(`  ${REGISTER_ID}: set ${s.entry.target}: not in our node array - reported, not added`);
+            report.push(`  ${REGISTER_ID}: set ${s.entry.target.name}: not in our node array - reported, not added`);
             continue;
         }
         const node = new Struct([...converted[i]!.entries]);
@@ -594,7 +599,7 @@ export function addedScripts(n: LevelNew, existing: ReadonlySet<number>): [Map<n
     const clashes: string[] = [];
     for (const [k, { code, entry }] of n.scripts) {
         if (entry.op !== "add") continue;
-        if (existing.has(k)) clashes.push(entry.target);
+        if (existing.has(k)) clashes.push(entry.target.name);
         else out.set(k, adaptScript(code, entry.replace_calls));
     }
     return [out, clashes];

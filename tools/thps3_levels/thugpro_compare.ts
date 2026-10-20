@@ -642,11 +642,12 @@ export function extractThugpro(
     // (thugpro_new needs THUG2's own scripts and commands: which of THUGPRO's scripts can run - --thug2)
     const thug2Data = thug2 !== null ? new scriptPort.Thug2(thug2) : null;
     const thugproNew: Record<string, unknown> = {
-        _register: REGISTER_ID,
+        _register: `${REGISTER_ID}-1 ... ${REGISTER_ID}-6 (README.md here: "New in THUGPRO (not in any source game)")`,
         _source:
-            "References only (the user's decision 2026-10-20, with Morten1337's permission): what is new in THUGPRO's THPS3 ports, in no source game - archive and file in THUGPRO's datapre, the item's name and a CRC-32 of it. tools/thps3_levels/thugpro_new.ts reads the bytes from the user's THUGPRO install (--thugpro) at convert time; a missing or different item is warned about and skipped. Each entry: op (add / set / remove), id, kind (sector, collision, node, script, model), target, why. Found by tools/thps3_levels/thugpro_new_extract.ts (--extract-thugpro); never typed in.",
+            "References only (the user's decision 2026-10-20, with Morten1337's permission): what is new in THUGPRO's THPS3 ports, in no source game - archive and file in THUGPRO's data\\pre, the item's name and a CRC-32 of it. tools/thps3_levels/thugpro_new.ts reads the bytes from the user's THUGPRO install (--thugpro) at convert time; a missing or different item is warned about and skipped. Each entry (compat.ts Entry): id, op (add / set / remove), kind (sector, collision, node, script, model), target {level, name}, why. Found by tools/thps3_levels/thugpro_new_extract.ts (--extract-thugpro); never typed in. _left_out: what was found and not taken, with the reason.",
     };
     const newLeftOut: Record<string, unknown> = {};
+    const newEntries: unknown[] = [];
     const teams = flagTeams(scriptNames(thps3Dir));
     const flags: Record<string, unknown> = {
         _register: "TP-10",
@@ -816,10 +817,11 @@ export function extractThugpro(
                 globalNames,
                 handled,
             });
-            if (found.entries.length) thugproNew[key] = found.entries;
+            newEntries.push(...found.entries);
             if (found.leftOut.length) newLeftOut[key] = found.leftOut;
         }
     }
+    thugproNew.entries = newEntries;
     thugproNew._left_out = newLeftOut;
     return {
         _comment:

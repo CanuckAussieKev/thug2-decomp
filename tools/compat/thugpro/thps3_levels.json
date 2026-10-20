@@ -7419,14 +7419,17 @@
     }
   },
   "thugpro_new": {
-    "_register": "TPN-THPS3",
-    "_source": "References only (the user's decision 2026-10-20, with Morten1337's permission): what is new in THUGPRO's THPS3 ports, in no source game - archive and file in THUGPRO's datapre, the item's name and a CRC-32 of it. tools/thps3_levels/thugpro_new.ts reads the bytes from the user's THUGPRO install (--thugpro) at convert time; a missing or different item is warned about and skipped. Each entry: op (add / set / remove), id, kind (sector, collision, node, script, model), target, why. Found by tools/thps3_levels/thugpro_new_extract.ts (--extract-thugpro); never typed in.",
-    "foun": [
+    "_register": "TPN-THPS3-1 ... TPN-THPS3-6 (README.md here: \"New in THUGPRO (not in any source game)\")",
+    "_source": "References only (the user's decision 2026-10-20, with Morten1337's permission): what is new in THUGPRO's THPS3 ports, in no source game - archive and file in THUGPRO's data\\pre, the item's name and a CRC-32 of it. tools/thps3_levels/thugpro_new.ts reads the bytes from the user's THUGPRO install (--thugpro) at convert time; a missing or different item is warned about and skipped. Each entry (compat.ts Entry): id, op (add / set / remove), kind (sector, collision, node, script, model), target {level, name}, why. Found by tools/thps3_levels/thugpro_new_extract.ts (--extract-thugpro); never typed in. _left_out: what was found and not taken, with the reason.",
+    "entries": [
       {
         "op": "add",
         "id": "TPN-THPS3-1",
         "kind": "sector",
-        "target": "foun_wire",
+        "target": {
+          "level": "foun",
+          "name": "foun_wire"
+        },
         "why": "THUGPRO's own mesh (498 vertices) - in no THPS3 file",
         "archive": "FOUNscn.prx",
         "file": "levels\\foun\\foun.scn.xbx",
@@ -7439,7 +7442,10 @@
         "op": "add",
         "id": "TPN-THPS3-1",
         "kind": "collision",
-        "target": "Obj_Bucket",
+        "target": {
+          "level": "foun",
+          "name": "Obj_Bucket"
+        },
         "why": "THUGPRO's collision for THPS3's Obj_Bucket (134 faces) - THPS3's has none",
         "archive": "FOUNcol.prx",
         "file": "levels\\foun\\foun.col.xbx",
@@ -7450,7 +7456,10 @@
         "op": "add",
         "id": "TPN-THPS3-1",
         "kind": "collision",
-        "target": "SouthDeck_QP04_coll",
+        "target": {
+          "level": "foun",
+          "name": "SouthDeck_QP04_coll"
+        },
         "why": "THUGPRO's own collision (4 faces): a fix or invisible wall in no THPS3 file",
         "archive": "FOUNcol.prx",
         "file": "levels\\foun\\foun.col.xbx",
@@ -7461,7 +7470,10 @@
         "op": "add",
         "id": "TPN-THPS3-1",
         "kind": "collision",
-        "target": "SouthDeck_QP01_coll",
+        "target": {
+          "level": "foun",
+          "name": "SouthDeck_QP01_coll"
+        },
         "why": "THUGPRO's own collision (4 faces): a fix or invisible wall in no THPS3 file",
         "archive": "FOUNcol.prx",
         "file": "levels\\foun\\foun.col.xbx",
@@ -7472,7 +7484,10 @@
         "op": "add",
         "id": "TPN-THPS3-1",
         "kind": "collision",
-        "target": "Trench_HP04_Back_coll",
+        "target": {
+          "level": "foun",
+          "name": "Trench_HP04_Back_coll"
+        },
         "why": "THUGPRO's own collision (4 faces): a fix or invisible wall in no THPS3 file",
         "archive": "FOUNcol.prx",
         "file": "levels\\foun\\foun.col.xbx",
@@ -7483,7 +7498,10 @@
         "op": "add",
         "id": "TPN-THPS3-2",
         "kind": "node",
-        "target": "SouthDeck_QP01_coll",
+        "target": {
+          "level": "foun",
+          "name": "SouthDeck_QP01_coll"
+        },
         "why": "THUGPRO's own geometry node - in no THPS3 file",
         "archive": "FOUN_scripts.prx",
         "file": "levels\\foun\\foun.qb",
@@ -7493,7 +7511,10 @@
         "op": "add",
         "id": "TPN-THPS3-2",
         "kind": "node",
-        "target": "SouthDeck_QP04_coll",
+        "target": {
+          "level": "foun",
+          "name": "SouthDeck_QP04_coll"
+        },
         "why": "THUGPRO's own geometry node - in no THPS3 file",
         "archive": "FOUN_scripts.prx",
         "file": "levels\\foun\\foun.qb",
@@ -7503,7 +7524,10 @@
         "op": "add",
         "id": "TPN-THPS3-2",
         "kind": "node",
-        "target": "Trench_HP04_Back_coll",
+        "target": {
+          "level": "foun",
+          "name": "Trench_HP04_Back_coll"
+        },
         "why": "THUGPRO's own geometry node - in no THPS3 file",
         "archive": "FOUN_scripts.prx",
         "file": "levels\\foun\\foun.qb",
@@ -7513,7 +7537,10 @@
         "op": "add",
         "id": "TPN-THPS3-2",
         "kind": "node",
-        "target": "foun_wire",
+        "target": {
+          "level": "foun",
+          "name": "foun_wire"
+        },
         "why": "THUGPRO's own geometry node - in no THPS3 file",
         "archive": "FOUN_scripts.prx",
         "file": "levels\\foun\\foun.qb",
@@ -7523,7 +7550,10 @@
         "op": "set",
         "id": "TPN-THPS3-3",
         "kind": "node",
-        "target": "Obj_Bucket",
+        "target": {
+          "level": "foun",
+          "name": "Obj_Bucket"
+        },
         "why": "THUGPRO made THPS3's gameobject a Vehicle with its own model (collides, moves as one)",
         "archive": "FOUN_scripts.prx",
         "file": "levels\\foun\\foun.qb",
@@ -7538,7 +7568,10 @@
         "op": "add",
         "id": "TPN-THPS3-6",
         "kind": "model",
-        "target": "obj_bucket",
+        "target": {
+          "level": "foun",
+          "name": "obj_bucket"
+        },
         "why": "THUGPRO's model for Obj_Bucket",
         "archive": "FOUN_scripts.prx",
         "files": {
@@ -7551,7 +7584,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "LoadAllParticleTextures",
+        "target": {
+          "level": "foun",
+          "name": "LoadAllParticleTextures"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "FOUN_scripts.prx",
         "file": "levels\\foun\\foun.qb",
@@ -7562,7 +7598,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "Foun_TP_Particle_ValveSteamScript",
+        "target": {
+          "level": "foun",
+          "name": "Foun_TP_Particle_ValveSteamScript"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "FOUN_scripts.prx",
         "file": "levels\\foun\\foun.qb",
@@ -7573,7 +7612,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "Foun_TP_Particle_PressSteamScript",
+        "target": {
+          "level": "foun",
+          "name": "Foun_TP_Particle_PressSteamScript"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "FOUN_scripts.prx",
         "file": "levels\\foun\\foun.qb",
@@ -7584,7 +7626,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "NODE_TEST_SCRIPT",
+        "target": {
+          "level": "foun",
+          "name": "NODE_TEST_SCRIPT"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "FOUN_scripts.prx",
         "file": "levels\\foun\\foun.qb",
@@ -7598,7 +7643,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "Foun_Goals",
+        "target": {
+          "level": "foun",
+          "name": "Foun_Goals"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "FOUN_scripts.prx",
         "file": "levels\\foun\\foun_scripts.qb",
@@ -7609,7 +7657,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "CJR_Foun_Fire_Soaker_Scripts2",
+        "target": {
+          "level": "foun",
+          "name": "CJR_Foun_Fire_Soaker_Scripts2"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "FOUN_scripts.prx",
         "file": "levels\\foun\\foun_scripts.qb",
@@ -7620,20 +7671,24 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "CJR_Foun_Soaker_Trigger2",
+        "target": {
+          "level": "foun",
+          "name": "CJR_Foun_Soaker_Trigger2"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "FOUN_scripts.prx",
         "file": "levels\\foun\\foun_scripts.qb",
         "crc32": "ec4fcb9f",
         "context": "none"
-      }
-    ],
-    "rio": [
+      },
       {
         "op": "add",
         "id": "TPN-THPS3-1",
         "kind": "collision",
-        "target": "ES_Building_collision",
+        "target": {
+          "level": "rio",
+          "name": "ES_Building_collision"
+        },
         "why": "THUGPRO's own collision (4 faces): a fix or invisible wall in no THPS3 file",
         "archive": "RIOcol.prx",
         "file": "levels\\rio\\rio.col.xbx",
@@ -7644,7 +7699,10 @@
         "op": "add",
         "id": "TPN-THPS3-2",
         "kind": "node",
-        "target": "TRG_Node_2076",
+        "target": {
+          "level": "rio",
+          "name": "TRG_Node_2076"
+        },
         "why": "THUGPRO's own - node - in no THPS3 file",
         "archive": "RIO_scripts.prx",
         "file": "levels\\rio\\rio.qb",
@@ -7657,7 +7715,10 @@
         "op": "add",
         "id": "TPN-THPS3-2",
         "kind": "node",
-        "target": "TRG_Node_2077",
+        "target": {
+          "level": "rio",
+          "name": "TRG_Node_2077"
+        },
         "why": "THUGPRO's own - node - in no THPS3 file",
         "archive": "RIO_scripts.prx",
         "file": "levels\\rio\\rio.qb",
@@ -7670,7 +7731,10 @@
         "op": "add",
         "id": "TPN-THPS3-2",
         "kind": "node",
-        "target": "TRG_Node_2078",
+        "target": {
+          "level": "rio",
+          "name": "TRG_Node_2078"
+        },
         "why": "THUGPRO's own - node - in no THPS3 file",
         "archive": "RIO_scripts.prx",
         "file": "levels\\rio\\rio.qb",
@@ -7683,7 +7747,10 @@
         "op": "add",
         "id": "TPN-THPS3-2",
         "kind": "node",
-        "target": "TRG_Node_2079",
+        "target": {
+          "level": "rio",
+          "name": "TRG_Node_2079"
+        },
         "why": "THUGPRO's own - node - in no THPS3 file",
         "archive": "RIO_scripts.prx",
         "file": "levels\\rio\\rio.qb",
@@ -7696,7 +7763,10 @@
         "op": "add",
         "id": "TPN-THPS3-2",
         "kind": "node",
-        "target": "TRG_Node_2080",
+        "target": {
+          "level": "rio",
+          "name": "TRG_Node_2080"
+        },
         "why": "THUGPRO's own - node - in no THPS3 file",
         "archive": "RIO_scripts.prx",
         "file": "levels\\rio\\rio.qb",
@@ -7709,7 +7779,10 @@
         "op": "add",
         "id": "TPN-THPS3-2",
         "kind": "node",
-        "target": "TRG_Node_2081",
+        "target": {
+          "level": "rio",
+          "name": "TRG_Node_2081"
+        },
         "why": "THUGPRO's own - node - in no THPS3 file",
         "archive": "RIO_scripts.prx",
         "file": "levels\\rio\\rio.qb",
@@ -7722,7 +7795,10 @@
         "op": "add",
         "id": "TPN-THPS3-2",
         "kind": "node",
-        "target": "TRG_Node_2082",
+        "target": {
+          "level": "rio",
+          "name": "TRG_Node_2082"
+        },
         "why": "THUGPRO's own - node - in no THPS3 file",
         "archive": "RIO_scripts.prx",
         "file": "levels\\rio\\rio.qb",
@@ -7735,7 +7811,10 @@
         "op": "add",
         "id": "TPN-THPS3-2",
         "kind": "node",
-        "target": "TRG_Node_2083",
+        "target": {
+          "level": "rio",
+          "name": "TRG_Node_2083"
+        },
         "why": "THUGPRO's own - node - in no THPS3 file",
         "archive": "RIO_scripts.prx",
         "file": "levels\\rio\\rio.qb",
@@ -7748,7 +7827,10 @@
         "op": "add",
         "id": "TPN-THPS3-2",
         "kind": "node",
-        "target": "TRG_Ped_2084",
+        "target": {
+          "level": "rio",
+          "name": "TRG_Ped_2084"
+        },
         "why": "THUGPRO's own pedestrian node - in no THPS3 file",
         "archive": "RIO_scripts.prx",
         "file": "levels\\rio\\rio.qb",
@@ -7761,7 +7843,10 @@
         "op": "add",
         "id": "TPN-THPS3-2",
         "kind": "node",
-        "target": "rio_tp_snd_Fountain01",
+        "target": {
+          "level": "rio",
+          "name": "rio_tp_snd_Fountain01"
+        },
         "why": "THUGPRO's own gameobject node - in no THPS3 file",
         "archive": "RIO_scripts.prx",
         "file": "levels\\rio\\rio.qb",
@@ -7771,7 +7856,10 @@
         "op": "add",
         "id": "TPN-THPS3-2",
         "kind": "node",
-        "target": "rio_tp_snd_transformer01",
+        "target": {
+          "level": "rio",
+          "name": "rio_tp_snd_transformer01"
+        },
         "why": "THUGPRO's own gameobject node - in no THPS3 file",
         "archive": "RIO_scripts.prx",
         "file": "levels\\rio\\rio.qb",
@@ -7781,7 +7869,10 @@
         "op": "add",
         "id": "TPN-THPS3-2",
         "kind": "node",
-        "target": "rio_tp_snd_transformer02",
+        "target": {
+          "level": "rio",
+          "name": "rio_tp_snd_transformer02"
+        },
         "why": "THUGPRO's own gameobject node - in no THPS3 file",
         "archive": "RIO_scripts.prx",
         "file": "levels\\rio\\rio.qb",
@@ -7791,7 +7882,10 @@
         "op": "add",
         "id": "TPN-THPS3-2",
         "kind": "node",
-        "target": "TRG_Car_PathC_Car_OldsBlue01_carplant_collision",
+        "target": {
+          "level": "rio",
+          "name": "TRG_Car_PathC_Car_OldsBlue01_carplant_collision"
+        },
         "why": "THUGPRO's own vehicle node - in no THPS3 file",
         "archive": "RIO_scripts.prx",
         "file": "levels\\rio\\rio.qb",
@@ -7805,7 +7899,10 @@
         "op": "add",
         "id": "TPN-THPS3-2",
         "kind": "node",
-        "target": "TRG_Car_PathB_Car_MicroBusGrey01_carplant_collision",
+        "target": {
+          "level": "rio",
+          "name": "TRG_Car_PathB_Car_MicroBusGrey01_carplant_collision"
+        },
         "why": "THUGPRO's own vehicle node - in no THPS3 file",
         "archive": "RIO_scripts.prx",
         "file": "levels\\rio\\rio.qb",
@@ -7819,7 +7916,10 @@
         "op": "add",
         "id": "TPN-THPS3-2",
         "kind": "node",
-        "target": "TRG_Car_PathB_Car_2CVGrey01_carplant_collision",
+        "target": {
+          "level": "rio",
+          "name": "TRG_Car_PathB_Car_2CVGrey01_carplant_collision"
+        },
         "why": "THUGPRO's own vehicle node - in no THPS3 file",
         "archive": "RIO_scripts.prx",
         "file": "levels\\rio\\rio.qb",
@@ -7833,7 +7933,10 @@
         "op": "add",
         "id": "TPN-THPS3-2",
         "kind": "node",
-        "target": "TRG_Car_PathC_Car_Police01_carplant_collision",
+        "target": {
+          "level": "rio",
+          "name": "TRG_Car_PathC_Car_Police01_carplant_collision"
+        },
         "why": "THUGPRO's own vehicle node - in no THPS3 file",
         "archive": "RIO_scripts.prx",
         "file": "levels\\rio\\rio.qb",
@@ -7847,7 +7950,10 @@
         "op": "add",
         "id": "TPN-THPS3-2",
         "kind": "node",
-        "target": "TRG_Car_PathA_Car_2CVYellow01_carplant_collision",
+        "target": {
+          "level": "rio",
+          "name": "TRG_Car_PathA_Car_2CVYellow01_carplant_collision"
+        },
         "why": "THUGPRO's own vehicle node - in no THPS3 file",
         "archive": "RIO_scripts.prx",
         "file": "levels\\rio\\rio.qb",
@@ -7861,7 +7967,10 @@
         "op": "add",
         "id": "TPN-THPS3-2",
         "kind": "node",
-        "target": "TRG_Car_PathA_Car_OldsBeige01_carplant_collision",
+        "target": {
+          "level": "rio",
+          "name": "TRG_Car_PathA_Car_OldsBeige01_carplant_collision"
+        },
         "why": "THUGPRO's own vehicle node - in no THPS3 file",
         "archive": "RIO_scripts.prx",
         "file": "levels\\rio\\rio.qb",
@@ -7875,7 +7984,10 @@
         "op": "add",
         "id": "TPN-THPS3-2",
         "kind": "node",
-        "target": "TRG_Car_PathD_Car_BigBus01_carplant_collision",
+        "target": {
+          "level": "rio",
+          "name": "TRG_Car_PathD_Car_BigBus01_carplant_collision"
+        },
         "why": "THUGPRO's own vehicle node - in no THPS3 file",
         "archive": "RIO_scripts.prx",
         "file": "levels\\rio\\rio.qb",
@@ -7889,7 +8001,10 @@
         "op": "add",
         "id": "TPN-THPS3-2",
         "kind": "node",
-        "target": "TRG_Car_PathD_Car_BigBus02_carplant_collision",
+        "target": {
+          "level": "rio",
+          "name": "TRG_Car_PathD_Car_BigBus02_carplant_collision"
+        },
         "why": "THUGPRO's own vehicle node - in no THPS3 file",
         "archive": "RIO_scripts.prx",
         "file": "levels\\rio\\rio.qb",
@@ -7903,7 +8018,10 @@
         "op": "add",
         "id": "TPN-THPS3-2",
         "kind": "node",
-        "target": "ES_Building_collision",
+        "target": {
+          "level": "rio",
+          "name": "ES_Building_collision"
+        },
         "why": "THUGPRO's own geometry node - in no THPS3 file",
         "archive": "RIO_scripts.prx",
         "file": "levels\\rio\\rio.qb",
@@ -7913,7 +8031,10 @@
         "op": "add",
         "id": "TPN-THPS3-6",
         "kind": "model",
-        "target": "carplantnode",
+        "target": {
+          "level": "rio",
+          "name": "carplantnode"
+        },
         "why": "THUGPRO's model for TRG_Car_PathC_Car_OldsBlue01_carplant_collision",
         "archive": "RIO_scripts.prx",
         "files": {
@@ -7926,7 +8047,10 @@
         "op": "add",
         "id": "TPN-THPS3-6",
         "kind": "model",
-        "target": "carplantnode_bus",
+        "target": {
+          "level": "rio",
+          "name": "carplantnode_bus"
+        },
         "why": "THUGPRO's model for TRG_Car_PathD_Car_BigBus01_carplant_collision",
         "archive": "RIO_scripts.prx",
         "files": {
@@ -7939,7 +8063,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "TRG_Car_PathC_Car_OldsBlue01_carplant_collisionScript",
+        "target": {
+          "level": "rio",
+          "name": "TRG_Car_PathC_Car_OldsBlue01_carplant_collisionScript"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "RIO_scripts.prx",
         "file": "levels\\rio\\rio.qb",
@@ -7950,7 +8077,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "TRG_Car_PathB_Car_MicroBusGrey01_carplant_collisionScript",
+        "target": {
+          "level": "rio",
+          "name": "TRG_Car_PathB_Car_MicroBusGrey01_carplant_collisionScript"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "RIO_scripts.prx",
         "file": "levels\\rio\\rio.qb",
@@ -7961,7 +8091,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "TRG_Car_PathB_Car_2CVGrey01_carplant_collisionScript",
+        "target": {
+          "level": "rio",
+          "name": "TRG_Car_PathB_Car_2CVGrey01_carplant_collisionScript"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "RIO_scripts.prx",
         "file": "levels\\rio\\rio.qb",
@@ -7972,7 +8105,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "TRG_Car_PathC_Car_Police01_carplant_collisionScript",
+        "target": {
+          "level": "rio",
+          "name": "TRG_Car_PathC_Car_Police01_carplant_collisionScript"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "RIO_scripts.prx",
         "file": "levels\\rio\\rio.qb",
@@ -7983,7 +8119,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "TRG_Car_PathA_Car_2CVYellow01_carplant_collisionScript",
+        "target": {
+          "level": "rio",
+          "name": "TRG_Car_PathA_Car_2CVYellow01_carplant_collisionScript"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "RIO_scripts.prx",
         "file": "levels\\rio\\rio.qb",
@@ -7994,7 +8133,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "TRG_Car_PathA_Car_OldsBeige01_carplant_collisionScript",
+        "target": {
+          "level": "rio",
+          "name": "TRG_Car_PathA_Car_OldsBeige01_carplant_collisionScript"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "RIO_scripts.prx",
         "file": "levels\\rio\\rio.qb",
@@ -8005,7 +8147,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "TRG_Car_PathD_Car_BigBus01_carplant_collisionScript",
+        "target": {
+          "level": "rio",
+          "name": "TRG_Car_PathD_Car_BigBus01_carplant_collisionScript"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "RIO_scripts.prx",
         "file": "levels\\rio\\rio.qb",
@@ -8016,7 +8161,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "TRG_Car_PathD_Car_BigBus02_carplant_collisionScript",
+        "target": {
+          "level": "rio",
+          "name": "TRG_Car_PathD_Car_BigBus02_carplant_collisionScript"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "RIO_scripts.prx",
         "file": "levels\\rio\\rio.qb",
@@ -8027,7 +8175,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "rio_tp_snd_Fountain01Script",
+        "target": {
+          "level": "rio",
+          "name": "rio_tp_snd_Fountain01Script"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "RIO_scripts.prx",
         "file": "levels\\rio\\rio.qb",
@@ -8038,7 +8189,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "rio_tp_snd_transformer01Script",
+        "target": {
+          "level": "rio",
+          "name": "rio_tp_snd_transformer01Script"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "RIO_scripts.prx",
         "file": "levels\\rio\\rio.qb",
@@ -8049,7 +8203,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "rio_tp_snd_transformer02Script",
+        "target": {
+          "level": "rio",
+          "name": "rio_tp_snd_transformer02Script"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "RIO_scripts.prx",
         "file": "levels\\rio\\rio.qb",
@@ -8060,7 +8217,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "TRG_Ped_2084Script",
+        "target": {
+          "level": "rio",
+          "name": "TRG_Ped_2084Script"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "RIO_scripts.prx",
         "file": "levels\\rio\\rio.qb",
@@ -8071,7 +8231,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "RIO_CREATE_ALL_OBJECTS",
+        "target": {
+          "level": "rio",
+          "name": "RIO_CREATE_ALL_OBJECTS"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "RIO_scripts.prx",
         "file": "levels\\rio\\rio_scripts.qb",
@@ -8082,20 +8245,24 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "Rio_Goals",
+        "target": {
+          "level": "rio",
+          "name": "Rio_Goals"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "RIO_scripts.prx",
         "file": "levels\\rio\\rio_scripts.qb",
         "crc32": "eb3acb07",
         "context": "none"
-      }
-    ],
-    "sub": [
+      },
       {
         "op": "add",
         "id": "TPN-THPS3-1",
         "kind": "collision",
-        "target": "SUB_TRamp06_collfix",
+        "target": {
+          "level": "sub",
+          "name": "SUB_TRamp06_collfix"
+        },
         "why": "THUGPRO's own collision (8 faces): a fix or invisible wall in no THPS3 file",
         "archive": "SUBcol.prx",
         "file": "levels\\sub\\sub.col.xbx",
@@ -8106,7 +8273,10 @@
         "op": "add",
         "id": "TPN-THPS3-1",
         "kind": "collision",
-        "target": "SUB_TRamp04_collfix",
+        "target": {
+          "level": "sub",
+          "name": "SUB_TRamp04_collfix"
+        },
         "why": "THUGPRO's own collision (8 faces): a fix or invisible wall in no THPS3 file",
         "archive": "SUBcol.prx",
         "file": "levels\\sub\\sub.col.xbx",
@@ -8117,7 +8287,10 @@
         "op": "add",
         "id": "TPN-THPS3-1",
         "kind": "collision",
-        "target": "SUB_plywood_08_collfix",
+        "target": {
+          "level": "sub",
+          "name": "SUB_plywood_08_collfix"
+        },
         "why": "THUGPRO's own collision (24 faces): a fix or invisible wall in no THPS3 file",
         "archive": "SUBcol.prx",
         "file": "levels\\sub\\sub.col.xbx",
@@ -8128,7 +8301,10 @@
         "op": "add",
         "id": "TPN-THPS3-1",
         "kind": "collision",
-        "target": "SUB_HHBYardWall_collfix",
+        "target": {
+          "level": "sub",
+          "name": "SUB_HHBYardWall_collfix"
+        },
         "why": "THUGPRO's own collision (192 faces): a fix or invisible wall in no THPS3 file",
         "archive": "SUBcol.prx",
         "file": "levels\\sub\\sub.col.xbx",
@@ -8139,7 +8315,10 @@
         "op": "add",
         "id": "TPN-THPS3-1",
         "kind": "collision",
-        "target": "Inviso_PicnicCollide01_collfix",
+        "target": {
+          "level": "sub",
+          "name": "Inviso_PicnicCollide01_collfix"
+        },
         "why": "THUGPRO's own collision (28 faces): a fix or invisible wall in no THPS3 file",
         "archive": "SUBcol.prx",
         "file": "levels\\sub\\sub.col.xbx",
@@ -8150,7 +8329,10 @@
         "op": "add",
         "id": "TPN-THPS3-2",
         "kind": "node",
-        "target": "TRG_BBQ_BurningNoise",
+        "target": {
+          "level": "sub",
+          "name": "TRG_BBQ_BurningNoise"
+        },
         "why": "THUGPRO's own levelobject node - in no THPS3 file",
         "archive": "SUB_scripts.prx",
         "file": "levels\\sub\\sub.qb",
@@ -8160,7 +8342,10 @@
         "op": "add",
         "id": "TPN-THPS3-2",
         "kind": "node",
-        "target": "SUB_TRamp06_collfix",
+        "target": {
+          "level": "sub",
+          "name": "SUB_TRamp06_collfix"
+        },
         "why": "THUGPRO's own geometry node - in no THPS3 file",
         "archive": "SUB_scripts.prx",
         "file": "levels\\sub\\sub.qb",
@@ -8170,7 +8355,10 @@
         "op": "add",
         "id": "TPN-THPS3-2",
         "kind": "node",
-        "target": "SUB_TRamp04_collfix",
+        "target": {
+          "level": "sub",
+          "name": "SUB_TRamp04_collfix"
+        },
         "why": "THUGPRO's own geometry node - in no THPS3 file",
         "archive": "SUB_scripts.prx",
         "file": "levels\\sub\\sub.qb",
@@ -8180,7 +8368,10 @@
         "op": "add",
         "id": "TPN-THPS3-2",
         "kind": "node",
-        "target": "SUB_plywood_08_collfix",
+        "target": {
+          "level": "sub",
+          "name": "SUB_plywood_08_collfix"
+        },
         "why": "THUGPRO's own geometry node - in no THPS3 file",
         "archive": "SUB_scripts.prx",
         "file": "levels\\sub\\sub.qb",
@@ -8190,7 +8381,10 @@
         "op": "add",
         "id": "TPN-THPS3-2",
         "kind": "node",
-        "target": "SUB_HHBYardWall_collfix",
+        "target": {
+          "level": "sub",
+          "name": "SUB_HHBYardWall_collfix"
+        },
         "why": "THUGPRO's own geometry node - in no THPS3 file",
         "archive": "SUB_scripts.prx",
         "file": "levels\\sub\\sub.qb",
@@ -8200,7 +8394,10 @@
         "op": "add",
         "id": "TPN-THPS3-2",
         "kind": "node",
-        "target": "Inviso_PicnicCollide01_collfix",
+        "target": {
+          "level": "sub",
+          "name": "Inviso_PicnicCollide01_collfix"
+        },
         "why": "THUGPRO's own geometry node - in no THPS3 file",
         "archive": "SUB_scripts.prx",
         "file": "levels\\sub\\sub.qb",
@@ -8210,7 +8407,10 @@
         "op": "add",
         "id": "TPN-THPS3-2",
         "kind": "node",
-        "target": "TRG_IceCreamTruck_Carplant_collision",
+        "target": {
+          "level": "sub",
+          "name": "TRG_IceCreamTruck_Carplant_collision"
+        },
         "why": "THUGPRO's own vehicle node - in no THPS3 file",
         "archive": "SUB_scripts.prx",
         "file": "levels\\sub\\sub.qb",
@@ -8220,7 +8420,10 @@
         "op": "set",
         "id": "TPN-THPS3-3",
         "kind": "node",
-        "target": "TRG_IceCreamTruck",
+        "target": {
+          "level": "sub",
+          "name": "TRG_IceCreamTruck"
+        },
         "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
         "archive": "SUB_scripts.prx",
         "file": "levels\\sub\\sub.qb",
@@ -8236,7 +8439,10 @@
         "op": "set",
         "id": "TPN-THPS3-3",
         "kind": "node",
-        "target": "TRG_Plane",
+        "target": {
+          "level": "sub",
+          "name": "TRG_Plane"
+        },
         "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
         "archive": "SUB_scripts.prx",
         "file": "levels\\sub\\sub.qb",
@@ -8251,7 +8457,10 @@
         "op": "add",
         "id": "TPN-THPS3-6",
         "kind": "model",
-        "target": "carplantnode",
+        "target": {
+          "level": "sub",
+          "name": "carplantnode"
+        },
         "why": "THUGPRO's model for TRG_IceCreamTruck_Carplant_collision",
         "archive": "SUB_scripts.prx",
         "files": {
@@ -8264,7 +8473,10 @@
         "op": "add",
         "id": "TPN-THPS3-6",
         "kind": "model",
-        "target": "icecreamtruck",
+        "target": {
+          "level": "sub",
+          "name": "icecreamtruck"
+        },
         "why": "THUGPRO's model for TRG_IceCreamTruck",
         "archive": "SUB_scripts.prx",
         "files": {
@@ -8277,7 +8489,10 @@
         "op": "add",
         "id": "TPN-THPS3-6",
         "kind": "model",
-        "target": "light_airplane01",
+        "target": {
+          "level": "sub",
+          "name": "light_airplane01"
+        },
         "why": "THUGPRO's model for TRG_Plane",
         "archive": "SUB_scripts.prx",
         "files": {
@@ -8290,7 +8505,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "TRG_CTF_Blue_BaseScript",
+        "target": {
+          "level": "sub",
+          "name": "TRG_CTF_Blue_BaseScript"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "SUB_scripts.prx",
         "file": "levels\\sub\\sub.qb",
@@ -8301,7 +8519,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "TRG_CTF_Red_BaseScript",
+        "target": {
+          "level": "sub",
+          "name": "TRG_CTF_Red_BaseScript"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "SUB_scripts.prx",
         "file": "levels\\sub\\sub.qb",
@@ -8312,7 +8533,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "TRG_CTF_Yellow_BaseScript",
+        "target": {
+          "level": "sub",
+          "name": "TRG_CTF_Yellow_BaseScript"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "SUB_scripts.prx",
         "file": "levels\\sub\\sub.qb",
@@ -8323,7 +8547,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "TRG_CTF_Green_BaseScript",
+        "target": {
+          "level": "sub",
+          "name": "TRG_CTF_Green_BaseScript"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "SUB_scripts.prx",
         "file": "levels\\sub\\sub.qb",
@@ -8334,7 +8561,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "TRG_IceCreamTruck_Carplant_collisionScript",
+        "target": {
+          "level": "sub",
+          "name": "TRG_IceCreamTruck_Carplant_collisionScript"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "SUB_scripts.prx",
         "file": "levels\\sub\\sub.qb",
@@ -8345,7 +8575,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "load_level_particle_textures",
+        "target": {
+          "level": "sub",
+          "name": "load_level_particle_textures"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "SUB_scripts.prx",
         "file": "levels\\sub\\sub.qb",
@@ -8356,7 +8589,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "NextParticleTorch_Script",
+        "target": {
+          "level": "sub",
+          "name": "NextParticleTorch_Script"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "SUB_scripts.prx",
         "file": "levels\\sub\\sub.qb",
@@ -8367,7 +8603,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "NextParticleHouseFlame_Script",
+        "target": {
+          "level": "sub",
+          "name": "NextParticleHouseFlame_Script"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "SUB_scripts.prx",
         "file": "levels\\sub\\sub.qb",
@@ -8378,7 +8617,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "BBQ_FLAMES_Script",
+        "target": {
+          "level": "sub",
+          "name": "BBQ_FLAMES_Script"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "SUB_scripts.prx",
         "file": "levels\\sub\\sub.qb",
@@ -8389,7 +8631,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "emit_apm_SUB_leafTrail01_particle",
+        "target": {
+          "level": "sub",
+          "name": "emit_apm_SUB_leafTrail01_particle"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "SUB_scripts.prx",
         "file": "levels\\sub\\sub.qb",
@@ -8400,7 +8645,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "THUGPRO_TriggerKillSkater_Plane",
+        "target": {
+          "level": "sub",
+          "name": "THUGPRO_TriggerKillSkater_Plane"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "SUB_scripts.prx",
         "file": "levels\\sub\\sub_scripts.qb",
@@ -8411,7 +8659,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "Sub_KillSkater_Plane",
+        "target": {
+          "level": "sub",
+          "name": "Sub_KillSkater_Plane"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "SUB_scripts.prx",
         "file": "levels\\sub\\sub_scripts.qb",
@@ -8422,7 +8673,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "SUB_THUGPRO_BreakBoards",
+        "target": {
+          "level": "sub",
+          "name": "SUB_THUGPRO_BreakBoards"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "SUB_scripts.prx",
         "file": "levels\\sub\\sub_scripts.qb",
@@ -8433,7 +8687,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "Sub_Goals",
+        "target": {
+          "level": "sub",
+          "name": "Sub_Goals"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "SUB_scripts.prx",
         "file": "levels\\sub\\sub_scripts.qb",
@@ -8444,7 +8701,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "emit_apm_SUB_bbqflames01_particle",
+        "target": {
+          "level": "sub",
+          "name": "emit_apm_SUB_bbqflames01_particle"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "SUB_scripts.prx",
         "file": "levels\\sub\\sub_scripts.qb",
@@ -8455,7 +8715,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "emit_apm_SUB_torchflames01_particle",
+        "target": {
+          "level": "sub",
+          "name": "emit_apm_SUB_torchflames01_particle"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "SUB_scripts.prx",
         "file": "levels\\sub\\sub_scripts.qb",
@@ -8466,7 +8729,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "emit_apm_SUB_HouseSmoke_particle",
+        "target": {
+          "level": "sub",
+          "name": "emit_apm_SUB_HouseSmoke_particle"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "SUB_scripts.prx",
         "file": "levels\\sub\\sub_scripts.qb",
@@ -8477,20 +8743,24 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "emit_apm_SUB_HouseFlame_particle",
+        "target": {
+          "level": "sub",
+          "name": "emit_apm_SUB_HouseFlame_particle"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "SUB_scripts.prx",
         "file": "levels\\sub\\sub_scripts.qb",
         "crc32": "460eb13d",
         "context": "none"
-      }
-    ],
-    "si": [
+      },
       {
         "op": "add",
         "id": "TPN-THPS3-2",
         "kind": "node",
-        "target": "TRG_SFX_SOB_OceanWaves01",
+        "target": {
+          "level": "si",
+          "name": "TRG_SFX_SOB_OceanWaves01"
+        },
         "why": "THUGPRO's own emitterobject node - in no THPS3 file",
         "archive": "SI_scripts.prx",
         "file": "levels\\si\\si.qb",
@@ -8500,7 +8770,10 @@
         "op": "add",
         "id": "TPN-THPS3-2",
         "kind": "node",
-        "target": "TRG_SFX_SOB_OceanWaves02",
+        "target": {
+          "level": "si",
+          "name": "TRG_SFX_SOB_OceanWaves02"
+        },
         "why": "THUGPRO's own emitterobject node - in no THPS3 file",
         "archive": "SI_scripts.prx",
         "file": "levels\\si\\si.qb",
@@ -8510,7 +8783,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "load_level_fast_particle_textures",
+        "target": {
+          "level": "si",
+          "name": "load_level_fast_particle_textures"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "SI_scripts.prx",
         "file": "levels\\si\\si.qb",
@@ -8521,7 +8797,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "NextParticleFire01Script",
+        "target": {
+          "level": "si",
+          "name": "NextParticleFire01Script"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "SI_scripts.prx",
         "file": "levels\\si\\si.qb",
@@ -8532,7 +8811,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "NextParticleSprinklerScript",
+        "target": {
+          "level": "si",
+          "name": "NextParticleSprinklerScript"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "SI_scripts.prx",
         "file": "levels\\si\\si.qb",
@@ -8543,7 +8825,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "SI_Goals",
+        "target": {
+          "level": "si",
+          "name": "SI_Goals"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "SI_scripts.prx",
         "file": "levels\\si\\si_scripts.qb",
@@ -8554,7 +8839,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "SI_SFX_OceanWaves01",
+        "target": {
+          "level": "si",
+          "name": "SI_SFX_OceanWaves01"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "SI_scripts.prx",
         "file": "levels\\si\\si_scripts.qb",
@@ -8568,7 +8856,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "SI_SFX_OceanWaves02",
+        "target": {
+          "level": "si",
+          "name": "SI_SFX_OceanWaves02"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "SI_scripts.prx",
         "file": "levels\\si\\si_scripts.qb",
@@ -8582,7 +8873,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "SITRG_ProximityOceanScript",
+        "target": {
+          "level": "si",
+          "name": "SITRG_ProximityOceanScript"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SI_scripts.prx",
         "file": "levels\\si\\si.qb",
@@ -8594,21 +8888,25 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "SITRG_ProximityOcean01Script",
+        "target": {
+          "level": "si",
+          "name": "SITRG_ProximityOcean01Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SI_scripts.prx",
         "file": "levels\\si\\si.qb",
         "crc32": "8b246818",
         "replaces": true,
         "context": "none"
-      }
-    ],
-    "tok": [
+      },
       {
         "op": "add",
         "id": "TPN-THPS3-2",
         "kind": "node",
-        "target": "TRG_Restart_EventR",
+        "target": {
+          "level": "tok",
+          "name": "TRG_Restart_EventR"
+        },
         "why": "THUGPRO's own restart node - in no THPS3 file",
         "archive": "TOK_scripts.prx",
         "file": "levels\\tok\\tok.qb",
@@ -8618,7 +8916,10 @@
         "op": "add",
         "id": "TPN-THPS3-2",
         "kind": "node",
-        "target": "TRG_Restart_EventL",
+        "target": {
+          "level": "tok",
+          "name": "TRG_Restart_EventL"
+        },
         "why": "THUGPRO's own restart node - in no THPS3 file",
         "archive": "TOK_scripts.prx",
         "file": "levels\\tok\\tok.qb",
@@ -8628,7 +8929,10 @@
         "op": "set",
         "id": "TPN-THPS3-3",
         "kind": "node",
-        "target": "TRG_CarSW01",
+        "target": {
+          "level": "tok",
+          "name": "TRG_CarSW01"
+        },
         "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
         "archive": "TOK_scripts.prx",
         "file": "levels\\tok\\tok.qb",
@@ -8644,7 +8948,10 @@
         "op": "set",
         "id": "TPN-THPS3-3",
         "kind": "node",
-        "target": "TRG_shinkansenEast",
+        "target": {
+          "level": "tok",
+          "name": "TRG_shinkansenEast"
+        },
         "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
         "archive": "TOK_scripts.prx",
         "file": "levels\\tok\\tok.qb",
@@ -8659,7 +8966,10 @@
         "op": "set",
         "id": "TPN-THPS3-3",
         "kind": "node",
-        "target": "TRG_shinkansenwest",
+        "target": {
+          "level": "tok",
+          "name": "TRG_shinkansenwest"
+        },
         "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
         "archive": "TOK_scripts.prx",
         "file": "levels\\tok\\tok.qb",
@@ -8674,7 +8984,10 @@
         "op": "set",
         "id": "TPN-THPS3-3",
         "kind": "node",
-        "target": "TRG_Plane_NorthWest",
+        "target": {
+          "level": "tok",
+          "name": "TRG_Plane_NorthWest"
+        },
         "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
         "archive": "TOK_scripts.prx",
         "file": "levels\\tok\\tok.qb",
@@ -8689,7 +9002,10 @@
         "op": "set",
         "id": "TPN-THPS3-3",
         "kind": "node",
-        "target": "TRG_Plane_SouthWest",
+        "target": {
+          "level": "tok",
+          "name": "TRG_Plane_SouthWest"
+        },
         "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
         "archive": "TOK_scripts.prx",
         "file": "levels\\tok\\tok.qb",
@@ -8704,7 +9020,10 @@
         "op": "set",
         "id": "TPN-THPS3-3",
         "kind": "node",
-        "target": "TRG_Plane_East",
+        "target": {
+          "level": "tok",
+          "name": "TRG_Plane_East"
+        },
         "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
         "archive": "TOK_scripts.prx",
         "file": "levels\\tok\\tok.qb",
@@ -8719,7 +9038,10 @@
         "op": "set",
         "id": "TPN-THPS3-3",
         "kind": "node",
-        "target": "TRG_CarSW02",
+        "target": {
+          "level": "tok",
+          "name": "TRG_CarSW02"
+        },
         "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
         "archive": "TOK_scripts.prx",
         "file": "levels\\tok\\tok.qb",
@@ -8735,7 +9057,10 @@
         "op": "set",
         "id": "TPN-THPS3-3",
         "kind": "node",
-        "target": "TRG_CarSW03",
+        "target": {
+          "level": "tok",
+          "name": "TRG_CarSW03"
+        },
         "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
         "archive": "TOK_scripts.prx",
         "file": "levels\\tok\\tok.qb",
@@ -8751,7 +9076,10 @@
         "op": "set",
         "id": "TPN-THPS3-3",
         "kind": "node",
-        "target": "TRG_CarSE01",
+        "target": {
+          "level": "tok",
+          "name": "TRG_CarSE01"
+        },
         "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
         "archive": "TOK_scripts.prx",
         "file": "levels\\tok\\tok.qb",
@@ -8767,7 +9095,10 @@
         "op": "set",
         "id": "TPN-THPS3-3",
         "kind": "node",
-        "target": "TRG_CarSE02",
+        "target": {
+          "level": "tok",
+          "name": "TRG_CarSE02"
+        },
         "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
         "archive": "TOK_scripts.prx",
         "file": "levels\\tok\\tok.qb",
@@ -8783,7 +9114,10 @@
         "op": "set",
         "id": "TPN-THPS3-3",
         "kind": "node",
-        "target": "TRG_CarSE03",
+        "target": {
+          "level": "tok",
+          "name": "TRG_CarSE03"
+        },
         "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
         "archive": "TOK_scripts.prx",
         "file": "levels\\tok\\tok.qb",
@@ -8799,7 +9133,10 @@
         "op": "set",
         "id": "TPN-THPS3-3",
         "kind": "node",
-        "target": "TRG_CarNE01",
+        "target": {
+          "level": "tok",
+          "name": "TRG_CarNE01"
+        },
         "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
         "archive": "TOK_scripts.prx",
         "file": "levels\\tok\\tok.qb",
@@ -8815,7 +9152,10 @@
         "op": "set",
         "id": "TPN-THPS3-3",
         "kind": "node",
-        "target": "TRG_CarNW01",
+        "target": {
+          "level": "tok",
+          "name": "TRG_CarNW01"
+        },
         "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
         "archive": "TOK_scripts.prx",
         "file": "levels\\tok\\tok.qb",
@@ -8831,7 +9171,10 @@
         "op": "set",
         "id": "TPN-THPS3-3",
         "kind": "node",
-        "target": "TRG_CarNE02",
+        "target": {
+          "level": "tok",
+          "name": "TRG_CarNE02"
+        },
         "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
         "archive": "TOK_scripts.prx",
         "file": "levels\\tok\\tok.qb",
@@ -8847,7 +9190,10 @@
         "op": "set",
         "id": "TPN-THPS3-3",
         "kind": "node",
-        "target": "TRG_CarNE03",
+        "target": {
+          "level": "tok",
+          "name": "TRG_CarNE03"
+        },
         "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
         "archive": "TOK_scripts.prx",
         "file": "levels\\tok\\tok.qb",
@@ -8863,7 +9209,10 @@
         "op": "set",
         "id": "TPN-THPS3-3",
         "kind": "node",
-        "target": "TRG_CarNW02",
+        "target": {
+          "level": "tok",
+          "name": "TRG_CarNW02"
+        },
         "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
         "archive": "TOK_scripts.prx",
         "file": "levels\\tok\\tok.qb",
@@ -8879,7 +9228,10 @@
         "op": "set",
         "id": "TPN-THPS3-3",
         "kind": "node",
-        "target": "TRG_CarNW03",
+        "target": {
+          "level": "tok",
+          "name": "TRG_CarNW03"
+        },
         "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
         "archive": "TOK_scripts.prx",
         "file": "levels\\tok\\tok.qb",
@@ -8895,7 +9247,10 @@
         "op": "set",
         "id": "TPN-THPS3-3",
         "kind": "node",
-        "target": "TRG_CarNW04",
+        "target": {
+          "level": "tok",
+          "name": "TRG_CarNW04"
+        },
         "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
         "archive": "TOK_scripts.prx",
         "file": "levels\\tok\\tok.qb",
@@ -8911,7 +9266,10 @@
         "op": "set",
         "id": "TPN-THPS3-3",
         "kind": "node",
-        "target": "TRG_CarNW05",
+        "target": {
+          "level": "tok",
+          "name": "TRG_CarNW05"
+        },
         "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
         "archive": "TOK_scripts.prx",
         "file": "levels\\tok\\tok.qb",
@@ -8927,7 +9285,10 @@
         "op": "set",
         "id": "TPN-THPS3-3",
         "kind": "node",
-        "target": "TRG_CarNW06",
+        "target": {
+          "level": "tok",
+          "name": "TRG_CarNW06"
+        },
         "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
         "archive": "TOK_scripts.prx",
         "file": "levels\\tok\\tok.qb",
@@ -8943,7 +9304,10 @@
         "op": "set",
         "id": "TPN-THPS3-3",
         "kind": "node",
-        "target": "TRG_CarNE04",
+        "target": {
+          "level": "tok",
+          "name": "TRG_CarNE04"
+        },
         "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
         "archive": "TOK_scripts.prx",
         "file": "levels\\tok\\tok.qb",
@@ -8959,7 +9323,10 @@
         "op": "set",
         "id": "TPN-THPS3-3",
         "kind": "node",
-        "target": "TRG_CarNE05",
+        "target": {
+          "level": "tok",
+          "name": "TRG_CarNE05"
+        },
         "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
         "archive": "TOK_scripts.prx",
         "file": "levels\\tok\\tok.qb",
@@ -8975,7 +9342,10 @@
         "op": "set",
         "id": "TPN-THPS3-3",
         "kind": "node",
-        "target": "TRG_CarNE06",
+        "target": {
+          "level": "tok",
+          "name": "TRG_CarNE06"
+        },
         "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
         "archive": "TOK_scripts.prx",
         "file": "levels\\tok\\tok.qb",
@@ -8991,7 +9361,10 @@
         "op": "add",
         "id": "TPN-THPS3-6",
         "kind": "model",
-        "target": "bullet_train",
+        "target": {
+          "level": "tok",
+          "name": "bullet_train"
+        },
         "why": "THUGPRO's model for TRG_shinkansenEast",
         "archive": "TOK_scripts.prx",
         "files": {
@@ -9004,7 +9377,10 @@
         "op": "add",
         "id": "TPN-THPS3-6",
         "kind": "model",
-        "target": "plane_jet",
+        "target": {
+          "level": "tok",
+          "name": "plane_jet"
+        },
         "why": "THUGPRO's model for TRG_Plane_NorthWest",
         "archive": "TOK_scripts.prx",
         "files": {
@@ -9017,7 +9393,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "TokTRG_Restart_EventRScript",
+        "target": {
+          "level": "tok",
+          "name": "TokTRG_Restart_EventRScript"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "TOK_scripts.prx",
         "file": "levels\\tok\\tok.qb",
@@ -9028,7 +9407,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "TokTRG_Restart_EventLScript",
+        "target": {
+          "level": "tok",
+          "name": "TokTRG_Restart_EventLScript"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "TOK_scripts.prx",
         "file": "levels\\tok\\tok.qb",
@@ -9039,7 +9421,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "Tok_Goals",
+        "target": {
+          "level": "tok",
+          "name": "Tok_Goals"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "TOK_scripts.prx",
         "file": "levels\\tok\\tok_scripts.qb",
@@ -9050,7 +9435,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "JS_BulletTrainWestControl_Spawned",
+        "target": {
+          "level": "tok",
+          "name": "JS_BulletTrainWestControl_Spawned"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "TOK_scripts.prx",
         "file": "levels\\tok\\tok_scripts.qb",
@@ -9064,7 +9452,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "JS_BulletTrainEastControl_Spawned",
+        "target": {
+          "level": "tok",
+          "name": "JS_BulletTrainEastControl_Spawned"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "TOK_scripts.prx",
         "file": "levels\\tok\\tok_scripts.qb",
@@ -9078,7 +9469,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "JS_PlaneIdleSound",
+        "target": {
+          "level": "tok",
+          "name": "JS_PlaneIdleSound"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "TOK_scripts.prx",
         "file": "levels\\tok\\tok_scripts.qb",
@@ -9089,7 +9483,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "JS_BulletTrainWestControl",
+        "target": {
+          "level": "tok",
+          "name": "JS_BulletTrainWestControl"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "TOK_scripts.prx",
         "file": "levels\\tok\\tok_scripts.qb",
@@ -9101,7 +9498,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "JS_BulletTrainEastControl",
+        "target": {
+          "level": "tok",
+          "name": "JS_BulletTrainEastControl"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "TOK_scripts.prx",
         "file": "levels\\tok\\tok_scripts.qb",
@@ -9113,7 +9513,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "JS_PlaneNorthWest",
+        "target": {
+          "level": "tok",
+          "name": "JS_PlaneNorthWest"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "TOK_scripts.prx",
         "file": "levels\\tok\\tok_scripts.qb",
@@ -9125,7 +9528,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "JS_PlaneSouthWest",
+        "target": {
+          "level": "tok",
+          "name": "JS_PlaneSouthWest"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "TOK_scripts.prx",
         "file": "levels\\tok\\tok_scripts.qb",
@@ -9137,21 +9543,25 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "JS_PlaneEast",
+        "target": {
+          "level": "tok",
+          "name": "JS_PlaneEast"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "TOK_scripts.prx",
         "file": "levels\\tok\\tok_scripts.qb",
         "crc32": "245f1cbb",
         "replaces": true,
         "context": "none"
-      }
-    ],
-    "shp": [
+      },
       {
         "op": "add",
         "id": "TPN-THPS3-2",
         "kind": "node",
-        "target": "shp_tp_snd_waterslide",
+        "target": {
+          "level": "shp",
+          "name": "shp_tp_snd_waterslide"
+        },
         "why": "THUGPRO's own gameobject node - in no THPS3 file",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9161,7 +9571,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "LoadAllParticleTextures",
+        "target": {
+          "level": "shp",
+          "name": "LoadAllParticleTextures"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9172,7 +9585,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "shp_tp_snd_waterslideScript",
+        "target": {
+          "level": "shp",
+          "name": "shp_tp_snd_waterslideScript"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9183,7 +9599,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "SHP_Goals",
+        "target": {
+          "level": "shp",
+          "name": "SHP_Goals"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp_scripts.qb",
@@ -9194,7 +9613,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "SHP_TP_WindowCounter",
+        "target": {
+          "level": "shp",
+          "name": "SHP_TP_WindowCounter"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp_scripts.qb",
@@ -9205,7 +9627,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassSide01Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassSide01Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9217,7 +9642,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassSide02Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassSide02Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9232,7 +9660,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassSide03Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassSide03Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9244,7 +9675,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassSide04Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassSide04Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9259,7 +9693,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassSide05Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassSide05Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9271,7 +9708,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassSide06Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassSide06Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9286,7 +9726,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassSide07Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassSide07Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9298,7 +9741,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassSide08Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassSide08Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9313,7 +9759,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassSide09Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassSide09Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9325,7 +9774,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassSide10Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassSide10Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9340,7 +9792,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassSide11Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassSide11Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9352,7 +9807,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassSide12Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassSide12Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9364,7 +9822,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassCenter02Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassCenter02Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9376,7 +9837,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassCenter03Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassCenter03Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9388,7 +9852,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassCenter04Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassCenter04Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9400,7 +9867,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassCenter05Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassCenter05Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9412,7 +9882,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassCenter10Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassCenter10Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9424,7 +9897,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassCenter15Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassCenter15Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9436,7 +9912,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassCenter21Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassCenter21Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9448,7 +9927,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassCenter27Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassCenter27Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9460,7 +9942,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassCenter32Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassCenter32Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9472,7 +9957,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassCenter37Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassCenter37Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9484,7 +9972,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassCenter43Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassCenter43Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9496,7 +9987,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassCenter09Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassCenter09Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9508,7 +10002,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassCenter14Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassCenter14Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9520,7 +10017,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassCenter20Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassCenter20Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9532,7 +10032,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassCenter26Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassCenter26Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9544,7 +10047,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassCenter31Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassCenter31Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9556,7 +10062,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassCenter36Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassCenter36Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9568,7 +10077,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassCenter42Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassCenter42Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9580,7 +10092,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassCenter08Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassCenter08Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9592,7 +10107,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassCenter13Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassCenter13Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9604,7 +10122,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassCenter19Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassCenter19Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9616,7 +10137,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassCenter25Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassCenter25Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9628,7 +10152,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassCenter30Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassCenter30Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9640,7 +10167,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassCenter35Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassCenter35Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9652,7 +10182,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassCenter41Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassCenter41Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9664,7 +10197,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassCenter01Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassCenter01Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9676,7 +10212,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassCenter07Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassCenter07Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9688,7 +10227,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassCenter12Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassCenter12Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9700,7 +10242,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassCenter18Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassCenter18Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9712,7 +10257,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassCenter24Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassCenter24Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9724,7 +10272,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassCenter29Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassCenter29Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9736,7 +10287,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassCenter34Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassCenter34Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9748,7 +10302,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassCenter40Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassCenter40Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9760,7 +10317,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassCenter06Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassCenter06Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9772,7 +10332,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassCenter11Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassCenter11Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9784,7 +10347,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassCenter23Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassCenter23Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9796,7 +10362,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassCenter28Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassCenter28Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9808,7 +10377,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassCenter33Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassCenter33Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9820,7 +10392,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassCenter39Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassCenter39Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9832,7 +10407,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassSide16Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassSide16Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9844,7 +10422,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassSide17Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassSide17Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9859,7 +10440,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassSide18Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassSide18Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9871,7 +10455,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassSide19Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassSide19Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9886,7 +10473,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassSide20Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassSide20Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9898,7 +10488,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassSide21Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassSide21Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9913,7 +10506,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassSide22Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassSide22Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9925,7 +10521,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassSide23Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassSide23Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9940,7 +10539,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassSide24Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassSide24Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9952,7 +10554,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassSide25Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassSide25Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9967,7 +10572,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassSide26Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassSide26Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9979,7 +10587,10 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassSide27Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassSide27Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
@@ -9991,21 +10602,25 @@
         "op": "set",
         "id": "TPN-THPS3-5",
         "kind": "script",
-        "target": "shpsl_GlassCenter17Script",
+        "target": {
+          "level": "shp",
+          "name": "shpsl_GlassCenter17Script"
+        },
         "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
         "archive": "SHP_scripts.prx",
         "file": "levels\\shp\\shp.qb",
         "crc32": "3eb3992b",
         "replaces": true,
         "context": "skater"
-      }
-    ],
-    "ware": [
+      },
       {
         "op": "add",
         "id": "TPN-THPS3-2",
         "kind": "node",
-        "target": "Ware_RoomFlicker",
+        "target": {
+          "level": "ware",
+          "name": "Ware_RoomFlicker"
+        },
         "why": "THUGPRO's own gameobject node - in no THPS3 file",
         "archive": "ware_scripts.prx",
         "file": "levels\\ware\\ware.qb",
@@ -10015,7 +10630,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "TRG_Ware_RoomFlicker",
+        "target": {
+          "level": "ware",
+          "name": "TRG_Ware_RoomFlicker"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "ware_scripts.prx",
         "file": "levels\\ware\\ware.qb",
@@ -10026,7 +10644,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "TRG_CTF_Blue_BaseScript",
+        "target": {
+          "level": "ware",
+          "name": "TRG_CTF_Blue_BaseScript"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "ware_scripts.prx",
         "file": "levels\\ware\\ware.qb",
@@ -10037,7 +10658,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "TRG_CTF_red_BaseScript",
+        "target": {
+          "level": "ware",
+          "name": "TRG_CTF_red_BaseScript"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "ware_scripts.prx",
         "file": "levels\\ware\\ware.qb",
@@ -10048,7 +10672,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "TRG_CTF_yellow_BaseScript",
+        "target": {
+          "level": "ware",
+          "name": "TRG_CTF_yellow_BaseScript"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "ware_scripts.prx",
         "file": "levels\\ware\\ware.qb",
@@ -10059,7 +10686,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "TRG_CTF_green_BaseScript",
+        "target": {
+          "level": "ware",
+          "name": "TRG_CTF_green_BaseScript"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "ware_scripts.prx",
         "file": "levels\\ware\\ware.qb",
@@ -10070,7 +10700,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "ware_goals",
+        "target": {
+          "level": "ware",
+          "name": "ware_goals"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "ware_scripts.prx",
         "file": "levels\\ware\\ware_scripts.qb",
@@ -10081,7 +10714,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "WareTRG_Ware_TaxiRailScript",
+        "target": {
+          "level": "ware",
+          "name": "WareTRG_Ware_TaxiRailScript"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "ware_scripts.prx",
         "file": "levels\\ware\\ware_scripts.qb",
@@ -10092,20 +10728,24 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "trg_team_restartScript",
+        "target": {
+          "level": "ware",
+          "name": "trg_team_restartScript"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "ware_scripts.prx",
         "file": "levels\\ware\\ware_scripts.qb",
         "crc32": "6b912fd8",
         "context": "none"
-      }
-    ],
-    "burn": [
+      },
       {
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "TRG_CTF_Blue_BaseScript",
+        "target": {
+          "level": "burn",
+          "name": "TRG_CTF_Blue_BaseScript"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "burn_scripts.prx",
         "file": "levels\\burn\\burn.qb",
@@ -10116,7 +10756,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "TRG_CTF_Red_BaseScript",
+        "target": {
+          "level": "burn",
+          "name": "TRG_CTF_Red_BaseScript"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "burn_scripts.prx",
         "file": "levels\\burn\\burn.qb",
@@ -10127,7 +10770,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "TRG_CTF_Yellow_BaseScript",
+        "target": {
+          "level": "burn",
+          "name": "TRG_CTF_Yellow_BaseScript"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "burn_scripts.prx",
         "file": "levels\\burn\\burn.qb",
@@ -10138,20 +10784,24 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "TRG_CTF_green_BaseScript",
+        "target": {
+          "level": "burn",
+          "name": "TRG_CTF_green_BaseScript"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "burn_scripts.prx",
         "file": "levels\\burn\\burn.qb",
         "crc32": "52b44c45",
         "context": "object"
-      }
-    ],
-    "ros": [
+      },
       {
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "Ros_Startup",
+        "target": {
+          "level": "ros",
+          "name": "Ros_Startup"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "ros_scripts.prx",
         "file": "levels\\ros\\ros.qb",
@@ -10162,7 +10812,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "ros_AutopsyDoorsCloseScript",
+        "target": {
+          "level": "ros",
+          "name": "ros_AutopsyDoorsCloseScript"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "ros_scripts.prx",
         "file": "levels\\ros\\ros.qb",
@@ -10173,7 +10826,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "ros_AutopsyDoorsOpenScript",
+        "target": {
+          "level": "ros",
+          "name": "ros_AutopsyDoorsOpenScript"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "ros_scripts.prx",
         "file": "levels\\ros\\ros.qb",
@@ -10184,7 +10840,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "ros_GarageDoorsCloseScript",
+        "target": {
+          "level": "ros",
+          "name": "ros_GarageDoorsCloseScript"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "ros_scripts.prx",
         "file": "levels\\ros\\ros.qb",
@@ -10195,7 +10854,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "ros_GarageDoorsOpenScript",
+        "target": {
+          "level": "ros",
+          "name": "ros_GarageDoorsOpenScript"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "ros_scripts.prx",
         "file": "levels\\ros\\ros.qb",
@@ -10206,7 +10868,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "TRG_CTF_Blue_BaseScript",
+        "target": {
+          "level": "ros",
+          "name": "TRG_CTF_Blue_BaseScript"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "ros_scripts.prx",
         "file": "levels\\ros\\ros.qb",
@@ -10217,7 +10882,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "TRG_CTF_Red_BaseScript",
+        "target": {
+          "level": "ros",
+          "name": "TRG_CTF_Red_BaseScript"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "ros_scripts.prx",
         "file": "levels\\ros\\ros.qb",
@@ -10228,7 +10896,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "TRG_CTF_Yellow_BaseScript",
+        "target": {
+          "level": "ros",
+          "name": "TRG_CTF_Yellow_BaseScript"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "ros_scripts.prx",
         "file": "levels\\ros\\ros.qb",
@@ -10239,7 +10910,10 @@
         "op": "add",
         "id": "TPN-THPS3-4",
         "kind": "script",
-        "target": "TRG_CTF_green_BaseScript",
+        "target": {
+          "level": "ros",
+          "name": "TRG_CTF_green_BaseScript"
+        },
         "why": "THUGPRO's own script - in no THPS3 file",
         "archive": "ros_scripts.prx",
         "file": "levels\\ros\\ros.qb",
@@ -11130,16 +11804,19 @@
     ]
   },
   "port_changes": {
-    "_comment": "Our own changes to THPS3's level data (tools/thps3_levels): neither THPS3's nor THUGPRO's. Read by tools/compat/compat.ts portChanges whatever the profile (--compat none keeps them); --no-port-changes leaves out every entry but the required ones (the game needs those to load or run the level). Each entry: id (PC-n), op (add / set / remove), target, why; levels (only those) and the data the converter takes from it. Registered in tools/compat/thugpro/README.md, \"Our own changes (port_changes)\". Not extracted: --extract-thugpro keeps this section as it is.",
+    "_comment": "Our own changes to THPS3's level data (tools/thps3_levels): neither THPS3's nor THUGPRO's. Read by tools/compat/compat.ts portChanges whatever the profile (--compat none keeps them); --no-port-changes leaves out every entry but the required ones (the game needs those to load or run the level). Each entry (compat.ts Entry): id (PC-THPS3-n), op (add / set / remove), target {what, levels: the THPS3 folders it applies to or \"*\"}, why, required (true: a level needs it to load or run - kept with --no-port-changes), and the data the converter takes from it. Registered in tools/compat/thugpro/README.md, \"Our own changes (port_changes)\". Not extracted: --extract-thugpro keeps this section as it is.",
     "entries": [
       {
         "id": "PC-THPS3-1",
         "op": "remove",
-        "target": "Warehouse's dark set: the sectors and nodes named SkWare_Dark* (prefixes)",
+        "target": {
+          "what": "Warehouse's dark set: the sectors and nodes named SkWare_Dark* (prefixes)",
+          "levels": [
+            "ware"
+          ]
+        },
         "why": "THPS3's scripts switch between the lit and the dark copies of the same surfaces; drawn both, they fight over them (flicker)",
-        "levels": [
-          "ware"
-        ],
+        "required": false,
         "prefixes": [
           "skware_dark"
         ]
@@ -11147,87 +11824,130 @@
       {
         "id": "PC-THPS3-2",
         "op": "set",
-        "target": "the level's start scripts (Load_<level>'s calls, the Player1 restart's and the ProximNodes' trigger scripts) run once from <level>_setup, the level structure's setup_script",
+        "target": {
+          "what": "the level's start scripts (Load_<level>'s calls, the Player1 restart's and the ProximNodes' trigger scripts) run once from <level>_setup, the level structure's setup_script",
+          "levels": "*"
+        },
         "why": "THUG2 has no hook for THPS3's load scripts or a restart's trigger script; its load_level calls the setup script",
         "required": true
       },
       {
         "id": "PC-THPS3-3",
         "op": "set",
-        "target": "kill zones: THPS3's kill scripts as THUG2's SK3_KillSkater with a restart to go to (nodes.killCommands / addKillRestarts)",
+        "target": {
+          "what": "kill zones: THPS3's kill scripts as THUG2's SK3_KillSkater with a restart to go to (nodes.killCommands / addKillRestarts)",
+          "levels": "*"
+        },
         "why": "THPS3's own kill is engine code THUG2 hasn't",
         "required": true
       },
       {
         "id": "PC-THPS3-4",
         "op": "add",
-        "target": "Multiplayer / Horse restart types on the Player1 restarts of a level without network restarts (nodes.netRestarts: the tutorials, the skate shop)",
-        "why": "a network game needs somewhere to put the players, as THUG2's own skate shop has"
+        "target": {
+          "what": "Multiplayer / Horse restart types on the Player1 restarts of a level without network restarts (nodes.netRestarts: the tutorials, the skate shop)",
+          "levels": "*"
+        },
+        "why": "a network game needs somewhere to put the players, as THUG2's own skate shop has",
+        "required": false
       },
       {
         "id": "PC-THPS3-5",
         "op": "set",
-        "target": "AbsentInNetGames on path followers, peds and cars there at the start (nodes.absentInNetGames)",
+        "target": {
+          "what": "AbsentInNetGames on path followers, peds and cars there at the start (nodes.absentInNetGames)",
+          "levels": "*"
+        },
         "why": "a network game has no path manager and loads no ped animations: a ped's first animation reads through the missing one (0x00482BA0)",
         "required": true
       },
       {
         "id": "PC-THPS3-6",
         "op": "set",
-        "target": "TrickObject / Cluster taken off geometry nodes without a scene sector (nodes.stripMissingTrickObjects)",
+        "target": {
+          "what": "TrickObject / Cluster taken off geometry nodes without a scene sector (nodes.stripMissingTrickObjects)",
+          "levels": "*"
+        },
         "why": "ParseNodeArray (0x00588630) reads through the missing sector: THPS3 Airport crashed loading",
         "required": true
       },
       {
         "id": "PC-THPS3-7",
         "op": "set",
-        "target": "restarts over nothing or over a kill zone: no network spawn types, not a kill's target (nodes.groundRestartsAt)",
-        "why": "a player spawned there falls or dies at once"
+        "target": {
+          "what": "restarts over nothing or over a kill zone: no network spawn types, not a kill's target (nodes.groundRestartsAt)",
+          "levels": "*"
+        },
+        "why": "a player spawned there falls or dies at once",
+        "required": false
       },
       {
         "id": "PC-THPS3-8",
         "op": "add",
-        "target": "capture the flag: TRG_CTF_<colour> flags, their bases and team restarts made from THPS3's flag bases (gamemode.qb flag1_info / flag2_info) in THUG2's form",
-        "why": "THUG2's CTF looks its game objects up by THUG2's names; THPS3's bases are generic nodes it ignores. TP-10 .. TP-12 build on them: kept with --compat thugpro"
+        "target": {
+          "what": "capture the flag: TRG_CTF_<colour> flags, their bases and team restarts made from THPS3's flag bases (gamemode.qb flag1_info / flag2_info) in THUG2's form",
+          "levels": "*"
+        },
+        "why": "THUG2's CTF looks its game objects up by THUG2's names; THPS3's bases are generic nodes it ignores. TP-10 .. TP-12 build on them: kept with --compat thugpro",
+        "required": false
       },
       {
         "id": "PC-THPS3-9",
         "op": "set",
-        "target": "the Player1 restart moved to the front of the node array, Links following (levels without TP-12's spawn order)",
-        "why": "the skater starts at the first player restart of the array"
+        "target": {
+          "what": "the Player1 restart moved to the front of the node array, Links following (levels without TP-12's spawn order)",
+          "levels": "*"
+        },
+        "why": "the skater starts at the first player restart of the array",
+        "required": false
       },
       {
         "id": "PC-THPS3-10",
         "op": "set",
-        "target": "THPS3's traffic (trigger scripts calling Car_Generic01) as THUG2's cars: THUG2's car models on the same waypoints",
+        "target": {
+          "what": "THPS3's traffic (trigger scripts calling Car_Generic01) as THUG2's cars: THUG2's car models on the same waypoints",
+          "levels": "*"
+        },
         "why": "THUG2 can't drive THPS3's models as vehicles (no skeleton); THUG2's Car_Generic01 run by a LevelObject crashes",
         "required": true
       },
       {
         "id": "PC-THPS3-11",
         "op": "set",
-        "target": "THPS3's peds as THUG2's ped AI and profiles (thps3_ped_walk / thps3_ped_stand), THPS3's birds and sharks as THUG2's animals",
+        "target": {
+          "what": "THPS3's peds as THUG2's ped AI and profiles (thps3_ped_walk / thps3_ped_stand), THPS3's birds and sharks as THUG2's animals",
+          "levels": "*"
+        },
         "why": "THPS3's skinned peds, their animations and scripts can't run in THUG2",
         "required": true
       },
       {
         "id": "PC-THPS3-12",
         "op": "remove",
-        "target": "goal pickups (letters, stat points, tapes, deck icons), cars and birds not there at the start, objects whose model isn't converted, proximity nodes without a script",
+        "target": {
+          "what": "goal pickups (letters, stat points, tapes, deck icons), cars and birds not there at the start, objects whose model isn't converted, proximity nodes without a script",
+          "levels": "*"
+        },
         "why": "no career goals in the ports; the rest needs THPS3 code or models THUG2 can't use",
         "required": true
       },
       {
         "id": "PC-THPS3-13",
         "op": "remove",
-        "target": "THPS3 script statements THUG2 can't run (LoadSound, AddMusicTrack, SetParticleSysVisibility...) and trigger scripts that aren't brought along",
+        "target": {
+          "what": "THPS3 script statements THUG2 can't run (LoadSound, AddMusicTrack, SetParticleSysVisibility...) and trigger scripts that aren't brought along",
+          "levels": "*"
+        },
         "why": "THUG2 runs a TriggerScript without checking it exists; an unknown command would fail",
         "required": true
       },
       {
         "id": "PC-THPS3-14",
         "op": "remove",
-        "target": "the Links of nodes other than rails (sector nodes to restarts and each other)",
+        "target": {
+          "what": "the Links of nodes other than rails (sector nodes to restarts and each other)",
+          "levels": "*"
+        },
         "why": "THUG2's node loader follows a non-rail node's links as a path",
         "required": true
       }

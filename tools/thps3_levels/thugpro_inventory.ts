@@ -398,7 +398,7 @@ export function appliedCheck(
         }
     }
     // TPN-THPS3: THUGPRO's new content (the register's thugpro_new, read from THUGPRO's install as the converter does)
-    const newEntries = (profile.section("thps3_levels", "thugpro_new")[level] ?? []) as thugproNew.NewEntry[];
+    const newEntries = thugproNew.levelEntries(compat.thugproNew(profile, "thps3_levels"), level);
     if (newEntries.length) {
         const loaded = thugproNew.loadNew(newEntries, thugpro);
         const ourScripts = fs.existsSync(qbFile) ? thugproNew.scriptBytes(fs.readFileSync(qbFile)) : new Map();
@@ -412,12 +412,18 @@ export function appliedCheck(
         const models = pyJoin(ours, "..", "models");
         for (const e of newEntries) {
             const label = `${e.op} ${e.kind} (${e.id})`;
-            const target = c(e.target);
-            if (e.kind === "sector") check(label, e.target, sectors.has(target), "not in our scene");
+            const target = c(e.target.name);
+            if (e.kind === "sector") check(label, e.target.name, sectors.has(target), "not in our scene");
             else if (e.kind === "collision") {
                 const o = colObjects.get(target);
-                check(label, e.target, o !== undefined && o.faces.length === e.faces, o ? "other faces" : "no object");
-            } else if (e.kind === "node" && e.op === "add") check(label, e.target, byName.has(target), "not in ours");
+                check(
+                    label,
+                    e.target.name,
+                    o !== undefined && o.faces.length === e.faces,
+                    o ? "other faces" : "no object",
+                );
+            } else if (e.kind === "node" && e.op === "add")
+                check(label, e.target.name, byName.has(target), "not in ours");
             else if (e.kind === "node") {
                 const node = byName.get(target);
                 const ok =
@@ -426,17 +432,17 @@ export function appliedCheck(
                         const got = node.get(k);
                         return got instanceof Name ? got.value === qb.checksum(v) : got === v;
                     });
-                check(label, e.target, ok, node ? "fields differ" : "not in ours");
+                check(label, e.target.name, ok, node ? "fields differ" : "not in ours");
             } else if (e.kind === "script") {
                 const theirs = loaded.scripts.get(target);
                 const mine = ourScripts.get(target);
                 const ok = theirs && mine?.equals(thugproNew.adaptScript(theirs.code, e.replace_calls));
-                check(label, e.target, ok, mine ? "ours differs" : "not in ours");
+                check(label, e.target.name, ok, mine ? "ours differs" : "not in ours");
             } else if (e.kind === "model") {
                 const missing = Object.keys(e.files ?? {}).filter(
                     (f) => !fs.existsSync(pyJoin(models, f.replace(/^models\\/i, ""))),
                 );
-                check(label, e.target, !missing.length, `missing ${missing.join(", ")}`);
+                check(label, e.target.name, !missing.length, `missing ${missing.join(", ")}`);
             }
         }
     }

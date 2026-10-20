@@ -46,52 +46,51 @@ export class Profile {
     }
 }
 
-// --- port_changes: this project's own changes to a source game's data (not THUGPRO's) ----------------------------------
-// Kept in the same file as the game's THUGPRO data (thugpro\<tool>.json, section `port_changes`: {_comment, entries}),
-// but read whatever the profile - `--compat none` keeps them. Each entry: id (PC-n), op (add / set / remove), target,
-// why, and optionally `required` (a change the game needs to load or run the level: applied even with
-// --no-port-changes) and `levels` (the levels it applies to; every level when absent), plus the data the converter
-// takes from it.
-export interface PortChange {
+// The two sections of a differences file (<profile>\<tool>.json) written as a list of entries, each
+// {id, op, target, why, ...}: op "add" (something the source game hasn't: a node, sector, collision object, script),
+// "set" (fields of something that exists change, merged; set on something missing is an error the converter
+// reports, never an add) or "remove" (something that exists left out or suppressed).
+//   thugpro_new   THUGPRO's own content (not in any source game) - a THUGPRO profile section like the TP-n ones
+//                 (`--compat none` leaves it out);
+//   port_changes  this project's own changes to a source game's levels (neither the source game's nor THUGPRO's):
+//                 not THUGPRO data, so applied whatever the profile (`--compat none` too); a converter's
+//                 `--no-port-changes` leaves them out (the source game's data as it is).
+export type Op = "add" | "set" | "remove";
+export const OPS: readonly Op[] = ["add", "set", "remove"];
+export interface Entry {
     id: string;
-    op: "add" | "set" | "remove";
-    target: string;
+    op: Op;
+    target: Record<string, unknown>;
     why: string;
-    required?: boolean;
-    levels?: string[];
-    [data: string]: unknown;
+    required?: boolean; // (port_changes: a level needs it to load / install - kept with --no-port-changes)
+    [key: string]: unknown;
 }
 
-export class PortChanges {
-    readonly entries: PortChange[];
-    readonly enabled: boolean;
-
-    constructor(entries: PortChange[], enabled: boolean) {
-        this.entries = entries;
-        this.enabled = enabled;
+function entries(data: unknown, where: string): Entry[] {
+    const list = (data as { entries?: unknown } | undefined)?.entries ?? [];
+    if (!Array.isArray(list)) throw new TypeError(`${where}: entries is not a list`);
+    for (const e of list as Entry[]) {
+        if (
+            typeof e.id !== "string" ||
+            !OPS.includes(e.op) ||
+            typeof e.target !== "object" ||
+            typeof e.why !== "string"
+        )
+            throw new TypeError(
+                `${where}: ${JSON.stringify(e).slice(0, 80)}: needs id, op (add / set / remove), target, why`,
+            );
     }
-
-    // The entry when it applies (to `level`, lower case) - on, or required - else null. An id the file hasn't is an
-    // error: the converter asks only for its own.
-    get(id: string, level?: string): PortChange | null {
-        const e = this.entries.find((x) => x.id === id);
-        if (e === undefined) throw new RangeError(`port_changes: no entry ${id}`);
-        if (!this.enabled && !e.required) return null;
-        if (level !== undefined && e.levels !== undefined && !e.levels.some((l) => l.toLowerCase() === level))
-            return null;
-        return e;
-    }
-
-    on(id: string, level?: string): boolean {
-        return this.get(id, level) !== null;
-    }
+    return list as Entry[];
 }
 
-export function portChanges(tool: string, enabled = true): PortChanges {
-    const file = path.join(HERE, "thugpro", `${tool}.json`);
-    const data = fs.existsSync(file) ? (JSON.parse(fs.readFileSync(file, "utf-8")) as JsonObject) : {};
-    const section = (data.port_changes ?? {}) as { entries?: PortChange[] };
-    return new PortChanges(section.entries ?? [], enabled);
+// A tool's port_changes (from the THUGPRO profile's folder - the game's differences file - whatever profile is in use).
+export function portChanges(tool: string): Entry[] {
+    return entries(load("thugpro").file(tool).port_changes, `thugpro\\${tool}.json port_changes`);
+}
+
+// A profile's thugpro_new entries for a tool (none with --compat none).
+export function thugproNew(profile: Profile, tool: string): Entry[] {
+    return entries(profile.file(tool).thugpro_new, `${profile.name}\\${tool}.json thugpro_new`);
 }
 
 export function load(name: string = "thugpro"): Profile {

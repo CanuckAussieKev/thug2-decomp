@@ -2,10 +2,10 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { PortChanges } from "../compat/compat.ts";
 import * as qb from "../level_port/qb.ts";
 import { Name, Struct } from "../level_port/qb.ts";
 import { pack } from "../lib/struct.ts";
+import { PortChanges } from "./thps3_levels.ts";
 import { adaptScript, applyNodes, emptyNew, type NewEntry, rowId, scriptBytes, scriptNames } from "./thugpro_new.ts";
 
 const name = (text: string): Buffer => Buffer.concat([Buffer.from([0x16]), pack("<I", qb.checksum(text))]);
@@ -75,7 +75,7 @@ test("applyNodes: added nodes' Links by name, set fields, a missing set target r
         op,
         id: rowId("node", op),
         kind: "node",
-        target,
+        target: { level: "foun", name: target },
         why: "test",
         archive: "x.prx",
     });
@@ -105,8 +105,8 @@ test("applyNodes: added nodes' Links by name, set fields, a missing set target r
 
 test("PortChanges: off without --no-port-changes only for entries not required, per level", () => {
     const entries = [
-        { id: "PC-THPS3-1", op: "remove" as const, target: "t", why: "w", levels: ["ware"] },
-        { id: "PC-THPS3-2", op: "set" as const, target: "t", why: "w", required: true },
+        { id: "PC-THPS3-1", op: "remove" as const, target: { what: "t", levels: ["ware"] }, why: "w" },
+        { id: "PC-THPS3-2", op: "set" as const, target: { what: "t", levels: "*" }, why: "w", required: true },
     ];
     const on = new PortChanges(entries, true);
     assert.ok(on.on("PC-THPS3-1", "ware"));
