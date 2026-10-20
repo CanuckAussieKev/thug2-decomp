@@ -13,7 +13,7 @@ public:
     // (`level`, a load script's checksum, matching m_level); for the created park (load_sk5ed_gameplay) with
     // `parkName` set, the park's own name. Null when the level is in no list.
     // The original looks in level_select_menu_level_info only, THUG2's own levels: ours also looks in the lists
-    // of the ported levels (tools/menu_level/level_select.py sections()), which the original's null crashed on
+    // of the ported levels (tools/menu_level/level_select.ts sections()), which the original's null crashed on
     // (0x005311F0, the server's level change, adds it to a structure as a string).
     const char* GetLevelName(bool parkName);
 

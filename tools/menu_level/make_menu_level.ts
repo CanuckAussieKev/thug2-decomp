@@ -1323,7 +1323,7 @@ async function main(): Promise<number> {
     fs.mkdirSync(out, { recursive: true });
     writeTextPy(
         marker,
-        "Made by tools/menu_level/make_menu_level.py from the game's files; emptied and made again on each run.\n",
+        "Made by tools/menu_level/make_menu_level.ts from the game's files; emptied and made again on each run.\n",
     );
 
     const work = fs.mkdtempSync(path.join(os.tmpdir(), "tmp"));

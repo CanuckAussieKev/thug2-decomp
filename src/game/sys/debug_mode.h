@@ -27,7 +27,7 @@ class CScript;
 // developers' start-up (their loose files instead of the retail data's archives, the viewer instead of the main
 // menu). Once the front end runs, debug mode does what that start-up did that still works: select_shift on (the
 // Select combos) and LaunchViewer (the viewer module, Mdl::Viewer - game/sys/viewer.h - and its free camera
-// viewer_cam). The data overlay's pause menu (tools/menu_level/make_menu_level.py) gets a DEBUG OPTIONS item while CD
+// viewer_cam). The data overlay's pause menu (tools/menu_level/make_menu_level.ts) gets a DEBUG OPTIONS item while CD
 // is false. What else CD false changes: Game Options gets "Cheats: DO NOT TEST"; leaving the pause menu enables the
 // viewer camera's buttons; the cutscene viewer shows its debug text; the credits movie isn't played.
 //

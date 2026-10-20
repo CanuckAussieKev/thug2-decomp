@@ -3,6 +3,8 @@
 //   node tools/parity/parity.ts tools/parity/level_port/cases.ts [--only qb] [--jobs 4]
 //
 // Cases whose game folders aren't there are left out. Nothing is written into the game folders (read only).
+// A record now: the Python twins (tools/level_port/*.py, driver.py, mutate_staging.py, canon.py) were deleted in stage 3
+// once these all agreed again (docs/typescript.md); check out commit 57d7b5e, the last with them, to run them again.
 
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -57,6 +59,7 @@ function driver(name: string, command: string, args: string[], extra: Partial<Ca
 }
 
 export default function cases(): Case[] {
+    if (!exists(PY)) return [];
     const out: Case[] = [];
     const each = (lists: string[][], make: (c: string[], k: number) => Case): void => {
         lists.forEach((c, k) => {

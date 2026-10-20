@@ -2,7 +2,6 @@
 //   u32 version (1), u32 count, then per texture:
 //   u32 checksum, width, height, mip levels, texel depth, palette depth, DXT version (1, 2 = DXT1 with alpha, 5),
 //   palette size, the palette, then per level {u32 size, data}.
-// (TypeScript twin of tex.py.)
 
 import { hex8 } from "../lib/py.ts";
 import { FormatError, Reader, Writer } from "./binio.ts";

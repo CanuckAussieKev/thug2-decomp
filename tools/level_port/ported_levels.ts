@@ -1,6 +1,6 @@
-// NOT ORIGINAL - what tools/menu_level/make_menu_level.py adds to the data overlay for the levels converted from other
+// NOT ORIGINAL - what tools/menu_level/make_menu_level.ts adds to the data overlay for the levels converted from other
 // games (tools/thps4_levels, tools/thug1_levels, tools/thps3_levels): their files, their level structures in Levels.qb
-// and their signs in the level select. (TypeScript twin of ported_levels.py.)
+// and their signs in the level select.
 //
 // Each converter writes a staging folder in the THUG2 folder (not read by the game): <thug2>\<staging>\levels\<level>\
 // (the converted files) and <thug2>\<staging>\levels.json, a list of levels:

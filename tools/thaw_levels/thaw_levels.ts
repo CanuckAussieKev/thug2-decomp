@@ -3,13 +3,13 @@
 //
 //   node tools/thaw_levels/thaw_levels.ts selfcheck [--thug2 C:\Games\THUG2] [--thaw C:\Games\THAW]
 //   node tools/thaw_levels/thaw_levels.ts convert [levels...] [--thug2 ...] [--thaw ...] [--out <folder>]
-//   then: python -I tools/menu_level/make_menu_level.py   (installs them into the data overlay, with level select signs)
+//   then: node tools/menu_level/make_menu_level.ts   (installs them into the data overlay, with level select signs)
 //
 // convert reads each level's "net" archive (<thaw>\Game\data\worlds\worldzones\<zone>\<zone>_net.pak.wpc: the area
 // alone, as THAW loads it for classic and online games), the sky (data\skies\TestLevel_Sky), data\pak\qb.pak.wpc's
 // levels.qb and data\pak\dbg.pak.wpc's checksum names, and writes <thug2>\thug2-decomp-thaw\ (not read by the game):
 // levels\<level>\<level>.scn.xbx / .tex.xbx / .col.xbx / .qb (the node array; <level>: levelName), the sky's scene and
-// textures, and levels.json (what make_menu_level.py adds to Levels.qb and the level select:
+// textures, and levels.json (what make_menu_level.ts adds to Levels.qb and the level select:
 // tools/level_port/ported_levels.ts).
 
 import * as fs from "node:fs";
@@ -1010,7 +1010,7 @@ function cmdConvert(args: Args): void {
     }
     portedLevels.writeManifest(pyJoin(out, portedLevels.MANIFEST), manifest);
     print(report.join("\n"));
-    print(`wrote ${out} (${manifest.levels.length} levels); install with tools\\menu_level\\make_menu_level.py`);
+    print(`wrote ${out} (${manifest.levels.length} levels); install with tools\\menu_level\\make_menu_level.ts`);
 }
 
 // --- self-check -------------------------------------------------------------------------------------------------

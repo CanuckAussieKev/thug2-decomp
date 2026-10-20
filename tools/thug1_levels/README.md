@@ -7,10 +7,10 @@ repo: the files are made from your copies each time.
 ## Running it
 
 Needs Node 24+ (`npm install` once - docs/typescript.md), NeverScript (`tools\build_neverscript.ps1` ->
-`out\neverscript\ns.exe`) and, to install the levels, Python 3 (make_menu_level.py).
+`out\neverscript\ns.exe`) and, to install the levels, tools/menu_level/make_menu_level.ts.
 
     node tools/thug1_levels/thug1_levels.ts convert [--thug1 C:\Games\THUG1] [--thug2 C:\Games\THUG2] [--static]
-    python -I tools/menu_level/make_menu_level.py
+    node tools/menu_level/make_menu_level.ts
 
 `convert` reads `<thug1>\Game\Data\pre` (`<LV>scn.pre`, `<LV>col.pre`, `<LV>.pre`, and `qb.pre`'s Levels.qb) and
 writes `<thug2>\thug2-decomp-thug1\` (not read by the game): `levels\thug1_<lv>\thug1_<lv>.scn.xbx / .tex.xbx /
@@ -24,7 +24,7 @@ The table `LEVELS` in `thug1_levels.ts` is the list: code, sign text, real-world
 suits it, the level select number (40-58), default or not. `levels.json` carries the same per level (`game`,
 `location`, `icon`, `level_num`, ...: see `tools/level_port/ported_levels.ts`).
 
-`make_menu_level.py` (which makes the data overlay `<thug2>\thug2-decomp-data` from scratch on each run) then copies
+`make_menu_level.ts` (which makes the data overlay `<thug2>\thug2-decomp-data` from scratch on each run) then copies
 the converted levels of both `thug2-decomp-thps4` and `thug2-decomp-thug1` into the overlay and adds them to
 `Levels.qb` and the level select. Run it again after every `convert`. Delete `thug2-decomp-thug1` and run it again to
 take the levels out.

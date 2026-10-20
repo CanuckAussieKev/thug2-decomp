@@ -1,7 +1,7 @@
 // NOT ORIGINAL - another game's level scripts made runnable in THUG2 (tools/thps3_levels: THPS3's): a translation of
 // the compiled scripts' token streams, script by script, from the level's node scripts down through everything they
 // call, spawn or hand out as exception / gap scripts. Nothing of either game is stored: the scripts are read from the
-// user's files each time and written into the converted level's .qb. (TypeScript twin of script_port.py.)
+// user's files each time and written into the converted level's .qb.
 //
 // The token streams are close: THPS3's names, numbers, strings, vectors, structures, arrays, <params> and line ends
 // are THUG2's. The differences handled here:

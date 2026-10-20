@@ -16,7 +16,7 @@ class CScript;
 // NOT ORIGINAL - the level editor (ours, added at the user's request; not the game's and not PartyMod's).
 //
 // The pause menu in a level gets LEVEL EDITOR (the data overlay's scripts\game\menu\gamemenu_pause.qb, made by
-// tools/menu_level/make_menu_level.py: the item and the scripts level_editor_enter / level_editor_exit). Entering it
+// tools/menu_level/make_menu_level.ts: the item and the scripts level_editor_enter / level_editor_exit). Entering it
 // takes the pause menu down, takes the skater out of the world (as the goal editor does) and keeps the game paused;
 // the script command LevelEditor_Start then hands the view to a free camera. The modules:
 //   level_editor.cpp          the camera, the mouse and keys, selecting, dragging, the move arrows, undo / redo,

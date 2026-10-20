@@ -169,33 +169,37 @@ Every port is compared with its Python twin on real data before the Python file 
 
 | Python file | TypeScript twin | Status | Stage |
 | --- | --- | --- | --- |
-| tools/level_port/binio.py | binio.ts | ported + verified | 1 |
-| tools/level_port/prx.py | prx.ts | ported + verified | 1 |
-| tools/level_port/tex.py | tex.ts | ported + verified | 1 |
-| tools/level_port/thug2_scene.py | thug2_scene.ts | ported + verified | 1 |
-| tools/level_port/thug2_col.py | thug2_col.ts | ported + verified | 1 |
-| tools/level_port/geometry.py | geometry.ts | ported + verified | 1 |
-| tools/level_port/qb.py | qb.ts | ported + verified | 1 |
-| tools/level_port/nodes.py | nodes.ts | ported + verified | 1 |
-| tools/level_port/peds_cars.py | peds_cars.ts | ported + verified | 1 |
-| tools/level_port/script_port.py | script_port.ts | ported + verified | 1 |
-| tools/level_port/common.py | common.ts | ported + verified | 1 |
-| tools/level_port/ported_levels.py | ported_levels.ts | ported + verified | 1 |
-| tools/level_port/col_check.py | col_check.ts | ported + verified (CLI) | 1 |
-| tools/level_port/script_diff.py | script_diff.ts | ported + verified (CLI) | 1 |
+| tools/level_port/binio.py | binio.ts | ported + verified; Python deleted (3: its last importers went - parity: 57d7b5e) | 1 |
+| tools/level_port/prx.py | prx.ts | ported + verified; Python deleted (3: its last importers went - parity: 57d7b5e) | 1 |
+| tools/level_port/tex.py | tex.ts | ported + verified; Python deleted (3: its last importers went - parity: 57d7b5e) | 1 |
+| tools/level_port/thug2_scene.py | thug2_scene.ts | ported + verified; Python deleted (3: its last importers went - parity: 57d7b5e) | 1 |
+| tools/level_port/thug2_col.py | thug2_col.ts | ported + verified; Python deleted (3: its last importers went - parity: 57d7b5e) | 1 |
+| tools/level_port/geometry.py | geometry.ts | ported + verified; Python deleted (3: its last importers went - parity: 57d7b5e) | 1 |
+| tools/level_port/qb.py | qb.ts | ported + verified; Python deleted (3: its last importers went - parity: 57d7b5e) | 1 |
+| tools/level_port/nodes.py | nodes.ts | ported + verified; Python deleted (3: its last importers went - parity: 57d7b5e) | 1 |
+| tools/level_port/peds_cars.py | peds_cars.ts | ported + verified; Python deleted (3: its last importers went - parity: 57d7b5e) | 1 |
+| tools/level_port/script_port.py | script_port.ts | ported + verified; Python deleted (3: its last importers went - parity: 57d7b5e) | 1 |
+| tools/level_port/common.py | common.ts | ported + verified; Python deleted (3: its last importers went - parity: 57d7b5e) | 1 |
+| tools/level_port/ported_levels.py | ported_levels.ts | ported + verified; Python deleted (3: its last importers went - parity: 57d7b5e) | 1 |
+| tools/level_port/col_check.py | col_check.ts | ported + verified (CLI); Python deleted (3: its last importers went - parity: 57d7b5e) | 1 |
+| tools/level_port/script_diff.py | script_diff.ts | ported + verified (CLI); Python deleted (3: its last importers went - parity: 57d7b5e) | 1 |
 | tools/compat/compat.py | compat.ts | ported + verified; Python deleted (2c: its last importer went) | 1 |
 | tools/thps3_levels/thps3.py, thps3_levels.py | thps3.ts, thps3_levels.ts | ported + verified, Python deleted (parity: c121a28) | 2 |
 | tools/thps4_levels/thps4.py, thps4_levels.py, thps4_scripts.py | thps4.ts, thps4_levels.ts, thps4_scripts.ts | ported + verified, Python deleted (parity: 4255a5c) | 2 |
 | tools/thug1_levels/thug1.py, thug1_levels.py, thug1_port.py | thug1.ts, thug1_levels.ts, thug1_port.ts | ported + verified, Python deleted (parity: 4255a5c) | 2 |
 | tools/thaw_levels/thaw.py, thaw_levels.py, thaw_scripts.py, migrate_layouts.py, thugpro_compare.py | thaw.ts, thaw_levels.ts, thaw_scripts.ts, migrate_layouts.ts, thugpro_compare.ts | ported + verified (parity 23/23); Python deleted | 2c |
-| tools/menu_level/make_menu_level.py, level_select.py, level_select_icons.py, career_complete.py, qb_walk.py | - | pending | 3 |
-| tools/anteara/anteara.py | - | pending | 3 |
+| tools/menu_level/make_menu_level.py, level_select.py, level_select_icons.py, career_complete.py, qb_walk.py | make_menu_level.ts, level_select.ts, level_select_icons.ts, career_complete.ts, qb_walk.ts | ported + verified (parity 18/18), Python deleted (parity: 57d7b5e) | 3 |
+| tools/anteara/anteara.py | anteara.ts | ported + verified (parity 5/5), Python deleted (parity: 57d7b5e) | 3 |
 | tools/game/boot_level.py, exe_audit.py, install_manifest.py, make_automation_tables.py | - | pending | 4 |
 | tools/bps_dump.py, check_code_writes.py, extract_cfuncs.py, find_missed_functions.py, fold_pending.py, map_units.py, mutate.py, progress_report.py, symbolize.py | - | pending | 4 |
 | tools/capstone_disasm.py | - | stays Python (for now) | - |
 | tools/ghidra/*.py (apply_cfuncs, audit_game_function_calls, create_functions, export_functions, find_gaps, find_stubs, inspect_program, inspect_range, list_project, scan_register_assumptions) | - | stays Python (pyghidra) | - |
-| tools/parity/canon.py, tools/parity/level_port/driver.py, mutate_staging.py | (the drivers' Python halves) | go with the last Python twin they compare | - |
+| tools/parity/canon.py, tools/parity/level_port/driver.py, mutate_staging.py, converters/qb_norm.py, thps3_levels/wrap.py, menu_level/driver.py | (the drivers' Python halves) | deleted with the last Python twins (stage 3; in commit 57d7b5e) | - |
 
-The Python files of stage 1 stay until the converters that import them (stage 2: thps3/thps4/thug1/thaw_levels; stage
-3: make_menu_level.py imports ported_levels and the level_port modules) are ported; until then a change to one of them
-is made in its TypeScript twin too, and its parity cases run again.
+The Python files of stage 1 stayed until the converters that imported them (stage 2: thps3/thps4/thug1/thaw_levels;
+stage 3: make_menu_level.py) were ported; they were deleted in stage 3, after tools/parity/level_port's cases agreed
+once more. The parity cases stay as the record: each cases.ts names the commit that still has its Python twin.
+Stage 3's (tools/parity/menu_level, tools/parity/anteara) run both sides through menu_level/wrap.ts: a game folder of
+junctions to a workspace's files in each side's scratch folder (nothing written into the workspace); the level
+select preview's PNG is compared by its pixels (Python 3.14's zlib-ng and Node's zlib deflate the same data into
+different streams).

@@ -3,7 +3,7 @@
 #include <string>
 
 // NOT ORIGINAL - the data overlay (ours, added at the user's request; not the game's and not PartyMod's): game files
-// made by tools/menu_level/make_menu_level.py from the game's own (the playable skate shop, the level select's extra
+// made by tools/menu_level/make_menu_level.ts from the game's own (the playable skate shop, the level select's extra
 // signs, the THPS4 levels, the pause menu's LEVEL EDITOR, the standard main menu) in a folder next to the exe,
 // thug2-decomp-data, read before the game's archives and data folder (Pip::Load / LoadFileInto, File::Open / Exist,
 // the async file system).
@@ -11,7 +11,7 @@
 //   - Files in its front_end folder are used first while the skate-shop front end is on (menu_backdrop.h Active).
 //   - Files in its anteara folder (anteara\front_end first while the front end is on) are used before both while
 //     thug2-decomp.ini [features] anteara_mod=1 (default 0): the Anteara Mod, the user's own 2010/2011 script mod
-//     (tools/anteara/README.md). make_menu_level.py writes there the mod's complete script set - its qdir.txt, every
+//     (tools/anteara/README.md). make_menu_level.ts writes there the mod's complete script set - its qdir.txt, every
 //     file it lists, localtext.qb - made from the game's loose Data\scripts with the mod's changes and this overlay's
 //     own edits (levels, level select, LEVEL EDITOR, the front end's roundbar menu) re-applied. Off: the game as
 //     before. One switch for the whole mod for now (per-feature switches would go in the mod's scripts).

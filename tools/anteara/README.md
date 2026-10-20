@@ -34,13 +34,13 @@ menu, and CREATE 100% CAS.
     - per file: the units the mod removes, where each new unit goes (`insert_after`), and line edits for
       `localtext.qb` (two words in its huge `Translations` array);
     - the mod's `qdir.txt` changes: files it removes, adds, or loads in another order.
-- **`anteara.py install`, called by `tools/menu_level/make_menu_level.py` on every run**, writes
+- **`anteara.ts install`, called by `tools/menu_level/make_menu_level.ts` on every run**, writes
   `<game>\thug2-decomp-data\anteara\`: the mod's complete script set.
   - Every file in its `qdir.txt` comes from the game's loose `Data\scripts`, which is what the mod was made from. The
     archive `qb_scripts.prx` differs from those loose files in about 60 files (debug printfs, for one), and it would
     win over them.
   - The mod's changes are applied on top.
-  - The overlay's own edits are re-applied where it changes the same files, using make_menu_level.py's functions:
+  - The overlay's own edits are re-applied where it changes the same files, using make_menu_level.ts's functions:
     - `Levels.qb`: the skate shop and ported levels;
     - `gamemenu_levelselect.qb` / `sprites.qb`: the sections and signs;
     - `gamemenu_pause.qb`: LEVEL EDITOR and DEBUG OPTIONS;
@@ -56,8 +56,8 @@ menu, and CREATE 100% CAS.
   - The game reads `scripts\qdir.txt` after `qb_scripts.pre`, so the mod's `qdir.txt` decides what loads.
   - The log says `anteara_mod: on - ...` once at start-up.
 - **Remaking `mod\` from a merged mod folder** (the `.ns` sources and `qdir.txt`; the user's copy is
-  `C:\Games\THUG2\Backup\scripts_unified`):
-  - `python -I tools/anteara/anteara.py extract --unified <folder> --game <game> --ns out\neverscript\ns.exe` compares
+  `C:\Games\THUG2_PM_BAK\Backup\scripts_unified`):
+  - `node tools/anteara/anteara.ts extract --unified <folder> --game <game> --ns out\neverscript\ns.exe` compares
     each file with the game's loose script unit by unit, with names as checksums, and keeps only what differs.
   - `... check --unified <folder> --overlay <game>\thug2-decomp-data` compares an installed set with the merged sources,
     names ignored. Expected differences: the overlay's own edits in Levels / level select / sprites / pause menu, and

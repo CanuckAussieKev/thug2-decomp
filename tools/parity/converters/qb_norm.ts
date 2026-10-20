@@ -2,7 +2,8 @@
 // converter (node <script> <args...>, its exit code passed on, its stdout with the <out> folder's path written as
 // "<out>" - the two sides write to different folders), then rewrites every .qb it wrote under
 // <out> with its 0x2B name entries sorted - ns.exe (Go) writes them in map order, different on every run - so the two
-// languages' outputs compare byte for byte. The Python half: qb_norm.py (the same normalisation).
+// languages' outputs compare byte for byte. Its Python half, qb_norm.py (the same
+// normalisation), went with the last Python twins (stage 3; it is in commit 57d7b5e).
 //
 //   node tools/parity/converters/qb_norm.ts <out> <script> [args...]
 

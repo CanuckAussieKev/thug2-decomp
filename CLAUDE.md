@@ -22,7 +22,7 @@ installed); functions PartyMod patched get source with PartyMod's behaviour. Lat
   copy run - its log is `thug2-decomp-2.log`, `mouse_menus=0` turns off mouse control of the menus (`debug_mouse=1` logs each click), `menu_backdrop=0`
   brings back the original front end (THUG2's skate shop, the spinning wheel); any other value (default 1) shows
   THPS4's skate shop behind the menus with a standard vertical main menu over its desk - src/game/front/menu_backdrop.h;
-  needs the THPS4 levels converted (tools/thps4_levels) and installed by `tools/menu_level/make_menu_level.py`, which
+  needs the THPS4 levels converted (tools/thps4_levels) and installed by `tools/menu_level/make_menu_level.ts`, which
   makes the data overlay `thug2-decomp-data` (the menu's script in its `front_end` folder; at the top: the skate shop
   as a playable level - SKATE SHOP in the level select -, TEST LEVEL, the THPS4 levels); `level_editor=0` hides the pause menu's
   LEVEL EDITOR - src/game/front/level_editor.h; the item is in the same tool's overlay; its saved layouts are in
@@ -70,7 +70,7 @@ installed); functions PartyMod patched get source with PartyMod's behaviour. Lat
   merging. It's the user's own, for manual testing: its self-tests are off (`[selftests] enabled=0`) and nobody runs
   test games in it - the lead's own test runs too go to a workspace. Parallel work and agents' tests use the workspace copies C:\Games\THUG2-1 ... THUG2-4 (one agent each,
   1280x720 window, allow_multiple_instances=1; the lead assigns them): converters `--thug2 <folder>`,
-  `make_menu_level.py --game <folder>`, games run in the background (keys posted, PrintWindow captures).
+  `make_menu_level.ts --game <folder>`, games run in the background (keys posted, PrintWindow captures).
 - PartyMod (SDL2 window/input, settings in `thug2-decomp.ini`, glyphs, letterbox...) is part of the game's
   source now (MIT: notice in `THIRD_PARTY_NOTICES.md`); its DLL isn't loaded and nothing patches rewritten code.
   The only run-time writes into the exe are the GameSpy host names (`src/game/net/online_hosts.cpp`, until

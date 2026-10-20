@@ -1,6 +1,6 @@
 // THPS4 / THUG1 node arrays -> THUG2: keep what THUG2 understands without the other game's scripts and assets
 // (restarts, rails, level geometry, KOTH crowns), drop the rest (peds, vehicles, game objects with the game's models,
-// goal nodes, waypoints, particles, lights...), renumber the Links. (TypeScript twin of nodes.py.)
+// goal nodes, waypoints, particles, lights...), renumber the Links.
 //
 // The functions working on NeverScript text use JavaScript regexes for Python's: \w and \b are ASCII here, Unicode in
 // Python - the same for this text, whose names are ASCII (qb.nameText writes others as #checksums).
@@ -308,7 +308,7 @@ export function convertNodes(
         }
         out.push(fresh);
     }
-    // The skater starts at the first node of the array that is a player restart (as make_menu_level.py's skate
+    // The skater starts at the first node of the array that is a player restart (as make_menu_level.ts's skate
     // shop): THPS4's Player1 restart is swapped with the first node, and the Links follow.
     const player1 = checksum("Player1");
     const first = out.findIndex((n) => {

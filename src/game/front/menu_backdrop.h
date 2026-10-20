@@ -15,7 +15,7 @@ class Camera;
 // thug2-decomp.ini [features] menu_backdrop = 0 (the original front end: THUG2's skate shop and the wheel) or anything
 // else (the default 1; the older settings 2 and 3 - Los Angeles views and the LA-built front end - now mean the same).
 // It needs the THPS4 skate shop in the data overlay (thug2-decomp-data\levels\thps4_skateshop, installed by
-// tools/menu_level/make_menu_level.py once tools/thps4_levels has converted it); without it nothing changes.
+// tools/menu_level/make_menu_level.ts once tools/thps4_levels has converted it); without it nothing changes.
 //
 // How: the front end is still the level load_mainmenu (level number 0, its scripts, nodes, skater, cameras and
 // menus as before). When its scene ("mainmenu") is loaded, LoadScene also loads the THPS4 shop's sky and scene
@@ -28,7 +28,7 @@ class Camera;
 // Leaving the front end unloads every scene, the backdrop's too.
 // The main menu itself is a script change: the data overlay's front_end folder (used first while Active) has
 // mainmenu_scripts.qb with create_main_menu building a roundbar menu, SKATE NOW (skating in the shop) first, and the
-// shop's collision loaded at the front end's start (make_menu_level.py, MAIN_MENU_SCRIPTS).
+// shop's collision loaded at the front end's start (make_menu_level.ts, MAIN_MENU_SCRIPTS).
 namespace Front::MenuBackdrop {
 
 // The setting (read from the ini once; self-tests set it for their run). 0 = off.

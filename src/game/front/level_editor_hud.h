@@ -4,7 +4,7 @@
 #include <vector>
 
 // NOT ORIGINAL - the level editor's HUD (ours; see level_editor.h). The screen elements are made by the overlay's
-// scripts (tools/menu_level/make_menu_level.py, gamemenu_pause.qb): level_editor_hud_create - a status panel top left
+// scripts (tools/menu_level/make_menu_level.ts, gamemenu_pause.qb): level_editor_hud_create - a status panel top left
 // (lines 1-4: the mode, the selection, what's under the cursor, the camera and counts), a bar at the bottom (lines
 // 5-6: the controls for what you're doing) and a message line (7, top centre) - and level_editor_panel_show /
 // level_editor_panel_hide: one panel of lines (the help, the piece browser). Text may hold the fonts' colour codes:

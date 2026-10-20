@@ -7,7 +7,7 @@ class CStruct;
 
 // NOT ORIGINAL - GAME OPTIONS' "CREATE 100% CAS" (ours, added at the user's request; not the game's and not
 // PartyMod's): a Story Mode and Classic Mode career as a player who finished both completely (every goal, every gap)
-// would have them, and the created skater's stats maxed. The option is script (tools/menu_level/career_complete.py writes it into the data overlay's
+// would have them, and the created skater's stats maxed. The option is script (tools/menu_level/career_complete.ts writes it into the data overlay's
 // levels\mainmenu\mainmenu_options.qb and does all it can with the game's own scripts and commands); this file is
 // the two script commands it needs that the game doesn't have:
 //

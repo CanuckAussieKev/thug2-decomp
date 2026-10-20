@@ -30,7 +30,7 @@ function run(name: string, layout: string, args: string[], extra: Partial<Case> 
 }
 
 export default function cases(): Case[] {
-    // (the Python twin was deleted once these all passed: the cases stay as the record - see docs/typescript.md)
+    // (the Python twin was deleted once these all passed - commit 57d7b5e, the last with it: the cases stay as the record)
     if (!fs.existsSync(PY) || !fs.existsSync(WS1) || !fs.existsSync(NS)) return [];
     const out = [
         // the mod's set alone (no overlay edits), into --overlay

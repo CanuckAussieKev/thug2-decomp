@@ -100,7 +100,7 @@ bool Installed()
         if (ConfigInt("features", "menu_backdrop", 1) != 0)
             Log(found ? "menu_backdrop: the front end in THPS4's skate shop (%s)"
                       : "menu_backdrop: %s not found - convert the THPS4 levels (tools/thps4_levels) and run "
-                        "tools/menu_level/make_menu_level.py; the original front end is used",
+                        "tools/menu_level/make_menu_level.ts; the original front end is used",
                 path.c_str());
         return found;
     }();

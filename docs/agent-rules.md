@@ -78,12 +78,12 @@ workspace (C:\Games\THUG2-n) and its pending-doc name. Agents cost a lot of usag
   feasible; goals / career aren't required. Use the originals' own assets (models, particles, sounds, animations);
   THUG2's behaviour only where the original's logic is engine code that can't run (docs/level-port-compromises.md).
   Nothing of either game is committed: the tools read the user's files each time.
-- Shared code: tools/level_port/script_port.py (the script translator, all four games), peds_cars.py, nodes.py
+- Shared code: tools/level_port/script_port.ts (the script translator, all four games), peds_cars.ts, nodes.ts
   (strip_missing_trick_objects, fix_terrains...). Run every converter's `selfcheck` (thps3_levels, thps4_levels,
-  thug1_levels, thaw_levels) before each commit. tools/level_port/script_diff.py compares converted scripts between
+  thug1_levels, thaw_levels) before each commit. tools/level_port/script_diff.ts compares converted scripts between
   two staging folders. Every tools/level_port module has a TypeScript twin (.ts, docs/typescript.md): a change goes
   into both until the Python converters are ported.
-- Converters: `--thug2 <workspace>` (or `--out <scratch>`); install with `make_menu_level.py --game <workspace>`.
+- Converters: `--thug2 <workspace>` (or `--out <scratch>`); install with `make_menu_level.ts --game <workspace>`.
   Converting only some levels rewrites the staging's levels.json with only those: finish with a full convert.
 - Known crashes to check output against offline: docs/level-port-compromises.md section 3. Also: a rail with a
   missing TerrainType crashes (nodes.fix_terrains); dropping nodes after links were renumbered shifts every later

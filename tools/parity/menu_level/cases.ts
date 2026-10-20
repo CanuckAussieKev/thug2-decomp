@@ -35,7 +35,7 @@ function make(name: string, layout: string, args: string[], extra: Partial<Case>
 const STD = ["--game", "{game}", "--ns", NS];
 
 export default function cases(): Case[] {
-    // (the Python twin was deleted once these all passed: the cases stay as the record - see docs/typescript.md)
+    // (the Python twin was deleted once these all passed - commit 57d7b5e, the last with it: the cases stay as the record)
     if (!fs.existsSync(PY) || !fs.existsSync(WS1) || !fs.existsSync(NS)) return [];
     const out: Case[] = [
         // every converted game (THPS4's shop: the front end's backdrop), the loose scripts (the Anteara Mod), the

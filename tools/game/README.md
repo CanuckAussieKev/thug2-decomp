@@ -63,7 +63,7 @@ THUG2.exe or THUG2PM.exe, tools/game/game_exe.ps1).
   ini). No keys needed, the overlay untouched. Keys: F8 restart tester; with `debug_mode=1` F9-F12, Home, Tab, T
   (src/game/sys/debug_mode.h).
 - `boot_level.py <level> <folder>` - TEST ONLY, superseded by `-Level`: patches the installed overlay's SKATE NOW to
-  load a level in free skate. `make_menu_level.py --game <folder>` puts the real one back.
+  load a level in free skate. `make_menu_level.ts --game <folder>` puts the real one back.
 - `load_check.ps1 -Game <folder> -Levels a, b, ...` - run_game -Level for each level in turn, then reads the log:
   `<level> : running after 50 s; responding=True loaded=True` or the errors.
 
