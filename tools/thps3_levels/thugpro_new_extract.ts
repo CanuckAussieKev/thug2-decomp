@@ -46,6 +46,7 @@ import {
     type NewEntry,
     nodeBytes,
     REGISTER_ID,
+    rowId,
     scriptBytes,
     scriptNames,
     sectorBytes,
@@ -59,9 +60,14 @@ export interface LeftOut {
 
 const lower = (s: string): string => s.toLowerCase();
 
-// The script names our converter makes itself (thps3_levels: the made peds / cars / animals, CTF and team flags).
-function ourScriptNames(): Set<number> {
-    const out = new Set([PED_WALK, PED_STAND, CAR, CAR_BUS, ANIMAL_BIRD, ANIMAL_SHARK].map(qb.checksum));
+// The script names our converter makes itself (thps3_levels: the made peds / cars / animals, CTF and team flags, the
+// level's load_level_anims and <level>_setup).
+function ourScriptNames(level: string): Set<number> {
+    const out = new Set(
+        [PED_WALK, PED_STAND, CAR, CAR_BUS, ANIMAL_BIRD, ANIMAL_SHARK, "load_level_anims", `${level}_setup`].map(
+            qb.checksum,
+        ),
+    );
     for (const c of CTF_COLOURS) {
         out.add(qb.checksum(`TRG_CTF_${c}Script`));
         out.add(qb.checksum(`TRG_Flag_${c}Script`));
@@ -120,7 +126,11 @@ export function thug2Calls(thug2: string): Set<number> {
 // entry's `replace_calls`, applied at convert time by swapping the name: same bytes otherwise): ForceCreate creates a
 // node even where AbsentInNetGames would keep it out (THUG2's Create: the same outside network games); edmsg2 / Output
 // are debug prints (THUG2's printf).
-export const ADAPT: Readonly<Record<string, string>> = { THUGPRO_ForceCreate: "Create", edmsg2: "printf", Output: "printf" };
+export const ADAPT: Readonly<Record<string, string>> = {
+    THUGPRO_ForceCreate: "Create",
+    edmsg2: "printf",
+    Output: "printf",
+};
 
 export interface ExtractInput {
     level: string; // our (= THUGPRO's = THPS3's) level name
@@ -209,13 +219,18 @@ export function extractNew(input: ExtractInput): { entries: NewEntry[]; leftOut:
             sceneFiles.push([n, scene]);
         }
     }
-    const [skyBase] = loadScriptInfo(new qb.QbFile(fs.readFileSync(pyJoin(input.thps3Dir, "Data", "Scripts", "levels.qb")), "levels.qb"), base);
+    const [skyBase] = loadScriptInfo(
+        new qb.QbFile(fs.readFileSync(pyJoin(input.thps3Dir, "Data", "Scripts", "levels.qb")), "levels.qb"),
+        base,
+    );
     let skyVerts = -1;
     if (skyBase) {
         const skyFolder = findFolder(pyJoin(input.thps3Dir, "Data", "Levels"), skyBase);
         const skyBsp = skyFolder ? levelFiles(skyFolder, skyBase).get("bsp") : undefined;
         if (skyBsp !== undefined)
-            skyVerts = thps3.readBsp(fs.readFileSync(skyBsp), skyBsp).sectors.reduce((a, s) => a + s.positions.length, 0);
+            skyVerts = thps3
+                .readBsp(fs.readFileSync(skyBsp), skyBsp)
+                .sectors.reduce((a, s) => a + s.positions.length, 0);
     }
     let objectSectors = 0;
     for (const [file, scene] of sceneFiles) {
@@ -235,7 +250,10 @@ export function extractNew(input: ExtractInput): { entries: NewEntry[]; leftOut:
             continue;
         }
         const texRaw = (() => {
-            for (const [n, d] of prx.entries(pre(scnArchive!), (x) => lower(x) === lower(file.replace(/\.scn\.xbx$/i, ".tex.xbx"))))
+            for (const [n, d] of prx.entries(
+                pre(scnArchive!),
+                (x) => lower(x) === lower(file.replace(/\.scn\.xbx$/i, ".tex.xbx")),
+            ))
                 return texFile.readTex(d, n);
             return null;
         })();
@@ -261,7 +279,10 @@ export function extractNew(input: ExtractInput): { entries: NewEntry[]; leftOut:
             for (const m of mats) {
                 for (const p of m.passes) {
                     const t = texRaw?.textures.find((x) => x.checksum === p.texture);
-                    if (t !== undefined) textures[hex8(t.checksum).toLowerCase()] = itemCrc(texFile.writeTex({ version: 1, textures: [t] }));
+                    if (t !== undefined)
+                        textures[hex8(t.checksum).toLowerCase()] = itemCrc(
+                            texFile.writeTex({ version: 1, textures: [t] }),
+                        );
                 }
             }
             theirSectors.set(sec.checksum, { file });
@@ -308,10 +329,18 @@ export function extractNew(input: ExtractInput): { entries: NewEntry[]; leftOut:
     }
 
     // scripts: candidates, then what can run in THUG2
-    const ours = ourScriptNames();
+    const ours = ourScriptNames(level);
     const candidates = new Set<number>();
     for (const [k] of scripts) {
-        if (thps3Scripts.has(k) || thug2.scripts.has(k) || ours.has(k)) continue;
+        if (thps3Scripts.has(k) || thug2.scripts.has(k)) continue;
+        if (ours.has(k)) {
+            leftOut.push({
+                kind: "script",
+                target: text(k),
+                why: "ours makes a script of this name itself (load_level_anims / <level>_setup / CTF flags)",
+            });
+            continue;
+        }
         candidates.add(k);
     }
     // nodes THUGPRO added
@@ -422,7 +451,11 @@ export function extractNew(input: ExtractInput): { entries: NewEntry[]; leftOut:
             return true;
         }
         if (thug2Has(input.thug2Dir, `models\\${model}.xbx`)) return true;
-        leftOut.push({ kind: "model", target: model, why: `named by ${user}: neither THUGPRO's level archive nor THUG2 has it` });
+        leftOut.push({
+            kind: "model",
+            target: model,
+            why: `named by ${user}: neither THUGPRO's level archive nor THUG2 has it`,
+        });
         return false;
     };
     for (const [nm, n] of addedNodes) {
@@ -450,7 +483,9 @@ export function extractNew(input: ExtractInput): { entries: NewEntry[]; leftOut:
         const what = geometry ? "geometry" : classOf(n);
         // (made only by THUGPRO's rewrites of THPS3's car scripts, which never run here - above: there from the start
         // instead, as our cars are)
-        const creators = [...scripts].filter(([k, s2]) => k !== (t instanceof Name ? t.value : -1) && scriptNames(s2.code).refs.has(nm));
+        const creators = [...scripts].filter(
+            ([k, s2]) => k !== (t instanceof Name ? t.value : -1) && scriptNames(s2.code).refs.has(nm),
+        );
         const atStart =
             !n.hasFlag("CreatedAtStart") && creators.length > 0 && creators.every(([k]) => carScripts.has(k));
         entries.push(
@@ -478,15 +513,22 @@ export function extractNew(input: ExtractInput): { entries: NewEntry[]; leftOut:
         const skeleton = keyText(n, "skeletonName");
         if (skeleton !== null) fields.skeletonName = skeleton;
         entries.push(
-            nodeEntry(nm, n, "set", `THUGPRO made THPS3's ${classOf(o)} a Vehicle with its own model (collides, moves as one)`, {
-                fields,
-                drop_sector: true,
-            }),
+            nodeEntry(
+                nm,
+                n,
+                "set",
+                `THUGPRO made THPS3's ${classOf(o)} a Vehicle with its own model (collides, moves as one)`,
+                {
+                    fields,
+                    drop_sector: true,
+                },
+            ),
         );
     }
     for (const [prefix, why] of models) {
         const filesOf: Record<string, string> = {};
-        for (const [f, d] of archiveFiles) if (lower(f).startsWith(prefix) && !lower(f).endsWith(".qb")) filesOf[f] = itemCrc(d);
+        for (const [f, d] of archiveFiles)
+            if (lower(f).startsWith(prefix) && !lower(f).endsWith(".qb")) filesOf[f] = itemCrc(d);
         entries.push({
             op: "add",
             id: REGISTER_ID,
@@ -528,5 +570,6 @@ export function extractNew(input: ExtractInput): { entries: NewEntry[]; leftOut:
                 : {}),
         });
     }
+    for (const e of entries) e.id = rowId(e.kind, e.op);
     return { entries, leftOut };
 }

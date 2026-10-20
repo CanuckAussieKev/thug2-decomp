@@ -4,7 +4,7 @@
 // verify - written by `thugpro_compare.ts --extract-thugpro` (thugpro_new_extract.ts); the bytes are read from the
 // user's THUGPRO install (--thugpro, default %LOCALAPPDATA%\THUG Pro) each time a level is converted, never copied
 // into the repository. A missing install, archive or item, or an item whose CRC differs, is warned about and skipped;
-// nothing fails the conversion. Register row: TP-N3 (tools/compat/thugpro/README.md, "New in THUGPRO").
+// nothing fails the conversion. Register row: TPN-THPS3 (tools/compat/thugpro/README.md, "New in THUGPRO").
 //
 // Every entry has `op` (the register's form for the two newer sections, thugpro_new and port_changes):
 //   add     - something THPS3 hasn't: a scene sector (+ its materials and textures), a collision object, a node, a
@@ -29,7 +29,24 @@ import { findPath } from "../thaw_levels/thaw_levels.ts";
 import { nameOf, nodeArray } from "../thaw_levels/thugpro_compare.ts";
 
 export const DEFAULT_THUGPRO = pyJoin(process.env.LOCALAPPDATA ?? "", "THUG Pro");
-export const REGISTER_ID = "TP-N3";
+export const REGISTER_ID = "TPN-THPS3";
+
+// The register rows (tools/compat/thugpro/README.md "New in THUGPRO"): one per kind of entry.
+export const ROWS = {
+    geometry: "TPN-THPS3-1", // sectors and collision objects
+    nodesAdded: "TPN-THPS3-2",
+    nodesSet: "TPN-THPS3-3", // THPS3 objects made Vehicles with THUGPRO's models
+    scriptsAdded: "TPN-THPS3-4",
+    scriptsSet: "TPN-THPS3-5", // THUGPRO's versions of THPS3 scripts
+    models: "TPN-THPS3-6",
+} as const;
+
+export function rowId(kind: string, op: string): string {
+    if (kind === "sector" || kind === "collision") return ROWS.geometry;
+    if (kind === "node") return op === "set" ? ROWS.nodesSet : ROWS.nodesAdded;
+    if (kind === "script") return op === "set" ? ROWS.scriptsSet : ROWS.scriptsAdded;
+    return ROWS.models;
+}
 
 export type Op = "add" | "set" | "remove";
 export type Kind = "sector" | "collision" | "node" | "script" | "model";
@@ -70,7 +87,13 @@ const crcHex = (data: Uint8Array): string => hex8(crc32(data) >>> 0).toLowerCase
 
 // The bytes an item's CRC is taken over: re-serialised, so the same content always gives the same CRC.
 export function sectorBytes(sector: thug2Scene.Sector, materials: readonly thug2Scene.Material[]): Buffer {
-    return thug2Scene.writeScene({ versions: [1, 1, 1], materials: [...materials], sectors: [sector], hierarchyCount: 0, tail: Buffer.alloc(0) });
+    return thug2Scene.writeScene({
+        versions: [1, 1, 1],
+        materials: [...materials],
+        sectors: [sector],
+        hierarchyCount: 0,
+        tail: Buffer.alloc(0),
+    });
 }
 export function colBytes(o: thug2Col.ColObject): Buffer {
     return thug2Col.writeCol({ objects: [o], pad: 0 });
@@ -189,7 +212,10 @@ export function loadNew(entries: readonly NewEntry[], thugpro: string): LevelNew
         return out;
     }
     const archives = new Archives(thugpro);
-    const qbs = new Map<string, { nodes: Map<number, Struct>; scripts: Map<number, Buffer>; names: Map<number, string> }>();
+    const qbs = new Map<
+        string,
+        { nodes: Map<number, Struct>; scripts: Map<number, Buffer>; names: Map<number, string> }
+    >();
     const qbOf = (archive: string, file: string) => {
         const key = `${archive}|${file}`.toLowerCase();
         let q = qbs.get(key);
@@ -228,7 +254,10 @@ export function loadNew(entries: readonly NewEntry[], thugpro: string): LevelNew
         const key = `${archive}|${file}`.toLowerCase();
         if (!cols.has(key)) {
             const data = archives.get(archive, file);
-            cols.set(key, data === null ? null : new Map(thug2Col.readCol(data, file).objects.map((o) => [o.checksum, o])));
+            cols.set(
+                key,
+                data === null ? null : new Map(thug2Col.readCol(data, file).objects.map((o) => [o.checksum, o])),
+            );
         }
         return cols.get(key)!;
     };
@@ -295,8 +324,16 @@ export function loadNew(entries: readonly NewEntry[], thugpro: string): LevelNew
                     found.push(t);
                 }
                 out.sectors.push(sec);
-                for (const m of mats) if (!materialSeen.has(m.checksum)) materialSeen.add(m.checksum), out.materials.push(m);
-                for (const t of found) if (!textureSeen.has(t.checksum)) textureSeen.add(t.checksum), out.textures.push(t);
+                for (const m of mats) {
+                    if (materialSeen.has(m.checksum)) continue;
+                    materialSeen.add(m.checksum);
+                    out.materials.push(m);
+                }
+                for (const t of found) {
+                    if (textureSeen.has(t.checksum)) continue;
+                    textureSeen.add(t.checksum);
+                    out.textures.push(t);
+                }
                 count("sectors");
             } else if (e.kind === "collision") {
                 const o = colOf(e.archive, e.file)?.get(target(e.target));
@@ -496,7 +533,12 @@ export function applyGeometry(
             warnings.push(`${REGISTER_ID}: collision ${hex8(o.checksum)} is ours already - THUGPRO's left out`);
             return false;
         });
-        const made = geometry.convertCol({ objects: fresh }, () => true, warnings, (flags) => flags);
+        const made = geometry.convertCol(
+            { objects: fresh },
+            () => true,
+            warnings,
+            (flags) => flags,
+        );
         col.objects.push(...made.objects);
         objects = made.objects.length;
     }

@@ -24,6 +24,7 @@ import * as portedLevels from "../level_port/ported_levels.ts";
 import * as prx from "../level_port/prx.ts";
 import * as qb from "../level_port/qb.ts";
 import { Name, type QbValue, Struct, Vector } from "../level_port/qb.ts";
+import * as scriptPort from "../level_port/script_port.ts";
 import * as thug2Col from "../level_port/thug2_col.ts";
 import * as thug2Scene from "../level_port/thug2_scene.ts";
 import {
@@ -53,7 +54,6 @@ import {
     sequence,
     TOLERANCE,
 } from "../thaw_levels/thugpro_compare.ts";
-import * as scriptPort from "../level_port/script_port.ts";
 import * as thps3 from "./thps3.ts";
 import { findFolder, flagTeams, LEVELS, levelFiles, STAGING, scriptNames } from "./thps3_levels.ts";
 import { REGISTER_ID } from "./thugpro_new.ts";
@@ -634,13 +634,17 @@ export function collisionEdits(
     return [out, notes];
 }
 
-export function extractThugpro(thps3Dir: string, thugpro: string, thug2: string | null = null): Record<string, unknown> {
+export function extractThugpro(
+    thps3Dir: string,
+    thugpro: string,
+    thug2: string | null = null,
+): Record<string, unknown> {
     // (thugpro_new needs THUG2's own scripts and commands: which of THUGPRO's scripts can run - --thug2)
     const thug2Data = thug2 !== null ? new scriptPort.Thug2(thug2) : null;
     const thugproNew: Record<string, unknown> = {
         _register: REGISTER_ID,
         _source:
-            "References only (the user's decision 2026-10-20, with Morten1337's permission): what is new in THUGPRO's THPS3 ports, in no source game - archive and file in THUGPRO's data\pre, the item's name and a CRC-32 of it. tools/thps3_levels/thugpro_new.ts reads the bytes from the user's THUGPRO install (--thugpro) at convert time; a missing or different item is warned about and skipped. Each entry: op (add / set / remove), id, kind (sector, collision, node, script, model), target, why. Found by tools/thps3_levels/thugpro_new_extract.ts (--extract-thugpro); never typed in.",
+            "References only (the user's decision 2026-10-20, with Morten1337's permission): what is new in THUGPRO's THPS3 ports, in no source game - archive and file in THUGPRO's datapre, the item's name and a CRC-32 of it. tools/thps3_levels/thugpro_new.ts reads the bytes from the user's THUGPRO install (--thugpro) at convert time; a missing or different item is warned about and skipped. Each entry: op (add / set / remove), id, kind (sector, collision, node, script, model), target, why. Found by tools/thps3_levels/thugpro_new_extract.ts (--extract-thugpro); never typed in.",
     };
     const newLeftOut: Record<string, unknown> = {};
     const teams = flagTeams(scriptNames(thps3Dir));
@@ -793,7 +797,7 @@ export function extractThugpro(thps3Dir: string, thugpro: string, thug2: string 
         }
         if (edits.notes.length) notes[key] = edits.notes;
         if (thug2Data !== null && thug2 !== null) {
-            // TP-N3: THUGPRO's own content (the nodes TP-10 .. TP-18 make or place aren't new content)
+            // TPN-THPS3: THUGPRO's own content (the nodes TP-10 .. TP-18 make or place aren't new content)
             const handled = new Set<number>([...COMPAT_NAMES, ...Object.keys(changed).map(compatChecksum)]);
             for (const r of edits.rails) handled.add(compatChecksum(r.name));
             for (const now of Object.values(edits.renamed)) handled.add(compatChecksum(now));
@@ -830,7 +834,7 @@ export function extractThugpro(thps3Dir: string, thugpro: string, thug2: string 
         renamed: renamed17,
         rails: rails18,
         collision: collision19,
-        // TP-N3: what is new in THUGPRO (by reference; --no-thugpro-new leaves it out)
+        // TPN-THPS3: what is new in THUGPRO (by reference; --no-thugpro-new leaves it out)
         thugpro_new: thugproNew,
         // (what nodeEdits / collisionEdits found and left out, and why - not read by the converter)
         _notes: notes,

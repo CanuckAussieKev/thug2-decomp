@@ -228,7 +228,7 @@ export function installFiles(game: string, overlay: string, manifest: Manifest |
             fs.cpSync(from, target, { recursive: true, preserveTimestamps: true, errorOnExist: true, force: false });
             installed.push(entry);
         }
-        // Models a converter brings along (<staging>\models\<name>\...: THPS3's TP-N3, THUGPRO's own models read from
+        // Models a converter brings along (<staging>\models\<name>\...: THPS3's TPN-THPS3, THUGPRO's own models read from
         // its install) into the overlay's models folder, where the game looks for models\<name>\<name>.mdl.
         const models = path.join(game, staging, "models");
         if (!fs.existsSync(models) || !fs.statSync(models).isDirectory()) continue;

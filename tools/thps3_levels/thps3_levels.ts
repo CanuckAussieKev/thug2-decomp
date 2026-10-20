@@ -685,7 +685,7 @@ export interface ConvertWorldOptions {
     tag?: string;
     // TP-19: THUGPRO's collision edits by the sector's checksum (collisionObjects)
     colEdits?: ReadonlyMap<number, CollisionEditCompat>;
-    // TP-N3: THUGPRO's new sectors, textures and collision objects (thugpro_new.ts applyGeometry)
+    // TPN-THPS3: THUGPRO's new sectors, textures and collision objects (thugpro_new.ts applyGeometry)
     thugproNew?: thugproNew.LevelNew;
 }
 
@@ -781,12 +781,12 @@ export function nameValue(payload: Buffer): number {
     return unpackNumbers("<I", payload)[0]!;
 }
 
-// PC-1 (port_changes, tools/compat/thugpro/thps3_levels.json: `prefixes` per level): sector name prefixes left out.
+// PC-THPS3-1 (port_changes, tools/compat/thugpro/thps3_levels.json: `prefixes` per level): sector name prefixes left out.
 // Warehouse: its lights flicker in THPS3 (JKU_Ware_RoomFlicker toggles SkWare_Light_* / SkWare_Dark_*, the same
 // surfaces lit and dark); without that script both sets were drawn - z-fighting. Kept lit, as THPS3's observer mode
 // (JKU_Ware_IsObserver kills SkWare_Dark).
 export function leftOutPrefixes(pc: compat.PortChanges, base: string): readonly string[] {
-    return (pc.get("PC-1", base.toLowerCase())?.prefixes as string[] | undefined) ?? [];
+    return (pc.get("PC-THPS3-1", base.toLowerCase())?.prefixes as string[] | undefined) ?? [];
 }
 
 export function createdAtStart(
@@ -1489,7 +1489,7 @@ export function portScripts(
     const provided = new Set<number>([
         ...kills.keys(),
         ...["LoadTerrain", PED_WALK, PED_STAND, ANIMAL_BIRD, ANIMAL_SHARK, CAR, CAR_BUS].map(qb.checksum),
-        ...extra.provided, // (TP-N3: THUGPRO's new scripts, added to the file after)
+        ...extra.provided, // (TPN-THPS3: THUGPRO's new scripts, added to the file after)
     ]);
     const tr = new scriptPort.Translator(
         sources,
@@ -1520,10 +1520,10 @@ export function portScripts(
     const p1Script = player1?.get("TriggerScript");
     if (p1Script instanceof Name) starts.push(p1Script.value);
     for (const s of starts) roots.push([s, scriptPort.NONE]);
-    // (TP-N3: the THPS3 scripts THUGPRO's new nodes and scripts use)
+    // (TPN-THPS3: the THPS3 scripts THUGPRO's new nodes and scripts use)
     for (const [s, context] of extra.roots) if (tr.canBring(s)) roots.push([s, context]);
     const out = tr.run(roots);
-    // (TP-N3 `set` scripts: THUGPRO's versions of THPS3 scripts ours brings - a script ours hasn't is reported)
+    // (TPN-THPS3 `set` scripts: THUGPRO's versions of THPS3 scripts ours brings - a script ours hasn't is reported)
     const missing: string[] = [];
     for (const [s, code] of extra.replacing) {
         if (out.has(s)) out.set(s, code);
@@ -1572,7 +1572,7 @@ export function portScripts(
     let leftOutCount = 0;
     for (const v of tr.leftOut.values()) leftOutCount += v;
     const report =
-        (missing.length ? `TP-N3: set on scripts ours hasn't (not added): ${missing.join(", ")}\n  ` : "") +
+        (missing.length ? `TPN-THPS3: set on scripts ours hasn't (not added): ${missing.join(", ")}\n  ` : "") +
         `scripts: ${out.size} brought along (${bytes} bytes), ${dropped} trigger scripts not; ${proxims} proximity ` +
         `nodes watching; made ${pyRepr(made.counts)}; left out ${leftOutCount} statements: ` +
         worst
@@ -1582,7 +1582,7 @@ export function portScripts(
     return [out, setup, tr.globalsNs() + proximText, report];
 }
 
-// TP-N3: what portScripts takes from THUGPRO's new content - the script names it adds to the file (a trigger script
+// TPN-THPS3: what portScripts takes from THUGPRO's new content - the script names it adds to the file (a trigger script
 // naming one stays), the THPS3 scripts they use (brought along: [name, how it runs]), and THUGPRO's versions of THPS3
 // scripts ours brings ({name: THUG2 bytes}, replacing ours).
 export interface ExtraScripts {
@@ -2169,7 +2169,7 @@ export function convertNodeArray(
     const hidden = new Set<number>();
     // Sector sets a level's scripts keep switching between, left out (LEFT_OUT_PREFIXES): with both drawn they
     // fight over the same surfaces (flicker).
-    const prefixesOut = leftOutPrefixes(pc, base); // (PC-1)
+    const prefixesOut = leftOutPrefixes(pc, base); // (PC-THPS3-1)
     for (const node of array) {
         if (node instanceof Struct && node.get("Name") instanceof Name) {
             const text = (names.get(nameOf(node)) ?? "").toLowerCase();
@@ -2265,10 +2265,10 @@ export function convertNodeArray(
         [],
         made ? made.ids : [],
         wanted,
-        ctfCompat.spawns === undefined && pc.on("PC-9"),
+        ctfCompat.spawns === undefined && pc.on("PC-THPS3-9"),
     );
     kills = nodes.addKillRestarts(converted, kills, names);
-    // TP-N3: THUGPRO's new nodes appended (their Links by name) and its `set` fields written into ours - before the
+    // TPN-THPS3: THUGPRO's new nodes appended (their Links by name) and its `set` fields written into ours - before the
     // scripts are brought along (their trigger scripts count) and before TP-18's rails (Foundry's wires find their
     // foun_wire cluster)
     const newReport = tpNew.nodes.length || tpNew.sets.length ? thugproNew.applyNodes(converted, names, tpNew) : [];
@@ -2307,12 +2307,12 @@ export function convertNodeArray(
         );
     }
     // (after the scripts: their trigger scripts are THUG2's Team_Flag, not THPS3 scripts to bring along)
-    // (PC-8: our CTF from THPS3's bases - TP-10 .. TP-12 build on it, so it stays with their data)
+    // (PC-THPS3-8: our CTF from THPS3's bases - TP-10 .. TP-12 build on it, so it stays with their data)
     const tpCtf = Object.keys(ctfCompat.flags).length || Object.keys(ctfCompat.extra).length || ctfCompat.spawns;
     const [ctf, ctfScripts, ctfReport] =
-        pc.on("PC-8") || tpCtf
+        pc.on("PC-THPS3-8") || tpCtf
             ? ctfNodes(array, names, teams, ctfCompat)
-            : [[] as Struct[], "", "capture the flag: not made (PC-8 off)"];
+            : [[] as Struct[], "", "capture the flag: not made (PC-THPS3-8 off)"];
     converted.push(...ctf);
     const railReport = appendRails(converted, names, ctfCompat.edits?.rails ?? []); // (TP-18)
     const spawnReport = applySpawns(converted, names, ctfCompat.spawns); // (TP-12)
@@ -2356,18 +2356,21 @@ export function writeLevelQb(
     netRestarts = true,
 ): void {
     // The node array's NeverScript text compiled, the brought scripts added (scriptPort.appendScripts); `tpNew`:
-    // THUGPRO's new scripts too (TP-N3: those whose name the file has already are left out and reported).
+    // THUGPRO's new scripts too (TPN-THPS3: those whose name the file has already are left out and reported).
     // (network games: path followers, peds and cars kept out - no path manager or ped animations there -, restarts for the players)
-    const [netText, marked] = nodes.netGameNodes(text, scripts, netRestarts); // (PC-4: netRestarts)
+    const [netText, marked] = nodes.netGameNodes(text, scripts, netRestarts); // (PC-THPS3-4: netRestarts)
     if (marked) print(`  ${path.win32.basename(file)}: ${marked} node(s) changed for network games`);
     common.nsCompile(ns, netText, file);
     let all: ReadonlyMap<number, Buffer> = scripts;
     if (tpNew !== null && port !== null && tpNew.scripts.size) {
-        const [added, clashes] = thugproNew.addedScripts(tpNew, new Set([...new qb.QbFile(read(file), file, true).scripts.keys(), ...scripts.keys()]));
+        const [added, clashes] = thugproNew.addedScripts(
+            tpNew,
+            new Set([...new qb.QbFile(read(file), file, true).scripts.keys(), ...scripts.keys()]),
+        );
         all = new Map([...scripts, ...added]);
         if (report !== null) {
-            report.push(`  TP-N3 THUGPRO's new scripts: ${added.size} added`);
-            if (clashes.length) report.push(`  TP-N3: left out, the name ours uses already: ${clashes.join(", ")}`);
+            report.push(`  TPN-THPS3 THUGPRO's new scripts: ${added.size} added`);
+            if (clashes.length) report.push(`  TPN-THPS3: left out, the name ours uses already: ${clashes.join(", ")}`);
         }
     }
     if (all.size && port !== null) {
@@ -2524,7 +2527,7 @@ export interface Args {
     legacyNames: boolean;
     compat: string;
     extra: string[];
-    thugpro: string; // TP-N3: THUGPRO's install, read at convert time
+    thugpro: string; // TPN-THPS3: THUGPRO's install, read at convert time
     noThugproNew: boolean;
     noPortChanges: boolean; // PC-n: only the required ones
 }
@@ -2614,7 +2617,7 @@ export function cmdConvert(args: Args): void {
             port.copies = new Map();
         }
         const compatData = levelCompat(profile, name);
-        // TP-N3: THUGPRO's own content, read from its install (--thugpro; --no-thugpro-new or --compat none: none)
+        // TPN-THPS3: THUGPRO's own content, read from its install (--thugpro; --no-thugpro-new or --compat none: none)
         const newEntries = args.noThugproNew
             ? []
             : ((profile.section("thps3_levels", "thugpro_new")[name] ?? []) as thugproNew.NewEntry[]);
@@ -2634,14 +2637,14 @@ export function cmdConvert(args: Args): void {
         let text = nodeText;
         const qbPath = pyJoin(levelDir, `${name}.qb`);
         const qbReport: string[] = [];
-        writeLevelQb(args.ns, text, qbPath, scripts, port, tpNew, qbReport, pc.on("PC-4"));
+        writeLevelQb(args.ns, text, qbPath, scripts, port, tpNew, qbReport, pc.on("PC-THPS3-4"));
         const tdxFile = files.get("tdx")!;
         let tdx = thps3.readTdx(read(tdxFile), tdxFile);
         let objects: [thps3.Sector[], ObjectMaterial[]] | null = null;
         // (each vehicle its own copy of its model: a LevelObject draws the sector of its node's name)
         const vehicles: thps3.Clump[] = [];
         const modelsAdded = new Set<string>();
-        // (TP-N3 `set`: objects THUGPRO draws with its own model - ours's copy of THPS3's left out)
+        // (TPN-THPS3 `set`: objects THUGPRO draws with its own model - ours's copy of THPS3's left out)
         const dropped = new Set(tpNew.sets.filter((s) => s.dropSector).map((s) => s.name));
         if (port !== null) {
             const byVehicle = [...port.vehicles].sort((a, b) => a[0] - b[0] || compareStr(a[1], b[1]));
@@ -2688,17 +2691,17 @@ export function cmdConvert(args: Args): void {
         });
         const [withoutTricks, cleared] = withoutMissingTrickObjects(text, pyJoin(levelDir, `${name}.scn.xbx`));
         // (restarts over nothing or over a kill zone: no network spawns, no kill targets - nodes.groundRestarts)
-        const [grounded, groundReport] = pc.on("PC-7")
+        const [grounded, groundReport] = pc.on("PC-THPS3-7")
             ? nodes.groundRestartsAt(withoutTricks, levelDir, name)
             : [withoutTricks, [] as string[]];
         text = grounded;
         if (cleared || groundReport.length)
-            writeLevelQb(args.ns, text, qbPath, scripts, port, tpNew, null, pc.on("PC-4"));
+            writeLevelQb(args.ns, text, qbPath, scripts, port, tpNew, null, pc.on("PC-THPS3-4"));
         if (cleared) report.push(`  ${cleared} geometry nodes without a scene sector: TrickObject / Cluster dropped`);
         report.push(...groundReport);
         report.push(`  ${nodeReport}`);
         report.push(...qbReport);
-        // TP-N3: THUGPRO's models (<staging>\models\..., installed into the overlay's models folder) and what of
+        // TPN-THPS3: THUGPRO's models (<staging>\models\..., installed into the overlay's models folder) and what of
         // THUGPRO's wasn't found or didn't match
         for (const [file, data] of tpNew.models) {
             const target = pyJoin(out, "models", file);
@@ -2707,8 +2710,10 @@ export function cmdConvert(args: Args): void {
         }
         if (newEntries.length) {
             const counts = Object.entries(tpNew.counts).map(([k, v]) => `${v} ${k}`);
-            report.push(`  TP-N3 THUGPRO's new content: ${counts.join(", ") || "nothing"} of ${newEntries.length} entries`);
-            for (const w of tpNew.warnings) report.push(`  TP-N3 warning: ${w}`);
+            report.push(
+                `  TPN-THPS3 THUGPRO's new content: ${counts.join(", ") || "nothing"} of ${newEntries.length} entries`,
+            );
+            for (const w of tpNew.warnings) report.push(`  TPN-THPS3 warning: ${w}`);
         }
 
         // The sky (scene and textures, no collision - as THUG2's own skies).
@@ -2840,13 +2845,20 @@ options:
   --compat {thugpro,none}
                        convert: compatibility profile (tools/compat) - thugpro: CTF flags / team nodes,
                        spawns and hand edits as THUGPRO's (TP-10 .. TP-19; default), none: THPS3's own
-  --thugpro THUGPRO    convert: THUGPRO's install, read for its new content (TP-N3; default %LOCALAPPDATA%\\THUG Pro)
+  --thugpro THUGPRO    convert: THUGPRO's install, read for its new content (TPN-THPS3; default %LOCALAPPDATA%\\THUG Pro)
   --no-thugpro-new     convert: THUGPRO's new content left out, its hand edits kept
   --no-port-changes    convert: our own changes to THPS3's data left out (PC-n) but those the game needs
   --extra [EXTRA ...]  selfcheck: more THUG2 archives (Data\\pre\\*.prx)`;
 
 const VALUE_OPTIONS = ["--thug2", "--thps3", "--out", "--ns", "--compat", "--thugpro"] as const;
-const FLAG_OPTIONS = ["--no-objects", "--no-scripts", "--no-mips", "--legacy-names", "--no-thugpro-new", "--no-port-changes"] as const;
+const FLAG_OPTIONS = [
+    "--no-objects",
+    "--no-scripts",
+    "--no-mips",
+    "--legacy-names",
+    "--no-thugpro-new",
+    "--no-port-changes",
+] as const;
 const ALL_OPTIONS = [...VALUE_OPTIONS, ...FLAG_OPTIONS, "--extra", "--help"];
 
 function usageError(message: string): never {

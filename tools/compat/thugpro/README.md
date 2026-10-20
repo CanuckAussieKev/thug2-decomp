@@ -37,9 +37,9 @@ code or level data; the values here are identifiers and offsets, measured or rea
 | TP-13 | THPS3 nodes THUGPRO moved or turned (not spawns / CTF nodes, TP-10..12's): Foun 5 (3 peds up to 56 units, 2 particle boxes), Sub 4 (particles), SI 1 (TRG_Ped_PerchedPirate 59), Shp 6 (the landing path TRG_LandPoint01-04, TRG_Land02, sgo_Land: 300 units), Burn 9 peds (17-347 units) - the user's decision 2026-10-20: everything THUGPRO changed, as data under the flag | Positions of objects / peds aren't sent as such, but both sides should see the same level; moved objects draw (and, for game objects, place their models) where THUGPRO's do | `thps3_levels.json` `moved` -> `thps3_levels.applyNodeEdits` (on THPS3's own array before conversion: Position, z negated, and Angles; objectSectors places the moved game objects too) | THUGPRO's installed `data\pre\<level>_scripts.prx` node arrays against THPS3's own `<lvl>.qb`, extracted by `node tools/thps3_levels/thugpro_compare.ts --extract-thugpro tools/compat/thugpro/thps3_levels.json` (`nodeEdits`; never typed in); checked by `thugpro_inventory.ts --applied` |
 | TP-14 | THPS3 node flags THUGPRO changed (CreatedAtStart, AbsentInNetGames, NetEnabled, TrickObject) on 331 nodes it kept of the same kind: Tok's 17 TRG_SRail_* / TRG_GS_SRail_00 rails and its shinkansen AbsentInNetGames, 185 path waypoints not, 22 not created at start; Shp's pool, ferry box, snap wires, track glass AbsentInNetGames, cakes / window reflections; SI's cannons trigger, door, lighting, sponsors AbsentInNetGames (NetEnabled off), debris; Foun's crane beam rails (CreatedAtStart, TrickObject off), presses created at start; Ros's autopsy / garage doors CreatedAtStart; Ware's secret-room glass without NetEnabled, hook / chains created at start, the dark set not created at start; Rio's broken fences kept online; Sub's invisible blockers (InvisoBox01, SUB_InvisoPlantsBlocker01, Inviso_PicnicCollide01, DISHSTART_*, InvisoStairsUnBonker) not created at start - its way of taking them out - and LOD jeeps; 2026-10-20 | Geometry and rails present on one side only: a rail one side grinds online and the other can't, a wall one side collides with | `flags` -> `applyNodeEdits` (as if THPS3 had them so: the converter's created-at-start and hidden analysis then follow them) | As TP-13. Not taken: flags of nodes THUGPRO made another class (its lights, particle boxes, static peds as GameObject / GenericNode...: its toolchain's form - `_notes`); NeverSuspend / Permanent (its toolchain adds Permanent to every NetEnabled) |
 | TP-15 | THPS3 TerrainTypes THUGPRO changed: Rio 313 (297 wires TERRAIN_GRINDELECTRICWIRE, canal copings CONCSMOOTH), Tok 296 and Shp 125 (THPS3's TERRAIN_MEATALSMOOTH typo -> METALSMOOTH; Tok's 20 untyped -> CONCSMOOTH), Ware 46 (GRINDCONC), Sub 36 (wires), SI 18 (ropes GRINDWOOD), Ros 11 (WOOD -> METALSMOOTH / CONCSMOOTH); 2026-10-20 | Grind sound and sparks (local), kept the same on both sides | `terrain` -> `applyNodeEdits` (TerrainType; nodes.fixTerrains still checks every value against THUG2's table) | As TP-13 (the typo fix gives what our fixTerrains gave anyway: Tok / Shp unchanged in output) |
-| TP-16 | THPS3 nodes THUGPRO took out, named by no THPS3 script or node: Shp `Box07` / `Box08`, SI's ocean sound objects `TRG_OceanNoise` / `01` (THUGPRO plays its own emitters there - not applied, awaiting the user), Ware's `TRG_CTF1_Restart_1P`..`4P` (TP-12 made them Generic; THUGPRO reused their places for its team restarts) and THPS3 genericnodes we drop anyway (Ware's zone nodes, Burn / Ros TRG_CTF_Team1 / 02); 2026-10-20 | A node on one side only | `removed` -> `applyNodeEdits` -> `convertNodeArray`'s hidden set (node and sector left out, as THPS3's hidden geometry) | As TP-13 (`nameUses`: 0x16 names in the level .qb and Data\Scripts; one still named is kept and noted) |
+| TP-16 | THPS3 nodes THUGPRO took out, named by no THPS3 script or node: Shp `Box07` / `Box08`, SI's ocean sound objects `TRG_OceanNoise` / `01` (THUGPRO plays its own emitters there - included: TPN-THPS3-2 / 4 / 5), Ware's `TRG_CTF1_Restart_1P`..`4P` (TP-12 made them Generic; THUGPRO reused their places for its team restarts) and THPS3 genericnodes we drop anyway (Ware's zone nodes, Burn / Ros TRG_CTF_Team1 / 02); 2026-10-20 | A node on one side only | `removed` -> `applyNodeEdits` -> `convertNodeArray`'s hidden set (node and sector left out, as THPS3's hidden geometry) | As TP-13 (`nameUses`: 0x16 names in the level .qb and Data\Scripts; one still named is kept and noted) |
 | TP-17 | THPS3 nodes THUGPRO renamed (a THUGPRO-only node at the place of a THPS3-only one, same class), the old name named by no script: none now - Tok's `TRG_Restart_Single` -> `TRG_Restart_1P` is kept (js_scripts.qb's CompWaypointStart names it; TP-12 adds THUGPRO's at the same place), Ware's `TRG_CTF1_Restart_3P` -> `TRG_CTF_Restart_Yellow` is TP-11 / TP-12's; 2026-10-20 | Names other scripts and the level editor look up | `renamed` -> `applyNodeEdits` (Name changed in place: array order kept) | As TP-13 |
-| TP-18 | Rails THUGPRO added, as rail nodes from its node data (place, angles, TerrainType, flags, Cluster, Links by name): Foun's 8 wires `_TRG_Wire_Rail0`-`7` (TERRAIN_GRINDCABLE; their cluster `foun_wire` is THUGPRO's own mesh - not ours: TrickObject / Cluster left out, the wires are invisible here until the mesh is decided), Rio's 23 (`QSilverBanner_01_Rail_0_*` on THPS3's banner, `rio_balcony*`, `rio_awning*`, `rio_roof_rail*`); 2026-10-20 | A rail one side can grind and the other can't | `rails` -> `thps3_levels.appendRails` (appended after the CTF nodes, before TP-12's ordering) | As TP-13. Not rails: Rio's `TRG_Node_2076`-`2083` are a ped's waypoint loop (THUGPRO's TRG_Ped_2084 - awaiting the user) |
+| TP-18 | Rails THUGPRO added, as rail nodes from its node data (place, angles, TerrainType, flags, Cluster, Links by name): Foun's 8 wires `_TRG_Wire_Rail0`-`7` (TERRAIN_GRINDCABLE; their cluster `foun_wire` is THUGPRO's own mesh - not ours: with TPN-THPS3-1 the mesh is ours too and TrickObject / Cluster are kept; without it they are left out and the wires invisible), Rio's 23 (`QSilverBanner_01_Rail_0_*` on THPS3's banner, `rio_balcony*`, `rio_awning*`, `rio_roof_rail*`); 2026-10-20 | A rail one side can grind and the other can't | `rails` -> `thps3_levels.appendRails` (appended after the CTF nodes, before TP-12's ordering) | As TP-13. Not rails: Rio's `TRG_Node_2076`-`2083` are a ped's waypoint loop (THUGPRO's TRG_Ped_2084 - awaiting the user) |
 | TP-19 | THPS3 collision THUGPRO edited: SI 8 objects (SI_Grating, _03, _05, _07, SI_ScaffBarrier2, SI_ShipCoping01, SI_VertRamp_01 / _05), Ros 4 (SkRos_Rail_Col06 / 07, SkRos_RailWall11, Radar02), Ware SkWare_Lamp01: the faces it took out - all duplicates (another face with the same corners) of faces it kept, 61 in all; SI's `Ramp_ReFlection`, `si_VRDirt01` / `02` drawn without collision (all their faces non-collidable anyway); 2026-10-20 | A wall or floor on one side only (a back face one side collides with) | `collision` -> `thps3_levels.collisionObjects` through `convertWorld`'s colEdits (a face matched by its three corners in turning order) | THUGPRO's installed `data\pre\<level>col.prx` / `scn.prx` against THPS3's own `<lvl>.bsp` (`collisionEdits`, as TP-13). Not edits: other face-count / bounding-box differences are its toolchain's (same faces, its face flag bits and bounding boxes over unused vertices) |
 | TP-20 | THPS4's skate shop's load script `Load_practice` / `Level_practice` (its files stay `thps4_skateshop`) - approved by the user 2026-10-20 | As TP-1. THPS4's own name, `Load_SkateShop`, can't be used in THUG2 (THUG2's CheckForInvalidLevels turns it into the main menu; `levels\skateshop` is THUG2's shop); THUGPRO renamed it `practice` | `thps4_levels.json` `load_names` -> `thps4_levels.loadName` -> levels.json `load` -> `ported_levels` (Load_ / Level_ only) | THUGPRO's installed `data\pre\Practice_scripts.prx` and its Levels.qb `level_practice`; `tools/thps4_levels/thugpro_compare.ts` (436/436 nodes in place) |
 | TP-21 | THPS4 skate shop's network-game nodes, THUGPRO's places: its King of the Hill crown (1) and its 8 added multiplayer spawns, plus THPS4's own TRG_SS_SkaterDropIn made a multiplayer spawn - approved by the user 2026-10-20 (an exception to the data rule: THPS4's shop, a single-player level, has none) | KOTH picks a crown by its index among the Crown nodes (CFunc_SpawnCrown 0x00538170): without one, a THUGPRO host's KOTH in the shop shows no crown here; the spawns: the same multiplayer start set (order and places) as THUGPRO's | `thps4_levels.json` `net_nodes` (places only: pos in THUG2's axes, angles) -> `thps4_levels.addNetNodes` (nodes in our form: Restart Type=Multiplayer TRG_Net_Restart01-08, GenericNode Crown TRG_KOTH01, all running the drop-in THPS4's practice start ran: `<level>_net_dropin`, MakeSkaterGoto DropIn). THPS4's menu restart TRG_SS_Skater01 stays a Player1 restart (not a ghost as THUGPRO's): with multiplayer restarts present it isn't made one, so the sets already match. Off: `--compat none` (the output then the same as before TP-21) | THUGPRO's installed `data\pre\Practice_scripts.prx` (`levels\practice\practice.qb`), extracted by `node tools/thps4_levels/thugpro_compare.ts --extract-thugpro` (never typed in); checked by `thugpro_compare.ts` (crowns same, mp restarts same) |
@@ -106,14 +106,8 @@ Chicago additions), the breakable glass faces, CollisionMode off objects without
 doesn't carry because it makes those nodes its own way (lod_dist / SuspendDistance of peds and cars,
 CreatedFromVariable, lightgroup, particle settings - listed in `awaiting` notes).
 
-Awaiting the user's decision (THPS3, not applied - THUGPRO-authored content rather than data: Morten's permission is
-for insights, not 1:1 copies; docs/pending/thps3-thugpro.md "Awaiting the user" has sizes and what each side sees):
-Foundry's `foun_wire` mesh (498 vertices; its 8 wires are grindable here through TP-18 but invisible), its three
-`*_coll` quads and the furnace bucket's collision (Obj_Bucket, 134 faces); Rio's `ES_Building_collision` (4 faces),
-its 8 cars' `*_carplant_collision`, its own ped and waypoint loop (`TRG_Ped_2084`, `TRG_Node_2076`-`2083`) and sound
-objects; Suburbia's 5 `*_collfix` objects (8-192 faces) and the ice-cream truck's collision; Skater Island's ocean wave
-emitters (replacing the TP-16-removed THPS3 ocean noise) and its cannons' proximity node; Tokyo's trains, planes and
-cars as Vehicles, its two event restarts; THUGPRO's particles, sound objects and scripts in every level.
+THPS3's THUGPRO-authored content (once awaiting the user) is included since 2026-10-20, by reference: "New in THUGPRO
+(not in any source game)" below, rows TPN-THPS3-1 ... 6.
 
 THPS4: THUGPRO's edits **not** in the register - they would copy THUGPRO-authored content (its scripts, models, run-time
 level changes) rather than data, which Morten's permission (insights, not 1:1 copies) doesn't cover. Awaiting the
@@ -139,6 +133,69 @@ AU seagull and AU scripts copied in) and its bum (THUG1's TRG_546 renamed and re
 (they call THUGPRO's own Sk3_Killskater_sand, from its thugpro_utils.qb - THUG2 has no such script), NJ's 85 emptied
 trigger scripts (occlusion / vis / proximity triggers: rendering), the other level-script edits, and the host-toggled
 level changes (`<level>_thugpro.qb`).
+
+## New in THUGPRO (not in any source game): `thugpro_new`
+
+The user's decision (2026-10-20, with Morten1337's permission): what THUGPRO made itself - meshes, collision, nodes,
+models, scripts in no source game's files - is included in our ports, kept apart from the hand edits to source data
+(TP-n) in one section per game file, `thugpro_new`. **By reference only**: the section holds THUGPRO's archive and file,
+the item's name and a CRC-32 of the item; the converter reads the bytes from the user's THUGPRO install at convert time
+(`--thugpro`, default `%LOCALAPPDATA%\THUG Pro`) - nothing of THUGPRO's is in the repository. A missing install,
+archive or item, or a CRC that differs, is a warning and the item is skipped (never a failure). On by default
+(`--compat thugpro`); `--no-thugpro-new` leaves it out and keeps the TP-n edits; `--compat none` leaves out both.
+
+The two newer sections (`thugpro_new`, `port_changes`) give every entry `op`: `add` (something the source hasn't),
+`set` (fields of something our port has: only those change; a target ours hasn't is reported, never added) or
+`remove`; and `id` (the row below), `target`, `why`. (TP-1 ... TP-39 keep their own forms.)
+
+### THPS3 (`thps3_levels.json` `thugpro_new`; `_left_out` lists what was found and not taken, with the reason)
+
+| Id | What (op) | Applied in | Source |
+|---|---|---|---|
+| TPN-THPS3-1 | Meshes and collision (add): Foundry's `foun_wire` mesh (the 8 TP-18 wire rails' cluster: visible now, TrickObject / Cluster kept), its 3 `*_coll` quads and the bucket's `Obj_Bucket` collision; Rio's `ES_Building_collision`; Suburbia's 5 `*_collfix` objects (the picnic collider back) | `thugpro_new.loadNew` -> `applyGeometry` (in `convertWorld`: sectors with their materials - renumbered when ours uses the checksum - and textures; collision through `geometry.convertCol`, BSP trees and reaches made again: every face reachable) | THUGPRO's `data\pre\<level>scn.prx` / `col.prx`: sectors and collision objects that aren't THPS3's `.bsp` sectors |
+| TPN-THPS3-2 | Nodes (add): those geometry nodes; Rio's ped `TRG_Ped_2084` and its waypoint loop `TRG_Node_2076`-`2083`, its 3 sound objects and the 8 cars' `*_carplant_collision` (CreatedAtStart added: THUGPRO creates them from its rewrites of the cars' scripts, which ours replaces with THUG2's cars); Suburbia's BBQ noise and the ice-cream truck's carplant; Skater Island's 2 ocean-wave emitters; Tokyo's `TRG_Restart_EventR` / `EventL`; Shipyard's waterslide sound; Warehouse's `Ware_RoomFlicker` | `applyNodes` (after our nodes, before TP-18's rails and TP-12's order; Links by name - a link to a node ours hasn't is dropped and reported) | THUGPRO's level `.qb` node array: names in no THPS3 node array and not made by TP-10 ... TP-18 |
+| TPN-THPS3-3 | THPS3 objects made Vehicles with THUGPRO's model (set: Class, model, skeletonName; our drawn copy of THPS3's `.dff` left out): Foundry's `Obj_Bucket`; Suburbia's ice-cream truck and plane; Tokyo's 2 bullet trains, 3 planes, 18 cars (THUG2's own car models) | `applyNodes`; `cmdConvert` leaves the object's sector out | As TPN-THPS3-2: THUGPRO's Vehicles with a model whose THPS3 node isn't THPS3 traffic (ours makes those THUG2's cars - PC-THPS3-10) |
+| TPN-THPS3-4 | Scripts (add): THUGPRO's own level scripts (sounds, carplants, ped, ocean waves, restarts, train / plane control, Shipyard's window counter...) that THUG2 can run - THUGPRO's DLL commands swapped where THUG2 has an equivalent (`replace_calls`: THUGPRO_ForceCreate -> Create, edmsg2 / Output -> printf) | `writeLevelQb` (appended to the compiled file; one whose name the file has already is left out and reported); the THPS3 scripts they call are brought along by the translator | THUGPRO's `levels\<level>\*.qb`: scripts in no THPS3 file, not THUG2's own, not names ours makes (`load_level_anims`, `<level>_setup`, CTF flags) |
+| TPN-THPS3-5 | THPS3 scripts THUGPRO rewrote to use its new content (set: they replace ours): Skater Island's ocean proximity scripts, Tokyo's plane / train control, Shipyard's 64 glass scripts (its window counter) | `portScripts` (after the translator; a script ours doesn't bring is reported, not added - Tokyo's `JS_BulletTrainWest/EastControl`) | As TPN-THPS3-4 |
+| TPN-THPS3-6 | Models (add): Obj_Bucket, CarPlantNode, CarPlantNode_Bus, icecreamtruck, light_airplane01, bullet_train, plane_jet (their `.mdl` / `.tex` / `.col.xbx`) | `cmdConvert` writes them to `<staging>\models\`; `ported_levels.installFiles` copies them into the overlay's `models` folder | THUGPRO's `<level>_scripts.prx` `models\<name>\` |
+
+Left out (in `_left_out`): its particles (`THUGPRO_SpawnNodeParticles`), anything calling `THUGPRO_SafeKill`, `TP_DoFlash`,
+`Editor_LoadCameraAnimParams`, `THUGPRO_Televator` or `Obj_PlayRandomStream` / `Obj_PlayRandomAnim` / `PlayRandomStream`
+(its DLL's or global scripts' commands: SI's cannons proximity, Shipyard's setup, the cutscenes, its host level
+changes); its sky sectors and its conversions of THPS3's `.dff` objects (THPS3's own data under other checksums: ours
+converts THPS3's); Suburbia's 3 unnamed geometry nodes (no sector or collision anywhere: toolchain leftovers);
+THUGPRO's models of THPS3's Rio / Burnside cars (ours uses THUG2's cars). Regenerate: `node
+tools/thps3_levels/thugpro_compare.ts --thug2 <folder> --extract-thugpro tools/compat/thugpro/thps3_levels.json`;
+check: `node tools/thps3_levels/thugpro_inventory.ts --thug2 <folder> --applied`.
+
+## Our own changes (port_changes)
+
+This project's own deviations from a source game's level data - neither the source's nor THUGPRO's - in the same game
+file's `port_changes` section (`{_comment, entries}`), read through `tools/compat/compat.ts` `portChanges` whatever the
+profile: `--compat none` keeps them. `--no-port-changes` leaves out every entry but the `required` ones (what the game
+needs to load or run the level). Entries use `op` / `id` / `target` / `why` as above.
+
+### THPS3 (`thps3_levels.json` `port_changes`)
+
+| Id | Op | What | Switchable |
+|---|---|---|---|
+| PC-THPS3-1 | remove | Warehouse's dark set (SkWare_Dark* sectors and nodes; `prefixes`, `levels`) | yes |
+| PC-THPS3-2 | set | The start scripts run once from `<level>_setup` | required |
+| PC-THPS3-3 | set | Kill zones as THUG2's SK3_KillSkater with a restart | required |
+| PC-THPS3-4 | add | Multiplayer / Horse types on the Player1 restarts of single-player levels (`nodes.netRestarts`) | yes |
+| PC-THPS3-5 | set | AbsentInNetGames on path followers, peds and cars | required |
+| PC-THPS3-6 | set | TrickObject / Cluster off geometry without a scene sector | required |
+| PC-THPS3-7 | set | Restarts over nothing or a kill zone: no spawn types, no kill target | yes |
+| PC-THPS3-8 | add | Capture the flag made from THPS3's bases in THUG2's form | yes (kept while TP-10 ... TP-12 data is present) |
+| PC-THPS3-9 | set | The Player1 restart first in the node array (levels without TP-12) | yes |
+| PC-THPS3-10 | set | THPS3's traffic as THUG2's cars | required |
+| PC-THPS3-11 | set | THPS3's peds and animals as THUG2's | required |
+| PC-THPS3-12 | remove | Goal pickups, cars / birds not there at the start, objects without converted models, script-less proximity nodes | required |
+| PC-THPS3-13 | remove | Script statements THUG2 can't run; trigger scripts not brought along | required |
+| PC-THPS3-14 | remove | The Links of non-rail nodes | required |
+
+Checked: the default output is unchanged by the move into data (every file); `--compat none --no-port-changes`
+differs in the 13 levels' node arrays (and Warehouse's dark set back in its scene / collision).
 
 ## Run time (in the DLL)
 
