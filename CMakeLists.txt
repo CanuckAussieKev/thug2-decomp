@@ -78,6 +78,23 @@ target_compile_definitions(imgui PUBLIC IMGUI_DISABLE_OBSOLETE_FUNCTIONS IMGUI_D
 target_link_libraries(imgui PRIVATE sdl2)
 target_compile_options(imgui PRIVATE /W0)
 
+# --- stb_image_write 1.16 / stb_image 2.27 (Sean Barrett, public domain or MIT, see THIRD_PARTY_NOTICES.md) ---------
+# The screenshot key's PNG writer (src/game/sys/screenshot_files.cpp) and, for its self-test only, the PNG reader:
+# the stb repository at commit 1ee679c (2021-07-12, stb_image_write's last change), headers only.
+FetchContent_Declare(stb
+    URL https://github.com/nothings/stb/archive/1ee679ca2ef753a528db5ba6801e1067b40481b8.tar.gz
+    URL_HASH SHA256=be9842d207353c89c0b970d618030fe98a944ab3fe1374534cba1b8e934bfdd7
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
+FetchContent_MakeAvailable(stb)
+
+# --- The build's commit (the screenshot sidecar names the DLL's source) -------------------------------------------
+set(THUG2_BUILD_INFO "${CMAKE_BINARY_DIR}/generated/build_info.h")
+add_custom_target(build_info
+    COMMAND ${CMAKE_COMMAND} -DSOURCE_DIR=${CMAKE_SOURCE_DIR} -DOUTPUT=${THUG2_BUILD_INFO}
+            -P "${CMAKE_SOURCE_DIR}/cmake/build_info.cmake"
+    BYPRODUCTS "${THUG2_BUILD_INFO}"
+    COMMENT "Noting the source's commit")
+
 # --- The editor's fonts (SIL Open Font License 1.1, see THIRD_PARTY_NOTICES.md) ---------------------------
 # Inter 4.1 (the UI) and JetBrains Mono 2.304 (numbers, names, checksums): the official release archives, checked
 # against their SHA-256. The TTFs are compressed into the DLL at build time with ImGui's own binary_to_compressed_c
@@ -165,6 +182,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_tod4.cpp
     src/hook/selftests_mouse.cpp
     src/hook/selftests_automation.cpp
+    src/hook/selftests_screenshot.cpp
     src/hook/selftests_sprite.cpp
     src/hook/selftests_netB.cpp
     src/hook/selftests_mainloop.cpp
@@ -289,6 +307,9 @@ add_library(thug2_code OBJECT
     src/game/front/menu_backdrop.cpp
     src/game/front/level_editor.cpp
     src/game/front/restart_tester.cpp
+    src/game/sys/screenshot.cpp
+    src/game/sys/screenshot_files.cpp
+    src/game/gfx/screenshot_capture.cpp
     src/game/front/career_complete.cpp
     src/game/front/start_level.cpp
     src/game/front/automation.cpp
@@ -501,6 +522,9 @@ target_link_libraries(thug2_code PUBLIC minhook sdl2 ws2_32 imgui) # ws2_32: the
 # (the editor's fonts, compressed at build time: level_editor_ui_fonts.cpp includes them)
 add_dependencies(thug2_code editor_fonts)
 target_include_directories(thug2_code PRIVATE "${CMAKE_BINARY_DIR}/editor_fonts")
+# (stb's headers; the generated build_info.h)
+add_dependencies(thug2_code build_info)
+target_include_directories(thug2_code PRIVATE "${stb_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/generated")
 target_compile_definitions(thug2_code PUBLIC WIN32_LEAN_AND_MEAN NOMINMAX)
 target_compile_options(thug2_code PRIVATE /W4 /permissive- /utf-8)
 

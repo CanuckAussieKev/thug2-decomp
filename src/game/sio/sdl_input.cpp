@@ -17,6 +17,7 @@
 #include "game/sys/debug_log.h"
 #include "game/sys/debug_mode.h"
 #include "game/sys/platform_cfuncs.h"
+#include "game/sys/screenshot.h"
 #include "game/sys/sdl_events.h"
 #include "hook/game.h"
 
@@ -983,6 +984,8 @@ void InitSdlInput()
     MouseMenus::Init();
     // (not PartyMod's either - the level editor: its mouse and Escape key)
     Front::LevelEditor::Init();
+    // (nor the screenshot key - game/sys/screenshot.h)
+    Sys::Screenshot::Init();
 }
 
 void ProcessSdlDevice(Device* device)
