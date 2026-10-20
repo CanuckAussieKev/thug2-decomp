@@ -90,6 +90,15 @@ The user's reason: players spawning at different places on the two sides could b
   restart_types, RestartName, CreatedAtStart - spawnChanges(ours, THUGPRO's) empty); thugpro_compare CTF 17 / 17
   with nothing moved; multiplayer restarts the same set and places (20 / 20 Foun, Rio, Shp, Burn; 16 / 16 Sub, SI;
   17 / 17 Tok; 14 / 14 Ware; 18 / 18 Ros). Links, collision, ns.exe, make_menu_level fine; 5 unit tests here.
+- **Order (correction from the lead, after the THUG1 agent's finding)**: the spawns' order counts - THUG2 starts
+  player n at the n-th Multiplayer restart of the node array and respawns at one of the first 8 (Skate 0x00566100 ->
+  GetRestartNode 0x0046B790; CSkater::MoveToRandomRestart 0x00580830, Rnd(8)). The extraction now also writes
+  `order` (every network spawn's name in THUGPRO's array order), and `applySpawns` refills the spawns' slots in that
+  order and renumbers every Links (as tools/thug1_levels' TP-31); `nodes.convertNodes(..., player1First=false)` for
+  levels with TP-12 data (no Player1-first swap - 0x00566100 finds restarts by type). Reordered: Rio 21, Sub 24, SI
+  26, Tok 26, Shp 24, Ware 15, Burn 21, Ros 19 spawns (Foun was already in order). thugpro_compare: "spawns same" (every
+  network spawn by name in the same order) and "mp restarts same" in all 9; `--compat none` still identical; links in
+  range, rail links to rails, 0 unreachable faces, ns.exe, make_menu_level, 6 unit tests.
 
 ## THUGPRO hand edits: inventory (against THPS3's own data; nothing changed but the spawns)
 `node tools/thps3_levels/thugpro_inventory.ts --thug2 <folder> [--examples N] [--json out]` lists them per level.
@@ -133,9 +142,7 @@ and sound objects added), Tokyo's trains / planes / cars (flags), node class cha
 translation - restart scripts Foun 16, Ware 14).
 
 ## Still different from THUGPRO
-- Spawns: unified by TP-12 (below). Multiplayer restarts in the same order as THUGPRO's only in Foun and Rio; elsewhere
-  the same set and places in another order (our CTF restarts are appended) - local only (a spawn is picked by index
-  on each machine), left as is.
+- Spawns: unified by TP-12 - places, types and order (above).
 - Features THUGPRO has and we don't (all THUGPRO-authored unless noted): particles (Foun_TP_*, *_TP_Particle_Sprinkler,
   NextParticle*), Tokyo's bullet trains and planes, the restarts' own THPS3 trigger scripts (ours run the start
   scripts once from the setup script instead), bouncy objects as THUG2 Bouncy game objects (THPS3 data: BouncyObject

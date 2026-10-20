@@ -189,6 +189,13 @@ export function compare(entry: portedLevels.LevelEntry, oursDir: string, thugpro
     out.worst = [new Float(pyRound(worst[0], 3)), worst[1]];
     out.crowns = sameSequence(sequence(ours.array, isCrown), sequence(theirs.array, isCrown))[0];
     out.mp_restarts = sameSequence(sequence(ours.array, isMpRestart), sequence(theirs.array, isMpRestart))[0];
+    // every network spawn by name, in array order (THUG2 starts player n at the n-th Multiplayer restart)
+    const spawnNames = (array: readonly QbValue[]): string =>
+        structs(array)
+            .filter(isSpawn)
+            .map((n) => nameOf(n))
+            .join();
+    out.spawn_order = spawnNames(ours.array) === spawnNames(theirs.array) ? "same" : "differs";
     const ourMp = mpRestartNames(ours.array);
     const theirMp = mpRestartNames(theirs.array);
     out.mp_restarts_only_ours = nameList(
@@ -434,7 +441,11 @@ export function extractThugpro(thps3Dir: string, thugpro: string): Record<string
             theirNames,
             new Set([qb.checksum("TRG_Team_Restart")]), // (TP-11's)
         );
-        if (Object.keys(changed).length || removed.length) spawnData[key] = { changed, removed };
+        // (every network spawn, in THUGPRO's array order: the order decides who starts where)
+        const order = theirs
+            .filter((n): n is Struct => n instanceof Struct && isSpawn(n))
+            .map((n) => theirNames.get(nameOf(n)!) ?? `#${hex8(nameOf(n)!)}`);
+        spawnData[key] = { changed, removed, order };
     }
     return {
         _comment:
@@ -513,7 +524,7 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
             `${r.folder.padEnd(10)} ${r.level.padEnd(16)} vs ${String(r.reference)}: load script ${r.same_load_script ? "same" : "DIFFERS"}; ` +
                 `nodes ${r.nodes_ours}/${r.nodes_theirs}, ${r.shared} shared, ${r.same_place} at the same place ` +
                 `(worst ${formatFixed(worst[0].value, 3)} ${worst[1] || ""}); crowns ${r.crowns}; mp restarts ` +
-                `${r.mp_restarts}; ctf ${(r.ctf_ours as string[]).length}/${(r.ctf_theirs as string[]).length}` +
+                `${r.mp_restarts}; spawns ${r.spawn_order}; ctf ${(r.ctf_ours as string[]).length}/${(r.ctf_theirs as string[]).length}` +
                 `${(r.ctf_moved as string[]).length ? ` (moved: ${(r.ctf_moved as string[]).join(" ")})` : ""}; triggers ${r.triggers}; ` +
                 `scripts ${r.scripts}; collision unreachable ours ${colOurs[1]}, theirs ${colTheirs[1]}`,
         );
