@@ -116,7 +116,13 @@ bool SameSpec(const Spec& a, const Spec& b)
            a.pos.z == b.pos.z && a.angles.x == b.angles.x && a.angles.y == b.angles.y && a.angles.z == b.angles.z &&
            a.types == b.types && a.colour[0] == b.colour[0] && a.colour[1] == b.colour[1] &&
            a.colour[2] == b.colour[2] && a.brightness == b.brightness && a.inner == b.inner && a.outer == b.outer &&
-           a.radius == b.radius && a.like == b.like && a.terrain == b.terrain && a.links == b.links;
+           a.radius == b.radius && a.like == b.like && a.terrain == b.terrain && a.links == b.links &&
+           a.owned == b.owned && a.extra.size() == b.extra.size() &&
+           std::equal(a.extra.begin(), a.extra.end(), b.extra.begin(), [](const Field& x, const Field& y) {
+               return x.type == y.type && x.key == y.key && x.text == y.text && x.value[0] == y.value[0] &&
+                      x.value[1] == y.value[1] && x.value[2] == y.value[2] && x.integer == y.integer &&
+                      x.list == y.list && x.integers == y.integers;
+           });
 }
 
 bool KindOf(const Spec& spec, Kind* kind)
@@ -290,8 +296,10 @@ std::vector<Field> Fields(const Spec& spec)
         return fields;
     }
     Kind kind;
-    if (!KindOf(spec, &kind))
+    if (!KindOf(spec, &kind)) {
+        fields.insert(fields.end(), spec.extra.begin(), spec.extra.end()); // (another module's node)
         return fields;
+    }
     int team = TeamOf(kind == Kind::FlagSet ? spec.type : spec.name);
     std::string colour = team >= 0 ? kTeamNames[team] : "";
     switch (kind) {
@@ -335,6 +343,7 @@ std::vector<Field> Fields(const Spec& spec)
         number("Radius", spec.radius);
         break;
     }
+    fields.insert(fields.end(), spec.extra.begin(), spec.extra.end());
     return fields;
 }
 
@@ -497,9 +506,13 @@ void RemoveLight(uint32_t name) { GameFunction<void(__cdecl*)(uint32_t)>(0x0048F
 
 void Forget();
 
+void (*g_arrayRemovedListener)(uint32_t name); // (SetArrayRemovedListener)
+
 // The node manager's hook: the level's array going takes the overlay with it.
 void OnArrayRemoved(uint32_t name)
 {
+    if (g_arrayRemovedListener)
+        g_arrayRemovedListener(name);
     if (name == Nodes::OverlayArray() || !g_registered || name != g_levelArray)
         return;
     Log("level editor: the level's node array left - its %u added nodes go with it",
@@ -726,6 +739,12 @@ bool InLevel()
 }
 
 } // namespace
+
+void SetArrayRemovedListener(void (*listener)(uint32_t name))
+{
+    g_arrayRemovedListener = listener;
+    SkateScript::SetNodeArrayRemovedHook(&OnArrayRemoved);
+}
 
 List Current()
 {

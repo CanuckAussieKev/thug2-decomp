@@ -16,6 +16,7 @@
 #include "game/front/level_editor_node_edit.h"
 #include "game/front/level_editor_nodes.h"
 #include "game/front/level_editor_picking.h"
+#include "game/front/level_editor_triggers.h"
 #include "game/front/level_editor_scale.h"
 #include "game/front/level_editor_ui_backend.h"
 #include "game/front/level_editor_ui_fonts.h"
@@ -1034,6 +1035,7 @@ void Inspector(const Model& model)
     const Model::Selection& s = model.selection;
     if (model.nodes.nodeOnly) {
         NodeSection(model, model.nodes.selected);
+        Triggers::InspectorSection(model.nodes.selected); // (a trigger volume's settings - level_editor_triggers.h)
     } else if (s.objects == 0 && s.sectors == 0 && !model.view.wall) {
         ImGui::TextWrapped("Nothing selected - click something in the view (a gizmo, an object, scenery), or pick it "
                            "in the Outliner.");
@@ -1234,6 +1236,14 @@ void Help(const Model& model)
         {"", "H", "hides the selection while editing (from the view and from clicks; never saved, never in play)"},
         {"", "I or /", "isolates the selection: everything else hidden while editing"},
         {"", "Alt+H", "shows everything hidden in the editor again"},
+        {"Triggers", "T", "shows the trigger volumes - kill zones red, teleports purple (an arrow to where they send), "
+                          "gap starts green, gap ends yellow, scripts cyan - and the Triggers window: add a kill zone, "
+                          "water, a teleport, a script, a gap (its start and end); the level's listed"},
+        {"", "Click a volume", "selects it (Alt passes volumes); an added one moves, turns (Z / X) and drops (G) as a node "
+                               "does - its kind, size, restart / target / script and gap (name, score, flags) in the "
+                               "Inspector"},
+        {"", "Delete, Ctrl+Z", "deletes an added volume, undoes; a level's own one: Switch off, Move it (collision only: as an "
+                               "invisible wall), or Make an editable copy (the original off meanwhile) - the Triggers window"},
         {"", "O", "occlusion culling: off while editing (the level's occluders are placed for the skater's view and "
                    "hide distant things from the flying camera); O turns it on as in play"},
         {"Camera", "P", "writes where the camera is to the log (a menu backdrop view)"},
@@ -1763,6 +1773,8 @@ void Frame(const Model& model, const Overlay& overlay)
     ConfirmReset(model);
     CollisionLegend(model);
     OnlineWarning(model);
+    Triggers::Window(g_layout.viewport.x, g_layout.viewport.y, g_layout.viewport.width, g_layout.viewport.height, g_scale,
+                     model.nodes.selected);
     ImGui::PopFont();
     ImGui::Render();
     UiBackend::Render();
