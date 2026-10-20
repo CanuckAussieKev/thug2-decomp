@@ -1595,6 +1595,10 @@ export interface SpawnPlacement extends CompatPlacement {
 export interface SpawnCompat {
     changed: Record<string, SpawnPlacement>; // by node name
     removed: string[]; // THPS3's network spawns THUGPRO doesn't have
+    // every network spawn's name in THUGPRO's node-array order: THUG2 starts player n at the n-th Multiplayer restart of
+    // the array and respawns at one of the first 8 (Skate 0x00566100 -> GetRestartNode 0x0046B790;
+    // CSkater::MoveToRandomRestart 0x00580830: Rnd(8)) - the order decides who starts where
+    order?: string[];
 }
 
 // TP-12 (approved by the user 2026-10-20: both sides should spawn players alike): the converted node array's network
@@ -1659,7 +1663,44 @@ export function applySpawns(converted: Struct[], names: Names, spawns: SpawnComp
         mine.set("restart_types", [n("Generic")]);
         removed += 1;
     }
-    return `TP-12 spawns as THUGPRO's: ${moved} changed, ${added} added, ${removed} no longer network spawns`;
+    let ordered = "";
+    if (spawns.order !== undefined) {
+        // (the spawns' slots in the array, refilled in THUGPRO's order; every node's Links follow - as
+        // tools/thug1_levels' TP-31)
+        const isNetSpawn = (node: Struct): boolean => {
+            const types = node.get("restart_types");
+            return (
+                nodes.classOf(node, names) === "restart" &&
+                Array.isArray(types) &&
+                types.some(
+                    (x) => x instanceof Name && nodes.NET_RESTART_TYPES.has((names.get(x.value) ?? "").toLowerCase()),
+                )
+            );
+        };
+        const slots = converted.flatMap((node, i) => (isNetSpawn(node) ? [i] : []));
+        const index = new Map<number, number>();
+        converted.forEach((node, i) => {
+            const nm = node.get("Name");
+            if (nm instanceof Name && !index.has(nm.value)) index.set(nm.value, i);
+        });
+        const wanted = spawns.order.map((name) => index.get(qb.checksum(name)) ?? -1);
+        if ([...wanted].sort((a, b) => a - b).join() !== slots.join())
+            throw new FormatError("TP-12's spawn order names other restarts than the level's spawns");
+        const moveTo = new Map(wanted.map((from, k) => [from, slots[k]!] as const)); // old index -> new
+        const before = [...converted];
+        for (const [from, to] of moveTo) converted[to] = before[from]!;
+        const links = qb.checksum("Links");
+        for (const node of converted) {
+            node.entries = node.entries.map(([k, v]) => [
+                k,
+                k !== null && k.value === links && Array.isArray(v)
+                    ? v.map((x) => (typeof x === "number" && moveTo.has(x) ? moveTo.get(x)! : x))
+                    : v,
+            ]);
+        }
+        if (wanted.some((from, k) => from !== slots[k])) ordered = `, ${slots.length} spawns in THUGPRO's order`;
+    }
+    return `TP-12 spawns as THUGPRO's: ${moved} changed, ${added} added, ${removed} no longer network spawns${ordered}`;
 }
 
 export const NO_COMPAT: LevelCompat = { flags: {}, extra: {} };
@@ -1977,7 +2018,17 @@ export function convertNodeArray(
         }
         for (const s of made.scripts) wanted.add(s);
     }
-    const [converted, stats] = nodes.convertNodes(kept, names, kills, [], made ? made.ids : [], wanted);
+    // (TP-12: the restarts keep THPS3's order - no Player1-first swap, 0x00566100 finds restarts by type - and the
+    // spawns are then put in THUGPRO's order by applySpawns)
+    const [converted, stats] = nodes.convertNodes(
+        kept,
+        names,
+        kills,
+        [],
+        made ? made.ids : [],
+        wanted,
+        ctfCompat.spawns === undefined,
+    );
     kills = nodes.addKillRestarts(converted, kills, names);
     let scripts = new Map<number, Buffer>();
     let setup: string | null = null;

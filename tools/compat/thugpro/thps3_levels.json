@@ -1420,7 +1420,30 @@
           "created": true
         }
       },
-      "removed": []
+      "removed": [],
+      "order": [
+        "TRG_Restart_1P",
+        "TRG_Restart_3P",
+        "TRG_Restart_4P",
+        "TRG_Restart_6P",
+        "TRG_Restart_5P",
+        "TRG_Restart_2P",
+        "TRG_Restart_8P",
+        "TRG_Restart_7P",
+        "TRG_CTF1_Restart_1P",
+        "TRG_CTF1_Restart_2P",
+        "TRG_CTF1_Restart_3P",
+        "TRG_CTF1_Restart_4P",
+        "TRG_CTF2_Restart_4P",
+        "TRG_CTF2_Restart_3P",
+        "TRG_CTF2_Restart_2P",
+        "TRG_CTF2_Restart_1P",
+        "TRG_CTF_Restart_Blue",
+        "TRG_CTF_Restart_Red",
+        "TRG_CTF_Restart_Green",
+        "TRG_CTF_Restart_Yellow",
+        "TRG_Team_Restart"
+      ]
     },
     "rio": {
       "changed": {
@@ -1505,7 +1528,30 @@
           "created": true
         }
       },
-      "removed": []
+      "removed": [],
+      "order": [
+        "TRG_Restart_1P",
+        "TRG_Restart_5P",
+        "TRG_Restart_2P",
+        "TRG_Restart_3P",
+        "TRG_Restart_4P",
+        "TRG_Restart_6P",
+        "TRG_Restart_7P",
+        "TRG_Restart_8P",
+        "TRG_CTF2_Restart_1P",
+        "TRG_CTF2_Restart_2P",
+        "TRG_CTF2_Restart_3P",
+        "TRG_CTF2_Restart_4P",
+        "TRG_CTF1_Restart_1P",
+        "TRG_CTF1_Restart_2P",
+        "TRG_CTF1_Restart_3P",
+        "TRG_CTF1_Restart_4P",
+        "TRG_Team_Restart",
+        "TRG_CTF_Restart_Blue",
+        "TRG_CTF_Restart_Red",
+        "TRG_CTF_Restart_Green",
+        "TRG_CTF_Restart_Yellow"
+      ]
     },
     "sub": {
       "changed": {
@@ -1590,7 +1636,33 @@
           "created": false
         }
       },
-      "removed": []
+      "removed": [],
+      "order": [
+        "TRG_Restart_Player1",
+        "TRG_Restart_Player2",
+        "TRG_Restart_Player3",
+        "TRG_Restart_Player4",
+        "TRG_Restart_Horse1",
+        "TRG_Restart_Horse02",
+        "TRG_Restart_Horse03",
+        "TRG_Restart_Horse04",
+        "TRG_Restart_Horse05",
+        "TRG_Restart_Horse06",
+        "TRG_Restart_Horse07",
+        "TRG_CTF2_Restart_1P",
+        "TRG_CTF2_Restart_2P",
+        "TRG_CTF2_Restart_3P",
+        "TRG_CTF2_Restart_4P",
+        "TRG_CTF1_Restart_1P",
+        "TRG_CTF1_Restart_2P",
+        "TRG_CTF1_Restart_3P",
+        "TRG_CTF1_Restart_4P",
+        "TRG_CTF_Restart_Red",
+        "TRG_CTF_Restart_Green",
+        "TRG_CTF_Restart_Blue",
+        "TRG_CTF_Restart_Yellow",
+        "TRG_Team_Restart"
+      ]
     },
     "si": {
       "changed": {
@@ -1693,7 +1765,35 @@
           "created": false
         }
       },
-      "removed": []
+      "removed": [],
+      "order": [
+        "TRG_Restart_Player2",
+        "TRG_Restart_Player3",
+        "TRG_Restart_Player4",
+        "TRG_Restart_Horse01",
+        "TRG_Restart_Horse02",
+        "TRG_Restart_Horse03",
+        "TRG_Restart_Horse04",
+        "TRG_Restart_Horse05",
+        "TRG_Restart_Horse06",
+        "TRG_Restart_Horse07",
+        "TRG_Restart_Horse08",
+        "TRG_Restart_Horse09",
+        "TRG_Restart_Player1",
+        "TRG_CTF2_Restart_1P",
+        "TRG_CTF2_Restart_2P",
+        "TRG_CTF2_Restart_3P",
+        "TRG_CTF2_Restart_4P",
+        "TRG_CTF1_Restart_1P",
+        "TRG_CTF1_Restart_2P",
+        "TRG_CTF1_Restart_3P",
+        "TRG_CTF1_Restart_4P",
+        "TRG_Team_Restart",
+        "TRG_CTF_Restart_Red",
+        "TRG_CTF_Restart_Green",
+        "TRG_CTF_Restart_Blue",
+        "TRG_CTF_Restart_Yellow"
+      ]
     },
     "tok": {
       "changed": {
@@ -1798,7 +1898,35 @@
           "created": false
         }
       },
-      "removed": []
+      "removed": [],
+      "order": [
+        "TRG_Restart_1P",
+        "TRG_Restart_Player1",
+        "TRG_Restart_Player2",
+        "TRG_Restart_Player4",
+        "TRG_Restart_Player3",
+        "TRG_Restart_HORSE_00",
+        "TRG_Restart_HORSE_01",
+        "TRG_Restart_HORSE_02",
+        "TRG_Restart_HORSE_03",
+        "TRG_Restart_HORSE_04",
+        "TRG_Restart_HORSE_05",
+        "TRG_Restart_HORSE_06",
+        "TRG_Restart_HORSE_07",
+        "TRG_CTF1_Restart_1P",
+        "TRG_CTF1_Restart_2P",
+        "TRG_CTF1_Restart_3P",
+        "TRG_CTF1_Restart_4P",
+        "TRG_CTF2_Restart_1P",
+        "TRG_CTF2_Restart_2P",
+        "TRG_CTF2_Restart_4P",
+        "TRG_CTF2_Restart_3P",
+        "TRG_Team_Restart",
+        "TRG_CTF_Restart_Red",
+        "TRG_CTF_Restart_Blue",
+        "TRG_CTF_Restart_Yellow",
+        "TRG_CTF_Restart_Green"
+      ]
     },
     "shp": {
       "changed": {
@@ -1883,7 +2011,33 @@
           "created": false
         }
       },
-      "removed": []
+      "removed": [],
+      "order": [
+        "TRG_Restart01",
+        "TRG_Restart08",
+        "TRG_Restart03",
+        "TRG_Restart04",
+        "TRG_Restart05",
+        "TRG_Restart06",
+        "TRG_Restart07",
+        "TRG_Restart02",
+        "TRG_Restart10",
+        "TRG_Restart11",
+        "TRG_Restart12",
+        "TRG_CTF1_Restart_1P",
+        "TRG_CTF1_Restart_2P",
+        "TRG_CTF1_Restart_3P",
+        "TRG_CTF1_Restart_4P",
+        "TRG_CTF2_Restart_1P",
+        "TRG_CTF2_Restart_2P",
+        "TRG_CTF2_Restart_3P",
+        "TRG_CTF2_Restart_4P",
+        "TRG_Team_Restart",
+        "TRG_CTF_Restart_Red",
+        "TRG_CTF_Restart_Green",
+        "TRG_CTF_Restart_Blue",
+        "TRG_CTF_Restart_Yellow"
+      ]
     },
     "ware": {
       "changed": {
@@ -2045,6 +2199,23 @@
         "TRG_CTF1_Restart_2P",
         "TRG_CTF1_Restart_3P",
         "TRG_CTF1_Restart_4P"
+      ],
+      "order": [
+        "TRG_Ware_Restart01",
+        "TRG_Ware_Restart_HPJump",
+        "TRG_Ware_Restart_BigRail",
+        "TRG_Ware_Restart_HolyShi",
+        "TRG_Ware_Restart_TaxiJump",
+        "TRG_Ware_Restart_Kickers",
+        "TRG_CTF_Restart_Blue",
+        "TRG_CTF_Restart_Red",
+        "TRG_CTF_Restart_Yellow",
+        "TRG_CTF_Restart_Green",
+        "TRG_CTF2_Restart_1P",
+        "TRG_CTF2_Restart_2P",
+        "TRG_CTF2_Restart_3P",
+        "TRG_CTF2_Restart_4P",
+        "TRG_Team_Restart"
       ]
     },
     "burn": {
@@ -2130,7 +2301,30 @@
           "created": true
         }
       },
-      "removed": []
+      "removed": [],
+      "order": [
+        "TRG_RestartP1",
+        "TRG_Restart_Backside",
+        "TRG_Restart_THPS1Start",
+        "TRG_Restart_TripleRail",
+        "TRG_Restart_Bowl",
+        "TRG_Restart_Frontside",
+        "TRG_Restart_Horseshoe",
+        "TRG_Restart_TripleRailRewind",
+        "TRG_CTF_Restart_Blue",
+        "TRG_CTF_Restart_Red",
+        "TRG_CTF_Restart_Green",
+        "TRG_CTF_Restart_Yellow",
+        "TRG_CTF1_Restart_1P",
+        "TRG_CTF1_Restart_2P",
+        "TRG_CTF1_Restart_3P",
+        "TRG_CTF1_Restart_4P",
+        "TRG_CTF2_Restart_1P",
+        "TRG_CTF2_Restart_2P",
+        "TRG_CTF2_Restart_3P",
+        "TRG_CTF2_Restart_4P",
+        "TRG_Team_Restart"
+      ]
     },
     "ros": {
       "changed": {
@@ -2215,7 +2409,28 @@
           "created": true
         }
       },
-      "removed": []
+      "removed": [],
+      "order": [
+        "TRG_Ros_RestartP1",
+        "TRG_Ros_Restart_Multi01",
+        "TRG_Ros_Restart_Multi02",
+        "TRG_Ros_Restart_Multi04",
+        "TRG_Ros_Restart_Multi05",
+        "TRG_Ros_Restart_Multi06",
+        "TRG_CTF_Restart_Blue",
+        "TRG_CTF_Restart_Red",
+        "TRG_CTF_Restart_Green",
+        "TRG_CTF_Restart_Yellow",
+        "TRG_CTF1_Restart_1P",
+        "TRG_CTF2_Restart_1P",
+        "TRG_CTF2_Restart_2P",
+        "TRG_CTF2_Restart_3P",
+        "TRG_CTF2_Restart_4P",
+        "TRG_CTF1_Restart_2P",
+        "TRG_CTF1_Restart_3P",
+        "TRG_CTF1_Restart_4P",
+        "TRG_Team_Restart"
+      ]
     }
   }
 }

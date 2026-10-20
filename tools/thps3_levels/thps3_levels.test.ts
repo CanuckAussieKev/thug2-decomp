@@ -181,3 +181,29 @@ test("TP-12: spawns made as THUGPRO's - changed in place, added, removed ones no
     assert.deepEqual((added.get("Pos") as Vector).values, [4, 5, 6]);
     assert.equal(applySpawns(converted, names, undefined), "");
 });
+
+test("TP-12: the spawns refilled in THUGPRO's order, Links following", () => {
+    const names = new Map<number, string>();
+    for (const t of ["Restart", "RailNode", "MultiPlayer", "Player1"]) names.set(qb.checksum(t), t);
+    const node = (name: string, cls: string, types: string[], links: number[] = []): Struct =>
+        new Struct([
+            [n("Name"), n(name)],
+            [n("Class"), n(cls)],
+            ...(types.length ? ([[n("restart_types"), types.map(n)]] as qb.Entry[]) : []),
+            ...(links.length ? ([[n("Links"), links]] as qb.Entry[]) : []),
+        ]);
+    // [A (spawn), rail -> 2, B (spawn), P1 (not a spawn), C (spawn)]
+    const converted = [
+        node("A", "Restart", ["MultiPlayer"]),
+        node("R", "RailNode", [], [2]),
+        node("B", "Restart", ["MultiPlayer"]),
+        node("P1", "Restart", ["Player1"]),
+        node("C", "Restart", ["MultiPlayer"]),
+    ];
+    const report = applySpawns(converted, names, { changed: {}, removed: [], order: ["C", "A", "B"] });
+    assert.match(report, /3 spawns in THUGPRO's order/);
+    const order = converted.map((s) => (s.get("Name") as Name).value);
+    assert.deepEqual(order, ["C", "R", "A", "P1", "B"].map(qb.checksum));
+    assert.deepEqual(converted[1]!.get("Links"), [4]); // (B moved from 2 to 4)
+    assert.throws(() => applySpawns(converted, names, { changed: {}, removed: [], order: ["C", "A"] }));
+});
