@@ -95,7 +95,9 @@ travel). No THAW level (THAW's or THUGPRO's) has a NetEnabled node, so no 0x49 c
 Changes (tools/thaw_levels):
 - Names: each level is named after its zone (`z_ma`: Load_z_ma, Level_z_ma, levels\z_ma\z_ma.*, z_ma_NodeArray), as
   THUGPRO names 11 of them. Chicago, Kyoto, Santa Cruz and Vans Park THUGPRO renamed (its own choice, not THAW data):
-  those four don't meet online until a translation is added (see the report). `--legacy-names`: thaw_<xx>.
+  (lead, the user's decision) those four take THUGPRO's names - skatepark, kyoto, sz, vans (`ONLINE_NAMES` in
+  thaw_levels.py) - as protocol identifiers, since online the load script's name is the level: all 15 now named as
+  THUGPRO's. `--legacy-names`: thaw_<xx>.
 - Frame: an area with a <zone>_Zone_Origin node moves by minus its Pos, every axis, in whole sixteenths (THUGPRO's
   rule; BSP splits stay exact). Vans Park is left in THAW's frame as THUGPRO's toolchain left it. Result vs THUGPRO's
   installed node arrays: CH, MA, DN, JA, SZ, SV2, SV, HO, BH, DT, SR, LV, OI the same (all but 0-17 hand-moved nodes

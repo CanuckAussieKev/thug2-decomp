@@ -15,7 +15,7 @@ Needs Python 3 and NeverScript (`tools\build_neverscript.ps1` -> `out\neverscrip
 own, as THAW loads it for classic and online games - no story props, vehicles or sounds), the sky
 (`data\skies\TestLevel_Sky`), `data\pak\qb.pak.wpc`'s levels.qb and `data\pak\dbg.pak.wpc` (the names of the
 checksums), and writes `<thug2>\thug2-decomp-thaw\`: `levels\z_<xx>\z_<xx>.scn.xbx / .tex.xbx / .col.xbx /
-.qb` (the level named after its zone, as THUGPRO's are: online the load script's name is the level), `levels\thaw_sky` and `levels.json`. The default is all 15 levels of the table `LEVELS` in `thaw_levels.py`:
+.qb` (the level named after its zone, as THUGPRO's are - four with THUGPRO's own names, `ONLINE_NAMES`: online the load script's name is the level), `levels\thaw_sky` and `levels.json`. The default is all 15 levels of the table `LEVELS` in `thaw_levels.py`:
 the classic ones (Z_CH Chicago, Z_MA The Mall, Z_DN Minneapolis, Z_JA Kyoto, Z_SZ Santa Cruz, Z_SV2 The Ruins) and
 the story's areas (Z_SV Vans Park, Z_HO Hollywood, Z_BH Beverly Hills, Z_DT Downtown, Z_EL East LA, Z_SM Santa
 Monica, Z_SR Skate Ranch, Z_LV Casino, Z_OI Oil Rig). Name some to convert only those (`convert Z_CH MA`). Level

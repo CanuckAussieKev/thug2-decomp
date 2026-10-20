@@ -82,9 +82,19 @@ BY_ZONE = {zone.lower(): (zone, sign, location, icon, num, default)
 FRAME_KEPT = {"Z_SV"}
 
 
+# Online a level is known only by its load script's checksum (messages 0x46 / 0x33): two players can share a level
+# only when both name it alike. THUGPRO kept THAW's zone name for 11 areas and renamed these four; they're its names,
+# not THAW data, taken as protocol identifiers (as OnlineGameName=thugpro is) so all 15 load across with THUGPRO
+# players (names from Morten1337's THUGPRO, its installed data\pre).
+ONLINE_NAMES = {"Z_CH": "skatepark", "Z_JA": "kyoto", "Z_SZ": "sz", "Z_SV": "vans"}
+
+
 def level_name(zone, legacy=False):
-    # The level's THUG2 name: THAW's zone name (z_ma), or (legacy) the thaw_<xx> this converter used before.
-    return "thaw_" + zone.lower()[2:] if legacy else zone.lower()
+    # The level's THUG2 name: THAW's zone name (z_ma) or its ONLINE_NAMES one, or (legacy) the thaw_<xx> this
+    # converter used before.
+    if legacy:
+        return "thaw_" + zone.lower()[2:]
+    return ONLINE_NAMES.get(zone, zone.lower())
 
 
 def sixteenths(v):
