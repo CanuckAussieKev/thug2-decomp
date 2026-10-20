@@ -285,6 +285,7 @@ std::string Write(const File& file)
             Triple(out, "angles", s.angles);
         Comment(out, s.name);
     }
+    out << Chains::WriteRecords(file.chains);
     return out.str();
 }
 
@@ -393,6 +394,8 @@ bool Read(const std::string& text, File* file, int* lineNumber)
             ok = (in >> what) && ReadHex(in, &id);
             if (ok && (what == "object" || what == "sector"))
                 file->locks.push_back({what == "object" ? Picking::kObjects : Picking::kScenery, id});
+        } else if (Chains::IsRecord(kind)) {
+            ok = Chains::ReadRecord(kind, in, &file->chains); // (phase 4: point / links / drop / terrain)
         } // (anything else: a later version's record - skipped)
         if (!ok)
             return false;
@@ -578,6 +581,10 @@ bool Capture(File* file)
     file->scene = Scenery::SceneName(scene);
     file->sectors = Scenery::ChangedSectors();
     file->rails = Scenery::ChangedRails();
+    // (a rail point the editor added: its `point` record has where it is now - not a `rail` offset)
+    file->rails.erase(std::remove_if(file->rails.begin(), file->rails.end(),
+                                     [](const Scenery::RailState& r) { return NodeCreate::IsAdded(r.name); }),
+                      file->rails.end());
     for (const Scenery::Clone& clone : Scenery::Clones()) {
         Placement now;
         if (Scenery::PlacementNow(clone.checksum, &now) && !Scenery::Hidden(clone.checksum))
@@ -600,11 +607,19 @@ bool Capture(File* file)
         file->copies.push_back(record);
     }
     // Added nodes (as `node` records, where they are now; the crowns' order is theirs), hidden ones.
+    // (rail / path points: the chains' `point` records; the level's points deleted: `drop`, not `hide`)
+    file->chains = Chains::Current();
     file->added = NodeCreate::Current();
+    file->added.erase(std::remove_if(file->added.begin(), file->added.end(),
+                                     [](const NodeCreate::Spec& s) { return Chains::IsChainClass(s.cls); }),
+                      file->added.end());
     std::vector<std::string> crowns = NodeCreate::CrownOrder(file->added);
     if (crowns.size() > 1)
         file->crownOrder = crowns;
-    file->hidden = NodeCreate::HiddenNames();
+    for (uint32_t name : NodeCreate::HiddenNames()) {
+        if (std::find(file->chains.dropped.begin(), file->chains.dropped.end(), name) == file->chains.dropped.end())
+            file->hidden.push_back(name);
+    }
     file->locks = Picking::Locks();
     for (const NodeEdit::Record& node : NodeEdit::Changed()) {
         if (NodeCreate::IsAdded(node.name))
@@ -683,13 +698,20 @@ std::string Apply(const File& file)
             ++nodes;
     }
     Picking::SetLocks(file.locks);
+    // Chains (phase 4): added rail / path points, relinked and dropped level points, terrains - the rail manager built
+    // again with them; peds / cars whose path changed made again.
+    if (!Chains::Empty(file.chains))
+        Chains::SetState(file.chains);
     if (!message.empty())
         Log("level editor: %s", message.c_str());
-    char summary[256];
+    char summary[320];
     std::snprintf(summary, sizeof(summary),
-                  "%u pieces, %u copies, %u rail points, %d objects, %d object copies, %d nodes, %d added, %d hidden",
+                  "%u pieces, %u copies, %u rail points, %d objects, %d object copies, %d nodes, %d added, %d hidden, "
+                  "%u chain points, %u relinked, %u dropped",
                   static_cast<unsigned>(file.sectors.size()), static_cast<unsigned>(clones.size()),
-                  static_cast<unsigned>(file.rails.size()), objects, copies, nodes, added, hidden);
+                  static_cast<unsigned>(file.rails.size()), objects, copies, nodes, added, hidden,
+                  static_cast<unsigned>(file.chains.points.size()), static_cast<unsigned>(file.chains.links.size()),
+                  static_cast<unsigned>(file.chains.dropped.size()));
     return summary;
 }
 
@@ -699,6 +721,9 @@ std::string Apply(const File& file)
 // Apply).
 void ResetToLevel(const File& keep)
 {
+    // (the chains first: added points removed, links and terrains as the level has them, dropped points shown, the
+    // rail manager built again - then the moved rail points below are put back in it)
+    Chains::SetState(Chains::State{});
     std::vector<Scenery::SectorState> sectors = Scenery::ChangedSectors();
     for (Scenery::SectorState& state : sectors) {
         state.placement = {0, {0.0f, 0.0f, 0.0f}};
@@ -988,6 +1013,7 @@ void OnSceneLoaded(const char* name, bool isNet)
     Scenery::Clones().clear();
     Objects::ForgetLevel();
     NodeEdit::ForgetLevel();
+    Chains::ForgetLevel(); // (before the overlay goes: the level's links put back while its array is the one loaded)
     NodeCreate::ForgetLevel();
     Picking::ClearLocks();
     g_pending = true; // (Tick decides: the edited copy if it was picked, never in a network session)

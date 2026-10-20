@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "game/front/level_editor.h"
+#include "game/front/level_editor_chains.h"
 
 union SDL_Event;
 
@@ -144,7 +145,11 @@ struct Model {
         // A rail node: it moves with its whole rail (else alone - L), how many points that is.
         bool rail = false, wholeRail = true;
         int railPoints = 0;
+        const char* chainNoun = "rail"; // (phase 4: "rail", "ladder" or "path" - the Whole ... checkbox)
     } nodes;
+    // Phase 4 (level_editor_chains.h): the selected node's chain - a rail's, a path's, or a ped's / car's path - and
+    // what the editor waits for (drawing, a pick).
+    Chains::View chain;
     // The Place palette (N): what can be added - each entry's label, gizmo colour and, when it can't be now, why -
     // and the one armed (a click in the view places it; -1: none).
     struct PlaceView {
@@ -252,12 +257,17 @@ struct Request {
         kClearWall,     // the invisible wall's Inspector closed
         kScaleSet,      // the Inspector's Scale (scenery): a[0] = the scale asked for
         kScaleDone,     // that field let go (the changes since its first kScaleSet: one undo step)
+        kChainOp,       // value: a Chains::Op on the selected node, id: its argument (a terrain)
     } kind;
     int value = 0;
     uint32_t id = 0;
     float a[3] = {}, b[3] = {};
 };
 std::vector<Request> TakeRequests();
+
+// The Inspector's chain section (level_editor_chains_ui.cpp): drawn inside the node's section; what's asked for added
+// to `requests`.
+void ChainSection(const Chains::View& chain, std::vector<Request>* requests);
 
 // The preview picture's size in pixels for the window's size now (256 at 1280 x 720, up to 512).
 int PreviewPixels();
