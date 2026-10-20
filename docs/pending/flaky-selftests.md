@@ -53,8 +53,9 @@
     OBJECT_ADDED log entry's first value; the PC async open's result not the handle; a synchronous read clearing
     the result.
   - Rates: before - the front-end tests 10 of 300 filtered runs (~3 % of full runs); full runs with only cause 1
-    fixed: 3 of 50 (1 watchdog CRT assert, 2 PC async handle). After all three (merged with main c257b90): 14 of 14
-    full runs on THUG2PM.exe and 14 of 14 on the stock THUG2.exe passed - the 50 / 20 runs were cut short (the
-    user switched accounts); see flaky-selftests-handoff.md.
-  - Commits: af713c3 (fe_testkit), 39765a6 (every other arena pair), f39ea09 (watchdog, PC async handle), and the
-    template / pitfalls / this record.
+    fixed: 3 of 50 (1 watchdog CRT assert, 2 PC async handle). After all three (merged with origin/main 3890d8f): 50
+    of 50 consecutive full runs on THUG2PM.exe and 20 of 20 on the stock THUG2.exe passed (exit 0); the front-end
+    tests 0 of 300 filtered runs. (TestScriptChecksumNames' name block, also checked: one block shared by both
+    runs, the same address - nothing to convert.)
+  - Commits: af713c3 (fe_testkit), 39765a6 (every other arena pair), f39ea09 (watchdog, PC async handle), 06af815 (the
+    template, pitfalls, this record) and the final rates.
