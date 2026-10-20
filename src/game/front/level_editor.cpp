@@ -24,6 +24,7 @@
 #include "game/front/level_editor_picking.h"
 #include "game/front/level_editor_scenery.h"
 #include "game/front/level_editor_ui.h"
+#include "game/front/level_editor_view.h"
 #include "game/front/mouse_menus.h"
 #include "game/gfx/camera.h"
 #include "game/gfx/screen.h"
@@ -623,6 +624,7 @@ void Deselect()
     g_objects.clear();
     Scenery::ClearSelection();
     g_nodeSelected = false;
+    View::ClearWall();
 }
 
 // Where the selection is: the first object's position, else the scenery's pivot (the middle of its boxes); its base:
@@ -1576,6 +1578,7 @@ bool __cdecl CFunc_Start(Script::CStruct*, Script::CScript*)
     g_browser = Browser{};
     // The UI (Dear ImGui) - else the HUD of screen elements.
     bool ui = Ui::Start();
+    View::Start();
     g_hudTakenDown = 0;
     g_families = static_cast<uint32_t>(ConfigInt("editor", "families", static_cast<int>(Nodes::kAllFamilies))) &
                  Nodes::kAllFamilies;
@@ -1688,6 +1691,7 @@ bool __cdecl CFunc_Stop(Script::CStruct*, Script::CScript*)
     Scenery::EndTints(Objects::ResolveTint, true);
     Hud::HidePanel();
     Preview::Hide();
+    View::Stop(); // (everything hidden in the editor shown again)
     Ui::Stop();
     SetRelative(false);
     PlaceSkaterBelowCamera();
@@ -2130,6 +2134,21 @@ Ui::Model BuildModel()
             all = all && Picking::Locked(lock.kind, lock.id);
         model.selectionLockable = !selected.empty();
         model.selectionLocked = !selected.empty() && all;
+        model.view.canHide = !selected.empty();
+    }
+    {
+        View::Stats stats = View::LastStats();
+        model.view.collision = View::ShowCollision();
+        model.view.triangles = stats.triangles;
+        model.view.sectors = stats.sectors;
+        model.view.walls = stats.walls;
+        model.view.capped = stats.capped;
+        model.view.hidden = View::HiddenCount();
+        if (uint32_t wall = View::SelectedWall()) {
+            model.view.wall = wall;
+            model.view.wallName = Objects::Label(wall);
+            model.view.wallInfo = View::DescribeWall(wall);
+        }
     }
     std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
     Ui::Model::Selection& s = model.selection;
@@ -2254,6 +2273,8 @@ void ShowHelp()
         "Saving       Ctrl+S saves the edited copy (the level select's EDITED entry)",
         "             unsaved changes are autosaved: Ctrl+R restores, Ctrl+Shift+R discards",
         "Leaving      Esc (first it cancels a drag, closes a panel or deselects)",
+        "View         H hides the selection while editing   I or / isolates it   Alt+H shows all",
+        "             (never saved, never in play; the collision view, C, needs the UI)",
         "Camera       P writes where the camera is to the log (a menu backdrop view)",
     };
     Hud::ShowPanel(lines, 96.0f, 104.0f, 448.0f);
@@ -2594,6 +2615,49 @@ std::vector<Picking::Lock> SelectionLocks()
         for (uint32_t sector : Scenery::Selection())
             locks.push_back({Picking::kScenery, sector});
     return locks;
+}
+
+// The view options (level_editor_view.h). H / the Inspector's Hide: the selection hidden while editing (from the view
+// and from clicks) and deselected; I or / (Isolate): everything else hidden, the selection kept. Never saved.
+void ViewHide(bool isolate)
+{
+    std::vector<uint32_t> sectors, objects;
+    for (const Picking::Lock& piece : SelectionLocks())
+        (piece.kind == Picking::kObjects ? objects : sectors).push_back(piece.id);
+    if (sectors.empty() && objects.empty()) {
+        Hud::Message(isolate ? "Nothing selected to isolate" : "Nothing selected to hide");
+        return;
+    }
+    int count = isolate ? View::Isolate(sectors, objects) : View::Hide(sectors, objects);
+    if (!isolate)
+        Deselect();
+    NoteAction("view: %s (%d hidden)", isolate ? "isolated" : "hid", count);
+    char text[128];
+    std::snprintf(text, sizeof(text), "%s %d while editing (Alt+H shows all; never saved)",
+                  isolate ? "Isolated: hid" : "Hid", count);
+    Hud::Message(text);
+}
+
+// Alt+H / Show all.
+void ViewShowAll()
+{
+    int count = View::HiddenCount();
+    View::ShowAll();
+    NoteAction("view: showed all (%d)", count);
+    Hud::Message(count ? "Everything hidden in the editor shown again" : "Nothing is hidden in the editor");
+}
+
+// C / the toolbar's Collision.
+void ShowCollision(bool on)
+{
+    View::SetShowCollision(on);
+    if (!on)
+        View::ClearWall();
+    if (on && !Ui::Running())
+        Hud::Message("The collision view needs the editor's UI ([features] editor_ui=1)");
+    else
+        Hud::Message(on ? "Collision shown (C hides it): invisible walls magenta, Shift+click one"
+                        : "Collision hidden");
 }
 
 // L / the Inspector's Lock: the selection locked and deselected (every click passes it from now - the Inspector lists
@@ -2966,6 +3030,21 @@ void ApplyUiRequests(V3 dir, bool haveRay, const Frame& frame)
         case Ui::Request::kToggleLock:
             ToggleLock();
             break;
+        case Ui::Request::kCollision:
+            ShowCollision(request.value != 0);
+            break;
+        case Ui::Request::kViewHide:
+            ViewHide(false);
+            break;
+        case Ui::Request::kViewIsolate:
+            ViewHide(true);
+            break;
+        case Ui::Request::kViewShowAll:
+            ViewShowAll();
+            break;
+        case Ui::Request::kClearWall:
+            View::ClearWall();
+            break;
         case Ui::Request::kUnlock:
             if (Picking::SetLocked(static_cast<uint32_t>(request.value), request.id, false)) {
                 MarkUnsaved();
@@ -3207,6 +3286,21 @@ void Update()
         Hud::Message(g_wholeRail ? "Rails: a rail point moves with its whole rail (L: by itself)"
                                  : "Rails: a rail point moves by itself (L: the whole rail)");
     }
+    // C: the collision shown / hidden; H: the selection hidden (Alt+H: everything shown); I or /: isolated
+    // (level_editor_view.h - while editing only).
+    static bool cKey, hKey, iKey, slashKey;
+    if (Pressed(keys, SDL_SCANCODE_C, &cKey) && !ctrl && !g_browser.open)
+        ShowCollision(!View::ShowCollision());
+    if (Pressed(keys, SDL_SCANCODE_H, &hKey) && !ctrl && !noChange && !g_browser.open) {
+        if (alt)
+            ViewShowAll();
+        else
+            ViewHide(false);
+    }
+    bool isolateKey = Pressed(keys, SDL_SCANCODE_I, &iKey);
+    if ((Pressed(keys, SDL_SCANCODE_SLASH, &slashKey) || isolateKey) && !ctrl && !noChange && !g_browser.open)
+        ViewHide(true);
+    View::Tick();
     // P: the camera written to the log as a menu backdrop view (menu_backdrop.cpp kViews: position, back, up).
     static bool poseKey;
     if (Pressed(keys, SDL_SCANCODE_P, &poseKey) && !ctrl) {
@@ -3426,7 +3520,17 @@ void Update()
         bool drag = false;
         if (g_hoverAxis < 0)
             NoteClickForCycle(input.x, input.y, dir, input.leftPresses && !shift && !one);
-        if (g_hoverAxis >= 0 && input.leftPresses) {
+        // (with the collision shown, Shift+click on an invisible wall's face: that wall - level_editor_view.h)
+        uint32_t wall = input.leftPresses && shift && !alt && g_hoverAxis < 0 && View::ShowCollision()
+                            ? View::PickWall(g_pos, Normalize(dir))
+                            : 0;
+        if (!wall)
+            View::ClearWall();
+        if (wall) {
+            Deselect();
+            View::SelectWall(wall);
+            Hud::Message("Invisible wall " + Objects::Label(wall) + " (the Inspector shows what it is)");
+        } else if (g_hoverAxis >= 0 && input.leftPresses) {
             g_axis = g_hoverAxis;
             drag = true;
         } else if (g_hoverNode >= 0 && input.leftPresses) {
@@ -3575,6 +3679,7 @@ void Draw()
         // The Add palette's preview drawn off-screen first (level_editor_preview.h): ImGui shows its picture.
         Preview::Frame(&model);
         AddNodeGizmos(frame, model.nodes.selected);
+        View::AddCollision(g_pos, frame, g_lens, g_viewport, kNearZ, &g_overlay.under, &g_overlay.lines);
         for (size_t i = 0; i + 1 < lines.size(); i += 2)
             g_overlay.lines.push_back({lines[i].x, lines[i].y, lines[i + 1].x, lines[i + 1].y, lines[i].color, 1.0f});
         Ui::Frame(model, g_overlay);
@@ -3618,6 +3723,13 @@ std::vector<std::pair<std::string, std::string>> DescribeForScreenshot()
     std::snprintf(text, sizeof(text), "yaw %.1f, pitch %.1f degrees", g_yaw * 180.0f / kPi, g_pitch * 180.0f / kPi);
     out.emplace_back("camera turn", text);
     out.emplace_back("selected", model.selected);
+    // The view options (level_editor_view.h).
+    std::snprintf(text, sizeof(text), "collision %s (%d faces, %d pieces, %d invisible walls%s), %d hidden in the editor",
+                  model.view.collision ? "shown" : "off", model.view.triangles, model.view.sectors, model.view.walls,
+                  model.view.capped ? ", capped" : "", model.view.hidden);
+    out.emplace_back("view", text);
+    if (model.view.wall)
+        out.emplace_back("invisible wall", model.view.wallName + ": " + model.view.wallInfo);
     const Ui::Model::Selection& sel = model.selection;
     if (!sel.kind.empty()) {
         std::snprintf(text, sizeof(text), "%s %s at (%.1f, %.1f, %.1f)", sel.kind.c_str(), sel.name.c_str(), sel.pos.x,

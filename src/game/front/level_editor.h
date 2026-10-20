@@ -54,6 +54,8 @@ class CScript;
 //                             crown order kept - and the game's proximity node / emitter / light made for them; a level's
 //                             own nodes hidden (not removed: a marker class the walks skip); `node` / `order` / `hide`
 //                             records; the limits (10 crowns, 256 restarts, 256 / 150 lights)
+//   level_editor_view.cpp     the view options: the collision shown (C; invisible walls magenta, Shift+click one), the
+//                             selection hidden (H) or isolated (I or /) while editing only, Alt+H shows all
 //   level_editor_hud.cpp      the old HUD ([features] editor_ui=0, or when the UI can't start): a status panel top
 //                             left, the keys at the bottom, a message line, and a panel for the help (F1) and the
 //                             browser (B), made of the game's screen elements
