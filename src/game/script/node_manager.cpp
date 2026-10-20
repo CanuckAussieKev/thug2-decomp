@@ -35,12 +35,14 @@ constexpr uint32_t kLink = 0xC953660E;     // link (a class= whose nodes aren't 
 // NOT ORIGINAL - the level editor's overlay array (see node_manager.h).
 uint32_t g_editorArray;
 NodeArrayRemovedHook g_removedHook;
+NodeArrayAddedHook g_addedHook;
 
 } // namespace
 
 void SetEditorNodeArray(uint32_t name) { g_editorArray = name; }
 uint32_t EditorNodeArray() { return g_editorArray; }
 void SetNodeArrayRemovedHook(NodeArrayRemovedHook hook) { g_removedHook = hook; }
+void SetNodeArrayAddedHook(NodeArrayAddedHook hook) { g_addedHook = hook; }
 
 // 0x0045CE60
 void CNodeManager::HashNode(uint32_t array, uint32_t index, CStruct* node)
@@ -246,6 +248,9 @@ bool CNodeManager::AddNodeArray(uint32_t name, bool flag)
         void* object = GameFunction<void*(__cdecl*)()>(0x004694E0)();
         GameFunction<void(__thiscall*)(void*)>(0x004696C0)(object);
     }
+    // NOT ORIGINAL: the level editor's edited copy (see node_manager.h).
+    if (g_addedHook)
+        g_addedHook(name);
     return true;
 }
 

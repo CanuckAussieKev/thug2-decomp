@@ -715,8 +715,15 @@ struct MadeCopy {
     uint32_t name, source;
     Objects::State state;
 };
+struct FieldUndo {
+    uint32_t node, key;
+    Fields::Own own;
+};
 struct UndoStep {
-    enum Kind { kObjects, kScenery, kMade, kNodes, kAdded, kHidden, kOrder, kLevel, kChains } kind = kObjects;
+    enum Kind { kObjects, kScenery, kMade, kNodes, kAdded, kHidden, kOrder, kLevel, kChains, kFields, kProps } kind = kObjects;
+    // kFields (phase 6): nodes' own fields to put back (level_editor_fields.h); kProps: the level's properties.
+    std::vector<FieldUndo> fields;
+    LevelProps::Props props;
     // kChains (phase 4): the chains' state to put back (level_editor_chains.h).
     Chains::State chains;
     std::vector<Objects::State> objects;
@@ -941,6 +948,17 @@ void Restore(UndoStep& step)
         if (g_nodeSelected && Nodes::Find(g_nodeName) < 0)
             g_nodeSelected = false;
         break;
+    case UndoStep::kFields: {
+        for (const FieldUndo& f : step.fields)
+            Fields::Put(f.node, f.key, f.own);
+        int index = step.fields.empty() ? -1 : Nodes::Find(step.fields.front().node);
+        if (index >= 0 && g_nodeName != step.fields.front().node)
+            SelectNodeOnly(index);
+        break;
+    }
+    case UndoStep::kProps:
+        LevelProps::Set(step.props);
+        break;
     }
 }
 
@@ -999,6 +1017,13 @@ UndoStep Current(const UndoStep& step)
         break;
     case UndoStep::kChains:
         now.chains = Chains::Current();
+        break;
+    case UndoStep::kFields:
+        for (FieldUndo& f : now.fields)
+            Fields::Capture(f.node, f.key, &f.own);
+        break;
+    case UndoStep::kProps:
+        now.props = LevelProps::Current();
         break;
     }
     return now;
@@ -2055,6 +2080,129 @@ void RunChainOp(int op, uint32_t arg)
     AfterChainChange(before, select, message);
 }
 
+// --- the full Inspector and the level properties (phase 6: level_editor_fields.h, level_editor_level_props.h) ---
+
+// A node's links= typed in the Inspector (`home`: back as the level has them): the chains' `links` record, as relinking
+// a chain does (one undo step, live).
+void SetLinksFromInspector(uint32_t node, const std::string& text, bool home)
+{
+    Chains::State before = Chains::Current();
+    Chains::State state = before;
+    auto it = std::find_if(state.links.begin(), state.links.end(), [&](const Chains::LinkEdit& l) { return l.name == node; });
+    if (home) {
+        if (it != state.links.end())
+            state.links.erase(it);
+    } else {
+        Fields::Value value;
+        std::string error;
+        if (!Fields::Parse(Fields::Kind::Names, text, &value, &error) ||
+            !Fields::ValidLinks(value.list, node, [](uint32_t c) { return Nodes::Find(c) >= 0; }, Fields::NameOf,
+                                &error)) {
+            Hud::Message("Links: " + error, 5.0);
+            return;
+        }
+        if (it != state.links.end()) {
+            it->links = value.list;
+        } else {
+            state.links.push_back({node, value.list});
+            std::sort(state.links.begin(), state.links.end(),
+                      [](const Chains::LinkEdit& a, const Chains::LinkEdit& b) { return a.name < b.name; });
+        }
+    }
+    if (!Chains::SetState(state)) {
+        Hud::Message("Links: not in a level");
+        return;
+    }
+    AfterChainChange(before, 0, home ? "Links back as the level has them" : "Links set (live)");
+}
+
+// The Inspector's field requests: set, removed, put back.
+void FieldRequest(const Ui::Request& request)
+{
+    uint32_t node = request.node;
+    if (!node || Nodes::Find(node) < 0)
+        return;
+    if (request.id == Fields::KeyLinks() && request.kind != Ui::Request::kFieldRemove) {
+        SetLinksFromInspector(node, request.text, request.kind == Ui::Request::kFieldHome);
+        return;
+    }
+    UndoStep step;
+    step.kind = UndoStep::kFields;
+    std::string message;
+    if (request.kind == Ui::Request::kFieldHome) {
+        std::vector<uint32_t> keys = request.id ? std::vector<uint32_t>{request.id} : Fields::TouchedKeys(node);
+        for (uint32_t key : keys) {
+            Fields::Own before, origin;
+            if (Fields::Capture(node, key, &before) && Fields::Origin(node, key, &origin)) {
+                step.fields.push_back({node, key, before});
+                Fields::Put(node, key, origin);
+            }
+        }
+        // (and the links, when every field goes back)
+        if (!request.id) {
+            Chains::State chains = Chains::Current();
+            bool relinked = std::any_of(chains.links.begin(), chains.links.end(),
+                                        [&](const Chains::LinkEdit& l) { return l.name == node; });
+            if (relinked)
+                SetLinksFromInspector(node, "", true);
+        }
+        message = request.id ? "Field back as the level has it" : "Every field back as the level has it";
+    } else {
+        Fields::Own before;
+        Fields::Capture(node, request.id, &before);
+        Fields::Value value;
+        std::string error;
+        bool removed = request.kind == Ui::Request::kFieldRemove;
+        if (!removed && !Fields::Parse(static_cast<Fields::Kind>(request.value), request.text, &value, &error)) {
+            Hud::Message("Not set: " + error, 5.0);
+            return;
+        }
+        if (!request.label.empty())
+            Fields::Remember(request.label);
+        if (!Fields::Set(node, request.id, value, removed, &error)) {
+            Hud::Message("Not set: " + error, 5.0);
+            return;
+        }
+        step.fields.push_back({node, request.id, before});
+        const char* note = nullptr;
+        const Nodes::Node& n = Nodes::All()[Nodes::Find(node)];
+        Fields::When when = Fields::WhenApplied(n.family, request.id, &note);
+        message = std::string(removed ? "Field taken out" : "Field set") +
+                  (when == Fields::When::Live ? " (live)" : " (on reload: when the edited copy is next loaded)");
+    }
+    if (!step.fields.empty()) {
+        PushUndo(step);
+        Hud::Message(message, 4.0);
+        NoteAction("inspector: %s - %s.%s", message.c_str(), Objects::Label(node).c_str(),
+                   Fields::NameText(request.id, Fields::NameOf).c_str());
+    }
+}
+
+// The level properties' panel: each change shown at once (the time of day) and kept; one undo step a field.
+LevelProps::Props g_propsBefore;
+bool g_propsEditing;
+void LevelPropsRequest(const Ui::Request& request)
+{
+    if (request.kind == Ui::Request::kLevelProps) {
+        if (!g_propsEditing) {
+            g_propsBefore = LevelProps::Current();
+            g_propsEditing = true;
+        }
+        LevelProps::Set(request.props);
+        return;
+    }
+    if (!g_propsEditing)
+        return;
+    g_propsEditing = false;
+    if (!LevelProps::Same(g_propsBefore, LevelProps::Current())) {
+        UndoStep step;
+        step.kind = UndoStep::kProps;
+        step.props = g_propsBefore;
+        PushUndo(step);
+        NoteAction("level properties changed");
+    }
+}
+
 // The Place palette's chain entries (after the node kinds): a new rail, a new path.
 constexpr int kChainEntries = 2;
 int ChainEntry(int entry)
@@ -2371,6 +2519,30 @@ Ui::Model BuildModel()
             NodeCreate::List up = list, down = list;
             model.nodes.crownUp = NodeCreate::MoveCrown(&up, name, -1);
             model.nodes.crownDown = NodeCreate::MoveCrown(&down, name, 1);
+        }
+    }
+    {
+        // Phase 6: the level's properties, its own values (read once a level: its structure is walked for them) and
+        // its restarts.
+        static int defaultsFor = -1;
+        static LevelProps::Props defaults;
+        static bool haveDefaults = false;
+        if (defaultsFor != Layout::LevelLoads()) {
+            defaultsFor = Layout::LevelLoads();
+            haveDefaults = LevelProps::LevelDefaults(&defaults);
+        }
+        model.levelProps.inLevel = Nx::CurrentLevel() != 0 && scene != 0;
+        model.levelProps.props = LevelProps::Current();
+        model.levelProps.defaults = defaults;
+        model.levelProps.haveDefaults = haveDefaults;
+        for (const Nodes::Node& n : Nodes::All()) {
+            if (n.family == Nodes::Family::Spawn && !n.hidden && n.name)
+                model.levelProps.restarts.push_back({n.name, Nodes::Label(n.name)});
+        }
+        if (model.nodes.nodeOnly && model.nodes.selected < static_cast<int>(Nodes::All().size())) {
+            const Nodes::Node& n = Nodes::All()[model.nodes.selected];
+            if (n.family == Nodes::Family::Spawn && !n.hidden)
+                model.levelProps.selectedRestart = n.name;
         }
     }
     model.place.open = g_placeOpen;
@@ -3336,6 +3508,17 @@ void ApplyUiRequests(V3 dir, bool haveRay, const Frame& frame)
             break;
         case Ui::Request::kWholeRail:
             g_wholeRail = request.value != 0;
+            break;
+        case Ui::Request::kFieldSet:
+        case Ui::Request::kFieldRemove:
+        case Ui::Request::kFieldHome:
+            if (!noChange)
+                FieldRequest(request);
+            break;
+        case Ui::Request::kLevelProps:
+        case Ui::Request::kLevelPropsDone:
+            if (!g_dragging && !g_keyMoving)
+                LevelPropsRequest(request);
             break;
         case Ui::Request::kCrownMove:
             if (!noChange)
