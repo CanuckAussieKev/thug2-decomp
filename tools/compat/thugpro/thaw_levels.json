@@ -29,87 +29,577 @@
   "spawns": {
     "_register": "TP-4",
     "_source": "THUGPRO's installed data\\pre\\<level>_scripts.prx node arrays against THAW's own (<zone>_net.pak.wpc), extracted by `node tools/thaw_levels/thugpro_compare.ts --extract-thugpro` (pos: THAW's frame)",
-    "Z_CH": [
-      {
-        "node": "TRG_CTF_Restart_Green",
-        "restart_types": [
-          "CTF"
-        ]
-      },
-      {
-        "node": "Z_CH_TRG_G_TrickAttack_RestartNode",
-        "pos": [
-          -58.8353,
-          536.5259,
-          1603.6431
-        ],
-        "angles": [
-          0,
-          -3.139,
-          0
-        ],
-        "restart_types": [
-          "Player1"
-        ]
-      },
-      {
-        "pos": [
-          -1662.6754,
-          744,
-          -1627
-        ],
-        "angles": [
-          1.5708,
-          0,
-          0
-        ],
-        "type": "Generic",
-        "restart_types": [
-          "Player1",
-          "Multiplayer",
-          "Horse"
-        ],
-        "dropin": true
-      }
-    ],
-    "Z_SZ": [
-      {
-        "node": "Z_SZ_TRG_StartOfLevel",
-        "restart_types": [
-          "Player1",
-          "Multiplayer",
-          "Horse"
-        ]
-      }
-    ],
-    "Z_BH": [
-      {
-        "node": "Z_BH_TRG_Player_Start01",
-        "pos": [
-          -15466.5713,
-          -162.7549,
-          3492.0322
-        ]
-      }
-    ],
-    "Z_EL": [
-      {
-        "node": "Z_EL_way_kill_metrohq",
-        "restart_types": [
-          "Player1",
-          "Multiplayer",
-          "Horse"
-        ]
-      },
-      {
-        "node": "Z_EL_TRG_TransitionParkTeleport01",
-        "restart_types": []
-      },
-      {
-        "node": "Z_EL_TRG_TransitionParkTeleport02",
-        "restart_types": []
-      }
-    ]
+    "Z_CH": {
+      "edits": [
+        {
+          "node": "TRG_CTF_Restart_Green",
+          "restart_types": [
+            "CTF"
+          ]
+        },
+        {
+          "node": "Z_CH_TRG_G_TrickAttack_RestartNode",
+          "pos": [
+            -58.8353,
+            536.5259,
+            1603.6431
+          ],
+          "angles": [
+            0,
+            -3.139,
+            0
+          ],
+          "restart_types": [
+            "Player1"
+          ]
+        },
+        {
+          "pos": [
+            -1662.6754,
+            744,
+            -1627
+          ],
+          "angles": [
+            1.5708,
+            0,
+            0
+          ],
+          "type": "Generic",
+          "restart_types": [
+            "Player1",
+            "Multiplayer",
+            "Horse"
+          ],
+          "dropin": true
+        }
+      ],
+      "order": [
+        "Z_CH_TRG_02",
+        "TRG_CTF_Restart_Blue",
+        "TRG_CTF_Restart_Green",
+        "TRG_CTF_Restart_Red",
+        "TRG_CTF_Restart_Yellow",
+        "TRG_Team_Restart",
+        "Z_CH_TRG_Multiplayer_Restart01",
+        "Z_CH_TRG_Multiplayer_Restart02",
+        "Z_CH_TRG_Multiplayer_Restart03",
+        "Z_CH_TRG_Multiplayer_Restart04",
+        "Z_CH_TRG_Multiplayer_Restart05",
+        "Z_CH_TRG_Multiplayer_Restart06",
+        "Z_CH_TRG_Multiplayer_Restart07",
+        "Z_CH_TRG_Multiplayer_Restart08",
+        "Z_CH_TRG_Multiplayer_Restart09",
+        "TRG_Net_Spawn01"
+      ]
+    },
+    "Z_MA": {
+      "edits": [],
+      "order": [
+        "Z_MA_TRG_restart",
+        "Z_MA_TRG_Spawn_Spc_01",
+        "Z_MA_TRG_Spawn_Spc_02",
+        "Z_MA_TRG_BookSaleGap01",
+        "Z_MA_TRG_Elevator_Restart_01",
+        "Z_MA_TRG_Elevator_Restart_02",
+        "Z_MA_TRG_G_TrickAttack_RestartNode",
+        "TRG_CTF_Restart_Blue",
+        "TRG_CTF_Restart_Green",
+        "TRG_CTF_Restart_Red",
+        "TRG_CTF_Restart_Yellow",
+        "TRG_Team_Restart"
+      ]
+    },
+    "Z_DN": {
+      "edits": [],
+      "order": [
+        "Z_DN_TRG_Player2_start01",
+        "TRG_CTF_Restart_Blue",
+        "TRG_CTF_Restart_Green",
+        "TRG_CTF_Restart_Red",
+        "TRG_CTF_Restart_Yellow",
+        "TRG_Team_Restart",
+        "Z_DN_TRG_Player2_start02",
+        "Z_DN_TRG_Player2_start03",
+        "Z_DN_TRG_Player2_start04",
+        "Z_DN_TRG_Player2_start05",
+        "Z_DN_TRG_Player2_start06",
+        "Z_DN_TRG_Player2_start07",
+        "Z_DN_TRG_Player2_start08",
+        "Z_DN_TRG_Player2_start09"
+      ]
+    },
+    "Z_JA": {
+      "edits": [],
+      "order": [
+        "Z_JA_res_horse_2ndfloorropes",
+        "Z_JA_res_horse_1stfloormain",
+        "Z_JA_res_horse_3rdfloortoescalators",
+        "Z_JA_res_horse_1stfloorcafe",
+        "Z_JA_res_horse_1stfnearescalator",
+        "Z_JA_res_horse_nearbridge02",
+        "Z_JA_res_horse_skatepark",
+        "Z_JA_res_horse_onbridge",
+        "TRG_CTF_Restart_Blue",
+        "TRG_CTF_Restart_Red",
+        "TRG_CTF_Restart_Yellow",
+        "TRG_CTF_Restart_Green",
+        "TRG_Team_Restart",
+        "Z_JA_res_horse_10",
+        "Z_JA_res_horse_11",
+        "Z_JA_res_horse_12",
+        "Z_JA_res_horse_13",
+        "Z_JA_res_horse_14",
+        "Z_JA_res_horse_15",
+        "Z_JA_res_horse_16",
+        "Z_JA_res_horse_17",
+        "Z_JA_res_horse_18",
+        "Z_JA_res_horse_19",
+        "Z_JA_res_horse_20",
+        "Z_JA_res_horse_justoutside",
+        "Z_JA_TRG_Goal_Restart_perimeter",
+        "Z_JA_TRG_Goal_Restart_Park",
+        "Z_JA_TRG_Goal_Restart_park_to_park",
+        "Z_JA_TRG_Goal_Restart_Cafe",
+        "Z_JA_TRG_Goal_Restart_Escalators",
+        "Z_JA_TRG_Goal_Restart_Circle",
+        "Z_JA_TRG_Goal_Restart_planters",
+        "Z_JA_TRG_Restart_BeatBox",
+        "Z_JA_TRG_Next_To_Ped_Secret",
+        "Z_JA_TRG_Next_To_Ped_Guest",
+        "Z_JA_TRG_Restart_Balloons",
+        "Z_JA_TRG_Restart_Station_bowl"
+      ]
+    },
+    "Z_SZ": {
+      "edits": [
+        {
+          "node": "Z_SZ_TRG_StartOfLevel",
+          "restart_types": [
+            "Player1",
+            "Multiplayer",
+            "Horse"
+          ]
+        }
+      ],
+      "order": [
+        "Z_SZ_TRG_horse03",
+        "Z_SZ_TRG_horse01",
+        "Z_SZ_TRG_horse02",
+        "Z_SZ_TRG_horse04",
+        "Z_SZ_TRG_horse05",
+        "Z_SZ_TRG_horse06",
+        "Z_SZ_TRG_horse07",
+        "Z_SZ_TRG_horse09",
+        "Z_SZ_TRG_horse10",
+        "Z_SZ_TRG_restart_funspot",
+        "TRG_CTF_Restart_Blue",
+        "TRG_CTF_Restart_Yellow",
+        "TRG_CTF_Restart_Green",
+        "TRG_Team_Restart",
+        "Z_SZ_TRG_horse11",
+        "Z_SZ_TRG_horse12",
+        "Z_SZ_TRG_horse13",
+        "Z_SZ_TRG_horse14",
+        "Z_SZ_TRG_horse15",
+        "Z_SZ_TRG_horse16",
+        "Z_SZ_TRG_horse19",
+        "Z_SZ_TRG_horse20",
+        "Z_SZ_TRG_horse21",
+        "Z_SZ_TRG_horse22",
+        "Z_SZ_TRG_horse23",
+        "Z_SZ_TRG_horse24",
+        "Z_SZ_TRG_horse25",
+        "Z_SZ_TRG_horse26",
+        "Z_SZ_TRG_horse27",
+        "Z_SZ_TRG_horse28",
+        "Z_SZ_TRG_horse29",
+        "Z_SZ_TRG_horse30",
+        "Z_SZ_TRG_horse31",
+        "Z_SZ_TRG_StartOfLevel",
+        "TRG_CTF_Restart_Red"
+      ]
+    },
+    "Z_SV2": {
+      "edits": [],
+      "order": [
+        "Z_SV2_TRG_Restart01",
+        "Z_SV2_TRG_Teleport_Restart01",
+        "Z_SV2_TRG_Teleport_Restart02",
+        "Z_SV2_TRG_Teleport_Restart03",
+        "Z_SV2_TRG_Teleport_Restart04",
+        "Z_SV2_TRG_Restart_Fire_001",
+        "Z_SV2_TRG_Restart_Fire_003",
+        "TRG_CTF_Restart_Blue",
+        "TRG_CTF_Restart_Red",
+        "TRG_CTF_Restart_Yellow",
+        "TRG_CTF_Restart_Green",
+        "TRG_Team_Restart",
+        "Z_SV2_TRG_G_TrickAttack_RestartNode"
+      ]
+    },
+    "Z_SV": {
+      "edits": [],
+      "order": [
+        "Z_SV_TRG_Restart01",
+        "Z_SV_TRG_Teleport02",
+        "Z_SV_TRG_Teleport03",
+        "Z_SV_TRG_G_HIGHCOMBO_RestartNode",
+        "Z_SV_TRG_Teleport04",
+        "Z_SV_TRG_Restart_Shock01",
+        "TRG_CTF_Restart_Blue",
+        "TRG_CTF_Restart_Red",
+        "TRG_CTF_Restart_Yellow",
+        "TRG_CTF_Restart_Green",
+        "TRG_Team_Restart"
+      ]
+    },
+    "Z_HO": {
+      "edits": [],
+      "order": [
+        "Z_HO_TRG_Restart01",
+        "Z_HO_TRG_Restart_ElCapitan",
+        "Z_HO_TRG_Restart03",
+        "Z_HO_TRG_Restart_LevelEvent",
+        "Z_HO_TRG_Restart_Kodak_Bottom_Right01",
+        "Z_HO_TRG_Restart_Bowling",
+        "Z_HO_TRG_Restart_Metro",
+        "Z_HO_TRG_Restart_DT_LevelEvent",
+        "Z_HO_TRG_Restart_ElCapitan01",
+        "Z_HO_TRG_G_Gap_RestartNode",
+        "Z_HO_TRG_G_COUNTER_RESTARTNode",
+        "Z_HO_TRG_Restart_ElCapitanBottom",
+        "Z_HO_TRG_G_Gaps5_RESTARTNode",
+        "Z_HO_TRG_G_Gaps6_RESTARTNode",
+        "Z_HO_TRG_G_COUNTER2_RESTARTNode",
+        "Z_HO_TRG_G_Gaps8_RESTARTNode",
+        "Z_HO_TRG_G_GAP12_RestartNode",
+        "Z_HO_TRG_Restart_CashGoal01",
+        "Z_HO_TRG_Restart_CashGoal02",
+        "Z_HO_TRG_Restart_CashGoal05",
+        "Z_HO_TRG_Restart_CashGoal04",
+        "Z_HO_TRG_Restart_CashGoal03",
+        "Z_HO_TRG_G_GAP13_RestartNode",
+        "Z_HO_TRG_G_GAP14_RestartNode",
+        "Z_HO_TRG_Restart_Bus_Exit",
+        "Z_HO_TRG_Restart_Bronson",
+        "Z_HO_TRG_Restart_CashGoal06",
+        "Z_HO_TRG_Restart_CashGoal07",
+        "Z_HO_TRG_Restart_CashGoal08",
+        "Z_HO_TRG_Restart_CashGoal09",
+        "Z_HO_TRG_Restart_CashGoal10",
+        "Z_HO_TRG_G_GAPS4_RESTARTNode",
+        "Z_HO_TRG_GAPS4_Success",
+        "Z_HO_TRG_G_COUNTER4_RESTARTNode",
+        "Z_HO_TRG_G_Gaps20_RestartNode",
+        "Z_HO_TRG_G_SkateTheLine_RestartNode",
+        "Z_HO_TRG_G_Gaps22_RestartNode",
+        "TRG_CTF_Restart_Blue",
+        "TRG_CTF_Restart_Green",
+        "TRG_CTF_Restart_Red",
+        "TRG_CTF_Restart_Yellow",
+        "TRG_Team_Restart",
+        "Z_HO_TRG_G_Counter26_RestartNode"
+      ]
+    },
+    "Z_BH": {
+      "edits": [
+        {
+          "node": "Z_BH_TRG_Player_Start01",
+          "pos": [
+            -15466.5713,
+            -162.7549,
+            3492.0322
+          ]
+        }
+      ],
+      "order": [
+        "Z_BH_TRG_Player_Start01",
+        "Z_BH_TRG_Player_Start_CityHall",
+        "Z_BH_TRG_Player_Start_Strip",
+        "Z_BH_TRG_Player_Start_Inner",
+        "Z_BH_TRG_Player_Start_BOA",
+        "Z_BH_TRG_Inner_tele_inside_01",
+        "Z_BH_TRG_Inner_tele_outside_01",
+        "Z_BH_TRG_Player_Start_SM",
+        "Z_BH_TRG_G_Gap7_ProNode",
+        "Z_BH_TRG_G_Gap11_Restart",
+        "Z_BH_TRG_G_TrickAttack_RestartNode",
+        "Z_BH_TRG_G_Gap18_Pro",
+        "Z_BH_TRG_G_Gap19_Pro",
+        "Z_BH_TRG_G_Gap20_Pro",
+        "Z_BH_TRG_G_Gap20_Restart",
+        "Z_BH_TRG_G_Gap17_ProNode",
+        "Z_BH_TRG_Gap14_PlayerNode",
+        "Z_BH_TRG_Gap18_Dave",
+        "Z_BH_TRG_Counter9_Dave",
+        "Z_BH_TRG_G_Gaps21_Pro",
+        "Z_BH_TRG_Rodeo_WarpUp02",
+        "TRG_Team_Restart",
+        "TRG_CTF_Restart_Red",
+        "TRG_CTF_Restart_Yellow",
+        "TRG_CTF_Restart_Blue",
+        "TRG_CTF_Restart_Green"
+      ]
+    },
+    "Z_DT": {
+      "edits": [],
+      "order": [
+        "Z_DT_TRG_DT_Player01_02",
+        "Z_DT_TRG_DT_FreewayKill01",
+        "Z_DT_TRG_DT_GraffArea01",
+        "Z_DT_TRG_PlayerOne01",
+        "Z_DT_TRG_P1_DT_Freeway_Break01",
+        "Z_DT_TRG_Tele_DT_Tower01",
+        "Z_DT_TRG_Tele_DT_Tower02",
+        "Z_DT_TRG_DT_Cita_Low",
+        "Z_DT_TRG_DT_Skateranch_Create",
+        "Z_DT_TRG_DT_Skateranch_Kill02",
+        "Z_DT_TRG_DT_Chineseman_Goal_Restart01",
+        "Z_DT_TRG_DT_LoadingDock_Restart",
+        "Z_DT_TRG_DT_Loadingqp04",
+        "Z_DT_TRG_DT_Goal_Restart_Freeway02",
+        "Z_DT_TRG_DT_Goal_Natas02",
+        "Z_DT_TRG_DT_Goal_Restart_Five",
+        "Z_DT_TRG_DT_Goal_Restart_Bail02",
+        "Z_DT_TRG_DT_Goal_Lip_Restart",
+        "Z_DT_TRG_Restart_CashGoal03",
+        "Z_DT_TRG_Restart_CashGoal04",
+        "Z_DT_TRG_Restart_CashGoal05",
+        "Z_DT_TRG_Restart_CashGoal09",
+        "Z_DT_TRG_DT_Goal_Fire_Restart",
+        "Z_DT_TRG_DT_Photo_Restart01",
+        "Z_DT_TRG_Ped_Goal_Photo_Four02",
+        "Z_DT_TRG_Goal_Bell_Restart01",
+        "Z_DT_TRG_Goal_Collect_Whatever01",
+        "Z_DT_TRG_Goal_Bell_Restart03",
+        "Z_DT_TRG_G_TrickAttack_RestartNode",
+        "Z_DT_TRG_Goal_Wallplant_Restart_Node01",
+        "Z_DT_TRG_Restart_Tag02",
+        "TRG_CTF_Restart_Blue",
+        "TRG_CTF_Restart_Green",
+        "TRG_CTF_Restart_Red",
+        "TRG_CTF_Restart_Yellow",
+        "TRG_Team_Restart",
+        "Z_DT_TRG_Goal_Collect_Whatever03",
+        "Z_DT_TRG_DT_Goal_Bike_Restart",
+        "Z_DT_TRG_DT_Goal_777_Restart03",
+        "Z_DT_TRG_DT_Bike_Manual_Restart01",
+        "Z_DT_TRG_DT_Bike_Manual_Restart02"
+      ]
+    },
+    "Z_EL": {
+      "edits": [
+        {
+          "node": "Z_EL_way_kill_metrohq",
+          "restart_types": [
+            "Player1",
+            "Multiplayer",
+            "Horse"
+          ]
+        },
+        {
+          "node": "Z_EL_TRG_TransitionParkTeleport01",
+          "restart_types": []
+        },
+        {
+          "node": "Z_EL_TRG_TransitionParkTeleport02",
+          "restart_types": []
+        }
+      ],
+      "order": [
+        "Z_EL_way_kill_metrohq",
+        "Z_EL_restart_event4",
+        "Z_EL_TRG_Restart_OOB1",
+        "Z_EL_TRG_Teleport_Node_PD01",
+        "Z_EL_rail_321",
+        "Z_EL_TRG_G_Gap_RestartNode",
+        "Z_EL_TRG_Restart_CashGoal01",
+        "Z_EL_TRG_Restart_CashGoal03",
+        "Z_EL_TRG_Restart_CashGoal04",
+        "Z_EL_TRG_Restart_CashGoal05",
+        "Z_EL_TRG_Restart_CashGoal06",
+        "Z_EL_TRG_Restart_CashGoal07",
+        "Z_EL_TRG_Restart_CashGoal08",
+        "Z_EL_TRG_Restart_CashGoal09",
+        "Z_EL_TRG_Restart_CashGoal10",
+        "Z_EL_TRG_Restart_Bus_Exit",
+        "Z_EL_TRG_G_TrickAttack_RestartNode",
+        "Z_EL_TRG_M_ZELGaps4_RestartNode01",
+        "TRG_CTF_Restart_Blue",
+        "TRG_CTF_Restart_Green",
+        "TRG_CTF_Restart_Red",
+        "TRG_CTF_Restart_Yellow",
+        "TRG_Team_Restart",
+        "Z_EL_TRG_MZELGaps9_start01",
+        "Z_EL_TRG_M_ZELGaps12_RestartNode01",
+        "Z_EL_TRG_M_ZELGaps13_RestartNode01",
+        "Z_EL_TRG_M_ZELGaps14_RestartNode01",
+        "Z_EL_TRG_M_ZELGaps15_RestartNode01",
+        "Z_EL_TRG_M_ZELGaps16_RestartNode01",
+        "Z_EL_TRG_M_ZELGaps7_RestartNode01",
+        "Z_EL_TRG_G_Counter_RestartNode01",
+        "Z_EL_TRG_G_Gaps6_RestartNode01",
+        "Z_EL_TRG_G_Gaps6_RestartNode02",
+        "Z_EL_TRG_G_Gap17_Restart",
+        "Z_EL_M_ZELGAPS3_GAMEPLAY_TRG_MZELCounter_SafeRestart01",
+        "Z_EL_TRG_M_ZELGaps15_RestartNode02",
+        "Z_EL_TRG_MZELCollect2_start01",
+        "Z_EL_TRG_Restart_OOB02",
+        "Z_EL_TRG_MZELGaps10_start01"
+      ]
+    },
+    "Z_SM": {
+      "edits": [],
+      "order": [
+        "Z_SM_TRG_G_TrickAttack_RestartNode",
+        "TRG_CTF_Restart_Blue",
+        "TRG_CTF_Restart_Red",
+        "TRG_CTF_Restart_Yellow",
+        "TRG_CTF_Restart_Green",
+        "TRG_Team_Restart",
+        "Z_SM_TRG_Restart_CashGoal01",
+        "Z_SM_TRG_Restart_CashGoal02",
+        "Z_SM_TRG_Restart_CashGoal04",
+        "Z_SM_TRG_Restart_CashGoal05",
+        "Z_SM_TRG_Restart_CashGoal06",
+        "Z_SM_TRG_Restart_CashGoal07",
+        "Z_SM_TRG_Restart_CashGoal08",
+        "Z_SM_TRG_Restart_CashGoal09",
+        "Z_SM_TRG_Restart_CashGoal10",
+        "Z_SM_TRG_Restart_CashGoal03"
+      ]
+    },
+    "Z_SR": {
+      "edits": [],
+      "order": [
+        "Z_SR_TRG_G_Gap_Restart",
+        "Z_SR_TRG_G_Gaps2_RestartNode",
+        "Z_SR_TRG_G_Gaps3_RestartNode",
+        "TRG_CTF_Restart_Blue",
+        "TRG_CTF_Restart_Green",
+        "TRG_CTF_Restart_Red",
+        "TRG_CTF_Restart_Yellow",
+        "Z_SR_restart_horse_01",
+        "Z_SR_restart_horse_02",
+        "Z_SR_restart_horse_03",
+        "Z_SR_restart_horse_04",
+        "Z_SR_restart_horse_05",
+        "Z_SR_restart_horse_06",
+        "Z_SR_restart_horse_07",
+        "Z_SR_restart_horse_08",
+        "Z_SR_restart_horse_09",
+        "Z_SR_restart_horse_10",
+        "Z_SR_restart_horse_11",
+        "Z_SR_restart_horse_12"
+      ]
+    },
+    "Z_LV": {
+      "edits": [],
+      "order": [
+        "Z_LV_TRG_horse_Escalators01",
+        "Z_LV_TRG_horse_Escalators02",
+        "Z_LV_TRG_horse_Slots01",
+        "Z_LV_TRG_horse_Balcony01",
+        "Z_LV_TRG_horse_poolarea01",
+        "Z_LV_TRG_horse_Themearea01",
+        "Z_LV_TRG_horse_Casino01",
+        "Z_LV_TRG_horse_Themearea02",
+        "Z_LV_TRG_restart_death01",
+        "Z_LV_TRG_restart_death02",
+        "Z_LV_TRG_restart_death03",
+        "Z_LV_TRG_restart_death04",
+        "Z_LV_TRG_horse_Themearea03",
+        "Z_LV_TRG_horse_Themearea04",
+        "Z_LV_TRG_horse_poolarea02",
+        "Z_LV_TRG_horse_poolarea03",
+        "Z_LV_TRG_horse_poolarea04",
+        "Z_LV_TRG_horse_Balcony02",
+        "Z_LV_TRG_horse_Casino02",
+        "Z_LV_TRG_horse_Casino03",
+        "Z_LV_TRG_horse_Casino04",
+        "Z_LV_TRG_horse_Casino05",
+        "Z_LV_TRG_horse_Casino06",
+        "Z_LV_TRG_horse_Casino07",
+        "Z_LV_TRG_horse_Casino08",
+        "Z_LV_TRG_horse_Escalators03",
+        "Z_LV_TRG_horse_Highrollers02",
+        "Z_LV_TRG_horse_poolarea05",
+        "Z_LV_TRG_LV_RE_Arcade",
+        "Z_LV_TRG_restartpostevent_01",
+        "Z_LV_TRG_restartevent_01",
+        "Z_LV_TRG_Restart_Billboard",
+        "Z_LV_TRG_Restart_SkaterSwitch",
+        "Z_LV_TRG_Restart_DBSkateTheLine",
+        "Z_LV_TRG_Restart_PoolTour",
+        "Z_LV_TRG_G_Counter_Restart",
+        "Z_LV_TRG_G_Counter2_Restart",
+        "TRG_CTF_Restart_Blue",
+        "TRG_CTF_Restart_Green",
+        "TRG_CTF_Restart_Red",
+        "TRG_CTF_Restart_Yellow",
+        "TRG_Team_Restart",
+        "Z_LV_TRG_G_Gaps7_Restart",
+        "Z_LV_TRG_G_Counter3_Restart"
+      ]
+    },
+    "Z_OI": {
+      "edits": [],
+      "order": [
+        "Z_OI_TRG_Respawn_Lift_LW",
+        "Z_OI_TRG_Respawn_Lift_L1",
+        "Z_OI_TRG_Restart_Player1",
+        "Z_OI_TRG_Restart_Player2",
+        "Z_OI_TRG_Restart_Player4",
+        "Z_OI_TRG_Restart_Player3",
+        "Z_OI_TRG_ItemsRemoved01",
+        "Z_OI_TRG_Restart_CashGoal01",
+        "Z_OI_TRG_Restart_CashGoal02",
+        "Z_OI_TRG_Restart_CashGoal03",
+        "Z_OI_TRG_Restart_CashGoal04",
+        "Z_OI_TRG_Restart_CashGoal05",
+        "Z_OI_TRG_Restart_CashGoal06",
+        "Z_OI_TRG_Restart_CashGoal07",
+        "Z_OI_TRG_Restart_CashGoal08",
+        "Z_OI_TRG_Restart_CashGoal09",
+        "Z_OI_TRG_Restart_CashGoal10",
+        "Z_OI_TRG_Respawn_Newlift_Bottom",
+        "Z_OI_TRG_Respawn_NewLift_Top",
+        "Z_OI_TRG_G_Gap_RestartNode",
+        "Z_OI_TRG_G_Gap2_RestartNode",
+        "Z_OI_TRG_G_Gap3_RestartNode",
+        "Z_OI_TRG_G_Gap4_RestartNode",
+        "Z_OI_TRG_G_TrickAttack_RestartNode",
+        "Z_OI_TRG_G_Gap5_RestartNode",
+        "Z_OI_TRG_RespawnFromWater01",
+        "Z_OI_TRG_G_GAPS9_RestartNode01",
+        "Z_OI_TRG_G_Counter_RestartNode_01",
+        "Z_OI_TRG_G_gaps7_noderestart",
+        "Z_OI_TRG_G_gaps08_noderestart",
+        "Z_OI_TRG_G_Gap5_RestartNode_success01",
+        "Z_OI_TRG_G_Counter_RestartNode_02",
+        "Z_OI_TRG_G_Counter2_Restartnode01",
+        "TRG_CTF_Restart_Blue",
+        "TRG_CTF_Restart_Green",
+        "TRG_CTF_Restart_Red",
+        "TRG_CTF_Restart_Yellow",
+        "TRG_Team_Restart",
+        "Z_OI_TRG_G_Gap2_RestartNode01",
+        "Z_OI_TRG_G_Gap3_RestartNode01",
+        "Z_OI_TRG_G_Gap4_RestartNode01",
+        "Z_OI_TRG_G_gaps7_noderestart01",
+        "Z_OI_TRG_G_GAPS10_Restartnode01",
+        "Z_OI_TRG_G_Gaps11_Restartnode01",
+        "Z_OI_TRG_Restart_Single",
+        "Z_OI_TRG_G_Gaps8_Success_REstart01",
+        "Z_OI_TRG_G_Gaps13_Restart",
+        "Z_OI_TRG_G_Gap5_RestartNode_success_Pro_02",
+        "Z_OI_TRG_G_Gap4_RestartNode02",
+        "Z_OI_TRG_SingleContainer_Restart",
+        "Z_OI_TRG_TripleContainer_Restart01",
+        "Z_OI_TRG_Gaps7_Restartnode01",
+        "Z_OI_TRG_G_Counter_Boat_Gameplay01"
+      ]
+    }
   },
   "spawns_not_applied": {
     "_note": "Not applied (the user's decision): THAW restarts whose restart_types isn't a list, which THUGPRO made network spawns. Listed by --extract-thugpro.",

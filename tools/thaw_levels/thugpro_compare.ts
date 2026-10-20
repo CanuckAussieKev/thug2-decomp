@@ -254,6 +254,7 @@ const vec = (v: QbValue | undefined): number[] => (v instanceof Vector ? [...v.v
 export interface SpawnExtract {
     edits: SpawnEdit[];
     notApplied: Record<string, unknown>[];
+    order: string[]; // every network spawn in THUGPRO's order, by our names (the added: TRG_Net_Spawn01...)
     notes: string[];
 }
 
@@ -290,7 +291,8 @@ export function extractSpawns(
         const nm = n instanceof Struct ? nameOf(n) : null;
         if (n instanceof Struct && nm !== null && isRestart(n) && !ownBy.has(nm)) ownBy.set(nm, n);
     }
-    const out: SpawnExtract = { edits: [], notApplied: [], notes: [] };
+    const out: SpawnExtract = { edits: [], notApplied: [], notes: [], order: [] };
+    let added = 0;
     const round = (v: readonly number[]): number[] => v.map((x) => pyRound(x, 4));
     const seen = new Set<number>();
     for (const t of theirs) {
@@ -313,6 +315,8 @@ export function extractSpawns(
                 ...(script instanceof Name && /dropin/i.test(names.get(script.value) ?? "") ? { dropin: true } : {}),
             });
             out.notes.push(`added: ${names.get(tn)}`);
+            added += 1;
+            out.order.push(`TRG_Net_Spawn${String(added).padStart(2, "0")}`);
             continue;
         }
         seen.add(ours);
@@ -327,6 +331,7 @@ export function extractSpawns(
             });
             continue;
         }
+        if (isNet(theirTypes)) out.order.push(names.get(ours) ?? hex8(ours));
         const edit: SpawnEdit = { node: names.get(ours) ?? hex8(ours) };
         const op = position(o);
         if (
@@ -378,7 +383,7 @@ function extract(thugpro: string, thawFolder: string): number {
     };
     for (const [zone] of LEVELS) {
         const r = extractSpawns(zone, thugpro, thawFolder, names);
-        if (r.edits.length) section[zone] = r.edits;
+        section[zone] = { edits: r.edits, order: r.order };
         if (r.notApplied.length) pending[zone] = r.notApplied;
         print(
             `${zone}: ${r.notes.join("; ") || "no spawn edits"}${r.notApplied.length ? `; ${r.notApplied.length} not applied` : ""}`,

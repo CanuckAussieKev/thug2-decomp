@@ -101,10 +101,19 @@ test("applySpawns (TP-4): changes a named restart, adds one with the drop-in, no
     COMPAT.spawns = new Map([
         [
             "Z_XX",
-            [
-                { node: "R1", pos: [4, 5, 6], restart_types: [] },
-                { pos: [7, 8, 9], angles: [0, 1, 0], type: "Generic", restart_types: ["Multiplayer"], dropin: true },
-            ],
+            {
+                edits: [
+                    { node: "R1", pos: [4, 5, 6], restart_types: [] },
+                    {
+                        pos: [7, 8, 9],
+                        angles: [0, 1, 0],
+                        type: "Generic",
+                        restart_types: ["Multiplayer"],
+                        dropin: true,
+                    },
+                ],
+                order: ["TRG_Net_Spawn01"],
+            },
         ],
     ]);
     const report: string[] = [];
@@ -115,7 +124,29 @@ test("applySpawns (TP-4): changes a named restart, adds one with the drop-in, no
     assert.equal(converted.length, 2);
     assert.deepEqual((converted[1]!.get("Pos") as Vector).values, [7, 8, 9]);
     assert.ok(converted[1]!.get("TriggerScript") instanceof Name);
-    assert.deepEqual(report, ["  TP-4: 1 spawn(s) as THUGPRO's, 1 added"]);
+    assert.deepEqual(report, ["  TP-4: 1 spawn(s) as THUGPRO's, 1 added, 0 moved to THUGPRO's order"]);
+    // the order: two spawns swapped into THUGPRO's order, a Links to one of them follows it
+    const spawn = (name: string): Struct =>
+        new Struct([
+            [new Name(checksum("Name")), new Name(checksum(name))],
+            [new Name(checksum("Class")), new Name(checksum("Restart"))],
+            [new Name(checksum("restart_types")), [new Name(checksum("Multiplayer"))]],
+        ]);
+    names.set(checksum("Multiplayer"), "Multiplayer");
+    const other = new Struct([[new Name(checksum("Links")), [2]]]);
+    const ordered = [spawn("A"), other, spawn("B")];
+    COMPAT.spawns = new Map([["Z_XX", { edits: [], order: ["B", "A"] }]]);
+    applySpawns("z_xx", "z_xx", ordered, names, []);
+    assert.equal(ordered[0]!.get("Name")?.toString(), new Name(checksum("B")).toString());
+    assert.deepEqual(
+        [ordered[0], ordered[2]].map((n) => (n!.get("Name") as Name).value),
+        [checksum("B"), checksum("A")],
+    );
+    assert.deepEqual(other.get("Links"), [0]);
+    assert.throws(() => {
+        COMPAT.spawns = new Map([["Z_XX", { edits: [], order: ["B"] }]]);
+        applySpawns("z_xx", "z_xx", [spawn("A"), spawn("B")], names, []);
+    });
     setCompat("none");
     const untouched = [restart()];
     assert.equal(applySpawns("z_xx", "z_xx", untouched, names, []), "");

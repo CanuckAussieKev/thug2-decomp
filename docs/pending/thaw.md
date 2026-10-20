@@ -156,7 +156,14 @@ Multiplayer / Horse / CTF / Team types that THUGPRO moved, retyped, added or too
   running `<level>_net_dropin` = MakeSkaterGoto DropIn). SZ - Z_SZ_TRG_StartOfLevel loses PriorityRestart. BH -
   Z_BH_TRG_Player_Start01 13.9 units lower. EL - Z_EL_way_kill_metrohq loses PriorityRestart; the two
   TransitionParkTeleport restarts stop being spawns (ours already dropped them: over the freeway kill).
-- Result (thugpro_compare, all network spawns - place and types, in order): the same as THUGPRO's in 14 areas.
+- Order (the lead, from the THUG1 agent's finding: THUG2 starts player n at the n-th Multiplayer restart of the node
+  array and respawns at one of the first 8 - Skate 0x00566100 -> GetRestartNode 0x0046B790 ->
+  CSkater::MoveToRandomRestart 0x00580830, Rnd(8)): the profile also holds each area's full spawn order (THUGPRO's,
+  by our names; `order`), and applySpawns refills the spawn slots in that order, renumbering every Links (TP-31's
+  approach). nodes.convertNodes' Player1-first swap is kept: it changes no THAW area's spawn order - the refill moved
+  0 spawns in all 15 (the data now guards it).
+- Result (thugpro_compare, all network spawns - place and types, in order): the same as THUGPRO's in 14 areas; SZ the
+  same 35 in the same order, THUGPRO's 10 more not applied (below).
 - **Not applied - the user's decision: Santa Cruz's 10** (Z_SZ_TRG_restart01, _derby01, _fromalley01 / 02 (the same
   spot), _fromboardwalk01, _Killox01_restart ... restart05). In THAW their restart_types is the string "Player 1" (not
   a list: no network spawn in THAW, nor in ours); THUGPRO made them [Player1 Multiplayer Horse]. Listed in

@@ -93,7 +93,7 @@ export const COMPAT = {
     levelNames: new Map<string, string>(),
     frameKept: new Set<string>(),
     frameAdjust: new Map<string, number[]>(),
-    spawns: new Map<string, SpawnEdit[]>(),
+    spawns: new Map<string, ZoneSpawns>(),
 };
 
 // TP-4 (tools/compat/thugpro/thaw_levels.json `spawns`): a network spawn - a restart with Multiplayer / Horse / CTF /
@@ -101,7 +101,15 @@ export const COMPAT = {
 // types, or added it). `node`: our node of that name changed (pos / angles in THAW's own frame - the level's frame
 // shift is added as for every node; restart_types: the new list, [] = none); without `node`: a spawn added in our
 // form (Restart, CreatedAtStart, `type`, `restart_types`; `dropin`: it runs the level's drop-in script, THUG2's
-// MakeSkaterGoto DropIn). Extracted by `node tools/thaw_levels/thugpro_compare.ts --extract-thugpro`.
+// MakeSkaterGoto DropIn). `order`: every network spawn of the level (our names; the added ones TRG_Net_Spawn01...)
+// in THUGPRO's order - THUG2 starts player n at the n-th Multiplayer restart of the node array and respawns at
+// one of the first 8 (Skate 0x00566100 -> GetRestartNode 0x0046B790; CSkater::MoveToRandomRestart 0x00580830:
+// Rnd(8)), so the order is part of a fair start too. Extracted by
+// `node tools/thaw_levels/thugpro_compare.ts --extract-thugpro`.
+export interface ZoneSpawns {
+    edits: SpawnEdit[];
+    order?: string[];
+}
 export interface SpawnEdit {
     node?: string;
     pos?: number[];
@@ -121,15 +129,16 @@ export function setCompat(name: string): void {
     COMPAT.frameAdjust = new Map(
         Object.entries(profile.section("thaw_levels", "frame_adjust")) as [string, number[]][],
     );
-    COMPAT.spawns = new Map(Object.entries(profile.section("thaw_levels", "spawns")) as [string, SpawnEdit[]][]);
+    COMPAT.spawns = new Map(Object.entries(profile.section("thaw_levels", "spawns")) as [string, ZoneSpawns][]);
 }
 
 // The level's drop-in script (TP-4's added spawns run it: the skater drops in, as THUG2's MakeSkaterGoto DropIn).
 export const dropInName = (level: string): string => `${level}_net_dropin`;
 
 // TP-4: the profile's spawn edits applied to the converted nodes (before the frame shift: positions are THAW's
-// frame). Added spawns go at the end, in the profile's order (their order among the spawns is THUGPRO's). Returns
-// the NeverScript to add (the drop-in script) or "".
+// frame). Added spawns go at the end; then the spawns' slots in the array are refilled in THUGPRO's order (`order`;
+// every node's Links follow - the approach of tools/thug1_levels' TP-31; nodes.convertNodes' Player1-first swap
+// can stay: it only exchanges two slots before the refill). Returns the NeverScript to add (the drop-in script) or "".
 export function applySpawns(
     zone: string,
     level: string,
@@ -137,8 +146,9 @@ export function applySpawns(
     names: Map<number, string>,
     report: string[],
 ): string {
-    const edits = COMPAT.spawns.get(zone.toUpperCase());
-    if (edits === undefined || !edits.length) return "";
+    const entry = COMPAT.spawns.get(zone.toUpperCase());
+    if (entry === undefined) return "";
+    const edits = entry.edits ?? [];
     const key = (text: string): Name => {
         const value = checksum(text);
         if (!names.has(value)) names.set(value, text);
@@ -190,7 +200,44 @@ export function applySpawns(
             dropIn = true;
         }
     }
-    report.push(`  TP-4: ${changed} spawn(s) as THUGPRO's, ${added} added`);
+    let reordered = 0;
+    if (entry.order !== undefined) {
+        const isSpawn = (n: Struct): boolean => {
+            const types = n.get("restart_types");
+            return (
+                nodes.classOf(n, names) === "restart" &&
+                Array.isArray(types) &&
+                types.some(
+                    (t) => t instanceof Name && nodes.NET_RESTART_TYPES.has((names.get(t.value) ?? "").toLowerCase()),
+                )
+            );
+        };
+        const slots = converted.flatMap((n, i) => (isSpawn(n) ? [i] : []));
+        const wanted = entry.order.map((text) => {
+            const c = checksum(text);
+            return converted.findIndex((n) => {
+                const nm = n.get("Name");
+                return nm instanceof Name && nm.value === c;
+            });
+        });
+        if ([...wanted].sort((a, b) => a - b).join(",") !== slots.join(",")) {
+            throw new FormatError(`${zone}: TP-4's spawn order names other restarts than the level's spawns`);
+        }
+        const moveTo = new Map(wanted.map((from, k) => [from, slots[k]!] as const)); // old index -> new
+        const before = [...converted];
+        for (const [from, to] of moveTo) converted[to] = before[from]!;
+        const links = checksum("Links");
+        for (const n of converted) {
+            n.entries = n.entries.map(([k, v]) => [
+                k,
+                k !== null && k.value === links && Array.isArray(v)
+                    ? v.map((x) => (typeof x === "number" && moveTo.has(x) ? moveTo.get(x)! : x))
+                    : v,
+            ]);
+        }
+        reordered = wanted.filter((from, k) => from !== slots[k]).length;
+    }
+    report.push(`  TP-4: ${changed} spawn(s) as THUGPRO's, ${added} added, ${reordered} moved to THUGPRO's order`);
     return dropIn ? `script ${dropInName(level)} {\n    MakeSkaterGoto DropIn \n}\n` : "";
 }
 
