@@ -617,7 +617,7 @@ export function nightSectors(geom: thaw.Geom, names: ReadonlyMap<number, string>
 // --- collision --------------------------------------------------------------------------------------------------
 
 // A breakable's faces, as THUG2's own (its Airport's AP_Shatter_Roof pieces): non-collidable, trigger, no skater
-// shadow, invisible - THAW's had decal and camera collidable too (0xF0).
+// shadow, invisible - THAW's had decal and camera-passes-through too (0xF0).
 const BREAKABLE_FACE = 0x1150;
 
 // A BSP tree moved by `shift`: its split points are world coordinates (in sixteenths), not relative to the box.

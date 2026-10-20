@@ -193,7 +193,7 @@ export function readScene(data: Uint8Array, name = "scene"): Scene {
 //   vertices    3f + 4 intensity bytes each (16 bytes; THPS4 has no fixed-point vertices or intensity list)
 //   faces       u16 flags, u16 terrain, 3 x u16 vertex, u16 0 (12 bytes), or small: 8 bytes
 //   u32 node bytes, the BSP nodes (20 bytes in THPS4's: not used here - the converter builds THUG2's), face indices.
-// Face flag 0x80 (camera collidable in THUG2) means the opposite in THPS4: set when the camera goes through it.
+// Face flag 0x80 means the opposite in THPS4: set where the camera collides (THUG2's: the camera passes through).
 
 export interface ColObject extends SourceColObject {
     smallFaces: number;
@@ -306,7 +306,11 @@ export function toThug2Material(m: Material): thug2Scene.Material {
     return out;
 }
 
-// THPS4's face flag 0x80 means the camera goes through the face; THUG2's 0x80 means the camera collides with it.
+// THPS4's face flag 0x80 means the camera collides with the face; THUG2's 0x80 means the camera passes through it
+// (THUG2's two camera feelers, 0x004E4425 / 0x004FB380, ignore 0x90 faces). THPS4 sets it on the solid world - 324,196
+// of 488,023 faces: buildings, walls, floors, stairs, ramps - and leaves it off props (trees, signs, railings, light
+// poles, trash cans), triggers, occlusion planes and non-collidable faces; THUG2's own levels set it on such props
+// (21,034 of 460,190 faces). So it's inverted (docs/pending/face-flag-0x80.md).
 export const FACE_CAMERA = 0x0080;
 // The face flags kept: wall ride, vert, non-collidable, decal, trigger, camera, shadow, no-shadow wall, invisible
 // (0x4 ... 0x1000 but 0x200 / 0x800). Left out although THUG2's own levels use them too: 0x01 / 0x02 / 0x200 / 0x800

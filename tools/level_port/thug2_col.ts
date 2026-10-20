@@ -35,7 +35,11 @@ export const FACE_VERT = 0x0008;
 export const FACE_NON_COLLIDABLE = 0x0010;
 export const FACE_DECAL = 0x0020;
 export const FACE_TRIGGER = 0x0040;
-export const FACE_CAMERA_COLLIDABLE = 0x0080;
+// 0x80: the camera passes through the face - both camera feelers (0x004E4425 in 0x004E4360, 0x004FB380 in
+// 0x004FA860) ignore 0x90. THUG2's own levels set it on lamps, poles, trees, fences, signs, glass, triggers, kill
+// planes and invisible walls (21,034 of 460,190 faces). THPS3 / THPS4 meant the reverse (set on the solid world):
+// their converters invert it (docs/pending/face-flag-0x80.md).
+export const FACE_CAMERA_PASSES = 0x0080;
 export const FACE_NO_SKATER_SHADOW = 0x0100;
 export const FACE_SKATER_SHADOW = 0x0200;
 export const FACE_NO_SKATER_SHADOW_WALL = 0x0400;

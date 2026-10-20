@@ -69,10 +69,14 @@ export const LEVELS: readonly LevelInfo[] = [
 ];
 export const BY_CODE: ReadonlyMap<string, LevelInfo> = new Map(LEVELS.map((info) => [info[0].toLowerCase(), info]));
 
-// THUG1's collision face flags in THUG2: the same meanings up to 0x1000 (0x80: the camera collides, as THUG2's - not
-// THPS4's reverse). Above: THUG1 sets 0x2000 on every face (476,641 of 476,641) - in THUG2 it means "not taggable"
-// (THUG2's own levels: 6,555 faces, mostly walls), which would make all of a THUG1 level untaggable: dropped; 0x4000
-// (8,397) and 0x8000 (69,189) do nothing in THUG2 (below): dropped.
+// THUG1's collision face flags in THUG2: the same meanings up to 0x1000 (0x80: the camera passes through, as THUG2's -
+// THUG1's own levels set it on under 7% of their faces: lamps, trees, fences, triggers). Not in OLD_CAMERA_FLAG's
+// levels, though: THUG1 shipped those with the THPS3 / THPS4 meaning (0x80 where the camera collides - the solid world:
+// DJ 6,596 of 7,120 faces, PH 8,596 of 10,120, SC 10,692 of 13,114, the skate shop THPS4's own 6,141 of 19,724); THUG2
+// re-flagged its own copies of DJ / PH / SC (0 / 316 / 328 faces). Theirs is inverted, as the THPS3 and THPS4
+// converters do (docs/pending/face-flag-0x80.md). Above: THUG1 sets 0x2000 on every face (476,641 of 476,641) - in
+// THUG2 it means "not taggable" (THUG2's own levels: 6,555 faces, mostly walls), which would make all of a THUG1 level
+// untaggable: dropped; 0x4000 (8,397) and 0x8000 (69,189) do nothing in THUG2 (below): dropped.
 // THUG2's own bits above 0x1000 (docs/level-port-compromises.md): 0x2000 is "not taggable" - the graffiti feelers
 // ignore 0x1000 | 0x2000 (SetIgnore(0x3000, 0) at 0x0051DF71 / 0x0051E74B); 0x4000 and 0x8000 (on 4,535 / 40,513 of
 // THUG2's own faces - the park editor's shells, most levels) have no reader in THUG2's code: no feeler's ignore masks
@@ -82,6 +86,15 @@ export const FACE_KEEP = 0x1fff;
 
 export function faceFlags(flags: number): number {
     return flags & FACE_KEEP;
+}
+
+// The levels whose face flag 0x80 has THPS3 / THPS4's meaning (the camera collides): inverted for THUG2.
+export const OLD_CAMERA_FLAG: ReadonlySet<string> = new Set(["dj", "ph", "sc", "skateshop"]);
+export const FACE_CAMERA = 0x0080;
+
+// The face flags function for level `code`.
+export function faceFlagsOf(code: string): (flags: number) => number {
+    return OLD_CAMERA_FLAG.has(code.toLowerCase()) ? (flags) => faceFlags(flags ^ FACE_CAMERA) : faceFlags;
 }
 
 interface Args {
@@ -399,7 +412,7 @@ export function convertGeometry(
     if (keepTriggers !== null) {
         if (!files.has(`${base}.col.xbx`)) throw new FormatError(`${code}: no collision in the archives`);
         const col1 = thug1.readCol(need(files, `${base}.col.xbx`), `${base}.col.xbx`);
-        col = thug1.toThug2Col(col1, keepTriggers, faceFlags, base);
+        col = thug1.toThug2Col(col1, keepTriggers, faceFlagsOf(code), base);
         // (TP-37 ... TP-39: THUGPRO's collision edits - hand_edits.ts)
         const edits = COMPAT.edits.get(code.toLowerCase());
         if (edits !== undefined) [col, editReport] = handEdits.applyColEdits(col, edits, code);

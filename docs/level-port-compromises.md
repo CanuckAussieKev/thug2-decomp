@@ -36,6 +36,7 @@ and moving objects have mostly not been seen working. The "what to try" lists ar
 |---|---|---|---|---|
 | Level geometry, textures | Original | Original (vertex colours halved to THUG2's scale) | Original | Original, from the online (`_net`) version (see 6) |
 | Collision, rails, restarts, kill zones | Original | Original | Original | Original (2 face flags dropped) |
+| Where the camera goes through (face flag 0x80: THUG2's "camera passes through"; THPS3 / THPS4's "camera collides") | Original (flag inverted) | Original (flag inverted) | Original (kept; inverted in DJ, PH, SC and the skate shop, which THUG1 shipped with the old meaning) | Original (kept) |
 | Level scripts (gaps, triggers, moving things) | Original, translated | Original, translated | Original, translated (node array nearly whole) | Original, translated |
 | Gap checks that test how you landed (TriggerType) | Translated to THUG2's form | Translated to THUG2's form | Translated to THUG2's form | Translated (THAW's Smack / Natas / AcidDrop / STALL: no THUG2 event, left out - false) |
 | Peds: model | Stand-in (THUG2 people) | Stand-in (THUG2 people) | Original profile where THUG2 has it, else a random THUG2 one | Stand-in (THUG2 people, chosen by keyword) |

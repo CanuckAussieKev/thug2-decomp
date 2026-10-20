@@ -608,14 +608,19 @@ export function objectSectors(
     return [sectors, materials];
 }
 
-// THPS3's face flags have THUG2's meanings up to 0x1000 (0x80: the camera collides, as THUG2's). 0x2000 / 0x4000 /
-// 0x8000 are on a few hundred of THPS3's 580,016 faces each, with every other bit about half the time (stray values;
-// THPS3 has no tagging): dropped - THUG2's 0x2000 is "not taggable", 0x4000 / 0x8000 do nothing in THUG2 (the graffiti
-// feelers ignore 0x3000 at 0x0051DF71 / 0x0051E74B; no code tests 0x4000 / 0x8000 of a face).
+// THPS3's face flags have THUG2's meanings up to 0x1000 but 0x80, which means the reverse (as THPS4's): THPS3 sets it
+// where the camera collides - the solid world, 225,343 of its levels' 577,634 faces (buildings, floors, walls, ramps),
+// not props, decals, triggers or non-collidable faces - while THUG2's 0x80 is "the camera passes through" (its camera
+// feelers 0x004E4425 / 0x004FB380 ignore 0x90; its own levels set it on lamps, poles, trees, fences, triggers):
+// inverted (docs/pending/face-flag-0x80.md). 0x2000 / 0x4000 / 0x8000 are on a few hundred of THPS3's 580,016 faces
+// each, with every other bit about half the time (stray values; THPS3 has no tagging): dropped - THUG2's 0x2000 is
+// "not taggable", 0x4000 / 0x8000 do nothing in THUG2 (the graffiti feelers ignore 0x3000 at 0x0051DF71 / 0x0051E74B;
+// no code tests 0x4000 / 0x8000 of a face).
+export const FACE_CAMERA = 0x0080;
 export const FACE_KEEP = 0x1fff;
 
 export function faceFlags(flags: number): number {
-    return flags & FACE_KEEP;
+    return (flags ^ FACE_CAMERA) & FACE_KEEP;
 }
 
 // Whether a face's corners are `corners` in the same turning order (any first corner) - TP-19's faces are THPS3's own

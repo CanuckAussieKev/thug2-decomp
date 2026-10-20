@@ -43,7 +43,8 @@ THUG1 40-58 (unique; no records - the info panel skips them as before).
   index lists (strips; 1 LOD in every shipped mesh). Colours 128 = full. Ends with hierarchy count 0.
 - Collision v9 = v10 minus reaches (no large-face byte array, small faces' 4th byte 0, scale 0). BSP trees are
   THUG2's (both games have a few splits outside the object box - harmless): kept; reaches computed. Face flags:
-  0x80 = camera collides (as THUG2); 0x2000 on every face and 0x4000 / 0x8000 dropped (mask 0x1FFF).
+  0x80 = the camera passes through (as THUG2; but DJ / PH / SC / the skate shop have THPS3 / THPS4's reverse
+  meaning: inverted - docs/pending/face-flag-0x80.md); 0x2000 on every face and 0x4000 / 0x8000 dropped (mask 0x1FFF).
 - QB: THUG2's tokens exactly; node arrays include `ncomp_*` global structures by name; `Pos=`.
 
 ## Reference bugs

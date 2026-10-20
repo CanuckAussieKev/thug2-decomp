@@ -56,7 +56,8 @@ its BSP trees, textures written back byte-identical, qb files): 333 files.
 - Collision (`.col.xbx`): version 9 = THUG2's version 10 without the faces' reaches (no byte per large face after
   the faces, the small faces' 4th byte 0, the objects' reach scale 0). The vertices (fixed point included), faces and
   BSP trees are THUG2's: kept; the reaches are computed (zeros make faces all but uncollidable in THUG2's ray test).
-  Face flags have THUG2's meanings (0x80 = camera collides; THPS4's is the reverse); 0x2000 (every face), 0x4000 and
+  Face flags have THUG2's meanings (0x80 = the camera passes through; THPS3 / THPS4's is the reverse, and so is
+  THUG1's DJ / PH / SC / skate shop data: inverted there); 0x2000 (every face), 0x4000 and
   0x8000 are dropped.
 - QB: THUG2's token format exactly (the random tokens have their weights). Node arrays share common parts as global
   structures named in the nodes (`ncomp_RailNode_574`): expanded into the nodes. Nodes use `Pos`.

@@ -49,7 +49,8 @@ Confirmed in THUG2PM.exe's code (Ghidra snapshot, this batch):
   only hit faces with both 0x40 and 0x10 (SetIgnore(0, 0x50)) - trigger volumes the skater passes through (water,
   kill zones by data: THPS3's water is 0x50).
 - **0x80 the camera passes through**: the camera's collision feeler (0x004E4425 in 0x004E4360) ignores 0x90.
-  (Our docs called 0x80 "camera collides" - the code says the camera's feeler ignores those faces.)
+  (Our docs called 0x80 "camera collides" - the code says the camera's feeler ignores those faces. Settled in
+  docs/pending/face-flag-0x80.md: THUG2's 0x80 = camera passes through; THPS3 / THPS4 meant the reverse.)
 - **0x1000 / 0x2000 not taggable** (graffiti feelers 0x0051DF71 / 0x0051E74B ignore 0x3000).
 - 0x800: ignored by one skater feeler (0x004F8698, ignore 0x810) - meaning not known. 0x20: three feelers hit only 0x20
   faces (0x00422F51, 0x004F8341, 0x0052716D) - meaning not known.

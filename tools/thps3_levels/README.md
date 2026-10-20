@@ -42,7 +42,8 @@ RenderWare 3.1 binary streams (chunks: u32 type, u32 size, u32 version 0x310) wi
 - `.bsp` - an RpWorld: the material list, then the plane-section tree whose leaves (atomic sectors) are Neversoft's
   objects: each has its vertices (positions, prelit colours 255 = full, two uv sets), triangles (u16 material, 3 x u16
   vertex), a bin mesh (strips or lists per material) and Neversoft's extension: a u16 face flag per triangle (THUG2's
-  collision flag meanings: 0x10 non-collidable, 0x40 trigger, 0x80 camera collides...) and the object's checksum
+  collision flag meanings: 0x10 non-collidable, 0x40 trigger...; but 0x80 is the reverse of THUG2's - camera collides,
+  where THUG2's is camera passes through: inverted) and the object's checksum
   name - the EnvironmentObject node of the same name. The same triangles are drawn and collided with.
 - Materials: RW's material and texture (name, addressing), and Neversoft's extension: flags (0x02 invisible - the
   collision-only and trigger planes, 0x08 transparent, 0x10 decal), the terrain type (THUG2's numbering), the
