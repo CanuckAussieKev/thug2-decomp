@@ -25,6 +25,7 @@
 #include "game/nx/coll_movable.h"
 #include "game/nx/coll_tri.h"
 #include "game/nx/coll_world.h"
+#include "game/obj/object.h"
 #include "game/script/load.h"
 #include "game/script/node_manager.h"
 #include "game/script/nodes.h"
@@ -216,7 +217,8 @@ bool SameSpec(const Spec& a, const Spec& b)
 {
     return a.name == b.name && a.kind == b.kind && a.size.x == b.size.x && a.size.y == b.size.y &&
            a.size.z == b.size.z && a.water == b.water && a.target == b.target && a.script == b.script &&
-           a.gap == b.gap && a.flags == b.flags && a.text == b.text && a.score == b.score && a.replaces == b.replaces;
+           a.gap == b.gap && a.flags == b.flags && a.text == b.text && a.score == b.score && a.replaces == b.replaces &&
+           a.exit == b.exit;
 }
 
 uint32_t ChecksumOf(const std::string& name)
@@ -300,6 +302,41 @@ OrientedBox BoxOf(V3 pos, float yaw, V3 size)
     box.min = size * -0.5f;
     box.max = size * 0.5f;
     return box;
+}
+
+bool Inside(const OrientedBox& box, V3 p)
+{
+    V3 d = p - box.origin;
+    float x = Dot(d, box.axes[0]), y = Dot(d, box.axes[1]), z = Dot(d, box.axes[2]);
+    return x >= box.min.x && x <= box.max.x && y >= box.min.y && y <= box.max.y && z >= box.min.z && z <= box.max.z;
+}
+
+V3 HandleDirection(float yaw, int handle)
+{
+    int axis = (handle >> 1) % 3;
+    float sign = (handle & 1) ? 1.0f : -1.0f;
+    V3 unit = axis == 0 ? V3{1.0f, 0.0f, 0.0f} : axis == 1 ? V3{0.0f, 1.0f, 0.0f} : V3{0.0f, 0.0f, 1.0f};
+    return TurnAboutUp(unit, yaw) * sign;
+}
+
+V3 HandlePoint(V3 pos, float yaw, V3 size, int handle)
+{
+    int axis = (handle >> 1) % 3;
+    float half = (axis == 0 ? size.x : axis == 1 ? size.y : size.z) * 0.5f;
+    return pos + HandleDirection(yaw, handle) * half;
+}
+
+void ResizeFace(V3 pos, float yaw, V3 size, int handle, float along, V3* newPos, V3* newSize)
+{
+    int axis = (handle >> 1) % 3;
+    V3 grown = size;
+    float* side = axis == 0 ? &grown.x : axis == 1 ? &grown.y : &grown.z;
+    float before = *side;
+    *side = before + (std::isfinite(along) ? along : 0.0f);
+    grown = ClampSize(grown);
+    float change = (axis == 0 ? grown.x : axis == 1 ? grown.y : grown.z) - before;
+    *newSize = grown;
+    *newPos = pos + HandleDirection(yaw, handle) * (change * 0.5f);
 }
 
 std::vector<uint8_t> Body(const Spec& spec)
@@ -432,6 +469,8 @@ std::string Record(const Placed& placed)
         std::snprintf(number, sizeof(number), " replaces=%08X", s.replaces);
         out << number;
     }
+    if (s.exit)
+        out << " exit=1";
     std::string text = CleanText(s.text);
     if (!text.empty())
         out << " text=\"" << text << '"';
@@ -458,7 +497,7 @@ bool ReadRecord(const std::string& line, Placed* placed)
     if (!(in >> s.name >> word) || !ValidName(s.name) || !KindFromWord(word, &s.kind) || s.kind == Kind::Other)
         return false;
     bool havePos = false, haveYaw = false, haveSize = false, haveTarget = false, haveWater = false, haveScript = false,
-         haveGap = false, haveFlags = false, haveScore = false, haveReplaces = false;
+         haveGap = false, haveFlags = false, haveScore = false, haveReplaces = false, haveExit = false;
     s.score = 100;
     auto once = [](bool* seen) {
         if (*seen)
@@ -514,6 +553,9 @@ bool ReadRecord(const std::string& line, Placed* placed)
             unsigned long checksum = std::strtoul(value.c_str(), &end, 16);
             ok = once(&haveReplaces) && !value.empty() && value.size() <= 8 && end && *end == '\0';
             s.replaces = static_cast<uint32_t>(checksum);
+        } else if (key == "exit") {
+            ok = once(&haveExit) && (value == "0" || value == "1");
+            s.exit = value == "1";
         } // (another key: a later version's - skipped)
         if (!ok)
             return false;
@@ -1613,9 +1655,14 @@ bool NodePos(uint32_t name, V3* pos)
 
 } // namespace
 
+namespace {
+void RememberView(V3 camera, const Frame& frame, const Lens& lens, const uint32_t viewport[4], float nearZ);
+} // namespace
+
 void AddOverlay(V3 camera, const Frame& frame, const Lens& lens, const uint32_t viewport[4], float nearZ,
                 std::vector<Ui::Line>* lines, std::vector<Ui::Overlay::Text>* texts)
 {
+    RememberView(camera, frame, lens, viewport, nearZ); // (the resize handles are drawn and picked with it)
     if (!Shown())
         return;
     Painter paint = {camera, &frame, &lens, viewport, nearZ, lines};
@@ -1692,6 +1739,220 @@ void AddOverlay(V3 camera, const Frame& frame, const Lens& lens, const uint32_t 
         if (a.problem)
             text += " (not active)";
         label({a.pos.x, a.pos.y + a.spec.size.y * 0.5f, a.pos.z}, colour, text);
+    }
+}
+
+// --- resize handles ---
+
+namespace {
+
+constexpr uint32_t kHandleColours[3] = {0xFFFF4040u, 0xFF40E040u, 0xFF4080FFu}; // (x, y, z: as the move arrows)
+
+// The selected editor trigger's node, the view AddOverlay last drew with, the handles where they were drawn, the one
+// under the cursor, and a resize under way.
+uint32_t g_selectedNode;
+struct LastView {
+    bool have = false;
+    V3 camera = {};
+    Frame frame = {};
+    Lens lens = {};
+    uint32_t viewport[4] = {};
+    float nearZ = 1.0f;
+} g_lastView;
+struct DrawnHandle {
+    int handle;
+    float x, y;
+};
+std::vector<DrawnHandle> g_drawnHandles;
+int g_hoverHandle = -1;
+struct ResizeDrag {
+    bool on = false;
+    std::string name;
+    uint32_t node = 0;
+    int handle = -1;
+    V3 pos0 = {}, size0 = {}, start = {}, direction = {};
+    float yaw = 0.0f, s0 = 0.0f;
+} g_resize;
+
+void RememberView(V3 camera, const Frame& frame, const Lens& lens, const uint32_t viewport[4], float nearZ)
+{
+    g_lastView.have = true;
+    g_lastView.camera = camera;
+    g_lastView.frame = frame;
+    g_lastView.lens = lens;
+    for (int i = 0; i < 4; ++i)
+        g_lastView.viewport[i] = viewport[i];
+    g_lastView.nearZ = nearZ;
+}
+
+const Added* AliveNamed(uint32_t node)
+{
+    for (const Added& a : g_added) {
+        if (a.alive && NameChecksum(a.spec.name) == node)
+            return &a;
+    }
+    return nullptr;
+}
+
+} // namespace
+
+void SetSelected(uint32_t node)
+{
+    if (node != g_selectedNode)
+        g_hoverHandle = -1;
+    g_selectedNode = node;
+}
+
+void AddHandles(std::vector<Ui::Overlay::Circle>* circles)
+{
+    g_drawnHandles.clear();
+    const Added* a = g_lastView.have ? AliveNamed(g_selectedNode) : nullptr;
+    if (!a)
+        return;
+    for (int h = 0; h < 6; ++h) {
+        V3 p = HandlePoint(a->pos, a->yaw, a->spec.size, h);
+        float nx, ny, x, y;
+        if (!Project(g_lastView.camera, g_lastView.frame, g_lastView.lens, p, g_lastView.nearZ, &nx, &ny))
+            continue;
+        NdcToPixel(g_lastView.viewport, nx, ny, &x, &y);
+        bool lit = h == g_hoverHandle || (g_resize.on && h == g_resize.handle);
+        uint32_t colour = lit ? 0xFFFFFF40u : kHandleColours[h >> 1];
+        circles->push_back({x, y, lit ? 7.0f : 5.5f, colour, true, 1.0f});
+        circles->push_back({x, y, lit ? 7.0f : 5.5f, 0xFF101010u, false, 1.0f});
+        g_drawnHandles.push_back({h, x, y});
+    }
+}
+
+int HandleAt(float x, float y, float radius)
+{
+    int best = -1;
+    float bestDistance = radius;
+    for (const DrawnHandle& d : g_drawnHandles) {
+        float distance = std::sqrt((d.x - x) * (d.x - x) + (d.y - y) * (d.y - y));
+        if (distance <= bestDistance) {
+            bestDistance = distance;
+            best = d.handle;
+        }
+    }
+    return best;
+}
+
+void SetHoverHandle(int handle) { g_hoverHandle = handle; }
+
+bool BeginResize(int handle, V3 origin, V3 dir)
+{
+    const Added* a = AliveNamed(g_selectedNode);
+    if (!a || handle < 0 || handle > 5)
+        return false;
+    ResizeDrag r;
+    r.name = a->spec.name;
+    r.node = g_selectedNode;
+    r.handle = handle;
+    r.pos0 = a->pos;
+    r.size0 = a->spec.size;
+    r.yaw = a->yaw;
+    r.start = HandlePoint(a->pos, a->yaw, a->spec.size, handle);
+    r.direction = HandleDirection(a->yaw, handle);
+    if (!ClosestOnAxis(r.start, r.direction, origin, dir, &r.s0))
+        return false; // (looking along the axis: no grip on it)
+    r.on = true;
+    g_resize = r;
+    NoteUndo(); // (the state before: one undo step, taken by the editor next frame)
+    return true;
+}
+
+void Resize(V3 origin, V3 dir, bool snap)
+{
+    if (!g_resize.on)
+        return;
+    float s;
+    if (!ClosestOnAxis(g_resize.start, g_resize.direction, origin, dir, &s))
+        return;
+    float along = s - g_resize.s0;
+    if (!std::isfinite(along) || std::fabs(along) > 50000.0f)
+        return; // (the ray nearly along the axis: far off)
+    int axis = g_resize.handle >> 1;
+    float size0 = axis == 0 ? g_resize.size0.x : axis == 1 ? g_resize.size0.y : g_resize.size0.z;
+    if (snap)
+        along = SnapToGrid(size0 + along, 25.0f) - size0;
+    V3 pos, size;
+    ResizeFace(g_resize.pos0, g_resize.yaw, g_resize.size0, g_resize.handle, along, &pos, &size);
+    int i = SpecIndex(g_resize.name);
+    if (i < 0) {
+        g_resize.on = false;
+        return;
+    }
+    Spec spec = g_specs[i];
+    if (spec.size.x != size.x || spec.size.y != size.y || spec.size.z != size.z) {
+        spec.size = size;
+        SetSpec(g_resize.name, spec, false);
+    }
+    NodeEdit::Values values;
+    if (NodeEdit::Read(g_resize.node, &values) &&
+        (values.pos.x != pos.x || values.pos.y != pos.y || values.pos.z != pos.z)) {
+        values.pos = pos;
+        NodeEdit::Set(g_resize.node, values);
+    }
+}
+
+void EndResize() { g_resize.on = false; }
+
+bool Resizing() { return g_resize.on; }
+
+// --- leaving (exit triggers) ---
+
+namespace {
+
+constexpr uint32_t kSkater = 0x5B8AB877u; // Skater (the local skater's alias)
+struct Seen {
+    uint32_t node;
+    bool inside;
+};
+std::vector<Seen> g_seen;
+
+// The trigger's TriggerScript run on the skater, as the trigger component's TriggerNode (0x00434A60) runs it: not when
+// the skate module skips the node (0x00565BB0), its NetEnabled / Permanent flags, the node's name.
+void FireOnLeaving(Obj::CObject* skater, uint32_t node)
+{
+    Script::CStruct* s = SkateScript::GetNode(node, false);
+    uint32_t script = 0;
+    if (!s || !s->GetChecksum(kTriggerScript, &script, 0) || !script)
+        return;
+    if (GameFunction<bool(__thiscall*)(void*, Script::CStruct*)>(0x00565BB0)(GameVariable<void*>(0x007CE478), s))
+        return;
+    static const uint32_t kNetEnabled = Crc("NetEnabled"), kPermanent = Crc("Permanent");
+    skater->SpawnAndRunScript(script, static_cast<int>(node), s->ContainsFlag(kNetEnabled), s->ContainsFlag(kPermanent),
+                              nullptr);
+    if (DebugEnabled())
+        Log("level editor: trigger %s left - its script run (exit)", LabelOf(node).c_str());
+}
+
+} // namespace
+
+void Play(bool editing)
+{
+    bool any = std::any_of(g_added.begin(), g_added.end(), [](const Added& a) { return a.alive && a.spec.exit; });
+    if (editing || !any || g_boxes.empty() || Layout::Refused()) { // (a network session or a career-type mode)
+        g_seen.clear(); // (seen afresh once play goes on: a box moved while editing doesn't fire)
+        return;
+    }
+    auto* skater = static_cast<Obj::CCompositeObject*>(Obj::FindObject(kSkater));
+    if (!skater)
+        return;
+    V3 at = {skater->m_pos.x, skater->m_pos.y, skater->m_pos.z};
+    for (const Added& a : g_added) {
+        if (!a.alive || !a.spec.exit || a.problem)
+            continue;
+        uint32_t node = NameChecksum(a.spec.name);
+        bool now = Inside(BoxOf(a.pos, a.yaw, a.spec.size), at);
+        auto it = std::find_if(g_seen.begin(), g_seen.end(), [&](const Seen& s) { return s.node == node; });
+        bool known = it != g_seen.end();
+        if (Left(known, known && it->inside, now))
+            FireOnLeaving(skater, node);
+        if (known)
+            it->inside = now;
+        else
+            g_seen.push_back({node, now});
     }
 }
 

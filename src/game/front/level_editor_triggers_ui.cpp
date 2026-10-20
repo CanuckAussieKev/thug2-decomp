@@ -328,14 +328,19 @@ void InspectorSection(int index)
     case Kind::Other:
         break;
     }
+    changed |= ImGui::Checkbox("Also on leaving it", &s.exit);
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Runs its script when the skater leaves the box too (the game fires a volume only on the way\n"
+                          "in; leaving is seen by the editor each frame - the local skater only, offline)");
     if (s.replaces)
         ImGui::TextDisabled("Stands in for the level's %s (off while this is there)", Nodes::Label(s.replaces).c_str());
     if (a->problem)
         ImGui::TextColored(ImVec4(1.0f, 0.55f, 0.45f, 1.0f), "Not active: %s", a->problem);
     else
-        ImGui::TextColored(Colour(KindColour(s.kind)), "Active: skating into it runs %s", ScriptName(s).c_str());
-    ImGui::TextWrapped("Move, turn and drop it as any node (drag, the arrows, W A S D / Q E, Z / X, G); Delete removes "
-                       "it; Ctrl+Z undoes.");
+        ImGui::TextColored(Colour(KindColour(s.kind)), "Active: skating into it%s runs %s",
+                           s.exit ? " or out of it" : "", ScriptName(s).c_str());
+    ImGui::TextWrapped("Move, turn and drop it as any node (drag, the arrows, W A S D / Q E, Z / X, G); drag the dots on "
+                       "its faces to resize it; Delete removes it; Ctrl+Z undoes.");
     if (changed)
         Queue([key, s] { SetSpec(key, s, true); });
 }

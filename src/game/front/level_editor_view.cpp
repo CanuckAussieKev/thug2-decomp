@@ -10,6 +10,8 @@
 #include "game/front/level_editor_objects.h"
 #include "game/front/level_editor_picking.h"
 #include "game/front/level_editor_scenery.h"
+#include "game/front/level_editor_shared_coll.h"
+#include "game/front/level_editor_triggers.h"
 #include "game/front/level_editor_walls.h"
 #include "game/mth/vector.h"
 #include "game/nx/coll_tri.h"
@@ -128,6 +130,33 @@ void AddDashed(std::vector<Ui::Line>* lines, const Ui::Line& line, float dash, f
 
 uint32_t Faded(uint32_t argb) { return (argb & 0x00FFFFFF) | (std::min<uint32_t>(argb >> 24, 0x30) << 24); }
 
+FaceStyle StyleOf(const FaceFacts& facts)
+{
+    FaceStyle style;
+    bool wall = facts.collisionOnly && !facts.companion;
+    if ((facts.flags & 0x40) && facts.triggerColour)
+        style.fill = (facts.triggerColour & 0x00FFFFFFu) | 0x78000000u;
+    else
+        style.fill = SurfaceColour(Classify(facts.taken ? facts.flags & ~0x10u : facts.flags, wall));
+    if (facts.selected)
+        style.fill = 0xC8FFA0FFu; // (the selected wall: lighter)
+    else if (facts.hovered)
+        style.fill = kHoverWall;
+    if (facts.off || facts.taken)
+        style.fill = Faded(style.fill); // (switched off / taken along: faded)
+    if (facts.companion) {
+        style.edge = kCompanionEdge;
+    } else if (facts.taken) {
+        style.edge = kTakenEdge;
+        style.dashed = true;
+    } else if (wall || facts.selected || facts.hovered) {
+        style.edge = facts.selected ? 0xFFFFFFFFu : facts.hovered ? 0xFFFFF060u : 0xE0FF60F0u;
+        style.dashed = facts.off;
+        style.thickness = facts.selected || facts.hovered ? 1.5f : 1.0f;
+    }
+    return style;
+}
+
 std::vector<uint32_t> IsolateOthers(const std::vector<uint32_t>& all, const std::vector<uint32_t>& keep)
 {
     std::vector<uint32_t> others;
@@ -190,8 +219,10 @@ struct Cached {
     V3 min = {}, max = {}, first = {}, last = {};
     int faces = 0;
     bool collisionOnly = false;
+    uint32_t generation = 0; // (SharedCollision::Generation when made: faces taken since - made again)
     std::vector<V3> points;
     std::vector<uint16_t> flags;
+    std::vector<uint8_t> taken; // (each face: turned off for a moved piece's shared collision)
 };
 std::unordered_map<uint32_t, Cached> g_cache;
 
@@ -206,10 +237,13 @@ const Cached* CacheOf(uint32_t checksum, uint8_t* sector, const Nx::CCollObjTriD
     auto same = [](V3 a, V3 b) { return a.x == b.x && a.y == b.y && a.z == b.z; };
     bool collisionOnly = GeomOf(sector) == nullptr;
     Cached& c = g_cache[checksum];
+    uint32_t generation = SharedCollision::Generation();
     if (c.sector == sector && c.tri == tri && c.faces == tri->m_numFaces && c.collisionOnly == collisionOnly &&
-        same(c.min, min) && same(c.max, max) && same(c.first, first) && same(c.last, last))
+        c.generation == generation && same(c.min, min) && same(c.max, max) && same(c.first, first) && same(c.last, last))
         return &c;
     c = Cached{};
+    c.generation = generation;
+    std::vector<int> taken = SharedCollision::TakenFaces(tri);
     c.sector = sector;
     c.tri = tri;
     c.min = min;
@@ -237,9 +271,12 @@ const Cached* CacheOf(uint32_t checksum, uint8_t* sector, const Nx::CCollObjTriD
             continue;
         c.points.insert(c.points.end(), p, p + 3);
         c.flags.push_back(*reinterpret_cast<const uint16_t*>(tri->m_faces + f * (tri->m_smallFaces ? 8 : 10)));
+        c.taken.push_back(std::find(taken.begin(), taken.end(), f) != taken.end() ? 1 : 0);
     }
     return &c;
 }
+
+uint32_t g_hoverWall; // (Shift held with the collision shown: the wall a Shift+click would take)
 
 // What was drawn last frame (for Shift+click on a wall): each face's sector and points.
 struct Drawn {
@@ -337,6 +374,7 @@ void Start()
     g_cache.clear();
     g_drawn.clear();
     g_wall = 0;
+    g_hoverWall = 0;
     g_hiddenSectors.clear();
     g_hiddenObjects.clear();
 }
@@ -434,76 +472,123 @@ void AddCollision(V3 cameraPos, const Frame& frame, const Lens& lens, const uint
     };
     std::vector<Polygon> polygons;
     const V3 light = Normalize({0.35f, 0.85f, 0.4f});
+    // A face projected and styled (StyleOf): its polygon added, its edges drawn; false when it isn't on the screen.
+    auto addFace = [&](const V3* p, const FaceFacts& facts) {
+        V3 clipped[4];
+        int count = ClipTriangleToNear(cameraPos, frame, nearZ, p, clipped);
+        if (!count)
+            return false;
+        Polygon poly = {};
+        poly.count = count;
+        bool left = true, right = true, below = true, above = true;
+        float depth = 0.0f;
+        for (int k = 0; k < count; ++k) {
+            float nx, ny;
+            if (!Project(cameraPos, frame, lens, clipped[k], nearZ * 0.5f, &nx, &ny)) {
+                nx = ny = 0.0f; // (on the near plane - can't happen after clipping)
+            }
+            left = left && nx < -1.0f;
+            right = right && nx > 1.0f;
+            below = below && ny < -1.0f;
+            above = above && ny > 1.0f;
+            NdcToPixel(viewport, nx, ny, &poly.x[k], &poly.y[k]);
+            depth += -Dot(clipped[k] - cameraPos, frame.back);
+        }
+        if (left || right || below || above)
+            return false;
+        poly.depth = depth / static_cast<float>(count);
+        FaceStyle style = StyleOf(facts);
+        uint32_t argb = style.fill;
+        // (shaded by the face's facing: the shape reads through the colour)
+        V3 normal = Cross(p[1] - p[0], p[2] - p[0]);
+        float length = std::sqrt(Dot(normal, normal));
+        float shade = length > 0.0f ? 0.55f + 0.45f * std::fabs(Dot(normal, light)) / length : 1.0f;
+        uint32_t r = static_cast<uint32_t>(((argb >> 16) & 0xFF) * shade);
+        uint32_t g = static_cast<uint32_t>(((argb >> 8) & 0xFF) * shade);
+        uint32_t b = static_cast<uint32_t>((argb & 0xFF) * shade);
+        poly.argb = (argb & 0xFF000000) | (r << 16) | (g << 8) | b;
+        polygons.push_back(poly);
+        if (style.edge && lines) {
+            for (int k = 0; k < count; ++k) {
+                int n = (k + 1) % count;
+                Ui::Line line = {poly.x[k], poly.y[k], poly.x[n], poly.y[n], style.edge, style.thickness};
+                if (style.dashed)
+                    AddDashed(lines, line, 6.0f, 5.0f);
+                else
+                    lines->push_back(line);
+            }
+        }
+        return true;
+    };
+    // (the level's triggers: their kinds by sector)
+    std::unordered_map<uint32_t, uint32_t> triggerColours;
+    for (const Triggers::LevelTrigger& t : Triggers::LevelTriggers())
+        triggerColours[t.sector] = Triggers::KindColour(t.kind);
     for (const Candidate& candidate : walk.found) {
         if (static_cast<int>(polygons.size()) >= kMaxTriangles) {
             g_stats.capped = true;
             break;
         }
         const Cached* cached = CacheOf(candidate.checksum, candidate.sector, candidate.tri);
-        bool selectedWall = candidate.checksum == g_wall;
+        FaceFacts facts;
+        facts.collisionOnly = cached->collisionOnly;
+        facts.off = candidate.off;
+        facts.selected = candidate.checksum == g_wall;
+        facts.hovered = candidate.checksum == g_hoverWall;
+        auto trigger = triggerColours.find(candidate.checksum);
+        facts.triggerColour = trigger == triggerColours.end() ? 0 : trigger->second;
         bool any = false;
         for (size_t f = 0; f < cached->flags.size() && static_cast<int>(polygons.size()) < kMaxTriangles; ++f) {
             const V3* p = &cached->points[f * 3];
-            V3 clipped[4];
-            int count = ClipTriangleToNear(cameraPos, frame, nearZ, p, clipped);
-            if (!count)
+            facts.flags = cached->flags[f];
+            facts.taken = cached->taken[f] != 0;
+            if (!addFace(p, facts))
                 continue;
-            Polygon poly = {};
-            poly.count = count;
-            bool left = true, right = true, below = true, above = true;
-            float depth = 0.0f;
-            for (int k = 0; k < count; ++k) {
-                float nx, ny;
-                if (!Project(cameraPos, frame, lens, clipped[k], nearZ * 0.5f, &nx, &ny)) {
-                    nx = ny = 0.0f; // (on the near plane - can't happen after clipping)
-                }
-                left = left && nx < -1.0f;
-                right = right && nx > 1.0f;
-                below = below && ny < -1.0f;
-                above = above && ny > 1.0f;
-                NdcToPixel(viewport, nx, ny, &poly.x[k], &poly.y[k]);
-                depth += -Dot(clipped[k] - cameraPos, frame.back);
-            }
-            if (left || right || below || above)
-                continue;
-            poly.depth = depth / static_cast<float>(count);
-            Surface surface = Classify(cached->flags[f], cached->collisionOnly);
-            uint32_t argb = SurfaceColour(surface);
-            if (selectedWall)
-                argb = 0xC8FFA0FF; // (the selected wall: lighter)
-            if (candidate.off)
-                argb = Faded(argb); // (switched off: faded, its edges dashed)
-            // (shaded by the face's facing: the shape reads through the colour)
-            V3 normal = Cross(p[1] - p[0], p[2] - p[0]);
-            float length = std::sqrt(Dot(normal, normal));
-            float shade = length > 0.0f ? 0.55f + 0.45f * std::fabs(Dot(normal, light)) / length : 1.0f;
-            uint32_t r = static_cast<uint32_t>(((argb >> 16) & 0xFF) * shade);
-            uint32_t g = static_cast<uint32_t>(((argb >> 8) & 0xFF) * shade);
-            uint32_t b = static_cast<uint32_t>((argb & 0xFF) * shade);
-            poly.argb = (argb & 0xFF000000) | (r << 16) | (g << 8) | b;
-            polygons.push_back(poly);
-            // (a drawn piece's collision switched off isn't in the way of a click: the piece's own click selects it)
-            if (cached->collisionOnly || !candidate.off)
+            // (a drawn piece's collision switched off isn't in the way of a click: the piece's own click selects it;
+            // nor is a face taken along - its piece's companion is where it is now)
+            if ((cached->collisionOnly || !candidate.off) && !facts.taken)
                 g_drawn.push_back({candidate.checksum, cached->collisionOnly, p[0], p[1], p[2]});
             any = true;
-            // The invisible walls' edges (the selected one's brighter; dashed while switched off).
-            if ((cached->collisionOnly || selectedWall) && lines) {
-                uint32_t edge = selectedWall ? 0xFFFFFFFF : 0xE0FF60F0;
-                for (int k = 0; k < count; ++k) {
-                    int n = (k + 1) % count;
-                    Ui::Line line = {poly.x[k], poly.y[k], poly.x[n], poly.y[n], edge, selectedWall ? 1.5f : 1.0f};
-                    if (candidate.off)
-                        AddDashed(lines, line, 6.0f, 5.0f);
-                    else
-                        lines->push_back(line);
-                }
-            }
+            g_stats.taken += facts.taken ? 1 : 0;
+            g_stats.triggers += (facts.flags & 0x40) && facts.triggerColour ? 1 : 0;
         }
         if (any) {
             ++g_stats.sectors;
             g_stats.walls += cached->collisionOnly ? 1 : 0;
             g_stats.off += candidate.off ? 1 : 0;
         }
+    }
+    // The moved pieces' shared collision where it is now (level_editor_shared_coll.h - not a sector's: drawn apart).
+    struct CompanionWalk {
+        V3 camera;
+        std::vector<std::pair<uint32_t, const SharedCollision::Companion*>> near;
+    } companions = {cameraPos, {}};
+    SharedCollision::ForEachCompanion(
+        [](void* context, uint32_t checksum, const SharedCollision::Companion& companion) {
+            auto* w = static_cast<CompanionWalk*>(context);
+            const Nx::CCollObjTriData& tri = companion.Geometry();
+            if (DistanceToBox(w->camera, ToV3(tri.m_min), ToV3(tri.m_max)) <= kRadius && !HiddenSector(checksum))
+                w->near.push_back({checksum, &companion});
+        },
+        &companions);
+    for (const auto& entry : companions.near) {
+        const Nx::CCollObjTriData& tri = entry.second->Geometry();
+        bool any = false;
+        for (int f = 0; f < tri.m_numFaces && tri.m_faces && static_cast<int>(polygons.size()) < kMaxTriangles; ++f) {
+            V3 p[3];
+            bool ok = true;
+            for (int k = 0; k < 3 && ok; ++k) {
+                uint32_t index = tri.FaceVertex(f, k);
+                ok = index < tri.m_numVertices;
+                if (ok)
+                    p[k] = entry.second->Vertex(static_cast<int>(index));
+            }
+            FaceFacts facts;
+            facts.flags = *reinterpret_cast<const uint16_t*>(tri.m_faces + f * (tri.m_smallFaces ? 8 : 10));
+            facts.companion = true;
+            any = (ok && addFace(p, facts)) || any;
+        }
+        g_stats.companions += any ? 1 : 0;
     }
     // Far to near: the nearer faces painted over the farther.
     std::sort(polygons.begin(), polygons.end(), [](const Polygon& a, const Polygon& b) { return a.depth > b.depth; });
@@ -532,6 +617,8 @@ uint32_t PickWall(V3 origin, V3 unitDir)
     return nearest && nearest->wall ? nearest->checksum : 0;
 }
 
+void SetHoverWall(uint32_t checksum) { g_hoverWall = g_showCollision ? checksum : 0; }
+uint32_t HoverWall() { return g_hoverWall; }
 void SelectWall(uint32_t checksum) { g_wall = checksum; }
 uint32_t SelectedWall() { return g_wall; }
 void ClearWall() { g_wall = 0; }
@@ -637,5 +724,15 @@ void ShowAll()
 }
 
 int HiddenCount() { return static_cast<int>(g_hiddenSectors.size() + g_hiddenObjects.size()); }
+
+std::vector<uint32_t> HiddenIds()
+{
+    std::vector<uint32_t> ids;
+    for (const HiddenSectorRec& rec : g_hiddenSectors)
+        ids.push_back(rec.checksum);
+    for (const HiddenObjectRec& rec : g_hiddenObjects)
+        ids.push_back(rec.id);
+    return ids;
+}
 
 } // namespace Front::LevelEditor::View
