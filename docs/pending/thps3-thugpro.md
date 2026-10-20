@@ -100,7 +100,64 @@ The user's reason: players spawning at different places on the two sides could b
   network spawn by name in the same order) and "mp restarts same" in all 9; `--compat none` still identical; links in
   range, rail links to rails, 0 unreachable faces, ns.exe, make_menu_level, 6 unit tests.
 
+## Register entries TP-13 .. TP-19: THUGPRO's hand edits as data (the user's decision 2026-10-20, implemented)
+The user: "Everything [THUGPRO] changed needs to be in the differences files that we can control with the compat
+flag." **NOT run in the game yet.**
+- Extraction: `node tools/thps3_levels/thugpro_compare.ts --extract-thugpro tools/compat/thugpro/thps3_levels.json`
+  now also writes `moved`, `flags`, `terrain`, `removed`, `renamed`, `rails`, `collision` (and `_notes`: what it found
+  and left out, with the reason) - `nodeEdits` (THUGPRO's node arrays against THPS3's own) and `collisionEdits`
+  (THUGPRO's col / scn against THPS3's bsp). The TP-10..12 sections came out identical. Nothing typed in.
+- Applied (`--compat thugpro`, the default): `applyNodeEdits` edits THPS3's own node array in place before anything is
+  made of it (so the converter's created-at-start / hidden analysis and objectSectors follow the edits), the removed
+  nodes join the hidden set; `appendRails` appends the added rails after the CTF nodes (before TP-12's ordering);
+  `collisionObjects` takes the faces out by their three corners in turning order.
+- Per level: TP-13 moved Foun 5, Sub 4, SI 1, Shp 6, Burn 9; TP-14 flags Foun 12, Rio 12, Sub 16, SI 14, Tok 226, Shp 18,
+  Ware 29 (19 of them the dark set we leave out), Ros 4; TP-15 terrains Rio 313, Sub 36, SI 18, Tok 296, Shp 125, Ware
+  46, Ros 11; TP-16 removed SI 2, Shp 2, Ware 6, Burn 2, Ros 2; TP-17 none; TP-18 rails Foun 8, Rio 23; TP-19 SI 33
+  faces + 3 objects' collision, Ware 2 faces, Ros 26 faces.
+- Checks: `--compat none` identical to before (79 files: scn / tex / col byte for byte, levels.json, every .qb's code
+  and sorted names). With the profile (THUG2-1): `thugpro_inventory.ts --applied` - every edit found in our output but
+  Ware's 19 dark-set flags (the set isn't in ours: LEFT_OUT_PREFIXES); `thugpro_compare.ts`: every shared node at
+  THUGPRO's place in all 9 (worst 0.000 - before: Foun 56, Sub 7, SI 59, Shp 302, Burn 347), spawns / crowns / mp
+  restarts / CTF unchanged ("same"); kept faces have THUGPRO's turning; Links in range, rail links to rails, no
+  duplicate names; col_check 0 unreachable in all 14; ns.exe decompiles every level qb but thps3_skateshop (as
+  before); thps3 selfcheck 323 files 0 failures; make_menu_level into THUG2-1 fine; npm typecheck / lint / test (59
+  tests, 4 new).
+- Translation, not edits (not applied): class changes (THPS3's geometry-less EnvironmentObjects - lights, tapes,
+  particle boxes, LOD helpers: none has a sector on either side - as GameObject / GenericNode; static peds as
+  GameObjects; AnimatingObjects as Pedestrians; proximity objects as ProximNodes); THUGPRO's face flag bits on every
+  face; collision bounding boxes over unused vertices (the "moved" collision objects: Tok 3, Sub 4, Shp 1, Foun 1 -
+  the same faces); NeverSuspend / Permanent; the MEATALSMOOTH typo fix (our fixTerrains gave the same). Our own
+  translation also shows in a THUGPRO-vs-ours comparison: TrickObject taken off geometry without a sector (crash
+  fix), waypoints without AbsentInNetGames, CreatedAtStart on geometry the start scripts create.
+- Concerns: Foundry's 8 wire rails are invisible here (their mesh is THUGPRO's - awaiting); Suburbia's blockers
+  THUGPRO turned off include Inviso_PicnicCollide01, which it replaced with its own `_collfix` (awaiting) - ours has
+  neither now; SI's THPS3 ocean noise is gone (THUGPRO's emitters await) - quieter there; Tokyo's 185 waypoints lost
+  AbsentInNetGames (THUGPRO drives its trains / cars online; ours has no follower there - harmless, but untested in
+  a network game); Foundry's presses created at start; nothing was run in the game.
+
+## Awaiting the user (THUGPRO-authored content, not applied)
+Each needs a separate decision: Morten's permission is for insights, not 1:1 copies. "Without it": what each side
+sees as things are now (our side lacks it).
+| Level | What | Size | Without it |
+|---|---|---|---|
+| Foun | `foun_wire`: the mesh of its 8 grind wires | 1 sector, 498 vertices, no collision | We grind the wires (TP-18) but see no wire; THUGPRO players see ours grinding its wires |
+| Foun | `SouthDeck_QP01_coll`, `SouthDeck_QP04_coll`, `Trench_HP04_Back_coll`: invisible collision fixes on two quarter pipes and a half pipe's back | 4 faces each | Ours can go through / fall where THUGPRO's are stopped; seen from the other side as passing through |
+| Foun | `Obj_Bucket` as a Vehicle with collision (and its node class) | 134 faces | The furnace bucket is solid for THUGPRO, not for us |
+| Rio | `ES_Building_collision`: an invisible wall at a building | 4 faces, ~2100 x 1200 x 2100 units | Ours reach where THUGPRO's can't |
+| Rio | 8 `TRG_Car_*_carplant_collision` (car collision) | 8 vehicle nodes + collision | THPS3's cars are solid for THUGPRO only |
+| Rio | `TRG_Ped_2084` and its loop `TRG_Node_2076`-`2083` (the "untyped TRG_Node_*" are waypoints, not rails); `rio_tp_snd_*` (3 sounds) | 1 ped, 8 waypoints, 3 objects | Visual / sound only, local |
+| Sub | `SUB_TRamp06_collfix`, `SUB_TRamp04_collfix`, `SUB_plywood_08_collfix`, `SUB_HHBYardWall_collfix`, `Inviso_PicnicCollide01_collfix` | 8, 8, 24, 192, 28 faces | THUGPRO's fixed ramps / yard wall / picnic collider: ours collide with THPS3's shapes (and no picnic collider - TP-14) |
+| Sub | `TRG_IceCreamTruck_Carplant_collision`, the truck / plane as Vehicles; `TRG_BBQ_BurningNoise` | 1 collision, 2 classes, 1 sound | Truck solid for THUGPRO only; sound local |
+| SI | `TRG_SFX_SOB_OceanWaves01` / `02` (emitters replacing THPS3's ocean noise, which TP-16 removed); `TRG_FireCannonsProximity01` (+ script) | 2 emitters, 1 node | Ours has no ocean sound there; cannons as TP-14 left them (not online, not at start) |
+| Tok | Trains (shinkansen), planes and cars as THUG2 Vehicles run online; `TRG_Restart_EventR` / `EventL` (Generic restarts with its scripts) | 23 nodes reclassed, 2 restarts | Moving vehicles on THUGPRO's side only in network games (they can hit its players) |
+| Shp | `SHP_TP_Particle_Smoke` / `_Sparks`, `shp_tp_snd_waterslide` | 3 objects | Visual / sound only |
+| Ware | `Ware_RoomFlicker` (+ script) | 1 object | Visual only |
+| all | THUGPRO's level scripts (added: Foun 184, Rio 94, Sub 191, SI 131, Tok 442, Shp 307, Ware 19, Burn 16, Ros 17 - ours has same-named ones for our own CTF nodes), its `_TP_` particles, small scene-only sectors without names (Rio 9, Sub 5, SI 2, Tok 1, Shp 2, Burn 1, Ros 1: 4-421 vertices, no collision) | | Local; scripts decide THUGPRO's own features (its events, vehicles) |
+
 ## THUGPRO hand edits: inventory (against THPS3's own data; nothing changed but the spawns)
+(Written before TP-13 .. TP-19: those are applied now - the section above; the counts below are still THUGPRO
+against THPS3's own data, `thugpro_inventory.ts` without `--applied`.)
 `node tools/thps3_levels/thugpro_inventory.ts --thug2 <folder> [--examples N] [--json out]` lists them per level.
 Counts: moved / renamed / added / removed / changed nodes; scripts added / changed; collision objects differing.
 
@@ -160,3 +217,5 @@ no data) - nothing to convert from. THUGPRO's z_riod (labelled THPS3) - no THPS3
 - tools/thaw_levels/thugpro_compare.ts: helpers exported (TOLERANCE, CTF_NAMES, nameOf, isName, isCrown, isMpRestart,
   Placed, sequence, maxDiff, sameSequence) - no behaviour change.
 - tools/game/README.md, tools/game/boot_level.ts: example level name.
+- TP-13 .. TP-19: tools/compat/thugpro/README.md (rows, "Changing approach", the awaiting list) and
+  tools/compat/thugpro/thps3_levels.json (new sections, TP-10..12's unchanged) - only THPS3's parts.

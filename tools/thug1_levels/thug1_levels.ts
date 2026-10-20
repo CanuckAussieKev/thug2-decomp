@@ -31,6 +31,7 @@ import * as tex from "../level_port/tex.ts";
 import * as thug2Scene from "../level_port/thug2_scene.ts";
 import { parseConverterArgs } from "../lib/converter_args.ts";
 import { hex8, isMain, print, pyExit, pyJoin, pyRepr, runMain } from "../lib/py.ts";
+import * as handEdits from "./hand_edits.ts";
 import * as thug1 from "./thug1.ts";
 import * as thug1Port from "./thug1_port.ts";
 import type { SpawnEdits } from "./thugpro_edits.ts";
@@ -98,7 +99,11 @@ interface Args {
 // that (Hotter Than Hell as hh: THUG1's SE is THUG2's SE) is in the compatibility profile
 // tools/compat/thugpro/thug1_levels.json (TP-30...; --compat none leaves it out). --legacy-names: thug1_<code> for
 // every level, as this converter named them before.
-export const COMPAT = { levelNames: new Map<string, string>(), spawns: new Map<string, SpawnEdits>() };
+export const COMPAT = {
+    levelNames: new Map<string, string>(),
+    spawns: new Map<string, SpawnEdits>(),
+    edits: new Map<string, handEdits.LevelEdits>(), // (TP-32 ... TP-39: hand_edits.ts, by level code in lower case)
+};
 
 // The compatibility profile's THUG1 data (tools/compat/compat.ts): "thugpro" (the default) or "none".
 export function setCompat(name: string): void {
@@ -109,6 +114,14 @@ export function setCompat(name: string): void {
     COMPAT.spawns = new Map(
         Object.entries(profile.section("thug1_levels", "spawns")).map(([k, v]) => [k.toLowerCase(), v as SpawnEdits]),
     );
+    COMPAT.edits = new Map();
+    for (const [section] of handEdits.SECTIONS) {
+        for (const [code, data] of Object.entries(profile.section("thug1_levels", section))) {
+            const level = COMPAT.edits.get(code.toLowerCase()) ?? {};
+            (level as Record<string, unknown>)[section] = data;
+            COMPAT.edits.set(code.toLowerCase(), level);
+        }
+    }
 }
 
 // --- TP-31: THUGPRO's network spawns (tools/compat/thugpro/thug1_levels.json "spawns") ------------------------------
@@ -355,13 +368,18 @@ export function convertGeometry(
     const textures = tex.readTex(need(files, `${base}.tex.xbx`), `${base}.tex.xbx`);
     const converted = tex.depalettise(textures);
     let col = null;
+    let editReport: string[] = [];
     if (keepTriggers !== null) {
         if (!files.has(`${base}.col.xbx`)) throw new FormatError(`${code}: no collision in the archives`);
         const col1 = thug1.readCol(need(files, `${base}.col.xbx`), `${base}.col.xbx`);
         col = thug1.toThug2Col(col1, keepTriggers, faceFlags, base);
+        // (TP-37 ... TP-39: THUGPRO's collision edits - hand_edits.ts)
+        const edits = COMPAT.edits.get(code.toLowerCase());
+        if (edits !== undefined) [col, editReport] = handEdits.applyColEdits(col, edits, code);
     }
     common.writeLevel(outDir, outName, scene, textures, col);
     common.reportLevel(report, outName, scene, textures, col, warnings, converted);
+    report.push(...editReport);
 }
 
 export interface LevelNodes {
@@ -399,6 +417,9 @@ export function convertLevelNodes(
     const nodeArray = q.get("NodeArray");
     if (!Array.isArray(nodeArray)) throw new FormatError(`${base}: no NodeArray`);
     const array = nodes.expandIncludes(nodeArray, new Map(q.globals.map(([k, v]) => [k.value, v])));
+    // (TP-32 ... TP-36: THUGPRO's node edits, made to THUG1's array - converted from there as THUG1's own)
+    const edits = COMPAT.edits.get(code.toLowerCase());
+    if (edits !== undefined) report.push(...handEdits.applyNodeEdits(array, names, edits, code));
     const restarts = new Set<number>();
     for (const n of array) {
         const nodeName = n instanceof Struct ? n.get("Name") : undefined;

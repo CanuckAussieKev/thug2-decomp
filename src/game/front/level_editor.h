@@ -41,11 +41,14 @@ class CScript;
 //   - Editing: Ctrl+D duplicates; Delete hides scenery (deletes copies of objects); Home puts it back where the level
 //     had it; Ctrl+Z / Ctrl+Y undo / redo (64 steps, this session).
 //   - Adding: B lists the level's scenery and objects; Enter places a copy where the cursor points.
-//   - Saving: Ctrl+S. Leaving: Escape, Enter (the Pause key) or a controller's Start (level_editor_exit) - Escape
+//   - Saving: Ctrl+S. Unsaved changes are autosaved (every minute, on leaving, and from the crash logger -
+//     level_editor_layout.h); an autosave newer than the saved layout is offered on entering: Ctrl+R restores it,
+//     Ctrl+Shift+R discards it. A crash logs the editor's last action. Leaving: Escape, Enter (the Pause key) or a controller's Start (level_editor_exit) - Escape
 //     first cancels a drag, closes a panel or drops the selection.
 //
 // thug2-decomp.ini [features] level_editor=1 (default; 0: LevelEditor_Available is false - no menu item - and
-// LevelEditor_Start refuses), debug_editor=1 logs picks, moves and the view.
+// LevelEditor_Start refuses), debug_editor=1 logs picks, moves and the view. `-edit <level>` (or edit_level=) starts the
+// game in the editor in that level (game/front/start_level.h; tools/game/edit_level.ts).
 namespace Front::LevelEditor {
 
 // The setting (read once; self-tests may set it).

@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdarg>
 #include <cstdio>
 #include <cstring>
 #include <string>
@@ -282,6 +283,46 @@ int g_savedCursor = -1;
 bool g_relative;
 int g_moves;
 bool g_unsaved; // (changes since the layout was last saved)
+// The autosave (level_editor_layout.h): which level load the unsaved changes belong to, a count of changes (the
+// snapshot made again when it moves), when it was last written, and the offer of an older one.
+int g_unsavedLoad = -1;
+int g_changes, g_snapshotChanges;
+uint32_t g_lastAutosave;
+constexpr uint32_t kAutosaveMs = 60000;
+bool g_offerShow;    // (shown on the first frame the HUD is up)
+bool g_offerPending; // (Ctrl+R / Ctrl+Shift+R)
+// What the editor last did, for the log if the game crashes (plain memory: the crash hook reads it).
+char g_lastAction[128] = "none";
+std::string DescribeSelection(); // (the HUD's)
+
+void NoteAction(const char* format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    std::vsnprintf(g_lastAction, sizeof(g_lastAction), format, args);
+    va_end(args);
+}
+
+// A change not saved yet (undo / redo steps, layouts restored).
+void MarkUnsaved()
+{
+    g_unsaved = true;
+    g_unsavedLoad = Layout::LevelLoads();
+    ++g_changes;
+}
+
+// The crash logger's hook (hook/log.h): what the editor was doing, and its unsaved changes autosaved.
+void OnCrash()
+{
+    static int logged = 0;
+    if (!g_active && !g_unsaved)
+        return;
+    if (logged < 4) {
+        ++logged;
+        Log("level editor: %s at the exception; last action: %s", g_active ? "running" : "not running", g_lastAction);
+    }
+    Layout::WriteAutosaveFromCrash();
+}
 
 // The mouse, from the events since the last Update.
 struct Mouse {
@@ -547,7 +588,7 @@ void PushUndo(const UndoStep& step)
     if (g_undo.size() > kMaxUndo)
         g_undo.erase(g_undo.begin());
     g_redo.clear();
-    g_unsaved = true;
+    MarkUnsaved();
     ++g_moves;
 }
 
@@ -668,7 +709,8 @@ void StepHistory(std::vector<UndoStep>* from, std::vector<UndoStep>* to, const c
     from->pop_back();
     to->push_back(Current(step));
     Restore(step);
-    g_unsaved = true;
+    MarkUnsaved();
+    NoteAction("%s", what);
     Hud::Message(what);
     if (DebugEnabled())
         Log("level editor: %s (%u to undo, %u to redo)", what, static_cast<unsigned>(g_undo.size()),
@@ -777,6 +819,8 @@ void EndDrag()
     g_axis = -1;
     EndChange();
     Settle();
+    V3 at = SelectionPos();
+    NoteAction("dragged to (%.0f, %.0f, %.0f): %s", at.x, at.y, at.z, DescribeSelection().c_str());
 }
 
 void SetRelative(bool on)
@@ -1019,6 +1063,13 @@ bool __cdecl CFunc_Start(Script::CStruct*, Script::CScript*)
     g_mouse = Mouse{};
     g_savedCursor = SDL_ShowCursor(SDL_QUERY);
     SDL_ShowCursor(SDL_ENABLE);
+    // (unsaved changes of an earlier level - its autosave was written when the editor was left - aren't this level's)
+    if (g_unsavedLoad != Layout::LevelLoads())
+        g_unsaved = false;
+    g_snapshotChanges = g_changes - 1; // (a snapshot on the first frame, if unsaved)
+    g_lastAutosave = SDL_GetTicks();
+    g_offerPending = g_offerShow = Layout::AutosaveOffered();
+    NoteAction("entered the editor");
     Log("level editor: on");
     Hud::Message("Level editor - F1 for help", 3.0);
     if (DebugEnabled()) {
@@ -1087,6 +1138,10 @@ bool __cdecl CFunc_Stop(Script::CStruct*, Script::CScript*)
         return true;
     EndDrag();
     Scenery::Commit(); // (the moved scenery's collision where it now is, before the skater is put down)
+    // (unsaved changes autosaved - unless an older autosave is still offered)
+    if (g_unsaved && Layout::Snapshot())
+        Layout::WriteAutosave();
+    NoteAction("left the editor");
     Scenery::EndTints(Objects::ResolveTint, true);
     Hud::HidePanel();
     SetRelative(false);
@@ -1121,6 +1176,7 @@ void RegisterScriptFunctions()
 void Init()
 {
     Platform::RegisterEventHandler(HandleEvent);
+    SetCrashHook(OnCrash);
     Script::KeepQbNames(Enabled()); // (node names for the HUD: Fire_Tender rather than 61EF3AD4)
 }
 
@@ -1211,7 +1267,8 @@ void UpdateHud()
     if (frames++ % 6 != 0)
         return;
     char text[200];
-    std::snprintf(text, sizeof(text), "LEVEL EDITOR   %s%s", ModeName(), g_unsaved ? "      (unsaved changes)" : "");
+    std::snprintf(text, sizeof(text), "LEVEL EDITOR   %s%s%s", ModeName(), g_unsaved ? "      (unsaved changes)" : "",
+                  g_offerPending ? "   (an autosave: Ctrl+R / Ctrl+Shift+R)" : "");
     Hud::SetLine(1, text);
     Hud::SetLine(2, "Selected: " + DescribeSelection());
     std::string hover = g_hoverAxis >= 0 ? std::string("the ") + "XYZ"[g_hoverAxis] + " arrow - drag to move along it"
@@ -1264,6 +1321,7 @@ void ShowHelp()
         "             Ctrl+Z undo   Ctrl+Y redo",
         "Adding       B lists the level's pieces and objects: Enter places a copy",
         "Saving       Ctrl+S saves this level's layout - it comes back with the level",
+        "             unsaved changes are autosaved: Ctrl+R restores, Ctrl+Shift+R discards",
         "Leaving      Esc (first it cancels a drag, closes a panel or deselects)",
         "Camera       P writes where the camera is to the log (a menu backdrop view)",
     };
@@ -1367,6 +1425,7 @@ void PlaceFromBrowser(V3 at)
     g_browser.open = false;
     Hud::HidePanel();
     Hud::Message("Placed a copy of " + Objects::Label(source) + " - B adds another");
+    NoteAction("placed a copy of %s (the browser)", Objects::Label(source).c_str());
 }
 
 // Ctrl+D: the selection copied, the copies set beside it (as far across the view as it is wide) and selected.
@@ -1435,6 +1494,7 @@ void Duplicate(const Frame& frame)
     }
     PushUndo(step);
     Hud::Message("Duplicated - drag the copy where you want it");
+    NoteAction("duplicated (Ctrl+D): %s", DescribeSelection().c_str());
 }
 
 // Delete: scenery hidden (undoable); object copies deleted (undoable); other objects can't be.
@@ -1464,12 +1524,14 @@ void Delete()
         g_objects.clear();
         PushUndo(step);
         Hud::Message("Deleted - Ctrl+Z brings it back");
+        NoteAction("deleted object copies (Delete)");
         return;
     }
     if (Scenery::HasSelection()) {
         PushUndo(Snapshot());
         Scenery::HideSelection();
         Hud::Message("Hidden - Ctrl+Z brings it back");
+        NoteAction("hid scenery (Delete)");
     }
 }
 
@@ -1493,6 +1555,7 @@ void Reset()
         Scenery::ResetSelection();
         Hud::Message("Put back where the level had it");
     }
+    NoteAction("reset (Home): %s", DescribeSelection().c_str());
 }
 
 // The selection as the frame of reference: the camera turned to look at it from where it is, at that distance
@@ -1553,6 +1616,18 @@ void Update()
     if (!g_active)
         return;
     UpdateHud();
+    // The autosave: the snapshot made again after each change (the frame after: the change is complete), written once a
+    // minute while there are unsaved changes; an older autosave offered once the HUD is up.
+    if (g_unsaved && g_changes != g_snapshotChanges && Layout::Snapshot())
+        g_snapshotChanges = g_changes;
+    if (g_unsaved && SDL_GetTicks() - g_lastAutosave >= kAutosaveMs) {
+        g_lastAutosave = SDL_GetTicks();
+        Layout::WriteAutosave();
+    }
+    if (g_offerShow) {
+        g_offerShow = false;
+        Hud::Message("Unsaved changes from a previous session: Ctrl+R restores, Ctrl+Shift+R discards", 20.0);
+    }
     uint64_t now = SDL_GetPerformanceCounter();
     double seconds = g_lastCounter ? static_cast<double>(now - g_lastCounter) / SDL_GetPerformanceFrequency() : 0.0;
     g_lastCounter = now;
@@ -1594,7 +1669,7 @@ void Update()
         }
     }
 
-    static bool backspace, zKey, yKey, sKey, dKey, homeKey, deleteKey, turnRight, slower, faster, dropKey, helpKey,
+    static bool backspace, zKey, yKey, sKey, dKey, rKey, homeKey, deleteKey, turnRight, slower, faster, dropKey, helpKey,
         browseKey, enterKey, focusKey, leftKey, rightKey;
     static uint32_t upSince, downSince, pageUpSince, pageDownSince;
     bool zPressed = Pressed(keys, SDL_SCANCODE_Z, &zKey);
@@ -1626,8 +1701,29 @@ void Update()
             StepHistory(&g_redo, &g_undo, "Redone");
         if (Pressed(keys, SDL_SCANCODE_S, &sKey)) {
             std::string message;
-            if (Layout::Save(&message))
+            if (Layout::Save(&message)) {
                 g_unsaved = false;
+                g_offerPending = false; // (the autosave is gone with the save)
+            }
+            Hud::Message(message, 4.0);
+            NoteAction("saved (Ctrl+S)");
+        }
+        // Ctrl+R: an autosave restored in place of the current layout; Ctrl+Shift+R: it's discarded.
+        if (Pressed(keys, SDL_SCANCODE_R, &rKey)) {
+            std::string message;
+            if (shift) {
+                Layout::DiscardAutosave(&message);
+                NoteAction("discarded the autosave (Ctrl+Shift+R)");
+            } else {
+                Deselect();
+                if (Layout::RestoreAutosave(&message)) {
+                    g_undo.clear();
+                    g_redo.clear();
+                    MarkUnsaved();
+                }
+                NoteAction("restored the autosave (Ctrl+R)");
+            }
+            g_offerPending = false;
             Hud::Message(message, 4.0);
         }
         if (Pressed(keys, SDL_SCANCODE_D, &dKey))
@@ -1638,6 +1734,7 @@ void Update()
         Pressed(keys, SDL_SCANCODE_Y, &yKey);
         Pressed(keys, SDL_SCANCODE_S, &sKey);
         Pressed(keys, SDL_SCANCODE_D, &dKey);
+        Pressed(keys, SDL_SCANCODE_R, &rKey);
     }
     // P: the camera written to the log as a menu backdrop view (menu_backdrop.cpp kViews: position, back, up).
     static bool poseKey;
@@ -1743,6 +1840,7 @@ void Update()
         if (turn && !g_dragging) {
             PushUndo(Snapshot());
             TurnSelection(turn);
+            NoteAction("turned (Z / X): %s", DescribeSelection().c_str());
         }
         // G: down onto the ground below it (the collision ray from just under the scenery's bottom - not to hit
         // itself - or from above an object's feet).
@@ -1754,6 +1852,7 @@ void Update()
             if (GroundBelow(from, &ground) && ground.y != base) {
                 PushUndo(Snapshot());
                 PlaceSelection({pos.x, pos.y + (ground.y - base), pos.z});
+                NoteAction("dropped to the ground (G): %s", DescribeSelection().c_str());
                 Settle();
             }
         }
@@ -1866,6 +1965,7 @@ void Update()
         } else if (input.leftPresses && !shift) {
             Deselect();
         }
+        NoteAction("click - selected: %s", DescribeSelection().c_str());
         if (drag) {
             g_dragging = true;
             g_dragStart = SelectionPos();

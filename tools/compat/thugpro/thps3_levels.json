@@ -1,5 +1,5 @@
 {
-  "_comment": "THUGPRO compatibility for the THPS3 level ports (tools/thps3_levels), approved by the user 2026-10-20. Each entry is registered in README.md here (TP-10, TP-11, TP-12). Capture the flag is decided on the server against its own flags; each side draws them from its own node array: these put our flags where THUGPRO's are, and our spawn points as THUGPRO's. Level keys are our (= THUGPRO's = THPS3's) level names. Read by tools/compat/compat.ts; `thps3_levels.ts convert --compat none` leaves all of it out (THPS3's own two bases). Regenerate: node tools/thps3_levels/thugpro_compare.ts --extract-thugpro tools/compat/thugpro/thps3_levels.json",
+  "_comment": "THUGPRO compatibility for the THPS3 level ports (tools/thps3_levels), approved by the user 2026-10-20. Each entry is registered in README.md here (TP-10 .. TP-19). Capture the flag is decided on the server against its own flags; each side draws them from its own node array: these put our flags where THUGPRO's are, and our spawn points as THUGPRO's. TP-13 .. TP-19 (the user's decision 2026-10-20: everything THUGPRO changed, as data under the flag): its other hand edits of THPS3's nodes and collision - moved, flags, terrain, removed, renamed, rails, collision. Level keys are our (= THUGPRO's = THPS3's) level names. Read by tools/compat/compat.ts; `thps3_levels.ts convert --compat none` leaves all of it out (THPS3's own two bases). Regenerate: node tools/thps3_levels/thugpro_compare.ts --extract-thugpro tools/compat/thugpro/thps3_levels.json",
   "ctf_flags": {
     "_register": "TP-10",
     "_source": "THUGPRO's installed data\\pre\\<level>_scripts.prx, levels\\<level>\\<level>.qb: TRG_CTF_Red / _Blue (+ _Base) - pos in THUG2's world (Pos; Position with z negated), angles as they are. Extracted by tools/thps3_levels/thugpro_compare.ts --extract-thugpro.",
@@ -2432,5 +2432,5186 @@
         "TRG_Team_Restart"
       ]
     }
+  },
+  "moved": {
+    "_register": "TP-13",
+    "_source": "THUGPRO's installed data\\pre\\<level>_scripts.prx (levels\\<level>\\<level>.qb) against THPS3's Data\\Levels\\<Lvl>\\<lvl>.qb: the nodes THUGPRO moved or turned (not the network spawns - TP-12 - or the CTF / team nodes - TP-10 / TP-11): {name: pos in THUG2's world, angles}. Extracted by tools/thps3_levels/thugpro_compare.ts --extract-thugpro (nodeEdits).",
+    "foun": {
+      "Particle_Molten_Steam02": {
+        "pos": [
+          -4060.66796875,
+          -204.000732421875,
+          -565.28515625
+        ],
+        "angles": [
+          0,
+          -3.1415929794311523,
+          0
+        ]
+      },
+      "Particle_Molten_Steam01": {
+        "pos": [
+          -4060.66796875,
+          -225.000732421875,
+          -565.28515625
+        ],
+        "angles": [
+          0,
+          -3.1415929794311523,
+          0
+        ]
+      },
+      "TRG_Ped_Control_Porch": {
+        "pos": [
+          -4208.7158203125,
+          35.999298095703125,
+          2571.225341796875
+        ],
+        "angles": [
+          0,
+          3.1415929794311523,
+          0
+        ]
+      },
+      "TRG_Ped_Booth05": {
+        "pos": [
+          -4451.470703125,
+          -46.603904724121094,
+          -2077.864990234375
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ]
+      },
+      "TRG_Ped_Control_Porch_Talk": {
+        "pos": [
+          -4208.7158203125,
+          35.999298095703125,
+          2571.225341796875
+        ],
+        "angles": [
+          0,
+          3.1415929794311523,
+          0
+        ]
+      }
+    },
+    "sub": {
+      "NExtParticle_bats_01": {
+        "pos": [
+          -1469.8482666015625,
+          566.8956909179688,
+          1571.1239013671875
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ]
+      },
+      "NExtParticle_house_flame_03": {
+        "pos": [
+          1168.5604248046875,
+          71.44706726074219,
+          4568.91455078125
+        ],
+        "angles": [
+          -3.1415929794311523,
+          0,
+          0
+        ]
+      },
+      "NExtParticle_house_flame_02": {
+        "pos": [
+          1500.40576171875,
+          71.44706726074219,
+          4223.322265625
+        ],
+        "angles": [
+          -3.1415929794311523,
+          0,
+          0
+        ]
+      },
+      "NExtParticle_house_flame_01": {
+        "pos": [
+          1204.56884765625,
+          312.929443359375,
+          3541.904541015625
+        ],
+        "angles": [
+          -3.1415929794311523,
+          0,
+          0
+        ]
+      }
+    },
+    "si": {
+      "TRG_Ped_PerchedPirate": {
+        "pos": [
+          -242.01211547851562,
+          254.08511352539062,
+          3830.59130859375
+        ],
+        "angles": [
+          0,
+          -1.570796012878418,
+          0
+        ]
+      }
+    },
+    "shp": {
+      "TRG_LandPoint01": {
+        "pos": [
+          -18286.16796875,
+          -2537.393310546875,
+          -30415.73828125
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ]
+      },
+      "TRG_LandPoint02": {
+        "pos": [
+          -18286.16796875,
+          -2537.393310546875,
+          33651.796875
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ]
+      },
+      "TRG_LandPoint03": {
+        "pos": [
+          18124.07421875,
+          -2537.393310546875,
+          33651.796875
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ]
+      },
+      "TRG_LandPoint04": {
+        "pos": [
+          18124.07421875,
+          -2537.393310546875,
+          -30415.73828125
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ]
+      },
+      "TRG_Land02": {
+        "pos": [
+          18124.07421875,
+          -2537.763916015625,
+          18912.130859375
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ]
+      },
+      "sgo_Land": {
+        "pos": [
+          -18286.16796875,
+          -2537.763916015625,
+          -6307.51171875
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "burn": {
+      "TRG_Burn_Ped03": {
+        "pos": [
+          1135.266845703125,
+          267.4912109375,
+          173.037841796875
+        ],
+        "angles": [
+          0,
+          -1.570796012878418,
+          0
+        ]
+      },
+      "TRG_Burn_Ped04": {
+        "pos": [
+          1324.15673828125,
+          284.4912109375,
+          -102.5457763671875
+        ],
+        "angles": [
+          0,
+          -1.570796012878418,
+          0
+        ]
+      },
+      "TRG_Burn_Ped05": {
+        "pos": [
+          1218.177001953125,
+          284.4912109375,
+          -50.5108642578125
+        ],
+        "angles": [
+          0,
+          -1.570796012878418,
+          0
+        ]
+      },
+      "TRG_Burn_Ped06": {
+        "pos": [
+          1239.0909423828125,
+          284.4912109375,
+          124.12152099609375
+        ],
+        "angles": [
+          0,
+          -1.570796012878418,
+          0
+        ]
+      },
+      "TRG_Burn_Ped07": {
+        "pos": [
+          1196.342041015625,
+          284.4912109375,
+          276.8736572265625
+        ],
+        "angles": [
+          0,
+          -1.570796012878418,
+          0
+        ]
+      },
+      "TRG_Burn_Ped08": {
+        "pos": [
+          1256.5767822265625,
+          284.4912109375,
+          466.624267578125
+        ],
+        "angles": [
+          0,
+          -1.570796012878418,
+          0
+        ]
+      },
+      "TRG_Burn_Ped09": {
+        "pos": [
+          1135.266845703125,
+          267.4912109375,
+          -0.2807619869709015
+        ],
+        "angles": [
+          0,
+          -1.570796012878418,
+          0
+        ]
+      },
+      "TRG_Burn_Ped10": {
+        "pos": [
+          1135.266845703125,
+          267.4912109375,
+          -47.28076171875
+        ],
+        "angles": [
+          0,
+          -1.570796012878418,
+          0
+        ]
+      },
+      "TRG_Burn_Ped11": {
+        "pos": [
+          1135.266845703125,
+          267.4912109375,
+          385.41729736328125
+        ],
+        "angles": [
+          0,
+          -1.570796012878418,
+          0
+        ]
+      }
+    }
+  },
+  "flags": {
+    "_register": "TP-14",
+    "_source": "THUGPRO's installed data\\pre\\<level>_scripts.prx (levels\\<level>\\<level>.qb) against THPS3's Data\\Levels\\<Lvl>\\<lvl>.qb: CreatedAtStart / AbsentInNetGames / NetEnabled / TrickObject THUGPRO added or removed on the nodes it kept of the same kind (one it made another class is its toolchain's form: not here). Extracted by tools/thps3_levels/thugpro_compare.ts --extract-thugpro (nodeEdits).",
+    "foun": {
+      "TRG_Ledge_Crane_Beam04": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart",
+          "TrickObject"
+        ]
+      },
+      "TRG_Ledge_Crane_Beam048": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart",
+          "TrickObject"
+        ]
+      },
+      "Obj_Press_Move": {
+        "add": [
+          "CreatedAtStart"
+        ],
+        "remove": []
+      },
+      "Obj_Press_Braces_Move": {
+        "add": [
+          "CreatedAtStart"
+        ],
+        "remove": []
+      },
+      "Obj_Press_Pinch01_Move": {
+        "add": [
+          "CreatedAtStart"
+        ],
+        "remove": []
+      },
+      "Obj_Press_Pinch02_Move": {
+        "add": [
+          "CreatedAtStart"
+        ],
+        "remove": []
+      },
+      "Obj_ValveA_Gear_Blue01": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Obj_ValveA_Gear_Blue03": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Glass_Pane02_reflect": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "Glass_Panel01_reflect": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRGP_Vis_Particles": {
+        "add": [
+          "AbsentInNetGames"
+        ],
+        "remove": []
+      },
+      "TRGP_Inv_Particles": {
+        "add": [
+          "AbsentInNetGames"
+        ],
+        "remove": []
+      }
+    },
+    "rio": {
+      "ES_Sul_Fence_Broken01": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "ES_Sul_Fence_Broken02": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "ES_Sul_Fence_Broken03": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "ES_Sul_Fence_Broken04": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "ES_Sul_Fence_Broken05": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "ES_Sul_Fence_Broken08": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "ES_Sul_Fence_Broken06": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "ES_Sul_Fence_Broken07": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "ES_Sul_Fence_Broken09": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "ES_Sul_Fence_Broken10": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "ES_Sul_Fence_Broken11": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "ES_Sul_Fence_Broken12": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      }
+    },
+    "sub": {
+      "InvisoBox01": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "SUB_InvisoPlantsBlocker01": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "SUB_hh_top_hall_01": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "SUB_hh_top_hall_02": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Inviso_PicnicCollide01": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "SkeletonHand02": {
+        "add": [
+          "CreatedAtStart"
+        ],
+        "remove": []
+      },
+      "SkeletonHand01": {
+        "add": [
+          "CreatedAtStart"
+        ],
+        "remove": []
+      },
+      "SUB_TorchFlicker": {
+        "add": [
+          "CreatedAtStart"
+        ],
+        "remove": []
+      },
+      "InvisoRichVert": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "DISHSTART_02": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "DISHSTART_Inviso": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "Jeep_Liberty_LOD03": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "SUB_MLS_Wrangler_LOD02": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "SUB_MLS_Wrangler_LOD03": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "Jeep_Liberty_LOD02": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "InvisoStairsUnBonker": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      }
+    },
+    "si": {
+      "TRGP_FireCannons": {
+        "add": [
+          "AbsentInNetGames"
+        ],
+        "remove": [
+          "CreatedAtStart",
+          "NetEnabled"
+        ]
+      },
+      "SI_ParticlesOff": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRG_BurningNoise": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "CREAT_Debris01": {
+        "add": [
+          "AbsentInNetGames"
+        ],
+        "remove": []
+      },
+      "CREAT_Debris02": {
+        "add": [
+          "AbsentInNetGames"
+        ],
+        "remove": []
+      },
+      "CREAT_Debris03": {
+        "add": [
+          "AbsentInNetGames"
+        ],
+        "remove": []
+      },
+      "CREAT_Debris04": {
+        "add": [
+          "AbsentInNetGames"
+        ],
+        "remove": []
+      },
+      "TRG_BurningNoise01": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "si_lighting02": {
+        "add": [
+          "AbsentInNetGames"
+        ],
+        "remove": [
+          "NetEnabled"
+        ]
+      },
+      "SI_OuterDoor": {
+        "add": [
+          "AbsentInNetGames"
+        ],
+        "remove": [
+          "NetEnabled"
+        ]
+      },
+      "SI_clubs_Broken": {
+        "add": [],
+        "remove": [
+          "NetEnabled"
+        ]
+      },
+      "si_boatStains": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "SI_Sponsors06": {
+        "add": [
+          "AbsentInNetGames"
+        ],
+        "remove": [
+          "NetEnabled"
+        ]
+      },
+      "SI_clubs_broken02": {
+        "add": [],
+        "remove": [
+          "NetEnabled"
+        ]
+      }
+    },
+    "tok": {
+      "TRG_shinkanseneast": {
+        "add": [
+          "AbsentInNetGames"
+        ],
+        "remove": []
+      },
+      "TRG_shinkansenwest": {
+        "add": [
+          "AbsentInNetGames"
+        ],
+        "remove": []
+      },
+      "TRG_PlanePath_01": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_PlanePath_02": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_PlanePath_03": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_PlanePath_04": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_PlanePath_05": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_PlanePath_06": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath01": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath02": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath03": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath04": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath05": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath06": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath07": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath08": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath09": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRG_CarPath10": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath11": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath12": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath13": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath14": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath15": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath16": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath17": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath18": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath19": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath20": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath21": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath22": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath23": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath24": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath25": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath26": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath27": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath28": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath29": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath30": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath31": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath32": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath33": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath34": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath35": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath36": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath37": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath38": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath39": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath40": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath41": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath42": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath43": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath44": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath45": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath46": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath47": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath48": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath49": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath50": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath51": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath52": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath53": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath54": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath55": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath56": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath57": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath58": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath59": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath60": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath61": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath62": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath63": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath64": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath65": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath66": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath67": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath68": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath69": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath70": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath71": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath72": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath73": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath74": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath75": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath76": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath77": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath78": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath79": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath80": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath81": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath82": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath83": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath84": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath85": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath86": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath87": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath88": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath89": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath90": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath91": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath92": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath93": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath94": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath95": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath96": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath97": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath99": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath100": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath101": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath102": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath103": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath104": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath105": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath106": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath107": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath108": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath109": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath110": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath111": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath112": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath113": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath114": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath115": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath116": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath117": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath118": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath119": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath120": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath121": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath122": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath123": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath124": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath125": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath126": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath127": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath128": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath129": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath130": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath131": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath132": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath133": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath134": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath135": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath136": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath137": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath138": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath139": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath140": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath141": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath142": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath143": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath144": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath145": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath146": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath147": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath148": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath149": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath150": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath151": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath152": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath153": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath154": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath155": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath156": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath157": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath158": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath159": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath160": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath161": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath162": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath163": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath164": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath165": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath166": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath167": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath168": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath169": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath170": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath171": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath172": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath173": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath174": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath175": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath176": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath177": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath178": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath179": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath180": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_CarPath181": {
+        "add": [],
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_SRail_16": {
+        "add": [
+          "AbsentInNetGames"
+        ],
+        "remove": []
+      },
+      "TRG_GS_SRail_00": {
+        "add": [
+          "AbsentInNetGames"
+        ],
+        "remove": []
+      },
+      "TRG_SRail_01": {
+        "add": [
+          "AbsentInNetGames"
+        ],
+        "remove": []
+      },
+      "TRG_SRail_02": {
+        "add": [
+          "AbsentInNetGames"
+        ],
+        "remove": []
+      },
+      "TRG_SRail_03": {
+        "add": [
+          "AbsentInNetGames"
+        ],
+        "remove": []
+      },
+      "TRG_SRail_04": {
+        "add": [
+          "AbsentInNetGames"
+        ],
+        "remove": []
+      },
+      "TRG_SRail_05": {
+        "add": [
+          "AbsentInNetGames"
+        ],
+        "remove": []
+      },
+      "TRG_SRail_06": {
+        "add": [
+          "AbsentInNetGames"
+        ],
+        "remove": []
+      },
+      "TRG_SRail_07": {
+        "add": [
+          "AbsentInNetGames"
+        ],
+        "remove": []
+      },
+      "TRG_SRail_08": {
+        "add": [
+          "AbsentInNetGames"
+        ],
+        "remove": []
+      },
+      "TRG_SRail_09": {
+        "add": [
+          "AbsentInNetGames"
+        ],
+        "remove": []
+      },
+      "TRG_SRail_10": {
+        "add": [
+          "AbsentInNetGames"
+        ],
+        "remove": []
+      },
+      "TRG_SRail_11": {
+        "add": [
+          "AbsentInNetGames"
+        ],
+        "remove": []
+      },
+      "TRG_SRail_12": {
+        "add": [
+          "AbsentInNetGames"
+        ],
+        "remove": []
+      },
+      "TRG_SRail_13": {
+        "add": [
+          "AbsentInNetGames"
+        ],
+        "remove": []
+      },
+      "TRG_SRail_14": {
+        "add": [
+          "AbsentInNetGames"
+        ],
+        "remove": []
+      },
+      "TRG_SRail_15": {
+        "add": [
+          "AbsentInNetGames"
+        ],
+        "remove": []
+      },
+      "TRG_Prox_Ped_N_Stands": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRG_Prox_Ped_S_Stands": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRG_JS_Ped_N_Judge_00": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRG_JS_Ped_N_Judge_01": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRG_JS_Ped_N_Judge_02": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRG_JS_Ped_N_Judge_03": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "Tok_North_X_BuildSign02_KC01_LODa": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "Tok_North_Funbox_Top01_LODa": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "Tok_North_Funbox_Top01_LODb": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "Tok_North_Funbox_Top02_LODa": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "Tok_North_Funbox_Top02_LODb": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRG_CrowdCheers_00": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRG_CrowdAmbience_01": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRG_CrowdAmbience_00": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRG_CrowdAmbience_02": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRG_CrowdAmbience_03": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRG_CrowdAmbience_04": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRG_CrowdCheers_01": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRG_CrowdCheers_02": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRG_CrowdCheers_03": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRG_CrowdCheers_04": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      }
+    },
+    "shp": {
+      "stt_EmptyPool": {
+        "add": [
+          "AbsentInNetGames"
+        ],
+        "remove": [
+          "NetEnabled"
+        ]
+      },
+      "TRG_Counter": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "sft_RaiseFerryBox": {
+        "add": [
+          "AbsentInNetGames"
+        ],
+        "remove": []
+      },
+      "sf_2ndFloorWindowReflect01": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "sf_2ndFloorWindowReflect02": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "sf_2ndFloorWindowReflect03": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "sf_2ndFloorWindowReflect04": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "sf_2ndFloorWindowReflect05": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "sf_2ndFloorWindowReflect06": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "sft_SnapWireA": {
+        "add": [
+          "AbsentInNetGames"
+        ],
+        "remove": []
+      },
+      "sft_SnapWireB": {
+        "add": [
+          "AbsentInNetGames"
+        ],
+        "remove": []
+      },
+      "sb_CakeB": {
+        "add": [],
+        "remove": [
+          "NetEnabled"
+        ]
+      },
+      "sb_CakeC": {
+        "add": [],
+        "remove": [
+          "NetEnabled"
+        ]
+      },
+      "TRG_TrackGlass": {
+        "add": [
+          "AbsentInNetGames"
+        ],
+        "remove": []
+      },
+      "st_DrainPipeCap01": {
+        "add": [
+          "AbsentInNetGames"
+        ],
+        "remove": []
+      },
+      "st_PoolWater01": {
+        "add": [
+          "AbsentInNetGames"
+        ],
+        "remove": []
+      },
+      "st_PoolWaterShimmer01": {
+        "add": [
+          "AbsentInNetGames"
+        ],
+        "remove": []
+      },
+      "st_SlideSpray01": {
+        "add": [
+          "AbsentInNetGames"
+        ],
+        "remove": []
+      }
+    },
+    "ware": {
+      "Object_Hook01": {
+        "add": [
+          "CreatedAtStart"
+        ],
+        "remove": []
+      },
+      "Object_Chain01": {
+        "add": [
+          "CreatedAtStart"
+        ],
+        "remove": []
+      },
+      "Object_Chain02": {
+        "add": [
+          "CreatedAtStart"
+        ],
+        "remove": []
+      },
+      "SkWare_SecretRoom_Glass05": {
+        "add": [],
+        "remove": [
+          "NetEnabled"
+        ]
+      },
+      "SkWare_SecretRoom_Glass01": {
+        "add": [],
+        "remove": [
+          "NetEnabled"
+        ]
+      },
+      "SkWare_SecretRoom_Glass03": {
+        "add": [],
+        "remove": [
+          "NetEnabled"
+        ]
+      },
+      "SkWare_SecretRoom_Glass04": {
+        "add": [],
+        "remove": [
+          "NetEnabled"
+        ]
+      },
+      "SkWare_SecretRoom_Glass02": {
+        "add": [],
+        "remove": [
+          "NetEnabled"
+        ]
+      },
+      "SkWare_Dark_Wall04": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "SkWare_Dark_Floor06": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "SkWare_Dark_Wall05": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "SkWare_Dark_Light01": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "SkWare_Dark_QP05": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "SkWare_Dark_Sign_MenGirls01": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "SkWare_Dark_Wall01": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "SkWare_Dark_QP05a": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "SkWare_Dark_WindowFrame01": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "SkWare_Dark_WindowFrame02": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "SkWare_Light_Glass02": {
+        "add": [],
+        "remove": [
+          "NetEnabled"
+        ]
+      },
+      "SkWare_Light_Glass01": {
+        "add": [],
+        "remove": [
+          "NetEnabled"
+        ]
+      },
+      "SkWare_Dark_Glass02": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart",
+          "NetEnabled"
+        ]
+      },
+      "SkWare_Dark_Glass01": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart",
+          "NetEnabled"
+        ]
+      },
+      "SkWare_Dark_Sign23": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "SkWare_Dark_Sign21": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "SkWare_Dark_Sign24": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "SkWare_Dark_Sign24a": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "SkWare_Dark_Wall04_01": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "SkWare_Dark_Wall01_01": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "SkWare_Dark_Wall05_01": {
+        "add": [],
+        "remove": [
+          "CreatedAtStart"
+        ]
+      }
+    },
+    "ros": {
+      "Obj_SkRos_AutopsyDoor_Right01": {
+        "add": [
+          "CreatedAtStart"
+        ],
+        "remove": []
+      },
+      "Obj_SkRos_AutopsyDoor_Right02": {
+        "add": [
+          "CreatedAtStart"
+        ],
+        "remove": []
+      },
+      "Obj_SkRos_GarageDoor_Right01": {
+        "add": [
+          "CreatedAtStart"
+        ],
+        "remove": []
+      },
+      "Obj_SkRos_GarageDoor_Left01": {
+        "add": [
+          "CreatedAtStart"
+        ],
+        "remove": []
+      }
+    }
+  },
+  "terrain": {
+    "_register": "TP-15",
+    "_source": "THUGPRO's installed data\\pre\\<level>_scripts.prx (levels\\<level>\\<level>.qb) against THPS3's Data\\Levels\\<Lvl>\\<lvl>.qb: every TerrainType THUGPRO changed: {name: THUGPRO's terrain}. Extracted by tools/thps3_levels/thugpro_compare.ts --extract-thugpro (nodeEdits).",
+    "rio": {
+      "TRG_Ledge_Bus_Stop_Block06": "TERRAIN_CONCSMOOTH",
+      "TRG_Rail_High_Wires01": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires02": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires03": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires04": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires05": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires06": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires07": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires08": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires09": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires10": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires11": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires12": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires13": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires14": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires15": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires16": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires17": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires18": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires19": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires20": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires21": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires22": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires23": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires24": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires25": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires26": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires27": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires28": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires29": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires30": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires31": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires32": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires33": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires34": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires35": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires36": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires37": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires38": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires39": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires40": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires41": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires42": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires43": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires44": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires45": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires46": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires47": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires48": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires49": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires50": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires51": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires52": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires53": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires54": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires55": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires56": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires57": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires59": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires61": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires62": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires63": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires60": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_High_Wires58": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Coping_Canals01": "TERRAIN_CONCSMOOTH",
+      "TRG_Coping_Canals02": "TERRAIN_CONCSMOOTH",
+      "TRG_Coping_Canals04": "TERRAIN_CONCSMOOTH",
+      "TRG_Coping_Canals06": "TERRAIN_CONCSMOOTH",
+      "TRG_Coping_Canals07": "TERRAIN_CONCSMOOTH",
+      "TRG_Coping_Canals08": "TERRAIN_CONCSMOOTH",
+      "TRG_Coping_Canals09": "TERRAIN_CONCSMOOTH",
+      "TRG_Coping_Canals10": "TERRAIN_CONCSMOOTH",
+      "TRG_Coping_Canals11": "TERRAIN_CONCSMOOTH",
+      "TRG_Coping_Canals13": "TERRAIN_CONCSMOOTH",
+      "TRG_Coping_Canals15": "TERRAIN_CONCSMOOTH",
+      "TRG_Coping_Canals17": "TERRAIN_CONCSMOOTH",
+      "TRG_Coping_Canals19": "TERRAIN_CONCSMOOTH",
+      "TRG_Coping_Canals21": "TERRAIN_CONCSMOOTH",
+      "TRG_Coping_Canals22": "TERRAIN_CONCSMOOTH",
+      "TRG_Power_Lines254": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines255": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines256": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines257": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines258": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines260": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines261": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines262": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines263": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines265": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines266": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines267": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines269": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines270": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines272": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines284": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines286": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines288": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines338": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines340": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines342": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines344": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines345": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines346": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines348": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines349": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines350": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines352": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines355": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines356": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines358": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines359": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines360": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines361": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines362": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines363": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines364": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines365": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines366": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines367": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines368": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines369": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines370": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines371": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines372": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines373": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines374": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines376": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines377": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines379": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines380": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines381": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines382": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines383": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines384": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines385": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines386": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines387": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines388": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines389": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines390": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines391": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines392": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines393": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines394": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines395": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines397": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines398": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines399": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines400": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines401": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines402": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines403": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines404": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines405": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines406": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines407": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines408": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines409": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines410": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines411": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines412": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines413": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines415": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines416": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines417": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines418": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines421": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines422": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines423": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines424": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines425": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines426": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines427": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines428": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines429": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines430": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines431": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines433": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines434": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines436": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines437": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines438": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines439": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines440": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines441": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines443": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines444": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines445": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines446": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines447": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines448": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines449": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines450": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines451": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines452": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines453": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines454": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines455": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines456": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines457": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines458": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines459": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines461": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines462": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines463": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines464": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines465": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines466": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines467": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines468": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines469": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines470": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines471": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines472": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines474": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines475": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines476": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines477": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines479": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines480": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines481": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines482": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines484": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines485": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines486": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines487": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines488": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines489": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines490": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines491": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines492": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines493": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines494": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines495": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines497": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines498": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines499": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines501": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines503": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines504": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines505": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines506": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines507": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines508": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines509": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines510": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines511": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines512": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines513": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines514": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines515": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines516": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines517": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines518": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines519": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines520": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines521": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines522": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines523": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines524": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines525": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines526": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines527": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines528": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines529": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines530": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines531": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines532": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines533": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines534": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines535": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines536": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines537": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines538": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines540": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines541": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines542": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines543": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines545": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines546": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines548": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines549": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines550": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines551": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines552": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines553": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines554": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines555": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines556": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines557": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines558": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines559": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines560": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines561": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines563": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines565": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines566": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines567": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines569": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines570": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines571": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines572": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines573": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines574": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines575": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines576": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines577": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines578": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines579": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines580": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines581": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines582": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Power_Lines583": "TERRAIN_GRINDELECTRICWIRE"
+    },
+    "sub": {
+      "TRG_Rail_SatDish": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail741": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_Blocker03": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_Blocker04": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_Wire03": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_Wire04": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_Wire06": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_Wire07": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_Wire08": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_Blocker01": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_Blocker02": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_LongLine03": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_LongLine04": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_LongLine05": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_LongLine06": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_LongLine07": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_LongLine08": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_Electrical01": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_Electrical02": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_Electrical03": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_Electrical04": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_Electrical05": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_Electrical06": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_Electrical07": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_Electrical08": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_Electrical09": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_Electrical10": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_Electrical11": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_Electrical12": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_Wire12": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_Electrical13": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_Electrical14": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_LongLine09": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_LongLine10": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_Wire13": "TERRAIN_GRINDELECTRICWIRE",
+      "TRG_Rail_Wire14": "TERRAIN_GRINDELECTRICWIRE"
+    },
+    "si": {
+      "TRG_Rail_SnakeRun01": "TERRAIN_METALSMOOTH",
+      "TRG_Rail_DockRope01": "TERRAIN_GRINDWOOD",
+      "TRG_Rail_DockRope02": "TERRAIN_GRINDWOOD",
+      "TRG_Rail_DockRope03": "TERRAIN_GRINDWOOD",
+      "TRG_Rail_DockRope04": "TERRAIN_GRINDWOOD",
+      "TRG_Rail_DockRope06": "TERRAIN_GRINDWOOD",
+      "TRG_Rail_DockRope07": "TERRAIN_GRINDWOOD",
+      "TRG_Rail_DockRope08": "TERRAIN_GRINDWOOD",
+      "TRG_Rail_RopeLine01": "TERRAIN_GRINDWOOD",
+      "TRG_Rail_RopeLine02": "TERRAIN_GRINDWOOD",
+      "TRG_Rail_RopeLine03": "TERRAIN_GRINDWOOD",
+      "TRG_Rail_RopeLine04": "TERRAIN_GRINDWOOD",
+      "TRG_Rail_RopeLine05": "TERRAIN_GRINDWOOD",
+      "TRG_Rail_RopeLine06": "TERRAIN_GRINDWOOD",
+      "TRG_Rail_RopeLine07": "TERRAIN_GRINDWOOD",
+      "TRG_Rail_RopeLine08": "TERRAIN_GRINDWOOD",
+      "TRG_Rail_RopeLine09": "TERRAIN_GRINDWOOD",
+      "TRG_Rail_RopeLine10": "TERRAIN_GRINDWOOD"
+    },
+    "tok": {
+      "TRG_137": "TERRAIN_METALSMOOTH",
+      "TRG_138": "TERRAIN_METALSMOOTH",
+      "TRG_139": "TERRAIN_METALSMOOTH",
+      "TRG_140": "TERRAIN_METALSMOOTH",
+      "TRG_141": "TERRAIN_METALSMOOTH",
+      "TRG_142": "TERRAIN_METALSMOOTH",
+      "TRG_143": "TERRAIN_METALSMOOTH",
+      "TRG_144": "TERRAIN_METALSMOOTH",
+      "TRG_145": "TERRAIN_METALSMOOTH",
+      "TRG_146": "TERRAIN_METALSMOOTH",
+      "TRG_147": "TERRAIN_METALSMOOTH",
+      "TRG_148": "TERRAIN_METALSMOOTH",
+      "TRG_162": "TERRAIN_METALSMOOTH",
+      "TRG_170": "TERRAIN_METALSMOOTH",
+      "TRG_171": "TERRAIN_METALSMOOTH",
+      "TRG_172": "TERRAIN_METALSMOOTH",
+      "TRG_173": "TERRAIN_METALSMOOTH",
+      "TRG_174": "TERRAIN_METALSMOOTH",
+      "TRG_175": "TERRAIN_METALSMOOTH",
+      "TRG_176": "TERRAIN_METALSMOOTH",
+      "TRG_177": "TERRAIN_METALSMOOTH",
+      "TRG_178": "TERRAIN_METALSMOOTH",
+      "TRG_179": "TERRAIN_METALSMOOTH",
+      "TRG_180": "TERRAIN_METALSMOOTH",
+      "TRG_GS_181": "TERRAIN_METALSMOOTH",
+      "TRG_182": "TERRAIN_METALSMOOTH",
+      "TRG_190": "TERRAIN_METALSMOOTH",
+      "TRG_191": "TERRAIN_METALSMOOTH",
+      "TRG_202": "TERRAIN_METALSMOOTH",
+      "TRG_203": "TERRAIN_METALSMOOTH",
+      "TRG_204": "TERRAIN_METALSMOOTH",
+      "TRG_205": "TERRAIN_METALSMOOTH",
+      "TRG_206": "TERRAIN_METALSMOOTH",
+      "TRG_207": "TERRAIN_METALSMOOTH",
+      "TRG_208": "TERRAIN_METALSMOOTH",
+      "TRG_209": "TERRAIN_METALSMOOTH",
+      "TRG_210": "TERRAIN_METALSMOOTH",
+      "TRG_211": "TERRAIN_METALSMOOTH",
+      "TRG_212": "TERRAIN_METALSMOOTH",
+      "TRG_213": "TERRAIN_METALSMOOTH",
+      "TRG_GS_214": "TERRAIN_METALSMOOTH",
+      "TRG_GS_221": "TERRAIN_METALSMOOTH",
+      "TRG_222": "TERRAIN_METALSMOOTH",
+      "TRG_223": "TERRAIN_METALSMOOTH",
+      "TRG_224": "TERRAIN_METALSMOOTH",
+      "TRG_225": "TERRAIN_METALSMOOTH",
+      "TRG_226": "TERRAIN_METALSMOOTH",
+      "TRG_227": "TERRAIN_METALSMOOTH",
+      "TRG_228": "TERRAIN_METALSMOOTH",
+      "TRG_229": "TERRAIN_METALSMOOTH",
+      "TRG_230": "TERRAIN_METALSMOOTH",
+      "TRG_231": "TERRAIN_METALSMOOTH",
+      "TRG_232": "TERRAIN_METALSMOOTH",
+      "TRG_233": "TERRAIN_METALSMOOTH",
+      "TRG_238": "TERRAIN_METALSMOOTH",
+      "TRG_239": "TERRAIN_METALSMOOTH",
+      "TRG_240": "TERRAIN_METALSMOOTH",
+      "TRG_241": "TERRAIN_METALSMOOTH",
+      "TRG_242": "TERRAIN_METALSMOOTH",
+      "TRG_243": "TERRAIN_METALSMOOTH",
+      "TRG_244": "TERRAIN_METALSMOOTH",
+      "TRG_245": "TERRAIN_METALSMOOTH",
+      "TRG_246": "TERRAIN_METALSMOOTH",
+      "TRG_247": "TERRAIN_METALSMOOTH",
+      "TRG_248": "TERRAIN_METALSMOOTH",
+      "TRG_249": "TERRAIN_METALSMOOTH",
+      "TRG_GS_250": "TERRAIN_METALSMOOTH",
+      "TRG_256": "TERRAIN_METALSMOOTH",
+      "TRG_257": "TERRAIN_METALSMOOTH",
+      "TRG_258": "TERRAIN_METALSMOOTH",
+      "TRG_259": "TERRAIN_METALSMOOTH",
+      "TRG_260": "TERRAIN_METALSMOOTH",
+      "TRG_261": "TERRAIN_METALSMOOTH",
+      "TRG_262": "TERRAIN_METALSMOOTH",
+      "TRG_263": "TERRAIN_METALSMOOTH",
+      "TRG_264": "TERRAIN_METALSMOOTH",
+      "TRG_265": "TERRAIN_METALSMOOTH",
+      "TRG_266": "TERRAIN_METALSMOOTH",
+      "TRG_267": "TERRAIN_METALSMOOTH",
+      "TRG_GS_268": "TERRAIN_METALSMOOTH",
+      "TRG_GS_44": "TERRAIN_METALSMOOTH",
+      "TRG_45": "TERRAIN_METALSMOOTH",
+      "TRG_46": "TERRAIN_METALSMOOTH",
+      "TRG_47": "TERRAIN_METALSMOOTH",
+      "TRG_48": "TERRAIN_METALSMOOTH",
+      "TRG_49": "TERRAIN_METALSMOOTH",
+      "TRG_50": "TERRAIN_METALSMOOTH",
+      "TRG_51": "TERRAIN_METALSMOOTH",
+      "TRG_52": "TERRAIN_METALSMOOTH",
+      "TRG_53": "TERRAIN_METALSMOOTH",
+      "TRG_GS_80": "TERRAIN_METALSMOOTH",
+      "TRG_156": "TERRAIN_METALSMOOTH",
+      "TRG_GS_158": "TERRAIN_METALSMOOTH",
+      "TRG_160": "TERRAIN_METALSMOOTH",
+      "TRG_GS_165": "TERRAIN_METALSMOOTH",
+      "TRG_GS_167": "TERRAIN_METALSMOOTH",
+      "TRG_183": "TERRAIN_METALSMOOTH",
+      "TRG_07": "TERRAIN_METALSMOOTH",
+      "TRG_08": "TERRAIN_METALSMOOTH",
+      "TRG_09": "TERRAIN_METALSMOOTH",
+      "TRG_10": "TERRAIN_METALSMOOTH",
+      "TRG_11": "TERRAIN_METALSMOOTH",
+      "TRG_12": "TERRAIN_METALSMOOTH",
+      "TRG_13": "TERRAIN_METALSMOOTH",
+      "TRG_14": "TERRAIN_METALSMOOTH",
+      "TRG_15": "TERRAIN_METALSMOOTH",
+      "TRG_GS_16": "TERRAIN_METALSMOOTH",
+      "TRG_GS_290": "TERRAIN_METALSMOOTH",
+      "TRG_291": "TERRAIN_METALSMOOTH",
+      "TRG_317": "TERRAIN_METALSMOOTH",
+      "TRG_318": "TERRAIN_METALSMOOTH",
+      "TRG_325": "TERRAIN_METALSMOOTH",
+      "TRG_GS_326": "TERRAIN_METALSMOOTH",
+      "TRG_327": "TERRAIN_METALSMOOTH",
+      "TRG_328": "TERRAIN_METALSMOOTH",
+      "TRG_329": "TERRAIN_METALSMOOTH",
+      "TRG_330": "TERRAIN_METALSMOOTH",
+      "TRG_310": "TERRAIN_METALSMOOTH",
+      "TRG_312": "TERRAIN_METALSMOOTH",
+      "TRG_313": "TERRAIN_METALSMOOTH",
+      "TRG_314": "TERRAIN_METALSMOOTH",
+      "TRG_315": "TERRAIN_METALSMOOTH",
+      "TRG_339": "TERRAIN_METALSMOOTH",
+      "TRG_340": "TERRAIN_METALSMOOTH",
+      "TRG_355": "TERRAIN_METALSMOOTH",
+      "TRG_357": "TERRAIN_METALSMOOTH",
+      "TRG_GS_358": "TERRAIN_METALSMOOTH",
+      "TRG_GS_359": "TERRAIN_METALSMOOTH",
+      "TRG_362": "TERRAIN_METALSMOOTH",
+      "TRG_GS_371": "TERRAIN_METALSMOOTH",
+      "TRG_493": "TERRAIN_METALSMOOTH",
+      "TRG_494": "TERRAIN_METALSMOOTH",
+      "TRG_495": "TERRAIN_METALSMOOTH",
+      "TRG_496": "TERRAIN_METALSMOOTH",
+      "TRG_497": "TERRAIN_METALSMOOTH",
+      "TRG_498": "TERRAIN_METALSMOOTH",
+      "TRG_499": "TERRAIN_METALSMOOTH",
+      "TRG_GS_500": "TERRAIN_METALSMOOTH",
+      "TRG_501": "TERRAIN_METALSMOOTH",
+      "TRG_502": "TERRAIN_METALSMOOTH",
+      "TRG_503": "TERRAIN_METALSMOOTH",
+      "TRG_504": "TERRAIN_METALSMOOTH",
+      "TRG_505": "TERRAIN_METALSMOOTH",
+      "TRG_506": "TERRAIN_METALSMOOTH",
+      "TRG_507": "TERRAIN_METALSMOOTH",
+      "TRG_GS_508": "TERRAIN_METALSMOOTH",
+      "TRG_GS_17": "TERRAIN_METALSMOOTH",
+      "TRG_18": "TERRAIN_METALSMOOTH",
+      "TRG_GS_19": "TERRAIN_METALSMOOTH",
+      "TRG_20": "TERRAIN_METALSMOOTH",
+      "TRG_21": "TERRAIN_METALSMOOTH",
+      "TRG_GS_22": "TERRAIN_METALSMOOTH",
+      "TRG_23": "TERRAIN_METALSMOOTH",
+      "TRG_GS_24": "TERRAIN_METALSMOOTH",
+      "TRG_GS_1546": "TERRAIN_METALSMOOTH",
+      "TRG_1547": "TERRAIN_METALSMOOTH",
+      "TRG_1548": "TERRAIN_METALSMOOTH",
+      "TRG_1549": "TERRAIN_METALSMOOTH",
+      "TRG_1550": "TERRAIN_METALSMOOTH",
+      "TRG_GS_1551": "TERRAIN_METALSMOOTH",
+      "TRG_1552": "TERRAIN_METALSMOOTH",
+      "TRG_1553": "TERRAIN_METALSMOOTH",
+      "TRG_1554": "TERRAIN_METALSMOOTH",
+      "TRG_1555": "TERRAIN_METALSMOOTH",
+      "TRG_25": "TERRAIN_METALSMOOTH",
+      "TRG_26": "TERRAIN_METALSMOOTH",
+      "TRG_27": "TERRAIN_METALSMOOTH",
+      "TRG_149": "TERRAIN_METALSMOOTH",
+      "TRG_150": "TERRAIN_METALSMOOTH",
+      "TRG_151": "TERRAIN_METALSMOOTH",
+      "TRG_157": "TERRAIN_METALSMOOTH",
+      "TRG_159": "TERRAIN_METALSMOOTH",
+      "TRG_GS_161": "TERRAIN_METALSMOOTH",
+      "TRG_163": "TERRAIN_METALSMOOTH",
+      "TRG_166": "TERRAIN_METALSMOOTH",
+      "TRG_168": "TERRAIN_METALSMOOTH",
+      "TRG_169": "TERRAIN_METALSMOOTH",
+      "TRG_184": "TERRAIN_METALSMOOTH",
+      "TRG_185": "TERRAIN_METALSMOOTH",
+      "TRG_186": "TERRAIN_METALSMOOTH",
+      "TRG_GS_187": "TERRAIN_METALSMOOTH",
+      "TRG_164": "TERRAIN_METALSMOOTH",
+      "TRG_43": "TERRAIN_METALSMOOTH",
+      "TRG_113": "TERRAIN_METALSMOOTH",
+      "TRG_220": "TERRAIN_METALSMOOTH",
+      "TRG_GS_234": "TERRAIN_METALSMOOTH",
+      "TRG_235": "TERRAIN_METALSMOOTH",
+      "TRG_236": "TERRAIN_METALSMOOTH",
+      "TRG_254": "TERRAIN_METALSMOOTH",
+      "TRG_255": "TERRAIN_METALSMOOTH",
+      "TRG_269": "TERRAIN_METALSMOOTH",
+      "TRG_270": "TERRAIN_METALSMOOTH",
+      "TRG_271": "TERRAIN_METALSMOOTH",
+      "TRG_272": "TERRAIN_METALSMOOTH",
+      "TRG_273": "TERRAIN_METALSMOOTH",
+      "TRG_274": "TERRAIN_METALSMOOTH",
+      "TRG_275": "TERRAIN_METALSMOOTH",
+      "TRG_276": "TERRAIN_METALSMOOTH",
+      "TRG_277": "TERRAIN_METALSMOOTH",
+      "TRG_81": "TERRAIN_METALSMOOTH",
+      "TRG_278": "TERRAIN_METALSMOOTH",
+      "TRG_279": "TERRAIN_METALSMOOTH",
+      "TRG_GS_280": "TERRAIN_METALSMOOTH",
+      "TRG_281": "TERRAIN_METALSMOOTH",
+      "TRG_GS_282": "TERRAIN_METALSMOOTH",
+      "TRG_283": "TERRAIN_METALSMOOTH",
+      "TRG_284": "TERRAIN_METALSMOOTH",
+      "TRG_285": "TERRAIN_METALSMOOTH",
+      "TRG_286": "TERRAIN_METALSMOOTH",
+      "TRG_287": "TERRAIN_METALSMOOTH",
+      "TRG_288": "TERRAIN_METALSMOOTH",
+      "TRG_289": "TERRAIN_METALSMOOTH",
+      "TRG_308": "TERRAIN_METALSMOOTH",
+      "TRG_309": "TERRAIN_METALSMOOTH",
+      "TRG_1577": "TERRAIN_CONCSMOOTH",
+      "TRG_1578": "TERRAIN_CONCSMOOTH",
+      "TRG_1579": "TERRAIN_CONCSMOOTH",
+      "TRG_1580": "TERRAIN_CONCSMOOTH",
+      "TRG_1581": "TERRAIN_CONCSMOOTH",
+      "TRG_1582": "TERRAIN_CONCSMOOTH",
+      "TRG_1583": "TERRAIN_CONCSMOOTH",
+      "TRG_1584": "TERRAIN_CONCSMOOTH",
+      "TRG_1585": "TERRAIN_CONCSMOOTH",
+      "TRG_1586": "TERRAIN_CONCSMOOTH",
+      "TRG_1587": "TERRAIN_CONCSMOOTH",
+      "TRG_1588": "TERRAIN_CONCSMOOTH",
+      "TRG_1589": "TERRAIN_CONCSMOOTH",
+      "TRG_1590": "TERRAIN_CONCSMOOTH",
+      "TRG_1591": "TERRAIN_CONCSMOOTH",
+      "TRG_1592": "TERRAIN_CONCSMOOTH",
+      "TRG_1593": "TERRAIN_CONCSMOOTH",
+      "TRG_1594": "TERRAIN_CONCSMOOTH",
+      "TRG_1595": "TERRAIN_CONCSMOOTH",
+      "TRG_1596": "TERRAIN_CONCSMOOTH",
+      "TRG_188": "TERRAIN_METALSMOOTH",
+      "TRG_189": "TERRAIN_METALSMOOTH",
+      "TRG_529": "TERRAIN_METALSMOOTH",
+      "TRG_530": "TERRAIN_METALSMOOTH",
+      "TRG_GS_485": "TERRAIN_METALSMOOTH",
+      "TRG_676": "TERRAIN_METALSMOOTH",
+      "TRG_680": "TERRAIN_METALSMOOTH",
+      "TRG_681": "TERRAIN_METALSMOOTH",
+      "TRG_682": "TERRAIN_METALSMOOTH",
+      "TRG_685": "TERRAIN_METALSMOOTH",
+      "TRG_686": "TERRAIN_METALSMOOTH",
+      "TRG_707": "TERRAIN_METALSMOOTH",
+      "TRG_715": "TERRAIN_METALSMOOTH",
+      "TRG_716": "TERRAIN_METALSMOOTH",
+      "TRG_719": "TERRAIN_METALSMOOTH",
+      "TRG_720": "TERRAIN_METALSMOOTH",
+      "TRG_721": "TERRAIN_METALSMOOTH",
+      "TRG_722": "TERRAIN_METALSMOOTH",
+      "TRG_723": "TERRAIN_METALSMOOTH",
+      "TRG_724": "TERRAIN_METALSMOOTH",
+      "TRG_725": "TERRAIN_METALSMOOTH",
+      "TRG_726": "TERRAIN_METALSMOOTH",
+      "TRG_727": "TERRAIN_METALSMOOTH",
+      "TRG_728": "TERRAIN_METALSMOOTH",
+      "TRG_729": "TERRAIN_METALSMOOTH",
+      "TRG_679": "TERRAIN_METALSMOOTH",
+      "TRG_GS_1621": "TERRAIN_METALSMOOTH",
+      "TRG_1622": "TERRAIN_METALSMOOTH",
+      "TRG_1623": "TERRAIN_METALSMOOTH",
+      "TRG_1624": "TERRAIN_METALSMOOTH",
+      "TRG_1625": "TERRAIN_METALSMOOTH",
+      "TRG_1626": "TERRAIN_METALSMOOTH",
+      "TRG_1627": "TERRAIN_METALSMOOTH",
+      "TRG_1628": "TERRAIN_METALSMOOTH",
+      "TRG_1629": "TERRAIN_METALSMOOTH",
+      "TRG_1630": "TERRAIN_METALSMOOTH",
+      "TRG_1631": "TERRAIN_METALSMOOTH",
+      "TRG_1632": "TERRAIN_METALSMOOTH",
+      "TRG_1633": "TERRAIN_METALSMOOTH",
+      "TRG_1634": "TERRAIN_METALSMOOTH",
+      "TRG_1635": "TERRAIN_METALSMOOTH",
+      "TRG_1636": "TERRAIN_METALSMOOTH",
+      "TRG_1637": "TERRAIN_METALSMOOTH",
+      "TRG_1638": "TERRAIN_METALSMOOTH",
+      "TRG_1639": "TERRAIN_METALSMOOTH",
+      "TRG_1640": "TERRAIN_METALSMOOTH",
+      "TRG_1641": "TERRAIN_METALSMOOTH",
+      "TRG_1642": "TERRAIN_METALSMOOTH",
+      "TRG_103": "TERRAIN_METALSMOOTH",
+      "TRG_106": "TERRAIN_METALSMOOTH",
+      "TRG_1644": "TERRAIN_METALSMOOTH",
+      "TRG_1645": "TERRAIN_METALSMOOTH",
+      "TRG_648": "TERRAIN_METALSMOOTH",
+      "TRG_920": "TERRAIN_METALSMOOTH",
+      "TRG_921": "TERRAIN_METALSMOOTH",
+      "TRG_922": "TERRAIN_METALSMOOTH",
+      "TRG_1761": "TERRAIN_METALSMOOTH",
+      "TRG_1762": "TERRAIN_METALSMOOTH",
+      "TRG_1763": "TERRAIN_METALSMOOTH",
+      "TRG_1764": "TERRAIN_METALSMOOTH",
+      "TRG_1767": "TERRAIN_METALSMOOTH",
+      "TRG_1768": "TERRAIN_METALSMOOTH"
+    },
+    "shp": {
+      "TRG_Rail0098": "TERRAIN_METALSMOOTH",
+      "TRG_Rail0099": "TERRAIN_METALSMOOTH",
+      "TRG_Rail0101": "TERRAIN_METALSMOOTH",
+      "TRG_Rail0102": "TERRAIN_METALSMOOTH",
+      "TRG_Rail0103": "TERRAIN_METALSMOOTH",
+      "TRG_Rail0104": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2241": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2242": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2408": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2409": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2614": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2615": "TERRAIN_METALSMOOTH",
+      "TRG_NettingRails01": "TERRAIN_METALSMOOTH",
+      "TRG_NettingRails02": "TERRAIN_METALSMOOTH",
+      "TRG_NettingRails03": "TERRAIN_METALSMOOTH",
+      "TRG_NettingRails04": "TERRAIN_METALSMOOTH",
+      "TRG_NettingRails05": "TERRAIN_METALSMOOTH",
+      "TRG_NettingRails06": "TERRAIN_METALSMOOTH",
+      "TRG_NettingRails07": "TERRAIN_METALSMOOTH",
+      "TRG_NettingRails08": "TERRAIN_METALSMOOTH",
+      "TRG_NettingRails09": "TERRAIN_METALSMOOTH",
+      "TRG_NettingRails18": "TERRAIN_METALSMOOTH",
+      "TRG_NettingRails19": "TERRAIN_METALSMOOTH",
+      "TRG_NettingRails20": "TERRAIN_METALSMOOTH",
+      "TRG_NettingRails21": "TERRAIN_METALSMOOTH",
+      "TRG_NettingRails22": "TERRAIN_METALSMOOTH",
+      "TRG_NettingRails23": "TERRAIN_METALSMOOTH",
+      "TRG_NettingRails24": "TERRAIN_METALSMOOTH",
+      "TRG_NettingRails25": "TERRAIN_METALSMOOTH",
+      "TRG_NettingRails26": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2652": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2653": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2657": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2658": "TERRAIN_METALSMOOTH",
+      "TRG_NettingRails37": "TERRAIN_METALSMOOTH",
+      "TRG_NettingRails39": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2690": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2691": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2692": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2693": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2694": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2695": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2696": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2697": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2698": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2699": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2700": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2701": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2702": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2703": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2704": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2705": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2721": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2722": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2723": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2724": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2725": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2726": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2727": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2728": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2729": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2730": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2731": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2732": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2733": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2734": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2735": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2736": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2774": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2775": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2776": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2777": "TERRAIN_METALSMOOTH",
+      "TRG_NettingRails41": "TERRAIN_METALSMOOTH",
+      "TRG_FerryRailsB19": "TERRAIN_METALSMOOTH",
+      "TRG_FerryRailsB20": "TERRAIN_METALSMOOTH",
+      "TRG_FerryRailsB22": "TERRAIN_METALSMOOTH",
+      "TRG_FerryRailsB23": "TERRAIN_METALSMOOTH",
+      "TRG_FerryRailsB28": "TERRAIN_METALSMOOTH",
+      "TRG_FerryRailsB29": "TERRAIN_METALSMOOTH",
+      "TRG_FerryRailsB31": "TERRAIN_METALSMOOTH",
+      "TRG_FerryRailsB32": "TERRAIN_METALSMOOTH",
+      "TRG_FerryRailsB099": "TERRAIN_METALSMOOTH",
+      "TRG_FerryRailsB100": "TERRAIN_METALSMOOTH",
+      "TRG_FerryRailsB102": "TERRAIN_METALSMOOTH",
+      "TRG_FerryRailsB103": "TERRAIN_METALSMOOTH",
+      "TRG_FerryRailsB105": "TERRAIN_METALSMOOTH",
+      "TRG_FerryRailsB106": "TERRAIN_METALSMOOTH",
+      "TRG_FerryRailsB37": "TERRAIN_METALSMOOTH",
+      "TRG_FerryRailsB38": "TERRAIN_METALSMOOTH",
+      "TRG_FerryRailsB40": "TERRAIN_METALSMOOTH",
+      "TRG_FerryRailsB41": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2912": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2913": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2914": "TERRAIN_METALSMOOTH",
+      "TRG_AnchorRailX01": "TERRAIN_METALSMOOTH",
+      "TRG_AnchorRailX02": "TERRAIN_METALSMOOTH",
+      "TRG_AnchorRailX03": "TERRAIN_METALSMOOTH",
+      "TRG_AnchorRailX04": "TERRAIN_METALSMOOTH",
+      "TRG_AnchorRailX05": "TERRAIN_METALSMOOTH",
+      "TRG_AnchorRailX06": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2931": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2932": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2933": "TERRAIN_METALSMOOTH",
+      "TRG_AnchorRailX12": "TERRAIN_METALSMOOTH",
+      "TRG_AnchorRailX13": "TERRAIN_METALSMOOTH",
+      "TRG_AnchorRailX14": "TERRAIN_METALSMOOTH",
+      "TRG_AnchorRailX15": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2955": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2956": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2957": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2962": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2966": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2972": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2973": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2974": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2975": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2978": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2979": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2981": "TERRAIN_METALSMOOTH",
+      "TRG_Rail2982": "TERRAIN_METALSMOOTH",
+      "TRG_Rail3012": "TERRAIN_METALSMOOTH",
+      "TRG_Rail3015": "TERRAIN_METALSMOOTH",
+      "TRG_Rail3018": "TERRAIN_METALSMOOTH",
+      "TRG_Rail3019": "TERRAIN_METALSMOOTH",
+      "TRG_Rail3026": "TERRAIN_METALSMOOTH"
+    },
+    "ware": {
+      "TRG_Ware_Rail04": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail05": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail06": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail07": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail08": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail09": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail10": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail11": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail12": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail13": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail14": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail15": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail16": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail17": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail19": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail20": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail21": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail22": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail23": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail24": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail25": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail26": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail27": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail28": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail29": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail30": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail31": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail32": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail33": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail34": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail35": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail36": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail37": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail38": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail39": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail40": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail45": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail46": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail47": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail48": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail49": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail50": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail52": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail53": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail63": "TERRAIN_GRINDCONC",
+      "TRG_Ware_Rail64": "TERRAIN_GRINDCONC"
+    },
+    "ros": {
+      "TRG_Ros_Rail34": "TERRAIN_CONCSMOOTH",
+      "TRG_Ros_Rail38": "TERRAIN_METALSMOOTH",
+      "TRG_Ros_Rail41": "TERRAIN_METALSMOOTH",
+      "TRG_Ros_Rail42": "TERRAIN_METALSMOOTH",
+      "TRG_Ros_Rail43": "TERRAIN_METALSMOOTH",
+      "TRG_Ros_Rail44": "TERRAIN_METALSMOOTH",
+      "TRG_Ros_Rail45": "TERRAIN_METALSMOOTH",
+      "TRG_Ros_Rail46": "TERRAIN_METALSMOOTH",
+      "TRG_Ros_Rail47": "TERRAIN_METALSMOOTH",
+      "TRG_Ros_Rail48": "TERRAIN_METALSMOOTH",
+      "TRG_Ros_Rail49": "TERRAIN_METALSMOOTH"
+    }
+  },
+  "removed": {
+    "_register": "TP-16",
+    "_source": "THUGPRO's installed data\\pre\\<level>_scripts.prx (levels\\<level>\\<level>.qb) against THPS3's Data\\Levels\\<Lvl>\\<lvl>.qb: THPS3's nodes THUGPRO hasn't (not renamed) that no script or other node of THPS3's names (the level's .qb, Data\\Scripts). Extracted by tools/thps3_levels/thugpro_compare.ts --extract-thugpro (nodeEdits).",
+    "si": [
+      "TRG_OceanNoise",
+      "TRG_OceanNoise01"
+    ],
+    "shp": [
+      "Box07",
+      "Box08"
+    ],
+    "ware": [
+      "TRG_CTF1_Restart_1P",
+      "TRG_CTF1_Restart_2P",
+      "TRG_CTF1_Restart_3P",
+      "TRG_CTF1_Restart_4P",
+      "TRG_ZONE_CONTROL04",
+      "TRG_ZONE_KEY"
+    ],
+    "burn": [
+      "TRG_CTF_Team1",
+      "TRG_CTF_Team02"
+    ],
+    "ros": [
+      "TRG_CTF_Team1",
+      "TRG_CTF_Team02"
+    ]
+  },
+  "renamed": {
+    "_register": "TP-17",
+    "_source": "THUGPRO's installed data\\pre\\<level>_scripts.prx (levels\\<level>\\<level>.qb) against THPS3's Data\\Levels\\<Lvl>\\<lvl>.qb: {THPS3's name: THUGPRO's}: a THUGPRO-only node at the place of a THPS3-only node of the same class whose name no script uses. Extracted by tools/thps3_levels/thugpro_compare.ts --extract-thugpro (nodeEdits)."
+  },
+  "rails": {
+    "_register": "TP-18",
+    "_source": "THUGPRO's installed data\\pre\\<level>_scripts.prx (levels\\<level>\\<level>.qb) against THPS3's Data\\Levels\\<Lvl>\\<lvl>.qb: the RailNodes THUGPRO added, as node data: pos in THUG2's world, angles, TerrainType, flags, Cluster, Links by name. Extracted by tools/thps3_levels/thugpro_compare.ts --extract-thugpro (nodeEdits).",
+    "foun": [
+      {
+        "name": "_TRG_Wire_Rail0",
+        "pos": [
+          -4242.2890625,
+          167.99929809570312,
+          3346.4619140625
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "terrain": "TERRAIN_GRINDCABLE",
+        "flags": [
+          "CreatedAtStart",
+          "TrickObject"
+        ],
+        "cluster": "foun_wire",
+        "links": [
+          "_TRG_Wire_Rail2"
+        ]
+      },
+      {
+        "name": "_TRG_Wire_Rail1",
+        "pos": [
+          -4224.6337890625,
+          157.96299743652344,
+          2999.93798828125
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "terrain": "TERRAIN_GRINDCABLE",
+        "flags": [
+          "CreatedAtStart",
+          "TrickObject"
+        ],
+        "cluster": "foun_wire",
+        "links": [
+          "_TRG_Wire_Rail3"
+        ]
+      },
+      {
+        "name": "_TRG_Wire_Rail2",
+        "pos": [
+          -4193.3740234375,
+          149.56300354003906,
+          2637.239990234375
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "terrain": "TERRAIN_GRINDCABLE",
+        "flags": [
+          "CreatedAtStart",
+          "TrickObject"
+        ],
+        "cluster": "foun_wire",
+        "links": [
+          "_TRG_Wire_Rail4"
+        ]
+      },
+      {
+        "name": "_TRG_Wire_Rail3",
+        "pos": [
+          -4162.0810546875,
+          162.76300048828125,
+          2331.922119140625
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "terrain": "TERRAIN_GRINDCABLE",
+        "flags": [
+          "CreatedAtStart",
+          "TrickObject"
+        ],
+        "cluster": "foun_wire",
+        "links": [
+          "_TRG_Wire_Rail5"
+        ]
+      },
+      {
+        "name": "_TRG_Wire_Rail4",
+        "pos": [
+          -4134.078125,
+          186.96499633789062,
+          2067.35693359375
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "terrain": "TERRAIN_GRINDCABLE",
+        "flags": [
+          "CreatedAtStart",
+          "TrickObject"
+        ],
+        "cluster": "foun_wire",
+        "links": [
+          "_TRG_Wire_Rail6"
+        ]
+      },
+      {
+        "name": "_TRG_Wire_Rail5",
+        "pos": [
+          -4103.52392578125,
+          230.76699829101562,
+          1770.3289794921875
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "terrain": "TERRAIN_GRINDCABLE",
+        "flags": [
+          "CreatedAtStart",
+          "TrickObject"
+        ],
+        "cluster": "foun_wire",
+        "links": [
+          "_TRG_Wire_Rail7"
+        ]
+      },
+      {
+        "name": "_TRG_Wire_Rail6",
+        "pos": [
+          -4090.344970703125,
+          284.5690002441406,
+          1608.97900390625
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "terrain": "TERRAIN_GRINDCABLE",
+        "flags": [
+          "CreatedAtStart",
+          "TrickObject"
+        ],
+        "cluster": "foun_wire",
+        "links": []
+      },
+      {
+        "name": "_TRG_Wire_Rail7",
+        "pos": [
+          -4083.373046875,
+          340.5559997558594,
+          1502.1529541015625
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "terrain": "TERRAIN_GRINDCABLE",
+        "flags": [
+          "CreatedAtStart",
+          "TrickObject"
+        ],
+        "cluster": "foun_wire",
+        "links": []
+      }
+    ],
+    "rio": [
+      {
+        "name": "QSilverBanner_01_Rail_0_0",
+        "pos": [
+          -240.7169952392578,
+          121.91600036621094,
+          697.0280151367188
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "terrain": "TERRAIN_GRINDMETAL",
+        "flags": [
+          "CreatedAtStart",
+          "TrickObject"
+        ],
+        "cluster": "QSilverBanner_01",
+        "links": [
+          "QSilverBanner_01_Rail_0_1"
+        ]
+      },
+      {
+        "name": "QSilverBanner_01_Rail_0_1",
+        "pos": [
+          -229.27699279785156,
+          103.51499938964844,
+          698.9749755859375
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "terrain": "TERRAIN_WOOD",
+        "flags": [
+          "CreatedAtStart",
+          "TrickObject"
+        ],
+        "cluster": "QSilverBanner_01",
+        "links": [
+          "QSilverBanner_01_Rail_0_2"
+        ]
+      },
+      {
+        "name": "QSilverBanner_01_Rail_0_2",
+        "pos": [
+          223.76300048828125,
+          103.51499938964844,
+          698.9749755859375
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "terrain": "TERRAIN_WOOD",
+        "flags": [
+          "CreatedAtStart",
+          "TrickObject"
+        ],
+        "cluster": "QSilverBanner_01",
+        "links": [
+          "QSilverBanner_01_Rail_0_3"
+        ]
+      },
+      {
+        "name": "QSilverBanner_01_Rail_0_3",
+        "pos": [
+          239.5989990234375,
+          121.91600036621094,
+          697.0280151367188
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "terrain": "TERRAIN_GRINDMETAL",
+        "flags": [
+          "CreatedAtStart",
+          "TrickObject"
+        ],
+        "cluster": "QSilverBanner_01",
+        "links": []
+      },
+      {
+        "name": "rio_balcony1bot_rail2",
+        "pos": [
+          2897.5,
+          -56.790000915527344,
+          1610.969970703125
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "terrain": "TERRAIN_GRINDMETAL",
+        "flags": [
+          "CreatedAtStart"
+        ],
+        "cluster": null,
+        "links": []
+      },
+      {
+        "name": "rio_balcony1bot_rail0",
+        "pos": [
+          2898.52197265625,
+          -59.33399963378906,
+          -193.87100219726562
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "terrain": "TERRAIN_GRINDMETAL",
+        "flags": [
+          "CreatedAtStart"
+        ],
+        "cluster": null,
+        "links": [
+          "rio_balcony1bot_rail1"
+        ]
+      },
+      {
+        "name": "rio_balcony1bot_rail1",
+        "pos": [
+          2898.655029296875,
+          -61.54499816894531,
+          1595.4580078125
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "terrain": "TERRAIN_GRINDMETAL",
+        "flags": [
+          "CreatedAtStart"
+        ],
+        "cluster": null,
+        "links": [
+          "rio_balcony1bot_rail2"
+        ]
+      },
+      {
+        "name": "rio_balcony1top_rail0",
+        "pos": [
+          2898.655029296875,
+          120.85800170898438,
+          1595.4580078125
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "terrain": "TERRAIN_GRINDMETAL",
+        "flags": [
+          "CreatedAtStart"
+        ],
+        "cluster": null,
+        "links": [
+          "rio_balcony1top_rail1"
+        ]
+      },
+      {
+        "name": "rio_balcony1top_rail1",
+        "pos": [
+          2897.3291015625,
+          122.43000030517578,
+          -193.11399841308594
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "terrain": "TERRAIN_GRINDMETAL",
+        "flags": [
+          "CreatedAtStart"
+        ],
+        "cluster": null,
+        "links": []
+      },
+      {
+        "name": "rio_awning1_rail0",
+        "pos": [
+          2829.135009765625,
+          -101.04499816894531,
+          2159.6279296875
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "terrain": "TERRAIN_GRINDMETAL",
+        "flags": [
+          "CreatedAtStart"
+        ],
+        "cluster": null,
+        "links": [
+          "rio_awning1_rail1"
+        ]
+      },
+      {
+        "name": "rio_awning1_rail1",
+        "pos": [
+          2827.239990234375,
+          -101.24500274658203,
+          2590.77587890625
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "terrain": "TERRAIN_GRINDMETAL",
+        "flags": [
+          "CreatedAtStart"
+        ],
+        "cluster": null,
+        "links": []
+      },
+      {
+        "name": "rio_awning2_rail0",
+        "pos": [
+          2830.2099609375,
+          -101.24500274658203,
+          2784.80908203125
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "terrain": "TERRAIN_GRINDMETAL",
+        "flags": [
+          "CreatedAtStart"
+        ],
+        "cluster": null,
+        "links": [
+          "rio_awning2_rail1"
+        ]
+      },
+      {
+        "name": "rio_awning2_rail1",
+        "pos": [
+          2829.277099609375,
+          -101.24500274658203,
+          3223.656005859375
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "terrain": "TERRAIN_GRINDMETAL",
+        "flags": [
+          "CreatedAtStart"
+        ],
+        "cluster": null,
+        "links": []
+      },
+      {
+        "name": "rio_awning3_rail0",
+        "pos": [
+          2829.333984375,
+          -101.24500274658203,
+          3416.720947265625
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "terrain": "TERRAIN_GRINDMETAL",
+        "flags": [
+          "CreatedAtStart"
+        ],
+        "cluster": null,
+        "links": [
+          "rio_awning3_rail1"
+        ]
+      },
+      {
+        "name": "rio_awning3_rail1",
+        "pos": [
+          2829.596923828125,
+          -101.24500274658203,
+          3897.885986328125
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "terrain": "TERRAIN_GRINDMETAL",
+        "flags": [
+          "CreatedAtStart"
+        ],
+        "cluster": null,
+        "links": []
+      },
+      {
+        "name": "rio_balcony2_rail0",
+        "pos": [
+          -2909.76806640625,
+          -75.52400207519531,
+          -260.15399169921875
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "terrain": "TERRAIN_GRINDMETAL",
+        "flags": [
+          "CreatedAtStart"
+        ],
+        "cluster": null,
+        "links": [
+          "rio_balcony2_rail1"
+        ]
+      },
+      {
+        "name": "rio_balcony2_rail1",
+        "pos": [
+          -2909.842041015625,
+          -74.9520034790039,
+          1148.5970458984375
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "terrain": "TERRAIN_GRINDMETAL",
+        "flags": [
+          "CreatedAtStart"
+        ],
+        "cluster": null,
+        "links": []
+      },
+      {
+        "name": "rio_balcony3_rail0",
+        "pos": [
+          -2908.294921875,
+          -112.65399932861328,
+          1195.9620361328125
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "terrain": "TERRAIN_GRINDMETAL",
+        "flags": [
+          "CreatedAtStart"
+        ],
+        "cluster": null,
+        "links": [
+          "rio_balcony3_rail1"
+        ]
+      },
+      {
+        "name": "rio_balcony3_rail1",
+        "pos": [
+          -2908.31298828125,
+          -111.58000183105469,
+          1636.31005859375
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "terrain": "TERRAIN_GRINDMETAL",
+        "flags": [
+          "CreatedAtStart"
+        ],
+        "cluster": null,
+        "links": []
+      },
+      {
+        "name": "rio_balcony4_rail0",
+        "pos": [
+          -2945.47705078125,
+          -111.70600128173828,
+          1647.345947265625
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "terrain": "TERRAIN_GRINDMETAL",
+        "flags": [
+          "CreatedAtStart"
+        ],
+        "cluster": null,
+        "links": [
+          "rio_balcony4_rail1"
+        ]
+      },
+      {
+        "name": "rio_balcony4_rail1",
+        "pos": [
+          -2944.860107421875,
+          -111.51499938964844,
+          1957.1639404296875
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "terrain": "TERRAIN_GRINDMETAL",
+        "flags": [
+          "CreatedAtStart"
+        ],
+        "cluster": null,
+        "links": []
+      },
+      {
+        "name": "rio_roof_rail0",
+        "pos": [
+          2895.02099609375,
+          281.89300537109375,
+          1650.052001953125
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "terrain": "TERRAIN_WOOD",
+        "flags": [
+          "CreatedAtStart"
+        ],
+        "cluster": null,
+        "links": [
+          "rio_roof_rail1"
+        ]
+      },
+      {
+        "name": "rio_roof_rail1",
+        "pos": [
+          2894.35400390625,
+          280.6830139160156,
+          -248.64700317382812
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "terrain": "TERRAIN_WOOD",
+        "flags": [
+          "CreatedAtStart"
+        ],
+        "cluster": null,
+        "links": []
+      }
+    ]
+  },
+  "collision": {
+    "_register": "TP-19",
+    "_source": "THUGPRO's installed data\\pre\\<level>col.prx / <level>scn.prx against THPS3's Data\\Levels\\<Lvl>\\<lvl>.bsp: an object THUGPRO draws without collision (drop), the faces THUGPRO's object lacks (remove: THPS3's own corners, in THPS3's order). Extracted by tools/thps3_levels/thugpro_compare.ts --extract-thugpro (collisionEdits).",
+    "si": {
+      "SI_VertRamp_01": {
+        "remove": [
+          [
+            [
+              286.0594482421875,
+              -43.77793884277344,
+              -1534.37353515625
+            ],
+            [
+              -365.0057373046875,
+              -43.77793884277344,
+              -1534.3734130859375
+            ],
+            [
+              -203.0322723388672,
+              -43.77794647216797,
+              -1534.3734130859375
+            ]
+          ]
+        ]
+      },
+      "SI_VertRamp_05": {
+        "remove": [
+          [
+            [
+              -190.51243591308594,
+              -103.24737548828125,
+              -1003.2611083984375
+            ],
+            [
+              -360.0830078125,
+              -103.24737548828125,
+              -1003.2611083984375
+            ],
+            [
+              -527.534912109375,
+              -103.24737548828125,
+              -1003.2611083984375
+            ]
+          ]
+        ]
+      },
+      "SI_ShipCoping01": {
+        "remove": [
+          [
+            [
+              -1979.1552734375,
+              206.60943603515625,
+              3697.7470703125
+            ],
+            [
+              -1981.270263671875,
+              205.18637084960938,
+              3697.7470703125
+            ],
+            [
+              -1983.385009765625,
+              206.61004638671875,
+              3697.7470703125
+            ]
+          ],
+          [
+            [
+              -1979.1552734375,
+              208.80712890625,
+              3697.7470703125
+            ],
+            [
+              -1979.1552734375,
+              206.60943603515625,
+              3697.7470703125
+            ],
+            [
+              -1983.385009765625,
+              206.61004638671875,
+              3697.7470703125
+            ]
+          ],
+          [
+            [
+              -1981.270263671875,
+              210.22979736328125,
+              3697.7470703125
+            ],
+            [
+              -1979.1552734375,
+              208.80712890625,
+              3697.7470703125
+            ],
+            [
+              -1983.385009765625,
+              206.61004638671875,
+              3697.7470703125
+            ]
+          ],
+          [
+            [
+              -1983.3851318359375,
+              208.80715942382812,
+              3697.7470703125
+            ],
+            [
+              -1981.270263671875,
+              210.22979736328125,
+              3697.7470703125
+            ],
+            [
+              -1983.385009765625,
+              206.61004638671875,
+              3697.7470703125
+            ]
+          ]
+        ]
+      },
+      "SI_ScaffBarrier2": {
+        "remove": [
+          [
+            [
+              -2266.838623046875,
+              511.309326171875,
+              -740.3792114257812
+            ],
+            [
+              -2266.838623046875,
+              770.1180419921875,
+              -740.3792114257812
+            ],
+            [
+              -2266.8388671875,
+              770.1180419921875,
+              -1437.1878662109375
+            ]
+          ],
+          [
+            [
+              -2266.8388671875,
+              770.1180419921875,
+              -1437.1878662109375
+            ],
+            [
+              -2266.8388671875,
+              511.30926513671875,
+              -1437.1878662109375
+            ],
+            [
+              -2266.838623046875,
+              511.309326171875,
+              -740.3792114257812
+            ]
+          ]
+        ]
+      },
+      "SI_Grating03": {
+        "remove": [
+          [
+            [
+              285.13055419921875,
+              232.3384246826172,
+              -492.31597900390625
+            ],
+            [
+              285.130859375,
+              160.4708251953125,
+              -492.31610107421875
+            ],
+            [
+              636.5053100585938,
+              160.47085571289062,
+              -491.13323974609375
+            ]
+          ],
+          [
+            [
+              636.5053100585938,
+              160.47085571289062,
+              -491.13323974609375
+            ],
+            [
+              636.5051879882812,
+              232.33839416503906,
+              -491.13323974609375
+            ],
+            [
+              285.13055419921875,
+              232.3384246826172,
+              -492.31597900390625
+            ]
+          ],
+          [
+            [
+              281.33551025390625,
+              173.48883056640625,
+              -492.31591796875
+            ],
+            [
+              281.33551025390625,
+              233.81405639648438,
+              -492.31591796875
+            ],
+            [
+              -37.02183532714844,
+              173.4888458251953,
+              -492.57037353515625
+            ]
+          ]
+        ]
+      },
+      "SI_Grating": {
+        "remove": [
+          [
+            [
+              -1504.1282958984375,
+              171.01852416992188,
+              -1897.81103515625
+            ],
+            [
+              -1504.1282958984375,
+              117.12577056884766,
+              -1897.81103515625
+            ],
+            [
+              -1730.0706787109375,
+              117.12577056884766,
+              -1897.8111572265625
+            ]
+          ],
+          [
+            [
+              -1730.0706787109375,
+              117.12577056884766,
+              -1897.8111572265625
+            ],
+            [
+              -1730.0706787109375,
+              171.01852416992188,
+              -1897.8111572265625
+            ],
+            [
+              -1504.1282958984375,
+              171.01852416992188,
+              -1897.81103515625
+            ]
+          ],
+          [
+            [
+              -1278.1859130859375,
+              171.01852416992188,
+              -1897.81103515625
+            ],
+            [
+              -1278.1859130859375,
+              117.12577056884766,
+              -1897.81103515625
+            ],
+            [
+              -1504.1282958984375,
+              117.12577056884766,
+              -1897.81103515625
+            ]
+          ],
+          [
+            [
+              -1504.1282958984375,
+              117.12577056884766,
+              -1897.81103515625
+            ],
+            [
+              -1504.1282958984375,
+              171.01852416992188,
+              -1897.81103515625
+            ],
+            [
+              -1278.1859130859375,
+              171.01852416992188,
+              -1897.81103515625
+            ]
+          ]
+        ]
+      },
+      "SI_Grating07": {
+        "remove": [
+          [
+            [
+              -894.8500366210938,
+              120.62130737304688,
+              -1392.197021484375
+            ],
+            [
+              -894.85009765625,
+              168.08139038085938,
+              -1392.1971435546875
+            ],
+            [
+              -893.6168823242188,
+              120.62130737304688,
+              -1158.402099609375
+            ]
+          ],
+          [
+            [
+              -893.616943359375,
+              168.08139038085938,
+              -1158.40234375
+            ],
+            [
+              -893.6168823242188,
+              120.62130737304688,
+              -1158.402099609375
+            ],
+            [
+              -894.85009765625,
+              168.08139038085938,
+              -1392.1971435546875
+            ]
+          ],
+          [
+            [
+              -893.6168823242188,
+              120.62130737304688,
+              -1158.402099609375
+            ],
+            [
+              -893.616943359375,
+              168.08139038085938,
+              -1158.40234375
+            ],
+            [
+              -895.018310546875,
+              120.62130737304688,
+              -930.701904296875
+            ]
+          ],
+          [
+            [
+              -895.0183715820312,
+              168.08139038085938,
+              -930.7021484375
+            ],
+            [
+              -895.018310546875,
+              120.62130737304688,
+              -930.701904296875
+            ],
+            [
+              -893.616943359375,
+              168.08139038085938,
+              -1158.40234375
+            ]
+          ],
+          [
+            [
+              -895.018310546875,
+              120.62130737304688,
+              -930.701904296875
+            ],
+            [
+              -895.0183715820312,
+              168.08139038085938,
+              -930.7021484375
+            ],
+            [
+              -893.6168823242188,
+              120.62128448486328,
+              -826.92822265625
+            ]
+          ],
+          [
+            [
+              -893.616943359375,
+              168.0813446044922,
+              -826.928466796875
+            ],
+            [
+              -893.6168823242188,
+              120.62128448486328,
+              -826.92822265625
+            ],
+            [
+              -895.0183715820312,
+              168.08139038085938,
+              -930.7021484375
+            ]
+          ],
+          [
+            [
+              -897.268310546875,
+              120.62130737304688,
+              -1485.886474609375
+            ],
+            [
+              -897.2684326171875,
+              168.08140563964844,
+              -1485.886962890625
+            ],
+            [
+              -894.8500366210938,
+              120.62130737304688,
+              -1392.197021484375
+            ]
+          ],
+          [
+            [
+              -894.85009765625,
+              168.08139038085938,
+              -1392.1971435546875
+            ],
+            [
+              -894.8500366210938,
+              120.62130737304688,
+              -1392.197021484375
+            ],
+            [
+              -897.2684326171875,
+              168.08140563964844,
+              -1485.886962890625
+            ]
+          ],
+          [
+            [
+              -893.6168823242188,
+              120.62128448486328,
+              -826.92822265625
+            ],
+            [
+              -893.616943359375,
+              168.0813446044922,
+              -826.928466796875
+            ],
+            [
+              -808.950927734375,
+              121.197021484375,
+              -749.0563354492188
+            ]
+          ],
+          [
+            [
+              -808.950927734375,
+              168.65708923339844,
+              -749.0565795898438
+            ],
+            [
+              -808.950927734375,
+              121.197021484375,
+              -749.0563354492188
+            ],
+            [
+              -893.616943359375,
+              168.0813446044922,
+              -826.928466796875
+            ]
+          ],
+          [
+            [
+              -902.3863525390625,
+              120.97686767578125,
+              -1625.9136962890625
+            ],
+            [
+              -900.8709716796875,
+              168.4369659423828,
+              -1625.913818359375
+            ],
+            [
+              -897.268310546875,
+              120.62130737304688,
+              -1485.886474609375
+            ]
+          ],
+          [
+            [
+              -897.2684326171875,
+              168.08140563964844,
+              -1485.886962890625
+            ],
+            [
+              -897.268310546875,
+              120.62130737304688,
+              -1485.886474609375
+            ],
+            [
+              -900.8709716796875,
+              168.4369659423828,
+              -1625.913818359375
+            ]
+          ],
+          [
+            [
+              -808.950927734375,
+              121.197021484375,
+              -749.0563354492188
+            ],
+            [
+              -808.950927734375,
+              168.65708923339844,
+              -749.0565795898438
+            ],
+            [
+              -711.1087646484375,
+              122.19004821777344,
+              -749.0079345703125
+            ]
+          ],
+          [
+            [
+              -711.1088256835938,
+              169.6501007080078,
+              -749.0081176757812
+            ],
+            [
+              -711.1087646484375,
+              122.19004821777344,
+              -749.0079345703125
+            ],
+            [
+              -808.950927734375,
+              168.65708923339844,
+              -749.0565795898438
+            ]
+          ]
+        ]
+      },
+      "Ramp_ReFlection": {
+        "drop": true
+      },
+      "SI_Grating05": {
+        "remove": [
+          [
+            [
+              644.10205078125,
+              236.8245849609375,
+              -488.9041748046875
+            ],
+            [
+              642.8233032226562,
+              153.8517303466797,
+              -488.2098083496094
+            ],
+            [
+              724.4420776367188,
+              156.545654296875,
+              -524.9087524414062
+            ]
+          ],
+          [
+            [
+              723.6200561523438,
+              101.19932556152344,
+              -524.45849609375
+            ],
+            [
+              724.4420776367188,
+              156.545654296875,
+              -524.9087524414062
+            ],
+            [
+              642.8233032226562,
+              153.8517303466797,
+              -488.2098083496094
+            ]
+          ],
+          [
+            [
+              636.99169921875,
+              230.45411682128906,
+              -737.5133666992188
+            ],
+            [
+              635.5459594726562,
+              165.1217498779297,
+              -737.677978515625
+            ],
+            [
+              723.4539184570312,
+              147.89337158203125,
+              -712.3964233398438
+            ]
+          ],
+          [
+            [
+              722.522216796875,
+              105.10874938964844,
+              -713.926513671875
+            ],
+            [
+              723.4539184570312,
+              147.89337158203125,
+              -712.3964233398438
+            ],
+            [
+              635.5459594726562,
+              165.1217498779297,
+              -737.677978515625
+            ]
+          ]
+        ]
+      },
+      "si_VRDirt01": {
+        "drop": true
+      },
+      "si_VRDirt02": {
+        "drop": true
+      }
+    },
+    "ware": {
+      "SkWare_Lamp01": {
+        "remove": [
+          [
+            [
+              992.0603637695312,
+              -507.4051513671875,
+              -2727.641845703125
+            ],
+            [
+              988.2341918945312,
+              -507.4051513671875,
+              -2727.641845703125
+            ],
+            [
+              992.7408447265625,
+              -496.2864074707031,
+              -2727.641845703125
+            ]
+          ],
+          [
+            [
+              987.5537109375,
+              -496.2864074707031,
+              -2727.641845703125
+            ],
+            [
+              992.7408447265625,
+              -496.2864074707031,
+              -2727.641845703125
+            ],
+            [
+              988.2341918945312,
+              -507.4051513671875,
+              -2727.641845703125
+            ]
+          ]
+        ]
+      }
+    },
+    "ros": {
+      "SkRos_Rail_Col07": {
+        "remove": [
+          [
+            [
+              -3106.2822265625,
+              -251.43051147460938,
+              300.525390625
+            ],
+            [
+              -3106.282470703125,
+              -212.01229858398438,
+              300.52520751953125
+            ],
+            [
+              -2926.462646484375,
+              -212.01231384277344,
+              217.63006591796875
+            ]
+          ],
+          [
+            [
+              -3106.2822265625,
+              -251.43051147460938,
+              300.525390625
+            ],
+            [
+              -2926.462646484375,
+              -212.01231384277344,
+              217.63006591796875
+            ],
+            [
+              -2926.462646484375,
+              -251.4305419921875,
+              217.63018798828125
+            ]
+          ],
+          [
+            [
+              -3249.508544921875,
+              -251.43051147460938,
+              446.744384765625
+            ],
+            [
+              -3249.5087890625,
+              -212.0122833251953,
+              446.74420166015625
+            ],
+            [
+              -3106.282470703125,
+              -212.01229858398438,
+              300.52520751953125
+            ]
+          ],
+          [
+            [
+              -3249.508544921875,
+              -251.43051147460938,
+              446.744384765625
+            ],
+            [
+              -3106.282470703125,
+              -212.01229858398438,
+              300.52520751953125
+            ],
+            [
+              -3106.2822265625,
+              -251.43051147460938,
+              300.525390625
+            ]
+          ],
+          [
+            [
+              -3320.279052734375,
+              -251.4305419921875,
+              633.009765625
+            ],
+            [
+              -3320.289306640625,
+              -212.0122833251953,
+              633.009521484375
+            ],
+            [
+              -3249.5087890625,
+              -212.0122833251953,
+              446.74420166015625
+            ]
+          ],
+          [
+            [
+              -3320.279052734375,
+              -251.4305419921875,
+              633.009765625
+            ],
+            [
+              -3249.5087890625,
+              -212.0122833251953,
+              446.74420166015625
+            ],
+            [
+              -3249.508544921875,
+              -251.43051147460938,
+              446.744384765625
+            ]
+          ],
+          [
+            [
+              -3323.656005859375,
+              -251.4305419921875,
+              941.446044921875
+            ],
+            [
+              -3323.666015625,
+              -212.01226806640625,
+              941.4459228515625
+            ],
+            [
+              -3320.289306640625,
+              -212.0122833251953,
+              633.009521484375
+            ]
+          ],
+          [
+            [
+              -3323.656005859375,
+              -251.4305419921875,
+              941.446044921875
+            ],
+            [
+              -3320.289306640625,
+              -212.0122833251953,
+              633.009521484375
+            ],
+            [
+              -3320.279052734375,
+              -251.4305419921875,
+              633.009765625
+            ]
+          ],
+          [
+            [
+              -2926.462646484375,
+              -251.4305419921875,
+              217.63018798828125
+            ],
+            [
+              -2926.462646484375,
+              -212.01231384277344,
+              217.63006591796875
+            ],
+            [
+              -2569.76708984375,
+              -212.01231384277344,
+              211.44500732421875
+            ]
+          ],
+          [
+            [
+              -2926.462646484375,
+              -251.4305419921875,
+              217.63018798828125
+            ],
+            [
+              -2569.76708984375,
+              -212.01231384277344,
+              211.44500732421875
+            ],
+            [
+              -2569.76708984375,
+              -251.43057250976562,
+              211.445068359375
+            ]
+          ]
+        ]
+      },
+      "SkRos_Rail_Col06": {
+        "remove": [
+          [
+            [
+              -3323.665771484375,
+              -203.6988525390625,
+              1413.171875
+            ],
+            [
+              -3323.66552734375,
+              -164.28060913085938,
+              1413.1717529296875
+            ],
+            [
+              -3323.66552734375,
+              -164.28060913085938,
+              1245.6640625
+            ]
+          ],
+          [
+            [
+              -3323.665771484375,
+              -203.6988525390625,
+              1413.171875
+            ],
+            [
+              -3323.66552734375,
+              -164.28060913085938,
+              1245.6640625
+            ],
+            [
+              -3323.666015625,
+              -203.6988525390625,
+              1245.664306640625
+            ]
+          ],
+          [
+            [
+              -3323.665771484375,
+              -203.6988525390625,
+              1580.6795654296875
+            ],
+            [
+              -3323.66552734375,
+              -164.28060913085938,
+              1580.679443359375
+            ],
+            [
+              -3323.66552734375,
+              -164.28060913085938,
+              1413.1717529296875
+            ]
+          ],
+          [
+            [
+              -3323.665771484375,
+              -203.6988525390625,
+              1580.6795654296875
+            ],
+            [
+              -3323.66552734375,
+              -164.28060913085938,
+              1413.1717529296875
+            ],
+            [
+              -3323.665771484375,
+              -203.6988525390625,
+              1413.171875
+            ]
+          ],
+          [
+            [
+              -3323.665771484375,
+              -203.69883728027344,
+              1743.2978515625
+            ],
+            [
+              -3323.66552734375,
+              -164.28060913085938,
+              1743.2978515625
+            ],
+            [
+              -3323.66552734375,
+              -164.28060913085938,
+              1580.679443359375
+            ]
+          ],
+          [
+            [
+              -3323.665771484375,
+              -203.69883728027344,
+              1743.2978515625
+            ],
+            [
+              -3323.66552734375,
+              -164.28060913085938,
+              1580.679443359375
+            ],
+            [
+              -3323.665771484375,
+              -203.6988525390625,
+              1580.6795654296875
+            ]
+          ],
+          [
+            [
+              -3323.665771484375,
+              -203.6988525390625,
+              1905.9161376953125
+            ],
+            [
+              -3323.66552734375,
+              -164.28060913085938,
+              1905.9161376953125
+            ],
+            [
+              -3323.66552734375,
+              -164.28060913085938,
+              1743.2978515625
+            ]
+          ],
+          [
+            [
+              -3323.665771484375,
+              -203.6988525390625,
+              1905.9161376953125
+            ],
+            [
+              -3323.66552734375,
+              -164.28060913085938,
+              1743.2978515625
+            ],
+            [
+              -3323.665771484375,
+              -203.69883728027344,
+              1743.2978515625
+            ]
+          ]
+        ]
+      },
+      "SkRos_RailWall11": {
+        "remove": [
+          [
+            [
+              -985.934326171875,
+              -48.976112365722656,
+              1574.945556640625
+            ],
+            [
+              -985.934326171875,
+              -48.976112365722656,
+              1586.0635986328125
+            ],
+            [
+              -987.4933471679688,
+              -43.969932556152344,
+              1586.0635986328125
+            ]
+          ],
+          [
+            [
+              -987.4933471679688,
+              -43.969932556152344,
+              1586.0635986328125
+            ],
+            [
+              -987.4933471679688,
+              -43.969932556152344,
+              1574.945556640625
+            ],
+            [
+              -985.934326171875,
+              -48.976112365722656,
+              1574.945556640625
+            ]
+          ],
+          [
+            [
+              -985.934326171875,
+              -48.976112365722656,
+              1574.945556640625
+            ],
+            [
+              -985.934326171875,
+              -48.976112365722656,
+              1586.0635986328125
+            ],
+            [
+              -987.4933471679688,
+              -43.969932556152344,
+              1586.0635986328125
+            ]
+          ],
+          [
+            [
+              -987.4933471679688,
+              -43.969932556152344,
+              1586.0635986328125
+            ],
+            [
+              -987.4933471679688,
+              -43.969932556152344,
+              1574.945556640625
+            ],
+            [
+              -985.934326171875,
+              -48.976112365722656,
+              1574.945556640625
+            ]
+          ]
+        ]
+      },
+      "Radar02": {
+        "remove": [
+          [
+            [
+              937.4197998046875,
+              -33.805213928222656,
+              -384.7122802734375
+            ],
+            [
+              916.7376098632812,
+              113.65644836425781,
+              -289.9673767089844
+            ],
+            [
+              962.9339599609375,
+              113.65644073486328,
+              -369.9817810058594
+            ]
+          ],
+          [
+            [
+              916.7376098632812,
+              113.65644836425781,
+              -289.9673767089844
+            ],
+            [
+              937.4197998046875,
+              -33.805213928222656,
+              -384.7122802734375
+            ],
+            [
+              891.2234497070312,
+              -33.805198669433594,
+              -304.6978759765625
+            ]
+          ],
+          [
+            [
+              715.2083740234375,
+              -33.80517578125,
+              -406.32012939453125
+            ],
+            [
+              761.40478515625,
+              -33.80523681640625,
+              -486.3345947265625
+            ],
+            [
+              689.6943359375,
+              113.65641784667969,
+              -421.05078125
+            ]
+          ],
+          [
+            [
+              735.8906860351562,
+              113.65646362304688,
+              -501.065185546875
+            ],
+            [
+              689.6943359375,
+              113.65641784667969,
+              -421.05078125
+            ],
+            [
+              761.40478515625,
+              -33.80523681640625,
+              -486.3345947265625
+            ]
+          ]
+        ]
+      }
+    }
+  },
+  "_notes": {
+    "foun": [
+      "flags of Particle_Valve_Steam01: class environmentobject -> gameobject (translation)",
+      "flags of Particle_Valve_Steam02: class environmentobject -> gameobject (translation)",
+      "flags of Particle_Valve_Steam05: class environmentobject -> gameobject (translation)",
+      "flags of Particle_Valve_Steam03: class environmentobject -> gameobject (translation)",
+      "flags of Particle_Valve_Steam04: class environmentobject -> gameobject (translation)",
+      "flags of Particle_Molten_Flamers01: class environmentobject -> genericnode (translation)",
+      "flags of Particle_Molten_Steam02: class environmentobject -> gameobject (translation)",
+      "flags of Particle_Molten_Steam01: class environmentobject -> genericnode (translation)",
+      "flags of Particle_Press_Steam01: class environmentobject -> gameobject (translation)",
+      "flags of Particle_Press_Steam02: class environmentobject -> gameobject (translation)",
+      "flags of Particle_Press_Steam03: class environmentobject -> gameobject (translation)",
+      "flags of Particle_Press_Steam04: class environmentobject -> gameobject (translation)",
+      "flags of Particle_PourFire: class environmentobject -> genericnode (translation)",
+      "flags of Particle_PourFire_Shrink: class environmentobject -> genericnode (translation)",
+      "flags of Particle_Furnace: class environmentobject -> genericnode (translation)",
+      "flags of Particle_Soaker_Spatter: class environmentobject -> genericnode (translation)",
+      "flags of Particle_Soaker_Spatter02: class environmentobject -> genericnode (translation)",
+      "flags of Particle_Soaker_Spatter03: class environmentobject -> genericnode (translation)",
+      "flags of Line02: class environmentobject -> genericnode (translation)",
+      "flags of Particle_Bucket_Fire: class environmentobject -> genericnode (translation)"
+    ],
+    "rio": [
+      "flags of Omni01: class environmentobject -> genericnode (translation)",
+      "flags of Omni04: class environmentobject -> genericnode (translation)",
+      "flags of Omni02: class environmentobject -> genericnode (translation)",
+      "flags of Rio_Sunlight: class environmentobject -> genericnode (translation)",
+      "flags of Particle_SpecBox_Left01: class environmentobject -> genericnode (translation)",
+      "flags of Particle_SpecBox_Left02: class environmentobject -> genericnode (translation)",
+      "flags of Particle_SpecBox_Center07: class environmentobject -> genericnode (translation)",
+      "flags of Particle_SpecBox_Center05: class environmentobject -> genericnode (translation)",
+      "flags of Particle_SpecBox_Center03: class environmentobject -> genericnode (translation)",
+      "flags of Particle_SpecBox_Center01: class environmentobject -> genericnode (translation)",
+      "flags of Particle_SpecBox_Left03: class environmentobject -> genericnode (translation)",
+      "flags of Particle_SpecBox_Center02: class environmentobject -> genericnode (translation)",
+      "flags of Particle_SpecBox_Center04: class environmentobject -> genericnode (translation)",
+      "flags of Particle_SpecBox_Center06: class environmentobject -> genericnode (translation)",
+      "flags of Particle_SpecBox_Right01: class environmentobject -> genericnode (translation)",
+      "flags of Particle_SpecBox_Right02: class environmentobject -> genericnode (translation)",
+      "flags of Particle_SpecBox_Right03: class environmentobject -> genericnode (translation)",
+      "flags of Stripes_corner: class environmentobject -> genericnode (translation)",
+      "flags of Stripes_corner01: class environmentobject -> genericnode (translation)",
+      "flags of Line01: class environmentobject -> genericnode (translation)"
+    ],
+    "sub": [
+      "flags of Omni06: class environmentobject -> gameobject (translation)",
+      "flags of Omni07: class environmentobject -> gameobject (translation)",
+      "flags of Omni08: class environmentobject -> gameobject (translation)",
+      "flags of Omni09: class environmentobject -> gameobject (translation)",
+      "flags of Tape01: class environmentobject -> gameobject (translation)",
+      "flags of Tape02: class environmentobject -> gameobject (translation)",
+      "flags of Tape03: class environmentobject -> gameobject (translation)",
+      "flags of Tape04: class environmentobject -> gameobject (translation)",
+      "flags of Tape05: class environmentobject -> gameobject (translation)",
+      "flags of SUB_Rich_House_Back: class environmentobject -> gameobject (translation)",
+      "flags of Tape06: class environmentobject -> gameobject (translation)",
+      "flags of NExtParticle_bats_01: class environmentobject -> particleobject (translation)",
+      "flags of NExtParticle_bats_02: class environmentobject -> gameobject (translation)",
+      "flags of NExtParticleSprinkler01: class environmentobject -> gameobject (translation)",
+      "flags of NExtParticleSprinkler03: class environmentobject -> gameobject (translation)",
+      "flags of NExtParticleSprinkler04: class environmentobject -> gameobject (translation)",
+      "flags of Tape08: class environmentobject -> gameobject (translation)",
+      "flags of NExtParticleSprinkler02: class environmentobject -> gameobject (translation)",
+      "flags of dirt: class environmentobject -> gameobject (translation)",
+      "flags of Tape07: class environmentobject -> gameobject (translation)",
+      "flags of Tape09: class environmentobject -> gameobject (translation)",
+      "flags of LOD05: class environmentobject -> gameobject (translation)",
+      "flags of LOD06: class environmentobject -> gameobject (translation)",
+      "flags of LOD07: class environmentobject -> gameobject (translation)",
+      "flags of LOD08: class environmentobject -> gameobject (translation)",
+      "flags of LOD09: class environmentobject -> gameobject (translation)",
+      "flags of BBQ_FLAMES: class environmentobject -> gameobject (translation)",
+      "flags of Tape10: class environmentobject -> gameobject (translation)",
+      "flags of cw_sub_tree: class environmentobject -> gameobject (translation)",
+      "flags of THINMAN_FLAMES01: class environmentobject -> gameobject (translation)",
+      "flags of THINMAN_FLAMES02: class environmentobject -> gameobject (translation)",
+      "flags of THINMAN_FLAMES03: class environmentobject -> gameobject (translation)",
+      "flags of THINMAN_HEARTS01: class environmentobject -> gameobject (translation)",
+      "flags of LOD02: class environmentobject -> gameobject (translation)",
+      "flags of LOD12: class environmentobject -> gameobject (translation)",
+      "flags of NExtParticle01: class environmentobject -> gameobject (translation)",
+      "flags of BBQ_SMOKE_01: class environmentobject -> gameobject (translation)",
+      "flags of LOD11: class environmentobject -> gameobject (translation)",
+      "flags of LOD01: class environmentobject -> gameobject (translation)"
+    ],
+    "si": [
+      "flags of NExtParticleSprinkler04: class environmentobject -> gameobject (translation)",
+      "flags of NExtParticleSprinkler05: class environmentobject -> gameobject (translation)",
+      "flags of NExtParticleSprinkler06: class environmentobject -> gameobject (translation)",
+      "flags of NExtParticleSprinkler07: class environmentobject -> gameobject (translation)",
+      "flags of NExtParticleSprinkler08: class environmentobject -> gameobject (translation)",
+      "flags of NExtParticleSprinkler09: class environmentobject -> gameobject (translation)",
+      "flags of NExtParticleSprinkler01: class environmentobject -> gameobject (translation)",
+      "flags of NExtParticleSprinkler02: class environmentobject -> gameobject (translation)",
+      "flags of NExtParticleSprinkler03: class environmentobject -> gameobject (translation)",
+      "flags of TRG_Parrot_Resting: class animatingobject -> pedestrian (translation)"
+    ],
+    "tok": [
+      "flags of Tok_Mid_PlanterParticle01: class environmentobject -> gameobject (translation)",
+      "flags of Tok_Mid_PlanterParticle02: class environmentobject -> gameobject (translation)",
+      "flags of Tok_Mid_PlanterParticle03: class environmentobject -> gameobject (translation)",
+      "flags of Tok_Mid_PlanterParticle04: class environmentobject -> gameobject (translation)",
+      "flags of TrP_South_Building04Sign: class environmentobject -> genericnode (translation)",
+      "flags of Tok_North_X_Store02: class environmentobject -> genericnode (translation)",
+      "flags of Tok_Mid_SteamParticle01: class environmentobject -> gameobject (translation)",
+      "flags of Tok_Mid_SteamParticle02: class environmentobject -> gameobject (translation)",
+      "flags of Tok_Mid_SteamParticle03: class environmentobject -> gameobject (translation)",
+      "flags of Tok_Mid_SteamParticle04: class environmentobject -> gameobject (translation)",
+      "flags of Tok_Mid_SteamParticle05: class environmentobject -> gameobject (translation)",
+      "flags of Tok_Mid_SteamParticle06: class environmentobject -> gameobject (translation)",
+      "flags of Tok_Mid_SteamParticle07: class environmentobject -> gameobject (translation)",
+      "flags of Tok_Mid_SteamParticle08: class environmentobject -> gameobject (translation)",
+      "flags of Tok_Mid_SteamParticle09: class environmentobject -> gameobject (translation)",
+      "flags of Tok_Mid_SteamParticle10: class environmentobject -> gameobject (translation)",
+      "flags of Tok_Mid_SteamParticle11: class environmentobject -> gameobject (translation)",
+      "flags of Tok_Mid_SteamParticle12: class environmentobject -> gameobject (translation)",
+      "flags of Tok_Mid_SteamParticle13: class environmentobject -> gameobject (translation)",
+      "flags of Tok_Mid_SteamParticle14: class environmentobject -> gameobject (translation)",
+      "flags of Obj_Flag_Set_Medals: class gameobject -> genericnode (translation)",
+      "flags of Ped_End_Spectator16: class pedestrian -> gameobject (translation)",
+      "flags of Ped_End_Spectator17: class pedestrian -> gameobject (translation)",
+      "flags of Ped_End_Spectator19: class pedestrian -> gameobject (translation)",
+      "flags of Tok_North_X_BuildSign02_KC_LOD01: class environmentobject -> genericnode (translation)",
+      "flags of Tok_North_Funbox_Top01_LODHelper01: class environmentobject -> genericnode (translation)",
+      "flags of Tok_North_Funbox_Top02_LODHelper01: class environmentobject -> genericnode (translation)",
+      "renamed TRG_Restart_Single -> TRG_Restart_1P: the old name is used by a script - kept"
+    ],
+    "shp": [
+      "flags of Omni01: class environmentobject -> genericnode (translation)",
+      "flags of Omni11: class environmentobject -> genericnode (translation)",
+      "flags of Omni07: class environmentobject -> genericnode (translation)",
+      "flags of Omni08: class environmentobject -> genericnode (translation)",
+      "flags of Omni09: class environmentobject -> genericnode (translation)",
+      "flags of Omni10: class environmentobject -> genericnode (translation)",
+      "flags of Omni12: class environmentobject -> genericnode (translation)",
+      "flags of Omni13: class environmentobject -> genericnode (translation)",
+      "flags of Omni14: class environmentobject -> genericnode (translation)",
+      "flags of Omni15: class environmentobject -> genericnode (translation)",
+      "flags of slt_RailingCollision: class environmentobject -> genericnode (translation)",
+      "flags of slt_RailingCollision01: class environmentobject -> genericnode (translation)",
+      "flags of slt_RailingCollision02: class environmentobject -> genericnode (translation)",
+      "flags of slt_RailingCollision04: class environmentobject -> genericnode (translation)",
+      "flags of TRG_RightAmb_Boat02: class vehicle -> gameobject (translation)",
+      "flags of TRG_LeftAmb_Boat01: class vehicle -> gameobject (translation)",
+      "flags of TRG_LeftAmb_Boat03: class vehicle -> gameobject (translation)",
+      "flags of TRG_RightAmb_Boat04: class vehicle -> gameobject (translation)",
+      "flags of sf_RopeBase01: class environmentobject -> genericnode (translation)",
+      "flags of sl_WoodRamp05: class environmentobject -> genericnode (translation)",
+      "flags of sb_OuterRailing06: class environmentobject -> genericnode (translation)",
+      "flags of sfp_Splash: class environmentobject -> genericnode (translation)",
+      "flags of sfp_PipeSteam: class environmentobject -> genericnode (translation)",
+      "flags of sfp_FerryWash01: class environmentobject -> genericnode (translation)",
+      "flags of sfp_FerryWash02: class environmentobject -> genericnode (translation)",
+      "flags of slp_SprinklerA02: class environmentobject -> gameobject (translation)",
+      "flags of slp_SprinklerA01: class environmentobject -> gameobject (translation)",
+      "flags of slp_SprinklerA03: class environmentobject -> gameobject (translation)",
+      "flags of slp_SprinklerB01: class environmentobject -> gameobject (translation)",
+      "flags of slp_SprinklerC01: class environmentobject -> gameobject (translation)",
+      "flags of slp_SprinklerC02: class environmentobject -> gameobject (translation)",
+      "flags of slp_SprinklerC03: class environmentobject -> gameobject (translation)",
+      "flags of slp_SprinklerD01: class environmentobject -> gameobject (translation)",
+      "flags of slp_SprinklerD02: class environmentobject -> gameobject (translation)",
+      "flags of slp_SprinklerD03: class environmentobject -> gameobject (translation)",
+      "flags of slp_SprinklerD04: class environmentobject -> gameobject (translation)",
+      "flags of slp_SprinklerD05: class environmentobject -> gameobject (translation)",
+      "flags of slp_SprinklerD06: class environmentobject -> gameobject (translation)",
+      "flags of sbp_CakeSpark01: class environmentobject -> genericnode (translation)",
+      "flags of sbp_CakeSpark02: class environmentobject -> genericnode (translation)",
+      "flags of sbp_CakeSpark03: class environmentobject -> genericnode (translation)",
+      "flags of sbp_CakeSpark04: class environmentobject -> genericnode (translation)",
+      "flags of sbp_CakeSpark05: class environmentobject -> genericnode (translation)",
+      "flags of sbp_CakeSpark06: class environmentobject -> genericnode (translation)",
+      "flags of sbp_CakeSpark07: class environmentobject -> genericnode (translation)",
+      "flags of sbp_CakeSpark08: class environmentobject -> genericnode (translation)",
+      "flags of sbp_CakeSpark09: class environmentobject -> genericnode (translation)",
+      "flags of sbp_CakeSpark10: class environmentobject -> genericnode (translation)",
+      "flags of sbp_CakeSpark11: class environmentobject -> genericnode (translation)",
+      "flags of sbp_CakeSpark12: class environmentobject -> genericnode (translation)",
+      "flags of sbp_CakeSpark13: class environmentobject -> genericnode (translation)",
+      "flags of sbp_CakeSplat: class environmentobject -> genericnode (translation)",
+      "flags of sbp_CakeSteam01: class environmentobject -> genericnode (translation)",
+      "flags of sbp_CakeSteam03: class environmentobject -> genericnode (translation)",
+      "flags of sbp_CakeSteam04: class environmentobject -> genericnode (translation)",
+      "flags of sbp_CakeSteam02: class environmentobject -> genericnode (translation)",
+      "flags of stp_DrainPipeSpray: class environmentobject -> genericnode (translation)",
+      "flags of stp_DrainPipeSpray02: class environmentobject -> genericnode (translation)",
+      "flags of stp_SlideSpray: class environmentobject -> genericnode (translation)",
+      "flags of Box01: class environmentobject -> genericnode (translation)",
+      "flags of Box02: class environmentobject -> genericnode (translation)",
+      "flags of Box03: class environmentobject -> genericnode (translation)",
+      "flags of Box04: class environmentobject -> genericnode (translation)",
+      "flags of Box05: class environmentobject -> genericnode (translation)",
+      "flags of Box06: class environmentobject -> genericnode (translation)"
+    ]
   }
 }

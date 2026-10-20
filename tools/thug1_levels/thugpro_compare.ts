@@ -10,12 +10,17 @@
 //   - the multiplayer restarts (order, places, and which differ by name), collision faces unreachable through their
 //     BSP trees (tools/level_port/col_check.ts);
 //   - an audit of the level's life: node classes, the trigger scripts THUGPRO's nodes run that ours don't, the level
-//     scripts THUGPRO defines that we don't bring.
+//     scripts THUGPRO defines that we don't bring;
+//   - THUGPRO's hand edits the profile applies (TP-32 ... TP-39, hand_edits.checkEdits): per register entry, how many
+//     show in our converted level as THUGPRO has them ("hand edits as THUGPRO's: TP-32 5/5, ..."), with --details why
+//     the others don't (a node our converter leaves out, a key it doesn't keep).
 //
 //   node tools/thug1_levels/thugpro_compare.ts [levels...] [--thug2 C:\Games\THUG2-3] [--thug1 C:\Games\THUG1]
 //        [--thugpro <dir>] [--staging <dir>] [--legacy-names] [--compat thugpro|none] [--json out] [--details]
 //   node tools/thug1_levels/thugpro_compare.ts --extract-thugpro [levels...]
-//        (TP-31: writes THUGPRO's spawn edits into tools/compat/thugpro/thug1_levels.json "spawns" - never typed in)
+//        (writes THUGPRO's edits into tools/compat/thugpro/thug1_levels.json - never typed in: TP-31's "spawns"
+//        (thugpro_edits.spawnEdits) and TP-32 ... TP-39's sections (thugpro_edits.handEdits); prints what it leaves out
+//        and why: translation by THUGPRO's toolchain, THUGPRO's own content)
 //   --details also lists THUGPRO's other edits against THUG1's own data, by kind (thugpro_edits.inventory).
 
 import * as fs from "node:fs";
@@ -50,8 +55,18 @@ import {
     sequence,
     TOLERANCE,
 } from "../thaw_levels/thugpro_compare.ts";
-import { BY_CODE, LEVELS, levelNames, levelStructs, prePath, STAGING, setCompat } from "./thug1_levels.ts";
-import { type Item, inventory, isSpawn, nodeName, spawnEdits, thug1Side, thugproSide } from "./thugpro_edits.ts";
+import { checkEdits, editCounts, SECTIONS, type SectionCheck } from "./hand_edits.ts";
+import { BY_CODE, COMPAT, LEVELS, levelNames, levelStructs, prePath, STAGING, setCompat } from "./thug1_levels.ts";
+import {
+    handEdits,
+    type Item,
+    inventory,
+    isSpawn,
+    nodeName,
+    spawnEdits,
+    thug1Side,
+    thugproSide,
+} from "./thugpro_edits.ts";
 
 const DEFAULT_THUGPRO = pyJoin(process.env.LOCALAPPDATA ?? "", "THUG Pro");
 // The game-mode nodes THUG2's scripts look up by name: CTF bases / flags, their restarts, the team restart.
@@ -265,10 +280,15 @@ export function compare(
     out.scripts = [ourDefined.size, theirDefined.size];
     // collision
     const ourCol = pyJoin(oursDir, mine, `${mine}.col.xbx`);
+    let ourColFile: thug2Col.ColFile | null = null;
     if (fs.existsSync(ourCol)) {
-        const [faces, missing] = colCheck.check(thug2Col.readCol(fs.readFileSync(ourCol), ourCol));
+        ourColFile = thug2Col.readCol(fs.readFileSync(ourCol), ourCol);
+        const [faces, missing] = colCheck.check(ourColFile);
         out.col_ours = [faces, missing];
     }
+    // THUGPRO's hand edits the profile applies (TP-32 ... TP-39): each as THUGPRO has it in our converted level?
+    const edits = COMPAT.edits.get(code.toLowerCase());
+    if (edits !== undefined) out.hand_edits = checkEdits(edits, ours, names, ourColFile);
     const theirCol = pyJoin(thugpro, "data", "pre", `${key}col.prx`);
     if (fs.existsSync(theirCol)) {
         for (const [name, cdata] of colCheck.colFiles(theirCol)) {
@@ -292,7 +312,7 @@ const OPTIONS = {
     compat: { type: "string" },
     json: { type: "string" },
     details: { type: "boolean" }, // also the classes, THUGPRO-only trigger scripts and the inventory of its edits
-    // TP-31: (re)write the profile's spawns from THUGPRO's install (and THUG1's, to tell its edits apart)
+    // TP-31 ... TP-39: (re)write the profile's spawns and hand edits from THUGPRO's install (against THUG1's)
     "extract-thugpro": { type: "boolean" },
 } as const;
 
@@ -321,18 +341,70 @@ function extract(thug1: string, thugpro: string, codes: readonly string[]): numb
             "`node tools/thug1_levels/thugpro_compare.ts --extract-thugpro` (pos = THUG2's Pos axes; order: every " +
             "Multiplayer / Horse / CTF / Team restart in THUGPRO's order, by THUG1's names)",
     };
+    // TP-32 ... TP-39: THUGPRO's other hand edits (thugpro_edits.handEdits, hand_edits.ts)
+    const sections = new Map<string, Record<string, unknown>>(
+        SECTIONS.map(([key, register, what]) => [
+            key,
+            {
+                _register: register,
+                _source:
+                    `${what}: THUGPRO's installed data\\pre\\<level>_scripts.prx node arrays and <level>col.prx collision ` +
+                    "against THUG1's own, extracted by `node tools/thug1_levels/thugpro_compare.ts --extract-thugpro` " +
+                    "(thugpro_edits.handEdits; never typed in)",
+            },
+        ]),
+    );
     for (const [code, key] of portKeys(thug1, thugpro, codes)) {
-        const edits = spawnEdits(thug1Side(thug1, code), thugproSide(thugpro, key));
+        const t1 = thug1Side(thug1, code);
+        const tp = thugproSide(thugpro, key);
+        const edits = spawnEdits(t1, tp);
         section[code] = edits;
         const kinds = Object.entries(edits)
             .filter(([k]) => k !== "order")
             .map(([k, v]) => `${k} ${Array.isArray(v) ? v.length : Object.keys(v as object).length}`);
         print(`${code}: ${kinds.join(", ") || "no edits"}; ${edits.order?.length ?? 0} spawns in order`);
+        const hand = handEdits(t1, tp);
+        for (const [k, v] of Object.entries(hand.edits)) sections.get(k)![code] = v;
+        print(`    hand edits: ${editCounts(hand.edits).join(", ") || "none"}`);
+        for (const n of hand.notes) print(`    not taken: ${n}`);
     }
     profile.spawns = section;
-    fs.writeFileSync(PROFILE_FILE, `${JSON.stringify(profile, null, 2)}\n`, "utf-8");
+    for (const [k, v] of sections) profile[k] = v;
+    fs.writeFileSync(PROFILE_FILE, `${formatJson(profile)}\n`, "utf-8");
     print(`wrote ${path.normalize(decodeURIComponent(PROFILE_FILE.pathname.slice(1)))}`);
     return 0;
+}
+
+// JSON as JSON.stringify(value, null, 2) writes it, but a list of numbers (a position, a face list), a short list of
+// names and a short object on one line: the profile's thousands of face indices and names stay readable.
+export function formatJson(value: unknown, indent = ""): string {
+    const inner = `${indent}  `;
+    if (Array.isArray(value)) {
+        if (!value.length) return "[]";
+        const flat = value.every((v) => typeof v === "number" || (Array.isArray(v) && v.every(Number.isFinite)));
+        const line = `[${value.map((v) => JSON.stringify(v).replaceAll(",", ", ")).join(", ")}]`;
+        if (flat || (value.every((v) => typeof v === "string") && line.length + indent.length <= 120)) return line;
+        return `[\n${value.map((v) => inner + formatJson(v, inner)).join(",\n")}\n${indent}]`;
+    }
+    if (value !== null && typeof value === "object") {
+        const entries = Object.entries(value);
+        if (!entries.length) return "{}";
+        const line = `{${entries.map(([k, v]) => `${JSON.stringify(k)}: ${formatJson(v, inner)}`).join(", ")}}`;
+        if (!line.includes("\n") && line.length + indent.length <= 100) return line;
+        return `{\n${entries.map(([k, v]) => `${inner}${JSON.stringify(k)}: ${formatJson(v, inner)}`).join(",\n")}\n${indent}}`;
+    }
+    return JSON.stringify(value);
+}
+
+// One level's hand-edit check (checkEdits) as text: per register entry, same / looked at, and with `details` the misses.
+export function checkLines(checks: ReadonlyMap<string, SectionCheck>, details: boolean): string[] {
+    const lines = [`hand edits as THUGPRO's: ${[...checks].map(([tp, c]) => `${tp} ${c.same}/${c.total}`).join(", ")}`];
+    if (details) {
+        for (const [tp, c] of checks)
+            for (const [reason, list] of c.differ)
+                lines.push(`  ${tp} ${reason}: ${list.length} - ${list.slice(0, 6).join(" ")}`);
+    }
+    return lines;
 }
 
 // The inventory's lines for one level: per kind, the count and up to `examples` names.
@@ -407,6 +479,14 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
                 `trigger scripts ${(r.trigger_scripts as number[]).join("/")}; collision unreachable ours ` +
                 `${colOurs[1]}, THUGPRO ${colTheirs[1]}`,
         );
+        const checks = r.hand_edits as Map<string, SectionCheck> | undefined;
+        if (checks !== undefined) {
+            for (const line of checkLines(checks, v.details ?? false)) print(`    ${line}`);
+            // (the JSON report: plain objects)
+            r.hand_edits = Object.fromEntries(
+                [...checks].map(([tp, c]) => [tp, { ...c, differ: Object.fromEntries(c.differ) }]),
+            );
+        }
         if (v.details) {
             const classes = r.classes as Record<string, number[]>;
             print(

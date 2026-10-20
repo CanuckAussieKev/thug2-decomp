@@ -1,6 +1,8 @@
 // NOT ORIGINAL - an inventory of THUGPRO's hand edits in its THPS3 level ports, against THPS3's own data (read only:
 // the user's THPS3 install and THUGPRO's data\pre). For the user to decide what else to agree on (docs/pending/
-// thps3-thugpro.md "THUGPRO hand edits: inventory"); nothing here changes our converter.
+// thps3-thugpro.md "THUGPRO hand edits: inventory"); nothing here changes our converter. The edits the compatibility
+// profile applies (TP-13 .. TP-19: tools/compat/thugpro/thps3_levels.json, made by thugpro_compare.ts
+// --extract-thugpro) are checked in our converted levels with --applied.
 //
 // Per level (the 9 THUGPRO shares: foun rio sub si tok shp ware burn ros), node arrays by node name:
 // - moved: in both, placed elsewhere (> 0.1 unit) or turned (> 0.001 rad) - by THUGPRO's class;
@@ -17,10 +19,13 @@
 // scripted decoration: visual or local only.
 //
 //   node tools/thps3_levels/thugpro_inventory.ts [--thug2 C:\Games\THUG2-1] [--thps3 <dir>] [--thugpro <dir>]
-//        [--json out] [--examples N]
+//        [--json out] [--examples N] [--staging <folder>] [--applied] [levels...]
+// (--staging: our converted levels, default <thug2>\thug2-decomp-thps3; --applied: each TP-13 .. TP-19 edit found in
+// them or not, per level and category)
 
 import * as fs from "node:fs";
 import { parseArgs } from "node:util";
+import * as compat from "../compat/compat.ts";
 import * as colCheck from "../level_port/col_check.ts";
 import * as prx from "../level_port/prx.ts";
 import * as qb from "../level_port/qb.ts";
@@ -30,19 +35,13 @@ import { hex8, isMain, print, pyExit, pyJoin, runMain } from "../lib/py.ts";
 import { findPath } from "../thaw_levels/thaw_levels.ts";
 import { maxDiff, nameOf, nodeArray, position } from "../thaw_levels/thugpro_compare.ts";
 import { findFolder, LEVELS, levelFiles, STAGING, scriptNames } from "./thps3_levels.ts";
-import { isSpawn } from "./thugpro_compare.ts";
+import { isSpawn, sameFace, USUAL_CLASSES } from "./thugpro_compare.ts";
 
 export const SHARED = ["foun", "rio", "sub", "si", "tok", "shp", "ware", "burn", "ros"];
 const DEFAULT_THUGPRO = pyJoin(process.env.LOCALAPPDATA ?? "", "THUG Pro");
 
-// THPS3 class -> the THUG2 classes a port makes of it (not counted as an edit).
-const USUAL = new Map<string, string[]>([
-    ["environmentobject", ["levelgeometry"]],
-    ["gameobject", ["levelobject", "gameobject"]],
-    ["bouncyobject", ["gameobject", "levelobject"]],
-    ["vehicle", ["vehicle", "levelobject"]],
-    ["animatingobject", ["animatingobject", "levelobject", "gameobject"]],
-]);
+// (THPS3 class -> the THUG2 classes a port makes of it, not counted as an edit: thugpro_compare's USUAL_CLASSES)
+const USUAL = USUAL_CLASSES;
 const FLAGS = ["CreatedAtStart", "AbsentInNetGames", "TrickObject", "NetEnabled", "Permanent", "NeverSuspend"];
 
 export interface Category {
@@ -243,8 +242,20 @@ export function inventory(
             else if (
                 maxDiff(m.bbox.slice(0, 3), o.bbox.slice(0, 3)) > 1 ||
                 maxDiff(m.bbox.slice(4, 7), o.bbox.slice(4, 7)) > 1
-            )
-                add(inv.collision, "moved", text(c), limit);
+            ) {
+                // (the same faces with another bounding box: THUGPRO's toolchain counts vertices no face uses - Tokyo's
+                // road lines, Suburbia's gutter... - not a move)
+                const corners = (x: thug2Col.ColObject, f: thug2Col.Face): number[][] =>
+                    [f[2], f[3], f[4]].map((i) => x.verts[i]!);
+                const same = o.faces.every((f) =>
+                    m.faces.some(
+                        (g) =>
+                            sameFace(corners(m, g), corners(o, f), 0.15) ||
+                            sameFace(corners(m, g), [...corners(o, f)].reverse(), 0.15),
+                    ),
+                );
+                add(inv.collision, same ? "bounding box only" : "moved", text(c), limit);
+            }
         }
         for (const [c, o] of a)
             if (!b.has(c)) add(inv.collision, "object only ours", `${text(c)} (${o.faces.length} faces)`, limit);
@@ -255,7 +266,8 @@ export function inventory(
 // Can a kind of edit change play between the two sides? (see the header)
 export function affectsPlay(category: string, kindText: string): string {
     const [k, what = ""] = kindText.split(" ");
-    if (category === "collision") return "yes - a wall or floor differs";
+    if (category === "collision")
+        return kindText === "bounding box only" ? "no - toolchain" : "yes - a wall or floor differs";
     if (k === "spawn") return "spawns - unified (TP-12)";
     if (category.startsWith("scripts")) return "mostly no - local";
     if (k === "railnode") {
@@ -269,8 +281,125 @@ export function affectsPlay(category: string, kindText: string): string {
     return "no - visual / local";
 }
 
+// --- --applied: the compatibility profile's edits (TP-13 .. TP-19) checked in our converted level --------------------
+
+export interface AppliedCategory {
+    count: number;
+    matching: number;
+    mismatches: string[];
+}
+
+// Each edit of the profile's data (tools/compat/thugpro/thps3_levels.json) looked up in our converted level
+// (<staging>\levels\<level>\<level>.qb / .col.xbx): moved nodes at the data's place and angles, flags added / taken
+// off, terrains, removed nodes gone, renamed nodes under their new name only, added rails there (place, Links),
+// collision objects dropped and faces gone (corners in the same turning). A node our converter leaves out on its own
+// (Warehouse's dark set) counts as a mismatch with "(not in ours)".
+export function appliedCheck(
+    level: string,
+    profile: compat.Profile,
+    ours: string,
+    thugpro: string,
+    limit = 8,
+): Record<string, AppliedCategory> | null {
+    const qbFile = pyJoin(ours, level, `${level}.qb`);
+    if (!fs.existsSync(qbFile)) return null;
+    const [array] = nodeArray(fs.readFileSync(qbFile), qbFile);
+    const nodes = array.filter((n): n is Struct => n instanceof Struct);
+    const byName = new Map<number, Struct>();
+    for (const n of nodes) if (nameOf(n) !== null && !byName.has(nameOf(n)!)) byName.set(nameOf(n)!, n);
+    const index = new Map<Struct, number>(nodes.map((n, i) => [n, i]));
+    const c = (text: string): number =>
+        text.startsWith("#") ? Number.parseInt(text.slice(1), 16) >>> 0 : qb.checksum(text);
+    const out: Record<string, AppliedCategory> = {};
+    const check = (category: string, label: string, ok: boolean, why = ""): void => {
+        const cat = out[category] ?? { count: 0, matching: 0, mismatches: [] };
+        out[category] = cat;
+        cat.count += 1;
+        if (ok) cat.matching += 1;
+        else if (cat.mismatches.length < limit) cat.mismatches.push(why ? `${label} (${why})` : label);
+    };
+    const section = <T>(key: string): T | undefined => profile.section("thps3_levels", key)[level] as T | undefined;
+    for (const [name, p] of Object.entries(
+        section<Record<string, { pos: number[]; angles: number[] }>>("moved") ?? {},
+    )) {
+        const node = byName.get(c(name));
+        const at = node ? position(node) : null;
+        check(
+            "moved (TP-13)",
+            name,
+            at !== null && maxDiff(at, p.pos) <= 0.1 && maxDiff(angles(node!), p.angles) <= 0.001,
+            node ? "elsewhere" : "not in ours",
+        );
+    }
+    for (const [name, f] of Object.entries(
+        section<Record<string, { add: string[]; remove: string[] }>>("flags") ?? {},
+    )) {
+        const node = byName.get(c(name));
+        const ok = node !== undefined && f.add.every((x) => node.hasFlag(x)) && f.remove.every((x) => !node.hasFlag(x));
+        check("flags (TP-14)", name, ok, node ? `[${flagSet(node)}]` : "not in ours");
+    }
+    for (const [name, t] of Object.entries(section<Record<string, string>>("terrain") ?? {})) {
+        const node = byName.get(c(name));
+        const v = node?.get("TerrainType");
+        check("terrain (TP-15)", name, v instanceof Name && v.value === c(t), node ? "other terrain" : "not in ours");
+    }
+    for (const name of section<string[]>("removed") ?? [])
+        check("removed (TP-16)", name, !byName.has(c(name)), "still there");
+    for (const [old, now] of Object.entries(section<Record<string, string>>("renamed") ?? {}))
+        check("renamed (TP-17)", `${old} -> ${now}`, !byName.has(c(old)) && byName.has(c(now)));
+    for (const r of section<{ name: string; pos: number[]; links: string[] }[]>("rails") ?? []) {
+        const node = byName.get(c(r.name));
+        const links = node?.get("Links");
+        const linked = (Array.isArray(links) ? links : []).map((i) =>
+            typeof i === "number" && nodes[i] ? nameOf(nodes[i]!) : null,
+        );
+        const ok =
+            node !== undefined &&
+            index.has(node) &&
+            maxDiff(position(node) ?? [], r.pos) <= 0.1 &&
+            r.links.every((l) => linked.includes(c(l))) &&
+            linked.length === r.links.length;
+        check("rails (TP-18)", r.name, ok, node ? "elsewhere or other links" : "not in ours");
+    }
+    const colFile = pyJoin(ours, level, `${level}.col.xbx`);
+    const colEdits = section<Record<string, { drop?: boolean; remove?: number[][][] }>>("collision") ?? {};
+    if (Object.keys(colEdits).length && fs.existsSync(colFile)) {
+        const objects = new Map(
+            thug2Col.readCol(fs.readFileSync(colFile), colFile).objects.map((o) => [o.checksum, o]),
+        );
+        const theirCol = new Map<number, thug2Col.ColObject>();
+        const theirFile = findPath(thugpro, "data", "pre", `${level}col.prx`);
+        for (const [file, data] of theirFile ? colCheck.colFiles(theirFile) : [])
+            for (const o of thug2Col.readCol(data, file).objects) theirCol.set(o.checksum, o);
+        for (const [name, e] of Object.entries(colEdits)) {
+            const o = objects.get(c(name));
+            if (e.drop) {
+                check("collision (TP-19)", `${name} dropped`, o === undefined, "still collides");
+                continue;
+            }
+            // (a face taken out can have a twin with the same corners and turning: as many such faces as THUGPRO's)
+            const t = theirCol.get(c(name));
+            const count = (obj: thug2Col.ColObject | undefined, corners: readonly (readonly number[])[]): number =>
+                obj === undefined
+                    ? 0
+                    : obj.faces.filter((f) =>
+                          sameFace(
+                              [f[2], f[3], f[4]].map((i) => obj.verts[i]!),
+                              corners,
+                              0.15,
+                          ),
+                      ).length;
+            for (const corners of e.remove ?? []) {
+                const ok = o !== undefined && t !== undefined && count(o, corners) === count(t, corners);
+                check("collision (TP-19)", `${name} face`, ok, o ? "still there" : "no object");
+            }
+        }
+    }
+    return out;
+}
+
 const USAGE =
-    "usage: thugpro_inventory.ts [-h] [--thug2 THUG2] [--thps3 THPS3] [--thugpro THUGPRO] [--json JSON] [--examples N] [levels ...]";
+    "usage: thugpro_inventory.ts [-h] [--thug2 THUG2] [--thps3 THPS3] [--thugpro THUGPRO] [--json JSON] [--examples N] [--applied] [--staging STAGING] [levels ...]";
 
 const OPTIONS = {
     thug2: { type: "string" },
@@ -278,6 +407,8 @@ const OPTIONS = {
     thugpro: { type: "string" },
     json: { type: "string" },
     examples: { type: "string" },
+    applied: { type: "boolean" },
+    staging: { type: "string" },
     help: { type: "boolean", short: "h" },
 } as const;
 
@@ -303,9 +434,29 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
     const globalNames = new Map<number, string>();
     for (const q of scriptNames(thps3)) for (const [k, t] of q.names) globalNames.set(k, t);
     const levels = parsed.positionals.length ? parsed.positionals.map((x) => x.toLowerCase()) : SHARED;
+    const ours = pyJoin(v.staging || pyJoin(thug2, STAGING), "levels");
+    if (v.applied) {
+        // (the profile's edits in our converted levels: what of THUGPRO's changes we have now)
+        const profile = compat.load("thugpro");
+        const all: Record<string, Record<string, AppliedCategory>> = {};
+        for (const level of levels) {
+            const result = appliedCheck(level, profile, ours, thugpro, limit);
+            if (result === null) {
+                print(`${level}: not converted`);
+                continue;
+            }
+            all[level] = result;
+            const parts = Object.entries(result).map(([k, r]) => `${k} ${r.matching}/${r.count}`);
+            print(`${level}: ${parts.join(", ") || "no edits"}`);
+            for (const [k, r] of Object.entries(result))
+                if (r.mismatches.length) print(`    ${k} not matching: ${r.mismatches.join("; ")}`);
+        }
+        if (v.json) fs.writeFileSync(v.json, `${JSON.stringify(all, null, 1)}\n`, "utf-8");
+        return 0;
+    }
     const out: LevelInventory[] = [];
     for (const level of levels) {
-        const inv = inventory(level, thps3, thugpro, pyJoin(thug2, STAGING, "levels"), globalNames, limit);
+        const inv = inventory(level, thps3, thugpro, ours, globalNames, limit);
         if (inv === null) {
             print(`${level}: not in both installs`);
             continue;
