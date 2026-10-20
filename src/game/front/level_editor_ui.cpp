@@ -635,8 +635,8 @@ void NodeSection(const Model& model, int index)
                 FieldLabel("Moves");
                 bool whole = model.nodes.wholeRail;
                 char label[64];
-                std::snprintf(label, sizeof(label), "Whole rail (L) - %d point%s", model.nodes.railPoints,
-                              model.nodes.railPoints == 1 ? "" : "s");
+                std::snprintf(label, sizeof(label), "Whole %s (L) - %d point%s", model.nodes.chainNoun,
+                              model.nodes.railPoints, model.nodes.railPoints == 1 ? "" : "s");
                 if (ImGui::Checkbox(label, &whole))
                     Ask(Request::kWholeRail, whole ? 1 : 0);
                 if (ImGui::IsItemHovered())
@@ -780,6 +780,11 @@ void NodeSection(const Model& model, int index)
                 ImGui::SetTooltip("%s", model.nodes.whyNoHide.c_str());
             ImGui::SameLine();
         }
+    }
+    // Phase 4: a rail's / path's operations, a rail's terrain, a ped's / car's path (level_editor_chains_ui.cpp).
+    if ((model.nodes.nodeOnly || model.chain.object) && model.chain.show) {
+        ImGui::NewLine();
+        ChainSection(model.chain, &g_requests);
     }
     if (ImGui::Button("Go to"))
         Ask(Request::kGoToNode, index);
@@ -980,8 +985,17 @@ void Help(const Model& model)
         {"", "Pick: (toolbar)", "what clicks may take: nodes, objects, scenery"},
         {"", "Esc, Backspace", "deselects"},
         {"", "A gizmo, an Outliner row", "a node: spawns, crowns, flags, lights, sounds, triggers, rails and other "
-                                         "point nodes move as objects do (paths, ladders and particles don't yet)"},
-        {"", "L", "with a rail point selected: it moves with its whole rail / by itself (the Inspector's Whole rail)"},
+                                         "point nodes move as objects do; rail, ladder and path points too (particles don't yet)"},
+        {"", "L", "with a rail, ladder or path point selected: it moves with its whole chain / by itself (the "
+                  "Inspector's Whole rail / ladder / path)"},
+        {"Chains", "N > Rail / Path", "draw a new rail or path: each click a point (snapped to an edge of what the "
+                                     "cursor hits - Alt: not; near a free end: linked onto it), Enter or a right click "
+                                     "finishes, Esc stops"},
+        {"", "Insert", "(a rail / path point) a point halfway to the next"},
+        {"", "Delete", "(a rail / path point) deleted, the points either side linked (a level's own: hidden)"},
+        {"", "End", "(an end point) draw on from it"},
+        {"", "J / U", "(a point) link this end to the next end clicked / unlink it from its next point"},
+        {"", "Inspector", "a rail's terrain (whole rail); a ped's / car's path: Assign, then click a waypoint"},
         {"Moving", "Drag", "moves it (Shift: up / down; wheel: push / pull; Ctrl or Snap 25: snap to 25)"},
         {"", "Drag an arrow", "along that axis only"},
         {"", "W A S D / Q E", "nudge it"},

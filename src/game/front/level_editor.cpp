@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "game/core/crc.h"
+#include "game/front/level_editor_chains.h"
 #include "game/front/level_editor_hud.h"
 #include "game/front/level_editor_layout.h"
 #include "game/front/level_editor_node_create.h"
@@ -488,7 +489,7 @@ void HandleEvent(SDL_Event* event)
         // Escape: first what's open (a drag put back, the browser, the help), then the selection, then leave.
         if (event->key.keysym.scancode == SDL_SCANCODE_ESCAPE && !event->key.repeat) {
             if (g_dragging || g_browser.open || g_help || g_placeOpen || g_confirmHide || g_confirmReset ||
-                !g_objects.empty() ||
+                Chains::Drawing() != Chains::Draw::None || Chains::WantsPick() || !g_objects.empty() ||
                 Scenery::HasSelection() || g_nodeSelected)
                 g_cancelRequested = true;
             else
@@ -583,7 +584,7 @@ void SetSelectedNode(const NodeEdit::Values& values)
         return;
     NoteOnlineEdit(index);
     NodeEdit::Values now;
-    if (NodeEdit::IsRail(g_nodeName) && NodeEdit::Read(g_nodeName, &now)) {
+    if (NodeEdit::IsChain(g_nodeName) && NodeEdit::Read(g_nodeName, &now)) {
         V3 delta = values.pos - now.pos;
         for (uint32_t name : NodeEdit::MovedWith(g_nodeName, g_wholeRail)) {
             NodeEdit::Values point;
@@ -712,7 +713,9 @@ struct MadeCopy {
     Objects::State state;
 };
 struct UndoStep {
-    enum Kind { kObjects, kScenery, kMade, kNodes, kAdded, kHidden, kOrder, kLevel } kind = kObjects;
+    enum Kind { kObjects, kScenery, kMade, kNodes, kAdded, kHidden, kOrder, kLevel, kChains } kind = kObjects;
+    // kChains (phase 4): the chains' state to put back (level_editor_chains.h).
+    Chains::State chains;
     std::vector<Objects::State> objects;
     Scenery::State scenery;
     NodeEdit::Step nodes; // (kNodes: the nodes' places - level_editor_node_edit.h)
@@ -910,6 +913,12 @@ void Restore(UndoStep& step)
             Layout::PutBack(step.layout, &message);
         break;
     }
+    case UndoStep::kChains:
+        g_nodeSelected = g_nodeSelected && Nodes::Find(g_nodeName) >= 0;
+        Chains::SetState(step.chains);
+        if (g_nodeSelected && Nodes::Find(g_nodeName) < 0)
+            g_nodeSelected = false;
+        break;
     }
 }
 
@@ -965,6 +974,9 @@ UndoStep Current(const UndoStep& step)
         now.layout.clear();
         if (!now.reset)
             Layout::CaptureText(&now.layout);
+        break;
+    case UndoStep::kChains:
+        now.chains = Chains::Current();
         break;
     }
     return now;
@@ -1527,8 +1539,9 @@ bool PassPauseKey(bool down)
 {
     // (while dragging, browsing, reading the help or with something selected the key closes / deselects that instead - HandleEvent - and counts again
     // only once it has been up)
+    // (drawing a chain: Enter finishes it - level_editor_chains.h)
     if (g_dragging || g_cancelRequested || g_browser.open || g_help || HaveSelection() || g_nodeSelected ||
-        !Ui::KeysToEditor()) {
+        Chains::Drawing() != Chains::Draw::None || Chains::WantsPick() || !Ui::KeysToEditor()) {
         g_pauseKeyReleased = false;
         return false;
     }
@@ -1966,6 +1979,104 @@ void PlaceNode(int entry, V3 at)
     NoteAction("added %s (%s)", specs.front().name.c_str(), e.label.c_str());
 }
 
+// --- chains: rails, ladders, paths (level_editor_chains.h) ---
+
+// A chain change made (`before`: the chains' state then): one undo step when it changed anything; `select` (a node's
+// name; 0: none) selected; the message shown.
+void AfterChainChange(const Chains::State& before, uint32_t select, const std::string& message)
+{
+    if (!Chains::SameState(before, Chains::Current())) {
+        UndoStep step;
+        step.kind = UndoStep::kChains;
+        step.chains = before;
+        PushUndo(step);
+        g_pickables.clear();
+        g_hoverNode = -1;
+    }
+    if (select) {
+        int index = Nodes::Find(select);
+        if (index >= 0)
+            SelectNodeOnly(index);
+    } else if (g_nodeSelected && Nodes::Find(g_nodeName) < 0) {
+        g_nodeSelected = false;
+    }
+    if (!message.empty())
+        Hud::Message(message, 5.0);
+    NoteAction("chains: %s", message.c_str());
+}
+
+// What the chain operations work on: the node selected by itself, else the selected object's node (a ped's / car's
+// path); 0: none.
+uint32_t ChainTarget()
+{
+    if (g_nodeSelected && g_nodeName)
+        return g_nodeName;
+    if (Obj::CCompositeObject* object = Primary())
+        return Nodes::Find(object->m_id) >= 0 ? object->m_id : 0;
+    return 0;
+}
+
+// An Inspector / key operation on the selected node's chain.
+void RunChainOp(int op, uint32_t arg)
+{
+    uint32_t target = ChainTarget();
+    if (!target)
+        return;
+    Chains::State before = Chains::Current();
+    std::string message;
+    uint32_t select = 0;
+    Chains::Do(static_cast<Chains::Op>(op), target, arg, &message, &select);
+    if (select == target && !g_nodeSelected)
+        select = 0; // (a ped / car stays selected as the object)
+    AfterChainChange(before, select, message);
+}
+
+// The Place palette's chain entries (after the node kinds): a new rail, a new path.
+constexpr int kChainEntries = 2;
+int ChainEntry(int entry)
+{
+    int base = static_cast<int>(PlaceEntries().size());
+    return entry >= base && entry < base + kChainEntries ? entry - base : -1;
+}
+Chains::Draw ChainKindOf(int entry)
+{
+    int chain = ChainEntry(entry);
+    return chain == 0 ? Chains::Draw::Rail : chain == 1 ? Chains::Draw::Path : Chains::Draw::None;
+}
+
+// A click while drawing: a point where the cursor's ray meets the level (edges snapped unless Alt; a free end near it
+// taken), linked on from the last.
+void DrawChainPoint(V3 dir, bool alt)
+{
+    V3 point;
+    uint32_t end = 0;
+    if (!Chains::SnapPoint(g_pos, Normalize(dir), kMaxPickDistance, alt, &point, &end)) {
+        Hud::Message("Click on the level (nothing under the cursor)");
+        return;
+    }
+    Chains::State before = Chains::Current();
+    std::string message;
+    uint32_t select = 0;
+    Chains::DrawAt(point, end, &message, &select);
+    // (nothing selected while drawing: the camera keeps flying - a selection would be orbited)
+    Deselect();
+    AfterChainChange(before, 0, message);
+    if (Chains::Drawing() == Chains::Draw::None && ChainKindOf(g_placeArmed) != Chains::Draw::None)
+        g_placeArmed = -1; // (linked onto an end: done)
+}
+
+// Drawing finished (Enter, a right click) or an armed pick / drawing cancelled (Esc).
+void StopChainDrawing(const char* message)
+{
+    std::string text;
+    uint32_t select = 0;
+    Chains::Do(Chains::kOpCancel, 0, 0, &text, &select);
+    if (ChainKindOf(g_placeArmed) != Chains::Draw::None)
+        g_placeArmed = -1;
+    if (message)
+        Hud::Message(message);
+}
+
 // The selected node deleted: an added one removed (undoable); a level's own hidden - after the confirm window when the
 // UI runs (`confirmed`), at once with the old HUD.
 void DeleteNode(bool confirmed)
@@ -1974,6 +2085,11 @@ void DeleteNode(bool confirmed)
     if (index < 0)
         return;
     const Nodes::Node node = Nodes::All()[index];
+    // A rail or path point: deleted from its chain, its neighbours linked (a level's own hidden - level_editor_chains.h).
+    if (node.family == Nodes::Family::Rail || node.family == Nodes::Family::Path) {
+        RunChainOp(Chains::kOpDelete, 0);
+        return;
+    }
     if (node.added) {
         UndoStep step;
         step.kind = UndoStep::kAdded;
@@ -2072,6 +2188,11 @@ std::vector<Ui::BrowserItem> g_uiBrowserItems;
 // The keys for what you're doing (as the HUD's bottom lines).
 std::vector<std::pair<std::string, std::string>> KeysNow()
 {
+    if (Chains::Drawing() != Chains::Draw::None)
+        return {{"Click", "add a point"}, {"Alt+click", "no edge snapping"}, {"Near an end", "links onto it"},
+                {"Enter, right click", "finish"}, {"Ctrl+Z", "take the last point away"}, {"Esc", "stop"}};
+    if (Chains::WantsPick())
+        return {{"Click", Chains::Waiting()}, {"Esc", "cancel"}};
     if (g_placeArmed >= 0)
         return {{"Click", "place it"}, {"Shift+click", "place more"}, {"Esc", "cancel"}, {"N", "close the palette"}};
     if (g_browser.open)
@@ -2176,8 +2297,9 @@ Ui::Model BuildModel()
         const NodeEdit::Values* origin = NodeEdit::Origin(g_nodeName);
         model.nodes.moved = origin && !NodeEdit::Same(node, *origin);
         model.nodes.whenApplied = NodeEdit::WhenApplied(Nodes::All()[model.nodes.selected]);
-        if (NodeEdit::IsRail(g_nodeName)) {
-            model.nodes.rail = true;
+        if (NodeEdit::IsChain(g_nodeName)) {
+            model.nodes.rail = true; // (a rail's, a ladder's or a path's point: moved alone or with its chain)
+            model.nodes.chainNoun = Chains::IsPath(g_nodeName) ? "path" : Chains::IsLadder(g_nodeName) ? "ladder" : "rail";
             model.nodes.wholeRail = g_wholeRail;
             model.nodes.railPoints = static_cast<int>(NodeEdit::MovedWith(g_nodeName, g_wholeRail).size());
         }
@@ -2209,7 +2331,13 @@ Ui::Model BuildModel()
             const char* why = NodeCreate::WhyNot(e.kind, e.team);
             model.place.entries.push_back({e.label, e.colour, why ? why : ""});
         }
+        // (phase 4: chains drawn point by point - level_editor_chains.h)
+        model.place.entries.push_back({"Rail (click points; Enter finishes)", 0xFF7FB2D9, ""});
+        model.place.entries.push_back({"Path (ped / car waypoints; Enter finishes)", 0xFF8FD18F, ""});
     }
+    model.chain = ChainTarget() ? Chains::ViewOf(ChainTarget()) : Chains::View{};
+    if (!model.chain.waiting)
+        model.chain.waiting = Chains::Waiting();
     if (g_confirmHide) {
         int index = Nodes::Find(g_confirmHide);
         if (index >= 0) {
@@ -2246,7 +2374,9 @@ void ShowHelp()
         "Moving       hold and drag (Shift: up / down, wheel: push / pull, Ctrl: snap)",
         "             drag an arrow to move along that axis only",
         "             W A S D / Q E nudge   Z / X turn   G drops it to the ground",
-        "             a rail point moves with its whole rail - L: by itself",
+        "             a rail / ladder / path point moves with its whole chain - L: by itself",
+        "Chains       N > Rail / Path: click points (Alt: no edge snap), Enter / right click finishes",
+        "             on a point: Insert adds one after   Del deletes   End draws on   J links   U unlinks",
         "Editing      Ctrl+D duplicates   Del hides (a copy / added node: deletes)   Home puts back",
         "             Ctrl+Z undo   Ctrl+Y redo   Ctrl+Shift+Del twice: reset the level",
         "Adding       B lists the level's pieces and objects: Enter places a copy",
@@ -3011,12 +3141,34 @@ void ApplyUiRequests(V3 dir, bool haveRay, const Frame& frame)
             break;
         case Ui::Request::kPlaceToggle:
             g_placeOpen = !g_placeOpen;
+            if (ChainKindOf(g_placeArmed) != Chains::Draw::None)
+                StopChainDrawing(nullptr);
             g_placeArmed = -1;
             break;
         case Ui::Request::kPlaceArm:
+            if (ChainKindOf(g_placeArmed) != Chains::Draw::None)
+                StopChainDrawing(nullptr);
             g_placeArmed = request.value;
+            if (ChainKindOf(g_placeArmed) != Chains::Draw::None) {
+                // (a rail / a path: drawn point by point - each click a point, Enter finishes)
+                Chains::StartDrawing(ChainKindOf(g_placeArmed));
+                Hud::Message(Chains::Waiting(), 6.0);
+            }
+            break;
+        case Ui::Request::kChainOp:
+            if (!noChange) {
+                RunChainOp(request.value, request.id);
+                if (request.value == Chains::kOpExtend && Chains::Drawing() != Chains::Draw::None) {
+                    g_placeArmed = -1; // (drawing on from the selected end: the palette's entry isn't armed)
+                    Deselect();        // (the camera flies while drawing)
+                }
+            }
             break;
         case Ui::Request::kPlaceHere:
+            if (ChainKindOf(request.value) != Chains::Draw::None) {
+                Hud::Message("Click the rail's / path's points in the view one by one");
+                break;
+            }
             if (!noChange) {
                 // (where the view looks: the panel has the mouse)
                 PlaceNode(request.value, CursorPoint(frame.back * -1.0f, false, frame));
@@ -3079,6 +3231,7 @@ void ApplyUiRequests(V3 dir, bool haveRay, const Frame& frame)
 void Update()
 {
     Layout::Tick();
+    Chains::Tick(); // (peds / cars made again after their path changed; old rail node arrays freed)
     if (!g_active)
         return;
     // (the UI runs: the HUD's elements - made by level_editor_enter after LevelEditor_Start - taken down, the first
@@ -3138,6 +3291,8 @@ void Update()
             g_confirmReset = false;
         } else if (g_confirmHide) {
             g_confirmHide = 0;
+        } else if (Chains::Drawing() != Chains::Draw::None || Chains::WantsPick()) {
+            StopChainDrawing(Chains::WantsPick() ? "Cancelled" : "Drawing finished");
         } else if (g_placeArmed >= 0) {
             g_placeArmed = -1;
         } else if (g_placeOpen) {
@@ -3198,14 +3353,15 @@ void Update()
     // the selection locked (clicks pass it - level_editor_picking.h) or, all locked, unlocked.
     static bool lKey;
     int lNode = MovableNode();
-    bool railPoint = lNode >= 0 && Nodes::All()[lNode].family == Nodes::Family::Rail;
+    // (a rail's, a ladder's or a path's point: its whole chain or itself - level_editor_chains.h)
+    bool railPoint = lNode >= 0 && NodeEdit::IsChain(Nodes::All()[lNode].name);
     bool lPressed = Pressed(keys, SDL_SCANCODE_L, &lKey) && !ctrl;
     if (lPressed && !railPoint && !g_dragging)
         ToggleLock();
     if (lPressed && railPoint && !noChange) {
         g_wholeRail = !g_wholeRail;
-        Hud::Message(g_wholeRail ? "Rails: a rail point moves with its whole rail (L: by itself)"
-                                 : "Rails: a rail point moves by itself (L: the whole rail)");
+        Hud::Message(g_wholeRail ? "Chains: a rail / ladder / path point moves with its whole chain (L: by itself)"
+                                 : "Chains: a rail / ladder / path point moves by itself (L: the whole chain)");
     }
     // P: the camera written to the log as a menu backdrop view (menu_backdrop.cpp kViews: position, back, up).
     static bool poseKey;
@@ -3229,6 +3385,41 @@ void Update()
         else
             Delete();
     }
+    // A rail's / path's point selected (level_editor_chains.h): Insert puts a point halfway to the next, End draws on
+    // from this end, J links this end to the next end clicked, U unlinks it from its next.
+    static bool insertKey, endKey, joinKey, unlinkKey;
+    bool insertNow = Pressed(keys, SDL_SCANCODE_INSERT, &insertKey), endNow = Pressed(keys, SDL_SCANCODE_END, &endKey),
+         joinNow = Pressed(keys, SDL_SCANCODE_J, &joinKey), unlinkNow = Pressed(keys, SDL_SCANCODE_U, &unlinkKey);
+    if (g_nodeSelected && !noChange && !ctrl && !g_browser.open && Chains::IsChainNode(g_nodeName)) {
+        if (insertNow)
+            RunChainOp(Chains::kOpInsert, 0);
+        if (unlinkNow)
+            RunChainOp(Chains::kOpUnlink, 0);
+        if (joinNow)
+            RunChainOp(Chains::kOpLinkArm, 0);
+        if (endNow) {
+            RunChainOp(Chains::kOpExtend, 0);
+            if (Chains::Drawing() != Chains::Draw::None) {
+                g_placeArmed = -1;
+                Deselect();
+            }
+        }
+    }
+
+    // Drawing a chain (level_editor_chains.h): Enter or a right click (pressed and let go without looking about)
+    // finishes it.
+    static bool chainEnter, rightWas;
+    static float rightTravel;
+    if (input.right) {
+        if (!rightWas)
+            rightTravel = 0.0f;
+        rightTravel += std::fabs(input.relX) + std::fabs(input.relY);
+    }
+    bool rightClick = rightWas && !input.right && rightTravel < 6.0f;
+    rightWas = input.right;
+    bool enterNow = Pressed(keys, SDL_SCANCODE_RETURN, &chainEnter);
+    if (Chains::Drawing() != Chains::Draw::None && (enterNow || rightClick) && !g_browser.open)
+        StopChainDrawing("Drawing finished");
 
     // Looking (right button held): about the camera, or orbiting the selection.
     SetRelative(input.right);
@@ -3306,7 +3497,7 @@ void Update()
         // Z / X: turn it - an object 15 degrees, scenery a quarter turn about its centre (the engine turns level
         // geometry by quarter turns only).
         int turn = (Pressed(keys, SDL_SCANCODE_X, &turnRight) ? 1 : 0) - (zPressed && !ctrl ? 1 : 0);
-        if (turn && !g_dragging && !(MovableNode() >= 0 && NodeEdit::IsRail(g_nodeName))) { // (rail points don't turn)
+        if (turn && !g_dragging && !(MovableNode() >= 0 && NodeEdit::IsChain(g_nodeName))) { // (chain points don't turn)
             PushUndo(Snapshot());
             TurnSelection(turn);
             NoteAction("turned (Z / X): %s", DescribeSelection().c_str());
@@ -3416,7 +3607,21 @@ void Update()
 
     // A click: on an arrow, dragging along it; on something, selecting it (Shift: adding / removing it; Alt or a
     // middle click: one piece of scenery in / out) and dragging it; on nothing, deselecting.
-    if (input.leftPresses && haveRay && !g_dragging && g_placeArmed >= 0 && g_placeOpen && g_hoverAxis < 0) {
+    if (input.leftPresses && haveRay && !g_dragging && Chains::WantsPick() && g_hoverAxis < 0) {
+        // (an armed Link / path assignment: the node clicked - level_editor_chains.h)
+        if (g_hoverNode >= 0) {
+            Chains::State before = Chains::Current();
+            std::string message;
+            uint32_t select = 0;
+            Chains::Picked(Nodes::All()[g_hoverNode].name, &message, &select);
+            AfterChainChange(before, select, message);
+        } else {
+            Hud::Message(Chains::Waiting());
+        }
+    } else if (input.leftPresses && haveRay && !g_dragging && Chains::Drawing() != Chains::Draw::None &&
+               g_hoverAxis < 0) {
+        DrawChainPoint(dir, alt);
+    } else if (input.leftPresses && haveRay && !g_dragging && g_placeArmed >= 0 && g_placeOpen && g_hoverAxis < 0) {
         PlaceNode(g_placeArmed, CursorPoint(dir, haveRay, frame));
         if (!shift)
             g_placeArmed = -1;

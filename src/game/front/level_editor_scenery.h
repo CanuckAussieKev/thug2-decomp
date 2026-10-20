@@ -89,6 +89,9 @@ bool SetRailPoint(uint32_t name, V3 pos);
 std::vector<uint32_t> RailOf(uint32_t name);
 // A number that changes whenever rail points move (the node layer reads their places again).
 uint32_t RailGeneration();
+// The rail manager's nodes were made again (level_editor_chains.h - its RebuildRails): the rail points the editor tracks
+// found again by name (those gone forgotten), and the generation moved on.
+void RailsRebuilt();
 // Every rail and ladder point with its place now (the node layer).
 void ForEachRailPoint(void (*each)(void* context, uint32_t name, V3 pos), void* context);
 // The editor starting: no selection, node lookups forgotten.

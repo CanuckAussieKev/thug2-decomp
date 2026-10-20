@@ -454,8 +454,9 @@ RailNode* FindRail(uint32_t name)
     int count;
     if (!RailNodes(&nodes, &count))
         return nullptr;
+    // (a ladder's point too - its moves are tracked as a rail's: level_editor_chains.h)
     for (int i = 0; i < count; ++i) {
-        if (nodes[i].name == name && !(nodes[i].flags & 0x10))
+        if (nodes[i].name == name)
             return &nodes[i];
     }
     return nullptr;
@@ -1058,23 +1059,11 @@ int SelectedRailCount() { return static_cast<int>(g_rails.size()); }
 
 bool RailPoint(uint32_t name, V3* pos, bool climbing)
 {
-    if (const RailNode* node = FindRail(name)) {
-        *pos = RailPos(node);
-        return true;
-    }
-    if (!climbing)
+    const RailNode* node = FindRail(name);
+    if (!node || ((node->flags & 0x10) && !climbing))
         return false;
-    RailNode* nodes;
-    int count;
-    if (!RailNodes(&nodes, &count))
-        return false;
-    for (int i = 0; i < count; ++i) {
-        if (nodes[i].name == name) {
-            *pos = RailPos(&nodes[i]);
-            return true;
-        }
-    }
-    return false;
+    *pos = RailPos(node);
+    return true;
 }
 
 bool RailOrigin(uint32_t name, V3* pos)
@@ -1113,7 +1102,9 @@ std::vector<uint32_t> RailOf(uint32_t name)
         first = first->prev;
     int steps = 0;
     for (RailNode* at = first; at && steps < count; at = at->next, ++steps) {
-        if (at != node && !(at->flags & 0x10) && std::find(names.begin(), names.end(), at->name) == names.end())
+        // (a rail's points, or a ladder's: not the other kind)
+        if (at != node && (at->flags & 0x10) == (node->flags & 0x10) &&
+            std::find(names.begin(), names.end(), at->name) == names.end())
             names.push_back(at->name);
         if (at->next == first)
             break;
@@ -1122,6 +1113,20 @@ std::vector<uint32_t> RailOf(uint32_t name)
 }
 
 uint32_t RailGeneration() { return g_railGeneration; }
+
+void RailsRebuilt()
+{
+    // (the tracks keep their nodes by address: found again by name in the new array - places and flags were copied)
+    for (auto it = g_railTracks.begin(); it != g_railTracks.end();) {
+        if (RailNode* node = FindRail(it->first)) {
+            it->second.node = node;
+            ++it;
+        } else {
+            it = g_railTracks.erase(it);
+        }
+    }
+    ++g_railGeneration;
+}
 
 void ForEachRailPoint(void (*each)(void* context, uint32_t name, V3 pos), void* context)
 {

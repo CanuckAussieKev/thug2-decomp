@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+#include "game/front/level_editor_chains.h"
 #include "game/front/level_editor_node_create.h"
 #include "game/front/level_editor_picking.h"
 #include "game/front/level_editor_scenery.h"
@@ -56,7 +57,14 @@ class CScript;
 //   hide <node>                                        a level's node hidden (not removed: its indexes stay)
 //   lock sector <checksum> / lock object <id>          a scenery piece / an object locked: clicks pass it
 //                                                      (level_editor_picking.h)
-// An older (phase 2) reader skips node / order / hide records; an older reader of version 2 skips lock records.
+//   point <name> <Class> pos=x,y,z [like=<node>] [terrain=<T>] [links=<node>,...]
+//                                                      (phase 4) a rail / path point the editor added
+//   links <node> <node>,... | -                        (phase 4) a level node's links= as edited (a chain relinked, a
+//                                                      ped's / car's path)
+//   drop <node>                                        (phase 4) a level's rail / path point deleted (hidden, relinked)
+//   terrain <node> <TERRAIN_...>                       (phase 4) a level rail point's terrain (level_editor_chains.h)
+// An older (phase 2) reader skips node / order / hide records; an older reader of version 2 skips lock records and
+// the phase 4 ones (an added rail's points aren't `node` records: an older reader would make them without their rail).
 // Checksums are 8 hex digits; numbers are written with 9 significant digits (floats survive the round trip).
 namespace Front::LevelEditor::Layout {
 
@@ -96,6 +104,7 @@ struct File {
     std::vector<std::string> crownOrder;  // `order crown`
     std::vector<uint32_t> hidden;         // `hide`
     std::vector<Picking::Lock> locks;     // `lock`
+    Chains::State chains;                 // (phase 4) `point`, `links`, `drop`, `terrain`
 };
 
 // The text of a layout, and a layout read back (false: not a layout file; `line` the first line that isn't

@@ -5,6 +5,8 @@
 #include <cmath>
 #include <unordered_map>
 
+#include "game/front/level_editor_chains.h"
+#include "game/front/level_editor_node_create.h"
 #include "game/front/level_editor_objects.h"
 #include "game/front/level_editor_scenery.h"
 #include "game/mth/matrix.h"
@@ -216,7 +218,10 @@ bool Movable(const Nodes::Node& node)
         return false;
     switch (node.family) {
     case Nodes::Family::Rail:
-        return IsRail(node.name); // (a point of the rail manager: where skaters grind)
+    case Nodes::Family::Ladder:
+        return IsRail(node.name); // (a point of the rail manager: where skaters grind / climb)
+    case Nodes::Family::Path:
+        return true; // (a waypoint: its pos=, read when a ped or car heads for it - level_editor_chains.h)
     case Nodes::Family::Spawn:
     case Nodes::Family::Crown:
     case Nodes::Family::Flag:
@@ -237,7 +242,14 @@ const char* WhenApplied(const Nodes::Node& node)
     bool sectorShape = s && s->GetChecksum(kShape, &shape, 0) && shape != 0xAA069978; // (a sphere's)
     switch (node.family) {
     case Nodes::Family::Rail:
-        return "Now: skaters grind it where it is (its node keeps the level's place; the layout's rail record has it).";
+        return node.added ? "Now: skaters grind it where it is (an added point: its node moves too)."
+                          : "Now: skaters grind it where it is (its node keeps the level's place; the layout's rail "
+                            "record has it).";
+    case Nodes::Family::Ladder:
+        return "Now: skaters climb it where it is (its node keeps the level's place; the layout's rail record has it). "
+               "Its facing stays.";
+    case Nodes::Family::Path:
+        return "When a ped or car next heads for this waypoint (one already walking to it goes to the old place first).";
     case Nodes::Family::Spawn:
         return "At the next respawn here, or F8 (the restart tester).";
     case Nodes::Family::Crown:
@@ -261,8 +273,10 @@ const char* WhenApplied(const Nodes::Node& node)
 bool IsRail(uint32_t name)
 {
     V3 pos;
-    return name && Scenery::RailPoint(name, &pos);
+    return name && Scenery::RailPoint(name, &pos, true); // (a ladder's point too)
 }
+
+bool IsChain(uint32_t name) { return IsRail(name) || Chains::IsPath(name); }
 
 std::vector<uint32_t> MovedWith(uint32_t name, bool wholeRail)
 {
@@ -271,6 +285,8 @@ std::vector<uint32_t> MovedWith(uint32_t name, bool wholeRail)
         if (!rail.empty())
             return rail;
     }
+    if (wholeRail && Chains::IsPath(name))
+        return Chains::ChainOf(name); // (a path: its waypoints linked either way)
     return {name};
 }
 
@@ -278,7 +294,7 @@ bool Read(uint32_t name, Values* values)
 {
     // (a rail point: where the rail manager has it - its node keeps the level's pos=; no angles of its own)
     V3 point;
-    if (name && Scenery::RailPoint(name, &point)) {
+    if (name && Scenery::RailPoint(name, &point, true)) {
         values->pos = point;
         values->angles = {0.0f, 0.0f, 0.0f};
         return true;
@@ -296,7 +312,7 @@ bool Read(uint32_t name, Values* values)
 
 void NoteOrigin(uint32_t name)
 {
-    if (IsRail(name))
+    if (IsRail(name) && !NodeCreate::IsAdded(name))
         return; // (the rail manager notes where the level has it)
     if (g_touchedIndex.count(name))
         return;
@@ -310,7 +326,7 @@ void NoteOrigin(uint32_t name)
 const Values* Origin(uint32_t name)
 {
     V3 origin;
-    if (IsRail(name) && Scenery::RailOrigin(name, &origin)) {
+    if (IsRail(name) && !NodeCreate::IsAdded(name) && Scenery::RailOrigin(name, &origin)) {
         Values& values = g_railOrigins[name];
         values = {origin, {0.0f, 0.0f, 0.0f}};
         return &values;
@@ -322,7 +338,12 @@ const Values* Origin(uint32_t name)
 bool Set(uint32_t name, const Values& values)
 {
     // A rail point: moved in the rail manager (Scenery's rail records - saved as `rail`, reset with the level's
-    // scenery), its segments' boxes made again; its node and its angles stay.
+    // scenery), its segments' boxes made again; its node and its angles stay. A point the editor added: its node and its
+    // rail manager node both (its `point` record has its place - level_editor_chains.h).
+    if (Chains::IsAddedPoint(name)) {
+        NoteOrigin(name);
+        return Chains::MoveAddedPoint(name, values.pos);
+    }
     if (IsRail(name)) {
         if (!Scenery::SetRailPoint(name, values.pos))
             return false;
