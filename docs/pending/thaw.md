@@ -78,3 +78,59 @@ Agent "thaw". How to run it: tools/thaw_levels/README.md.
   pass's alpha (r1.a), and a 12/13 pass writes only r1.rgb - so 12/13 after 12/13 reads an unwritten r1.a and the
   shader doesn't assemble. One material in all the ported levels (Santa Monica 734D2826: 0, 13, 13); the converter
   leaves the second such pass out. Installed; NOT confirmed in the game yet.
+
+## THUGPRO compatibility (agent thaw-thugpro, 2026-10-20) - NOT run in the game yet
+
+Goal: a THUGPRO player and one of ours in the same THAW level online. Everything is generated from THAW's own files;
+THUGPRO's toolchain (thugpro_toolchain/thaw_level_toolchain) and installed levels (%LOCALAPPDATA%\THUG Pro\data\pre)
+were only read as the reference and to compare against (`thugpro_compare.py`) - nothing of theirs is copied.
+
+What travels online and has to agree (from our decompilation): the change-level message 0x46 / start info 0x33 carry
+the load script's checksum only (the other side runs that script); skater updates (HandleObjectUpdates 0x0056E470)
+carry world positions as int16 (x/z x2, y x4: +-16,384 / +-8,192 units); King of the Hill picks a crown by its index
+among the Crown nodes (CFunc_SpawnCrown 0x00538170); SpawnScript 0x49 carries the script checksum and, from a trigger,
+the node's *name* checksum (CTriggerComponent::TriggerNode passes the name - not an array index: node order doesn't
+travel). No THAW level (THAW's or THUGPRO's) has a NetEnabled node, so no 0x49 comes from their triggers.
+
+Changes (tools/thaw_levels):
+- Names: each level is named after its zone (`z_ma`: Load_z_ma, Level_z_ma, levels\z_ma\z_ma.*, z_ma_NodeArray), as
+  THUGPRO names 11 of them. Chicago, Kyoto, Santa Cruz and Vans Park THUGPRO renamed (its own choice, not THAW data):
+  those four don't meet online until a translation is added (see the report). `--legacy-names`: thaw_<xx>.
+- Frame: an area with a <zone>_Zone_Origin node moves by minus its Pos, every axis, in whole sixteenths (THUGPRO's
+  rule; BSP splits stay exact). Vans Park is left in THAW's frame as THUGPRO's toolchain left it. Result vs THUGPRO's
+  installed node arrays: CH, MA, DN, JA, SZ, SV2, SV, HO, BH, DT, SR, LV, OI the same (all but 0-17 hand-moved nodes
+  within 0.1 unit); East LA and Santa Monica not: THUGPRO moved those by offsets of its own (not in THAW's data:
+  THUGPRO = ours + (-1319.656, -111.047, 269.924) in EL, + (-5060.44, -580.625, -3203.87) in SM). `--frame recentre`:
+  the older frame. JA and SZ are no longer recentred (THUGPRO's frame: THAW's own; 76 / 7 collidable faces lie past
+  the network's +-16,384, far from the skate areas).
+- Game modes: TRG_CTF_*, TRG_Flag_*, TRG_KOTH*, TRG_Team_Restart lose the zone prefix (THUG2's net\ctf / SK4_Scripts
+  look them up by those names - THUGPRO's toolchain strips the same list); the CTF / team flag game objects are kept
+  (Type Flag_*, THUG2's own gameobjects\flags\ models, THAW's trigger scripts calling THUG2's Team_Flag): 12 per level.
+  Crowns: same count, order and places as THUGPRO's in all 15.
+- The Mall's teleports (and every other level's): THAW calls THUG2's own TeleportSkaterToNode, which the converter
+  left out ("THUG2 script needing components the runner hasn't") - the skater's animblender / input / vibration
+  weren't in the thaw_skater context. Added: MA's 5 (Trgp_teleport -> Z_MA_TRG_restart, Teleport_Spc01/02, the book
+  sale gap in / out) now convert. (MA_Teleport_Helper is called by THAW but defined nowhere - THAW's own dead call.)
+- RailAccelerate (THAW's skutils.qb rail speed-up, 12 Mall rails, others): a THUG2 version written from THAW's
+  (without THAW's TriggerType test - THUG2 has none) in every level's qb.
+- trigger_jump_boost (The Ruins' 10 jump boosts): THUG2's own script is THAW's line for line; script_needs over-counts
+  its components (follows parameter names) - allowed for the skater (SKATER_SCRIPTS_CHECKED).
+- `object:member` statements on the made objects are kept, checked as run by that object and guarded with IsAlive
+  (script_port's existing `objects` form): The Mall's bouncy boxes are kicked (Rigidbody_Kick), movers move.
+- Layouts: `migrate_layouts.py --game <folder>` renames <crc(thaw_xx)>.txt to <crc(z_xx)>.txt and moves every record
+  by the frame difference (sector / rail / clone offsets: offset + d - Q d; objects / copies: pos + d); the old file
+  kept as .before-thugpro-frame. Checked on a made-up Mall layout in THUG2-1 (removed after); no game folder had any.
+- `thugpro_compare.py` (read-only on THUGPRO's install) and `tools/level_port/col_check.py` (every face reachable
+  through its BSP tree, as THUG2's queries walk it) are new.
+
+Checks (THUG2-1, all 15 converted and installed): every face reachable (0 unreachable in all 15); links in range, rail
+links to rails; every level's qb decompiles through ns.exe except East LA's (THAW's own EL_Spring nests `repeat`
+inside an `if` - valid for the interpreter, and behind a left-out TriggerType condition, never run); thaw selfcheck
+735 files 0 failures; THPS3 / THPS4 / THUG1 selfchecks 0 failures. No C++ changed.
+
+Still different from THUGPRO (and what it means online): EL / SM frames (positions off by the offsets above - remote
+skaters drawn displaced; a position translation in the skater-update messages would fix it); CH / JA / SZ / SV names
+(the level doesn't load across: a load-script alias or a checksum translation in 0x46 / 0x33); restarts: SZ - ours
+has 10 fewer Multiplayer restarts (over water / kill zones: Killox01_restart*, kept by THUGPRO), CH 2 / 1 different,
+BH 1 moved by THUGPRO; node arrays: THUGPRO kept 46-723 more nodes per level (story / goal / sfx nodes) - node order
+doesn't travel, so no effect.

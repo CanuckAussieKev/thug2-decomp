@@ -14,8 +14,8 @@ Needs Python 3 and NeverScript (`tools\build_neverscript.ps1` -> `out\neverscrip
 `convert` reads each level's "net" archive (`Game\data\worlds\worldzones\<zone>\<zone>_net.pak.wpc`: the area on its
 own, as THAW loads it for classic and online games - no story props, vehicles or sounds), the sky
 (`data\skies\TestLevel_Sky`), `data\pak\qb.pak.wpc`'s levels.qb and `data\pak\dbg.pak.wpc` (the names of the
-checksums), and writes `<thug2>\thug2-decomp-thaw\`: `levels\thaw_<xx>\thaw_<xx>.scn.xbx / .tex.xbx / .col.xbx /
-.qb`, `levels\thaw_sky` and `levels.json`. The default is all 15 levels of the table `LEVELS` in `thaw_levels.py`:
+checksums), and writes `<thug2>\thug2-decomp-thaw\`: `levels\z_<xx>\z_<xx>.scn.xbx / .tex.xbx / .col.xbx /
+.qb` (the level named after its zone, as THUGPRO's are: online the load script's name is the level), `levels\thaw_sky` and `levels.json`. The default is all 15 levels of the table `LEVELS` in `thaw_levels.py`:
 the classic ones (Z_CH Chicago, Z_MA The Mall, Z_DN Minneapolis, Z_JA Kyoto, Z_SZ Santa Cruz, Z_SV2 The Ruins) and
 the story's areas (Z_SV Vans Park, Z_HO Hollywood, Z_BH Beverly Hills, Z_DT Downtown, Z_EL East LA, Z_SM Santa
 Monica, Z_SR Skate Ranch, Z_LV Casino, Z_OI Oil Rig). Name some to convert only those (`convert Z_CH MA`). Level
@@ -56,7 +56,14 @@ header is off) and scenes (read and converted).
   sectors (NightOn_*, *_tod_light_*: lit at night only by THAW's time of day).
 - Nodes: restarts, rails, level geometry (LevelObjects as static geometry), KOTH crowns; kill zones (a trigger script
   calling a "killskater" script) become THUG2's SK3_KillSkater naming the nearest restart.
-- Areas far from the origin are moved so their collision's middle is at the origin (x / z, whole 16-unit steps):
-  `--recentre <distance>` (default 20000; the Oil Rig is 56,000 out).
+- Areas with a `<zone>_Zone_Origin` node are moved by minus its position (all axes, in sixteenths), as THUGPRO's
+  toolchain does, so that skater positions agree online (Vans Park excepted: THUGPRO left it in THAW's frame).
+  `--frame recentre` gives the older frame (areas reaching past `--recentre` moved to the origin, x / z);
+  `--legacy-names` the older `thaw_<xx>` names. Layouts saved in the older levels: `migrate_layouts.py --game <folder>`.
+- Game-mode nodes (TRG_CTF_*, TRG_Flag_*, TRG_KOTH*, TRG_Team_Restart) lose the zone prefix and the CTF / team flags
+  are kept (THUG2's own flag models): capture the flag works with THUG2's net\ctf scripts.
+- `thugpro_compare.py` compares the converted levels with an installed THUGPRO's (read only): node positions, crowns,
+  multiplayer restarts, game-mode nodes, collision faces unreachable through their BSP trees
+  (`tools/level_port/col_check.py`).
 - Level structure: THAW's name, the TestLevel_Sky sky, THUG2's default lighting (THAW lights by its time of day
   manager), no music, no goals.
