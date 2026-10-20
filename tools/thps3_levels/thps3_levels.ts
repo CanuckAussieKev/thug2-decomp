@@ -613,26 +613,51 @@ export function faceFlags(flags: number): number {
     return flags & FACE_KEEP;
 }
 
+// Whether a face's corners are `corners` in the same turning order (any first corner) - TP-19's faces are THPS3's own
+// vertices, so equal but for the JSON round trip.
+function sameCorners(sec: thps3.Sector, face: readonly number[], corners: readonly (readonly number[])[]): boolean {
+    const at = face.map((i) => sec.positions[i]!);
+    const near = (a: readonly number[], b: readonly number[]): boolean =>
+        a.every((x, k) => Math.abs(x - b[k]!) <= 0.001);
+    return [0, 1, 2].some((r) => [0, 1, 2].every((k) => near(at[k]!, corners[(k + r) % 3]!)));
+}
+
 export function collisionObjects(
     sectors: readonly thps3.Sector[],
     materials: readonly thps3.RwMaterial[],
     skip: ReadonlySet<number>,
+    edits: ReadonlyMap<number, CollisionEditCompat> = new Map(),
+    counts: { dropped: number; faces: number; missing: number } = { dropped: 0, faces: 0, missing: 0 },
 ): { objects: geometry.SourceColObject[] } {
     // Each atomic sector one collision object (its name the sector's): every face, its flags and its material's
-    // terrain.
+    // terrain. `edits`: TP-19 (THUGPRO's collision edits, by the sector's checksum) - an object's collision left out,
+    // or some of its faces (`counts` says how many; a face not found is counted as missing).
     const out: geometry.SourceColObject[] = [];
     for (const sec of sectors) {
         if (skip.has(sec.checksum) || !sec.triangles.length) continue;
+        const edit = edits.get(sec.checksum);
+        if (edit?.drop) {
+            counts.dropped += 1;
+            continue;
+        }
         const faces: thug2Col.Face[] = [];
         const flagList = sec.faceFlags ?? [];
         const count = Math.min(sec.triangles.length, flagList.length); // (zip)
+        const removing = [...(edit?.remove ?? [])];
         for (let i = 0; i < count; i++) {
             const [material, a, b, c] = sec.triangles[i]!;
             const m = materials[material + sec.materialBase];
             if (m === undefined) throw new RangeError("list index out of range");
             const terrain = m.ns ? m.ns.terrain : 0;
+            const gone = removing.findIndex((corners) => sameCorners(sec, [a, b, c], corners));
+            if (gone >= 0) {
+                removing.splice(gone, 1);
+                counts.faces += 1;
+                continue;
+            }
             faces.push([flagList[i]!, terrain, a, b, c]);
         }
+        counts.missing += removing.length;
         const colors = sec.colors?.length ? sec.colors : sec.positions.map(() => [255, 255, 255, 255]);
         const lo = [0, 1, 2].map((k) => pyMin(sec.positions.map((v) => v[k]!)));
         const hi = [0, 1, 2].map((k) => pyMax(sec.positions.map((v) => v[k]!)));
@@ -657,6 +682,8 @@ export interface ConvertWorldOptions {
     objects?: [thps3.Sector[], ObjectMaterial[]] | null;
     // the prefix of the materials' checksums (<tag>_material_<n>; default the level's name)
     tag?: string;
+    // TP-19: THUGPRO's collision edits by the sector's checksum (collisionObjects)
+    colEdits?: ReadonlyMap<number, CollisionEditCompat>;
 }
 
 export function convertWorld(
@@ -696,9 +723,10 @@ export function convertWorld(
         materials.filter((m) => used.has(m.checksum)),
     );
     let col: thug2Col.ColFile | null = null;
+    const counts = { dropped: 0, faces: 0, missing: 0 };
     if (withCol) {
         col = geometry.convertCol(
-            collisionObjects(world.sectors, world.materials, skip),
+            collisionObjects(world.sectors, world.materials, skip, options.colEdits, counts),
             keepTriggers,
             warnings,
             faceFlags,
@@ -706,6 +734,12 @@ export function convertWorld(
     }
     common.writeLevel(outDir, name, scene, textures, col);
     common.reportLevel(report, name, scene, textures, col, [...new Set(warnings)].sort(compareStr));
+    if (options.colEdits?.size) {
+        const missing = counts.missing ? `, ${counts.missing} faces not found` : "";
+        report.push(
+            `  TP-19 THUGPRO's collision edits: ${counts.dropped} objects without collision, ${counts.faces} faces left out${missing}`,
+        );
+    }
 }
 
 // --- nodes ---------------------------------------------------------------------------------------------------------
@@ -1582,6 +1616,36 @@ export interface LevelCompat {
     flags: Record<string, CompatPlacement>;
     extra: Record<string, CompatPlacement>;
     spawns?: SpawnCompat;
+    edits?: NodeEditsCompat; // TP-13 .. TP-18
+    collision?: Record<string, CollisionEditCompat>; // TP-19
+}
+
+// THUGPRO's hand edits of a level's nodes (tools/thps3_levels/thugpro_compare.ts nodeEdits, the user's decision
+// 2026-10-20: everything THUGPRO changed, as data under the compatibility profile): TP-13 `moved` - {name: place in
+// THUG2's world, angles}; TP-14 `flags` - {name: flags added / removed}; TP-15 `terrain` - {name: TerrainType};
+// TP-16 `removed` - names; TP-17 `renamed` - {THPS3's name: THUGPRO's}; TP-18 `rails` - added rail nodes.
+export interface NodeEditsCompat {
+    moved: Record<string, CompatPlacement>;
+    flags: Record<string, { add: string[]; remove: string[] }>;
+    terrain: Record<string, string>;
+    removed: string[];
+    renamed: Record<string, string>;
+    rails: CompatRail[];
+}
+
+export interface CompatRail extends CompatPlacement {
+    name: string;
+    terrain: string | null;
+    flags: string[];
+    cluster: string | null;
+    links: string[]; // by name
+}
+
+// TP-19: a collision object's collision left out (`drop`), or some of its faces (`remove`: each face's three corners
+// in THPS3's order, THPS3's own vertices).
+export interface CollisionEditCompat {
+    drop?: boolean;
+    remove?: number[][][];
 }
 
 // TP-12: a spawn as THUGPRO has it (place in THUG2's world, angles, Type, restart_types, RestartName, CreatedAtStart).
@@ -1882,7 +1946,139 @@ export function levelCompat(profile: compat.Profile, level: string): LevelCompat
     const get = (key: string): Record<string, CompatPlacement> =>
         (profile.section("thps3_levels", key)[level] ?? {}) as Record<string, CompatPlacement>;
     const spawns = profile.section("thps3_levels", "spawns")[level] as SpawnCompat | undefined;
-    return { flags: get("ctf_flags"), extra: get("team_nodes"), ...(spawns !== undefined ? { spawns } : {}) };
+    const out: LevelCompat = {
+        flags: get("ctf_flags"),
+        extra: get("team_nodes"),
+        ...(spawns !== undefined ? { spawns } : {}),
+    };
+    // TP-13 .. TP-18 (each section {level: data}; a level without any keeps out.edits undefined)
+    const of = <T>(key: string, empty: T): T => (profile.section("thps3_levels", key)[level] as T | undefined) ?? empty;
+    const edits: NodeEditsCompat = {
+        moved: of("moved", {}),
+        flags: of("flags", {}),
+        terrain: of("terrain", {}),
+        removed: of("removed", []),
+        renamed: of("renamed", {}),
+        rails: of("rails", []),
+    };
+    if (Object.values(edits).some((v) => (Array.isArray(v) ? v.length : Object.keys(v).length))) out.edits = edits;
+    const collision = profile.section("thps3_levels", "collision")[level] as
+        | Record<string, CollisionEditCompat>
+        | undefined;
+    if (collision !== undefined) out.collision = collision;
+    return out;
+}
+
+// A name as the compatibility data writes it ("#1234ABCD" for a checksum without a name) -> its checksum; a new name
+// goes into `names`.
+function compatName(text: string, names: Names): Name {
+    const c = text.startsWith("#") ? Number.parseInt(text.slice(1), 16) >>> 0 : qb.checksum(text);
+    if (!text.startsWith("#") && !names.has(c)) names.set(c, text);
+    return new Name(c);
+}
+
+// TP-13 .. TP-17 (the user's decision 2026-10-20): THUGPRO's hand edits applied to THPS3's own node array, in place
+// (each changed node replaced by an edited copy), before anything is made of it - the converter then treats the
+// nodes as if THPS3 had them so (a node made CreatedAtStart is there at the start, game objects are drawn where they
+// were moved to...). Moved nodes keep THPS3's Position (z negated from THUG2's world). Returns [report, the names of
+// the removed nodes (TP-16: left out as the converter leaves out its hidden ones, sectors and nodes)].
+export function applyNodeEdits(
+    array: QbValue[],
+    names: Names,
+    edits: NodeEditsCompat | undefined,
+): [string, Set<number>] {
+    const removed = new Set<number>();
+    if (edits === undefined) return ["", removed];
+    for (const name of edits.removed) removed.add(compatName(name, names).value);
+    const counts = { moved: 0, flags: 0, terrain: 0, renamed: 0 };
+    const byName = new Map<number, number>();
+    array.forEach((n, i) => {
+        if (n instanceof Struct && n.get("Name") instanceof Name && !byName.has(nameOf(n))) byName.set(nameOf(n), i);
+    });
+    const edit = (name: string, change: (node: Struct) => void): boolean => {
+        const i = byName.get(compatName(name, names).value);
+        if (i === undefined) return false;
+        const node = new Struct([...(array[i] as Struct).entries]);
+        change(node);
+        array[i] = node;
+        return true;
+    };
+    for (const [old, now] of Object.entries(edits.renamed)) {
+        if (edit(old, (node) => node.set("Name", compatName(now, names)))) counts.renamed += 1;
+    }
+    for (const [name, p] of Object.entries(edits.moved)) {
+        const done = edit(name, (node) => {
+            if (node.get("Pos") instanceof Vector) node.set("Pos", new Vector("vector", [...p.pos]));
+            else node.set("Position", new Vector("vector", [p.pos[0]!, p.pos[1]!, -p.pos[2]!]));
+            node.set("Angles", new Vector("vector", [...p.angles]));
+        });
+        if (done) counts.moved += 1;
+    }
+    for (const [name, f] of Object.entries(edits.flags)) {
+        const done = edit(name, (node) => {
+            for (const flag of f.remove) node.removeFlag(flag);
+            for (const flag of f.add) if (!node.hasFlag(flag)) node.entries.push([null, compatName(flag, names)]);
+        });
+        if (done) counts.flags += 1;
+    }
+    for (const [name, terrain] of Object.entries(edits.terrain)) {
+        if (edit(name, (node) => node.set("TerrainType", compatName(terrain, names)))) counts.terrain += 1;
+    }
+    if (!names.has(qb.checksum("TerrainType"))) names.set(qb.checksum("TerrainType"), "TerrainType");
+    const parts = [
+        `${counts.moved} moved (TP-13)`,
+        `${counts.flags} flags changed (TP-14)`,
+        `${counts.terrain} terrains (TP-15)`,
+        `${removed.size} removed (TP-16)`,
+        `${counts.renamed} renamed (TP-17)`,
+    ];
+    return [`THUGPRO's node edits: ${parts.join(", ")}`, removed];
+}
+
+// TP-18: the rails THUGPRO added, as rail nodes of ours appended to the converted node array (Pos, Angles, Name,
+// Class, TerrainType, flags, Cluster, Links). A Cluster naming no node of the level (Foundry's wires: THUGPRO's own
+// foun_wire mesh, not ours) is left out with the TrickObject flag (a trick object's cluster has to exist). Returns a
+// report line or "".
+export function appendRails(converted: Struct[], names: Names, rails: readonly CompatRail[]): string {
+    if (!rails.length) return "";
+    const index = new Map<number, number>();
+    const at = (node: Struct, i: number): void => {
+        const nm = node.get("Name");
+        if (nm instanceof Name && !index.has(nm.value)) index.set(nm.value, i);
+    };
+    converted.forEach(at);
+    const start = converted.length;
+    rails.forEach((r, k) => {
+        index.set(compatName(r.name, names).value, start + k);
+    });
+    let unclustered = 0;
+    for (const r of rails) {
+        const cluster = r.cluster !== null ? compatName(r.cluster, names) : null;
+        const keep = cluster !== null && index.has(cluster.value);
+        if (cluster !== null && !keep) unclustered += 1;
+        const flags = r.flags.filter((f) => keep || cluster === null || f !== "TrickObject");
+        const links = r.links.map((l) => {
+            const i = index.get(compatName(l, names).value);
+            if (i === undefined) throw new FormatError(`TP-18: rail ${r.name} links to ${l}, not in the level`);
+            return i;
+        });
+        converted.push(
+            new Struct([
+                [compatName("Pos", names), new Vector("vector", [...r.pos])],
+                [compatName("Angles", names), new Vector("vector", [...r.angles])],
+                [compatName("Name", names), compatName(r.name, names)],
+                [compatName("Class", names), compatName("RailNode", names)],
+                ...(r.terrain !== null
+                    ? ([[compatName("TerrainType", names), compatName(r.terrain, names)]] as qb.Entry[])
+                    : []),
+                ...flags.map((f): qb.Entry => [null, compatName(f, names)]),
+                ...(keep ? ([[compatName("Cluster", names), cluster]] as qb.Entry[]) : []),
+                ...(links.length ? ([[compatName("Links", names), links]] as qb.Entry[]) : []),
+            ]),
+        );
+    }
+    const note = unclustered ? ` (${unclustered} without their cluster: not in the level)` : "";
+    return `TP-18: ${rails.length} rails THUGPRO added${note}`;
 }
 
 export function convertNodeArray(
@@ -1904,6 +2100,9 @@ export function convertNodeArray(
     const names: Names = new Map();
     for (const g of globalQbs) for (const [k, v] of g.names) names.set(k, v);
     for (const [k, v] of q.names) names.set(k, v);
+    // TP-13 .. TP-17: THUGPRO's hand edits, into THPS3's array itself (q's: objectSectors places the game objects
+    // from it too)
+    const [editReport, removedNames] = applyNodeEdits(array, names, ctfCompat.edits);
     const environment = qb.checksum("EnvironmentObject");
     const isEnvironment = (n: QbValue): n is Struct => {
         if (!(n instanceof Struct)) return false;
@@ -1952,6 +2151,11 @@ export function convertNodeArray(
             // (kept, not there at the start: the level's scripts create them - a press's other position)
             else later.add(checksum);
         }
+    }
+    // (TP-16: the nodes THUGPRO took out, left out as the hidden ones)
+    for (const r of removedNames) {
+        hidden.add(r);
+        later.delete(r);
     }
     // (every node keeps its place: the Links are indices into the array - nodes.convertNodes renumbers them; one
     // left out here is a placeholder of a class it drops)
@@ -2061,6 +2265,7 @@ export function convertNodeArray(
     // (after the scripts: their trigger scripts are THUG2's Team_Flag, not THPS3 scripts to bring along)
     const [ctf, ctfScripts, ctfReport] = ctfNodes(array, names, teams, ctfCompat);
     converted.push(...ctf);
+    const railReport = appendRails(converted, names, ctfCompat.edits?.rails ?? []); // (TP-18)
     const spawnReport = applySpawns(converted, names, ctfCompat.spawns); // (TP-12)
     const triggers = nodes.killTriggerNames(converted, kills);
     if (port !== null) {
@@ -2085,6 +2290,8 @@ export function convertNodeArray(
     if (scriptReport) report += `\n  ${scriptReport}`;
     report += `\n  ${ctfReport}`;
     if (spawnReport) report += `\n  ${spawnReport}`;
+    if (editReport) report += `\n  ${editReport}`;
+    if (railReport) report += `\n  ${railReport}`;
     return [text, hidden, triggers, report, scripts, setup !== null];
 }
 
@@ -2337,6 +2544,7 @@ export function cmdConvert(args: Args): void {
             port.vehicles = new Map();
             port.copies = new Map();
         }
+        const compatData = levelCompat(profile, name);
         const [nodeText, hidden, triggers, nodeReport, scripts, hasSetup] = convertNodeArray(
             q,
             globalQbs,
@@ -2345,7 +2553,7 @@ export function cmdConvert(args: Args): void {
             once instanceof Name ? [once.value] : [],
             port,
             teams,
-            levelCompat(profile, name),
+            compatData,
         );
         let text = nodeText;
         const qbPath = pyJoin(levelDir, `${name}.qb`);
@@ -2394,6 +2602,9 @@ export function cmdConvert(args: Args): void {
             mips: !args.noMips,
             objects,
             tag,
+            colEdits: new Map(
+                Object.entries(compatData.collision ?? {}).map(([k, v]) => [compatName(k, new Map()).value, v]),
+            ),
         });
         const [withoutTricks, cleared] = withoutMissingTrickObjects(text, pyJoin(levelDir, `${name}.scn.xbx`));
         // (restarts over nothing or over a kill zone: no network spawns, no kill targets - nodes.groundRestarts)
@@ -2531,8 +2742,8 @@ options:
   --no-mips            convert: no mip levels made (faster)
   --legacy-names       convert: every level named thps3_<folder> (as before THUGPRO's names)
   --compat {thugpro,none}
-                       convert: compatibility profile (tools/compat) - thugpro: CTF flags / team nodes as
-                       THUGPRO's (TP-10, TP-11; default), none: THPS3's own two bases only
+                       convert: compatibility profile (tools/compat) - thugpro: CTF flags / team nodes,
+                       spawns and hand edits as THUGPRO's (TP-10 .. TP-19; default), none: THPS3's own
   --extra [EXTRA ...]  selfcheck: more THUG2 archives (Data\\pre\\*.prx)`;
 
 const VALUE_OPTIONS = ["--thug2", "--thps3", "--out", "--ns", "--compat"] as const;
