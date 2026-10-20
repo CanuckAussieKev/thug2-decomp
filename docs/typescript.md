@@ -179,11 +179,11 @@ Every port is compared with its Python twin on real data before the Python file 
 | tools/level_port/ported_levels.py | ported_levels.ts | ported + verified | 1 |
 | tools/level_port/col_check.py | col_check.ts | ported + verified (CLI) | 1 |
 | tools/level_port/script_diff.py | script_diff.ts | ported + verified (CLI) | 1 |
-| tools/compat/compat.py | compat.ts | ported + verified | 1 |
+| tools/compat/compat.py | compat.ts | ported + verified; Python deleted (2c: its last importer went) | 1 |
 | tools/thps3_levels/thps3.py, thps3_levels.py | - | pending | 2 |
 | tools/thps4_levels/thps4.py, thps4_levels.py, thps4_scripts.py | - | pending | 2 |
 | tools/thug1_levels/thug1.py, thug1_levels.py, thug1_port.py | - | pending | 2 |
-| tools/thaw_levels/thaw.py, thaw_levels.py, thaw_scripts.py, migrate_layouts.py, thugpro_compare.py | - | pending | 2 |
+| tools/thaw_levels/thaw.py, thaw_levels.py, thaw_scripts.py, migrate_layouts.py, thugpro_compare.py | thaw.ts, thaw_levels.ts, thaw_scripts.ts, migrate_layouts.ts, thugpro_compare.ts | ported + verified (parity 23/23); Python deleted | 2c |
 | tools/menu_level/make_menu_level.py, level_select.py, level_select_icons.py, career_complete.py, qb_walk.py | - | pending | 3 |
 | tools/anteara/anteara.py | - | pending | 3 |
 | tools/game/boot_level.py, exe_audit.py, install_manifest.py, make_automation_tables.py | - | pending | 4 |

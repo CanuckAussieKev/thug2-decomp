@@ -1,7 +1,7 @@
 # thaw-scripts - THAW levels' scripts, moving objects, peds, cars and particles in free skate
 
 Agent "thaw-scripts" (branch worktree-agent-af48b31bffadfa1da). Builds on docs/pending/thaw.md (the static levels).
-New: `tools/thaw_levels/thaw_scripts.py`; `thaw_levels.py convert` runs it for every level (`--static`: without).
+New: `tools/thaw_levels/thaw_scripts.py` (now `.ts`); `thaw_levels convert` runs it for every level (`--static`: without).
 
 ## How
 

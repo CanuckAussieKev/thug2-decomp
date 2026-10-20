@@ -9,7 +9,7 @@
 // vertex is below the split, in the right one when its highest is at or above). The query here is a short vertical
 // segment through each face's centroid (+-1 unit on y, the axis a skater's feelers mostly run along). A face that
 // no such query reaches can't be hit: a floor the skater falls through, a wall he passes (the recentred levels'
-// trees once kept their old split points - tools/thaw_levels/thaw_levels.py move_tree).
+// trees once kept their old split points - tools/thaw_levels/thaw_levels.ts moveTree).
 
 import * as fs from "node:fs";
 import * as path from "node:path";

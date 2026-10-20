@@ -3,11 +3,15 @@
 //
 //   node tools/parity/parity.ts tools/parity/thaw_levels/cases.ts [--only convert] [--jobs 4]
 //
-// Each side runs through run.py / run.ts: the compiled .qb files compared as qbnorm.ts's text (ns.exe writes its
-// checksum names in a different order every run), the side's own output folder written "{out}" in its stdout. Reads
-// THAW (C:\Games\THAW), the workspace C:\Games\THUG2-4 (its THUG2 data: never written) and THUGPRO's install (read
-// only); writes only into the harness's scratch folders. Without THAW, or once the Python twins are gone (they were
-// deleted when the port was proven: check out the commit before that to run these again), there are no cases.
+// Each side runs through run.ts (and its deleted Python twin run.py): the compiled .qb files compared as qbnorm.ts's
+// text (ns.exe writes its checksum names in a different order every run), the side's own output folder written
+// "{out}" in its stdout. Reads THAW (C:\Games\THAW), the workspace C:\Games\THUG2-4 (its THUG2 data: never written)
+// and THUGPRO's install (read only); writes only into the harness's scratch folders. Without THAW, or without the
+// Python twins, there are no cases.
+//
+// A record now: the port was proven with these (23 of 23 the same, 2026-10-20) and the Python twins were deleted,
+// with the cases' Python helpers run.py and make_layouts.py. To run them again, check out tools/thaw_levels/*.py,
+// tools/compat/compat.py and tools/parity/thaw_levels/*.py from commit 53a2bb0.
 
 import * as fs from "node:fs";
 import * as path from "node:path";

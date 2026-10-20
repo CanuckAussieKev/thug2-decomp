@@ -1,7 +1,8 @@
 // NOT ORIGINAL - the THAW converter's parity cases (cases.ts): every compiled .qb under a folder replaced by
 // <name>.qb.norm, its text without NeverScript's own nondeterminism (ns.exe writes its 0x2B checksum names in Go map
 // order, different every run): the bytes before the first name, the names sorted, the tokens after them. Run on both
-// sides' outputs alike (run.py / run.ts), so that the harness compares them byte for byte.
+// sides' outputs alike (run.ts and its Python twin run.py, deleted with the Python converter), so that the harness
+// compares them byte for byte.
 //
 //   node tools/parity/thaw_levels/qbnorm.ts <folder>
 

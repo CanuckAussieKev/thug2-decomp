@@ -1,4 +1,4 @@
-// NOT ORIGINAL - tools/level_port's (and tools/compat's) parity cases on the user's game data (tools/parity/parity.ts):
+// NOT ORIGINAL - tools/level_port's parity cases on the user's game data (tools/parity/parity.ts):
 //
 //   node tools/parity/parity.ts tools/parity/level_port/cases.ts [--only qb] [--jobs 4]
 //
@@ -185,7 +185,6 @@ export default function cases(): Case[] {
         (c, k) => driver(`colgeometry thug2 ${k}`, "colgeometry", c),
     );
 
-    out.push(driver("compat", "compat", []));
     out.push(driver("common", "common", [THUG2, "TRscn.prx", "TRcol.prx", "Bits.prx"]));
 
     // the CLIs, as they are

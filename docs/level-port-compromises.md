@@ -22,7 +22,7 @@ How to read the tables:
 | | THPS3 | THPS4 | THUG1 | THAW |
 |---|---|---|---|---|
 | Levels | 14: Foundry, Canada, Rio, Suburbia, Airport, Skater Island, Los Angeles, Tokyo, Cruise Ship, Warehouse, Burnside, Roswell, Tutorials, Skate shop | 11: Alcatraz, Carnival, Chicago, Shipyard, Kona, London, San Francisco, College, Zoo, Skate shop, Motocross | 16: NJ, NY, FL, SD, HI, VC, SJ, RU, SE, SC, DJ, PH, VN, HN, SC2, NJ skate shop | 15: Chicago, The Mall, Minneapolis, Kyoto, Santa Cruz, The Ruins, Vans Park, Hollywood, Beverly Hills, Downtown, East LA, Santa Monica, Skate Ranch, Casino, Oil Rig |
-| Converter | `tools/thps3_levels` | `tools/thps4_levels` (+ `thps4_scripts.py`) | `tools/thug1_levels` (+ `thug1_port.py`) | `tools/thaw_levels` (+ `thaw_scripts.py`) |
+| Converter | `tools/thps3_levels` | `tools/thps4_levels` (+ `thps4_scripts.py`) | `tools/thug1_levels` (+ `thug1_port.py`) | `tools/thaw_levels` (+ `thaw_scripts.ts`) |
 | Static-only switch | (none) | `--no-scripts` | `--static` | `--static` |
 | Every level loads in free skate | Yes | Yes | Yes | Yes |
 | Played by a person | Geometry, glass, grinds; scripts / peds not yet | Not yet (scripts, peds, vehicles) | Not yet | Glass; scripts / peds not yet |
