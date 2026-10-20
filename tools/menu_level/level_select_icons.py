@@ -14,7 +14,7 @@ import struct
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(os.path.dirname(HERE), "thps4_levels"))
+sys.path.insert(0, os.path.join(os.path.dirname(HERE), "level_port"))
 import tex  # noqa: E402 (unswizzle_order)
 
 SIZE = 64
