@@ -147,6 +147,8 @@ std::vector<SectorState> ChangedSectors();
 std::vector<RailState> ChangedRails();
 // The level's main scene (the first that isn't a sky) and a scene's name (+0x84).
 uint8_t* MainScene();
+// Whether a scene is still one of the level's (in the scene list, not a sky).
+bool SceneLive(uint8_t* scene);
 uint32_t SceneName(uint8_t* scene);
 
 // Copies of sectors (Ctrl+D, the browser): a full copy (CScene::CloneSector 0x0049DF30, as the park editor makes its
