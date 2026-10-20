@@ -34,6 +34,11 @@ constexpr uint32_t kNodes = 1, kObjects = 2, kScenery = 4, kAll = 7;
 constexpr float kWideSpan = 1500.0f;
 constexpr float kSlabSpan = 400.0f;
 constexpr float kSlabThickness = 0.1f;
+//   - low and flat: no taller than kLowHeight (y is up) and at least kLowSpan across both ways on the ground - a floor
+//     section or the low platform ramps stand on (TR's SkWare_Main_12, 360 x 60 x 924: from above it looks like the
+//     floor, and the user saw clicks on it as clicking nothing). A manual pad that size is passed too (Alt+click).
+constexpr float kLowHeight = 80.0f;
+constexpr float kLowSpan = 350.0f;
 // The camera counts as inside a box within this margin (units).
 constexpr float kInsideMargin = 0.0f;
 

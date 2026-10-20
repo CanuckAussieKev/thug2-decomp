@@ -210,7 +210,28 @@ void TestScreenshotSidecar()
 
 } // namespace
 
+// The mouse's cross: white arms with a black edge, a gap in the middle, clipped at the image's edges.
+void TestScreenshotCursor()
+{
+    const int w = 40, h = 30;
+    std::vector<uint8_t> rgb(w * h * 3, 100);
+    auto at = [&](int x, int y) { return rgb[(static_cast<size_t>(y) * w + x) * 3]; };
+    MarkCursor(&rgb, w, h, 20, 15, 9);
+    Check(at(20, 15) == 100, "cursor: the middle left as it was (the gap)");
+    Check(at(29, 15) == 255 && at(20, 6) == 255 && at(11, 15) == 255 && at(20, 24) == 255, "cursor: the four arms white");
+    Check(at(25, 13) == 0 && at(25, 16) == 0, "cursor: a black edge beside an arm");
+    Check(at(30, 15) == 100 && at(25, 10) == 100, "cursor: nothing past the arms");
+    std::vector<uint8_t> edge(w * h * 3, 100);
+    MarkCursor(&edge, w, h, 0, 0, 9); // (half off the image: no write outside it)
+    Check(edge.size() == static_cast<size_t>(w * h * 3) && at(20, 15) == 100 && edge[(9 * w + 0) * 3] == 255,
+          "cursor: clipped at the corner");
+    std::vector<uint8_t> none(w * h * 3, 100);
+    MarkCursor(&none, w, h, -1, -1, 9); // (not over the window)
+    Check(none == std::vector<uint8_t>(w * h * 3, 100), "cursor: none marked with no mouse");
+}
+
 SELFTEST(Early, TestScreenshotKey);
+SELFTEST(Early, TestScreenshotCursor);
 SELFTEST(Early, TestScreenshotNames);
 SELFTEST(Early, TestScreenshotPixels);
 SELFTEST(Early, TestScreenshotPng);

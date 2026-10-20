@@ -977,11 +977,10 @@ void Help(const Model& model)
     ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Always,
                             ImVec2(0.5f, 0.5f));
-    ImGui::SetNextWindowSize(ImVec2(620.0f * g_scale, 0.0f));
+    ImGui::SetNextWindowSize(ImVec2(760.0f * g_scale, io.DisplaySize.y * 0.85f));
     bool open = true;
     ImGui::Begin("Level editor - keys (F1 or Esc closes this)", &open,
-                 ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize |
-                     ImGuiWindowFlags_AlwaysAutoResize);
+                 ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize);
     struct Row {
         const char* section;
         const char* keys;
@@ -1028,7 +1027,12 @@ void Help(const Model& model)
         {"Camera", "P", "writes where the camera is to the log (a menu backdrop view)"},
         {"Panels", "Mouse", "over a panel the UI takes the mouse; the keys stay the editor's unless you type"},
     };
+    // (the columns' widths set, not fitted: a long key list would otherwise squeeze the explanations to a letter a
+    // line - the keys wrap within theirs)
     if (ImGui::BeginTable("##keys", 3, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_RowBg)) {
+        ImGui::TableSetupColumn("##section", ImGuiTableColumnFlags_WidthFixed, 90.0f * g_scale);
+        ImGui::TableSetupColumn("##keys", ImGuiTableColumnFlags_WidthFixed, 190.0f * g_scale);
+        ImGui::TableSetupColumn("##what", ImGuiTableColumnFlags_WidthStretch);
         for (const Row& row : kRows) {
             ImGui::TableNextRow();
             ImGui::TableNextColumn();
@@ -1039,7 +1043,11 @@ void Help(const Model& model)
             }
             ImGui::TableNextColumn();
             ImGui::PushFont(g_mono);
-            ImGui::TextColored(ImVec4(1.0f, 0.78f, 0.45f, 1.0f), "%s", row.keys);
+            ImGui::PushTextWrapPos(0.0f);
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.78f, 0.45f, 1.0f));
+            ImGui::TextUnformatted(row.keys);
+            ImGui::PopStyleColor();
+            ImGui::PopTextWrapPos();
             ImGui::PopFont();
             ImGui::TableNextColumn();
             ImGui::TextWrapped("%s", row.what);
@@ -1249,8 +1257,7 @@ void Place(const Model& model)
     ImGui::SetNextWindowSize(ImVec2(300.0f * g_scale, 0.0f));
     bool open = true;
     ImGui::Begin("Place: what to add###place", &open,
-                 ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize |
-                     ImGuiWindowFlags_AlwaysAutoResize);
+                 ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize);
     ImGui::SetNextItemWidth(-1.0f);
     ImGui::InputTextWithHint("##placesearch", "spawn\xE2\x80\xA6", g_placeSearch, sizeof(g_placeSearch));
     const std::vector<Model::PlaceView::Entry>& entries = model.place.entries;
