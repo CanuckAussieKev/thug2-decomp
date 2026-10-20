@@ -56,6 +56,11 @@ workspace (C:\Games\THUG2-n) and its pending-doc name. Agents cost a lot of usag
 - Load checks and idle runs are fine. Anything a player must judge (does a script fire when skated into, does a menu
   look right in use, does the sky change over time): don't fake it with scripted keys; list it for the user. The
   user may take the controls during a run; if the skater moves on its own, it's probably the user.
+- Level editor / UI work: no game runs at all - the user tests interactive behaviour. Verify by building, self-tests
+  and check_code_writes, and leave a precise numbered checklist in your pending record.
+- Build / mutation scripts go in your worktree's `out\` (e.g. `out\scripts\build.cmd`), never loose in %TEMP% or
+  /tmp (Git Bash's /tmp is %TEMP%): the user's antivirus excepts the repo, not Temp, and once killed a session over
+  thug2_check.exe and a mut_build.cmd there (2026-10-20).
 
 ## Decompilation agents
 - Follow the `decomp-batch` skill (.claude/skills/decomp-batch/: SKILL.md, pitfalls.md, test-template.cpp) for every
