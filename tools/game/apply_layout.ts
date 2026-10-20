@@ -3,6 +3,10 @@
 //   node tools/game/apply_layout.ts <layout.txt> [--level <name>] [--game <folder>] [--out <folder>] [--dry-run]
 //   node tools/game/apply_layout.ts --level <name> ...            (the layout: <game>\thug2-decomp-layouts\<scene>.txt)
 //   [--install]                                                    write into <game>\thug2-decomp-data\levels\<level>
+//   node tools/game/apply_layout.ts --uninstall --level <name> [--game <folder>]   the newest install's backup put back
+//
+// --install first backs up every file it replaces (tools/game/bake_backup.ts: <game>\thug2-decomp-bake-backups); each
+// --uninstall puts the newest backup back and removes it, so repeating it undoes the installs one by one.
 //
 // A layout (src/game/front/level_editor_layout.h - tools/game/layout_file.ts reads it) is what the editor changed in a
 // level, put in place by the DLL only when the level's EDITED copy loads. Baked, the changes are in the level's own
@@ -63,6 +67,7 @@ import { buildTree, type ColFile, type ColObject, readCol, setReaches, writeCol 
 import { readScene, type Scene, type Sector, writeScene } from "../level_port/thug2_scene.ts";
 import { parseCli } from "../lib/cli.ts";
 import { Float, hex8, isMain, print, pyExit, runMain } from "../lib/py.ts";
+import { backUp, listBackups, restoreLatest } from "./bake_backup.ts";
 import { resolveGameFolder } from "./edit_level.ts";
 import {
     type FieldValue,
@@ -1433,7 +1438,7 @@ export function installRefusal(game: string, allowMain: boolean): string | null 
     return null;
 }
 
-const USAGE = `usage: apply_layout.ts [-h] [--level LEVEL] [--game GAME] [--out OUT] [--dry-run] [--install] [--allow-main] [layout]
+const USAGE = `usage: apply_layout.ts [-h] [--level LEVEL] [--game GAME] [--out OUT] [--dry-run] [--install] [--uninstall] [--allow-main] [layout]
 
 Bake a level editor layout (thug2-decomp-layouts\\<scene>.txt) into a copy of the level's .scn.xbx / .col.xbx / .qb
 (its triggers' scripts into <level>_scripts.qb, its level properties into Levels.qb).
@@ -1447,7 +1452,9 @@ options:
   --game GAME   the game folder read from (default C:\\Games\\THUG2; a stock install's Game folder is stepped into)
   --out OUT     the output folder (default out\\baked\\<level> in the repo)
   --dry-run     bake in memory and print the report; write nothing
-  --install     write into <game>\\thug2-decomp-data\\levels\\<level> (a workspace) instead of --out
+  --install     write into <game>\\thug2-decomp-data\\levels\\<level> (a workspace) instead of --out, backing up
+                what it replaces (<game>\\thug2-decomp-bake-backups)
+  --uninstall   put the level's newest install backup back (with --level; again: the one before)
   --allow-main  let --install write into the main install C:\\Games\\THUG2 (the user only)`;
 
 export function main(argv: string[] = process.argv.slice(2)): number {
@@ -1459,11 +1466,27 @@ export function main(argv: string[] = process.argv.slice(2)): number {
             out: { type: "string" },
             "dry-run": { type: "boolean" },
             install: { type: "boolean" },
+            uninstall: { type: "boolean" },
             "allow-main": { type: "boolean" },
         },
         allowPositionals: true,
     });
     const game = resolveGameFolder(values.game ?? "C:\\Games\\THUG2");
+    if (values.uninstall) {
+        if (!values.level) pyExit("--uninstall needs --level");
+        const refusal = installRefusal(game, values["allow-main"] === true);
+        if (refusal) pyExit(refusal);
+        const done = restoreLatest(game, values.level!);
+        if (!done) {
+            print(`no install backups of ${values.level} in ${game}`);
+            return 1;
+        }
+        print(`restored the install backup ${done.backup} (made ${done.made})`);
+        for (const file of done.restored) print(`  put back: ${file}`);
+        for (const file of done.deleted) print(`  deleted (made by that install): ${file}`);
+        print(`${done.left} older backup${done.left === 1 ? "" : "s"} of ${values.level} left`);
+        return 0;
+    }
     let layoutPath = positionals[0] ?? null;
     let level = values.level ?? null;
     if (!layoutPath && !level) pyExit("give a layout file or --level");
@@ -1542,6 +1565,31 @@ export function main(argv: string[] = process.argv.slice(2)): number {
     } else {
         outDir = path.join(values.out ?? path.join(REPO, "out", "baked", name), "levels", name);
     }
+    // The files written below - backed up first when installing (bake_backup.ts).
+    const levelsRoot = values.install ? path.join(game, OVERLAY) : path.dirname(path.dirname(outDir));
+    const antearaLevels = path.join(game, OVERLAY, "anteara", "scripts", "game", "Levels.qb");
+    const levelsTargets = baked.levels
+        ? [
+              path.join(levelsRoot, "scripts", "game", "Levels.qb"),
+              ...(values.install && fs.existsSync(antearaLevels) ? [antearaLevels] : []),
+          ]
+        : [];
+    const reportPath = path.join(values.install ? outDir : path.dirname(path.dirname(outDir)), "bake_report.txt");
+    if (values.install) {
+        const written = [
+            path.join(outDir, `${name}.scn.xbx`),
+            ...(baked.col ? [path.join(outDir, `${name}.col.xbx`)] : []),
+            path.join(outDir, `${name}.qb`),
+            ...(baked.scripts && scriptsPath ? [path.join(outDir, path.basename(scriptsPath))] : []),
+            ...levelsTargets,
+            reportPath,
+        ];
+        const backup = backUp(game, name, written);
+        print(
+            `backed up what this replaces: ${backup} (${listBackups(game, name).length} backups of ${name}; ` +
+                `--uninstall --level ${name} puts the newest back)`,
+        );
+    }
     fs.mkdirSync(outDir, { recursive: true });
     const scn = writeScene(baked.scene);
     readScene(scn, name); // (read back first, as the converters do)
@@ -1559,12 +1607,9 @@ export function main(argv: string[] = process.argv.slice(2)): number {
     }
     if (baked.levels) {
         new QbFile(baked.levels, "Levels.qb", true);
-        const root = values.install ? path.join(game, OVERLAY) : path.dirname(path.dirname(outDir));
-        const targets = [path.join(root, "scripts", "game", "Levels.qb")];
         // (the Anteara Mod's script set has its own copy, used while anteara_mod=1: the same values set there)
-        const anteara = path.join(game, OVERLAY, "anteara", "scripts", "game", "Levels.qb");
-        if (values.install && fs.existsSync(anteara)) targets.push(anteara);
-        for (const target of targets) {
+        const anteara = antearaLevels;
+        for (const target of levelsTargets) {
             const source = target === anteara ? fs.readFileSync(anteara) : baked.levels;
             const data =
                 target === anteara
@@ -1575,10 +1620,7 @@ export function main(argv: string[] = process.argv.slice(2)): number {
             print(`written: ${target}`);
         }
     }
-    fs.writeFileSync(
-        path.join(values.install ? outDir : path.dirname(path.dirname(outDir)), "bake_report.txt"),
-        `${lines.join("\n")}\n`,
-    );
+    fs.writeFileSync(reportPath, `${lines.join("\n")}\n`);
     print(`written: ${outDir}`);
     return 0;
 }
