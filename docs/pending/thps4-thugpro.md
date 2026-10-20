@@ -223,7 +223,7 @@ How each was checked:
 - The added rails and restarts against our collision: 0-18 units from a face, except San Francisco's one-node rail
   ed_rail_4_0 (50) and Zoo's parking-lot restarts 02 / 03 (52-53 above the ground: the skater drops).
 
-Awaiting the user (THUGPRO-authored content, not data - Morten's permission covers insights, not 1:1 copies). What
+(Resolved 2026-10-20: included as `thugpro_new` - the section "THUGPRO's own content and our own changes" below.) Was awaiting the user (THUGPRO-authored content, not data - Morten's permission covers insights, not 1:1 copies). What
 each side sees without it:
 - **Host level options** (THUGPRO's protocol flags SERVER_LEVEL_CHANGE_*, its own messages 155-159, run by its DLL):
   Chicago's bridge (5 states: hof_thugpro.qb 2.8 KB, 7 one-line scripts), Shipyard's barge (jnk_thugpro.qb 0.8 KB, 1),
@@ -277,3 +277,63 @@ Concerns:
 - Shared edits: tools/level_port/ported_levels.ts (`load`, `loadOf`), tools/menu_level/level_select.ts (uses
   `loadOf`), tools/thaw_levels/thugpro_compare.ts (helpers exported), docs/level-port-compromises.md (THPS4 animals),
   src/game/front/start_level.h (a comment's example name).
+
+## THUGPRO's own content and our own changes (2026-10-20) - NOT run in the game yet
+
+The user's decisions: THUGPRO's own content (in no source game) is included, by reference, in one section
+`thugpro_new`; this project's own deviations from THPS4's data are data too, in `port_changes`. Both are lists of
+entries with `op` add / set / remove (README.md of tools/compat/thugpro: "The two sections with op", "Our own changes",
+"New in THUGPRO"). Ids: TPN-THPS4-n, PC-THPS4-n.
+
+port_changes (PC-THPS4-1 ... 11; `thps4_levels.portChanges(rule, level)`): the skate shop's open door (PC-THPS4-1 /
+2: InvisColl01's z-min faces, Object10's invisible faces - the main menu's backdrop), SSO_Fence05 at the start (3), the
+crash guards - College's peds and cars (4), zero Angles (5), never-created objects / unused waypoints (6), TrickObjects
+without a sector (7), all `required` -, the left-out goal / panel commands (8, the list now data), empty restart
+scripts (9, required: make_menu_level's parsing), ground restarts (10), network-game nodes (11). `--compat none` keeps
+them (not THUGPRO data); `--no-port-changes` keeps only the required ones. Output with the default and with `--compat
+none` byte-identical to before (75 files each).
+
+thugpro_new (tools/thps4_levels/thugpro_new.ts; 70 entries, 32 file references - archive, entry, size, SHA-256; the
+bytes read from `--thugpro` when converting, never committed):
+- TPN-THPS4-1 teleports and elevators: College (SCH_teleport1, its door scripts, 2 radius triggers), San Francisco
+  (2 televators, 2 radius triggers), London (2 garage door pairs: 4 doors made level objects, 2 radius triggers, 4
+  scripts; TRG_ParkingGarrage_Elevator moved -25 and its televator with a jump boost to the added waypoint
+  TRG_LON_Televator_Waypoint), Zoo (4 televator trigger scripts, found by the extraction - not in the earlier list), and
+  the sounds THUGPRO's start-ups load for them.
+- TPN-THPS4-2 host level options: Chicago 5 (+ 2 helpers), Shipyard 1, London 2, San Francisco 1, Zoo 1 - run with
+  `off` at the level's start (the level's setup script spawns `<level>_thugpro_new`): THUGPRO's default state (its
+  gameflow runs HandleLevelOptionObjects at every game's start with the flags off: Shipyard's barge killed, SF2's
+  rooftop objects killed, Zoo's hippo bridge up, London's race track killed in network games, its roll-in killed).
+  Switching: THUGPRO's protocol (messages 155-159), later.
+- TPN-THPS4-3 London's 4 kill zones call THUGPRO's Lon_Killskater (ours: THPS4's Lon_LeavingMessage, emptied).
+- TPN-THPS4-4 banners / posters: **THUGPRO doesn't show them** (its shipped thugpro_dynamic.qb returns for
+  replace_texture; the billboard branch is compiled out - checked in the installed thugpro_qb.prx). Not placed unless
+  `--thugpro-banners` (agreed with the lead).
+- TPN-THPS4-5 the skate shop's ghost TRG_TP_SkaterKiller (empty trigger script; TP_SS_KillSkater is called by nothing
+  in THUGPRO either - left out).
+Left out: the skate shop's host option PRACTICE_LEVEL_CHANGE_01 (Open Fence: its default state force-creates
+InvisColl01, the door walls - the backdrop keeps its door open), the shop's menu restarts as ghosts, THUGPRO's
+option menus / prosets.
+
+THUGPRO's helpers are QB scripts using THUG2's own commands - ours, written our way with a credit comment: thps4_tp_
+safe_kill / force_create / televator (+ jump_boost; THUGPRO_AutoKick left out - THUGPRO's own setting) / proxim_object
+(+ proxim) / level_object / model. **No THUG2 C++ is needed** for the default state. C++ needed later: THUGPRO's
+host-option protocol (messages 155-159 -> the SERVER_LEVEL_CHANGE_0n_ON flags -> `<LVL>_LEVEL_CHANGE_0n on / off`, as
+its HandleLevelOptionObjects).
+
+Checks: `--compat none`, `--no-thugpro-new` and an empty `--thugpro` folder (warnings, no failure) give exactly the
+output from before (75 files each); reconverted into C:\Games\THUG2-2: links in range, rails to rails, every collision
+face reachable, every .qb decompiles (ns.exe); make_menu_level: the backdrop found, 44 rail nodes, 138 peds / cars,
+3 trigger nodes + 6 scripts (unchanged); `thugpro_inventory.ts --thug2 C:\Games\THUG2-2`: every thugpro_new category
+matching (and TP-22..28 as before); selfcheck THPS4 139 / THPS3 323 / THUG1 333 / THAW 735 files, 0 failures;
+typecheck / lint / test (tools/thps4_levels/thugpro_new.test.ts: raw scripts, helper renaming, the setup hook, a
+missing install).
+
+Untested in the game (for the user): College / SF2 / Zoo / London teleports (the skater put at the node, the message,
+the ding); London's garage doors sliding open (level objects made at the start, the radius triggers); the LoadSounds
+run from a spawned start script; London's kill zones; Shipyard without its barge, SF2 without the rooftop objects.
+Concern: THUGPRO's televator on Zoo's TRGP_ nodes and London's garage elevator are trigger scripts of level geometry,
+run by the skater - THUG2 runs them like THPS4's own; the garage elevator is also made a level object at the start (as
+THUGPRO does), which may change whether its trigger still fires.
+
+Shared edits: tools/compat/compat.ts (Entry / op / required, portChanges(), thugproNew()).
