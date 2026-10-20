@@ -1,7 +1,7 @@
 // NOT ORIGINAL - what is new in THUGPRO's ports of THPS4's levels (in no source game: its teleports and elevator doors,
 // its host level options and their default state, London's kill zones, the nodes it added, its banners), included in
 // ours - the user's decision 2026-10-20 (Morten1337's permission). Data: tools/compat/thugpro/thps4_levels.json
-// `thugpro_new` (README.md there: "New in THUGPRO (not in any source game)", TP-N4-1 ... TP-N4-5).
+// `thugpro_new` (README.md there: "New in THUGPRO (not in any source game)", TPN-THPS4-1 ... TPN-THPS4-5).
 //
 // By reference only: the profile names the files (THUGPRO's archive, the entry in it, its size and SHA-256) and what
 // is taken from them (scripts, LevelChanges entries and nodes by name); the bytes are read from the user's THUGPRO
@@ -33,9 +33,9 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as prx from "../level_port/prx.ts";
 import * as qb from "../level_port/qb.ts";
-import { checksum, Float, Name, type QbValue, Struct, Vector } from "../level_port/qb.ts";
+import { checksum, Name, type QbValue, Struct, Vector } from "../level_port/qb.ts";
 import { plainTokens, u32 } from "../level_port/script_port.ts";
-import { hex8, pyJoin } from "../lib/py.ts";
+import { Float, hex8, pyJoin } from "../lib/py.ts";
 import { pack } from "../lib/struct.ts";
 import { findPath } from "../thaw_levels/thaw_levels.ts";
 import { nodeArray } from "../thaw_levels/thugpro_compare.ts";
@@ -84,11 +84,11 @@ export interface Section {
 
 // The register rows (README.md): what each entry is part of.
 export const ROWS = {
-    teleports: "TP-N4-1",
-    options: "TP-N4-2",
-    kills: "TP-N4-3",
-    models: "TP-N4-4",
-    nodes: "TP-N4-5",
+    teleports: "TPN-THPS4-1",
+    options: "TPN-THPS4-2",
+    kills: "TPN-THPS4-3",
+    models: "TPN-THPS4-4",
+    nodes: "TPN-THPS4-5",
 } as const;
 
 // THUGPRO's own scripts (its thugpro_qb.prx, not in a level's files) the taken scripts call, and ours for them.
@@ -290,7 +290,7 @@ const lower = (v: QbValue | undefined, names: Names): string =>
 const text = (v: number, names: Names): string => names.get(v) ?? `#${hex8(v)}`;
 
 // Levels and what of them is left out whatever THUGPRO has: the skate shop is our main menu's backdrop - its door
-// stays open (TP-29 off, PC-1 / PC-2), so nothing of THUGPRO's may change it.
+// stays open (TP-29 off, PC-THPS4-1 / PC-THPS4-2), so nothing of THUGPRO's may change it.
 export const LEFT_OUT: Readonly<Record<string, Readonly<Record<string, string>>>> = {
     skateshop: {
         PRACTICE_LEVEL_CHANGE_01:

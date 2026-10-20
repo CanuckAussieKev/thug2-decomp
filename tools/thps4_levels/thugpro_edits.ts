@@ -22,7 +22,7 @@
 //                          generic restarts (not network spawns: TP-21), level lights
 //   TP-28 collision_duplicates   collision objects whose duplicate faces THUGPRO removed (same surfaces)
 //   TP-29 door_walls       (off: enabled false) the skate shop's invisible door walls kept as THUGPRO's - against the
-//                          user's earlier request (the door open: port_changes PC-1 / PC-2)
+//                          user's earlier request (the door open: port_changes PC-THPS4-1 / PC-THPS4-2)
 
 import * as fs from "node:fs";
 import * as prx from "../level_port/prx.ts";

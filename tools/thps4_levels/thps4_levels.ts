@@ -33,6 +33,7 @@ import { search, sub } from "../lib/re.ts";
 import * as thps4 from "./thps4.ts";
 import * as thps4Scripts from "./thps4_scripts.ts";
 import * as thugproEdits from "./thugpro_edits.ts";
+import * as thugproNew from "./thugpro_new.ts";
 
 export const STAGING = "thug2-decomp-thps4";
 
@@ -44,7 +45,7 @@ export const LEVELS = ["Alc", "Cnv", "Hof", "Jnk", "Kon", "Lon", "SF2", "Sch", "
 export const SIGN_NUMBERS = [19, 20, 22, 23, 24, 25, 26, 27, 28, 29, 31];
 // Every level's peds and cars are brought over (tools/level_port/peds_cars.ts): the skate shop's pros on the
 // halfpipe, the people walking by and the cars on the road (also the front end's: make_menu_level.ts copies them);
-// every level's walkers and Car_Generic01 cars - but where a port change (PC-4, rule peds_cars) leaves them out.
+// every level's walkers and Car_Generic01 cars - but where a port change (PC-THPS4-4, rule peds_cars) leaves them out.
 export const pedsCarsWanted = (base: string): boolean => !portChanges("peds_cars", base).length;
 // For the level select: where each level is, and a THUG2 sign that suits it.
 export const INFO: Readonly<Record<string, readonly [string, string]>> = {
@@ -92,14 +93,17 @@ export const COMPAT = {
     netNodes: new Map<string, NetNodes>(),
     edits: new Map<thugproEdits.SectionName, Map<string, unknown>>(),
     doorWalls: false,
-    thugproNew: [] as compat.Entry[],
+    thugproNew: [] as thugproNew.NewEntry[],
+    newFiles: {} as Record<string, thugproNew.FileRef>,
 };
 
 // The compatibility profile's THPS4 data (tools/compat/compat.ts): "thugpro" (the default) or "none".
 export function setCompat(name: string, withNew = true): void {
     const profile = compat.load(name);
     // (THUGPRO's own content - thugpro_new, thugpro_new.ts: none with --compat none or --no-thugpro-new)
-    COMPAT.thugproNew = withNew ? compat.thugproNew(profile, "thps4_levels") : [];
+    COMPAT.thugproNew = withNew ? (compat.thugproNew(profile, "thps4_levels") as unknown as thugproNew.NewEntry[]) : [];
+    const section = profile.file("thps4_levels").thugpro_new as { files?: Record<string, thugproNew.FileRef> } | undefined;
+    COMPAT.newFiles = (withNew ? section?.files : undefined) ?? {};
     COMPAT.loadNames = new Map(
         Object.entries(profile.section("thps4_levels", "load_names")).map(([k, v]) => [k.toLowerCase(), String(v)]),
     );
@@ -116,14 +120,15 @@ export function setCompat(name: string, withNew = true): void {
     COMPAT.doorWalls = door?.enabled === true;
 }
 
-// This project's own changes to THPS4's levels (`port_changes` in tools/compat/thugpro/thps4_levels.json - PC-n, README
-// there, "Our own changes"): neither THPS4's data nor THUGPRO's, so applied whatever --compat says; --no-port-changes
-// leaves all of them out (THPS4's data as it is, crash guards included). Each entry names the converter step that
-// applies it (`rule`) and the levels (target.level, or target.levels: a list or "*").
+// This project's own changes to THPS4's levels (`port_changes` in tools/compat/thugpro/thps4_levels.json -
+// PC-THPS4-n, README there, "Our own changes"): neither THPS4's data nor THUGPRO's, so applied whatever --compat says;
+// --no-port-changes leaves out all but the `required` ones (what a level needs to load or make_menu_level to install
+// it: the crash guards). Each entry names the converter step that applies it (`rule`) and the levels (target.level,
+// or target.levels: a list or "*").
 export const PORT = { changes: [] as compat.Entry[] };
 
 export function setPortChanges(on: boolean): void {
-    PORT.changes = on ? compat.portChanges("thps4_levels") : [];
+    PORT.changes = compat.portChanges("thps4_levels").filter((e) => on || e.required === true);
 }
 
 // The port changes of a rule for a level.
@@ -292,7 +297,7 @@ export function levelStructs(thps4Dir: string): Map<string, Struct> {
     return found;
 }
 
-// Invisible walls opened (port changes, rule open_walls - PC-1, PC-2): target.collision, a collision object, and
+// Invisible walls opened (port changes, rule open_walls - PC-THPS4-1, PC-THPS4-2): target.collision, a collision object, and
 // target.faces - "<axis>-min" / "<axis>-max" (the object's faces lying in its box's plane on that side are left out) or
 // "invisible" (its invisible faces: THPS4's face flag 0x1000). THPS4's skate shop was a menu: InvisColl01 boxes in the
 // skate park outside the shop (sides, roof, both ends) - its z-min face is the shop's side, across the door too; the
@@ -303,7 +308,7 @@ export const FACE_INVISIBLE = 0x1000;
 const AXES: Readonly<Record<string, number>> = { x: 0, y: 1, z: 2 };
 
 // Nodes the playable level has at the start although THPS4's node array doesn't create them: its game scripts did
-// when play started (port changes, rule created_in_play - PC-3: target.node, set.CreatedAtStart). The skate shop: the
+// when play started (port changes, rule created_in_play - PC-THPS4-3: target.node, set.CreatedAtStart). The skate shop: the
 // menu kills SSO_Fence05 (create_ss_menu) and the practice run creates it again (start_practice_run_skater) - the
 // fence piece at the end of the halfpipe (the user, 2026-10-19: a gap there).
 const reEscape = (text: string): string => text.replace(/[^A-Za-z0-9_]/g, "\\$&");
@@ -418,12 +423,17 @@ interface Args {
     out: string | undefined;
     ns: string;
     noScripts: boolean;
+    thugpro: string; // THUGPRO's install (thugpro_new's files are read from it)
+    thugproBanners: boolean;
     legacyNames: boolean;
     extra: string[];
 }
 
 const sceneSectors = (scene4: thps4.Scene): Set<number> =>
     new Set(scene4.sectors.filter((s) => s.bone === -1 && !(s.flags & thps4.SEC_WEIGHTS)).map((s) => s.checksum));
+
+// THUGPRO's files read this run (thugpro_new.loadFiles' cache).
+const NEW_FILES = new Map<string, Buffer | string>();
 
 export function cmdConvert(args: Args): void {
     const levelsDir = pyJoin(args.thps4, "Game", "data", "levels");
@@ -515,9 +525,9 @@ export function cmdConvert(args: Args): void {
                 new Set(plan.keys()),
                 collides,
                 {
-                    leftOut, // (PC-8)
-                    neverCreated: portChange("never_created", base), // (PC-6)
-                    emptyRestartScripts: portChange("empty_restart_scripts", base), // (PC-9)
+                    leftOut, // (PC-THPS4-8)
+                    neverCreated: portChange("never_created", base), // (PC-THPS4-6)
+                    emptyRestartScripts: portChange("empty_restart_scripts", base), // (PC-THPS4-9)
                 },
             );
             ({ converted, kills, scripts: brought, text: extraText, hasSetup } = result);
@@ -531,7 +541,7 @@ export function cmdConvert(args: Args): void {
             // (THUG2's script pools are fixed - 9500 vectors for every script's: College's node array with the
             // objects, waypoints and peds didn't fit and came out null, a crash loading. The rails' and sectors'
             // zero Angles - most of them - aren't needed.)
-            if (portChange("zero_angles", base)) thps4Scripts.dropZeroAngles(converted, names); // (PC-5)
+            if (portChange("zero_angles", base)) thps4Scripts.dropZeroAngles(converted, names); // (PC-THPS4-5)
             // (the sectors whose trigger script runs keep their trigger faces)
             for (const n of converted) {
                 const nodeName = n.get("Name");
@@ -558,12 +568,43 @@ export function cmdConvert(args: Args): void {
         );
         // (TP-21: the profile's network-game nodes - before the peds and cars, which stay the array's last nodes)
         const netScripts = addNetNodes(base, name, converted, names, report);
+        // (THUGPRO's own content - thugpro_new.ts: its scripts, nodes and the start script making its teleports, level
+        // objects, radius triggers and its host options' default state; after the network nodes, before the peds and
+        // cars. Needs the scripts: --no-scripts leaves it out)
+        if (port !== null) {
+            const made = thugproNew.applyNew(
+                COMPAT.thugproNew,
+                COMPAT.newFiles,
+                {
+                    base,
+                    level: name,
+                    converted,
+                    names,
+                    brought,
+                    text: extraText,
+                    report,
+                    thugpro: args.thugpro,
+                    banners: args.thugproBanners,
+                    out,
+                },
+                NEW_FILES,
+            );
+            if (made.start !== null) {
+                [extraText, hasSetup] = thugproNew.hookStart(
+                    extraText,
+                    thps4Scripts.setupName(name),
+                    made.start,
+                    hasSetup,
+                );
+            }
+            extraText += made.text;
+        }
         pedsCars.offsetLinks(moving, converted.length);
         let text = nodes.nodeArrayNs(`${name}_NodeArray`, [...converted, ...moving], names, kills);
         text += pedsCars.scriptsNs(movingScripts) + extraText + netScripts;
         // (a TrickObject without its sector crashes the loader: convertScene leaves skinned sectors out)
         text = createdInPlay(text, base, report);
-        // (PC-7)
+        // (PC-THPS4-7)
         const [stripped, cleared] = portChange("trick_objects_without_sector", base)
             ? nodes.stripMissingTrickObjects(text, sceneSectors(scene4))
             : [text, 0];
@@ -573,7 +614,7 @@ export function cmdConvert(args: Args): void {
         fs.mkdirSync(levelDir, { recursive: true });
         const qbPath = pyJoin(levelDir, `${name}.qb`);
         // (network games: path followers, peds and cars kept out - no path manager or ped animations there -, restarts for the players)
-        // (PC-11)
+        // (PC-THPS4-11)
         const [netText, marked] = portChange("net_game_nodes", base) ? nodes.netGameNodes(text, brought) : [text, 0];
         text = netText;
         if (marked) report.push(`  ${marked} node(s) changed for network games`);
@@ -592,7 +633,7 @@ export function cmdConvert(args: Args): void {
         convertGeometry(folder, base, levelDir, name, report, (checksum) => triggers.has(checksum), geometryRead);
         // (restarts over nothing or over a kill zone: no network spawns, no kill targets - nodes.groundRestarts)
         let groundReport: string[];
-        // (PC-10)
+        // (PC-THPS4-10)
         [text, groundReport] = portChange("ground_restarts", base)
             ? nodes.groundRestartsAt(text, levelDir, name)
             : [text, []];
@@ -708,11 +749,15 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
             compat: { kind: "string", default: "thugpro" },
             // the names this converter used before: thps4_<lvl> for every level
             "legacy-names": { kind: "flag" },
-            // THPS4's data as it is: none of this project's own changes (port_changes, PC-n: the skate shop's open
-            // door, the crash guards...) - not for playing
+            // THPS4's data as it is: none of this project's own changes (port_changes, PC-THPS4-n: the skate shop's
+            // open door...) but the required ones (the crash guards)
             "no-port-changes": { kind: "flag" },
             // the THUGPRO profile without THUGPRO's own content (thugpro_new: its teleports, level options...)
             "no-thugpro-new": { kind: "flag" },
+            // THUGPRO's install, which thugpro_new's files are read from (missing / different: left out, a warning)
+            thugpro: { kind: "string", default: thugproNew.DEFAULT_THUGPRO },
+            // also place THUGPRO's banners / posters (thugpro_new models) - THUGPRO itself doesn't show them
+            "thugpro-banners": { kind: "flag" },
             extra: { kind: "list" },
         },
         argv,
@@ -735,6 +780,8 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
         ns: parsed.strings.get("ns")!,
         noScripts: parsed.flags.get("no-scripts")!,
         legacyNames: parsed.flags.get("legacy-names")!,
+        thugpro: parsed.strings.get("thugpro")!,
+        thugproBanners: parsed.flags.get("thugpro-banners")!,
         extra: parsed.lists.get("extra")!,
     };
     // (a stock install keeps the game in a Game subfolder: C:\Games\THUG2 -> C:\Games\THUG2\Game)

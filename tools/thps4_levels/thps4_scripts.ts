@@ -49,7 +49,7 @@ export const SOURCES = [
     "sk4_scripts.qb",
 ];
 // THPS4's commands left out although THUG2 has them (besides script_port.LEFT_OUT) - goals, the skater's career,
-// cameras, THPS4's panels: a port change (PC-8), its list in tools/compat/thugpro/thps4_levels.json port_changes, given
+// cameras, THPS4's panels: a port change (PC-THPS4-8), its list in tools/compat/thugpro/thps4_levels.json port_changes, given
 // to convert() as options.leftOut by thps4_levels.ts.
 // Member functions the skater may run besides script_port's (the gap / trigger scripts of sectors and rails ask it
 // `if onground`, `if skitching`, `if doingtrick`...): THUG2's skater has these components.
@@ -748,9 +748,9 @@ export interface ConvertResult {
 
 // This project's own choices in convert() (port changes - tools/compat/thugpro/thps4_levels.json port_changes, README
 // "Our own changes"; thps4_levels.ts passes them, all off with --no-port-changes):
-//   leftOut              (PC-8) THPS4 commands left out of the brought scripts besides script_port's
-//   neverCreated         (PC-6) the made objects no script creates and the waypoints nothing uses left out
-//   emptyRestartScripts  (PC-9) a restart's trigger script with nothing left in it dropped
+//   leftOut              (PC-THPS4-8) THPS4 commands left out of the brought scripts besides script_port's
+//   neverCreated         (PC-THPS4-6) the made objects no script creates and the waypoints nothing uses left out
+//   emptyRestartScripts  (PC-THPS4-9) a restart's trigger script with nothing left in it dropped
 export interface ConvertOptions {
     leftOut?: readonly string[];
     neverCreated?: boolean;

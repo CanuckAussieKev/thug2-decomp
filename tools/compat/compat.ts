@@ -62,6 +62,7 @@ export interface Entry {
     op: Op;
     target: Record<string, unknown>;
     why: string;
+    required?: boolean; // (port_changes: a level needs it to load / install - kept with --no-port-changes)
     [key: string]: unknown;
 }
 

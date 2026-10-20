@@ -132,7 +132,7 @@ test("port changes: every entry has id / op / target / why, read whatever the pr
     const ids = PORT.changes.map((e) => e.id);
     assert.deepEqual(
         ids,
-        Array.from({ length: ids.length }, (_, i) => `PC-${i + 1}`),
+        Array.from({ length: ids.length }, (_, i) => `PC-THPS4-${i + 1}`),
     );
     for (const e of PORT.changes) assert.ok(["add", "set", "remove"].includes(e.op) && e.why && e.rule, e.id);
     assert.ok(portChange("open_walls", "SkateShop") && portChange("open_walls", "skateshop"));
@@ -141,8 +141,10 @@ test("port changes: every entry has id / op / target / why, read whatever the pr
     assert.ok(!pedsCarsWanted("Sch") && pedsCarsWanted("Alc"));
     setPortChanges(false);
     try {
-        assert.equal(PORT.changes.length, 0);
-        assert.ok(pedsCarsWanted("Sch"));
+        // (--no-port-changes: only the required ones - the crash guards)
+        assert.ok(PORT.changes.length > 0 && PORT.changes.every((e) => e.required === true));
+        assert.ok(!pedsCarsWanted("Sch"));
+        assert.ok(!portChange("open_walls", "SkateShop"));
         const text = "{Name=SSO_Fence05 Class=LevelGeometry}";
         assert.equal(createdInPlay(text, "SkateShop", []), text);
     } finally {
@@ -151,5 +153,5 @@ test("port changes: every entry has id / op / target / why, read whatever the pr
     }
     assert.match(createdInPlay("{Name=SSO_Fence05 Class=LevelGeometry}", "SkateShop", []), /CreatedAtStart/);
     // (a "set" on a node the level hasn't: an error, not an add)
-    assert.throws(() => createdInPlay("{Name=Other Class=LevelGeometry}", "SkateShop", []), /PC-3 sets SSO_Fence05/);
+    assert.throws(() => createdInPlay("{Name=Other Class=LevelGeometry}", "SkateShop", []), /PC-THPS4-3 sets SSO_Fence05/);
 });

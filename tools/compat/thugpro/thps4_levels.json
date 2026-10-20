@@ -4039,17 +4039,18 @@
   },
   "door_walls": {
     "_register": "TP-29",
-    "_note": "THUGPRO keeps THPS4's invisible door walls of the skate shop (InvisColl01's shop side, Object10's two invisible faces); ours opens the door (the user's request, 2026-10-19: port_changes PC-1 / PC-2). Off: enabled true keeps the walls as THUGPRO's",
+    "_note": "THUGPRO keeps THPS4's invisible door walls of the skate shop (InvisColl01's shop side, Object10's two invisible faces); ours opens the door (the user's request, 2026-10-19: port_changes PC-THPS4-1 / PC-THPS4-2). Off: enabled true keeps the walls as THUGPRO's",
     "enabled": false
   },
   "port_changes": {
-    "_register": "PC-1 ... PC-11 (README.md here: \"Our own changes (port_changes)\")",
-    "_note": "This project's own changes to THPS4's levels - neither THPS4's data nor THUGPRO's. Applied whatever --compat says (they are not THUGPRO data: --compat none keeps them); thps4_levels.ts convert --no-port-changes leaves all of them out (THPS4's data as it is, crash guards included: not for playing). Each entry: id, op (add / set / remove), rule (the converter step that applies it: thps4_levels.portChanges), target (target.level or target.levels: a list or \"*\"), why. A \"set\" on something the level hasn't is an error the converter reports, never an add.",
+    "_register": "PC-THPS4-1 ... PC-THPS4-11 (README.md here: \"Our own changes (port_changes)\")",
+    "_note": "This project's own changes to THPS4's levels - neither THPS4's data nor THUGPRO's. Applied whatever --compat says (they are not THUGPRO data: --compat none keeps them); thps4_levels.ts convert --no-port-changes leaves out all but the required ones (THPS4's data as it is, but what a level needs to load or install). Each entry: id, op (add / set / remove), rule (the converter step that applies it: thps4_levels.portChanges), target (target.level or target.levels: a list or \"*\"), why, required (true: a level needs it to load / make_menu_level needs it - kept with --no-port-changes). A \"set\" on something the level hasn't is an error the converter reports, never an add.",
     "entries": [
       {
-        "id": "PC-1",
+        "id": "PC-THPS4-1",
         "op": "remove",
         "rule": "open_walls",
+        "required": false,
         "target": {
           "level": "SkateShop",
           "collision": "InvisColl01",
@@ -4058,20 +4059,22 @@
         "why": "The skate shop's door open (the user, 2026-10-19; our main menu's backdrop): InvisColl01's shop-side face (its z-min plane, across the door) left out; its z-max face (the fence's gap) kept"
       },
       {
-        "id": "PC-2",
+        "id": "PC-THPS4-2",
         "op": "remove",
         "rule": "open_walls",
+        "required": false,
         "target": {
           "level": "SkateShop",
           "collision": "Object10",
           "faces": "invisible"
         },
-        "why": "The skate shop's door open (as PC-1): the shop's own two invisible faces across the doorway (THPS4's face flag 0x1000, x 699-777 at z -1074) left out"
+        "why": "The skate shop's door open (as PC-THPS4-1): the shop's own two invisible faces across the doorway (THPS4's face flag 0x1000, x 699-777 at z -1074) left out"
       },
       {
-        "id": "PC-3",
+        "id": "PC-THPS4-3",
         "op": "set",
         "rule": "created_in_play",
+        "required": false,
         "target": {
           "level": "SkateShop",
           "node": "SSO_Fence05"
@@ -4082,9 +4085,10 @@
         "why": "The fence piece at the end of the halfpipe there at the start (the user, 2026-10-19: a gap there): THPS4's menu killed it and its practice run created it again"
       },
       {
-        "id": "PC-4",
+        "id": "PC-THPS4-4",
         "op": "remove",
         "rule": "peds_cars",
+        "required": true,
         "target": {
           "levels": [
             "Sch"
@@ -4094,9 +4098,10 @@
         "why": "Crash guard: with College's walker and car its node array came out null in the game (a crash loading; cause not found)"
       },
       {
-        "id": "PC-5",
+        "id": "PC-THPS4-5",
         "op": "remove",
         "rule": "zero_angles",
+        "required": true,
         "target": {
           "levels": "*",
           "node_key": "Angles",
@@ -4105,9 +4110,10 @@
         "why": "Crash guard: THUG2's script vector pool is fixed (9500 for every script's); College's node array with them didn't fit and came out null. Zero Angles are the default: nothing changes in play"
       },
       {
-        "id": "PC-6",
+        "id": "PC-THPS4-6",
         "op": "remove",
         "rule": "never_created",
+        "required": true,
         "target": {
           "levels": "*",
           "nodes": "made objects not there at the start that no brought script creates, waypoints no path or script uses"
@@ -4115,9 +4121,10 @@
         "why": "Crash guard: THUG2's script heap didn't hold College's node array with all of them (it came out null); they are goals' pieces nothing of ours creates"
       },
       {
-        "id": "PC-7",
+        "id": "PC-THPS4-7",
         "op": "remove",
         "rule": "trick_objects_without_sector",
+        "required": true,
         "target": {
           "levels": "*",
           "node_keys": [
@@ -4129,9 +4136,10 @@
         "why": "Crash guard: ParseNodeArray (0x00588630) registers a TrickObject's sector without checking it is there (nodes.stripMissingTrickObjects)"
       },
       {
-        "id": "PC-8",
+        "id": "PC-THPS4-8",
         "op": "remove",
         "rule": "left_out_commands",
+        "required": false,
         "target": {
           "levels": "*",
           "script_commands": [
@@ -4170,9 +4178,10 @@
         "why": "THPS4's goals, career, cameras and panels aren't ported: their commands left out of the scripts brought along (besides script_port's own list, shared by every port), although THUG2 has them"
       },
       {
-        "id": "PC-9",
+        "id": "PC-THPS4-9",
         "op": "remove",
         "rule": "empty_restart_scripts",
+        "required": true,
         "target": {
           "levels": "*",
           "scripts": "a restart's trigger script with no statement left (and the script)"
@@ -4180,9 +4189,10 @@
         "why": "THPS4's menu restart's script (FreezeSkater, its camera) has nothing left once translated; an empty script also broke make_menu_level's script parsing"
       },
       {
-        "id": "PC-10",
+        "id": "PC-THPS4-10",
         "op": "set",
         "rule": "ground_restarts",
+        "required": false,
         "target": {
           "levels": "*",
           "nodes": "restarts over nothing or over a kill zone"
@@ -4190,9 +4200,10 @@
         "why": "Not network spawns and not kill targets (nodes.groundRestarts against the written collision): a player put there would fall forever or die again"
       },
       {
-        "id": "PC-11",
+        "id": "PC-THPS4-11",
         "op": "set",
         "rule": "net_game_nodes",
+        "required": false,
         "target": {
           "levels": "*",
           "nodes": "path followers, peds and cars (AbsentInNetGames); single-player levels' Player1 restarts (Multiplayer, Horse)"
