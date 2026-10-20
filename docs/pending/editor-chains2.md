@@ -1,4 +1,4 @@
-﻿# Level editor phase 4b: chains finished - ladders, trick-object rails, flat ground (NOT ORIGINAL - the user's plan)
+# Level editor phase 4b: chains finished - ladders, trick-object rails, flat ground (NOT ORIGINAL - the user's plan)
 
 Branch `worktree-agent-a3cbcba52d9735182` (off main b853d0d). **NOT run in the game yet** (the user tests the editor by
 hand) - built and checked offline only.
