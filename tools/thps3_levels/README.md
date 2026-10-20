@@ -7,9 +7,10 @@ your copies each time.
 
 ## Running it
 
-Needs Python 3 and NeverScript (`tools\build_neverscript.ps1` -> `out\neverscript\ns.exe`).
+Needs Node 24+ (`npm install` once - docs/typescript.md), NeverScript (`tools\build_neverscript.ps1` ->
+`out\neverscript\ns.exe`) and, to install the levels, Python 3 (make_menu_level.py).
 
-    python -I tools/thps3_levels/thps3_levels.py convert [--thps3 C:\Games\THPS3] [--thug2 C:\Games\THUG2]
+    node tools/thps3_levels/thps3_levels.ts convert [--thps3 C:\Games\THPS3] [--thug2 C:\Games\THUG2]
     python -I tools/menu_level/make_menu_level.py
 
 `convert` reads `<thps3>\Data\Levels\<Lvl>\` (`<lvl>.bsp`, `.tdx`, `.qb`) and `<thps3>\Data\Scripts\` (levels.qb,
@@ -18,7 +19,7 @@ lights.qb and the global scripts, for the level structures and kill zones) and w
 (`thps3_<lvl>_sky`: scene and textures, no collision - as THUG2's own skies) and `levels.json`. Name levels to convert
 only some (`convert Foun Can`). The default is the career's nine (Foun, Can, Rio, Sub, Ap, SI, LA, Tok, Shp), the
 classics (Ware, Burn, Ros), Tut and SkateShop; the park editor's sets (Sk3Ed_Bch, Sk3Ed_Indr, Sk3Ed_Schl) convert
-when named. `--no-mips` skips making mip levels (faster). The table `LEVELS` in `thps3_levels.py` is the list (folder,
+when named. `--no-mips` skips making mip levels (faster). The table `LEVELS` in `thps3_levels.ts` is the list (folder,
 sign text, place, a THUG2 sign texture, level select number 60-76, default or not).
 
 `make_menu_level.py` (which makes the data overlay `<thug2>\thug2-decomp-data` from scratch on each run) then copies
@@ -26,7 +27,7 @@ the converted levels of every staging folder (thug2-decomp-thps4, -thug1, -thps3
 `Levels.qb` and the level select. Run it again after every `convert`. Delete `thug2-decomp-thps3` and run it again to
 take the levels out.
 
-    python -I tools/thps3_levels/thps3_levels.py selfcheck
+    node tools/thps3_levels/thps3_levels.ts selfcheck
 
 reads THUG2's LA and TestLevel scene / collision / textures (and any `--extra Data\pre` archives) and writes them
 back - they must come out byte-identical - and parses every THPS3 level file (worlds, clumps, texture dictionaries,
@@ -35,7 +36,7 @@ node arrays) and every script file: 323 files.
 ## THPS3's formats
 
 RenderWare 3.1 binary streams (chunks: u32 type, u32 size, u32 version 0x310) with Neversoft's plugin chunks
-(0x0294AF01...) - `thps3.py` has the layouts:
+(0x0294AF01...) - `thps3.ts` has the layouts:
 
 - `.bsp` - an RpWorld: the material list, then the plane-section tree whose leaves (atomic sectors) are Neversoft's
   objects: each has its vertices (positions, prelit colours 255 = full, two uv sets), triangles (u16 material, 3 x u16
@@ -50,7 +51,7 @@ RenderWare 3.1 binary streams (chunks: u32 type, u32 size, u32 version 0x310) wi
   (THUG2's 32-bit textures exactly; mip levels are made by the converter).
 - `.dff` - clumps (the GameObjects: fans, doors, rubble, pumpkins...): only the ones there at the start are converted
   (static scene sectors, no collision; `--no-objects` leaves them out) - almost all are made by goal scripts. Each clump's declared size leaves out 12 bytes of its Neversoft extension.
-- `.qb` - THPS4's token format (tools/level_port/qb.py; Cruise Ship's node array has a `<...>`). Nodes use
+- `.qb` - THPS4's token format (tools/level_port/qb.ts; Cruise Ship's node array has a `<...>`). Nodes use
   `Position`, z negated from the geometry's - as THPS4's, which THUG2 reads the same way: the geometry is kept as is.
 
 ## What's converted
@@ -60,15 +61,15 @@ RenderWare 3.1 binary streams (chunks: u32 type, u32 size, u32 version 0x310) wi
   another; THPS3's second is never written).
 - Textures: 32-bit as they are, with mip levels down to 8 x 8.
 - Collision: a THUG2 object per atomic sector, every face with its flags and its material's terrain; THUG2's BSP
-  trees, fixed-point vertices and reaches made (tools/level_port/geometry.convert_col).
+  trees, fixed-point vertices and reaches made (tools/level_port/geometry.convertCol).
 - Nodes: EnvironmentObjects become LevelGeometry (their Links, to restarts for THPS3's scripts, dropped); restarts, rails, KOTH crowns kept.
 - Scripts, peds, vehicles, objects (`--no-scripts` leaves them out): the level's scripts translated to THUG2's
-  (tools/level_port/script_port.py) and run from a setup script; peds and crowds as THUG2's ped AI, resting birds and
+  (tools/level_port/script_port.ts) and run from a setup script; peds and crowds as THUG2's ped AI, resting birds and
   sharks as THUG2's animals, traffic as THUG2's cars (Car_Generic01), other vehicles and moving game objects as
   LevelObjects of their THPS3 models, proximity nodes as ghosts watching their radius - what's brought and what's
   left out per level: docs/pending/thps3-scripts.md. Kill zones: trigger scripts that call SK3_KillSkater(_Water) or a
   level script that does (CJR_Foun_Kill_Skater_Molten...) become THUG2's SK3_KillSkater(_Water) with the call's
-  messages and colour and a restart (tools/level_port/nodes.py).
+  messages and colour and a restart (tools/level_port/nodes.ts).
 - Objects not there at the start: an EnvironmentObject without CreatedAtStart is kept only when the level's start
   scripts create it (Create name= / prefix=, followed from Load_<lvl>, its once_on_startup, the Player1 restart's
   trigger script and the goal parameters' Goal_Start_Script - Airport's areas are made that way); the others (a

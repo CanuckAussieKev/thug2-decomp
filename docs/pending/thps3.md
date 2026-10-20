@@ -4,7 +4,7 @@ Agent "thps3". How to run it and THPS3's formats: tools/thps3_levels/README.md.
 
 ## Result
 
-- `python -I tools/thps3_levels/thps3_levels.py convert` converts 14 levels by default: the career's nine (Foundry,
+- `node tools/thps3_levels/thps3_levels.ts convert` converts 14 levels by default: the career's nine (Foundry,
   Canada, Rio, Suburbia, Airport, Skater Island, Los Angeles, Tokyo, Cruise Ship), the classics (Warehouse,
   Burnside, Roswell), the Tutorials and the skate shop, with their skies (Can, Rio, Sub, Ap, SI, LA, Tok, Shp, Burn,
   Ros; Tut uses the park editor's beach sky; Foundry, Warehouse and the shop have none). The park editor's sets

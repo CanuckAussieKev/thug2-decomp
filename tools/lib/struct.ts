@@ -82,6 +82,17 @@ export function calcsize(fmt: string): number {
     return parse(fmt).size;
 }
 
+// An empty array already holding doubles. A NaN's payload bits (THPS3's uninitialised uvs: 0x7FC0817D) survive
+// float32 -> number -> float32, as in Python - but V8 sometimes canonicalises a NaN (to 0x7FC00000) when it is the
+// first value stored into an array still holding small integers (the array's change of element kind; it depends on
+// the code's optimisation tier, so it isn't even the same from run to run). Arrays started as doubles keep the bits,
+// and so do their copies (slice, spread, concat, map).
+export function doubleArray<T = number>(): T[] {
+    const out = [0.5];
+    out.pop();
+    return out as T[];
+}
+
 // The values of `fmt` at `offset` of `data` (struct.unpack_from). Raises StructError when the data is too short.
 export function unpackFrom(fmt: string, data: Uint8Array, offset = 0): StructValue[] {
     const { little, fields, size } = parse(fmt);
@@ -89,7 +100,7 @@ export function unpackFrom(fmt: string, data: Uint8Array, offset = 0): StructVal
         throw new StructError(`unpack_from requires a buffer of at least ${size + offset} bytes (${data.length})`);
     }
     const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
-    const out: StructValue[] = [];
+    const out = doubleArray<StructValue>();
     let at = offset;
     for (const { code, count } of fields) {
         if (code === "s") {
