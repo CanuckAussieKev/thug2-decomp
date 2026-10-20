@@ -1,6 +1,7 @@
 // NOT ORIGINAL - the level editor's objects (ours). See level_editor_objects.h.
 
 #include "game/front/level_editor_objects.h"
+#include "game/front/level_editor_view.h"
 
 #include <algorithm>
 #include <cmath>
@@ -123,7 +124,8 @@ void __cdecl PickOne(Obj::CObject* object, void* data)
     auto* walk = static_cast<PickWalk*>(data);
     auto* composite = static_cast<Obj::CCompositeObject*>(object);
     OrientedBox box;
-    if (Picking::Locked(Picking::kObjects, composite->m_id) || !ModelBox(composite, &box))
+    if (Picking::Locked(Picking::kObjects, composite->m_id) || View::HiddenObject(composite->m_id) || // (H: level_editor_view.h)
+        !ModelBox(composite, &box))
         return;
     float t;
     bool hit = RayBox(walk->origin, walk->dir, box.origin, box.axes, box.min, box.max, &t);

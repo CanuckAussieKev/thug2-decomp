@@ -19,6 +19,7 @@
 #include "game/front/level_editor_ui_backend.h"
 #include "game/front/level_editor_ui_fonts.h"
 #include "game/front/level_editor_ui_layout.h"
+#include "game/front/level_editor_view.h"
 #include "hook/log.h"
 #include "imgui.h"
 
@@ -205,6 +206,107 @@ void PanelTitle(const char* title)
     ImGui::Separator();
 }
 
+// --- the view options (level_editor_view.h) ---
+
+// The toolbar's Collision (C) and, while pieces are hidden in the editor, Show all.
+void ViewToolbar(const Model& model)
+{
+    ImGui::SameLine(0.0f, 10.0f * g_scale);
+    bool collision = model.view.collision;
+    if (ImGui::Checkbox("Collision (C)", &collision))
+        Ask(Request::kCollision, collision ? 1 : 0);
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Shows the level's collision near the camera, coloured by surface (the legend: bottom left);\n"
+                          "invisible walls in magenta - Shift+click one to see what it is");
+    if (model.view.hidden > 0) {
+        ImGui::SameLine();
+        char label[48];
+        std::snprintf(label, sizeof(label), "Show all (%d hidden)", model.view.hidden);
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.55f, 0.30f, 0.62f, 0.85f));
+        if (ImGui::SmallButton(label))
+            Ask(Request::kViewShowAll);
+        ImGui::PopStyleColor();
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Alt+H: everything hidden in the editor (H, I) shown again - hiding there is only while "
+                              "editing:\nnever saved, never in play");
+    }
+}
+
+// The collision's legend, over the bottom left of the view while it's shown.
+void CollisionLegend(const Model& model)
+{
+    if (!model.view.collision)
+        return;
+    const UiLayout::Rect& view = g_layout.viewport;
+    ImGui::SetNextWindowPos(ImVec2(view.x + 8.0f * g_scale, view.y + view.height - 8.0f * g_scale), ImGuiCond_Always,
+                            ImVec2(0.0f, 1.0f));
+    ImGui::SetNextWindowBgAlpha(0.82f);
+    ImGui::Begin("##collisionLegend", nullptr,
+                 ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings |
+                     ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove);
+    ImGui::PushFont(g_small);
+    ImGui::TextUnformatted("Collision (C)");
+    for (int i = 0; i < static_cast<int>(View::Surface::kCount); ++i) {
+        auto surface = static_cast<View::Surface>(i);
+        ImVec2 at = ImGui::GetCursorScreenPos();
+        float side = ImGui::GetTextLineHeight();
+        uint32_t argb = View::SurfaceColour(surface) | 0xFF000000;
+        ImGui::GetWindowDrawList()->AddRectFilled(at, ImVec2(at.x + side, at.y + side), Colour(argb), 2.0f);
+        ImGui::Dummy(ImVec2(side, side));
+        ImGui::SameLine();
+        ImGui::TextUnformatted(View::SurfaceName(surface));
+    }
+    ImGui::TextDisabled("%d faces in %d pieces (%d invisible walls)%s", model.view.triangles, model.view.sectors,
+                        model.view.walls, model.view.capped ? " - the nearest only" : "");
+    ImGui::TextDisabled("Not coloured: 0x80 camera passes, 0x2000 not taggable");
+    ImGui::PopFont();
+    ImGui::End();
+}
+
+// The Inspector's part: an invisible wall selected (Shift+click), and what's hidden in the editor.
+void ViewSection(const Model& model)
+{
+    if (model.view.wall) {
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::PushFont(g_heading);
+        ImGui::TextColored(ImVec4(1.0f, 0.35f, 0.9f, 1.0f), "%s", model.view.wallName.c_str());
+        ImGui::PopFont();
+        Muted("invisible wall");
+        ImGui::SameLine();
+        Mono("0x%08X", model.view.wall);
+        ImGui::PushFont(g_mono);
+        ImGui::TextWrapped("%s", model.view.wallInfo.c_str());
+        ImGui::PopFont();
+        ImGui::TextWrapped("Collision without a drawn piece can't be moved or hidden yet: the editor's moves, undo and "
+                           "layouts go by a piece's geometry.");
+        if (ImGui::Button("Close##wall"))
+            Ask(Request::kClearWall);
+    }
+    if (model.view.canHide || model.view.hidden > 0) {
+        ImGui::Spacing();
+        ImGui::Separator();
+        Muted("While editing only (never saved, never in play)");
+        ImGui::BeginDisabled(!model.view.canHide);
+        if (ImGui::Button("Hide (H)"))
+            Ask(Request::kViewHide);
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Hides the selection from the view and from clicks while editing");
+        ImGui::SameLine();
+        if (ImGui::Button("Isolate (I)"))
+            Ask(Request::kViewIsolate);
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Hides everything else (scenery and objects) while editing");
+        ImGui::EndDisabled();
+        if (model.view.hidden > 0) {
+            ImGui::SameLine();
+            if (ImGui::Button("Show all (Alt+H)"))
+                Ask(Request::kViewShowAll);
+            ImGui::TextDisabled("%d hidden in the editor", model.view.hidden);
+        }
+    }
+}
+
 // --- the panels ---
 
 void Toolbar(const Model& model)
@@ -267,6 +369,7 @@ void Toolbar(const Model& model)
     if (ImGui::SmallButton("Ground (G)"))
         Ask(Request::kDrop);
     ImGui::EndDisabled();
+    ViewToolbar(model);
     ImGui::SameLine(0.0f, 14.0f * g_scale);
     // Which level: always its edited copy (level_editor_layout.h) - never the level as shipped.
     ImGui::TextColored(ImVec4(0.55f, 0.84f, 1.0f, 1.0f), "%s (edited copy)", model.levelTitle.c_str());
@@ -912,6 +1015,7 @@ void Inspector(const Model& model)
     } else {
         ImGui::TextWrapped("%s", model.hover.c_str());
     }
+    ViewSection(model);
     LockList(model);
     ImGui::End();
 }
@@ -1000,6 +1104,11 @@ void Help(const Model& model)
                              "only); the level as shipped never changes"},
         {"", "Ctrl+R / Ctrl+Shift+R", "restore / discard an older autosave"},
         {"Leaving", "Esc", "first cancels a drag, closes a window or deselects; then leaves"},
+        {"View", "C", "shows the collision near the camera, coloured by surface (the legend); invisible walls magenta"},
+        {"", "Shift+click", "with the collision shown: an invisible wall - what it is (the Inspector)"},
+        {"", "H", "hides the selection while editing (from the view and from clicks; never saved, never in play)"},
+        {"", "I or /", "isolates the selection: everything else hidden while editing"},
+        {"", "Alt+H", "shows everything hidden in the editor again"},
         {"Camera", "P", "writes where the camera is to the log (a menu backdrop view)"},
         {"Panels", "Mouse", "over a panel the UI takes the mouse; the keys stay the editor's unless you type"},
     };
@@ -1482,6 +1591,9 @@ void Frame(const Model& model, const Overlay& overlay)
     float sx = backWidth > 0 ? io.DisplaySize.x / static_cast<float>(backWidth) : 1.0f;
     float sy = backHeight > 0 ? io.DisplaySize.y / static_cast<float>(backHeight) : 1.0f;
     ImDrawList* background = ImGui::GetBackgroundDrawList();
+    for (const Overlay::Triangle& t : overlay.under)
+        background->AddTriangleFilled(ImVec2(t.ax * sx, t.ay * sy), ImVec2(t.bx * sx, t.by * sy),
+                                      ImVec2(t.cx * sx, t.cy * sy), Colour(t.argb));
     for (const Line& line : overlay.lines)
         background->AddLine(ImVec2(line.ax * sx, line.ay * sy), ImVec2(line.bx * sx, line.by * sy), Colour(line.argb),
                             line.thickness * g_scale);
@@ -1514,6 +1626,7 @@ void Frame(const Model& model, const Overlay& overlay)
     Place(model);
     ConfirmHide(model);
     ConfirmReset(model);
+    CollisionLegend(model);
     OnlineWarning(model);
     ImGui::PopFont();
     ImGui::Render();

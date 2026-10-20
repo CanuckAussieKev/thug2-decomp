@@ -80,6 +80,17 @@ struct Model {
     };
     std::vector<LockView> locks;
     bool selectionLockable = false, selectionLocked = false;
+    // The view options (level_editor_view.h): the collision shown and what was drawn of it, how many pieces are hidden
+    // while editing, whether there's a selection to hide / isolate, an invisible wall selected (Shift+click).
+    struct ViewOptions {
+        bool collision = false;
+        int triangles = 0, sectors = 0, walls = 0;
+        bool capped = false;
+        int hidden = 0;
+        bool canHide = false;
+        uint32_t wall = 0;
+        std::string wallName, wallInfo;
+    } view;
     // The selection, for the Inspector.
     struct Selection {
         int objects = 0, sectors = 0;
@@ -177,6 +188,7 @@ struct Overlay {
     std::vector<Line> lines;
     std::vector<Circle> circles;
     std::vector<Triangle> triangles;
+    std::vector<Triangle> under; // (drawn first, under the lines: the collision view - level_editor_view.h)
     std::vector<Text> texts;
     void Clear()
     {
@@ -184,6 +196,7 @@ struct Overlay {
         circles.clear();
         triangles.clear();
         texts.clear();
+        under.clear();
     }
 };
 
@@ -229,6 +242,11 @@ struct Request {
         kPickFilter,    // id: the pick filter's bits
         kToggleLock,    // L: the selection locked / unlocked
         kUnlock,        // value: the lock's kind, id: its id
+        kCollision,     // value: 0 / 1 - Show collision (C)
+        kViewHide,      // H: the selection hidden while editing
+        kViewIsolate,   // I or /: everything but the selection hidden while editing
+        kViewShowAll,   // Alt+H: everything shown again
+        kClearWall,     // the invisible wall's Inspector closed
     } kind;
     int value = 0;
     uint32_t id = 0;

@@ -12,6 +12,7 @@
 
 #include "game/core/manager.h"
 #include "game/front/level_editor_picking.h"
+#include "game/front/level_editor_view.h"
 #include "game/gfx/mesh.h"
 #include "game/mth/vector.h"
 #include "game/script/names.h"
@@ -782,7 +783,7 @@ bool Pick(V3 origin, V3 unitDir, float maxT, Hit* hit, std::vector<Layer>* layer
     *hit = Hit{};
     auto note = [&](uint32_t checksum, float t) {
         // (locked: passed by every click; structure / see-through: by a plain click - the nearest noted for Alt)
-        if (Picking::Locked(Picking::kScenery, checksum))
+        if (Picking::Locked(Picking::kScenery, checksum) || View::HiddenSector(checksum)) // (H: level_editor_view.h)
             return false;
         bool passed = Passed(checksum, origin);
         if (layers && std::none_of(layers->begin(), layers->end(), [&](const Layer& l) { return l.checksum == checksum; }))
@@ -1386,6 +1387,15 @@ uint8_t* SectorGeometry(uint32_t checksum)
 {
     uint8_t* sector = FindSector(checksum, nullptr);
     return sector ? GeomOf(sector) : nullptr;
+}
+
+uint8_t* SectorOf(uint32_t checksum) { return FindSector(checksum, nullptr); }
+
+void ForEachLevelSector(void (*each)(void* context, uint32_t checksum, uint8_t* sector), void* context)
+{
+    ForEachScene([&](uint8_t* scene) {
+        ForEachSector(scene, [&](uint32_t checksum, uint8_t* sector) { each(context, checksum, sector); });
+    });
 }
 
 // --- highlighting ---
