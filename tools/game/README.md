@@ -59,7 +59,7 @@ THUG2.exe or THUG2PM.exe, tools/game/game_exe.ps1).
 - `window_shot.ps1 -ProcessId <pid> -Path <png>` - one game window with PrintWindow, also in the background.
   `game_shot.ps1 -Path <png>` - the game's window while it's in front. **Never capture the whole screen.**
 - `run_game.ps1 ... -Level <name>` - the game started with `-level <name>`: straight into free skate in that level
-  (`thps3_foun`, `z_dt`, `BO`, `Load_TR`...; src/game/front/start_level.h - also `[features] start_level=` in the
+  (`foun`, `z_dt`, `BO`, `Load_TR`...; src/game/front/start_level.h - also `[features] start_level=` in the
   ini). No keys needed, the overlay untouched. Keys: F8 restart tester; with `debug_mode=1` F9-F12, Home, Tab, T
   (src/game/sys/debug_mode.h).
 - `node tools/game/boot_level.ts <level> <folder>` - TEST ONLY, superseded by `-Level`: patches the installed overlay's SKATE NOW to
