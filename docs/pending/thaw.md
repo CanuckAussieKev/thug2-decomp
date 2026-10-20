@@ -150,7 +150,7 @@ Multiplayer / Horse / CTF / Team types that THUGPRO moved, retyped, added or too
   --extract-thugpro` (THUGPRO's installed node arrays against THAW's `_net` ones; positions stored in THAW's frame).
   Applied by `thaw_levels.applySpawns` (after convertNodes, before the frame shift) from the profile only;
   `--compat none` output unchanged (all 15 .qb the same as code plus sorted names, the other files byte-identical).
-- What it changes (7 edits in 4 areas): CH - TRG_CTF_Restart_Green [CTF Multiplayer Horse] -> [CTF];
+- What it changes (8 edits in 4 areas - "7" in the first count was a miscount; 18 with Santa Cruz's 10, below): CH - TRG_CTF_Restart_Green [CTF Multiplayer Horse] -> [CTF];
   Z_CH_TRG_G_TrickAttack_RestartNode moved 434 units, turned, [Multiplayer Horse] -> [Player1] (no longer a spawn);
   one spawn added (THUGPRO's half-pipe drop-in: our form TRG_Net_Spawn01, Generic, [Player1 Multiplayer Horse],
   running `<level>_net_dropin` = MakeSkaterGoto DropIn). SZ - Z_SZ_TRG_StartOfLevel loses PriorityRestart. BH -
@@ -163,14 +163,22 @@ Multiplayer / Horse / CTF / Team types that THUGPRO moved, retyped, added or too
   approach). nodes.convertNodes' Player1-first swap is kept: it changes no THAW area's spawn order - the refill moved
   0 spawns in all 15 (the data now guards it).
 - Result (thugpro_compare, all network spawns - place and types, in order): the same as THUGPRO's in 14 areas; SZ the
-  same 35 in the same order, THUGPRO's 10 more not applied (below).
-- **Not applied - the user's decision: Santa Cruz's 10** (Z_SZ_TRG_restart01, _derby01, _fromalley01 / 02 (the same
+  same 35 in the same order, THUGPRO's 10 more not applied (below) - since then applied: all 15 the same (below).
+- **Santa Cruz's 10 - approved by the user and applied (2026-10-20, see the end of this section)** (Z_SZ_TRG_restart01, _derby01, _fromalley01 / 02 (the same
   spot), _fromboardwalk01, _Killox01_restart ... restart05). In THAW their restart_types is the string "Player 1" (not
   a list: no network spawn in THAW, nor in ours); THUGPRO made them [Player1 Multiplayer Horse]. Listed in
   `spawns_not_applied`. Checked against our collision: all 10 stand on ground (roads, the derby rim, a roof, grass),
   none over water or a kill zone. As it is: THUGPRO players can start a network game at 45 places, ours at 35; each
   side sees the other appear wherever it spawned. Applied: both 45.
 
+
+- Santa Cruz's 10, approved (2026-10-20): the extraction rule now treats a THAW restart whose restart_types isn't a
+  list like any other - THUGPRO's types win - so the 10 are in `spawns` (with their places in THUGPRO's `order`) and
+  `spawns_not_applied` is empty (regenerated with --extract-thugpro). Converted into C:\Games\THUG2-4: TP-4 sets
+  11 Santa Cruz spawns (the 10 and StartOfLevel), 0 reordered; thugpro_compare - crowns, multiplayer restarts and every
+  network spawn (place, types, order) the same in all 15 areas; every collision face reachable; links fine; ns.exe
+  decompiles all but East LA (THAW's own EL_Spring); --compat none unchanged. Left as THAW has it: THUGPRO also took
+  CreatedAtStart off fromalley01 and fromboardwalk01 (not a spawn type - outside TP-4). NOT run in the game.
 
 ## THUGPRO's other hand edits in its THAW levels - inventory (2026-10-20; nothing changed, the user decides)
 

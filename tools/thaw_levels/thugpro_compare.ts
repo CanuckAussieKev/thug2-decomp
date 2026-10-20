@@ -260,8 +260,9 @@ export interface SpawnExtract {
 
 // THUGPRO's network spawns of a THAW area against THAW's own restarts (same name: our names, the game-mode prefix
 // taken off as thaw_levels.multiplayerNames does): moved (place / angles, back in THAW's frame), types changed, added,
-// or no longer a spawn. A THAW restart whose restart_types isn't a list (Santa Cruz's "Player 1" strings, which
-// THUGPRO turned into [Player1 Multiplayer Horse]) is listed, not applied: its being a spawn is the user's decision.
+// or no longer a spawn. A THAW restart whose restart_types isn't a list (Santa Cruz's 10 with the string "Player 1",
+// which THUGPRO turned into [Player1 Multiplayer Horse]) takes THUGPRO's list too - applied since the user approved it
+// (2026-10-20); `notApplied` stays for any such case the user hasn't decided on (none today).
 export function extractSpawns(
     zone: string,
     thugpro: string,
@@ -322,15 +323,7 @@ export function extractSpawns(
         seen.add(ours);
         const ownTypes = typeNames(o, names);
         if (!isNet(ownTypes) && !isNet(theirTypes)) continue;
-        if (ownTypes === null) {
-            out.notApplied.push({
-                node: names.get(ours),
-                thaw_restart_types: String(o.get("restart_types")),
-                thugpro_restart_types: theirTypes,
-                pos: round(p ?? [0, 0, 0]),
-            });
-            continue;
-        }
+        const malformed = ownTypes === null; // (THAW's restart_types not a list: Santa Cruz's "Player 1")
         if (isNet(theirTypes)) out.order.push(names.get(ours) ?? hex8(ours));
         const edit: SpawnEdit = { node: names.get(ours) ?? hex8(ours) };
         const op = position(o);
@@ -345,12 +338,12 @@ export function extractSpawns(
             edit.pos = round([0, 1, 2].map((k) => p[k]! - shift[k]!));
         }
         if (maxDiff(vec(o.get("Angles")), vec(t.get("Angles"))) > 0.001) edit.angles = round(vec(t.get("Angles")));
-        if (!sameTypes(ownTypes, theirTypes)) edit.restart_types = theirTypes;
+        if (malformed || !sameTypes(ownTypes ?? [], theirTypes)) edit.restart_types = theirTypes;
         if (Object.keys(edit).length > 1) {
             out.edits.push(edit);
             out.notes.push(
                 `changed: ${edit.node}${edit.pos ? " (moved)" : ""}${edit.angles ? " (turned)" : ""}` +
-                    `${edit.restart_types ? ` (types [${ownTypes.join(" ")}] -> [${theirTypes.join(" ")}])` : ""}`,
+                    `${edit.restart_types ? ` (types ${malformed ? JSON.stringify(String(o.get("restart_types"))) : `[${(ownTypes ?? []).join(" ")}]`} -> [${theirTypes.join(" ")}])` : ""}`,
             );
         }
     }
@@ -378,8 +371,9 @@ function extract(thugpro: string, thawFolder: string): number {
     };
     const pending: Record<string, unknown> = {
         _note:
-            "Not applied (the user's decision): THAW restarts whose restart_types isn't a list, which THUGPRO made " +
-            "network spawns. Listed by --extract-thugpro.",
+            "Not applied (the user's decision): THUGPRO spawn edits the user hasn't approved - none today (Santa " +
+            "Cruz's 10 restarts with THAW's malformed restart_types were approved 2026-10-20 and are in spawns). " +
+            "Listed by --extract-thugpro.",
     };
     for (const [zone] of LEVELS) {
         const r = extractSpawns(zone, thugpro, thawFolder, names);
