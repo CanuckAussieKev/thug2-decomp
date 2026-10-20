@@ -18,8 +18,14 @@
 #     src/game/front/career_complete.h; no script command sets those) with, per level, its number, the reward points
 #     of its story goals, its points potential (the last level_total_points its chapters set) and its story goals'
 #     names (worked out here as GoalManager_CreateGoalName makes them: "<level prefix>_goal_<goal type><version>");
-#   - the created skater (profile `custom`) with every stat (stat_names) at 10 (SetSkaterProfileInfoByName).
-# Not part of it: classic mode, the gaps (each level's gap list only exists once the level has been played) and so
+#   - the created skater (profile `custom`) with every stat (stat_names) at 10 (SetSkaterProfileInfoByName);
+#   - every level the classic mode's progress opens (cas100_classic_levels, as CheckClassicAdvancementStatus does when
+#     each bracket's goals are done: every bracket's flag and its levels' LEVEL_SEEN_ flags, and the last bracket's
+#     THE TRIANGLE - GAME_CLASSIC_UNLOCKED_SE2, LEVEL_SEEN_SE2, SetClassicTotalGoals 140). Outside story and classic
+#     mode (free skate, 2 player...) the level select goes by the LEVEL_SEEN_ flags (level_select_should_use_seen_flags):
+#     the story only gives the 7 story levels and PRO SKATER; SCHOOL, PHILADELPHIA, DOWNHILL JAM, LOS ANGELES, CANADA,
+#     AIRPORT and THE TRIANGLE only come from classic mode. So all 16 THUG2 levels are open there.
+# Not part of it: classic mode itself (its goals stay unbeaten, no GAME_COMPLETED_CLASSIC_ flags), the gaps (each level's gap list only exists once the level has been played) and so
 # the all-gaps reward (the gameplay cheat codes), the stat challenges' own progress (the stats are set directly).
 # Nothing is saved: the player saves with SAVE GAME.
 #
@@ -212,7 +218,7 @@ SCRIPTS = r"""script cas100_confirm {
     }
     create_snazzy_dialog_box {
         title="Create 100%% CAS"
-        text="This replaces your current Story Mode progress with a fully completed story (every chapter and goal, with what that unlocks) and maxes your created skater's stats.\\n\\nSave with SAVE GAME afterwards to keep it.\\nContinue?"
+        text="This replaces your current Story Mode progress with a fully completed story (every chapter and goal, with what that unlocks), opens all 16 levels - classic mode's too - and maxes your created skater's stats.\\n\\nSave with SAVE GAME afterwards to keep it.\\nContinue?"
         text_dims=(400.0, 0.0)
         no_bg
         pad_back_script=cas100_back
@@ -245,6 +251,7 @@ script cas100_apply {
         cas100_chapter_done chapter=<index>
         index = (<index> + 1)
     } <chapter_count>
+    cas100_classic_levels
 %(story)s    SetRewardFlagArray flags=((story_game_complete_rewards [0]).flags)
     SetRewardFlagArray flags=((story_game_complete_rewards [1]).flags)
     SetRewardFlagArray flags=((story_game_complete_rewards [2]).flags)
@@ -259,7 +266,7 @@ script cas100_apply {
     printf "Create 100 percent CAS: done"
     create_snazzy_dialog_box {
         title="100%% CAS"
-        text="Story Mode is 100%% complete and your created skater's stats are maxed.\\n\\nUse SAVE GAME to keep it."
+        text="Story Mode is 100%% complete, all 16 levels are open and your created skater's stats are maxed.\\n\\nUse SAVE GAME to keep it."
         text_dims=(400.0, 0.0)
         no_bg
         pad_back_script=cas100_back
@@ -285,6 +292,30 @@ script cas100_cutscene_flags {
         }
         index = (<index> + 1)
     } <array_size>
+}
+script cas100_classic_levels {
+    GetArraySize level_select_menu_classic_level_info
+    index = 0
+    while {
+        if StructureContains structure=(level_select_menu_classic_level_info [<index>]) flag {
+            flag = ((level_select_menu_classic_level_info [<index>]).flag)
+            if ! (<flag> = GAME_CLASSIC_UNLOCKED_SE2) {
+                SetGlobalFlag flag=<flag>
+            }
+            if StructureContains structure=(level_select_menu_classic_level_info [<index>]) seen_flag {
+                seen_flag = ((level_select_menu_classic_level_info [<index>]).seen_flag)
+                if ! (<seen_flag> = LEVEL_SEEN_SE2) {
+                    SetGlobalFlag flag=<seen_flag>
+                }
+            }
+        }
+        index = (<index> + 1)
+    } <array_size>
+    if ! GetGlobalFlag flag=GAME_CLASSIC_UNLOCKED_SE2 {
+        SetGlobalFlag flag=GAME_CLASSIC_UNLOCKED_SE2
+        SetGlobalFlag flag=LEVEL_SEEN_SE2
+        SetClassicTotalGoals 140
+    }
 }
 script cas100_unlock_level {
     GetArraySize level_select_menu_level_info
