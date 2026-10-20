@@ -171,10 +171,11 @@ export default function cases(): Case[] {
     out.push(driver("lighting thps4 thps3", "lighting", ["0", ...thps4Qb, ...thps3Qb]));
     out.push(driver("manifest", "manifest", [...WORKSPACES, THUG2].filter(exists)));
 
-    // geometry: THPS4 / THUG1 scenes and collision through convertScene / convertCol (inputs: driver.py prepare)
+    // geometry: THPS4 / THUG1 scenes and collision through convertScene / convertCol (inputs: driver.ts prepare - the
+    // THPS4 / THUG1 readers are TypeScript only since stage 2)
     for (const which of ["thps4", "thug1"]) {
         out.push(
-            driver(`geometry ${which}`, "geometry", ["{in}"], { setup: [PY, "prepare", "{in}", which, THPS4, THUG1] }),
+            driver(`geometry ${which}`, "geometry", ["{in}"], { setup: [TS, "prepare", "{in}", which, THPS4, THUG1] }),
         );
     }
     each(

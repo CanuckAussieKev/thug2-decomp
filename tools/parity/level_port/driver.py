@@ -5,8 +5,8 @@
 #
 #   python -I tools/parity/level_port/driver.py <command> <out> [inputs...]
 #
-# commands: archives, files, qb, thug2, translate, ground, lighting, manifest, prepare (Python only: the inputs of
-# geometry), geometry, colgeometry, common
+# commands: archives, files, qb, thug2, translate, ground, lighting, manifest, geometry (its inputs: driver.ts
+# prepare), colgeometry, common
 
 import hashlib
 import json
@@ -407,16 +407,6 @@ def cmd_manifest(out, games):
 
 # --- geometry ---------------------------------------------------------------------------------------------------------
 
-def jsonable(x):
-    if isinstance(x, (bytes, bytearray)):
-        return {"hex": bytes(x).hex()}
-    if isinstance(x, (list, tuple)):
-        return [jsonable(v) for v in x]
-    if isinstance(x, dict):
-        return {k: jsonable(v) for k, v in x.items()}
-    return x
-
-
 def unjson(x):
     if isinstance(x, dict):
         if set(x) == {"hex"}:
@@ -427,39 +417,8 @@ def unjson(x):
     return x
 
 
-def cmd_prepare(out, which, thps4_dir, thug1_dir):
-    # The geometry commands' inputs: THPS4's and THUG1's scenes / collision as their readers make them (JSON).
-    sys.path.insert(0, os.path.join(TOOLS, "thps4_levels"))
-    sys.path.insert(0, os.path.join(TOOLS, "thug1_levels"))
-    import thps4
-    import thug1
-    os.makedirs(out, exist_ok=True)
-    levels = os.path.join(thps4_dir, "data", "levels")
-    for folder in sorted(os.listdir(levels)) if which == "thps4" else []:
-        base = os.path.join(levels, folder, folder.lower())
-        if not os.path.exists(base + "scn.dat"):
-            continue
-        scene = thps4.read_scene(open(base + "scn.dat", "rb").read(), folder)
-        materials = [thps4.to_thug2_material(m) for m in scene["materials"]]
-        item = {"name": folder, "game": "thps4", "sectors": scene["sectors"], "materials": materials}
-        if os.path.exists(base + "col.dat"):
-            item["col"] = thps4.read_col(open(base + "col.dat", "rb").read(), folder)["objects"]
-        json.dump(jsonable(item), open(os.path.join(out, "thps4_%s.json" % folder), "w"))
-    pre = os.path.join(thug1_dir, "Data", "pre")
-    for archive in sorted(os.listdir(pre)) if which == "thug1" else []:
-        if not archive.lower().endswith("scn.pre"):
-            continue
-        for name, data in prx.entries(os.path.join(pre, archive), lambda n: n.lower().endswith(".scn.xbx")):
-            try:
-                scene = thug1.read_scene(data, name)
-            except FormatError:
-                continue
-            item = {"name": name, "game": "thug1", "sectors": scene["sectors"], "materials": scene["materials"]}
-            json.dump(jsonable(item), open(os.path.join(out, "thug1_%s.json" % safe(name)), "w"))
-
-
 def cmd_geometry(out, paths):
-    # paths: prepare's JSON files, or folders of them
+    # paths: driver.ts prepare's JSON files, or folders of them
     lines = []
     expanded = []
     for path in paths:
@@ -539,8 +498,6 @@ def main():
         cmd_lighting(out, rest[0], rest[1:])
     elif command == "manifest":
         cmd_manifest(out, rest)
-    elif command == "prepare":
-        cmd_prepare(out, rest[0], rest[1], rest[2])
     elif command == "geometry":
         cmd_geometry(out, rest)
     elif command == "colgeometry":

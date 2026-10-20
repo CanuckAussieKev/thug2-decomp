@@ -6,7 +6,8 @@
 //
 // A cases module (tools/parity/<area>/cases.ts) default-exports a function returning the cases:
 //   { name, python: [args after `python -I`], ts: [args after `node`], stdout?: "exact" | "sorted" | "ignore",
-//     setup?: [python args run once before the case, for both sides' inputs], nonzeroOk?: true }
+//     setup?: [python args - or node args when the first is a .ts file - run once before the case, for both sides'
+//     inputs], nonzeroOk?: true }
 // "{out}" in the arguments is the side's own output folder (<scratch>\<case>\py or \ts), "{in}" the case's shared
 // input folder (<scratch>\<case>\in). Python runs with PYTHONIOENCODING=utf-8 and PYTHONHASHSEED=0; stdout is
 // compared with "\r\n" read as "\n" (Python on Windows writes "\r\n", Node "\n").
@@ -98,7 +99,10 @@ async function runCase(c: Case, scratch: string, keep: boolean): Promise<{ ok: b
     const env = { ...process.env, PYTHONIOENCODING: "utf-8", PYTHONHASHSEED: "0" };
     const report: string[] = [];
     if (c.setup) {
-        const s = await run("python", ["-I", ...fill(c.setup, input)], env);
+        const setup = fill(c.setup, input);
+        const s = setup[0]?.endsWith(".ts")
+            ? await run(process.execPath, setup, env)
+            : await run("python", ["-I", ...setup], env);
         if (s.code !== 0) return { ok: false, report: [`  setup failed (${s.code}): ${s.stderr.slice(-2000)}`] };
     }
     const [p, t] = await Promise.all([

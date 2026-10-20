@@ -7,9 +7,10 @@ made from your copies each time.
 
 ## Running it
 
-Needs Python 3 and NeverScript (`tools\build_neverscript.ps1` -> `out\neverscript\ns.exe`).
+Needs Node 24+ (`npm install` once - docs/typescript.md), NeverScript (`tools\build_neverscript.ps1` ->
+`out\neverscript\ns.exe`) and, to install the levels, Python 3 (make_menu_level.py).
 
-    python -I tools/thps4_levels/thps4_levels.py convert [--thps4 C:\Games\THPS4] [--thug2 C:\Games\THUG2]
+    node tools/thps4_levels/thps4_levels.ts convert [--thps4 C:\Games\THPS4] [--thug2 C:\Games\THUG2]
     python -I tools/menu_level/make_menu_level.py
 
 `convert` reads `<thps4>\Game\data\levels` and writes `<thug2>\thug2-decomp-thps4\` (not read by the game):
@@ -25,7 +26,7 @@ The THPS4 skate shop is also the front end's backdrop (`[features] menu_backdrop
 src/game/front/menu_backdrop.h): with it installed, the front end shows it behind the menus and the overlay's
 standard main menu; without it the game's own front end is used.
 
-    python -I tools/thps4_levels/thps4_levels.py selfcheck
+    node tools/thps4_levels/thps4_levels.ts selfcheck
 
 reads THUG2's LA and TestLevel scene / collision / textures (and any `--extra Data\pre` archives) and writes them
 back - they must come out byte-identical - and parses every THPS4 level file.
@@ -41,12 +42,12 @@ back - they must come out byte-identical - and parses every THPS4 level file.
   bytes THUG2's ray test needs. Face flags: THPS4's camera flag inverted, flags THUG2 doesn't use dropped.
 - Nodes: restarts (the Player1 restart first), rails, level geometry, KOTH crowns; kill zones (water, out of bounds)
   get THUG2's SK3_KillSkater(_Water).
-- Scripts and moving objects (`thps4_scripts.py`; `--no-scripts` leaves them out): LevelObjects, ghost game objects
-  and waypoints kept, run by THPS4's own scripts translated to THUG2's (tools/level_port/script_port.py: the
+- Scripts and moving objects (`thps4_scripts.ts`; `--no-scripts` leaves them out): LevelObjects, ghost game objects
+  and waypoints kept, run by THPS4's own scripts translated to THUG2's (tools/level_port/script_port.ts: the
   sectors' / rails' trigger scripts - gaps -, the objects', the level's setup / startup scripts); the vehicles moved
   by scripts (trams, rides, trains, cranes...) LevelObjects of their THPS4 models; peds that don't walk stand as THUG2
   peds; goals, goal objects, animals, particles and proximity nodes left out. See docs/pending/thps4-scripts.md.
-- Peds and cars (every level: `PEDS_CARS` in thps4_levels.py; `tools/level_port/peds_cars.py`): made again
+- Peds and cars (every level: `PEDS_CARS` in thps4_levels.ts; `tools/level_port/peds_cars.ts`): made again
   as THUG2's own, run by THUG2's scripts, added after the converted nodes. The cars (Car_Generic01 in THPS4) keep
   their model when THUG2 has it (`Data\models\veh\...`, else a sedan) and drive the same waypoints with THUG2's
   Car_Generic01; the people walking by (THPS4's Obj_FollowPathLinked peds) walk their paths with THUG2's ped AI
@@ -58,8 +59,8 @@ back - they must come out byte-identical - and parses every THPS4 level file.
 - Level structure: THPS4's name, sky and lighting (from its Levels.qb); no music, no goals.
 
 The THUG2 writers, the geometry conversion, the node arrays and the installing are shared with `tools/thug1_levels`
-(`tools/level_port`); this folder has THPS4's own reader (`thps4.py`) and `thps4_levels.py`. `levels.json` also
-carries `game`, `location` and `icon` per level for the level select (`tools/level_port/ported_levels.py`).
+(`tools/level_port`); this folder has THPS4's own reader (`thps4.ts`) and `thps4_levels.ts`. `levels.json` also
+carries `game`, `location` and `icon` per level for the level select (`tools/level_port/ported_levels.ts`).
 
 Format reference: the io_thps_scene Blender add-on (denetii) - read as documentation only (it has no licence); the
 formats were checked against THUG2's loaders (see docs/pending/thps4.md).
