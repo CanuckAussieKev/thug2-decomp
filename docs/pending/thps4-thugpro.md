@@ -4,7 +4,7 @@ Goal: a THUGPRO player and one of ours in the same THPS4 level online - the trea
 (docs/pending/thaw.md "THUGPRO"). Everything we generate comes from THPS4's own files (C:\Games\THPS4, read only) and
 THUG2's; THUGPRO's installed levels (%LOCALAPPDATA%\THUG Pro\data\pre) were only read to compare
 (`tools/thps4_levels/thugpro_compare.ts`). The one THUGPRO-only choice taken (the skate shop's load script name) is
-in the register (tools/compat/thugpro, TP-20) and awaits the user's approval.
+in the register (tools/compat/thugpro, TP-20) - approved by the user 2026-10-20.
 
 ## Before (verified the lead's comparison)
 
