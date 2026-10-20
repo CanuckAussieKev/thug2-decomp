@@ -41,13 +41,13 @@ import * as thaw from "./thaw.ts";
 import {
     COMPAT,
     findPath,
-    frameShift,
     LEVELS,
     levelName,
     MULTIPLAYER_NAME,
     multiplayerNames,
     type SpawnEdit,
     STAGING,
+    thugproFrame,
     zoneArray,
     zoneFiles,
     zonePak,
@@ -305,7 +305,7 @@ export function extractSpawns(
     const pak = zonePak(thawFolder, zone);
     if (pak === null) pyExit(`no THAW ${zone}_net.pak.wpc in ${thawFolder}`);
     const own = zoneArray(zoneFiles(pak), zone, names);
-    const shift = frameShift(zone, own, names); // (THUGPRO's frame: the profile's - setCompat("thugpro"))
+    const shift = thugproFrame(zone, own, names); // (THUGPRO's frame: the profile's - setCompat("thugpro"))
     multiplayerNames(own, zone, names);
     const strip = (text: string): string => {
         const prefix = `${zone.toLowerCase()}_`;
@@ -410,16 +410,16 @@ function extract(thugpro: string, thawFolder: string, thug2: string): number {
                 "What the extraction saw and didn't apply (values our port makes its own way, clusters THAW's scripts " +
                 "name, pieces from THAW's full archive) - information only. Written by --extract-thugpro.",
         } as Record<string, unknown>,
-        // TP-N1...TP-N5: THUGPRO's own content, by reference (thugpro_new.ts) - the user's decision 2026-10-20
+        // TPN-THAW-1...TPN-THAW-5: THUGPRO's own content, by reference (thugpro_new.ts) - the user's decision 2026-10-20
         thugpro_new: {
-            _register: "TP-N1...TP-N5",
+            _register: "TPN-THAW-1...TPN-THAW-5",
             _note:
                 "New in THUGPRO (in no source game): its meshes and collision, reshaped meshes, content nodes, scripts " +
                 "and host-option defaults - by reference only: each entry names THUGPRO's item and a CRC-32 of it; the " +
                 "converter reads the bytes from the THUGPRO install (--thugpro) and skips (with a warning) what is " +
                 "missing or differs. op: add / set / remove. --no-thugpro-new leaves the whole section out.",
             _source:
-                "THUGPRO's installed data\pre\<level>_scripts.prx / scn.prx / col.prx and thugpro_qb.prx, " +
+                "THUGPRO's installed datapre<level>_scripts.prx / scn.prx / col.prx and thugpro_qb.prx, " +
                 "against THAW's own zone archives; written by `node tools/thaw_levels/thugpro_compare.ts " +
                 "--extract-thugpro` (thugpro_extract.ts)",
         } as Record<string, unknown>,

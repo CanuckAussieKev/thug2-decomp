@@ -46,6 +46,28 @@ export class Profile {
     }
 }
 
+// One `port_changes` entry: a change this project makes to a source game's level that is neither the source game's
+// nor THUGPRO's (the user's decision, 2026-10-20: a section of its own, in every game's file). `op`: add / set /
+// remove; `required`: the level needs it to load (kept by --no-port-changes); `switch`: the name the converter checks.
+export interface PortChange {
+    op: "add" | "set" | "remove";
+    id: string;
+    target: string;
+    why: string;
+    switch: string;
+    required?: boolean;
+}
+
+// The `port_changes` section of <tool>.json (its `entries`), whatever the profile: our own changes aren't THUGPRO
+// data, so `--compat none` keeps them. [] when the file or section isn't there.
+export function portChanges(tool: string): PortChange[] {
+    const file = path.join(HERE, "thugpro", `${tool}.json`);
+    if (!fs.existsSync(file)) return [];
+    const data = JSON.parse(fs.readFileSync(file, "utf-8")) as JsonObject;
+    const section = (data.port_changes ?? {}) as JsonObject;
+    return (section.entries ?? []) as PortChange[];
+}
+
 export function load(name: string = "thugpro"): Profile {
     if (!(PROFILES as readonly string[]).includes(name)) {
         throw new RangeError(`no compatibility profile ${pyStrRepr(name)} (${PROFILES.join(", ")})`);

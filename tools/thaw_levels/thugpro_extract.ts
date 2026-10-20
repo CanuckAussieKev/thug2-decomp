@@ -22,6 +22,7 @@
 //   - TP-9: per-face collision flags (THUG2's, 0x1FFF) and terrain on the collision objects whose faces are THAW's
 //     (same count, same vertices).
 
+import { crc32 } from "node:zlib";
 import * as nodes from "../level_port/nodes.ts";
 import type * as pedsCars from "../level_port/peds_cars.ts";
 import * as prx from "../level_port/prx.ts";
@@ -34,25 +35,14 @@ import * as thaw from "./thaw.ts";
 import {
     COMPAT,
     findPath,
-    frameShift,
     MULTIPLAYER_NAME,
     multiplayerNames,
+    thugproFrame,
     zoneArray,
     zoneFiles,
     zonePak,
 } from "./thaw_levels.ts";
 import { nodeArray } from "./thugpro_compare.ts";
-import {
-    calledNames,
-    colCrc,
-    loadThugproLevel,
-    type NewEntry,
-    nodeCrc,
-    sectorCrc,
-    usedNames,
-    type ZoneNew,
-} from "./thugpro_new.ts";
-import { crc32 } from "node:zlib";
 import {
     type AddedNode,
     encodeValue,
@@ -65,6 +55,16 @@ import {
     nameValue,
     type Transform,
 } from "./thugpro_edits.ts";
+import {
+    calledNames,
+    colCrc,
+    loadThugproLevel,
+    type NewEntry,
+    nodeCrc,
+    sectorCrc,
+    usedNames,
+    type ZoneNew,
+} from "./thugpro_new.ts";
 
 const MOVED = 0.1; // units: a node further than this from THAW's place (in the same frame) is THUGPRO's move
 const ANGLE = 0.001;
@@ -107,18 +107,18 @@ export interface ZoneExtract {
     added: { nodes: AddedNode[] };
     collision: { faces: Record<string, FaceEdits> };
     awaiting: Awaiting[];
-    // TP-N1...TP-N5: THUGPRO's own content, by reference (thugpro_new.ts)
+    // TPN-THAW-1...TPN-THAW-5: THUGPRO's own content, by reference (thugpro_new.ts)
     thugpro_new: ZoneNew;
     notes: string[];
     counts: Record<string, number>;
 }
 
-// TP-N1...TP-N5 register rows (tools/compat/thugpro/README.md "New in THUGPRO")
-const N_GEOMETRY = "TP-N1"; // new meshes and collision
-const N_RESHAPED = "TP-N2"; // THAW's meshes / collision THUGPRO reshaped
-const N_NODES = "TP-N3"; // THUGPRO's content nodes
-const N_SCRIPTS = "TP-N4"; // THUGPRO's scripts and the TriggerScripts naming them
-const N_OPTIONS = "TP-N5"; // host level options (default state) and loading sounds
+// TPN-THAW-1...TPN-THAW-5 register rows (tools/compat/thugpro/README.md "New in THUGPRO")
+const N_GEOMETRY = "TPN-THAW-1"; // new meshes and collision
+const N_RESHAPED = "TPN-THAW-2"; // THAW's meshes / collision THUGPRO reshaped
+const N_NODES = "TPN-THAW-3"; // THUGPRO's content nodes
+const N_SCRIPTS = "TPN-THAW-4"; // THUGPRO's scripts and the TriggerScripts naming them
+const N_OPTIONS = "TPN-THAW-5"; // host level options (default state) and loading sounds
 
 // THAW scripts THUGPRO changed that we take as THUGPRO has them (our decision - the user's list, 2026-10-20: The
 // Mall's door sound, East LA's glass that breaks without a second sound). The gap scripts gated by its TriggerType are
@@ -323,7 +323,7 @@ export function extractZone(zone: string, src: Sources): ZoneExtract {
     if (netPak === null || fullPak === null) pyExit(`no THAW ${zone} archives in ${src.thawFolder}`);
     const netFiles = zoneFiles(netPak);
     const net = zoneArray(netFiles, zone, names);
-    const shift = frameShift(zone, net, names);
+    const shift = thugproFrame(zone, net, names);
     multiplayerNames(net, zone, names);
     const netGeom = thaw.readGeom(netFiles.get(".geom")!, zone);
     const netCol = thaw.readCol(netFiles.get(".col")!, zone);
@@ -516,7 +516,7 @@ export function extractZone(zone: string, src: Sources): ZoneExtract {
                     what: `${node}: TriggerScript ${sa instanceof Name ? text(sa.value) : "(none)"} -> THUGPRO's ${sb instanceof Name ? text(sb.value) : "?"}`,
                     size: "1 node",
                 });
-                // TP-N4: the node runs THUGPRO's script - but peds our port makes its own way
+                // TPN-THAW-4: the node runs THUGPRO's script - but peds our port makes its own way
                 const cls = classOfT(t, names);
                 if (!(sb instanceof Name)) leftOut(node, "THUGPRO's TriggerScript isn't a name");
                 else if (OWN_WAY.has(cls)) {
@@ -674,7 +674,7 @@ export function extractZone(zone: string, src: Sources): ZoneExtract {
                 size: "1 node",
             });
             count("added awaiting");
-            // TP-N3: THUGPRO's node, by reference (unless nothing of it would be there)
+            // TPN-THAW-3: THUGPRO's node, by reference (unless nothing of it would be there)
             const nm = text(k);
             if (cls === "vehicle" && !t.hasFlag("CreatedAtStart")) {
                 leftOut(
@@ -777,7 +777,7 @@ export function extractZone(zone: string, src: Sources): ZoneExtract {
             size: `${ours} -> ${theirsCount} vertices`,
         });
         count(`${what} reshaped`);
-        // TP-N2: ours replaced by THUGPRO's (an emptied sector: taken out)
+        // TPN-THAW-2: ours replaced by THUGPRO's (an emptied sector: taken out)
         const sector = what === "scene sector";
         const tp = sector ? tpScene.get(c) : tpCol.get(c);
         if (tp === undefined) return;
@@ -948,7 +948,7 @@ export function extractZone(zone: string, src: Sources): ZoneExtract {
     return out;
 }
 
-// TP-N4 / TP-N5: the THUGPRO scripts to bring along - the roots (trigger scripts of the nodes above, THAW scripts
+// TPN-THAW-4 / TPN-THAW-5: the THUGPRO scripts to bring along - the roots (trigger scripts of the nodes above, THAW scripts
 // THUGPRO changed that we take, its loading sounds and host-option toggles) with every THUGPRO script they use that
 // THUG2 hasn't (its level's or its global ones: THUG2's own always stays). A root that calls a command neither THUG2
 // nor THUGPRO's scripts define (THUGPRO's own C++, e.g. TriggerType) is left out with all it alone needs, and listed in

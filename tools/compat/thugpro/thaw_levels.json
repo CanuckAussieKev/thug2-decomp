@@ -20841,14 +20841,14 @@
     ]
   },
   "thugpro_new": {
-    "_register": "TP-N1...TP-N5",
+    "_register": "TPN-THAW-1...TPN-THAW-5",
     "_note": "New in THUGPRO (in no source game): its meshes and collision, reshaped meshes, content nodes, scripts and host-option defaults - by reference only: each entry names THUGPRO's item and a CRC-32 of it; the converter reads the bytes from the THUGPRO install (--thugpro) and skips (with a warning) what is missing or differs. op: add / set / remove. --no-thugpro-new leaves the whole section out.",
     "_source": "THUGPRO's installed datapre<level>_scripts.prx / scn.prx / col.prx and thugpro_qb.prx, against THAW's own zone archives; written by `node tools/thaw_levels/thugpro_compare.ts --extract-thugpro` (thugpro_extract.ts)",
     "Z_CH": {
       "entries": [
         {
           "op": "set",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "trigger_script",
           "target": "TRG_CTF_Blue",
           "script": "TRG_CTF_BlueScript",
@@ -20856,7 +20856,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "trigger_script",
           "target": "TRG_CTF_Green",
           "script": "TRG_CTF_GreenScript",
@@ -20864,7 +20864,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "trigger_script",
           "target": "TRG_CTF_Red",
           "script": "TRG_CTF_RedScript",
@@ -20872,7 +20872,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "trigger_script",
           "target": "TRG_CTF_Yellow",
           "script": "TRG_CTF_YellowScript",
@@ -20880,7 +20880,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "trigger_script",
           "target": "TRG_Flag_Blue",
           "script": "TRG_Flag_BlueScript",
@@ -20888,7 +20888,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "trigger_script",
           "target": "TRG_Flag_Green",
           "script": "TRG_Flag_GreenScript",
@@ -20896,7 +20896,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "trigger_script",
           "target": "TRG_Flag_Red",
           "script": "TRG_Flag_RedScript",
@@ -20904,7 +20904,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "trigger_script",
           "target": "TRG_Flag_Yellow",
           "script": "TRG_Flag_YellowScript",
@@ -20912,7 +20912,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "collision",
           "target": "Z_CH_SkVans_Sign08_LOD",
           "crc": 1789034982,
@@ -20920,7 +20920,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "script",
           "target": "TRG_CTF_BlueScript",
           "source": "levels\\skatepark\\skatepark.qb",
@@ -20929,7 +20929,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "script",
           "target": "TRG_CTF_GreenScript",
           "source": "levels\\skatepark\\skatepark.qb",
@@ -20938,7 +20938,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "script",
           "target": "TRG_CTF_RedScript",
           "source": "levels\\skatepark\\skatepark.qb",
@@ -20947,7 +20947,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "script",
           "target": "TRG_CTF_YellowScript",
           "source": "levels\\skatepark\\skatepark.qb",
@@ -20956,7 +20956,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "script",
           "target": "TRG_Flag_BlueScript",
           "source": "levels\\skatepark\\skatepark.qb",
@@ -20965,7 +20965,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "script",
           "target": "TRG_Flag_GreenScript",
           "source": "levels\\skatepark\\skatepark.qb",
@@ -20974,7 +20974,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "script",
           "target": "TRG_Flag_RedScript",
           "source": "levels\\skatepark\\skatepark.qb",
@@ -20983,7 +20983,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "script",
           "target": "TRG_Flag_YellowScript",
           "source": "levels\\skatepark\\skatepark.qb",
@@ -21032,7 +21032,7 @@
       "entries": [
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "Z_MA_MA_TB_Lightglow_02",
           "crc": 3894220552,
@@ -21040,7 +21040,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "Z_MA_MA_TB_Lightglow_01",
           "crc": 1969143070,
@@ -21048,7 +21048,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "Z_MA_MA_TB_Lightglow_13",
           "crc": 1002719289,
@@ -21056,7 +21056,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_MA_Mall_Water08",
           "crc": 1242563632,
@@ -21064,7 +21064,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_MA_Sk_JOW_Mall_Exit_InStore02",
           "crc": 1424140834,
@@ -21072,7 +21072,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_MA_Trgp_teleport",
           "crc": 1069012842,
@@ -21080,7 +21080,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_MA_Sk_JOW_Mall_Exit_InStore02",
           "crc": 513189475,
@@ -21088,7 +21088,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "sector",
           "target": "Z_MA_MA_TB_Lightglow_02",
           "crc": 389539838,
@@ -21096,7 +21096,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "sector",
           "target": "Z_MA_MA_TB_Lightglow_01",
           "crc": 252608335,
@@ -21104,7 +21104,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "sector",
           "target": "Z_MA_MA_TB_Lightglow_13",
           "crc": 3622727178,
@@ -21112,7 +21112,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "collision",
           "target": "Z_MA_MA_TB_Lightglow_02",
           "crc": 508289388,
@@ -21120,7 +21120,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "collision",
           "target": "Z_MA_MA_TB_Lightglow_01",
           "crc": 3766599331,
@@ -21128,7 +21128,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "collision",
           "target": "Z_MA_MA_TB_Lightglow_13",
           "crc": 2747440698,
@@ -21136,7 +21136,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "collision",
           "target": "Z_MA_MA_shadowBK_10",
           "crc": 609747901,
@@ -21144,7 +21144,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "script",
           "target": "MA_Dooropening",
           "source": "levels\\z_ma\\z_ma_scripts.qb",
@@ -21153,7 +21153,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N5",
+          "id": "TPN-THAW-5",
           "kind": "script",
           "target": "z_ma_LEVEL_CHANGE_01",
           "source": "levels\\z_ma\\z_ma_scripts.qb",
@@ -21162,7 +21162,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N5",
+          "id": "TPN-THAW-5",
           "kind": "level_option",
           "target": "z_ma_LEVEL_CHANGE_01",
           "script": "z_ma_LEVEL_CHANGE_01",
@@ -21182,7 +21182,7 @@
       "entries": [
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "z_dn_pg_main",
           "crc": 3223845361,
@@ -21190,7 +21190,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "z_dn_pg_bldg_open_01",
           "crc": 1385058445,
@@ -21198,7 +21198,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "z_dn_pg_bldg_open_02",
           "crc": 2953500815,
@@ -21206,7 +21206,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "z_dn_pg_ledge_entrance",
           "crc": 1508825570,
@@ -21214,7 +21214,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "z_dn_pg_car_01",
           "crc": 3052985853,
@@ -21222,7 +21222,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "z_dn_pg_car_02",
           "crc": 1012306038,
@@ -21230,7 +21230,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "z_dn_pg_car_03",
           "crc": 3414464821,
@@ -21238,7 +21238,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "z_dn_TRGP_pg_car_01",
           "crc": 2845178532,
@@ -21246,7 +21246,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "z_dn_TRGP_pg_car_02",
           "crc": 257390621,
@@ -21254,7 +21254,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "z_dn_TRGP_pg_car_03",
           "crc": 2618333659,
@@ -21262,7 +21262,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "z_dn_TRGP_pg_manual_01",
           "crc": 1574932956,
@@ -21270,7 +21270,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "z_dn_TRGP_pg_manual_02",
           "crc": 2603632329,
@@ -21278,7 +21278,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "z_dn_Reflect01",
           "crc": 3742002765,
@@ -21286,7 +21286,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "z_dn_Reflect02",
           "crc": 1943828034,
@@ -21294,7 +21294,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_DN_SkDown_Veh_Cadillac04",
           "crc": 1351394510,
@@ -21302,7 +21302,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_DN_SkDown_VW01",
           "crc": 562114904,
@@ -21310,7 +21310,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_DN_SkDown_Rail33",
           "crc": 2907843215,
@@ -21318,7 +21318,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_DN_Skdown_Veh_Carrier01",
           "crc": 840745022,
@@ -21326,7 +21326,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_DN_SkDown_Veh_Semi01",
           "crc": 2001801093,
@@ -21334,7 +21334,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_DN_tw_light_box_glo_wall22",
           "crc": 2645057866,
@@ -21342,7 +21342,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_DN_tw_light_box_glo_wall23",
           "crc": 1766703887,
@@ -21350,7 +21350,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_DN_tw_light_box_glo_wall24",
           "crc": 2102906067,
@@ -21358,7 +21358,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_DN_Mesh01",
           "crc": 2014881322,
@@ -21366,7 +21366,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_DN_SkDown_Veh_Cadillac04",
           "crc": 3970299649,
@@ -21374,7 +21374,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_DN_SkDown_Veh_Cadillac01",
           "crc": 578892425,
@@ -21382,7 +21382,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_DN_SkDown_BizPark_Ledge04",
           "crc": 3159387965,
@@ -21390,7 +21390,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_DN_JOW_SF_PoliceCar02",
           "crc": 2294395865,
@@ -21398,7 +21398,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_DN_SkDown_2P_Facade06",
           "crc": 1277307492,
@@ -21406,7 +21406,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_DN_Skdown_Veh_Carrier01",
           "crc": 1452722501,
@@ -21414,7 +21414,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_DN_SkDown_Veh_Semi01",
           "crc": 406887930,
@@ -21422,7 +21422,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_DN_Mesh01",
           "crc": 867094945,
@@ -21430,7 +21430,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "sector",
           "target": "z_dn_pg_bldg_open_01",
           "crc": 2141336368,
@@ -21438,7 +21438,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "sector",
           "target": "z_dn_pg_bldg_open_02",
           "crc": 1092715631,
@@ -21446,7 +21446,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "sector",
           "target": "z_dn_pg_car_01",
           "crc": 29520142,
@@ -21454,7 +21454,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "sector",
           "target": "z_dn_pg_car_02",
           "crc": 2283785196,
@@ -21462,7 +21462,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "sector",
           "target": "z_dn_pg_car_03",
           "crc": 3565316567,
@@ -21470,7 +21470,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "sector",
           "target": "z_dn_pg_ledge_entrance",
           "crc": 432521927,
@@ -21478,7 +21478,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "sector",
           "target": "z_dn_Reflect01",
           "crc": 1873994690,
@@ -21486,7 +21486,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "sector",
           "target": "z_dn_pg_main",
           "crc": 1405998877,
@@ -21494,7 +21494,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "collision",
           "target": "z_dn_pg_bldg_open_01",
           "crc": 4164903780,
@@ -21502,7 +21502,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "collision",
           "target": "z_dn_pg_car_01",
           "crc": 3208216718,
@@ -21510,7 +21510,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "collision",
           "target": "z_dn_pg_car_03",
           "crc": 908337759,
@@ -21518,7 +21518,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "collision",
           "target": "z_dn_TRGP_pg_car_01",
           "crc": 371530750,
@@ -21526,7 +21526,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "collision",
           "target": "z_dn_TRGP_pg_car_02",
           "crc": 3874020745,
@@ -21534,7 +21534,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "collision",
           "target": "z_dn_TRGP_pg_car_03",
           "crc": 3475926249,
@@ -21542,7 +21542,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "collision",
           "target": "z_dn_TRGP_pg_manual_01",
           "crc": 2620002976,
@@ -21550,7 +21550,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "collision",
           "target": "z_dn_TRGP_pg_manual_02",
           "crc": 2962392735,
@@ -21558,7 +21558,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "collision",
           "target": "z_dn_pg_bldg_open_02",
           "crc": 1475424400,
@@ -21566,7 +21566,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "collision",
           "target": "z_dn_pg_ledge_entrance",
           "crc": 3692009565,
@@ -21574,7 +21574,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "collision",
           "target": "Z_DN_dn_tw_light_bldg05",
           "crc": 2583528238,
@@ -21582,7 +21582,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "collision",
           "target": "z_dn_pg_main",
           "crc": 1902464945,
@@ -21590,7 +21590,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N5",
+          "id": "TPN-THAW-5",
           "kind": "script",
           "target": "z_dn_LEVEL_CHANGE_01",
           "source": "levels\\z_dn\\z_dn_scripts.qb",
@@ -21599,7 +21599,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N5",
+          "id": "TPN-THAW-5",
           "kind": "script",
           "target": "z_dn_LEVEL_CHANGE_02",
           "source": "levels\\z_dn\\z_dn_scripts.qb",
@@ -21608,7 +21608,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N5",
+          "id": "TPN-THAW-5",
           "kind": "level_option",
           "target": "z_dn_LEVEL_CHANGE_01",
           "script": "z_dn_LEVEL_CHANGE_01",
@@ -21618,7 +21618,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N5",
+          "id": "TPN-THAW-5",
           "kind": "level_option",
           "target": "z_dn_LEVEL_CHANGE_02",
           "script": "z_dn_LEVEL_CHANGE_02",
@@ -21853,7 +21853,7 @@
       "entries": [
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "Z_JA_geo_CF_anotherbldf_enviro",
           "crc": 994387017,
@@ -21861,7 +21861,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "Z_JA_ja_occluder30",
           "crc": 1800656998,
@@ -21869,7 +21869,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "TRG_veh_scooter01",
           "crc": 1123555668,
@@ -21877,7 +21877,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "TRG_veh_scooter02",
           "crc": 3380900129,
@@ -21885,7 +21885,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "TRG_veh_ricer",
           "crc": 2471043712,
@@ -21893,7 +21893,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "TRG_veh_van",
           "crc": 1901538909,
@@ -21901,7 +21901,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "Ped_Outside_01",
           "crc": 2834868741,
@@ -21909,7 +21909,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "Ped_Outside_05",
           "crc": 3263229715,
@@ -21917,7 +21917,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "Ped_Outside_08",
           "crc": 1421716802,
@@ -21925,7 +21925,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "Ped_From_Profile_walking20",
           "crc": 3137519206,
@@ -21933,7 +21933,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "TRG_PED_Skater01",
           "crc": 1113087704,
@@ -21941,7 +21941,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "TRG_Ped_Hint_Billboard",
           "crc": 135445278,
@@ -21949,7 +21949,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "TRG_Ped_Hint_Voltra",
           "crc": 2474309509,
@@ -21957,7 +21957,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "TRG_Ped_Hint_Balloons",
           "crc": 2271286530,
@@ -21965,7 +21965,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "TRG_Ped_Hint_Voltra2",
           "crc": 4285100838,
@@ -21973,7 +21973,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "TRG_Ped_GrafPunk01",
           "crc": 522879247,
@@ -21981,7 +21981,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "TRG_SFX_Ghost_Neon01_ver01",
           "crc": 1453380232,
@@ -21989,7 +21989,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "TRG_SFX_Ghost_Neon01_ver02",
           "crc": 2203271918,
@@ -21997,7 +21997,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "TRG_SFX_Ghost_Neon01_ver03",
           "crc": 3320002474,
@@ -22005,7 +22005,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "TP_DDR_Machine",
           "crc": 2512675005,
@@ -22013,7 +22013,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_JA_geo_cf_arc_ddr07",
           "crc": 1980436359,
@@ -22021,7 +22021,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_JA_geo_H_horseshoeBenches01",
           "crc": 2844658170,
@@ -22029,7 +22029,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_JA_geo_H_horseshoeBenches02",
           "crc": 2041249670,
@@ -22037,7 +22037,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_JA_geo_H_horseshoeBenches01",
           "crc": 3413314460,
@@ -22045,7 +22045,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_JA_geo_H_horseshoeBenches02",
           "crc": 888153321,
@@ -22053,7 +22053,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_JA_exit12",
           "crc": 3446234432,
@@ -22061,7 +22061,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "sector",
           "target": "Z_JA_geo_CF_anotherbldf_enviro",
           "crc": 1650515595,
@@ -22069,7 +22069,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "sector",
           "target": "TP_DDR_Machine",
           "crc": 4741601,
@@ -22077,7 +22077,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "collision",
           "target": "Z_JA_geo_CF_anotherbldf_enviro",
           "crc": 1403601548,
@@ -22085,7 +22085,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "collision",
           "target": "Z_JA_ja_occluder30",
           "crc": 633091317,
@@ -22093,7 +22093,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "collision",
           "target": "TP_DDR_Machine",
           "crc": 2745417169,
@@ -22101,7 +22101,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "script",
           "target": "TRG_Car_Street_Script",
           "source": "levels\\kyoto\\kyoto.qb",
@@ -22110,7 +22110,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N5",
+          "id": "TPN-THAW-5",
           "kind": "script",
           "target": "kyoto_LoadingSounds",
           "source": "levels\\kyoto\\kyoto_scripts.qb",
@@ -22193,7 +22193,7 @@
       "entries": [
         {
           "op": "set",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "trigger_script",
           "target": "Z_SZ_TRG_Natdas_ParkingMeters_01",
           "script": "TRG_SingleNode_Meter04Script",
@@ -22201,7 +22201,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "trigger_script",
           "target": "Z_SZ_TRG_Natdas_ParkingMeters_02",
           "script": "TRG_SingleNode_Meter03Script",
@@ -22209,7 +22209,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "trigger_script",
           "target": "Z_SZ_TRG_Natdas_ParkingMeters_03",
           "script": "TRG_SingleNode_Meter02Script",
@@ -22217,7 +22217,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "trigger_script",
           "target": "Z_SZ_TRG_Natdas_ParkingMeters_04",
           "script": "TRG_SingleNode_Meter01Script",
@@ -22225,7 +22225,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "trigger_script",
           "target": "Z_SZ_TRG_3932",
           "script": "TRG_SingleNode_Meter08Script",
@@ -22233,7 +22233,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "trigger_script",
           "target": "Z_SZ_TRG_3931",
           "script": "TRG_SingleNode_Meter07Script",
@@ -22241,7 +22241,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "trigger_script",
           "target": "Z_SZ_TRG_3930",
           "script": "TRG_SingleNode_Meter06Script",
@@ -22249,7 +22249,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "trigger_script",
           "target": "Z_SZ_TRG_3929",
           "script": "TRG_SingleNode_Meter05Script",
@@ -22257,7 +22257,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "TRG_Car_Street_C01",
           "crc": 1011171779,
@@ -22265,7 +22265,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "TRG_Car_Street_C03",
           "crc": 3706634703,
@@ -22273,7 +22273,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "TRG_Car_Street_CC03",
           "crc": 1358994145,
@@ -22281,7 +22281,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_SZ_FL_BarrierTeflon",
           "crc": 522630661,
@@ -22289,7 +22289,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_SZ_sz_sd_hotel2_hp02",
           "crc": 987434340,
@@ -22297,7 +22297,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "script",
           "target": "TRG_SingleNode_Meter04Script",
           "source": "levels\\sz\\sz.qb",
@@ -22306,7 +22306,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "script",
           "target": "SZ_Natas_Meters_Check",
           "source": "levels\\sz\\sz_scripts.qb",
@@ -22315,7 +22315,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "script",
           "target": "SZ_BustedMeterEffect",
           "source": "levels\\sz\\sz_scripts.qb",
@@ -22324,7 +22324,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "script",
           "target": "SZ_SFX_MeterBusted",
           "source": "levels\\sz\\sz_scripts.qb",
@@ -22333,7 +22333,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "script",
           "target": "TRG_SingleNode_Meter03Script",
           "source": "levels\\sz\\sz.qb",
@@ -22342,7 +22342,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "script",
           "target": "TRG_SingleNode_Meter02Script",
           "source": "levels\\sz\\sz.qb",
@@ -22351,7 +22351,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "script",
           "target": "TRG_SingleNode_Meter01Script",
           "source": "levels\\sz\\sz.qb",
@@ -22360,7 +22360,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "script",
           "target": "TRG_SingleNode_Meter08Script",
           "source": "levels\\sz\\sz.qb",
@@ -22369,7 +22369,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "script",
           "target": "TRG_SingleNode_Meter07Script",
           "source": "levels\\sz\\sz.qb",
@@ -22378,7 +22378,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "script",
           "target": "TRG_SingleNode_Meter06Script",
           "source": "levels\\sz\\sz.qb",
@@ -22387,7 +22387,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "script",
           "target": "TRG_SingleNode_Meter05Script",
           "source": "levels\\sz\\sz.qb",
@@ -22396,7 +22396,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "script",
           "target": "TRG_Car_Street_Script",
           "source": "levels\\sz\\sz.qb",
@@ -22405,7 +22405,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N5",
+          "id": "TPN-THAW-5",
           "kind": "script",
           "target": "sz_LEVEL_CHANGE_01",
           "source": "levels\\sz\\sz_thugpro.qb",
@@ -22414,7 +22414,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N5",
+          "id": "TPN-THAW-5",
           "kind": "level_option",
           "target": "sz_LEVEL_CHANGE_01",
           "script": "sz_LEVEL_CHANGE_01",
@@ -22441,7 +22441,7 @@
       "entries": [
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_SV2_TRG_S1_Nakatomi_TeleportPlane01",
           "crc": 2674207428,
@@ -22449,7 +22449,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_SV2_TRG_S1_Nakatomi_TeleportPlane02",
           "crc": 3772071368,
@@ -22457,7 +22457,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N5",
+          "id": "TPN-THAW-5",
           "kind": "script",
           "target": "Z_SV2_LoadingSounds",
           "source": "levels\\Z_SV2\\Z_SV2_scripts.qb",
@@ -22492,7 +22492,7 @@
       "entries": [
         {
           "op": "set",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "trigger_script",
           "target": "TRG_CTF_Blue_Base",
           "script": "TRG_CTF_Blue_BaseScript",
@@ -22500,7 +22500,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "trigger_script",
           "target": "TRG_CTF_Red_Base",
           "script": "TRG_CTF_Red_BaseScript",
@@ -22508,7 +22508,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "trigger_script",
           "target": "TRG_CTF_Yellow_Base",
           "script": "TRG_CTF_Yellow_BaseScript",
@@ -22516,7 +22516,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "trigger_script",
           "target": "TRG_CTF_Green_Base",
           "script": "TRG_CTF_Green_BaseScript",
@@ -22524,7 +22524,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "Z_SV_JC_SauceMachine_02",
           "crc": 1791620369,
@@ -22532,7 +22532,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "Z_SV_JC_SauceMachine_03",
           "crc": 3429692898,
@@ -22540,7 +22540,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_SV_GEO_S2_IMPORT61",
           "crc": 4012562341,
@@ -22548,7 +22548,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_SV_JC_SnackMachine_01",
           "crc": 958912122,
@@ -22556,7 +22556,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_SV_JC_SnackMachine_03",
           "crc": 3703362934,
@@ -22564,7 +22564,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_SV_JC_SauceMachine_01a",
           "crc": 2383078990,
@@ -22572,7 +22572,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_SV_GEO_S2_IMPORT61",
           "crc": 1555504638,
@@ -22580,7 +22580,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_SV_TH_GEO_S3_Stairskicker",
           "crc": 4225900278,
@@ -22588,7 +22588,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_SV_JC_SnackMachine_03",
           "crc": 3065177195,
@@ -22596,7 +22596,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_SV_JH_JC_GEO_S3_STAIRS01",
           "crc": 4184017978,
@@ -22604,7 +22604,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "sector",
           "target": "Z_SV_JC_SauceMachine_02",
           "crc": 608191418,
@@ -22612,7 +22612,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "sector",
           "target": "Z_SV_JC_SauceMachine_03",
           "crc": 1633591081,
@@ -22620,7 +22620,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "collision",
           "target": "Z_SV_JC_SauceMachine_02",
           "crc": 2931720052,
@@ -22628,7 +22628,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "script",
           "target": "TRG_CTF_Blue_BaseScript",
           "source": "levels\\vans\\vans.qb",
@@ -22637,7 +22637,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "script",
           "target": "TRG_CTF_Red_BaseScript",
           "source": "levels\\vans\\vans.qb",
@@ -22646,7 +22646,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "script",
           "target": "TRG_CTF_Yellow_BaseScript",
           "source": "levels\\vans\\vans.qb",
@@ -22655,7 +22655,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "script",
           "target": "TRG_CTF_Green_BaseScript",
           "source": "levels\\vans\\vans.qb",
@@ -22835,14 +22835,14 @@
       "entries": [
         {
           "op": "remove",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_HO_Box04",
           "why": "THUGPRO emptied it (13 -> 0 vertices)"
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_HO_HO_Ground04",
           "crc": 394519969,
@@ -22850,7 +22850,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_HO_HO_Kodak_shad07",
           "crc": 3954036210,
@@ -22858,7 +22858,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_HO_HO_ElCap_FireEscape",
           "crc": 900445496,
@@ -22866,7 +22866,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_HO_store_signs",
           "crc": 4153870342,
@@ -22874,7 +22874,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_HO_store_signs3",
           "crc": 3526031240,
@@ -22882,7 +22882,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_HO_NightOff_06_HO_Kodak_shad02",
           "crc": 1143015592,
@@ -22890,7 +22890,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_HO_ho_jad_mall_sign04",
           "crc": 1333738223,
@@ -22898,7 +22898,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_HO_ho_bronson_ground_tree_shad",
           "crc": 2979914409,
@@ -22906,7 +22906,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_HO_NightOff_01_ho_jad_capital_shadow",
           "crc": 170946330,
@@ -22914,7 +22914,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_HO_HO_Ground04",
           "crc": 362387291,
@@ -22922,7 +22922,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_HO_HO_Kodak_shad07",
           "crc": 1604193375,
@@ -22930,7 +22930,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_HO_HO_ElCap_FireEscape",
           "crc": 3536085666,
@@ -22938,7 +22938,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_HO_ho_jad_hollyhigh_picnictable_ramps01",
           "crc": 2710956021,
@@ -22946,7 +22946,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_HO_store_signs",
           "crc": 2378599906,
@@ -22954,7 +22954,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_HO_store_signs3",
           "crc": 3835834897,
@@ -22962,7 +22962,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_HO_NightOff_06_HO_Kodak_shad02",
           "crc": 960116887,
@@ -22970,7 +22970,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_HO_ho_jad_mall_sign04",
           "crc": 1649758052,
@@ -22978,7 +22978,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_HO_ho_bronson_ground_tree_shad",
           "crc": 2285524353,
@@ -22986,7 +22986,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_HO_NightOff_01_ho_jad_capital_shadow",
           "crc": 2217587842,
@@ -22994,7 +22994,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N5",
+          "id": "TPN-THAW-5",
           "kind": "script",
           "target": "Z_HO_LoadingSounds",
           "source": "levels\\z_ho\\z_ho_scripts.qb",
@@ -23110,7 +23110,7 @@
       "entries": [
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "Z_BH_g_inner_plants_04",
           "crc": 989837627,
@@ -23118,7 +23118,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "Z_BH_g_inner_plants_05",
           "crc": 808314969,
@@ -23126,7 +23126,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_BH_g_bh_xwalk_04",
           "crc": 1359460875,
@@ -23134,7 +23134,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_BH_g_bh_xwalk_01",
           "crc": 3294059479,
@@ -23142,7 +23142,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_BH_Mesh07",
           "crc": 3986569004,
@@ -23150,7 +23150,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "sector",
           "target": "Z_BH_g_inner_plants_04",
           "crc": 1824720586,
@@ -23158,7 +23158,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "sector",
           "target": "Z_BH_g_inner_plants_05",
           "crc": 2708391240,
@@ -23166,7 +23166,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N5",
+          "id": "TPN-THAW-5",
           "kind": "script",
           "target": "Z_BH_LoadingSounds",
           "source": "levels\\z_BH\\Z_BH_SFX_Scripts.qb",
@@ -23186,7 +23186,7 @@
       "entries": [
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_DT_DT_tele_loose_wire01",
           "crc": 1371059744,
@@ -23194,7 +23194,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_DT_DT_AngelFlights_Garden",
           "crc": 3138227303,
@@ -23202,7 +23202,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_DT_CT_BigChinaBuilding01_HJb",
           "crc": 3004493438,
@@ -23210,7 +23210,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_DT_DT_LoadingDock_Curb03",
           "crc": 1485200322,
@@ -23218,7 +23218,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_DT_DT_tele_loose_wire_shad01",
           "crc": 254859166,
@@ -23226,7 +23226,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_DT_99_front_qp_outer",
           "crc": 395689827,
@@ -23234,7 +23234,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_DT_DT_Underground_Roof",
           "crc": 843195586,
@@ -23242,7 +23242,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_DT_HJ_CT_Building01",
           "crc": 4168937079,
@@ -23250,7 +23250,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_DT_DT_GarageColl",
           "crc": 4099556221,
@@ -23258,7 +23258,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_DT_DT_99Cent_02",
           "crc": 1909604891,
@@ -23266,7 +23266,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_DT_DT_Objects_Mesh23",
           "crc": 4033709038,
@@ -23274,7 +23274,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_DT_DT_AngelFlights_supportBeam01_outside",
           "crc": 2998244309,
@@ -23282,7 +23282,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_DT_99_front_qp_outer",
           "crc": 1482287107,
@@ -23290,7 +23290,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N5",
+          "id": "TPN-THAW-5",
           "kind": "script",
           "target": "Z_DT_LoadingSounds",
           "source": "levels\\Z_DT\\Z_DT_scripts.qb",
@@ -23418,7 +23418,7 @@
       "entries": [
         {
           "op": "set",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "trigger_script",
           "target": "Z_EL_g_andy_coin08",
           "script": "Z_EL_g_andy_coin08Script",
@@ -23426,7 +23426,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_EL_g_hb_streets_ug01",
           "crc": 2205919508,
@@ -23434,7 +23434,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_EL_g_hb_streets_ug01",
           "crc": 3331130527,
@@ -23442,7 +23442,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "script",
           "target": "Z_EL_g_andy_coin08Script",
           "source": "levels\\Z_EL\\Z_EL.qb",
@@ -23451,7 +23451,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "script",
           "target": "COIN",
           "source": "levels\\Z_EL\\Z_EL_scripts.qb",
@@ -23460,7 +23460,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "script",
           "target": "THUGPRO_SafeKill",
           "source": "qb\\thugpro\\thugpro_utils.qb",
@@ -23469,7 +23469,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "script",
           "target": "Cash_SFX",
           "source": "levels\\Z_EL\\Z_EL_sfx_scripts.qb",
@@ -23478,7 +23478,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "script",
           "target": "Z_EL_g_pd_steel_14glass01Script",
           "source": "levels\\Z_EL\\Z_EL.qb",
@@ -23487,7 +23487,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "script",
           "target": "EL_GoldlineGlass",
           "source": "levels\\Z_EL\\Z_EL_scripts.qb",
@@ -23496,7 +23496,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "script",
           "target": "Z_EL_g_pd_steel_14glass02Script",
           "source": "levels\\Z_EL\\Z_EL.qb",
@@ -23505,7 +23505,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "script",
           "target": "Z_EL_g_pd_steel_14glass03Script",
           "source": "levels\\Z_EL\\Z_EL.qb",
@@ -23514,7 +23514,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "script",
           "target": "Z_EL_g_pd_steel_14glass01bScript",
           "source": "levels\\Z_EL\\Z_EL.qb",
@@ -23523,7 +23523,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "script",
           "target": "Z_EL_g_pd_steel_14glass02bScript",
           "source": "levels\\Z_EL\\Z_EL.qb",
@@ -23532,7 +23532,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N4",
+          "id": "TPN-THAW-4",
           "kind": "script",
           "target": "Z_EL_g_pd_steel_14glass03bScript",
           "source": "levels\\Z_EL\\Z_EL.qb",
@@ -23541,7 +23541,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N5",
+          "id": "TPN-THAW-5",
           "kind": "script",
           "target": "Z_EL_LoadingSounds",
           "source": "levels\\Z_EL\\Z_EL_sfx_scripts.qb",
@@ -23551,7 +23551,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N5",
+          "id": "TPN-THAW-5",
           "kind": "script",
           "target": "z_el_LEVEL_CHANGE_01",
           "source": "levels\\Z_EL\\Z_EL_thugpro.qb",
@@ -23560,7 +23560,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N5",
+          "id": "TPN-THAW-5",
           "kind": "script",
           "target": "z_el_LEVEL_CHANGE_02",
           "source": "levels\\Z_EL\\Z_EL_thugpro.qb",
@@ -23569,7 +23569,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N5",
+          "id": "TPN-THAW-5",
           "kind": "script",
           "target": "z_el_LEVEL_CHANGE_03",
           "source": "levels\\Z_EL\\Z_EL_thugpro.qb",
@@ -23578,7 +23578,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N5",
+          "id": "TPN-THAW-5",
           "kind": "script",
           "target": "z_el_LEVEL_CHANGE_04",
           "source": "levels\\Z_EL\\Z_EL_thugpro.qb",
@@ -23587,7 +23587,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N5",
+          "id": "TPN-THAW-5",
           "kind": "script",
           "target": "z_el_LEVEL_CHANGE_05",
           "source": "levels\\Z_EL\\Z_EL_thugpro.qb",
@@ -23596,7 +23596,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N5",
+          "id": "TPN-THAW-5",
           "kind": "script",
           "target": "z_el_LEVEL_CHANGE_06",
           "source": "levels\\Z_EL\\Z_EL_thugpro.qb",
@@ -23605,7 +23605,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N5",
+          "id": "TPN-THAW-5",
           "kind": "level_option",
           "target": "z_el_LEVEL_CHANGE_01",
           "script": "z_el_LEVEL_CHANGE_01",
@@ -23615,7 +23615,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N5",
+          "id": "TPN-THAW-5",
           "kind": "level_option",
           "target": "z_el_LEVEL_CHANGE_02",
           "script": "z_el_LEVEL_CHANGE_02",
@@ -23625,7 +23625,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N5",
+          "id": "TPN-THAW-5",
           "kind": "level_option",
           "target": "z_el_LEVEL_CHANGE_03",
           "script": "z_el_LEVEL_CHANGE_03",
@@ -23635,7 +23635,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N5",
+          "id": "TPN-THAW-5",
           "kind": "level_option",
           "target": "z_el_LEVEL_CHANGE_04",
           "script": "z_el_LEVEL_CHANGE_04",
@@ -23645,7 +23645,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N5",
+          "id": "TPN-THAW-5",
           "kind": "level_option",
           "target": "z_el_LEVEL_CHANGE_05",
           "script": "z_el_LEVEL_CHANGE_05",
@@ -23655,7 +23655,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N5",
+          "id": "TPN-THAW-5",
           "kind": "level_option",
           "target": "z_el_LEVEL_CHANGE_06",
           "script": "z_el_LEVEL_CHANGE_06",
@@ -23733,7 +23733,7 @@
       "entries": [
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "Z_SM_WalkwayShopsRoofBouncy00_shadow",
           "crc": 2462253943,
@@ -23741,7 +23741,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "Z_SM_WalkwayShopsRoofBouncy01_shadow",
           "crc": 2730643141,
@@ -23749,7 +23749,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "Z_SM_WalkwayShopsRoofBouncy02_shadow",
           "crc": 1195816836,
@@ -23757,7 +23757,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "Z_SM_WalkwayShopsRoofBouncy03_shadow",
           "crc": 2061670489,
@@ -23765,7 +23765,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "Z_SM_WalkwayShopsRoofBouncy04_shadow",
           "crc": 753137761,
@@ -23773,7 +23773,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "Z_SM_WalkwayShopsRoofBouncy05_shadow",
           "crc": 1478050777,
@@ -23781,7 +23781,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "Z_SM_PacificParkAirConditionerBouncy01_shadow",
           "crc": 3713536295,
@@ -23789,7 +23789,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "Z_SM_PacificParkAirConditionerBouncy02_shadow",
           "crc": 860679596,
@@ -23797,7 +23797,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "Z_SM_PacificParkAirConditionerBouncy03_shadow",
           "crc": 4226216895,
@@ -23805,7 +23805,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "Z_SM_TripleSetTableBouncyE03_Shadow",
           "crc": 213936023,
@@ -23813,7 +23813,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "Z_SM_TripleSetTableBouncyE04_Shadow",
           "crc": 2988262910,
@@ -23821,7 +23821,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "Z_SM_TripleSetTableBouncyE05_Shadow",
           "crc": 3680517079,
@@ -23829,7 +23829,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "Z_SM_TripleSetTableBouncyE06_Shadow",
           "crc": 367756037,
@@ -23837,7 +23837,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_SM_CarouselBuilding_c",
           "crc": 2910312881,
@@ -23845,7 +23845,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_SM_BeachPassageFloor",
           "crc": 1114651925,
@@ -23853,7 +23853,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_SM_Courthouse_HJ_Wall03",
           "crc": 1698200111,
@@ -23861,7 +23861,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "sector",
           "target": "Z_SM_WalkwayShopsRoofBouncy00_shadow",
           "crc": 3935701924,
@@ -23869,7 +23869,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "sector",
           "target": "Z_SM_WalkwayShopsRoofBouncy01_shadow",
           "crc": 883034758,
@@ -23877,7 +23877,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "sector",
           "target": "Z_SM_WalkwayShopsRoofBouncy02_shadow",
           "crc": 1515455927,
@@ -23885,7 +23885,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "sector",
           "target": "Z_SM_WalkwayShopsRoofBouncy03_shadow",
           "crc": 2076114618,
@@ -23893,7 +23893,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "sector",
           "target": "Z_SM_WalkwayShopsRoofBouncy04_shadow",
           "crc": 334409521,
@@ -23901,7 +23901,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "sector",
           "target": "Z_SM_WalkwayShopsRoofBouncy05_shadow",
           "crc": 1991745331,
@@ -23909,7 +23909,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "sector",
           "target": "Z_SM_PacificParkAirConditionerBouncy01_shadow",
           "crc": 2781293013,
@@ -23917,7 +23917,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "sector",
           "target": "Z_SM_PacificParkAirConditionerBouncy02_shadow",
           "crc": 3913618042,
@@ -23925,7 +23925,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "sector",
           "target": "Z_SM_PacificParkAirConditionerBouncy03_shadow",
           "crc": 1851817465,
@@ -23933,7 +23933,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "sector",
           "target": "Z_SM_TripleSetTableBouncyE03_Shadow",
           "crc": 1318254238,
@@ -23941,7 +23941,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "sector",
           "target": "Z_SM_TripleSetTableBouncyE04_Shadow",
           "crc": 2117499252,
@@ -23949,7 +23949,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "sector",
           "target": "Z_SM_TripleSetTableBouncyE05_Shadow",
           "crc": 224708070,
@@ -23957,7 +23957,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "sector",
           "target": "Z_SM_TripleSetTableBouncyE06_Shadow",
           "crc": 379538950,
@@ -23965,7 +23965,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "collision",
           "target": "Z_SM_WalkwayShopsRoofBouncy00_shadow",
           "crc": 3267955663,
@@ -23973,7 +23973,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "collision",
           "target": "Z_SM_WalkwayShopsRoofBouncy01_shadow",
           "crc": 716609313,
@@ -23981,7 +23981,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "collision",
           "target": "Z_SM_WalkwayShopsRoofBouncy02_shadow",
           "crc": 2664117140,
@@ -23989,7 +23989,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "collision",
           "target": "Z_SM_WalkwayShopsRoofBouncy03_shadow",
           "crc": 1449743034,
@@ -23997,7 +23997,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "collision",
           "target": "Z_SM_WalkwayShopsRoofBouncy04_shadow",
           "crc": 3176745461,
@@ -24005,7 +24005,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "collision",
           "target": "Z_SM_WalkwayShopsRoofBouncy05_shadow",
           "crc": 1997991582,
@@ -24013,7 +24013,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "collision",
           "target": "Z_SM_TripleSetTableBouncyE03_Shadow",
           "crc": 1580225449,
@@ -24021,7 +24021,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "collision",
           "target": "Z_SM_TripleSetTableBouncyE04_Shadow",
           "crc": 1301523944,
@@ -24029,7 +24029,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "collision",
           "target": "Z_SM_TripleSetTableBouncyE05_Shadow",
           "crc": 4148178183,
@@ -24037,7 +24037,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "collision",
           "target": "Z_SM_TripleSetTableBouncyE06_Shadow",
           "crc": 3711149092,
@@ -24045,7 +24045,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N5",
+          "id": "TPN-THAW-5",
           "kind": "script",
           "target": "Z_SM_LoadingSounds",
           "source": "levels\\Z_SM\\Z_SM_scripts.qb",
@@ -24091,7 +24091,7 @@
       "entries": [
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_SR_g_dt_pyr_01",
           "crc": 2619016386,
@@ -24099,7 +24099,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_SR_g_dt_slot_06",
           "crc": 1821876782,
@@ -24107,7 +24107,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_SR_g_dt_slot_08",
           "crc": 1622124783,
@@ -24115,7 +24115,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_SR_g_lv_escalator_10",
           "crc": 3604466719,
@@ -24123,7 +24123,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N5",
+          "id": "TPN-THAW-5",
           "kind": "script",
           "target": "z_sr_loadingsounds",
           "source": "levels\\Z_SR\\Z_SR_scripts.qb",
@@ -24192,7 +24192,7 @@
       "entries": [
         {
           "op": "add",
-          "id": "TP-N3",
+          "id": "TPN-THAW-3",
           "kind": "node",
           "target": "LV_Elevator_2ndFloor",
           "crc": 1821687092,
@@ -24200,7 +24200,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_LV_LV_Periph_Streetlight",
           "crc": 2934161542,
@@ -24208,7 +24208,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_LV_LV_GroundPlane_Sidewalk01",
           "crc": 1546648276,
@@ -24216,7 +24216,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_LV_LV_Trampeline",
           "crc": 767312652,
@@ -24224,7 +24224,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_LV_LV_Elevator_Wall",
           "crc": 3502154644,
@@ -24232,7 +24232,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_LV_LV_Marige01",
           "crc": 3653546445,
@@ -24240,7 +24240,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_LV_LV_periph_Hotel_02",
           "crc": 396128879,
@@ -24248,7 +24248,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_LV_LV_Periph_mountain_Range10",
           "crc": 1545231263,
@@ -24256,7 +24256,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_LV_NightOn_01_windowglow06",
           "crc": 3747538237,
@@ -24264,7 +24264,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_LV_NightOn_01_windowglow12",
           "crc": 415843402,
@@ -24272,7 +24272,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_LV_Slidingdoor01",
           "crc": 2475796808,
@@ -24280,7 +24280,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_LV_Slidingdoor02",
           "crc": 3902335214,
@@ -24288,7 +24288,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "sector",
           "target": "Z_LV_LV_Pool_Tiled_Walkway",
           "crc": 3209747666,
@@ -24296,7 +24296,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_LV_elevator01_trigger01",
           "crc": 940462534,
@@ -24304,7 +24304,7 @@
         },
         {
           "op": "set",
-          "id": "TP-N2",
+          "id": "TPN-THAW-2",
           "kind": "collision",
           "target": "Z_LV_LV_Elevator_Wall",
           "crc": 835439753,
@@ -24312,7 +24312,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "sector",
           "target": "LV_Elevator_2ndFloor",
           "crc": 198401514,
@@ -24320,7 +24320,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N1",
+          "id": "TPN-THAW-1",
           "kind": "collision",
           "target": "LV_Elevator_2ndFloor",
           "crc": 1389833928,
@@ -24328,7 +24328,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N5",
+          "id": "TPN-THAW-5",
           "kind": "script",
           "target": "Z_LV_LoadingSounds",
           "source": "levels\\z_lv\\z_lv_scripts.qb",
@@ -24404,7 +24404,7 @@
       "entries": [
         {
           "op": "add",
-          "id": "TP-N5",
+          "id": "TPN-THAW-5",
           "kind": "script",
           "target": "Z_OI_LoadingSounds",
           "source": "levels\\Z_OI\\Z_OI_scripts.qb",
@@ -24414,7 +24414,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N5",
+          "id": "TPN-THAW-5",
           "kind": "script",
           "target": "z_oi_LEVEL_CHANGE_01",
           "source": "levels\\Z_OI\\Z_OI_thugpro.qb",
@@ -24423,7 +24423,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N5",
+          "id": "TPN-THAW-5",
           "kind": "script",
           "target": "z_oi_LEVEL_CHANGE_02",
           "source": "levels\\Z_OI\\Z_OI_thugpro.qb",
@@ -24432,7 +24432,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N5",
+          "id": "TPN-THAW-5",
           "kind": "level_option",
           "target": "z_oi_LEVEL_CHANGE_01",
           "script": "z_oi_LEVEL_CHANGE_01",
@@ -24442,7 +24442,7 @@
         },
         {
           "op": "add",
-          "id": "TP-N5",
+          "id": "TPN-THAW-5",
           "kind": "level_option",
           "target": "z_oi_LEVEL_CHANGE_02",
           "script": "z_oi_LEVEL_CHANGE_02",
@@ -24641,5 +24641,102 @@
       "goal_unique_tricks_trigger": ["Z_HO: Z_HO_Goal_UniqueTrick_Check"],
       "sssssssssssss": ["Z_LV: Z_LV_Cylinder49Script"]
     }
+  },
+  "port_changes": {
+    "_register": "PC-THAW-1...PC-THAW-12 (README.md: Our own changes (port_changes))",
+    "_note": "Our own changes to THAW's levels: neither THAW's data nor THUGPRO's. Applied whatever --compat (also none); --no-port-changes leaves out all but the `required` ones (the level needs them to load). op: add / set / remove; switch: the name tools/thaw_levels/thaw_levels.ts checks (portChange).",
+    "entries": [
+      {
+        "op": "set",
+        "id": "PC-THAW-1",
+        "switch": "zone_origin_frame",
+        "target": "every area with a <zone>_Zone_Origin node: nodes, particles, scene and collision moved by minus its Pos (whole sixteenths)",
+        "why": "keeps the areas near the origin (float precision, the network's +-16,384 position range); TP-2 / TP-3 adjust it for THUGPRO"
+      },
+      {
+        "op": "remove",
+        "id": "PC-THAW-2",
+        "switch": "night_sectors",
+        "target": "sectors named *NightOn* / *_tod_light* (thaw_levels.nightSectors)",
+        "why": "THAW shows them only at night (its time-of-day scripts); our ports are lit as by day"
+      },
+      {
+        "op": "remove",
+        "id": "PC-THAW-3",
+        "switch": "lod_sectors",
+        "target": "the sectors a node names as its LOD_Name (far-away copies), and their nodes (placeholders)",
+        "why": "THUG2 has no LOD switching for them: it would draw both copies"
+      },
+      {
+        "op": "set",
+        "id": "PC-THAW-4",
+        "switch": "breakables_as_thug2_shatter",
+        "target": "LevelGeometry whose TriggerScript shatters it (The Mall's MA_BreakGlass...): the script made PlaySound HitGlassPane2x + Shatter + Kill, its faces non-collidable triggers (0x1150), its Type taken off (thaw_levels.breakableScripts)",
+        "why": "glass you skate through as in THAW; assumes ShatterAndDie is THAW-only - THUG2 has ShatterAndDie (SK4_Scripts.qb) and BloodSplat (bails.qb), and this drops MA_KillStickers (The Mall's 'closed / cerrado' sticker floats after the glass breaks): under audit, not changed here"
+      },
+      {
+        "op": "remove",
+        "id": "PC-THAW-5",
+        "switch": "trick_object_guard",
+        "required": true,
+        "target": "TrickObject / Cluster on every geometry node without a scene sector (nodes.stripMissingTrickObjects)",
+        "why": "ParseNodeArray (0x00588630) reads through the missing sector: a crash loading the level"
+      },
+      {
+        "op": "set",
+        "id": "PC-THAW-6",
+        "switch": "ground_restarts",
+        "target": "restarts over nothing (the shops' interiors) or over a kill zone: no network spawn types, no kill targets (nodes.groundRestarts)",
+        "why": "a player spawned there falls for ever or is killed at once"
+      },
+      {
+        "op": "remove",
+        "id": "PC-THAW-7",
+        "switch": "trigger_faces",
+        "required": true,
+        "target": "collision trigger flags (0x40) on every object but kill zones, breakables and geometry whose TriggerScript we bring (thaw_levels.convertCol)",
+        "why": "THUG2 runs a trigger face's node's TriggerScript without checking it exists: a crash on a script we don't bring"
+      },
+      {
+        "op": "remove",
+        "id": "PC-THAW-8",
+        "switch": "blend_by_previous",
+        "required": true,
+        "target": "a material pass blending by the previous pass's alpha after another such pass (blend modes 12 / 13; thaw_levels.toThug2Material)",
+        "why": "THUG2's pixel shader (0x004DD2C0) doesn't assemble: the game crashed loading Santa Monica"
+      },
+      {
+        "op": "remove",
+        "id": "PC-THAW-9",
+        "switch": "billboards",
+        "required": true,
+        "target": "billboard sectors (SEC_BILLBOARD: every vertex at the pivot; thaw_levels.convertScene)",
+        "why": "THAW's shader spreads them to face the camera; their billboard data isn't converted, THUG2 can't draw them"
+      },
+      {
+        "op": "remove",
+        "id": "PC-THAW-10",
+        "switch": "unknown_flags",
+        "required": true,
+        "target": "collision face flags 0x2000 / 0x4000 / 0x8000 and material pass flags THUG2 hasn't the data for (FACE_KEEP, PASS_KEEP); blend modes past 13 made 5",
+        "why": "not THUG2's meanings: THUG2 would read them as something else"
+      },
+      {
+        "op": "set",
+        "id": "PC-THAW-11",
+        "switch": "net_game_nodes",
+        "required": true,
+        "target": "path followers, peds and cars marked AbsentInNetGames (nodes.netGameNodes)",
+        "why": "network games have no path manager or ped animations: they'd be created without them"
+      },
+      {
+        "op": "set",
+        "id": "PC-THAW-12",
+        "switch": "objects_our_way",
+        "required": true,
+        "target": "peds, cars, moving objects, particles and game-mode flags made THUG2's way (thaw_scripts.PortedNodes: THUG2's ped AI, Car_Generic01, Team_Flag...); goal / story / animal peds, cars not there at the start, objects without a sector left out",
+        "why": "THAW's components and their scripts don't exist in THUG2"
+      }
+    ]
   }
 }

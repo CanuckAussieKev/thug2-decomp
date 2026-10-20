@@ -98,11 +98,11 @@ export const COMPAT = {
     spawns: new Map<string, ZoneSpawns>(),
     // TP-5...TP-9: THUGPRO's other hand edits (thugpro_edits.ts), the profile's sections by name
     edits: {} as Record<string, Record<string, unknown>>,
-    // TP-N1...TP-N5: THUGPRO's own content, by reference (thugpro_new.ts; --no-thugpro-new: none)
+    // TPN-THAW-1...TPN-THAW-5: THUGPRO's own content, by reference (thugpro_new.ts; --no-thugpro-new: none)
     thugproNew: {} as Record<string, unknown>,
 };
 
-// TP-N1...TP-N5: the zone's THUGPRO content entries, or null (none, --compat none or --no-thugpro-new).
+// TPN-THAW-1...TPN-THAW-5: the zone's THUGPRO content entries, or null (none, --compat none or --no-thugpro-new).
 export const newFor = (zone: string): thugproNew.ZoneNew | null =>
     (COMPAT.thugproNew[zone.toUpperCase()] as thugproNew.ZoneNew | undefined) ?? null;
 
@@ -263,6 +263,23 @@ export function applySpawns(
 
 setCompat("thugpro"); // (the default, also for the tools that import this one: migrate_layouts, thugpro_compare)
 
+// Our own changes to THAW's levels - neither THAW's data nor THUGPRO's (tools/compat/thugpro/thaw_levels.json
+// `port_changes`, PC-THAW-n in its README.md): kept under --compat none; --no-port-changes leaves out all but the
+// ones a level needs to load (`required`). The converter asks by each entry's `switch`.
+export const PORT = { on: new Set<string>() };
+
+export function setPortChanges(enabled: boolean): void {
+    PORT.on = new Set(
+        compat
+            .portChanges("thaw_levels")
+            .filter((e) => enabled || e.required)
+            .map((e) => e.switch),
+    );
+}
+export const portChange = (name: string): boolean => PORT.on.has(name);
+
+setPortChanges(true);
+
 // The level's THUG2 name: THAW's zone name (z_ma) or the profile's (level_names), or (legacy) the thaw_<xx> this
 // converter used before.
 export function levelName(zone: string, legacy = false): string {
@@ -277,9 +294,15 @@ export function sixteenths(v: readonly number[]): number[] {
     return v.map((x) => roundHalfEven(x * 16.0) / 16.0);
 }
 
-// The zone's frame: minus the Pos of its <zone>_Zone_Origin node plus the profile's frame_adjust (in whole
-// sixteenths), or no move when it has none or is in the profile's frame_kept.
-export function frameShift(zone: string, array: readonly QbValue[], _names: ReadonlyMap<number, string>): number[] {
+// The zone's frame (PC-THAW-1, port_changes `zone_origin_frame`; without it THAW's own world frame): thugproFrame.
+export function frameShift(zone: string, array: readonly QbValue[], names: ReadonlyMap<number, string>): number[] {
+    return portChange("zone_origin_frame") ? thugproFrame(zone, array, names) : [0.0, 0.0, 0.0];
+}
+
+// THUGPRO's frame for the zone (what its THAW ports and thugpro_new's pieces are in): minus the Pos of its
+// <zone>_Zone_Origin node plus the profile's frame_adjust (in whole sixteenths), or no move when it has none or is in
+// the profile's frame_kept.
+export function thugproFrame(zone: string, array: readonly QbValue[], _names: ReadonlyMap<number, string>): number[] {
     if (COMPAT.frameKept.has(zone.toUpperCase())) return [0.0, 0.0, 0.0];
     const origin = checksum(`${zone}_Zone_Origin`);
     const adjust = COMPAT.frameAdjust.get(zone.toUpperCase()) ?? [0.0, 0.0, 0.0];
@@ -591,14 +614,6 @@ export function nightSectors(geom: thaw.Geom, names: ReadonlyMap<number, string>
 
 // --- collision --------------------------------------------------------------------------------------------------
 
-// Per zone: pieces left out altogether (scene, collision, node) - story blockers THAW's goal scripts take away, which
-// free skate here doesn't run. The Mall: an invisible wall across the glass doors by the start (the way in shut).
-const LEFT_OUT = new Map([["Z_MA", ["Z_MA_Mall_First_Rail_Blocker"]]]);
-
-export function leftOut(zone: string): Set<number> {
-    return new Set((LEFT_OUT.get(zone.toUpperCase()) ?? []).map(checksum));
-}
-
 // A breakable's faces, as THUG2's own (its Airport's AP_Shatter_Roof pieces): non-collidable, trigger, no skater
 // shadow, invisible - THAW's had decal and camera collidable too (0xF0).
 const BREAKABLE_FACE = 0x1150;
@@ -794,7 +809,7 @@ function writeLevelQb(
     const [netText, marked] = nodes.netGameNodes(text, scripts);
     if (marked) print(`  ${path.win32.basename(file)}: ${marked} node(s) changed for network games`);
     common.nsCompile(ns, netText, file);
-    // (TP-N4: ours of the scripts THUGPRO's replace taken out first)
+    // (TPN-THAW-4: ours of the scripts THUGPRO's replace taken out first)
     if (drop.size) fs.writeFileSync(file, thugproNew.removeScripts(fs.readFileSync(file), drop));
     if (scripts.size) fs.writeFileSync(file, scriptPort.appendScripts(fs.readFileSync(file), scripts, names));
 }
@@ -808,7 +823,7 @@ const levelGeometryNames = (list: readonly Struct[], names: Map<number, string>,
     return out;
 };
 
-// TP-N3 / TP-N4 / TP-N5: what thugpro_new brings into the node array and the level's .qb (thugpro_new.resolve).
+// TPN-THAW-3 / TPN-THAW-4 / TPN-THAW-5: what thugpro_new brings into the node array and the level's .qb (thugpro_new.resolve).
 export interface NewNodes {
     nodes: Struct[]; // THUGPRO's nodes (its frame; Links in `links`, by name)
     links: Map<Struct, string[]>;
@@ -923,7 +938,7 @@ export function pruneNewScripts(
 // to leave out, the breakables, the node array text, the brought scripts, the LevelObjects in their own space, the
 // moving objects left out.
 export interface LevelNodes {
-    drop: Set<number>; // (TP-N4: our scripts THUGPRO's replace)
+    drop: Set<number>; // (TPN-THAW-4: our scripts THUGPRO's replace)
     triggers: Set<number>;
     lods: Set<number>;
     breakables: Set<number>;
@@ -971,7 +986,7 @@ export function convertLevelNodes(
     // TP-5...TP-8: THUGPRO's node edits, on THAW's array as if they were THAW's (thugpro_edits.ts)
     const edits = editsFor(zone);
     if (edits !== null) array = thugproEdits.applyNodeEdits(edits, array, names, report);
-    // TP-N3 / TP-N4: THUGPRO's nodes and the TriggerScripts naming its scripts, as if THAW's
+    // TPN-THAW-3 / TPN-THAW-4: THUGPRO's nodes and the TriggerScripts naming its scripts, as if THAW's
     if (extra !== null) array = addNewNodes(extra, array, names, report);
     const nameOf = (n: QbValue): number | null => {
         const v = n instanceof Struct ? n.get("Name") : undefined;
@@ -979,7 +994,8 @@ export function convertLevelNodes(
     };
     // LOD copies: a node's LOD_Name is the sector drawn instead of it far away; THUG2 would draw both.
     const lods = new Set<number>();
-    for (const node of array) {
+    // (PC-THAW-3 lod_sectors)
+    for (const node of portChange("lod_sectors") ? array : []) {
         const lod = node instanceof Struct ? node.get("LOD_Name") : undefined;
         if (lod instanceof Name) lods.add(lod.value);
     }
@@ -990,7 +1006,10 @@ export function convertLevelNodes(
     }
     let kills = nodes.killCommands(scriptQbs, restarts, names);
     const drawn = sectors.size ? new Set([...sectors].filter((s) => !lods.has(s) && !drop.has(s))) : null;
-    const breakables = breakableScripts(array, scriptQbs, names, drawn);
+    // (PC-THAW-4 breakables_as_thug2_shatter)
+    const breakables = portChange("breakables_as_thug2_shatter")
+        ? breakableScripts(array, scriptQbs, names, drawn)
+        : new Map<number, string>();
     // The nodes left out (LOD copies, `drop`) become placeholders of a class convertNodes drops, before it renumbers
     // the Links - removed after, every node after one pointed its Links one place off (rails linked to the wrong
     // nodes: The Mall hung loading once its story blocker was left out).
@@ -1095,7 +1114,7 @@ export function convertLevelNodes(
     } else {
         objectsGone = madeGone;
     }
-    // TP-N4 / TP-N5: THUGPRO's scripts (ours of the same names out), the setup putting its host options in their
+    // TPN-THAW-4 / TPN-THAW-5: THUGPRO's scripts (ours of the same names out), the setup putting its host options in their
     // default state
     const ourReplaced = new Set<number>();
     if (extra !== null) {
@@ -1197,11 +1216,12 @@ export interface Args {
     compat: string;
     legacyNames: boolean;
     static: boolean;
-    thugpro: string; // TP-N1...TP-N5: THUGPRO's install, read for its own content
+    thugpro: string; // TPN-THAW-1...TPN-THAW-5: THUGPRO's install, read for its own content
     noThugproNew: boolean; // --no-thugpro-new: THUGPRO's hand edits only, not its own content
+    noPortChanges: boolean; // --no-port-changes: THAW's own data but for the changes a level needs to load
 }
 
-// TP-N1 / TP-N2: the resolved collision objects into THAW's collision (in place; THUGPRO's frame -> THAW's):
+// TPN-THAW-1 / TPN-THAW-2: the resolved collision objects into THAW's collision (in place; THUGPRO's frame -> THAW's):
 // added, replacing ours (set), or ours taken out (remove). Returns the report lines.
 function newCollision(r: thugproNew.Resolved, col: thug2Col.ColFile, tpFrame: readonly number[]): string[] {
     const back = tpFrame.map((x) => -x);
@@ -1288,7 +1308,7 @@ function cmdConvert(args: Args): void {
             const full = (): thugproEdits.FullArchive => fullArchive(args.thaw, zone);
             thugproEdits.applyGeometryEdits(edits, geom, colIn, textures, full, editReport);
         }
-        // TP-N1 / TP-N2: THUGPRO's collision objects (new, reshaped) into THAW's collision, back in THAW's frame (so
+        // TPN-THAW-1 / TPN-THAW-2: THUGPRO's collision objects (new, reshaped) into THAW's collision, back in THAW's frame (so
         // convertCol treats them as THAW's); its sectors go into the converted scene below (thugpro_new.ts)
         const zoneNew = newFor(zone);
         let resolved: thugproNew.Resolved | null = null;
@@ -1297,10 +1317,11 @@ function cmdConvert(args: Args): void {
             const key = COMPAT.levelNames.get(zone.toUpperCase()) ?? zone.toLowerCase();
             resolved = thugproNew.resolve(zoneNew, thugproNew.loadThugproLevel(args.thugpro, key), args.thugpro);
             for (const [k, v] of resolved.names) if (!names.has(k)) names.set(k, v);
-            tpFrame = frameShift(zone, zoneArray(files, zone, names), names);
+            tpFrame = thugproFrame(zone, zoneArray(files, zone, names), names);
             editReport.push(...resolved.report, ...newCollision(resolved, colIn, tpFrame));
         }
-        const night = new Set([...nightSectors(geom, names), ...leftOut(zone)]);
+        // (PC-THAW-2 night_sectors)
+        const night = portChange("night_sectors") ? nightSectors(geom, names) : new Set<number>();
         const nodeReport = night.size ? [`  ${night.size} night-time sectors left out`] : [];
         nodeReport.push(...editReport);
         const drawn = new Set(
@@ -1358,7 +1379,7 @@ function cmdConvert(args: Args): void {
             level.local,
         );
         if (resolved !== null) {
-            // (TP-N1 / TP-N2: moved by our frame less THUGPRO's - nothing with the default frame)
+            // (TPN-THAW-1 / TPN-THAW-2: moved by our frame less THUGPRO's - nothing with the default frame)
             const merged = thugproNew.mergeScene(
                 resolved,
                 scene,
@@ -1386,14 +1407,15 @@ function cmdConvert(args: Args): void {
             colIn,
             (c) => level.triggers.has(c),
             shift,
-            new Set([...leftOut(zone), ...level.objectsGone]),
+            level.objectsGone,
             level.breakables,
             level.local,
         );
         if (edits !== null) thugproEdits.applyFaceEdits(edits, col, nodeReport); // (TP-9)
         // (restarts over nothing - the shops' interiors - or over a kill zone: no network spawns, no kill targets)
         let groundReport: string[];
-        [nodeText, groundReport] = nodes.groundRestarts(nodeText, col);
+        // (PC-THAW-6 ground_restarts)
+        [nodeText, groundReport] = portChange("ground_restarts") ? nodes.groundRestarts(nodeText, col) : [nodeText, []];
         if (groundReport.length) {
             writeLevelQb(args.ns, nodeText, pyJoin(levelDir, `${name}.qb`), level.scripts, names, level.drop);
             nodeReport.push(...groundReport);
@@ -1416,7 +1438,7 @@ function cmdConvert(args: Args): void {
             level_num: levelNum,
             default_stats: typeof defaultStats === "number" && Number.isInteger(defaultStats) ? defaultStats : 10,
             lighting: {},
-            // (TP-N5: the loading sounds and host options' default state, run by load_level / reset_level)
+            // (TPN-THAW-5: the loading sounds and host options' default state, run by load_level / reset_level)
             ...(extra?.setupNs ? { setup_script: setupName } : {}),
         });
     }
@@ -1489,7 +1511,7 @@ function cmdSelfcheck(args: Args): number {
 const USAGE =
     "usage: thaw_levels.ts [-h] [--thug2 THUG2] [--thaw THAW] [--out OUT] [--ns NS] [--frame {thugpro,recentre}]\n" +
     "                      [--recentre RECENTRE] [--compat {thugpro,none}] [--legacy-names] [--static]\n" +
-    "                      [--thugpro THUGPRO] [--no-thugpro-new]\n" +
+    "                      [--thugpro THUGPRO] [--no-thugpro-new] [--no-port-changes]\n" +
     "                      {convert,selfcheck} [levels ...]";
 
 // argparse's error: the usage and the message on stderr, exit code 2.
@@ -1548,6 +1570,7 @@ export function parseCommandLine(argv: readonly string[]): Args {
         static: v.static ?? false,
         thugpro: v.thugpro ?? thugproNew.DEFAULT_THUGPRO,
         noThugproNew: v["no-thugpro-new"] ?? false,
+        noPortChanges: v["no-port-changes"] ?? false,
     };
 }
 
@@ -1565,14 +1588,17 @@ const OPTIONS = {
     compat: { type: "string" },
     "legacy-names": { type: "boolean" }, // name the levels thaw_<xx> as before, not by their zones (z_ma)
     static: { type: "boolean" }, // convert: the levels' scripts, moving objects, peds and cars left out
-    // TP-N1...TP-N5 (thugpro_new): THUGPRO's install, read for its own content (default %LOCALAPPDATA%\THUG Pro)
+    // TPN-THAW-1...TPN-THAW-5 (thugpro_new): THUGPRO's install, read for its own content (default %LOCALAPPDATA%\THUG Pro)
     thugpro: { type: "string" },
     "no-thugpro-new": { type: "boolean" }, // --compat thugpro without THUGPRO's own content (its hand edits only)
+    // our own changes (port_changes, PC-THAW-n) left out but those a level needs to load (`required`)
+    "no-port-changes": { type: "boolean" },
 } as const;
 
 export function main(argv: readonly string[] = process.argv.slice(2)): number {
     const args = parseCommandLine(argv);
     setCompat(args.compat, !args.noThugproNew);
+    setPortChanges(!args.noPortChanges);
     // (a stock install keeps the game in a Game subfolder: C:\Games\THUG2 -> C:\Games\THUG2\Game)
     if (!isDir(pyJoin(args.thug2, "Data")) && isDir(pyJoin(args.thug2, "Game", "Data"))) {
         args.thug2 = pyJoin(args.thug2, "Game");

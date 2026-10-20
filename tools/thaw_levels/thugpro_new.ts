@@ -1,5 +1,5 @@
-// NOT ORIGINAL - THUGPRO's own content in its THAW level ports, brought into ours BY REFERENCE (register rows TP-N1 ...
-// TP-N5 in tools/compat/thugpro/README.md, the profile's `thugpro_new` section). The user's decision (2026-10-20, with
+// NOT ORIGINAL - THUGPRO's own content in its THAW level ports, brought into ours BY REFERENCE (register rows TPN-THAW-1 ...
+// TPN-THAW-5 in tools/compat/thugpro/README.md, the profile's `thugpro_new` section). The user's decision (2026-10-20, with
 // Morten1337's permission to include THUGPRO's own content): everything THUGPRO made that is in no source game - its
 // meshes and collision, its nodes, its scripts - goes into our ports under the default `--compat thugpro`, kept apart
 // from the hand edits to THAW's data (TP-5 ... TP-9) so it is easy to see and to switch off (`--no-thugpro-new`).
@@ -31,24 +31,24 @@
 //     sets each to THUGPRO's default as its HandleLevelOptionObjects does after loading - switching them needs
 //     THUGPRO's messages 155-159 (a later protocol layer).
 
+import * as fs from "node:fs";
 import { crc32 } from "node:zlib";
+import { Reader, Writer } from "../level_port/binio.ts";
 import * as prx from "../level_port/prx.ts";
 import * as qb from "../level_port/qb.ts";
 import { checksum, Name, type QbValue, Struct, Vector } from "../level_port/qb.ts";
 import * as tex from "../level_port/tex.ts";
 import * as thug2Col from "../level_port/thug2_col.ts";
 import * as thug2Scene from "../level_port/thug2_scene.ts";
-import { Reader, Writer } from "../level_port/binio.ts";
 import { pyJoin } from "../lib/py.ts";
 import { encodeValue, nameValue } from "./thugpro_edits.ts";
-import * as fs from "node:fs";
 
 export type Op = "add" | "set" | "remove";
 export type Kind = "sector" | "collision" | "node" | "trigger_script" | "script" | "level_option";
 
 export interface NewEntry {
     op: Op;
-    id: string; // the register row (TP-N1 ...)
+    id: string; // the register row (TPN-THAW-1 ...)
     kind: Kind;
     target: string; // the sector / object / node / script name (trigger_script: the node)
     why: string;
