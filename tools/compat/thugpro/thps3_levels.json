@@ -7418,6 +7418,3197 @@
       }
     }
   },
+  "thugpro_new": {
+    "_register": "TP-N3",
+    "_source": "References only (the user's decision 2026-10-20, with Morten1337's permission): what is new in THUGPRO's THPS3 ports, in no source game - archive and file in THUGPRO's datapre, the item's name and a CRC-32 of it. tools/thps3_levels/thugpro_new.ts reads the bytes from the user's THUGPRO install (--thugpro) at convert time; a missing or different item is warned about and skipped. Each entry: op (add / set / remove), id, kind (sector, collision, node, script, model), target, why. Found by tools/thps3_levels/thugpro_new_extract.ts (--extract-thugpro); never typed in.",
+    "foun": [
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "sector",
+        "target": "foun_wire",
+        "why": "THUGPRO's own mesh (498 vertices) - in no THPS3 file",
+        "archive": "FOUNscn.prx",
+        "file": "levels\\foun\\foun.scn.xbx",
+        "crc32": "ccccc9e3",
+        "textures": {
+          "101aa95f": "df98ae82"
+        }
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "collision",
+        "target": "Obj_Bucket",
+        "why": "THUGPRO's collision for THPS3's Obj_Bucket (134 faces) - THPS3's has none",
+        "archive": "FOUNcol.prx",
+        "file": "levels\\foun\\foun.col.xbx",
+        "crc32": "a557e653",
+        "faces": 134
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "collision",
+        "target": "SouthDeck_QP04_coll",
+        "why": "THUGPRO's own collision (4 faces): a fix or invisible wall in no THPS3 file",
+        "archive": "FOUNcol.prx",
+        "file": "levels\\foun\\foun.col.xbx",
+        "crc32": "b7211d59",
+        "faces": 4
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "collision",
+        "target": "SouthDeck_QP01_coll",
+        "why": "THUGPRO's own collision (4 faces): a fix or invisible wall in no THPS3 file",
+        "archive": "FOUNcol.prx",
+        "file": "levels\\foun\\foun.col.xbx",
+        "crc32": "2bcf7a5f",
+        "faces": 4
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "collision",
+        "target": "Trench_HP04_Back_coll",
+        "why": "THUGPRO's own collision (4 faces): a fix or invisible wall in no THPS3 file",
+        "archive": "FOUNcol.prx",
+        "file": "levels\\foun\\foun.col.xbx",
+        "crc32": "fd257f68",
+        "faces": 4
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "SouthDeck_QP01_coll",
+        "why": "THUGPRO's own geometry node - in no THPS3 file",
+        "archive": "FOUN_scripts.prx",
+        "file": "levels\\foun\\foun.qb",
+        "crc32": "6dcdd772"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "SouthDeck_QP04_coll",
+        "why": "THUGPRO's own geometry node - in no THPS3 file",
+        "archive": "FOUN_scripts.prx",
+        "file": "levels\\foun\\foun.qb",
+        "crc32": "b78f7ac7"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "Trench_HP04_Back_coll",
+        "why": "THUGPRO's own geometry node - in no THPS3 file",
+        "archive": "FOUN_scripts.prx",
+        "file": "levels\\foun\\foun.qb",
+        "crc32": "48e37c4e"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "foun_wire",
+        "why": "THUGPRO's own geometry node - in no THPS3 file",
+        "archive": "FOUN_scripts.prx",
+        "file": "levels\\foun\\foun.qb",
+        "crc32": "f156deeb"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "Obj_Bucket",
+        "why": "THUGPRO made THPS3's gameobject a Vehicle with its own model (collides, moves as one)",
+        "archive": "FOUN_scripts.prx",
+        "file": "levels\\foun\\foun.qb",
+        "crc32": "47283657",
+        "fields": {
+          "Class": "Vehicle",
+          "model": "Obj_Bucket\\Obj_Bucket.mdl"
+        },
+        "drop_sector": true
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "model",
+        "target": "obj_bucket",
+        "why": "THUGPRO's model for Obj_Bucket",
+        "archive": "FOUN_scripts.prx",
+        "files": {
+          "models\\Obj_Bucket\\Obj_Bucket.mdl.xbx": "c10e65e9",
+          "models\\Obj_Bucket\\Obj_Bucket.col.xbx": "8d51eb01",
+          "models\\Obj_Bucket\\Obj_Bucket.tex.xbx": "cc75b999"
+        }
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "LoadAllParticleTextures",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "FOUN_scripts.prx",
+        "file": "levels\\foun\\foun.qb",
+        "crc32": "e6a75d6f",
+        "context": "none"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "Foun_TP_Particle_ValveSteamScript",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "FOUN_scripts.prx",
+        "file": "levels\\foun\\foun.qb",
+        "crc32": "82b196f4",
+        "context": "object"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "Foun_TP_Particle_PressSteamScript",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "FOUN_scripts.prx",
+        "file": "levels\\foun\\foun.qb",
+        "crc32": "e0c86961",
+        "context": "object"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "load_level_anims",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "FOUN_scripts.prx",
+        "file": "levels\\foun\\foun.qb",
+        "crc32": "000ce350",
+        "context": "none"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "NODE_TEST_SCRIPT",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "FOUN_scripts.prx",
+        "file": "levels\\foun\\foun.qb",
+        "crc32": "09857e48",
+        "context": "none",
+        "replace_calls": {
+          "Output": "printf"
+        }
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "Foun_Goals",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "FOUN_scripts.prx",
+        "file": "levels\\foun\\foun_scripts.qb",
+        "crc32": "a22b4609",
+        "context": "none"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "CJR_Foun_Fire_Soaker_Scripts2",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "FOUN_scripts.prx",
+        "file": "levels\\foun\\foun_scripts.qb",
+        "crc32": "19d9c41a",
+        "context": "none"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "CJR_Foun_Soaker_Trigger2",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "FOUN_scripts.prx",
+        "file": "levels\\foun\\foun_scripts.qb",
+        "crc32": "ec4fcb9f",
+        "context": "none"
+      }
+    ],
+    "rio": [
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "collision",
+        "target": "ES_Building_collision",
+        "why": "THUGPRO's own collision (4 faces): a fix or invisible wall in no THPS3 file",
+        "archive": "RIOcol.prx",
+        "file": "levels\\rio\\rio.col.xbx",
+        "crc32": "8dd3f28e",
+        "faces": 4
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_Node_2076",
+        "why": "THUGPRO's own - node - in no THPS3 file",
+        "archive": "RIO_scripts.prx",
+        "file": "levels\\rio\\rio.qb",
+        "crc32": "6aeb57ff",
+        "links": [
+          "TRG_Node_2077"
+        ]
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_Node_2077",
+        "why": "THUGPRO's own - node - in no THPS3 file",
+        "archive": "RIO_scripts.prx",
+        "file": "levels\\rio\\rio.qb",
+        "crc32": "27ed1746",
+        "links": [
+          "TRG_Node_2078"
+        ]
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_Node_2078",
+        "why": "THUGPRO's own - node - in no THPS3 file",
+        "archive": "RIO_scripts.prx",
+        "file": "levels\\rio\\rio.qb",
+        "crc32": "1566cebd",
+        "links": [
+          "TRG_Node_2079"
+        ]
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_Node_2079",
+        "why": "THUGPRO's own - node - in no THPS3 file",
+        "archive": "RIO_scripts.prx",
+        "file": "levels\\rio\\rio.qb",
+        "crc32": "60e97b6a",
+        "links": [
+          "TRG_Node_2080"
+        ]
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_Node_2080",
+        "why": "THUGPRO's own - node - in no THPS3 file",
+        "archive": "RIO_scripts.prx",
+        "file": "levels\\rio\\rio.qb",
+        "crc32": "df7d3430",
+        "links": [
+          "TRG_Node_2081"
+        ]
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_Node_2081",
+        "why": "THUGPRO's own - node - in no THPS3 file",
+        "archive": "RIO_scripts.prx",
+        "file": "levels\\rio\\rio.qb",
+        "crc32": "8dc72980",
+        "links": [
+          "TRG_Node_2082"
+        ]
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_Node_2082",
+        "why": "THUGPRO's own - node - in no THPS3 file",
+        "archive": "RIO_scripts.prx",
+        "file": "levels\\rio\\rio.qb",
+        "crc32": "9706fd90",
+        "links": [
+          "TRG_Node_2083"
+        ]
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_Node_2083",
+        "why": "THUGPRO's own - node - in no THPS3 file",
+        "archive": "RIO_scripts.prx",
+        "file": "levels\\rio\\rio.qb",
+        "crc32": "bfc140db",
+        "links": [
+          "TRG_Node_2076"
+        ]
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_Ped_2084",
+        "why": "THUGPRO's own pedestrian node - in no THPS3 file",
+        "archive": "RIO_scripts.prx",
+        "file": "levels\\rio\\rio.qb",
+        "crc32": "32c7d282",
+        "links": [
+          "TRG_Node_2076"
+        ]
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "rio_tp_snd_Fountain01",
+        "why": "THUGPRO's own gameobject node - in no THPS3 file",
+        "archive": "RIO_scripts.prx",
+        "file": "levels\\rio\\rio.qb",
+        "crc32": "2dc9c62f"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "rio_tp_snd_transformer01",
+        "why": "THUGPRO's own gameobject node - in no THPS3 file",
+        "archive": "RIO_scripts.prx",
+        "file": "levels\\rio\\rio.qb",
+        "crc32": "4a20ef0b"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "rio_tp_snd_transformer02",
+        "why": "THUGPRO's own gameobject node - in no THPS3 file",
+        "archive": "RIO_scripts.prx",
+        "file": "levels\\rio\\rio.qb",
+        "crc32": "8ba5a33d"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_Car_PathC_Car_OldsBlue01_carplant_collision",
+        "why": "THUGPRO's own vehicle node - in no THPS3 file",
+        "archive": "RIO_scripts.prx",
+        "file": "levels\\rio\\rio.qb",
+        "crc32": "c88d1337",
+        "add_flags": [
+          "CreatedAtStart"
+        ],
+        "adapt_why": "THUGPRO creates it from its rewrite of the car's THPS3 trigger script (THUGPRO_ForceCreate); ours makes THUG2's cars with our own script, there from the start - so is this"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_Car_PathB_Car_MicroBusGrey01_carplant_collision",
+        "why": "THUGPRO's own vehicle node - in no THPS3 file",
+        "archive": "RIO_scripts.prx",
+        "file": "levels\\rio\\rio.qb",
+        "crc32": "533e6001",
+        "add_flags": [
+          "CreatedAtStart"
+        ],
+        "adapt_why": "THUGPRO creates it from its rewrite of the car's THPS3 trigger script (THUGPRO_ForceCreate); ours makes THUG2's cars with our own script, there from the start - so is this"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_Car_PathB_Car_2CVGrey01_carplant_collision",
+        "why": "THUGPRO's own vehicle node - in no THPS3 file",
+        "archive": "RIO_scripts.prx",
+        "file": "levels\\rio\\rio.qb",
+        "crc32": "ddcb2850",
+        "add_flags": [
+          "CreatedAtStart"
+        ],
+        "adapt_why": "THUGPRO creates it from its rewrite of the car's THPS3 trigger script (THUGPRO_ForceCreate); ours makes THUG2's cars with our own script, there from the start - so is this"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_Car_PathC_Car_Police01_carplant_collision",
+        "why": "THUGPRO's own vehicle node - in no THPS3 file",
+        "archive": "RIO_scripts.prx",
+        "file": "levels\\rio\\rio.qb",
+        "crc32": "987d08b1",
+        "add_flags": [
+          "CreatedAtStart"
+        ],
+        "adapt_why": "THUGPRO creates it from its rewrite of the car's THPS3 trigger script (THUGPRO_ForceCreate); ours makes THUG2's cars with our own script, there from the start - so is this"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_Car_PathA_Car_2CVYellow01_carplant_collision",
+        "why": "THUGPRO's own vehicle node - in no THPS3 file",
+        "archive": "RIO_scripts.prx",
+        "file": "levels\\rio\\rio.qb",
+        "crc32": "95b45731",
+        "add_flags": [
+          "CreatedAtStart"
+        ],
+        "adapt_why": "THUGPRO creates it from its rewrite of the car's THPS3 trigger script (THUGPRO_ForceCreate); ours makes THUG2's cars with our own script, there from the start - so is this"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_Car_PathA_Car_OldsBeige01_carplant_collision",
+        "why": "THUGPRO's own vehicle node - in no THPS3 file",
+        "archive": "RIO_scripts.prx",
+        "file": "levels\\rio\\rio.qb",
+        "crc32": "f306380d",
+        "add_flags": [
+          "CreatedAtStart"
+        ],
+        "adapt_why": "THUGPRO creates it from its rewrite of the car's THPS3 trigger script (THUGPRO_ForceCreate); ours makes THUG2's cars with our own script, there from the start - so is this"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_Car_PathD_Car_BigBus01_carplant_collision",
+        "why": "THUGPRO's own vehicle node - in no THPS3 file",
+        "archive": "RIO_scripts.prx",
+        "file": "levels\\rio\\rio.qb",
+        "crc32": "cff41c2c",
+        "add_flags": [
+          "CreatedAtStart"
+        ],
+        "adapt_why": "THUGPRO creates it from its rewrite of the car's THPS3 trigger script (THUGPRO_ForceCreate); ours makes THUG2's cars with our own script, there from the start - so is this"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_Car_PathD_Car_BigBus02_carplant_collision",
+        "why": "THUGPRO's own vehicle node - in no THPS3 file",
+        "archive": "RIO_scripts.prx",
+        "file": "levels\\rio\\rio.qb",
+        "crc32": "464a51e6",
+        "add_flags": [
+          "CreatedAtStart"
+        ],
+        "adapt_why": "THUGPRO creates it from its rewrite of the car's THPS3 trigger script (THUGPRO_ForceCreate); ours makes THUG2's cars with our own script, there from the start - so is this"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "ES_Building_collision",
+        "why": "THUGPRO's own geometry node - in no THPS3 file",
+        "archive": "RIO_scripts.prx",
+        "file": "levels\\rio\\rio.qb",
+        "crc32": "b8cf7ec6"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "model",
+        "target": "carplantnode",
+        "why": "THUGPRO's model for TRG_Car_PathC_Car_OldsBlue01_carplant_collision",
+        "archive": "RIO_scripts.prx",
+        "files": {
+          "models\\CarPlantNode\\CarPlantNode.col.xbx": "48e5e63b",
+          "models\\CarPlantNode\\CarPlantNode.mdl.xbx": "c2a6c70b",
+          "models\\CarPlantNode\\CarPlantNode.tex.xbx": "11a9b822"
+        }
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "model",
+        "target": "carplantnode_bus",
+        "why": "THUGPRO's model for TRG_Car_PathD_Car_BigBus01_carplant_collision",
+        "archive": "RIO_scripts.prx",
+        "files": {
+          "models\\CarPlantNode_Bus\\CarPlantNode_Bus.col.xbx": "7843722e",
+          "models\\CarPlantNode_Bus\\CarPlantNode_Bus.mdl.xbx": "a391e5f3",
+          "models\\CarPlantNode_Bus\\CarPlantNode_Bus.tex.xbx": "11a9b822"
+        }
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "TRG_Car_PathC_Car_OldsBlue01_carplant_collisionScript",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "RIO_scripts.prx",
+        "file": "levels\\rio\\rio.qb",
+        "crc32": "f0bb7cb6",
+        "context": "object"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "TRG_Car_PathB_Car_MicroBusGrey01_carplant_collisionScript",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "RIO_scripts.prx",
+        "file": "levels\\rio\\rio.qb",
+        "crc32": "276f7d98",
+        "context": "object"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "TRG_Car_PathB_Car_2CVGrey01_carplant_collisionScript",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "RIO_scripts.prx",
+        "file": "levels\\rio\\rio.qb",
+        "crc32": "abbc7da1",
+        "context": "object"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "TRG_Car_PathC_Car_Police01_carplant_collisionScript",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "RIO_scripts.prx",
+        "file": "levels\\rio\\rio.qb",
+        "crc32": "0182a24e",
+        "context": "object"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "TRG_Car_PathA_Car_2CVYellow01_carplant_collisionScript",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "RIO_scripts.prx",
+        "file": "levels\\rio\\rio.qb",
+        "crc32": "de05a19f",
+        "context": "object"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "TRG_Car_PathA_Car_OldsBeige01_carplant_collisionScript",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "RIO_scripts.prx",
+        "file": "levels\\rio\\rio.qb",
+        "crc32": "e6c4a5fb",
+        "context": "object"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "TRG_Car_PathD_Car_BigBus01_carplant_collisionScript",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "RIO_scripts.prx",
+        "file": "levels\\rio\\rio.qb",
+        "crc32": "3dd51987",
+        "context": "object"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "TRG_Car_PathD_Car_BigBus02_carplant_collisionScript",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "RIO_scripts.prx",
+        "file": "levels\\rio\\rio.qb",
+        "crc32": "f250ed3c",
+        "context": "object"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "load_level_anims",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "RIO_scripts.prx",
+        "file": "levels\\rio\\rio.qb",
+        "crc32": "000ce350",
+        "context": "none"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "rio_tp_snd_Fountain01Script",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "RIO_scripts.prx",
+        "file": "levels\\rio\\rio.qb",
+        "crc32": "e56e1f6d",
+        "context": "object"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "rio_tp_snd_transformer01Script",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "RIO_scripts.prx",
+        "file": "levels\\rio\\rio.qb",
+        "crc32": "8d98da1e",
+        "context": "object"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "rio_tp_snd_transformer02Script",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "RIO_scripts.prx",
+        "file": "levels\\rio\\rio.qb",
+        "crc32": "b8756c4d",
+        "context": "object"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "TRG_Ped_2084Script",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "RIO_scripts.prx",
+        "file": "levels\\rio\\rio.qb",
+        "crc32": "ae9c1633",
+        "context": "object"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "RIO_CREATE_ALL_OBJECTS",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "RIO_scripts.prx",
+        "file": "levels\\rio\\rio_scripts.qb",
+        "crc32": "c669c286",
+        "context": "none"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "Rio_Goals",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "RIO_scripts.prx",
+        "file": "levels\\rio\\rio_scripts.qb",
+        "crc32": "eb3acb07",
+        "context": "none"
+      }
+    ],
+    "sub": [
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "collision",
+        "target": "SUB_TRamp06_collfix",
+        "why": "THUGPRO's own collision (8 faces): a fix or invisible wall in no THPS3 file",
+        "archive": "SUBcol.prx",
+        "file": "levels\\sub\\sub.col.xbx",
+        "crc32": "6e950993",
+        "faces": 8
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "collision",
+        "target": "SUB_TRamp04_collfix",
+        "why": "THUGPRO's own collision (8 faces): a fix or invisible wall in no THPS3 file",
+        "archive": "SUBcol.prx",
+        "file": "levels\\sub\\sub.col.xbx",
+        "crc32": "e6511846",
+        "faces": 8
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "collision",
+        "target": "SUB_plywood_08_collfix",
+        "why": "THUGPRO's own collision (24 faces): a fix or invisible wall in no THPS3 file",
+        "archive": "SUBcol.prx",
+        "file": "levels\\sub\\sub.col.xbx",
+        "crc32": "dabf8c03",
+        "faces": 24
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "collision",
+        "target": "SUB_HHBYardWall_collfix",
+        "why": "THUGPRO's own collision (192 faces): a fix or invisible wall in no THPS3 file",
+        "archive": "SUBcol.prx",
+        "file": "levels\\sub\\sub.col.xbx",
+        "crc32": "2b2d05dd",
+        "faces": 192
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "collision",
+        "target": "Inviso_PicnicCollide01_collfix",
+        "why": "THUGPRO's own collision (28 faces): a fix or invisible wall in no THPS3 file",
+        "archive": "SUBcol.prx",
+        "file": "levels\\sub\\sub.col.xbx",
+        "crc32": "a37e39a0",
+        "faces": 28
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_BBQ_BurningNoise",
+        "why": "THUGPRO's own levelobject node - in no THPS3 file",
+        "archive": "SUB_scripts.prx",
+        "file": "levels\\sub\\sub.qb",
+        "crc32": "2da5d451"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "SUB_TRamp06_collfix",
+        "why": "THUGPRO's own geometry node - in no THPS3 file",
+        "archive": "SUB_scripts.prx",
+        "file": "levels\\sub\\sub.qb",
+        "crc32": "bdaf599d"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "SUB_TRamp04_collfix",
+        "why": "THUGPRO's own geometry node - in no THPS3 file",
+        "archive": "SUB_scripts.prx",
+        "file": "levels\\sub\\sub.qb",
+        "crc32": "2ff3e6de"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "SUB_plywood_08_collfix",
+        "why": "THUGPRO's own geometry node - in no THPS3 file",
+        "archive": "SUB_scripts.prx",
+        "file": "levels\\sub\\sub.qb",
+        "crc32": "1a7befad"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "SUB_HHBYardWall_collfix",
+        "why": "THUGPRO's own geometry node - in no THPS3 file",
+        "archive": "SUB_scripts.prx",
+        "file": "levels\\sub\\sub.qb",
+        "crc32": "1f20ecaf"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "Inviso_PicnicCollide01_collfix",
+        "why": "THUGPRO's own geometry node - in no THPS3 file",
+        "archive": "SUB_scripts.prx",
+        "file": "levels\\sub\\sub.qb",
+        "crc32": "cf56423a"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_IceCreamTruck_Carplant_collision",
+        "why": "THUGPRO's own vehicle node - in no THPS3 file",
+        "archive": "SUB_scripts.prx",
+        "file": "levels\\sub\\sub.qb",
+        "crc32": "752ab407"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_IceCreamTruck",
+        "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
+        "archive": "SUB_scripts.prx",
+        "file": "levels\\sub\\sub.qb",
+        "crc32": "77e9b091",
+        "fields": {
+          "Class": "Vehicle",
+          "model": "icecreamtruck\\icecreamtruck.mdl",
+          "skeletonName": "car"
+        },
+        "drop_sector": true
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_Plane",
+        "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
+        "archive": "SUB_scripts.prx",
+        "file": "levels\\sub\\sub.qb",
+        "crc32": "a6903024",
+        "fields": {
+          "Class": "Vehicle",
+          "model": "light_airplane01\\light_airplane01.mdl"
+        },
+        "drop_sector": true
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "model",
+        "target": "carplantnode",
+        "why": "THUGPRO's model for TRG_IceCreamTruck_Carplant_collision",
+        "archive": "SUB_scripts.prx",
+        "files": {
+          "models\\CarPlantNode\\CarPlantNode.col.xbx": "48e5e63b",
+          "models\\CarPlantNode\\CarPlantNode.mdl.xbx": "c2a6c70b",
+          "models\\CarPlantNode\\CarPlantNode.tex.xbx": "11a9b822"
+        }
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "model",
+        "target": "icecreamtruck",
+        "why": "THUGPRO's model for TRG_IceCreamTruck",
+        "archive": "SUB_scripts.prx",
+        "files": {
+          "models\\icecreamtruck\\icecreamtruck.col.xbx": "ddff4238",
+          "models\\icecreamtruck\\icecreamtruck.mdl.xbx": "a3079741",
+          "models\\icecreamtruck\\icecreamtruck.tex.xbx": "aeda6ddd"
+        }
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "model",
+        "target": "light_airplane01",
+        "why": "THUGPRO's model for TRG_Plane",
+        "archive": "SUB_scripts.prx",
+        "files": {
+          "models\\light_airplane01\\light_airplane01.col.xbx": "8d575dfe",
+          "models\\light_airplane01\\light_airplane01.mdl.xbx": "4d4f86ec",
+          "models\\light_airplane01\\light_airplane01.tex.xbx": "37a6863a"
+        }
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "TRG_CTF_Blue_BaseScript",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "SUB_scripts.prx",
+        "file": "levels\\sub\\sub.qb",
+        "crc32": "ced90aaa",
+        "context": "none"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "TRG_CTF_Red_BaseScript",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "SUB_scripts.prx",
+        "file": "levels\\sub\\sub.qb",
+        "crc32": "e0efe323",
+        "context": "none"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "TRG_CTF_Yellow_BaseScript",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "SUB_scripts.prx",
+        "file": "levels\\sub\\sub.qb",
+        "crc32": "ede0e19e",
+        "context": "none"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "TRG_CTF_Green_BaseScript",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "SUB_scripts.prx",
+        "file": "levels\\sub\\sub.qb",
+        "crc32": "52b44c45",
+        "context": "none"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "TRG_IceCreamTruck_Carplant_collisionScript",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "SUB_scripts.prx",
+        "file": "levels\\sub\\sub.qb",
+        "crc32": "06daf1a6",
+        "context": "object"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "load_level_particle_textures",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "SUB_scripts.prx",
+        "file": "levels\\sub\\sub.qb",
+        "crc32": "fbb06d76",
+        "context": "none"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "NextParticleTorch_Script",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "SUB_scripts.prx",
+        "file": "levels\\sub\\sub.qb",
+        "crc32": "aeda2d30",
+        "context": "object"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "NextParticleHouseFlame_Script",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "SUB_scripts.prx",
+        "file": "levels\\sub\\sub.qb",
+        "crc32": "ce5d397c",
+        "context": "object"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "BBQ_FLAMES_Script",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "SUB_scripts.prx",
+        "file": "levels\\sub\\sub.qb",
+        "crc32": "37f98793",
+        "context": "object"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "emit_apm_SUB_leafTrail01_particle",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "SUB_scripts.prx",
+        "file": "levels\\sub\\sub.qb",
+        "crc32": "317cd409",
+        "context": "none"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "load_level_anims",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "SUB_scripts.prx",
+        "file": "levels\\sub\\sub.qb",
+        "crc32": "46b76a72",
+        "context": "none"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "THUGPRO_TriggerKillSkater_Plane",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "SUB_scripts.prx",
+        "file": "levels\\sub\\sub_scripts.qb",
+        "crc32": "66923617",
+        "context": "none"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "Sub_KillSkater_Plane",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "SUB_scripts.prx",
+        "file": "levels\\sub\\sub_scripts.qb",
+        "crc32": "c7d7af68",
+        "context": "none"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "SUB_THUGPRO_BreakBoards",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "SUB_scripts.prx",
+        "file": "levels\\sub\\sub_scripts.qb",
+        "crc32": "663a1070",
+        "context": "none"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "Sub_Goals",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "SUB_scripts.prx",
+        "file": "levels\\sub\\sub_scripts.qb",
+        "crc32": "1048167e",
+        "context": "none"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "emit_apm_SUB_bbqflames01_particle",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "SUB_scripts.prx",
+        "file": "levels\\sub\\sub_scripts.qb",
+        "crc32": "bffca9d5",
+        "context": "none"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "emit_apm_SUB_torchflames01_particle",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "SUB_scripts.prx",
+        "file": "levels\\sub\\sub_scripts.qb",
+        "crc32": "5e024515",
+        "context": "none"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "emit_apm_SUB_HouseSmoke_particle",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "SUB_scripts.prx",
+        "file": "levels\\sub\\sub_scripts.qb",
+        "crc32": "23227bd5",
+        "context": "none"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "emit_apm_SUB_HouseFlame_particle",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "SUB_scripts.prx",
+        "file": "levels\\sub\\sub_scripts.qb",
+        "crc32": "460eb13d",
+        "context": "none"
+      }
+    ],
+    "si": [
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_SFX_SOB_OceanWaves01",
+        "why": "THUGPRO's own emitterobject node - in no THPS3 file",
+        "archive": "SI_scripts.prx",
+        "file": "levels\\si\\si.qb",
+        "crc32": "d142ae52"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_SFX_SOB_OceanWaves02",
+        "why": "THUGPRO's own emitterobject node - in no THPS3 file",
+        "archive": "SI_scripts.prx",
+        "file": "levels\\si\\si.qb",
+        "crc32": "163d7e2b"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "load_level_fast_particle_textures",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "SI_scripts.prx",
+        "file": "levels\\si\\si.qb",
+        "crc32": "ed7f755d",
+        "context": "none"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "NextParticleFire01Script",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "SI_scripts.prx",
+        "file": "levels\\si\\si.qb",
+        "crc32": "5fdd2611",
+        "context": "object"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "NextParticleSprinklerScript",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "SI_scripts.prx",
+        "file": "levels\\si\\si.qb",
+        "crc32": "d880c55d",
+        "context": "object"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "load_level_anims",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "SI_scripts.prx",
+        "file": "levels\\si\\si.qb",
+        "crc32": "aaa73b11",
+        "context": "none"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "SI_Goals",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "SI_scripts.prx",
+        "file": "levels\\si\\si_scripts.qb",
+        "crc32": "c8003197",
+        "context": "none"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "SI_SFX_OceanWaves01",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "SI_scripts.prx",
+        "file": "levels\\si\\si_scripts.qb",
+        "crc32": "025d2619",
+        "context": "none",
+        "replace_calls": {
+          "edmsg2": "printf"
+        }
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "SI_SFX_OceanWaves02",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "SI_scripts.prx",
+        "file": "levels\\si\\si_scripts.qb",
+        "crc32": "7912d217",
+        "context": "none",
+        "replace_calls": {
+          "edmsg2": "printf"
+        }
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "SITRG_ProximityOceanScript",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SI_scripts.prx",
+        "file": "levels\\si\\si.qb",
+        "crc32": "7919df6d",
+        "replaces": true,
+        "context": "none"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "SITRG_ProximityOcean01Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SI_scripts.prx",
+        "file": "levels\\si\\si.qb",
+        "crc32": "8b246818",
+        "replaces": true,
+        "context": "none"
+      }
+    ],
+    "tok": [
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_Restart_EventR",
+        "why": "THUGPRO's own restart node - in no THPS3 file",
+        "archive": "TOK_scripts.prx",
+        "file": "levels\\tok\\tok.qb",
+        "crc32": "2cdbdec5"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_Restart_EventL",
+        "why": "THUGPRO's own restart node - in no THPS3 file",
+        "archive": "TOK_scripts.prx",
+        "file": "levels\\tok\\tok.qb",
+        "crc32": "a1f30ef9"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_CarSW01",
+        "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
+        "archive": "TOK_scripts.prx",
+        "file": "levels\\tok\\tok.qb",
+        "crc32": "95202bc7",
+        "fields": {
+          "Class": "Vehicle",
+          "model": "veh\\Veh_Smart_car\\Veh_Smart_car.mdl",
+          "skeletonName": "car"
+        },
+        "drop_sector": true
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_shinkansenEast",
+        "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
+        "archive": "TOK_scripts.prx",
+        "file": "levels\\tok\\tok.qb",
+        "crc32": "f9064f3f",
+        "fields": {
+          "Class": "Vehicle",
+          "model": "bullet_train\\bullet_train.mdl"
+        },
+        "drop_sector": true
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_shinkansenwest",
+        "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
+        "archive": "TOK_scripts.prx",
+        "file": "levels\\tok\\tok.qb",
+        "crc32": "99915303",
+        "fields": {
+          "Class": "Vehicle",
+          "model": "bullet_train\\bullet_train.mdl"
+        },
+        "drop_sector": true
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_Plane_NorthWest",
+        "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
+        "archive": "TOK_scripts.prx",
+        "file": "levels\\tok\\tok.qb",
+        "crc32": "3348b204",
+        "fields": {
+          "Class": "Vehicle",
+          "model": "plane_jet\\plane_jet.mdl"
+        },
+        "drop_sector": true
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_Plane_SouthWest",
+        "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
+        "archive": "TOK_scripts.prx",
+        "file": "levels\\tok\\tok.qb",
+        "crc32": "2a387c0c",
+        "fields": {
+          "Class": "Vehicle",
+          "model": "plane_jet\\plane_jet.mdl"
+        },
+        "drop_sector": true
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_Plane_East",
+        "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
+        "archive": "TOK_scripts.prx",
+        "file": "levels\\tok\\tok.qb",
+        "crc32": "d7198cc1",
+        "fields": {
+          "Class": "Vehicle",
+          "model": "plane_jet\\plane_jet.mdl"
+        },
+        "drop_sector": true
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_CarSW02",
+        "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
+        "archive": "TOK_scripts.prx",
+        "file": "levels\\tok\\tok.qb",
+        "crc32": "103451bb",
+        "fields": {
+          "Class": "Vehicle",
+          "model": "veh\\Veh_Focus\\Veh_Focus.mdl",
+          "skeletonName": "car"
+        },
+        "drop_sector": true
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_CarSW03",
+        "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
+        "archive": "TOK_scripts.prx",
+        "file": "levels\\tok\\tok.qb",
+        "crc32": "d61b4b89",
+        "fields": {
+          "Class": "Vehicle",
+          "model": "veh\\Veh_Galaxie\\Veh_Galaxie.mdl",
+          "skeletonName": "car"
+        },
+        "drop_sector": true
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_CarSE01",
+        "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
+        "archive": "TOK_scripts.prx",
+        "file": "levels\\tok\\tok.qb",
+        "crc32": "81dce0cd",
+        "fields": {
+          "Class": "Vehicle",
+          "model": "veh\\Veh_Galaxie\\Veh_Galaxie.mdl",
+          "skeletonName": "car"
+        },
+        "drop_sector": true
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_CarSE02",
+        "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
+        "archive": "TOK_scripts.prx",
+        "file": "levels\\tok\\tok.qb",
+        "crc32": "58b8fbc8",
+        "fields": {
+          "Class": "Vehicle",
+          "model": "veh\\Veh_Galaxie\\Veh_Galaxie.mdl",
+          "skeletonName": "car"
+        },
+        "drop_sector": true
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_CarSE03",
+        "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
+        "archive": "TOK_scripts.prx",
+        "file": "levels\\tok\\tok.qb",
+        "crc32": "67353591",
+        "fields": {
+          "Class": "Vehicle",
+          "model": "veh\\Veh_Focus\\Veh_Focus.mdl",
+          "skeletonName": "car"
+        },
+        "drop_sector": true
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_CarNE01",
+        "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
+        "archive": "TOK_scripts.prx",
+        "file": "levels\\tok\\tok.qb",
+        "crc32": "19f187a2",
+        "fields": {
+          "Class": "Vehicle",
+          "model": "veh\\Veh_Smart_car\\Veh_Smart_car.mdl",
+          "skeletonName": "car"
+        },
+        "drop_sector": true
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_CarNW01",
+        "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
+        "archive": "TOK_scripts.prx",
+        "file": "levels\\tok\\tok.qb",
+        "crc32": "66e516d8",
+        "fields": {
+          "Class": "Vehicle",
+          "model": "veh\\Veh_Smart_car\\Veh_Smart_car.mdl",
+          "skeletonName": "car"
+        },
+        "drop_sector": true
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_CarNE02",
+        "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
+        "archive": "TOK_scripts.prx",
+        "file": "levels\\tok\\tok.qb",
+        "crc32": "79924039",
+        "fields": {
+          "Class": "Vehicle",
+          "model": "veh\\Veh_Galaxie\\Veh_Galaxie.mdl",
+          "skeletonName": "car"
+        },
+        "drop_sector": true
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_CarNE03",
+        "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
+        "archive": "TOK_scripts.prx",
+        "file": "levels\\tok\\tok.qb",
+        "crc32": "77a0e048",
+        "fields": {
+          "Class": "Vehicle",
+          "model": "veh\\Veh_Focus\\Veh_Focus.mdl",
+          "skeletonName": "car"
+        },
+        "drop_sector": true
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_CarNW02",
+        "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
+        "archive": "TOK_scripts.prx",
+        "file": "levels\\tok\\tok.qb",
+        "crc32": "7f60e2b0",
+        "fields": {
+          "Class": "Vehicle",
+          "model": "veh\\Veh_Focus\\Veh_Focus.mdl",
+          "skeletonName": "car"
+        },
+        "drop_sector": true
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_CarNW03",
+        "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
+        "archive": "TOK_scripts.prx",
+        "file": "levels\\tok\\tok.qb",
+        "crc32": "91fbb350",
+        "fields": {
+          "Class": "Vehicle",
+          "model": "veh\\Veh_Galaxie\\Veh_Galaxie.mdl",
+          "skeletonName": "car"
+        },
+        "drop_sector": true
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_CarNW04",
+        "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
+        "archive": "TOK_scripts.prx",
+        "file": "levels\\tok\\tok.qb",
+        "crc32": "ba8c18a2",
+        "fields": {
+          "Class": "Vehicle",
+          "model": "veh\\Veh_Focus\\Veh_Focus.mdl",
+          "skeletonName": "car"
+        },
+        "drop_sector": true
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_CarNW05",
+        "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
+        "archive": "TOK_scripts.prx",
+        "file": "levels\\tok\\tok.qb",
+        "crc32": "28ea7c70",
+        "fields": {
+          "Class": "Vehicle",
+          "model": "veh\\Veh_Smart_car\\Veh_Smart_car.mdl",
+          "skeletonName": "car"
+        },
+        "drop_sector": true
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_CarNW06",
+        "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
+        "archive": "TOK_scripts.prx",
+        "file": "levels\\tok\\tok.qb",
+        "crc32": "bb04499e",
+        "fields": {
+          "Class": "Vehicle",
+          "model": "veh\\Veh_Galaxie\\Veh_Galaxie.mdl",
+          "skeletonName": "car"
+        },
+        "drop_sector": true
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_CarNE04",
+        "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
+        "archive": "TOK_scripts.prx",
+        "file": "levels\\tok\\tok.qb",
+        "crc32": "c0d98bdc",
+        "fields": {
+          "Class": "Vehicle",
+          "model": "veh\\Veh_Focus\\Veh_Focus.mdl",
+          "skeletonName": "car"
+        },
+        "drop_sector": true
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_CarNE05",
+        "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
+        "archive": "TOK_scripts.prx",
+        "file": "levels\\tok\\tok.qb",
+        "crc32": "9adda6eb",
+        "fields": {
+          "Class": "Vehicle",
+          "model": "veh\\Veh_Smart_car\\Veh_Smart_car.mdl",
+          "skeletonName": "car"
+        },
+        "drop_sector": true
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "TRG_CarNE06",
+        "why": "THUGPRO made THPS3's vehicle a Vehicle with its own model (collides, moves as one)",
+        "archive": "TOK_scripts.prx",
+        "file": "levels\\tok\\tok.qb",
+        "crc32": "4f6eeb30",
+        "fields": {
+          "Class": "Vehicle",
+          "model": "veh\\Veh_Galaxie\\Veh_Galaxie.mdl",
+          "skeletonName": "car"
+        },
+        "drop_sector": true
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "model",
+        "target": "bullet_train",
+        "why": "THUGPRO's model for TRG_shinkansenEast",
+        "archive": "TOK_scripts.prx",
+        "files": {
+          "models\\bullet_train\\bullet_train.mdl.xbx": "9e73c662",
+          "models\\bullet_train\\bullet_train.tex.xbx": "29d9bad3",
+          "models\\bullet_train\\bullet_train.col.xbx": "0673b8bf"
+        }
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "model",
+        "target": "plane_jet",
+        "why": "THUGPRO's model for TRG_Plane_NorthWest",
+        "archive": "TOK_scripts.prx",
+        "files": {
+          "models\\plane_jet\\plane_jet.mdl.xbx": "79678fab",
+          "models\\plane_jet\\plane_jet.tex.xbx": "1ab5e15c",
+          "models\\plane_jet\\plane_jet.col.xbx": "e059716d"
+        }
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "TokTRG_Restart_EventRScript",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "TOK_scripts.prx",
+        "file": "levels\\tok\\tok.qb",
+        "crc32": "91bc5c0a",
+        "context": "none"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "TokTRG_Restart_EventLScript",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "TOK_scripts.prx",
+        "file": "levels\\tok\\tok.qb",
+        "crc32": "8e7b8475",
+        "context": "none"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "Tok_Goals",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "TOK_scripts.prx",
+        "file": "levels\\tok\\tok_scripts.qb",
+        "crc32": "2fc51d56",
+        "context": "none"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "JS_BulletTrainWestControl_Spawned",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "TOK_scripts.prx",
+        "file": "levels\\tok\\tok_scripts.qb",
+        "crc32": "2e24109d",
+        "context": "none",
+        "replace_calls": {
+          "THUGPRO_ForceCreate": "Create"
+        }
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "JS_BulletTrainEastControl_Spawned",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "TOK_scripts.prx",
+        "file": "levels\\tok\\tok_scripts.qb",
+        "crc32": "f2e1ba2e",
+        "context": "none",
+        "replace_calls": {
+          "THUGPRO_ForceCreate": "Create"
+        }
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "JS_PlaneIdleSound",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "TOK_scripts.prx",
+        "file": "levels\\tok\\tok_scripts.qb",
+        "crc32": "5f671466",
+        "context": "none"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "JS_BulletTrainWestControl",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "TOK_scripts.prx",
+        "file": "levels\\tok\\tok_scripts.qb",
+        "crc32": "a882cb01",
+        "replaces": true,
+        "context": "none"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "JS_BulletTrainEastControl",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "TOK_scripts.prx",
+        "file": "levels\\tok\\tok_scripts.qb",
+        "crc32": "e72775b5",
+        "replaces": true,
+        "context": "none"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "JS_PlaneNorthWest",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "TOK_scripts.prx",
+        "file": "levels\\tok\\tok_scripts.qb",
+        "crc32": "1561dc8c",
+        "replaces": true,
+        "context": "none"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "JS_PlaneSouthWest",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "TOK_scripts.prx",
+        "file": "levels\\tok\\tok_scripts.qb",
+        "crc32": "85bb1008",
+        "replaces": true,
+        "context": "none"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "JS_PlaneEast",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "TOK_scripts.prx",
+        "file": "levels\\tok\\tok_scripts.qb",
+        "crc32": "245f1cbb",
+        "replaces": true,
+        "context": "none"
+      }
+    ],
+    "shp": [
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "shp_tp_snd_waterslide",
+        "why": "THUGPRO's own gameobject node - in no THPS3 file",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "f44b1081"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "LoadAllParticleTextures",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "cba3452a",
+        "context": "none"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shp_tp_snd_waterslideScript",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "44013f52",
+        "context": "object"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "load_level_anims",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "1d1161e0",
+        "context": "none"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "SHP_Goals",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp_scripts.qb",
+        "crc32": "9de40ff1",
+        "context": "none"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "SHP_TP_WindowCounter",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp_scripts.qb",
+        "crc32": "c6d50794",
+        "context": "none"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassSide01Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "847e8a33",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassSide02Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "499f794d",
+        "replaces": true,
+        "context": "skater",
+        "replace_calls": {
+          "THUGPRO_ForceCreate": "Create"
+        }
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassSide03Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "bf8166e1",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassSide04Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "27e4b1b3",
+        "replaces": true,
+        "context": "skater",
+        "replace_calls": {
+          "THUGPRO_ForceCreate": "Create"
+        }
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassSide05Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "f3815397",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassSide06Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "309ef634",
+        "replaces": true,
+        "context": "skater",
+        "replace_calls": {
+          "THUGPRO_ForceCreate": "Create"
+        }
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassSide07Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "c87ebf45",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassSide08Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "fb3b4c16",
+        "replaces": true,
+        "context": "skater",
+        "replace_calls": {
+          "THUGPRO_ForceCreate": "Create"
+        }
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassSide09Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "6b81397b",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassSide10Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "79746118",
+        "replaces": true,
+        "context": "skater",
+        "replace_calls": {
+          "THUGPRO_ForceCreate": "Create"
+        }
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassSide11Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "b00dac39",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassSide12Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "960db682",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassCenter02Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "60c090ec",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassCenter03Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "7d3f6685",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassCenter04Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "2cc0a59a",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassCenter05Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "313f53f3",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassCenter10Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "6f4c5a34",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassCenter15Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "054c75f9",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassCenter21Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "2e26c643",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassCenter27Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "6226f335",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassCenter32Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "3c55faf2",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassCenter37Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "5655d53f",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassCenter43Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "acf3fead",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassCenter09Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "a93f391f",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassCenter14Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "18b38390",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassCenter20Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "33d9302a",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassCenter26Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "7fd9055c",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassCenter31Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "1a55e049",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassCenter36Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "4baa2356",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassCenter42Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "b10c08c4",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassCenter08Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "b4c0cf76",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassCenter13Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "494c408f",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassCenter19Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "9d4c1f15",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassCenter25Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "59d91fe7",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassCenter30Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "07aa1620",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassCenter35Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "6daa39ed",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassCenter41Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "970c127f",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassCenter01Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "46c08a57",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassCenter07Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "0ac0bf21",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassCenter12Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "54b3b6e6",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassCenter18Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "80b3e97c",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassCenter24Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "4426e98e",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassCenter29Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "c1d9750b",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassCenter34Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "7055cf84",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassCenter40Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "8af3e416",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassCenter06Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "173f4948",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassCenter11Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "72b3ac5d",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassCenter23Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "15d92a91",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassCenter28Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "dc268362",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassCenter33Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "21aa0c9b",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassCenter39Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "f5aa5301",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassSide16Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "e1f26f26",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassSide17Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "37480a1e",
+        "replaces": true,
+        "context": "skater",
+        "replace_calls": {
+          "THUGPRO_ForceCreate": "Create"
+        }
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassSide18Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "420de918",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassSide19Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "609e059f",
+        "replaces": true,
+        "context": "skater",
+        "replace_calls": {
+          "THUGPRO_ForceCreate": "Create"
+        }
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassSide20Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "f167304e",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassSide21Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "b5d44cdd",
+        "replaces": true,
+        "context": "skater",
+        "replace_calls": {
+          "THUGPRO_ForceCreate": "Create"
+        }
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassSide22Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "ca98dc9c",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassSide23Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "8940bd4d",
+        "replaces": true,
+        "context": "skater",
+        "replace_calls": {
+          "THUGPRO_ForceCreate": "Create"
+        }
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassSide24Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "8698e9ea",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassSide25Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "ccd5c3a4",
+        "replaces": true,
+        "context": "skater",
+        "replace_calls": {
+          "THUGPRO_ForceCreate": "Create"
+        }
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassSide26Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "bd670538",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassSide27Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "a098f351",
+        "replaces": true,
+        "context": "skater"
+      },
+      {
+        "op": "set",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "shpsl_GlassCenter17Script",
+        "why": "THUGPRO's version of a THPS3 script, using its new nodes or scripts (replaces ours)",
+        "archive": "SHP_scripts.prx",
+        "file": "levels\\shp\\shp.qb",
+        "crc32": "3eb3992b",
+        "replaces": true,
+        "context": "skater"
+      }
+    ],
+    "ware": [
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "node",
+        "target": "Ware_RoomFlicker",
+        "why": "THUGPRO's own gameobject node - in no THPS3 file",
+        "archive": "ware_scripts.prx",
+        "file": "levels\\ware\\ware.qb",
+        "crc32": "7fb460ce"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "TRG_Ware_RoomFlicker",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "ware_scripts.prx",
+        "file": "levels\\ware\\ware.qb",
+        "crc32": "3e373127",
+        "context": "object"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "TRG_CTF_Blue_BaseScript",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "ware_scripts.prx",
+        "file": "levels\\ware\\ware.qb",
+        "crc32": "ced90aaa",
+        "context": "object"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "TRG_CTF_red_BaseScript",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "ware_scripts.prx",
+        "file": "levels\\ware\\ware.qb",
+        "crc32": "e0efe323",
+        "context": "object"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "TRG_CTF_yellow_BaseScript",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "ware_scripts.prx",
+        "file": "levels\\ware\\ware.qb",
+        "crc32": "ede0e19e",
+        "context": "object"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "TRG_CTF_green_BaseScript",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "ware_scripts.prx",
+        "file": "levels\\ware\\ware.qb",
+        "crc32": "52b44c45",
+        "context": "object"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "ware_Setup",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "ware_scripts.prx",
+        "file": "levels\\ware\\ware_scripts.qb",
+        "crc32": "91e47dc6",
+        "context": "none"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "ware_goals",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "ware_scripts.prx",
+        "file": "levels\\ware\\ware_scripts.qb",
+        "crc32": "a5578001",
+        "context": "none"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "WareTRG_Ware_TaxiRailScript",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "ware_scripts.prx",
+        "file": "levels\\ware\\ware_scripts.qb",
+        "crc32": "d6d1071d",
+        "context": "skater"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "trg_team_restartScript",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "ware_scripts.prx",
+        "file": "levels\\ware\\ware_scripts.qb",
+        "crc32": "6b912fd8",
+        "context": "none"
+      }
+    ],
+    "burn": [
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "TRG_CTF_Blue_BaseScript",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "burn_scripts.prx",
+        "file": "levels\\burn\\burn.qb",
+        "crc32": "ced90aaa",
+        "context": "object"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "TRG_CTF_Red_BaseScript",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "burn_scripts.prx",
+        "file": "levels\\burn\\burn.qb",
+        "crc32": "e0efe323",
+        "context": "object"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "TRG_CTF_Yellow_BaseScript",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "burn_scripts.prx",
+        "file": "levels\\burn\\burn.qb",
+        "crc32": "ede0e19e",
+        "context": "object"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "TRG_CTF_green_BaseScript",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "burn_scripts.prx",
+        "file": "levels\\burn\\burn.qb",
+        "crc32": "52b44c45",
+        "context": "object"
+      }
+    ],
+    "ros": [
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "Ros_Startup",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "ros_scripts.prx",
+        "file": "levels\\ros\\ros.qb",
+        "crc32": "7fcddb90",
+        "context": "none"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "ros_AutopsyDoorsCloseScript",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "ros_scripts.prx",
+        "file": "levels\\ros\\ros.qb",
+        "crc32": "c7408046",
+        "context": "none"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "ros_AutopsyDoorsOpenScript",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "ros_scripts.prx",
+        "file": "levels\\ros\\ros.qb",
+        "crc32": "57b7cb9a",
+        "context": "none"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "ros_GarageDoorsCloseScript",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "ros_scripts.prx",
+        "file": "levels\\ros\\ros.qb",
+        "crc32": "1837a413",
+        "context": "none"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "ros_GarageDoorsOpenScript",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "ros_scripts.prx",
+        "file": "levels\\ros\\ros.qb",
+        "crc32": "59bae870",
+        "context": "none"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "TRG_CTF_Blue_BaseScript",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "ros_scripts.prx",
+        "file": "levels\\ros\\ros.qb",
+        "crc32": "ced90aaa",
+        "context": "object"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "TRG_CTF_Red_BaseScript",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "ros_scripts.prx",
+        "file": "levels\\ros\\ros.qb",
+        "crc32": "e0efe323",
+        "context": "object"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "TRG_CTF_Yellow_BaseScript",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "ros_scripts.prx",
+        "file": "levels\\ros\\ros.qb",
+        "crc32": "ede0e19e",
+        "context": "object"
+      },
+      {
+        "op": "add",
+        "id": "TP-N3",
+        "kind": "script",
+        "target": "TRG_CTF_green_BaseScript",
+        "why": "THUGPRO's own script - in no THPS3 file",
+        "archive": "ros_scripts.prx",
+        "file": "levels\\ros\\ros.qb",
+        "crc32": "52b44c45",
+        "context": "object"
+      }
+    ],
+    "_left_out": {
+      "foun": [
+        {
+          "kind": "sector",
+          "target": "44 game objects' sectors",
+          "why": "THPS3's own .dff objects as THUGPRO's toolchain converted them: not new content; ours converts THPS3's .dff"
+        },
+        {
+          "kind": "script",
+          "target": "Foun_TP_Particle_MoltenSteam02Script",
+          "why": "calls what THUG2 hasn't: THUGPRO_SpawnNodeParticles"
+        },
+        {
+          "kind": "script",
+          "target": "FOUN_BucketKillSkater01",
+          "why": "calls what THUG2 hasn't: TP_DoFlash"
+        }
+      ],
+      "rio": [
+        {
+          "kind": "sector",
+          "target": "9 sky sectors (rio_sky.scn.xbx)",
+          "why": "THPS3's own sky (Rio_Sky) under THUGPRO's toolchain's checksums - 372 vertices against THPS3's 372 (welded per mesh): not new content; ours converts THPS3's sky"
+        },
+        {
+          "kind": "sector",
+          "target": "17 game objects' sectors",
+          "why": "THPS3's own .dff objects as THUGPRO's toolchain converted them: not new content; ours converts THPS3's .dff"
+        },
+        {
+          "kind": "script",
+          "target": "RIO_LEVEL_CHANGE_01",
+          "why": "calls what THUG2 hasn't: THUGPRO_SafeKill"
+        },
+        {
+          "kind": "script",
+          "target": "rio_setup",
+          "why": "calls what THUG2 hasn't: RIO_thugpro_load_cutscene_anim_01"
+        },
+        {
+          "kind": "script",
+          "target": "RIO_thugpro_load_cutscene_anim_01",
+          "why": "calls what THUG2 hasn't: Editor_LoadCameraAnimParams"
+        }
+      ],
+      "sub": [
+        {
+          "kind": "sector",
+          "target": "5 sky sectors (sub_sky.scn.xbx)",
+          "why": "THPS3's own sky (Sub_Sky) under THUGPRO's toolchain's checksums - 336 vertices against THPS3's 336 (welded per mesh): not new content; ours converts THPS3's sky"
+        },
+        {
+          "kind": "sector",
+          "target": "136 game objects' sectors",
+          "why": "THPS3's own .dff objects as THUGPRO's toolchain converted them: not new content; ours converts THPS3's .dff"
+        },
+        {
+          "kind": "node",
+          "target": "#1E448F46",
+          "why": "an unnamed levelgeometry without a sector or collision anywhere: a toolchain leftover"
+        },
+        {
+          "kind": "node",
+          "target": "#37B5AAA2",
+          "why": "an unnamed levelgeometry without a sector or collision anywhere: a toolchain leftover"
+        },
+        {
+          "kind": "node",
+          "target": "#D77EB7CF",
+          "why": "an unnamed levelgeometry without a sector or collision anywhere: a toolchain leftover"
+        },
+        {
+          "kind": "script",
+          "target": "SUB_TP_Particle_SprinklerScript",
+          "why": "calls what THUG2 hasn't: THUGPRO_SpawnNodeParticles"
+        },
+        {
+          "kind": "script",
+          "target": "NExtParticle01Script",
+          "why": "calls what THUG2 hasn't: THUGPRO_SpawnNodeParticles"
+        },
+        {
+          "kind": "script",
+          "target": "NextParticleHouseSmoke_Script",
+          "why": "calls what THUG2 hasn't: THUGPRO_SpawnNodeParticles"
+        },
+        {
+          "kind": "script",
+          "target": "killbats",
+          "why": "calls what THUG2 hasn't: THUGPRO_SafeKill"
+        },
+        {
+          "kind": "script",
+          "target": "ALF_SUB_Farter_Chill",
+          "why": "uses left-out ALF_SUB_Farter"
+        },
+        {
+          "kind": "script",
+          "target": "ALF_SUB_Farter_Fall",
+          "why": "calls what THUG2 hasn't: Obj_PlayRandomStream, Obj_PlayRandomAnim"
+        },
+        {
+          "kind": "script",
+          "target": "ALF_SUB_Farter_GetUp",
+          "why": "calls what THUG2 hasn't: Obj_PlayRandomAnim"
+        },
+        {
+          "kind": "script",
+          "target": "ALF_SUB_Light_BBQ",
+          "why": "calls what THUG2 hasn't: TP_DoFlash, Obj_PlayRandomStream"
+        },
+        {
+          "kind": "script",
+          "target": "ALF_SUB_BatsBreakWindow",
+          "why": "uses left-out killbats"
+        },
+        {
+          "kind": "script",
+          "target": "ALF_SUB_Farter",
+          "why": "uses left-out ALF_SUB_Farter_Fall"
+        }
+      ],
+      "si": [
+        {
+          "kind": "sector",
+          "target": "2 sky sectors (si_sky.scn.xbx)",
+          "why": "THPS3's own sky (SI_Sky) under THUGPRO's toolchain's checksums - 482 vertices against THPS3's 482 (welded per mesh): not new content; ours converts THPS3's sky"
+        },
+        {
+          "kind": "sector",
+          "target": "32 game objects' sectors",
+          "why": "THPS3's own .dff objects as THUGPRO's toolchain converted them: not new content; ours converts THPS3's .dff"
+        },
+        {
+          "kind": "node",
+          "target": "TRG_FireCannonsProximity01",
+          "why": "its trigger script TRG_FireCannonsProximity01Script uses left-out ALF_SI_FireCannons"
+        },
+        {
+          "kind": "script",
+          "target": "TRG_FireCannonsProximity01Script",
+          "why": "uses left-out ALF_SI_FireCannons"
+        },
+        {
+          "kind": "script",
+          "target": "SI_LEVEL_CHANGE_01",
+          "why": "calls what THUG2 hasn't: THUGPRO_SafeKill"
+        },
+        {
+          "kind": "script",
+          "target": "ALF_SI_FireCannons",
+          "why": "calls what THUG2 hasn't: THUGPRO_SafeKill"
+        },
+        {
+          "kind": "script",
+          "target": "ALF_SI_BlowDoor",
+          "why": "calls what THUG2 hasn't: THUGPRO_SafeKill"
+        },
+        {
+          "kind": "script",
+          "target": "ALF_SI_CheckFlags",
+          "why": "calls what THUG2 hasn't: THUGPRO_SafeKill"
+        }
+      ],
+      "tok": [
+        {
+          "kind": "sector",
+          "target": "1 sky sectors (tok_sky.scn.xbx)",
+          "why": "THPS3's own sky (Tok_Sky) under THUGPRO's toolchain's checksums - 74 vertices against THPS3's 74 (welded per mesh): not new content; ours converts THPS3's sky"
+        },
+        {
+          "kind": "sector",
+          "target": "15 game objects' sectors",
+          "why": "THPS3's own .dff objects as THUGPRO's toolchain converted them: not new content; ours converts THPS3's .dff"
+        },
+        {
+          "kind": "script",
+          "target": "Tok_Setup",
+          "why": "calls what THUG2 hasn't: TOK_thugpro_load_cutscene_anim_01"
+        },
+        {
+          "kind": "script",
+          "target": "TOK_thugpro_load_cutscene_anim_01",
+          "why": "calls what THUG2 hasn't: Editor_LoadCameraAnimParams"
+        },
+        {
+          "kind": "script",
+          "target": "JS_Mid_Smasher_SkaterControl",
+          "why": "calls what THUG2 hasn't: THUGPRO_Televator"
+        }
+      ],
+      "shp": [
+        {
+          "kind": "sector",
+          "target": "2 sky sectors (shp_sky.scn.xbx)",
+          "why": "THPS3's own sky (Shp_Sky) under THUGPRO's toolchain's checksums - 167 vertices against THPS3's 167 (welded per mesh): not new content; ours converts THPS3's sky"
+        },
+        {
+          "kind": "sector",
+          "target": "250 game objects' sectors",
+          "why": "THPS3's own .dff objects as THUGPRO's toolchain converted them: not new content; ours converts THPS3's .dff"
+        },
+        {
+          "kind": "node",
+          "target": "SHP_TP_Particle_Smoke",
+          "why": "its trigger script SHP_TP_Particle_SmokeScript calls what THUG2 hasn't: THUGPRO_SpawnNodeParticles"
+        },
+        {
+          "kind": "node",
+          "target": "SHP_TP_Particle_Sparks",
+          "why": "its trigger script SHP_TP_Particle_SparksScript calls what THUG2 hasn't: THUGPRO_SpawnNodeParticles"
+        },
+        {
+          "kind": "script",
+          "target": "SHP_TP_Particle_SparksScript",
+          "why": "calls what THUG2 hasn't: THUGPRO_SpawnNodeParticles"
+        },
+        {
+          "kind": "script",
+          "target": "SHP_TP_Particle_SmokeScript",
+          "why": "calls what THUG2 hasn't: THUGPRO_SpawnNodeParticles"
+        },
+        {
+          "kind": "script",
+          "target": "SHP_TP_Particle_SprinklerScript",
+          "why": "calls what THUG2 hasn't: THUGPRO_SpawnNodeParticles"
+        },
+        {
+          "kind": "script",
+          "target": "SHP_Setup",
+          "why": "calls what THUG2 hasn't: THUGPRO_SafeKill"
+        },
+        {
+          "kind": "script",
+          "target": "SHP_thugpro_load_cutscene_anim_01",
+          "why": "calls what THUG2 hasn't: Editor_LoadCameraAnimParams"
+        },
+        {
+          "kind": "script",
+          "target": "SHP_thugpro_load_cutscene_anim_02",
+          "why": "calls what THUG2 hasn't: Editor_LoadCameraAnimParams"
+        },
+        {
+          "kind": "script",
+          "target": "SHP_thugpro_load_cutscene_anim_03",
+          "why": "calls what THUG2 hasn't: Editor_LoadCameraAnimParams"
+        },
+        {
+          "kind": "script",
+          "target": "SHIP_CUTSCENE_KEN_SPEAK",
+          "why": "calls what THUG2 hasn't: PlayRandomStream"
+        },
+        {
+          "kind": "script",
+          "target": "BDJ_SHP_RestartSetup",
+          "why": "calls what THUG2 hasn't: THUGPRO_SafeKill"
+        },
+        {
+          "kind": "script",
+          "target": "BDJ_SHP_RestartSetupNet",
+          "why": "calls what THUG2 hasn't: THUGPRO_SafeKill"
+        },
+        {
+          "kind": "script",
+          "target": "BDJ_SHP_EmptyTopPool",
+          "why": "calls what THUG2 hasn't: THUGPRO_SafeKill"
+        }
+      ],
+      "ware": [
+        {
+          "kind": "sector",
+          "target": "3 game objects' sectors",
+          "why": "THPS3's own .dff objects as THUGPRO's toolchain converted them: not new content; ours converts THPS3's .dff"
+        }
+      ],
+      "burn": [
+        {
+          "kind": "sector",
+          "target": "1 sky sectors (burn_sky.scn.xbx)",
+          "why": "THPS3's own sky (Burn_Sky) under THUGPRO's toolchain's checksums - 69 vertices against THPS3's 69 (welded per mesh): not new content; ours converts THPS3's sky"
+        }
+      ],
+      "ros": [
+        {
+          "kind": "sector",
+          "target": "1 sky sectors (ros_sky.scn.xbx)",
+          "why": "THPS3's own sky (Ros_Sky) under THUGPRO's toolchain's checksums - 107 vertices against THPS3's 102 (welded per mesh): not new content; ours converts THPS3's sky"
+        },
+        {
+          "kind": "sector",
+          "target": "4 game objects' sectors",
+          "why": "THPS3's own .dff objects as THUGPRO's toolchain converted them: not new content; ours converts THPS3's .dff"
+        }
+      ]
+    }
+  },
   "_notes": {
     "foun": [
       "flags of Particle_Valve_Steam01: class environmentobject -> gameobject (translation)",
@@ -7612,6 +10803,110 @@
       "flags of Box04: class environmentobject -> genericnode (translation)",
       "flags of Box05: class environmentobject -> genericnode (translation)",
       "flags of Box06: class environmentobject -> genericnode (translation)"
+    ]
+  },
+  "port_changes": {
+    "_comment": "Our own changes to THPS3's level data (tools/thps3_levels): neither THPS3's nor THUGPRO's. Read by tools/compat/compat.ts portChanges whatever the profile (--compat none keeps them); --no-port-changes leaves out every entry but the required ones (the game needs those to load or run the level). Each entry: id (PC-n), op (add / set / remove), target, why; levels (only those) and the data the converter takes from it. Registered in tools/compat/thugpro/README.md, \"Our own changes (port_changes)\". Not extracted: --extract-thugpro keeps this section as it is.",
+    "entries": [
+      {
+        "id": "PC-1",
+        "op": "remove",
+        "target": "Warehouse's dark set: the sectors and nodes named SkWare_Dark* (prefixes)",
+        "why": "THPS3's scripts switch between the lit and the dark copies of the same surfaces; drawn both, they fight over them (flicker)",
+        "levels": [
+          "ware"
+        ],
+        "prefixes": [
+          "skware_dark"
+        ]
+      },
+      {
+        "id": "PC-2",
+        "op": "set",
+        "target": "the level's start scripts (Load_<level>'s calls, the Player1 restart's and the ProximNodes' trigger scripts) run once from <level>_setup, the level structure's setup_script",
+        "why": "THUG2 has no hook for THPS3's load scripts or a restart's trigger script; its load_level calls the setup script",
+        "required": true
+      },
+      {
+        "id": "PC-3",
+        "op": "set",
+        "target": "kill zones: THPS3's kill scripts as THUG2's SK3_KillSkater with a restart to go to (nodes.killCommands / addKillRestarts)",
+        "why": "THPS3's own kill is engine code THUG2 hasn't",
+        "required": true
+      },
+      {
+        "id": "PC-4",
+        "op": "add",
+        "target": "Multiplayer / Horse restart types on the Player1 restarts of a level without network restarts (nodes.netRestarts: the tutorials, the skate shop)",
+        "why": "a network game needs somewhere to put the players, as THUG2's own skate shop has"
+      },
+      {
+        "id": "PC-5",
+        "op": "set",
+        "target": "AbsentInNetGames on path followers, peds and cars there at the start (nodes.absentInNetGames)",
+        "why": "a network game has no path manager and loads no ped animations: a ped's first animation reads through the missing one (0x00482BA0)",
+        "required": true
+      },
+      {
+        "id": "PC-6",
+        "op": "set",
+        "target": "TrickObject / Cluster taken off geometry nodes without a scene sector (nodes.stripMissingTrickObjects)",
+        "why": "ParseNodeArray (0x00588630) reads through the missing sector: THPS3 Airport crashed loading",
+        "required": true
+      },
+      {
+        "id": "PC-7",
+        "op": "set",
+        "target": "restarts over nothing or over a kill zone: no network spawn types, not a kill's target (nodes.groundRestartsAt)",
+        "why": "a player spawned there falls or dies at once"
+      },
+      {
+        "id": "PC-8",
+        "op": "add",
+        "target": "capture the flag: TRG_CTF_<colour> flags, their bases and team restarts made from THPS3's flag bases (gamemode.qb flag1_info / flag2_info) in THUG2's form",
+        "why": "THUG2's CTF looks its game objects up by THUG2's names; THPS3's bases are generic nodes it ignores. TP-10 .. TP-12 build on them: kept with --compat thugpro"
+      },
+      {
+        "id": "PC-9",
+        "op": "set",
+        "target": "the Player1 restart moved to the front of the node array, Links following (levels without TP-12's spawn order)",
+        "why": "the skater starts at the first player restart of the array"
+      },
+      {
+        "id": "PC-10",
+        "op": "set",
+        "target": "THPS3's traffic (trigger scripts calling Car_Generic01) as THUG2's cars: THUG2's car models on the same waypoints",
+        "why": "THUG2 can't drive THPS3's models as vehicles (no skeleton); THUG2's Car_Generic01 run by a LevelObject crashes",
+        "required": true
+      },
+      {
+        "id": "PC-11",
+        "op": "set",
+        "target": "THPS3's peds as THUG2's ped AI and profiles (thps3_ped_walk / thps3_ped_stand), THPS3's birds and sharks as THUG2's animals",
+        "why": "THPS3's skinned peds, their animations and scripts can't run in THUG2",
+        "required": true
+      },
+      {
+        "id": "PC-12",
+        "op": "remove",
+        "target": "goal pickups (letters, stat points, tapes, deck icons), cars and birds not there at the start, objects whose model isn't converted, proximity nodes without a script",
+        "why": "no career goals in the ports; the rest needs THPS3 code or models THUG2 can't use",
+        "required": true
+      },
+      {
+        "id": "PC-13",
+        "op": "remove",
+        "target": "THPS3 script statements THUG2 can't run (LoadSound, AddMusicTrack, SetParticleSysVisibility...) and trigger scripts that aren't brought along",
+        "why": "THUG2 runs a TriggerScript without checking it exists; an unknown command would fail",
+        "required": true
+      },
+      {
+        "id": "PC-14",
+        "op": "remove",
+        "target": "the Links of nodes other than rails (sector nodes to restarts and each other)",
+        "why": "THUG2's node loader follows a non-rail node's links as a path",
+        "required": true
+      }
     ]
   }
 }

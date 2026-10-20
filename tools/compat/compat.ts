@@ -46,6 +46,54 @@ export class Profile {
     }
 }
 
+// --- port_changes: this project's own changes to a source game's data (not THUGPRO's) ----------------------------------
+// Kept in the same file as the game's THUGPRO data (thugpro\<tool>.json, section `port_changes`: {_comment, entries}),
+// but read whatever the profile - `--compat none` keeps them. Each entry: id (PC-n), op (add / set / remove), target,
+// why, and optionally `required` (a change the game needs to load or run the level: applied even with
+// --no-port-changes) and `levels` (the levels it applies to; every level when absent), plus the data the converter
+// takes from it.
+export interface PortChange {
+    id: string;
+    op: "add" | "set" | "remove";
+    target: string;
+    why: string;
+    required?: boolean;
+    levels?: string[];
+    [data: string]: unknown;
+}
+
+export class PortChanges {
+    readonly entries: PortChange[];
+    readonly enabled: boolean;
+
+    constructor(entries: PortChange[], enabled: boolean) {
+        this.entries = entries;
+        this.enabled = enabled;
+    }
+
+    // The entry when it applies (to `level`, lower case) - on, or required - else null. An id the file hasn't is an
+    // error: the converter asks only for its own.
+    get(id: string, level?: string): PortChange | null {
+        const e = this.entries.find((x) => x.id === id);
+        if (e === undefined) throw new RangeError(`port_changes: no entry ${id}`);
+        if (!this.enabled && !e.required) return null;
+        if (level !== undefined && e.levels !== undefined && !e.levels.some((l) => l.toLowerCase() === level))
+            return null;
+        return e;
+    }
+
+    on(id: string, level?: string): boolean {
+        return this.get(id, level) !== null;
+    }
+}
+
+export function portChanges(tool: string, enabled = true): PortChanges {
+    const file = path.join(HERE, "thugpro", `${tool}.json`);
+    const data = fs.existsSync(file) ? (JSON.parse(fs.readFileSync(file, "utf-8")) as JsonObject) : {};
+    const section = (data.port_changes ?? {}) as { entries?: PortChange[] };
+    return new PortChanges(section.entries ?? [], enabled);
+}
+
 export function load(name: string = "thugpro"): Profile {
     if (!(PROFILES as readonly string[]).includes(name)) {
         throw new RangeError(`no compatibility profile ${pyStrRepr(name)} (${PROFILES.join(", ")})`);

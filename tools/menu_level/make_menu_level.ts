@@ -1316,7 +1316,7 @@ async function main(): Promise<number> {
     // The folder is ours: emptied first (a file left from an earlier layout would still be read).
     const marker = path.join(out, MARKER);
     if (isDir(out)) {
-        const ours = new Set(["scripts", "levels", "front_end"]);
+        const ours = new Set(["scripts", "levels", "front_end", "models"]);
         if (!fs.existsSync(marker) && !fs.readdirSync(out).every((name) => ours.has(name))) {
             pyExit(`${out} has files this tool didn't make: not emptying it`);
         }
