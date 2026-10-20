@@ -23,7 +23,7 @@ then the "- [ ] Next:" line of docs/decomp-progress.md.
     10 crowns / 256 restarts / 256+150 lights, crown reorder, `node` / `hide` records): branch
     worktree-agent-ac73f9426e90a064c, note `docs/pending/editor-phase3-handoff.md`.
   - Flaky early self-tests (screen element / text / anim controllers fail intermittently; fix root causes, then 50
-    clean runs): branch worktree-agent-a024a86de15fee1b4, note `docs/pending/flaky-selftests-handoff.md`.
+    clean runs): branch worktree-agent-a024a86de15fee1b4 (7e4246f: three harness root causes fixed, 14+14 clean full runs; left: the 50/20 verification), note `docs/pending/flaky-selftests-handoff.md`.
   Resume each from its note, finish, check offline, merge (lead), build, install the DLL in C:\Games\THUG2.
 - **Process check gotcha:** `Get-Process THUG2*` also matches `thug2_check` (self-test runs) - use
   `Get-Process -Name THUG2,THUG2PM` to see whether the user's game is running.
