@@ -1,7 +1,7 @@
 // NOT ORIGINAL - the compatibility profiles: data that makes our generated files agree with another game's or mod's
 // for online play, kept apart from the converters so every such choice is listed in one place (<profile>\README.md,
 // its register) and can be dropped or replaced (e.g. by a run-time translation of the network messages) later.
-// (TypeScript twin of compat.py.)
+// (Ported from compat.py, deleted with its last importer, tools/thaw_levels/thaw_levels.py.)
 //
 //   import * as compat from "../compat/compat.ts";
 //   const profile = compat.load("thugpro");        // or compat.load("none"): no compatibility data at all

@@ -6,31 +6,32 @@ from your copies each time.
 
 ## Running it
 
-Needs Python 3 and NeverScript (`tools\build_neverscript.ps1` -> `out\neverscript\ns.exe`).
+Needs Node 24+ (`npm install` once; docs/typescript.md), Python 3 for make_menu_level.py, and NeverScript (`tools\build_neverscript.ps1` -> `out\neverscript\ns.exe`).
 
-    python -I tools/thaw_levels/thaw_levels.py convert [--thaw C:\Games\THAW] [--thug2 C:\Games\THUG2]
+    node tools/thaw_levels/thaw_levels.ts convert [--thaw C:\Games\THAW] [--thug2 C:\Games\THUG2]
     python -I tools/menu_level/make_menu_level.py
 
 `convert` reads each level's "net" archive (`Game\data\worlds\worldzones\<zone>\<zone>_net.pak.wpc`: the area on its
 own, as THAW loads it for classic and online games - no story props, vehicles or sounds), the sky
 (`data\skies\TestLevel_Sky`), `data\pak\qb.pak.wpc`'s levels.qb and `data\pak\dbg.pak.wpc` (the names of the
 checksums), and writes `<thug2>\thug2-decomp-thaw\`: `levels\z_<xx>\z_<xx>.scn.xbx / .tex.xbx / .col.xbx /
-.qb` (the level named after its zone, as THUGPRO's are - four with THUGPRO's own names, from the compatibility profile `tools/compat/thugpro` (`--compat none`: none): online the load script's name is the level), `levels\thaw_sky` and `levels.json`. The default is all 15 levels of the table `LEVELS` in `thaw_levels.py`:
+.qb` (the level named after its zone, as THUGPRO's are - four with THUGPRO's own names, from the compatibility profile `tools/compat/thugpro` (`--compat none`: none): online the load script's name is the level), `levels\thaw_sky` and `levels.json`. The default is all 15 levels of the table `LEVELS` in `thaw_levels.ts`:
 the classic ones (Z_CH Chicago, Z_MA The Mall, Z_DN Minneapolis, Z_JA Kyoto, Z_SZ Santa Cruz, Z_SV2 The Ruins) and
 the story's areas (Z_SV Vans Park, Z_HO Hollywood, Z_BH Beverly Hills, Z_DT Downtown, Z_EL East LA, Z_SM Santa
 Monica, Z_SR Skate Ranch, Z_LV Casino, Z_OI Oil Rig). Name some to convert only those (`convert Z_CH MA`). Level
-select numbers 80-94.
+select numbers 80-94. (Converting some levels empties the output folder first: the others go - finish with a
+full `convert`.)
 
 `make_menu_level.py` copies every converted game's levels into the data overlay `<thug2>\thug2-decomp-data`; run it
 after every `convert`. Delete `thug2-decomp-thaw` and run it again to take them out.
 
-    python -I tools/thaw_levels/thaw_levels.py selfcheck
+    node tools/thaw_levels/thaw_levels.ts selfcheck
 
 reads THUG2's LA scene / collision / textures and writes them back (byte-identical), then every file of every THAW
 `_net` archive, the skies and qb.pak: qb files, textures, collision (written back byte-identical once the grid
 header is off) and scenes (read and converted).
 
-## THAW's formats (thaw.py has the details)
+## THAW's formats (thaw.ts has the details)
 
 - Archives `.pak.wpc` (+ `.pab.wpc`): the GH3-family pak - 32-byte entries (extension, offset, size, name
   checksums, flags; flags & 0x20: a 160-byte path follows), uncompressed. Flags & 2: the zone's `_sfx` sub-zone.
@@ -59,11 +60,11 @@ header is off) and scenes (read and converted).
 - Areas with a `<zone>_Zone_Origin` node are moved by minus its position (all axes, in sixteenths), as THUGPRO's
   toolchain does, so that skater positions agree online (Vans Park excepted: THUGPRO left it in THAW's frame).
   `--frame recentre` gives the older frame (areas reaching past `--recentre` moved to the origin, x / z);
-  `--legacy-names` the older `thaw_<xx>` names. Layouts saved in the older levels: `migrate_layouts.py --game <folder>`.
+  `--legacy-names` the older `thaw_<xx>` names. Layouts saved in the older levels: `node tools/thaw_levels/migrate_layouts.ts --game <folder>`.
 - Game-mode nodes (TRG_CTF_*, TRG_Flag_*, TRG_KOTH*, TRG_Team_Restart) lose the zone prefix and the CTF / team flags
   are kept (THUG2's own flag models): capture the flag works with THUG2's net\ctf scripts.
-- `thugpro_compare.py` compares the converted levels with an installed THUGPRO's (read only): node positions, crowns,
+- `node tools/thaw_levels/thugpro_compare.ts` compares the converted levels with an installed THUGPRO's (read only): node positions, crowns,
   multiplayer restarts, game-mode nodes, collision faces unreachable through their BSP trees
-  (`tools/level_port/col_check.py`).
+  (`tools/level_port/col_check.ts`).
 - Level structure: THAW's name, the TestLevel_Sky sky, THUG2's default lighting (THAW lights by its time of day
   manager), no music, no goals.

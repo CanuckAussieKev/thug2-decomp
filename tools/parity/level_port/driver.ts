@@ -4,7 +4,6 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import * as compat from "../../compat/compat.ts";
 import { FormatError } from "../../level_port/binio.ts";
 import * as colCheck from "../../level_port/col_check.ts";
 import * as common from "../../level_port/common.ts";
@@ -30,7 +29,7 @@ import {
     pyTuple,
     sortedNumbers,
 } from "../../lib/py.ts";
-import { blob, canon, digest, dump, qcanon } from "../canon.ts";
+import { blob, canon, digest, qcanon } from "../canon.ts";
 
 const NS = "C:\\Dev\\thug2-decomp\\out\\neverscript\\ns.exe";
 
@@ -621,23 +620,6 @@ function cmdColgeometry(out: string, paths: readonly string[]): void {
 
 // --- the rest -----------------------------------------------------------------------------------------------------------
 
-function cmdCompat(out: string): void {
-    const lines: string[] = [];
-    for (const name of compat.PROFILES) {
-        const p = compat.load(name);
-        for (const key of ["level_names", "frame_kept", "frame_adjust", "missing"]) {
-            lines.push(`${name} ${key} ${dump(p.section("thaw_levels", key))}`);
-        }
-        lines.push(`${name} file ${pyJsonDumps(p.file("nothing"))}`);
-    }
-    try {
-        compat.load("bad");
-    } catch (e) {
-        lines.push((e as Error).message);
-    }
-    write(out, "compat.txt", `${lines.join("\n")}\n`);
-}
-
 function cmdCommon(out: string, gameDir: string, archives: readonly string[]): void {
     const pre = path.join(gameDir, "Data", "pre");
     const [checked, failures] = common.thug2RoundTrips(pre, archives);
@@ -695,9 +677,6 @@ function main(): void {
             return;
         case "colgeometry":
             cmdColgeometry(out, rest);
-            return;
-        case "compat":
-            cmdCompat(out);
             return;
         case "common":
             cmdCommon(out, rest[0]!, rest.slice(1));

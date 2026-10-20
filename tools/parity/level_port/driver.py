@@ -6,7 +6,7 @@
 #   python -I tools/parity/level_port/driver.py <command> <out> [inputs...]
 #
 # commands: archives, files, qb, thug2, translate, ground, lighting, manifest, prepare (Python only: the inputs of
-# geometry), geometry, colgeometry, compat, common
+# geometry), geometry, colgeometry, common
 
 import hashlib
 import json
@@ -18,12 +18,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 TOOLS = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, os.path.dirname(HERE))
 sys.path.insert(0, os.path.join(TOOLS, "level_port"))
-sys.path.insert(0, os.path.join(TOOLS, "compat"))
 
 import canon as C  # noqa: E402
 import col_check  # noqa: E402
 import common  # noqa: E402
-import compat  # noqa: E402
 import geometry  # noqa: E402
 import nodes  # noqa: E402
 import peds_cars  # noqa: E402
@@ -506,20 +504,6 @@ def cmd_colgeometry(out, paths):
 
 # --- the rest -----------------------------------------------------------------------------------------------------------
 
-def cmd_compat(out):
-    lines = []
-    for name in compat.PROFILES:
-        p = compat.load(name)
-        for key in ("level_names", "frame_kept", "frame_adjust", "missing"):
-            lines.append("%s %s %s" % (name, key, json.dumps(p.section("thaw_levels", key), sort_keys=True)))
-        lines.append("%s file %s" % (name, json.dumps(p.file("nothing"))))
-    try:
-        compat.load("bad")
-    except ValueError as e:
-        lines.append(str(e))
-    write(out, "compat.txt", "\n".join(lines) + "\n")
-
-
 def cmd_common(out, game_dir, archives):
     pre = os.path.join(game_dir, "Data", "pre")
     checked, failures = common.thug2_round_trips(pre, archives)
@@ -561,8 +545,6 @@ def main():
         cmd_geometry(out, rest)
     elif command == "colgeometry":
         cmd_colgeometry(out, rest)
-    elif command == "compat":
-        cmd_compat(out)
     elif command == "common":
         cmd_common(out, rest[0], rest[1:])
     else:

@@ -4,7 +4,7 @@ Agent "thaw". How to run it: tools/thaw_levels/README.md.
 
 ## Result
 
-- `python -I tools/thaw_levels/thaw_levels.py convert` converts all 15 levels from their `_net` archives: Chicago,
+- `node tools/thaw_levels/thaw_levels.ts convert` converts all 15 levels from their `_net` archives: Chicago,
   The Mall, Minneapolis, Kyoto, Santa Cruz, The Ruins, Vans Park, Hollywood, Beverly Hills, Downtown, East LA, Santa
   Monica, Skate Ranch, Casino, Oil Rig (1.9-11 MB each), plus the shared sky (TestLevel_Sky). The kill zones are 0-30
   per level, and each one names a restart.
@@ -18,7 +18,7 @@ Agent "thaw". How to run it: tools/thaw_levels/README.md.
 
 ## Formats
 
-- Pak / tex / col / qb: see the README and thaw.py. qb: 851 of 851 files read, and every script's token walk ends
+- Pak / tex / col / qb: see the README and thaw.ts. qb: 851 of 851 files read, and every script's token walk ends
   exactly at its end (THUG2 tokens with weighted random tables, plus 0x4A inline structures). Type 4 is a *local*
   string, not a wide one. Uncompressed 32-bit textures store each level's size as {u16 pitch, u16 rows}.
 - `.geom`, from THAW.exe (Ghidra project C:\Games\THAW-ghidra, loader 0x005083B0, materials 0x00530470) and the files:
@@ -83,7 +83,7 @@ Agent "thaw". How to run it: tools/thaw_levels/README.md.
 
 Goal: a THUGPRO player and one of ours in the same THAW level online. Everything is generated from THAW's own files;
 THUGPRO's toolchain (thugpro_toolchain/thaw_level_toolchain) and installed levels (%LOCALAPPDATA%\THUG Pro\data\pre)
-were only read as the reference and to compare against (`thugpro_compare.py`) - nothing of theirs is copied.
+were only read as the reference and to compare against (`thugpro_compare.ts`) - nothing of theirs is copied.
 
 What travels online and has to agree (from our decompilation): the change-level message 0x46 / start info 0x33 carry
 the load script's checksum only (the other side runs that script); skater updates (HandleObjectUpdates 0x0056E470)
@@ -122,10 +122,10 @@ Changes (tools/thaw_levels):
   its components (follows parameter names) - allowed for the skater (SKATER_SCRIPTS_CHECKED).
 - `object:member` statements on the made objects are kept, checked as run by that object and guarded with IsAlive
   (script_port's existing `objects` form): The Mall's bouncy boxes are kicked (Rigidbody_Kick), movers move.
-- Layouts: `migrate_layouts.py --game <folder>` renames <crc(thaw_xx)>.txt to <crc(z_xx)>.txt and moves every record
+- Layouts: `node tools/thaw_levels/migrate_layouts.ts --game <folder>` renames <crc(thaw_xx)>.txt to <crc(z_xx)>.txt and moves every record
   by the frame difference (sector / rail / clone offsets: offset + d - Q d; objects / copies: pos + d); the old file
   kept as .before-thugpro-frame. Checked on a made-up Mall layout in THUG2-1 (removed after); no game folder had any.
-- `thugpro_compare.py` (read-only on THUGPRO's install) and `tools/level_port/col_check.py` (every face reachable
+- `thugpro_compare.ts` (read-only on THUGPRO's install) and `tools/level_port/col_check.ts` (every face reachable
   through its BSP tree, as THUG2's queries walk it) are new.
 
 Checks (THUG2-1, all 15 converted and installed): every face reachable (0 unreachable in all 15); links in range, rail

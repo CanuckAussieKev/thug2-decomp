@@ -52,7 +52,7 @@ export const PED = "ped";
 export const VEHICLE = "vehicle";
 export const BOUNCY = "bouncy";
 export type Context = typeof OBJECT | typeof SKATER | typeof NONE | typeof PED | typeof VEHICLE | typeof BOUNCY;
-const CONTEXTS: readonly Context[] = [OBJECT, SKATER, NONE, PED, VEHICLE, BOUNCY];
+const CONTEXTS: Context[] = [OBJECT, SKATER, NONE, PED, VEHICLE, BOUNCY];
 
 // Member function components (THUG2's member function tables) each context's objects have. A LevelObject / ghost
 // GameObject is a composite object with motion, suspend, sound and object proximity components (and a model); the
@@ -119,6 +119,19 @@ export const BY_NAME: Readonly<Record<Context, ReadonlySet<string>>> = {
     [VEHICLE]: new Set(["die", "obj_movetonode"]),
     [BOUNCY]: new Set(["die"]),
 };
+
+// A converter's own context (THAW's skater: tools/thaw_levels/thaw_scripts.ts), with its SAFE_COMPONENTS and BY_NAME
+// - as Python's SAFE_COMPONENTS.setdefault / BY_NAME.setdefault: a context already there is kept. Every Translator
+// made after knows it. Returns the context.
+export function addContext(context: string, components: ReadonlySet<string>, byName: ReadonlySet<string>): Context {
+    const c = context as Context;
+    if (!CONTEXTS.includes(c)) {
+        CONTEXTS.push(c);
+        (SAFE_COMPONENTS as Record<Context, ReadonlySet<string>>)[c] = components;
+        (BY_NAME as Record<Context, ReadonlySet<string>>)[c] = byName;
+    }
+    return c;
+}
 
 // C functions / THUG2 scripts left out although THUG2 has them: they'd change the game outside the level (global
 // flags are the save's: unlocks), drive the skater (THPS3's state machine names), start goals / cutscenes / cameras,
@@ -1466,7 +1479,7 @@ export function doesSomething(code: Uint8Array): boolean {
     return false;
 }
 
-function* plainTokens(code: Uint8Array): Generator<[number, Buffer]> {
+export function* plainTokens(code: Uint8Array): Generator<[number, Buffer]> {
     // (token, payload) of THUG2-format code (with the random weights).
     for (const [, t, p] of qb.tokens(Buffer.concat([code, Buffer.from([0])]), true)) {
         if (t === 0x00) break;
