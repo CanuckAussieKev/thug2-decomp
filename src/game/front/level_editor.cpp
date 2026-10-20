@@ -23,6 +23,7 @@
 #include "game/front/level_editor_preview.h"
 #include "game/front/level_editor_picking.h"
 #include "game/front/level_editor_scenery.h"
+#include "game/front/level_editor_triggers.h"
 #include "game/front/level_editor_ui.h"
 #include "game/front/level_editor_view.h"
 #include "game/front/mouse_menus.h"
@@ -714,7 +715,7 @@ struct MadeCopy {
     Objects::State state;
 };
 struct UndoStep {
-    enum Kind { kObjects, kScenery, kMade, kNodes, kAdded, kHidden, kOrder, kLevel } kind = kObjects;
+    enum Kind { kObjects, kScenery, kMade, kNodes, kAdded, kHidden, kOrder, kLevel, kTriggers } kind = kObjects;
     std::vector<Objects::State> objects;
     Scenery::State scenery;
     NodeEdit::Step nodes; // (kNodes: the nodes' places - level_editor_node_edit.h)
@@ -734,6 +735,8 @@ struct UndoStep {
     // place again.
     bool reset = false;
     std::string layout;
+    // kTriggers: the trigger volumes' state to put back (level_editor_triggers.h).
+    Triggers::State triggers;
 };
 std::vector<UndoStep> g_undo, g_redo;
 UndoStep g_pending;
@@ -912,6 +915,9 @@ void Restore(UndoStep& step)
             Layout::PutBack(step.layout, &message);
         break;
     }
+    case UndoStep::kTriggers:
+        Triggers::Restore(step.triggers);
+        break;
     }
 }
 
@@ -967,6 +973,9 @@ UndoStep Current(const UndoStep& step)
         now.layout.clear();
         if (!now.reset)
             Layout::CaptureText(&now.layout);
+        break;
+    case UndoStep::kTriggers:
+        now.triggers = Triggers::Save();
         break;
     }
     return now;
@@ -1579,6 +1588,7 @@ bool __cdecl CFunc_Start(Script::CStruct*, Script::CScript*)
     // The UI (Dear ImGui) - else the HUD of screen elements.
     bool ui = Ui::Start();
     View::Start();
+    Triggers::Start(); // (the level's trigger volumes found)
     g_hudTakenDown = 0;
     g_families = static_cast<uint32_t>(ConfigInt("editor", "families", static_cast<int>(Nodes::kAllFamilies))) &
                  Nodes::kAllFamilies;
@@ -1692,6 +1702,7 @@ bool __cdecl CFunc_Stop(Script::CStruct*, Script::CScript*)
     Hud::HidePanel();
     Preview::Hide();
     View::Stop(); // (everything hidden in the editor shown again)
+    Triggers::Stop();
     Ui::Stop();
     SetRelative(false);
     PlaceSkaterBelowCamera();
@@ -2275,6 +2286,7 @@ void ShowHelp()
         "Leaving      Esc (first it cancels a drag, closes a panel or deselects)",
         "View         H hides the selection while editing   I or / isolates it   Alt+H shows all",
         "             (never saved, never in play; the collision view, C, needs the UI)",
+        "Triggers     T: kill zones, teleports, gaps - shown and added with the UI only",
         "Camera       P writes where the camera is to the log (a menu backdrop view)",
     };
     Hud::ShowPanel(lines, 96.0f, 104.0f, 448.0f);
@@ -3158,6 +3170,7 @@ void ApplyUiRequests(V3 dir, bool haveRay, const Frame& frame)
 void Update()
 {
     Layout::Tick();
+    Triggers::Guard(); // (no editor trigger volumes in a network session)
     if (!g_active)
         return;
     // (the UI runs: the HUD's elements - made by level_editor_enter after LevelEditor_Start - taken down, the first
@@ -3301,6 +3314,33 @@ void Update()
     if ((Pressed(keys, SDL_SCANCODE_SLASH, &slashKey) || isolateKey) && !ctrl && !noChange && !g_browser.open)
         ViewHide(true);
     View::Tick();
+    // T: the trigger volumes shown (and the Triggers window) - level_editor_triggers.h; their changes, undo steps and
+    // selections.
+    static bool tKey;
+    if (Pressed(keys, SDL_SCANCODE_T, &tKey) && !ctrl && !g_browser.open) {
+        if (Ui::Running()) {
+            Triggers::SetShown(!Triggers::Shown());
+            Hud::Message(Triggers::Shown() ? "Trigger volumes shown (T) - the Triggers window adds kill zones, teleports, gaps"
+                                           : "Trigger volumes hidden (T)");
+        } else {
+            Hud::Message("The trigger volumes (T) need the editor's UI ([features] editor_ui=1)");
+        }
+    }
+    {
+        Frame view = FrameFromYawPitch(g_yaw, g_pitch);
+        Triggers::Tick(g_pos, view.back * -1.0f, g_yaw);
+        UndoStep step;
+        if (Triggers::TakeUndo(&step.triggers)) {
+            step.kind = UndoStep::kTriggers;
+            PushUndo(step);
+        }
+        int select = Triggers::TakeSelect();
+        if (select >= 0 && !g_dragging) {
+            g_pickables.clear();
+            g_hoverNode = -1;
+            SelectNodeOnly(select);
+        }
+    }
     // P: the camera written to the log as a menu backdrop view (menu_backdrop.cpp kViews: position, back, up).
     static bool poseKey;
     if (Pressed(keys, SDL_SCANCODE_P, &poseKey) && !ctrl) {
@@ -3526,6 +3566,12 @@ void Update()
                             : 0;
         if (!wall)
             View::ClearWall();
+        // (with the trigger volumes shown, a plain click on one - nearer than the rest: its node; Alt passes them -
+        // level_editor_triggers.h)
+        int triggerNode = -1;
+        uint32_t triggerSector = 0;
+        bool trigger = !wall && input.leftPresses && !alt && g_hoverAxis < 0 && g_hoverNode < 0 &&
+                       Ui::Running() && Triggers::Pick(g_pos, Normalize(dir), &triggerNode, &triggerSector);
         if (wall) {
             Deselect();
             View::SelectWall(wall);
@@ -3536,6 +3582,15 @@ void Update()
         } else if (g_hoverNode >= 0 && input.leftPresses) {
             SelectNode(g_hoverNode);
             drag = HaveSelection() && !shift; // (an object, or a point node: dragged as objects are)
+        } else if (trigger) {
+            if (triggerNode >= 0) {
+                SelectNodeOnly(triggerNode);
+                drag = MovableNode() >= 0 && !shift;
+            } else {
+                Deselect();
+            }
+            Hud::Message(triggerSector ? "Trigger " + Objects::Label(triggerSector) + " (the Triggers window shows it)"
+                                       : std::string("Trigger volume selected (the Inspector has its settings)"));
         } else if (g_hoverSector) {
             g_objects.clear();
             if (one)
@@ -3680,6 +3735,7 @@ void Draw()
         Preview::Frame(&model);
         AddNodeGizmos(frame, model.nodes.selected);
         View::AddCollision(g_pos, frame, g_lens, g_viewport, kNearZ, &g_overlay.under, &g_overlay.lines);
+        Triggers::AddOverlay(g_pos, frame, g_lens, g_viewport, kNearZ, &g_overlay.lines, &g_overlay.texts);
         for (size_t i = 0; i + 1 < lines.size(); i += 2)
             g_overlay.lines.push_back({lines[i].x, lines[i].y, lines[i + 1].x, lines[i + 1].y, lines[i].color, 1.0f});
         Ui::Frame(model, g_overlay);
@@ -3728,6 +3784,7 @@ std::vector<std::pair<std::string, std::string>> DescribeForScreenshot()
                   model.view.collision ? "shown" : "off", model.view.triangles, model.view.sectors, model.view.walls,
                   model.view.capped ? ", capped" : "", model.view.hidden);
     out.emplace_back("view", text);
+    out.emplace_back("triggers", std::string(Triggers::Shown() ? "shown: " : "hidden: ") + Triggers::Describe());
     if (model.view.wall)
         out.emplace_back("invisible wall", model.view.wallName + ": " + model.view.wallInfo);
     const Ui::Model::Selection& sel = model.selection;

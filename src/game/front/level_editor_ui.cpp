@@ -16,6 +16,7 @@
 #include "game/front/level_editor_node_edit.h"
 #include "game/front/level_editor_nodes.h"
 #include "game/front/level_editor_picking.h"
+#include "game/front/level_editor_triggers.h"
 #include "game/front/level_editor_ui_backend.h"
 #include "game/front/level_editor_ui_fonts.h"
 #include "game/front/level_editor_ui_layout.h"
@@ -951,6 +952,7 @@ void Inspector(const Model& model)
     const Model::Selection& s = model.selection;
     if (model.nodes.nodeOnly) {
         NodeSection(model, model.nodes.selected);
+        Triggers::InspectorSection(model.nodes.selected); // (a trigger volume's settings - level_editor_triggers.h)
     } else if (s.objects == 0 && s.sectors == 0) {
         ImGui::TextWrapped("Nothing selected - click something in the view (a gizmo, an object, scenery), or pick it "
                            "in the Outliner.");
@@ -1108,6 +1110,14 @@ void Help(const Model& model)
         {"", "H", "hides the selection while editing (from the view and from clicks; never saved, never in play)"},
         {"", "I or /", "isolates the selection: everything else hidden while editing"},
         {"", "Alt+H", "shows everything hidden in the editor again"},
+        {"Triggers", "T", "shows the trigger volumes - kill zones red, teleports purple (an arrow to where they send), "
+                          "gap starts green, gap ends yellow, scripts cyan - and the Triggers window: add a kill zone, "
+                          "water, a teleport, a script, a gap (its start and end); the level's listed"},
+        {"", "Click a volume", "selects it (Alt passes volumes); an added one moves, turns (Z / X) and drops (G) as a node "
+                               "does - its kind, size, restart / target / script and gap (name, score, flags) in the "
+                               "Inspector"},
+        {"", "Delete, Ctrl+Z", "deletes an added volume, undoes; a level's own one: Turn off, or Make an editable copy "
+                               "(in its place, the original off) - the Triggers window"},
         {"Camera", "P", "writes where the camera is to the log (a menu backdrop view)"},
         {"Panels", "Mouse", "over a panel the UI takes the mouse; the keys stay the editor's unless you type"},
     };
@@ -1635,6 +1645,8 @@ void Frame(const Model& model, const Overlay& overlay)
     ConfirmReset(model);
     CollisionLegend(model);
     OnlineWarning(model);
+    Triggers::Window(g_layout.viewport.x, g_layout.viewport.y, g_layout.viewport.width, g_layout.viewport.height, g_scale,
+                     model.nodes.selected);
     ImGui::PopFont();
     ImGui::Render();
     UiBackend::Render();
