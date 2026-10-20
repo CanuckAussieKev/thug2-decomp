@@ -46,6 +46,13 @@ void __cdecl AddOcclusionPoly(const Mth::Vector* p0, const Mth::Vector* p1, cons
 void __cdecl BuildOccluders(const Mth::Vector* eye, int frame);
 // 0x004D9AC0: whether a sphere (moved by the object's transform, 0x007CA968) is hidden by an occluder - which is
 // credited with `weight`.
+// NOT ORIGINAL: while set, nothing is occluded (the view frustum still culls). Set at start-up from [Graphics]
+// OcclusionCulling=0 (on by default, as the original; 0 because modern hardware draws the few extra meshes without
+// effort and designer-placed occluders sometimes hide things in plain sight); the level editor sets it while open
+// (O) and puts it back after.
+// A level's occluders are placed for the skater's view; from the editor's free camera (above the level, outside it)
+// they hide distant scenery and objects that are in plain sight.
+bool& OcclusionOff();
 bool __cdecl SphereOccluded(const Mth::Vector* centre, float radius, int weight);
 
 // 0x004DB570: whether a sphere is outside the view (1) or not (0).

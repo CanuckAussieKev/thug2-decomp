@@ -93,6 +93,12 @@ struct Model {
         bool canHide = false;
         uint32_t wall = 0;
         std::string wallName, wallInfo;
+        // (level_editor_walls.h) the wall's collision switched off, moved, both in words; how many pieces drawn have
+        // their collision off; the selected scenery's Collision checkbox (-1 none, 0 off, 1 on, 2 mixed).
+        bool wallOff = false, wallMoved = false;
+        std::string wallState;
+        int off = 0;
+        int sceneryCollision = -1;
     } view;
     // The selection, for the Inspector.
     struct Selection {
@@ -276,6 +282,8 @@ struct Request {
         kFieldHome,     // the field back as the level has it (id 0: every field of the node)
         kLevelProps,    // `props`: the level's properties as the panel has them now
         kLevelPropsDone, // a property's field let go (the changes since its first kLevelProps: one undo step)
+        kWallCollision, // value: 0 / 1 - the selected invisible wall's collision off (Delete wall) / on (Restore)
+        kSceneryCollision, // value: 0 / 1 - the selected scenery's collision off / on (the Inspector's Collision)
     } kind;
     int value = 0;
     uint32_t id = 0;

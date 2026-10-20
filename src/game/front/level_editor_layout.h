@@ -10,6 +10,7 @@
 #include "game/front/level_editor_node_create.h"
 #include "game/front/level_editor_picking.h"
 #include "game/front/level_editor_scenery.h"
+#include "game/front/level_editor_walls.h"
 
 namespace Script {
 class CStruct;
@@ -71,12 +72,17 @@ class CScript;
 //   level [name=<text>] [start=<node>] [tod=<state>] [time=0|1] [ambient=r,g,b] [fog=r,g,b,a,d]
 //                                                      (phase 6) the edited copy's level properties
 //                                                      (level_editor_level_props.h)
+//   wall <checksum> <quarters> <x> <y> <z> <off>       a sector's collision (level_editor_walls.h): an invisible wall's
+//                                                      moved / turned as a sector's, and whether it's switched off;
+//                                                      a drawn piece's collision switched off by itself (no move: its
+//                                                      sector record moves it)
 //   ... scale=<s>                                      (after a sector / rail / clone record's numbers, when not 1) a
 //                                                      uniform scale (level_editor_scale.h): the point x as loaded is
 //                                                      at QuarterTurn(x * s, quarters) + (x, y, z)
 // An older (phase 2) reader skips node / order / hide records; an older reader of version 2 skips lock records and
 // the phase 4 ones (an added rail's points aren't `node` records: an older reader would make them without their rail),
-// and reads past a record's scale= (the piece then placed unscaled).
+// and reads past a record's scale= (the piece then placed unscaled); an older reader of version 2 skips wall records (the
+// walls then as the level has them).
 // Checksums are 8 hex digits; numbers are written with 9 significant digits (floats survive the round trip).
 namespace Front::LevelEditor::Layout {
 
@@ -120,6 +126,7 @@ struct File {
     std::vector<Picking::Lock> locks;     // `lock`
     Chains::State chains;                 // (phase 4) `point`, `links`, `drop`, `terrain`
     LevelProps::Props level;              // (phase 6) `level` (level_editor_level_props.h)
+    std::vector<Walls::WallState> walls;  // `wall`: collision moved / switched off
 };
 
 // The text of a layout, and a layout read back (false: not a layout file; `line` the first line that isn't

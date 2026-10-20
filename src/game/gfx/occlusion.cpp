@@ -257,9 +257,17 @@ void __cdecl BuildOccluders(const Mth::Vector* eye, int frame)
     }
 }
 
+bool& OcclusionOff()
+{
+    static bool off = false;
+    return off;
+}
+
 // 0x004D9AC0
 bool __cdecl SphereOccluded(const Mth::Vector* centre, float radius, int weight)
 {
+    if (OcclusionOff()) // (NOT ORIGINAL: the level editor's switch)
+        return false;
     double x = centre->x, y = centre->y, z = centre->z;
     if (const float* world = WorldTransform()) {
         x = static_cast<double>(world[12]) + centre->x;

@@ -27,8 +27,10 @@
 #include "game/front/level_editor_scenery.h"
 #include "game/front/level_editor_ui.h"
 #include "game/front/level_editor_view.h"
+#include "game/front/level_editor_walls.h"
 #include "game/front/mouse_menus.h"
 #include "game/gfx/camera.h"
+#include "game/gfx/occlusion.h"
 #include "game/gfx/screen.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/object.h"
@@ -552,7 +554,14 @@ bool NodeValues(NodeEdit::Values* values)
 {
     return MovableNode() >= 0 && NodeEdit::Read(g_nodeName, values);
 }
-bool HaveSelection() { return Primary() || Scenery::HasSelection() || MovableNode() >= 0; }
+// An invisible wall selected by itself (Shift+click with the collision shown - level_editor_view.h): moved, turned and
+// switched off / on as level_editor_walls.h does; 0 when none (or something else is selected).
+uint32_t WallOnly()
+{
+    uint32_t wall = View::SelectedWall();
+    return wall && !g_nodeSelected && !Scenery::HasSelection() && !Primary() && Walls::IsWall(wall) ? wall : 0;
+}
+bool HaveSelection() { return Primary() || Scenery::HasSelection() || MovableNode() >= 0 || WallOnly(); }
 
 // A spawn, crown or flag of a level shared with THUGPRO changed by the editor (moved, added, hidden, reordered): the
 // warning, once a run (the edit is made - layouts aren't used in net games, but a layout baked into the level's files
@@ -639,6 +648,8 @@ V3 SelectionPos()
     NodeEdit::Values node;
     if (NodeValues(&node))
         return node.pos;
+    if (uint32_t wall = WallOnly())
+        return Walls::Pivot(wall);
     return Scenery::Pivot();
 }
 float SelectionBase()
@@ -648,6 +659,8 @@ float SelectionBase()
     NodeEdit::Values node;
     if (NodeValues(&node))
         return node.pos.y;
+    if (uint32_t wall = WallOnly())
+        return Walls::Bottom(wall);
     return Scenery::Bottom();
 }
 // The point the camera looks at: the first object's middle, a node's place, or the scenery's pivot.
@@ -658,6 +671,8 @@ V3 TargetOf()
     NodeEdit::Values node;
     if (NodeValues(&node))
         return node.pos;
+    if (uint32_t wall = WallOnly())
+        return Walls::Pivot(wall);
     return Scenery::Pivot();
 }
 // The selection moved so that SelectionPos is `pos` (the other objects by as much).
@@ -670,6 +685,10 @@ void PlaceSelection(V3 pos)
         return;
     }
     std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
+    if (uint32_t wall = objects.empty() ? WallOnly() : 0) {
+        Walls::MoveTo(wall, pos);
+        return;
+    }
     if (objects.empty()) {
         Scenery::MoveTo(pos);
         return;
@@ -689,6 +708,11 @@ void TurnSelection(int notches)
         return;
     }
     std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
+    if (uint32_t wall = objects.empty() ? WallOnly() : 0) {
+        Walls::Turn(wall, notches);
+        Walls::Commit();
+        return;
+    }
     if (objects.empty()) {
         Scenery::Turn(notches);
         Scenery::Commit();
@@ -703,6 +727,8 @@ void Settle()
 {
     if (!Primary() && Scenery::HasSelection())
         Scenery::Commit();
+    if (WallOnly())
+        Walls::Commit();
 }
 
 // --- undo / redo (Ctrl+Z / Ctrl+Y) ---
@@ -720,10 +746,16 @@ struct FieldUndo {
     Fields::Own own;
 };
 struct UndoStep {
-    enum Kind { kObjects, kScenery, kMade, kNodes, kAdded, kHidden, kOrder, kLevel, kChains, kFields, kProps } kind = kObjects;
+    enum Kind {
+        kObjects, kScenery, kMade, kNodes, kAdded, kHidden, kOrder, kLevel, kChains, kWalls, kFields, kProps
+    } kind = kObjects;
     // kFields (phase 6): nodes' own fields to put back (level_editor_fields.h); kProps: the level's properties.
     std::vector<FieldUndo> fields;
     LevelProps::Props props;
+    // kWalls (level_editor_walls.h): collision states to put back - an invisible wall's (wall: selected again) or the
+    // selected scenery's switches (sectors: selected again).
+    std::vector<Walls::WallState> walls;
+    uint32_t wall = 0;
     // kChains (phase 4): the chains' state to put back (level_editor_chains.h).
     Chains::State chains;
     std::vector<Objects::State> objects;
@@ -763,6 +795,10 @@ UndoStep Snapshot()
         for (uint32_t name : names)
             NodeEdit::NoteOrigin(name);
         step.nodes = NodeEdit::Capture(names, NodeEdit::Read);
+    } else if (uint32_t wall = objects.empty() ? WallOnly() : 0) {
+        step.kind = UndoStep::kWalls;
+        step.wall = wall;
+        step.walls = Walls::Save({wall});
     } else if (!objects.empty()) {
         step.kind = UndoStep::kObjects;
         for (Obj::CCompositeObject* object : objects) {
@@ -942,6 +978,18 @@ void Restore(UndoStep& step)
             Layout::PutBack(step.layout, &message);
         break;
     }
+    case UndoStep::kWalls:
+        Walls::ApplyStates(step.walls);
+        if (step.wall) {
+            Deselect();
+            View::SelectWall(step.wall);
+        } else if (!step.sectors.empty()) {
+            g_objects.clear();
+            g_nodeSelected = false;
+            View::ClearWall();
+            Scenery::SetSelection(step.sectors);
+        }
+        break;
     case UndoStep::kChains:
         g_nodeSelected = g_nodeSelected && Nodes::Find(g_nodeName) >= 0;
         Chains::SetState(step.chains);
@@ -1025,6 +1073,13 @@ UndoStep Current(const UndoStep& step)
     case UndoStep::kProps:
         now.props = LevelProps::Current();
         break;
+    case UndoStep::kWalls: {
+        std::vector<uint32_t> checksums;
+        for (const Walls::WallState& state : step.walls)
+            checksums.push_back(state.checksum);
+        now.walls = Walls::Save(checksums);
+        break;
+    }
     }
     return now;
 }
@@ -1572,6 +1627,9 @@ bool& DebugEnabled()
 }
 
 bool Active() { return g_active; }
+// Occlusion culling switched off while editing (O; Nx::OcclusionOff).
+static bool g_occlusionOff = true;
+static bool g_occlusionInPlay; // (Nx::OcclusionOff as it was when the editor opened)
 
 bool PassKey(bool* released, bool down)
 {
@@ -1637,6 +1695,10 @@ bool __cdecl CFunc_Start(Script::CStruct*, Script::CScript*)
     // The UI (Dear ImGui) - else the HUD of screen elements.
     bool ui = Ui::Start();
     View::Start();
+    // (occlusion off while flying the editor's camera: O turns it back on - kept for the next time; the setting from
+    // [Graphics] OcclusionCulling comes back when the editor closes)
+    g_occlusionInPlay = Nx::OcclusionOff();
+    Nx::OcclusionOff() = g_occlusionOff;
     g_hudTakenDown = 0;
     g_families = static_cast<uint32_t>(ConfigInt("editor", "families", static_cast<int>(Nodes::kAllFamilies))) &
                  Nodes::kAllFamilies;
@@ -1750,6 +1812,7 @@ bool __cdecl CFunc_Stop(Script::CStruct*, Script::CScript*)
     Hud::HidePanel();
     Preview::Hide();
     View::Stop(); // (everything hidden in the editor shown again)
+    Nx::OcclusionOff() = g_occlusionInPlay;
     Ui::Stop();
     SetRelative(false);
     PlaceSkaterBelowCamera();
@@ -1853,6 +1916,8 @@ std::string DescribeSelection()
     }
     if (Scenery::HasSelection())
         return Scenery::DescribeSelection();
+    if (uint32_t wall = WallOnly())
+        return "invisible wall " + Objects::Label(wall) + " - " + Walls::DescribeState(wall);
     if (g_nodeSelected && g_nodeIndex < static_cast<int>(Nodes::All().size())) {
         const Nodes::Node& node = Nodes::All()[g_nodeIndex];
         return "node " + Nodes::Label(node.name) + " (" + Nodes::Label(node.cls) + ")";
@@ -2445,7 +2510,18 @@ Ui::Model BuildModel()
             model.view.wall = wall;
             model.view.wallName = Objects::Label(wall);
             model.view.wallInfo = View::DescribeWall(wall);
+            model.view.wallState = Walls::DescribeState(wall);
+            model.view.wallOff = Walls::Off(wall);
+            Placement placement;
+            model.view.wallMoved = Walls::Moved(wall, &placement);
         }
+        model.view.off = stats.off;
+        // (the Inspector's Collision checkbox: the selected scenery's switches - level_editor_walls.h)
+        std::vector<bool> offs;
+        if (!Primary())
+            for (uint32_t checksum : Scenery::Selection())
+                offs.push_back(Walls::Off(checksum));
+        model.view.sceneryCollision = Walls::Combined(offs);
     }
     std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
     Ui::Model::Selection& s = model.selection;
@@ -2787,6 +2863,51 @@ void Duplicate(const Frame& frame)
     NoteAction("duplicated (Ctrl+D): %s", DescribeSelection().c_str());
 }
 
+// An invisible wall's collision switched off / on (level_editor_walls.h: the game's CSector::SetActive) - Delete, Delete
+// again, the Inspector's Delete wall / Restore; one undo step.
+void SwitchWall(uint32_t wall, bool off)
+{
+    if (Walls::Off(wall) == off)
+        return;
+    PushUndo(Snapshot());
+    if (!Walls::SetOff(wall, off)) {
+        Hud::Message("Couldn't switch that wall's collision");
+        return;
+    }
+    Hud::Message(off ? "Wall deleted: its collision is off - the skater passes it (shown dashed; Delete / Home brings it "
+                       "back, Ctrl+Z undoes)"
+                     : "Wall restored: its collision is on again");
+    NoteAction("invisible wall %08X: collision %s", wall, off ? "off" : "on");
+}
+
+// The Inspector's Collision checkbox on selected scenery: the pieces' collision switched off / on by itself (they stay
+// drawn - level_editor_walls.h); one undo step.
+void SwitchSceneryCollision(bool off)
+{
+    const std::vector<uint32_t>& sectors = Scenery::Selection();
+    if (Primary() || sectors.empty())
+        return;
+    UndoStep step;
+    step.kind = UndoStep::kWalls;
+    step.walls = Walls::Save(sectors);
+    step.sectors = sectors;
+    int changed = 0;
+    for (uint32_t checksum : sectors) {
+        if (Walls::Off(checksum) != off && Walls::SetOff(checksum, off))
+            ++changed;
+    }
+    if (!changed)
+        return;
+    PushUndo(step);
+    char text[160];
+    std::snprintf(text, sizeof(text),
+                  off ? "Collision off for %d piece%s - drawn, but the skater passes through (Ctrl+Z undoes)"
+                      : "Collision on again for %d piece%s",
+                  changed, changed == 1 ? "" : "s");
+    Hud::Message(text);
+    NoteAction("scenery collision %s (%d pieces)", off ? "off" : "on", changed);
+}
+
 // Delete: scenery hidden (undoable); object copies deleted (undoable); other objects can't be.
 void Delete()
 {
@@ -2819,6 +2940,10 @@ void Delete()
         PushUndo(step);
         Hud::Message("Deleted - Ctrl+Z brings it back");
         NoteAction("deleted object copies (Delete)");
+        return;
+    }
+    if (uint32_t wall = WallOnly()) {
+        SwitchWall(wall, !Walls::Off(wall)); // (Delete again: back on)
         return;
     }
     if (Scenery::HasSelection()) {
@@ -2864,6 +2989,16 @@ void Reset()
         if (any) {
             PushUndo(before);
             Hud::Message("Put back where it was");
+        }
+    } else if (uint32_t wall = objects.empty() ? WallOnly() : 0) {
+        // (an invisible wall: where the level has it, its collision on)
+        Placement placement;
+        if (Walls::Moved(wall, &placement) || Walls::Off(wall)) {
+            PushUndo(Snapshot());
+            Walls::ApplyStates({{wall, {0, {0.0f, 0.0f, 0.0f}}, false}});
+            Hud::Message("Wall put back where the level had it, its collision on");
+        } else {
+            Hud::Message("It's where the level has it");
         }
     } else if (Scenery::HasSelection()) {
         PushUndo(Snapshot());
@@ -3378,6 +3513,14 @@ void ApplyUiRequests(V3 dir, bool haveRay, const Frame& frame)
         case Ui::Request::kClearWall:
             View::ClearWall();
             break;
+        case Ui::Request::kWallCollision:
+            if (uint32_t wall = WallOnly(); wall && !noChange)
+                SwitchWall(wall, request.value == 0);
+            break;
+        case Ui::Request::kSceneryCollision:
+            if (!noChange)
+                SwitchSceneryCollision(request.value == 0);
+            break;
         case Ui::Request::kUnlock:
             if (Picking::SetLocked(static_cast<uint32_t>(request.value), request.id, false)) {
                 MarkUnsaved();
@@ -3682,7 +3825,13 @@ void Update()
     }
     // C: the collision shown / hidden; H: the selection hidden (Alt+H: everything shown); I or /: isolated
     // (level_editor_view.h - while editing only).
-    static bool cKey, hKey, iKey, slashKey;
+    static bool cKey, hKey, iKey, slashKey, oKey;
+    if (Pressed(keys, SDL_SCANCODE_O, &oKey) && !ctrl && !g_browser.open) {
+        g_occlusionOff = !g_occlusionOff;
+        Nx::OcclusionOff() = g_occlusionOff;
+        Hud::Message(g_occlusionOff ? "Occlusion off: everything in range is drawn (O: the game's occlusion)"
+                                    : "Occlusion on, as in play (O: off) - distant things may vanish behind occluders");
+    }
     if (Pressed(keys, SDL_SCANCODE_C, &cKey) && !ctrl && !g_browser.open)
         ShowCollision(!View::ShowCollision());
     if (Pressed(keys, SDL_SCANCODE_H, &hKey) && !ctrl && !noChange && !g_browser.open) {
@@ -3695,6 +3844,7 @@ void Update()
     if ((Pressed(keys, SDL_SCANCODE_SLASH, &slashKey) || isolateKey) && !ctrl && !noChange && !g_browser.open)
         ViewHide(true);
     View::Tick();
+    Walls::Tick(); // (scenery whose collision is switched off kept off - level_editor_walls.h)
     // P: the camera written to the log as a menu backdrop view (menu_backdrop.cpp kViews: position, back, up).
     static bool poseKey;
     if (Pressed(keys, SDL_SCANCODE_P, &poseKey) && !ctrl) {
@@ -3976,12 +4126,18 @@ void Update()
         uint32_t wall = input.leftPresses && shift && !alt && g_hoverAxis < 0 && View::ShowCollision()
                             ? View::PickWall(g_pos, Normalize(dir))
                             : 0;
-        if (!wall)
+        // (a plain click on the selected wall's face: dragging it - level_editor_walls.h)
+        bool onWall = !wall && input.leftPresses && !shift && !one && g_hoverAxis < 0 && WallOnly() &&
+                      View::ShowCollision() && View::PickWall(g_pos, Normalize(dir)) == WallOnly();
+        if (!wall && !onWall && g_hoverAxis < 0)
             View::ClearWall();
         if (wall) {
             Deselect();
             View::SelectWall(wall);
-            Hud::Message("Invisible wall " + Objects::Label(wall) + " (the Inspector shows what it is)");
+            Hud::Message("Invisible wall " + Objects::Label(wall) +
+                         " - Delete switches its collision off; drag its face or the arrows to move it");
+        } else if (onWall) {
+            drag = true;
         } else if (g_hoverAxis >= 0 && input.leftPresses) {
             g_axis = g_hoverAxis;
             drag = true;
