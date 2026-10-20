@@ -56,6 +56,10 @@ Node strips the types and runs what is left, so only syntax that erases to plain
 Each of these changed (or would have changed) an output somewhere; `tools/lib/py.ts` has the helper.
 
 **Numbers**
+- NaN payload bits: Python keeps a float32 NaN's bits (THPS3's uvs hold 0x7FC0817D); V8 may reset them to
+  0x7FC00000 when a NaN is the first value pushed into a fresh array, and only once the code is optimised - so the
+  output can even vary between runs. Start such arrays as doubles (`doubleArray` in `tools/lib/struct.ts`, which
+  `unpackFrom` uses) or build them with `concat`.
 - `round(x)` is banker's rounding (halves to even: `round(2.5) == 2`) - `roundHalfEven`, never `Math.round`.
   `round(x, n)` rounds the exact binary value (`round(2.675, 2) == 2.67`) - `pyRound`.
 - `repr(float)` / `str(float)`: exponent below 1e-4 and from 1e16 (`1e-05`, `1e+16`), always a `.0` - `pyFloatRepr`.
@@ -180,7 +184,7 @@ Every port is compared with its Python twin on real data before the Python file 
 | tools/level_port/col_check.py | col_check.ts | ported + verified (CLI) | 1 |
 | tools/level_port/script_diff.py | script_diff.ts | ported + verified (CLI) | 1 |
 | tools/compat/compat.py | compat.ts | ported + verified; Python deleted (2c: its last importer went) | 1 |
-| tools/thps3_levels/thps3.py, thps3_levels.py | - | pending | 2 |
+| tools/thps3_levels/thps3.py, thps3_levels.py | thps3.ts, thps3_levels.ts | ported + verified, Python deleted (parity: c121a28) | 2 |
 | tools/thps4_levels/thps4.py, thps4_levels.py, thps4_scripts.py | - | pending | 2 |
 | tools/thug1_levels/thug1.py, thug1_levels.py, thug1_port.py | - | pending | 2 |
 | tools/thaw_levels/thaw.py, thaw_levels.py, thaw_scripts.py, migrate_layouts.py, thugpro_compare.py | thaw.ts, thaw_levels.ts, thaw_scripts.ts, migrate_layouts.ts, thugpro_compare.ts | ported + verified (parity 23/23); Python deleted | 2c |
