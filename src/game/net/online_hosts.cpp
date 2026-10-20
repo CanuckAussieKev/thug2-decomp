@@ -4,7 +4,7 @@
 // Until the GameSpy SDK is linked (it's library code: not decompiled - docs/library_ranges.md), its host names
 // are in the exe's copy of it, as the operands of the instructions that use them (and two data words). This
 // writes the names made for the domain over them. Once the SDK is linked, this becomes its configuration: the
-// same names, given to it instead of written into it. (tools/check_code_writes.py checks the addresses below
+// same names, given to it instead of written into it. (tools/check_code_writes.ts checks the addresses below
 // stay outside rewritten functions.)
 
 #include "game/net/online_hosts.h"

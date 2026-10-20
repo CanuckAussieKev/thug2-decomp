@@ -10,6 +10,7 @@ import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as qb from "../../level_port/qb.ts";
+import { isMain } from "../../lib/py.ts";
 
 export function normalise(data: Buffer): Buffer {
     const toks = [...qb.tokens(data, true)];
@@ -58,4 +59,5 @@ function main(): number {
     return result.status ?? 1;
 }
 
-process.exitCode = main();
+// (only when run: sandbox.ts imports normalise)
+if (isMain(import.meta.url)) process.exitCode = main();

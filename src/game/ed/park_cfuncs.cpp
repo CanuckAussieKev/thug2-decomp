@@ -6,7 +6,7 @@
 // optional. The original passes the names as pointers to the exe's own strings ("MaxPlayers" at 0x0064F29C,
 // "MaxPlayersPossible" at 0x0064F2A8, used by nothing else). The stock no-CD THUG2.exe the main install runs has
 // 0x90 filler bytes over 0x0064F29C-0x0064F2B9 (damage from the no-CD build's maker; THUG2PM.exe still has the
-// names - tools/game/exe_audit.py lists every byte the two differ in), so there the original added the value under
+// names - tools/game/exe_audit.ts lists every byte the two differ in), so there the original added the value under
 // the checksum of thirty 0x90 bytes and the scripts' <MaxPlayers> / <MaxPlayersPossible> were never set. With the
 // names in our source, both commands behave as the original did on an undamaged exe, whichever exe runs.
 

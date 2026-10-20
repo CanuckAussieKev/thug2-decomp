@@ -4,7 +4,8 @@ The project's tools (`tools/`) are being rewritten from Python into TypeScript r
 2026-10-20), one area at a time; each port is proven **output-equivalent** to its Python twin before the Python file
 is deleted. This page is the conventions for that work and for every new tool. What stays Python: the pyghidra scripts
 (`tools/ghidra/*.py` - pyghidra has no Node equivalent), `tools/capstone_disasm.py` (for now), and `tools/neverscript`
-(not ours: Go).
+(not ours: Go). Node has no FFI: a tool that calls a Windows DLL does it through Windows PowerShell's Add-Type (C#
+P/Invoke) - `tools/symbolize.ts` (dbghelp).
 
 ## Running
 
@@ -108,7 +109,7 @@ Each of these changed (or would have changed) an output somewhere; `tools/lib/py
   files with `writeTextPy`. Reading (`open(p).read()`) turns `"\r\n"` and `"\r"` into `"\n"` - `readTextPy`.
 - `print()` on Windows writes `"\r\n"`; `console.log` / `print()` (py.ts) write `"\n"` (no visible difference in a
   console; the parity harness compares stdout with `"\r\n"` read as `"\n"`). Python's stdout to a pipe is cp1252 unless
-  `PYTHONIOENCODING` says otherwise; Node writes UTF-8. `console.log("%s")` formats its first argument when more
+  `PYTHONIOENCODING` says otherwise - and `python -I` ignores that variable (every `PYTHON*` one); Node writes UTF-8. `console.log("%s")` formats its first argument when more
   follow - use `print` (py.ts).
 - `subprocess.run(..., text=True)` decodes with the locale's code page (cp1252) and universal newlines -
   `common.textOutput` / `decodeCp1252`.
@@ -161,7 +162,11 @@ Every port is compared with its Python twin on real data before the Python file 
   every file the functions write.
 - Outputs that aren't deterministic in Python itself are compared in a stable form: ns.exe (Go) writes a .qb's 0x2B
   checksum names in map order, different every run (the drivers compare the code bytes and the sorted names); set
-  orders (above). Python runs with `PYTHONHASHSEED=0`.
+  orders (above). (parity.ts sets `PYTHONHASHSEED=0`, but `python -I` ignores it: a Python set's order differs between
+  runs - make_automation_tables' names equal but for case came out in a different order in each case.)
+- Tools that write into the repo or next to themselves (progress_report, fold_pending, mutate,
+  make_automation_tables...) are compared in scratch copies: tools/parity/small_tools/sandbox.ts copies what the
+  tool needs, runs it there and leaves only what it wrote or changed.
 - `npm test` runs node:test unit tests of the trickiest pure functions without game data; tests needing the game skip
   when it isn't installed.
 
@@ -190,8 +195,8 @@ Every port is compared with its Python twin on real data before the Python file 
 | tools/thaw_levels/thaw.py, thaw_levels.py, thaw_scripts.py, migrate_layouts.py, thugpro_compare.py | thaw.ts, thaw_levels.ts, thaw_scripts.ts, migrate_layouts.ts, thugpro_compare.ts | ported + verified (parity 23/23); Python deleted | 2c |
 | tools/menu_level/make_menu_level.py, level_select.py, level_select_icons.py, career_complete.py, qb_walk.py | - | pending | 3 |
 | tools/anteara/anteara.py | - | pending | 3 |
-| tools/game/boot_level.py, exe_audit.py, install_manifest.py, make_automation_tables.py | - | pending | 4 |
-| tools/bps_dump.py, check_code_writes.py, extract_cfuncs.py, find_missed_functions.py, fold_pending.py, map_units.py, mutate.py, progress_report.py, symbolize.py | - | pending | 4 |
+| tools/game/boot_level.py, exe_audit.py, install_manifest.py, make_automation_tables.py | boot_level.ts, exe_audit.ts, install_manifest.ts, make_automation_tables.ts | ported + verified, Python deleted (parity 43/43: e70590c) | 4 |
+| tools/bps_dump.py, check_code_writes.py, extract_cfuncs.py, find_missed_functions.py, fold_pending.py, map_units.py, mutate.py, progress_report.py, symbolize.py | bps_dump.ts, check_code_writes.ts, extract_cfuncs.ts, find_missed_functions.ts, fold_pending.ts, map_units.ts, mutate.ts, progress_report.ts, symbolize.ts | ported + verified, Python deleted (parity 43/43: e70590c); mutate.ts's specs are .ts (or .json; old .py specs still read) | 4 |
 | tools/capstone_disasm.py | - | stays Python (for now) | - |
 | tools/ghidra/*.py (apply_cfuncs, audit_game_function_calls, create_functions, export_functions, find_gaps, find_stubs, inspect_program, inspect_range, list_project, scan_register_assumptions) | - | stays Python (pyghidra) | - |
 | tools/parity/canon.py, tools/parity/level_port/driver.py, mutate_staging.py | (the drivers' Python halves) | go with the last Python twin they compare | - |

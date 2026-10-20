@@ -441,6 +441,23 @@ export function pyStrRepr(text: string): string {
     return out + quote;
 }
 
+// Python's repr(bytes): b'...' (b"..." when it has ' and no "), \\ \t \n \r escaped, other bytes outside space ... "~"
+// as \xhh.
+export function pyBytesRepr(data: Uint8Array): string {
+    const quote = data.includes(0x27) && !data.includes(0x22) ? '"' : "'";
+    let out = `b${quote}`;
+    for (const b of data) {
+        const ch = String.fromCharCode(b);
+        if (ch === quote || ch === "\\") out += `\\${ch}`;
+        else if (ch === "\t") out += "\\t";
+        else if (ch === "\n") out += "\\n";
+        else if (ch === "\r") out += "\\r";
+        else if (b < 0x20 || b >= 0x7f) out += `\\x${b.toString(16).padStart(2, "0")}`;
+        else out += ch;
+    }
+    return out + quote;
+}
+
 // repr() of plain values as Python prints them (print(a_dict)): str, int, float (Float), bool, None, list, dict
 // (a Map or a plain object), tuple (a readonly array tagged with pyTuple).
 export function pyRepr(value: unknown): string {
@@ -713,6 +730,15 @@ export function isMain(importMetaUrl: string): boolean {
     const self = decodeURIComponent(url.pathname).replace(/^\/([A-Za-z]:)/, "$1");
     const norm = (p: string): string => p.replaceAll("\\", "/").toLowerCase();
     return norm(self) === norm(fs.realpathSync(entry));
+}
+
+// --- dates ----------------------------------------------------------------------------------------------------------
+
+// datetime.date.today().isoformat(): the local date, "2026-10-20".
+export function today(): string {
+    const d = new Date();
+    const two = (n: number): string => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}`;
 }
 
 // --- paths ----------------------------------------------------------------------------------------------------------
