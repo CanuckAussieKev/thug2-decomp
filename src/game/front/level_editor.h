@@ -39,6 +39,9 @@ class CScript;
 //                             other) for the Outliner, the read-only Inspector and the gizmos (points, chains,
 //                             volumes) the UI draws; picked by screen distance; the online badge on spawns, crowns and
 //                             flags in a level shared with THUGPRO (a ported level)
+//   level_editor_node_edit.cpp point nodes (spawns, crowns, flags, lights, sounds, triggers, cameras and other nodes)
+//                             moved and turned: their pos= / angles= written, what the game keeps of them updated so it
+//                             shows at once (or at the next respawn / crown spawn), their undo steps and `set` records
 //   level_editor_hud.cpp      the old HUD ([features] editor_ui=0, or when the UI can't start): a status panel top
 //                             left, the keys at the bottom, a message line, and a panel for the help (F1) and the
 //                             browser (B), made of the game's screen elements
@@ -46,17 +49,21 @@ class CScript;
 //   - Flying: W A S D, Q / E down / up, Shift faster, the right mouse button looks, the wheel goes forward / back.
 //   - Seeing (the UI): the Outliner lists the level's nodes by family (search; the chips show / hide a family, in
 //     the view too - kept in the ini as [editor] families=<bits>); a click on a row or a gizmo selects it (an
-//     object's or scenery's node selects the object / scenery), a double-click takes the camera there; the Inspector
-//     shows the selection's node (read-only).
-//   - Selecting: a click on an object or scenery (scenery takes its group; hovering tints what a click would take);
-//     Shift+click adds / removes; Alt+click or a middle click one piece of scenery; Backspace deselects.
-//   - Moving: hold and drag (Shift: up / down; the wheel pushes / pulls; Ctrl snaps to 25; Escape puts it back), or
-//     drag one of the arrows to move along that axis only; W A S D / Q E nudge; Z / X turn (objects 15 degrees,
-//     scenery a quarter); G drops it onto the ground (a marker shows where that is).
-//   - Editing: Ctrl+D duplicates; Delete hides scenery (deletes copies of objects); Home puts it back where the level
-//     had it; Ctrl+Z / Ctrl+Y undo / redo (64 steps, this session).
+//     object's or scenery's node selects the object / scenery; a flag's object selects the flag's node), a
+//     double-click takes the camera there; the Inspector shows the selection's node - a point node's position and
+//     heading are fields to type or drag (one undo step a field), with when the change shows in the game.
+//   - Selecting: a click on an object, scenery or a node's gizmo (scenery takes its group; hovering tints what a click
+//     would take); Shift+click adds / removes; Alt+click or a middle click one piece of scenery; Backspace deselects.
+//   - Moving (objects, scenery and point nodes - spawns, crowns, flags, lights, sounds, triggers, other nodes; not
+//     rails, paths or particles yet): hold and drag (Shift: up / down; the wheel pushes / pulls; Ctrl or the toolbar's
+//     Snap 25 snaps to 25; Escape puts it back), or drag one of the arrows to move along that axis only; W A S D / Q E
+//     nudge; Z / X turn (objects and nodes 15 degrees, scenery a quarter); G drops it onto the ground (a marker shows
+//     where that is). Moving a spawn, crown or flag of a level shared with THUGPRO warns once a run (the edit is made).
+//   - Editing: Ctrl+D duplicates; Delete hides scenery (deletes copies of objects; not nodes); Home puts it back where
+//     the level had it; Ctrl+Z / Ctrl+Y undo / redo (64 steps, this session).
 //   - Adding: B lists the level's scenery and objects; Enter places a copy where the cursor points.
-//   - Saving: Ctrl+S. Unsaved changes are autosaved (every minute, on leaving, and from the crash logger -
+//   - Saving: Ctrl+S (layout version 2: moved nodes as `set <node> pos=x,y,z angles=x,y,z` records; version 1 files
+//     still load). Unsaved changes are autosaved (every minute, on leaving, and from the crash logger -
 //     level_editor_layout.h); an autosave newer than the saved layout is offered on entering: Ctrl+R restores it,
 //     Ctrl+Shift+R discards it. A crash logs the editor's last action. Leaving: Escape, Enter (the Pause key) or a controller's Start (level_editor_exit) - Escape
 //     first cancels a drag, closes a panel or drops the selection.
@@ -206,6 +213,15 @@ bool SectorSizeMovable(V3 min, V3 max, float limit);
 void GrowBox(V3* min, V3* max, bool have, V3 boxMin, V3 boxMax);
 // The axis-aligned box around an oriented box's corners.
 void BoundsOf(const OrientedBox& box, V3* min, V3* max);
+
+// A value on a `grid` (Ctrl / the toolbar's Snap 25 while dragging: 25 units) - the nearest multiple; a grid of 0
+// leaves it.
+float SnapToGrid(float value, float grid);
+// G (drop to the ground): where the collision ray starts below the selection - from 50 units above the base of an
+// object or a node (its feet / its place: not under the floor it stands in), from just under the bottom of scenery
+// (not hitting itself) - and the selection's position once its base is on the ground found (`groundY`).
+V3 GroundRayStart(V3 pos, float base, bool fromAbove);
+V3 DroppedTo(V3 pos, float base, float groundY);
 
 // The point of the line through `p` along `u` nearest to the ray from `o` along `d` (the move arrows: dragging along
 // one axis): its parameter `s` (p + u * s). False when the two are (nearly) parallel.

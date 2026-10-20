@@ -16,6 +16,7 @@
 #include "game/core/crc.h"
 #include "game/front/level_editor_hud.h"
 #include "game/front/level_editor_layout.h"
+#include "game/front/level_editor_node_edit.h"
 #include "game/front/level_editor_nodes.h"
 #include "game/front/level_editor_objects.h"
 #include "game/front/level_editor_scenery.h"
@@ -235,6 +236,15 @@ float DistanceToSegment(float x, float y, float ax, float ay, float bx, float by
     return static_cast<float>(std::sqrt(px * px + py * py));
 }
 
+float SnapToGrid(float value, float grid) { return grid > 0.0f ? std::round(value / grid) * grid : value; }
+
+V3 GroundRayStart(V3 pos, float base, bool fromAbove)
+{
+    return fromAbove ? V3{pos.x, base + 50.0f, pos.z} : V3{pos.x, base - 1.0f, pos.z};
+}
+
+V3 DroppedTo(V3 pos, float base, float groundY) { return {pos.x, pos.y + (groundY - base), pos.z}; }
+
 bool ClipToNear(V3 cameraPos, const Frame& frame, float nearZ, V3* a, V3* b)
 {
     float da = -Dot(*a - cameraPos, frame.back), db = -Dot(*b - cameraPos, frame.back);
@@ -373,12 +383,16 @@ V3 g_markBase, g_markGround;
 bool g_help;
 bool g_snapAlways;     // (the toolbar's Snap 25: moves snap without Ctrl)
 // The node layer (level_editor_nodes.h): the families shown ([editor] families in the ini), a node selected by itself
-// (a gizmo or an Outliner row that isn't an object or scenery - read-only for now), the gizmo under the cursor, and
-// what the last frame drew of them (picked by screen distance).
+// (a gizmo or an Outliner row that isn't an object or scenery - a point node moves and turns as objects do,
+// level_editor_node_edit.h; chains and the rest are read-only), the gizmo under the cursor, and what the last frame
+// drew of them (picked by screen distance).
 uint32_t g_families = Nodes::kAllFamilies;
 bool g_nodeSelected;
 int g_nodeIndex;
 uint32_t g_nodeName;
+bool g_fieldEditing;         // (the Inspector's position / heading fields are being changed: one undo step)
+bool g_onlineWarned;         // (the warning for a spawn, crown or flag moved in a level shared with THUGPRO: once a run)
+bool g_onlineWarningShown;   // (its window is up)
 int g_hoverNode = -1;
 std::vector<Nodes::Pickable> g_pickables;
 Ui::Overlay g_overlay;
@@ -483,7 +497,63 @@ Obj::CCompositeObject* Primary()
     std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
     return objects.empty() ? nullptr : objects.front();
 }
-bool HaveSelection() { return Primary() || Scenery::HasSelection(); }
+// The node selected by itself, if the editor moves it (a point node): its index in Nodes::All(), else -1.
+int MovableNode()
+{
+    if (!g_nodeSelected)
+        return -1;
+    const std::vector<Nodes::Node>& nodes = Nodes::All();
+    if (g_nodeIndex < 0 || g_nodeIndex >= static_cast<int>(nodes.size()) || nodes[g_nodeIndex].name != g_nodeName) {
+        int found = g_nodeName ? Nodes::Find(g_nodeName) : -1;
+        if (found < 0)
+            return -1;
+        g_nodeIndex = found;
+    }
+    return NodeEdit::Movable(nodes[g_nodeIndex]) ? g_nodeIndex : -1;
+}
+// That node's place now (false: none).
+bool NodeValues(NodeEdit::Values* values)
+{
+    return MovableNode() >= 0 && NodeEdit::Read(g_nodeName, values);
+}
+bool HaveSelection() { return Primary() || Scenery::HasSelection() || MovableNode() >= 0; }
+
+// A spawn, crown or flag of a level shared with THUGPRO changed by the editor: the warning, once a run (the edit is
+// made - layouts aren't used in net games, but a layout baked into the level's files would be).
+void NoteOnlineEdit(int index)
+{
+    const std::vector<Nodes::Node>& nodes = Nodes::All();
+    if (g_onlineWarned || index < 0 || index >= static_cast<int>(nodes.size()) || !Nodes::Online(nodes[index].family))
+        return;
+    const char* game = "";
+    if (!Nodes::LevelIsShared(&game))
+        return;
+    g_onlineWarned = true;
+    g_onlineWarningShown = true;
+    Log("level editor: %s moved in a level shared with THUGPRO (%s) - warned", Nodes::Label(nodes[index].name).c_str(),
+        game);
+    Hud::Message("Online: this level is shared with THUGPRO - moving its spawns, crowns and flags breaks parity", 8.0);
+}
+
+// The selected node put at `values` (an edit of the editor's: the online warning first time).
+void SetSelectedNode(const NodeEdit::Values& values)
+{
+    int index = MovableNode();
+    if (index < 0)
+        return;
+    NoteOnlineEdit(index);
+    NodeEdit::Set(g_nodeName, values);
+}
+
+// The node `index` selected by itself (nothing else).
+void SelectNodeOnly(int index)
+{
+    g_objects.clear();
+    Scenery::ClearSelection();
+    g_nodeSelected = true;
+    g_nodeIndex = index;
+    g_nodeName = Nodes::All()[index].name;
+}
 bool IsSelected(Obj::CCompositeObject* object)
 {
     return std::any_of(g_objects.begin(), g_objects.end(), [&](const Picked& p) { return p.object == object; });
@@ -505,28 +575,44 @@ void Deselect()
 
 // Where the selection is: the first object's position, else the scenery's pivot (the middle of its boxes); its base:
 // that object's feet, the scenery's bottom.
+// (a node selected by itself: its pos=, which is its base too)
 V3 SelectionPos()
 {
     if (Obj::CCompositeObject* object = Primary())
         return Objects::PosOf(object);
+    NodeEdit::Values node;
+    if (NodeValues(&node))
+        return node.pos;
     return Scenery::Pivot();
 }
 float SelectionBase()
 {
     if (Obj::CCompositeObject* object = Primary())
         return object->m_pos.y;
+    NodeEdit::Values node;
+    if (NodeValues(&node))
+        return node.pos.y;
     return Scenery::Bottom();
 }
-// The point the camera looks at: the first object's middle, or the scenery's pivot.
+// The point the camera looks at: the first object's middle, a node's place, or the scenery's pivot.
 V3 TargetOf()
 {
     if (Obj::CCompositeObject* object = Primary())
         return Objects::Centre(object);
+    NodeEdit::Values node;
+    if (NodeValues(&node))
+        return node.pos;
     return Scenery::Pivot();
 }
 // The selection moved so that SelectionPos is `pos` (the other objects by as much).
 void PlaceSelection(V3 pos)
 {
+    NodeEdit::Values node;
+    if (NodeValues(&node)) {
+        node.pos = pos;
+        SetSelectedNode(node);
+        return;
+    }
     std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
     if (objects.empty()) {
         Scenery::MoveTo(pos);
@@ -536,9 +622,16 @@ void PlaceSelection(V3 pos)
     for (Obj::CCompositeObject* object : objects)
         Objects::Place(object, Objects::PosOf(object) + delta);
 }
-// Turned a notch (an object 15 degrees about the first object's position; scenery a quarter about its pivot).
+// Turned a notch (an object or a node 15 degrees about the first object's position / its own; scenery a quarter about
+// its pivot).
 void TurnSelection(int notches)
 {
+    NodeEdit::Values node;
+    if (NodeValues(&node)) {
+        node.angles = NodeEdit::Turned(node.angles, notches);
+        SetSelectedNode(node);
+        return;
+    }
     std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
     if (objects.empty()) {
         Scenery::Turn(notches);
@@ -567,9 +660,10 @@ struct MadeCopy {
     Objects::State state;
 };
 struct UndoStep {
-    enum Kind { kObjects, kScenery, kMade } kind = kObjects;
+    enum Kind { kObjects, kScenery, kMade, kNodes } kind = kObjects;
     std::vector<Objects::State> objects;
     Scenery::State scenery;
+    NodeEdit::Step nodes; // (kNodes: the nodes' places - level_editor_node_edit.h)
     // kMade: the scenery copies and object copies, and whether they exist once this step is put back.
     std::vector<uint32_t> sectors;
     std::vector<MadeCopy> copies;
@@ -586,7 +680,11 @@ UndoStep Snapshot()
 {
     UndoStep step;
     std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
-    if (!objects.empty()) {
+    if (MovableNode() >= 0) {
+        step.kind = UndoStep::kNodes;
+        NodeEdit::NoteOrigin(g_nodeName);
+        step.nodes = NodeEdit::Capture({g_nodeName}, NodeEdit::Read);
+    } else if (!objects.empty()) {
         step.kind = UndoStep::kObjects;
         for (Obj::CCompositeObject* object : objects) {
             Objects::NoteOrigin(object);
@@ -624,7 +722,10 @@ void EndChange()
         return;
     g_hasPending = false;
     V3 now = SelectionPos();
-    if (g_pending.where.x != now.x || g_pending.where.y != now.y || g_pending.where.z != now.z)
+    bool changed = g_pending.kind == UndoStep::kNodes
+                       ? NodeEdit::Differs(g_pending.nodes, NodeEdit::Read) // (moved or turned)
+                       : g_pending.where.x != now.x || g_pending.where.y != now.y || g_pending.where.z != now.z;
+    if (changed)
         PushUndo(g_pending);
 }
 
@@ -691,6 +792,13 @@ void Restore(UndoStep& step)
     case UndoStep::kMade:
         SetExist(&step, step.exist);
         break;
+    case UndoStep::kNodes: {
+        NodeEdit::Put(step.nodes, [](uint32_t name, const NodeEdit::Values& values) { NodeEdit::Set(name, values); });
+        int index = step.nodes.nodes.empty() ? -1 : Nodes::Find(step.nodes.nodes.front().first);
+        if (index >= 0)
+            SelectNodeOnly(index);
+        break;
+    }
     }
 }
 
@@ -713,6 +821,13 @@ UndoStep Current(const UndoStep& step)
     case UndoStep::kMade:
         now.exist = !step.exist;
         break;
+    case UndoStep::kNodes: {
+        std::vector<uint32_t> names;
+        for (const auto& node : step.nodes.nodes)
+            names.push_back(node.first);
+        now.nodes = NodeEdit::Capture(names, NodeEdit::Read);
+        break;
+    }
     }
     return now;
 }
@@ -786,7 +901,7 @@ void StartDrag(V3 origin, V3 dir, bool vertical, const Frame& frame, float mouse
     g_dragOffset = g_dragOffset - g_dragPlaneOffset;
 }
 
-float SnapTo(float x) { return std::round(x / kSnap) * kSnap; }
+float SnapTo(float x) { return SnapToGrid(x, kSnap); }
 
 void Drag(V3 origin, V3 dir, float mouseX, float mouseY, bool snap)
 {
@@ -1298,6 +1413,7 @@ bool __cdecl CFunc_Start(Script::CStruct*, Script::CScript*)
     g_families = static_cast<uint32_t>(ConfigInt("editor", "families", static_cast<int>(Nodes::kAllFamilies))) &
                  Nodes::kAllFamilies;
     g_nodeSelected = false;
+    g_fieldEditing = false;
     g_hoverNode = -1;
     g_pickables.clear();
     Hud::Reset(!ui);
@@ -1565,6 +1681,9 @@ std::vector<std::pair<std::string, std::string>> KeysNow()
     if (g_dragging)
         return {{"Mouse", "move"}, {"Shift", "up / down"}, {"Wheel", "push / pull"}, {"Ctrl", "snap"},
                 {"Esc", "put it back"}};
+    if (MovableNode() >= 0)
+        return {{"Drag", "move"}, {"Arrows", "one axis"}, {"WASDQE", "nudge"}, {"Z X", "turn 15\xC2\xB0"},
+                {"G", "drop"}, {"Home", "level's place"}, {"Esc", "deselect"}};
     if (g_nodeSelected)
         return {{"WASD", "fly"}, {"RMB", "look"}, {"Click", "select another"}, {"Esc", "deselect"},
                 {"Outliner", "double-click: go to"}, {"F1", "help"}};
@@ -1630,6 +1749,16 @@ Ui::Model BuildModel()
     model.nodes.hovered = g_hoverNode;
     model.nodes.nodeOnly = g_nodeSelected && model.nodes.selected >= 0;
     model.nodes.levelShared = Nodes::LevelIsShared(&model.nodes.sharedGame);
+    NodeEdit::Values node;
+    if (model.nodes.nodeOnly && NodeValues(&node)) {
+        model.nodes.movable = true;
+        model.nodes.pos = node.pos;
+        model.nodes.angles = node.angles;
+        const NodeEdit::Values* origin = NodeEdit::Origin(g_nodeName);
+        model.nodes.moved = origin && !NodeEdit::Same(node, *origin);
+        model.nodes.whenApplied = NodeEdit::WhenApplied(Nodes::All()[model.nodes.selected]);
+    }
+    model.nodes.onlineWarning = g_onlineWarningShown;
     return model;
 }
 
@@ -1764,6 +1893,10 @@ void Duplicate(const Frame& frame)
     step.exist = false;
     V3 right = Normalize({frame.right.x, 0.0f, frame.right.z});
     std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
+    if (MovableNode() >= 0) {
+        Hud::Message("Level nodes can't be copied yet");
+        return;
+    }
     if (!objects.empty()) {
         std::vector<Obj::CCompositeObject*> made;
         for (Obj::CCompositeObject* object : objects) {
@@ -1828,6 +1961,10 @@ void Duplicate(const Frame& frame)
 // Delete: scenery hidden (undoable); object copies deleted (undoable); other objects can't be.
 void Delete()
 {
+    if (MovableNode() >= 0) {
+        Hud::Message("Level nodes can't be deleted yet - Home puts one back where the level had it");
+        return;
+    }
     std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
     if (!objects.empty()) {
         UndoStep step;
@@ -1867,7 +2004,17 @@ void Delete()
 void Reset()
 {
     std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
-    if (!objects.empty()) {
+    NodeEdit::Values node;
+    if (NodeValues(&node)) {
+        const NodeEdit::Values* origin = NodeEdit::Origin(g_nodeName);
+        if (origin && !NodeEdit::Same(node, *origin)) {
+            PushUndo(Snapshot());
+            NodeEdit::Set(g_nodeName, *origin);
+            Hud::Message("Put back where the level had it");
+        } else {
+            Hud::Message("It's where the level has it");
+        }
+    } else if (!objects.empty()) {
         UndoStep before = Snapshot();
         bool any = false;
         for (Obj::CCompositeObject* object : objects) {
@@ -1969,7 +2116,8 @@ void SelectNode(int index)
     if (index < 0 || index >= static_cast<int>(nodes.size()) || g_dragging)
         return;
     const Nodes::Node& node = nodes[index];
-    if (node.family == Nodes::Family::Object || node.family == Nodes::Family::Flag) {
+    // (a flag is moved as its node - its object with it - so the place the game makes it at changes too)
+    if (node.family == Nodes::Family::Object) {
         auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(node.name));
         OrientedBox box;
         if (object && !(object->m_objectFlags & Obj::OBJECT_FLAG_DEAD) && Objects::ModelBox(object, &box)) {
@@ -1986,14 +2134,18 @@ void SelectNode(int index)
         NoteAction("selected %s (its node)", Nodes::Label(node.name).c_str());
         return;
     }
-    Deselect();
-    g_nodeSelected = true;
-    g_nodeIndex = index;
-    g_nodeName = node.name;
+    SelectNodeOnly(index);
     NoteAction("selected the node %s", Nodes::Label(node.name).c_str());
     if (DebugEnabled())
         Log("level editor: node %s (%s) at (%.0f, %.0f, %.0f)", Nodes::Label(node.name).c_str(),
             Nodes::FamilyName(node.family), node.pos.x, node.pos.y, node.pos.z);
+}
+
+// The flag node of a flag's object (-1: not a flag's).
+int FlagNodeOf(Obj::CCompositeObject* object)
+{
+    int index = object ? Nodes::Find(object->m_id) : -1;
+    return index >= 0 && Nodes::All()[index].family == Nodes::Family::Flag ? index : -1;
 }
 
 // The camera taken to a node (its object or scenery: as GoToSelection).
@@ -2016,10 +2168,10 @@ void DropSelection()
     V3 pos = SelectionPos();
     float base = SelectionBase();
     V3 ground;
-    V3 from = Primary() ? V3{pos.x, base + 50.0f, pos.z} : V3{pos.x, base - 1.0f, pos.z};
+    V3 from = GroundRayStart(pos, base, Primary() || MovableNode() >= 0);
     if (GroundBelow(from, &ground) && ground.y != base) {
         PushUndo(Snapshot());
-        PlaceSelection({pos.x, pos.y + (ground.y - base), pos.z});
+        PlaceSelection(DroppedTo(pos, base, ground.y));
         NoteAction("dropped to the ground (G): %s", DescribeSelection().c_str());
         Settle();
     }
@@ -2117,7 +2269,7 @@ void GoToSelection()
 // What was asked for on the UI's panels (level_editor_ui.h), done as the keys would.
 void ApplyUiRequests(V3 dir, bool haveRay, const Frame& frame)
 {
-    bool noChange = g_dragging || g_keyMoving;
+    bool noChange = g_dragging || g_keyMoving || g_fieldEditing;
     for (const Ui::Request& request : Ui::TakeRequests()) {
         switch (request.kind) {
         case Ui::Request::kUndo:
@@ -2186,6 +2338,35 @@ void ApplyUiRequests(V3 dir, bool haveRay, const Frame& frame)
             break;
         case Ui::Request::kSelectNode:
             SelectNode(request.value);
+            if (MovableNode() >= 0)
+                FocusOnSelection(); // (the camera turns to it, at the distance it is - and orbits it)
+            break;
+        case Ui::Request::kNodeSet:
+            // The Inspector's fields (typed, or dragged to scrub): one undo step until they're let go.
+            if (MovableNode() >= 0 && !g_dragging && !g_keyMoving) {
+                if (!g_fieldEditing) {
+                    BeginChange();
+                    g_fieldEditing = true;
+                }
+                NodeEdit::Values values;
+                values.pos = {request.a[0], request.a[1], request.a[2]};
+                values.angles = {request.b[0], request.b[1], request.b[2]};
+                SetSelectedNode(values);
+                NoteAction("set in the Inspector: %s", DescribeSelection().c_str());
+            }
+            break;
+        case Ui::Request::kNodeSetDone:
+            if (g_fieldEditing) {
+                g_fieldEditing = false;
+                EndChange();
+            }
+            break;
+        case Ui::Request::kReset:
+            if (!noChange)
+                Reset();
+            break;
+        case Ui::Request::kOnlineWarningSeen:
+            g_onlineWarningShown = false;
             break;
         case Ui::Request::kGoToNode:
             GoToNode(request.value);
@@ -2280,7 +2461,7 @@ void Update()
         browseKey, enterKey, focusKey, leftKey, rightKey;
     static uint32_t upSince, downSince, pageUpSince, pageDownSince;
     bool zPressed = Pressed(keys, SDL_SCANCODE_Z, &zKey);
-    bool noChange = g_dragging || g_keyMoving;
+    bool noChange = g_dragging || g_keyMoving || g_fieldEditing;
 
     // The panels: F1 the help, B the browser.
     if (Pressed(keys, SDL_SCANCODE_F1, &helpKey))
@@ -2385,7 +2566,7 @@ void Update()
                 (keys[SDL_SCANCODE_Q] || keys[SDL_SCANCODE_F] || keys[SDL_SCANCODE_PAGEDOWN] ? 1 : 0);
         if (ctrl)
             f = r = u = 0; // (Ctrl+S, Ctrl+D)
-        if ((f || r || u) && !g_dragging) {
+        if ((f || r || u) && !g_dragging && !g_fieldEditing) {
             if (!g_keyMoving)
                 BeginChange();
             float step = static_cast<float>(kObjectSpeed * boost * seconds);
@@ -2495,6 +2676,7 @@ void Update()
             drag = true;
         } else if (g_hoverNode >= 0 && input.leftPresses) {
             SelectNode(g_hoverNode);
+            drag = HaveSelection() && !shift; // (an object, or a point node: dragged as objects are)
         } else if (g_hoverSector) {
             g_objects.clear();
             if (one)
@@ -2504,8 +2686,13 @@ void Update()
             else if (!Scenery::Selected(g_hoverSector))
                 Scenery::SelectGroup(g_hoverSector);
             drag = Scenery::HasSelection() && !one && !shift;
+        } else if (input.leftPresses && hover && FlagNodeOf(hover) >= 0) {
+            // (a flag's object: its node is what moves - level_editor_node_edit.h)
+            SelectNode(FlagNodeOf(hover));
+            drag = HaveSelection() && !shift;
         } else if (input.leftPresses && hover) {
             Scenery::ClearSelection();
+            g_nodeSelected = false;
             if (shift) {
                 if (IsSelected(hover))
                     g_objects.erase(std::remove_if(g_objects.begin(), g_objects.end(),
@@ -2526,7 +2713,7 @@ void Update()
         } else if (input.leftPresses && !shift) {
             Deselect();
         }
-        if (HaveSelection())
+        if (Primary() || Scenery::HasSelection())
             g_nodeSelected = false;
         NoteAction("click - selected: %s", DescribeSelection().c_str());
         if (drag) {
@@ -2550,7 +2737,7 @@ void Update()
     if (HaveSelection()) {
         V3 pos = SelectionPos();
         g_markBase = {pos.x, SelectionBase(), pos.z};
-        V3 from = Primary() ? g_markBase + V3{0.0f, 2.0f, 0.0f} : g_markBase - V3{0.0f, 1.0f, 0.0f};
+        V3 from = Primary() || MovableNode() >= 0 ? g_markBase + V3{0.0f, 2.0f, 0.0f} : g_markBase - V3{0.0f, 1.0f, 0.0f};
         g_haveMark = GroundBelow(from, &g_markGround);
     }
 }

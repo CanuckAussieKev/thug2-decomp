@@ -4,10 +4,13 @@
 
 #include <windows.h>
 
+#include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <fstream>
 #include <sstream>
 
+#include "game/front/level_editor_node_edit.h"
 #include "game/front/level_editor_objects.h"
 #include "game/gfx/screen.h"
 #include "game/obj/object.h"
@@ -20,7 +23,46 @@ namespace Front::LevelEditor::Layout {
 
 namespace {
 
-const char kHeader[] = "thug2-decomp layout 1";
+const char kHeader[] = "thug2-decomp layout "; // (and the version)
+
+// The header's version (0: not a layout's header).
+int HeaderVersion(const std::string& line)
+{
+    if (line.rfind(kHeader, 0) != 0)
+        return 0;
+    std::istringstream in(line.substr(sizeof(kHeader) - 1));
+    int version = 0;
+    std::string rest;
+    if (!(in >> version) || version < 1 || (in >> rest))
+        return 0;
+    return version;
+}
+
+// "x,y,z" (three numbers, commas between).
+bool ReadTriple(const std::string& text, float out[3])
+{
+    const char* at = text.c_str();
+    for (int i = 0; i < 3; ++i) {
+        char* end = nullptr;
+        out[i] = std::strtof(at, &end);
+        if (end == at || !std::isfinite(out[i]))
+            return false;
+        at = end;
+        if (i < 2) {
+            if (*at != ',')
+                return false;
+            ++at;
+        }
+    }
+    return *at == '\0';
+}
+
+void Triple(std::ostringstream& out, const char* key, const float value[3])
+{
+    char text[96];
+    std::snprintf(text, sizeof(text), " %s=%.9g,%.9g,%.9g", key, value[0], value[1], value[2]);
+    out << text;
+}
 
 void Number(std::ostringstream& out, float value)
 {
@@ -72,7 +114,7 @@ bool ReadPlaced(std::istringstream& in, Placement* p)
 std::string Write(const File& file)
 {
     std::ostringstream out;
-    out << kHeader << '\n';
+    out << kHeader << kVersion << '\n';
     out << "scene";
     Hex(out, file.scene);
     Comment(out, file.scene);
@@ -115,6 +157,17 @@ std::string Write(const File& file)
             Number(out, v);
         Comment(out, c.source);
     }
+    for (const SetRecord& s : file.nodes) {
+        if (!s.hasPos && !s.hasAngles)
+            continue;
+        out << "set";
+        Hex(out, s.name);
+        if (s.hasPos)
+            Triple(out, "pos", s.pos);
+        if (s.hasAngles)
+            Triple(out, "angles", s.angles);
+        Comment(out, s.name);
+    }
     return out.str();
 }
 
@@ -137,7 +190,8 @@ bool Read(const std::string& text, File* file, int* lineNumber)
         if (!(in >> kind))
             continue;
         if (!header) {
-            if (line.rfind(kHeader, 0) != 0)
+            file->version = HeaderVersion(line);
+            if (!file->version)
                 return false;
             header = true;
             continue;
@@ -177,6 +231,28 @@ bool Read(const std::string& text, File* file, int* lineNumber)
                 ok = ok && (in >> v);
             if (ok)
                 file->copies.push_back(c);
+        } else if (kind == "set") {
+            // (key=value fields: pos and angles; others - a later version's - skipped)
+            SetRecord s = {};
+            ok = ReadHex(in, &s.name);
+            std::string field;
+            while (ok && in >> field) {
+                size_t equals = field.find('=');
+                if (equals == std::string::npos || equals == 0) {
+                    ok = false;
+                    break;
+                }
+                std::string key = field.substr(0, equals), value = field.substr(equals + 1);
+                if (key == "pos") {
+                    ok = !s.hasPos && ReadTriple(value, s.pos); // (twice: not a record we wrote)
+                    s.hasPos = true;
+                } else if (key == "angles") {
+                    ok = !s.hasAngles && ReadTriple(value, s.angles);
+                    s.hasAngles = true;
+                }
+            }
+            if (ok)
+                file->nodes.push_back(s);
         } // (anything else: a later version's record - skipped)
         if (!ok)
             return false;
@@ -330,6 +406,10 @@ bool Capture(File* file)
         RowsOf(object->m_matrix, record.rows);
         file->copies.push_back(record);
     }
+    for (const NodeEdit::Record& node : NodeEdit::Changed()) {
+        const NodeEdit::Values& v = node.values;
+        file->nodes.push_back({node.name, true, true, {v.pos.x, v.pos.y, v.pos.z}, {v.angles.x, v.angles.y, v.angles.z}});
+    }
     return true;
 }
 
@@ -377,10 +457,23 @@ std::string Apply(const File& file)
             Objects::Restore(StateOf(record.name, record.pos, record.rows)))
             ++copies;
     }
-    char summary[160];
-    std::snprintf(summary, sizeof(summary), "%u pieces, %u copies, %u rail points, %d objects, %d object copies",
+    // Level nodes moved / turned (a node the level no longer has is skipped).
+    int nodes = 0;
+    for (const SetRecord& record : file.nodes) {
+        NodeEdit::Values values;
+        if (!NodeEdit::Read(record.name, &values))
+            continue;
+        if (record.hasPos)
+            values.pos = {record.pos[0], record.pos[1], record.pos[2]};
+        if (record.hasAngles)
+            values.angles = {record.angles[0], record.angles[1], record.angles[2]};
+        if (NodeEdit::Set(record.name, values))
+            ++nodes;
+    }
+    char summary[192];
+    std::snprintf(summary, sizeof(summary), "%u pieces, %u copies, %u rail points, %d objects, %d object copies, %d nodes",
                   static_cast<unsigned>(file.sectors.size()), static_cast<unsigned>(clones.size()),
-                  static_cast<unsigned>(file.rails.size()), objects, copies);
+                  static_cast<unsigned>(file.rails.size()), objects, copies, nodes);
     return summary;
 }
 
@@ -419,6 +512,7 @@ void ResetToLevel(const File& keep)
         if (!kept)
             Objects::RemoveCopy(copy.name);
     }
+    NodeEdit::ResetAll();
 }
 
 // The crash hook's write: no C++ objects here (structured exception handling), no allocation.
@@ -451,10 +545,10 @@ bool Save(std::string* message)
         return false;
     }
     char text[160];
-    std::snprintf(text, sizeof(text), "Saved: %u pieces, %u copies, %u rail points, %u objects, %u object copies",
+    std::snprintf(text, sizeof(text), "Saved: %u pieces, %u copies, %u rail points, %u objects, %u object copies, %u nodes",
                   static_cast<unsigned>(file.sectors.size()), static_cast<unsigned>(file.clones.size()),
                   static_cast<unsigned>(file.rails.size()), static_cast<unsigned>(file.objects.size()),
-                  static_cast<unsigned>(file.copies.size()));
+                  static_cast<unsigned>(file.copies.size()), static_cast<unsigned>(file.nodes.size()));
     *message = text;
     Log("level editor: %s - %s", text, path.c_str());
     // (saved: the autosave's changes are in the layout now, or the user chose these over them)
@@ -591,6 +685,7 @@ void OnSceneLoaded(const char* name, bool isNet)
     // editor was left)
     Scenery::Clones().clear();
     Objects::ForgetLevel();
+    NodeEdit::ForgetLevel();
     g_pending = !isNet;
     g_wait = 0;
     ++g_levelLoads;

@@ -7,11 +7,13 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cfloat>
 #include <cstdarg>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
 
+#include "game/front/level_editor_node_edit.h"
 #include "game/front/level_editor_nodes.h"
 #include "game/front/level_editor_ui_backend.h"
 #include "game/front/level_editor_ui_fonts.h"
@@ -517,15 +519,48 @@ void NodeSection(const Model& model, int index)
         ImGui::TextColored(ImVec4(0.56f, 0.71f, 0.92f, 1.0f), "Online");
         ImGui::PopFont();
         ImGui::TextWrapped("This level is ported from %s and shared with THUGPRO. Its %s decide where players start "
-                           "and play in net games: editing them changes online parity (the THUGPRO register, "
-                           "tools/compat/thugpro). Read-only for now.",
+                           "and play in net games: moving one changes that against THUGPRO's players (the THUGPRO "
+                           "register, tools/compat/thugpro). Layouts aren't used in net games - a layout baked into "
+                           "the level's files would be.",
                            model.nodes.sharedGame, Nodes::FamilyName(node.family));
         ImGui::EndChild();
         ImGui::PopStyleColor();
     }
     ImGui::Spacing();
-    if (ImGui::BeginTable("##node", 2, ImGuiTableFlags_SizingFixedFit)) {
-        if (node.hasPos) {
+    bool editable = model.nodes.nodeOnly && model.nodes.movable;
+    if (ImGui::BeginTable("##node", 2, ImGuiTableFlags_SizingStretchProp)) {
+        ImGui::TableSetupColumn("##label", ImGuiTableColumnFlags_WidthFixed);
+        ImGui::TableSetupColumn("##value", ImGuiTableColumnFlags_WidthStretch);
+        if (editable) {
+            // Typed or dragged to scrub (Ctrl+click or a double-click types a number); one undo step a field.
+            float pos[3] = {model.nodes.pos.x, model.nodes.pos.y, model.nodes.pos.z};
+            float heading = NodeEdit::HeadingDegrees(model.nodes.angles);
+            ImGui::PushFont(g_mono);
+            FieldLabel("Position");
+            ImGui::SetNextItemWidth(-FLT_MIN);
+            bool moved = ImGui::DragFloat3("##pos", pos, 1.0f, 0.0f, 0.0f, "%.1f");
+            bool done = ImGui::IsItemDeactivated();
+            FieldLabel("Heading");
+            ImGui::SetNextItemWidth(-FLT_MIN);
+            bool turned = ImGui::DragFloat("##heading", &heading, 0.5f, 0.0f, 0.0f, "%.1f\xC2\xB0");
+            done = done || ImGui::IsItemDeactivated();
+            ImGui::PopFont();
+            if (moved || turned) {
+                V3 angles = turned ? NodeEdit::WithHeading(model.nodes.angles, heading) : model.nodes.angles;
+                Request request = {Request::kNodeSet};
+                request.a[0] = pos[0];
+                request.a[1] = pos[1];
+                request.a[2] = pos[2];
+                request.b[0] = angles.x;
+                request.b[1] = angles.y;
+                request.b[2] = angles.z;
+                g_requests.push_back(request);
+            }
+            if (done)
+                Ask(Request::kNodeSetDone);
+            FieldLabel("Angles");
+            Mono("%.3f, %.3f, %.3f", model.nodes.angles.x, model.nodes.angles.y, model.nodes.angles.z);
+        } else if (node.hasPos) {
             FieldLabel("Position");
             Mono("x %10.1f\ny %10.1f\nz %10.1f", node.pos.x, node.pos.y, node.pos.z);
             FieldLabel("Angles");
@@ -561,7 +596,7 @@ void NodeSection(const Model& model, int index)
         }
         if (node.family == Nodes::Family::Crown) {
             FieldLabel("Crown");
-            Mono("#%d of %d (the order the network sends)", node.order,
+            Mono("#%d of %d (the order the network sends;\nmoving it keeps it)", node.order,
                  Nodes::Counts()[static_cast<int>(Nodes::Family::Crown)]);
         }
         if (node.family == Nodes::Family::Light) {
@@ -593,6 +628,22 @@ void NodeSection(const Model& model, int index)
             ImGui::PopFont();
         }
         ImGui::EndTable();
+    }
+    if (editable) {
+        ImGui::PushFont(g_small);
+        ImGui::TextDisabled("Shows in the game:");
+        ImGui::TextWrapped("%s", model.nodes.whenApplied);
+        if (model.nodes.moved)
+            ImGui::TextColored(ImVec4(1.0f, 0.78f, 0.45f, 1.0f), "Moved from where the level has it (Home puts it back).");
+        ImGui::PopFont();
+        if (ImGui::Button("Ground (G)"))
+            Ask(Request::kDrop);
+        ImGui::SameLine();
+        ImGui::BeginDisabled(!model.nodes.moved);
+        if (ImGui::Button("Home"))
+            Ask(Request::kReset);
+        ImGui::EndDisabled();
+        ImGui::SameLine();
     }
     if (ImGui::Button("Go to"))
         Ask(Request::kGoToNode, index);
@@ -754,11 +805,14 @@ void Help(const Model& model)
         {"", "Shift+click", "adds / removes"},
         {"", "Alt+click, middle click", "one piece of scenery"},
         {"", "Esc, Backspace", "deselects"},
-        {"Moving", "Drag", "moves it (Shift: up / down; wheel: push / pull; Ctrl: snap to 25)"},
+        {"", "A gizmo, an Outliner row", "a node: spawns, crowns, flags, lights, sounds, triggers and other point "
+                                         "nodes move as objects do (rails, paths and particles don't yet)"},
+        {"Moving", "Drag", "moves it (Shift: up / down; wheel: push / pull; Ctrl or Snap 25: snap to 25)"},
         {"", "Drag an arrow", "along that axis only"},
         {"", "W A S D / Q E", "nudge it"},
-        {"", "Z / X", "turn (objects 15\xC2\xB0, scenery a quarter)"},
+        {"", "Z / X", "turn (objects and nodes 15\xC2\xB0, scenery a quarter)"},
         {"", "G", "drops it onto the ground"},
+        {"", "Inspector", "a node's position and heading: drag to scrub, Ctrl+click to type"},
         {"Editing", "Ctrl+D", "duplicates"},
         {"", "Delete", "hides scenery (deletes a copy)"},
         {"", "Home", "puts it back where the level had it"},
@@ -877,6 +931,33 @@ void AutosaveOffer(const Model& model)
     ImGui::SameLine();
     if (ImGui::Button("Later"))
         g_offerClosed = true;
+    ImGui::End();
+}
+
+// A spawn, crown or flag moved in a level shared with THUGPRO: said once a run (the edit is made).
+void OnlineWarning(const Model& model)
+{
+    if (!model.nodes.onlineWarning)
+        return;
+    ImGuiIO& io = ImGui::GetIO();
+    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, g_layout.viewport.y + 24.0f * g_scale), ImGuiCond_Always,
+                            ImVec2(0.5f, 0.0f));
+    ImGui::SetNextWindowSize(ImVec2(460.0f * g_scale, 0.0f));
+    ImGui::PushStyleColor(ImGuiCol_TitleBgActive, ImVec4(0.18f, 0.37f, 0.6f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_TitleBg, ImVec4(0.18f, 0.37f, 0.6f, 1.0f));
+    ImGui::Begin("Online: a level shared with THUGPRO", nullptr,
+                 ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize |
+                     ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove);
+    ImGui::PopStyleColor(2);
+    ImGui::TextWrapped("This level is ported from %s and THUGPRO's players have it too. Moving its spawns, crowns or "
+                       "flags changes where players start and where crowns and flags are, against theirs.",
+                       model.nodes.sharedGame);
+    ImGui::Spacing();
+    ImGui::TextWrapped("Your layout isn't used in net games, so playing online is unaffected - but a layout baked into "
+                       "the level's files would be. The edit is made; Ctrl+Z or Home puts it back.");
+    ImGui::Spacing();
+    if (ImGui::Button("Understood"))
+        Ask(Request::kOnlineWarningSeen);
     ImGui::End();
 }
 
@@ -1051,6 +1132,7 @@ void Frame(const Model& model, const Overlay& overlay)
     Browser(model);
     Help(model);
     AutosaveOffer(model);
+    OnlineWarning(model);
     ImGui::PopFont();
     ImGui::Render();
     UiBackend::Render();
