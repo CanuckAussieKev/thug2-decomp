@@ -1,7 +1,7 @@
 {
   "_comment": "THUGPRO compatibility for the THUG1 level ports (tools/thug1_levels). Each entry is registered in README.md here (TP-30...). Online a level is known only by its load script's checksum (messages 0x46 / 0x33). The other THUG1 levels are named by THUG1's own Levels.qb (Load_NJ...) - THUG1 data, no entry. Read by tools/compat/compat.ts; `thug1_levels.ts convert --compat none` leaves all of it out.",
   "level_names": {
-    "_register": "TP-30 (awaiting the user's approval)",
+    "_register": "TP-30",
     "SE": "hh"
   }
 }

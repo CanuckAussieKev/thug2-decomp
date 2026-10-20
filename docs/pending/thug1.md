@@ -93,7 +93,7 @@ only the reference and is compared against (`tools/thug1_levels/thugpro_compare.
   THUGPRO plays THUG2's own SC / PH / DJ there (no ports). Levels THUG1 doesn't load by their own name keep it too:
   thug1_nj_skateshop, thug1_skateshop (THUGPRO's front end Load_Mainmenu = THUG2's front end here: not taken),
   thug1_cas_bedroom. Hotter Than Hell: THUG1's SE is THUG2's SE (Pro Skater), THUGPRO calls it hh - **TP-30** in
-  the register, awaiting the user's approval (`--compat none`: thug1_se). `--legacy-names`: thug1_<code> as before.
+  the register, approved by the user 2026-10-20 (`--compat none`: thug1_se). `--legacy-names`: thug1_<code> as before.
   Saved layouts: `tools/thug1_levels/migrate_layouts.ts --game <folder>` (none existed in any game folder; checked on
   a made-up one in THUG2-3, removed after). `ported_levels.loadManifest` now refuses two staging folders naming a
   level (or sky) alike.
