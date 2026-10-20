@@ -245,27 +245,26 @@ void TestEditorTriggersRecords()
     Check(T::ReadRecord("ed_trigger01 kill pos=1,2,3 size=1,99999,50", &back) && back.spec.size.x == 10.0f &&
               back.spec.size.y == 50000.0f && back.spec.size.z == 50.0f,
           "editor triggers: sizes kept within 10 .. 50000");
-    // In a layout: trigger and trigger_off records, written and read back.
+    // In a layout: trigger records, written and read back.
     namespace Layout = Front::LevelEditor::Layout;
     Layout::File file;
     file.scene = 0x4B7E41E2;
     file.triggers = {p, kill, runs};
-    file.triggersOff = {0x8E1A2B3C, 0x00000007};
     std::string text = Layout::Write(file);
-    Check(text.find("\ntrigger ed_trigger01 kill pos=1,2,3") != std::string::npos &&
-              text.find("\ntrigger_off 8E1A2B3C") != std::string::npos,
-          "editor triggers: the layout's trigger / trigger_off lines");
+    Check(text.find("\ntrigger ed_trigger01 kill pos=1,2,3") != std::string::npos,
+          "editor triggers: the layout's trigger lines");
     Layout::File read;
     int line = -1;
-    bool ok = Layout::Read(text, &read, &line) && read.triggers.size() == 3 && read.triggersOff == file.triggersOff;
+    bool ok = Layout::Read(text, &read, &line) && read.triggers.size() == 3;
     for (size_t i = 0; ok && i < 3; ++i)
         ok = T::SameSpec(read.triggers[i].spec, i == 0 ? expected : file.triggers[i].spec);
     Check(ok, "editor triggers: ... read back from the layout");
     Check(!Layout::Read("thug2-decomp layout 2\nscene 4B7E41E2\ntrigger ed_trigger01 kill\n", &read, &line) && line == 3,
           "editor triggers: a layout with a broken trigger record refused (as a broken node record is)");
-    Check(Layout::Read("thug2-decomp layout 2\nscene 4B7E41E2\ntrigger_off 0000ABCD  # TRG_Water01\n", &read, &line) &&
-              read.triggersOff.size() == 1 && read.triggersOff[0] == 0xABCD,
-          "editor triggers: trigger_off with its comment");
+    Check(Layout::Read("thug2-decomp layout 2\nscene 4B7E41E2\ntrigger ed_trigger01 kill pos=1,2,3  # a comment\n", &read,
+                       &line) &&
+              read.triggers.size() == 1 && read.triggers[0].pos.z == 3.0f,
+          "editor triggers: a trigger record with a comment after it");
 }
 SELFTEST(Early, TestEditorTriggersRecords);
 

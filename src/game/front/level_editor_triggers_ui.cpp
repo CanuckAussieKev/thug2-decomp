@@ -115,22 +115,32 @@ void LevelTriggerDetails(const LevelTrigger& l)
     ImGui::TextDisabled("Box (%.0f, %.0f, %.0f) .. (%.0f, %.0f, %.0f)", l.min.x, l.min.y, l.min.z, l.max.x, l.max.y,
                         l.max.z);
     uint32_t sector = l.sector;
-    if (l.off) {
+    bool switchable = l.wall || l.allTrigger;
+    if (l.off)
         ImGui::TextColored(ImVec4(1.0f, 0.75f, 0.4f, 1.0f), "Off (skating through it does nothing)");
-        if (ImGui::Button("Turn on"))
-            Queue([sector] { TurnOff(sector, false); });
-    } else if (ImGui::Button("Turn off")) {
-        Queue([sector] { TurnOff(sector, true); });
+    ImGui::BeginDisabled(!switchable);
+    if (ImGui::Button(l.off ? "Switch on" : "Switch off"))
+        Queue([sector, off = !l.off] { TurnOff(sector, off); });
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+        ImGui::SetTooltip(switchable ? "Its collision switched off / on as an invisible wall's (level_editor_walls: the game's "
+                                       "own switch, saved as its `wall` record)"
+                                     : "Its collision has faces that aren't a trigger's (they'd go too)");
+    if (l.wall) {
+        ImGui::SameLine();
+        if (ImGui::Button("Move it"))
+            Queue([sector] { SelectWall(sector); });
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Selects it as an invisible wall: drag it, the arrows, W A S D / Q E, Z / X (quarter turns), "
+                              "Home - saved as its `wall` record. Its size stays; for that, make an editable copy.");
     }
-    if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Its collision skipped by the game's queries (saved in the layout as trigger_off)");
-    ImGui::SameLine();
+    ImGui::BeginDisabled(!switchable || !l.script);
     if (ImGui::Button("Make an editable copy"))
         Queue([sector] { MakeEditable(sector); });
-    if (ImGui::IsItemHovered())
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
         ImGui::SetTooltip("A trigger volume of the editor's over its faces' box, running the same TriggerScript - it moves, "
-                          "turns and resizes; the original is off while the copy is there. (A level's own volume can't be "
-                          "moved in place: it is collision without geometry.)");
+                          "turns, resizes and changes kind; the original is switched off while the copy is there.");
 }
 
 } // namespace

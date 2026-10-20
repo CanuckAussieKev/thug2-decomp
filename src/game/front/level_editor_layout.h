@@ -62,7 +62,6 @@ class CScript;
 //                                                      (level_editor_picking.h)
 //   trigger <name> <kind> pos=x,y,z yaw=r size=x,y,z ...  a trigger volume the editor added (level_editor_triggers.h:
 //                                                      its node is the overlay's, not a `node` record)
-//   trigger_off <checksum>                             a level's own trigger volume turned off
 // An older (phase 2) reader skips node / order / hide records; an older reader of version 2 skips lock and trigger
 // records.
 //   point <name> <Class> pos=x,y,z [like=<node>] [terrain=<T>] [links=<node>,...]
@@ -122,7 +121,6 @@ struct File {
     std::vector<uint32_t> hidden;         // `hide`
     std::vector<Picking::Lock> locks;     // `lock`
     std::vector<Triggers::Placed> triggers; // `trigger`
-    std::vector<uint32_t> triggersOff;      // `trigger_off`
     Chains::State chains;                 // (phase 4) `point`, `links`, `drop`, `terrain`
     std::vector<Walls::WallState> walls;  // `wall`: collision moved / switched off
 };

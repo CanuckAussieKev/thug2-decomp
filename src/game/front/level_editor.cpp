@@ -3698,6 +3698,10 @@ void Update()
             g_hoverNode = -1;
             SelectNodeOnly(select);
         }
+        if (uint32_t wall = Triggers::TakeWallSelect(); wall && !g_dragging) {
+            Deselect();
+            View::SelectWall(wall); // (a level trigger volume moved as an invisible wall - level_editor_walls.h)
+        }
     }
     Walls::Tick(); // (scenery whose collision is switched off kept off - level_editor_walls.h)
     // P: the camera written to the log as a menu backdrop view (menu_backdrop.cpp kViews: position, back, up).

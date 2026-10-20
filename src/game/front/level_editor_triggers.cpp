@@ -18,6 +18,8 @@
 #include "game/front/level_editor_objects.h"
 #include "game/front/level_editor_picking.h"
 #include "game/front/level_editor_scenery.h"
+#include "game/front/level_editor_view.h"
+#include "game/front/level_editor_walls.h"
 #include "game/mth/matrix.h"
 #include "game/nx/coll_cache.h"
 #include "game/nx/coll_movable.h"
@@ -545,7 +547,6 @@ namespace {
 constexpr uint32_t kCollStaticVtable = 0x00645C18;
 constexpr uint32_t kTriggerScript = 0x2CA8A299; // TriggerScript
 constexpr uint16_t kVolumeFlags = 0x50;         // a trigger face the skater passes through
-constexpr uint16_t kOffFlag = 4;                // a collision object the world queries skip
 constexpr char kFileName[] = "editor\\thug2_decomp_triggers.qb";
 constexpr float kDrawRadius = 8000.0f;   // (level triggers drawn within this of the camera)
 constexpr float kLabelRadius = 3000.0f;
@@ -554,11 +555,13 @@ constexpr int kMaxLevelDrawn = 300, kMaxLabels = 48, kMaxFacesKept = 64;
 // The editor's triggers (alive or not: a deleted one's spec is kept for its undo), what Tick saw of them.
 std::vector<Spec> g_specs;
 std::vector<Added> g_added;
-// The level's triggers (scanned when the editor starts in a level), those turned off by hand.
+// The level's triggers (scanned when the editor starts in a level); those switched off / on here (their walls' states
+// go in the undo steps); those switched off while an editable copy stands in for them (on again when it goes).
 std::vector<LevelTrigger> g_level;
 bool g_scanned;
-std::vector<uint32_t> g_off;
-std::vector<std::pair<uint32_t, uint8_t*>> g_turnedOff; // (sector, its collision object we set the flag on)
+std::vector<uint32_t> g_switched;
+std::vector<uint32_t> g_turnedOff;
+uint32_t g_selectWall;
 uint32_t g_levelArray;
 uint32_t g_inspected;
 // The collision boxes.
@@ -694,29 +697,34 @@ uint8_t* CollOf(uint8_t* sector)
     uint8_t* coll = sector ? *reinterpret_cast<uint8_t**>(sector + 0x18) : nullptr;
     return coll && *reinterpret_cast<uint32_t*>(coll) == kCollStaticVtable ? coll : nullptr;
 }
-uint16_t& CollFlags(uint8_t* coll) { return *reinterpret_cast<uint16_t*>(coll + 0x08); }
-
 bool TurnedOffByUs(uint32_t sector)
 {
-    return std::any_of(g_turnedOff.begin(), g_turnedOff.end(), [&](const auto& t) { return t.first == sector; });
+    return std::find(g_turnedOff.begin(), g_turnedOff.end(), sector) != g_turnedOff.end();
 }
 
 V3 ToV3(const Mth::Vector& v) { return {v.x, v.y, v.z}; }
 
-void ScanSector(void*, uint32_t checksum, uint8_t* sector)
+// A sector's trigger faces read into `t` (false: none) - its faces' box, the first ones' corners, whether every face is
+// a trigger's; where its collision is now (a wall moved: read again - RefreshMoved).
+bool ReadFaces(uint8_t* sector, LevelTrigger* t)
 {
     uint8_t* coll = CollOf(sector);
-    if (!coll || ((CollFlags(coll) & kOffFlag) && !TurnedOffByUs(checksum)))
-        return;
-    auto* tri = *reinterpret_cast<Nx::CCollObjTriData**>(coll + 0x0C);
+    auto* tri = coll ? *reinterpret_cast<Nx::CCollObjTriData**>(coll + 0x0C) : nullptr;
     if (!tri || !tri->m_faces || !tri->m_vertices || tri->m_numFaces == 0)
-        return;
-    LevelTrigger t;
+        return false;
+    t->faces.clear();
+    t->faceCount = 0;
+    t->allTrigger = true;
+    t->wall = *reinterpret_cast<uint8_t**>(sector + 0x14) == nullptr; // (no geometry: collision only)
+    t->boxMin = {tri->m_min.x, tri->m_min.y, tri->m_min.z};
+    t->boxMax = {tri->m_max.x, tri->m_max.y, tri->m_max.z};
     bool any = false;
     for (int f = 0; f < tri->m_numFaces; ++f) {
         uint16_t flags = *reinterpret_cast<const uint16_t*>(tri->m_faces + f * (tri->m_smallFaces ? 8 : 10));
-        if (!(flags & 0x40))
+        if (!(flags & 0x40)) {
+            t->allTrigger = false;
             continue;
+        }
         V3 p[3];
         bool ok = true;
         for (int k = 0; k < 3 && ok; ++k) {
@@ -728,14 +736,20 @@ void ScanSector(void*, uint32_t checksum, uint8_t* sector)
         if (!ok)
             continue;
         for (const V3& q : p) {
-            GrowBox(&t.min, &t.max, any, q, q);
+            GrowBox(&t->min, &t->max, any, q, q);
             any = true;
         }
-        if (t.faceCount < kMaxFacesKept)
-            t.faces.insert(t.faces.end(), p, p + 3);
-        ++t.faceCount;
+        if (t->faceCount < kMaxFacesKept)
+            t->faces.insert(t->faces.end(), p, p + 3);
+        ++t->faceCount;
     }
-    if (!any)
+    return any;
+}
+
+void ScanSector(void*, uint32_t checksum, uint8_t* sector)
+{
+    LevelTrigger t;
+    if (!ReadFaces(sector, &t))
         return;
     t.sector = checksum;
     if (Script::CStruct* node = SkateScript::GetNode(checksum, false)) {
@@ -881,6 +895,31 @@ const char* GameProblem(const Spec& spec)
     return nullptr;
 }
 
+// The level's triggers as they are now: switched off or on (Walls::Off - the editor's switch, or a level script's Kill),
+// and moved (an invisible wall moved by level_editor_walls.h: its faces read again when its collision's box changed).
+void RefreshLevel()
+{
+    for (LevelTrigger& t : g_level) {
+        uint8_t* sector = Scenery::SectorOf(t.sector);
+        uint8_t* coll = sector ? CollOf(sector) : nullptr;
+        auto* tri = coll ? *reinterpret_cast<Nx::CCollObjTriData**>(coll + 0x0C) : nullptr;
+        if (!tri)
+            continue;
+        t.off = Walls::Off(t.sector) || (*reinterpret_cast<uint16_t*>(coll + 0x08) & 4) != 0;
+        if (tri->m_min.x != t.boxMin.x || tri->m_min.y != t.boxMin.y || tri->m_min.z != t.boxMin.z ||
+            tri->m_max.x != t.boxMax.x || tri->m_max.y != t.boxMax.y || tri->m_max.z != t.boxMax.z) {
+            LevelTrigger now = t;
+            if (ReadFaces(sector, &now)) {
+                t.faces = now.faces;
+                t.min = now.min;
+                t.max = now.max;
+            }
+            t.boxMin = now.boxMin;
+            t.boxMax = now.boxMax;
+        }
+    }
+}
+
 int SpecIndex(const std::string& name)
 {
     for (size_t i = 0; i < g_specs.size(); ++i) {
@@ -951,34 +990,29 @@ void Sync()
             PlaceBox(&*it, a.pos, a.yaw, a.spec.size);
         }
     }
-    // The level's triggers turned off: by hand, or while an alive copy stands in for one.
-    std::vector<uint32_t> off = g_off;
+    // The level's triggers an alive editable copy stands in for: switched off (through level_editor_walls.h - the
+    // collision switch's one owner: CSector::SetActive for a wall), on again once no copy stands in for them.
+    std::vector<uint32_t> replaced;
     for (const Added& a : g_added) {
-        if (a.alive && a.spec.replaces)
-            off.push_back(a.spec.replaces);
+        if (a.alive && a.spec.replaces && Scenery::SectorOf(a.spec.replaces))
+            replaced.push_back(a.spec.replaces);
     }
     for (size_t i = 0; i < g_turnedOff.size();) {
-        if (std::find(off.begin(), off.end(), g_turnedOff[i].first) == off.end()) {
-            uint8_t* coll = CollOf(Scenery::SectorOf(g_turnedOff[i].first));
-            if (coll == g_turnedOff[i].second)
-                CollFlags(coll) &= static_cast<uint16_t>(~kOffFlag);
+        if (std::find(replaced.begin(), replaced.end(), g_turnedOff[i]) == replaced.end()) {
+            Walls::SetOff(g_turnedOff[i], false);
             g_turnedOff.erase(g_turnedOff.begin() + static_cast<std::ptrdiff_t>(i));
         } else {
             ++i;
         }
     }
-    for (uint32_t sector : off) {
+    for (uint32_t sector : replaced) {
         if (TurnedOffByUs(sector))
             continue;
-        uint8_t* coll = CollOf(Scenery::SectorOf(sector));
-        if (!coll || (CollFlags(coll) & kOffFlag))
-            continue; // (not in this level, or off already - the level's own doing: left alone)
-        CollFlags(coll) |= kOffFlag;
-        Nx::RemoveFromCaches(reinterpret_cast<Nx::CCollObj*>(coll));
-        g_turnedOff.push_back({sector, coll});
+        if (!Walls::Off(sector))
+            Walls::SetOff(sector, true);
+        g_turnedOff.push_back(sector);
     }
-    for (LevelTrigger& t : g_level)
-        t.off = TurnedOffByUs(t.sector);
+    RefreshLevel();
     // The gap list: built again as the level's load builds it; the editor's gaps no longer there taken out.
     std::vector<std::pair<std::string, int>> wanted;
     for (const Added& a : g_added) {
@@ -1011,8 +1045,9 @@ void Forget()
     g_checklist = nullptr;
     g_specs.clear();
     g_added.clear();
-    g_off.clear();
+    g_switched.clear();
     g_turnedOff.clear(); // (their collision goes with the level)
+    g_selectWall = 0;
     g_level.clear();
     g_scanned = false;
     g_levelGapNames.clear();
@@ -1029,7 +1064,7 @@ void OnArrayRemoved(uint32_t name)
 {
     if (!name || name != g_levelArray)
         return;
-    if (!g_specs.empty() || !g_off.empty())
+    if (!g_specs.empty())
         Log("level editor: the level's node array left - its %u triggers go with it", static_cast<unsigned>(g_specs.size()));
     Forget();
 }
@@ -1328,14 +1363,29 @@ void BeginEdit() { NoteUndo(); }
 
 void TurnOff(uint32_t sector, bool off)
 {
+    const LevelTrigger* t = nullptr;
+    for (const LevelTrigger& l : g_level) {
+        if (l.sector == sector)
+            t = &l;
+    }
+    if (!t || !(t->wall || t->allTrigger)) {
+        Hud::Message("Its collision has faces that aren't a trigger's - switching it off would make them go too", 5.0);
+        return;
+    }
+    if (std::find(g_switched.begin(), g_switched.end(), sector) == g_switched.end())
+        g_switched.push_back(sector); // (its wall state in the undo steps from now on)
     NoteUndo();
-    auto it = std::find(g_off.begin(), g_off.end(), sector);
-    if (off && it == g_off.end())
-        g_off.push_back(sector);
-    if (!off && it != g_off.end())
-        g_off.erase(it);
-    Hud::Message(off ? "Trigger " + LabelOf(sector) + " turned off (saved with the layout; Ctrl+Z turns it on)"
-                     : "Trigger " + LabelOf(sector) + " turned on again");
+    if (!Walls::SetOff(sector, off)) {
+        Hud::Message("Couldn't switch it", 4.0);
+        return;
+    }
+    Hud::Message(off ? "Trigger " + LabelOf(sector) + " switched off (a `wall` record in the layout; Ctrl+Z switches it on)"
+                     : "Trigger " + LabelOf(sector) + " switched on again");
+}
+
+void SelectWall(uint32_t sector)
+{
+    g_selectWall = sector;
 }
 
 void MakeEditable(uint32_t sector)
@@ -1349,6 +1399,10 @@ void MakeEditable(uint32_t sector)
         return;
     if (!t->script) {
         Hud::Message("It has no TriggerScript to copy", 4.0);
+        return;
+    }
+    if (!t->wall && !t->allTrigger) {
+        Hud::Message("Its collision has faces that aren't a trigger's - they'd go with it while the copy stands in", 5.0);
         return;
     }
     for (const Spec& s : g_specs) {
@@ -1632,7 +1686,8 @@ State Save()
         if (n.owned && SpecIndex(n.name) >= 0)
             state.nodes.push_back(n);
     }
-    state.off = g_off;
+    if (!g_switched.empty())
+        state.walls = Walls::Save(g_switched);
     return state;
 }
 
@@ -1665,7 +1720,8 @@ void Restore(const State& state)
             }
         }
     }
-    g_off = state.off;
+    if (!state.walls.empty())
+        Walls::ApplyStates(state.walls);
     g_hasUndo = false;
     Sync();
 }
@@ -1687,6 +1743,13 @@ int TakeSelect()
     return select;
 }
 
+uint32_t TakeWallSelect()
+{
+    uint32_t wall = g_selectWall;
+    g_selectWall = 0;
+    return wall;
+}
+
 // --- the layout ---
 
 std::vector<Placed> CaptureAdded()
@@ -1701,9 +1764,7 @@ std::vector<Placed> CaptureAdded()
     return out;
 }
 
-std::vector<uint32_t> CaptureOff() { return g_off; }
-
-int Apply(const std::vector<Placed>& placed, const std::vector<uint32_t>& off, std::string* message)
+int Apply(const std::vector<Placed>& placed, std::string* message)
 {
     NoteLevel();
     if (!g_scanned)
@@ -1719,10 +1780,6 @@ int Apply(const std::vector<Placed>& placed, const std::vector<uint32_t>& off, s
         g_specs.push_back(p.spec);
         ++made;
     }
-    for (uint32_t sector : off) {
-        if (std::find(g_off.begin(), g_off.end(), sector) == g_off.end())
-            g_off.push_back(sector);
-    }
     Sync();
     return made;
 }
@@ -1735,7 +1792,7 @@ void ResetAll()
         NodeCreate::Remove(NameChecksum(spec.name), &removed, &at);
     }
     g_specs.clear();
-    g_off.clear();
+    g_switched.clear();
     g_inspected = 0;
     g_hasUndo = false;
     Sync();
@@ -1746,9 +1803,12 @@ std::string Describe()
     int alive = 0;
     for (const Added& a : g_added)
         alive += a.alive ? 1 : 0;
+    int off = 0;
+    for (const LevelTrigger& l : g_level)
+        off += l.off ? 1 : 0;
     char text[160];
-    std::snprintf(text, sizeof(text), "%u level trigger volumes (%u off), %d added", static_cast<unsigned>(g_level.size()),
-                  static_cast<unsigned>(g_turnedOff.size()), alive);
+    std::snprintf(text, sizeof(text), "%u level trigger volumes (%d off), %d added", static_cast<unsigned>(g_level.size()),
+                  off, alive);
     return text;
 }
 

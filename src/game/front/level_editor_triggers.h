@@ -8,6 +8,7 @@
 #include "game/front/level_editor.h"
 #include "game/front/level_editor_node_create.h"
 #include "game/front/level_editor_ui.h"
+#include "game/front/level_editor_walls.h"
 
 // NOT ORIGINAL - the level editor's trigger volumes, kill zones, teleports and gaps (ours; see level_editor.h - phase 5
 // of the plan). Edited levels only, offline: everything here is put in place by the editor or a layout, and neither runs
@@ -49,14 +50,15 @@
 //     gaps added) and the editor's gaps no longer there taken out of it (not a level's own gap of the same name).
 //   - A level's own trigger volumes are found from their collision (faces with 0x40), their node's TriggerScript walked
 //     (SkateScript::ForEachScriptCall) for the calls above - drawn coloured by kind, an arrow from a teleport to its
-//     target. They can be turned off (their collision object's flag 4, which the world queries skip: layout record
-//     `trigger_off`) or given an editable copy: an editor trigger with the same TriggerScript over the faces' box,
-//     the original off while the copy is there (its `replaces`). Moving or resizing a level's own volume in place
-//     would mean moving collision-only sectors, which the editor's scenery code can't yet (level_editor_view.h).
+//     target. Their collision is switched off / on and (collision only - an invisible wall) moved and turned through
+//     level_editor_walls.h (the game's own switch, CSector::SetActive; their `wall` records) - only when every face of
+//     it is a trigger's or it's a wall, so nothing solid goes with it. Or they get an editable copy: an editor trigger
+//     with the same TriggerScript over the faces' box (resizable, any kind), the original switched off while the copy
+//     is there (its `replaces`).
 //   - Saved as layout records (still version 2; older readers skip them):
 //       trigger <name> <kind> pos=x,y,z yaw=r size=x,y,z [target=<node>] [water=1] [script=<script>] [gap=<GapID>]
 //               [flags=A,B] [score=n] [replaces=<checksum>] [text="..."]
-//       trigger_off <checksum>
+//     (a level trigger switched off or moved: its `wall` record - level_editor_walls.h)
 //   - The level's node array leaving takes everything with it (NodeCreate's listener): the boxes unregistered, the
 //     editor's gaps taken out of that level's checklist.
 namespace Front::LevelEditor::Triggers {
@@ -148,7 +150,10 @@ struct LevelTrigger {
     uint32_t script = 0;   // its node's TriggerScript (0: none)
     Calls calls;
     Kind kind = Kind::Other;
-    bool off = false;      // turned off by the editor (or while an editable copy stands in for it)
+    bool off = false;      // its collision switched off (by the editor, or while an editable copy stands in for it)
+    bool wall = false;     // collision only (no geometry): an invisible wall to level_editor_walls.h - movable there
+    bool allTrigger = false; // every face of its collision a trigger's (switching it off takes nothing else)
+    V3 boxMin = {}, boxMax = {}; // (its collision's box when read: moved since - read again)
 };
 const std::vector<LevelTrigger>& LevelTriggers();
 
@@ -203,8 +208,11 @@ void AddGap();
 // A gap's name, score and flags go to both its ends.
 void SetSpec(const std::string& name, const Spec& spec, bool undo);
 void BeginEdit();
-// A level trigger turned off / on (layout `trigger_off`), or given an editable copy (off while the copy is there).
+// A level trigger switched off / on (through level_editor_walls.h - its collision switch, saved as its `wall` record;
+// only when its collision is a wall or all trigger faces), selected as an invisible wall (to move / turn it there), or
+// given an editable copy (switched off while the copy is there).
 void TurnOff(uint32_t sector, bool off);
+void SelectWall(uint32_t sector);
 void MakeEditable(uint32_t sector);
 // The other end of a gap selected; a node selected (by name).
 void SelectPartner(const std::string& name);
@@ -216,19 +224,20 @@ std::string DescribeLevelTrigger(const LevelTrigger& trigger);
 struct State {
     std::vector<Spec> specs;
     std::vector<NodeCreate::Spec> nodes;
-    std::vector<uint32_t> off;
+    std::vector<Walls::WallState> walls; // (the level triggers switched here)
 };
 State Save();
 void Restore(const State& state);
 // A change made since the last call: the state before it (the editor pushes it as one undo step).
 bool TakeUndo(State* before);
-// A trigger to select (the one just added; -1: none) - a Nodes::All() index.
+// A trigger to select (the one just added; -1: none) - a Nodes::All() index; a level trigger to select as an invisible
+// wall (0: none).
 int TakeSelect();
+uint32_t TakeWallSelect();
 
 // The layout (level_editor_layout.h): the triggers as they are now, put in place (how many), everything removed.
 std::vector<Placed> CaptureAdded();
-std::vector<uint32_t> CaptureOff();
-int Apply(const std::vector<Placed>& placed, const std::vector<uint32_t>& off, std::string* message);
+int Apply(const std::vector<Placed>& placed, std::string* message);
 void ResetAll();
 
 // For the Inspector, the help and the screenshot sidecar: a line about the triggers.

@@ -1198,8 +1198,8 @@ void Help(const Model& model)
         {"", "Click a volume", "selects it (Alt passes volumes); an added one moves, turns (Z / X) and drops (G) as a node "
                                "does - its kind, size, restart / target / script and gap (name, score, flags) in the "
                                "Inspector"},
-        {"", "Delete, Ctrl+Z", "deletes an added volume, undoes; a level's own one: Turn off, or Make an editable copy "
-                               "(in its place, the original off) - the Triggers window"},
+        {"", "Delete, Ctrl+Z", "deletes an added volume, undoes; a level's own one: Switch off, Move it (collision only: as an "
+                               "invisible wall), or Make an editable copy (the original off meanwhile) - the Triggers window"},
         {"", "O", "occlusion culling: off while editing (the level's occluders are placed for the skater's view and "
                    "hide distant things from the flying camera); O turns it on as in play"},
         {"Camera", "P", "writes where the camera is to the log (a menu backdrop view)"},

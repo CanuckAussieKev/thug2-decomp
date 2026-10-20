@@ -276,11 +276,6 @@ std::string Write(const File& file)
     }
     for (const Triggers::Placed& t : file.triggers)
         out << "trigger " << Triggers::Record(t) << '\n';
-    for (uint32_t sector : file.triggersOff) {
-        out << "trigger_off";
-        Hex(out, sector);
-        Comment(out, sector);
-    }
     for (const SetRecord& s : file.nodes) {
         if (!s.hasPos && !s.hasAngles)
             continue;
@@ -413,11 +408,6 @@ bool Read(const std::string& text, File* file, int* lineNumber)
             std::getline(in, rest);
             ok = Triggers::ReadRecord(rest.substr(std::min(rest.size(), rest.find_first_not_of(' '))),
                                       &file->triggers.emplace_back());
-        } else if (kind == "trigger_off") {
-            uint32_t sector = 0;
-            ok = ReadHex(in, &sector);
-            if (ok)
-                file->triggersOff.push_back(sector);
         } else if (kind == "wall") {
             // (level_editor_walls.h: later key=value fields skipped, as a sector's)
             Walls::WallState w = {};
@@ -648,7 +638,6 @@ bool Capture(File* file)
                                      [](const NodeCreate::Spec& spec) { return spec.owned; }),
                       file->added.end());
     file->triggers = Triggers::CaptureAdded();
-    file->triggersOff = Triggers::CaptureOff();
     file->added.erase(std::remove_if(file->added.begin(), file->added.end(),
                                      [](const NodeCreate::Spec& s) { return Chains::IsChainClass(s.cls); }),
                       file->added.end());
@@ -746,7 +735,7 @@ std::string Apply(const File& file)
     // the sectors (a piece shown by them gets its switch back).
     Walls::ApplyStates(file.walls);
     Walls::Tick();
-    int triggers = Triggers::Apply(file.triggers, file.triggersOff, &message);
+    int triggers = Triggers::Apply(file.triggers, &message);
     if (!message.empty())
         Log("level editor: %s", message.c_str());
     char summary[320];
@@ -841,7 +830,7 @@ bool Save(std::string* message)
                   static_cast<unsigned>(file.rails.size()), static_cast<unsigned>(file.objects.size()),
                   static_cast<unsigned>(file.copies.size()), static_cast<unsigned>(file.nodes.size()),
                   static_cast<unsigned>(file.added.size()), static_cast<unsigned>(file.hidden.size()),
-                  static_cast<unsigned>(file.triggers.size() + file.triggersOff.size()));
+                  static_cast<unsigned>(file.triggers.size()));
     *message = text;
     Log("level editor: %s - %s", text, path.c_str());
     // (saved: the autosave's changes are in the layout now, or the user chose these over them)

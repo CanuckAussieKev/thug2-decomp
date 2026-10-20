@@ -1,6 +1,7 @@
 # Level editor phase 5: trigger volumes, kill zones, teleports, gaps (NOT ORIGINAL - the user's request)
 
-Branch `worktree-agent-a76a139e4b17c7051` (off main b1c7534). **NOT run in the game yet** (the user tests the editor by
+Branch `worktree-agent-a76a139e4b17c7051` (off main b1c7534; main 6b5d35d - walls, scaling, chains - merged in).
+**NOT run in the game yet** (the user tests the editor by
 hand): built and checked offline only. Edited levels only, offline: nothing here is put in place in a network session
 (the edited-levels guard stays, and a second guard drops the volumes if a network session starts).
 
@@ -44,11 +45,14 @@ hand): built and checked offline only. Edited levels only, offline: nothing here
   yellow, a script cyan, no script grey** - with a label within 3000 units ("Kill zone (water) -> TRG_x  TRG_Water01",
   "Gap end: Statehouse Stair Spine (250)"). Listed in the Triggers window (click: inspected; with a node, selected).
   A click on a volume in the view selects it (its node when it has one; Alt passes volumes; gizmos and arrows win).
-- Inspected / selected level volume: kind, faces, TriggerScript, box; **Turn off** (its collision object's flag 4 -
-  the world queries skip it - layout `trigger_off`; grey "(off)" outline) / **Turn on**; **Make an editable copy** (an
-  editor volume of the Run-a-script kind over its faces' box, running the same TriggerScript, the original off while
-  the copy is there - `replaces=`). Moving a level's own volume in place isn't offered: it is collision without
-  geometry, which the scenery code can't move (level_editor_view.h); the copy is how it moves / resizes.
+- Inspected / selected level volume: kind, faces, TriggerScript, box; **Switch off / on** - through the walls module
+  (level_editor_walls.h, merged from main: the game's own switch CSector::SetActive / the collision's flag 4, which the
+  world queries skip; saved as its `wall` record; grey "(off)" outline) - offered only when its collision is collision
+  only (an invisible wall) or every face of it is a trigger's, so nothing solid goes with it; **Move it** (collision
+  only): selects it as an invisible wall - dragged, arrows, W A S D / Q E, Z / X quarter turns, Home, undo, `wall`
+  record, all the walls module's; its outline follows (its faces read again when its collision's box changes); **Make
+  an editable copy**: an editor volume of the Run-a-script kind over its faces' box, running the same TriggerScript
+  (resizable, any kind), the original switched off (through the walls module) while the copy is there - `replaces=`.
 - **Adding** (the Triggers window's buttons; placed on the ground where the view looks, facing the camera's heading,
   selected, one undo step): **Kill zone** (400 x 200 x 400, `SK3_KillSkater nodename=<the nearest Player1 /
   Multiplayer restart>`), **Water** (800 x 100 x 800, `SK3_KillSkater_Water`), **Teleport** (`TeleportSkaterToNode
@@ -61,9 +65,10 @@ hand): built and checked offline only. Edited levels only, offline: nothing here
   other end" (both ends share name, score, flags); "Not active: why" (no restart, no script, a name that isn't there...)
   or "Active". It moves (drag, arrows, W A S D / Q E), turns (Z / X, the heading), drops (G), goes Home, is deleted
   (Delete; Ctrl+Z brings it back) as any added point node: it **is** one (the Triggers family in the Outliner).
-- **Undo / redo**: adding, the Inspector's changes, Turn off / on, editable copies are one step each (a new step kind:
-  the whole trigger state - specs, their nodes, the volumes turned off); moves / turns are the node steps; Delete is the
-  added-node step. Reset level removes them all and turns the level's back on.
+- **Undo / redo**: adding, the Inspector's changes, Switch off / on, editable copies are one step each (a new step
+  kind: the whole trigger state - specs, their nodes, the wall states of the level volumes switched here); moves / turns
+  are the node steps (a level volume's: the walls' step); Delete is the added-node step. Reset level removes them all
+  and switches the level's back on.
 - F1 (the UI's help): a Triggers section; the old HUD's: a line. Screenshot sidecar: a `triggers` line.
 
 ## How run-time trigger collision is added
@@ -114,14 +119,14 @@ trigger ed_trigger03 teleport pos=... target=TRG_Restart_StateHouse
 trigger ed_trigger04 script pos=... script=TRG_SFX_TrigBox_CrowdScript replaces=8E1A2B3C
 trigger ed_trigger05 gapstart pos=... gap=ed_gap01 flags=CANCEL_GROUND score=100 text="Editor Gap 1"
 trigger ed_trigger06 gapend pos=... gap=ed_gap01 flags=CANCEL_GROUND score=100 text="Editor Gap 1"
-trigger_off 1A2B3C4D  # TRG_Water01
+wall 1A2B3C4D 0 0 0 0 1  # TRG_Water01 - a level volume switched off (the walls module's record)
 ```
 
 - `pos` required; unknown keys skipped; a repeated key or bad value refuses the file (as `node` records do). Names that
   aren't known are written `0x` + 8 hex digits. The gap's text loses quotes ('), '#' (the layout's comment mark) and
   control characters, at most 60 characters. The trigger nodes aren't `node` records (Capture leaves `owned` specs out).
-- Applied after the node / hide / lock records; the message ends "..., N triggers". Saved: "..., N triggers" (added
-  and turned off).
+- Applied after the node / hide / lock / chain / wall records; the message ends "..., N triggers". Saved: "...,
+  N triggers". A level volume switched off or moved is the walls module's `wall` record.
 
 ## Files
 
@@ -129,12 +134,12 @@ trigger_off 1A2B3C4D  # TRG_Water01
   (ImGui: the Triggers window, the Inspector section), `src/hook/selftests_editor_triggers.cpp` (5 early tests).
 - Small hooks (shared files):
   - `level_editor.cpp`: include; Triggers::Start / Stop; `Triggers::Guard()` after Layout::Tick; T key; Tick + undo
-    step + selection after View::Tick; the click branch (a volume before scenery / objects); the overlay in Draw; undo
+    step + selection (a node, or a level volume as a wall) after View::Tick; the click branch (a volume before scenery / objects); the overlay in Draw; undo
     kind `kTriggers` (Restore / Current cases); the old HUD's help line; the screenshot line.
   - `level_editor_ui.cpp`: include; `Triggers::InspectorSection` after NodeSection (node selected by itself);
     `Triggers::Window` in Frame; three help rows.
-  - `level_editor_layout.{h,cpp}`: File's `triggers` / `triggersOff`; Write / Read of `trigger` / `trigger_off`;
-    Capture (owned nodes left out; triggers captured); Apply; ResetToLevel; the saved message.
+  - `level_editor_layout.{h,cpp}`: File's `triggers`; Write / Read of `trigger`; Capture (owned nodes left out;
+    triggers captured); Apply; ResetToLevel; the messages.
   - `level_editor_node_create.{h,cpp}`: `Field` moved before `Spec`; `Spec::extra` / `owned` (Fields appends `extra`,
     SameSpec compares them); `SetArrayRemovedListener`.
   - `level_editor_nodes.cpp`: GenericNode type `ed_trigger` -> Family::Trigger.
@@ -143,8 +148,8 @@ trigger_off 1A2B3C4D  # TRG_Water01
 ## Checks (offline)
 
 - Builds clean (own dir out/build/trig, own PDB endpoint; dependencies from the lead's build), no warnings.
-- `thug2_check.exe` on THUG2PM.exe and on C:\Games\THUG2\Game\THUG2.exe (read only): 0 MISMATCHED, all 379 early tests
-  pass, 5 new: `TestEditorTriggersKinds`, `TestEditorTriggersScripts` (byte-exact with Boston's compiled gap scripts,
+- `thug2_check.exe` on THUG2PM.exe and on C:\Games\THUG2\Game\THUG2.exe (read only): 0 MISMATCHED, all early tests
+  pass (379 before merging main, 393 after), 5 new: `TestEditorTriggersKinds`, `TestEditorTriggersScripts` (byte-exact with Boston's compiled gap scripts,
   kill / water / teleport / script bodies, empty bodies for incomplete triggers, the .qb image walked token by token to
   its end), `TestEditorTriggersRecords` (round trips, refusals, defaults, the layout's lines), `TestEditorTriggersPieces`
   (text cleaning, sizes, boxes turned, ray / box, names / checksums, gap partners), `TestEditorTriggersNode` (the
@@ -168,9 +173,13 @@ Don't save the career while testing gaps (see the caveat above).
    with their gap's name and score; kill zones red (out of bounds). T again hides them; restart the game - remembered.
 2. **Water:** Barcelona (`edit_level.ts BA`) or any level with water: its water volumes red, labelled "(water)" and
    the restart they send to. A big water plane is drawn as its box.
-3. **Inspect / turn off:** click a level volume in the view (or its row in the window): the window shows its kind,
-   faces, TriggerScript, box. **Turn off**: it turns grey "(off)". Esc, skate through it: nothing happens. Re-enter,
-   Ctrl+Z (or Turn on): it works again.
+3. **Inspect / switch off:** click a level volume in the view (or its row in the window): the window shows its kind,
+   faces, TriggerScript, box. **Switch off**: it turns grey "(off)". Esc, skate through it: nothing happens. Re-enter,
+   Ctrl+Z (or Switch on): it works again. A volume whose collision also has solid faces: the buttons are greyed (the
+   tooltip says why).
+3a. **Move a level volume:** on a collision-only one (most kill zones / gap planes), **Move it**: it is selected as an
+   invisible wall (the Inspector's wall section); drag it, Z / X turn it a quarter; its coloured outline follows. Skate:
+   it fires where it is now. Home / Ctrl+Z put it back. Ctrl+S: a `wall` record.
 4. **Kill zone:** in Training (`edit_level.ts TR`), T, look at the floor, click **Kill zone**: a red box on the floor,
    selected; the Inspector's "Trigger volume": Kind Kill zone, Restart (the nearest), "Active". Log `added trigger
    ed_trigger01 (Kill zone)` and `trigger ed_trigger01 (Kill zone) in place`. Esc, skate into it: a bail / death message
@@ -216,8 +225,11 @@ Don't save the career while testing gaps (see the caveat above).
   with no owner), the LoadQBData redefinition while scripts run, the gap list rebuild.
 - Volumes fire on the way **in** only (a box is hit where a line enters it); a skater starting inside one won't fire
   it until it leaves and comes back. The level's trigger planes fire whichever way they're crossed.
-- A level's own volume moves / resizes only through its editable copy, which is its faces' axis-aligned box (a
-  diagonal plane becomes a box around it; a copy's script that checks its node's own name would see the copy's).
+- A level's own volume moves and turns (quarter turns) in place through the walls module when it is collision only;
+  resizing it, or moving one whose collision is part of a drawn piece, goes through its editable copy, which is its
+  faces' axis-aligned box (a diagonal plane becomes a box around it; a copy's script that checks its node's own name
+  would see the copy's). Switching off / copies are refused when its collision has solid faces too.
+- A level volume switched off by hand and then given a copy comes back on when the copy is deleted.
 - Gaps on rails / lips (a rail node's TriggerScript with StartGap / EndGap, TriggerType checks) aren't made: gaps are
   two volumes (the REQUIRE_RAIL / REQUIRE_LIP flags are offered); rails are phase 4's (chains).
 - Sizes are set in the Inspector (no drag handles on the box faces yet); boxes turn about the up axis only.
