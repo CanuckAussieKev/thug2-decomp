@@ -34,6 +34,13 @@ then the "- [ ] Next:" line of docs/decomp-progress.md.
   chains, phase 5 triggers, and a check of face flag 0x80 (the view agent found the camera's feeler IGNORES 0x80 - our
   converters say 0x80 = camera collides and the THPS4 converter inverts it: possibly wrong; docs/pending/face-flag-0x80.md).
   Phase 6 (full Inspector + apply_layout.ts) starts after 4 and 5 merge.
+- **2026-10-21, later: the whole editor build plan is merged and installed** (main 3094544): phase 4 chains, phase 5
+  triggers, phase 6 Inspector / level props / apply_layout.ts, invisible walls, shadows + Parts, shared collision (moved
+  pieces take their faces from collision-only sectors), editor gaps kept out of career saves, face flag 0x80 fix (THPS3 +
+  THUG1 dj/ph/sc/skateshop reconverted), [Graphics] OcclusionCulling (default on; the user's main ini has 0). No agents
+  running. Open: goals / cash / stat points earned in an edited copy still reach the career (proposal: editor and edited
+  copies only outside career mode); apply_layout.ts doesn't bake triggers or level props; all of it awaits the user's play
+  test (checklist page claude.ai/artifact/SQqRbUco71P4fa9AG4eHuk).
 - **Queued (user said yes), after A-C merge:** (D) view options - Show collision (invisible walls in a strong colour,
   surface types, Shift+click selects an invisible wall), editor-only hide / isolate; (E) uniform scaling of scenery
   (render vertices, collision, boxes, rails on it), objects if the model code allows; non-uniform later.
