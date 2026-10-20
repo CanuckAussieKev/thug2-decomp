@@ -27,11 +27,14 @@ std::map<std::string, std::string> g_shown; // element id -> text
 std::string g_message;
 uint32_t g_messageUntil;
 bool g_panel;
+bool g_elements = true; // (false while the UI shows the editor)
 float g_panelX, g_panelY, g_panelWidth;
 size_t g_panelLines;
 
 void SetText(const std::string& id, const std::string& full)
 {
+    if (!g_elements)
+        return;
     std::string text = full.size() > kMaxText ? full.substr(0, kMaxText) : full;
     auto it = g_shown.find(id);
     if (it != g_shown.end() && it->second == text)
@@ -47,13 +50,16 @@ void SetText(const std::string& id, const std::string& full)
 
 } // namespace
 
-void Reset()
+void Reset(bool screenElements)
 {
     g_shown.clear();
     g_message.clear();
     g_messageUntil = 0;
     g_panel = false;
+    g_elements = screenElements;
 }
+
+const std::string& CurrentMessage() { return g_message; }
 
 void SetLine(int line, const std::string& text)
 {
@@ -79,6 +85,8 @@ void Tick()
 
 void ShowPanel(const std::vector<std::string>& lines, float x, float y, float width)
 {
+    if (!g_elements)
+        return;
     if (!g_panel || g_panelX != x || g_panelY != y || g_panelWidth != width || g_panelLines != lines.size()) {
         alignas(4) uint8_t memory[8];
         Script::CStruct* params = reinterpret_cast<Script::CStruct*>(memory)->Init();

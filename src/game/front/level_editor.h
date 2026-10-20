@@ -29,8 +29,14 @@ class CScript;
 //                             copies (CScene::CloneSector), hiding, tinting
 //   level_editor_layout.cpp   what was changed, saved per level (thug2-decomp-layouts\<scene>.txt, Ctrl+S) and put
 //                             back whenever that level loads (not in network games)
-//   level_editor_hud.cpp      the HUD: a status panel top left, the keys for what you're doing at the bottom, a
-//                             message line, and a panel for the help (F1) and the browser (B)
+//   level_editor_ui.cpp       the UI (Dear ImGui, level_editor_ui.h): a toolbar, the Outliner, the Inspector, a status
+//                             bar, the help (F1), the browser (B) and the autosave offer; the lines and gizmos drawn
+//                             through its draw list. level_editor_ui_backend.cpp is the only file tied to SDL2 /
+//                             Direct3D 9 (ImGui's backends); level_editor_ui_layout.cpp the layout and input routing
+//                             (pure, self-tested); level_editor_ui_fonts.cpp Inter and JetBrains Mono in the DLL
+//   level_editor_hud.cpp      the old HUD ([features] editor_ui=0, or when the UI can't start): a status panel top
+//                             left, the keys at the bottom, a message line, and a panel for the help (F1) and the
+//                             browser (B), made of the game's screen elements
 // The controls (F1 lists them in the game):
 //   - Flying: W A S D, Q / E down / up, Shift faster, the right mouse button looks, the wheel goes forward / back.
 //   - Selecting: a click on an object or scenery (scenery takes its group; hovering tints what a click would take);
@@ -48,7 +54,8 @@ class CScript;
 //
 // thug2-decomp.ini [features] level_editor=1 (default; 0: LevelEditor_Available is false - no menu item - and
 // LevelEditor_Start refuses), debug_editor=1 logs picks, moves and the view. `-edit <level>` (or edit_level=) starts the
-// game in the editor in that level (game/front/start_level.h; tools/game/edit_level.ts).
+// game in the editor in that level (game/front/start_level.h; tools/game/edit_level.ts). editor_ui=0 (default 1) brings
+// back the old HUD in place of the Dear ImGui panels.
 namespace Front::LevelEditor {
 
 // The setting (read once; self-tests may set it).

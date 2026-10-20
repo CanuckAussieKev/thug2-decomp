@@ -82,6 +82,7 @@ void HandleWindowEvent(SDL_Event* event)
 bool& Windowed() { return s_windowed; }
 int& WindowWidth() { return s_width; }
 int& WindowHeight() { return s_height; }
+SDL_Window* SdlWindow() { return s_window; }
 
 void CreateSdlWindow()
 {

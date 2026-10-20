@@ -11,8 +11,12 @@
 // \c1 (the highlight the cutscene subtitles use for names) ... \c0 (back to the element's colour).
 namespace Front::LevelEditor::Hud {
 
-// The editor starting: nothing shown is assumed (the elements are new).
-void Reset();
+// The editor starting: nothing shown is assumed (the elements are new). `screenElements` false: the UI
+// (level_editor_ui.h) shows the editor instead - the HUD's elements are taken down (level_editor_hud_destroy) and the
+// lines and panels aren't set; the message is still kept (CurrentMessage).
+void Reset(bool screenElements = true);
+// The message being shown (empty: none).
+const std::string& CurrentMessage();
 // A line of the HUD (1-7), set when it changes (at most 90 characters: a much longer text corrupted the heap).
 void SetLine(int line, const std::string& text);
 // A message in the message line for `seconds`.

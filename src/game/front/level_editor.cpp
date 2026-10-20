@@ -18,6 +18,7 @@
 #include "game/front/level_editor_layout.h"
 #include "game/front/level_editor_objects.h"
 #include "game/front/level_editor_scenery.h"
+#include "game/front/level_editor_ui.h"
 #include "game/front/mouse_menus.h"
 #include "game/gfx/camera.h"
 #include "game/gfx/screen.h"
@@ -368,6 +369,13 @@ V3 g_markBase, g_markGround;
 
 // The help panel (F1) and the browser (B).
 bool g_help;
+bool g_snapAlways;     // (the toolbar's Snap 25: moves snap without Ctrl)
+int g_hudTakenDown;    // (the UI runs: frames the HUD's screen elements have been taken down)
+// The UI's Outliner lists (the level's movable scenery and copyable objects), made again a second after the changes
+// count moves.
+std::vector<Ui::BrowserItem> g_outlinerScenery, g_outlinerObjects;
+int g_outlinerChanges = -1;
+uint32_t g_outlinerMade;
 struct Browser {
     bool open = false;
     int tab = 0; // 0: scenery pieces, 1: objects
@@ -391,6 +399,9 @@ void ReadWindowSize(uint32_t windowId)
 void HandleEvent(SDL_Event* event)
 {
     if (!g_active)
+        return;
+    // (the UI first: over a panel, or while it wants the keys, the event is its own - level_editor_ui.h)
+    if (Ui::Running() && !Ui::RouteEvent(event, g_dragging || g_mouse.right))
         return;
     switch (event->type) {
     case SDL_MOUSEMOTION:
@@ -1023,7 +1034,7 @@ bool PassPauseKey(bool down)
 {
     // (while dragging, browsing, reading the help or with something selected the key closes / deselects that instead - HandleEvent - and counts again
     // only once it has been up)
-    if (g_dragging || g_cancelRequested || g_browser.open || g_help || HaveSelection()) {
+    if (g_dragging || g_cancelRequested || g_browser.open || g_help || HaveSelection() || !Ui::KeysToEditor()) {
         g_pauseKeyReleased = false;
         return false;
     }
@@ -1059,7 +1070,11 @@ bool __cdecl CFunc_Start(Script::CStruct*, Script::CScript*)
     g_moves = 0;
     g_help = false;
     g_browser = Browser{};
-    Hud::Reset();
+    // The UI (Dear ImGui) - else the HUD of screen elements.
+    bool ui = Ui::Start();
+    g_hudTakenDown = 0;
+    g_outlinerChanges = -1;
+    Hud::Reset(!ui);
     g_mouse = Mouse{};
     g_savedCursor = SDL_ShowCursor(SDL_QUERY);
     SDL_ShowCursor(SDL_ENABLE);
@@ -1144,6 +1159,7 @@ bool __cdecl CFunc_Stop(Script::CStruct*, Script::CScript*)
     NoteAction("left the editor");
     Scenery::EndTints(Objects::ResolveTint, true);
     Hud::HidePanel();
+    Ui::Stop();
     SetRelative(false);
     PlaceSkaterBelowCamera();
     if (g_camera) {
@@ -1304,6 +1320,104 @@ void UpdateHud()
     }
 }
 
+// --- the UI (level_editor_ui.h): what it shows ---
+
+// The Outliner's lists (the level's movable scenery and copyable objects), made again a second after the changes
+// count moves.
+
+void UpdateOutlinerLists()
+{
+    if (g_outlinerChanges == g_changes)
+        return;
+    if (g_outlinerChanges >= 0 && SDL_GetTicks() - g_outlinerMade < 1000)
+        return;
+    g_outlinerChanges = g_changes;
+    g_outlinerMade = SDL_GetTicks();
+    g_outlinerScenery.clear();
+    for (uint32_t checksum : Scenery::MovablePieces())
+        g_outlinerScenery.push_back({checksum, Objects::Label(checksum)});
+    std::sort(g_outlinerScenery.begin(), g_outlinerScenery.end(),
+              [](const Ui::BrowserItem& a, const Ui::BrowserItem& b) { return a.label < b.label; });
+    g_outlinerObjects.clear();
+    for (const Objects::Entry& entry : Objects::Copyable())
+        g_outlinerObjects.push_back({entry.name, entry.label});
+}
+
+std::vector<Ui::BrowserItem> g_uiBrowserItems;
+
+// The keys for what you're doing (as the HUD's bottom lines).
+std::vector<std::pair<std::string, std::string>> KeysNow()
+{
+    if (g_browser.open)
+        return {{"Up/Down", "choose"}, {"Left/Right", "scenery / objects"}, {"Enter", "place it"}, {"F", "show me"},
+                {"B, Esc", "close"}};
+    if (g_dragging && g_axis >= 0)
+        return {{"Mouse", "moves it along the arrow"}, {"Ctrl", "snap to 25"}, {"Esc", "put it back"}};
+    if (g_dragging)
+        return {{"Mouse", "move"}, {"Shift", "up / down"}, {"Wheel", "push / pull"}, {"Ctrl", "snap"},
+                {"Esc", "put it back"}};
+    if (HaveSelection())
+        return {{"Drag", "move"}, {"Arrows", "one axis"}, {"WASDQE", "nudge"}, {"Z X", "turn"}, {"G", "drop"},
+                {"Ctrl+D", "copy"}, {"Del", "hide"}, {"Home", "reset"}, {"Esc", "deselect"}};
+    return {{"WASD", "fly"}, {"Q E", "down / up"}, {"Shift", "fast"}, {"RMB", "look"}, {"Wheel", "dolly"},
+            {"Click", "select"}, {"B", "add"}, {"Ctrl+S", "save"}, {"Ctrl+Z/Y", "undo / redo"}, {"F1", "help"}};
+}
+
+Ui::Model BuildModel()
+{
+    Ui::Model model = {};
+    uint32_t scene = Scenery::SceneName(Scenery::MainScene());
+    model.level = scene ? Objects::Label(scene) : "";
+    model.mode = ModeName();
+    model.selected = DescribeSelection();
+    model.hover = g_hoverAxis >= 0 ? std::string("the ") + "XYZ"[g_hoverAxis] + " arrow - drag to move along it"
+                  : g_hoverSector ? Scenery::DescribeHover(g_hoverSector)
+                  : Live(g_hover) ? Objects::Describe(Live(g_hover))
+                                  : "-";
+    model.message = Hud::CurrentMessage();
+    model.keys = KeysNow();
+    model.camera = g_pos;
+    model.speed = g_speed;
+    model.changes = g_moves;
+    model.moved = Scenery::MovedCount();
+    model.unsaved = g_unsaved;
+    model.offer = g_offerPending;
+    model.canUndo = !g_undo.empty();
+    model.canRedo = !g_redo.empty();
+    model.snapAlways = g_snapAlways;
+    std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
+    Ui::Model::Selection& s = model.selection;
+    if (!objects.empty()) {
+        Obj::CCompositeObject* object = objects.front();
+        s.objects = static_cast<int>(objects.size());
+        const char* cls = Objects::ClassOf(object->m_id);
+        s.kind = cls ? cls : "Object";
+        s.name = Objects::Label(object->m_id);
+        s.checksum = object->m_id;
+        s.pos = Objects::PosOf(object);
+        const Mth::Vector& at = object->m_matrix.row[2];
+        s.hasHeading = true;
+        s.headingDegrees = static_cast<float>(std::atan2(static_cast<double>(at.x), static_cast<double>(at.z)) * 180.0 / kPi);
+    } else if (Scenery::HasSelection()) {
+        s.sectors = static_cast<int>(Scenery::Selection().size());
+        s.kind = s.sectors > 1 ? "Scenery group" : "Scenery";
+        s.checksum = Scenery::Selection().front();
+        s.name = Objects::Label(s.checksum);
+        s.pos = Scenery::Pivot();
+    }
+    model.help = g_help;
+    model.browser = g_browser.open;
+    model.browserTab = g_browser.tab;
+    model.browserIndex = g_browser.index;
+    g_uiBrowserItems.clear();
+    for (const Browser::Item& item : g_browser.items)
+        g_uiBrowserItems.push_back({item.id, item.label});
+    model.browserItems = &g_uiBrowserItems;
+    UpdateOutlinerLists();
+    model.scenery = &g_outlinerScenery;
+    model.objects = &g_outlinerObjects;
+    return model;
+}
 
 void ShowHelp()
 {
@@ -1608,6 +1722,192 @@ bool Repeated(const uint8_t* keys, SDL_Scancode key, uint32_t* since)
     return true;
 }
 
+// G: down onto the ground below it (the collision ray from just under the scenery's bottom - not to hit itself - or
+// from above an object's feet).
+void DropSelection()
+{
+    if (!HaveSelection() || g_dragging)
+        return;
+    V3 pos = SelectionPos();
+    float base = SelectionBase();
+    V3 ground;
+    V3 from = Primary() ? V3{pos.x, base + 50.0f, pos.z} : V3{pos.x, base - 1.0f, pos.z};
+    if (GroundBelow(from, &ground) && ground.y != base) {
+        PushUndo(Snapshot());
+        PlaceSelection({pos.x, pos.y + (ground.y - base), pos.z});
+        NoteAction("dropped to the ground (G): %s", DescribeSelection().c_str());
+        Settle();
+    }
+}
+
+// Ctrl+S: the layout saved.
+void SaveLayout()
+{
+    std::string message;
+    if (Layout::Save(&message)) {
+        g_unsaved = false;
+        g_offerPending = false; // (the autosave is gone with the save)
+    }
+    Hud::Message(message, 4.0);
+    NoteAction("saved (Ctrl+S)");
+}
+
+// Ctrl+R: an autosave restored in place of the current layout; Ctrl+Shift+R (`discard`): it's discarded.
+void AnswerAutosave(bool discard)
+{
+    std::string message;
+    if (discard) {
+        Layout::DiscardAutosave(&message);
+        NoteAction("discarded the autosave (Ctrl+Shift+R)");
+    } else {
+        Deselect();
+        if (Layout::RestoreAutosave(&message)) {
+            g_undo.clear();
+            g_redo.clear();
+            MarkUnsaved();
+        }
+        NoteAction("restored the autosave (Ctrl+R)");
+    }
+    g_offerPending = false;
+    Hud::Message(message, 4.0);
+}
+
+void ToggleHelp()
+{
+    g_help = !g_help;
+    g_browser.open = false;
+    if (g_help)
+        ShowHelp();
+    else
+        Hud::HidePanel();
+}
+
+void ToggleBrowser()
+{
+    if (g_dragging)
+        return;
+    g_browser.open = !g_browser.open;
+    g_help = false;
+    if (g_browser.open)
+        FillBrowser();
+    else
+        Hud::HidePanel();
+}
+
+// F in the browser: the camera to its entry.
+void FocusBrowserItem()
+{
+    if (g_browser.index >= static_cast<int>(g_browser.items.size()))
+        return;
+    uint32_t id = g_browser.items[g_browser.index].id;
+    OrientedBox box;
+    if (g_browser.tab == 0 && Scenery::Box(id, &box)) {
+        V3 a, b;
+        BoundsOf(box, &a, &b);
+        LookAt((a + b) * 0.5f, std::max(300.0f, std::sqrt(Dot(b - a, b - a)) * 1.5f));
+    } else if (auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(id))) {
+        LookAt(Objects::Centre(object), 300.0f);
+    }
+}
+
+// The camera to the selection, from the side it looks from now, far enough to see it.
+void GoToSelection()
+{
+    if (!HaveSelection())
+        return;
+    float distance = 300.0f;
+    OrientedBox box;
+    if (Obj::CCompositeObject* object = Primary()) {
+        if (Objects::ModelBox(object, &box))
+            distance = std::max(200.0f, std::sqrt(Dot(box.max - box.min, box.max - box.min)) * 1.5f);
+    } else if (!Scenery::Selection().empty() && Scenery::Box(Scenery::Selection().front(), &box)) {
+        V3 a, b;
+        BoundsOf(box, &a, &b);
+        distance = std::max(300.0f, std::sqrt(Dot(b - a, b - a)) * 1.5f);
+    }
+    LookAt(TargetOf(), std::min(distance, kMaxOrbit));
+    FocusOnSelection();
+}
+
+// What was asked for on the UI's panels (level_editor_ui.h), done as the keys would.
+void ApplyUiRequests(V3 dir, bool haveRay, const Frame& frame)
+{
+    bool noChange = g_dragging || g_keyMoving;
+    for (const Ui::Request& request : Ui::TakeRequests()) {
+        switch (request.kind) {
+        case Ui::Request::kUndo:
+            if (!noChange)
+                StepHistory(&g_undo, &g_redo, "Undone");
+            break;
+        case Ui::Request::kRedo:
+            if (!noChange)
+                StepHistory(&g_redo, &g_undo, "Redone");
+            break;
+        case Ui::Request::kSave:
+            if (!noChange)
+                SaveLayout();
+            break;
+        case Ui::Request::kRestoreAutosave:
+        case Ui::Request::kDiscardAutosave:
+            if (!noChange)
+                AnswerAutosave(request.kind == Ui::Request::kDiscardAutosave);
+            break;
+        case Ui::Request::kToggleHelp:
+            ToggleHelp();
+            break;
+        case Ui::Request::kToggleBrowser:
+            ToggleBrowser();
+            break;
+        case Ui::Request::kBrowserTab:
+            if (g_browser.open && g_browser.tab != request.value) {
+                g_browser.tab = request.value ? 1 : 0;
+                g_browser.index = g_browser.top = 0;
+                FillBrowser();
+            }
+            break;
+        case Ui::Request::kBrowserIndex:
+            if (g_browser.open && request.value >= 0 && request.value < static_cast<int>(g_browser.items.size()))
+                g_browser.index = request.value;
+            break;
+        case Ui::Request::kBrowserPlace:
+            if (g_browser.open && !g_dragging)
+                PlaceFromBrowser(CursorPoint(dir, haveRay, frame));
+            break;
+        case Ui::Request::kBrowserFocus:
+            if (g_browser.open)
+                FocusBrowserItem();
+            break;
+        case Ui::Request::kDrop:
+            DropSelection();
+            break;
+        case Ui::Request::kDeselect:
+            if (!g_dragging)
+                Deselect();
+            break;
+        case Ui::Request::kSnapAlways:
+            g_snapAlways = request.value != 0;
+            break;
+        case Ui::Request::kSelectScenery:
+            if (!g_dragging && !Scenery::WhyNotMovable(request.id)) {
+                g_objects.clear();
+                Scenery::SetSelection({request.id});
+                GoToSelection();
+                NoteAction("selected in the Outliner: %s", DescribeSelection().c_str());
+            }
+            break;
+        case Ui::Request::kSelectObject:
+            if (!g_dragging) {
+                if (auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(request.id))) {
+                    SelectObjects({object});
+                    GoToSelection();
+                    NoteAction("selected in the Outliner: %s", DescribeSelection().c_str());
+                }
+            }
+            break;
+        }
+    }
+}
+
 } // namespace
 
 void Update()
@@ -1615,6 +1915,12 @@ void Update()
     Layout::Tick();
     if (!g_active)
         return;
+    // (the UI runs: the HUD's elements - made by level_editor_enter after LevelEditor_Start - taken down, the first
+    // few frames)
+    if (Ui::Running() && g_hudTakenDown < 4) {
+        ++g_hudTakenDown;
+        Script::RunScript("level_editor_hud_destroy", nullptr, nullptr, false);
+    }
     UpdateHud();
     // The autosave: the snapshot made again after each change (the frame after: the change is complete), written once a
     // minute while there are unsaved changes; an older autosave offered once the HUD is up.
@@ -1640,6 +1946,10 @@ void Update()
     if (!g_camera)
         return;
     const uint8_t* keys = SDL_GetKeyboardState(nullptr);
+    // (the UI is typing: the editor's keys rest - level_editor_ui.h)
+    static const uint8_t kNoKeys[SDL_NUM_SCANCODES] = {};
+    if (!Ui::KeysToEditor())
+        keys = kNoKeys;
     bool shift = keys[SDL_SCANCODE_LSHIFT] || keys[SDL_SCANCODE_RSHIFT];
     bool ctrl = keys[SDL_SCANCODE_LCTRL] || keys[SDL_SCANCODE_RCTRL];
     bool alt = keys[SDL_SCANCODE_LALT] || keys[SDL_SCANCODE_RALT];
@@ -1676,22 +1986,10 @@ void Update()
     bool noChange = g_dragging || g_keyMoving;
 
     // The panels: F1 the help, B the browser.
-    if (Pressed(keys, SDL_SCANCODE_F1, &helpKey)) {
-        g_help = !g_help;
-        g_browser.open = false;
-        if (g_help)
-            ShowHelp();
-        else
-            Hud::HidePanel();
-    }
-    if (Pressed(keys, SDL_SCANCODE_B, &browseKey) && !g_dragging) {
-        g_browser.open = !g_browser.open;
-        g_help = false;
-        if (g_browser.open)
-            FillBrowser();
-        else
-            Hud::HidePanel();
-    }
+    if (Pressed(keys, SDL_SCANCODE_F1, &helpKey))
+        ToggleHelp();
+    if (Pressed(keys, SDL_SCANCODE_B, &browseKey) && !g_dragging)
+        ToggleBrowser();
 
     // Ctrl+ keys: undo / redo, save, duplicate.
     if (ctrl && !noChange) {
@@ -1699,33 +1997,11 @@ void Update()
             StepHistory(&g_undo, &g_redo, "Undone");
         if (Pressed(keys, SDL_SCANCODE_Y, &yKey))
             StepHistory(&g_redo, &g_undo, "Redone");
-        if (Pressed(keys, SDL_SCANCODE_S, &sKey)) {
-            std::string message;
-            if (Layout::Save(&message)) {
-                g_unsaved = false;
-                g_offerPending = false; // (the autosave is gone with the save)
-            }
-            Hud::Message(message, 4.0);
-            NoteAction("saved (Ctrl+S)");
-        }
+        if (Pressed(keys, SDL_SCANCODE_S, &sKey))
+            SaveLayout();
         // Ctrl+R: an autosave restored in place of the current layout; Ctrl+Shift+R: it's discarded.
-        if (Pressed(keys, SDL_SCANCODE_R, &rKey)) {
-            std::string message;
-            if (shift) {
-                Layout::DiscardAutosave(&message);
-                NoteAction("discarded the autosave (Ctrl+Shift+R)");
-            } else {
-                Deselect();
-                if (Layout::RestoreAutosave(&message)) {
-                    g_undo.clear();
-                    g_redo.clear();
-                    MarkUnsaved();
-                }
-                NoteAction("restored the autosave (Ctrl+R)");
-            }
-            g_offerPending = false;
-            Hud::Message(message, 4.0);
-        }
+        if (Pressed(keys, SDL_SCANCODE_R, &rKey))
+            AnswerAutosave(shift);
         if (Pressed(keys, SDL_SCANCODE_D, &dKey))
             Duplicate(FrameFromYawPitch(g_yaw, g_pitch));
         if (HaveSelection())
@@ -1764,7 +2040,7 @@ void Update()
     bool haveRay = false;
     V3 dir = frame.back * -1.0f;
     float backX = 0.0f, backY = 0.0f;
-    if (g_haveView && !input.right && input.windowWidth > 0 && input.windowHeight > 0) {
+    if (g_haveView && !input.right && input.windowWidth > 0 && input.windowHeight > 0 && Ui::MouseToEditor()) {
         MouseMenus::ScreenMapping mapping = MouseMenus::CurrentMapping(input.windowWidth, input.windowHeight);
         backX = static_cast<float>(static_cast<double>(input.x) * mapping.backBufferWidth / input.windowWidth);
         backY = static_cast<float>(static_cast<double>(input.y) * mapping.backBufferHeight / input.windowHeight);
@@ -1774,6 +2050,8 @@ void Update()
             haveRay = true;
         }
     }
+
+    ApplyUiRequests(dir, haveRay, frame);
 
     if (g_browser.open) {
         // The browser takes the arrows, Enter and F (the selection's keys rest meanwhile).
@@ -1790,17 +2068,8 @@ void Update()
             g_browser.index = g_browser.top = 0;
             FillBrowser();
         }
-        if (Pressed(keys, SDL_SCANCODE_F, &focusKey) && g_browser.index < count) {
-            uint32_t id = g_browser.items[g_browser.index].id;
-            OrientedBox box;
-            if (g_browser.tab == 0 && Scenery::Box(id, &box)) {
-                V3 a, b;
-                BoundsOf(box, &a, &b);
-                LookAt((a + b) * 0.5f, std::max(300.0f, std::sqrt(Dot(b - a, b - a)) * 1.5f));
-            } else if (auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(id))) {
-                LookAt(Objects::Centre(object), 300.0f);
-            }
-        }
+        if (Pressed(keys, SDL_SCANCODE_F, &focusKey) && g_browser.index < count)
+            FocusBrowserItem();
         if (Pressed(keys, SDL_SCANCODE_RETURN, &enterKey) || Pressed(keys, SDL_SCANCODE_KP_ENTER, &enterKey))
             PlaceFromBrowser(CursorPoint(dir, haveRay, frame));
         if (g_browser.open)
@@ -1842,20 +2111,9 @@ void Update()
             TurnSelection(turn);
             NoteAction("turned (Z / X): %s", DescribeSelection().c_str());
         }
-        // G: down onto the ground below it (the collision ray from just under the scenery's bottom - not to hit
-        // itself - or from above an object's feet).
-        if (Pressed(keys, SDL_SCANCODE_G, &dropKey) && !g_dragging) {
-            V3 pos = SelectionPos();
-            float base = SelectionBase();
-            V3 ground;
-            V3 from = Primary() ? V3{pos.x, base + 50.0f, pos.z} : V3{pos.x, base - 1.0f, pos.z};
-            if (GroundBelow(from, &ground) && ground.y != base) {
-                PushUndo(Snapshot());
-                PlaceSelection({pos.x, pos.y + (ground.y - base), pos.z});
-                NoteAction("dropped to the ground (G): %s", DescribeSelection().c_str());
-                Settle();
-            }
-        }
+        // G: down onto the ground below it.
+        if (Pressed(keys, SDL_SCANCODE_G, &dropKey) && !g_dragging)
+            DropSelection();
         // The wheel: nearer / further - or, while dragging, the selection pushed away / pulled back (a tenth of its
         // distance a notch).
         if (input.wheel && g_dragging) {
@@ -1904,7 +2162,7 @@ void Update()
         if (g_axis < 0 && shift != g_dragVertical)
             StartDrag(g_pos, dir, shift, frame, input.x, input.y);
         if (g_dragMoved)
-            Drag(g_pos, dir, input.x, input.y, ctrl);
+            Drag(g_pos, dir, input.x, input.y, ctrl || g_snapAlways);
     }
     if (!g_dragging) {
         g_hoverAxis = haveRay && HaveSelection() ? ArrowAt(frame, backX, backY) : -1;
@@ -2045,6 +2303,16 @@ void Draw()
             AddArrow(base, base + kAxes[axis] * length, frame, lit ? 0xFFFFFF40 : kColours[axis], &lines);
         }
     }
+    // The UI: the lines through ImGui's draw list, with the panels (level_editor_ui.h).
+    if (Ui::Running()) {
+        static std::vector<Ui::Line> uiLines;
+        uiLines.clear();
+        for (size_t i = 0; i + 1 < lines.size(); i += 2)
+            uiLines.push_back({lines[i].x, lines[i].y, lines[i + 1].x, lines[i + 1].y, lines[i].color, 1.0f});
+        Ui::Frame(BuildModel(), uiLines);
+        return;
+    }
+    // The old HUD: the lines on the device (the renderer's cached state).
     if (lines.empty())
         return;
     int count = static_cast<int>(lines.size());
