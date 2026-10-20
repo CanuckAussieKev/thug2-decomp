@@ -13,7 +13,9 @@ Used by `tools/thps4_levels` (THPS4), `tools/thug1_levels` (THUG1), `tools/thps3
 - `nodes.ts` - node arrays: what's kept, kill zones, THUG1's included structures.
 - `peds_cars.ts` - THPS4's peds and cars made again as THUG2's own (THUG2's ped AI walking / vert skating, its
   Car_Generic01 on the same paths, THUG2's profiles and models).
-- `script_port.ts` - the script translator (all four games).
+- `script_port.ts` - the script translator (all four games); its TriggerType translation (`triggerType`) is shared.
+- `thug2_members.ts` - THUG2's script member functions and the components that run them, generated from the exe
+  by `node tools/extract_members.ts` (committed: the converters don't need data/derived).
 - `common.ts` - NeverScript compiling, writing a level's files, lighting keys, THUG2 round trips.
 - `ported_levels.ts` - the staging folders' `levels.json` (format at its top), the Levels.qb structures, the level
   select signs, copying into the overlay.

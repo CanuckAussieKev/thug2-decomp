@@ -37,7 +37,7 @@ and moving objects have mostly not been seen working. The "what to try" lists ar
 | Level geometry, textures | Original | Original (vertex colours halved to THUG2's scale) | Original | Original, from the online (`_net`) version (see 6) |
 | Collision, rails, restarts, kill zones | Original | Original | Original | Original (2 face flags dropped) |
 | Level scripts (gaps, triggers, moving things) | Original, translated | Original, translated | Original, translated (node array nearly whole) | Original, translated |
-| Gap checks that test how you landed (TriggerType) | Missing: those lip gaps never score | Translated to THUG2's form | Missing: those conditions read false | Missing: those conditions read false |
+| Gap checks that test how you landed (TriggerType) | Translated to THUG2's form | Translated to THUG2's form | Translated to THUG2's form | Translated (THAW's Smack / Natas / AcidDrop / STALL: no THUG2 event, left out - false) |
 | Peds: model | Stand-in (THUG2 people) | Stand-in (THUG2 people) | Original profile where THUG2 has it, else a random THUG2 one | Stand-in (THUG2 people, chosen by keyword) |
 | Peds: where they stand or walk | Original | Original (walkers only; others stand) | Original | Original; ambient "life node" spots get standing peds (max 24) |
 | Peds: AI and animations | Stand-in (THUG2 ped AI) | Stand-in | THUG2's ped AI (THUG1's is its predecessor); THUG1-only animations dropped | Stand-in |
@@ -74,7 +74,7 @@ back: the crash is in THUG2's code, which we are rewriting.
 | A TrickObject / Cluster on geometry with no drawn sector | ParseNodeArray | Strip the marking (all games) | 2-89 nodes per THAW level aren't trick objects |
 | Visible / Kill / Shatter of collision-only geometry | CFunc_Visible 0x5A5050 | Leave the statement out, or expand `prefix=` to drawn nodes only | 1-74 statements per THAW level; a few in THPS3 |
 | THUG2's Car_Generic01 on a LevelObject | its member calls on missing components | Traffic made a real THUG2 Vehicle | THPS3 cars are THUG2 look-alikes |
-| TriggerType with a bare name | 0x004349B2 | THPS4: made THUG2's array form; others: left out (false) | THPS3 / THUG1 / THAW landing-test gaps |
+| TriggerType with a bare name | 0x004349B2 | Made THUG2's array form (script_port.triggerType, every game); a form it can't make: left out (false) | THAW's four THUG2-less flags |
 | IsAlive / other commands naming a missing node | CFunc_IsAlive | Parameters naming nodes the level lacks are checked | Statements left out |
 | Too many script components | THUG2's script component pool | THUG1's shared node parts made global structures again | None (NJ 58k -> 40k) |
 | An animation the ped's set hasn't | 0x00482BA0 | All object animation commands left out; animal peds left out | THUG1 anims, animals |
@@ -105,8 +105,7 @@ counts across all levels:
 - SetParticleSysVisibility: 743 (no particles).
 - Sound and music commands (LoadSound, PlayStream, Obj_PlaySound...).
 - BouncyObj_Go: 191 (no bounce physics).
-- TriggerType lip checks: 112. Those lip gaps never score (Roswell, Cruise Ship, Skater Island).
-- DuplicateTrigger: 71.
+- (TriggerType lip checks and DuplicateTrigger are translated since docs/pending/translator-fixes.md.)
 - Object variables (Obj_VarSet / VarEQ / VarInc).
 - Clump animations and scaling (Obj_PlayAnim, Obj_ApplyScaling), Obj_SetGroundOffset.
 - Skater state and cutscenes (MakeSkaterGoto, SpawnSkaterScript, PlaySkaterCamAnim), panels.
@@ -177,10 +176,8 @@ nodes, run by THUG2's code.
   defaults play.
 
 **Scripts**
-- TriggerType (THUG1's gap landing test): those conditions read false.
 - Goal manager calls (and conditions on them: false), panels, printf, cutscene cameras, MakeSkaterGoto / KillSkater.
 - THUG1 level / career flags (GetFlag, SetFlag...).
-- Obj_LockToObject, Obj_ObjectInRadius, Obj_AdjustSound, light members.
 - 29 LoadSound calls of sounds THUG2 lacks. Music and voice streams.
 - Classic levels: DuplicateTrigger gap sectors get the trigger script of the node they link to (as THUG1).
 
@@ -214,8 +211,8 @@ nodes, run by THUG2's code.
 - How THAW closes the open ends of the LA areas in online mode: not checked.
 
 **Scripts** (THAW's own; its token stream is THUG2's plus an inline structure token). Left out:
-- RailAccelerate (THAW's rail speed-ups).
-- TriggerType conditions (false); IsCreated becomes THUG2's IsAlive name= for converted nodes, false otherwise;
+- RailAccelerate (THAW's rail speed-ups) is ours, from THAW's, with its land / onto check.
+- TriggerType with THAW's Smack / Natas / AcidDrop / STALL (false: THUG2 has no such event); IsCreated becomes THUG2's IsAlive name= for converted nodes, false otherwise;
   InManual becomes THUG2's state tag (GetSingleTag state = Skater_InManual).
 - `object:member` calls.
 - Goal commands, screen elements and panels, flags, slow motion, IGC cameras.
@@ -266,10 +263,9 @@ Formats marked "not identified" haven't been looked into yet.
    original animations through a name map. This brings back THUG1's animation lists, crowds, animals and flying
    birds. The biggest job.
 5. **Gameplay gaps.**
-   - TriggerType gap checks for THPS3, THUG1 and THAW (THPS4's translation already works).
    - Collision on THPS3's moving objects, and its bouncy physics.
    - THPS4's and THAW's proximity areas (THPS3's approach: watcher ghost objects).
-   - Linked ride cars (Obj_LockToObject: THPS4, THUG1).
+   - Linked ride cars (Obj_LockToObject: THPS4, THUG1) - kept since translator-fixes; not seen working yet.
    - THAW's ladders, skitching, rail speed-ups (RailAccelerate) and EmitterObjects.
    - Object variables (THPS3, THPS4) mapped to THUG2's tags.
    - Each workaround in section 3 that costs content, once the crash is understood in the decomp.

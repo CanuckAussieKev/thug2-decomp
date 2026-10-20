@@ -21041,6 +21041,54 @@
         "crc": 1835003923
       },
       {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_CH",
+          "kind": "script",
+          "name": "CH_GetGap_LightGrind"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\skatepark\\skatepark_scripts.qb",
+        "crc": 756014397
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_CH",
+          "kind": "script",
+          "name": "Z_CH_GapStart_Balls1"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\skatepark\\skatepark_scripts.qb",
+        "crc": 2050262310
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_CH",
+          "kind": "script",
+          "name": "Z_CH_GapStart_jo1"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\skatepark\\skatepark_scripts.qb",
+        "crc": 92129121
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_CH",
+          "kind": "script",
+          "name": "Z_CH_GapStart_FluffyBunny1"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\skatepark\\skatepark_scripts.qb",
+        "crc": 815650575
+      },
+      {
         "id": "TPN-THAW-3",
         "op": "add",
         "target": {
@@ -21793,6 +21841,30 @@
         "crc": 1902464945
       },
       {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_DN",
+          "kind": "script",
+          "name": "Z_DN_GapStart_Billboard_Grind1"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\z_dn\\z_dn_scripts.qb",
+        "crc": 3686610242
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_DN",
+          "kind": "script",
+          "name": "Z_DN_GapStart_BS_Grind1"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\z_dn\\z_dn_scripts.qb",
+        "crc": 3629100592
+      },
+      {
         "id": "TPN-THAW-5",
         "op": "add",
         "target": {
@@ -22196,6 +22268,42 @@
         "crc": 2467718047
       },
       {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_JA",
+          "kind": "script",
+          "name": "JA_NeonSign_Check"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\kyoto\\kyoto_scripts.qb",
+        "crc": 1733887002
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_JA",
+          "kind": "script",
+          "name": "JA_NeonSign_Effect"
+        },
+        "why": "used by JA_NeonSign_Check (replaces our port's translation of THAW's)",
+        "source": "levels\\kyoto\\kyoto_scripts.qb",
+        "crc": 3901244391
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_JA",
+          "kind": "script",
+          "name": "JA_SFX_NeonSign_Hit"
+        },
+        "why": "used by JA_NeonSign_Check (replaces our port's translation of THAW's)",
+        "source": "levels\\kyoto\\kyoto_scripts.qb",
+        "crc": 1681756205
+      },
+      {
         "id": "TPN-THAW-5",
         "op": "add",
         "target": {
@@ -22496,6 +22604,42 @@
         "crc": 1276791300
       },
       {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_SZ",
+          "kind": "script",
+          "name": "SZ_EnterSand"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\sz\\sz_scripts.qb",
+        "crc": 192427288
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_SZ",
+          "kind": "script",
+          "name": "SZ_ExitSand"
+        },
+        "why": "used by SZ_EnterSand (replaces our port's translation of THAW's)",
+        "source": "levels\\sz\\sz_scripts.qb",
+        "crc": 554820269
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "add",
+        "target": {
+          "zone": "Z_SZ",
+          "kind": "script",
+          "name": "SFX_Change_Footstep_Sounds_To_Sand"
+        },
+        "why": "used by SZ_EnterSand",
+        "source": "qb\\game\\skater\\skater_sfx.qb",
+        "crc": 2303293561
+      },
+      {
         "id": "TPN-THAW-5",
         "op": "add",
         "target": {
@@ -22541,6 +22685,90 @@
         },
         "why": "reshaped by THUGPRO (4 -> 4 vertices)",
         "crc": 3772071368
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_SV2",
+          "kind": "script",
+          "name": "Z_SV2_Hydrant"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\Z_SV2\\Z_SV2_scripts.qb",
+        "crc": 1188245538
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_SV2",
+          "kind": "script",
+          "name": "Z_SV2_SFX_Hydrant_Natas_02"
+        },
+        "why": "used by Z_SV2_Hydrant (replaces our port's translation of THAW's)",
+        "source": "levels\\Z_SV2\\Z_SV2_scripts.qb",
+        "crc": 3393690686
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_SV2",
+          "kind": "script",
+          "name": "Z_SV2_Natas_Done"
+        },
+        "why": "used by Z_SV2_Hydrant (replaces our port's translation of THAW's)",
+        "source": "levels\\Z_SV2\\Z_SV2_scripts.qb",
+        "crc": 1058243718
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_SV2",
+          "kind": "script",
+          "name": "Z_SV2_Hydrant2"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\Z_SV2\\Z_SV2_scripts.qb",
+        "crc": 1338432686
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_SV2",
+          "kind": "script",
+          "name": "Z_SV2_SFX_Hydrant_Natas_01"
+        },
+        "why": "used by Z_SV2_Hydrant2 (replaces our port's translation of THAW's)",
+        "source": "levels\\Z_SV2\\Z_SV2_scripts.qb",
+        "crc": 2285940455
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_SV2",
+          "kind": "script",
+          "name": "Z_SV2_Hydrant3"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\Z_SV2\\Z_SV2_scripts.qb",
+        "crc": 1907712538
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_SV2",
+          "kind": "script",
+          "name": "Z_SV2_SFX_Hydrant_Natas_03"
+        },
+        "why": "used by Z_SV2_Hydrant3 (replaces our port's translation of THAW's)",
+        "source": "levels\\Z_SV2\\Z_SV2_scripts.qb",
+        "crc": 1117097910
       },
       {
         "id": "TPN-THAW-5",
@@ -22791,6 +23019,174 @@
         "crc": 1387547717
       },
       {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_SV",
+          "kind": "script",
+          "name": "SV_Gap_NoWallPlant_01"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\vans\\vans_scripts.qb",
+        "crc": 2487624391
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_SV",
+          "kind": "script",
+          "name": "SV_Gap_NoWallPlant_Start"
+        },
+        "why": "used by SV_Gap_NoWallPlant_01 (replaces our port's translation of THAW's)",
+        "source": "levels\\vans\\vans_scripts.qb",
+        "crc": 258659258
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_SV",
+          "kind": "script",
+          "name": "SV_Gap_NoWallPlant_02"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\vans\\vans_scripts.qb",
+        "crc": 3588940971
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_SV",
+          "kind": "script",
+          "name": "SV_Gap_NoWallPlant_Got"
+        },
+        "why": "used by SV_Gap_NoWallPlant_02 (replaces our port's translation of THAW's)",
+        "source": "levels\\vans\\vans_scripts.qb",
+        "crc": 2717093397
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_SV",
+          "kind": "script",
+          "name": "SV_Gap_PatientPlant_Start"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\vans\\vans_scripts.qb",
+        "crc": 1275908030
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_SV",
+          "kind": "script",
+          "name": "SV_Gap_GoLong_02"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\vans\\vans_scripts.qb",
+        "crc": 901358152
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_SV",
+          "kind": "script",
+          "name": "SV_Gap_GoLong_Got"
+        },
+        "why": "used by SV_Gap_GoLong_02 (replaces our port's translation of THAW's)",
+        "source": "levels\\vans\\vans_scripts.qb",
+        "crc": 3526843240
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_SV",
+          "kind": "script",
+          "name": "SV_Gap_GoLong_01"
+        },
+        "why": "used by SV_Gap_GoLong_02 (replaces our port's translation of THAW's)",
+        "source": "levels\\vans\\vans_scripts.qb",
+        "crc": 2326911881
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_SV",
+          "kind": "script",
+          "name": "SV_Gap_DeckLip_02"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\vans\\vans_scripts.qb",
+        "crc": 3128847452
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_SV",
+          "kind": "script",
+          "name": "SV_Gap_DeckLip_Got"
+        },
+        "why": "used by SV_Gap_DeckLip_02 (replaces our port's translation of THAW's)",
+        "source": "levels\\vans\\vans_scripts.qb",
+        "crc": 3189184053
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_SV",
+          "kind": "script",
+          "name": "SV_Gap_StairLip_02"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\vans\\vans_scripts.qb",
+        "crc": 364376087
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_SV",
+          "kind": "script",
+          "name": "SV_Gap_StairLip_Got"
+        },
+        "why": "used by SV_Gap_StairLip_02 (replaces our port's translation of THAW's)",
+        "source": "levels\\vans\\vans_scripts.qb",
+        "crc": 3291976602
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_SV",
+          "kind": "script",
+          "name": "SV_Gap_SprinklerLip_02"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\vans\\vans_scripts.qb",
+        "crc": 2417694917
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_SV",
+          "kind": "script",
+          "name": "SV_Gap_SprinklerLip_Got"
+        },
+        "why": "used by SV_Gap_SprinklerLip_02 (replaces our port's translation of THAW's)",
+        "source": "levels\\vans\\vans_scripts.qb",
+        "crc": 3592890240
+      },
+      {
         "id": "TPN-THAW-2",
         "op": "remove",
         "target": {
@@ -23008,6 +23404,306 @@
         },
         "why": "reshaped by THUGPRO (255 -> 255 vertices)",
         "crc": 2217587842
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_HO",
+          "kind": "script",
+          "name": "Z_HO_CavemanSeriesEasy_Check"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\z_ho\\z_ho_scripts.qb",
+        "crc": 1510089001
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_HO",
+          "kind": "script",
+          "name": "Z_HO_BowlingPin"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\z_ho\\z_ho_scripts.qb",
+        "crc": 4141941601
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_HO",
+          "kind": "script",
+          "name": "Z_HO_Bowling_Cam"
+        },
+        "why": "used by Z_HO_BowlingPin (replaces our port's translation of THAW's)",
+        "source": "levels\\z_ho\\z_ho_scripts.qb",
+        "crc": 246957677
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "add",
+        "target": {
+          "zone": "Z_HO",
+          "kind": "script",
+          "name": "PlaySkaterFollowCameraAnim"
+        },
+        "why": "used by Z_HO_BowlingPin",
+        "source": "qb\\thugpro\\editor\\thugpro_editor.qb",
+        "crc": 3487112201
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "add",
+        "target": {
+          "zone": "Z_HO",
+          "kind": "script",
+          "name": "EditorCamera_DoFade"
+        },
+        "why": "used by Z_HO_BowlingPin",
+        "source": "qb\\thugpro\\editor\\thugpro_editor.qb",
+        "crc": 3542976416
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "add",
+        "target": {
+          "zone": "Z_HO",
+          "kind": "script",
+          "name": "_CameraFollowSkater"
+        },
+        "why": "used by Z_HO_BowlingPin",
+        "source": "qb\\thugpro\\editor\\thugpro_editor.qb",
+        "crc": 3319247718
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_HO",
+          "kind": "script",
+          "name": "Z_HO_CranePlant"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\z_ho\\z_ho_scripts.qb",
+        "crc": 712601230
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_HO",
+          "kind": "script",
+          "name": "Z_HO_Crane_Cam"
+        },
+        "why": "used by Z_HO_CranePlant (replaces our port's translation of THAW's)",
+        "source": "levels\\z_ho\\z_ho_scripts.qb",
+        "crc": 3710457114
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_HO",
+          "kind": "script",
+          "name": "Z_HO_CranePlant2"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\z_ho\\z_ho_scripts.qb",
+        "crc": 4225280681
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_HO",
+          "kind": "script",
+          "name": "Z_HO_Crane_Cam2"
+        },
+        "why": "used by Z_HO_CranePlant2 (replaces our port's translation of THAW's)",
+        "source": "levels\\z_ho\\z_ho_scripts.qb",
+        "crc": 1154960279
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_HO",
+          "kind": "script",
+          "name": "Z_HO_ScissorLift"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\z_ho\\z_ho_scripts.qb",
+        "crc": 2043783141
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_HO",
+          "kind": "script",
+          "name": "Z_HO_Hydrant"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\z_ho\\z_ho_scripts.qb",
+        "crc": 3921099890
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_HO",
+          "kind": "script",
+          "name": "Z_HO_SFX_Hydrant_Natas"
+        },
+        "why": "used by Z_HO_Hydrant (replaces our port's translation of THAW's)",
+        "source": "levels\\z_ho\\z_ho_scripts.qb",
+        "crc": 232435173
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_HO",
+          "kind": "script",
+          "name": "Z_HO_Natas_Done"
+        },
+        "why": "used by Z_HO_Hydrant (replaces our port's translation of THAW's)",
+        "source": "levels\\z_ho\\z_ho_scripts.qb",
+        "crc": 4251121728
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_HO",
+          "kind": "script",
+          "name": "Z_HO_GapEnd_FireEscape1"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\z_ho\\z_ho_scripts.qb",
+        "crc": 1760227418
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_HO",
+          "kind": "script",
+          "name": "Z_HO_GapEnd_FireEscape2"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\z_ho\\z_ho_scripts.qb",
+        "crc": 3003267732
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_HO",
+          "kind": "script",
+          "name": "Z_HO_GapEnd_FireEscape3"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\z_ho\\z_ho_scripts.qb",
+        "crc": 2633729539
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_HO",
+          "kind": "script",
+          "name": "Z_HO_GapEnd_FireEscape4"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\z_ho\\z_ho_scripts.qb",
+        "crc": 2754715948
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_HO",
+          "kind": "script",
+          "name": "Z_HO_GapEnd_FireEscape5"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\z_ho\\z_ho_scripts.qb",
+        "crc": 1947839365
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_HO",
+          "kind": "script",
+          "name": "Z_HO_Gap_Goat"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\z_ho\\z_ho_scripts.qb",
+        "crc": 2380761773
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_HO",
+          "kind": "script",
+          "name": "Z_HO_GapStart_PlanterPop"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\z_ho\\z_ho_scripts.qb",
+        "crc": 2641442603
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_HO",
+          "kind": "script",
+          "name": "Z_HO_GapEnd_PlanterPop"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\z_ho\\z_ho_scripts.qb",
+        "crc": 478070295
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_HO",
+          "kind": "script",
+          "name": "Z_HO_Gap_ElTenienteDrop"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\z_ho\\z_ho_scripts.qb",
+        "crc": 1353925897
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_HO",
+          "kind": "script",
+          "name": "Z_HO_CavemanCombo_Gap_Start"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\z_ho\\z_ho_scripts.qb",
+        "crc": 1829622688
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_HO",
+          "kind": "script",
+          "name": "Z_HO_CavemanCombo_Got"
+        },
+        "why": "used by Z_HO_CavemanCombo_Gap_Start (replaces our port's translation of THAW's)",
+        "source": "levels\\z_ho\\z_ho_scripts.qb",
+        "crc": 3715653236
       },
       {
         "id": "TPN-THAW-5",
@@ -23256,6 +23952,90 @@
         "crc": 1482287107
       },
       {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_DT",
+          "kind": "script",
+          "name": "Z_DT_Bike_ContinueGap10"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\Z_DT\\Z_DT_scripts.qb",
+        "crc": 1925539989
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_DT",
+          "kind": "script",
+          "name": "m_zdtgaps23_gameplay_tag_EndGap2"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\Z_DT\\Z_DT_scripts.qb",
+        "crc": 1359577979
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_DT",
+          "kind": "script",
+          "name": "m_zdtgaps23_gameplay_tag_EndGap3"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\Z_DT\\Z_DT_scripts.qb",
+        "crc": 628499969
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_DT",
+          "kind": "script",
+          "name": "DT_Wallplant_Slomo"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\Z_DT\\Z_DT_scripts.qb",
+        "crc": 2175970323
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_DT",
+          "kind": "script",
+          "name": "DT_Gap_Pillars"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\Z_DT\\Z_DT_scripts.qb",
+        "crc": 1387730479
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_DT",
+          "kind": "script",
+          "name": "DT_Gap_China_Awning"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\Z_DT\\Z_DT_scripts.qb",
+        "crc": 2889320366
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_DT",
+          "kind": "script",
+          "name": "DT_Gap_Big_Lip_End"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\Z_DT\\Z_DT_scripts.qb",
+        "crc": 3378724636
+      },
+      {
         "id": "TPN-THAW-5",
         "op": "add",
         "target": {
@@ -23432,6 +24212,150 @@
         "why": "THAW's script as THUGPRO changed it (replaces our port's translation of THAW's)",
         "source": "levels\\Z_EL\\Z_EL.qb",
         "crc": 2135159589
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_EL",
+          "kind": "script",
+          "name": "Z_EL_AutoLevelEvent2"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\Z_EL\\Z_EL_scripts.qb",
+        "crc": 1310258539
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "add",
+        "target": {
+          "zone": "Z_EL",
+          "kind": "script",
+          "name": "THUGPRO_ForceCreate"
+        },
+        "why": "used by Z_EL_AutoLevelEvent2",
+        "source": "qb\\thugpro\\thugpro_utils.qb",
+        "crc": 990428999
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_EL",
+          "kind": "script",
+          "name": "Z_EL_SkateparkLevelEventa"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\Z_EL\\Z_EL_scripts.qb",
+        "crc": 1230875736
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_EL",
+          "kind": "script",
+          "name": "HitMetalCan_SFX"
+        },
+        "why": "used by Z_EL_SkateparkLevelEventa (replaces our port's translation of THAW's)",
+        "source": "levels\\Z_EL\\Z_EL_sfx_scripts.qb",
+        "crc": 2066033191
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_EL",
+          "kind": "script",
+          "name": "Z_EL_SkateparkLevelEvent2a"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\Z_EL\\Z_EL_scripts.qb",
+        "crc": 1520685287
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_EL",
+          "kind": "script",
+          "name": "EL_wallplant_boost"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\Z_EL\\Z_EL_scripts.qb",
+        "crc": 1000821769
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_EL",
+          "kind": "script",
+          "name": "EL_Spring"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\Z_EL\\Z_EL_scripts.qb",
+        "crc": 1578087358
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_EL",
+          "kind": "script",
+          "name": "Z_EL_StartGap_TheShack1"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\Z_EL\\Z_EL_scripts.qb",
+        "crc": 112617196
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_EL",
+          "kind": "script",
+          "name": "Z_EL_StartGap_GnarlyNatas1"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\Z_EL\\Z_EL_scripts.qb",
+        "crc": 2671132729
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_EL",
+          "kind": "script",
+          "name": "Z_EL_StartGap_Straight_Thuggin1"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\Z_EL\\Z_EL_scripts.qb",
+        "crc": 2179084813
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_EL",
+          "kind": "script",
+          "name": "Z_EL_StartGap_Straight_Ballin1"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\Z_EL\\Z_EL_scripts.qb",
+        "crc": 2214399685
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_EL",
+          "kind": "script",
+          "name": "Z_EL_StartGap_Clutch1"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\Z_EL\\Z_EL_scripts.qb",
+        "crc": 3203043782
       },
       {
         "id": "TPN-THAW-5",
@@ -24026,6 +24950,18 @@
         "crc": 3711149092
       },
       {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_SM",
+          "kind": "script",
+          "name": "SM_FerrisCarBalanceReset"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\Z_SM\\Z_SM_scripts.qb",
+        "crc": 599067485
+      },
+      {
         "id": "TPN-THAW-5",
         "op": "add",
         "target": {
@@ -24081,6 +25017,114 @@
         },
         "why": "reshaped by THUGPRO (32 -> 38 vertices)",
         "crc": 3604466719
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_SR",
+          "kind": "script",
+          "name": "SR_DT_freewaysign_drop"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\Z_SR\\Z_SR_scripts.qb",
+        "crc": 745282059
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_SR",
+          "kind": "script",
+          "name": "SR_derrick_ring_go"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\Z_SR\\Z_SR_scripts.qb",
+        "crc": 1858236901
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_SR",
+          "kind": "script",
+          "name": "SR_captop_go"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\Z_SR\\Z_SR_scripts.qb",
+        "crc": 4208659768
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_SR",
+          "kind": "script",
+          "name": "SR_Gap_DT_pyr"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\Z_SR\\Z_SR_scripts.qb",
+        "crc": 1517800970
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_SR",
+          "kind": "script",
+          "name": "SR_Gap_LV_wheel_end"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\Z_SR\\Z_SR_scripts.qb",
+        "crc": 1765876434
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_SR",
+          "kind": "script",
+          "name": "SR_Gap_BH_fountain"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\Z_SR\\Z_SR_scripts.qb",
+        "crc": 135655267
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_SR",
+          "kind": "script",
+          "name": "SR_Gap_OR_floor_1"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\Z_SR\\Z_SR_scripts.qb",
+        "crc": 2848512236
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_SR",
+          "kind": "script",
+          "name": "SR_Gap_SM_ferris_end"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\Z_SR\\Z_SR_scripts.qb",
+        "crc": 1227128360
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_SR",
+          "kind": "script",
+          "name": "SR_Gap_DT_freeway_end"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\Z_SR\\Z_SR_scripts.qb",
+        "crc": 2522748981
       },
       {
         "id": "TPN-THAW-5",
@@ -24283,6 +25327,102 @@
         "crc": 1389833928
       },
       {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_LV",
+          "kind": "script",
+          "name": "LV_boost"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\z_lv\\z_lv_scripts.qb",
+        "crc": 3027457817
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_LV",
+          "kind": "script",
+          "name": "LV_warn_wrong_side"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\z_lv\\z_lv_scripts.qb",
+        "crc": 707353415
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_LV",
+          "kind": "script",
+          "name": "LV_grinddollarsign_waitover"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\z_lv\\z_lv_scripts.qb",
+        "crc": 3760017183
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_LV",
+          "kind": "script",
+          "name": "LV_DollarGrindMessage"
+        },
+        "why": "used by LV_grinddollarsign_waitover (replaces our port's translation of THAW's)",
+        "source": "levels\\z_lv\\z_lv_scripts.qb",
+        "crc": 3372699874
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_LV",
+          "kind": "script",
+          "name": "LV_TRG_BreakTheBank"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\z_lv\\z_lv_scripts.qb",
+        "crc": 160386904
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_LV",
+          "kind": "script",
+          "name": "LV_StickerColumns_trigger"
+        },
+        "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType (replaces our port's translation of THAW's)",
+        "source": "levels\\z_lv\\z_lv_scripts.qb",
+        "crc": 3280875844
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_LV",
+          "kind": "script",
+          "name": "LV_StickerColumns_Bailed"
+        },
+        "why": "used by LV_StickerColumns_trigger (replaces our port's translation of THAW's)",
+        "source": "levels\\z_lv\\z_lv_scripts.qb",
+        "crc": 1199546080
+      },
+      {
+        "id": "TPN-THAW-4",
+        "op": "set",
+        "target": {
+          "zone": "Z_LV",
+          "kind": "script",
+          "name": "LV_StickerColumns_Landed"
+        },
+        "why": "used by LV_StickerColumns_trigger (replaces our port's translation of THAW's)",
+        "source": "levels\\z_lv\\z_lv_scripts.qb",
+        "crc": 2832325459
+      },
+      {
         "id": "TPN-THAW-5",
         "op": "add",
         "target": {
@@ -24366,24 +25506,8 @@
           "why": "the sky dome of THUGPRO's thaw_sky.scn.xbx (bundled in each level's scn.prx) - THAW's own TestLevel_Sky, which our port converts from THAW itself (thaw_sky: the same sector, 4 meshes of 18 / 50 / 18 / 18 vertices); not level content"
         },
         {
-          "target": "CH_GetGap_LightGrind",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "Z_CH_GapStart_Balls1",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "Z_CH_GapStart_jo1",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
           "target": "Z_CH_GapStart_Contribution1",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType, StickerOn - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "Z_CH_GapStart_FluffyBunny1",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs StickerOn - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         }
       ],
       "Z_MA": [
@@ -24600,14 +25724,6 @@
         {
           "target": "Cylinder01",
           "why": "the sky dome of THUGPRO's thaw_sky.scn.xbx (bundled in each level's scn.prx) - THAW's own TestLevel_Sky, which our port converts from THAW itself (thaw_sky: the same sector, 4 meshes of 18 / 50 / 18 / 18 vertices); not level content"
-        },
-        {
-          "target": "Z_DN_GapStart_Billboard_Grind1",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "Z_DN_GapStart_BS_Grind1",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         }
       ],
       "Z_JA": [
@@ -24670,38 +25786,18 @@
         {
           "target": "Cylinder01",
           "why": "the sky dome of THUGPRO's thaw_sky.scn.xbx (bundled in each level's scn.prx) - THAW's own TestLevel_Sky, which our port converts from THAW itself (thaw_sky: the same sector, 4 meshes of 18 / 50 / 18 / 18 vertices); not level content"
-        },
-        {
-          "target": "JA_NeonSign_Check",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         }
       ],
       "Z_SZ": [
         {
           "target": "Cylinder01",
           "why": "the sky dome of THUGPRO's thaw_sky.scn.xbx (bundled in each level's scn.prx) - THAW's own TestLevel_Sky, which our port converts from THAW itself (thaw_sky: the same sector, 4 meshes of 18 / 50 / 18 / 18 vertices); not level content"
-        },
-        {
-          "target": "SZ_EnterSand",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         }
       ],
       "Z_SV2": [
         {
           "target": "Cylinder01",
           "why": "the sky dome of THUGPRO's thaw_sky.scn.xbx (bundled in each level's scn.prx) - THAW's own TestLevel_Sky, which our port converts from THAW itself (thaw_sky: the same sector, 4 meshes of 18 / 50 / 18 / 18 vertices); not level content"
-        },
-        {
-          "target": "Z_SV2_Hydrant",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "Z_SV2_Hydrant2",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "Z_SV2_Hydrant3",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         }
       ],
       "Z_SV": [
@@ -24711,111 +25807,83 @@
         },
         {
           "target": "SV_Gap_PipeGrind_Link01_start",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_PipeGrind_Link02_start",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_PipeGrind_Link03_start",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_PipeGrind_Link04_start",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_PipeGrind_Link05_start",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_PipeGrind_Link06_start",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_PipeGrind_Link07_start",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_PipeGrind_Link08_start",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_PipeGrind_Link09_start",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_PipeGrind_Link10_start",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_PipeGrind_Link11_start",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_PipeGrind_Link12_start",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_PipeGrind_Link13_start",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_PipeGrind_Link14_start",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_PipeGrind_Link15_start",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_PipeGrind_Link16_start",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_PipeGrind_Link17_start",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_PipeGrind_Link18_start",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_PipeGrind_Link19_start",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_PipeGrind_Link20_start",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "SV_Gap_NoWallPlant_01",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "SV_Gap_NoWallPlant_02",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "SV_Gap_PatientPlant_Start",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "SV_Gap_GoLong_02",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "SV_Gap_DeckLip_02",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "SV_Gap_StairLip_02",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "SV_Gap_SprinklerLip_02",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         }
       ],
       "Z_HO": [
@@ -24825,75 +25893,11 @@
         },
         {
           "target": "Z_HO_Goal_UniqueTrick_Check",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType, goal_unique_tricks_trigger - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "Z_HO_CavemanSeriesEasy_Check",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "Z_HO_BowlingPin",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "Z_HO_CranePlant",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "Z_HO_CranePlant2",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs goal_unique_tricks_trigger - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "Z_HO_Tower_Plane",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType, ChangeNodeFlag - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "Z_HO_ScissorLift",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "Z_HO_Hydrant",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "Z_HO_GapEnd_FireEscape1",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "Z_HO_GapEnd_FireEscape2",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "Z_HO_GapEnd_FireEscape3",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "Z_HO_GapEnd_FireEscape4",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "Z_HO_GapEnd_FireEscape5",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "Z_HO_Gap_Goat",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "Z_HO_GapStart_PlanterPop",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "Z_HO_GapEnd_PlanterPop",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "Z_HO_Gap_ElTenienteDrop",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "Z_HO_CavemanCombo_Gap_Start",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs ChangeNodeFlag - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         }
       ],
       "Z_BH": [
@@ -24912,60 +25916,32 @@
           "why": "the sky dome of THUGPRO's thaw_sky.scn.xbx (bundled in each level's scn.prx) - THAW's own TestLevel_Sky, which our port converts from THAW itself (thaw_sky: the same sector, 4 meshes of 18 / 50 / 18 / 18 vertices); not level content"
         },
         {
-          "target": "Z_DT_Bike_ContinueGap10",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "m_zdtgaps23_gameplay_tag_EndGap2",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "m_zdtgaps23_gameplay_tag_EndGap3",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "DT_Wallplant_Slomo",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
           "target": "DT_Bell_Gap_End_old",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype, SpawnScriptLater, PlayIGCCamScene, CinematicCamera_Pan, CinematicCamera_DoMorph - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs SpawnScriptLater, PlayIGCCamScene, CinematicCamera_Pan, CinematicCamera_DoMorph - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "DT_Bell_Gap_End",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype, SpawnScriptLater, PlayIGCCamScene, CinematicCamera_Pan, CinematicCamera_DoMorph - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs SpawnScriptLater, PlayIGCCamScene, CinematicCamera_Pan, CinematicCamera_DoMorph - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "Z_DT_BellPlant",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype, SpawnScriptLater, PlayIGCCamScene, CinematicCamera_DoMorph - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs SpawnScriptLater, PlayIGCCamScene, CinematicCamera_DoMorph - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "DT_Pyramid_Gap_End_old",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype, SpawnScriptLater, PlayIGCCamScene, CinematicCamera_Pan, CinematicCamera_DoMorph - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs SpawnScriptLater, PlayIGCCamScene, CinematicCamera_Pan, CinematicCamera_DoMorph - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "DT_Pyramid_Gap_End",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs GoalManager_SetFloatTipVisibility, Triggertype, SpawnScriptLater, PlayIGCCamScene, CinematicCamera_Pan, CinematicCamera_DoMorph - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs GoalManager_SetFloatTipVisibility, SpawnScriptLater, PlayIGCCamScene, CinematicCamera_Pan, CinematicCamera_DoMorph - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "DT_Gaps7_Freeway_Script",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype, SpawnScriptNow, goal_gaps_hold_trick_trigger, PlayIGCCamScene, SpawnScriptLater, CinematicCamera_DoMorph - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs SpawnScriptNow, goal_gaps_hold_trick_trigger, PlayIGCCamScene, SpawnScriptLater, CinematicCamera_DoMorph - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "DT_Kid_Ride_startcam",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype, SpawnScriptLater, PlayIGCCamScene - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "DT_Gap_Pillars",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "DT_Gap_China_Awning",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "DT_Gap_Big_Lip_End",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs SpawnScriptLater, PlayIGCCamScene - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         }
       ],
       "Z_EL": [
@@ -24976,46 +25952,6 @@
         {
           "target": "Cylinder01",
           "why": "the sky dome of THUGPRO's thaw_sky.scn.xbx (bundled in each level's scn.prx) - THAW's own TestLevel_Sky, which our port converts from THAW itself (thaw_sky: the same sector, 4 meshes of 18 / 50 / 18 / 18 vertices); not level content"
-        },
-        {
-          "target": "Z_EL_AutoLevelEvent2",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "Z_EL_SkateparkLevelEventa",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "Z_EL_SkateparkLevelEvent2a",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "EL_wallplant_boost",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "EL_Spring",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "Z_EL_StartGap_TheShack1",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "Z_EL_StartGap_GnarlyNatas1",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "Z_EL_StartGap_Straight_Thuggin1",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "Z_EL_StartGap_Straight_Ballin1",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "Z_EL_StartGap_Clutch1",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         }
       ],
       "Z_SM": [
@@ -25033,57 +25969,17 @@
         },
         {
           "target": "SM_Alleyway_IGC",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType, PlayIGCCamScene, CinematicCamera_DoMorph, IGC_Camera_MoveToPlayer - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs PlayIGCCamScene, CinematicCamera_DoMorph, IGC_Camera_MoveToPlayer - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "Z_SM_BustingOutOfThePipeSequence",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType, PlayIGCCamScene, CinematicCamera_DoMorph, IGC_Camera_MoveToPlayer - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "SM_FerrisCarBalanceReset",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs PlayIGCCamScene, CinematicCamera_DoMorph, IGC_Camera_MoveToPlayer - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         }
       ],
       "Z_SR": [
         {
           "target": "Cylinder01",
           "why": "the sky dome of THUGPRO's thaw_sky.scn.xbx (bundled in each level's scn.prx) - THAW's own TestLevel_Sky, which our port converts from THAW itself (thaw_sky: the same sector, 4 meshes of 18 / 50 / 18 / 18 vertices); not level content"
-        },
-        {
-          "target": "SR_DT_freewaysign_drop",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "SR_derrick_ring_go",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "SR_captop_go",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "SR_Gap_DT_pyr",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "SR_Gap_LV_wheel_end",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "SR_Gap_BH_fountain",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "SR_Gap_OR_floor_1",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "SR_Gap_SM_ferris_end",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "SR_Gap_DT_freeway_end",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         }
       ],
       "Z_LV": [
@@ -25097,39 +25993,19 @@
         },
         {
           "target": "NO_spinsign_trigger",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype, SpawnScriptLater, DeleteGapFromScore - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "LV_boost",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs SpawnScriptLater, DeleteGapFromScore - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "LV_Natas_Posts_Check",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype, SpawnScriptLater - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "LV_warn_wrong_side",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "LV_grinddollarsign_waitover",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "LV_TRG_BreakTheBank",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
-        },
-        {
-          "target": "LV_StickerColumns_trigger",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs SpawnScriptLater - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "LV_DollarAcidDrop_trigger",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype, SpawnScriptLater - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs SpawnScriptLater - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "NO_heli_lip",
-          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype, SpawnScriptLater - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs SpawnScriptLater - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         }
       ],
       "Z_OI": [
@@ -25212,110 +26088,6 @@
       ],
       "SpawnScriptNow": ["Z_DT: DT_Gaps7_Freeway_Script"],
       "StickerOn": ["Z_CH: Z_CH_GapStart_Contribution1"],
-      "TriggerType": [
-        "Z_CH: CH_GetGap_LightGrind",
-        "Z_CH: Z_CH_GapStart_Balls1",
-        "Z_CH: Z_CH_GapStart_Contribution1",
-        "Z_CH: Z_CH_GapStart_FluffyBunny1",
-        "Z_CH: Z_CH_GapStart_jo1",
-        "Z_DN: Z_DN_GapStart_BS_Grind1",
-        "Z_DN: Z_DN_GapStart_Billboard_Grind1",
-        "Z_DT: DT_Bell_Gap_End",
-        "Z_DT: DT_Bell_Gap_End_old",
-        "Z_DT: DT_Gap_Big_Lip_End",
-        "Z_DT: DT_Gap_China_Awning",
-        "Z_DT: DT_Gap_Pillars",
-        "Z_DT: DT_Gaps7_Freeway_Script",
-        "Z_DT: DT_Kid_Ride_startcam",
-        "Z_DT: DT_Pyramid_Gap_End",
-        "Z_DT: DT_Pyramid_Gap_End_old",
-        "Z_DT: DT_Wallplant_Slomo",
-        "Z_DT: Z_DT_BellPlant",
-        "Z_DT: Z_DT_Bike_ContinueGap10",
-        "Z_DT: m_zdtgaps23_gameplay_tag_EndGap2",
-        "Z_DT: m_zdtgaps23_gameplay_tag_EndGap3",
-        "Z_EL: EL_Spring",
-        "Z_EL: EL_wallplant_boost",
-        "Z_EL: Z_EL_AutoLevelEvent2",
-        "Z_EL: Z_EL_SkateparkLevelEvent2a",
-        "Z_EL: Z_EL_SkateparkLevelEventa",
-        "Z_EL: Z_EL_StartGap_Clutch1",
-        "Z_EL: Z_EL_StartGap_GnarlyNatas1",
-        "Z_EL: Z_EL_StartGap_Straight_Ballin1",
-        "Z_EL: Z_EL_StartGap_Straight_Thuggin1",
-        "Z_EL: Z_EL_StartGap_TheShack1",
-        "Z_HO: Z_HO_BowlingPin",
-        "Z_HO: Z_HO_CavemanCombo_Gap_Start",
-        "Z_HO: Z_HO_CavemanSeriesEasy_Check",
-        "Z_HO: Z_HO_CranePlant",
-        "Z_HO: Z_HO_CranePlant2",
-        "Z_HO: Z_HO_GapEnd_FireEscape1",
-        "Z_HO: Z_HO_GapEnd_FireEscape2",
-        "Z_HO: Z_HO_GapEnd_FireEscape3",
-        "Z_HO: Z_HO_GapEnd_FireEscape4",
-        "Z_HO: Z_HO_GapEnd_FireEscape5",
-        "Z_HO: Z_HO_GapEnd_PlanterPop",
-        "Z_HO: Z_HO_GapStart_PlanterPop",
-        "Z_HO: Z_HO_Gap_ElTenienteDrop",
-        "Z_HO: Z_HO_Gap_Goat",
-        "Z_HO: Z_HO_Goal_UniqueTrick_Check",
-        "Z_HO: Z_HO_Hydrant",
-        "Z_HO: Z_HO_ScissorLift",
-        "Z_HO: Z_HO_Tower_Plane",
-        "Z_JA: JA_NeonSign_Check",
-        "Z_LV: LV_DollarAcidDrop_trigger",
-        "Z_LV: LV_Natas_Posts_Check",
-        "Z_LV: LV_StickerColumns_trigger",
-        "Z_LV: LV_TRG_BreakTheBank",
-        "Z_LV: LV_boost",
-        "Z_LV: LV_grinddollarsign_waitover",
-        "Z_LV: LV_warn_wrong_side",
-        "Z_LV: NO_heli_lip",
-        "Z_LV: NO_spinsign_trigger",
-        "Z_SM: SM_Alleyway_IGC",
-        "Z_SM: SM_FerrisCarBalanceReset",
-        "Z_SM: Z_SM_BustingOutOfThePipeSequence",
-        "Z_SR: SR_DT_freewaysign_drop",
-        "Z_SR: SR_Gap_BH_fountain",
-        "Z_SR: SR_Gap_DT_freeway_end",
-        "Z_SR: SR_Gap_DT_pyr",
-        "Z_SR: SR_Gap_LV_wheel_end",
-        "Z_SR: SR_Gap_OR_floor_1",
-        "Z_SR: SR_Gap_SM_ferris_end",
-        "Z_SR: SR_captop_go",
-        "Z_SR: SR_derrick_ring_go",
-        "Z_SV2: Z_SV2_Hydrant",
-        "Z_SV2: Z_SV2_Hydrant2",
-        "Z_SV2: Z_SV2_Hydrant3",
-        "Z_SV: SV_Gap_DeckLip_02",
-        "Z_SV: SV_Gap_GoLong_02",
-        "Z_SV: SV_Gap_NoWallPlant_01",
-        "Z_SV: SV_Gap_NoWallPlant_02",
-        "Z_SV: SV_Gap_PatientPlant_Start",
-        "Z_SV: SV_Gap_PipeGrind_Link01_start",
-        "Z_SV: SV_Gap_PipeGrind_Link02_start",
-        "Z_SV: SV_Gap_PipeGrind_Link03_start",
-        "Z_SV: SV_Gap_PipeGrind_Link04_start",
-        "Z_SV: SV_Gap_PipeGrind_Link05_start",
-        "Z_SV: SV_Gap_PipeGrind_Link06_start",
-        "Z_SV: SV_Gap_PipeGrind_Link07_start",
-        "Z_SV: SV_Gap_PipeGrind_Link08_start",
-        "Z_SV: SV_Gap_PipeGrind_Link09_start",
-        "Z_SV: SV_Gap_PipeGrind_Link10_start",
-        "Z_SV: SV_Gap_PipeGrind_Link11_start",
-        "Z_SV: SV_Gap_PipeGrind_Link12_start",
-        "Z_SV: SV_Gap_PipeGrind_Link13_start",
-        "Z_SV: SV_Gap_PipeGrind_Link14_start",
-        "Z_SV: SV_Gap_PipeGrind_Link15_start",
-        "Z_SV: SV_Gap_PipeGrind_Link16_start",
-        "Z_SV: SV_Gap_PipeGrind_Link17_start",
-        "Z_SV: SV_Gap_PipeGrind_Link18_start",
-        "Z_SV: SV_Gap_PipeGrind_Link19_start",
-        "Z_SV: SV_Gap_PipeGrind_Link20_start",
-        "Z_SV: SV_Gap_SprinklerLip_02",
-        "Z_SV: SV_Gap_StairLip_02",
-        "Z_SZ: SZ_EnterSand"
-      ],
       "goal_gaps_hold_trick_trigger": ["Z_DT: DT_Gaps7_Freeway_Script"],
       "goal_unique_tricks_trigger": ["Z_HO: Z_HO_Goal_UniqueTrick_Check"],
       "sssssssssssss": ["Z_LV: Z_LV_Cylinder49Script"]

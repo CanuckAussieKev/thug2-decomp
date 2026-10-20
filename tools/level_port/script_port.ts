@@ -1206,6 +1206,12 @@ export class Translator {
                 }
                 continue;
             }
+            if (this.thug2.scripts.has(value.name()!) && this.isLeftOut(this.text(value.name()!).toLowerCase())) {
+                // (a THUG2 script left out as a command is left out as a script to run too - THPS4's
+                // maybe_auto_load_from_memory_card handed out as an exception script)
+                this.note(`left out: ${this.text(value.name()!)}`);
+                return null;
+            }
             for (const context of contexts) {
                 const runs = runner === "same" ? context : runner;
                 const v = value.name()!;
