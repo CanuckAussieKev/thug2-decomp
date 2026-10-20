@@ -43,6 +43,7 @@ import {
     CTF_NAMES,
     isCrown,
     isMpRestart,
+    isName,
     maxDiff,
     nameOf,
     nodeArray,
@@ -272,14 +273,18 @@ export function compare(entry: portedLevels.LevelEntry, oursDir: string, thugpro
 // - TP-10 ctf_flags: TRG_CTF_Red / _Blue and their _Base (place in THUG2's world - Pos, or Position with z negated - and
 //   Angles) where THUGPRO's Red or Blue flag isn't at THPS3's own base of that colour (CTF_1 blue / CTF_2 red);
 // - TP-11 team_nodes: the nodes THPS3 has no counterpart for - TRG_CTF_Green / _Yellow (+ _Base), the lobby's team flags
-//   TRG_Flag_<colour> (+ _Base) and TRG_Team_Restart.
+//   TRG_Flag_<colour> (+ _Base) and TRG_Team_Restart;
+// - TP-12 spawns: every network spawn THUGPRO changed against THPS3's node array (approved later the same day: both
+//   sides should spawn players alike) - each restart with a MultiPlayer / Horse / Team / CTF* type on either side whose
+//   place, angles, type, restart_types, RestartName or CreatedAtStart THUGPRO changed, or that THUGPRO added
+//   (TRG_CTF_Restart_<colour>, Tokyo's TRG_Restart_1P...), as THUGPRO has it (`changed`); and `removed`: THPS3's
+//   network spawns THUGPRO doesn't have (Warehouse's TRG_CTF1_Restart_*). TRG_Team_Restart is TP-11's.
 export const TP10_NODES = ["Red", "Blue"].flatMap((c) => [`TRG_CTF_${c}`, `TRG_CTF_${c}_Base`]);
 export const TP11_NODES = [
     ...["Green", "Yellow"].flatMap((c) => [`TRG_CTF_${c}`, `TRG_CTF_${c}_Base`]),
     ...["Red", "Blue", "Green", "Yellow"].flatMap((c) => [`TRG_Flag_${c}`, `TRG_Flag_${c}_Base`]),
     "TRG_Team_Restart",
 ];
-
 interface Placement {
     pos: number[];
     angles: number[];
@@ -290,6 +295,82 @@ function placement(node: Struct): Placement | null {
     if (p === null) return null;
     const a = node.get("Angles");
     return { pos: [...p], angles: a instanceof Vector && a.kind === "vector" ? [...a.values] : [0, 0, 0] };
+}
+
+export const SPAWN_TYPES = ["MultiPlayer", "Horse", "Team", "CTF", "CTF_1", "CTF_2", "CTF_3", "CTF_4"];
+const SPAWN_SET: ReadonlySet<number> = new Set(SPAWN_TYPES.map(qb.checksum));
+
+// A restart's spawn record (TP-12): place and angles in THUG2's world, Type, restart_types, RestartName,
+// CreatedAtStart.
+export interface SpawnRecord extends Placement {
+    type: string | null;
+    restart_types: string[];
+    restart_name: string | null;
+    created: boolean;
+}
+
+export const isRestart = (node: Struct): boolean => isName(node.get("Class"), "Restart");
+
+export function restartTypes(node: Struct): number[] {
+    const v = node.get("restart_types");
+    return Array.isArray(v) ? v.filter((x): x is Name => x instanceof Name).map((x) => x.value) : [];
+}
+
+export const isSpawn = (node: Struct): boolean => isRestart(node) && restartTypes(node).some((t) => SPAWN_SET.has(t));
+
+function spawnRecord(node: Struct, names: ReadonlyMap<number, string>): SpawnRecord {
+    const text = (v: number): string => names.get(v) ?? `#${hex8(v)}`;
+    const type = node.get("Type");
+    const label = node.get("RestartName");
+    return {
+        ...placement(node)!,
+        type: type instanceof Name ? text(type.value) : null,
+        restart_types: restartTypes(node).map(text),
+        restart_name: typeof label === "string" ? label : null,
+        created: node.hasFlag("CreatedAtStart"),
+    };
+}
+
+// THUGPRO's spawns that differ from THPS3's ({name: record}) and THPS3's spawns it hasn't ([names]).
+export function spawnChanges(
+    own: readonly QbValue[],
+    ownNames: ReadonlyMap<number, string>,
+    theirs: readonly QbValue[],
+    theirNames: ReadonlyMap<number, string>,
+    skip: ReadonlySet<number>,
+): [Record<string, SpawnRecord>, string[]] {
+    const names = new Map([...ownNames, ...theirNames]);
+    const text = (v: number): string => names.get(v) ?? `#${hex8(v)}`;
+    const byName = (array: readonly QbValue[]): Map<number, Struct> => {
+        const out = new Map<number, Struct>();
+        for (const n of array) if (n instanceof Struct && nameOf(n) !== null) out.set(nameOf(n)!, n);
+        return out;
+    };
+    const ownBy = byName(own);
+    const theirBy = byName(theirs);
+    const changed: Record<string, SpawnRecord> = {};
+    for (const [nm, node] of theirBy) {
+        if (skip.has(nm) || !isRestart(node)) continue;
+        const mine = ownBy.get(nm);
+        if (!isSpawn(node) && !(mine !== undefined && isSpawn(mine))) continue;
+        const rec = spawnRecord(node, names);
+        if (mine !== undefined && isRestart(mine)) {
+            const old = spawnRecord(mine, names);
+            const same =
+                maxDiff(old.pos, rec.pos) <= TOLERANCE &&
+                maxDiff(old.angles, rec.angles) <= 0.001 &&
+                (old.type ?? "").toLowerCase() === (rec.type ?? "").toLowerCase() &&
+                [...restartTypes(mine)].sort().join() === [...restartTypes(node)].sort().join() &&
+                old.restart_name === rec.restart_name &&
+                old.created === rec.created;
+            if (same) continue;
+        }
+        changed[text(nm)] = rec;
+    }
+    const removed = [...ownBy]
+        .filter(([nm, node]) => !skip.has(nm) && isSpawn(node) && !theirBy.has(nm))
+        .map(([nm]) => text(nm));
+    return [changed, removed];
 }
 
 export function extractThugpro(thps3Dir: string, thugpro: string): Record<string, unknown> {
@@ -304,6 +385,11 @@ export function extractThugpro(thps3Dir: string, thugpro: string): Record<string
         _source:
             "THUGPRO's installed data\\pre\\<level>_scripts.prx, levels\\<level>\\<level>.qb: TRG_CTF_Green / _Yellow (+ _Base), TRG_Flag_<colour> (+ _Base), TRG_Team_Restart. Extracted by tools/thps3_levels/thugpro_compare.ts --extract-thugpro.",
     };
+    const spawnData: Record<string, unknown> = {
+        _register: "TP-12",
+        _source:
+            "THUGPRO's installed data\\pre\\<level>_scripts.prx, levels\\<level>\\<level>.qb against THPS3's Data\\Levels\\<Lvl>\\<lvl>.qb: every restart with a network type (MultiPlayer, Horse, Team, CTF*) THUGPRO moved, retyped, renamed or added (changed: pos in THUG2's world, angles, type, restart_types, restart_name, created), and THPS3's network restarts THUGPRO hasn't (removed). Extracted by tools/thps3_levels/thugpro_compare.ts --extract-thugpro.",
+    };
     for (const [base] of LEVELS) {
         const key = base.toLowerCase();
         if (THUG2_OWN.has(key) || NO_COUNTERPART.has(key)) continue;
@@ -312,7 +398,7 @@ export function extractThugpro(thps3Dir: string, thugpro: string): Record<string
         if (!scripts || !folder) continue;
         const data = prx.find(scripts, `levels\\${key}\\${key}.qb`);
         if (data === null) continue;
-        const [theirs] = nodeArray(data, `${key}.qb`);
+        const [theirs, theirNames] = nodeArray(data, `${key}.qb`);
         const byName = new Map<number, Struct>();
         for (const n of theirs) if (n instanceof Struct && nameOf(n) !== null) byName.set(nameOf(n)!, n);
         const pick = (names: readonly string[]): Record<string, Placement> => {
@@ -325,7 +411,8 @@ export function extractThugpro(thps3Dir: string, thugpro: string): Record<string
             return out;
         };
         // THPS3's own bases, by colour
-        const own = new qb.QbFile(fs.readFileSync(levelFiles(folder, base).get("qb")!), key).get("NodeArray");
+        const ownQ = new qb.QbFile(fs.readFileSync(levelFiles(folder, base).get("qb")!), key);
+        const own = ownQ.get("NodeArray");
         let moved = false;
         for (const team of teams.filter((t) => t.colour === "Red" || t.colour === "Blue")) {
             const baseNode = (Array.isArray(own) ? own : []).find((n): n is Struct => {
@@ -340,12 +427,21 @@ export function extractThugpro(thps3Dir: string, thugpro: string): Record<string
         if (moved) flags[key] = pick(TP10_NODES);
         const more = pick(TP11_NODES);
         if (Object.keys(more).length) extra[key] = more;
+        const [changed, removed] = spawnChanges(
+            Array.isArray(own) ? own : [],
+            ownQ.names,
+            theirs,
+            theirNames,
+            new Set([qb.checksum("TRG_Team_Restart")]), // (TP-11's)
+        );
+        if (Object.keys(changed).length || removed.length) spawnData[key] = { changed, removed };
     }
     return {
         _comment:
-            "THUGPRO compatibility for the THPS3 level ports (tools/thps3_levels), approved by the user 2026-10-20. Each entry is registered in README.md here (TP-10, TP-11). Capture the flag is decided on the server against its own flags; each side draws them from its own node array: these put our flags where THUGPRO's are. Level keys are our (= THUGPRO's = THPS3's) level names. Read by tools/compat/compat.ts; `thps3_levels.ts convert --compat none` leaves all of it out (THPS3's own two bases). Regenerate: node tools/thps3_levels/thugpro_compare.ts --extract-thugpro tools/compat/thugpro/thps3_levels.json",
+            "THUGPRO compatibility for the THPS3 level ports (tools/thps3_levels), approved by the user 2026-10-20. Each entry is registered in README.md here (TP-10, TP-11, TP-12). Capture the flag is decided on the server against its own flags; each side draws them from its own node array: these put our flags where THUGPRO's are, and our spawn points as THUGPRO's. Level keys are our (= THUGPRO's = THPS3's) level names. Read by tools/compat/compat.ts; `thps3_levels.ts convert --compat none` leaves all of it out (THPS3's own two bases). Regenerate: node tools/thps3_levels/thugpro_compare.ts --extract-thugpro tools/compat/thugpro/thps3_levels.json",
         ctf_flags: flags,
         team_nodes: extra,
+        spawns: spawnData,
     };
 }
 

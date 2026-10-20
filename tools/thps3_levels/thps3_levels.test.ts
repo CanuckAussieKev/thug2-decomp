@@ -5,7 +5,7 @@ import { test } from "node:test";
 import * as qb from "../level_port/qb.ts";
 import { Name, type QbValue, Struct, Vector } from "../level_port/qb.ts";
 import { renameScene } from "./migrate_layouts.ts";
-import { ctfNodes, legacyName, levelName } from "./thps3_levels.ts";
+import { applySpawns, ctfNodes, legacyName, levelName } from "./thps3_levels.ts";
 
 const n = (text: string): Name => new Name(qb.checksum(text));
 const vec = (...values: number[]): Vector => new Vector("vector", values);
@@ -137,4 +137,47 @@ test("layouts: the scene line renamed, the rest kept byte for byte", () => {
     assert.equal(lines, 1);
     assert.equal(out, `# layout\r\nscene ${hex(now)}  # foun\r\nsector 12345678 1 0.5 0 0  # x\r\n`);
     assert.throws(() => renameScene(text, now, old, "x"));
+});
+
+test("TP-12: spawns made as THUGPRO's - changed in place, added, removed ones no longer network spawns", () => {
+    const names = new Map<number, string>();
+    for (const t of ["Restart", "MultiPlayer"]) names.set(qb.checksum(t), t);
+    const restart = (name: string, extra: qb.Entry[] = []): Struct =>
+        new Struct([
+            [n("Position"), vec(1, 2, 3)],
+            [n("Name"), n(name)],
+            [n("Class"), n("Restart")],
+            [n("Type"), n("MultiPlayer")],
+            [null, n("CreatedAtStart")],
+            [n("restart_types"), [n("MultiPlayer"), n("CTF_1")]],
+            ...extra,
+        ]);
+    const converted = [restart("TRG_A", [[n("TriggerScript"), n("SomeScript")]]), restart("TRG_B")];
+    const spawn = { angles: [0, 1, 0], type: "MultiPlayer", restart_name: "Multi: Restart", created: true };
+    const report = applySpawns(converted, names, {
+        changed: {
+            TRG_A: { ...spawn, pos: [7, 8, 9], restart_types: ["MultiPlayer"] },
+            TRG_New: { ...spawn, pos: [4, 5, 6], restart_types: ["MultiPlayer", "Horse"] },
+        },
+        removed: ["TRG_B"],
+    });
+    assert.equal(report, "TP-12 spawns as THUGPRO's: 1 changed, 1 added, 1 no longer network spawns");
+    const [a, b, added] = converted as [Struct, Struct, Struct];
+    assert.deepEqual((a.get("Pos") as Vector).values, [7, 8, 9]);
+    assert.equal(a.get("Position"), undefined);
+    assert.deepEqual(
+        (a.get("restart_types") as Name[]).map((x) => x.value),
+        [qb.checksum("MultiPlayer")],
+    );
+    assert.equal((a.get("TriggerScript") as Name).value, qb.checksum("SomeScript")); // (kept)
+    assert.equal(a.get("RestartName"), "Multi: Restart");
+    assert.ok(a.hasFlag("CreatedAtStart"));
+    assert.equal((b.get("Type") as Name).value, qb.checksum("Generic"));
+    assert.deepEqual(
+        (b.get("restart_types") as Name[]).map((x) => x.value),
+        [qb.checksum("Generic")],
+    );
+    assert.equal((added.get("Name") as Name).value, qb.checksum("TRG_New"));
+    assert.deepEqual((added.get("Pos") as Vector).values, [4, 5, 6]);
+    assert.equal(applySpawns(converted, names, undefined), "");
 });

@@ -73,8 +73,69 @@ puts them.
   THUGPRO's extra TRG_Restart_1P; Ware 18 / 14 - THUGPRO reused THPS3's CTF1 restarts). Links in range, rail links to
   rails, 0 unreachable faces, every qb decompiles (skate shop as before), make_menu_level fine; 4 unit tests.
 
+## Register entry TP-12: THUGPRO's spawn points (approved by the user 2026-10-20, implemented)
+The user's reason: players spawning at different places on the two sides could be an advantage or a disadvantage.
+- Data: `spawns` in tools/compat/thugpro/thps3_levels.json, extracted (`--extract-thugpro`) by comparing THUGPRO's
+  node arrays with THPS3's own: every restart with a network type (MultiPlayer, Horse, Team, CTF*) on either side
+  that THUGPRO moved, retyped (Type, restart_types, RestartName, CreatedAtStart), renamed or added (`changed`: place,
+  angles, types), and THPS3's network restarts THUGPRO dropped (`removed`). TRG_Team_Restart stays TP-11's.
+  Per level: foun 6 (the 4 TRG_CTF_Restart_<c>, TRG_CTF1_Restart_1P/2P lost CTF_1), rio 4, sub 4, si 5 (+
+  TRG_Restart_Horse05 moved 4 units), tok 5 (+ THUGPRO's TRG_Restart_1P, multiplayer), shp 4, ware 8 + 4 removed
+  (THUGPRO reused TRG_CTF1_Restart_* as its team restarts; TRG_CTF2_Restart_* turned and retyped), burn 4, ros 4.
+- Applied by `thps3_levels.applySpawns` after `ctfNodes` (compat.ts; `--compat none` leaves it out): a changed
+  restart gets THUGPRO's place (Pos), angles and types, the node's other entries kept; an added one is appended in
+  our restart form; a removed one becomes Type / restart_types Generic (kept: kills and scripts name it).
+- `--compat none`: identical to before (scn / tex / col byte-identical, levels.json identical, qb code and names
+  identical). With thugpro: every network spawn of ours equals THUGPRO's in all 9 (place, angles, Type,
+  restart_types, RestartName, CreatedAtStart - spawnChanges(ours, THUGPRO's) empty); thugpro_compare CTF 17 / 17
+  with nothing moved; multiplayer restarts the same set and places (20 / 20 Foun, Rio, Shp, Burn; 16 / 16 Sub, SI;
+  17 / 17 Tok; 14 / 14 Ware; 18 / 18 Ros). Links, collision, ns.exe, make_menu_level fine; 5 unit tests here.
+
+## THUGPRO hand edits: inventory (against THPS3's own data; nothing changed but the spawns)
+`node tools/thps3_levels/thugpro_inventory.ts --thug2 <folder> [--examples N] [--json out]` lists them per level.
+Counts: moved / renamed / added / removed / changed nodes; scripts added / changed; collision objects differing.
+
+| level | moved | renamed | added | removed | changed | scripts + / ~ | collision |
+|---|---|---|---|---|---|---|---|
+| foun | 5 | 0 | 29 | 0 | 33 | 184 / 35 | 5 |
+| rio | 0 | 0 | 61 | 0 | 376 | 94 / 21 | 1 |
+| sub | 4 | 0 | 27 | 0 | 107 | 191 / 149 | 9 |
+| si | 2 | 0 | 20 | 2 | 207 | 131 / 59 | 11 |
+| tok | 0 | 0 | 20 | 1 | 608 | 442 / 15 | 3 |
+| shp | 6 | 0 | 20 | 2 | 208 | 307 / 311 | 1 |
+| ware | 4 | 1 | 17 | 5 | 75 | 19 / 32 | 20 |
+| burn | 9 | 0 | 17 | 2 | 9 | 16 / 18 | 0 |
+| ros | 0 | 0 | 17 | 2 | 31 | 17 / 15 | 4 |
+
+Can affect play between our players and THUGPRO's (the user decides; none applied):
+- **Rails THUGPRO added** (one side grinds, the other doesn't): Foun 8 (`_TRG_Wire_Rail0`-7 + their `foun_wire`
+  geometry), Rio 23 (`QSilverBanner_01_Rail_*`, `rio_balcony*_rail*`, `rio_awning*_rail*`) + 8 untyped `TRG_Node_*`.
+- **Rails THUGPRO switched off online**: Tok 17 (`TRG_SRail_01`-16, `TRG_GS_SRail_00`: AbsentInNetGames added);
+  Foun 2 (`TRG_Ledge_Crane_Beam04` / `048`: CreatedAtStart and TrickObject removed).
+- **Collision THUGPRO added** (walls / floors, mostly fixes): Foun 3 (`SouthDeck_QP01_coll`, `_QP04_coll`,
+  `Trench_HP04_Back_coll`) + `Obj_Bucket` (134 faces); Rio `ES_Building_collision`; Sub 5 `*_collfix` (TRamp04/06,
+  plywood_08, HHBYardWall 192 faces, PicnicCollide01) + 3 unnamed sectors; Ware 19 `SkWare_Dark_*` (the dark copies of
+  the lit set we leave out on purpose - same surfaces).
+- **Collision changed**: SI 8 objects with fewer faces (`SI_Grating*`, ScaffBarrier2, ShipCoping01, VertRamps) and 3
+  only ours (`Ramp_ReFlection`, `si_VRDirt01/02`); Ros 4 (`SkRos_Rail_Col06` 24 -> 16, `_Col07`, `RailWall11`,
+  `Radar02`); Tok 3, Shp 1, Sub 4 objects moved > 1 unit (road lines, a railing).
+- **Geometry present on one side only (flags)**: Sub invisible blockers dropped (`InvisoBox01`,
+  `SUB_InvisoPlantsBlocker01`, `Inviso_PicnicCollide01` (replaced by its `_collfix`), `DISHSTART_*`); Rio
+  `ES_Sul_Fence_Broken01`-12 kept online (AbsentInNetGames removed); Shp `Box07` / `Box08` removed, `stt_EmptyPool`,
+  `sft_RaiseFerryBox` AbsentInNetGames; SI `TRGP_FireCannons`, `SI_OuterDoor` AbsentInNetGames; Ros autopsy / garage
+  doors CreatedAtStart; Ware secret-room glass loses NetEnabled.
+- **Spawns**: unified (TP-12).
+Visual or local only: rail terrain fixes (Rio 313, Tok 296, Shp 125, Ware 46, Sub 36, SI 18, Ros 11 - THPS3's
+`TERRAIN_MEATALSMOOTH` typo, wires as electric wire: grind sound / sparks), peds and waypoints moved or reclassed
+(Burn 9 peds, Foun 3, SI 1, Shp's landing path 300 units), particles (Foun 5, Sub 4 moved; THUGPRO's `_TP_` particle
+and sound objects added), Tokyo's trains / planes / cars (flags), node class changes (lights `Omni*` / `Spot*`,
+`Tape*`), and scripts (THUGPRO's own `TRG_Flag_*` / `TRG_CTF_*` / startup scripts added; THPS3 scripts changed in
+translation - restart scripts Foun 16, Ware 14).
+
 ## Still different from THUGPRO
-- Team restarts: THUGPRO's mostly on the flag; ours THPS3's restarts (local only - no online effect).
+- Spawns: unified by TP-12 (below). Multiplayer restarts in the same order as THUGPRO's only in Foun and Rio; elsewhere
+  the same set and places in another order (our CTF restarts are appended) - local only (a spawn is picked by index
+  on each machine), left as is.
 - Features THUGPRO has and we don't (all THUGPRO-authored unless noted): particles (Foun_TP_*, *_TP_Particle_Sprinkler,
   NextParticle*), Tokyo's bullet trains and planes, the restarts' own THPS3 trigger scripts (ours run the start
   scripts once from the setup script instead), bouncy objects as THUG2 Bouncy game objects (THPS3 data: BouncyObject
