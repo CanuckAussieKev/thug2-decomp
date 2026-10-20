@@ -81,17 +81,52 @@ struct Model {
     int browserTab; // 0 scenery, 1 objects
     int browserIndex;
     const std::vector<BrowserItem>* browserItems;
-    // The Outliner's lists (until the node browser): the level's movable scenery pieces and copyable objects.
-    const std::vector<BrowserItem>* scenery;
-    const std::vector<BrowserItem>* objects;
+    // The node layer (level_editor_nodes.h): the families shown (the chips' bits), the node selected (by a gizmo or
+    // in the Outliner; or the selected object's / scenery's own node) and the one under the cursor - indices into
+    // Nodes::All(), -1 for none - and whether the level is one shared with THUGPRO (a ported level: `sharedGame`).
+    struct NodeView {
+        uint32_t families = 0;
+        int selected = -1, hovered = -1;
+        bool nodeOnly = false; // (the selection is the node itself - not an object or scenery)
+        bool levelShared = false;
+        const char* sharedGame = "";
+    } nodes;
 };
 
-// A line in back buffer pixels (as the editor projects; the UI scales it to the window's), ARGB colour, `thickness`
-// pixels at 1280 x 720 (scaled with the UI).
+// What's drawn over the view, under the panels: in back buffer pixels (as the editor projects; the UI scales them to
+// the window's), ARGB colours, thicknesses in pixels at 1280 x 720 (scaled with the UI).
 struct Line {
     float ax, ay, bx, by;
     uint32_t argb;
     float thickness;
+};
+struct Overlay {
+    struct Circle {
+        float x, y, radius;
+        uint32_t argb;
+        bool filled;
+        float thickness;
+    };
+    struct Triangle {
+        float ax, ay, bx, by, cx, cy;
+        uint32_t argb;
+    };
+    struct Text {
+        float x, y;
+        uint32_t argb;
+        std::string text;
+    };
+    std::vector<Line> lines;
+    std::vector<Circle> circles;
+    std::vector<Triangle> triangles;
+    std::vector<Text> texts;
+    void Clear()
+    {
+        lines.clear();
+        circles.clear();
+        triangles.clear();
+        texts.clear();
+    }
 };
 
 // What the user asked for on the panels, for the editor to do in its next Update.
@@ -113,13 +148,16 @@ struct Request {
         kSnapAlways,    // value: 0 / 1
         kSelectScenery, // id: a sector
         kSelectObject,  // id: an object
+        kFamilies,      // id: the chips' bits
+        kSelectNode,    // value: a node (Nodes::All())
+        kGoToNode,      // value: a node - the camera taken to it
     } kind;
     int value = 0;
     uint32_t id = 0;
 };
 std::vector<Request> TakeRequests();
 
-// The frame (LevelEditor::Draw): the lines (under the panels), the panels from the model, drawn.
-void Frame(const Model& model, const std::vector<Line>& lines);
+// The frame (LevelEditor::Draw): the overlay (under the panels), the panels from the model, drawn.
+void Frame(const Model& model, const Overlay& overlay);
 
 } // namespace Front::LevelEditor::Ui

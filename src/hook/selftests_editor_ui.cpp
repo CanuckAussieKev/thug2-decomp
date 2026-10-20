@@ -3,7 +3,12 @@
 
 #include <cmath>
 #include <cstdio>
+#include <string>
+#include <vector>
 
+#include "game/core/crc.h"
+#include "game/front/level_editor.h"
+#include "game/front/level_editor_nodes.h"
 #include "game/front/level_editor_ui_fonts.h"
 #include "game/front/level_editor_ui_layout.h"
 #include "hook/selftest.h"
@@ -12,6 +17,7 @@
 namespace {
 
 namespace L = Front::LevelEditor::UiLayout;
+namespace LE = Front::LevelEditor;
 
 bool Near(float a, float b, float tolerance = 0.01f) { return std::fabs(a - b) <= tolerance; }
 
@@ -27,6 +33,7 @@ void TestEditorUiLayout()
     Check(L::ScaleFor(3840, 2160) == 3.0f && L::ScaleFor(7680, 4320) == 3.0f, "editor UI: 4K is 3, the most");
     Check(L::ScaleFor(3840, 1080) == 1.5f, "editor UI: the smaller ratio (an ultra-wide screen)");
     Check(L::ScaleFor(1600, 900) == 1.25f, "editor UI: quarter steps");
+    Check(L::ScaleFor(1366, 768) == 1.0f && L::ScaleFor(2000, 1200) == 1.5f, "editor UI: rounded down to a quarter");
     L::FontSizes sizes = L::FontSizesFor(1.0f);
     Check(sizes.ui == 14.0f && sizes.small == 12.0f && sizes.mono == 13.0f, "editor UI: Inter 14 / 12, mono 13");
     sizes = L::FontSizesFor(1.5f);
@@ -170,5 +177,107 @@ void TestEditorUiFonts()
     ImGui::SetCurrentContext(previous);
 }
 SELFTEST(Early, TestEditorUiFonts);
+
+// --- the node layer: families and picking (level_editor_nodes.h) -------------------------------------------------
+
+void TestEditorNodeFamilies()
+{
+    namespace N = Front::LevelEditor::Nodes;
+    auto crc = [](const char* name) { return Crc::GenerateCRCFromString(name); };
+    struct Case {
+        const char* cls;
+        const char* type;
+        N::Family family;
+    };
+    // Classes and types as the THUG2 levels and the ports have them (alc.qb, BA, TR...).
+    static const Case kCases[] = {
+        {"Restart", "Generic", N::Family::Spawn},         {"Restart", "Multiplayer", N::Family::Spawn},
+        {"restart", "", N::Family::Spawn},                {"GenericNode", "Crown", N::Family::Crown},
+        {"GenericNode", "Generic", N::Family::Other},     {"GameObject", "Flag_Red", N::Family::Flag},
+        {"GameObject", "Flag_Blue_Base", N::Family::Flag}, {"GameObject", "Flag_Yellow", N::Family::Flag},
+        {"GameObject", "Ghost", N::Family::Object},       {"RailNode", "Metal", N::Family::Rail},
+        {"ClimbingNode", "Ladder", N::Family::Ladder},    {"Waypoint", "", N::Family::Path},
+        {"LevelObject", "", N::Family::Object},           {"Pedestrian", "Ped_From_Profile", N::Family::Object},
+        {"Vehicle", "Smart_Car", N::Family::Object},      {"LevelGeometry", "", N::Family::Scenery},
+        {"LevelLight", "", N::Family::Light},             {"EmitterObject", "BoundingBox", N::Family::Sound},
+        {"ParticleObject", "", N::Family::Particle},      {"ProximNode", "Camera", N::Family::Trigger},
+        {"CAS_SubMesh", "", N::Family::Other},            {"", "", N::Family::Other},
+    };
+    int wrong = 0;
+    for (const Case& c : kCases) {
+        if (N::Classify(c.cls[0] ? crc(c.cls) : 0, c.type[0] ? crc(c.type) : 0) != c.family) {
+            ++wrong;
+            char text[96];
+            std::snprintf(text, sizeof(text), "editor nodes: %s %s classified wrong", c.cls, c.type);
+            Check(false, text);
+        }
+    }
+    Check(wrong == 0, "editor nodes: classes and types to families");
+    Check(N::ShapeOf(N::Family::Rail) == N::Shape::Chain && N::ShapeOf(N::Family::Path) == N::Shape::Chain &&
+              N::ShapeOf(N::Family::Ladder) == N::Shape::Chain && N::ShapeOf(N::Family::Spawn) == N::Shape::Point &&
+              N::ShapeOf(N::Family::Crown) == N::Shape::Point && N::ShapeOf(N::Family::Trigger) == N::Shape::Volume &&
+              N::ShapeOf(N::Family::Light) == N::Shape::Volume && N::ShapeOf(N::Family::Scenery) == N::Shape::None,
+          "editor nodes: the families' shapes");
+    Check(std::string(N::FamilyName(N::Family::Spawn)) == "Spawns" && std::string(N::FamilyName(N::Family::Other)) == "Other",
+          "editor nodes: family names");
+    Check(N::Bit(N::Family::Spawn) == 1 && N::Bit(N::Family::Other) == 1u << 12 && N::kAllFamilies == 0x1FFF,
+          "editor nodes: the chips' bits");
+    Check(N::Online(N::Family::Spawn) && N::Online(N::Family::Crown) && N::Online(N::Family::Flag) &&
+              !N::Online(N::Family::Rail) && !N::Online(N::Family::Light),
+          "editor nodes: spawns, crowns and flags matter online");
+    // Restart types, team colours, spawn colours.
+    Check(N::RestartTypeBit(crc("Multiplayer")) == N::kMultiplayer && N::RestartTypeBit(crc("MultiPlayer")) == N::kMultiplayer &&
+              N::RestartTypeBit(crc("Horse")) == N::kHorse && N::RestartTypeBit(crc("CTF_2")) == N::kCtf &&
+              N::RestartTypeBit(crc("Player1")) == N::kPlayer1 && N::RestartTypeBit(crc("Skate")) == 0,
+          "editor nodes: restart types");
+    uint32_t red = N::TeamColour("TRG_CTF_Red"), blue = N::TeamColour("TRG_CTF_Restart_Blue");
+    Check(red && blue && red != blue && N::TeamColour("Flag_Green_Base") && N::TeamColour("TRG_Team_Yellow01") &&
+              N::TeamColour("trg_ctf_red") == red,
+          "editor nodes: team colours from names and types");
+    Check(!N::TeamColour("TRG_Reduce01") && !N::TeamColour("TRG_Restart01") && !N::TeamColour(nullptr) &&
+              !N::TeamColour("Bluebird"),
+          "editor nodes: no team colour without one");
+    Check(N::SpawnColour(N::kCtf, red) == red && N::SpawnColour(N::kTeam | N::kMultiplayer, blue) == blue,
+          "editor nodes: a team restart in its team's colour");
+    Check(N::SpawnColour(N::kMultiplayer | N::kHorse, red) != red &&
+              N::SpawnColour(N::kMultiplayer | N::kHorse, 0) == N::SpawnColour(N::kMultiplayer, 0) &&
+              N::SpawnColour(N::kPlayer1, 0) != N::SpawnColour(N::kMultiplayer, 0) &&
+              N::SpawnColour(N::kHorse, 0) != N::SpawnColour(0, 0),
+          "editor nodes: spawn colours by type");
+}
+SELFTEST(Early, TestEditorNodeFamilies);
+
+void TestEditorNodePicking()
+{
+    namespace N = Front::LevelEditor::Nodes;
+    std::vector<N::Pickable> p;
+    Check(N::PickNearest(p, 10.0f, 10.0f, 8.0f) == -1, "editor picking: nothing to pick");
+    p.push_back({1, 100.0f, 100.0f, 100.0f, 100.0f, false, 500.0f});   // a point
+    p.push_back({2, 50.0f, 200.0f, 150.0f, 200.0f, true, 300.0f});     // a segment across y 200
+    p.push_back({3, 106.0f, 100.0f, 106.0f, 100.0f, false, 200.0f});   // a nearer point 6 px right of 1
+    Check(N::PickNearest(p, 100.0f, 100.0f, 8.0f) == 1, "editor picking: the point under the cursor");
+    Check(N::PickNearest(p, 106.0f, 101.0f, 8.0f) == 3, "editor picking: the nearer of two points");
+    Check(N::PickNearest(p, 103.0f, 100.0f, 8.0f) == 3, "editor picking: equal distances go to the nearer to the camera");
+    Check(N::PickNearest(p, 120.0f, 205.0f, 8.0f) == 2, "editor picking: a segment within reach");
+    Check(N::PickNearest(p, 120.0f, 209.0f, 8.0f) == -1, "editor picking: a segment out of reach");
+    Check(N::PickNearest(p, 160.0f, 200.0f, 8.0f) == -1, "editor picking: past a segment's end");
+    Check(N::PickNearest(p, 300.0f, 300.0f, 8.0f) == -1, "editor picking: nothing near");
+    // A point within reach beats a segment that's closer to the cursor.
+    p.push_back({4, 120.0f, 206.0f, 120.0f, 206.0f, false, 900.0f});
+    Check(N::PickNearest(p, 120.0f, 201.0f, 8.0f) == 4, "editor picking: a point beats a segment");
+    // With the projection: a node projected to the pixels it's picked at.
+    LE::Frame frame = LE::FrameFromYawPitch(0.3f, -0.2f);
+    LE::Lens lens = LE::LensFor(72.0f, 1280.0f / 720.0f);
+    const uint32_t viewport[4] = {0, 0, 1280, 720};
+    LE::V3 camera = {100.0f, 200.0f, -300.0f};
+    LE::V3 node = camera + frame.back * -900.0f + frame.right * 120.0f + frame.up * 40.0f;
+    float nx, ny, px, py;
+    bool projected = LE::Project(camera, frame, lens, node, 2.0f, &nx, &ny);
+    LE::NdcToPixel(viewport, nx, ny, &px, &py);
+    std::vector<N::Pickable> one = {{7, px, py, px, py, false, 900.0f}};
+    Check(projected && px > 640.0f && py < 360.0f && N::PickNearest(one, px + 3.0f, py - 4.0f, 8.0f) == 7,
+          "editor picking: a projected node picked where it's drawn");
+}
+SELFTEST(Early, TestEditorNodePicking);
 
 } // namespace

@@ -25,7 +25,8 @@ installed); functions PartyMod patched get source with PartyMod's behaviour. Lat
   needs the THPS4 levels converted (tools/thps4_levels) and installed by `tools/menu_level/make_menu_level.ts`, which
   makes the data overlay `thug2-decomp-data` (the menu's script in its `front_end` folder; at the top: the skate shop
   as a playable level - SKATE SHOP in the level select -, TEST LEVEL, the THPS4 levels); `level_editor=0` hides the pause menu's
-  LEVEL EDITOR - src/game/front/level_editor.h; the item is in the same tool's overlay; its saved layouts are in
+  LEVEL EDITOR - src/game/front/level_editor.h (its UI is Dear ImGui with Inter / JetBrains Mono; `editor_ui=0` brings
+  back the old screen-element HUD; `[editor] families=` remembers the Outliner's family chips); the item is in the same tool's overlay; its saved layouts are in
   `thug2-decomp-layouts\<scene>.txt` and load with their level - and `debug_editor=1` logs its picks and moves;
   (the DLL also runs on a stock, already unwrapped no-CD `THUG2.exe` unchanged - the same layout, 172 bytes apart:
   the exe is never modified; tools/game finds either exe, `node tools/game/install_manifest.ts check` names them, and the

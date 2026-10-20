@@ -34,11 +34,20 @@ class CScript;
 //                             through its draw list. level_editor_ui_backend.cpp is the only file tied to SDL2 /
 //                             Direct3D 9 (ImGui's backends); level_editor_ui_layout.cpp the layout and input routing
 //                             (pure, self-tested); level_editor_ui_fonts.cpp Inter and JetBrains Mono in the DLL
+//   level_editor_nodes.cpp    the node layer: every node of the level's node arrays in families (spawns, crowns,
+//                             flags, rails, ladders, paths, objects, scenery, lights, sounds, particles, triggers,
+//                             other) for the Outliner, the read-only Inspector and the gizmos (points, chains,
+//                             volumes) the UI draws; picked by screen distance; the online badge on spawns, crowns and
+//                             flags in a level shared with THUGPRO (a ported level)
 //   level_editor_hud.cpp      the old HUD ([features] editor_ui=0, or when the UI can't start): a status panel top
 //                             left, the keys at the bottom, a message line, and a panel for the help (F1) and the
 //                             browser (B), made of the game's screen elements
 // The controls (F1 lists them in the game):
 //   - Flying: W A S D, Q / E down / up, Shift faster, the right mouse button looks, the wheel goes forward / back.
+//   - Seeing (the UI): the Outliner lists the level's nodes by family (search; the chips show / hide a family, in
+//     the view too - kept in the ini as [editor] families=<bits>); a click on a row or a gizmo selects it (an
+//     object's or scenery's node selects the object / scenery), a double-click takes the camera there; the Inspector
+//     shows the selection's node (read-only).
 //   - Selecting: a click on an object or scenery (scenery takes its group; hovering tints what a click would take);
 //     Shift+click adds / removes; Alt+click or a middle click one piece of scenery; Backspace deselects.
 //   - Moving: hold and drag (Shift: up / down; the wheel pushes / pulls; Ctrl snaps to 25; Escape puts it back), or
