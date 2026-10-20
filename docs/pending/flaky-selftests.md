@@ -41,7 +41,7 @@
      NtDelayExecution (looked up once; SleepEx as a fallback). Proof: with the watchdog's period cut to 1 ms the old
      wait failed 10 of 10 runs of TestStreamPlatform / TestStreamPlay / TestMainLoop, the new one 0 of 20, and 3 full
      runs passed.
-  3. **"PC async handle (synchronous I/O)" compared a Windows handle by value** (newly found; 3 of 50 full runs:
+  3. **"PC async handle (synchronous I/O)" compared a Windows handle by value** (newly found; 2 of 50 full runs:
      "pc async step 2: original 'read 0: result 844 ...' ours '... result 848 ...'"). After the open the handle's
      result field is the Windows file handle and the synchronous read leaves it there; the open and size steps
      only noted whether it was set, the read step its value - which differs between the two runs whenever anything
@@ -52,7 +52,9 @@
     removed script-cache entry keeping a stale self-pointer (only the arena image shows it); the tracker's
     OBJECT_ADDED log entry's first value; the PC async open's result not the handle; a synchronous read clearing
     the result.
-  - Rates: before - the front-end tests 10 of 300 filtered runs; full runs with only cause 1 fixed: FILL_BEFORE.
-    After all three: FILL_AFTER.
+  - Rates: before - the front-end tests 10 of 300 filtered runs (~3 % of full runs); full runs with only cause 1
+    fixed: 3 of 50 (1 watchdog CRT assert, 2 PC async handle). After all three (merged with main c257b90): 14 of 14
+    full runs on THUG2PM.exe and 14 of 14 on the stock THUG2.exe passed - the 50 / 20 runs were cut short (the
+    user switched accounts); see flaky-selftests-handoff.md.
   - Commits: af713c3 (fe_testkit), 39765a6 (every other arena pair), f39ea09 (watchdog, PC async handle), and the
     template / pitfalls / this record.
