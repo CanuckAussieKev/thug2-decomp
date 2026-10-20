@@ -57,6 +57,62 @@ add_library(minhook STATIC
 target_include_directories(minhook PUBLIC ${minhook_SOURCE_DIR}/include)
 target_compile_options(minhook PRIVATE /W0)
 
+# --- Dear ImGui 1.91.9b (MIT, see THIRD_PARTY_NOTICES.md) -----------------------------------------------
+# The level editor's UI layer (src/game/front/level_editor_ui*.cpp): the core, the official SDL2 platform backend
+# and the Direct3D 9 renderer backend. Only level_editor_ui_backend.cpp includes the backends' headers.
+FetchContent_Declare(imgui
+    URL https://github.com/ocornut/imgui/archive/refs/tags/v1.91.9b.tar.gz
+    URL_HASH SHA256=8e1bbc76c71d74fef2fb85db7e7ca8eba13d6a86623c54992b60162db554ffdb
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
+FetchContent_MakeAvailable(imgui)
+add_library(imgui STATIC
+    ${imgui_SOURCE_DIR}/imgui.cpp
+    ${imgui_SOURCE_DIR}/imgui_draw.cpp
+    ${imgui_SOURCE_DIR}/imgui_tables.cpp
+    ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl2.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_dx9.cpp)
+target_include_directories(imgui PUBLIC ${imgui_SOURCE_DIR}
+    PRIVATE "${CMAKE_BINARY_DIR}/sdl2-include/SDL2") # (the SDL2 backend includes <SDL.h>)
+target_compile_definitions(imgui PUBLIC IMGUI_DISABLE_OBSOLETE_FUNCTIONS IMGUI_DISABLE_DEFAULT_FONT)
+target_link_libraries(imgui PRIVATE sdl2)
+target_compile_options(imgui PRIVATE /W0)
+
+# --- The editor's fonts (SIL Open Font License 1.1, see THIRD_PARTY_NOTICES.md) ---------------------------
+# Inter 4.1 (the UI) and JetBrains Mono 2.304 (numbers, names, checksums): the official release archives, checked
+# against their SHA-256. The TTFs are compressed into the DLL at build time with ImGui's own binary_to_compressed_c
+# (stb compression; ImGui decompresses them at start-up) - nothing is added to the game folder.
+FetchContent_Declare(font_inter
+    URL https://github.com/rsms/inter/releases/download/v4.1/Inter-4.1.zip
+    URL_HASH SHA256=9883fdd4a49d4fb66bd8177ba6625ef9a64aa45899767dde3d36aa425756b11e
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
+FetchContent_Declare(font_jetbrains_mono
+    URL https://github.com/JetBrains/JetBrainsMono/releases/download/v2.304/JetBrainsMono-2.304.zip
+    URL_HASH SHA256=6f6376c6ed2960ea8a963cd7387ec9d76e3f629125bc33d1fdcd7eb7012f7bbf
+    DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
+FetchContent_MakeAvailable(font_inter font_jetbrains_mono)
+add_executable(imgui_binary_to_compressed ${imgui_SOURCE_DIR}/misc/fonts/binary_to_compressed_c.cpp)
+target_compile_options(imgui_binary_to_compressed PRIVATE /W0)
+target_compile_definitions(imgui_binary_to_compressed PRIVATE _CRT_SECURE_NO_WARNINGS)
+set(THUG2_EDITOR_FONTS
+    "Inter_Regular|${font_inter_SOURCE_DIR}/extras/ttf/Inter-Regular.ttf"
+    "Inter_SemiBold|${font_inter_SOURCE_DIR}/extras/ttf/Inter-SemiBold.ttf"
+    "JetBrainsMono_Regular|${font_jetbrains_mono_SOURCE_DIR}/fonts/ttf/JetBrainsMono-Regular.ttf")
+set(THUG2_EDITOR_FONT_INCLUDES "")
+foreach(font IN LISTS THUG2_EDITOR_FONTS)
+    string(REPLACE "|" ";" parts "${font}")
+    list(GET parts 0 symbol)
+    list(GET parts 1 ttf)
+    set(out "${CMAKE_BINARY_DIR}/editor_fonts/${symbol}.inc")
+    add_custom_command(OUTPUT "${out}"
+        COMMAND ${CMAKE_COMMAND} -DTOOL=$<TARGET_FILE:imgui_binary_to_compressed> -DINPUT=${ttf} -DSYMBOL=${symbol}
+                -DOUTPUT=${out} -P "${CMAKE_SOURCE_DIR}/cmake/compress_font.cmake"
+        DEPENDS imgui_binary_to_compressed "${ttf}" "${CMAKE_SOURCE_DIR}/cmake/compress_font.cmake"
+        COMMENT "Compressing ${symbol} into the DLL")
+    list(APPEND THUG2_EDITOR_FONT_INCLUDES "${out}")
+endforeach()
+add_custom_target(editor_fonts DEPENDS ${THUG2_EDITOR_FONT_INCLUDES})
+
 # The rewritten game code and the hook machinery, shared by the DLL and the check tool.
 add_library(thug2_code OBJECT
     src/hook/hook.cpp
@@ -191,6 +247,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_gamenet.cpp
     src/hook/selftests_trigger.cpp
     src/hook/selftests_editor.cpp
+    src/hook/selftests_editor_ui.cpp
     src/hook/selftests_pcmstream.cpp
     src/hook/selftests_pcmplay.cpp
     src/game/ass/asset.cpp
@@ -237,6 +294,11 @@ add_library(thug2_code OBJECT
     src/game/front/level_editor_layout.cpp
     src/game/front/level_editor_objects.cpp
     src/game/front/level_editor_scenery.cpp
+    src/game/front/level_editor_ui.cpp
+    src/game/front/level_editor_ui_backend.cpp
+    src/game/front/level_editor_ui_fonts.cpp
+    src/game/front/level_editor_ui_layout.cpp
+    src/game/front/level_editor_nodes.cpp
     src/game/skate/competition.cpp
     src/game/gfx/anim_controller.cpp
     src/game/gfx/screen.cpp
@@ -431,7 +493,10 @@ add_library(thug2_code OBJECT
     src/game/util/bps.cpp
 )
 target_include_directories(thug2_code PUBLIC src PRIVATE ${minhook_SOURCE_DIR}/src) # MinHook's hde32 decoder
-target_link_libraries(thug2_code PUBLIC minhook sdl2 ws2_32) # ws2_32: the command line's server address
+target_link_libraries(thug2_code PUBLIC minhook sdl2 ws2_32 imgui) # ws2_32: the command line's server address
+# (the editor's fonts, compressed at build time: level_editor_ui_fonts.cpp includes them)
+add_dependencies(thug2_code editor_fonts)
+target_include_directories(thug2_code PRIVATE "${CMAKE_BINARY_DIR}/editor_fonts")
 target_compile_definitions(thug2_code PUBLIC WIN32_LEAN_AND_MEAN NOMINMAX)
 target_compile_options(thug2_code PRIVATE /W4 /permissive- /utf-8)
 

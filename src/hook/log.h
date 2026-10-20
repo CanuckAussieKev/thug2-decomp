@@ -18,3 +18,5 @@ std::string GameFolderPath(const char* file_name);
 
 // An integer setting from thug2-decomp.ini in the game folder (`fallback` if absent).
 int ConfigInt(const char* section, const char* key, int fallback);
+// Write an integer setting into thug2-decomp.ini (WritePrivateProfileString). Whether it was written.
+bool ConfigSetInt(const char* section, const char* key, int value);

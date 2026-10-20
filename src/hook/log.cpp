@@ -33,6 +33,13 @@ int ConfigInt(const char* section, const char* key, int fallback)
         GetPrivateProfileIntA(section, key, fallback, GameFolderPath("thug2-decomp.ini").c_str()));
 }
 
+bool ConfigSetInt(const char* section, const char* key, int value)
+{
+    char text[16];
+    std::snprintf(text, sizeof(text), "%d", value);
+    return WritePrivateProfileStringA(section, key, text, GameFolderPath("thug2-decomp.ini").c_str()) != 0;
+}
+
 #ifdef _DEBUG
 namespace {
 

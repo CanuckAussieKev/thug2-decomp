@@ -12,6 +12,7 @@
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/front/level_editor_ui.h"
 #include "game/gfx/screen.h"
 #include "game/sio/device.h"
 #include "game/sys/platform.h"
@@ -124,6 +125,10 @@ void Manager::ResetDeviceIfLost()
         return;
     if (Device()->TestCooperativeLevel() == D3DERR_DEVICELOST) // (not yet: it can't be reset)
         return;
+    // Not original - the level editor's UI (game/front/level_editor_ui.h): ImGui's default-pool objects dropped before
+    // the reset (made again on its next frame).
+    // Original behaviour: only the game's own.
+    Front::LevelEditor::Ui::DeviceLost();
     ReleaseDeviceObjects();
     if (Device()->Reset(PresentParameters()) < 0)
         return;
