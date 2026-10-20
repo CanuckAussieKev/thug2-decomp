@@ -48,7 +48,7 @@ Placement MovedTo(const Placement& placement, V3 pivot, V3 to)
 {
     Placement moved = placement;
     moved.offset = OnGrid(placement.offset + (to - pivot));
-    moved.scale = 1.0f;
+    moved.scale = {1.0f, 1.0f, 1.0f};
     return moved;
 }
 
@@ -57,7 +57,7 @@ Placement TurnedAbout(const Placement& placement, V3 pivot, int quarters)
     Placement turned = placement;
     TurnAbout(&turned, OnGrid(pivot), quarters);
     turned.offset = OnGrid(turned.offset);
-    turned.scale = 1.0f;
+    turned.scale = {1.0f, 1.0f, 1.0f};
     return turned;
 }
 
@@ -182,7 +182,7 @@ void Place(uint32_t checksum, Track* t, const Placement& to)
         return;
     Placement target = to;
     target.offset = OnGrid(target.offset);
-    target.scale = 1.0f;
+    target.scale = {1.0f, 1.0f, 1.0f};
     StepCollision(t->tri, t->placement, target);
     t->placement = target;
     t->min = t->tri->m_min;

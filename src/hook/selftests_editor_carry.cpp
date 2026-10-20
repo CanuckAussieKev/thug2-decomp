@@ -32,8 +32,9 @@ bool Near(V3 a, V3 b, float tolerance)
 }
 
 const V3 kPoints[] = {{0, 0, 0}, {3, 1, -2}, {-50, 7, 12}, {120.5f, -3, 64}};
-const LE::Placement kPlacements[] = {{0, {0, 0, 0}, 1.0f},     {1, {16, 0, -8}, 1.0f},  {2, {-3.5f, 2, 40}, 2.0f},
-                                     {3, {100, -6, 0.25f}, 0.5f}, {1, {7, 300, -90}, 1.21f}};
+// (the scales per axis - level_editor_scale.h; stretched ones with odd turns too)
+const LE::Placement kPlacements[] = {{0, {0, 0, 0}, {1, 1, 1}},     {1, {16, 0, -8}, {1, 1, 1}},  {2, {-3.5f, 2, 40}, {2, 2, 2}},
+                                     {3, {100, -6, 0.25f}, {0.5f, 2.0f, 1.5f}}, {1, {7, 300, -90}, {1.21f, 1.0f, 0.8f}}};
 
 void TestEditorCarrySteps()
 {
@@ -51,10 +52,10 @@ void TestEditorCarrySteps()
         }
     Check(between, "editor carry: Between takes what stood at a piece's old placement to its new one");
     // A move only: the step is that move; a turn about a pivot: its quarters, and the pivot stays.
-    LE::Placement a = {0, {10, 0, 0}, 1.0f}, b = a;
+    LE::Placement a = {0, {10, 0, 0}}, b = a;
     LE::MoveBy(&b, {5, 6, 7});
     LE::Placement moved = Carry::Between(a, b);
-    Check(moved.quarters == 0 && moved.scale == 1.0f && Near(moved.offset, {5, 6, 7}, 1e-5f),
+    Check(moved.quarters == 0 && LE::IsUnitScale(moved.scale) && Near(moved.offset, {5, 6, 7}, 1e-5f),
           "editor carry: a move's step is the move");
     LE::Placement c = a;
     LE::TurnAbout(&c, {100, 0, 100}, 1);
@@ -65,8 +66,10 @@ void TestEditorCarrySteps()
     Check(Carry::IsNone(Carry::Between(kPlacements[1], kPlacements[1])) &&
               Carry::IsNone(Carry::Between(kPlacements[3], kPlacements[3])),
           "editor carry: no change, no step");
-    Check(Carry::IsNone({0, {0, 0, 0}, 1.0f}) && !Carry::IsNone({1, {0, 0, 0}, 1.0f}) &&
-              !Carry::IsNone({0, {0, 0.5f, 0}, 1.0f}) && !Carry::IsNone({0, {0, 0, 0}, 1.1f}),
+    Check(Carry::IsNone({0, {0, 0, 0}}) && !Carry::IsNone({1, {0, 0, 0}}) && !Carry::IsNone({0, {0, 0.5f, 0}}) &&
+              !Carry::IsNone({0, {0, 0, 0}, {1.1f, 1.1f, 1.1f}}) && !Carry::IsNone({0, {0, 0, 0}, {1, 1, 0.9f}}) &&
+              Carry::IsNone({0, {0, 5e-5f, 0}, {1.0000001f, 1, 0.9999999f}}) &&
+              !Carry::IsNone({0, {0, 0, 0}, {1.00001f, 1, 1}}) && !Carry::IsNone({0, {0, 0, 2e-4f}}),
           "editor carry: IsNone only for no move, turn or scale");
     // Headings: a quarter turn adds 90 degrees (wrapped into (-pi, pi]).
     Check(Near(Carry::TurnedHeading(0.0f, 1), 1.5707963f, 1e-5f) && Near(Carry::TurnedHeading(3.0f, 2), 3.0f + 3.1415927f - 6.2831853f, 1e-4f) &&
@@ -88,7 +91,7 @@ void TestEditorCarryRules()
     Check(!Carry::OverFootprint(box, {1061, 50, 0}, 10, 400) && !Carry::OverFootprint(box, {1000, 50, 111}, 10, 400) &&
               !Carry::OverFootprint(box, {1000, 451, 0}, 10, 400) && !Carry::OverFootprint(box, {1000, -11, 0}, 10, 400),
           "editor carry: beside it, past its end, high above it, under it - not over the footprint");
-    LE::OrientedBox turned = LE::PlacedBox({-50, 0, -100}, {50, 50, 100}, {1, {0, 0, 0}, 2.0f});
+    LE::OrientedBox turned = LE::PlacedBox({-50, 0, -100}, {50, 50, 100}, {1, {0, 0, 0}, {2, 2, 2}});
     // (turned a quarter: its x axis along -z, its z axis along +x; scaled 2x: 200 across x-local, 400 across z-local)
     Check(Carry::OverFootprint(turned, {195, 100, 0}, 10, 400) && Carry::OverFootprint(turned, {0, 100, 95}, 10, 400) &&
               !Carry::OverFootprint(turned, {0, 100, 115}, 10, 400) && Carry::OverFootprint(turned, {0, 500, 0}, 10, 400) &&

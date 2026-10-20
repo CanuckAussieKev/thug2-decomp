@@ -50,12 +50,14 @@ class CScript;
 //                                                      DLL, which knows only 1, refuses a version 2 file as a whole)
 //   scene <checksum>                                   the level's main scene (its sectors' table)
 //   sector <checksum> <quarters> <x> <y> <z> <hidden>  a sector moved by (x, y, z) after `quarters` quarter turns
-//          [scale=<s>]
+//          [scale=<s> | scale=<x>,<y>,<z>]
 //   rail <name> <quarters> <x> <y> <z> <hidden>        a grind rail node, the same (moved with its scenery, or by
 //                                                      itself / its whole rail - level_editor_node_edit.h)
 //   clone <source> <quarters> <x> <y> <z>             a copy of a sector, placed relative to its source as loaded
 //   object <id> <x> <y> <z> <9 matrix numbers>         an object's position and orientation (rows: right, up, at)
+//          [scale=...]                                 and its scale along its own axes (level_editor_scale.h)
 //   copy <name> <source> <x> <y> <z> <9 numbers>       a copy of an object (made from its source's node)
+//          [scale=...]
 //   set <node> pos=<x>,<y>,<z> angles=<x>,<y>,<z>      (version 2) a level node's pos= / angles= (a point node moved or
 //                                                      turned - level_editor_node_edit.h); either may be left out,
 //                                                      other key=value fields are skipped (for later versions)
@@ -86,13 +88,16 @@ class CScript;
 //                                                      moved / turned as a sector's, and whether it's switched off;
 //                                                      a drawn piece's collision switched off by itself (no move: its
 //                                                      sector record moves it)
-//   ... scale=<s>                                      (after a sector / rail / clone record's numbers, when not 1) a
-//                                                      uniform scale (level_editor_scale.h): the point x as loaded is
-//                                                      at QuarterTurn(x * s, quarters) + (x, y, z)
+//   ... scale=<s>                                      (after a sector / rail / clone / object / copy record's numbers,
+//   ... scale=<x>,<y>,<z>                              when not 1) a uniform or a per-axis scale (level_editor_scale.h):
+//                                                      the point x as loaded is at QuarterTurn((x.x * sx, x.y * sy,
+//                                                      x.z * sz), quarters) + (x, y, z); an object's along its own
+//                                                      axes, about its position (its model and its collision)
 // An older (phase 2) reader skips node / order / hide records; an older reader of version 2 skips lock records and
 // the phase 4 ones (an added rail's points aren't `node` records: an older reader would make them without their rail),
 // and reads past a record's scale= (the piece then placed unscaled); an older reader of version 2 skips wall records (the
-// walls then as the level has them).
+// walls then as the level has them). A reader before the per-axis scale refuses a file with a scale=<x>,<y>,<z> on a
+// sector / rail / clone record (a uniform scale is still written scale=<s>); it ignores an object's / copy's scale.
 // Checksums are 8 hex digits; numbers are written with 9 significant digits (floats survive the round trip).
 namespace Front::LevelEditor::Layout {
 
@@ -100,12 +105,14 @@ struct ObjectRecord {
     uint32_t id;
     float pos[3];
     float rows[9];
+    V3 scale = {1.0f, 1.0f, 1.0f};
 };
 struct CopyRecord {
     uint32_t name;
     uint32_t source;
     float pos[3];
     float rows[9];
+    V3 scale = {1.0f, 1.0f, 1.0f};
 };
 struct CloneRecord {
     uint32_t source;

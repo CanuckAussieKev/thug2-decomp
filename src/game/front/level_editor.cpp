@@ -865,31 +865,96 @@ void PushLocksUndo()
     PushUndo(step);
 }
 
-// [ / ] (level_editor_scale.h): the selected scenery scaled by `factor` about the middle of its bottom, one undo step.
-// False when nothing changed (not scenery, or at its limit - said on the message line).
-bool ScaleSceneryBy(float factor)
+// The selected objects scaled by `factor` (along the world's axes - each object takes it along its own axis nearest
+// each; `uniform`: the same on all three) about their positions. Whether any changed.
+bool ScaleObjects(const std::vector<Obj::CCompositeObject*>& objects, V3 factor, bool uniform)
 {
+    bool any = false;
+    for (Obj::CCompositeObject* object : objects) {
+        if (!Scale::ObjectScalable(object))
+            continue;
+        V3 local = factor;
+        if (!uniform) {
+            V3 rows[3];
+            for (int i = 0; i < 3; ++i)
+                rows[i] = {object->m_matrix.row[i].x, object->m_matrix.row[i].y, object->m_matrix.row[i].z};
+            local = Scale::Uniform(1.0f);
+            const float along[3] = {factor.x, factor.y, factor.z};
+            for (int a = 0; a < 3; ++a) {
+                if (along[a] == 1.0f)
+                    continue;
+                int axis = Scale::NearestAxis(rows, a);
+                (axis == 0 ? local.x : axis == 1 ? local.y : local.z) = along[a];
+            }
+        }
+        V3 now = Scale::ObjectScale(object);
+        V3 allowed = Scale::AllowedFactor(local, {now}, {Scale::ObjectLimit(object)}, uniform);
+        if (IsUnitScale(allowed))
+            continue;
+        if (Scale::SetObjectScale(object, PerAxis(now, allowed)))
+            any = true;
+    }
+    return any;
+}
+
+// [ / ] and Alt+[ / ] (level_editor_scale.h): the selected scenery scaled by `factor` (along the world's axes) about
+// the middle of its bottom, or the selected objects about their positions; one undo step. False when nothing changed
+// (nodes, or at its limit - said on the message line).
+bool ScaleSelectionBy(V3 factor, bool uniform)
+{
+    std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
     if (WallOnly()) {
         // (level_editor_walls.h: a wall's collision is moved by the geometry's own Translate / RotateY on the BSP
         // tree's sixteenths; a scale would need its collision kept and rebuilt as level_editor_scale.h does scenery's)
         Hud::Message("Invisible walls don't scale yet - only move and turn");
         return false;
     }
-    if (Primary() || MovableNode() >= 0 || !Scenery::HasSelection()) {
-        Hud::Message("Only scenery scales ([ / ]): objects and nodes don't yet");
+    if (MovableNode() >= 0 || (objects.empty() && !Scenery::HasSelection())) {
+        Hud::Message("Only scenery and objects scale ([ / ]): nodes don't");
+        return false;
+    }
+    if (!objects.empty() && std::none_of(objects.begin(), objects.end(), Scale::ObjectScalable)) {
+        Hud::Message("This object has no model to scale");
         return false;
     }
     UndoStep before = Snapshot();
-    if (Scenery::ScaleSelection(factor) == 1.0f) {
-        Hud::Message("Scale: at its limit (0.25x to 4x; less for a large piece with compressed collision)");
+    bool changed = objects.empty() ? !IsUnitScale(Scenery::ScaleSelection(factor, uniform))
+                                   : ScaleObjects(objects, factor, uniform);
+    if (!changed) {
+        Hud::Message("Scale: at its limit (0.25x to 4x on each axis; less for large compressed collision)");
         return false;
     }
-    FollowScenery();
-    Scenery::Commit();
+    if (objects.empty()) {
+        FollowScenery();
+        Scenery::Commit();
+    }
     PushUndo(before);
     return true;
 }
-float g_scaleAtFieldStart = 1.0f; // (the Inspector's Scale field: the scale when it was taken - its undo step)
+
+// The selection's scale (scenery: its first piece's, along its axes as first touched; an object: along its own).
+V3 SelectionScaleNow()
+{
+    if (Obj::CCompositeObject* object = Primary())
+        return Scale::ObjectScale(object);
+    return Scenery::SelectionScale();
+}
+// The selection scaled to `scale` (along its own axes, as SelectionScaleNow): the Inspector's fields.
+void ScaleSelectionTo(V3 scale)
+{
+    V3 now = SelectionScaleNow();
+    V3 local = {Scale::Clamp(scale.x) / now.x, Scale::Clamp(scale.y) / now.y, Scale::Clamp(scale.z) / now.z};
+    if (Primary()) {
+        for (Obj::CCompositeObject* object : SelectedObjects()) {
+            if (Scale::ObjectScalable(object))
+                Scale::SetObjectScale(object, PerAxis(Scale::ObjectScale(object), local));
+        }
+        return;
+    }
+    // (the first piece's own axes to the world's: its quarter turns)
+    Scenery::ScaleSelection(TurnedScale(local, Scenery::SelectionQuarters()), IsUniformScale(local));
+}
+V3 g_scaleAtFieldStart = {1.0f, 1.0f, 1.0f}; // (the Inspector's Scale fields: the scale when taken - its undo step)
 
 // A change starting (a drag, the keys moving it) and ending: kept when the selection did move.
 void BeginChange()
@@ -2078,7 +2143,7 @@ void UpdateHud()
         Hud::SetLine(6, Key("Esc") + " put it back where it was");
     } else if (HaveSelection()) {
         Hud::SetLine(5, Key("Drag") + " move  " + Key("Arrows") + " one axis  " + Key("WASDQE") + " nudge  " + Key("ZX") +
-                            " turn  " + (Primary() ? std::string() : Key("[ ]") + " scale  ") + Key("G") + " drop");
+                            " turn  " + Key("[ ]") + " scale  " + Key("G") + " drop");
         Hud::SetLine(6, (Primary() ? std::string() : Key("Ctrl+click") + " remove one  ") + Key("Ctrl+D") + " copy  " +
                             Key("Del") + " hide  " + Key("Home") + " reset  " + Key("Esc") + " deselect  " + Key("F1") +
                             " help");
@@ -2590,7 +2655,7 @@ std::unordered_map<uint32_t, uint8_t> ChangeMarks()
             marks[name] |= bits;
     };
     for (const Scenery::SectorState& s : Scenery::ChangedSectors()) {
-        bool moved = s.placement.quarters != 0 || s.placement.scale != 1.0f || s.placement.offset.x != 0.0f ||
+        bool moved = s.placement.quarters != 0 || !IsUnitScale(s.placement.scale) || s.placement.offset.x != 0.0f ||
                      s.placement.offset.y != 0.0f || s.placement.offset.z != 0.0f;
         mark(s.checksum, static_cast<uint8_t>((moved ? Ui::kMarkMoved : 0) | (s.hidden ? Ui::kMarkHidden : 0)));
     }
@@ -2703,6 +2768,8 @@ Ui::Model BuildModel()
         s.checksum = object->m_id;
         s.pos = Objects::PosOf(object);
         const Mth::Vector& at = object->m_matrix.row[2];
+        s.scalable = Scale::ObjectScalable(object);
+        s.scale = Scale::ObjectScale(object);
         s.hasHeading = true;
         s.headingDegrees = static_cast<float>(std::atan2(static_cast<double>(at.x), static_cast<double>(at.z)) * 180.0 / kPi);
     } else if (Scenery::HasSelection()) {
@@ -2722,9 +2789,8 @@ Ui::Model BuildModel()
                 OrientedBox box;
                 if (Scenery::Box(checksum, &box)) {
                     char size[48];
-                    float scale = std::sqrt(Dot(box.axes[1], box.axes[1]));
-                    std::snprintf(size, sizeof(size), "%.0f x %.0f x %.0f", (box.max.x - box.min.x) * scale,
-                                  (box.max.y - box.min.y) * scale, (box.max.z - box.min.z) * scale);
+                    V3 extent = BoxSize(box);
+                    std::snprintf(size, sizeof(size), "%.0f x %.0f x %.0f", extent.x, extent.y, extent.z);
                     member.size = size;
                 }
                 s.members.push_back(member);
@@ -2866,7 +2932,8 @@ void ShowHelp()
         "Moving       hold and drag (Shift: up / down, wheel: push / pull, Ctrl: snap)",
         "             drag an arrow to move along that axis only",
         "             W A S D / Q E nudge   Z / X turn   G drops it to the ground",
-        "             [ / ] scale scenery down / up 10% (Shift: 1%), 0.25x to 4x",
+        "             [ / ] scale scenery / an object down / up 10% (Shift: 1%), 0.25x to 4x",
+        "             Alt+[ / ] stretch it along the axis the camera faces most (x, y or z)",
         "             a rail / ladder / path point moves with its whole chain - L: by itself",
         "             scenery carries what stands on it ([editor] carry=0 off; Alt while moving leaves it)",
         "Chains       N > Rail / Path: click points (Alt: no edge snap), Enter / right click finishes",
@@ -3826,24 +3893,27 @@ void ApplyUiRequests(V3 dir, bool haveRay, const Frame& frame)
             }
             break;
         case Ui::Request::kScaleSet:
-            // The Inspector's Scale (level_editor_scale.h): scenery scaled to it while dragged or typed; one undo step
-            // until let go.
-            if (!Primary() && MovableNode() < 0 && Scenery::HasSelection() && !g_dragging && !g_keyMoving) {
+            // The Inspector's Scale X / Y / Z (level_editor_scale.h): scenery or objects scaled to them (along their own
+            // axes) while dragged or typed; one undo step until let go.
+            if ((Primary() || Scenery::HasSelection()) && MovableNode() < 0 && !g_dragging && !g_keyMoving) {
                 if (!g_fieldEditing) {
                     BeginChange();
                     g_fieldEditing = true;
-                    g_scaleAtFieldStart = Scenery::SelectionScale();
+                    g_scaleAtFieldStart = SelectionScaleNow();
                 }
-                float now = Scenery::SelectionScale();
-                Scenery::ScaleSelection(Scale::Clamp(request.a[0]) / now);
-                FollowScenery();
+                ScaleSelectionTo({request.a[0], request.a[1], request.a[2]});
+                if (!Primary())
+                    FollowScenery();
             }
             break;
         case Ui::Request::kScaleDone:
             if (g_fieldEditing) {
                 g_fieldEditing = false;
-                Scenery::Commit();
-                if (g_hasPending && Scenery::SelectionScale() != g_scaleAtFieldStart) {
+                if (!Primary())
+                    Scenery::Commit();
+                V3 now = SelectionScaleNow();
+                if (g_hasPending && (now.x != g_scaleAtFieldStart.x || now.y != g_scaleAtFieldStart.y ||
+                                     now.z != g_scaleAtFieldStart.z)) {
                     PushUndo(g_pending);
                     NoteAction("scaled in the Inspector: %s", DescribeSelection().c_str());
                 }
@@ -4297,14 +4367,25 @@ void Update()
             TurnSelection(turn);
             NoteAction("turned (Z / X): %s", DescribeSelection().c_str());
         }
-        // [ / ]: scenery scaled down / up a tenth (Shift: a hundredth) - level_editor_scale.h.
+        // [ / ]: scenery or objects scaled down / up a tenth (Shift: a hundredth); Alt+[ / ]: stretched so along the
+        // world axis the camera faces most (looking down: y) - level_editor_scale.h.
         static bool scaleDownKey, scaleUpKey;
         int scaling = (Pressed(keys, SDL_SCANCODE_RIGHTBRACKET, &scaleUpKey) ? 1 : 0) -
                       (Pressed(keys, SDL_SCANCODE_LEFTBRACKET, &scaleDownKey) ? 1 : 0);
         if (scaling && !g_dragging && !g_fieldEditing && !ctrl) {
             float step = shift ? Scale::kFineStep : Scale::kStep;
-            if (ScaleSceneryBy(scaling > 0 ? step : 1.0f / step))
+            float factor = scaling > 0 ? step : 1.0f / step;
+            if (alt) {
+                Frame view = FrameFromYawPitch(g_yaw, g_pitch);
+                int axis = Scale::MainAxis(view.back);
+                if (ScaleSelectionBy(Scale::AlongAxis(axis, factor), false)) {
+                    const char* axisName = axis == 0 ? "x" : axis == 1 ? "y" : "z";
+                    Hud::Message(std::string("Stretched along ") + axisName + " (the axis the camera faces most)");
+                    NoteAction("stretched along %s (Alt+[ / ]): %s", axisName, DescribeSelection().c_str());
+                }
+            } else if (ScaleSelectionBy(Scale::Uniform(factor), true)) {
                 NoteAction("scaled ([ / ]): %s", DescribeSelection().c_str());
+            }
         }
         // G: down onto the ground below it.
         if (Pressed(keys, SDL_SCANCODE_G, &dropKey) && !g_dragging)

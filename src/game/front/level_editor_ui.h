@@ -134,9 +134,10 @@ struct Model {
         bool hasHeading = false;
         float headingDegrees = 0.0f;
         uint32_t checksum = 0;
-        // Scenery: its scale (level_editor_scale.h - the Inspector's Scale field).
+        // Scenery or an object with a model: its scale along its own axes (level_editor_scale.h - the Inspector's
+        // Scale X / Y / Z).
         bool scalable = false;
-        float scale = 1.0f;
+        V3 scale = {1.0f, 1.0f, 1.0f};
         // Scenery: its parts - the pieces (a shadow marked: level_editor_shadows.h) and the rail points carried -
         // each with x (removed from the selection) and Keep only this.
         struct Member {
@@ -307,7 +308,7 @@ struct Request {
         kViewIsolate,   // I or /: everything but the selection hidden while editing
         kViewShowAll,   // Alt+H: everything shown again
         kClearWall,     // the invisible wall's Inspector closed
-        kScaleSet,      // the Inspector's Scale (scenery): a[0] = the scale asked for
+        kScaleSet,      // the Inspector's Scale (scenery, objects): a[0..2] = the scale asked for (x, y, z)
         kScaleDone,     // that field let go (the changes since its first kScaleSet: one undo step)
         kChainOp,       // value: a Chains::Op on the selected node, id: its argument (a terrain)
         // Phase 6 (level_editor_fields.h, level_editor_level_props.h): `node` the node, id the field, value its

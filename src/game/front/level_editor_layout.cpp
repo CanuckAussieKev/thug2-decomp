@@ -119,19 +119,20 @@ bool ReadPlaced(std::istringstream& in, Placement* p)
            p->quarters <= 3;
 }
 
-// The key=value fields after a sector / rail / clone record's numbers: scale= (level_editor_scale.h); others (a later
-// version's) skipped. False: a bad scale.
-bool ReadPlacedFields(std::istringstream& in, Placement* p)
+// The key=value fields after a sector / rail / clone / object / copy record's numbers: scale= (level_editor_scale.h);
+// others (a later version's) skipped. False: a bad scale.
+bool ReadScaleFields(std::istringstream& in, V3* scale)
 {
     std::string field;
     while (in >> field) {
         if (field.compare(0, 6, "scale=") == 0) {
-            if (!Scale::ReadToken(field, &p->scale))
+            if (!Scale::ReadToken(field, scale))
                 return false;
         }
     }
     return true;
 }
+bool ReadPlacedFields(std::istringstream& in, Placement* p) { return ReadScaleFields(in, &p->scale); }
 
 // A `node` record's fields (after "node"): name, class, then key=value (unknown keys skipped; a repeated one, a bad
 // value or a missing place refuse it).
@@ -224,6 +225,7 @@ std::string Write(const File& file)
             Number(out, v);
         for (float v : o.rows)
             Number(out, v);
+        out << Scale::Token(o.scale);
         Comment(out, o.id);
     }
     for (const auto& c : file.copies) {
@@ -234,6 +236,7 @@ std::string Write(const File& file)
             Number(out, v);
         for (float v : c.rows)
             Number(out, v);
+        out << Scale::Token(c.scale);
         Comment(out, c.source);
     }
     for (const NodeCreate::Spec& a : file.added) {
@@ -353,6 +356,7 @@ bool Read(const std::string& text, File* file, int* lineNumber)
                 ok = ok && (in >> v);
             for (float& v : o.rows)
                 ok = ok && (in >> v);
+            ok = ok && ReadScaleFields(in, &o.scale);
             if (ok)
                 file->objects.push_back(o);
         } else if (kind == "copy") {
@@ -362,6 +366,7 @@ bool Read(const std::string& text, File* file, int* lineNumber)
                 ok = ok && (in >> v);
             for (float& v : c.rows)
                 ok = ok && (in >> v);
+            ok = ok && ReadScaleFields(in, &c.scale);
             if (ok)
                 file->copies.push_back(c);
         } else if (kind == "set") {
@@ -428,7 +433,7 @@ bool Read(const std::string& text, File* file, int* lineNumber)
             int off = 0;
             ok = ReadHex(in, &w.checksum) && ReadPlaced(in, &w.placement) && (in >> off) && (off == 0 || off == 1);
             w.off = off != 0;
-            w.placement.scale = 1.0f;
+            w.placement.scale = {1.0f, 1.0f, 1.0f};
             if (ok)
                 file->walls.push_back(w);
         } else if (Chains::IsRecord(kind)) {
@@ -610,10 +615,11 @@ void RowsOf(const Mth::Matrix& m, float rows[9])
     }
 }
 
-Objects::State StateOf(uint32_t id, const float pos[3], const float rows[9])
+Objects::State StateOf(uint32_t id, const float pos[3], const float rows[9], V3 scale)
 {
     Objects::State state = {};
     state.id = id;
+    state.scale = scale;
     state.pos = {pos[0], pos[1], pos[2], 1.0f};
     for (int r = 0; r < 3; ++r) {
         state.matrix.row[r] = {rows[r * 3 + 0], rows[r * 3 + 1], rows[r * 3 + 2], 0.0f};
@@ -654,6 +660,7 @@ bool Capture(File* file)
             continue;
         ObjectRecord record = {id, {object->m_pos.x, object->m_pos.y, object->m_pos.z}, {}};
         RowsOf(object->m_matrix, record.rows);
+        record.scale = Scale::ObjectScale(object);
         file->objects.push_back(record);
     }
     for (const Objects::Copy& copy : Objects::Copies()) {
@@ -662,6 +669,7 @@ bool Capture(File* file)
             continue;
         CopyRecord record = {copy.name, copy.source, {object->m_pos.x, object->m_pos.y, object->m_pos.z}, {}};
         RowsOf(object->m_matrix, record.rows);
+        record.scale = Scale::ObjectScale(object);
         file->copies.push_back(record);
     }
     // Added nodes (as `node` records, where they are now; the crowns' order is theirs), hidden ones.
@@ -740,7 +748,7 @@ std::string Apply(const File& file)
     Scenery::ApplyStates(file.sectors, file.rails);
     int objects = 0, copies = 0;
     for (const ObjectRecord& record : file.objects) {
-        if (Objects::Restore(StateOf(record.id, record.pos, record.rows))) {
+        if (Objects::Restore(StateOf(record.id, record.pos, record.rows, record.scale))) {
             Objects::Touch(record.id);
             ++objects;
         }
@@ -748,7 +756,7 @@ std::string Apply(const File& file)
     for (const CopyRecord& record : file.copies) {
         bool there = Objects::IsCopy(record.name) && LiveObject(record.name);
         if ((there || Objects::MakeCopy(record.source, {record.pos[0], record.pos[1], record.pos[2]}, record.name)) &&
-            Objects::Restore(StateOf(record.name, record.pos, record.rows)))
+            Objects::Restore(StateOf(record.name, record.pos, record.rows, record.scale)))
             ++copies;
     }
     // Nodes added (in the overlay, in order: one re-registration), the added crowns' order, the level's nodes hidden.

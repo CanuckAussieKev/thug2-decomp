@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cmath>
 #include <cstdint>
 #include <string>
 #include <utility>
@@ -30,8 +31,10 @@ class CScript;
 //                             the collision ray, groups (a trick-object cluster and the pieces built onto it), moving
 //                             vertices and collision in place as the park editor does, grind rails with them,
 //                             copies (CScene::CloneSector), hiding, tinting
-//   level_editor_scale.cpp    scaling scenery (0.25x - 4x, uniform): its vertices and collision kept when first scaled
-//                             and written again from that copy (no drift), the limits, the layouts' scale=
+//   level_editor_scale.cpp    scaling scenery and objects (0.25x - 4x on each axis, uniform or stretched): a piece's
+//                             vertices, normals and collision kept when first scaled and written again from that copy
+//                             (no drift); an object's model scale and its own copy of its collision; the limits, the
+//                             layouts' scale=
 //   level_editor_layout.cpp   what was changed, saved per level (thug2-decomp-layouts\<scene>.txt, Ctrl+S): the level's
 //                             EDITED COPY, a level of its own - put in place only when the level select's "<LEVEL>
 //                             (EDITED)" entry (section EDITED LEVELS) loads it or the editor is opened in the level;
@@ -87,8 +90,9 @@ class CScript;
 //   - Moving (objects, scenery, rail points and point nodes - spawns, crowns, flags, lights, sounds, triggers, other
 //     nodes; not ladders, paths or particles yet): hold and drag (Shift: up / down; the wheel pushes / pulls; Ctrl or the toolbar's
 //     Snap 25 snaps to 25; Escape puts it back), or drag one of the arrows to move along that axis only; W A S D / Q E
-//     nudge; Z / X turn (objects and nodes 15 degrees, scenery a quarter); [ / ] scale scenery 10% (Shift: 1%) about
-//     the middle of its bottom, 0.25x to 4x (the Inspector's Scale field too); G drops it onto the ground (a marker shows
+//     nudge; Z / X turn (objects and nodes 15 degrees, scenery a quarter); [ / ] scale scenery (about the middle of its
+//     bottom) or objects (about their position) 10% (Shift: 1%), 0.25x to 4x, Alt+[ / ] stretch along the axis the
+//     camera faces most (the Inspector's Scale X / Y / Z too); G drops it onto the ground (a marker shows
 //     where that is). Moving a spawn, crown or flag of a level shared with THUGPRO warns once a run (the edit is made).
 //   - Editing: Ctrl+D duplicates; Delete hides scenery (deletes copies of objects), deletes a node the editor added and
 //     hides a level's own spawn / crown / flag / light / sound / proximity node (asking first: it isn't removed - the
@@ -225,6 +229,15 @@ struct OrientedBox {
     V3 axes[3];
     V3 min, max;
 };
+// Its size along its own axes (the extents times the axes' lengths: a scaled box's size).
+inline V3 BoxSize(const OrientedBox& box)
+{
+    V3 extent = box.max - box.min;
+    float lengths[3];
+    for (int i = 0; i < 3; ++i)
+        lengths[i] = std::sqrt(Dot(box.axes[i], box.axes[i]));
+    return {extent.x * lengths[0], extent.y * lengths[1], extent.z * lengths[2]};
+}
 
 // --- scenery (the static scene sectors; level_editor_scenery.cpp) ------------------------------------------------
 
@@ -232,12 +245,21 @@ struct OrientedBox {
 // TurnAboutUp(v, quarters * 90 degrees), and as the engine turns a sector's vertices (sMesh::RotateY 0x004D6FB0:
 // rotation 1 takes (dx, dz) from the pivot to (dz, -dx), rotation 3 to (-dz, dx)).
 V3 QuarterTurn(V3 v, int quarters);
+// A vector scaled per axis (x by s.x, ...).
+inline V3 PerAxis(V3 v, V3 s) { return {v.x * s.x, v.y * s.y, v.z * s.z}; }
+// A per-axis scale as seen after `quarters` quarter turns about up: odd turns swap its x and z (QuarterTurn(PerAxis(v,
+// s), q) == PerAxis(QuarterTurn(v, q), TurnedScale(s, q))).
+inline V3 TurnedScale(V3 s, int quarters) { return (quarters & 1) ? V3{s.z, s.y, s.x} : s; }
+inline bool IsUnitScale(V3 s) { return s.x == 1.0f && s.y == 1.0f && s.z == 1.0f; }
+inline bool IsUniformScale(V3 s) { return s.x == s.y && s.y == s.z; }
+
 // Where a moved sector is, relative to where it was when the editor first touched it: a point x of it then is now at
-// QuarterTurn(x * scale, quarters) + offset (a uniform scale - level_editor_scale.h; 1 unless scaled).
+// QuarterTurn(PerAxis(x, scale), quarters) + offset (a scale along each of its own axes as first touched - uniform or
+// stretched, level_editor_scale.h; 1, 1, 1 unless scaled).
 struct Placement {
     int quarters; // 0..3
     V3 offset;
-    float scale = 1.0f;
+    V3 scale = {1.0f, 1.0f, 1.0f};
 };
 V3 Apply(const Placement& placement, V3 x);
 // Moved by `delta`; turned by `quarters` quarter turns about `pivot` (a world point, where it is now).
@@ -245,13 +267,13 @@ void MoveBy(Placement* placement, V3 delta);
 void TurnAbout(Placement* placement, V3 pivot, int quarters);
 // What the engine keeps for a placement: the sector's quarter turns (CSector +0x10, set by SetYRotation 0x0049E760)
 // and its geometry's world position (the meshes' pivot, sMesh +0x90's translation), from those when first touched
-// (`quarters0`, `position0`). Its vertices are at QuarterTurn(v, quarters) * placement.scale + position for v as
-// loaded (the engine has no scale of its own: level_editor_scale.h writes the scaled vertices).
+// (`quarters0`, `position0`). Unscaled, its vertices are at QuarterTurn(v, quarters) + position for v as loaded (the
+// engine has no scale of its own: level_editor_scale.h writes the scaled vertices).
 void EngineState(int quarters0, V3 position0, const Placement& placement, int* quarters, V3* position);
 // `outer` after `inner`: Apply(Compose(outer, inner), x) == Apply(outer, Apply(inner, x)) - a copy made of a moved
 // sector and moved since is placed by its own placement after its source's (relative to the source as loaded).
 Placement Compose(const Placement& outer, const Placement& inner);
-// The box (min / max as when first touched) where the placement has put it (its axes `scale` long).
+// The box (min / max as when first touched) where the placement has put it (its axes as long as the scale says).
 OrientedBox PlacedBox(V3 min, V3 max, const Placement& placement);
 // Whether a sector of that box can be moved: not huge (the ground, a whole street: an extent over `limit`) and a
 // real box.

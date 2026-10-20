@@ -10,6 +10,7 @@
 
 #include "game/core/crc.h"
 #include "game/front/level_editor_picking.h"
+#include "game/front/level_editor_scale.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/object.h"
 #include "game/script/names.h"
@@ -172,6 +173,8 @@ void* ModelGeometry(Obj::CCompositeObject* object, int index)
     auto* model = component ? *reinterpret_cast<uint8_t**>(reinterpret_cast<uint8_t*>(component) + 0x208) : nullptr;
     return model ? GameFunction<void*(__thiscall*)(void*, int)>(0x00494640)(model, index) : nullptr;
 }
+
+bool SameScale(V3 a, V3 b) { return a.x == b.x && a.y == b.y && a.z == b.z; }
 
 } // namespace
 
@@ -350,7 +353,7 @@ std::string Describe(Obj::CCompositeObject* object)
 
 State Save(Obj::CCompositeObject* object)
 {
-    return {object->m_id, object->m_pos, object->m_matrix, object->m_displayMatrix};
+    return {object->m_id, object->m_pos, object->m_matrix, object->m_displayMatrix, Scale::ObjectScale(object)};
 }
 
 bool Restore(const State& state)
@@ -361,6 +364,8 @@ bool Restore(const State& state)
     object->m_matrix = state.matrix;
     object->m_displayMatrix = state.displayMatrix;
     Place(object, {state.pos.x, state.pos.y, state.pos.z});
+    if (!SameScale(Scale::ObjectScale(object), state.scale))
+        Scale::SetObjectScale(object, state.scale);
     return true;
 }
 
@@ -498,6 +503,7 @@ const State* Origin(uint32_t id)
 
 void ForgetLevel()
 {
+    Scale::ForgetObjects();
     ForgetCopyNodes();
     g_copies.clear();
     g_touched.clear();

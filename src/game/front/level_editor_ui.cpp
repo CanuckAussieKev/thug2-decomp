@@ -36,6 +36,7 @@ ImFont* g_ui;
 ImFont* g_small;
 ImFont* g_mono;
 ImFont* g_heading;
+bool g_scaleLocked = true; // (the Inspector's Scale: Uniform - one field changes all three in proportion)
 
 // The routing (level_editor_ui_layout.h): the last frame's layout and ImGui's wishes, the mouse, and which mouse
 // buttons a press gave to the UI / to the editor (their release goes the same way).
@@ -1102,27 +1103,49 @@ void Inspector(const Model& model)
                 Mono("%.1f\xC2\xB0", s.headingDegrees);
             }
             if (s.scalable) {
-                // Scenery's uniform scale (level_editor_scale.h): dragged to scrub, Ctrl+click to type; one undo step.
+                // The scale along its own axes (level_editor_scale.h): X / Y / Z dragged to scrub, Ctrl+click to type;
+                // one undo step a field. Locked (the default): all three keep their proportions.
                 ImGui::TableNextRow();
                 ImGui::TableNextColumn();
                 Muted("Scale");
                 ImGui::TableNextColumn();
-                float scale = s.scale;
+                float values[3] = {s.scale.x, s.scale.y, s.scale.z};
+                static const char* const kIds[3] = {"##scalex", "##scaley", "##scalez"};
+                static const char* const kFormats[3] = {"x %.3f", "y %.3f", "z %.3f"};
                 ImGui::PushFont(g_mono);
-                ImGui::SetNextItemWidth(110.0f * g_scale);
-                if (ImGui::DragFloat("##scale", &scale, 0.005f, Scale::kMin, Scale::kMax, "%.3fx",
-                                     ImGuiSliderFlags_AlwaysClamp)) {
-                    Request request = {Request::kScaleSet};
-                    request.a[0] = scale;
-                    g_requests.push_back(request);
+                for (int axis = 0; axis < 3; ++axis) {
+                    ImGui::SetNextItemWidth(110.0f * g_scale);
+                    float value = values[axis];
+                    if (ImGui::DragFloat(kIds[axis], &value, 0.005f, Scale::kMin, Scale::kMax, kFormats[axis],
+                                         ImGuiSliderFlags_AlwaysClamp)) {
+                        Request request = {Request::kScaleSet};
+                        for (int a = 0; a < 3; ++a)
+                            request.a[a] = values[a];
+                        if (g_scaleLocked && values[axis] > 0.0f) {
+                            // (every axis by the same ratio, clamped so none leaves 0.25..4)
+                            float ratio = value / values[axis];
+                            for (int a = 0; a < 3; ++a)
+                                ratio = std::clamp(ratio, Scale::kMin / values[a], Scale::kMax / values[a]);
+                            for (int a = 0; a < 3; ++a)
+                                request.a[a] = values[a] * ratio;
+                        } else {
+                            request.a[axis] = value;
+                        }
+                        g_requests.push_back(request);
+                    }
+                    if (ImGui::IsItemDeactivated())
+                        Ask(Request::kScaleDone);
+                    if (ImGui::IsItemHovered())
+                        ImGui::SetTooltip("Scale along its own %c axis, %.2fx to %.0fx (%s; [ / ]: 10%%, Shift: 1%%; "
+                                          "Alt+[ / ]: along the axis the camera faces; Home: back to 1x)",
+                                          "XYZ"[axis], Scale::kMin, Scale::kMax,
+                                          s.objects > 0 ? "about its position" : "about the middle of its bottom");
                 }
-                if (ImGui::IsItemDeactivated())
-                    Ask(Request::kScaleDone);
                 ImGui::PopFont();
+                ImGui::Checkbox("Uniform##scalelock", &g_scaleLocked);
                 if (ImGui::IsItemHovered())
-                    ImGui::SetTooltip("Uniform scale, %.2fx to %.0fx, about the middle of its bottom ([ / ]: 10%%, "
-                                      "Shift: 1%%; Home: back to 1x)",
-                                      Scale::kMin, Scale::kMax);
+                    ImGui::SetTooltip("On: a field changes all three in proportion. Off: each axis by itself (a stretch "
+                                      "- textures stretch with it)");
             }
             if (s.objects > 1 || s.sectors > 1) {
                 ImGui::TableNextRow();
@@ -1255,7 +1278,8 @@ void Help(const Model& model)
         {"", "Drag an arrow", "along that axis only"},
         {"", "W A S D / Q E", "nudge it"},
         {"", "Z / X", "turn (objects and nodes 15\xC2\xB0, scenery a quarter)"},
-        {"", "[ / ]", "scale scenery down / up 10% (Shift: 1%) about its bottom, 0.25x to 4x - or the Inspector's Scale"},
+        {"", "[ / ]", "scale scenery (about its bottom) or an object down / up 10% (Shift: 1%), 0.25x to 4x"},
+        {"", "Alt+[ / ]", "stretch it along the axis the camera faces most - or the Inspector's Scale X / Y / Z"},
         {"", "G", "drops it onto the ground"},
         {"", "Inspector", "a node's position and heading: drag to scrub, Ctrl+click to type"},
         {"", "Inspector", "All fields: type a value, Enter sets it (live / on reload says when the game sees it); Home "

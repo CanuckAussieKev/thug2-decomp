@@ -20,13 +20,16 @@ namespace Front::LevelEditor::Carry {
 
 Placement Inverse(const Placement& placement)
 {
-    // y = Q (s x) + o  =>  x = Q^-1 (y - o) / s = Q^-1 (y / s) + Q^-1 (-o / s)
-    float scale = placement.scale > 0.0f ? placement.scale : 1.0f;
+    // y = Q (S x) + o  =>  x = S^-1 Q^-1 (y - o) = Q^-1 (T y) + Q^-1 (T (-o)), T = S^-1 seen through Q (a per-axis
+    // scale - level_editor_scale.h: S^-1 Q^-1 = Q^-1 T, odd turns swapping its x and z)
+    V3 s = placement.scale;
+    V3 reciprocal = {s.x > 0.0f ? 1.0f / s.x : 1.0f, s.y > 0.0f ? 1.0f / s.y : 1.0f, s.z > 0.0f ? 1.0f / s.z : 1.0f};
     int quarters = (4 - (placement.quarters & 3)) & 3;
+    V3 t = TurnedScale(reciprocal, placement.quarters);
     Placement inverse;
     inverse.quarters = quarters;
-    inverse.scale = 1.0f / scale;
-    inverse.offset = QuarterTurn(placement.offset * (-1.0f / scale), quarters);
+    inverse.scale = t;
+    inverse.offset = QuarterTurn(PerAxis(placement.offset * -1.0f, t), quarters);
     return inverse;
 }
 
@@ -34,8 +37,12 @@ Placement Between(const Placement& from, const Placement& to) { return Compose(t
 
 bool IsNone(const Placement& step)
 {
-    return (step.quarters & 3) == 0 && step.scale == 1.0f && step.offset.x == 0.0f && step.offset.y == 0.0f &&
-           step.offset.z == 0.0f;
+    // (a per-axis scale's reciprocal isn't exact - 1 / 1.5 -: Between a placement and itself can be a step of
+    // 1.0000001; within a millionth and a ten-thousandth of a unit counts as none)
+    auto unit = [](float s) { return std::fabs(s - 1.0f) < 1e-6f; };
+    auto zero = [](float v) { return std::fabs(v) < 1e-4f; };
+    return (step.quarters & 3) == 0 && unit(step.scale.x) && unit(step.scale.y) && unit(step.scale.z) &&
+           zero(step.offset.x) && zero(step.offset.y) && zero(step.offset.z);
 }
 
 bool OverFootprint(const OrientedBox& box, V3 p, float margin, float above)
