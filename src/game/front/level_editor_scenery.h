@@ -118,11 +118,14 @@ float Bottom();
 void SetSelection(const std::vector<uint32_t>& sectors);
 void MoveTo(V3 pivot);
 void Turn(int quarters);
-// Scaling (level_editor_scale.h): the selection's scale (its first piece's; 1 when not scaled), and the selection scaled
-// by `factor` about the middle of its bottom - limited so every piece stays within 0.25x..4x (less for compressed
-// collision). Returns the factor used (1: none). Vertices and collision at once, as Turn; Commit after.
-float SelectionScale();
-float ScaleSelection(float factor);
+// Scaling (level_editor_scale.h): the selection's scale (its first piece's, along its own axes as first touched; 1, 1, 1
+// when not scaled) and quarter turns, and the selection scaled by `factor` along the world's axes about the middle of
+// its bottom - limited so every piece stays within 0.25x..4x on each axis (less for compressed collision); `uniform`:
+// the same factor on every axis (the most any axis allows). Returns the factor used (1, 1, 1: none). Vertices and
+// collision at once, as Turn; Commit after.
+V3 SelectionScale();
+int SelectionQuarters();
+V3 ScaleSelection(V3 factor, bool uniform);
 void Commit();
 // A sector's collision moved by something else (level_editor_walls.h: an invisible wall): flagged for the super sectors'
 // update as moves are, its scene updated at the next Commit.

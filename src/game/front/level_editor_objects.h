@@ -46,11 +46,12 @@ std::string Describe(Obj::CCompositeObject* object);
 // The class of its node: "LevelObject", "GameObject", "Pedestrian", "Vehicle"...
 const char* ClassOf(uint32_t id);
 
-// Where an object is and how it's turned (undo, layouts).
+// Where an object is, how it's turned and scaled (undo, layouts; the scale along its own axes - level_editor_scale.h).
 struct State {
     uint32_t id;
     Mth::Vector pos;
     Mth::Matrix matrix, displayMatrix;
+    V3 scale = {1.0f, 1.0f, 1.0f};
 };
 State Save(Obj::CCompositeObject* object);
 // Put back (false: no such object now).

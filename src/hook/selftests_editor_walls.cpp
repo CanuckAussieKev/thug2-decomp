@@ -67,7 +67,7 @@ void TestEditorWallsSteps()
     V3 pivot = LE::Apply(p, x0);
     LE::Placement moved = Walls::MovedTo(p, pivot, {33.3f, -7.71f, 1000.02f});
     Check(Near(LE::Apply(moved, x0), {33.3f, -7.71f, 1000.02f}, 1.0f / 32.0f) && OnSixteenths(moved.offset) &&
-              moved.quarters == 1 && moved.scale == 1.0f,
+              moved.quarters == 1 && LE::IsUnitScale(moved.scale),
           "editor walls: moved - the pivot where asked, on sixteenths");
     // Turning about the pivot keeps the pivot (put on sixteenths) where it is.
     LE::Placement turned = Walls::TurnedAbout(moved, LE::Apply(moved, x0), 1);
@@ -171,7 +171,7 @@ void TestEditorWallsRecords()
     Check(Layout::Read(text, &back, &line) && back.walls.size() == 3 && back.walls[0].checksum == 0x1234ABCD &&
               back.walls[0].placement.quarters == 1 && back.walls[0].placement.offset.x == -188.25f &&
               back.walls[0].placement.offset.y == 0.0625f && back.walls[0].off && back.walls[1].off &&
-              !back.walls[2].off && back.walls[2].placement.quarters == 3 && back.walls[2].placement.scale == 1.0f,
+              !back.walls[2].off && back.walls[2].placement.quarters == 3 && LE::IsUnitScale(back.walls[2].placement.scale),
           "editor walls: wall records read back");
     // A layout from before (no wall records) reads with none; a wall record with a bad switch refuses the file.
     const char kOld[] = "thug2-decomp layout 2\nscene 4B7E41E2\nsector BF49DBEE 0 1 2 3 0\n";
