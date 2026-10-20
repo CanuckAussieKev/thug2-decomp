@@ -62,7 +62,7 @@ const THUG2_OWN: ReadonlyMap<string, string> = new Map([
 // THPS3 levels THUGPRO doesn't port (its Levels.qb, 2026-10-20): the tutorials, the skate shop, the park editor's sets.
 const NO_COUNTERPART: ReadonlySet<string> = new Set(["tut", "skateshop", "sk3ed_bch", "sk3ed_indr", "sk3ed_schl"]);
 
-export type Result =Record<string, unknown> & { folder: string; level: string };
+export type Result = Record<string, unknown> & { folder: string; level: string };
 
 interface Side {
     array: QbValue[];
