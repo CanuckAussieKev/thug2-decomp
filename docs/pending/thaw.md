@@ -136,6 +136,72 @@ inside an `if` - valid for the interpreter, and behind a left-out TriggerType co
 Still different from THUGPRO (and what it means online): EL / SM frames (positions off by the offsets above - remote
 skaters drawn displaced; a position translation in the skater-update messages would fix it); CH / JA / SZ / SV names
 (the level doesn't load across: a load-script alias or a checksum translation in 0x46 / 0x33); restarts: SZ - ours
-has 10 fewer Multiplayer restarts (over water / kill zones: Killox01_restart*, kept by THUGPRO), CH 2 / 1 different,
-BH 1 moved by THUGPRO; node arrays: THUGPRO kept 46-723 more nodes per level (story / goal / sfx nodes) - node order
-doesn't travel, so no effect.
+has 10 fewer Multiplayer restarts (Killox01_restart*... - CORRECTED 2026-10-20 by the TP-4 pass below: they are not
+over water or kill zones; THAW gives them a malformed restart_types, the string "Player 1", and THUGPRO turned them
+into network spawns by hand), CH 2 / 1 different, BH 1 moved by THUGPRO (both now TP-4); node arrays: THUGPRO kept
+46-723 more nodes per level (story / goal / sfx nodes) - node order doesn't travel, so no effect.
+
+## TP-4: THUGPRO's hand-edited network spawns (agent thaw-thugpro, 2026-10-20, approved by the user) - NOT run in the game
+
+Why: competitive fairness - a player shouldn't start somewhere their opponents never do. Scope: every restart with
+Multiplayer / Horse / CTF / Team types that THUGPRO moved, retyped, added or took out of the network spawns, in all
+15 areas, against THAW's own node arrays.
+- Data: `tools/compat/thugpro/thaw_levels.json` `spawns`, written by `node tools/thaw_levels/thugpro_compare.ts
+  --extract-thugpro` (THUGPRO's installed node arrays against THAW's `_net` ones; positions stored in THAW's frame).
+  Applied by `thaw_levels.applySpawns` (after convertNodes, before the frame shift) from the profile only;
+  `--compat none` output unchanged (all 15 .qb the same as code plus sorted names, the other files byte-identical).
+- What it changes (7 edits in 4 areas): CH - TRG_CTF_Restart_Green [CTF Multiplayer Horse] -> [CTF];
+  Z_CH_TRG_G_TrickAttack_RestartNode moved 434 units, turned, [Multiplayer Horse] -> [Player1] (no longer a spawn);
+  one spawn added (THUGPRO's half-pipe drop-in: our form TRG_Net_Spawn01, Generic, [Player1 Multiplayer Horse],
+  running `<level>_net_dropin` = MakeSkaterGoto DropIn). SZ - Z_SZ_TRG_StartOfLevel loses PriorityRestart. BH -
+  Z_BH_TRG_Player_Start01 13.9 units lower. EL - Z_EL_way_kill_metrohq loses PriorityRestart; the two
+  TransitionParkTeleport restarts stop being spawns (ours already dropped them: over the freeway kill).
+- Result (thugpro_compare, all network spawns - place and types, in order): the same as THUGPRO's in 14 areas.
+- **Not applied - the user's decision: Santa Cruz's 10** (Z_SZ_TRG_restart01, _derby01, _fromalley01 / 02 (the same
+  spot), _fromboardwalk01, _Killox01_restart ... restart05). In THAW their restart_types is the string "Player 1" (not
+  a list: no network spawn in THAW, nor in ours); THUGPRO made them [Player1 Multiplayer Horse]. Listed in
+  `spawns_not_applied`. Checked against our collision: all 10 stand on ground (roads, the derby rim, a roof, grass),
+  none over water or a kill zone. As it is: THUGPRO players can start a network game at 45 places, ours at 35; each
+  side sees the other appear wherever it spawned. Applied: both 45.
+
+
+## THUGPRO's other hand edits in its THAW levels - inventory (2026-10-20; nothing changed, the user decides)
+
+THUGPRO's installed node arrays, scripts and collision against THAW's own full zone archives (with their _sfx
+sub-zones), in THUGPRO's frame. Caveat: THUGPRO converted THAW's *Xbox* files, so a few differences may be the Xbox
+build's rather than hand edits (the cluster renames, some terrain types). The scratch script and its JSON are listed
+in the report (inventory.ts). Effect on play between our players and THUGPRO's in brackets.
+- Moved nodes (beyond the frame): rails - SM 17 (PacificParkStoresBuilding_a_*, 94 units), SZ 3 (levelevent99/100
+  16.5), JA 3 (TRG_783 10.8), DN 1 (Player1_start02 rail, 56.6), SR 1 (6.4), CH 2 (2.5) [a rail one side grinds where
+  the other has none: a remote skater grinds in the air]; geometry - DT DT_99Cent_02 463 and Objects_Mesh23 42, MA 6
+  lamps (DLamp10 66), CH Outby701/702 trigger polys 21-27, LV 2, BH 2 [walls / props in different places where
+  collidable]; SM's 12 ferris-wheel cars 17. SFX: BH 54, SR 18, OI 23 sound emitters THUGPRO appended without the
+  frame shift (moved by exactly the zone origin) - a THUGPRO bug (its ambient sounds play in the wrong place), no
+  effect on us (we have no _sfx nodes).
+- Renamed: EL 110 / SM 103 night level lights, CH 11 (goal letters), SZ 2 (one rail to "bastardrail1") [none: names
+  don't travel].
+- Added: DN 35 (14 geometry pg_* + 21 bouncy caution objects; 10 collidable collision objects) [props / walls only
+  THUGPRO has]; JA 120 (a DDR machine with 3 rails TRG_TP_DDR_RAIL_*, 2 building pieces, 46+51 car/ped nodes, 10 peds, 4
+  scooters); SM 24 static ferris-car rails + 13 shadows [rails only THUGPRO has]; EL 88 car waypoints + a cop car; SZ 27
+  car nav nodes + 3 cars; MA 3 light glows (collidable); SV 2 sauce machines (1 collidable); LV LV_Elevator_2ndFloor
+  (collidable); BH 2 plants; SR 2 waypoints; OI the ferry; CH 1 spawn (TP-4).
+- Removed: SV 7 meshes, CH 2 rail collision pieces (SkVans_Rail_Col01/02), DT Mesh15 (collidable), BH
+  g_ground_gas_station_13b01 collision [a floor / wall only we have].
+- Changed flags: AbsentInNetGames taken off - JA 168 geometry (light poles, bushes), SZ 93, EL 44 rails (metro HQ) + 23
+  geometry (the limo), BH 23 [objects / rails present in THUGPRO's network games, absent in ours]; added - CH 73
+  shadows; CreatedAtStart taken off / added - SV 13 (elevator / bathroom doors), LV 15 occluders, EL
+  65 / SM 43 night-off pieces, SZ 18 (6 of them rails); class changed - BH 3 rails made game objects (inner_rail_023, Gaps25 floaters: rails
+  only we have), SZ 13 (a restart, life peds), CH 17, DN 31 / JA 4 life nodes -> peds, SV2 / SR sfx; CollisionMode
+  geometry -> none - SZ 7, CH 2 (collision only we have); TrickObject / Cluster - CH 10 and JA 6 and SZ 8 added, LV 10
+  removed; cluster names prefixed with the zone - DN 1468, JA 3418, SZ 116 [possibly graffiti / trick-object messages
+  - not checked]; TerrainType - SZ 43 rails wire -> wood railing, SR 20 wood -> metal, DN 2, JA 1, EL 1 [grind sound
+  only].
+- Changed scripts (by the names each calls): mostly THAW goal / story / camera calls taken out and THUGPRO's own
+  additions (CTF / team flag scripts, level-change options, LoadingSounds, its peds); CH's gap scripts gated with
+  THUGPRO's GetTriggerArray / TriggerType [gaps score differently]; MA's door sound swapped; EL glass breaks with
+  no_sound. Per area: changed 4 (MA) to 182 (SM); added 1-79; removed 2-301 (the _sfx scripts THUGPRO dropped).
+- Collision (by object): added collidable - DN 10 (pg_* building and cars), JA 3 (DDR machine...), MA 3 light glows,
+  CH 1, SV 1, LV 1 (elevator floor); removed collidable (not _sfx) - SZ 8 (beach waves, booster streamers, a roof
+  pipe, a barrier), SV 7 (meshes, a sauce and a snack machine), CH 3 (two rail collision pieces, a sign LOD), DT 1,
+  BH 1 (gas station ground piece), LV 1 (elevator wall) [walls / floors on one side only]; face counts changed - DN 3, JA 2, SV 4, HO 2, DT 3, SM 3, SR 2, LV 1; moved objects - MA 20, DT 23
+  (freeway cars), others 1-7. Plus THUGPRO's unreachable faces (earlier section).
