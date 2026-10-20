@@ -43,7 +43,7 @@ and moving objects have mostly not been seen working. The "what to try" lists ar
 | Peds: AI and animations | Stand-in (THUG2 ped AI) | Stand-in | THUG2's ped AI (THUG1's is its predecessor); THUG1-only animations dropped | Stand-in |
 | Story and goal peds | Missing | Missing | Missing | Missing |
 | Crowds | Stand-in (THUG2 standing peds) | n/a | Missing (SJ's MonsterPed crowd) | n/a |
-| Animals | Stand-in (THUG2 pigeons, seagulls, sharks); flying birds missing | Missing (Zoo's among them) | Missing (dogs, sharks crash THUG2's ped AI) | Missing (pigeons) |
+| Animals | Stand-in (THUG2 pigeons, seagulls, sharks); flying birds missing | Pigeons as THUG2's own (Chicago, London, San Francisco: THPS4's script is THUG2's Pigeon_Generic); the rest missing (Zoo's among them) | Missing (dogs, sharks crash THUG2's ped AI) | Missing (pigeons) |
 | Traffic cars: model | Stand-in (THUG2 look-alike) | THUG2's car of the same name, else a sedan | Original (THUG2 ships most of THUG1's cars) | THUG2's car of the same name, else a sedan |
 | Traffic cars: driving | THUG2's Car_Generic01 on the original roads | Same (only the skate shop and Chicago have any; College none) | Same | Same |
 | Other vehicles (trains, trams, boats, rides) | Original models | Original models; skinned ones body only (no wheels, orientation guessed) | Original where THUG2 has the model and skeleton | Story vehicles missing |

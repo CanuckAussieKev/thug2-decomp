@@ -1,0 +1,7 @@
+{
+  "_comment": "THUGPRO compatibility for the THPS4 level ports (tools/thps4_levels). Each entry is registered in README.md here (TP-20...). Online a level is known only by its load script's checksum (messages 0x46 / 0x33): these make our level structures agree with THUGPRO's own THPS4 ports where THPS4's own names can't. Read by tools/compat/compat.ts; `thps4_levels.ts convert --compat none` leaves all of it out.",
+  "load_names": {
+    "_register": "TP-20",
+    "SkateShop": "practice"
+  }
+}

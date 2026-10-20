@@ -7,7 +7,11 @@
 //   LevelObject        THUG2's LevelObject (THPS4's sectors are in the object's own space, as THUG2's): moved by its
 //                      trigger script (run by the object).
 //   GameObject Ghost   THUG2's ghost game object (model="none"): a script's controller.
-//   GameObject (model) left out: goal pick-ups (money, letters, icons, flags, tapes) - goals aren't ported.
+//   GameObject (model) the game modes' flags (TRG_CTF_Red / _Base, TRG_Flag_Red...: capture the flag, the lobby's
+//                      team flags) kept - THPS4's are THUG2's own (Type Flag_Red, gameobjects\flags\ models THUG2 has,
+//                      trigger scripts calling Team_Flag / Team_Flag_Base, which THUG2 has), and THUG2's net\ctf.qb
+//                      and SK4_Scripts create them by those names; the goal pick-ups (money, letters, icons, tapes)
+//                      left out - goals aren't ported.
 //   Vehicle            Car_Generic01 cars: THUG2's own cars (peds_cars.ts); the others (trams, rides, trains, cranes:
 //                      moved by their scripts) LevelObjects of their THPS4 model (vehicle_models: the model's sectors
 //                      in the level's scene, as one sector of the node's name in the object's own space).
@@ -128,9 +132,47 @@ export function triggerType(toks: scriptPort.Tok[]): scriptPort.Tok[] | null {
     return out;
 }
 
-export const REWRITES = new Map([[checksum("TriggerType"), triggerType]]);
+// MakeSkaterGoto (script_port's LEFT_OUT: goals and cutscenes send the skater into their own scripts) kept for the
+// skater scripts THUG2 has under THPS4's names - DropIn (a restart on a ramp's lip: THPS4's restarts' trigger scripts
+// drop the skater in, as THUG2's own skater script does) and StartSkating1 -, any other target left out.
+export const KEPT_IN = ["MakeSkaterGoto"];
+export const SKATER_GOTO: ReadonlySet<number> = new Set(["DropIn", "StartSkating1"].map(checksum));
+
+export function makeSkaterGoto(toks: scriptPort.Tok[]): scriptPort.Tok[] | null {
+    const target = toks[1];
+    if (toks.length !== 2 || target === undefined || target.t !== 0x16 || !SKATER_GOTO.has(target.name()!)) return null;
+    return toks;
+}
+
+// A translated script (THUG2 code: script header, statements, end) with no statement left.
+export function isEmptyScript(code: Uint8Array): boolean {
+    let tokensLeft = 0;
+    for (const [t] of scriptPort.plainTokens(code)) if (![0x01, 0x02, 0x23, 0x24].includes(t)) tokensLeft += 1;
+    return tokensLeft <= 1; // (the script's name)
+}
+
+export const REWRITES = new Map([
+    [checksum("TriggerType"), triggerType],
+    [checksum("MakeSkaterGoto"), makeSkaterGoto],
+]);
 // The made peds' trigger script (THUG2's ped AI, standing).
 export const PED_STAND = "thps4_ped_stand";
+
+// The level's own setup script (runs THPS4's setup / startup scripts): not <level>_setup - with THPS4's level names
+// (alc) that is THPS4's own setup script's name (its Levels.qb: setup_script=alc_setup), which it spawns.
+export const setupName = (level: string): string => `${level}_ported_setup`;
+// The game modes' flags (see the top): THPS4's own nodes under the names THUG2's scripts look for, with THUG2's
+// flag models. (As tools/thaw_levels/thaw_scripts.ts keeps THAW's.)
+export const FLAG_MODELS = "gameobjects\\flags\\";
+export const GAME_MODE_NAMES = /^trg_(ctf_(red|blue|green|yellow)(_base)?|flag_(red|blue|green|yellow))$/i;
+const FLAG_KEYS = new Set(["Type", "model", "lod_dist1", "lod_dist2"].map(checksum));
+// The animals THUG2 has itself (THPS4's Type: THUG2's skeleton and animations for it, as THUG2's own levels set its
+// pigeons up - Boston's TRG_Pigeon: Class=Pedestrian Type=Anl_Pigeon NoPedLogic dont_target SkeletonName=Anl_Pigeon
+// AnimName=animload_anl_pigeon, the same model path as THPS4's): kept with THPS4's trigger script (Pigeon_Generic,
+// THUG2 has it), when THUG2 has the model. The other animals (THPS4's own models and skeletons) stay left out.
+export const ANIMALS: Readonly<Record<string, { skeleton: string; anims: string }>> = {
+    anl_pigeon: { skeleton: "Anl_Pigeon", anims: "animload_anl_pigeon" },
+};
 // How many kinds of left-out statements the report lists.
 export const REPORTED = pyParseInt(process.env.THPS4_SCRIPTS_REPORTED ?? "15");
 export const PED_SCRIPTS = `script ${PED_STAND} {\n    Ped_InitAI stand \n}\n`;
@@ -223,6 +265,7 @@ export class Nodes {
     readonly triggers: Trigger[] = [];
     readonly objects = new Map<number, [scriptPort.Context, boolean]>(); // node name -> (context, created at start)
     readonly proximScripts: number[] = [];
+    readonly gameModeObjects = new Set<number>(); // the game-mode flags (created by THUG2's game modes, not at start)
     readonly counts = new Map<string, number>();
     private index: Map<qb.QbValue, number> | null = null;
 
@@ -335,6 +378,26 @@ export class Nodes {
             );
         }
         if (cls === "gameobject") {
+            const model = node.get("model");
+            if (
+                typeof model === "string" &&
+                model.toLowerCase().startsWith(FLAG_MODELS) &&
+                GAME_MODE_NAMES.test(qb.nameText(name.value, n)) &&
+                this.assets.modelExists(model)
+            ) {
+                // (kept although not created at the start: THUG2's game modes create them by name)
+                this.count("game-mode flags");
+                this.gameModeObjects.add(name.value);
+                return this.made(
+                    node,
+                    [
+                        ...this.base(node, "GameObject"),
+                        ...node.entries.filter(([k]) => k !== null && FLAG_KEYS.has(k.value)),
+                        [null, key(n, "NeverSuspend")],
+                    ],
+                    scriptPort.OBJECT,
+                );
+            }
             if (nodes.typeOf(node, n) !== "ghost") return this.leftOut("goal objects");
             this.count("script objects");
             return this.made(
@@ -371,6 +434,27 @@ export class Nodes {
         if (cls === "pedestrian") {
             if (this.movingNames.has(name.value)) return this.leftOut(null);
             const kind = nodes.typeOf(node, n);
+            const animal = ANIMALS[kind];
+            const model = node.get("model");
+            if (animal && typeof model === "string" && this.assets.modelExists(model)) {
+                this.count("animals (THUG2's)");
+                return this.made(
+                    node,
+                    [
+                        ...this.base(node, "Pedestrian"),
+                        [key(n, "Type"), node.get("Type")!],
+                        [null, key(n, "NoPedLogic")],
+                        [null, key(n, "dont_target")],
+                        [key(n, "SkeletonName"), key(n, animal.skeleton)],
+                        [key(n, "AnimName"), key(n, animal.anims)],
+                        [key(n, "model"), model],
+                        [key(n, "SuspendDistance"), 0],
+                        [key(n, "lod_dist1"), 100],
+                        [key(n, "lod_dist2"), 120],
+                    ],
+                    scriptPort.PED,
+                );
+            }
             if (kind.startsWith("anl_")) return this.leftOut("animals");
             this.count("standing peds");
             const type = node.get("Type");
@@ -729,10 +813,11 @@ export function convert(
         madeKept.push(replaced === null ? (node as Struct) : replaced);
     }
     // trigger scripts of the sectors and rails (the skater's) and the made nodes', wanted before convertNodes
+    // (and the restarts': run by the skater put there - THPS4's drop-ins, MakeSkaterGoto DropIn)
     const wanted = new Set<number>();
     for (const node of madeKept) {
         const script = node.get("TriggerScript");
-        if (script instanceof Name && ["levelgeometry", "railnode"].includes(nodes.classOf(node, names))) {
+        if (script instanceof Name && ["levelgeometry", "railnode", "restart"].includes(nodes.classOf(node, names))) {
             if (!killsIn.has(script.value)) wanted.add(script.value);
         }
     }
@@ -798,6 +883,7 @@ export function convert(
                 full: true,
                 byName: BY_NAME,
                 rewrites: REWRITES,
+                keptIn: KEPT_IN,
             },
         );
         tr = translator;
@@ -822,6 +908,7 @@ export function convert(
         for (const [k, [, atStart]] of made.objects) {
             if (
                 !atStart &&
+                !made.gameModeObjects.has(k) &&
                 !translator.created.has(k) &&
                 !translator.referenced.has(k) &&
                 !waypoints.has(k) &&
@@ -870,6 +957,24 @@ export function convert(
     const available = (script: number): boolean =>
         out.has(script) || port.thug2.scripts.has(script) || provided.has(script);
 
+    // (a restart's trigger script with nothing left in it - THPS4's menu restart: FreezeSkater, its camera - goes, and
+    // the empty script with it when nothing else runs it)
+    const emptyRestartScripts = new Set<number>();
+    for (const node of converted) {
+        const script = node.get("TriggerScript");
+        const code = script instanceof Name ? out.get(script.value) : undefined;
+        if (code !== undefined && nodes.classOf(node, names) === "restart" && isEmptyScript(code)) {
+            node.remove("TriggerScript");
+            emptyRestartScripts.add((script as Name).value);
+        }
+    }
+    for (const s of emptyRestartScripts) {
+        const used = converted.some((n) => {
+            const t = n.get("TriggerScript");
+            return t instanceof Name && t.value === s;
+        });
+        if (!used && !starts.includes(s)) out.delete(s);
+    }
     let dropped = 0;
     for (const node of converted) {
         const script = node.get("TriggerScript");
@@ -890,7 +995,7 @@ export function convert(
     const run = [...new Set(starts)].filter((s) => out.has(s));
     let text = translator.globalsNs() + PED_SCRIPTS;
     if (run.length) {
-        text += `script ${level}_setup {\n${run.map((s) => `    SpawnScript ${qb.nameText(s, names)} \n`).join("")}}\n`;
+        text += `script ${setupName(level)} {\n${run.map((s) => `    SpawnScript ${qb.nameText(s, names)} \n`).join("")}}\n`;
     }
     const worst = [...translator.leftOut].sort((a, b) => b[1] - a[1]);
     let bytes = 0;
