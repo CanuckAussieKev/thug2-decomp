@@ -1,7 +1,431 @@
 {
-  "_comment": "THUGPRO compatibility for the THUG1 level ports (tools/thug1_levels). Each entry is registered in README.md here (TP-30...). Online a level is known only by its load script's checksum (messages 0x46 / 0x33). The other THUG1 levels are named by THUG1's own Levels.qb (Load_NJ...) - THUG1 data, no entry. Read by tools/compat/compat.ts; `thug1_levels.ts convert --compat none` leaves all of it out.",
+  "_comment": "THUGPRO compatibility for the THUG1 level ports (tools/thug1_levels). Each entry is registered in README.md here (TP-30, TP-31; spawns is written by `thugpro_compare.ts --extract-thugpro`, never by hand). Online a level is known only by its load script's checksum (messages 0x46 / 0x33). The other THUG1 levels are named by THUG1's own Levels.qb (Load_NJ...) - THUG1 data, no entry. Read by tools/compat/compat.ts; `thug1_levels.ts convert --compat none` leaves all of it out.",
   "level_names": {
     "_register": "TP-30",
     "SE": "hh"
+  },
+  "spawns": {
+    "_register": "TP-31",
+    "_source": "THUGPRO's installed data\\pre\\<level>_scripts.prx node arrays against THUG1's own, extracted by `node tools/thug1_levels/thugpro_compare.ts --extract-thugpro` (pos = THUG2's Pos axes; order: every Multiplayer / Horse / CTF / Team restart in THUGPRO's order, by THUG1's names)",
+    "NJ": {
+      "order": [
+        "TRG_restartforgary01",
+        "TRG_Restart_Player1",
+        "TRG_Restart_NW_Street",
+        "TRG_Restart_NE_Street",
+        "TRG_Restart_SE_Street",
+        "TRG_Restart_school",
+        "TRG_Restart_TrainStation",
+        "TRG_Restart_AfterBridge01",
+        "TRG_CTF_Restart_Blue",
+        "TRG_CTF_Restart_Red",
+        "TRG_CTF_Restart_Yellow",
+        "TRG_CTF_Restart_Green",
+        "TRG_Team_Restart",
+        "TRG_Restart_BeforeBridge01"
+      ]
+    },
+    "NY": {
+      "order": [
+        "TRG_NY_RE_Start",
+        "TRG_NY_TL_JKU_Restart01",
+        "TRG_NY_TL_JKU_RE_BanksTop",
+        "TRG_NY_TL_JKU_RE_BanksBottom",
+        "TRG_NY_WF_JO_RE_WaterfrontEast",
+        "TRG_NY_WF_JO_RE_WaterfrontWest01",
+        "TRG_NY_WF_JO_RE_WaterfrontMiddle",
+        "TRG_NY_WF_JO_RE_BridgeWest",
+        "TRG_NY_WF_JO_RE_WaterfrontWest",
+        "TRG_NY_WF_JO_RE_BridgeEast",
+        "TRG_G_HS_RestartNode",
+        "TRG_G_COMBO_RestartNode",
+        "TRG_NY_Vet_JO_Rail183",
+        "TRG_NY_Vet_JO_Rail184",
+        "TRG_NY_Vet_JO_Rail185",
+        "TRG_NY_Chase_EG_JPtp01",
+        "TRG_NY_Chase_EG_JPtp03",
+        "TRG_G_Tetris_RestartNode",
+        "TRG_G_Collect_RestartNode",
+        "TRG_G_GS_RestartNode",
+        "TRG_G_GS2_RestartNode",
+        "TRG_G_GS4_RestartNode",
+        "TRG_G_GS3_RestartNode",
+        "TRG_G_GS5_RestartNode",
+        "TRG_G_Race2_RestartNode",
+        "TRG_G_Race_RestartNode",
+        "TRG_G_Gap3_RestartNode01",
+        "TRG_G_Tetris2_RestartNode",
+        "TRG_G_CAT_RestartNode",
+        "TRG_G_Race3_RestartNode",
+        "TRG_G_GS6_RestartNode",
+        "TRG_G_Gap5_RestartNode",
+        "TRG_G_Gap4_RestartNode",
+        "TRG_G_Gap6_RestartNode",
+        "TRG_G_Counter_RestartNode",
+        "TRG_G_Counter2_RestartNode",
+        "TRG_G_Gap7_RestartNode",
+        "TRG_G_Collect2_RestartNode",
+        "TRG_CTF_Restart_Blue",
+        "TRG_CTF_Restart_Red",
+        "TRG_CTF_Restart_Yellow",
+        "TRG_CTF_Restart_Green",
+        "TRG_Team_Restart",
+        "TRG_G_Special2_RestartNode",
+        "TRG_G_Collect3_RestartNode",
+        "TRG_G_Film_RestartNode",
+        "TRG_G_Null_RestartNode",
+        "TRG_NY_RE_ParkedCar01",
+        "TRG_G_Gap3_IntroNode",
+        "TRG_G_Gap3_RestartNode",
+        "TRG_G_Race_IntroNode",
+        "TRG_NY_JKU_RE_BanksFire",
+        "TRG_NY_JKU_RE_FreewayTunnel"
+      ]
+    },
+    "FL": {
+      "order": [
+        "TRG_Restart_Player1",
+        "TRG_Restart_Player03",
+        "TRG_Restart_Rooftops",
+        "TRG_Restart_Bro",
+        "TRG_Restart_Bridge",
+        "TRG_Restart_Corner",
+        "TRG_Restart_Street",
+        "TRG_Restart_Street2",
+        "TRG_Restart_Nude_Exit",
+        "TRG_Restart_Florida_Bank",
+        "TRG_Restart_Parking",
+        "TRG_G_COLLECT_RestartNode",
+        "TRG_G_TETRIS_IntroNode",
+        "TRG_G_GAP_RestartNode",
+        "TRG_G_TS_RestartNode",
+        "TRG_G_GS_RestartNode",
+        "TRG_G_HORSE_RestartNode",
+        "TRG_G_HORSE_Spot02",
+        "TRG_G_HORSE_Spot03",
+        "TRG_G_COMP_RestartNode",
+        "TRG_G_COMP2_RestartNode",
+        "TRG_G_GAP4_RestartNode",
+        "TRG_G_GAP2_RestartNode",
+        "TRG_G_GAP3_RestartNode",
+        "TRG_G_RACE_RestartNode",
+        "TRG_G_TS3_RestartNode",
+        "TRG_G_HORSE2_RestartNode",
+        "TRG_G_HORSE2_Spot02",
+        "TRG_G_HORSE2_Spot03",
+        "TRG_G_HORSE2_Spot04",
+        "TRG_G_COUNTER_RestartNode",
+        "TRG_G_COUNTER2_RestartNode",
+        "TRG_G_RACE2_RestartNode",
+        "TRG_G_COLLECT2_RestartNode",
+        "TRG_G_COUNTER3_RestartNode",
+        "TRG_G_TETRIS2_IntroNode",
+        "TRG_G_TS2_RestartNode",
+        "TRG_Restart_Inside_SPoT",
+        "TRG_CTF_Restart_Blue",
+        "TRG_CTF_Restart_Yellow",
+        "TRG_Team_Restart",
+        "TRG_CTF_Restart_Red",
+        "TRG_CTF_Restart_Green"
+      ]
+    },
+    "SD": {
+      "order": [
+        "TRG_Restart_Player1",
+        "TRG_Restart_Exit_NE01",
+        "TRG_Restart_Exit_NE02",
+        "TRG_Restart_Exit_NE03",
+        "TRG_G_Gap_RestartNode",
+        "TRG_G_Gap5_RestartNode",
+        "TRG_G_Gap9_RestartNode",
+        "TRG_G_Gap11_RestartNode",
+        "TRG_G_Race_ReStartNode",
+        "TRG_G_Collect3_RestartNode",
+        "TRG_G_Race2_ReStartNode",
+        "TRG_G_Tetris3_RestartNode",
+        "TRG_G_Gap12_ReStartNode",
+        "TRG_CTF_Restart_Blue",
+        "TRG_CTF_Restart_Red",
+        "TRG_CTF_Restart_Yellow",
+        "TRG_CTF_Restart_Green",
+        "TRG_Team_Restart",
+        "TRG_G_Special2_RestartNode",
+        "TRG_G_Special_RestartNode",
+        "TRG_G_Gap13_Restartnode",
+        "TRG_G_HS_RestartNode",
+        "TRG_G_Race5_RestartNode",
+        "TRG_G_Race4_RestartNode",
+        "TRG_ReStart_AmpBoundary01",
+        "TRG_ReStart_AmpBoundary02",
+        "TRG_ReStart_AmpBoundary03",
+        "TRG_ReStart_AmpBoundary04",
+        "TRG_ReStart_AmpBoundary05",
+        "TRG_ReStart_AmpBoundary06",
+        "TRG_Driveable_GardKart_ExitNode",
+        "TRG_Restart_CtydA"
+      ]
+    },
+    "HI": {
+      "renamed": {
+        "TRG_Proset1_restartnode": "_trg_Proset1_restartnode"
+      },
+      "order": [
+        "TRG_Restart_Player1",
+        "TRG_Restart_OTW",
+        "TRG_Restart_Wallows",
+        "TRG_Restart_Street",
+        "TRG_Restart_Aala",
+        "TRG_Restart_Street01",
+        "TRG_Restart_Rooftops",
+        "TRG_Restart_Poolside",
+        "TRG_Restart_LapPool",
+        "TRG_Restart_Boardwalk",
+        "TRG_Proset1_restartnode",
+        "TRG_G_TS2_RestartNode",
+        "TRG_G_COMP_RestartNode",
+        "TRG_G_COLLECT_RestartNode",
+        "TRG_G_COLLECT2_RestartNode",
+        "TRG_G_COUNTER_RestartNode",
+        "TRG_G_COLLECT3_RestartNode",
+        "TRG_G_TS3_RestartNode",
+        "TRG_G_GAP2_RestartNode",
+        "TRG_G_GAP3_RestartNode",
+        "TRG_G_GS_RestartNode",
+        "TRG_G_Counter4_RestartNode",
+        "TRG_G_Gap4_RestartNode",
+        "TRG_G_Kill_RestartNode",
+        "TRG_G_TS4_RestartNode",
+        "TRG_G_GAP_RestartNode",
+        "TRG_CTF_Restart_Blue",
+        "TRG_CTF_Restart_Red",
+        "TRG_CTF_Restart_Yellow",
+        "TRG_CTF_Restart_Green",
+        "TRG_Team_Restart",
+        "TRG_G_Gap4_IntroNode",
+        "TRG_Restart_Street02"
+      ]
+    },
+    "VC": {
+      "moved": {
+        "TRG_restart_SCJ": {
+          "pos": [
+            769.5992431640625,
+            0,
+            1177.532470703125
+          ],
+          "angles": [
+            0,
+            1.570796012878418,
+            0
+          ]
+        }
+      },
+      "order": [
+        "TRG_restart_SCJ",
+        "TRG_restart_01",
+        "restart_Superior_Court",
+        "TRG_Restart_wf1",
+        "TRG_Restart_street_gb",
+        "TRG_Restart_Mus",
+        "TRG_Restart_sup",
+        "TRG_Restart_wfbridge",
+        "TRG_Restart_SJ",
+        "TRG_G_FILM_RestartNode",
+        "TRG_G_TS_RestartNode",
+        "TRG_G_TS2_RestartNode",
+        "TRG_G_Race_RestartNode",
+        "TRG_G_Race2_RestartNode",
+        "TRG_G_Counter_RestartNode",
+        "TRG_G_Race3_RestartNode",
+        "TRG_G_Gap2_RestartNode",
+        "TRG_G_HS_RestartNode",
+        "TRG_G_Collect2_RestartNode",
+        "TRG_G_Collect3_RestartNode",
+        "TRG_G_Gap3_RestartNode",
+        "TRG_G_Gap_RestartNode",
+        "TRG_G_Counter5_RestartNode",
+        "TRG_G_Horse_RestartNode",
+        "TRG_G_HORSE_Spot01",
+        "TRG_G_HORSE_Spot02",
+        "TRG_G_HORSE_Spot03",
+        "TRG_G_Collect6_RestartNode",
+        "TRG_G_Collect5_RestartNode",
+        "TRG_G_Collect4_RestartNode",
+        "TRG_G_Tetris_RestartNode",
+        "TRG_G_Gap8_RestartNode",
+        "TRG_CTF_Restart_Blue",
+        "TRG_CTF_Restart_Red",
+        "TRG_CTF_Restart_Yellow",
+        "TRG_CTF_Restart_Green",
+        "TRG_Team_Restart",
+        "TRG_G_Collect_RestartNode",
+        "TRG_G_Race4_RestartNode",
+        "TRG_restart_boundary_gb",
+        "TRG_Restart_boundary_supRoof",
+        "TRG_Restart_boundary_supWalk",
+        "TRG_restart_death_smears01",
+        "TRG_restart_death_jax",
+        "TRG_G_Special_RestartNode",
+        "TRG_drive_veh_leaf_end",
+        "TRG_drive_veh_limo_end"
+      ]
+    },
+    "SJ": {
+      "types": {
+        "TRG_G_Collect2_RestartNode": [
+          "Player1"
+        ]
+      },
+      "order": [
+        "TRG_Restart_exit",
+        "TRG_Restart_Player1",
+        "TRG_G_Comp2_RestartNode",
+        "TRG_G_TS_RestartNode",
+        "TRG_G_TS4_RestartNode",
+        "TRG_CTF_Restart_Blue",
+        "TRG_CTF_Restart_Red",
+        "TRG_CTF_Restart_Yellow",
+        "TRG_CTF_Restart_Green",
+        "TRG_Team_Restart"
+      ]
+    },
+    "RU": {
+      "order": [
+        "trj_StartPoint",
+        "trj_RedSquareJump01",
+        "tmj_MallJump01",
+        "toj_OktobrerJump01",
+        "twj_WallJumpEast01",
+        "twj_WallJumpWest01",
+        "TRG_G_COMP_restartnode",
+        "TRG_AlleyRestart",
+        "TRG_ChurchRestart",
+        "TRG_G_Gap_Restartnode",
+        "TRG_G_Collect_Restartnode",
+        "TRG_G_race_Intronode",
+        "TRG_G_race2_intronode",
+        "TRG_G_race4_Restartnode",
+        "TRG_G_TETRIS_Restartnode",
+        "TRG_G_hs_Restartnode",
+        "TRG_G_Tetris2_Restartnode",
+        "TRG_G_Counter3_Restartnode",
+        "TRG_G_Race3_Restartnode",
+        "TRG_G_tetris3_Restartnode",
+        "TRG_G_findgaps_Restartnode",
+        "TRG_G_race6_Restartnode",
+        "TRG_G_ps_Restartnode",
+        "TRG_G_Gap_failnode",
+        "TRG_G_race4_intronode",
+        "TRG_G_ts_RestartNode",
+        "TRG_G_race2_Restartnode",
+        "TRG_CTF_Restart_Blue",
+        "TRG_CTF_Restart_Red",
+        "TRG_CTF_Restart_Yellow",
+        "TRG_CTF_Restart_Green",
+        "TRG_Team_Restart",
+        "TRG_G_Counter3_success",
+        "TRG_G_TETRIS_intronode",
+        "TRG_G_GS2_intronode",
+        "TRG_G_gap2_Restartnode",
+        "TRG_G_gap2_intronode",
+        "TRG_G_Race5_Restartnode",
+        "TRG_G_RACE4_successnode",
+        "TRG_G_race4_failnode"
+      ]
+    },
+    "SE": {
+      "order": [
+        "TRG_02",
+        "TRG_G_HS_RestartNode",
+        "TRG_CTF_Restart_Blue",
+        "TRG_CTF_Restart_Red",
+        "TRG_CTF_Restart_Yellow",
+        "TRG_CTF_Restart_Green",
+        "TRG_Team_Restart"
+      ]
+    },
+    "VN": {
+      "order": [
+        "TRG_Restart01",
+        "TRG_CTF_Restart_Blue",
+        "TRG_CTF_Restart_Red",
+        "TRG_CTF_Restart_Yellow",
+        "TRG_CTF_Restart_Green",
+        "TRG_Team_Restart",
+        "TRG_Multiplayer_01",
+        "TRG_Multiplayer_02",
+        "TRG_Multiplayer_03",
+        "TRG_Multiplayer_04",
+        "TRG_Multiplayer_05",
+        "TRG_Multiplayer_06",
+        "TRG_Multiplayer_07",
+        "TRG_Multiplayer_08"
+      ]
+    },
+    "HN": {
+      "moved": {
+        "TRG_Restart01": {
+          "pos": [
+            -289.5093688964844,
+            200.94851684570312,
+            -2283.810791015625
+          ],
+          "angles": [
+            0,
+            0,
+            0
+          ]
+        }
+      },
+      "order": [
+        "TRG_Restart01",
+        "TRG_CTF_Restart_Blue",
+        "TRG_CTF_Restart_Yellow",
+        "TRG_CTF_Restart_Green",
+        "TRG_Team_Restart",
+        "TRG_Multiplayer_01",
+        "TRG_Multiplayer_02",
+        "TRG_Multiplayer_03",
+        "TRG_Multiplayer_04",
+        "TRG_Multiplayer_05",
+        "TRG_Multiplayer_06",
+        "TRG_Multiplayer_07",
+        "TRG_Multiplayer_08",
+        "TRG_CTF_Restart_Red"
+      ]
+    },
+    "SC2": {
+      "moved": {
+        "TRG_CTF_Restart_Yellow": {
+          "pos": [
+            -3958.95068359375,
+            -1170.9327392578125,
+            -3743.446533203125
+          ],
+          "angles": [
+            0,
+            1.0777679681777954,
+            0
+          ]
+        }
+      },
+      "order": [
+        "TRG_Playerone",
+        "TRG_654",
+        "TRG_CTF_Restart_Blue",
+        "TRG_CTF_Restart_Red",
+        "TRG_CTF_Restart_Yellow",
+        "TRG_CTF_Restart_Green",
+        "TRG_Team_Restart",
+        "TRG_456",
+        "TRG_Multiplayer_002",
+        "TRG_Multiplayer_03",
+        "TRG_Multiplayer_04",
+        "TRG_Multiplayer_05",
+        "TRG_Multiplayer_06",
+        "TRG_Multiplayer_07",
+        "TRG_Multiplayer_08"
+      ]
+    }
   }
 }

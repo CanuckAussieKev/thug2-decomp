@@ -3,8 +3,8 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { checksum, Name, Struct } from "../level_port/qb.ts";
-import { COMPAT, levelName, ownName, setCompat, skyName } from "./thug1_levels.ts";
+import { checksum, Name, Struct, Vector } from "../level_port/qb.ts";
+import { applySpawns, COMPAT, levelName, ownName, setCompat, skyName } from "./thug1_levels.ts";
 
 const struct = (level: string, load: string): Struct =>
     new Struct([
@@ -38,4 +38,48 @@ test("skyName follows the level's name", () => {
     assert.equal(skyName("NJ", "nj", "NJ_Sky"), "nj_sky");
     assert.equal(skyName("SC", "thug1_sc", "SC_Sky"), "thug1_sc_sky");
     assert.equal(skyName("NJ_Skateshop", "thug1_nj_skateshop", "NJ_Sky"), "thug1_nj_sky");
+});
+
+test("TP-31 applySpawns: moves, re-types, renames and reorders the spawns, Links following", () => {
+    const names = new Map<number, string>();
+    const nm = (t: string): Name => {
+        names.set(checksum(t), t);
+        return new Name(checksum(t));
+    };
+    const restart = (name: string, types: string[], x: number, links: number[] = []): Struct =>
+        new Struct([
+            [nm("Pos"), new Vector("vector", [x, 0, 0])],
+            [nm("Name"), nm(name)],
+            [nm("Class"), nm("Restart")],
+            [nm("restart_types"), types.map(nm)],
+            ...(links.length ? ([[nm("Links"), links]] as [Name, number[]][]) : []),
+        ]);
+    const nodes = [
+        restart("A", ["Player1", "Multiplayer"], 0),
+        new Struct([
+            [nm("Name"), nm("Rail")],
+            [nm("Class"), nm("RailNode")],
+            [nm("Links"), [2]],
+        ]),
+        restart("B", ["Multiplayer"], 1),
+        restart("C", ["Multiplayer", "Horse"], 2, [0]),
+    ];
+    const line = applySpawns(
+        nodes,
+        names,
+        {
+            moved: { B: { pos: [5, 6, 7], angles: [0, 1, 0] } },
+            types: { C: ["Player1"] },
+            renamed: { A: "_A" },
+            order: ["B", "A"],
+        },
+        "T",
+    );
+    assert.match(line, /B moved, C \[Player1\], A -> _A, spawn order/);
+    const at = (i: number): string => names.get((nodes[i]!.get("Name") as Name).value)!;
+    assert.deepEqual([at(0), at(1), at(2), at(3)], ["B", "Rail", "_A", "C"]);
+    assert.deepEqual((nodes[0]!.get("Pos") as Vector).values, [5, 6, 7]);
+    assert.deepEqual(nodes[1]!.get("Links"), [0]); // (the rail linked to B, now at 0)
+    assert.deepEqual(nodes[3]!.get("Links"), [2]); // (C linked to A, now at 2)
+    assert.throws(() => applySpawns(nodes, names, { order: ["B"] }, "T"));
 });

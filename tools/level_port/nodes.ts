@@ -228,11 +228,13 @@ export function convertNodes(
     extraKeys: readonly string[] = [],
     asIs: Iterable<Struct> = [],
     scripts: { has(value: number): boolean } = new Set<number>(),
+    player1First = true,
 ): [Struct[], Map<string, number>] {
     // kills: the kill scripts (a map or set of their checksums). extraKeys: more keys kept (THUG1's Pos). asIs: nodes
     // (the objects themselves - Python's id()s) already made THUG2's - kept whole, their Links renumbered (THPS3's game
     // objects, waypoints, peds). scripts: trigger scripts that are kept besides the kill scripts (THPS3's, brought along
-    // by tools/level_port/script_port.ts).
+    // by tools/level_port/script_port.ts). player1First: false keeps the array's own order (the swap below left out -
+    // tools/thug1_levels' TP-31: THUG2's net spawns go by the restarts' order).
     const killMap = kills ?? new Set<number>();
     const asIsSet = new Set<Struct>(asIs);
     const keepKeys = new Set([...KEYS, ...extraKeys.map(checksum)]);
@@ -315,7 +317,7 @@ export function convertNodes(
         const type = n.get("Type");
         return type instanceof Name && type.value === player1 && classOf(n, names) === "restart";
     });
-    if (first > 0) {
+    if (player1First && first > 0) {
         [out[0], out[first]] = [out[first]!, out[0]!];
         const swap = new Map([
             [0, first],
