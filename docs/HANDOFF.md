@@ -23,6 +23,12 @@ then the "- [ ] Next:" line of docs/decomp-progress.md.
     (TR's g_wareNew_spiderweb_01 decal box swallowed clicks), decals skipped, pick filters, lock, click-to-cycle,
     hover outline. Record docs/pending/editor-picking.md.
   Merge all three (conflicts likely in level_editor.cpp / _ui.cpp), install, add their checklists to the page.
+- **Later the same night:** B (preview, 18059e2) and A (edited levels, 61cbab5) merged, pushed, installed with the
+  overlay. The user asked for the REST OF THE BUILD PLAN to be done without agent testing (they test): 3d view options
+  (docs/pending/editor-view.md) and phase 4 chains (editor-chains.md) started off 61cbab5; still to start in order: 3e
+  scaling (after C merges - it touches level_editor_scenery.cpp), phase 5 triggers / gaps / kill zones / teleports
+  (after 3d - collision drawing / face flags), phase 6 full Inspector + apply_layout.ts bake. Agent A saw "Permission
+  denied" creating thug2_check.exe in its worktree's out\build\verify (antivirus?) - mutation runs couldn't build.
 - **Queued (user said yes), after A-C merge:** (D) view options - Show collision (invisible walls in a strong colour,
   surface types, Shift+click selects an invisible wall), editor-only hide / isolate; (E) uniform scaling of scenery
   (render vertices, collision, boxes, rails on it), objects if the model code allows; non-uniform later.
