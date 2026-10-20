@@ -37,8 +37,8 @@ import { COMPAT, findPath, LEVELS, levelName, STAGING } from "./thaw_levels.ts";
 // THUGPRO's names for the levels it renamed (its data\pre file names; the others are the zone's): to find its files.
 const THUGPRO_NAMES = COMPAT.levelNames; // (tools/compat/thugpro/thaw_levels.json)
 const DEFAULT_THUGPRO = pyJoin(process.env.LOCALAPPDATA ?? "", "THUG Pro");
-const TOLERANCE = 0.1; // units (the frames differ by under 1/32: ours in whole sixteenths)
-const CTF_NAMES = [
+export const TOLERANCE = 0.1; // units (the frames differ by under 1/32: ours in whole sixteenths)
+export const CTF_NAMES = [
     ...["Red", "Blue", "Green", "Yellow"].flatMap((c) => ["", "_Base"].map((s) => `TRG_CTF_${c}${s}`)),
     ...["Red", "Blue", "Green", "Yellow"].map((c) => `TRG_Flag_${c}`),
 ];
@@ -81,31 +81,32 @@ export function position(node: Struct): readonly number[] | null {
     return null;
 }
 
-function nameOf(node: Struct): number | null {
+export function nameOf(node: Struct): number | null {
     const v = node.get("Name");
     return v instanceof Name ? v.value : null;
 }
 
-const isName = (v: QbValue | undefined, text: string): boolean => v instanceof Name && v.value === qb.checksum(text);
+export const isName = (v: QbValue | undefined, text: string): boolean =>
+    v instanceof Name && v.value === qb.checksum(text);
 
-const isCrown = (node: Struct): boolean => isName(node.get("Type"), "Crown");
+export const isCrown = (node: Struct): boolean => isName(node.get("Type"), "Crown");
 
-function isMpRestart(node: Struct): boolean {
+export function isMpRestart(node: Struct): boolean {
     const types = node.get("restart_types");
     return isName(node.get("Class"), "Restart") && Array.isArray(types) && types.some((t) => isName(t, "Multiplayer"));
 }
 
-type Placed = [number | null, readonly number[] | null];
+export type Placed = [number | null, readonly number[] | null];
 
-function sequence(array: readonly QbValue[], test: (n: Struct) => boolean): Placed[] {
+export function sequence(array: readonly QbValue[], test: (n: Struct) => boolean): Placed[] {
     return array.filter((n): n is Struct => n instanceof Struct && test(n)).map((n) => [nameOf(n), position(n)]);
 }
 
-const maxDiff = (a: readonly number[], b: readonly number[]): number =>
+export const maxDiff = (a: readonly number[], b: readonly number[]): number =>
     Math.max(...[0, 1, 2].map((k) => Math.abs(a[k]! - b[k]!)));
 
 // [verdict, differing count]
-function sameSequence(a: readonly Placed[], b: readonly Placed[]): [string, number] {
+export function sameSequence(a: readonly Placed[], b: readonly Placed[]): [string, number] {
     if (a.length !== b.length) return [`count ${a.length} vs ${b.length}`, Math.max(a.length, b.length)];
     let bad = 0;
     a.forEach(([, pa], i) => {
