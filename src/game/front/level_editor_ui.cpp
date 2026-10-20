@@ -17,6 +17,7 @@
 #include "game/front/level_editor_nodes.h"
 #include "game/front/level_editor_picking.h"
 #include "game/front/level_editor_triggers.h"
+#include "game/front/level_editor_scale.h"
 #include "game/front/level_editor_ui_backend.h"
 #include "game/front/level_editor_ui_fonts.h"
 #include "game/front/level_editor_ui_layout.h"
@@ -259,6 +260,8 @@ void CollisionLegend(const Model& model)
     }
     ImGui::TextDisabled("%d faces in %d pieces (%d invisible walls)%s", model.view.triangles, model.view.sectors,
                         model.view.walls, model.view.capped ? " - the nearest only" : "");
+    if (model.view.off > 0)
+        ImGui::TextDisabled("Faded / dashed: collision switched off (%d pieces)", model.view.off);
     ImGui::TextDisabled("Not coloured: 0x80 camera passes, 0x2000 not taggable");
     ImGui::PopFont();
     ImGui::End();
@@ -279,10 +282,47 @@ void ViewSection(const Model& model)
         ImGui::PushFont(g_mono);
         ImGui::TextWrapped("%s", model.view.wallInfo.c_str());
         ImGui::PopFont();
-        ImGui::TextWrapped("Collision without a drawn piece can't be moved or hidden yet: the editor's moves, undo and "
-                           "layouts go by a piece's geometry.");
+        // (level_editor_walls.h: the game's own switch, CSector::SetActive; moved and turned as scenery)
+        if (model.view.wallOff)
+            ImGui::TextColored(ImVec4(1.0f, 0.55f, 0.3f, 1.0f), "%s", model.view.wallState.c_str());
+        else
+            ImGui::TextWrapped("%s", model.view.wallState.c_str());
+        if (model.view.wallOff) {
+            if (ImGui::Button("Restore (Del / Home)"))
+                Ask(Request::kWallCollision, 1);
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Switches its collision on again: the skater's feelers hit it");
+        } else {
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.62f, 0.22f, 0.30f, 0.85f));
+            if (ImGui::Button("Delete wall (Del)"))
+                Ask(Request::kWallCollision, 0);
+            ImGui::PopStyleColor();
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Switches its collision off (the game's own switch - as a Kill of its node): the skater "
+                                  "passes it.\nIt stays drawn dashed here so you can bring it back; saved in the layout");
+        }
+        ImGui::SameLine();
+        ImGui::BeginDisabled(!model.view.wallMoved && !model.view.wallOff);
+        if (ImGui::Button("Put back (Home)##wall"))
+            Ask(Request::kReset);
+        ImGui::EndDisabled();
+        if (ImGui::Button("Ground (G)##wall"))
+            Ask(Request::kDrop);
+        ImGui::SameLine();
         if (ImGui::Button("Close##wall"))
             Ask(Request::kClearWall);
+        ImGui::TextDisabled("Move: drag its face or an arrow, W A S D / Q E; Z / X a quarter turn");
+    }
+    if (model.view.sceneryCollision >= 0 && !model.view.wall) {
+        // A drawn piece's collision switched off by itself (it stays drawn; the same switch, level_editor_walls.h).
+        ImGui::Spacing();
+        ImGui::Separator();
+        bool on = model.view.sceneryCollision == 1;
+        if (ImGui::Checkbox(model.view.sceneryCollision == 2 ? "Collision (some off)" : "Collision", &on))
+            Ask(Request::kSceneryCollision, on ? 1 : 0);
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Off: the piece stays drawn but the skater passes through it (saved in the layout; shown "
+                              "faded with the collision view)");
     }
     if (model.view.canHide || model.view.hidden > 0) {
         ImGui::Spacing();
@@ -739,8 +779,8 @@ void NodeSection(const Model& model, int index)
                 FieldLabel("Moves");
                 bool whole = model.nodes.wholeRail;
                 char label[64];
-                std::snprintf(label, sizeof(label), "Whole rail (L) - %d point%s", model.nodes.railPoints,
-                              model.nodes.railPoints == 1 ? "" : "s");
+                std::snprintf(label, sizeof(label), "Whole %s (L) - %d point%s", model.nodes.chainNoun,
+                              model.nodes.railPoints, model.nodes.railPoints == 1 ? "" : "s");
                 if (ImGui::Checkbox(label, &whole))
                     Ask(Request::kWholeRail, whole ? 1 : 0);
                 if (ImGui::IsItemHovered())
@@ -885,6 +925,11 @@ void NodeSection(const Model& model, int index)
             ImGui::SameLine();
         }
     }
+    // Phase 4: a rail's / path's operations, a rail's terrain, a ped's / car's path (level_editor_chains_ui.cpp).
+    if ((model.nodes.nodeOnly || model.chain.object) && model.chain.show) {
+        ImGui::NewLine();
+        ChainSection(model.chain, &g_requests);
+    }
     if (ImGui::Button("Go to"))
         Ask(Request::kGoToNode, index);
     // Every field of its structure.
@@ -953,10 +998,10 @@ void Inspector(const Model& model)
     if (model.nodes.nodeOnly) {
         NodeSection(model, model.nodes.selected);
         Triggers::InspectorSection(model.nodes.selected); // (a trigger volume's settings - level_editor_triggers.h)
-    } else if (s.objects == 0 && s.sectors == 0) {
+    } else if (s.objects == 0 && s.sectors == 0 && !model.view.wall) {
         ImGui::TextWrapped("Nothing selected - click something in the view (a gizmo, an object, scenery), or pick it "
                            "in the Outliner.");
-    } else {
+    } else if (s.objects > 0 || s.sectors > 0) {
         ImGui::PushFont(g_heading);
         ImGui::TextWrapped("%s", s.name.c_str());
         ImGui::PopFont();
@@ -978,6 +1023,29 @@ void Inspector(const Model& model)
                 Muted("Heading");
                 ImGui::TableNextColumn();
                 Mono("%.1f\xC2\xB0", s.headingDegrees);
+            }
+            if (s.scalable) {
+                // Scenery's uniform scale (level_editor_scale.h): dragged to scrub, Ctrl+click to type; one undo step.
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                Muted("Scale");
+                ImGui::TableNextColumn();
+                float scale = s.scale;
+                ImGui::PushFont(g_mono);
+                ImGui::SetNextItemWidth(110.0f * g_scale);
+                if (ImGui::DragFloat("##scale", &scale, 0.005f, Scale::kMin, Scale::kMax, "%.3fx",
+                                     ImGuiSliderFlags_AlwaysClamp)) {
+                    Request request = {Request::kScaleSet};
+                    request.a[0] = scale;
+                    g_requests.push_back(request);
+                }
+                if (ImGui::IsItemDeactivated())
+                    Ask(Request::kScaleDone);
+                ImGui::PopFont();
+                if (ImGui::IsItemHovered())
+                    ImGui::SetTooltip("Uniform scale, %.2fx to %.0fx, about the middle of its bottom ([ / ]: 10%%, "
+                                      "Shift: 1%%; Home: back to 1x)",
+                                      Scale::kMin, Scale::kMax);
             }
             if (s.objects > 1 || s.sectors > 1) {
                 ImGui::TableNextRow();
@@ -1085,16 +1153,26 @@ void Help(const Model& model)
         {"", "Pick: (toolbar)", "what clicks may take: nodes, objects, scenery"},
         {"", "Esc, Backspace", "deselects"},
         {"", "A gizmo, an Outliner row", "a node: spawns, crowns, flags, lights, sounds, triggers, rails and other "
-                                         "point nodes move as objects do (paths, ladders and particles don't yet)"},
-        {"", "L", "with a rail point selected: it moves with its whole rail / by itself (the Inspector's Whole rail)"},
+                                         "point nodes move as objects do; rail, ladder and path points too (particles don't yet)"},
+        {"", "L", "with a rail, ladder or path point selected: it moves with its whole chain / by itself (the "
+                  "Inspector's Whole rail / ladder / path)"},
+        {"Chains", "N > Rail / Path", "draw a new rail or path: each click a point (snapped to an edge of what the "
+                                     "cursor hits - Alt: not; near a free end: linked onto it), Enter or a right click "
+                                     "finishes, Esc stops"},
+        {"", "Insert", "(a rail / path point) a point halfway to the next"},
+        {"", "Delete", "(a rail / path point) deleted, the points either side linked (a level's own: hidden)"},
+        {"", "End", "(an end point) draw on from it"},
+        {"", "J / U", "(a point) link this end to the next end clicked / unlink it from its next point"},
+        {"", "Inspector", "a rail's terrain (whole rail); a ped's / car's path: Assign, then click a waypoint"},
         {"Moving", "Drag", "moves it (Shift: up / down; wheel: push / pull; Ctrl or Snap 25: snap to 25)"},
         {"", "Drag an arrow", "along that axis only"},
         {"", "W A S D / Q E", "nudge it"},
         {"", "Z / X", "turn (objects and nodes 15\xC2\xB0, scenery a quarter)"},
+        {"", "[ / ]", "scale scenery down / up 10% (Shift: 1%) about its bottom, 0.25x to 4x - or the Inspector's Scale"},
         {"", "G", "drops it onto the ground"},
         {"", "Inspector", "a node's position and heading: drag to scrub, Ctrl+click to type"},
         {"Editing", "Ctrl+D", "duplicates"},
-        {"", "Delete", "hides scenery (deletes a copy)"},
+        {"", "Delete", "hides scenery (deletes a copy); an invisible wall: its collision off / on again"},
         {"", "Home", "puts it back where the level had it"},
         {"", "Ctrl+Z / Ctrl+Y", "undo / redo"},
         {"", "Ctrl+Shift+Delete", "Reset level: everything as the level has it, its saved layout deleted (asks; "
@@ -1106,7 +1184,11 @@ void Help(const Model& model)
         {"", "Ctrl+R / Ctrl+Shift+R", "restore / discard an older autosave"},
         {"Leaving", "Esc", "first cancels a drag, closes a window or deselects; then leaves"},
         {"View", "C", "shows the collision near the camera, coloured by surface (the legend); invisible walls magenta"},
-        {"", "Shift+click", "with the collision shown: an invisible wall - what it is (the Inspector)"},
+        {"", "Shift+click", "with the collision shown: an invisible wall - what it is (the Inspector); then Delete "
+                             "switches its collision off (drawn dashed; Delete / Home / Restore on again), drag its face "
+                             "or an arrow, W A S D / Q E, Z / X and G move it - undo, saved in the layout"},
+        {"", "Inspector: Collision", "(selected scenery) its collision off by itself - drawn, but the skater passes "
+                                     "through; saved in the layout"},
         {"", "H", "hides the selection while editing (from the view and from clicks; never saved, never in play)"},
         {"", "I or /", "isolates the selection: everything else hidden while editing"},
         {"", "Alt+H", "shows everything hidden in the editor again"},
@@ -1118,6 +1200,8 @@ void Help(const Model& model)
                                "Inspector"},
         {"", "Delete, Ctrl+Z", "deletes an added volume, undoes; a level's own one: Turn off, or Make an editable copy "
                                "(in its place, the original off) - the Triggers window"},
+        {"", "O", "occlusion culling: off while editing (the level's occluders are placed for the skater's view and "
+                   "hide distant things from the flying camera); O turns it on as in play"},
         {"Camera", "P", "writes where the camera is to the log (a menu backdrop view)"},
         {"Panels", "Mouse", "over a panel the UI takes the mouse; the keys stay the editor's unless you type"},
     };

@@ -68,6 +68,11 @@ struct Spec {
     // layout records, so it isn't a `node` record.
     std::vector<Field> extra;
     bool owned = false;
+    // Chain points (level_editor_chains.h - RailNode, Waypoint): the node whose fields it copies (0: none), a rail's
+    // TerrainType ("": the default) and its links= (names: kept out of the node manager's ResolveLinks - Sync).
+    uint32_t like = 0;
+    std::string terrain;
+    std::vector<uint32_t> links;
 };
 bool SameSpec(const Spec& a, const Spec& b);
 
@@ -136,6 +141,9 @@ const char* WhyNot(Kind kind, Team team);
 // Added (`index`: in the overlay, -1 at the end) - its structure made, the overlay re-registered, the game's
 // proximity node / emitter / light made. False (and `message`): a name already there, not in a level.
 bool Create(const Spec& spec, int index, std::string* message);
+// An added node's links= (names) set: its spec and its structure (chain points - level_editor_chains.h). False: not
+// an added node.
+bool SetLinks(uint32_t name, const std::vector<uint32_t>& links);
 // Several at once (a layout: one re-registration). How many were made.
 int CreateAll(const List& specs, std::string* message);
 // An added node removed (its spec as it is now and its index: undo puts it back).

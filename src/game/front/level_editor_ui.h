@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "game/front/level_editor.h"
+#include "game/front/level_editor_chains.h"
 
 union SDL_Event;
 
@@ -90,6 +91,12 @@ struct Model {
         bool canHide = false;
         uint32_t wall = 0;
         std::string wallName, wallInfo;
+        // (level_editor_walls.h) the wall's collision switched off, moved, both in words; how many pieces drawn have
+        // their collision off; the selected scenery's Collision checkbox (-1 none, 0 off, 1 on, 2 mixed).
+        bool wallOff = false, wallMoved = false;
+        std::string wallState;
+        int off = 0;
+        int sceneryCollision = -1;
     } view;
     // The selection, for the Inspector.
     struct Selection {
@@ -99,6 +106,9 @@ struct Model {
         bool hasHeading = false;
         float headingDegrees = 0.0f;
         uint32_t checksum = 0;
+        // Scenery: its scale (level_editor_scale.h - the Inspector's Scale field).
+        bool scalable = false;
+        float scale = 1.0f;
     } selection;
     // The help (F1) and the browser (B).
     bool help;
@@ -141,7 +151,11 @@ struct Model {
         // A rail node: it moves with its whole rail (else alone - L), how many points that is.
         bool rail = false, wholeRail = true;
         int railPoints = 0;
+        const char* chainNoun = "rail"; // (phase 4: "rail", "ladder" or "path" - the Whole ... checkbox)
     } nodes;
+    // Phase 4 (level_editor_chains.h): the selected node's chain - a rail's, a path's, or a ped's / car's path - and
+    // what the editor waits for (drawing, a pick).
+    Chains::View chain;
     // The Place palette (N): what can be added - each entry's label, gizmo colour and, when it can't be now, why -
     // and the one armed (a click in the view places it; -1: none).
     struct PlaceView {
@@ -247,12 +261,21 @@ struct Request {
         kViewIsolate,   // I or /: everything but the selection hidden while editing
         kViewShowAll,   // Alt+H: everything shown again
         kClearWall,     // the invisible wall's Inspector closed
+        kScaleSet,      // the Inspector's Scale (scenery): a[0] = the scale asked for
+        kScaleDone,     // that field let go (the changes since its first kScaleSet: one undo step)
+        kChainOp,       // value: a Chains::Op on the selected node, id: its argument (a terrain)
+        kWallCollision, // value: 0 / 1 - the selected invisible wall's collision off (Delete wall) / on (Restore)
+        kSceneryCollision, // value: 0 / 1 - the selected scenery's collision off / on (the Inspector's Collision)
     } kind;
     int value = 0;
     uint32_t id = 0;
     float a[3] = {}, b[3] = {};
 };
 std::vector<Request> TakeRequests();
+
+// The Inspector's chain section (level_editor_chains_ui.cpp): drawn inside the node's section; what's asked for added
+// to `requests`.
+void ChainSection(const Chains::View& chain, std::vector<Request>* requests);
 
 // The preview picture's size in pixels for the window's size now (256 at 1280 x 720, up to 512).
 int PreviewPixels();

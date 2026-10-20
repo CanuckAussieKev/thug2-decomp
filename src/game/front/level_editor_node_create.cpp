@@ -116,7 +116,8 @@ bool SameSpec(const Spec& a, const Spec& b)
            a.pos.z == b.pos.z && a.angles.x == b.angles.x && a.angles.y == b.angles.y && a.angles.z == b.angles.z &&
            a.types == b.types && a.colour[0] == b.colour[0] && a.colour[1] == b.colour[1] &&
            a.colour[2] == b.colour[2] && a.brightness == b.brightness && a.inner == b.inner && a.outer == b.outer &&
-           a.radius == b.radius && a.owned == b.owned && a.extra.size() == b.extra.size() &&
+           a.radius == b.radius && a.like == b.like && a.terrain == b.terrain && a.links == b.links &&
+           a.owned == b.owned && a.extra.size() == b.extra.size() &&
            std::equal(a.extra.begin(), a.extra.end(), b.extra.begin(), [](const Field& x, const Field& y) {
                return x.type == y.type && x.key == y.key && x.text == y.text && x.value[0] == y.value[0] &&
                       x.value[1] == y.value[1] && x.value[2] == y.value[2] && x.integer == y.integer &&
@@ -286,6 +287,14 @@ std::vector<Field> Fields(const Spec& spec)
     name("Class", spec.cls);
     if (!spec.type.empty())
         name("Type", spec.type);
+    // Chain points (level_editor_chains.h): made at the start; a rail's terrain (the rail manager reads it - an
+    // unknown one would crash 0x004442C0, so a known one always: the editor's default, a grind metal).
+    if (SameText(spec.cls, "RailNode") || SameText(spec.cls, "Waypoint")) {
+        flag("CreatedAtStart");
+        if (SameText(spec.cls, "RailNode"))
+            name("TerrainType", spec.terrain.empty() ? std::string("TERRAIN_GRINDMETAL") : spec.terrain);
+        return fields;
+    }
     Kind kind;
     if (!KindOf(spec, &kind)) {
         fields.insert(fields.end(), spec.extra.begin(), spec.extra.end()); // (another module's node)
@@ -517,8 +526,23 @@ Script::CStruct* Build(const Spec& spec)
     if (!node)
         return nullptr;
     node->Init();
+    // A chain point drawn on from another copies that one's fields (its own name, place and links aside; not a trick
+    // object of the other's cluster) - level_editor_chains.h.
+    Script::CStruct* like = spec.like && Manager() ? SkateScript::GetNode(spec.like, false) : nullptr;
+    if (like) {
+        node->AppendStructure(like);
+        for (const char* key : {"Name", "Pos", "Angles", "Links", "Cluster", "ed_hidden_class", "ed_hidden_type"})
+            node->RemoveComponent(Checksum(key));
+        node->RemoveFlag(Checksum("TrickObject"));
+    }
     for (const Field& f : Fields(spec)) {
         uint32_t key = f.key.empty() ? 0u : Checksum(f.key);
+        if (like && f.type == Field::kFlag && node->ContainsFlag(Checksum(f.text)))
+            continue;
+        if (like && f.key == "TerrainType" && spec.terrain.empty())
+            continue; // (the copied one)
+        if (like && key)
+            node->RemoveComponent(key);
         switch (f.type) {
         case Field::kFlag:
             node->AddChecksum(0u, Checksum(f.text));
@@ -566,6 +590,24 @@ void Free(Script::CStruct* node)
     Script::DeleteStruct(node);
 }
 
+constexpr uint32_t kLinks = 0x2E7D5EE7; // links
+
+// A structure's links= set to these names (none: removed).
+void WriteLinks(Script::CStruct* node, const std::vector<uint32_t>& links)
+{
+    node->RemoveComponent(kLinks);
+    if (links.empty())
+        return;
+    Script::CArray* array = Script::NewArray();
+    if (!array)
+        return;
+    array->Init();
+    array->SetSizeAndType(static_cast<uint32_t>(links.size()), Script::ESYMBOLTYPE_NAME);
+    for (size_t i = 0; i < links.size(); ++i)
+        array->SetElement(static_cast<uint32_t>(i), links[i]);
+    node->AddArrayPointer(kLinks, array);
+}
+
 // The overlay registered again with its structures as they are now (none: not registered).
 bool Sync()
 {
@@ -600,9 +642,14 @@ bool Sync()
     }
     g_levelArray = manager->GetLastNodeArrayName(); // (the overlay passed over: the level's)
     g_array->SetSizeAndType(static_cast<uint32_t>(g_structs.size()), Script::ESYMBOLTYPE_STRUCTURE);
-    for (size_t i = 0; i < g_structs.size(); ++i)
+    for (size_t i = 0; i < g_structs.size(); ++i) {
         g_array->SetElement(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(g_structs[i]));
+        // (links= are names already: kept out of AddNodeArray's ResolveLinks, which reads indices - put on after)
+        g_structs[i]->RemoveComponent(kLinks);
+    }
     g_registered = manager->AddNodeArray(Nodes::OverlayArray(), false);
+    for (size_t i = 0; i < g_structs.size(); ++i)
+        WriteLinks(g_structs[i], g_list[i].links);
     Nodes::Invalidate();
     return g_registered;
 }
@@ -843,6 +890,19 @@ bool Remove(uint32_t name, Spec* spec, int* index)
         NodeEdit::Forget(name);
         Free(node);
         Log("level editor: removed the added node %s", spec->name.c_str());
+        return true;
+    }
+    return false;
+}
+
+bool SetLinks(uint32_t name, const std::vector<uint32_t>& links)
+{
+    for (size_t i = 0; i < g_list.size(); ++i) {
+        if (Checksum(g_list[i].name) != name)
+            continue;
+        g_list[i].links = links;
+        WriteLinks(g_structs[i], links);
+        Nodes::Invalidate();
         return true;
     }
     return false;

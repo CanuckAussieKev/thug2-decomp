@@ -89,6 +89,9 @@ bool SetRailPoint(uint32_t name, V3 pos);
 std::vector<uint32_t> RailOf(uint32_t name);
 // A number that changes whenever rail points move (the node layer reads their places again).
 uint32_t RailGeneration();
+// The rail manager's nodes were made again (level_editor_chains.h - its RebuildRails): the rail points the editor tracks
+// found again by name (those gone forgotten), and the generation moved on.
+void RailsRebuilt();
 // Every rail and ladder point with its place now (the node layer).
 void ForEachRailPoint(void (*each)(void* context, uint32_t name, V3 pos), void* context);
 // The editor starting: no selection, node lookups forgotten.
@@ -104,7 +107,15 @@ float Bottom();
 void SetSelection(const std::vector<uint32_t>& sectors);
 void MoveTo(V3 pivot);
 void Turn(int quarters);
+// Scaling (level_editor_scale.h): the selection's scale (its first piece's; 1 when not scaled), and the selection scaled
+// by `factor` about the middle of its bottom - limited so every piece stays within 0.25x..4x (less for compressed
+// collision). Returns the factor used (1: none). Vertices and collision at once, as Turn; Commit after.
+float SelectionScale();
+float ScaleSelection(float factor);
 void Commit();
+// A sector's collision moved by something else (level_editor_walls.h: an invisible wall): flagged for the super sectors'
+// update as moves are, its scene updated at the next Commit.
+void NoteCollisionMoved(uint32_t checksum);
 // How many sectors have been moved since the level loaded.
 int MovedCount();
 

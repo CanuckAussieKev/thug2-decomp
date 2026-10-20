@@ -1,0 +1,1575 @@
+// NOT ORIGINAL - the level editor's chains: grind rails, ladders and paths (ours). See level_editor_chains.h.
+
+#include "game/front/level_editor_chains.h"
+
+#include <algorithm>
+#include <cctype>
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <set>
+#include <unordered_map>
+
+#include "game/core/crc.h"
+#include "game/core/manager.h"
+#include "game/core/mem.h"
+#include "game/front/level_editor_node_create.h"
+#include "game/front/level_editor_node_edit.h"
+#include "game/front/level_editor_nodes.h"
+#include "game/front/level_editor_objects.h"
+#include "game/front/level_editor_scenery.h"
+#include "game/obj/object.h"
+#include "game/obj/rail_manager.h"
+#include "game/script/node_manager.h"
+#include "game/script/nodes.h"
+#include "game/script/struct.h"
+#include "hook/game.h"
+#include "hook/log.h"
+
+namespace Front::LevelEditor::Chains {
+
+// --- the pure parts ---------------------------------------------------------------------------------------------
+
+namespace {
+
+bool SameText(const std::string& a, const char* b)
+{
+    if (a.size() != std::strlen(b))
+        return false;
+    for (size_t i = 0; i < a.size(); ++i) {
+        char x = a[i], y = b[i];
+        if (x >= 'A' && x <= 'Z')
+            x = static_cast<char>(x - 'A' + 'a');
+        if (y >= 'A' && y <= 'Z')
+            y = static_cast<char>(y - 'A' + 'a');
+        if (x != y)
+            return false;
+    }
+    return true;
+}
+
+bool SameV3(V3 a, V3 b) { return a.x == b.x && a.y == b.y && a.z == b.z; }
+
+void Hex(std::ostringstream& out, uint32_t value)
+{
+    char text[16];
+    std::snprintf(text, sizeof(text), "%08X", value);
+    out << text;
+}
+
+bool ParseHex(const std::string& text, uint32_t* value)
+{
+    if (text.size() != 8)
+        return false;
+    for (char c : text) {
+        if (!std::isxdigit(static_cast<unsigned char>(c)))
+            return false;
+    }
+    *value = static_cast<uint32_t>(std::strtoul(text.c_str(), nullptr, 16));
+    return true;
+}
+
+bool ReadHexWord(std::istringstream& in, uint32_t* value)
+{
+    std::string word;
+    return static_cast<bool>(in >> word) && ParseHex(word, value);
+}
+
+// "a,b,c" of 8-hex-digit names (none: false).
+bool ParseNames(const std::string& text, std::vector<uint32_t>* out)
+{
+    out->clear();
+    size_t start = 0;
+    while (start <= text.size()) {
+        size_t comma = text.find(',', start);
+        std::string word = text.substr(start, comma == std::string::npos ? std::string::npos : comma - start);
+        uint32_t value;
+        if (!ParseHex(word, &value))
+            return false;
+        out->push_back(value);
+        if (comma == std::string::npos)
+            break;
+        start = comma + 1;
+    }
+    return !out->empty();
+}
+
+void Names(std::ostringstream& out, const std::vector<uint32_t>& names)
+{
+    for (size_t i = 0; i < names.size(); ++i) {
+        if (i)
+            out << ',';
+        Hex(out, names[i]);
+    }
+}
+
+bool ValidWord(const std::string& name)
+{
+    if (name.empty() || name.size() > 63)
+        return false;
+    for (char c : name) {
+        if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'))
+            return false;
+    }
+    return true;
+}
+
+bool ReadTriple(const std::string& text, V3* out)
+{
+    float v[3];
+    const char* at = text.c_str();
+    for (int i = 0; i < 3; ++i) {
+        char* end = nullptr;
+        v[i] = std::strtof(at, &end);
+        if (end == at || !std::isfinite(v[i]))
+            return false;
+        at = end;
+        if (i < 2) {
+            if (*at != ',')
+                return false;
+            ++at;
+        }
+    }
+    if (*at != '\0')
+        return false;
+    *out = {v[0], v[1], v[2]};
+    return true;
+}
+
+template <typename T> void SortByName(std::vector<T>* list)
+{
+    std::sort(list->begin(), list->end(), [](const T& a, const T& b) { return a.name < b.name; });
+}
+
+} // namespace
+
+bool SamePoint(const Point& a, const Point& b)
+{
+    return a.name == b.name && a.cls == b.cls && SameV3(a.pos, b.pos) && a.like == b.like && a.terrain == b.terrain &&
+           a.links == b.links;
+}
+
+bool SameState(const State& a, const State& b)
+{
+    if (a.points.size() != b.points.size() || a.links.size() != b.links.size() || a.dropped != b.dropped ||
+        a.terrains.size() != b.terrains.size())
+        return false;
+    for (size_t i = 0; i < a.points.size(); ++i) {
+        if (!SamePoint(a.points[i], b.points[i]))
+            return false;
+    }
+    for (size_t i = 0; i < a.links.size(); ++i) {
+        if (a.links[i].name != b.links[i].name || a.links[i].links != b.links[i].links)
+            return false;
+    }
+    for (size_t i = 0; i < a.terrains.size(); ++i) {
+        if (a.terrains[i].name != b.terrains[i].name || a.terrains[i].terrain != b.terrains[i].terrain)
+            return false;
+    }
+    return true;
+}
+
+bool Empty(const State& state)
+{
+    return state.points.empty() && state.links.empty() && state.dropped.empty() && state.terrains.empty();
+}
+
+bool IsChainClass(const std::string& cls) { return SameText(cls, "RailNode") || SameText(cls, "Waypoint"); }
+
+std::string WriteRecords(const State& state)
+{
+    std::ostringstream out;
+    for (const Point& p : state.points) {
+        char pos[96];
+        std::snprintf(pos, sizeof(pos), " pos=%.9g,%.9g,%.9g", p.pos.x, p.pos.y, p.pos.z);
+        out << "point " << p.name << ' ' << p.cls << pos;
+        if (p.like) {
+            out << " like=";
+            Hex(out, p.like);
+        }
+        if (!p.terrain.empty())
+            out << " terrain=" << p.terrain;
+        if (!p.links.empty()) {
+            out << " links=";
+            Names(out, p.links);
+        }
+        out << '\n';
+    }
+    for (const LinkEdit& l : state.links) {
+        out << "links ";
+        Hex(out, l.name);
+        out << ' ';
+        if (l.links.empty())
+            out << '-';
+        else
+            Names(out, l.links);
+        out << '\n';
+    }
+    for (uint32_t name : state.dropped) {
+        out << "drop ";
+        Hex(out, name);
+        out << '\n';
+    }
+    for (const TerrainEdit& t : state.terrains) {
+        out << "terrain ";
+        Hex(out, t.name);
+        out << ' ' << t.terrain << '\n';
+    }
+    return out.str();
+}
+
+bool IsRecord(const std::string& kind)
+{
+    return kind == "point" || kind == "links" || kind == "drop" || kind == "terrain";
+}
+
+bool ReadRecord(const std::string& kind, std::istringstream& in, State* state)
+{
+    if (kind == "point") {
+        Point p;
+        if (!(in >> p.name >> p.cls) || !ValidWord(p.name) || !IsChainClass(p.cls))
+            return false;
+        std::vector<std::string> seen;
+        std::string field;
+        while (in >> field) {
+            size_t equals = field.find('=');
+            if (equals == std::string::npos || equals == 0)
+                return false;
+            std::string key = field.substr(0, equals), value = field.substr(equals + 1);
+            if (std::find(seen.begin(), seen.end(), key) != seen.end())
+                return false;
+            seen.push_back(key);
+            if (key == "pos") {
+                if (!ReadTriple(value, &p.pos))
+                    return false;
+            } else if (key == "like") {
+                if (!ParseHex(value, &p.like))
+                    return false;
+            } else if (key == "terrain") {
+                if (!ValidWord(value))
+                    return false;
+                p.terrain = value;
+            } else if (key == "links") {
+                if (!ParseNames(value, &p.links))
+                    return false;
+            } // (others: a later version's - skipped)
+        }
+        if (std::find(seen.begin(), seen.end(), "pos") == seen.end())
+            return false;
+        for (const Point& q : state->points) {
+            if (SameText(q.name, p.name.c_str()))
+                return false;
+        }
+        state->points.push_back(p);
+        return true;
+    }
+    if (kind == "links") {
+        LinkEdit l = {};
+        std::string value;
+        if (!ReadHexWord(in, &l.name) || !(in >> value))
+            return false;
+        if (value != "-" && !ParseNames(value, &l.links))
+            return false;
+        for (LinkEdit& other : state->links) {
+            if (other.name == l.name)
+                return false;
+        }
+        state->links.push_back(l);
+        SortByName(&state->links);
+        return true;
+    }
+    if (kind == "drop") {
+        uint32_t name;
+        if (!ReadHexWord(in, &name))
+            return false;
+        if (std::find(state->dropped.begin(), state->dropped.end(), name) == state->dropped.end()) {
+            state->dropped.push_back(name);
+            std::sort(state->dropped.begin(), state->dropped.end());
+        }
+        return true;
+    }
+    if (kind == "terrain") {
+        TerrainEdit t = {};
+        if (!ReadHexWord(in, &t.name) || !(in >> t.terrain) || !ValidWord(t.terrain))
+            return false;
+        for (TerrainEdit& other : state->terrains) {
+            if (other.name == t.name)
+                return false;
+        }
+        state->terrains.push_back(t);
+        SortByName(&state->terrains);
+        return true;
+    }
+    return false;
+}
+
+std::vector<uint32_t> Predecessors(const Graph& graph, uint32_t name)
+{
+    std::vector<uint32_t> found;
+    for (const auto& entry : graph) {
+        if (entry.first != name && std::find(entry.second.begin(), entry.second.end(), name) != entry.second.end())
+            found.push_back(entry.first);
+    }
+    return found;
+}
+
+namespace {
+const std::vector<uint32_t>& LinksOf(const Graph& graph, uint32_t name)
+{
+    static const std::vector<uint32_t> none;
+    auto it = graph.find(name);
+    return it == graph.end() ? none : it->second;
+}
+} // namespace
+
+bool IsLast(const Graph& graph, uint32_t name) { return LinksOf(graph, name).empty(); }
+bool IsFirst(const Graph& graph, uint32_t name) { return Predecessors(graph, name).empty(); }
+
+bool Extend(Graph* graph, uint32_t from, uint32_t point)
+{
+    if (from == point || graph->count(point))
+        return false;
+    if (IsLast(*graph, from)) {
+        (*graph)[from] = {point};
+        (*graph)[point] = {};
+        return true;
+    }
+    if (IsFirst(*graph, from)) {
+        (*graph)[point] = {from};
+        return true;
+    }
+    return false;
+}
+
+bool InsertAfter(Graph* graph, uint32_t from, uint32_t point)
+{
+    auto it = graph->find(from);
+    if (it == graph->end() || it->second.empty() || from == point || graph->count(point))
+        return false;
+    uint32_t next = it->second.front();
+    it->second.front() = point;
+    (*graph)[point] = {next};
+    return true;
+}
+
+void Remove(Graph* graph, uint32_t name)
+{
+    std::vector<uint32_t> own = LinksOf(*graph, name);
+    uint32_t next = own.empty() ? 0 : own.front();
+    for (auto& entry : *graph) {
+        if (entry.first == name)
+            continue;
+        std::vector<uint32_t>& links = entry.second;
+        auto at = std::find(links.begin(), links.end(), name);
+        if (at == links.end())
+            continue;
+        bool already = next && std::find(links.begin(), links.end(), next) != links.end();
+        if (next && !already && next != entry.first)
+            *at = next;
+        else
+            links.erase(at);
+    }
+    (*graph)[name] = {};
+}
+
+bool Link(Graph* graph, uint32_t a, uint32_t b)
+{
+    if (a == b)
+        return false;
+    if (IsLast(*graph, a)) {
+        (*graph)[a] = {b};
+        if (!graph->count(b))
+            (*graph)[b] = {};
+        return true;
+    }
+    if (IsLast(*graph, b)) {
+        (*graph)[b] = {a};
+        return true;
+    }
+    return false;
+}
+
+bool Unlink(Graph* graph, uint32_t name)
+{
+    auto it = graph->find(name);
+    if (it == graph->end() || it->second.empty())
+        return false;
+    it->second.erase(it->second.begin());
+    return true;
+}
+
+std::vector<uint32_t> Connected(const Graph& graph, uint32_t name)
+{
+    std::vector<uint32_t> found = {name};
+    for (size_t i = 0; i < found.size(); ++i) {
+        uint32_t at = found[i];
+        std::vector<uint32_t> near = LinksOf(graph, at);
+        for (uint32_t p : Predecessors(graph, at))
+            near.push_back(p);
+        for (uint32_t n : near) {
+            if (std::find(found.begin(), found.end(), n) == found.end())
+                found.push_back(n);
+        }
+    }
+    return found;
+}
+
+V3 SnapToEdge(V3 hit, V3 normal, float reach, const std::function<bool(V3 from, float* groundY)>& groundAt,
+              bool* snapped)
+{
+    *snapped = false;
+    if (normal.y < 0.7f)
+        return hit;
+    constexpr float kStep = 4.0f, kDrop = 8.0f;
+    float best = reach + 1.0f;
+    V3 bestAt = hit;
+    constexpr float kHalf = 0.70710678f;
+    static const V3 kDirections[8] = {{0.0f, 0.0f, 1.0f},    {kHalf, 0.0f, kHalf},   {1.0f, 0.0f, 0.0f},
+                                      {kHalf, 0.0f, -kHalf}, {0.0f, 0.0f, -1.0f},    {-kHalf, 0.0f, -kHalf},
+                                      {-1.0f, 0.0f, 0.0f},   {-kHalf, 0.0f, kHalf}};
+    for (const V3& dir : kDirections) {
+        for (float t = kStep; t <= reach; t += kStep) {
+            V3 probe = hit + dir * t;
+            float ground = 0.0f;
+            bool have = groundAt({probe.x, hit.y + 20.0f, probe.z}, &ground);
+            if (!have || ground < hit.y - kDrop) {
+                float edge = t - kStep * 0.5f;
+                if (edge < best) {
+                    best = edge;
+                    bestAt = hit + dir * edge;
+                }
+                break;
+            }
+        }
+    }
+    if (best > reach)
+        return hit;
+    *snapped = true;
+    return {bestAt.x, hit.y, bestAt.z};
+}
+
+const std::vector<std::string>& GrindTerrainNames()
+{
+    // (scripts\game\terrain.qb's Terrain_Types, the TERRAIN_GRIND... entries in its order - the names only: the game
+    // checks them against its own table before one is used, TerrainChecksums)
+    static const std::vector<std::string> names = {
+        "TERRAIN_GRINDTRAIN",        "TERRAIN_GRINDROPE",          "TERRAIN_GRINDWIRE",
+        "TERRAIN_GRINDCONC",         "TERRAIN_GRINDROUNDMETALPOLE", "TERRAIN_GRINDCHAINLINK",
+        "TERRAIN_GRINDMETAL",        "TERRAIN_GRINDWOODRAILING",   "TERRAIN_GRINDWOODLOG",
+        "TERRAIN_GRINDWOOD",         "TERRAIN_GRINDPLASTIC",       "TERRAIN_GRINDELECTRICWIRE",
+        "TERRAIN_GRINDCABLE",        "TERRAIN_GRINDCHAIN",         "TERRAIN_GRINDPLASTICBARRIER",
+        "TERRAIN_GRINDNEONLIGHT",    "TERRAIN_GRINDGLASSMONSTER",  "TERRAIN_GRINDBANYONTREE",
+        "TERRAIN_GRINDBRASSRAIL",    "TERRAIN_GRINDCATWALK",       "TERRAIN_GRINDTANKTURRET",
+    };
+    return names;
+}
+
+// --- the game side ----------------------------------------------------------------------------------------------
+
+namespace {
+
+constexpr uint32_t kClass = 0x12B4E660;   // class
+constexpr uint32_t kLinks = 0x2E7D5EE7;   // links
+constexpr uint32_t kPos = 0x7F261953;     // pos
+constexpr uint32_t kTerrainType = 0x54CF8532; // TerrainType
+
+uint32_t Checksum(const std::string& text) { return Crc::GenerateCRCFromString(text.c_str()); }
+
+bool InLevel() { return SkateScript::NodeManagerInstance() != nullptr && Scenery::MainScene() != nullptr; }
+
+Script::CStruct* NodeStruct(uint32_t name)
+{
+    return name && SkateScript::NodeManagerInstance() ? SkateScript::GetNode(name, false) : nullptr;
+}
+
+// The level's rail manager (Mdl::Skate +0x24; null when there is none or its rails ride an object).
+Obj::CRailManager* Rails()
+{
+    uint8_t* skate = GameVariable<uint8_t*>(0x007CE478);
+    auto* manager = skate ? *reinterpret_cast<Obj::CRailManager**>(skate + 0x24) : nullptr;
+    return manager && !manager->m_onObject ? manager : nullptr;
+}
+
+Obj::CRailNode* RailNodeNamed(uint32_t name)
+{
+    Obj::CRailManager* rails = Rails();
+    if (!rails || !rails->m_nodes)
+        return nullptr;
+    for (int i = 0; i < rails->m_count; ++i) {
+        if (rails->m_nodes[i].m_name == name)
+            return &rails->m_nodes[i];
+    }
+    return nullptr;
+}
+
+// A structure's own links= (not an included structure's) as names.
+std::vector<uint32_t> OwnLinks(Script::CStruct* node)
+{
+    std::vector<uint32_t> links;
+    if (!node)
+        return links;
+    for (Script::CComponent* c = node->m_head; c; c = c->next) {
+        if (c->name == kLinks && (c->Type() == Script::ESYMBOLTYPE_ARRAY || c->Type() == Script::ESYMBOLTYPE_ARRAYPOINTER) &&
+            c->array) {
+            links.clear();
+            for (uint32_t i = 0; i < c->array->m_size; ++i)
+                links.push_back(c->array->GetElement(i));
+        }
+    }
+    return links;
+}
+
+// A level structure's own links= set (in place when it has one; removed for none).
+void SetOwnLinks(Script::CStruct* node, const std::vector<uint32_t>& links)
+{
+    Script::CComponent* own = nullptr;
+    for (Script::CComponent* c = node->m_head; c; c = c->next) {
+        if (c->name == kLinks && (c->Type() == Script::ESYMBOLTYPE_ARRAY || c->Type() == Script::ESYMBOLTYPE_ARRAYPOINTER) &&
+            c->array)
+            own = c;
+    }
+    if (links.empty()) {
+        if (own)
+            node->RemoveComponent(kLinks);
+        return;
+    }
+    if (own) {
+        own->array->SetSizeAndType(static_cast<uint32_t>(links.size()), Script::ESYMBOLTYPE_NAME);
+        for (size_t i = 0; i < links.size(); ++i)
+            own->array->SetElement(static_cast<uint32_t>(i), links[i]);
+        return;
+    }
+    Script::CArray* array = Script::NewArray();
+    if (!array)
+        return;
+    array->Init();
+    array->SetSizeAndType(static_cast<uint32_t>(links.size()), Script::ESYMBOLTYPE_NAME);
+    for (size_t i = 0; i < links.size(); ++i)
+        array->SetElement(static_cast<uint32_t>(i), links[i]);
+    node->AddArrayPointer(kLinks, array);
+}
+
+// A structure's own pos= set (the one the game reads: the last).
+void WritePos(Script::CStruct* node, V3 pos)
+{
+    Script::CComponent* own = nullptr;
+    for (Script::CComponent* c = node->m_head; c; c = c->next) {
+        if (c->name == kPos && c->Type() == Script::ESYMBOLTYPE_VECTOR && c->vector)
+            own = c;
+    }
+    if (own) {
+        own->vector->x = pos.x;
+        own->vector->y = pos.y;
+        own->vector->z = pos.z;
+    } else {
+        node->AddVector(kPos, pos.x, pos.y, pos.z);
+    }
+}
+
+uint32_t ClassOf(Script::CStruct* node)
+{
+    uint32_t cls = 0;
+    if (node)
+        node->GetChecksum(kClass, &cls, 0);
+    return cls;
+}
+
+uint32_t RailNodeClass() { static const uint32_t c = Checksum("RailNode"); return c; }
+uint32_t ClimbingNodeClass() { static const uint32_t c = Checksum("ClimbingNode"); return c; }
+uint32_t WaypointClass() { static const uint32_t c = Checksum("Waypoint"); return c; }
+uint32_t PedestrianClass() { static const uint32_t c = Checksum("Pedestrian"); return c; }
+uint32_t VehicleClass() { static const uint32_t c = Checksum("Vehicle"); return c; }
+
+// The terrain checksums the game knows (Terrain_Types' checksum=): only those are looked up (0x004442C0 reads through
+// a null entry for an unknown one).
+bool KnownTerrain(uint32_t terrain)
+{
+    static const uint32_t kChecksumKey = Checksum("checksum");
+    Script::CArray* types = Script::GetArray("Terrain_Types");
+    if (!types || types->m_type != Script::ESYMBOLTYPE_STRUCTURE)
+        return false;
+    for (uint32_t i = 0; i < types->m_size; ++i) {
+        auto* entry = reinterpret_cast<Script::CStruct*>(types->GetElement(i));
+        uint32_t value = 0;
+        if (entry && entry->GetChecksum(kChecksumKey, &value, 0) && value == terrain)
+            return true;
+    }
+    return false;
+}
+bool TerrainByte(const std::string& name, uint8_t* value)
+{
+    uint32_t terrain = Checksum(name);
+    if (!KnownTerrain(terrain))
+        return false;
+    *value = GameFunction<uint8_t(__cdecl*)(uint32_t)>(0x004442C0)(terrain);
+    return true;
+}
+
+// What the editor has done to the level's own nodes: links= as the level had them (the structure, to know it's still
+// the level loaded), the dropped points (and whether their rail node was on), terrains set (and the level's bytes).
+struct OriginalLinks {
+    Script::CStruct* node;
+    std::vector<uint32_t> links;
+};
+std::map<uint32_t, OriginalLinks> g_originalLinks;
+std::vector<uint32_t> g_dropped;
+std::map<uint32_t, bool> g_dropActive;
+struct TerrainSet {
+    std::string terrain;
+    uint8_t original;
+};
+std::map<uint32_t, TerrainSet> g_terrains;
+// The rail manager's node arrays replaced by RebuildRails (freed with the level).
+std::vector<void*> g_retired;
+Obj::CRailNode* g_built; // (the node array RebuildRails made last)
+// Objects to make again from their nodes (their path changed) once the game has removed them.
+std::vector<uint32_t> g_remake;
+// Drawing: the kind, the last point drawn (0: none yet). An armed pick: what for, and from which node.
+Draw g_draw = Draw::None;
+uint32_t g_drawLast;
+Op g_pick = kOpCancel;
+uint32_t g_pickFrom;
+
+std::vector<Point> AddedPoints()
+{
+    std::vector<Point> points;
+    for (const NodeCreate::Spec& spec : NodeCreate::Current()) {
+        if (!IsChainClass(spec.cls))
+            continue;
+        Point p;
+        p.name = spec.name;
+        p.cls = spec.cls;
+        p.pos = spec.pos;
+        p.like = spec.like;
+        p.terrain = spec.terrain;
+        p.links = spec.links;
+        // (a rail point: where the rail manager has it - a sector moved with it takes it along)
+        if (const Obj::CRailNode* node = RailNodeNamed(Checksum(spec.name)))
+            p.pos = {node->m_pos.x, node->m_pos.y, node->m_pos.z};
+        points.push_back(p);
+    }
+    return points;
+}
+
+NodeCreate::Spec SpecOf(const Point& p)
+{
+    NodeCreate::Spec spec;
+    spec.name = p.name;
+    spec.cls = p.cls;
+    spec.pos = p.pos;
+    spec.like = p.like;
+    spec.terrain = p.terrain;
+    spec.links = p.links;
+    return spec;
+}
+
+std::vector<uint32_t> LevelLinksNow(uint32_t name) { return OwnLinks(NodeStruct(name)); }
+std::vector<uint32_t> LevelLinksOriginal(uint32_t name)
+{
+    auto it = g_originalLinks.find(name);
+    return it != g_originalLinks.end() ? it->second.links : LevelLinksNow(name);
+}
+
+void SetLevelLinks(uint32_t name, const std::vector<uint32_t>& links)
+{
+    Script::CStruct* node = NodeStruct(name);
+    if (!node || NodeCreate::IsAdded(name))
+        return;
+    if (!g_originalLinks.count(name))
+        g_originalLinks[name] = {node, OwnLinks(node)};
+    if (OwnLinks(node) != links)
+        SetOwnLinks(node, links);
+}
+
+// The rail manager node's box: to its next node, or its own point.
+void Box(Obj::CRailNode* node)
+{
+    Mth::Vector here = node->m_pos;
+    Mth::Vector there = node->m_next ? node->m_next->m_pos : node->m_pos;
+    Obj::BoxOf(&here, &there, &node->m_min, &node->m_max);
+}
+
+void Remake(uint32_t name)
+{
+    auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(name));
+    if (object && !(object->m_objectFlags & Obj::OBJECT_FLAG_DEAD))
+        object->MarkAsDead();
+    if (std::find(g_remake.begin(), g_remake.end(), name) == g_remake.end())
+        g_remake.push_back(name);
+    Log("level editor: %s's path changed - it is made again from its node", Objects::Label(name).c_str());
+}
+
+} // namespace
+
+void RebuildRails()
+{
+    Obj::CRailManager* rails = Rails();
+    if (!rails)
+        return;
+    Obj::CRailNode* old = rails->m_nodes;
+    int oldCount = old ? rails->m_count : 0;
+    // The nodes: the ones it has whose node is still there (a dropped one too - kept switched off, so the editor's
+    // moves of it stay), then the overlay's new rail points.
+    std::vector<int> kept;
+    for (int i = 0; i < oldCount; ++i) {
+        if (NodeStruct(old[i].m_name))
+            kept.push_back(i);
+    }
+    std::vector<std::pair<uint32_t, Script::CStruct*>> added;
+    for (const NodeCreate::Spec& spec : NodeCreate::Current()) {
+        uint32_t name = Checksum(spec.name);
+        Script::CStruct* node = NodeStruct(name);
+        uint32_t cls = ClassOf(node);
+        if (!node || (cls != RailNodeClass() && cls != ClimbingNodeClass()))
+            continue;
+        bool there = false;
+        for (int i : kept)
+            there = there || old[i].m_name == name;
+        if (!there)
+            added.push_back({name, node});
+    }
+    int count = static_cast<int>(kept.size() + added.size());
+    Obj::CRailNode* nodes = nullptr;
+    if (count) {
+        Mem::Manager* manager = Mem::Manager::Get();
+        manager->PushContext(manager->m_bottomUpHeap);
+        nodes = static_cast<Obj::CRailNode*>(Mem::Malloc(count * sizeof(Obj::CRailNode)));
+        Mem::Manager::Get()->PopContext();
+        if (!nodes) {
+            Log("level editor: no memory for the rail manager's nodes - rails not rebuilt");
+            return;
+        }
+    }
+    for (size_t i = 0; i < kept.size(); ++i)
+        nodes[i] = old[kept[i]];
+    rails->m_nodes = nodes;
+    rails->m_count = count;
+    for (size_t i = 0; i < added.size(); ++i) {
+        rails->m_adding = static_cast<int>(kept.size() + i);
+        rails->AddNode(added[i].first, added[i].second); // (the game's own: flags, place, terrain)
+    }
+    rails->m_adding = count;
+    // On / off: dropped points off (their state noted first), shown ones back as they were.
+    std::unordered_map<uint32_t, int> index;
+    for (int i = 0; i < count; ++i) {
+        Obj::CRailNode* node = &nodes[i];
+        index.emplace(node->m_name, i);
+        node->m_next = node->m_prev = nullptr;
+        bool dropped = std::find(g_dropped.begin(), g_dropped.end(), node->m_name) != g_dropped.end();
+        auto was = g_dropActive.find(node->m_name);
+        if (dropped) {
+            if (was == g_dropActive.end())
+                g_dropActive[node->m_name] = (node->m_flags & Obj::RAIL_FLAG_ACTIVE) != 0;
+            node->m_flags &= ~Obj::RAIL_FLAG_ACTIVE;
+        } else if (was != g_dropActive.end()) {
+            node->m_flags = was->second ? node->m_flags | Obj::RAIL_FLAG_ACTIVE : node->m_flags & ~Obj::RAIL_FLAG_ACTIVE;
+            g_dropActive.erase(was);
+        }
+    }
+    // The links, as AddFromNodeArray makes them: a node's next is its first link (or a DefaultLine one), the linked
+    // node's previous likewise. Dropped points take no part.
+    auto isDropped = [&](uint32_t name) { return std::find(g_dropped.begin(), g_dropped.end(), name) != g_dropped.end(); };
+    for (int i = 0; i < count; ++i) {
+        Obj::CRailNode* node = &nodes[i];
+        if (isDropped(node->m_name))
+            continue;
+        for (uint32_t link : OwnLinks(NodeStruct(node->m_name))) {
+            auto it = index.find(link);
+            if (it == index.end() || isDropped(link))
+                continue;
+            Obj::CRailNode* other = &nodes[it->second];
+            if (!node->m_next || (other->m_flags & Obj::RAIL_FLAG_DEFAULT_LINE))
+                node->m_next = other;
+            if (!other->m_prev || (node->m_flags & Obj::RAIL_FLAG_DEFAULT_LINE))
+                other->m_prev = node;
+        }
+    }
+    for (int i = 0; i < count; ++i)
+        Box(&nodes[i]);
+    // An added point's terrain from its node (it is made again when its terrain changes, but its rail manager node was
+    // kept); terrains the editor set on the level's points (copied nodes keep theirs).
+    for (size_t i = 0; i < kept.size(); ++i) {
+        Obj::CRailNode* node = &nodes[i];
+        uint32_t terrain = 0;
+        Script::CStruct* params = NodeCreate::IsAdded(node->m_name) ? NodeStruct(node->m_name) : nullptr;
+        if (params && !(node->m_flags & Obj::RAIL_FLAG_CLIMBING) && params->GetChecksum(kTerrainType, &terrain, 0) &&
+            KnownTerrain(terrain))
+            node->m_terrain = GameFunction<uint8_t(__cdecl*)(uint32_t)>(0x004442C0)(terrain);
+    }
+    for (const auto& entry : g_terrains) {
+        auto it = index.find(entry.first);
+        uint8_t value = 0;
+        if (it != index.end() && TerrainByte(entry.second.terrain, &value))
+            nodes[it->second].m_terrain = value;
+    }
+    if (old)
+        g_retired.push_back(old); // (a skater's grind may point into it: freed with the level)
+    g_built = nodes;
+    Scenery::RailsRebuilt();
+    Nodes::Invalidate();
+    if (DebugEnabled())
+        Log("level editor: rail manager built again - %d nodes (%u kept, %u new)", count,
+            static_cast<unsigned>(kept.size()), static_cast<unsigned>(added.size()));
+}
+
+State Current()
+{
+    State state;
+    if (!InLevel())
+        return state;
+    state.points = AddedPoints();
+    for (const auto& entry : g_originalLinks) {
+        Script::CStruct* node = NodeStruct(entry.first);
+        if (node != entry.second.node)
+            continue;
+        std::vector<uint32_t> now = OwnLinks(node);
+        if (now != entry.second.links)
+            state.links.push_back({entry.first, now});
+    }
+    state.dropped = g_dropped;
+    std::sort(state.dropped.begin(), state.dropped.end());
+    for (const auto& entry : g_terrains)
+        state.terrains.push_back({entry.first, entry.second.terrain});
+    return state;
+}
+
+bool SetState(const State& target)
+{
+    if (!InLevel())
+        return false;
+    State before = Current();
+    if (SameState(before, target))
+        return true; // (nothing to do: the rail manager isn't built again)
+    // Points: those not wanted (or wanted different, other than place and links) removed; the missing made (one
+    // re-registration); places and links set.
+    std::vector<Point> now = before.points;
+    for (const Point& p : now) {
+        const Point* want = nullptr;
+        for (const Point& t : target.points)
+            want = SameText(t.name, p.name.c_str()) ? &t : want;
+        if (!want || want->cls != p.cls || want->like != p.like || want->terrain != p.terrain) {
+            NodeCreate::Spec removed;
+            int at;
+            NodeCreate::Remove(Checksum(p.name), &removed, &at);
+        }
+    }
+    std::vector<NodeCreate::Spec> make;
+    std::vector<Point> remaining = AddedPoints();
+    for (const Point& t : target.points) {
+        bool there = false;
+        for (const Point& p : remaining)
+            there = there || SameText(t.name, p.name.c_str());
+        if (!there)
+            make.push_back(SpecOf(t));
+    }
+    if (!make.empty()) {
+        std::string message;
+        NodeCreate::CreateAll(make, &message);
+        if (!message.empty())
+            Log("level editor: %s", message.c_str());
+    }
+    for (const Point& t : target.points) {
+        uint32_t name = Checksum(t.name);
+        NodeCreate::SetLinks(name, t.links);
+        if (Script::CStruct* node = NodeStruct(name)) {
+            Mth::Vector pos;
+            SkateScript::GetPosition(node, &pos);
+            if (pos.x != t.pos.x || pos.y != t.pos.y || pos.z != t.pos.z)
+                WritePos(node, t.pos);
+        }
+    }
+    // The level's links: as the target has them, else as the level had them.
+    std::set<uint32_t> names;
+    for (const auto& entry : g_originalLinks)
+        names.insert(entry.first);
+    for (const LinkEdit& l : target.links)
+        names.insert(l.name);
+    std::vector<uint32_t> pathsChanged;
+    for (uint32_t name : names) {
+        std::vector<uint32_t> want = LevelLinksOriginal(name);
+        for (const LinkEdit& l : target.links)
+            if (l.name == name)
+                want = l.links;
+        if (LevelLinksNow(name) != want) {
+            uint32_t cls = ClassOf(NodeStruct(name));
+            if (cls == PedestrianClass() || cls == VehicleClass())
+                pathsChanged.push_back(name);
+        }
+        SetLevelLinks(name, want);
+    }
+    // Dropped points: hidden with phase 3's marker (shown again when no longer dropped).
+    std::vector<uint32_t> dropped = target.dropped;
+    for (uint32_t name : std::vector<uint32_t>(g_dropped)) {
+        if (std::find(dropped.begin(), dropped.end(), name) == dropped.end())
+            NodeCreate::Hide(name, false);
+    }
+    std::vector<uint32_t> kept;
+    for (uint32_t name : dropped) {
+        if (NodeCreate::IsAdded(name) || !NodeStruct(name))
+            continue;
+        if (NodeCreate::Hidden(name) || NodeCreate::Hide(name, true))
+            kept.push_back(name);
+    }
+    g_dropped = kept;
+    // Terrains (level points): put back where no longer set.
+    for (auto it = g_terrains.begin(); it != g_terrains.end();) {
+        bool wanted = false;
+        for (const TerrainEdit& t : target.terrains)
+            wanted = wanted || t.name == it->first;
+        if (!wanted) {
+            if (Obj::CRailNode* node = RailNodeNamed(it->first))
+                node->m_terrain = it->second.original;
+            it = g_terrains.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    for (const TerrainEdit& t : target.terrains) {
+        Obj::CRailNode* node = RailNodeNamed(t.name);
+        uint8_t value = 0;
+        if (!node || !TerrainByte(t.terrain, &value))
+            continue;
+        if (!g_terrains.count(t.name))
+            g_terrains[t.name] = {t.terrain, node->m_terrain};
+        g_terrains[t.name].terrain = t.terrain;
+    }
+    RebuildRails();
+    // The added points' places in the rail manager (a point made before keeps its node there).
+    for (const Point& t : target.points)
+        MoveAddedPoint(Checksum(t.name), t.pos);
+    for (uint32_t name : pathsChanged)
+        Remake(name);
+    Nodes::Invalidate();
+    return true;
+}
+
+void ForgetLevel()
+{
+    for (const auto& entry : g_originalLinks) {
+        Script::CStruct* node = NodeStruct(entry.first);
+        if (node && node == entry.second.node)
+            SetOwnLinks(node, entry.second.links);
+    }
+    g_originalLinks.clear();
+    g_dropped.clear();
+    g_dropActive.clear();
+    g_terrains.clear();
+    g_remake.clear();
+    g_draw = Draw::None;
+    g_drawLast = 0;
+    g_pick = kOpCancel;
+}
+
+void Tick()
+{
+    // The rail manager's old node arrays: freed once the level's rails are no longer the ones built here (the game
+    // made a new level's - its Cleanup freed ours - or there are none).
+    if (!g_retired.empty()) {
+        Obj::CRailManager* rails = Rails();
+        if (!rails || rails->m_nodes != g_built) {
+            for (void* nodes : g_retired)
+                Mem::FreeMalloc(nodes);
+            g_retired.clear();
+            g_built = nullptr;
+        }
+    }
+    if (g_remake.empty())
+        return;
+    if (!InLevel()) {
+        g_remake.clear();
+        return;
+    }
+    for (auto it = g_remake.begin(); it != g_remake.end();) {
+        if (Obj::FindObject(*it)) {
+            ++it; // (not removed yet: the game deletes dead objects in its update)
+            continue;
+        }
+        if (Script::CStruct* node = NodeStruct(*it))
+            GameFunction<int(__cdecl*)(Script::CStruct*)>(0x005A2E50)(node);
+        Log("level editor: %s made again (its path from its links)", Objects::Label(*it).c_str());
+        it = g_remake.erase(it);
+    }
+}
+
+bool IsChainNode(uint32_t name)
+{
+    int index = Nodes::Find(name);
+    if (index < 0)
+        return false;
+    Nodes::Family family = Nodes::All()[index].family;
+    return family == Nodes::Family::Rail || family == Nodes::Family::Ladder || family == Nodes::Family::Path;
+}
+bool IsPath(uint32_t name)
+{
+    int index = Nodes::Find(name);
+    return index >= 0 && Nodes::All()[index].family == Nodes::Family::Path;
+}
+bool IsLadder(uint32_t name)
+{
+    int index = Nodes::Find(name);
+    return index >= 0 && Nodes::All()[index].family == Nodes::Family::Ladder;
+}
+
+bool IsAddedPoint(uint32_t name)
+{
+    if (!NodeCreate::IsAdded(name))
+        return false;
+    int index = Nodes::Find(name);
+    return index >= 0 && (Nodes::All()[index].family == Nodes::Family::Rail ||
+                          Nodes::All()[index].family == Nodes::Family::Path);
+}
+
+bool MoveAddedPoint(uint32_t name, V3 pos)
+{
+    Script::CStruct* node = NodeCreate::IsAdded(name) ? NodeStruct(name) : nullptr;
+    if (!node)
+        return false;
+    Mth::Vector now;
+    SkateScript::GetPosition(node, &now);
+    if (now.x != pos.x || now.y != pos.y || now.z != pos.z)
+        WritePos(node, pos);
+    if (Obj::CRailNode* rail = RailNodeNamed(name)) {
+        if (rail->m_pos.x != pos.x || rail->m_pos.y != pos.y || rail->m_pos.z != pos.z) {
+            rail->m_pos = {pos.x, pos.y, pos.z, 1.0f};
+            Obj::CRailManager* rails = Rails();
+            for (int i = 0; i < rails->m_count; ++i) {
+                if (&rails->m_nodes[i] == rail || rails->m_nodes[i].m_next == rail)
+                    Box(&rails->m_nodes[i]);
+            }
+            Scenery::RailsRebuilt(); // (the node layer reads the places again)
+        }
+    }
+    int index = Nodes::Find(name);
+    if (index >= 0)
+        Nodes::Reread(index);
+    return true;
+}
+
+namespace {
+
+// The chain graph of a family's nodes (as their links= are now): rails (RailNode), paths (Waypoint).
+Graph GraphOf(Nodes::Family family)
+{
+    Graph graph;
+    const std::vector<Nodes::Node>& nodes = Nodes::All();
+    for (const Nodes::Node& node : nodes) {
+        if (node.family != family || !node.name || node.hidden)
+            continue;
+        std::vector<uint32_t> links;
+        for (int link : node.links) {
+            if (link >= 0 && link < static_cast<int>(nodes.size()) && nodes[link].family == family && !nodes[link].hidden)
+                links.push_back(nodes[link].name);
+        }
+        graph[node.name] = links;
+    }
+    return graph;
+}
+
+Nodes::Family FamilyOfName(uint32_t name)
+{
+    int index = Nodes::Find(name);
+    return index >= 0 ? Nodes::All()[index].family : Nodes::Family::Other;
+}
+
+V3 PlaceOf(uint32_t name)
+{
+    NodeEdit::Values values;
+    if (NodeEdit::Read(name, &values))
+        return values.pos;
+    int index = Nodes::Find(name);
+    return index >= 0 ? Nodes::All()[index].pos : V3{};
+}
+
+// A level node's links in the state: an edit, or none when they're as the level had them.
+void SetLinkEdit(State* state, uint32_t name, const std::vector<uint32_t>& links)
+{
+    auto it = std::find_if(state->links.begin(), state->links.end(), [&](const LinkEdit& l) { return l.name == name; });
+    if (links == LevelLinksOriginal(name)) {
+        if (it != state->links.end())
+            state->links.erase(it);
+    } else if (it != state->links.end()) {
+        it->links = links;
+    } else {
+        state->links.push_back({name, links});
+        SortByName(&state->links);
+    }
+}
+
+// The graph's links put into the state: an added point's on its point, a level node's as a links edit (none when as
+// the level had them).
+void PutGraph(State* state, const Graph& graph)
+{
+    for (const auto& entry : graph) {
+        bool point = false;
+        for (Point& p : state->points) {
+            if (Checksum(p.name) == entry.first) {
+                p.links = entry.second;
+                point = true;
+            }
+        }
+        if (point)
+            continue;
+        // (a level node: only the links within the family are in the graph - others it has are kept)
+        std::vector<uint32_t> links = entry.second;
+        Nodes::Family family = FamilyOfName(entry.first);
+        for (uint32_t other : LevelLinksNow(entry.first)) {
+            if (FamilyOfName(other) != family && std::find(links.begin(), links.end(), other) == links.end())
+                links.push_back(other);
+        }
+        SetLinkEdit(state, entry.first, links);
+    }
+}
+
+// A new point's name: ed_rail01 / ed_path01... free in the level and in the state.
+std::string FreshPointName(Nodes::Family family, const State& state)
+{
+    return NodeCreate::FreshName(family == Nodes::Family::Path ? "ed_path" : "ed_rail", [&](const std::string& name) {
+        for (const Point& p : state.points) {
+            if (SameText(p.name, name.c_str()))
+                return true;
+        }
+        return NodeCreate::NameTaken(name);
+    });
+}
+
+// A new point drawn on from `from` (0: a new chain of `family`): its class, and the fields it copies.
+Point NewPoint(Nodes::Family family, uint32_t from, V3 pos, const State& state)
+{
+    Point p;
+    p.name = FreshPointName(family, state);
+    p.cls = family == Nodes::Family::Path ? "Waypoint" : "RailNode";
+    p.pos = pos;
+    if (from) {
+        p.like = from;
+        for (const Point& q : state.points) {
+            if (Checksum(q.name) == from) {
+                // (an added point: its own template and terrain - the layout makes them in one go)
+                p.like = q.like;
+                p.terrain = q.terrain;
+            }
+        }
+    }
+    return p;
+}
+
+bool Apply(const State& state, std::string* message, const char* done)
+{
+    if (!SetState(state)) {
+        *message = "Not in a level";
+        return false;
+    }
+    *message = done;
+    return true;
+}
+
+} // namespace
+
+std::vector<uint32_t> ChainOf(uint32_t name)
+{
+    Nodes::Family family = FamilyOfName(name);
+    if (family == Nodes::Family::Rail || family == Nodes::Family::Ladder) {
+        std::vector<uint32_t> rail = Scenery::RailOf(name);
+        return rail.empty() ? std::vector<uint32_t>{name} : rail;
+    }
+    if (family == Nodes::Family::Path)
+        return Connected(GraphOf(family), name);
+    return {name};
+}
+
+bool Do(Op op, uint32_t name, uint32_t arg, std::string* message, uint32_t* select)
+{
+    *select = 0;
+    message->clear();
+    if (op == kOpCancel) {
+        StopDrawing();
+        g_pick = kOpCancel;
+        *message = "Stopped";
+        return false;
+    }
+    if (!InLevel()) {
+        *message = "Not in a level";
+        return false;
+    }
+    int index = Nodes::Find(name);
+    if (index < 0)
+        return false;
+    const Nodes::Node node = Nodes::All()[index];
+    Nodes::Family family = node.family;
+    bool object = node.cls == PedestrianClass() || node.cls == VehicleClass();
+    if (op == kOpAssignArm || op == kOpUnassign) {
+        if (!object) {
+            *message = "Only a ped's or a car's node has a path";
+            return false;
+        }
+        if (op == kOpAssignArm) {
+            g_pick = kOpAssignArm;
+            g_pickFrom = name;
+            *message = "Click the waypoint its path starts at (Esc cancels)";
+            return false;
+        }
+        // (its links to anything but waypoints kept)
+        State state = Current();
+        std::vector<uint32_t> links;
+        for (uint32_t other : LevelLinksNow(name)) {
+            if (FamilyOfName(other) != Nodes::Family::Path)
+                links.push_back(other);
+        }
+        SetLinkEdit(&state, name, links);
+        *select = name;
+        return Apply(state, message, "No path now - it is made again without one");
+    }
+    if (family != Nodes::Family::Rail && family != Nodes::Family::Path) {
+        *message = family == Nodes::Family::Ladder ? "Ladders can be moved (whole or by a point), not reshaped"
+                                                   : "Not a rail or a path point";
+        return false;
+    }
+    if (node.hidden) {
+        *message = "It's deleted (Ctrl+Z brings it back)";
+        return false;
+    }
+    State state = Current();
+    Graph graph = GraphOf(family);
+    switch (op) {
+    case kOpInsert: {
+        const std::vector<uint32_t>& links = graph[name];
+        if (links.empty()) {
+            *message = "It's the last point - Extend draws on from it";
+            return false;
+        }
+        V3 a = PlaceOf(name), b = PlaceOf(links.front());
+        Point p = NewPoint(family, name, (a + b) * 0.5f, state);
+        uint32_t made = Checksum(p.name);
+        state.points.push_back(p);
+        InsertAfter(&graph, name, made);
+        PutGraph(&state, graph);
+        *select = made;
+        return Apply(state, message, "A point put halfway to the next (Ctrl+Z takes it away)");
+    }
+    case kOpDelete: {
+        Remove(&graph, name);
+        PutGraph(&state, graph);
+        if (node.added) {
+            state.points.erase(std::remove_if(state.points.begin(), state.points.end(),
+                                              [&](const Point& p) { return Checksum(p.name) == name; }),
+                               state.points.end());
+        } else {
+            state.dropped.push_back(name);
+            std::sort(state.dropped.begin(), state.dropped.end());
+            // (its own links stay as the level has them: it takes no part while dropped)
+            state.links.erase(std::remove_if(state.links.begin(), state.links.end(),
+                                             [&](const LinkEdit& l) { return l.name == name; }),
+                              state.links.end());
+        }
+        return Apply(state, message, node.added ? "Point deleted, its neighbours linked (Ctrl+Z brings it back)"
+                                                : "The level's point deleted (hidden), its neighbours linked (Ctrl+Z, "
+                                                  "Reset level bring it back)");
+    }
+    case kOpUnlink: {
+        if (!Unlink(&graph, name)) {
+            *message = "It has no next point";
+            return false;
+        }
+        PutGraph(&state, graph);
+        *select = name;
+        return Apply(state, message, "Unlinked from its next point: the chain is split there");
+    }
+    case kOpTerrain: {
+        if (family != Nodes::Family::Rail) {
+            *message = "Only rails have a terrain";
+            return false;
+        }
+        std::string terrain;
+        for (const std::string& t : GrindTerrainNames()) {
+            if (Checksum(t) == arg)
+                terrain = t;
+        }
+        if (terrain.empty() || !KnownTerrain(arg)) {
+            *message = "The game doesn't know that terrain";
+            return false;
+        }
+        for (uint32_t point : ChainOf(name)) {
+            bool added = false;
+            for (Point& p : state.points) {
+                if (Checksum(p.name) == point) {
+                    p.terrain = terrain;
+                    added = true;
+                }
+            }
+            if (added)
+                continue;
+            auto it = std::find_if(state.terrains.begin(), state.terrains.end(),
+                                   [&](const TerrainEdit& t) { return t.name == point; });
+            if (it != state.terrains.end())
+                it->terrain = terrain;
+            else
+                state.terrains.push_back({point, terrain});
+        }
+        SortByName(&state.terrains);
+        *select = name;
+        return Apply(state, message, ("The rail's terrain is " + terrain + " now").c_str());
+    }
+    case kOpExtend: {
+        if (!IsLast(graph, name) && !IsFirst(graph, name)) {
+            *message = "Extend from an end of the chain (its first or last point)";
+            return false;
+        }
+        g_draw = family == Nodes::Family::Path ? Draw::Path : Draw::Rail;
+        g_drawLast = name;
+        g_pick = kOpCancel;
+        *message = "Click to add points from this end (Enter or a right click finishes)";
+        return false;
+    }
+    case kOpLinkArm: {
+        if (!IsLast(graph, name) && !IsFirst(graph, name)) {
+            *message = "Link from an end of the chain (its first or last point)";
+            return false;
+        }
+        g_pick = kOpLinkArm;
+        g_pickFrom = name;
+        *message = "Click the end it links to (Esc cancels)";
+        return false;
+    }
+    default:
+        return false;
+    }
+}
+
+void StartDrawing(Draw kind)
+{
+    g_draw = kind;
+    g_drawLast = 0;
+    g_pick = kOpCancel;
+}
+Draw Drawing() { return g_draw; }
+void StopDrawing()
+{
+    g_draw = Draw::None;
+    g_drawLast = 0;
+}
+
+bool DrawAt(V3 at, uint32_t end, std::string* message, uint32_t* select)
+{
+    *select = 0;
+    if (g_draw == Draw::None || !InLevel())
+        return false;
+    if (end && !g_drawLast) {
+        // (the first click on an existing end: drawing goes on from it)
+        g_drawLast = end;
+        *select = end;
+        *message = "Drawing on from that end - click the next point";
+        return false;
+    }
+    Nodes::Family family = g_draw == Draw::Path ? Nodes::Family::Path : Nodes::Family::Rail;
+    State state = Current();
+    Graph graph = GraphOf(family);
+    if (g_drawLast && !graph.count(g_drawLast))
+        g_drawLast = 0; // (it went: a new chain)
+    if (end && g_drawLast && end != g_drawLast) {
+        // (onto an existing end: linked, and the drawing done)
+        if (!Link(&graph, g_drawLast, end)) {
+            *message = "Those two can't be linked (neither is a free end)";
+            return false;
+        }
+        PutGraph(&state, graph);
+        StopDrawing();
+        *select = end;
+        return Apply(state, message, "Linked onto that end - drawing finished");
+    }
+    Point p = NewPoint(family, g_drawLast, at, state);
+    uint32_t made = Checksum(p.name);
+    state.points.push_back(p);
+    graph[made] = {};
+    if (g_drawLast && !Extend(&graph, g_drawLast, made)) {
+        *message = "That point is no longer an end - drawing a new chain";
+        g_drawLast = 0;
+    }
+    PutGraph(&state, graph);
+    if (!SetState(state)) {
+        *message = "Not in a level";
+        return false;
+    }
+    bool first = g_drawLast == 0;
+    g_drawLast = made;
+    *select = made;
+    if (message->empty())
+        *message = first ? (family == Nodes::Family::Path ? "Path started - click more waypoints (Enter finishes)"
+                                                         : "Rail started - click more points (Enter finishes)")
+                         : "Point added - Enter or a right click finishes";
+    return true;
+}
+
+namespace {
+
+// The game's collision ray (as level_editor.cpp's: a CFeeler, 0x00417760 / 0x00417710; the hit's normal at +0x24, its
+// point at +0x34).
+bool CastRay(V3 from, V3 to, V3* hit, V3* normal)
+{
+    alignas(16) uint8_t feeler[0x100] = {};
+    GameFunction<void*(__thiscall*)(void*)>(0x00417760)(feeler);
+    Mth::Vector start = {from.x, from.y, from.z, 1.0f}, end = {to.x, to.y, to.z, 1.0f};
+    if (!GameFunction<bool(__thiscall*)(void*, const Mth::Vector*, const Mth::Vector*, int)>(0x00417710)(feeler, &start,
+                                                                                                        &end, 0))
+        return false;
+    const float* n = reinterpret_cast<const float*>(feeler + 0x24);
+    const float* p = reinterpret_cast<const float*>(feeler + 0x34);
+    *normal = {n[0], n[1], n[2]};
+    *hit = {p[0], p[1], p[2]};
+    return true;
+}
+
+} // namespace
+
+bool SnapPoint(V3 from, V3 dir, float maxT, bool free, V3* point, uint32_t* end)
+{
+    *end = 0;
+    V3 hit, normal;
+    if (!CastRay(from, from + dir * maxT, &hit, &normal))
+        return false;
+    *point = hit;
+    if (!free) {
+        bool snapped = false;
+        *point = SnapToEdge(hit, normal, 32.0f,
+                            [](V3 at, float* groundY) {
+                                V3 h, n;
+                                if (!CastRay(at, {at.x, at.y - 60.0f, at.z}, &h, &n))
+                                    return false;
+                                *groundY = h.y;
+                                return true;
+                            },
+                            &snapped);
+    }
+    // A free end of a chain of the kind drawn, within 24: taken as it is.
+    if (g_draw != Draw::None) {
+        Nodes::Family family = g_draw == Draw::Path ? Nodes::Family::Path : Nodes::Family::Rail;
+        Graph graph = GraphOf(family);
+        float best = 24.0f * 24.0f;
+        for (const auto& entry : graph) {
+            if (entry.first == g_drawLast || (!IsLast(graph, entry.first) && !IsFirst(graph, entry.first)))
+                continue;
+            V3 at = PlaceOf(entry.first), d = at - *point;
+            float distance = Dot(d, d);
+            if (distance < best) {
+                best = distance;
+                *end = entry.first;
+            }
+        }
+        if (*end)
+            *point = PlaceOf(*end);
+    }
+    return true;
+}
+
+bool WantsPick() { return g_pick == kOpLinkArm || g_pick == kOpAssignArm; }
+
+bool Picked(uint32_t name, std::string* message, uint32_t* select)
+{
+    *select = 0;
+    Op pick = g_pick;
+    g_pick = kOpCancel;
+    uint32_t from = g_pickFrom;
+    if (pick == kOpLinkArm) {
+        Nodes::Family family = FamilyOfName(from);
+        if (FamilyOfName(name) != family) {
+            *message = "Link a rail to a rail, a path to a path";
+            return false;
+        }
+        State state = Current();
+        Graph graph = GraphOf(family);
+        if (!Link(&graph, from, name)) {
+            *message = "Neither point is a free end (a point links on to one next point)";
+            return false;
+        }
+        PutGraph(&state, graph);
+        *select = from;
+        return Apply(state, message, "Linked");
+    }
+    if (pick == kOpAssignArm) {
+        if (FamilyOfName(name) != Nodes::Family::Path) {
+            *message = "Click a path's waypoint";
+            return false;
+        }
+        State state = Current();
+        std::vector<uint32_t> links = {name};
+        for (uint32_t other : LevelLinksNow(from)) {
+            if (FamilyOfName(other) != Nodes::Family::Path && other != name)
+                links.push_back(other);
+        }
+        SetLinkEdit(&state, from, links);
+        *select = from;
+        return Apply(state, message, "Its path starts there now - it is made again to follow it");
+    }
+    return false;
+}
+
+const char* Waiting()
+{
+    if (g_pick == kOpLinkArm)
+        return "Click the end to link to (Esc cancels)";
+    if (g_pick == kOpAssignArm)
+        return "Click the waypoint its path starts at (Esc cancels)";
+    if (g_draw == Draw::Rail)
+        return g_drawLast ? "Drawing a rail: click the next point (Enter / right click finishes; near an end: links)"
+                          : "Drawing a rail: click its first point";
+    if (g_draw == Draw::Path)
+        return g_drawLast ? "Drawing a path: click the next waypoint (Enter / right click finishes)"
+                          : "Drawing a path: click its first waypoint";
+    return nullptr;
+}
+
+View ViewOf(uint32_t name)
+{
+    View view;
+    view.waiting = Waiting();
+    int index = Nodes::Find(name);
+    if (index < 0 || !InLevel())
+        return view;
+    const Nodes::Node& node = Nodes::All()[index];
+    view.terrains = GrindTerrainNames();
+    if (node.cls == PedestrianClass() || node.cls == VehicleClass()) {
+        view.show = view.object = true;
+        for (uint32_t link : LevelLinksNow(name)) {
+            if (FamilyOfName(link) == Nodes::Family::Path)
+                view.pathStart = Objects::Label(link);
+        }
+        return view;
+    }
+    view.rail = node.family == Nodes::Family::Rail;
+    view.ladder = node.family == Nodes::Family::Ladder;
+    view.path = node.family == Nodes::Family::Path;
+    if (!view.rail && !view.ladder && !view.path)
+        return view;
+    view.show = true;
+    view.added = node.added;
+    view.points = static_cast<int>(ChainOf(name).size());
+    if (view.ladder || node.hidden) {
+        view.why = node.hidden ? "Deleted (hidden) - Ctrl+Z or Reset level brings it back" : "Ladders aren't reshaped";
+        return view;
+    }
+    Graph graph = GraphOf(node.family);
+    const std::vector<uint32_t>& links = graph[name];
+    std::vector<uint32_t> before = Predecessors(graph, name);
+    if (!links.empty())
+        view.next = Objects::Label(links.front());
+    if (!before.empty())
+        view.prev = Objects::Label(before.front());
+    view.canInsert = !links.empty();
+    view.canUnlink = !links.empty();
+    view.canExtend = IsLast(graph, name) || IsFirst(graph, name);
+    view.canLink = view.canExtend;
+    view.canDelete = true;
+    if (view.rail) {
+        if (const Obj::CRailNode* rail = RailNodeNamed(name)) {
+            for (size_t i = 0; i < view.terrains.size(); ++i) {
+                uint8_t value = 0;
+                if (TerrainByte(view.terrains[i], &value) && value == rail->m_terrain) {
+                    view.terrain = static_cast<int>(i);
+                    break;
+                }
+            }
+        }
+    }
+    return view;
+}
+
+} // namespace Front::LevelEditor::Chains

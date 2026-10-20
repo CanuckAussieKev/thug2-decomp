@@ -70,9 +70,13 @@ bool Movable(const Nodes::Node& node);
 // place is the rail manager's (where skaters grind; a moved sector takes its rails' points there too), not the node's
 // pos=, which keeps the level's: Read / Set / Origin go to Scenery's rail points (level_editor_scenery.h), saved as the
 // layout's `rail` records (not `set`), put back by Home and Reset level, and never in Changed().
-// Whether `name` is a rail point the rail manager has (false offline, and for rails that ride an object).
+// Whether `name` is a rail point the rail manager has (false offline, and for rails that ride an object) - a ladder's
+// point (ClimbingNode) too, moved the same way (phase 4, level_editor_chains.h).
 bool IsRail(uint32_t name);
-// What moves when `name` is moved: its whole rail (`name` first) when it's a rail point and `wholeRail`, else itself.
+// A chain's point: a rail's or a ladder's (IsRail), or a path's waypoint (moved through its pos=; not turned).
+bool IsChain(uint32_t name);
+// What moves when `name` is moved: its whole rail / ladder / path (`name` first) when it's a chain's point and
+// `wholeRail`, else itself.
 std::vector<uint32_t> MovedWith(uint32_t name, bool wholeRail);
 // When a change to it shows in the game (the Inspector's note).
 const char* WhenApplied(const Nodes::Node& node);

@@ -15,6 +15,7 @@
 #include "game/core/crc.h"
 #include "game/front/level_editor_node_edit.h"
 #include "game/front/level_editor_objects.h"
+#include "game/front/level_editor_scale.h"
 #include "game/gfx/screen.h"
 #include "game/net/net_manager.h"
 #include "game/obj/object.h"
@@ -115,6 +116,20 @@ bool ReadPlaced(std::istringstream& in, Placement* p)
            p->quarters <= 3;
 }
 
+// The key=value fields after a sector / rail / clone record's numbers: scale= (level_editor_scale.h); others (a later
+// version's) skipped. False: a bad scale.
+bool ReadPlacedFields(std::istringstream& in, Placement* p)
+{
+    std::string field;
+    while (in >> field) {
+        if (field.compare(0, 6, "scale=") == 0) {
+            if (!Scale::ReadToken(field, &p->scale))
+                return false;
+        }
+    }
+    return true;
+}
+
 // A `node` record's fields (after "node"): name, class, then key=value (unknown keys skipped; a repeated one, a bad
 // value or a missing place refuse it).
 bool ReadNode(std::istringstream& in, NodeCreate::Spec* spec)
@@ -181,20 +196,21 @@ std::string Write(const File& file)
         out << "sector";
         Hex(out, s.checksum);
         Placed(out, s.placement);
-        out << ' ' << (s.hidden ? 1 : 0);
+        out << ' ' << (s.hidden ? 1 : 0) << Scale::Token(s.placement.scale);
         Comment(out, s.checksum);
     }
     for (const auto& r : file.rails) {
         out << "rail";
         Hex(out, r.name);
         Placed(out, r.placement);
-        out << ' ' << (r.hidden ? 1 : 0);
+        out << ' ' << (r.hidden ? 1 : 0) << Scale::Token(r.placement.scale);
         Comment(out, r.name);
     }
     for (const auto& c : file.clones) {
         out << "clone";
         Hex(out, c.source);
         Placed(out, c.placement);
+        out << Scale::Token(c.placement.scale);
         Comment(out, c.source);
     }
     for (const auto& o : file.objects) {
@@ -276,6 +292,14 @@ std::string Write(const File& file)
             Triple(out, "angles", s.angles);
         Comment(out, s.name);
     }
+    out << Chains::WriteRecords(file.chains);
+    for (const Walls::WallState& w : file.walls) {
+        out << "wall";
+        Hex(out, w.checksum);
+        Placed(out, w.placement);
+        out << ' ' << (w.off ? 1 : 0);
+        Comment(out, w.checksum);
+    }
     return out.str();
 }
 
@@ -311,14 +335,14 @@ bool Read(const std::string& text, File* file, int* lineNumber)
             uint32_t checksum = 0;
             Placement p = {};
             int hidden = 0;
-            ok = ReadHex(in, &checksum) && ReadPlaced(in, &p) && (in >> hidden);
+            ok = ReadHex(in, &checksum) && ReadPlaced(in, &p) && (in >> hidden) && ReadPlacedFields(in, &p);
             if (ok && kind == "sector")
                 file->sectors.push_back({checksum, p, hidden != 0});
             else if (ok)
                 file->rails.push_back({checksum, p, hidden != 0});
         } else if (kind == "clone") {
             CloneRecord c = {};
-            ok = ReadHex(in, &c.source) && ReadPlaced(in, &c.placement);
+            ok = ReadHex(in, &c.source) && ReadPlaced(in, &c.placement) && ReadPlacedFields(in, &c.placement);
             if (ok)
                 file->clones.push_back(c);
         } else if (kind == "object") {
@@ -394,6 +418,17 @@ bool Read(const std::string& text, File* file, int* lineNumber)
             ok = ReadHex(in, &sector);
             if (ok)
                 file->triggersOff.push_back(sector);
+        } else if (kind == "wall") {
+            // (level_editor_walls.h: later key=value fields skipped, as a sector's)
+            Walls::WallState w = {};
+            int off = 0;
+            ok = ReadHex(in, &w.checksum) && ReadPlaced(in, &w.placement) && (in >> off) && (off == 0 || off == 1);
+            w.off = off != 0;
+            w.placement.scale = 1.0f;
+            if (ok)
+                file->walls.push_back(w);
+        } else if (Chains::IsRecord(kind)) {
+            ok = Chains::ReadRecord(kind, in, &file->chains); // (phase 4: point / links / drop / terrain)
         } // (anything else: a later version's record - skipped)
         if (!ok)
             return false;
@@ -579,6 +614,10 @@ bool Capture(File* file)
     file->scene = Scenery::SceneName(scene);
     file->sectors = Scenery::ChangedSectors();
     file->rails = Scenery::ChangedRails();
+    // (a rail point the editor added: its `point` record has where it is now - not a `rail` offset)
+    file->rails.erase(std::remove_if(file->rails.begin(), file->rails.end(),
+                                     [](const Scenery::RailState& r) { return NodeCreate::IsAdded(r.name); }),
+                      file->rails.end());
     for (const Scenery::Clone& clone : Scenery::Clones()) {
         Placement now;
         if (Scenery::PlacementNow(clone.checksum, &now) && !Scenery::Hidden(clone.checksum))
@@ -601,6 +640,8 @@ bool Capture(File* file)
         file->copies.push_back(record);
     }
     // Added nodes (as `node` records, where they are now; the crowns' order is theirs), hidden ones.
+    // (rail / path points: the chains' `point` records; the level's points deleted: `drop`, not `hide`)
+    file->chains = Chains::Current();
     file->added = NodeCreate::Current();
     // (a trigger volume's node: its own `trigger` record - level_editor_triggers.h)
     file->added.erase(std::remove_if(file->added.begin(), file->added.end(),
@@ -608,11 +649,18 @@ bool Capture(File* file)
                       file->added.end());
     file->triggers = Triggers::CaptureAdded();
     file->triggersOff = Triggers::CaptureOff();
+    file->added.erase(std::remove_if(file->added.begin(), file->added.end(),
+                                     [](const NodeCreate::Spec& s) { return Chains::IsChainClass(s.cls); }),
+                      file->added.end());
     std::vector<std::string> crowns = NodeCreate::CrownOrder(file->added);
     if (crowns.size() > 1)
         file->crownOrder = crowns;
-    file->hidden = NodeCreate::HiddenNames();
+    for (uint32_t name : NodeCreate::HiddenNames()) {
+        if (std::find(file->chains.dropped.begin(), file->chains.dropped.end(), name) == file->chains.dropped.end())
+            file->hidden.push_back(name);
+    }
     file->locks = Picking::Locks();
+    file->walls = Walls::Changed();
     for (const NodeEdit::Record& node : NodeEdit::Changed()) {
         if (NodeCreate::IsAdded(node.name))
             continue; // (its node record has its place)
@@ -690,15 +738,25 @@ std::string Apply(const File& file)
             ++nodes;
     }
     Picking::SetLocks(file.locks);
+    // Chains (phase 4): added rail / path points, relinked and dropped level points, terrains - the rail manager built
+    // again with them; peds / cars whose path changed made again.
+    if (!Chains::Empty(file.chains))
+        Chains::SetState(file.chains);
+    // Collision (level_editor_walls.h): invisible walls moved / switched off, drawn pieces' collision switched off - after
+    // the sectors (a piece shown by them gets its switch back).
+    Walls::ApplyStates(file.walls);
+    Walls::Tick();
     int triggers = Triggers::Apply(file.triggers, file.triggersOff, &message);
     if (!message.empty())
         Log("level editor: %s", message.c_str());
-    char summary[256];
+    char summary[320];
     std::snprintf(summary, sizeof(summary),
                   "%u pieces, %u copies, %u rail points, %d objects, %d object copies, %d nodes, %d added, %d hidden, "
-                  "%d triggers",
+                  "%u chain points, %u relinked, %u dropped, %u collision switches / walls, %d triggers",
                   static_cast<unsigned>(file.sectors.size()), static_cast<unsigned>(clones.size()),
-                  static_cast<unsigned>(file.rails.size()), objects, copies, nodes, added, hidden, triggers);
+                  static_cast<unsigned>(file.rails.size()), objects, copies, nodes, added, hidden,
+                  static_cast<unsigned>(file.chains.points.size()), static_cast<unsigned>(file.chains.links.size()),
+                  static_cast<unsigned>(file.chains.dropped.size()), static_cast<unsigned>(file.walls.size()), triggers);
     return summary;
 }
 
@@ -708,6 +766,9 @@ std::string Apply(const File& file)
 // Apply).
 void ResetToLevel(const File& keep)
 {
+    // (the chains first: added points removed, links and terrains as the level has them, dropped points shown, the
+    // rail manager built again - then the moved rail points below are put back in it)
+    Chains::SetState(Chains::State{});
     std::vector<Scenery::SectorState> sectors = Scenery::ChangedSectors();
     for (Scenery::SectorState& state : sectors) {
         state.placement = {0, {0.0f, 0.0f, 0.0f}};
@@ -725,6 +786,7 @@ void ResetToLevel(const File& keep)
         state.hidden = false;
     }
     Scenery::ApplyStates(sectors, rails);
+    Walls::ResetAll(); // (walls back where the level has them, every collision switch as the level had it)
     for (uint32_t id : Objects::Touched()) {
         if (const Objects::State* origin = Objects::Origin(id))
             Objects::Restore(*origin);
@@ -1000,6 +1062,7 @@ void OnSceneLoaded(const char* name, bool isNet)
     Scenery::Clones().clear();
     Objects::ForgetLevel();
     NodeEdit::ForgetLevel();
+    Chains::ForgetLevel(); // (before the overlay goes: the level's links put back while its array is the one loaded)
     NodeCreate::ForgetLevel();
     Picking::ClearLocks();
     g_pending = true; // (Tick decides: the edited copy if it was picked, never in a network session)

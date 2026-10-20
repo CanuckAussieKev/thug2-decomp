@@ -3,6 +3,8 @@
 
 #include "game/gfx/settings.h"
 
+#include "game/gfx/occlusion.h"
+
 #include <cstdint>
 
 #include "game/sys/config.h"
@@ -34,6 +36,8 @@ void LoadGraphicsSettings()
     s_settings.clippingDistance = static_cast<uint32_t>(Config::GetInt(Config::kGraphics, "ClippingDistance", 100));
     s_settings.fog = Config::GetBool(Config::kGraphics, "Fog", false);
     s_blurDisabled = Config::GetBool(Config::kGraphics, "DisableBlur", true);
+    // (NOT ORIGINAL: game/gfx/occlusion.h)
+    OcclusionOff() = !Config::GetBool(Config::kGraphics, "OcclusionCulling", true);
 }
 
 void WriteGraphicsSettings()
