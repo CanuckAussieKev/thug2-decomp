@@ -1,3 +1,5 @@
+# (Has a TypeScript twin, nodes.ts, which the TypeScript tools use: until this file is removed - once the Python
+# tools importing it are ported, docs/typescript.md - change both, and run tools/parity's cases.)
 # THPS4 / THUG1 node arrays -> THUG2: keep what THUG2 understands without the other game's scripts and assets
 # (restarts, rails, level geometry, KOTH crowns), drop the rest (peds, vehicles, game objects with the game's models,
 # goal nodes, waypoints, particles, lights...), renumber the Links.

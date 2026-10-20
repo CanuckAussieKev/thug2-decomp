@@ -1,3 +1,5 @@
+# (Has a TypeScript twin, tex.ts, which the TypeScript tools use: until this file is removed - once the Python
+# tools importing it are ported, docs/typescript.md - change both, and run tools/parity's cases.)
 # Texture dictionaries (THUG2 levels\<x>\<x>.tex.xbx; THPS4 PC <lvl>tex.dat has the same layout and version):
 #   u32 version (1), u32 count, then per texture:
 #   u32 checksum, width, height, mip levels, texel depth, palette depth, DXT version (1, 2 = DXT1 with alpha, 5),

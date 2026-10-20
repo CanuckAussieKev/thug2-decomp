@@ -1,3 +1,5 @@
+# (Has a TypeScript twin, prx.ts, which the TypeScript tools use: until this file is removed - once the Python
+# tools importing it are ported, docs/typescript.md - change both, and run tools/parity's cases.)
 # The games' file archives: THUG2's .prx and THUG1's .pre are the same format (version 0xABCD0003).
 #   i32 total size, u32 version, i32 file count, then per file {i32 size, i32 compressed size (0: stored),
 #   i16 name size, u16 use count, u32 checksum}, its name, and its data (LZSS when compressed) padded to 4 bytes

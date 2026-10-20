@@ -1,3 +1,5 @@
+# (Has a TypeScript twin, thug2_scene.ts, which the TypeScript tools use: until this file is removed - once the Python
+# tools importing it are ported, docs/typescript.md - change both, and run tools/parity's cases.)
 # THUG2 PC scene files (levels\<x>\<x>.scn.xbx; models' .mdl.xbx have the same layout): materials, then
 # sectors (one per object), each a list of meshes with their own index lists and vertex buffer.
 #

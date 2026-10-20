@@ -1,3 +1,5 @@
+# (Has a TypeScript twin, ported_levels.ts, which the TypeScript tools use: until this file is removed - once the Python
+# tools importing it are ported, docs/typescript.md - change both, and run tools/parity's cases.)
 # NOT ORIGINAL - what tools/menu_level/make_menu_level.py adds to the data overlay for the levels converted from other
 # games (tools/thps4_levels, tools/thug1_levels, tools/thps3_levels): their files, their level structures in Levels.qb and their signs in
 # the level select.

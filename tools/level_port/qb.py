@@ -1,3 +1,5 @@
+# (Has a TypeScript twin, qb.ts, which the TypeScript tools use: until this file is removed - once the Python
+# tools importing it are ported, docs/typescript.md - change both, and run tools/parity's cases.)
 # THPS4 / THUG1 .qb files: read the global data (`name = value` at the top level: node arrays, level structures) and
 # the checksum names, and write values as NeverScript text (tools/neverscript compiles that to THUG2 .qb).
 #

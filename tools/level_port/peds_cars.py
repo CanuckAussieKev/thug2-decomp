@@ -1,3 +1,5 @@
+# (Has a TypeScript twin, peds_cars.ts, which the TypeScript tools use: until this file is removed - once the Python
+# tools importing it are ported, docs/typescript.md - change both, and run tools/parity's cases.)
 # THPS4 node arrays' pedestrians and cars -> THUG2's own: the nodes nodes.py leaves out (peds, vehicles, waypoints),
 # made again as THUG2's levels write them, driven by THUG2's scripts (none of THPS4's ped / car scripts run in THUG2):
 #

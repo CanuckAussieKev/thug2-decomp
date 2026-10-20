@@ -16,3 +16,7 @@ Used by `tools/thps4_levels` (THPS4), `tools/thug1_levels` (THUG1), `tools/thps3
 - `common.py` - NeverScript compiling, writing a level's files, lighting keys, THUG2 round trips.
 - `ported_levels.py` - the staging folders' `levels.json` (format at its top), the Levels.qb structures, the level
   select signs, copying into the overlay.
+
+Each module has a TypeScript twin (`qb.ts` beside `qb.py`, ...: docs/typescript.md) which the TypeScript tools import;
+the Python files stay until the Python converters are ported. `col_check.ts` / `script_diff.ts` are the CLIs'
+twins (same arguments). tools/parity/level_port has the cases that prove the two agree on the games' data.

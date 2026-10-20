@@ -1,3 +1,5 @@
+# (Has a TypeScript twin, script_diff.ts, which the TypeScript tools use: until this file is removed - once the Python
+# tools importing it are ported, docs/typescript.md - change both, and run tools/parity's cases.)
 # Compares converted levels' .qb script by script (NeverScript decompiles), new vs reference staging folders.
 # usage: script_diff.py <new staging> <reference staging> [show N]
 import glob

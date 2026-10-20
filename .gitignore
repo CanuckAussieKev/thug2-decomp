@@ -16,3 +16,6 @@ __pycache__/
 
 # Claude Code personal settings
 .claude/settings.local.json
+
+# Node tooling
+node_modules/

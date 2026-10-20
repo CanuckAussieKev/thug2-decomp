@@ -1,3 +1,5 @@
+# (Has a TypeScript twin, binio.ts, which the TypeScript tools use: until this file is removed - once the Python
+# tools importing it are ported, docs/typescript.md - change both, and run tools/parity's cases.)
 # Little-endian binary reading and writing for the level file formats.
 
 import struct
