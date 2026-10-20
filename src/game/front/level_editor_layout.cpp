@@ -13,6 +13,7 @@
 #include <unordered_map>
 
 #include "game/core/crc.h"
+#include "game/front/level_editor_career.h"
 #include "game/front/level_editor_node_edit.h"
 #include "game/front/level_editor_objects.h"
 #include "game/front/level_editor_scale.h"
@@ -1026,11 +1027,13 @@ void SwitchInPlace(int to)
     std::string message;
     if (to > 0 && !g_editedCopy) {
         g_editedCopy = true;
+        Career::EditedCopy(true); // (the career's gap list kept as it is first - level_editor_career.h)
         Load(&message);
         Log("level editor: switched to the edited copy in place (%s)", message.c_str());
     } else if (to < 0 && g_editedCopy) {
         ResetToLevel(File{});
         g_editedCopy = false;
+        Career::EditedCopy(false); // (the career's gap list put back as before)
         Log("level editor: switched back to the level as shipped in place");
     } else {
         return;
@@ -1109,6 +1112,7 @@ void OnSceneLoaded(const char* name, bool isNet)
     g_autosaveOurs = false;
     g_offerPending = false;
     g_editedCopy = false;
+    Career::EditedCopy(false); // (the career's gap list put back as before the edited copy)
     g_netScene = isNet;
     g_switch = 0;
 }
@@ -1141,6 +1145,7 @@ void Tick()
         return;
     }
     g_editedCopy = true;
+    Career::EditedCopy(true); // (the career's gap list kept as it is first - level_editor_career.h)
     std::string message;
     Load(&message);
     LevelProps::OnEditedCopyUp(LevelProps::Current()); // (its start, if it names one)
@@ -1241,6 +1246,7 @@ bool EnterEditedCopy(std::string* message)
         return true;
     }
     g_editedCopy = true;
+    Career::EditedCopy(true); // (the career's gap list kept as it is first - level_editor_career.h)
     g_pending = false; // (put in place here, not again by Tick)
     std::string loaded;
     if (HasSavedLayout() && Load(&loaded))

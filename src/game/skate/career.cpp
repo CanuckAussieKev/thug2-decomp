@@ -6,6 +6,7 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/front/level_editor_career.h"
 #include "game/mth/vector.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
@@ -198,6 +199,7 @@ bool CSkaterCareer::Reset(bool resetGaps, uint32_t part)
     if (resetGaps) {
         for (int level = 0; level < kLevels; ++level)
             m_gaps[level]->Reset();
+        Front::LevelEditor::Career::CareerReplaced(); // (NOT ORIGINAL: an edited copy's baseline taken again)
     }
     m_level = 0;
     // A flag and the goal of the same number cleared (and their level-start copies).
@@ -464,6 +466,7 @@ void CSkaterCareer::ReadFromStructure(Script::CStruct* save)
     Script::CStruct* info = nullptr; // (the original's is left as it was)
     career->GetStructure(kInfoStructure, &info, 0);
     m_info->AppendStructureIfAny(info);
+    Front::LevelEditor::Career::CareerReplaced(); // (NOT ORIGINAL: an edited copy's baseline taken again)
 }
 
 // 0x00585550
@@ -487,7 +490,26 @@ void CSkaterCareer::WriteToStructure(Script::CStruct* save)
         Game::CGapChecklist* checklist = m_gaps[level];
         Script::CStruct* entry = NewStructure();
         entry->AddInteger(kGapLevel, level);
-        if (!checklist->m_built) {
+        // NOT ORIGINAL: an edited copy's checklist (level_editor_career.h) is written as before the edited copy - never
+        // the editor's gaps, nor gaps landed in it.
+        Front::LevelEditor::Career::Checklist view;
+        if (Front::LevelEditor::Career::SaveView(checklist, &view)) {
+            entry->AddInteger(kGapsBuilt, view.built ? 1 : 0);
+            if (view.built) {
+                Script::CArray* list = NewArray(static_cast<uint32_t>(view.gaps.size()), Script::ESYMBOLTYPE_STRUCTURE);
+                for (size_t i = 0; i < view.gaps.size(); ++i) {
+                    const Front::LevelEditor::Career::Gap& g = view.gaps[i];
+                    Script::CStruct* gap = NewStructure();
+                    gap->AddString(kGapName, g.name.c_str());
+                    gap->AddInteger(kGapCount, g.count);
+                    gap->AddInteger(kGapScore, g.score);
+                    gap->AddVector(kGapPos, g.pos[0], g.pos[1], g.pos[2]);
+                    gap->AddVector(kGapDir, g.dir[0], g.dir[1], g.dir[2]);
+                    list->SetElement(static_cast<uint32_t>(i), reinterpret_cast<uint32_t>(gap));
+                }
+                entry->AddArrayPointer(kGapList, list);
+            }
+        } else if (!checklist->m_built) {
             entry->AddInteger(kGapsBuilt, 0);
         } else {
             entry->AddInteger(kGapsBuilt, 1);
