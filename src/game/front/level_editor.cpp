@@ -25,6 +25,7 @@
 #include "game/front/level_editor_picking.h"
 #include "game/front/level_editor_scale.h"
 #include "game/front/level_editor_scenery.h"
+#include "game/front/level_editor_shadows.h"
 #include "game/front/level_editor_ui.h"
 #include "game/front/level_editor_view.h"
 #include "game/front/mouse_menus.h"
@@ -1904,8 +1905,9 @@ void UpdateHud()
     } else if (HaveSelection()) {
         Hud::SetLine(5, Key("Drag") + " move  " + Key("Arrows") + " one axis  " + Key("WASDQE") + " nudge  " + Key("ZX") +
                             " turn  " + (Primary() ? std::string() : Key("[ ]") + " scale  ") + Key("G") + " drop");
-        Hud::SetLine(6, Key("Ctrl+D") + " copy  " + Key("Del") + " hide  " + Key("Home") + " reset  " + Key("Esc") +
-                            " deselect  " + Key("F1") + " help");
+        Hud::SetLine(6, (Primary() ? std::string() : Key("Ctrl+click") + " remove one  ") + Key("Ctrl+D") + " copy  " +
+                            Key("Del") + " hide  " + Key("Home") + " reset  " + Key("Esc") + " deselect  " + Key("F1") +
+                            " help");
     } else {
         Hud::SetLine(5, Key("WASD") + " fly  " + Key("QE") + " down / up  " + Key("Shift") + " fast  " + Key("RMB") +
                             " look  " + Key("Wheel") + " dolly");
@@ -2246,7 +2248,8 @@ std::vector<std::pair<std::string, std::string>> KeysNow()
                 {"Outliner", "double-click: go to"}, {"F1", "help"}};
     if (HaveSelection() && !Primary())
         return {{"Drag", "move"}, {"Arrows", "one axis"}, {"WASDQE", "nudge"}, {"Z X", "turn"}, {"[ ]", "scale"},
-                {"G", "drop"}, {"Ctrl+D", "copy"}, {"Del", "hide"}, {"Home", "reset"}, {"Esc", "deselect"}};
+                {"G", "drop"}, {"Ctrl+click", "remove a piece"}, {"Ctrl+D", "copy"}, {"Del", "hide"}, {"Home", "reset"},
+                {"Esc", "deselect"}};
     if (HaveSelection())
         return {{"Drag", "move"}, {"Arrows", "one axis"}, {"WASDQE", "nudge"}, {"Z X", "turn"}, {"G", "drop"},
                 {"Ctrl+D", "copy"}, {"Del", "hide"}, {"Home", "reset"}, {"Esc", "deselect"}};
@@ -2326,6 +2329,30 @@ Ui::Model BuildModel()
         s.pos = Scenery::Pivot();
         s.scalable = true;
         s.scale = Scenery::SelectionScale();
+        if (s.sectors > 1 || Scenery::SelectedRailCount() > 0) {
+            for (uint32_t checksum : Scenery::Selection()) {
+                Ui::Model::Selection::Member member;
+                member.id = checksum;
+                member.name = Objects::Label(checksum);
+                member.shadow = Scenery::IsShadow(checksum);
+                OrientedBox box;
+                if (Scenery::Box(checksum, &box)) {
+                    char size[48];
+                    float scale = std::sqrt(Dot(box.axes[1], box.axes[1]));
+                    std::snprintf(size, sizeof(size), "%.0f x %.0f x %.0f", (box.max.x - box.min.x) * scale,
+                                  (box.max.y - box.min.y) * scale, (box.max.z - box.min.z) * scale);
+                    member.size = size;
+                }
+                s.members.push_back(member);
+            }
+            for (uint32_t name : Scenery::SelectedRailNames()) {
+                Ui::Model::Selection::Member member;
+                member.rail = true;
+                member.id = name;
+                member.name = Nodes::Label(name);
+                s.members.push_back(member);
+            }
+        }
     }
     model.help = g_help;
     model.browser = g_browser.open;
@@ -2423,6 +2450,7 @@ void ShowHelp()
         "             floors, ceilings, rooms around you and decals are passed by a click",
         "             click again on the same spot: the next thing under the cursor",
         "             Shift+click adds / removes   Alt+click (middle click) one piece, any",
+        "             Ctrl+click removes one piece from the selection (a group takes its shadows too)",
         "             L locks the selection (clicks pass it); L with nothing selected unlocks all",
         "             what clicks take: [editor] pick= in the ini (1 nodes 2 objects 4 scenery)",
         "             Esc or Backspace deselects",
@@ -2770,6 +2798,41 @@ void NoteClickForCycle(float x, float y, V3 dir, bool plain)
                       static_cast<int>(g_cycle.order.size()));
         Hud::Message(text, 2.5);
     }
+}
+
+// Ctrl+click: a part of the scenery selection dropped from it - the rail point whose gizmo is under the cursor (from the
+// points carried along), else the nearest selected piece no further than what a plain click takes (a selected shadow
+// or floor in front of it too: level_editor_shadows.h's DropTarget). False: nothing selected there (the click goes on
+// as a plain one).
+bool DropUnderCursor(V3 dir)
+{
+    if (!Scenery::HasSelection())
+        return false;
+    if (g_hoverNode >= 0 && g_hoverNode < static_cast<int>(Nodes::All().size())) {
+        uint32_t name = Nodes::All()[g_hoverNode].name;
+        if (!Scenery::CarriesRail(name))
+            return false;
+        Scenery::DropRail(name);
+        Hud::Message("Rail point " + Nodes::Label(name) + " no longer moves with the selection (" +
+                     std::to_string(Scenery::SelectedRailCount()) + " carried)");
+        return true;
+    }
+    Scenery::Hit first;
+    std::vector<Scenery::Layer> layers;
+    Scenery::Pick(g_pos, Normalize(dir), kMaxPickDistance, &first, &layers);
+    std::vector<bool> passed, selected;
+    for (const Scenery::Layer& layer : layers) {
+        passed.push_back(layer.passed);
+        selected.push_back(Scenery::Selected(layer.checksum));
+    }
+    int index = Members::DropTarget(passed, selected);
+    if (index < 0)
+        return false;
+    uint32_t checksum = layers[index].checksum;
+    Scenery::Toggle(checksum);
+    Hud::Message("Removed " + Objects::Label(checksum) + (Scenery::IsShadow(checksum) ? " (shadow)" : "") +
+                 " from the selection (" + std::to_string(Scenery::Selection().size()) + " left)");
+    return true;
 }
 
 // The selection as locks: the selected objects, else the selected scenery pieces (a node by itself: none).
@@ -3177,6 +3240,33 @@ void ApplyUiRequests(V3 dir, bool haveRay, const Frame& frame)
             break;
         case Ui::Request::kSnapAlways:
             g_snapAlways = request.value != 0;
+            break;
+        case Ui::Request::kMemberRemove:
+        case Ui::Request::kMemberKeep:
+            // (the Inspector's list of the scenery selection's parts: x / Keep only this)
+            if (g_dragging || !Scenery::HasSelection())
+                break;
+            if (request.value) {
+                if (request.kind == Ui::Request::kMemberRemove) {
+                    Scenery::DropRail(request.id);
+                } else {
+                    // (a rail point by itself: the node selected, as its gizmo would)
+                    const std::vector<Nodes::Node>& nodes = Nodes::All();
+                    for (size_t i = 0; i < nodes.size(); ++i) {
+                        if (nodes[i].name == request.id) {
+                            Deselect();
+                            SelectNode(static_cast<int>(i));
+                            break;
+                        }
+                    }
+                }
+            } else if (Scenery::Selected(request.id)) {
+                if (request.kind == Ui::Request::kMemberRemove)
+                    Scenery::Toggle(request.id);
+                else
+                    Scenery::KeepOnly(request.id);
+            }
+            NoteAction("Inspector - selected: %s", DescribeSelection().c_str());
             break;
         case Ui::Request::kSelectScenery:
             if (!g_dragging && !Scenery::WhyNotMovable(request.id)) {
@@ -3776,7 +3866,8 @@ void Update()
     }
 
     // A click: on an arrow, dragging along it; on something, selecting it (Shift: adding / removing it; Alt or a
-    // middle click: one piece of scenery in / out) and dragging it; on nothing, deselecting.
+    // middle click: one piece of scenery in / out; Ctrl on a part of the scenery selection: that part dropped) and
+    // dragging it; on nothing, deselecting.
     if (input.leftPresses && haveRay && !g_dragging && Chains::WantsPick() && g_hoverAxis < 0) {
         // (an armed Link / path assignment: the node clicked - level_editor_chains.h)
         if (g_hoverNode >= 0) {
@@ -3795,6 +3886,13 @@ void Update()
         PlaceNode(g_placeArmed, CursorPoint(dir, haveRay, frame));
         if (!shift)
             g_placeArmed = -1;
+    } else if (input.leftPresses && haveRay && !g_dragging && ctrl && !alt && !shift && g_hoverAxis < 0 &&
+               DropUnderCursor(dir)) {
+        // (Ctrl+click: one part of the selection dropped - no drag)
+        g_cycle.have = false;
+        NoteAction("ctrl+click - selected: %s", DescribeSelection().c_str());
+        if (DebugEnabled())
+            Log("level editor: ctrl+click - selected: %s", DescribeSelection().c_str());
     } else if ((input.leftPresses || input.middlePresses) && haveRay && !g_dragging) {
         Obj::CCompositeObject* hover = Live(g_hover);
         bool one = alt || (input.middlePresses && !input.leftPresses);

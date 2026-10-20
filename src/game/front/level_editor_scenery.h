@@ -62,13 +62,24 @@ const std::vector<uint32_t>& Selection();
 bool Selected(uint32_t checksum);
 void ClearSelection();
 // The sector, the rest of its cluster (the node's TrickObject Cluster=) and the pieces built onto them (PieceFits /
-// PieceTouches: the fire truck's ladder) that can be moved - and their grind rails (rail nodes of those clusters, or
+// PieceTouches: the fire truck's ladder) that can be moved, their shadows (IsShadow) - and their grind rails (rail nodes of those clusters, or
 // lying within a selected sector's box), which move and turn with them.
 void SelectGroup(uint32_t checksum);
 // What SelectGroup would select for that sector (kept while it stays the same: the hover's highlight).
 const std::vector<uint32_t>& HoverGroup(uint32_t checksum);
-// Alt+click: one sector in or out (the rails chosen again).
+// Alt+click: one sector in or out (the rails chosen again). Also Ctrl+click and the Inspector's x on a selected piece.
 void Toggle(uint32_t checksum);
+// A group's shadows (level_editor_shadows.h) are selected with it: whether a sector has been taken as one (`caster`:
+// the member whose name it carries, or the one it lies under when taken by place). They move, turn, scale and undo with the rest; the pivot
+// and the bottom are the rest's.
+bool IsShadow(uint32_t checksum, uint32_t* caster = nullptr);
+// The selection's rail points carried along (by name); one dropped from them (Ctrl+click on its gizmo, the Inspector's
+// x: not carried again until another group is selected).
+const std::vector<uint32_t>& SelectedRailNames();
+bool CarriesRail(uint32_t name);
+void DropRail(uint32_t name);
+// The Inspector's "Keep only this": that sector alone (its rails with it).
+void KeepOnly(uint32_t checksum);
 // The selection's rails: each segment (a rail node to the next) where it is now; how many rail nodes.
 std::vector<std::pair<V3, V3>> SelectedRails();
 int SelectedRailCount();

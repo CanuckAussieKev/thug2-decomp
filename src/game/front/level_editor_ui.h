@@ -103,6 +103,15 @@ struct Model {
         // Scenery: its scale (level_editor_scale.h - the Inspector's Scale field).
         bool scalable = false;
         float scale = 1.0f;
+        // Scenery: its parts - the pieces (a shadow marked: level_editor_shadows.h) and the rail points carried -
+        // each with x (removed from the selection) and Keep only this.
+        struct Member {
+            bool rail = false;
+            uint32_t id = 0;
+            std::string name, size;
+            bool shadow = false;
+        };
+        std::vector<Member> members;
     } selection;
     // The help (F1) and the browser (B).
     bool help;
@@ -258,6 +267,8 @@ struct Request {
         kScaleSet,      // the Inspector's Scale (scenery): a[0] = the scale asked for
         kScaleDone,     // that field let go (the changes since its first kScaleSet: one undo step)
         kChainOp,       // value: a Chains::Op on the selected node, id: its argument (a terrain)
+        kMemberRemove,  // value: 1 a rail point, 0 a scenery piece; id: it - removed from the selection
+        kMemberKeep,    // value, id: as kMemberRemove - the selection is only that
     } kind;
     int value = 0;
     uint32_t id = 0;
