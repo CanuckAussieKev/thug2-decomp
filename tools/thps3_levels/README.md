@@ -15,8 +15,9 @@ Needs Node 24+ (`npm install` once - docs/typescript.md), NeverScript (`tools\bu
 
 `convert` reads `<thps3>\Data\Levels\<Lvl>\` (`<lvl>.bsp`, `.tdx`, `.qb`) and `<thps3>\Data\Scripts\` (levels.qb,
 lights.qb and the global scripts, for the level structures and kill zones) and writes `<thug2>\thug2-decomp-thps3\`
-(not read by the game): `levels\thps3_<lvl>\thps3_<lvl>.scn.xbx / .tex.xbx / .col.xbx / .qb`, the skies
-(`thps3_<lvl>_sky`: scene and textures, no collision - as THUG2's own skies) and `levels.json`. Name levels to convert
+(not read by the game): `levels\<level>\<level>.scn.xbx / .tex.xbx / .col.xbx / .qb`, the skies (`<level>_sky`:
+scene and textures, no collision - as THUG2's own skies) and `levels.json`. A level is named as in THPS3 (`foun`:
+Load_foun, Level_foun - "Names" below; `--legacy-names`: every level `thps3_<lvl>`, as before 2026-10-20). Name levels to convert
 only some (`convert Foun Can`). The default is the career's nine (Foun, Can, Rio, Sub, Ap, SI, LA, Tok, Shp), the
 classics (Ware, Burn, Ros), Tut and SkateShop; the park editor's sets (Sk3Ed_Bch, Sk3Ed_Indr, Sk3Ed_Schl) convert
 when named. `--no-mips` skips making mip levels (faster). The table `LEVELS` in `thps3_levels.ts` is the list (folder,
@@ -54,6 +55,18 @@ RenderWare 3.1 binary streams (chunks: u32 type, u32 size, u32 version 0x310) wi
 - `.qb` - THPS4's token format (tools/level_port/qb.ts; Cruise Ship's node array has a `<...>`). Nodes use
   `Position`, z negated from the geometry's - as THPS4's, which THUG2 reads the same way: the geometry is kept as is.
 
+## Names
+
+Online a level is known only by its load script's checksum, so a level is named after THPS3's own load script
+(levels.qb: Load_Foun -> `foun`: Level_foun, `levels\foun\`, foun_NodeArray) - the names THUGPRO's ports of these
+levels use too, so the same level loads for both. Kept as `thps3_<lvl>`: the levels THPS3 doesn't offer in network
+games (no `regular_level` in its master_level_list: Tut, SkateShop; the park editor's sets) and names THUG2 already
+has (its own Load_AP / Load_LA: THUG2's classic Airport and Los Angeles, which THUGPRO plays instead of THPS3's). The
+made objects' and materials' checksums keep the old prefix: the scenes, textures and collision are byte for byte as
+before. Saved level-editor layouts under the old names: `node tools/thps3_levels/migrate_layouts.ts --game <folder>`.
+Comparison with THUGPRO's own ports (read only): `node tools/thps3_levels/thugpro_compare.ts --thug2 <folder>
+[--details]` - docs/pending/thps3-thugpro.md.
+
 ## What's converted
 
 - Scene: a THUG2 sector per atomic sector with its meshes per material (the bin mesh's strips; triangle lists joined
@@ -63,6 +76,11 @@ RenderWare 3.1 binary streams (chunks: u32 type, u32 size, u32 version 0x310) wi
 - Collision: a THUG2 object per atomic sector, every face with its flags and its material's terrain; THUG2's BSP
   trees, fixed-point vertices and reaches made (tools/level_port/geometry.convertCol).
 - Nodes: EnvironmentObjects become LevelGeometry (their Links, to restarts for THPS3's scripts, dropped); restarts, rails, KOTH crowns kept.
+- Capture the flag: THPS3's two flag bases (GenericNode Type CTF_1 / CTF_2 - gamemode.qb: CTF_1 is the blue flag,
+  CTF_2 the red) become THUG2's TRG_CTF_Blue / TRG_CTF_Red flags and their _Base objects (THUG2's own flag models, a
+  trigger script calling THUG2's Team_Flag), and each team gets TRG_CTF_Restart_<colour> at THPS3's restart of its
+  team's type (CTF_1 / CTF_2) nearest to its base - the names THUG2's net\ctf.qb, SK4_Scripts and skater code look
+  for. THPS3 has two teams: no Green / Yellow flags, no lobby team flags (TRG_Flag_*), no TRG_Team_Restart.
 - Scripts, peds, vehicles, objects (`--no-scripts` leaves them out): the level's scripts translated to THUG2's
   (tools/level_port/script_port.ts) and run from a setup script; peds and crowds as THUG2's ped AI, resting birds and
   sharks as THUG2's animals, traffic as THUG2's cars (Car_Generic01), other vehicles and moving game objects as

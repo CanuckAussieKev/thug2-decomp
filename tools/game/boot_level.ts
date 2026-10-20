@@ -1,6 +1,6 @@
 // NOT ORIGINAL - TEST ONLY (under the game lock): the installed overlay's SKATE NOW loads the named level instead
 // (free skate).
-//   node tools/game/boot_level.ts thps3_foun C:\Games\THUG2-1
+//   node tools/game/boot_level.ts foun C:\Games\THUG2-1
 // (make_menu_level --game <folder> puts the real SKATE NOW back)
 
 import { spawnSync } from "node:child_process";

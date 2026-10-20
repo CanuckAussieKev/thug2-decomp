@@ -5,7 +5,7 @@
 //   node tools/thps3_levels/thps3_levels.ts convert [levels...] [--thug2 ...] [--thps3 ...] [--out <folder>]
 //   then: node tools/menu_level/make_menu_level.ts   (installs them into the data overlay, with level select signs)
 //
-// convert writes <thug2>\thug2-decomp-thps3\ (not read by the game): levels\thps3_<lvl>\thps3_<lvl>.scn.xbx /
+// convert writes <thug2>\thug2-decomp-thps3\ (not read by the game): levels\<level>\<level>.scn.xbx (levelName) /
 // .tex.xbx / .col.xbx / .qb (the node array), the skies (scene and textures) and levels.json (what
 // make_menu_level.ts adds to Levels.qb and the level select: tools/level_port/ported_levels.ts).
 //
@@ -21,6 +21,7 @@ import * as geometry from "../level_port/geometry.ts";
 import * as nodes from "../level_port/nodes.ts";
 import * as pedsCars from "../level_port/peds_cars.ts";
 import * as portedLevels from "../level_port/ported_levels.ts";
+import * as prx from "../level_port/prx.ts";
 import * as qb from "../level_port/qb.ts";
 import { Name, type QbFile, type QbValue, type Statement, Struct, Vector } from "../level_port/qb.ts";
 import * as scriptPort from "../level_port/script_port.ts";
@@ -76,6 +77,67 @@ export const LEVELS: readonly LevelRow[] = [
 ];
 
 type Names = Map<number, string>;
+
+// --- level names ---------------------------------------------------------------------------------------------------
+
+// A level's name in THUG2 (its folder under levels\, its files, Load_<name>, Level_<name>, <name>_NodeArray). Online
+// a level is known only by its load script's checksum (change level 0x46, start info 0x33 - docs/pending/thaw.md
+// "THUGPRO"): THPS3's network levels keep THPS3's own names (levels.qb's master_level_list: Load_Foun -> "foun"),
+// the names THUGPRO's ports of them use too, so the same level loads on both sides. A checksum is case-blind
+// (Load_Foun = load_foun); the folders are written in lower case. Kept as thps3_<folder>:
+// - the levels THPS3 doesn't offer in network games (no regular_level in its master_level_list: the tutorials, the
+//   skate shop; the park editor's sets have no entry) - nothing to agree on, and "skateshop" is a level of the other
+//   ported games too;
+// - a name THUG2 already has (its own Load_<name> / Level_<name> in Levels.qb: Load_AP, Load_LA - THUG2's classic
+//   Airport and Los Angeles, THPS3's levels remade, which THUGPRO plays for those two and for Canada).
+// `legacy`: every level thps3_<folder>, as before 2026-10-20 (--legacy-names).
+export function legacyName(base: string): string {
+    return `thps3_${base.toLowerCase()}`;
+}
+
+// The checksums of THUG2's own level scripts and structures (its Levels.qb's scripts and globals: Load_AP,
+// Level_AP...), from the THUG2 install's Data\pre\qb_scripts.prx.
+export function thug2LevelNames(thug2: string): Set<number> {
+    const archive = pyJoin(thug2, "Data", "pre", "qb_scripts.prx");
+    const data = fs.existsSync(archive) ? prx.find(archive, "scripts\\game\\levels.qb") : null;
+    if (data === null) pyExit(`${archive}: no scripts\\game\\levels.qb (THUG2's own level names are needed)`);
+    const q = new qb.QbFile(data, "Levels.qb", true);
+    return new Set([...q.scripts.keys(), ...q.globals.map(([k]) => k.value)]);
+}
+
+// THPS3's master_level_list entries (levels.qb) by their load script's checksum.
+export function masterLevels(levelsQ: QbFile): Map<number, Struct> {
+    const master = new Map<number, Struct>();
+    const list = levelsQ.get("master_level_list");
+    for (const value of Array.isArray(list) ? list : []) {
+        if (value instanceof Struct) {
+            const load = value.get("load_script");
+            if (load instanceof Name) master.set(load.value, value);
+        }
+    }
+    return master;
+}
+
+export function levelName(base: string, entry: Struct | null, thug2Names: ReadonlySet<number>, legacy = false): string {
+    const bare = base.toLowerCase();
+    if (legacy || entry === null || !entry.hasFlag("regular_level")) return legacyName(base);
+    if (thug2Names.has(qb.checksum(`Load_${bare}`)) || thug2Names.has(qb.checksum(`Level_${bare}`)))
+        return legacyName(base);
+    return bare;
+}
+
+// Every LEVELS row's name ({folder in lower case: name}), from THPS3's levels.qb and THUG2's Levels.qb.
+export function levelNames(thps3Dir: string, thug2: string, legacy = false): Map<string, string> {
+    const levelsQ = new qb.QbFile(read(pyJoin(thps3Dir, "Data", "Scripts", "levels.qb")), "levels.qb");
+    const master = masterLevels(levelsQ);
+    const thug2Names = thug2LevelNames(thug2);
+    return new Map(
+        LEVELS.map(([base]) => [
+            base.toLowerCase(),
+            levelName(base, master.get(qb.checksum(`Load_${base}`)) ?? null, thug2Names, legacy),
+        ]),
+    );
+}
 
 // --- files ---------------------------------------------------------------------------------------------------------
 
@@ -592,6 +654,8 @@ export interface ConvertWorldOptions {
     mips?: boolean;
     // objectSectors' [sectors, materials] - drawn, not collided with.
     objects?: [thps3.Sector[], ObjectMaterial[]] | null;
+    // the prefix of the materials' checksums (<tag>_material_<n>; default the level's name)
+    tag?: string;
 }
 
 export function convertWorld(
@@ -610,7 +674,7 @@ export function convertWorld(
     const textures = convertTextures(tdx, options.mips ?? true);
     const known = new Set(textures.textures.map((t) => t.checksum));
     const raw = [...world.materials];
-    const checksums = raw.map((_, i) => qb.checksum(`${name}_material_${i}`));
+    const checksums = raw.map((_, i) => qb.checksum(`${options.tag ?? name}_material_${i}`));
     let objectList: thps3.Sector[] = [];
     if (objects) {
         objectList = objects[0];
@@ -1460,6 +1524,131 @@ export function portScripts(
     return [out, setup, tr.globalsNs() + proximText, report];
 }
 
+// --- capture the flag ----------------------------------------------------------------------------------------------
+
+// THPS3's capture the flag, as THUG2's. THPS3 (2 teams): each team's flag base is a GenericNode of Type CTF_1 / CTF_2
+// (gamemode.qb's flag1_info / flag2_info: {name="blue flag" ... node_type_checksum=ctf_1}, {name="red flag" ...
+// ctf_2}), and the team's players start at its restarts of type CTF_1 / CTF_2 (four per level). THUG2 (net\ctf.qb,
+// SK4_Scripts' Create_Team_Flags / Team_Flag) looks the game objects up by name: TRG_CTF_<Colour> (the flag, its
+// trigger script calling Team_Flag <colour>) and TRG_CTF_<Colour>_Base, and its skater code (0x00566100) puts a team
+// at TRG_CTF_Restart_<Colour> (team 0 Red, 1 Blue, 2 Green, 3 Yellow). Made from THPS3's nodes in THUG2's own levels'
+// form (its Airport's: Type Flag_<Colour> / Flag_<Colour>_Base, NeverSuspend, THUG2's gameobjects\flags\ models,
+// lod_dist 800 / 801; the restart Type CTF, restart_types [CTF MultiPlayer Horse], "Team: CTF <Colour>"): the flag and
+// its base at THPS3's base node, the team's restart at THPS3's restart of the team's type nearest to its base. THPS3
+// has no Green / Yellow team and no lobby team flags (TRG_Flag_*) or team restart (TRG_Team_Restart): none is made.
+export const CTF_COLOURS = ["Red", "Blue", "Green", "Yellow"]; // THUG2's teams 0-3 (net\ctf.qb relocate_flag)
+
+export interface FlagTeam {
+    colour: string; // THUG2's: "Blue"
+    type: number; // THPS3's node type: checksum of CTF_1
+}
+
+// The teams of THPS3's gamemode.qb (flag<n>_info): [{colour, node type}].
+export function flagTeams(globalQbs: readonly QbFile[]): FlagTeam[] {
+    const teams: FlagTeam[] = [];
+    for (const q of globalQbs) {
+        for (const [key, value] of q.globals) {
+            const text = q.names.get(key.value) ?? "";
+            if (!/^flag\d+_info$/i.test(text) || !(value instanceof Struct)) continue;
+            const label = value.get("name");
+            const type = value.get("node_type_checksum");
+            const m = typeof label === "string" ? /^(\w+) flag$/i.exec(label) : null;
+            if (!m || !(type instanceof Name)) continue;
+            const colour = CTF_COLOURS.find((c) => c.toLowerCase() === m[1]!.toLowerCase());
+            if (colour !== undefined && !teams.some((t) => t.type === type.value))
+                teams.push({ colour, type: type.value });
+        }
+    }
+    return teams;
+}
+
+const vectorOf = (node: Struct, key: string): readonly number[] | null => {
+    const v = node.get(key);
+    return v instanceof Vector && v.kind === "vector" ? v.values : null;
+};
+
+// The THUG2 game-mode nodes for THPS3's flag bases (appended to the node array: no Links move) and their trigger
+// scripts (NeverScript text). `array`: THPS3's node array; `names` gets the new names.
+export function ctfNodes(
+    array: readonly QbValue[],
+    names: Names,
+    teams: readonly FlagTeam[],
+): [Struct[], string, string] {
+    const out: Struct[] = [];
+    const scripts: string[] = [];
+    const made: string[] = [];
+    const n = (text: string): Name => {
+        const c = qb.checksum(text);
+        if (!names.has(c)) names.set(c, text);
+        return new Name(c);
+    };
+    const nodesOf = (test: (s: Struct) => boolean): Struct[] =>
+        array.filter((x): x is Struct => x instanceof Struct && test(x));
+    for (const team of teams) {
+        const base = nodesOf(
+            (s) =>
+                nodes.classOf(s, names) === "genericnode" &&
+                s.get("Type") instanceof Name &&
+                (s.get("Type") as Name).value === team.type,
+        )[0];
+        const at = base ? vectorOf(base, "Position") : null;
+        if (!base || at === null) continue;
+        const angles = vectorOf(base, "Angles") ?? [0, 0, 0];
+        const c = team.colour;
+        const lower = c.toLowerCase();
+        const position: qb.Entry[] = [
+            [n("Position"), new Vector("vector", [...at])],
+            [n("Angles"), new Vector("vector", [...angles])],
+        ];
+        const flag = (name: string, type: string, model: string, script: string | null): Struct =>
+            new Struct([
+                ...position,
+                [n("Name"), n(name)],
+                [n("Class"), n("GameObject")],
+                [n("Type"), n(type)],
+                [null, n("NeverSuspend")],
+                [n("Model"), `gameobjects\\flags\\${model}\\${model}.mdl`],
+                [n("lod_dist1"), 800],
+                [n("lod_dist2"), 801],
+                ...(script !== null ? ([[n("TriggerScript"), n(script)]] as qb.Entry[]) : []),
+            ]);
+        out.push(flag(`TRG_CTF_${c}`, `Flag_${c}`, `flag_${lower}`, `TRG_CTF_${c}Script`));
+        out.push(flag(`TRG_CTF_${c}_Base`, `Flag_${c}_Base`, `flag_${lower}_base`, null));
+        scripts.push(`script TRG_CTF_${c}Script {\n    Team_Flag ${lower} \n}\n`);
+        // the team's restart: THPS3's restart of the team's type nearest to the base (the first of equals)
+        let best: [number, Struct] | null = null;
+        for (const r of nodesOf((s) => nodes.classOf(s, names) === "restart")) {
+            const types = r.get("restart_types");
+            const p = vectorOf(r, "Position");
+            if (!Array.isArray(types) || p === null || !types.some((t) => t instanceof Name && t.value === team.type))
+                continue;
+            const [dx, dy, dz] = [p[0]! - at[0]!, p[1]! - at[1]!, p[2]! - at[2]!];
+            const d = dx * dx + dy * dy + dz * dz;
+            if (best === null || d < best[0]) best = [d, r];
+        }
+        let restartNote = "no restart of its type";
+        if (best !== null) {
+            const r = best[1];
+            out.push(
+                new Struct([
+                    [n("Position"), new Vector("vector", [...vectorOf(r, "Position")!])],
+                    [n("Angles"), new Vector("vector", [...(vectorOf(r, "Angles") ?? [0, 0, 0])])],
+                    [n("Name"), n(`TRG_CTF_Restart_${c}`)],
+                    [n("Class"), n("Restart")],
+                    [n("Type"), n("CTF")],
+                    [null, n("CreatedAtStart")],
+                    [n("RestartName"), `Team: CTF ${c}`],
+                    [n("restart_types"), [n("CTF"), n("MultiPlayer"), n("Horse")]],
+                ]),
+            );
+            restartNote = `restart at ${names.get(nameOf(r)) ?? hex8(nameOf(r))}`;
+        }
+        made.push(`${c} (base ${names.get(nameOf(base)) ?? hex8(nameOf(base))}, ${restartNote})`);
+    }
+    const report = made.length ? `capture the flag: ${made.join(", ")}` : "capture the flag: no THPS3 flag bases";
+    return [out, scripts.join(""), report];
+}
+
 export function convertNodeArray(
     q: QbFile,
     globalQbs: readonly QbFile[],
@@ -1467,6 +1656,7 @@ export function convertNodeArray(
     base: string,
     startScripts: readonly number[],
     port: Port | null = null,
+    teams: readonly FlagTeam[] = [],
 ): [string, Set<number>, Set<number>, string, Map<number, Buffer>, boolean] {
     // port: a Port (the level's scripts brought along, its game objects, waypoints, peds...) or null (static: only
     // the geometry's nodes, restarts, rails and kill zones). Returns [NeverScript text, sectors left out, sectors
@@ -1621,6 +1811,9 @@ export function convertNodeArray(
             undrawn,
         );
     }
+    // (after the scripts: their trigger scripts are THUG2's Team_Flag, not THPS3 scripts to bring along)
+    const [ctf, ctfScripts, ctfReport] = ctfNodes(array, names, teams);
+    converted.push(...ctf);
     const triggers = nodes.killTriggerNames(converted, kills);
     if (port !== null) {
         // (the sectors whose trigger script runs keep their trigger faces)
@@ -1634,7 +1827,7 @@ export function convertNodeArray(
             }
         }
     }
-    let text = nodes.nodeArrayNs(`${name}_NodeArray`, converted, names, kills);
+    let text = nodes.nodeArrayNs(`${name}_NodeArray`, converted, names, kills) + ctfScripts;
     if (port !== null && made !== null) {
         text += globalsText + (setup ?? "") + PED_SCRIPTS + ANIMAL_SCRIPTS + CAR_SCRIPTS + loadAnimsNs(made.animals);
     }
@@ -1642,6 +1835,7 @@ export function convertNodeArray(
         `nodes: ${converted.length} of ${array.length} kept ${pyRepr(stats)}; ${triggers.size} kill zones, ` +
         `${hidden.size + later.size} sectors not there at the start`;
     if (scriptReport) report += `\n  ${scriptReport}`;
+    report += `\n  ${ctfReport}`;
     return [text, hidden, triggers, report, scripts, setup !== null];
 }
 
@@ -1807,6 +2001,7 @@ export interface Args {
     noObjects: boolean;
     noScripts: boolean;
     noMips: boolean;
+    legacyNames: boolean;
     extra: string[];
 }
 
@@ -1845,14 +2040,9 @@ export function cmdConvert(args: Args): void {
             args.thps3,
         );
     }
-    const master = new Map<number, Struct>();
-    const list = levelsQ.get("master_level_list");
-    for (const value of Array.isArray(list) ? list : []) {
-        if (value instanceof Struct) {
-            const load = value.get("load_script");
-            if (load instanceof Name) master.set(load.value, value);
-        }
-    }
+    const master = masterLevels(levelsQ);
+    const thug2Names = thug2LevelNames(args.thug2);
+    const teams = flagTeams(globalQbs);
     if (isDir(out)) fs.rmSync(out, { recursive: true, force: true });
     fs.mkdirSync(out, { recursive: true });
     const manifest: { levels: Record<string, unknown>[] } = { levels: [] };
@@ -1866,7 +2056,11 @@ export function cmdConvert(args: Args): void {
             continue;
         }
         const [base, sign, location, icon, levelNum] = row;
-        const name = `thps3_${base.toLowerCase()}`;
+        const entryStruct = master.get(qb.checksum(`Load_${base}`)) ?? null;
+        const name = levelName(base, entryStruct, thug2Names, args.legacyNames);
+        // (the generated materials' and objects' checksums keep the old name: the scene and collision stay as they
+        // were, and so do the sectors a saved level-editor layout names)
+        const tag = legacyName(base);
         const files = levelFiles(folder, base);
         for (const kind of ["bsp", "tdx", "qb"]) {
             if (!files.has(kind)) throw new FormatError(`${folder}: no .${kind} file`);
@@ -1878,7 +2072,6 @@ export function cmdConvert(args: Args): void {
         // not there at the start are left out of both.
         const qbFile = files.get("qb")!;
         const q = new qb.QbFile(read(qbFile), qbFile);
-        const entryStruct = master.get(qb.checksum(`Load_${base}`)) ?? null;
         const once = entryStruct ? entryStruct.get("once_on_startup") : undefined;
         const dffFile = files.get("dff");
         const clumps = dffFile !== undefined && !args.noObjects ? thps3.readDff(read(dffFile), dffFile) : [];
@@ -1899,6 +2092,7 @@ export function cmdConvert(args: Args): void {
             base,
             once instanceof Name ? [once.value] : [],
             port,
+            teams,
         );
         let text = nodeText;
         const qbPath = pyJoin(levelDir, `${name}.qb`);
@@ -1933,7 +2127,7 @@ export function cmdConvert(args: Args): void {
                 [...clumps, ...vehicles],
                 q.get("NodeArray"),
                 names,
-                name,
+                tag,
                 world.materials.length,
                 port !== null ? port.moving : new Set(),
             );
@@ -1946,6 +2140,7 @@ export function cmdConvert(args: Args): void {
             skip: hidden,
             mips: !args.noMips,
             objects,
+            tag,
         });
         const [withoutTricks, cleared] = withoutMissingTrickObjects(text, pyJoin(levelDir, `${name}.scn.xbx`));
         // (restarts over nothing or over a kill zone: no network spawns, no kill targets - nodes.groundRestarts)
@@ -1965,7 +2160,8 @@ export function cmdConvert(args: Args): void {
             const skyBsp = skyFiles.get("bsp");
             const skyTdx = skyFiles.get("tdx");
             if (skyBsp !== undefined && skyTdx !== undefined) {
-                sky = `thps3_${skyBase.toLowerCase()}`;
+                // (named as its level: rio_sky with rio, thps3_sk3ed_bch_sky with thps3_ware)
+                sky = name === tag ? legacyName(skyBase) : skyBase.toLowerCase();
                 if (!skiesDone.has(sky)) {
                     convertWorld(
                         thps3.readBsp(read(skyBsp), skyBsp),
@@ -1973,14 +2169,14 @@ export function cmdConvert(args: Args): void {
                         sky,
                         pyJoin(out, "levels", sky),
                         report,
-                        { withCol: false, mips: !args.noMips },
+                        { withCol: false, mips: !args.noMips, tag: legacyName(skyBase) },
                     );
                     skiesDone.add(sky);
                 }
             }
         }
-        const levelName = entryStruct?.get("level_name");
-        const displayName = typeof levelName === "string" ? levelName : title(sign);
+        const ownName = entryStruct?.get("level_name");
+        const displayName = typeof ownName === "string" ? ownName : title(sign);
         const entry: Record<string, unknown> = {
             folder: base,
             level: name,
@@ -2063,7 +2259,7 @@ export function cmdSelfcheck(args: Args): number {
 
 const USAGE =
     "usage: thps3_levels.ts [-h] [--thug2 THUG2] [--thps3 THPS3] [--out OUT] [--ns NS] [--no-objects] " +
-    "[--no-scripts] [--no-mips] [--extra [EXTRA ...]] {convert,selfcheck} [levels ...]";
+    "[--no-scripts] [--no-mips] [--legacy-names] [--extra [EXTRA ...]] {convert,selfcheck} [levels ...]";
 
 const HELP = `${USAGE}
 
@@ -2080,10 +2276,11 @@ options:
   --no-objects         convert: the game objects (.dff) left out
   --no-scripts         convert: the level's scripts, moving objects and waypoints left out (static levels)
   --no-mips            convert: no mip levels made (faster)
+  --legacy-names       convert: every level named thps3_<folder> (as before THUGPRO's names)
   --extra [EXTRA ...]  selfcheck: more THUG2 archives (Data\\pre\\*.prx)`;
 
 const VALUE_OPTIONS = ["--thug2", "--thps3", "--out", "--ns"] as const;
-const FLAG_OPTIONS = ["--no-objects", "--no-scripts", "--no-mips"] as const;
+const FLAG_OPTIONS = ["--no-objects", "--no-scripts", "--no-mips", "--legacy-names"] as const;
 const ALL_OPTIONS = [...VALUE_OPTIONS, ...FLAG_OPTIONS, "--extra", "--help"];
 
 function usageError(message: string): never {
@@ -2152,6 +2349,7 @@ export function parseCommandLine(argv: readonly string[]): Args {
         noObjects: flags.has("--no-objects"),
         noScripts: flags.has("--no-scripts"),
         noMips: flags.has("--no-mips"),
+        legacyNames: flags.has("--legacy-names"),
         extra,
     };
 }
