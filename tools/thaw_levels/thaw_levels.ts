@@ -93,7 +93,31 @@ export const COMPAT = {
     levelNames: new Map<string, string>(),
     frameKept: new Set<string>(),
     frameAdjust: new Map<string, number[]>(),
+    spawns: new Map<string, ZoneSpawns>(),
 };
+
+// TP-4 (tools/compat/thugpro/thaw_levels.json `spawns`): a network spawn - a restart with Multiplayer / Horse / CTF /
+// Team in its restart_types - as THUGPRO's THAW port has it where THUGPRO hand-edited it (moved it, changed its
+// types, or added it). `node`: our node of that name changed (pos / angles in THAW's own frame - the level's frame
+// shift is added as for every node; restart_types: the new list, [] = none); without `node`: a spawn added in our
+// form (Restart, CreatedAtStart, `type`, `restart_types`; `dropin`: it runs the level's drop-in script, THUG2's
+// MakeSkaterGoto DropIn). `order`: every network spawn of the level (our names; the added ones TRG_Net_Spawn01...)
+// in THUGPRO's order - THUG2 starts player n at the n-th Multiplayer restart of the node array and respawns at
+// one of the first 8 (Skate 0x00566100 -> GetRestartNode 0x0046B790; CSkater::MoveToRandomRestart 0x00580830:
+// Rnd(8)), so the order is part of a fair start too. Extracted by
+// `node tools/thaw_levels/thugpro_compare.ts --extract-thugpro`.
+export interface ZoneSpawns {
+    edits: SpawnEdit[];
+    order?: string[];
+}
+export interface SpawnEdit {
+    node?: string;
+    pos?: number[];
+    angles?: number[];
+    type?: string;
+    restart_types?: string[];
+    dropin?: boolean;
+}
 
 // The compatibility profile's THAW data (tools/compat/compat.ts): "thugpro" (the default) or "none".
 export function setCompat(name: string): void {
@@ -105,6 +129,116 @@ export function setCompat(name: string): void {
     COMPAT.frameAdjust = new Map(
         Object.entries(profile.section("thaw_levels", "frame_adjust")) as [string, number[]][],
     );
+    COMPAT.spawns = new Map(Object.entries(profile.section("thaw_levels", "spawns")) as [string, ZoneSpawns][]);
+}
+
+// The level's drop-in script (TP-4's added spawns run it: the skater drops in, as THUG2's MakeSkaterGoto DropIn).
+export const dropInName = (level: string): string => `${level}_net_dropin`;
+
+// TP-4: the profile's spawn edits applied to the converted nodes (before the frame shift: positions are THAW's
+// frame). Added spawns go at the end; then the spawns' slots in the array are refilled in THUGPRO's order (`order`;
+// every node's Links follow - the approach of tools/thug1_levels' TP-31; nodes.convertNodes' Player1-first swap
+// can stay: it only exchanges two slots before the refill). Returns the NeverScript to add (the drop-in script) or "".
+export function applySpawns(
+    zone: string,
+    level: string,
+    converted: Struct[],
+    names: Map<number, string>,
+    report: string[],
+): string {
+    const entry = COMPAT.spawns.get(zone.toUpperCase());
+    if (entry === undefined) return "";
+    const edits = entry.edits ?? [];
+    const key = (text: string): Name => {
+        const value = checksum(text);
+        if (!names.has(value)) names.set(value, text);
+        return new Name(value);
+    };
+    const vector = (v: readonly number[]): Vector => new Vector("vector", [...v]);
+    const setKey = (node: Struct, k: string, value: QbValue | null): void => {
+        const c = checksum(k);
+        const at = node.entries.findIndex(([n]) => n !== null && n.value === c);
+        if (value === null) {
+            if (at >= 0) node.entries.splice(at, 1);
+        } else if (at >= 0) node.entries[at] = [node.entries[at]![0], value];
+        else node.entries.push([key(k), value]);
+    };
+    let changed = 0;
+    let added = 0;
+    let dropIn = false;
+    for (const e of edits) {
+        let node: Struct;
+        if (e.node !== undefined) {
+            const wanted = checksum(e.node);
+            const found = converted.find((n) => {
+                const nm = n.get("Name");
+                return nm instanceof Name && nm.value === wanted && nodes.classOf(n, names) === "restart";
+            });
+            if (found === undefined) throw new FormatError(`${zone}: TP-4 names ${e.node}, not a restart of the level`);
+            node = found;
+            changed += 1;
+        } else {
+            added += 1;
+            node = new Struct([
+                [key("Pos"), vector(e.pos ?? [0, 0, 0])],
+                [key("Angles"), vector(e.angles ?? [0, 0, 0])],
+                [key("Name"), key(`TRG_Net_Spawn${String(added).padStart(2, "0")}`)],
+                [key("Class"), key("Restart")],
+                [key("Type"), key(e.type ?? "Multiplayer")],
+                [null, key("CreatedAtStart")],
+                [key("RestartName"), `Multi: Spawn ${added}`],
+            ]);
+            converted.push(node);
+        }
+        if (e.pos !== undefined) setKey(node, "Pos", vector(e.pos));
+        if (e.angles !== undefined) setKey(node, "Angles", vector(e.angles));
+        if (e.restart_types !== undefined) {
+            setKey(node, "restart_types", e.restart_types.length ? e.restart_types.map(key) : null);
+        }
+        if (e.dropin) {
+            setKey(node, "TriggerScript", key(dropInName(level)));
+            dropIn = true;
+        }
+    }
+    let reordered = 0;
+    if (entry.order !== undefined) {
+        const isSpawn = (n: Struct): boolean => {
+            const types = n.get("restart_types");
+            return (
+                nodes.classOf(n, names) === "restart" &&
+                Array.isArray(types) &&
+                types.some(
+                    (t) => t instanceof Name && nodes.NET_RESTART_TYPES.has((names.get(t.value) ?? "").toLowerCase()),
+                )
+            );
+        };
+        const slots = converted.flatMap((n, i) => (isSpawn(n) ? [i] : []));
+        const wanted = entry.order.map((text) => {
+            const c = checksum(text);
+            return converted.findIndex((n) => {
+                const nm = n.get("Name");
+                return nm instanceof Name && nm.value === c;
+            });
+        });
+        if ([...wanted].sort((a, b) => a - b).join(",") !== slots.join(",")) {
+            throw new FormatError(`${zone}: TP-4's spawn order names other restarts than the level's spawns`);
+        }
+        const moveTo = new Map(wanted.map((from, k) => [from, slots[k]!] as const)); // old index -> new
+        const before = [...converted];
+        for (const [from, to] of moveTo) converted[to] = before[from]!;
+        const links = checksum("Links");
+        for (const n of converted) {
+            n.entries = n.entries.map(([k, v]) => [
+                k,
+                k !== null && k.value === links && Array.isArray(v)
+                    ? v.map((x) => (typeof x === "number" && moveTo.has(x) ? moveTo.get(x)! : x))
+                    : v,
+            ]);
+        }
+        reordered = wanted.filter((from, k) => from !== slots[k]).length;
+    }
+    report.push(`  TP-4: ${changed} spawn(s) as THUGPRO's, ${added} added, ${reordered} moved to THUGPRO's order`);
+    return dropIn ? `script ${dropInName(level)} {\n    MakeSkaterGoto DropIn \n}\n` : "";
 }
 
 setCompat("thugpro"); // (the default, also for the tools that import this one: migrate_layouts, thugpro_compare)
@@ -523,7 +657,7 @@ export function movePositions(value: readonly QbValue[], shift: readonly number[
     }
 }
 
-const MULTIPLAYER = /^trg_(ctf_\w+|flag_(red|blue|green|yellow)(_base)?|koth\d+|team_restart)$/i;
+export const MULTIPLAYER_NAME = /^trg_(ctf_\w+|flag_(red|blue|green|yellow)(_base)?|koth\d+|team_restart)$/i;
 
 // The game modes' nodes under the names THUG2's own scripts look for (net\ctf.qb: TRG_CTF_Red...; SK4_Scripts'
 // team flags: TRG_Flag_Red...) and its levels use (TRG_KOTH01..., TRG_Team_Restart): THAW prefixes them with the
@@ -536,7 +670,7 @@ export function multiplayerNames(array: readonly QbValue[], zone: string, names:
         const name = node instanceof Struct ? node.get("Name") : undefined;
         if (!(node instanceof Struct) || !(name instanceof Name)) continue;
         const text = names.get(name.value) ?? "";
-        if (text.toLowerCase().startsWith(prefix) && MULTIPLAYER.test(text.slice(prefix.length))) {
+        if (text.toLowerCase().startsWith(prefix) && MULTIPLAYER_NAME.test(text.slice(prefix.length))) {
             const short = text.slice(prefix.length);
             if (!names.has(checksum(short))) names.set(checksum(short), short);
             node.set("Name", new Name(checksum(short)));
@@ -759,6 +893,7 @@ export function convertLevelNodes(
         made ? made.ids : [],
         wanted,
     );
+    const spawnScripts = applySpawns(zone, name, converted, names, report);
     if (shift.some((x) => x !== 0)) movePositions(converted, shift);
     kills = nodes.addKillRestarts(converted, kills, names);
     let scripts = new Map<number, Buffer>();
@@ -822,7 +957,7 @@ export function convertLevelNodes(
             triggers.add(v);
         }
     }
-    let text = nodes.nodeArrayNs(`${name}_NodeArray`, converted, names, kills) + extra;
+    let text = nodes.nodeArrayNs(`${name}_NodeArray`, converted, names, kills) + extra + spawnScripts;
     if (breakingNames.size) {
         // The breakables' glass sound (THAW's MA_BreakGlass plays HitGlassPane2x; THUG2 has it too, loaded per level):
         // loaded by the level's LoadTerrain, which load_level runs while loading (the level-specific sounds script

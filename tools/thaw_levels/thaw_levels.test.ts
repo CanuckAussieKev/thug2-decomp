@@ -3,12 +3,12 @@
 
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { Name, Struct } from "../level_port/qb.ts";
+import { checksum, Name, Struct, Vector } from "../level_port/qb.ts";
 import { formatG, pySplit, pySplitlines, pyTitle } from "../lib/py.ts";
 import { pack } from "../lib/struct.ts";
 import { migrateText, quarterTurn } from "./migrate_layouts.ts";
 import { inlineStruct, statements, tokens } from "./thaw.ts";
-import { levelName, moveTree, sixteenths } from "./thaw_levels.ts";
+import { applySpawns, COMPAT, levelName, moveTree, setCompat, sixteenths } from "./thaw_levels.ts";
 
 test("formatG is Python's %g / %.9g: exact value, halves to even", () => {
     const values = [100.0625, -0.0, 0.0, 12660.4375, -61514.9375, 1e-5, 0.0001, 123456789.0, 1234567.0, 999999.5];
@@ -86,4 +86,70 @@ test("THAW script tokens: 0x4A inline structures, statements", () => {
     assert.ok(s instanceof Struct);
     assert.ok(s.entries[0]![0] instanceof Name && s.entries[0]![0].value === 0xabc && s.entries[0]![1] === 5);
     assert.equal(statements(body).length, 1);
+});
+
+test("applySpawns (TP-4): changes a named restart, adds one with the drop-in, nothing without the profile", () => {
+    const names = new Map<number, string>([[checksum("Restart"), "Restart"]]);
+    const restart = (): Struct =>
+        new Struct([
+            [new Name(checksum("Pos")), new Vector("vector", [1, 2, 3])],
+            [new Name(checksum("Name")), new Name(checksum("R1"))],
+            [new Name(checksum("Class")), new Name(checksum("Restart"))],
+            [new Name(checksum("restart_types")), [new Name(checksum("Multiplayer"))]],
+        ]);
+    const converted = [restart()];
+    COMPAT.spawns = new Map([
+        [
+            "Z_XX",
+            {
+                edits: [
+                    { node: "R1", pos: [4, 5, 6], restart_types: [] },
+                    {
+                        pos: [7, 8, 9],
+                        angles: [0, 1, 0],
+                        type: "Generic",
+                        restart_types: ["Multiplayer"],
+                        dropin: true,
+                    },
+                ],
+                order: ["TRG_Net_Spawn01"],
+            },
+        ],
+    ]);
+    const report: string[] = [];
+    const script = applySpawns("z_xx", "z_xx", converted, names, report);
+    assert.equal(script, "script z_xx_net_dropin {\n    MakeSkaterGoto DropIn \n}\n");
+    assert.deepEqual((converted[0]!.get("Pos") as Vector).values, [4, 5, 6]);
+    assert.equal(converted[0]!.get("restart_types"), undefined);
+    assert.equal(converted.length, 2);
+    assert.deepEqual((converted[1]!.get("Pos") as Vector).values, [7, 8, 9]);
+    assert.ok(converted[1]!.get("TriggerScript") instanceof Name);
+    assert.deepEqual(report, ["  TP-4: 1 spawn(s) as THUGPRO's, 1 added, 0 moved to THUGPRO's order"]);
+    // the order: two spawns swapped into THUGPRO's order, a Links to one of them follows it
+    const spawn = (name: string): Struct =>
+        new Struct([
+            [new Name(checksum("Name")), new Name(checksum(name))],
+            [new Name(checksum("Class")), new Name(checksum("Restart"))],
+            [new Name(checksum("restart_types")), [new Name(checksum("Multiplayer"))]],
+        ]);
+    names.set(checksum("Multiplayer"), "Multiplayer");
+    const other = new Struct([[new Name(checksum("Links")), [2]]]);
+    const ordered = [spawn("A"), other, spawn("B")];
+    COMPAT.spawns = new Map([["Z_XX", { edits: [], order: ["B", "A"] }]]);
+    applySpawns("z_xx", "z_xx", ordered, names, []);
+    assert.equal(ordered[0]!.get("Name")?.toString(), new Name(checksum("B")).toString());
+    assert.deepEqual(
+        [ordered[0], ordered[2]].map((n) => (n!.get("Name") as Name).value),
+        [checksum("B"), checksum("A")],
+    );
+    assert.deepEqual(other.get("Links"), [0]);
+    assert.throws(() => {
+        COMPAT.spawns = new Map([["Z_XX", { edits: [], order: ["B"] }]]);
+        applySpawns("z_xx", "z_xx", [spawn("A"), spawn("B")], names, []);
+    });
+    setCompat("none");
+    const untouched = [restart()];
+    assert.equal(applySpawns("z_xx", "z_xx", untouched, names, []), "");
+    assert.deepEqual((untouched[0]!.get("Pos") as Vector).values, [1, 2, 3]);
+    setCompat("thugpro");
 });

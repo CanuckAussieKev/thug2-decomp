@@ -11,13 +11,16 @@
 // found through their BSP trees (tools/level_port/col_check.ts).
 //
 //   node tools/thaw_levels/thugpro_compare.ts [levels...] [--thug2 C:\Games\THUG2-1] [--thugpro <dir>] [--json out]
+//   node tools/thaw_levels/thugpro_compare.ts --extract-thugpro [--thugpro <dir>] [--thaw C:\Games\THAW]
+//     (TP-4: rewrites tools/compat/thugpro/thaw_levels.json `spawns` / `spawns_not_applied` - extractSpawns)
 
 import * as fs from "node:fs";
+import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import * as colCheck from "../level_port/col_check.ts";
 import * as prx from "../level_port/prx.ts";
 import * as qb from "../level_port/qb.ts";
-import { Name, type QbValue, Struct, Vector } from "../level_port/qb.ts";
+import { checksum, Name, type QbValue, Struct, Vector } from "../level_port/qb.ts";
 import * as thug2Col from "../level_port/thug2_col.ts";
 import {
     Float,
@@ -32,7 +35,21 @@ import {
     runMain,
     writeTextPy,
 } from "../lib/py.ts";
-import { COMPAT, findPath, LEVELS, levelName, STAGING } from "./thaw_levels.ts";
+import * as thaw from "./thaw.ts";
+import {
+    COMPAT,
+    findPath,
+    frameShift,
+    LEVELS,
+    levelName,
+    MULTIPLAYER_NAME,
+    multiplayerNames,
+    type SpawnEdit,
+    STAGING,
+    zoneArray,
+    zoneFiles,
+    zonePak,
+} from "./thaw_levels.ts";
 
 // THUGPRO's names for the levels it renamed (its data\pre file names; the others are the zone's): to find its files.
 const THUGPRO_NAMES = COMPAT.levelNames; // (tools/compat/thugpro/thaw_levels.json)
@@ -167,6 +184,34 @@ export function compare(zone: string, oursDir: string, thugpro: string): Result 
     out.worst = [new Float(pyRound(worst[0], 3)), worst[1]];
     out.crowns = sameSequence(sequence(ours, isCrown), sequence(theirs, isCrown))[0];
     out.mp_restarts = sameSequence(sequence(ours, isMpRestart), sequence(theirs, isMpRestart))[0];
+    // TP-4: every network spawn (Multiplayer / Horse / CTF / Team), its place and its types, in order
+    const spawnKey = (array: readonly QbValue[]): string[] =>
+        array
+            .filter(
+                (n): n is Struct =>
+                    n instanceof Struct && isName(n.get("Class"), "Restart") && isNet(typeNames(n, names)),
+            )
+            .map((n) => {
+                const p = position(n) ?? [0, 0, 0];
+                return `${p.map((x) => Math.round(x)).join(",")} ${(typeNames(n, names) ?? [])
+                    .map((t) => t.toLowerCase())
+                    .sort()
+                    .join(" ")}`;
+            });
+    const [sa, sb] = [spawnKey(ours), spawnKey(theirs)];
+    const near = (x: string, y: string): boolean => {
+        const [px, tx] = x.split(" ", 2) as [string, string];
+        const [py, ty] = y.split(" ", 2) as [string, string];
+        const a = px.split(",").map(Number);
+        const b = py.split(",").map(Number);
+        return tx === ty && a.every((v, k) => Math.abs(v - b[k]!) <= 1);
+    };
+    out.net_spawns =
+        sa.length !== sb.length
+            ? `count ${sa.length} vs ${sb.length}`
+            : sa.every((x, i) => near(x, sb[i]!))
+              ? "same"
+              : `${sa.filter((x, i) => !near(x, sb[i]!)).length} of ${sa.length} differ`;
     const ourNames = new Set(ours.filter((n): n is Struct => n instanceof Struct).map(nameOf));
     const theirNameSet = new Set(theirs.filter((n): n is Struct => n instanceof Struct).map(nameOf));
     out.ctf_ours = CTF_NAMES.filter((c) => ourNames.has(qb.checksum(c))).length;
@@ -187,14 +232,182 @@ export function compare(zone: string, oursDir: string, thugpro: string): Result 
     return out;
 }
 
+// --- TP-4: extracting THUGPRO's hand-edited network spawns into the compatibility profile --------------------------
+
+export const PROFILE_FILE = fileURLToPath(new URL("../compat/thugpro/thaw_levels.json", import.meta.url));
+// A restart's network types (THUG2's: what a network game spawns at - nodes.NET_RESTART_TYPES).
+const NET_TYPES = new Set(["multiplayer", "horse", "ctf", "ctf_1", "ctf_2", "team"]);
+const MOVED = 0.1; // units: a place further than this from THAW's (in the same frame) is THUGPRO's hand move
+
+function typeNames(node: Struct, names: ReadonlyMap<number, string>): string[] | null {
+    // The restart's types as names, or null when THAW's value isn't a list (Santa Cruz's "Player 1" strings).
+    const t = node.get("restart_types");
+    if (t === undefined) return [];
+    if (!Array.isArray(t)) return null;
+    return t.filter((x): x is Name => x instanceof Name).map((x) => names.get(x.value) ?? hex8(x.value));
+}
+const isNet = (types: readonly string[] | null): boolean => (types ?? []).some((t) => NET_TYPES.has(t.toLowerCase()));
+const sameTypes = (a: readonly string[], b: readonly string[]): boolean =>
+    a.map((x) => x.toLowerCase()).join(" ") === b.map((x) => x.toLowerCase()).join(" ");
+const vec = (v: QbValue | undefined): number[] => (v instanceof Vector ? [...v.values] : [0.0, 0.0, 0.0]);
+
+export interface SpawnExtract {
+    edits: SpawnEdit[];
+    notApplied: Record<string, unknown>[];
+    order: string[]; // every network spawn in THUGPRO's order, by our names (the added: TRG_Net_Spawn01...)
+    notes: string[];
+}
+
+// THUGPRO's network spawns of a THAW area against THAW's own restarts (same name: our names, the game-mode prefix
+// taken off as thaw_levels.multiplayerNames does): moved (place / angles, back in THAW's frame), types changed, added,
+// or no longer a spawn. A THAW restart whose restart_types isn't a list (Santa Cruz's "Player 1" strings, which
+// THUGPRO turned into [Player1 Multiplayer Horse]) is listed, not applied: its being a spawn is the user's decision.
+export function extractSpawns(
+    zone: string,
+    thugpro: string,
+    thawFolder: string,
+    names: Map<number, string>,
+): SpawnExtract {
+    const key = THUGPRO_NAMES.get(zone) ?? zone.toLowerCase();
+    const scripts = prxFile(thugpro, `${key}_scripts.prx`);
+    const data = scripts === null ? null : prx.find(scripts, `levels\\${key}\\${key}.qb`);
+    if (data === null) pyExit(`THUGPRO has no levels\\${key}\\${key}.qb`);
+    const [theirs, theirNames] = nodeArray(data, `${key}.qb`);
+    for (const [k, v] of theirNames) if (!names.has(k)) names.set(k, v);
+    const pak = zonePak(thawFolder, zone);
+    if (pak === null) pyExit(`no THAW ${zone}_net.pak.wpc in ${thawFolder}`);
+    const own = zoneArray(zoneFiles(pak), zone, names);
+    const shift = frameShift(zone, own, names); // (THUGPRO's frame: the profile's - setCompat("thugpro"))
+    multiplayerNames(own, zone, names);
+    const strip = (text: string): string => {
+        const prefix = `${zone.toLowerCase()}_`;
+        return text.toLowerCase().startsWith(prefix) && MULTIPLAYER_NAME.test(text.slice(prefix.length))
+            ? text.slice(prefix.length)
+            : text;
+    };
+    const isRestart = (n: Struct): boolean => isName(n.get("Class"), "Restart");
+    const ownBy = new Map<number, Struct>();
+    for (const n of own) {
+        const nm = n instanceof Struct ? nameOf(n) : null;
+        if (n instanceof Struct && nm !== null && isRestart(n) && !ownBy.has(nm)) ownBy.set(nm, n);
+    }
+    const out: SpawnExtract = { edits: [], notApplied: [], notes: [], order: [] };
+    let added = 0;
+    const round = (v: readonly number[]): number[] => v.map((x) => pyRound(x, 4));
+    const seen = new Set<number>();
+    for (const t of theirs) {
+        if (!(t instanceof Struct) || !isRestart(t)) continue;
+        const tn = nameOf(t);
+        if (tn === null) continue;
+        const ours = checksum(strip(names.get(tn) ?? hex8(tn)));
+        const o = ownBy.get(ours);
+        const theirTypes = typeNames(t, names) ?? [];
+        const p = position(t);
+        if (o === undefined) {
+            if (!isNet(theirTypes) || p === null) continue;
+            const script = t.get("TriggerScript");
+            out.edits.push({
+                pos: round([0, 1, 2].map((k) => p[k]! - shift[k]!)),
+                angles: round(vec(t.get("Angles"))),
+                type:
+                    t.get("Type") instanceof Name ? (names.get((t.get("Type") as Name).value) ?? "Generic") : "Generic",
+                restart_types: theirTypes,
+                ...(script instanceof Name && /dropin/i.test(names.get(script.value) ?? "") ? { dropin: true } : {}),
+            });
+            out.notes.push(`added: ${names.get(tn)}`);
+            added += 1;
+            out.order.push(`TRG_Net_Spawn${String(added).padStart(2, "0")}`);
+            continue;
+        }
+        seen.add(ours);
+        const ownTypes = typeNames(o, names);
+        if (!isNet(ownTypes) && !isNet(theirTypes)) continue;
+        if (ownTypes === null) {
+            out.notApplied.push({
+                node: names.get(ours),
+                thaw_restart_types: String(o.get("restart_types")),
+                thugpro_restart_types: theirTypes,
+                pos: round(p ?? [0, 0, 0]),
+            });
+            continue;
+        }
+        if (isNet(theirTypes)) out.order.push(names.get(ours) ?? hex8(ours));
+        const edit: SpawnEdit = { node: names.get(ours) ?? hex8(ours) };
+        const op = position(o);
+        if (
+            p !== null &&
+            op !== null &&
+            maxDiff(
+                [0, 1, 2].map((k) => op[k]! + shift[k]!),
+                p,
+            ) > MOVED
+        ) {
+            edit.pos = round([0, 1, 2].map((k) => p[k]! - shift[k]!));
+        }
+        if (maxDiff(vec(o.get("Angles")), vec(t.get("Angles"))) > 0.001) edit.angles = round(vec(t.get("Angles")));
+        if (!sameTypes(ownTypes, theirTypes)) edit.restart_types = theirTypes;
+        if (Object.keys(edit).length > 1) {
+            out.edits.push(edit);
+            out.notes.push(
+                `changed: ${edit.node}${edit.pos ? " (moved)" : ""}${edit.angles ? " (turned)" : ""}` +
+                    `${edit.restart_types ? ` (types [${ownTypes.join(" ")}] -> [${theirTypes.join(" ")}])` : ""}`,
+            );
+        }
+    }
+    // THAW's spawns THUGPRO has no restart of the name for (removed or renamed): no longer spawns there
+    for (const [nm, o] of ownBy) {
+        if (seen.has(nm) || !isNet(typeNames(o, names))) continue;
+        const theirsHas = theirs.some(
+            (t) => t instanceof Struct && nameOf(t) !== null && checksum(strip(names.get(nameOf(t)!) ?? "")) === nm,
+        );
+        if (theirsHas) continue;
+        out.edits.push({ node: names.get(nm) ?? hex8(nm), restart_types: [] });
+        out.notes.push(`removed: ${names.get(nm)}`);
+    }
+    return out;
+}
+
+function extract(thugpro: string, thawFolder: string): number {
+    const profile = JSON.parse(fs.readFileSync(PROFILE_FILE, "utf-8")) as Record<string, unknown>;
+    const names = thaw.loadNames(thawFolder);
+    const section: Record<string, unknown> = {
+        _register: "TP-4",
+        _source:
+            "THUGPRO's installed data\\pre\\<level>_scripts.prx node arrays against THAW's own (<zone>_net.pak.wpc), " +
+            "extracted by `node tools/thaw_levels/thugpro_compare.ts --extract-thugpro` (pos: THAW's frame)",
+    };
+    const pending: Record<string, unknown> = {
+        _note:
+            "Not applied (the user's decision): THAW restarts whose restart_types isn't a list, which THUGPRO made " +
+            "network spawns. Listed by --extract-thugpro.",
+    };
+    for (const [zone] of LEVELS) {
+        const r = extractSpawns(zone, thugpro, thawFolder, names);
+        section[zone] = { edits: r.edits, order: r.order };
+        if (r.notApplied.length) pending[zone] = r.notApplied;
+        print(
+            `${zone}: ${r.notes.join("; ") || "no spawn edits"}${r.notApplied.length ? `; ${r.notApplied.length} not applied` : ""}`,
+        );
+    }
+    profile.spawns = section;
+    profile.spawns_not_applied = pending;
+    fs.writeFileSync(PROFILE_FILE, `${JSON.stringify(profile, null, 2)}\n`, "utf-8");
+    print(`wrote ${PROFILE_FILE}`);
+    return 0;
+}
+
 const USAGE =
-    "usage: thugpro_compare.ts [-h] [--thug2 THUG2] [--thugpro THUGPRO] [--staging STAGING] [--json JSON] [levels ...]";
+    "usage: thugpro_compare.ts [-h] [--thug2 THUG2] [--thugpro THUGPRO] [--staging STAGING] [--json JSON] " +
+    "[--extract-thugpro] [--thaw THAW] [levels ...]";
 
 const OPTIONS = {
     thug2: { type: "string" },
     thugpro: { type: "string" },
     staging: { type: "string" }, // our converted levels (default <thug2>\thug2-decomp-thaw\levels)
     json: { type: "string" },
+    // TP-4: (re)write the profile's spawns from THUGPRO's install against THAW's own node arrays
+    "extract-thugpro": { type: "boolean" },
+    thaw: { type: "string" },
 } as const;
 
 const pad = (text: string, width: number): string => text.padEnd(width);
@@ -210,6 +423,7 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
     const v = parsed.values;
     const thug2 = v.thug2 ?? "C:\\Games\\THUG2\\Game";
     const thugpro = v.thugpro ?? DEFAULT_THUGPRO;
+    if (v["extract-thugpro"]) return extract(thugpro, v.thaw ?? "C:\\Games\\THAW");
     const oursDir = v.staging || pyJoin(thug2, STAGING, "levels");
     let zones = LEVELS.map((l) => l[0]);
     if (parsed.positionals.length) {
@@ -233,7 +447,7 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
             `${pad(zone, 6)} ${pad(r.level, 6)}${r.same_name ? "" : ` (THUGPRO: ${String(r.thugpro_level)})`} ` +
                 `nodes ${r.nodes_ours}/${r.nodes_thugpro}, ${r.shared} shared, ${r.same_place} at the same place ` +
                 `(worst ${formatFixed(worst[0].value, 3)} ${worst[1] || ""}); crowns ${r.crowns}; mp restarts ` +
-                `${r.mp_restarts}; ctf nodes ${r.ctf_ours}/${r.ctf_thugpro}; collision unreachable ours ` +
+                `${r.mp_restarts}; net spawns ${r.net_spawns}; ctf nodes ${r.ctf_ours}/${r.ctf_thugpro}; collision unreachable ours ` +
                 `${colOurs[1]}, THUGPRO ${colTheirs[1]}`,
         );
         const shared = r.shared as number;
