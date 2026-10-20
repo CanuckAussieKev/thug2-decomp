@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "game/front/level_editor.h"
@@ -26,7 +27,10 @@ std::string Label(uint32_t checksum);
 // The model's box where it is (false: no model that follows the object - not pickable).
 bool ModelBox(Obj::CCompositeObject* object, OrientedBox* box);
 // The object under the ray (nearest box hit within `maxT` along the normalised ray: `t`).
+// Locked objects (level_editor_picking.h) are passed.
 Obj::CCompositeObject* Pick(V3 origin, V3 dir, float maxT, float* t);
+// Every object the ray meets within `maxT`, nearest first (click-to-cycle).
+std::vector<std::pair<Obj::CCompositeObject*, float>> PickAll(V3 origin, V3 dir, float maxT);
 // [features] debug_editor: the objects and which can be picked.
 void LogCensus();
 

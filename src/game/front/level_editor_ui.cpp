@@ -15,6 +15,7 @@
 
 #include "game/front/level_editor_node_edit.h"
 #include "game/front/level_editor_nodes.h"
+#include "game/front/level_editor_picking.h"
 #include "game/front/level_editor_ui_backend.h"
 #include "game/front/level_editor_ui_fonts.h"
 #include "game/front/level_editor_ui_layout.h"
@@ -233,6 +234,29 @@ void Toolbar(const Model& model)
         Ask(Request::kSnapAlways, snap ? 1 : 0);
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Moves snap to a 25-unit grid (Ctrl while moving does the same)");
+    // What a click in the view may take (level_editor_picking.h; [editor] pick= in the ini).
+    ImGui::SameLine(0.0f, 12.0f * g_scale);
+    ImGui::TextDisabled("Pick:");
+    static const struct {
+        const char* label;
+        uint32_t bit;
+        const char* tip;
+    } kPick[] = {{"Nodes", Picking::kNodes, "Clicks take nodes' gizmos (spawns, crowns, lights...)"},
+                 {"Objects", Picking::kObjects, "Clicks take objects (level objects, peds, cars)"},
+                 {"Scenery", Picking::kScenery, "Clicks take scenery pieces (off: only the Outliner and the browser "
+                                                "select them)"}};
+    for (const auto& pick : kPick) {
+        ImGui::SameLine(0.0f, 4.0f * g_scale);
+        bool on = (model.pickFilter & pick.bit) != 0;
+        if (on)
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.82f, 0.34f, 0.11f, 0.85f));
+        if (ImGui::SmallButton(pick.label))
+            Ask(Request::kPickFilter, 0, model.pickFilter ^ pick.bit);
+        if (on)
+            ImGui::PopStyleColor();
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("%s", pick.tip);
+    }
     ImGui::SameLine();
     ImGui::BeginDisabled(model.selection.objects == 0 && model.selection.sectors == 0);
     if (ImGui::SmallButton("Ground (G)"))
@@ -758,6 +782,30 @@ void NodeSection(const Model& model, int index)
     }
 }
 
+// The locks (level_editor_picking.h): each with Unlock.
+void LockList(const Model& model)
+{
+    if (model.locks.empty())
+        return;
+    ImGui::Spacing();
+    ImGui::Separator();
+    char title[48];
+    std::snprintf(title, sizeof(title), "Locked (%d) - clicks pass these###locks", static_cast<int>(model.locks.size()));
+    if (!ImGui::CollapsingHeader(title, ImGuiTreeNodeFlags_DefaultOpen))
+        return;
+    for (size_t i = 0; i < model.locks.size(); ++i) {
+        const Model::LockView& lock = model.locks[i];
+        ImGui::PushID(static_cast<int>(i));
+        if (ImGui::SmallButton("Unlock"))
+            Ask(Request::kUnlock, static_cast<int>(lock.kind), lock.id);
+        ImGui::SameLine();
+        ImGui::PushFont(g_mono);
+        ImGui::TextUnformatted(lock.label.c_str());
+        ImGui::PopFont();
+        ImGui::PopID();
+    }
+}
+
 void Inspector(const Model& model)
 {
     if (!g_layout.inspectorShown)
@@ -811,6 +859,14 @@ void Inspector(const Model& model)
         ImGui::SameLine();
         if (ImGui::Button("Deselect (Esc)"))
             Ask(Request::kDeselect);
+        if (model.selectionLockable) {
+            ImGui::SameLine();
+            if (ImGui::Button(model.selectionLocked ? "Unlock (L)" : "Lock (L)"))
+                Ask(Request::kToggleLock);
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("A locked piece or object is passed by every click in the view (the Outliner still "
+                                  "selects it); kept in the layout");
+        }
         if (model.nodes.selected >= 0)
             NodeSection(model, model.nodes.selected);
     }
@@ -824,6 +880,7 @@ void Inspector(const Model& model)
     } else {
         ImGui::TextWrapped("%s", model.hover.c_str());
     }
+    LockList(model);
     ImGui::End();
 }
 
@@ -881,9 +938,14 @@ void Help(const Model& model)
         {"", "Right mouse", "look (orbits the selection)"},
         {"", "Wheel", "forward / back (with a selection: nearer / further)"},
         {"", "- / =", "flying speed"},
-        {"Selecting", "Click", "an object or scenery (scenery takes its group)"},
+        {"Selecting", "Click", "an object or scenery (scenery takes its group); floors, ceilings, walls you're "
+                               "inside and see-through decals are passed - a click on only those deselects"},
+        {"", "Click again", "(same spot) the next thing under the cursor - n of m in the status bar"},
         {"", "Shift+click", "adds / removes"},
-        {"", "Alt+click, middle click", "one piece of scenery"},
+        {"", "Alt+click, middle click", "one piece of scenery - any piece, floors and decals too (hold Alt to see it)"},
+        {"", "L", "locks the selection: clicks pass it (the Inspector lists the locks: Unlock); with nothing selected, "
+                     "unlocks all"},
+        {"", "Pick: (toolbar)", "what clicks may take: nodes, objects, scenery"},
         {"", "Esc, Backspace", "deselects"},
         {"", "A gizmo, an Outliner row", "a node: spawns, crowns, flags, lights, sounds, triggers and other point "
                                          "nodes move as objects do (rails, paths and particles don't yet)"},

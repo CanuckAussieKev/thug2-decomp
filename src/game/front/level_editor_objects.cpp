@@ -8,6 +8,7 @@
 #include <cstring>
 
 #include "game/core/crc.h"
+#include "game/front/level_editor_picking.h"
 #include "game/obj/compositemgr.h"
 #include "game/obj/object.h"
 #include "game/script/names.h"
@@ -114,6 +115,7 @@ struct PickWalk {
     V3 origin, dir;
     float bestT;
     Obj::CCompositeObject* best;
+    std::vector<std::pair<Obj::CCompositeObject*, float>>* all; // (click-to-cycle: every hit)
 };
 
 void __cdecl PickOne(Obj::CObject* object, void* data)
@@ -121,10 +123,13 @@ void __cdecl PickOne(Obj::CObject* object, void* data)
     auto* walk = static_cast<PickWalk*>(data);
     auto* composite = static_cast<Obj::CCompositeObject*>(object);
     OrientedBox box;
-    if (!ModelBox(composite, &box))
+    if (Picking::Locked(Picking::kObjects, composite->m_id) || !ModelBox(composite, &box))
         return;
     float t;
-    if (RayBox(walk->origin, walk->dir, box.origin, box.axes, box.min, box.max, &t) && t < walk->bestT) {
+    bool hit = RayBox(walk->origin, walk->dir, box.origin, box.axes, box.min, box.max, &t);
+    if (hit && walk->all && t < walk->bestT)
+        walk->all->push_back({composite, t});
+    if (hit && t < walk->bestT && !walk->all) {
         walk->bestT = t;
         walk->best = composite;
     }
@@ -255,10 +260,21 @@ Obj::CCompositeObject* Pick(V3 origin, V3 dir, float maxT, float* t)
     Obj::CCompositeObjectManager* manager = Obj::CompositeObjectManager();
     if (!manager)
         return nullptr;
-    PickWalk walk = {origin, Normalize(dir), maxT, nullptr};
+    PickWalk walk = {origin, Normalize(dir), maxT, nullptr, nullptr};
     manager->ForEach(PickOne, &walk);
     *t = walk.bestT;
     return walk.best;
+}
+
+std::vector<std::pair<Obj::CCompositeObject*, float>> PickAll(V3 origin, V3 dir, float maxT)
+{
+    std::vector<std::pair<Obj::CCompositeObject*, float>> all;
+    if (Obj::CCompositeObjectManager* manager = Obj::CompositeObjectManager()) {
+        PickWalk walk = {origin, Normalize(dir), maxT, nullptr, &all};
+        manager->ForEach(PickOne, &walk);
+    }
+    std::stable_sort(all.begin(), all.end(), [](const auto& a, const auto& b) { return a.second < b.second; });
+    return all;
 }
 
 void LogCensus()

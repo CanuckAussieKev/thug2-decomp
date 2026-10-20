@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "game/front/level_editor_node_create.h"
+#include "game/front/level_editor_picking.h"
 #include "game/front/level_editor_scenery.h"
 
 // NOT ORIGINAL - the level editor's saved layouts (ours; see level_editor.h): what the editor changed in a level,
@@ -30,7 +31,9 @@
 //                                                      these); in the overlay's order - the order added crowns count in
 //   order crown <name> <name>...                       the added crowns' order (reordered: as the node records')
 //   hide <node>                                        a level's node hidden (not removed: its indexes stay)
-// An older (phase 2) reader skips node / order / hide records.
+//   lock sector <checksum> / lock object <id>          a scenery piece / an object locked: clicks pass it
+//                                                      (level_editor_picking.h)
+// An older (phase 2) reader skips node / order / hide records; an older reader of version 2 skips lock records.
 // Checksums are 8 hex digits; numbers are written with 9 significant digits (floats survive the round trip).
 namespace Front::LevelEditor::Layout {
 
@@ -69,6 +72,7 @@ struct File {
     std::vector<NodeCreate::Spec> added;  // `node` records, in order
     std::vector<std::string> crownOrder;  // `order crown`
     std::vector<uint32_t> hidden;         // `hide`
+    std::vector<Picking::Lock> locks;     // `lock`
 };
 
 // The text of a layout, and a layout read back (false: not a layout file; `line` the first line that isn't
