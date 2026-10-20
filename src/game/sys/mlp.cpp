@@ -16,6 +16,7 @@
 #include "game/gfx/screen.h"
 #include "game/sio/device.h"
 #include "game/sys/platform.h"
+#include "game/sys/screenshot.h"
 #include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -263,6 +264,9 @@ void Manager::MainLoop()
             BeginScene();
         RenderFrameLetterboxed();
         AfterRender();
+        // Not original - the screenshot key (game/sys/screenshot.h): the frame read just before it's presented.
+        // Original behaviour: the scene is ended and presented.
+        Sys::Screenshot::BeforePresent(!SkipRender());
         if (!SkipRender())
             EndScene();
         Tmr::UpdateFrameLength();

@@ -11,6 +11,7 @@ from this repo include them, so keep these notices with any distributed `dinput8
 | Dear ImGui 1.91.9b (Omar Cornut) - https://github.com/ocornut/imgui | downloaded at configure time (FetchContent); the core, its SDL2 platform backend and Direct3D 9 renderer backend are built into the DLL (the level editor's UI) | MIT - below |
 | Inter 4.1 (The Inter Project Authors) - https://github.com/rsms/inter | downloaded at configure time (FetchContent); Inter-Regular and Inter-SemiBold compressed into the DLL (the level editor's UI font) | SIL Open Font License 1.1 - below |
 | JetBrains Mono 2.304 (The JetBrains Mono Project Authors) - https://github.com/JetBrains/JetBrainsMono | downloaded at configure time (FetchContent); JetBrainsMono-Regular compressed into the DLL (the level editor's numbers and names) | SIL Open Font License 1.1 - below |
+| stb_image_write 1.16 and stb_image 2.27 (Sean Barrett) - https://github.com/nothings/stb, commit 1ee679c | downloaded at configure time (FetchContent); built into the DLL: the screenshot key's PNG writer, and the PNG reader for its self-test | public domain or MIT, at the user's choice - MIT below |
 | MinHook 1.3.3 (Tsuda Kageyu) | downloaded at configure time (FetchContent) | BSD 2-clause - https://github.com/TsudaKageyu/minhook/blob/v1.3.3/LICENSE.txt |
 | NeverScript (byxor), THUG2 fork by violetvandal - https://github.com/violetvandal/NeverScript, commit 73fe0f9 | copied into `tools/neverscript/` (a tool, not part of the DLL) | no licence; the original author's permission - below |
 | go-difflib 1.0.0 (Patrick Mezard) | downloaded by Go when building NeverScript (`tools/build_neverscript.ps1`) | BSD 3-clause - https://github.com/pmezard/go-difflib/blob/v1.0.0/LICENSE |
@@ -100,6 +101,35 @@ in the Software without restriction, including without limitation the rights
 to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 copies of the Software, and to permit persons to whom the Software is
 furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## stb_image_write 1.16 / stb_image 2.27 (Sean Barrett) (MIT)
+
+Source: https://github.com/nothings/stb (commit 1ee679ca2ef753a528db5ba6801e1067b40481b8). The files offer two licences
+("choose whichever you prefer"): public domain (Unlicense) or MIT. Under the MIT one:
+
+```
+MIT License
+
+Copyright (c) 2017 Sean Barrett
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+of the Software, and to permit persons to whom the Software is furnished to do
+so, subject to the following conditions:
 
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.

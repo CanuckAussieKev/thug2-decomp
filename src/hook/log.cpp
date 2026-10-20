@@ -2,10 +2,13 @@
 
 #include <windows.h>
 
+#include <atomic>
+
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
 #include <cwchar>
+#include <algorithm>
 
 #ifdef _DEBUG
 #include <crtdbg.h>
@@ -16,6 +19,19 @@ namespace {
 FILE* g_log = nullptr;
 bool g_console = false;
 void (*g_crashHook)() = nullptr;
+
+// The last lines logged, kept for LogTail (the screenshot sidecar - game/sys/screenshot.h): fixed slots, no
+// allocation or lock (Log runs in the crash logger too); a line written while another thread reads may come out torn.
+constexpr unsigned kTailLines = 32;
+constexpr size_t kTailWidth = 320;
+char g_tail[kTailLines][kTailWidth];
+std::atomic<unsigned> g_tailCount{0};
+
+void KeepTail(const char* fmt, va_list args)
+{
+    unsigned slot = g_tailCount.fetch_add(1) % kTailLines;
+    vsnprintf(g_tail[slot], kTailWidth, fmt, args);
+}
 }
 
 std::string GameFolderPath(const char* file_name)
@@ -254,6 +270,12 @@ void LogToConsole()
 
 void Log(const char* fmt, ...)
 {
+    {
+        va_list args;
+        va_start(args, fmt);
+        KeepTail(fmt, args);
+        va_end(args);
+    }
     if (g_console) {
         va_list args;
         va_start(args, fmt);
@@ -270,4 +292,17 @@ void Log(const char* fmt, ...)
     va_end(args);
     fputc('\n', g_log);
     fflush(g_log);
+}
+
+std::vector<std::string> LogTail(size_t lines)
+{
+    unsigned count = g_tailCount.load();
+    size_t n = std::min<size_t>({lines, count, kTailLines});
+    std::vector<std::string> out;
+    out.reserve(n);
+    for (size_t i = n; i > 0; --i) {
+        const char* line = g_tail[(count - i) % kTailLines];
+        out.emplace_back(line, strnlen(line, kTailWidth));
+    }
+    return out;
 }

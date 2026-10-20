@@ -13,6 +13,7 @@
 #include "game/front/menu_backdrop.h"
 #include "game/gfx/camera.h"
 #include "game/gfx/screen.h"
+#include "game/sys/screenshot.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -552,6 +553,11 @@ void RenderViewport(int index)
         // Not original - the level editor: the view's projection noted (its mouse ray and outlines).
         // Original behaviour: nothing.
         Front::LevelEditor::NoteView(static_cast<Gfx::Camera*>(camera), angle, aspect, &vp.x);
+        // Not original - the screenshot key's sidecar (game/sys/screenshot.h): the camera noted.
+        const Mth::Matrix* frame = CameraMatrix(camera);
+        const float at[3] = {position->x, position->y, position->z};
+        const float forward[3] = {-frame->row[2].x, -frame->row[2].y, -frame->row[2].z};
+        Sys::Screenshot::NoteView(index, at, forward);
     }
     ForEachScene([&](Scene* scene) {
         if (scene->sky || Hidden(scene))

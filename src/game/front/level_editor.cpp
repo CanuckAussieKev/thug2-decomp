@@ -3200,4 +3200,41 @@ void Draw()
         SetStageState(kStates[i], saved[i]);
 }
 
+
+std::vector<std::pair<std::string, std::string>> DescribeForScreenshot()
+{
+    std::vector<std::pair<std::string, std::string>> out;
+    if (!g_active)
+        return out;
+    Ui::Model model = BuildModel();
+    char text[160];
+    out.emplace_back("mode", std::string(model.mode ? model.mode : "") + (Ui::Running() ? " (Dear ImGui panels)" : " (old HUD)"));
+    out.emplace_back("level", model.level);
+    std::snprintf(text, sizeof(text), "(%.1f, %.1f, %.1f)", g_pos.x, g_pos.y, g_pos.z);
+    out.emplace_back("camera", text);
+    std::snprintf(text, sizeof(text), "yaw %.1f, pitch %.1f degrees", g_yaw * 180.0f / kPi, g_pitch * 180.0f / kPi);
+    out.emplace_back("camera turn", text);
+    out.emplace_back("selected", model.selected);
+    const Ui::Model::Selection& sel = model.selection;
+    if (!sel.kind.empty()) {
+        std::snprintf(text, sizeof(text), "%s %s at (%.1f, %.1f, %.1f)", sel.kind.c_str(), sel.name.c_str(), sel.pos.x,
+                      sel.pos.y, sel.pos.z);
+        out.emplace_back("selection", text);
+    }
+    if (model.nodes.selected >= 0 && model.nodes.selected < static_cast<int>(Nodes::All().size())) {
+        const Nodes::Node& node = Nodes::All()[model.nodes.selected];
+        std::snprintf(text, sizeof(text), "%s (%s, %s) at (%.1f, %.1f, %.1f)%s%s", Nodes::Label(node.name).c_str(),
+                      Nodes::Label(node.cls).c_str(), Nodes::FamilyName(node.family), node.pos.x, node.pos.y,
+                      node.pos.z, node.added ? ", added" : "", node.hidden ? ", hidden" : "");
+        out.emplace_back("inspected node", text);
+    }
+    out.emplace_back("under the cursor", model.hover);
+    std::snprintf(text, sizeof(text), "%d changes, %d pieces moved%s", model.changes, model.moved,
+                  model.unsaved ? ", unsaved" : "");
+    out.emplace_back("changes", text);
+    if (!model.message.empty())
+        out.emplace_back("message", model.message);
+    return out;
+}
+
 } // namespace Front::LevelEditor

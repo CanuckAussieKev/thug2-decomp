@@ -1,6 +1,9 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace Gfx {
 class Camera;
@@ -115,6 +118,10 @@ void PlaceCamera(Gfx::Camera* camera);
 void NoteView(Gfx::Camera* camera, float angle, float aspect, const uint32_t viewport[4]);
 // After the 2D pass: the selected scenery's grind rails, and outlines of what couldn't be tinted.
 void Draw();
+// For the screenshot sidecar (game/sys/screenshot.h): what the editor shows now - its mode, the level, its camera,
+// the selection and the node inspected, what's under the cursor, the changes - as name / value pairs; none while it
+// isn't running.
+std::vector<std::pair<std::string, std::string>> DescribeForScreenshot();
 // For the keyboard (Sio): whether the Pause key, `down` now, counts - only once it has been up since the editor
 // started (the Enter that chose the menu item doesn't leave at once).
 bool PassPauseKey(bool down);
