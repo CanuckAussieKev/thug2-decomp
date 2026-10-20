@@ -11,6 +11,7 @@
 
 #include "game/core/dbg.h"
 #include "game/core/crc.h"
+#include "game/front/start_level.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/sio/device.h"
@@ -429,7 +430,8 @@ bool FromStartUpScript(void* script)
 
 bool& SkipIntroMovies()
 {
-    static bool skip = ConfigInt("features", "skip_intro_movies", 0) != 0;
+    // (not original either: -edit implies it - straight into the level editor)
+    static bool skip = ConfigInt("features", "skip_intro_movies", 0) != 0 || Front::StartLevel::EditRequested();
     return skip;
 }
 

@@ -185,6 +185,27 @@ bool Read(const std::string& text, File* file, int* lineNumber)
     return header;
 }
 
+// --- the autosave's names and times (pure) ---------------------------------------------------------------------
+
+std::string SavedFileName(uint32_t scene)
+{
+    char name[32];
+    std::snprintf(name, sizeof(name), "%08X.txt", scene);
+    return name;
+}
+
+std::string AutosaveFileName(uint32_t scene)
+{
+    char name[32];
+    std::snprintf(name, sizeof(name), "%08X.autosave.txt", scene);
+    return name;
+}
+
+bool AutosaveNewer(bool haveAutosave, uint64_t autosaveTime, bool haveSaved, uint64_t savedTime)
+{
+    return haveAutosave && (!haveSaved || autosaveTime > savedTime);
+}
+
 // --- the game side ----------------------------------------------------------------------------------------------
 
 namespace {
@@ -194,6 +215,18 @@ constexpr int kSettleFrames = 60;        // (a level's objects and rails are mad
 
 bool g_pending;
 int g_wait;
+int g_levelLoads;
+
+// The autosave: the text made by the last Snapshot and where it goes (plain memory the crash hook can write without
+// allocating: `ready` is false while they change), whether it has been written since, whether this run wrote (or
+// restored) this level's autosave, and whether an older one is being offered (nothing written over it meanwhile).
+std::string g_snapshot;
+char g_snapshotPath[MAX_PATH];
+char g_snapshotFolder[MAX_PATH];
+volatile bool g_snapshotReady;
+volatile bool g_snapshotWritten = true;
+bool g_autosaveOurs;
+bool g_offerPending;
 
 // The network game (GameNet::Manager 0x007CCE14): layouts aren't put in levels other players share.
 bool InNetGame()
@@ -204,11 +237,38 @@ bool InNetGame()
 
 std::string Folder() { return GameFolderPath("thug2-decomp-layouts"); }
 
-std::string PathFor(uint32_t scene)
+std::string PathFor(uint32_t scene) { return Folder() + "\\" + SavedFileName(scene); }
+std::string AutosavePathFor(uint32_t scene) { return Folder() + "\\" + AutosaveFileName(scene); }
+
+// A file's last-write time (false: no such file).
+bool WriteTime(const std::string& path, uint64_t* time)
 {
-    char name[32];
-    std::snprintf(name, sizeof(name), "\\%08X.txt", scene);
-    return Folder() + name;
+    WIN32_FILE_ATTRIBUTE_DATA data;
+    if (!GetFileAttributesExA(path.c_str(), GetFileExInfoStandard, &data) ||
+        (data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
+        return false;
+    *time = (static_cast<uint64_t>(data.ftLastWriteTime.dwHighDateTime) << 32) | data.ftLastWriteTime.dwLowDateTime;
+    return true;
+}
+
+// `size` bytes written to `path` through `path`.tmp (a crash while writing leaves the last autosave whole), the folder
+// made first. No allocation: the crash hook uses it.
+bool WriteWhole(const char* folder, const char* path, const char* data, size_t size)
+{
+    char temporary[MAX_PATH + 8];
+    if (std::snprintf(temporary, sizeof(temporary), "%s.tmp", path) <= 0)
+        return false;
+    CreateDirectoryA(folder, nullptr);
+    HANDLE file = CreateFileA(temporary, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == INVALID_HANDLE_VALUE)
+        return false;
+    DWORD written = 0;
+    bool ok = WriteFile(file, data, static_cast<DWORD>(size), &written, nullptr) && written == size;
+    CloseHandle(file);
+    ok = ok && MoveFileExA(temporary, path, MOVEFILE_REPLACE_EXISTING);
+    if (!ok)
+        DeleteFileA(temporary);
+    return ok;
 }
 
 void RowsOf(const Mth::Matrix& m, float rows[9])
@@ -233,82 +293,70 @@ Objects::State StateOf(uint32_t id, const float pos[3], const float rows[9])
     return state;
 }
 
-} // namespace
+Obj::CCompositeObject* LiveObject(uint32_t id)
+{
+    auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(id));
+    return object && !(object->m_objectFlags & Obj::OBJECT_FLAG_DEAD) ? object : nullptr;
+}
 
-bool Save(std::string* message)
+// The level's changes as they are now (false: not in a level).
+bool Capture(File* file)
 {
     uint8_t* scene = Scenery::MainScene();
-    if (Nx::CurrentLevel() == 0 || !scene) {
-        *message = "Not in a level - nothing saved";
+    if (Nx::CurrentLevel() == 0 || !scene)
         return false;
-    }
-    File file;
-    file.scene = Scenery::SceneName(scene);
-    file.sectors = Scenery::ChangedSectors();
-    file.rails = Scenery::ChangedRails();
+    *file = File{};
+    file->scene = Scenery::SceneName(scene);
+    file->sectors = Scenery::ChangedSectors();
+    file->rails = Scenery::ChangedRails();
     for (const Scenery::Clone& clone : Scenery::Clones()) {
         Placement now;
         if (Scenery::PlacementNow(clone.checksum, &now) && !Scenery::Hidden(clone.checksum))
-            file.clones.push_back({clone.source, Compose(now, clone.sourceAtCopy)});
+            file->clones.push_back({clone.source, Compose(now, clone.sourceAtCopy)});
     }
     for (uint32_t id : Objects::Touched()) {
-        auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(id));
-        if (!object || (object->m_objectFlags & Obj::OBJECT_FLAG_DEAD))
+        Obj::CCompositeObject* object = LiveObject(id);
+        if (!object)
             continue;
         ObjectRecord record = {id, {object->m_pos.x, object->m_pos.y, object->m_pos.z}, {}};
         RowsOf(object->m_matrix, record.rows);
-        file.objects.push_back(record);
+        file->objects.push_back(record);
     }
     for (const Objects::Copy& copy : Objects::Copies()) {
-        auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(copy.name));
-        if (!object || (object->m_objectFlags & Obj::OBJECT_FLAG_DEAD))
+        Obj::CCompositeObject* object = LiveObject(copy.name);
+        if (!object)
             continue;
         CopyRecord record = {copy.name, copy.source, {object->m_pos.x, object->m_pos.y, object->m_pos.z}, {}};
         RowsOf(object->m_matrix, record.rows);
-        file.copies.push_back(record);
+        file->copies.push_back(record);
     }
-    CreateDirectoryA(Folder().c_str(), nullptr);
-    std::string path = PathFor(file.scene);
-    std::ofstream out(path, std::ios::binary | std::ios::trunc);
-    out << Write(file);
-    if (!out) {
-        *message = "Couldn't write " + path;
-        Log("level editor: %s", message->c_str());
-        return false;
-    }
-    char text[160];
-    std::snprintf(text, sizeof(text), "Saved: %u pieces, %u copies, %u rail points, %u objects, %u object copies",
-                  static_cast<unsigned>(file.sectors.size()), static_cast<unsigned>(file.clones.size()),
-                  static_cast<unsigned>(file.rails.size()), static_cast<unsigned>(file.objects.size()),
-                  static_cast<unsigned>(file.copies.size()));
-    *message = text;
-    Log("level editor: %s - %s", text, path.c_str());
     return true;
 }
 
-bool Load(std::string* message)
+// A layout file of this level read (false: none - `message` - or not one; logged).
+bool ReadFor(const std::string& path, uint32_t scene, File* file, std::string* message, const char* none)
 {
-    uint8_t* scene = Scenery::MainScene();
-    if (Nx::CurrentLevel() == 0 || !scene) {
-        *message = "Not in a level";
-        return false;
-    }
-    std::string path = PathFor(Scenery::SceneName(scene));
     std::ifstream in(path, std::ios::binary);
     if (!in) {
-        *message = "No saved layout for this level";
+        *message = none;
         return false;
     }
     std::stringstream text;
     text << in.rdbuf();
-    File file;
     int line = 0;
-    if (!Read(text.str(), &file, &line) || file.scene != Scenery::SceneName(scene)) {
-        *message = "Couldn't read the saved layout";
+    if (!Read(text.str(), file, &line) || file->scene != scene) {
+        *message = "Couldn't read " + path.substr(path.find_last_of('\\') + 1);
         Log("level editor: %s %s (line %d)", message->c_str(), path.c_str(), line);
         return false;
     }
-    // Copies first - each made of its source as loaded (the sources aren't moved yet), then put where they were.
+    return true;
+}
+
+// A layout put in place: copies of sectors made (each of its source as loaded - the sources aren't moved yet - then
+// put where they were), sectors and rails placed, objects placed, copies of objects placed (made unless one of that
+// name is already there).
+std::string Apply(const File& file)
+{
     std::vector<Scenery::SectorState> clones;
     for (const CloneRecord& record : file.clones) {
         if (uint32_t made = Scenery::Duplicate(record.source))
@@ -324,27 +372,232 @@ bool Load(std::string* message)
         }
     }
     for (const CopyRecord& record : file.copies) {
-        if (Objects::MakeCopy(record.source, {record.pos[0], record.pos[1], record.pos[2]}, record.name) &&
+        bool there = Objects::IsCopy(record.name) && LiveObject(record.name);
+        if ((there || Objects::MakeCopy(record.source, {record.pos[0], record.pos[1], record.pos[2]}, record.name)) &&
             Objects::Restore(StateOf(record.name, record.pos, record.rows)))
             ++copies;
     }
     char summary[160];
-    std::snprintf(summary, sizeof(summary), "Layout loaded: %u pieces, %u copies, %u rail points, %d objects, %d object copies",
+    std::snprintf(summary, sizeof(summary), "%u pieces, %u copies, %u rail points, %d objects, %d object copies",
                   static_cast<unsigned>(file.sectors.size()), static_cast<unsigned>(clones.size()),
                   static_cast<unsigned>(file.rails.size()), objects, copies);
-    *message = summary;
-    Log("level editor: %s - %s", summary, path.c_str());
+    return summary;
+}
+
+// Everything the editor has changed in this level put back as the level has it, before another layout goes in place
+// of it: moved / hidden sectors and rails back, copies of sectors hidden (a layout leaves hidden copies out), moved
+// objects back where they first were, copies of objects removed - but those named in `keep` (put in place again by
+// Apply).
+void ResetToLevel(const File& keep)
+{
+    std::vector<Scenery::SectorState> sectors = Scenery::ChangedSectors();
+    for (Scenery::SectorState& state : sectors) {
+        state.placement = {0, {0.0f, 0.0f, 0.0f}};
+        state.hidden = false;
+    }
+    for (const Scenery::Clone& clone : Scenery::Clones()) {
+        Placement now = {0, {0.0f, 0.0f, 0.0f}};
+        Scenery::PlacementNow(clone.checksum, &now);
+        if (!Scenery::Hidden(clone.checksum))
+            sectors.push_back({clone.checksum, now, true});
+    }
+    std::vector<Scenery::RailState> rails = Scenery::ChangedRails();
+    for (Scenery::RailState& state : rails) {
+        state.placement = {0, {0.0f, 0.0f, 0.0f}};
+        state.hidden = false;
+    }
+    Scenery::ApplyStates(sectors, rails);
+    for (uint32_t id : Objects::Touched()) {
+        if (const Objects::State* origin = Objects::Origin(id))
+            Objects::Restore(*origin);
+    }
+    std::vector<Objects::Copy> copies = Objects::Copies();
+    for (const Objects::Copy& copy : copies) {
+        bool kept = false;
+        for (const CopyRecord& record : keep.copies)
+            kept = kept || record.name == copy.name;
+        if (!kept)
+            Objects::RemoveCopy(copy.name);
+    }
+}
+
+// The crash hook's write: no C++ objects here (structured exception handling), no allocation.
+void WriteSnapshotGuarded()
+{
+    __try {
+        if (WriteWhole(g_snapshotFolder, g_snapshotPath, g_snapshot.data(), g_snapshot.size()))
+            g_snapshotWritten = true;
+    } __except (EXCEPTION_EXECUTE_HANDLER) {
+    }
+}
+
+} // namespace
+
+bool Save(std::string* message)
+{
+    File file;
+    if (!Capture(&file)) {
+        *message = "Not in a level - nothing saved";
+        return false;
+    }
+    CreateDirectoryA(Folder().c_str(), nullptr);
+    std::string path = PathFor(file.scene);
+    std::ofstream out(path, std::ios::binary | std::ios::trunc);
+    out << Write(file);
+    out.close();
+    if (!out) {
+        *message = "Couldn't write " + path;
+        Log("level editor: %s", message->c_str());
+        return false;
+    }
+    char text[160];
+    std::snprintf(text, sizeof(text), "Saved: %u pieces, %u copies, %u rail points, %u objects, %u object copies",
+                  static_cast<unsigned>(file.sectors.size()), static_cast<unsigned>(file.clones.size()),
+                  static_cast<unsigned>(file.rails.size()), static_cast<unsigned>(file.objects.size()),
+                  static_cast<unsigned>(file.copies.size()));
+    *message = text;
+    Log("level editor: %s - %s", text, path.c_str());
+    // (saved: the autosave's changes are in the layout now, or the user chose these over them)
+    std::string autosave = AutosavePathFor(file.scene);
+    if (DeleteFileA(autosave.c_str()))
+        Log("level editor: autosave deleted - %s", autosave.c_str());
+    g_snapshotReady = false;
+    g_snapshotWritten = true;
+    g_offerPending = false;
     return true;
 }
+
+bool Load(std::string* message)
+{
+    uint8_t* scene = Scenery::MainScene();
+    if (Nx::CurrentLevel() == 0 || !scene) {
+        *message = "Not in a level";
+        return false;
+    }
+    std::string path = PathFor(Scenery::SceneName(scene));
+    File file;
+    if (!ReadFor(path, Scenery::SceneName(scene), &file, message, "No saved layout for this level"))
+        return false;
+    *message = "Layout loaded: " + Apply(file);
+    Log("level editor: %s - %s", message->c_str(), path.c_str());
+    return true;
+}
+
+bool Snapshot()
+{
+    File file;
+    if (!Capture(&file))
+        return false;
+    std::string text = Write(file);
+    std::string path = AutosavePathFor(file.scene);
+    if (g_snapshotReady && text == g_snapshot && path == g_snapshotPath)
+        return true;
+    g_snapshotReady = false; // (the crash hook leaves it alone while it changes)
+    g_snapshot.swap(text);
+    strncpy_s(g_snapshotPath, path.c_str(), _TRUNCATE);
+    strncpy_s(g_snapshotFolder, Folder().c_str(), _TRUNCATE);
+    g_snapshotWritten = false;
+    g_snapshotReady = true;
+    return true;
+}
+
+bool WriteAutosave()
+{
+    if (!g_snapshotReady || g_snapshotWritten || g_offerPending)
+        return false;
+    if (!WriteWhole(g_snapshotFolder, g_snapshotPath, g_snapshot.data(), g_snapshot.size())) {
+        Log("level editor: couldn't write the autosave %s", g_snapshotPath);
+        return false;
+    }
+    g_snapshotWritten = true;
+    g_autosaveOurs = true;
+    Log("level editor: autosaved - %s", g_snapshotPath);
+    return true;
+}
+
+void WriteAutosaveFromCrash()
+{
+    static volatile LONG busy = 0;
+    if (!g_snapshotReady || g_snapshotWritten || g_offerPending || InterlockedExchange(&busy, 1))
+        return;
+    WriteSnapshotGuarded();
+    Log(g_snapshotWritten ? "level editor: the unsaved changes were autosaved - %s (Ctrl+R restores them)"
+                          : "level editor: the unsaved changes couldn't be autosaved - %s",
+        g_snapshotPath);
+    busy = 0;
+}
+
+bool AutosaveOffered()
+{
+    uint8_t* scene = Scenery::MainScene();
+    if (Nx::CurrentLevel() == 0 || !scene || g_autosaveOurs || InNetGame())
+        return false;
+    uint32_t name = Scenery::SceneName(scene);
+    uint64_t autosaveTime = 0, savedTime = 0;
+    bool haveAutosave = WriteTime(AutosavePathFor(name), &autosaveTime);
+    bool haveSaved = WriteTime(PathFor(name), &savedTime);
+    g_offerPending = AutosaveNewer(haveAutosave, autosaveTime, haveSaved, savedTime);
+    if (g_offerPending)
+        Log("level editor: an autosave newer than the saved layout - %s (Ctrl+R restores, Ctrl+Shift+R discards)",
+            AutosavePathFor(name).c_str());
+    return g_offerPending;
+}
+
+bool RestoreAutosave(std::string* message)
+{
+    uint8_t* scene = Scenery::MainScene();
+    if (Nx::CurrentLevel() == 0 || !scene) {
+        *message = "Not in a level";
+        return false;
+    }
+    uint32_t name = Scenery::SceneName(scene);
+    std::string path = AutosavePathFor(name);
+    File file;
+    if (!ReadFor(path, name, &file, message, "No autosave for this level"))
+        return false;
+    ResetToLevel(file);
+    *message = "Autosave restored: " + Apply(file);
+    Log("level editor: %s - %s", message->c_str(), path.c_str());
+    g_offerPending = false;
+    g_autosaveOurs = true; // (it's this run's now: the next autosave goes over it)
+    return true;
+}
+
+bool DiscardAutosave(std::string* message)
+{
+    uint8_t* scene = Scenery::MainScene();
+    if (Nx::CurrentLevel() == 0 || !scene) {
+        *message = "Not in a level";
+        return false;
+    }
+    std::string path = AutosavePathFor(Scenery::SceneName(scene));
+    g_offerPending = false;
+    if (!DeleteFileA(path.c_str())) {
+        *message = "No autosave to discard";
+        return false;
+    }
+    g_autosaveOurs = false;
+    *message = "Autosave discarded";
+    Log("level editor: autosave discarded - %s", path.c_str());
+    return true;
+}
+
+int LevelLoads() { return g_levelLoads; }
 
 void OnSceneLoaded(const char* name, bool isNet)
 {
     (void)name;
-    // (a new level: the copies and moved objects of the last are gone with it)
+    // (a new level: the copies and moved objects of the last are gone with it - and its autosave was written when the
+    // editor was left)
     Scenery::Clones().clear();
     Objects::ForgetLevel();
     g_pending = !isNet;
     g_wait = 0;
+    ++g_levelLoads;
+    g_snapshotReady = false;
+    g_snapshotWritten = true;
+    g_autosaveOurs = false;
+    g_offerPending = false;
 }
 
 void Tick()

@@ -62,6 +62,10 @@ THUG2.exe or THUG2PM.exe, tools/game/game_exe.ps1).
   (`foun`, `z_dt`, `BO`, `Load_TR`...; src/game/front/start_level.h - also `[features] start_level=` in the
   ini). No keys needed, the overlay untouched. Keys: F8 restart tester; with `debug_mode=1` F9-F12, Home, Tab, T
   (src/game/sys/debug_mode.h).
+- `node tools/game/edit_level.ts [<level>] [--game <folder>] [--list]` - for the user: no level lists the installed
+  levels by game (load names and names); a level starts the game with `-edit <level>` (free skate there, intro movies
+  skipped, the level editor opened once it's up - also `[features] edit_level=`). Refuses while a game runs from that
+  folder; never closes one. Not for agents' test runs (no lock, no workspace handling).
 - `node tools/game/boot_level.ts <level> <folder>` - TEST ONLY, superseded by `-Level`: patches the installed overlay's SKATE NOW to
   load a level in free skate. `make_menu_level.ts --game <folder>` puts the real one back.
 - `load_check.ps1 -Game <folder> -Levels a, b, ...` - run_game -Level for each level in turn, then reads the log:

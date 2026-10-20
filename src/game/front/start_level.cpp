@@ -13,7 +13,10 @@
 #include "game/core/crc.h"
 #include "game/file/file.h"
 #include "game/front/front_end.h"
+#include "game/front/level_editor.h"
+#include "game/front/mouse_menus.h"
 #include "game/gfx/screen.h"
+#include "game/obj/object.h"
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/sys/mlp.h"
@@ -35,29 +38,33 @@ bool IsScript(uint32_t name)
 // line buffer into words later (a 0 after the first word, "... -level" - seen with the stock THUG2.exe, 2026-10-20).
 const std::string g_commandLine = GetCommandLineA();
 
-// -level <name>, --level <name> or --level=<name> on the command line ("" if none).
-std::string FromCommandLine()
-{
-    const std::string& line = g_commandLine;
-    for (const char* option : {"--level=", "--level ", "-level "}) {
-        size_t at = line.find(option);
-        if (at == std::string::npos)
-            continue;
-        size_t start = line.find_first_not_of(' ', at + std::strlen(option));
-        if (start == std::string::npos)
-            return {};
-        size_t end = line.find_first_of(" \"", start);
-        return line.substr(start, end == std::string::npos ? std::string::npos : end - start);
-    }
-    return {};
-}
-
-std::string FromIni()
+std::string FromIni(const char* key)
 {
     char value[128] = {};
-    GetPrivateProfileStringA("features", "start_level", "", value, sizeof(value),
-                             GameFolderPath("thug2-decomp.ini").c_str());
+    GetPrivateProfileStringA("features", key, "", value, sizeof(value), GameFolderPath("thug2-decomp.ini").c_str());
     return value;
+}
+
+// The level and where it came from: -edit, -level, edit_level=, start_level= (the first given).
+struct Request {
+    std::string level;
+    bool edit = false;
+};
+const Request& TheRequest()
+{
+    static const Request request = [] {
+        Request r;
+        if (!(r.level = OptionValue(g_commandLine, "edit")).empty())
+            r.edit = true;
+        else if (!(r.level = OptionValue(g_commandLine, "level")).empty())
+            r.edit = false;
+        else if (!(r.level = FromIni("edit_level")).empty())
+            r.edit = true;
+        else
+            r.level = FromIni("start_level");
+        return r;
+    }();
+    return request;
 }
 
 // Whether Level_<name>'s scene can load: a level without a scene pre (scnpre) needs levels\<level>\<level>.scn.xbx
@@ -77,21 +84,112 @@ bool SceneInstalled(const std::string& name)
 int s_frames;  // the front end's frames with the main menu's scripts loaded
 bool s_done;
 
+// -edit: the editor opened once the level is up (EditUpdate).
+constexpr uint32_t kSkater = 0x5B8AB877;  // Skater (the local skater's alias)
+constexpr int kLevelSettleFrames = 90;     // (in the level, unpaused, before Start is pressed)
+constexpr int kPauseWaitFrames = 120;      // (for the pause menu, before Start is pressed again)
+constexpr int kPauseMenuFrames = 20;       // (the pause menu up this long before LEVEL EDITOR is chosen)
+constexpr int kStartPresses = 5;
+enum class Edit { Off, WaitLevel, WaitPause, Done };
+Edit s_edit = Edit::Off;
+int s_editFrames;
+int s_presses;
+
+void EditUpdate(Mdl::FrontEnd* frontEnd)
+{
+    bool inLevel = Nx::CurrentLevel() != 0 && Obj::FindObject(kSkater) != nullptr;
+    bool paused = frontEnd && frontEnd->m_paused;
+    if (s_edit == Edit::WaitLevel) {
+        s_editFrames = inLevel && !paused ? s_editFrames + 1 : 0;
+        if (s_editFrames < kLevelSettleFrames)
+            return;
+        if (!LevelEditor::Enabled()) {
+            Log("edit level: the level editor is off ([features] level_editor=0) - free skate in %s, as -level",
+                Requested());
+            s_edit = Edit::Done;
+            return;
+        }
+        if (!IsScript(Checksum("level_editor_enter"))) {
+            Log("edit level: no level_editor_enter script (the data overlay isn't installed - "
+                "tools/menu_level/make_menu_level.ts) - free skate in %s, as -level",
+                Requested());
+            s_edit = Edit::Done;
+            return;
+        }
+        // Start, as the player presses it: handle_start_pressed pauses and makes the pause menu.
+        Log("edit level: %s is up - pausing (Start) to open the level editor", Requested());
+        MouseMenus::SendMenuPadEvent(frontEnd, Mdl::FrontEnd::kPadStart);
+        ++s_presses;
+        s_edit = Edit::WaitPause;
+        s_editFrames = 0;
+        return;
+    }
+    if (s_edit != Edit::WaitPause)
+        return;
+    if (!inLevel) {
+        s_editFrames = 0;
+        return;
+    }
+    if (!paused) {
+        // (not taken - a level's intro camera, menu input blocked a moment: pressed again a little later)
+        if (++s_editFrames < kPauseWaitFrames)
+            return;
+        if (s_presses >= kStartPresses) {
+            Log("edit level: the game didn't pause after %d presses of Start - free skate in %s (the pause menu's "
+                "LEVEL EDITOR opens the editor)",
+                s_presses, Requested());
+            s_edit = Edit::Done;
+            return;
+        }
+        MouseMenus::SendMenuPadEvent(frontEnd, Mdl::FrontEnd::kPadStart);
+        ++s_presses;
+        s_editFrames = 0;
+        return;
+    }
+    if (++s_editFrames < kPauseMenuFrames)
+        return;
+    s_edit = Edit::Done;
+    Log("edit level: running level_editor_enter (the pause menu's LEVEL EDITOR)");
+    Script::RunScript(Checksum("level_editor_enter"), nullptr, nullptr, false, "level_editor_enter");
+}
+
 } // namespace
 
-const char* Requested()
+std::string OptionValue(const std::string& line, const char* option)
 {
-    static const std::string level = [] {
-        std::string name = FromCommandLine();
-        return name.empty() ? FromIni() : name;
-    }();
-    return level.c_str();
+    std::string name = option;
+    for (const std::string& form : {"--" + name + "=", "--" + name + " ", "-" + name + " "}) {
+        for (size_t at = line.find(form); at != std::string::npos; at = line.find(form, at + 1)) {
+            // (a word of its own: at the start, or after a space or a quote - not inside a path such as C:\my-level x)
+            if (at > 0 && line[at - 1] != ' ' && line[at - 1] != '\t' && line[at - 1] != '"')
+                continue;
+            size_t start = line.find_first_not_of(' ', at + form.size());
+            if (start == std::string::npos)
+                return {};
+            if (line[start] == '"') {
+                size_t end = line.find('"', start + 1);
+                return line.substr(start + 1, end == std::string::npos ? std::string::npos : end - start - 1);
+            }
+            size_t end = line.find_first_of(" \"", start);
+            return line.substr(start, end == std::string::npos ? std::string::npos : end - start);
+        }
+    }
+    return {};
 }
+
+const char* Requested() { return TheRequest().level.c_str(); }
+
+bool EditRequested() { return TheRequest().edit && !TheRequest().level.empty(); }
 
 void Update(Mdl::FrontEnd* frontEnd)
 {
-    if (s_done || !*Requested() || Mlp::FramesRun() == 0)
+    if (!*Requested() || Mlp::FramesRun() == 0)
         return;
+    if (s_done) {
+        if (s_edit != Edit::Off && s_edit != Edit::Done)
+            EditUpdate(frontEnd);
+        return;
+    }
     // In the front end, with the main menu up: its scripts loaded (not the early self-tests' stand-in symbol table,
     // which run this before the game is up), then a second more for the menu to settle.
     if (Nx::CurrentLevel() != 0 || (frontEnd && frontEnd->m_paused) || !IsScript(Checksum("main_menu_skate_now")))
@@ -99,7 +197,12 @@ void Update(Mdl::FrontEnd* frontEnd)
     if (++s_frames < 60)
         return;
     s_done = true;
-    Load(Requested(), nullptr);
+    if (Load(Requested(), nullptr) && EditRequested()) {
+        s_edit = Edit::WaitLevel;
+        s_editFrames = 0;
+        s_presses = 0;
+        Log("edit level: the level editor opens once %s is up", Requested());
+    }
 }
 
 bool Load(const char* name, std::string* why)
