@@ -76,7 +76,7 @@ with tools\ghidra\snapshot_project.ps1). `inspect` below means:
 - **Mutations**: write a spec - a .ts module: `export const MUTS = [[file, name, old, new], ...]`;
   `export const TESTS = "YourTest,YourOtherTest"` - only the batch's own self-tests run, a second instead of
   ~25 s; `export const BUILD =` a .cmd that only runs `cmake --build` after VsDevCmd - no re-configure: a
-  mutation then costs ~3-4 s (String.raw`...` keeps backslashes; a .json spec and an old Python spec.py work
+  mutation then costs ~3-4 s (String.raw`...` keeps backslashes; a .json spec works
   too) - of 10-40 deliberate bugs - one per branch/constant/order/convention - and run
   `node tools/mutate.ts spec.ts`. Every non-equivalent
   mutation must be CAUGHT; for each miss, add the test case that exposes it (a miss is a hole in the test,

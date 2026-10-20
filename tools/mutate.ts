@@ -1,6 +1,6 @@
 // NOT ORIGINAL - mutation testing: prove the self-tests catch deliberate bugs.
 //
-//     node tools/mutate.ts <spec.ts | spec.json | spec.py> [names...]
+//     node tools/mutate.ts <spec.ts | spec.json> [names...]
 //
 // <spec.ts> exports MUTS = [[file, name, oldText, newText], ...] (oldText must occur exactly once in the file) and
 // may export BUILD = a command that builds out/build/verify (default: tools/verify_build.cmd), and
@@ -16,9 +16,8 @@
 //         ["src/game/sys/pcm.cpp", "track-order", String.raw`a\b`, String.raw`b\a`], // (raw: backslashes as typed)
 //     ];
 //
-// A .json spec ({"MUTS": [...], "TESTS": "..."}) works too, and so does a Python spec of tools/mutate.py's days
-// (`MUTS = [(file, name, old, new), ...]`: Python reads it and hands the values over). The files are
-// matched as Python's text mode read them ("\r\n" read as "\n": write oldText with "\n"); a mutated file is written with
+// A .json spec ({"MUTS": [...], "TESTS": "..."}) works too. The files are
+// matched as tools/mutate.py's text mode read them ("\r\n" read as "\n": write oldText with "\n"); a mutated file is written with
 // "\r\n" line ends and the original put back byte for byte.
 //
 // A mutation that makes the checker hang counts as caught. The checker's output goes to a file rather than a
@@ -62,20 +61,11 @@ function readCp1252Replace(file: string): string {
     return out.replace(/\r\n?/g, "\n");
 }
 
-// The spec: a .ts / .js module, a .json file ({"MUTS": [...], "BUILD": ..., "TESTS": ...}), or a Python spec of
-// tools/mutate.py's days (MUTS = [(file, name, old, new), ...]) - run by Python, which hands its values over as JSON.
+// The spec: a .ts / .js module or a .json file ({"MUTS": [...], "BUILD": ..., "TESTS": ...}).
 async function loadSpec(specPath: string): Promise<Spec> {
     const full = path.resolve(specPath);
     if (full.toLowerCase().endsWith(".json")) return JSON.parse(fs.readFileSync(full, "utf-8")) as Spec;
-    if (full.toLowerCase().endsWith(".py")) {
-        const dump =
-            "import json, runpy, sys; s = runpy.run_path(sys.argv[1]); " +
-            "print(json.dumps({k: s[k] for k in ('MUTS', 'BUILD', 'TESTS') if k in s}))";
-        const r = spawnSync("python", ["-I", "-c", dump, full], { encoding: "utf-8", maxBuffer: 1 << 30 });
-        if (r.error) throw r.error;
-        if (r.status !== 0) throw new Error(`${specPath}: ${r.stderr}`);
-        return JSON.parse(r.stdout) as Spec;
-    }
+    if (full.toLowerCase().endsWith(".py")) throw new Error(`${specPath}: a Python spec - write it as a .ts or .json spec`);
     return (await import(pathToFileURL(full).href)) as Spec;
 }
 
