@@ -50,7 +50,7 @@ code or level data; the values here are identifiers and offsets, measured or rea
 | TP-26 | Rail grind terrains THUGPRO changed (TerrainType, and Type): Alcatraz 36, Chicago 11, Kona 41, London 164, San Francisco 54, College 54 rails (metal -> grind wire / electric wire / rope, concrete -> grind wire / metal / wood) - per rail, not a mapping (the other rails of the same terrain kept theirs) | Sounds and sparks only; for the user's decision as TP-22 | `rail_terrains` -> `applyEdits` | As TP-22 |
 | TP-27 | Nodes THUGPRO took out (Zoo's meerkat TRG_meerkat_10: not in ours, animals aren't ported) and nodes it added that are node data only: rails - College 6 (TRG_TP_RailRoofLedge_01-06), skate shop 16 (roof_ledge_9-17, fence_rail_0_6-12), San Francisco 12 (ed_rail_*, back_qp_lips_*), Zoo 5 (TRG_NatasNode_01-05); generic restarts - San Francisco TRG_Elev_Warp2 (its elevator teleport's target), Zoo TRG_ParkingLotRestart01-03; Kona's 19 level lights TRG_Night_LevelLight_thugpro_* (Brightness 0 as THUGPRO's: lit only by its night lighting) | Rails only one side can grind; restarts and lights don't travel | `removed_nodes` / `added_nodes` -> `applyEdits` (in our node form: legacy Position, rails' zero Angles left off, Links by name, restarts `restart_types [Generic]`, after the converted nodes and before the peds and cars) | As TP-22; the added rails checked against our collision (0-18 units from a face but San Francisco's single-node ed_rail_4_0, 50) |
 | TP-28 | College's collision: 607 duplicate faces (the same three corners twice) of 69 objects left out, as THUGPRO's (e.g. Box331 24 -> 12) | The same surfaces: nothing changes online; for completeness | `collision_duplicates` (object names) -> `thugpro_edits.removeDuplicateFaces` (THPS4's collision before converting) | THUGPRO's `data\pre\schcol.prx` against THPS4's `Schcol.dat` (an object is listed when its face count less the duplicates is THUGPRO's) - as TP-22; checked: the 69 objects' face counts equal THUGPRO's |
-| TP-29 | **Off, the user's decision (2026-10-20): the door stays open** - the skate shop is our main menu's backdrop (`door_walls.enabled` false). THPS4's invisible skate shop door walls kept closed, as THUGPRO keeps them (InvisColl01's shop side, Object10's two invisible faces), only if switched on (the door open: `thps4_levels.OPENINGS`, 2026-10-19) | Online the door is open for ours, closed for THUGPRO's players (they run into a wall where ours ride through) | `door_walls` (`enabled`) -> `thps4_levels.openWalls` | THUGPRO's `practicecol.prx` (InvisColl01 10 faces, Object10's 2 - `thugpro_inventory.ts`) |
+| TP-29 | **Off, the user's decision (2026-10-20): the door stays open** - the skate shop is our main menu's backdrop (`door_walls.enabled` false). THPS4's invisible skate shop door walls kept closed, as THUGPRO keeps them (InvisColl01's shop side, Object10's two invisible faces), only if switched on (the door open: our port change PC-1 / PC-2, 2026-10-19) | Online the door is open for ours, closed for THUGPRO's players (they run into a wall where ours ride through) | `door_walls` (`enabled`) -> `thps4_levels.openWalls` | THUGPRO's `practicecol.prx` (InvisColl01 10 faces, Object10's 2 - `thugpro_inventory.ts`) |
 | TP-30 | THUG1's Hotter Than Hell named `hh` (Load_hh, levels\hh, hh_sky) - approved by the user 2026-10-20 | As TP-1: THUG1 names it SE (Load_SE), but THUG2 has a level SE of its own (Pro Skater), so the THUG1 port can't take THUG1's name; THUGPRO chose `hh` (its own identifier, in no THUG1 / THUG2 file). Without the entry it's `thug1_se` and doesn't load across | `thug1_levels.json` `level_names` -> `thug1_levels.levelName` | THUGPRO's installed `data\pre\HH_scripts.prx` and its Levels.qb (`Level_HH`, `load_script=Load_HH`, `name="Hotter Than Hell"`); checked by `tools/thug1_levels/thugpro_compare.ts` |
 | TP-31 | THUG1 levels' network spawns as THUGPRO's: every restart with a Multiplayer / Horse / CTF / Team type in THUGPRO's places, types, names and order - VC TRG_restart_SCJ (moved 326 onto TRG_Restart_SJ's spot and made the first spawn), HN TRG_Restart01 (43), SC2 TRG_CTF_Restart_Yellow (165), SJ TRG_G_Collect2_RestartNode (Multiplayer / Horse taken off: 10 -> 9), HI TRG_Proset1_restartnode renamed `_trg_Proset1_restartnode`; all 12 shared levels in THUG1's own order (NJ: no Player1-first swap) - approved by the user 2026-10-20 | Competitive fairness: THUG2 starts player n at the n-th Multiplayer restart of the node array and respawns at one of the first 8 (Skate 0x00566100 -> GetRestartNode 0x0046B790; CSkater::MoveToRandomRestart 0x00580830, Rnd(8)) - a player shouldn't start where the opponents never do | `thug1_levels.json` `spawns` -> `thug1_levels.applySpawns` (in our node form: Pos / Angles / restart_types / Name set, the spawns' array slots refilled in `order`, Links following; the level's array keeps THUG1's order - `nodes.convertNodes` player1First false). Off: `--compat none` (the output then the same as before TP-31: checked, .qb code + sorted names) | THUGPRO's installed `data\pre\<level>_scripts.prx` node arrays against THUG1's own, extracted by `node tools/thug1_levels/thugpro_compare.ts --extract-thugpro` (`thugpro_edits.spawnEdits`; never typed in); checked by `thugpro_compare.ts` ("spawns same" in all 12) |
 | TP-32 | THUG1 nodes THUGPRO moved (not the spawns - TP-31): NJ's El-train path waypoints TRG_TrainTest_00-03 (46-85) and LO_Fluff_Chopper (2000 down), HI Chopper_Hard_Rotors (16), RU tkr_cannonRail01 / 02 (1.3-1.8: the cannon grind line) - 8 nodes. The user's decision 2026-10-20 (TP-32 ... TP-39): everything THUGPRO changed in our ported levels is data here, under the compat flag | Positions are what both sides skate and grind on: a rail moved on one side only is a grind line the other side's player doesn't have | `thug1_levels.json` `moved_nodes` -> `hand_edits.applyNodeEdits` (Pos / Angles set on THUG1's node before conversion) | All of TP-32 ... TP-39: THUGPRO's installed `data\pre\<level>_scripts.prx` node arrays and `<level>col.prx` collision against THUG1's own `<LV>.pre` / `<LV>col.pre`, extracted by `node tools/thug1_levels/thugpro_compare.ts --extract-thugpro` (`thugpro_edits.handEdits`; never typed in; it prints what it leaves out and why); checked after conversion by `thugpro_compare.ts` ("hand edits as THUGPRO's: TP-n same/total" per level, `--details` the misses) |
@@ -139,6 +139,51 @@ AU seagull and AU scripts copied in) and its bum (THUG1's TRG_546 renamed and re
 (they call THUGPRO's own Sk3_Killskater_sand, from its thugpro_utils.qb - THUG2 has no such script), NJ's 85 emptied
 trigger scripts (occlusion / vis / proximity triggers: rendering), the other level-script edits, and the host-toggled
 level changes (`<level>_thugpro.qb`).
+
+## The two sections with `op`: `thugpro_new` and `port_changes`
+
+Besides the TP-n sections above (grouped by kind, left as they are), a game's differences file can have two more
+sections, both a list of entries (`entries`), each `{id, op, target, why, ...}`:
+- `op` is one of `"add"` (something the source game hasn't: a node, sector, collision object, script), `"set"` (fields
+  of something that exists change - merged, only the given fields; a `set` on something missing is an error the
+  converter reports, never an add) or `"remove"` (something that exists left out or suppressed: faces, nodes, sectors,
+  objects, statements). No other ops.
+- `id`: the register row (TP-n for `thugpro_new`, PC-n for `port_changes`); `target`: what it acts on (its level:
+  `target.level`, or `target.levels` - a list or `"*"`); `why`: one line. THPS4's entries also name the converter step
+  that applies them (`rule`).
+- Read through `tools/compat/compat.ts` (`thugproNew(profile, tool)`, `portChanges(tool)`).
+
+| Section | What | Switch |
+|---|---|---|
+| `thugpro_new` | **New in THUGPRO (not in any source game)**: THUGPRO's own content - its scripts, nodes, teleports, host level options, models. By reference only: file, entry, size and SHA-256 of what is read from the user's THUGPRO install at convert time (`--thugpro`), never its bytes | part of the THUGPRO profile: `--compat none` leaves it out, and `--no-thugpro-new` the profile without it |
+| `port_changes` | **Our own changes**: this project's deliberate deviations from a source game's data - neither the source game's nor THUGPRO's (the skate shop's open door, crash guards, nodes and statements left out) | not THUGPRO data, so applied whatever `--compat` says (`--compat none` too); `--no-port-changes` leaves them all out: the source game's data as it is (crash guards included - not for playing) |
+
+## Our own changes (port_changes)
+
+Not THUGPRO entries: what this project changed in a source game's levels on purpose. THPS4
+(`thps4_levels.json` `port_changes`, applied by `tools/thps4_levels/thps4_levels.ts` - `portChanges(rule, level)`):
+
+| Id | Op | Rule | Target | Why |
+|---|---|---|---|---|
+| PC-1 | remove | `open_walls` | skate shop, collision InvisColl01, its z-min faces | The shop's door open (the user, 2026-10-19; our main menu's backdrop): the invisible box's shop-side face across the door |
+| PC-2 | remove | `open_walls` | skate shop, collision Object10, its invisible faces | The door open, as PC-1: the shop's own two invisible faces across the doorway |
+| PC-3 | set | `created_in_play` | skate shop, node SSO_Fence05: CreatedAtStart | The fence piece at the end of the halfpipe there at the start (THPS4's menu killed it, its practice run made it again) |
+| PC-4 | remove | `peds_cars` | College: the walkers and cars peds_cars.ts makes | Crash guard: College's node array came out null with them |
+| PC-5 | remove | `zero_angles` | every level: Angles (0, 0, 0) on rails and level geometry | Crash guard: THUG2's fixed script vector pool (College's array came out null); zero is the default |
+| PC-6 | remove | `never_created` | every level: made objects no brought script creates, waypoints nothing uses | Crash guard: THUG2's script heap (College) |
+| PC-7 | remove | `trick_objects_without_sector` | every level: TrickObject / Cluster of geometry without a scene sector | Crash guard: ParseNodeArray 0x00588630 reads through the missing sector |
+| PC-8 | remove | `left_out_commands` | every level: 30 goal / career / camera / panel commands in brought scripts | Goals and THPS4's panels aren't ported (besides script_port's shared list) |
+| PC-9 | remove | `empty_restart_scripts` | every level: restart trigger scripts left empty | THPS4's menu restart's script has nothing left; an empty script broke make_menu_level's parsing |
+| PC-10 | set | `ground_restarts` | every level: restarts over nothing / a kill zone | Not network spawns or kill targets (a player would fall forever) |
+| PC-11 | set | `net_game_nodes` | every level: path followers, peds, cars; single-player levels' Player1 restarts | Network games: no path manager or ped animations, and restarts for the players |
+
+Checked: `--compat thugpro` and `--compat none` output byte-identical to before the move (75 files each; the .qb
+files by code and sorted checksum names). Not entries (the converter's translation of THPS4's forms into THUG2's, not
+a choice that could be switched back: the source has no THUG2 form to fall back on): THPS4's animals other than
+pigeons, particle emitters, proximity nodes (their scripts run once at the start instead), goals and their pick-ups
+and peds, trigger types as THUG2's arrays, MakeSkaterGoto kept for DropIn / StartSkating1 only, standing peds' THUG2
+AI, vehicles as level objects of their models, the CTF / team flags' THUG2 form, the level names (the skate shop's
+`thps4_` prefix), the shared script_port list of left-out commands; and THPS4's missing Foo scene.
 
 ## Run time (in the DLL)
 

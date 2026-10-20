@@ -306,7 +306,7 @@ function extract(thugpro: string, thps4Dir: string): number {
         _register: "TP-29",
         _note:
             "THUGPRO keeps THPS4's invisible door walls of the skate shop (InvisColl01's shop side, Object10's two " +
-            "invisible faces); ours opens the door (the user's request, 2026-10-19: thps4_levels.OPENINGS). Off: " +
+            "invisible faces); ours opens the door (the user's request, 2026-10-19: port_changes PC-1 / PC-2). Off: " +
             "enabled true keeps the walls as THUGPRO's",
         enabled: false,
     };

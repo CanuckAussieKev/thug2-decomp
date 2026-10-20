@@ -3,6 +3,7 @@
 //
 //   node tools/thps4_levels/thps4_levels.ts selfcheck [--thug2 C:\Games\THUG2] [--thps4 C:\Games\THPS4]
 //   node tools/thps4_levels/thps4_levels.ts convert [levels...] [--thug2 ...] [--thps4 ...] [--out <folder>]
+//        [--compat thugpro|none] [--no-thugpro-new] [--no-port-changes]
 //   then: node tools/menu_level/make_menu_level.ts   (installs them into the data overlay, with level select signs)
 //
 // convert writes <thug2>\thug2-decomp-thps4\ (not read by the game): levels\thps4_<lvl>\thps4_<lvl>.scn.xbx /
@@ -41,14 +42,10 @@ export const LEVELS = ["Alc", "Cnv", "Hof", "Jnk", "Kon", "Lon", "SF2", "Sch", "
 // The level select's numbers for the signs (each sign needs its own; none of them has career records - the info
 // panel skips them, as make_menu_level.ts's SKATE SHOP / TEST LEVEL at 18 / 21).
 export const SIGN_NUMBERS = [19, 20, 22, 23, 24, 25, 26, 27, 28, 29, 31];
-// The levels whose peds and cars are brought over (tools/level_port/peds_cars.ts): the skate shop's pros on the
+// Every level's peds and cars are brought over (tools/level_port/peds_cars.ts): the skate shop's pros on the
 // halfpipe, the people walking by and the cars on the road (also the front end's: make_menu_level.ts copies them);
-// every level's walkers and Car_Generic01 cars.
-// College left out: with its walker and car its node array came out null in the game (a crash loading; cause not
-// found - its other peds are THUG2 standing peds, its car a LevelObject of its model).
-export const PEDS_CARS: ReadonlySet<string> = new Set(
-    LEVELS.map((name) => name.toLowerCase()).filter((n) => n !== "sch"),
-);
+// every level's walkers and Car_Generic01 cars - but where a port change (PC-4, rule peds_cars) leaves them out.
+export const pedsCarsWanted = (base: string): boolean => !portChanges("peds_cars", base).length;
 // For the level select: where each level is, and a THUG2 sign that suits it.
 export const INFO: Readonly<Record<string, readonly [string, string]>> = {
     alc: ["San Francisco Bay, USA", "sign_skatopia"],
@@ -95,11 +92,14 @@ export const COMPAT = {
     netNodes: new Map<string, NetNodes>(),
     edits: new Map<thugproEdits.SectionName, Map<string, unknown>>(),
     doorWalls: false,
+    thugproNew: [] as compat.Entry[],
 };
 
 // The compatibility profile's THPS4 data (tools/compat/compat.ts): "thugpro" (the default) or "none".
-export function setCompat(name: string): void {
+export function setCompat(name: string, withNew = true): void {
     const profile = compat.load(name);
+    // (THUGPRO's own content - thugpro_new, thugpro_new.ts: none with --compat none or --no-thugpro-new)
+    COMPAT.thugproNew = withNew ? compat.thugproNew(profile, "thps4_levels") : [];
     COMPAT.loadNames = new Map(
         Object.entries(profile.section("thps4_levels", "load_names")).map(([k, v]) => [k.toLowerCase(), String(v)]),
     );
@@ -115,6 +115,30 @@ export function setCompat(name: string): void {
     const door = profile.file("thps4_levels").door_walls as { enabled?: boolean } | undefined;
     COMPAT.doorWalls = door?.enabled === true;
 }
+
+// This project's own changes to THPS4's levels (`port_changes` in tools/compat/thugpro/thps4_levels.json - PC-n, README
+// there, "Our own changes"): neither THPS4's data nor THUGPRO's, so applied whatever --compat says; --no-port-changes
+// leaves all of them out (THPS4's data as it is, crash guards included). Each entry names the converter step that
+// applies it (`rule`) and the levels (target.level, or target.levels: a list or "*").
+export const PORT = { changes: [] as compat.Entry[] };
+
+export function setPortChanges(on: boolean): void {
+    PORT.changes = on ? compat.portChanges("thps4_levels") : [];
+}
+
+// The port changes of a rule for a level.
+export function portChanges(rule: string, base: string): compat.Entry[] {
+    return PORT.changes.filter((e) => {
+        if (e.rule !== rule) return false;
+        const t = e.target as { level?: string; levels?: string | string[] };
+        if (t.levels === "*") return true;
+        const list = Array.isArray(t.levels) ? t.levels : t.level !== undefined ? [t.level] : [];
+        return list.some((l) => l.toLowerCase() === base.toLowerCase());
+    });
+}
+
+// Whether a rule's port change applies to a level.
+export const portChange = (rule: string, base: string): boolean => portChanges(rule, base).length > 0;
 
 // The profile's THUGPRO edits of a level (empty with --compat none).
 export const editsOf = (base: string): thugproEdits.LevelEdits => thugproEdits.levelEdits(COMPAT.edits, base);
@@ -196,6 +220,7 @@ export function addNetNodes(
 }
 
 setCompat("thugpro"); // (the default, also for the tools that import this one: thugpro_compare, migrate_layouts)
+setPortChanges(true);
 
 // The level's THUG2 name - its folder, files, node array: THPS4's (lower case), or thps4_<lvl> where that is THUG2's
 // own or (legacy) as this converter named every level before.
@@ -267,33 +292,30 @@ export function levelStructs(thps4Dir: string): Map<string, Struct> {
     return found;
 }
 
-// Invisible walls opened: [collision object, axis, "min" / "max"] - the object's faces lying in its box's plane on that
-// side are left out -, or [collision object, "invisible"] - its invisible faces (THPS4's face flag 0x1000) are.
-// THPS4's skate shop was a menu: InvisColl01 boxes in the skate park outside the shop (sides, roof, both ends) - its
-// z-min face is the shop's side, across the door too; the door itself is also closed by Object10's (the shop's) two
-// invisible faces, x 699-777 at z -1074 (the Occlusion plane at z -1082 has the doorway's hole there). The user,
-// 2026-10-19: the door open; InvisColl01's z-max face (the fence's gap at the end of the halfpipe) kept.
-type Opening = readonly [string, number, "min" | "max"] | readonly [string, "invisible"];
-export const OPENINGS: Readonly<Record<string, readonly Opening[]>> = {
-    skateshop: [
-        ["InvisColl01", 2, "min"],
-        ["Object10", "invisible"],
-    ],
-};
+// Invisible walls opened (port changes, rule open_walls - PC-1, PC-2): target.collision, a collision object, and
+// target.faces - "<axis>-min" / "<axis>-max" (the object's faces lying in its box's plane on that side are left out) or
+// "invisible" (its invisible faces: THPS4's face flag 0x1000). THPS4's skate shop was a menu: InvisColl01 boxes in the
+// skate park outside the shop (sides, roof, both ends) - its z-min face is the shop's side, across the door too; the
+// door itself is also closed by Object10's (the shop's) two invisible faces, x 699-777 at z -1074 (the Occlusion plane
+// at z -1082 has the doorway's hole there). The user, 2026-10-19: the door open; InvisColl01's z-max face (the fence's
+// gap at the end of the halfpipe) kept.
 export const FACE_INVISIBLE = 0x1000;
+const AXES: Readonly<Record<string, number>> = { x: 0, y: 1, z: 2 };
 
 // Nodes the playable level has at the start although THPS4's node array doesn't create them: its game scripts did
-// when play started. The skate shop: the menu kills SSO_Fence05 (create_ss_menu) and the practice run creates it
-// again (start_practice_run_skater) - the fence piece at the end of the halfpipe (the user, 2026-10-19: a gap there).
-export const CREATED_IN_PLAY: Readonly<Record<string, readonly string[]>> = { skateshop: ["SSO_Fence05"] };
-
+// when play started (port changes, rule created_in_play - PC-3: target.node, set.CreatedAtStart). The skate shop: the
+// menu kills SSO_Fence05 (create_ss_menu) and the practice run creates it again (start_practice_run_skater) - the
+// fence piece at the end of the halfpipe (the user, 2026-10-19: a gap there).
 const reEscape = (text: string): string => text.replace(/[^A-Za-z0-9_]/g, "\\$&");
 
 export function createdInPlay(textIn: string, base: string, report: string[]): string {
     let text = textIn;
-    for (const name of CREATED_IN_PLAY[base.toLowerCase()] ?? []) {
+    for (const change of portChanges("created_in_play", base)) {
+        const name = String((change.target as { node: string }).node);
         const node = search(new RegExp(`\\{[^{}]*\\bName=${reEscape(name)}\\b[^{}]*\\}`), text);
-        if (node && !search(/\bCreatedAtStart\b/, node.group(0)!)) {
+        // (a "set" on a node the level hasn't is an error, never an add)
+        if (!node) throw new FormatError(`${base}: ${change.id} sets ${name}, which the node array hasn't`);
+        if (!search(/\bCreatedAtStart\b/, node.group(0)!)) {
             const fixed = sub(
                 new RegExp(`\\bName=${reEscape(name)}\\b`),
                 () => `Name=${name} CreatedAtStart`,
@@ -313,26 +335,32 @@ export function openWalls(col4: thps4.ColFile, base: string, report: string[]): 
         report.push(`  ${base}: TP-29 - the door walls kept closed (THUGPRO's)`);
         return;
     }
-    for (const opening of OPENINGS[base.toLowerCase()] ?? []) {
-        const name = opening[0];
+    for (const change of portChanges("open_walls", base)) {
+        const { collision: name, faces } = change.target as { collision: string; faces: string };
         const wanted = qb.checksum(name);
+        const side = /^([xyz])-(min|max)$/.exec(faces);
+        if (faces !== "invisible" && !side) throw new FormatError(`${change.id}: faces ${faces}: not handled`);
+        let found = false;
         for (const o of col4.objects) {
             if (o.checksum !== wanted || !o.verts.length) continue;
             let kept: typeof o.faces;
-            if (opening[1] === "invisible") {
+            if (side === null) {
                 kept = o.faces.filter((f) => !(f[0] & FACE_INVISIBLE));
             } else {
-                const [, axis, side] = opening as readonly [string, number, "min" | "max"];
+                const axis = AXES[side[1]!]!;
                 const values = o.verts.map((v) => v[axis]!);
                 let plane = values[0]!;
-                for (const v of values) if (side === "max" ? v > plane : v < plane) plane = v;
+                for (const v of values) if (side[2] === "max" ? v > plane : v < plane) plane = v;
                 kept = o.faces.filter(
                     (f) => ![f[2], f[3], f[4]].every((i) => Math.abs(o.verts[i]![axis]! - plane) < 0.01),
                 );
             }
             report.push(`  ${base}: ${o.faces.length - kept.length} face(s) of ${name} left out (an opening)`);
+            if (kept.length === o.faces.length) report.push(`  ${base}: ${change.id} - no face of ${name} to remove`);
             o.faces = kept;
+            found = true;
         }
+        if (!found) report.push(`  ${base}: ${change.id} - no collision object ${name} to remove faces of`);
     }
 }
 
@@ -435,7 +463,7 @@ export function cmdConvert(args: Args): void {
         // The peds and cars (THUG2's own ped AI and cars, tools/level_port/peds_cars.ts), after the converted nodes.
         let moving: Struct[] = [];
         let movingScripts = new Map<string, string>();
-        if (PEDS_CARS.has(base.toLowerCase())) {
+        if (pedsCarsWanted(base)) {
             // (THPS4's animals - Zoo's penguins, Carnival's pigs... - walk their paths too: not as people)
             const people = array.map((n) =>
                 n instanceof Struct && nodes.typeOf(n, names).startsWith("anl_") ? new Struct([]) : n,
@@ -471,6 +499,9 @@ export function cmdConvert(args: Args): void {
             );
             const collides = new Set(col4.objects.filter((o) => o.faces.length).map((o) => o.checksum));
             for (const c of vehicleCollides) collides.add(c);
+            const leftOut = portChanges("left_out_commands", base).flatMap(
+                (c) => (c.target as { script_commands: string[] }).script_commands,
+            );
             const result = thps4Scripts.convert(
                 port,
                 array,
@@ -483,6 +514,11 @@ export function cmdConvert(args: Args): void {
                 name,
                 new Set(plan.keys()),
                 collides,
+                {
+                    leftOut, // (PC-8)
+                    neverCreated: portChange("never_created", base), // (PC-6)
+                    emptyRestartScripts: portChange("empty_restart_scripts", base), // (PC-9)
+                },
             );
             ({ converted, kills, scripts: brought, text: extraText, hasSetup } = result);
             report.push(`  ${result.report}`);
@@ -495,7 +531,7 @@ export function cmdConvert(args: Args): void {
             // (THUG2's script pools are fixed - 9500 vectors for every script's: College's node array with the
             // objects, waypoints and peds didn't fit and came out null, a crash loading. The rails' and sectors'
             // zero Angles - most of them - aren't needed.)
-            thps4Scripts.dropZeroAngles(converted, names);
+            if (portChange("zero_angles", base)) thps4Scripts.dropZeroAngles(converted, names); // (PC-5)
             // (the sectors whose trigger script runs keep their trigger faces)
             for (const n of converted) {
                 const nodeName = n.get("Name");
@@ -527,14 +563,18 @@ export function cmdConvert(args: Args): void {
         text += pedsCars.scriptsNs(movingScripts) + extraText + netScripts;
         // (a TrickObject without its sector crashes the loader: convertScene leaves skinned sectors out)
         text = createdInPlay(text, base, report);
-        const [stripped, cleared] = nodes.stripMissingTrickObjects(text, sceneSectors(scene4));
+        // (PC-7)
+        const [stripped, cleared] = portChange("trick_objects_without_sector", base)
+            ? nodes.stripMissingTrickObjects(text, sceneSectors(scene4))
+            : [text, 0];
         text = stripped;
         if (cleared) report.push(`  ${cleared} geometry nodes without a scene sector: TrickObject / Cluster dropped`);
         const levelDir = pyJoin(out, "levels", name);
         fs.mkdirSync(levelDir, { recursive: true });
         const qbPath = pyJoin(levelDir, `${name}.qb`);
         // (network games: path followers, peds and cars kept out - no path manager or ped animations there -, restarts for the players)
-        const [netText, marked] = nodes.netGameNodes(text, brought);
+        // (PC-11)
+        const [netText, marked] = portChange("net_game_nodes", base) ? nodes.netGameNodes(text, brought) : [text, 0];
         text = netText;
         if (marked) report.push(`  ${marked} node(s) changed for network games`);
 
@@ -552,7 +592,10 @@ export function cmdConvert(args: Args): void {
         convertGeometry(folder, base, levelDir, name, report, (checksum) => triggers.has(checksum), geometryRead);
         // (restarts over nothing or over a kill zone: no network spawns, no kill targets - nodes.groundRestarts)
         let groundReport: string[];
-        [text, groundReport] = nodes.groundRestartsAt(text, levelDir, name);
+        // (PC-10)
+        [text, groundReport] = portChange("ground_restarts", base)
+            ? nodes.groundRestartsAt(text, levelDir, name)
+            : [text, []];
         if (groundReport.length) {
             writeQb(text);
             report = report.concat(groundReport);
@@ -665,6 +708,11 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
             compat: { kind: "string", default: "thugpro" },
             // the names this converter used before: thps4_<lvl> for every level
             "legacy-names": { kind: "flag" },
+            // THPS4's data as it is: none of this project's own changes (port_changes, PC-n: the skate shop's open
+            // door, the crash guards...) - not for playing
+            "no-port-changes": { kind: "flag" },
+            // the THUGPRO profile without THUGPRO's own content (thugpro_new: its teleports, level options...)
+            "no-thugpro-new": { kind: "flag" },
             extra: { kind: "list" },
         },
         argv,
@@ -676,7 +724,8 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
         );
         pyExit(2);
     }
-    setCompat(compatName);
+    setCompat(compatName, !parsed.flags.get("no-thugpro-new"));
+    setPortChanges(!parsed.flags.get("no-port-changes"));
     const args: Args = {
         command: parsed.command,
         levels: parsed.positionals,
