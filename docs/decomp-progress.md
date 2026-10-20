@@ -6257,6 +6257,30 @@ belong with the CScript batch.
 - [x] The range 0x00406460-0x0041A6D0 is done: find_gaps lists nothing in it, the scratchpad survey has no function
   left without source, and the hidden runs between Ghidra's functions are all covered (the rest are jump tables,
   "RLD!" strings and the continuations of covered functions past a 0xCC byte inside them).
+- [x] Batch 193 (SC-1; editor scale agent, merged 2026-10-21; run in the game: docs/pending/editor-scale2.md; NOT judged by a player yet; NOT run in the game yet): **the collision component and the matrix component** (src/game/obj/
+  collision_component.{h,cpp}, matrix_component.{h,cpp}; 12 functions).
+  - `Obj::CCollisionComponent` (type 0xA432DC41, vtable 0x00645EEC, 0x1C bytes): 0x0041C920 Create (Calloc 0x1C, the
+    base's constructor, vtable, type), 0x0041C710 DestroyBody (UnregisterMovable 0x00417800, the collision's slot 0
+    with 1, the base's), 0x0041C780 Destroy, 0x0041C7B0 InitFromStructure (CollisionMode -> ShapeTypeFromChecksum, none:
+    return; Class LevelObject: Name asserted, GetSector 0x0048C510, its collision 0x005480F0's geometry; then slot 13
+    virtually), 0x0041C890 InitCollision (slot 13, RET 8: CreateMovableCollision from the geometry (count 1) or the
+    model's asset data (+0x88 count, +0x8C geometries; the model component not null-checked - a crash without one, as
+    the original) or none), 0x0041C980 Update (slot 1: the bone matrix 0x00493040 of the model component's model -
+    position = its translation + the object's position (not turned, w the object's), orientation = D3DX multiply
+    (bone, display matrix); else the object's position and display matrix; slots 5 / 6 of the collision object).
+    Quirk kept: InitFromStructure passes the Name slot's old value when Name is missing (ours: 0).
+  - `Obj::CMatrixComponent` (type 0x208353AC, vtable 0x00645F24, 0x58 bytes - cutscene_update.cpp's kSoundComponent):
+    0x0041CB20 Create, 0x0041CAD0 Construct (identity matrix), 0x0041CA60 DestroyBody, 0x0041CA70 Destroy, 0x0041CAA0
+    Update (object's display matrix = its matrix), 0x0041CAC0 SetMatrix. (Closes the gap find_gaps showed between
+    0x0041C980 and 0x0041CB80.)
+  - Tests: TestCollisionComponent (16 seeds: made / out of memory, InitFromStructure every branch, InitCollision
+    geometry / asset / none, Update none / no model / no bone / bone, DestroyBody / Destroy with and without collision,
+    flags 0 / 1 / 2 / 3) and TestMatrixComponent (4 seeds), original vs ours with recording stand-ins. 30 mutations
+    (out\scripts\mut_component.ts, mut_matrix.ts), 30 caught (2 after strengthening: free flags 2, the vtable before
+    the destructor).
+  - Scans: scan_register_assumptions (only the known 0x4EFF92 and the existing InitEditedGoalStub lines), audit (no
+    MISMATCH), find_gaps (0x0041CA60-0x0041CB20 were listed: now done), check_code_writes "No overlaps".
+  - Switch off: `[replacements] disable=collision_component.cpp,matrix_component.cpp`.
 - [ ] Next: the anim range is finished; in-game testing of AN-15 ... AN-21 (and the earlier batches marked NOT run).
 - [ ] Next: the range is done (find_gaps.py: nothing left in 0x45EFD0-0x47DC40); a final game run.
 - [ ] Next: nothing left in the range; hand back.

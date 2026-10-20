@@ -1,8 +1,8 @@
 # Decompilation progress
 
-Generated 2026-10-20 by `tools/progress_report.ts` - regenerate after each batch.
+Generated 2026-10-21 by `tools/progress_report.ts` - regenerate after each batch.
 
-**Game code: ███████░░░░░░░░░░░░░ 35.9%** of the code rewritten (3,136 of 8,382 functions, 580.9 KB of 1,617.8 KB).
+**Game code: ███████░░░░░░░░░░░░░ 36.0%** of the code rewritten (3,149 of 8,382 functions, 582.0 KB of 1,617.8 KB).
 
 Progress is by code size: function counts make a 10-byte helper look like as much work as a 2 KB routine. Subsystem boundaries come from the exe map (`docs/subsystems.md`) and are approximate (give or take a few functions); totals are exact.
 
@@ -10,7 +10,7 @@ Progress is by code size: function counts make a 10-byte helper look like as muc
 |---|---|---|---:|---:|
 | Core utilities (CRC/checksums, string helpers, rect, random) | `0x401000`-`0x406460` | ███████████████████░ 99% | 129 / 130 | 19.8 KB / 19.8 KB |
 | Animation & skeleton / skinned model data | `0x406460`-`0x41a6d0` | ████████████████████ 100% | 423 / 423 | 75.5 KB / 75.5 KB |
-| Object components & level/scene loading | `0x41a6d0`-`0x445b50` | ░░░░░░░░░░░░░░░░░░░░ 0% | 9 / 584 | 1.4 KB / 157.7 KB |
+| Object components & level/scene loading | `0x41a6d0`-`0x445b50` | ░░░░░░░░░░░░░░░░░░░░ 1% | 21 / 584 | 2.4 KB / 157.7 KB |
 | Engine script commands (lighting/fog, memory heaps, script utils, arrays, music & streams) | `0x445b50`-`0x44e6b0` | ░░░░░░░░░░░░░░░░░░░░ 1% | 7 / 246 | 0.5 KB / 32.5 KB |
 | Movies (Bink) & streamed audio | `0x44e6b0`-`0x4544e0` | ████████████████████ 100% | 167 / 167 | 22.1 KB / 22.1 KB |
 | Low-level networking (engine net library) | `0x4544e0`-`0x45bda0` | ████████████████████ 100% | 205 / 205 | 26.5 KB / 26.5 KB |
@@ -30,7 +30,7 @@ Progress is by code size: function counts make a 10-byte helper look like as muc
 | Viewer / gaps / records / career save info | `0x577300`-`0x588180` | ████████████████████ 100% | 304 / 304 | 60.7 KB / 60.7 KB |
 | Park editor & graffiti | `0x588180`-`0x595030` | ░░░░░░░░░░░░░░░░░░░░ 0% | 4 / 289 | 0.2 KB / 47.3 KB |
 | Park editor (Create-A-Park) & skate script commands | `0x595030`-`0x59f610` | ████████████████████ 100% | 169 / 169 | 40.1 KB / 40.1 KB |
-| Game script commands (skater queries, save/memcard, profiles, appearance, cutscenes, weather) | `0x59f610`-`0x5b6560` | ░░░░░░░░░░░░░░░░░░░░ 1% | 20 / 574 | 1.6 KB / 87.1 KB |
+| Game script commands (skater queries, save/memcard, profiles, appearance, cutscenes, weather) | `0x59f610`-`0x5b6560` | ░░░░░░░░░░░░░░░░░░░░ 1% | 21 / 574 | 1.6 KB / 87.1 KB |
 | File system (PIP/PRE archives) & skater memory heaps | `0x5b6560`-`0x5bdad0` | ████████████████████ 100% | 222 / 222 | 27.1 KB / 27.1 KB |
 | Input devices (SIO) | `0x5bdad0`-`0x5be6f0` | ████████████████████ 100% | 25 / 25 | 2.8 KB / 2.8 KB |
 | Game clock (Tmr) | `0x5be6f0`-`0x5beaae` | ████████████████████ 100% | 15 / 15 | 0.8 KB / 0.8 KB |

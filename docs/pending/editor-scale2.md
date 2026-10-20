@@ -121,7 +121,7 @@ collision scaled (the top-down heap), a live object's collision in the movables'
 
 ## Decomp batch record (for decomp-progress.md)
 
-- [x] Batch N (NOT run in the game yet): **the collision component and the matrix component** (src/game/obj/
+- [x] Batch SC-1 (NOT run in the game yet): **the collision component and the matrix component** (src/game/obj/
   collision_component.{h,cpp}, matrix_component.{h,cpp}; 12 functions).
   - `Obj::CCollisionComponent` (type 0xA432DC41, vtable 0x00645EEC, 0x1C bytes): 0x0041C920 Create (Calloc 0x1C, the
     base's constructor, vtable, type), 0x0041C710 DestroyBody (UnregisterMovable 0x00417800, the collision's slot 0
