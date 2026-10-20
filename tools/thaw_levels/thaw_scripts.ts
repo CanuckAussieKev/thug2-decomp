@@ -397,6 +397,8 @@ export class PortedNodes {
     readonly counts = new Map<string, number>();
     lifePeds = 0;
     readonly pedPaths = new Set<number>();
+    // TP-N4: THUGPRO's car scripts (not THAW's, so not in scriptQbs) that drive the car along its path
+    readonly drivers = new Set<number>();
     private indices: Map<QbValue, number> | null = null;
 
     constructor(
@@ -712,6 +714,7 @@ export class PortedNodes {
 
     // Does the script (or one it calls, 2 deep) drive a car along its path?
     private moves(script: number, depth = 0): boolean {
+        if (this.drivers.has(script)) return true;
         for (const q of this.scriptQbs) {
             for (const [called] of q.calls(script)) {
                 const text = (this.names.get(called) ?? "").toLowerCase();

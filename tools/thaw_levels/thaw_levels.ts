@@ -46,6 +46,7 @@ import { StructError } from "../lib/struct.ts";
 import * as thaw from "./thaw.ts";
 import * as thawScripts from "./thaw_scripts.ts";
 import * as thugproEdits from "./thugpro_edits.ts";
+import * as thugproNew from "./thugpro_new.ts";
 
 export const STAGING = "thug2-decomp-thaw";
 const SKY = "TestLevel_Sky"; // every THAW level's sky (levels.qb), coloured by the time of day
@@ -97,7 +98,13 @@ export const COMPAT = {
     spawns: new Map<string, ZoneSpawns>(),
     // TP-5...TP-9: THUGPRO's other hand edits (thugpro_edits.ts), the profile's sections by name
     edits: {} as Record<string, Record<string, unknown>>,
+    // TP-N1...TP-N5: THUGPRO's own content, by reference (thugpro_new.ts; --no-thugpro-new: none)
+    thugproNew: {} as Record<string, unknown>,
 };
+
+// TP-N1...TP-N5: the zone's THUGPRO content entries, or null (none, --compat none or --no-thugpro-new).
+export const newFor = (zone: string): thugproNew.ZoneNew | null =>
+    (COMPAT.thugproNew[zone.toUpperCase()] as thugproNew.ZoneNew | undefined) ?? null;
 
 // TP-5...TP-9: the zone's edits from the profile, or null (none, or --compat none).
 export const editsFor = (zone: string): thugproEdits.ZoneEdits | null => thugproEdits.zoneEdits(COMPAT.edits, zone);
@@ -126,8 +133,9 @@ export interface SpawnEdit {
 }
 
 // The compatibility profile's THAW data (tools/compat/compat.ts): "thugpro" (the default) or "none".
-export function setCompat(name: string): void {
+export function setCompat(name: string, withThugproNew = true): void {
     const profile = compat.load(name);
+    COMPAT.thugproNew = withThugproNew ? profile.section("thaw_levels", "thugpro_new") : {};
     COMPAT.levelNames = new Map(Object.entries(profile.section("thaw_levels", "level_names")) as [string, string][]);
     COMPAT.frameKept = new Set(
         ((profile.section("thaw_levels", "frame_kept") as { zones?: string[] }).zones ?? []) as string[],
@@ -781,10 +789,13 @@ function writeLevelQb(
     file: string,
     scripts: ReadonlyMap<number, Buffer>,
     names: Map<number, string>,
+    drop: ReadonlySet<number> = new Set(),
 ): void {
     const [netText, marked] = nodes.netGameNodes(text, scripts);
     if (marked) print(`  ${path.win32.basename(file)}: ${marked} node(s) changed for network games`);
     common.nsCompile(ns, netText, file);
+    // (TP-N4: ours of the scripts THUGPRO's replace taken out first)
+    if (drop.size) fs.writeFileSync(file, thugproNew.removeScripts(fs.readFileSync(file), drop));
     if (scripts.size) fs.writeFileSync(file, scriptPort.appendScripts(fs.readFileSync(file), scripts, names));
 }
 
@@ -797,10 +808,122 @@ const levelGeometryNames = (list: readonly Struct[], names: Map<number, string>,
     return out;
 };
 
+// TP-N3 / TP-N4 / TP-N5: what thugpro_new brings into the node array and the level's .qb (thugpro_new.resolve).
+export interface NewNodes {
+    nodes: Struct[]; // THUGPRO's nodes (its frame; Links in `links`, by name)
+    links: Map<Struct, string[]>;
+    triggerScripts: Map<string, string>; // node -> THUGPRO's script
+    scripts: Map<number, Buffer>; // THUGPRO's scripts (ours of these names taken out)
+    drivers: Set<number>; // THUGPRO's car scripts that drive
+    setupNs: string; // the level's setup script (loading sounds, host options' default state), NeverScript
+    frame: readonly number[]; // THUGPRO's frame shift (its nodes are moved back into THAW's)
+}
+
+// THUGPRO's nodes appended to THAW's array (Pos in THAW's frame, Links by name) and the TriggerScripts naming its
+// scripts set - before converting, as if THAW had them. "set" on a node the array hasn't, or "add" of one it has: an
+// error, reported and skipped.
+export function addNewNodes(
+    extra: NewNodes,
+    array: readonly QbValue[],
+    names: Map<number, string>,
+    report: string[],
+): QbValue[] {
+    const out = [...array];
+    const index = new Map<number, number>();
+    const reindex = (): void => {
+        index.clear();
+        out.forEach((n, i) => {
+            const v = n instanceof Struct ? n.get("Name") : undefined;
+            if (v instanceof Name && !index.has(v.value)) index.set(v.value, i);
+        });
+    };
+    reindex();
+    const key = (text: string): Name => {
+        const value = thugproEdits.nameValue(text);
+        if (!text.startsWith("#") && !names.has(value)) names.set(value, text);
+        return new Name(value);
+    };
+    const errors: string[] = [];
+    let set = 0;
+    for (const [node, script] of extra.triggerScripts) {
+        const i = index.get(thugproEdits.nameValue(node));
+        const n = i === undefined ? undefined : out[i];
+        if (!(n instanceof Struct)) {
+            errors.push(`set TriggerScript on ${node}: no such node`);
+            continue;
+        }
+        key("TriggerScript");
+        n.set("TriggerScript", key(script));
+        set += 1;
+    }
+    const added: Struct[] = [];
+    for (const node of extra.nodes) {
+        const v = node.get("Name");
+        if (v instanceof Name && index.has(v.value)) {
+            errors.push(`add ${names.get(v.value) ?? v.value}: the level has it already`);
+            continue;
+        }
+        const n = thugproNew.nodeForThaw(node, extra.frame);
+        out.push(n);
+        added.push(n);
+        extra.links.set(n, extra.links.get(node) ?? []);
+    }
+    reindex();
+    for (const n of added) {
+        const l = (extra.links.get(n) ?? [])
+            .map((t) => index.get(thugproEdits.nameValue(t)))
+            .filter((i): i is number => i !== undefined);
+        if (l.length) n.set("Links", l);
+    }
+    report.push(
+        `  thugpro_new: ${added.length} node(s) added, ${set} TriggerScript(s) set${errors.length ? ` - errors (skipped): ${errors.join("; ")}` : ""}`,
+    );
+    return out;
+}
+
+// THUGPRO's scripts that name a node ours hasn't (our port left it out): `name=X` (Kill / Create...) or `X:` - a
+// statement on an object that isn't there runs on object 0, the skater (docs/script-runtime.md 4.2: Obj_MoveToRelPos
+// would move the skater). Those scripts are left out (reported); the rest are returned.
+export function pruneNewScripts(
+    extra: NewNodes,
+    converted: readonly Struct[],
+    names: ReadonlyMap<number, string>,
+    report: string[],
+): Set<number> {
+    const have = new Set<number>();
+    for (const n of converted) {
+        const v = n.get("Name");
+        if (v instanceof Name) have.add(v.value);
+    }
+    const nameKey = checksum("Name");
+    const bad = new Set<number>();
+    const missing = new Set<string>();
+    for (const [script, code] of extra.scripts) {
+        const toks = [...qb.tokens(Buffer.concat([code.subarray(6), Buffer.from([0])]), true)];
+        toks.forEach(([, t, p], i) => {
+            if (t !== 0x16) return;
+            let target: number | null = null;
+            if (p.readUInt32LE(0) === nameKey && toks[i + 1]?.[1] === 0x07 && toks[i + 2]?.[1] === 0x16) {
+                target = toks[i + 2]![2].readUInt32LE(0);
+            } else if (toks[i + 1]?.[1] === 0x42) target = p.readUInt32LE(0);
+            if (target !== null && !have.has(target)) {
+                bad.add(script);
+                missing.add(qb.nameText(target, names));
+            }
+        });
+    }
+    const kept = extra.scripts.size - bad.size;
+    report.push(
+        `  thugpro_new: ${kept} THUGPRO script(s) brought${bad.size ? `; ${bad.size} left out - they name node(s) ours hasn't (${[...missing].slice(0, 6).join(", ")})` : ""}`,
+    );
+    return bad;
+}
+
 // What convertLevelNodes returns: the checksums of the nodes whose collision keeps its trigger faces, the LOD sectors
 // to leave out, the breakables, the node array text, the brought scripts, the LevelObjects in their own space, the
 // moving objects left out.
 export interface LevelNodes {
+    drop: Set<number>; // (TP-N4: our scripts THUGPRO's replace)
     triggers: Set<number>;
     lods: Set<number>;
     breakables: Set<number>;
@@ -826,6 +949,7 @@ export function convertLevelNodes(
     port: Port | null = null,
     sectors: ReadonlySet<number> = new Set(),
     colObjects: ReadonlySet<number> = new Set(),
+    extra: NewNodes | null = null,
 ): LevelNodes {
     const low = zone.toLowerCase();
     const data = files.get(`${low}.qb`);
@@ -847,6 +971,8 @@ export function convertLevelNodes(
     // TP-5...TP-8: THUGPRO's node edits, on THAW's array as if they were THAW's (thugpro_edits.ts)
     const edits = editsFor(zone);
     if (edits !== null) array = thugproEdits.applyNodeEdits(edits, array, names, report);
+    // TP-N3 / TP-N4: THUGPRO's nodes and the TriggerScripts naming its scripts, as if THAW's
+    if (extra !== null) array = addNewNodes(extra, array, names, report);
     const nameOf = (n: QbValue): number | null => {
         const v = n instanceof Struct ? n.get("Name") : undefined;
         return v instanceof Name ? v.value : null;
@@ -891,6 +1017,7 @@ export function convertLevelNodes(
             port.particles,
             shift,
         );
+        for (const d of extra?.drivers ?? []) made.drivers.add(d);
         const m = made;
         array = array.map((n) => (n instanceof Struct ? (m.convert(n) ?? n) : n));
         for (const node of array) {
@@ -925,7 +1052,7 @@ export function convertLevelNodes(
     if (shift.some((x) => x !== 0)) movePositions(converted, shift);
     kills = nodes.addKillRestarts(converted, kills, names);
     let scripts = new Map<number, Buffer>();
-    let extra = "";
+    let extraText = "";
     let scriptReport = "";
     let local = new Set<number>();
     let objectsGone: Set<number>;
@@ -944,6 +1071,7 @@ export function convertLevelNodes(
                 thawScripts.CAR_DRIVE,
                 thawScripts.RAIL_ACCELERATE,
             ].map(checksum),
+            ...(extra?.scripts.keys() ?? []),
         ]);
         const m = made;
         let globalsText: string;
@@ -957,7 +1085,7 @@ export function convertLevelNodes(
             provided,
             levelGeometryNames(converted, names, (n) => !m.sectors.has((n.get("Name") as Name).value)),
         );
-        extra =
+        extraText =
             globalsText +
             thawScripts.MADE_SCRIPTS +
             thawScripts.RAIL_SCRIPTS +
@@ -966,6 +1094,24 @@ export function convertLevelNodes(
         objectsGone = made.gone;
     } else {
         objectsGone = madeGone;
+    }
+    // TP-N4 / TP-N5: THUGPRO's scripts (ours of the same names out), the setup putting its host options in their
+    // default state
+    const ourReplaced = new Set<number>();
+    if (extra !== null) {
+        const bad = pruneNewScripts(extra, converted, names, report);
+        const ours = new Set([...scripts.keys(), ...kills.keys(), ...breakables.keys()]);
+        for (const [k, v] of extra.scripts) {
+            if (bad.has(k)) continue;
+            scripts.set(k, v);
+            ourReplaced.add(k);
+        }
+        // (a node left naming a THUGPRO script that was left out - and that ours hasn't: no TriggerScript, as a
+        // trigger face runs its node's script without checking it exists)
+        for (const n of converted) {
+            const t = n.get("TriggerScript");
+            if (t instanceof Name && bad.has(t.value) && !ours.has(t.value)) n.remove("TriggerScript");
+        }
     }
     for (const [k, v] of breakables) kills.set(k, v);
     const breakingNames = nodes.killTriggerNames(converted, breakables);
@@ -985,7 +1131,11 @@ export function convertLevelNodes(
             triggers.add(v);
         }
     }
-    let text = nodes.nodeArrayNs(`${name}_NodeArray`, converted, names, kills) + extra + spawnScripts;
+    let text =
+        nodes.nodeArrayNs(`${name}_NodeArray`, converted, names, kills) +
+        extraText +
+        spawnScripts +
+        (extra?.setupNs ?? "");
     if (breakingNames.size) {
         // The breakables' glass sound (THAW's MA_BreakGlass plays HitGlassPane2x; THUG2 has it too, loaded per level):
         // loaded by the level's LoadTerrain, which load_level runs while loading (the level-specific sounds script
@@ -998,13 +1148,13 @@ export function convertLevelNodes(
         );
     }
     fs.mkdirSync(outDir, { recursive: true });
-    writeLevelQb(ns, text, pyJoin(outDir, `${name}.qb`), scripts, names);
+    writeLevelQb(ns, text, pyJoin(outDir, `${name}.qb`), scripts, names, ourReplaced);
     report.push(
         `  nodes: ${converted.length} of ${array.length} kept ${pyRepr(stats)}; ${killZones} kill zones, ` +
             `${breakingNames.size} breakables; ${lods.size} LOD sectors left out`,
     );
     if (scriptReport) report.push(`  ${scriptReport}`);
-    return { triggers, lods, breakables: breakingNames, text, scripts, local, objectsGone };
+    return { drop: ourReplaced, triggers, lods, breakables: breakingNames, text, scripts, local, objectsGone };
 }
 
 // --- converting -------------------------------------------------------------------------------------------------
@@ -1047,6 +1197,48 @@ export interface Args {
     compat: string;
     legacyNames: boolean;
     static: boolean;
+    thugpro: string; // TP-N1...TP-N5: THUGPRO's install, read for its own content
+    noThugproNew: boolean; // --no-thugpro-new: THUGPRO's hand edits only, not its own content
+}
+
+// TP-N1 / TP-N2: the resolved collision objects into THAW's collision (in place; THUGPRO's frame -> THAW's):
+// added, replacing ours (set), or ours taken out (remove). Returns the report lines.
+function newCollision(r: thugproNew.Resolved, col: thug2Col.ColFile, tpFrame: readonly number[]): string[] {
+    const back = tpFrame.map((x) => -x);
+    let added = 0;
+    let replaced = 0;
+    let removed = 0;
+    const errors: string[] = [];
+    const hex = (c: number): string => c.toString(16).toUpperCase().padStart(8, "0");
+    for (const [c, { op, object }] of r.collision) {
+        const at = col.objects.findIndex((o) => o.checksum === c);
+        if (op === "remove") {
+            if (at < 0) errors.push(`remove ${hex(c)}: no such collision object`);
+            else {
+                col.objects.splice(at, 1);
+                removed += 1;
+            }
+            continue;
+        }
+        if (object === null) continue;
+        const o = thugproNew.colForThaw(object, back);
+        if (op === "set") {
+            if (at < 0) {
+                errors.push(`set ${r.names.get(c) ?? hex(c)}: no such collision object of ours`);
+                continue;
+            }
+            col.objects[at] = o;
+            replaced += 1;
+        } else {
+            if (at >= 0) col.objects[at] = o;
+            else col.objects.push(o);
+            added += 1;
+        }
+    }
+    if (!added && !replaced && !removed && !errors.length) return [];
+    return [
+        `  thugpro_new: ${added} collision object(s) added, ${replaced} reshaped, ${removed} removed (new BSP trees)${errors.length ? ` - errors (skipped): ${errors.join("; ")}` : ""}`,
+    ];
 }
 
 function cmdConvert(args: Args): void {
@@ -1096,6 +1288,18 @@ function cmdConvert(args: Args): void {
             const full = (): thugproEdits.FullArchive => fullArchive(args.thaw, zone);
             thugproEdits.applyGeometryEdits(edits, geom, colIn, textures, full, editReport);
         }
+        // TP-N1 / TP-N2: THUGPRO's collision objects (new, reshaped) into THAW's collision, back in THAW's frame (so
+        // convertCol treats them as THAW's); its sectors go into the converted scene below (thugpro_new.ts)
+        const zoneNew = newFor(zone);
+        let resolved: thugproNew.Resolved | null = null;
+        let tpFrame: readonly number[] = shift;
+        if (zoneNew !== null) {
+            const key = COMPAT.levelNames.get(zone.toUpperCase()) ?? zone.toLowerCase();
+            resolved = thugproNew.resolve(zoneNew, thugproNew.loadThugproLevel(args.thugpro, key), args.thugpro);
+            for (const [k, v] of resolved.names) if (!names.has(k)) names.set(k, v);
+            tpFrame = frameShift(zone, zoneArray(files, zone, names), names);
+            editReport.push(...resolved.report, ...newCollision(resolved, colIn, tpFrame));
+        }
         const night = new Set([...nightSectors(geom, names), ...leftOut(zone)]);
         const nodeReport = night.size ? [`  ${night.size} night-time sectors left out`] : [];
         nodeReport.push(...editReport);
@@ -1108,6 +1312,28 @@ function cmdConvert(args: Args): void {
                 )
                 .map((s) => s.checksum),
         );
+        let extra: NewNodes | null = null;
+        const setupName = `${name}_thugpro_setup`;
+        if (resolved !== null && zoneNew !== null) {
+            for (const [c, { op }] of resolved.sectors) {
+                if (op === "remove") drawn.delete(c);
+                else drawn.add(c);
+            }
+            const setupCalls = zoneNew.entries
+                .filter(
+                    (e) => e.kind === "script" && e.setup && resolved!.scripts.has(thugproEdits.nameValue(e.target)),
+                )
+                .map((e) => e.target);
+            extra = {
+                nodes: resolved.nodes,
+                links: resolved.links,
+                triggerScripts: resolved.triggerScripts,
+                scripts: resolved.scripts,
+                drivers: resolved.drivers,
+                setupNs: thugproNew.optionsSetupNs(setupName, resolved.options, setupCalls),
+                frame: tpFrame,
+            };
+        }
         const level = convertLevelNodes(
             files,
             zone,
@@ -1121,6 +1347,7 @@ function cmdConvert(args: Args): void {
             port,
             drawn,
             new Set(colIn.objects.map((o) => o.checksum)),
+            extra,
         );
         const warnings: string[] = [];
         const scene = convertScene(
@@ -1130,6 +1357,16 @@ function cmdConvert(args: Args): void {
             new Set([...level.lods, ...night, ...level.objectsGone]),
             level.local,
         );
+        if (resolved !== null) {
+            // (TP-N1 / TP-N2: moved by our frame less THUGPRO's - nothing with the default frame)
+            const merged = thugproNew.mergeScene(
+                resolved,
+                scene,
+                textures,
+                shift.map((x, k) => x - tpFrame[k]!),
+            );
+            if (merged) nodeReport.push(`  thugpro_new: ${merged}`);
+        }
         const sceneSectors = new Set(scene.sectors.map((s) => s.checksum));
         const missing = [...level.local].filter((c) => !sceneSectors.has(c));
         if (missing.length) {
@@ -1142,7 +1379,7 @@ function cmdConvert(args: Args): void {
         }
         let [nodeText, cleared] = nodes.stripMissingTrickObjects(level.text, sceneSectors);
         if (cleared) {
-            writeLevelQb(args.ns, nodeText, pyJoin(levelDir, `${name}.qb`), level.scripts, names);
+            writeLevelQb(args.ns, nodeText, pyJoin(levelDir, `${name}.qb`), level.scripts, names, level.drop);
             nodeReport.push(`  ${cleared} geometry nodes without a scene sector: TrickObject / Cluster dropped`);
         }
         const col = convertCol(
@@ -1158,7 +1395,7 @@ function cmdConvert(args: Args): void {
         let groundReport: string[];
         [nodeText, groundReport] = nodes.groundRestarts(nodeText, col);
         if (groundReport.length) {
-            writeLevelQb(args.ns, nodeText, pyJoin(levelDir, `${name}.qb`), level.scripts, names);
+            writeLevelQb(args.ns, nodeText, pyJoin(levelDir, `${name}.qb`), level.scripts, names, level.drop);
             nodeReport.push(...groundReport);
         }
         common.writeLevel(levelDir, name, scene, textures, col);
@@ -1179,6 +1416,8 @@ function cmdConvert(args: Args): void {
             level_num: levelNum,
             default_stats: typeof defaultStats === "number" && Number.isInteger(defaultStats) ? defaultStats : 10,
             lighting: {},
+            // (TP-N5: the loading sounds and host options' default state, run by load_level / reset_level)
+            ...(extra?.setupNs ? { setup_script: setupName } : {}),
         });
     }
     portedLevels.writeManifest(pyJoin(out, portedLevels.MANIFEST), manifest);
@@ -1250,6 +1489,7 @@ function cmdSelfcheck(args: Args): number {
 const USAGE =
     "usage: thaw_levels.ts [-h] [--thug2 THUG2] [--thaw THAW] [--out OUT] [--ns NS] [--frame {thugpro,recentre}]\n" +
     "                      [--recentre RECENTRE] [--compat {thugpro,none}] [--legacy-names] [--static]\n" +
+    "                      [--thugpro THUGPRO] [--no-thugpro-new]\n" +
     "                      {convert,selfcheck} [levels ...]";
 
 // argparse's error: the usage and the message on stderr, exit code 2.
@@ -1306,6 +1546,8 @@ export function parseCommandLine(argv: readonly string[]): Args {
         compat: compatName,
         legacyNames: v["legacy-names"] ?? false,
         static: v.static ?? false,
+        thugpro: v.thugpro ?? thugproNew.DEFAULT_THUGPRO,
+        noThugproNew: v["no-thugpro-new"] ?? false,
     };
 }
 
@@ -1323,11 +1565,14 @@ const OPTIONS = {
     compat: { type: "string" },
     "legacy-names": { type: "boolean" }, // name the levels thaw_<xx> as before, not by their zones (z_ma)
     static: { type: "boolean" }, // convert: the levels' scripts, moving objects, peds and cars left out
+    // TP-N1...TP-N5 (thugpro_new): THUGPRO's install, read for its own content (default %LOCALAPPDATA%\THUG Pro)
+    thugpro: { type: "string" },
+    "no-thugpro-new": { type: "boolean" }, // --compat thugpro without THUGPRO's own content (its hand edits only)
 } as const;
 
 export function main(argv: readonly string[] = process.argv.slice(2)): number {
     const args = parseCommandLine(argv);
-    setCompat(args.compat);
+    setCompat(args.compat, !args.noThugproNew);
     // (a stock install keeps the game in a Game subfolder: C:\Games\THUG2 -> C:\Games\THUG2\Game)
     if (!isDir(pyJoin(args.thug2, "Data")) && isDir(pyJoin(args.thug2, "Game", "Data"))) {
         args.thug2 = pyJoin(args.thug2, "Game");

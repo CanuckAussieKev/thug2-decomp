@@ -43,6 +43,17 @@ import {
 } from "./thaw_levels.ts";
 import { nodeArray } from "./thugpro_compare.ts";
 import {
+    calledNames,
+    colCrc,
+    loadThugproLevel,
+    type NewEntry,
+    nodeCrc,
+    sectorCrc,
+    usedNames,
+    type ZoneNew,
+} from "./thugpro_new.ts";
+import { crc32 } from "node:zlib";
+import {
     type AddedNode,
     encodeValue,
     type FaceEdits,
@@ -96,9 +107,35 @@ export interface ZoneExtract {
     added: { nodes: AddedNode[] };
     collision: { faces: Record<string, FaceEdits> };
     awaiting: Awaiting[];
+    // TP-N1...TP-N5: THUGPRO's own content, by reference (thugpro_new.ts)
+    thugpro_new: ZoneNew;
     notes: string[];
     counts: Record<string, number>;
 }
+
+// TP-N1...TP-N5 register rows (tools/compat/thugpro/README.md "New in THUGPRO")
+const N_GEOMETRY = "TP-N1"; // new meshes and collision
+const N_RESHAPED = "TP-N2"; // THAW's meshes / collision THUGPRO reshaped
+const N_NODES = "TP-N3"; // THUGPRO's content nodes
+const N_SCRIPTS = "TP-N4"; // THUGPRO's scripts and the TriggerScripts naming them
+const N_OPTIONS = "TP-N5"; // host level options (default state) and loading sounds
+
+// THAW scripts THUGPRO changed that we take as THUGPRO has them (our decision - the user's list, 2026-10-20: The
+// Mall's door sound, East LA's glass that breaks without a second sound). The gap scripts gated by its TriggerType are
+// found by rule (scripts THAW defines that THUGPRO made call GetTriggerArray).
+const CHANGED_SCRIPTS: Readonly<Record<string, readonly string[]>> = {
+    Z_MA: ["MA_Dooropening"],
+    Z_EL: [
+        "Z_EL_g_pd_steel_14glass01Script",
+        "Z_EL_g_pd_steel_14glass02Script",
+        "Z_EL_g_pd_steel_14glass03Script",
+        "Z_EL_g_pd_steel_14glass01bScript",
+        "Z_EL_g_pd_steel_14glass02bScript",
+        "Z_EL_g_pd_steel_14glass03bScript",
+    ],
+};
+// Classes our port makes its own way (thaw_scripts.PortedNodes: THUG2's ped AI, Car_Generic01), as THAW's own.
+const OWN_WAY = new Set(["pedestrian", "lifenode"]);
 
 // What the extraction needs besides the zone: THUG2's scripts and models (what our side has).
 export interface Sources {
@@ -264,9 +301,17 @@ export function extractZone(zone: string, src: Sources): ZoneExtract {
         added: { nodes: [] },
         collision: { faces: {} },
         awaiting: [],
+        thugpro_new: { entries: [], left_out: [] },
         notes: [],
         counts: {},
     };
+    const entry = (e: NewEntry): void => {
+        out.thugpro_new.entries.push(e);
+    };
+    const leftOut = (target: string, why: string): void => {
+        out.thugpro_new.left_out.push({ target, why });
+    };
+    const roots = new Map<number, { why: string; id: string }>(); // THUGPRO scripts to bring (and what they need)
     const count = (what: string, n = 1): void => {
         out.counts[what] = (out.counts[what] ?? 0) + n;
     };
@@ -341,8 +386,11 @@ export function extractZone(zone: string, src: Sources): ZoneExtract {
     const [theirs, theirNames] = nodeArray(data, `${key}.qb`);
     for (const [k, v] of theirNames) if (!names.has(k)) names.set(k, v);
     const tpScene = new Map<number, thug2Scene.Sector>();
-    for (const [, d] of prx.entries(findPath(src.thugpro, "data", "pre", `${key}scn.prx`)!, (n) =>
-        n.toLowerCase().endsWith(".scn.xbx"),
+    // (the level's own scene: THUGPRO's scn.prx also carries its sky, thaw_sky.scn.xbx - THAW's TestLevel_Sky dome
+    // Cylinder01, which ours converts from THAW itself)
+    for (const [, d] of prx.entries(
+        findPath(src.thugpro, "data", "pre", `${key}scn.prx`)!,
+        (n) => n.toLowerCase() === `levels\\${key}\\${key}.scn.xbx`.toLowerCase(),
     )) {
         for (const s of thug2Scene.readScene(d, key).sectors) tpScene.set(s.checksum, s);
     }
@@ -468,6 +516,25 @@ export function extractZone(zone: string, src: Sources): ZoneExtract {
                     what: `${node}: TriggerScript ${sa instanceof Name ? text(sa.value) : "(none)"} -> THUGPRO's ${sb instanceof Name ? text(sb.value) : "?"}`,
                     size: "1 node",
                 });
+                // TP-N4: the node runs THUGPRO's script - but peds our port makes its own way
+                const cls = classOfT(t, names);
+                if (!(sb instanceof Name)) leftOut(node, "THUGPRO's TriggerScript isn't a name");
+                else if (OWN_WAY.has(cls)) {
+                    leftOut(
+                        `${node} TriggerScript ${text(sb.value)}`,
+                        `a ${cls}: our port makes its peds its own way (THUG2's ped AI - thaw_ped_stand: Ped_InitAI stand), as THAW's own`,
+                    );
+                } else {
+                    entry({
+                        op: "set",
+                        id: N_SCRIPTS,
+                        kind: "trigger_script",
+                        target: node,
+                        script: text(sb.value),
+                        why: `THUGPRO's trigger script (was ${sa instanceof Name ? text(sa.value) : "none"})`,
+                    });
+                    roots.set(sb.value, { why: `${node}'s trigger script`, id: N_SCRIPTS });
+                }
             }
         }
         // other keys (not applied: tallied)
@@ -607,6 +674,40 @@ export function extractZone(zone: string, src: Sources): ZoneExtract {
                 size: "1 node",
             });
             count("added awaiting");
+            // TP-N3: THUGPRO's node, by reference (unless nothing of it would be there)
+            const nm = text(k);
+            if (cls === "vehicle" && !t.hasFlag("CreatedAtStart")) {
+                leftOut(
+                    nm,
+                    `a vehicle not there at the start (THUGPRO's scripts make it): our port makes only the cars there at the start${typeof model === "string" ? ` - its model ${model} not needed either` : ""}`,
+                );
+            } else if (cls === "levelobject" && !tpScene.has(k) && !netGeom.sectors.some((s) => s.checksum === k)) {
+                leftOut(
+                    nm,
+                    "a LevelObject without a scene sector in THUGPRO's level or ours (nothing to draw - THUGPRO has them all at one point, AbsentInNetGames); our port leaves such objects out (thaw_scripts.levelObject)",
+                );
+            } else {
+                entry({
+                    op: "add",
+                    id: N_NODES,
+                    kind: "node",
+                    target: nm,
+                    crc: nodeCrc(t),
+                    why: `THUGPRO's ${cls || "node"}`,
+                });
+                if (script instanceof Name && !scriptKnown(script.value) && !OWN_WAY.has(cls)) {
+                    roots.set(script.value, {
+                        why: `${nm}'s trigger script${cls === "vehicle" ? " (tells our port the car drives)" : ""}`,
+                        id: N_SCRIPTS,
+                    });
+                }
+                if (OWN_WAY.has(cls) && script instanceof Name && !scriptKnown(script.value)) {
+                    leftOut(
+                        `${nm} TriggerScript ${text(script.value)}`,
+                        "a ped: our port makes its peds its own way (THUG2's ped AI), as THAW's own",
+                    );
+                }
+            }
             continue;
         }
         const entries: [string | null, JsonValue][] = [];
@@ -676,6 +777,21 @@ export function extractZone(zone: string, src: Sources): ZoneExtract {
             size: `${ours} -> ${theirsCount} vertices`,
         });
         count(`${what} reshaped`);
+        // TP-N2: ours replaced by THUGPRO's (an emptied sector: taken out)
+        const sector = what === "scene sector";
+        const tp = sector ? tpScene.get(c) : tpCol.get(c);
+        if (tp === undefined) return;
+        const empty = sector ? theirsCount === 0 : !(tp as thug2Col.ColObject).faces.length;
+        entry({
+            op: empty ? "remove" : "set",
+            id: N_RESHAPED,
+            kind: sector ? "sector" : "collision",
+            target: text(c),
+            ...(empty ? {} : { crc: sector ? sectorCrc(tp as thug2Scene.Sector) : colCrc(tp as thug2Col.ColObject) }),
+            why: empty
+                ? `THUGPRO emptied it (${ours} -> 0 vertices)`
+                : `reshaped by THUGPRO (${ours} -> ${theirsCount} vertices)`,
+        });
     };
     // the node's own move as a candidate: its place, turned by its y angle's change about it
     const nodeMoves = (c: number): Transform[] => {
@@ -742,6 +858,14 @@ export function extractZone(zone: string, src: Sources): ZoneExtract {
                     size: `${o.faces.length} -> ${p.faces.length} faces`,
                 });
                 count("collision faces rebuilt");
+                entry({
+                    op: "set",
+                    id: N_RESHAPED,
+                    kind: "collision",
+                    target: text(c),
+                    crc: colCrc(p),
+                    why: `faces rebuilt by THUGPRO (${o.faces.length} -> ${p.faces.length} faces)`,
+                });
             }
             continue;
         }
@@ -777,6 +901,14 @@ export function extractZone(zone: string, src: Sources): ZoneExtract {
             size: `${tpPoints(s).length} vertices`,
         });
         count("THUGPRO's sectors");
+        entry({
+            op: "add",
+            id: N_GEOMETRY,
+            kind: "sector",
+            target: text(c),
+            crc: sectorCrc(s),
+            why: `THUGPRO's mesh (${tpPoints(s).length} vertices)`,
+        });
     }
     for (const [c, o] of tpCol) {
         if (ourObjects.has(c) || fullObject.has(c) || isSfx(c)) continue;
@@ -787,7 +919,21 @@ export function extractZone(zone: string, src: Sources): ZoneExtract {
             size: `${o.faces.length} faces (${collidable} collidable)`,
         });
         count("THUGPRO's collision objects");
+        entry({
+            op: "add",
+            id: N_GEOMETRY,
+            kind: "collision",
+            target: text(c),
+            crc: colCrc(o),
+            why: `THUGPRO's collision (${o.faces.length} faces, ${collidable} collidable)`,
+        });
     }
+    // (THUGPRO's sky, bundled in every level's scn.prx: not the level's)
+    leftOut(
+        "Cylinder01",
+        "the sky dome of THUGPRO's thaw_sky.scn.xbx (bundled in each level's scn.prx) - THAW's own TestLevel_Sky, which our port converts from THAW itself (thaw_sky: the same sector, 4 meshes of 18 / 50 / 18 / 18 vertices); not level content",
+    );
+    scriptsNew(zone, key, src, levelScripts, roots, out.thugpro_new);
     const fullOnly = [...tpScene.keys()].filter((c) => !ourSectors.has(c) && fullSector.has(c)).length;
     if (fullOnly) {
         out.notes.push(
@@ -800,4 +946,127 @@ export function extractZone(zone: string, src: Sources): ZoneExtract {
         );
     }
     return out;
+}
+
+// TP-N4 / TP-N5: the THUGPRO scripts to bring along - the roots (trigger scripts of the nodes above, THAW scripts
+// THUGPRO changed that we take, its loading sounds and host-option toggles) with every THUGPRO script they use that
+// THUG2 hasn't (its level's or its global ones: THUG2's own always stays). A root that calls a command neither THUG2
+// nor THUGPRO's scripts define (THUGPRO's own C++, e.g. TriggerType) is left out with all it alone needs, and listed in
+// `needs`.
+function scriptsNew(
+    zone: string,
+    key: string,
+    src: Sources,
+    thawLevel: ReadonlySet<number>,
+    roots: Map<number, { why: string; id: string }>,
+    zn: ZoneNew,
+): void {
+    const level = loadThugproLevel(src.thugpro, key);
+    if (level === null) return;
+    const text = (v: number): string => nameOfValue(v, level.names.has(v) ? level.names : src.names);
+    const thug2Has = (v: number): boolean =>
+        src.thug2.scripts.has(v) || src.thug2.cfuncs.has(v) || src.thug2.members.has(v);
+    // (a command THUG2's own scripts call is THUG2's - its member functions aren't all in the tables Thug2 reads)
+    const thug2Used = new Set<number>();
+    for (const body of src.thug2.bodies.values()) for (const v of body) thug2Used.add(v);
+    const thug2Calls = (v: number): boolean => thug2Has(v) || thug2Used.has(v);
+    const isLevel = (file: string): boolean => file.toLowerCase().startsWith("levels\\");
+    // THAW scripts THUGPRO changed that we take (CHANGED_SCRIPTS), and its gap scripts gated by GetTriggerArray
+    for (const n of CHANGED_SCRIPTS[zone] ?? []) {
+        if (level.scripts.has(checksum(n)))
+            roots.set(checksum(n), { why: "THAW's script as THUGPRO changed it", id: N_SCRIPTS });
+    }
+    const gate = checksum("GetTriggerArray");
+    for (const [k, s] of level.scripts) {
+        if (isLevel(s.file) && thawLevel.has(k) && usedNames(s.bytes).has(gate)) {
+            roots.set(k, { why: "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType", id: N_SCRIPTS });
+        }
+    }
+    // loading sounds (THUGPRO's <zone>_Setup calls them) and host options (THUGPRO's HandleLevelOptionObjects calls
+    // <level>_LEVEL_CHANGE_0n on / off after loading, by its SERVER_LEVEL_CHANGE_0n_ON flags - off unless the level's
+    // own setup sets one)
+    const setupScript = [`${key}_Setup`, `${zone}_Setup`].map(checksum).find((c) => level.scripts.has(c));
+    const setupNames = setupScript === undefined ? new Set<number>() : usedNames(level.scripts.get(setupScript)!.bytes);
+    const loading = new Set<number>();
+    for (const n of new Set([`${zone}_LoadingSounds`, `${key}_LoadingSounds`].map(checksum))) {
+        if (level.scripts.has(n)) {
+            roots.set(n, { why: "the sounds THUGPRO's level loads (its setup calls it)", id: N_OPTIONS });
+            loading.add(n);
+        }
+    }
+    const options: NewEntry[] = [];
+    for (let i = 1; i <= 8; i++) {
+        const script = checksum(`${key}_LEVEL_CHANGE_0${i}`);
+        if (!level.scripts.has(script)) continue;
+        const flag = `SERVER_LEVEL_CHANGE_0${i}_ON`;
+        const on = setupNames.has(checksum("SetGlobalFlag")) && setupNames.has(checksum(flag));
+        roots.set(script, { why: `toggles THUGPRO's host level option ${i}`, id: N_OPTIONS });
+        options.push({
+            op: "add",
+            id: N_OPTIONS,
+            kind: "level_option",
+            target: `${key}_LEVEL_CHANGE_0${i}`,
+            script: text(script),
+            default: on ? "on" : "off",
+            flag,
+            why: `THUGPRO's host option ${i}, its state after loading (${on ? "on: the level's setup sets the flag" : "off"}); switching it needs THUGPRO's messages 155-159`,
+        });
+    }
+    // each root's scripts, and what is missing
+    const taken = new Map<number, { why: string; id: string; root: number }>();
+    const needs = new Map<string, string[]>();
+    const dropped = new Set<number>();
+    for (const [root, r] of roots) {
+        const found = new Map<number, string>();
+        const missing = new Set<number>();
+        const stack = [root];
+        while (stack.length) {
+            const s = stack.pop()!;
+            if (found.has(s)) continue;
+            const item = level.scripts.get(s);
+            if (item === undefined || thug2Has(s)) continue;
+            found.set(s, item.file);
+            for (const used of usedNames(item.bytes)) {
+                if (!thug2Has(used) && level.scripts.has(used) && !found.has(used)) stack.push(used);
+            }
+            for (const called of calledNames(item.bytes)) {
+                if (!thug2Calls(called) && !level.scripts.has(called) && !thawLevel.has(called)) missing.add(called);
+            }
+        }
+        if (!found.has(root)) {
+            zn.left_out.push({ target: text(root), why: "THUGPRO's install has no such script" });
+            dropped.add(root);
+            continue;
+        }
+        if (missing.size) {
+            const what = [...missing].map(text);
+            zn.left_out.push({
+                target: text(root),
+                why: `${r.why}; needs ${what.join(", ")} - not THUG2's (THUGPRO's own C++): left out until our C++ has it`,
+            });
+            for (const m of what) needs.set(m, [...(needs.get(m) ?? []), text(root)]);
+            dropped.add(root);
+            continue;
+        }
+        for (const s of found.keys()) {
+            if (!taken.has(s)) taken.set(s, { why: s === root ? r.why : `used by ${text(root)}`, id: r.id, root });
+        }
+    }
+    for (const [s, t] of taken) {
+        const item = level.scripts.get(s)!;
+        zn.entries.push({
+            op: thawLevel.has(s) ? "set" : "add",
+            id: t.id,
+            kind: "script",
+            target: text(s),
+            source: item.file,
+            crc: crc32(item.bytes),
+            why: `${t.why}${thawLevel.has(s) ? " (replaces our port's translation of THAW's)" : ""}`,
+            ...(loading.has(s) ? { setup: true } : {}),
+        });
+    }
+    for (const o of options) if (!dropped.has(checksum(o.script!))) zn.entries.push(o);
+    // trigger scripts whose script was left out: the node keeps its own
+    zn.entries = zn.entries.filter((e) => e.kind !== "trigger_script" || !dropped.has(nameValue(e.script!)));
+    if (needs.size) zn.needs = Object.fromEntries([...needs].sort());
 }
