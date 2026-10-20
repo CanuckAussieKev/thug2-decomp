@@ -4,8 +4,8 @@
 //   node tools/parity/parity.ts tools/parity/thps3_levels/cases.ts [--only selfcheck] [--jobs 3]
 //
 // Nothing is written into the game folders (convert's --out is the case's scratch folder). The Python converter was
-// deleted once these all agreed (docs/typescript.md): with it gone the cases are left out - check out the commit
-// before its deletion to run them again.
+// deleted once these all agreed (docs/typescript.md): with it gone the cases are left out - check out commit c121a28
+// (the last with it) to run them again.
 
 import * as fs from "node:fs";
 import * as path from "node:path";
