@@ -1,5 +1,5 @@
 {
-  "_comment": "THUGPRO compatibility for the THPS4 level ports (tools/thps4_levels). Each entry is registered in README.md here (TP-20, TP-21). Online a level is known only by its load script's checksum (messages 0x46 / 0x33): these make our level structures agree with THUGPRO's own THPS4 ports where THPS4's own names can't. Read by tools/compat/compat.ts; `thps4_levels.ts convert --compat none` leaves all of it out.",
+  "_comment": "THUGPRO compatibility for the THPS4 level ports (tools/thps4_levels). Each entry is registered in README.md here (TP-20 ... TP-29). Online a level is known only by its load script's checksum (messages 0x46 / 0x33): these make our level structures agree with THUGPRO's own THPS4 ports where THPS4's own names can't; TP-22 ... TP-29 are THUGPRO's hand edits of its ports (thps4_levels/thugpro_edits.ts). Read by tools/compat/compat.ts; `thps4_levels.ts convert --compat none` leaves all of it out.",
   "load_names": {
     "_register": "TP-20",
     "SkateShop": "practice"
@@ -124,5 +124,3922 @@
         "TRG_SS_SkaterDropIn"
       ]
     }
+  },
+  "node_moves": {
+    "_register": "TP-22",
+    "_source": "THUGPRO's installed data\\pre\\<level>_scripts.prx / <level>col.prx against THPS4's own Game\\data\\levels files, extracted by `node tools/thps4_levels/thugpro_compare.ts --extract-thugpro` (thugpro_edits.ts; pos = THUG2's Pos axes)",
+    "Cnv": {
+      "TRG_G_HS_RestartNode": {
+        "pos": [
+          -2405.20361328125,
+          -15.730026245117188,
+          910.1728515625
+        ],
+        "angles": [
+          0,
+          3.1415929794311523,
+          0
+        ]
+      },
+      "TRG_G_PS_RestartNode": {
+        "angles": [
+          0,
+          3.1415929794311523,
+          0
+        ]
+      },
+      "TRG_Goat": {
+        "pos": [
+          1479.1605224609375,
+          -4.500186920166016,
+          3864.3173828125
+        ]
+      },
+      "TRG_Goat01": {
+        "pos": [
+          1517.1942138671875,
+          -62.566402435302734,
+          -3492.154052734375
+        ]
+      }
+    },
+    "Jnk": {
+      "TRG_Re_Wtr_KillPlne_03": {
+        "angles": [
+          1.570796012878418,
+          -1.570796012878418,
+          0
+        ]
+      }
+    },
+    "Sch": {
+      "TRG_53": {
+        "pos": [
+          2130.65185546875,
+          -306.6849060058594,
+          -384.96588134765625
+        ]
+      },
+      "TRG_813": {
+        "pos": [
+          2117.536865234375,
+          -301.9320068359375,
+          -695.0689697265625
+        ]
+      },
+      "LO_Elevator_Door_Floor1_01": {
+        "pos": [
+          4268.8642578125,
+          -150.5915985107422,
+          -1780.10205078125
+        ]
+      },
+      "LO_Elevator_Door_Floor1_02": {
+        "pos": [
+          4268.4306640625,
+          -150.6962127685547,
+          -1780.10205078125
+        ]
+      }
+    }
+  },
+  "node_renames": {
+    "_register": "TP-23",
+    "_source": "THUGPRO's installed data\\pre\\<level>_scripts.prx / <level>col.prx against THPS4's own Game\\data\\levels files, extracted by `node tools/thps4_levels/thugpro_compare.ts --extract-thugpro` (thugpro_edits.ts; pos = THUG2's Pos axes)",
+    "Hof": {
+      "TRG_G_HighCombo_Pro": "TRG_G_PS_Pro",
+      "TRG_G_HighCombo_RestartNode": "TRG_G_PS_RestartNode"
+    }
+  },
+  "node_flags": {
+    "_register": "TP-24",
+    "_source": "THUGPRO's installed data\\pre\\<level>_scripts.prx / <level>col.prx against THPS4's own Game\\data\\levels files, extracted by `node tools/thps4_levels/thugpro_compare.ts --extract-thugpro` (thugpro_edits.ts; pos = THUG2's Pos axes)",
+    "Alc": {
+      "Proset2_aw_FloatingTargetFroth01": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "Proset4_as_buoyFroth01": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      }
+    },
+    "Cnv": {
+      "TRGP_CompExit": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRGP_CompEnter": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "CNV_MG_Shooting": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "STAT_TARGET_01": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "STAT_TARGET_02": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "STAT_TARGET_03": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRG_KillGator": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "MG_LogStand": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "BusRideCenter": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRGP_GapStart_ChickenShit": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRGP_GapStart_ChickenShit02": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRGP_GapStart_BillyGoat": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRGP_GapStart_BillyGoat01": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRGP_CowSmack": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRGP_CowSmack01": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRGP_CowSmack02": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "Goat_Collision_Moving": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      }
+    },
+    "Hof": {
+      "trr_HydrantRail01": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "twr_HydrantRail03": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "tnr_HydrantRail05": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "ter_HydrantRail07": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "ter_HydrantRail09": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "cw_trashcanC10": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "cw_trashcanC07": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      }
+    },
+    "Jnk": {
+      "TRG_Rl_Crne_B_Trk_01": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_Rl_Crne_B_Trk_02": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_Rl_Crne_B_Trk_03": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_Rl_Crne_B_Trk_04": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_Rl_Crne_B_Trk_05": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_Rl_Crne_B_Trk_06": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_Rl_Crne_B_Trk_07": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_Rl_Crne_B_Trk_08": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_01": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_02": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_03": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_04": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_05": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_06": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_07": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_08": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_09": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_10": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_11": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_12": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_BREAK1_Rl_13": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_BREAK1_Rl_14": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_BREAK1_Rl_15": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_BREAK1_Rl_16": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_13": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_14": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_15": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_16": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_17": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_18": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_19": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_20": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "OLD_Prox_SE_Reflec08": {
+        "remove": [
+          "NetEnabled",
+          "Permanent"
+        ]
+      },
+      "Ceiling_SE_Reflec09": {
+        "remove": [
+          "NetEnabled",
+          "Permanent"
+        ]
+      },
+      "OLD_Prox_SE_Reflec01": {
+        "remove": [
+          "NetEnabled",
+          "Permanent"
+        ]
+      },
+      "OLD_Prox_SE_Reflec02": {
+        "remove": [
+          "NetEnabled",
+          "Permanent"
+        ]
+      },
+      "OLD_Prox_SE_Reflec14": {
+        "remove": [
+          "NetEnabled",
+          "Permanent"
+        ]
+      },
+      "Jnk_Go_Shck_A_BrkAwy_A": {
+        "remove": [
+          "NetEnabled",
+          "Permanent"
+        ]
+      },
+      "Bucky_BREAK2_Rl_01": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_BREAK2_Rl_02": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_BREAK3_Rl_01": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_BREAK3_Rl_02": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_BREAK3_Rl_04": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_BREAK3_Rl_03": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_BREAK2_Rl_03": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_BREAK2_Rl_04": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_21": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_22": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_23": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_24": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_25": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_26": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_27": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_28": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_29": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_30": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_31": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_32": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_33": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_34": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_35": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_36": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_37": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_38": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_39": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_40": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_41": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_42": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_43": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_44": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_45": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_46": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_47": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "Bucky_Rl_48": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      }
+    },
+    "Lon": {
+      "TRG_ParkingGarrage_Elevator": {
+        "add": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRG_Lon_Garage_ElevatorDoor01": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRG_Lon_Garage_ElevatorDoor02": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRG_Lon_Garage_ElevatorDoor03": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRG_Lon_Garage_ElevatorDoor04": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRG_Lon_Bitch_Left_Spit": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRG_Lon_Bitch_Right_Spit": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      }
+    },
+    "SF2": {
+      "Geo_Gap_TRGP_StartManual": {
+        "add": [
+          "CreatedAtStart"
+        ]
+      },
+      "Geo_Gap_TRGP_EndManual01": {
+        "add": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRGP_G_COUNTER2_Gap01": {
+        "add": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRGP_G_COUNTER2_Gap02": {
+        "add": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRGP_G_COUNTER2_Gap03": {
+        "add": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRGP_G_COUNTER2_Gap04": {
+        "add": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRGP_G_COUNTER2_Gap05": {
+        "add": [
+          "CreatedAtStart"
+        ]
+      },
+      "P7_Seal_Ladder": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      }
+    },
+    "Sch": {
+      "DT_tennisBall": {
+        "remove": [
+          "AbsentInNetGames"
+        ]
+      },
+      "TRG_156": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRG_820": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRG_821": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRG_822": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRG_823": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRG_824": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRG_825": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRG_826": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRG_827": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRG_828": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRG_Rail1398": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRG_Rail1400": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRG_LOTestNode01": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRG_LOTestNode02": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "dt_blimp": {
+        "add": [
+          "AbsentInNetGames"
+        ]
+      },
+      "OffColl04": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      }
+    },
+    "Zoo": {
+      "Zoo_HippoCollision": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "TRGP_ElephantStampede": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "Zoo_HippoCollision01": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "Zoo_HippoCollision04": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "Zoo_LionGate": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "Zoo_Tram_Sign_Start": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "Hippo_bridge_down_cw": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "Hippo_bridge_up_cw": {
+        "add": [
+          "CreatedAtStart"
+        ]
+      },
+      "GiraffeCollision01": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "GiraffeCollision02": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "RhinoStartCollision01": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "RhinoStartCollision02": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "InclinedRhinoCollision": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      }
+    },
+    "SkateShop": {
+      "SSO_Fence02": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      },
+      "SSO_Fence05": {
+        "add": [
+          "CreatedAtStart"
+        ]
+      },
+      "Cab_sign_11_Locked": {
+        "add": [
+          "CreatedAtStart"
+        ]
+      },
+      "Cab_sign_1_College": {
+        "remove": [
+          "CreatedAtStart"
+        ]
+      }
+    }
+  },
+  "trick_objects": {
+    "_register": "TP-25",
+    "_source": "THUGPRO's installed data\\pre\\<level>_scripts.prx / <level>col.prx against THPS4's own Game\\data\\levels files, extracted by `node tools/thps4_levels/thugpro_compare.ts --extract-thugpro` (thugpro_edits.ts; pos = THUG2's Pos axes)",
+    "Sch": {
+      "Sk3Ed_Gb_20x11": {
+        "trick_object": true,
+        "cluster": null
+      },
+      "Sk3Ed_Gb_20x14": {
+        "trick_object": true,
+        "cluster": null
+      },
+      "Sk3Ed_Gb_20x15": {
+        "trick_object": true,
+        "cluster": null
+      },
+      "Sk3Ed_Gb_20x16": {
+        "trick_object": true,
+        "cluster": null
+      },
+      "TRG_Rail_Stair_142": {
+        "trick_object": true,
+        "cluster": "apm_bikerack_06"
+      },
+      "TRG_Rail_Stair_143": {
+        "trick_object": true,
+        "cluster": "apm_bikerack_06"
+      },
+      "TRG_Rail_Stair_195": {
+        "trick_object": true,
+        "cluster": "apm_bikerack_06"
+      },
+      "TRG_Rail_Stair_196": {
+        "trick_object": true,
+        "cluster": "apm_bikerack_06"
+      },
+      "TRG_Rail_Stair_197": {
+        "trick_object": true,
+        "cluster": "apm_bikerack_06"
+      },
+      "TRG_Rail_Stair_198": {
+        "trick_object": true,
+        "cluster": "apm_bikerack_06"
+      },
+      "Box03": {
+        "trick_object": true,
+        "cluster": null
+      },
+      "apm_bikerack_06": {
+        "trick_object": true,
+        "cluster": null
+      }
+    }
+  },
+  "rail_terrains": {
+    "_register": "TP-26",
+    "_source": "THUGPRO's installed data\\pre\\<level>_scripts.prx / <level>col.prx against THPS4's own Game\\data\\levels files, extracted by `node tools/thps4_levels/thugpro_compare.ts --extract-thugpro` (thugpro_edits.ts; pos = THUG2's Pos axes)",
+    "Alc": {
+      "ter_DockLampWire01": {
+        "type": "Metal",
+        "terrain": "terrain_grindwire"
+      },
+      "ter_DockLampWire02": {
+        "type": "Metal",
+        "terrain": "terrain_grindwire"
+      },
+      "ter_DockLampWire03": {
+        "type": "Metal",
+        "terrain": "terrain_grindwire"
+      },
+      "ter_DockLampWire04": {
+        "type": "Metal",
+        "terrain": "terrain_grindwire"
+      },
+      "ter_DockLampWire05": {
+        "type": "Metal",
+        "terrain": "terrain_grindwire"
+      },
+      "ter_DockLampWire06": {
+        "type": "Metal",
+        "terrain": "terrain_grindwire"
+      },
+      "ter_DockLampWire07": {
+        "type": "Metal",
+        "terrain": "terrain_grindwire"
+      },
+      "ter_DockLampWire08": {
+        "type": "Metal",
+        "terrain": "terrain_grindwire"
+      },
+      "ter_DockLampWire09": {
+        "type": "Metal",
+        "terrain": "terrain_grindwire"
+      },
+      "ter_DockLampWire10": {
+        "type": "Metal",
+        "terrain": "terrain_grindwire"
+      },
+      "ter_DockLampWire11": {
+        "type": "Metal",
+        "terrain": "terrain_grindwire"
+      },
+      "ter_DockLampWire12": {
+        "type": "Metal",
+        "terrain": "terrain_grindwire"
+      },
+      "ter_DockLampWire13": {
+        "type": "Metal",
+        "terrain": "terrain_grindwire"
+      },
+      "ter_DockLampWire14": {
+        "type": "Metal",
+        "terrain": "terrain_grindwire"
+      },
+      "ter_DockLampWire15": {
+        "type": "Metal",
+        "terrain": "terrain_grindwire"
+      },
+      "ter_DockLampWire16": {
+        "type": "Metal",
+        "terrain": "terrain_grindwire"
+      },
+      "ter_DockLampWire17": {
+        "type": "Metal",
+        "terrain": "terrain_grindwire"
+      },
+      "tnr_TowerLine02": {
+        "type": "Metal",
+        "terrain": "terrain_grindwire"
+      },
+      "tnr_TowerLine03": {
+        "type": "Metal",
+        "terrain": "terrain_grindwire"
+      },
+      "tnr_TowerLine04": {
+        "type": "Metal",
+        "terrain": "terrain_grindwire"
+      },
+      "tnr_TowerLine05": {
+        "type": "Metal",
+        "terrain": "terrain_grindwire"
+      },
+      "tnr_TowerLine06": {
+        "type": "Metal",
+        "terrain": "terrain_grindwire"
+      },
+      "tnr_TowerLine07": {
+        "type": "Metal",
+        "terrain": "terrain_grindwire"
+      },
+      "tnr_TowerLine08": {
+        "type": "Metal",
+        "terrain": "terrain_grindwire"
+      },
+      "tnr_TowerLine09": {
+        "type": "Metal",
+        "terrain": "terrain_grindwire"
+      },
+      "tnr_TowerLine10": {
+        "type": "Metal",
+        "terrain": "terrain_grindwire"
+      },
+      "tnr_TowerLine11": {
+        "type": "Metal",
+        "terrain": "terrain_grindwire"
+      },
+      "tnr_TowerLine12": {
+        "type": "Metal",
+        "terrain": "terrain_grindwire"
+      },
+      "tnr_TowerLine13": {
+        "type": "Metal",
+        "terrain": "terrain_grindwire"
+      },
+      "ter_Ferry01": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GrindRope"
+      },
+      "ter_Ferry61": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GrindRope"
+      },
+      "ter_Ferry62": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GrindRope"
+      },
+      "ter_Ferry63": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GrindRope"
+      },
+      "ter_Ferry64": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GrindRope"
+      },
+      "ter_Ferry65": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GrindRope"
+      },
+      "ter_Ferry66": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GrindRope"
+      }
+    },
+    "Hof": {
+      "tcr_Rail511": {
+        "type": "Metal",
+        "terrain": "TERRAIN_METALSMOOTH"
+      },
+      "tcr_Rail512": {
+        "type": "Metal",
+        "terrain": "TERRAIN_METALSMOOTH"
+      },
+      "tcr_Rail513": {
+        "type": "Metal",
+        "terrain": "TERRAIN_METALSMOOTH"
+      },
+      "tcr_Rail514": {
+        "type": "Metal",
+        "terrain": "TERRAIN_METALSMOOTH"
+      },
+      "tcr_Rail515": {
+        "type": "Metal",
+        "terrain": "TERRAIN_METALSMOOTH"
+      },
+      "tcr_Rail516": {
+        "type": "Metal",
+        "terrain": "TERRAIN_METALSMOOTH"
+      },
+      "tcr_Rail517": {
+        "type": "Metal",
+        "terrain": "TERRAIN_METALSMOOTH"
+      },
+      "tcr_Rail562": {
+        "type": "Metal",
+        "terrain": "TERRAIN_METALSMOOTH"
+      },
+      "tcr_Rail563": {
+        "type": "Metal",
+        "terrain": "TERRAIN_METALSMOOTH"
+      },
+      "tcr_Rail564": {
+        "type": "Metal",
+        "terrain": "TERRAIN_METALSMOOTH"
+      },
+      "tcr_Rail565": {
+        "type": "Metal",
+        "terrain": "TERRAIN_METALSMOOTH"
+      }
+    },
+    "Kon": {
+      "TRG_Rail_SpecBox_Wire01": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Rail_SpecBox_Wire02": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Rail_SpecBox_Wire03": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Rail_SpecBox_Wire04": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Rail_SpecBox_Wire05": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Rail_SpecBox_Wire06": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Rail_SpecBox_Wire07": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Rail_StartOb_Wire01": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Rail_StartOb_Wire02": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Rail_StartOb_Wire03": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Rail_StartOb_Wire04": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Rail_StartOb_Wire05": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Rail_StartOb_Wire06": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Rail_StartOb_Wire07": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Rail_StartOb_Wire08": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Rail_StartOb_Wire09": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Rail_StartOb_Wire10": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Rail_StartOb_Wire11": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Rail_StartOb_Wire12": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Rail_StartOb_Wire13": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Rail_StartOb_Wire14": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Rail_StartOb_Wire15": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Rail_StartOb_Wire16": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Rail_StartOb_Wire17": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Rail_StartOb_Wire18": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Rail_StartOb_Wire19": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Rail_StartOb_Wire20": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Rail_StartOb_Wire21": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Rail_StartOb_Wire22": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Rail_StartOb_Wire23": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Rail_StartOb_Wire24": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Rail_StartOb_Wire25": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Rail_StartOb_Wire26": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Rail_StartOb_Wire27": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Rail_SpecBox_Wire08": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Rail_SpecBox_Wire09": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Rail_SpecBox_Wire10": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Rail_SpecBox_Wire11": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Rail_SpecBox_Wire12": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Rail_SpecBox_Wire13": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Rail_SpecBox_Wire14": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      }
+    },
+    "Lon": {
+      "TRG_Lon_Rail184": {
+        "type": "Concrete",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail190": {
+        "type": "Concrete",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail193": {
+        "type": "Concrete",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail225": {
+        "type": "Concrete",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail506": {
+        "type": "Concrete",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail601": {
+        "type": "Concrete",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail140": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail141": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail142": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail143": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail144": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail145": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail147": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail148": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail149": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail150": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail151": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail152": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail153": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail154": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail155": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail156": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail157": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail158": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail159": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail99": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail117": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail135": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail136": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail137": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail138": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail161": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail162": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail163": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail164": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail165": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail166": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail168": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail169": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail170": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail171": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail172": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail173": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail175": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail176": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail177": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail178": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail179": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail180": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail186": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail704": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail719": {
+        "type": "Concrete",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail373": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail374": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail538": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail539": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail541": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail542": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail545": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail546": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail548": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail549": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail551": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail552": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail553": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail599": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail605": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail188": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail211": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail212": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail213": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail244": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail255": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail377": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail378": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail394": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail395": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail396": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail397": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail399": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail400": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail401": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail402": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail403": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail404": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail423": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail424": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail425": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail430": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail431": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail433": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail435": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail436": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail438": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail444": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail447": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail450": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail456": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail459": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail463": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail496": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail510": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail515": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail257": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail306": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail307": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail308": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail309": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail310": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail311": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail1340": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail1341": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail1342": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail1343": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail1344": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail1345": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail1346": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail312": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail313": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail314": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail315": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail316": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail317": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail318": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail319": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail320": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail321": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail322": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail323": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail324": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail325": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail326": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail327": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail328": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail329": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail330": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail331": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail332": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail333": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail334": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail335": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail336": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail337": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail338": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail339": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail340": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail341": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail342": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail343": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail344": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail346": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail347": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail348": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail349": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail350": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail351": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail352": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail353": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail354": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail355": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail356": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail357": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail1378": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Lon_Rail1379": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      }
+    },
+    "SF2": {
+      "TRG_195": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_196": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_203": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_204": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_205": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_206": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_207": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_208": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_209": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_210": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_211": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_212": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_285": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_286": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_1087": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_1088": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_1089": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_1090": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_1091": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_1092": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_1093": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_1094": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_1095": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_1096": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_1097": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_1098": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_1099": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_1100": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_1101": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_1102": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_1103": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_1104": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_1105": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_1106": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_1479": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_G_GAP2_WireNode07": {
+        "type": "Concrete",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_G_GAP2_WireNode08": {
+        "type": "Concrete",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_G_GAP2_WireNode09": {
+        "type": "Concrete",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_G_GAP2_WireNode10": {
+        "type": "Concrete",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_G_GAP2_WireNode11": {
+        "type": "Concrete",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_G_GAP2_WireNode12": {
+        "type": "Concrete",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_G_GAP2_WireNode13": {
+        "type": "Concrete",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_G_GAP2_WireNode14": {
+        "type": "Concrete",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_G_GAP2_WireNode15": {
+        "type": "Concrete",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_G_GAP2_WireNode16": {
+        "type": "Concrete",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_G_GAP2_WireNode17": {
+        "type": "Concrete",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_G_GAP2_WireNode18": {
+        "type": "Concrete",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_G_GAP2_WireNode19": {
+        "type": "Concrete",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_G_GAP2_WireNode20": {
+        "type": "Concrete",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_G_GAP2_WireNode21": {
+        "type": "Concrete",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_G_GAP2_WireNode22": {
+        "type": "Concrete",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_G_GAP2_WireNode23": {
+        "type": "Concrete",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_G_GAP2_WireNode24": {
+        "type": "Concrete",
+        "terrain": "TERRAIN_GRINDWIRE"
+      },
+      "TRG_Geo_Tetris2_RailNode07": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDWIRE"
+      }
+    },
+    "Sch": {
+      "TRG_236": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_292": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_297": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_299": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_349": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_350": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_352": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_366": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_432": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_656": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_720": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_728": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_729": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_730": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_873": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_1088": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_1089": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_1091": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_1096": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_1097": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_1098": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_1099": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_1154": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_1155": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_1159": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_TowerRail01": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_TowerRail02": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_1223": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_1686": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_1687": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_1941": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_Rail1434": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_1982": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_1983": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_1984": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_1985": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_1989": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_1990": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_1991": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_1992": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_1993": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_1994": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_2004": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_2005": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_2009": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_2010": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_2012": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_2014": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_2015": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_2017": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_2019": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_2040": {
+        "type": "Concrete",
+        "terrain": "TERRAIN_WOOD"
+      },
+      "TRG_TowerRail03": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      },
+      "TRG_2047": {
+        "type": "Metal",
+        "terrain": "TERRAIN_GRINDELECTRICWIRE"
+      }
+    }
+  },
+  "removed_nodes": {
+    "_register": "TP-27",
+    "_source": "THUGPRO's installed data\\pre\\<level>_scripts.prx / <level>col.prx against THPS4's own Game\\data\\levels files, extracted by `node tools/thps4_levels/thugpro_compare.ts --extract-thugpro` (thugpro_edits.ts; pos = THUG2's Pos axes)",
+    "Zoo": [
+      "TRG_meerkat_10"
+    ]
+  },
+  "added_nodes": {
+    "_register": "TP-27",
+    "_source": "THUGPRO's installed data\\pre\\<level>_scripts.prx / <level>col.prx against THPS4's own Game\\data\\levels files, extracted by `node tools/thps4_levels/thugpro_compare.ts --extract-thugpro` (thugpro_edits.ts; pos = THUG2's Pos axes)",
+    "Kon": [
+      {
+        "name": "TRG_Night_LevelLight_thugpro_2770",
+        "class": "LevelLight",
+        "pos": [
+          -1233.6309814453125,
+          421.3949890136719,
+          -723.5750122070312
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": false,
+        "light": {
+          "brightness": 0,
+          "inner_radius": 120.80000305175781,
+          "outer_radius": 346.70001220703125,
+          "color": [
+            83,
+            200,
+            255
+          ],
+          "exclude_geometry": [],
+          "flags": [
+            "SelectRenderOnly"
+          ]
+        }
+      },
+      {
+        "name": "TRG_Night_LevelLight_thugpro_2771",
+        "class": "LevelLight",
+        "pos": [
+          -1086.52001953125,
+          358.3070068359375,
+          -619.3599853515625
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": false,
+        "light": {
+          "brightness": 0,
+          "inner_radius": 150,
+          "outer_radius": 300,
+          "color": [
+            254,
+            255,
+            188
+          ],
+          "exclude_geometry": [],
+          "flags": [
+            "SelectRenderOnly"
+          ]
+        }
+      },
+      {
+        "name": "TRG_Night_LevelLight_thugpro_2772",
+        "class": "LevelLight",
+        "pos": [
+          -2429.455078125,
+          400.9540100097656,
+          -429.34600830078125
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": false,
+        "light": {
+          "brightness": 0,
+          "inner_radius": 150,
+          "outer_radius": 300,
+          "color": [
+            254,
+            255,
+            188
+          ],
+          "exclude_geometry": [],
+          "flags": [
+            "SelectRenderOnly"
+          ]
+        }
+      },
+      {
+        "name": "TRG_Night_LevelLight_thugpro_2773",
+        "class": "LevelLight",
+        "pos": [
+          -2376.714111328125,
+          361.5870056152344,
+          -687.4559936523438
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": false,
+        "light": {
+          "brightness": 0,
+          "inner_radius": 150,
+          "outer_radius": 300,
+          "color": [
+            254,
+            255,
+            188
+          ],
+          "exclude_geometry": [],
+          "flags": [
+            "SelectRenderOnly"
+          ]
+        }
+      },
+      {
+        "name": "TRG_Night_LevelLight_thugpro_2774",
+        "class": "LevelLight",
+        "pos": [
+          -372.45098876953125,
+          237.34500122070312,
+          -2745.345947265625
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": false,
+        "light": {
+          "brightness": 0,
+          "inner_radius": 150,
+          "outer_radius": 300,
+          "color": [
+            254,
+            255,
+            188
+          ],
+          "exclude_geometry": [],
+          "flags": [
+            "SelectRenderOnly"
+          ]
+        }
+      },
+      {
+        "name": "TRG_Night_LevelLight_thugpro_2775",
+        "class": "LevelLight",
+        "pos": [
+          827.1190185546875,
+          120.822998046875,
+          -2434.048095703125
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": false,
+        "light": {
+          "brightness": 0,
+          "inner_radius": 50,
+          "outer_radius": 200,
+          "color": [
+            192,
+            189,
+            145
+          ],
+          "exclude_geometry": [],
+          "flags": [
+            "SelectRenderOnly"
+          ]
+        }
+      },
+      {
+        "name": "TRG_Night_LevelLight_thugpro_2776",
+        "class": "LevelLight",
+        "pos": [
+          1181.5369873046875,
+          130.1219940185547,
+          -1454.6409912109375
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": false,
+        "light": {
+          "brightness": 0,
+          "inner_radius": 50,
+          "outer_radius": 200,
+          "color": [
+            192,
+            189,
+            145
+          ],
+          "exclude_geometry": [],
+          "flags": [
+            "SelectRenderOnly"
+          ]
+        }
+      },
+      {
+        "name": "TRG_Night_LevelLight_thugpro_2777",
+        "class": "LevelLight",
+        "pos": [
+          717.6119995117188,
+          226.4250030517578,
+          302.1780090332031
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": false,
+        "light": {
+          "brightness": 0,
+          "inner_radius": 120.80000305175781,
+          "outer_radius": 346.70001220703125,
+          "color": [
+            83,
+            200,
+            255
+          ],
+          "exclude_geometry": [],
+          "flags": [
+            "SelectRenderOnly"
+          ]
+        }
+      },
+      {
+        "name": "TRG_Night_LevelLight_thugpro_2778",
+        "class": "LevelLight",
+        "pos": [
+          570.2420043945312,
+          199.01300048828125,
+          283.29901123046875
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": false,
+        "light": {
+          "brightness": 0,
+          "inner_radius": 120.80000305175781,
+          "outer_radius": 346.70001220703125,
+          "color": [
+            83,
+            200,
+            255
+          ],
+          "exclude_geometry": [],
+          "flags": [
+            "SelectRenderOnly"
+          ]
+        }
+      },
+      {
+        "name": "TRG_Night_LevelLight_thugpro_2779",
+        "class": "LevelLight",
+        "pos": [
+          -548.9810180664062,
+          58.88100051879883,
+          2435.669921875
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": false,
+        "light": {
+          "brightness": 0,
+          "inner_radius": 120.80000305175781,
+          "outer_radius": 346.70001220703125,
+          "color": [
+            83,
+            200,
+            255
+          ],
+          "exclude_geometry": [],
+          "flags": [
+            "SelectRenderOnly"
+          ]
+        }
+      },
+      {
+        "name": "TRG_Night_LevelLight_thugpro_2780",
+        "class": "LevelLight",
+        "pos": [
+          -1026.2919921875,
+          58.88100051879883,
+          2664.284912109375
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": false,
+        "light": {
+          "brightness": 0,
+          "inner_radius": 120.80000305175781,
+          "outer_radius": 346.70001220703125,
+          "color": [
+            83,
+            200,
+            255
+          ],
+          "exclude_geometry": [],
+          "flags": [
+            "SelectRenderOnly"
+          ]
+        }
+      },
+      {
+        "name": "TRG_Night_LevelLight_thugpro_2781",
+        "class": "LevelLight",
+        "pos": [
+          -1142.5560302734375,
+          58.88100051879883,
+          2840.31103515625
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": false,
+        "light": {
+          "brightness": 0,
+          "inner_radius": 120.80000305175781,
+          "outer_radius": 346.70001220703125,
+          "color": [
+            83,
+            200,
+            255
+          ],
+          "exclude_geometry": [],
+          "flags": [
+            "SelectRenderOnly"
+          ]
+        }
+      },
+      {
+        "name": "TRG_Night_LevelLight_thugpro_2782",
+        "class": "LevelLight",
+        "pos": [
+          424.89300537109375,
+          58.88100051879883,
+          4539.5400390625
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": false,
+        "light": {
+          "brightness": 0,
+          "inner_radius": 120.80000305175781,
+          "outer_radius": 346.70001220703125,
+          "color": [
+            83,
+            200,
+            255
+          ],
+          "exclude_geometry": [],
+          "flags": [
+            "SelectRenderOnly"
+          ]
+        }
+      },
+      {
+        "name": "TRG_Night_LevelLight_thugpro_2783",
+        "class": "LevelLight",
+        "pos": [
+          224.21800231933594,
+          20.173999786376953,
+          4621.65478515625
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": false,
+        "light": {
+          "brightness": 0,
+          "inner_radius": 120.80000305175781,
+          "outer_radius": 346.70001220703125,
+          "color": [
+            83,
+            200,
+            255
+          ],
+          "exclude_geometry": [],
+          "flags": [
+            "SelectRenderOnly"
+          ]
+        }
+      },
+      {
+        "name": "TRG_Night_LevelLight_thugpro_2784",
+        "class": "LevelLight",
+        "pos": [
+          -36.020999908447266,
+          87.26599884033203,
+          4816.6259765625
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": false,
+        "light": {
+          "brightness": 0,
+          "inner_radius": 120.80000305175781,
+          "outer_radius": 346.70001220703125,
+          "color": [
+            83,
+            200,
+            255
+          ],
+          "exclude_geometry": [],
+          "flags": [
+            "SelectRenderOnly"
+          ]
+        }
+      },
+      {
+        "name": "TRG_Night_LevelLight_thugpro_2785",
+        "class": "LevelLight",
+        "pos": [
+          -195.4720001220703,
+          40.81700134277344,
+          4792.93603515625
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": false,
+        "light": {
+          "brightness": 0,
+          "inner_radius": 120.80000305175781,
+          "outer_radius": 346.70001220703125,
+          "color": [
+            83,
+            200,
+            255
+          ],
+          "exclude_geometry": [],
+          "flags": [
+            "SelectRenderOnly"
+          ]
+        }
+      },
+      {
+        "name": "TRG_Night_LevelLight_thugpro_2786",
+        "class": "LevelLight",
+        "pos": [
+          -704.8660278320312,
+          -47.33399963378906,
+          2447.595947265625
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": false,
+        "light": {
+          "brightness": 0,
+          "inner_radius": 150,
+          "outer_radius": 300,
+          "color": [
+            254,
+            255,
+            188
+          ],
+          "exclude_geometry": [],
+          "flags": [
+            "SelectRenderOnly"
+          ]
+        }
+      },
+      {
+        "name": "TRG_Night_LevelLight_thugpro_2787",
+        "class": "LevelLight",
+        "pos": [
+          -2250.114013671875,
+          126.43000030517578,
+          1721.85595703125
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": false,
+        "light": {
+          "brightness": 0,
+          "inner_radius": 150,
+          "outer_radius": 300,
+          "color": [
+            254,
+            255,
+            188
+          ],
+          "exclude_geometry": [],
+          "flags": [
+            "SelectRenderOnly"
+          ]
+        }
+      },
+      {
+        "name": "TRG_Night_LevelLight_thugpro_2788",
+        "class": "LevelLight",
+        "pos": [
+          -2055.18603515625,
+          200.52000427246094,
+          1714.22705078125
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": false,
+        "light": {
+          "brightness": 0,
+          "inner_radius": 150,
+          "outer_radius": 300,
+          "color": [
+            254,
+            255,
+            188
+          ],
+          "exclude_geometry": [],
+          "flags": [
+            "SelectRenderOnly"
+          ]
+        }
+      }
+    ],
+    "SF2": [
+      {
+        "name": "ed_rail_0_0",
+        "class": "RailNode",
+        "pos": [
+          342.7720031738281,
+          79.44200134277344,
+          1961.0150146484375
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": true,
+        "terrain": "TERRAIN_METALSMOOTH"
+      },
+      {
+        "name": "ed_rail_1_0",
+        "class": "RailNode",
+        "pos": [
+          342.8529968261719,
+          79.44200134277344,
+          5045.47216796875
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": true,
+        "terrain": "TERRAIN_METALSMOOTH"
+      },
+      {
+        "name": "ed_rail_2_0",
+        "class": "RailNode",
+        "pos": [
+          344.72601318359375,
+          79.44200134277344,
+          4.714000225067139
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": true,
+        "terrain": "TERRAIN_METALSMOOTH"
+      },
+      {
+        "name": "ed_rail_3_0",
+        "class": "RailNode",
+        "pos": [
+          1066.2340087890625,
+          530.6309814453125,
+          -1960.5579833984375
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": true,
+        "terrain": "TERRAIN_CONCSMOOTH",
+        "links": [
+          "ed_rail_3_1"
+        ]
+      },
+      {
+        "name": "ed_rail_3_1",
+        "class": "RailNode",
+        "pos": [
+          1066.14599609375,
+          530.6309814453125,
+          -1904.4169921875
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": true,
+        "terrain": "TERRAIN_CONCSMOOTH",
+        "links": [
+          "ed_rail_3_2"
+        ]
+      },
+      {
+        "name": "ed_rail_3_2",
+        "class": "RailNode",
+        "pos": [
+          1741.6309814453125,
+          530.6309814453125,
+          -1905.1719970703125
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": true,
+        "terrain": "TERRAIN_CONCSMOOTH",
+        "links": [
+          "ed_rail_3_3"
+        ]
+      },
+      {
+        "name": "ed_rail_3_3",
+        "class": "RailNode",
+        "pos": [
+          1741.3399658203125,
+          530.6309814453125,
+          -1961.18798828125
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": true,
+        "terrain": "TERRAIN_CONCSMOOTH"
+      },
+      {
+        "name": "ed_rail_4_0",
+        "class": "RailNode",
+        "pos": [
+          -2733.262939453125,
+          -95.62699890136719,
+          -4595.5810546875
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": true,
+        "terrain": "TERRAIN_CONCSMOOTH"
+      },
+      {
+        "name": "TRG_Elev_Warp2",
+        "class": "Restart",
+        "pos": [
+          3314.948974609375,
+          8.944000244140625,
+          730.4769897460938
+        ],
+        "angles": [
+          0,
+          -0.1221729964017868,
+          0
+        ],
+        "created_at_start": true,
+        "type": "Generic"
+      },
+      {
+        "name": "back_qp_lips_0_0",
+        "class": "RailNode",
+        "pos": [
+          1162.23095703125,
+          167.94400024414062,
+          -3520.826904296875
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": true,
+        "terrain": "TERRAIN_CONCSMOOTH",
+        "links": [
+          "back_qp_lips_0_1"
+        ]
+      },
+      {
+        "name": "back_qp_lips_0_1",
+        "class": "RailNode",
+        "pos": [
+          1162.553955078125,
+          167.94400024414062,
+          -3951.172119140625
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": true,
+        "terrain": "TERRAIN_CONCSMOOTH"
+      },
+      {
+        "name": "back_qp_lips_1_0",
+        "class": "RailNode",
+        "pos": [
+          1162.031982421875,
+          128.94400024414062,
+          -3043.782958984375
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": true,
+        "terrain": "TERRAIN_CONCSMOOTH",
+        "links": [
+          "back_qp_lips_1_1"
+        ]
+      },
+      {
+        "name": "back_qp_lips_1_1",
+        "class": "RailNode",
+        "pos": [
+          1161.9000244140625,
+          128.94400024414062,
+          -2637.759033203125
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": true,
+        "terrain": "TERRAIN_CONCSMOOTH"
+      }
+    ],
+    "Sch": [
+      {
+        "name": "TRG_TP_RailRoofLedge_01",
+        "class": "RailNode",
+        "pos": [
+          -506.8380126953125,
+          73.29399871826172,
+          3994.552001953125
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": true,
+        "type": "Metal",
+        "terrain": "TERRAIN_METALSMOOTH",
+        "links": [
+          "TRG_TP_RailRoofLedge_02"
+        ]
+      },
+      {
+        "name": "TRG_TP_RailRoofLedge_02",
+        "class": "RailNode",
+        "pos": [
+          -892.0339965820312,
+          73.29399871826172,
+          3998.662109375
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": true,
+        "type": "Metal",
+        "terrain": "TERRAIN_METALSMOOTH",
+        "links": [
+          "TRG_TP_RailRoofLedge_03"
+        ]
+      },
+      {
+        "name": "TRG_TP_RailRoofLedge_03",
+        "class": "RailNode",
+        "pos": [
+          -907.7899780273438,
+          73.29399871826172,
+          3982.080078125
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": true,
+        "type": "Metal",
+        "terrain": "TERRAIN_METALSMOOTH",
+        "links": [
+          "TRG_TP_RailRoofLedge_04"
+        ]
+      },
+      {
+        "name": "TRG_TP_RailRoofLedge_04",
+        "class": "RailNode",
+        "pos": [
+          -910.1959838867188,
+          73.29399871826172,
+          3746.39306640625
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": true,
+        "type": "Metal",
+        "terrain": "TERRAIN_METALSMOOTH",
+        "links": [
+          "TRG_TP_RailRoofLedge_05"
+        ]
+      },
+      {
+        "name": "TRG_TP_RailRoofLedge_05",
+        "class": "RailNode",
+        "pos": [
+          -921.8519897460938,
+          73.29399871826172,
+          3734.0419921875
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": true,
+        "type": "Metal",
+        "terrain": "TERRAIN_METALSMOOTH",
+        "links": [
+          "TRG_TP_RailRoofLedge_06"
+        ]
+      },
+      {
+        "name": "TRG_TP_RailRoofLedge_06",
+        "class": "RailNode",
+        "pos": [
+          -1862.633056640625,
+          73.29399871826172,
+          3731.402099609375
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": true,
+        "type": "Metal",
+        "terrain": "TERRAIN_METALSMOOTH"
+      }
+    ],
+    "Zoo": [
+      {
+        "name": "TRG_NatasNode_01",
+        "class": "RailNode",
+        "pos": [
+          -291.2300109863281,
+          29.5,
+          1500
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": true,
+        "type": "Concrete",
+        "terrain": "TERRAIN_CONCSMOOTH"
+      },
+      {
+        "name": "TRG_NatasNode_02",
+        "class": "RailNode",
+        "pos": [
+          -84.92900085449219,
+          29.5,
+          1500
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": true,
+        "type": "Concrete",
+        "terrain": "TERRAIN_CONCSMOOTH"
+      },
+      {
+        "name": "TRG_NatasNode_03",
+        "class": "RailNode",
+        "pos": [
+          124,
+          29.5,
+          1500
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": true,
+        "type": "Concrete",
+        "terrain": "TERRAIN_CONCSMOOTH"
+      },
+      {
+        "name": "TRG_NatasNode_04",
+        "class": "RailNode",
+        "pos": [
+          324,
+          29.5,
+          1500
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": true,
+        "type": "Concrete",
+        "terrain": "TERRAIN_CONCSMOOTH"
+      },
+      {
+        "name": "TRG_NatasNode_05",
+        "class": "RailNode",
+        "pos": [
+          530,
+          29.5,
+          1500
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": true,
+        "type": "Concrete",
+        "terrain": "TERRAIN_CONCSMOOTH"
+      },
+      {
+        "name": "TRG_ParkingLotRestart01",
+        "class": "Restart",
+        "pos": [
+          5782.50390625,
+          -254.15699768066406,
+          -3793.8779296875
+        ],
+        "angles": [
+          0,
+          -3.1415929794311523,
+          0
+        ],
+        "created_at_start": true,
+        "type": "Generic"
+      },
+      {
+        "name": "TRG_ParkingLotRestart02",
+        "class": "Restart",
+        "pos": [
+          5782.50390625,
+          -204.15699768066406,
+          -3793.8779296875
+        ],
+        "angles": [
+          0,
+          -3.1415929794311523,
+          0
+        ],
+        "created_at_start": true,
+        "type": "Generic"
+      },
+      {
+        "name": "TRG_ParkingLotRestart03",
+        "class": "Restart",
+        "pos": [
+          -38.02052307128906,
+          17.343521118164062,
+          1410.2650146484375
+        ],
+        "angles": [
+          0,
+          -3.1415929794311523,
+          0
+        ],
+        "created_at_start": true,
+        "type": "Generic"
+      }
+    ],
+    "SkateShop": [
+      {
+        "name": "roof_ledge_9",
+        "class": "RailNode",
+        "pos": [
+          434.2569885253906,
+          230,
+          459.5989990234375
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": true,
+        "terrain": "TERRAIN_CONCSMOOTH",
+        "links": [
+          "roof_ledge_10"
+        ]
+      },
+      {
+        "name": "roof_ledge_10",
+        "class": "RailNode",
+        "pos": [
+          413.3739929199219,
+          231.47000122070312,
+          458.98199462890625
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": true,
+        "terrain": "TERRAIN_CONCSMOOTH",
+        "links": [
+          "roof_ledge_11"
+        ]
+      },
+      {
+        "name": "roof_ledge_11",
+        "class": "RailNode",
+        "pos": [
+          403.10101318359375,
+          231.47000122070312,
+          447.19000244140625
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": true,
+        "terrain": "TERRAIN_CONCSMOOTH",
+        "links": [
+          "roof_ledge_12"
+        ]
+      },
+      {
+        "name": "roof_ledge_12",
+        "class": "RailNode",
+        "pos": [
+          403.3919982910156,
+          232.052001953125,
+          -1064.491943359375
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": true,
+        "terrain": "TERRAIN_CONCSMOOTH",
+        "links": [
+          "roof_ledge_13"
+        ]
+      },
+      {
+        "name": "roof_ledge_13",
+        "class": "RailNode",
+        "pos": [
+          406.281005859375,
+          232.01699829101562,
+          -1066.9210205078125
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": true,
+        "terrain": "TERRAIN_CONCSMOOTH",
+        "links": [
+          "roof_ledge_14"
+        ]
+      },
+      {
+        "name": "roof_ledge_14",
+        "class": "RailNode",
+        "pos": [
+          1260.093994140625,
+          232.2530059814453,
+          -1065.73095703125
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": true,
+        "terrain": "TERRAIN_CONCSMOOTH",
+        "links": [
+          "roof_ledge_15"
+        ]
+      },
+      {
+        "name": "roof_ledge_15",
+        "class": "RailNode",
+        "pos": [
+          1265.8470458984375,
+          232.2530059814453,
+          -1063.633056640625
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": true,
+        "terrain": "TERRAIN_CONCSMOOTH",
+        "links": [
+          "roof_ledge_16"
+        ]
+      },
+      {
+        "name": "roof_ledge_16",
+        "class": "RailNode",
+        "pos": [
+          1269.5040283203125,
+          232.2530059814453,
+          -1055.114990234375
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": true,
+        "terrain": "TERRAIN_CONCSMOOTH",
+        "links": [
+          "roof_ledge_17"
+        ]
+      },
+      {
+        "name": "roof_ledge_17",
+        "class": "RailNode",
+        "pos": [
+          1269.4620361328125,
+          232.2530059814453,
+          -1046.47998046875
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": true,
+        "terrain": "TERRAIN_CONCSMOOTH"
+      },
+      {
+        "name": "fence_rail_0_6",
+        "class": "RailNode",
+        "pos": [
+          1157.219970703125,
+          154.50999450683594,
+          -1055.2679443359375
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": true,
+        "terrain": "terrain_grindwood",
+        "links": [
+          "fence_rail_0_7"
+        ]
+      },
+      {
+        "name": "fence_rail_0_7",
+        "class": "RailNode",
+        "pos": [
+          1251.7110595703125,
+          154.50999450683594,
+          -1056.4420166015625
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": true,
+        "terrain": "terrain_grindwood",
+        "links": [
+          "fence_rail_0_8"
+        ]
+      },
+      {
+        "name": "fence_rail_0_8",
+        "class": "RailNode",
+        "pos": [
+          1253.875,
+          154.50999450683594,
+          -1054.6190185546875
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": true,
+        "terrain": "terrain_grindwood",
+        "links": [
+          "fence_rail_0_9"
+        ]
+      },
+      {
+        "name": "fence_rail_0_9",
+        "class": "RailNode",
+        "pos": [
+          1256.362060546875,
+          154.50999450683594,
+          -1052.1500244140625
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": true,
+        "terrain": "terrain_grindwood",
+        "links": [
+          "fence_rail_0_10"
+        ]
+      },
+      {
+        "name": "fence_rail_0_10",
+        "class": "RailNode",
+        "pos": [
+          1263.8189697265625,
+          154.50999450683594,
+          -1041.3900146484375
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": true,
+        "terrain": "terrain_grindwood",
+        "links": [
+          "fence_rail_0_11"
+        ]
+      },
+      {
+        "name": "fence_rail_0_11",
+        "class": "RailNode",
+        "pos": [
+          1263.8260498046875,
+          157.00599670410156,
+          -155.8780059814453
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": true,
+        "terrain": "terrain_grindwood",
+        "links": [
+          "fence_rail_0_12"
+        ]
+      },
+      {
+        "name": "fence_rail_0_12",
+        "class": "RailNode",
+        "pos": [
+          1265.197998046875,
+          184.22999572753906,
+          65.75700378417969
+        ],
+        "angles": [
+          0,
+          0,
+          0
+        ],
+        "created_at_start": true,
+        "terrain": "terrain_grindwood"
+      }
+    ]
+  },
+  "collision_duplicates": {
+    "_register": "TP-28",
+    "_source": "THUGPRO's installed data\\pre\\<level>_scripts.prx / <level>col.prx against THPS4's own Game\\data\\levels files, extracted by `node tools/thps4_levels/thugpro_compare.ts --extract-thugpro` (thugpro_edits.ts; pos = THUG2's Pos axes)",
+    "Sch": [
+      "dt_Post_LOD",
+      "dt_Post_LOD01",
+      "dt_courts089",
+      "dt_fence04a16",
+      "Box331",
+      "Box332",
+      "Box333",
+      "Box3106",
+      "Prox_W2_Floor83",
+      "dt_bridge_rail",
+      "Prox_E_Floor18",
+      "Prox_E_Floor19",
+      "RM_rail04",
+      "RM_rail03",
+      "Prox_E_Floor22",
+      "Prox_E_Floor28",
+      "RM_rail07",
+      "DT_bridgecollision01",
+      "RM_rail08",
+      "dt_north_wndas05",
+      "dt_ModWindows03",
+      "dt_ModWindows04",
+      "dt_ModWindows05",
+      "dt_ModWindows06",
+      "dt_ModWindows07",
+      "dt_ModWindows08",
+      "dt_ModWindows09",
+      "dt_ModWindows10",
+      "dt_ModWindows11",
+      "dt_ModWindows12",
+      "dt_ModWindows13",
+      "dt_ModWindows14",
+      "dt_ModWindows15",
+      "dt_ModWindows16",
+      "dt_ModWindows17",
+      "dt_ModWindows18",
+      "dt_ModWindows19",
+      "dt_ModWindows20",
+      "dt_ModWindows21",
+      "dt_ModWindows22",
+      "dt_ModWindows23",
+      "dt_ModWindows24",
+      "TRGP_Frat_Playsound",
+      "Fence_Coll03",
+      "apm_bikerack_02",
+      "apm_bikerack_04",
+      "Prox_W_Floor12",
+      "GarageEntrance",
+      "RM_rail10",
+      "RM_rail12",
+      "RM_rail13",
+      "Garage_South01",
+      "dt_garage_02",
+      "dt_garage_05",
+      "LO_ProChallenge",
+      "TRGP_Doors_Enter02",
+      "TRGP_Doors_Enter01",
+      "Frat_Fence01",
+      "G_COMP_rail01",
+      "Prox_E_Floor23",
+      "Prox_Eng_Interior10",
+      "Prox_Eng_Interior11",
+      "TRGP_G_Gaps2_Banner01",
+      "TRGP_G_Gaps2_Banner02",
+      "TRGP_G_Gaps2_Banner03",
+      "TRGP_G_Gaps2_Banner04",
+      "TRGP_G_Gaps2_Banner05",
+      "TRGP_G_Gaps2_Banner06",
+      "TRGP_G_Gaps2_Banner07"
+    ]
+  },
+  "_not_applied": {
+    "_note": "What --extract-thugpro saw and did not take (not node data, or the toolchain's own translation): listed for the user (README.md, docs/pending/thps4-thugpro.md); nothing reads it",
+    "Alc": [
+      "tep_DockPed01: class pedestrian -> gameobject",
+      "tep_DockPed02: class pedestrian -> gameobject",
+      "tep_DockPed03: class pedestrian -> gameobject",
+      "tep_DockPed04: class pedestrian -> gameobject",
+      "tep_DockPed05: class pedestrian -> gameobject",
+      "tep_DockPed06: class pedestrian -> gameobject",
+      "tep_DockPed07: class pedestrian -> gameobject",
+      "tep_DockPed08: class pedestrian -> gameobject",
+      "tep_DockPed09: class pedestrian -> gameobject",
+      "tep_DockPed10: class pedestrian -> gameobject",
+      "tep_DockPed11: class pedestrian -> gameobject",
+      "tep_DockPed12: class pedestrian -> gameobject",
+      "tep_DockPed13: class pedestrian -> gameobject",
+      "tep_DockPed14: class pedestrian -> gameobject",
+      "tep_DockPed15: class pedestrian -> gameobject",
+      "tep_DockPed16: class pedestrian -> gameobject",
+      "tep_DockPed17: class pedestrian -> gameobject",
+      "tep_DockPed18: class pedestrian -> gameobject",
+      "tep_DockPed19: class pedestrian -> gameobject",
+      "tep_DockPed20: class pedestrian -> gameobject",
+      "tep_DockPed21: class pedestrian -> gameobject",
+      "tep_DockPed22: class pedestrian -> gameobject",
+      "tep_DockPed23: class pedestrian -> gameobject",
+      "tep_DockPed24: class pedestrian -> gameobject",
+      "tep_DockPed25: class pedestrian -> gameobject",
+      "tep_DockPed26: class pedestrian -> gameobject",
+      "tep_DockPed27: class pedestrian -> gameobject",
+      "collision not compared: levels\\alc\\alc.col.xbx: read of 91816 bytes at 0x125C04 past the end (0x13BBF8)"
+    ],
+    "Cnv": [
+      "Piggy_01: class pedestrian -> gameobject",
+      "Pig_Still01: class pedestrian -> gameobject",
+      "TRG_Pig02: class pedestrian -> gameobject",
+      "TRG_Pig03: class pedestrian -> gameobject",
+      "TRG_Pig04: class pedestrian -> gameobject",
+      "TRG_Pig06: class pedestrian -> gameobject",
+      "TRG_Gator01: class pedestrian -> gameobject",
+      "PROSET3NOT_Pig_Still02: class pedestrian -> gameobject",
+      "Ped_Kid08: class pedestrian -> gameobject",
+      "TRG_Chicken03: class pedestrian -> gameobject",
+      "TRG_Chicken04: class pedestrian -> gameobject",
+      "TRG_Chicken01: class pedestrian -> gameobject",
+      "TRG_Chicken05: class pedestrian -> gameobject",
+      "TRG_Goat_Walking: class pedestrian -> gameobject",
+      "TRG_Cow01: class pedestrian -> gameobject",
+      "TRG_Cow02: class pedestrian -> gameobject",
+      "TRG_Cow03: class pedestrian -> gameobject"
+    ],
+    "Hof": [
+      "TRG_HS_Bike: class pedestrian -> gameobject",
+      "TRG_SS_Bike: class pedestrian -> gameobject"
+    ],
+    "Jnk": [
+      "TRG_G_Race2_Rat: class pedestrian -> gameobject"
+    ],
+    "Kon": [
+      "TRG_BMX_Bike: class pedestrian -> gameobject",
+      "TRG_G_SPECIAL_Bike: class pedestrian -> gameobject"
+    ],
+    "Lon": [
+      "TRG_Lon_fountain2: class particleemitter -> gameobject",
+      "TRG_Lon_fountain03: class particleemitter -> gameobject",
+      "TRG_Lon_fountain01: class particleemitter -> gameobject",
+      "TRG_Lon_fountain_middle: class particleemitter -> gameobject",
+      "TRG_Lon_fountain_ripple: class particleemitter -> gameobject",
+      "TRG_Lon_fountain_ripple01: class particleemitter -> gameobject",
+      "TRG_Lon_fountain_ripple02: class particleemitter -> gameobject",
+      "TRG_Lon_fountain_middle01: class particleemitter -> gameobject",
+      "TRG_Lon_fountain04: class particleemitter -> gameobject",
+      "TRG_Lon_fountain05: class particleemitter -> gameobject",
+      "TRG_Lon_fountain06: class particleemitter -> gameobject",
+      "TRG_Lon_fountain_ripple03: class particleemitter -> gameobject",
+      "TRG_Lon_fountain_ripple04: class particleemitter -> gameobject",
+      "TRG_Lon_fountain_ripple05: class particleemitter -> gameobject",
+      "TRG_Lon_PS2_fountain_middle01a: class particleemitter -> particleobject",
+      "TRG_Lon_PS2_fountain02: class particleemitter -> particleobject",
+      "TRG_Lon_PS2_fountain01: class particleemitter -> particleobject",
+      "TRG_Lon_PS2_fountain_middle01: class particleemitter -> particleobject",
+      "TRG_LON_Televator_Waypoint: added waypoint/default"
+    ],
+    "SF2": [
+      "TRG_Seal01: class pedestrian -> gameobject",
+      "TRG_Seal04: class pedestrian -> gameobject",
+      "TRG_Seal03: class pedestrian -> gameobject",
+      "TRG_Seal02: class pedestrian -> gameobject",
+      "TRG_MG_RACE_Seal01: class pedestrian -> gameobject",
+      "TRG_MG_RACE_Seal02: class pedestrian -> gameobject",
+      "TRG_MG_RACE_Seal03: class pedestrian -> gameobject"
+    ],
+    "SkateShop": [
+      "TRG_SS_Skater01: class restart -> gameobject",
+      "TRG_SS_PedProBob: class pedestrian -> gameobject",
+      "TRG_SS_PedProSteve: class pedestrian -> gameobject",
+      "TRG_SS_PedProKareem: class pedestrian -> gameobject",
+      "TRG_SS_PedProRune: class pedestrian -> gameobject",
+      "TRG_SS_PedProEric: class pedestrian -> gameobject",
+      "TRG_SS_PedProBucky: class pedestrian -> gameobject",
+      "TRG_SS_PedProBam: class pedestrian -> gameobject",
+      "TRG_SS_PedProRodney: class pedestrian -> gameobject",
+      "TRG_SS_PedProAndrew: class pedestrian -> gameobject",
+      "TRG_SS_PedProGeoff: class pedestrian -> gameobject",
+      "TRG_SS_PedProElissa: class pedestrian -> gameobject",
+      "TRG_SS_PedProJamie: class pedestrian -> gameobject",
+      "TRG_SS_Ped_SkateShop: class pedestrian -> gameobject",
+      "TRG_SS_Ped_Tutorials: class pedestrian -> gameobject",
+      "TRG_SS_PedProTony: class pedestrian -> gameobject",
+      "TRG_SS_SkaterChoosing: class restart -> gameobject",
+      "TRG_SS_Appearance: class restart -> gameobject",
+      "TRG_SS_Ped_animload: class pedestrian -> gameobject",
+      "TRG_SS_Ped_animload01: class pedestrian -> gameobject",
+      "TRG_SS_SkaterDropIn02: added restart/generic",
+      "TRG_SS_SkaterDropIn03: added restart/generic",
+      "TRG_SS_SkaterDropIn04: added restart/generic",
+      "TRG_SS_SkaterDropIn05: added restart/generic",
+      "TRG_SS_SkaterDropIn06: added restart/generic",
+      "TRG_SS_SkaterDropIn07: added restart/generic",
+      "TRG_SS_SkaterDropIn08: added restart/generic",
+      "TRG_SS_SkaterDropIn09: added restart/generic",
+      "TRG_TP_SkaterKiller: added gameobject/ghost",
+      "koth_crown: added genericnode/crown"
+    ]
+  },
+  "door_walls": {
+    "_register": "TP-29",
+    "_note": "THUGPRO keeps THPS4's invisible door walls of the skate shop (InvisColl01's shop side, Object10's two invisible faces); ours opens the door (the user's request, 2026-10-19: thps4_levels.OPENINGS). Off: enabled true keeps the walls as THUGPRO's",
+    "enabled": false
   }
 }

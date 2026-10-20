@@ -15,7 +15,7 @@
 //   node tools/thps3_levels/thugpro_compare.ts [levels...] [--thug2 C:\Games\THUG2-1] [--thugpro <dir>]
 //        [--staging <folder>] [--json out] [--details]
 //   node tools/thps3_levels/thugpro_compare.ts --extract-thugpro tools/compat/thugpro/thps3_levels.json [--thps3 <dir>]
-//        (the compatibility profile's THPS3 data, TP-10 / TP-11: see extractThugpro)
+//        (the compatibility profile's THPS3 data, TP-10 .. TP-19: see extractThugpro, nodeEdits, collisionEdits)
 
 import * as fs from "node:fs";
 import { parseArgs } from "node:util";
@@ -25,6 +25,7 @@ import * as prx from "../level_port/prx.ts";
 import * as qb from "../level_port/qb.ts";
 import { Name, type QbValue, Struct, Vector } from "../level_port/qb.ts";
 import * as thug2Col from "../level_port/thug2_col.ts";
+import * as thug2Scene from "../level_port/thug2_scene.ts";
 import {
     Float,
     formatFixed,
@@ -52,6 +53,7 @@ import {
     sequence,
     TOLERANCE,
 } from "../thaw_levels/thugpro_compare.ts";
+import * as thps3 from "./thps3.ts";
 import { findFolder, flagTeams, LEVELS, levelFiles, STAGING, scriptNames } from "./thps3_levels.ts";
 
 const DEFAULT_THUGPRO = pyJoin(process.env.LOCALAPPDATA ?? "", "THUG Pro");
@@ -380,6 +382,252 @@ export function spawnChanges(
     return [changed, removed];
 }
 
+// --- THUGPRO's hand edits (TP-13 .. TP-19, the user's decision 2026-10-20: "everything THUGPRO changed" as data) ---
+
+// THPS3 class -> the THUG2 classes a port makes of it (a translation, not counted as an edit; thugpro_inventory too).
+export const USUAL_CLASSES: ReadonlyMap<string, readonly string[]> = new Map([
+    ["environmentobject", ["levelgeometry"]],
+    ["gameobject", ["levelobject", "gameobject"]],
+    ["bouncyobject", ["gameobject", "levelobject"]],
+    ["vehicle", ["vehicle", "levelobject"]],
+    ["animatingobject", ["animatingobject", "levelobject", "gameobject"]],
+]);
+// The node flags whose changes are applied (TP-14). NeverSuspend / Permanent: THUGPRO's toolchain's form (Permanent
+// joins every NetEnabled, NeverSuspend goes from game objects) - translation, left out.
+export const EDIT_FLAGS = ["CreatedAtStart", "AbsentInNetGames", "NetEnabled", "TrickObject"] as const;
+
+export interface FlagEdit {
+    add: string[];
+    remove: string[];
+}
+
+// An added rail (TP-18): THUGPRO's node data - place (THUG2's world), angles, terrain, flags, cluster, links by name.
+export interface RailRecord extends Placement {
+    name: string;
+    terrain: string | null;
+    flags: string[];
+    cluster: string | null;
+    links: string[];
+}
+
+export interface NodeEdits {
+    moved: Record<string, Placement>;
+    flags: Record<string, FlagEdit>;
+    terrain: Record<string, string>;
+    removed: string[];
+    renamed: Record<string, string>;
+    rails: RailRecord[];
+    // what was found but not taken, with the reason (for the report and the register)
+    notes: string[];
+}
+
+// The names TP-10 / TP-11 / TP-12 make or place: not edited again here.
+const COMPAT_NAMES: ReadonlySet<number> = new Set(
+    [...TP10_NODES, ...TP11_NODES, ...["Red", "Blue", "Green", "Yellow"].map((c) => `TRG_CTF_Restart_${c}`)].map(
+        qb.checksum,
+    ),
+);
+
+// How often each name (0x16 token) occurs in the given qb files: a node still named by a script (or another node)
+// isn't removed or renamed.
+export function nameUses(files: readonly Buffer[]): Map<number, number> {
+    const out = new Map<number, number>();
+    for (const data of files) {
+        for (const [, t, p] of qb.tokens(data)) {
+            if (t !== 0x16) continue;
+            const v = p.readUInt32LE(0);
+            out.set(v, (out.get(v) ?? 0) + 1);
+        }
+    }
+    return out;
+}
+
+// THUGPRO's hand edits of a level's node array against THPS3's own (both in full: Links are indices into them).
+// `uses`: nameUses of THPS3's level .qb and global scripts (a node's own Name counts once).
+// - moved (TP-13): a node both have that THUGPRO placed elsewhere (> TOLERANCE) or turned (> 0.001 rad) - not the
+//   network spawns (TP-12) or the CTF / team nodes (TP-10 / TP-11);
+// - flags (TP-14): EDIT_FLAGS added / removed on a node of the same kind (USUAL_CLASSES) - a node THUGPRO made another
+//   class (THPS3's lights, particle boxes, static peds as game objects...) is its toolchain's form: left out;
+// - terrain (TP-15): every TerrainType THUGPRO changed (THPS3's TERRAIN_MEATALSMOOTH typo, wires, ropes...);
+// - renamed (TP-17): a THUGPRO-only node at the place of a THPS3-only node of the same class, the old name used by no
+//   script, the new one not TP-10 / TP-11's;
+// - removed (TP-16): the other THPS3-only nodes no script names;
+// - rails (TP-18): THUGPRO-only RailNodes, as node data.
+export function nodeEdits(
+    own: readonly QbValue[],
+    ownNames: ReadonlyMap<number, string>,
+    theirs: readonly QbValue[],
+    theirNames: ReadonlyMap<number, string>,
+    uses: ReadonlyMap<number, number>,
+): NodeEdits {
+    const names = new Map([...ownNames, ...theirNames]);
+    const text = (v: number): string => names.get(v) ?? `#${hex8(v)}`;
+    const classText = (n: Struct): string => {
+        const c = n.get("Class");
+        return c instanceof Name ? text(c.value).toLowerCase() : "-";
+    };
+    const sameKind = (o: Struct, t: Struct): boolean =>
+        classText(o) === classText(t) || (USUAL_CLASSES.get(classText(o)) ?? []).includes(classText(t));
+    const byName = (array: readonly QbValue[]): Map<number, Struct> => {
+        const out = new Map<number, Struct>();
+        for (const n of array)
+            if (n instanceof Struct && nameOf(n) !== null && !out.has(nameOf(n)!)) out.set(nameOf(n)!, n);
+        return out;
+    };
+    const ownBy = byName(own);
+    const theirBy = byName(theirs);
+    const spawn = (nm: number): boolean =>
+        [ownBy.get(nm), theirBy.get(nm)].some((n) => n !== undefined && isRestart(n) && isSpawn(n));
+    const edits: NodeEdits = { moved: {}, flags: {}, terrain: {}, removed: [], renamed: {}, rails: [], notes: [] };
+    const terrainOf = (n: Struct): number | null => {
+        const v = n.get("TerrainType");
+        return v instanceof Name ? v.value : null;
+    };
+    for (const [nm, t] of theirBy) {
+        const o = ownBy.get(nm);
+        if (o === undefined) continue;
+        const skip = COMPAT_NAMES.has(nm) || spawn(nm);
+        const a = placement(o);
+        const b = placement(t);
+        if (!skip && a !== null && b !== null) {
+            if (maxDiff(a.pos, b.pos) > TOLERANCE || maxDiff(a.angles, b.angles) > 0.001) edits.moved[text(nm)] = b;
+        }
+        if (!skip) {
+            const add = EDIT_FLAGS.filter((f) => t.hasFlag(f) && !o.hasFlag(f));
+            const remove = EDIT_FLAGS.filter((f) => o.hasFlag(f) && !t.hasFlag(f));
+            if (add.length || remove.length) {
+                if (sameKind(o, t)) edits.flags[text(nm)] = { add, remove };
+                else edits.notes.push(`flags of ${text(nm)}: class ${classText(o)} -> ${classText(t)} (translation)`);
+            }
+        }
+        const to = terrainOf(o);
+        const tt = terrainOf(t);
+        if (tt !== null && tt !== to) edits.terrain[text(nm)] = text(tt);
+        else if (tt === null && to !== null) edits.notes.push(`terrain of ${text(nm)}: THUGPRO has none`);
+    }
+    // renamed / removed / added
+    const onlyTheirs = [...theirBy].filter(([nm]) => !ownBy.has(nm));
+    const onlyOwn = [...ownBy].filter(([nm]) => !theirBy.has(nm));
+    const used = (nm: number): boolean => (uses.get(nm) ?? 0) > 1;
+    const renamedFrom = new Set<number>();
+    const renamedTo = new Set<number>();
+    for (const [nm, t] of onlyTheirs) {
+        const pt = position(t);
+        if (pt === null || COMPAT_NAMES.has(nm)) continue;
+        const match = onlyOwn.find(([om, o]) => {
+            const po = position(o);
+            return !renamedFrom.has(om) && po !== null && maxDiff(po, pt) <= TOLERANCE && classText(o) === classText(t);
+        });
+        if (match === undefined) continue;
+        if (used(match[0])) {
+            edits.notes.push(`renamed ${text(match[0])} -> ${text(nm)}: the old name is used by a script - kept`);
+            renamedFrom.add(match[0]); // (neither renamed nor removed)
+            continue;
+        }
+        renamedFrom.add(match[0]);
+        renamedTo.add(nm);
+        edits.renamed[text(match[0])] = text(nm);
+    }
+    for (const [om] of onlyOwn) {
+        if (renamedFrom.has(om)) continue;
+        if (used(om)) edits.notes.push(`removed ${text(om)}: used by a script - kept`);
+        else edits.removed.push(text(om));
+    }
+    for (const [nm, t] of onlyTheirs) {
+        if (classText(t) !== "railnode" || renamedTo.has(nm)) continue;
+        const p = placement(t)!;
+        const links = t.get("Links");
+        const terrain = terrainOf(t);
+        const cluster = t.get("Cluster");
+        edits.rails.push({
+            name: text(nm),
+            ...p,
+            terrain: terrain === null ? null : text(terrain),
+            flags: EDIT_FLAGS.filter((f) => t.hasFlag(f)),
+            cluster: cluster instanceof Name ? text(cluster.value) : null,
+            links: (Array.isArray(links) ? links : []).map((i) => {
+                const target = typeof i === "number" ? theirs[i] : undefined;
+                if (!(target instanceof Struct) || nameOf(target) === null)
+                    throw new RangeError(`${text(nm)}: a link to no named node (${String(i)})`);
+                return text(nameOf(target)!);
+            }),
+        });
+    }
+    return edits;
+}
+
+// A collision edit (TP-19): the object's collision left out (`drop`), or some of its faces (`remove`: each face as its
+// three corners in THPS3's order - THPS3's own vertices, the geometry's frame).
+export interface CollisionEdit {
+    drop?: boolean;
+    remove?: number[][][];
+}
+
+const near = (a: readonly number[], b: readonly number[], tolerance: number): boolean =>
+    a.every((x, i) => Math.abs(x - b[i]!) <= tolerance);
+
+// Whether two faces have the same corners in the same turning order (any first corner).
+export function sameFace(
+    a: readonly (readonly number[])[],
+    b: readonly (readonly number[])[],
+    tolerance: number,
+): boolean {
+    return [0, 1, 2].some((r) => [0, 1, 2].every((i) => near(a[i]!, b[(i + r) % 3]!, tolerance)));
+}
+
+// THUGPRO's collision edits against THPS3's own geometry: an object THUGPRO draws but has no collision for (`drop`),
+// and the faces THPS3's object has and THUGPRO's hasn't (`remove`) - found only when THUGPRO's faces are THPS3's
+// (same corners, either turning; 0.15 units: its collision vertices are fixed point) less some. Face flags and terrain
+// numbers aren't compared (THUGPRO's toolchain writes its own flag bits on every face: translation); an object whose
+// faces moved or changed otherwise is noted, not edited.
+export function collisionEdits(
+    world: thps3.World,
+    theirCol: readonly thug2Col.ColObject[],
+    theirScene: ReadonlySet<number>,
+    names: ReadonlyMap<number, string>,
+): [Record<string, CollisionEdit>, string[]] {
+    const text = (v: number): string => names.get(v) ?? `#${hex8(v)}`;
+    const theirs = new Map(theirCol.map((o) => [o.checksum, o] as const));
+    const out: Record<string, CollisionEdit> = {};
+    const notes: string[] = [];
+    const tolerance = 0.15;
+    for (const sec of world.sectors) {
+        const count = Math.min(sec.triangles.length, (sec.faceFlags ?? []).length);
+        if (!count) continue;
+        const t = theirs.get(sec.checksum);
+        if (t === undefined) {
+            if (theirScene.has(sec.checksum)) out[text(sec.checksum)] = { drop: true };
+            continue;
+        }
+        if (t.faces.length >= count) continue;
+        const mine = sec.triangles.slice(0, count).map(([, a, b, c]) => [a, b, c].map((i) => sec.positions[i]!));
+        const left = new Set(mine.keys());
+        const theirFaces = t.faces.map((f) => [f[2], f[3], f[4]].map((i) => t.verts[i]!));
+        const unmatched: (readonly number[])[][] = [];
+        for (const f of theirFaces) {
+            const k = [...left].find((i) => sameFace(mine[i]!, f, tolerance));
+            if (k === undefined) unmatched.push(f);
+            else left.delete(k);
+        }
+        // (a face THUGPRO's toolchain turned the other way round)
+        const reversed = (f: readonly (readonly number[])[]): (readonly number[])[] => [f[0]!, f[2]!, f[1]!];
+        for (const f of unmatched) {
+            const k = [...left].find((i) => sameFace(mine[i]!, reversed(f), tolerance));
+            if (k === undefined) {
+                notes.push(`collision ${text(sec.checksum)}: THUGPRO's faces aren't THPS3's - not edited`);
+                left.clear();
+                break;
+            }
+            left.delete(k);
+        }
+        if (left.size && left.size === count - t.faces.length)
+            out[text(sec.checksum)] = {
+                remove: [...left].sort((a, b) => a - b).map((i) => mine[i]!.map((p) => [...p])),
+            };
+    }
+    return [out, notes];
+}
+
 export function extractThugpro(thps3Dir: string, thugpro: string): Record<string, unknown> {
     const teams = flagTeams(scriptNames(thps3Dir));
     const flags: Record<string, unknown> = {
@@ -397,6 +645,57 @@ export function extractThugpro(thps3Dir: string, thugpro: string): Record<string
         _source:
             "THUGPRO's installed data\\pre\\<level>_scripts.prx, levels\\<level>\\<level>.qb against THPS3's Data\\Levels\\<Lvl>\\<lvl>.qb: every restart with a network type (MultiPlayer, Horse, Team, CTF*) THUGPRO moved, retyped, renamed or added (changed: pos in THUG2's world, angles, type, restart_types, restart_name, created), and THPS3's network restarts THUGPRO hasn't (removed). Extracted by tools/thps3_levels/thugpro_compare.ts --extract-thugpro.",
     };
+    const source = (what: string): string =>
+        `THUGPRO's installed data\\pre\\<level>_scripts.prx (levels\\<level>\\<level>.qb) against THPS3's Data\\Levels\\<Lvl>\\<lvl>.qb: ${what}. Extracted by tools/thps3_levels/thugpro_compare.ts --extract-thugpro (nodeEdits).`;
+    const moved13: Record<string, unknown> = {
+        _register: "TP-13",
+        _source: source(
+            "the nodes THUGPRO moved or turned (not the network spawns - TP-12 - or the CTF / team nodes - TP-10 / TP-11): {name: pos in THUG2's world, angles}",
+        ),
+    };
+    const flags14: Record<string, unknown> = {
+        _register: "TP-14",
+        _source: source(
+            "CreatedAtStart / AbsentInNetGames / NetEnabled / TrickObject THUGPRO added or removed on the nodes it kept of the same kind (one it made another class is its toolchain's form: not here)",
+        ),
+    };
+    const terrain15: Record<string, unknown> = {
+        _register: "TP-15",
+        _source: source("every TerrainType THUGPRO changed: {name: THUGPRO's terrain}"),
+    };
+    const removed16: Record<string, unknown> = {
+        _register: "TP-16",
+        _source: source(
+            "THPS3's nodes THUGPRO hasn't (not renamed) that no script or other node of THPS3's names (the level's .qb, Data\\Scripts)",
+        ),
+    };
+    const renamed17: Record<string, unknown> = {
+        _register: "TP-17",
+        _source: source(
+            "{THPS3's name: THUGPRO's}: a THUGPRO-only node at the place of a THPS3-only node of the same class whose name no script uses",
+        ),
+    };
+    const rails18: Record<string, unknown> = {
+        _register: "TP-18",
+        _source: source(
+            "the RailNodes THUGPRO added, as node data: pos in THUG2's world, angles, TerrainType, flags, Cluster, Links by name",
+        ),
+    };
+    const collision19: Record<string, unknown> = {
+        _register: "TP-19",
+        _source:
+            "THUGPRO's installed data\\pre\\<level>col.prx / <level>scn.prx against THPS3's Data\\Levels\\<Lvl>\\<lvl>.bsp: an object THUGPRO draws without collision (drop), the faces THUGPRO's object lacks (remove: THPS3's own corners, in THPS3's order). Extracted by tools/thps3_levels/thugpro_compare.ts --extract-thugpro (collisionEdits).",
+    };
+    const notes: Record<string, string[]> = {};
+    const globalNames = new Map<number, string>();
+    for (const q of scriptNames(thps3Dir)) for (const [k, v] of q.names) globalNames.set(k, v);
+    const scriptsDir = pyJoin(thps3Dir, "Data", "Scripts");
+    const globalUses = nameUses(
+        fs
+            .readdirSync(scriptsDir)
+            .filter((f) => f.toLowerCase().endsWith(".qb"))
+            .map((f) => fs.readFileSync(pyJoin(scriptsDir, f))),
+    );
     for (const [base] of LEVELS) {
         const key = base.toLowerCase();
         if (THUG2_OWN.has(key) || NO_COUNTERPART.has(key)) continue;
@@ -446,13 +745,55 @@ export function extractThugpro(thps3Dir: string, thugpro: string): Record<string
             .filter((n): n is Struct => n instanceof Struct && isSpawn(n))
             .map((n) => theirNames.get(nameOf(n)!) ?? `#${hex8(nameOf(n)!)}`);
         spawnData[key] = { changed, removed, order };
+        // TP-13 .. TP-18: the node edits (the level's own .qb and THPS3's global scripts tell which names are used)
+        const ownNames = new Map(globalNames);
+        for (const [k, v] of ownQ.names) ownNames.set(k, v);
+        const uses = nameUses([fs.readFileSync(levelFiles(folder, base).get("qb")!)]);
+        for (const [k, v] of globalUses) uses.set(k, (uses.get(k) ?? 0) + v);
+        const edits = nodeEdits(Array.isArray(own) ? own : [], ownNames, theirs, theirNames, uses);
+        if (Object.keys(edits.moved).length) moved13[key] = edits.moved;
+        if (Object.keys(edits.flags).length) flags14[key] = edits.flags;
+        if (Object.keys(edits.terrain).length) terrain15[key] = edits.terrain;
+        if (edits.removed.length) removed16[key] = edits.removed;
+        if (Object.keys(edits.renamed).length) renamed17[key] = edits.renamed;
+        if (edits.rails.length) rails18[key] = edits.rails;
+        // TP-19: collision, against THPS3's own geometry
+        const colPrx = findPath(thugpro, "data", "pre", `${key}col.prx`);
+        const scnPrx = findPath(thugpro, "data", "pre", `${key}scn.prx`);
+        if (colPrx && scnPrx) {
+            const theirCol: thug2Col.ColObject[] = [];
+            for (const [name, cdata] of colCheck.colFiles(colPrx))
+                theirCol.push(...thug2Col.readCol(cdata, name).objects);
+            const theirScene = new Set<number>();
+            for (const [name, sdata] of prx.entries(scnPrx, (n) => /\.scn\./i.test(n)))
+                for (const s of thug2Scene.readScene(sdata, name).sectors) theirScene.add(s.checksum);
+            const bsp = levelFiles(folder, base).get("bsp")!;
+            const [col, colNotes] = collisionEdits(
+                thps3.readBsp(fs.readFileSync(bsp), bsp),
+                theirCol,
+                theirScene,
+                ownNames,
+            );
+            if (Object.keys(col).length) collision19[key] = col;
+            edits.notes.push(...colNotes);
+        }
+        if (edits.notes.length) notes[key] = edits.notes;
     }
     return {
         _comment:
-            "THUGPRO compatibility for the THPS3 level ports (tools/thps3_levels), approved by the user 2026-10-20. Each entry is registered in README.md here (TP-10, TP-11, TP-12). Capture the flag is decided on the server against its own flags; each side draws them from its own node array: these put our flags where THUGPRO's are, and our spawn points as THUGPRO's. Level keys are our (= THUGPRO's = THPS3's) level names. Read by tools/compat/compat.ts; `thps3_levels.ts convert --compat none` leaves all of it out (THPS3's own two bases). Regenerate: node tools/thps3_levels/thugpro_compare.ts --extract-thugpro tools/compat/thugpro/thps3_levels.json",
+            "THUGPRO compatibility for the THPS3 level ports (tools/thps3_levels), approved by the user 2026-10-20. Each entry is registered in README.md here (TP-10 .. TP-19). Capture the flag is decided on the server against its own flags; each side draws them from its own node array: these put our flags where THUGPRO's are, and our spawn points as THUGPRO's. TP-13 .. TP-19 (the user's decision 2026-10-20: everything THUGPRO changed, as data under the flag): its other hand edits of THPS3's nodes and collision - moved, flags, terrain, removed, renamed, rails, collision. Level keys are our (= THUGPRO's = THPS3's) level names. Read by tools/compat/compat.ts; `thps3_levels.ts convert --compat none` leaves all of it out (THPS3's own two bases). Regenerate: node tools/thps3_levels/thugpro_compare.ts --extract-thugpro tools/compat/thugpro/thps3_levels.json",
         ctf_flags: flags,
         team_nodes: extra,
         spawns: spawnData,
+        moved: moved13,
+        flags: flags14,
+        terrain: terrain15,
+        removed: removed16,
+        renamed: renamed17,
+        rails: rails18,
+        collision: collision19,
+        // (what nodeEdits / collisionEdits found and left out, and why - not read by the converter)
+        _notes: notes,
     };
 }
 

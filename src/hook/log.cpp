@@ -15,6 +15,7 @@
 namespace {
 FILE* g_log = nullptr;
 bool g_console = false;
+void (*g_crashHook)() = nullptr;
 }
 
 std::string GameFolderPath(const char* file_name)
@@ -151,7 +152,7 @@ LONG CALLBACK CrashLogger(EXCEPTION_POINTERS* info)
     bool fatal = code == EXCEPTION_ACCESS_VIOLATION || code == EXCEPTION_ILLEGAL_INSTRUCTION ||
                  code == EXCEPTION_INT_DIVIDE_BY_ZERO || code == EXCEPTION_STACK_OVERFLOW ||
                  code == EXCEPTION_PRIV_INSTRUCTION;
-    if (!fatal || logged >= 4)
+    if (!fatal)
         return EXCEPTION_CONTINUE_SEARCH;
     const CONTEXT* c = info->ContextRecord;
     char name[MAX_PATH] = "?";
@@ -165,6 +166,13 @@ LONG CALLBACK CrashLogger(EXCEPTION_POINTERS* info)
                        reinterpret_cast<LPCSTR>(c->Eip), &at);
     if (at != ours && at != GetModuleHandleA(nullptr))
         return EXCEPTION_CONTINUE_SEARCH;
+    if (logged >= 4) {
+        // (logged enough - but the hook still runs: earlier, handled exceptions mustn't keep a real crash's autosave
+        // from being written)
+        if (g_crashHook)
+            g_crashHook();
+        return EXCEPTION_CONTINUE_SEARCH;
+    }
     ++logged;
     ModuleOf(c->Eip, name, &offset);
     Log("EXCEPTION 0x%08X at %s+0x%X (%08X) (first chance: if the code handles it, nothing more happens)",
@@ -196,6 +204,9 @@ LONG CALLBACK CrashLogger(EXCEPTION_POINTERS* info)
             static_cast<unsigned>(value));
         ++found;
     }
+    // (then whoever asked: the level editor's last action and autosave - SetCrashHook)
+    if (g_crashHook)
+        g_crashHook();
     return EXCEPTION_CONTINUE_SEARCH;
 }
 
@@ -218,6 +229,8 @@ void LogOpen()
 #endif
     AddVectoredExceptionHandler(1, CrashLogger);
 }
+
+void SetCrashHook(void (*hook)()) { g_crashHook = hook; }
 
 void LogToConsole()
 {

@@ -88,8 +88,13 @@ Comparison with THUGPRO's own ports (read only): `node tools/thps3_levels/thugpr
   THUGPRO shares; TP-12 then makes every network spawn (multiplayer, horse, team, CTF restarts) as THUGPRO has it -
   place, angles, types and their order in the node array (THUG2 starts player n at the n-th Multiplayer restart);
   added ones appended, ones THUGPRO dropped no longer spawns. Only places, angles, types and
-  colours come from the data; the nodes are ours as above. `thugpro_inventory.ts` lists THUGPRO's other hand edits
-  (not applied). The data is read from
+  colours come from the data; the nodes are ours as above. THUGPRO's other hand edits that are data (the user's
+  decision, 2026-10-20: everything THUGPRO changed, under the flag): TP-13 nodes it moved (peds, waypoints, particles,
+  objects), TP-14 flags (CreatedAtStart, AbsentInNetGames, NetEnabled, TrickObject), TP-15 terrains, TP-16 nodes it
+  took out (left out as hidden), TP-17 renames, TP-18 the rails it added (from node data; a cluster we don't have is
+  left out), TP-19 collision edits (duplicate faces it took out, three decals without collision) - applied to THPS3's
+  node array before conversion and to the collision; `thugpro_inventory.ts` lists all THUGPRO's edits and `--applied`
+  checks these in our output. The data is read from
   THUGPRO's install by `thugpro_compare.ts --extract-thugpro tools/compat/thugpro/thps3_levels.json`.
 - Scripts, peds, vehicles, objects (`--no-scripts` leaves them out): the level's scripts translated to THUG2's
   (tools/level_port/script_port.ts) and run from a setup script; peds and crowds as THUG2's ped AI, resting birds and

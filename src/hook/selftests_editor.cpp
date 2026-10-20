@@ -10,6 +10,7 @@
 
 #include "game/front/level_editor.h"
 #include "game/front/level_editor_layout.h"
+#include "game/front/start_level.h"
 #include "game/mth/matrix.h"
 #include "hook/game.h"
 #include "hook/selftest.h"
@@ -454,5 +455,44 @@ void TestEditorArrowsAndLayouts()
           "editor: quarters past 3 refused");
 }
 SELFTEST(Early, TestEditorArrowsAndLayouts);
+
+// --- the autosave and -edit (pure parts) --------------------------------------------------------------------------
+
+void TestEditorAutosave()
+{
+    namespace Layout = Front::LevelEditor::Layout;
+    Check(Layout::SavedFileName(0x4DDB9865) == "4DDB9865.txt" && Layout::SavedFileName(0xA) == "0000000A.txt",
+          "editor: a layout's file name");
+    Check(Layout::AutosaveFileName(0x4DDB9865) == "4DDB9865.autosave.txt" &&
+              Layout::AutosaveFileName(0) == "00000000.autosave.txt",
+          "editor: an autosave's file name (never the layout's)");
+    Check(Layout::AutosaveNewer(true, 200, true, 100), "editor: an autosave newer than the layout is offered");
+    Check(!Layout::AutosaveNewer(true, 100, true, 200), "editor: an older autosave isn't");
+    Check(!Layout::AutosaveNewer(true, 100, true, 100), "editor: nor one as old as the layout");
+    Check(Layout::AutosaveNewer(true, 1, false, 0), "editor: an autosave without a layout is offered");
+    Check(!Layout::AutosaveNewer(false, 0, true, 100) && !Layout::AutosaveNewer(false, 0, false, 0),
+          "editor: no autosave, no offer");
+    // (times past 32 bits: FILETIMEs are 100 ns since 1601)
+    Check(Layout::AutosaveNewer(true, 0x01DB000000000001ull, true, 0x01DB000000000000ull) &&
+              !Layout::AutosaveNewer(true, 0x01DA0000FFFFFFFFull, true, 0x01DB000000000000ull),
+          "editor: the newer-than check on whole file times");
+
+    namespace StartLevel = Front::StartLevel;
+    const char* exe = "\"C:\\Games\\THUG2\\Game\\THUG2.exe\"";
+    Check(StartLevel::OptionValue(std::string(exe) + " -edit foun", "edit") == "foun", "edit level: -edit <name>");
+    Check(StartLevel::OptionValue(std::string(exe) + " --edit z_ma -windowed", "edit") == "z_ma",
+          "edit level: --edit <name> and more options");
+    Check(StartLevel::OptionValue(std::string(exe) + " --edit=Load_BO", "edit") == "Load_BO", "edit level: --edit=<name>");
+    Check(StartLevel::OptionValue(std::string(exe) + " -edit \"z_dt\"", "edit") == "z_dt", "edit level: a quoted name");
+    Check(StartLevel::OptionValue(std::string(exe) + " -level foun", "edit").empty() &&
+              StartLevel::OptionValue(std::string(exe) + " -level foun", "level") == "foun",
+          "edit level: -level isn't -edit");
+    Check(StartLevel::OptionValue("\"C:\\my-edit x\\THUG2.exe\" -level BO", "edit").empty(),
+          "edit level: -edit inside a path isn't the option");
+    Check(StartLevel::OptionValue(std::string(exe) + " -edit", "edit").empty() &&
+              StartLevel::OptionValue(std::string(exe), "edit").empty(),
+          "edit level: no name, no level");
+}
+SELFTEST(Early, TestEditorAutosave);
 
 } // namespace

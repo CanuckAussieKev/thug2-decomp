@@ -1,7 +1,9 @@
 // NOT ORIGINAL - an inventory of THUGPRO's own edits to its THPS4 level ports (docs/pending/thps4-thugpro.md
 // "THUGPRO hand edits: inventory"): its node arrays, level scripts and collision against THPS4's own files (and our
-// converted collision, which is THPS4's). Read only on both installs; nothing of THUGPRO's goes into our output - this
-// is the list the user decides on, and the base for register entries (TP-22: the spawns).
+// converted collision, which is THPS4's). Read only on both installs; this is the list the user decides on. What of it
+// is node data is in the compatibility profile (TP-22 ... TP-29: thugpro_edits.ts, extracted by thugpro_compare.ts
+// --extract-thugpro); with --thug2 each level's line is followed by how many of those edits our converted level there
+// agrees with, per category ("ours with the profile").
 //
 //   node tools/thps4_levels/thugpro_inventory.ts [levels...] [--thps4 C:\Games\THPS4] [--thugpro <dir>]
 //        [--thug2 C:\Games\THUG2-2] [--json out]
@@ -27,7 +29,8 @@ import * as thug2Col from "../level_port/thug2_col.ts";
 import { hex8, isMain, print, pyExit, pyJoin, pyJsonDumps, runMain, writeTextPy } from "../lib/py.ts";
 import { findPath } from "../thaw_levels/thaw_levels.ts";
 import { maxDiff, nodeArray, position } from "../thaw_levels/thugpro_compare.ts";
-import { LEVELS, levelName, loadName, STAGING } from "./thps4_levels.ts";
+import { editsOf, LEVELS, levelName, loadName, STAGING } from "./thps4_levels.ts";
+import { type Check, checkDuplicates, checkEdits } from "./thugpro_edits.ts";
 
 const DEFAULT_THUGPRO = pyJoin(process.env.LOCALAPPDATA ?? "", "THUG Pro");
 const TOLERANCE = 0.1;
@@ -120,6 +123,7 @@ export interface Inventory {
     collision: Record<string, unknown>;
     thugpro_files: string[];
     thugpro_extras?: Record<string, unknown>;
+    applied?: Check[] | null;
     error?: string;
 }
 
@@ -428,7 +432,40 @@ export function inventory(base: string, thps4Dir: string, thugpro: string, thug2
             out.collision = { error: e.message };
         }
     }
+    out.applied = applied(base, thugpro, thug2);
     return out;
+}
+
+// The profile's edits of the level (TP-22 ... TP-28: tools/compat/thugpro/thps4_levels.json) against our converted
+// level in <thug2>\thug2-decomp-thps4: per category, how many our node array / collision agrees with (null: not
+// converted there).
+export function applied(base: string, thugpro: string, thug2: string): Check[] | null {
+    const mine = levelName(base);
+    const ourQb = pyJoin(thug2, STAGING, "levels", mine, `${mine}.qb`);
+    if (!fs.existsSync(ourQb)) return null;
+    const edits = editsOf(base);
+    const [array] = nodeArray(fs.readFileSync(ourQb), ourQb);
+    const checks = checkEdits(edits, array);
+    const ourCol = pyJoin(thug2, STAGING, "levels", mine, `${mine}.col.xbx`);
+    const tpColPrx = findPath(thugpro, "data", "pre", `${loadName(base).toLowerCase()}col.prx`);
+    if (edits.duplicates.length && fs.existsSync(ourCol) && tpColPrx) {
+        const theirs = [...prx.entries(tpColPrx, (n) => n.toLowerCase().endsWith(".col.xbx"))].map(([n, d]) =>
+            thug2Col.readCol(d, n),
+        );
+        checks.push(checkDuplicates(edits, thug2Col.readCol(fs.readFileSync(ourCol), ourCol), theirs));
+    }
+    return checks.filter((c) => c.total);
+}
+
+export function appliedText(checks: readonly Check[]): string {
+    return checks
+        .map((c) => {
+            const notes: string[] = [];
+            if (c.absent.length) notes.push(`${c.absent.length} not in ours`);
+            if (c.differing.length) notes.push(`${c.differing.length} differ: ${c.differing.slice(0, 4).join(", ")}`);
+            return `${c.register} ${c.category} ${c.matching}/${c.total}${notes.length ? ` (${notes.join("; ")})` : ""}`;
+        })
+        .join("; ");
 }
 
 const USAGE =
@@ -474,6 +511,7 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
                 `spawns changed ${(r.spawns.changed as unknown[]).length}; scripts +${sc.added!.count} -${sc.removed!.count} ` +
                 `~${sc.changed!.count}; collision ${col.error ? `not compared (${String(col.error)})` : `objects +${(col.added as { count: number }).count} -${(col.removed as { count: number }).count}, faces changed ${(col.face_count_changed as { count: number }).count}`}`,
         );
+        if (r.applied?.length) print(`  ours with the profile: ${appliedText(r.applied)}`);
     }
     if (v.json) writeTextPy(v.json, pyJsonDumps(results, 1));
     return 0;

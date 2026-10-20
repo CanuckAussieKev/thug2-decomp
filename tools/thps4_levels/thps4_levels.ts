@@ -31,6 +31,7 @@ import { isMain, print, pyExit, pyJoin, pyRepr, runMain } from "../lib/py.ts";
 import { search, sub } from "../lib/re.ts";
 import * as thps4 from "./thps4.ts";
 import * as thps4Scripts from "./thps4_scripts.ts";
+import * as thugproEdits from "./thugpro_edits.ts";
 
 export const STAGING = "thug2-decomp-thps4";
 
@@ -87,7 +88,14 @@ export interface NetNodes {
     restarts: Placement[];
     multiplayer: string[];
 }
-export const COMPAT = { loadNames: new Map<string, string>(), netNodes: new Map<string, NetNodes>() };
+// THUGPRO's hand edits to its ports (TP-22 ... TP-28: thugpro_edits.ts), by section and level (lower case), and
+// whether TP-29 (the skate shop's door walls kept closed, as THUGPRO's) is switched on - off unless the profile says so.
+export const COMPAT = {
+    loadNames: new Map<string, string>(),
+    netNodes: new Map<string, NetNodes>(),
+    edits: new Map<thugproEdits.SectionName, Map<string, unknown>>(),
+    doorWalls: false,
+};
 
 // The compatibility profile's THPS4 data (tools/compat/compat.ts): "thugpro" (the default) or "none".
 export function setCompat(name: string): void {
@@ -98,7 +106,18 @@ export function setCompat(name: string): void {
     COMPAT.netNodes = new Map(
         Object.entries(profile.section("thps4_levels", "net_nodes")).map(([k, v]) => [k.toLowerCase(), v as NetNodes]),
     );
+    COMPAT.edits = new Map(
+        (Object.keys(thugproEdits.SECTIONS) as thugproEdits.SectionName[]).map((s) => [
+            s,
+            new Map(Object.entries(profile.section("thps4_levels", s)).map(([k, v]) => [k.toLowerCase(), v])),
+        ]),
+    );
+    const door = profile.file("thps4_levels").door_walls as { enabled?: boolean } | undefined;
+    COMPAT.doorWalls = door?.enabled === true;
 }
+
+// The profile's THUGPRO edits of a level (empty with --compat none).
+export const editsOf = (base: string): thugproEdits.LevelEdits => thugproEdits.levelEdits(COMPAT.edits, base);
 
 const vector = (values: readonly number[]): Vector => new Vector("vector", [...values]);
 
@@ -289,6 +308,11 @@ export function createdInPlay(textIn: string, base: string, report: string[]): s
 }
 
 export function openWalls(col4: thps4.ColFile, base: string, report: string[]): void {
+    if (COMPAT.doorWalls && base.toLowerCase() === "skateshop") {
+        // (TP-29, off by default: THUGPRO keeps THPS4's invisible door walls - against the user's request above)
+        report.push(`  ${base}: TP-29 - the door walls kept closed (THUGPRO's)`);
+        return;
+    }
     for (const opening of OPENINGS[base.toLowerCase()] ?? []) {
         const name = opening[0];
         const wanted = qb.checksum(name);
@@ -428,7 +452,9 @@ export function cmdConvert(args: Args): void {
         }
         const geometryRead = readGeometry(folder, base);
         const [scene4, textures4, col4] = geometryRead;
+        const edits = editsOf(base);
         openWalls(col4, base, report);
+        thugproEdits.removeDuplicateFaces(col4, edits, base, report); // (TP-28)
         let brought = new Map<number, Buffer>();
         let extraText = "";
         let hasSetup = false;
@@ -482,6 +508,18 @@ export function cmdConvert(args: Args): void {
                 }
             }
         }
+        // (TP-22 ... TP-27: THUGPRO's hand edits - thugpro_edits.ts; added nodes before the peds and cars too)
+        thugproEdits.applyEdits(
+            base,
+            edits,
+            converted,
+            names,
+            {
+                text: [extraText, pedsCars.scriptsNs(movingScripts), ...kills.values()].join("\n"),
+                scripts: brought,
+            },
+            report,
+        );
         // (TP-21: the profile's network-game nodes - before the peds and cars, which stay the array's last nodes)
         const netScripts = addNetNodes(base, name, converted, names, report);
         pedsCars.offsetLinks(moving, converted.length);
