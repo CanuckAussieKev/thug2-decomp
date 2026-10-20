@@ -52,17 +52,17 @@ export const MADE_SCRIPTS =
     `script ${CAR_DRIVE} {\n    Car_Generic01 \n}\n`;
 
 // THAW's rail speed-up (skutils.qb's RailAccelerate, the trigger script of uphill rails: while the skater grinds the
-// rail and climbs, 5% more speed a frame). THAW's checks the trigger type first (`if TriggerType {land onto}`); this
-// one doesn't yet - THUG2 has TriggerType too (the Trigger component's member, in its CallMemberFunction switch at
-// 0x00434970, so not in the member tables script_port reads), but THAW passes flags where THUG2 takes GetTriggerArray's
-// numbers: the translation is script_port's (shared), and this check is wired to it when that lands. Meanwhile the
-// climb loop ends as soon as the skater is off the rail anyway. THAW's spawns the loop through the skater's id
-// (`<objid>:Obj_SpawnScriptLater`); a rail's trigger script runs on the skater here, so Obj_SpawnScript.
-// (Written from THAW's own script; THUGPRO has one of the same shape in its thugpro_utils.q.)
+// rail and climbs, 5% more speed a frame). THAW's checks the trigger type first (`if TriggerType {land onto}`): THUG2's
+// TriggerType with GetTriggerArray's numbers for those flags (script_port.triggerFlags). THAW's spawns the loop through
+// the skater's id (`<objid>:Obj_SpawnScriptLater`); a rail's trigger script runs on the skater here, so
+// Obj_SpawnScript. (Written from THAW's own script; THUGPRO has one of the same shape in its thugpro_utils.q.)
 export const RAIL_ACCELERATE = "RailAccelerate";
+const LAND_ONTO = scriptPort.triggerFlags(["land", "onto"]) as number[];
 export const RAIL_SCRIPTS = `script RailAccelerate {
-    KillSpawnedScript name=RailAccelerate2
-    Obj_SpawnScript RailAccelerate2
+    if TriggerType [${LAND_ONTO.join(", ")}] {
+        KillSpawnedScript name=RailAccelerate2
+        Obj_SpawnScript RailAccelerate2
+    }
 }
 script RailAccelerate2 {rate=0.05
     OldPos = 0
@@ -838,41 +838,17 @@ const LEFT_OUT = new Set(
 );
 const LEFT_OUT_PREFIXES = ["goalmanager_", "goal_", "igc_", "playigccam", "cinematiccamera", "cutscene"];
 
-// THAW's geometry and rail scripts run on the skater (THUG2 runs a trigger's script on the skater that set it off): its
-// own components' members too (THAW's speed boosts: GetSpeed / SetSpeed; `if Walking`...), not just script_port's
-// safe few. A context of its own (script_port's SKATER stays as the other converters have it).
-// (animblender, input, vibration: the skater has them too - THUG2's TeleportSkaterToNode, which THAW's teleports
-// call (The Mall's Trgp_teleport...), needs them; without them the teleport triggers did nothing; sound: the skater
-// is made with AddMotionComponents' sound component (CSkater's init, src/game/skater/skater.cpp) - THAW's breakable
-// scripts play their glass with Obj_PlaySound)
+// THAW's geometry and rail scripts run on the skater (THUG2 runs a trigger's script on the skater that set it off): a
+// context of its own, with the whole skater's components (script_port's SKATER_COMPONENTS: its speed boosts' GetSpeed /
+// SetSpeed, `if Walking`, TeleportSkaterToNode's animblender / input / vibration, the breakables' Obj_PlaySound...).
 export const SKATER: Context = scriptPort.addContext(
     "thaw_skater",
-    new Set([
-        ...scriptPort.SAFE_COMPONENTS[scriptPort.SKATER],
-        "skatercorephysics",
-        "skaterstate",
-        "skaterphysicscontrol",
-        "trick",
-        "skaterbalancetrick",
-        "skaterruntimer",
-        "statsmanager",
-        "walk",
-        "animblender",
-        "input",
-        "vibration",
-        "sound",
-    ]),
+    new Set(scriptPort.SAFE_COMPONENTS[scriptPort.SKATER]),
     scriptPort.BY_NAME[scriptPort.SKATER],
 );
 
-// THUG2 scripts the skater runs that script_port.Thug2.scriptNeeds over-counts (it follows every name a script uses
-// that is also a script's - parameter names included - down through them): checked by hand to need only the
-// skater's own components. trigger_jump_boost (The Ruins' jump boosts, 10 triggers) is THAW's line for line:
-// SpawnSound, GetSkaterVelocity, SetSkaterVelocity (C functions). ShatterAndDie (SK4_Scripts) and BloodSplat
-// (bails.qb), which THAW's breakables call (The Mall's MA_BreakGlass...), are THAW's line for line, and THUG2's own LA
-// glass runs both on the skater the same way (LA_BreakGlass, the TRGP_ArcoWindow_* trigger script): Kill / Shatter /
-// GetGlobalFlag (C functions), the skater's tags and vibration, its blood particles (BloodParticlesOn).
-const SKATER_SCRIPTS_CHECKED = new Set(["trigger_jump_boost", "ShatterAndDie", "BloodSplat"].map(checksum));
+// (THUG2 scripts the skater runs - trigger_jump_boost, ShatterAndDie, BloodSplat, which THAW's breakables call - pass
+// script_port's check by themselves now: it counts only commands, and GotParam branches only when passed.)
 
 // THAW's IsCreated (is that node's object / sector there) as THUG2's IsAlive name=<it>: CFunc_IsAlive (0x005A5380 ->
 // 0x005A4EF0 -> 0x005A3D10) looks the node up and goes by its Class - for these classes an object's composite object,
@@ -897,12 +873,6 @@ const IS_ALIVE_CLASSES = new Set([
 export class Translator extends scriptPort.Translator {
     // the converted level's nodes: name -> class (lower case), for IsCreated
     nodeClasses = new Map<number, string>();
-
-    override thug2ScriptOk(name: number, contexts: Iterable<Context>): boolean {
-        const list = [...contexts];
-        if (SKATER_SCRIPTS_CHECKED.has(name) && list.every((c) => c === SKATER)) return true;
-        return super.thug2ScriptOk(name, list);
-    }
 
     // `IsCreated X` / `IsCreated {X}` / `IsCreated name=X` as `IsAlive name=X` (above), or null (noted).
     isCreated(toks: Tok[]): Tok[] | null {

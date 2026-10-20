@@ -308,9 +308,17 @@ export function toThug2Material(m: Material): thug2Scene.Material {
 
 // THPS4's face flag 0x80 means the camera goes through the face; THUG2's 0x80 means the camera collides with it.
 export const FACE_CAMERA = 0x0080;
-// The face flags kept (the ones THUG2's own levels use: wall ride, vert, non-collidable, decal, trigger, camera,
-// shadow, no-shadow wall, invisible). THPS4 sets 0x2000 on every face and 0x4000 / 0x8000 (render passes) on some -
-// none of them in THUG2's collision files.
+// The face flags kept: wall ride, vert, non-collidable, decal, trigger, camera, shadow, no-shadow wall, invisible
+// (0x4 ... 0x1000 but 0x200 / 0x800). Left out although THUG2's own levels use them too: 0x01 / 0x02 / 0x200 / 0x800
+// (1,292 / 1,513 / 1,076 / 1,532 of THUG2's faces) - their THPS4 meanings aren't checked (THPS4 sets them on 15,806 /
+// 13,651 / 17,191 / 2,986 of its 488,023 faces). Above 0x1000: THPS4 sets 0x2000 on every face (487,923 of 488,023) -
+// THUG2's "not taggable", which would make all of a THPS4 level untaggable: dropped; 0x4000 (2,387) and 0x8000
+// (72,165) do nothing in THUG2 (below): dropped.
+// THUG2's own bits above 0x1000 (docs/level-port-compromises.md): 0x2000 is "not taggable" - the graffiti feelers
+// ignore 0x1000 | 0x2000 (SetIgnore(0x3000, 0) at 0x0051DF71 / 0x0051E74B); 0x4000 and 0x8000 (on 4,535 / 40,513 of
+// THUG2's own faces - the park editor's shells, most levels) have no reader in THUG2's code: no feeler's ignore masks
+// (SetIgnore's callers: 0x10, 0x810, 0x90, 0x3000, require 0x20 / 0x50) and no test of those bits in the face flags
+// anywhere in the exe (every test / and with 0x4000 / 0x8000 is of other fields: CCollObj +0x08, pads, piece flags).
 export const FACE_KEEP = 0x15fc;
 
 export function faceFlags(flags: number): number {

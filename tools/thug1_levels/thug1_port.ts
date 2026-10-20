@@ -113,9 +113,6 @@ export class Thug1Translator extends scriptPort.Translator {
     static readonly TRUSTED: Readonly<Partial<Record<scriptPort.Context, readonly string[]>>> = {
         [scriptPort.PED]: ["ped_"],
         [scriptPort.VEHICLE]: ["car_"],
-        [scriptPort.SKATER]: ["shatteranddie"],
-        [scriptPort.OBJECT]: ["shatteranddie"],
-        [scriptPort.BOUNCY]: ["shatteranddie"],
     };
 
     constructor(

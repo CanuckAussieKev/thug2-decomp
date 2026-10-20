@@ -608,7 +608,11 @@ export function objectSectors(
     return [sectors, materials];
 }
 
-export const FACE_KEEP = 0x1fff; // THPS3's face flags have THUG2's meanings (0x80: the camera collides, as THUG2's)
+// THPS3's face flags have THUG2's meanings up to 0x1000 (0x80: the camera collides, as THUG2's). 0x2000 / 0x4000 /
+// 0x8000 are on a few hundred of THPS3's 580,016 faces each, with every other bit about half the time (stray values;
+// THPS3 has no tagging): dropped - THUG2's 0x2000 is "not taggable", 0x4000 / 0x8000 do nothing in THUG2 (the graffiti
+// feelers ignore 0x3000 at 0x0051DF71 / 0x0051E74B; no code tests 0x4000 / 0x8000 of a face).
+export const FACE_KEEP = 0x1fff;
 
 export function faceFlags(flags: number): number {
     return flags & FACE_KEEP;

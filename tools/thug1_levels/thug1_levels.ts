@@ -69,8 +69,15 @@ export const LEVELS: readonly LevelInfo[] = [
 ];
 export const BY_CODE: ReadonlyMap<string, LevelInfo> = new Map(LEVELS.map((info) => [info[0].toLowerCase(), info]));
 
-// THUG1's collision face flags in THUG2: the same meanings (0x80: the camera collides, as THUG2's - not THPS4's
-// reverse); 0x2000 (on every face), 0x4000 and 0x8000 aren't in THUG2's files - dropped.
+// THUG1's collision face flags in THUG2: the same meanings up to 0x1000 (0x80: the camera collides, as THUG2's - not
+// THPS4's reverse). Above: THUG1 sets 0x2000 on every face (476,641 of 476,641) - in THUG2 it means "not taggable"
+// (THUG2's own levels: 6,555 faces, mostly walls), which would make all of a THUG1 level untaggable: dropped; 0x4000
+// (8,397) and 0x8000 (69,189) do nothing in THUG2 (below): dropped.
+// THUG2's own bits above 0x1000 (docs/level-port-compromises.md): 0x2000 is "not taggable" - the graffiti feelers
+// ignore 0x1000 | 0x2000 (SetIgnore(0x3000, 0) at 0x0051DF71 / 0x0051E74B); 0x4000 and 0x8000 (on 4,535 / 40,513 of
+// THUG2's own faces - the park editor's shells, most levels) have no reader in THUG2's code: no feeler's ignore masks
+// (SetIgnore's callers: 0x10, 0x810, 0x90, 0x3000, require 0x20 / 0x50) and no test of those bits in the face flags
+// anywhere in the exe (every test / and with 0x4000 / 0x8000 is of other fields: CCollObj +0x08, pads, piece flags).
 export const FACE_KEEP = 0x1fff;
 
 export function faceFlags(flags: number): number {

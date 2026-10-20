@@ -33,7 +33,6 @@ import { checksum, Name, Struct, Vector } from "../level_port/qb.ts";
 import * as scriptPort from "../level_port/script_port.ts";
 import * as tex from "../level_port/tex.ts";
 import { pyJoin, pyMax, pyMin, pyParseInt, pyRepr, pySum, pyTruthy } from "../lib/py.ts";
-import { pack } from "../lib/struct.ts";
 import * as thps4 from "./thps4.ts";
 
 // THPS4's script files whose scripts may be brought along (the level's own files: "level"; the designers' shared
@@ -51,54 +50,9 @@ export const SOURCES = [
 // THPS4's commands left out although THUG2 has them (besides script_port.LEFT_OUT) - goals, the skater's career,
 // cameras, THPS4's panels: a port change (PC-THPS4-8), its list in tools/compat/thugpro/thps4_levels.json port_changes, given
 // to convert() as options.leftOut by thps4_levels.ts.
-// Member functions the skater may run besides script_port's (the gap / trigger scripts of sectors and rails ask it
-// `if onground`, `if skitching`, `if doingtrick`...): THUG2's skater has these components.
-export const COMPONENTS = { [scriptPort.SKATER]: ["skaterstate", "skatercorephysics"] };
-// The skater's member functions by name (no table entry): TriggerType - THUG2's own LA trigger scripts ask it too
-// (`if TriggerType <trigger_array>`).
-export const BY_NAME = { [scriptPort.SKATER]: ["TriggerType"] };
-// THPS4's trigger types (skutils.qb's TRIGGER_* - `if TriggerType TRIGGER_LIP_ON`, `if TriggerType [A B]`) as THUG2's
-// trigger arrays (skutils.qb's GetTriggerArray: each an array of conditions that must all hold - skate 1, jump 2,
-// onto 3, off 4, offedge 5, lip 7, land 8, bonk 9; -1 none, i.e. any; an array of them: any of them). THUG2's
-// TriggerType reads its first argument as such an array: THPS4's bare name crashed it (null read, 0x004349B2).
-export const TRIGGER_ARRAYS: Readonly<Record<string, readonly number[]>> = {
-    TRIGGER_THROUGH: [-1],
-    TRIGGER_SKATE_OFF_EDGE: [5],
-    TRIGGER_JUMP_OFF: [2, 4],
-    TRIGGER_LAND_ON: [8],
-    TRIGGER_SKATE_OFF: [1, 4],
-    TRIGGER_SKATE_ONTO: [1, 3],
-    TRIGGER_BONK: [9],
-    TRIGGER_LIP_ON: [7, 3],
-    TRIGGER_LIP_OFF: [7, 4],
-    TRIGGER_LIP_JUMP: [7, 2],
-};
-
-export function triggerType(toks: scriptPort.Tok[]): scriptPort.Tok[] | null {
-    // `TriggerType <a THPS4 trigger type or a list of them>` -> `TriggerType [[...] ...]`, or null (left out).
-    const byValue = new Map(Object.entries(TRIGGER_ARRAYS).map(([k, v]) => [checksum(k), v]));
-    const values: (readonly number[])[] = [];
-    for (const t of toks.slice(1)) {
-        if (t.t === 0x16) {
-            const found = byValue.get(t.name()!);
-            if (found === undefined) return null;
-            values.push(found);
-        } else if (t.t !== 0x05 && t.t !== 0x06 && t.t !== 0x09) {
-            return null;
-        }
-    }
-    if (!values.length) return null;
-    const i = toks[0]!.i;
-    const empty = Buffer.alloc(0);
-    const out = [toks[0]!, new scriptPort.Tok(0x05, empty, i)];
-    for (const conditions of values) {
-        out.push(new scriptPort.Tok(0x05, empty, i));
-        out.push(...conditions.map((c) => new scriptPort.Tok(0x17, pack("<i", c), i)));
-        out.push(new scriptPort.Tok(0x06, empty, i));
-    }
-    out.push(new scriptPort.Tok(0x06, empty, i));
-    return out;
-}
+// The skater's components (`if onground`, `if skitching`, `if doingtrick`...), its by-name members (TriggerType...) and
+// the translation of THPS4's TRIGGER_* types to THUG2's TriggerType arrays are script_port's (shared with THPS3, THUG1
+// and THAW: SKATER_COMPONENTS, the member table, triggerType).
 
 // MakeSkaterGoto (script_port's LEFT_OUT: goals and cutscenes send the skater into their own scripts) kept for the
 // skater scripts THUG2 has under THPS4's names - DropIn (a restart on a ramp's lip: THPS4's restarts' trigger scripts
@@ -119,10 +73,7 @@ export function isEmptyScript(code: Uint8Array): boolean {
     return tokensLeft <= 1; // (the script's name)
 }
 
-export const REWRITES = new Map([
-    [checksum("TriggerType"), triggerType],
-    [checksum("MakeSkaterGoto"), makeSkaterGoto],
-]);
+export const REWRITES = new Map([[checksum("MakeSkaterGoto"), makeSkaterGoto]]);
 // The made peds' trigger script (THUG2's ped AI, standing).
 export const PED_STAND = "thps4_ped_stand";
 
@@ -859,9 +810,7 @@ export function convert(
                 undrawn,
                 leftOut: options.leftOut ?? [],
                 objects,
-                components: COMPONENTS,
                 full: true,
-                byName: BY_NAME,
                 rewrites: REWRITES,
                 keptIn: KEPT_IN,
             },

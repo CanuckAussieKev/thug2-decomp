@@ -274,6 +274,16 @@ export const LEFT_OUT: ReadonlySet<string> = new Set(
         "CareerStartLevel",
         "StartRunScript",
         "EndRunScript",
+        // (THUG2's front-end / goal scripts the source games' level scripts call under the same names - script_port
+        // took them for scripts the runner can't run until it counted only commands: they would change level, load
+        // from the memory card, rebind the pause key, show the goal panels or unlock a level)
+        "level_select_change_level",
+        "maybe_auto_load_from_memory_card",
+        "restore_start_key_binding",
+        "create_speech_box",
+        "GoalManager_HidePoints",
+        "GoalManager_ShowPoints",
+        "OldSkool_Icon",
     ].map((name) => name.toLowerCase()),
 );
 
@@ -368,6 +378,114 @@ export class Tok {
 
 export function nameTok(value: number, i: number): Tok {
     return new Tok(0x16, pack("<I", value), i);
+}
+
+// --- TriggerType ----------------------------------------------------------------------------------------------------
+
+// THUG2's TriggerType (the trigger component's member, its CallMemberFunction 0x00434970): true when the events that
+// set the trigger off (+0x28: a bit per event number - CTriggerComponent::TriggerNode 0x00434A60) include every
+// non-negative number of its first unnamed array - or of any array in it, for an array of arrays. Without an array it
+// reads through a null (0x004349B2): every form a source game passes is made such an array here, or left out.
+// The event numbers (skutils.qb's GetTriggerArray, which THUG2's own levels' scripts pass): walk 14, skate 1, jump 2,
+// onto / on 3, off 4, offedge 5, wallplant 6, lip 7, land 8, bonk 9, climb / hang 10, graffiti 11, spin 12, grind 13,
+// projectile 14. The exe's callers pass these events (each an .rdata triple pushed to 0x00434BF0 / 0x00434A60): skate
+// onto {1,3} / off {1,4} / off the edge {1,5} (0x0050A1F9 / 0x0050A1D1 / 0x0050A2A4), jump off {2,4} (0x0050391A),
+// wallplant onto / off {6,3} / {6,4} (0x00507D6C / 0x0050920B), land onto {8,3} (0x00508575), bonk {9}
+// (0x005070F3), hang {10,4} (0x0043DB46), graffiti onto {11,3} (the tagging 0x0051E658), grind onto {13,3}
+// (0x0050AAA3), walk onto / off {14,3} / {14,4} (the walk component 0x0052B55B), a projectile {14} (0x004F3A34).
+// (lip 7 and spin 12: no caller pushes them as constants - GetTriggerArray's numbers.)
+
+// THPS3's / THPS4's / THUG1's trigger types (their skutils.qb: TRIGGER_THROUGH 0 ... TRIGGER_LIP_JUMP 9, the same
+// names in all three) as THUG2 event lists - all must hold; [-1]: none, i.e. any.
+export const TRIGGER_ARRAYS: Readonly<Record<string, readonly number[]>> = {
+    TRIGGER_THROUGH: [-1],
+    TRIGGER_SKATE_OFF_EDGE: [5],
+    TRIGGER_JUMP_OFF: [2, 4],
+    TRIGGER_LAND_ON: [8],
+    TRIGGER_SKATE_OFF: [1, 4],
+    TRIGGER_SKATE_ONTO: [1, 3],
+    TRIGGER_BONK: [9],
+    TRIGGER_LIP_ON: [7, 3],
+    TRIGGER_LIP_OFF: [7, 4],
+    TRIGGER_LIP_JUMP: [7, 2],
+};
+// THAW's flags (`TriggerType land onto`, `TriggerType {Lip On}`) in GetTriggerArray's order - it takes the first three
+// of them in this order, -1 for the rest. `through`: none (any).
+export const TRIGGER_FLAGS: readonly (readonly [string, number])[] = [
+    ["walk", 14],
+    ["skate", 1],
+    ["jump", 2],
+    ["onto", 3],
+    ["on", 3],
+    ["off", 4],
+    ["offedge", 5],
+    ["wallplant", 6],
+    ["lip", 7],
+    ["land", 8],
+    ["bonk", 9],
+    ["climb", 10],
+    ["hang", 10],
+    ["graffiti", 11],
+    ["spin", 12],
+    ["grind", 13],
+    ["projectile", 14],
+    ["through", -1],
+];
+// THAW's flags THUG2 has no event for (THAW's smack, Natas spin, acid drop, stall): left out.
+export const TRIGGER_NONE: readonly string[] = ["Smack", "Natas", "AcidDrop", "STALL"];
+
+// THAW's flags as GetTriggerArray makes them: three numbers (-1 none), or the name of a flag THUG2 hasn't.
+export function triggerFlags(flags: readonly string[]): number[] | string {
+    const wanted = new Set(flags.map((f) => f.toLowerCase()));
+    const known = new Set(TRIGGER_FLAGS.map(([f]) => f));
+    const unknown = flags.find((f) => !known.has(f.toLowerCase()));
+    if (unknown !== undefined) return unknown;
+    const values: number[] = [];
+    for (const [flag, value] of TRIGGER_FLAGS) {
+        // (onto, else on - GetTriggerArray's `if GotParam onto ... else if GotParam on`; climb, else hang)
+        if (!wanted.has(flag) || value < 0) continue;
+        if ((flag === "on" && wanted.has("onto")) || (flag === "hang" && wanted.has("climb"))) continue;
+        values.push(value);
+    }
+    const out = values.slice(0, 3);
+    while (out.length < 3) out.push(-1);
+    return out;
+}
+
+const TRIGGER_TYPE = checksum("TriggerType");
+const TRIGGER_BY_CHECKSUM = new Map(Object.entries(TRIGGER_ARRAYS).map(([k, v]) => [checksum(k), v]));
+const FLAG_BY_CHECKSUM = new Map(
+    [...TRIGGER_FLAGS.map(([f]) => f), ...TRIGGER_NONE].map((f) => [checksum(f), f] as const),
+);
+
+// `TriggerType ...` as THUG2's (the statement's tokens), or why it is left out:
+//   TriggerType TRIGGER_LIP_ON / [TRIGGER_A TRIGGER_B]  (THPS3, THPS4, THUG1) -> TriggerType [[7 3] ...]
+//   TriggerType land onto / {Lip On}  (THAW's flags; a structure's are plain arguments by then) -> TriggerType [8 3 -1]
+//   TriggerType <param>  (THAW's <trigger_array>: GetTriggerArray's, THUG2's script) -> kept
+export function triggerType(toks: readonly Tok[]): Tok[] | string {
+    const args = toks.slice(1).filter((t) => !EOL.includes(t.t));
+    if (args.length === 2 && args[0]!.t === 0x2d && args[1]!.t === 0x16) return [...toks];
+    const names: number[] = [];
+    for (const t of args) {
+        if (t.t === 0x16) names.push(t.name()!);
+        else if (![0x03, 0x04, 0x05, 0x06, 0x09].includes(t.t)) return "TriggerType: form";
+    }
+    if (!names.length) return "TriggerType: form";
+    const i = toks[0]!.i;
+    const empty = Buffer.alloc(0);
+    const int = (v: number): Tok => new Tok(0x17, pack("<i", v), i);
+    if (names.every((n) => TRIGGER_BY_CHECKSUM.has(n))) {
+        const out = [toks[0]!, new Tok(0x05, empty, i)];
+        for (const n of names)
+            out.push(new Tok(0x05, empty, i), ...TRIGGER_BY_CHECKSUM.get(n)!.map(int), new Tok(0x06, empty, i));
+        out.push(new Tok(0x06, empty, i));
+        return out;
+    }
+    const flags = names.map((n) => FLAG_BY_CHECKSUM.get(n));
+    if (flags.some((f) => f === undefined)) return "TriggerType: form";
+    const values = triggerFlags(flags as string[]);
+    if (typeof values === "string") return `TriggerType: no THUG2 trigger event: ${values}`;
+    return [toks[0]!, new Tok(0x05, empty, i), ...values.map(int), new Tok(0x06, empty, i)];
 }
 
 // A command a THUG2 script runs on the object running it (Thug2.uses): a member function or a THUG2 script (a call, or
@@ -514,10 +632,7 @@ export class Thug2 {
             if (toks[k]![1] === 0x23 && toks[k + 1]?.[1] === 0x16) {
                 let end = k + 2;
                 while (end < toks.length && toks[end]![1] !== 0x24) end += 1;
-                this.uses.set(
-                    u32(toks[k + 1]![2]),
-                    Thug2.commandsOf(toks.slice(k + 2, end).map(([, t, p]) => [t, p])),
-                );
+                this.uses.set(u32(toks[k + 1]![2]), Thug2.commandsOf(toks.slice(k + 2, end).map(([, t, p]) => [t, p])));
                 k = end;
             }
         }
@@ -626,11 +741,7 @@ export class Thug2 {
             if (who !== undefined) {
                 out.add(who.length ? [...who].sort().join("|") : "(none)");
             } else if (this.scripts.has(use.name)) {
-                const inner = use.all
-                    ? given === null
-                        ? null
-                        : [...given, ...use.passed]
-                    : use.passed;
+                const inner = use.all ? (given === null ? null : [...given, ...use.passed]) : use.passed;
                 const innerKey = `${use.name}:${inner === null ? "*" : sortedNumbers(new Set(inner)).join(",")}`;
                 if (seen.has(innerKey)) continue;
                 for (const c of this.scriptNeeds(use.name, inner, seen)) out.add(c);
@@ -898,7 +1009,9 @@ export class Translator {
         this.translatable = translatable;
         this.nodeNames = new Set(nodeNames);
         this.allNodeNames = new Set(allNodeNames);
-        this.components = new Map(COMPONENT_NAMES.map((c) => [/^[0-9a-f]{8}$/.test(c) ? Number.parseInt(c, 16) : checksum(c), c]));
+        this.components = new Map(
+            COMPONENT_NAMES.map((c) => [/^[0-9a-f]{8}$/.test(c) ? Number.parseInt(c, 16) : checksum(c), c]),
+        );
         const allRenames = { ...RENAMES, ...(options.renames ?? {}) };
         this.renames = new Map(Object.entries(allRenames).map(([a, b]) => [checksum(a), checksum(b)]));
         const setDefault = (text: string): void => {
@@ -1001,6 +1114,15 @@ export class Translator {
                 return null;
             }
             toks = rewritten;
+        }
+        if (toks[0]!.t === 0x16 && toks[0]!.name() === TRIGGER_TYPE) {
+            // (every game's TriggerType made THUG2's array - THUG2's reads through a null without one)
+            const made = triggerType(toks);
+            if (typeof made === "string") {
+                this.note(made);
+                return null;
+            }
+            toks = made;
         }
         if (this.full && toks.length > 2 && toks[1]!.t === 0x07) {
             // `name = value` (a parameter set): a script as the value brought along (run as the caller's: goto <it>)
