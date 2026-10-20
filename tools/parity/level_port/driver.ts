@@ -1,4 +1,6 @@
 // NOT ORIGINAL - the TypeScript half of tools/level_port's parity driver (driver.py: the commands, the same output).
+// prepare (TypeScript only: the geometry cases' inputs, read by both halves) uses tools/thps4_levels' and
+// tools/thug1_levels' readers.
 //
 //   node tools/parity/level_port/driver.ts <command> <out> [inputs...]
 
@@ -30,6 +32,8 @@ import {
     pyTuple,
     sortedNumbers,
 } from "../../lib/py.ts";
+import * as thps4 from "../../thps4_levels/thps4.ts";
+import * as thug1 from "../../thug1_levels/thug1.ts";
 import { blob, canon, digest, dump, qcanon } from "../canon.ts";
 
 const NS = "C:\\Dev\\thug2-decomp\\out\\neverscript\\ns.exe";
@@ -541,8 +545,60 @@ function unjson(x: unknown): unknown {
     return x;
 }
 
+const snake = (key: string): string => key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
+
+// The structures as driver.py's JSON reads them (bytes as {"hex": ...}, snake_case keys; a collision object's
+// per-vertex intensities as bytes, as THPS4's Python reader had them).
+function jsonable(x: unknown, key = ""): unknown {
+    if (Buffer.isBuffer(x)) return new Map([["hex", x.toString("hex")]]);
+    if (Array.isArray(x)) {
+        if (key === "intensities") return x.map((i: number[]) => jsonable(Buffer.from(i)));
+        return x.map((v) => jsonable(v));
+    }
+    if (x !== null && typeof x === "object") {
+        return new Map(Object.entries(x).map(([k, v]) => [snake(k), jsonable(v, k)]));
+    }
+    return x;
+}
+
+function cmdPrepare(out: string, which: string, thps4Dir: string, thug1Dir: string): void {
+    // The geometry commands' inputs: THPS4's and THUG1's scenes / collision as their readers (thps4.ts, thug1.ts)
+    // make them, as JSON both drivers read. (Was driver.py's, with the Python readers: they went with stage 2.)
+    fs.mkdirSync(out, { recursive: true });
+    const levels = path.join(thps4Dir, "data", "levels");
+    for (const folder of which === "thps4" ? fs.readdirSync(levels).sort() : []) {
+        const base = path.join(levels, folder, folder.toLowerCase());
+        if (!fs.existsSync(`${base}scn.dat`)) continue;
+        const scene = thps4.readScene(fs.readFileSync(`${base}scn.dat`), folder);
+        const item: Record<string, unknown> = {
+            name: folder,
+            game: "thps4",
+            sectors: scene.sectors,
+            materials: scene.materials.map(thps4.toThug2Material),
+        };
+        if (fs.existsSync(`${base}col.dat`))
+            item.col = thps4.readCol(fs.readFileSync(`${base}col.dat`), folder).objects;
+        fs.writeFileSync(path.join(out, `thps4_${folder}.json`), pyJsonDumps(jsonable(item)));
+    }
+    const pre = path.join(thug1Dir, "Data", "pre");
+    for (const archive of which === "thug1" ? fs.readdirSync(pre).sort() : []) {
+        if (!archive.toLowerCase().endsWith("scn.pre")) continue;
+        for (const [name, data] of prx.entries(path.join(pre, archive), (n) => n.toLowerCase().endsWith(".scn.xbx"))) {
+            let scene: thug1.Scene;
+            try {
+                scene = thug1.readScene(data, name);
+            } catch (e) {
+                if (e instanceof FormatError) continue;
+                throw e;
+            }
+            const item = { name, game: "thug1", sectors: scene.sectors, materials: scene.materials };
+            fs.writeFileSync(path.join(out, `thug1_${safe(name)}.json`), pyJsonDumps(jsonable(item)));
+        }
+    }
+}
+
 function cmdGeometry(out: string, paths: readonly string[]): void {
-    // paths: driver.py prepare's JSON files, or folders of them
+    // paths: prepare's JSON files, or folders of them
     const lines: string[] = [];
     const expanded: string[] = [];
     for (const p of paths) {
@@ -689,6 +745,9 @@ function main(): void {
             return;
         case "manifest":
             cmdManifest(out, rest);
+            return;
+        case "prepare":
+            cmdPrepare(out, rest[0]!, rest[1]!, rest[2]!);
             return;
         case "geometry":
             cmdGeometry(out, rest);
