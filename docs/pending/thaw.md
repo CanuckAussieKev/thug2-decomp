@@ -180,7 +180,7 @@ Multiplayer / Horse / CTF / Team types that THUGPRO moved, retyped, added or too
   decompiles all but East LA (THAW's own EL_Spring); --compat none unchanged. Left as THAW has it: THUGPRO also took
   CreatedAtStart off fromalley01 and fromboardwalk01 (not a spawn type - outside TP-4). NOT run in the game.
 
-## THUGPRO's other hand edits in its THAW levels - inventory (2026-10-20; nothing changed, the user decides)
+## THUGPRO's other hand edits in its THAW levels - inventory (2026-10-20; since applied as TP-5...TP-9 or awaiting the user - next section)
 
 THUGPRO's installed node arrays, scripts and collision against THAW's own full zone archives (with their _sfx
 sub-zones), in THUGPRO's frame. Caveat: THUGPRO converted THAW's *Xbox* files, so a few differences may be the Xbox
@@ -220,3 +220,97 @@ in the report (inventory.ts). Effect on play between our players and THUGPRO's i
   pipe, a barrier), SV 7 (meshes, a sauce and a snack machine), CH 3 (two rail collision pieces, a sign LOD), DT 1,
   BH 1 (gas station ground piece), LV 1 (elevator wall) [walls / floors on one side only]; face counts changed - DN 3, JA 2, SV 4, HO 2, DT 3, SM 3, SR 2, LV 1; moved objects - MA 20, DT 23
   (freeway cars), others 1-7. Plus THUGPRO's unreachable faces (earlier section).
+
+## TP-5...TP-9: THUGPRO's other hand edits as profile data (agent thaw-tp59, 2026-10-20) - NOT run in the game
+
+The user's decision: "Everything [THUGPRO] changed needs to be in the differences files that we can control with the
+compat flag." So every hand edit THUGPRO made to its THAW levels is data in `tools/compat/thugpro/thaw_levels.json`
+(register rows TP-5...TP-9 in its README.md): the default `--compat thugpro` applies it, `--compat none` gives THAW's
+own level exactly as before (checked: all 15 .qb the same as code plus sorted names, every other file byte-identical).
+What would copy THUGPRO's own content (its meshes, models, scripts) is listed in the profile's `awaiting`, not applied.
+
+Tools (all read only on both installs):
+- `thugpro_extract.ts` (new): the extraction, run by `node tools/thaw_levels/thugpro_compare.ts --extract-thugpro
+  [--thug2 <game>]` with TP-4's spawns - THUGPRO's installed node arrays, scenes and collision against THAW's net
+  archive (what we convert) and its full archive (the story's pieces, the _sfx sub-zones), in THUGPRO's frame. Never
+  typed in. A sector / collision object is compared as a set of points (THUGPRO converted THAW's Xbox files, whose
+  meshes weld and order vertices otherwise - a per-vertex comparison called 659 Hollywood sectors "changed"): the
+  same, a rigid move (rotation about y + translation, fitted from the vertices, the node's own move or the box; checked
+  to 0.1 units), or reshaped (awaiting).
+- `thugpro_edits.ts` (new): applies it - `applyGeometryEdits` (THAW's scene / collision before converting: moves,
+  the imported pieces with their materials / textures, the collision taken out; a moved collision object gets float
+  vertices, a new box, BSP tree and reaches), `applyNodeEdits` (THAW's array before converting, our game-mode names:
+  renames, moves, Links, flags / keys, cluster renames, removals as placeholders, added nodes linked by name), and
+  `applyFaceEdits` (the converted collision: per-face flags and terrain, the face count checked). `thaw_levels.ts`
+  calls them only with the profile's data (`editsFor`); `fullArchive` reads THAW's `<zone>.pak.wpc` for TP-6.
+- `thugpro_inventory.ts --ours <levels>` (new mode): our converted levels against THUGPRO's per register category.
+- `compactJson` (thugpro_compare.ts) writes the profile (short lists of plain values on one line): 580 KB.
+
+Applied (counts over the 15 areas; per area in the register and the profile):
+- TP-5: 60 nodes moved / turned / relinked (SM's 17 PacificParkStoresBuilding rails, DN's Player1_start02 rail, JA's
+  TRG_783 / 3552 / 4384, SZ's levelevent99/100, MA's 6 lamps, DT's 99Cent_02 and Objects_Mesh23 nodes, CH's 2 rails and
+  Outby701/702, SM's 12 ferris cars...); 23 sectors / collision objects moved rigidly (MA's 6 lamps - DLamp10 turned
+  -0.105 rad -, CH's Outby701/702 collision, DN's 5, DT's stickers, LV's 8 backdrop pieces); 226 renames (EL 110 / SM
+  103 / SZ 1 night lights - the zone prefix off, probably THUGPRO's toolchain, no effect here: our port leaves level
+  lights out -, CH's 11 goal letters, SZ's bastardrail1). No rename or removal was skipped for a THAW script naming it.
+- TP-6: 1,061 nodes' flags / keys (CreatedAtStart -216 / +113 incl. SZ's fromalley01 / fromboardwalk01; AbsentInNetGames
+  -378 / +110; TrickObject +24 / -13; CollisionMode 26; Class 69, Type 124; TerrainType 67; TriggerScript off 30;
+  SV's TrickAttack restart_types); 519 clusters renamed (DN 218, JA 288, SZ 13 - the zone prefixed; JA's 34 that THAW
+  scripts name kept); 485 sectors / collision objects of the 310 nodes whose AbsentInNetGames THUGPRO took off,
+  brought from THAW's full archive (Kyoto: 805 -> 939 sectors, 631 -> 706 textures). NetEnabled: THUGPRO changed none.
+- TP-7: 10 nodes, 7 sectors, 22 collision objects out (CH's rail collision, SV's 7 meshes, DT's Mesh15, SZ's 9, BH 1,
+  LV 1).
+- TP-8: 238 nodes added: SM's 24 ferris-car rails, JA's 3 DDR rails, 211 car-path waypoints (JA 97, EL 88, SZ 24, SR 2).
+- TP-9: 2,523 faces in 111 collision objects (wallride / skatable / non-collidable / camera flags; terrain - DN's
+  1,043 faces in 61 objects, SZ 506, SR 324: maybe the Xbox data, applied, sound only).
+
+Remaining differences (`thugpro_inventory.ts --ours`, all 15, before -> after): nodes elsewhere 44 -> 0; flags / keys on
+rails, geometry, restarts and objects 5,626 -> 0; nodes only ours 12 -> 1 (TP-4's added spawn, ours TRG_Net_Spawn01,
+THUGPRO's TRG_SkaterDropIn - names don't travel); nodes only THUGPRO's 4,151 -> 3,988 (classes our port leaves out or
+makes its own way - 912 level lights, 505 peds, 571 game objects, 373 level objects, 86 climbing nodes, sound nodes -,
+our night-time / LOD pieces left out, THAW's full-archive story nodes, the awaiting nodes); collision 1,094 -> 741
+(709 objects only THUGPRO's: the full archive's story pieces and its own; 32 reshaped, awaiting); scene 3,110 -> 2,826
+(sectors only THUGPRO's for the same reasons; 14 collision objects reshaped, awaiting); our port's own 1,143 -> 1,058
+(TrickObject / Cluster off 365 geometry nodes without a sector, breakable glass faces, CollisionMode off objects
+without collision). `thugpro_compare.ts`: every shared node at THUGPRO's place in all 15 (before: 0-17 per area off),
+crowns, mp restarts and net spawns the same.
+
+Awaiting the user (`awaiting` in the profile; what each side sees without it):
+- New meshes / collision THUGPRO built (74): DN's parking garage `z_dn_pg_*` (8 sectors, 1,303 vertices; 11 collision
+  objects, 754 faces, 750 collidable) - THUGPRO players skate a garage ours don't have (they ride on air here, ours
+  pass through theirs); JA's DDR machine (633 vertices, 318 collidable faces) - TP-8's 3 DDR rails hang in the air
+  here without it; MA's 3 light glows (collidable), SV's 2 sauce machines, LV's elevator second floor (50 collidable
+  faces), SM's 13 shadows, BH's 2 plants, CH's sign LOD collision, `Cylinder01` in all 15.
+- Reshaped meshes (98): THAW's sector / collision changed in shape (DN's cars' collision rebuilt, SV's machines, HO's
+  signs, DT's 99Cent_02 cut and Objects_Mesh23 turned about x - the node moved / turned here, its mesh not -, trigger
+  planes of MA / JA / SV2 / LV teleports and elevator, LV's backdrop, SM's carousel / floor, SZ's barrier).
+- Nodes of THUGPRO's content (81): its cars (TRG_Car_Street_Script; JA's scooters / ricer / van, SZ 3, EL's cop car -
+  models THUG2 hasn't) and OI's ferry, JA's 10 peds with its scripts, its sound triggers, the new meshes' nodes (DN's
+  caution signs, cones, chairs). Peds and cars are absent in network games anyway.
+- THUGPRO's scripts (59 TriggerScripts and its level-script changes): CH's CTF / flag scripts, SV's CTF bases, the life
+  peds' Ped_Stand_Script (our port makes those peds with its own script), SZ's parking meters (TP-6 gave them
+  TrickObject), DT's dog, EL's coin08, SM's performers, LV's Cylinder49; CH's gap scripts gated by GetTriggerArray /
+  TriggerType (gaps score differently), level-change options, LoadingSounds...
+
+Concerns:
+- TrickObject on collision-only geometry: THUGPRO keeps it on 365 nodes (and adds 10 in Chicago); ours drops it
+  (stripMissingTrickObjects: ParseNodeArray 0x00588630 reads through the missing sector - THPS3 Airport and THAW
+  Minneapolis crashed). Graffiti on those can't match until the C++ checks the sector (or they get one).
+- SM's ferris rails (TP-8) hang where the ferris cars are; our port makes no ferris cars (vehicles not created at start
+  are left out), THUGPRO draws them. JA's DDR rails likewise without the DDR machine (awaiting).
+- TP-6's class changes take things out offline: CH's 10 standing peds and 7 waypoints (THUGPRO made the life peds and
+  points of interest ghosts), SZ's 12 life peds and its boardwalk01 restart, BH's 3 rails; DN's 30 life nodes are peds
+  either way.
+- Probably THUGPRO's conversion rather than hand edits, applied as harmless: the cluster renames (zone prefixed), the
+  night-light renames (prefix off), per-face terrain on DN / SZ / SR, the small rigid moves under a unit (MA's
+  graffiti 0.3, exit sign 0.24).
+- Not applied, values our port doesn't carry (it makes those nodes its own way): ped / car lod_dist and
+  SuspendDistance, CreatedFromVariable, lightgroup, particle settings (THUGPRO's THUG2 textures for THAW's particles),
+  pedai_type, compassbliptype... (`awaiting` notes per area).
+
+Checks (C:\Games\THUG2-4, all 15 converted with the profile and installed with make_menu_level): every collision face
+reachable (col_check, all 15); links in range, rails linked only to rails; ns.exe decompiles every level but East LA
+(THAW's EL_Spring); `--compat none` unchanged; thaw / THPS3 / THPS4 / THUG1 selfchecks 0 failures; typecheck, lint,
+tests (62, 7 new in thugpro_edits.test.ts). Not run in the game: worth a look - Kyoto (168 poles / bushes and their
+textures now in network games, 97 waypoints, DDR rails), Santa Cruz (93 pieces, rails wood), Minneapolis (cluster
+names), Santa Monica (ferris rails, moved store rails), Vans (7 meshes out), The Mall (lamps moved, wallride doors).

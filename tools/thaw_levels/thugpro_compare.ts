@@ -18,9 +18,11 @@ import * as fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import * as colCheck from "../level_port/col_check.ts";
+import * as pedsCars from "../level_port/peds_cars.ts";
 import * as prx from "../level_port/prx.ts";
 import * as qb from "../level_port/qb.ts";
 import { checksum, Name, type QbValue, Struct, Vector } from "../level_port/qb.ts";
+import * as scriptPort from "../level_port/script_port.ts";
 import * as thug2Col from "../level_port/thug2_col.ts";
 import {
     Float,
@@ -50,6 +52,7 @@ import {
     zoneFiles,
     zonePak,
 } from "./thaw_levels.ts";
+import { extractZone, type Sources, thawScriptNames } from "./thugpro_extract.ts";
 
 // THUGPRO's names for the levels it renamed (its data\pre file names; the others are the zone's): to find its files.
 const THUGPRO_NAMES = COMPAT.levelNames; // (tools/compat/thugpro/thaw_levels.json)
@@ -234,6 +237,30 @@ export function compare(zone: string, oursDir: string, thugpro: string): Result 
 
 // --- TP-4: extracting THUGPRO's hand-edited network spawns into the compatibility profile --------------------------
 
+// JSON with two-space indents, lists of plain values on one line (the profile's face edits run to thousands).
+export function compactJson(value: unknown, indent = ""): string {
+    const inner = `${indent}  `;
+    if (Array.isArray(value)) {
+        if (!value.length) return "[]";
+        const line = `[${value.map((x) => JSON.stringify(x)).join(", ")}]`;
+        if (value.every((x) => x === null || typeof x !== "object") && line.length <= 100) return line;
+        return `[\n${value.map((x) => inner + compactJson(x, inner)).join(",\n")}\n${indent}]`;
+    }
+    if (value !== null && typeof value === "object") {
+        const entries = Object.entries(value as Record<string, unknown>);
+        if (!entries.length) return "{}";
+        return `{\n${entries.map(([k, v]) => `${inner}${JSON.stringify(k)}: ${compactJson(v, inner)}`).join(",\n")}\n${indent}}`;
+    }
+    return JSON.stringify(value);
+}
+
+const EDIT_NOTES = {
+    _source:
+        "THUGPRO's installed data\\pre\\<level>_scripts.prx / scn.prx / col.prx against THAW's own zone archives, " +
+        "extracted by `node tools/thaw_levels/thugpro_compare.ts --extract-thugpro` (thugpro_extract.ts; " +
+        "positions: THAW's frame); applied by thugpro_edits.ts",
+};
+
 export const PROFILE_FILE = fileURLToPath(new URL("../compat/thugpro/thaw_levels.json", import.meta.url));
 // A restart's network types (THUG2's: what a network game spawns at - nodes.NET_RESTART_TYPES).
 const NET_TYPES = new Set(["multiplayer", "horse", "ctf", "ctf_1", "ctf_2", "team"]);
@@ -360,9 +387,53 @@ export function extractSpawns(
     return out;
 }
 
-function extract(thugpro: string, thawFolder: string): number {
+function extract(thugpro: string, thawFolder: string, thug2: string): number {
     const profile = JSON.parse(fs.readFileSync(PROFILE_FILE, "utf-8")) as Record<string, unknown>;
     const names = thaw.loadNames(thawFolder);
+    // TP-5...TP-9: THUGPRO's other hand edits (thugpro_extract.ts), with what awaits the user's decision
+    const sources: Sources = {
+        thugpro,
+        thawFolder,
+        names,
+        thug2: new scriptPort.Thug2(thug2),
+        assets: new pedsCars.Thug2Assets(thug2),
+        thawScripts: thawScriptNames(thawFolder, names),
+    };
+    const sections = {
+        node_edits: { _register: "TP-5", ...EDIT_NOTES } as Record<string, unknown>,
+        node_flags: { _register: "TP-6", ...EDIT_NOTES } as Record<string, unknown>,
+        removed: { _register: "TP-7", ...EDIT_NOTES } as Record<string, unknown>,
+        added: { _register: "TP-8", ...EDIT_NOTES } as Record<string, unknown>,
+        collision: { _register: "TP-9", ...EDIT_NOTES } as Record<string, unknown>,
+        awaiting: {
+            _note:
+                "Not applied (the user's decision): THUGPRO's own content - meshes it reshaped or built, its models " +
+                "and scripts. Listed by --extract-thugpro; thaw.md and the register's README say what each side sees.",
+        } as Record<string, unknown>,
+    };
+    for (const [zone] of LEVELS) {
+        const z = extractZone(zone, sources);
+        const put = (section: Record<string, unknown>, value: Record<string, unknown>): void => {
+            const kept = Object.fromEntries(
+                Object.entries(value).filter(([, v]) =>
+                    Array.isArray(v) ? v.length : Object.keys(v as object).length,
+                ),
+            );
+            if (Object.keys(kept).length) section[zone] = kept;
+        };
+        put(sections.node_edits, z.node_edits);
+        put(sections.node_flags, z.node_flags);
+        put(sections.removed, z.removed);
+        put(sections.added, z.added);
+        put(sections.collision, z.collision);
+        if (z.awaiting.length || z.notes.length) sections.awaiting[zone] = { items: z.awaiting, notes: z.notes };
+        print(
+            `${zone}: ${Object.entries(z.counts)
+                .map(([k, n]) => `${k} ${n}`)
+                .join(", ")}; awaiting ${z.awaiting.length}`,
+        );
+    }
+    Object.assign(profile, sections);
     const section: Record<string, unknown> = {
         _register: "TP-4",
         _source:
@@ -385,7 +456,7 @@ function extract(thugpro: string, thawFolder: string): number {
     }
     profile.spawns = section;
     profile.spawns_not_applied = pending;
-    fs.writeFileSync(PROFILE_FILE, `${JSON.stringify(profile, null, 2)}\n`, "utf-8");
+    fs.writeFileSync(PROFILE_FILE, `${compactJson(profile)}\n`, "utf-8");
     print(`wrote ${PROFILE_FILE}`);
     return 0;
 }
@@ -417,7 +488,7 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
     const v = parsed.values;
     const thug2 = v.thug2 ?? "C:\\Games\\THUG2\\Game";
     const thugpro = v.thugpro ?? DEFAULT_THUGPRO;
-    if (v["extract-thugpro"]) return extract(thugpro, v.thaw ?? "C:\\Games\\THAW");
+    if (v["extract-thugpro"]) return extract(thugpro, v.thaw ?? "C:\\Games\\THAW", thug2);
     const oursDir = v.staging || pyJoin(thug2, STAGING, "levels");
     let zones = LEVELS.map((l) => l[0]);
     if (parsed.positionals.length) {
