@@ -20,10 +20,24 @@ checking, then merging (the lead merges; reconvert into C:\Games\THUG2 + make_me
 
 | Game | Branch | Workspace |
 |---|---|---|
-| THAW | worktree-agent-a4244cc241e89291a | C:\Games\THUG2-4 |
-| THPS3 | worktree-agent-ab007c78a14463244 | C:\Games\THUG2-1 |
-| THPS4 | worktree-agent-a33cab85b7cc09963 | C:\Games\THUG2-2 |
-| THUG1 | worktree-agent-ab52827a8c0463b2e | C:\Games\THUG2-3 |
+| THAW | worktree-agent-a4244cc241e89291a (2bd6f2f) | C:\Games\THUG2-4 |
+| THPS3 | worktree-agent-ab007c78a14463244 (d049871) | C:\Games\THUG2-1 |
+| THPS4 | worktree-agent-a33cab85b7cc09963 (817f5db; port_changes done at 8efcfc2) | C:\Games\THUG2-2 |
+| THUG1 | worktree-agent-ab52827a8c0463b2e (571bf2a) | C:\Games\THUG2-3 |
+
+State when stopped (details in each branch's handoff note):
+- THAW: thugpro_new done (TP-N1..N5, converts); **port_changes NOT started; Mall blocker NOT restored; thaw.md not
+  corrected**; checks / docs pending.
+- THPS3: thugpro_new + port_changes (PC-1..14) done; lint / test / reconvert / docs pending.
+- THPS4: port_changes (PC-1..11) done and checked, `required` not added; thugpro_new module written but not wired in.
+  Finding: THUGPRO itself hides the THPS4 banners (planned opt-in `--thugpro-banners`).
+- THUG1: thugpro_new (TP-40..43) + port_changes (PC-1..20) done; comparisons / lint / docs pending.
+- To reconcile when merging: the four used different register ids for thugpro_new (TP-N1..5, TP-N3, TP-N4-x,
+  TP-40..43) - pick one scheme; shared files touched by several (compat.ts portChanges, ported_levels.ts models
+  folder copy, make_menu_level.ts) - merge carefully.
+- Cross-game finding: the shared script translator treats THUG2's own `TriggerType` as unknown, so gap conditions
+  never fire in ported levels; THUGPRO's TriggerType / particle / televator etc. commands would need our own C++
+  (proposals in the notes).
 
 What those agents were doing (the user's decisions, 2026-10-20):
 - **`thugpro_new`**: Morten confirmed THUGPRO's own content (meshes, models, scripts, nodes) may be included. It goes in
