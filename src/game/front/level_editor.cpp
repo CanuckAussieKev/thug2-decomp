@@ -1664,10 +1664,11 @@ bool PassPauseKey(bool down)
     return PassKey(&g_pauseKeyReleased, down);
 }
 
-// (offline only: no LEVEL EDITOR in a network session - level_editor_layout.h)
+// (offline only, outside career-type modes: no LEVEL EDITOR in a network session or in story / classic... -
+// level_editor_layout.h)
 bool __cdecl CFunc_Available(Script::CStruct*, Script::CScript*)
 {
-    return Enabled() && Nx::CurrentLevel() != 0 && !Layout::NetworkActive();
+    return Enabled() && Nx::CurrentLevel() != 0 && !Layout::Refused();
 }
 
 bool __cdecl CFunc_Start(Script::CStruct*, Script::CScript*)
@@ -1678,10 +1679,12 @@ bool __cdecl CFunc_Start(Script::CStruct*, Script::CScript*)
     }
     if (g_active)
         return true;
-    // The level becomes its edited copy (its saved layout put in place if it wasn't) - never in a network session.
+    // The level becomes its edited copy (its saved layout put in place if it wasn't) - never in a network session or a
+    // career-type mode (the player told why on screen: the pause menu stays).
     std::string edited;
     if (!Layout::EnterEditedCopy(&edited)) {
         Log("level editor: not started - %s", edited.c_str());
+        Layout::PanelMessage(edited.c_str());
         return false;
     }
     g_active = true;

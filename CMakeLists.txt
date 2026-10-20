@@ -280,6 +280,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_editor_fields.cpp
     src/hook/selftests_editor_shadows.cpp
     src/hook/selftests_editor_career.cpp
+    src/hook/selftests_editor_modes.cpp
     src/hook/selftests_pcmstream.cpp
     src/hook/selftests_pcmplay.cpp
     src/game/ass/asset.cpp
