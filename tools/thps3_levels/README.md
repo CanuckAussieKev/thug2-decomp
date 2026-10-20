@@ -81,6 +81,12 @@ Comparison with THUGPRO's own ports (read only): `node tools/thps3_levels/thugpr
   trigger script calling THUG2's Team_Flag), and each team gets TRG_CTF_Restart_<colour> at THPS3's restart of its
   team's type (CTF_1 / CTF_2) nearest to its base - the names THUG2's net\ctf.qb, SK4_Scripts and skater code look
   for. THPS3 has two teams: no Green / Yellow flags, no lobby team flags (TRG_Flag_*), no TRG_Team_Restart.
+  With the compatibility profile `thugpro` (the default, `--compat none` leaves it out - tools/compat/thugpro, approved
+  by the user): TP-10 puts the Red / Blue flags and bases where THUGPRO has them in Rio, Sub, SI, Tok, Shp and Ware
+  (the team restart then THPS3's CTF restart nearest to the flag), and TP-11 adds THUGPRO's Green / Yellow flags (their
+  restarts THPS3's multiplayer restarts nearest to them), the lobby's TRG_Flag_* and TRG_Team_Restart in the 9 levels
+  THUGPRO shares. Only places and colours come from the data; the nodes are ours as above. The data is read from
+  THUGPRO's install by `thugpro_compare.ts --extract-thugpro tools/compat/thugpro/thps3_levels.json`.
 - Scripts, peds, vehicles, objects (`--no-scripts` leaves them out): the level's scripts translated to THUG2's
   (tools/level_port/script_port.ts) and run from a setup script; peds and crowds as THUG2's ped AI, resting birds and
   sharks as THUG2's animals, traffic as THUG2's cars (Car_Generic01), other vehicles and moving game objects as

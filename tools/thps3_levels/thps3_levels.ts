@@ -15,6 +15,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import * as compat from "../compat/compat.ts";
 import { FormatError } from "../level_port/binio.ts";
 import * as common from "../level_port/common.ts";
 import * as geometry from "../level_port/geometry.ts";
@@ -1567,12 +1568,39 @@ const vectorOf = (node: Struct, key: string): readonly number[] | null => {
     return v instanceof Vector && v.kind === "vector" ? v.values : null;
 };
 
+// A node's place as THUGPRO's compatibility data gives it (tools/compat/thugpro/thps3_levels.json): THUG2's world (Pos).
+export interface CompatPlacement {
+    pos: number[];
+    angles: number[];
+}
+
+// One level's compatibility data (compat profile thugpro; {} with --compat none): TP-10 `flags` - the Red / Blue flags
+// and bases where THUGPRO has them (TRG_CTF_Red...); TP-11 `extra` - the team nodes THPS3 has no counterpart for
+// (TRG_CTF_Green / _Yellow (+ _Base), the lobby's TRG_Flag_<colour> (+ _Base), TRG_Team_Restart).
+export interface LevelCompat {
+    flags: Record<string, CompatPlacement>;
+    extra: Record<string, CompatPlacement>;
+}
+
+export const NO_COMPAT: LevelCompat = { flags: {}, extra: {} };
+
+// THPS3's Position (z negated in the game) or THUG2's Pos, in THUG2's world.
+function gamePosition(node: Struct): readonly number[] | null {
+    const pos = vectorOf(node, "Pos");
+    if (pos !== null) return pos;
+    const p = vectorOf(node, "Position");
+    return p === null ? null : [p[0]!, p[1]!, -p[2]!];
+}
+
 // The THUG2 game-mode nodes for THPS3's flag bases (appended to the node array: no Links move) and their trigger
-// scripts (NeverScript text). `array`: THPS3's node array; `names` gets the new names.
+// scripts (NeverScript text). `array`: THPS3's node array; `names` gets the new names. `compat`: the level's THUGPRO
+// compatibility data (TP-10 / TP-11, approved by the user 2026-10-20): only places and colours come from it - the
+// nodes' form stays THUG2's own (as above); the team restarts are always THPS3's restarts.
 export function ctfNodes(
     array: readonly QbValue[],
     names: Names,
     teams: readonly FlagTeam[],
+    compat: LevelCompat = NO_COMPAT,
 ): [Struct[], string, string] {
     const out: Struct[] = [];
     const scripts: string[] = [];
@@ -1584,6 +1612,51 @@ export function ctfNodes(
     };
     const nodesOf = (test: (s: Struct) => boolean): Struct[] =>
         array.filter((x): x is Struct => x instanceof Struct && test(x));
+    const restartNodes = nodesOf((s) => nodes.classOf(s, names) === "restart");
+    const textOf = (node: Struct): string => names.get(nameOf(node)) ?? hex8(nameOf(node));
+    const placed = (where: qb.Entry[], name: string, type: string, model: string, script: string | null): Struct =>
+        new Struct([
+            ...where,
+            [n("Name"), n(name)],
+            [n("Class"), n("GameObject")],
+            [n("Type"), n(type)],
+            [null, n("NeverSuspend")],
+            [n("Model"), `gameobjects\\flags\\${model}\\${model}.mdl`],
+            [n("lod_dist1"), 800],
+            [n("lod_dist2"), 801],
+            ...(script !== null ? ([[n("TriggerScript"), n(script)]] as qb.Entry[]) : []),
+        ]);
+    const at = (key: string, values: readonly number[]): qb.Entry => [n(key), new Vector("vector", [...values])];
+    const fromCompat = (p: CompatPlacement): qb.Entry[] => [at("Pos", p.pos), at("Angles", p.angles)];
+    const teamRestart = (c: string, r: Struct): Struct =>
+        new Struct([
+            [n("Position"), new Vector("vector", [...vectorOf(r, "Position")!])],
+            [n("Angles"), new Vector("vector", [...(vectorOf(r, "Angles") ?? [0, 0, 0])])],
+            [n("Name"), n(`TRG_CTF_Restart_${c}`)],
+            [n("Class"), n("Restart")],
+            [n("Type"), n("CTF")],
+            [null, n("CreatedAtStart")],
+            [n("RestartName"), `Team: CTF ${c}`],
+            [n("restart_types"), [n("CTF"), n("MultiPlayer"), n("Horse")]],
+        ]);
+    // THPS3's restart nearest to `p` (THUG2's world) whose restart_types has one of `types`, not in `used` (the first
+    // of equals)
+    const used = new Set<Struct>();
+    const nearest = (p: readonly number[], types: ReadonlySet<number>): Struct | null => {
+        let best: [number, Struct] | null = null;
+        for (const r of restartNodes) {
+            const kinds = r.get("restart_types");
+            const q = gamePosition(r);
+            if (used.has(r) || !Array.isArray(kinds) || q === null) continue;
+            if (!kinds.some((t) => t instanceof Name && types.has(t.value))) continue;
+            const [dx, dy, dz] = [q[0]! - p[0]!, q[1]! - p[1]!, q[2]! - p[2]!];
+            const d = dx * dx + dy * dy + dz * dz;
+            if (best === null || d < best[0]) best = [d, r];
+        }
+        if (best !== null) used.add(best[1]);
+        return best === null ? null : best[1];
+    };
+    const teamTypes = new Set(teams.map((t) => t.type));
     for (const team of teams) {
         const base = nodesOf(
             (s) =>
@@ -1591,62 +1664,101 @@ export function ctfNodes(
                 s.get("Type") instanceof Name &&
                 (s.get("Type") as Name).value === team.type,
         )[0];
-        const at = base ? vectorOf(base, "Position") : null;
-        if (!base || at === null) continue;
-        const angles = vectorOf(base, "Angles") ?? [0, 0, 0];
         const c = team.colour;
         const lower = c.toLowerCase();
-        const position: qb.Entry[] = [
-            [n("Position"), new Vector("vector", [...at])],
-            [n("Angles"), new Vector("vector", [...angles])],
-        ];
-        const flag = (name: string, type: string, model: string, script: string | null): Struct =>
-            new Struct([
-                ...position,
-                [n("Name"), n(name)],
-                [n("Class"), n("GameObject")],
-                [n("Type"), n(type)],
-                [null, n("NeverSuspend")],
-                [n("Model"), `gameobjects\\flags\\${model}\\${model}.mdl`],
-                [n("lod_dist1"), 800],
-                [n("lod_dist2"), 801],
-                ...(script !== null ? ([[n("TriggerScript"), n(script)]] as qb.Entry[]) : []),
-            ]);
-        out.push(flag(`TRG_CTF_${c}`, `Flag_${c}`, `flag_${lower}`, `TRG_CTF_${c}Script`));
-        out.push(flag(`TRG_CTF_${c}_Base`, `Flag_${c}_Base`, `flag_${lower}_base`, null));
+        const theirs = compat.flags[`TRG_CTF_${c}`];
+        const theirBase = compat.flags[`TRG_CTF_${c}_Base`] ?? theirs;
+        if (theirs !== undefined && theirBase !== undefined) {
+            // TP-10: the flag and its base where THUGPRO has them; the team's restart THPS3's team restart (either
+            // team's type) nearest to that flag
+            out.push(placed(fromCompat(theirs), `TRG_CTF_${c}`, `Flag_${c}`, `flag_${lower}`, `TRG_CTF_${c}Script`));
+            out.push(placed(fromCompat(theirBase), `TRG_CTF_${c}_Base`, `Flag_${c}_Base`, `flag_${lower}_base`, null));
+            scripts.push(`script TRG_CTF_${c}Script {\n    Team_Flag ${lower} \n}\n`);
+            const r = nearest(theirs.pos, teamTypes);
+            if (r !== null) out.push(teamRestart(c, r));
+            made.push(`${c} (THUGPRO's place - TP-10, restart at ${r ? textOf(r) : "none"})`);
+            continue;
+        }
+        const where = base ? vectorOf(base, "Position") : null;
+        if (!base || where === null) continue;
+        const angles = vectorOf(base, "Angles") ?? [0, 0, 0];
+        const position: qb.Entry[] = [at("Position", where), at("Angles", angles)];
+        out.push(placed(position, `TRG_CTF_${c}`, `Flag_${c}`, `flag_${lower}`, `TRG_CTF_${c}Script`));
+        out.push(placed(position, `TRG_CTF_${c}_Base`, `Flag_${c}_Base`, `flag_${lower}_base`, null));
         scripts.push(`script TRG_CTF_${c}Script {\n    Team_Flag ${lower} \n}\n`);
         // the team's restart: THPS3's restart of the team's type nearest to the base (the first of equals)
         let best: [number, Struct] | null = null;
-        for (const r of nodesOf((s) => nodes.classOf(s, names) === "restart")) {
+        for (const r of restartNodes) {
             const types = r.get("restart_types");
             const p = vectorOf(r, "Position");
             if (!Array.isArray(types) || p === null || !types.some((t) => t instanceof Name && t.value === team.type))
                 continue;
-            const [dx, dy, dz] = [p[0]! - at[0]!, p[1]! - at[1]!, p[2]! - at[2]!];
+            const [dx, dy, dz] = [p[0]! - where[0]!, p[1]! - where[1]!, p[2]! - where[2]!];
             const d = dx * dx + dy * dy + dz * dz;
             if (best === null || d < best[0]) best = [d, r];
         }
         let restartNote = "no restart of its type";
         if (best !== null) {
-            const r = best[1];
-            out.push(
-                new Struct([
-                    [n("Position"), new Vector("vector", [...vectorOf(r, "Position")!])],
-                    [n("Angles"), new Vector("vector", [...(vectorOf(r, "Angles") ?? [0, 0, 0])])],
-                    [n("Name"), n(`TRG_CTF_Restart_${c}`)],
-                    [n("Class"), n("Restart")],
-                    [n("Type"), n("CTF")],
-                    [null, n("CreatedAtStart")],
-                    [n("RestartName"), `Team: CTF ${c}`],
-                    [n("restart_types"), [n("CTF"), n("MultiPlayer"), n("Horse")]],
-                ]),
-            );
-            restartNote = `restart at ${names.get(nameOf(r)) ?? hex8(nameOf(r))}`;
+            used.add(best[1]);
+            out.push(teamRestart(c, best[1]));
+            restartNote = `restart at ${textOf(best[1])}`;
         }
-        made.push(`${c} (base ${names.get(nameOf(base)) ?? hex8(nameOf(base))}, ${restartNote})`);
+        made.push(`${c} (base ${textOf(base)}, ${restartNote})`);
     }
+    // TP-11: the teams THPS3 doesn't have (their restarts THPS3's multiplayer restarts nearest to their flags), the
+    // lobby's team flags and the team restart, where THUGPRO has them
+    const multiplayer = new Set([qb.checksum("MultiPlayer")]);
+    const extraMade: string[] = [];
+    for (const c of CTF_COLOURS) {
+        const flag = compat.extra[`TRG_CTF_${c}`];
+        if (flag === undefined || teams.some((t) => t.colour === c)) continue;
+        const lower = c.toLowerCase();
+        const base = compat.extra[`TRG_CTF_${c}_Base`] ?? flag;
+        out.push(placed(fromCompat(flag), `TRG_CTF_${c}`, `Flag_${c}`, `flag_${lower}`, `TRG_CTF_${c}Script`));
+        out.push(placed(fromCompat(base), `TRG_CTF_${c}_Base`, `Flag_${c}_Base`, `flag_${lower}_base`, null));
+        scripts.push(`script TRG_CTF_${c}Script {\n    Team_Flag ${lower} \n}\n`);
+        const r = nearest(flag.pos, multiplayer);
+        if (r !== null) out.push(teamRestart(c, r));
+        extraMade.push(c);
+    }
+    for (const c of CTF_COLOURS) {
+        const lower = c.toLowerCase();
+        const flag = compat.extra[`TRG_Flag_${c}`];
+        if (flag !== undefined) {
+            out.push(placed(fromCompat(flag), `TRG_Flag_${c}`, `Flag_${c}`, `flag_${lower}`, `TRG_Flag_${c}Script`));
+            scripts.push(`script TRG_Flag_${c}Script {\n    Team_Flag ${lower} \n}\n`);
+            extraMade.push(`TRG_Flag_${c}`);
+        }
+        const flagBase = compat.extra[`TRG_Flag_${c}_Base`];
+        if (flagBase !== undefined) {
+            out.push(placed(fromCompat(flagBase), `TRG_Flag_${c}_Base`, `Flag_${c}_Base`, `flag_${lower}_base`, null));
+            extraMade.push(`TRG_Flag_${c}_Base`);
+        }
+    }
+    const team = compat.extra.TRG_Team_Restart;
+    if (team !== undefined) {
+        out.push(
+            new Struct([
+                ...fromCompat(team),
+                [n("Name"), n("TRG_Team_Restart")],
+                [n("Class"), n("Restart")],
+                [n("Type"), n("Team")],
+                [n("RestartName"), "Team: Restart"],
+                [n("restart_types"), [n("Team")]],
+            ]),
+        );
+        extraMade.push("TRG_Team_Restart");
+    }
+    if (extraMade.length) made.push(`TP-11: ${extraMade.join(" ")}`);
     const report = made.length ? `capture the flag: ${made.join(", ")}` : "capture the flag: no THPS3 flag bases";
     return [out, scripts.join(""), report];
+}
+
+// The level's compatibility data from the profile (tools/compat/compat.ts; TP-10 ctf_flags, TP-11 team_nodes).
+export function levelCompat(profile: compat.Profile, level: string): LevelCompat {
+    const get = (key: string): Record<string, CompatPlacement> =>
+        (profile.section("thps3_levels", key)[level] ?? {}) as Record<string, CompatPlacement>;
+    return { flags: get("ctf_flags"), extra: get("team_nodes") };
 }
 
 export function convertNodeArray(
@@ -1657,6 +1769,7 @@ export function convertNodeArray(
     startScripts: readonly number[],
     port: Port | null = null,
     teams: readonly FlagTeam[] = [],
+    ctfCompat: LevelCompat = NO_COMPAT,
 ): [string, Set<number>, Set<number>, string, Map<number, Buffer>, boolean] {
     // port: a Port (the level's scripts brought along, its game objects, waypoints, peds...) or null (static: only
     // the geometry's nodes, restarts, rails and kill zones). Returns [NeverScript text, sectors left out, sectors
@@ -1812,7 +1925,7 @@ export function convertNodeArray(
         );
     }
     // (after the scripts: their trigger scripts are THUG2's Team_Flag, not THPS3 scripts to bring along)
-    const [ctf, ctfScripts, ctfReport] = ctfNodes(array, names, teams);
+    const [ctf, ctfScripts, ctfReport] = ctfNodes(array, names, teams, ctfCompat);
     converted.push(...ctf);
     const triggers = nodes.killTriggerNames(converted, kills);
     if (port !== null) {
@@ -2002,6 +2115,7 @@ export interface Args {
     noScripts: boolean;
     noMips: boolean;
     legacyNames: boolean;
+    compat: string;
     extra: string[];
 }
 
@@ -2043,6 +2157,8 @@ export function cmdConvert(args: Args): void {
     const master = masterLevels(levelsQ);
     const thug2Names = thug2LevelNames(args.thug2);
     const teams = flagTeams(globalQbs);
+    // the compatibility profile (tools/compat: thugpro - TP-10 / TP-11 - or none)
+    const profile = compat.load(args.compat);
     if (isDir(out)) fs.rmSync(out, { recursive: true, force: true });
     fs.mkdirSync(out, { recursive: true });
     const manifest: { levels: Record<string, unknown>[] } = { levels: [] };
@@ -2093,6 +2209,7 @@ export function cmdConvert(args: Args): void {
             once instanceof Name ? [once.value] : [],
             port,
             teams,
+            levelCompat(profile, name),
         );
         let text = nodeText;
         const qbPath = pyJoin(levelDir, `${name}.qb`);
@@ -2259,7 +2376,7 @@ export function cmdSelfcheck(args: Args): number {
 
 const USAGE =
     "usage: thps3_levels.ts [-h] [--thug2 THUG2] [--thps3 THPS3] [--out OUT] [--ns NS] [--no-objects] " +
-    "[--no-scripts] [--no-mips] [--legacy-names] [--extra [EXTRA ...]] {convert,selfcheck} [levels ...]";
+    "[--no-scripts] [--no-mips] [--legacy-names] [--compat {thugpro,none}] [--extra [EXTRA ...]] {convert,selfcheck} [levels ...]";
 
 const HELP = `${USAGE}
 
@@ -2277,9 +2394,12 @@ options:
   --no-scripts         convert: the level's scripts, moving objects and waypoints left out (static levels)
   --no-mips            convert: no mip levels made (faster)
   --legacy-names       convert: every level named thps3_<folder> (as before THUGPRO's names)
+  --compat {thugpro,none}
+                       convert: compatibility profile (tools/compat) - thugpro: CTF flags / team nodes as
+                       THUGPRO's (TP-10, TP-11; default), none: THPS3's own two bases only
   --extra [EXTRA ...]  selfcheck: more THUG2 archives (Data\\pre\\*.prx)`;
 
-const VALUE_OPTIONS = ["--thug2", "--thps3", "--out", "--ns"] as const;
+const VALUE_OPTIONS = ["--thug2", "--thps3", "--out", "--ns", "--compat"] as const;
 const FLAG_OPTIONS = ["--no-objects", "--no-scripts", "--no-mips", "--legacy-names"] as const;
 const ALL_OPTIONS = [...VALUE_OPTIONS, ...FLAG_OPTIONS, "--extra", "--help"];
 
@@ -2339,6 +2459,9 @@ export function parseCommandLine(argv: readonly string[]): Args {
     if (command === undefined) usageError("the following arguments are required: command");
     if (command !== "convert" && command !== "selfcheck")
         usageError(`argument command: invalid choice: '${command}' (choose from convert, selfcheck)`);
+    const profile = values["--compat"];
+    if (profile !== undefined && !(compat.PROFILES as readonly string[]).includes(profile))
+        usageError(`argument --compat: invalid choice: '${profile}' (choose from ${compat.PROFILES.join(", ")})`);
     return {
         command,
         levels: positionals.slice(1),
@@ -2350,6 +2473,7 @@ export function parseCommandLine(argv: readonly string[]): Args {
         noScripts: flags.has("--no-scripts"),
         noMips: flags.has("--no-mips"),
         legacyNames: flags.has("--legacy-names"),
+        compat: values["--compat"] ?? "thugpro",
         extra,
     };
 }

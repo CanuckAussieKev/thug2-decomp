@@ -84,6 +84,50 @@ test("capture the flag: THPS3's flag bases and team restarts as THUG2's game-mod
     assert.match(report, /Blue \(base TRG_CTF_TEAM1, restart at TRG_CTF1_Restart_2P\)/);
 });
 
+test("capture the flag with the compatibility data (TP-10 / TP-11): places from it, the form and restarts ours", () => {
+    const names = new Map<number, string>();
+    const array: QbValue[] = [
+        new Struct([
+            [n("Position"), vec(10, 0, 20)],
+            [n("Name"), n("TRG_CTF_TEAM1")],
+            [n("Class"), n("GenericNode")],
+            [n("Type"), n("CTF_1")],
+        ]),
+        new Struct([
+            [n("Position"), vec(100, 0, -200)], // (THUG2's world: z 200)
+            [n("Name"), n("TRG_MP_1")],
+            [n("Class"), n("Restart")],
+            [n("restart_types"), [n("MultiPlayer"), n("CTF_1")]],
+        ]),
+        new Struct([
+            [n("Position"), vec(900, 0, 0)],
+            [n("Name"), n("TRG_MP_2")],
+            [n("Class"), n("Restart")],
+            [n("restart_types"), [n("Multiplayer")]],
+        ]),
+    ];
+    for (const t of ["GenericNode", "Restart"]) names.set(qb.checksum(t), t);
+    const p = (pos: number[]) => ({ pos, angles: [0, 0, 0] });
+    const [made, scripts] = ctfNodes(array, names, [{ colour: "Blue", type: qb.checksum("CTF_1") }], {
+        flags: { TRG_CTF_Blue: p([90, 0, 210]), TRG_CTF_Blue_Base: p([91, 0, 210]) },
+        extra: { TRG_CTF_Green: p([880, 0, 0]), TRG_Flag_Red: p([1, 2, 3]), TRG_Team_Restart: p([4, 5, 6]) },
+    });
+    const byName = new Map(made.map((s) => [(s.get("Name") as Name).value, s]));
+    const posOf = (nm: string): readonly number[] => (byName.get(qb.checksum(nm))!.get("Pos") as Vector).values;
+    assert.deepEqual(posOf("TRG_CTF_Blue"), [90, 0, 210]);
+    assert.deepEqual(posOf("TRG_CTF_Blue_Base"), [91, 0, 210]);
+    assert.deepEqual(posOf("TRG_CTF_Green"), [880, 0, 0]);
+    assert.deepEqual(posOf("TRG_Team_Restart"), [4, 5, 6]);
+    // restarts: THPS3's (Position), nearest to the flag in THUG2's world
+    const restartOf = (c: string) =>
+        (byName.get(qb.checksum(`TRG_CTF_Restart_${c}`))!.get("Position") as Vector).values;
+    assert.deepEqual(restartOf("Blue"), [100, 0, -200]);
+    assert.deepEqual(restartOf("Green"), [900, 0, 0]);
+    assert.equal(byName.get(qb.checksum("TRG_Flag_Red"))!.get("Model"), "gameobjects\\flags\\flag_red\\flag_red.mdl");
+    assert.match(scripts, /script TRG_Flag_RedScript \{\n {4}Team_Flag red \n\}/);
+    assert.match(scripts, /script TRG_CTF_GreenScript \{\n {4}Team_Flag green \n\}/);
+});
+
 test("layouts: the scene line renamed, the rest kept byte for byte", () => {
     const old = qb.checksum("thps3_foun");
     const now = qb.checksum("foun");
