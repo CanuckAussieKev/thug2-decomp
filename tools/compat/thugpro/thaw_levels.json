@@ -173,7 +173,87 @@
     "Z_SZ": {
       "edits": [
         {
+          "node": "Z_SZ_TRG_restart01",
+          "restart_types": [
+            "Player1",
+            "Multiplayer",
+            "Horse"
+          ]
+        },
+        {
+          "node": "Z_SZ_TRG_derby01",
+          "restart_types": [
+            "Player1",
+            "Multiplayer",
+            "Horse"
+          ]
+        },
+        {
+          "node": "Z_SZ_TRG_fromalley01",
+          "restart_types": [
+            "Player1",
+            "Multiplayer",
+            "Horse"
+          ]
+        },
+        {
+          "node": "Z_SZ_TRG_Killox01_restart",
+          "restart_types": [
+            "Player1",
+            "Multiplayer",
+            "Horse"
+          ]
+        },
+        {
+          "node": "Z_SZ_TRG_Killox01_restart02",
+          "restart_types": [
+            "Player1",
+            "Multiplayer",
+            "Horse"
+          ]
+        },
+        {
+          "node": "Z_SZ_TRG_Killox01_restart03",
+          "restart_types": [
+            "Player1",
+            "Multiplayer",
+            "Horse"
+          ]
+        },
+        {
+          "node": "Z_SZ_TRG_Killox01_restart04",
+          "restart_types": [
+            "Player1",
+            "Multiplayer",
+            "Horse"
+          ]
+        },
+        {
+          "node": "Z_SZ_TRG_Killox01_restart05",
+          "restart_types": [
+            "Player1",
+            "Multiplayer",
+            "Horse"
+          ]
+        },
+        {
+          "node": "Z_SZ_TRG_fromalley02",
+          "restart_types": [
+            "Player1",
+            "Multiplayer",
+            "Horse"
+          ]
+        },
+        {
           "node": "Z_SZ_TRG_StartOfLevel",
+          "restart_types": [
+            "Player1",
+            "Multiplayer",
+            "Horse"
+          ]
+        },
+        {
+          "node": "Z_SZ_TRG_fromboardwalk01",
           "restart_types": [
             "Player1",
             "Multiplayer",
@@ -182,7 +262,9 @@
         }
       ],
       "order": [
+        "Z_SZ_TRG_restart01",
         "Z_SZ_TRG_horse03",
+        "Z_SZ_TRG_derby01",
         "Z_SZ_TRG_horse01",
         "Z_SZ_TRG_horse02",
         "Z_SZ_TRG_horse04",
@@ -192,6 +274,13 @@
         "Z_SZ_TRG_horse09",
         "Z_SZ_TRG_horse10",
         "Z_SZ_TRG_restart_funspot",
+        "Z_SZ_TRG_fromalley01",
+        "Z_SZ_TRG_Killox01_restart",
+        "Z_SZ_TRG_Killox01_restart02",
+        "Z_SZ_TRG_Killox01_restart03",
+        "Z_SZ_TRG_Killox01_restart04",
+        "Z_SZ_TRG_Killox01_restart05",
+        "Z_SZ_TRG_fromalley02",
         "TRG_CTF_Restart_Blue",
         "TRG_CTF_Restart_Yellow",
         "TRG_CTF_Restart_Green",
@@ -216,6 +305,7 @@
         "Z_SZ_TRG_horse30",
         "Z_SZ_TRG_horse31",
         "Z_SZ_TRG_StartOfLevel",
+        "Z_SZ_TRG_fromboardwalk01",
         "TRG_CTF_Restart_Red"
       ]
     },
@@ -602,148 +692,6 @@
     }
   },
   "spawns_not_applied": {
-    "_note": "Not applied (the user's decision): THAW restarts whose restart_types isn't a list, which THUGPRO made network spawns. Listed by --extract-thugpro.",
-    "Z_SZ": [
-      {
-        "node": "Z_SZ_TRG_restart01",
-        "thaw_restart_types": "Player 1",
-        "thugpro_restart_types": [
-          "Player1",
-          "Multiplayer",
-          "Horse"
-        ],
-        "pos": [
-          673.8306,
-          0,
-          2405.5483
-        ]
-      },
-      {
-        "node": "Z_SZ_TRG_derby01",
-        "thaw_restart_types": "Player 1",
-        "thugpro_restart_types": [
-          "Player1",
-          "Multiplayer",
-          "Horse"
-        ],
-        "pos": [
-          5095.0679,
-          116.6561,
-          -899.0916
-        ]
-      },
-      {
-        "node": "Z_SZ_TRG_fromalley01",
-        "thaw_restart_types": "Player 1",
-        "thugpro_restart_types": [
-          "Player1",
-          "Multiplayer",
-          "Horse"
-        ],
-        "pos": [
-          1197.7686,
-          270.0797,
-          1622.7217
-        ]
-      },
-      {
-        "node": "Z_SZ_TRG_Killox01_restart",
-        "thaw_restart_types": "Player 1",
-        "thugpro_restart_types": [
-          "Player1",
-          "Multiplayer",
-          "Horse"
-        ],
-        "pos": [
-          -1440.075,
-          4.1295,
-          -429.3445
-        ]
-      },
-      {
-        "node": "Z_SZ_TRG_Killox01_restart02",
-        "thaw_restart_types": "Player 1",
-        "thugpro_restart_types": [
-          "Player1",
-          "Multiplayer",
-          "Horse"
-        ],
-        "pos": [
-          -149.1005,
-          104.9654,
-          -1190.4751
-        ]
-      },
-      {
-        "node": "Z_SZ_TRG_Killox01_restart03",
-        "thaw_restart_types": "Player 1",
-        "thugpro_restart_types": [
-          "Player1",
-          "Multiplayer",
-          "Horse"
-        ],
-        "pos": [
-          -3202.9292,
-          5.0656,
-          -740.101
-        ]
-      },
-      {
-        "node": "Z_SZ_TRG_Killox01_restart04",
-        "thaw_restart_types": "Player 1",
-        "thugpro_restart_types": [
-          "Player1",
-          "Multiplayer",
-          "Horse"
-        ],
-        "pos": [
-          3791.0991,
-          105.2036,
-          661.8162
-        ]
-      },
-      {
-        "node": "Z_SZ_TRG_Killox01_restart05",
-        "thaw_restart_types": "Player 1",
-        "thugpro_restart_types": [
-          "Player1",
-          "Multiplayer",
-          "Horse"
-        ],
-        "pos": [
-          7966.3643,
-          218.252,
-          -1650.448
-        ]
-      },
-      {
-        "node": "Z_SZ_TRG_fromalley02",
-        "thaw_restart_types": "Player 1",
-        "thugpro_restart_types": [
-          "Player1",
-          "Multiplayer",
-          "Horse"
-        ],
-        "pos": [
-          1197.7686,
-          270.0797,
-          1622.7217
-        ]
-      },
-      {
-        "node": "Z_SZ_TRG_fromboardwalk01",
-        "thaw_restart_types": "Player 1",
-        "thugpro_restart_types": [
-          "Player1",
-          "Multiplayer",
-          "Horse"
-        ],
-        "pos": [
-          3483.7358,
-          6.0008,
-          3121.6245
-        ]
-      }
-    ]
+    "_note": "Not applied (the user's decision): THUGPRO spawn edits the user hasn't approved - none today (Santa Cruz's 10 restarts with THAW's malformed restart_types were approved 2026-10-20 and are in spawns). Listed by --extract-thugpro."
   }
 }
