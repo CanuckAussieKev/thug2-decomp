@@ -12,6 +12,7 @@
 
 #include "game/core/manager.h"
 #include "game/front/level_editor_picking.h"
+#include "game/front/level_editor_scale.h"
 #include "game/gfx/mesh.h"
 #include "game/mth/vector.h"
 #include "game/script/names.h"
@@ -34,14 +35,19 @@ V3 QuarterTurn(V3 v, int quarters)
     }
 }
 
-V3 Apply(const Placement& placement, V3 x) { return QuarterTurn(x, placement.quarters) + placement.offset; }
+V3 Apply(const Placement& placement, V3 x)
+{
+    return QuarterTurn(x * placement.scale, placement.quarters) + placement.offset;
+}
 
 void MoveBy(Placement* placement, V3 delta) { placement->offset = placement->offset + delta; }
 
 Placement Compose(const Placement& outer, const Placement& inner)
 {
-    // outer(inner(x)) = Q_o (Q_i x + o_i) + o_o = Q_o Q_i x + (Q_o o_i + o_o).
-    return {(inner.quarters + outer.quarters) & 3, QuarterTurn(inner.offset, outer.quarters) + outer.offset};
+    // outer(inner(x)) = Q_o s_o (Q_i s_i x + o_i) + o_o = Q_o Q_i (s_o s_i) x + (s_o Q_o o_i + o_o) (a uniform scale
+    // commutes with a turn).
+    return {(inner.quarters + outer.quarters) & 3, QuarterTurn(inner.offset * outer.scale, outer.quarters) + outer.offset,
+            inner.scale * outer.scale};
 }
 
 void TurnAbout(Placement* placement, V3 pivot, int quarters)
@@ -53,7 +59,7 @@ void TurnAbout(Placement* placement, V3 pivot, int quarters)
 
 void EngineState(int quarters0, V3 position0, const Placement& placement, int* quarters, V3* position)
 {
-    // Loaded vertex v was at Q0 v + p0; now at Q (Q0 v + p0) + offset = Q Q0 v + (Q p0 + offset).
+    // Loaded vertex v was at Q0 v + p0; now at Q s (Q0 v + p0) + offset = s Q Q0 v + (s Q p0 + offset).
     *quarters = (quarters0 + placement.quarters) & 3;
     *position = Apply(placement, position0);
 }
@@ -62,9 +68,9 @@ OrientedBox PlacedBox(V3 min, V3 max, const Placement& placement)
 {
     OrientedBox box;
     box.origin = placement.offset;
-    box.axes[0] = QuarterTurn({1.0f, 0.0f, 0.0f}, placement.quarters);
-    box.axes[1] = {0.0f, 1.0f, 0.0f};
-    box.axes[2] = QuarterTurn({0.0f, 0.0f, 1.0f}, placement.quarters);
+    box.axes[0] = QuarterTurn({placement.scale, 0.0f, 0.0f}, placement.quarters);
+    box.axes[1] = {0.0f, placement.scale, 0.0f};
+    box.axes[2] = QuarterTurn({0.0f, 0.0f, placement.scale}, placement.quarters);
     box.min = min;
     box.max = max;
     return box;
@@ -281,6 +287,7 @@ struct Track {
     int quarters;
     V3 position;
     bool moved;
+    std::shared_ptr<Scale::Original> original; // (once scaled: its vertices and collision then - level_editor_scale.h)
 };
 std::map<uint32_t, Track> g_tracks;
 std::vector<uint32_t> g_selection;
@@ -345,8 +352,17 @@ void MarkDirty(uint8_t* scene)
 // world position as it is), then the position (the geometry's SetWorldPosition, vfunc +0x48 through 0x0048DEC0; the
 // collision's, vfunc +0x14 - handed its own origin (vfunc +0x1C) plus the change: it translates by the difference),
 // the sector flagged for the super sectors' update as CSector::SetWorldPosition (0x0049E6C0) does.
+// A scale (level_editor_scale.h): the first time, the sector's vertices and collision are kept as they are; from then
+// on, after the engine's turn and move, they're written again from that copy, scaled.
 void ApplyTrack(Track* track)
 {
+    if (!track->original && track->placement.scale != 1.0f) {
+        track->original = Scale::Capture(track->sector, track->geom, track->quarters, track->position);
+        if (!track->original) {
+            Log("level editor: sector %p can't be scaled (its meshes can't be copied)", static_cast<void*>(track->sector));
+            track->placement.scale = 1.0f;
+        }
+    }
     int quarters;
     V3 position;
     EngineState(track->quarters0, track->position0, track->placement, &quarters, &position);
@@ -365,6 +381,10 @@ void ApplyTrack(Track* track)
         }
         track->position = position;
     }
+    if (track->original &&
+        !Scale::Rebuild(*track->original, track->sector, track->geom, track->quarters, track->position,
+                        track->placement.scale))
+        track->original.reset(); // (not the sector copied any more: left as the engine has it)
     if (FlagsOf(track->sector) & 0x40)
         FlagsOf(track->sector) |= 0x20;
     track->moved = true;
@@ -586,7 +606,7 @@ Placement PlacementOf(uint32_t checksum, uint8_t* geom)
 
 bool SamePlacement(const Placement& a, const Placement& b)
 {
-    return a.quarters == b.quarters && std::fabs(a.offset.x - b.offset.x) < 0.5f &&
+    return a.quarters == b.quarters && std::fabs(a.scale - b.scale) < 1e-4f && std::fabs(a.offset.x - b.offset.x) < 0.5f &&
            std::fabs(a.offset.y - b.offset.y) < 0.5f && std::fabs(a.offset.z - b.offset.z) < 0.5f;
 }
 
@@ -880,8 +900,9 @@ std::string DescribeHover(uint32_t checksum)
     OrientedBox box;
     if (Box(checksum, &box)) {
         char size[64];
-        std::snprintf(size, sizeof(size), "  %.0f x %.0f x %.0f", box.max.x - box.min.x, box.max.y - box.min.y,
-                      box.max.z - box.min.z);
+        float scale = std::sqrt(Dot(box.axes[1], box.axes[1])); // (scaled: level_editor_scale.h)
+        std::snprintf(size, sizeof(size), "  %.0f x %.0f x %.0f", (box.max.x - box.min.x) * scale,
+                      (box.max.y - box.min.y) * scale, (box.max.z - box.min.z) * scale);
         text += size;
     }
     if (uint32_t cluster = ClusterOf(checksum)) {
@@ -902,11 +923,18 @@ std::string DescribeSelection()
     std::string text = "scenery " + Label(g_selection[0]);
     char more[160];
     int quarters = 0;
+    float scale = 1.0f;
     auto it = g_tracks.find(g_selection[0]);
-    if (it != g_tracks.end())
+    if (it != g_tracks.end()) {
         quarters = it->second.placement.quarters;
+        scale = it->second.placement.scale;
+    }
     std::snprintf(more, sizeof(more), "  at (%.0f, %.0f, %.0f)  turned %d", g_pivot.x, g_pivot.y, g_pivot.z,
                   quarters * 90);
+    if (scale != 1.0f) {
+        size_t used = std::strlen(more);
+        std::snprintf(more + used, sizeof(more) - used, "  scaled %.2fx", scale);
+    }
     if (g_selection.size() > 1)
         text += " + " + std::to_string(g_selection.size() - 1) + " more";
     if (!g_rails.empty())
@@ -1041,6 +1069,53 @@ void Turn(int quarters)
     g_hoverGroupOf = 0;
 }
 
+// --- scaling (level_editor_scale.h) ---
+
+float SelectionScale()
+{
+    if (g_selection.empty())
+        return 1.0f;
+    uint8_t* sector = FindSector(g_selection[0], nullptr);
+    return sector ? PlacementOf(g_selection[0], GeomOf(sector)).scale : 1.0f;
+}
+
+float ScaleSelection(float factor)
+{
+    std::vector<float> scales, limits;
+    for (uint32_t checksum : g_selection) {
+        if (Track* track = TrackOf(checksum)) {
+            if (!track->original) // (kept now, as ApplyTrack would: a piece that can't be copied stops the lot)
+                track->original = Scale::Capture(track->sector, track->geom, track->quarters, track->position);
+            if (!track->original) {
+                Log("level editor: %s can't be scaled (its meshes can't be copied)", Label(checksum).c_str());
+                return 1.0f;
+            }
+            scales.push_back(track->placement.scale);
+            limits.push_back(Scale::Limit(track->sector, track->placement.scale));
+        }
+    }
+    factor = Scale::AllowedFactor(factor, scales, limits);
+    if (factor == 1.0f || scales.empty())
+        return 1.0f;
+    // About the middle of the selection's bottom: it keeps standing where it stands.
+    V3 anchor = {g_pivot.x, Bottom(), g_pivot.z};
+    for (uint32_t checksum : g_selection) {
+        if (Track* track = TrackOf(checksum)) {
+            Scale::ScaleAbout(&track->placement, anchor, factor);
+            ApplyTrack(track);
+        }
+    }
+    for (uint32_t name : g_rails) {
+        if (RailTrack* track = RailTrackOf(name))
+            Scale::ScaleAbout(&track->placement, anchor, factor);
+    }
+    ApplyRails(g_rails);
+    g_halfHeight *= factor;
+    g_pivot = {anchor.x, anchor.y + g_halfHeight, anchor.z};
+    g_hoverGroupOf = 0;
+    return factor;
+}
+
 std::vector<std::pair<V3, V3>> SelectedRails()
 {
     std::vector<std::pair<V3, V3>> segments;
@@ -1167,7 +1242,8 @@ void ApplyStates(const std::vector<SectorState>& sectors, const std::vector<Rail
         Track* track = TrackOf(saved.checksum);
         if (!track)
             continue;
-        if (track->placement.quarters != saved.placement.quarters || !SameV3(track->placement.offset, saved.placement.offset)) {
+        if (track->placement.quarters != saved.placement.quarters ||
+            !SameV3(track->placement.offset, saved.placement.offset) || track->placement.scale != saved.placement.scale) {
             track->placement = saved.placement;
             ApplyTrack(track);
         }
@@ -1210,7 +1286,7 @@ std::vector<SectorState> ChangedSectors()
             continue;
         bool hidden = !IsActive(track.sector);
         const Placement& p = track.placement;
-        if (hidden || p.quarters || p.offset.x != 0.0f || p.offset.y != 0.0f || p.offset.z != 0.0f)
+        if (hidden || p.quarters || p.scale != 1.0f || p.offset.x != 0.0f || p.offset.y != 0.0f || p.offset.z != 0.0f)
             changed.push_back({entry.first, p, hidden});
     }
     return changed;
@@ -1225,7 +1301,7 @@ std::vector<RailState> ChangedRails()
             continue;
         bool hidden = track.active0 && !(track.node->flags & 4);
         const Placement& p = track.placement;
-        if (hidden || p.quarters || p.offset.x != 0.0f || p.offset.y != 0.0f || p.offset.z != 0.0f)
+        if (hidden || p.quarters || p.scale != 1.0f || p.offset.x != 0.0f || p.offset.y != 0.0f || p.offset.z != 0.0f)
             changed.push_back({entry.first, p, hidden});
     }
     return changed;
@@ -1370,7 +1446,7 @@ bool SelectionMoved(Placement* placement)
     if (!sector)
         return false;
     *placement = PlacementOf(g_selection[0], GeomOf(sector));
-    return placement->quarters != 0 || placement->offset.x != 0.0f || placement->offset.y != 0.0f ||
+    return placement->quarters != 0 || placement->scale != 1.0f || placement->offset.x != 0.0f || placement->offset.y != 0.0f ||
            placement->offset.z != 0.0f;
 }
 

@@ -22,6 +22,7 @@
 #include "game/front/level_editor_objects.h"
 #include "game/front/level_editor_preview.h"
 #include "game/front/level_editor_picking.h"
+#include "game/front/level_editor_scale.h"
 #include "game/front/level_editor_scenery.h"
 #include "game/front/level_editor_ui.h"
 #include "game/front/mouse_menus.h"
@@ -774,6 +775,25 @@ void PushUndo(const UndoStep& step)
     MarkUnsaved();
     ++g_moves;
 }
+
+// [ / ] (level_editor_scale.h): the selected scenery scaled by `factor` about the middle of its bottom, one undo step.
+// False when nothing changed (not scenery, or at its limit - said on the message line).
+bool ScaleSceneryBy(float factor)
+{
+    if (Primary() || MovableNode() >= 0 || !Scenery::HasSelection()) {
+        Hud::Message("Only scenery scales ([ / ]): objects and nodes don't yet");
+        return false;
+    }
+    UndoStep before = Snapshot();
+    if (Scenery::ScaleSelection(factor) == 1.0f) {
+        Hud::Message("Scale: at its limit (0.25x to 4x; less for a large piece with compressed collision)");
+        return false;
+    }
+    Scenery::Commit();
+    PushUndo(before);
+    return true;
+}
+float g_scaleAtFieldStart = 1.0f; // (the Inspector's Scale field: the scale when it was taken - its undo step)
 
 // A change starting (a drag, the keys moving it) and ending: kept when the selection did move.
 void BeginChange()
@@ -1860,7 +1880,7 @@ void UpdateHud()
         Hud::SetLine(6, Key("Esc") + " put it back where it was");
     } else if (HaveSelection()) {
         Hud::SetLine(5, Key("Drag") + " move  " + Key("Arrows") + " one axis  " + Key("WASDQE") + " nudge  " + Key("ZX") +
-                            " turn  " + Key("G") + " drop");
+                            " turn  " + (Primary() ? std::string() : Key("[ ]") + " scale  ") + Key("G") + " drop");
         Hud::SetLine(6, Key("Ctrl+D") + " copy  " + Key("Del") + " hide  " + Key("Home") + " reset  " + Key("Esc") +
                             " deselect  " + Key("F1") + " help");
     } else {
@@ -2088,6 +2108,9 @@ std::vector<std::pair<std::string, std::string>> KeysNow()
     if (g_nodeSelected)
         return {{"WASD", "fly"}, {"RMB", "look"}, {"Click", "select another"}, {"Esc", "deselect"},
                 {"Outliner", "double-click: go to"}, {"F1", "help"}};
+    if (HaveSelection() && !Primary())
+        return {{"Drag", "move"}, {"Arrows", "one axis"}, {"WASDQE", "nudge"}, {"Z X", "turn"}, {"[ ]", "scale"},
+                {"G", "drop"}, {"Ctrl+D", "copy"}, {"Del", "hide"}, {"Home", "reset"}, {"Esc", "deselect"}};
     if (HaveSelection())
         return {{"Drag", "move"}, {"Arrows", "one axis"}, {"WASDQE", "nudge"}, {"Z X", "turn"}, {"G", "drop"},
                 {"Ctrl+D", "copy"}, {"Del", "hide"}, {"Home", "reset"}, {"Esc", "deselect"}};
@@ -2150,6 +2173,8 @@ Ui::Model BuildModel()
         s.checksum = Scenery::Selection().front();
         s.name = Objects::Label(s.checksum);
         s.pos = Scenery::Pivot();
+        s.scalable = true;
+        s.scale = Scenery::SelectionScale();
     }
     model.help = g_help;
     model.browser = g_browser.open;
@@ -2246,6 +2271,7 @@ void ShowHelp()
         "Moving       hold and drag (Shift: up / down, wheel: push / pull, Ctrl: snap)",
         "             drag an arrow to move along that axis only",
         "             W A S D / Q E nudge   Z / X turn   G drops it to the ground",
+        "             [ / ] scale scenery down / up 10% (Shift: 1%), 0.25x to 4x",
         "             a rail point moves with its whole rail - L: by itself",
         "Editing      Ctrl+D duplicates   Del hides (a copy / added node: deletes)   Home puts back",
         "             Ctrl+Z undo   Ctrl+Y redo   Ctrl+Shift+Del twice: reset the level",
@@ -2997,6 +3023,30 @@ void ApplyUiRequests(V3 dir, bool haveRay, const Frame& frame)
                 EndChange();
             }
             break;
+        case Ui::Request::kScaleSet:
+            // The Inspector's Scale (level_editor_scale.h): scenery scaled to it while dragged or typed; one undo step
+            // until let go.
+            if (!Primary() && MovableNode() < 0 && Scenery::HasSelection() && !g_dragging && !g_keyMoving) {
+                if (!g_fieldEditing) {
+                    BeginChange();
+                    g_fieldEditing = true;
+                    g_scaleAtFieldStart = Scenery::SelectionScale();
+                }
+                float now = Scenery::SelectionScale();
+                Scenery::ScaleSelection(Scale::Clamp(request.a[0]) / now);
+            }
+            break;
+        case Ui::Request::kScaleDone:
+            if (g_fieldEditing) {
+                g_fieldEditing = false;
+                Scenery::Commit();
+                if (g_hasPending && Scenery::SelectionScale() != g_scaleAtFieldStart) {
+                    PushUndo(g_pending);
+                    NoteAction("scaled in the Inspector: %s", DescribeSelection().c_str());
+                }
+                g_hasPending = false;
+            }
+            break;
         case Ui::Request::kReset:
             if (!noChange)
                 Reset();
@@ -3310,6 +3360,15 @@ void Update()
             PushUndo(Snapshot());
             TurnSelection(turn);
             NoteAction("turned (Z / X): %s", DescribeSelection().c_str());
+        }
+        // [ / ]: scenery scaled down / up a tenth (Shift: a hundredth) - level_editor_scale.h.
+        static bool scaleDownKey, scaleUpKey;
+        int scaling = (Pressed(keys, SDL_SCANCODE_RIGHTBRACKET, &scaleUpKey) ? 1 : 0) -
+                      (Pressed(keys, SDL_SCANCODE_LEFTBRACKET, &scaleDownKey) ? 1 : 0);
+        if (scaling && !g_dragging && !g_fieldEditing && !ctrl) {
+            float step = shift ? Scale::kFineStep : Scale::kStep;
+            if (ScaleSceneryBy(scaling > 0 ? step : 1.0f / step))
+                NoteAction("scaled ([ / ]): %s", DescribeSelection().c_str());
         }
         // G: down onto the ground below it.
         if (Pressed(keys, SDL_SCANCODE_G, &dropKey) && !g_dragging)

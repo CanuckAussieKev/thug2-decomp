@@ -40,6 +40,7 @@ class CScript;
 //                                                      DLL, which knows only 1, refuses a version 2 file as a whole)
 //   scene <checksum>                                   the level's main scene (its sectors' table)
 //   sector <checksum> <quarters> <x> <y> <z> <hidden>  a sector moved by (x, y, z) after `quarters` quarter turns
+//          [scale=<s>]
 //   rail <name> <quarters> <x> <y> <z> <hidden>        a grind rail node, the same (moved with its scenery, or by
 //                                                      itself / its whole rail - level_editor_node_edit.h)
 //   clone <source> <quarters> <x> <y> <z>             a copy of a sector, placed relative to its source as loaded
@@ -56,7 +57,11 @@ class CScript;
 //   hide <node>                                        a level's node hidden (not removed: its indexes stay)
 //   lock sector <checksum> / lock object <id>          a scenery piece / an object locked: clicks pass it
 //                                                      (level_editor_picking.h)
-// An older (phase 2) reader skips node / order / hide records; an older reader of version 2 skips lock records.
+//   ... scale=<s>                                      (after a sector / rail / clone record's numbers, when not 1) a
+//                                                      uniform scale (level_editor_scale.h): the point x as loaded is
+//                                                      at QuarterTurn(x * s, quarters) + (x, y, z)
+// An older (phase 2) reader skips node / order / hide records; an older reader of version 2 skips lock records and
+// reads past a record's scale= (the piece then placed unscaled).
 // Checksums are 8 hex digits; numbers are written with 9 significant digits (floats survive the round trip).
 namespace Front::LevelEditor::Layout {
 

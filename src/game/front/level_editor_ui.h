@@ -88,6 +88,9 @@ struct Model {
         bool hasHeading = false;
         float headingDegrees = 0.0f;
         uint32_t checksum = 0;
+        // Scenery: its scale (level_editor_scale.h - the Inspector's Scale field).
+        bool scalable = false;
+        float scale = 1.0f;
     } selection;
     // The help (F1) and the browser (B).
     bool help;
@@ -229,6 +232,8 @@ struct Request {
         kPickFilter,    // id: the pick filter's bits
         kToggleLock,    // L: the selection locked / unlocked
         kUnlock,        // value: the lock's kind, id: its id
+        kScaleSet,      // the Inspector's Scale (scenery): a[0] = the scale asked for
+        kScaleDone,     // that field let go (the changes since its first kScaleSet: one undo step)
     } kind;
     int value = 0;
     uint32_t id = 0;

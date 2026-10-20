@@ -104,6 +104,11 @@ float Bottom();
 void SetSelection(const std::vector<uint32_t>& sectors);
 void MoveTo(V3 pivot);
 void Turn(int quarters);
+// Scaling (level_editor_scale.h): the selection's scale (its first piece's; 1 when not scaled), and the selection scaled
+// by `factor` about the middle of its bottom - limited so every piece stays within 0.25x..4x (less for compressed
+// collision). Returns the factor used (1: none). Vertices and collision at once, as Turn; Commit after.
+float SelectionScale();
+float ScaleSelection(float factor);
 void Commit();
 // How many sectors have been moved since the level loaded.
 int MovedCount();
