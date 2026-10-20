@@ -56,6 +56,11 @@ class CScript;
 //                             crown order kept - and the game's proximity node / emitter / light made for them; a level's
 //                             own nodes hidden (not removed: a marker class the walks skip); `node` / `order` / `hide`
 //                             records; the limits (10 crowns, 256 restarts, 256 / 150 lights)
+//   level_editor_fields.cpp   (phase 6) the full Inspector: every node field typed, editable (live / on reload), own
+//                             overrides over shared structures, `set` records' f.<field>= edits written into the edited
+//                             copy's node array as it loads; level_editor_fields_ui.cpp its ImGui table
+//   level_editor_level_props.cpp (phase 6) the edited copy's level properties (name, start, time of day, ambient,
+//                             fog): its `level` record, written into the level structure only for its load
 //   level_editor_view.cpp     the view options: the collision shown (C; invisible walls magenta, Shift+click one), the
 //                             selection hidden (H) or isolated (I or /) while editing only, Alt+H shows all
 //   level_editor_walls.cpp    collision switched off and on with the game's own switch (CSector::SetActive): invisible
