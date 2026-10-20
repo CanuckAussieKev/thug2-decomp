@@ -1466,7 +1466,7 @@ export function doesSomething(code: Uint8Array): boolean {
     return false;
 }
 
-function* plainTokens(code: Uint8Array): Generator<[number, Buffer]> {
+export function* plainTokens(code: Uint8Array): Generator<[number, Buffer]> {
     // (token, payload) of THUG2-format code (with the random weights).
     for (const [, t, p] of qb.tokens(Buffer.concat([code, Buffer.from([0])]), true)) {
         if (t === 0x00) break;
