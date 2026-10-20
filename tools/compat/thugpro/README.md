@@ -78,7 +78,7 @@ Not entries here, although THUGPRO does the same (they're right for THUG2 on the
   frame and its game-mode nodes (`TRG_CTF_*`, `TRG_Flag_*`, `TRG_KOTH*`) need nothing: THPS4 has them under THUG2's
   names already (`tools/thps4_levels/thugpro_compare.ts`: every shared node in place but THUGPRO's 1-4 hand moves).
 
-## New in THUGPRO (not in any source game): `thugpro_new` (THAW)
+## New in THUGPRO (not in any source game): `thugpro_new` - THAW
 
 The user's decision (2026-10-20, Morten1337 agreeing): THUGPRO's own content goes into our THAW ports under the default
 `--compat thugpro`, kept in ONE separate section, `thaw_levels.json` `thugpro_new`, apart from the hand edits to THAW's
@@ -249,7 +249,7 @@ sections, both a list of entries (`entries`), each `{id, op, target, why, ...}`:
 | `thugpro_new` | **New in THUGPRO (not in any source game)**: THUGPRO's own content - its scripts, nodes, teleports, host level options, models. By reference only - what is read from the user's THUGPRO install at convert time (`--thugpro`), never its bytes: THPS4 names file, entry, size and SHA-256; THPS3 archive, file, the item's name and a CRC-32 of the item | part of the THUGPRO profile: `--compat none` leaves it out, and `--no-thugpro-new` the profile without it |
 | `port_changes` | **Our own changes**: this project's deliberate deviations from a source game's data - neither the source game's nor THUGPRO's (the skate shop's open door, crash guards, nodes and statements left out) | not THUGPRO data, so applied whatever `--compat` says (`--compat none` too); `--no-port-changes` leaves out all but the `required` ones: the source game's data as it is, but what a level needs to load |
 
-## Our own changes (port_changes)
+## Our own changes (port_changes) - THPS4 and THPS3
 
 Not THUGPRO entries: what this project changed in a source game's levels on purpose. THPS4
 (`thps4_levels.json` `port_changes`, applied by `tools/thps4_levels/thps4_levels.ts` - `portChanges(rule, level)`):
@@ -298,7 +298,7 @@ AI, vehicles as level objects of their models, the CTF / team flags' THUG2 form,
 Checked: the default output is unchanged by the move into data (every file); `--compat none --no-port-changes`
 differs in the 13 levels' node arrays (and Warehouse's dark set back in its scene / collision).
 
-## New in THUGPRO (not in any source game): `thugpro_new`
+## New in THUGPRO (not in any source game): `thugpro_new` - THPS4 and THPS3
 
 THUGPRO's own content, in no source game - included in our levels since the user's decision of 2026-10-20 (Morten's
 permission), **by reference only**: the section's `files` name THUGPRO's archive, the entry, its size and SHA-256; the

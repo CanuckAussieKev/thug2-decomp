@@ -12,6 +12,19 @@ then the "- [ ] Next:" line of docs/decomp-progress.md.
   - the leaked-source ban.
 - **Decomp:** 28.27% before the object-system merge (docs/PROGRESS.md). The next batch number is **156**.
 
+## Update 7 (2026-10-21): update 6's four branches finished and merged
+All four (THPS4 5bb1d44, THAW 957059d, THPS3 d4692b2, THUG1 76cbbcf) are on main and installed in C:\Games\THUG2: every
+game's `thugpro_new` (TPN-<game>-n, by reference to the THUGPRO install) and `port_changes` (PC-<game>-n, `op` /
+`required`) read through one shared tools/compat/compat.ts API; The Mall's First_Rail_Blocker restored; THPS4 banners
+opt-in (`--thugpro-banners`). Not run in the game.
+- **Running:** an audit (read-only) of the converters' "THUG2 doesn't have X" assumptions - TriggerType (gaps never fire
+  in THUG1 / THAW / likely THPS3 ports), THAW's glass (ShatterAndDie / BloodSplat exist in THUG2; MA_KillStickers
+  dropped), suspects TeleportSkaterToNode, Obj_LockToObject, Obj_AdjustSound, DuplicateTrigger. Fixes follow its report
+  (shared tools/level_port/script_port.ts).
+- PC-THUG1-7 (goal nodes left out, marked required) needs verification.
+- Proposed C++ (none done): THUGPRO's TriggerType / particle / televator / SafeKill / LoadZone equivalents, a protocol
+  layer for host options (messages 155-159).
+
 ## Update 6 (2026-10-20, night): account switch - 4 agents stopped mid-task (thugpro_new + port_changes)
 Main (pushed) has everything up to TP-39 + the editor quick start, all installed in C:\Games\THUG2. Four agents were
 stopped part-way; each committed its work in progress (WIP) on its branch and wrote a handoff note
