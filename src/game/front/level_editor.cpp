@@ -2141,6 +2141,11 @@ bool ShowHiddenNode()
     if (index < 0 || !Nodes::All()[index].hidden)
         return false;
     uint32_t name = Nodes::All()[index].name;
+    if (Chains::IsChainNode(name)) {
+        // (a deleted rail / path point: its neighbours were linked past it - the chains' undo puts both back)
+        Hud::Message("A deleted rail / path point: Ctrl+Z (or Reset level) brings it back with its links");
+        return true;
+    }
     if (!NodeCreate::Hide(name, false))
         return false;
     UndoStep step;
