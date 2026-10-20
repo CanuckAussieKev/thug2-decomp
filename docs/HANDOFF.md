@@ -12,6 +12,22 @@ then the "- [ ] Next:" line of docs/decomp-progress.md.
   - the leaked-source ban.
 - **Decomp:** 28.27% before the object-system merge (docs/PROGRESS.md). The next batch number is **156**.
 
+## Update 5 (2026-10-20, late): THUGPRO parity for all four ported games, editor quick start
+- **All merged and installed in C:\Games\THUG2** (main at b0ebea2 or later; DLL, all four games' levels, overlay).
+- **THUGPRO compatibility register** (tools/compat/thugpro, README lists every entry): TP-1..9 THAW, TP-10..19 THPS3,
+  TP-20..29 THPS4 (TP-29 skate-shop door walls: off, conflicts with the user's open door), TP-30..39 THUG1. Names, spawns
+  (place, types and ORDER - player n starts at the n-th Multiplayer restart, 0x00566100 / 0x0046B790 / 0x00580830),
+  flags, moves, added rails, collision face values: applied by default; `--compat none` = original-game output.
+  Data is always extracted (`thugpro_compare.ts --extract-thugpro` per game), never typed in.
+- **Awaiting the user:** THUGPRO-authored content (meshes, models, scripts, host level options) - listed per game in
+  each report and in the register README's awaiting lists. Reports: THAW JFncCnwYThiJz7rkD5weVP, THPS3
+  VCdnFhwUc2iCP2QMg8yZPy, THPS4 XuTzB6Yf8mQTg8v8cebeQY, THUG1 GiiFRTv2XvBbNrLxwaReWw (claude.ai/artifact/...).
+- **Editor quick start:** `-edit <level>` / `edit_level=`, layout autosave + crash recovery, `node tools/game/edit_level.ts`
+  (docs/pending/editor-quickstart.md has the test checklist). Editor UI plan (Dear ImGui, Inter / JetBrains Mono,
+  entity CRUD, phases 0-6): artifact AcJjzdPqNTvGKCdMzJkVLr.
+- **Nothing of today's level work has been run in the game.** Watch: College / Kyoto load (more nodes), THPS4 pieces
+  THUGPRO switched off at start, floating rails waiting on THUGPRO meshes (Foundry wires, Kyoto DDR, SM ferris).
+
 ## Update 4 (2026-10-20, evening): everything merged, no agents running
 - **Installed in C:\Games\THUG2** (main at fe71f13; DLL and overlay current; THAW levels reconverted under THUGPRO's
   names and frames):
