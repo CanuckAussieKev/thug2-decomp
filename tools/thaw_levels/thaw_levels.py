@@ -14,6 +14,7 @@
 import argparse
 import math
 import os
+import re
 import shutil
 import struct
 import sys
@@ -62,6 +63,51 @@ LEVELS = [
 BY_ZONE = {zone.lower(): (zone, sign, location, icon, num, default)
            for zone, sign, location, icon, num, default in LEVELS}
 
+# THUGPRO compatibility (online play with THUGPRO's own THAW ports - docs/pending/thaw.md "THUGPRO"). Everything
+# here is worked out from THAW's own files; THUGPRO's toolchain and installed levels were only the reference for what
+# is needed (thugpro_compare.py compares the result with them) - nothing of theirs is copied.
+# - level_name: the level's name in THUG2 - its folder and files, Load_<name> / Level_<name>, <name>_NodeArray: THAW's
+#   zone name in lower case (z_ma). A network game's change-level message (0x46) and start info (0x33) carry only the
+#   load script's checksum and the other side runs the script of that checksum, so the two sides' names have to be
+#   the same. THUGPRO names 11 of the 15 the same way; Chicago, Kyoto, Santa Cruz and Vans Park it renamed (those
+#   need a translation - see thaw.md).
+# - frame_shift: where the area sits. Skater positions travel as world coordinates (x / z in half units, y in
+#   quarters, signed 16 bits), so both sides have to put the level at the same place. Each area that has a
+#   <zone>_Zone_Origin node is moved by minus its Pos (every axis; nodes, particles, scene and collision alike) - the
+#   rule THUGPRO's toolchain applies (approach from Morten1337's thugpro_toolchain: find_zone_origin.py +
+#   node_position_patcher.py + THUGPRO_SceneObjectTool -origin). FRAME_KEPT: areas left in THAW's own frame although
+#   they have one - Vans Park, which THUGPRO's toolchain didn't move either (it looked the origin up under the level's
+#   new name, "vans"); kept so the two agree. (East LA and Santa Monica THUGPRO moved by offsets of its own choosing,
+#   not THAW data: those two differ - thaw.md says by how much.)
+FRAME_KEPT = {"Z_SV"}
+
+
+def level_name(zone, legacy=False):
+    # The level's THUG2 name: THAW's zone name (z_ma), or (legacy) the thaw_<xx> this converter used before.
+    return "thaw_" + zone.lower()[2:] if legacy else zone.lower()
+
+
+def sixteenths(v):
+    # A shift in whole sixteenths: collision BSP split points are world coordinates in sixteenths, moved exactly so
+    # (a face lying on a split stays on its side). Under 1/32 of a unit off the exact origin - far below what the
+    # network carries (half units).
+    return tuple(round(x * 16.0) / 16.0 for x in v)
+
+
+def frame_shift(zone, array, names):
+    # The zone's frame: minus the Pos of its <zone>_Zone_Origin node (in whole sixteenths), or no move when it has
+    # none or is in FRAME_KEPT.
+    if zone.upper() in FRAME_KEPT:
+        return (0.0, 0.0, 0.0)
+    origin = qb.checksum(zone + "_Zone_Origin")
+    for node in array:
+        if isinstance(node, qb.Struct) and isinstance(node.get("Name"), qb.Name) and node.get("Name").value == origin:
+            pos = node.get("Pos")
+            if isinstance(pos, tuple) and pos[0] == "vector":
+                return sixteenths(tuple(-x for x in pos[1]))
+    return (0.0, 0.0, 0.0)
+
+
 # Collision face flags: THUG2's meanings up to 0x1000 (invisible); 0x2000, 0x4000 and 0x8000 aren't THUG2's - dropped.
 FACE_KEEP = 0x1FFF
 # Material pass flags THUG2 has the data for here (uv wibble only with its values, below): textured, environment,
@@ -106,6 +152,18 @@ def zone_files(path):
         elif entry.extension in (".geom", ".tex", ".col"):
             files[entry.extension] = data
     return files
+
+
+def zone_array(files, zone, names):
+    # The zone's node array as THAW has it (its includes expanded).
+    low = zone.lower()
+    if low + ".qb" not in files:
+        raise FormatError("%s: no %s.qb in its archive" % (zone, low))
+    q = thaw.QbItems(files[low + ".qb"], low + ".qb", names)
+    array = q.get(zone + "_NodeArray")
+    if not isinstance(array, list):
+        raise FormatError("%s: no %s_NodeArray" % (zone, zone))
+    return nodes.expand_includes(array, {key.value: value for key, value in q.globals})
 
 
 def level_structs(args, names):
@@ -309,6 +367,29 @@ def move_positions(value, shift):
                 node.entries[i] = (key, ("vector", tuple(v[1][k] + shift[k] for k in range(3))))
 
 
+MULTIPLAYER = re.compile(r"^trg_(ctf_\w+|flag_(red|blue|green|yellow)(_base)?|koth\d+|team_restart)$", re.IGNORECASE)
+
+
+def multiplayer_names(array, zone, names):
+    # The game modes' nodes under the names THUG2's own scripts look for (net\ctf.qb: TRG_CTF_Red...; SK4_Scripts'
+    # team flags: TRG_Flag_Red...) and its levels use (TRG_KOTH01..., TRG_Team_Restart): THAW prefixes them with the
+    # zone (Z_JA_TRG_CTF_Blue). THUGPRO's toolchain strips the prefix from the same names (thaw_node_array_converter.py
+    # fix_node_name - approach from Morten1337's thugpro_toolchain). In place; returns how many.
+    prefix = zone.lower() + "_"
+    renamed = 0
+    for node in array:
+        name = node.get("Name") if isinstance(node, qb.Struct) else None
+        if not isinstance(name, qb.Name):
+            continue
+        text = names.get(name.value, "")
+        if text.lower().startswith(prefix) and MULTIPLAYER.match(text[len(prefix):]):
+            short = text[len(prefix):]
+            names.setdefault(qb.checksum(short), short)
+            node.set("Name", qb.Name(qb.checksum(short)))
+            renamed += 1
+    return renamed
+
+
 SHATTERS = (qb.checksum("ShatterAndDie"), qb.checksum("Shatter"), qb.checksum("ShatterFromSkater"))
 
 
@@ -389,6 +470,10 @@ def convert_level_nodes(files, zone, name, ns, out_dir, report, names, shift, dr
     if not isinstance(array, list):
         raise FormatError("%s: no %s_NodeArray" % (zone, zone))
     array = nodes.expand_includes(array, {key.value: value for key, value in q.globals})
+    stripped = multiplayer_names(array, zone, names)
+    if stripped:
+        report.append("  %d game-mode nodes renamed without the zone prefix (TRG_CTF_*, TRG_Flag_*, TRG_KOTH*, "
+                      "TRG_Team_Restart)" % stripped)
     # LOD copies: a node's LOD_Name is the sector drawn instead of it far away; THUG2 would draw both.
     lods = set()
     for node in array:
@@ -432,12 +517,14 @@ def convert_level_nodes(files, zone, name, ns, out_dir, report, names, shift, dr
     if made is not None:
         sources = [thaw_scripts.ThawSource(x, thaw_scripts.LEVEL, names) for x in script_qbs] + port.globals
         provided = set(kills) | set(breakables) | {qb.checksum(s) for s in (
-            "LoadTerrain", thaw_scripts.PED_WALK, thaw_scripts.PED_STAND, thaw_scripts.CAR_DRIVE)}
+            "LoadTerrain", thaw_scripts.PED_WALK, thaw_scripts.PED_STAND, thaw_scripts.CAR_DRIVE,
+            thaw_scripts.RAIL_ACCELERATE)}
         scripts, globals_text, script_report, _ = thaw_scripts.port_scripts(
             converted, original, made, port.globals + sources, port.thug2, names, provided,
             {n.get("Name").value for n in converted if isinstance(n.get("Name"), qb.Name) and
              nodes.class_of(n, names) == "levelgeometry" and n.get("Name").value not in made.sectors})
-        extra = globals_text + thaw_scripts.MADE_SCRIPTS + thaw_scripts.load_particle_textures_ns(made.particle_textures)
+        extra = globals_text + thaw_scripts.MADE_SCRIPTS + thaw_scripts.RAIL_SCRIPTS + \
+            thaw_scripts.load_particle_textures_ns(made.particle_textures)
         local, objects_gone = made.local, made.gone
     else:
         objects_gone = made_gone
@@ -475,8 +562,9 @@ def convert_level_nodes(files, zone, name, ns, out_dir, report, names, shift, dr
 # --- converting -------------------------------------------------------------------------------------------------
 
 def recentre_shift(col, limit):
-    # Areas far from the origin (Oil Rig reaches z 112,000) lose precision in THUG2's camera and physics: moved so the
-    # middle of their collision is at the origin (x / z, in whole 16-unit steps), when it is further than `limit`.
+    # --frame recentre (the frame this converter used before THUGPRO's; migrate_layouts.py works out from it where
+    # layouts saved then were): areas far from the origin (Oil Rig reaches z 112,000) moved so the middle of their
+    # collision is at the origin (x / z, in whole 16-unit steps), when it is further than `limit`.
     boxes = [o["bbox"] for o in col["objects"] if o["faces"]]
     if not boxes:
         return (0.0, 0.0, 0.0)
@@ -528,10 +616,13 @@ def cmd_convert(args):
             continue
         print("converting", zone)
         files = zone_files(path)
-        name = "thaw_" + zone.lower()[2:]
+        name = level_name(zone, args.legacy_names)
         level_dir = os.path.join(out, "levels", name)
         col_in = thaw.read_col(files[".col"], zone + ".col")
-        shift = recentre_shift(col_in, args.recentre)
+        if args.frame == "thugpro":
+            shift = frame_shift(zone, zone_array(files, zone, names), names)
+        else:
+            shift = recentre_shift(col_in, args.recentre)
         if any(shift):
             report.append("%s: moved by (%g, %g, %g)" % (name, shift[0], shift[1], shift[2]))
         geom = thaw.read_geom(files[".geom"], zone + ".geom")
@@ -636,8 +727,14 @@ def main():
     parser.add_argument("--thaw", default=r"C:\Games\THAW")
     parser.add_argument("--out", help="where convert writes (default: <thug2>\\%s)" % STAGING)
     parser.add_argument("--ns", default=common.NS)
+    parser.add_argument("--frame", choices=("thugpro", "recentre"), default="thugpro",
+                        help="where each area sits: thugpro - moved by its Zone_Origin node as THUGPRO's "
+                        "toolchain does (frame_shift; default), or recentre (the older one: "
+                        "an area reaching further than --recentre moved to the origin, x / z)")
     parser.add_argument("--recentre", type=float, default=20000.0,
-                        help="move an area whose collision reaches further than this from the origin (x / z)")
+                        help="--frame recentre: move an area whose collision reaches further than this (x / z)")
+    parser.add_argument("--legacy-names", action="store_true",
+                        help="name the levels thaw_<xx> as before, not by their zones (z_ma)")
     parser.add_argument("--static", action="store_true",
                         help="convert: the levels' scripts, moving objects, peds and cars left out")
     args = parser.parse_args()

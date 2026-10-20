@@ -48,6 +48,42 @@ PED_WALK, PED_STAND, CAR_DRIVE = "thaw_ped_walk", "thaw_ped_stand", "thaw_car_dr
 MADE_SCRIPTS = ("script %s {\n    Ped_InitAI \n}\nscript %s {\n    Ped_InitAI stand \n}\n"
                 "script %s {\n    Car_Generic01 \n}\n" % (PED_WALK, PED_STAND, CAR_DRIVE))
 
+# THAW's rail speed-up (skutils.qb's RailAccelerate, the trigger script of uphill rails: while the skater grinds the
+# rail and climbs, 5% more speed a frame). THAW's checks the trigger type first (land / onto: THUG2 has no
+# TriggerType - the climb loop ends as soon as the skater is off the rail anyway) and spawns the loop through the
+# skater's id (`<objid>:Obj_SpawnScriptLater`); a rail's trigger script runs on the skater here, so Obj_SpawnScript.
+# (Written from THAW's own script; THUGPRO has one of the same shape in its thugpro_utils.q.)
+RAIL_ACCELERATE = "RailAccelerate"
+RAIL_SCRIPTS = """script RailAccelerate {
+    KillSpawnedScript name=RailAccelerate2
+    Obj_SpawnScript RailAccelerate2
+}
+script RailAccelerate2 {rate=0.05
+    OldPos = 0
+    while {
+        if OnRail {
+            Obj_GetPosition
+            NewPos = (<pos>.(0.0, 1.0, 0.0))
+            if (<NewPos> > <OldPos>) {
+                GetSpeed
+                SetSpeed (<speed> * (1.0 + <rate>))
+            }
+            OldPos = <NewPos>
+            wait 1 gameframe
+        } else {
+            break
+        }
+    }
+}
+"""
+
+# The game-mode flags (capture the flag, the lobby's team flags): THAW's are THUG2's own game objects (Type Flag_Red /
+# Flag_Red_Base..., gameobjects\flags\ models THUG2 has, a trigger script calling THUG2's Team_Flag) - kept, so that
+# THUG2's net\ctf.qb and SK4_Scripts' Create_Team_Flags / Team_Flag_Trigger find them by name (TRG_CTF_Red... -
+# thaw_levels.multiplayer_names takes the zone prefix off).
+FLAG_MODELS = "gameobjects\\flags\\"
+FLAG_KEYS = {checksum(k) for k in ("Type", "model", "lod_dist1", "lod_dist2")}
+
 
 def u32(b, at=0):
     return struct.unpack_from("<I", b, at)[0]
@@ -275,6 +311,7 @@ class PortedNodes:
         self.triggers = []      # (node name, script, context)
         self.scripts = set()
         self.local = set()      # the LevelObjects' names: their sectors and collision in their own space
+        self.object_contexts = {}  # the made objects scripts may address (`name:member`): name -> who runs it
         self.gone = set()       # LevelObjects not made (no sector): their collision left out too
         self.counts = {}
         self.life_peds = 0
@@ -339,6 +376,14 @@ class PortedNodes:
         if cls == "levelobject":
             return self.level_object(node)
         if cls == "gameobject":
+            model = node.get("model")
+            if isinstance(model, str) and model.lower().startswith(FLAG_MODELS) and node.get("profile") is None and \
+                    (self.assets is None or self.assets.model_exists(model)):
+                self._count("game-mode flags")
+                return self._made(self._base(node, "GameObject") +
+                                  [(k, v) for k, v in node.entries if k is not None and k.value in FLAG_KEYS] +
+                                  self._flags(node, "CreatedAtStart", "AbsentInNetGames", "NeverSuspend"),
+                                  node, script_port.OBJECT)
             if node.get("model") != "none" or node.get("profile") is not None:
                 # (a model, or a profile naming one: THAW's bouncy barricades, chairs...)
                 return self._left_out("game objects with THAW models left out")
@@ -420,6 +465,9 @@ class PortedNodes:
                 entries.append((key, value))
         entries += self._links(node)
         self.local.add(name)
+        # (THAW's scripts kick its bouncy boxes - The Mall's Obj_Bouncy_Box_Low01:Rigidbody_Kick - and move its
+        # movers - Obj_Skidmark_Grate01:Obj_MoveToRelPos: kept, checked as run by that object)
+        self.object_contexts[name] = script_port.BOUNCY if node.has_flag("bouncy") else script_port.OBJECT
         self._count("bouncy objects" if node.has_flag("bouncy") else "moving objects")
         return self._made(entries, node, script_port.OBJECT)
 
@@ -517,13 +565,27 @@ LEFT_OUT_PREFIXES = ("goalmanager_", "goal_", "igc_", "playigccam", "cinematicca
 # own components' members too (THAW's speed boosts: GetSpeed / SetSpeed; `if Walking`...), not just script_port's
 # safe few. A context of its own (script_port's SKATER stays as the other converters have it).
 SKATER = "thaw_skater"
+# (animblender, input, vibration: the skater has them too - THUG2's TeleportSkaterToNode, which THAW's teleports
+# call (The Mall's Trgp_teleport...), needs them; without them the teleport triggers did nothing)
 script_port.SAFE_COMPONENTS.setdefault(SKATER, script_port.SAFE_COMPONENTS[script_port.SKATER] | {
     "skatercorephysics", "skaterstate", "skaterphysicscontrol", "trick", "skaterbalancetrick", "skaterruntimer",
-    "statsmanager", "walk"})
+    "statsmanager", "walk", "animblender", "input", "vibration"})
 script_port.BY_NAME.setdefault(SKATER, script_port.BY_NAME[script_port.SKATER])
 
 
+# THUG2 scripts the skater runs that script_port.Thug2.script_needs over-counts (it follows every name a script uses
+# that is also a script's - parameter names included - down through them): checked by hand to need only the
+# skater's own components. trigger_jump_boost (The Ruins' jump boosts, 10 triggers) is THAW's line for line:
+# SpawnSound, GetSkaterVelocity, SetSkaterVelocity (C functions).
+SKATER_SCRIPTS_CHECKED = {checksum("trigger_jump_boost")}
+
+
 class Translator(script_port.Translator):
+    def thug2_script_ok(self, name, contexts):
+        if name in SKATER_SCRIPTS_CHECKED and all(c == SKATER for c in contexts):
+            return True
+        return super().thug2_script_ok(name, contexts)
+
     def command(self, toks, contexts, discover):
         if any(t.t == 0x16 and t.name() in self.undrawn for t in toks):
             # (a collision-only geometry node named anywhere - passed on to a script's Kill / Visible / Shatter
@@ -547,7 +609,7 @@ def port_scripts(converted, array, made, sources, thug2, names, provided, undraw
     node_names = {x.get("Name").value for x in converted if isinstance(x.get("Name"), Name)}
     allowed = set(GLOBAL_SOURCES) | {LEVEL}
     tr = Translator(sources, thug2, lambda label: label in allowed, node_names, all_names, names,
-                                provided=provided, undrawn=undrawn)
+                    provided=provided, undrawn=undrawn, objects=made.object_contexts)
     roots = []
     for node in converted:
         script = node.get("TriggerScript")
