@@ -12,6 +12,27 @@ then the "- [ ] Next:" line of docs/decomp-progress.md.
   - the leaked-source ban.
 - **Decomp:** 28.27% before the object-system merge (docs/PROGRESS.md). The next batch number is **156**.
 
+## Update 4 (2026-10-20, evening): everything merged, no agents running
+- **Installed in C:\Games\THUG2** (main at fe71f13; DLL and overlay current; THAW levels reconverted under THUGPRO's
+  names and frames):
+  - the animation / collision range (0x406460-0x41A6D0);
+  - the automation channel (workspaces only);
+  - CREATE 100% CAS completing story, classic (140 goals), all 603 gaps and every reachable unlockable
+    (docs/pending/cas100.md);
+  - THAW ports compatible with THUGPRO's (docs/pending/thaw.md; report https://claude.ai/artifact/CT1Y75gqcGt19RbDmZJeno).
+- **THUGPRO-only choices** live in tools/compat/thugpro (register TP-n, README there); never as converter constants.
+- **Tools are TypeScript now** (docs/typescript.md): every Python tool ported with byte-for-byte parity and deleted;
+  Python remains only for tools/ghidra (pyghidra) and tools/capstone_disasm.py. `npm install` once; `node tools/...ts`.
+- **Waiting on the user's play-tests:** CREATE 100% CAS (classic, gaps, cheats, save/load size), the THAW levels
+  (The Mall teleports, CTF, the renamed levels load), and the earlier ones (cutscene, collision, park-editor
+  multiplayer, Caveman, UsePS2Controls=0).
+- **Small leftovers:** automation_tables.inc's next regeneration reorders two case-only ties (expected); converting a
+  subset of THAW levels wipes the others from the output folder (documented; easy fix); the flaky screen-element /
+  text early self-tests; the empty dashboard artifact (BkBifeKWJYfjVcCUscf7q2) awaiting the user's delete-or-keep;
+  ~37 finished agent worktrees under .claude/worktrees (their branches are merged and pushed).
+- **Later candidates:** THAW TriggerType command (~1 day), THAW time of day / ambient sounds / props; the AddVector
+  0x00477F70 register RISK; Line::DistanceSqrTo* (float vs double); the next decompilation range (batch number 193).
+
 ## Update 3 (2026-10-20): the main install changed
 - **The main install changed.** C:\Games\THUG2 is now a stock install (the user copied it from
   C:\Games\THUG2-THPSX-ORIGINAL).
