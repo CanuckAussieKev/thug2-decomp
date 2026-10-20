@@ -16,6 +16,7 @@
 #include "game/core/crc.h"
 #include "game/script/struct.h"
 #include "hook/log.h"
+#include "hook/selftest.h"
 #include "hook/standins.h"
 
 namespace FeTest {
@@ -23,7 +24,8 @@ namespace FeTest {
 using namespace TestStandIns;
 using Script::CStruct;
 
-// The arenas: 64K-aligned (VirtualAlloc), so stale half-pointers map the same in both runs.
+// The arenas: the original's, then ours, one after the other; 64K-aligned (VirtualAlloc), so stale half-pointers
+// map the same in both runs.
 constexpr uint32_t kArenaSize = 0x40000;
 inline uint8_t* g_arenas = nullptr;
 inline uint32_t g_base = 0;
@@ -32,7 +34,12 @@ inline void AllocateArenas()
     if (!g_arenas)
         g_arenas = static_cast<uint8_t*>(VirtualAlloc(nullptr, 2 * kArenaSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
 }
-inline bool InArena(uint32_t word) { return word - g_base <= kArenaSize; }
+// A word pointing into either arena (ArenaWord, selftest.h): the mapping is the same in both runs. Mapping only
+// the run's own arena made a value that merely falls inside one of them - a packed colour 0x04030605, flags
+// 0x01000000, a font's 0x01A53A61 - compare differently whenever VirtualAlloc happened to put the arenas there
+// (between 0x00F90000 and 0x04080000 offline): "screen element: parameters" and five other tests failed in
+// about one thug2_check run in thirty.
+inline bool InArena(uint32_t word) { return word - reinterpret_cast<uint32_t>(g_arenas) <= 2 * kArenaSize; }
 // The current thread's stack (its locals' addresses differ between the original's run and ours).
 inline bool OnStack(uint32_t word)
 {
@@ -42,7 +49,7 @@ inline bool OnStack(uint32_t word)
 inline uint32_t Rel(uint32_t word)
 {
     if (InArena(word))
-        return 0xA0000000u + (word - g_base);
+        return ArenaWord(g_arenas, kArenaSize, word);
     return OnStack(word) ? 0x57AC0000u : word;
 }
 inline uint32_t At(uint32_t offset) { return g_base + offset; }
@@ -70,18 +77,14 @@ inline float FloatOf(uint32_t b)
     std::memcpy(&f, &b, 4);
     return f;
 }
-// The arena's words (pointers made relative; stale half-pointers too), appended to the trace.
+// The arena's words (pointers made relative; stale half-pointers too, into either arena: ArenaWordOrHigh),
+// appended to the trace.
 inline void Snapshot(uint32_t offset, uint32_t size, uint32_t mark)
 {
     g_trace.push_back(0x5AA50000u + mark);
     const auto* w = reinterpret_cast<const uint32_t*>(g_base + offset);
-    for (uint32_t i = 0; i < size / 4; ++i) {
-        uint32_t word = Rel(w[i]);
-        uint32_t high = word >> 16;
-        if (!InArena(w[i]) && high >= (g_base >> 16) && high <= ((g_base + kArenaSize) >> 16))
-            word = (word & 0xFFFF) | ((0xA000u + high - (g_base >> 16)) << 16);
-        g_trace.push_back(word);
-    }
+    for (uint32_t i = 0; i < size / 4; ++i)
+        g_trace.push_back(InArena(w[i]) || !OnStack(w[i]) ? ArenaWordOrHigh(g_arenas, kArenaSize, w[i]) : 0x57AC0000u);
 }
 
 // Starts a run: its arena (zeroed, then `dirty` bytes of 0xCD from `dirtyFrom`), an empty trace.
