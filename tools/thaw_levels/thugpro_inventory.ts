@@ -22,7 +22,16 @@ import * as thug2Col from "../level_port/thug2_col.ts";
 import * as thug2Scene from "../level_port/thug2_scene.ts";
 import { hex8, isMain, print, pyExit, pyJoin, pyJsonDumps, runMain, writeTextPy } from "../lib/py.ts";
 import * as thaw from "./thaw.ts";
-import { COMPAT, findPath, LEVELS, levelName, MULTIPLAYER_NAME, setCompat, thugproFrame } from "./thaw_levels.ts";
+import {
+    COMPAT,
+    FACE_KEEP,
+    findPath,
+    LEVELS,
+    levelName,
+    MULTIPLAYER_NAME,
+    setCompat,
+    thugproFrame,
+} from "./thaw_levels.ts";
 import { nodeArray } from "./thugpro_compare.ts";
 import { SYSTEMATIC } from "./thugpro_extract.ts";
 
@@ -480,7 +489,7 @@ function compareOurs(zone: string, levels: string, thugpro: string, names: Names
         for (const o of thug2Col.readCol(d, key).objects) tpCol.set(o.checksum, o);
     }
     const sfx = (c: number): boolean => /_sfx_/i.test(text(c));
-    const COMPARE_FLAGS = 0x1fff & ~thug2Col.FACE_TRIGGER; // (ours keeps trigger faces only where a script runs)
+    const COMPARE_FLAGS = FACE_KEEP & ~thug2Col.FACE_TRIGGER; // (ours keeps trigger faces only where a script runs)
     for (const [c, o] of ourCol) {
         const t = tpCol.get(c);
         if (t === undefined) {

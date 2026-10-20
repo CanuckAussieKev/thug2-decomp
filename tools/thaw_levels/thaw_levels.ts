@@ -319,8 +319,11 @@ export function thugproFrame(zone: string, array: readonly QbValue[], _names: Re
     return [0.0, 0.0, 0.0];
 }
 
-// Collision face flags: THUG2's meanings up to 0x1000 (invisible); 0x2000, 0x4000 and 0x8000 aren't THUG2's - dropped.
-const FACE_KEEP = 0x1fff;
+// Collision face flags kept: THUG2's meanings up to 0x1000 (invisible), and 0x2000 - not taggable: THUG2's graffiti
+// tagging feelers ignore faces with 0x3000 (SetIgnore(0x3000, 0) at 0x0051DF71 / 0x0051E74B), its own levels have it
+// (6,555 faces, mostly walls), and THAW means the same (its Z_MA scripts name it mFD_NOT_TAGGABLE). 0x4000 / 0x8000:
+// dropped (their THUG2 readers aren't known yet).
+export const FACE_KEEP = 0x3fff;
 // Material pass flags THUG2 has the data for here (uv wibble only with its values, below): textured, environment,
 // decal, smooth, transparent, ignore vertex alpha. (0x80, texture animation 0x800, 0x80000... dropped.)
 const PASS_KEEP =
@@ -729,17 +732,20 @@ export function multiplayerNames(array: readonly QbValue[], zone: string, names:
 
 const SHATTERS = ["ShatterAndDie", "Shatter", "ShatterFromSkater"].map(checksum);
 
-// Breakable pieces (The Mall's glass doors and panes...): a node whose TriggerScript - or a script it calls -
-// shatters the node (THAW: MA_BreakGlass name=<the node> = Kill + ShatterAndDie, a THAW command). As THUG2's own
-// breakables (its Airport's AP_Shatter): Shatter name=<the node> ..., then Kill. Returns {trigger script: the
-// commands}, kept with the nodes' trigger faces as the kill zones are (without them the glass was a wall: the
-// Mall's way in from the start was shut).
-export function breakableScripts(
+// Breakable pieces (The Mall's glass doors and panes...): a LevelGeometry node whose TriggerScript - or a script it
+// calls - shatters (THAW: MA_BreakGlass name=<the node> = BloodSplat, PlaySound, Kill, ShatterAndDie). Returns their
+// trigger scripts. Their scripts are THAW's, translated as any other (thaw_scripts): THUG2 has ShatterAndDie
+// (SK4_Scripts) and BloodSplat (bails.qb), THAW's line for line. Without `texture_swap` both games' ShatterAndDie pass
+// BA_APM_brokenglass01; on PC THUG2 that changes nothing: CFunc_Shatter (0x005A5090) stores it (0x00491110 -> 0x007004BC),
+// and its one reader (0x00490DC0) looks it up and hands it to the shatter builder 0x004BA7A0, which never reads that
+// argument - the pieces keep the sector's own material, as THAW's do with the texture THAW has. Only the faces are
+// THUG2's (PC-THAW-4: BREAKABLE_FACE).
+export function breakableTriggers(
     array: readonly QbValue[],
     scriptQbs: readonly thaw.QbItems[],
     names: Map<number, string>,
     drawn: ReadonlySet<number> | null = null,
-): Map<number, string> {
+): Map<number, number> {
     const scripts = new Map<number, qb.Statement[]>();
     for (const q of scriptQbs) for (const [k, v] of q.scripts) scripts.set(k, v);
 
@@ -756,7 +762,7 @@ export function breakableScripts(
         return false;
     };
 
-    const out = new Map<number, string>();
+    const out = new Map<number, number>();
     for (const node of array) {
         if (!(node instanceof Struct) || nodes.classOf(node, names) !== "levelgeometry") continue;
         const trigger = node.get("TriggerScript");
@@ -765,15 +771,30 @@ export function breakableScripts(
             // (collision-only: Shatter / Kill look the scene sector up and read through the null)
             continue;
         }
-        if (trigger instanceof Name && name instanceof Name && shatters(trigger.value)) {
-            const text = qb.nameText(name.value, names);
-            out.set(
-                trigger.value,
-                "PlaySound HitGlassPane2x vol=100\n" +
-                    `    Shatter name=${text} area=4000 variance=4 vel_x=50 vel_y=50 vel_z=50 spread=1\n` +
-                    `    Kill name=${text}`,
-            );
-        }
+        if (trigger instanceof Name && name instanceof Name && shatters(trigger.value))
+            out.set(trigger.value, name.value);
+    }
+    return out;
+}
+
+// --static (no scripts brought): the breakables' trigger scripts as THUG2's own breakables (its Airport's AP_Shatter):
+// PlaySound + Shatter name=<the node> ... + Kill - {trigger script: the commands}, kept with the nodes' trigger faces as
+// the kill zones are (without them the glass was a wall: the Mall's way in from the start was shut).
+export function breakableScripts(
+    array: readonly QbValue[],
+    scriptQbs: readonly thaw.QbItems[],
+    names: Map<number, string>,
+    drawn: ReadonlySet<number> | null = null,
+): Map<number, string> {
+    const out = new Map<number, string>();
+    for (const [trigger, name] of breakableTriggers(array, scriptQbs, names, drawn)) {
+        const text = qb.nameText(name, names);
+        out.set(
+            trigger,
+            "PlaySound HitGlassPane2x vol=100\n" +
+                `    Shatter name=${text} area=4000 variance=4 vel_x=50 vel_y=50 vel_z=50 spread=1\n` +
+                `    Kill name=${text}`,
+        );
     }
     return out;
 }
@@ -1005,10 +1026,15 @@ export function convertLevelNodes(
     }
     let kills = nodes.killCommands(scriptQbs, restarts, names);
     const drawn = sectors.size ? new Set([...sectors].filter((s) => !lods.has(s) && !drop.has(s))) : null;
-    // (PC-THAW-4 breakables_as_thug2_shatter)
-    const breakables = portChange("breakables_as_thug2_shatter")
-        ? breakableScripts(array, scriptQbs, names, drawn)
-        : new Map<number, string>();
+    // The breakables (PC-THAW-4 breakable_faces: their faces THUG2's own; their trigger scripts THAW's, translated by
+    // thaw_scripts - --static: THUG2's own shatter instead, as kill scripts are)
+    const breakingTriggers = portChange("breakable_faces")
+        ? new Set(breakableTriggers(array, scriptQbs, names, drawn).keys())
+        : new Set<number>();
+    const breakables =
+        port === null && portChange("breakable_faces")
+            ? breakableScripts(array, scriptQbs, names, drawn)
+            : new Map<number, string>();
     // The nodes left out (LOD copies, `drop`) become placeholders of a class convertNodes drops, before it renumbers
     // the Links - removed after, every node after one pointed its Links one place off (rails linked to the wrong
     // nodes: The Mall hung loading once its story blocker was left out).
@@ -1131,18 +1157,15 @@ export function convertLevelNodes(
             if (t instanceof Name && bad.has(t.value) && !ours.has(t.value)) n.remove("TriggerScript");
         }
     }
+    const killZones = nodes.killTriggerNames(converted, kills).size;
     for (const [k, v] of breakables) kills.set(k, v);
-    const breakingNames = nodes.killTriggerNames(converted, breakables);
-    // (a breakable keeps no Type: THAW's Type=Crate - its physics breakables - made the glass a solid object here)
-    const typeKey = checksum("Type");
-    for (const node of converted) {
-        const v = node.get("Name");
-        if (v instanceof Name && breakingNames.has(v.value)) {
-            node.entries = node.entries.filter(([k]) => k === null || k.value !== typeKey);
-        }
-    }
+    // (the nodes whose trigger script - still there: portScripts takes off the ones it couldn't bring - breaks them)
+    const breakingNames = nodes.killTriggerNames(converted, breakingTriggers);
+    // (a breakable keeps THAW's Type=Crate: THUG2's own breakable glass has it too - Training's
+    // SkWare_SecretRoom_Glass01, `Type=Crate` - and nothing in THUG2's exe tests it: Crate's checksum 0x19E7E55A is
+    // nowhere in it, so the Type can't have been what once stopped the skater at The Mall's glass - the faces, also
+    // changed then, stay THUG2's: convertCol, BREAKABLE_FACE.)
     const triggers = nodes.killTriggerNames(converted, kills);
-    const killZones = triggers.size - breakingNames.size;
     if (made !== null) {
         // (the geometry whose trigger script runs keeps its trigger faces: gaps, sounds...)
         for (const v of levelGeometryNames(converted, names, (n) => n.get("TriggerScript") instanceof Name)) {

@@ -39,8 +39,8 @@ header is off) and scenes (read and converted).
   checksums, flags; flags & 0x20: a 160-byte path follows), uncompressed. Flags & 2: the zone's `_sfx` sub-zone.
 - Textures `.tex`: a 0xABADD00D container of `.img` records that map field for field onto THUG2's `.tex.xbx`
   (DXT1/2/5; a few 32-bit ones, whose levels have a {u16 pitch, u16 rows} size).
-- Collision `.col`: THUG2's version 10 plus 48 bytes after the header (a supersector grid). Face flags 0x2000 /
-  0x4000 / 0x8000 aren't THUG2's: dropped. Terrains are THUG2's numbers.
+- Collision `.col`: THUG2's version 10 plus 48 bytes after the header (a supersector grid). Face flag 0x2000 (not
+  taggable) is THUG2's too: kept; 0x4000 / 0x8000 dropped (their THUG2 meaning not known yet). Terrains are THUG2's numbers.
 - QB: item-based (GH3 family): typed top-level items (int, float, string, local string, pair, vector, script,
   structure, array, checksum, $reference), structures as linked 16-byte entries. Scripts are LZSS'd THUG2 token
   streams with weighted random tokens and one more token, 0x4A (an inline structure). All 851 qb files read; every

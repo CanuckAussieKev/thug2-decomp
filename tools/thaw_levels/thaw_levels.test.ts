@@ -9,6 +9,7 @@ import { pack } from "../lib/struct.ts";
 import { migrateText, quarterTurn } from "./migrate_layouts.ts";
 import { inlineStruct, statements, tokens } from "./thaw.ts";
 import { applySpawns, COMPAT, levelName, moveTree, setCompat, sixteenths } from "./thaw_levels.ts";
+import { scriptToks } from "./thaw_scripts.ts";
 
 test("formatG is Python's %g / %.9g: exact value, halves to even", () => {
     const values = [100.0625, -0.0, 0.0, 12660.4375, -61514.9375, 1e-5, 0.0001, 123456789.0, 1234567.0, 999999.5];
@@ -88,7 +89,44 @@ test("THAW script tokens: 0x4A inline structures, statements", () => {
     assert.equal(statements(body).length, 1);
 });
 
-test("applySpawns (TP-4): changes a named restart, adds one with the drop-in, nothing without the profile", () => {
+test("THAW's `if not skater:InManual` becomes `skater:GetSingleTag state` + `if not (<state> = Skater_InManual)`", () => {
+    const name = (text: string): Buffer => Buffer.concat([Buffer.from([0x16]), pack("<I", checksum(text))]);
+    const body = Buffer.concat([
+        Buffer.from([0x47]),
+        pack("<H", 0),
+        Buffer.from([0x39]),
+        name("Skater"),
+        Buffer.from([0x42]),
+        name("InManual"),
+        Buffer.from([0x01]),
+        name("StartGap"),
+        Buffer.from([0x01, 0x28, 0x01, 0x24]),
+    ]);
+    const names = new Map(["Skater", "StartGap"].map((n) => [checksum(n), n]));
+    const shown = scriptToks(body, names).map((t) => (t.t === 0x16 ? names.get(t.name()!) : t.t));
+    assert.deepEqual(shown, [
+        "Skater",
+        0x42,
+        "GetSingleTag",
+        "state",
+        0x01,
+        0x25,
+        0x39,
+        0x0e,
+        0x2d,
+        "state",
+        0x07,
+        "Skater_InManual",
+        0x0f,
+        0x01,
+        "StartGap",
+        0x01,
+        0x28,
+        0x01,
+    ]);
+});
+
+test("applySpawns (TP-4):changes a named restart, adds one with the drop-in, nothing without the profile", () => {
     const names = new Map<number, string>([[checksum("Restart"), "Restart"]]);
     const restart = (): Struct =>
         new Struct([
