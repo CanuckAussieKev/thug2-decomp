@@ -104,6 +104,10 @@ struct Spec {
     std::string text;                // the gap's name (EndGap's text - the gap list's)
     int score = 100;                 // the gap's score
     uint32_t replaces = 0;           // a level trigger this one stands in for (off while this one is there)
+    // Fires on the way out as well (the record's exit=1): the game's trigger component only reports a box where a line
+    // enters it (a CCollMovBBox is met on the way in), so leaving is seen by Play's inside test on the skater each
+    // frame - its TriggerScript run on the skater as the trigger component runs it (0x00434A60).
+    bool exit = false;
 };
 bool SameSpec(const Spec& a, const Spec& b);
 // A name's checksum: "0x" and 8 hex digits are a checksum without a known name, anything else is a name.
@@ -121,6 +125,19 @@ std::string CleanText(const std::string& text);
 V3 ClampSize(V3 size);
 // The box placed: centred on `pos`, turned by `yaw` (radians about the world's up axis, as a node's heading).
 OrientedBox BoxOf(V3 pos, float yaw, V3 size);
+// Whether `p` is inside a placed box (its faces included).
+bool Inside(const OrientedBox& box, V3 p);
+// The leaving test, a frame at a time: whether a skater inside last frame (`was`) and not now fires the exit; `known`
+// false (the first frame seen - the editor just closed, the trigger just made) never fires.
+inline bool Left(bool known, bool was, bool now) { return known && was && !now; }
+
+// Resize handles: one on the middle of each face of a box - handle 0 / 1 the box's -x / +x face (its own axes), 2 / 3
+// -y / +y, 4 / 5 -z / +z. Where a handle is, and its face's outward direction (unit).
+V3 HandlePoint(V3 pos, float yaw, V3 size, int handle);
+V3 HandleDirection(float yaw, int handle);
+// A handle dragged `along` units outwards (negative: inwards): the opposite face stays where it is - the size along
+// that axis grows by `along` (kept within ClampSize's limits) and the centre moves out by half of what it grew.
+void ResizeFace(V3 pos, float yaw, V3 size, int handle, float along, V3* newPos, V3* newSize);
 
 // The compiled script: its statements (each ending with an end of line, 0x01) - e.g. StartGap GapID=x flags=[a, b]:
 // 16 <StartGap> 16 <GapID> 07 16 <x> 16 <flags> 07 05 16 <a> 09 16 <b> 06 01. Empty while Problem says why.
@@ -185,9 +202,24 @@ void Guard();
 bool Shown();
 void SetShown(bool shown);
 
-// The volumes drawn over the view (lines, labels).
+// The volumes drawn over the view (lines, labels) - and the selected editor trigger's resize handles (`selected`: its
+// node's name, 0 none; the handle under the cursor or being dragged lit).
 void AddOverlay(V3 camera, const Frame& frame, const Lens& lens, const uint32_t viewport[4], float nearZ,
                 std::vector<Ui::Line>* lines, std::vector<Ui::Overlay::Text>* texts);
+void SetSelected(uint32_t node);
+// The resize handles (drawn by the last AddOverlay): the one within `radius` back buffer pixels of (x, y) (-1: none),
+// and dragging one - started with the mouse ray, followed each frame (`snap`: sizes on 25s), ended (one undo step).
+// The handles' circles go in `circles` (AddOverlay's caller passes the overlay's).
+void AddHandles(std::vector<Ui::Overlay::Circle>* circles);
+int HandleAt(float x, float y, float radius);
+void SetHoverHandle(int handle);
+bool BeginResize(int handle, V3 origin, V3 dir);
+void Resize(V3 origin, V3 dir, bool snap);
+void EndResize();
+bool Resizing();
+// Every frame, the editor running or not (`editing`): the skater's leaving of the editor's exit triggers (Spec::exit)
+// seen, and their scripts run - in play only (not while editing, not in a network session).
+void Play(bool editing);
 // A click while they're shown: the nearest volume under the ray - an editor trigger's node, or a level trigger's node
 // (Nodes::All() index; -1: none, or a level trigger without a node - then it's the one inspected, `sector`).
 bool Pick(V3 origin, V3 unitDir, int* node, uint32_t* sector);
