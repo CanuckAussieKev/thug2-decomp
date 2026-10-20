@@ -474,6 +474,8 @@ RailTrack* RailTrackOf(uint32_t name)
     return &g_railTracks.emplace(name, track).first->second;
 }
 
+uint32_t g_railGeneration = 1;
+
 // The rail nodes `names` placed where their tracks say, then the boxes of their segments and of those ending at
 // them.
 void ApplyRails(const std::vector<uint32_t>& names)
@@ -482,6 +484,7 @@ void ApplyRails(const std::vector<uint32_t>& names)
     int count;
     if (!RailNodes(&nodes, &count))
         return;
+    ++g_railGeneration; // (the node layer reads the places again)
     std::vector<RailNode*> moved;
     for (uint32_t name : names) {
         auto it = g_railTracks.find(name);
@@ -944,6 +947,85 @@ std::vector<std::pair<V3, V3>> SelectedRails()
 }
 
 int SelectedRailCount() { return static_cast<int>(g_rails.size()); }
+
+// --- grind rail points one by one ---
+
+bool RailPoint(uint32_t name, V3* pos, bool climbing)
+{
+    if (const RailNode* node = FindRail(name)) {
+        *pos = RailPos(node);
+        return true;
+    }
+    if (!climbing)
+        return false;
+    RailNode* nodes;
+    int count;
+    if (!RailNodes(&nodes, &count))
+        return false;
+    for (int i = 0; i < count; ++i) {
+        if (nodes[i].name == name) {
+            *pos = RailPos(&nodes[i]);
+            return true;
+        }
+    }
+    return false;
+}
+
+bool RailOrigin(uint32_t name, V3* pos)
+{
+    RailTrack* track = RailTrackOf(name);
+    if (!track)
+        return false;
+    *pos = track->pos0;
+    return true;
+}
+
+bool SetRailPoint(uint32_t name, V3 pos)
+{
+    RailTrack* track = RailTrackOf(name);
+    if (!track)
+        return false;
+    // (the quarter turns a sector move gave it don't matter for one point: a plain move from where the level has it -
+    // Home's place gives an offset of exactly 0)
+    track->placement = {0, pos - track->pos0};
+    ApplyRails({name});
+    return true;
+}
+
+std::vector<uint32_t> RailOf(uint32_t name)
+{
+    std::vector<uint32_t> names;
+    RailNode* node = FindRail(name);
+    RailNode* nodes;
+    int count;
+    if (!node || !RailNodes(&nodes, &count))
+        return names;
+    names.push_back(name);
+    // (back to its first point, then along to its last - a closed rail stops where it started)
+    RailNode* first = node;
+    for (int steps = 0; first->prev && first->prev != node && steps < count; ++steps)
+        first = first->prev;
+    int steps = 0;
+    for (RailNode* at = first; at && steps < count; at = at->next, ++steps) {
+        if (at != node && !(at->flags & 0x10) && std::find(names.begin(), names.end(), at->name) == names.end())
+            names.push_back(at->name);
+        if (at->next == first)
+            break;
+    }
+    return names;
+}
+
+uint32_t RailGeneration() { return g_railGeneration; }
+
+void ForEachRailPoint(void (*each)(void* context, uint32_t name, V3 pos), void* context)
+{
+    RailNode* nodes;
+    int count;
+    if (!RailNodes(&nodes, &count))
+        return;
+    for (int i = 0; i < count; ++i)
+        each(context, nodes[i].name, RailPos(&nodes[i]));
+}
 
 // --- the selection's state (undo / redo, reset, hiding) ---
 

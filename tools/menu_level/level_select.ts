@@ -24,6 +24,14 @@
 //   them by game mode and dot count, which two sections can share). TRAINING loses its new_vmenu (a one-item
 //   column of its own whose pad_up / pad_down handlers would get the section switch first; nothing else was in it
 //   outside development builds). level_select_valid_choice's dot animation goes over the section's list.
+//
+// The level editor's edited copies (src/game/front/level_editor_layout.h): one more section, EDITED LEVELS (OFFLINE),
+// after the games' - Up from the first - while the DLL's LevelEditor_EditedLevels returns any (one entry for each level
+// with a saved layout: the level's own entry, "<TEXT> (EDITED)", flagged edited_layout). Never in the network level
+// select (in_server_options) or a network game. The section count is worked out each time (an edited copy can appear
+// or go: Reset level deletes it). level_select_change_level's first line is LevelEditor_PickLevel <...>: the DLL keeps
+// which was chosen - the edited copy (edited_layout) or the level as shipped - and puts the layout in place only for
+// the edited copy.
 
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -380,6 +388,8 @@ export function sections(
 export const HEADER_POS: readonly [number, number] = [320.0, 16.0];
 export const HEADER_SCALE = 1.0;
 export const HEADER_ARROW_DX = 125.0;
+// The edited copies' section (the level editor's layouts).
+export const EDITED_TITLE = "EDITED LEVELS (OFFLINE)";
 
 function indent(block: string, spaces = 4): string {
     return pySplitlines(block)
@@ -445,9 +455,19 @@ export function editLevelSelect(text: string, sectionList: readonly Section[]): 
         arrays += `${array} = [\n${(levels ?? []).map(signEntry).join("")}] \n`;
         numbers.push(...(levels ?? []).map((lv) => lv.levelNum));
     }
+    // (the edited copies' section - offline only - after the games')
     const getList = [
         "script level_select_get_section_list {",
-        `    if ((level_select_section < 0) or (level_select_section > ${count - 1})) {`,
+        `    section_count = ${count} `,
+        "    if (in_server_options = 0) {",
+        "        if ! InNetGame {",
+        "            if LevelEditor_EditedLevels {",
+        `                section_count = ${count + 1} `,
+        "            } ",
+        "        } ",
+        "    } ",
+        "    last_section = (<section_count> - 1) ",
+        "    if ((level_select_section < 0) or (level_select_section > <last_section>)) {",
         "        change level_select_section=0 ",
         "    } ",
     ];
@@ -457,7 +477,14 @@ export function editLevelSelect(text: string, sectionList: readonly Section[]): 
         getList.push(`${pad}level_list = ${array} `, `${pad}section_title = "${title}" `);
         if (n) getList.push("    } ");
     });
-    getList.push(`    return level_list=<level_list> section_title=<section_title> section_count=${count} `, "} ");
+    getList.push(
+        `    if (level_select_section = ${count}) {`,
+        "        level_list = <edited_list> ",
+        `        section_title = "${EDITED_TITLE}" `,
+        "    } ",
+        "    return level_list=<level_list> section_title=<section_title> section_count=<section_count> ",
+        "} ",
+    );
     const scripts = [
         "level_select_section = 0 ",
         getList.join("\n"),
@@ -465,11 +492,13 @@ export function editLevelSelect(text: string, sectionList: readonly Section[]): 
         "    if ! ScreenElementExists id=current_menu {",
         "        return ",
         "    } ",
+        "    level_select_get_section_list ",
+        "    last_section = (<section_count> - 1) ",
         "    new_section = (level_select_section + <dir>) ",
         "    if (<new_section> < 0) {",
-        `        new_section = ${count - 1} `,
+        "        new_section = <last_section> ",
         "    } ",
-        `    if (<new_section> > ${count - 1}) {`,
+        "    if (<new_section> > <last_section>) {",
         "        new_section = 0 ",
         "    } ",
         "    if (<new_section> = level_select_section) {",
@@ -552,6 +581,14 @@ export function editLevelSelect(text: string, sectionList: readonly Section[]): 
     const anchor = "\nlevel_select_menu_level_info = [";
     text = replaceOnce(text, anchor, `\n${scripts}${arrays}${anchor.slice(1)}`, "level_select_menu_level_info");
 
+    // level_select_change_level: the DLL told which was chosen - the edited copy or the level as shipped.
+    text = replaceOnce(
+        text,
+        "\nscript level_select_change_level {\n",
+        "\nscript level_select_change_level {\n    LevelEditor_PickLevel <...> \n",
+        "level_select_change_level's start",
+    );
+
     // create_level_select_menu: the section's list; the globe kept turning on a section change; the dots worked out
     // again; Up / Down, the header and the helper text outside classic mode.
     text = replaceOnce(
@@ -573,7 +610,7 @@ export function editLevelSelect(text: string, sectionList: readonly Section[]): 
         '    create_helper_text helper_text_elements=[{text="\\\\b6/\\\\b5 = Choose Level"} \n' +
         '        {text="\\\\bm = Select"} \n        {text="\\\\bn = Back"} \n    ] \n';
     const helperSections =
-        count > 1
+        count > 0
             ? replaceFirst(
                   helperOld,
                   '[{text="\\\\b6/\\\\b5',

@@ -401,6 +401,11 @@ int g_hoverNode = -1;
 bool g_placeOpen;
 int g_placeArmed = -1;
 uint32_t g_confirmHide;
+// Reset level (Ctrl+Shift+Delete, the toolbar): the confirm window is up; the old HUD's second press (its time).
+bool g_confirmReset;
+uint32_t g_resetAskedAt;
+// Rails (level_editor_node_edit.h): a rail node moves with its whole rail (L toggles: one point).
+bool g_wholeRail = true;
 std::vector<Nodes::Pickable> g_pickables;
 Ui::Overlay g_overlay;
 int g_hudTakenDown;    // (the UI runs: frames the HUD's screen elements have been taken down)
@@ -464,7 +469,8 @@ void HandleEvent(SDL_Event* event)
     case SDL_KEYDOWN:
         // Escape: first what's open (a drag put back, the browser, the help), then the selection, then leave.
         if (event->key.keysym.scancode == SDL_SCANCODE_ESCAPE && !event->key.repeat) {
-            if (g_dragging || g_browser.open || g_help || g_placeOpen || g_confirmHide || !g_objects.empty() ||
+            if (g_dragging || g_browser.open || g_help || g_placeOpen || g_confirmHide || g_confirmReset ||
+                !g_objects.empty() ||
                 Scenery::HasSelection() || g_nodeSelected)
                 g_cancelRequested = true;
             else
@@ -550,13 +556,26 @@ void NoteOnlineEdit(int index)
     NoteOnlineChange(nodes[index].family, Nodes::Label(nodes[index].name).c_str(), "moved");
 }
 
-// The selected node put at `values` (an edit of the editor's: the online warning first time).
+// The selected node put at `values` (an edit of the editor's: the online warning first time). A rail point takes the
+// rest of its rail with it, by as much, while Whole rail is on (L).
 void SetSelectedNode(const NodeEdit::Values& values)
 {
     int index = MovableNode();
     if (index < 0)
         return;
     NoteOnlineEdit(index);
+    NodeEdit::Values now;
+    if (NodeEdit::IsRail(g_nodeName) && NodeEdit::Read(g_nodeName, &now)) {
+        V3 delta = values.pos - now.pos;
+        for (uint32_t name : NodeEdit::MovedWith(g_nodeName, g_wholeRail)) {
+            NodeEdit::Values point;
+            if (NodeEdit::Read(name, &point)) {
+                point.pos = point.pos + delta;
+                NodeEdit::Set(name, point);
+            }
+        }
+        return;
+    }
     NodeEdit::Set(g_nodeName, values);
 }
 
@@ -675,7 +694,7 @@ struct MadeCopy {
     Objects::State state;
 };
 struct UndoStep {
-    enum Kind { kObjects, kScenery, kMade, kNodes, kAdded, kHidden, kOrder } kind = kObjects;
+    enum Kind { kObjects, kScenery, kMade, kNodes, kAdded, kHidden, kOrder, kLevel } kind = kObjects;
     std::vector<Objects::State> objects;
     Scenery::State scenery;
     NodeEdit::Step nodes; // (kNodes: the nodes' places - level_editor_node_edit.h)
@@ -691,6 +710,10 @@ struct UndoStep {
     std::vector<uint32_t> hiddenNames;
     bool hidden = false;
     std::vector<std::string> order;
+    // kLevel (Reset level): put back, the level is reset again (`reset`) or the layout `layout` (Write's text) put in
+    // place again.
+    bool reset = false;
+    std::string layout;
 };
 std::vector<UndoStep> g_undo, g_redo;
 UndoStep g_pending;
@@ -704,8 +727,11 @@ UndoStep Snapshot()
     std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
     if (MovableNode() >= 0) {
         step.kind = UndoStep::kNodes;
-        NodeEdit::NoteOrigin(g_nodeName);
-        step.nodes = NodeEdit::Capture({g_nodeName}, NodeEdit::Read);
+        // (a rail point: the points that move with it too)
+        std::vector<uint32_t> names = NodeEdit::MovedWith(g_nodeName, g_wholeRail);
+        for (uint32_t name : names)
+            NodeEdit::NoteOrigin(name);
+        step.nodes = NodeEdit::Capture(names, NodeEdit::Read);
     } else if (!objects.empty()) {
         step.kind = UndoStep::kObjects;
         for (Obj::CCompositeObject* object : objects) {
@@ -855,6 +881,17 @@ void Restore(UndoStep& step)
     case UndoStep::kOrder:
         NodeCreate::SetOrder(step.order);
         break;
+    case UndoStep::kLevel: {
+        std::string message, before;
+        g_objects.clear();
+        Scenery::ClearSelection();
+        g_nodeSelected = false;
+        if (step.reset)
+            Layout::ResetLevel(&before, &message);
+        else
+            Layout::PutBack(step.layout, &message);
+        break;
+    }
     }
 }
 
@@ -904,6 +941,12 @@ UndoStep Current(const UndoStep& step)
         break;
     case UndoStep::kOrder:
         now.order = NodeCreate::Order();
+        break;
+    case UndoStep::kLevel:
+        now.reset = !step.reset;
+        now.layout.clear();
+        if (!now.reset)
+            Layout::CaptureText(&now.layout);
         break;
     }
     return now;
@@ -1258,6 +1301,18 @@ void AddNodeGizmos(const Frame& frame, int selected)
                     o.texts.push_back({px + 8.0f * k, py - 8.0f * k, 0xFFFFFFFF, Nodes::Label(n.name)});
                 }
             }
+            if (n.family == Nodes::Family::Rail && (distance < 1500.0f || isSelected)) {
+                // (a rail's points, near: a dot each, picked before its segments - a point moves by itself or with
+                // its whole rail)
+                float px, py;
+                V3 front = n.pos - g_pos;
+                if (-Dot(front, frame.back) > kNearZ && ToPixel(frame, n.pos, &px, &py) && px >= left && px <= right &&
+                    py >= top && py <= bottom) {
+                    if (!isSelected && !isHovered)
+                        o.circles.push_back({px, py, 2.5f * k, n.colour, true, 1.0f});
+                    g_pickables.push_back({i, px, py, px, py, false, -Dot(front, frame.back)});
+                }
+            }
             continue;
         }
         float cutoff = n.family == Nodes::Family::Object || n.family == Nodes::Family::Particle ? 2500.0f : 6000.0f;
@@ -1458,7 +1513,11 @@ bool PassPauseKey(bool down)
     return PassKey(&g_pauseKeyReleased, down);
 }
 
-bool __cdecl CFunc_Available(Script::CStruct*, Script::CScript*) { return Enabled() && Nx::CurrentLevel() != 0; }
+// (offline only: no LEVEL EDITOR in a network session - level_editor_layout.h)
+bool __cdecl CFunc_Available(Script::CStruct*, Script::CScript*)
+{
+    return Enabled() && Nx::CurrentLevel() != 0 && !Layout::NetworkActive();
+}
 
 bool __cdecl CFunc_Start(Script::CStruct*, Script::CScript*)
 {
@@ -1468,6 +1527,12 @@ bool __cdecl CFunc_Start(Script::CStruct*, Script::CScript*)
     }
     if (g_active)
         return true;
+    // The level becomes its edited copy (its saved layout put in place if it wasn't) - never in a network session.
+    std::string edited;
+    if (!Layout::EnterEditedCopy(&edited)) {
+        Log("level editor: not started - %s", edited.c_str());
+        return false;
+    }
     g_active = true;
     g_camera = nullptr;
     g_haveView = false;
@@ -1508,10 +1573,25 @@ bool __cdecl CFunc_Start(Script::CStruct*, Script::CScript*)
     g_offerPending = g_offerShow = Layout::AutosaveOffered();
     NoteAction("entered the editor");
     Log("level editor: on");
-    Hud::Message("Level editor - F1 for help", 3.0);
+    Hud::Message(edited.empty() ? "Level editor - F1 for help" : edited, edited.empty() ? 3.0 : 5.0);
     if (DebugEnabled()) {
         Objects::LogCensus();
         Scenery::LogCensus();
+        // (rail points away from their nodes' pos=: where the node layer shows them - the rail manager's)
+        int away = 0;
+        for (const Nodes::Node& n : Nodes::All()) {
+            Script::CStruct* s = n.family == Nodes::Family::Rail ? Nodes::StructOf(n) : nullptr;
+            Script::VectorValue v = {};
+            V3 rail;
+            if (!s || !s->GetVector(0x7F261953, &v, 0) || !Scenery::RailPoint(n.name, &rail) ||
+                (rail.x == v.x && rail.y == v.y && rail.z == v.z))
+                continue;
+            if (++away <= 8)
+                Log("level editor: rail point %s at (%.1f, %.1f, %.1f) - its node's pos= (%.1f, %.1f, %.1f), shown at "
+                    "(%.1f, %.1f, %.1f)",
+                    Nodes::Label(n.name).c_str(), rail.x, rail.y, rail.z, v.x, v.y, v.z, n.pos.x, n.pos.y, n.pos.z);
+        }
+        Log("level editor: %d rail points away from their nodes' pos=", away);
     }
     return true;
 }
@@ -1608,6 +1688,8 @@ void RegisterScriptFunctions()
         {"LevelEditor_Available", reinterpret_cast<void*>(&CFunc_Available)},
         {"LevelEditor_Start", reinterpret_cast<void*>(&CFunc_Start)},
         {"LevelEditor_Stop", reinterpret_cast<void*>(&CFunc_Stop)},
+        {"LevelEditor_PickLevel", reinterpret_cast<void*>(&Layout::CFunc_PickLevel)},
+        {"LevelEditor_EditedLevels", reinterpret_cast<void*>(&Layout::CFunc_EditedLevels)},
     };
     Script::RegisterCFunctions(functions, sizeof(functions) / sizeof(functions[0]));
 }
@@ -1710,8 +1792,9 @@ void UpdateHud()
     if (frames++ % 6 != 0)
         return;
     char text[200];
-    std::snprintf(text, sizeof(text), "LEVEL EDITOR   %s%s%s", ModeName(), g_unsaved ? "      (unsaved changes)" : "",
-                  g_offerPending ? "   (an autosave: Ctrl+R / Ctrl+Shift+R)" : "");
+    // (which level: always its edited copy - never the level as shipped)
+    std::snprintf(text, sizeof(text), "EDITING %.24s (EDITED COPY)   %s%s%s", Layout::LevelTitle().c_str(), ModeName(),
+                  g_unsaved ? "   (unsaved)" : "", g_offerPending ? "   (autosave: Ctrl+R)" : "");
     Hud::SetLine(1, text);
     Hud::SetLine(2, "Selected: " + DescribeSelection());
     std::string hover = g_hoverAxis >= 0 ? std::string("the ") + "XYZ"[g_hoverAxis] + " arrow - drag to move along it"
@@ -1977,6 +2060,9 @@ Ui::Model BuildModel()
     Ui::Model model = {};
     uint32_t scene = Scenery::SceneName(Scenery::MainScene());
     model.level = scene ? Objects::Label(scene) : "";
+    model.levelTitle = Layout::LevelTitle();
+    model.editedSaved = Layout::HasSavedLayout();
+    model.confirmReset = g_confirmReset;
     model.mode = ModeName();
     model.selected = DescribeSelection();
     model.hover = g_hoverAxis >= 0 ? std::string("the ") + "XYZ"[g_hoverAxis] + " arrow - drag to move along it"
@@ -2039,6 +2125,11 @@ Ui::Model BuildModel()
         const NodeEdit::Values* origin = NodeEdit::Origin(g_nodeName);
         model.nodes.moved = origin && !NodeEdit::Same(node, *origin);
         model.nodes.whenApplied = NodeEdit::WhenApplied(Nodes::All()[model.nodes.selected]);
+        if (NodeEdit::IsRail(g_nodeName)) {
+            model.nodes.rail = true;
+            model.nodes.wholeRail = g_wholeRail;
+            model.nodes.railPoints = static_cast<int>(NodeEdit::MovedWith(g_nodeName, g_wholeRail).size());
+        }
     }
     model.nodes.onlineWarning = g_onlineWarningShown;
     if (model.nodes.nodeOnly && model.nodes.selected < static_cast<int>(Nodes::All().size())) {
@@ -2100,11 +2191,12 @@ void ShowHelp()
         "Moving       hold and drag (Shift: up / down, wheel: push / pull, Ctrl: snap)",
         "             drag an arrow to move along that axis only",
         "             W A S D / Q E nudge   Z / X turn   G drops it to the ground",
+        "             a rail point moves with its whole rail - L: by itself",
         "Editing      Ctrl+D duplicates   Del hides (a copy / added node: deletes)   Home puts back",
-        "             Ctrl+Z undo   Ctrl+Y redo",
+        "             Ctrl+Z undo   Ctrl+Y redo   Ctrl+Shift+Del twice: reset the level",
         "Adding       B lists the level's pieces and objects: Enter places a copy",
         "             N: new spawns, crowns, flags, lights... - pick one, click in the view",
-        "Saving       Ctrl+S saves this level's layout - it comes back with the level",
+        "Saving       Ctrl+S saves the edited copy (the level select's EDITED entry)",
         "             unsaved changes are autosaved: Ctrl+R restores, Ctrl+Shift+R discards",
         "Leaving      Esc (first it cancels a drag, closes a panel or deselects)",
         "Camera       P writes where the camera is to the log (a menu backdrop view)",
@@ -2336,10 +2428,19 @@ void Reset()
     if (ShowHiddenNode()) {
         // (a hidden node: shown first - Home again puts it back where the level has it)
     } else if (NodeValues(&node)) {
-        const NodeEdit::Values* origin = NodeEdit::Origin(g_nodeName);
-        if (origin && !NodeEdit::Same(node, *origin)) {
-            PushUndo(Snapshot());
-            NodeEdit::Set(g_nodeName, *origin);
+        // (a rail point: with the points that move with it - its whole rail while Whole rail is on)
+        UndoStep before = Snapshot();
+        bool any = false;
+        for (uint32_t name : NodeEdit::MovedWith(g_nodeName, g_wholeRail)) {
+            NodeEdit::Values now;
+            const NodeEdit::Values* origin = NodeEdit::Origin(name);
+            if (origin && NodeEdit::Read(name, &now) && !NodeEdit::Same(now, *origin)) {
+                NodeEdit::Set(name, *origin);
+                any = true;
+            }
+        }
+        if (any) {
+            PushUndo(before);
             Hud::Message("Put back where the level had it");
         } else {
             Hud::Message("It's where the level has it");
@@ -2539,6 +2640,47 @@ void AnswerAutosave(bool discard)
     Hud::Message(message, 4.0);
 }
 
+// Reset level: everything in the level put back as the level has it and its edited copy's files deleted
+// (Layout::ResetLevel). One undo step puts it all back (this session; the steps before it are dropped - they were made
+// on what the reset replaced); the files come back only with Ctrl+S.
+void ResetLevelNow()
+{
+    EndDrag();
+    Deselect();
+    UndoStep step;
+    step.kind = UndoStep::kLevel;
+    std::string message;
+    g_confirmReset = false;
+    if (!Layout::ResetLevel(&step.layout, &message)) {
+        Hud::Message(message, 4.0);
+        return;
+    }
+    g_undo.clear();
+    g_redo.clear();
+    PushUndo(step);
+    g_unsaved = false; // (nothing to save: the level as shipped, no layout)
+    g_offerPending = false;
+    NoteAction("reset the level");
+    Hud::Message(message, 6.0);
+}
+
+// Ctrl+Shift+Delete / the toolbar: the UI asks in a window; the old HUD asks for the keys again within 5 seconds.
+void AskResetLevel()
+{
+    if (Ui::Running()) {
+        g_confirmReset = true;
+        return;
+    }
+    uint32_t now = SDL_GetTicks();
+    if (g_resetAskedAt && now - g_resetAskedAt < 5000) {
+        g_resetAskedAt = 0;
+        ResetLevelNow();
+        return;
+    }
+    g_resetAskedAt = now;
+    Hud::Message("Reset the level? All back as shipped, its layout deleted: Ctrl+Shift+Del again", 5.0);
+}
+
 void ToggleHelp()
 {
     g_help = !g_help;
@@ -2731,6 +2873,20 @@ void ApplyUiRequests(V3 dir, bool haveRay, const Frame& frame)
         case Ui::Request::kHideCancelled:
             g_confirmHide = 0;
             break;
+        case Ui::Request::kResetLevel:
+            if (!noChange)
+                AskResetLevel();
+            break;
+        case Ui::Request::kResetConfirmed:
+            if (!noChange && g_confirmReset)
+                ResetLevelNow();
+            break;
+        case Ui::Request::kResetCancelled:
+            g_confirmReset = false;
+            break;
+        case Ui::Request::kWholeRail:
+            g_wholeRail = request.value != 0;
+            break;
         case Ui::Request::kCrownMove:
             if (!noChange)
                 MoveSelectedCrown(request.value);
@@ -2814,6 +2970,8 @@ void Update()
             g_hasPending = false;
             FocusOnSelection();
             Hud::Message("Put back");
+        } else if (g_confirmReset) {
+            g_confirmReset = false;
         } else if (g_confirmHide) {
             g_confirmHide = 0;
         } else if (g_placeArmed >= 0) {
@@ -2872,6 +3030,13 @@ void Update()
         Pressed(keys, SDL_SCANCODE_D, &dKey);
         Pressed(keys, SDL_SCANCODE_R, &rKey);
     }
+    // L: a rail point moves with its whole rail, or by itself (level_editor_node_edit.h).
+    static bool railKey;
+    if (Pressed(keys, SDL_SCANCODE_L, &railKey) && !ctrl && !noChange) {
+        g_wholeRail = !g_wholeRail;
+        Hud::Message(g_wholeRail ? "Rails: a rail point moves with its whole rail (L: by itself)"
+                                 : "Rails: a rail point moves by itself (L: the whole rail)");
+    }
     // P: the camera written to the log as a menu backdrop view (menu_backdrop.cpp kViews: position, back, up).
     static bool poseKey;
     if (Pressed(keys, SDL_SCANCODE_P, &poseKey) && !ctrl) {
@@ -2887,8 +3052,13 @@ void Update()
         Deselect();
     if (Pressed(keys, SDL_SCANCODE_HOME, &homeKey) && !noChange && !g_browser.open)
         Reset();
-    if (Pressed(keys, SDL_SCANCODE_DELETE, &deleteKey) && !noChange && !g_browser.open && !g_confirmHide)
-        Delete();
+    if (Pressed(keys, SDL_SCANCODE_DELETE, &deleteKey) && !noChange && !g_browser.open && !g_confirmHide &&
+        !g_confirmReset) {
+        if (ctrl && shift)
+            AskResetLevel(); // (Ctrl+Shift+Delete: Reset level)
+        else
+            Delete();
+    }
 
     // Looking (right button held): about the camera, or orbiting the selection.
     SetRelative(input.right);
@@ -2966,7 +3136,7 @@ void Update()
         // Z / X: turn it - an object 15 degrees, scenery a quarter turn about its centre (the engine turns level
         // geometry by quarter turns only).
         int turn = (Pressed(keys, SDL_SCANCODE_X, &turnRight) ? 1 : 0) - (zPressed && !ctrl ? 1 : 0);
-        if (turn && !g_dragging) {
+        if (turn && !g_dragging && !(MovableNode() >= 0 && NodeEdit::IsRail(g_nodeName))) { // (rail points don't turn)
             PushUndo(Snapshot());
             TurnSelection(turn);
             NoteAction("turned (Z / X): %s", DescribeSelection().c_str());

@@ -6,6 +6,7 @@
 #include <unordered_map>
 
 #include "game/front/level_editor_objects.h"
+#include "game/front/level_editor_scenery.h"
 #include "game/mth/matrix.h"
 #include "game/obj/emitter.h"
 #include "game/obj/object.h"
@@ -110,6 +111,8 @@ struct Touched {
 };
 std::vector<Touched> g_touched;
 std::unordered_map<uint32_t, size_t> g_touchedIndex;
+// Rail points' places as the level has them (Origin's answer: the rail manager keeps them - Scenery::RailOrigin).
+std::unordered_map<uint32_t, Values> g_railOrigins;
 
 // The node's own pos= / angles= component (the last, as CStruct::Search reads them - never one in an included
 // structure, which the game doesn't read for these either).
@@ -212,6 +215,8 @@ bool Movable(const Nodes::Node& node)
     if (!node.hasPos || !node.name)
         return false;
     switch (node.family) {
+    case Nodes::Family::Rail:
+        return IsRail(node.name); // (a point of the rail manager: where skaters grind)
     case Nodes::Family::Spawn:
     case Nodes::Family::Crown:
     case Nodes::Family::Flag:
@@ -231,6 +236,8 @@ const char* WhenApplied(const Nodes::Node& node)
     uint32_t shape = 0;
     bool sectorShape = s && s->GetChecksum(kShape, &shape, 0) && shape != 0xAA069978; // (a sphere's)
     switch (node.family) {
+    case Nodes::Family::Rail:
+        return "Now: skaters grind it where it is (its node keeps the level's place; the layout's rail record has it).";
     case Nodes::Family::Spawn:
         return "At the next respawn here, or F8 (the restart tester).";
     case Nodes::Family::Crown:
@@ -251,8 +258,31 @@ const char* WhenApplied(const Nodes::Node& node)
     }
 }
 
+bool IsRail(uint32_t name)
+{
+    V3 pos;
+    return name && Scenery::RailPoint(name, &pos);
+}
+
+std::vector<uint32_t> MovedWith(uint32_t name, bool wholeRail)
+{
+    if (wholeRail && IsRail(name)) {
+        std::vector<uint32_t> rail = Scenery::RailOf(name);
+        if (!rail.empty())
+            return rail;
+    }
+    return {name};
+}
+
 bool Read(uint32_t name, Values* values)
 {
+    // (a rail point: where the rail manager has it - its node keeps the level's pos=; no angles of its own)
+    V3 point;
+    if (name && Scenery::RailPoint(name, &point)) {
+        values->pos = point;
+        values->angles = {0.0f, 0.0f, 0.0f};
+        return true;
+    }
     Script::CStruct* node = StructNamed(name);
     if (!node)
         return false;
@@ -266,6 +296,8 @@ bool Read(uint32_t name, Values* values)
 
 void NoteOrigin(uint32_t name)
 {
+    if (IsRail(name))
+        return; // (the rail manager notes where the level has it)
     if (g_touchedIndex.count(name))
         return;
     Values origin;
@@ -277,12 +309,28 @@ void NoteOrigin(uint32_t name)
 
 const Values* Origin(uint32_t name)
 {
+    V3 origin;
+    if (IsRail(name) && Scenery::RailOrigin(name, &origin)) {
+        Values& values = g_railOrigins[name];
+        values = {origin, {0.0f, 0.0f, 0.0f}};
+        return &values;
+    }
     auto it = g_touchedIndex.find(name);
     return it == g_touchedIndex.end() ? nullptr : &g_touched[it->second].origin;
 }
 
 bool Set(uint32_t name, const Values& values)
 {
+    // A rail point: moved in the rail manager (Scenery's rail records - saved as `rail`, reset with the level's
+    // scenery), its segments' boxes made again; its node and its angles stay.
+    if (IsRail(name)) {
+        if (!Scenery::SetRailPoint(name, values.pos))
+            return false;
+        int index = Nodes::Find(name);
+        if (index >= 0)
+            Nodes::Reread(index);
+        return true;
+    }
     Script::CStruct* node = StructNamed(name);
     if (!node)
         return false;
@@ -339,6 +387,7 @@ void ForgetLevel()
     }
     g_touched.clear();
     g_touchedIndex.clear();
+    g_railOrigins.clear();
 }
 
 } // namespace Front::LevelEditor::NodeEdit

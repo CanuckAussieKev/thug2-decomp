@@ -169,7 +169,8 @@ void TestEditorNodeUndo()
           "editor node edits: spawns, crowns, flags, lights, sounds, triggers and other nodes move");
     Check(!movable(N::Family::Rail) && !movable(N::Family::Ladder) && !movable(N::Family::Path) &&
               !movable(N::Family::Object) && !movable(N::Family::Scenery) && !movable(N::Family::Particle),
-          "editor node edits: chains, objects, scenery and particles don't (yet)");
+          "editor node edits: ladders, paths, objects, scenery and particles don't (yet); a rail only when the rail "
+          "manager has its point (not offline)");
     Check(!movable(N::Family::Spawn, false) && !movable(N::Family::Spawn, true, 0),
           "editor node edits: nor a node without a place or a name");
 }

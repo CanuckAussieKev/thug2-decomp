@@ -239,17 +239,23 @@ void Toolbar(const Model& model)
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Moves snap to a 25-unit grid (Ctrl while moving does the same)");
     ImGui::SameLine();
-    ImGui::BeginDisabled(model.selection.objects == 0 && model.selection.sectors == 0);
+    ImGui::BeginDisabled(model.selection.objects == 0 && model.selection.sectors == 0 && !model.nodes.movable);
     if (ImGui::SmallButton("Ground (G)"))
         Ask(Request::kDrop);
     ImGui::EndDisabled();
     ImGui::SameLine(0.0f, 14.0f * g_scale);
-    ImGui::PushFont(g_mono);
-    ImGui::TextDisabled("%s", model.level.c_str());
-    ImGui::PopFont();
-    // Right: undo / redo / save, help, add.
+    // Which level: always its edited copy (level_editor_layout.h) - never the level as shipped.
+    ImGui::TextColored(ImVec4(0.55f, 0.84f, 1.0f, 1.0f), "%s (edited copy)", model.levelTitle.c_str());
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("You are editing the edited copy of %s: a level of its own - \"%s (EDITED)\" in the level\n"
+                          "select (offline only). The level as shipped, and every network game, stay as they are.\n"
+                          "Saved layout: %s. Scene %s.",
+                          model.levelTitle.c_str(), model.levelTitle.c_str(),
+                          model.editedSaved ? "yes" : "not yet (Ctrl+S makes it)", model.level.c_str());
+    // Right: undo / redo / save, reset, help, add.
     float right = (ImGui::GetWindowWidth() - ImGui::GetStyle().WindowPadding.x);
-    float width = ImGui::CalcTextSize("Undo  Redo  Save layout  Help (F1)  Add (B)  Place (N)").x + 84.0f * g_scale;
+    float width =
+        ImGui::CalcTextSize("Undo  Redo  Save layout  Reset level  Help (F1)  Add (B)  Place (N)").x + 98.0f * g_scale;
     ImGui::SameLine(std::max(ImGui::GetCursorPosX() + 10.0f * g_scale, right - width));
     ImGui::BeginDisabled(!model.canUndo);
     if (ImGui::SmallButton("Undo"))
@@ -268,7 +274,12 @@ void Toolbar(const Model& model)
     if (model.unsaved)
         ImGui::PopStyleColor();
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Ctrl+S: this level's layout, put back whenever it loads");
+        ImGui::SetTooltip("Ctrl+S: the edited copy's layout - the level select's (EDITED) entry loads it");
+    ImGui::SameLine();
+    if (ImGui::SmallButton("Reset level"))
+        Ask(Request::kResetLevel);
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Ctrl+Shift+Delete: everything back as the level has it, its saved layout deleted (asks first)");
     ImGui::SameLine();
     if (ImGui::SmallButton("Help (F1)"))
         Ask(Request::kToggleHelp);
@@ -587,11 +598,27 @@ void NodeSection(const Model& model, int index)
             ImGui::SetNextItemWidth(-FLT_MIN);
             bool moved = ImGui::DragFloat3("##pos", pos, 1.0f, 0.0f, 0.0f, "%.1f");
             bool done = ImGui::IsItemDeactivated();
-            FieldLabel("Heading");
-            ImGui::SetNextItemWidth(-FLT_MIN);
-            bool turned = ImGui::DragFloat("##heading", &heading, 0.5f, 0.0f, 0.0f, "%.1f\xC2\xB0");
-            done = done || ImGui::IsItemDeactivated();
+            bool turned = false;
+            if (!model.nodes.rail) {
+                FieldLabel("Heading");
+                ImGui::SetNextItemWidth(-FLT_MIN);
+                turned = ImGui::DragFloat("##heading", &heading, 0.5f, 0.0f, 0.0f, "%.1f\xC2\xB0");
+                done = done || ImGui::IsItemDeactivated();
+            }
             ImGui::PopFont();
+            if (model.nodes.rail) {
+                // A rail point: alone, or its whole rail (the points linked to it) by as much (L).
+                FieldLabel("Moves");
+                bool whole = model.nodes.wholeRail;
+                char label[64];
+                std::snprintf(label, sizeof(label), "Whole rail (L) - %d point%s", model.nodes.railPoints,
+                              model.nodes.railPoints == 1 ? "" : "s");
+                if (ImGui::Checkbox(label, &whole))
+                    Ask(Request::kWholeRail, whole ? 1 : 0);
+                if (ImGui::IsItemHovered())
+                    ImGui::SetTooltip("On: dragging, the arrows, nudging, G and the Position field move every point of\n"
+                                      "this rail by as much. Off: this point only (the segments to it follow).");
+            }
             if (moved || turned) {
                 V3 angles = turned ? NodeEdit::WithHeading(model.nodes.angles, heading) : model.nodes.angles;
                 Request request = {Request::kNodeSet};
@@ -890,8 +917,9 @@ void Help(const Model& model)
         {"", "Shift+click", "adds / removes"},
         {"", "Alt+click, middle click", "one piece of scenery"},
         {"", "Esc, Backspace", "deselects"},
-        {"", "A gizmo, an Outliner row", "a node: spawns, crowns, flags, lights, sounds, triggers and other point "
-                                         "nodes move as objects do (rails, paths and particles don't yet)"},
+        {"", "A gizmo, an Outliner row", "a node: spawns, crowns, flags, lights, sounds, triggers, rails and other "
+                                         "point nodes move as objects do (paths, ladders and particles don't yet)"},
+        {"", "L", "a rail node moves with its whole rail / by itself (the Inspector's Whole rail)"},
         {"Moving", "Drag", "moves it (Shift: up / down; wheel: push / pull; Ctrl or Snap 25: snap to 25)"},
         {"", "Drag an arrow", "along that axis only"},
         {"", "W A S D / Q E", "nudge it"},
@@ -902,9 +930,12 @@ void Help(const Model& model)
         {"", "Delete", "hides scenery (deletes a copy)"},
         {"", "Home", "puts it back where the level had it"},
         {"", "Ctrl+Z / Ctrl+Y", "undo / redo"},
+        {"", "Ctrl+Shift+Delete", "Reset level: everything as the level has it, its saved layout deleted (asks; "
+                                  "Ctrl+Z undoes it this session)"},
         {"Adding", "B", "the level's pieces and objects: Up / Down choose, Left / Right switch, F shows, Enter "
                         "places a copy"},
-        {"Saving", "Ctrl+S", "this level's layout - it comes back with the level"},
+        {"Saving", "Ctrl+S", "the edited copy's layout - the level select's \"<LEVEL> (EDITED)\" loads it (offline "
+                             "only); the level as shipped never changes"},
         {"", "Ctrl+R / Ctrl+Shift+R", "restore / discard an older autosave"},
         {"Leaving", "Esc", "first cancels a drag, closes a window or deselects; then leaves"},
         {"Camera", "P", "writes where the camera is to the log (a menu backdrop view)"},
@@ -1173,6 +1204,36 @@ void Place(const Model& model)
         Ask(Request::kPlaceToggle);
 }
 
+// Reset level: asked first.
+void ConfirmReset(const Model& model)
+{
+    if (!model.confirmReset)
+        return;
+    ImGuiIO& io = ImGui::GetIO();
+    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, g_layout.viewport.y + 60.0f * g_scale), ImGuiCond_Always,
+                            ImVec2(0.5f, 0.0f));
+    ImGui::SetNextWindowSize(ImVec2(460.0f * g_scale, 0.0f));
+    ImGui::Begin("Reset the level?###confirmreset", nullptr,
+                 ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize |
+                     ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove);
+    ImGui::TextWrapped("Everything in %s goes back as the level has it: moved scenery, objects, rails and nodes go "
+                       "back, hidden things are shown, copies and added nodes are removed.",
+                       model.levelTitle.c_str());
+    ImGui::Spacing();
+    ImGui::TextWrapped("Its saved layout and autosave are deleted - the edited copy leaves the level select. Ctrl+Z "
+                       "brings the changes back while the editor stays in this level, but the files only come back "
+                       "when you save again (Ctrl+S).");
+    ImGui::Spacing();
+    if (ImGui::Button("Cancel"))
+        Ask(Request::kResetCancelled);
+    ImGui::SameLine();
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.29f, 0.14f, 0.13f, 1.0f));
+    if (ImGui::Button("Reset level"))
+        Ask(Request::kResetConfirmed);
+    ImGui::PopStyleColor();
+    ImGui::End();
+}
+
 // Deleting a level's node: hidden, not removed - asked first.
 void ConfirmHide(const Model& model)
 {
@@ -1390,6 +1451,7 @@ void Frame(const Model& model, const Overlay& overlay)
     AutosaveOffer(model);
     Place(model);
     ConfirmHide(model);
+    ConfirmReset(model);
     OnlineWarning(model);
     ImGui::PopFont();
     ImGui::Render();

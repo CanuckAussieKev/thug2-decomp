@@ -10,6 +10,7 @@
 
 #include "game/core/crc.h"
 #include "game/front/level_editor_objects.h"
+#include "game/front/level_editor_scenery.h"
 #include "game/mth/matrix.h"
 #include "game/script/names.h"
 #include "game/script/node_manager.h"
@@ -357,13 +358,42 @@ void Scan()
     }
 }
 
+// Rails and ladders where the rail manager has them now: a sector moved takes its rails' points with it, and a rail
+// point moves by itself (level_editor_node_edit.h), in the rail manager only - the node array keeps the level's pos=.
+// Skaters grind the rail manager's points, so the gizmos and the Inspector show those (read again whenever rail
+// points move: Scenery::RailGeneration).
+uint32_t g_railGeneration;
+
+void SyncRails()
+{
+    g_railGeneration = Scenery::RailGeneration();
+    std::unordered_map<uint32_t, V3> points;
+    Scenery::ForEachRailPoint(
+        [](void* context, uint32_t name, V3 pos) { static_cast<std::unordered_map<uint32_t, V3>*>(context)->emplace(name, pos); },
+        &points);
+    if (points.empty())
+        return;
+    for (Node& node : g_nodes) {
+        if (node.family != Family::Rail && node.family != Family::Ladder)
+            continue;
+        auto it = points.find(node.name);
+        if (it != points.end()) {
+            node.pos = it->second;
+            node.hasPos = true;
+        }
+    }
+}
+
 void Refresh()
 {
     std::vector<uint32_t> signature = Signature();
-    if (signature == g_signature)
-        return;
-    g_signature = signature;
-    Scan();
+    if (signature != g_signature) {
+        g_signature = signature;
+        Scan();
+        SyncRails();
+    } else if (Scenery::RailGeneration() != g_railGeneration) {
+        SyncRails();
+    }
 }
 
 } // namespace
@@ -449,6 +479,10 @@ void Reread(int index)
     node.angles = {angles.x, angles.y, angles.z};
     if (ShapeOf(node.family) == Shape::Point)
         node.forward = HeadingOf(node.angles);
+    // (a rail / ladder point: where the rail manager has it - see SyncRails)
+    V3 point;
+    if ((node.family == Family::Rail || node.family == Family::Ladder) && Scenery::RailPoint(node.name, &point, true))
+        node.pos = point;
 }
 
 uint32_t ArrayName(const Node& node)

@@ -55,6 +55,11 @@ struct BrowserItem {
 };
 struct Model {
     std::string level;    // the level's scene name
+    // Which level is edited (level_editor_layout.h): its title ("Training"), always its edited copy - whether that has
+    // a saved layout yet.
+    std::string levelTitle;
+    bool editedSaved = false;
+    bool confirmReset = false; // (Reset level's confirm window)
     const char* mode;     // FLYING, SELECTED, MOVING..., ADD
     std::string selected; // the selection described
     std::string hover;    // what's under the cursor
@@ -113,6 +118,9 @@ struct Model {
         bool canHide = false;
         std::string whyNoHide;
         bool crownUp = false, crownDown = false;
+        // A rail node: it moves with its whole rail (else alone - L), how many points that is.
+        bool rail = false, wholeRail = true;
+        int railPoints = 0;
     } nodes;
     // The Place palette (N): what can be added - each entry's label, gizmo colour and, when it can't be now, why -
     // and the one armed (a click in the view places it; -1: none).
@@ -205,6 +213,10 @@ struct Request {
         kCrownMove,     // value: -1 / +1 - an added crown earlier / later in the crowns' order
         kBrowserPreview, // value: the browser's entry the preview shows (-1: the highlighted one)
         kPreviewOrbit,   // a: the preview dragged (pixels x, y) and its wheel steps
+        kResetLevel,    // the toolbar's Reset level (as Ctrl+Shift+Delete: the confirm window)
+        kResetConfirmed,
+        kResetCancelled,
+        kWholeRail,     // value: 0 / 1 - a rail node moves alone / with its whole rail (L)
     } kind;
     int value = 0;
     uint32_t id = 0;

@@ -25,7 +25,9 @@
 //   - lights (LevelLight): the light lists keep the place too (0x00490570 makes them: the dynamic lights at
 //     0x006FAAF0, the level lights at 0x006FAF80): updated; what a light has already lit in the scene's colours
 //     follows only after the level is loaded again;
-//   - cameras, generic nodes and the rest: read from the node when used.
+//   - cameras, generic nodes and the rest: read from the node when used;
+//   - rail points: the rail manager's (Mdl::Skate +0x24: what skaters grind) - moved there at once, as a moved sector
+//     moves its rails (see IsRail below).
 namespace Front::LevelEditor::NodeEdit {
 
 // A node's place: pos= and angles= (radians, as the node arrays hold them).
@@ -61,9 +63,17 @@ bool Differs(const Step& step, const Reader& read);
 
 // --- the game side ------------------------------------------------------------------------------------------------
 
-// Whether the editor moves and turns this node itself (a point node: not a chain, an object or scenery - those move
-// through their own layers - and not particles yet).
+// Whether the editor moves and turns this node itself (a point node, or a rail point - not ladders, paths, objects or
+// scenery - those move through their own layers - and not particles yet).
 bool Movable(const Nodes::Node& node);
+// Rail points (RailNode): moved, not turned - by themselves or with their whole rail (the editor's Whole rail, L). Their
+// place is the rail manager's (where skaters grind; a moved sector takes its rails' points there too), not the node's
+// pos=, which keeps the level's: Read / Set / Origin go to Scenery's rail points (level_editor_scenery.h), saved as the
+// layout's `rail` records (not `set`), put back by Home and Reset level, and never in Changed().
+// Whether `name` is a rail point the rail manager has (false offline, and for rails that ride an object).
+bool IsRail(uint32_t name);
+// What moves when `name` is moved: its whole rail (`name` first) when it's a rail point and `wholeRail`, else itself.
+std::vector<uint32_t> MovedWith(uint32_t name, bool wholeRail);
 // When a change to it shows in the game (the Inspector's note).
 const char* WhenApplied(const Nodes::Node& node);
 

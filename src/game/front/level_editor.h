@@ -30,8 +30,12 @@ class CScript;
 //                             the collision ray, groups (a trick-object cluster and the pieces built onto it), moving
 //                             vertices and collision in place as the park editor does, grind rails with them,
 //                             copies (CScene::CloneSector), hiding, tinting
-//   level_editor_layout.cpp   what was changed, saved per level (thug2-decomp-layouts\<scene>.txt, Ctrl+S) and put
-//                             back whenever that level loads (not in network games)
+//   level_editor_layout.cpp   what was changed, saved per level (thug2-decomp-layouts\<scene>.txt, Ctrl+S): the level's
+//                             EDITED COPY, a level of its own - put in place only when the level select's "<LEVEL>
+//                             (EDITED)" entry (section EDITED LEVELS) loads it or the editor is opened in the level;
+//                             the level as shipped always loads as shipped, and no layout ever applies (nor does the
+//                             editor start) in a network session. Reset level (Ctrl+Shift+Delete) puts the level back
+//                             and deletes its edited copy's files. The design: level_editor_layout.h's top.
 //   level_editor_ui.cpp       the UI (Dear ImGui, level_editor_ui.h): a toolbar, the Outliner, the Inspector, a status
 //                             bar, the help (F1), the browser (B) and the autosave offer; the lines and gizmos drawn
 //                             through its draw list. level_editor_ui_backend.cpp is the only file tied to SDL2 /
@@ -62,15 +66,20 @@ class CScript;
 //     heading are fields to type or drag (one undo step a field), with when the change shows in the game.
 //   - Selecting: a click on an object, scenery or a node's gizmo (scenery takes its group; hovering tints what a click
 //     would take); Shift+click adds / removes; Alt+click or a middle click one piece of scenery; Backspace deselects.
-//   - Moving (objects, scenery and point nodes - spawns, crowns, flags, lights, sounds, triggers, other nodes; not
-//     rails, paths or particles yet): hold and drag (Shift: up / down; the wheel pushes / pulls; Ctrl or the toolbar's
+//   - Rails: a rail's gizmos and the Inspector show its points where skaters grind them (the rail manager's - moved
+//     with their scenery or by themselves); a rail point moves with its whole rail, or by itself (L, the Inspector's
+//     Whole rail), saved as `rail` records; Home puts it (its rail) back.
+//   - Moving (objects, scenery, rail points and point nodes - spawns, crowns, flags, lights, sounds, triggers, other
+//     nodes; not ladders, paths or particles yet): hold and drag (Shift: up / down; the wheel pushes / pulls; Ctrl or the toolbar's
 //     Snap 25 snaps to 25; Escape puts it back), or drag one of the arrows to move along that axis only; W A S D / Q E
 //     nudge; Z / X turn (objects and nodes 15 degrees, scenery a quarter); G drops it onto the ground (a marker shows
 //     where that is). Moving a spawn, crown or flag of a level shared with THUGPRO warns once a run (the edit is made).
 //   - Editing: Ctrl+D duplicates; Delete hides scenery (deletes copies of objects), deletes a node the editor added and
 //     hides a level's own spawn / crown / flag / light / sound / proximity node (asking first: it isn't removed - the
 //     crowns after a hidden crown each move up a number); Home puts it back where the level had it (a hidden node:
-//     shows it again); Ctrl+Z / Ctrl+Y undo / redo (64 steps, this session). An added crown moves up / down among the
+//     shows it again); Ctrl+Z / Ctrl+Y undo / redo (64 steps, this session). Ctrl+Shift+Delete (the toolbar's Reset
+//     level; the old HUD: twice) puts everything back as the level has it and deletes its saved layout and autosave,
+//     after asking - one undo step brings it back (the steps before it are dropped; the files only with Ctrl+S). An added crown moves up / down among the
 //     added crowns (the Inspector); the level's own crowns keep the level's order.
 //   - Adding: B lists the level's scenery and objects; Enter places a copy where the cursor points. N (Place) lists new
 //     nodes - a multiplayer spawn, a team spawn and a CTF flag set per colour (the exact names the game looks for), a
