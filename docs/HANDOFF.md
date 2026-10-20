@@ -12,6 +12,60 @@ then the "- [ ] Next:" line of docs/decomp-progress.md.
   - the leaked-source ban.
 - **Decomp:** 28.27% before the object-system merge (docs/PROGRESS.md). The next batch number is **156**.
 
+## Update 6 (2026-10-20, night): account switch - 4 agents stopped mid-task (thugpro_new + port_changes)
+Main (pushed) has everything up to TP-39 + the editor quick start, all installed in C:\Games\THUG2. Four agents were
+stopped part-way; each committed its work in progress (WIP) on its branch and wrote a handoff note
+`docs/pending/<game>-thugpro-new-handoff.md` on that branch. **Not merged.** Resume each by reading its note, finishing,
+checking, then merging (the lead merges; reconvert into C:\Games\THUG2 + make_menu_level.ts after).
+
+| Game | Branch | Workspace |
+|---|---|---|
+| THAW | worktree-agent-a4244cc241e89291a (2bd6f2f) | C:\Games\THUG2-4 |
+| THPS3 | worktree-agent-ab007c78a14463244 (d049871) | C:\Games\THUG2-1 |
+| THPS4 | worktree-agent-a33cab85b7cc09963 (817f5db; port_changes done at 8efcfc2) | C:\Games\THUG2-2 |
+| THUG1 | worktree-agent-ab52827a8c0463b2e (571bf2a) | C:\Games\THUG2-3 |
+
+State when stopped (details in each branch's handoff note):
+- THAW: thugpro_new done (TP-N1..N5, converts); **port_changes NOT started; Mall blocker NOT restored; thaw.md not
+  corrected**; checks / docs pending.
+- THPS3: thugpro_new + port_changes (PC-1..14) done; lint / test / reconvert / docs pending.
+- THPS4: port_changes (PC-1..11) done and checked, `required` not added; thugpro_new module written but not wired in.
+  Finding: THUGPRO itself hides the THPS4 banners (planned opt-in `--thugpro-banners`).
+- THUG1: thugpro_new (TP-40..43) + port_changes (PC-1..20) done; comparisons / lint / docs pending.
+- To reconcile when merging: the four used different register ids for thugpro_new (TP-N1..5, TP-N3, TP-N4-x,
+  TP-40..43) - pick one scheme; shared files touched by several (compat.ts portChanges, ported_levels.ts models
+  folder copy, make_menu_level.ts) - merge carefully.
+- Cross-game finding: the shared script translator treats THUG2's own `TriggerType` as unknown, so gap conditions
+  never fire in ported levels; THUGPRO's TriggerType / particle / televator etc. commands would need our own C++
+  (proposals in the notes).
+
+What those agents were doing (the user's decisions, 2026-10-20):
+- **`thugpro_new`**: Morten confirmed THUGPRO's own content (meshes, models, scripts, nodes) may be included. It goes in
+  ONE separate top-level section `thugpro_new` of each `tools/compat/thugpro/<game>_levels.json`, **by reference**
+  (archive / file / node names + checksums), read from the user's THUGPRO install (%LOCALAPPDATA%\THUG Pro) at convert
+  time - never commit THUGPRO's bytes (the repo goes to GitHub). Missing install / changed checksum: warn and skip.
+  Switch `--no-thugpro-new` (hand edits without new content). Host level options are included in their default state;
+  switching them needs a protocol layer for THUGPRO's messages 155-159 (later). THUGPRO C++ commands we lack (e.g.
+  TriggerType): list + propose our own implementation, not done.
+- **`port_changes`**: a second section for OUR OWN deviations from the source games (ids PC-n, README section "Our own
+  changes"). All of the converters' deliberate deviations move there as data (crash guards, dropped / made nodes,
+  script rewrites...). Every entry in `port_changes` and `thugpro_new` has `op`: `add` | `set` (merge; error if the
+  target is missing) | `remove`, plus `id`, `target`, `why`; `required: true` for ones a level needs to load.
+  `--compat none` keeps port_changes (not THUGPRO data); `--no-port-changes` = pure source output except required ones.
+  Default output must stay byte-identical (except the Mall blocker below).
+- **THPS4 skate shop door stays OPEN** (TP-29 off): the shop is our main menu backdrop - nothing may change the backdrop.
+  The door becomes PC-1 (`remove` InvisColl01's 10 shop-side faces + Object10's 2 invisible faces).
+- **THAW The Mall:** restore `Z_MA_Mall_First_Rail_Blocker` (user: removing it was a miscommunication). It is NOT across
+  the entrance doors (thaw.md's note is wrong): a thin invisible wall (12 faces, 0x1000) alongside the start area,
+  THUGPRO box x -15767..-14044, y 1367..2278, z -5641..-5600; THUGPRO keeps it. The "closed / cerrado" doors are the
+  entrance glass Z_MA_Sk_JOW_Mall_Entrance02/03/04 (sticker ESign08) - keep them breakable.
+- **Open finding, not yet given to any agent:** our THAW breakable conversion (`breakableScripts`, thaw_levels.ts)
+  wrongly treats `ShatterAndDie` as a THAW-only command - THUG2 has it (and `BloodSplat`) as scripts in its own
+  SK4_Scripts.qb / bails.qb. So THAW's `MA_BreakGlass` / `MA_KillStickers` could be kept as THAW has them (as THUGPRO
+  does). Ours drops MA_KillStickers, so the Mall entrance's "closed / cerrado" sign stays floating after the glass
+  breaks. Proposed: keep THAW's scripts (a port_changes choice), test whether Type=Crate still stops our skater.
+- Other open user decisions: none pending except testing. Nothing of today's level work has been run in the game.
+
 ## Update 5 (2026-10-20, late): THUGPRO parity for all four ported games, editor quick start
 - **All merged and installed in C:\Games\THUG2** (main at b0ebea2 or later; DLL, all four games' levels, overlay).
 - **THUGPRO compatibility register** (tools/compat/thugpro, README lists every entry): TP-1..9 THAW, TP-10..19 THPS3,
