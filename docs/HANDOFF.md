@@ -12,6 +12,21 @@ then the "- [ ] Next:" line of docs/decomp-progress.md.
   - the leaked-source ban.
 - **Decomp:** 28.27% before the object-system merge (docs/PROGRESS.md). The next batch number is **156**.
 
+## Update 10 (2026-10-20, night): editor feedback - three agents running, two batches queued
+- **Main 5e80683 installed** (phase 3, flaky fix, screenshot key). Play-test checklist page (tick results stored in its
+  db; read with ArtifactData list `results`): claude.ai/artifact/SQqRbUco71P4fa9AG4eHuk.
+- **Running (worktrees; no game runs - the user tests interactive editor work themselves):**
+  - A: Reset level; edited levels as separate offline-only levels (no layout on the original or in any network game);
+    rail gizmos at the moved position, movable rail points, rail Ground drop. Record docs/pending/editor-levels.md.
+  - B: Add palette preview (model viewer). Record docs/pending/editor-preview.md.
+  - C: picking - floors / ceilings / walls not picked by a plain click, no-collision pieces hit by triangles not boxes
+    (TR's g_wareNew_spiderweb_01 decal box swallowed clicks), decals skipped, pick filters, lock, click-to-cycle,
+    hover outline. Record docs/pending/editor-picking.md.
+  Merge all three (conflicts likely in level_editor.cpp / _ui.cpp), install, add their checklists to the page.
+- **Queued (user said yes), after A-C merge:** (D) view options - Show collision (invisible walls in a strong colour,
+  surface types, Shift+click selects an invisible wall), editor-only hide / isolate; (E) uniform scaling of scenery
+  (render vertices, collision, boxes, rails on it), objects if the model code allows; non-uniform later.
+
 ## Update 9 (2026-10-21, evening): account switch - level editor phases 0-2 done, phase 3 and the flaky tests stopped mid-task
 - **On main and installed in C:\Games\THUG2** (DLL from dd6aa98): level editor phase 0 (Dear ImGui UI, Inter / JetBrains
   Mono, toolbar / Outliner / Inspector / status bar; `editor_ui=0` = old HUD), phase 1 (node browser, read-only
