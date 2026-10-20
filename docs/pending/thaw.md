@@ -360,3 +360,76 @@ edits), the left-out items above, our port's own (PC-THAW-5, peds / cars our way
 
 Try in the game: Minneapolis' parking garage (on at start, as THUGPRO's default), Kyoto's DDR machine under its rails,
 The Mall's start area (the blocker back), Santa Cruz's parking meters, Vans' / Chicago's CTF bases and flags.
+
+## THUG2 has more than the converter assumed: IsCreated, InManual, breakables, FACE_KEEP (agent thaw-audit-fixes, 2026-10-20) - NOT run in the game yet
+
+From the audit of the converters' "not in THUG2" assumptions (the shared translator, tools/level_port, is fixed by
+another agent: member table, full skater context, scriptNeeds, TriggerType). THAW-only fixes here
+(tools/thaw_levels):
+
+- **IsCreated -> `IsAlive name=X`** (`thaw_scripts.Translator.isCreated`). CFunc_IsAlive (0x005A5380 -> 0x005A4EF0 ->
+  0x005A3D10) looks the node up and goes by its Class: GameObject / Pedestrian / Ped / Vehicle / LevelObject /
+  ParticleObject / Skater - the composite object; LevelGeometry - its sector; RailNode / ClimbingNode - the rail;
+  any other class false. It reads the node's Class without checking the node is there (GetNode 0x0045CFC0 returns
+  null): so only `IsCreated X`, `IsCreated {X}`, `IsCreated name=X` for a converted node of those classes (undrawn
+  geometry is refused before, as for every statement). `IsCreated <param>` (SV2's hydrants, 11), East LA's
+  `IsCreated Z_EL rail_446` (two names, THAW's slip, 4) and names of nodes not converted (SR's pro skaters, EL's
+  TriggerLinks / sprinklers, DT's tag dummy, SM's carny: 24) stay left out (`if` false, as before).
+- **InManual** (`thaw_scripts.inManual`, in scriptToks): `if [not] [skater:]InManual` -> `[skater:]GetSingleTag state`
+  + `if [not] (<state> = Skater_InManual)` - THUG2's own ShatterAndDie asks the skater's state this way.
+- **Breakables (PC-THAW-4, switch renamed `breakable_faces`)**: the trigger scripts are THAW's, translated
+  (MA_BreakGlass with BloodSplat, PlaySound, Kill, ShatterAndDie; MA_KillStickers kept, so The Mall's "closed /
+  cerrado" sticker ESign08 goes with Entrance04's glass). ShatterAndDie / BloodSplat are THUG2's (SK4_Scripts,
+  bails.qb), THAW's line for line; let through for the skater by hand (`SKATER_SCRIPTS_CHECKED`): THUG2's own LA glass
+  (LA_BreakGlass) runs both on the skater. `thaw_skater` gained `sound` (CSkater has AddMotionComponents' sound
+  component) - THAW's breakable scripts play their glass with Obj_PlaySound. `breakableScripts` (THUG2's PlaySound +
+  Shatter + Kill) is now only for `--static`.
+  - **texture_swap**: nothing to pass. Both games' ShatterAndDie default to BA_APM_brokenglass01 (THAW's too, so
+    THAW's own call uses it); on PC THUG2 it has no effect: CFunc_Shatter (0x005A5090) stores it (0x00491110 ->
+    0x007004BC), its one reader 0x00490DC0 looks it up in 0x00700F20's table and passes it to the shatter builder
+    0x004BA7A0, which never reads that argument. The pieces keep the sector's own material.
+  - **Type=Crate: kept** (THAW's data). Crate's checksum (0x19E7E55A) is nowhere in THUG2's exe, so nothing tests it,
+    and THUG2's own breakable glass has it (Training's SkWare_SecretRoom_Glass01, `ncomp_LevelGeometry_3 = {Type=Crate}`).
+    So the Type can't be what stopped the skater at The Mall's glass earlier; the faces (changed in the same fix) **stay
+    THUG2's 0x1150** - that part isn't explained, so it isn't touched.
+- **FACE_KEEP 0x1FFF -> 0x3FFF**: 0x2000 (not taggable) kept - THUG2's tagging feelers ignore 0x3000
+  (SetIgnore at 0x0051DF71 / 0x0051E74B), its levels use it, THAW names it mFD_NOT_TAGGABLE. 0x4000 / 0x8000 still
+  dropped (the shared agent looks for their readers). `thugpro_extract` / `thugpro_inventory` compare with the same
+  mask (exported FACE_KEEP). PC-THAW-10 updated.
+- **Comments**: thaw_scripts' RailAccelerate ("THUG2 has no TriggerType": it has, the Trigger component's member in its
+  CallMemberFunction switch 0x00434970 - wired to script_port's THAW flag translation when that lands) and
+  thugpro_extract's ("THUGPRO's own C++, e.g. TriggerType"); the extraction's `why` texts said the same and are
+  re-extracted (`--extract-thugpro`: only those texts changed - no new face edits with the wider mask, no script newly
+  passing until the shared member table lands).
+
+Left-out statements, all 15 levels (full `leftOut`, scratch collector), before -> after:
+- IsCreated 125 -> 39 (SV 47 -> 0: the pipe-grind link gaps' `Z_SV_TRG_PipeGrindRunning`, the Natas siren gaps;
+  EL 47 -> 17; OI 8 -> 0; HO 2 -> 1; SM 2 -> 1; SV2 9 -> 9 and SR 8 -> 8 (parameters / pro skaters); DT 2 -> 2; JA
+  0 -> 1, newly reached); 211 `IsAlive` in the brought scripts.
+- InManual 3 -> 0 (HO 1, SR 2: SR_startgap_arch). (DT's `skater:InManual` bike / Mexican gaps aren't reached here
+  either way.)
+- Breakables: 301 nodes in both (10 CH, 14 MA, 68 DN, 8 JA, 13 SZ, 5 SV2, 1 SV, 31 HO, 5 BH, 9 DT, 38 EL, 1 SM, 98
+  LV), every trigger script now translated (none dropped). Inside them, left out (none of it was there before either):
+  createfastparticlesystem 15 (scriptNeeds over-count - shared fix), `HITsmoke01:` / `shatter01:` / `HITsplinter01:`
+  object calls on those particle systems 15, GetBonus 2 (shared fix). BloodSplat's 1 left out -> 0.
+- All reasons: 1,980 -> 1,931 (new ones are mostly statements in code newly reached: printf, GoalManager_*).
+- Beverly Hills' museum `if iscreated z_bh_g_museum_innerz_01` (36 in THAW) isn't reached from our roots at all (0
+  before, 0 after) - not changed by this.
+
+Checks (C:\Games\THUG2-4, all 15 converted and installed with make_menu_level): every collision face reachable
+(col_check, all 15); links in range, rails to rails, no duplicate names; ns.exe decompiles every level but East LA
+(the known `No endif byte (short if)`, as before); thaw / THPS3 / THPS4 / THUG1 selfchecks 0 failures; typecheck,
+lint, test (96, one new: the InManual rewrite). `thugpro_inventory.ts --ours` before -> after: TP-9 "objects with
+other face flags" 187 -> 0 over MA, SZ, SV2, HO, BH, DT, EL, SM, LV (THUGPRO keeps 0x2000 too); everything else the same
+(the breakable glass faces still ours, 0x1150).
+
+Try in the game (THUG2-4 has it):
+- The Mall: skate into the entrance glass (Z_MA_Sk_JOW_Mall_Entrance04, by the start): it breaks (glass sound, blood
+  splat, pieces), and the "closed / cerrado" sticker on it goes with it; the other panes (MA_TB_Glass_01-05, ESign08,
+  the ending doors) break too and don't stop the skater.
+- Vans (Z_SV): the pipe-grind link gaps (SV_Gap_PipeGrind_Link01-03) - they start only when no pipe grind is running;
+  the Natas siren gaps (SV_Gap_NatasFTWStart1-4).
+- East LA: the garage doors (Z_EL_DoorOpen1 / 2, where reached) and other checks that now use IsAlive.
+- Skate Ranch (SR_startgap_arch) and Hollywood: gaps that start only from a manual.
+- Any level's breakables (Downtown's China overhang, Casino's glass, Minneapolis' glass): break, sound, no wall.
+- Graffiti: faces THAW marks not taggable (0x2000) should no longer take tags.

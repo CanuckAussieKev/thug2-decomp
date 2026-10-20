@@ -35,7 +35,7 @@ and moving objects have mostly not been seen working. The "what to try" lists ar
 | What | THPS3 | THPS4 | THUG1 | THAW |
 |---|---|---|---|---|
 | Level geometry, textures | Original | Original (vertex colours halved to THUG2's scale) | Original | Original, from the online (`_net`) version (see 6) |
-| Collision, rails, restarts, kill zones | Original | Original | Original | Original (3 face flags dropped) |
+| Collision, rails, restarts, kill zones | Original | Original | Original | Original (2 face flags dropped) |
 | Level scripts (gaps, triggers, moving things) | Original, translated | Original, translated | Original, translated (node array nearly whole) | Original, translated |
 | Gap checks that test how you landed (TriggerType) | Missing: those lip gaps never score | Translated to THUG2's form | Missing: those conditions read false | Missing: those conditions read false |
 | Peds: model | Stand-in (THUG2 people) | Stand-in (THUG2 people) | Original profile where THUG2 has it, else a random THUG2 one | Stand-in (THUG2 people, chosen by keyword) |
@@ -55,7 +55,7 @@ and moving objects have mostly not been seen working. The "what to try" lists ar
 | Ladders and ledges (hang, climb) | n/a | n/a | Original | Missing (ClimbingNode) |
 | Skitching | n/a | n/a | Original (THUG2's cars) | Missing |
 | Particles (smoke, steam, sparks, fire) | Missing | Missing (emitters left out) | Original where THUG2 has the texture | Converted (those there at the start); THUG2 texture of the same name or a stand-in |
-| Sound effects | Missing | Missing | Mostly original (THUG2 ships THUG1's level sounds; 29 missing) | Missing (glass uses THUG2's breaking sound) |
+| Sound effects | Missing | Missing | Mostly original (THUG2 ships THUG1's level sounds; 29 missing) | Missing (glass: HitGlassPane2x, which THUG2 has too) |
 | Ambient sound emitters | Missing | Missing | Original | Missing (Casino's EmitterObjects) |
 | Music, ambient streams | Missing (THUG2's soundtrack plays) | Missing | Missing | Missing |
 | Goals, career, pickups (letters, tapes, stat points) | Missing | Missing | Missing | Missing |
@@ -208,21 +208,22 @@ nodes, run by THUG2's code.
 - Santa Monica: one material's third pass dropped (section 3).
 
 **Collision and nodes**
-- Collision face bits 0x2000, 0x4000 and 0x8000 dropped.
+- Collision face bits 0x4000 and 0x8000 dropped (0x2000, not taggable, kept).
 - Collision-only geometry loses its TrickObject / Cluster marking, and statements naming it are left out (section 3).
 - The Mall: an invisible story blocker across the entrance doors removed (Z_MA_Mall_First_Rail_Blocker).
 - How THAW closes the open ends of the LA areas in online mode: not checked.
 
 **Scripts** (THAW's own; its token stream is THUG2's plus an inline structure token). Left out:
 - RailAccelerate (THAW's rail speed-ups).
-- TriggerType / IsCreated conditions (false).
+- TriggerType conditions (false); IsCreated becomes THUG2's IsAlive name= for converted nodes, false otherwise;
+  InManual becomes THUG2's state tag (GetSingleTag state = Skater_InManual).
 - `object:member` calls.
 - Goal commands, screen elements and panels, flags, slow motion, IGC cameras.
 - Renamed to THUG2's: SpawnScriptLater/Now -> SpawnScript, ShatterFromSkater -> Shatter.
 
 **Glass and gameplay**
-- Breakable glass and fences run a generated THUG2 script: THUG2's glass sound and shatter. Only for glass that has
-  visible geometry in the online version (0-98 per level).
+- Breakable glass and fences run THAW's own scripts (THUG2 has ShatterAndDie and BloodSplat too), with THUG2's
+  breakable-glass face flags. Only for glass that has visible geometry in the online version (0-98 per level).
 - Skitching, ladders (ClimbingNode) and Casino's EmitterObjects missing.
 
 **Life**

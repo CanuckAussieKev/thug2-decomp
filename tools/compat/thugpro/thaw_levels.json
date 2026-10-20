@@ -24367,23 +24367,23 @@
         },
         {
           "target": "CH_GetGap_LightGrind",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "Z_CH_GapStart_Balls1",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "Z_CH_GapStart_jo1",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "Z_CH_GapStart_Contribution1",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType, StickerOn - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType, StickerOn - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "Z_CH_GapStart_FluffyBunny1",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         }
       ],
       "Z_MA": [
@@ -24603,11 +24603,11 @@
         },
         {
           "target": "Z_DN_GapStart_Billboard_Grind1",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "Z_DN_GapStart_BS_Grind1",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         }
       ],
       "Z_JA": [
@@ -24673,7 +24673,7 @@
         },
         {
           "target": "JA_NeonSign_Check",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs Triggertype - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         }
       ],
       "Z_SZ": [
@@ -24683,7 +24683,7 @@
         },
         {
           "target": "SZ_EnterSand",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs Triggertype - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         }
       ],
       "Z_SV2": [
@@ -24693,15 +24693,15 @@
         },
         {
           "target": "Z_SV2_Hydrant",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs Triggertype - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "Z_SV2_Hydrant2",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs Triggertype - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "Z_SV2_Hydrant3",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs Triggertype - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         }
       ],
       "Z_SV": [
@@ -24711,111 +24711,111 @@
         },
         {
           "target": "SV_Gap_PipeGrind_Link01_start",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_PipeGrind_Link02_start",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_PipeGrind_Link03_start",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_PipeGrind_Link04_start",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_PipeGrind_Link05_start",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_PipeGrind_Link06_start",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_PipeGrind_Link07_start",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_PipeGrind_Link08_start",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_PipeGrind_Link09_start",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_PipeGrind_Link10_start",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_PipeGrind_Link11_start",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_PipeGrind_Link12_start",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_PipeGrind_Link13_start",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_PipeGrind_Link14_start",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_PipeGrind_Link15_start",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_PipeGrind_Link16_start",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_PipeGrind_Link17_start",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_PipeGrind_Link18_start",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_PipeGrind_Link19_start",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_PipeGrind_Link20_start",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs IsCreated, TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_NoWallPlant_01",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_NoWallPlant_02",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_PatientPlant_Start",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_GoLong_02",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_DeckLip_02",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_StairLip_02",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SV_Gap_SprinklerLip_02",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         }
       ],
       "Z_HO": [
@@ -24825,75 +24825,75 @@
         },
         {
           "target": "Z_HO_Goal_UniqueTrick_Check",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType, goal_unique_tricks_trigger - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType, goal_unique_tricks_trigger - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "Z_HO_CavemanSeriesEasy_Check",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "Z_HO_BowlingPin",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "Z_HO_CranePlant",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "Z_HO_CranePlant2",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "Z_HO_Tower_Plane",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType, ChangeNodeFlag - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType, ChangeNodeFlag - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "Z_HO_ScissorLift",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "Z_HO_Hydrant",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "Z_HO_GapEnd_FireEscape1",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "Z_HO_GapEnd_FireEscape2",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "Z_HO_GapEnd_FireEscape3",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "Z_HO_GapEnd_FireEscape4",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "Z_HO_GapEnd_FireEscape5",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "Z_HO_Gap_Goat",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "Z_HO_GapStart_PlanterPop",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "Z_HO_GapEnd_PlanterPop",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "Z_HO_Gap_ElTenienteDrop",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "Z_HO_CavemanCombo_Gap_Start",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         }
       ],
       "Z_BH": [
@@ -24913,59 +24913,59 @@
         },
         {
           "target": "Z_DT_Bike_ContinueGap10",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs Triggertype - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "m_zdtgaps23_gameplay_tag_EndGap2",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs Triggertype - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "m_zdtgaps23_gameplay_tag_EndGap3",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs Triggertype - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "DT_Wallplant_Slomo",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs Triggertype - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "DT_Bell_Gap_End_old",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs Triggertype, SpawnScriptLater, PlayIGCCamScene, CinematicCamera_Pan, CinematicCamera_DoMorph - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype, SpawnScriptLater, PlayIGCCamScene, CinematicCamera_Pan, CinematicCamera_DoMorph - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "DT_Bell_Gap_End",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs Triggertype, SpawnScriptLater, PlayIGCCamScene, CinematicCamera_Pan, CinematicCamera_DoMorph - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype, SpawnScriptLater, PlayIGCCamScene, CinematicCamera_Pan, CinematicCamera_DoMorph - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "Z_DT_BellPlant",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs Triggertype, SpawnScriptLater, PlayIGCCamScene, CinematicCamera_DoMorph - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype, SpawnScriptLater, PlayIGCCamScene, CinematicCamera_DoMorph - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "DT_Pyramid_Gap_End_old",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs Triggertype, SpawnScriptLater, PlayIGCCamScene, CinematicCamera_Pan, CinematicCamera_DoMorph - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype, SpawnScriptLater, PlayIGCCamScene, CinematicCamera_Pan, CinematicCamera_DoMorph - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "DT_Pyramid_Gap_End",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs GoalManager_SetFloatTipVisibility, Triggertype, SpawnScriptLater, PlayIGCCamScene, CinematicCamera_Pan, CinematicCamera_DoMorph - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs GoalManager_SetFloatTipVisibility, Triggertype, SpawnScriptLater, PlayIGCCamScene, CinematicCamera_Pan, CinematicCamera_DoMorph - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "DT_Gaps7_Freeway_Script",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs Triggertype, SpawnScriptNow, goal_gaps_hold_trick_trigger, PlayIGCCamScene, SpawnScriptLater, CinematicCamera_DoMorph - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype, SpawnScriptNow, goal_gaps_hold_trick_trigger, PlayIGCCamScene, SpawnScriptLater, CinematicCamera_DoMorph - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "DT_Kid_Ride_startcam",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs Triggertype, SpawnScriptLater, PlayIGCCamScene - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype, SpawnScriptLater, PlayIGCCamScene - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "DT_Gap_Pillars",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs Triggertype - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "DT_Gap_China_Awning",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs Triggertype - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "DT_Gap_Big_Lip_End",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs Triggertype - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         }
       ],
       "Z_EL": [
@@ -24979,43 +24979,43 @@
         },
         {
           "target": "Z_EL_AutoLevelEvent2",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "Z_EL_SkateparkLevelEventa",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "Z_EL_SkateparkLevelEvent2a",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "EL_wallplant_boost",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "EL_Spring",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "Z_EL_StartGap_TheShack1",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "Z_EL_StartGap_GnarlyNatas1",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "Z_EL_StartGap_Straight_Thuggin1",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "Z_EL_StartGap_Straight_Ballin1",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "Z_EL_StartGap_Clutch1",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         }
       ],
       "Z_SM": [
@@ -25033,15 +25033,15 @@
         },
         {
           "target": "SM_Alleyway_IGC",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType, PlayIGCCamScene, CinematicCamera_DoMorph, IGC_Camera_MoveToPlayer - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType, PlayIGCCamScene, CinematicCamera_DoMorph, IGC_Camera_MoveToPlayer - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "Z_SM_BustingOutOfThePipeSequence",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType, PlayIGCCamScene, CinematicCamera_DoMorph, IGC_Camera_MoveToPlayer - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType, PlayIGCCamScene, CinematicCamera_DoMorph, IGC_Camera_MoveToPlayer - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SM_FerrisCarBalanceReset",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs TriggerType - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs TriggerType - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         }
       ],
       "Z_SR": [
@@ -25051,39 +25051,39 @@
         },
         {
           "target": "SR_DT_freewaysign_drop",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs Triggertype - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SR_derrick_ring_go",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs Triggertype - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SR_captop_go",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs Triggertype - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SR_Gap_DT_pyr",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs Triggertype - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SR_Gap_LV_wheel_end",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs Triggertype - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SR_Gap_BH_fountain",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs Triggertype - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SR_Gap_OR_floor_1",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs Triggertype - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SR_Gap_SM_ferris_end",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs Triggertype - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "SR_Gap_DT_freeway_end",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs Triggertype - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         }
       ],
       "Z_LV": [
@@ -25093,43 +25093,43 @@
         },
         {
           "target": "Z_LV_Cylinder49Script",
-          "why": "Z_LV_Cylinder49's trigger script; needs sssssssssssss - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "Z_LV_Cylinder49's trigger script; needs sssssssssssss - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "NO_spinsign_trigger",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs Triggertype, SpawnScriptLater, DeleteGapFromScore - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype, SpawnScriptLater, DeleteGapFromScore - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "LV_boost",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs Triggertype - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "LV_Natas_Posts_Check",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs Triggertype, SpawnScriptLater - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype, SpawnScriptLater - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "LV_warn_wrong_side",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs Triggertype - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "LV_grinddollarsign_waitover",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs Triggertype - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "LV_TRG_BreakTheBank",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs Triggertype - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "LV_StickerColumns_trigger",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs Triggertype - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "LV_DollarAcidDrop_trigger",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs Triggertype, SpawnScriptLater - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype, SpawnScriptLater - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         },
         {
           "target": "NO_heli_lip",
-          "why": "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType; needs Triggertype, SpawnScriptLater - not THUG2's (THUGPRO's own C++): left out until our C++ has it"
+          "why": "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType; needs Triggertype, SpawnScriptLater - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it"
         }
       ],
       "Z_OI": [
@@ -25356,10 +25356,10 @@
         "id": "PC-THAW-4",
         "op": "set",
         "target": {
-          "rule": "LevelGeometry whose TriggerScript shatters it (The Mall's MA_BreakGlass...): the script made PlaySound HitGlassPane2x + Shatter + Kill, its faces non-collidable triggers (0x1150), its Type taken off (thaw_levels.breakableScripts)"
+          "rule": "LevelGeometry whose TriggerScript shatters it (The Mall's MA_BreakGlass...; thaw_levels.breakableTriggers): its faces THUG2's own breakable glass's (0x1150: non-collidable, trigger, no skater shadow, invisible - THAW's 0xF0 had decal and camera collidable). The trigger scripts stay THAW's, translated (ShatterAndDie, BloodSplat are THUG2's too; MA_KillStickers kept); only --static writes THUG2's PlaySound + Shatter + Kill instead (breakableScripts)"
         },
-        "why": "glass you skate through as in THAW; assumes ShatterAndDie is THAW-only - THUG2 has ShatterAndDie (SK4_Scripts.qb) and BloodSplat (bails.qb), and this drops MA_KillStickers (The Mall's 'closed / cerrado' sticker floats after the glass breaks): under audit, not changed here",
-        "switch": "breakables_as_thug2_shatter"
+        "why": "glass you skate through and break as in THAW: with THAW's 0xF0 faces (and Type=Crate, kept now - THUG2's exe never tests it) the user was stopped at The Mall's glass",
+        "switch": "breakable_faces"
       },
       {
         "id": "PC-THAW-5",
@@ -25414,7 +25414,7 @@
         "id": "PC-THAW-10",
         "op": "remove",
         "target": {
-          "rule": "collision face flags 0x2000 / 0x4000 / 0x8000 and material pass flags THUG2 hasn't the data for (FACE_KEEP, PASS_KEEP); blend modes past 13 made 5"
+          "rule": "collision face flags 0x4000 / 0x8000 (0x2000, not taggable, is kept: THUG2's tagging feelers ignore 0x3000) and material pass flags THUG2 hasn't the data for (FACE_KEEP, PASS_KEEP); blend modes past 13 made 5"
         },
         "why": "not THUG2's meanings: THUG2 would read them as something else",
         "switch": "unknown_flags",

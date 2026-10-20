@@ -19,7 +19,7 @@
 //   - TP-7: net-array nodes THUGPRO hasn't (and didn't rename), scene sectors and collision objects it took out;
 //   - TP-8: nodes THUGPRO added (not in THAW's full archive) made only of what our side has: rails, waypoints,
 //     restarts, generic nodes, objects with THUG2 models and THAW / THUG2 scripts;
-//   - TP-9: per-face collision flags (THUG2's, 0x1FFF) and terrain on the collision objects whose faces are THAW's
+//   - TP-9: per-face collision flags (thaw_levels.FACE_KEEP: 0x3FFF) and terrain on the collision objects whose faces are THAW's
 //     (same count, same vertices).
 
 import { crc32 } from "node:zlib";
@@ -34,6 +34,7 @@ import { pyExit, pyRound } from "../lib/py.ts";
 import * as thaw from "./thaw.ts";
 import {
     COMPAT,
+    FACE_KEEP,
     findPath,
     MULTIPLAYER_NAME,
     multiplayerNames,
@@ -69,7 +70,6 @@ import {
 const MOVED = 0.1; // units: a node further than this from THAW's place (in the same frame) is THUGPRO's move
 const ANGLE = 0.001;
 const FIT = 0.1; // units: the most a vertex may be off a rigid move (else THUGPRO changed the mesh; the frames differ by < 1/32)
-const FACE_KEEP = 0x1fff; // (thaw_levels: THUG2's face flags)
 export const APPLIED_FLAGS = ["CreatedAtStart", "AbsentInNetGames", "NetEnabled", "TrickObject"];
 const APPLIED_KEYS = ["Class", "Type", "TerrainType", "Cluster", "CollisionMode", "restart_types", "RestartName"];
 // Keys THUGPRO's toolchain changes on every node (thaw_node_array_converter.py: commented-out THPS leftovers, model /
@@ -121,8 +121,9 @@ const N_SCRIPTS = "TPN-THAW-4"; // THUGPRO's scripts and the TriggerScripts nami
 const N_OPTIONS = "TPN-THAW-5"; // host level options (default state) and loading sounds
 
 // THAW scripts THUGPRO changed that we take as THUGPRO has them (our decision - the user's list, 2026-10-20: The
-// Mall's door sound, East LA's glass that breaks without a second sound). The gap scripts gated by its TriggerType are
-// found by rule (scripts THAW defines that THUGPRO made call GetTriggerArray).
+// Mall's door sound, East LA's glass that breaks without a second sound). The gap scripts THUGPRO gated by TriggerType
+// (THUG2's member, with THUG2's GetTriggerArray numbers) are found by rule (scripts THAW defines that THUGPRO made call
+// GetTriggerArray).
 const CHANGED_SCRIPTS: Readonly<Record<string, readonly string[]>> = {
     Z_MA: ["MA_Dooropening"],
     Z_EL: [
@@ -951,8 +952,10 @@ export function extractZone(zone: string, src: Sources): ZoneExtract {
 // TPN-THAW-4 / TPN-THAW-5: the THUGPRO scripts to bring along - the roots (trigger scripts of the nodes above, THAW scripts
 // THUGPRO changed that we take, its loading sounds and host-option toggles) with every THUGPRO script they use that
 // THUG2 hasn't (its level's or its global ones: THUG2's own always stays). A root that calls a command neither THUG2
-// nor THUGPRO's scripts define (THUGPRO's own C++, e.g. TriggerType) is left out with all it alone needs, and listed in
-// `needs`.
+// nor THUGPRO's scripts define (THUGPRO's own C++) is left out with all it alone needs, and listed in `needs`.
+// (TriggerType isn't THUGPRO's: it is THUG2's, the Trigger component's member - handled in that component's
+// CallMemberFunction switch at 0x00434970, so it isn't in the member tables Thug2 reads; THUG2's own scripts call
+// it, which thug2Calls below counts.)
 function scriptsNew(
     zone: string,
     key: string,
@@ -979,7 +982,7 @@ function scriptsNew(
     const gate = checksum("GetTriggerArray");
     for (const [k, s] of level.scripts) {
         if (isLevel(s.file) && thawLevel.has(k) && usedNames(s.bytes).has(gate)) {
-            roots.set(k, { why: "THAW's gap script gated by THUGPRO's GetTriggerArray / TriggerType", id: N_SCRIPTS });
+            roots.set(k, { why: "THAW's gap script THUGPRO gated by GetTriggerArray / TriggerType", id: N_SCRIPTS });
         }
     }
     // loading sounds (THUGPRO's <zone>_Setup calls them) and host options (THUGPRO's HandleLevelOptionObjects calls
@@ -1042,7 +1045,7 @@ function scriptsNew(
             const what = [...missing].map(text);
             zn.left_out.push({
                 target: text(root),
-                why: `${r.why}; needs ${what.join(", ")} - not THUG2's (THUGPRO's own C++): left out until our C++ has it`,
+                why: `${r.why}; needs ${what.join(", ")} - not a THUG2 command script_port knows (THUGPRO's own C++, or a THUG2 member its tables miss): left out until we have it`,
             });
             for (const m of what) needs.set(m, [...(needs.get(m) ?? []), text(root)]);
             dropped.add(root);
