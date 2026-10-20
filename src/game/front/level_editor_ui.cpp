@@ -16,6 +16,7 @@
 #include "game/front/level_editor_node_edit.h"
 #include "game/front/level_editor_nodes.h"
 #include "game/front/level_editor_picking.h"
+#include "game/front/level_editor_triggers.h"
 #include "game/front/level_editor_scale.h"
 #include "game/front/level_editor_ui_backend.h"
 #include "game/front/level_editor_ui_fonts.h"
@@ -952,6 +953,44 @@ void LockList(const Model& model)
     }
 }
 
+// The scenery selection's parts (its pieces, shadows marked, and the rail points carried along): each with x (removed
+// from the selection, as Ctrl+click) and Keep only this.
+void MemberList(const std::vector<Model::Selection::Member>& members)
+{
+    if (members.empty())
+        return;
+    ImGui::Spacing();
+    Muted("Parts (x removes one, Ctrl+click in the view too)");
+    float rows = static_cast<float>(std::min<size_t>(members.size(), 10));
+    ImGui::BeginChild("##members", ImVec2(0.0f, rows * ImGui::GetFrameHeightWithSpacing() + 4.0f * g_scale), false);
+    for (size_t i = 0; i < members.size(); ++i) {
+        const Model::Selection::Member& member = members[i];
+        ImGui::PushID(static_cast<int>(i));
+        int rail = member.rail ? 1 : 0;
+        if (ImGui::SmallButton("x"))
+            Ask(Request::kMemberRemove, rail, member.id);
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip(member.rail ? "No longer carried along with the selection"
+                                          : "Removed from the selection (stays where it is)");
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Keep only this"))
+            Ask(Request::kMemberKeep, rail, member.id);
+        ImGui::SameLine();
+        ImGui::PushFont(g_mono);
+        ImGui::TextUnformatted(member.name.c_str());
+        ImGui::PopFont();
+        ImGui::SameLine();
+        if (member.rail)
+            Muted("rail point");
+        else if (member.shadow)
+            Muted(("shadow  " + member.size).c_str());
+        else
+            Muted(member.size.c_str());
+        ImGui::PopID();
+    }
+    ImGui::EndChild();
+}
+
 void Inspector(const Model& model)
 {
     if (!g_layout.inspectorShown)
@@ -962,6 +1001,7 @@ void Inspector(const Model& model)
     const Model::Selection& s = model.selection;
     if (model.nodes.nodeOnly) {
         NodeSection(model, model.nodes.selected);
+        Triggers::InspectorSection(model.nodes.selected); // (a trigger volume's settings - level_editor_triggers.h)
     } else if (s.objects == 0 && s.sectors == 0 && !model.view.wall) {
         ImGui::TextWrapped("Nothing selected - click something in the view (a gizmo, an object, scenery), or pick it "
                            "in the Outliner.");
@@ -1020,6 +1060,7 @@ void Inspector(const Model& model)
             }
             ImGui::EndTable();
         }
+        MemberList(s.members);
         ImGui::Spacing();
         ImGui::TextWrapped("%s", model.selected.c_str());
         ImGui::Spacing();
@@ -1112,7 +1153,12 @@ void Help(const Model& model)
                                "inside and see-through decals are passed - a click on only those deselects"},
         {"", "Click again", "(same spot) the next thing under the cursor - n of m in the status bar"},
         {"", "Shift+click", "adds / removes"},
-        {"", "Alt+click, middle click", "one piece of scenery - any piece, floors and decals too (hold Alt to see it)"},
+        {"", "Alt+click, middle click", "one piece of scenery - any piece, floors and decals too (hold Alt to see it); "
+                                       "on a selected piece: takes it out"},
+        {"", "Ctrl+click", "on a part of the scenery selection: removes just that piece (a shadow too) - or, on its "
+                           "gizmo, a rail point carried along; the Inspector lists the parts (x, Keep only this)"},
+        {"", "Shadows", "a scenery group takes its shadows (the see-through decals on the floor under it: by name, "
+                        "else by place) - they move, turn, scale and go back with it"},
         {"", "L", "locks the selection: clicks pass it (the Inspector lists the locks: Unlock); with nothing selected, "
                      "unlocks all"},
         {"", "Pick: (toolbar)", "what clicks may take: nodes, objects, scenery"},
@@ -1160,6 +1206,14 @@ void Help(const Model& model)
         {"", "H", "hides the selection while editing (from the view and from clicks; never saved, never in play)"},
         {"", "I or /", "isolates the selection: everything else hidden while editing"},
         {"", "Alt+H", "shows everything hidden in the editor again"},
+        {"Triggers", "T", "shows the trigger volumes - kill zones red, teleports purple (an arrow to where they send), "
+                          "gap starts green, gap ends yellow, scripts cyan - and the Triggers window: add a kill zone, "
+                          "water, a teleport, a script, a gap (its start and end); the level's listed"},
+        {"", "Click a volume", "selects it (Alt passes volumes); an added one moves, turns (Z / X) and drops (G) as a node "
+                               "does - its kind, size, restart / target / script and gap (name, score, flags) in the "
+                               "Inspector"},
+        {"", "Delete, Ctrl+Z", "deletes an added volume, undoes; a level's own one: Switch off, Move it (collision only: as an "
+                               "invisible wall), or Make an editable copy (the original off meanwhile) - the Triggers window"},
         {"", "O", "occlusion culling: off while editing (the level's occluders are placed for the skater's view and "
                    "hide distant things from the flying camera); O turns it on as in play"},
         {"Camera", "P", "writes where the camera is to the log (a menu backdrop view)"},
@@ -1689,6 +1743,8 @@ void Frame(const Model& model, const Overlay& overlay)
     ConfirmReset(model);
     CollisionLegend(model);
     OnlineWarning(model);
+    Triggers::Window(g_layout.viewport.x, g_layout.viewport.y, g_layout.viewport.width, g_layout.viewport.height, g_scale,
+                     model.nodes.selected);
     ImGui::PopFont();
     ImGui::Render();
     UiBackend::Render();

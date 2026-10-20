@@ -47,14 +47,15 @@ Family Classify(uint32_t cls, uint32_t type)
                           kVehicle = Checksum("Vehicle"), kLevelGeometry = Checksum("LevelGeometry"),
                           kLevelLight = Checksum("LevelLight"), kEmitterObject = Checksum("EmitterObject"),
                           kParticleObject = Checksum("ParticleObject"), kProximNode = Checksum("ProximNode"),
-                          kCrown = Checksum("Crown");
+                          kCrown = Checksum("Crown"),
+                          kEditorTrigger = Checksum("ed_trigger"); // (level_editor_triggers.h: a trigger volume's node)
     static const uint32_t kFlags[] = {Checksum("Flag_Red"),       Checksum("Flag_Blue"),       Checksum("Flag_Green"),
                                       Checksum("Flag_Yellow"),    Checksum("Flag_Red_Base"),   Checksum("Flag_Blue_Base"),
                                       Checksum("Flag_Green_Base"), Checksum("Flag_Yellow_Base")};
     if (cls == kRestart)
         return Family::Spawn;
     if (cls == kGenericNode)
-        return type == kCrown ? Family::Crown : Family::Other;
+        return type == kCrown ? Family::Crown : type == kEditorTrigger ? Family::Trigger : Family::Other;
     if (cls == kGameObject) {
         for (uint32_t flag : kFlags) {
             if (type == flag)

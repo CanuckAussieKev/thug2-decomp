@@ -32,7 +32,11 @@
 //   links / terrain: links= (names turned back into indexes) / TerrainType=;
 //   lock: ignored (an editor-only aid); level (name, start, time of day, ambient, fog): not in the level's files - they
 //     are its Levels.qb structure's; listed in the report to set by hand;
-//   anything else (a later record kind - phase 5's triggers before this tool knows them): "unsupported record", listed.
+//   trigger (phase 5): read, but not baked yet - an editor trigger is a run-time box, overlay node and script
+//     (level_editor_triggers.h); baking needs a trigger collision box, a node and a script in the level's scripts .qb.
+//     Each is listed as an "unsupported record" with what it does; a level trigger it replaces (switched off by its
+//     `wall` record) is kept on, so the level doesn't lose it;
+//   anything else (a later record kind): "unsupported record", listed.
 // THUGPRO parity: a level shared with THUGPRO (a ported level in tools/compat/thugpro's register, or THUG2's own -
 // THUGPRO players have those as shipped) gets a warning for every edit that changes spawns, crowns (King of the Hill),
 // flags / CTF / team nodes, gaps or geometry: "this breaks online parity".
@@ -683,6 +687,13 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
         array.names.set(name, `ed_clone_${hex8(c.source)}_${n}`);
         breaks(`a copy of scenery ${label(c.source)} added`);
     }
+    // (a level trigger an editor trigger stands in for is switched off by its wall record: the trigger isn't baked
+    // yet, so the level's own stays on - else the level would lose it)
+    const replaced = new Set(
+        layout.triggers
+            .filter((t) => /^[0-9A-Fa-f]{1,8}$/.test(t.fields.replaces ?? ""))
+            .map((t) => Number.parseInt(t.fields.replaces!, 16) >>> 0),
+    );
     for (const w of layout.walls) {
         const o = colAt.get(w.checksum);
         if (o === undefined || !col) {
@@ -693,7 +704,9 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
             placeCollision(col.objects[o]!, w.placement);
             breaks(`collision ${label(w.checksum)} moved`);
         }
-        if (w.off) {
+        if (w.off && replaced.has(w.checksum)) {
+            warnings.push(`level trigger ${label(w.checksum)}: kept on - the editor trigger replacing it isn't baked`);
+        } else if (w.off) {
             dropCollision.add(w.checksum);
             breaks(`collision ${label(w.checksum)} switched off (left out of the collision file)`);
         }
@@ -859,6 +872,26 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
             `level properties not baked (they're the level's Levels.qb structure, not its files): ${parts.join(", ")}`,
         );
         if (level.start) breaks("the level's start restart changed");
+    }
+    // (phase 5's trigger volumes: in the game they are the editor's own - an overlay node, a box registered as movable
+    // collision, a script made at run time (level_editor_triggers.h). Baking one needs a trigger collision box, a node
+    // and a script in the level's scripts .qb: not done yet - each listed with what it does.)
+    for (const t of layout.triggers) {
+        const f = t.fields;
+        const what = [
+            f.target ? `target ${f.target}` : "",
+            f.script ? `script ${f.script}` : "",
+            f.gap ? `gap ${f.gap}` : "",
+            f.replaces ? `replaces ${label(parseInt(f.replaces, 16) >>> 0)}` : "",
+        ]
+            .filter((s) => s)
+            .join(", ");
+        unsupported.push(
+            `unsupported record "trigger" (line ${t.line}): ${t.name}, a ${t.kind} trigger at ${f.pos}` +
+                `${what ? ` (${what})` : ""} - not baked (an editor trigger is a run-time box, node and script; ` +
+                "its baked form - a trigger collision box, a node and a script in the level's scripts .qb - isn't made yet)",
+        );
+        breaks(`trigger ${t.name} (${t.kind}${f.gap ? `, gap ${f.gap}` : ""}) added - kill zones, teleports and gaps`);
     }
     for (const u of layout.unknown) {
         unsupported.push(`unsupported record "${u.kind}" (line ${u.line}): not baked - ${u.text}`);

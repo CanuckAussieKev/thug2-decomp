@@ -238,7 +238,8 @@ test("layout_file reads every record kind the editor writes", () => {
         `drop ${hex("Rail03")}`,
         `terrain ${hex("Rail02")} TERRAIN_GRINDWOOD`,
         `wall ${hex("Wall1")} 0 0 0 16 1`,
-        "trigger ed_gap01 something=1",
+        'trigger ed_gap01 GapStart pos=1,2,3 yaw=0 size=10,10,10 gap=7 text="A gap" replaces=0000ABCD',
+        "mystery 1 2 3",
     ].join("\n");
     const l = readLayout(text);
     assert.equal(l.scene, checksum(LEVEL));
@@ -265,7 +266,9 @@ test("layout_file reads every record kind the editor writes", () => {
     assert.deepEqual(l.links[0]!.links, []);
     assert.deepEqual(l.dropped, [checksum("Rail03")]);
     assert.equal(l.walls[0]!.off, true);
-    assert.equal(l.unknown[0]!.kind, "trigger");
+    assert.equal(l.unknown[0]!.kind, "mystery");
+    assert.equal(l.triggers[0]!.kind, "GapStart");
+    assert.equal(l.triggers[0]!.fields.text, '"A gap"');
 });
 
 test("layout_file refuses what the DLL refuses, with the line", () => {
@@ -401,7 +404,9 @@ test("bake: nodes set, added, hidden, relinked; fields over a shared structure",
             `links ${hex("Rail01")} ${hex("Rail03")}`,
             `terrain ${hex("Rail03")} TERRAIN_GRINDWOOD`,
             `hide ${hex("Crown01")}`,
-            "trigger ed_gap01 later=1",
+            `trigger ed_kill01 Kill pos=0,0,0 yaw=0 size=50,50,50 target=TRG_Restart01 replaces=${hex("Wall1")}`,
+            `wall ${hex("Wall1")} 0 0 0 0 1`,
+            "mystery 1",
         ].join("\n"),
     );
     const out = bake(layout, level(), { level: LEVEL, why: "a test" });
@@ -450,7 +455,14 @@ test("bake: nodes set, added, hidden, relinked; fields over a shared structure",
     assert.equal(file.names.get(checksum("ed_rail01")), "ed_rail01");
     // Reported: the level properties, the unknown record, the parity of spawns / crowns / rails.
     assert.ok(out.warnings.some((w) => w.startsWith("level properties not baked") && w.includes("tod_state=night")));
-    assert.ok(out.unsupported.some((u) => u.includes('"trigger"')));
+    assert.ok(out.unsupported.some((u) => u.includes('"trigger"') && u.includes("ed_kill01")));
+    assert.ok(out.unsupported.some((u) => u.includes('"mystery"')));
+    assert.ok(
+        out.warnings.some((w) => w.includes("kept on")),
+        "the replaced level trigger stays",
+    );
+    assert.ok(out.col!.objects.some((o) => o.checksum === checksum("Wall1")));
+    assert.ok(out.parity.some((p) => p.startsWith("trigger ed_kill01")));
     for (const what of [
         "a spawn (restart) TRG_Restart01 moved",
         "a crown (King of the Hill) Crown01 hidden",

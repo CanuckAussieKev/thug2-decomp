@@ -103,6 +103,8 @@ export interface Layout {
     walls: { checksum: number; placement: Placement; off: boolean }[];
     level: LevelProps;
     unknown: { line: number; kind: string; text: string }[];
+    // (phase 5) the editor's trigger volumes: name, kind and their key=value fields as written (level_editor_triggers.h)
+    triggers: { line: number; name: string; kind: string; fields: Record<string, string> }[];
 }
 
 export class LayoutError extends Error {
@@ -294,6 +296,7 @@ export function readLayout(text: string): Layout {
         walls: [],
         level: {},
         unknown: [],
+        triggers: [],
     };
     const lines = text.split("\n");
     let header = false;
@@ -478,6 +481,18 @@ export function readLayout(text: string): Layout {
                     }
                 }
                 layout.level = level;
+                break;
+            }
+            case "trigger": {
+                // (phase 5: trigger <name> <kind> key=value... - text="..." may hold spaces)
+                const name = words[1] ?? "";
+                const triggerKind = words[2] ?? "";
+                if (!validWord(name) || !triggerKind) fail("bad trigger");
+                const fields: Record<string, string> = {};
+                const rest = line.trim().split(/\s+/).slice(3).join(" ");
+                for (const m of rest.matchAll(/(\w+)=("(?:[^"\\]|\\.)*"|\S+)/g)) fields[m[1]!] = m[2]!;
+                if (!fields.pos) fail("a trigger without pos");
+                layout.triggers.push({ line: number, name, kind: triggerKind, fields });
                 break;
             }
             default:

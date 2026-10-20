@@ -10,6 +10,7 @@
 #include "game/front/level_editor_node_create.h"
 #include "game/front/level_editor_picking.h"
 #include "game/front/level_editor_scenery.h"
+#include "game/front/level_editor_triggers.h"
 #include "game/front/level_editor_walls.h"
 
 namespace Script {
@@ -61,6 +62,10 @@ class CScript;
 //   hide <node>                                        a level's node hidden (not removed: its indexes stay)
 //   lock sector <checksum> / lock object <id>          a scenery piece / an object locked: clicks pass it
 //                                                      (level_editor_picking.h)
+//   trigger <name> <kind> pos=x,y,z yaw=r size=x,y,z ...  a trigger volume the editor added (level_editor_triggers.h:
+//                                                      its node is the overlay's, not a `node` record)
+// An older (phase 2) reader skips node / order / hide records; an older reader of version 2 skips lock and trigger
+// records.
 //   point <name> <Class> pos=x,y,z [like=<node>] [terrain=<T>] [links=<node>,...]
 //                                                      (phase 4) a rail / path point the editor added
 //   links <node> <node>,... | -                        (phase 4) a level node's links= as edited (a chain relinked, a
@@ -124,6 +129,7 @@ struct File {
     std::vector<std::string> crownOrder;  // `order crown`
     std::vector<uint32_t> hidden;         // `hide`
     std::vector<Picking::Lock> locks;     // `lock`
+    std::vector<Triggers::Placed> triggers; // `trigger`
     Chains::State chains;                 // (phase 4) `point`, `links`, `drop`, `terrain`
     LevelProps::Props level;              // (phase 6) `level` (level_editor_level_props.h)
     std::vector<Walls::WallState> walls;  // `wall`: collision moved / switched off
