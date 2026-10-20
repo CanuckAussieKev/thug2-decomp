@@ -27,7 +27,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { LevelEntry, Manifest } from "../level_port/ported_levels.ts";
+import { type LevelEntry, loadOf, type Manifest } from "../level_port/ported_levels.ts";
 import {
     compareStr,
     formatFixed,
@@ -308,7 +308,7 @@ export function manifestLevels(manifest: Manifest, table: ReadonlyMap<string, Ta
         return {
             text: text.replaceAll('"', ""),
             levelNum: entry.level_num,
-            load: `Load_${entry.level}`,
+            load: `Load_${loadOf(entry)}`,
             icon,
             sign: `sign_${entry.level.toLowerCase()}`,
             place,

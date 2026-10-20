@@ -6,6 +6,8 @@
 // (the converted files) and <thug2>\<staging>\levels.json, a list of levels:
 //   folder        the level's name in its own game (THPS4's folder, THUG1's level code)
 //   level         the level's name in THUG2 (its folder under levels\, its files, Load_<level>, Level_<level>)
+//   load          (optional) the name of its load script and level structure (Load_<load>, Level_<load>) when it
+//                 isn't `level` (THPS4's skate shop: Load_practice, a THUGPRO compatibility name - TP-20)
 //   sky           the sky level's name, or null
 //   display       the level select's sign text ("THUG1 NEW JERSEY")
 //   name          the level's own name (the level structure's name=)
@@ -48,6 +50,7 @@ export const STAGINGS = [
 export interface LevelEntry {
     folder?: string;
     level: string;
+    load?: string;
     sky?: string | null;
     display: string;
     name: string;
@@ -104,9 +107,11 @@ export function loadManifest(game: string): Manifest | null {
     const seen = new Map<string, string>();
     for (const e of levels) {
         const staging = e.staging ?? "";
-        const level = seen.get(e.level.toLowerCase());
-        if (level !== undefined) pyExit(`converted levels: ${e.level} is named twice (${level} and ${staging})`);
-        seen.set(e.level.toLowerCase(), staging);
+        for (const name of new Set([e.level, loadOf(e)].map((n) => n.toLowerCase()))) {
+            const level = seen.get(name);
+            if (level !== undefined) pyExit(`converted levels: ${name} is named twice (${level} and ${staging})`);
+            seen.set(name, staging);
+        }
     }
     for (const e of levels) {
         if (typeof e.sky !== "string") continue;
@@ -121,7 +126,12 @@ export function loadManifest(game: string): Manifest | null {
 }
 
 export function structName(entry: LevelEntry): string {
-    return `Level_${entry.level}`;
+    return `Level_${loadOf(entry)}`;
+}
+
+// The name after Load_ / Level_: the entry's `load`, or its level's.
+export function loadOf(entry: LevelEntry): string {
+    return entry.load ?? entry.level;
 }
 
 // Python's "%d" % value: an int, or a float truncated.
@@ -142,7 +152,7 @@ export function levelsQbText(manifest: Manifest): string {
     const parts: string[] = [];
     for (const entry of manifest.levels) {
         const s = structName(entry);
-        const load = `Load_${entry.level}`;
+        const load = `Load_${loadOf(entry)}`;
         const lines = [
             `script ${load} {`,
             `    load_level ${s} `,
@@ -191,7 +201,7 @@ export function signsText(manifest: Manifest, indent: string): string {
     return manifest.levels
         .map(
             (e) =>
-                `${indent}{text="${e.display.replaceAll('"', "")}" level_num=${percentD(e.level_num)} num_goals=0 flag=LEVEL_UNLOCKED_TR level=Load_${e.level} ` +
+                `${indent}{text="${e.display.replaceAll('"', "")}" level_num=${percentD(e.level_num)} num_goals=0 flag=LEVEL_UNLOCKED_TR level=Load_${loadOf(e)} ` +
                 "sign_texture=sign_training dot_pos=(89.0, 82.0)} \n",
         )
         .join("");

@@ -15,6 +15,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import * as compat from "../compat/compat.ts";
 import { FormatError } from "../level_port/binio.ts";
 import * as common from "../level_port/common.ts";
 import * as geometry from "../level_port/geometry.ts";
@@ -61,6 +62,46 @@ export const INFO: Readonly<Record<string, readonly [string, string]>> = {
     skateshop: ["Skate shop", "sign_training"],
     motox: ["Motocross track", "sign_jam"],
 };
+
+// The levels' names in THUG2 (THUGPRO compatibility - docs/pending/thps4-thugpro.md). A network game's change-level
+// message (0x46) and start info (0x33) carry only the load script's checksum and the other side runs the script of
+// that checksum, so both sides have to name a level alike. THPS4's own names are its levels' folders, as its
+// Levels.qb loads them (Load_Alc, level="Alc"...); checksums ignore case, so the level is Load_alc / Level_alc,
+// levels\alc\alc.*, alc_NodeArray - what THUGPRO's THPS4 ports use too. None of them is a THUG2 level's name.
+// Kept prefixed (thps4_<lvl>): the names THUG2 itself uses - the skate shop (THUG2's own levels\skateshop, and its
+// CheckForInvalidLevels turns Load_SkateShop into the main menu); it also stays thps4_skateshop on disk because the
+// front end's backdrop loads its scene and sky by those names (src/game/front/menu_backdrop.h, make_menu_level.ts).
+// A load script name that is THUGPRO's choice, not THPS4's (the skate shop's Load_practice), comes from the
+// compatibility profile tools/compat/thugpro/thps4_levels.json (README.md there: TP-20...; --compat none leaves it out).
+export const THUG2_NAMES: ReadonlySet<string> = new Set(["skateshop"]);
+export const COMPAT = { loadNames: new Map<string, string>() };
+
+// The compatibility profile's THPS4 data (tools/compat/compat.ts): "thugpro" (the default) or "none".
+export function setCompat(name: string): void {
+    const profile = compat.load(name);
+    COMPAT.loadNames = new Map(
+        Object.entries(profile.section("thps4_levels", "load_names")).map(([k, v]) => [k.toLowerCase(), String(v)]),
+    );
+}
+
+setCompat("thugpro"); // (the default, also for the tools that import this one: thugpro_compare, migrate_layouts)
+
+// The level's THUG2 name - its folder, files, node array: THPS4's (lower case), or thps4_<lvl> where that is THUG2's
+// own or (legacy) as this converter named every level before.
+export function levelName(base: string, legacy = false): string {
+    const low = base.toLowerCase();
+    return legacy || THUG2_NAMES.has(low) ? `thps4_${low}` : low;
+}
+
+// The name of its load script and level structure (Load_<name>, Level_<name>): the level's, or the profile's.
+export function loadName(base: string, legacy = false): string {
+    return (legacy ? undefined : COMPAT.loadNames.get(base.toLowerCase())) ?? levelName(base, legacy);
+}
+
+// A sky's THUG2 name: prefixed as its level's is.
+export function skyName(sky: string, base: string, legacy = false): string {
+    return levelName(base, legacy).startsWith("thps4_") ? `thps4_${sky.toLowerCase()}` : sky.toLowerCase();
+}
 
 // The folder's files as Python's glob(join(folder, "*")) lists them: the directory's order, no dot files.
 function globAll(folder: string): string[] {
@@ -233,6 +274,7 @@ interface Args {
     out: string | undefined;
     ns: string;
     noScripts: boolean;
+    legacyNames: boolean;
     extra: string[];
 }
 
@@ -260,7 +302,8 @@ export function cmdConvert(args: Args): void {
         }
         const base = folderName;
         const struct = structs.get(base.toLowerCase());
-        const name = `thps4_${base.toLowerCase()}`;
+        const name = levelName(base, args.legacyNames);
+        const load = loadName(base, args.legacyNames);
 
         // The node array (first: the collision keeps the trigger faces of the kill zones it keeps).
         const files = levelFiles(folder, base);
@@ -391,7 +434,7 @@ export function cmdConvert(args: Args): void {
         if (typeof skyValue === "string") {
             const skyFolder = findFolder(levelsDir, skyValue);
             if (skyFolder) {
-                sky = `thps4_${skyValue.toLowerCase()}`;
+                sky = skyName(skyValue, base, args.legacyNames);
                 if (!skiesDone.has(sky)) {
                     convertGeometry(skyFolder, skyValue, pyJoin(out, "levels", sky), sky, report);
                     skiesDone.add(sky);
@@ -415,7 +458,8 @@ export function cmdConvert(args: Args): void {
             default_stats: typeof defaultStats === "number" ? defaultStats : 6,
             lighting: struct ? common.lighting(struct) : {},
         };
-        if (hasSetup) entry.setup_script = `${name}_setup`;
+        if (load !== name) entry.load = load; // (TP-20: tools/compat/thugpro/thps4_levels.json)
+        if (hasSetup) entry.setup_script = thps4Scripts.setupName(name);
         manifest.levels.push(entry);
     });
     portedLevels.writeManifest(pyJoin(out, portedLevels.MANIFEST), manifest);
@@ -484,10 +528,23 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
             out: { kind: "string" },
             ns: { kind: "string", default: common.NS },
             "no-scripts": { kind: "flag" },
+            // compatibility profile (tools/compat): thugpro - the skate shop's load script as THUGPRO's (default),
+            // or none
+            compat: { kind: "string", default: "thugpro" },
+            // the names this converter used before: thps4_<lvl> for every level
+            "legacy-names": { kind: "flag" },
             extra: { kind: "list" },
         },
         argv,
     );
+    const compatName = parsed.strings.get("compat")!;
+    if (!(compat.PROFILES as readonly string[]).includes(compatName)) {
+        process.stderr.write(
+            `thps4_levels.ts: error: argument --compat: invalid choice: '${compatName}' (choose from ${compat.PROFILES.join(", ")})\n`,
+        );
+        pyExit(2);
+    }
+    setCompat(compatName);
     const args: Args = {
         command: parsed.command,
         levels: parsed.positionals,
@@ -496,6 +553,7 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
         out: parsed.strings.get("out"),
         ns: parsed.strings.get("ns")!,
         noScripts: parsed.flags.get("no-scripts")!,
+        legacyNames: parsed.flags.get("legacy-names")!,
         extra: parsed.lists.get("extra")!,
     };
     // (a stock install keeps the game in a Game subfolder: C:\Games\THUG2 -> C:\Games\THUG2\Game)

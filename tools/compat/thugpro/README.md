@@ -10,9 +10,11 @@ switched off as a whole (`--compat none` for the converters) or later replaced b
 network messages, e.g. to play the same maps with players of another game or mod (THAW players: THAW's own names and
 world frame) - see "Changing approach" below.
 
-Data: `thaw_levels.json`, `thug1_levels.json` (read by `tools/compat/compat.ts`). Comparison against THUGPRO's
-install: `tools/thaw_levels/thugpro_compare.ts`, `tools/thug1_levels/thugpro_compare.ts`. Background:
-`docs/pending/thaw.md`, `docs/pending/thug1.md` ("THUGPRO"); the comparison reports (THAW / THUG1 ports vs THUGPRO). Rules: insights from Morten1337's repositories are allowed (his permission, 2026-10-20), never copies of his
+Data: `thaw_levels.json`, `thps4_levels.json`, `thug1_levels.json` (read by `tools/compat/compat.ts`). Comparison
+against THUGPRO's install: `tools/thaw_levels/thugpro_compare.ts`, `tools/thps4_levels/thugpro_compare.ts`,
+`tools/thug1_levels/thugpro_compare.ts`. Background: `docs/pending/thaw.md`, `docs/pending/thps4-thugpro.md`,
+`docs/pending/thug1.md` ("THUGPRO"); the comparison reports (THAW / THPS4 / THUG1 ports vs THUGPRO). Rules: insights
+from Morten1337's repositories are allowed (his permission, 2026-10-20), never copies of his
 code or level data; the values here are identifiers and offsets, measured or read, with their source given.
 
 ## Build time (persisted in the files we generate)
@@ -22,7 +24,7 @@ code or level data; the values here are identifiers and offsets, measured or rea
 | TP-1 | THAW level names: Chicago `skatepark`, Kyoto `kyoto`, Santa Cruz `sz`, Vans Park `vans` (the other 11 keep THAW's zone name, `z_ma`..., as THUGPRO's do) | A level is known online only by its load script's checksum (change level 0x46, start info 0x33): both sides must name it alike | `thaw_levels.json` `level_names` -> `thaw_levels.levelName` (folder, files, `Load_` / `Level_` scripts, node array name) | THUGPRO's installed `data\pre` file names |
 | TP-2 | Vans Park left in THAW's world frame although it has a `Z_SV_Zone_Origin` | Positions travel as world coordinates (skater updates 0x23, int16): both sides must place the area alike. THUGPRO's toolchain never moved it (it looked the origin up under the new name `vans`) | `thaw_levels.json` `frame_kept` -> `thaw_levels.frameShift` | thugpro_toolchain `find_zone_origin.py`; confirmed by `thugpro_compare.ts` (2192/2192 nodes in place) |
 | TP-3 | East LA and Santa Monica moved by THUGPRO's own offsets on top of the Zone_Origin frame: EL (-1319.656, -111.047, 269.924), SM (-5060.44, -580.625, -3203.87) | As TP-2. THUGPRO's "LA crash fix" (commit 361b2c1) moved them by hand-picked offsets that aren't in THAW's data | `thaw_levels.json` `frame_adjust` -> `thaw_levels.frameShift` | thugpro `source/levels/Z_EL/world_offset.txt`, `source/levels/Z_SM/node_position_patcher.py`; the values measured with `thugpro_compare.ts` (EL 3404/3404, SM 3644/3661 nodes in place - the rest moved by hand in THUGPRO) |
-
+| TP-20 | **Awaiting the user's approval.** THPS4's skate shop's load script `Load_practice` / `Level_practice` (its files stay `thps4_skateshop`) | As TP-1. THPS4's own name, `Load_SkateShop`, can't be used in THUG2 (THUG2's CheckForInvalidLevels turns it into the main menu; `levels\skateshop` is THUG2's shop); THUGPRO renamed it `practice` | `thps4_levels.json` `load_names` -> `thps4_levels.loadName` -> levels.json `load` -> `ported_levels` (Load_ / Level_ only) | THUGPRO's installed `data\pre\Practice_scripts.prx` and its Levels.qb `level_practice`; `tools/thps4_levels/thugpro_compare.ts` (436/436 nodes in place) |
 | TP-30 | THUG1's Hotter Than Hell named `hh` (Load_hh, levels\hh, hh_sky) - approved by the user 2026-10-20 | As TP-1: THUG1 names it SE (Load_SE), but THUG2 has a level SE of its own (Pro Skater), so the THUG1 port can't take THUG1's name; THUGPRO chose `hh` (its own identifier, in no THUG1 / THUG2 file). Without the entry it's `thug1_se` and doesn't load across | `thug1_levels.json` `level_names` -> `thug1_levels.levelName` | THUGPRO's installed `data\pre\HH_scripts.prx` and its Levels.qb (`Level_HH`, `load_script=Load_HH`, `name="Hotter Than Hell"`); checked by `tools/thug1_levels/thugpro_compare.ts` |
 
 Not entries here, although THUGPRO does the same (they're right for THUG2 on their own):
@@ -35,6 +37,10 @@ Not entries here, although THUGPRO does the same (they're right for THUG2 on the
   toolchain (credited in `thaw_levels.ts`).
 - **Game-mode nodes without the zone prefix** (`TRG_CTF_*`, `TRG_Flag_*`, `TRG_KOTH*`, `TRG_Team_Restart`): THUG2's
   own scripts look them up by those names (`thaw_levels.multiplayerNames`).
+- **THPS4's level names** (`alc`, `cnv`, `hof`, `jnk`, `kon`, `lon`, `sf2`, `sch`, `zoo`, `motox`): THPS4's own
+  (its Levels.qb's `Load_Alc`..., checksums ignore case), `thps4_levels.levelName`; THUGPRO uses the same. THPS4's
+  frame and its game-mode nodes (`TRG_CTF_*`, `TRG_Flag_*`, `TRG_KOTH*`) need nothing: THPS4 has them under THUG2's
+  names already (`tools/thps4_levels/thugpro_compare.ts`: every shared node in place but THUGPRO's 1-4 hand moves).
 
 ## Run time (in the DLL)
 
@@ -49,6 +55,8 @@ LZHAM compression, the level name it adds to 0x46. Mixed games with THUGPRO play
 
 To drop an entry from the files and translate on the wire instead (per session, e.g. when the peer is THUGPRO):
 - TP-1: map the four load-script checksums both ways in 0x46 / 0x33 (skate_net 0x00569560, HandleStartInfo).
+- TP-20: the same for Load_practice <-> Load_thps4_skateshop; then
+  `node tools/thps4_levels/thps4_levels.ts convert --compat none` (only the load script's name changes, not the files).
 - TP-30: the same for Load_hh <-> Load_thug1_se; then `node tools/thug1_levels/thug1_levels.ts convert --compat none`
   (saved layouts: `tools/thug1_levels/migrate_layouts.ts` shows the renaming - THUG1's frame is the same on both sides).
 - TP-2 / TP-3: add / subtract the per-level offset to every world position sent / received (0x23 object updates,
