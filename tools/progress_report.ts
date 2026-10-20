@@ -95,7 +95,7 @@ function main(): number {
 
     const out: string[] = [];
     out.push("# Decompilation progress\n");
-    out.push(`Generated ${today()} by \`tools/progress_report.py\` - regenerate after each batch.\n`);
+    out.push(`Generated ${today()} by \`tools/progress_report.ts\` - regenerate after each batch.\n`);
     const overall = total.doneBytes / total.bytes;
     out.push(
         `**Game code: ${bar(overall)} ${pct(overall, 1)}** of the code rewritten ` +

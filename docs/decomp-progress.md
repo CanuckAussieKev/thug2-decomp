@@ -6306,7 +6306,7 @@ belong with the CScript batch.
   0x4034D0 (only caller replaced too), 0x4025A0 (other callers tail-call it or return straight after).
 - (Historical, until 2026-10-16: PartyMod patched the exe at run time, so its patched addresses couldn't be
   REPLACEd. Now nothing patches rewritten code; the only run-time writes are the GameSpy host names and the
-  IsPS2 table entry - `python -I tools/check_code_writes.py`.)
+  IsPS2 table entry - `node tools/check_code_writes.ts`.)
 - Member functions are replaced via `REPLACE(addr, &Class::Method)`; constructors via a small adapter that
   placement-news the object (see `LineAdapter` in vector.cpp).
 

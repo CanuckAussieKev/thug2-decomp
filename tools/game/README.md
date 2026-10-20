@@ -50,7 +50,7 @@ THUG2.exe or THUG2PM.exe, tools/game/game_exe.ps1).
     net / online / internet / lobby / login / buddy / homie / gamespy / network / server / join / host / lan), `choose` /
     `focus` / `press` refuse items whose ids or event handlers lead there (MULTIPLAYER, Network / Online Play...), and
     nothing but wait / echo / quit runs while the game is online or in a network game mode. The tables are generated:
-    `python -I tools/game/make_automation_tables.py` (reads the game's loose scripts) -> src/game/front/automation_tables.inc.
+    `node tools/game/make_automation_tables.ts` (reads the game's loose scripts) -> src/game/front/automation_tables.inc.
   - With the channel on, the game also keeps drawing while its window is in the background (PrintWindow pictures show
     the current frame; without it the main loop stops drawing when the window loses the focus).
 - `keys.ps1 -ProcessId <pid> -Keys ...` - the key sender run_game uses (scan codes posted to the window: SendInput
@@ -62,7 +62,7 @@ THUG2.exe or THUG2PM.exe, tools/game/game_exe.ps1).
   (`thps3_foun`, `z_dt`, `BO`, `Load_TR`...; src/game/front/start_level.h - also `[features] start_level=` in the
   ini). No keys needed, the overlay untouched. Keys: F8 restart tester; with `debug_mode=1` F9-F12, Home, Tab, T
   (src/game/sys/debug_mode.h).
-- `boot_level.py <level> <folder>` - TEST ONLY, superseded by `-Level`: patches the installed overlay's SKATE NOW to
+- `node tools/game/boot_level.ts <level> <folder>` - TEST ONLY, superseded by `-Level`: patches the installed overlay's SKATE NOW to
   load a level in free skate. `make_menu_level.py --game <folder>` puts the real one back.
 - `load_check.ps1 -Game <folder> -Levels a, b, ...` - run_game -Level for each level in turn, then reads the log:
   `<level> : running after 50 s; responding=True loaded=True` or the errors.
@@ -78,16 +78,16 @@ stages passed, no EXCEPTION / RUN-TIME CHECK FAILURE / DEBUG CRT REPORT.
 Anything a player has to judge (does a script fire when skated into, does a menu feel right) isn't verified with
 scripted keys: hand it to the user with a list of what to try.
 
-## install_manifest.py - which version of the game is this?
-`python -I tools/game/install_manifest.py make` writes `data/install_manifest.json`: the size and SHA-256 of every file
+## install_manifest.ts - which version of the game is this?
+`node tools/game/install_manifest.ts make` writes `data/install_manifest.json`: the size and SHA-256 of every file
 of the reference install (made from C:\Games\THUG2 when it held THUG2PM.exe - now C:\Games\THUG2_PM_BAK; our files,
 Backup, Save and Faces left out). `... check --game <folder>`
 compares another install with it - identical / changed / missing / extra, by kind (exe, partymod, game) - and names
 the executables by hash: the reference THUG2PM.exe the DLL's addresses are for, or the retail SafeDisc-encrypted
 THUG2.exe most installs have (it needs PartyMod's patch first). A stock install's Game subfolder is found by itself. Exit code 1 when anything differs or is missing.
 
-## exe_audit.py - do two exes differ where our code is?
-`python -I tools/game/exe_audit.py [--a <THUG2PM.exe>] [--b <THUG2.exe>]`: every differing byte between two same-layout
+## exe_audit.ts - do two exes differ where our code is?
+`node tools/game/exe_audit.ts [--a <THUG2PM.exe>] [--b <THUG2.exe>]`: every differing byte between two same-layout
 builds, the function or data it's in, which rewritten functions' original code differs, and which functions refer to
 the differing data. (THUG2PM.exe vs the stock no-CD THUG2.exe, 2026-10-20: 172 bytes in 35 runs; 4 rewritten
 functions touched - SetScreenBlur, WinMain, ServiceTask, LoadFromMemoryCard - all replaced by our source.)

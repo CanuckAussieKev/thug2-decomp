@@ -13,7 +13,7 @@ so the MCP server can stay running. Only chunks that rename things in Ghidra nee
 - [x] 2. Imports: which DLLs/APIs the game uses and which functions call them -> `docs/imports.md`
 - [x] 3. Library code: identify CRT/STL/third-party ranges -> `docs/library_ranges.md`
 - [x] 3b. Create the 686 functions Ghidra missed (only reached via vtables/tables). NEEDS MCP DISABLED.
-      `python tools/find_missed_functions.py ...` (done, list in `data/derived/missed_functions.txt`), then
+      `node tools/find_missed_functions.ts ...` (done, list in `data/derived/missed_functions.txt`), then
       `tools/ghidra/create_functions.py`, then re-snapshot + re-export (chunk 1 commands) and re-run
       find_missed_functions until it finds ~0 (new functions can reveal more).
 - [x] 4. Translation units: split game code into contiguous address ranges (MSVC links each .cpp

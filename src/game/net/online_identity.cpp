@@ -15,7 +15,7 @@
 //
 // Until the GameSpy SDK is linked (library code: not decompiled - docs/library_ranges.md) and the game code above
 // is source, this writes the name's address over those instructions' operands and the key over the data (only when
-// the settings differ from the game's own). tools/check_code_writes.py checks none lands in a rewritten function.
+// the settings differ from the game's own). tools/check_code_writes.ts checks none lands in a rewritten function.
 
 #include "game/net/online_identity.h"
 

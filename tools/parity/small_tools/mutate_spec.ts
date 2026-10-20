@@ -1,5 +1,6 @@
 // NOT ORIGINAL - tools/mutate.ts's spec for the parity cases (tools/parity/small_tools/cases.ts; the same as
-// mutate_spec.py): mutations of the stand-in sources setup.ts writes, run in the sandbox's folder.
+// mutate.py's mutate_spec.py, deleted with it): mutations of the stand-in sources setup.ts writes, run in the
+// sandbox's folder.
 import type { Mutation } from "../../mutate.ts";
 
 // (".\": cmd may not search the current folder - NoDefaultCurrentDirectoryInExePath)

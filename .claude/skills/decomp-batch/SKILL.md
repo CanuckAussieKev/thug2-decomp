@@ -73,10 +73,12 @@ with tools\ghidra\snapshot_project.ps1). `inspect` below means:
 - Write an Early self-test in src/hook/selftest.cpp from [test-template.cpp](test-template.cpp): original
   vs ours on identical stand-in state, trace every result (return values too), compare the whole arena.
   Cover every case/branch you read in step 2; drive register stubs through inline asm.
-- **Mutations**: write a spec (MUTS = [(file, name, old, new), ...]; TESTS = "YourTest,YourOtherTest" - only the
-  batch's own self-tests run, a second instead of ~25 s; BUILD = a .cmd that only runs `cmake --build` after
-  VsDevCmd - no re-configure: a mutation then costs ~3-4 s) of 10-40 deliberate bugs - one per
-  branch/constant/order/convention - and run `python -I tools/mutate.py spec.py`. Every non-equivalent
+- **Mutations**: write a spec - a .ts module: `export const MUTS = [[file, name, old, new], ...]`;
+  `export const TESTS = "YourTest,YourOtherTest"` - only the batch's own self-tests run, a second instead of
+  ~25 s; `export const BUILD =` a .cmd that only runs `cmake --build` after VsDevCmd - no re-configure: a
+  mutation then costs ~3-4 s (String.raw`...` keeps backslashes; a .json spec and an old Python spec.py work
+  too) - of 10-40 deliberate bugs - one per branch/constant/order/convention - and run
+  `node tools/mutate.ts spec.ts`. Every non-equivalent
   mutation must be CAUGHT; for each miss, add the test case that exposes it (a miss is a hole in the test,
   not luck). Note truly equivalent ones in the record.
 - Tests never touch the user's real state: files go in a scratch temp folder (SetCurrentDirectory there,
@@ -87,7 +89,7 @@ with tools\ghidra\snapshot_project.ps1). `inspect` below means:
 - Calls the original makes directly (platform, renderer, C runtime) are scripted by writing a jump over the
   callee for the test (CodePatch / JumpTo in selftests_pc.cpp); where PartyMod changed a function, its patch
   bytes are written into the original the same way, so ours is compared with the original *as PartyMod left it*.
-- `tools/mutate.py` names the failing test on each CAUGHT line (check it's yours; a bare CAUGHT is a crash),
+- `tools/mutate.ts` names the failing test on each CAUGHT line (check it's yours; a bare CAUGHT is a crash),
   reports mutations that don't build, and rebuilds the restored code at the end.
 - Read [pitfalls.md](pitfalls.md) when a test crashes, hangs or fails strangely.
 
@@ -96,14 +98,14 @@ with tools\ghidra\snapshot_project.ps1). `inspect` below means:
   only known false alarms in the "RISK" lines (0x4EFF92 PUSH ECX reserve); every function listed as
   "N site(s) read EAX/AL" must return a value.
 - `... python tools/ghidra/audit_game_function_calls.py C:\Games\THUG2-ghidra-snapshot`: no MISMATCH.
-- `python -I tools/check_code_writes.py`: "No overlaps" (no run-time write into the exe - GameSpy host names,
+- `node tools/check_code_writes.ts`: "No overlaps" (no run-time write into the exe - GameSpy host names,
   the IsPS2 table entry - inside a rewritten function).
 - `... python tools/ghidra/find_gaps.py C:\Games\THUG2-ghidra-snapshot`: nothing new skipped next to this
   batch's functions (small helpers, setters, jumps to what you rewrote - give each source, source-only if it
   can't be hooked), and "0 thunks".
 
 ## 7. Record and commit
-- `python -I tools/progress_report.py`; add a "- [x] Batch N (NOT run in the game yet; ...)" entry to
+- `node tools/progress_report.ts`; add a "- [x] Batch N (NOT run in the game yet; ...)" entry to
   docs/decomp-progress.md before "- [ ] Next:" (what was rewritten with addresses and findings; what the
   test covers; "N deliberate bugs caught, M after strengthening"), update "Next:".
 - `git add -A && git commit` "Batch N: ..." ending with the Co-Authored-By line from the system prompt.

@@ -15,7 +15,7 @@ Things that are true of this repo's testing and not obvious from the code; each 
   the high 16 bits (the template does).
 - **MSVC inline asm reserves `out`, `type`, `size`** (MASM words) - rename locals used in __asm.
 - **Hangs**: the original sometimes never moves past a token (hex integer as a parameter, unknown tokens in
-  arrays/expressions/.qb top level) - test data must avoid them. tools/mutate.py handles hanging mutations;
+  arrays/expressions/.qb top level) - test data must avoid them. tools/mutate.ts handles hanging mutations;
   running thug2_check with captured pipes hangs forever (its child keeps the pipe).
 - **A test that disables a path proves nothing about it**: nulling a guarding global (the script cache
   0x6F3558) hid a wrong calling convention that the game then hit. Use stand-in objects.
@@ -43,6 +43,6 @@ Mem::DebugTrackBlock, ...) with its arguments - the strings it's passed document
 ## A test that passes at once can be testing nothing
 Check that the code under test actually ran its main path (count the calls it makes, or break it on purpose
 first). Batch 53's test passed while every call returned at the first line: stand-in data written for a
-third port spilled over the "quit requested" flag. `tools/mutate.py` prints the failing test's name on each
+third port spilled over the "quit requested" flag. `tools/mutate.ts` prints the failing test's name on each
 CAUGHT line - make sure it's the test you wrote. Writing a jump over a game function's first bytes for the
 length of a test (TestDetour in selftest.cpp) is how to script platform calls the original makes directly.

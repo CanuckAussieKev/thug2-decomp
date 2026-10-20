@@ -6,8 +6,10 @@
 //
 // Tools that write into the repo (docs/PROGRESS.md, docs/decomp-progress.md, src/game/front/automation_tables.inc,
 // sources under mutation) run in sandbox.ts's scratch copies; setup.ts makes the synthetic inputs (BPS patches, a
-// crash log, mutate's stand-in checker and build, pending records). Once the Python twins were deleted the cases are
-// left out - check out the commit before their deletion to run them again.
+// crash log, mutate's stand-in checker and build, pending records). The Python twins were deleted once these all
+// agreed (43/43): with them gone the cases are left out - check out commit e70590c (the last with them) to run them
+// again. Known difference: mutate.py left a mutated LF file with CRLF line ends (Python's text mode); mutate.ts puts
+// the original bytes back (the checkout's sources are CRLF, so the same there).
 
 import * as fs from "node:fs";
 import * as path from "node:path";

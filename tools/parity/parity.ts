@@ -9,8 +9,10 @@
 //     setup?: [python args - or node args when the first is a .ts file - run once before the case, for both sides'
 //     inputs], nonzeroOk?: true }
 // "{out}" in the arguments is the side's own output folder (<scratch>\<case>\py or \ts), "{in}" the case's shared
-// input folder (<scratch>\<case>\in). Python runs with PYTHONIOENCODING=utf-8 and PYTHONHASHSEED=0; stdout is
-// compared with "\r\n" read as "\n" (Python on Windows writes "\r\n", Node "\n").
+// input folder (<scratch>\<case>\in). Python is given PYTHONIOENCODING=utf-8 and PYTHONHASHSEED=0 - but `python -I`
+// ignores every PYTHON* variable: its stdout to the pipe is cp1252 and its set order random (only ASCII stdout and
+// set-independent output compare as they are; tools/parity/small_tools/sandbox.ts reads Python's output as cp1252).
+// stdout is compared with "\r\n" read as "\n" (Python on Windows writes "\r\n", Node "\n").
 
 import { spawn } from "node:child_process";
 import * as fs from "node:fs";

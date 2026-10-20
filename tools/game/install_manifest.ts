@@ -142,7 +142,7 @@ function make(game: string, out: string): number {
     const manifest = new Map<string, unknown>([
         [
             "about",
-            "THUG2 install manifest (tools/game/install_manifest.py): every game file's size and SHA-256; " +
+            "THUG2 install manifest (tools/game/install_manifest.ts): every game file's size and SHA-256; " +
                 "this project's files, Backup, Save and Faces left out",
         ],
         ["source", path.resolve(game)],

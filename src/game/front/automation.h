@@ -58,7 +58,7 @@ class CStruct;
 // focus (the focused elements' ids), selected (the focused menus' selected items), lines_read, lines_done, queued,
 // current (the command running), last (the last command finished), result ("ok", "error: ...", "refused: ...",
 // or the echo's text), errors, refusals. Ids show as names when the name is known (the game's menu ids, game
-// modes, levels, names used in commands; tools/game/make_automation_tables.py), else 0x<hex>.
+// modes, levels, names used in commands; tools/game/make_automation_tables.ts), else 0x<hex>.
 //
 // Command line: -run <script> (or --run <script>, --run=<script>) runs that script once the main menu is up (with
 // or without [features] automation; the same safety rules).
@@ -127,7 +127,7 @@ const Button* FindButton(const std::string& name);
 bool ButtonChooses(const Button& button);
 
 // An online-looking name: one of the online words between underscores, or internet / lobby / gamespy / network /
-// login anywhere (any case; tools/game/make_automation_tables.py has the same rule).
+// login anywhere (any case; tools/game/make_automation_tables.ts has the same rule).
 bool NameLooksOnline(const std::string& name);
 // A script `run` refuses: online-looking, or one of the denied scripts.
 bool ScriptDenied(const std::string& name);

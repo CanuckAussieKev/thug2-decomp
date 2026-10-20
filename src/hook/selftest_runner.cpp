@@ -32,7 +32,7 @@ std::vector<RegisteredTest>& Registry()
 int g_failures = 0;
 
 // The early tests run the original code as the reference, and expect THUG2PM.exe's. A stock, already unwrapped
-// THUG2.exe (a no-CD build: the same layout and addresses - tools/game/install_manifest.py) differs from it in these
+// THUG2.exe (a no-CD build: the same layout and addresses - tools/game/install_manifest.ts) differs from it in these
 // few spots: PartyMod's exe patch (its DLL's loading in WinMain, the code cave, the DLL's name), and the no-CD build's
 // own edits (SetScreenBlur returning at once, the network service loop, loading from the memory card, the GameSpy
 // key client), and two string constants its maker damaged. While the early tests run - before the game has started - THUG2PM.exe's bytes are written there, and
@@ -198,7 +198,7 @@ void RunSelfTests(TestStage stage)
         }
     }
     // Only the tests whose names contain one of a comma-separated list of words run: the environment variable
-    // THUG2_SELFTESTS (tools/mutate.py's spec TESTS; tools/game/run_game.ps1 -Tests) or [selftests] filter= in the ini -
+    // THUG2_SELFTESTS (tools/mutate.ts's spec TESTS; tools/game/run_game.ps1 -Tests) or [selftests] filter= in the ini -
     // a mutation run checks its batch's tests in a second, a game run only those of the work it's testing.
     char filter[512] = {};
     if (!GetEnvironmentVariableA("THUG2_SELFTESTS", filter, sizeof(filter)))
