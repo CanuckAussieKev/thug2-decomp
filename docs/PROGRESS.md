@@ -2,14 +2,14 @@
 
 Generated 2026-10-20 by `tools/progress_report.py` - regenerate after each batch.
 
-**Game code: ██████░░░░░░░░░░░░░░ 31.3%** of the code rewritten (2,720 of 8,382 functions, 505.9 KB of 1,617.8 KB).
+**Game code: ███████░░░░░░░░░░░░░ 35.9%** of the code rewritten (3,136 of 8,382 functions, 580.9 KB of 1,617.8 KB).
 
 Progress is by code size: function counts make a 10-byte helper look like as much work as a 2 KB routine. Subsystem boundaries come from the exe map (`docs/subsystems.md`) and are approximate (give or take a few functions); totals are exact.
 
 | Subsystem | Range | Progress (code size) | Functions | Code |
 |---|---|---|---:|---:|
 | Core utilities (CRC/checksums, string helpers, rect, random) | `0x401000`-`0x406460` | ███████████████████░ 99% | 129 / 130 | 19.8 KB / 19.8 KB |
-| Animation & skeleton / skinned model data | `0x406460`-`0x41a6d0` | ░░░░░░░░░░░░░░░░░░░░ 0% | 7 / 423 | 0.4 KB / 75.5 KB |
+| Animation & skeleton / skinned model data | `0x406460`-`0x41a6d0` | ████████████████████ 100% | 423 / 423 | 75.5 KB / 75.5 KB |
 | Object components & level/scene loading | `0x41a6d0`-`0x445b50` | ░░░░░░░░░░░░░░░░░░░░ 0% | 9 / 584 | 1.4 KB / 157.7 KB |
 | Engine script commands (lighting/fog, memory heaps, script utils, arrays, music & streams) | `0x445b50`-`0x44e6b0` | ░░░░░░░░░░░░░░░░░░░░ 1% | 7 / 246 | 0.5 KB / 32.5 KB |
 | Movies (Bink) & streamed audio | `0x44e6b0`-`0x4544e0` | ████████████████████ 100% | 167 / 167 | 22.1 KB / 22.1 KB |
@@ -46,4 +46,4 @@ Linked as libraries in the final build rather than rewritten:
 
 ## PartyMod
 
-PartyMod's changes (MIT, (c) 2024 PARTYMANX, see `THIRD_PARTY_NOTICES.md`) are part of the game's source: the SDL window and input, widescreen, the settings file and the rest, by subsystem. Still written into the exe at start-up: the GameSpy SDK's host names (library code, `src/game/net/online_hosts.cpp`) and, with PS2 controls, the CFunction table's IsPS2 entry (`src/game/sys/platform_cfuncs.cpp`).
+PartyMod's changes (MIT, (c) 2024 PARTYMANX, see `THIRD_PARTY_NOTICES.md`) are part of the game's source: the SDL window and input, widescreen, the settings file and the rest, by subsystem. Still written into the exe at start-up: the GameSpy SDK's host names (library code, `src/game/net/online_hosts.cpp`), the online identity when it's set (`src/game/net/online_identity.cpp`) and, with PS2 controls, the CFunction table's IsPS2 entry (`src/game/sys/platform_cfuncs.cpp`).

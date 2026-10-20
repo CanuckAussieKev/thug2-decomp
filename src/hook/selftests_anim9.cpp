@@ -377,7 +377,7 @@ void TestAnimCollOcclusion()
             Record({0xE0D00000u});
         }
         uint16_t numFaces = plain.m_numFaces;
-        for (uint16_t n : {0, 1, 2}) {
+        for (uint16_t n = 0; n < 3; ++n) {
             plain.m_numFaces = n;
             occlude(&plain);
             Record({0xE0D10000u + n});
