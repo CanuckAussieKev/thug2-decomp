@@ -3,7 +3,7 @@
 // (THUGPRO's author) agreed to the user that our ports may include it (2026-10-20); the user's decision: all of it in
 // ONE separate section of the differences file, `thugpro_new` in tools/compat/thugpro/thug1_levels.json, apart from the
 // hand edits that are data (TP-30 ... TP-39), so that it is easily identifiable (README.md there: "New in THUGPRO (not
-// in any source game)", TP-40 ... TP-43).
+// in any source game)", TPN-THUG1-1 ... TPN-THUG1-4).
 //
 // BY REFERENCE: the section holds references and checksums, never THUGPRO's bytes (the repo is public; the permission
 // doesn't cover republishing THUGPRO's files). The converter reads each item from the user's THUGPRO install
@@ -12,19 +12,19 @@
 //
 // Section form: thugpro_new.<THUG1 code> = {key: THUGPRO's level key, archive: its data\pre\<key>_scripts.prx, entries:
 // [...]}; every entry {id, kind, op, target, why, crc32, ...}:
-//   TP-40 asset   op add: a model file THUG2 hasn't (models\...: target = its overlay path), from `file` (a path in
+//   TPN-THUG1-1 asset   op add: a model file THUG2 hasn't (models\...: target = its overlay path), from `file` (a path in
 //                 THUGPRO's install) / `entry` (the file in that archive) - written to <staging>\models\ and installed into
 //                 the overlay by make_menu_level (tools/level_port/ported_levels.ts installFiles).
-//   TP-41 node    op add: THUGPRO's node `target` appended to THUG1's node array (Links by name);
+//   TPN-THUG1-2 node    op add: THUGPRO's node `target` appended to THUG1's node array (Links by name);
 //                 op set: THUG1's node `target` given THUGPRO's values of `fields` (THUGPRO's node `node`, when renamed;
 //                 a field THUGPRO's node hasn't is taken off). Both kept whole by our converter (thug1_port.NodePass
 //                 `forced`: they are THUG2 nodes already). crc32: of the node's (or the fields') JSON form.
-//   TP-42 script  op add: THUGPRO's script `target` added to the level's .qb (from `file`: a qb file in the level's
+//   TPN-THUG1-3 script  op add: THUGPRO's script `target` added to the level's .qb (from `file`: a qb file in the level's
 //                 archive, or `archive` + `file` - thugpro_qb.prx's qb\thugpro\thugpro_utils.qb); op set: our script
 //                 replaced by THUGPRO's; op remove: our script emptied (THUGPRO emptied it). Applied only when safe in THUG2
 //                 (scriptCheck: every command it calls THUG2 has or the level defines, none of THUG1's goal / flag
 //                 commands, every node it names in the level) - else left out with a reason. crc32: THUGPRO's bytes.
-//   TP-43 file    op add: THUGPRO's host-toggled level file (levels\<level>\<level>_thugpro.qb: its "level changes",
+//   TPN-THUG1-4 file    op add: THUGPRO's host-toggled level file (levels\<level>\<level>_thugpro.qb: its "level changes",
 //                 switched by THUGPRO's protocol messages 155-159 - nothing runs them until a protocol layer does, so the
 //                 default state, all off, is THUGPRO's default).
 // Written by `node tools/thug1_levels/thugpro_compare.ts --extract-thugpro` (extract), never typed in.
@@ -66,10 +66,10 @@ export interface NewLevel {
 }
 
 export const IDS = {
-    asset: "TP-40",
-    node: "TP-41",
-    script: "TP-42",
-    file: "TP-43",
+    asset: "TPN-THUG1-1",
+    node: "TPN-THUG1-2",
+    script: "TPN-THUG1-3",
+    file: "TPN-THUG1-4",
 } as const satisfies Record<Kind, string>;
 
 export const crc = (data: Uint8Array): string => (zlib.crc32(data) >>> 0).toString(16).padStart(8, "0");
@@ -147,7 +147,7 @@ export const emptyScript = (name: number): Buffer =>
 
 // A script's statements for comparing THUG1's with THUGPRO's: line ends and jump offsets left out, THUG1's long if /
 // else (0x25 / 0x26) as THUG2's short ones (0x47 / 0x48) - what THUGPRO's recompile changed on every script.
-const SHORT: Readonly<Record<number, number>> = { 0x25: 0x47, 0x26: 0x48 };
+const SHORT: Readonly<Record<number, number>> = { 37: 0x47, 38: 0x48 };
 const NO_PAYLOAD = new Set([0x25, 0x26, 0x47, 0x48, 0x49, 0x2f, 0x37, 0x40, 0x41]);
 
 export function scriptForm(lines: readonly qb.Statement[]): string {
@@ -183,9 +183,10 @@ export function scriptUses(code: Uint8Array): { calls: Set<number>; nodeNames: S
     return { calls, nodeNames };
 }
 
-// THUG1's commands left out of our ports (thug1_port.LEFT_OUT, its prefixes) that THUGPRO's scripts aren't trusted with
-// either: goals, chapters, cutscenes and THUG1's own level flags (GetFlag of a THUG1 flag read far outside THUG2's -
-// Manhattan crashed loading). THUG2's global flags (GetGlobalFlag) are THUG2's own here: allowed.
+// The part of thug1_port.LEFT_OUT (and its prefixes, LEFT_OUT_PREFIXES) that THUGPRO's scripts aren't trusted with
+// either: goals, chapters, cutscenes and the level flags (GetFlag of a THUG1 flag read far outside THUG2's - Manhattan
+// crashed loading; our ports set up no goals). The rest of that list (panel messages, GetGlobalFlag, LoadSound) is
+// THUG2's own in THUGPRO's scripts: allowed.
 const REFUSED = new Set(
     [
         "GetFlag",
@@ -302,7 +303,10 @@ function nodeForm(n: Struct, tp: Side): handEdits.Json {
 const fieldsForm = (n: Struct, fields: readonly string[]): handEdits.Json =>
     fields.map((f) => {
         const v = n.entries.find(([k]) => k !== null && k.value === handEdits.checksumOf(f))?.[1];
-        return [handEdits.nameText(handEdits.checksumOf(f), NO_NAMES), v === undefined ? null : handEdits.encode(v, NO_NAMES)];
+        return [
+            handEdits.nameText(handEdits.checksumOf(f), NO_NAMES),
+            v === undefined ? null : handEdits.encode(v, NO_NAMES),
+        ];
     });
 
 export const nodeCrc = (n: Struct, tp: Side): string => crc(Buffer.from(JSON.stringify(nodeForm(n, tp))));
@@ -316,7 +320,7 @@ export interface NodeResult {
     skipped: string[];
 }
 
-// TP-41 on THUG1's node array (before conversion, after the hand edits): THUGPRO's nodes appended / values set.
+// TPN-THUG1-2 on THUG1's node array (before conversion, after the hand edits): THUGPRO's nodes appended / values set.
 // `usable`: the nodes whose model files could be had (an entry needing one that couldn't is left out).
 export function applyNodes(
     array: QbValue[],
@@ -360,7 +364,9 @@ export function applyNodes(
             let links: string[] = [];
             for (const [k, v] of source.entries) {
                 if (k !== null && k.value === qb.checksum("Links") && Array.isArray(v)) {
-                    links = v.map((i) => (typeof i === "number" && tp.nodes[i] ? nodeName(tp.nodes[i]!, tpNames) : "?"));
+                    links = v.map((i) =>
+                        typeof i === "number" && tp.nodes[i] ? nodeName(tp.nodes[i]!, tpNames) : "?",
+                    );
                     continue;
                 }
                 entries.push([k, v]);
@@ -405,12 +411,12 @@ export function applyNodes(
     for (const [n, links] of pendingLinks) {
         const targets = links.map((l) => index.get(handEdits.checksumOf(l)));
         if (targets.some((t) => t === undefined)) {
-            out.skipped.push(`TP-41 ${nodeName(n, names)}: links to ${links.join(" ")} - not all in the level`);
+            out.skipped.push(`TPN-THUG1-2 ${nodeName(n, names)}: links to ${links.join(" ")} - not all in the level`);
             continue;
         }
         n.entries.push([new Name(qb.checksum("Links")), targets as number[]]);
     }
-    if (added || set) out.report.push(`TP-41 THUGPRO's nodes: ${added} added, ${set} set`);
+    if (added || set) out.report.push(`TPN-THUG1-2 THUGPRO's nodes: ${added} added, ${set} set`);
     return out;
 }
 
@@ -438,7 +444,11 @@ const UTILS_ARCHIVE = "data\\pre\\thugpro_qb.prx";
 const UTILS_FILE = "qb\\thugpro\\thugpro_utils.qb";
 
 // Model base (lower case, without its extension): "veh\\a\\a.mdl" -> "veh\\a\\a"; the skin's too.
-const modelBase = (m: string): string => m.toLowerCase().replaceAll("/", "\\").replace(/\.(mdl|skin)$/, "");
+const modelBase = (m: string): string =>
+    m
+        .toLowerCase()
+        .replaceAll("/", "\\")
+        .replace(/\.(mdl|skin)$/, "");
 
 export function extract(x: ExtractInputs): Extracted {
     const { t1, tp } = x;
@@ -450,7 +460,7 @@ export function extract(x: ExtractInputs): Extracted {
     const theirs = new Map(tp.nodes.map((n) => [nodeName(n, names).toLowerCase(), n]));
     const theirFiles = x.install.archive(x.archive) ?? new Map<string, Buffer>();
 
-    // TP-41 nodes
+    // TPN-THUG1-2 nodes
     const nodeEntries: NewEntry[] = [];
     const models = new Set<string>();
     const removedT1 = t1.nodes.filter((n) => nodeName(n, names) && !theirs.has(nodeName(n, names).toLowerCase()));
@@ -461,8 +471,10 @@ export function extract(x: ExtractInputs): Extracted {
             .filter((k) => {
                 const va = a.entries.find(([e]) => e !== null && e.value === k)?.[1];
                 const vb = b.entries.find(([e]) => e !== null && e.value === k)?.[1];
-                return JSON.stringify(va === undefined ? null : handEdits.encode(va, names)) !==
-                    JSON.stringify(vb === undefined ? null : handEdits.encode(vb, names));
+                return (
+                    JSON.stringify(va === undefined ? null : handEdits.encode(va, names)) !==
+                    JSON.stringify(vb === undefined ? null : handEdits.encode(vb, names))
+                );
             })
             .map(text);
     const modelOf = (n: Struct): string | null => {
@@ -530,7 +542,7 @@ export function extract(x: ExtractInputs): Extracted {
         } else if (after !== null) models.add(after);
     }
 
-    // TP-40 models: every model THUGPRO's nodes use that THUG2 hasn't and THUGPRO ships (the level's archive, or its
+    // TPN-THUG1-1 models: every model THUGPRO's nodes use that THUG2 hasn't and THUGPRO ships (the level's archive, or its
     // loose data\models)
     for (const model of [...models].sort()) {
         const base = modelBase(model);
@@ -563,9 +575,9 @@ export function extract(x: ExtractInputs): Extracted {
         }
         for (const f of looseFiles) {
             const dir = base.split("\\").slice(0, -1);
-            const realDir = fs.readdirSync(path.join(x.install.root, "data", "models", ...dir.slice(0, -1))).find(
-                (d) => d.toLowerCase() === dir.at(-1),
-            );
+            const realDir = fs
+                .readdirSync(path.join(x.install.root, "data", "models", ...dir.slice(0, -1)))
+                .find((d) => d.toLowerCase() === dir.at(-1));
             const file = ["data", "models", ...dir.slice(0, -1), realDir ?? dir.at(-1)!, f].join("\\");
             const data = fs.readFileSync(path.join(x.install.root, file));
             entries.push({
@@ -582,14 +594,14 @@ export function extract(x: ExtractInputs): Extracted {
     }
     entries.push(...nodeEntries);
 
-    // TP-42 scripts: THUGPRO's added, changed and emptied level scripts
+    // TPN-THUG1-3 scripts: THUGPRO's added, changed and emptied level scripts
     const t1Forms = new Map<number, string>();
     for (const [n, d] of t1.qbs)
         for (const [s, lines] of new qb.QbFile(d, n, true).scripts) t1Forms.set(s, scriptForm(lines));
     const tpRaw = new Map<number, [string, Buffer]>();
     const tpForms = new Map<number, string>();
     for (const [n, d] of tp.qbs) {
-        if (n.endsWith("_thugpro.qb")) continue; // (TP-43: kept as the file it is)
+        if (n.endsWith("_thugpro.qb")) continue; // (TPN-THUG1-4: kept as the file it is)
         for (const [s, lines] of new qb.QbFile(d, n, true).scripts) tpForms.set(s, scriptForm(lines));
         for (const [s, code] of rawScripts(d)) tpRaw.set(s, [n, code]);
     }
@@ -655,7 +667,7 @@ export function extract(x: ExtractInputs): Extracted {
         else entries.push(e);
     }
 
-    // TP-43 host-toggled level files
+    // TPN-THUG1-4 host-toggled level files
     for (const [f, d] of theirFiles) {
         if (!f.endsWith("_thugpro.qb")) continue;
         entries.push({
@@ -677,4 +689,90 @@ export function assetModels(level: NewLevel): string[] {
     return level.entries
         .filter((e) => e.kind === "asset" && /\.(mdl|skin)\.xbx$/.test(e.target))
         .map((e) => e.target.replace(/^models\\/, "").replace(/\.xbx$/, ""));
+}
+
+// --- checking a converted level (thugpro_compare.ts) ----------------------------------------------------------------
+
+export interface NewCheck {
+    total: number;
+    same: number; // as THUGPRO has it in our converted level
+    differ: Map<string, string[]>; // reason -> targets
+}
+
+// Our converted level against the section, entry by entry: each item as THUGPRO has it? `staging`: the converter's
+// output folder (its models\ and levels\<level>\), `ours`: the converted .qb, `theirNodes`: THUGPRO's node array,
+// `read`: an entry's file from THUGPRO's install.
+export function checkNew(
+    level: NewLevel,
+    staging: string,
+    name: string,
+    ours: Uint8Array,
+    ourNodes: readonly Struct[],
+    theirNodes: readonly Struct[],
+    read: (e: NewEntry) => Buffer | string,
+): Map<string, NewCheck> {
+    const out = new Map<string, NewCheck>();
+    const result = (id: string, ok: boolean, reason: string, target: string): void => {
+        let c = out.get(id);
+        if (c === undefined) {
+            c = { total: 0, same: 0, differ: new Map() };
+            out.set(id, c);
+        }
+        c.total += 1;
+        if (ok) c.same += 1;
+        else c.differ.set(reason, [...(c.differ.get(reason) ?? []), target]);
+    };
+    const byName = (list: readonly Struct[]): Map<number, Struct> => {
+        const m = new Map<number, Struct>();
+        for (const n of list) {
+            const v = n.get("Name");
+            if (v instanceof Name && !m.has(v.value)) m.set(v.value, n);
+        }
+        return m;
+    };
+    const mine = byName(ourNodes);
+    const theirs = byName(theirNodes);
+    const scripts = rawScripts(ours);
+    const value = (n: Struct, key: number): string => {
+        const v = n.entries.find(([k]) => k !== null && k.value === key)?.[1];
+        return JSON.stringify(v === undefined ? null : handEdits.encode(v, NO_NAMES));
+    };
+    for (const e of level.entries) {
+        if (e.kind === "asset" || e.kind === "file") {
+            const file = path.join(staging, e.target.replaceAll("<level>", name));
+            const ok = fs.existsSync(file) && crc(fs.readFileSync(file)) === e.crc32;
+            result(e.id, ok, "not in our output (or not THUGPRO's bytes)", e.target);
+        } else if (e.kind === "node") {
+            const key = handEdits.checksumOf(e.node ?? e.target);
+            const n = mine.get(key);
+            const t = theirs.get(key);
+            if (n === undefined || t === undefined) {
+                result(e.id, false, "node not in our level", e.target);
+                continue;
+            }
+            const fields = e.op === "set" ? (e.fields ?? []) : [];
+            const bad = fields.filter((f) => value(n, handEdits.checksumOf(f)) !== value(t, handEdits.checksumOf(f)));
+            result(e.id, !bad.length, `values differ: ${bad.join(" ")}`, e.target);
+        } else {
+            const key = handEdits.checksumOf(e.target);
+            const code = scripts.get(key);
+            if (code === undefined) {
+                result(e.id, false, "script not in our level", e.target);
+                continue;
+            }
+            if (e.op === "remove") {
+                result(e.id, code.equals(emptyScript(key)), "not emptied", e.target);
+                continue;
+            }
+            const data = read(e);
+            const theirCode = typeof data === "string" ? undefined : rawScripts(data).get(key);
+            result(
+                e.id,
+                theirCode !== undefined && code.equals(theirCode),
+                "ours, not THUGPRO's (refused by the converter's check)",
+                e.target,
+            );
+        }
+    }
+    return out;
 }

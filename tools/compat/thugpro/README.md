@@ -62,6 +62,7 @@ code or level data; the values here are identifiers and offsets, measured or rea
 | TP-38 | Collision THUGPRO took out: HH's 81 prop objects (1915 faces: sodas, napkins, trays, dt_choptail), SC2's 8 shadow objects (47 faces) and 4 faces of Qtr_Pipes29 (a quarterpipe's back) | Solid on one side only: ours hit what THUGPRO's pass through | `thug1_levels.json` `collision_removed` ({object: {faces, remove: "all" or [faces]}}) -> `hand_edits.applyColEdits` (objects dropped; faces dropped and the object's BSP tree and reaches rebuilt). Not taken: THUGPRO's exporter dropping empty objects (NY 639, RU 462, SC2 136, HN 109, HH 30) and zero-area / duplicate faces (HN 31) - no effect | As TP-32 |
 | TP-39 | Collision THUGPRO reshaped (vertices moved): HN Inviso_SnowBlocker (17 vertices, up to 956 units - an invisible ceiling), HH SE_JO_CatWalk41 (1 vertex, 4 units) | As TP-38: where a skater collides | `thug1_levels.json` `collision_reshaped` ({object: {faces, verts: [[vertex, x, y, z]]}}) -> `hand_edits.applyColEdits` (tree and reaches rebuilt) | As TP-32 |
 
+
 Not entries here, although THUGPRO does the same (they're right for THUG2 on their own):
 - **THUG1's own level names** for the other THUG1 ports (nj, ny, fl, sd, hi, vc, sj, ru, vn, hn, sc2: Load_NJ ... Load_hn,
   Load_sc2): THUG1's Levels.qb names them so (`thug1_levels.ownName`); a THUG1 name THUG2 already uses keeps the `thug1_`
@@ -132,13 +133,70 @@ user's decision (details and sizes: docs/pending/thps4-thugpro.md "TP-22 ... TP-
 Toolchain translation, not hand edits (not applied): peds / animals / particle emitters made game objects, trigger
 scripts dropped, Pos for Position, physics keys, lod distances, face-flag bits.
 
-THUG1, not entries (yet) - THUGPRO's own content rather than data, awaiting the user's decision (Morten's permission
-covers insights, not 1:1 copies; docs/pending/thug1.md "THUGPRO hand edits: applied"): the NJ El train (its own
-model and scripts), HI's boat, the VC <-> SJ transition arrows (their own model and scripts), Venice's gulls (THUG2's
-AU seagull and AU scripts copied in) and its bum (THUG1's TRG_546 renamed and re-modelled), Venice's 58 sand kill zones
-(they call THUGPRO's own Sk3_Killskater_sand, from its thugpro_utils.qb - THUG2 has no such script), NJ's 85 emptied
-trigger scripts (occlusion / vis / proximity triggers: rendering), the other level-script edits, and the host-toggled
-level changes (`<level>_thugpro.qb`).
+THUG1: THUGPRO's own content (the El train, the boat, the arrows, the gulls and bums, its scripts and host-toggled
+files) is now included by reference - "New in THUGPRO (not in any source game)" above (TPN-THUG1-1 ... 4).
+
+## New in THUGPRO (not in any source game) - `thugpro_new`
+
+Content THUGPRO made itself that is in no source game's level (THUG1's, nor THUG2's for the same place): its models,
+nodes, level scripts and host-toggled level files. Morten agreed to the user that our ports may include it
+(2026-10-20); the user's decision: all of it in one separate section, so it's easily identifiable. **By reference
+only**: the section holds references (the file in THUGPRO's install, the node / script name) and crc32 checksums, never
+THUGPRO's bytes; the converter reads each item from the user's THUGPRO install (`--thugpro`, default
+`%LOCALAPPDATA%\THUG Pro`) when converting. No install, a missing file or a checksum that differs: a warning, the item
+left out, never a failure. Each entry has `id`, `op` (`add` creates what the source hasn't, `set` changes the given
+fields of what exists - on something missing an error the converter reports, never an add -, `remove` suppresses what
+exists), `target`, `why`, `crc32`. (These two new sections use `op`; TP-1 ... TP-39 keep their own forms.) Off:
+`--no-thugpro-new` (the hand edits TP-30 ... TP-39 stay) or `--compat none`. Extracted, never typed in:
+`node tools/thug1_levels/thugpro_compare.ts --extract-thugpro --thug2 <workspace> --staging <converted>\levels`
+(against a level converted with the section: the script edits of scripts ours leaves out aren't listed - it's a fixed
+point, run once more to check). Code: `tools/thug1_levels/thugpro_new.ts`.
+
+| Id | What (THUG1 ports; counts from the data) | Applied | Check |
+|---|---|---|---|
+| TPN-THUG1-1 | Models THUG2 hasn't, THUGPRO ships (op add, 27 file entries): NJ veh_El_Train, VC / SJ transition_arrow, VC veh_LeafBlower (THUG1's leaf blower comes back: our converter left it out for its model), RU THPS2_Case (the Old Skool icon) and veh_tank_ru (THUG1's tanks come back), NY / VN Skater_OllieTheMagicBum (THUGPRO's loose `data\models\skater_secret`) | Written to `<staging>\models\`, installed into the overlay's models\ by make_menu_level (`ported_levels.installFiles`); the converter then keeps the THUG1 objects using them | `thugpro_compare.ts`: "new in THUGPRO as THUGPRO's" (file there, THUGPRO's bytes) |
+| TPN-THUG1-2 | THUGPRO's nodes (op add: NJ's 2 El trains TRG_TrainA01 / 02, HI's boat TRG_HI_Boat01 - THUG2's own BA boat model -, VC TRG_SCJ_arrow_01 + its restart TRG_Restart_SJVC, SJ TRG_VC_arrow_01 + waypoint TRG_Restart_VCSJ, VN's 3 gulls - THUG2's AU seagull; op set: VN's 5 bums - TRG_546 renamed TRG_BUM_01 - and NY's 3 bum peds on the bum model, FL's gator (gorilla model) and goat) | Added to / set in THUG1's node array before conversion (after TP-32 ... TP-36), kept whole by the node pass (`thug1_port.NodePass` forced: THUG2 nodes already - the animal ones too) | Node there with THUGPRO's values |
+| TPN-THUG1-3 | THUGPRO's level scripts (op add 299 - its own, incl. the trains', boat's, arrows', gulls', bums' scripts and `Sk3_Killskater_sand` from `qb\thugpro\thugpro_utils.qb`; op set 604 - changed scripts: VN's 58 sand kill zones now `Sk3_Killskater_sand`, rewritten gap checks with GetTriggerArray / TriggerType, ped / car / sound parameters; op remove 130 - emptied: NJ's 69 occlusion / vis / proximity triggers of its 85, RU's tank scripts...) | Added to / replaced / emptied in the compiled .qb, each only when it can run here (`thugpro_new.scriptCheck`: every command THUG2 or the level has, no THUG1 goal / flag command, every node it names in our level, no undrawn geometry); refused ones keep ours (2 at conversion: SJ_startup, RU_Cannon; ~30 at extraction - the VC <-> SJ `LoadZone` scripts among them) | Script bytes THUGPRO's / emptied |
+| TPN-THUG1-4 | THUGPRO's host-toggled level files `levels\<level>\<level>_thugpro.qb` (op add: NJ, NY, FL, SD, HI, VC, SC2): option lists and toggle scripts behind its SERVER_LEVEL_CHANGE flags | Copied as they are; nothing runs them (THUGPRO's protocol messages 155-159 do, in its DLL) - so all off, THUGPRO's default. Switching needs a protocol layer of ours | File there |
+
+Not taken (listed by the extraction): NJ / HI Old Skool icons and HI's 15 lei pick-ups - THUGPRO itself has
+`model="none"` there and ships no model; NY's 11 TERRAIN_GRINDRUSTYRAIL rails - deliberately excluded, an unknown
+terrain in THUG2 (reads through a null - the THPS3 Tokyo crash), ours keep THUG1's TERRAIN_GRINDMETAL; scripts calling
+THUGPRO's own commands (LoadZone - the VC <-> SJ level change, so the arrows are decoration here -, its DLL's) or THUG1's
+goals.
+
+## Our own changes (port_changes)
+
+What our converters do to a source game's level that comes neither from the source game nor from THUGPRO - in each
+game's file, section `port_changes` (THUG1: `thug1_levels.json`, ids PC-THUG1-n, read by
+`tools/thug1_levels/port_changes.ts` through `compat.portChanges`). Applied whatever `--compat` says (they're ours, not
+THUGPRO's); `--no-port-changes` switches off every entry that isn't `required` (required: needed for THUG2 to load the
+level or to avoid a crash). Each entry: `id`, `op` (add / set / remove), `target` (a rule's description when it applies
+to every node or script of a kind), `why`, `required`. Taking an entry out of the data switches it off; a required one
+missing is an error.
+
+| Id | Op | Target | Required |
+|---|---|---|---|
+| PC-THUG1-1 | add | kill scripts without nodename=: the restart nearest their first trigger node (THUG1 Hawaii's pool left the skater dead) | no |
+| PC-THUG1-2 | set | levels without a Multiplayer restart (DJ, PH, SC...): Player1 restarts also Multiplayer / Horse | no |
+| PC-THUG1-3 | set | the first Player1 restart moved to the array's start (not where TP-31 orders the spawns) | no |
+| PC-THUG1-4 | set | DuplicateTrigger-only trigger scripts replaced by the linked node's | no |
+| PC-THUG1-5 | set | restarts over nothing / over a kill zone: no network spawn; kills there sent to the nearest grounded restart | no |
+| PC-THUG1-6 | remove | animal peds (crash 0x00482BA0) | yes |
+| PC-THUG1-7 | remove | GenericNodes other than KOTH crowns (THUG1's goal nodes) | yes - **needs verification** (no crash proven) |
+| PC-THUG1-8 | remove | vehicles / game objects whose model THUG2 hasn't or whose skeleton it doesn't load | yes |
+| PC-THUG1-9 | remove | particles without a THUG2 texture, moving objects without a scene sector | yes |
+| PC-THUG1-10 | set | peds: THPS6_human skeleton and animations, a THUG2 profile | yes |
+| PC-THUG1-11 | remove | SoundType / AnimName / Extra_Anims THUG2 hasn't | yes |
+| PC-THUG1-12 | remove | TrickObject / Cluster on climbing nodes and on geometry without a sector | yes |
+| PC-THUG1-13 | set | rail terrains THUG2 hasn't | yes |
+| PC-THUG1-14 | set | path followers, peds, cars AbsentInNetGames | yes |
+| PC-THUG1-15 | remove | script statements THUG2 can't run, trigger scripts not brought | yes |
+| PC-THUG1-16 | add | GetGap / Gap_CarHop gap scripts given; models' gap scripts defined empty | yes |
+| PC-THUG1-17 | set | the node array's shared parts as global structures | yes |
+| PC-THUG1-18 | add | restart_types from Type; kills as THUG2's SK3_KillSkater | yes |
+| PC-THUG1-19 | set | thug1_<code> names where THUG2 has the level's name | yes |
+| PC-THUG1-20 | remove | collision face flags 0x2000-0x8000, skinned scene sectors | yes |
 
 ## Run time (in the DLL)
 

@@ -229,7 +229,7 @@ export function installFiles(game: string, overlay: string, manifest: Manifest |
             installed.push(entry);
         }
         // (models a converter staged next to its levels - THUGPRO's own, read from its install: tools/thug1_levels
-        // thugpro_new.ts TP-40 - merged into the overlay's models folder)
+        // thugpro_new.ts TPN-THUG1-1 - merged into the overlay's models folder)
         const models = path.join(game, staging, "models");
         if (fs.existsSync(models) && fs.statSync(models).isDirectory()) {
             fs.cpSync(models, path.join(overlay, "models"), { recursive: true, preserveTimestamps: true, force: true });

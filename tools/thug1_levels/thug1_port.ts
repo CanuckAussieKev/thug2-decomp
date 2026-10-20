@@ -210,7 +210,7 @@ export class Thug1Port {
     readonly skeletons = new Set<number>();
     readonly models = new Set<string>();
     readonly shared: scriptPort.Source[] = [];
-    // (folders with a models\ folder of models THUG2 hasn't - THUGPRO's, TP-40: thugpro_new.ts - besides Data\models)
+    // (folders with a models\ folder of models THUG2 hasn't - THUGPRO's, TPN-THUG1-1: thugpro_new.ts - besides Data\models)
     readonly extraRoots: string[] = [];
 
     constructor(thug2: string, qbPre: string) {
@@ -320,7 +320,7 @@ export class NodePass {
     readonly extraAnims = new Set<string>();
     readonly modelRefs = new Map<number, string>(); // the gap / trick scripts the kept objects' THUG2 models name
     readonly kept: qb.QbValue[];
-    // (THUGPRO's own nodes - TP-41, thugpro_new.ts: THUG2 nodes already, kept whole as they are)
+    // (THUGPRO's own nodes - TPN-THUG1-2, thugpro_new.ts: THUG2 nodes already, kept whole as they are)
     readonly forced: ReadonlySet<Struct>;
 
     constructor(
@@ -366,7 +366,7 @@ export class NodePass {
         const cls = nodes.classOf(node, n);
         if (["restart", "railnode", "levelgeometry", "genericnode"].includes(cls)) return node; // (nodes.convertNodes' own handling)
         if (this.forced.has(node)) {
-            const s = this.whole(node, "THUGPRO's own nodes (TP-41)");
+            const s = this.whole(node, "THUGPRO's own nodes (TPN-THUG1-2)");
             const model = s.get("model") ?? s.get("Model");
             if (typeof model === "string" && model.toLowerCase() !== "none") this.addRefs(model);
             return s;
@@ -606,7 +606,7 @@ export function portScripts(
     names: Map<number, string>,
     struct: Struct | undefined,
     sectors: ReadonlySet<number> | null = null,
-    extraProvided: Iterable<number> = [], // (scripts the level gets otherwise: THUGPRO's, TP-42 - thugpro_new.ts)
+    extraProvided: Iterable<number> = [], // (scripts the level gets otherwise: THUGPRO's, TPN-THUG1-3 - thugpro_new.ts)
 ): PortedScripts {
     // The scripts brought along (see the top). Returns the scripts {name: THUG2 bytes}, the THUG1 globals they use as
     // NeverScript text, the level structure's startup / setup script names kept, the report line. Trigger scripts not

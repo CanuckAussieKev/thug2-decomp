@@ -35,7 +35,7 @@ import * as handEdits from "./hand_edits.ts";
 import * as portChanges from "./port_changes.ts";
 import * as thug1 from "./thug1.ts";
 import * as thug1Port from "./thug1_port.ts";
-import { type SpawnEdits, type Side, thugproSide } from "./thugpro_edits.ts";
+import { type Side, type SpawnEdits, thugproSide } from "./thugpro_edits.ts";
 import * as thugproNew from "./thugpro_new.ts";
 
 export const STAGING = "thug2-decomp-thug1";
@@ -88,7 +88,7 @@ interface Args {
     extra: string[];
     compat: string;
     legacyNames: boolean;
-    thugpro: string; // THUGPRO's install (TP-40 ... TP-43 read from it)
+    thugpro: string; // THUGPRO's install (TPN-THUG1-1 ... TPN-THUG1-4 read from it)
     noThugproNew: boolean;
     noPortChanges: boolean;
 }
@@ -108,7 +108,7 @@ export const COMPAT = {
     levelNames: new Map<string, string>(),
     spawns: new Map<string, SpawnEdits>(),
     edits: new Map<string, handEdits.LevelEdits>(), // (TP-32 ... TP-39: hand_edits.ts, by level code in lower case)
-    // (TP-40 ... TP-43: what is new in THUGPRO - thugpro_new.ts; by level code in lower case)
+    // (TPN-THUG1-1 ... TPN-THUG1-4: what is new in THUGPRO - thugpro_new.ts; by level code in lower case)
     new: new Map<string, thugproNew.NewLevel>(),
     // (our own changes - port_changes.ts: read whatever the profile)
     portChanges: portChanges.load(),
@@ -405,7 +405,7 @@ export interface LevelNodes {
     recheck: (levelDir: string) => string[];
 }
 
-// What is new in THUGPRO for one level (TP-41 ... TP-43, thugpro_new.ts): its entries, THUGPRO's side of the level (its
+// What is new in THUGPRO for one level (TPN-THUG1-2 ... TPN-THUG1-4, thugpro_new.ts): its entries, THUGPRO's side of the level (its
 // node array and level scripts, read from the install) and whether a model could be had.
 export interface NewContext {
     level: thugproNew.NewLevel;
@@ -424,7 +424,7 @@ function levelNodesOf(side: Side, converted: readonly Struct[]): Set<number> {
     return out;
 }
 
-// TP-42's scripts for one level: the added ones that can run (decided before the node array is written: a node whose
+// TPN-THUG1-3's scripts for one level: the added ones that can run (decided before the node array is written: a node whose
 // added trigger script can't loses it), the set / emptied ones (applied to the compiled .qb), the report.
 interface NewScripts {
     adds: Map<number, Buffer>;
@@ -446,7 +446,8 @@ function nodeNamesOf(
     const out = new Set<number>();
     for (const n of converted) {
         const v = n.get("Name");
-        if (v instanceof Name && (nodes.classOf(n, names) !== "levelgeometry" || sectors.has(v.value))) out.add(v.value);
+        if (v instanceof Name && (nodes.classOf(n, names) !== "levelgeometry" || sectors.has(v.value)))
+            out.add(v.value);
     }
     return out;
 }
@@ -506,7 +507,7 @@ function prepareNewScripts(
             });
             if (why === null) continue;
             out.adds.delete(s);
-            out.report.push(`  THUGPRO new, left out: TP-42 add ${addEntries.get(s)!.target}: ${why}`);
+            out.report.push(`  THUGPRO new, left out: TPN-THUG1-3 add ${addEntries.get(s)!.target}: ${why}`);
             refused = true;
         }
     }
@@ -518,7 +519,7 @@ function prepareNewScripts(
     return out;
 }
 
-// TP-42 on the compiled .qb: THUGPRO's set scripts replace ours, emptied ones are emptied, added ones are added.
+// TPN-THUG1-3 on the compiled .qb: THUGPRO's set scripts replace ours, emptied ones are emptied, added ones are added.
 function applyNewScripts(
     s: NewScripts,
     data: Buffer,
@@ -534,7 +535,9 @@ function applyNewScripts(
     const nodeNames = nodeNamesOf(converted, sectors, names);
     for (const { e, name, code } of s.later) {
         if (!defined.has(name)) {
-            lines.push(`  THUGPRO new: ${e.id} ${e.op} ${e.target}: ERROR - our level has no such script (not applied)`);
+            lines.push(
+                `  THUGPRO new: ${e.id} ${e.op} ${e.target}: ERROR - our level has no such script (not applied)`,
+            );
             continue;
         }
         if (e.op === "set") {
@@ -555,14 +558,14 @@ function applyNewScripts(
     }
     for (const [name, code] of s.adds) {
         if (defined.has(name)) {
-            lines.push(`  THUGPRO new: TP-42 add ${qb.nameText(name, names)}: ERROR - our level has it already`);
+            lines.push(`  THUGPRO new: TPN-THUG1-3 add ${qb.nameText(name, names)}: ERROR - our level has it already`);
             continue;
         }
         replaced.set(name, code);
         counts.add += 1;
     }
     const out = thugproNew.spliceScripts(data, replaced, (d, m) => scriptPort.appendScripts(d, m, names));
-    lines.push(`  TP-42 THUGPRO's scripts: ${counts.add} added, ${counts.set} set, ${counts.remove} emptied`);
+    lines.push(`  TPN-THUG1-3 THUGPRO's scripts: ${counts.add} added, ${counts.set} set, ${counts.remove} emptied`);
     return [out, lines];
 }
 
@@ -600,7 +603,7 @@ export function convertLevelNodes(
     // (TP-32 ... TP-36: THUGPRO's node edits, made to THUG1's array - converted from there as THUG1's own)
     const edits = COMPAT.edits.get(code.toLowerCase());
     if (edits !== undefined) report.push(...handEdits.applyNodeEdits(array, names, edits, code));
-    // (TP-41: THUGPRO's own nodes - thugpro_new.ts; kept whole by the node pass)
+    // (TPN-THUG1-2: THUGPRO's own nodes - thugpro_new.ts; kept whole by the node pass)
     let forced = new Set<Struct>();
     if (tpNew !== null) {
         const r = thugproNew.applyNodes(array, names, tpNew.level, tpNew.side, tpNew.modelOk);
@@ -630,8 +633,8 @@ export function convertLevelNodes(
         for (const s of [...port.shared, ...levelSources]) {
             for (const [value, text] of s.names) if (!names.has(value)) names.set(value, text);
         }
-        // (PC-4: our own change - port_changes.ts)
-        const duplicates = pc.on("PC-4") ? thug1Port.resolveDuplicateTriggers(array, scriptQbs, names) : 0;
+        // (PC-THUG1-4: our own change - port_changes.ts)
+        const duplicates = pc.on("PC-THUG1-4") ? thug1Port.resolveDuplicateTriggers(array, scriptQbs, names) : 0;
         made = new thug1Port.NodePass(port, array, names, sectors, forced);
         if (duplicates) made.counts.set("DuplicateTrigger nodes given their link's script", duplicates);
         kept = made.kept;
@@ -648,7 +651,7 @@ export function convertLevelNodes(
         ["pos"],
         made ? made.asIs : [],
         wanted,
-        spawnEdits === undefined && pc.on("PC-3"),
+        spawnEdits === undefined && pc.on("PC-THUG1-3"),
     );
     let converted = convertedStats[0];
     const stats = convertedStats[1];
@@ -662,7 +665,7 @@ export function convertLevelNodes(
             }
         }
     }
-    if (pc.on("PC-1")) kills = nodes.addKillRestarts(converted, kills, names);
+    if (pc.on("PC-THUG1-1")) kills = nodes.addKillRestarts(converted, kills, names);
     const triggers = nodes.killTriggerNames(converted, kills);
     let scriptReport = "";
     let newScripts: NewScripts | null = null;
@@ -673,17 +676,7 @@ export function convertLevelNodes(
                 : tpNew.level.entries
                       .filter((e) => e.kind === "script" && e.op === "add")
                       .map((e) => handEdits.checksumOf(e.target));
-        const ported = thug1Port.portScripts(
-            port,
-            levelSources,
-            converted,
-            array,
-            kills,
-            names,
-            struct,
-            sectors,
-            adds,
-        );
+        const ported = thug1Port.portScripts(port, levelSources, converted, array, kills, names, struct, sectors, adds);
         scripts = ported.scripts;
         if (tpNew !== null) {
             newScripts = prepareNewScripts(tpNew, port, converted, scripts, kills, names, sectors);
@@ -720,10 +713,10 @@ export function convertLevelNodes(
     fs.mkdirSync(outDir, { recursive: true });
     const qbPath = pyJoin(outDir, `${name}.qb`);
     // (network games: path followers, peds and cars kept out - no path manager or ped animations there -, restarts for the players)
-    // (nodes.netGameNodes, its two parts: PC-14 required, PC-2 our own change - port_changes.ts)
-    pc.required("PC-14");
+    // (nodes.netGameNodes, its two parts: PC-THUG1-14 required, PC-THUG1-2 our own change - port_changes.ts)
+    pc.required("PC-THUG1-14");
     const [absentText, absent] = nodes.absentInNetGames(text, scripts);
-    const [netText, spawns] = pc.on("PC-2") ? nodes.netRestarts(absentText) : [absentText, 0];
+    const [netText, spawns] = pc.on("PC-THUG1-2") ? nodes.netRestarts(absentText) : [absentText, 0];
     const marked = absent + spawns;
     text = netText;
     if (marked) report.push(`  ${marked} node(s) changed for network games`);
@@ -733,7 +726,7 @@ export function convertLevelNodes(
         common.nsCompile(ns, source, qbPath);
         if (scripts.size) fs.writeFileSync(qbPath, scriptPort.appendScripts(fs.readFileSync(qbPath), scripts, names));
         if (newScripts !== null && port !== null) {
-            // (TP-42: THUGPRO's level scripts set / emptied / added in the compiled .qb)
+            // (TPN-THUG1-3: THUGPRO's level scripts set / emptied / added in the compiled .qb)
             const [data, lines] = applyNewScripts(newScripts, fs.readFileSync(qbPath), port, converted, names, sectors);
             fs.writeFileSync(qbPath, data);
             if (!newReported) report.push(...lines);
@@ -753,7 +746,7 @@ export function convertLevelNodes(
     }
     // (cmdConvert redoes the .qb with this once the collision is written: nodes.groundRestarts)
     const recheck = (levelDir: string): string[] => {
-        if (!pc.on("PC-5")) return []; // (our own change - port_changes.ts)
+        if (!pc.on("PC-THUG1-5")) return []; // (our own change - port_changes.ts)
         const [changed, groundReport] = nodes.groundRestartsAt(text, levelDir, name);
         if (groundReport.length) writeQb(changed);
         return groundReport;
@@ -783,12 +776,14 @@ export function cmdConvert(args: Args): void {
     const wanted = args.levels.length ? args.levels : LEVELS.filter((info) => info[5]).map((info) => info[0]);
     if (fs.existsSync(out) && fs.statSync(out).isDirectory()) fs.rmSync(out, { recursive: true });
     fs.mkdirSync(out, { recursive: true });
-    // TP-40 ... TP-43: what is new in THUGPRO, read from its install (thugpro_new.ts); missing: warned, left out
+    // TPN-THUG1-1 ... TPN-THUG1-4: what is new in THUGPRO, read from its install (thugpro_new.ts); missing: warned, left out
     const install = new thugproNew.Install(args.thugpro);
     const okModels = new Set<string>();
     if (COMPAT.new.size && port !== null) {
         if (!install.exists()) {
-            print(`warning: THUGPRO's install not found (${args.thugpro}): what is new in THUGPRO (TP-40 ... TP-43) left out`);
+            print(
+                `warning: THUGPRO's install not found (${args.thugpro}): what is new in THUGPRO (TPN-THUG1-1 ... TPN-THUG1-4) left out`,
+            );
             COMPAT.new = new Map();
         } else {
             port.extraRoots.push(out);
@@ -844,7 +839,9 @@ export function cmdConvert(args: Args): void {
             try {
                 tpNew = { level: newLevel, side: thugproSide(args.thugpro, newLevel.key), install, modelOk };
             } catch (e) {
-                print(`warning: ${code}: THUGPRO's ${newLevel.archive} unreadable (${String(e)}) - TP-41 ... TP-43 left out`);
+                print(
+                    `warning: ${code}: THUGPRO's ${newLevel.archive} unreadable (${String(e)}) - TPN-THUG1-2 ... TPN-THUG1-4 left out`,
+                );
             }
         }
         const { triggers, starts, recheck } = convertLevelNodes(
@@ -859,18 +856,22 @@ export function cmdConvert(args: Args): void {
             null,
             tpNew,
         );
-        // (TP-43: THUGPRO's host-toggled level files, as they are)
+        // (TPN-THUG1-4: THUGPRO's host-toggled level files, as they are)
         for (const e of tpNew?.level.entries ?? []) {
             if (e.kind !== "file") continue;
             const data = install.read(tpNew!.level, e);
             if (typeof data === "string" || thugproNew.crc(data) !== e.crc32) {
-                nodeReport.push(`  THUGPRO new, left out: ${e.id} ${e.target}: ${typeof data === "string" ? data : "checksum differs"}`);
+                nodeReport.push(
+                    `  THUGPRO new, left out: ${e.id} ${e.target}: ${typeof data === "string" ? data : "checksum differs"}`,
+                );
                 continue;
             }
             const target = pyJoin(out, e.target.replaceAll("<level>", name));
             fs.mkdirSync(path.win32.dirname(target), { recursive: true });
             fs.writeFileSync(target, data);
-            nodeReport.push(`  TP-43 ${e.target.replaceAll("<level>", name)} (THUGPRO's host-toggled level changes)`);
+            nodeReport.push(
+                `  TPN-THUG1-4 ${e.target.replaceAll("<level>", name)} (THUGPRO's host-toggled level changes)`,
+            );
         }
         convertGeometry(files, code, levelDir, name, report, (checksum) => triggers.has(checksum));
         nodeReport = nodeReport.concat(recheck(levelDir));
@@ -975,7 +976,7 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
             // compatibility profile (tools/compat): thugpro - level names as THUGPRO's THUG1 ports (default), or none
             compat: { kind: "string", default: "thugpro" },
             "legacy-names": { kind: "flag" }, // thug1_<code> for every level, as before
-            // what is new in THUGPRO (thugpro_new: TP-40 ... TP-43) is read from its install; --no-thugpro-new leaves
+            // what is new in THUGPRO (thugpro_new: TPN-THUG1-1 ... TPN-THUG1-4) is read from its install; --no-thugpro-new leaves
             // it out (the hand edits TP-30 ... TP-39 stay)
             thugpro: { kind: "string", default: pyJoin(process.env.LOCALAPPDATA ?? "", "THUG Pro") },
             "no-thugpro-new": { kind: "flag" },

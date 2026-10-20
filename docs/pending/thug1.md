@@ -250,7 +250,7 @@ objects dropped (NY 639, RU 462, SC2 136, HN 109, HH 30); zero-area and duplicat
 objects: no play effect); HH hj_DirtFloater01's vertices (within 0.07: fixed-point rounding); the scene sectors' boxes
 (NJ 1287, SC2 994: rendering).
 
-Awaiting the user's decision - THUGPRO's own content, not data (Morten's permission covers insights, not 1:1 copies):
+Was awaiting the user's decision - THUGPRO's own content (now included by reference: "New in THUGPRO: included" below):
 - NJ El train: 2 Vehicle nodes (TRG_TrainA01 / 02, Type El_Train) with THUGPRO's own model veh_El_Train (mdl 37 KB, tex
   55 KB, col 4.6 KB, qb 1.8 KB) and scripts (TRG_TrainA0n_Script -> NJ_TrainTestLoop01 / 02: move between the
   TRG_TrainTest waypoints - TP-32 moved those -, hide, wait, sound). AbsentInNetGames: neither side has it online;
@@ -285,3 +285,57 @@ TP-34 makes VC's SJ death zone (trp_death_SJ) not created, so falling there no l
 the game: SD's demo area in a net game, the new rails (grind them in NJ / NY / RU / VN / SC2), wallriding the new
 faces (RU's church, SD's courtyard walls, HN's outer walls), HH props passable, RU's ladders, HN's snow blocker.
 - Shared code: none changed (tools/thug1_levels only; the register README and the profile JSON).
+
+## New in THUGPRO: included (TPN-THUG1-1 ... 4) and our own changes (PC-THUG1-1 ... 20) - agent thug1-thugpro-new, 2026-10-20 - NOT run in the game yet
+
+The user's decision (Morten agreed): THUGPRO's own content goes into our ports, in one separate section `thugpro_new` of
+`tools/compat/thugpro/thug1_levels.json`, BY REFERENCE (references + crc32, never THUGPRO's bytes - the repo is public);
+the converter reads the files from THUGPRO's install (`--thugpro`, default %LOCALAPPDATA%\THUG Pro) and warns / skips
+when one is missing or differs. And: our converter's own deviations from THUG1's data are data too, section
+`port_changes` (PC-THUG1-n, op add / set / remove, `required`), on whatever `--compat` says.
+Register: tools/compat/thugpro/README.md "New in THUGPRO (not in any source game)" and "Our own changes (port_changes)".
+Code: tools/thug1_levels/thugpro_new.ts, port_changes.ts (tests: thugpro_new.test.ts); `thug1_levels.ts convert`
+options `--thugpro`, `--no-thugpro-new`, `--no-port-changes`.
+
+Included (counts: entries in the data; all as THUGPRO's in our converted levels per `thugpro_compare.ts` "new in
+THUGPRO as THUGPRO's", except the 2 refused scripts):
+- TPN-THUG1-1 models (27 file entries): NJ veh_El_Train, VC / SJ transition_arrow, VC veh_LeafBlower (THUG1's leaf
+  blower now in our VC - TP-34's "on" for it shows 3/3), RU THPS2_Case and veh_tank_ru (THUG1's RU tanks and Old Skool
+  icon now kept), the bum Skater_OllieTheMagicBum (FOUND: loose in THUGPRO's data\models\skater_secret; used in VN and
+  NY). Written to <staging>\models, installed into the overlay by make_menu_level (ported_levels.installFiles).
+- TPN-THUG1-2 nodes: add 10 (NJ's 2 El trains, HI's boat - THUG2's own BA boat model -, VC's arrow + TRG_Restart_SJVC,
+  SJ's arrow + waypoint TRG_Restart_VCSJ, VN's 3 gulls - THUG2's AU seagull, loose in THUG2's Data), set 10 (VN's 5 bums
+  - TRG_546 renamed TRG_BUM_01 -, NY's 3 bum peds, FL's gator on the gorilla model and goat). Kept whole (NodePass forced).
+- TPN-THUG1-3 scripts: add 299 (the new nodes' scripts, Sk3_Killskater_sand from thugpro_utils.qb...), set 604 (VN's 58
+  sand kills, gap scripts rewritten with GetTriggerArray / TriggerType, ped / car / sound parameters...), remove 130
+  (emptied: NJ 69 of its 85 occlusion / vis / proximity triggers - the other 16 aren't in our port -, RU's tanks...).
+  Applied when they can run here (scriptCheck); refused: SJ_startup, RU_Cannon at conversion, ~30 at extraction
+  (LoadZone, THUG1 goal calls, unknown commands - listed by `--extract-thugpro`).
+- TPN-THUG1-4 host-toggled files: nj / ny / fl / sd / hi / vc / sc2_thugpro.qb copied as they are (inert: THUGPRO's
+  protocol messages 155-159 run them; all off = THUGPRO's default).
+
+Left out and why: NJ / HI Old Skool icons and HI's 15 lei pick-ups (THUGPRO itself: model "none", no model shipped);
+NY's 11 TERRAIN_GRINDRUSTYRAIL rails (deliberately: unknown terrain in THUG2, a likely crash); scripts needing
+THUGPRO's own commands - above all its LoadZone (VC <-> SJ level change: the arrows are decoration in ours).
+
+C++ needs (not implemented; proposals in our style, credited to THUGPRO for the idea): (1) a "change level and start
+at a named restart" for the VC <-> SJ transition (THUGPRO's LoadZone + its DLL's loading screen): a script command of
+ours that sets the next level's start node and runs change_level; (2) THUGPRO's protocol messages 155-159 to switch
+the host-toggled level changes (`<level>_thugpro.qb` toggle scripts) - a net message handler of ours calling the
+toggle script of an option item; (3) its THUGPRO_SafeKill / THUGPRO_ForceCreate (used by those toggle scripts).
+
+port_changes: PC-THUG1-1 ... 5 switchable (kill restarts, net spawns for the classics, Player1-first swap,
+DuplicateTrigger resolution, ground restarts), PC-THUG1-6 ... 20 required (README table). PC-THUG1-7 (goal GenericNodes
+left out) is marked required without proof of a crash: NEEDS VERIFICATION.
+
+Checks: `--compat none` == before (95 files, .qb as code + sorted names); `--no-thugpro-new` == the previous default;
+an empty `--thugpro` folder: a warning and the previous default; `--no-port-changes`: PC-THUG1-1 ... 5 off, the rest
+the same; the extraction is a fixed point; all 16 reconverted into C:\Games\THUG2-3 and installed with make_menu_level
+(overlay models\ present); every face reachable, links in range, ns.exe decompiles every .qb whole; selfchecks THUG1 333
+/ THPS3 323 / THPS4 139 / THAW 735, 0 failures; typecheck / lint / npm test 85 / 0.
+Finding for the script audit (not changed here: tools/level_port/script_port.ts): our translator treats THUG2's
+TriggerType as unknown, so THUG1's gap conditions become never-true; THUG2's own levels use it.
+Shared code: tools/compat/compat.ts (portChanges), tools/level_port/ported_levels.ts (installFiles copies
+<staging>\models) - both additive.
+To try in the game: NJ's El trains, HI's boat, the VC / SJ arrows, VN's gulls / bums / sand deaths, VC's leaf blower,
+RU's tanks, the replaced gap scripts (HN, SC2, SD), NJ's occlusion (emptied triggers).
