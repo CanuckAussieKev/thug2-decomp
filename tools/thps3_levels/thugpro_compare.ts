@@ -14,6 +14,8 @@
 //
 //   node tools/thps3_levels/thugpro_compare.ts [levels...] [--thug2 C:\Games\THUG2-1] [--thugpro <dir>]
 //        [--staging <folder>] [--json out] [--details]
+//   node tools/thps3_levels/thugpro_compare.ts --extract-thugpro tools/compat/thugpro/thps3_levels.json [--thps3 <dir>]
+//        (the compatibility profile's THPS3 data, TP-10 / TP-11: see extractThugpro)
 
 import * as fs from "node:fs";
 import { parseArgs } from "node:util";
@@ -21,7 +23,7 @@ import * as colCheck from "../level_port/col_check.ts";
 import * as portedLevels from "../level_port/ported_levels.ts";
 import * as prx from "../level_port/prx.ts";
 import * as qb from "../level_port/qb.ts";
-import { Name, type QbValue, Struct } from "../level_port/qb.ts";
+import { Name, type QbValue, Struct, Vector } from "../level_port/qb.ts";
 import * as thug2Col from "../level_port/thug2_col.ts";
 import {
     Float,
@@ -49,7 +51,7 @@ import {
     sequence,
     TOLERANCE,
 } from "../thaw_levels/thugpro_compare.ts";
-import { STAGING } from "./thps3_levels.ts";
+import { findFolder, flagTeams, LEVELS, levelFiles, STAGING, scriptNames } from "./thps3_levels.ts";
 
 const DEFAULT_THUGPRO = pyJoin(process.env.LOCALAPPDATA ?? "", "THUG Pro");
 // THPS3 levels THUGPRO leaves to THUG2's own classic remakes (compared with THUG2's files instead).
@@ -262,8 +264,93 @@ export function compare(entry: portedLevels.LevelEntry, oursDir: string, thugpro
     return out;
 }
 
+// --- the compatibility profile's THPS3 data (--extract-thugpro) ----------------------------------------------------
+
+// Read once from THUGPRO's install into tools/compat/thugpro/thps3_levels.json (the user approved TP-10 / TP-11,
+// 2026-10-20), so the values are re-derived rather than typed in. For each THPS3 level THUGPRO ports under THPS3's own
+// name (levels\<level>\<level>.qb in <level>_scripts.prx):
+// - TP-10 ctf_flags: TRG_CTF_Red / _Blue and their _Base (place in THUG2's world - Pos, or Position with z negated - and
+//   Angles) where THUGPRO's Red or Blue flag isn't at THPS3's own base of that colour (CTF_1 blue / CTF_2 red);
+// - TP-11 team_nodes: the nodes THPS3 has no counterpart for - TRG_CTF_Green / _Yellow (+ _Base), the lobby's team flags
+//   TRG_Flag_<colour> (+ _Base) and TRG_Team_Restart.
+export const TP10_NODES = ["Red", "Blue"].flatMap((c) => [`TRG_CTF_${c}`, `TRG_CTF_${c}_Base`]);
+export const TP11_NODES = [
+    ...["Green", "Yellow"].flatMap((c) => [`TRG_CTF_${c}`, `TRG_CTF_${c}_Base`]),
+    ...["Red", "Blue", "Green", "Yellow"].flatMap((c) => [`TRG_Flag_${c}`, `TRG_Flag_${c}_Base`]),
+    "TRG_Team_Restart",
+];
+
+interface Placement {
+    pos: number[];
+    angles: number[];
+}
+
+function placement(node: Struct): Placement | null {
+    const p = position(node);
+    if (p === null) return null;
+    const a = node.get("Angles");
+    return { pos: [...p], angles: a instanceof Vector && a.kind === "vector" ? [...a.values] : [0, 0, 0] };
+}
+
+export function extractThugpro(thps3Dir: string, thugpro: string): Record<string, unknown> {
+    const teams = flagTeams(scriptNames(thps3Dir));
+    const flags: Record<string, unknown> = {
+        _register: "TP-10",
+        _source:
+            "THUGPRO's installed data\\pre\\<level>_scripts.prx, levels\\<level>\\<level>.qb: TRG_CTF_Red / _Blue (+ _Base) - pos in THUG2's world (Pos; Position with z negated), angles as they are. Extracted by tools/thps3_levels/thugpro_compare.ts --extract-thugpro.",
+    };
+    const extra: Record<string, unknown> = {
+        _register: "TP-11",
+        _source:
+            "THUGPRO's installed data\\pre\\<level>_scripts.prx, levels\\<level>\\<level>.qb: TRG_CTF_Green / _Yellow (+ _Base), TRG_Flag_<colour> (+ _Base), TRG_Team_Restart. Extracted by tools/thps3_levels/thugpro_compare.ts --extract-thugpro.",
+    };
+    for (const [base] of LEVELS) {
+        const key = base.toLowerCase();
+        if (THUG2_OWN.has(key) || NO_COUNTERPART.has(key)) continue;
+        const scripts = findPath(thugpro, "data", "pre", `${key}_scripts.prx`);
+        const folder = findFolder(pyJoin(thps3Dir, "Data", "Levels"), base);
+        if (!scripts || !folder) continue;
+        const data = prx.find(scripts, `levels\\${key}\\${key}.qb`);
+        if (data === null) continue;
+        const [theirs] = nodeArray(data, `${key}.qb`);
+        const byName = new Map<number, Struct>();
+        for (const n of theirs) if (n instanceof Struct && nameOf(n) !== null) byName.set(nameOf(n)!, n);
+        const pick = (names: readonly string[]): Record<string, Placement> => {
+            const out: Record<string, Placement> = {};
+            for (const nm of names) {
+                const node = byName.get(qb.checksum(nm));
+                const p = node ? placement(node) : null;
+                if (p !== null) out[nm] = p;
+            }
+            return out;
+        };
+        // THPS3's own bases, by colour
+        const own = new qb.QbFile(fs.readFileSync(levelFiles(folder, base).get("qb")!), key).get("NodeArray");
+        let moved = false;
+        for (const team of teams.filter((t) => t.colour === "Red" || t.colour === "Blue")) {
+            const baseNode = (Array.isArray(own) ? own : []).find((n): n is Struct => {
+                const t = n instanceof Struct ? n.get("Type") : undefined;
+                return t instanceof Name && t.value === team.type;
+            });
+            const theirFlag = byName.get(qb.checksum(`TRG_CTF_${team.colour}`));
+            const a = baseNode ? position(baseNode) : null;
+            const b = theirFlag ? position(theirFlag) : null;
+            if (a !== null && b !== null && maxDiff(a, b) > TOLERANCE) moved = true;
+        }
+        if (moved) flags[key] = pick(TP10_NODES);
+        const more = pick(TP11_NODES);
+        if (Object.keys(more).length) extra[key] = more;
+    }
+    return {
+        _comment:
+            "THUGPRO compatibility for the THPS3 level ports (tools/thps3_levels), approved by the user 2026-10-20. Each entry is registered in README.md here (TP-10, TP-11). Capture the flag is decided on the server against its own flags; each side draws them from its own node array: these put our flags where THUGPRO's are. Level keys are our (= THUGPRO's = THPS3's) level names. Read by tools/compat/compat.ts; `thps3_levels.ts convert --compat none` leaves all of it out (THPS3's own two bases). Regenerate: node tools/thps3_levels/thugpro_compare.ts --extract-thugpro tools/compat/thugpro/thps3_levels.json",
+        ctf_flags: flags,
+        team_nodes: extra,
+    };
+}
+
 const USAGE =
-    "usage: thugpro_compare.ts [-h] [--thug2 THUG2] [--thugpro THUGPRO] [--staging STAGING] [--json JSON] [--details] [levels ...]";
+    "usage: thugpro_compare.ts [-h] [--thug2 THUG2] [--thugpro THUGPRO] [--thps3 THPS3] [--staging STAGING] [--json JSON] [--details] [--extract-thugpro FILE] [levels ...]";
 
 const OPTIONS = {
     thug2: { type: "string" },
@@ -271,6 +358,8 @@ const OPTIONS = {
     staging: { type: "string" }, // our converted levels (default <thug2>\thug2-decomp-thps3)
     json: { type: "string" },
     details: { type: "boolean" },
+    thps3: { type: "string" },
+    "extract-thugpro": { type: "string" },
     help: { type: "boolean", short: "h" },
 } as const;
 
@@ -291,6 +380,17 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
     if (!fs.existsSync(pyJoin(thug2, "Data")) && fs.existsSync(pyJoin(thug2, "Game", "Data")))
         thug2 = pyJoin(thug2, "Game");
     const thugpro = v.thugpro ?? DEFAULT_THUGPRO;
+    if (v["extract-thugpro"]) {
+        const data = extractThugpro(v.thps3 ?? "C:\\Games\\THPS3", thugpro);
+        fs.writeFileSync(
+            v["extract-thugpro"],
+            `${JSON.stringify(data, null, 2)}
+`,
+            "utf-8",
+        );
+        print(`wrote ${v["extract-thugpro"]}`);
+        return 0;
+    }
     const staging = v.staging || pyJoin(thug2, STAGING);
     const manifest = portedLevels.readManifest(pyJoin(staging, portedLevels.MANIFEST));
     if (!manifest) pyExit(`${staging}: no ${portedLevels.MANIFEST} (convert first)`);

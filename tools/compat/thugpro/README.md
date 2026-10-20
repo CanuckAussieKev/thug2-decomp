@@ -10,9 +10,10 @@ switched off as a whole (`--compat none` for the converters) or later replaced b
 network messages, e.g. to play the same maps with players of another game or mod (THAW players: THAW's own names and
 world frame) - see "Changing approach" below.
 
-Data: `thaw_levels.json`, `thug1_levels.json` (read by `tools/compat/compat.ts`). Comparison against THUGPRO's
-install: `tools/thaw_levels/thugpro_compare.ts`, `tools/thug1_levels/thugpro_compare.ts`. Background:
-`docs/pending/thaw.md`, `docs/pending/thug1.md` ("THUGPRO"); the comparison reports (THAW / THUG1 ports vs THUGPRO). Rules: insights from Morten1337's repositories are allowed (his permission, 2026-10-20), never copies of his
+Data: `thaw_levels.json`, `thug1_levels.json`, `thps3_levels.json` (read by `tools/compat/compat.ts`). Comparison against THUGPRO's
+install: `tools/thaw_levels/thugpro_compare.ts`, `tools/thug1_levels/thugpro_compare.ts`,
+`tools/thps3_levels/thugpro_compare.ts`. Background:
+`docs/pending/thaw.md`, `docs/pending/thug1.md` ("THUGPRO"), `docs/pending/thps3-thugpro.md`; the comparison reports (THAW / THUG1 ports vs THUGPRO). Rules: insights from Morten1337's repositories are allowed (his permission, 2026-10-20), never copies of his
 code or level data; the values here are identifiers and offsets, measured or read, with their source given.
 
 ## Build time (persisted in the files we generate)
@@ -23,6 +24,8 @@ code or level data; the values here are identifiers and offsets, measured or rea
 | TP-2 | Vans Park left in THAW's world frame although it has a `Z_SV_Zone_Origin` | Positions travel as world coordinates (skater updates 0x23, int16): both sides must place the area alike. THUGPRO's toolchain never moved it (it looked the origin up under the new name `vans`) | `thaw_levels.json` `frame_kept` -> `thaw_levels.frameShift` | thugpro_toolchain `find_zone_origin.py`; confirmed by `thugpro_compare.ts` (2192/2192 nodes in place) |
 | TP-3 | East LA and Santa Monica moved by THUGPRO's own offsets on top of the Zone_Origin frame: EL (-1319.656, -111.047, 269.924), SM (-5060.44, -580.625, -3203.87) | As TP-2. THUGPRO's "LA crash fix" (commit 361b2c1) moved them by hand-picked offsets that aren't in THAW's data | `thaw_levels.json` `frame_adjust` -> `thaw_levels.frameShift` | thugpro `source/levels/Z_EL/world_offset.txt`, `source/levels/Z_SM/node_position_patcher.py`; the values measured with `thugpro_compare.ts` (EL 3404/3404, SM 3644/3661 nodes in place - the rest moved by hand in THUGPRO) |
 
+| TP-10 | THPS3 capture the flag: the Red and Blue flags and their bases where THUGPRO has them (place, angles and colour) in Rio, Suburbia, Skater Island, Tokyo, Cruise Ship and Warehouse - THUGPRO moved them from THPS3's own bases there (SI and Ware with the colours swapped against THPS3's ctf_1 = blue). Approved by the user 2026-10-20 | CTF pick-ups and captures are decided on the server against its own flags (SK4_Scripts Team_Flag -> CTF_Team_Flag_Trigger `if OnServer`); each side draws the flags from its own node array, so both must place them alike. The nodes' form stays ours (THUG2's Airport form, THUG2's flag models, Team_Flag); the team restarts stay THPS3's (the THPS3 CTF restart nearest to the flag) | `thps3_levels.json` `ctf_flags` -> `thps3_levels.levelCompat` / `ctfNodes` | THUGPRO's installed `datapre<level>_scripts.prx`, `levels<level><level>.qb`: TRG_CTF_Red / TRG_CTF_Red_Base / TRG_CTF_Blue / TRG_CTF_Blue_Base (Pos, or Position with z negated; Angles), read by `tools/thps3_levels/thugpro_compare.ts --extract-thugpro` (a level is listed when THUGPRO's flag isn't at THPS3's base of that colour) |
+| TP-11 | THPS3 team nodes THPS3 has no counterpart for, in all 9 levels THUGPRO shares (foun, rio, sub, si, tok, shp, ware, burn, ros): TRG_CTF_Green / _Yellow (+ _Base), the lobby's team flags TRG_Flag_Red / Blue / Green / Yellow and TRG_Team_Restart. Approved by the user 2026-10-20 | THPS3 is a two-team game: without them a 3-4 team CTF has no flags for teams 3-4, the team lobby has no team-select flags and no Team restart. Places as THUGPRO's so that both sides agree; form ours (Airport form, Team_Flag scripts); the Green / Yellow team restarts are THPS3's multiplayer restarts nearest to their flags (no THUGPRO restart positions copied) | `thps3_levels.json` `team_nodes` -> `thps3_levels.levelCompat` / `ctfNodes` | As TP-10: the same files, nodes TRG_CTF_Green(_Base), TRG_CTF_Yellow(_Base), TRG_Flag_<colour>, TRG_Team_Restart |
 | TP-30 | THUG1's Hotter Than Hell named `hh` (Load_hh, levels\hh, hh_sky) - approved by the user 2026-10-20 | As TP-1: THUG1 names it SE (Load_SE), but THUG2 has a level SE of its own (Pro Skater), so the THUG1 port can't take THUG1's name; THUGPRO chose `hh` (its own identifier, in no THUG1 / THUG2 file). Without the entry it's `thug1_se` and doesn't load across | `thug1_levels.json` `level_names` -> `thug1_levels.levelName` | THUGPRO's installed `data\pre\HH_scripts.prx` and its Levels.qb (`Level_HH`, `load_script=Load_HH`, `name="Hotter Than Hell"`); checked by `tools/thug1_levels/thugpro_compare.ts` |
 
 Not entries here, although THUGPRO does the same (they're right for THUG2 on their own):
@@ -51,6 +54,11 @@ To drop an entry from the files and translate on the wire instead (per session, 
 - TP-1: map the four load-script checksums both ways in 0x46 / 0x33 (skate_net 0x00569560, HandleStartInfo).
 - TP-30: the same for Load_hh <-> Load_thug1_se; then `node tools/thug1_levels/thug1_levels.ts convert --compat none`
   (saved layouts: `tools/thug1_levels/migrate_layouts.ts` shows the renaming - THUG1's frame is the same on both sides).
+- TP-10 / TP-11: nothing to translate on the wire - flags aren't sent, each side makes them from its node array. A
+  run-time alternative: when the session's peer is THUGPRO, place the flag / team-node game objects from this data
+  after loading (and THPS3's own otherwise); without the entries: `node tools/thps3_levels/thps3_levels.ts convert
+  --compat none` (THPS3's two bases, two teams) - or remove `ctf_flags` / `team_nodes` from `thps3_levels.json`.
+  Regenerate the data: `node tools/thps3_levels/thugpro_compare.ts --extract-thugpro tools/compat/thugpro/thps3_levels.json`.
 - TP-2 / TP-3: add / subtract the per-level offset to every world position sent / received (0x23 object updates,
   0x48 RunScript parameters, 0x8F / 0x95 scavenger drops, any positional KOTH / CTF event) before the int16 packing;
   watch the range at the edges.
