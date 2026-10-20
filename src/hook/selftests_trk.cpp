@@ -37,7 +37,10 @@ using Script::CScript;
 using Script::CStruct;
 
 constexpr uint32_t kArenaSize = 0x40000;
-alignas(16) uint8_t g_trk_arenas[2][kArenaSize];
+// (aligned to 64K, and both mapped in either run - ArenaWord / ArenaWordOrHigh, selftest.h: a value that only
+// happens to fall inside one of them maps the same way in each)
+ArenaPair<kArenaSize> g_trk_storage;
+uint8_t (*const g_trk_arenas)[kArenaSize] = g_trk_storage.Get();
 uint32_t g_trk_base;
 uint32_t g_trk_bump;     // the heap stand-in's next block
 uint32_t g_trk_poolBump; // the pool stand-in's next item
@@ -61,10 +64,7 @@ Obj::CEventListener* ListenerAt(int i) { return reinterpret_cast<Obj::CEventList
 uint32_t* ListenerWords(int i) { return reinterpret_cast<uint32_t*>(ListenerAt(i)); }
 uint32_t ObjectIdOf(int i) { return ObjectWords(i)[5]; }
 
-uint32_t Rel(uint32_t word)
-{
-    return word >= g_trk_base && word <= g_trk_base + kArenaSize ? 0xA0000000u + (word - g_trk_base) : word;
-}
+uint32_t Rel(uint32_t word) { return ArenaWord(g_trk_arenas, kArenaSize, word); }
 void Rec(uint32_t tag, std::initializer_list<uint32_t> values)
 {
     g_trace.push_back(tag);
@@ -760,10 +760,7 @@ void TestTracker()
         std::vector<uint32_t> image(kArenaSize / 4);
         std::memcpy(image.data(), arena, kArenaSize);
         for (uint32_t& word : image) {
-            word = Rel(word);
-            uint32_t high = word >> 16;
-            if (high >= (g_trk_base >> 16) && high <= ((g_trk_base + kArenaSize) >> 16))
-                word = (word & 0xFFFF) | ((0xA000u + high - (g_trk_base >> 16)) << 16);
+            word = ArenaWordOrHigh(g_trk_arenas, kArenaSize, word);
         }
         result.insert(result.end(), image.begin(), image.end());
         result.push_back(Rel(GameVariable<uint32_t>(0x006F0FC0)));

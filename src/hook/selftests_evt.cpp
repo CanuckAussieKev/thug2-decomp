@@ -35,7 +35,10 @@ using Script::CStruct;
 using Entry = CEventHandlerTable::Entry;
 
 constexpr uint32_t kArenaSize = 0x10000;
-alignas(16) uint8_t g_evt_arenas[2][kArenaSize];
+// (aligned to 64K, and both mapped in either run - ArenaWord / ArenaWordOrHigh, selftest.h: a value that only
+// happens to fall inside one of them maps the same way in each)
+ArenaPair<kArenaSize> g_evt_storage;
+uint8_t (*const g_evt_arenas)[kArenaSize] = g_evt_storage.Get();
 uint32_t g_evt_base;
 uint32_t g_evt_bump;
 bool g_evt_original;
@@ -44,10 +47,7 @@ std::vector<Saved> g_evt_saved;
 std::function<void(CScript*, uint32_t)> g_evt_onInterrupt;
 uint32_t g_evt_spawned; // the script the stand-in SpawnScript returns
 
-uint32_t Rel(uint32_t word)
-{
-    return word >= g_evt_base && word <= g_evt_base + kArenaSize ? 0xA0000000u + (word - g_evt_base) : word;
-}
+uint32_t Rel(uint32_t word) { return ArenaWord(g_evt_arenas, kArenaSize, word); }
 void Rec(uint32_t tag, std::initializer_list<uint32_t> values)
 {
     g_trace.push_back(tag);
@@ -602,10 +602,7 @@ void TestEvents()
         std::vector<uint32_t> image(kArenaSize / 4);
         std::memcpy(image.data(), arena, kArenaSize);
         for (uint32_t& word : image) {
-            word = Rel(word);
-            uint32_t high = word >> 16;
-            if (high >= (g_evt_base >> 16) && high <= ((g_evt_base + kArenaSize) >> 16))
-                word = (word & 0xFFFF) | ((0xA000u + high - (g_evt_base >> 16)) << 16);
+            word = ArenaWordOrHigh(g_evt_arenas, kArenaSize, word);
         }
         result.insert(result.end(), image.begin(), image.end());
         g_trace.clear();

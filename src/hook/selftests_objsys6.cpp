@@ -41,18 +41,20 @@ constexpr uint32_t kPathNum = 0x9C91C3CA;
 uint8_t* g_pmArenas[2];
 uint8_t* g_pmArena;
 
+// (both allocated at once and both mapped in either run - ArenaWord / ArenaWordOrHigh, selftest.h: a value that
+// only happens to fall inside one of them maps the same way in each)
 uint8_t* PmArena(bool original)
 {
-    uint8_t*& arena = g_pmArenas[original ? 0 : 1];
-    if (!arena)
-        arena = static_cast<uint8_t*>(VirtualAlloc(nullptr, kArenaSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
-    return arena;
+    for (uint8_t*& arena : g_pmArenas)
+        if (!arena)
+            arena = static_cast<uint8_t*>(VirtualAlloc(nullptr, kArenaSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
+    return g_pmArenas[original ? 0 : 1];
 }
+bool InPmArenas(uint32_t word) { return ArenaOf(g_pmArenas[0], g_pmArenas[1], kArenaSize, word) >= 0; }
 uint32_t PmReloc(uint32_t word)
 {
-    auto base = reinterpret_cast<uint32_t>(g_pmArena);
-    if (word - base <= kArenaSize)
-        return 0xA0000000u + (word - base);
+    if (InPmArenas(word))
+        return ArenaWord(g_pmArenas[0], g_pmArenas[1], kArenaSize, word);
     return OnStack(word) ? 0x57AC0000u : word;
 }
 
@@ -76,15 +78,10 @@ void SetUpManager(uint8_t* arena)
 
 std::vector<uint32_t> ArenaImage(uint8_t* arena)
 {
-    auto base = reinterpret_cast<uint32_t>(arena);
     std::vector<uint32_t> image(kArenaSize / 4);
     std::memcpy(image.data(), arena, kArenaSize);
-    for (uint32_t& word : image) {
-        word = PmReloc(word);
-        uint32_t high = word >> 16;
-        if (high >= (base >> 16) && high <= ((base + kArenaSize) >> 16))
-            word = (word & 0xFFFF) | ((0xA000u + high - (base >> 16)) << 16);
-    }
+    for (uint32_t& word : image)
+        word = InPmArenas(word) || !OnStack(word) ? ArenaWordOrHigh(g_pmArenas[0], g_pmArenas[1], kArenaSize, word) : 0x57AC0000u;
     return image;
 }
 

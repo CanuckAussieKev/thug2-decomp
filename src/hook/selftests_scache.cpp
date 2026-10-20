@@ -28,7 +28,10 @@ using Script::CScriptCacheEntry;
 using Script::CSymbolTableEntry;
 
 constexpr uint32_t kArenaSize = 0x40000;
-alignas(16) uint8_t g_scache_arenas[2][kArenaSize];
+// (aligned to 64K, and both mapped in either run - ArenaWord / ArenaWordOrHigh, selftest.h: a value that only
+// happens to fall inside one of them maps the same way in each)
+ArenaPair<kArenaSize> g_scache_storage;
+uint8_t (*const g_scache_arenas)[kArenaSize] = g_scache_storage.Get();
 
 // Globals the cache code touches: saved before the test, put back after (also by the cleanup after a crash).
 struct SavedGlobal {
@@ -260,10 +263,7 @@ void TestScriptCache()
         pools.pools[0] = new (arena + 0x800) Mem::Pool(0x14, 120, "CScriptCacheEntry");
         pools.pools[1] = new (arena + 0x880) Mem::Pool(0x14, 30, "CScriptCacheEntry 2");
         pools.current = 0;
-        auto base = reinterpret_cast<uint32_t>(arena);
-        auto relocate = [&](uint32_t word) {
-            return word >= base && word <= base + kArenaSize ? 0xA0000000u + (word - base) : word;
-        };
+        auto relocate = [](uint32_t word) { return ArenaWord(g_scache_arenas, kArenaSize, word); };
         auto push = [&](const void* pointer) { trace.push_back(relocate(reinterpret_cast<uint32_t>(pointer))); };
 
         // Ours reaches our destructor through the cache's vtable (the game's slot 0 is 0x004761E0).
@@ -474,10 +474,7 @@ void TestScriptCache()
         std::vector<uint32_t> image(kArenaSize / 4);
         std::memcpy(image.data(), arena, kArenaSize);
         for (uint32_t& word : image) {
-            word = relocate(word);
-            uint32_t high = word >> 16;
-            if (high >= (base >> 16) && high <= ((base + kArenaSize) >> 16))
-                word = (word & 0xFFFF) | ((0xA000u + high - (base >> 16)) << 16);
+            word = ArenaWordOrHigh(g_scache_arenas, kArenaSize, word);
         }
         trace.insert(trace.end(), image.begin(), image.end());
         GameVariable<void*>(0x007D1800) = nullptr;

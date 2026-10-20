@@ -37,7 +37,10 @@ using Script::CScript;
 using Script::SReturnAddress;
 
 constexpr uint32_t kArenaSize = 0x10000;
-alignas(16) uint8_t g_csc_arenas[2][kArenaSize];
+// (aligned to 64K, and both mapped in either run - ArenaWord / ArenaWordOrHigh, selftest.h: a value that only
+// happens to fall inside one of them maps the same way in each)
+ArenaPair<kArenaSize> g_csc_storage;
+uint8_t (*const g_csc_arenas)[kArenaSize] = g_csc_storage.Get();
 uint32_t g_csc_base;      // the current run's arena
 uint32_t g_csc_bump;      // the stand-in allocator's next block
 bool g_csc_allocFail;     // the stand-in allocator returns null
@@ -46,10 +49,7 @@ uint32_t g_csc_update;    // what the stand-in Update returns
 double g_csc_frame;       // what GetSlomoFrameSeconds returns (read by the stand-in code)
 std::vector<Saved> g_csc_saved;
 
-uint32_t Rel(uint32_t word)
-{
-    return word >= g_csc_base && word <= g_csc_base + kArenaSize ? 0xA0000000u + (word - g_csc_base) : word;
-}
+uint32_t Rel(uint32_t word) { return ArenaWord(g_csc_arenas, kArenaSize, word); }
 uint32_t Rel(const void* p) { return Rel(reinterpret_cast<uint32_t>(p)); }
 void Rec(uint32_t tag, std::initializer_list<uint32_t> values)
 {
@@ -759,10 +759,7 @@ void TestCScriptWait()
         std::vector<uint32_t> image(kArenaSize / 4);
         std::memcpy(image.data(), arena, kArenaSize);
         for (uint32_t& word : image) {
-            word = Rel(word);
-            uint32_t high = word >> 16;
-            if (high >= (g_csc_base >> 16) && high <= ((g_csc_base + kArenaSize) >> 16))
-                word = (word & 0xFFFF) | ((0xA000u + high - (g_csc_base >> 16)) << 16);
+            word = ArenaWordOrHigh(g_csc_arenas, kArenaSize, word);
         }
         result.insert(result.end(), image.begin(), image.end());
         g_trace.clear();
