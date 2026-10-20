@@ -16,6 +16,7 @@
 #include "game/front/level_editor_node_edit.h"
 #include "game/front/level_editor_nodes.h"
 #include "game/front/level_editor_picking.h"
+#include "game/front/level_editor_scale.h"
 #include "game/front/level_editor_ui_backend.h"
 #include "game/front/level_editor_ui_fonts.h"
 #include "game/front/level_editor_ui_layout.h"
@@ -977,6 +978,29 @@ void Inspector(const Model& model)
                 ImGui::TableNextColumn();
                 Mono("%.1f\xC2\xB0", s.headingDegrees);
             }
+            if (s.scalable) {
+                // Scenery's uniform scale (level_editor_scale.h): dragged to scrub, Ctrl+click to type; one undo step.
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                Muted("Scale");
+                ImGui::TableNextColumn();
+                float scale = s.scale;
+                ImGui::PushFont(g_mono);
+                ImGui::SetNextItemWidth(110.0f * g_scale);
+                if (ImGui::DragFloat("##scale", &scale, 0.005f, Scale::kMin, Scale::kMax, "%.3fx",
+                                     ImGuiSliderFlags_AlwaysClamp)) {
+                    Request request = {Request::kScaleSet};
+                    request.a[0] = scale;
+                    g_requests.push_back(request);
+                }
+                if (ImGui::IsItemDeactivated())
+                    Ask(Request::kScaleDone);
+                ImGui::PopFont();
+                if (ImGui::IsItemHovered())
+                    ImGui::SetTooltip("Uniform scale, %.2fx to %.0fx, about the middle of its bottom ([ / ]: 10%%, "
+                                      "Shift: 1%%; Home: back to 1x)",
+                                      Scale::kMin, Scale::kMax);
+            }
             if (s.objects > 1 || s.sectors > 1) {
                 ImGui::TableNextRow();
                 ImGui::TableNextColumn();
@@ -1089,6 +1113,7 @@ void Help(const Model& model)
         {"", "Drag an arrow", "along that axis only"},
         {"", "W A S D / Q E", "nudge it"},
         {"", "Z / X", "turn (objects and nodes 15\xC2\xB0, scenery a quarter)"},
+        {"", "[ / ]", "scale scenery down / up 10% (Shift: 1%) about its bottom, 0.25x to 4x - or the Inspector's Scale"},
         {"", "G", "drops it onto the ground"},
         {"", "Inspector", "a node's position and heading: drag to scrub, Ctrl+click to type"},
         {"Editing", "Ctrl+D", "duplicates"},

@@ -99,6 +99,9 @@ struct Model {
         bool hasHeading = false;
         float headingDegrees = 0.0f;
         uint32_t checksum = 0;
+        // Scenery: its scale (level_editor_scale.h - the Inspector's Scale field).
+        bool scalable = false;
+        float scale = 1.0f;
     } selection;
     // The help (F1) and the browser (B).
     bool help;
@@ -247,6 +250,8 @@ struct Request {
         kViewIsolate,   // I or /: everything but the selection hidden while editing
         kViewShowAll,   // Alt+H: everything shown again
         kClearWall,     // the invisible wall's Inspector closed
+        kScaleSet,      // the Inspector's Scale (scenery): a[0] = the scale asked for
+        kScaleDone,     // that field let go (the changes since its first kScaleSet: one undo step)
     } kind;
     int value = 0;
     uint32_t id = 0;
