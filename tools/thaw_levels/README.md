@@ -11,6 +11,8 @@ Needs Node 24+ (`npm install` once; docs/typescript.md) and NeverScript (`tools\
     node tools/thaw_levels/thaw_levels.ts convert [--thaw C:\Games\THAW] [--thug2 C:\Games\THUG2]
     node tools/menu_level/make_menu_level.ts
 
+Switches (tools/compat/thugpro/README.md): `--compat none` (no THUGPRO data), `--no-thugpro-new` (THUGPRO's hand edits, not its own content), `--thugpro <dir>` (THUGPRO's install, read for `thugpro_new` - its pieces are referenced, never copied into the repo; default `%LOCALAPPDATA%THUG Pro`; missing: a warning, those pieces skipped), `--no-port-changes` (our own changes off but the ones a level needs to load - `port_changes`, PC-THAW-n).
+
 `convert` reads each level's "net" archive (`Game\data\worlds\worldzones\<zone>\<zone>_net.pak.wpc`: the area on its
 own, as THAW loads it for classic and online games - no story props, vehicles or sounds), the sky
 (`data\skies\TestLevel_Sky`), `data\pak\qb.pak.wpc`'s levels.qb and `data\pak\dbg.pak.wpc` (the names of the

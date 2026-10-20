@@ -68,7 +68,7 @@ Not entries here, although THUGPRO does the same (they're right for THUG2 on the
   prefix (SC, DJ, PH, TestLevel - THUGPRO plays THUG2's own SC / PH / DJ there), as does a level THUG1 doesn't load by
   its own name (NJ_Skateshop, the front end's skateshop - THUGPRO's Load_Mainmenu, which is THUG2's front end here).
 - **The Zone_Origin frame** (each THAW area moved by minus its `<zone>_Zone_Origin` node): THAW's own data, keeps the
-  areas near the origin (precision, the network's +-16,384 range). Our base rule; the idea came from THUGPRO's
+  areas near the origin (precision, the network's +-16,384 range). Our own change, PC-THAW-1 (port_changes, below); the idea came from THUGPRO's
   toolchain (credited in `thaw_levels.ts`).
 - **Game-mode nodes without the zone prefix** (`TRG_CTF_*`, `TRG_Flag_*`, `TRG_KOTH*`, `TRG_Team_Restart`): THUG2's
   own scripts look them up by those names (`thaw_levels.multiplayerNames`).
@@ -77,27 +77,71 @@ Not entries here, although THUGPRO does the same (they're right for THUG2 on the
   frame and its game-mode nodes (`TRG_CTF_*`, `TRG_Flag_*`, `TRG_KOTH*`) need nothing: THPS4 has them under THUG2's
   names already (`tools/thps4_levels/thugpro_compare.ts`: every shared node in place but THUGPRO's 1-4 hand moves).
 
-THAW: what THUGPRO changed that is its own content, not a value - **awaiting the user's decision, not applied**
-(listed per area in `thaw_levels.json` `awaiting`, written by `--extract-thugpro`; Morten's permission covers insights,
-not 1:1 copies; docs/pending/thaw.md has the details and what each side sees):
-- New meshes and collision THUGPRO built (74): Minneapolis' parking garage `z_dn_pg_*` (8 sectors, 1,303 vertices; 11
-  collision objects, 754 faces, 750 collidable) and a collision piece for `dn_tw_light_bldg05` (4 faces); Kyoto's DDR machine
-  `TP_DDR_Machine` (633 vertices, 318 collidable faces - TP-8's 3 DDR rails are on it), `geo_CF_anotherbldf_enviro`,
-  `ja_occluder30`; The Mall's 3 light glows (16 collidable faces each) and a shadow; Vans' 2 sauce machines (one with
-  54 collidable faces); Casino's `LV_Elevator_2ndFloor` (50 collidable faces); Santa Monica's 13 shadows (not
-  collidable); Beverly Hills' 2 plants; Chicago's `SkVans_Sign08_LOD` collision (2 faces); `Cylinder01` (104 vertices,
-  in all 15 - THUGPRO's toolchain's). Without them: THUGPRO players collide with / skate on pieces ours don't have.
-- Meshes THUGPRO reshaped (98 sectors / collision objects, 1-20 per area: not a rigid move of THAW's): e.g. DN's cars'
-  rebuilt collision faces, Vans' snack / sauce machines, Hollywood's signs and fire escape, DT's 99Cent_02 (cut) and
-  Objects_Mesh23 (turned about x), the trigger planes of MA's teleport, JA's exit12, SV2's Nakatomi teleports and LV's
-  elevator, LV's backdrop, SM's carousel / beach passage floor, SZ's FL_BarrierTeflon.
-- Nodes made of THUGPRO's content (81): its cars with its TRG_Car_Street_Script and models THUG2 hasn't (JA's
-  scooters, ricer, van; SZ's 3; EL's cop car; OI's ferry), JA's 10 peds with its ped scripts, its sound triggers, and
-  the nodes of the new meshes above (DN's 21 caution signs, cones, chairs).
-- TriggerScripts naming THUGPRO's own scripts (59): CH's 8 CTF / flag scripts, Vans' 4 CTF base scripts, DN's 30 /
-  JA's 4 Ped_Stand_Script life peds, SZ's 8 parking meters, DT's dog, EL's coin08, SM's 2 performers, LV's Cylinder49;
-  and THUGPRO's level-script changes (inventory: CH's gap scripts gated by its GetTriggerArray / TriggerType,
-  level-change options, LoadingSounds, MA's door sound, EL's glass with no_sound).
+## New in THUGPRO (not in any source game): `thugpro_new` (THAW)
+
+The user's decision (2026-10-20, Morten1337 agreeing): THUGPRO's own content goes into our THAW ports under the default
+`--compat thugpro`, kept in ONE separate section, `thaw_levels.json` `thugpro_new`, apart from the hand edits to THAW's
+data (TP-5 ... TP-9). **By reference only**: an entry names THUGPRO's item (archive entry, sector / collision object /
+node / script name) and a CRC-32 of it; the converter reads the bytes from the user's THUGPRO install at convert time
+(`--thugpro <dir>`, default `%LOCALAPPDATA%\THUG Pro`). A missing install, a missing item or a CRC that differs: a
+warning and that item skipped - conversion never fails because of it. Nothing of THUGPRO's is in the repo. Written by
+`node tools/thaw_levels/thugpro_compare.ts --extract-thugpro` (`thugpro_extract.ts`), applied by `thugpro_new.ts`.
+Off: `--no-thugpro-new` (THUGPRO's hand edits only - the output as before this section) or `--compat none`.
+
+The two newer sections (`thugpro_new`, `port_changes`) give every entry an `op`: **add** (something the source hasn't),
+**set** (change fields of something that exists - only the given ones), **remove** (take out or suppress something that
+exists); plus `id`, `target`, `why`. `set` / `remove` on something missing is an error the converter reports (and
+skips), never an add. A rule for many things may be one entry (`target` describes it). The older TP-1 ... TP-39
+sections keep their own form.
+
+| Id | What | Why | Applied in | Source |
+|---|---|---|---|---|
+| TPN-THAW-1 | THUGPRO's new meshes and collision (`op` add): 31 sectors, 32 collision objects - Minneapolis' parking garage `z_dn_pg_*` (8 sectors, 12 collision objects, with `Z_DN_dn_tw_light_bldg05`'s collision), Kyoto's DDR machine `TP_DDR_Machine` (TP-8's 3 DDR rails now on it), `geo_CF_anotherbldf_enviro`, `ja_occluder30`; The Mall's 3 light glows and a shadow; Vans' 2 sauce machines; Casino's `LV_Elevator_2ndFloor`; Santa Monica's 13 shadows; Beverly Hills' 2 plants; Chicago's `SkVans_Sign08_LOD` collision | THUGPRO players skate and collide with them: without them they ride on air here and ours pass through theirs | `thugpro_new` `<zone>.entries` kind sector / collision -> `thaw_levels.newCollision` (into THAW's collision before converting, back in THAW's frame, a new BSP tree and reaches each) and `thugpro_new.mergeScene` (into the converted scene; materials ours where the checksum is ours, else THUGPRO's with its textures - a texture checksum ours uses for other pixels gets `thugpro_new_<hex>`) | THUGPRO's `data\pre\<level>scn.prx` / `col.prx` (only `levels\<level>\<level>.*`: the scn.prx also carries its sky) |
+| TPN-THAW-2 | THAW meshes THUGPRO reshaped (`op` set: ours replaced by THUGPRO's; `remove` where it emptied one): 51 sectors, 46 collision objects, 1 removed (Hollywood's `Z_HO_Box04`) - e.g. Minneapolis' cars' collision, Vans' machines, Hollywood's signs and fire escape, Downtown's 99Cent_02 and Objects_Mesh23 (their nodes already moved by TP-5), the trigger planes of the teleports, Casino's elevator and backdrop, Santa Monica's carousel | Where a skater collides: the same shapes on both sides | as TPN-THAW-1 (a `set` only where the conversion has ours: a sector we leave out stays out) | as TPN-THAW-1 |
+| TPN-THAW-3 | THUGPRO's content nodes (`op` add): 58 - the new meshes' nodes (garage, DDR machine, glows, shadows, plants, elevator floor), Kyoto's 4 cars and 10 peds, Santa Cruz's 3 cars, Kyoto's 3 sound proximity nodes | The nodes that make the meshes exist (CreatedAtStart, collision mode, trick objects) and the level's life | appended to THAW's array before converting (`thaw_levels.addNewNodes`: Pos back in THAW's frame, Links by name), then made as THAW's are - cars and peds our port's way (THUG2's ped AI, Car_Generic01; THUGPRO's car script read to tell a driving car: `PortedNodes.drivers`) | THUGPRO's `data\pre\<level>_scripts.prx` node array (compressed nodes expanded) |
+| TPN-THAW-4 | THUGPRO's scripts (`op` add, or set: replacing our translation of the THAW script of that name) and the TriggerScripts naming them (`op` set): Chicago's 8 CTF / team-flag scripts (Team_Flag), Vans' 4 CTF bases (Team_Flag_Base), Santa Cruz's 8 parking meters (with its SZ_Natas_Meters_Check, SZ_BustedMeterEffect), East LA's coin08 (with its COIN, THUGPRO_SafeKill), The Mall's door sound (MA_Dooropening), East LA's glass that breaks the second pane silently (6 trigger scripts, EL_GoldlineGlass) - 37 scripts, 21 TriggerScripts | Behaviour as THUGPRO's (names don't travel; CTF bases and flags work the same) | appended to the level's .qb as THUGPRO's compiled bytes (`script_port.appendScripts`; ours of the same name taken out first, `thugpro_new.removeScripts`); never one THUG2 defines. A script naming a node ours hasn't (`name=X` or `X:` - on a missing object a statement runs on the skater) is left out at convert time and reported | THUGPRO's level `.qb` files and `thugpro_qb.prx`; each root's THUGPRO dependencies found by `--extract-thugpro` |
+| TPN-THAW-5 | THUGPRO's host level options (`op` add, kind level_option): their toggle scripts `<level>_LEVEL_CHANGE_0n` (Minneapolis 2 - its garage on by default -, The Mall 1, Santa Cruz 1, East LA 6, Oil Rig 2) and the level's `<zone>_LoadingSounds` (11 levels) | THUGPRO's state after loading: its gameflow runs HandleLevelOptionObjects, which calls each toggle `on` / `off` by its SERVER_LEVEL_CHANGE_0n_ON flag (off unless the level's setup sets it); switching them is THUGPRO's host setting in its messages 155-159 - a later protocol layer | a setup script `<level>_thugpro_setup` (the level structure's `setup_script`, run by load_level and reset_level) calling the loading sounds and each toggle with its default | as TPN-THAW-4 |
+
+Left out of `thugpro_new` (listed per area in `left_out`, with the reason): `Cylinder01` (THAW's own sky dome from
+THUGPRO's bundled `thaw_sky.scn.xbx` - ours converts THAW's sky itself); the peds' scripts (Minneapolis' 30 and Kyoto's
+4 life nodes' Ped_Stand_Script, Kyoto's peds' Ped_Outside_* - our port makes its peds its own way); East LA's cop car and
+Oil Rig's ferry (not there at the start - our port makes only the cars that are; so their models `veh_bh_cop` /
+`veh_ferry` aren't needed); Minneapolis' 21 cones / signs / chairs (LevelObjects without a scene sector in THUGPRO's
+level or ours); the TriggerScripts of nodes our port leaves out (Downtown's dog, Santa Monica's 2 performers); THUGPRO's
+banners (`<level>_LevelChanges` in `_thugpro.qb`: its own branding, placed by its run-time dynamic objects) and its
+time-of-day scripts (compiled without names, driven by its TOD state); and every script that needs a command THUG2
+hasn't (`_needs_cpp`): **TriggerType** (THUGPRO's C++: about 100 gap scripts in CH, DN, EL, HO, SV, DT, LV, SR, SV2, SZ,
+JA gated by GetTriggerArray / TriggerType - e.g. Chicago's), and THAW commands THUGPRO implemented
+(CinematicCamera_DoMorph / _Pan, PlayIGCCamScene, IGC_Camera_MoveToPlayer, SpawnScriptLater / SpawnScriptNow,
+IsCreated, ChangeNodeFlag, DeleteGapFromScore, StickerOn, GoalManager_SetFloatTipVisibility). Proposed: our own
+implementations in this project's C++ style (src/game/script), with a comment crediting THUGPRO's behaviour - never a
+copy; TriggerType first (it gates gap scoring), reading the skater's last trigger kind as THUGPRO's GetTriggerArray
+encodes it.
+
+## Our own changes (port_changes) - THAW
+
+`thaw_levels.json` `port_changes` `entries`: what this project changes in THAW's levels that is neither THAW's data
+nor THUGPRO's. Applied whatever the profile (also `--compat none`); `--no-port-changes` leaves out all but the
+`required` ones (the level needs them to load); each entry's `switch` is what `thaw_levels.ts` checks (`portChange`).
+Read through `compat.portChanges`. (The Mall's `Z_MA_Mall_First_Rail_Blocker` was left out here until 2026-10-20: the
+user restored it - THAW and THUGPRO keep it; there is no entry for it.)
+
+| Id | op | Required | What | Why |
+|---|---|---|---|---|
+| PC-THAW-1 | set | | Every area with a `<zone>_Zone_Origin` node moved by minus its Pos (whole sixteenths): nodes, particles, scene, collision (`frameShift`; THUGPRO's frame is `thugproFrame`) | Areas near the origin: float precision, the network's +-16,384 range. Off: THAW's own world frame (then TP-2 / TP-3 change nothing) |
+| PC-THAW-2 | remove | | Night-only sectors (`*NightOn*`, `*_tod_light*`) | THAW shows them only at night; the ports are lit as by day |
+| PC-THAW-3 | remove | | LOD copies (the sectors a node names as LOD_Name) | THUG2 would draw both copies |
+| PC-THAW-4 | set | | Breakables as THUG2 shatters: a geometry node whose TriggerScript shatters it gets PlaySound + Shatter + Kill, non-collidable trigger faces, no Type (`breakableScripts`) | Glass skated through as in THAW. **Under audit** (not changed here): it assumes ShatterAndDie is THAW-only, but THUG2 has ShatterAndDie (SK4_Scripts.qb) and BloodSplat (bails.qb); it also drops MA_KillStickers, so The Mall's "closed / cerrado" sticker floats after its glass breaks |
+| PC-THAW-5 | remove | yes | TrickObject / Cluster off geometry nodes without a scene sector | ParseNodeArray 0x00588630 reads through the missing sector: a crash |
+| PC-THAW-6 | set | | Restarts over nothing or a kill zone: no network spawn types, no kill targets (`nodes.groundRestarts`) | A spawn there falls for ever or dies at once |
+| PC-THAW-7 | remove | yes | Collision trigger flags but on kill zones, breakables and geometry whose script we bring | THUG2 runs a trigger face's TriggerScript without checking it exists: a crash |
+| PC-THAW-8 | remove | yes | A pass blending by the previous pass's alpha after another such pass (blend 12 / 13) | THUG2's pixel shader doesn't assemble: Santa Monica crashed loading |
+| PC-THAW-9 | remove | yes | Billboard sectors | Their billboard data isn't converted: THUG2 can't draw them |
+| PC-THAW-10 | remove | yes | Face flags 0x2000-0x8000, pass flags THUG2 hasn't the data for, blend modes past 13 (made 5) | Not THUG2's meanings |
+| PC-THAW-11 | set | yes | Path followers, peds and cars AbsentInNetGames (`nodes.netGameNodes`) | No path manager / ped animations in network games |
+| PC-THAW-12 | set | yes | Peds, cars, objects, particles, game-mode flags made THUG2's way; goal / story / animal peds, cars not there at the start, objects without a sector left out (`thaw_scripts.PortedNodes`) | THAW's components and scripts don't exist in THUG2 |
+
+`--no-port-changes` switches off PC-THAW-1, -2, -3, -4 and -6; the required ones stay (their code isn't switched).
 
 Left as our port makes it (not THUGPRO's choice, and matching it isn't safe or possible - `thugpro_inventory.ts --ours`
 lists them under "our port's own"): TrickObject / Cluster off 365 geometry nodes without a scene sector (THUGPRO keeps
@@ -315,6 +359,14 @@ To drop an entry from the files and translate on the wire instead (per session, 
   `thps3_levels.json` to leave out one entry. Regenerate: `node tools/thps3_levels/thugpro_compare.ts --extract-thugpro
   tools/compat/thugpro/thps3_levels.json`; check: `node tools/thps3_levels/thugpro_inventory.ts --thug2 <folder>
   --applied`.
+- TPN-THAW-1 ... TPN-THAW-5 (thugpro_new): nothing of them travels but the host options' state (THUGPRO's messages
+  155-159). A run-time alternative: keep THAW's level in the files and load THUGPRO's pieces only when the session's
+  peer is THUGPRO (a second scene / collision / script set per level, read from its install as now). Without them:
+  `node tools/thaw_levels/thaw_levels.ts convert --no-thugpro-new` (or `--compat none`); regenerate the references
+  with `node tools/thaw_levels/thugpro_compare.ts --extract-thugpro`. The host options need a protocol layer for
+  155-159 whatever the files are.
+- port_changes (PC-THAW-n): not THUGPRO's - nothing to translate. `--no-port-changes` gives THAW's own data where a
+  level can load without the change.
 - TP-2 / TP-3: add / subtract the per-level offset to every world position sent / received (0x23 object updates,
   0x48 RunScript parameters, 0x8F / 0x95 scavenger drops, any positional KOTH / CTF event) before the int16 packing;
   watch the range at the edges.
