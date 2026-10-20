@@ -22,7 +22,9 @@ Names (online play with THUGPRO: a level is known online only by its load script
 THPS4 names it - `alc`, `cnv`, `hof`, `jnk`, `kon`, `lon`, `sf2`, `sch`, `zoo`, `motox` (Load_alc, Level_alc,
 alc_NodeArray), as THUGPRO's THPS4 ports are; the skate shop stays `thps4_skateshop` on disk (THUG2's own skate shop
 is `skateshop`, and the front end's backdrop loads it by that name) and its load script is `Load_practice` - THUGPRO's
-name for it, from the compatibility profile (`tools/compat/thugpro/thps4_levels.json`, TP-20). `--compat none` leaves
+name for it, from the compatibility profile (`tools/compat/thugpro/thps4_levels.json`, TP-20). The profile also
+gives the skate shop THUGPRO's King of the Hill crown and 8 multiplayer spawns (TP-21: places only, extracted with
+`thugpro_compare.ts --extract-thugpro`; the nodes are made in our form by `thps4_levels.addNetNodes`). `--compat none` leaves
 the profile out (Load_thps4_skateshop); `--legacy-names` names every level `thps4_<lvl>` as before. Saved level editor
 layouts of the old names: `node tools/thps4_levels/migrate_layouts.ts --game <folder>`. Comparison with THUGPRO's
 install (read only): `node tools/thps4_levels/thugpro_compare.ts --thug2 <folder>` (docs/pending/thps4-thugpro.md).

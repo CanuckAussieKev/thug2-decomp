@@ -13,13 +13,16 @@
 //
 //   node tools/thps4_levels/thugpro_compare.ts [levels...] [--thug2 C:\Games\THUG2-2] [--thugpro <dir>]
 //        [--staging <dir>] [--legacy-names] [--json out]
+//   node tools/thps4_levels/thugpro_compare.ts --extract-thugpro [--thugpro <dir>] [--thps4 C:GamesTHPS4]
+//        (TP-21: writes THUGPRO's skate shop crown and spawns into tools/compat/thugpro/thps4_levels.json)
 
 import * as fs from "node:fs";
+import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import * as colCheck from "../level_port/col_check.ts";
 import * as prx from "../level_port/prx.ts";
 import * as qb from "../level_port/qb.ts";
-import { Name, type QbValue, Struct } from "../level_port/qb.ts";
+import { Name, type QbValue, Struct, Vector } from "../level_port/qb.ts";
 import * as thug2Col from "../level_port/thug2_col.ts";
 import {
     Float,
@@ -47,7 +50,7 @@ import {
     sequence,
     TOLERANCE,
 } from "../thaw_levels/thugpro_compare.ts";
-import { LEVELS, levelName, loadName, STAGING } from "./thps4_levels.ts";
+import { LEVELS, levelName, loadName, type NetNodes, type Placement, STAGING } from "./thps4_levels.ts";
 
 const DEFAULT_THUGPRO = pyJoin(process.env.LOCALAPPDATA ?? "", "THUG Pro");
 
@@ -197,11 +200,78 @@ export function compare(base: string, oursDir: string, thugpro: string, legacy =
     return out;
 }
 
+// --- TP-21: extracting THUGPRO's network-game nodes into the compatibility profile ----------------------------------
+
+// The levels whose THUGPRO crowns and multiplayer spawns the profile takes (the user's approval, 2026-10-20: TP-21).
+export const NET_NODE_LEVELS = ["SkateShop"];
+export const PROFILE_FILE = fileURLToPath(new URL("../compat/thugpro/thps4_levels.json", import.meta.url));
+
+const values = (v: QbValue | undefined): number[] => (v instanceof Vector ? [...v.values] : [0.0, 0.0, 0.0]);
+
+// THUGPRO's crowns and multiplayer restarts of a THPS4 level: the ones THPS4 hasn't (by name: THPS4's own node
+// array) as places, THPS4's own restarts THUGPRO made multiplayer by name. Only places are taken - the nodes are made
+// by thps4_levels.addNetNodes in our form.
+export function extractNetNodes(base: string, thugpro: string, thps4Dir: string): NetNodes {
+    const key = thugproName(base);
+    const scripts = prxFile(thugpro, `${key}_scripts.prx`);
+    const data = scripts === null ? null : prx.find(scripts, `levels\\${key}\\${key}.qb`);
+    if (data === null) pyExit(`THUGPRO has no levels\\${key}\\${key}.qb`);
+    const [theirs, theirNames] = nodeArray(data, `${key}.qb`);
+    const folder = findPath(thps4Dir, "Game", "data", "levels", base);
+    const ownFile = folder === null ? null : findPath(folder, `${base}.qb`);
+    if (ownFile === null) pyExit(`no THPS4 ${base}.qb in ${thps4Dir}`);
+    const own = new qb.QbFile(fs.readFileSync(ownFile), ownFile).get("NodeArray");
+    const ownNames = new Set(
+        (Array.isArray(own) ? own : []).filter((n): n is Struct => n instanceof Struct).map(nameOf),
+    );
+    const out: NetNodes = { crowns: [], restarts: [], multiplayer: [] };
+    const place = (n: Struct): Placement => ({ pos: [...position(n)!], angles: values(n.get("Angles")) });
+    for (const n of theirs) {
+        if (!(n instanceof Struct)) continue;
+        const nm = nameOf(n);
+        const mine = nm !== null && ownNames.has(nm);
+        if (isCrown(n)) {
+            if (mine) pyExit(`${base}: THUGPRO's crown ${theirNames.get(nm!)} is THPS4's: not handled`);
+            out.crowns.push(place(n));
+        } else if (isMpRestart(n)) {
+            if (!mine) out.restarts.push(place(n));
+            else if (out.restarts.length) pyExit(`${base}: THPS4's restarts after THUGPRO's added ones: not handled`);
+            else out.multiplayer.push(theirNames.get(nm!) ?? hex8(nm!));
+        }
+    }
+    return out;
+}
+
+function extract(thugpro: string, thps4Dir: string): number {
+    const profile = JSON.parse(fs.readFileSync(PROFILE_FILE, "utf-8")) as Record<string, unknown>;
+    const section: Record<string, unknown> = {
+        _register: "TP-21",
+        _source:
+            "THUGPRO's installed data\\pre\\<level>_scripts.prx node arrays, extracted by " +
+            "`node tools/thps4_levels/thugpro_compare.ts --extract-thugpro` (places only: pos = THUG2's Pos axes)",
+    };
+    for (const base of NET_NODE_LEVELS) {
+        const net = extractNetNodes(base, thugpro, thps4Dir);
+        section[base] = net;
+        print(
+            `${base}: ${net.crowns.length} crown(s), ${net.restarts.length} added restart(s), THPS4's made ` +
+                `multiplayer: ${net.multiplayer.join(", ") || "none"}`,
+        );
+    }
+    profile.net_nodes = section;
+    fs.writeFileSync(PROFILE_FILE, `${JSON.stringify(profile, null, 2)}\n`, "utf-8");
+    print(`wrote ${PROFILE_FILE}`);
+    return 0;
+}
+
 const USAGE =
     "usage: thugpro_compare.ts [-h] [--thug2 THUG2] [--thugpro THUGPRO] [--staging STAGING] [--legacy-names] " +
-    "[--json JSON] [levels ...]";
+    "[--json JSON] [--extract-thugpro] [--thps4 THPS4] [levels ...]";
 
 const OPTIONS = {
+    // TP-21: (re)write the profile's net_nodes from THUGPRO's install (and THPS4's, to tell its own nodes apart)
+    "extract-thugpro": { type: "boolean" },
+    thps4: { type: "string" },
     thug2: { type: "string" },
     thugpro: { type: "string" },
     staging: { type: "string" }, // our converted levels (default <thug2>\thug2-decomp-thps4\levels)
@@ -222,6 +292,7 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
     const v = parsed.values;
     const thug2 = v.thug2 ?? "C:\\Games\\THUG2\\Game";
     const thugpro = v.thugpro ?? DEFAULT_THUGPRO;
+    if (v["extract-thugpro"]) return extract(thugpro, v.thps4 ?? "C:\\Games\\THPS4");
     const oursDir = v.staging || pyJoin(thug2, STAGING, "levels");
     const legacy = !!v["legacy-names"];
     let bases = [...LEVELS];

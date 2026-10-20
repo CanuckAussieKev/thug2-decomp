@@ -23,7 +23,7 @@ import * as nodes from "../level_port/nodes.ts";
 import * as pedsCars from "../level_port/peds_cars.ts";
 import * as portedLevels from "../level_port/ported_levels.ts";
 import * as qb from "../level_port/qb.ts";
-import { Name, Struct } from "../level_port/qb.ts";
+import { Name, Struct, Vector } from "../level_port/qb.ts";
 import * as scriptPort from "../level_port/script_port.ts";
 import * as tex from "../level_port/tex.ts";
 import { parseConverterArgs } from "../lib/converter_args.ts";
@@ -74,7 +74,20 @@ export const INFO: Readonly<Record<string, readonly [string, string]>> = {
 // A load script name that is THUGPRO's choice, not THPS4's (the skate shop's Load_practice), comes from the
 // compatibility profile tools/compat/thugpro/thps4_levels.json (README.md there: TP-20...; --compat none leaves it out).
 export const THUG2_NAMES: ReadonlySet<string> = new Set(["skateshop"]);
-export const COMPAT = { loadNames: new Map<string, string>() };
+// The network-game nodes a level gets from the profile (TP-21: THUGPRO's King of the Hill crown and multiplayer
+// spawns in the skate shop, which THPS4 - single player there - has none of): places only (world frame, THUG2's Pos
+// axes, and Angles), extracted from THUGPRO's install by thugpro_compare.ts --extract-thugpro; the nodes are made
+// here in our own form. `multiplayer`: THPS4's own restarts that become multiplayer spawns too.
+export interface Placement {
+    pos: number[];
+    angles: number[];
+}
+export interface NetNodes {
+    crowns: Placement[];
+    restarts: Placement[];
+    multiplayer: string[];
+}
+export const COMPAT = { loadNames: new Map<string, string>(), netNodes: new Map<string, NetNodes>() };
 
 // The compatibility profile's THPS4 data (tools/compat/compat.ts): "thugpro" (the default) or "none".
 export function setCompat(name: string): void {
@@ -82,6 +95,85 @@ export function setCompat(name: string): void {
     COMPAT.loadNames = new Map(
         Object.entries(profile.section("thps4_levels", "load_names")).map(([k, v]) => [k.toLowerCase(), String(v)]),
     );
+    COMPAT.netNodes = new Map(
+        Object.entries(profile.section("thps4_levels", "net_nodes")).map(([k, v]) => [k.toLowerCase(), v as NetNodes]),
+    );
+}
+
+const vector = (values: readonly number[]): Vector => new Vector("vector", [...values]);
+
+// The drop-in every added (or made multiplayer) spawn runs: THPS4's practice run started the skater at
+// TRG_SS_SkaterDropIn with MakeSkaterGoto DropIn (start_practice_run_skater); THUG2's skater has DropIn.
+export const dropInName = (level: string): string => `${level}_net_dropin`;
+
+// TP-21 (tools/compat/thugpro/thps4_levels.json net_nodes): the profile's crowns and multiplayer spawns added to the
+// converted nodes (in place: their order is the order online - a crown is picked by its index), THPS4's restarts it
+// names made multiplayer ones. Returns the NeverScript to add (the drop-in script) or "".
+export function addNetNodes(
+    base: string,
+    level: string,
+    converted: Struct[],
+    names: Map<number, string>,
+    report: string[],
+): string {
+    const net = COMPAT.netNodes.get(base.toLowerCase());
+    if (net === undefined) return "";
+    const key = (text: string): Name => {
+        const value = qb.checksum(text);
+        if (!names.has(value)) names.set(value, text);
+        return new Name(value);
+    };
+    const dropIn = key(dropInName(level));
+    // (a legacy Position: THPS4's own nodes' form here, z negated from THUG2's Pos)
+    const position = (p: readonly number[]): Vector => vector([p[0]!, p[1]!, -p[2]!]);
+    for (const wanted of net.multiplayer) {
+        const node = converted.find((n) => {
+            const nm = n.get("Name");
+            return nm instanceof Name && nm.value === qb.checksum(wanted) && nodes.classOf(n, names) === "restart";
+        });
+        if (node === undefined) throw new FormatError(`${base}: TP-21 names ${wanted}, not a restart of the level`);
+        const types = node.get("restart_types");
+        const listed = Array.isArray(types) ? [...types] : [];
+        for (const t of ["Multiplayer", "Horse"]) {
+            if (!listed.some((x) => x instanceof Name && x.value === qb.checksum(t))) listed.push(key(t));
+        }
+        node.entries = node.entries.filter(([k]) => !(k !== null && k.value === qb.checksum("restart_types")));
+        node.entries.push([key("restart_types"), listed]);
+        if (node.get("TriggerScript") === undefined) node.entries.push([key("TriggerScript"), dropIn]);
+    }
+    net.restarts.forEach((r, i) => {
+        const n = String(i + 1).padStart(2, "0");
+        converted.push(
+            new Struct([
+                [key("Position"), position(r.pos)],
+                [key("Angles"), vector(r.angles)],
+                [key("Name"), key(`TRG_Net_Restart${n}`)],
+                [key("Class"), key("Restart")],
+                [key("Type"), key("Multiplayer")],
+                [null, key("CreatedAtStart")],
+                [key("RestartName"), `Multi: Restart ${n}`],
+                [key("restart_types"), [key("Multiplayer"), key("Horse")]],
+                [key("TriggerScript"), dropIn],
+            ]),
+        );
+    });
+    net.crowns.forEach((c, i) => {
+        converted.push(
+            new Struct([
+                [key("Position"), position(c.pos)],
+                [key("Angles"), vector(c.angles)],
+                [key("Name"), key(`TRG_KOTH${String(i + 1).padStart(2, "0")}`)],
+                [key("Class"), key("GenericNode")],
+                [key("Type"), key("Crown")],
+                [null, key("CreatedAtStart")],
+            ]),
+        );
+    });
+    report.push(
+        `  ${base}: TP-21 - ${net.multiplayer.length} restart(s) made multiplayer, ${net.restarts.length} spawn(s) and ` +
+            `${net.crowns.length} crown(s) added`,
+    );
+    return `script ${dropInName(level)} {\n    MakeSkaterGoto DropIn \n}\n`;
 }
 
 setCompat("thugpro"); // (the default, also for the tools that import this one: thugpro_compare, migrate_layouts)
@@ -390,9 +482,11 @@ export function cmdConvert(args: Args): void {
                 }
             }
         }
+        // (TP-21: the profile's network-game nodes - before the peds and cars, which stay the array's last nodes)
+        const netScripts = addNetNodes(base, name, converted, names, report);
         pedsCars.offsetLinks(moving, converted.length);
         let text = nodes.nodeArrayNs(`${name}_NodeArray`, [...converted, ...moving], names, kills);
-        text += pedsCars.scriptsNs(movingScripts) + extraText;
+        text += pedsCars.scriptsNs(movingScripts) + extraText + netScripts;
         // (a TrickObject without its sector crashes the loader: convertScene leaves skinned sectors out)
         text = createdInPlay(text, base, report);
         const [stripped, cleared] = nodes.stripMissingTrickObjects(text, sceneSectors(scene4));

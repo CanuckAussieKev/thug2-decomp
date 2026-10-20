@@ -11,7 +11,7 @@ import { Tok } from "../level_port/script_port.ts";
 import { hex8 } from "../lib/py.ts";
 import { pack } from "../lib/struct.ts";
 import { KEEP, main as migrate, renames } from "./migrate_layouts.ts";
-import { COMPAT, levelName, loadName, setCompat, skyName } from "./thps4_levels.ts";
+import { addNetNodes, COMPAT, levelName, loadName, setCompat, skyName } from "./thps4_levels.ts";
 import { GAME_MODE_NAMES, isEmptyScript, makeSkaterGoto, setupName } from "./thps4_scripts.ts";
 
 test("levels take THPS4's own names; the skate shop stays prefixed, its load script the profile's", () => {
@@ -83,4 +83,33 @@ test("migrate_layouts renames a thps4_<lvl> layout to the level's new scene", ()
     } finally {
         fs.rmSync(game, { recursive: true });
     }
+});
+
+test("TP-21: the profile's crown and spawns added in our form; --compat none adds nothing", () => {
+    const names = new Map<number, string>([
+        [qb.checksum("Class"), "Class"],
+        [qb.checksum("Restart"), "Restart"],
+    ]);
+    const restart = (): qb.Struct =>
+        new qb.Struct([
+            [new qb.Name(qb.checksum("Name")), new qb.Name(qb.checksum("TRG_SS_SkaterDropIn"))],
+            [new qb.Name(qb.checksum("Class")), new qb.Name(qb.checksum("Restart"))],
+            [new qb.Name(qb.checksum("restart_types")), [new qb.Name(qb.checksum("Generic"))]],
+        ]);
+    setCompat("none");
+    const plain = [restart()];
+    assert.equal(addNetNodes("SkateShop", "thps4_skateshop", plain, names, []), "");
+    assert.equal(plain.length, 1);
+    setCompat("thugpro");
+    const net = COMPAT.netNodes.get("skateshop")!;
+    const converted = [restart()];
+    const script = addNetNodes("SkateShop", "thps4_skateshop", converted, names, []);
+    assert.match(script, /^script thps4_skateshop_net_dropin \{\n {4}MakeSkaterGoto DropIn/);
+    assert.equal(converted.length, 1 + net.restarts.length + net.crowns.length);
+    const types = converted[0]!.get("restart_types") as qb.Name[];
+    assert.deepEqual(
+        types.map((t) => t.value),
+        ["Generic", "Multiplayer", "Horse"].map(qb.checksum),
+    );
+    assert.equal(addNetNodes("Alc", "alc", [], names, []), "");
 });
