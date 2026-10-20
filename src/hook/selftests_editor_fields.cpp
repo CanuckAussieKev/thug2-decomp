@@ -185,8 +185,14 @@ void TestEditorFieldsRecords()
     Value back;
     Check(!Fields::DecodeValue("x:1", &back) && !Fields::DecodeValue("i:1.5", &back) &&
               !Fields::DecodeValue("flag:2", &back) && !Fields::DecodeValue("s:%4", &back) &&
-              !Fields::DecodeValue("s:%00", &back) && !Fields::DecodeValue("12", &back),
-          "editor fields: malformed record values refused");
+              !Fields::DecodeValue("s:%00", &back) && !Fields::DecodeValue("12", &back) &&
+              !Fields::DecodeValue("flag:on", &back),
+          "editor fields: malformed record values refused (a record's flag is 0 or 1)");
+    // A name table entry whose checksum isn't that name's (a collision, a stale entry): written as 0x hex.
+    auto wrong = [](uint32_t c) -> const char* { return c == 0xDEADBEEF ? "Player1" : nullptr; };
+    Check(Fields::RecordName(0xDEADBEEF, wrong) == "0xDEADBEEF" &&
+              Fields::RecordName(Fields::NameChecksum("Player1"), TestNames) == "Player1",
+          "editor fields: records write a name only when it is that checksum's");
 
     // The f.<field>= tokens: a name when known, else 0x hex; del for a field taken out.
     Fields::Edit edit;
