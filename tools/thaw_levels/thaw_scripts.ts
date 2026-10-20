@@ -52,9 +52,12 @@ export const MADE_SCRIPTS =
     `script ${CAR_DRIVE} {\n    Car_Generic01 \n}\n`;
 
 // THAW's rail speed-up (skutils.qb's RailAccelerate, the trigger script of uphill rails: while the skater grinds the
-// rail and climbs, 5% more speed a frame). THAW's checks the trigger type first (land / onto: THUG2 has no
-// TriggerType - the climb loop ends as soon as the skater is off the rail anyway) and spawns the loop through the
-// skater's id (`<objid>:Obj_SpawnScriptLater`); a rail's trigger script runs on the skater here, so Obj_SpawnScript.
+// rail and climbs, 5% more speed a frame). THAW's checks the trigger type first (`if TriggerType {land onto}`); this
+// one doesn't yet - THUG2 has TriggerType too (the Trigger component's member, in its CallMemberFunction switch at
+// 0x00434970, so not in the member tables script_port reads), but THAW passes flags where THUG2 takes GetTriggerArray's
+// numbers: the translation is script_port's (shared), and this check is wired to it when that lands. Meanwhile the
+// climb loop ends as soon as the skater is off the rail anyway. THAW's spawns the loop through the skater's id
+// (`<objid>:Obj_SpawnScriptLater`); a rail's trigger script runs on the skater here, so Obj_SpawnScript.
 // (Written from THAW's own script; THUGPRO has one of the same shape in its thugpro_utils.q.)
 export const RAIL_ACCELERATE = "RailAccelerate";
 export const RAIL_SCRIPTS = `script RailAccelerate {
@@ -139,9 +142,47 @@ function setDefault(names: Map<number, string>, value: number, text: string): vo
     if (!names.has(value)) names.set(value, text);
 }
 
+const IN_MANUAL = checksum("InManual");
+const SKATER_NAME = checksum("Skater");
+const NAMES_MADE = ["GetSingleTag", "state", "Skater_InManual", "IsAlive"];
+
+// THAW's InManual (`if [not] [skater:]InManual`), a skater member THUG2 hasn't: THUG2 keeps the skater's state in its
+// tags - its own ShatterAndDie asks `GetSingleTag state` and compares `<state> = Skater_InManual`. The `if` (THAW
+// tokens from k: 0x47, then [0x39] [skater 0x42] InManual and the line's end) as `[skater:]GetSingleTag state` and
+// `if [not] (<state> = Skater_InManual)`; returns the index of the line's end, or null when the condition isn't that.
+function inManual(toks: readonly qb.Token[], k: number, out: Tok[]): number | null {
+    let j = k + 1;
+    const not = toks[j]?.[1] === 0x39;
+    if (not) j += 1;
+    let prefix: number | null = null;
+    if (toks[j]?.[1] === 0x16 && u32(toks[j]![2]) === SKATER_NAME && toks[j + 1]?.[1] === 0x42) {
+        prefix = SKATER_NAME;
+        j += 2;
+    }
+    const name = toks[j];
+    const end = toks[j + 1];
+    if (name === undefined || name[1] !== 0x16 || u32(name[2]) !== IN_MANUAL) return null;
+    if (end === undefined || !scriptPort.EOL.includes(end[1])) return null;
+    const none = Buffer.alloc(0);
+    const n = (text: string, i: number): Tok => scriptPort.nameTok(checksum(text), i);
+    if (prefix !== null) out.push(scriptPort.nameTok(prefix, k), new Tok(0x42, none, k));
+    out.push(n("GetSingleTag", k), n("state", k), new Tok(0x01, none, k), new Tok(0x25, none, k));
+    if (not) out.push(new Tok(0x39, none, k));
+    out.push(
+        new Tok(0x0e, none, j),
+        new Tok(0x2d, none, j),
+        n("state", j),
+        new Tok(0x07, none, j),
+        n("Skater_InManual", j),
+        new Tok(0x0f, none, j),
+    );
+    return j + 1;
+}
+
 // A THAW script body as script_port's token list (Tok.i: the index of the THAW token it comes from).
 export function scriptToks(body: Uint8Array, names: Map<number, string>, label = "script"): Tok[] {
     for (const [, renamed] of RENAME_TEXT) setDefault(names, checksum(renamed), renamed);
+    for (const text of NAMES_MADE) setDefault(names, checksum(text), text);
     const toks: qb.Token[] = [...thaw.tokens(body)].map(([off, t, p]) => {
         const renamed = t === 0x16 ? RENAMES.get(u32(p)) : undefined;
         return [off, t, renamed !== undefined ? pack("<I", renamed) : p];
@@ -162,6 +203,11 @@ export function scriptToks(body: Uint8Array, names: Map<number, string>, label =
         const [off, t, p] = toks[k]!;
         if (t === 0x24) break;
         if (t === 0x47) {
+            const end = inManual(toks, k, out);
+            if (end !== null) {
+                k = end - 1; // (on with the line's end)
+                continue;
+            }
             out.push(new Tok(0x25, Buffer.alloc(0), k));
         } else if (t === 0x48) {
             out.push(new Tok(0x26, Buffer.alloc(0), k));
@@ -796,7 +842,9 @@ const LEFT_OUT_PREFIXES = ["goalmanager_", "goal_", "igc_", "playigccam", "cinem
 // own components' members too (THAW's speed boosts: GetSpeed / SetSpeed; `if Walking`...), not just script_port's
 // safe few. A context of its own (script_port's SKATER stays as the other converters have it).
 // (animblender, input, vibration: the skater has them too - THUG2's TeleportSkaterToNode, which THAW's teleports
-// call (The Mall's Trgp_teleport...), needs them; without them the teleport triggers did nothing)
+// call (The Mall's Trgp_teleport...), needs them; without them the teleport triggers did nothing; sound: the skater
+// is made with AddMotionComponents' sound component (CSkater's init, src/game/skater/skater.cpp) - THAW's breakable
+// scripts play their glass with Obj_PlaySound)
 export const SKATER: Context = scriptPort.addContext(
     "thaw_skater",
     new Set([
@@ -812,6 +860,7 @@ export const SKATER: Context = scriptPort.addContext(
         "animblender",
         "input",
         "vibration",
+        "sound",
     ]),
     scriptPort.BY_NAME[scriptPort.SKATER],
 );
@@ -819,14 +868,73 @@ export const SKATER: Context = scriptPort.addContext(
 // THUG2 scripts the skater runs that script_port.Thug2.scriptNeeds over-counts (it follows every name a script uses
 // that is also a script's - parameter names included - down through them): checked by hand to need only the
 // skater's own components. trigger_jump_boost (The Ruins' jump boosts, 10 triggers) is THAW's line for line:
-// SpawnSound, GetSkaterVelocity, SetSkaterVelocity (C functions).
-const SKATER_SCRIPTS_CHECKED = new Set([checksum("trigger_jump_boost")]);
+// SpawnSound, GetSkaterVelocity, SetSkaterVelocity (C functions). ShatterAndDie (SK4_Scripts) and BloodSplat
+// (bails.qb), which THAW's breakables call (The Mall's MA_BreakGlass...), are THAW's line for line, and THUG2's own LA
+// glass runs both on the skater the same way (LA_BreakGlass, the TRGP_ArcoWindow_* trigger script): Kill / Shatter /
+// GetGlobalFlag (C functions), the skater's tags and vibration, its blood particles (BloodParticlesOn).
+const SKATER_SCRIPTS_CHECKED = new Set(["trigger_jump_boost", "ShatterAndDie", "BloodSplat"].map(checksum));
+
+// THAW's IsCreated (is that node's object / sector there) as THUG2's IsAlive name=<it>: CFunc_IsAlive (0x005A5380 ->
+// 0x005A4EF0 -> 0x005A3D10) looks the node up and goes by its Class - for these classes an object's composite object,
+// a LevelGeometry's sector (THUG2's AP: `IsAlive name=palms_01`), a rail's; any other class is false. It reads the
+// node's Class without checking the node is there (0x0045CFC0 returns null for a name the node array hasn't): only
+// for the converted level's nodes of these classes - IsCreated of anything else (a parameter, a node not kept, the
+// skater...) is left out as before (a condition on it false).
+const IS_CREATED = checksum("IsCreated");
+const IS_ALIVE_CLASSES = new Set([
+    "gameobject",
+    "pedestrian",
+    "ped",
+    "vehicle",
+    "levelobject",
+    "particleobject",
+    "skater",
+    "levelgeometry",
+    "railnode",
+    "climbingnode",
+]);
 
 export class Translator extends scriptPort.Translator {
+    // the converted level's nodes: name -> class (lower case), for IsCreated
+    nodeClasses = new Map<number, string>();
+
     override thug2ScriptOk(name: number, contexts: Iterable<Context>): boolean {
         const list = [...contexts];
         if (SKATER_SCRIPTS_CHECKED.has(name) && list.every((c) => c === SKATER)) return true;
         return super.thug2ScriptOk(name, list);
+    }
+
+    // `IsCreated X` / `IsCreated {X}` / `IsCreated name=X` as `IsAlive name=X` (above), or null (noted).
+    isCreated(toks: Tok[]): Tok[] | null {
+        if (toks.some((t) => t.t === 0x2d || t.t === 0x2c)) {
+            // (`IsCreated <water_node_1>`: whatever the caller passed - maybe not a node)
+            this.note("IsCreated: of a parameter");
+            return null;
+        }
+        const args = scriptPort.argsOf(toks.slice(1));
+        const [key, value] = args[0] ?? [null, null];
+        if (args.length !== 1 || (key !== null && key !== checksum("name")) || value?.t !== 0x16) {
+            // (East LA's `IsCreated Z_EL rail_446`: two names - THAW's slip)
+            this.note("IsCreated: form");
+            return null;
+        }
+        const target = value.name()!;
+        const cls = this.nodeClasses.get(target);
+        if (cls === undefined || !IS_ALIVE_CLASSES.has(cls)) {
+            this.note(
+                cls === undefined
+                    ? `IsCreated: not a converted node: ${this.text(target)}`
+                    : `IsCreated: a ${cls} (IsAlive is false for it): ${this.text(target)}`,
+            );
+            return null;
+        }
+        const i = toks[0]!.i;
+        return [
+            scriptPort.nameTok(checksum("IsAlive"), i),
+            scriptPort.nameTok(checksum("Name"), i),
+            new Tok(0x07, Buffer.alloc(0), i),
+            scriptPort.nameTok(target, i),
+        ];
     }
 
     override command(toks: Tok[], contexts: ReadonlySet<Context>, discover: boolean): Tok[] | null {
@@ -835,6 +943,11 @@ export class Translator extends scriptPort.Translator {
             // name=<x> too: THUG2 looks its scene sector up and reads through the null)
             this.note("geometry without a scene sector named");
             return null;
+        }
+        if (toks.length && toks[0]!.t === 0x16 && toks[0]!.name() === IS_CREATED) {
+            const alive = this.isCreated(toks);
+            if (alive === null) return null;
+            toks = alive;
         }
         if (toks.length && toks[0]!.t === 0x16) {
             const text = this.text(toks[0]!.name()!).toLowerCase();
@@ -877,6 +990,10 @@ export function portScripts(
         undrawn,
         objects: made.objectContexts,
     });
+    for (const node of converted) {
+        const name = node.get("Name");
+        if (name instanceof Name) tr.nodeClasses.set(name.value, nodes.classOf(node, names));
+    }
     const roots: [number, Context][] = [];
     for (const node of converted) {
         const script = node.get("TriggerScript");
