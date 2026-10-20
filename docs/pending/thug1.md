@@ -196,3 +196,92 @@ from ours in the same session.
   rendering data (THUGPRO's exporter) - no play effect.
 - Also THUGPRO-only (not node edits): host-toggled "level changes" in nj / ny / fl / sd / hi / vc / sc2_thugpro.qb
   (banners, teleports, HI's Luau stage / chopper / kicker) behind SERVER_LEVEL_CHANGE flags - THUGPRO's protocol.
+
+## THUGPRO hand edits: applied (TP-32 ... TP-39; agent thug1-handedits, 2026-10-20) - NOT run in the game yet
+
+The user's decision: "Everything [THUGPRO] changed needs to be in the differences files that we can control with the
+compat flag." So every hand edit that is data is now in the register (tools/compat/thugpro/README.md TP-32 ... TP-39,
+`tools/compat/thugpro/thug1_levels.json`), written by `node tools/thug1_levels/thugpro_compare.ts --extract-thugpro`
+(`thugpro_edits.handEdits`: THUGPRO's node arrays and collision against THUG1's own; never typed in) and applied by
+`tools/thug1_levels/hand_edits.ts` - the node edits to THUG1's node array before conversion (`applyNodeEdits`: our
+converter then treats them as THUG1's own), the collision edits to the converted collision (`applyColEdits`). `--compat
+thugpro` (the default) applies all; `--compat none` gives the output of before (checked: all 95 files the same, .qb
+as code + sorted names). Each section can also be dropped from the JSON on its own.
+
+What's applied (numbers from the data):
+- TP-32 moved nodes: NJ TRG_TrainTest_00-03 (the El train's path) and LO_Fluff_Chopper, HI Chopper_Hard_Rotors, RU
+  tkr_cannonRail01 / 02 (8).
+- TP-33 AbsentInNetGames: off on 1006 (SD's demo area 344 - 67 geometry, 240 rails, 36 markers, the kart; VC 350; NJ
+  189; RU 105; NY 12; HI 5; SC2 1), on for 16 (HI's 15 goal pick-ups, NJ's vis proxim).
+- TP-34 CreatedAtStart: off on 64 in 11 levels (SC2 13, NJ 19, HI 6, RU 6 - its 4 occluders, HH 8, HN 4, VC 2 -
+  trp_death_SJ -, the secret tapes and Old Skool icons), on for 7 (RU's race4 ladders 6, VC's leaf blower).
+- TP-35 values on 665 nodes: NJ's 4 class changes (dogs, skitch node, vis proxim made invisible GameObjects), rail /
+  waypoint types and terrains (NY 359, SC2 84, VN 29, HI 20, SD 17, NJ 5), clusters / TrickObject (SD's demo area 123,
+  NY 8), IgnoreTOD (NY 7), NeverSuspend (NJ 2), RU's occluders' Occluder flag and godrays' times of day, HI's tiki sound
+  types (3), doors' CollisionMode (4) and a ped waypoint's SkateAction.
+- TP-36 rails: 62 added from node data (NJ 20 ed_rail, NY 11, RU 17, VN 3, SC2 11) + NJ's reused TRG_rail_e_midhouse4_12
+  (moved to the clinic roof, retyped) and 4 links (NJ 2, NY 1, HI 1 - a ped path).
+- TP-37 face values: wall-ride 0x4 on SD 90, VC 12, RU 238, HN 74 faces; non-collidable 0x10 on RU 2; face terrain on
+  NY 39, SC2 108. Matched by object and face: by index where both have the same faces (vertex indices), else by vertex
+  places (within 0.1); every edited object's face count is checked when applied.
+- TP-38 collision out: HH's 81 props (1915 faces), SC2's 8 shadow objects (47 faces) and 4 faces of Qtr_Pipes29 (the
+  object's BSP tree and reaches rebuilt).
+- TP-39 collision reshaped: HN Inviso_SnowBlocker (17 vertices, up to 956 units), HH SE_JO_CatWalk41 (1 vertex, 4 units).
+
+Checks (all 16 converted into THUG2-3, installed with make_menu_level): `thugpro_compare.ts` per level "hand edits as
+THUGPRO's" - every applied edit shows in our output as THUGPRO has it except (our converter's doing): TP-34 the Old
+Skool icons of NJ / HI / RU and VC's leaf blower (our converter leaves them out: models not in THUG2 - THUGPRO ships
+veh_leafblower itself), TP-33 HI's 15 goal pick-ups (left out likewise), TP-35 NY's 3 LevelGeometry IgnoreTOD and RU's
+godrays' Day_On ... Night_On (our converter keeps only some keys and flags of geometry - `nodes.KEEP_KEYS / KEEP_FLAGS`:
+time-of-day rendering only). Everything else: NJ TP-32 5/5, TP-33 190/190, TP-35 12/12, TP-36 23/23; SD TP-33
+344/344, TP-35 140/140, TP-37 10/10; SC2 all; RU TP-37 4/4, TP-36 17/17... (the full table: the report, section 11).
+col_check: every face reachable in all 16; links in range and ns.exe decompiles every level; `--compat none` the same
+as before; THUG1 selfcheck 333 / 0, THPS3 323 / 0, THPS4 139 / 0, THAW 735 / 0; typecheck / lint / npm test 60 / 0
+(tools/thug1_levels/hand_edits.test.ts: JSON values, node and collision edits, the check).
+
+Not taken - translation by THUGPRO's toolchain or no effect (`--extract-thugpro` prints each with names): peds'
+settings (THPS5 -> THPS6 skeletons as ours, profiles, AI; peds are out of net games on both sides) - NJ 175, RU 144, SD
+129, SJ 111, FL 88...; goal pick-ups' models set to "none" (not in THUG2) - NJ 115, FL 64, VC 48...; trigger scripts
+taken off (goals THUGPRO doesn't port) - NJ 30, HI 19, SJ 10...; rigid-body settings dropped (NJ's folding chairs, SJ's
+crowd, HH's freak stage); SelectRenderOnly written sRenderOnly (FL 7, NJ 1: its compiler); NY's 5 rails with a terrain
+written as a flag next to their TerrainType; NY's 11 TERRAIN_GRINDRUSTYRAIL rails (not a THUG2 terrain: THUG2 reads
+through a null for an unknown one - `nodes.fixTerrains`; ours keep THUG1's TERRAIN_GRINDMETAL); empty collision
+objects dropped (NY 639, RU 462, SC2 136, HN 109, HH 30); zero-area and duplicate faces dropped (HN's 12 "reshaped"
+objects: no play effect); HH hj_DirtFloater01's vertices (within 0.07: fixed-point rounding); the scene sectors' boxes
+(NJ 1287, SC2 994: rendering).
+
+Awaiting the user's decision - THUGPRO's own content, not data (Morten's permission covers insights, not 1:1 copies):
+- NJ El train: 2 Vehicle nodes (TRG_TrainA01 / 02, Type El_Train) with THUGPRO's own model veh_El_Train (mdl 37 KB, tex
+  55 KB, col 4.6 KB, qb 1.8 KB) and scripts (TRG_TrainA0n_Script -> NJ_TrainTestLoop01 / 02: move between the
+  TRG_TrainTest waypoints - TP-32 moved those -, hide, wait, sound). AbsentInNetGames: neither side has it online;
+  single player: THUGPRO's players see a train, ours an empty track.
+- HI boat: 1 Vehicle (TRG_HI_Boat01) using THUG2's own BA boat model (veh_ba_boat, in BA_scripts.prx), with a THUGPRO
+  script (27 bytes). AbsentInNetGames; single player only.
+- VC <-> SJ transition arrows: TRG_SCJ_arrow_01 (VC) / TRG_VC_arrow_01 (SJ), GameObjects with THUGPRO's own model
+  transition_arrow (mdl 5.7 KB, tex 8.3 KB, col 1.4 KB) and script transition_arrowScript (27 bytes), plus VC's
+  TRG_Restart_SJVC (a Player1 restart) and SJ's TRG_Restart_VCSJ (a waypoint). AbsentInNetGames: online neither side
+  has them (the earlier inventory's "teleport THUGPRO players" holds for single player only).
+- Venice's gulls and bum: 3 Anl_Seagull peds using THUG2's AU seagull (model / anims in THUG2's AU archives, not loaded
+  in VN) with THUG2's AU gull scripts copied into vn.qb (au_gull, AU_Gull_Fly / Return, sounds: 630 bytes); THUG1's bum
+  TRG_546 renamed TRG_BUM_01 and given the model skater_olliethemagicbum (in neither THUG2's nor THUGPRO's archives that
+  I could find) and a THUGPRO script. All AbsentInNetGames.
+- Venice's 58 sand kill zones (Sand_* / Pit_* trigger scripts): THUGPRO calls Sk3_Killskater_sand, a script of its own
+  (qb\thugpro\thugpro_utils.qb: the smashcake sound, two more death messages, SK3_Killskater_Finish with "sand" and
+  other colours); THUG2 has no such script (its skutils.qb only names it), so it isn't a value swap. Ours keep THUG1's
+  Sk3_Killskater_Water (a splash). Local only: kills don't travel.
+- Level-script edits: NJ's 85 emptied trigger scripts (occlusion / vis / proximity triggers that Kill / Create
+  occluder and visibility sets - rendering), other emptied scripts (RU 23 tank scripts, HI 13 gap scripts, SD 11...,
+  mostly goals), added scripts (NJ 43 / 10 KB, RU 46 / 17 KB, NY 44 / 14 KB, SJ 35 / 6 KB: much of it THUGPRO's
+  compiler's own small helpers), and sound / ped-AI / car parameter changes inside scripts.
+- Host-toggled level changes: nj / ny / fl / sd / hi / vc / sc2_thugpro.qb (2.6, 3.3, 2.0, 1.2, 2.4, 1.0, 0.3 KB) behind
+  SERVER_LEVEL_CHANGE flags - THUGPRO's protocol; without it neither side runs them.
+- No new meshes or collision of THUGPRO's own in the 12 levels besides the models above (no added scene sectors or
+  collision objects).
+
+Concerns: NY's TERRAIN_GRINDRUSTYRAIL in THUGPRO's own files (a crash in THUG2 when loading an unknown rail terrain, as
+THPS3 Tokyo's typo did - unless THUGPRO adds the terrain; worth knowing for mixed games, not ours to fix); NJ's class
+changes give our NJ 4 invisible GameObjects with no script (harmless, they're THUGPRO's way of keeping goal hooks);
+TP-34 makes VC's SJ death zone (trp_death_SJ) not created, so falling there no longer kills (as THUGPRO); untested in
+the game: SD's demo area in a net game, the new rails (grind them in NJ / NY / RU / VN / SC2), wallriding the new
+faces (RU's church, SD's courtyard walls, HN's outer walls), HH props passable, RU's ladders, HN's snow blocker.
+- Shared code: none changed (tools/thug1_levels only; the register README and the profile JSON).
