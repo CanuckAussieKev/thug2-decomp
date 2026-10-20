@@ -222,10 +222,18 @@ bool __stdcall NodesTogether(const CRailNode* a, const CRailNode* b)
            !(std::fabs(static_cast<double>(a->m_pos.z) - b->m_pos.z) > 1.0);
 }
 
+namespace {
+RailClearOverride g_railClearOverride; // (NOT ORIGINAL: SetRailClearOverride)
+} // namespace
+
+void SetRailClearOverride(RailClearOverride override) { g_railClearOverride = override; }
+
 // 0x0057C600
 bool __cdecl RailClear(Mth::Vector a, Mth::Vector b)
 {
     if (*reinterpret_cast<uint32_t*>(GameVariable<uint8_t*>(0x007CE5D8) + 0x40) == 0xD443A2BC) // (the park editor's)
+        return true;
+    if (g_railClearOverride && g_railClearOverride(&a, &b)) // (NOT ORIGINAL: the level editor's flat-ground rails)
         return true;
     Feeler feeler;
     feeler.Construct();

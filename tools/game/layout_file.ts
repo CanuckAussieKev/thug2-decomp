@@ -74,6 +74,10 @@ export interface PointRecord {
     like: number;
     terrain: string;
     links: number[];
+    // (phase 4b - level_editor_chains.h) a ladder's heading; a rail's trick-object cluster (0: none), flat-ground grinding
+    facing: number;
+    cluster: number;
+    grindFlat: boolean;
 }
 export interface LevelProps {
     name?: string;
@@ -100,6 +104,8 @@ export interface Layout {
     links: { name: number; links: number[] }[];
     dropped: number[];
     terrains: { name: number; terrain: string }[];
+    facings: { name: number; facing: number }[]; // (phase 4b) level ladder points turned
+    grindFlat: number[]; // (phase 4b) level rail points grindable on flat ground
     walls: { checksum: number; placement: Placement; off: boolean }[];
     level: LevelProps;
     unknown: { line: number; kind: string; text: string }[];
@@ -293,6 +299,8 @@ export function readLayout(text: string): Layout {
         links: [],
         dropped: [],
         terrains: [],
+        facings: [],
+        grindFlat: [],
         walls: [],
         level: {},
         unknown: [],
@@ -422,8 +430,19 @@ export function readLayout(text: string): Layout {
             case "point": {
                 const name = words[1] ?? "";
                 const cls = words[2] ?? "";
-                if (!validWord(name) || (cls !== "RailNode" && cls !== "Waypoint")) fail("bad point");
-                const p: PointRecord = { name, cls, pos: { x: 0, y: 0, z: 0 }, like: 0, terrain: "", links: [] };
+                if (!validWord(name) || (cls !== "RailNode" && cls !== "Waypoint" && cls !== "ClimbingNode"))
+                    fail("bad point");
+                const p: PointRecord = {
+                    name,
+                    cls,
+                    pos: { x: 0, y: 0, z: 0 },
+                    like: 0,
+                    terrain: "",
+                    links: [],
+                    facing: 0,
+                    cluster: 0,
+                    grindFlat: false,
+                };
                 let havePos = false;
                 for (const [key, value] of keyValues(words.slice(3), number)) {
                     if (key === "pos") {
@@ -432,6 +451,10 @@ export function readLayout(text: string): Layout {
                     } else if (key === "like") p.like = parseHex8(value) ?? fail("bad like");
                     else if (key === "terrain") p.terrain = validWord(value) ? value : fail("bad terrain");
                     else if (key === "links") p.links = value.split(",").map((w) => parseHex8(w) ?? fail("bad links"));
+                    else if (key === "facing") p.facing = parseNumber(value) ?? fail("bad facing");
+                    else if (key === "cluster") p.cluster = parseHex8(value) ?? fail("bad cluster");
+                    else if (key === "grindflat")
+                        p.grindFlat = value === "1" ? true : value === "0" ? false : fail("bad grindflat");
                 }
                 if (!havePos) fail("a point without pos");
                 layout.points.push(p);
@@ -453,6 +476,17 @@ export function readLayout(text: string): Layout {
                     terrain: validWord(words[2] ?? "") ? words[2]! : fail("bad terrain"),
                 });
                 break;
+            case "facing": {
+                const name = hex(1);
+                if (layout.facings.some((f) => f.name === name)) fail("a point's facing twice");
+                layout.facings.push({ name, facing: parseNumber(words[2] ?? "") ?? fail("bad facing") });
+                break;
+            }
+            case "grindflat": {
+                const name = hex(1);
+                if (!layout.grindFlat.includes(name)) layout.grindFlat.push(name);
+                break;
+            }
             case "wall": {
                 const name = hex(1);
                 const p = readPlacement(words, 2) ?? fail("bad placement");

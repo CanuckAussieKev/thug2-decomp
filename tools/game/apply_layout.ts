@@ -30,6 +30,9 @@
 //   hide / drop: the node's class and type become the editor's marker ed_hidden (ed_hidden_class / ed_hidden_type keep
 //     its own) - exactly what the DLL does; it isn't removed (indexes stay);
 //   links / terrain: links= (names turned back into indexes) / TerrainType=;
+//   (phase 4b, level_editor_chains.h) a ladder's points: ClimbingNode, Type Ladder, Angles (0, facing, 0); a drawn rail's
+//     cluster=: TrickObject + Cluster=; grindflat / `grindflat` records: the flag ed_grind_flat (only this project's
+//     DLL reads it - warned); `facing`: a level ladder point's Angles (0, facing, 0);
 //   lock: ignored (an editor-only aid); level (name, start, time of day, ambient, fog): not in the level's files - they
 //     are its Levels.qb structure's; listed in the report to set by hand;
 //   trigger (phase 5): read, but not baked yet - an editor trigger is a run-time box, overlay node and script
@@ -462,7 +465,11 @@ const K = {
     hiddenClass: checksum("ed_hidden_class"),
     hiddenType: checksum("ed_hidden_type"),
     marker: checksum(MARKER),
+    grindFlat: checksum("ed_grind_flat"),
 };
+// A rail point's flag: grindable on flat ground - only this project's DLL reads it (level_editor_chains.h: RailClear's
+// override); the game itself has no such field.
+const GRIND_FLAT = "ed_grind_flat";
 
 function getName(s: Struct, key: number): number | null {
     const v = s.get(key);
@@ -713,7 +720,7 @@ export function addedPoint(array: NodeArray, p: Layout["points"][number]): Struc
         const drop = new Set([K.name, K.pos, K.angles, K.links, K.cluster, K.hiddenClass, K.hiddenType]);
         for (const [k, v] of (array.level[likeIndex] ?? array.nodes[likeIndex]!).entries) {
             if (k && drop.has(k.value)) continue;
-            if (!k && v instanceof Name && v.value === K.trickObject) continue;
+            if (!k && v instanceof Name && (v.value === K.trickObject || v.value === K.grindFlat)) continue;
             s.entries.push([k, v]);
         }
     }
@@ -722,17 +729,32 @@ export function addedPoint(array: NodeArray, p: Layout["points"][number]): Struc
         s.entries.push([new Name(key), value]);
     };
     put(K.pos, v3(p.pos));
-    put(K.angles, v3({ x: 0, y: 0, z: 0 }));
+    put(K.angles, v3({ x: 0, y: p.cls === "ClimbingNode" ? p.facing : 0, z: 0 }));
     put(K.name, new Name(checksum(p.name)));
     put(K.cls, new Name(checksum(p.cls)));
     array.remember(p.name);
     array.remember(p.cls);
+    if (p.cls === "ClimbingNode") {
+        put(K.type, new Name(checksum("Ladder"))); // (a ladder's point, as THUG2's own - level_editor_chains.h)
+        array.remember("Ladder");
+    }
     if (!s.entries.some(([k, v]) => k === null && v instanceof Name && v.value === K.createdAtStart))
         s.entries.push([null, new Name(K.createdAtStart)]);
     if (p.cls === "RailNode" && !(likeIndex >= 0 && !p.terrain)) {
         const terrain = p.terrain || "TERRAIN_GRINDMETAL";
         put(K.terrain, new Name(checksum(terrain)));
         array.remember(terrain);
+    }
+    if (p.cls === "RailNode" && p.cluster) {
+        // (a drawn rail's trick object: as the levels' TrickObject rails - AddFromNodeArray registers it at load)
+        s.entries.push([null, new Name(K.trickObject)]);
+        put(K.cluster, new Name(p.cluster));
+        array.remember("TrickObject");
+        array.remember("Cluster");
+    }
+    if (p.cls === "RailNode" && p.grindFlat) {
+        s.entries.push([null, new Name(K.grindFlat)]);
+        array.remember(GRIND_FLAT);
     }
     return s;
 }
@@ -1069,6 +1091,23 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
         array.remember(t.terrain);
         breaks(`rail ${label(t.name)}'s terrain changed`);
     }
+    for (const f of layout.facings) {
+        const i = nodeAt(f.name, "facing");
+        if (i < 0) continue;
+        setVector(array.edit(i), K.angles, { x: 0, y: f.facing, z: 0 });
+        breaks(`ladder ${label(f.name)} turned`);
+    }
+    let flat = 0;
+    for (const name of layout.grindFlat) {
+        const i = nodeAt(name, "grindflat");
+        if (i < 0) continue;
+        const node = array.edit(i);
+        if (!node.entries.some(([k, v]) => k === null && v instanceof Name && v.value === K.grindFlat))
+            node.entries.push([null, new Name(K.grindFlat)]);
+        array.remember(GRIND_FLAT);
+        flat++;
+        breaks(`rail ${label(name)} grindable on flat ground`);
+    }
     for (const h of layout.hidden) {
         const i = nodeAt(h, "hide");
         if (i < 0) continue;
@@ -1104,7 +1143,14 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
         const i = array.append(addedPoint(array, p));
         array.linkNames.set(i, p.links);
         if (p.cls === "RailNode") breaks(`rail point ${p.name} added`);
+        if (p.cls === "ClimbingNode") breaks(`ladder point ${p.name} added`);
+        if (p.cls === "RailNode" && p.grindFlat) flat++;
     }
+    if (flat)
+        warnings.push(
+            `${flat} rail point(s) grindable on flat ground: the node flag ${GRIND_FLAT} - only this project's DLL ` +
+                "reads it (the game itself grinds them only where its RailClear allows)",
+        );
     for (const l of layout.links) {
         const i = nodeAt(l.name, "links");
         if (i < 0) continue;

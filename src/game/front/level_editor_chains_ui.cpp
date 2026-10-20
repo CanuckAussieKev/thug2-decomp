@@ -79,6 +79,28 @@ void ChainSection(const Chains::View& chain, std::vector<Request>* requests)
         ImGui::TextWrapped("%s", chain.why.c_str());
         return;
     }
+    if (chain.ladder) {
+        // (phase 4b: turned and deleted whole; its foot / top moved as points - L off)
+        ImGui::Text("Facing %.0f\xC2\xB0%s", static_cast<double>(chain.facingDegrees),
+                    chain.turned ? " (turned)" : "");
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("The way a skater on it faces (into the wall). The level's ladders are climbed from the "
+                              "side away from it.");
+        if (ImGui::Button("Turn left (Z)"))
+            Ask(requests, Chains::kOpTurn, static_cast<uint32_t>(-1));
+        ImGui::SameLine();
+        if (ImGui::Button("Turn right (X)"))
+            Ask(requests, Chains::kOpTurn, 1u);
+        ImGui::SameLine();
+        OpButton("Facing back", chain.turned, "Facing as the level has it (Home does it too)",
+                 "Facing as the level has it", requests, Chains::kOpFacingHome);
+        OpButton("Delete ladder", chain.canDelete, "The whole ladder deleted (Del) - Ctrl+Z brings it back", "",
+                 requests, Chains::kOpDelete);
+        ImGui::TextDisabled("Reshape: L off, then move its foot or its top");
+        if (chain.waiting)
+            ImGui::TextColored(ImVec4(1.0f, 0.78f, 0.45f, 1.0f), "%s", chain.waiting);
+        return;
+    }
     OpButton("Insert", chain.canInsert, "A point halfway to the next one (Insert)",
              "It's the last point - Extend draws on from it", requests, Chains::kOpInsert);
     ImGui::SameLine();
@@ -106,6 +128,33 @@ void ChainSection(const Chains::View& chain, std::vector<Request>* requests)
         }
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("The sound and sparks of grinding it - for the whole %s, at once", noun);
+    }
+    if (chain.rail) {
+        // (phase 4b: trick objects, grinding on flat ground - level_editor_chains.h)
+        bool trick = chain.trickObject;
+        ImGui::BeginDisabled(!chain.canTrickObject);
+        if (ImGui::Checkbox("Trick object", &trick))
+            Ask(requests, Chains::kOpTrickObject, trick ? 1u : 0u);
+        ImGui::EndDisabled();
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+            ImGui::SetTooltip("%s", chain.canTrickObject
+                                        ? "Grinding it counts its cluster among the combo's trick objects (graffiti, "
+                                          "trick-object scoring), as the level's TrickObject rails.\nGaps are scripts "
+                                          "on the level's nodes - a drawn rail has none."
+                                        : "A level rail keeps the level's setting (its TrickObject / Cluster fields).");
+        if (chain.trickObject && !chain.cluster.empty()) {
+            ImGui::SameLine();
+            ImGui::TextDisabled("cluster %s", chain.cluster.c_str());
+        }
+        bool flat = chain.grindFlat;
+        if (ImGui::Checkbox("Grindable on flat ground", &flat))
+            Ask(requests, Chains::kOpGrindFlat, flat ? 1u : 0u);
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("The game won't let a rail be ground when there's ground at its height on both sides "
+                              "(RailClear) -\nonly the park editor's level skips that check, and no node field "
+                              "switches it off.\nOn: this DLL skips it for this whole rail (saved in the layout; a "
+                              "baked level gets the\nnode flag ed_grind_flat, which only this DLL reads - other "
+                              "players can't grind it).");
     }
     if (chain.waiting)
         ImGui::TextColored(ImVec4(1.0f, 0.78f, 0.45f, 1.0f), "%s", chain.waiting);
