@@ -71,6 +71,9 @@ THUG2.exe or THUG2PM.exe, tools/game/game_exe.ps1).
   (default out\baked\<level>; `--install` writes the game folder's overlay - a workspace; the main install only with
   `--allow-main`, the user's own runs). Lists what isn't baked (level properties, trigger records) and every edit that
   breaks THUGPRO online parity. Header of apply_layout.ts has the record-by-record meaning.
+  `--install` first backs up every file it replaces into `<game>	hug2-decomp-bake-backups\<level>\<time>`;
+  `--uninstall --level <name>` puts the newest backup back (deleting files that install made) and removes it, so
+  repeating it undoes the installs one by one (tools/game/bake_backup.ts).
 - `node tools/game/boot_level.ts <level> <folder>` - TEST ONLY, superseded by `-Level`: patches the installed overlay's SKATE NOW to
   load a level in free skate. `make_menu_level.ts --game <folder>` puts the real one back.
 - `load_check.ps1 -Game <folder> -Levels a, b, ...` - run_game -Level for each level in turn, then reads the log:
