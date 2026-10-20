@@ -9,10 +9,14 @@
 // files instead - its scene (.scn.xbx), collision (.col.xbx) and node array (.qb) - written as a new copy:
 //   - read from the game folder (--game, default C:\Games\THUG2\Game; a stock install's Game folder is stepped into):
 //     the level's loose files, the data overlay's (thug2-decomp-data\levels\<level>) first, else Data\levels\<level>;
-//   - written to --out (default out\baked\<level> in the repo): levels\<level>\<level>.scn.xbx / .col.xbx / .qb, and
-//     bake_report.txt; never into a game folder unless --install is given, which writes into --game's overlay - a
-//     workspace (C:\Games\THUG2-n). The main install C:\Games\THUG2 only with --allow-main (the user's own runs:
-//     agents never pass it); the backups (THUG2_PM_BAK, THUG2-THPSX-ORIGINAL) and THUGPRO's folders never.
+//   - written to --out (default out\baked\<level> in the repo): levels\<level>\<level>.scn.xbx / .col.xbx / .qb (and
+//     its scripts .qb, <level>_scripts.qb, when triggers went into it), scripts\game\Levels.qb (when a `level`
+//     record set something) and bake_report.txt; never into a game folder unless --install is given, which writes
+//     into --game's overlay - a workspace (C:\Games\THUG2-n): levels\<level>\..., and the overlay's own
+//     scripts\game\Levels.qb (and anteara\scripts\game\Levels.qb, when there is one) changed in place. The main
+//     install C:\Games\THUG2 only with --allow-main (the user's own runs: agents never pass it); the backups
+//     (THUG2_PM_BAK, THUG2-THPSX-ORIGINAL) and THUGPRO's folders never. make_menu_level.ts empties the overlay and
+//     makes it again: bake again after it.
 //   - --dry-run reads and bakes in memory, writes nothing, and prints the report.
 //
 // What each record becomes (the DLL's meaning, src/game/front/level_editor_*.h):
@@ -30,12 +34,21 @@
 //   hide / drop: the node's class and type become the editor's marker ed_hidden (ed_hidden_class / ed_hidden_type keep
 //     its own) - exactly what the DLL does; it isn't removed (indexes stay);
 //   links / terrain: links= (names turned back into indexes) / TerrainType=;
-//   lock: ignored (an editor-only aid); level (name, start, time of day, ambient, fog): not in the level's files - they
-//     are its Levels.qb structure's; listed in the report to set by hand;
-//   trigger (phase 5): read, but not baked yet - an editor trigger is a run-time box, overlay node and script
-//     (level_editor_triggers.h); baking needs a trigger collision box, a node and a script in the level's scripts .qb.
-//     Each is listed as an "unsupported record" with what it does; a level trigger it replaces (switched off by its
-//     `wall` record) is kept on, so the level doesn't lose it;
+//   (phase 4b, level_editor_chains.h) a ladder's points: ClimbingNode, Type Ladder, Angles (0, facing, 0); a drawn rail's
+//     cluster=: TrickObject + Cluster=; grindflat / `grindflat` records: the flag ed_grind_flat (only this project's
+//     DLL reads it - warned); `facing`: a level ladder point's Angles (0, facing, 0);
+//   lock: ignored (an editor-only aid);
+//   level (level_editor_level_props.h): the level's structure in Levels.qb (Level_<x>, else the one whose level= is
+//     the level's) gets the keys the DLL writes into it for the edited copy (LevelProps::StructureValues): tod=
+//     tod_state, time= tod_manager_active, ambient= ambient_red / _green / _blue, fog= fog_red / _green / _blue /
+//     _alpha / _dist; and name= its name= (the level select's sign text is gamemenu_levelselect.qb's - not changed).
+//     start= has no key there (the DLL puts the skater at it with ResetSkaters once the level is up): reported;
+//   trigger (phase 5, tools/game/triggers.ts): a node appended to the node array (the DLL's: GenericNode, type
+//     ed_trigger, TriggerScript <name>Script), a trigger box in the collision named after it (12 faces, flags 0x1150
+//     as THUG2's own boxes) and its script (the DLL's bytes) in the level's scripts .qb (<level>_scripts.qb, else the
+//     node array's .qb - the ported levels'). The gap list, built as the level's nodes are parsed (every EndGap a
+//     node's TriggerScript reaches), takes the gap ends as it takes the level's. A level trigger a trigger `replaces`
+//     (and any a `wall` record switches off) is left out of the collision, as the DLL switches it off;
 //   anything else (a later record kind): "unsupported record", listed.
 // THUGPRO parity: a level shared with THUGPRO (a ported level in tools/compat/thugpro's register, or THUG2's own -
 // THUGPRO players have those as shipped) gets a warning for every edit that changes spawns, crowns (King of the Hill),
@@ -45,13 +58,23 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { checksum, Local, Name, QbFile, type QbValue, Struct, Vector } from "../level_port/qb.ts";
-import { type Element, replaceGlobalArray } from "../level_port/qb_write.ts";
+import { type Element, putScripts, replaceGlobalArray, setStructEntries } from "../level_port/qb_write.ts";
 import { buildTree, type ColFile, type ColObject, readCol, setReaches, writeCol } from "../level_port/thug2_col.ts";
 import { readScene, type Scene, type Sector, writeScene } from "../level_port/thug2_scene.ts";
 import { parseCli } from "../lib/cli.ts";
 import { Float, hex8, isMain, print, pyExit, runMain } from "../lib/py.ts";
 import { resolveGameFolder } from "./edit_level.ts";
-import { type FieldValue, type Layout, LayoutError, type Placement, readLayout, type V3 } from "./layout_file.ts";
+import {
+    type FieldValue,
+    type Layout,
+    LayoutError,
+    type LevelProps,
+    type Placement,
+    readLayout,
+    TOD_STATES,
+    type V3,
+} from "./layout_file.ts";
+import * as Triggers from "./triggers.ts";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.dirname(path.dirname(HERE));
@@ -462,7 +485,11 @@ const K = {
     hiddenClass: checksum("ed_hidden_class"),
     hiddenType: checksum("ed_hidden_type"),
     marker: checksum(MARKER),
+    grindFlat: checksum("ed_grind_flat"),
 };
+// A rail point's flag: grindable on flat ground - only this project's DLL reads it (level_editor_chains.h: RailClear's
+// override); the game itself has no such field.
+const GRIND_FLAT = "ed_grind_flat";
 
 function getName(s: Struct, key: number): number | null {
     const v = s.get(key);
@@ -713,7 +740,7 @@ export function addedPoint(array: NodeArray, p: Layout["points"][number]): Struc
         const drop = new Set([K.name, K.pos, K.angles, K.links, K.cluster, K.hiddenClass, K.hiddenType]);
         for (const [k, v] of (array.level[likeIndex] ?? array.nodes[likeIndex]!).entries) {
             if (k && drop.has(k.value)) continue;
-            if (!k && v instanceof Name && v.value === K.trickObject) continue;
+            if (!k && v instanceof Name && (v.value === K.trickObject || v.value === K.grindFlat)) continue;
             s.entries.push([k, v]);
         }
     }
@@ -722,17 +749,32 @@ export function addedPoint(array: NodeArray, p: Layout["points"][number]): Struc
         s.entries.push([new Name(key), value]);
     };
     put(K.pos, v3(p.pos));
-    put(K.angles, v3({ x: 0, y: 0, z: 0 }));
+    put(K.angles, v3({ x: 0, y: p.cls === "ClimbingNode" ? p.facing : 0, z: 0 }));
     put(K.name, new Name(checksum(p.name)));
     put(K.cls, new Name(checksum(p.cls)));
     array.remember(p.name);
     array.remember(p.cls);
+    if (p.cls === "ClimbingNode") {
+        put(K.type, new Name(checksum("Ladder"))); // (a ladder's point, as THUG2's own - level_editor_chains.h)
+        array.remember("Ladder");
+    }
     if (!s.entries.some(([k, v]) => k === null && v instanceof Name && v.value === K.createdAtStart))
         s.entries.push([null, new Name(K.createdAtStart)]);
     if (p.cls === "RailNode" && !(likeIndex >= 0 && !p.terrain)) {
         const terrain = p.terrain || "TERRAIN_GRINDMETAL";
         put(K.terrain, new Name(checksum(terrain)));
         array.remember(terrain);
+    }
+    if (p.cls === "RailNode" && p.cluster) {
+        // (a drawn rail's trick object: as the levels' TrickObject rails - AddFromNodeArray registers it at load)
+        s.entries.push([null, new Name(K.trickObject)]);
+        put(K.cluster, new Name(p.cluster));
+        array.remember("TrickObject");
+        array.remember("Cluster");
+    }
+    if (p.cls === "RailNode" && p.grindFlat) {
+        s.entries.push([null, new Name(K.grindFlat)]);
+        array.remember(GRIND_FLAT);
     }
     return s;
 }
@@ -809,11 +851,18 @@ export interface LevelFiles {
     scene: Scene;
     col: ColFile | null;
     qb: Buffer;
+    // the level's scripts .qb (<level>_scripts.qb - THUG2's own levels; null / absent: the triggers' scripts go into
+    // `qb`, as the ported levels keep their scripts with their nodes)
+    scripts?: Buffer | null;
+    // Levels.qb (the overlay's copy) - the `level` record's structure (null / absent: not baked, reported)
+    levels?: Buffer | null;
 }
 export interface Baked {
     scene: Scene;
     col: ColFile | null;
     qb: Buffer;
+    scripts: Buffer | null; // (the scripts .qb, when the triggers' scripts went into it)
+    levels: Buffer | null; // (Levels.qb, when a `level` record set something in it)
     report: string[];
     warnings: string[];
     parity: string[];
@@ -958,13 +1007,23 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
             );
         }
     }
-    // (a level trigger an editor trigger stands in for is switched off by its wall record: the trigger isn't baked
-    // yet, so the level's own stays on - else the level would lose it)
-    const replaced = new Set(
-        layout.triggers
-            .filter((t) => /^[0-9A-Fa-f]{1,8}$/.test(t.fields.replaces ?? ""))
-            .map((t) => Number.parseInt(t.fields.replaces!, 16) >>> 0),
-    );
+    // The editor's triggers (baked below): one whose name a level node or collision object has already isn't made (the
+    // DLL skips "there already" too - a layout baked twice); a level trigger one stands in for (`replaces`) is off
+    // while it's there (Triggers::Sync: through the walls module) - left out of the collision.
+    const triggers = layout.triggers.filter((t) => {
+        const c = checksum(t.spec.name);
+        if (array.index(c) < 0 && !colAt.has(c)) return true;
+        warnings.push(`trigger ${t.spec.name}: the level has a node / collision of that name already - not added`);
+        return false;
+    });
+    const replaced = new Set(triggers.map((t) => t.spec.replaces).filter((c) => c !== 0));
+    for (const c of replaced) {
+        if (!colAt.has(c)) warnings.push(`a trigger replaces ${label(c)}: no collision object of that name`);
+        else if (!layout.walls.some((w) => w.checksum === c && w.off)) {
+            dropCollision.add(c);
+            breaks(`level trigger ${label(c)} switched off (replaced by an editor trigger)`);
+        }
+    }
     for (const w of layout.walls) {
         const o = colAt.get(w.checksum);
         if (o === undefined || !col) {
@@ -975,9 +1034,7 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
             placeCollision(col.objects[o]!, w.placement);
             breaks(`collision ${label(w.checksum)} moved`);
         }
-        if (w.off && replaced.has(w.checksum)) {
-            warnings.push(`level trigger ${label(w.checksum)}: kept on - the editor trigger replacing it isn't baked`);
-        } else if (w.off) {
+        if (w.off) {
             dropCollision.add(w.checksum);
             breaks(`collision ${label(w.checksum)} switched off (left out of the collision file)`);
         }
@@ -1069,6 +1126,23 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
         array.remember(t.terrain);
         breaks(`rail ${label(t.name)}'s terrain changed`);
     }
+    for (const f of layout.facings) {
+        const i = nodeAt(f.name, "facing");
+        if (i < 0) continue;
+        setVector(array.edit(i), K.angles, { x: 0, y: f.facing, z: 0 });
+        breaks(`ladder ${label(f.name)} turned`);
+    }
+    let flat = 0;
+    for (const name of layout.grindFlat) {
+        const i = nodeAt(name, "grindflat");
+        if (i < 0) continue;
+        const node = array.edit(i);
+        if (!node.entries.some(([k, v]) => k === null && v instanceof Name && v.value === K.grindFlat))
+            node.entries.push([null, new Name(K.grindFlat)]);
+        array.remember(GRIND_FLAT);
+        flat++;
+        breaks(`rail ${label(name)} grindable on flat ground`);
+    }
     for (const h of layout.hidden) {
         const i = nodeAt(h, "hide");
         if (i < 0) continue;
@@ -1104,7 +1178,14 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
         const i = array.append(addedPoint(array, p));
         array.linkNames.set(i, p.links);
         if (p.cls === "RailNode") breaks(`rail point ${p.name} added`);
+        if (p.cls === "ClimbingNode") breaks(`ladder point ${p.name} added`);
+        if (p.cls === "RailNode" && p.grindFlat) flat++;
     }
+    if (flat)
+        warnings.push(
+            `${flat} rail point(s) grindable on flat ground: the node flag ${GRIND_FLAT} - only this project's DLL ` +
+                "reads it (the game itself grinds them only where its RailClear allows)",
+        );
     for (const l of layout.links) {
         const i = nodeAt(l.name, "links");
         if (i < 0) continue;
@@ -1130,40 +1211,59 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
 
     if (layout.crownOrder.length) breaks("the added crowns reordered");
     for (const lock of layout.locks) report.push(`lock ${lock.kind} ${label(lock.id)}: ignored (an editor-only aid)`);
+    // Level properties: the level's structure in Levels.qb.
+    let levels: Buffer | null = null;
     const level = layout.level;
     if (Object.keys(level).length) {
-        const parts: string[] = [];
-        if (level.name) parts.push(`name "${level.name}"`);
-        if (level.start) parts.push(`start at restart ${label(level.start)}`);
-        if (level.tod) parts.push(`tod_state=${level.tod}`);
-        if (level.time !== undefined) parts.push(`tod_manager_active=${level.time}`);
-        if (level.ambient) parts.push(`ambient_red/green/blue=${level.ambient.join(" ")}`);
-        if (level.fog) parts.push(`fog_red/green/blue/alpha/dist=${level.fog.join(" ")}`);
-        warnings.push(
-            `level properties not baked (they're the level's Levels.qb structure, not its files): ${parts.join(", ")}`,
-        );
-        if (level.start) breaks("the level's start restart changed");
+        if (level.start) {
+            warnings.push(
+                `level start ${label(level.start)}: not baked - Levels.qb has no key for it (the DLL puts the skater ` +
+                    "there with ResetSkaters once the edited copy is up); the level starts where it always did",
+            );
+        }
+        const values = levelStructureValues(level);
+        if (values.length && !files.levels) {
+            warnings.push(
+                `level properties not baked (no Levels.qb read - the overlay's scripts\\game\\Levels.qb): ${values
+                    .map(([k, v]) => `${k}=${describeValue(v)}`)
+                    .join(", ")}`,
+            );
+        } else if (values.length) {
+            const done = bakeLevelProps(files.levels!, files.level, values);
+            levels = done.levels;
+            report.push(...done.report);
+            warnings.push(...done.warnings);
+        }
     }
-    // (phase 5's trigger volumes: in the game they are the editor's own - an overlay node, a box registered as movable
-    // collision, a script made at run time (level_editor_triggers.h). Baking one needs a trigger collision box, a node
-    // and a script in the level's scripts .qb: not done yet - each listed with what it does.)
-    for (const t of layout.triggers) {
-        const f = t.fields;
-        const what = [
-            f.target ? `target ${f.target}` : "",
-            f.script ? `script ${f.script}` : "",
-            f.gap ? `gap ${f.gap}` : "",
-            f.replaces ? `replaces ${label(parseInt(f.replaces, 16) >>> 0)}` : "",
-        ]
-            .filter((s) => s)
-            .join(", ");
-        unsupported.push(
-            `unsupported record "trigger" (line ${t.line}): ${t.name}, a ${t.kind} trigger at ${f.pos}` +
-                `${what ? ` (${what})` : ""} - not baked (an editor trigger is a run-time box, node and script; ` +
-                "its baked form - a trigger collision box, a node and a script in the level's scripts .qb - isn't made yet)",
-        );
-        breaks(`trigger ${t.name} (${t.kind}${f.gap ? `, gap ${f.gap}` : ""}) added - kill zones, teleports and gaps`);
-    }
+
+    // The editor's triggers: a node, a trigger box in the collision, a script in the level's scripts .qb each.
+    const scripts: [number, Buffer][] = [];
+    const scriptNames = new Map<number, string>();
+    const specs = triggers.map((t) => t.spec);
+    let triggerCount = 0;
+    triggers.forEach((t, k) => {
+        const spec = t.spec;
+        if (array.index(checksum(spec.name)) >= 0) {
+            warnings.push(`trigger ${spec.name}: a node the layout added has that name - not added`);
+            return;
+        }
+        array.append(Triggers.triggerNode(spec));
+        array.remember(spec.name);
+        for (const n of Triggers.NODE_NAMES) array.remember(n);
+        array.remember(Triggers.scriptName(spec));
+        if (col) col.objects.push(Triggers.triggerCollision(spec));
+        else warnings.push(`trigger ${spec.name}: the level has no collision file - its box isn't made`);
+        scripts.push([checksum(Triggers.scriptName(spec)), Triggers.body(spec)]);
+        for (const [c, n] of Triggers.scriptNames(spec, true)) scriptNames.set(c, n);
+        triggerCount++;
+        const why = Triggers.problem(spec);
+        if (why) warnings.push(`trigger ${spec.name} (${Triggers.KIND_NAMES[spec.kind]}): does nothing - ${why}`);
+        if ((spec.kind === "gapstart" || spec.kind === "gapend") && Triggers.partner(specs, k) < 0) {
+            warnings.push(`trigger ${spec.name}: gap ${spec.gap} has no ${spec.kind === "gapstart" ? "end" : "start"}`);
+        }
+        report.push(`trigger ${spec.name}: ${describeTrigger(spec)}`);
+        breaks(`trigger ${spec.name} (${spec.kind}${spec.gap ? `, gap ${spec.gap}` : ""}) added`);
+    });
     for (const u of layout.unknown) {
         unsupported.push(`unsupported record "${u.kind}" (line ${u.line}): not baked - ${u.text}`);
         if (shared)
@@ -1176,12 +1276,108 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
     const elements: Element[] = array.nodes.map((n, i) =>
         i < array.original && !array.changed.has(i) ? { keep: i } : { value: n },
     );
-    const qb = replaceGlobalArray(files.qb, arrayName, elements, array.names, true);
+    let qb = replaceGlobalArray(files.qb, arrayName, elements, array.names, true);
+    // The triggers' scripts: into the level's scripts .qb, else (the ported levels) the node array's.
+    let scriptsQb: Buffer | null = null;
+    if (scripts.length && files.scripts) scriptsQb = putScripts(files.scripts, scripts, scriptNames);
+    else if (scripts.length) qb = putScripts(qb, scripts, scriptNames);
     report.push(
         `${files.level}: ${moved} sectors moved, ${dropSectors.size} hidden, ${cloneCount} copies, ${layout.walls.length} walls, ` +
-            `${array.changed.size} level nodes changed (${fields} fields), ${array.nodes.length - array.original} nodes added`,
+            `${array.changed.size} level nodes changed (${fields} fields), ${array.nodes.length - array.original} nodes added ` +
+            `(${triggerCount} triggers: node, box, script${scripts.length ? ` in ${files.scripts ? "the level's scripts .qb" : `${files.level}.qb`}` : ""})`,
     );
-    return { scene, col, qb, report, warnings, parity, unsupported };
+    return { scene, col, qb, scripts: scriptsQb, levels, report, warnings, parity, unsupported };
+}
+
+function describeTrigger(s: Triggers.TriggerSpec): string {
+    const at = `at ${s.pos.x},${s.pos.y},${s.pos.z} size ${s.size.x},${s.size.y},${s.size.z}`;
+    switch (s.kind) {
+        case "kill":
+            return `kill zone${s.water ? " (water)" : ""} -> ${s.target || "?"} ${at}`;
+        case "teleport":
+            return `teleport -> ${s.target || "?"} ${at}`;
+        case "script":
+            return `runs ${s.script || "?"} ${at}`;
+        case "gapstart":
+            return `gap start ${s.gap} [${s.flags.join(", ")}] ${at}`;
+        case "gapend":
+            return `gap end ${s.gap} "${Triggers.cleanText(s.text)}" (${s.score}) ${at}`;
+    }
+}
+
+// --- level properties (level_editor_level_props.h) ----------------------------------------------------------------------
+
+// LevelProps::StructureValues (the DLL's order and ranges: Channel 0..255, Distance 0..100000) and name=.
+export function levelStructureValues(level: LevelProps): [string, QbValue][] {
+    const channel = (v: number): number => Math.max(0, Math.min(255, v));
+    const distance = (v: number): number => Math.max(0, Math.min(100000, v));
+    const out: [string, QbValue][] = [];
+    if (level.name) out.push(["name", level.name]);
+    if (level.tod && (TOD_STATES as readonly string[]).includes(level.tod))
+        out.push(["tod_state", new Name(checksum(level.tod))]);
+    if (level.time === 0 || level.time === 1) out.push(["tod_manager_active", level.time]);
+    if (level.ambient) {
+        ["ambient_red", "ambient_green", "ambient_blue"].forEach((k, i) => {
+            out.push([k, channel(level.ambient![i]!)]);
+        });
+    }
+    if (level.fog) {
+        ["fog_red", "fog_green", "fog_blue", "fog_alpha"].forEach((k, i) => {
+            out.push([k, channel(level.fog![i]!)]);
+        });
+        out.push(["fog_dist", distance(level.fog[4])]);
+    }
+    return out;
+}
+
+function describeValue(v: QbValue): string {
+    if (v instanceof Name) return TOD_STATES.find((t) => checksum(t) === v.value) ?? hex8(v.value);
+    return typeof v === "string" ? `"${v}"` : String(v);
+}
+
+// The level's structures in Levels.qb: Level_<level>, else those whose level= is the level's name.
+export function levelStructures(levels: Buffer, level: string): { name: number; text: string }[] {
+    const file = new QbFile(levels, "Levels.qb", true);
+    const own = checksum(`Level_${level}`);
+    const structs = file.globals.filter(([, v]) => v instanceof Struct) as [Name, Struct][];
+    const named = structs.find(([k]) => k.value === own);
+    if (named) return [{ name: own, text: `Level_${level}` }];
+    return structs
+        .filter(([, v]) => {
+            const text = v.get(checksum("level"));
+            return typeof text === "string" && same(text, level);
+        })
+        .map(([k]) => ({ name: k.value, text: file.names.get(k.value) ?? hex8(k.value) }));
+}
+
+// The values set in the level's structure(s), every other byte of Levels.qb kept.
+export function bakeLevelProps(
+    levels: Buffer,
+    level: string,
+    values: readonly [string, QbValue][],
+): { levels: Buffer | null; report: string[]; warnings: string[] } {
+    const targets = levelStructures(levels, level);
+    if (!targets.length)
+        return { levels: null, report: [], warnings: [`level properties: no structure for ${level} in Levels.qb`] };
+    const names = new Map<number, string>();
+    for (const [k, v] of values) {
+        names.set(checksum(k), k);
+        if (v instanceof Name) names.set(v.value, describeValue(v));
+    }
+    let out = levels;
+    for (const t of targets)
+        out = setStructEntries(
+            out,
+            t.name,
+            values.map(([k, v]) => [checksum(k), v]),
+            names,
+        );
+    const what = values.map(([k, v]) => `${k}=${describeValue(v)}`).join(" ");
+    const warnings =
+        targets.length > 1
+            ? [`level properties: ${targets.length} structures have level="${level}" - set in each`]
+            : [];
+    return { levels: out, report: [`Levels.qb: ${targets.map((t) => t.text).join(", ")} ${what}`], warnings };
 }
 
 // --- files and the command line ---------------------------------------------------------------------------------------
@@ -1194,6 +1390,29 @@ export function findLevelDir(game: string, level: string | null, scene: number):
             if (match && fs.existsSync(path.join(root, name, `${name}.qb`)))
                 return { dir: path.join(root, name), level: name };
         }
+    }
+    return null;
+}
+
+// The level's scripts .qb (<level>_scripts.qb - Levels.qb's level_qb for THUG2's own levels): in the folder the
+// level is read from, else its Data\levels folder; null when it has none (the ported levels' scripts are in <level>.qb).
+export function findScriptsQb(game: string, dir: string, level: string): string | null {
+    for (const folder of [dir, path.join(game, "Data", "levels", level)]) {
+        if (!fs.existsSync(folder)) continue;
+        const file = fs.readdirSync(folder).find((f) => same(f, `${level}_scripts.qb`));
+        if (file) return path.join(folder, file);
+    }
+    return null;
+}
+
+// Levels.qb: the data overlay's (scripts\game\Levels.qb - what the game reads while the overlay is there), else the
+// game's loose Data\scripts\game\Levels.qb; null when neither is there.
+export function findLevelsQb(game: string): string | null {
+    for (const file of [
+        path.join(game, OVERLAY, "scripts", "game", "Levels.qb"),
+        path.join(game, "Data", "scripts", "game", "Levels.qb"),
+    ]) {
+        if (fs.existsSync(file)) return file;
     }
     return null;
 }
@@ -1216,7 +1435,8 @@ export function installRefusal(game: string, allowMain: boolean): string | null 
 
 const USAGE = `usage: apply_layout.ts [-h] [--level LEVEL] [--game GAME] [--out OUT] [--dry-run] [--install] [--allow-main] [layout]
 
-Bake a level editor layout (thug2-decomp-layouts\\<scene>.txt) into a copy of the level's .scn.xbx / .col.xbx / .qb.
+Bake a level editor layout (thug2-decomp-layouts\\<scene>.txt) into a copy of the level's .scn.xbx / .col.xbx / .qb
+(its triggers' scripts into <level>_scripts.qb, its level properties into Levels.qb).
 
 positional arguments:
   layout        the layout file (default: <game>\\thug2-decomp-layouts\\<the level's scene>.txt)
@@ -1271,11 +1491,17 @@ export function main(argv: string[] = process.argv.slice(2)): number {
     }
     const scnPath = path.join(dir, `${name}.scn.xbx`);
     const colPath = path.join(dir, `${name}.col.xbx`);
+    const scriptsPath = findScriptsQb(game, dir, name);
+    // (--install changes the overlay's own Levels.qb in place - only when make_menu_level.ts has made one)
+    const overlayLevels = path.join(game, OVERLAY, "scripts", "game", "Levels.qb");
+    const levelsPath = values.install ? (fs.existsSync(overlayLevels) ? overlayLevels : null) : findLevelsQb(game);
     const files: LevelFiles = {
         level: name,
         scene: readScene(fs.readFileSync(scnPath), scnPath),
         col: fs.existsSync(colPath) ? readCol(fs.readFileSync(colPath), colPath) : null,
         qb: fs.readFileSync(path.join(dir, `${name}.qb`)),
+        scripts: scriptsPath ? fs.readFileSync(scriptsPath) : null,
+        levels: levelsPath ? fs.readFileSync(levelsPath) : null,
     };
     const ported = registerLevels();
     const portedGame = ported.get(name.toLowerCase());
@@ -1288,6 +1514,8 @@ export function main(argv: string[] = process.argv.slice(2)): number {
     const baked = bake(layout, files, shared);
     const lines = [
         `apply_layout: ${layoutPath} -> ${name} (read from ${dir})`,
+        ...(scriptsPath ? [`scripts: ${scriptsPath}`] : []),
+        ...(levelsPath ? [`Levels.qb: ${levelsPath}`] : []),
         ...baked.report,
         ...baked.warnings.map((w) => `warning: ${w}`),
         ...baked.unsupported.map((u) => `warning: ${u}`),
@@ -1325,6 +1553,28 @@ export function main(argv: string[] = process.argv.slice(2)): number {
     }
     new QbFile(baked.qb, name, true);
     fs.writeFileSync(path.join(outDir, `${name}.qb`), baked.qb);
+    if (baked.scripts && scriptsPath) {
+        new QbFile(baked.scripts, path.basename(scriptsPath), true);
+        fs.writeFileSync(path.join(outDir, path.basename(scriptsPath)), baked.scripts);
+    }
+    if (baked.levels) {
+        new QbFile(baked.levels, "Levels.qb", true);
+        const root = values.install ? path.join(game, OVERLAY) : path.dirname(path.dirname(outDir));
+        const targets = [path.join(root, "scripts", "game", "Levels.qb")];
+        // (the Anteara Mod's script set has its own copy, used while anteara_mod=1: the same values set there)
+        const anteara = path.join(game, OVERLAY, "anteara", "scripts", "game", "Levels.qb");
+        if (values.install && fs.existsSync(anteara)) targets.push(anteara);
+        for (const target of targets) {
+            const source = target === anteara ? fs.readFileSync(anteara) : baked.levels;
+            const data =
+                target === anteara
+                    ? (bakeLevelProps(source, name, levelStructureValues(layout.level)).levels ?? source)
+                    : source;
+            fs.mkdirSync(path.dirname(target), { recursive: true });
+            fs.writeFileSync(target, data);
+            print(`written: ${target}`);
+        }
+    }
     fs.writeFileSync(
         path.join(values.install ? outDir : path.dirname(path.dirname(outDir)), "bake_report.txt"),
         `${lines.join("\n")}\n`,

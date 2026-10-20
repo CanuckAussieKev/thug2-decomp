@@ -140,6 +140,11 @@ int __cdecl NearlyEqual4(float a, float b, float c, float d, float tolerance);
 // 0x0057C600: whether a rail from `a` to `b` can be grabbed: always in the park editor's level 0xD443A2BC; else
 // feelers across its middle, below it - see the source.
 bool __cdecl RailClear(Mth::Vector a, Mth::Vector b);
+// NOT ORIGINAL: a hook the level editor sets (level_editor_chains.h - rails marked grindable on flat ground): RailClear
+// passes a segment it accepts (its ends' places), as the park editor's level passes every rail. Null (the default):
+// none - the original's behaviour.
+using RailClearOverride = bool (*)(const Mth::Vector* a, const Mth::Vector* b);
+void SetRailClearOverride(RailClearOverride override);
 // 0x0057C5A0 (stdcall): whether two nodes are within 1 of each other on every axis.
 bool __stdcall NodesTogether(const CRailNode* a, const CRailNode* b);
 

@@ -225,6 +225,7 @@ struct Entry {
     bool moved = false;
 };
 std::map<uint32_t, Entry> g_entries;
+uint32_t g_generation; // (faces taken or given back: the collision view's cache made again)
 
 bool Enabled()
 {
@@ -503,6 +504,7 @@ void Drop(std::map<uint32_t, Entry>::iterator it)
                 *reinterpret_cast<uint16_t*>(t.geometry->m_faces + t.face * (t.geometry->m_smallFaces ? 8 : 10)) = t.flags;
         }
         Nx::RemoveFromCaches(entry.companion->Object());
+        ++g_generation;
     }
     g_entries.erase(it);
 }
@@ -534,6 +536,7 @@ void Add(uint32_t checksum, uint8_t* scene, uint8_t* sector, uint8_t* geom, std:
             *reinterpret_cast<uint16_t*>(t.geometry->m_faces + t.face * (t.geometry->m_smallFaces ? 8 : 10)) =
                 static_cast<uint16_t>(t.flags | 0x10);
         entry.taken = std::move(taken);
+        ++g_generation;
     }
 }
 
@@ -633,5 +636,31 @@ int Count(int* faces)
         *faces = total;
     return pieces;
 }
+
+void ForEachCompanion(void (*each)(void* context, uint32_t checksum, const Companion& companion), void* context)
+{
+    for (auto it = g_entries.begin(); it != g_entries.end();) {
+        auto next = std::next(it);
+        if (!Live(it->second, it->first))
+            Drop(it); // (its level gone: forgotten, nothing touched)
+        else if (it->second.companion && it->second.companion->Active())
+            each(context, it->first, *it->second.companion);
+        it = next;
+    }
+}
+
+std::vector<int> TakenFaces(const Nx::CCollObjTriData* geometry)
+{
+    std::vector<int> faces;
+    for (const auto& entry : g_entries) {
+        for (const Taken& t : entry.second.taken) {
+            if (t.geometry == geometry)
+                faces.push_back(t.face);
+        }
+    }
+    return faces;
+}
+
+uint32_t Generation() { return g_generation; }
 
 } // namespace Front::LevelEditor::SharedCollision

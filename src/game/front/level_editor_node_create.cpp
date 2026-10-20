@@ -295,6 +295,10 @@ std::vector<Field> Fields(const Spec& spec)
             name("TerrainType", spec.terrain.empty() ? std::string("TERRAIN_GRINDMETAL") : spec.terrain);
         return fields;
     }
+    if (SameText(spec.cls, "ClimbingNode")) {
+        flag("CreatedAtStart"); // (a ladder's point - its Type Ladder above: as the levels' ladders)
+        return fields;
+    }
     Kind kind;
     if (!KindOf(spec, &kind)) {
         fields.insert(fields.end(), spec.extra.begin(), spec.extra.end()); // (another module's node)
@@ -534,6 +538,7 @@ Script::CStruct* Build(const Spec& spec)
         for (const char* key : {"Name", "Pos", "Angles", "Links", "Cluster", "ed_hidden_class", "ed_hidden_type"})
             node->RemoveComponent(Checksum(key));
         node->RemoveFlag(Checksum("TrickObject"));
+        node->RemoveFlag(Checksum("ed_grind_flat")); // (its own choice: level_editor_chains.h)
     }
     for (const Field& f : Fields(spec)) {
         uint32_t key = f.key.empty() ? 0u : Checksum(f.key);

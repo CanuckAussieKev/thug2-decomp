@@ -48,6 +48,7 @@ uint32_t g_uiButtons, g_editorButtons;
 std::vector<Request> g_requests;
 bool g_offerClosed;
 char g_outlinerSearch[96];
+bool g_changedOnly; // (the Outliner's "Changed only")
 char g_browserSearch[96];
 int g_browserShownIndex = -1;
 // The preview's entry: the list's row under the mouse (-1: none) and whether the keys moved the highlight since the
@@ -263,6 +264,35 @@ void CollisionLegend(const Model& model)
                         model.view.walls, model.view.capped ? " - the nearest only" : "");
     if (model.view.off > 0)
         ImGui::TextDisabled("Faded / dashed: collision switched off (%d pieces)", model.view.off);
+    // (a moved piece's shared collision - level_editor_shared_coll.h - and the level's triggers by kind)
+    auto swatchLine = [](uint32_t argb, const char* text) {
+        ImVec2 at = ImGui::GetCursorScreenPos();
+        float side = ImGui::GetTextLineHeight();
+        ImGui::GetWindowDrawList()->AddRect(at, ImVec2(at.x + side, at.y + side), Colour(argb | 0xFF000000u), 2.0f, 0,
+                                            2.0f);
+        ImGui::Dummy(ImVec2(side, side));
+        ImGui::SameLine();
+        ImGui::TextUnformatted(text);
+    };
+    swatchLine(View::kCompanionEdge, "Cyan edges: a moved piece's collision taken along");
+    swatchLine(View::kTakenEdge, "Faded, cyan dashes: where it was taken from (off)");
+    swatchLine(View::kHoverWall, "Shift: the wall a Shift+click takes");
+    if (model.view.companions > 0 || model.view.taken > 0)
+        ImGui::TextDisabled("%d moved pieces' collision drawn, %d faces taken", model.view.companions, model.view.taken);
+    if (ImGui::TreeNode("Triggers (0x40) by kind")) {
+        for (int k = 0; k < Triggers::kKinds; ++k) {
+            auto kind = static_cast<Triggers::Kind>(k);
+            ImVec2 at = ImGui::GetCursorScreenPos();
+            float side = ImGui::GetTextLineHeight();
+            ImGui::GetWindowDrawList()->AddRectFilled(at, ImVec2(at.x + side, at.y + side),
+                                                      Colour(Triggers::KindColour(kind) | 0xFF000000u), 2.0f);
+            ImGui::Dummy(ImVec2(side, side));
+            ImGui::SameLine();
+            ImGui::TextUnformatted(Triggers::KindName(kind));
+        }
+        ImGui::TextDisabled("%d trigger faces coloured", model.view.triggers);
+        ImGui::TreePop();
+    }
     ImGui::TextDisabled("Not coloured: 0x80 camera passes, 0x2000 not taggable");
     ImGui::PopFont();
     ImGui::End();
@@ -383,6 +413,15 @@ void Toolbar(const Model& model)
         Ask(Request::kSnapAlways, snap ? 1 : 0);
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Moves snap to a 25-unit grid (Ctrl while moving does the same)");
+    // Carrying (level_editor_carry.h; [editor] carry= in the ini).
+    ImGui::SameLine(0.0f, 10.0f * g_scale);
+    bool carry = model.carry;
+    if (ImGui::Checkbox(model.carried > 0 ? "Carry objects *###carry" : "Carry objects###carry", &carry))
+        Ask(Request::kCarry, carry ? 1 : 0);
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("Moving, turning or scaling scenery takes along the objects and nodes standing on it or attached\n"
+                          "to it (their node's Cluster= or links name it). Alt while moving leaves them.%s",
+                          model.carried > 0 ? ("\nCarrying " + std::to_string(model.carried) + " now.").c_str() : "");
     // What a click in the view may take (level_editor_picking.h; [editor] pick= in the ini).
     ImGui::SameLine(0.0f, 12.0f * g_scale);
     ImGui::TextDisabled("Pick:");
@@ -580,6 +619,18 @@ void Outliner(const Model& model)
     PanelTitle("Outliner");
     ImGui::SetNextItemWidth(-1.0f);
     ImGui::InputTextWithHint("##search", "Search nodes\xE2\x80\xA6", g_outlinerSearch, sizeof(g_outlinerSearch));
+    // (only the rows the editor has changed - those with markers)
+    ImGui::Checkbox("Changed only", &g_changedOnly);
+    if (ImGui::IsItemHovered()) {
+        std::string legend = "Only rows the editor has changed. The markers at a row's end:";
+        for (int bit = 0; bit < kMarkCount; ++bit)
+            legend += std::string("\n") + MarkLetter(bit) + "  " + MarkName(bit);
+        ImGui::SetTooltip("%s", legend.c_str());
+    }
+    if (!model.marks.empty()) {
+        ImGui::SameLine();
+        ImGui::TextDisabled("%d changed", static_cast<int>(model.marks.size()));
+    }
     FamilyChips(model);
     ImGui::Separator();
     ImGui::BeginChild("##tree");
@@ -597,13 +648,15 @@ void Outliner(const Model& model)
             continue;
         shown.clear();
         for (int i : members) {
-            if (Matches(g_cache.labels[i], g_outlinerSearch))
+            auto found = model.marks.find(nodes[i].name);
+            if (Matches(g_cache.labels[i], g_outlinerSearch) &&
+                MarkShown(found == model.marks.end() ? 0 : found->second, g_changedOnly))
                 shown.push_back(i);
         }
         if (shown.empty())
             continue;
         bool holdsSelected = follow && selected < static_cast<int>(nodes.size()) && nodes[selected].family == family;
-        if (holdsSelected || g_outlinerSearch[0])
+        if (holdsSelected || g_outlinerSearch[0] || g_changedOnly)
             ImGui::SetNextItemOpen(true, holdsSelected ? ImGuiCond_Always : ImGuiCond_Once);
         char header[64];
         std::snprintf(header, sizeof(header), "%s###family%d", Nodes::FamilyName(family), f);
@@ -654,10 +707,30 @@ void Outliner(const Model& model)
                 if (ImGui::IsItemHovered())
                     ImGui::SetTooltip("Click selects; double-click takes the camera there");
                 std::string tag = RowTag(node);
+                // (the markers - what the editor has done to it - at the row's end, the tag before them)
+                auto found = model.marks.find(node.name);
+                uint8_t marks = found == model.marks.end() ? 0 : found->second;
+                std::string letters = MarkLetters(marks);
+                float rowRight = ImGui::GetWindowWidth() - ImGui::GetStyle().WindowPadding.x - ImGui::GetStyle().ScrollbarSize;
+                float marksWidth = letters.empty() ? 0.0f : ImGui::CalcTextSize(letters.c_str()).x + 6.0f * g_scale;
                 if (!tag.empty()) {
                     float width = ImGui::CalcTextSize(tag.c_str()).x;
-                    ImGui::SameLine(std::max(ImGui::GetCursorPosX(), ImGui::GetWindowWidth() - ImGui::GetStyle().WindowPadding.x - ImGui::GetStyle().ScrollbarSize - width));
+                    ImGui::SameLine(std::max(ImGui::GetCursorPosX(), rowRight - marksWidth - width));
                     ImGui::TextColored(ImVec4(0.6f, 0.61f, 0.63f, 1.0f), "%s", tag.c_str());
+                }
+                if (!letters.empty()) {
+                    ImGui::SameLine(std::max(ImGui::GetCursorPosX(), rowRight - marksWidth + 6.0f * g_scale));
+                    bool first = true;
+                    for (int bit = 0; bit < kMarkCount; ++bit) {
+                        if (!(marks & (1u << bit)))
+                            continue;
+                        if (!first)
+                            ImGui::SameLine(0.0f, 0.0f);
+                        first = false;
+                        ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(Colour(MarkColour(bit))), "%c", MarkLetter(bit));
+                        if (ImGui::IsItemHovered())
+                            ImGui::SetTooltip("%s", MarkName(bit));
+                    }
                 }
                 if (row == scrollTo)
                     ImGui::SetScrollHereY(0.4f);
@@ -1198,6 +1271,9 @@ void Help(const Model& model)
         {"", "End", "(an end point) draw on from it"},
         {"", "J / U", "(a point) link this end to the next end clicked / unlink it from its next point"},
         {"", "Inspector", "a rail's terrain (whole rail); a ped's / car's path: Assign, then click a waypoint"},
+        {"", "N > Ladder", "click a wall where its foot goes, then where its top goes; Z / X turn a ladder, Delete "
+                           "deletes it whole, L off moves its foot or top"},
+        {"", "Inspector", "a rail: Trick object (drawn rails), Grindable on flat ground"},
         {"Moving", "Drag", "moves it (Shift: up / down; wheel: push / pull; Ctrl or Snap 25: snap to 25)"},
         {"", "Drag an arrow", "along that axis only"},
         {"", "W A S D / Q E", "nudge it"},

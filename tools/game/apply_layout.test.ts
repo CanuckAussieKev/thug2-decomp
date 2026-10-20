@@ -244,7 +244,7 @@ test("layout_file reads every record kind the editor writes", () => {
         `drop ${hex("Rail03")}`,
         `terrain ${hex("Rail02")} TERRAIN_GRINDWOOD`,
         `wall ${hex("Wall1")} 0 0 0 16 1`,
-        'trigger ed_gap01 GapStart pos=1,2,3 yaw=0 size=10,10,10 gap=7 text="A gap" replaces=0000ABCD',
+        'trigger ed_gap01 gapstart pos=1,2,3 yaw=0 size=10,10,10 gap=7 replaces=0000ABCD text="A gap"',
         "mystery 1 2 3",
     ].join("\n");
     const l = readLayout(text);
@@ -273,8 +273,11 @@ test("layout_file reads every record kind the editor writes", () => {
     assert.deepEqual(l.dropped, [checksum("Rail03")]);
     assert.equal(l.walls[0]!.off, true);
     assert.equal(l.unknown[0]!.kind, "mystery");
-    assert.equal(l.triggers[0]!.kind, "GapStart");
+    assert.equal(l.triggers[0]!.kind, "gapstart");
     assert.equal(l.triggers[0]!.fields.text, '"A gap"');
+    assert.equal(l.triggers[0]!.spec.text, "A gap");
+    assert.equal(l.triggers[0]!.spec.replaces, 0xabcd);
+    assert.deepEqual(l.triggers[0]!.spec.size, { x: 10, y: 10, z: 10 });
 });
 
 test("layout_file refuses what the DLL refuses, with the line", () => {
@@ -293,6 +296,14 @@ test("layout_file refuses what the DLL refuses, with the line", () => {
     bad("node ed_x GenericNode type=Crown");
     bad("level tod=noon");
     bad("wall 00000001 0 0 0 0 2");
+    // (triggers: Triggers::ReadRecord's refusals - the kind's case, `other`, a repeated key, a bad value, no pos)
+    bad("trigger ed_t01 Kill pos=0,0,0");
+    bad("trigger ed_t01 other pos=0,0,0");
+    bad("trigger ed_t01 kill pos=0,0,0 pos=1,1,1");
+    bad("trigger ed_t01 kill pos=0,0,0 water=2");
+    bad("trigger ed_t01 kill pos=0,0,0 score=-1");
+    bad('trigger ed_t01 gapend pos=0,0,0 text="a" b');
+    bad("trigger ed_t01 kill yaw=0");
     assert.throws(() => readLayout("not a layout\n"), LayoutError);
 });
 
@@ -423,14 +434,14 @@ test("bake: nodes set, added, hidden, relinked; fields over a shared structure",
             `links ${hex("Rail01")} ${hex("Rail03")}`,
             `terrain ${hex("Rail03")} TERRAIN_GRINDWOOD`,
             `hide ${hex("Crown01")}`,
-            `trigger ed_kill01 Kill pos=0,0,0 yaw=0 size=50,50,50 target=TRG_Restart01 replaces=${hex("Wall1")}`,
+            `trigger ed_kill01 kill pos=0,0,0 yaw=0 size=50,50,50 target=TRG_Restart01 replaces=${hex("Wall1")}`,
             `wall ${hex("Wall1")} 0 0 0 0 1`,
             "mystery 1",
         ].join("\n"),
     );
     const out = bake(layout, level(), { level: LEVEL, why: "a test" });
     const nodes = nodesOf(out.qb);
-    assert.equal(nodes.length, 9, "6 of the level's + 2 nodes + 1 point appended");
+    assert.equal(nodes.length, 10, "6 of the level's + 2 nodes + 1 point + 1 trigger appended");
     const restart = named(nodes, "TRG_Restart01");
     assert.deepEqual((restart.get("Pos") as Vector).values, [1, 2, 3]);
     // RestartName comes from the shared structure: the node's own override at its end; the shared flag can't go.
@@ -474,13 +485,18 @@ test("bake: nodes set, added, hidden, relinked; fields over a shared structure",
     assert.equal(file.names.get(checksum("ed_rail01")), "ed_rail01");
     // Reported: the level properties, the unknown record, the parity of spawns / crowns / rails.
     assert.ok(out.warnings.some((w) => w.startsWith("level properties not baked") && w.includes("tod_state=night")));
-    assert.ok(out.unsupported.some((u) => u.includes('"trigger"') && u.includes("ed_kill01")));
+    assert.ok(!out.unsupported.some((u) => u.includes('"trigger"')), "triggers are baked now");
     assert.ok(out.unsupported.some((u) => u.includes('"mystery"')));
+    assert.ok(!out.col!.objects.some((o) => o.checksum === checksum("Wall1")), "the replaced level trigger: off");
     assert.ok(
-        out.warnings.some((w) => w.includes("kept on")),
-        "the replaced level trigger stays",
+        out.col!.objects.some((o) => o.checksum === checksum("ed_kill01")),
+        "the trigger's box",
     );
-    assert.ok(out.col!.objects.some((o) => o.checksum === checksum("Wall1")));
+    assert.equal((named(nodes, "ed_kill01").get("TriggerScript") as Name).value, checksum("ed_kill01Script"));
+    assert.ok(
+        new QbFile(out.qb, "tst.qb", true).scripts.has(checksum("ed_kill01Script")),
+        "no scripts .qb: in the node .qb",
+    );
     assert.ok(out.parity.some((p) => p.startsWith("trigger ed_kill01")));
     for (const what of [
         "a spawn (restart) TRG_Restart01 moved",
@@ -492,6 +508,118 @@ test("bake: nodes set, added, hidden, relinked; fields over a shared structure",
             what,
         );
     }
+});
+
+// A scripts .qb (one script) and a Levels.qb (the level's structure between two others).
+function scriptsQb(): Buffer {
+    return Buffer.concat([
+        Buffer.from([0x01, 0x23]),
+        encodeValue(NAME("tst_Setup")),
+        Buffer.from([0x01]),
+        encodeValue(NAME("DoThings")),
+        Buffer.from([0x01, 0x24, 0x01, 0x2b]),
+        pack("<I", checksum("tst_Setup")),
+        Buffer.from("tst_Setup\0", "latin1"),
+        Buffer.from([0x00]),
+    ]);
+}
+function levelsQb(): Buffer {
+    const global = (name: string, value: QbValue): Buffer =>
+        Buffer.concat([encodeValue(NAME(name)), Buffer.from([0x07]), encodeValue(value), Buffer.from([0x01])]);
+    return Buffer.concat([
+        global("Level_aa", struct([["level", "aa"]])),
+        global(
+            `Level_${LEVEL}`,
+            struct([
+                ["name", "Test"],
+                ["level", LEVEL],
+                ["tod_manager_active", 0],
+                ["ambient_red", 10],
+                ["ambient_green", 11],
+                ["ambient_blue", 12],
+            ]),
+        ),
+        global("Level_zz", struct([["level", "zz"]])),
+        Buffer.from([0x00]),
+    ]);
+}
+
+test("bake: triggers - node, trigger box, script in the scripts .qb; level properties in Levels.qb", () => {
+    const layout = readLayout(
+        [
+            "thug2-decomp layout 2",
+            `scene ${hex(LEVEL)}`,
+            `level name=My%20Test start=${hex("TRG_Restart01")} tod=night time=1 ambient=300,2,3 fog=4,5,6,7,200000`,
+            `trigger ed_trigger01 gapstart pos=0,100,0 yaw=0 size=400,200,400 gap=ed_gap01 flags=CANCEL_GROUND score=100 text="Editor Gap 1"`,
+            `trigger ed_trigger02 gapend pos=600,100,0 yaw=0 size=400,200,400 gap=ed_gap01 flags=CANCEL_GROUND score=100 text="Editor Gap 1"`,
+            "trigger ed_trigger03 teleport pos=0,0,900 yaw=1.5 size=100,100,100 target=TRG_Restart01",
+            `trigger ed_trigger04 script pos=0,0,0 yaw=0 size=10,10,10 script=tst_Setup replaces=${hex("Wall1")}`,
+            "trigger ed_trigger05 kill pos=0,0,0 yaw=0 size=10,10,10",
+            "trigger ed_trigger06 gapstart pos=0,0,0 yaw=0 size=10,10,10 gap=ed_lonely score=100",
+            "trigger Rail01 kill pos=0,0,0 target=TRG_Restart01",
+        ].join("\n"),
+    );
+    const files = { ...level(), scripts: scriptsQb(), levels: levelsQb() };
+    const out = bake(layout, files, null);
+    const nodes = nodesOf(out.qb);
+    assert.equal(nodes.length, 6 + 6, "six triggers appended (not the one named like a level node)");
+    const t1 = named(nodes, "ed_trigger01");
+    assert.deepEqual(
+        t1.entries.map(([k]) => k!.value),
+        ["Pos", "Angles", "Name", "Class", "Type", "TriggerScript"].map(checksum),
+    );
+    assert.equal((t1.get("TriggerScript") as Name).value, checksum("ed_trigger01Script"));
+    assert.deepEqual((named(nodes, "ed_trigger03").get("Angles") as Vector).values, [0, Math.fround(1.5), 0]);
+    assert.ok(out.warnings.some((w) => w.includes("trigger Rail01") && w.includes("already")));
+    // The boxes: one collision object a trigger, named after its node; the replaced level trigger left out.
+    for (let i = 1; i <= 6; i++) {
+        const o = out.col!.objects.find((x) => x.checksum === checksum(`ed_trigger0${i}`));
+        assert.ok(o && o.faces.length === 12 && o.faces.every((f) => (f[0] & 0x50) === 0x50), `box ${i}`);
+    }
+    assert.ok(!out.col!.objects.some((o) => o.checksum === checksum("Wall1")), "replaced: off");
+    assert.ok(out.col!.objects.some((o) => o.checksum === checksum("SecA")));
+    // The scripts: in the scripts .qb (its own script's bytes first, as they were), none in the node .qb.
+    assert.ok(out.scripts);
+    const original = scriptsQb();
+    const ownEnd = original.indexOf(0x2b);
+    assert.deepEqual(out.scripts.subarray(0, ownEnd), original.subarray(0, ownEnd));
+    const sq = new QbFile(out.scripts, "tst_scripts.qb", true);
+    assert.equal(sq.scripts.size, 1 + 6);
+    assert.deepEqual(sq.calls(checksum("ed_trigger01Script"))[0]![0], checksum("StartGap"));
+    assert.deepEqual(sq.calls(checksum("ed_trigger02Script"))[0]![0], checksum("EndGap"));
+    assert.deepEqual(sq.calls(checksum("ed_trigger04Script"))[0]![0], checksum("tst_Setup"));
+    assert.equal(sq.scripts.get(checksum("ed_trigger05Script"))!.length, 0, "no restart: an empty script, as the DLL");
+    assert.equal(sq.names.get(checksum("ed_gap01")), "ed_gap01");
+    assert.equal(new QbFile(out.qb, "tst.qb", true).scripts.size, 0);
+    assert.ok(out.warnings.some((w) => w.includes("ed_trigger05") && w.includes("does nothing")));
+    assert.ok(out.warnings.some((w) => w.includes("ed_lonely has no end")));
+    assert.ok(!out.warnings.some((w) => w.includes("ed_gap01 has no")));
+    // Level properties: set in Level_tst (clamped as the DLL), the other structures' bytes kept; start reported.
+    assert.ok(out.levels);
+    const lv = new QbFile(out.levels, "Levels.qb", true);
+    const s = lv.globals.find(([k]) => k.value === checksum(`Level_${LEVEL}`))![1] as Struct;
+    assert.equal(s.get("name"), "My Test");
+    assert.equal((s.get("tod_state") as Name).value, checksum("night"));
+    assert.equal(s.get("tod_manager_active"), 1);
+    assert.deepEqual(
+        ["ambient_red", "ambient_green", "ambient_blue"].map((k) => s.get(k)),
+        [255, 2, 3],
+    );
+    assert.deepEqual(
+        ["fog_red", "fog_green", "fog_blue", "fog_alpha", "fog_dist"].map((k) => s.get(k)),
+        [4, 5, 6, 7, 100000],
+    );
+    const before = levelsQb();
+    const first = before.indexOf(Buffer.concat([encodeValue(NAME(`Level_${LEVEL}`))]));
+    assert.deepEqual(out.levels.subarray(0, first), before.subarray(0, first), "Level_aa as it was");
+    assert.equal((lv.globals.find(([k]) => k.value === checksum("Level_zz"))![1] as Struct).get("level"), "zz");
+    assert.ok(out.warnings.some((w) => w.startsWith("level start") && w.includes("not baked")));
+    assert.ok(out.report.some((r) => r.startsWith(`Levels.qb: Level_${LEVEL}`)));
+    // Baked again over its own output: the triggers are there already - nothing doubled.
+    const twice = bake(layout, { ...files, qb: out.qb, col: out.col, scripts: out.scripts, levels: out.levels }, null);
+    assert.equal(nodesOf(twice.qb).length, 12);
+    assert.equal(twice.scripts, null, "no new scripts");
+    assert.deepEqual(twice.levels, out.levels, "the same values: the same bytes");
 });
 
 test("bake: added crowns keep the layout's order", () => {
@@ -512,4 +640,56 @@ test("install refuses the backups and THUGPRO, and the main install without --al
     assert.match(installRefusal("C:\\Games\\THUG2\\Game", false) ?? "", /main install/);
     assert.equal(installRefusal("C:\\Games\\THUG2\\Game", true), null);
     assert.equal(installRefusal("C:\\Games\\THUG2-1\\Game", false), null);
+});
+
+// (phase 4b - level_editor_chains.h) ladders drawn and turned, drawn rails as trick objects, rails grindable on flat ground.
+test("bake: ladders, trick-object rails, flat-ground rails", () => {
+    const layout = readLayout(
+        [
+            "thug2-decomp layout 2",
+            `scene ${hex(LEVEL)}`,
+            `point ed_ladder01 ClimbingNode pos=10,0,20 links=${hex("ed_ladder02")} facing=1.5`,
+            "point ed_ladder02 ClimbingNode pos=10,200,20 facing=1.5",
+            `point ed_rail01 RailNode pos=0,0,0 links=${hex("ed_rail02")} cluster=${hex("SecA")} grindflat=1`,
+            "point ed_rail02 RailNode pos=50,0,0 cluster=00000ABC",
+            `facing ${hex("Rail01")} -0.5`,
+            `grindflat ${hex("Rail02")}`,
+        ].join("\n"),
+    );
+    assert.equal(layout.points[0]!.facing, 1.5);
+    assert.equal(layout.points[2]!.cluster, checksum("SecA"));
+    assert.equal(layout.points[2]!.grindFlat, true);
+    assert.deepEqual(layout.facings, [{ name: checksum("Rail01"), facing: -0.5 }]);
+    assert.deepEqual(layout.grindFlat, [checksum("Rail02")]);
+    const out = bake(layout, level(), { level: LEVEL, why: "a test" });
+    const nodes = nodesOf(out.qb);
+    const foot = named(nodes, "ed_ladder01");
+    assert.equal((foot.get("Class") as Name).value, checksum("ClimbingNode"));
+    assert.equal((foot.get("Type") as Name).value, checksum("Ladder"), "a ladder's point, as THUG2's");
+    assert.deepEqual((foot.get("Angles") as Vector).values, [0, 1.5, 0]);
+    assert.ok(foot.hasFlag("CreatedAtStart"));
+    assert.equal(foot.get("TerrainType"), undefined, "no terrain on a ladder");
+    assert.deepEqual(foot.get("Links"), [nodes.indexOf(named(nodes, "ed_ladder02"))]);
+    const rail = named(nodes, "ed_rail01");
+    assert.ok(rail.hasFlag("TrickObject"));
+    assert.equal((rail.get("Cluster") as Name).value, checksum("SecA"));
+    assert.ok(rail.hasFlag("ed_grind_flat"));
+    const other = named(nodes, "ed_rail02");
+    assert.equal((other.get("Cluster") as Name).value, 0xabc);
+    assert.equal(other.hasFlag("ed_grind_flat"), false);
+    assert.deepEqual((named(nodes, "Rail01").get("Angles") as Vector).values, [0, -0.5, 0], "a level ladder turned");
+    assert.ok(named(nodes, "Rail02").hasFlag("ed_grind_flat"));
+    assert.ok(out.warnings.some((w) => w.startsWith("2 rail point(s) grindable on flat ground")));
+    for (const what of ["ladder point ed_ladder01 added", "rail Rail02 grindable on flat ground"])
+        assert.ok(
+            out.parity.some((p) => p.startsWith(what)),
+            what,
+        );
+    // Refused as the DLL refuses.
+    for (const line of [
+        "point ed_rail09 RailNode pos=1,2,3 grindflat=2",
+        "facing 00000001",
+        "point x LevelLight pos=1,2,3",
+    ])
+        assert.throws(() => readLayout(`thug2-decomp layout 2\nscene 00000001\n${line}\n`), LayoutError, line);
 });

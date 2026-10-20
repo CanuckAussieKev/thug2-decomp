@@ -11,9 +11,11 @@
 #include <cstdio>
 #include <cstring>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "game/core/crc.h"
+#include "game/front/level_editor_carry.h"
 #include "game/front/level_editor_chains.h"
 #include "game/front/level_editor_hud.h"
 #include "game/front/level_editor_layout.h"
@@ -318,6 +320,7 @@ char g_lastAction[128] = "none";
 std::string DescribeSelection(); // (the HUD's)
 int InspectedNode();              // (the node layer's)
 std::vector<Picking::Lock> SelectionLocks(); // (picking)
+void FollowScenery();                         // (carrying - level_editor_carry.h)
 
 void NoteAction(const char* format, ...)
 {
@@ -376,6 +379,7 @@ uint32_t g_hoverSector;
 bool g_dragging, g_dragVertical;
 int g_axis = -1;      // (0 / 1 / 2: dragging along x / y / z; -1: free)
 int g_hoverAxis = -1; // (the arrow under the cursor)
+int g_hoverHandle = -1; // (a selected trigger volume's resize handle under the cursor - level_editor_triggers.h)
 bool g_cancelRequested; // (Escape: a drag put back, the browser or the help closed - before leaving)
 V3 g_dragStart;       // where the selection was when the drag started
 V3 g_dragOffset, g_dragPlaneNormal, g_dragPlaneOffset;
@@ -460,7 +464,7 @@ void HandleEvent(SDL_Event* event)
     if (!g_active)
         return;
     // (the UI first: over a panel, or while it wants the keys, the event is its own - level_editor_ui.h)
-    if (Ui::Running() && !Ui::RouteEvent(event, g_dragging || g_mouse.right))
+    if (Ui::Running() && !Ui::RouteEvent(event, g_dragging || g_mouse.right || Triggers::Resizing()))
         return;
     switch (event->type) {
     case SDL_MOUSEMOTION:
@@ -693,6 +697,7 @@ void PlaceSelection(V3 pos)
     }
     if (objects.empty()) {
         Scenery::MoveTo(pos);
+        FollowScenery();
         return;
     }
     V3 delta = pos - Objects::PosOf(objects.front());
@@ -717,6 +722,7 @@ void TurnSelection(int notches)
     }
     if (objects.empty()) {
         Scenery::Turn(notches);
+        FollowScenery();
         Scenery::Commit();
         return;
     }
@@ -749,8 +755,14 @@ struct FieldUndo {
 };
 struct UndoStep {
     enum Kind {
-        kObjects, kScenery, kMade, kNodes, kAdded, kHidden, kOrder, kLevel, kChains, kWalls, kTriggers, kFields, kProps
+        kObjects, kScenery, kMade, kNodes, kAdded, kHidden, kOrder, kLevel, kChains, kWalls, kTriggers, kFields, kProps,
+        kLocks
     } kind = kObjects;
+    // kLocks: the locks to put back (level_editor_picking.h - L, Unlock, Unlock all).
+    std::vector<Picking::Lock> locks;
+    // kScenery: what the scenery carried along (level_editor_carry.h) - their places before the change.
+    std::vector<Objects::State> carriedObjects;
+    NodeEdit::Step carriedNodes;
     // kFields (phase 6): nodes' own fields to put back (level_editor_fields.h); kProps: the level's properties.
     std::vector<FieldUndo> fields;
     LevelProps::Props props;
@@ -813,9 +825,24 @@ UndoStep Snapshot()
     } else {
         step.kind = UndoStep::kScenery;
         step.scenery = Scenery::SaveState();
+        // (what stands on it or is attached to it: carried by the change starting - level_editor_carry.h)
+        Carry::Taken taken = Carry::Arm();
+        step.carriedObjects = std::move(taken.objects);
+        step.carriedNodes = std::move(taken.nodes);
     }
     step.where = SelectionPos();
     return step;
+}
+
+// The scenery moved, turned or scaled: what it carries follows (a node carried in a level shared with THUGPRO: the
+// online warning).
+void FollowScenery()
+{
+    Carry::Follow([](uint32_t name) {
+        int index = Nodes::Find(name);
+        if (index >= 0)
+            NoteOnlineEdit(index);
+    });
 }
 
 void PushUndo(const UndoStep& step)
@@ -826,6 +853,16 @@ void PushUndo(const UndoStep& step)
     g_redo.clear();
     MarkUnsaved();
     ++g_moves;
+}
+
+// The locks as they are now, as an undo step (before L / Unlock / Unlock all change them).
+void PushLocksUndo()
+{
+    UndoStep step;
+    step.kind = UndoStep::kLocks;
+    step.locks = Picking::Locks();
+    step.where = SelectionPos();
+    PushUndo(step);
 }
 
 // The selected objects scaled by `factor` (along the world's axes - each object takes it along its own axis nearest
@@ -866,6 +903,12 @@ bool ScaleObjects(const std::vector<Obj::CCompositeObject*>& objects, V3 factor,
 bool ScaleSelectionBy(V3 factor, bool uniform)
 {
     std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
+    if (WallOnly()) {
+        // (level_editor_walls.h: a wall's collision is moved by the geometry's own Translate / RotateY on the BSP
+        // tree's sixteenths; a scale would need its collision kept and rebuilt as level_editor_scale.h does scenery's)
+        Hud::Message("Invisible walls don't scale yet - only move and turn");
+        return false;
+    }
     if (MovableNode() >= 0 || (objects.empty() && !Scenery::HasSelection())) {
         Hud::Message("Only scenery and objects scale ([ / ]): nodes don't");
         return false;
@@ -881,8 +924,10 @@ bool ScaleSelectionBy(V3 factor, bool uniform)
         Hud::Message("Scale: at its limit (0.25x to 4x on each axis; less for large compressed collision)");
         return false;
     }
-    if (objects.empty())
+    if (objects.empty()) {
+        FollowScenery();
         Scenery::Commit();
+    }
     PushUndo(before);
     return true;
 }
@@ -990,6 +1035,17 @@ void Restore(UndoStep& step)
     case UndoStep::kScenery:
         g_objects.clear();
         Scenery::RestoreState(step.scenery);
+        // (what it carried: back where it was - level_editor_carry.h)
+        for (const Objects::State& state : step.carriedObjects)
+            Objects::Restore(state);
+        NodeEdit::Put(step.carriedNodes, [](uint32_t name, const NodeEdit::Values& values) {
+            NodeEdit::Values now;
+            if (NodeEdit::Read(name, &now) && !NodeEdit::Same(now, values))
+                NodeEdit::Set(name, values);
+        });
+        break;
+    case UndoStep::kLocks:
+        Picking::SetLocks(step.locks);
         break;
     case UndoStep::kMade:
         SetExist(&step, step.exist);
@@ -1094,9 +1150,22 @@ UndoStep Current(const UndoStep& step)
                 now.objects.push_back(Objects::Save(object));
         }
         break;
-    case UndoStep::kScenery:
+    case UndoStep::kScenery: {
         Scenery::SetSelection(step.scenery.selection);
         now.scenery = Scenery::SaveState();
+        now.carriedObjects.clear();
+        for (const Objects::State& state : step.carriedObjects) {
+            if (auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(state.id)))
+                now.carriedObjects.push_back(Objects::Save(object));
+        }
+        std::vector<uint32_t> names;
+        for (const auto& node : step.carriedNodes.nodes)
+            names.push_back(node.first);
+        now.carriedNodes = NodeEdit::Capture(names, NodeEdit::Read);
+        break;
+    }
+    case UndoStep::kLocks:
+        now.locks = Picking::Locks();
         break;
     case UndoStep::kMade:
         now.exist = !step.exist;
@@ -1168,6 +1237,7 @@ void StepHistory(std::vector<UndoStep>* from, std::vector<UndoStep>* to, const c
     }
     UndoStep step = from->back();
     from->pop_back();
+    Carry::Disarm(); // (the steps put places back themselves: nothing follows them)
     to->push_back(Current(step));
     Restore(step);
     MarkUnsaved();
@@ -1728,10 +1798,11 @@ bool PassPauseKey(bool down)
     return PassKey(&g_pauseKeyReleased, down);
 }
 
-// (offline only: no LEVEL EDITOR in a network session - level_editor_layout.h)
+// (offline only, outside career-type modes: no LEVEL EDITOR in a network session or in story / classic... -
+// level_editor_layout.h)
 bool __cdecl CFunc_Available(Script::CStruct*, Script::CScript*)
 {
-    return Enabled() && Nx::CurrentLevel() != 0 && !Layout::NetworkActive();
+    return Enabled() && Nx::CurrentLevel() != 0 && !Layout::Refused();
 }
 
 bool __cdecl CFunc_Start(Script::CStruct*, Script::CScript*)
@@ -1742,10 +1813,12 @@ bool __cdecl CFunc_Start(Script::CStruct*, Script::CScript*)
     }
     if (g_active)
         return true;
-    // The level becomes its edited copy (its saved layout put in place if it wasn't) - never in a network session.
+    // The level becomes its edited copy (its saved layout put in place if it wasn't) - never in a network session or a
+    // career-type mode (the player told why on screen: the pause menu stays).
     std::string edited;
     if (!Layout::EnterEditedCopy(&edited)) {
         Log("level editor: not started - %s", edited.c_str());
+        Layout::PanelMessage(edited.c_str());
         return false;
     }
     g_active = true;
@@ -1888,6 +1961,7 @@ bool __cdecl CFunc_Stop(Script::CStruct*, Script::CScript*)
     Hud::HidePanel();
     Preview::Hide();
     View::Stop(); // (everything hidden in the editor shown again)
+    Carry::Disarm();
     Triggers::Stop();
     Nx::OcclusionOff() = g_occlusionInPlay;
     Ui::Stop();
@@ -2019,6 +2093,11 @@ const char* ModeName()
 // place, or the piece a plain click passes (Alt+click takes it).
 std::string HoverText()
 {
+    if (uint32_t wall = View::HoverWall(); wall && g_hoverAxis < 0)
+        return "invisible wall " + Objects::Label(wall) + " - Shift+click selects it";
+    if (g_hoverHandle >= 0 && g_hoverAxis < 0)
+        return std::string("the trigger volume's ") + "-+"[g_hoverHandle & 1] + "XYZ"[g_hoverHandle >> 1] +
+               " face - drag to resize it";
     std::string text = g_hoverAxis >= 0 ? std::string("the ") + "XYZ"[g_hoverAxis] + " arrow - drag to move along it"
                        : g_hoverSector ? Scenery::DescribeHover(g_hoverSector)
                        : Live(g_hover) ? Objects::Describe(Live(g_hover))
@@ -2346,8 +2425,8 @@ void LevelPropsRequest(const Ui::Request& request)
     }
 }
 
-// The Place palette's chain entries (after the node kinds): a new rail, a new path.
-constexpr int kChainEntries = 2;
+// The Place palette's chain entries (after the node kinds): a new rail, a new path, a new ladder.
+constexpr int kChainEntries = 3;
 int ChainEntry(int entry)
 {
     int base = static_cast<int>(PlaceEntries().size());
@@ -2356,13 +2435,27 @@ int ChainEntry(int entry)
 Chains::Draw ChainKindOf(int entry)
 {
     int chain = ChainEntry(entry);
-    return chain == 0 ? Chains::Draw::Rail : chain == 1 ? Chains::Draw::Path : Chains::Draw::None;
+    return chain == 0   ? Chains::Draw::Rail
+           : chain == 1 ? Chains::Draw::Path
+           : chain == 2 ? Chains::Draw::Ladder
+                        : Chains::Draw::None;
 }
 
 // A click while drawing: a point where the cursor's ray meets the level (edges snapped unless Alt; a free end near it
 // taken), linked on from the last.
 void DrawChainPoint(V3 dir, bool alt)
 {
+    if (Chains::Drawing() == Chains::Draw::Ladder) {
+        // (a ladder: its foot on a wall, then its top - level_editor_chains.h)
+        Chains::State before = Chains::Current();
+        std::string message;
+        uint32_t select = 0;
+        bool made = Chains::LadderClick(g_pos, Normalize(dir), kMaxPickDistance, &message, &select);
+        AfterChainChange(before, made ? select : 0, message);
+        if (made && ChainKindOf(g_placeArmed) != Chains::Draw::None)
+            g_placeArmed = -1;
+        return;
+    }
     V3 point;
     uint32_t end = 0;
     if (!Chains::SnapPoint(g_pos, Normalize(dir), kMaxPickDistance, alt, &point, &end)) {
@@ -2401,7 +2494,8 @@ void DeleteNode(bool confirmed)
         return;
     const Nodes::Node node = Nodes::All()[index];
     // A rail or path point: deleted from its chain, its neighbours linked (a level's own hidden - level_editor_chains.h).
-    if (node.family == Nodes::Family::Rail || node.family == Nodes::Family::Path) {
+    if (node.family == Nodes::Family::Rail || node.family == Nodes::Family::Path ||
+        node.family == Nodes::Family::Ladder) { // (a ladder: whole)
         RunChainOp(Chains::kOpDelete, 0);
         return;
     }
@@ -2508,6 +2602,8 @@ std::vector<Ui::BrowserItem> g_uiBrowserItems;
 // The keys for what you're doing (as the HUD's bottom lines).
 std::vector<std::pair<std::string, std::string>> KeysNow()
 {
+    if (Chains::Drawing() == Chains::Draw::Ladder)
+        return {{"Click", Chains::Waiting()}, {"Ctrl+Z", "take the last ladder away"}, {"Esc", "stop"}};
     if (Chains::Drawing() != Chains::Draw::None)
         return {{"Click", "add a point"}, {"Alt+click", "no edge snapping"}, {"Near an end", "links onto it"},
                 {"Enter, right click", "finish"}, {"Ctrl+Z", "take the last point away"}, {"Esc", "stop"}};
@@ -2518,6 +2614,14 @@ std::vector<std::pair<std::string, std::string>> KeysNow()
     if (g_browser.open)
         return {{"Up/Down", "choose"}, {"Left/Right", "scenery / objects"}, {"Enter", "place it"}, {"F", "show me"},
                 {"B, Esc", "close"}};
+    if (g_dragging && Carry::Count() > 0) {
+        // (scenery carrying objects / nodes - level_editor_carry.h)
+        std::string carried = "leave the " + std::to_string(Carry::Count()) + " carried";
+        if (g_axis >= 0)
+            return {{"Mouse", "moves it along the arrow"}, {"Ctrl", "snap to 25"}, {"Alt", carried}, {"Esc", "put it back"}};
+        return {{"Mouse", "move"}, {"Shift", "up / down"}, {"Wheel", "push / pull"}, {"Ctrl", "snap"}, {"Alt", carried},
+                {"Esc", "put it back"}};
+    }
     if (g_dragging && g_axis >= 0)
         return {{"Mouse", "moves it along the arrow"}, {"Ctrl", "snap to 25"}, {"Esc", "put it back"}};
     if (g_dragging)
@@ -2541,9 +2645,57 @@ std::vector<std::pair<std::string, std::string>> KeysNow()
             {"F1", "help"}};
 }
 
+// The Outliner's markers (level_editor_ui.h's kMark*): by node name, what the editor has done to it, its object or its
+// scenery - read from each module's record of its changes.
+std::unordered_map<uint32_t, uint8_t> ChangeMarks()
+{
+    std::unordered_map<uint32_t, uint8_t> marks;
+    auto mark = [&](uint32_t name, uint8_t bits) {
+        if (name)
+            marks[name] |= bits;
+    };
+    for (const Scenery::SectorState& s : Scenery::ChangedSectors()) {
+        bool moved = s.placement.quarters != 0 || !IsUnitScale(s.placement.scale) || s.placement.offset.x != 0.0f ||
+                     s.placement.offset.y != 0.0f || s.placement.offset.z != 0.0f;
+        mark(s.checksum, static_cast<uint8_t>((moved ? Ui::kMarkMoved : 0) | (s.hidden ? Ui::kMarkHidden : 0)));
+    }
+    for (const Scenery::RailState& r : Scenery::ChangedRails())
+        mark(r.name, static_cast<uint8_t>(r.hidden ? Ui::kMarkHidden : Ui::kMarkMoved));
+    for (const Walls::WallState& w : Walls::Changed()) {
+        bool moved = !Walls::IsHome(w.placement);
+        mark(w.checksum, static_cast<uint8_t>((moved ? Ui::kMarkMoved : 0) | (w.off ? Ui::kMarkCollisionOff : 0)));
+    }
+    for (uint32_t id : Objects::Touched()) {
+        const Objects::State* origin = Objects::Origin(id);
+        auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(id));
+        if (!origin || !object)
+            continue;
+        const Mth::Vector &a = origin->matrix.row[2], &b = object->m_matrix.row[2];
+        if (origin->pos.x != object->m_pos.x || origin->pos.y != object->m_pos.y || origin->pos.z != object->m_pos.z ||
+            a.x != b.x || a.z != b.z)
+            mark(id, Ui::kMarkMoved);
+    }
+    for (const NodeEdit::Record& r : NodeEdit::Changed())
+        mark(r.name, Ui::kMarkMoved);
+    for (const Nodes::Node& n : Nodes::All()) {
+        if (n.added)
+            mark(n.name, Ui::kMarkAdded);
+        if (n.hidden)
+            mark(n.name, Ui::kMarkHidden);
+    }
+    for (uint32_t id : View::HiddenIds())
+        mark(id, Ui::kMarkViewHidden);
+    for (const Picking::Lock& lock : Picking::Locks())
+        mark(lock.id, Ui::kMarkLocked);
+    return marks;
+}
+
 Ui::Model BuildModel()
 {
     Ui::Model model = {};
+    model.carry = Carry::Enabled();
+    model.carried = g_dragging || g_keyMoving || g_fieldEditing ? Carry::Count() : 0; // (a move under way)
+    model.marks = ChangeMarks();
     uint32_t scene = Scenery::SceneName(Scenery::MainScene());
     model.level = scene ? Objects::Label(scene) : "";
     model.levelTitle = Layout::LevelTitle();
@@ -2583,6 +2735,9 @@ Ui::Model BuildModel()
         model.view.triangles = stats.triangles;
         model.view.sectors = stats.sectors;
         model.view.walls = stats.walls;
+        model.view.companions = stats.companions;
+        model.view.taken = stats.taken;
+        model.view.triggers = stats.triggers;
         model.view.capped = stats.capped;
         model.view.hidden = View::HiddenCount();
         if (uint32_t wall = View::SelectedWall()) {
@@ -2735,6 +2890,7 @@ Ui::Model BuildModel()
         // (phase 4: chains drawn point by point - level_editor_chains.h)
         model.place.entries.push_back({"Rail (click points; Enter finishes)", 0xFF7FB2D9, ""});
         model.place.entries.push_back({"Path (ped / car waypoints; Enter finishes)", 0xFF8FD18F, ""});
+        model.place.entries.push_back({"Ladder (click a wall at its foot, then its top)", 0xFFC88FD9, ""});
     }
     model.chain = ChainTarget() ? Chains::ViewOf(ChainTarget()) : Chains::View{};
     if (!model.chain.waiting)
@@ -2779,6 +2935,7 @@ void ShowHelp()
         "             [ / ] scale scenery / an object down / up 10% (Shift: 1%), 0.25x to 4x",
         "             Alt+[ / ] stretch it along the axis the camera faces most (x, y or z)",
         "             a rail / ladder / path point moves with its whole chain - L: by itself",
+        "             scenery carries what stands on it ([editor] carry=0 off; Alt while moving leaves it)",
         "Chains       N > Rail / Path: click points (Alt: no edge snap), Enter / right click finishes",
         "             on a point: Insert adds one after   Del deletes   End draws on   J links   U unlinks",
         "Editing      Ctrl+D duplicates   Del hides (a copy / added node: deletes)   Home puts back",
@@ -2963,6 +3120,9 @@ void Duplicate(const Frame& frame)
         Scenery::Commit();
         step.sectors = copies;
     } else {
+        if (WallOnly())
+            Hud::Message("Invisible walls can't be copied yet (a copy needs a sector of its own - "
+                         "docs/pending/editor-polish.md)");
         return;
     }
     PushUndo(step);
@@ -3086,6 +3246,8 @@ void Reset()
         } else {
             Hud::Message("It's where the level has it");
         }
+        if (Chains::IsLadder(g_nodeName))
+            RunChainOp(Chains::kOpFacingHome, 0); // (a level ladder turned: its facing too - its own undo step)
     } else if (!objects.empty()) {
         UndoStep before = Snapshot();
         bool any = false;
@@ -3110,6 +3272,7 @@ void Reset()
     } else if (Scenery::HasSelection()) {
         PushUndo(Snapshot());
         Scenery::ResetSelection();
+        FollowScenery(); // (what it carries goes with it - level_editor_carry.h)
         Hud::Message("Put back where the level had it");
     }
     NoteAction("reset (Home): %s", DescribeSelection().c_str());
@@ -3278,9 +3441,10 @@ void ToggleLock()
     if (locks.empty() && !g_nodeSelected && !Picking::Locks().empty()) {
         // (nothing selected: every lock dropped - the old HUD has no Inspector to unlock one)
         char text[64];
-        std::snprintf(text, sizeof(text), "Unlocked all %d", static_cast<int>(Picking::Locks().size()));
+        std::snprintf(text, sizeof(text), "Unlocked all %d (Ctrl+Z locks them again)",
+                      static_cast<int>(Picking::Locks().size()));
+        PushLocksUndo(); // (one undo step - unsaved with it)
         Picking::ClearLocks();
-        MarkUnsaved();
         Hud::Message(text);
         return;
     }
@@ -3292,9 +3456,9 @@ void ToggleLock()
     bool all = true;
     for (const Picking::Lock& lock : locks)
         all = all && Picking::Locked(lock.kind, lock.id);
+    PushLocksUndo(); // (one undo step - unsaved with it)
     for (const Picking::Lock& lock : locks)
         Picking::SetLocked(lock.kind, lock.id, !all);
-    MarkUnsaved();
     NoteAction("%s %d", all ? "unlocked" : "locked", static_cast<int>(locks.size()));
     if (all) {
         Hud::Message("Unlocked: clicks take it again");
@@ -3566,7 +3730,7 @@ void GoToSelection()
 // What was asked for on the UI's panels (level_editor_ui.h), done as the keys would.
 void ApplyUiRequests(V3 dir, bool haveRay, const Frame& frame)
 {
-    bool noChange = g_dragging || g_keyMoving || g_fieldEditing;
+    bool noChange = g_dragging || g_keyMoving || g_fieldEditing || Triggers::Resizing();
     for (const Ui::Request& request : Ui::TakeRequests()) {
         switch (request.kind) {
         case Ui::Request::kUndo:
@@ -3691,10 +3855,17 @@ void ApplyUiRequests(V3 dir, bool haveRay, const Frame& frame)
                 SwitchSceneryCollision(request.value == 0);
             break;
         case Ui::Request::kUnlock:
-            if (Picking::SetLocked(static_cast<uint32_t>(request.value), request.id, false)) {
-                MarkUnsaved();
-                Hud::Message("Unlocked: clicks take it again");
+            if (!noChange && Picking::Locked(static_cast<uint32_t>(request.value), request.id)) {
+                PushLocksUndo(); // (one undo step - unsaved with it)
+                Picking::SetLocked(static_cast<uint32_t>(request.value), request.id, false);
+                Hud::Message("Unlocked: clicks take it again (Ctrl+Z locks it again)");
             }
+            break;
+        case Ui::Request::kCarry:
+            Carry::SetEnabled(request.value != 0);
+            Hud::Message(request.value ? "Carry objects: what stands on moved scenery comes along (Alt while moving "
+                                         "leaves it)"
+                                       : "Carry objects off: scenery moves by itself");
             break;
         case Ui::Request::kSelectNode:
             SelectNode(request.value);
@@ -3731,6 +3902,8 @@ void ApplyUiRequests(V3 dir, bool haveRay, const Frame& frame)
                     g_scaleAtFieldStart = SelectionScaleNow();
                 }
                 ScaleSelectionTo({request.a[0], request.a[1], request.a[2]});
+                if (!Primary())
+                    FollowScenery();
             }
             break;
         case Ui::Request::kScaleDone:
@@ -3863,6 +4036,7 @@ void Update()
 {
     Layout::Tick();
     Triggers::Guard(); // (no editor trigger volumes in a network session)
+    Triggers::Play(g_active); // (exit triggers: the skater leaving one, in play)
     Chains::Tick(); // (peds / cars made again after their path changed; old rail node arrays freed)
     if (!g_active)
         return;
@@ -3911,7 +4085,9 @@ void Update()
     // Escape: a drag put back, else the browser or the help closed, else the selection dropped.
     if (g_cancelRequested) {
         g_cancelRequested = false;
-        if (g_dragging) {
+        if (Triggers::Resizing()) {
+            Triggers::EndResize(); // (kept as far as it went - Ctrl+Z puts the size back)
+        } else if (g_dragging) {
             PlaceSelection(g_dragStart);
             Settle();
             g_dragging = false;
@@ -3944,7 +4120,7 @@ void Update()
         browseKey, enterKey, focusKey, leftKey, rightKey, placeKey;
     static uint32_t upSince, downSince, pageUpSince, pageDownSince;
     bool zPressed = Pressed(keys, SDL_SCANCODE_Z, &zKey);
-    bool noChange = g_dragging || g_keyMoving || g_fieldEditing;
+    bool noChange = g_dragging || g_keyMoving || g_fieldEditing || Triggers::Resizing();
 
     // The panels: F1 the help, B the browser.
     if (Pressed(keys, SDL_SCANCODE_F1, &helpKey))
@@ -4031,6 +4207,8 @@ void Update()
     {
         Frame view = FrameFromYawPitch(g_yaw, g_pitch);
         Triggers::Tick(g_pos, view.back * -1.0f, g_yaw);
+        // (an editor trigger selected by itself: its resize handles)
+        Triggers::SetSelected(MovableNode() >= 0 && Triggers::IsTrigger(g_nodeName) ? g_nodeName : 0);
         UndoStep step;
         if (Triggers::TakeUndo(&step.triggers)) {
             step.kind = UndoStep::kTriggers;
@@ -4182,7 +4360,9 @@ void Update()
         // Z / X: turn it - an object 15 degrees, scenery a quarter turn about its centre (the engine turns level
         // geometry by quarter turns only).
         int turn = (Pressed(keys, SDL_SCANCODE_X, &turnRight) ? 1 : 0) - (zPressed && !ctrl ? 1 : 0);
-        if (turn && !g_dragging && !(MovableNode() >= 0 && NodeEdit::IsChain(g_nodeName))) { // (chain points don't turn)
+        if (turn && !g_dragging && MovableNode() >= 0 && Chains::IsLadder(g_nodeName)) {
+            RunChainOp(Chains::kOpTurn, static_cast<uint32_t>(turn)); // (a ladder: its facing, whole)
+        } else if (turn && !g_dragging && !(MovableNode() >= 0 && NodeEdit::IsChain(g_nodeName))) { // (chain points don't turn)
             PushUndo(Snapshot());
             TurnSelection(turn);
             NoteAction("turned (Z / X): %s", DescribeSelection().c_str());
@@ -4220,8 +4400,8 @@ void Update()
                 std::max(static_cast<double>(kMinOrbit),
                          std::min(static_cast<double>(kMaxOrbit), g_orbitDistance * std::pow(0.85, input.wheel))));
         }
-        // The camera at that distance from it (held still while the mouse drags it).
-        if (!g_dragging)
+        // The camera at that distance from it (held still while the mouse drags it or a trigger's face).
+        if (!g_dragging && !Triggers::Resizing())
             g_pos = TargetOf() + frame.back * g_orbitDistance;
     } else if (!haveSelection) {
         // Flying: W/A/S/D along the view, Q/E down/up, the wheel forward / back, - / = the speed (not while the
@@ -4251,6 +4431,15 @@ void Update()
         Log("level editor: mouse (%.0f, %.0f) in %dx%d, ray %d (%.3f, %.3f, %.3f), arrow %d", input.x, input.y,
             input.windowWidth, input.windowHeight, haveRay ? 1 : 0, dir.x, dir.y, dir.z, g_hoverAxis);
 
+    // Alt while moving scenery: what it carries (level_editor_carry.h) put back and left there for this move.
+    if (alt && (g_dragging || g_keyMoving) && Carry::Count() > 0) {
+        Carry::Leave();
+        Hud::Message("Alt: what stood on it stays where it was (for this move)");
+    }
+    // Shift with the collision shown: the invisible wall a Shift+click would take, highlighted (level_editor_view.h).
+    View::SetHoverWall(!g_dragging && haveRay && shift && !alt && View::ShowCollision() && Ui::Running()
+                           ? View::PickWall(g_pos, Normalize(dir))
+                           : 0);
     // Dragging, or what's under the cursor (an arrow first, then an object or scenery - the nearer).
     if (g_dragging && HaveSelection() && haveRay) {
         if (!g_dragMoved && std::fabs(input.x - g_pressX) + std::fabs(input.y - g_pressY) >= 4.0f)
@@ -4262,6 +4451,11 @@ void Update()
     }
     if (!g_dragging) {
         g_hoverAxis = haveRay && HaveSelection() ? ArrowAt(frame, backX, backY) : -1;
+        // (a selected trigger volume's resize handle - after the arrows: level_editor_triggers.h)
+        if (!Triggers::Resizing())
+            g_hoverHandle = haveRay && g_hoverAxis < 0 && Ui::Running() ? Triggers::HandleAt(backX, backY, 8.0f * PixelScale())
+                                                                      : -1;
+        Triggers::SetHoverHandle(g_hoverHandle);
         Obj::CCompositeObject* hover = nullptr;
         uint32_t hoverSector = 0;
         // What a click would take (level_editor_picking.h): the cycle's next entry while a click-to-cycle holds; else
@@ -4313,7 +4507,21 @@ void Update()
     // A click: on an arrow, dragging along it; on something, selecting it (Shift: adding / removing it; Alt or a
     // middle click: one piece of scenery in / out; Ctrl on a part of the scenery selection: that part dropped) and
     // dragging it; on nothing, deselecting.
-    if (input.leftPresses && haveRay && !g_dragging && Chains::WantsPick() && g_hoverAxis < 0) {
+    // A trigger volume's resize handle (level_editor_triggers.h): pressed, its face follows the mouse along its axis
+    // (Ctrl / Snap 25: sizes on 25s; the opposite face stays); let go, one undo step.
+    if (Triggers::Resizing()) {
+        if (input.left && haveRay)
+            Triggers::Resize(g_pos, dir, ctrl || g_snapAlways);
+        if (!input.left) {
+            Triggers::EndResize();
+            NoteAction("resized a trigger volume: %s", DescribeSelection().c_str());
+        }
+    }
+    bool handlePressed = input.leftPresses && haveRay && !g_dragging && g_hoverAxis < 0 && g_hoverHandle >= 0 &&
+                         !Triggers::Resizing() && Triggers::BeginResize(g_hoverHandle, g_pos, dir);
+    if (handlePressed) {
+        Hud::Message("Resizing: drag the face (Ctrl snaps to 25); Ctrl+Z undoes", 3.0);
+    } else if (input.leftPresses && haveRay && !g_dragging && Chains::WantsPick() && g_hoverAxis < 0) {
         // (an armed Link / path assignment: the node clicked - level_editor_chains.h)
         if (g_hoverNode >= 0) {
             Chains::State before = Chains::Current();
@@ -4526,6 +4734,7 @@ void Draw()
         AddNodeGizmos(frame, model.nodes.selected);
         View::AddCollision(g_pos, frame, g_lens, g_viewport, kNearZ, &g_overlay.under, &g_overlay.lines);
         Triggers::AddOverlay(g_pos, frame, g_lens, g_viewport, kNearZ, &g_overlay.lines, &g_overlay.texts);
+        Triggers::AddHandles(&g_overlay.circles); // (the selected trigger volume's resize handles)
         for (size_t i = 0; i + 1 < lines.size(); i += 2)
             g_overlay.lines.push_back({lines[i].x, lines[i].y, lines[i + 1].x, lines[i + 1].y, lines[i].color, 1.0f});
         Ui::Frame(model, g_overlay);

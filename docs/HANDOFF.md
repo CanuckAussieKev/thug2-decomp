@@ -34,6 +34,12 @@ then the "- [ ] Next:" line of docs/decomp-progress.md.
   chains, phase 5 triggers, and a check of face flag 0x80 (the view agent found the camera's feeler IGNORES 0x80 - our
   converters say 0x80 = camera collides and the THPS4 converter inverts it: possibly wrong; docs/pending/face-flag-0x80.md).
   Phase 6 (full Inspector + apply_layout.ts) starts after 4 and 5 merge.
+- **Account switch (2026-10-21): the main pages are now on this account** - editor plan / entity map
+  claude.ai/artifact/KzL5HQAt54n5g7JtfmEbtv (source scratchpad\main\editor-plan.html), play-test checklist
+  claude.ai/artifact/DUcbR4CuAAULq98JWcxX46 (source scratchpad\main\playtest-checklist.html; its db `results` starts empty -
+  the old account's ticks couldn't be read). Running: career-mode guard (resumed), apply_layout.ts triggers + level props,
+  ladders / trick-object rails / flat-ground rails, stretch + object scaling (object collision decomp), editor polish
+  (objects follow scenery, Outliner markers, walls hover / scale / copy, trigger handles + exit firing, undoable locks).
 - **2026-10-21, later: the whole editor build plan is merged and installed** (main 3094544): phase 4 chains, phase 5
   triggers, phase 6 Inspector / level props / apply_layout.ts, invisible walls, shadows + Parts, shared collision (moved
   pieces take their faces from collision-only sectors), editor gaps kept out of career saves, face flag 0x80 fix (THPS3 +

@@ -37,6 +37,11 @@ class CScript;
 //     a network game - host or client, LAN or online - or a scene loaded for one), whatever entry was picked; the
 //     EDITED LEVELS section isn't offered in the network level select (in_server_options) or in a network game, and
 //     LevelEditor_PickLevel refuses `edited_layout` there.
+//   - Career-type modes: never either (the user's rule, 2026-10-21 - ModeRefusal below: story, classic, create-a-goal,
+//     the park editor, the network and competitive modes). As for a network session: no LEVEL EDITOR, the editor
+//     doesn't start, no EDITED LEVELS section (LevelEditor_EditedLevels returns nothing), LevelEditor_PickLevel loads
+//     an edited pick as shipped, no layout is put in place; and an edited copy still loaded when the mode becomes one
+//     (Tick) is put back as shipped at once.
 //   - Older layout files (no change to the format) are the edited copies of their levels.
 //
 // The file is text, a record a line ('#' starts a comment; unknown records are skipped, so later versions can add
@@ -217,9 +222,38 @@ bool SavedLayoutScene(const std::string& fileName, uint32_t* scene);
 // checksum is the checksum of its `level` text (CFunc_LoadScene names the scene by it).
 uint32_t SceneOfLevelText(const char* level);
 
+// Game modes (the user's rule, 2026-10-21): the editor and the edited copies are offered only outside career-type modes,
+// so nothing done in an edited copy reaches the career or the save. The mode's properties, as gamemode.qb's mode_<x>
+// structures give them (is_freeskate=1 ...), read through the mode's IsTrue (0x00553220 - what GameModeEquals and
+// IsCareerMode 0x005AEFC0 ask).
+struct ModeFlags {
+    bool known = false;         // a game mode at all (Mdl::Skate's 0x007CE470)
+    bool freeskate = false;     // is_freeskate: mode_freeskate (SKATE NOW, -level / -edit), mode_freeskate2p (2 PLAYER)
+    bool singleSession = false; // is_singlesession: HIGH SCORE / FREE SKATE (its high score runs' records: see below)
+    bool career = false;        // is_career: story mode (goals, cash, stat points, chapters)
+    bool classic = false;       // is_classic: classic mode (goals, stat points, its records)
+    bool createGoals = false;   // is_creategoals: create-a-goal (the goals saved with the level); the park editor too
+    bool parkEditor = false;    // is_parkeditor
+    bool net = false;           // is_net: the network modes
+};
+// Why the editor and edited copies aren't offered in `mode` ("story mode", "classic mode"...), nullptr when they are:
+// free skate (1 or 2 players) and single session only - a whitelist, so a mode nobody thought of is refused. (Single
+// session records high scores at the end of a high score run: UpdateRecords - game/skate/records.h - records nothing
+// while the edited copy is loaded. Gaps landed in free skate and single session go into the career's gap list as
+// anywhere: game/front/level_editor_career.h keeps them out of the save.)
+const char* ModeRefusal(const ModeFlags& mode);
+
 // The game side.
 // Whether a network session is on now (layouts never apply then).
 bool NetworkActive();
+// The game mode now (CurrentMode) and its refusal (nullptr: the editor and edited copies are offered).
+ModeFlags CurrentMode();
+const char* CareerModeActive();
+// Layouts refused now: a network session or a career-type mode (`why`: the reason, for log lines and messages).
+bool Refused(std::string* why = nullptr);
+// A message for the player outside the editor (a panel message, create_panel_message - as the restart tester's): why
+// the editor didn't start.
+void PanelMessage(const char* text);
 // The level loaded now is its edited copy (its layout put in place, or the editor opened in it).
 bool EditingCopy();
 // Whether this level has a saved layout (an edited copy in the level select).

@@ -19,6 +19,7 @@
 #include "game/front/level_editor_nodes.h"
 #include "game/front/level_editor_objects.h"
 #include "game/front/level_editor_scenery.h"
+#include "game/lst/hashtable.h"
 #include "game/obj/object.h"
 #include "game/obj/rail_manager.h"
 #include "game/script/node_manager.h"
@@ -137,6 +138,16 @@ bool ReadTriple(const std::string& text, V3* out)
     return true;
 }
 
+bool ReadFloat(const std::string& text, float* out)
+{
+    char* end = nullptr;
+    float v = std::strtof(text.c_str(), &end);
+    if (text.empty() || end != text.c_str() + text.size() || !std::isfinite(v))
+        return false;
+    *out = v;
+    return true;
+}
+
 template <typename T> void SortByName(std::vector<T>* list)
 {
     std::sort(list->begin(), list->end(), [](const T& a, const T& b) { return a.name < b.name; });
@@ -147,14 +158,18 @@ template <typename T> void SortByName(std::vector<T>* list)
 bool SamePoint(const Point& a, const Point& b)
 {
     return a.name == b.name && a.cls == b.cls && SameV3(a.pos, b.pos) && a.like == b.like && a.terrain == b.terrain &&
-           a.links == b.links;
+           a.links == b.links && a.facing == b.facing && a.cluster == b.cluster && a.grindFlat == b.grindFlat;
 }
 
 bool SameState(const State& a, const State& b)
 {
     if (a.points.size() != b.points.size() || a.links.size() != b.links.size() || a.dropped != b.dropped ||
-        a.terrains.size() != b.terrains.size())
+        a.terrains.size() != b.terrains.size() || a.facings.size() != b.facings.size() || a.grindFlat != b.grindFlat)
         return false;
+    for (size_t i = 0; i < a.facings.size(); ++i) {
+        if (a.facings[i].name != b.facings[i].name || a.facings[i].facing != b.facings[i].facing)
+            return false;
+    }
     for (size_t i = 0; i < a.points.size(); ++i) {
         if (!SamePoint(a.points[i], b.points[i]))
             return false;
@@ -172,10 +187,14 @@ bool SameState(const State& a, const State& b)
 
 bool Empty(const State& state)
 {
-    return state.points.empty() && state.links.empty() && state.dropped.empty() && state.terrains.empty();
+    return state.points.empty() && state.links.empty() && state.dropped.empty() && state.terrains.empty() &&
+           state.facings.empty() && state.grindFlat.empty();
 }
 
-bool IsChainClass(const std::string& cls) { return SameText(cls, "RailNode") || SameText(cls, "Waypoint"); }
+bool IsChainClass(const std::string& cls)
+{
+    return SameText(cls, "RailNode") || SameText(cls, "Waypoint") || SameText(cls, "ClimbingNode");
+}
 
 std::string WriteRecords(const State& state)
 {
@@ -194,6 +213,17 @@ std::string WriteRecords(const State& state)
             out << " links=";
             Names(out, p.links);
         }
+        if (SameText(p.cls, "ClimbingNode") || p.facing != 0.0f) {
+            char facing[48];
+            std::snprintf(facing, sizeof(facing), " facing=%.9g", p.facing);
+            out << facing;
+        }
+        if (p.cluster) {
+            out << " cluster=";
+            Hex(out, p.cluster);
+        }
+        if (p.grindFlat)
+            out << " grindflat=1";
         out << '\n';
     }
     for (const LinkEdit& l : state.links) {
@@ -216,12 +246,25 @@ std::string WriteRecords(const State& state)
         Hex(out, t.name);
         out << ' ' << t.terrain << '\n';
     }
+    for (const FacingEdit& f : state.facings) {
+        char facing[48];
+        std::snprintf(facing, sizeof(facing), " %.9g", f.facing);
+        out << "facing ";
+        Hex(out, f.name);
+        out << facing << '\n';
+    }
+    for (uint32_t name : state.grindFlat) {
+        out << "grindflat ";
+        Hex(out, name);
+        out << '\n';
+    }
     return out.str();
 }
 
 bool IsRecord(const std::string& kind)
 {
-    return kind == "point" || kind == "links" || kind == "drop" || kind == "terrain";
+    return kind == "point" || kind == "links" || kind == "drop" || kind == "terrain" || kind == "facing" ||
+           kind == "grindflat";
 }
 
 bool ReadRecord(const std::string& kind, std::istringstream& in, State* state)
@@ -253,6 +296,16 @@ bool ReadRecord(const std::string& kind, std::istringstream& in, State* state)
             } else if (key == "links") {
                 if (!ParseNames(value, &p.links))
                     return false;
+            } else if (key == "facing") {
+                if (!ReadFloat(value, &p.facing))
+                    return false;
+            } else if (key == "cluster") {
+                if (!ParseHex(value, &p.cluster))
+                    return false;
+            } else if (key == "grindflat") {
+                if (value != "0" && value != "1")
+                    return false;
+                p.grindFlat = value == "1";
             } // (others: a later version's - skipped)
         }
         if (std::find(seen.begin(), seen.end(), "pos") == seen.end())
@@ -299,6 +352,29 @@ bool ReadRecord(const std::string& kind, std::istringstream& in, State* state)
         }
         state->terrains.push_back(t);
         SortByName(&state->terrains);
+        return true;
+    }
+    if (kind == "facing") {
+        FacingEdit f = {};
+        std::string value;
+        if (!ReadHexWord(in, &f.name) || !(in >> value) || !ReadFloat(value, &f.facing))
+            return false;
+        for (FacingEdit& other : state->facings) {
+            if (other.name == f.name)
+                return false;
+        }
+        state->facings.push_back(f);
+        SortByName(&state->facings);
+        return true;
+    }
+    if (kind == "grindflat") {
+        uint32_t name;
+        if (!ReadHexWord(in, &name))
+            return false;
+        if (std::find(state->grindFlat.begin(), state->grindFlat.end(), name) == state->grindFlat.end()) {
+            state->grindFlat.push_back(name);
+            std::sort(state->grindFlat.begin(), state->grindFlat.end());
+        }
         return true;
     }
     return false;
@@ -465,6 +541,55 @@ const std::vector<std::string>& GrindTerrainNames()
     return names;
 }
 
+float FacingIntoWall(V3 normal)
+{
+    float length = std::sqrt(normal.x * normal.x + normal.z * normal.z);
+    if (!(length > 1e-6f))
+        return 0.0f;
+    return std::atan2(-normal.x / length, -normal.z / length);
+}
+
+V3 FacingDirection(float facing) { return {std::sin(facing), 0.0f, std::cos(facing)}; }
+
+bool LadderFoot(V3 hit, V3 normal, float out, const std::function<bool(V3 from, float* groundY)>& groundAt, V3* foot)
+{
+    if (!(std::fabs(normal.y) < 0.7f))
+        return false;
+    float length = std::sqrt(normal.x * normal.x + normal.z * normal.z);
+    if (!(length > 1e-6f))
+        return false;
+    V3 at = {hit.x + normal.x / length * out, hit.y, hit.z + normal.z / length * out};
+    float ground = 0.0f;
+    if (groundAt({at.x, at.y + 4.0f, at.z}, &ground) && ground <= at.y + 4.0f && ground >= at.y - 64.0f)
+        at.y = ground;
+    *foot = at;
+    return true;
+}
+
+bool LadderTop(V3 foot, V3 from, V3 dir, V3* top)
+{
+    // The closest points of the line foot + t (0, 1, 0) and the ray from + s dir.
+    V3 w = foot - from;
+    float b = dir.y, c = Dot(dir, dir), d = w.y, e = Dot(dir, w);
+    float denominator = c - b * b;
+    if (!(denominator > 1e-6f * c))
+        return false; // (looking straight up or down the line)
+    float t = (b * e - c * d) / denominator;
+    if (!(t >= kLadderMin))
+        return false;
+    *top = {foot.x, foot.y + t, foot.z};
+    return true;
+}
+
+bool SameSegment(V3 a, V3 b, V3 p, V3 q, float tolerance)
+{
+    auto near = [tolerance](V3 x, V3 y) {
+        return std::fabs(x.x - y.x) <= tolerance && std::fabs(x.y - y.y) <= tolerance &&
+               std::fabs(x.z - y.z) <= tolerance;
+    };
+    return (near(a, p) && near(b, q)) || (near(a, q) && near(b, p));
+}
+
 // --- the game side ----------------------------------------------------------------------------------------------
 
 namespace {
@@ -567,6 +692,24 @@ void WritePos(Script::CStruct* node, V3 pos)
     }
 }
 
+// A structure's own angles= set (as WritePos).
+void WriteAngles(Script::CStruct* node, V3 angles)
+{
+    constexpr uint32_t kAngles = 0x9D2D0915; // angles
+    Script::CComponent* own = nullptr;
+    for (Script::CComponent* c = node->m_head; c; c = c->next) {
+        if (c->name == kAngles && c->Type() == Script::ESYMBOLTYPE_VECTOR && c->vector)
+            own = c;
+    }
+    if (own) {
+        own->vector->x = angles.x;
+        own->vector->y = angles.y;
+        own->vector->z = angles.z;
+    } else {
+        node->AddVector(kAngles, angles.x, angles.y, angles.z);
+    }
+}
+
 uint32_t ClassOf(Script::CStruct* node)
 {
     uint32_t cls = 0;
@@ -630,6 +773,38 @@ Draw g_draw = Draw::None;
 uint32_t g_drawLast;
 Op g_pick = kOpCancel;
 uint32_t g_pickFrom;
+// Drawing a ladder: its foot (once the first click found a wall) and its heading.
+bool g_ladderHaveFoot;
+V3 g_ladderFoot;
+float g_ladderFacing;
+// The scenery piece the last snapped click hit (0: none) - a new rail's trick-object cluster.
+uint32_t g_snapSector;
+// Added points' fields that aren't in their nodes (by name): a rail's cluster, grindable on flat ground.
+struct Extras {
+    uint32_t cluster = 0;
+    bool grindFlat = false;
+};
+std::unordered_map<uint32_t, Extras> g_extras;
+// Level ladder points turned: their facing and the rail manager's orientation as the level had it.
+struct FacingSet {
+    float facing;
+    Mth::Vector original;
+};
+std::map<uint32_t, FacingSet> g_facings;
+// Level rail points marked grindable on flat ground.
+std::vector<uint32_t> g_levelFlat;
+// The trick objects the editor registered (name -> cluster).
+std::map<uint32_t, uint32_t> g_trick;
+// RailClear's override (FlatGrindable): the rail manager's nodes whose segment to the next is grindable on flat
+// ground, found again when the nodes or the marks change.
+struct FlatCache {
+    const Obj::CRailNode* nodes = nullptr;
+    int count = -1;
+    unsigned generation = ~0u;
+    std::vector<const Obj::CRailNode*> marked;
+};
+FlatCache g_flatCache;
+unsigned g_flatGeneration;
 
 std::vector<Point> AddedPoints()
 {
@@ -644,6 +819,13 @@ std::vector<Point> AddedPoints()
         p.like = spec.like;
         p.terrain = spec.terrain;
         p.links = spec.links;
+        if (SameText(spec.cls, "ClimbingNode"))
+            p.facing = spec.angles.y; // (a ladder's Angles: (0, facing, 0))
+        auto extras = g_extras.find(Checksum(spec.name));
+        if (extras != g_extras.end()) {
+            p.cluster = extras->second.cluster;
+            p.grindFlat = extras->second.grindFlat;
+        }
         // (a rail point: where the rail manager has it - a sector moved with it takes it along)
         if (const Obj::CRailNode* node = RailNodeNamed(Checksum(spec.name)))
             p.pos = {node->m_pos.x, node->m_pos.y, node->m_pos.z};
@@ -661,8 +843,52 @@ NodeCreate::Spec SpecOf(const Point& p)
     spec.like = p.like;
     spec.terrain = p.terrain;
     spec.links = p.links;
+    if (SameText(p.cls, "ClimbingNode")) {
+        spec.type = "Ladder";
+        spec.angles = {0.0f, p.facing, 0.0f};
+    }
     return spec;
 }
+
+// A climbing node's orientation (the rail manager's quaternion, as AddNode makes it from Angles) for a heading.
+Mth::Vector ClimbOf(float facing)
+{
+    Mth::Matrix matrix;
+    matrix.row[0] = {1.0f, 0.0f, 0.0f, 0.0f};
+    matrix.row[1] = {0.0f, 1.0f, 0.0f, 0.0f};
+    matrix.row[2] = {0.0f, 0.0f, 1.0f, 0.0f};
+    matrix.row[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    Mth::Vector angles = {0.0f, facing, 0.0f, 1.0f};
+    Mth::Matrix* built =
+        GameFunction<Mth::Matrix*(__thiscall*)(Mth::Matrix*, const Mth::Vector*)>(0x0041A730)(&matrix, &angles);
+    Mth::Vector quat = {};
+    GameFunction<void(__thiscall*)(Mth::Vector*, const Mth::Matrix*)>(0x0042E1F0)(&quat, built);
+    return quat;
+}
+
+// The heading of a climbing node's orientation: its at row, flat.
+float HeadingOfClimb(const Mth::Vector& climb)
+{
+    Mth::Matrix matrix;
+    GameFunction<void(__thiscall*)(const Mth::Vector*, Mth::Matrix*)>(0x0042BC40)(&climb, &matrix);
+    return std::atan2(matrix.row[2].x, matrix.row[2].z);
+}
+
+// A ladder point's heading now (the rail manager's; 0: not one).
+float FacingNow(uint32_t name)
+{
+    const Obj::CRailNode* node = RailNodeNamed(name);
+    return node && (node->m_flags & Obj::RAIL_FLAG_CLIMBING) ? HeadingOfClimb(node->m_climb) : 0.0f;
+}
+
+// A level ladder point's heading as the level has it.
+float FacingOriginal(uint32_t name)
+{
+    auto it = g_facings.find(name);
+    return it != g_facings.end() ? HeadingOfClimb(it->second.original) : FacingNow(name);
+}
+
+bool SameFacing(float a, float b) { return std::fabs(NodeEdit::WrapAngle(a - b)) < 1e-4f; }
 
 std::vector<uint32_t> LevelLinksNow(uint32_t name) { return OwnLinks(NodeStruct(name)); }
 std::vector<uint32_t> LevelLinksOriginal(uint32_t name)
@@ -698,6 +924,39 @@ void Remake(uint32_t name)
     if (std::find(g_remake.begin(), g_remake.end(), name) == g_remake.end())
         g_remake.push_back(name);
     Log("level editor: %s's path changed - it is made again from its node", Objects::Label(name).c_str());
+}
+
+// The drawn rails' trick objects registered with the trick object manager (0x007CE500) as AddFromNodeArray registers
+// the level's TrickObject rails (0x005896D0 the cluster, 0x00589080 the node's name mapped to it); those no longer
+// wanted (or of another cluster now) taken out of its name map (+0x20, a Lst::HashTable).
+void RegisterTrickObjects()
+{
+    uint8_t* manager = GameVariable<uint8_t*>(0x007CE500);
+    if (!manager)
+        return;
+    std::map<uint32_t, uint32_t> want;
+    for (const NodeCreate::Spec& spec : NodeCreate::Current()) {
+        uint32_t name = Checksum(spec.name);
+        auto extras = g_extras.find(name);
+        if (SameText(spec.cls, "RailNode") && extras != g_extras.end() && extras->second.cluster && RailNodeNamed(name))
+            want[name] = extras->second.cluster;
+    }
+    auto* objects = reinterpret_cast<Lst::HashTable*>(manager + 0x20);
+    for (const auto& entry : g_trick) {
+        auto it = want.find(entry.first);
+        if (it == want.end() || it->second != entry.second)
+            objects->FlushItem(entry.first);
+    }
+    for (const auto& entry : want) {
+        auto it = g_trick.find(entry.first);
+        if (it != g_trick.end() && it->second == entry.second)
+            continue;
+        GameFunction<bool(__thiscall*)(void*, uint32_t)>(0x005896D0)(manager, entry.second); // (false: there already)
+        GameFunction<bool(__thiscall*)(void*, uint32_t, uint32_t)>(0x00589080)(manager, entry.first, entry.second);
+    }
+    if (DebugEnabled() && want != g_trick)
+        Log("level editor: %u drawn rail points are trick objects", static_cast<unsigned>(want.size()));
+    g_trick = want;
 }
 
 } // namespace
@@ -803,9 +1062,25 @@ void RebuildRails()
         if (it != index.end() && TerrainByte(entry.second.terrain, &value))
             nodes[it->second].m_terrain = value;
     }
+    // Ladders: an added point's orientation from its node's Angles (turned since it was made), a level point's as the
+    // editor turned it.
+    for (int i = 0; i < count; ++i) {
+        Obj::CRailNode* node = &nodes[i];
+        if (!(node->m_flags & Obj::RAIL_FLAG_CLIMBING))
+            continue;
+        if (NodeCreate::IsAdded(node->m_name)) {
+            Mth::Vector angles;
+            SkateScript::GetAngles(NodeStruct(node->m_name), &angles);
+            node->m_climb = ClimbOf(angles.y);
+        } else if (g_facings.count(node->m_name)) {
+            node->m_climb = ClimbOf(g_facings[node->m_name].facing);
+        }
+    }
     if (old)
         g_retired.push_back(old); // (a skater's grind may point into it: freed with the level)
     g_built = nodes;
+    RegisterTrickObjects();
+    ++g_flatGeneration;
     Scenery::RailsRebuilt();
     Nodes::Invalidate();
     if (DebugEnabled())
@@ -831,6 +1106,10 @@ State Current()
     std::sort(state.dropped.begin(), state.dropped.end());
     for (const auto& entry : g_terrains)
         state.terrains.push_back({entry.first, entry.second.terrain});
+    for (const auto& entry : g_facings)
+        state.facings.push_back({entry.first, entry.second.facing});
+    state.grindFlat = g_levelFlat;
+    std::sort(state.grindFlat.begin(), state.grindFlat.end());
     return state;
 }
 
@@ -877,7 +1156,43 @@ bool SetState(const State& target)
             SkateScript::GetPosition(node, &pos);
             if (pos.x != t.pos.x || pos.y != t.pos.y || pos.z != t.pos.z)
                 WritePos(node, t.pos);
+            Mth::Vector angles;
+            SkateScript::GetAngles(node, &angles);
+            if (SameText(t.cls, "ClimbingNode") && (angles.x != 0.0f || angles.y != t.facing || angles.z != 0.0f))
+                WriteAngles(node, {0.0f, t.facing, 0.0f}); // (a ladder turned: RebuildRails turns its rail node)
         }
+    }
+    g_extras.clear();
+    for (const Point& t : target.points) {
+        if (t.cluster || t.grindFlat)
+            g_extras[Checksum(t.name)] = {t.cluster, t.grindFlat};
+    }
+    // Level ladders turned (the rail manager's orientation as the level had it kept to put back), level rails marked
+    // grindable on flat ground.
+    for (auto it = g_facings.begin(); it != g_facings.end();) {
+        bool wanted = false;
+        for (const FacingEdit& f : target.facings)
+            wanted = wanted || f.name == it->first;
+        if (!wanted) {
+            if (Obj::CRailNode* node = RailNodeNamed(it->first))
+                node->m_climb = it->second.original;
+            it = g_facings.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    for (const FacingEdit& f : target.facings) {
+        Obj::CRailNode* node = RailNodeNamed(f.name);
+        if (!node || !(node->m_flags & Obj::RAIL_FLAG_CLIMBING) || NodeCreate::IsAdded(f.name))
+            continue;
+        if (!g_facings.count(f.name))
+            g_facings[f.name] = {f.facing, node->m_climb};
+        g_facings[f.name].facing = f.facing;
+    }
+    g_levelFlat.clear();
+    for (uint32_t name : target.grindFlat) {
+        if (!NodeCreate::IsAdded(name) && NodeStruct(name))
+            g_levelFlat.push_back(name);
     }
     // The level's links: as the target has them, else as the level had them.
     std::set<uint32_t> names;
@@ -959,10 +1274,75 @@ void ForgetLevel()
     g_draw = Draw::None;
     g_drawLast = 0;
     g_pick = kOpCancel;
+    g_ladderHaveFoot = false;
+    // (the rail manager and the trick object manager are the level's: they go with it)
+    g_extras.clear();
+    g_facings.clear();
+    g_levelFlat.clear();
+    g_trick.clear();
+    ++g_flatGeneration;
+}
+
+namespace {
+
+// The rail manager's nodes whose segment to the next is grindable on flat ground: an added point marked so, a level
+// point marked so, or a node carrying the flag ed_grind_flat (a level baked by apply_layout.ts).
+void RefreshFlat(Obj::CRailManager* rails)
+{
+    if (g_flatCache.nodes == rails->m_nodes && g_flatCache.count == rails->m_count &&
+        g_flatCache.generation == g_flatGeneration)
+        return;
+    g_flatCache.nodes = rails->m_nodes;
+    g_flatCache.count = rails->m_count;
+    g_flatCache.generation = g_flatGeneration;
+    g_flatCache.marked.clear();
+    if (!rails->m_nodes || !SkateScript::NodeManagerInstance())
+        return;
+    static const uint32_t kFlag = Checksum("ed_grind_flat");
+    for (int i = 0; i < rails->m_count; ++i) {
+        const Obj::CRailNode* node = &rails->m_nodes[i];
+        if ((node->m_flags & Obj::RAIL_FLAG_CLIMBING) || !node->m_next)
+            continue;
+        auto extras = g_extras.find(node->m_name);
+        bool marked = (extras != g_extras.end() && extras->second.grindFlat) ||
+                      std::find(g_levelFlat.begin(), g_levelFlat.end(), node->m_name) != g_levelFlat.end();
+        if (!marked) {
+            Script::CStruct* params = NodeStruct(node->m_name);
+            marked = params && params->ContainsFlag(kFlag);
+        }
+        if (marked)
+            g_flatCache.marked.push_back(node);
+    }
+    if (DebugEnabled() && !g_flatCache.marked.empty())
+        Log("level editor: %u rail segments grindable on flat ground", static_cast<unsigned>(g_flatCache.marked.size()));
+}
+
+bool FlatHook(const Mth::Vector* a, const Mth::Vector* b) { return FlatGrindable({a->x, a->y, a->z}, {b->x, b->y, b->z}); }
+
+} // namespace
+
+bool FlatGrindable(V3 a, V3 b)
+{
+    Obj::CRailManager* rails = Rails();
+    if (!rails)
+        return false;
+    RefreshFlat(rails);
+    for (const Obj::CRailNode* node : g_flatCache.marked) {
+        const Obj::CRailNode* next = node->m_next;
+        if (next && SameSegment(a, b, {node->m_pos.x, node->m_pos.y, node->m_pos.z},
+                                {next->m_pos.x, next->m_pos.y, next->m_pos.z}, 0.01f))
+            return true;
+    }
+    return false;
 }
 
 void Tick()
 {
+    static bool hooked;
+    if (!hooked) {
+        Obj::SetRailClearOverride(&FlatHook); // (RailClear asks it - see the top)
+        hooked = true;
+    }
     // The rail manager's old node arrays: freed once the level's rails are no longer the ones built here (the game
     // made a new level's - its Cleanup freed ours - or there are none).
     if (!g_retired.empty()) {
@@ -1017,6 +1397,7 @@ bool IsAddedPoint(uint32_t name)
         return false;
     int index = Nodes::Find(name);
     return index >= 0 && (Nodes::All()[index].family == Nodes::Family::Rail ||
+                          Nodes::All()[index].family == Nodes::Family::Ladder ||
                           Nodes::All()[index].family == Nodes::Family::Path);
 }
 
@@ -1124,7 +1505,10 @@ void PutGraph(State* state, const Graph& graph)
 // A new point's name: ed_rail01 / ed_path01... free in the level and in the state.
 std::string FreshPointName(Nodes::Family family, const State& state)
 {
-    return NodeCreate::FreshName(family == Nodes::Family::Path ? "ed_path" : "ed_rail", [&](const std::string& name) {
+    const char* stem = family == Nodes::Family::Path     ? "ed_path"
+                       : family == Nodes::Family::Ladder ? "ed_ladder"
+                                                         : "ed_rail";
+    return NodeCreate::FreshName(stem, [&](const std::string& name) {
         for (const Point& p : state.points) {
             if (SameText(p.name, name.c_str()))
                 return true;
@@ -1138,17 +1522,36 @@ Point NewPoint(Nodes::Family family, uint32_t from, V3 pos, const State& state)
 {
     Point p;
     p.name = FreshPointName(family, state);
-    p.cls = family == Nodes::Family::Path ? "Waypoint" : "RailNode";
+    p.cls = family == Nodes::Family::Path ? "Waypoint" : family == Nodes::Family::Ladder ? "ClimbingNode" : "RailNode";
     p.pos = pos;
     if (from) {
         p.like = from;
+        bool added = false;
         for (const Point& q : state.points) {
             if (Checksum(q.name) == from) {
-                // (an added point: its own template and terrain - the layout makes them in one go)
+                // (an added point: its own template and terrain - the layout makes them in one go - its cluster and
+                // whether it's grindable on flat ground)
                 p.like = q.like;
                 p.terrain = q.terrain;
+                p.cluster = q.cluster;
+                p.grindFlat = q.grindFlat;
+                added = true;
             }
         }
+        if (!added && family == Nodes::Family::Rail) {
+            // (a level rail's point: its cluster when it's a trick object, as the level registers it)
+            Script::CStruct* node = NodeStruct(from);
+            static const uint32_t kTrickObject = Checksum("TrickObject"), kCluster = Checksum("Cluster");
+            if (node && node->ContainsComponentNamed(kTrickObject)) {
+                p.cluster = from;
+                node->GetChecksum(kCluster, &p.cluster, 0);
+            }
+            p.grindFlat = std::find(state.grindFlat.begin(), state.grindFlat.end(), from) != state.grindFlat.end();
+        }
+    } else if (family == Nodes::Family::Rail) {
+        // (a new rail: a trick object of the scenery piece the click hit, as the levels name their rails' clusters -
+        // else of its own)
+        p.cluster = g_snapSector ? g_snapSector : Checksum(p.name);
     }
     return p;
 }
@@ -1161,6 +1564,104 @@ bool Apply(const State& state, std::string* message, const char* done)
     }
     *message = done;
     return true;
+}
+
+// A ladder point's heading set in the state: an added point's facing, a level point's `facing` edit (none when as the
+// level has it).
+void SetFacing(State* state, uint32_t name, float facing)
+{
+    for (Point& p : state->points) {
+        if (Checksum(p.name) == name) {
+            p.facing = facing;
+            return;
+        }
+    }
+    auto it = std::find_if(state->facings.begin(), state->facings.end(),
+                           [&](const FacingEdit& f) { return f.name == name; });
+    if (SameFacing(facing, FacingOriginal(name))) {
+        if (it != state->facings.end())
+            state->facings.erase(it);
+    } else if (it != state->facings.end()) {
+        it->facing = facing;
+    } else {
+        state->facings.push_back({name, facing});
+        SortByName(&state->facings);
+    }
+}
+
+// The operations on a ladder (its two points - or a level's climbing chain - together).
+bool LadderOp(Op op, uint32_t name, const Nodes::Node& node, uint32_t arg, std::string* message, uint32_t* select)
+{
+    if (node.hidden) {
+        *message = "It's deleted (Ctrl+Z brings it back)";
+        return false;
+    }
+    State state = Current();
+    std::vector<uint32_t> points = ChainOf(name);
+    if (node.added) {
+        // (an added ladder: its points by their links too - the rail manager's chain may not have them yet)
+        Graph graph;
+        for (const Point& p : state.points) {
+            if (SameText(p.cls, "ClimbingNode"))
+                graph[Checksum(p.name)] = p.links;
+        }
+        for (uint32_t point : Connected(graph, name)) {
+            if (std::find(points.begin(), points.end(), point) == points.end())
+                points.push_back(point);
+        }
+    }
+    switch (op) {
+    case kOpDelete: {
+        bool level = false;
+        for (uint32_t point : points) {
+            auto added = std::find_if(state.points.begin(), state.points.end(),
+                                      [&](const Point& p) { return Checksum(p.name) == point; });
+            if (added != state.points.end()) {
+                state.points.erase(added);
+                continue;
+            }
+            level = true;
+            if (std::find(state.dropped.begin(), state.dropped.end(), point) == state.dropped.end())
+                state.dropped.push_back(point);
+            state.facings.erase(std::remove_if(state.facings.begin(), state.facings.end(),
+                                               [&](const FacingEdit& f) { return f.name == point; }),
+                                state.facings.end());
+        }
+        std::sort(state.dropped.begin(), state.dropped.end());
+        return Apply(state, message, level ? "The level's ladder deleted (hidden; Ctrl+Z, Reset level bring it back)"
+                                           : "Ladder deleted (Ctrl+Z brings it back)");
+    }
+    case kOpTurn: {
+        int notches = static_cast<int>(arg);
+        float facing = NodeEdit::WrapAngle(FacingNow(name) + static_cast<float>(notches) * (15.0f * 3.14159265f / 180.0f));
+        for (uint32_t point : points)
+            SetFacing(&state, point, facing);
+        *select = name;
+        char text[96];
+        std::snprintf(text, sizeof(text), "Ladder turned: facing %.0f degrees (Home: as the level has it)",
+                      static_cast<double>(NodeEdit::HeadingDegrees({0.0f, facing, 0.0f})));
+        std::string done = text;
+        return Apply(state, message, done.c_str());
+    }
+    case kOpFacingHome: {
+        bool any = false;
+        for (uint32_t point : points) {
+            auto it = std::find_if(state.facings.begin(), state.facings.end(),
+                                   [&](const FacingEdit& f) { return f.name == point; });
+            if (it != state.facings.end()) {
+                state.facings.erase(it);
+                any = true;
+            }
+        }
+        if (!any)
+            return false; // (nothing to put back - no message: Home's own says what it did)
+        *select = name;
+        return Apply(state, message, "Ladder facing as the level has it");
+    }
+    default:
+        *message = "A ladder: move its foot or top (L: one point), turn it (Z / X), delete it (Del)";
+        return false;
+    }
 }
 
 } // namespace
@@ -1219,9 +1720,10 @@ bool Do(Op op, uint32_t name, uint32_t arg, std::string* message, uint32_t* sele
         *select = name;
         return Apply(state, message, "No path now - it is made again without one");
     }
+    if (family == Nodes::Family::Ladder)
+        return LadderOp(op, name, node, arg, message, select);
     if (family != Nodes::Family::Rail && family != Nodes::Family::Path) {
-        *message = family == Nodes::Family::Ladder ? "Ladders can be moved (whole or by a point), not reshaped"
-                                                   : "Not a rail or a path point";
+        *message = "Not a rail, ladder or path point";
         return false;
     }
     if (node.hidden) {
@@ -1320,6 +1822,65 @@ bool Do(Op op, uint32_t name, uint32_t arg, std::string* message, uint32_t* sele
         *message = "Click to add points from this end (Enter or a right click finishes)";
         return false;
     }
+    case kOpTrickObject: {
+        if (family != Nodes::Family::Rail) {
+            *message = "Only rails are trick objects here";
+            return false;
+        }
+        // (the drawn points of the rail: one cluster - the one they have, else the scenery piece's or the first's)
+        std::vector<uint32_t> rail = ChainOf(name);
+        uint32_t cluster = 0;
+        for (const Point& p : state.points) {
+            if (std::find(rail.begin(), rail.end(), Checksum(p.name)) != rail.end() && !cluster)
+                cluster = p.cluster;
+        }
+        bool any = false;
+        for (Point& p : state.points) {
+            if (std::find(rail.begin(), rail.end(), Checksum(p.name)) == rail.end())
+                continue;
+            if (!cluster)
+                cluster = Checksum(p.name);
+            p.cluster = arg ? cluster : 0;
+            any = true;
+        }
+        if (!any) {
+            *message = "A level rail keeps the level's trick-object setting (its TrickObject / Cluster fields)";
+            return false;
+        }
+        *select = name;
+        return Apply(state, message, arg ? "A trick object now (its cluster as the skater's combo counts it)"
+                                         : "Not a trick object now");
+    }
+    case kOpGrindFlat: {
+        if (family != Nodes::Family::Rail) {
+            *message = "Only rails are ground";
+            return false;
+        }
+        for (uint32_t point : ChainOf(name)) {
+            bool added = false;
+            for (Point& p : state.points) {
+                if (Checksum(p.name) == point) {
+                    p.grindFlat = arg != 0;
+                    added = true;
+                }
+            }
+            if (added)
+                continue;
+            auto it = std::find(state.grindFlat.begin(), state.grindFlat.end(), point);
+            if (arg && it == state.grindFlat.end())
+                state.grindFlat.push_back(point);
+            else if (!arg && it != state.grindFlat.end())
+                state.grindFlat.erase(it);
+        }
+        std::sort(state.grindFlat.begin(), state.grindFlat.end());
+        *select = name;
+        if (arg)
+            Log("level editor: %s's rail grindable on flat ground - RailClear (0x0057C600) passes it as the park "
+                "editor's level passes every rail; the game itself has no node flag for this",
+                Objects::Label(name).c_str());
+        return Apply(state, message, arg ? "Grindable on flat ground now (the game's check for ground beside it skipped)"
+                                         : "Ground beside it checked again, as the game does");
+    }
     case kOpLinkArm: {
         if (!IsLast(graph, name) && !IsFirst(graph, name)) {
             *message = "Link from an end of the chain (its first or last point)";
@@ -1340,12 +1901,14 @@ void StartDrawing(Draw kind)
     g_draw = kind;
     g_drawLast = 0;
     g_pick = kOpCancel;
+    g_ladderHaveFoot = false;
 }
 Draw Drawing() { return g_draw; }
 void StopDrawing()
 {
     g_draw = Draw::None;
     g_drawLast = 0;
+    g_ladderHaveFoot = false;
 }
 
 bool DrawAt(V3 at, uint32_t end, std::string* message, uint32_t* select)
@@ -1402,8 +1965,9 @@ bool DrawAt(V3 at, uint32_t end, std::string* message, uint32_t* select)
 namespace {
 
 // The game's collision ray (as level_editor.cpp's: a CFeeler, 0x00417760 / 0x00417710; the hit's normal at +0x24, its
-// point at +0x34).
-bool CastRay(V3 from, V3 to, V3* hit, V3* normal)
+// point at +0x34, the collision object hit at +0x54 and its checksum - the scenery piece's - at +0x58, as
+// level_editor_scenery.cpp's CastStatic reads them).
+bool CastRay(V3 from, V3 to, V3* hit, V3* normal, uint32_t* sector = nullptr)
 {
     alignas(16) uint8_t feeler[0x100] = {};
     GameFunction<void*(__thiscall*)(void*)>(0x00417760)(feeler);
@@ -1415,16 +1979,79 @@ bool CastRay(V3 from, V3 to, V3* hit, V3* normal)
     const float* p = reinterpret_cast<const float*>(feeler + 0x34);
     *normal = {n[0], n[1], n[2]};
     *hit = {p[0], p[1], p[2]};
+    if (sector)
+        *sector = *reinterpret_cast<void* const*>(feeler + 0x54) ? *reinterpret_cast<const uint32_t*>(feeler + 0x58) : 0;
+    return true;
+}
+
+// The ground's height below a point (within 70).
+bool GroundBelow(V3 at, float* groundY)
+{
+    V3 h, n;
+    if (!CastRay(at, {at.x, at.y - 70.0f, at.z}, &h, &n))
+        return false;
+    *groundY = h.y;
     return true;
 }
 
 } // namespace
 
+bool LadderClick(V3 from, V3 dir, float maxT, std::string* message, uint32_t* select)
+{
+    *select = 0;
+    if (g_draw != Draw::Ladder || !InLevel())
+        return false;
+    if (!g_ladderHaveFoot) {
+        V3 hit, normal;
+        if (!CastRay(from, from + dir * maxT, &hit, &normal)) {
+            *message = "Click on a wall (nothing under the cursor)";
+            return false;
+        }
+        V3 foot;
+        if (!LadderFoot(hit, normal, kLadderOut, &GroundBelow, &foot)) {
+            *message = "Click on a wall - where the ladder's foot goes (it faces the wall)";
+            return false;
+        }
+        g_ladderFoot = foot;
+        g_ladderFacing = FacingIntoWall(normal);
+        g_ladderHaveFoot = true;
+        *message = "Now click where its top goes (straight above the foot)";
+        return false;
+    }
+    V3 top;
+    if (!LadderTop(g_ladderFoot, from, dir, &top)) {
+        *message = "Its top goes at least 24 above the foot - click higher";
+        return false;
+    }
+    // The ladder: its foot linked to its top, both facing into the wall (as THUG2's own ladders).
+    State state = Current();
+    Point foot = NewPoint(Nodes::Family::Ladder, 0, g_ladderFoot, state);
+    foot.facing = g_ladderFacing;
+    state.points.push_back(foot);
+    Point upper = NewPoint(Nodes::Family::Ladder, 0, top, state);
+    upper.facing = g_ladderFacing;
+    state.points.back().links = {Checksum(upper.name)};
+    state.points.push_back(upper);
+    if (!SetState(state)) {
+        *message = "Not in a level";
+        return false;
+    }
+    StopDrawing();
+    *select = Checksum(foot.name);
+    char text[128];
+    std::snprintf(text, sizeof(text), "Ladder made (%.0f high) - climb it from its foot; Z / X turn it",
+                  static_cast<double>(top.y - g_ladderFoot.y));
+    *message = text;
+    Log("level editor: added %s / %s (a ladder, facing %.0f degrees)", foot.name.c_str(), upper.name.c_str(),
+        static_cast<double>(NodeEdit::HeadingDegrees({0.0f, g_ladderFacing, 0.0f})));
+    return true;
+}
+
 bool SnapPoint(V3 from, V3 dir, float maxT, bool free, V3* point, uint32_t* end)
 {
     *end = 0;
     V3 hit, normal;
-    if (!CastRay(from, from + dir * maxT, &hit, &normal))
+    if (!CastRay(from, from + dir * maxT, &hit, &normal, &g_snapSector))
         return false;
     *point = hit;
     if (!free) {
@@ -1514,6 +2141,9 @@ const char* Waiting()
     if (g_draw == Draw::Path)
         return g_drawLast ? "Drawing a path: click the next waypoint (Enter / right click finishes)"
                           : "Drawing a path: click its first waypoint";
+    if (g_draw == Draw::Ladder)
+        return g_ladderHaveFoot ? "A ladder: click where its top goes (straight above the foot; Esc stops)"
+                                : "A ladder: click a wall where its foot goes (it faces the wall)";
     return nullptr;
 }
 
@@ -1542,8 +2172,14 @@ View ViewOf(uint32_t name)
     view.show = true;
     view.added = node.added;
     view.points = static_cast<int>(ChainOf(name).size());
-    if (view.ladder || node.hidden) {
-        view.why = node.hidden ? "Deleted (hidden) - Ctrl+Z or Reset level brings it back" : "Ladders aren't reshaped";
+    if (node.hidden) {
+        view.why = "Deleted (hidden) - Ctrl+Z or Reset level brings it back";
+        return view;
+    }
+    if (view.ladder) {
+        view.canTurn = view.canDelete = true;
+        view.facingDegrees = NodeEdit::HeadingDegrees({0.0f, FacingNow(name), 0.0f});
+        view.turned = !node.added && g_facings.count(name) != 0;
         return view;
     }
     Graph graph = GraphOf(node.family);
@@ -1559,6 +2195,25 @@ View ViewOf(uint32_t name)
     view.canLink = view.canExtend;
     view.canDelete = true;
     if (view.rail) {
+        auto extras = g_extras.find(name);
+        if (node.added) {
+            view.canTrickObject = true;
+            view.trickObject = extras != g_extras.end() && extras->second.cluster;
+            if (view.trickObject)
+                view.cluster = Objects::Label(extras->second.cluster);
+            view.grindFlat = extras != g_extras.end() && extras->second.grindFlat;
+        } else {
+            view.trickObject = node.trickObject;
+            static const uint32_t kCluster = Checksum("Cluster"), kFlag = Checksum("ed_grind_flat");
+            Script::CStruct* params = NodeStruct(name);
+            uint32_t cluster = name;
+            if (params)
+                params->GetChecksum(kCluster, &cluster, 0);
+            if (view.trickObject)
+                view.cluster = Objects::Label(cluster);
+            view.grindFlat = std::find(g_levelFlat.begin(), g_levelFlat.end(), name) != g_levelFlat.end() ||
+                             (params && params->ContainsFlag(kFlag));
+        }
         if (const Obj::CRailNode* rail = RailNodeNamed(name)) {
             for (size_t i = 0; i < view.terrains.size(); ++i) {
                 uint8_t value = 0;

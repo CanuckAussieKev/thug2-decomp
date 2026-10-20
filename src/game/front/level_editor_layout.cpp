@@ -13,6 +13,7 @@
 #include <unordered_map>
 
 #include "game/core/crc.h"
+#include "game/front/level_editor.h"
 #include "game/front/level_editor_career.h"
 #include "game/front/level_editor_node_edit.h"
 #include "game/front/level_editor_objects.h"
@@ -484,6 +485,25 @@ uint32_t RequestFromPick(uint32_t load, bool edited, bool network) { return edit
 
 bool NetworkSession(bool online, bool netGame, bool netScene) { return online || netGame || netScene; }
 
+const char* ModeRefusal(const ModeFlags& mode)
+{
+    if (!mode.known)
+        return "no game mode";
+    if (mode.net)
+        return "a network game mode";
+    if (mode.career)
+        return "story mode";
+    if (mode.classic)
+        return "classic mode";
+    if (mode.parkEditor)
+        return "the park editor";
+    if (mode.createGoals)
+        return "create-a-goal";
+    if (mode.freeskate || mode.singleSession)
+        return nullptr;
+    return "a competitive game mode";
+}
+
 std::string EditedText(const char* text) { return std::string(text && *text ? text : "LEVEL") + " (EDITED)"; }
 
 bool SavedLayoutScene(const std::string& fileName, uint32_t* scene)
@@ -898,8 +918,9 @@ bool Load(std::string* message)
         *message = "Not in a level";
         return false;
     }
-    if (NetworkActive()) {
-        *message = "Layouts are offline only - not put in place in a network session";
+    std::string why;
+    if (Refused(&why)) {
+        *message = "The layout isn't put in place - " + why;
         Log("level editor: %s", message->c_str());
         return false;
     }
@@ -959,7 +980,7 @@ void WriteAutosaveFromCrash()
 bool AutosaveOffered()
 {
     uint8_t* scene = Scenery::MainScene();
-    if (Nx::CurrentLevel() == 0 || !scene || g_autosaveOurs || NetworkActive())
+    if (Nx::CurrentLevel() == 0 || !scene || g_autosaveOurs || Refused())
         return false;
     uint32_t name = Scenery::SceneName(scene);
     uint64_t autosaveTime = 0, savedTime = 0;
@@ -1030,7 +1051,7 @@ void ForgetSession()
 // put in place) or back to the level as shipped (everything put back as the level has it).
 void SwitchInPlace(int to)
 {
-    if (NetworkActive())
+    if (Refused())
         return;
     std::string message;
     if (to > 0 && !g_editedCopy) {
@@ -1133,23 +1154,42 @@ void Tick()
         g_switch = 0;
         SwitchInPlace(to);
     }
+    // The mode became a career-type one with the edited copy loaded (the level not loaded again): back to the level as
+    // shipped at once - nothing done from now on is done in the edited copy. (Not while the editor runs: the mode
+    // can't change then; it's put back once the editor is left.)
+    if (g_editedCopy && up && !Active()) {
+        if (const char* mode = CareerModeActive()) {
+            ResetToLevel(File{});
+            g_editedCopy = false;
+            g_request = 0;
+            g_pending = false;
+            g_switch = 0;
+            Career::EditedCopy(false); // (the career's gap list put back as before)
+            ForgetSession();
+            Log("level editor: the game mode is now %s - the edited copy put back as the level as shipped (edited "
+                "levels are free skate / single session only)",
+                mode);
+            return;
+        }
+    }
     if (!g_pending || !up)
         return;
     if (++g_wait < kSettleFrames)
         return;
     g_pending = false;
-    // The level as shipped, unless it was picked as its edited copy (and never in a network session).
-    bool network = NetworkActive();
+    // The level as shipped, unless it was picked as its edited copy (and never in a network session or a career-type
+    // mode).
+    std::string why;
+    bool refused = Refused(&why);
     uint32_t load = CurrentLoad();
-    bool apply = ApplyEditedCopy(g_request, load, network);
-    g_request = RequestAfterLoad(g_request, load, network);
+    bool apply = ApplyEditedCopy(g_request, load, refused);
+    g_request = RequestAfterLoad(g_request, load, refused);
     // (the level's structure as the level has it again: load_level has read the edited copy's properties by now)
     LevelProps::RestoreStructure();
     if (!apply) {
         if (HasSavedLayout())
             Log("level editor: %s loaded as shipped%s - its edited copy is the level select's (EDITED) entry",
-                LevelTitle().c_str(),
-                network ? " (a network session: layouts are offline only)" : "");
+                LevelTitle().c_str(), refused ? (" (" + why + ")").c_str() : "");
         return;
     }
     g_editedCopy = true;
@@ -1161,7 +1201,7 @@ void Tick()
 
 void OnNodeArrayAdded(uint32_t array)
 {
-    if (!g_request || NetworkActive())
+    if (!g_request || Refused())
         return;
     // (the level picked as its edited copy - its level structure names its node array (qb=) and its scene (level=))
     std::unordered_map<uint32_t, LevelInfo> levels = LevelsByLoad();
@@ -1207,6 +1247,62 @@ bool NetworkActive()
     return NetworkSession(net && net->IsOnline(), InNetGame(), g_netScene);
 }
 
+ModeFlags CurrentMode()
+{
+    // (gamemode.qb's property names; is_career and is_classic as IsCareerMode 0x005AEFC0 / the goal win 0x005576D0 ask)
+    static const uint32_t kIsFreeskate = 0x337E7779, kIsSingleSession = Crc::GenerateCRCFromString("is_singlesession"),
+                          kIsCareer = 0x1DED1EA4, kIsClassic = 0x5A2C589A,
+                          kIsCreateGoals = Crc::GenerateCRCFromString("is_creategoals"),
+                          kIsParkEditor = Crc::GenerateCRCFromString("is_parkeditor"),
+                          kIsNet = Crc::GenerateCRCFromString("is_net");
+    ModeFlags flags;
+    void* mode = GameVariable<void*>(0x007CE470);
+    if (!mode)
+        return flags;
+    // (0x00553220: the mode's structure's integer `property`, non-zero)
+    auto is = [mode](uint32_t property) {
+        return GameFunction<bool(__thiscall*)(void*, uint32_t)>(0x00553220)(mode, property);
+    };
+    flags.known = true;
+    flags.freeskate = is(kIsFreeskate);
+    flags.singleSession = is(kIsSingleSession);
+    flags.career = is(kIsCareer);
+    flags.classic = is(kIsClassic);
+    flags.createGoals = is(kIsCreateGoals);
+    flags.parkEditor = is(kIsParkEditor);
+    flags.net = is(kIsNet);
+    return flags;
+}
+
+const char* CareerModeActive() { return ModeRefusal(CurrentMode()); }
+
+bool Refused(std::string* why)
+{
+    std::string reason;
+    if (NetworkActive())
+        reason = "a network session: layouts are offline only";
+    else if (const char* mode = CareerModeActive())
+        reason = std::string(mode) + ": edited levels are free skate / single session only";
+    if (why)
+        *why = reason;
+    return !reason.empty();
+}
+
+void PanelMessage(const char* text)
+{
+    static const uint32_t kScript = Crc::GenerateCRCFromString("create_panel_message");
+    if (!text || !*text || Nx::CurrentLevel() == 0 || !Script::ScriptExists(kScript))
+        return;
+    Script::CStruct* params = Script::NewStruct()->Init();
+    params->AddString(Crc::GenerateCRCFromString("text"), text);
+    params->AddChecksum(Crc::GenerateCRCFromString("id"), Crc::GenerateCRCFromString("level_editor_refused_message"));
+    params->AddPair(Crc::GenerateCRCFromString("pos"), 320.0f, 70.0f);
+    params->AddInteger(Crc::GenerateCRCFromString("time"), 5000);
+    Script::SpawnScript(kScript, params, 0, nullptr, 0, 0, false, false, false, false);
+    params->Clear();
+    Script::DeleteStruct(params);
+}
+
 bool EditingCopy() { return g_editedCopy; }
 
 bool HasSavedLayout()
@@ -1245,6 +1341,11 @@ bool EnterEditedCopy(std::string* message)
     }
     if (NetworkActive()) {
         *message = "The level editor is offline only - not in a network session";
+        return false;
+    }
+    if (const char* mode = CareerModeActive()) {
+        *message = std::string("The level editor isn't offered in ") + mode +
+                   " - only in free skate or single session (nothing edited may reach the career)";
         return false;
     }
     g_switch = 0;
@@ -1325,9 +1426,11 @@ bool __cdecl CFunc_PickLevel(Script::CStruct* params, Script::CScript*)
     if (params)
         params->GetChecksum(kLevel, &load, 0);
     bool edited = params && params->ContainsFlag(kEditedLayout);
-    bool network = NetworkActive();
+    // (never in a network session or a career-type mode: the level as shipped)
+    std::string why;
+    bool network = Refused(&why);
     if (edited && network)
-        Log("level editor: an edited copy picked in a network session - refused (the level as shipped)");
+        Log("level editor: an edited copy picked - refused, the level as shipped (%s)", why.c_str());
     g_request = RequestFromPick(load, edited, network);
     // (phase 6) the edited copy's field edits go into its node array as it loads; its level properties into its level
     // structure now, before load_level reads it (put back once the level is up - Tick - or another level is picked)
@@ -1353,7 +1456,7 @@ bool __cdecl CFunc_PickLevel(Script::CStruct* params, Script::CScript*)
 
 bool __cdecl CFunc_EditedLevels(Script::CStruct*, Script::CScript* script)
 {
-    if (!script || !script->m_params || NetworkActive())
+    if (!script || !script->m_params || Refused())
         return false;
     std::vector<uint32_t> saved = SavedScenes();
     if (saved.empty())

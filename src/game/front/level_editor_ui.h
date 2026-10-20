@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "game/front/level_editor.h"
@@ -56,6 +57,24 @@ struct BrowserItem {
     uint32_t id;
     std::string label;
 };
+
+// The Outliner's markers: what the editor has done to a row's node, its object or its scenery.
+enum Mark : uint8_t {
+    kMarkMoved = 1,         // moved / turned / scaled (scenery, objects, nodes, rail points, walls)
+    kMarkAdded = 2,         // added by the editor (a node of the overlay)
+    kMarkHidden = 4,        // hidden in the level (scenery's Delete, a level's node hidden) - saved
+    kMarkViewHidden = 8,    // hidden while editing only (H / Isolate - never saved)
+    kMarkLocked = 16,       // locked (clicks pass it)
+    kMarkCollisionOff = 32, // its collision switched off (level_editor_walls.h)
+};
+constexpr int kMarkCount = 6;
+// A mark's letter on the row, its colour (ARGB) and what it means (the tooltip / legend); `bit` 0..kMarkCount-1.
+char MarkLetter(int bit);
+uint32_t MarkColour(int bit);
+const char* MarkName(int bit);
+// Whether a row shows with the Outliner's "Changed only" (any mark) - and its marks as letters ("MH": moved, hidden).
+bool MarkShown(uint8_t marks, bool changedOnly);
+std::string MarkLetters(uint8_t marks);
 struct Model {
     std::string level;    // the level's scene name
     // Which level is edited (level_editor_layout.h): its title ("Training"), always its edited copy - whether that has
@@ -74,6 +93,12 @@ struct Model {
     bool unsaved, offer; // unsaved changes; an older autosave offered
     bool canUndo, canRedo;
     bool snapAlways;
+    // Carrying (level_editor_carry.h): the toolbar's "Carry objects", and how many things the move under way carries.
+    bool carry = true;
+    int carried = 0;
+    // The Outliner's markers: for each node name the editor changed something of, its marks (kMark* bits) - absent:
+    // none (the Outliner's "Changed only" shows just these).
+    std::unordered_map<uint32_t, uint8_t> marks;
     // Picking (level_editor_picking.h): the filter's bits; the locks (each with a label: Unlock in the Inspector);
     // whether the selection is locked (the Inspector's Lock / Unlock).
     uint32_t pickFilter = 0;
@@ -88,6 +113,7 @@ struct Model {
     struct ViewOptions {
         bool collision = false;
         int triangles = 0, sectors = 0, walls = 0;
+        int companions = 0, taken = 0, triggers = 0; // (moved pieces' shared collision; faces taken; trigger faces)
         bool capped = false;
         int hidden = 0;
         bool canHide = false;
@@ -296,6 +322,7 @@ struct Request {
         kSceneryCollision, // value: 0 / 1 - the selected scenery's collision off / on (the Inspector's Collision)
         kMemberRemove,  // value: 1 a rail point, 0 a scenery piece; id: it - removed from the selection
         kMemberKeep,    // value, id: as kMemberRemove - the selection is only that
+        kCarry,         // value: 0 / 1 - the toolbar's Carry objects (level_editor_carry.h)
     } kind;
     int value = 0;
     uint32_t id = 0;

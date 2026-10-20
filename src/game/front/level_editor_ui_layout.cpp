@@ -1,6 +1,7 @@
 // NOT ORIGINAL - the level editor's UI layout and input routing (ours). See level_editor_ui_layout.h.
 
 #include "game/front/level_editor_ui_layout.h"
+#include "game/front/level_editor_ui.h"
 
 #include <algorithm>
 #include <cmath>
@@ -78,3 +79,40 @@ Route Decide(const RouteInput& input)
 }
 
 } // namespace Front::LevelEditor::UiLayout
+
+// The Outliner's markers (level_editor_ui.h) - pure, beside the layout's other pure parts.
+namespace Front::LevelEditor::Ui {
+
+namespace {
+struct MarkInfo {
+    char letter;
+    uint32_t colour;
+    const char* name;
+};
+const MarkInfo kMarks[kMarkCount] = {
+    {'M', 0xFFFFC040u, "moved (turned / scaled) by the editor - Home puts it back"},
+    {'+', 0xFF60E060u, "added by the editor"},
+    {'D', 0xFFFF6060u, "hidden in the level (Delete) - saved; Home / Ctrl+Z brings it back"},
+    {'H', 0xFF9090A0u, "hidden while editing only (H / Isolate - Alt+H shows all; never saved)"},
+    {'L', 0xFF60B0FFu, "locked: clicks pass it (L, the Inspector's Unlock)"},
+    {'C', 0xFFFF40E0u, "its collision is switched off (the skater passes through)"},
+};
+} // namespace
+
+char MarkLetter(int bit) { return bit >= 0 && bit < kMarkCount ? kMarks[bit].letter : '?'; }
+uint32_t MarkColour(int bit) { return bit >= 0 && bit < kMarkCount ? kMarks[bit].colour : 0xFFFFFFFFu; }
+const char* MarkName(int bit) { return bit >= 0 && bit < kMarkCount ? kMarks[bit].name : ""; }
+
+bool MarkShown(uint8_t marks, bool changedOnly) { return !changedOnly || (marks & ((1u << kMarkCount) - 1)) != 0; }
+
+std::string MarkLetters(uint8_t marks)
+{
+    std::string letters;
+    for (int bit = 0; bit < kMarkCount; ++bit) {
+        if (marks & (1u << bit))
+            letters.push_back(kMarks[bit].letter);
+    }
+    return letters;
+}
+
+} // namespace Front::LevelEditor::Ui

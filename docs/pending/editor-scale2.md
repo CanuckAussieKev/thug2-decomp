@@ -2,7 +2,7 @@
 
 Branch `worktree-agent-af733fcd291489c45`. **NOT run in the game yet** (editor work: the user tests it; checked offline
 only - build, thug2_check on THUG2PM.exe and the stock THUG2.exe: argument sizes 0 mismatched, 411 early self-tests
-passed on both; check_code_writes "No overlaps"; 71 mutations, 71 caught - 5 after strengthening the tests).
+passed on both - 420 after merging main -; check_code_writes "No overlaps"; 75 mutations, 75 caught - 6 after strengthening the tests).
 
 ## 1. Non-uniform stretch of scenery
 
@@ -91,6 +91,13 @@ copy, StateOf), level_editor_objects (.h State.scale; .cpp Save / Restore / Forg
 `scale = {1,1,1}`), level_editor.cpp (ScaleSelectionBy / ScaleObjects / ScaleSelectionTo, keys, Inspector requests,
 model, help, HUD line), level_editor_ui (.h model V3 + request doc, .cpp Inspector X / Y / Z + Uniform, F1 rows),
 selftests_editor_walls.cpp (2 comparisons).
+
+Merged with main (the carry / modes / polish / chains / bake work): `level_editor_carry.cpp`'s `Inverse` made per-axis
+(`S^-1 Q^-1 = Q^-1 T`, T = 1 / S seen through Q) and `IsNone` tolerant (a per-axis reciprocal isn't exact: Between a
+placement and itself can be 1.0000001 - within 1e-6 of 1 and 1e-4 units counts as no step); its self-test placements
+stretched; the Outliner's moved mark (`ChangeMarks`) compares the V3; [ / ] keeps main's "invisible walls don't scale"
+message and FollowScenery (scenery only). 4 more mutations there (out\scripts\mut_carry.ts), 4 caught (1 after
+strengthening: IsNone's tolerance).
 
 ## Self-tests
 
