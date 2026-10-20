@@ -1,3 +1,5 @@
+# (Has a TypeScript twin, common.ts, which the TypeScript tools use: until this file is removed - once the Python
+# tools importing it are ported, docs/typescript.md - change both, and run tools/parity's cases.)
 # What the level converters (tools/thps4_levels, tools/thug1_levels) share besides the formats: compiling NeverScript,
 # writing a converted level's files (each read back first), the level structure's lighting keys, and the self-check's
 # THUG2 round trips.

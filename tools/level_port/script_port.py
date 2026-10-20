@@ -1,3 +1,5 @@
+# (Has a TypeScript twin, script_port.ts, which the TypeScript tools use: until this file is removed - once the Python
+# tools importing it are ported, docs/typescript.md - change both, and run tools/parity's cases.)
 # NOT ORIGINAL - another game's level scripts made runnable in THUG2 (tools/thps3_levels: THPS3's): a translation of
 # the compiled scripts' token streams, script by script, from the level's node scripts down through everything they
 # call, spawn or hand out as exception / gap scripts. Nothing of either game is stored: the scripts are read from the

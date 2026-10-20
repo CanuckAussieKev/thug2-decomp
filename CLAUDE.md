@@ -77,6 +77,10 @@ installed); functions PartyMod patched get source with PartyMod's behaviour. Lat
   the SDK is linked), the online identity when OnlineGameName / OnlineGameKey are set (`src/game/net/online_identity.cpp`:
   the name's address over 6 push operands, the key over its 3 stored copies) and the IsPS2 and (debug mode) CD / NotCD CFunction table entries - `python -I tools/check_code_writes.py` checks
   none lands in a rewritten function.
+- **Tools are TypeScript** (being ported from Python, area by area): `node tools/<x>.ts` (Node 24, no build step;
+  `npm install` once; `npm run typecheck` / `lint` / `test`) - conventions, the Python -> JavaScript traps, the parity
+  harness and the migration tracker in `docs/typescript.md`. Python remains only for tools/ghidra (pyghidra),
+  capstone_disasm.py and the not-yet-ported tools during the migration.
 - Python on this machine defaults to cp1252: always `encoding="utf-8"`. Use the Write/Edit tools for C++
   text with backslashes (shell heredocs mangle them).
 - Self-tests: by topic in `src/hook/selftests_<topic>.cpp` (each registers its own with SELFTEST; listed in

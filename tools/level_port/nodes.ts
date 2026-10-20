@@ -1,0 +1,760 @@
+// THPS4 / THUG1 node arrays -> THUG2: keep what THUG2 understands without the other game's scripts and assets
+// (restarts, rails, level geometry, KOTH crowns), drop the rest (peds, vehicles, game objects with the game's models,
+// goal nodes, waypoints, particles, lights...), renumber the Links. (TypeScript twin of nodes.py.)
+//
+// The functions working on NeverScript text use JavaScript regexes for Python's: \w and \b are ASCII here, Unicode in
+// Python - the same for this text, whose names are ASCII (qb.nameText writes others as #checksums).
+
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { getCloseMatches } from "../lib/difflib.ts";
+import { decodeLatin1, intFromBytesLE, pyIntHex, pyMinBy, pyParseFloat, pySum } from "../lib/py.ts";
+import { findall, type Match, search, sub } from "../lib/re.ts";
+import * as qb from "./qb.ts";
+import { checksum, Name, type QbFile, type QbValue, type Statement, Struct, Vector } from "./qb.ts";
+import * as thug2Col from "./thug2_col.ts";
+
+export type Names = Map<number, string>;
+
+export const KEEP_CLASSES: ReadonlySet<string> = new Set([
+    "restart",
+    "railnode",
+    "levelgeometry",
+    "levelobject",
+    "genericnode",
+]);
+export const GENERIC_TYPES: ReadonlySet<string> = new Set(["crown"]); // GenericNode kept: KOTH crowns
+// Keys and flags kept on a node; everything else (TriggerScript, models, ped / object settings...) goes.
+export const KEEP_KEYS: ReadonlySet<string> = new Set([
+    "position",
+    "angles",
+    "name",
+    "class",
+    "type",
+    "restartname",
+    "restart_types",
+    "terraintype",
+    "links",
+    "cluster",
+    "collisionmode",
+]);
+export const KEEP_FLAGS: ReadonlySet<string> = new Set([
+    "createdatstart",
+    "trickobject",
+    "absentinnetgames",
+    "netenabled",
+]);
+const KEYS: ReadonlySet<number> = new Set([...KEEP_KEYS].map(checksum));
+const FLAGS: ReadonlySet<number> = new Set([...KEEP_FLAGS].map(checksum));
+
+export function classOf(node: Struct, names: ReadonlyMap<number, string>): string {
+    const value = node.get("Class");
+    return (value instanceof Name ? (names.get(value.value) ?? "") : "").toLowerCase();
+}
+
+export function typeOf(node: Struct, names: ReadonlyMap<number, string>): string {
+    const value = node.get("Type");
+    return (value instanceof Name ? (names.get(value.value) ?? "") : "").toLowerCase();
+}
+
+// Names with "kill" in them that don't kill the skater: the Kill command (removes objects), KillSpawnedScript,
+// KillSkaterCamAnim (stops a camera animation - THPS4's skate shop's start point runs it: taken as a kill, it made the
+// start point respawn the skater on itself forever), and THPS4's key bindings, kill radius / clusters, goal adding,
+// arrows, cars, race checks.
+export const NOT_KILLS = [
+    "camanim",
+    "killspawned",
+    "key_binding",
+    "radius",
+    "cluster",
+    "addgoal",
+    "arrow",
+    "cars",
+    "checkfor",
+];
+
+export function isKillCall(text: string): boolean {
+    // Whether a called name (lower case) is a kill of the skater (SK3_KillSkater, ALC_KillWater, xxx_Kill_Plane...).
+    return text.includes("kill") && text !== "kill" && !NOT_KILLS.some((word) => text.includes(word));
+}
+
+export function killScripts(nodeQ: QbFile, levelQ: QbFile | null): Map<number, string> {
+    // THPS4's trigger scripts that kill the skater (out of bounds, water): TriggerScript -> the THUG2 command that
+    // does the same (THUG2's global SK3_KillSkater / SK3_KillSkater_Water: back to a restart). A trigger script
+    // counts when it calls a script or command with "kill" in its name (ALC_KillWater, SK3_KillSkater,
+    // xxx_Kill_Plane...; not the Kill command, which removes objects, or KillSpawnedScript).
+    const names: Names = new Map(levelQ ? levelQ.names : []);
+    for (const [k, v] of nodeQ.names) names.set(k, v);
+    const found = new Map<number, string>();
+    for (const script of nodeQ.scripts.keys()) {
+        for (const [called, line] of nodeQ.calls(script)) {
+            const text = (names.get(called) ?? "").toLowerCase();
+            if (!text.includes("kill") || !isKillCall(text)) continue;
+            const water =
+                text.includes("water") ||
+                line.some(([t, p]) => t === 0x16 && (names.get(intFromBytesLE(p)) ?? "").toLowerCase() === "water");
+            found.set(script, water ? "SK3_KillSkater_Water" : "SK3_KillSkater");
+            break;
+        }
+    }
+    return found;
+}
+
+// The kill call's parameters kept (THUG2's SK3_KillSkater takes the same: the restart to go back to, the messages, the
+// fade colour, bail; THUG1's own death sounds aren't in THUG2).
+export const KILL_VALUES: ReadonlySet<string> = new Set([
+    "nodename",
+    "node",
+    "message1",
+    "message2",
+    "message3",
+    "message4",
+    "r",
+    "g",
+    "b",
+]);
+export const KILL_FLAGS: ReadonlySet<string> = new Set(["bail", "nomessage"]);
+
+export function killArgs(
+    line: Statement,
+    restarts: { has(value: number): boolean },
+    names: ReadonlyMap<number, string>,
+): Map<string, string> {
+    // The parameters of a kill call (a statement's tokens after the called name) that THUG2's SK3_KillSkater takes,
+    // as {key: NeverScript text}: nodename (node= too) only when it names a restart, messages, colour, Bail /
+    // NoMessage.
+    const args = new Map<string, string>();
+    let i = 1;
+    while (i < line.length) {
+        const [t, payload] = line[i]!;
+        if (t === 0x16) {
+            const keyText = (names.get(intFromBytesLE(payload)) ?? "").toLowerCase();
+            if (i + 2 < line.length && line[i + 1]![0] === 0x07) {
+                const [vt, vp] = line[i + 2]!;
+                if ((keyText === "nodename" || keyText === "node") && vt === 0x16) {
+                    const node = intFromBytesLE(vp);
+                    if (restarts.has(node)) args.set("nodename", `nodename=${qb.nameText(node, names)}`);
+                } else if (KILL_VALUES.has(keyText) && vt === 0x1b) {
+                    const text = decodeLatin1(qb.rstripNul(vp)).replaceAll("\\", "\\\\").replaceAll('"', '\\"');
+                    args.set(keyText, `${keyText}="${text}"`);
+                } else if (KILL_VALUES.has(keyText) && vt === 0x17) {
+                    args.set(keyText, `${keyText}=${intFromBytesLE(vp, true)}`);
+                }
+                i += 3;
+                continue;
+            }
+            if (KILL_FLAGS.has(keyText)) args.set(keyText, keyText === "bail" ? "Bail" : "NoMessage");
+        }
+        i += 1;
+    }
+    return args;
+}
+
+export function killCommands(
+    scriptQbs: readonly QbFile[],
+    restarts: { has(value: number): boolean },
+    names: ReadonlyMap<number, string>,
+): Map<number, string> {
+    // THUG1's trigger scripts that kill the skater: TriggerScript -> the THUG2 command line that does the same. A
+    // script counts when one of its statements calls something with "killskater" in its name (SK3_Killskater,
+    // Sk3_Killskater_Water, the levels' own RU_KillSkater / HI_KillSkater_LittleDogs) or a level script that does
+    // (NY_KillWater, HI_Pool_Water: goal checks around Sk3_Killskater_Water): it becomes THUG2's SK3_KillSkater
+    // (_Water when the name says water, or the level script's call does) with the call's parameters that THUG2's
+    // takes (killArgs); a level script's own kill call gives the ones the trigger script's call doesn't
+    // (HI_Pool_Water's nodename=TRG_Restart_Boardwalk).
+    const wrappers = new Map<number, [boolean, Map<string, string>]>();
+    for (const q of scriptQbs) {
+        for (const script of q.scripts.keys()) {
+            for (const [called, line] of q.calls(script)) {
+                const text = (names.get(called) ?? "").toLowerCase();
+                if (text.includes("killskater") && isKillCall(text) && !wrappers.has(script)) {
+                    wrappers.set(script, [text.includes("water"), killArgs(line, restarts, names)]);
+                }
+            }
+        }
+    }
+    const found = new Map<number, string>();
+    for (const q of scriptQbs) {
+        for (const script of q.scripts.keys()) {
+            if (found.has(script)) continue;
+            for (const [called, line] of q.calls(script)) {
+                const text = (names.get(called) ?? "").toLowerCase();
+                if ((!text.includes("killskater") || !isKillCall(text)) && !wrappers.has(called)) continue;
+                const [wrapperWater, wrapperArgs] = wrappers.get(called) ?? [false, new Map<string, string>()];
+                const water = wrapperWater || text.includes("water");
+                const args = new Map(wrapperArgs);
+                for (const [k, v] of killArgs(line, restarts, names)) args.set(k, v);
+                const command = water ? "SK3_KillSkater_Water" : "SK3_KillSkater";
+                found.set(script, [command, ...args.values()].join(" "));
+                break;
+            }
+        }
+    }
+    return found;
+}
+
+export function expandIncludes(array: readonly QbValue[], globalsByChecksum: ReadonlyMap<number, QbValue>): QbValue[] {
+    // THUG1's node arrays share their common parts: a node lists a global structure by name (ncomp_RailNode_574 =
+    // {Class=RailNode Type=Metal ...}) - an unnamed Name entry naming a global structure, whose entries the node gets
+    // (the script's AppendStructure). They are put in the nodes themselves here.
+    const out: QbValue[] = [];
+    for (let node of array) {
+        if (node instanceof Struct) {
+            const entries: qb.Entry[] = [];
+            for (const [key, value] of node.entries) {
+                const included = key === null && value instanceof Name ? globalsByChecksum.get(value.value) : undefined;
+                if (included instanceof Struct) entries.push(...included.entries);
+                else entries.push([key, value]);
+            }
+            node = new Struct(entries);
+        }
+        out.push(node);
+    }
+    return out;
+}
+
+const isInt = (v: QbValue): v is number => typeof v === "number" && Number.isInteger(v);
+const asList = (v: QbValue): QbValue[] => {
+    // (Python iterates the value: a list; anything else isn't iterable there)
+    if (!Array.isArray(v)) throw new TypeError("Links is not a list");
+    return v;
+};
+
+export function convertNodes(
+    array: readonly QbValue[],
+    names: Names,
+    kills: { has(value: number): boolean } | null = null,
+    extraKeys: readonly string[] = [],
+    asIs: Iterable<Struct> = [],
+    scripts: { has(value: number): boolean } = new Set<number>(),
+): [Struct[], Map<string, number>] {
+    // kills: the kill scripts (a map or set of their checksums). extraKeys: more keys kept (THUG1's Pos). asIs: nodes
+    // (the objects themselves - Python's id()s) already made THUG2's - kept whole, their Links renumbered (THPS3's game
+    // objects, waypoints, peds). scripts: trigger scripts that are kept besides the kill scripts (THPS3's, brought along
+    // by tools/level_port/script_port.ts).
+    const killMap = kills ?? new Set<number>();
+    const asIsSet = new Set<Struct>(asIs);
+    const keepKeys = new Set([...KEYS, ...extraKeys.map(checksum)]);
+    const kept: Struct[] = [];
+    const indexMap = new Map<number, number>();
+    array.forEach((node, i) => {
+        if (!(node instanceof Struct)) return;
+        if (asIsSet.has(node)) {
+            indexMap.set(i, kept.length);
+            kept.push(node);
+            return;
+        }
+        const cls = classOf(node, names);
+        if (!KEEP_CLASSES.has(cls)) return;
+        if (cls === "genericnode" && !GENERIC_TYPES.has(typeOf(node, names))) return;
+        indexMap.set(i, kept.length);
+        kept.push(node);
+    });
+    const renumber = (value: QbValue): number[] =>
+        asList(value)
+            .filter((v): v is number => isInt(v) && indexMap.has(v))
+            .map((v) => indexMap.get(v)!);
+    const LINKS = checksum("Links");
+    const TRIGGER = checksum("TriggerScript");
+    const CLASS = checksum("Class");
+    const out: Struct[] = [];
+    const stats = new Map<string, number>();
+    for (const node of kept) {
+        const cls = classOf(node, names);
+        stats.set(cls, (stats.get(cls) ?? 0) + 1);
+        if (asIsSet.has(node)) {
+            const entries: qb.Entry[] = [];
+            for (let [key, value] of node.entries) {
+                if (key !== null && key.value === LINKS) {
+                    value = renumber(value);
+                    if (!value.length) continue;
+                }
+                entries.push([key, value]);
+            }
+            out.push(new Struct(entries));
+            continue;
+        }
+        const entries: qb.Entry[] = [];
+        for (let [key, value] of node.entries) {
+            if (key === null) {
+                if (value instanceof Name && FLAGS.has(value.value)) entries.push([null, value]);
+                continue;
+            }
+            if (
+                key.value === TRIGGER &&
+                value instanceof Name &&
+                (killMap.has(value.value) || scripts.has(value.value))
+            ) {
+                entries.push([key, value]);
+                continue;
+            }
+            if (!keepKeys.has(key.value)) continue;
+            if (key.value === LINKS) {
+                value = renumber(value);
+                if (!value.length) continue;
+            }
+            if (key.value === CLASS && cls === "levelobject") {
+                // (a movable object in THPS4, driven by its scripts: static geometry here)
+                value = new Name(checksum("LevelGeometry"));
+                if (!names.has(value.value)) names.set(value.value, "LevelGeometry");
+            }
+            entries.push([key, value]);
+        }
+        const fresh = new Struct(entries);
+        if (cls === "restart" && fresh.get("restart_types") === undefined && fresh.get("Type") instanceof Name) {
+            fresh.entries.push([new Name(checksum("restart_types")), [fresh.get("Type")!]]);
+            if (!names.has(checksum("restart_types"))) names.set(checksum("restart_types"), "restart_types");
+        }
+        out.push(fresh);
+    }
+    // The skater starts at the first node of the array that is a player restart (as make_menu_level.py's skate
+    // shop): THPS4's Player1 restart is swapped with the first node, and the Links follow.
+    const player1 = checksum("Player1");
+    const first = out.findIndex((n) => {
+        const type = n.get("Type");
+        return type instanceof Name && type.value === player1 && classOf(n, names) === "restart";
+    });
+    if (first > 0) {
+        [out[0], out[first]] = [out[first]!, out[0]!];
+        const swap = new Map([
+            [0, first],
+            [first, 0],
+        ]);
+        for (const node of out) {
+            node.entries = node.entries.map(([k, value]) => [
+                k,
+                k !== null && k.value === LINKS
+                    ? asList(value).map((v) => (typeof v === "number" && swap.has(v) ? swap.get(v)! : v))
+                    : value,
+            ]);
+        }
+    }
+    return [out, stats];
+}
+
+export function nodePosition(node: Struct): readonly number[] | null {
+    let value = node.get("Pos");
+    if (value === undefined) value = node.get("Position");
+    return value instanceof Vector && value.kind === "vector" ? value.values : null;
+}
+
+const distance2 = (a: readonly number[], b: readonly number[]): number =>
+    // (Python: sum((a[k] - b[k]) ** 2 for k in range(3)) - compensated sum; ** 2 vs * : docs/typescript.md)
+    pySum(
+        [0, 1, 2].map((k) => {
+            const d = a[k]! - b[k]!;
+            return d * d;
+        }),
+    );
+
+export function addKillRestarts(
+    nodes: readonly Struct[],
+    kills: ReadonlyMap<number, string>,
+    names: ReadonlyMap<number, string>,
+): Map<number, string> {
+    // THUG2's SK3_KillSkater needs a restart: without nodename= it passes the global kill_skater_nodename (0 until a
+    // kill names one) to KillSkater node=, which finds no node - the skater stays dead, never put back (seen in THUG1
+    // Hawaii's pool). A kill command without one gets the restart nearest to the first trigger node that runs it.
+    // A restart's own TriggerScript runs when the skater is put there: never a kill (it would put the skater back on
+    // itself forever).
+    const triggerOf = (n: Struct): number | null => {
+        const t = n.get("TriggerScript");
+        return t instanceof Name ? t.value : null;
+    };
+    const filtered = new Map(
+        [...kills].filter(([script]) => !nodes.some((n) => classOf(n, names) === "restart" && triggerOf(n) === script)),
+    );
+    const restarts: [readonly number[], Name][] = [];
+    for (const n of nodes) {
+        const position = nodePosition(n);
+        const name = n.get("Name");
+        if (classOf(n, names) === "restart" && position && name instanceof Name) restarts.push([position, name]);
+    }
+    if (!restarts.length) return filtered;
+    const out = new Map(filtered);
+    for (const [script, command] of filtered) {
+        if (command.includes("nodename=")) continue;
+        let where: readonly number[] | null = null;
+        for (const n of nodes) {
+            if (triggerOf(n) === script && nodePosition(n)) {
+                where = nodePosition(n);
+                break;
+            }
+        }
+        if (where === null) continue;
+        const at = where;
+        const [, restart] = pyMinBy(restarts, (r) => distance2(r[0], at));
+        const space = command.indexOf(" ");
+        const head = space < 0 ? command : command.slice(0, space);
+        const rest = space < 0 ? "" : ` ${command.slice(space + 1)}`;
+        out.set(script, `${head} nodename=${qb.nameText(restart.value, names)}${rest}`);
+    }
+    return out;
+}
+
+export function killTriggerNames(nodes: readonly Struct[], kills: { has(value: number): boolean }): Set<number> {
+    // The checksums of the kept nodes whose TriggerScript is a kill script: their collision keeps its trigger faces.
+    const found = new Set<number>();
+    for (const node of nodes) {
+        const script = node.get("TriggerScript");
+        const name = node.get("Name");
+        if (script instanceof Name && kills.has(script.value) && name instanceof Name) found.add(name.value);
+    }
+    return found;
+}
+
+// The terrains whose sounds (rolling, landing, grinding) a ported level loads: load_level runs SetTerrainDefault, then
+// the level's own LoadTerrain script - without it only TERRAIN_DEFAULT's sounds are loaded, and rolling over wood,
+// metal, concrete... is silent. THUG2's own LA loads these.
+export const TERRAINS = [
+    "DEFAULT",
+    "CONCSMOOTH",
+    "CONCROUGH",
+    "METALSMOOTH",
+    "METALGRATING",
+    "WOOD",
+    "BRICK",
+    "TILE",
+    "ASPHALT",
+    "GRAVEL",
+    "SIDEWALK",
+    "GRASS",
+    "WATER",
+    "PLEXIGLASS",
+    "CHAINLINK",
+    "GRINDWIRE",
+    "GRINDCONC",
+    "GRINDCHAINLINK",
+    "GRINDMETAL",
+    "GRINDWOOD",
+    "GRINDELECTRICWIRE",
+    "GRINDGLASSMONSTER",
+    "GRINDBANYONTREE",
+];
+
+export function loadTerrainNs(): string {
+    return `script LoadTerrain {\n${TERRAINS.map((t) => `    LoadTerrainSounds terrain=TERRAIN_${t} \n`).join("")}}`;
+}
+
+// THUG2's terrain types (scripts\game\terrain.qb): a node's TerrainType has to be one of them.
+export const THUG2_TERRAINS = (
+    "ASPHALT BRICK CARPET CHAINLINK CONCROUGH CONCSMOOTH CONVEYOR DEFAULT DIRT DIRTPACKED FIBERGLASS GENERIC1 GENERIC2 " +
+    "GRASS GRASSDRIED GRAVEL GRINDBANYONTREE GRINDBRASSRAIL GRINDCABLE GRINDCATWALK GRINDCHAIN GRINDCHAINLINK " +
+    "GRINDCONC GRINDELECTRICWIRE GRINDGLASSMONSTER GRINDMETAL GRINDNEONLIGHT GRINDPLASTIC GRINDPLASTICBARRIER GRINDROPE " +
+    "GRINDROUNDMETALPOLE GRINDTANKTURRET GRINDTRAIN GRINDWIRE GRINDWOOD GRINDWOODLOG GRINDWOODRAILING ICE " +
+    "METALCORRUGATED METALFENCE METALFUTURE METALGRATING METALROUGH METALSMOOTH METALTIN PLEXIGLASS ROCK SAND SIDEWALK " +
+    "SNOW TILE WATER WETCONC WHEELS WOOD WOODFLIMSY WOODMASONITE WOODPIER WOODPLYWOOD WOODSHINGLE"
+).split(" ");
+
+export function fixTerrains(nodes: readonly Struct[], names: Names): number {
+    // THUG2 looks a rail node's TerrainType up in its terrain table and reads through a null pointer when it's missing
+    // or not one of THUG2_TERRAINS (THPS3 Rio: a rail without one; Tokyo: THPS3's own typo TERRAIN_MEATALSMOOTH -
+    // both crashed the game loading the level). Missing on a rail: TERRAIN_METALSMOOTH; unknown on any node: THUG2's
+    // nearest name (difflib), else TERRAIN_METALSMOOTH. Returns how many were changed.
+    const key = checksum("TerrainType");
+    if (!names.has(key)) names.set(key, "TerrainType");
+    const known = new Map<number, string>();
+    for (const t of THUG2_TERRAINS) known.set(checksum(`TERRAIN_${t}`), `TERRAIN_${t}`);
+
+    const terrain = (text: string): Name => {
+        const value = checksum(text);
+        if (!names.has(value)) names.set(value, text);
+        return new Name(value);
+    };
+
+    let count = 0;
+    for (const node of nodes) {
+        const value = node.get("TerrainType");
+        if (value === undefined) {
+            if (classOf(node, names) === "railnode") {
+                node.entries.push([new Name(key), terrain("TERRAIN_METALSMOOTH")]);
+                count += 1;
+            }
+            continue;
+        }
+        if (value instanceof Name && known.has(value.value)) continue;
+        const text = value instanceof Name ? (names.get(value.value) ?? "").toUpperCase() : "";
+        const close = text ? getCloseMatches(text, [...known.values()], 1, 0.8) : [];
+        const replacement = terrain(close.length ? close[0]! : "TERRAIN_METALSMOOTH");
+        node.entries = node.entries.map(([k, v]) => [k, k !== null && k.value === key ? replacement : v]);
+        count += 1;
+    }
+    return count;
+}
+
+export function nodeArrayNs(
+    arrayName: string,
+    nodes: readonly Struct[],
+    names: Names,
+    kills: ReadonlyMap<number, string> | null = null,
+): string {
+    fixTerrains(nodes, names);
+    const lines = [`${arrayName} = [`];
+    for (const node of nodes) lines.push(`    ${qb.toNs(node, names, 1)}`);
+    lines.push("]");
+    const used = new Set<number>();
+    for (const node of nodes) {
+        const script = node.get("TriggerScript");
+        if (script instanceof Name) used.add(script.value);
+    }
+    const sorted = [...(kills ?? new Map<number, string>())].sort(
+        (a, b) => a[0] - b[0] || (a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0),
+    );
+    for (const [script, command] of sorted) {
+        if (used.has(script)) lines.push(`script ${qb.nameText(script, names)} {\n    ${command}\n}`);
+    }
+    lines.push(loadTerrainNs());
+    return `${lines.join("\n")}\n`;
+}
+
+const ELEMENT = /\{[^{}]*\}/;
+
+export function stripMissingTrickObjects(text: string, sectors: { has(value: number): boolean }): [string, number] {
+    // The node array (NeverScript text) with TrickObject / Cluster taken off the LevelGeometry nodes whose sector isn't
+    // in the converted scene (`sectors`: collision-only or invisible pieces, left out of the scene): ParseNodeArray
+    // registers a TrickObject's sector without checking it's there (0x00588630 reads through the null - THPS3
+    // Airport and THAW Minneapolis crashed loading). Rails keep theirs (no sectors). Returns [text, nodes changed].
+    let cleared = 0;
+    const fix = (match: Match): string => {
+        let node = match.str(0);
+        const name = search(/\bName=(#?\w+)/i, node);
+        if (!name || !search(/\bClass=LevelGeometry\b/i, node) || !search(/\bTrickObject\b|\bCluster=/i, node))
+            return node;
+        const value = nameValue(name.str(1));
+        if (sectors.has(value)) return node;
+        cleared += 1;
+        node = sub(/\n[ \t]*TrickObject[ \t]*(?=\n)/i, "", node);
+        return sub(/\n[ \t]*Cluster=\S+[ \t]*(?=\n)/i, "", node);
+    };
+    return [sub(ELEMENT, fix, text), cleared];
+}
+
+// The path commands that need the path manager, which THUG2 makes only outside network games (load_level's
+// AllocatePathManMemory): an object following a path in a network game reads through the missing manager
+// (0x004695D0 / 0x00469620 - THPS4 College's blimp crashed a network game, as TestLevel's beach ball did).
+export const PATH_COMMANDS = ["Obj_FollowPath", "Obj_FollowPathLinked", "Obj_FollowPathStored"];
+const PATH_COMMAND_SET: ReadonlySet<number> = new Set(PATH_COMMANDS.map(checksum));
+
+export function nameValue(text: string): number {
+    return text.startsWith("#") ? pyIntHex(text.slice(1)) : checksum(text);
+}
+
+const SCRIPT_BLOCK = /(?:^|\n)script (#?\w+) \{(.*?)\n\}/s;
+
+export function absentInNetGames(
+    text: string,
+    scripts: ReadonlyMap<number, Uint8Array> | null = null,
+): [string, number] {
+    // The node array (NeverScript text) with AbsentInNetGames on every CreatedAtStart node a network game can't
+    // have - what the shipped levels do for such objects:
+    // - one whose TriggerScript follows a path (itself or through scripts it names): no path manager there;
+    // - a pedestrian or vehicle: THUG2 loads no ped animations in network games (skutils.qb do_load_unloadable:
+    //   `if inNetGame { load_peds = 0 }`), and a ped's first animation reads through the missing one (0x00482BA0 -
+    //   THPS4's skate shop's standing ped crashed a network game). THUG2's own levels keep all of them out.
+    // `text`'s own scripts are read, and `scripts` ({checksum: compiled code}, added after compiling:
+    // script_port.appendScripts). Returns [text, nodes marked].
+    const calls = new Map<number, Set<number>>(); // script -> the names it uses
+    for (const [name, body] of findall(SCRIPT_BLOCK, text, "tuples") as [string, string][]) {
+        calls.set(nameValue(name), new Set(findall(/#[0-9A-Fa-f]{8}\b|\b[A-Za-z_]\w*/, body).map(nameValue)));
+    }
+    for (const [name, code] of scripts ?? new Map<number, Uint8Array>()) {
+        const used = new Set<number>();
+        for (const [, t, p] of qb.tokens(Buffer.concat([code, Buffer.from([0])]), true)) {
+            if (t === 0x00) break;
+            if (t === 0x16) used.add(intFromBytesLE(p.subarray(0, 4)));
+        }
+        calls.set(name, new Set([...(calls.get(name) ?? []), ...used]));
+    }
+    const intersects = (a: ReadonlySet<number>, b: ReadonlySet<number>): boolean => [...a].some((x) => b.has(x));
+    const followers = new Set<number>();
+    for (const [name, used] of calls) if (intersects(used, PATH_COMMAND_SET)) followers.add(name);
+    let grew = true;
+    while (grew) {
+        grew = false;
+        for (const [name, used] of calls) {
+            if (!followers.has(name) && intersects(used, followers)) {
+                followers.add(name);
+                grew = true;
+            }
+        }
+    }
+    let marked = 0;
+    const fix = (match: Match): string => {
+        const node = match.str(0);
+        if (!search(/\bCreatedAtStart\b/, node) || search(/\bAbsentInNetGames\b/, node)) return node;
+        const script = search(/\bTriggerScript=(#?\w+)/, node);
+        const follows = script !== null && followers.has(nameValue(script.str(1)));
+        if (!follows && !search(/\bClass=(Pedestrian|Vehicle)\b/i, node)) return node;
+        marked += 1;
+        return sub(/\bCreatedAtStart\b/, "CreatedAtStart AbsentInNetGames", node, 1);
+    };
+    return [sub(ELEMENT, fix, text), marked];
+}
+
+// Python's re.split(r"[\s,]+", text.strip()) without the empty parts.
+function splitTypes(text: string): string[] {
+    return text
+        .trim()
+        .split(/[\s,]+/)
+        .filter((t) => t);
+}
+
+export function netRestarts(text: string): [string, number] {
+    // A level with no Multiplayer restart (THPS4's skate shop and MotoX, THPS3's tutorials, THUG1's Downhill Jam,
+    // Philly and School: single-player levels in their games) has nowhere for a network game to put the players: its
+    // Player1 restarts become Multiplayer and Horse ones too, as THUG2's own skate shop's are. Returns [text, changed].
+    if (search(/\brestart_types=\[[^\]]*\bMultiplayer\b/i, text)) return [text, 0];
+    let changed = 0;
+    const fix = (match: Match): string => {
+        const node = match.str(0);
+        const types = search(/\brestart_types=\[([^\]]*)\]/, node);
+        if (!search(/\bClass=Restart\b/i, node) || !types || !search(/\bPlayer1\b/i, types.str(1))) return node;
+        changed += 1;
+        const listed = splitTypes(types.str(1));
+        const lower = new Set(listed.map((x) => x.toLowerCase()));
+        for (const t of ["Multiplayer", "Horse"]) if (!lower.has(t.toLowerCase())) listed.push(t);
+        return `${node.slice(0, types.start())}restart_types=[${listed.join(" ")}]${node.slice(types.end())}`;
+    };
+    return [sub(ELEMENT, fix, text), changed];
+}
+
+export function netGameNodes(text: string, scripts: ReadonlyMap<number, Uint8Array> | null = null): [string, number] {
+    // What a network game needs of a ported level's node array: absentInNetGames, then netRestarts. Returns
+    // [text, nodes changed].
+    const [absentText, absent] = absentInNetGames(text, scripts);
+    const [restartText, restarts] = netRestarts(absentText);
+    return [restartText, absent + restarts];
+}
+
+// --- restarts against the converted collision -----------------------------------------------------------------------
+
+export const NET_RESTART_TYPES: ReadonlySet<string> = new Set([
+    "multiplayer",
+    "horse",
+    "ctf",
+    "ctf_1",
+    "ctf_2",
+    "team",
+]);
+
+function ground(col: thug2Col.ColFile, p: readonly number[]): [number, number, number] | null {
+    // The highest collidable face below (or 30 units above) the point p, as [height, object checksum, face flags],
+    // or null: nothing under it.
+    let best: [number, number, number] | null = null;
+    const [px, py, pz] = [p[0]!, p[1]!, p[2]!];
+    for (const o of col.objects) {
+        const box = o.bbox;
+        if (!(box[0]! - 1 <= px && px <= box[4]! + 1 && box[2]! - 1 <= pz && pz <= box[6]! + 1)) continue;
+        const vs = o.verts;
+        for (const f of o.faces) {
+            if (f[0] & 0x0010) continue; // non-collidable
+            const a = vs[f[2]]!;
+            const b = vs[f[3]]!;
+            const c = vs[f[4]]!;
+            const den = (b[2]! - c[2]!) * (a[0]! - c[0]!) + (c[0]! - b[0]!) * (a[2]! - c[2]!);
+            if (Math.abs(den) < 1e-9) continue;
+            const l1 = ((b[2]! - c[2]!) * (px - c[0]!) + (c[0]! - b[0]!) * (pz - c[2]!)) / den;
+            const l2 = ((c[2]! - a[2]!) * (px - c[0]!) + (a[0]! - c[0]!) * (pz - c[2]!)) / den;
+            if (l1 < 0 || l2 < 0 || l1 + l2 > 1) continue;
+            const y = l1 * a[1]! + l2 * b[1]! + (1 - l1 - l2) * c[1]!;
+            if (y <= py + 30 && (best === null || y > best[0])) best = [y, o.checksum, f[0]];
+        }
+    }
+    return best;
+}
+
+function nodePos(node: string): number[] | null {
+    // A node's position in THUG2's space: Pos= as it is, Position= (THPS4 / THUG1 style) with z negated.
+    let m = search(/\bPos=\(([^)]*)\)/, node);
+    if (m) return m.str(1).split(",").map(pyParseFloat);
+    m = search(/\bPosition=\(([^)]*)\)/, node);
+    if (m) {
+        const values = m.str(1).split(",").map(pyParseFloat);
+        if (values.length !== 3) throw new RangeError(`not enough values to unpack (expected 3, got ${values.length})`);
+        const [x, y, z] = values as [number, number, number];
+        return [x, y, -z];
+    }
+    return null;
+}
+
+export function groundRestarts(text: string, col: thug2Col.ColFile): [string, string[]] {
+    // The node array (NeverScript text) checked against the converted collision (thug2_col's form): a restart with
+    // nothing under it (THAW's shop interiors - separate zones we don't port - are at y -600 over nothing) or over a
+    // kill zone's trigger faces (East L.A.'s TransitionParkTeleport restarts, a network game's spawns, above the
+    // freeway kill that took THAW to the CAS shop) is no network spawn (its Multiplayer / Horse / CTF / Team types
+    // go), and the kills sending the skater to one send it to the nearest grounded restart instead (East L.A.'s
+    // freeway sent it to the CAS shop's interior: under the world for good). Returns [text, report lines].
+    const scripts = new Map<string, string>();
+    for (const [name, body] of findall(SCRIPT_BLOCK, text, "tuples") as [string, string][]) scripts.set(name, body);
+    const elements = findall(ELEMENT, text);
+    const killNodes = new Map<number, string>();
+    for (const e of elements) {
+        const script = search(/\bTriggerScript=(#?\w+)/, e);
+        const name = search(/\bName=(#?\w+)/, e);
+        if (script && name && search(/\bSK3_KillSkater/i, scripts.get(script.str(1)) ?? "")) {
+            killNodes.set(nameValue(name.str(1)), script.str(1));
+        }
+    }
+    const restarts = new Map<string, number[]>();
+    const bad = new Set<string>();
+    for (const e of elements) {
+        if (!search(/\bClass=Restart\b/i, e)) continue;
+        const name = search(/\bName=(#?\w+)/, e);
+        const p = nodePos(e);
+        if (!name || !p?.length) continue;
+        restarts.set(name.str(1), p);
+        const g = ground(col, p);
+        if (g === null || (killNodes.has(g[1]) && g[2] & 0x0040)) bad.add(name.str(1));
+    }
+    const report: string[] = [];
+    if (!bad.size) return [text, report];
+
+    const fixNode = (match: Match): string => {
+        const node = match.str(0);
+        const name = search(/\bName=(#?\w+)/, node);
+        const types = search(/\brestart_types=\[([^\]]*)\]/, node);
+        if (!name || !bad.has(name.str(1)) || !types) return node;
+        const listed = splitTypes(types.str(1));
+        let kept = listed.filter((t) => !NET_RESTART_TYPES.has(t.toLowerCase()));
+        if (!kept.length) kept = ["Generic"];
+        if (kept.length !== listed.length || kept.some((t, i) => t !== listed[i])) {
+            report.push(`  restart ${name.str(1)}: no ground or over a kill zone - no network spawn`);
+        }
+        return `${node.slice(0, types.start())}restart_types=[${kept.join(" ")}]${node.slice(types.end())}`;
+    };
+
+    text = sub(ELEMENT, fixNode, text);
+    const good = new Map([...restarts].filter(([n]) => !bad.has(n)));
+    if (!good.size) return [text, report];
+    // Each kill script's trigger node positions (the nearest good restart to the first).
+    const where = new Map<string, number[]>();
+    for (const e of elements) {
+        const script = search(/\bTriggerScript=(#?\w+)/, e);
+        const p = nodePos(e);
+        if (script && p?.length && !where.has(script.str(1))) where.set(script.str(1), p);
+    }
+
+    const fixScript = (match: Match): string => {
+        const name = match.str(1);
+        let body = match.str(2);
+        const target = search(/\b(SK3_KillSkater\w*\s+nodename=)(#?\w+)/i, body);
+        if (!target || !bad.has(target.str(2))) return match.str(0);
+        const whereP = where.get(name);
+        const p = whereP?.length ? whereP : restarts.get(target.str(2))!;
+        const best = pyMinBy(good.keys(), (n) => distance2(good.get(n)!, p));
+        report.push(`  kill ${name}: to ${best}, not ${target.str(2)} (no ground there)`);
+        body = body.slice(0, target.start(2)) + best + body.slice(target.end(2));
+        const whole = match.str(0);
+        return whole.slice(0, match.start(2) - match.start(0)) + body + whole.slice(match.end(2) - match.start(0));
+    };
+
+    text = sub(/(?:(?<=^)|(?<=\n))script (#?\w+) \{(.*?)\n\}/s, fixScript, text);
+    return [text, report];
+}
+
+export function groundRestartsAt(text: string, levelDir: string, name: string): [string, string[]] {
+    // groundRestarts against the collision just written (<levelDir>\<name>.col.xbx). Returns [text, report lines].
+    const file = path.join(levelDir, `${name}.col.xbx`);
+    if (!fs.existsSync(file)) return [text, []];
+    return groundRestarts(text, thug2Col.readCol(fs.readFileSync(file), file));
+}

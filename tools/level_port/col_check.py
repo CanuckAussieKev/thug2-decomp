@@ -1,3 +1,5 @@
+# (Has a TypeScript twin, col_check.ts, which the TypeScript tools use: until this file is removed - once the Python
+# tools importing it are ported, docs/typescript.md - change both, and run tools/parity's cases.)
 # NOT ORIGINAL - offline checks of a THUG2 collision file (levels\<x>\<x>.col.xbx, tools/level_port/thug2_col.py's
 # form): whether every face can be found through its object's BSP tree, as THUG2's queries walk it.
 #

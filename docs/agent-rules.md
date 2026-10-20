@@ -22,10 +22,15 @@ workspace (C:\Games\THUG2-n) and its pending-doc name. Agents cost a lot of usag
 - Records go in docs/pending/<name>.md, not docs/decomp-progress.md (the lead folds them in with batch numbers). Run
   tools/progress_report.py but don't commit docs/PROGRESS.md (the lead regenerates it).
 - Commit messages end with the Co-Authored-By line given in the session.
-- Python: `python -I`, always `encoding="utf-8"`. Use the Write / Edit tools for text with backslashes (shell
-  heredocs mangle them).
+- **New tools are TypeScript** (docs/typescript.md: erasable TypeScript run by Node, `npm run typecheck`, `lint`,
+  `test` before each commit). A tool ported from Python keeps its CLI and is proven output-equivalent with
+  `tools/parity` before its Python twin goes. A Python file whose header names a TypeScript twin: change both, and run
+  its parity cases (`node tools/parity/parity.ts tools/parity/<area>/cases.ts --only <...>`).
+- Python (the remaining tools): `python -I`, always `encoding="utf-8"`. Use the Write / Edit tools for text with
+  backslashes (shell heredocs mangle them).
 - Merge main into the branch every 2-3 commits so conflicts stay small. Shared files (CMakeLists.txt, shared headers,
-  tools/level_port/*.py): small, additive, backwards-compatible edits only, listed in the pending doc.
+  tools/level_port/*.py and *.ts, tools/lib): small, additive, backwards-compatible edits only, listed in the pending
+  doc.
 - Final message: short summary, branch, commits, game-run results, what the user should try or check by hand, and
   (decomp) how to switch the work off (`[replacements] disable=` file names).
 
@@ -76,7 +81,8 @@ workspace (C:\Games\THUG2-n) and its pending-doc name. Agents cost a lot of usag
 - Shared code: tools/level_port/script_port.py (the script translator, all four games), peds_cars.py, nodes.py
   (strip_missing_trick_objects, fix_terrains...). Run every converter's `selfcheck` (thps3_levels, thps4_levels,
   thug1_levels, thaw_levels) before each commit. tools/level_port/script_diff.py compares converted scripts between
-  two staging folders.
+  two staging folders. Every tools/level_port module has a TypeScript twin (.ts, docs/typescript.md): a change goes
+  into both until the Python converters are ported.
 - Converters: `--thug2 <workspace>` (or `--out <scratch>`); install with `make_menu_level.py --game <workspace>`.
   Converting only some levels rewrites the staging's levels.json with only those: finish with a full convert.
 - Known crashes to check output against offline: docs/level-port-compromises.md section 3. Also: a rail with a
