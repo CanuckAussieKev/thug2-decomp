@@ -259,6 +259,8 @@ void CollisionLegend(const Model& model)
     }
     ImGui::TextDisabled("%d faces in %d pieces (%d invisible walls)%s", model.view.triangles, model.view.sectors,
                         model.view.walls, model.view.capped ? " - the nearest only" : "");
+    if (model.view.off > 0)
+        ImGui::TextDisabled("Faded / dashed: collision switched off (%d pieces)", model.view.off);
     ImGui::TextDisabled("Not coloured: 0x80 camera passes, 0x2000 not taggable");
     ImGui::PopFont();
     ImGui::End();
@@ -279,10 +281,47 @@ void ViewSection(const Model& model)
         ImGui::PushFont(g_mono);
         ImGui::TextWrapped("%s", model.view.wallInfo.c_str());
         ImGui::PopFont();
-        ImGui::TextWrapped("Collision without a drawn piece can't be moved or hidden yet: the editor's moves, undo and "
-                           "layouts go by a piece's geometry.");
+        // (level_editor_walls.h: the game's own switch, CSector::SetActive; moved and turned as scenery)
+        if (model.view.wallOff)
+            ImGui::TextColored(ImVec4(1.0f, 0.55f, 0.3f, 1.0f), "%s", model.view.wallState.c_str());
+        else
+            ImGui::TextWrapped("%s", model.view.wallState.c_str());
+        if (model.view.wallOff) {
+            if (ImGui::Button("Restore (Del / Home)"))
+                Ask(Request::kWallCollision, 1);
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Switches its collision on again: the skater's feelers hit it");
+        } else {
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.62f, 0.22f, 0.30f, 0.85f));
+            if (ImGui::Button("Delete wall (Del)"))
+                Ask(Request::kWallCollision, 0);
+            ImGui::PopStyleColor();
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Switches its collision off (the game's own switch - as a Kill of its node): the skater "
+                                  "passes it.\nIt stays drawn dashed here so you can bring it back; saved in the layout");
+        }
+        ImGui::SameLine();
+        ImGui::BeginDisabled(!model.view.wallMoved && !model.view.wallOff);
+        if (ImGui::Button("Put back (Home)##wall"))
+            Ask(Request::kReset);
+        ImGui::EndDisabled();
+        if (ImGui::Button("Ground (G)##wall"))
+            Ask(Request::kDrop);
+        ImGui::SameLine();
         if (ImGui::Button("Close##wall"))
             Ask(Request::kClearWall);
+        ImGui::TextDisabled("Move: drag its face or an arrow, W A S D / Q E; Z / X a quarter turn");
+    }
+    if (model.view.sceneryCollision >= 0 && !model.view.wall) {
+        // A drawn piece's collision switched off by itself (it stays drawn; the same switch, level_editor_walls.h).
+        ImGui::Spacing();
+        ImGui::Separator();
+        bool on = model.view.sceneryCollision == 1;
+        if (ImGui::Checkbox(model.view.sceneryCollision == 2 ? "Collision (some off)" : "Collision", &on))
+            Ask(Request::kSceneryCollision, on ? 1 : 0);
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Off: the piece stays drawn but the skater passes through it (saved in the layout; shown "
+                              "faded with the collision view)");
     }
     if (model.view.canHide || model.view.hidden > 0) {
         ImGui::Spacing();
@@ -995,10 +1034,10 @@ void Inspector(const Model& model)
     const Model::Selection& s = model.selection;
     if (model.nodes.nodeOnly) {
         NodeSection(model, model.nodes.selected);
-    } else if (s.objects == 0 && s.sectors == 0) {
+    } else if (s.objects == 0 && s.sectors == 0 && !model.view.wall) {
         ImGui::TextWrapped("Nothing selected - click something in the view (a gizmo, an object, scenery), or pick it "
                            "in the Outliner.");
-    } else {
+    } else if (s.objects > 0 || s.sectors > 0) {
         ImGui::PushFont(g_heading);
         ImGui::TextWrapped("%s", s.name.c_str());
         ImGui::PopFont();
@@ -1175,7 +1214,7 @@ void Help(const Model& model)
         {"", "G", "drops it onto the ground"},
         {"", "Inspector", "a node's position and heading: drag to scrub, Ctrl+click to type"},
         {"Editing", "Ctrl+D", "duplicates"},
-        {"", "Delete", "hides scenery (deletes a copy)"},
+        {"", "Delete", "hides scenery (deletes a copy); an invisible wall: its collision off / on again"},
         {"", "Home", "puts it back where the level had it"},
         {"", "Ctrl+Z / Ctrl+Y", "undo / redo"},
         {"", "Ctrl+Shift+Delete", "Reset level: everything as the level has it, its saved layout deleted (asks; "
@@ -1187,7 +1226,11 @@ void Help(const Model& model)
         {"", "Ctrl+R / Ctrl+Shift+R", "restore / discard an older autosave"},
         {"Leaving", "Esc", "first cancels a drag, closes a window or deselects; then leaves"},
         {"View", "C", "shows the collision near the camera, coloured by surface (the legend); invisible walls magenta"},
-        {"", "Shift+click", "with the collision shown: an invisible wall - what it is (the Inspector)"},
+        {"", "Shift+click", "with the collision shown: an invisible wall - what it is (the Inspector); then Delete "
+                             "switches its collision off (drawn dashed; Delete / Home / Restore on again), drag its face "
+                             "or an arrow, W A S D / Q E, Z / X and G move it - undo, saved in the layout"},
+        {"", "Inspector: Collision", "(selected scenery) its collision off by itself - drawn, but the skater passes "
+                                     "through; saved in the layout"},
         {"", "H", "hides the selection while editing (from the view and from clicks; never saved, never in play)"},
         {"", "I or /", "isolates the selection: everything else hidden while editing"},
         {"", "Alt+H", "shows everything hidden in the editor again"},

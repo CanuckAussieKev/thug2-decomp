@@ -10,6 +10,7 @@
 #include "game/front/level_editor_objects.h"
 #include "game/front/level_editor_picking.h"
 #include "game/front/level_editor_scenery.h"
+#include "game/front/level_editor_walls.h"
 #include "game/mth/vector.h"
 #include "game/nx/coll_tri.h"
 #include "game/obj/compositemgr.h"
@@ -105,6 +106,28 @@ bool HiddenSet::Add(uint32_t id)
     return true;
 }
 
+void AddDashed(std::vector<Ui::Line>* lines, const Ui::Line& line, float dash, float gap)
+{
+    float dx = line.bx - line.ax, dy = line.by - line.ay;
+    float length = std::sqrt(dx * dx + dy * dy);
+    if (!(length > 0.0f) || !(dash > 0.0f) || gap < 0.0f)
+        return;
+    float ux = dx / length, uy = dy / length;
+    // (at most 256 dashes an edge: a face seen from very near)
+    float period = std::max(dash + gap, length / 256.0f);
+    for (float at = 0.0f; at < length; at += period) {
+        float end = std::min(length, at + dash);
+        Ui::Line piece = line;
+        piece.ax = line.ax + ux * at;
+        piece.ay = line.ay + uy * at;
+        piece.bx = line.ax + ux * end;
+        piece.by = line.ay + uy * end;
+        lines->push_back(piece);
+    }
+}
+
+uint32_t Faded(uint32_t argb) { return (argb & 0x00FFFFFF) | (std::min<uint32_t>(argb >> 24, 0x30) << 24); }
+
 std::vector<uint32_t> IsolateOthers(const std::vector<uint32_t>& all, const std::vector<uint32_t>& keep)
 {
     std::vector<uint32_t> others;
@@ -131,13 +154,27 @@ F Method(void* object, int offset)
 uint8_t* GeomOf(uint8_t* sector) { return *reinterpret_cast<uint8_t**>(sector + 0x14); }
 uint8_t* CollOf(uint8_t* sector) { return *reinterpret_cast<uint8_t**>(sector + 0x18); }
 
-// The sector's collision geometry, if it has collision that's on (CCollStatic, flag 4 clear).
-Nx::CCollObjTriData* TriDataOf(uint8_t* sector)
+// The sector's collision geometry, whether its collision is on or off (CCollStatic; `off`: its flag 4 - the game's
+// switch, level_editor_walls.h).
+Nx::CCollObjTriData* AnyTriDataOf(uint8_t* sector, bool* off)
 {
     uint8_t* coll = CollOf(sector);
-    if (!coll || *reinterpret_cast<uint32_t*>(coll) != kCollStaticVtable || (coll[0x08] & 4))
+    if (!coll || *reinterpret_cast<uint32_t*>(coll) != kCollStaticVtable)
         return nullptr;
+    if (off)
+        *off = (coll[0x08] & 4) != 0;
     return *reinterpret_cast<Nx::CCollObjTriData**>(coll + 0x0C);
+}
+
+// The collision drawn for a sector (null: none): on, or switched off by the editor's switch (an invisible wall, or a
+// drawn piece's collision by itself - shown faded so it can be switched on again). A piece hidden (its geometry off,
+// its collision with it) isn't drawn.
+Nx::CCollObjTriData* DrawnTriDataOf(uint32_t checksum, uint8_t* sector, bool* off)
+{
+    Nx::CCollObjTriData* tri = AnyTriDataOf(sector, off);
+    if (tri && *off && GeomOf(sector) && !Walls::Off(checksum))
+        return nullptr;
+    return tri;
 }
 
 V3 ToV3(const Mth::Vector& v) { return {v.x, v.y, v.z}; }
@@ -355,6 +392,7 @@ void AddCollision(V3 cameraPos, const Frame& frame, const Lens& lens, const uint
         uint8_t* sector;
         Nx::CCollObjTriData* tri;
         float order;
+        bool off;
     };
     struct Walk {
         V3 camera;
@@ -365,7 +403,8 @@ void AddCollision(V3 cameraPos, const Frame& frame, const Lens& lens, const uint
     Scenery::ForEachLevelSector(
         [](void* context, uint32_t checksum, uint8_t* sector) {
             auto* w = static_cast<Walk*>(context);
-            Nx::CCollObjTriData* tri = TriDataOf(sector);
+            bool off = false;
+            Nx::CCollObjTriData* tri = DrawnTriDataOf(checksum, sector, &off);
             if (!tri || tri->m_numFaces == 0 || HiddenSector(checksum))
                 return;
             bool wall = GeomOf(sector) == nullptr;
@@ -381,7 +420,7 @@ void AddCollision(V3 cameraPos, const Frame& frame, const Lens& lens, const uint
             }
             if (!front)
                 return;
-            w->found.push_back({checksum, sector, tri, wall || checksum == g_wall ? distance - 1e7f : distance});
+            w->found.push_back({checksum, sector, tri, wall || checksum == g_wall ? distance - 1e7f : distance, off});
         },
         &walk);
     std::sort(walk.found.begin(), walk.found.end(),
@@ -432,6 +471,8 @@ void AddCollision(V3 cameraPos, const Frame& frame, const Lens& lens, const uint
             uint32_t argb = SurfaceColour(surface);
             if (selectedWall)
                 argb = 0xC8FFA0FF; // (the selected wall: lighter)
+            if (candidate.off)
+                argb = Faded(argb); // (switched off: faded, its edges dashed)
             // (shaded by the face's facing: the shape reads through the colour)
             V3 normal = Cross(p[1] - p[0], p[2] - p[0]);
             float length = std::sqrt(Dot(normal, normal));
@@ -441,20 +482,27 @@ void AddCollision(V3 cameraPos, const Frame& frame, const Lens& lens, const uint
             uint32_t b = static_cast<uint32_t>((argb & 0xFF) * shade);
             poly.argb = (argb & 0xFF000000) | (r << 16) | (g << 8) | b;
             polygons.push_back(poly);
-            g_drawn.push_back({candidate.checksum, cached->collisionOnly, p[0], p[1], p[2]});
+            // (a drawn piece's collision switched off isn't in the way of a click: the piece's own click selects it)
+            if (cached->collisionOnly || !candidate.off)
+                g_drawn.push_back({candidate.checksum, cached->collisionOnly, p[0], p[1], p[2]});
             any = true;
-            // The invisible walls' edges (the selected one's brighter).
+            // The invisible walls' edges (the selected one's brighter; dashed while switched off).
             if ((cached->collisionOnly || selectedWall) && lines) {
                 uint32_t edge = selectedWall ? 0xFFFFFFFF : 0xE0FF60F0;
                 for (int k = 0; k < count; ++k) {
                     int n = (k + 1) % count;
-                    lines->push_back({poly.x[k], poly.y[k], poly.x[n], poly.y[n], edge, selectedWall ? 1.5f : 1.0f});
+                    Ui::Line line = {poly.x[k], poly.y[k], poly.x[n], poly.y[n], edge, selectedWall ? 1.5f : 1.0f};
+                    if (candidate.off)
+                        AddDashed(lines, line, 6.0f, 5.0f);
+                    else
+                        lines->push_back(line);
                 }
             }
         }
         if (any) {
             ++g_stats.sectors;
             g_stats.walls += cached->collisionOnly ? 1 : 0;
+            g_stats.off += candidate.off ? 1 : 0;
         }
     }
     // Far to near: the nearer faces painted over the farther.
@@ -491,9 +539,9 @@ void ClearWall() { g_wall = 0; }
 std::string DescribeWall(uint32_t checksum)
 {
     uint8_t* sector = Scenery::SectorOf(checksum);
-    Nx::CCollObjTriData* tri = sector ? TriDataOf(sector) : nullptr;
+    Nx::CCollObjTriData* tri = sector ? AnyTriDataOf(sector, nullptr) : nullptr;
     if (!tri)
-        return "(gone, or its collision is off)";
+        return "(gone)";
     // The faces' flags: each distinct value and how many faces have it.
     std::vector<std::pair<uint16_t, int>> counts;
     for (int f = 0; f < tri->m_numFaces && tri->m_faces; ++f) {

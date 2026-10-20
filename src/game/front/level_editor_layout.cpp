@@ -286,6 +286,13 @@ std::string Write(const File& file)
         Comment(out, s.name);
     }
     out << Chains::WriteRecords(file.chains);
+    for (const Walls::WallState& w : file.walls) {
+        out << "wall";
+        Hex(out, w.checksum);
+        Placed(out, w.placement);
+        out << ' ' << (w.off ? 1 : 0);
+        Comment(out, w.checksum);
+    }
     return out.str();
 }
 
@@ -394,6 +401,15 @@ bool Read(const std::string& text, File* file, int* lineNumber)
             ok = (in >> what) && ReadHex(in, &id);
             if (ok && (what == "object" || what == "sector"))
                 file->locks.push_back({what == "object" ? Picking::kObjects : Picking::kScenery, id});
+        } else if (kind == "wall") {
+            // (level_editor_walls.h: later key=value fields skipped, as a sector's)
+            Walls::WallState w = {};
+            int off = 0;
+            ok = ReadHex(in, &w.checksum) && ReadPlaced(in, &w.placement) && (in >> off) && (off == 0 || off == 1);
+            w.off = off != 0;
+            w.placement.scale = 1.0f;
+            if (ok)
+                file->walls.push_back(w);
         } else if (Chains::IsRecord(kind)) {
             ok = Chains::ReadRecord(kind, in, &file->chains); // (phase 4: point / links / drop / terrain)
         } // (anything else: a later version's record - skipped)
@@ -621,6 +637,7 @@ bool Capture(File* file)
             file->hidden.push_back(name);
     }
     file->locks = Picking::Locks();
+    file->walls = Walls::Changed();
     for (const NodeEdit::Record& node : NodeEdit::Changed()) {
         if (NodeCreate::IsAdded(node.name))
             continue; // (its node record has its place)
@@ -702,16 +719,20 @@ std::string Apply(const File& file)
     // again with them; peds / cars whose path changed made again.
     if (!Chains::Empty(file.chains))
         Chains::SetState(file.chains);
+    // Collision (level_editor_walls.h): invisible walls moved / switched off, drawn pieces' collision switched off - after
+    // the sectors (a piece shown by them gets its switch back).
+    Walls::ApplyStates(file.walls);
+    Walls::Tick();
     if (!message.empty())
         Log("level editor: %s", message.c_str());
     char summary[320];
     std::snprintf(summary, sizeof(summary),
                   "%u pieces, %u copies, %u rail points, %d objects, %d object copies, %d nodes, %d added, %d hidden, "
-                  "%u chain points, %u relinked, %u dropped",
+                  "%u chain points, %u relinked, %u dropped, %u collision switches / walls",
                   static_cast<unsigned>(file.sectors.size()), static_cast<unsigned>(clones.size()),
                   static_cast<unsigned>(file.rails.size()), objects, copies, nodes, added, hidden,
                   static_cast<unsigned>(file.chains.points.size()), static_cast<unsigned>(file.chains.links.size()),
-                  static_cast<unsigned>(file.chains.dropped.size()));
+                  static_cast<unsigned>(file.chains.dropped.size()), static_cast<unsigned>(file.walls.size()));
     return summary;
 }
 
@@ -741,6 +762,7 @@ void ResetToLevel(const File& keep)
         state.hidden = false;
     }
     Scenery::ApplyStates(sectors, rails);
+    Walls::ResetAll(); // (walls back where the level has them, every collision switch as the level had it)
     for (uint32_t id : Objects::Touched()) {
         if (const Objects::State* origin = Objects::Origin(id))
             Objects::Restore(*origin);
