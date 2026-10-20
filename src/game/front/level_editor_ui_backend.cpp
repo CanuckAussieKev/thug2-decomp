@@ -23,6 +23,67 @@ IDirect3DDevice9* Device() { return GameVariable<IDirect3DDevice9*>(0x007D69E0);
 bool g_ready;
 bool g_failedLogged;
 
+// The off-screen picture: its colour target (X8R8G8B8: what the game's blending leaves in alpha doesn't show through
+// ImGui's), its depth surface (the format of the game's own; no multisampling: the target has none), and what
+// BeginOffscreen switched from.
+struct Offscreen {
+    IDirect3DTexture9* texture = nullptr;
+    IDirect3DSurface9* depth = nullptr;
+    int size = 0;
+    bool stencil = false; // (the depth format has one: cleared with it)
+    bool failedLogged = false;
+    // (between Begin and End)
+    bool active = false;
+    IDirect3DSurface9* savedTarget = nullptr;
+    IDirect3DSurface9* savedDepth = nullptr;
+    D3DVIEWPORT9 savedViewport = {};
+    D3DMATRIX savedTransforms[3] = {};
+};
+Offscreen g_offscreen;
+constexpr D3DTRANSFORMSTATETYPE kSavedTransforms[3] = {D3DTS_WORLD, D3DTS_VIEW, D3DTS_PROJECTION};
+
+void ReleaseOffscreen()
+{
+    if (g_offscreen.texture)
+        g_offscreen.texture->Release();
+    if (g_offscreen.depth)
+        g_offscreen.depth->Release();
+    g_offscreen.texture = nullptr;
+    g_offscreen.depth = nullptr;
+    g_offscreen.size = 0;
+}
+
+bool MakeOffscreen(IDirect3DDevice9* device, int size)
+{
+    if (g_offscreen.texture && g_offscreen.size == size)
+        return true;
+    ReleaseOffscreen();
+    D3DFORMAT depthFormat = D3DFMT_D24S8;
+    IDirect3DSurface9* gameDepth = nullptr;
+    if (SUCCEEDED(device->GetDepthStencilSurface(&gameDepth)) && gameDepth) {
+        D3DSURFACE_DESC desc;
+        if (SUCCEEDED(gameDepth->GetDesc(&desc)))
+            depthFormat = desc.Format;
+        gameDepth->Release();
+    }
+    HRESULT made = device->CreateTexture(size, size, 1, D3DUSAGE_RENDERTARGET, D3DFMT_X8R8G8B8, D3DPOOL_DEFAULT,
+                                         &g_offscreen.texture, nullptr);
+    if (SUCCEEDED(made))
+        made = device->CreateDepthStencilSurface(size, size, depthFormat, D3DMULTISAMPLE_NONE, 0, TRUE,
+                                                 &g_offscreen.depth, nullptr);
+    if (FAILED(made)) {
+        if (!g_offscreen.failedLogged)
+            Log("level editor UI: no off-screen target of %d pixels (%08X)", size, static_cast<unsigned>(made));
+        g_offscreen.failedLogged = true;
+        ReleaseOffscreen();
+        return false;
+    }
+    g_offscreen.size = size;
+    g_offscreen.stencil = depthFormat == D3DFMT_D24S8 || depthFormat == D3DFMT_D24X4S4 ||
+                          depthFormat == D3DFMT_D15S1 || depthFormat == D3DFMT_D24FS8;
+    return true;
+}
+
 } // namespace
 
 bool Init()
@@ -95,6 +156,8 @@ void InvalidateDeviceObjects()
 {
     if (g_ready)
         ImGui_ImplDX9_InvalidateDeviceObjects();
+    // (the picture is in the default pool: it must go before a reset; made again when next drawn)
+    FreeOffscreen();
 }
 
 void WindowSize(int* width, int* height)
@@ -114,6 +177,57 @@ uint64_t TextureId(void* rendererTexture)
 {
     // (the Direct3D 9 backend takes an IDirect3DTexture9*)
     return static_cast<uint64_t>(reinterpret_cast<uintptr_t>(static_cast<IDirect3DTexture9*>(rendererTexture)));
+}
+
+bool BeginOffscreen(int size, uint32_t argb)
+{
+    IDirect3DDevice9* device = Device();
+    if (!device || g_offscreen.active || size <= 0 || !MakeOffscreen(device, size))
+        return false;
+    IDirect3DSurface9* surface = nullptr;
+    if (FAILED(g_offscreen.texture->GetSurfaceLevel(0, &surface)))
+        return false;
+    Offscreen& o = g_offscreen;
+    device->GetRenderTarget(0, &o.savedTarget);
+    device->GetDepthStencilSurface(&o.savedDepth);
+    device->GetViewport(&o.savedViewport);
+    for (int i = 0; i < 3; ++i)
+        device->GetTransform(kSavedTransforms[i], &o.savedTransforms[i]);
+    device->SetRenderTarget(0, surface);
+    surface->Release();
+    device->SetDepthStencilSurface(o.depth);
+    D3DVIEWPORT9 viewport = {0, 0, static_cast<DWORD>(size), static_cast<DWORD>(size), 0.0f, 1.0f};
+    device->SetViewport(&viewport);
+    device->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER | (o.stencil ? D3DCLEAR_STENCIL : 0), argb, 1.0f, 0);
+    o.active = true;
+    return true;
+}
+
+void EndOffscreen()
+{
+    Offscreen& o = g_offscreen;
+    IDirect3DDevice9* device = Device();
+    if (!o.active || !device)
+        return;
+    device->SetRenderTarget(0, o.savedTarget);
+    device->SetDepthStencilSurface(o.savedDepth);
+    device->SetViewport(&o.savedViewport); // (after the target: setting one resets the viewport)
+    for (int i = 0; i < 3; ++i)
+        device->SetTransform(kSavedTransforms[i], &o.savedTransforms[i]);
+    if (o.savedTarget)
+        o.savedTarget->Release();
+    if (o.savedDepth)
+        o.savedDepth->Release();
+    o.savedTarget = o.savedDepth = nullptr;
+    o.active = false;
+}
+
+uint64_t OffscreenTexture() { return g_offscreen.texture ? TextureId(g_offscreen.texture) : 0; }
+
+void FreeOffscreen()
+{
+    EndOffscreen();
+    ReleaseOffscreen();
 }
 
 } // namespace Front::LevelEditor::UiBackend

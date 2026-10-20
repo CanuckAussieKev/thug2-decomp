@@ -81,6 +81,15 @@ struct Model {
     int browserTab; // 0 scenery, 1 objects
     int browserIndex;
     const std::vector<BrowserItem>* browserItems;
+    // The browser's preview (level_editor_preview.h): the entry shown (the one hovered in the list, else the
+    // highlighted one; -1: none), its picture (an ImGui texture id; 0: none drawn) and what it is.
+    struct PreviewView {
+        int index = -1;
+        uint64_t texture = 0;
+        std::string name;
+        std::string size;  // "x by y by z"
+        std::string type;  // objects: class and model file; scenery: "scene sector"
+    } preview;
     // The node layer (level_editor_nodes.h): the families shown (the chips' bits), the node selected (by a gizmo or
     // in the Outliner; or the selected object's / scenery's own node) and the one under the cursor - indices into
     // Nodes::All(), -1 for none - and whether the level is one shared with THUGPRO (a ported level: `sharedGame`).
@@ -194,12 +203,17 @@ struct Request {
         kHideConfirmed, // the confirm window's Hide
         kHideCancelled,
         kCrownMove,     // value: -1 / +1 - an added crown earlier / later in the crowns' order
+        kBrowserPreview, // value: the browser's entry the preview shows (-1: the highlighted one)
+        kPreviewOrbit,   // a: the preview dragged (pixels x, y) and its wheel steps
     } kind;
     int value = 0;
     uint32_t id = 0;
     float a[3] = {}, b[3] = {};
 };
 std::vector<Request> TakeRequests();
+
+// The preview picture's size in pixels for the window's size now (256 at 1280 x 720, up to 512).
+int PreviewPixels();
 
 // The frame (LevelEditor::Draw): the overlay (under the panels), the panels from the model, drawn.
 void Frame(const Model& model, const Overlay& overlay);

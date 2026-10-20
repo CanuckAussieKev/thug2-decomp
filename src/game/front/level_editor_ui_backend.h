@@ -32,7 +32,19 @@ void InvalidateDeviceObjects();
 // The window's size in pixels (ImGui's display size) and the back buffer's.
 void WindowSize(int* width, int* height);
 void BackBufferSize(int* width, int* height);
-// The one place a renderer texture becomes an ImGui texture id (none are shown yet: thumbnails would come here).
+// The one place a renderer texture becomes an ImGui texture id.
 uint64_t TextureId(void* rendererTexture);
+
+// An off-screen picture (the Add palette's preview, level_editor_preview.h): a square colour target of `size` pixels
+// with its own depth surface, made on first use (again when the size changes) and freed by FreeOffscreen and with the
+// device objects (InvalidateDeviceObjects: before a reset). BeginOffscreen makes it the device's target (the target,
+// depth surface, viewport and the world / view / projection transforms saved first), cleared to `argb`; the game's
+// renderer then draws into it; EndOffscreen puts back what was saved. False (nothing switched): no device or the
+// target couldn't be made (logged once).
+bool BeginOffscreen(int size, uint32_t argb);
+void EndOffscreen();
+// The picture's ImGui texture id (0: none made).
+uint64_t OffscreenTexture();
+void FreeOffscreen();
 
 } // namespace Front::LevelEditor::UiBackend
