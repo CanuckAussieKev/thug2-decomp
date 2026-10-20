@@ -32,6 +32,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as zlib from "node:zlib";
+import type * as compat from "../compat/compat.ts";
 import { FormatError } from "../level_port/binio.ts";
 import * as prx from "../level_port/prx.ts";
 import * as qb from "../level_port/qb.ts";
@@ -682,6 +683,51 @@ export function extract(x: ExtractInputs): Extracted {
         });
     }
     return { level: { key: x.key, archive: x.archive, entries }, notes };
+}
+
+// --- the section's JSON form (compat.Entry: one list, each target {level, name}; the levels' THUGPRO keys apart) -----
+
+export interface LevelRef {
+    key: string;
+    archive: string;
+}
+
+// The levels' entries as the section's list (by THUG1 code, in order) and the levels' references.
+export function toSection(levels: ReadonlyMap<string, NewLevel>): {
+    levels: Record<string, LevelRef>;
+    entries: Record<string, unknown>[];
+} {
+    const refs: Record<string, LevelRef> = {};
+    const entries: Record<string, unknown>[] = [];
+    for (const [code, level] of levels) {
+        refs[code] = { key: level.key, archive: level.archive };
+        for (const e of level.entries) {
+            const { id, op, kind, target, why, ...rest } = e;
+            entries.push({ id, op, kind, target: { level: code, name: target }, why, ...rest });
+        }
+    }
+    return { levels: refs, entries };
+}
+
+// compat.thugproNew's entries back by level (by THUG1 code in lower case).
+export function fromSection(
+    entries: readonly compat.Entry[],
+    refs: Readonly<Record<string, LevelRef>>,
+): Map<string, NewLevel> {
+    const out = new Map<string, NewLevel>();
+    for (const e of entries) {
+        const code = String(e.target.level);
+        const ref = refs[code];
+        if (ref === undefined) throw new FormatError(`thugpro_new ${e.id}: level ${code} not in its levels`);
+        let level = out.get(code.toLowerCase());
+        if (level === undefined) {
+            level = { key: ref.key, archive: ref.archive, entries: [] };
+            out.set(code.toLowerCase(), level);
+        }
+        const { target, ...rest } = e;
+        level.entries.push({ ...(rest as unknown as Omit<NewEntry, "target">), target: String(target.name) });
+    }
+    return out;
 }
 
 // The model names (as nodes give them: "veh\\a\\a.mdl", lower case) the asset entries make.

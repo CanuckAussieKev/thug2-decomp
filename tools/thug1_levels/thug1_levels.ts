@@ -121,8 +121,11 @@ export function setCompat(name: string, thugproNew_ = true, ownChanges = true): 
     const profile = compat.load(name);
     COMPAT.new = new Map();
     if (thugproNew_) {
-        for (const [code, level] of Object.entries(profile.section("thug1_levels", "thugpro_new")))
-            COMPAT.new.set(code.toLowerCase(), level as thugproNew.NewLevel);
+        const refs = (profile.section("thug1_levels", "thugpro_new").levels ?? {}) as Record<
+            string,
+            thugproNew.LevelRef
+        >;
+        COMPAT.new = thugproNew.fromSection(compat.thugproNew(profile, "thug1_levels"), refs);
     }
     COMPAT.portChanges = portChanges.load(ownChanges);
     COMPAT.levelNames = new Map(

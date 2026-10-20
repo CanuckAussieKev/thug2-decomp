@@ -621,11 +621,15 @@ export function netRestarts(text: string): [string, number] {
     return [sub(ELEMENT, fix, text), changed];
 }
 
-export function netGameNodes(text: string, scripts: ReadonlyMap<number, Uint8Array> | null = null): [string, number] {
-    // What a network game needs of a ported level's node array: absentInNetGames, then netRestarts. Returns
-    // [text, nodes changed].
+export function netGameNodes(
+    text: string,
+    scripts: ReadonlyMap<number, Uint8Array> | null = null,
+    withRestarts = true,
+): [string, number] {
+    // What a network game needs of a ported level's node array: absentInNetGames, then netRestarts (withRestarts:
+    // false leaves those out - tools/thps3_levels' PC-4 under --no-port-changes). Returns [text, nodes changed].
     const [absentText, absent] = absentInNetGames(text, scripts);
-    const [restartText, restarts] = netRestarts(absentText);
+    const [restartText, restarts] = withRestarts ? netRestarts(absentText) : [absentText, 0];
     return [restartText, absent + restarts];
 }
 

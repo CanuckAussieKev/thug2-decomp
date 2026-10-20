@@ -339,3 +339,10 @@ Shared code: tools/compat/compat.ts (portChanges), tools/level_port/ported_level
 <staging>\models) - both additive.
 To try in the game: NJ's El trains, HI's boat, the VC / SJ arrows, VN's gulls / bums / sand deaths, VC's leaf blower,
 RU's tanks, the replaced gap scripts (HN, SC2, SD), NJ's occlusion (emptied triggers).
+After merging main (THPS4 / THPS3 / THAW): main's compat.ts API only - port_changes read through compat.portChanges
+(entries in compat.Entry's shape: rule, target {levels, what}), thugpro_new through compat.thugproNew (one entries list,
+target {level, name}; levels: THUGPRO key and archive per level - thugpro_new.toSection / fromSection), re-extracted (a
+fixed point). THPS3's models copy in ported_levels.installFiles kept (mine dropped), changed to merge instead of
+replace per top-level folder (two stagings may both bring modelseh). Checks re-run: --compat none / --no-thugpro-new /
+empty --thugpro the same as before (95 files); new in THUGPRO as THUGPRO's (all but SJ_startup, RU_Cannon); faces,
+links, ns.exe whole in all 16; selfchecks THUG1 333 / THPS3 323 / THPS4 139 / THAW 735, 0 failures; npm test 95 / 0.

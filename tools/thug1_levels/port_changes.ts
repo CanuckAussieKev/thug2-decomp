@@ -1,9 +1,10 @@
 // NOT ORIGINAL - our own changes to THUG1's levels (the user's decision 2026-10-20): what this converter does to a
 // THUG1 level that comes neither from THUG1 nor from THUGPRO, listed as data in the `port_changes` section of
 // tools/compat/thugpro/thug1_levels.json (README.md there: "Our own changes (port_changes)", PC-THUG1-1 ...), read through
-// tools/compat/compat.ts portChanges whatever --compat says. Each entry: id (PC-n), op ("add" / "set" / "remove"),
-// target (what it applies to - a rule's description when it applies to every node / script of a kind), why (one line),
-// required (true: needed for the level to load or to avoid a crash - applied even with --no-port-changes).
+// tools/compat/compat.ts portChanges whatever --compat says. Each entry (compat.Entry): id (PC-THUG1-n), op ("add" /
+// "set" / "remove"), rule (a short name), target ({levels, what}: what it applies to - a rule's description when it
+// applies to every node / script of a kind), why (one line), required (true: needed for the level to load or to avoid
+// a crash - applied even with --no-port-changes).
 //
 // The code that makes each change stays where it is (nodes.ts, thug1_port.ts, thug1_levels.ts); it asks `on(id)`
 // whether to run. An entry taken out of the data switches its change off - unless it's required, which is an error (the
@@ -13,7 +14,7 @@
 import * as compat from "../compat/compat.ts";
 import { FormatError } from "../level_port/binio.ts";
 
-export type Op = "add" | "set" | "remove";
+export type Op = compat.Op;
 
 export interface PortChange {
     id: string;
@@ -63,13 +64,20 @@ export class PortChanges {
     readonly entries = new Map<string, PortChange>();
     readonly enabled: boolean;
 
-    constructor(section: Record<string, unknown>, enabled = true) {
+    // `list`: compat.portChanges's entries (each {id, op, rule, target: {levels, what}, why, required}).
+    constructor(list: readonly compat.Entry[], enabled = true) {
         this.enabled = enabled;
-        const list = (section.entries ?? []) as PortChange[];
         for (const e of list) {
-            if (!["add", "set", "remove"].includes(e.op)) throw new FormatError(`port_changes ${e.id}: op ${e.op}`);
+            if (!compat.OPS.includes(e.op)) throw new FormatError(`port_changes ${e.id}: op ${e.op}`);
             if (this.entries.has(e.id)) throw new FormatError(`port_changes: ${e.id} twice`);
-            this.entries.set(e.id, e);
+            const what = e.target.what;
+            this.entries.set(e.id, {
+                id: e.id,
+                op: e.op,
+                target: typeof what === "string" ? what : "",
+                why: e.why,
+                required: e.required === true,
+            });
         }
         for (const [id, what] of IMPLEMENTED) {
             const e = this.entries.get(id);

@@ -24,6 +24,7 @@ import * as portedLevels from "../level_port/ported_levels.ts";
 import * as prx from "../level_port/prx.ts";
 import * as qb from "../level_port/qb.ts";
 import { Name, type QbValue, Struct, Vector } from "../level_port/qb.ts";
+import * as scriptPort from "../level_port/script_port.ts";
 import * as thug2Col from "../level_port/thug2_col.ts";
 import * as thug2Scene from "../level_port/thug2_scene.ts";
 import {
@@ -55,6 +56,11 @@ import {
 } from "../thaw_levels/thugpro_compare.ts";
 import * as thps3 from "./thps3.ts";
 import { findFolder, flagTeams, LEVELS, levelFiles, STAGING, scriptNames } from "./thps3_levels.ts";
+import { REGISTER_ID } from "./thugpro_new.ts";
+import { extractNew } from "./thugpro_new_extract.ts";
+
+const compatChecksum = (text: string): number =>
+    text.startsWith("#") ? Number.parseInt(text.slice(1), 16) >>> 0 : qb.checksum(text);
 
 const DEFAULT_THUGPRO = pyJoin(process.env.LOCALAPPDATA ?? "", "THUG Pro");
 // THPS3 levels THUGPRO leaves to THUG2's own classic remakes (compared with THUG2's files instead).
@@ -628,7 +634,20 @@ export function collisionEdits(
     return [out, notes];
 }
 
-export function extractThugpro(thps3Dir: string, thugpro: string): Record<string, unknown> {
+export function extractThugpro(
+    thps3Dir: string,
+    thugpro: string,
+    thug2: string | null = null,
+): Record<string, unknown> {
+    // (thugpro_new needs THUG2's own scripts and commands: which of THUGPRO's scripts can run - --thug2)
+    const thug2Data = thug2 !== null ? new scriptPort.Thug2(thug2) : null;
+    const thugproNew: Record<string, unknown> = {
+        _register: `${REGISTER_ID}-1 ... ${REGISTER_ID}-6 (README.md here: "New in THUGPRO (not in any source game)")`,
+        _source:
+            "References only (the user's decision 2026-10-20, with Morten1337's permission): what is new in THUGPRO's THPS3 ports, in no source game - archive and file in THUGPRO's data\\pre, the item's name and a CRC-32 of it. tools/thps3_levels/thugpro_new.ts reads the bytes from the user's THUGPRO install (--thugpro) at convert time; a missing or different item is warned about and skipped. Each entry (compat.ts Entry): id, op (add / set / remove), kind (sector, collision, node, script, model), target {level, name}, why. Found by tools/thps3_levels/thugpro_new_extract.ts (--extract-thugpro); never typed in. _left_out: what was found and not taken, with the reason.",
+    };
+    const newLeftOut: Record<string, unknown> = {};
+    const newEntries: unknown[] = [];
     const teams = flagTeams(scriptNames(thps3Dir));
     const flags: Record<string, unknown> = {
         _register: "TP-10",
@@ -778,7 +797,32 @@ export function extractThugpro(thps3Dir: string, thugpro: string): Record<string
             edits.notes.push(...colNotes);
         }
         if (edits.notes.length) notes[key] = edits.notes;
+        if (thug2Data !== null && thug2 !== null) {
+            // TPN-THPS3: THUGPRO's own content (the nodes TP-10 .. TP-18 make or place aren't new content)
+            const handled = new Set<number>([...COMPAT_NAMES, ...Object.keys(changed).map(compatChecksum)]);
+            for (const r of edits.rails) handled.add(compatChecksum(r.name));
+            for (const now of Object.values(edits.renamed)) handled.add(compatChecksum(now));
+            const globalScripts = new Set<number>();
+            const globalQbs = scriptNames(thps3Dir);
+            for (const q of globalQbs) for (const k of q.scripts.keys()) globalScripts.add(k);
+            const found = extractNew({
+                level: key,
+                base,
+                thps3Dir,
+                thugpro,
+                thug2: thug2Data,
+                thug2Dir: thug2,
+                globalScripts,
+                globalQbs,
+                globalNames,
+                handled,
+            });
+            newEntries.push(...found.entries);
+            if (found.leftOut.length) newLeftOut[key] = found.leftOut;
+        }
     }
+    thugproNew.entries = newEntries;
+    thugproNew._left_out = newLeftOut;
     return {
         _comment:
             "THUGPRO compatibility for the THPS3 level ports (tools/thps3_levels), approved by the user 2026-10-20. Each entry is registered in README.md here (TP-10 .. TP-19). Capture the flag is decided on the server against its own flags; each side draws them from its own node array: these put our flags where THUGPRO's are, and our spawn points as THUGPRO's. TP-13 .. TP-19 (the user's decision 2026-10-20: everything THUGPRO changed, as data under the flag): its other hand edits of THPS3's nodes and collision - moved, flags, terrain, removed, renamed, rails, collision. Level keys are our (= THUGPRO's = THPS3's) level names. Read by tools/compat/compat.ts; `thps3_levels.ts convert --compat none` leaves all of it out (THPS3's own two bases). Regenerate: node tools/thps3_levels/thugpro_compare.ts --extract-thugpro tools/compat/thugpro/thps3_levels.json",
@@ -792,6 +836,8 @@ export function extractThugpro(thps3Dir: string, thugpro: string): Record<string
         renamed: renamed17,
         rails: rails18,
         collision: collision19,
+        // TPN-THPS3: what is new in THUGPRO (by reference; --no-thugpro-new leaves it out)
+        thugpro_new: thugproNew,
         // (what nodeEdits / collisionEdits found and left out, and why - not read by the converter)
         _notes: notes,
     };
@@ -829,7 +875,12 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
         thug2 = pyJoin(thug2, "Game");
     const thugpro = v.thugpro ?? DEFAULT_THUGPRO;
     if (v["extract-thugpro"]) {
-        const data = extractThugpro(v.thps3 ?? "C:\\Games\\THPS3", thugpro);
+        const data = extractThugpro(v.thps3 ?? "C:\\Games\\THPS3", thugpro, thug2);
+        // (port_changes - PC-n, this project's own changes, not THUGPRO's - are kept as the file has them: not extracted)
+        if (fs.existsSync(v["extract-thugpro"])) {
+            const before = JSON.parse(fs.readFileSync(v["extract-thugpro"], "utf-8")) as Record<string, unknown>;
+            if (before.port_changes !== undefined) data.port_changes = before.port_changes;
+        }
         fs.writeFileSync(
             v["extract-thugpro"],
             `${JSON.stringify(data, null, 2)}

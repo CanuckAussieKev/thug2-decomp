@@ -383,8 +383,9 @@ function extractNew(
             "Morten's agreement): BY REFERENCE ONLY - references and checksums of THUGPRO's files, read from the " +
             "user's THUGPRO install when converting (--thugpro), never their bytes. Written by `node " +
             "tools/thug1_levels/thugpro_compare.ts --extract-thugpro` (thugpro_new.extract); its form: " +
-            "tools/thug1_levels/thugpro_new.ts. --no-thugpro-new or --compat none leave it out.",
+            "tools/thug1_levels/thugpro_new.ts (entries: compat.Entry, target {level, name}; levels: each level's THUGPRO key and archive). --no-thugpro-new or --compat none leave it out.",
     };
+    const levels = new Map<string, thugproNew.NewLevel>();
     const install = new thugproNew.Install(thugpro);
     const models = thug2Models(thug2);
     const t2 = new scriptPort.Thug2(thug2);
@@ -419,13 +420,13 @@ function extractNew(
             utilsNames,
             ours,
         });
-        section[code] = got.level;
+        levels.set(code, got.level);
         const counts = new Map<string, number>();
         for (const e of got.level.entries) counts.set(`${e.id} ${e.op}`, (counts.get(`${e.id} ${e.op}`) ?? 0) + 1);
         print(`${code}: new in THUGPRO: ${[...counts].map(([k, n]) => `${k} ${n}`).join(", ") || "none"}`);
         for (const n of got.notes) print(`    new, not taken: ${n}`);
     }
-    return section;
+    return { ...section, ...thugproNew.toSection(levels) };
 }
 
 function extract(thug1: string, thugpro: string, codes: readonly string[], thug2: string, staging: string): number {

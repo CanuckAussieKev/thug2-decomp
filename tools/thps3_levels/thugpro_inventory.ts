@@ -31,11 +31,13 @@ import * as prx from "../level_port/prx.ts";
 import * as qb from "../level_port/qb.ts";
 import { Name, type QbValue, Struct, Vector } from "../level_port/qb.ts";
 import * as thug2Col from "../level_port/thug2_col.ts";
+import * as thug2Scene from "../level_port/thug2_scene.ts";
 import { hex8, isMain, print, pyExit, pyJoin, runMain } from "../lib/py.ts";
 import { findPath } from "../thaw_levels/thaw_levels.ts";
 import { maxDiff, nameOf, nodeArray, position } from "../thaw_levels/thugpro_compare.ts";
 import { findFolder, LEVELS, levelFiles, STAGING, scriptNames } from "./thps3_levels.ts";
 import { isSpawn, sameFace, USUAL_CLASSES } from "./thugpro_compare.ts";
+import * as thugproNew from "./thugpro_new.ts";
 
 export const SHARED = ["foun", "rio", "sub", "si", "tok", "shp", "ware", "burn", "ros"];
 const DEFAULT_THUGPRO = pyJoin(process.env.LOCALAPPDATA ?? "", "THUG Pro");
@@ -392,6 +394,55 @@ export function appliedCheck(
             for (const corners of e.remove ?? []) {
                 const ok = o !== undefined && t !== undefined && count(o, corners) === count(t, corners);
                 check("collision (TP-19)", `${name} face`, ok, o ? "still there" : "no object");
+            }
+        }
+    }
+    // TPN-THPS3: THUGPRO's new content (the register's thugpro_new, read from THUGPRO's install as the converter does)
+    const newEntries = thugproNew.levelEntries(compat.thugproNew(profile, "thps3_levels"), level);
+    if (newEntries.length) {
+        const loaded = thugproNew.loadNew(newEntries, thugpro);
+        const ourScripts = fs.existsSync(qbFile) ? thugproNew.scriptBytes(fs.readFileSync(qbFile)) : new Map();
+        const scnFile = pyJoin(ours, level, `${level}.scn.xbx`);
+        const sectors = fs.existsSync(scnFile)
+            ? new Set(thug2Scene.readScene(fs.readFileSync(scnFile), scnFile).sectors.map((s) => s.checksum))
+            : new Set<number>();
+        const colObjects = fs.existsSync(colFile)
+            ? new Map(thug2Col.readCol(fs.readFileSync(colFile), colFile).objects.map((o) => [o.checksum, o]))
+            : new Map<number, thug2Col.ColObject>();
+        const models = pyJoin(ours, "..", "models");
+        for (const e of newEntries) {
+            const label = `${e.op} ${e.kind} (${e.id})`;
+            const target = c(e.target.name);
+            if (e.kind === "sector") check(label, e.target.name, sectors.has(target), "not in our scene");
+            else if (e.kind === "collision") {
+                const o = colObjects.get(target);
+                check(
+                    label,
+                    e.target.name,
+                    o !== undefined && o.faces.length === e.faces,
+                    o ? "other faces" : "no object",
+                );
+            } else if (e.kind === "node" && e.op === "add")
+                check(label, e.target.name, byName.has(target), "not in ours");
+            else if (e.kind === "node") {
+                const node = byName.get(target);
+                const ok =
+                    node !== undefined &&
+                    Object.entries(e.fields ?? {}).every(([k, v]) => {
+                        const got = node.get(k);
+                        return got instanceof Name ? got.value === qb.checksum(v) : got === v;
+                    });
+                check(label, e.target.name, ok, node ? "fields differ" : "not in ours");
+            } else if (e.kind === "script") {
+                const theirs = loaded.scripts.get(target);
+                const mine = ourScripts.get(target);
+                const ok = theirs && mine?.equals(thugproNew.adaptScript(theirs.code, e.replace_calls));
+                check(label, e.target.name, ok, mine ? "ours differs" : "not in ours");
+            } else if (e.kind === "model") {
+                const missing = Object.keys(e.files ?? {}).filter(
+                    (f) => !fs.existsSync(pyJoin(models, f.replace(/^models\\/i, ""))),
+                );
+                check(label, e.target.name, !missing.length, `missing ${missing.join(", ")}`);
             }
         }
     }

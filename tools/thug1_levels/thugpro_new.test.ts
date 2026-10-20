@@ -14,12 +14,15 @@ import {
     applyNodes,
     emptyScript,
     fieldsCrc,
+    fromSection,
+    type LevelRef,
     type NewLevel,
     nodeCrc,
     rawScripts,
     scriptCheck,
     scriptUses,
     spliceScripts,
+    toSection,
 } from "./thugpro_new.ts";
 
 const name = (t: string): Buffer => Buffer.concat([Buffer.from([0x16]), pack("<I", checksum(t))]);
@@ -235,30 +238,60 @@ test("applyNodes: THUGPRO's nodes added (Links by name) and values set; checksum
 });
 
 test("port_changes: required ones always on, the others switchable; ids must be the code's", () => {
-    const entries = [
-        { id: "PC-THUG1-1", op: "add", target: "t", why: "w", required: false },
-        { id: "PC-THUG1-6", op: "remove", target: "t", why: "w", required: true },
-    ];
-    const on = new portChanges.PortChanges({ entries }, true);
-    const off = new portChanges.PortChanges({ entries }, false);
+    const entry = (id: string, op: compat.Op, required: boolean): compat.Entry => ({
+        id,
+        op,
+        target: { levels: "all", what: "t" },
+        why: "w",
+        required,
+    });
+    const entries = [entry("PC-THUG1-1", "add", false), entry("PC-THUG1-6", "remove", true)];
+    const on = new portChanges.PortChanges(entries, true);
+    const off = new portChanges.PortChanges(entries, false);
     assert.equal(on.on("PC-THUG1-1"), true);
     assert.equal(off.on("PC-THUG1-1"), false);
     assert.equal(off.on("PC-THUG1-6"), true);
     assert.equal(on.on("PC-THUG1-2"), false); // (not in the data: off)
     off.required("PC-THUG1-6");
     assert.throws(() => off.required("PC-THUG1-1"));
-    assert.throws(() => new portChanges.PortChanges({ entries: [{ ...entries[0]!, id: "PC-THUG1-99" }] }));
-    assert.throws(() => new portChanges.PortChanges({ entries: [{ ...entries[0]!, op: "upsert" }] }));
+    assert.throws(() => new portChanges.PortChanges([entry("PC-THUG1-99", "add", false)]));
+    assert.throws(() => new portChanges.PortChanges([{ ...entries[0]!, op: "upsert" as compat.Op }]));
 });
 
-test("port_changes: the register's data has every change the code makes, with op / target / why", () => {
-    const data = new portChanges.PortChanges(compat.portChanges("thug1_levels"));
+test("port_changes: the register's data has every change the code makes, in compat.Entry's shape", () => {
+    const list = compat.portChanges("thug1_levels"); // (compat checks id, op, target, why)
+    const data = new portChanges.PortChanges(list);
     assert.deepEqual([...data.entries.keys()].sort(), [...portChanges.IMPLEMENTED.keys()].sort());
-    for (const e of data.entries.values()) {
-        assert.ok(["add", "set", "remove"].includes(e.op));
-        assert.ok(e.target && e.why && typeof e.required === "boolean");
-    }
-    // (--compat none keeps them: they're ours, not THUGPRO's)
+    for (const e of list) assert.ok(typeof e.rule === "string" && typeof e.required === "boolean" && e.target.what);
+    // (--compat none keeps them: they're ours, not THUGPRO's - read from the thugpro folder whatever the profile)
     assert.equal(compat.load("none").section("thug1_levels", "port_changes").entries, undefined);
-    assert.ok(Array.isArray(compat.portChanges("thug1_levels").entries));
+});
+
+test("thugpro_new: the section's form (one list, target {level, name}) and back", () => {
+    const level: NewLevel = {
+        key: "nj",
+        archive: "data\\pre\\NJ_scripts.prx",
+        entries: [
+            {
+                id: "TPN-THUG1-3",
+                kind: "script",
+                op: "remove",
+                target: "TRGP_X",
+                why: "w",
+                crc32: "12345678",
+                file: "f",
+            },
+        ],
+    };
+    const section = toSection(new Map([["NJ", level]]));
+    assert.deepEqual(section.levels, { NJ: { key: "nj", archive: "data\\pre\\NJ_scripts.prx" } });
+    assert.deepEqual(section.entries[0]!.target, { level: "NJ", name: "TRGP_X" });
+    const back = fromSection(section.entries as unknown as compat.Entry[], section.levels);
+    assert.deepEqual(back.get("nj"), level);
+    // (the data in the register: in compat.Entry's shape, every entry's level listed)
+    const profile = compat.load("thugpro");
+    const refs = (profile.section("thug1_levels", "thugpro_new").levels ?? {}) as Record<string, LevelRef>;
+    const levels = fromSection(compat.thugproNew(profile, "thug1_levels"), refs);
+    assert.ok(levels.size >= 10);
+    assert.deepEqual(compat.thugproNew(compat.load("none"), "thug1_levels"), []);
 });

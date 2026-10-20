@@ -53,6 +53,7 @@ import {
 } from "../thaw_levels/thugpro_compare.ts";
 import { LEVELS, levelName, loadName, type NetNodes, type Placement, STAGING } from "./thps4_levels.ts";
 import { extractEdits, type LevelEdits, SECTIONS, type SectionName } from "./thugpro_edits.ts";
+import * as thugproNew from "./thugpro_new.ts";
 
 const DEFAULT_THUGPRO = pyJoin(process.env.LOCALAPPDATA ?? "", "THUG Pro");
 
@@ -302,11 +303,38 @@ function extract(thugpro: string, thps4Dir: string): number {
     }
     for (const [s, v] of sections) profile[s] = v;
     profile._not_applied = leftOut;
+    // THUGPRO's own content (thugpro_new.ts: by reference - files with their size and SHA-256, names)
+    const fresh: thugproNew.Section = { files: {}, entries: [], notTaken: {} };
+    for (const base of LEVELS) {
+        if (prxFile(thugpro, `${thugproName(base)}_scripts.prx`) === null) continue;
+        thugproNew.extractNew(base, thugproName(base), thugpro, thps4Dir, fresh);
+    }
+    profile.thugpro_new = {
+        _register: 'TPN-THPS4-1 ... TPN-THPS4-5 (README.md here: "New in THUGPRO (not in any source game)")',
+        _source:
+            "THUGPRO's installed data\\pre\\<level>_scripts.prx (its level files: <level>.qb, <level>_scripts.qb, " +
+            "<level>_thugpro.qb, models) against THPS4's own Game\\data\\levels files, extracted by `node " +
+            "tools/thps4_levels/thugpro_compare.ts --extract-thugpro` (thugpro_new.ts)",
+        _note:
+            "THUGPRO's own content, in no source game - by reference only: `files` name THUGPRO's archive, the entry, " +
+            "its size and SHA-256; the converter reads the bytes from the user's install (--thugpro) and leaves a " +
+            "level's content out with a warning when the install or a file differs. --compat none and " +
+            "--no-thugpro-new leave all of it out; models (shown_by_thugpro false: THUGPRO's shipped scripts don't " +
+            "place them) only with --thugpro-banners",
+        files: Object.fromEntries(Object.entries(fresh.files).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))),
+        entries: fresh.entries,
+        _not_taken: fresh.notTaken,
+    };
+    print(
+        `thugpro_new: ${fresh.entries.length} entries (${[...new Set(fresh.entries.map((e) => e.rule))]
+            .map((r) => `${r} ${fresh.entries.filter((e) => e.rule === r).length}`)
+            .join(", ")}), ${Object.keys(fresh.files).length} files`,
+    );
     profile.door_walls ??= {
         _register: "TP-29",
         _note:
             "THUGPRO keeps THPS4's invisible door walls of the skate shop (InvisColl01's shop side, Object10's two " +
-            "invisible faces); ours opens the door (the user's request, 2026-10-19: thps4_levels.OPENINGS). Off: " +
+            "invisible faces); ours opens the door (the user's request, 2026-10-19: port_changes PC-THPS4-1 / PC-THPS4-2). Off: " +
             "enabled true keeps the walls as THUGPRO's",
         enabled: false,
     };
