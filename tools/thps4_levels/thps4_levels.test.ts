@@ -153,5 +153,8 @@ test("port changes: every entry has id / op / target / why, read whatever the pr
     }
     assert.match(createdInPlay("{Name=SSO_Fence05 Class=LevelGeometry}", "SkateShop", []), /CreatedAtStart/);
     // (a "set" on a node the level hasn't: an error, not an add)
-    assert.throws(() => createdInPlay("{Name=Other Class=LevelGeometry}", "SkateShop", []), /PC-THPS4-3 sets SSO_Fence05/);
+    assert.throws(
+        () => createdInPlay("{Name=Other Class=LevelGeometry}", "SkateShop", []),
+        /PC-THPS4-3 sets SSO_Fence05/,
+    );
 });

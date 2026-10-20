@@ -333,7 +333,9 @@ export function extractNew(base: string, key: string, thugpro: string, thps4Dir:
         const array = q.get("NodeArray");
         if (Array.isArray(array))
             thps4Nodes = new Set(
-                array.flatMap((n) => (n instanceof Struct && n.get("Name") instanceof Name ? [(n.get("Name") as Name).value] : [])),
+                array.flatMap((n) =>
+                    n instanceof Struct && n.get("Name") instanceof Name ? [(n.get("Name") as Name).value] : [],
+                ),
             );
     }
     const tpOnly = (s: number): boolean => definedIn.has(s) && !thps4Scripts.has(s);
@@ -414,7 +416,8 @@ export function extractNew(base: string, key: string, thugpro: string, thps4Dir:
                         why: "THUGPRO's radius trigger (an elevator's teleport or its doors)",
                         ...base0,
                     });
-                    if (trigger instanceof Name && definedIn.has(trigger.value)) roots.push([trigger.value, ROWS.teleports]);
+                    if (trigger instanceof Name && definedIn.has(trigger.value))
+                        roots.push([trigger.value, ROWS.teleports]);
                 } else if (e.hasFlag("moveto") && e.hasFlag("relative") && node instanceof Name) {
                     push({
                         id: ROWS.teleports,
@@ -425,7 +428,9 @@ export function extractNew(base: string, key: string, thugpro: string, thps4Dir:
                         ...base0,
                     });
                 } else if (typeof e.get("model") === "string") {
-                    const model = String(e.get("model")).toLowerCase().replace(/\.mdl$/, "");
+                    const model = String(e.get("model"))
+                        .toLowerCase()
+                        .replace(/\.mdl$/, "");
                     const models: string[] = [];
                     for (const [mname, mdata] of prx.entries(archive, (n) =>
                         [".mdl.xbx", ".tex.xbx"].some((x) => n.toLowerCase() === `models\\${model}${x}`),
@@ -487,7 +492,9 @@ export function extractNew(base: string, key: string, thugpro: string, thps4Dir:
         const code = files.get(definedIn.get(s)!)!.scripts.get(s)!;
         for (const c of namesIn(code)) if (c !== s && definedIn.has(c) && tpOnly(c)) roots.push([c, row]);
     }
-    const optionScripts = new Set(entries.filter((e) => e.rule === "level_option").map((e) => checksum(String(e.target.script))));
+    const optionScripts = new Set(
+        entries.filter((e) => e.rule === "level_option").map((e) => checksum(String(e.target.script))),
+    );
     for (const s of taken) {
         if (optionScripts.has(s)) continue; // (level_option adds its script)
         if (thps4Scripts.has(s)) continue; // (a trigger_script set replaces THPS4's)
@@ -504,7 +511,10 @@ export function extractNew(base: string, key: string, thugpro: string, thps4Dir:
     // 5. the sounds the taken scripts play, as THUGPRO's level start-up loads them
     const played = new Set<string>();
     const playing = new Set(["playsound", "obj_playsound"].map(checksum));
-    for (const s of [...taken, ...entries.filter((e) => e.rule === "trigger_script").map((e) => checksum(String(e.target.script)))]) {
+    for (const s of [
+        ...taken,
+        ...entries.filter((e) => e.rule === "trigger_script").map((e) => checksum(String(e.target.script))),
+    ]) {
         const code = files.get(definedIn.get(s) ?? key)?.scripts.get(s);
         if (code === undefined) continue;
         const toks = [...plainTokens(code)];
@@ -542,7 +552,8 @@ export function extractNew(base: string, key: string, thugpro: string, thps4Dir:
     // only the files the entries use (and the level's node array: the node names checked when applying)
     if (entries.length) {
         const used = new Set([fileId(key), ...entries.flatMap((e) => [e.file, ...(e.models ?? [])])]);
-        for (const id of Object.keys(section.files)) if (id.startsWith(`${key}/`) && !used.has(id)) delete section.files[id];
+        for (const id of Object.keys(section.files))
+            if (id.startsWith(`${key}/`) && !used.has(id)) delete section.files[id];
     } else {
         for (const id of Object.keys(section.files)) if (id.startsWith(`${key}/`)) delete section.files[id];
     }
@@ -577,16 +588,26 @@ const num = (v: QbValue | undefined): number | null =>
 
 function pickNode(array: readonly QbValue[], name: string): Struct | undefined {
     const k = checksum(name);
-    return array.find((n): n is Struct => n instanceof Struct && n.get("Name") instanceof Name && (n.get("Name") as Name).value === k);
+    return array.find(
+        (n): n is Struct => n instanceof Struct && n.get("Name") instanceof Name && (n.get("Name") as Name).value === k,
+    );
 }
 
 // Our node form of a THUGPRO node (Pos -> legacy Position, z negated; Links by name -> our indices).
-function ourNode(n: Struct, theirs: readonly QbValue[], at: ReadonlyMap<number, number>, names: Names): Struct | string {
+function ourNode(
+    n: Struct,
+    theirs: readonly QbValue[],
+    at: ReadonlyMap<number, number>,
+    names: Names,
+): Struct | string {
     const entries: qb.Entry[] = [];
     for (const [k, v] of n.entries) {
         if (k !== null && k.value === checksum("Pos") && v instanceof Vector) {
             if (!names.has(checksum("Position"))) names.set(checksum("Position"), "Position");
-            entries.push([new Name(checksum("Position")), new Vector("vector", [v.values[0]!, v.values[1]!, -v.values[2]!])]);
+            entries.push([
+                new Name(checksum("Position")),
+                new Vector("vector", [v.values[0]!, v.values[1]!, -v.values[2]!]),
+            ]);
         } else if (k !== null && k.value === checksum("Links") && Array.isArray(v)) {
             const links: number[] = [];
             for (const i of v) {
@@ -602,7 +623,12 @@ function ourNode(n: Struct, theirs: readonly QbValue[], at: ReadonlyMap<number, 
     return new Struct(entries);
 }
 
-export function applyNew(entries: readonly NewEntry[], files: Readonly<Record<string, FileRef>>, ctx: ApplyContext, cache?: Map<string, Buffer | string>): Applied {
+export function applyNew(
+    entries: readonly NewEntry[],
+    files: Readonly<Record<string, FileRef>>,
+    ctx: ApplyContext,
+    cache?: Map<string, Buffer | string>,
+): Applied {
     const done = new Map<Rule, number>();
     const mine = entries.filter((e) => e.target.level.toLowerCase() === ctx.base.toLowerCase());
     const empty: Applied = { text: "", start: null, done };
@@ -650,7 +676,9 @@ export function applyNew(entries: readonly NewEntry[], files: Readonly<Record<st
             errors.push(`${e.id} ${e.rule}: adds ${name}, which the level has`);
             return false;
         }
-        const code2 = renamed(code, HELPER_MAP);
+        // (a line end after it, as the translator's scripts have: the file reads back one script per line -
+        // make_menu_level parses the backdrop's scripts by lines)
+        const code2 = Buffer.concat([renamed(code, HELPER_MAP), Buffer.from([0x01])]);
         const used = namesIn(code2);
         for (const to of Object.values(HELPERS)) if (used.has(checksum(to))) helpers.add(to);
         ctx.brought.set(s, code2);
@@ -696,7 +724,8 @@ export function applyNew(entries: readonly NewEntry[], files: Readonly<Record<st
                     break;
                 }
                 if (!takeScript(e, String(e.target.script), true)) break;
-                if (!ctx.names.has(checksum("TriggerScript"))) ctx.names.set(checksum("TriggerScript"), "TriggerScript");
+                if (!ctx.names.has(checksum("TriggerScript")))
+                    ctx.names.set(checksum("TriggerScript"), "TriggerScript");
                 ctx.converted[i]!.set("TriggerScript", new Name(checksum(String(e.target.script))));
                 count("trigger_script");
                 break;
@@ -712,7 +741,8 @@ export function applyNew(entries: readonly NewEntry[], files: Readonly<Record<st
                 if (el === null) break;
                 const node = String(e.target.node);
                 const pos = el.get("pos");
-                if (!ourNames.has(checksum(node))) errors.push(`${e.id} level_object: sets ${node}, which the level hasn't`);
+                if (!ourNames.has(checksum(node)))
+                    errors.push(`${e.id} level_object: sets ${node}, which the level hasn't`);
                 else if (!(pos instanceof Vector)) errors.push(`${e.id} level_object: ${node} without a pos`);
                 else {
                     helpers.add("thps4_tp_level_object");
@@ -746,7 +776,8 @@ export function applyNew(entries: readonly NewEntry[], files: Readonly<Record<st
                 let line: string | null = null;
                 for (const statements of loaded.get(e.file)?.file.scripts.values() ?? []) {
                     for (const st of statements) {
-                        if (st[0]?.[0] !== 0x16 || u32(st[0][1]) !== checksum("LoadSound") || st[1]?.[0] !== 0x1b) continue;
+                        if (st[0]?.[0] !== 0x16 || u32(st[0][1]) !== checksum("LoadSound") || st[1]?.[0] !== 0x1b)
+                            continue;
                         if (st[1][1].toString("latin1").replace(/\0+$/, "").toLowerCase() !== want) continue;
                         line = soundLine(st, ctx.names);
                     }
@@ -791,11 +822,16 @@ export function applyNew(entries: readonly NewEntry[], files: Readonly<Record<st
     }
     // the nodes the taken scripts name that THUGPRO's level has and ours hasn't (a teleport to nowhere...)
     const theirNodes = new Set(
-        theirArray.flatMap((n) => (n instanceof Struct && n.get("Name") instanceof Name ? [(n.get("Name") as Name).value] : [])),
+        theirArray.flatMap((n) =>
+            n instanceof Struct && n.get("Name") instanceof Name ? [(n.get("Name") as Name).value] : [],
+        ),
     );
     const missing = new Set<string>();
-    for (const code of taken) for (const k of namesIn(code)) if (theirNodes.has(k) && !ourNames.has(k)) missing.add(qb.nameText(k, ctx.names));
-    if (missing.size) ctx.report.push(`  ${ctx.base}: THUGPRO's scripts name nodes ours hasn't: ${[...missing].sort().join(", ")}`);
+    for (const code of taken)
+        for (const k of namesIn(code))
+            if (theirNodes.has(k) && !ourNames.has(k)) missing.add(qb.nameText(k, ctx.names));
+    if (missing.size)
+        ctx.report.push(`  ${ctx.base}: THUGPRO's scripts name nodes ours hasn't: ${[...missing].sort().join(", ")}`);
     for (const err of errors) {
         ctx.report.push(`  ${ctx.base}: error: ${err}`);
         process.stderr.write(`error: ${ctx.base}: ${err}\n`);
@@ -854,4 +890,81 @@ export function hookStart(text: string, setup: string, start: string, hasSetup: 
         return [`${text.slice(0, at + head.length)}    SpawnScript ${start} \n${text.slice(at + head.length)}`, true];
     }
     return [`${text}script ${setup} {\n    SpawnScript ${start} \n}\n`, true];
+}
+
+// --- checking (a converted level against the profile: thugpro_inventory.ts) --------------------------------------------
+
+export interface NewCheck {
+    category: string;
+    register: string;
+    total: number;
+    matching: number;
+    absent: string[];
+    differing: string[];
+}
+
+// How many of the level's thugpro_new entries our converted .qb (`ourQb`, its level `level`) has: scripts and options
+// by name, trigger scripts on their node, nodes by name, the start script's level objects, radius triggers, sounds
+// and (with banners) models by what they name. Models not placed by design are left out of the count.
+export function checkNew(
+    entries: readonly NewEntry[],
+    base: string,
+    level: string,
+    ourQb: Buffer,
+    banners = false,
+): NewCheck[] {
+    const mine = entries.filter((e) => e.target.level.toLowerCase() === base.toLowerCase());
+    if (!mine.length) return [];
+    const scripts = rawScripts(ourQb);
+    const [array] = nodeArray(ourQb, `${level}.qb`);
+    const start = scripts.get(checksum(startName(level)));
+    const startNames = start === undefined ? new Set<number>() : namesIn(start);
+    const startStrings = new Set<string>();
+    if (start !== undefined)
+        for (const [t, p] of plainTokens(start))
+            if (t === 0x1b) startStrings.add(p.toString("latin1").replace(/\0+$/, "").toLowerCase());
+    const out = new Map<string, NewCheck>();
+    for (const e of mine) {
+        if (e.rule === "model" && !banners) continue;
+        const k = `${e.id} ${e.rule}`;
+        let c = out.get(k);
+        if (c === undefined) {
+            c = {
+                category: `THUGPRO's own: ${e.rule.replace("_", " ")}`,
+                register: e.id,
+                total: 0,
+                matching: 0,
+                absent: [],
+                differing: [],
+            };
+            out.set(k, c);
+        }
+        c.total += 1;
+        const label = String(e.target.script ?? e.target.node ?? e.target.name ?? e.target.sound);
+        let ok: boolean;
+        switch (e.rule) {
+            case "script":
+                ok = scripts.has(checksum(label));
+                break;
+            case "level_option":
+                ok = scripts.has(checksum(label)) && startNames.has(checksum(label));
+                break;
+            case "trigger_script": {
+                const t = pickNode(array, String(e.target.node))?.get("TriggerScript");
+                ok = t instanceof Name && t.value === checksum(String(e.target.script)) && scripts.has(t.value);
+                break;
+            }
+            case "node":
+                ok = pickNode(array, label) !== undefined;
+                break;
+            case "sound":
+                ok = startStrings.has(label.toLowerCase());
+                break;
+            default:
+                ok = startNames.has(checksum(label));
+        }
+        if (ok) c.matching += 1;
+        else c.differing.push(label);
+    }
+    return [...out.values()];
 }

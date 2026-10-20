@@ -102,7 +102,9 @@ export function setCompat(name: string, withNew = true): void {
     const profile = compat.load(name);
     // (THUGPRO's own content - thugpro_new, thugpro_new.ts: none with --compat none or --no-thugpro-new)
     COMPAT.thugproNew = withNew ? (compat.thugproNew(profile, "thps4_levels") as unknown as thugproNew.NewEntry[]) : [];
-    const section = profile.file("thps4_levels").thugpro_new as { files?: Record<string, thugproNew.FileRef> } | undefined;
+    const section = profile.file("thps4_levels").thugpro_new as
+        | { files?: Record<string, thugproNew.FileRef> }
+        | undefined;
     COMPAT.newFiles = (withNew ? section?.files : undefined) ?? {};
     COMPAT.loadNames = new Map(
         Object.entries(profile.section("thps4_levels", "load_names")).map(([k, v]) => [k.toLowerCase(), String(v)]),
