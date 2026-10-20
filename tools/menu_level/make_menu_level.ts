@@ -39,13 +39,13 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseArgs } from "node:util";
 import * as zlib from "node:zlib";
 import * as anteara from "../anteara/anteara.ts";
 import { textOutput } from "../level_port/common.ts";
 import * as levelPortNodes from "../level_port/nodes.ts"; // (the terrain sounds a level loads)
 import * as portedLevels from "../level_port/ported_levels.ts"; // (the converted levels: added when <game>\thug2-decomp-<game> exist)
 import * as thug2Col from "../level_port/thug2_col.ts"; // (the front end's collision without THUG2's shop)
+import { parseCli } from "../lib/cli.ts";
 import {
     decodeAsciiReplace,
     formatFixed,
@@ -66,6 +66,8 @@ import * as careerComplete from "./career_complete.ts"; // (GAME OPTIONS' CREATE
 import { reEscape } from "./career_complete.ts";
 import * as levelSelect from "./level_select.ts"; // (the level select's sections, stars and signs)
 import { countOf, replaceFirst } from "./level_select.ts";
+
+const USAGE = "usage: make_menu_level.ts [--game GAME] [--out OUT] [--ns NS]";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.dirname(path.dirname(HERE));
@@ -1293,7 +1295,7 @@ export function ns(tool: string, ...args: string[]): void {
 }
 
 async function main(): Promise<number> {
-    const { values } = parseArgs({
+    const { values } = parseCli(USAGE, {
         options: {
             game: { type: "string", default: "C:\\Games\\THUG2\\Game" },
             out: { type: "string" }, // the overlay folder (default: <game>\thug2-decomp-data)

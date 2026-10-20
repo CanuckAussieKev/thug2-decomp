@@ -8,9 +8,11 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseArgs } from "node:util";
+import { parseCli } from "../lib/cli.ts";
 import { globRecursive } from "../lib/files.ts";
 import { isMain, print, pyExit, pyStrip, readTextPy, runMain } from "../lib/py.ts";
+
+const USAGE = "usage: exe_audit.ts [--a A] [--b B]";
 
 const ROOT = path.dirname(path.dirname(path.dirname(fileURLToPath(import.meta.url))));
 
@@ -71,7 +73,7 @@ const X8 = (n: number): string => `0x${n.toString(16).toUpperCase().padStart(8, 
 const hexBytes = (b: Buffer): string => b.toString("hex");
 
 function main(): number {
-    const { values } = parseArgs({
+    const { values } = parseCli(USAGE, {
         options: {
             a: { type: "string", default: "C:\\Games\\THUG2_PM_BAK\\THUG2PM.exe" },
             b: { type: "string", default: "C:\\Games\\THUG2\\Game\\THUG2.exe" },

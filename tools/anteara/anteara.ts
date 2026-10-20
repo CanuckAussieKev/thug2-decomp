@@ -24,8 +24,8 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseArgs } from "node:util";
 import * as zlib from "node:zlib";
+import { parseCli } from "../lib/cli.ts";
 import { unifiedDiff } from "../lib/difflib.ts";
 import {
     compareStr,
@@ -42,6 +42,9 @@ import {
     writeTextPy,
 } from "../lib/py.ts";
 import { search, sub } from "../lib/re.ts";
+
+const USAGE =
+    "usage: anteara.ts {extract,check,install} [--unified UNIFIED] [--game GAME] [--overlay OVERLAY] [--ns NS]";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const MOD = path.join(HERE, "mod");
@@ -565,7 +568,7 @@ export function check(unified: string, overlay: string, tool: string): void {
 }
 
 async function main(): Promise<number> {
-    const { values, positionals } = parseArgs({
+    const { values, positionals } = parseCli(USAGE, {
         options: {
             unified: { type: "string" },
             game: { type: "string", default: "C:\\Games\\THUG2\\Game" },

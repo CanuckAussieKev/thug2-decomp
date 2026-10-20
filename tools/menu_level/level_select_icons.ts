@@ -14,11 +14,13 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { parseArgs } from "node:util";
 import * as zlib from "node:zlib";
 import { unswizzleOrder } from "../level_port/tex.ts";
+import { parseCli } from "../lib/cli.ts";
 import { isMain, print, pyHypot, pyJoin, pyMinBy, runMain } from "../lib/py.ts";
 import { pack, unpackNumbers } from "../lib/struct.ts";
+
+const USAGE = "usage: level_select_icons.ts out [names ...] [--game GAME]";
 
 export const SIZE = 64;
 export const FRAME_SOURCE = "images\\LevelSelectSprites\\sign_training.img.xbx";
@@ -732,7 +734,7 @@ export function writePng(file: string, w: number, h: number, rgba: Uint8Array): 
 
 async function main(): Promise<number> {
     const { prxFile } = await import("./make_menu_level.ts");
-    const { values, positionals } = parseArgs({
+    const { values, positionals } = parseCli(USAGE, {
         options: { game: { type: "string", default: "C:\\Games\\THUG2\\Game" } },
         allowPositionals: true,
     });

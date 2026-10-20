@@ -13,8 +13,10 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseArgs } from "node:util";
+import { parseCli } from "../lib/cli.ts";
 import { isMain, print, pyExit, pyStrRepr, readTextPy, runMain } from "../lib/py.ts";
+
+const USAGE = "usage: make_automation_tables.ts [--game GAME] [--ns NS]";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.normalize(path.join(HERE, "..", ".."));
@@ -180,7 +182,7 @@ function array(name: string, items: Iterable<string>): string {
 }
 
 function main(): number {
-    const { values } = parseArgs({
+    const { values } = parseCli(USAGE, {
         options: { game: { type: "string", default: "C:\\Games\\THUG2" }, ns: { type: "string" } },
     });
     const isDir = (p: string): boolean => fs.statSync(p, { throwIfNoEntry: false })?.isDirectory() ?? false;

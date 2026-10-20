@@ -10,8 +10,10 @@
 import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { parseArgs } from "node:util";
+import { parseCli } from "./lib/cli.ts";
 import { isMain, print, pyExit, pyIntHex, pySplitlines, readTextPy, runMain } from "./lib/py.ts";
+
+const USAGE = "usage: symbolize.ts [--pdb-dir PDB_DIR] [items ...]";
 
 const BASE = 0x10000000; // any base: offsets are relative
 
@@ -95,7 +97,7 @@ exit [Thug2Symbolize]::Run($args_dll, $args_dir, $args_size, [uint64[]]$args_off
 const psString = (s: string): string => `'${s.replaceAll("'", "''")}'`;
 
 function main(): number {
-    const { values, positionals } = parseArgs({
+    const { values, positionals } = parseCli(USAGE, {
         allowPositionals: true,
         options: { "pdb-dir": { type: "string", default: path.join("out", "build", "verify") } },
     });
