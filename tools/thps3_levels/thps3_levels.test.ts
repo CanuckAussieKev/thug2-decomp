@@ -5,7 +5,17 @@ import { test } from "node:test";
 import * as qb from "../level_port/qb.ts";
 import { Name, type QbValue, Struct, Vector } from "../level_port/qb.ts";
 import { renameScene } from "./migrate_layouts.ts";
-import { applySpawns, ctfNodes, legacyName, levelName } from "./thps3_levels.ts";
+import type * as thps3 from "./thps3.ts";
+import {
+    appendRails,
+    applyNodeEdits,
+    applySpawns,
+    collisionObjects,
+    ctfNodes,
+    legacyName,
+    levelName,
+} from "./thps3_levels.ts";
+import { nodeEdits } from "./thugpro_compare.ts";
 
 const n = (text: string): Name => new Name(qb.checksum(text));
 const vec = (...values: number[]): Vector => new Vector("vector", values);
@@ -206,4 +216,214 @@ test("TP-12: the spawns refilled in THUGPRO's order, Links following", () => {
     assert.deepEqual(order, ["C", "R", "A", "P1", "B"].map(qb.checksum));
     assert.deepEqual(converted[1]!.get("Links"), [4]); // (B moved from 2 to 4)
     assert.throws(() => applySpawns(converted, names, { changed: {}, removed: [], order: ["C", "A"] }));
+});
+
+test("TP-13 .. TP-17: THUGPRO's node edits applied to THPS3's array in place", () => {
+    const names = new Map<number, string>();
+    const array: QbValue[] = [
+        new Struct([
+            [n("Position"), vec(1, 2, 3)],
+            [n("Angles"), vec(0, 0, 0)],
+            [n("Name"), n("Ped")],
+            [n("Class"), n("Pedestrian")],
+        ]),
+        new Struct([
+            [n("Name"), n("Rail")],
+            [n("Class"), n("RailNode")],
+            [n("TerrainType"), n("TERRAIN_MEATALSMOOTH")],
+            [null, n("CreatedAtStart")],
+            [null, n("TrickObject")],
+        ]),
+        new Struct([
+            [n("Name"), n("Old")],
+            [n("Class"), n("Restart")],
+        ]),
+        new Struct([
+            [n("Name"), n("Box")],
+            [n("Class"), n("EnvironmentObject")],
+        ]),
+    ];
+    const before = array[0];
+    const [report, removed] = applyNodeEdits(array, names, {
+        moved: { Ped: { pos: [10, 20, 30], angles: [0, 1, 0] } },
+        flags: { Rail: { add: ["AbsentInNetGames"], remove: ["CreatedAtStart", "TrickObject"] } },
+        terrain: { Rail: "TERRAIN_METALSMOOTH" },
+        removed: ["Box", "NotThere"],
+        renamed: { Old: "New" },
+        rails: [],
+    });
+    assert.match(
+        report,
+        /1 moved \(TP-13\), 1 flags changed \(TP-14\), 1 terrains \(TP-15\), 2 removed \(TP-16\), 1 renamed/,
+    );
+    assert.notEqual(array[0], before); // (a copy: q's other users see the edited node)
+    assert.deepEqual((array[0] as Struct).get("Position"), vec(10, 20, -30)); // (THPS3's Position: z negated)
+    assert.deepEqual((array[0] as Struct).get("Angles"), vec(0, 1, 0));
+    const rail = array[1] as Struct;
+    assert.ok(rail.hasFlag("AbsentInNetGames") && !rail.hasFlag("CreatedAtStart") && !rail.hasFlag("TrickObject"));
+    assert.deepEqual(rail.get("TerrainType"), n("TERRAIN_METALSMOOTH"));
+    assert.deepEqual((array[2] as Struct).get("Name"), n("New"));
+    assert.ok(removed.has(qb.checksum("Box")));
+    assert.deepEqual(applyNodeEdits(array, names, undefined), ["", new Set()]);
+});
+
+test("TP-18: added rails as our rail nodes, Links by name, a missing cluster left out with TrickObject", () => {
+    const names = new Map<number, string>();
+    const converted = [
+        new Struct([
+            [n("Name"), n("Banner")],
+            [n("Class"), n("LevelGeometry")],
+        ]),
+    ];
+    const rail = (name: string, cluster: string | null, links: string[]) => ({
+        name,
+        pos: [1, 2, 3],
+        angles: [0, 0, 0],
+        terrain: "TERRAIN_GRINDMETAL",
+        flags: ["CreatedAtStart", "TrickObject"],
+        cluster,
+        links,
+    });
+    const report = appendRails(converted, names, [rail("A", "Banner", ["B"]), rail("B", "Wire", [])]);
+    assert.match(report, /2 rails THUGPRO added \(1 without their cluster/);
+    const [a, b] = [converted[1]!, converted[2]!];
+    assert.deepEqual(a.get("Links"), [2]);
+    assert.deepEqual(a.get("Cluster"), n("Banner"));
+    assert.ok(a.hasFlag("TrickObject"));
+    assert.equal(b.get("Cluster"), undefined);
+    assert.ok(!b.hasFlag("TrickObject") && b.hasFlag("CreatedAtStart"));
+    assert.deepEqual(b.get("Pos"), vec(1, 2, 3));
+    assert.throws(() => appendRails(converted, names, [rail("C", null, ["Nowhere"])]));
+    assert.equal(appendRails(converted, names, []), "");
+});
+
+test("TP-19: collision edits - an object's collision dropped, faces taken out by their corners and turning", () => {
+    const sector = (checksum: number): thps3.Sector => ({
+        checksum,
+        materialBase: 0,
+        positions: [
+            [0, 0, 0],
+            [1, 0, 0],
+            [0, 1, 0],
+        ],
+        uvs: [],
+        uvSets: 0,
+        // (the same triangle both ways round, then the first again from another corner)
+        triangles: [
+            [0, 0, 1, 2],
+            [0, 0, 2, 1],
+            [0, 1, 2, 0],
+        ],
+        binmesh: null,
+        faceFlags: [0, 0, 0],
+    });
+    const materials = [{ ns: null } as unknown as thps3.RwMaterial];
+    const counts = { dropped: 0, faces: 0, missing: 0 };
+    const edits = new Map([
+        [1, { drop: true }],
+        [
+            2,
+            {
+                remove: [
+                    [
+                        [1, 0, 0],
+                        [0, 1, 0],
+                        [0, 0, 0],
+                    ],
+                    [
+                        [5, 5, 5],
+                        [0, 1, 0],
+                        [0, 0, 0],
+                    ],
+                ],
+            },
+        ],
+    ]);
+    const out = collisionObjects([sector(1), sector(2), sector(3)], materials, new Set(), edits, counts);
+    assert.deepEqual(
+        out.objects.map((o) => [o.checksum, o.faces.length]),
+        [
+            [2, 2],
+            [3, 3],
+        ],
+    );
+    // (the first face with those corners in that turning went - (0 1 2); the other way round stayed)
+    assert.deepEqual(
+        out.objects[0]!.faces.map((f) => f.slice(2)),
+        [
+            [0, 2, 1],
+            [1, 2, 0],
+        ],
+    );
+    assert.deepEqual(counts, { dropped: 1, faces: 1, missing: 1 });
+});
+
+test("THUGPRO's node edits found against THPS3's array (nodeEdits)", () => {
+    const at = (name: string, cls: string, pos: number[], extra: qb.Entry[] = []): Struct =>
+        new Struct([[n("Position"), vec(...pos)], [n("Name"), n(name)], [n("Class"), n(cls)], ...extra]);
+    const own: QbValue[] = [
+        at("Ped", "Pedestrian", [0, 0, 0]),
+        at(
+            "Rail",
+            "RailNode",
+            [5, 0, 0],
+            [
+                [null, n("CreatedAtStart")],
+                [n("TerrainType"), n("TERRAIN_WOOD")],
+            ],
+        ),
+        at("Light", "EnvironmentObject", [7, 0, 0], [[null, n("CreatedAtStart")]]),
+        at("Gone", "EnvironmentObject", [9, 0, 0]),
+        at("Named", "EnvironmentObject", [11, 0, 0]),
+        at("OldName", "Restart", [13, 0, 0]),
+    ];
+    const theirs: QbValue[] = [
+        at("Ped", "Pedestrian", [0, 0, 10]),
+        at(
+            "Rail",
+            "RailNode",
+            [5, 0, 0],
+            [
+                [null, n("AbsentInNetGames")],
+                [n("TerrainType"), n("TERRAIN_METALSMOOTH")],
+            ],
+        ),
+        at("Light", "GenericNode", [7, 0, 0]),
+        at("NewName", "Restart", [13, 0, 0]),
+        at(
+            "Added",
+            "RailNode",
+            [1, 1, 1],
+            [
+                [n("Links"), [5]],
+                [n("Cluster"), n("Wire")],
+                [null, n("TrickObject")],
+            ],
+        ),
+        at("Added2", "RailNode", [2, 2, 2]),
+    ];
+    const names = new Map<number, string>();
+    for (const t of [
+        ...["Ped", "Rail", "Light", "Gone", "Named", "OldName", "NewName", "Added", "Added2", "Wire"],
+        ...["Pedestrian", "RailNode", "EnvironmentObject", "GenericNode", "Restart"],
+        ...["TERRAIN_WOOD", "TERRAIN_METALSMOOTH"],
+    ])
+        names.set(qb.checksum(t), t);
+    const uses = new Map([[qb.checksum("Named"), 2]]); // (its own Name and a script)
+    const edits = nodeEdits(own, names, theirs, names, uses);
+    assert.deepEqual(Object.keys(edits.moved), ["Ped"]);
+    assert.deepEqual(edits.moved.Ped!.pos, [0, 0, -10]); // (THUGPRO's Position, z negated: THUG2's world)
+    assert.deepEqual(edits.flags, { Rail: { add: ["AbsentInNetGames"], remove: ["CreatedAtStart"] } });
+    assert.deepEqual(edits.terrain, { Rail: "TERRAIN_METALSMOOTH" });
+    assert.deepEqual(edits.renamed, { OldName: "NewName" });
+    assert.deepEqual(edits.removed, ["Gone"]); // (Named: a script uses it)
+    assert.deepEqual(
+        edits.rails.map((r) => [r.name, r.links, r.cluster, r.flags]),
+        [
+            ["Added", ["Added2"], "Wire", ["TrickObject"]],
+            ["Added2", [], null, []],
+        ],
+    );
+    assert.ok(edits.notes.some((x) => /Light: class environmentobject -> genericnode/.test(x)));
+    assert.ok(edits.notes.some((x) => /removed Named: used by a script/.test(x)));
 });
