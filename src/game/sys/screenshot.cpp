@@ -4,6 +4,7 @@
 
 #include <windows.h>
 
+#include <algorithm>
 #include <atomic>
 #include <cmath>
 #include <cstdio>
@@ -63,6 +64,7 @@ struct Job {
     bool ok = false;
     std::string error;
     double milliseconds = 0.0;
+    int mouseX = -1, mouseY = -1; // (in the image's pixels; -1: not over the window)
 };
 std::shared_ptr<Job> g_job;
 
@@ -252,7 +254,11 @@ void Write(std::shared_ptr<Job> job)
     LARGE_INTEGER start, end, frequency;
     QueryPerformanceCounter(&start);
     std::vector<uint8_t> rgb, png;
-    if (!ToRgb(job->frame, &rgb)) {
+    bool read = ToRgb(job->frame, &rgb);
+    if (read)
+        MarkCursor(&rgb, job->frame.width, job->frame.height, job->mouseX, job->mouseY,
+                   std::max(12, job->frame.height / 60));
+    if (!read) {
         job->error = "the pixels couldn't be read";
     } else if (!EncodePng(rgb.data(), job->frame.width, job->frame.height, &png)) {
         job->error = "the PNG couldn't be made";
@@ -348,11 +354,29 @@ void Take()
     std::snprintf(taken, sizeof(taken), "%04d-%02d-%02d %02d:%02d:%02d", stamp.year, stamp.month, stamp.day, stamp.hour,
                   stamp.minute, stamp.second);
     auto job = std::make_shared<Job>();
+    // The mouse, in the image's pixels (the window may be scaled to the back buffer): marked on the picture and noted.
+    std::string mouse;
+    int mx = 0, my = 0, w = 0, h = 0;
+    SDL_Window* window = Sys::SdlWindow();
+    if (window && (SDL_GetMouseFocus() == window)) {
+        SDL_GetMouseState(&mx, &my);
+        SDL_GetWindowSize(window, &w, &h);
+    }
+    if (w > 0 && h > 0) {
+        job->mouseX = static_cast<int>(static_cast<long long>(mx) * frame.width / w);
+        job->mouseY = static_cast<int>(static_cast<long long>(my) * frame.height / h);
+        char at[96];
+        std::snprintf(at, sizeof(at), "(%d, %d) in the image (marked with a cross)", job->mouseX, job->mouseY);
+        mouse = at;
+    } else {
+        mouse = "not over the window";
+    }
     job->folder = folder;
     job->png = png;
     job->txt = SidecarName(png);
-    job->sidecar = FormatSidecar("THUG2 decomp screenshot " + png, GatherSections(frame, png, folder, taken),
-                                 LogTail(kLogLines));
+    std::vector<Section> sections = GatherSections(frame, png, folder, taken);
+    sections.front().fields.push_back({"mouse", mouse});
+    job->sidecar = FormatSidecar("THUG2 decomp screenshot " + png, sections, LogTail(kLogLines));
     job->frame = std::move(frame);
     g_job = job;
     std::thread(Write, job).detach();

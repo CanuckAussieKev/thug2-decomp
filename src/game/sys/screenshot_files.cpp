@@ -96,6 +96,32 @@ uint8_t Widen6(unsigned v) { return static_cast<uint8_t>((v << 2) | (v >> 4)); }
 
 } // namespace
 
+void MarkCursor(std::vector<uint8_t>* rgb, int width, int height, int x, int y, int size)
+{
+    if (!rgb || rgb->size() < static_cast<size_t>(width) * height * 3 || size <= 0 || x < 0 || y < 0)
+        return;
+    auto put = [&](int px, int py, uint8_t value) {
+        if (px < 0 || py < 0 || px >= width || py >= height)
+            return;
+        uint8_t* p = rgb->data() + (static_cast<size_t>(py) * width + px) * 3;
+        p[0] = p[1] = p[2] = value;
+    };
+    int gap = size / 3;
+    // (the black edge first, two pixels wider, then the white line over it)
+    for (int pass = 0; pass < 2; ++pass) {
+        int half = pass == 0 ? 2 : 1;
+        uint8_t value = pass == 0 ? 0 : 255;
+        for (int d = gap; d <= size; ++d) {
+            for (int t = -half; t < half; ++t) {
+                put(x + d, y + t, value);
+                put(x - d, y + t, value);
+                put(x + t, y + d, value);
+                put(x + t, y - d, value);
+            }
+        }
+    }
+}
+
 bool ToRgb(const Frame& frame, std::vector<uint8_t>* rgb)
 {
     rgb->clear();

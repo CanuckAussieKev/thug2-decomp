@@ -594,7 +594,9 @@ bool SamePlacement(const Placement& a, const Placement& b)
 // (PieceFits / PieceTouches, three rounds - each with its cluster). Decided on the level's own layout (the boxes as
 // loaded) and only among pieces the editor has moved together (the same placement): a group moved into something
 // doesn't take it in, and a piece moved away from its group no longer brings the group along. Hidden pieces aren't
-// taken.
+// taken, nor structure (Picking::IsStructure by size - a floor, a wall) unless the clicked piece is structure itself:
+// a level's own clusters can join a small piece to the floor it lies on (TR's SkWare_Main_12, 360 x 60 x 924, and the
+// 3000 x 99 x 2431 floor SkWare_Main_9), and a click on the small piece mustn't take the floor.
 std::vector<uint32_t> GroupOf(uint32_t checksum)
 {
     std::vector<uint32_t> group;
@@ -617,8 +619,17 @@ std::vector<uint32_t> GroupOf(uint32_t checksum)
             return;
         pieces.push_back({other, min, max, false});
     });
+    // (by size only: a camera nowhere near)
+    const V3 nowhere = {1.0e9f, 1.0e9f, 1.0e9f};
+    bool clickedStructure = false;
+    for (const Piece& piece : pieces) {
+        if (piece.checksum == checksum)
+            clickedStructure = Picking::IsStructure(piece.min, piece.max, nowhere);
+    }
     auto take = [&](Piece& piece) {
         if (piece.in || WhyNotMovable(piece.checksum))
+            return false;
+        if (piece.checksum != checksum && !clickedStructure && Picking::IsStructure(piece.min, piece.max, nowhere))
             return false;
         piece.in = true;
         group.push_back(piece.checksum);
