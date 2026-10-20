@@ -210,6 +210,8 @@ export class Thug1Port {
     readonly skeletons = new Set<number>();
     readonly models = new Set<string>();
     readonly shared: scriptPort.Source[] = [];
+    // (folders with a models\ folder of models THUG2 hasn't - THUGPRO's, TP-40: thugpro_new.ts - besides Data\models)
+    readonly extraRoots: string[] = [];
 
     constructor(thug2: string, qbPre: string) {
         this.thug2 = new scriptPort.Thug2(thug2);
@@ -262,7 +264,11 @@ export class Thug1Port {
         let refs = this.modelRefs.get(k);
         if (refs === undefined) {
             refs = new Map();
-            const file = pyJoin(this.root, "Data", "models", `${withoutExtension(k)}.qb`);
+            let file = pyJoin(this.root, "Data", "models", `${withoutExtension(k)}.qb`);
+            for (const extra of this.extraRoots) {
+                const other = pyJoin(extra, "models", `${withoutExtension(k)}.qb`);
+                if (!fs.existsSync(file) && fs.existsSync(other)) file = other;
+            }
             if (fs.existsSync(file)) {
                 const toks = [...qb.tokens(fs.readFileSync(file), true)];
                 const text = new Map<number, string>();
@@ -314,16 +320,20 @@ export class NodePass {
     readonly extraAnims = new Set<string>();
     readonly modelRefs = new Map<number, string>(); // the gap / trick scripts the kept objects' THUG2 models name
     readonly kept: qb.QbValue[];
+    // (THUGPRO's own nodes - TP-41, thugpro_new.ts: THUG2 nodes already, kept whole as they are)
+    readonly forced: ReadonlySet<Struct>;
 
     constructor(
         port: Thug1Port,
         array: readonly qb.QbValue[],
         names: Map<number, string>,
         sectors: ReadonlySet<number>,
+        forced: ReadonlySet<Struct> = new Set(),
     ) {
         this.port = port;
         this.names = names;
         this.sectors = sectors;
+        this.forced = forced;
         this.kept = array.map((n) => this.node(n));
     }
 
@@ -355,6 +365,12 @@ export class NodePass {
         const n = this.names;
         const cls = nodes.classOf(node, n);
         if (["restart", "railnode", "levelgeometry", "genericnode"].includes(cls)) return node; // (nodes.convertNodes' own handling)
+        if (this.forced.has(node)) {
+            const s = this.whole(node, "THUGPRO's own nodes (TP-41)");
+            const model = s.get("model") ?? s.get("Model");
+            if (typeof model === "string" && model.toLowerCase() !== "none") this.addRefs(model);
+            return s;
+        }
         if (["waypoint", "proximnode", "emitterobject"].includes(cls)) return this.whole(node, `${cls}s`);
         if (cls === "levellight") {
             // (THUG1's dynamic lights - Pos, Brightness, Inner / OuterRadius, Color, ExcludeLevel / ExcludeSkater - are
@@ -590,6 +606,7 @@ export function portScripts(
     names: Map<number, string>,
     struct: Struct | undefined,
     sectors: ReadonlySet<number> | null = null,
+    extraProvided: Iterable<number> = [], // (scripts the level gets otherwise: THUGPRO's, TP-42 - thugpro_new.ts)
 ): PortedScripts {
     // The scripts brought along (see the top). Returns the scripts {name: THUG2 bytes}, the THUG1 globals they use as
     // NeverScript text, the level structure's startup / setup script names kept, the report line. Trigger scripts not
@@ -606,6 +623,7 @@ export function portScripts(
     const provided = new Set([
         ...kills.keys(),
         ...["LoadTerrain", "LoadAllParticleTextures", "load_level_anims"].map(checksum),
+        ...extraProvided,
     ]);
     const allowed = new Set([...SHARED_SOURCES, LEVEL]);
     // (geometry nodes the scene has no sector for: Visible / Create / Kill... of them read through a null)

@@ -46,6 +46,16 @@ export class Profile {
     }
 }
 
+// Our own changes to a source game's levels (the `port_changes` section of thugpro\<tool>.json): this project's,
+// neither the source game's nor THUGPRO's - read whatever profile is chosen (`--compat none` keeps them). {} when the
+// file or section isn't there.
+export function portChanges(tool: string): JsonObject {
+    const file = path.join(HERE, "thugpro", `${tool}.json`);
+    if (!fs.existsSync(file)) return {};
+    const data = JSON.parse(fs.readFileSync(file, "utf-8")) as JsonObject;
+    return (data.port_changes ?? {}) as JsonObject;
+}
+
 export function load(name: string = "thugpro"): Profile {
     if (!(PROFILES as readonly string[]).includes(name)) {
         throw new RangeError(`no compatibility profile ${pyStrRepr(name)} (${PROFILES.join(", ")})`);

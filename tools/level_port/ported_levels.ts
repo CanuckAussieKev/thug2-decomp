@@ -228,6 +228,13 @@ export function installFiles(game: string, overlay: string, manifest: Manifest |
             fs.cpSync(from, target, { recursive: true, preserveTimestamps: true, errorOnExist: true, force: false });
             installed.push(entry);
         }
+        // (models a converter staged next to its levels - THUGPRO's own, read from its install: tools/thug1_levels
+        // thugpro_new.ts TP-40 - merged into the overlay's models folder)
+        const models = path.join(game, staging, "models");
+        if (fs.existsSync(models) && fs.statSync(models).isDirectory()) {
+            fs.cpSync(models, path.join(overlay, "models"), { recursive: true, preserveTimestamps: true, force: true });
+            installed.push(`${staging}\\models`);
+        }
     }
     return installed.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 }
