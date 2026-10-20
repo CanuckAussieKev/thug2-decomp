@@ -986,6 +986,44 @@ void LockList(const Model& model)
     }
 }
 
+// The scenery selection's parts (its pieces, shadows marked, and the rail points carried along): each with x (removed
+// from the selection, as Ctrl+click) and Keep only this.
+void MemberList(const std::vector<Model::Selection::Member>& members)
+{
+    if (members.empty())
+        return;
+    ImGui::Spacing();
+    Muted("Parts (x removes one, Ctrl+click in the view too)");
+    float rows = static_cast<float>(std::min<size_t>(members.size(), 10));
+    ImGui::BeginChild("##members", ImVec2(0.0f, rows * ImGui::GetFrameHeightWithSpacing() + 4.0f * g_scale), false);
+    for (size_t i = 0; i < members.size(); ++i) {
+        const Model::Selection::Member& member = members[i];
+        ImGui::PushID(static_cast<int>(i));
+        int rail = member.rail ? 1 : 0;
+        if (ImGui::SmallButton("x"))
+            Ask(Request::kMemberRemove, rail, member.id);
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip(member.rail ? "No longer carried along with the selection"
+                                          : "Removed from the selection (stays where it is)");
+        ImGui::SameLine();
+        if (ImGui::SmallButton("Keep only this"))
+            Ask(Request::kMemberKeep, rail, member.id);
+        ImGui::SameLine();
+        ImGui::PushFont(g_mono);
+        ImGui::TextUnformatted(member.name.c_str());
+        ImGui::PopFont();
+        ImGui::SameLine();
+        if (member.rail)
+            Muted("rail point");
+        else if (member.shadow)
+            Muted(("shadow  " + member.size).c_str());
+        else
+            Muted(member.size.c_str());
+        ImGui::PopID();
+    }
+    ImGui::EndChild();
+}
+
 void Inspector(const Model& model)
 {
     if (!g_layout.inspectorShown)
@@ -1054,6 +1092,7 @@ void Inspector(const Model& model)
             }
             ImGui::EndTable();
         }
+        MemberList(s.members);
         ImGui::Spacing();
         ImGui::TextWrapped("%s", model.selected.c_str());
         ImGui::Spacing();
@@ -1145,7 +1184,12 @@ void Help(const Model& model)
                                "inside and see-through decals are passed - a click on only those deselects"},
         {"", "Click again", "(same spot) the next thing under the cursor - n of m in the status bar"},
         {"", "Shift+click", "adds / removes"},
-        {"", "Alt+click, middle click", "one piece of scenery - any piece, floors and decals too (hold Alt to see it)"},
+        {"", "Alt+click, middle click", "one piece of scenery - any piece, floors and decals too (hold Alt to see it); "
+                                       "on a selected piece: takes it out"},
+        {"", "Ctrl+click", "on a part of the scenery selection: removes just that piece (a shadow too) - or, on its "
+                           "gizmo, a rail point carried along; the Inspector lists the parts (x, Keep only this)"},
+        {"", "Shadows", "a scenery group takes its shadows (the see-through decals on the floor under it: by name, "
+                        "else by place) - they move, turn, scale and go back with it"},
         {"", "L", "locks the selection: clicks pass it (the Inspector lists the locks: Unlock); with nothing selected, "
                      "unlocks all"},
         {"", "Pick: (toolbar)", "what clicks may take: nodes, objects, scenery"},
