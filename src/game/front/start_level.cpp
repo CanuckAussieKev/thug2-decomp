@@ -14,6 +14,7 @@
 #include "game/file/file.h"
 #include "game/front/front_end.h"
 #include "game/front/level_editor.h"
+#include "game/front/level_editor_layout.h"
 #include "game/front/mouse_menus.h"
 #include "game/gfx/screen.h"
 #include "game/obj/object.h"
@@ -113,6 +114,15 @@ void EditUpdate(Mdl::FrontEnd* frontEnd)
             Log("edit level: no level_editor_enter script (the data overlay isn't installed - "
                 "tools/menu_level/make_menu_level.ts) - free skate in %s, as -level",
                 Requested());
+            s_edit = Edit::Done;
+            return;
+        }
+        // (the level is loaded in free skate - Load - so this is only a safeguard: never in a network session or a
+        // career-type mode - level_editor_layout.h)
+        std::string why;
+        if (LevelEditor::Layout::Refused(&why)) {
+            Log("edit level: the level editor isn't offered here (%s) - %s as it is", why.c_str(), Requested());
+            LevelEditor::Layout::PanelMessage(("The level editor isn't offered here - " + why).c_str());
             s_edit = Edit::Done;
             return;
         }

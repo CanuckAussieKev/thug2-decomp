@@ -1,4 +1,4 @@
-// The records, 0x0057ECD0-0x0057FE27. See records.h.
+// The records, 0x0057ECD0-0x0057FE27, and the script command UpdateRecords (0x005AEBC0). See records.h.
 
 #include "game/skate/records.h"
 
@@ -6,9 +6,11 @@
 
 #include "game/core/manager.h"
 #include "game/core/mem.h"
+#include "game/front/level_editor_layout.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/log.h"
 
 namespace Records {
 
@@ -391,6 +393,26 @@ void CGameRecords::Release()
     References() = 0;
 }
 
+bool UpdateRecords(bool editedCopy)
+{
+    uint8_t* skate = GameVariable<uint8_t*>(0x007CE478);
+    if (editedCopy) {
+        if (skate)
+            skate[0x384] = 0; // (no record new: as 0x00566F40 sets it before comparing)
+        Log("records: not updated - the level is the level editor's edited copy (nothing done in it reaches the "
+            "records or the save)");
+        return true;
+    }
+    GameFunction<void(__thiscall*)(uint8_t*)>(0x00566F40)(skate);
+    return true;
+}
+
+// 0x005AEBC0
+bool __cdecl CFunc_UpdateRecords(Script::CStruct*, Script::CScript*)
+{
+    return UpdateRecords(Front::LevelEditor::Layout::EditingCopy());
+}
+
 } // namespace Records
 
 REPLACE(0x0057ECD0, &Records::CRecord::MaybeNewRecord);
@@ -414,3 +436,4 @@ REPLACE(0x0057F7B0, &Records::CLevelRecords::WriteToStructure);
 REPLACE(0x0057FBC0, &Records::CGameRecords::InitLevels);
 REPLACE(0x0057FC50, &Records::CGameRecords::WriteToStructure);
 REPLACE(0x0057FDB0, Records::CGameRecords::Release);
+REPLACE(0x005AEBC0, Records::CFunc_UpdateRecords);

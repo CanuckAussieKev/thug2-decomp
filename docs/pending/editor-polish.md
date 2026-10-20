@@ -96,7 +96,7 @@ it.
   node's TriggerScript on the skater as `CTriggerComponent::TriggerNode` (0x00434A60) does: not when the skate module
   skips the node (0x00565BB0), with its NetEnabled / Permanent flags and the node's name (`SpawnAndRunScript`). Not
   while editing (its memory is cleared then, so a box moved in the editor doesn't fire on leaving it), not in a network
-  session, local skater only.
+  session or a career-type mode (Layout::Refused, as the boxes themselves), local skater only.
 - **Trigger colours in the collision view**: item 3.
 
 ### 5. Locks undoable
@@ -111,7 +111,7 @@ history and push real edits out; each undo step already reselects what it puts b
 - Build: out\build\polish and out\build\verify (own scripts out\scripts\build_polish.cmd / build_verify.cmd, own PDB
   endpoints) - no errors, no warnings.
 - thug2_check.exe on THUG2PM.exe (C:\Games\THUG2_PM_BAK, read only) and on C:\Games\THUG2\Game\THUG2.exe (read only):
-  argument sizes 0 MISMATCHED, all early self-tests pass (412 with the 5 new ones).
+  argument sizes 0 MISMATCHED, all early self-tests pass (414 after merging main ad049eb, the 5 new ones among them).
 - `node tools/check_code_writes.ts`: No overlaps.
 - New self-tests (src/hook/selftests_editor_carry.cpp, Early): TestEditorCarrySteps (Inverse / Between over moves,
   quarter turns, scales; a move's and a turn's steps; IsNone; headings), TestEditorCarryRules (footprints of unturned
@@ -162,7 +162,7 @@ Use `-edit tr` (TR, the warehouse) unless said; `debug_editor=1` logs the carryi
     leave the editor and skate into and out of it: it runs on the way in and on the way out. Unticked: in only. Ctrl+S,
     reload the edited level: the tick kept (exit=1 in the layout).
 17. **Exit safety**: with the skater standing inside an exit trigger, open the editor, move the box away, leave: nothing
-    fires. In a network game nothing of this runs.
+    fires. In a network game or a career-type mode nothing of this runs.
 18. thug2-decomp.log after the session: no errors from the editor.
 
 ## Left / limits

@@ -1,7 +1,8 @@
 // NOT ORIGINAL - THUG2 .qb values written as tokens (src/game/script/qb.h's token stream), and one global array of a
 // .qb file replaced in place - everything else (scripts, other globals, the name table) kept byte for byte. Used by
 // tools/game/apply_layout.ts to write a level's node array back without NeverScript (ns.exe can't be counted on to
-// round-trip every file: 454 / 470 do).
+// round-trip every file: 454 / 470 do) - and, the same way, a level structure's entries set (Levels.qb) and scripts
+// added or replaced (a level's scripts .qb).
 //
 // The layout the game's own files use (and NeverScript writes): a structure is 0x03 0x01, each entry followed by 0x01,
 // 0x04; an array of structures 0x05 0x01, each followed by 0x01, 0x06; other arrays 0x05, the elements with 0x09
@@ -162,17 +163,153 @@ export function replaceGlobalArray(
     } else {
         body = encodeValue(value as QbValue[]);
     }
-    let out = Buffer.concat([data.subarray(0, span[0]), body, data.subarray(span[1])]);
+    const out = Buffer.concat([data.subarray(0, span[0]), body, data.subarray(span[1])]);
+    return addNames(out, newNames);
+}
+
+// `data` with `newNames` (checksum -> text) added to its name table (0x2B entries, before the closing 0x00) when it
+// doesn't have them.
+export function addNames(data: Buffer, newNames: ReadonlyMap<number, string>): Buffer {
     const have = new Set<number>();
-    for (const [, t, payload] of tokens(out, true)) if (t === 0x2b) have.add(payload.readUInt32LE(0));
+    for (const [, t, payload] of tokens(data, true)) if (t === 0x2b) have.add(payload.readUInt32LE(0));
     const add: Buffer[] = [];
     for (const [checksum, text] of newNames) {
         if (have.has(checksum)) continue;
+        have.add(checksum);
         add.push(Buffer.from([0x2b]), pack("<I", checksum >>> 0), Buffer.from(`${text}\0`, "latin1"));
     }
-    if (add.length) {
-        const end = out.length > 0 && out[out.length - 1] === 0x00 ? out.length - 1 : out.length;
-        out = Buffer.concat([out.subarray(0, end), ...add, out.subarray(end)]);
+    if (!add.length) return data;
+    const end = data.length > 0 && data[data.length - 1] === 0x00 ? data.length - 1 : data.length;
+    return Buffer.concat([data.subarray(0, end), ...add, data.subarray(end)]);
+}
+
+// --- (tools/game/apply_layout.ts: a level structure's entries, scripts) ----------------------------------------------
+
+// Where the top-level global `name = { ... }` is in `data`: [start of its 0x03, end after its closing 0x04], or null.
+export function globalStructSpan(data: Buffer, name: number): [number, number] | null {
+    const toks = [...tokens(data, true)].filter(([, t]) => t !== 0x01 && t !== 0x02);
+    let depth = 0;
+    let inScript = false;
+    for (let i = 0; i + 2 < toks.length; i++) {
+        const [, t, payload] = toks[i]!;
+        if (t === 0x23) inScript = true;
+        if (t === 0x24) inScript = false;
+        if (inScript) continue;
+        if (t === 0x03 || t === 0x05) depth++;
+        if (t === 0x04 || t === 0x06) depth--;
+        if (depth !== 0 || t !== 0x16 || payload.readUInt32LE(0) !== name) continue;
+        if (toks[i + 1]![1] !== 0x07 || toks[i + 2]![1] !== 0x03) continue;
+        let level = 0;
+        for (let j = i + 2; j < toks.length; j++) {
+            const tj = toks[j]![1];
+            if (tj === 0x05 || tj === 0x03) level++;
+            if (tj === 0x06 || tj === 0x04) level--;
+            if (level === 0) return [toks[i + 2]![0], toks[j]![0] + 1];
+        }
+        return null;
+    }
+    return null;
+}
+
+// `data` with entries of the global structure `name` set: each `key = value` replaces the value of the structure's
+// last own `key =` entry (the one the game's Search finds - a structure may repeat a key) in place, or is added at its
+// end; every other byte kept. `newNames` go into the name table. Throws when there's no such structure.
+export function setStructEntries(
+    data: Buffer,
+    name: number,
+    entries: readonly [number, QbValue][],
+    newNames: ReadonlyMap<number, string> = new Map(),
+): Buffer {
+    let out = data;
+    for (const [key, value] of entries) {
+        const span = globalStructSpan(out, name);
+        if (!span) throw new Error(`no global structure ${name.toString(16)} at the top level`);
+        // (the structure's own entries: key 0x07 at its depth 1; a value runs to the next line token / the end there)
+        const toks = [...tokens(out.subarray(span[0], span[1]), true)];
+        let depth = 0;
+        let at: [number, number] | null = null;
+        for (let i = 0; i < toks.length; i++) {
+            const [, t, payload] = toks[i]!;
+            if (t === 0x03 || t === 0x05) depth++;
+            if (t === 0x04 || t === 0x06) depth--;
+            if (depth !== 1 || t !== 0x16 || payload.readUInt32LE(0) !== key || toks[i + 1]?.[1] !== 0x07) continue;
+            let d = 0;
+            let j = i + 2;
+            for (; j < toks.length; j++) {
+                const tj = toks[j]![1];
+                if (d === 0 && (tj === 0x01 || tj === 0x02 || tj === 0x04)) break;
+                if (tj === 0x03 || tj === 0x05) d++;
+                if (tj === 0x04 || tj === 0x06) d--;
+            }
+            at = [span[0] + toks[i + 2]![0], span[0] + (toks[j]?.[0] ?? span[1] - span[0])];
+        }
+        if (at) {
+            out = Buffer.concat([out.subarray(0, at[0]), encodeValue(value), out.subarray(at[1])]);
+        } else {
+            // (before the closing 0x04: the structure's entries each end with a line token)
+            const close = span[1] - 1;
+            const entry = Buffer.concat([
+                Buffer.from([0x16]),
+                pack("<I", key >>> 0),
+                Buffer.from([0x07]),
+                encodeValue(value),
+                Buffer.from([0x01]),
+            ]);
+            out = Buffer.concat([out.subarray(0, close), entry, out.subarray(close)]);
+        }
+    }
+    return addNames(out, newNames);
+}
+
+// The byte spans of the top-level scripts in `data` (script name -> [start of its 0x23, end after its 0x24]).
+export function scriptSpans(data: Buffer): Map<number, [number, number]> {
+    const out = new Map<number, [number, number]>();
+    const toks = [...tokens(data, true)];
+    for (let i = 0; i < toks.length; i++) {
+        if (toks[i]![1] !== 0x23 || toks[i + 1]?.[1] !== 0x16) continue;
+        const name = toks[i + 1]![2].readUInt32LE(0);
+        let j = i + 2;
+        while (j < toks.length && toks[j]![1] !== 0x24) j++;
+        if (j >= toks.length) break;
+        if (!out.has(name)) out.set(name, [toks[i]![0], toks[j]![0] + 1]);
+        i = j;
     }
     return out;
+}
+
+// `data` with scripts (name -> body: its statements, each ending with a line token) defined: a script of that name
+// already there gets the new body in place (`script <name> <body> endscript`: 23 16 <name> 01 <body> 24); new ones are
+// added before the file's name table (each 23 16 <name> 01 <body> 24 01), as a compiled file has them. Every other
+// byte kept; `newNames` go into the name table.
+export function putScripts(
+    data: Buffer,
+    scripts: readonly [number, Buffer][],
+    newNames: ReadonlyMap<number, string> = new Map(),
+): Buffer {
+    const script = (name: number, body: Buffer): Buffer =>
+        Buffer.concat([
+            Buffer.from([0x23, 0x16]),
+            pack("<I", name >>> 0),
+            Buffer.from([0x01]),
+            body,
+            Buffer.from([0x24]),
+        ]);
+    let out = data;
+    const added: Buffer[] = [];
+    for (const [name, body] of scripts) {
+        const span = scriptSpans(out).get(name);
+        if (span) out = Buffer.concat([out.subarray(0, span[0]), script(name, body), out.subarray(span[1])]);
+        else added.push(script(name, body), Buffer.from([0x01]));
+    }
+    if (added.length) {
+        // (the name table: the 0x2B entries after the last other token, before the closing 0x00)
+        const toks = [...tokens(out, true)];
+        let at = toks.length;
+        while (at > 0 && (toks[at - 1]![1] === 0x2b || toks[at - 1]![1] === 0x00)) at--;
+        const offset = at < toks.length ? toks[at]![0] : out.length;
+        const previous = at > 0 ? toks[at - 1]![1] : 0x01;
+        const lead = previous === 0x01 || previous === 0x02 ? [] : [Buffer.from([0x01])];
+        out = Buffer.concat([out.subarray(0, offset), ...lead, ...added, out.subarray(offset)]);
+    }
+    return addNames(out, newNames);
 }

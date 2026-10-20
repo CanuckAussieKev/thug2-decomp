@@ -1000,8 +1000,9 @@ void Sync()
         g_defined = file;
         redefined = true;
     }
-    // The boxes: one for each alive trigger, where its node is (none in a network session - Guard).
-    bool network = Layout::NetworkActive();
+    // The boxes: one for each alive trigger, where its node is (none in a network session or a career-type mode -
+    // Guard).
+    bool network = Layout::Refused();
     for (size_t i = 0; i < g_boxes.size();) {
         int at = -1;
         for (size_t k = 0; k < g_added.size(); ++k) {
@@ -1266,10 +1267,11 @@ void Create(std::vector<Placed> made, const char* what)
 
 void Guard()
 {
-    if (g_boxes.empty() || !Layout::NetworkActive())
+    std::string why;
+    if (g_boxes.empty() || !Layout::Refused(&why))
         return;
-    Log("level editor: a network session - the editor's %u trigger volumes taken out (edited levels are offline only)",
-        static_cast<unsigned>(g_boxes.size()));
+    Log("level editor: the editor's %u trigger volumes taken out (%s)", static_cast<unsigned>(g_boxes.size()),
+        why.c_str());
     DropBoxes();
 }
 
@@ -1930,7 +1932,7 @@ void FireOnLeaving(Obj::CObject* skater, uint32_t node)
 void Play(bool editing)
 {
     bool any = std::any_of(g_added.begin(), g_added.end(), [](const Added& a) { return a.alive && a.spec.exit; });
-    if (editing || !any || g_boxes.empty() || Layout::NetworkActive()) {
+    if (editing || !any || g_boxes.empty() || Layout::Refused()) { // (a network session or a career-type mode)
         g_seen.clear(); // (seen afresh once play goes on: a box moved while editing doesn't fire)
         return;
     }
