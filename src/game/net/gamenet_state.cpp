@@ -17,25 +17,20 @@
 
 namespace GameNet {
 
-static_assert(offsetof(Manager, m_client2) == 0x0C && offsetof(Manager, m_matchClient) == 0x2C &&
-                  offsetof(Manager, m_gameMode) == 0x30,
-              "layout must match the original");
 
 namespace {
 
-// The manager's fields past those declared (reached by offset until the class is laid out).
+// The manager's fields not declared yet (reached by offset until the class is laid out).
 template <typename T>
 T& Field(Manager* manager, uint32_t offset)
 {
     return *reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(manager) + offset);
 }
 
+constexpr uint32_t kGameMode = 0x30;
 constexpr uint32_t kGameId = 0x38;           // uint8_t: the current game's number (the start info's)
-constexpr uint32_t kReadyGameId = 0x39;      // uint8_t: the game ready was last sent for
-constexpr uint32_t kAllReady = 0x3A;         // bool
+constexpr uint32_t kEndedGameId = 0x39;      // uint8_t: the game whose end was last reported
 constexpr uint32_t kCheatingNoted = 0x3B;    // bool
-constexpr uint32_t kJoinMode = 0x3C;
-constexpr uint32_t kHostMode = 0x40;
 constexpr uint32_t kFinalScores = 0x44;      // bool
 constexpr uint32_t kDrawNames = 0x47;        // bool
 constexpr uint32_t kStartInfoWords = 0x48;   // 8 words
@@ -44,13 +39,6 @@ constexpr uint32_t kCrown = 0x6C;
 constexpr uint32_t kHostTask = 0xF4;         // Tsk::BaseTask*
 constexpr uint32_t kNetworkPrefs = 0x104;    // Prefs::Preferences
 constexpr uint32_t kTauntPrefs = 0x110;      // Prefs::Preferences
-constexpr uint32_t kAckId = 0x188;
-constexpr uint32_t kServerListState = 0x190;
-constexpr uint32_t kJoinState = 0x198;
-constexpr uint32_t kPublicIp = 0x19C;
-constexpr uint32_t kPublicPort = 0x1A0;
-constexpr uint32_t kPrivatePort = 0x1A4;
-constexpr uint32_t kPlayerInfoFlags = 0x1CC;
 constexpr uint32_t kLastLeader = 0x1D0;
 constexpr uint32_t kLastLeadingTeam = 0x1D4;
 constexpr uint32_t kGoalsMessage = 0x1D8;    // the level, then the goals (6000 bytes)
@@ -65,8 +53,8 @@ constexpr uint16_t kLanPort = 5153;          // the LAN lobby's port
 
 // Messages.
 constexpr uint8_t kMsgFindServer = 0x11;
-constexpr uint8_t kMsgAck = 0x26;
-constexpr uint8_t kMsgReady = 0x59;
+constexpr uint8_t kMsgReadyResponse = 0x26;
+constexpr uint8_t kMsgGameEnded = 0x59;
 constexpr uint8_t kGroupGame = 8;            // the sequenced group of the game's messages
 
 // Checksums.
@@ -128,15 +116,15 @@ void* GoalEditor() { return GameFunction<void*(__cdecl*)()>(0x004E8470)(); }
 // 0x00532AA0
 void Manager::SetJoinMode(int mode)
 {
-    Field<int>(this, kJoinMode) = mode;
+    m_joinMode = mode;
     GameVariable<bool>(0x007CCA88) = false;
 }
 
 // 0x00532AC0
-int Manager::GetJoinMode() { return Field<int>(this, kJoinMode); }
+int Manager::GetJoinMode() { return m_joinMode; }
 
 // 0x00532AD0
-int Manager::GetHostMode() { return Field<int>(this, kHostMode); }
+int Manager::GetHostMode() { return m_hostMode; }
 
 // 0x00532AE0
 int Manager::GetRankTest()
@@ -176,21 +164,21 @@ int Manager::GetMaxObservers() { return NumberOf(PreferenceChecksum(this, kNumOb
 void Manager::RemoveHostTask() { Field<Tsk::BaseTask*>(this, kHostTask)->Remove(); }
 
 // 0x00532E40 / 0x00532E50 / 0x00532E60 / 0x00532E70 / 0x00532E80 / 0x00532E90
-uint32_t Manager::GetPublicIp() { return Field<uint32_t>(this, kPublicIp); }
-uint32_t Manager::GetPublicPort() { return Field<uint32_t>(this, kPublicPort); }
-uint32_t Manager::GetPrivatePort() { return Field<uint32_t>(this, kPrivatePort); }
-void Manager::SetPublicIp(uint32_t value) { Field<uint32_t>(this, kPublicIp) = value; }
-void Manager::SetPublicPort(uint32_t value) { Field<uint32_t>(this, kPublicPort) = value; }
-void Manager::SetPrivatePort(uint32_t value) { Field<uint32_t>(this, kPrivatePort) = value; }
+uint32_t Manager::GetJoinIp() { return m_joinIp; }
+uint32_t Manager::GetJoinPrivateIp() { return m_joinPrivateIp; }
+int Manager::GetJoinPort() { return m_joinPort; }
+void Manager::SetJoinIp(uint32_t ip) { m_joinIp = ip; }
+void Manager::SetJoinPrivateIp(uint32_t ip) { m_joinPrivateIp = ip; }
+void Manager::SetJoinPort(int port) { m_joinPort = port; }
 
 // 0x00532EA0 (+0x08 + index * 4: the two clients lie side by side)
-Net::App* Manager::GetClient(int index) { return (&m_client)[index]; }
+Net::App* Manager::GetClient(int index) { return ClientSlot(index); }
 
 // 0x00532EB0
 Net::App* Manager::GetMatchClient() { return m_matchClient; }
 
 // 0x00532EC0
-uint32_t Manager::GetPlayerInfoFlags() { return Field<uint32_t>(this, kPlayerInfoFlags); }
+void* Manager::GetCamPlayer() { return m_camPlayer; }
 
 // 0x00532ED0
 void Manager::FindServersOnLan()
@@ -227,13 +215,14 @@ uint32_t Manager::GetStartInfoWord(int index) { return (&Field<uint32_t>(this, k
 // 0x00532FE0
 bool Manager::IsUntimedGame()
 {
-    if (m_gameMode == kNetGoalAttack || m_gameMode == kKing || m_gameMode == kNetKing ||
-        m_gameMode == kNetScoreChallenge || m_gameMode == kScoreChallenge)
+    uint32_t mode = Field<uint32_t>(this, kGameMode);
+    if (mode == kNetGoalAttack || mode == kKing || mode == kNetKing || mode == kNetScoreChallenge ||
+        mode == kScoreChallenge)
         return true;
     if (!InNetGame())
         return false;
     Prefs::Preferences* prefs = GetNetworkPreferences();
-    if (m_gameMode == kNetCtf && prefs->GetPreferenceChecksum(kCtfGameType, kChecksum) != kTimedCtf)
+    if (mode == kNetCtf && prefs->GetPreferenceChecksum(kCtfGameType, kChecksum) != kTimedCtf)
         return true;
     return prefs->GetPreferenceChecksum(kStopAtZero, kChecksum) == kBooleanTrue;
 }
@@ -265,16 +254,16 @@ void* Manager::GetLastLeader() { return Field<void*>(this, kLastLeader); }
 int Manager::GetLastLeadingTeam() { return Field<int>(this, kLastLeadingTeam); }
 
 // 0x005331B0 / 0x005331C0
-void Manager::SetServerListState(uint32_t value) { Field<uint32_t>(this, kServerListState) = value; }
-uint32_t Manager::GetServerListState() { return Field<uint32_t>(this, kServerListState); }
+void Manager::SetLastScoreUpdate(uint32_t time) { m_lastScoreUpdate = time; }
+uint32_t Manager::GetLastScoreUpdate() { return m_lastScoreUpdate; }
 
 // 0x005331D0 / 0x005331E0
 void Manager::SetFinalScoresReceived(bool received) { Field<bool>(this, kFinalScores) = received; }
 bool Manager::FinalScoresReceived() { return Field<bool>(this, kFinalScores); }
 
 // 0x005331F0 / 0x00533200
-void Manager::SetJoinState(int state) { Field<int>(this, kJoinState) = state; }
-int Manager::GetJoinState() { return Field<int>(this, kJoinState); }
+void Manager::SetJoinState(int state) { m_joinState = state; }
+int Manager::GetJoinState() { return m_joinState; }
 
 // 0x00533210 / 0x00533220
 void* Manager::GetCrown() { return Field<void*>(this, kCrown); }
@@ -287,40 +276,40 @@ void Manager::SetCrownSpawnPoint(char point) { Field<int>(this, kCrownSpawnPoint
 void Manager::SetLobbyId(uint32_t id) { Field<uint32_t>(this, kLobbyId) = id; }
 
 // 0x00533250
-void Manager::SendReady()
+void Manager::SendGameEnded()
 {
     Net::MsgDesc desc;
     desc.Construct();
     desc.m_data = &Field<uint8_t>(this, kGameId);
     desc.m_length = 1;
-    desc.m_id = kMsgReady;
+    desc.m_id = kMsgGameEnded;
     desc.m_queue = Net::MsgDesc::kQueueSequenced;
     desc.m_groupId = kGroupGame;
     static_cast<Net::Client*>(m_client)->EnqueueMessageToServer(&desc);
-    Field<uint8_t>(this, kReadyGameId) = Field<uint8_t>(this, kGameId);
+    Field<uint8_t>(this, kEndedGameId) = Field<uint8_t>(this, kGameId);
 }
 
 // 0x005332A0
-bool Manager::ReadySent() { return Field<uint8_t>(this, kReadyGameId) == Field<uint8_t>(this, kGameId); }
+bool Manager::GameEndedSent() { return Field<uint8_t>(this, kEndedGameId) == Field<uint8_t>(this, kGameId); }
 
 // 0x005332B0 / 0x005332C0 / 0x005332D0
-bool Manager::AllPlayersReady() { return Field<bool>(this, kAllReady); }
-void Manager::SetAllPlayersReady() { Field<bool>(this, kAllReady) = true; }
-void Manager::ClearAllPlayersReady() { Field<bool>(this, kAllReady) = false; }
+bool Manager::IsGameOver() { return m_gameOver; }
+void Manager::SetGameOver() { m_gameOver = true; }
+void Manager::ClearGameOver() { m_gameOver = false; }
 
 // 0x005332E0 / 0x005332F0
 bool Manager::CheatingNoted() { return Field<bool>(this, kCheatingNoted); }
 void Manager::NoteCheating() { Field<bool>(this, kCheatingNoted) = true; }
 
 // 0x00533300
-void Manager::SendAck()
+void Manager::SendReadyResponse()
 {
     Net::MsgDesc desc;
     desc.Construct();
-    uint32_t id = Field<uint32_t>(this, kAckId);
+    uint32_t id = m_latestReadyQuery;
     desc.m_data = &id;
     desc.m_length = sizeof(id);
-    desc.m_id = kMsgAck;
+    desc.m_id = kMsgReadyResponse;
     desc.m_queue = Net::MsgDesc::kQueueImportant;
     for (int i = 0; i < 2; ++i) {
         if (Net::App* client = GetClient(i))
@@ -370,15 +359,15 @@ REPLACE(0x00532C50, &Manager::GetMaxPlayers);
 REPLACE(0x00532CF0, &Manager::GetNumTeams);
 REPLACE(0x00532D60, &Manager::GetMaxObservers);
 REPLACE(0x00532E30, &Manager::RemoveHostTask);
-REPLACE(0x00532E40, &Manager::GetPublicIp);
-REPLACE(0x00532E50, &Manager::GetPublicPort);
-REPLACE(0x00532E60, &Manager::GetPrivatePort);
-REPLACE(0x00532E70, &Manager::SetPublicIp);
-REPLACE(0x00532E80, &Manager::SetPublicPort);
-REPLACE(0x00532E90, &Manager::SetPrivatePort);
+REPLACE(0x00532E40, &Manager::GetJoinIp);
+REPLACE(0x00532E50, &Manager::GetJoinPrivateIp);
+REPLACE(0x00532E60, &Manager::GetJoinPort);
+REPLACE(0x00532E70, &Manager::SetJoinIp);
+REPLACE(0x00532E80, &Manager::SetJoinPrivateIp);
+REPLACE(0x00532E90, &Manager::SetJoinPort);
 REPLACE(0x00532EA0, &Manager::GetClient);
 REPLACE_SOURCE_ONLY(0x00532EB0, &Manager::GetMatchClient);
-REPLACE(0x00532EC0, &Manager::GetPlayerInfoFlags);
+REPLACE(0x00532EC0, &Manager::GetCamPlayer);
 REPLACE(0x00532ED0, &Manager::FindServersOnLan);
 REPLACE(0x00532F70, &Manager::GetNetworkPreferences);
 REPLACE(0x00532F80, &Manager::GetTauntPreferences);
@@ -394,8 +383,8 @@ REPLACE(0x00533140, &Manager::ShouldDrawPlayerNames);
 REPLACE(0x00533180, &Manager::SetLastLeader);
 REPLACE(0x00533190, &Manager::GetLastLeader);
 REPLACE(0x005331A0, &Manager::GetLastLeadingTeam);
-REPLACE(0x005331B0, &Manager::SetServerListState);
-REPLACE(0x005331C0, &Manager::GetServerListState);
+REPLACE(0x005331B0, &Manager::SetLastScoreUpdate);
+REPLACE(0x005331C0, &Manager::GetLastScoreUpdate);
 REPLACE(0x005331D0, &Manager::SetFinalScoresReceived);
 REPLACE_SOURCE_ONLY(0x005331E0, &Manager::FinalScoresReceived);
 REPLACE(0x005331F0, &Manager::SetJoinState);
@@ -404,14 +393,14 @@ REPLACE_SOURCE_ONLY(0x00533210, &Manager::GetCrown);
 REPLACE(0x00533220, &Manager::ClearCrown);
 REPLACE(0x00533230, &Manager::SetCrownSpawnPoint);
 REPLACE(0x00533240, &Manager::SetLobbyId);
-REPLACE(0x00533250, &Manager::SendReady);
-REPLACE(0x005332A0, &Manager::ReadySent);
-REPLACE_SOURCE_ONLY(0x005332B0, &Manager::AllPlayersReady);
-REPLACE(0x005332C0, &Manager::SetAllPlayersReady);
-REPLACE(0x005332D0, &Manager::ClearAllPlayersReady);
+REPLACE(0x00533250, &Manager::SendGameEnded);
+REPLACE(0x005332A0, &Manager::GameEndedSent);
+REPLACE_SOURCE_ONLY(0x005332B0, &Manager::IsGameOver);
+REPLACE(0x005332C0, &Manager::SetGameOver);
+REPLACE(0x005332D0, &Manager::ClearGameOver);
 REPLACE_SOURCE_ONLY(0x005332E0, &Manager::CheatingNoted);
 REPLACE(0x005332F0, &Manager::NoteCheating);
-REPLACE(0x00533300, &Manager::SendAck);
+REPLACE(0x00533300, &Manager::SendReadyResponse);
 REPLACE(0x00533360, &Manager::GetPendingData);
 REPLACE(0x00533380, &Manager::HasCreatedGoals);
 REPLACE(0x005333A0, &Manager::PrepareCreatedGoals);

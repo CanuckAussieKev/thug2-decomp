@@ -125,10 +125,10 @@ void Small(bool original)
 {
     auto handle = [&](uint32_t address, MsgCode ours, uint8_t id) { Handle(original, address, ours, id); };
     Message({0x78, 0x56, 0x34, 0x12});
-    handle(0x0052D7B0, GameNet::HandleAckId, 0x25);
-    handle(0x0052D7D0, GameNet::HandleAck, 0x26);
+    handle(0x0052D7B0, GameNet::HandleReadyQuery, 0x25);
+    handle(0x0052D7D0, GameNet::HandleReadyResponse, 0x26);
     g_conn2Player = 0;
-    handle(0x0052D7D0, GameNet::HandleAck, 0x26);
+    handle(0x0052D7D0, GameNet::HandleReadyResponse, 0x26);
     handle(0x0052D800, GameNet::HandleObserve, 0x4D);
     Word<uint32_t>(kConn + 0x64) = 0;
     handle(0x0052D830, GameNet::HandleFlushImportant, 0x79);
@@ -175,17 +175,17 @@ void CdKeyAndJoin(bool original)
     // The game's state sent: a remote app (its task added), a local one.
     Word<uint32_t>(kManager + 0xD0) = At(kMisc + 0x480);
     Word<Net::App>(kApp).m_flags = 0;
-    handle(0x0052E1A0, GameNet::HandleGameStateSent, 0x42);
+    handle(0x0052E1A0, GameNet::HandleReadyToPlay, 0x42);
     Word<Net::App>(kApp).m_flags = Net::App::kLocal;
-    handle(0x0052E1A0, GameNet::HandleGameStateSent, 0x42);
+    handle(0x0052E1A0, GameNet::HandleReadyToPlay, 0x42);
     handle(0x0052EB70, GameNet::HandleParkMap, 0x6C);
     // Every player ready: not observing; observing a goal attack; observing something else.
-    handle(0x0052ED80, GameNet::HandleAllPlayersReady, 0x5A);
+    handle(0x0052ED80, GameNet::HandleGameOver, 0x5A);
     g_observing = true;
     g_gameType = 0xEC200EAA;
-    handle(0x0052ED80, GameNet::HandleAllPlayersReady, 0x5A);
+    handle(0x0052ED80, GameNet::HandleGameOver, 0x5A);
     g_gameType = 0x6C5FF266;
-    handle(0x0052ED80, GameNet::HandleAllPlayersReady, 0x5A);
+    handle(0x0052ED80, GameNet::HandleGameOver, 0x5A);
     handle(0x0052EDD0, GameNet::HandleGameEnded, 0x6A);
     // Teams: none / negative, a team game, the first count with and without a local skater.
     for (uint8_t teams : std::initializer_list<uint8_t>{0x00, 0xFE}) {

@@ -7,8 +7,9 @@ Ghidra's list plus 36 Ghidra never made (handlers and callbacks reached only thr
 INT3 padding before them and by the code addresses pushed as immediates; created in this agent's snapshot copy
 C:\Games\THUG2-ghidra-snapshot-sk6). 0x00532050 (the chat handler) and 0x005334D0 (the keyboard task) were done on main.
 Shared files touched: CMakeLists.txt (new files listed, additive); src/game/net/gamenet_manager.h (member declarations
-added; the placeholder m_unknownC split into m_client2 +0x0C, m_unknown10, m_matchClient +0x2C, m_gameMode +0x30 -
-nothing used m_unknownC).
+added; main's field names - from the THUGPRO join merge - used where they exist: m_joinMode, m_hostMode, m_gameOver,
+m_latestReadyQuery, m_readyToPlay, m_lastScoreUpdate, m_joinState, m_joinIp, m_joinPrivateIp, m_joinPort,
+m_camPlayer, m_matchClient, ClientSlot; the other fields reached by offset).
 Switch off: `[replacements] disable=gamenet_state.cpp` (and the later batches' files, listed with them).
 
 - [x] Batch SK6-1 (NOT run in the game yet; GameNet::Manager's small members, 58 functions 0x00532AA0-0x005333F0):
@@ -28,8 +29,8 @@ Switch off: `[replacements] disable=gamenet_state.cpp` (and the later batches' f
     netctf with ctf_game_type != timed_ctf, or stop_at_zero = boolean_true.
   - Messages: 0x00532ED0 FindServersOnLan (message 0x11, 12 bytes - the time, then 8 bytes the original leaves
     uninitialised, zeroed here - through the lobby client to the address asked for at 0x007CCA84 once, else broadcast
-    to port 5153 and to the command line's address 0x0067EFB8 unless -1); 0x00533250 SendReady (0x59, the game
-    number, sequenced in group 8, then +0x39 = +0x38); 0x00533300 SendAck (0x26, +0x188, important, through
+    to port 5153 and to the command line's address 0x0067EFB8 unless -1); 0x00533250 SendGameEnded (0x59, the game
+    number, sequenced in group 8, then +0x39 = +0x38); 0x00533300 SendReadyResponse (0x26, +0x188, important, through
     each client there is). 0x00532E30 removes the task at +0xF4 (a tail jump to Tsk::BaseTask::Remove).
   - The goal editor's created goals: 0x00533380 (0x004E7E50(0) > 0, the manager unused), 0x005333A0 (the level at
     +0x1D8 and +0x194C, 0x004EBB70(level, +0x1DC, 6000), size + 4 at +0x1948), 0x005333E0 / 0x005333F0.

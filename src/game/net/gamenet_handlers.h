@@ -36,11 +36,12 @@ struct NewPlayerSearchDestructors {
 };
 
 // --- The client's handlers (gamenet_handlers.cpp) ---
-// 0x0052D7B0 (0x25): the acknowledgement id the server wants back (+0x188, the message's word). 1.
-int __cdecl HandleAckId(Net::MsgHandlerContext* context);
-// 0x0052D7D0 (0x26, the server's too): the packet acknowledged; the sender's player (by connection) is given the
-// id - if it's the one it owes, its connection is ready again. 1.
-int __cdecl HandleAck(Net::MsgHandlerContext* context);
+// 0x0052D7B0 (0x25): the server's ready query: its id (the message's word) kept in m_latestReadyQuery, for
+// SendReadyResponse. 1.
+int __cdecl HandleReadyQuery(Net::MsgHandlerContext* context);
+// 0x0052D7D0 (0x26, the server's too): a ready response: the packet acknowledged; the sender's player (by
+// connection) is given the id - if it's the query it was sent, its connection is ready again. 1.
+int __cdecl HandleReadyResponse(Net::MsgHandlerContext* context);
 // 0x0052D800 (0x4D): out of surveyor mode (the script command ExitSurveyorMode), into observing (0x0053E650). 1.
 int __cdecl HandleObserve(Net::MsgHandlerContext* context);
 // 0x0052D830 (0x79): a remote connection's important and sequenced queues emptied. 1.
@@ -70,14 +71,14 @@ int __cdecl HandleKeepAlive(Net::MsgHandlerContext* context);
 // 0x0052DCC0 (0x53): joined: the join state 6, message 0x54 to the server, and (on a client) the skate module's
 // handlers on each local client. 1.
 int __cdecl HandleJoinAccepted(Net::MsgHandlerContext* context);
-// 0x0052E1A0 (0x42): the server has sent the game's state: 0x00537140(true), and (not a local client) the task at
-// +0xD0 added to the logic tasks. 1.
-int __cdecl HandleGameStateSent(Net::MsgHandlerContext* context);
+// 0x0052E1A0 (0x42): the server has sent the game's state: ready to play (0x00537140(true): m_readyToPlay, the
+// skaters told), and (not a local client) the add-new-players task added to the logic tasks. 1.
+int __cdecl HandleReadyToPlay(Net::MsgHandlerContext* context);
 // 0x0052EB70 (0x6C, the server's too): the created park's map (0x0058D6B0 with the message), its CRC computed (and
 // dropped). 1.
 int __cdecl HandleParkMap(Net::MsgHandlerContext* context);
-// 0x0052ED80 (0x5A): every player is ready; an observer of a goal attack gets the rankings. 1.
-int __cdecl HandleAllPlayersReady(Net::MsgHandlerContext* context);
+// 0x0052ED80 (0x5A): game over (every player's game has ended); an observer of a goal attack gets the rankings. 1.
+int __cdecl HandleGameOver(Net::MsgHandlerContext* context);
 // 0x0052EDD0 (0x6A): the game has ended: the trick objects reset (0x005889F0), create_game_ended_dialog,
 // 0x00537620. 1.
 int __cdecl HandleGameEnded(Net::MsgHandlerContext* context);

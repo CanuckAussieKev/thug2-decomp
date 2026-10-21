@@ -145,14 +145,14 @@ NewPlayerSearchDestructors* NewPlayerSearchDestructors::Destroy(unsigned int fla
 }
 
 // 0x0052D7B0
-int __cdecl HandleAckId(Net::MsgHandlerContext* context)
+int __cdecl HandleReadyQuery(Net::MsgHandlerContext* context)
 {
-    Field<uint32_t>(ManagerOf(context), 0x188) = MessageWord(context, 0);
+    ManagerOf(context)->m_latestReadyQuery = MessageWord(context, 0);
     return kContinue;
 }
 
 // 0x0052D7D0
-int __cdecl HandleAck(Net::MsgHandlerContext* context)
+int __cdecl HandleReadyResponse(Net::MsgHandlerContext* context)
 {
     context->m_Acknowledge = true;
     if (uint8_t* player = PlayerByConnection(ManagerOf(context), context->m_Conn))
@@ -304,13 +304,13 @@ int __cdecl HandleJoinAccepted(Net::MsgHandlerContext* context)
 }
 
 // 0x0052E1A0
-int __cdecl HandleGameStateSent(Net::MsgHandlerContext* context)
+int __cdecl HandleReadyToPlay(Net::MsgHandlerContext* context)
 {
     auto* logicTasks = reinterpret_cast<Tsk::Stack*>(GameVariable<uint8_t*>(0x00696D68) + 0x04);
     Manager* manager = ManagerOf(context);
-    Call(0x00537140, manager, true);
+    Call(0x00537140, manager, true); // (m_readyToPlay set, the skaters told)
     if (!context->m_App->IsLocal())
-        logicTasks->AddTask(Field<Tsk::BaseTask*>(manager, 0xD0));
+        logicTasks->AddTask(manager->m_clientAddNewPlayersTask);
     return kContinue;
 }
 
@@ -324,9 +324,9 @@ int __cdecl HandleParkMap(Net::MsgHandlerContext* context)
 }
 
 // 0x0052ED80
-int __cdecl HandleAllPlayersReady(Net::MsgHandlerContext* context)
+int __cdecl HandleGameOver(Net::MsgHandlerContext* context)
 {
-    ManagerOf(context)->SetAllPlayersReady();
+    ManagerOf(context)->SetGameOver();
     if (GameFunction<bool(__cdecl*)(void*, void*)>(0x005A0D90)(nullptr, nullptr) && GameType() == kNetGoalAttack)
         Run(kCreateRankings); // (IsObserving)
     return kContinue;
@@ -437,8 +437,8 @@ REPLACE(0x0052DB60, &GameNet::PlayerSearchDestructors::DestroyBody);
 REPLACE(0x0052DB70, &GameNet::NewPlayerSearchDestructors::DestroyBody);
 REPLACE(0x0052F730, &GameNet::PlayerSearchDestructors::Destroy);
 REPLACE(0x0052F760, &GameNet::NewPlayerSearchDestructors::Destroy);
-REPLACE(0x0052D7B0, GameNet::HandleAckId);
-REPLACE(0x0052D7D0, GameNet::HandleAck);
+REPLACE(0x0052D7B0, GameNet::HandleReadyQuery);
+REPLACE(0x0052D7D0, GameNet::HandleReadyResponse);
 REPLACE(0x0052D800, GameNet::HandleObserve);
 REPLACE(0x0052D830, GameNet::HandleFlushImportant);
 REPLACE(0x0052D850, GameNet::HandleStoleFlag);
@@ -453,9 +453,9 @@ REPLACE(0x0052DAC0, GameNet::HandleNothing);
 REPLACE(0x0052DAD0, GameNet::HandleCdKeyChallenge);
 REPLACE(0x0052DCA0, GameNet::HandleKeepAlive);
 REPLACE(0x0052DCC0, GameNet::HandleJoinAccepted);
-REPLACE(0x0052E1A0, GameNet::HandleGameStateSent);
+REPLACE(0x0052E1A0, GameNet::HandleReadyToPlay);
 REPLACE(0x0052EB70, GameNet::HandleParkMap);
-REPLACE(0x0052ED80, GameNet::HandleAllPlayersReady);
+REPLACE(0x0052ED80, GameNet::HandleGameOver);
 REPLACE(0x0052EDD0, GameNet::HandleGameEnded);
 REPLACE(0x0052F2D0, GameNet::HandleChooseTeam);
 REPLACE(0x0052F370, GameNet::HandleChecksumRequest);
