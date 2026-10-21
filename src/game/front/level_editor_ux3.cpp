@@ -108,31 +108,31 @@ void Init()
     SetChecked(kKeys, [] { return g_open[kKeysWindow] ? 1 : 0; });
     SetChecked(kSnapshots, [] { return g_open[kSnapshotsWindow] ? 1 : 0; });
     SetChecked(kCollision, [] { return SettingsNow().collision ? 1 : 0; });
-    AddToggle("snap25", "Snap 25", "Moves snap to a 25-unit grid (Ctrl while moving does the same)",
+    AddToggle("snap25", "Snap", "Snap moves to the grid",
               [] { return SettingsNow().snapAlways ? 1 : 0; },
               [] { Ask(Ui::Request::kSnapAlways, SettingsNow().snapAlways ? 0 : 1); });
-    AddToggle("carry_objects", "Carry objects", "Moving scenery takes along what stands on it",
+    AddToggle("carry_objects", "Carry Objects", "Move objects standing on scenery with it",
               [] { return SettingsNow().carry ? 1 : 0; }, [] { Ask(Ui::Request::kCarry, SettingsNow().carry ? 0 : 1); });
     struct PickToggle {
         const char *id, *name;
         uint32_t bit;
     };
-    static const PickToggle kPicks[] = {{"pick_nodes", "Pick: nodes", Picking::kNodes},
-                                        {"pick_objects", "Pick: objects", Picking::kObjects},
-                                        {"pick_scenery", "Pick: scenery", Picking::kScenery}};
+    static const PickToggle kPicks[] = {{"pick_nodes", "Pick Nodes", Picking::kNodes},
+                                        {"pick_objects", "Pick Objects", Picking::kObjects},
+                                        {"pick_scenery", "Pick Scenery", Picking::kScenery}};
     // (UX4: the Overlays menu's switches; UX5: a note where the view looks, the budget meter)
     for (const Overlays::BitInfo& info : Overlays::Bits()) {
         uint32_t bit = info.bit;
         std::string id = "overlay_" + std::to_string(bit);
-        AddToggle(id.c_str(), (std::string("Overlay: ") + info.label).c_str(), info.tip,
+        AddToggle(id.c_str(), (std::string("Overlay ") + info.label).c_str(), info.tip,
                   [bit] { return Overlays::Shown(bit) ? 1 : 0; }, [bit] { Overlays::Set(bit, !Overlays::Shown(bit)); });
     }
     {
         Actions::Action note;
         note.id = "note_here";
-        note.name = "+ Note here";
+        note.name = "Add Note";
         note.category = "Edit";
-        note.tip = "A note pin where the view looks (editor only: never in play, never baked)";
+        note.tip = "Add a note at the view center (editor only)";
         note.run = [] { Notes::AddHereQueued(); };
         Actions::Register(note);
         Actions::Action budget;
@@ -141,13 +141,13 @@ void Init()
         budget.category = "Panels";
         budget.kind = Actions::Kind::Info;
         budget.rebindable = false;
-        budget.keysText = "The toolbar's meter";
-        budget.tip = "How much of the game's limits the edited copy uses - hover / click the toolbar's meter";
+        budget.keysText = "Tool strip meter";
+        budget.tip = "Level usage against engine limits";
         Actions::Register(budget);
     }
     for (const PickToggle& p : kPicks) {
         uint32_t bit = p.bit;
-        AddToggle(p.id, p.name, "What a click in the view may take",
+        AddToggle(p.id, p.name, "What a click in the view selects",
                   [bit] { return (SettingsNow().pickFilter & bit) ? 1 : 0; },
                   [bit] { Ask(Ui::Request::kPickFilter, 0, SettingsNow().pickFilter ^ bit); });
     }
@@ -241,7 +241,7 @@ void GoTo(const ChangeRow& row)
     uint32_t id = row.entry.id;
     Queue([id] {
         if (!id || !GoToThing(id))
-            Say("Nothing to go to for that change (it isn't in the level now)");
+            Say("Item not found in the level");
     });
 }
 
@@ -251,7 +251,7 @@ void Revert(const ChangeRow& row)
     Queue([record, summary] {
         std::string text, message;
         if (!Layout::CaptureText(&text)) {
-            Say("Not in a level");
+            Say("No level loaded");
             return;
         }
         // (the record as it is now: the line the list showed, found again)
@@ -266,15 +266,15 @@ void Revert(const ChangeRow& row)
             start = end + 1;
         }
         if (line < 0) {
-            Say("That change has changed since - the list is refreshed");
+            Say("List refreshed");
             g_refreshAsked = true;
             return;
         }
         std::string label = "Revert: " + summary.substr(0, 48);
         if (ApplyLayoutStep(Changes::Without(text, line), label.c_str(), &message))
-            Say("Reverted: " + summary + " (Ctrl+Z puts it back)");
+            Say("Reverted: " + summary);
         else
-            Say("Couldn't revert it: " + message);
+            Say("Couldn't revert: " + message);
         g_refreshAsked = true;
     });
 }

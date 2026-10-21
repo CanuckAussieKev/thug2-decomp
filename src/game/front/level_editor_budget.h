@@ -68,8 +68,10 @@ std::string Bytes(double bytes);
 void Observe();
 // The meters now (empty outside a level).
 std::vector<Meter> Meters();
-// The toolbar's bar (ImGui; a click opens the Problems window's Budget tab) and the tab's table.
-void ToolbarItem(float scale);
+// The tool strip's meter (level_editor_ui_strip.h): the worst meter's fill and colour (false: no level), its tooltip
+// (every meter; ImGui), and the Problems window's Budget tab's table.
+bool StripMeter(float* fill, uint32_t* argb);
+void Tooltip();
 void Table();
 
 } // namespace Front::LevelEditor::Budget

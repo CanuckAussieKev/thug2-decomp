@@ -252,7 +252,7 @@ void EnterOrtho(const Rig& rig, View view, float yaw, float pitch, V3 pivot, flo
     if (rig.haveSelection)
         *rig.orbitDistance = EyeDistance(g_ortho.equivalent);
     g_ortho.lastEye = *rig.pos;
-    Hud::Message(std::string(ViewName(view)) + " (orthographic) - numpad 5: perspective; the wheel zooms", 2.5);
+    Hud::Message(std::string(ViewName(view)) + " (orthographic)", 2.5);
 }
 
 void ExitOrtho(const Rig& rig)
@@ -434,7 +434,7 @@ void Keys(const Rig& rig, const uint8_t* keys, bool ctrl, bool browserOpen)
     // F: the selection framed (the browser has its own F).
     if (Actions::Pressed(Actions::kFrameSelection) && !browserOpen) {
         if (!rig.haveSelection) {
-            Hud::Message("F frames the selection - nothing is selected", 2.0);
+            Hud::Message("Nothing selected", 2.0);
         } else {
             float tanHalf = std::min(rig.lens.tanX, rig.lens.tanY);
             if (Ortho()) {

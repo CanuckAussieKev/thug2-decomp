@@ -115,18 +115,18 @@ void StoreSet(const std::string& name)
     Organize::State next = Organize::Current();
     std::vector<Organize::Member> members = SelectionMembers();
     if (!Nav::StoreGroup(&next, name, members)) {
-        Say("Select something first - \"" + name + "\" is made of the selection");
+        Say("Nothing selected");
         return;
     }
     Organize::Change(next, "Store selection set");
-    Say("\"" + name + "\" stored: " + std::to_string(members.size()) + " (the Outliner's Groups, the toolbar's Sets)");
+    Say("Stored " + name + " (" + std::to_string(members.size()) + ")");
 }
 
 void RecallSet(const std::string& name)
 {
     int at = Nav::FindGroup(Organize::Current(), name);
     if (at < 0) {
-        Say("No \"" + name + "\" yet - Ctrl+Alt+digit stores the selection as a set");
+        Say(name + " is empty");
         return;
     }
     Organize::SelectGroup(at);
@@ -135,7 +135,7 @@ void RecallSet(const std::string& name)
 void AddToSet(int index)
 {
     if (SelectionMembers().empty()) {
-        Say("Select something to add first");
+        Say("Nothing selected");
         return;
     }
     Organize::AddToGroup(index);
@@ -145,7 +145,7 @@ void TakeFromSet(int index)
 {
     Organize::State next = Organize::Current();
     if (!Nav::RemoveFromGroup(&next, index, SelectionMembers())) {
-        Say("None of the selection is in that set");
+        Say("Selection is not in the set");
         return;
     }
     Organize::Change(next, "Take from selection set");
@@ -159,34 +159,30 @@ void RegisterActions()
     using Actions::kCtrl;
     using Actions::kShift;
     using Actions::Kind;
-    g_ids.pieContext = Add("pie_context", "Pie menu: actions", "Panels", Kind::Press,
+    g_ids.pieContext = Add("pie_context", "Pie Menu", "Panels", Kind::Press,
                            {K(SDL_SCANCODE_Q), K(SDL_SCANCODE_TAB)},
-                           "Hold for a pie of the common actions for the selection (or, nothing selected, adding and "
-                           "tools); point and let go - or tap it and click (not while the right button flies)");
-    g_ids.pieView = Add("pie_view", "Pie menu: view", "Panels", Kind::Press,
+                           "Hold for common actions; release over one to run it");
+    g_ids.pieView = Add("pie_view", "View Pie Menu", "Panels", Kind::Press,
                         {K(SDL_SCANCODE_Q, kAlt), K(SDL_SCANCODE_TAB, kShift)},
-                        "Hold for a pie of the view modes, collision, trigger volumes, jump arcs and views");
-    g_ids.walk = Add("walk_mode", "Walk mode", "Camera", Kind::Press, {K(SDL_SCANCODE_GRAVE, kShift)},
-                     "The camera at a skater's eye height with gravity: W A S D walk, Space jumps, Shift runs, the mouse "
-                     "looks; again or Esc stops");
-    g_ids.follow = Add("follow_selection", "Follow the selection", "Camera", Kind::Press, {K(SDL_SCANCODE_F, kShift)},
-                       "Frames the selection and keeps the camera with it as it moves (even after flying off it); "
-                       "again: stops", nullptr, [] { return g_following ? 1 : 0; });
-    g_ids.teleport = Add("teleport", "Teleport to the cursor", "Camera", Kind::Press, {},
-                         "The camera to the surface under the cursor (as a double click on it does)");
-    g_ids.pad = Add("controller_mode", "Controller mode", "Settings", Kind::Toggle, {},
-                    "A game controller drives the editor: sticks fly / look, triggers down / up, A selects, B backs "
-                    "out, X / Y pies, D-pad nudges ([editor] pad=1)",
+                        "Hold for view modes and overlays");
+    g_ids.walk = Add("walk_mode", "Walk Mode", "Camera", Kind::Press, {K(SDL_SCANCODE_GRAVE, kShift)},
+                     "Walk at skater height with gravity");
+    g_ids.follow = Add("follow_selection", "Follow Selection", "Camera", Kind::Press, {K(SDL_SCANCODE_F, kShift)},
+                       "Keep the camera on the selection as it moves", nullptr, [] { return g_following ? 1 : 0; });
+    g_ids.teleport = Add("teleport", "Go to Cursor", "Camera", Kind::Press, {},
+                         "Move the camera to the surface under the cursor");
+    g_ids.pad = Add("controller_mode", "Controller Mode", "Settings", Kind::Toggle, {},
+                    "Use a game controller in the editor",
                     [] { SetPadMode(!g_padMode); }, [] { return g_padMode ? 1 : 0; });
     for (int i = 0; i < Nav::kQuickSets; ++i) {
         std::string n = std::to_string(i + 1);
         std::string storeId = "quick_set_store_" + n, recallId = "quick_set_" + n;
-        std::string storeName = "Store selection set " + n, recallName = "Select set " + n;
+        std::string storeName = "Store Set " + n, recallName = "Select Set " + n;
         g_ids.store[i] = Add(storeId.c_str(), storeName.c_str(), "Select", Kind::Press,
                              {K(SDL_SCANCODE_1 + i, kCtrl | kAlt)},
-                             "The selection kept as \"Set n\" (a group: saved in the layout, in the Outliner's Groups)");
+                             "Store the selection as Set n");
         g_ids.recall[i] = Add(recallId.c_str(), recallName.c_str(), "Select", Kind::Press,
-                              {K(SDL_SCANCODE_1 + i, kAlt | kShift)}, "\"Set n\" selected again");
+                              {K(SDL_SCANCODE_1 + i, kAlt | kShift)}, "Select Set n");
         for (int index : {g_ids.store[i], g_ids.recall[i]}) {
             if (Actions::Action* a = Actions::Get(index)) {
                 size_t at = a->tip.find("Set n");
@@ -195,13 +191,10 @@ void RegisterActions()
             }
         }
     }
-    AddHint("hint_drill", "Drill through", "Select", "Alt+wheel",
-            "Steps what a click would take through everything under the cursor, front to back (then click)");
-    AddHint("hint_teleport", "Go there", "Camera", "Double-click",
-            "On a surface (nothing a click selects): the camera glides there");
+    AddHint("hint_drill", "Cycle Under Cursor", "Select", "Alt+wheel", "Step through items under the cursor");
+    AddHint("hint_teleport", "Go to Surface", "Camera", "Double-click", "Move the camera to the clicked surface");
     AddHint("hint_pad", "Controller", "Camera", "A game controller",
-            "Controller mode (Preferences): sticks fly / look, LT / RT down / up, A select, B back, X / Y pies, D-pad "
-            "nudge, LB / RB turn, R3 frame, Back undo");
+            "Enable Controller Mode in Preferences");
 }
 
 void Init()
@@ -235,8 +228,7 @@ void SetPadMode(bool on)
 {
     g_padMode = on;
     WritePrivateProfileStringA("editor", "pad", on ? "1" : "0", IniPath().c_str());
-    Say(on ? "Controller mode: the first game controller drives the editor (A selects at the crosshair)"
-           : "Controller mode off");
+    Say(on ? "Controller mode on" : "Controller mode off");
 }
 
 namespace {
@@ -421,14 +413,14 @@ void Update(Frame& f)
     if (Pressed(g_ids.follow) && !f.dragging) {
         if (g_following) {
             g_following = false;
-            Say("Follow off (Shift+F)");
+            Say("Follow off");
         } else if (!f.haveSelection) {
-            Say("Select something to follow first (Shift+F)");
+            Say("Nothing selected");
         } else {
             g_following = true;
             g_follower = {};
             Trigger(kFrameSelection);
-            Say("Following the selection - the camera keeps with it as it moves (Shift+F stops)");
+            Say("Following selection");
         }
     }
     // The pies.
@@ -513,7 +505,7 @@ void SetWalking(bool on, V3 camera)
     if (on) {
         g_walker = Nav::WalkerAt(camera);
         g_glide.on = false;
-        Say("Walk mode: W A S D walk, Space jumps, Shift runs, the mouse looks - Shift+` or Esc stops", 5.0);
+        Say("Walk Mode: WASD walk, Space jump, Shift run, Esc exit", 5.0);
     } else {
         Say("Walk mode off");
     }

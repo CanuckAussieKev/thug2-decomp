@@ -80,8 +80,7 @@ void ModelSection(uint32_t id, Script::CStruct* s, std::vector<Ui::Request>* req
         }
         ImGui::EndCombo();
     }
-    ImGui::TextDisabled("A model another object of this level has (loaded). Made again where it stands once the game "
-                        "removes the old one (at the latest on leaving the editor); saved as its model= field.");
+    ImGui::TextDisabled("Models already loaded by this level");
 }
 
 void PhysicsSection(uint32_t name, Script::CStruct* s, std::vector<Ui::Request>* requests)
@@ -92,7 +91,7 @@ void PhysicsSection(uint32_t name, Script::CStruct* s, std::vector<Ui::Request>*
     if (!s || index < 0 || !s->ContainsFlag(kBouncy))
         return;
     ImGui::Spacing();
-    ImGui::SeparatorText("Physics (bouncy object)");
+    ImGui::SeparatorText("Physics");
     std::vector<Fields::Row> rows = Fields::RowsOf(Nodes::All()[index]);
     if (ImGui::BeginTable("##physics", 2, ImGuiTableFlags_SizingStretchProp)) {
         for (const char* field : kPhysics) {
@@ -117,7 +116,7 @@ void PhysicsSection(uint32_t name, Script::CStruct* s, std::vector<Ui::Request>*
                 text != buffer)
                 FieldRequest(requests, name, key, row->value.kind, buffer);
             if (ImGui::IsItemHovered())
-                ImGui::SetTooltip("Enter sets it (on reload: the level makes the rigid body with it; Ctrl+Z undoes)");
+                ImGui::SetTooltip("Applies on reload");
             ImGui::PopID();
         }
         Script::CArray* contacts = nullptr;
@@ -126,11 +125,11 @@ void PhysicsSection(uint32_t name, Script::CStruct* s, std::vector<Ui::Request>*
             ImGui::TableNextColumn();
             ImGui::TextDisabled("contacts");
             ImGui::TableNextColumn();
-            ImGui::Text("%u points (the fields table)", static_cast<unsigned>(contacts->m_size));
+            ImGui::Text("%u points", static_cast<unsigned>(contacts->m_size));
         }
         ImGui::EndTable();
     }
-    ImGui::TextDisabled("A set of these: Place (N) > Bouncy set.");
+    
 }
 
 void MovingSection(uint32_t id)
@@ -138,14 +137,13 @@ void MovingSection(uint32_t id)
     if (!Live(id) || !Detail::HasPath(id))
         return;
     ImGui::Spacing();
-    ImGui::SeparatorText("Moving along its path");
+    ImGui::SeparatorText("Path Speed");
     float set = Detail::SpeedSet(id);
     bool own = set > 0.0f;
     if (ImGui::Checkbox("Path speed", &own))
         Queue([id, own] { Detail::ChangeSpeed(id, own ? Detail::DefaultMph(id) : 0.0f); });
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Off: the speed its scripts give it. On: Obj_SetPathVelocity with this speed whenever it's made "
-                          "(a script setting its own speed later wins). Saved (speed record).");
+        ImGui::SetTooltip("Override the scripted path speed");
     if (own) {
         ImGui::SameLine();
         float mph = set;
@@ -168,7 +166,7 @@ void MovingSection(uint32_t id)
         ImGui::TextDisabled("%.0f of %.0f along the path at %.1f mph", Detail::PreviewDistance(), Detail::PreviewLength(),
                             Detail::DefaultMph(id));
     } else {
-        ImGui::TextDisabled("Preview: moves it along its path while paused (no script runs; Stop puts it back).");
+        ImGui::TextDisabled("Preview along the path");
     }
 }
 
@@ -224,12 +222,11 @@ void SoundSection(uint32_t name)
         }
         active = active || ImGui::IsItemActive();
     } else {
-        ImGui::TextDisabled("Its shape is the level sector of its name (a box): no radius.");
+        ImGui::TextDisabled("Area set by its level sector");
     }
     if (active)
         Detail::SetUiActive(true);
-    ImGui::TextDisabled("Played from the emitter's nearest point to the listener with the sound's own range, again "
-                        "whenever it ends, while in range - silent while the game is paused. Saved (emitter record).");
+    ImGui::TextDisabled("Loops while in range");
 }
 
 } // namespace
@@ -260,7 +257,7 @@ void InspectorSection(int node, uint32_t object, ImFont* mono, std::vector<Ui::R
     } else if (family == static_cast<int>(Nodes::Family::Particle) ||
                (family == static_cast<int>(Nodes::Family::Object) && !Live(name))) {
         ImGui::Spacing();
-        ImGui::SeparatorText(family == static_cast<int>(Nodes::Family::Particle) ? "Particle system" : "Not created yet");
+        ImGui::SeparatorText(family == static_cast<int>(Nodes::Family::Particle) ? "Particle System" : "Not Spawned");
         ImGui::TextWrapped("%s", WhenApplied(name, family));
     }
     if (family == static_cast<int>(Nodes::Family::Object) && Live(name)) {
@@ -272,10 +269,9 @@ void InspectorSection(int node, uint32_t object, ImFont* mono, std::vector<Ui::R
 
 void ViewOptions()
 {
-    ImGui::Checkbox("Show uncreated objects", &ShowUncreated());
+    ImGui::Checkbox("Show Unspawned Objects", &ShowUncreated());
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Objects whose nodes the level hasn't made (not CreatedAtStart - a script creates them later) "
-                          "drawn as ghosts: a box and the name. Click the diamond to select and move one.");
+        ImGui::SetTooltip("Show objects created later by scripts");
 }
 
 } // namespace Front::LevelEditor::Entities

@@ -365,11 +365,10 @@ const char* LimitMessage(Kind kind, const Counts& counts)
     switch (kind) {
     case Kind::Spawn:
     case Kind::TeamSpawn:
-        return counts.restarts >= kMaxRestarts ? "This level has 256 restarts - the most the game's restart lookup holds"
+        return counts.restarts >= kMaxRestarts ? "Restart limit reached (256)"
                                                : nullptr;
     case Kind::Crown:
-        return counts.crowns >= kMaxCrowns ? "This level has 10 crowns - the most King of the Hill holds (hide one "
-                                             "first)"
+        return counts.crowns >= kMaxCrowns ? "Crown limit reached (10)"
                                            : nullptr;
     case Kind::Light:
         if (counts.dynamicLights >= kMaxDynamicLights)
@@ -812,8 +811,8 @@ const char* WhyNot(Kind kind, Team team)
         return limit;
     std::string fixed = FixedName(kind, team);
     if (!fixed.empty() && (NameTaken(fixed) || (kind == Kind::FlagSet && NameTaken(fixed + "_Base"))))
-        return kind == Kind::FlagSet ? "This level has that team's flag already (the game finds it by name) - move it"
-                                     : "This level has that team's spawn already (the game finds it by name) - move it";
+        return kind == Kind::FlagSet ? "This team flag already exists"
+                                     : "This team spawn already exists";
     return nullptr;
 }
 
@@ -822,7 +821,7 @@ const char* WhyNotLobbyFlag(Team team)
     if (!InLevel())
         return "Not in a level";
     if (NameTaken(LobbyFlagName(team)))
-        return "This level has that team's lobby flag already (the game finds it by name) - move it";
+        return "This team flag already exists";
     return nullptr;
 }
 
@@ -970,8 +969,8 @@ bool MoveCrown(uint32_t name, int delta, std::string* message)
             continue;
         List list = g_list;
         if (!NodeCreate::MoveCrown(&list, spec.name, delta)) {
-            *message = delta < 0 ? "It's the first crown you added - the level's own crowns come before it"
-                                 : "It's the last crown";
+            *message = delta < 0 ? "Already the first added crown"
+                                 : "Already the last crown";
             return false;
         }
         std::vector<std::string> order;
@@ -980,7 +979,7 @@ bool MoveCrown(uint32_t name, int delta, std::string* message)
         SetOrder(order);
         return true;
     }
-    *message = "Only crowns you added can be reordered";
+    *message = "Only added crowns can be reordered";
     return false;
 }
 
@@ -998,7 +997,7 @@ bool CanHide(const Nodes::Node& node, const char** why)
 {
     *why = nullptr;
     if (node.added) {
-        *why = "An added node is deleted, not hidden";
+        *why = "Added nodes are deleted, not hidden";
         return false;
     }
     if (!node.name) {
@@ -1014,13 +1013,13 @@ bool CanHide(const Nodes::Node& node, const char** why)
     case Nodes::Family::Trigger:
         break;
     default:
-        *why = "Only spawns, crowns, flags, lights, sounds and proximity nodes can be hidden yet";
+        *why = "This node type can't be hidden";
         return false;
     }
     if (node.hidden)
         return true;
     if (node.family == Nodes::Family::Crown && Nodes::Walked(Nodes::Family::Crown) <= 1) {
-        *why = "It's the level's last crown - King of the Hill needs one (the game would divide by zero)";
+        *why = "Can't hide the last crown";
         return false;
     }
     if (node.family == Nodes::Family::Spawn) {
@@ -1030,7 +1029,7 @@ bool CanHide(const Nodes::Node& node, const char** why)
                 others |= n.restartTypes;
         }
         if (HideLeavesNoRestart(node.restartTypes, others)) {
-            *why = "It's the level's last Player1 or Multiplayer restart - the skater would have nowhere to start";
+            *why = "Can't hide the last start point";
             return false;
         }
     }

@@ -157,7 +157,7 @@ void Hover(V3 origin, V3 unitDir, float x, float y, bool noSnap)
 std::string Click()
 {
     if (!g_armed || !g_haveHover)
-        return "Ruler: no collision under the cursor";
+        return "Ruler: no surface under cursor";
     if (g_ends == 1) {
         g_b = g_hover;
         g_ends = 2;
@@ -165,7 +165,7 @@ std::string Click()
     }
     g_a = g_hover;
     g_ends = 1;
-    return "Ruler: the first end placed - click the second";
+    return "Ruler: click the second point";
 }
 
 void AddOverlay(const Overlays::Painter& painter)

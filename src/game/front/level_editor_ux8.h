@@ -132,10 +132,11 @@ struct Fonts {
 // Over the view: the pie, the controller's crosshair, walk mode's crosshair; `viewport` the layout's view rectangle
 // (window pixels - the crosshair's place).
 void Windows(float vx, float vy, float vw, float vh, const Fonts& fonts);
-// The toolbar's Sets menu.
-void Toolbar(const Fonts& fonts);
-// The status bar's hints (key caps, mouse and controller glyphs).
-void HintRow(const std::vector<std::pair<std::string, std::string>>& hints, const Fonts& fonts);
+// The Edit menu's Selection Sets submenu (level_editor_ui_menus.cpp).
+void SetsMenu(const Fonts& fonts);
+// The status bar's hints (key caps, mouse and controller glyphs); with `maxWidth` (pixels) the hints that don't fit are
+// left out, an ellipsis in their place.
+void HintRow(const std::vector<std::pair<std::string, std::string>>& hints, const Fonts& fonts, float maxWidth = 0.0f);
 // The preferences window's section (controller mode).
 void PrefsSection();
 

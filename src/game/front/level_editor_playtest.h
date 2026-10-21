@@ -197,10 +197,9 @@ const char* GapNote(const std::string& name);
 // Play from this restart (the Inspector's button): the editor closes into play, the skater put at `restart`.
 void PlayFromRestart(uint32_t restart);
 
-// The UI (level_editor_playtest_ui.cpp, ImGui): the Trail window, the toolbar's buttons, a restart's Inspector row.
+// The UI (level_editor_playtest_ui.cpp, ImGui): the Trail window, a restart's Inspector row.
 bool& WindowOpen();
 void Window(float scale, ImFont* heading, ImFont* small);
-void ToolbarButtons();
 void RestartSection(int nodeIndex);
 // What the UI asks for (done in the next Tick).
 enum class Ask { None, ToggleSimulate, Clear, Save, Load, ToggleKeepSimulation };

@@ -508,28 +508,26 @@ When WhenApplied(Nodes::Family family, uint32_t key, const char** note)
     const char* dummy = nullptr;
     const char** out = note ? note : &dummy;
     if (key == KeyName() || key == KeyClass() || key == KeyType()) {
-        *out = "Its identity: links, scripts and the editor's families go by it - place a new node instead.";
+        *out = "Read-only";
         return When::ReadOnly;
     }
     if (key == KeyPos() || key == KeyAngles()) {
-        *out = "The Position / Heading above (or drag it in the view).";
+        *out = "Edit with Position / Heading";
         return When::Elsewhere;
     }
     if (key == KeyLinks()) {
-        *out = "Live: a rail, ladder or path is linked again at once, a ped or car made again on its new path; other "
-               "nodes' links are read when the game follows them. Saved as a links record.";
+        *out = "Live";
         return When::Live;
     }
     if (key == KeyTerrain() && family == Nodes::Family::Rail) {
-        *out = "A rail's terrain: the Terrain list above (the whole rail, live).";
+        *out = "Edit with Terrain";
         return When::Elsewhere;
     }
     if (key == KeyRestartTypes() && family == Nodes::Family::Spawn) {
-        *out = "Live: read at every respawn (and by F8, the restart tester).";
+        *out = "Live";
         return When::Live;
     }
-    *out = "On reload: the level reads it when it makes the node's object, trigger, light or sound - written now, and "
-           "into the node again when the edited copy loads.";
+    *out = "Applies on level reload";
     return When::Reload;
 }
 
@@ -906,15 +904,15 @@ std::vector<Row> RowsOf(const Nodes::Node& node)
         }
         row.editable = true;
         if (node.added) {
-            row.why = "A node the editor added: its fields come from its kind (Place) - delete it and place another.";
+            row.why = "Set by the node type";
         } else if (row.when == When::ReadOnly || row.when == When::Elsewhere) {
             row.why = row.note;
         } else if (row.value.kind == Kind::Other) {
-            row.why = "A structure, a script or an array of those: not edited here.";
+            row.why = "Not editable here";
         } else if (row.value.kind == Kind::Flag && effective->included && !anyOwn) {
-            row.why = "A flag of the class's shared structure (ncomp_...): one node can't switch it off by itself.";
+            row.why = "Shared by the class";
         } else if (node.hidden && (key == Nodes::HiddenClassKey() || key == Nodes::HiddenTypeKey())) {
-            row.why = "The editor's record of a hidden node's class / type (Home shows the node again).";
+            row.why = "Editor data for a hidden node";
         }
         row.editable = row.why.empty();
         rows.push_back(row);
@@ -930,7 +928,7 @@ bool SetOn(Script::CStruct* s, uint32_t name, Nodes::Family family, uint32_t key
 {
     When when = WhenApplied(family, key, nullptr);
     if (when == When::ReadOnly || when == When::Elsewhere || key == KeyLinks() || key == 0) {
-        *error = "That field isn't edited here";
+        *error = "Field not editable";
         return false;
     }
     if (!removed && value.kind == Kind::Other) {
@@ -943,7 +941,7 @@ bool SetOn(Script::CStruct* s, uint32_t name, Nodes::Family family, uint32_t key
     if (flag) {
         bool on = !removed && value.on;
         if (!on && !now.present && IncludedAfter(s, key, true, -1)) {
-            *error = "A flag of the shared structure: it can't be switched off for one node";
+            *error = "Shared by the class";
             return false;
         }
         want.present = on;
@@ -972,7 +970,7 @@ bool Set(uint32_t name, uint32_t key, const Value& value, bool removed, std::str
         return false;
     }
     if (NodeCreate::IsAdded(name)) {
-        *error = "A node the editor added: its fields come from its kind";
+        *error = "Set by the node type";
         return false;
     }
     const Nodes::Node* layer = LayerNode(name);

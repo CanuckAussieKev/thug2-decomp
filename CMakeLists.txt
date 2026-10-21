@@ -385,6 +385,9 @@ add_library(thug2_code OBJECT
     src/game/front/level_editor_ui_backend.cpp
     src/game/front/level_editor_ui_fonts.cpp
     src/game/front/level_editor_ui_layout.cpp
+    src/game/front/level_editor_ui_menus.cpp
+    src/game/front/level_editor_ui_strip.cpp
+    src/game/front/level_editor_ui_theme.cpp
     src/game/front/level_editor_nodes.cpp
     src/game/front/level_editor_node_edit.cpp
     src/game/front/level_editor_node_create.cpp

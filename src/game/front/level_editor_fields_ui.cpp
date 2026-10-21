@@ -87,11 +87,11 @@ std::string Check(const Fields::Row& row, uint32_t self, const char* text, std::
         if (!Fields::ValidLinks(value.list, self, [](uint32_t c) { return Nodes::Find(c) >= 0; }, Fields::NameOf, &error))
             return error;
     } else if (value.kind == Fields::Kind::Name && !Fields::NameOf(value.checksum)) {
-        *note = "not a name the game knows (its checksum is used)";
+        *note = "unknown name (checksum used)";
     } else if (value.kind == Fields::Kind::Names) {
         for (uint32_t c : value.list) {
             if (!Fields::NameOf(c))
-                *note = "a name the game doesn't know is among them";
+                *note = "contains an unknown name";
         }
     }
     return "";
@@ -146,10 +146,10 @@ void FieldsSection(int nodeIndex, ImFont* mono, ImFont* smallFont, std::vector<R
                 ImGui::TextUnformatted(name.c_str());
             if (ImGui::IsItemHovered())
                 ImGui::SetTooltip("%s%s%s", Fields::KindName(row.value.kind),
-                                  row.included     ? " - from the class's shared structure (ncomp_...)"
-                                  : row.overridden ? " - this node's own, over the shared structure's"
+                                  row.included     ? " (shared by the class)"
+                                  : row.overridden ? " (overrides the class)"
                                                    : "",
-                                  row.edited ? "\nChanged by the editor (Home puts it back)" : "");
+                                  row.edited ? "\nModified" : "");
             ImGui::TableNextColumn();
             ImGui::SetNextItemWidth(-FLT_MIN);
             std::string text = Fields::Format(row.value, Fields::NameOf);
@@ -206,15 +206,14 @@ void FieldsSection(int nodeIndex, ImFont* mono, ImFont* smallFont, std::vector<R
                 if (ImGui::SmallButton("Home"))
                     Simple(requests, Request::kFieldHome, node.name, row.key);
                 if (ImGui::IsItemHovered())
-                    ImGui::SetTooltip("Back as the level has it");
+                    ImGui::SetTooltip("Revert");
             }
             if (row.editable && !row.included && row.value.kind != Fields::Kind::Flag && row.key != Fields::KeyLinks()) {
                 ImGui::SameLine();
                 if (ImGui::SmallButton("x"))
                     Simple(requests, Request::kFieldRemove, node.name, row.key);
                 if (ImGui::IsItemHovered())
-                    ImGui::SetTooltip(row.overridden ? "Take this node's own value out (the shared structure's counts again)"
-                                                     : "Take the field out of the node");
+                    ImGui::SetTooltip(row.overridden ? "Remove override" : "Remove field");
             }
             ImGui::PopFont();
             ImGui::PopID();
@@ -232,7 +231,7 @@ void FieldsSection(int nodeIndex, ImFont* mono, ImFont* smallFont, std::vector<R
     // A field the node doesn't have yet.
     if (!node.added) {
         ImGui::PushFont(smallFont);
-        ImGui::TextDisabled("Add a field (on reload):");
+        ImGui::TextDisabled("Add Field:");
         ImGui::PopFont();
         ImGui::PushFont(mono);
         ImGui::SetNextItemWidth(130.0f * ImGui::GetFontSize() / 13.0f);
@@ -259,13 +258,13 @@ void FieldsSection(int nodeIndex, ImFont* mono, ImFont* smallFont, std::vector<R
         bool exists = false;
         for (const Fields::Row& row : rows)
             exists = exists || row.key == key;
-        const char* why = name.empty()  ? "Type the field's name"
-                          : !nameOk     ? "A name: letters, digits and _ (not starting with a digit)"
-                          : exists      ? "The node has that field: edit it in the table"
+        const char* why = name.empty()  ? "Enter a field name"
+                          : !nameOk     ? "Use letters, digits and _"
+                          : exists      ? "Field already exists"
                           : key == Fields::KeyName() || key == Fields::KeyClass() || key == Fields::KeyType() ||
                                     key == Fields::KeyPos() || key == Fields::KeyAngles() || key == Fields::KeyLinks()
-                              ? "Not that one (its identity / place / links are edited elsewhere)"
-                          : !valueOk ? "The value isn't one"
+                              ? "Edited elsewhere"
+                          : !valueOk ? "Invalid value"
                                      : nullptr;
         ImGui::SameLine();
         ImGui::BeginDisabled(why != nullptr);
@@ -276,17 +275,16 @@ void FieldsSection(int nodeIndex, ImFont* mono, ImFont* smallFont, std::vector<R
         }
         ImGui::EndDisabled();
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-            ImGui::SetTooltip("%s", why ? (why == std::string("The value isn't one") ? error.c_str() : why)
-                                        : "Added to this node (saved; the level reads it when the edited copy loads)");
+            ImGui::SetTooltip("%s", why ? (why == std::string("Invalid value") ? error.c_str() : why)
+                                        : "Add field (applies on reload)");
     }
     ImGui::PushFont(smallFont);
     if (anyEdited) {
-        if (ImGui::SmallButton("Put back every field"))
+        if (ImGui::SmallButton("Revert All Fields"))
             Simple(requests, Request::kFieldHome, node.name, 0);
         ImGui::SameLine();
     }
-    ImGui::TextDisabled("live: read each time it's used; on reload: when the edited copy is next loaded. Greyed: "
-                        "the class's shared structure - a value typed there is this node's own.");
+    ImGui::TextDisabled("Grey: shared by the class");
     ImGui::PopFont();
 }
 
@@ -327,12 +325,11 @@ void LevelSection(const Model::LevelView& level, ImFont* mono, ImFont* smallFont
     if (!ImGui::CollapsingHeader("Level properties###levelprops"))
         return;
     if (!level.inLevel) {
-        ImGui::TextDisabled("Not in a level.");
+        ImGui::TextDisabled("No level loaded");
         return;
     }
     ImGui::PushFont(smallFont);
-    ImGui::TextWrapped("The edited copy's own settings: kept in its layout (Ctrl+S), put in place when the edited copy "
-                       "loads from the level select's EDITED LEVELS - never on the level as shipped, never online.");
+    ImGui::TextDisabled("Saved with the layout");
     ImGui::PopFont();
     LevelProps::Props props = level.props;
     const LevelProps::Props& own = level.defaults;
@@ -347,7 +344,7 @@ void LevelSection(const Model::LevelView& level, ImFont* mono, ImFont* smallFont
         if (!g_level.nameActive)
             Copy(&g_level.name, props.name);
         ImGui::SetNextItemWidth(-90.0f * ImGui::GetFontSize() / 13.0f);
-        bool enter = ImGui::InputTextWithHint("##name", level.haveDefaults ? own.name.c_str() : "the level's",
+        bool enter = ImGui::InputTextWithHint("##name", level.haveDefaults ? own.name.c_str() : "Original",
                                               g_level.name.data(), 65, ImGuiInputTextFlags_EnterReturnsTrue);
         bool left = ImGui::IsItemDeactivatedAfterEdit();
         g_level.nameActive = ImGui::IsItemActive();
@@ -355,22 +352,21 @@ void LevelSection(const Model::LevelView& level, ImFont* mono, ImFont* smallFont
             props.name = g_level.name.data();
             SendProps(requests, props, true);
         }
-        When(smallFont, "level select", "The EDITED LEVELS entry reads \"<name> (EDITED)\" next time the level select "
-                                    "opens (after Ctrl+S); the toolbar shows it now. Empty: the level's own name.");
+        When(smallFont, "level select", "Name in the level select. Empty: original name.");
         // Where the skater starts.
         ImGui::TableNextRow();
         ImGui::TableNextColumn();
         ImGui::TextDisabled("Start");
         ImGui::TableNextColumn();
-        std::string current = "(the level's own)";
+        std::string current = "(original)";
         for (const auto& r : level.restarts)
             current = r.first == props.start ? r.second : current;
-        if (props.start && current == "(the level's own)")
-            current = "(a restart that's gone)";
+        if (props.start && current == "(original)")
+            current = "(missing restart)";
         ImGui::SetNextItemWidth(-90.0f * ImGui::GetFontSize() / 13.0f);
         ImGui::PushFont(mono);
         if (ImGui::BeginCombo("##start", current.c_str())) {
-            if (ImGui::Selectable("(the level's own)", props.start == 0)) {
+            if (ImGui::Selectable("(original)", props.start == 0)) {
                 props.start = 0;
                 SendProps(requests, props, true);
             }
@@ -385,9 +381,9 @@ void LevelSection(const Model::LevelView& level, ImFont* mono, ImFont* smallFont
             ImGui::EndCombo();
         }
         ImGui::PopFont();
-        When(smallFont, "on reload", "The skater is put at this restart once the edited copy is up.");
+        When(smallFont, "on reload", "Start position");
         if (level.selectedRestart && level.selectedRestart != props.start) {
-            if (ImGui::SmallButton("Use the selected restart")) {
+            if (ImGui::SmallButton("Use Selected Restart")) {
                 props.start = level.selectedRestart;
                 SendProps(requests, props, true);
             }
@@ -399,7 +395,7 @@ void LevelSection(const Model::LevelView& level, ImFont* mono, ImFont* smallFont
         ImGui::TextDisabled("Time of day");
         ImGui::TableNextColumn();
         char ownState[48];
-        std::snprintf(ownState, sizeof(ownState), "(the level's: %s)",
+        std::snprintf(ownState, sizeof(ownState), "(original: %s)",
                       level.haveDefaults && LevelProps::TodName(own.tod) ? LevelProps::TodName(own.tod) : "afternoon");
         ImGui::SetNextItemWidth(-90.0f * ImGui::GetFontSize() / 13.0f);
         if (ImGui::BeginCombo("##tod", props.tod >= 0 ? kStates[props.tod] : ownState)) {
@@ -415,12 +411,12 @@ void LevelSection(const Model::LevelView& level, ImFont* mono, ImFont* smallFont
             }
             ImGui::EndCombo();
         }
-        When(smallFont, "live", "Shown at once (the time-of-day manager's state); the edited copy starts in it.");
+        When(smallFont, "live", "Time of day");
         ImGui::TableNextRow();
         ImGui::TableNextColumn();
         ImGui::TextDisabled("Time passes");
         ImGui::TableNextColumn();
-        const char* ownTime = level.haveDefaults && own.time == 0 ? "(the level's: no)" : "(the level's: yes)";
+        const char* ownTime = level.haveDefaults && own.time == 0 ? "(original: no)" : "(original: yes)";
         ImGui::SetNextItemWidth(-90.0f * ImGui::GetFontSize() / 13.0f);
         if (ImGui::BeginCombo("##time", props.time == 1 ? "yes" : props.time == 0 ? "no" : ownTime)) {
             const char* labels[] = {ownTime, "no", "yes"};
@@ -432,13 +428,13 @@ void LevelSection(const Model::LevelView& level, ImFont* mono, ImFont* smallFont
             }
             ImGui::EndCombo();
         }
-        When(smallFont, "on reload", "Whether the time of day moves on (career mode only - the game's own rule).");
+        When(smallFont, "on reload", "Advance time of day (career only)");
         // Its sky (the feature map's sky row): another level's sky scene.
         ImGui::TableNextRow();
         ImGui::TableNextColumn();
         ImGui::TextDisabled("Sky");
         ImGui::TableNextColumn();
-        std::string ownSky = "(the level's: " + (level.haveDefaults && !own.sky.empty() ? own.sky : std::string("none")) + ")";
+        std::string ownSky = "(original: " + (level.haveDefaults && !own.sky.empty() ? own.sky : std::string("none")) + ")";
         ImGui::SetNextItemWidth(-90.0f * ImGui::GetFontSize() / 13.0f);
         ImGui::PushFont(mono);
         if (ImGui::BeginCombo("##sky", props.sky.empty() ? ownSky.c_str() : props.sky.c_str())) {
@@ -455,9 +451,7 @@ void LevelSection(const Model::LevelView& level, ImFont* mono, ImFont* smallFont
             ImGui::EndCombo();
         }
         ImGui::PopFont();
-        When(smallFont, "on reload", "The level structure's sky= - the sky scene load_level loads before the level "
-                                    "(any level's: the skies are loose files). Shown when the edited copy next loads "
-                                    "from the level select.");
+        When(smallFont, "on reload", "Sky scene");
         // Ambient light.
         ImGui::TableNextRow();
         ImGui::TableNextColumn();
@@ -483,8 +477,7 @@ void LevelSection(const Model::LevelView& level, ImFont* mono, ImFont* smallFont
         if (ImGui::IsItemDeactivatedAfterEdit())
             requests->push_back(Request{Request::kLevelPropsDone});
         ImGui::EndDisabled();
-        When(smallFont, "live", "The ambient light the time-of-day manager sends the engine, this colour over its "
-                                "state's (and on every load of the edited copy).");
+        When(smallFont, "live", "Ambient light colour");
         // Fog.
         ImGui::TableNextRow();
         ImGui::TableNextColumn();
@@ -522,13 +515,11 @@ void LevelSection(const Model::LevelView& level, ImFont* mono, ImFont* smallFont
         if (done)
             requests->push_back(Request{Request::kLevelPropsDone});
         ImGui::EndDisabled();
-        When(smallFont, "live", "The fog the time-of-day manager sends the engine (colour, alpha, distance), these over "
-                                "its state's and shown even where the level's fog is off (0 alpha: no fog). On every "
-                                "load of the edited copy too.");
+        When(smallFont, "live", "Fog colour, alpha and distance (alpha 0: no fog)");
         ImGui::EndTable();
     }
     if (!LevelProps::Empty(level.props)) {
-        if (ImGui::SmallButton("All back as the level has them"))
+        if (ImGui::SmallButton("Revert All"))
             SendProps(requests, LevelProps::Props{}, true);
     }
 }

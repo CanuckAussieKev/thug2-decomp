@@ -11,13 +11,17 @@
 
 union SDL_Event;
 struct ImFont;
+namespace Front::LevelEditor::Ux8 {
+struct Fonts;
+}
 
 // NOT ORIGINAL - the level editor's UI (ours; see level_editor.h): Dear ImGui panels over the game's view, in place of
 // the HUD made of the game's screen elements (level_editor_hud.h - hard to read, no tables or fields, 90 characters a
 // line). Inter for the UI, JetBrains Mono for numbers, names and checksums, both compressed into the DLL
 // (level_editor_ui_fonts.h) and sized for the window (1280 x 720 up to 4K: level_editor_ui_layout.h).
-//   - A toolbar across the top (the mode, snap, drop to the ground, the level, undo / redo / save, help, add), the
-//     Outliner on the left (search, family chips, the tree), the Inspector on the right, a status bar across the
+//   - A menu bar across the top (File, Edit, View, Tools, Help - level_editor_ui_menus.cpp) over a tool strip of the
+//     core controls (level_editor_ui_strip.h: the mode, the transform tool, Snap, the pick filter, the level, Problems),
+//     the Outliner on the left (search, family chips, the tree), the Inspector on the right, a status bar across the
 //     bottom (the selection, the message line, the keys for what you're doing, the camera); the help (F1), the piece
 //     browser (B) and the autosave offer as windows over the view.
 //   - Gizmos and lines (rails, the move arrows, boxes, the ground marker, the nodes' gizmos) are drawn through ImGui's
@@ -334,6 +338,10 @@ struct Request {
 std::vector<Request> TakeRequests();
 // A request from another module's panel (level_editor_ux3.h: the command search's settings), as the UI's own.
 void PushRequest(const Request& request);
+
+// The menu bar's menus (level_editor_ui_menus.cpp), drawn between BeginMenuBar and EndMenuBar: File, Edit, View, Tools,
+// Help - the registry's actions with their keys.
+void MenuBar(const Model& model, const Ux8::Fonts& fonts, std::vector<Request>* requests);
 
 // The Inspector's chain section (level_editor_chains_ui.cpp): drawn inside the node's section; what's asked for added
 // to `requests`.

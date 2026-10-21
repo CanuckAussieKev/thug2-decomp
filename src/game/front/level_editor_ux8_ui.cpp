@@ -9,6 +9,7 @@
 #include "game/front/level_editor_actions.h"
 #include "game/front/level_editor_hints.h"
 #include "game/front/level_editor_organize.h"
+#include "game/front/level_editor_ui_strip.h"
 #include "game/front/level_editor_ux3.h"
 #include "game/front/level_editor_ux8_pie.h"
 #include "imgui.h"
@@ -111,12 +112,83 @@ void TokenGlyph(const std::string& token, const Fonts& fonts)
 
 } // namespace
 
-void HintRow(const std::vector<std::pair<std::string, std::string>>& hints, const Fonts& fonts)
+namespace {
+
+// One token's glyph width, as TokenGlyph draws it.
+float TokenWidth(const std::string& token, const Fonts& fonts)
+{
+    float h = ImGui::GetTextLineHeight(), s = fonts.scale;
+    switch (Hints::GlyphOf(token)) {
+    case Hints::Glyph::Mouse:
+    case Hints::Glyph::MouseLeft:
+    case Hints::Glyph::MouseRight:
+    case Hints::Glyph::MouseMiddle:
+    case Hints::Glyph::Wheel:
+        return h * 0.68f;
+    case Hints::Glyph::DoubleClick:
+        return h * 0.68f + 8.0f * s;
+    case Hints::Glyph::PadA:
+    case Hints::Glyph::PadB:
+    case Hints::Glyph::PadX:
+    case Hints::Glyph::PadY:
+        return h;
+    default: {
+        if (fonts.mono)
+            ImGui::PushFont(fonts.mono);
+        float w = ImGui::CalcTextSize(token.c_str()).x;
+        if (fonts.mono)
+            ImGui::PopFont();
+        return w + 8.0f * s;
+    }
+    }
+}
+
+// A hint's width as HintRow draws it: its glyphs with "+" between them, then what it does (the small font).
+float HintWidth(const std::pair<std::string, std::string>& hint, const Fonts& fonts)
+{
+    float s = fonts.scale, width = 0.0f;
+    std::vector<std::string> tokens = Hints::Tokens(hint.first);
+    for (size_t t = 0; t < tokens.size(); ++t) {
+        if (t)
+            width += 2.0f * s + ImGui::CalcTextSize("+").x;
+        width += TokenWidth(tokens[t], fonts);
+    }
+    if (fonts.small)
+        ImGui::PushFont(fonts.small);
+    width += 4.0f * s + ImGui::CalcTextSize(hint.second.c_str()).x;
+    if (fonts.small)
+        ImGui::PopFont();
+    return width;
+}
+
+} // namespace
+
+void HintRow(const std::vector<std::pair<std::string, std::string>>& hints, const Fonts& fonts, float maxWidth)
 {
     float s = fonts.scale;
+    const char* ellipsis = "\xE2\x80\xA6";
+    float used = 0.0f;
     for (size_t i = 0; i < hints.size(); ++i) {
+        // (what doesn't fit is left out, an ellipsis in its place - never drawn over the right-hand text)
+        if (maxWidth > 0.0f) {
+            float gap = i ? 12.0f * s : 0.0f;
+            float width = HintWidth(hints[i], fonts);
+            bool last = i + 1 == hints.size();
+            float reserve = last ? 0.0f : 12.0f * s + ImGui::CalcTextSize(ellipsis).x;
+            if (used + gap + width + reserve > maxWidth) {
+                if (used + gap + ImGui::CalcTextSize(ellipsis).x <= maxWidth) {
+                    if (i)
+                        ImGui::SameLine(0.0f, gap);
+                    ImGui::TextDisabled("%s", ellipsis);
+                    UiStrip::Note("HintMore");
+                }
+                break;
+            }
+            used += gap + width;
+        }
         if (i)
             ImGui::SameLine(0.0f, 12.0f * s);
+        ImGui::BeginGroup();
         std::vector<std::string> tokens = Hints::Tokens(hints[i].first);
         for (size_t t = 0; t < tokens.size(); ++t) {
             if (t) {
@@ -132,6 +204,8 @@ void HintRow(const std::vector<std::pair<std::string, std::string>>& hints, cons
         ImGui::TextUnformatted(hints[i].second.c_str());
         if (fonts.small)
             ImGui::PopFont();
+        ImGui::EndGroup();
+        UiStrip::Note("Hint");
     }
 }
 
@@ -151,7 +225,7 @@ void Windows(float vx, float vy, float vw, float vh, const Fonts& fonts)
         draw->AddLine(ImVec2(centre.x, centre.y + r), ImVec2(centre.x, centre.y + 2.0f * r), IM_COL32(255, 255, 255, 200), 1.5f * s);
     }
     if (Walking() && fonts.ui) {
-        const char* text = "WALKING  -  W A S D walk, Space jumps, Shift runs  -  Shift+` or Esc stops";
+        const char* text = "WALK MODE  -  WASD walk, Space jump, Shift run, Esc exit";
         ImVec2 size = fonts.ui->CalcTextSizeA(fonts.ui->FontSize, 1e9f, 0.0f, text);
         ImVec2 at(centre.x - size.x * 0.5f, vy + 14.0f * s);
         draw->AddRectFilled(ImVec2(at.x - 8.0f * s, at.y - 4.0f * s), ImVec2(at.x + size.x + 8.0f * s, at.y + size.y + 4.0f * s),
@@ -200,19 +274,13 @@ void Windows(float vx, float vy, float vw, float vh, const Fonts& fonts)
     }
 }
 
-void Toolbar(const Fonts& fonts)
+void SetsMenu(const Fonts& fonts)
 {
     float s = fonts.scale;
-    ImGui::SameLine(0.0f, 8.0f * s);
-    if (ImGui::SmallButton("Sets"))
-        ImGui::OpenPopup("##ux8sets");
-    if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Selection sets: Ctrl+Alt+1..9 stores the selection, Alt+Shift+1..9 selects it again\n"
-                          "(UX3's groups - saved in the layout, the Outliner's Groups)");
-    if (!ImGui::BeginPopup("##ux8sets"))
+    if (!ImGui::BeginMenu("Selection Sets"))
         return;
     const Organize::State& state = Organize::Current();
-    ImGui::TextDisabled("Quick sets");
+    ImGui::TextDisabled("Quick Sets");
     for (int i = 1; i <= Nav::kQuickSets; ++i) {
         std::string name = Nav::QuickSetName(i);
         int at = Nav::FindGroup(state, name);
@@ -232,12 +300,12 @@ void Toolbar(const Fonts& fonts)
             if (ImGui::SmallButton("+"))
                 Ux3::Queue([at] { AddToSet(at); });
             if (ImGui::IsItemHovered())
-                ImGui::SetTooltip("The selection added to it");
+                ImGui::SetTooltip("Add selection to set");
             ImGui::SameLine();
             if (ImGui::SmallButton("-"))
                 Ux3::Queue([at] { TakeFromSet(at); });
             if (ImGui::IsItemHovered())
-                ImGui::SetTooltip("The selection taken out of it");
+                ImGui::SetTooltip("Remove selection from set");
         }
         ImGui::PopID();
     }
@@ -265,7 +333,7 @@ void Toolbar(const Fonts& fonts)
             Ux3::Queue([g] { TakeFromSet(g); });
         ImGui::PopID();
     }
-    ImGui::EndPopup();
+    ImGui::EndMenu();
 }
 
 void PrefsSection()
@@ -274,13 +342,10 @@ void PrefsSection()
     ImGui::TextUnformatted("Controller");
     ImGui::Separator();
     bool pad = PadMode();
-    if (ImGui::Checkbox("Controller mode", &pad))
+    if (ImGui::Checkbox("Controller Mode", &pad))
         SetPadMode(pad);
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("The first game controller drives the editor ([editor] pad=1):\n"
-                          "left stick fly, right stick look, LT / RT down / up, L3 faster,\n"
-                          "A select at the crosshair (hold: drag), B back, X pie, Y view pie,\n"
-                          "D-pad nudge, LB / RB turn, R3 frame, Back undo. Start leaves the editor.");
+        ImGui::SetTooltip("Use a game controller in the editor");
 }
 
 } // namespace Front::LevelEditor::Ux8

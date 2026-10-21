@@ -242,8 +242,7 @@ bool Copy(std::string* message)
             }
         }
         if (!done)
-            skipped.push_back(Nodes::Label(s.node) + " (not a kind copied: spawns, crowns, lights, sounds, proximity "
-                                                      "nodes, added nodes, trigger volumes)");
+            skipped.push_back(Nodes::Label(s.node) + " (type not copyable)");
     }
     int count = static_cast<int>(fragment.clones.size() + fragment.copies.size() + fragment.added.size() +
                                  fragment.triggers.size());
@@ -257,7 +256,7 @@ bool Copy(std::string* message)
         *message = "Couldn't put it on the clipboard";
         return false;
     }
-    *message = "Copied " + std::to_string(count) + " to the clipboard - Ctrl+V pastes it into an edited level" +
+    *message = "Copied " + std::to_string(count) + " to the clipboard" +
                (skipped.empty() ? "" : " (not copied: " + skipped.front() + ")");
     return true;
 }
@@ -272,7 +271,7 @@ bool Paste(std::string* message)
     int line = 0;
     // (the comment line first, then the layout's header: Read skips comments)
     if (!IsClipText(text) || !Layout::Read(text.substr(text.find('\n') + 1), &fragment, &line)) {
-        *message = "The clipboard has nothing the editor copied (Ctrl+C in the editor copies the selection)";
+        *message = "Clipboard has no editor data";
         return false;
     }
     std::string current;
@@ -309,8 +308,8 @@ bool Paste(std::string* message)
     }
     *message = "Pasted " + std::to_string(added) + (fragment.scene == now.scene ? " (in place)" : " from another level");
     if (!missing.empty()) {
-        *message += " - not in this level, left out: " + missing.front() +
-                    (missing.size() > 1 ? " and " + std::to_string(missing.size() - 1) + " more (the log lists them)" : "");
+        *message += " - missing in this level: " + missing.front() +
+                    (missing.size() > 1 ? " and " + std::to_string(missing.size() - 1) + " more" : "");
         for (const std::string& m : missing)
             Log("level editor: paste - not in this level: %s", m.c_str());
     }
@@ -335,37 +334,37 @@ bool CopyProps(std::string* message)
         }
     }
     if (!props.haveTransform && props.fields.empty()) {
-        *message = "Select something first: its transform and fields are copied";
+        *message = "Nothing selected";
         return false;
     }
     g_props = props;
-    *message = "Copied " + Describe() + " (Ctrl+Shift+V pastes the transform; the Inspector's Paste fields the fields)";
+    *message = "Copied " + Describe() + "";
     return true;
 }
 
 bool PasteTransform(std::string* message)
 {
     if (!g_props.haveTransform) {
-        *message = "No transform copied (Ctrl+Shift+C copies the selection's)";
+        *message = "No transform copied";
         return false;
     }
     if (!SetSelectionTransform(g_props.transform)) {
-        *message = "Select something to paste the transform onto";
+        *message = "Nothing selected";
         return false;
     }
-    *message = "Transform pasted (Ctrl+Z undoes)";
+    *message = "Transform pasted";
     return true;
 }
 
 bool PasteFields(std::string* message)
 {
     if (g_props.fields.empty()) {
-        *message = "No fields copied (Ctrl+Shift+C copies the inspected node's own fields)";
+        *message = "No fields copied";
         return false;
     }
     std::vector<uint32_t> nodes = SelectedNodes();
     if (nodes.empty()) {
-        *message = "Select the nodes to paste the fields onto";
+        *message = "No nodes selected";
         return false;
     }
     std::string why;
