@@ -18,6 +18,7 @@
 #include "game/mth/matrix.h"
 #include "game/net/net_app.h"
 #include "game/net/net_dispatcher.h"
+#include "game/net/thugpro_peer.h"
 #include "game/obj/object.h"
 #include "game/obj/objman.h"
 #include "game/script/cscript.h"
@@ -39,6 +40,8 @@ using Script::CArray;
 using Script::CStruct;
 
 using MsgCode = int(__cdecl*)(Net::MsgHandlerContext*);
+
+constexpr uint32_t kThugproHandler = 0x7F000000; // (the AddHandler stand-in's code for a THUGPRO peer-mode handler)
 
 constexpr uint32_t kArenaSize = 0x20000;
 ArenaPair<kArenaSize> g_sn_storage;
@@ -114,6 +117,7 @@ void Cleanup()
 {
     RemoveStandIns();
     GameNet::Thugpro::SetPositionScale({});
+    GameNet::Thugpro::SetPeerModeOverride(-1);
     RestoreAll(g_sn_saved);
     g_sn_saved.clear();
 }
@@ -243,9 +247,21 @@ void Install(StandIns& s)
             {SkateNet::HandleGraffitiColors, 0x0056D030}, {SkateNet::HandleScores, 0x0056D250},
             {SkateNet::HandleStartInfo, 0x0056D810}, {SkateNet::HandleRunScript, 0x0056E380},
             {SkateNet::HandleObjectUpdates, 0x0056E470}};
+        // (the THUGPRO peer mode's own, which the original doesn't have: kThugproHandler | their message id)
+        static const std::pair<MsgCode, uint32_t> thugpro[] = {
+            {GameNet::Thugpro::HandleServerInfo, kThugproHandler | GameNet::Thugpro::kMsgServerInfo},
+            {GameNet::Thugpro::HandleUpdateTimeOfDay, kThugproHandler | GameNet::Thugpro::kMsgUpdateTimeOfDay},
+            {GameNet::Thugpro::HandleUpdateWeather, kThugproHandler | GameNet::Thugpro::kMsgUpdateWeather},
+            {GameNet::Thugpro::HandleUpdateLevelOption, kThugproHandler | GameNet::Thugpro::kMsgUpdateLevelOption},
+            {GameNet::Thugpro::HandleModsAllowed, kThugproHandler | GameNet::Thugpro::kMsgModsAllowed}};
         uint32_t code = r.args[1];
         for (const auto& [function, address] : ours) {
             if (Resolve(reinterpret_cast<const void*>(code)) == AddressOf(function))
+                code = address;
+        }
+        auto resolved = Resolve(reinterpret_cast<const void*>(r.args[1]));
+        for (const auto& [function, address] : thugpro) {
+            if (resolved == AddressOf(function))
                 code = address;
         }
         Rec(0xA5C0, {r.ecx, r.args[0] & 0xFF, code, r.args[2], r.args[3], r.args[4]});
@@ -519,9 +535,12 @@ void Message(std::initializer_list<uint8_t> bytes, uint32_t at = 0)
 }
 
 // The tasks, StartServer (auto-serving or not, local or not, no server) and AddClientHandlers (clients 0 and 1).
+// THUG2's own protocol: the THUGPRO peer mode off (a workspace or install with OnlineGameName=thugpro turns it on -
+// ours then adds the peer mode's handlers, checked on their own below).
 void TestSkateNetRegistration()
 {
     SaveGlobals();
+    GameNet::Thugpro::SetPeerModeOverride(0);
     StandIns* s = new StandIns;
     Install(*s);
     std::vector<uint32_t> traces[2];
@@ -560,8 +579,33 @@ void TestSkateNetRegistration()
         for (uint32_t i = 0; i < kArenaSize / 4; ++i)
             traces[run].push_back(Rel(words[i]));
     }
-    Cleanup();
     Compare(traces[0], traces[1], "skate net registration");
+
+    // NOT ORIGINAL - the THUGPRO peer mode on: ours' AddClientHandlers registers exactly what it does with the mode
+    // off (the original's, compared above), then the peer mode's five client handlers (155-159), in that order.
+    auto* skate = Ptr<SkateNet>(kSkate);
+    auto* app = Ptr<Net::App>(kApp);
+    for (int index : {0, 1}) {
+        std::vector<uint32_t> calls[2];
+        for (int mode : {0, 1}) {
+            SetUpArena(1);
+            ResetState();
+            GameNet::Thugpro::SetPeerModeOverride(mode);
+            skate->AddClientHandlers(app, index);
+            calls[mode] = g_trace;
+        }
+        namespace TP = GameNet::Thugpro;
+        g_trace = calls[0];
+        auto dispatcher = reinterpret_cast<uint32_t>(&app->m_dispatcher);
+        for (auto [id, flags] : {std::pair<uint8_t, uint32_t>{TP::kMsgServerInfo, 0u},
+                                 {TP::kMsgModsAllowed, 0u},
+                                 {TP::kMsgUpdateTimeOfDay, Net::kPacketLate},
+                                 {TP::kMsgUpdateWeather, Net::kPacketLate},
+                                 {TP::kMsgUpdateLevelOption, Net::kPacketLate}})
+            Rec(0xA5C0, {dispatcher, id, kThugproHandler | id, flags, At(kSkate), 0x80});
+        Check(calls[1] == g_trace, "skate net registration: the THUGPRO peer mode adds its handlers");
+    }
+    Cleanup();
 }
 
 // The handlers: removed / moved on (to the main menu or not); the scavenger hunt's messages (goals active and not,
