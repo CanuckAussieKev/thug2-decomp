@@ -202,16 +202,26 @@ export function faceTriangles(face: thps2.PsxFace): [number, number, number][] {
           ];
 }
 
-// A face's uvs in THUG2's 0..1 (v down, as THPS2's). THPS2's are texel numbers: neighbouring faces share their edge's
-// (Hangar's signs: 0..63 and 63..126 of a 128-wide texture), so a number n is n / size - but the last texel (a byte
-// can't say 256, and a face over 0..63 of a 64-wide texture means all of it) is the far edge.
+// A face's uvs in THUG2's units (v down, as THPS2's): THPS2's are texel numbers, n / size. They tile: more than half
+// of the ten levels' textured faces reach past their texture (u up to 255 on a 16-texel texture; the spans mostly
+// n x size - 2: 126, 190, 254 on 64-wide textures), so the texture repeats, and the mapping stays linear (neighbouring
+// faces share their edge's numbers - Hangar's signs: 0..63 and 63..126 of a 128-wide texture). Phase 1 took the last
+// texel as the far edge and clamped: every number past the texture collapsed onto its last column - the smeared
+// stripes and flat-looking faces the user saw (2026-10-21).
 export function faceUvs(face: thps2.PsxFace, width: number, height: number): [number, number][] {
-    const edge = (t: number, size: number): number => (t >= size - 1 ? size : t) / Math.max(1, size);
     const out: [number, number][] = [];
     for (let k = 0; k < face.vertices.length; k++) {
-        out.push([edge(face.uvs[2 * k] ?? 0, width), edge(face.uvs[2 * k + 1] ?? 0, height)]);
+        out.push([(face.uvs[2 * k] ?? 0) / Math.max(1, width), (face.uvs[2 * k + 1] ?? 0) / Math.max(1, height)]);
     }
     return out;
+}
+
+// Whether a face's uvs reach past its texture (the texture repeats there).
+export function faceTiles(face: thps2.PsxFace, width: number, height: number): boolean {
+    for (let k = 0; k < face.vertices.length; k++) {
+        if ((face.uvs[2 * k] ?? 0) > width || (face.uvs[2 * k + 1] ?? 0) > height) return true;
+    }
+    return false;
 }
 
 // A face's corner colours (r, g, b; 128 = neutral).
@@ -362,7 +372,9 @@ export function makeTexture(checksum: number, t: thps2.PsxTexture, bmp: Bmp | nu
 
 // --- materials -----------------------------------------------------------------------------------------------------
 
-export function makeMaterial(checksum: number, texture: number, semi: boolean): thug2Scene.Material {
+// `wrap`: the texture repeats (some face reaches past it); else clamped (cut-outs and signs: nothing bleeds in from
+// the far side at their edges).
+export function makeMaterial(checksum: number, texture: number, semi: boolean, wrap = false): thug2Scene.Material {
     let flags = thug2Scene.PASS_SMOOTH;
     if (texture) flags |= thug2Scene.PASS_TEXTURED;
     // (semi-transparent: THUG2's blend by the vertex alpha - a half, the PlayStation's usual 0.5 B + 0.5 F)
@@ -384,9 +396,8 @@ export function makeMaterial(checksum: number, texture: number, semi: boolean): 
                 flags,
                 blendMode: semi ? 5 : 0,
                 fixedAlpha: 0,
-                // (THPS2's uvs stay inside their texture: clamped, no bleeding from the far side)
-                uAddress: 1,
-                vAddress: 1,
+                uAddress: wrap ? 0 : 1,
+                vAddress: wrap ? 0 : 1,
                 envmapTiling: [3.0, 3.0],
                 filtering: 0x10004,
                 mip: [1, 4, -8.0, -8.0],
@@ -437,11 +448,21 @@ export function convertWorld(world: thps2.Psx, level: string, textures: LevelTex
     const counts = { objects: 0, faces: 0, hidden: 0, noCollision: 0, bmps: 0 };
     const materials = new Map<string, thug2Scene.Material>();
     const texOut = new Map<number, tex.Texture>();
+    // the textures some face repeats
+    const tiled = new Set<number>();
+    for (const model of world.models) {
+        for (const face of model.faces) {
+            if (!(face.flags & thps2.FACE_TEXTURED)) continue;
+            const name = world.textureNames[face.texture];
+            const t = name === undefined ? undefined : textures.byName.get(name);
+            if (t !== undefined && faceTiles(face, t.width, t.height)) tiled.add(name!);
+        }
+    }
     const materialFor = (texture: number, semi: boolean): number => {
         const key = `${texture}|${semi ? 1 : 0}`;
         let m = materials.get(key);
         if (m === undefined) {
-            m = makeMaterial(qb.checksum(`${level}_material_${materials.size}`), texture, semi);
+            m = makeMaterial(qb.checksum(`${level}_material_${materials.size}`), texture, semi, tiled.has(texture));
             materials.set(key, m);
         }
         return m.checksum;

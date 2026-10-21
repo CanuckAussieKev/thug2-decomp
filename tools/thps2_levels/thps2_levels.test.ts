@@ -251,15 +251,30 @@ test("faces: quads split keeping the turning order; outward normals as THUG2's c
     }
 });
 
-test("faces: uvs reach the far side of the last texel; colours from the palette or the face", () => {
+test("faces: uvs are texel numbers over the size (linear, they tile); colours from the palette or the face", () => {
     const psx = thps2.readPsx(worldPsx(), "test");
     const [quad, tri] = psx.models[0]!.faces as [thps2.PsxFace, thps2.PsxFace];
     assert.deepEqual(conv.faceUvs(quad, 4, 2), [
         [0, 0],
-        [0, 1],
-        [1, 0],
-        [1, 1],
+        [0, 0.5],
+        [0.75, 0],
+        [0.75, 0.5],
     ]);
+    assert.equal(conv.faceTiles(quad, 4, 2), false);
+    // a floor tiled three times over a 64-wide texture (190 = 3 x 64 - 2, the common span)
+    const floor = { ...quad, uvs: [0, 0, 0, 62, 190, 0, 190, 62] };
+    assert.deepEqual(
+        conv.faceUvs(floor, 64, 64).map(([u, v]) => [u, v]),
+        [
+            [0, 0],
+            [0, 62 / 64],
+            [190 / 64, 0],
+            [190 / 64, 62 / 64],
+        ],
+    );
+    assert.equal(conv.faceTiles(floor, 64, 64), true);
+    assert.equal(conv.makeMaterial(1, 2, false, true).passes[0]!.uAddress, 0);
+    assert.equal(conv.makeMaterial(1, 2, false, false).passes[0]!.uAddress, 1);
     assert.deepEqual(conv.faceColors(quad, psx.rgbs), [
         [128, 128, 128],
         [64, 32, 16],
