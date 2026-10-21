@@ -163,12 +163,12 @@ Switch off: `[replacements] disable=vehicle_camera.cpp` (and walk_camera.cpp, wa
     0x007CE4FD), 0x00528280 FindStandPosition (stdcall: feeler_height x 2 above to stand_pos_search_depth below).
   - Member functions (records of 0x006847F8): Walk_Ground, Walk_ScaleAnimSpeed (Off resets the blender's speed -
     its third argument the float with bits 1, as the original pushes -, Run / HangMove / LadderMove, StandardSpeed=),
-    ReleaseHang (0x0043DB90), Walk_GetStateTime, Walk_GetSpeedScale (WalkSlow / WalkFast / RunSlow / RunFast by
+    Walk_ReleaseHang - named so beside SK6's ReleaseHang 0x0052C280 - (0x0043DB90), Walk_GetStateTime, Walk_GetSpeedScale (WalkSlow / WalkFast / RunSlow / RunFast by
     max_slow_walk_speed / max_fast_walk_speed / max_slow_run_speed), Walk_GetHangInitAnimType,
     Walk_GetStateDuration (seconds), Walk_GetPreviousState / Walk_GetState (the names at 0x0064C618),
     Walk_GetHangAngle (asin of the rail's climb between the hang nodes, in degrees, signed by the facing - z's square
     from its unrounded difference, as the x87 code), Walk_SetForwardControlLock.
-  - Test (selftests_skater_walk.cpp TestWalkPieces): every function, original vs ours, 20-3000 variants each (states
+  - Test (selftests_skater_walk_pieces.cpp - selftests_skater_walk.cpp until the merge with SK6 - TestWalkPieces): every function, original vs ours, 20-3000 variants each (states
     -1..5, clock values at and around 100 / 150 ms, d-pad / stick, the moon cheat, collisions found or not, -0 and +0
     speeds, the parameters sometimes equal to the component's values). The trick queue's test was split in two
     (TestTrickQueue / TestTrickQueueExtra): it ran past the watchdog's 45 s on a loaded machine.
@@ -196,7 +196,7 @@ Switch off: `[replacements] disable=vehicle_camera.cpp` (and walk_camera.cpp, wa
   - Finding (and fix outside the range): StickLength (0x0046C370, control_pad.cpp) leaves its length unrounded in ST0
     and its cosine at the FPU's full precision; ours rounded both. It now returns double, the cosine multiplied in
     the register (TimesAbsCos); TestControlPadMath compares the doubles.
-  - Test (selftests_skater_walk.cpp TestWalkMovement): every function, original vs ours, 300-3000 variants
+  - Test (selftests_skater_walk_pieces.cpp TestWalkMovement): every function, original vs ours, 300-3000 variants
     (stand-ins for Lerp 0x0043D990, the cache's Update - its box recorded -, StickLength with unrounded values and
     one exactly full after x 1/0.85, the run speed; shared short-list values for equal compares; -0 velocities; the
     current cache global recorded). 44 deliberate bugs caught, 3 after strengthening (the cache global, the
@@ -250,3 +250,20 @@ Switch off: `[replacements] disable=vehicle_camera.cpp` (and walk_camera.cpp, wa
     the offset eased by exactly its length, the velocity +0x34 passed as itself). 89 deliberate bugs: 87 caught, 5
     after strengthening; 2 equivalent (EaseCriticalPointOffset's push-back at a distance of exactly 0 - the point's y
     can't give -0; SteerJump adding 0 to a negative target).
+- [x] SK5 summary (2026-10-22): the whole range 0x00521B90-0x00529F62 is source - the 98 Ghidra functions of the
+  survey and the non-Ghidra pieces (0x005222F0, 0x005232E0, 0x00524420, 0x00525E40, 0x00525E90-0x00525F60,
+  0x00526060, 0x00528580-0x00528740, 0x00528890); 0x00527510 / 0x00527600 were already on main (controls.cpp).
+  find_gaps: nothing in the range; scan_register_assumptions / audit_game_function_calls: nothing new;
+  check_code_writes: no overlaps; thug2_check on THUG2PM.exe and the stock THUG2.exe: 0 MISMATCHED, 623 early
+  self-tests pass. Merged with main (SK1, SK3, SK4, SK6): SK6's Walk component block is in walk_physics.h beside this
+  range's.
+  - Game run (THUG2-3, under the lock): BO in free skate, the skater teleported to its spawn (standing: the walk
+    state), walked forward 270 units, jumped, turned left / right, walked on - it moves and animates as it should;
+    every replacement installed, no run-time check, CRT report or exception in the log. Nothing harder was driven
+    (hangs, ladders, wallplants, grinds from walking, the sticker slap, the uber frig: try those by hand).
+  - Switch off: `[replacements] disable=walk_physics.cpp,walk_movement.cpp,walk_collision.cpp` (the Walk component),
+    `walk_camera.cpp`, `vehicle_camera.cpp`, `trick_queue.cpp`, `trick_member_functions.cpp`; the shared fixes are in
+    control_pad.cpp (StickLength), vector.cpp (ProjectOnto) and matrix.cpp (CreateRotateMatrix).
+  - Left: CTrickComponent is declared twice (trick_component.h by SK4, trick_queue.h here - each with its own range's
+    methods; no file includes both): merge them into one class when convenient. Matrix::Invert / Adjugate /
+    Determinant aren't bit-exact with the original's x87 code.
