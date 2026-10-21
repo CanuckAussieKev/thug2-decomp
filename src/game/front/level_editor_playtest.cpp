@@ -16,6 +16,7 @@
 
 #include "game/core/crc.h"
 #include "game/front/front_end.h"
+#include "game/front/level_editor_actions.h"
 #include "game/front/level_editor_hud.h"
 #include "game/front/level_editor_layout.h"
 #include "game/front/level_editor_nodes.h"
@@ -820,15 +821,6 @@ void StopSimulation(const char* why)
                  2.0);
 }
 
-bool Pressed(const uint8_t* keys, SDL_Scancode code, bool* released)
-{
-    bool down = keys[code] != 0;
-    bool pressed = down && *released;
-    *released = !down;
-    return pressed;
-}
-bool g_f6Released, g_f7Released;
-
 } // namespace
 
 // --- the game side's entry points ---
@@ -852,25 +844,23 @@ void OnEditorStart()
         if (it == g_levels.end() || it->second.runs.empty())
             LoadFile(g_editorScene, true);
     }
-    g_f6Released = g_f7Released = false; // (a key held as the editor opens doesn't count)
 }
 
 void OnEditorStop() { StopSimulation("the editor closed"); }
 
-void Tick(const uint8_t* keys, bool ctrl, bool alt, bool dragging)
+void Tick(bool dragging)
 {
     g_editorScene = SceneNow();
     if (g_simulating && Layout::NetworkActive())
         StopSimulation("a network session");
-    if (keys) {
-        if (Pressed(keys, SDL_SCANCODE_F6, &g_f6Released) && !ctrl && !alt && !dragging)
-            g_ask = Ask::ToggleSimulate;
-        if (Pressed(keys, SDL_SCANCODE_F7, &g_f7Released) && !ctrl && !alt) {
-            if (Ui::Running())
-                g_windowOpen = !g_windowOpen;
-            else
-                Hud::Message("The Trail window needs the editor's UI ([features] editor_ui=1)");
-        }
+    // (the keymap's - level_editor_actions.h: F6, F7 by default)
+    if (Actions::Pressed(Actions::kSimulate) && !dragging)
+        g_ask = Ask::ToggleSimulate;
+    if (Actions::Pressed(Actions::kTrailWindow)) {
+        if (Ui::Running())
+            g_windowOpen = !g_windowOpen;
+        else
+            Hud::Message("The Trail window needs the editor's UI ([features] editor_ui=1)");
     }
     Ask ask = g_ask;
     g_ask = Ask::None;

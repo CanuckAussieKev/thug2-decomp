@@ -12,6 +12,7 @@
 #include <fstream>
 #include <sstream>
 
+#include "game/front/level_editor_actions.h"
 #include "game/front/level_editor_hud.h"
 #include "game/front/level_editor_prefs.h"
 #include "hook/log.h"
@@ -427,15 +428,11 @@ void ApplyOrbit(const Rig& rig)
 
 void Keys(const Rig& rig, const uint8_t* keys, bool ctrl, bool browserOpen)
 {
-    static bool fWas, digitWas[kBookmarks], kpWas[4];
-    auto pressed = [&](SDL_Scancode key, bool* was) {
-        bool down = keys[key] != 0;
-        bool p = down && !*was;
-        *was = down;
-        return p;
-    };
+    // (the keys from the keymap - level_editor_actions.h: rebindable)
+    (void)keys;
+    (void)ctrl;
     // F: the selection framed (the browser has its own F).
-    if (pressed(SDL_SCANCODE_F, &fWas) && !ctrl && !browserOpen) {
+    if (Actions::Pressed(Actions::kFrameSelection) && !browserOpen) {
         if (!rig.haveSelection) {
             Hud::Message("F frames the selection - nothing is selected", 2.0);
         } else {
@@ -453,12 +450,14 @@ void Keys(const Rig& rig, const uint8_t* keys, bool ctrl, bool browserOpen)
                 *rig.speed = SpeedForRadius(rig.radius);
         }
     }
-    // 1..9 recall a bookmark, Ctrl+1..9 store it.
+    // 1..9 recall a bookmark, Ctrl+1..9 store it. (Alt+1..4 are the view modes - level_editor_overlays.h.)
+    bool alt = keys[SDL_SCANCODE_LALT] || keys[SDL_SCANCODE_RALT];
     for (int i = 0; i < kBookmarks; ++i) {
-        if (!pressed(static_cast<SDL_Scancode>(SDL_SCANCODE_1 + i), &digitWas[i]))
+        bool store = Actions::Pressed(Actions::kBookmarkStore1 + i);
+        if (alt || (!store && !Actions::Pressed(Actions::kBookmark1 + i)))
             continue;
         char text[96];
-        if (ctrl) {
+        if (store) {
             Bookmark& m = g_marks[i];
             m.set = true;
             m.pose = {*rig.pos, *rig.yaw, *rig.pitch};
@@ -491,9 +490,13 @@ void Keys(const Rig& rig, const uint8_t* keys, bool ctrl, bool browserOpen)
         }
     }
     // The numpad: 7 top, 1 front, 3 right (Ctrl: the opposite), 5 perspective / ortho.
-    static const SDL_Scancode kPad[4] = {SDL_SCANCODE_KP_7, SDL_SCANCODE_KP_1, SDL_SCANCODE_KP_3, SDL_SCANCODE_KP_5};
+    static const int kPad[4][2] = {{Actions::kViewTop, Actions::kViewBottom},
+                                   {Actions::kViewFront, Actions::kViewBack},
+                                   {Actions::kViewRight, Actions::kViewLeft},
+                                   {Actions::kViewOrtho, Actions::kViewOrtho}};
     for (int i = 0; i < 4; ++i) {
-        if (!pressed(kPad[i], &kpWas[i]))
+        bool opposite = Actions::Pressed(kPad[i][1]) && i != 3;
+        if (!opposite && !Actions::Pressed(kPad[i][0]))
             continue;
         g_flight.on = false;
         if (i == 3) {
@@ -507,7 +510,7 @@ void Keys(const Rig& rig, const uint8_t* keys, bool ctrl, bool browserOpen)
             continue;
         }
         static const View kViews[3][2] = {{View::Top, View::Bottom}, {View::Front, View::Back}, {View::Right, View::Left}};
-        View view = kViews[i][ctrl ? 1 : 0];
+        View view = kViews[i][opposite ? 1 : 0];
         V3 pivot = Ortho() ? (rig.haveSelection ? rig.target : g_ortho.pivot) : LookPoint(rig);
         V3 d = pivot - *rig.pos;
         float equivalent = Ortho() ? g_ortho.equivalent : std::clamp(std::sqrt(Dot(d, d)), 200.0f, 20000.0f);

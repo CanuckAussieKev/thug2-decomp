@@ -94,31 +94,34 @@ All in new files: `src/game/front/level_editor_playtest.{h,cpp}` (pure parts + t
 | F6 | editor (not dragging) | Simulate on / off |
 | F7 | editor (the UI) | the Trail window |
 
-(In play nothing new: F5 / Ctrl+P are UX1's, F8 the restart tester's.) Help (F1) has both rows. UX3's command registry
-hadn't landed on main when this was written: the keys are in `PlayTest::Tick` (level_editor_playtest.cpp) - a keymap can
-take them over there.
+(In play nothing new: F5 / Ctrl+P are UX1's, F8 the restart tester's.) Both are registered in UX3's keymap
+(`level_editor_actions.h`: `kSimulate` "simulate" F6, `kTrailWindow` "trail_window" F7 - appended to the built-ins,
+rebindable in [editor_keys], in the command search; UX3's clash self-test passes). Help (F1) has both rows. Simulate's
+"keys that keep it running" (`SimulateKeyKeeps`) are by scan code, not through the keymap: a rebound camera key may stop it.
 
 ## Shared files touched (small, additive)
 - `src/game/front/level_editor.cpp`: include; `PlayTest::OnEditorStart()` after `Camera::Start` in CFunc_Start;
-  `PlayTest::OnEditorStop()` first in CFunc_Stop; `PlayTest::Tick(keys, ctrl, alt, g_dragging)` after the F5 / Ctrl+,
-  block in Update; `PlayTest::AddOverlay(...)` after `Entities::AddOverlay` in Draw.
+  `PlayTest::OnEditorStop()` first in CFunc_Stop; `PlayTest::Tick(g_dragging)` after the play / preferences actions in Update; `PlayTest::AddOverlay(...)` after `Entities::AddOverlay` in Draw.
 - `src/game/front/level_editor_ui.cpp`: include; `PlayTest::ToolbarButtons()` after Prefs; `PlayTest::RestartSection`
   before `SpawnSection`; `PlayTest::Window` after the tips window; two help rows (F7, F6).
 - `src/game/front/level_editor_triggers_ui.cpp`: include; a gap trigger's row note and its Inspector line.
 - `src/game/front/mouse_menus.cpp`: include; `PlayTest::Update(frontEnd)` after `Play::Update`.
 - `src/game/front/level_editor.h`: the module list's line.
+- `src/game/front/level_editor_actions.{h,cpp}`: `kSimulate`, `kTrailWindow` appended (Id and the built-in table).
 - `CMakeLists.txt`: two sources, one self-test file.
 
 ## Checks (offline)
 - Clean build (`out/build/verify`, own `_MSPDBSRV_ENDPOINT_` thug2ux6), no warnings in the new files.
 - `thug2_check.exe` on THUG2PM.exe and on the stock `C:\Games\THUG2\Game\THUG2.exe` (read-only): 0 MISMATCHED, all early
-  self-tests pass (460), six new: `TestEditorTrailClassify` (the six physics states, manual only on the ground with a
+  self-tests pass (480 after merging main 1b3384b), six new: `TestEditorTrailClassify` (the six physics states, manual only on the ground with a
   manual's trick, bail / drive / walk order, names), `TestEditorTrailRecorder` (150-unit thinning, a motion change keeps
   its stretch's last frame, jumps unlinked, turns kept, the cap), `TestEditorTrailGaps` (learn, got, landed, lost, got +
   landed between reads, a new gap isn't a landing, Forget), `TestEditorTrailCombo` (settled landing, bail while settling,
   bail at the drop), `TestEditorTrailFile` (round trip, another file refused, bad lines skipped, run cap, file name,
   counts), `TestEditorSimulateKeys` (what keeps it running / stops it).
-- Mutations (`node tools/mutate.ts out/scripts/mut_ux6.ts`, 20): see below.
+- Mutations (`node tools/mutate.ts out/scripts/mut_ux6.ts`, 20): all caught (wall plant, nose manual, bail order, a
+  stretch's last frame, jump mark, turn, step, cap, got+landed, lost, a new gap's landings - after strengthening its test -,
+  settle, bail at the drop, visible, names with spaces, run cap, fly keys, Ctrl keys, file name, header).
 - `node tools/check_code_writes.ts`: no overlaps (nothing written into the exe).
 
 ## In-game checklist (for the user - NOT run)

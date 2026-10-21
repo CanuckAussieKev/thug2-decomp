@@ -181,9 +181,9 @@ void Update(Mdl::FrontEnd* frontEnd);
 // stopping (LevelEditor_Stop, first thing: a simulation stopped and the world put back).
 void OnEditorStart();
 void OnEditorStop();
-// The editor's Update, with its keys (F6 Simulate, F7 the Trail window) - its key handling's place; requests from the
-// UI done here.
-void Tick(const uint8_t* keys, bool ctrl, bool alt, bool dragging);
+// The editor's Update, after the keymap's BeginFrame: its actions (Actions::kSimulate - F6, kTrailWindow - F7 by
+// default, rebindable) and the UI's requests done here.
+void Tick(bool dragging);
 // The trails and markers over the view (the UI's overlay; nothing while hidden).
 void AddOverlay(V3 camera, const Frame& frame, const Lens& lens, const uint32_t viewport[4], float nearZ,
                 std::vector<Ui::Line>* lines, std::vector<Ui::Overlay::Circle>* circles,
