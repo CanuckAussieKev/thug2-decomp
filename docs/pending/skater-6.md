@@ -29,7 +29,7 @@ Switch off: `[replacements] disable=gamenet_state.cpp` (and the later batches' f
   - Messages: 0x00532ED0 FindServersOnLan (message 0x11, 12 bytes - the time, then 8 bytes the original leaves
     uninitialised, zeroed here - through the lobby client to the address asked for at 0x007CCA84 once, else broadcast
     to port 5153 and to the command line's address 0x0067EFB8 unless -1); 0x00533250 SendReady (0x59, the game
-    number, sequenced in group 8, then +0x39 = +0x38); 0x00533300 SendObserverCount (0x26, +0x188, important, through
+    number, sequenced in group 8, then +0x39 = +0x38); 0x00533300 SendAck (0x26, +0x188, important, through
     each client there is). 0x00532E30 removes the task at +0xF4 (a tail jump to Tsk::BaseTask::Remove).
   - The goal editor's created goals: 0x00533380 (0x004E7E50(0) > 0, the manager unused), 0x005333A0 (the level at
     +0x1D8 and +0x194C, 0x004EBB70(level, +0x1DC, 6000), size + 4 at +0x1948), 0x005333E0 / 0x005333F0.
@@ -43,3 +43,36 @@ Switch off: `[replacements] disable=gamenet_state.cpp` (and the later batches' f
     results and the arena compared. 38 deliberate bugs: 36 caught at once, 1 after strengthening (the crown spawn
     point's sign: the second call overwrote the first), 1 equivalent (ShouldDrawPlayerNames' assert flag only
     decides whether the empty debug-message function is called).
+- [x] Batch SK6-2 (NOT run in the game yet; the smaller message handlers and helpers, 30 functions):
+  src/game/net/gamenet_handlers.cpp / .h (new). The handlers' message ids come from their registration (client:
+  0x00534480, server: 0x0053C380); names of scripts and preferences from the game's own .qb checksum tables.
+  - Client: 0x0052D7B0 (0x25: the acknowledgement id, +0x188 - sent back by 0x00533300 as 0x26), 0x0052D7D0 (0x26,
+    server's too: the packet acked; the sender's player 0x005446C0 - its connection ready again if the id is the one
+    it owes), 0x0052D800 (0x4D: ExitSurveyorMode, then observe 0x0053E650), 0x0052D830 (0x79: a remote connection's
+    important queues emptied), the CTF flag messages 0x0052D850 / 0x0052D880 / 0x0052D8B0 / 0x0052D8E0 (0x74 stole,
+    0x71 took, 0x72 captured, 0x73 retrieved: the player of object id msg[0], team msg[1] - signed bytes, the id
+    pushed as 16 bits), 0x0052D910 / 0x0052D930 (launch_auto_server_notification, Kill_Team_Flags), 0x0052D950
+    (0x3F: a panel message through 0x005376F0), 0x0052D980 (0x23: the object update message's length from its bits -
+    8 present bits, then per skater a 16-bit time, 9 flags, 6 signed 16-bit fields, 4+6+1+1, 8, a signed 32),
+    0x0052DAC0 (0x70 and 0x46: nothing), 0x0052DAD0 (0x7C: the CD key challenge answered as 0x7D, 33 bytes, from
+    profile_password through the online service's 0x0054CA10), 0x0052DCA0 (0x7B: the connection's last
+    communication msg[0] seconds on), 0x0052DCC0 (0x53: join state 6, 0x54 to the server, the skate module's
+    handlers on each local client unless on the server), 0x0052E1A0 (0x42: 0x00537140(true), the task at +0xD0 on
+    the logic tasks unless the app is local), 0x0052EB70 (0x6C, both: the park map, its CRC computed and dropped),
+    0x0052ED80 (0x5A: every player ready; an observer of a goal attack gets create_rankings), 0x0052EDD0 (0x6A: trick
+    objects reset, create_game_ended_dialog, 0x00537620), 0x0052F2D0 (0x69: the team count; the first one outside a
+    team game runs ChooseTeamMessage and PrepareSkaterForMove on the local skater), 0x0052F370 (0x80: the skate
+    module's checksum written into the received message at +4, sent back as 0x81).
+  - Server: 0x0052EBB0 (0x90: in a team game the object word noted for the sender's team - five slots at +0x70 +
+    0x14 * team; 4 for an unknown sender or a repeat), 0x0052F3D0 (0x7D: the CD key answer checked by the online
+    service's 0x0054CA30 with the sender's skater's id - no null check, the original's), 0x0052F400 (0x8B: the rail
+    editor's rails streamed as 0x88, 0x1132 bytes; 0x8A: the created goals as 0x87 if there are any).
+  - 0x0052D6A0 GetCdKey (HKCU then HKLM Software\Activision\Tony Hawk's Underground 2 "key", keys created; quirk
+    kept: a HKCU key without the value is never closed; differs: a 100-byte value without a terminator - the
+    original's strcpy ran on into its stack, ours stops). The list searches' destructors 0x0052DB60 / 0x0052DB70 /
+    0x0052F730 / 0x0052F760 (vtables 0x0064C828 / 0x0064C82C).
+  - Test: TestGameNetHandlersSmall (selftests_skater_gamenet2.cpp, kit src/hook/gamenet_testkit.h) - six scenarios:
+    every handler on a stand-in arena (known / unknown players, signed ids and teams, remote / local connections and
+    apps, server / client, team games, observers, filled team slots), object update messages of 15 bit layouts,
+    GetCdKey through stood-in registry functions on 7 paths, the destructors with a stood-in Free. 46 deliberate bugs
+    caught (one needed a rerun: a transient build failure).

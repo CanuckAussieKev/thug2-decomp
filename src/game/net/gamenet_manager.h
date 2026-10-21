@@ -125,8 +125,9 @@ public:
     void SetCrownSpawnPoint(char point);
     // 0x00533240: +0x9950.
     void SetLobbyId(uint32_t id);
-    // 0x00533300: message 0x26 (+0x188, 4 bytes) to the server through each local player's client.
-    void SendObserverCount();
+    // 0x00533300: message 0x26 - the acknowledgement id the server sent (+0x188, message 0x25) - to the server through
+    // each local player's client (it makes the player's connection ready again).
+    void SendAck();
     // 0x00533360: the buffer at +0xFDF8 (its size in *size, +0xFDFC).
     void* GetPendingData(uint32_t* size);
     // 0x00533380: the goal editor has created goals (0x004E7E50 with 0).

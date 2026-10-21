@@ -44,7 +44,7 @@ constexpr uint32_t kCrown = 0x6C;
 constexpr uint32_t kHostTask = 0xF4;         // Tsk::BaseTask*
 constexpr uint32_t kNetworkPrefs = 0x104;    // Prefs::Preferences
 constexpr uint32_t kTauntPrefs = 0x110;      // Prefs::Preferences
-constexpr uint32_t kObserverCount = 0x188;
+constexpr uint32_t kAckId = 0x188;
 constexpr uint32_t kServerListState = 0x190;
 constexpr uint32_t kJoinState = 0x198;
 constexpr uint32_t kPublicIp = 0x19C;
@@ -65,7 +65,7 @@ constexpr uint16_t kLanPort = 5153;          // the LAN lobby's port
 
 // Messages.
 constexpr uint8_t kMsgFindServer = 0x11;
-constexpr uint8_t kMsgObserverCount = 0x26;
+constexpr uint8_t kMsgAck = 0x26;
 constexpr uint8_t kMsgReady = 0x59;
 constexpr uint8_t kGroupGame = 8;            // the sequenced group of the game's messages
 
@@ -313,14 +313,14 @@ bool Manager::CheatingNoted() { return Field<bool>(this, kCheatingNoted); }
 void Manager::NoteCheating() { Field<bool>(this, kCheatingNoted) = true; }
 
 // 0x00533300
-void Manager::SendObserverCount()
+void Manager::SendAck()
 {
     Net::MsgDesc desc;
     desc.Construct();
-    uint32_t count = Field<uint32_t>(this, kObserverCount);
-    desc.m_data = &count;
-    desc.m_length = sizeof(count);
-    desc.m_id = kMsgObserverCount;
+    uint32_t id = Field<uint32_t>(this, kAckId);
+    desc.m_data = &id;
+    desc.m_length = sizeof(id);
+    desc.m_id = kMsgAck;
     desc.m_queue = Net::MsgDesc::kQueueImportant;
     for (int i = 0; i < 2; ++i) {
         if (Net::App* client = GetClient(i))
@@ -411,7 +411,7 @@ REPLACE(0x005332C0, &Manager::SetAllPlayersReady);
 REPLACE(0x005332D0, &Manager::ClearAllPlayersReady);
 REPLACE_SOURCE_ONLY(0x005332E0, &Manager::CheatingNoted);
 REPLACE(0x005332F0, &Manager::NoteCheating);
-REPLACE(0x00533300, &Manager::SendObserverCount);
+REPLACE(0x00533300, &Manager::SendAck);
 REPLACE(0x00533360, &Manager::GetPendingData);
 REPLACE(0x00533380, &Manager::HasCreatedGoals);
 REPLACE(0x005333A0, &Manager::PrepareCreatedGoals);

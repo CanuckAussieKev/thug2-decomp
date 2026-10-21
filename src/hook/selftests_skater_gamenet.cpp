@@ -330,12 +330,12 @@ std::vector<uint32_t> Run(bool original, int scenario)
         Word<uint32_t>(kManager + 0x0C) = 0;
         Word<uint8_t>(kManager + 0x38) = 0xC3;
         callv0(0x00533250, as0(&Manager::SendReady));
-        callv0(0x00533300, as0(&Manager::SendObserverCount));
+        callv0(0x00533300, as0(&Manager::SendAck));
         Word<uint32_t>(kManager + 0x08) = 0;
         Word<uint32_t>(kManager + 0x0C) = At(kApps + 0x200);
-        callv0(0x00533300, as0(&Manager::SendObserverCount));
+        callv0(0x00533300, as0(&Manager::SendAck));
         Word<uint32_t>(kManager + 0x08) = At(kApps + 0x100);
-        callv0(0x00533300, as0(&Manager::SendObserverCount));
+        callv0(0x00533300, as0(&Manager::SendAck));
         GameVariable<bool>(0x007CCA88) = true;
         callv1(0x00532AA0, as1(&Manager::SetJoinMode), 1);
         Rec(0xA88, {GameVariable<uint8_t>(0x007CCA88)});
