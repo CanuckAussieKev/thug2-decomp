@@ -70,13 +70,24 @@ public descriptions of the Xbox 360's texture fetch constant / tiling and of Hav
   `_gfx` / `_sfx` sub-zones (flags 2 / 4), plus models (`.mdl`, `.skin`, `.stex`) of its game objects.
 - **QB** (`.qb`, `.nqb`): THAW's item format with big-endian words; a structure entry's type byte is 0x80 | type (THAW:
   type << 1 | 1), and an unnamed type 0x1A entry is an include (the node arrays' `<zone>_NodeArray_compressed_node_n`
-  structures) or a flag. Script bodies: LZSS'd THUG2 tokens, little-endian. Checksum names: `PAK\dbg.pak.xen`.
+  structures) or a flag. Script bodies: LZSS'd THUG2 tokens, little-endian, with THAW's 0x4A inline structures
+  (big-endian here) and two of THP8's own: 0x4B ("$": the next name's global value) and 0x4C (a wide string: byte
+  count, UTF-16LE). Checksum names: `PAK\dbg.pak.xen`. English text: qb.pak's string globals (`str_z_cretepark_scripts_2
+  = "Over the Steps"`, which scripts name); the other languages' in the `_f` / `_g` / `_i` / `_s` paks.
 - **Scenes** (`.geom`): THAW's layout grown: 0x134-byte materials (a list of up to 16 texture checksums, a parameter
   block naming the shader template, the texture count and the terrain), then 0xBABEFACE and the scene: 0x50-byte
   sectors (the node names), 0x60-byte sector nodes (box, first mesh, mesh count), 0x80-byte meshes (sphere, material,
   vertex layout, colour / uv offsets, counts, the vertex and index blocks). Vertices: float3 position, packed normal,
   0-2 tangent words, ARGB colour, 16-bit float uv pairs (one per 2-bit field of the layout word). Indices: u16
   triangle strips separated by 0x7FFF.
+- **Materials** (materials.ts has the details): a material names a shader template of `FXFILES\MaterialLibrary.bin`
+  ("MATL": the templates by name checksum - DiffuseTerrain_3Pass, NormalMapTerrain_4Pass... - each with its
+  techniques, "_ENGINE_Default_Pass0_InteriorLighting"...), its technique by number, then float4 parameters (pass
+  colours, specular power, tilings) and its textures in the template's order: pass 0's diffuse (normal, specular)
+  map, each further pass a diffuse map and a blend mask, then the zone's two light maps - an **ambient map** (sky light,
+  coloured) and a **shadow map** (the sun's light), atlases shared by the lit materials (1024 / 2048 texels in the
+  skate park), read through the vertex's last two uv fields. The game objects' models (`.mdl`) have the scene's
+  layout, their textures (`.stex`) the .tex layout, their physics a Havok packfile.
 - **Instances**: a node with `MasterName` places a copy of a `__MASTERNODE_` sector (drawn at the origin) at its Pos /
   Angles (radians, R = Ry Rx Rz - checked against the rails along instanced fences) / scale.
 - **Textures** (`.tex`): 0xFACECAA7, 0x28-byte records pointing at each texture's base level, packed mip levels and
@@ -88,14 +99,15 @@ public descriptions of the Xbox 360's texture fetch constant / tiling and of Hav
   terrain << 16 | THUG2's face flags; terrain numbers index THP8's `terrain_types` (qb.pak). The bodies are unnamed:
   each is matched to the scene sector whose box is the same.
 
-## What's converted (phase 1)
+## What's converted (phases 1 and 2)
 
 - Scene: every sector of the zone, the instances baked in; each material one pass with its first non-normal-map
   texture (THP8's shaders add normal, specular, ambient and shadow maps - not drawn); textures with alpha blended
   (double-sided). Vertex colours as THP8's (255 = full as THUG2's 128); opaque materials' vertex alpha full (THP8 uses
   it to blend layers).
 - Textures: DXT1 / DXT5 kept compressed (base level untiled, mip levels made from it), DXT3 and 8888 as 32-bit, DXN
-  normal maps left out.
+  normal maps left out. (8888 textures came out with their alpha as blue until 2026-10-22: the light maps of the
+  interiors are 8888.)
 - Collision: every body, primitives as triangles (boxes; cylinders, capsules and spheres as 8-sided prisms), named
   after its sector (or its primitives' node); face flags as THP8's (trigger faces only on kill zones), terrains mapped
   to THUG2's nearest.
@@ -104,8 +116,30 @@ public descriptions of the Xbox 360's texture fetch constant / tiling and of Hav
 - Glows and light shafts (lamp halos, sun shafts: sectors named `...Glow`, `..._Glo`, `...LightShaft...`) drawn adding,
   at the strength of their material colour (the four floats before the first texture's checksum in the material's
   parameter block: R, G, B, A); THP8's blend modes themselves are not decoded yet.
-- Sky: THP8's default sky dome, its cloud layers faded out towards the horizon. Lighting: THUG2's default (THP8 lights with ambient / shadow maps and its time of day).
+- Sky: THP8's default sky dome, its cloud layers faded out towards the horizon.
+- Layers (phase 2): the terrain templates' further passes (up to three) as THUG2 passes blending by alpha (mode 5):
+  the layer's diffuse map with its mask's brightness (times the map's own alpha and the pass colour's opacity) as its
+  alpha - a texture made per (diffuse, mask) pair, or, where the mask has a uv field of its own, the mask read into
+  the vertex alpha (one layer per material). Pass colours as THUG2's pass colours (tints: the skate park's red-striped
+  wave, its red ledge edges). The tilings (float4s) aren't applied.
+- Lighting (phase 2): THP8's light maps baked into the vertex colours: ambient map x 1.5 + the zone's sun colour
+  (its `<zone>_tod_manager`, halfway to white) x shadow map x 0.6; interiors (technique `..._InteriorLighting`: the
+  factory, school inside, skate shop, bedroom - or a real ambient map with the 32 x 32 white shadow stand-in) ambient
+  map x 4 alone. Lit triangles are split where the maps vary
+  inside them (materials.refine: the shadows keep their shape), within a budget (half as many triangles again or
+  40,000 more, at most 190,000 a zone). THUG2's level lights (skater, objects) from the zone's tod_manager.
+- Scripts (phase 2, tools/thaw_levels/thaw_scripts.ts's translator - THP8's scripts are THAW's token stream): the
+  geometry's and rails' trigger scripts and everything they call, from the zone's own qbs, its sub-zones' and the
+  other zones' (a gap may end in the next zone's script) - the **gaps** (StartGap / EndGap, their names as THP8's
+  English text); statements THUG2 hasn't left out (goals, chalk gaps, sounds, particles, cameras). Kill zones also
+  through the skater (`Skater:KillSkater`); THP8's trigger volumes (faces 0x20 + non-collidable: the Capitol's lake)
+  as THUG2 trigger faces, named after the collision-only node in them. Script objects (Ghost game objects), moving
+  objects (LevelObject: in their own space, not moved with the zone) and waypoints made as THAW's are; THP8's Vehicle
+  nodes (its grid pieces) left out. Guards: a script with an endless loop whose waits can't run is emptied, a
+  RunScriptOnObject of a script that isn't there made harmless (both hung / crashed the game).
+- Restarts (phase 2): THP8's network spawns (Multiplayer) also single-player restarts (Player1) - most zones have
+  one Player1 restart; restarts over nothing or a kill zone no network spawns (nodes.groundRestarts).
 
-Not yet (phase 2 - docs/pending/thp8.md): gaps, the kill zones THP8 writes as `Skater:KillSkater` member calls,
-scripts, peds, vehicles, game objects (the zone's own .mdl / .skin), particles, sub-zones (_gfx / _sfx), lighting from
-THP8's ambient / shadow maps, multi-layer (blended terrain) materials, the network areas of several zones.
+Not yet (docs/pending/thp8.md): peds, vehicles, game objects with models (the zone's own .mdl / .skin), particles,
+the sub-zones' (_gfx / _sfx) nodes, sounds, music, goals, normal / specular / environment maps, the network areas of
+several zones.

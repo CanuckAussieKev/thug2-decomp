@@ -442,7 +442,8 @@ export function* tokens(input: Uint8Array): Generator<qb.Token> {
         if (fixed !== undefined) {
             payload = data.subarray(i, i + fixed);
             i += fixed;
-        } else if (t === 0x1b || t === 0x1c) {
+        } else if (t === 0x1b || t === 0x1c || t === 0x4c) {
+            // (0x4C: THP8's wide string - its UTF-16LE text after the byte count, as a string's)
             const length = u32At(data, i);
             payload = data.subarray(i + 4, i + 4 + length);
             i += 4 + length;

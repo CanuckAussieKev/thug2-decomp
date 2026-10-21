@@ -189,7 +189,13 @@ function inManual(toks: readonly qb.Token[], k: number, out: Tok[]): number | nu
 }
 
 // A THAW script body as script_port's token list (Tok.i: the index of the THAW token it comes from).
-export function scriptToks(body: Uint8Array, names: Map<number, string>, label = "script"): Tok[] {
+// (order: the inline structures' byte order - ">" for THP8's Xbox 360 files, tools/thp8_levels)
+export function scriptToks(
+    body: Uint8Array,
+    names: Map<number, string>,
+    label = "script",
+    order: "<" | ">" = "<",
+): Tok[] {
     for (const [, renamed] of RENAME_TEXT) setDefault(names, checksum(renamed), renamed);
     for (const text of NAMES_MADE) setDefault(names, checksum(text), text);
     const toks: qb.Token[] = [...thaw.tokens(body)].map(([off, t, p]) => {
@@ -220,6 +226,19 @@ export function scriptToks(body: Uint8Array, names: Map<number, string>, label =
             out.push(new Tok(0x25, Buffer.alloc(0), k));
         } else if (t === 0x48) {
             out.push(new Tok(0x26, Buffer.alloc(0), k));
+        } else if (t === 0x4b) {
+            // (THP8's "$": the next name's global value - `QueryFlag ... $FLAG_THINGY_SPINNING`, `params_Script={
+            // $GP_HO_BambooFence_Dust01 ...}`. THUG2 has no such token: the plain name - a global structure named
+            // in a structure is taken in by THUG2 too; a number's name stays a name.)
+            continue;
+        } else if (t === 0x4c) {
+            // (THP8's wide string - UTF-16, big-endian: as THUG2's string, its characters past Latin-1 left out)
+            const text = Buffer.from(p)
+                .swap16()
+                .toString("utf16le")
+                .replace(/\u0000+$/, "")
+                .replace(/[^\u0020-\u00ff]/g, "");
+            out.push(new Tok(0x1b, Buffer.concat([encodeLatin1(text), Buffer.from([0])]), k));
         } else if (t === 0x2e) {
             out.push(new Tok(0x2e, p, k, [target(off + 5 + i32(p))]));
         } else if (scriptPort.RANDOMS.includes(t)) {
@@ -237,7 +256,7 @@ export function scriptToks(body: Uint8Array, names: Map<number, string>, label =
             if (there !== undefined) out.push(new Tok(0x49, p, k, [there]));
             else out.push(new Tok(0x49, p, k, [target(pos + 1)], null, 1));
         } else if (t === 0x4a) {
-            const s = thaw.inlineStruct(p, names);
+            const s = thaw.inlineStruct(p, names, order);
             const previous = k ? toks[k - 1]![1] : null;
             if (depth === 0 && previous !== 0x07) {
                 // (a call's arguments: as plain arguments, so that the translator sees the names and scripts in them)
@@ -273,7 +292,7 @@ export class ThawSource {
     constructor(q: thaw.QbItems, label: string, names: Map<number, string>) {
         this.label = label;
         for (const [name, body] of q.scriptData) {
-            this.scripts.set(name, scriptToks(body, names, `${q.name}: ${names.get(name) ?? hex8(name)}`));
+            this.scripts.set(name, scriptToks(body, names, `${q.name}: ${names.get(name) ?? hex8(name)}`, q.order));
         }
         this.globals = new Map(q.globals.map(([key, value]) => [key.value, plain(value)]));
     }

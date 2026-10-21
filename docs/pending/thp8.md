@@ -105,3 +105,53 @@ Not converted: z_mainmenu, z_mocap, z_navmesh, z_peds, z_anim, z_world, z_viewer
    THP8's ambient maps.
 3. Game objects: the zones' .mdl models as level objects (THAW's model path), then peds / cars.
 4. Merged areas: try Skate park + Fun park (and the other `z_online_*` groups) as one level and watch the pools.
+
+# thp8 phase 2 (2026-10-22, agent "thp8 phase 2", worktree branch; workspace C:\Games\THUG2-4)
+
+Data only from `C:\Games\THP8\game\DATA` (never the recompilation's programs). No leaked source; THUGPRO not involved.
+DLL in the workspace for the runs: this branch's verify build (main's C++ at 55de9dd - no C++ changed).
+
+## Step 1 - the look (materials, layers, light)
+
+- **Material library decoded** (`FXFILES\MaterialLibrary.bin`, "MATL"): templates by name checksum (62:
+  DiffuseTerrain_3Pass, NormalMapTerrain_3/4Pass, DiffuseSpecTerrain_3Pass, NormalMap_SeperateChannels, Decal,
+  VertexColorOnly, Billboard...), each with its techniques (0x140-byte descriptions, +8 the name checksum:
+  "_ENGINE_Default_Pass0_Pass1_InteriorLighting"...). A material's parameter block: +0x18 float4 count, +0x20 its
+  technique, then the float4s, then the textures (materials.ts has the layout and the roles).
+- **Texture roles**: pass 0 diffuse (+ normal DXN + specular per template), each further pass a diffuse map and a
+  blend mask, last two the zone's **ambient map** (sky light, RGB; 1024 atlas) and **shadow map** (sun, grey; 2048
+  atlas) - shared by every lit material, read through the vertex's last two uv fields. Found from texture use across
+  materials (a texture that is nearly always second to last / last), checked on the decoded atlases.
+- **Layers** as THUG2 passes (blend mode 5: by the pass texture's alpha x 2 x vertex alpha - THUG2's generated pixel
+  shader, src/game/gfx/pixel_shaders.cpp), the mask baked into a texture made per (diffuse, mask, opacity) or into the
+  vertex alpha when it has its own uv field; THUG2's PassAlphaFlags (0x004D1D90) = per pass PASS_IGNORE_VERTEX_ALPHA
+  (0x1000), checked in the exe. Pass colours (tints + opacity) from the float4s (which float4 is which per template:
+  read from how they vary over seven zones). The skate park's wave got its red paint stripes (the "striped band" -
+  seen black / white before), the ledges their red edges, posters / stickers / RENTALS letters their layers.
+- **Lighting** baked into the vertex colours (formula and scales: README / compromises section 10), triangles refined
+  where the maps vary (materials.refine, crack-free inside a mesh), triangle budget per zone (MAX_TRIANGLES 190,000).
+  Interiors by technique name. THUG2's level lights (skater) from each zone's `<zone>_tod_manager`.
+- **Fixed**: 8888 textures had their alpha as blue (every 8888 - the interiors' light maps, env maps: the factory and
+  skate shop came out blue-washed).
+- Captures (workspace Screenshots\p2_*, p3_*, p4_*: start view + an overview of every zone; not kept in the repo):
+  skate park before (flat, shot-1 of the first run) / after (lit, red wave stripes, the bowl's target), suburbs,
+  school, slums, shops, capitol, cartoon, factory and skate shop (warm interiors after the 8888 fix).
+
+## Step 2 - gaps, kill zones, restarts
+
+- Scripts through tools/thaw_levels/thaw_scripts.ts (shared, small additive changes: `scriptToks` takes the inline
+  structures' byte order; THP8's tokens 0x4B "$" dropped and 0x4C wide strings (UTF-16BE) as strings - THAW's PC
+  scripts have neither: checked over all 23,354 of them). Sources: the zone's qbs, its sub-zones', every other zone's.
+  English text: qb.pak's string globals replace the names scripts use (gap names: "Over the Steps").
+- Per zone 180-500 scripts brought; gaps' StartGap / EndGap kept, goals / chalk gaps / sounds / cameras left out.
+- Kill zones: member calls (Skater:KillSkater) read; THP8's trigger volumes (0x20 on non-collidable faces) as THUG2
+  trigger faces, the volume faces split into their own object named after the collision-only node in them (the
+  Capitol's Z_Center_TRG_Water_Kill now has 64 trigger faces - it had none: phase 1's kill zone there was dead).
+- Restarts: network spawns also Player1 (soloRestarts), nodes.groundRestarts / netGameNodes as the other converters.
+- Moving objects (LevelObject) in their own space; grid pieces (Vehicle nodes) left out.
+- Crashes found and fixed on the way: the slums **hung** loading (Z_Ghetto_Pipe_Box_Launch: an endless loop whose
+  wait the translator left under a never-true `if` - such scripts are now emptied, endlessLoop); the fun park
+  **crashed** (RunScriptOnObject {...} of a script not brought: ParseArguments on nothing - struct arguments
+  flattened, such statements made GotParam, unrunnable).
+- Not verifiable by automation (for the user): gaps firing (skate the skate park's front stairs - "Over the Steps",
+  the slums' Hemlock rail gap...), the Capitol lake / city park drown kills, the gym fans turning in the school.

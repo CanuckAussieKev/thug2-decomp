@@ -372,7 +372,7 @@ in THUG1's). Every level loads in free skate (agents' load checks only - 2026-10
 | Peds, cars, music, goals | Missing (no peds; the cars - Car_* objects, C_*.psx models - not converted; music is Bink audio) |
 | Level select signs | Pictograms of our own |
 
-## 10. THP8 (phase 1, 2026-10-21)
+## 10. THP8 (phase 1, 2026-10-21; phase 2, 2026-10-22)
 
 Converter `tools/thp8_levels` (README there; records in docs/pending/thp8.md). Tony Hawk's Project 8's Xbox 360 data
 (the user's own, as the fan-made recompilation installs it in C:\Games\THP8\game\DATA - only the data is read). THP8's
@@ -385,17 +385,21 @@ only - 2026-10-22, all fifteen again after the glow / cloud fixes; nobody has sk
 | What | THP8 |
 |---|---|
 | Level geometry, textures | Original (each zone's own scene; instanced pieces - MasterName nodes - baked in at their places) |
-| Materials | Stand-in: each one pass with its first colour texture - THP8's shaders layer normal, specular, ambient and shadow maps over it (not drawn); multi-layer (blended terrain) materials show their first layer |
-| Lighting | Stand-in: THUG2's default; THP8's vertex colours kept (mostly white: THP8 lights with its ambient / shadow maps and time of day) |
+| Materials | Original layers: the terrain templates' passes (up to four) as THUG2 passes blended by alpha - each layer's mask baked into its texture's alpha (or, with a uv field of its own, the vertex alpha: one layer a material); pass colours as THUG2's pass colours (tints, the layers' opacity). Missing: normal, specular and environment maps, the tilings (float4s not applied), Water / Fur / refraction shaders (their first texture) |
+| Lighting | Original light maps, baked: THP8's ambient map (x 1.5) + the zone's sun colour (its tod_manager, halfway to white - THP8 desaturates its frames after drawing) x shadow map (x 0.6) into the vertex colours; interiors (..._InteriorLighting techniques, or a real ambient map with the white shadow stand-in) ambient map x 4. The scales are ours (THP8's shaders weren't read); lit triangles split where the maps vary inside them, within a triangle budget - shadows softer than THP8's per-pixel maps, coarse on big triangles once the budget is spent. THUG2's level lights for the skater from the zone's tod_manager |
 | Mip levels | Made (the Xbox packs its small levels into one tile: not read) |
 | Collision | Original (Havok meshes; boxes as boxes, cylinders / capsules / spheres as 8-sided prisms); face flags and terrains THP8's (its terrain numbers as THUG2's nearest) |
 | Space | THP8's metres x 39.37 (inches); each zone moved so the middle of its collision is at the origin |
 | Restarts, rails | Original (the skate shop has none: one made over its floor) |
-| Kill zones | Original where the trigger script calls a kill-skater script (0-4 per zone) |
+| Kill zones | Original where the trigger script calls a kill-skater script (0-4 per zone), also through the skater (`Skater:KillSkater`); THP8's trigger volumes (faces 0x20 + non-collidable, the Capitol's lake) as THUG2 trigger faces, named after the collision-only node whose Pos is in them |
+| Gaps, scripts | Original (phase 2): the geometry's and rails' trigger scripts and what they call (thaw_scripts' translator: THP8's tokens are THAW's plus 0x4B "$" - dropped, the plain name - and 0x4C wide strings); gap names from THP8's English text. Left out: goals, chalk gaps, SoundEvent, particles, cameras; an endless loop whose waits the translator left under never-true conditions is emptied (the slums' pipe boxes hung the game); RunScriptOnObject of a script that isn't there made harmless (crashed the fun park) |
+| Restarts | Original; THP8's network spawns also single-player restarts (most zones have one Player1 restart) |
+| Grid pieces | Missing: THP8's Vehicle nodes are its grid pieces (kickers, quarter pipes its grid scripts place) - left out |
+| Moving objects | Original LevelObjects (the gym's roof fans...) where THUG2 can (thaw_scripts.PortedNodes), sectors in their own space |
 | Node flags | THP8's non-story values (game_progress_set_non_story_mode_nodeflags: gates open, barriers down); nodes left not made are left out of the scene and collision |
 | Network barriers | Original (z_online_<x>'s walls, for the areas that are one zone), collision only |
 | Sky | Original clouds (THP8's default sky), faded out towards the horizon (cutting them there left the dome showing through as grey spikes); its atmosphere domes (a shader) as a stand-in clear-sky gradient |
 | Glows, light shafts | Stand-in blend: drawn adding, picked by their sectors' names (THP8's blend mode in the material's parameter block not found yet), at the strength of the material colour's alpha where the block has one |
 | Billboards | Missing (camera-facing quads, as THAW's) |
-| Gaps, scripts, peds, vehicles, game objects, particles, sounds, music, goals | Missing (phase 2) |
+| Peds, game objects with models (GO_ physics props), particles, sounds, music, goals | Missing (phase 2 step 3 / later) |
 | Level select signs | Stand-in: THUG2's training sign (placeholders) |
