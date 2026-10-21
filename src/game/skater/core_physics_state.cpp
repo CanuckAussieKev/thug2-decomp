@@ -39,6 +39,9 @@ constexpr uint32_t kSkateThrow = 0x3F356C63;           // skate_maybe_throw_proj
 constexpr uint32_t kTimeLimit = 0x70F16EA9;            // TimeLimit
 constexpr uint32_t kKillSpecial = 0x266B570C;          // KillSpecial (a script)
 constexpr uint32_t kAirTimeLeft = 0x7E2A8993;          // AirTimeLeft
+constexpr uint32_t kGrindTrickList = 0x2AB3341D;       // GrindTrickList
+constexpr uint32_t kMotoskateboardGrind = 0xF7CA3F78; // Trick_Motoskateboard_Grind (a script)
+constexpr uint32_t kMotoGrind = 0x302;                 // (on the motoskateboard)
 
 // The free revert's message: the game's own format, file name and text.
 constexpr uint32_t kMessageFormat = 0x006466B0;        // "M:%s:%i: %s\n"
@@ -306,8 +309,41 @@ int CorePhysicsComponent::GetAirTimeLeft(Script::CStruct*, Script::CScript* scri
     return 1;
 }
 
+// 0x005004B0
+void CorePhysicsComponent::StartGrindTrick(uint32_t railType, bool trick1, bool trick2, bool trick3, bool trick4)
+{
+    Obj::CCompositeObject* object = SkaterObject(this);
+    if (!object->m_script) {
+        void* memory = Script::CScript::operator new(sizeof(Script::CScript));
+        SkaterObject(this)->m_script = memory ? static_cast<Script::CScript*>(memory)->Construct() : nullptr;
+    }
+    if (At<uint8_t>(this, kMotoGrind)) {
+        object = SkaterObject(this);
+        object->m_script->SetScript(kMotoskateboardGrind, nullptr, object);
+    } else {
+        // GrindTrickList[the rail's type (0-8; anything else 0)][the four trick buttons as bits 0-3].
+        uint32_t index = railType <= 8 ? railType : 0;
+        auto* tricks = reinterpret_cast<Script::CArray*>(Script::GetArray(kGrindTrickList)->GetElement(index));
+        uint32_t buttons = trick1 ? 1 : 0;
+        if (trick2)
+            buttons |= 2;
+        if (trick3)
+            buttons |= 4;
+        if (trick4)
+            buttons |= 8;
+        At<uint32_t>(this, 0x3A8) = 0;
+        void* flipAndRotate = SkaterObject(this)->GetComponent(kSkaterFlipAndRotate);
+        GameFunction<void(__thiscall*)(void*)>(0x00511570)(flipAndRotate);
+        object = SkaterObject(this);
+        object->m_script->SetScript(tricks->GetElement(buttons), nullptr, object);
+    }
+    SkaterObject(this)->m_script->Update();
+    FlagsOf(this)[0xE0] = 1;
+}
+
 } // namespace Skater
 
+REPLACE(0x005004B0, &Skater::CorePhysicsComponent::StartGrindTrick);
 REPLACE(0x00505440, Skater::CorePhysicsComponent::Create);
 REPLACE(0x00500CA0, &Skater::CorePhysicsComponent::Construct);
 REPLACE(0x00500DB0, &Skater::CorePhysicsComponent::Destroy);

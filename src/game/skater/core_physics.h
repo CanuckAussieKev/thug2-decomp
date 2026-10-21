@@ -98,6 +98,11 @@ public:
     // that's in the past, 0.00001 if it never gets there. Added to the script's parameters. 1.
     int GetAirTimeLeft(Script::CStruct* params, Script::CScript* script);
 
+    // 0x005004B0: a grind's trick: on the motoskateboard (+0x302) Trick_Motoskateboard_Grind, else
+    // GrindTrickList[`railType` (0-8, else 0)][the four buttons as bits]; set on the skater's script (made if it
+    // has none) and run at once; flag +0xE0.
+    void StartGrindTrick(uint32_t railType, bool trick1, bool trick2, bool trick3, bool trick4);
+
     // --- core_physics_speed.cpp: friction, brakes, the speed limits ---
     // 0x00501850: the horizontal speed limited - to the max-max speed stat (+0x358 while +0x350's timer runs), and
     // above the max speed stat (+0x354) slowed by Physics_Heavy_Air_Friction (0x004FE1F0); the timers +0x350 (not
@@ -184,6 +189,29 @@ public:
     void RecoverInAir();
     // 0x00504DF0: leaning sideways in the air: rolled back at skater_upright_sideways_speed.
     void KeepUpright();
+
+    // --- core_physics_walls.cpp: walls and ceilings ---
+    // 0x00503710: a vert wall plant: the trick button (or within Wall_Ride_Triangle_Window) on vert (flags +0x30,
+    // +0xD8) with no rotation and none done yet: the wall within Physics_vert_wallplant_distance below, moving up at
+    // least the velocity limit, 60 above the take-off, steep enough (or a vert face), the trick allowed (0x0051DDF0):
+    // triggers, the boost, Vert_WallPlant, +0x4E8 set. Whether it planted.
+    bool VertWallplant();
+    // 0x00503B30: stopped (no faster than Skate_min_wall_lean_push_speed) and leaning left / right (pad +0x40 / +0x60):
+    // a feeler Skate_wall_lean_push_length out at Skate_wall_lean_push_height after Skate_wall_lean_push_time; a wall
+    // there pulls the skater towards it, unless that's blocked.
+    void LeanPushOffWall();
+    // 0x00504EE0: a ceiling within the skater's head height (6 for Physics_Ignore_Ceilings_After_Wallplant_Duration
+    // after a wall plant): the skater slid down out of it, its velocity along it. Whether there was one.
+    bool KeepOffCeiling();
+    // 0x005051B0: the same 18 out along +0x38C (the head over the wall's edge).
+    bool KeepOffCeilingAtWall();
+    // 0x00506E50: a feeler ahead along the move at Skater_First_Forward_Collision_Height: something skatable at an
+    // angle to the ground pushes the skater out; else its triggers, and a bounce off it (BounceOffWallAhead).
+    void CheckWallAhead();
+    // 0x005059D0: bouncing off a wall ahead of normal `normal` (unless 0x004FF670): turned (BounceOffWall), slowed
+    // the more head-on (beyond Wall_Bounce_Dont_Slow_Angle; a flail beyond Wall_Bounce_Dont_Flail_Speed), moved
+    // back out 6 along the normal; another wall ahead then: turned back, half as fast.
+    void BounceOffWallAhead(const Mth::Vector* normal);
 
 private:
     // (Part of 0x0050CA00: landing on something skatable - the velocity into the ground's plane, the ground

@@ -85,6 +85,21 @@ Shared files touched (additive): src/game/skater/core_physics.h (declarations ad
     signs, so the harness can't feed NaNs).
   - Build note: the verify build now embeds its debug info (/Z7, CMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded in
     this worktree's out\scripts\build.cmd) - the shared vc140.pdb kept breaking (C1033 / C2471).
-- [ ] Next: wall plants (0x00503710, 0x00507500, 0x00508140), wall lean push / ceilings (0x00503B30, 0x00504EE0,
-  0x005051B0), the forward collisions (0x00506E50, 0x005059D0), the acid drop (0x00502240, 0x00502F20, 0x00505F70),
-  the grind start 0x005004B0.
+- [x] Batch SK1-4 (NOT run in the game yet; walls, ceilings, the grind trick, 7 functions):
+  src/game/skater/core_physics_walls.cpp (new), core_physics_state.cpp.
+  - 0x00503710 VertWallplant (the trick button, or within Wall_Ride_Triangle_Window; on vert with no rotation and
+    none done; the wall within Physics_vert_wallplant_distance - an int against the unrounded distance - at least the
+    velocity limit up, 60 over the take-off height, steep or vert; 0x0051DDF0; triggers; Physics_vert_wallplant_boost
+    when not falling; Vert_WallPlant), 0x00503B30 LeanPushOffWall (the held time read unsigned; the Skate_wall_lean_push
+    values), 0x00504EE0 KeepOffCeiling and 0x005051B0 KeepOffCeilingAtWall (a ceiling within the head height: slid
+    along it below it - nudged 0.001 along the second hit's normal, not the ceiling's -, the velocity into its plane),
+    0x00506E50 CheckWallAhead (Skater_First_Forward_Collision_Height / _Length; x of the far end left unrounded), 0x005059D0
+    BounceOffWallAhead (BounceOffWall; slowed beyond Wall_Bounce_Dont_Slow_Angle; FlailLeft / FlailRight by flag +0x28
+    against the turn's side, the raw byte; the sound call's word carries the surface byte under the angle's upper bytes,
+    as the original's stack slot; backed out 6; a second wall: turned back by the unrounded pi - turn, half speed),
+    0x005004B0 StartGrindTrick (GrindTrickList[type 0-8][buttons], or Trick_Motoskateboard_Grind; the skater's script made
+    from the pool when it has none, set and run).
+  - Test (selftests_skater_walls.cpp TestSkaterPhysicsWalls, 36000 variants): fixed hits for exact distances (7 from
+    the wall), normals exactly 0.01 into the ground, zero speeds, only w moved, flag bytes of 2, the script pools set
+    up. 62 deliberate bugs: 62 caught (7 after strengthening).
+- [ ] Next: the wall ride / wall plant 0x00507500 and 0x00508140, the acid drop (0x00502240, 0x00502F20, 0x00505F70).
