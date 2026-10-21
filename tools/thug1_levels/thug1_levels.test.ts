@@ -4,6 +4,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { checksum, Name, Struct, Vector } from "../level_port/qb.ts";
+import { applyTextEdits, DRIVING_EDITS } from "./driving.ts";
+import * as portChanges from "./port_changes.ts";
 import { applySpawns, COMPAT, levelName, ownName, setCompat, skyName } from "./thug1_levels.ts";
 
 const struct = (level: string, load: string): Struct =>
@@ -82,4 +84,40 @@ test("TP-31 applySpawns: moves, re-types, renames and reorders the spawns, Links
     assert.deepEqual(nodes[1]!.get("Links"), [0]); // (the rail linked to B, now at 0)
     assert.deepEqual(nodes[3]!.get("Links"), [2]); // (C linked to A, now at 2)
     assert.throws(() => applySpawns(nodes, names, { order: ["B"] }, "T"));
+});
+
+test("PC-THUG1-21 / 22: THUGPRO's VC <-> SJ arrows and the limo's emptied scripts taken back, the kill zone kept", () => {
+    const targets = (code: string): string[] => (COMPAT.new.get(code)?.entries ?? []).map((e) => e.target);
+    setCompat("thugpro");
+    for (const name of ["TRG_SCJ_arrow_01", "TRG_Restart_SJVC", "transition_arrowScript", "trp_death_SJScript"])
+        assert.ok(!targets("vc").includes(name), name);
+    assert.ok(!targets("vc").includes("TRG_drive_veh_limoScript"));
+    assert.ok(!targets("vc").includes("VC_startup"));
+    assert.ok(targets("vc").includes("TRG_drive_veh_leafScript")); // (the leaf blower stays THUGPRO's: not counted)
+    assert.ok(!targets("sj").some((t) => /arrow|VCSJ/i.test(t)));
+    assert.ok(!targets("vc").some((t) => /transition_arrow/i.test(t)));
+    assert.ok(!(COMPAT.edits.get("vc")?.created_at_start?.off ?? []).includes("trp_death_SJ"));
+    assert.deepEqual(COMPAT.edits.get("vc")?.created_at_start?.on, ["TRG_drive_veh_leaf"]);
+    assert.deepEqual(portChanges.wonGoals(COMPAT.portChanges).get("vc"), ["VC_Goal_Race4"]);
+    assert.equal(portChanges.drivingFiles(COMPAT.portChanges).length, 2);
+    // (--no-port-changes: THUGPRO's entries as they are, no driving)
+    setCompat("thugpro", true, false);
+    assert.ok(targets("vc").includes("TRG_SCJ_arrow_01"));
+    assert.ok(targets("vc").includes("TRG_drive_veh_limoScript"));
+    assert.ok((COMPAT.edits.get("vc")?.created_at_start?.off ?? []).includes("trp_death_SJ"));
+    assert.equal(portChanges.wonGoals(COMPAT.portChanges).size, 0);
+    assert.deepEqual(portChanges.drivingFiles(COMPAT.portChanges), []);
+    // (--compat none: no THUGPRO entries to take back; the driving stays ours)
+    setCompat("none");
+    assert.equal(COMPAT.new.size, 0);
+    assert.equal(portChanges.drivingFiles(COMPAT.portChanges).length, 2);
+    setCompat("thugpro");
+});
+
+test("PC-THUG1-22 applyTextEdits: each THUG1 text replaced once, CRLF read as LF; missing or twice is an error", () => {
+    assert.equal(applyTextEdits("a \r\nb \r\n", [["a \n", "x \n"]], "f"), "x \nb \n");
+    assert.throws(() => applyTextEdits("a \n", [["b \n", "x \n"]], "f"));
+    assert.throws(() => applyTextEdits("a \na \n", [["a \n", "x \n"]], "f"));
+    // (the files PC-THUG1-22 installs have their THUG2 edits)
+    for (const file of portChanges.drivingFiles(portChanges.load())) assert.ok(DRIVING_EDITS[file.toLowerCase()]);
 });

@@ -229,6 +229,18 @@ export function installFiles(game: string, overlay: string, manifest: Manifest |
             fs.cpSync(from, target, { recursive: true, preserveTimestamps: true, errorOnExist: true, force: false });
             installed.push(entry);
         }
+        // Game scripts a converter brings along (<staging>\scripts\...: THUG1's driving scripts, PC-THUG1-22 -
+        // tools/thug1_levels drivingScripts) into the overlay's scripts folder, where they replace the game's file of
+        // the same name (THUG2's empty player_controlled_vehicle.qb / misc\car_scripts.qb).
+        const scripts = path.join(game, staging, "scripts");
+        if (fs.existsSync(scripts) && fs.statSync(scripts).isDirectory()) {
+            fs.cpSync(scripts, path.join(overlay, "scripts"), {
+                recursive: true,
+                preserveTimestamps: true,
+                force: true,
+            });
+            installed.push(`scripts (${staging})`);
+        }
         // Models a converter brings along (<staging>\models\<name>\...: THPS3's TPN-THPS3, THUGPRO's own models read from
         // its install) into the overlay's models folder, where the game looks for models\<name>\<name>.mdl.
         const models = path.join(game, staging, "models");

@@ -13169,6 +13169,61 @@
           "what": "collision face flags 0x2000 / 0x4000 / 0x8000; skinned scene sectors"
         },
         "why": "not THUG2's file formats"
+      },
+      {
+        "id": "PC-THUG1-21",
+        "op": "remove",
+        "rule": "thug1_vc_sj_border",
+        "required": false,
+        "target": {
+          "levels": ["VC", "SJ"],
+          "what": "THUGPRO's VC <-> SJ transition arrows (TRG_SCJ_arrow_01 / TRG_VC_arrow_01, their model and script) and their restart / waypoint (TRG_Restart_SJVC / TRG_Restart_VCSJ) left out; VC's SJ kill zone trp_death_SJ created at start with THUG1's script (Sk3_Killskater nodename=TRG_Restart_SJ)"
+        },
+        "why": "the user's decision (2026-10-21): THUG1's Vancouver doesn't let you into San Jose - authentic to THUG1; the arrows are AbsentInNetGames and a kill is local, so online play with THUGPRO is unaffected",
+        "overrides": {
+          "thugpro_new": [
+            {"level": "VC", "name": "TRG_SCJ_arrow_01"},
+            {"level": "VC", "name": "TRG_Restart_SJVC"},
+            {"level": "VC", "name": "transition_arrowScript"},
+            {"level": "VC", "name": "trp_death_SJScript"},
+            {"level": "VC", "name": "models\\gameobjects\\transition_arrow\\transition_arrow.col.xbx"},
+            {"level": "VC", "name": "models\\gameobjects\\transition_arrow\\transition_arrow.mdl.xbx"},
+            {"level": "VC", "name": "models\\gameobjects\\transition_arrow\\transition_arrow.tex.xbx"},
+            {"level": "SJ", "name": "TRG_VC_arrow_01"},
+            {"level": "SJ", "name": "TRG_Restart_VCSJ"},
+            {"level": "SJ", "name": "transition_arrowScript"},
+            {"level": "SJ", "name": "models\\gameobjects\\transition_arrow\\transition_arrow.col.xbx"},
+            {"level": "SJ", "name": "models\\gameobjects\\transition_arrow\\transition_arrow.mdl.xbx"},
+            {"level": "SJ", "name": "models\\gameobjects\\transition_arrow\\transition_arrow.tex.xbx"}
+          ],
+          "created_at_start": [
+            {"level": "VC", "name": "trp_death_SJ"}
+          ]
+        }
+      },
+      {
+        "id": "PC-THUG1-22",
+        "op": "add",
+        "rule": "drivable_cars",
+        "required": false,
+        "target": {
+          "levels": ["VC"],
+          "what": "THUG1's drivable cars: THUG1's driving scripts (scripts\\game\\player_controlled_vehicle.qb, scripts\\game\\misc\\car_scripts.qb - THUG2 ships both empty, its engine and its goal_initialize_skater still drive) installed in their THUG2 form (tools/thug1_levels/driving.ts); VC's limo (TRG_drive_veh_limo) kept drivable, its goal (VC_Goal_Race4, which unlocks it in THUG1) counted as won"
+        },
+        "why": "the user's report (2026-10-21): THUG1's Vancouver has a limousine you can drive by the SJ kill zone; ours had none (no goals: the goal condition was never true; THUGPRO emptied the car's script and VC_startup; THUG2 hasn't the driving scripts)",
+        "scripts": [
+          "scripts\\game\\player_controlled_vehicle.qb",
+          "scripts\\game\\misc\\car_scripts.qb"
+        ],
+        "won_goals": {
+          "VC": ["VC_Goal_Race4"]
+        },
+        "overrides": {
+          "thugpro_new": [
+            {"level": "VC", "name": "TRG_drive_veh_limoScript"},
+            {"level": "VC", "name": "VC_startup"}
+          ]
+        }
       }
     ]
   }
