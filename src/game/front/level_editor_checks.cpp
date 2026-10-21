@@ -1263,33 +1263,6 @@ void ProblemsTab(float scale, ImFont* mono)
 
 } // namespace
 
-void ToolbarButton(float scale)
-{
-    int errors = 0, warnings = 0, infos = 0;
-    ShownCounts(&errors, &warnings, &infos);
-    ImGui::SameLine(0.0f, 8.0f * scale);
-    char label[64];
-    if (errors + warnings)
-        std::snprintf(label, sizeof(label), "Problems %d###problemsButton", errors + warnings);
-    else
-        std::snprintf(label, sizeof(label), "Problems###problemsButton");
-    int colours = 0;
-    if (errors) {
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.70f, 0.18f, 0.20f, 0.85f));
-        ++colours;
-    } else if (warnings) {
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.72f, 0.48f, 0.08f, 0.85f));
-        ++colours;
-    }
-    if (ImGui::SmallButton(label))
-        ToggleWindow();
-    ImGui::PopStyleColor(colours);
-    if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Alt+P: the problem checker - %d errors, %d warnings, %d notes in the edited copy (Go to / Fix / "
-                          "Ignore)",
-                          errors, warnings, infos);
-}
-
 void Window(float viewX, float viewY, float viewWidth, float viewHeight, float scale, ImFont* mono)
 {
     (void)viewHeight;

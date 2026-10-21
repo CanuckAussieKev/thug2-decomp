@@ -21,73 +21,42 @@ void Tip(const char* text)
 
 } // namespace
 
-void ToolbarMenus(const Ui::Model& model, float scale, std::vector<Ui::Request>* requests)
+void ViewModeItems()
 {
-    // View: the mode (Alt+1..4).
-    ImGui::SameLine(0.0f, 10.0f * scale);
-    char label[64];
-    std::snprintf(label, sizeof(label), "View: %s###viewmode", ViewModeName(ViewMode()));
-    if (ViewMode() != 0)
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.30f, 0.45f, 0.70f, 0.85f));
-    if (ImGui::SmallButton(label))
-        ImGui::OpenPopup("##viewmodes");
-    if (ViewMode() != 0)
-        ImGui::PopStyleColor();
-    Tip("How the level is drawn (Alt+1 Lit, Alt+2 Unlit, Alt+3 Wireframe, Alt+4 Collision only) - while editing only");
-    if (ImGui::BeginPopup("##viewmodes")) {
-        static const char* const kTips[kViewModes] = {
-            "As the game draws it",
-            "The textures without their light: the level's baked lighting and the models' lights left out",
-            "The 3D drawn as lines (the game's own render mode)",
-            "Only the collision view: the level's scenery and sky not drawn",
-        };
-        for (int mode = 0; mode < kViewModes; ++mode) {
-            char item[64], keys[16];
-            std::snprintf(item, sizeof(item), "%s", ViewModeName(mode));
-            std::snprintf(keys, sizeof(keys), "Alt+%d", mode + 1);
-            if (ImGui::MenuItem(item, keys, ViewMode() == mode))
-                SetViewMode(mode);
-            Tip(kTips[mode]);
-        }
-        ImGui::EndPopup();
+    static const char* const kTips[kViewModes] = {
+        "As in play",
+        "Textures without lighting",
+        "Edges only",
+        "Collision only",
+    };
+    for (int mode = 0; mode < kViewModes; ++mode) {
+        char keys[16];
+        std::snprintf(keys, sizeof(keys), "Alt+%d", mode + 1);
+        if (ImGui::MenuItem(ViewModeName(mode), keys, ViewMode() == mode))
+            SetViewMode(mode);
+        Tip(kTips[mode]);
     }
+}
 
-    // Overlays: every overlay's checkbox.
-    ImGui::SameLine(0.0f, 6.0f * scale);
-    if (ImGui::SmallButton("Overlays"))
-        ImGui::OpenPopup("##overlays");
-    Tip("What's drawn over the view - gizmos, collision, triggers, labels, arcs, the ruler... (remembered)");
-    if (ImGui::BeginPopup("##overlays")) {
-        ImGui::TextDisabled("Over the view");
-        bool collision = model.view.collision;
-        if (ImGui::Checkbox("Collision##ov", &collision)) {
-            Ui::Request r{Ui::Request::kCollision};
-            r.value = collision ? 1 : 0;
-            requests->push_back(r);
-        }
-        ImGui::SameLine();
-        ImGui::TextDisabled("C");
-        Tip("The level's collision near the camera, coloured by surface; invisible walls magenta");
-        bool triggers = Triggers::Shown();
-        if (ImGui::Checkbox("Trigger volumes##ov", &triggers))
-            Triggers::SetShown(triggers);
-        ImGui::SameLine();
-        ImGui::TextDisabled("T");
-        Tip("Kill zones, teleports, gaps, scripts - and the Triggers window");
-        for (const BitInfo& info : Bits()) {
-            bool on = Shown(info.bit);
-            char item[64];
-            std::snprintf(item, sizeof(item), "%s##ov%u", info.label, info.bit);
-            if (ImGui::Checkbox(item, &on))
-                Set(info.bit, on);
-            if (info.key[0]) {
-                ImGui::SameLine();
-                ImGui::TextDisabled("%s", info.key);
-            }
-            Tip(info.tip);
-        }
-        ImGui::Separator();
-        ImGui::TextDisabled("Gizmos (the Outliner's chips)");
+void OverlayItems(const Ui::Model& model, std::vector<Ui::Request>* requests)
+{
+    if (ImGui::MenuItem("Collision", "C", model.view.collision)) {
+        Ui::Request r{Ui::Request::kCollision};
+        r.value = model.view.collision ? 0 : 1;
+        requests->push_back(r);
+    }
+    Tip("Collision near the camera, colored by surface");
+    if (ImGui::MenuItem("Trigger Volumes", "T", Triggers::Shown()))
+        Triggers::SetShown(!Triggers::Shown());
+    Tip("Kill zones, teleports, gaps and script triggers");
+    for (const BitInfo& info : Bits()) {
+        char item[64];
+        std::snprintf(item, sizeof(item), "%s##ov%u", info.label, info.bit);
+        if (ImGui::MenuItem(item, info.key[0] ? info.key : nullptr, Shown(info.bit)))
+            Set(info.bit, !Shown(info.bit));
+        Tip(info.tip);
+    }
+    if (ImGui::BeginMenu("Gizmos")) {
         uint32_t families = model.nodes.families;
         for (int f = 0; f < Nodes::kFamilies; ++f) {
             auto family = static_cast<Nodes::Family>(f);
@@ -96,33 +65,25 @@ void ToolbarMenus(const Ui::Model& model, float scale, std::vector<Ui::Request>*
             bool on = (families & Nodes::Bit(family)) != 0;
             char item[48];
             std::snprintf(item, sizeof(item), "%s##fam%d", Nodes::FamilyName(family), f);
-            if (ImGui::Checkbox(item, &on)) {
+            if (ImGui::MenuItem(item, nullptr, on)) {
                 Ui::Request r{Ui::Request::kFamilies};
-                r.id = on ? families | Nodes::Bit(family) : families & ~Nodes::Bit(family);
+                r.id = on ? families & ~Nodes::Bit(family) : families | Nodes::Bit(family);
                 requests->push_back(r);
             }
         }
-        if (ImGui::SmallButton("All gizmos")) {
+        ImGui::Separator();
+        if (ImGui::MenuItem("Show All")) {
             Ui::Request r{Ui::Request::kFamilies};
             r.id = Nodes::kAllFamilies;
             requests->push_back(r);
         }
-        ImGui::SameLine();
-        if (ImGui::SmallButton("No gizmos")) {
+        if (ImGui::MenuItem("Hide All")) {
             Ui::Request r{Ui::Request::kFamilies};
             r.id = 0;
             requests->push_back(r);
         }
-        ImGui::EndPopup();
+        ImGui::EndMenu();
     }
-    // Faces mode (K) stays a checkbox of its own: it's a mode of the clicks, not an overlay.
-    ImGui::SameLine(0.0f, 6.0f * scale);
-    bool faces = Faces::Picking();
-    if (ImGui::Checkbox("Faces (K)", &faces))
-        Faces::SetPicking(faces);
-    Tip("Faces mode: a click takes a collision face (Shift+click adds / drops one); the Inspector sets or clears their "
-        "flags\n(skatable, wallride, vert, not collidable, trigger, camera passes, not taggable) - live, saved, Home "
-        "puts them back");
 }
 
 const std::vector<HelpRow>& HelpRows()

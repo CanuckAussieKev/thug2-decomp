@@ -75,8 +75,6 @@ struct Fonts {
     float scale = 1.0f;
 };
 void SetFonts(const Fonts& fonts);
-// The toolbar's buttons (after its view options): Search, History, Changes (a count badge), Snapshots.
-void Toolbar(const Ui::Model& model);
 // The windows over the view: the search, the history, the changes, the keys, the snapshots, the menus.
 void Windows(const Ui::Model& model);
 // The help window's list of every action from the registry (by category, with its keys as bound now).

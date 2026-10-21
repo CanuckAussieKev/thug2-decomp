@@ -39,29 +39,6 @@ void Heading(const char* title, ImFont* heading)
 
 } // namespace
 
-void ToolbarButtons()
-{
-    bool open = WindowOpen();
-    if (open)
-        ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive));
-    if (ImGui::SmallButton("Trail (F7)"))
-        WindowOpen() = !open;
-    if (open)
-        ImGui::PopStyleColor();
-    Tip("The skater's trails from your test runs, the gaps landed, Simulate");
-    ImGui::SameLine();
-    bool simulating = Simulating();
-    if (simulating)
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.75f, 0.25f, 0.15f, 1.0f));
-    if (ImGui::SmallButton(simulating ? "Stop (F6)###simulate" : "Simulate (F6)###simulate"))
-        Request(Ask::ToggleSimulate);
-    if (simulating)
-        ImGui::PopStyleColor();
-    Tip(simulating ? "Stop the simulation: the game paused again, objects put back (unless Keep is on)"
-                   : "Run the world - peds, cars, moving objects, particles - while you watch with the free camera "
-                     "(the skater stays frozen). Clicking in the view or an editing key stops it.");
-}
-
 void RestartSection(int nodeIndex)
 {
     const std::vector<Nodes::Node>& all = Nodes::All();

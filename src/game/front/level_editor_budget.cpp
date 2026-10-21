@@ -315,44 +315,37 @@ const std::vector<Meter>& Cached()
 
 } // namespace
 
-void ToolbarItem(float scale)
+bool StripMeter(float* fill, uint32_t* argb)
+{
+    const std::vector<Meter>& meters = Cached();
+    int worst = Worst(meters);
+    if (worst < 0)
+        return false;
+    const Meter& w = meters[worst];
+    *fill = static_cast<float>(std::min(1.0, Fill(w.used, w.limit)));
+    *argb = LevelColour(LevelOf(w.used, w.limit));
+    return true;
+}
+
+void Tooltip()
 {
     const std::vector<Meter>& meters = Cached();
     int worst = Worst(meters);
     if (worst < 0)
         return;
-    const Meter& w = meters[worst];
-    Level level = LevelOf(w.used, w.limit);
-    // A small bar (no label: the toolbar is full - the tooltip names it): the worst meter's fill, coloured by its level.
-    ImGui::SameLine(0.0f, 10.0f * scale);
-    float width = 44.0f * scale, height = ImGui::GetTextLineHeight() * 0.7f;
-    ImVec2 at = ImGui::GetCursorScreenPos();
-    at.y += (ImGui::GetTextLineHeight() - height) * 0.5f + ImGui::GetStyle().FramePadding.y * 0.5f;
-    ImGui::InvisibleButton("##budget", ImVec2(width, ImGui::GetTextLineHeight() + ImGui::GetStyle().FramePadding.y));
-    bool hovered = ImGui::IsItemHovered();
-    if (ImGui::IsItemClicked())
-        Checks::OpenWindow(Checks::kBudgetTab);
-    ImDrawList* draw = ImGui::GetWindowDrawList();
-    draw->AddRectFilled(at, ImVec2(at.x + width, at.y + height), IM_COL32(60, 62, 66, 255), 2.0f);
-    float fill = static_cast<float>(std::min(1.0, Fill(w.used, w.limit)));
-    draw->AddRectFilled(at, ImVec2(at.x + width * fill, at.y + height), Colour(LevelColour(level)), 2.0f);
-    if (hovered) {
-        ImGui::BeginTooltip();
-        ImGui::Text("Budget: the level against the engine's limits (worst: %s %s) - click for the table", w.name,
-                    UsedText(w).c_str());
-        ImGui::Separator();
-        for (const Meter& m : meters) {
-            Level l = LevelOf(m.used, m.limit);
-            ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(Colour(LevelColour(l))), "%s", "\xE2\x97\x8F");
-            ImGui::SameLine();
-            std::string added = AddedText(m);
-            ImGui::Text("%s: %s%s%s", m.name, UsedText(m).c_str(), added.empty() ? "" : "  (edits: ",
-                        added.empty() ? "" : (added + ")").c_str());
-        }
-        ImGui::EndTooltip();
+    ImGui::BeginTooltip();
+    ImGui::Text("Budget: %s %s (click for details)", meters[worst].name, UsedText(meters[worst]).c_str());
+    ImGui::Separator();
+    for (const Meter& m : meters) {
+        Level l = LevelOf(m.used, m.limit);
+        ImGui::TextColored(ImGui::ColorConvertU32ToFloat4(Colour(LevelColour(l))), "%s", "\xE2\x97\x8F");
+        ImGui::SameLine();
+        std::string added = AddedText(m);
+        ImGui::Text("%s: %s%s%s", m.name, UsedText(m).c_str(), added.empty() ? "" : "  (edits ",
+                    added.empty() ? "" : (added + ")").c_str());
     }
+    ImGui::EndTooltip();
 }
-
 void Table()
 {
     const std::vector<Meter>& meters = Cached();

@@ -1,6 +1,7 @@
 // NOT ORIGINAL - the level editor's UI (ours). See level_editor_ui.h. Only ImGui's own API here: the platform and the
 // renderer are level_editor_ui_backend.cpp's.
 
+#include "game/front/level_editor_actions.h"
 #include "game/front/level_editor_adjust.h"
 #include "game/front/level_editor_arrange.h"
 #include "game/front/level_editor_ui.h"
@@ -20,6 +21,7 @@
 #include "game/front/level_editor_camera.h"
 #include "game/front/level_editor_cameras.h"
 #include "game/front/level_editor_goals.h"
+#include "game/front/level_editor_hints.h"
 #include "game/front/level_editor_checks.h"
 #include "game/front/level_editor_notes.h"
 #include "game/front/level_editor_ux9.h"
@@ -39,6 +41,8 @@
 #include "game/front/level_editor_ui_backend.h"
 #include "game/front/level_editor_ui_fonts.h"
 #include "game/front/level_editor_ui_layout.h"
+#include "game/front/level_editor_ui_strip.h"
+#include "game/front/level_editor_ui_theme.h"
 #include "game/front/level_editor_ux3.h"
 #include "game/front/level_editor_ux8.h"
 #include "game/front/level_editor_view.h"
@@ -96,64 +100,6 @@ ImU32 Colour(uint32_t argb)
 
 // --- fonts and style ---
 
-// The characters the editor shows: Latin-1, dashes and bullets, arrows and triangles.
-const ImWchar kRanges[] = {0x0020, 0x00FF, 0x2013, 0x2026, 0x2190, 0x2193, 0x25B2, 0x25C0, 0};
-
-ImFont* AddFont(UiFonts::CompressedFont font, float size)
-{
-    ImFontConfig config;
-    config.OversampleH = 2;
-    config.OversampleV = 1;
-    config.PixelSnapH = true;
-    std::snprintf(config.Name, sizeof(config.Name), "%.0fpx", size);
-    return ImGui::GetIO().Fonts->AddFontFromMemoryCompressedTTF(font.data, font.size, size, &config, kRanges);
-}
-
-void ApplyStyle(float scale)
-{
-    ImGuiStyle style;
-    ImGui::StyleColorsDark(&style);
-    style.WindowRounding = 0.0f;
-    style.ChildRounding = 3.0f;
-    style.FrameRounding = 3.0f;
-    style.PopupRounding = 3.0f;
-    style.GrabRounding = 3.0f;
-    style.TabRounding = 3.0f;
-    style.WindowBorderSize = 1.0f;
-    style.FrameBorderSize = 0.0f;
-    style.WindowPadding = ImVec2(10.0f, 8.0f);
-    style.FramePadding = ImVec2(7.0f, 4.0f);
-    style.ItemSpacing = ImVec2(7.0f, 5.0f);
-    style.IndentSpacing = 14.0f;
-    style.ScrollbarSize = 12.0f;
-    // A dark neutral with the orange accent of the plan's mockup.
-    ImVec4* c = style.Colors;
-    const ImVec4 accent = Accent(1.0f), accentSoft = Accent(0.55f);
-    c[ImGuiCol_WindowBg] = ImVec4(0.11f, 0.115f, 0.125f, 0.94f);
-    c[ImGuiCol_ChildBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
-    c[ImGuiCol_PopupBg] = ImVec4(0.12f, 0.125f, 0.135f, 0.98f);
-    c[ImGuiCol_Border] = ImVec4(0.25f, 0.26f, 0.28f, 1.0f);
-    c[ImGuiCol_FrameBg] = ImVec4(0.18f, 0.19f, 0.2f, 1.0f);
-    c[ImGuiCol_FrameBgHovered] = ImVec4(0.24f, 0.25f, 0.27f, 1.0f);
-    c[ImGuiCol_FrameBgActive] = ImVec4(0.28f, 0.29f, 0.31f, 1.0f);
-    c[ImGuiCol_TitleBg] = c[ImGuiCol_TitleBgActive] = ImVec4(0.09f, 0.095f, 0.1f, 1.0f);
-    c[ImGuiCol_Button] = ImVec4(0.2f, 0.21f, 0.225f, 1.0f);
-    c[ImGuiCol_ButtonHovered] = ImVec4(0.28f, 0.29f, 0.31f, 1.0f);
-    c[ImGuiCol_ButtonActive] = accentSoft;
-    c[ImGuiCol_Header] = Accent(0.35f);
-    c[ImGuiCol_HeaderHovered] = Accent(0.45f);
-    c[ImGuiCol_HeaderActive] = accentSoft;
-    c[ImGuiCol_CheckMark] = accent;
-    c[ImGuiCol_SliderGrab] = accent;
-    c[ImGuiCol_SliderGrabActive] = accent;
-    c[ImGuiCol_Separator] = c[ImGuiCol_Border];
-    c[ImGuiCol_Text] = ImVec4(0.91f, 0.9f, 0.88f, 1.0f);
-    c[ImGuiCol_TextDisabled] = ImVec4(0.6f, 0.61f, 0.63f, 1.0f);
-    c[ImGuiCol_NavCursor] = accent;
-    style.ScaleAllSizes(scale);
-    ImGui::GetStyle() = style;
-}
-
 // The fonts and the style for the window's size (made again when its scale changes: the font texture with them).
 void UpdateScale()
 {
@@ -167,15 +113,15 @@ void UpdateScale()
     g_scale = scale;
     g_styleGeneration = Prefs::StyleGeneration();
     UiLayout::FontSizes sizes = UiLayout::FontSizesFor(scale);
-    ImFontAtlas* atlas = ImGui::GetIO().Fonts;
-    atlas->Clear();
-    g_ui = AddFont(UiFonts::Inter(), sizes.ui);
-    g_small = AddFont(UiFonts::Inter(), sizes.small);
-    g_mono = AddFont(UiFonts::Mono(), sizes.mono);
-    g_heading = AddFont(UiFonts::InterSemiBold(), sizes.heading);
-    atlas->Build();
+    UiTheme::Fonts fonts = UiTheme::BuildFonts(scale);
+    g_ui = fonts.ui;
+    g_small = fonts.small;
+    g_mono = fonts.mono;
+    g_heading = fonts.heading;
     UiBackend::InvalidateDeviceObjects(); // (the font texture is made again)
-    ApplyStyle(scale);
+    float rgb[3];
+    Prefs::AccentRgb(Prefs::Get().accent, rgb);
+    UiTheme::ApplyStyle(scale, rgb);
     Log("level editor UI: scale %.2f for a %dx%d window (Inter %.0f px, JetBrains Mono %.0f px)", scale, width,
         height, sizes.ui, sizes.mono);
 }
@@ -254,26 +200,6 @@ void PanelTitle(const char* title)
 }
 
 // --- the view options (level_editor_view.h) ---
-
-// The toolbar's Collision (C) and, while pieces are hidden in the editor, Show all.
-void ViewToolbar(const Model& model)
-{
-    // The View (Lit / Unlit / Wireframe / Collision only) and Overlays menus - Collision (C) is in Overlays - and
-    // Faces mode (K): level_editor_overlays.h.
-    Overlays::ToolbarMenus(model, g_scale, &g_requests);
-    if (model.view.hidden > 0) {
-        ImGui::SameLine();
-        char label[48];
-        std::snprintf(label, sizeof(label), "Show all (%d hidden)", model.view.hidden);
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.55f, 0.30f, 0.62f, 0.85f));
-        if (ImGui::SmallButton(label))
-            Ask(Request::kViewShowAll);
-        ImGui::PopStyleColor();
-        if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("Alt+H: everything hidden in the editor (H, I) shown again - hiding there is only while "
-                              "editing:\nnever saved, never in play");
-    }
-}
 
 // The collision's legend, over the bottom left of the view while it's shown.
 void CollisionLegend(const Model& model)
@@ -421,150 +347,74 @@ void ViewSection(const Model& model)
 
 // --- the panels ---
 
+// The menu bar over the tool strip (level_editor_ui_strip.h).
 void Toolbar(const Model& model)
 {
-    PlaceWindow(g_layout.toolbar);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f * g_scale, 5.0f * g_scale));
-    ImGui::Begin("##toolbar", nullptr, kPanel | ImGuiWindowFlags_NoScrollbar);
+    PlaceWindow(g_layout.menu);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+    ImGui::Begin("##menubar", nullptr, kPanel | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_MenuBar);
+    ImGui::PopStyleVar(2);
+    if (ImGui::BeginMenuBar()) {
+        MenuBar(model, Ux8Fonts(), &g_requests);
+        ImGui::EndMenuBar();
+    }
+    ImGui::End();
+
+    PlaceWindow(g_layout.strip);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f * g_scale, 4.0f * g_scale));
+    ImGui::Begin("##toolstrip", nullptr, kPanel | ImGuiWindowFlags_NoScrollbar);
     ImGui::PopStyleVar();
-    ImGui::PushFont(g_heading);
-    ImGui::TextColored(ImVec4(0.94f, 0.48f, 0.24f, 1.0f), "LEVEL EDITOR");
-    ImGui::PopFont();
-    ImGui::SameLine(0.0f, 16.0f * g_scale);
-    // The mode (what the mouse and keys do now).
-    const char* modes[] = {"Fly", "Select", "Move", "Add"};
-    int mode = std::strcmp(model.mode, "ADD") == 0 ? 3 : std::strncmp(model.mode, "MOVING", 6) == 0 ? 2
-             : std::strcmp(model.mode, "SELECTED") == 0 ? 1 : 0;
-    for (int i = 0; i < 4; ++i) {
-        bool on = i == mode;
-        if (on)
-            ImGui::PushStyleColor(ImGuiCol_Button, Accent(0.85f));
-        ImGui::SmallButton(modes[i]);
-        if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("The mode follows what you do: fly (nothing selected), select (a click), move (drag), "
-                              "add (B)");
-        if (on)
-            ImGui::PopStyleColor();
-        ImGui::SameLine(0.0f, 2.0f * g_scale);
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6.0f * g_scale, 3.0f * g_scale));
+    UiStrip::State state;
+    state.selection = std::strcmp(model.mode, "FLYING") != 0 && std::strcmp(model.mode, "ADD") != 0;
+    Transform::Settings& transform = Transform::Current();
+    state.tool = static_cast<int>(transform.mode);
+    state.local = transform.space == Transform::Space::Local;
+    state.snap = model.snapAlways;
+    state.grid = Transform::Grid();
+    state.grids = Transform::GridSizes();
+    state.pickFilter = model.pickFilter;
+    state.level = model.levelTitle;
+    state.saved = model.editedSaved;
+    state.unsaved = model.unsaved;
+    state.budget = Budget::StripMeter(&state.budgetFill, &state.budgetArgb);
+    int infos = 0;
+    Checks::ShownCounts(&state.errors, &state.warnings, &infos);
+    state.hidden = model.view.hidden;
+    state.simulating = PlayTest::Simulating();
+    state.keyOf = [](const char* id) {
+        int index = Actions::Find(id);
+        return index >= 0 ? Hints::FirstKey(Actions::KeysText(index)) : std::string();
+    };
+    const UiLayout::Rect& strip = g_layout.strip;
+    float padX = 8.0f * g_scale, padY = std::max(0.0f, (strip.height - ImGui::GetFrameHeight()) * 0.5f);
+    UiStrip::Output out;
+    UiStrip::Draw(state, strip.x + padX, strip.y + padY, strip.width - 2.0f * padX, g_scale, &out);
+    ImGui::PopStyleVar();
+    if (out.budgetHovered)
+        Budget::Tooltip();
+    if (out.levelHovered)
+        ImGui::SetTooltip("Editing a copy of %s. The original level is unchanged.\nLayout: %s", model.levelTitle.c_str(),
+                          model.editedSaved ? (model.unsaved ? "saved, with unsaved changes" : "saved") : "not saved yet");
+    for (const UiStrip::Event& e : out.events) {
+        switch (e.kind) {
+        case UiStrip::Event::kDeselect: Ask(Request::kDeselect); break;
+        case UiStrip::Event::kTool: transform.mode = static_cast<Transform::Mode>(static_cast<int>(e.value)); break;
+        case UiStrip::Event::kSpace:
+            transform.space = transform.space == Transform::Space::World ? Transform::Space::Local : Transform::Space::World;
+            break;
+        case UiStrip::Event::kSnap: Ask(Request::kSnapAlways, e.value != 0.0f ? 1 : 0); break;
+        case UiStrip::Event::kGrid: Transform::SetGrid(e.value); break;
+        case UiStrip::Event::kPick: Ask(Request::kPickFilter, 0, static_cast<uint32_t>(e.value)); break;
+        case UiStrip::Event::kProblems: Checks::ToggleWindow(); break;
+        case UiStrip::Event::kBudget: Checks::OpenWindow(Checks::kBudgetTab); break;
+        case UiStrip::Event::kShowAll: Ask(Request::kViewShowAll); break;
+        case UiStrip::Event::kSimulate: Actions::Run(Actions::kSimulate); break;
+        }
     }
-    ImGui::SameLine(0.0f, 14.0f * g_scale);
-    // The transform tools (level_editor_transform.h): Move / Rotate / Scale, World / Local, the pivot.
-    Transform::ToolbarTools(g_scale);
-    ImGui::SameLine(0.0f, 10.0f * g_scale);
-    bool snap = model.snapAlways;
-    if (ImGui::Checkbox("Snap", &snap))
-        Ask(Request::kSnapAlways, snap ? 1 : 0);
-    if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Moves snap without a key - to the Snap to list's choice (grid steps from where it was by\n"
-                          "default). While dragging: Ctrl the grid, Ctrl+Shift the world's grid, Alt+Shift a surface,\n"
-                          "Ctrl+Alt a vertex; turns snap to the angle step, scales to tenths");
-    Transform::ToolbarSnap(g_scale);
-    // Carrying (level_editor_carry.h; [editor] carry= in the ini).
-    ImGui::SameLine(0.0f, 10.0f * g_scale);
-    bool carry = model.carry;
-    if (ImGui::Checkbox(model.carried > 0 ? "Carry objects *###carry" : "Carry objects###carry", &carry))
-        Ask(Request::kCarry, carry ? 1 : 0);
-    if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Moving, turning or scaling scenery takes along the objects and nodes standing on it or attached\n"
-                          "to it (their node's Cluster= or links name it). Alt while moving leaves them.%s",
-                          model.carried > 0 ? ("\nCarrying " + std::to_string(model.carried) + " now.").c_str() : "");
-    // What a click in the view may take (level_editor_picking.h; [editor] pick= in the ini).
-    ImGui::SameLine(0.0f, 12.0f * g_scale);
-    ImGui::TextDisabled("Pick:");
-    static const struct {
-        const char* label;
-        uint32_t bit;
-        const char* tip;
-    } kPick[] = {{"Nodes", Picking::kNodes, "Clicks take nodes' gizmos (spawns, crowns, lights...)"},
-                 {"Objects", Picking::kObjects, "Clicks take objects (level objects, peds, cars)"},
-                 {"Scenery", Picking::kScenery, "Clicks take scenery pieces (off: only the Outliner and the browser "
-                                                "select them)"}};
-    for (const auto& pick : kPick) {
-        ImGui::SameLine(0.0f, 4.0f * g_scale);
-        bool on = (model.pickFilter & pick.bit) != 0;
-        if (on)
-            ImGui::PushStyleColor(ImGuiCol_Button, Accent(0.85f));
-        if (ImGui::SmallButton(pick.label))
-            Ask(Request::kPickFilter, 0, model.pickFilter ^ pick.bit);
-        if (on)
-            ImGui::PopStyleColor();
-        if (ImGui::IsItemHovered())
-            ImGui::SetTooltip("%s", pick.tip);
-    }
-    ImGui::SameLine();
-    ImGui::BeginDisabled(model.selection.objects == 0 && model.selection.sectors == 0 && !model.nodes.movable);
-    if (ImGui::SmallButton("Ground (G)"))
-        Ask(Request::kDrop);
-    ImGui::EndDisabled();
-    ViewToolbar(model);
-    Ux3::Toolbar(model); // (Search, History, Changes, Snapshots - level_editor_ux3.h)
-    Ux8::Toolbar(Ux8Fonts()); // (UX8: the Sets menu - level_editor_ux8.h)
-    Budget::ToolbarItem(g_scale);   // (UX5: the budget meter - level_editor_budget.h)
-    Checks::ToolbarButton(g_scale); // (UX5: Problems, Alt+P - level_editor_checks.h)
-    ImGui::SameLine(0.0f, 14.0f * g_scale);
-    // Which level: always its edited copy (level_editor_layout.h) - never the level as shipped.
-    ImGui::TextColored(ImVec4(0.55f, 0.84f, 1.0f, 1.0f), "%s (edited copy)", model.levelTitle.c_str());
-    if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("You are editing the edited copy of %s: a level of its own - \"%s (EDITED)\" in the level\n"
-                          "select (offline only). The level as shipped, and every network game, stay as they are.\n"
-                          "Saved layout: %s. Scene %s.",
-                          model.levelTitle.c_str(), model.levelTitle.c_str(),
-                          model.editedSaved ? "yes" : "not yet (Ctrl+S makes it)", model.level.c_str());
-    // Right: undo / redo / save, reset, help, add.
-    float right = (ImGui::GetWindowWidth() - ImGui::GetStyle().WindowPadding.x);
-    float width =
-        ImGui::CalcTextSize("Undo  Redo  Save layout  Reset level  Help (F1)  Add (B)  Place (N)  Prefs").x + 112.0f * g_scale;
-    ImGui::SameLine(std::max(ImGui::GetCursorPosX() + 10.0f * g_scale, right - width));
-    ImGui::BeginDisabled(!model.canUndo);
-    if (ImGui::SmallButton("Undo"))
-        Ask(Request::kUndo);
-    ImGui::EndDisabled();
-    ImGui::SameLine();
-    ImGui::BeginDisabled(!model.canRedo);
-    if (ImGui::SmallButton("Redo"))
-        Ask(Request::kRedo);
-    ImGui::EndDisabled();
-    ImGui::SameLine();
-    if (model.unsaved)
-        ImGui::PushStyleColor(ImGuiCol_Button, Accent(0.85f));
-    if (ImGui::SmallButton("Save layout"))
-        Ask(Request::kSave);
-    if (model.unsaved)
-        ImGui::PopStyleColor();
-    if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Ctrl+S: the edited copy's layout - the level select's (EDITED) entry loads it");
-    ImGui::SameLine();
-    if (ImGui::SmallButton("Reset level"))
-        Ask(Request::kResetLevel);
-    if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Ctrl+Shift+Delete: everything back as the level has it, its saved layout deleted (asks first)");
-    ImGui::SameLine();
-    if (ImGui::SmallButton("Help (F1)"))
-        Ask(Request::kToggleHelp);
-    ImGui::SameLine();
-    if (ImGui::SmallButton("Add (B)"))
-        Ask(Request::kToggleBrowser);
-    if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Copies of the level's scenery and objects");
-    ImGui::SameLine();
-    if (model.place.open)
-        ImGui::PushStyleColor(ImGuiCol_Button, Accent(0.85f));
-    if (ImGui::SmallButton("Place (N)"))
-        Ask(Request::kPlaceToggle);
-    if (model.place.open)
-        ImGui::PopStyleColor();
-    if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("New nodes: spawns, crowns, CTF flags, lights, sounds, proximity nodes");
-    ImGui::SameLine();
-    if (ImGui::SmallButton("Prefs"))
-        Prefs::Open() = !Prefs::Open(); // (level_editor_prefs.h)
-    if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Preferences (Ctrl+,): camera speed, mouse, gizmo size, UI scale, autosave, snap, accent");
-    ImGui::SameLine();
-    PlayTest::ToolbarButtons(); // (Trail, Simulate - level_editor_playtest.h)
     ImGui::End();
 }
-
 // The Outliner's rows: each node's label (made again when the node arrays change) and the families' node lists.
 struct OutlinerCache {
     uint32_t generation = 0;
@@ -1294,28 +1144,21 @@ void StatusBar(const Model& model)
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f * g_scale, 4.0f * g_scale));
     ImGui::Begin("##status", nullptr, kPanel | ImGuiWindowFlags_NoScrollbar);
     ImGui::PopStyleVar();
-    ImGui::PushFont(g_small);
-    if (!model.message.empty()) {
-        ImGui::TextColored(ImVec4(1.0f, 0.86f, 0.5f, 1.0f), "%s", model.message.c_str());
-    } else {
-        // (UX8: key caps and mouse / controller glyphs - level_editor_ux8.h)
-        Ux8::HintRow(model.keys, Ux8Fonts());
-    }
-    ImGui::PopFont();
-    // Right: the changes and the camera.
+    // Right: unsaved, the changes, the camera (elided before the hints are crowded out).
     char right[224];
     std::string view = Camera::Status(); // (an ortho view, orbiting - level_editor_camera.h)
-    std::snprintf(right, sizeof(right), "%s%d changes  \xC2\xB7  %d moved  \xC2\xB7  (%.0f, %.0f, %.0f)  speed %.0f%s%s",
-                  model.unsaved ? "unsaved  \xC2\xB7  " : "", model.changes, model.moved, model.camera.x,
-                  model.camera.y, model.camera.z, model.speed, view.empty() ? "" : "  \xC2\xB7  ", view.c_str());
-    ImGui::PushFont(g_mono);
-    float width = ImGui::CalcTextSize(right).x;
-    ImGui::SameLine(std::max(ImGui::GetCursorPosX() + 10.0f * g_scale, (ImGui::GetWindowWidth() - ImGui::GetStyle().WindowPadding.x) - width));
-    ImGui::TextDisabled("%s", right);
+    std::snprintf(right, sizeof(right), "%s%d changes  \xC2\xB7  %d moved  \xC2\xB7  %.0f, %.0f, %.0f  \xC2\xB7  speed %.0f%s%s",
+                  model.unsaved ? "Unsaved  \xC2\xB7  " : "", model.changes, model.moved, model.camera.x, model.camera.y,
+                  model.camera.z, model.speed, view.empty() ? "" : "  \xC2\xB7  ", view.c_str());
+    const UiLayout::Rect& bar = g_layout.status;
+    float padX = 8.0f * g_scale;
+    ImGui::PushFont(g_small);
+    float y = bar.y + std::max(0.0f, (bar.height - ImGui::GetTextLineHeight()) * 0.5f);
     ImGui::PopFont();
+    // (UX8: key caps and mouse / controller glyphs - level_editor_ux8.h)
+    UiStrip::StatusRow(model.message, model.keys, right, bar.x + padX, y, bar.width - 2.0f * padX, Ux8Fonts());
     ImGui::End();
 }
-
 void Help(const Model& model)
 {
     if (!model.help)

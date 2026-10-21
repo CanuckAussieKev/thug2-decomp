@@ -515,37 +515,6 @@ ImGuiID g_sharedActive;
 
 void SetFonts(const Fonts& fonts) { g_fonts = fonts; }
 
-void Toolbar(const Ui::Model& model)
-{
-    (void)model;
-    ImGui::SameLine(0.0f, 12.0f * S());
-    auto button = [](const char* label, Window window, int action, const char* tip) {
-        bool on = Open(window);
-        if (on)
-            ImGui::PushStyleColor(ImGuiCol_Button, kAccent);
-        if (ImGui::SmallButton(label))
-            Open(window) = !Open(window);
-        if (on)
-            ImGui::PopStyleColor();
-        if (ImGui::IsItemHovered()) {
-            std::string keys = Actions::KeysText(action);
-            ImGui::SetTooltip("%s%s%s", tip, keys.empty() ? "" : "  -  ", keys.c_str());
-        }
-        ImGui::SameLine(0.0f, 4.0f * S());
-    };
-    button("Search", kPaletteWindow, Actions::kPalette, "Every action and setting by name");
-    button("History", kHistoryWindow, Actions::kHistory, "The undo steps by name");
-    int count = static_cast<int>(ChangeList().size());
-    char label[48];
-    std::snprintf(label, sizeof(label), "Changes %d###ux3changesbutton", count);
-    if (count > 0)
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.86f, 0.5f, 1.0f));
-    button(label, kChangesWindow, Actions::kChanges, "What this edited copy changes from the level as shipped");
-    if (count > 0)
-        ImGui::PopStyleColor();
-    button("Snapshots", kSnapshotsWindow, Actions::kSnapshots, "Named versions of the layout");
-}
-
 void Windows(const Ui::Model& model)
 {
     (void)model;
