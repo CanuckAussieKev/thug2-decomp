@@ -141,6 +141,7 @@ user restored it - THAW and THUGPRO keep it; there is no entry for it.)
 | PC-THAW-10 | remove | yes | Face flags 0x4000 / 0x8000, pass flags THUG2 hasn't the data for, blend modes past 13 (made 5); 0x2000 (not taggable) is kept: THUG2's graffiti feelers ignore 0x3000 (0x0051DF71 / 0x0051E74B), its own levels use it | 0x4000 / 0x8000: their THUG2 readers aren't known yet |
 | PC-THAW-11 | set | yes | Path followers, peds and cars AbsentInNetGames (`nodes.netGameNodes`) | No path manager / ped animations in network games |
 | PC-THAW-12 | set | yes | Peds, cars, objects, particles, game-mode flags made THUG2's way; goal / story / animal peds, cars not there at the start, objects without a sector left out (`thaw_scripts.PortedNodes`) | THAW's components and scripts don't exist in THUG2 |
+| PC-THAW-13 | set | yes | Rail nodes' common parts (all but Pos / Angles / Name / Links / TriggerScript) as global structures the nodes name, `<level>_inc_<n>` (`nodes.shareIncludes`), as THUG2's own levels have them (`ncomp_RailNode_<n>`) | Every node entry is a script component (CComponent pool, 86000 for everything loaded): Kyoto's expanded node array (38,700; THUG2's largest, SE, 29,000) ran it dry - a crash loading Kyoto |
 
 `--no-port-changes` switches off PC-THAW-1, -2, -3, -4 and -6; the required ones stay (their code isn't switched).
 
