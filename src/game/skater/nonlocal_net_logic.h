@@ -6,6 +6,10 @@
 #include "game/mth/vector.h"
 #include "game/obj/object.h"
 
+namespace Obj {
+struct CRailNode;
+} // namespace Obj
+
 // The skater's non-local network logic component (SkaterNonLocalNetLogic, type 0x850EEF66, vtable 0x0064BFAC, 0x2C0
 // bytes): another player's skater on this machine, moved from the states its client sends (the state history
 // component keeps the last 20): played back a little behind, interpolated between states, and - when the states run
@@ -57,6 +61,32 @@ public:
     // out along the normal); if a feeler ahead (Skater_First_Forward_Collision_Length) hits again within 240, turned
     // round by what's left of a half turn and halved.
     void BounceOffWall(const Mth::Vector* normal, const Mth::Vector* point);
+
+    // --- nonlocal_playback.cpp ---
+    // 0x00515940: the states played back. The first time, from the newest state (a second's frames behind it): put
+    // there standing, shown (script 0x1011A5D6), lit. After: the playback time (the client app's frames since then)
+    // kept within the history (fallen back when past its newest state, ten frames on when ten or more behind); the
+    // state reached and the one before it: the matrix slerped between them (the earlier one's when their at rows
+    // differ by more than 0.75), the position interpolated (put at the later one's when 600 or more apart), the
+    // velocity from the move and averaged with the updates' moves (quirk kept: the sum starts from the position);
+    // the state, trick, terrain, physics mode, driving, end run flags and timed flags as the state has them.
+    void Interpolate();
+    // 0x00515360: on along the ground: the update's speed, lag (the connection's latency in frames) and alignment
+    // (with this machine's skater's velocity) kept; the position moved along the last move's direction, flattened,
+    // by the averages; a wall between the played and the new position (at the collision height): BounceOffWall.
+    void Extrapolate();
+    // 0x00516E00: on along the rail (the state's node, +0x80): the update's values kept as Extrapolate's; the
+    // average alignment and lag times the frame's length (at most 1 s) moved along it a frame at a time
+    // (MoveAlongRail); off its end: from the played position, Extrapolate.
+    void ExtrapolateOnRail();
+    // 0x00516640: `seconds` along the rail segment from `node`: the rail's pull (physics value 0xD1F46992) on the
+    // velocity, which way along it; past the segment's end: onto the next (active, clear - RailClear - and turning
+    // less than the physics value 0x76C1DA15's angle) with the overshoot, else 0; the velocity and matrix along the
+    // segment, the move. Returns the segment's node.
+    CRailNode* MoveAlongRail(CRailNode* node, float seconds);
+    // 0x00516180: the history's messages since the last played, up to the playback time: animations (the blender's
+    // primary channel), the board's rotation, the model's parts, special items made and destroyed.
+    void PlayHistoryEvents();
 
     uint32_t m_syncFrame;           // +0x18 the client app's frame when playback started (0: not yet)
     int m_syncTime;                 // +0x1C the history's time then, less the app's frames since

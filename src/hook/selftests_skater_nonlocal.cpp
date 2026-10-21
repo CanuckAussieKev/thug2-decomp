@@ -35,6 +35,7 @@ struct Answers {
     uint32_t hitCount;
     uint16_t faceFlags;
     float normalY;
+    float hitT; // (above 0: where along the line the hit is, its normal the object's up row)
     float snapUp, snapDown, stickAngle, collisionHeight, collisionLength, nonSkatableAngle, dontSlowAngle,
         angleMultiplier, vertexValue, frameSeconds;
     bool observing, waiting, extrapolates;
@@ -86,9 +87,30 @@ float ScriptAnswer(uint32_t name)
     }
 }
 
-void StandIn(StandIns& s)
+// The C runtime's _CIacos (0x00623630: argument and result in ST0) - its x87 path, as ours computes it (its error
+// handling reaches C runtime state that isn't set up offline).
+__declspec(naked) void CIacosStandIn()
+{
+    __asm {
+        fld1
+        fadd st, st(1)
+        fld1
+        fsub st, st(2)
+        fmulp st(1), st
+        fsqrt
+        fxch st(1)
+        fpatan
+        ret
+    }
+}
+
+// (`update`: the update's test - the component's own lighting and snap stood in for too)
+void StandIn(StandIns& s, bool update)
 {
     StandInComponentBase(s, &g_a.calloc);
+    s.Bytes(0x00623630, Branch(0xE9, 0x00623630, reinterpret_cast<void*>(&CIacosStandIn)));
+    // (the matrix's re-orthonormalisation: ours, tested on its own, isn't bit-identical to the x87 original)
+    s.Bytes(0x00405170, Branch(0xE9, 0x00405170, reinterpret_cast<void*>(AddressOf(&Mth::Matrix::OrthoNormalizeAbout))));
     Rec(s, {0x0045DB90, AddressOf(&Obj::CCompositeObject::GetComponent)}, 1, 0xDB90, [](Regs& r) {
         switch (r.args[0]) {
         case 0x18223FD6: return Addr(kHistory);
@@ -110,9 +132,14 @@ void StandIn(StandIns& s)
             const Mth::Vector& a = feeler->m_line.start;
             const Mth::Vector& b = feeler->m_line.end;
             float t = 0.0625f * static_cast<float>(1 + g_a.hitCount++ % 7);
+            if (g_a.hitT > 0.0f)
+                t = g_a.hitT;
             feeler->m_point = {a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t, 1.0f};
             float nx = 0.13f * static_cast<float>(g_a.hitCount % 5) - 0.3f;
             feeler->m_normal = {nx, g_a.normalY, 0.11f * static_cast<float>(g_a.hitCount % 3) - 0.1f, 0.0f};
+            if (g_a.hitT > 0.0f) // (the ground the skater stands on: its up row, tilted a little)
+                feeler->m_normal = {F<float>(kObject + 0x7C) + nx * 0.1f, F<float>(kObject + 0x80),
+                                    F<float>(kObject + 0x84), 0.0f};
             feeler->m_hit.faceFlags = g_a.faceFlags;
         }
         return static_cast<uint32_t>(hit);
@@ -161,16 +188,18 @@ void StandIn(StandIns& s)
         return r.args[0];
     });
     // The update's calls: the component's other functions, the network, the scripts, the looping sound.
-    Rec(s, {0x00514610, AddressOf(&CSkaterNonLocalNetLogicComponent::UpdateGroundLighting)}, 0, 0x4610);
-    Rec(s, {0x00514850, AddressOf(&CSkaterNonLocalNetLogicComponent::SnapToGround)}, 0, 0x4850);
-    Rec(s, {0x00515940}, 0, 0x5940, [](Regs&) {
+    if (update) {
+        Rec(s, {0x00514610, AddressOf(&CSkaterNonLocalNetLogicComponent::UpdateGroundLighting)}, 0, 0x4610);
+        Rec(s, {0x00514850, AddressOf(&CSkaterNonLocalNetLogicComponent::SnapToGround)}, 0, 0x4850);
+    }
+    Rec(s, {0x00515940, AddressOf(&CSkaterNonLocalNetLogicComponent::Interpolate)}, 0, 0x5940, [](Regs&) {
         if (g_a.afterState >= 0)
             F<int>(kState + 0x18) = g_a.afterState;
         return 0u;
     });
-    Rec(s, {0x00515360}, 0, 0x5360);
-    Rec(s, {0x00516E00}, 0, 0x6E00);
-    Rec(s, {0x00516180}, 0, 0x6180, [](Regs&) { return 0x61u; });
+    Rec(s, {0x00515360, AddressOf(&CSkaterNonLocalNetLogicComponent::Extrapolate)}, 0, 0x5360);
+    Rec(s, {0x00516E00, AddressOf(&CSkaterNonLocalNetLogicComponent::ExtrapolateOnRail)}, 0, 0x6E00);
+    Rec(s, {0x00516180, AddressOf(&CSkaterNonLocalNetLogicComponent::PlayHistoryEvents)}, 0, 0x6180);
     Rec(s, {0x00537320}, 0, 0x7320, [](Regs&) { return Addr(kPlayer); });
     Rec(s, {0x00543320}, 0, 0x3320, [](Regs&) { return g_a.observing ? 1u : 0u; });
     Rec(s, {0x00543330}, 0, 0x3330, [](Regs&) { return g_a.waiting ? 1u : 0u; });
@@ -279,11 +308,21 @@ void SetPositions(Lcg& random)
     RandomDirection(random, &F<float>(kComponent + 0x58));
 }
 
+// What the movement functions change (later rounds overwrite it): the object's position, matrix and velocity, the
+// last ground's normal.
+void RecordSkater(std::vector<uint32_t>& trace)
+{
+    for (uint32_t i = 0x4C; i < 0xBC; i += 4)
+        trace.push_back(F<uint32_t>(kObject + i));
+    for (uint32_t i = 0x58; i < 0x68; i += 4)
+        trace.push_back(F<uint32_t>(kComponent + i));
+}
+
 // The life cycle, Finalize, ResetPlayback; the ground lighting, the snap, the turn and the wall bounce in every case.
 void TestSkaterNonLocalNetLogic()
 {
     StandIns& s = *new StandIns();
-    StandIn(s);
+    StandIn(s, false);
     for (uint32_t seed = 1; seed <= 6; ++seed) {
         auto run = [&](bool original) {
             g_trace.clear();
@@ -296,6 +335,8 @@ void TestSkaterNonLocalNetLogic()
             void* c = At(kComponent);
             reinterpret_cast<void(__thiscall*)(void*)>(Code(original, 0x00514580))(c);
             reinterpret_cast<void(__thiscall*)(void*)>(Code(original, 0x005144D0))(c);
+            for (uint32_t i = 0; i < 0x2C0; i += 4)
+                trace.push_back(Rel(F<uint32_t>(kComponent + i)));
             ResetWorld(seed);
             Lcg random(seed * 7919);
             for (int k = 0; k < 48; ++k) {
@@ -314,6 +355,22 @@ void TestSkaterNonLocalNetLogic()
                     g_a.nonSkatableAngle = 20.0f;
                 }
                 reinterpret_cast<void(__thiscall*)(void*)>(Code(original, 0x00514850))(c);
+                RecordSkater(trace);
+                // Standing on the ground (or just above or below it): the last ground about the same, a hit near.
+                SetValues(random);
+                RandomMatrix(random);
+                SetPositions(random);
+                g_a.hits |= 1;
+                g_a.faceFlags = k % 5 == 2 ? 0x0B : 0x09;
+                g_a.nonSkatableAngle = 20.0f;
+                g_a.snapUp = static_cast<float>(4 + random.Below(9));
+                const float ts[] = {0.0625f, 0.05f, 0.07f, 0.055f, 0.06f};
+                g_a.hitT = ts[random.Below(5)];
+                for (int i = 0; i < 4; ++i)
+                    F<float>(kComponent + 0x58 + 4 * i) = F<float>(kObject + 0x7C + 4 * i) * (k % 7 == 1 ? -1.0f : 1.0f);
+                reinterpret_cast<void(__thiscall*)(void*)>(Code(original, 0x00514850))(c);
+                RecordSkater(trace);
+                g_a.hitT = 0.0f;
                 // The turn towards a direction.
                 SetValues(random);
                 RandomMatrix(random);
@@ -344,6 +401,7 @@ void TestSkaterNonLocalNetLogic()
                 F<uint8_t>(kObject + 0xBC) = static_cast<uint8_t>(k % 7 != 3);
                 reinterpret_cast<void(__thiscall*)(void*, const void*, const void*)>(Code(original, 0x00514E20))(
                     c, &normal, &point);
+                RecordSkater(trace);
             }
             trace.insert(trace.end(), g_trace.begin(), g_trace.end());
             DumpArena(trace);
@@ -362,7 +420,7 @@ void TestSkaterNonLocalNetLogic()
 void TestSkaterNonLocalNetLogicUpdate()
 {
     StandIns& s = *new StandIns();
-    StandIn(s);
+    StandIn(s, true);
     GameMemory globals({{0x007CCE14, 4}, {0x007CE470, 4}, {0x006F3614, 4}, {0x006F361C, 4}});
     for (uint32_t seed = 1; seed <= 6; ++seed) {
         auto run = [&](bool original) {

@@ -433,7 +433,7 @@ void CSkaterNonLocalNetLogicComponent::Update()
     UpdateGroundLighting();
     m_lastPos = m_object->m_pos;
     m_object->m_oldPos = m_object->m_pos;
-    GameFunction<void(__thiscall*)(CSkaterNonLocalNetLogicComponent*)>(0x00515940)(this); // Interpolate
+    Interpolate();
     // Extrapolated when this machine plays (not observing or waiting) in a game that wants it.
     void* player = GameFunction<void*(__thiscall*)(void*)>(0x00537320)(netManager);
     if (!GameFunction<bool(__thiscall*)(void*)>(0x00543320)(player) &&
@@ -444,14 +444,14 @@ void CSkaterNonLocalNetLogicComponent::Update()
                            GameFunction<uint32_t(__thiscall*)(void*)>(0x005532A0)(gameMode) == kFirefight;
         if (extrapolate && Field<int>(m_history, 0x18) >= kHistory) {
             if (Field<int>(m_state, 0x18) == kStateRail) {
-                GameFunction<void(__thiscall*)(CSkaterNonLocalNetLogicComponent*)>(0x00516E00)(this);
+                ExtrapolateOnRail();
             } else {
-                GameFunction<void(__thiscall*)(CSkaterNonLocalNetLogicComponent*)>(0x00515360)(this);
+                Extrapolate();
                 SnapToGround();
             }
         }
     }
-    GameFunction<int(__thiscall*)(CSkaterNonLocalNetLogicComponent*)>(0x00516180)(this); // PlayHistoryEvents
+    PlayHistoryEvents();
 
     // Out of a lip straight up (as the finalize physics component's).
     if (wasLip && Field<int>(m_state, 0x18) != kStateLip) {
