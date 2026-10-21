@@ -186,6 +186,12 @@ void Companion::SetActive(bool active)
 
 bool Companion::Active() const { return !(m_object.m_flags & 4); }
 
+void Companion::SetFaceFlags(int face, uint16_t flags)
+{
+    if (face >= 0 && face < m_geometry.m_numFaces)
+        std::memcpy(&m_faces[static_cast<size_t>(face) * 10], &flags, 2);
+}
+
 void Companion::UpdateBox()
 {
     // (as the loaded geometries keep it: w = 1 - Translate moves w by the delta's 0)
@@ -662,5 +668,61 @@ std::vector<int> TakenFaces(const Nx::CCollObjTriData* geometry)
 }
 
 uint32_t Generation() { return g_generation; }
+
+bool TakenFace(const Nx::CCollObjTriData* geometry, int face, uint32_t* piece, int* index, uint16_t* flags)
+{
+    for (const auto& entry : g_entries) {
+        const std::vector<Taken>& taken = entry.second.taken;
+        for (size_t i = 0; i < taken.size(); ++i) {
+            if (taken[i].geometry == geometry && taken[i].face == face) {
+                if (piece)
+                    *piece = entry.first;
+                if (index)
+                    *index = static_cast<int>(i);
+                if (flags)
+                    *flags = taken[i].flags;
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+bool OriginOf(uint32_t piece, int index, Nx::CCollObjTriData** geometry, int* face)
+{
+    Entry* entry = Find(piece);
+    // (the companion's faces are the taken ones, in order - Gather / Add; a copy's took none)
+    if (!entry || !entry->companion || index < 0 || index >= static_cast<int>(entry->taken.size()))
+        return false;
+    *geometry = entry->taken[index].geometry;
+    *face = entry->taken[index].face;
+    return true;
+}
+
+const Companion* CompanionOf(uint32_t piece)
+{
+    Entry* entry = Find(piece);
+    return entry ? entry->companion.get() : nullptr;
+}
+
+bool SetTakenFlags(const Nx::CCollObjTriData* geometry, int face, uint16_t flags)
+{
+    for (auto& entry : g_entries) {
+        std::vector<Taken>& taken = entry.second.taken;
+        for (size_t i = 0; i < taken.size(); ++i) {
+            if (taken[i].geometry != geometry || taken[i].face != face)
+                continue;
+            taken[i].flags = flags;
+            if (entry.second.companion)
+                entry.second.companion->SetFaceFlags(static_cast<int>(i), flags);
+            *reinterpret_cast<uint16_t*>(taken[i].geometry->m_faces +
+                                         taken[i].face * (taken[i].geometry->m_smallFaces ? 8 : 10)) =
+                static_cast<uint16_t>(flags | 0x10);
+            ++g_generation;
+            return true;
+        }
+    }
+    return false;
+}
 
 } // namespace Front::LevelEditor::SharedCollision

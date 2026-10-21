@@ -139,6 +139,18 @@ uint32_t SelectedWall();
 void ClearWall();
 // For the Inspector: the wall's name, box, faces and their flags.
 std::string DescribeWall(uint32_t checksum);
+// (level_editor_faces.h) The nearest drawn face under the ray (the collision shown): its sector's checksum (or the
+// moved piece's, for a companion's face) and its index in that collision (`companion`: a moved piece's shared
+// collision). False: none drawn there.
+struct FaceHit {
+    uint32_t checksum = 0;
+    int face = -1;
+    bool companion = false;
+    float t = 0.0f;
+};
+bool PickFace(V3 origin, V3 unitDir, FaceHit* hit);
+// The cache made again (faces' flags were changed - level_editor_faces.h).
+void InvalidateCache();
 
 // Hiding while editing (by a sector's checksum / an object's id).
 bool HiddenSector(uint32_t checksum);

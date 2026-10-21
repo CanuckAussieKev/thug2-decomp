@@ -223,6 +223,7 @@ struct Cached {
     std::vector<V3> points;
     std::vector<uint16_t> flags;
     std::vector<uint8_t> taken; // (each face: turned off for a moved piece's shared collision)
+    std::vector<int> index;     // (each face: its index in the collision - faces with bad corners are left out)
 };
 std::unordered_map<uint32_t, Cached> g_cache;
 
@@ -272,6 +273,7 @@ const Cached* CacheOf(uint32_t checksum, uint8_t* sector, const Nx::CCollObjTriD
         c.points.insert(c.points.end(), p, p + 3);
         c.flags.push_back(*reinterpret_cast<const uint16_t*>(tri->m_faces + f * (tri->m_smallFaces ? 8 : 10)));
         c.taken.push_back(std::find(taken.begin(), taken.end(), f) != taken.end() ? 1 : 0);
+        c.index.push_back(f);
     }
     return &c;
 }
@@ -283,6 +285,8 @@ struct Drawn {
     uint32_t checksum;
     bool wall;
     V3 a, b, c;
+    int face = -1;          // (its index in its collision - level_editor_faces.h)
+    bool companion = false; // (a moved piece's shared collision: not a wall's, never Shift+clicked)
 };
 std::vector<Drawn> g_drawn;
 Stats g_stats;
@@ -547,7 +551,7 @@ void AddCollision(V3 cameraPos, const Frame& frame, const Lens& lens, const uint
             // (a drawn piece's collision switched off isn't in the way of a click: the piece's own click selects it;
             // nor is a face taken along - its piece's companion is where it is now)
             if ((cached->collisionOnly || !candidate.off) && !facts.taken)
-                g_drawn.push_back({candidate.checksum, cached->collisionOnly, p[0], p[1], p[2]});
+                g_drawn.push_back({candidate.checksum, cached->collisionOnly, p[0], p[1], p[2], cached->index[f]});
             any = true;
             g_stats.taken += facts.taken ? 1 : 0;
             g_stats.triggers += (facts.flags & 0x40) && facts.triggerColour ? 1 : 0;
@@ -586,7 +590,10 @@ void AddCollision(V3 cameraPos, const Frame& frame, const Lens& lens, const uint
             FaceFacts facts;
             facts.flags = *reinterpret_cast<const uint16_t*>(tri.m_faces + f * (tri.m_smallFaces ? 8 : 10));
             facts.companion = true;
-            any = (ok && addFace(p, facts)) || any;
+            bool drawn = ok && addFace(p, facts);
+            if (drawn)
+                g_drawn.push_back({entry.first, false, p[0], p[1], p[2], f, true});
+            any = drawn || any;
         }
         g_stats.companions += any ? 1 : 0;
     }
@@ -609,6 +616,8 @@ uint32_t PickWall(V3 origin, V3 unitDir)
     const Drawn* nearest = nullptr;
     for (const Drawn& d : g_drawn) {
         float t;
+        if (d.companion)
+            continue; // (as before the face flags: a wall's faces only compete with sectors' faces)
         if (Picking::RayTriangle(origin, unitDir, d.a, d.b, d.c, &t) && t < best) {
             best = t;
             nearest = &d;
@@ -616,6 +625,28 @@ uint32_t PickWall(V3 origin, V3 unitDir)
     }
     return nearest && nearest->wall ? nearest->checksum : 0;
 }
+
+bool PickFace(V3 origin, V3 unitDir, FaceHit* hit)
+{
+    float best = 1e30f;
+    const Drawn* nearest = nullptr;
+    for (const Drawn& d : g_drawn) {
+        float t;
+        if (d.face >= 0 && Picking::RayTriangle(origin, unitDir, d.a, d.b, d.c, &t) && t < best) {
+            best = t;
+            nearest = &d;
+        }
+    }
+    if (!nearest)
+        return false;
+    hit->checksum = nearest->checksum;
+    hit->face = nearest->face;
+    hit->companion = nearest->companion;
+    hit->t = best;
+    return true;
+}
+
+void InvalidateCache() { g_cache.clear(); }
 
 void SetHoverWall(uint32_t checksum) { g_hoverWall = g_showCollision ? checksum : 0; }
 uint32_t HoverWall() { return g_hoverWall; }

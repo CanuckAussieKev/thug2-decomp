@@ -60,6 +60,12 @@
 //     the way in only (its faces point out; the static line test is one-sided - triggers.ts), as the DLL's; an exit
 //     trigger (exit=1) gets the faces again facing in, so leaving it runs the node's TriggerScript again, as the DLL's
 //     per-frame leaving test does;
+//   (map3) faces (level_editor_faces.h): the collision object's faces' flags (by index - the .col's order is the DLL's);
+//     a face a moved piece's shared collision took along gets them in the companion (the original keeps 0x10 while
+//     taken, as the DLL); cluster (level_editor_clusters.h): the piece's node gets TrickObject + Cluster= (or both
+//     taken out - a shared structure's TrickObject can't be: warned, the DLL unregisters it at run time); camera
+//     (level_editor_cameras.h): a node appended (GenericNode, Type ed_camera, Pos, Angles, targetOffset /
+//     positionOffset as a virtual_cam takes them); level sky= (level_editor_level_props.h): Levels.qb's sky=;
 //   anything else (a later record kind): "unsupported record", listed.
 // THUGPRO parity: a level shared with THUGPRO (a ported level in tools/compat/thugpro's register, or THUG2's own -
 // THUGPRO players have those as shipped) gets a warning for every edit that changes spawns, crowns (King of the Hill),
@@ -78,6 +84,8 @@ import { f32 } from "../lib/struct.ts";
 import { backUp, listBackups, restoreLatest } from "./bake_backup.ts";
 import { resolveGameFolder } from "./edit_level.ts";
 import {
+    CAMERA_DISTANCE,
+    type CameraRecord,
     type FieldValue,
     isUniformScale,
     isUnitScale,
@@ -88,6 +96,7 @@ import {
     readLayout,
     TOD_STATES,
     type V3,
+    validSky,
 } from "./layout_file.ts";
 import * as Triggers from "./triggers.ts";
 
@@ -288,6 +297,7 @@ export interface FaceCopy {
     flags: number;
     terrain: number;
     bytes: number[];
+    origin?: { object: number; face: number }; // (map3: the collision-only object's face it was copied from)
 }
 
 const NEAR = 6;
@@ -459,6 +469,7 @@ export class SharedCollision {
                     flags: face[0],
                     terrain: face[1],
                     bytes: [face[2], face[3], face[4]].map((i) => o.intensities[i] ?? 0x80),
+                    origin: { object: o.checksum, face: f },
                 });
                 if (take) o.faces[f] = [face[0] | 0x10, face[1], face[2], face[3], face[4]];
             });
@@ -748,6 +759,48 @@ function linksOf(array: NodeArray, i: number): number[] {
     });
 }
 
+// --- (map3) camera nodes (level_editor_cameras.cpp) --------------------------------------------------------------------
+
+// Where a node of these angles looks - the game's angles-to-matrix (0x0041A730: RotationX, Y, Z) at row (Cameras::Forward).
+export function cameraForward(a: V3): V3 {
+    const cx = Math.cos(a.x);
+    const v = { x: f32(Math.sin(a.y) * cx), y: f32(-Math.sin(a.x)), z: f32(Math.cos(a.y) * cx) };
+    const cz = Math.cos(a.z);
+    const sz = Math.sin(a.z);
+    return { x: f32(v.x * cz - v.y * sz), y: f32(v.x * sz + v.y * cz), z: v.z };
+}
+// The point looked at (virtual_cam's targetOffset) and the camera's place relative to it (positionOffset).
+export function cameraOffsets(c: CameraRecord): { target: V3; offset: V3 } {
+    const d = Math.min(CAMERA_DISTANCE.max, Math.max(CAMERA_DISTANCE.min, c.distance));
+    const f = cameraForward(c.angles);
+    const target = { x: f32(c.pos.x + f.x * d), y: f32(c.pos.y + f.y * d), z: f32(c.pos.z + f.z * d) };
+    return { target, offset: { x: f32(c.pos.x - target.x), y: f32(c.pos.y - target.y), z: f32(c.pos.z - target.z) } };
+}
+export const CAMERA_NODE_NAMES = [
+    "Pos",
+    "Angles",
+    "Name",
+    "Class",
+    "GenericNode",
+    "Type",
+    "ed_camera",
+    "targetOffset",
+    "positionOffset",
+];
+export function cameraNode(c: CameraRecord): Struct {
+    const n = (text: string): Name => new Name(checksum(text));
+    const { target, offset } = cameraOffsets(c);
+    return new Struct([
+        [n("Pos"), v3(c.pos)],
+        [n("Angles"), v3(c.angles)],
+        [n("Name"), n(c.name)],
+        [n("Class"), n("GenericNode")],
+        [n("Type"), n("ed_camera")],
+        [n("targetOffset"), v3(target)],
+        [n("positionOffset"), v3(offset)],
+    ]);
+}
+
 // --- the added nodes (level_editor_node_create.cpp's Fields / Build) ------------------------------------------------
 
 const TEAMS = ["Red", "Blue", "Green", "Yellow"];
@@ -996,25 +1049,65 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
     // Shared collision (level_editor_shared_coll.h): a moved / hidden piece takes the faces of collision-only objects
     // that belong to it - gathered on the level as loaded, in the records' order (a face taken is off for the next).
     const sharedColl = col ? new SharedCollision(scene, col, qbFile.names) : null;
-    const companions: { piece: number; faces: FaceCopy[]; placement: Placement | null }[] = [];
+    const companions: { piece: number; faces: FaceCopy[]; placement: Placement | null; taken: boolean }[] = [];
     if (sharedColl) {
         for (const r of layout.sectors) {
             if (!r.hidden && isIdentity(r.placement)) continue;
             const taken = sharedColl.gather(r.checksum, true);
             if (taken.length)
-                companions.push({ piece: r.checksum, faces: taken, placement: r.hidden ? null : r.placement });
+                companions.push({
+                    piece: r.checksum,
+                    faces: taken,
+                    placement: r.hidden ? null : r.placement,
+                    taken: true,
+                });
         }
         for (const c of layout.clones) {
             const mine = companions.find((x) => x.piece === c.source);
-            const faces = mine ? mine.faces : sharedColl.gather(c.source, false);
+            // (copies of the faces: a copy's companion keeps the flags it was made with - map3's face edits go to the
+            // pieces' own, as the DLL's SetTakenFlags)
+            const faces = mine ? mine.faces.map((f) => ({ ...f })) : sharedColl.gather(c.source, false);
             if (faces.length)
                 companions.push({
                     piece: c.source,
                     faces,
                     placement: { ...c.placement, offset: { ...c.placement.offset }, scale: { ...c.placement.scale } },
+                    taken: false,
                 });
         }
     }
+    // (map3) Collision faces' flags (level_editor_faces.h): by index in the collision object as loaded; a face a moved
+    // piece's companion took along gets them there and keeps 0x10 itself (Faces::Write -> SetTakenFlags).
+    let faceEdits = 0;
+    for (const r of layout.faces) {
+        const o = colAt.get(r.checksum);
+        if (o === undefined || !col) {
+            warnings.push(`faces of ${label(r.checksum)}: no collision object of that name - skipped`);
+            continue;
+        }
+        const object = col.objects[o]!;
+        for (const [face, flags] of r.faces) {
+            const f = object.faces[face];
+            if (!f) {
+                warnings.push(`face ${face} of ${label(r.checksum)}: it has ${object.faces.length} faces - skipped`);
+                continue;
+            }
+            let taken = false;
+            for (const c of companions) {
+                if (!c.taken) continue;
+                for (const copy of c.faces) {
+                    if (copy.origin?.object === r.checksum && copy.origin.face === face) {
+                        copy.flags = flags;
+                        taken = true;
+                    }
+                }
+            }
+            object.faces[face] = [taken ? flags | 0x10 : flags, f[1], f[2], f[3], f[4]];
+            faceEdits++;
+        }
+        breaks(`collision faces of ${label(r.checksum)} changed (face flags)`);
+    }
+    if (faceEdits) report.push(`collision faces: ${faceEdits} faces' flags set (as the editor's Faces mode left them)`);
     let moved = 0;
     for (const r of layout.sectors) {
         const s = sectorAt.get(r.checksum);
@@ -1235,6 +1328,29 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
         flat++;
         breaks(`rail ${label(name)} grindable on flat ground`);
     }
+    // (map3) Scenery trick-object clusters (level_editor_clusters.h): the piece's node's own TrickObject + Cluster=, or
+    // taken out (a shared structure's TrickObject stays: warned - the DLL takes it out of the manager at run time).
+    for (const m of layout.clusters) {
+        const i = nodeAt(m.sector, "cluster");
+        if (i < 0) continue;
+        const node = array.edit(i);
+        if (m.trick) {
+            setField(array, node, K.trickObject, { kind: "flag", on: true });
+            setField(array, node, K.cluster, { kind: "name", checksum: m.cluster });
+            array.remember("TrickObject");
+            array.remember("Cluster");
+            report.push(`scenery ${label(m.sector)}: a trick object of cluster ${label(m.cluster)}`);
+        } else {
+            setField(array, node, K.cluster, null);
+            if (!setField(array, node, K.trickObject, { kind: "flag", on: false }))
+                warnings.push(
+                    `scenery ${label(m.sector)}: its TrickObject is a shared structure's - not taken out (the DLL ` +
+                        "takes it out of the trick object manager when the edited copy loads)",
+                );
+            else report.push(`scenery ${label(m.sector)}: not a trick object`);
+        }
+        breaks(`scenery ${label(m.sector)}'s trick-object cluster changed (graffiti / trick-object goals)`);
+    }
     for (const h of layout.hidden) {
         const i = nodeAt(h, "hide");
         if (i < 0) continue;
@@ -1272,6 +1388,16 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
         if (p.cls === "RailNode") breaks(`rail point ${p.name} added`);
         if (p.cls === "ClimbingNode") breaks(`ladder point ${p.name} added`);
         if (p.cls === "RailNode" && p.grindFlat) flat++;
+    }
+    // (map3) Camera nodes (level_editor_cameras.h): appended as the DLL's overlay has them.
+    for (const c of layout.cameras) {
+        if (array.index(checksum(c.name)) >= 0) {
+            warnings.push(`camera ${c.name}: the level has a node of that name already - not added`);
+            continue;
+        }
+        array.append(cameraNode(c));
+        for (const n of [c.name, ...CAMERA_NODE_NAMES]) array.remember(n);
+        report.push(`camera ${c.name}: a GenericNode (Type ed_camera) at ${c.pos.x},${c.pos.y},${c.pos.z}`);
     }
     if (flat)
         warnings.push(
@@ -1422,6 +1548,7 @@ export function levelStructureValues(level: LevelProps): [string, QbValue][] {
         });
         out.push(["fog_dist", distance(level.fog[4])]);
     }
+    if (level.sky && validSky(level.sky)) out.push(["sky", level.sky]); // (map3: the sky scene load_level loads)
     return out;
 }
 

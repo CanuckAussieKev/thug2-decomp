@@ -12,6 +12,7 @@
 
 #include "game/core/crc.h"
 #include "game/core/manager.h"
+#include "game/front/level_editor_clusters.h"
 #include "game/front/level_editor_picking.h"
 #include "game/front/level_editor_view.h"
 #include "game/front/level_editor_scale.h"
@@ -438,6 +439,10 @@ std::string Label(uint32_t checksum)
 std::unordered_map<uint32_t, uint32_t> g_clusters;
 uint32_t ClusterOf(uint32_t checksum)
 {
+    // (a cluster the editor set - level_editor_clusters.h: its group follows it)
+    uint32_t edited = 0;
+    if (Clusters::Override(checksum, &edited))
+        return edited;
     auto it = g_clusters.find(checksum);
     if (it != g_clusters.end())
         return it->second;
