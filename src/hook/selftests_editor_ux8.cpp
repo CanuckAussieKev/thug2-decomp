@@ -100,10 +100,10 @@ void TestEditorUx8Hints()
     Hints::Context pie = sel;
     pie.pieOpen = true;
     h = Hints::Build(pie, keyOf);
-    Check(Has(h, "LMB", "run it") && Has(h, "Q", "let go: run the slice pointed at") && !HasWhat(h, "drop"),
+    Check(Has(h, "LMB", "run it") && Has(h, "Q", "release: run") && !HasWhat(h, "drop"),
           "editor ux8: a pie up - its own hints");
     pie.pieSticky = true;
-    Check(!HasWhat(Hints::Build(pie, keyOf), "let go: run the slice pointed at"), "editor ux8: a tapped pie - no let-go");
+    Check(!HasWhat(Hints::Build(pie, keyOf), "release: run"), "editor ux8: a tapped pie - no let-go");
     Hints::Context pad = sel;
     pad.pad = true;
     h = Hints::Build(pad, keyOf);
@@ -113,7 +113,7 @@ void TestEditorUx8Hints()
     alt.mods = Actions::kAlt;
     alt.modded = {{"Alt+P", "Problems window"}};
     h = Hints::Build(alt, keyOf);
-    Check(Has(h, "Alt+Wheel", "step through what's under the cursor") && Has(h, "Alt+P", "Problems window") &&
+    Check(Has(h, "Alt+Wheel", "cycle under cursor") && Has(h, "Alt+P", "Problems window") &&
               !HasWhat(h, "pie"),
           "editor ux8: Alt held - what Alt changes and what it's bound to");
     Hints::Context ruler = idle;

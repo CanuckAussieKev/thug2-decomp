@@ -1250,7 +1250,7 @@ void BrowserPreview(const Model& model)
         draw->AddRectFilled(a, b, IM_COL32(42, 44, 48, 255));
     draw->AddRect(a, b, ImGui::GetColorU32(ImGuiCol_Border));
     if (!preview.texture) {
-        const char* text = preview.index < 0 ? "(nothing highlighted)" : "(no preview)";
+        const char* text = preview.index < 0 ? "(no selection)" : "(no preview)";
         ImVec2 size = ImGui::CalcTextSize(text);
         draw->AddText(ImVec2((a.x + b.x - size.x) * 0.5f, (a.y + b.y - size.y) * 0.5f),
                       ImGui::GetColorU32(ImGuiCol_TextDisabled), text);
@@ -1271,7 +1271,7 @@ void BrowserPreview(const Model& model)
         g_requests.push_back(request);
     }
     if (ImGui::IsItemHovered() && !ImGui::IsItemActive() && preview.texture)
-        ImGui::SetTooltip("Drag to turn it, the wheel to zoom");
+        ImGui::SetTooltip("Drag to rotate, wheel to zoom");
     if (!preview.name.empty()) {
         ImGui::PushFont(g_mono);
         ImGui::TextWrapped("%s", preview.name.c_str());
@@ -1296,7 +1296,7 @@ void Browser(const Model& model)
     ImGui::SetNextWindowSize(ImVec2(360.0f * g_scale, std::min(760.0f * g_scale, g_layout.viewport.height - 16.0f * g_scale)));
     bool open = true;
     char title[64];
-    std::snprintf(title, sizeof(title), "Add  (%d)###browser", static_cast<int>(model.browserItems->size()));
+    std::snprintf(title, sizeof(title), "Add Piece (%d)###browser", static_cast<int>(model.browserItems->size()));
     ImGui::Begin(title, &open, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoResize |
                                    ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
     BrowserPreview(model);
@@ -1333,10 +1333,10 @@ void Browser(const Model& model)
         Ask(Request::kBrowserPreview, preview);
     }
     ImGui::BeginDisabled(items.empty());
-    if (ImGui::Button("Place (Enter)"))
+    if (ImGui::Button("Place"))
         Ask(Request::kBrowserPlace);
     ImGui::SameLine();
-    if (ImGui::Button("Show me (F)"))
+    if (ImGui::Button("Focus"))
         Ask(Request::kBrowserFocus);
     Arrange::BrowserExtras(g_scale); // (UX7: Replace selection, Click places - level_editor_arrange.h)
     ImGui::EndDisabled();
