@@ -67,7 +67,8 @@ has (its own Load_AP / Load_LA: THUG2's classic Airport and Los Angeles, which T
 made objects' and materials' checksums keep the old prefix: the scenes, textures and collision are byte for byte as
 before. Saved level-editor layouts under the old names: `node tools/thps3_levels/migrate_layouts.ts --game <folder>`.
 Comparison with THUGPRO's own ports (read only): `node tools/thps3_levels/thugpro_compare.ts --thug2 <folder>
-[--details]` - docs/pending/thps3-thugpro.md.
+[--details] [--start-state]` - docs/pending/thps3-thugpro.md; `--start-state` lists, node by node, what each side has at the
+start of offline free skate (start_state.ts: node flags, then the start scripts followed - docs/pending/thps3-free-skate-thugpro.md).
 
 ## What's converted
 

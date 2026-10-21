@@ -75,7 +75,7 @@ back: the crash is in THUG2's code, which we are rewriting.
 | Crash | Where in THUG2 | What the converters do now | Cost |
 |---|---|---|---|
 | A TrickObject / Cluster on geometry with no drawn sector | ParseNodeArray | Strip the marking (all games) | 2-89 nodes per THAW level aren't trick objects |
-| Visible / Kill / Shatter of collision-only geometry | CFunc_Visible 0x5A5050 | Leave the statement out, or expand `prefix=` to drawn nodes only | 1-74 statements per THAW level; a few in THPS3 |
+| Visible / Kill / Shatter of collision-only geometry | CFunc_Visible 0x5A5050 | Leave the statement out, or expand `prefix=` to drawn nodes only (THPS3 since PC-THPS3-17: Visible / Invisible / Shatter only - Create / Kill reach the geometry only through CSector calls that skip a null one) | 1-74 statements per THAW level; a few in THPS3 |
 | THUG2's Car_Generic01 on a LevelObject | its member calls on missing components | Traffic made a real THUG2 Vehicle | THPS3 cars are THUG2 look-alikes |
 | TriggerType with a bare name | 0x004349B2 | Made THUG2's array form (script_port.triggerType, every game); a form it can't make: left out (false) | THAW's four THUG2-less flags |
 | IsAlive / other commands naming a missing node | CFunc_IsAlive | Parameters naming nodes the level lacks are checked | Statements left out |
@@ -105,17 +105,24 @@ back: the crash is in THUG2's code, which we are rewriting.
 - Warehouse: the dark set (SkWare_Dark_*) dropped. THPS3 flickers between the lit and dark sets; we keep the lit one, always
   shown (the flicker script's Invisible of the lit set left out - with no dark set under it, half the room went black;
   docs/pending/warehouse-flicker.md).
-- **Foundry's generator doors differ from THPS3's own free skate on purpose (TP-41).** THPS3 opens GENERATOR 1 CORE
-  (the big double door, GenDoor01-03) only through the career's valve goal or in a multiplayer game; ours are open in
-  free skate too, as in THUGPRO (which plays every game as a network game), so the generator room is reachable. In a
-  network game both agree anyway. Skater Island's outer door (SI_OuterDoor, which THPS3's cannon goal blows) is gone in
-  free skate the same way. `--compat none` leaves both closed.
+- **Free skate's world is THUGPRO's offline free skate, not THPS3's, where THUGPRO rewrote a level script (TP-41, on
+  purpose: the user's decision 2026-10-21).** THUGPRO's free skate is THUG2's offline single session (not a network
+  game: its peds, all AbsentInNetGames, are there); its world differs from THPS3's free skate only where it edited
+  THPS3's scripts. Ours makes THPS3's own scripts take the same branches: Foundry's GENERATOR 1 CORE doors open (the
+  generator room reachable) and the five valve booths cleared; Subway's houses unboarded, blockers gone, open rails,
+  dish turned, curtain lit (online too, as THUGPRO's); Skater Island's cannon trigger not made at the start; Shipyard's
+  helicopter made and flown off at the start. What THUGPRO's rewrites kill that is the level's life (Subway's Thin Man,
+  Shipyard's ambient boats, Foundry's bucket - absent in THUGPRO's game, made by its scripts all the same) stays in ours.
+  Skater Island's outer door stays (THUGPRO's offline free skate has it). `--compat none`: THPS3's own free skate.
+  Not matched: THPS3's visibility culling (Rio's Sul bowl, Skater Island's inside / outside, Shipyard's sections,
+  Tokyo's areas, Foundry's generator: hidden from where they can't be seen and shown on entering), which THUGPRO
+  emptied - drawing only, collision the same; docs/pending/thps3-free-skate-thugpro.md.
 - Free skate's start state follows THPS3's own free skate (PC-THPS3-16): what only a career / goal / multiplayer
   branch of a start script makes (Tokyo's secret buildings and destroyed sign, Skater Island's cannon-damage set,
   Airport's tickets, LA's car-fall triggers) isn't there at the start any more. THPS3's multiplayer, goal and career
-  states otherwise aren't brought over: no goals, no career flags. Not matched to THUGPRO's free skate (a network game
-  there: THPS3's multiplayer branches everywhere): Shipyard's multiplayer world state (THPS3's
-  BDJ_SHP_RestartSetupNet, not looked into) - docs/pending/thps3-doors.md.
+  states otherwise aren't brought over: no goals, no career flags. Collision-only pieces (invisible walls, blockers,
+  trigger planes) follow THPS3's scripts' Create / Kill since PC-THPS3-17 (before, they stayed as the level loaded
+  them: Shipyard's ramp and anchor-chain collision THPS3 kills in free skate stayed solid).
 
 **Scripts** (THPS3's own, translated; a called script gets its caller's parameters as in THPS3). Statements left out,
 counts across all levels:
