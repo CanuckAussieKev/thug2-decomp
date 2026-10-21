@@ -1382,6 +1382,8 @@ void BuildLife(Random& r)
     auto* v = reinterpret_cast<CVehicleComponent*>(g_vehicle);
     g_fakeVtable[1] = reinterpret_cast<void*>(&StandInVehicleUpdate);
     v->m_vtable = g_fakeVtable;
+    if (r.OneIn(4)) // (Construct sets the type: something else there first)
+        v->m_type = r.Next();
     v->mp_skeleton = reinterpret_cast<Obj::CBaseComponent*>(g_skeletonData);
     v->m_wheelCount = kWheels;
     if (r.OneIn(6))
@@ -1464,6 +1466,7 @@ void TraceLife()
             g_trace.push_back(LifeId(w[i]));
     };
     g_trace.push_back(0x0B1EC7);
+    g_trace.push_back(reinterpret_cast<const CVehicleComponent*>(g_vehicle)->m_type);
     words(g_object, sizeof(g_object));
     g_trace.push_back(0x0B10C4);
     words(g_wheelBlock, sizeof(g_wheelBlock));

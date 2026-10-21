@@ -130,3 +130,23 @@ src/game/nx/feeler.h / feeler.cpp (CFeeler::Assign added).
     or real; Vehicle_MoveToRestart's three ways over 500 cases. The rotations about an axis / x / z are stood in in these
     tests: ours (mth/matrix.cpp, float code with the C runtime's cos / sin) and the original's differ in the last bits,
     and wholly for very large angles - worth a look in that file.
+- [x] Range check (after merging main at 1af6002): find_gaps.py shows no gaps in 0x004351B2-0x0043D929; all 85
+  functions Ghidra knows there are REPLACEd, plus the 9 it doesn't (94 REPLACEs). thug2_check on THUG2PM.exe and the
+  stock THUG2.exe: 0 MISMATCHED, all 635 early self-tests pass; check_code_writes: no overlaps; the register scan and
+  the GameFunction audit flag nothing new in the range.
+- [x] Game runs (workspace C:\Games\THUG2-4 under the lock; all 4408 replacements installed). The Vehicle component
+  only runs with the Anteara mod (the stock player_controlled_vehicle.qb is empty; the mod restores it): with
+  `anteara_mod=1`, BO in free skate, `run goal_initialize_skater control_type=PoliceCar edited_goal` (then JunkerCar
+  in a second run) - the car made under the skater, its camera and sounds, woken; driven with X held ~5 s, steered
+  left and right: it drove about a block, across the street, up the kerb with two wheels on the State House steps,
+  into a traffic car; square / triangle pressed. No exception, run-time check, CRT report or crash in the log.
+  For the user: Anteara mod on, its vehicle menu in the pause menu - drive the cars (gas, brake, handbrake, jumps,
+  crashes into walls, flipping over and righting, restarts). Disable with `[replacements] disable=vehicle_component.cpp,
+  vehicle_physics.cpp,vehicle_collision.cpp,vehicle_sound.cpp,velocity_component.cpp,vibration_component.cpp,wait_and_die.cpp`.
+- [x] Mutations, batches 4-6 (out/scripts/mut4.ts / mut5.ts / mut6.ts): 95 + 75 + 99 deliberate bugs. All caught except 5,
+  each looked at: ApplyDamping's yaw stop `<` -> `<=` (at a tie both give +0), ApplyTyreForces' `>` -> `>=` (a tie
+  random floats don't reach; half of it gives the same result), Collide's depth `<= 0` -> `< 0` (a zero depth pushes
+  by zero), the depth push's w rounded first (the force's w isn't used), the depth clamp's NaN side (a NaN contact has
+  already made the impulse pass's results NaN, which the traces compare as one value). Construct's type store was
+  missed once (TraceLife didn't record the component's type): the life test now records it and sometimes leaves
+  another type there first - caught.
