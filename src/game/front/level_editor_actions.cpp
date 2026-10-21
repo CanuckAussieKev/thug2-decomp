@@ -430,6 +430,20 @@ std::vector<Action> Builtins()
         Make("nudge_right", "Nudge right", "Transform", Kind::Hold, {K(SDL_SCANCODE_RIGHT)}, "The selection right"),
     };
     b.insert(b.end(), tools.begin(), tools.end());
+    // (UX4 / UX5)
+    std::vector<Action> views2 = {
+        Make("view_mode_lit", "View mode: lit", "View", Kind::Press, {K(SDL_SCANCODE_1, kAlt)}, "The level as in play"),
+        Make("view_mode_unlit", "View mode: unlit", "View", Kind::Press, {K(SDL_SCANCODE_2, kAlt)}, "Textures without lighting"),
+        Make("view_mode_wireframe", "View mode: wireframe", "View", Kind::Press, {K(SDL_SCANCODE_3, kAlt)}, "Edges only"),
+        Make("view_mode_collision", "View mode: collision only", "View", Kind::Press, {K(SDL_SCANCODE_4, kAlt)},
+             "Only the collision, by surface"),
+        Make("jump_arcs", "Jump arcs", "View", Kind::Press, {L('Y')},
+             "A kicker's / quarter pipe's / ramp's arcs at push, top and max speed"),
+        Make("ruler", "Ruler", "View", Kind::Press, {L('M')}, "Click two points to measure (snaps to corners; Alt: no snap)"),
+        Make("ruler_clear", "Ruler: clear", "View", Kind::Press, {L('M', kShift)}, "The measurement taken away"),
+        Make("problems", "Problems window", "Panels", Kind::Press, {L('P', kAlt)}, "What the checker finds in the edited copy"),
+    };
+    b.insert(b.end(), views2.begin(), views2.end());
     // The hints (not rebindable): what the mouse and the modes' own keys do.
     struct Hint {
         const char *id, *name, *category, *keys, *tip;

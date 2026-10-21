@@ -626,6 +626,55 @@ test("bake: triggers - node, trigger box, script in the scripts .qb; level prope
     assert.deepEqual(twice.levels, out.levels, "the same values: the same bytes");
 });
 
+// --- (UX5) note pins: read, never baked ---------------------------------------------------------------------------------
+
+test("layout_file: (UX5) note records read as the DLL writes them; malformed refused; the bake says nothing of them", () => {
+    const l = readLayout(
+        [
+            "thug2-decomp layout 2",
+            `scene ${hex(LEVEL)}`,
+            'note ed_note01 pos=1.5,-2,300.25 color=5AC8FA text="raise this ledge%0A100%25 %22now%22 %231 é"',
+            "note ed_note02 pos=4,5,6 later=7",
+            "# not found in the level when loaded - kept until the Problems window drops them",
+        ].join("\n"),
+    );
+    assert.deepEqual(l.notes, [
+        {
+            name: "ed_note01",
+            pos: { x: 1.5, y: -2, z: 300.25 },
+            colour: 0x5ac8fa,
+            text: 'raise this ledge\n100% "now" #1 é',
+        },
+        { name: "ed_note02", pos: { x: 4, y: 5, z: 6 }, colour: 0xffd84a, text: "" },
+    ]);
+    assert.deepEqual(l.unknown, []);
+    const refused = [
+        "note ed_note01",
+        "note ed_note01 pos=1,2",
+        "note ed_note01 pos=1,2,3 pos=1,2,3",
+        "note ed_note01 pos=1,2,3 color=FFF",
+        "note bad-name pos=1,2,3",
+        'note ed_note01 pos=1,2,3 text="x" color=FFFFFF',
+        'note ed_note01 pos=1,2,3 text="open',
+        "note ed_note01 pos=1,2,3 text=bare",
+        'note ed_note01 pos=1,2,3 text="bad%zz"',
+    ];
+    for (const line of refused) {
+        assert.throws(
+            () => readLayout(`thug2-decomp layout 2\nscene ${hex(LEVEL)}\n${line}\n`),
+            (e: unknown) => e instanceof LayoutError && e.line === 3,
+            line,
+        );
+    }
+    const out = bake(l, level(), null);
+    assert.deepEqual(
+        [out.warnings, out.unsupported, out.parity],
+        [[], [], []],
+        "notes: no warning, nothing unsupported",
+    );
+    assert.ok(!out.report.some((r) => /note/i.test(r)), "nothing reported of the notes");
+});
+
 test("bake: added crowns keep the layout's order", () => {
     const list = [
         { name: "a", cls: "GenericNode", type: "Crown" },

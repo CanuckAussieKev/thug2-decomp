@@ -83,5 +83,9 @@ void Disarm();
 bool Armed();
 // How many objects / nodes are carried now (the status bar).
 int Count();
+// What is carried now: the objects' ids and the nodes' names (the Overlays menu's carried-object hints,
+// level_editor_overlays.h); none while not armed.
+std::vector<uint32_t> CarriedObjects();
+std::vector<uint32_t> CarriedNodes();
 
 } // namespace Front::LevelEditor::Carry

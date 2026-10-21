@@ -12,6 +12,7 @@
 #include <new>
 
 #include "game/core/mem.h"
+#include "game/gfx/view_mode.h"
 #include "game/lst/hashtable.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -115,6 +116,8 @@ void __cdecl CreatePixelShaders()
             AssembleShader(f.source, static_cast<uint32_t>(std::strlen(f.source)), &shader, &errors);
             Device()->CreatePixelShader(static_cast<const DWORD*>(BufferPointer(shader)),
                                         reinterpret_cast<IDirect3DPixelShader9**>(&Handle(f.handle)));
+            // Not original - the level editor's Unlit view (game/gfx/view_mode.h): the source kept for its twin.
+            ViewMode::NoteShaderSource(Handle(f.handle), f.source);
             if (shader)
                 Release(shader);
             if (errors)
@@ -222,6 +225,8 @@ void* __cdecl GeneratedPixelShader(const void* material)
         BufferPointer(errors); // (the error text, not shown)
     Device()->CreatePixelShader(static_cast<const DWORD*>(BufferPointer(shader)),
                                 reinterpret_cast<IDirect3DPixelShader9**>(&handle));
+    // Not original - the Unlit view (view_mode.h): the source kept for its twin.
+    ViewMode::NoteShaderSource(handle, text.buffer);
     cache.PutItem(key, handle);
     if (shader)
         Release(shader);

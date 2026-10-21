@@ -75,6 +75,10 @@ void Input(float dx, float dy, float wheel);
 // couldn't be found, or the backend has no target). Call once a frame, before Ui::Frame, only while the palette is
 // open with something highlighted.
 uint64_t Render(int size);
+// A subject drawn from orbit into the device's target as it is (the camera's globals saved and put back - the
+// target, its viewport and clearing are the caller's: Render's picture, the Add palette's thumbnails -
+// level_editor_thumbs.h). False: it's gone (nothing drawn).
+bool DrawView(Kind kind, uint32_t id, const Orbit& orbit);
 // The palette closed: nothing more drawn; the picture's target freed (UiBackend::FreeOffscreen).
 void Hide();
 // The frame's preview for the UI's model (LevelEditor::Draw, before Ui::Frame): while the browser is open with an entry

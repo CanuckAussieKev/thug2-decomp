@@ -13,6 +13,7 @@
 #include "game/front/level_editor_fields.h"
 #include "game/front/level_editor_level_props.h"
 #include "game/front/level_editor_node_create.h"
+#include "game/front/level_editor_notes.h"
 #include "game/front/level_editor_picking.h"
 #include "game/front/level_editor_scenery.h"
 #include "game/front/level_editor_triggers.h"
@@ -112,6 +113,9 @@ class CScript;
 //   camera <name> pos=x,y,z angles=x,y,z dist=d        (map3) a camera node (level_editor_cameras.h)
 //   level ... sky=<scene>                              (map3) the edited copy's sky (level_editor_level_props.h)
 // An older reader skips faces / cluster / camera records and a level record's sky= (the level's own sky then).
+//   note <name> pos=x,y,z color=RRGGBB text="..."      (UX5) a note pin - editor only (level_editor_notes.h)
+// (UX5) Records that didn't resolve to anything in the level when the layout went in (level_editor_checks.h) are
+// written again at the file's end, as they were, under a comment - until the Problems window drops them.
 // Checksums are 8 hex digits; numbers are written with 9 significant digits (floats survive the round trip).
 namespace Front::LevelEditor::Layout {
 
@@ -167,6 +171,10 @@ struct File {
     // Records this reader doesn't know, as they are (comments taken off): another module's (AddExtension - the
     // editor's own records: level_editor_organize.h) or a later version's. Write writes them back.
     std::vector<std::string> extra;
+    std::vector<Notes::Note> notes;             // (UX5) `note` (level_editor_notes.h)
+    // (UX5) lines written again as they are, at the end: the loaded layout's records that didn't resolve (Capture fills
+    // it from level_editor_checks.h; Read never does - they are records like any other there)
+    std::vector<std::string> carried;
 };
 
 // Another module's records, carried by the layout (level_editor_organize.h's groups, labels, locks, snapshot name):

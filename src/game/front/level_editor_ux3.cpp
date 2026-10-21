@@ -11,8 +11,10 @@
 #include "game/front/level_editor_clip.h"
 #include "game/front/level_editor_layout.h"
 #include "game/front/level_editor_modules.h"
+#include "game/front/level_editor_notes.h"
 #include "game/front/level_editor_objects.h"
 #include "game/front/level_editor_organize.h"
+#include "game/front/level_editor_overlays.h"
 #include "game/front/level_editor_picking.h"
 #include "game/front/level_editor_ui.h"
 #include "hook/log.h"
@@ -118,6 +120,31 @@ void Init()
     static const PickToggle kPicks[] = {{"pick_nodes", "Pick: nodes", Picking::kNodes},
                                         {"pick_objects", "Pick: objects", Picking::kObjects},
                                         {"pick_scenery", "Pick: scenery", Picking::kScenery}};
+    // (UX4: the Overlays menu's switches; UX5: a note where the view looks, the budget meter)
+    for (const Overlays::BitInfo& info : Overlays::Bits()) {
+        uint32_t bit = info.bit;
+        std::string id = "overlay_" + std::to_string(bit);
+        AddToggle(id.c_str(), (std::string("Overlay: ") + info.label).c_str(), info.tip,
+                  [bit] { return Overlays::Shown(bit) ? 1 : 0; }, [bit] { Overlays::Set(bit, !Overlays::Shown(bit)); });
+    }
+    {
+        Actions::Action note;
+        note.id = "note_here";
+        note.name = "+ Note here";
+        note.category = "Edit";
+        note.tip = "A note pin where the view looks (editor only: never in play, never baked)";
+        note.run = [] { Notes::AddHereQueued(); };
+        Actions::Register(note);
+        Actions::Action budget;
+        budget.id = "hint_budget";
+        budget.name = "Budget";
+        budget.category = "Panels";
+        budget.kind = Actions::Kind::Info;
+        budget.rebindable = false;
+        budget.keysText = "The toolbar's meter";
+        budget.tip = "How much of the game's limits the edited copy uses - hover / click the toolbar's meter";
+        Actions::Register(budget);
+    }
     for (const PickToggle& p : kPicks) {
         uint32_t bit = p.bit;
         AddToggle(p.id, p.name, "What a click in the view may take",

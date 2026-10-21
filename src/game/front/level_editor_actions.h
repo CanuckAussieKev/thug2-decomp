@@ -106,6 +106,9 @@ enum Id : int {
     // (UX2: the transform tools - level_editor_transform.h; the arrows nudge with wasd_flies=0)
     kToolMove, kToolRotate, kToolScale, kToolCycle, kToolSpace, kModalTransform, kRepeatDuplicate,
     kNudgeForward, kNudgeBack, kNudgeLeft, kNudgeRight,
+    // (UX4 / UX5: the view modes, jump arcs, the ruler - level_editor_overlays.h, level_editor_arcs.h,
+    // level_editor_ruler.h; the Problems window - level_editor_checks.h)
+    kViewModeLit, kViewModeUnlit, kViewModeWireframe, kViewModeCollision, kJumpArcs, kRuler, kRulerClear, kProblems,
     kBuiltinCount
 };
 

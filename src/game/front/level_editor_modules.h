@@ -34,6 +34,12 @@ struct ViewNow {
 bool CurrentView(ViewNow* view);
 // The editor's camera put there, looking that way (the selection dropped first: the camera would orbit it).
 void LookFrom(V3 pos, float yaw, float pitch);
+// (UX5: the Problems window's and the notes' Go to) The camera taken to a node, selected (false: no such node now); to a
+// scenery piece, selected (false: none, or not movable); to look at a point from `distance` away (nothing selected).
+// Call from a module's Update (not while the UI draws).
+bool GoToNodeNamed(uint32_t name);
+bool GoToScenery(uint32_t sector);
+void GoToPoint(V3 pos, float distance);
 
 // --- for the history, changes, selection and clipboard modules (level_editor_ux3.h) ---------------------------------
 

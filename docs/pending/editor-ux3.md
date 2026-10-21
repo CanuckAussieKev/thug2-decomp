@@ -88,6 +88,10 @@ similar**, select family (none), **Ctrl+I invert**, **Ctrl+A select all**, **Ctr
 world / local, Alt+G modal transform, Ctrl+Shift+D repeat duplicate, nudge with the arrows and PageUp / PageDown
 (wasd_flies=1: the fly keys nudge too, Space aside). Camera: fly W A S D / E Space / Q (right button held; wasd_flies=1
 always), - / =, F frame, 1..9 / Ctrl+1..9 bookmarks, numpad 7 / 1 / 3 (Ctrl: opposite) / 5, F5 / Ctrl+P play.
+UX4 / UX5 (registered at the last merge): Alt+1..4 view modes (Lit / Unlit / Wireframe / Collision only), Y jump arcs,
+M ruler, Shift+M clear it, Alt+P the Problems window (P alone still logs the camera); every Overlays menu switch is a
+search toggle ("Overlay: ..."); "+ Note here" is a search action (no key - `Notes::AddHereQueued`, new); Budget is a
+hint (the toolbar's meter). UX1's bookmarks skip while Alt is held (kept).
 Gestures listed (fixed): UX2's snap modifiers while dragging (Ctrl, Ctrl+Shift, Alt+Shift, Ctrl+Alt), typed X / Y / Z
 and digits during a drag (read from SDL events, not the keymap).
 View: C, K, T, O, H, I and /, Alt+H, V, P. Chains: Insert, End, J, U, Enter. Gestures (listed, fixed): drag from empty

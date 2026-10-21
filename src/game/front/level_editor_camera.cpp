@@ -450,10 +450,11 @@ void Keys(const Rig& rig, const uint8_t* keys, bool ctrl, bool browserOpen)
                 *rig.speed = SpeedForRadius(rig.radius);
         }
     }
-    // 1..9 recall a bookmark, Ctrl+1..9 store it.
+    // 1..9 recall a bookmark, Ctrl+1..9 store it. (Alt+1..4 are the view modes - level_editor_overlays.h.)
+    bool alt = keys[SDL_SCANCODE_LALT] || keys[SDL_SCANCODE_RALT];
     for (int i = 0; i < kBookmarks; ++i) {
         bool store = Actions::Pressed(Actions::kBookmarkStore1 + i);
-        if (!store && !Actions::Pressed(Actions::kBookmark1 + i))
+        if (alt || (!store && !Actions::Pressed(Actions::kBookmark1 + i)))
             continue;
         char text[96];
         if (store) {
