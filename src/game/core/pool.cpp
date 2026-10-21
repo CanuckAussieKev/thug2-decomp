@@ -6,6 +6,7 @@
 #include "game/core/mem.h"
 #include "hook/game.h"
 #include "hook/hook.h"
+#include "hook/log.h"
 #include "hook/shadow.h"
 
 namespace Mem {
@@ -42,8 +43,20 @@ Pool::Pool(int item_size, int count, const char* name)
 void* Pool::Allocate()
 {
     void* item = m_freeList;
-    if (!item)
+    if (!item) {
+        // Not original - the log names a pool that ran dry, once per pool (most callers don't check for null).
+        static const Pool* reported[16];
+        static int reportedCount;
+        bool seen = false;
+        for (int i = 0; i < reportedCount; ++i)
+            seen = seen || reported[i] == this;
+        // (a pool without a name is a self-test's: the game names every pool, "unnamed" for none)
+        if (!seen && reportedCount < 16 && m_name[0] != '\0') {
+            reported[reportedCount++] = this;
+            Log("pool %s full: all %d items (%d bytes each) in use", m_name, m_count, m_itemSize);
+        }
         return nullptr;
+    }
     ++m_used;
     if (m_used > m_peakUsed)
         m_peakUsed = m_used;

@@ -13,6 +13,7 @@
 #include "game/script/names.h"
 #include "game/script/parse.h"
 #include "game/script/qb.h"
+#include "game/script/script_cfuncs.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
 #include "hook/hook.h"
@@ -77,11 +78,8 @@ void CopyText(char* out, const char* text)
 // 0x00479190: the type-name lookup, compiled out (its "(Hey, don't use this...)" text; the type is ignored).
 const char* TypeName(Script::ESymbolType /*type*/) { return reinterpret_cast<const char*>(0x00648474); }
 
-// 0x0044A480 (not rewritten here): FormatText's work - the text put together from `params` into `out`.
-int FormatTextInto(CStruct* out, CStruct* params)
-{
-    return GameFunction<int(__cdecl*)(CStruct*, CStruct*)>(0x0044A480)(out, params);
-}
+// 0x0044A480 (script_cfuncs.cpp): FormatText's work - the text put together from `params` into `out`.
+int FormatTextInto(CStruct* out, CStruct* params) { return FormatText(out, params); }
 
 } // namespace
 

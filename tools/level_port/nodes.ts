@@ -194,6 +194,55 @@ export function killCommands(
     return found;
 }
 
+// Keys every node keeps for itself when the rest is shared (shareIncludes).
+export const OWN_KEYS: ReadonlySet<number> = new Set(
+    ["Pos", "Position", "Angles", "Name", "Links", "TriggerScript"].map(checksum),
+);
+
+export function shareIncludes(
+    converted: Struct[],
+    names: Names,
+    prefix: string,
+    shared: (node: Struct) => boolean = () => true,
+): [Struct[], string] {
+    // expandIncludes undone: the parts nodes have in common (everything but OWN_KEYS) made global structures that the
+    // nodes name - as THUG2's own levels have them (BE: `ncomp_RailNode_1 = {Class=RailNode Type=Concrete
+    // CreatedAtStart TrickObject Cluster=... TerrainType=...}`, the rail nodes listing just Pos / Angles / Name, the
+    // include, Links). THUG2's structure lookups follow the include. One structure per set of identical parts that at
+    // least two nodes have; `shared` picks the nodes that may take part. Every node's entries cost a script component
+    // (the CComponent pool, 86000 for everything loaded): expanded node arrays bigger than THUG2's ran it dry while
+    // loading (THUG1 Hawaii / New Jersey; THAW Kyoto). Returns [the nodes, the structures as NeverScript text].
+    const groups = new Map<string, number>();
+    const sharedOf: (string | null)[] = [];
+    for (const node of converted) {
+        const parts = node.entries.filter(([k]) => k === null || !OWN_KEYS.has(k.value));
+        const k = shared(node) && parts.length > 1 ? qb.toNs(new Struct(parts), names) : null;
+        sharedOf.push(k);
+        if (k !== null) groups.set(k, (groups.get(k) ?? 0) + 1);
+    }
+    const made = new Map<string, Name>();
+    const lines: string[] = [];
+    for (const [k, count] of groups) {
+        if (count < 2) continue;
+        const inc = `${prefix}_inc_${made.size}`;
+        const value = checksum(inc);
+        if (!names.has(value)) names.set(value, inc);
+        made.set(k, new Name(value));
+        lines.push(`${inc} = ${k}`);
+    }
+    const linksKey = checksum("Links");
+    const triggerKey = checksum("TriggerScript");
+    const out = converted.map((node, i) => {
+        const k = sharedOf[i]!;
+        const include = k === null ? undefined : made.get(k);
+        if (include === undefined) return node;
+        const own = node.entries.filter(([key]) => key !== null && OWN_KEYS.has(key.value));
+        const late = (e: qb.Entry): boolean => e[0]!.value === linksKey || e[0]!.value === triggerKey;
+        return new Struct([...own.filter((e) => !late(e)), [null, include], ...own.filter(late)]);
+    });
+    return [out, lines.join("\n") + (lines.length ? "\n" : "")];
+}
+
 export function expandIncludes(array: readonly QbValue[], globalsByChecksum: ReadonlyMap<number, QbValue>): QbValue[] {
     // THUG1's node arrays share their common parts: a node lists a global structure by name (ncomp_RailNode_574 =
     // {Class=RailNode Type=Metal ...}) - an unnamed Name entry naming a global structure, whose entries the node gets
@@ -483,6 +532,36 @@ export function fixTerrains(nodes: readonly Struct[], names: Names): number {
         count += 1;
     }
     return count;
+}
+
+export function fixProfiles(nodes: readonly Struct[], names: Names, known: (value: number) => boolean): string[] {
+    // A ped's `profile` has to name a structure THUG2 defines (scripts\profile_ped.qb, or the level's own globals):
+    // ped_init_model runs `Obj_InitModelFromProfile struct=<profile>`, and with a name that isn't a structure its
+    // GetStructure (0x004767C0) fails without writing, so 0x0042270C passes an uninitialised local on to 0x00488F40,
+    // whose ExpandInto reads through it - the original crashes the same way (THPS3 Rio: THUGPRO's TRG_Ped_2084 with
+    // THUGPRO's random_sk3_male_profile, TPN-THPS3-2). An unknown one: THUG2's random_female_profile for a woman
+    // (Ped_F_From_Profile), else random_male_profile. Returns the changed nodes' names.
+    const key = checksum("profile");
+    const profile = (text: string): Name => {
+        const value = checksum(text);
+        if (!names.has(value)) names.set(value, text);
+        return new Name(value);
+    };
+    const changed: string[] = [];
+    for (const node of nodes) {
+        const value = node.get("profile");
+        if (!(value instanceof Name) || known(value.value)) continue;
+        const replacement = profile(
+            typeOf(node, names) === "ped_f_from_profile" ? "random_female_profile" : "random_male_profile",
+        );
+        node.entries = node.entries.map(([k, v]) => [k, k !== null && k.value === key ? replacement : v]);
+        const nm = node.get("Name");
+        changed.push(
+            `${nm instanceof Name ? qb.nameText(nm.value, names) : "?"}: ${qb.nameText(value.value, names)} -> ` +
+                qb.nameText(replacement.value, names),
+        );
+    }
+    return changed;
 }
 
 export function nodeArrayNs(

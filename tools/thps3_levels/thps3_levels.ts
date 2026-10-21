@@ -21,6 +21,7 @@ import * as common from "../level_port/common.ts";
 import * as geometry from "../level_port/geometry.ts";
 import * as movers from "../level_port/movers.ts";
 import * as nodes from "../level_port/nodes.ts";
+import * as overlayBias from "../level_port/overlay_bias.ts";
 import * as pedsCars from "../level_port/peds_cars.ts";
 import * as portedLevels from "../level_port/ported_levels.ts";
 import * as prx from "../level_port/prx.ts";
@@ -51,6 +52,7 @@ import {
 } from "../lib/py.ts";
 import { StructError, unpackNumbers } from "../lib/struct.ts";
 import * as thps3 from "./thps3.ts";
+import { ROTATION_REWRITES } from "./thps3_rotation.ts";
 import * as thugproNew from "./thugpro_new.ts";
 
 export const STAGING = "thug2-decomp-thps3";
@@ -328,7 +330,8 @@ export function mipDown(level: Buffer, w: number, h: number): Buffer {
 
 export function convertTextures(tdx: readonly thps3.TdxTexture[], mips = true): tex.TexFile {
     // THPS3's 32-bit textures (BGRA, as Direct3D's A8R8G8B8) in THUG2's dictionary, checksum = the name's; mip levels
-    // made down to 8 x 8 (THPS3's have one level: without them distant textures shimmer).
+    // made down to the level whose shorter side is 4, as THUG2's own (THPS3's have one level: without them distant
+    // textures shimmer; a chain stopped early - it was 4 levels, down to 8 x 8 - still does on tiled floors and ramps).
     const out: tex.Texture[] = [];
     const seen = new Set<number>();
     for (const t of tdx) {
@@ -340,7 +343,7 @@ export function convertTextures(tdx: readonly thps3.TdxTexture[], mips = true): 
         const levels = [first];
         let w = t.width;
         let h = t.height;
-        while (mips && w > 8 && h > 8 && levels.length < 4) {
+        while (mips && Math.min(w, h) > 4) {
             levels.push(mipDown(levels[levels.length - 1]!, w, h));
             w = Math.max(1, Math.floor(w / 2));
             h = Math.max(1, Math.floor(h / 2));
@@ -770,6 +773,9 @@ export function convertWorld(
         tpNew !== undefined && (tpNew.sectors.length || tpNew.collision.length)
             ? thugproNew.applyGeometry(scene, textures, col, tpNew, warnings)
             : null;
+    // (THPS3's materials have no z bias: the layers on other surfaces get one, or they shimmer - level_port/overlay_bias.ts)
+    const biased = overlayBias.biasOverlays(scene);
+    if (biased) report.push(`  ${biased} layer materials given a z bias over the surfaces under them`);
     common.writeLevel(outDir, name, scene, textures, col);
     common.reportLevel(report, name, scene, textures, col, [...new Set(warnings)].sort(compareStr));
     if (newLine !== null) report.push(newLine);
@@ -1560,7 +1566,8 @@ export function portScripts(
         nodeNames,
         allNames,
         names,
-        { provided, inheritParams: true, undrawn },
+        // (THPS3's rotation deceleration in THUG2's terms - thps3_rotation.ts)
+        { provided, inheritParams: true, undrawn, rewrites: ROTATION_REWRITES },
     );
     const roots: [number, scriptPort.Context][] = [];
     for (const node of converted) {
@@ -2348,6 +2355,12 @@ export function convertNodeArray(
         );
         for (const s of solid) port.solid.add(s);
         newReport.push(...solidReport);
+    }
+    if (port !== null) {
+        // a ped profile THUG2 hasn't (THUGPRO's random_sk3_male_profile on its Rio ped, TPN-THPS3-2) crashes the game
+        // when the ped is made (nodes.fixProfiles): THUG2's random one instead
+        const fixed = nodes.fixProfiles(converted, names, (v) => port.assets.profiles.has(v));
+        if (fixed.length) newReport.push(`  ped profiles THUG2 hasn't, made THUG2's: ${fixed.join(", ")}`);
     }
     if (port === null) {
         // (static: no scripts - THUGPRO's nodes keep none either)

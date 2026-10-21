@@ -73,7 +73,10 @@ Comparison with THUGPRO's own ports (read only): `node tools/thps3_levels/thugpr
 - Scene: a THUG2 sector per atomic sector with its meshes per material (the bin mesh's strips; triangle lists joined
   into strips), invisible materials left out, vertex colours halved (THUG2's 128 = full), the first uv set (RenderWare stores the sets one after
   another; THPS3's second is never written).
-- Textures: 32-bit as they are, with mip levels down to 8 x 8.
+- Textures: 32-bit as they are, with mip levels (each 2 x 2 averaged) down to the one whose shorter side is 4, as
+  THUG2's own (before 2026-10-21: at most 4 levels, down to 8 x 8 - distant tiled floors and ramps shimmered).
+- Materials: no z bias in THPS3; the layers lying on other surfaces (decals, dirt and light layers, vents on ramps) get
+  one from the geometry (tools/level_port/overlay_bias.ts), or they fight the surface under them for the depth buffer.
 - Collision: a THUG2 object per atomic sector, every face with its flags and its material's terrain; THUG2's BSP
   trees, fixed-point vertices and reaches made (tools/level_port/geometry.convertCol).
 - Nodes: EnvironmentObjects become LevelGeometry (their Links, to restarts for THPS3's scripts, dropped); restarts, rails, KOTH crowns kept.
@@ -101,7 +104,8 @@ Comparison with THUGPRO's own ports (read only): `node tools/thps3_levels/thugpr
   (tools/level_port/script_port.ts) and run from a setup script; peds and crowds as THUG2's ped AI, resting birds and
   sharks as THUG2's animals, traffic as THUG2's cars (Car_Generic01), other vehicles and moving game objects as
   LevelObjects of their THPS3 models, proximity nodes as ghosts watching their radius - what's brought and what's
-  left out per level: docs/pending/thps3-scripts.md. Kill zones: trigger scripts that call SK3_KillSkater(_Water) or a
+  left out per level: docs/pending/thps3-scripts.md. Obj_RotX / Y / Z with `deceleration` (a drag in THPS3, "slow
+  down to `speed`" in THUG2 - as is, the turn runs away) are rewritten to what THPS3 does: thps3_rotation.ts. Kill zones: trigger scripts that call SK3_KillSkater(_Water) or a
   level script that does (CJR_Foun_Kill_Skater_Molten...) become THUG2's SK3_KillSkater(_Water) with the call's
   messages and colour and a restart (tools/level_port/nodes.ts).
 - Objects not there at the start: an EnvironmentObject without CreatedAtStart is kept only when the level's start

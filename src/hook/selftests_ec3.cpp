@@ -23,6 +23,7 @@
 #include "game/script/cscript.h"
 #include "game/script/names.h"
 #include "game/script/qb.h"
+#include "game/script/script_cfuncs.h"
 #include "game/script/script_util_cfuncs.h"
 #include "game/script/struct.h"
 #include "game/sfx/sfx.h"
@@ -187,7 +188,7 @@ void StandInStructCalls(StandIns& s)
              Record({0x47A0, ScriptRel(r.ecx), r.args[0], r.args[1], r.args[2]});
              return 0u;
          });
-    s.At({0x0044A480}, 0, [](Regs& r) {
+    s.At({0x0044A480, AddressOf(&CFuncs::FormatText)}, 0, [](Regs& r) {
         Record({0xA480, ScriptRel(r.args[0]), r.args[1]});
         return 0u;
     });
@@ -546,7 +547,7 @@ void StandInArrayCalls(StandIns& s)
         return 0u;
     });
     // FormatText (0x0044A480): fails, or leaves PrintfText="formatted" in the structure
-    s.At({0x0044A480}, 0, [](Regs& r) {
+    s.At({0x0044A480, AddressOf(&CFuncs::FormatText)}, 0, [](Regs& r) {
         Record({0xA480, r.args[0], r.args[1]});
         if (g_formatOk) {
             std::memset(&g_printfText, 0, sizeof(g_printfText));

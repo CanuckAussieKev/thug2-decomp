@@ -35,6 +35,8 @@ and moving objects have mostly not been seen working. The "what to try" lists ar
 | What | THPS3 | THPS4 | THUG1 | THAW |
 |---|---|---|---|---|
 | Level geometry, textures | Original | Original (vertex colours halved to THUG2's scale) | Original | Original, from the online (`_net`) version (see 6) |
+| Mip levels | Made (THPS3 ships one level): 2 x 2 averages down to a shorter side of 4, as THUG2's own | Original | Original | Original |
+| Z bias of layers on other surfaces (decals, dirt / light layers) | Made from the geometry (THPS3 has none; tools/level_port/overlay_bias.ts) | Made from the geometry (THPS4 has none) | Original | Original |
 | Collision, rails, restarts, kill zones | Original | Original | Original | Original (2 face flags dropped) |
 | Where the camera goes through (face flag 0x80: THUG2's "camera passes through"; THPS3 / THPS4's "camera collides") | Original (flag inverted) | Original (flag inverted) | Original (kept; inverted in DJ, PH, SC and the skate shop, which THUG1 shipped with the old meaning) | Original (kept) |
 | Level scripts (gaps, triggers, moving things) | Original, translated | Original, translated | Original, translated (node array nearly whole) | Original, translated |
