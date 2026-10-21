@@ -9,6 +9,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { resolveInstall } from "../lib/install.ts";
 import { isMain, print, runMain } from "../lib/py.ts";
 import * as pedRigs from "./ped_rigs.ts";
 import { Thug2Assets } from "./peds_cars.ts";
@@ -71,8 +72,7 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
         if (argv[i] === "--thug2") game = argv[++i]!;
         else targets.push(argv[i]!);
     }
-    if (fs.existsSync(path.join(game, "Game", "Data"))) game = path.join(game, "Game");
-    const assets = new Thug2Assets(game);
+    const assets = new Thug2Assets(resolveInstall(game, "thug2")); // (the install root or its Game folder)
     let bad = 0;
     for (const target of targets) {
         for (const file of levelQbs(target)) {
