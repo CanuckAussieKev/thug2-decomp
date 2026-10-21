@@ -135,3 +135,29 @@ src/game/skater/<class>.cpp + .h; tests in src/hook/selftests_skater_<class>.cpp
     ties between walls, the destroyed block traced, the custom-tag flag varied, the two float sources told apart), 4
     equivalent (VertStickerSlap's walking flag only matters for tags; a zero facing.y; reach * 0; a miss at 1000 vs
     999 against a 999 start).
+- [x] Batch SK4-6 (NOT run in the game yet; the trick component's button events, their checks and the trick lists'
+  queue, 31 functions): src/game/skater/trick_component.cpp (new; the component's other half - its Create 0x00523490,
+  member functions... - is the next range's).
+  - The event ring (100 TrickEvent of 0x18 bytes from +0x38: time, type 1 pressed / 2 released, button, used, flags;
+    count +0x998, head +0x99A): 0x0051F570 AddEvent, 0x0051EB00 ClearEventBuffer, 0x0051EB80 ClearUsed, 0x0051EBD0
+    MarkUsed (a naked stub keeping ECX / EDX: the original's callers use ECX after it), 0x0051F610 ExpireButton,
+    0x0051F6B0 FindPress, 0x0051F7A0 FindPressBoth, 0x0051F9B0 CheckSpinSequence, 0x0051FB90 CheckReleasePress (with
+    setMap the button map is set from its own three stack arguments, as the original does), 0x0051F8F0 UpdateButton
+    (held-off buttons +0x9A8, ignored buttons +0xA1C), 0x0051F290 HoldOffButton, 0x0051F010 DumpEventBuffer
+    (compiled-out debug output: the strings kept).
+  - Triggers: 0x0051EA40 IsTrickButton (the button in EAX; a naked stub keeping ECX / EDX), 0x0051EC40 ReadTrigger
+    (the generic button names 0x9A7DC229 / 0x03749393 / 0x7473A305 mapped through +0x99C; the time a number or a
+    global integer), 0x0051ECC0 SetButtonMap, 0x0051ECF0 IsButtonDown.
+  - Lists and the queue: 0x0051ED10 ClearQueue, 0x0051ED20 QueueTrick (100 of 0x14 bytes at +0xA34; dropped when
+    full), 0x0051ED90 RemoveTrickList (not a Ghidra function; the list after a removed one is skipped, as in the
+    original), 0x0051EE10 IsTrickEntry, 0x0051EF50 TrickNamed (_stricmp 0x00626EFB done in code: the C locale's),
+    0x00521930 QueueDoneTricks, 0x00521A10 QueueAllDoneTricks, 0x00521A80 SetPendingTrick - these call the trigger
+    check 0x0051FDA0 (next batch) by its address.
+  - 0x0051EA90 RegisterMemberFunctions (not a Ghidra function: the table 0x00683148), 0x0051F2B0 Finalize, 0x0051F320
+    Reset, 0x0051EAB0 / 0x0051EB30 / 0x0051EF00 the clears, 0x0051F260 SetCurrentBailEndpose (not a Ghidra function).
+  - scan_register_assumptions lists 0x0051EA40 as a RISK (ECX / EDX read after the call in 0x0051FDA0): the stub keeps
+    both; with 0x0051FDA0 rewritten (next batch) the original caller no longer runs.
+  - Test (src/hook/selftests_skater_trick.cpp): 6000 random event rings over every function (the stubs called with
+    registers set and checked), the trigger check stood in for. 50 deliberate bugs caught, 6 after strengthening
+    (ties at exactly an event's age and exactly the hold-off time, the d-pad buttons, aliases that name nothing,
+    queued lists that get removed).
