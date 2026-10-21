@@ -170,4 +170,36 @@ other members added; TriggerNode unchanged).
     at AnimLODInterleave2's float square, and a crafted vector / matrix that puts MultiplyBy's sum on a float tie (the
     order of its two last additions shows). 44 deliberate bugs caught, 6 after strengthening (a hash collision
     between two answers, the edges, the tie).
-- [ ] Next: the rigid body component (0x42CEE0-0x430E20 and its member functions).
+- [x] Batch OC3-7 (NOT run in the game yet; the rigid body component's life, shapes, set-up and member functions,
+  Mth::Quat, 25 functions): src/game/obj/rigidbody_component.*, src/game/mth/quat.* (new); src/game/mth/random.*:
+  PlusOrMinusExact added (0x00403E80's result unrounded, as the x87 callers use it) and PlusOrMinus now its rounding
+  (it rounded each step before).
+  - CRigidBodyComponent (0xFFB39248 "rigidbody", vtable 0x006463F8, 0x1A0 bytes; the layout in the header: constants
+    +0x18..+0x5C, the contacts +0x60 / capsule +0x64 / directed friction +0x88 / count +0x8C, spheres +0x90 / +0x94,
+    springs +0x98 / +0x9C, centre of mass, model offset, scripts, sound structures, flags +0xF4, state +0x10C, pos /
+    vel / quaternion / rotvel / matrix +0x110..+0x18F, +0x190 contacts hit, +0x198 radius): Create 0x0042EF00,
+    Construct 0x0042E3F0 (the assent's cos / sin of the double 0.43633 by the x87's FCOS / FSIN - inline asm), DestroyBody
+    0x0042EF60, Destroy 0x00430DF0, InitFromStructure 0x0042F050 (its jump table at 0x00430124: Box / Pyramid /
+    Cylinder / Triangle; contacts= or the spheres skip it; the rest as the header says; x87 detail kept throughout:
+    sums in double, the Angles turn's terms in the original's two orders (contacts / spheres), lengths compared
+    unrounded for the radius and rounded for the extent, the offset's x / y unrounded), SetContacts 0x0042D4B0, SetBox
+    0x0042D560, SetPyramid 0x0042D690, SetCylinder 0x0042D790 (cosine of the unrounded angle, sine of the angle rounded
+    to a float - FCOS / FSIN), SetTriangle 0x0042D8A0, SetSpheres 0x0042ED60, SetSounds 0x0042EB10 (RigidBodySounds),
+    members (table 0x00683F28; 0x0042BB60 / 0x0042BBB0 / 0x0042BBD0 are the neighbouring range's): RigidBody_Wake
+    0x0042DCA0, RigidBody_Sleep 0x0042DCF0 (0x0042BE90), Rigidbody_Kick 0x0042DD00, RigidBody_SetVelocities
+    0x0042DEB0, RigidBody_Enable 0x0042EE30, RigidBody_Disable / EnablePlayerCollision 0x0042DFB0 / 0x0042DFC0,
+    [0xD4A0946B] CenterOfMassPos 0x0042DFD0, Rigidbody_MatchVelocityTo 0x0042E020 (the first five are not Ghidra
+    functions), AddRigidBodyPusher 0x0042E380 (the 8 smart pointers at 0x00695150 - skater.cpp's caller).
+  - Mth::Quat::FromMatrix 0x0042E1F0 (the trace branch's 0.5/s rounded to a float, the other branch's not) and
+    Normalize 0x0042E310.
+  - Not original: none. Quirks kept: CallbackParams' old copy leaked, a missing sound type / failed allocation
+    written through null.
+  - Test (selftests_obj_rigidbody.cpp TestRigidBodySetup): 4000 random cases over the 25 (allocations from a stand-in
+    heap - traced -, the struct copies and deletes, the script getters, 0x0041A730, GetAngles, smart pointers stood
+    in for; PlusOrMinus's stream reset per case); edges: crafted points and a crafted turn on a float tie (the order of
+    the Angles sums shows), +-30 points (the size limit), a not-a-number point looked at last, a tie for the largest
+    diagonal, slow objects for MatchVelocityTo. 50 deliberate bugs caught, 11 after strengthening; 1 equivalent (the
+    radius compared rounded: an equal float is stored either way). Builds: this worktree's verify build switched to
+    embedded debug info (CMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded, out\scripts\reconfig.cmd): the shared vc140.pdb
+    kept breaking during mutation runs (C1033 / C2471).
+- [ ] Next: the rigid body's physics (0x42CEE0, 0x42CF90, 0x42D9D0, 0x42E540, 0x42E980, 0x430140, 0x430BE0, 0x430E20).

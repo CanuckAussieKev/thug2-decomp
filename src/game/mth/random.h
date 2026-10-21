@@ -15,5 +15,7 @@ int Rnd(int n);
 int Rnd2(int n);
 // Random float in roughly [-range, range), from the first stream.
 float PlusOrMinus(float range);
+// The same unrounded, as the original's x87 callers use it.
+double PlusOrMinusExact(float range);
 
 } // namespace Mth
