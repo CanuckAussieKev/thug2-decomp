@@ -345,3 +345,10 @@ What those agents were doing (the user's decisions, 2026-10-20):
 
 ## 2026-10-22 (usage limit)
 Stopped mid-work (resume from their worktree branches): shared node fields (worktree-agent-a8c820ba40a96d402, load checks), skater SK1 (a86a1577a57f1e90c, 0x500020-0x508773), SK3 (aa16173e077dcc91b, 0x510823-0x5197F2), SK5 (ad7146704ab7493b5, 0x521B90-0x529F62), SK6 (a79a8b861713be8f4, 0x529F62-0x533F20); prompt template out/scripts/skater_prompt.txt. Merged + installed today: SK2, SK4, THP8 phase 1, THPS2 phase 3, crash handling, THUGPRO join path, HD textures (THPS3 at 2x installed). Open: user to play-test skater physics / tricks; East LA register wording ('LA crash fix' is only the latest commit title); THP8 phase 2 order.
+
+## 2026-10-22 (second usage limit)
+Merged + installed: skater SK1-SK6 (the whole skater range), OC5, THP8 phase 2, shared node fields (all four games reconverted), net self-test fix. Progress ~50%.
+Stopped mid-work (resume from their branches; prompt template out/scripts/objects_prompt.txt): OC1 worktree-agent-ac9022c3107f3faca (0x41A6D0-0x423643), OC2 a6dab05a26426d059 (0x423643-0x42CECD), OC3 af955367eb79d2242 (0x42CECD-0x4351B2), OC4 af2babd08ddaf146e (0x4351B2-0x43D929); level crash fixes afa88fcdadc979145 (tok, z_ho, shp, vn, hh crash / hang with main's conversion - docs/pending/level-crashes-2.md if present). Leftover: Obj::CTrickComponent declared in both trick_component.h (SK4) and trick_queue.h (SK5) - merge into one.
+
+## 2026-10-22 (resumed)
+OC1-OC4 resumed in their own worktrees (same branches as above; prompts out/scripts/OC1..4.txt): each finishes its uncommitted batch, merges main, completes its range (find_gaps 0); OC4 checks whether its range is already done. Workspaces THUG2-1..4. Then merge one at a time (build + checks after each), fold records, install. Level crash fixes branch (afa88fcdadc979145) still waiting.
