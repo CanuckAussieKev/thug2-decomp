@@ -12,6 +12,14 @@ namespace Script {
 class CScript;
 class CStruct;
 } // namespace Script
+namespace Mth {
+class Matrix;
+}
+namespace Obj {
+struct CRailNode;
+struct Record24;
+struct Record34;
+} // namespace Obj
 
 // The Walk component (type 0x726E85AA, vtable 0x0064C75C; made by 0x0052A5C0, its member function table 0x006847F8
 // registered by 0x00525E40, 0x1960 bytes): the skater on foot - walking, running, jumping, hanging, climbing. Its code
@@ -227,6 +235,138 @@ public:
     int ReleaseHang(Script::CStruct* params, Script::CScript* script);
     int ForceToAirFromHang(Script::CStruct* params, Script::CScript* script);
     void GoToAirFor(void* unused);
+
+    // --- walk_hang.cpp (objects-5: 0x0043DA70-0x004425B0, WalkHangUtil.cpp in the original) ---
+    // Hanging: the skater holds a rail (the rail manager's node pair +0x1764 / +0x1768, the fraction along it
+    // +0x18CC) and can shimmy along it, pull up onto the ledge or drop; a rail is grabbed from a drop or a jump
+    // (FindRail with the walk component as the checker). Ladders are rail-manager nodes too (climbing nodes): climbed
+    // along +0x18CC, onto the top or off the bottom. While an animation plays (+0x1944 set) a callback waits at
+    // +0x1948 for its end - one of the small functions here.
+
+    // 0x0043DA70 (cdecl): a walk parameter (the global structure walk_parameters' float `name`).
+    static float __cdecl Param(uint32_t name);
+    // 0x0043DAA0: the running speed: run_speed to combo_run_speed by the blend at +0x1868 (unrounded, as the
+    // original leaves it in ST0).
+    double RunSpeed();
+    // 0x0043DC00: how far below the rail the skater's origin hangs on a ladder-like rail: (1 - its +0x20) *
+    // hang_vert_origin_offset when the node at +0x1778's +0x208 has flag 8, else 0 (unrounded).
+    double HangHeightOffset();
+    // 0x0043DC60: the hang's critical point above the origin: hang_critical_point_vert_offset - hang_vert_origin_offset
+    // * max_cas_scaling (unrounded).
+    double CriticalPointUp();
+    // The animation-end callbacks: 0x0043DB00 (pulled up onto a ledge: walking again, the feeler's hit given to the
+    // triggers and the movable contact), 0x0043DB90 (dropped from a hang: in the air, its facing kept), 0x0043DCF0
+    // (dropped onto a rail: hanging - the offset, the rail script, tagging allowed again).
+    void EndPullUp();
+    void EndDropFromHang();
+    void EndDropToHang();
+    // 0x0043DDD0: whether a hanging skater's side is clear: `feeler` from the critical point (`hang`: the point and
+    // the direction out from the wall, +0x10) moved out along `side` (hang_obstruction_feeler_side), then up by
+    // hang_obstruction_feeler_up - and back the other way. True if neither hits.
+    bool SideClear(Nx::CFeeler* feeler, const Mth::Vector* hang, const Mth::Vector* side);
+    // 0x0043DFC0: hanging on the rail +0x1764 / +0x1768 `distance` from its start (`fromEnd`: its end), facing away
+    // from it - the side `direction` says; turning round more than 60 degrees flushes the walk camera (+0x1760). The hang
+    // offset (+0x71C) from the new facing.
+    void FaceHangRail(float distance, bool fromEnd, const Mth::Vector* direction);
+    // 0x0043E230: the rail joining `start` / `end` (the segment the skater is at, `*t` along it): past the start
+    // (t < 0) the segment before it, else the one after `end` - if switched on and grabbable, else a joining rail
+    // (FindJoiningRail, without flags 8 / 0x20) whose direction is close enough (a dot product of at least -0.866,
+    // or it's refused: "BAD ANGLE ON COINCIDENT RAIL"). Its nodes into `newStart` / `newEnd`, `*t` flipped when it
+    // runs the other way. Whether there's one.
+    bool NextHangRail(float* t, CRailNode* start, CRailNode* end, CRailNode** newStart, CRailNode** newEnd);
+    // 0x0043E530: a pull-up onto the ledge above the hang: the ground near `target` (FindStandPosition; failing that, 12 to
+    // one side, then 12 to the other - `target` moved), seven feelers round it (none may hit) and one from behind the
+    // skater up past the pull_up_obstruction_height (neither may hit). Then the animated move (PullUpFromHang) towards
+    // it, ending walking (the ledge's feeler kept for the triggers) or, with no ground found, in the air. Whether it
+    // starts.
+    bool PullUp(Mth::Vector* target);
+    // 0x0043EC40: a drop from walking to hang on a rail below (not while +0x1528's +0x70, not faster than
+    // drop_to_hang_speed_factor x the running speed, not while tagging): FindRail along the move from the last
+    // position, facing away (the skate module's rails, else each moving rail manager's, in its object's space - riding
+    // that object), within Drop_To_Climb_Max_Snap. Then the animated move (DropToHang) onto it.
+    bool DropToHang();
+    // 0x0043F030: grabbing a rail between `start` and `end` (raised by hang_vert_origin_offset) while falling no faster
+    // than 50: FindRail within Climb_Max_Snap, as DropToHang; then hanging at once (the rail script, the skater core's
+    // +0x1528 flag +0xA0 set).
+    bool GrabRail(Mth::Vector start, Mth::Vector end);
+    // 0x0043F3A0: whether shimmying along the hang is blocked: feelers from the hang point `point` (up, out of the wall
+    // by `out`) sideways along the move (`move`, `left` or not), at three heights and down at the critical point -
+    // near the segment's end (`segment`, `start` / `end`, `along` it) turned onto the next segment first. True if any
+    // hits.
+    bool ShimmyBlocked(const Mth::Vector* out, float along, const Mth::Vector* point, bool left, const Mth::Vector* move,
+                       Mth::Vector segment, CRailNode* start, CRailNode* end);
+    // 0x0043FC70: the position on the hang: the rail's point along +0x18CC, raised by +0x18D0 and out along the
+    // facing by +0x18D4. Riding something that turns (the ride tracker's +0xAC), the facing set across the rail
+    // again, flat (the side it was on; its w the side's sign - the original's).
+    void PlaceOnHang();
+    // 0x0043FE30: whether hanging at `point` on the rail FindRail found (`rail`, its 0x34-byte record: the point
+    // set, its facing out from the wall) has room: both sides clear (SideClear with `feeler`), shimmying neither way
+    // blocked (from the hang point: lowered by hang_vert_origin_offset, out by hang_horiz_origin_offset), and a
+    // feeler from the position to the critical point clear - or, on the ground, up by hop_obstruction_feeler_up
+    // and over from there.
+    bool HangClear(Nx::CFeeler* feeler, const Mth::Vector* point, Record34* rail);
+    // 0x00440130: shimmying `move` along the hang (left for more than 0): unless blocked (ShimmyBlocked; the Hang
+    // animation), on along the rail - past an end onto the next rail (NextHangRail; FaceHangRail the rest of the
+    // way) or stopped there; HangMoveLeft / HangMoveRight. A feeler from the old critical point to the new one: if
+    // it hits, all put back (the Hang animation).
+    void Shimmy(float move);
+    // 0x00440690: FindRail's checker for a hang: the rail segment `start`-`end` (`onRail` on it closest to the line,
+    // `onLine` on the line, `along` it). Not too steep (hang_max_rail_ascent), not above the line when in the air;
+    // the facing across it towards the skater's facing (`away`: from it), turned by the rail's one-sided flags
+    // (0x40 / 0x80); room to hang (HangClear) facing that way or, if the flags allow, the other. Into `result`: the
+    // facing, how far along, out and up from the rail, and the animation (SWING, or WALL when a feeler out from the
+    // hang point hits).
+    bool CheckRail(const Mth::Vector* start, const Mth::Vector* end, const Mth::Vector* onRail, const Mth::Vector* onLine,
+                   float along, Record34* result, bool away);
+    // 0x00440BF0 (state 2): hanging, each frame: carried by what it rides on (else the ride let go); with the control
+    // pushed forward a pull-up (twice: pull_up_offset_forward ahead, then half that); turned round: let go (in the
+    // air, SkaterExitHang); else shimmied by the control's sideways part (hang_move_speed, eased by
+    // hang_move_lerp_rate, below hang_move_cutoff the Hang animation).
+    void UpdateHang();
+
+    // Ladders (the rail manager's climbing nodes; the skater's node +0x1764 and its other end, how far up +0x18CC).
+    // The animation-end callbacks: 0x00441020 / 0x00441070 (off the bottom / the top onto the ground: walking, the
+    // ledge feeler's hit to the triggers and the movable contact), 0x00441860 (off the top with no ground: in the
+    // air), 0x004410C0 / 0x00441190 (onto it at the bottom / the top: on the ladder, ladder_bottom_offset_up up /
+    // ladder_top_offset_up down from the top).
+    void EndLadderOffBottom();
+    void EndLadderOffTop();
+    void EndLadderOffTopToAir();
+    void EndOntoLadderBottom();
+    void EndOntoLadderTop();
+    // FindLadder's checkers (into `record`, a 0x24-byte record: the point to climb from, the facing - the ladder's
+    // orientation's third row - and how far along). The ladder (`bottom` to `top`) must stand within about 6
+    // degrees of upright. 0x00441260 (`this` isn't used): onto it from the top - ladder_top_offset_up below the top,
+    // ladder_climb_offset out of it. 0x004418B0: onto it from the bottom - faced within max_onto_ladder_angle,
+    // ladder_bottom_offset_up above the bottom, ladder_climb_offset out, nothing in the way to 6 behind that.
+    // 0x004413E0 (FindLadderOnLine's): grabbed where the line meets it (`onLadder`, `along` it), between the two
+    // offsets, nothing in the way from the skater; the skater core's flag +0xA0 of +0x1528 set.
+    bool CheckLadderTop(const Mth::Vector* bottom, const Mth::Vector* top, const Mth::Matrix* orientation,
+                        Record24* record);
+    bool CheckLadderBottom(const Mth::Vector* bottom, const Mth::Vector* top, const Mth::Matrix* orientation,
+                           Record24* record);
+    bool CheckLadderLine(const Mth::Vector* bottom, const Mth::Vector* top, const Mth::Matrix* orientation,
+                         const Mth::Vector* onLadder, float along, Record24* record);
+    // 0x00441680 / 0x00441B80: off the ladder's bottom (ladder_bottom_offset_forward back, down) / top
+    // (ladder_top_offset_forward ahead, up): the ground there (FindStandPosition), the animated move
+    // (LadderOffBottom / LadderOffTop) - off the top with no ground, into the air at its end.
+    void ClimbOffBottom();
+    void ClimbOffTop();
+    // 0x00441DE0 / 0x00441FC0: onto a ladder of the level's from its bottom (within button_horiz_snap_distance when
+    // `button`, else max_horiz_snap_distance; max_vert_snap_distance) / its top (FindLadder): stopped, the ride let
+    // go, the animated move (LadderOntoBottom / LadderOntoTop). Not while the skater core's +0x1528's +0x70.
+    // Whether it started.
+    bool ClimbOntoBottom(bool button);
+    bool ClimbOntoTop();
+    // 0x00442170: a ladder of the level's grabbed where the line `start`-`end` passes it (FindLadderOnLine): on it at
+    // once (the ride let go, stopped, the Ladder animation). Whether one was.
+    bool GrabLadder(const Mth::Vector* start, const Mth::Vector* end);
+    // 0x00442280: climbing by the control's up / down part (ladder_move_speed): off the bottom or the top past
+    // their offsets, else placed along it (LadderMoveUp / LadderMoveDown; Ladder at an end).
+    void ClimbLadder();
+    // 0x004425B0 (state 3): on a ladder, each frame: its rail script for the first 25 ticks; climbing with the
+    // control within ladder_control_tolerance of up or down, else still (Ladder).
+    void UpdateLadder();
 };
 
 // One of the Walk component's eight contacts (+0xA0, 0xCC bytes): a feeler at +0x1C. 0x00528880: constructed (its
