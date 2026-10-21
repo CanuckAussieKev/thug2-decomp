@@ -19,6 +19,7 @@
 #include "game/front/screen_element.h"
 #include "game/front/screen_element_manager.h"
 #include "game/front/start_level.h"
+#include "game/front/test_view.h"
 #include "game/net/net_manager.h"
 #include "game/obj/event.h"
 #include "game/obj/object.h"
@@ -26,6 +27,7 @@
 #include "game/script/cscript.h"
 #include "game/script/struct.h"
 #include "game/sys/mlp.h"
+#include "game/sys/screenshot.h"
 #include "hook/game.h"
 #include "hook/log.h"
 
@@ -48,7 +50,8 @@ constexpr int kPressWaitSeconds = 5; // press: at most this long for the menus t
 constexpr int kDefaultChooseSeconds = 10;
 constexpr int kDefaultWaitSeconds = 90;
 constexpr int kSettleFrames = 60;      // waitfor level / ingame: how long the condition must hold
-constexpr int kPartialLineFrames = 30; // a last line without its end of line, once the file has been still this long
+constexpr int kPartialLineFrames = 30;
+constexpr int kMaxCaptureFrames = Sys::Screenshot::kMaxSeriesFrames; // a last line without its end of line, once the file has been still this long
 
 uint32_t Checksum(const std::string& name) { return Crc::GenerateCRCFromString(name.c_str()); }
 
@@ -117,6 +120,18 @@ bool ReadCount(const std::string& text, int low, int high, int* out)
     if (value < low || value > high)
         return false;
     *out = value;
+    return true;
+}
+
+// tokens[first...] as numbers (integers or decimals, signed); false if any isn't one.
+bool ReadNumbers(const std::vector<std::string>& tokens, size_t first, std::vector<float>* out)
+{
+    out->clear();
+    for (size_t i = first; i < tokens.size(); ++i) {
+        if (!IsInteger(tokens[i]) && !IsFloat(tokens[i]))
+            return false;
+        out->push_back(static_cast<float>(std::atof(tokens[i].c_str())));
+    }
     return true;
 }
 
@@ -364,6 +379,30 @@ ParseResult ParseCommand(const std::string& line, Command* out, std::string* err
         if (count != 2 || !IsIdentifier(tokens[1]))
             return fail("level <name>");
         command.target = tokens[1];
+    } else if (keyword == "teleport") {
+        command.op = Op::Teleport;
+        if ((count != 4 && count != 5) || !ReadNumbers(tokens, 1, &command.numbers))
+            return fail("teleport <x> <y> <z> [heading]");
+    } else if (keyword == "camera") {
+        command.op = Op::Camera;
+        if (count == 2 && Lower(tokens[1]) == "off")
+            command.target = "off";
+        else if ((count != 7 && count != 10) || !ReadNumbers(tokens, 1, &command.numbers))
+            return fail("camera <x> <y> <z> <dx> <dy> <dz> [<drift x> <drift y> <drift z>] | camera off");
+        else if (command.numbers[3] == 0.0f && command.numbers[4] == 0.0f && command.numbers[5] == 0.0f)
+            return fail("camera: the direction is zero");
+    } else if (keyword == "capture") {
+        command.op = Op::Capture;
+        if (count < 2 || count > 3 || !ReadCount(tokens[1], 1, kMaxCaptureFrames, &command.frames))
+            return fail("capture <frames 1-" + std::to_string(kMaxCaptureFrames) + "> [folder]");
+        if (count == 3) {
+            std::string folder = tokens[2];
+            if (folder.size() >= 2 && folder.front() == '"' && folder.back() == '"')
+                folder = folder.substr(1, folder.size() - 2);
+            if (folder.empty() || folder.find("..") != std::string::npos)
+                return fail("capture: a folder name (no ..)");
+            command.target = folder;
+        }
     } else if (keyword == "echo") {
         command.op = Op::Echo;
         command.target = Rest(line);
@@ -487,6 +526,19 @@ std::string Describe(const Command& command)
     case Op::Level: return "level " + command.target;
     case Op::Echo: return "echo " + command.target;
     case Op::Quit: return "quit";
+    case Op::Teleport:
+    case Op::Camera: {
+        if (command.target == "off")
+            return "camera off";
+        std::string text = command.op == Op::Teleport ? "teleport" : "camera";
+        for (float number : command.numbers) {
+            char value[32];
+            std::snprintf(value, sizeof(value), " %g", static_cast<double>(number));
+            text += value;
+        }
+        return text;
+    }
+    case Op::Capture: return "capture " + std::to_string(command.frames) + (command.target.empty() ? "" : " " + command.target);
     }
     return "?";
 }
@@ -1153,6 +1205,45 @@ bool Start(Runner& runner, Mdl::FrontEnd* frontEnd)
     case Op::Echo:
         Finish(runner, command.target);
         return true;
+    case Op::Teleport: {
+        if (!LevelLoad() || InFrontEnd() || !SkaterUp()) {
+            Fail(runner, "not in a level with the skater", false);
+            return true;
+        }
+        const std::vector<float>& n = command.numbers;
+        Front::TestView::Vec3 at = {};
+        std::string failed = Front::TestView::Teleport({n[0], n[1], n[2]}, n.size() > 3, n.size() > 3 ? n[3] : 0.0f, &at);
+        if (!failed.empty()) {
+            Fail(runner, failed, false);
+            return true;
+        }
+        char result[96];
+        std::snprintf(result, sizeof(result), "ok (standing at %.1f %.1f %.1f)", at.x, at.y, at.z);
+        Finish(runner, result);
+        return true;
+    }
+    case Op::Camera:
+        if (command.target == "off")
+            Front::TestView::UnlockCamera();
+        else if (!Front::TestView::LockCamera(
+                     {command.numbers[0], command.numbers[1], command.numbers[2]},
+                     {command.numbers[3], command.numbers[4], command.numbers[5]},
+                     command.numbers.size() > 6
+                         ? Front::TestView::Vec3{command.numbers[6], command.numbers[7], command.numbers[8]}
+                         : Front::TestView::Vec3{0.0f, 0.0f, 0.0f})) {
+            Fail(runner, "the direction has no horizon (straight up / down)", false);
+            return true;
+        }
+        Finish(runner, "ok");
+        return true;
+    case Op::Capture: {
+        std::string failed = Sys::Screenshot::StartSeries(command.frames, command.target);
+        if (!failed.empty()) {
+            Fail(runner, failed, false);
+            return true;
+        }
+        return false; // (Continue: done once written)
+    }
     case Op::Quit: {
         Finish(runner, "ok");
         SDL_Event event = {};
@@ -1231,6 +1322,14 @@ void Continue(Runner& runner, Mdl::FrontEnd* frontEnd)
         if (!NetRefusal().empty())
             return Fail(runner, NetRefusal(), true);
         StepChoose(runner, frontEnd);
+        return;
+    case Op::Capture:
+        if (Sys::Screenshot::SeriesRunning())
+            return;
+        if (Sys::Screenshot::SeriesResult().rfind("ok", 0) == 0)
+            Finish(runner, Sys::Screenshot::SeriesResult());
+        else
+            Fail(runner, Sys::Screenshot::SeriesResult(), false);
         return;
     default:
         Finish(runner, "ok");

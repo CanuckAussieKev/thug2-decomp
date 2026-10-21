@@ -345,6 +345,7 @@ add_library(thug2_code OBJECT
     src/game/sys/screenshot_files.cpp
     src/game/gfx/screenshot_capture.cpp
     src/game/front/career_complete.cpp
+    src/game/front/test_view.cpp
     src/game/front/start_level.cpp
     src/game/front/automation.cpp
     src/game/front/level_editor_hud.cpp

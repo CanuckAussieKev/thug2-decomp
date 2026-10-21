@@ -18,6 +18,7 @@
 #include "game/front/career_complete.h"
 #include "game/front/front_end.h"
 #include "game/front/level_editor.h"
+#include "game/front/test_view.h"
 #include "game/gfx/tod_manager.h"
 #include "game/mc/memcard.h"
 #include "game/mth/math.h"
@@ -142,6 +143,7 @@ int __cdecl Main(int argc, char** argv)
         // Original behaviour: only the game's table (0x0067F3A0) and its member functions are registered.
         Front::LevelEditor::RegisterScriptFunctions();
         Front::CareerComplete::RegisterScriptFunctions();
+        Front::TestView::RegisterScriptFunctions(); // (TeleportSkaterStanding - game/front/test_view.h)
         GameFunction<void(__cdecl*)()>(0x005A5B20)();
 
         Mem::PushMemProfile("Game Singletons");

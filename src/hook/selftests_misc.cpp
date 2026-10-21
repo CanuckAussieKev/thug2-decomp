@@ -22,6 +22,7 @@
 #include "game/file/pre.h"
 #include "game/gfx/tod_manager.h"
 #include "game/front/career_complete.h"
+#include "game/front/test_view.h"
 #include "game/front/front_end.h"
 #include "game/front/level_editor.h"
 #include "game/mc/memcard.h"
@@ -618,6 +619,9 @@ void TestMain()
               [](Regs&) { return 0u; });
         // (and CREATE 100% CAS's - game/front/career_complete.h)
         s->At({Resolve(reinterpret_cast<const void*>(&Front::CareerComplete::RegisterScriptFunctions))}, 0,
+              [](Regs&) { return 0u; });
+        // (and the test views' - game/front/test_view.h)
+        s->At({Resolve(reinterpret_cast<const void*>(&Front::TestView::RegisterScriptFunctions))}, 0,
               [](Regs&) { return 0u; });
         s->At({0x004694E0}, 0, plain(0x94E0));
         s->At({0x004E4860}, 0, plain(0x4860));
