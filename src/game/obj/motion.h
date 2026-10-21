@@ -83,10 +83,48 @@ public:
     // 0x004274D0 (slot 12): Obj_MoveToNode (0x8819DD8B) runs MoveToNode (0x00426C10), 1; anything else 2.
     int CallMemberFunction(uint32_t name, Script::CStruct* params, Script::CScript* script);
 
+    // 0x004270E0 (slot 1): the frame's length (slow motion included); hovering (back to the base height, then the
+    // bob), the axes' turns (0x00425C70), Obj_Rotate's turn (0x00424440), then moving to a point, along a path or
+    // after a leader (the first that applies), the jump (0x00424870: the position it gives); the ground offset
+    // eased in (384 per second squared towards it, the speed zeroed when it changes direction or overshoots);
+    // objects with ids over 15 (not skaters) get their matrix as the display matrix.
+    void Update();
+
     // --- the update's parts ---
     // 0x00423740: the hover's bob for now: sin(2 pi * (the game clock mod the period) / period) * amplitude (the
     // clock's doubled count taken as unsigned), added to the height (the height without it kept in m_hoverBase).
     void UpdateHover();
+    // 0x00424200: moving to a point - the speed accelerated (60 * frame * acceleration, to the maximum), the distance
+    // covered; arrived (true): at the target, the arrival node told, no velocity; else on the line from the start
+    // (that fraction of the way) with the velocity of the step. x87 roundings kept.
+    bool UpdateMoveTo();
+    // 0x00426E70: along the path (not for peds - those with a pedlogic component): the path's speed (0x00423530),
+    // the follower moved that far (along the facing unless MOTION2_NO_PATH_HEADING; at the end, no longer
+    // following, speed 0); the facing from the path (kept level with MOTION2_LEVEL_HEADING; the other rows rebuilt
+    // unless sticking to the ground); the position the follower's (the height kept with MOTION2_CONSTANT_HEIGHT;
+    // with MOTION2_STICK_TO_GROUND, kept and then stuck to the ground); the velocity of the step.
+    void UpdatePath();
+    // 0x004246A0: after the leader: the trail's update and its position and facing (the height kept with
+    // LeaveYUnaffected).
+    void UpdateFollowLeader();
+
+    // --- paths ---
+    // 0x00423FC0: along the path from `node`: out of the old path's group into the new one's (path manager), a
+    // path follower if needed, started there.
+    void StartPath(uint32_t node);
+    // 0x00424020: at the node `node`: it's the current node; its SpawnObjScript (with its Params) is spawned on the
+    // object, else its switchobjscript becomes the object's script. (A missing node: the original crashes too.)
+    void ArriveAtNode(uint32_t node);
+    // 0x00424180 (thiscall, RET 8; its result unused): on along a link of the node it's at (originalnode: its own
+    // node) - a random one with MOTION2_RANDOM_LINKS when there are several, else the first; none: nothing.
+    void FollowPathLinked(Script::CStruct* params, Script::CScript* script);
+    // 0x004244C0: of the objects on its path (its group), the nearest one within `range` that faces the same way
+    // and is ahead of it - and, if both follow paths, on the same segment (the same node, else the same last node).
+    CCompositeObject* GetNextObjOnPath(float range);
+    // 0x004246F0: Off: no longer following, the trail freed. Else following the object Name at `distance` (a new
+    // trail if needed, emptied), LeaveYUnaffected, OrientY (the trail's free facing); the object's lock dropped
+    // (its lockobj component: a crash without one).
+    void FollowLeader(Script::CStruct* params);
 
     // --- script member functions (the table at 0x00681EB8; all true) ---
     bool Obj_StorePos(Script::CStruct* params, Script::CScript* script);          // 0x004237D0
@@ -107,6 +145,16 @@ public:
     // heading (a vector: its y scales the speed and is then 0) or use_current_heading (the display matrix's at)
     // moves it along too; land_height (where it lands, else the ground found).
     bool Obj_Jump(Script::CStruct* params, Script::CScript* script);
+    // 0x00425150: `ob` (the id of GetNextObjOnPath within Range feet, default 100) into the script's parameters
+    // (removed first; none found: not there).
+    bool Obj_GetNextObjOnPath(Script::CStruct* params, Script::CScript* script);
+    // 0x004251C0: the unnamed float (feet unless `inches`) as the path follower's corner distance (a follower made
+    // if needed); none given: nothing.
+    bool Obj_SetPathTurnDist(Script::CStruct* params, Script::CScript* script);
+    bool Obj_FollowPath(Script::CStruct* params, Script::CScript* script);       // 0x00425220 (from the node Name)
+    bool Obj_FollowPathLinked(Script::CStruct* params, Script::CScript* script); // 0x00425270
+    bool Obj_FollowPathStored(Script::CStruct* params, Script::CScript* script); // 0x00425290 (Obj_StoreNode's)
+    bool Obj_FollowLeader(Script::CStruct* params, Script::CScript* script);     // 0x004252C0
 
     uint32_t m_motionFlags;    // +0x18 MOTION_*
     uint32_t m_motionFlags2;   // +0x1C MOTION2_*

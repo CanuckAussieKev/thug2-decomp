@@ -46,3 +46,23 @@ Switch off: `[replacements] disable=motion_component.cpp` (and the later files l
     (the member functions, every parameter given or not; GetSpeed's three sources and units), TestMotionVectorHelpers.
     37 deliberate bugs, 36 caught; the one missed (Obj_GetSpeed's sum order) is equivalent in practice: the double
     sums differ in the last bit at most and the result is rounded to a float.
+- [x] Batch OC2-2 (NOT run in the game yet; the motion component's update, moving to points, paths, following a
+  leader, 15 functions): src/game/obj/motion_path.cpp (new).
+  - 0x004270E0 Update (slot 1): the frame length, hover (back to the base height, then the bob), the axes' turns,
+    Obj_Rotate's turn, then move-to / path / leader (the first that applies), the jump (its position copied); the
+    ground offset eased in at 384 per second squared (the speed zeroed on a change of direction or an overshoot -
+    the rest of the offset then); objects with ids over 15 (not skaters) get the matrix as their display matrix.
+  - 0x00424200 UpdateMoveTo (the speed capped only when >= the maximum: a NaN speed stays NaN), 0x00426E70
+    UpdatePath (not for objects with a pedlogic component; the path's speed 0x00423530 is OC1's; heading kept level
+    with flag2 0x400; right / at rebuilt by cross products unless sticking to the ground), 0x004246A0
+    UpdateFollowLeader; the step velocity: x from the unrounded difference and reciprocal, y / z / w rounded.
+  - 0x00423FC0 StartPath, 0x00424020 ArriveAtNode (SpawnObjScript spawned, else switchobjscript), 0x00424180
+    FollowPathLinked, 0x004244C0 GetNextObjOnPath (the group's slots are 12-byte smart pointers; same direction,
+    ahead, same segment, within range, nearest), 0x004246F0 FollowLeader (drops the object's lockobj lock: no null
+    check), and Obj_GetNextObjOnPath (`ob`), Obj_SetPathTurnDist (`inches`), Obj_FollowPath, Obj_FollowPathLinked,
+    Obj_FollowPathStored, Obj_FollowLeader.
+  - Test (selftests_obj_motion2.cpp): TestMotionUpdate (6000 variants: flags, ground offsets incl. exact-step and
+    NaN, ids), TestMotionMoveTo (6000: accelerating, capping exactly, arriving exactly, NaNs), TestMotionUpdatePath,
+    TestMotionLeader, TestMotionPaths (StartPath, ArriveAtNode, FollowPathLinked, the members, GetNextObjOnPath over
+    groups of up to 7 objects - empty slots, itself, NaN facings, distances tying with the range and each other).
+    58 deliberate bugs caught, 7 after strengthening; one real bug found by them (the NaN cap).

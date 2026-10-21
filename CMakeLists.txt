@@ -311,6 +311,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_menulvl.cpp
     src/hook/selftests_motion.cpp
     src/hook/selftests_obj_motion1.cpp
+    src/hook/selftests_obj_motion2.cpp
     src/hook/selftests_gamenet.cpp
     src/hook/selftests_thugpro.cpp
     src/hook/selftests_thugpro_join.cpp
@@ -621,6 +622,7 @@ add_library(thug2_code OBJECT
     src/game/obj/lock_obj.cpp
     src/game/obj/motion.cpp
     src/game/obj/motion_component.cpp
+    src/game/obj/motion_path.cpp
     src/game/obj/object.cpp
     src/game/obj/objman.cpp
     src/game/park/park_cursor.cpp
