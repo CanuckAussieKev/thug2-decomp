@@ -189,6 +189,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_mainloop.cpp
     src/hook/selftests_memory_sizes.cpp
     src/hook/selftests_misc.cpp
+    src/hook/selftests_ec3.cpp
     src/hook/selftests_lfxc.cpp
     src/hook/selftests_lfxc2.cpp
     src/hook/selftests_lfxc3.cpp
@@ -458,6 +459,7 @@ add_library(thug2_code OBJECT
     src/game/pcm/stream_play.cpp
     src/game/pcm/stream_commands.cpp
     src/game/pcm/music_api.cpp
+    src/game/pcm/music_cfuncs.cpp
     src/game/gfx/loading_bar.cpp
     src/game/gfx/render.cpp
     src/game/gfx/wireframe.cpp
@@ -555,6 +557,7 @@ add_library(thug2_code OBJECT
     src/game/obj/path_manager.cpp
     src/game/obj/path_follower.cpp
     src/game/sfx/sfx.cpp
+    src/game/sfx/sound_cfuncs.cpp
     src/game/sfx/sfx_voices.cpp
     src/game/gfx/anim_blend.cpp
     src/game/obj/event.cpp
@@ -588,6 +591,7 @@ add_library(thug2_code OBJECT
     src/game/sys/main.cpp
     src/game/sys/mlp.cpp
     src/game/sys/game_clock.cpp
+    src/game/sys/system_cfuncs.cpp
     src/game/sys/module.cpp
     src/game/sys/winmain.cpp
     src/game/mc/memcard.cpp
@@ -609,6 +613,7 @@ add_library(thug2_code OBJECT
     src/game/script/qb.cpp
     src/game/script/struct.cpp
     src/game/script/skate_cfuncs.cpp
+    src/game/script/script_util_cfuncs.cpp
     src/game/script/math_cfuncs.cpp
     src/game/script/debug_cfuncs.cpp
     src/game/obj/object_cfuncs.cpp
