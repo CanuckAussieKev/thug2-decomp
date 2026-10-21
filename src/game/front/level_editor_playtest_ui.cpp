@@ -48,10 +48,9 @@ void RestartSection(int nodeIndex)
     if (node.family != Nodes::Family::Spawn || node.hidden)
         return;
     uint32_t name = node.name;
-    if (ImGui::Button("Play from here"))
+    if (ImGui::Button("Play from Here"))
         PlayFromRestart(name);
-    Tip("Close the editor into play with the skater at this restart (as F8's restart tester puts it: ResetSkaters). "
-        "F5 or Ctrl+P brings you back with the same camera and selection; the run is recorded as a trail.");
+    Tip("Play from this restart  (F5 returns)");
     ImGui::SameLine();
 }
 
@@ -71,9 +70,8 @@ void Window(float scale, ImFont* heading, ImFont* small)
     }
     const LevelTrails* trails = CurrentTrails();
     Heading("Test runs", heading);
-    ImGui::Checkbox("Record runs in play", &Recording());
-    Tip("While the level is its edited copy and the editor is closed, each run's path is recorded (until the editor "
-        "opens again)");
+    ImGui::Checkbox("Record Runs", &Recording());
+    Tip("Record a trail of each test run");
     ImGui::SameLine();
     ImGui::Checkbox("Show", &ShowTrails());
     // The legend.
@@ -90,7 +88,7 @@ void Window(float scale, ImFont* heading, ImFont* small)
     ImGui::SameLine();
     ImGui::TextColored(Colour(0xFFFF3030), "x bail");
     if (!trails || trails->runs.empty()) {
-        ImGui::TextDisabled("No runs yet: F5 (play from here) and skate - the trail shows here when you come back.");
+        ImGui::TextDisabled("No runs recorded");
     } else if (ImGui::BeginTable("##runs", 6, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingFixedFit)) {
         ImGui::TableSetupColumn("");
         ImGui::TableSetupColumn("Run");
@@ -120,7 +118,7 @@ void Window(float scale, ImFont* heading, ImFont* small)
                     text += part;
                 }
                 ImGui::SetTooltip("%s%u points%s", text.c_str(), static_cast<unsigned>(run.samples.size()),
-                                  run.full ? " (full: recording stopped)" : "");
+                                  run.full ? " (full)" : "");
             }
             ImGui::TableNextColumn();
             ImGui::Text("%.1f s", run.seconds);
@@ -142,15 +140,15 @@ void Window(float scale, ImFont* heading, ImFont* small)
     }
     if (ImGui::Button("Clear"))
         Request(Ask::Clear);
-    Tip("Every run of this level and the gaps' landed marks forgotten (the file, if saved, stays until Save)");
+    Tip("Clear all runs and landed gaps");
     ImGui::SameLine();
     if (ImGui::Button("Save"))
         Request(Ask::Save);
-    Tip("Written to thug2-decomp-layouts\\<scene>.trails.txt - read again when the editor next opens in this level");
+    Tip("Save trails to disk");
     ImGui::SameLine();
     if (ImGui::Button("Load"))
         Request(Ask::Load);
-    Tip("The level's trails file read again (replaces the runs in memory)");
+    Tip("Reload trails from disk");
 
     // The gaps validated by skating.
     std::vector<GapRead> gaps = LevelGaps();
@@ -158,12 +156,12 @@ void Window(float scale, ImFont* heading, ImFont* small)
     for (const GapRead& g : gaps)
         landed += GapLanded(g.name) ? 1 : 0;
     char title[96];
-    std::snprintf(title, sizeof(title), "Gaps landed in test runs: %d / %u", landed, static_cast<unsigned>(gaps.size()));
+    std::snprintf(title, sizeof(title), "Gaps Landed: %d / %u", landed, static_cast<unsigned>(gaps.size()));
     Heading(title, heading);
     static bool untestedOnly;
-    ImGui::Checkbox("Untested only", &untestedOnly);
+    ImGui::Checkbox("Untested Only", &untestedOnly);
     if (gaps.empty()) {
-        ImGui::TextDisabled("This level has no gaps in its gap list.");
+        ImGui::TextDisabled("No gaps");
     } else if (ImGui::BeginChild("##gaps", ImVec2(0.0f, 150.0f * scale), ImGuiChildFlags_Borders)) {
         if (small)
             ImGui::PushFont(small);
@@ -181,16 +179,15 @@ void Window(float scale, ImFont* heading, ImFont* small)
     if (!gaps.empty())
         ImGui::EndChild();
 
-    Heading("Simulate (F6)", heading);
+    Heading("Simulate", heading);
     bool simulating = Simulating();
     if (ImGui::Button(simulating ? "Stop" : "Simulate"))
         Request(Ask::ToggleSimulate);
     ImGui::SameLine();
     bool keep = KeepSimulation();
-    if (ImGui::Checkbox("Keep where they got to", &keep))
+    if (ImGui::Checkbox("Keep Positions", &keep))
         Request(Ask::ToggleKeepSimulation);
-    Tip("Off (the default): stopping puts every object back where it was when the simulation started (place, "
-        "turn, speed - their paths and scripts carry on from where they got to). On: they stay where they are.");
+    Tip("Keep objects where they are when stopping");
     ImGui::TextDisabled("%s", Status().c_str());
     ImGui::End();
     if (!open)

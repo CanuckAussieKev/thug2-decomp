@@ -64,7 +64,7 @@ void Settings(const Goal& goal, ImFont* mono)
     if (TextField("Name##goal", key + "name", &g.name, 16, false))
         changed = done = true; // (Create-a-Goal's keyboard: 16 characters)
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("view_goals_text: the goal's name in VIEW GOALS and its start message");
+        ImGui::SetTooltip("Name shown in View Goals");
     if (TextField("Ped name##goal", key + "ped", &g.ped, 16, false))
         changed = done = true;
     ImGui::TextUnformatted("Goal text");
@@ -98,14 +98,14 @@ void Settings(const Goal& goal, ImFont* mono)
         }
     }
     if (g.type == Type::Gap) {
-        ImGui::TextUnformatted("Gaps (the level's gap list)");
+        ImGui::TextUnformatted("Gaps");
         std::vector<std::string> gaps = LevelGaps();
         for (const std::string& name : g.gaps) {
             if (std::find(gaps.begin(), gaps.end(), name) == gaps.end())
                 gaps.push_back(name); // (one the list hasn't now: shown so it can be taken off)
         }
         if (gaps.empty())
-            ImGui::TextDisabled("This level has no gaps (the Triggers window adds some)");
+            ImGui::TextDisabled("No gaps");
         ImGui::BeginChild("##goalgaps", ImVec2(0.0f, std::min(160.0f, 22.0f * gaps.size() + 4.0f)), true);
         for (const std::string& name : gaps) {
             auto it = std::find(g.gaps.begin(), g.gaps.end(), name);
@@ -123,7 +123,7 @@ void Settings(const Goal& goal, ImFont* mono)
             changed = done = true;
     }
     if (TrickType(g.type)) {
-        ImGui::TextUnformatted("Key combo sets");
+        ImGui::TextUnformatted("Key Combo Sets");
         for (int set = 0; set < ComboSetCount(g.type); ++set) {
             bool on = (g.sets & (1u << set)) != 0;
             if (ImGui::Checkbox(ComboSetName(set), &on)) {
@@ -191,7 +191,7 @@ void InspectorSection(uint32_t node, ImFont* mono, ImFont* smallFont)
     ImGui::TextWrapped("%s - %s (%s)", g.name.c_str(), TypeTitle(g.type), PointLabel(g.type, point).c_str());
     std::string why;
     if (Complete(g, &why)) {
-        ImGui::TextColored(ImVec4(0.55f, 0.85f, 0.55f, 1.0f), "Complete - played when you leave the editor");
+        ImGui::TextColored(ImVec4(0.55f, 0.85f, 0.55f, 1.0f), "Complete");
     } else {
         ImGui::TextColored(ImVec4(0.95f, 0.65f, 0.35f, 1.0f), "Not played: %s", why.c_str());
     }
@@ -200,7 +200,7 @@ void InspectorSection(uint32_t node, ImFont* mono, ImFont* smallFont)
         ImGui::TextColored(ImVec4(0.95f, 0.45f, 0.40f, 1.0f), "%d point%s deleted", missing, missing == 1 ? "" : "s");
         ImGui::SameLine();
         std::string goalId = g.id;
-        if (ImGui::SmallButton("Restore points"))
+        if (ImGui::SmallButton("Restore Points"))
             Queue([goalId] { RestorePoints(goalId); });
     }
     // The point: its height (letters float above their node).
@@ -256,14 +256,13 @@ void InspectorSection(uint32_t node, ImFont* mono, ImFont* smallFont)
         });
     }
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Copies it into THUG2's own created goals of this level (in memory): CREATE-A-MODES > create "
-                          "goals lists it there, and its SAVE GOALS saves it in the CreatedGoals save");
+        ImGui::SetTooltip("Copy to the game's Create-a-Goal list");
     ImGui::SameLine();
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.62f, 0.22f, 0.30f, 0.85f));
     if (ImGui::Button("Delete goal##goal"))
         Queue([goalId] { Remove(goalId); });
     ImGui::PopStyleColor();
-    ImGui::TextDisabled("Move a point: drag it or an arrow; Z / X turn it; G drops it");
+    
 }
 
 void ListSection(ImFont* mono, ImFont* smallFont)
@@ -273,9 +272,7 @@ void ListSection(ImFont* mono, ImFont* smallFont)
     if (!ImGui::CollapsingHeader("Goals###goals"))
         return;
     ImGui::PushFont(smallFont);
-    ImGui::TextWrapped("THUG2's Create-a-Goal goals for the edited copy: placed here, saved with the layout (Ctrl+S), "
-                       "played in free skate / single session when you leave the editor - talk to the goal's pro. "
-                       "Never in the career or the CreatedGoals save (unless copied to Create-a-Goal).");
+    ImGui::TextDisabled("Goals for this level, saved with the layout");
     ImGui::PopFont();
     ImGui::SetNextItemWidth(170.0f * ImGui::GetFontSize() / 13.0f);
     if (ImGui::BeginCombo("##goaltype", TypeTitle(static_cast<Type>(g_newType)))) {
@@ -299,7 +296,7 @@ void ListSection(ImFont* mono, ImFont* smallFont)
         ImGui::SetTooltip("Placed where the view looks: the pro facing you, the start beside it, letters / checkpoints "
                           "ahead");
     if (all.empty())
-        ImGui::TextDisabled("None yet (ten at most).");
+        ImGui::TextDisabled("No goals (max 10)");
     ImGui::PushFont(mono);
     for (const Goal& g : all) {
         ImGui::PushID(g.id.c_str());
