@@ -242,3 +242,13 @@ Switch off: `[replacements] disable=gamenet_state.cpp,gamenet_handlers.cpp,gamen
     fall), 8 equivalent (the magnitude's == 0 / !(!= 0); two dead heading stores; the direction's w is always 1;
     `if (!any)` - nothing pressed then either; an exact-zero slide changes nothing; the capped x's rounding feeds
     only the blocked ratio; the hang plane's sum order - its products are exact in double).
+- [x] Game runs (workspace C:\Games\THUG2-3, branch at 7b905c6 = SK6-1..10 merged with main): BO loads in free
+  skate (twice idle), and with the automation channel the skater was teleported standing, walked forward, jumped,
+  turned, walked and jumped again (~1100 units covered on foot, the walk component's update, ground / air states,
+  contacts, jump, landing and ground snap all running) - no crash, no run-time check, no debug-CRT report. The final
+  run with -FullTests: late (17) and engine-started (3) self-tests pass; in the game two early self-tests outside
+  this range fail ("skate net registration": THUGPRO guard message ids 0x9B / 0x9F registered where the original
+  registers 0x33 / 0x23; "net compress message") - both pass offline (thug2_check, both exes) and touch none of
+  this range's code. Not driven: hanging, ladders, barrier jumps, network play - for the user to try.
+- Range done: find_gaps lists nothing in 0x00529F62-0x00533F20 (0x00529F62-0x00529F7F is 0x00529CE0's jump table
+  and padding). All 114 + 36 functions have source.
