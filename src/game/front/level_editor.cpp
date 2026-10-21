@@ -34,6 +34,8 @@
 #include "game/front/level_editor_scale.h"
 #include "game/front/level_editor_scenery.h"
 #include "game/front/level_editor_shadows.h"
+#include "game/front/level_editor_snap.h"
+#include "game/front/level_editor_transform.h"
 #include "game/front/level_editor_triggers.h"
 #include "game/front/level_editor_ui.h"
 #include "game/front/level_editor_view.h"
@@ -281,13 +283,11 @@ namespace {
 
 constexpr float kNearZ = 2.0f; // (Nx::SetCamera's near plane)
 constexpr float kPi = 3.14159265f;
-constexpr float kTurnPerNotch = 15.0f * kPi / 180.0f;
 constexpr float kLookRadiansPerPixel = 0.0035f;
 constexpr float kMaxPickDistance = 30000.0f;
 constexpr float kMinOrbit = 20.0f, kMaxOrbit = 20000.0f;
 constexpr double kObjectSpeed = 150.0; // units a second (Shift: 4x)
 constexpr double kWheelStep = 120.0;   // units a notch while flying (Shift: 4x)
-constexpr float kSnap = 25.0f;         // (Ctrl while moving: a 25-unit grid)
 constexpr float kArrowGrab = 8.0f;     // (pixels from a move arrow that grab it)
 
 bool g_active;
@@ -395,6 +395,24 @@ float g_dragReach;
 bool g_dragScreen;
 V3 g_dragFrom, g_dragRight, g_dragForward;
 float g_dragMouseX, g_dragMouseY, g_dragUnits, g_dragPush, g_axisT0;
+// The transform tools (level_editor_transform.h): what the drag does (Move unless it started on a Rotate / Scale handle
+// or as Alt+G's modal transform - no button held: a click or Enter applies it), what's typed, whether a turn or a scale
+// was made (an undo step even when the position stayed), the turn and scale so far, where the cursor is (back buffer
+// pixels), vertex snapping's corner, and the camera let go of the selection (fly_always=0: flying with RMB - F frames
+// it again).
+Transform::Mode g_dragMode = Transform::Mode::Move;
+bool g_modal, g_typedApply, g_pendingForced;
+Transform::Typed g_typed;
+V3 g_transformPivot;
+float g_rotTotal, g_rotApplied, g_rotLast, g_rotSign = 1.0f;
+bool g_rotByPlane;
+int g_quartersApplied;
+float g_scaleS0;
+V3 g_scaleStart = {1.0f, 1.0f, 1.0f};
+float g_cursorX, g_cursorY;
+bool g_vertexHave;
+V3 g_vertexCorner;
+bool g_freeCamera;
 
 // The ground marker: the selection's base and the ground below it.
 bool g_haveMark;
@@ -502,6 +520,31 @@ void HandleEvent(SDL_Event* event)
         g_mouse.wheel += event->wheel.direction == SDL_MOUSEWHEEL_FLIPPED ? -event->wheel.y : event->wheel.y;
         break;
     case SDL_KEYDOWN:
+        // While dragging: X / Y / Z, digits, - . and Backspace typed (level_editor_transform.h), Enter applies.
+        if (g_dragging) {
+            SDL_Scancode code = event->key.keysym.scancode;
+            char c = 0;
+            if (code >= SDL_SCANCODE_1 && code <= SDL_SCANCODE_9)
+                c = static_cast<char>('1' + (code - SDL_SCANCODE_1));
+            else if (code >= SDL_SCANCODE_KP_1 && code <= SDL_SCANCODE_KP_9)
+                c = static_cast<char>('1' + (code - SDL_SCANCODE_KP_1));
+            else if (code == SDL_SCANCODE_0 || code == SDL_SCANCODE_KP_0)
+                c = '0';
+            else if (code == SDL_SCANCODE_MINUS || code == SDL_SCANCODE_KP_MINUS)
+                c = '-';
+            else if (code == SDL_SCANCODE_PERIOD || code == SDL_SCANCODE_KP_PERIOD)
+                c = '.';
+            else if (code == SDL_SCANCODE_BACKSPACE)
+                c = '\b';
+            else if (!event->key.repeat && code >= SDL_SCANCODE_X && code <= SDL_SCANCODE_Z)
+                c = static_cast<char>('x' + (code - SDL_SCANCODE_X));
+            if (code == SDL_SCANCODE_RETURN || code == SDL_SCANCODE_KP_ENTER) {
+                g_typedApply = true;
+                break;
+            }
+            if (c && Transform::TypeKey(&g_typed, c))
+                break;
+        }
         // Escape: first what's open (a drag put back, the browser, the help), then the selection, then leave.
         if (event->key.keysym.scancode == SDL_SCANCODE_ESCAPE && !event->key.repeat) {
             if (g_dragging || g_browser.open || g_help || g_placeOpen || g_confirmHide || g_confirmReset ||
@@ -644,6 +687,7 @@ void SelectObjects(const std::vector<Obj::CCompositeObject*>& objects)
 }
 void Deselect()
 {
+    g_freeCamera = false; // (the next selection is framed again - level_editor_transform.h)
     g_objects.clear();
     Scenery::ClearSelection();
     g_nodeSelected = false;
@@ -711,13 +755,62 @@ void PlaceSelection(V3 pos)
     for (Obj::CCompositeObject* object : objects)
         Objects::Place(object, Objects::PosOf(object) + delta);
 }
-// Turned a notch (an object or a node 15 degrees about the first object's position / its own; scenery a quarter about
-// its pivot).
+// The middle of the selection's box: the objects' model boxes (or places), the scenery's boxes; a node's or a wall's
+// place (the Centre pivot - level_editor_transform.h).
+V3 SelectionCentre()
+{
+    std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
+    V3 min = {}, max = {};
+    bool have = false;
+    OrientedBox box;
+    if (!objects.empty()) {
+        for (Obj::CCompositeObject* object : objects) {
+            V3 a, b;
+            if (Objects::ModelBox(object, &box))
+                BoundsOf(box, &a, &b);
+            else
+                a = b = Objects::PosOf(object);
+            GrowBox(&min, &max, have, a, b);
+            have = true;
+        }
+        return (min + max) * 0.5f;
+    }
+    if (MovableNode() >= 0 || WallOnly())
+        return SelectionPos();
+    for (uint32_t checksum : Scenery::Selection()) {
+        V3 a, b;
+        if (Scenery::Box(checksum, &box)) {
+            BoundsOf(box, &a, &b);
+            GrowBox(&min, &max, have, a, b);
+            have = true;
+        }
+    }
+    return have ? (min + max) * 0.5f : SelectionPos();
+}
+// Objects turned by `radians` about the toolbar's Pivot (Base: the first one's position; Centre: `centre`; Own: each
+// about its own).
+void TurnObjectsBy(const std::vector<Obj::CCompositeObject*>& objects, float radians, V3 centre)
+{
+    if (objects.empty() || radians == 0.0f)
+        return;
+    Transform::Pivot pivot = Transform::Current().pivot;
+    V3 base = Objects::PosOf(objects.front());
+    for (Obj::CCompositeObject* object : objects)
+        Objects::TurnAbout(object,
+                           pivot == Transform::Pivot::Own      ? Objects::PosOf(object)
+                           : pivot == Transform::Pivot::Centre ? centre
+                                                                : base,
+                           radians);
+}
+// Turned a notch (an object or a node by the rotation snap's step - 15 degrees unless the toolbar says otherwise -
+// about the Pivot / its own place; scenery a quarter about its pivot).
+float NotchRadians() { return Transform::Current().angleStep * kPi / 180.0f; }
 void TurnSelection(int notches)
 {
     NodeEdit::Values node;
     if (NodeValues(&node)) {
-        node.angles = NodeEdit::Turned(node.angles, notches);
+        node.angles = NodeEdit::WithHeading(node.angles, NodeEdit::HeadingDegrees(node.angles) +
+                                                             static_cast<float>(notches) * Transform::Current().angleStep);
         SetSelectedNode(node);
         return;
     }
@@ -733,9 +826,7 @@ void TurnSelection(int notches)
         Scenery::Commit();
         return;
     }
-    V3 pivot = Objects::PosOf(objects.front());
-    for (Obj::CCompositeObject* object : objects)
-        Objects::TurnAbout(object, pivot, static_cast<float>(notches) * kTurnPerNotch);
+    TurnObjectsBy(objects, static_cast<float>(notches) * NotchRadians(), SelectionCentre());
 }
 // After the keys or a drag: the scenery's collision lookups brought up to date.
 void Settle()
@@ -971,6 +1062,7 @@ V3 g_scaleAtFieldStart = {1.0f, 1.0f, 1.0f}; // (the Inspector's Scale fields: t
 void BeginChange()
 {
     g_hasPending = HaveSelection();
+    g_pendingForced = false;
     if (g_hasPending)
         g_pending = Snapshot();
 }
@@ -983,8 +1075,10 @@ void EndChange()
     bool changed = g_pending.kind == UndoStep::kNodes
                        ? NodeEdit::Differs(g_pending.nodes, NodeEdit::Read) // (moved or turned)
                        : g_pending.where.x != now.x || g_pending.where.y != now.y || g_pending.where.z != now.z;
-    if (changed)
+    // (a turn or a scale by a drag - level_editor_transform.h: a step though the position may be where it was)
+    if (changed || g_pendingForced)
         PushUndo(g_pending);
+    g_pendingForced = false;
 }
 
 // Copies made or taken away: shown / made again, or hidden / deleted; selected when they're there.
@@ -1294,8 +1388,304 @@ V3 DragPlaneNormal(bool vertical, const Frame& frame)
 
 const V3 kAxes[3] = {{1.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}};
 
+// The gizmo's size: a fifth of the camera's distance from the selection (20 to 1500 units).
+float ArrowLength() { return std::max(20.0f, std::min(1500.0f, std::sqrt(Dot(SelectionPos() - g_pos, SelectionPos() - g_pos)) * 0.2f)); }
+
+// A world point in back-buffer pixels (false: behind the camera).
+bool ToPixel(const Frame& frame, V3 point, float* px, float* py)
+{
+    float nx, ny;
+    if (!Project(g_pos, frame, g_lens, point, kNearZ, &nx, &ny))
+        return false;
+    NdcToPixel(g_viewport, nx, ny, px, py);
+    return true;
+}
+
+// --- the transform tools (level_editor_transform.h): Move / Rotate / Scale, World / Local, the pivot ---
+
+// What the selection can do: a chain's point doesn't turn (a ladder turns whole with Z / X); only scenery and objects
+// with a model scale.
+bool SelectionTurns() { return !(MovableNode() >= 0 && NodeEdit::IsChain(g_nodeName)); }
+bool SelectionScales()
+{
+    if (MovableNode() >= 0 || WallOnly())
+        return false;
+    std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
+    if (objects.empty())
+        return Scenery::HasSelection();
+    return std::any_of(objects.begin(), objects.end(), Scale::ObjectScalable);
+}
+// The tool the gizmo shows: the toolbar's, or Move when the selection can't do that.
+Transform::Mode GizmoMode()
+{
+    Transform::Mode mode = Transform::Current().mode;
+    if ((mode == Transform::Mode::Rotate && !SelectionTurns()) || (mode == Transform::Mode::Scale && !SelectionScales()))
+        return Transform::Mode::Move;
+    return mode;
+}
+// The gizmo's axes: World the world's; Local the first object's own (its matrix's rows), a node's heading, the scenery's
+// quarter turns (its first piece's) - an invisible wall the world's.
+void SelectionAxes(V3 out[3])
+{
+    for (int i = 0; i < 3; ++i)
+        out[i] = kAxes[i];
+    if (Transform::Current().space != Transform::Space::Local)
+        return;
+    if (Obj::CCompositeObject* object = Primary()) {
+        V3 rows[3];
+        for (int i = 0; i < 3; ++i)
+            rows[i] = {object->m_matrix.row[i].x, object->m_matrix.row[i].y, object->m_matrix.row[i].z};
+        Transform::UnitAxes(rows, out);
+        return;
+    }
+    NodeEdit::Values node;
+    if (NodeValues(&node)) {
+        Transform::HeadingAxes(node.angles.y, out);
+        return;
+    }
+    if (!WallOnly() && Scenery::HasSelection()) {
+        int quarters = Scenery::SelectionQuarters();
+        for (int i = 0; i < 3; ++i)
+            out[i] = QuarterTurn(kAxes[i], quarters);
+    }
+}
+V3 AxisVector(int axis)
+{
+    V3 axes[3];
+    SelectionAxes(axes);
+    return axes[axis >= 0 && axis < 3 ? axis : 0];
+}
+// The selection's heading (the repeat of a duplicate): the first object's (its at row), a node's, the scenery's quarter
+// turns.
+float SelectionHeading()
+{
+    if (Obj::CCompositeObject* object = Primary())
+        return Transform::HeadingOf({object->m_matrix.row[2].x, object->m_matrix.row[2].y, object->m_matrix.row[2].z});
+    NodeEdit::Values node;
+    if (NodeValues(&node))
+        return node.angles.y;
+    return Scenery::HasSelection() ? static_cast<float>(Scenery::SelectionQuarters()) * kPi * 0.5f : 0.0f;
+}
+// Where Rotate / Scale turn and scale about (the toolbar's Pivot): Centre the selection's middle; Base / Own the first
+// object's position, a node's place, the scenery's pivot - for Scale the middle of the scenery's bottom (as [ / ]).
+V3 TransformPivot(Transform::Mode mode)
+{
+    if (Transform::Current().pivot == Transform::Pivot::Centre)
+        return SelectionCentre();
+    V3 pos = SelectionPos();
+    if (mode == Transform::Mode::Scale && !Primary() && Scenery::HasSelection())
+        return {pos.x, Scenery::Bottom(), pos.z};
+    return pos;
+}
+Transform::Gizmo GizmoNow()
+{
+    Transform::Gizmo gizmo;
+    gizmo.mode = g_dragging ? g_dragMode : GizmoMode();
+    gizmo.pivot = gizmo.mode == Transform::Mode::Move ? SelectionPos()
+                  : g_dragging                       ? g_transformPivot
+                                                     : TransformPivot(gizmo.mode);
+    SelectionAxes(gizmo.axes);
+    gizmo.length = ArrowLength();
+    gizmo.rotates = SelectionTurns();
+    return gizmo;
+}
+
+// Turned to `target` radians from where the drag started: objects about the Pivot, a node's heading, scenery and
+// invisible walls by whole quarter turns (the engine turns level geometry by quarters - level_editor_scenery.h).
+void ApplyTurnTo(float target)
+{
+    std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
+    NodeEdit::Values node;
+    if (!objects.empty()) {
+        float delta = target - g_rotApplied;
+        if (std::fabs(delta) < 1e-6f)
+            return;
+        TurnObjectsBy(objects, delta, g_transformPivot);
+    } else if (NodeValues(&node)) {
+        float delta = target - g_rotApplied;
+        if (std::fabs(delta) < 1e-6f)
+            return;
+        node.angles = NodeEdit::WithHeading(node.angles, NodeEdit::HeadingDegrees(node.angles) + delta * 180.0f / kPi);
+        SetSelectedNode(node);
+    } else {
+        int quarters = Transform::Quarters(target);
+        if (quarters == g_quartersApplied)
+            return;
+        TurnSelection(quarters - g_quartersApplied);
+        g_quartersApplied = quarters;
+    }
+    g_rotApplied = target;
+    g_pendingForced = true;
+}
+
+// The scale made since the drag started, along the gizmo's axes: the selection's scale (along its own axes) over its
+// scale then - an object's own axis nearest each world axis, the scenery's turned (odd quarter turns swap x and z).
+V3 ScaleAppliedNow()
+{
+    V3 now = SelectionScaleNow();
+    V3 r = {now.x / g_scaleStart.x, now.y / g_scaleStart.y, now.z / g_scaleStart.z};
+    if (Transform::Current().space == Transform::Space::Local)
+        return r;
+    if (Obj::CCompositeObject* object = Primary()) {
+        V3 rows[3];
+        for (int i = 0; i < 3; ++i)
+            rows[i] = {object->m_matrix.row[i].x, object->m_matrix.row[i].y, object->m_matrix.row[i].z};
+        const float own[3] = {r.x, r.y, r.z};
+        return {own[Scale::NearestAxis(rows, 0)], own[Scale::NearestAxis(rows, 1)], own[Scale::NearestAxis(rows, 2)]};
+    }
+    return TurnedScale(r, Scenery::SelectionQuarters());
+}
+
+// Scaled to `wanted` (along the gizmo's axes) from where the drag started (within the limits - level_editor_scale.h):
+// objects each about its position (Centre: their places spread from the middle too), scenery about the middle of its
+// bottom (Centre: about its middle).
+void ApplyScaleTo(V3 wanted, bool uniform)
+{
+    V3 applied = ScaleAppliedNow();
+    V3 ratio = {wanted.x / applied.x, wanted.y / applied.y, wanted.z / applied.z};
+    if (std::fabs(ratio.x - 1.0f) < 1e-4f && std::fabs(ratio.y - 1.0f) < 1e-4f && std::fabs(ratio.z - 1.0f) < 1e-4f)
+        return;
+    bool local = Transform::Current().space == Transform::Space::Local;
+    bool centre = Transform::Current().pivot == Transform::Pivot::Centre;
+    std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
+    if (!objects.empty()) {
+        std::vector<V3> before;
+        for (Obj::CCompositeObject* object : objects)
+            before.push_back(Objects::PosOf(object));
+        if (local) {
+            for (Obj::CCompositeObject* object : objects) {
+                if (!Scale::ObjectScalable(object))
+                    continue;
+                V3 now = Scale::ObjectScale(object);
+                V3 allowed = Scale::AllowedFactor(ratio, {now}, {Scale::ObjectLimit(object)}, uniform);
+                if (!IsUnitScale(allowed))
+                    Scale::SetObjectScale(object, PerAxis(now, allowed));
+            }
+        } else {
+            ScaleObjects(objects, ratio, uniform);
+        }
+        if (centre) {
+            V3 axes[3];
+            SelectionAxes(axes);
+            const float r[3] = {ratio.x, ratio.y, ratio.z};
+            for (size_t i = 0; i < objects.size(); ++i) {
+                V3 d = before[i] - g_transformPivot, placed = g_transformPivot;
+                for (int a = 0; a < 3; ++a)
+                    placed = placed + axes[a] * (Dot(d, axes[a]) * r[a]);
+                Objects::Place(objects[i], placed);
+            }
+        }
+    } else {
+        V3 centreBefore = SelectionCentre();
+        Scenery::ScaleSelection(local ? TurnedScale(ratio, Scenery::SelectionQuarters()) : ratio, uniform);
+        if (centre)
+            Scenery::MoveTo(Scenery::Pivot() + (centreBefore - SelectionCentre()));
+        FollowScenery();
+    }
+    g_pendingForced = true;
+}
+
+// A Rotate / Scale drag starting (on a handle, or Alt+G's modal one): its pivot; the cursor's angle about it (on the
+// level plane through it when looking down on it, else on the screen - which way round from two of the ring's points),
+// or its distance from it (a handle's axis, else in pixels from the pivot's pixel).
+void StartTransformDrag(V3 origin, V3 dir, const Frame& frame)
+{
+    g_transformPivot = TransformPivot(g_dragMode);
+    if (g_dragMode == Transform::Mode::Rotate) {
+        g_rotTotal = g_rotApplied = 0.0f;
+        g_quartersApplied = 0;
+        g_rotSign = 1.0f;
+        g_rotLast = 0.0f;
+        float t = 0.0f;
+        g_rotByPlane = std::fabs(Normalize(dir).y) > 0.25f &&
+                       RayPlane(origin, dir, g_transformPivot, {0.0f, 1.0f, 0.0f}, &t) && t < kMaxPickDistance;
+        if (g_rotByPlane) {
+            g_rotLast = Transform::AngleAbout(g_transformPivot, origin + dir * t);
+            return;
+        }
+        float px, py, ax, ay, bx, by, r = ArrowLength();
+        if (!ToPixel(frame, g_transformPivot, &px, &py))
+            return;
+        g_rotLast = std::atan2(g_cursorX - px, g_cursorY - py);
+        if (ToPixel(frame, g_transformPivot + V3{0.0f, 0.0f, r}, &ax, &ay) &&
+            ToPixel(frame, g_transformPivot + V3{r, 0.0f, 0.0f}, &bx, &by))
+            g_rotSign = Transform::Wrap(std::atan2(bx - px, by - py) - std::atan2(ax - px, ay - py)) < 0.0f ? -1.0f : 1.0f;
+        return;
+    }
+    g_scaleStart = SelectionScaleNow();
+    g_scaleS0 = 0.0f;
+    if (g_axis >= 0 && g_axis < 3) {
+        ClosestOnAxis(g_transformPivot, AxisVector(g_axis), origin, dir, &g_scaleS0);
+    } else {
+        float px, py;
+        if (ToPixel(frame, g_transformPivot, &px, &py))
+            g_scaleS0 = std::hypot(g_cursorX - px, g_cursorY - py);
+    }
+}
+
+void RotateDrag(V3 origin, V3 dir, const Frame& frame, bool snap)
+{
+    float typed, target;
+    if (Transform::TypedValue(g_typed, &typed)) {
+        target = typed * kPi / 180.0f;
+    } else {
+        float angle = 0.0f;
+        bool have = false;
+        float t, px, py;
+        if (g_rotByPlane) {
+            if (RayPlane(origin, dir, g_transformPivot, {0.0f, 1.0f, 0.0f}, &t) && t < kMaxPickDistance) {
+                angle = Transform::AngleAbout(g_transformPivot, origin + dir * t);
+                have = true;
+            }
+        } else if (ToPixel(frame, g_transformPivot, &px, &py) && std::hypot(g_cursorX - px, g_cursorY - py) > 2.0f) {
+            angle = std::atan2(g_cursorX - px, g_cursorY - py);
+            have = true;
+        }
+        if (have) {
+            float delta = Transform::Wrap(angle - g_rotLast);
+            g_rotLast = angle;
+            g_rotTotal += g_rotByPlane ? delta : delta * g_rotSign;
+        }
+        target = snap ? Transform::SnapAngle(g_rotTotal, Transform::Current().angleStep) : g_rotTotal;
+    }
+    ApplyTurnTo(target);
+}
+
+void ScaleDrag(V3 origin, V3 dir, const Frame& frame, bool snap)
+{
+    int axis = g_typed.axis >= 0 ? g_typed.axis : g_axis >= 0 && g_axis < 3 ? g_axis : -1;
+    float factor = 1.0f, typed;
+    if (Transform::TypedValue(g_typed, &typed)) {
+        if (typed <= 0.0f)
+            return;
+        factor = typed;
+    } else {
+        float s, px, py;
+        if (g_axis >= 0 && g_axis < 3) {
+            if (!ClosestOnAxis(g_transformPivot, AxisVector(g_axis), origin, dir, &s))
+                return;
+            factor = Transform::FactorAlong(g_scaleS0, s);
+        } else {
+            if (!ToPixel(frame, g_transformPivot, &px, &py))
+                return;
+            factor = Transform::FactorFromPixels(g_scaleS0, std::hypot(g_cursorX - px, g_cursorY - py));
+        }
+        if (snap)
+            factor = Transform::SnapFactor(factor);
+    }
+    V3 wanted = axis < 0 ? V3{factor, factor, factor}
+                         : V3{axis == 0 ? factor : 1.0f, axis == 1 ? factor : 1.0f, axis == 2 ? factor : 1.0f};
+    ApplyScaleTo(wanted, axis < 0);
+}
+
+// --- dragging (Move) ---
+
 void StartDrag(V3 origin, V3 dir, bool vertical, const Frame& frame, float mouseX, float mouseY)
 {
+    if (g_dragMode != Transform::Mode::Move) {
+        StartTransformDrag(origin, dir, frame);
+        return;
+    }
     V3 pos = SelectionPos();
     g_dragVertical = vertical;
     g_dragFrom = pos;
@@ -1304,7 +1694,7 @@ void StartDrag(V3 origin, V3 dir, bool vertical, const Frame& frame, float mouse
     g_dragPush = 0.0f;
     if (g_axis >= 0) {
         g_axisT0 = 0.0f;
-        ClosestOnAxis(pos, kAxes[g_axis], origin, dir, &g_axisT0);
+        ClosestOnAxis(pos, AxisVector(g_axis), origin, dir, &g_axisT0);
         return;
     }
     g_dragPlaneNormal = DragPlaneNormal(vertical, frame);
@@ -1323,23 +1713,195 @@ void StartDrag(V3 origin, V3 dir, bool vertical, const Frame& frame, float mouse
     g_dragOffset = g_dragOffset - g_dragPlaneOffset;
 }
 
-float SnapTo(float x) { return SnapToGrid(x, kSnap); }
-
-void Drag(V3 origin, V3 dir, float mouseX, float mouseY, bool snap)
+// What a drag snaps to (level_editor_snap.h): held keys, or the toolbar's Snap and its Snap to.
+struct Snapping {
+    bool on = false;
+    Transform::SnapTarget target = Transform::SnapTarget::Grid;
+};
+Snapping SnappingNow(bool ctrl, bool shift, bool alt)
 {
+    Snapping s;
+    s.on = true;
+    if (ctrl && alt)
+        s.target = Transform::SnapTarget::Vertex;
+    else if (alt && shift)
+        s.target = Transform::SnapTarget::Surface;
+    else if (ctrl && shift)
+        s.target = Transform::SnapTarget::WorldGrid;
+    else if (ctrl)
+        s.target = Transform::SnapTarget::Grid;
+    else if (g_snapAlways)
+        s.target = Transform::Current().target;
+    else
+        s.on = false;
+    return s;
+}
+
+// The selection's box corners (vertex snapping's own corner): its objects' model boxes, its scenery's boxes, else its
+// place.
+std::vector<V3> SelectionCorners()
+{
+    std::vector<V3> out;
+    OrientedBox box;
+    V3 corners[8];
+    auto add = [&](const OrientedBox& b) {
+        BoxCorners(b.origin, b.axes, b.min, b.max, corners);
+        out.insert(out.end(), corners, corners + 8);
+    };
+    std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
+    for (Obj::CCompositeObject* object : objects) {
+        if (Objects::ModelBox(object, &box))
+            add(box);
+    }
+    if (objects.empty() && MovableNode() < 0 && !WallOnly()) {
+        for (uint32_t checksum : Scenery::Selection()) {
+            if (Scenery::Box(checksum, &box))
+                add(box);
+        }
+    }
+    if (out.empty())
+        out.push_back(SelectionPos());
+    return out;
+}
+
+// Surface snapping: the selection's base onto what the collision ray meets first under the cursor (its own pieces
+// passed); an object stood square to the slope with the toolbar's Align.
+void SurfaceDrag(V3 origin, V3 dir)
+{
+    std::vector<uint32_t> skip;
+    if (!Primary() && MovableNode() < 0) {
+        skip = Scenery::Selection();
+        if (uint32_t wall = WallOnly())
+            skip.push_back(wall);
+    }
+    Snap::SurfaceHit hit;
+    if (!Snap::Surface(origin, Normalize(dir), kMaxPickDistance, skip, &hit))
+        return;
     V3 pos = SelectionPos();
+    V3 wanted = Snap::OnSurface(pos, SelectionBase(), hit.point);
+    if (wanted.x != pos.x || wanted.y != pos.y || wanted.z != pos.z)
+        PlaceSelection(wanted);
+    if (!Transform::Current().alignToSlope)
+        return;
+    for (Obj::CCompositeObject* object : SelectedObjects()) {
+        for (Mth::Matrix* m : {&object->m_matrix, &object->m_displayMatrix}) {
+            V3 rows[3];
+            for (int i = 0; i < 3; ++i)
+                rows[i] = {m->row[i].x, m->row[i].y, m->row[i].z};
+            if (!Snap::AlignRows(rows, hit.normal))
+                continue;
+            for (int i = 0; i < 3; ++i) {
+                m->row[i].x = rows[i].x;
+                m->row[i].y = rows[i].y;
+                m->row[i].z = rows[i].z;
+            }
+            g_pendingForced = true;
+        }
+    }
+}
+
+// Vertex snapping: the selection's corner nearest the cursor (chosen when it starts) onto the nearest vertex of what's
+// under the cursor - an object's box corner, or a scenery piece's drawn vertex (the selection's own passed).
+void VertexDrag(V3 origin, V3 dir, const Frame& frame)
+{
+    V3 unit = Normalize(dir);
+    V3 pos = SelectionPos();
+    if (!g_vertexHave) {
+        std::vector<V3> corners = SelectionCorners();
+        int i = Snap::NearestOnScreen(corners, [&](V3 p, float* x, float* y) { return ToPixel(frame, p, x, y); },
+                                      g_cursorX, g_cursorY);
+        if (i < 0)
+            return;
+        g_vertexCorner = corners[i] - pos;
+        g_vertexHave = true;
+    }
+    std::vector<V3> targets;
+    V3 at = {};
+    float reach = kMaxPickDistance;
+    for (const auto& picked : Objects::PickAll(origin, unit, kMaxPickDistance)) {
+        if (IsSelected(picked.first))
+            continue;
+        OrientedBox box;
+        if (Objects::ModelBox(picked.first, &box)) {
+            V3 corners[8];
+            BoxCorners(box.origin, box.axes, box.min, box.max, corners);
+            targets.assign(corners, corners + 8);
+            at = origin + unit * picked.second;
+            reach = picked.second;
+        }
+        break;
+    }
+    Scenery::Hit hit;
+    std::vector<Scenery::Layer> layers;
+    Scenery::Pick(origin, unit, reach, &hit, &layers);
+    for (const Scenery::Layer& layer : layers) {
+        if (Scenery::Selected(layer.checksum) || layer.t >= reach)
+            continue;
+        std::vector<V3> vertices = Snap::SectorVertices(layer.checksum, 65536);
+        if (!vertices.empty()) {
+            targets = std::move(vertices);
+            at = origin + unit * layer.t;
+        }
+        break;
+    }
+    int nearest = Snap::Nearest(targets, at);
+    if (nearest < 0)
+        return;
+    V3 wanted = targets[nearest] - g_vertexCorner;
+    if (wanted.x != pos.x || wanted.y != pos.y || wanted.z != pos.z)
+        PlaceSelection(wanted);
+}
+
+void Drag(V3 origin, V3 dir, const Frame& frame, float mouseX, float mouseY, Snapping snap)
+{
+    if (g_dragMode == Transform::Mode::Rotate) {
+        RotateDrag(origin, dir, frame, snap.on);
+        return;
+    }
+    if (g_dragMode == Transform::Mode::Scale) {
+        ScaleDrag(origin, dir, frame, snap.on);
+        return;
+    }
+    V3 pos = SelectionPos();
+    // (a typed amount: that far along the typed axis - else the arrow's, else X - from where the drag started)
+    float typed;
+    if (Transform::TypedValue(g_typed, &typed)) {
+        int axis = g_typed.axis >= 0 ? g_typed.axis : g_axis >= 0 ? g_axis : 0;
+        V3 wanted = g_dragStart + AxisVector(axis) * typed;
+        if (wanted.x != pos.x || wanted.y != pos.y || wanted.z != pos.z)
+            PlaceSelection(wanted);
+        return;
+    }
+    if (!snap.on || snap.target != Transform::SnapTarget::Vertex)
+        g_vertexHave = false;
+    if (snap.on && snap.target == Transform::SnapTarget::Surface) {
+        SurfaceDrag(origin, dir);
+        return;
+    }
+    if (snap.on && snap.target == Transform::SnapTarget::Vertex) {
+        VertexDrag(origin, dir, frame);
+        return;
+    }
+    // Grid snapping: relative (whole steps from where the drag started), or the world's grid (absolute).
+    bool absolute = snap.target == Transform::SnapTarget::WorldGrid;
+    float grid = Transform::Current().grid;
+    auto relative = [&](float d) { return Transform::SnapRelative(d, grid); };
     V3 wanted;
     if (g_axis >= 0) {
+        V3 u = AxisVector(g_axis);
         float s;
-        if (!ClosestOnAxis(g_dragFrom, kAxes[g_axis], origin, dir, &s))
+        if (!ClosestOnAxis(g_dragFrom, u, origin, dir, &s))
             return;
         float along = s - g_axisT0;
         if (std::fabs(along) > g_orbitDistance * 20.0f)
             return; // (the ray nearly along the axis: far off)
-        wanted = g_dragFrom + kAxes[g_axis] * along;
-        if (snap) {
+        wanted = g_dragFrom + u * along;
+        if (snap.on && absolute && Transform::Current().space == Transform::Space::World) {
             float* c = g_axis == 0 ? &wanted.x : g_axis == 1 ? &wanted.y : &wanted.z;
-            *c = SnapTo(*c);
+            *c = SnapToGrid(*c, grid);
+        } else if (snap.on) {
+            float total = Dot(wanted - g_dragStart, u);
+            wanted = wanted + u * (relative(total) - total);
         }
     } else if (g_dragScreen) {
         // (away for the cursor going up: 2.5 times a pixel's span, the ground being seen end-on)
@@ -1359,9 +1921,14 @@ void Drag(V3 origin, V3 dir, float mouseX, float mouseY, bool snap)
     if (g_axis < 0) {
         if (!g_dragVertical)
             wanted = wanted + g_dragForward * g_dragPush;
-        if (snap)
-            wanted = g_dragVertical ? V3{wanted.x, SnapTo(wanted.y), wanted.z}
-                                    : V3{SnapTo(wanted.x), wanted.y, SnapTo(wanted.z)};
+        if (snap.on && absolute) {
+            wanted = g_dragVertical ? V3{wanted.x, SnapToGrid(wanted.y, grid), wanted.z}
+                                    : V3{SnapToGrid(wanted.x, grid), wanted.y, SnapToGrid(wanted.z, grid)};
+        } else if (snap.on) {
+            V3 d = wanted - g_dragStart;
+            d = g_dragVertical ? V3{d.x, relative(d.y), d.z} : V3{relative(d.x), d.y, relative(d.z)};
+            wanted = g_dragStart + d;
+        }
     }
     if (wanted.x != pos.x || wanted.y != pos.y || wanted.z != pos.z)
         PlaceSelection(wanted);
@@ -1376,7 +1943,15 @@ void EndDrag()
     EndChange();
     Settle();
     V3 at = SelectionPos();
-    NoteAction("dragged to (%.0f, %.0f, %.0f): %s", at.x, at.y, at.z, DescribeSelection().c_str());
+    NoteAction("%s to (%.0f, %.0f, %.0f): %s",
+               g_dragMode == Transform::Mode::Rotate  ? "turned"
+               : g_dragMode == Transform::Mode::Scale ? "scaled"
+                                                      : "dragged",
+               at.x, at.y, at.z, DescribeSelection().c_str());
+    g_dragMode = Transform::Mode::Move;
+    g_modal = false;
+    g_typed = {};
+    g_vertexHave = false;
 }
 
 void SetRelative(bool on)
@@ -1387,45 +1962,18 @@ void SetRelative(bool on)
     g_relative = on;
 }
 
-// --- the move arrows ---
+// --- the gizmo's handles ---
 //
-// Three arrows from the selection's position along x (red), y (green) and z (blue), a fifth of the camera's distance
-// long; the one under the cursor (within 8 pixels) lights up, and dragging it moves the selection along that axis
-// only.
+// Move: three arrows from the selection's position along x (red), y (green) and z (blue) - the world's or, Local, the
+// selection's own; Rotate: the heading ring about the pivot; Scale: a cube at each axis' end and one at the pivot. A
+// fifth of the camera's distance long; the handle under the cursor (within 8 pixels) lights up, and dragging it moves
+// the selection along that axis only, turns it or scales it.
 
-float ArrowLength() { return std::max(20.0f, std::min(1500.0f, std::sqrt(Dot(SelectionPos() - g_pos, SelectionPos() - g_pos)) * 0.2f)); }
-
-// A world point in back-buffer pixels (false: behind the camera).
-bool ToPixel(const Frame& frame, V3 point, float* px, float* py)
-{
-    float nx, ny;
-    if (!Project(g_pos, frame, g_lens, point, kNearZ, &nx, &ny))
-        return false;
-    NdcToPixel(g_viewport, nx, ny, px, py);
-    return true;
-}
-
-// The arrow under the back-buffer pixel (x, y): -1 for none.
+// The handle under the back-buffer pixel (x, y): -1 for none.
 int ArrowAt(const Frame& frame, float x, float y)
 {
-    V3 base = SelectionPos();
-    float length = ArrowLength();
-    float bx, by;
-    if (!ToPixel(frame, base, &bx, &by))
-        return -1;
-    int best = -1;
-    float bestDistance = kArrowGrab;
-    for (int axis = 0; axis < 3; ++axis) {
-        float tx, ty;
-        if (!ToPixel(frame, base + kAxes[axis] * length, &tx, &ty))
-            continue;
-        float d = DistanceToSegment(x, y, bx, by, tx, ty);
-        if (d < bestDistance) {
-            bestDistance = d;
-            best = axis;
-        }
-    }
-    return best;
+    return Transform::HandleAt(GizmoNow(), [&](V3 p, float* px, float* py) { return ToPixel(frame, p, px, py); }, x, y,
+                               kArrowGrab);
 }
 
 // --- drawing (the renderer's cached state, then the device directly) ---
@@ -2113,6 +2661,10 @@ const char* ModeName()
 {
     if (g_browser.open)
         return "ADD";
+    if (g_dragging && g_dragMode == Transform::Mode::Rotate)
+        return "ROTATING";
+    if (g_dragging && g_dragMode == Transform::Mode::Scale)
+        return "SCALING";
     if (g_dragging && g_axis >= 0)
         return g_axis == 0 ? "MOVING ALONG X" : g_axis == 1 ? "MOVING ALONG Y" : "MOVING ALONG Z";
     if (g_dragging)
@@ -2124,6 +2676,18 @@ const char* ModeName()
 
 // What's under the cursor - what a click would take (level_editor_picking.h): the next of a click-to-cycle with its
 // place, or the piece a plain click passes (Alt+click takes it).
+// The gizmo's handle under the cursor, in words (level_editor_transform.h).
+std::string HandleHoverText(int handle)
+{
+    const char* axis = handle == 0 ? "X" : handle == 1 ? "Y" : handle == 2 ? "Z" : "";
+    switch (GizmoMode()) {
+    case Transform::Mode::Rotate: return "the heading ring - drag to turn it (Ctrl: steps)";
+    case Transform::Mode::Scale:
+        return handle == Transform::kCentre ? std::string("the centre - drag to scale it on all axes")
+                                            : std::string("the ") + axis + " handle - drag to scale it along that axis";
+    default: return std::string("the ") + axis + " arrow - drag to move along it";
+    }
+}
 std::string HoverText()
 {
     if (uint32_t wall = View::HoverWall(); wall && g_hoverAxis < 0)
@@ -2131,7 +2695,7 @@ std::string HoverText()
     if (g_hoverHandle >= 0 && g_hoverAxis < 0)
         return std::string("the trigger volume's ") + "-+"[g_hoverHandle & 1] + "XYZ"[g_hoverHandle >> 1] +
                " face - drag to resize it";
-    std::string text = g_hoverAxis >= 0 ? std::string("the ") + "XYZ"[g_hoverAxis] + " arrow - drag to move along it"
+    std::string text = g_hoverAxis >= 0 ? HandleHoverText(g_hoverAxis)
                        : g_hoverSector ? Scenery::DescribeHover(g_hoverSector)
                        : Live(g_hover) ? Objects::Describe(Live(g_hover))
                                        : "-";
@@ -2169,7 +2733,7 @@ void UpdateHud()
         Hud::SetLine(6, Key("F") + " show me the original   " + Key("B") + " or " + Key("Esc") + " close");
     } else if (g_dragging) {
         if (g_axis >= 0)
-            Hud::SetLine(5, Key("Mouse") + " moves it along the arrow   " + Key("Ctrl") + " snap to 25");
+            Hud::SetLine(5, Key("Mouse") + " moves it along the arrow   " + Key("Ctrl") + " snap");
         else
             Hud::SetLine(5, Key("Mouse") + " move   " + Key("Shift") + " up / down   " + Key("Wheel") + " push / pull   " +
                                 Key("Ctrl") + " snap");
@@ -2755,18 +3319,34 @@ std::vector<std::pair<std::string, std::string>> KeysNow()
     if (g_browser.open)
         return {{"Up/Down", "choose"}, {"Left/Right", "scenery / objects"}, {"Enter", "place it"}, {"F", "show me"},
                 {"B, Esc", "close"}};
+    // (typed values, a Rotate / Scale drag, the modal transform - level_editor_transform.h)
+    if (g_dragging && (!g_typed.text.empty() || g_typed.axis >= 0))
+        return {{"Typed", Transform::Describe(g_dragMode, g_typed, g_axis >= 0 && g_axis < 3 ? g_axis : -1)},
+                {"Enter", "apply"}, {"Backspace", "erase"}, {"X Y Z", "axis"}, {"Esc", "put it back"}};
+    if (g_dragging && g_dragMode == Transform::Mode::Rotate)
+        return {{"Mouse", "turns it"}, {"Ctrl", "steps"}, {"Digits", "degrees"}, {g_modal ? "Click, Enter" : "Release", "apply"},
+                {"Esc", "put it back"}};
+    if (g_dragging && g_dragMode == Transform::Mode::Scale)
+        return {{"Mouse", "scales it"}, {"Ctrl", "tenths"}, {"X Y Z", "axis"}, {"Digits", "a factor"},
+                {g_modal ? "Click, Enter" : "Release", "apply"}, {"Esc", "put it back"}};
+    if (g_dragging && g_modal)
+        return {{"Mouse", "moves it"}, {"X Y Z", "axis"}, {"Digits", "an amount"}, {"Ctrl", "grid"},
+                {"Click, Enter", "apply"}, {"Esc", "put it back"}};
     if (g_dragging && Carry::Count() > 0) {
         // (scenery carrying objects / nodes - level_editor_carry.h)
         std::string carried = "leave the " + std::to_string(Carry::Count()) + " carried";
         if (g_axis >= 0)
-            return {{"Mouse", "moves it along the arrow"}, {"Ctrl", "snap to 25"}, {"Alt", carried}, {"Esc", "put it back"}};
-        return {{"Mouse", "move"}, {"Shift", "up / down"}, {"Wheel", "push / pull"}, {"Ctrl", "snap"}, {"Alt", carried},
-                {"Esc", "put it back"}};
+            return {{"Mouse", "moves it along the arrow"}, {"Ctrl", "grid"}, {"Alt", carried}, {"Digits", "an amount"},
+                    {"Esc", "put it back"}};
+        return {{"Mouse", "move"}, {"Shift", "up / down"}, {"Ctrl", "grid"}, {"Alt+Shift", "surface"},
+                {"Ctrl+Alt", "vertex"}, {"Alt", carried}, {"X Y Z", "axis"}, {"Esc", "put it back"}};
     }
     if (g_dragging && g_axis >= 0)
-        return {{"Mouse", "moves it along the arrow"}, {"Ctrl", "snap to 25"}, {"Esc", "put it back"}};
+        return {{"Mouse", "moves it along the arrow"}, {"Ctrl", "grid"}, {"Ctrl+Shift", "world grid"},
+                {"Digits", "an amount"}, {"Esc", "put it back"}};
     if (g_dragging)
-        return {{"Mouse", "move"}, {"Shift", "up / down"}, {"Wheel", "push / pull"}, {"Ctrl", "snap"},
+        return {{"Mouse", "move"}, {"Shift", "up / down"}, {"Wheel", "push / pull"}, {"Ctrl", "grid"},
+                {"Ctrl+Shift", "world grid"}, {"Alt+Shift", "surface"}, {"Ctrl+Alt", "vertex"}, {"X Y Z", "axis"},
                 {"Esc", "put it back"}};
     if (MovableNode() >= 0)
         return {{"Drag", "move"}, {"Arrows", "one axis"}, {"WASDQE", "nudge"}, {"Z X", "turn 15\xC2\xB0"},
@@ -2774,6 +3354,10 @@ std::vector<std::pair<std::string, std::string>> KeysNow()
     if (g_nodeSelected)
         return {{"WASD", "fly"}, {"RMB", "look"}, {"Click", "select another"}, {"Esc", "deselect"},
                 {"Outliner", "double-click: go to"}, {"F1", "help"}};
+    if (HaveSelection() && !Transform::FlyAlways())
+        return {{"Drag", "move"}, {"Handles", Transform::ModeName(GizmoMode())}, {"W E R", "move / rotate / scale"},
+                {"RMB+WASD", "fly"}, {"Arrows", "nudge"}, {"Z X", "turn"}, {"G", "drop"}, {"Alt+G", "modal"},
+                {"Ctrl+D", "copy"}, {"Ctrl+Shift+D", "repeat"}, {"F", "frame"}, {"Esc", "deselect"}};
     if (HaveSelection() && !Primary())
         return {{"Drag", "move"}, {"Arrows", "one axis"}, {"WASDQE", "nudge"}, {"Z X", "turn"}, {"[ ]", "scale"},
                 {"G", "drop"}, {"Ctrl+click", "remove a piece"}, {"Ctrl+D", "copy"}, {"Del", "hide"}, {"Home", "reset"},
@@ -2781,6 +3365,10 @@ std::vector<std::pair<std::string, std::string>> KeysNow()
     if (HaveSelection())
         return {{"Drag", "move"}, {"Arrows", "one axis"}, {"WASDQE", "nudge"}, {"Z X", "turn"}, {"G", "drop"},
                 {"Ctrl+D", "copy"}, {"Del", "hide"}, {"Home", "reset"}, {"Esc", "deselect"}};
+    if (!Transform::FlyAlways())
+        return {{"RMB+WASD", "fly"}, {"RMB+Q E", "down / up"}, {"Shift", "fast"}, {"Wheel", "dolly"},
+                {"Click", "select"}, {"W E R / Space", "tool"}, {"B", "add"}, {"N", "place"}, {"Ctrl+S", "save"},
+                {"Ctrl+Z/Y", "undo / redo"}, {"F1", "help"}};
     return {{"WASD", "fly"}, {"Q E", "down / up"}, {"Shift", "fast"}, {"RMB", "look"}, {"Wheel", "dolly"},
             {"Click", "select"}, {"B", "add"}, {"N", "place"}, {"Ctrl+S", "save"}, {"Ctrl+Z/Y", "undo / redo"},
             {"F1", "help"}};
@@ -3200,19 +3788,25 @@ void PlaceFromBrowser(V3 at)
 }
 
 // Ctrl+D: the selection copied, the copies set beside it (as far across the view as it is wide) and selected.
-void Duplicate(const Frame& frame)
+// `repeat` (Ctrl+Shift+D - level_editor_transform.h): the copies go where the last copies' move and turn put them from
+// their source (each copy turned as much), else beside it. One undo step either way.
+bool DuplicateNode(const Frame& frame, const Transform::RepeatStep* repeat);
+void Duplicate(const Frame& frame, const Transform::RepeatStep* repeat = nullptr)
 {
     UndoStep step;
     step.kind = UndoStep::kMade;
     step.exist = false;
     V3 right = Normalize({frame.right.x, 0.0f, frame.right.z});
     std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
+    V3 sourcePos = SelectionPos();
+    float sourceHeading = SelectionHeading();
     if (MovableNode() >= 0) {
-        Hud::Message("Level nodes can't be copied yet");
+        DuplicateNode(frame, repeat);
         return;
     }
     if (!objects.empty()) {
         std::vector<Obj::CCompositeObject*> made;
+        std::vector<uint32_t> sources;
         for (Obj::CCompositeObject* object : objects) {
             if (!Objects::CanCopy(object->m_id) && !Objects::IsCopy(object->m_id))
                 continue;
@@ -3223,7 +3817,9 @@ void Duplicate(const Frame& frame)
             }
             OrientedBox box;
             float width = Objects::ModelBox(object, &box) ? std::max(box.max.x - box.min.x, box.max.z - box.min.z) : 50.0f;
-            Obj::CCompositeObject* copy = Objects::MakeCopy(source, Objects::PosOf(object) + right * (width + 20.0f));
+            V3 at = repeat ? Transform::RepeatTarget(Objects::PosOf(object), *repeat)
+                           : Objects::PosOf(object) + right * (width + 20.0f);
+            Obj::CCompositeObject* copy = Objects::MakeCopy(source, at);
             if (!copy)
                 continue;
             Objects::State state = Objects::Save(object);
@@ -3231,8 +3827,16 @@ void Duplicate(const Frame& frame)
             state.pos = copy->m_pos;
             Objects::Restore(state);
             made.push_back(copy);
-            step.copies.push_back({copy->m_id, source, Objects::Save(copy)});
+            sources.push_back(source);
         }
+        // (repeated: the copies turned as the last ones were, about the first copy - then their places noted)
+        if (repeat && repeat->turn != 0.0f && !made.empty()) {
+            V3 pivot = Objects::PosOf(made.front());
+            for (Obj::CCompositeObject* copy : made)
+                Objects::TurnAbout(copy, pivot, repeat->turn);
+        }
+        for (size_t i = 0; i < made.size(); ++i)
+            step.copies.push_back({made[i]->m_id, sources[i], Objects::Save(made[i])});
         if (made.empty()) {
             Hud::Message("Only level objects, game objects, peds and cars can be copied");
             return;
@@ -3261,7 +3865,13 @@ void Duplicate(const Frame& frame)
         }
         Scenery::SetSelection(copies);
         float width = std::fabs((max.x - min.x) * right.x) + std::fabs((max.z - min.z) * right.z);
-        Scenery::MoveTo(Scenery::Pivot() + right * (width + 20.0f));
+        if (repeat) {
+            Scenery::MoveTo(Transform::RepeatTarget(Scenery::Pivot(), *repeat));
+            if (repeat->quarters)
+                Scenery::Turn(repeat->quarters);
+        } else {
+            Scenery::MoveTo(Scenery::Pivot() + right * (width + 20.0f));
+        }
         Scenery::Commit();
         step.sectors = copies;
     } else {
@@ -3271,9 +3881,102 @@ void Duplicate(const Frame& frame)
         return;
     }
     PushUndo(step);
-    Hud::Message("Duplicated - drag the copy where you want it");
-    NoteAction("duplicated (Ctrl+D): %s", DescribeSelection().c_str());
+    std::vector<uint32_t> made;
+    for (const MadeCopy& copy : step.copies)
+        made.push_back(copy.name);
+    for (uint32_t sector : step.sectors)
+        made.push_back(sector);
+    Transform::NoteDuplicate(&Transform::LastDuplicate(),
+                             step.sectors.empty() ? Transform::Kind::Objects : Transform::Kind::Scenery, made, sourcePos,
+                             sourceHeading);
+    Hud::Message(repeat ? "Duplicated again (Ctrl+Shift+D repeats it)"
+                        : "Duplicated - move / turn the copy, then Ctrl+Shift+D repeats that");
+    NoteAction("duplicated (%s): %s", repeat ? "Ctrl+Shift+D" : "Ctrl+D", DescribeSelection().c_str());
 }
+
+// A node the editor added (a spawn, a team spawn, a crown, a light, a sound emitter, a proximity node) copied with its
+// settings and a fresh name, beside it or - repeated - where the last copy's move and turn say; one undo step. A level's
+// own nodes, chain points, flag sets (named by the game) and trigger volumes (their own module's) aren't copied yet.
+bool DuplicateNode(const Frame& frame, const Transform::RepeatStep* repeat)
+{
+    NodeEdit::Values values;
+    if (!NodeValues(&values))
+        return false;
+    NodeCreate::List list = NodeCreate::Current();
+    int at = -1;
+    for (int i = 0; i < static_cast<int>(list.size()); ++i) {
+        if (NodeCreate::Checksum(list[i].name) == g_nodeName)
+            at = i;
+    }
+    NodeCreate::Kind kind;
+    if (at < 0 || list[at].owned || list[at].like || !list[at].links.empty() || !NodeCreate::KindOf(list[at], &kind) ||
+        kind == NodeCreate::Kind::FlagSet) {
+        Hud::Message("Only nodes the editor added (spawns, crowns, lights, sounds, proximity nodes) can be copied yet");
+        return false;
+    }
+    if (const char* why = NodeCreate::WhyNot(kind, NodeCreate::Team::Red)) {
+        Hud::Message(why, 5.0);
+        return false;
+    }
+    NodeCreate::Spec spec = list[at];
+    V3 right = Normalize({frame.right.x, 0.0f, frame.right.z});
+    spec.name = NodeCreate::FreshName(NodeCreate::NameStem(kind), NodeCreate::NameTaken);
+    spec.pos = repeat ? Transform::RepeatTarget(values.pos, *repeat) : values.pos + right * 64.0f;
+    spec.angles = values.angles;
+    if (repeat && repeat->turn != 0.0f)
+        spec.angles =
+            NodeEdit::WithHeading(spec.angles, NodeEdit::HeadingDegrees(spec.angles) + repeat->turn * 180.0f / kPi);
+    std::string message;
+    if (!NodeCreate::Create(spec, -1, &message)) {
+        Hud::Message(message, 5.0);
+        return false;
+    }
+    UndoStep step;
+    step.kind = UndoStep::kAdded;
+    step.exist = false;
+    step.added.push_back(spec);
+    step.addedAt.push_back(NodeCreate::IndexOf(NodeCreate::Current(), spec.name));
+    PushUndo(step);
+    g_pickables.clear();
+    g_hoverNode = -1;
+    int index = Nodes::Find(NodeCreate::Checksum(spec.name));
+    if (index >= 0)
+        SelectNodeOnly(index);
+    Transform::NoteDuplicate(&Transform::LastDuplicate(), Transform::Kind::Node, {NodeCreate::Checksum(spec.name)},
+                             values.pos, values.angles.y);
+    Hud::Message("Copied as " + spec.name +
+                 (repeat ? std::string(" (Ctrl+Shift+D repeats it)")
+                         : std::string(" - move / turn it, then Ctrl+Shift+D repeats that")));
+    NoteAction("duplicated node %s", spec.name.c_str());
+    return true;
+}
+
+// Ctrl+Shift+D: the last Ctrl+D (or repeat) done again from its copies, still selected - as far again and turned as
+// much (level_editor_transform.h).
+void RepeatDuplicate(const Frame& frame)
+{
+    Transform::Kind kind = Transform::Kind::None;
+    std::vector<uint32_t> ids;
+    std::vector<Obj::CCompositeObject*> objects = SelectedObjects();
+    if (MovableNode() >= 0) {
+        kind = Transform::Kind::Node;
+        ids.push_back(g_nodeName);
+    } else if (!objects.empty()) {
+        kind = Transform::Kind::Objects;
+        for (Obj::CCompositeObject* object : objects)
+            ids.push_back(object->m_id);
+    } else if (Scenery::HasSelection()) {
+        kind = Transform::Kind::Scenery;
+        ids = Scenery::Selection();
+    }
+    Transform::RepeatStep repeat;
+    if (!Transform::RepeatFor(Transform::LastDuplicate(), kind, ids, SelectionPos(), SelectionHeading(), &repeat)) {
+        Hud::Message("Ctrl+Shift+D repeats a copy: Ctrl+D first, move / turn the copy, then Ctrl+Shift+D", 4.0);
+        return;
+    }
+    Duplicate(frame, &repeat);
+}
+
 
 // An invisible wall's collision switched off / on (level_editor_walls.h: the game's CSector::SetActive) - Delete, Delete
 // again, the Inspector's Delete wall / Restore; one undo step.
@@ -3436,6 +4139,7 @@ void FocusOnSelection()
 {
     if (!HaveSelection())
         return;
+    g_freeCamera = false; // (the camera follows the selection again)
     V3 target = TargetOf();
     V3 back = g_pos - target;
     float distance = std::sqrt(Dot(back, back));
@@ -4207,6 +4911,68 @@ void ApplyUiRequests(V3 dir, bool haveRay, const Frame& frame)
     }
 }
 
+// The transform tools' keys (level_editor_transform.h): the modes (fly_always=0: W / E / R while the right button isn't
+// held; both: Space cycles - with fly_always=1 only with a selection, Space flying up without one), ` World / Local,
+// Alt+G the modal transform, F (fly_always=0) frames the selection again.
+void TransformKeys(const uint8_t* keys, bool ctrl, bool shift, bool alt, const Mouse& input, V3 dir, bool haveRay,
+                   const Frame& frame)
+{
+    static bool wKey, eKey, rKey, spaceKey, graveKey, gKey, fKey;
+    bool w = Pressed(keys, SDL_SCANCODE_W, &wKey), e = Pressed(keys, SDL_SCANCODE_E, &eKey),
+         r = Pressed(keys, SDL_SCANCODE_R, &rKey), space = Pressed(keys, SDL_SCANCODE_SPACE, &spaceKey),
+         grave = Pressed(keys, SDL_SCANCODE_GRAVE, &graveKey), g = Pressed(keys, SDL_SCANCODE_G, &gKey),
+         f = Pressed(keys, SDL_SCANCODE_F, &fKey);
+    if (g_dragging || g_browser.open || ctrl || g_fieldEditing)
+        return;
+    Transform::Settings& settings = Transform::Current();
+    Transform::Mode before = settings.mode;
+    bool always = Transform::FlyAlways();
+    if (!always && !input.right && !alt && !shift) {
+        if (w)
+            settings.mode = Transform::Mode::Move;
+        if (e)
+            settings.mode = Transform::Mode::Rotate;
+        if (r)
+            settings.mode = Transform::Mode::Scale;
+    }
+    if (space && !input.right && !alt && (!always || HaveSelection()))
+        settings.mode = Transform::NextMode(settings.mode);
+    if (settings.mode != before) {
+        const char* why = settings.mode == Transform::Mode::Rotate && HaveSelection() && GizmoMode() != settings.mode
+                              ? " - this selection doesn't turn (a chain's point)"
+                          : settings.mode == Transform::Mode::Scale && HaveSelection() && GizmoMode() != settings.mode
+                              ? " - only scenery and objects with a model scale"
+                              : "";
+        Hud::Message(std::string("Tool: ") + Transform::ModeName(settings.mode) + why);
+    }
+    if (grave && !alt) {
+        settings.space = settings.space == Transform::Space::World ? Transform::Space::Local : Transform::Space::World;
+        Hud::Message(settings.space == Transform::Space::World ? "World space: the gizmo along the world's axes (`)"
+                                                               : "Local space: the gizmo along the selection's own axes (`)");
+    }
+    if (f && !always && !alt && HaveSelection() && !input.right) {
+        g_freeCamera = false;
+        FocusOnSelection();
+    }
+    // Alt+G: the tool's transform without holding the mouse (Blender's G / R / S).
+    if (g && alt && HaveSelection() && haveRay) {
+        g_axis = -1;
+        g_dragMode = GizmoMode();
+        g_modal = true;
+        g_typed = {};
+        g_dragging = true;
+        g_dragStart = SelectionPos();
+        g_pressX = input.x;
+        g_pressY = input.y;
+        g_dragMoved = true;
+        BeginChange();
+        StartDrag(g_pos, dir, false, frame, input.x, input.y);
+        Hud::Message(std::string(Transform::ModeName(g_dragMode)) +
+                     ": the mouse moves it - X / Y / Z an axis, type an amount; a click or Enter applies, Esc puts it back",
+                     4.0);
+    }
+}
+
 } // namespace
 
 void Update()
@@ -4270,11 +5036,23 @@ void Update()
         if (Triggers::Resizing()) {
             Triggers::EndResize(); // (kept as far as it went - Ctrl+Z puts the size back)
         } else if (g_dragging) {
-            PlaceSelection(g_dragStart);
+            // (a turn, a scale or an object stood on a slope: the step taken when it started put back -
+            // level_editor_transform.h)
+            if (g_hasPending && (g_dragMode != Transform::Mode::Move || g_pendingForced)) {
+                Carry::Disarm();
+                Restore(g_pending);
+            } else {
+                PlaceSelection(g_dragStart);
+            }
             Settle();
             g_dragging = false;
             g_axis = -1;
             g_hasPending = false;
+            g_pendingForced = false;
+            g_dragMode = Transform::Mode::Move;
+            g_modal = false;
+            g_typed = {};
+            g_vertexHave = false;
             FocusOnSelection();
             Hud::Message("Put back");
         } else if (g_confirmReset) {
@@ -4336,8 +5114,14 @@ void Update()
         // Ctrl+R: an autosave restored in place of the current layout; Ctrl+Shift+R: it's discarded.
         if (Pressed(keys, SDL_SCANCODE_R, &rKey))
             AnswerAutosave(shift);
-        if (Pressed(keys, SDL_SCANCODE_D, &dKey))
-            Duplicate(FrameFromYawPitch(g_yaw, g_pitch));
+        // (Ctrl+Shift+D: the last Ctrl+D repeated - its copies' move and turn since made again from them,
+        // level_editor_transform.h)
+        if (Pressed(keys, SDL_SCANCODE_D, &dKey)) {
+            if (shift)
+                RepeatDuplicate(FrameFromYawPitch(g_yaw, g_pitch));
+            else
+                Duplicate(FrameFromYawPitch(g_yaw, g_pitch));
+        }
         if (HaveSelection())
             FocusOnSelection();
     } else {
@@ -4517,7 +5301,10 @@ void Update()
         }
     }
 
+    g_cursorX = backX;
+    g_cursorY = backY;
     ApplyUiRequests(dir, haveRay, frame);
+    TransformKeys(keys, ctrl, shift, alt, input, dir, haveRay, frame);
 
     if (g_browser.open) {
         // The browser takes the arrows, Enter and F (the selection's keys rest meanwhile).
@@ -4548,12 +5335,31 @@ void Update()
         // Up/Down) down/up - and the camera follows it.
         V3 forward = Normalize({-frame.back.x, 0.0f, -frame.back.z});
         V3 right = Normalize({frame.right.x, 0.0f, frame.right.z});
-        int f = (keys[SDL_SCANCODE_W] ? 1 : 0) - (keys[SDL_SCANCODE_S] ? 1 : 0);
-        int r = (keys[SDL_SCANCODE_D] ? 1 : 0) - (keys[SDL_SCANCODE_A] ? 1 : 0);
-        int u = (keys[SDL_SCANCODE_E] || keys[SDL_SCANCODE_R] || keys[SDL_SCANCODE_PAGEUP] ? 1 : 0) -
+        int f, r, u;
+        if (Transform::FlyAlways()) {
+            f = (keys[SDL_SCANCODE_W] ? 1 : 0) - (keys[SDL_SCANCODE_S] ? 1 : 0);
+            r = (keys[SDL_SCANCODE_D] ? 1 : 0) - (keys[SDL_SCANCODE_A] ? 1 : 0);
+            u = (keys[SDL_SCANCODE_E] || keys[SDL_SCANCODE_R] || keys[SDL_SCANCODE_PAGEUP] ? 1 : 0) -
                 (keys[SDL_SCANCODE_Q] || keys[SDL_SCANCODE_F] || keys[SDL_SCANCODE_PAGEDOWN] ? 1 : 0);
-        if (ctrl)
-            f = r = u = 0; // (Ctrl+S, Ctrl+D)
+        } else {
+            // ([editor] fly_always=0 - level_editor_transform.h: the arrow keys nudge it, Page Up / Down up / down;
+            // W A S D / Q E fly the camera while the right button is held - away from the selection, F frames it again)
+            f = (keys[SDL_SCANCODE_UP] ? 1 : 0) - (keys[SDL_SCANCODE_DOWN] ? 1 : 0);
+            r = (keys[SDL_SCANCODE_RIGHT] ? 1 : 0) - (keys[SDL_SCANCODE_LEFT] ? 1 : 0);
+            u = (keys[SDL_SCANCODE_PAGEUP] ? 1 : 0) - (keys[SDL_SCANCODE_PAGEDOWN] ? 1 : 0);
+            if (input.right && !ctrl && !g_dragging) {
+                FlyInput fly = {(keys[SDL_SCANCODE_W] ? 1 : 0) - (keys[SDL_SCANCODE_S] ? 1 : 0),
+                                (keys[SDL_SCANCODE_D] ? 1 : 0) - (keys[SDL_SCANCODE_A] ? 1 : 0),
+                                (keys[SDL_SCANCODE_E] || keys[SDL_SCANCODE_SPACE] ? 1 : 0) -
+                                    (keys[SDL_SCANCODE_Q] ? 1 : 0)};
+                if (fly.forward || fly.right || fly.up) {
+                    g_freeCamera = true;
+                    g_pos = Fly(g_pos, frame, fly, static_cast<float>(g_speed * boost * seconds));
+                }
+            }
+        }
+        if (ctrl || alt)
+            f = r = u = 0; // (Ctrl+S, Ctrl+D; Alt+G / Alt+H...)
         if ((f || r || u) && !g_dragging && !g_fieldEditing) {
             if (!g_keyMoving)
                 BeginChange();
@@ -4600,26 +5406,28 @@ void Update()
             }
         }
         // G: down onto the ground below it.
-        if (Pressed(keys, SDL_SCANCODE_G, &dropKey) && !g_dragging)
+        if (Pressed(keys, SDL_SCANCODE_G, &dropKey) && !g_dragging && !alt)
             DropSelection();
         // The wheel: nearer / further - or, while dragging, the selection pushed away / pulled back (a tenth of its
         // distance a notch).
         if (input.wheel && g_dragging) {
             V3 pos = SelectionPos();
             g_dragPush += static_cast<float>(input.wheel) * std::max(20.0f, std::sqrt(Dot(pos - g_pos, pos - g_pos)) * 0.1f);
+        } else if (input.wheel && g_freeCamera) {
+            g_pos = g_pos - frame.back * static_cast<float>(kWheelStep * boost * input.wheel);
         } else if (input.wheel) {
             g_orbitDistance = static_cast<float>(
                 std::max(static_cast<double>(kMinOrbit),
                          std::min(static_cast<double>(kMaxOrbit), g_orbitDistance * std::pow(0.85, input.wheel))));
         }
         // The camera at that distance from it (held still while the mouse drags it or a trigger's face).
-        if (!g_dragging && !Triggers::Resizing())
+        if (!g_dragging && !Triggers::Resizing() && !g_freeCamera)
             g_pos = TargetOf() + frame.back * g_orbitDistance;
     } else if (!haveSelection) {
         // Flying: W/A/S/D along the view, Q/E down/up, the wheel forward / back, - / = the speed (not while the
         // browser has the keys: its F, arrows and Enter).
         g_keyMoving = false;
-        if (!g_browser.open && !ctrl) {
+        if (!g_browser.open && !ctrl && (Transform::FlyAlways() || input.right)) {
             FlyInput fly = {(keys[SDL_SCANCODE_W] ? 1 : 0) - (keys[SDL_SCANCODE_S] ? 1 : 0),
                             (keys[SDL_SCANCODE_D] ? 1 : 0) - (keys[SDL_SCANCODE_A] ? 1 : 0),
                             (keys[SDL_SCANCODE_E] || keys[SDL_SCANCODE_SPACE] ? 1 : 0) - (keys[SDL_SCANCODE_Q] ? 1 : 0)};
@@ -4634,7 +5442,7 @@ void Update()
         if (speed)
             g_speed = static_cast<float>(std::max(50.0, std::min(20000.0, g_speed * std::pow(1.5, speed))));
     }
-    if (g_browser.open && haveSelection && !g_dragging)
+    if (g_browser.open && haveSelection && !g_dragging && !g_freeCamera)
         g_pos = TargetOf() + frame.back * g_orbitDistance;
 
     // ([features] debug_editor: once a second, what the mouse is seen as)
@@ -4644,7 +5452,8 @@ void Update()
             input.windowWidth, input.windowHeight, haveRay ? 1 : 0, dir.x, dir.y, dir.z, g_hoverAxis);
 
     // Alt while moving scenery: what it carries (level_editor_carry.h) put back and left there for this move.
-    if (alt && (g_dragging || g_keyMoving) && Carry::Count() > 0) {
+    // (not with Ctrl or Shift: Ctrl+Alt / Alt+Shift snap to a vertex / a surface - level_editor_snap.h)
+    if (alt && !ctrl && !shift && (g_dragging || g_keyMoving) && Carry::Count() > 0) {
         Carry::Leave();
         Hud::Message("Alt: what stood on it stays where it was (for this move)");
     }
@@ -4655,13 +5464,33 @@ void Update()
     Faces::Hover(g_pos, Normalize(dir), haveRay && !g_dragging && g_hoverAxis < 0); // (map3: Faces mode's hover)
     // Dragging, or what's under the cursor (an arrow first, then an object or scenery - the nearer).
     if (g_dragging && HaveSelection() && haveRay) {
-        if (!g_dragMoved && std::fabs(input.x - g_pressX) + std::fabs(input.y - g_pressY) >= 4.0f)
+        if (!g_dragMoved && (g_modal || std::fabs(input.x - g_pressX) + std::fabs(input.y - g_pressY) >= 4.0f))
             g_dragMoved = true;
-        if (g_axis < 0 && shift != g_dragVertical)
-            StartDrag(g_pos, dir, shift, frame, input.x, input.y);
-        if (g_dragMoved)
-            Drag(g_pos, dir, input.x, input.y, ctrl || g_snapAlways);
+        // (an axis typed - X / Y / Z, level_editor_transform.h: a move starts again from where it began, along it)
+        if (g_typed.axisChanged) {
+            g_typed.axisChanged = false;
+            if (g_dragMode == Transform::Mode::Move) {
+                PlaceSelection(g_dragStart);
+                g_axis = g_typed.axis;
+                StartDrag(g_pos, dir, false, frame, input.x, input.y);
+                g_dragMoved = true;
+            }
+        }
+        // (Shift: up / down - not with Ctrl or Alt, which pick what it snaps to)
+        bool vertical = shift && !ctrl && !alt;
+        if (g_dragMode == Transform::Mode::Move && g_axis < 0 && vertical != g_dragVertical)
+            StartDrag(g_pos, dir, vertical, frame, input.x, input.y);
+        if (g_dragMoved || g_typedApply || !g_typed.text.empty())
+            Drag(g_pos, dir, frame, input.x, input.y, SnappingNow(ctrl, shift, alt));
     }
+    // Enter (typed values) or - Alt+G's modal transform - a click: applied.
+    if (g_dragging && (g_typedApply || (g_modal && input.leftPresses))) {
+        EndDrag();
+        FocusOnSelection();
+        input.leftPresses = 0;
+        input.leftReleases = 0;
+    }
+    g_typedApply = false;
     if (!g_dragging) {
         g_hoverAxis = haveRay && HaveSelection() ? ArrowAt(frame, backX, backY) : -1;
         // (a selected trigger volume's resize handle - after the arrows: level_editor_triggers.h)
@@ -4857,13 +5686,17 @@ void Update()
         if (DebugEnabled())
             Log("level editor: click - selected: %s", DescribeSelection().c_str());
         if (drag) {
+            // (on a Rotate / Scale handle: that tool - level_editor_transform.h; else it moves)
+            g_dragMode = g_axis >= 0 ? GizmoMode() : Transform::Mode::Move;
+            g_modal = false;
+            g_typed = {};
             g_dragging = true;
             g_dragStart = SelectionPos();
             g_pressX = input.x;
             g_pressY = input.y;
             g_dragMoved = false;
             BeginChange();
-            StartDrag(g_pos, dir, shift && g_axis < 0, frame, input.x, input.y);
+            StartDrag(g_pos, dir, shift && !ctrl && !alt && g_axis < 0, frame, input.x, input.y);
         }
     }
     // Let go: the selection becomes the frame of reference (the camera turns to it, at the distance it is).
@@ -4939,16 +5772,18 @@ void Draw()
         AddLine(g_markGround - V3{size, 0.0f, 0.0f}, g_markGround + V3{size, 0.0f, 0.0f}, frame, kMark, &lines);
         AddLine(g_markGround - V3{0.0f, 0.0f, size}, g_markGround + V3{0.0f, 0.0f, size}, frame, kMark, &lines);
     }
-    // The move arrows (while dragging along one: that one only).
-    if (HaveSelection() && (!g_dragging || g_axis >= 0)) {
-        constexpr uint32_t kColours[3] = {0xFFFF4040, 0xFF40E040, 0xFF4080FF};
-        V3 base = SelectionPos();
-        float length = ArrowLength();
-        for (int axis = 0; axis < 3; ++axis) {
-            if (g_dragging && axis != g_axis)
+    // The gizmo (level_editor_transform.h): Move's arrows, Rotate's ring, Scale's cubes - while dragging with one, that
+    // one only (a modal Rotate / Scale: the whole gizmo).
+    if (HaveSelection() && (!g_dragging || g_axis >= 0 || g_dragMode != Transform::Mode::Move)) {
+        Transform::Gizmo gizmo = GizmoNow();
+        for (const Transform::Segment& segment : Transform::GizmoSegments(gizmo)) {
+            if (g_dragging && g_axis >= 0 && segment.handle != g_axis)
                 continue;
-            bool lit = axis == g_hoverAxis || axis == g_axis;
-            AddArrow(base, base + kAxes[axis] * length, frame, lit ? 0xFFFFFF40 : kColours[axis], &lines);
+            uint32_t colour = Transform::HandleColour(segment.handle, segment.handle == g_hoverAxis || segment.handle == g_axis);
+            if (segment.arrow)
+                AddArrow(segment.a, segment.b, frame, colour, &lines);
+            else
+                AddLine(segment.a, segment.b, frame, colour, &lines, segment.handle == 1 && gizmo.mode == Transform::Mode::Rotate ? 3 : 1);
         }
     }
     // The UI: the lines through ImGui's draw list, with the panels (level_editor_ui.h).

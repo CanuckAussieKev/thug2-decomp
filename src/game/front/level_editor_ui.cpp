@@ -23,6 +23,7 @@
 #include "game/front/level_editor_triggers.h"
 #include "game/front/level_editor_scale.h"
 #include "game/front/level_editor_scenery.h"
+#include "game/front/level_editor_transform.h"
 #include "game/front/level_editor_ui_backend.h"
 #include "game/front/level_editor_ui_fonts.h"
 #include "game/front/level_editor_ui_layout.h"
@@ -423,11 +424,17 @@ void Toolbar(const Model& model)
         ImGui::SameLine(0.0f, 2.0f * g_scale);
     }
     ImGui::SameLine(0.0f, 14.0f * g_scale);
+    // The transform tools (level_editor_transform.h): Move / Rotate / Scale, World / Local, the pivot.
+    Transform::ToolbarTools(g_scale);
+    ImGui::SameLine(0.0f, 10.0f * g_scale);
     bool snap = model.snapAlways;
-    if (ImGui::Checkbox("Snap 25", &snap))
+    if (ImGui::Checkbox("Snap", &snap))
         Ask(Request::kSnapAlways, snap ? 1 : 0);
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Moves snap to a 25-unit grid (Ctrl while moving does the same)");
+        ImGui::SetTooltip("Moves snap without a key - to the Snap to list's choice (grid steps from where it was by\n"
+                          "default). While dragging: Ctrl the grid, Ctrl+Shift the world's grid, Alt+Shift a surface,\n"
+                          "Ctrl+Alt a vertex; turns snap to the angle step, scales to tenths");
+    Transform::ToolbarSnap(g_scale);
     // Carrying (level_editor_carry.h; [editor] carry= in the ini).
     ImGui::SameLine(0.0f, 10.0f * g_scale);
     bool carry = model.carry;
@@ -1270,7 +1277,7 @@ void Help(const Model& model)
         const char* what;
     };
     static const Row kRows[] = {
-        {"Flying", "W A S D", "move"},
+        {"Flying", "W A S D", "move - while the right button is held (fly_always=1: always)"},
         {"", "Q / E (Space)", "down / up"},
         {"", "Shift", "faster"},
         {"", "Right mouse", "look (orbits the selection)"},
@@ -1316,10 +1323,27 @@ void Help(const Model& model)
         {"", "Proximity node", "(its Inspector) the scripts it runs on entering / leaving, sphere or box, drag its dots "
                                "to resize; Home puts it back"},
         {"", "Horse spot", "(a spawn's Inspector) restart_types Horse - an H on its gizmo"},
-        {"Moving", "Drag", "moves it (Shift: up / down; wheel: push / pull; Ctrl or Snap 25: snap to 25)"},
+        {"Moving", "Drag", "moves it (Shift: up / down; wheel: push / pull; Ctrl: grid steps from where it was, "
+                           "Ctrl+Shift: the world's grid, Alt+Shift: onto the surface under the cursor, Ctrl+Alt: its "
+                           "corner onto a vertex; the toolbar's Snap does it without a key)"},
         {"", "Drag an arrow", "along that axis only"},
-        {"", "W A S D / Q E", "nudge it"},
-        {"", "Z / X", "turn (objects and nodes 15\xC2\xB0, scenery a quarter)"},
+        {"Tools", "W / E / R", "Move / Rotate / Scale - while the right button is up (fly_always=1: no letter keys); "
+                               "Space cycles them; the toolbar too"},
+        {"", "RMB + W A S D / Q E", "fly (with something selected the camera leaves it: F frames it again); "
+                                    "fly_always=1 in the ini (or Tools...): W A S D fly / nudge without the button"},
+        {"", "Arrow keys / PgUp PgDn", "nudge the selection (fly_always=1: W A S D / Q E)"},
+        {"", "Rotate's ring", "drag to turn (objects and nodes freely, Ctrl: the rotation snap's steps; scenery by "
+                              "quarter turns - the engine's)"},
+        {"", "Scale's cubes", "an axis' cube scales along it, the centre all three (Ctrl: tenths)"},
+        {"", "`", "World / Local: the gizmo along the world's axes or the selection's own"},
+        {"", "Tools...", "the pivot (Base, Centre, Own), the rotation snap (5\xC2\xB0 - 90\xC2\xB0), Snap to, Align to "
+                         "slope; the grid's size beside Snap (1 - 100)"},
+        {"", "While dragging", "X / Y / Z: that axis (again: free); digits, - and .: an exact amount (Move units, "
+                               "Rotate degrees, Scale a factor); Backspace erases, Enter applies, Esc puts it back"},
+        {"", "Alt+G", "the tool's transform without holding the mouse (Blender's G / R / S): a click or Enter applies"},
+        {"", "Ctrl+D, Ctrl+Shift+D", "copy; then move / turn the copy and Ctrl+Shift+D repeats that from it - a row "
+                                     "(turned: an arc) of benches, lamps, ledges; one undo step each"},
+        {"", "Z / X", "turn (objects and nodes by the rotation snap - 15\xC2\xB0 -, scenery a quarter)"},
         {"", "[ / ]", "scale scenery (about its bottom) or an object down / up 10% (Shift: 1%), 0.25x to 4x"},
         {"", "Alt+[ / ]", "stretch it along the axis the camera faces most - or the Inspector's Scale X / Y / Z"},
         {"", "G", "drops it onto the ground"},

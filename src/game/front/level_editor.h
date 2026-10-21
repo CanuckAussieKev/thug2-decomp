@@ -76,7 +76,12 @@ class CScript;
 //                             left, the keys at the bottom, a message line, and a panel for the help (F1) and the
 //                             browser (B), made of the game's screen elements
 // The controls (F1 lists them in the game):
-//   - Flying: W A S D, Q / E down / up, Shift faster, the right mouse button looks, the wheel goes forward / back.
+//   - Flying: W A S D, Q / E down / up while the right mouse button is held (it looks too; [editor] fly_always=1: without
+//     it, as the editor first was), Shift faster, the wheel goes forward / back.
+//   - Tools (level_editor_transform.h, level_editor_snap.h): W / E / R (right button up) or Space pick Move / Rotate /
+//     Scale - their gizmos' arrows, ring and cubes; ` World / Local; the toolbar's pivot, grid (1 - 100) and rotation
+//     snap; while dragging X / Y / Z and digits type exact amounts, Ctrl / Ctrl+Shift / Alt+Shift / Ctrl+Alt snap to the
+//     grid / the world's grid / a surface / a vertex; Alt+G a modal transform; Ctrl+Shift+D repeats the last duplicate.
 //   - Seeing (the UI): the Outliner lists the level's nodes by family (search; the chips show / hide a family, in
 //     the view too - kept in the ini as [editor] families=<bits>); a click on a row or a gizmo selects it (an
 //     object's or scenery's node selects the object / scenery; a flag's object selects the flag's node), a
