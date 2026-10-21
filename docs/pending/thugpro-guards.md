@@ -130,6 +130,7 @@ full-body pros) -> the whole appearance becomes appearance_custom_skater_male. L
   (nothing of ours names them). Found on the first run: File::Exist can't be asked about arbitrary paths (its disk
   side opens the file and a missing folder is the game's fatal file error) - the check now looks in the overlay, the
   loaded archives and the data folder itself.
+- After merging main (d01bba9): the same z_ma run again - 129 parts, logtricks over 1007 objects, no crash.
 - Not run: a THUGPRO part actually drawn (needs CREATE-A-SKATER with `thugpro_parts=2`, or a THUGPRO player), the guards
   and the sanitiser on real THUGPRO messages (online only), The Mall's scale (network games only).
 
