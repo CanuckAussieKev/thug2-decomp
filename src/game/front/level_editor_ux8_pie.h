@@ -32,7 +32,8 @@ struct State {
 };
 // Pixels from the centre before a slice is pointed at.
 constexpr float kDeadzone = 28.0f;
-// The slices: with a selection - Move, Rotate, Scale, Snap, Drop, Duplicate, Frame, Delete; without - Add, Place, Box
+// The slices: with a selection - Move, Rotate, Snap, Drop, Scale, Delete, Duplicate, Frame, Duplicate linked, Arrange
+// (UX7's); without - Add, Place, Box
 // select, Ruler, Walk, Simulate, Play, Trails. The view's: Lit, Unlit, Wireframe, Collision only, Collision, Trigger
 // volumes, Jump arcs, Top / perspective.
 std::vector<Item> ContextItems(bool haveSelection);

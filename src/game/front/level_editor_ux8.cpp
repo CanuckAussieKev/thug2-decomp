@@ -16,6 +16,7 @@
 #include "game/front/level_editor_overlays.h"
 #include "game/front/level_editor_playtest.h"
 #include "game/front/level_editor_transform.h"
+#include "game/front/level_editor_ui.h"
 #include "game/front/level_editor_ux8_pie.h"
 #include "hook/log.h"
 
@@ -433,7 +434,8 @@ void Update(Frame& f)
     // The pies.
     bool padOpen = f.pad.active && (f.pad.x || f.pad.y) && !g_pie.open;
     bool keyContext = Pressed(g_ids.pieContext), keyView = Pressed(g_ids.pieView);
-    if ((keyContext || keyView || padOpen) && !g_pie.open && !f.right && !f.dragging && !f.browser && !g_walking) {
+    if ((keyContext || keyView || padOpen) && !g_pie.open && !f.right && !f.dragging && !f.browser && !g_walking &&
+        Ui::Running()) { // (drawn by the UI: the old HUD has no pies)
         // ([editor] wasd_flies=1: a pie key that's also a fly key held flies)
         bool flying = Transform::FlyAlways() && !padOpen &&
                       (Held(f.keys, kFlyDown) || Held(f.keys, kFlyUp) || Held(f.keys, kForward) ||

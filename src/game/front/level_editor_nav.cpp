@@ -23,6 +23,13 @@ bool Clear(V3 from, V3 move, const Cast& cast)
         V3 a = {from.x, from.y + height, from.z};
         if (cast(a, a + dir * (length + kRadius), &hit))
             return false;
+        // (and a radius clear of walls along each axis it moves on, from where it gets to: a slanting move stops as far
+        // from a wall as a straight one)
+        V3 to = a + move;
+        if (move.x != 0.0f && cast(to, to + V3{move.x > 0.0f ? kRadius : -kRadius, 0.0f, 0.0f}, &hit))
+            return false;
+        if (move.z != 0.0f && cast(to, to + V3{0.0f, 0.0f, move.z > 0.0f ? kRadius : -kRadius}, &hit))
+            return false;
     }
     return true;
 }

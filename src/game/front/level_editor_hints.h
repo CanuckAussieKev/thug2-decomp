@@ -55,7 +55,7 @@ struct Hint {
 using KeyText = std::function<std::string(const char* id)>;
 
 // The hints for this state (at most kMaxHints).
-constexpr size_t kMaxHints = 13;
+constexpr size_t kMaxHints = 16;
 std::vector<Hint> Build(const Context& context, const KeyText& keyOf);
 // The first of a KeysText's alternatives ("Ctrl+Y / Ctrl+Shift+Z" -> "Ctrl+Y"; an Info's text as it is).
 std::string FirstKey(const std::string& keysText);

@@ -342,6 +342,7 @@ std::vector<Hint> Build(const Context& c, const KeyText& keyOf)
         b.Act("place", "place");
         b.Act("walk_mode", "walk");
         b.Act("simulate", "simulate");
+        b.Act("adjust_last", "adjust last");
         b.Act("play", "play");
         b.Act("command_search", "search");
         b.Act("help", "help");
@@ -368,7 +369,7 @@ std::vector<Hint> Build(const Context& c, const KeyText& keyOf)
         else
             b.Act("tool_cycle", "next tool");
         b.Fly(c, c.flyAlways ? "nudge" : "fly");
-        b.Acts({"nudge_forward", "nudge_left", "nudge_back", "nudge_right"}, "nudge");
+        b.Acts({"nudge_forward", "nudge_back", "nudge_left", "nudge_right"}, "nudge");
         if (c.chainPoint) {
             b.Act("lock", "whole chain / itself");
             b.Act("chain_insert", "insert a point");
@@ -378,6 +379,10 @@ std::vector<Hint> Build(const Context& c, const KeyText& keyOf)
         }
         b.Act("drop", "drop");
         b.Act("duplicate", "copy");
+        b.Act("linked_duplicate", "linked copy");
+        if (c.selection == Selection::Scenery)
+            b.Act("edge_rail", "rail along an edge");
+        b.Act("arrange_window", "arrange");
         b.Act("frame_selection", c.freeCamera ? "frame (follow again)" : "frame");
         b.Act("follow_selection", c.following ? "stop following" : "follow");
         b.Act("pie_context", "pie");

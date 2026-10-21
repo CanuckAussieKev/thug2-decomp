@@ -212,6 +212,17 @@ void KeyHint(const char* key, const char* what)
     ImGui::PopFont();
 }
 
+// (UX8's drawing: the UI's fonts and scale)
+Ux8::Fonts Ux8Fonts()
+{
+    Ux8::Fonts fonts;
+    fonts.ui = g_ui;
+    fonts.small = g_small;
+    fonts.mono = g_mono;
+    fonts.scale = g_scale;
+    return fonts;
+}
+
 bool Matches(const std::string& text, const char* filter)
 {
     if (!filter[0])
@@ -1274,17 +1285,6 @@ void Inspector(const Model& model)
     Goals::ListSection(g_mono, g_small);   // (Create-a-Goal goals of the edited copy - level_editor_goals.h)
     LevelSection(model.levelProps, g_mono, g_small, &g_requests); // (phase 6: level_editor_fields_ui.cpp)
     ImGui::End();
-}
-
-// (UX8's drawing: the UI's fonts and scale)
-Ux8::Fonts Ux8Fonts()
-{
-    Ux8::Fonts fonts;
-    fonts.ui = g_ui;
-    fonts.small = g_small;
-    fonts.mono = g_mono;
-    fonts.scale = g_scale;
-    return fonts;
 }
 
 void StatusBar(const Model& model)

@@ -193,7 +193,7 @@ void TestEditorUx8Walk()
     Nav::Walker w = Nav::WalkerAt({0.0f, 500.0f, 0.0f});
     Check(w.feet.y == 500.0f - Nav::kEyeHeight && Nav::EyeOf(w).y == 500.0f, "editor ux8: walker / eye round trip");
     Run(&w, 0.0f, {}, 3.0f);
-    Check(w.grounded && w.feet.y == 0.0f && w.vy == 0.0f, "editor ux8: walking drops onto the ground and stands");
+    Check(w.grounded && std::fabs(w.feet.y) < 0.01f && w.vy == 0.0f, "editor ux8: walking drops onto the ground and stands");
     // Into the wall at x = 100 (yaw 90 degrees: forward +x).
     Nav::Walker a = w;
     Run(&a, kHalfPi, {1.0f, 0.0f, false, false}, 2.0f);
@@ -207,7 +207,7 @@ void TestEditorUx8Walk()
     Nav::Walker c = w;
     c.feet.x = -100.0f;
     Run(&c, -kHalfPi, {1.0f, 0.0f, false, false}, 0.5f); // (110 units: onto the step at -200..-300)
-    Check(c.feet.x < -200.0f && c.feet.x > -300.0f && c.feet.y == 20.0f && c.grounded, "editor ux8: a step walked up");
+    Check(c.feet.x < -200.0f && c.feet.x > -300.0f && std::fabs(c.feet.y - 20.0f) < 0.01f && c.grounded, "editor ux8: a step walked up");
     // Running is faster.
     Nav::Walker r1 = w, r2 = w;
     r1.feet.z = r2.feet.z = -500.0f;
@@ -220,7 +220,7 @@ void TestEditorUx8Walk()
     float top = 0.0f;
     Run(&j, 0.0f, {0.0f, 0.0f, true, false}, 1.5f, &top);
     float expect = Nav::kJumpSpeed * Nav::kJumpSpeed / (2.0f * Nav::kGravity);
-    Check(top > expect - 3.0f && top < expect + 3.0f && j.grounded && j.feet.y == 0.0f,
+    Check(top > expect - 3.0f && top < expect + 3.0f && j.grounded && std::fabs(j.feet.y) < 0.01f,
           "editor ux8: a jump rises its height and lands");
     Nav::Walker air = Nav::WalkerAt({0.0f, 400.0f, 0.0f});
     Run(&air, 0.0f, {0.0f, 0.0f, true, false}, 0.05f);

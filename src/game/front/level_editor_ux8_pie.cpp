@@ -76,7 +76,9 @@ std::vector<Item> ContextItems(bool haveSelection)
                 Tool(Transform::Mode::Scale, kToolScale),
                 Action(kDelete, "Delete / hide", true),
                 Action(kDuplicate, nullptr, true),
-                Action(kFrameSelection, nullptr, false)};
+                Action(kFrameSelection, nullptr, false),
+                ActionById("linked_duplicate", nullptr, true),
+                ActionById("arrange_window", nullptr, false)};
     }
     return {Action(kBrowser, "Add (browser)", false),
             Action(kPlace, "Place a node", false),
