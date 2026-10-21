@@ -186,3 +186,15 @@ test("withoutUndrawn: Create / Kill of collision-only geometry kept (collisionOn
     Object.assign(tr, { collisionOnly: new Set() });
     assert.equal(run(statement("Kill", "name", name("Wall_A"))), null); // (without: left out, as before)
 });
+
+test("condition: `if inside` - our proximity ghosts' parameter, or THUG2's Inside command (proximInside)", () => {
+    const names = new Map<number, string>(["inside", "GotParam"].map((w) => [checksum(w), w]));
+    const tr = Object.create(sp.Translator.prototype) as sp.Translator;
+    // (the command checked as any other: here, kept as it is)
+    const command = (toks: readonly sp.Tok[]): sp.Tok[] => [...toks];
+    Object.assign(tr, { names, full: false, strictConditions: false, guard: null, proximInside: false, command });
+    const words = (toks: sp.Tok[]): string[] => toks.map((t) => tr.text(t.name()!));
+    assert.deepEqual(words(tr.condition([name("inside")], new Set(), false)), ["GotParam", "inside"]);
+    Object.assign(tr, { proximInside: true }); // (THUG1's ProximNodes: THUG2's own, which set Inside)
+    assert.deepEqual(words(tr.condition([name("inside")], new Set(), false)), ["inside"]);
+});
