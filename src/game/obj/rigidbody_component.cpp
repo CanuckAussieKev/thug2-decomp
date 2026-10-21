@@ -138,7 +138,7 @@ CRigidBodyComponent* CRigidBodyComponent::Construct()
     m_angularSleepSquared = 0.1600000113248825f; // (0x3E23D70B)
     m_skaterRadius = 48.0f;
     m_skaterApplicationRadius = 12.0f;
-    m_unknownC0 = 0.0833333358168602f;
+    m_pushCooldownTime = 0.0833333358168602f;
     m_skaterAssentCos = X87Cos(kAssent);
     m_skaterAssentSin = X87Sin(kAssent);
     m_modelOffset = {0.0f, 0.0f, 0.0f, 1.0f};
@@ -357,7 +357,7 @@ void CRigidBodyComponent::InitFromStructure(Script::CStruct* params)
         m_skaterAssentCos = X87Cos(radians);
         m_skaterAssentSin = X87Sin(radians);
     }
-    params->GetFloat(0x1F4D0CA5, &m_unknownC0, 0);
+    params->GetFloat(0x1F4D0CA5, &m_pushCooldownTime, 0);
     params->GetChecksum(0x58CDC0F0, &m_collideScript, 0); // CollideScript
     params->GetChecksum(0x2D075F90, &m_bounceScript, 0);  // BounceScript
     params->GetChecksum(0x571917FA, &m_settleScript, 0);  // SettleScript
@@ -571,7 +571,7 @@ void CRigidBodyComponent::InitFromStructure(Script::CStruct* params)
         if (reach * reach > m_radius)
             m_radius = static_cast<float>(reach * reach);
     }
-    m_unknown194 = 0.0f;
+    m_pushCooldown = 0.0f;
     m_radius = static_cast<float>(std::sqrt(static_cast<double>(m_radius)) + 1.0f);
 
     // The position is the centre of mass: moved by the (turned) model offset.

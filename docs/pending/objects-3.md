@@ -202,4 +202,35 @@ other members added; TriggerNode unchanged).
     radius compared rounded: an equal float is stored either way). Builds: this worktree's verify build switched to
     embedded debug info (CMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded, out\scripts\reconfig.cmd): the shared vc140.pdb
     kept breaking during mutation runs (C1033 / C2471).
-- [ ] Next: the rigid body's physics (0x42CEE0, 0x42CF90, 0x42D9D0, 0x42E540, 0x42E980, 0x430140, 0x430BE0, 0x430E20).
+- [x] Batch OC3-8 (NOT run in the game yet; the rigid body component's physics, 8 functions):
+  src/game/obj/rigidbody_physics.cpp (new); rigidbody_component.h (the physics' declarations, the world contact
+  record, names for +0x38 / +0x3C (damping), +0xC0 / +0x194 (the push cooldown), +0xD0 (the stuck script), +0x19C
+  (the sound component)); gfx/debug_lines.h: AddDebugStar / AddDebugSphere (compiled out, as AddDebugLine).
+  - CRigidBodyComponent::Update 0x00430E20 (vtable slot 1: the push cooldown or the pushers 0x0042C140, the die
+    timer (slot 6 MarkAsDead when it runs out), asleep: only the display matrix; awake: up to 5 steps, each a feeler
+    line along the step's path - a hit cuts the step to 6 units before it (not below 0) and collides; the fifth step
+    puts it to sleep (0x0042BE90); the contacts (0x0042C950), springs, damping 0x0042C6D0, sleep check 0x0042C890; the
+    object's position by the turned model offset, matrices, velocity), Integrate 0x0042E540 (gravity's half step left
+    out when +0x191 >= 3; the orientation turned by q * (-rotvel / 2) dt through 0x00420140 and normalised, its matrix
+    0x0042BC40, the world contact / sphere / spring points - each set's sums in its own order), Collide 0x00430BE0
+    (the bounce by 1 + restitution, friction across the normal capped by the bounce's length times the friction),
+    ResolveContacts 0x00430140 (impulses up to 20 rounds - one contact: one round; stuck: the +0xD0 script, else the
+    velocities zeroed with w = 1; friction from the velocities before the impulses, along the turned directed
+    friction where active; the depth springs; OnBounce at the last active contact with the fastest approach),
+    ApplySprings 0x0042CF90 (the spring points' velocities taken out, up to 20 rounds, one spring: one round; then each
+    pulled to its anchor by spring_const), ImpulseScale 0x0042CEE0 (thiscall, the result unrounded in ST0), OnBounce
+    0x0042E980 (BounceScript with CallbackParams and the point 0x43F454D0; the bounce sound at Percent (clamped 0-100)
+    while more than 12 of 48 voices are free), DebugDraw 0x0042D9D0 (the drawing calls compiled out of this build; the
+    switches 0x006939D4 / 0x006939D5 kept).
+  - x87 detail kept throughout: what stays on the FPU stack a double, each store a float rounding, the original's
+    sum orders (the turned points' three orders, ImpulseScale's x rounded / y, z not, its inlined copy in
+    ApplySprings with the normal's x unrounded). Quirks kept: CallbackParams appended through a null structure when
+    the allocation fails.
+  - Test (selftests_obj_rigidbody_physics.cpp TestRigidBodyPhysics): 6000 random cases over the 8 (the feeler,
+    pushers, contacts finder, sleep / damping, scripts, structures, voices and sound stood in for; the quaternion
+    helpers run for real; the world arrays 0x006949B0-0x0069514F traced); edges: crafted points on a float tie (the
+    turned sums' order), speeds exactly at the spring / friction limits, a die timer running out exactly, a point
+    exactly at its anchor, directed friction along the normal, one contact / spring. 66 deliberate bugs caught (5
+    after fixing mutations that didn't build).
+- Range complete: inspect survey 0x42CECD-0x4351B2 shows all 120 Ghidra functions REPLACED; find_gaps.py: no gap
+  in the range.
