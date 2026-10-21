@@ -879,6 +879,8 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
         if (fs.existsSync(v["extract-thugpro"])) {
             const before = JSON.parse(fs.readFileSync(v["extract-thugpro"], "utf-8")) as Record<string, unknown>;
             if (before.port_changes !== undefined) data.port_changes = before.port_changes;
+            // (free_skate - TP-41: set by hand from THUGPRO's scripts, not extracted)
+            if (before.free_skate !== undefined) data.free_skate = before.free_skate;
         }
         fs.writeFileSync(
             v["extract-thugpro"],

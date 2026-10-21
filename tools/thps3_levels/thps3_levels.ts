@@ -869,12 +869,30 @@ export function leftOutPrefixes(pc: PortChanges, base: string): readonly string[
     return (pc.get("PC-THPS3-1", base.toLowerCase())?.prefixes as string[] | undefined) ?? [];
 }
 
+// PC-THPS3-16: what an `if` in a start script is in offline free skate (null: unknown, both branches followed). Free
+// skate is neither career, nor a goal, nor a multiplayer / network / split-screen game: those conditions are false
+// (their `not` true). Anything else - a flag, a second condition (and / or) - is not decided here.
+export function startCondition(cond: readonly [number, Buffer][], c: (name: string) => number): boolean | null {
+    let i = 0;
+    let negate = false;
+    if (cond.length && cond[0]![0] === 0x39) {
+        negate = true;
+        i = 1;
+    }
+    if (i >= cond.length || cond[i]![0] !== 0x16) return null;
+    for (const [t] of cond.slice(i)) if (![0x16, 0x07, 0x17, 0x18, 0x1a, 0x1b, 0x1c].includes(t)) return null;
+    const command = nameValue(cond[i]![1]);
+    const offline = ["IsCareerMode", "GetGoal", "InMultiPlayerGame", "InNetGame", "InSplitScreenGame"].map(c);
+    return offline.includes(command) ? negate : null;
+}
+
 export function createdAtStart(
     q: QbFile,
     globalQbs: readonly QbFile[],
     namesAll: ReadonlyMap<number, string>,
     base: string,
     startScripts: readonly number[],
+    pc: PortChanges = thps3PortChanges(),
 ): [Set<number>, string[]] {
     // What THPS3's scripts create when a level starts (Create name= / prefix=), followed statically from its start
     // scripts through the scripts they call or spawn (both branches of every if): Load_<base> (its <base>_Startup),
@@ -928,7 +946,23 @@ export function createdAtStart(
         const script = todo.pop()!;
         if (seen.has(script) || !scripts.has(script)) continue;
         seen.add(script);
+        // PC-THPS3-16: only the branches offline free skate runs (see startCondition)
+        const frames: { value: boolean | null; inElse: boolean }[] = [];
         for (const line of scripts.get(script)!) {
+            const head = line.length ? line[0]![0] : -1;
+            if (head === 0x25) {
+                frames.push({ value: pc.on("PC-THPS3-16") ? startCondition(line.slice(1), c) : null, inElse: false });
+                continue;
+            }
+            if (head === 0x26) {
+                if (frames.length) frames[frames.length - 1]!.inElse = true;
+                continue;
+            }
+            if (head === 0x28) {
+                frames.pop();
+                continue;
+            }
+            if (frames.some((f) => f.value !== null && f.value === f.inElse)) continue;
             if (!line.length || line[0]![0] !== 0x16) continue;
             const command = nameValue(line[0]![1]);
             if (scripts.has(command)) todo.push(command);
@@ -1551,6 +1585,7 @@ export function portScripts(
     made: PortedNodes,
     undrawn: Iterable<number> = [],
     extra: ExtraScripts = { provided: [], roots: [], replacing: new Map() },
+    freeSkate: FreeSkateCompat = { flags: [], kill: [] }, // (TP-41: flags set before the start scripts run, nodes killed after)
 ): [Map<number, Buffer>, string | null, string, string] {
     // The level's scripts brought along (tools/level_port/script_port.ts) from its nodes' trigger scripts - the
     // sectors' and rails' (run by the skater), the made objects' (run by them) - and its start scripts: the scripts
@@ -1646,7 +1681,15 @@ export function portScripts(
     let setup: string | null = null;
     const run = starts.filter((s) => out.has(s));
     if (run.length) {
-        setup = `script ${level}_setup {\n${run.map((s) => `    SpawnScript ${qb.nameText(s, names)} \n`).join("")}}\n`;
+        // (TP-41: THUGPRO's free skate is a network game - THPS3's multiplayer state; the flag is set before the
+        // start scripts that read it run)
+        const flags = freeSkate.flags.map((f) => `    SetFlag flag=${f} \n`).join("");
+        // (nodes THUGPRO's free skate hasn't: killed a second after the start scripts made them)
+        const killer = freeSkate.kill.length ? `    SpawnScript ${level}_free_skate \n` : "";
+        setup = `script ${level}_setup {\n${flags}${run.map((s) => `    SpawnScript ${qb.nameText(s, names)} \n`).join("")}${killer}}\n`;
+        if (freeSkate.kill.length) {
+            setup += `script ${level}_free_skate {\n    Wait 1 Second \n${freeSkate.kill.map((k) => `    Kill Name=${k} \n`).join("")}}\n`;
+        }
     }
     const worst = [...tr.leftOut].sort((a, b) => b[1] - a[1]);
     let bytes = 0;
@@ -1732,6 +1775,14 @@ export interface LevelCompat {
     spawns?: SpawnCompat;
     edits?: NodeEditsCompat; // TP-13 .. TP-18
     collision?: Record<string, CollisionEditCompat>; // TP-19
+    freeSkate?: FreeSkateCompat; // TP-41
+}
+
+// TP-41: THUGPRO's free skate is a network game (THPS3's multiplayer state): level flags set at the start of ours
+// (`flags`, before the start scripts) and nodes killed once the start scripts have made them (`kill`).
+export interface FreeSkateCompat {
+    flags: string[];
+    kill: string[];
 }
 
 // THUGPRO's hand edits of a level's nodes (tools/thps3_levels/thugpro_compare.ts nodeEdits, the user's decision
@@ -2080,6 +2131,12 @@ export function levelCompat(profile: compat.Profile, level: string): LevelCompat
         | Record<string, CollisionEditCompat>
         | undefined;
     if (collision !== undefined) out.collision = collision;
+    // TP-41 (the user's decision 2026-10-21 pattern: THUGPRO's state for online parity, documented as differing)
+    const freeSkate = profile.section("thps3_levels", "free_skate")[level] as
+        | { set_flags?: string[]; kill?: string[] }
+        | undefined;
+    if (freeSkate?.set_flags?.length || freeSkate?.kill?.length)
+        out.freeSkate = { flags: freeSkate.set_flags ?? [], kill: freeSkate.kill ?? [] };
     return out;
 }
 
@@ -2247,7 +2304,7 @@ export function convertNodeArray(
         const script = n.get("TriggerScript");
         if (cls instanceof Name && cls.value === proxim && script instanceof Name) starts.push(script.value);
     }
-    const [created, prefixes] = createdAtStart(q, globalQbs, names, base, starts);
+    const [created, prefixes] = createdAtStart(q, globalQbs, names, base, starts, pc);
     const hidden = new Set<number>();
     // Sector sets a level's scripts keep switching between, left out (LEFT_OUT_PREFIXES): with both drawn they
     // fight over the same surfaces (flicker).
@@ -2411,6 +2468,7 @@ export function convertNodeArray(
             made,
             undrawn,
             thugproNew.extraScripts(tpNew, names),
+            ctfCompat.freeSkate,
         );
     }
     // (after the scripts: their trigger scripts are THUG2's Team_Flag, not THPS3 scripts to bring along)
