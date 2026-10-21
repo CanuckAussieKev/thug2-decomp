@@ -187,6 +187,19 @@ test("withoutUndrawn: Create / Kill of collision-only geometry kept (collisionOn
     assert.equal(run(statement("Kill", "name", name("Wall_A"))), null); // (without: left out, as before)
 });
 
+test("guardCondition: a node's object by IsAlive name=, a handed object (<ObjID>:) by ObjectExists id=", () => {
+    const names = new Map<number, string>(
+        ["IsAlive", "ObjectExists", "name", "id", "TRG_Car01", "ObjID"].map((w) => [checksum(w), w]),
+    );
+    const tr = Object.create(sp.Translator.prototype) as sp.Translator;
+    Object.assign(tr, { names });
+    const text = (toks: sp.Tok[]): string =>
+        toks.map((t) => (t.t === 0x16 ? tr.text(t.name()!) : t.t === 0x07 ? "=" : t.t === 0x2d ? "<" : "?")).join(" ");
+    assert.equal(text(sp.Translator.guardCondition([name("TRG_Car01")], 0)), "IsAlive name = TRG_Car01");
+    // (IsAlive looks the id up as a node and asserts: the skater's id 0 crashed THAW's Hollywood)
+    assert.equal(text(sp.Translator.guardCondition([tok(0x2d), name("ObjID")], 0)), "ObjectExists id = < ObjID");
+});
+
 test("condition: `if inside` - our proximity ghosts' parameter, or THUG2's Inside command (proximInside)", () => {
     const names = new Map<number, string>(["inside", "GotParam"].map((w) => [checksum(w), w]));
     const tr = Object.create(sp.Translator.prototype) as sp.Translator;

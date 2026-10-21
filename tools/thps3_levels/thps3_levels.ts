@@ -1761,7 +1761,13 @@ export function portScripts(
             .slice(0, 12)
             .map(([k, v]) => `${k} x${v}`)
             .join(", ");
-    return [out, setup, tr.globalsNs() + proximText, report];
+    // (TPN-THPS3: the globals THUGPRO's scripts name - THPS3's brought along, THUGPRO's own written; THUG2's kept)
+    let tpGlobals = "";
+    if (extra.tp !== undefined) {
+        for (const k of extra.tp.thps3Globals) if (!port.thug2.globals.has(k)) tr.usedGlobals.add(k);
+        tpGlobals = thugproNew.globalsNs(extra.tp, names, port.thug2.globals);
+    }
+    return [out, setup, tr.globalsNs() + tpGlobals + proximText, report];
 }
 
 // TPN-THPS3: what portScripts takes from THUGPRO's new content - the script names it adds to the file (a trigger script
@@ -1771,6 +1777,7 @@ export interface ExtraScripts {
     provided: number[];
     roots: [number, scriptPort.Context][];
     replacing: Map<number, Buffer>;
+    tp?: thugproNew.LevelNew; // (the globals its scripts name: thugproNew.resolveGlobals)
 }
 
 // --- capture the flag ----------------------------------------------------------------------------------------------
@@ -3030,6 +3037,7 @@ export function cmdConvert(args: Args): void {
             }
         }
         const tpNew = thugproNew.loadNew(newEntries, args.thugpro);
+        for (const line of thugproNew.resolveGlobals(tpNew, [q, ...globalQbs])) report.push(`  ${line}`);
         // (PC-THPS3-15: the plain moving props stay our solid LevelObjects - THUGPRO's Vehicle `set` left out for them)
         const solidMovers = movers.moversFor(pc.get("PC-THPS3-15", base.toLowerCase())?.objects, name);
         if (solidMovers.length && port !== null) {
