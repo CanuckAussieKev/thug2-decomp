@@ -28,7 +28,7 @@ The range's classes / topics:
 - 0x00422D00-0x004230B0: the model light update component (0xE3FCA939).
 - 0x00423130-0x00423643: the motion component's member-function registration and its first members.
 
-Switch off: `[replacements] disable=bbox_component.cpp,color_cycle.cpp,camera_component.cpp,car_physics.cpp,collide_and_die.cpp,dynamic_light.cpp` (any of them alone; the files of later batches are added here).
+Switch off: `[replacements] disable=bbox_component.cpp,color_cycle.cpp,camera_component.cpp,car_physics.cpp,collide_and_die.cpp,dynamic_light.cpp,fam.cpp,flexible_particle.cpp` (any of them alone; the files of later batches are added here).
 
 - [x] Batch OC1-1 (NOT run in the game yet; the bounding box component, 19 functions): src/game/obj/bbox_component.{h,cpp}
   (new), src/game/skate/skate_module.{h,cpp} (new: Mdl::Skate's skater list only), objman.cpp, matrix.cpp, vector.cpp.
@@ -144,3 +144,43 @@ Switch off: `[replacements] disable=bbox_component.cpp,color_cycle.cpp,camera_co
   - Mutations: 49 deliberate bugs, 48 caught (39 at first; 6 that first failed to build - a vc140.pdb lock - caught on
     a rerun; a non-float position and the destructor's results added for 3). 1 equivalent: dropping `&& !m_dying`
     before the hit's handling (a dying component never gets there).
+
+- [x] Batch OC1-4 (NOT run in the game yet; the fam and flexible particle components, 29 functions):
+  src/game/obj/fam.{h,cpp}, flexible_particle.{h,cpp} (new).
+  - Obj::CFamComponent (type 0x0301D67C "fam", vtable 0x00645F8C, 0x20 bytes): 0x0041D200 Create (constructor inlined),
+    0x0041D170 RegisterMemberFunctions (0x006836E8; filled by 0x00642B30), 0x0041D190 / 0x0041D1A0 the destructors,
+    0x0041D2C0 UnloadFam (fam_play_stream's scripts on the object stopped, RemoveAnimController type=partialAnim
+    id=jawRotation on the animation blender - the object checked -, the asset unloaded), 0x0041D3E0 LoadFam
+    (fam\<name>.fam: Ass::CAssMan::LoadAnim(file, name, anim set), its +0x18 kept across; loaded: the file name's
+    checksum), 0x0041D480 PlayFam (false without the stream; the last stream stopped; fam_play_stream spawned with
+    stream_checksum, vol when not 0, and unless stream-only use_pos_info 0, the fam loaded, the stream preloaded -
+    streamId, kept - and play_anim when the fam's animation (anim set + name) is there; the script's object set),
+    the members 0x0041D660 [Obj_PlayFam] (unnamed checksum, vol, priority 0x66) and 0x0041D280 [Obj_StopLastFam].
+  - Obj::CFlexibleParticleComponent (type 0xC5BCEB9E "flexibleparticle", vtable 0x00645FE4, 0x3C bytes) and
+    Nx::CParticleSystem (layout of the fields used; 0x0041D9C0 SetFlag): 0x0041E1E0 Create, 0x0041D6E0
+    RegisterMemberFunctions (0x00683AC0; filled by 0x00642FD0), 0x0041DA00 Construct, 0x0041DA80 / 0x0041E240 the
+    destructors (the system deleted through its vtable, then let go), 0x0041DB00 InitFromStructure (the system - with
+    perm the particle manager's system of that name, else a new one 0x0049AC60 named by the component's address -
+    and its settings: groupID, emitterIndependent, emit_rate, params with emitscript / UpdateScript, EnableRotate,
+    update_Brightness / ObjID (default: the 0x184197D5 checksum), UseRandomUVQuadrants, FillPath, priority, align_to;
+    the manager's update time from Force_Particle_Update_Time), 0x0041D740 Finalize (the suspend component started),
+    0x0041DF80 Update (no system: the object dies; time added; suspended outside network games only catching up once
+    the time reaches the update time - NaN never does -; else following the object - EnableRotate: the system's
+    rotation times the object's orientation (translation cleared) becomes the display matrix it follows - and given
+    the time, or idle when the suspend component says not to update; a hidden object's system's +0x12F / +0x130
+    cleared), 0x0041D760 Hide, 0x0041D780 CallMemberFunction (IsEmitting - the system unchecked -,
+    ApplyEnvBrightness), 0x0041D700 the member-function-entry runner (vtable slot 11, shared with the animation
+    blender: the entry's member pointer with its this-adjustment and the entry's name, or slot 12), and the members
+    0x0041D7F0 (17 names passed on to the system), 0x0041D820 EmptySystem, 0x0041D840 (0x7F97BAD3 / SetEmitScript),
+    0x0041D8F0 ShouldEmit, 0x0041D920 / 0x0041D940 EmitOn / EmitOff, 0x0041D960 destroy (ifEmpty), 0x0041E190
+    DestroyParticles.
+  - Tests (selftests_obj_fam_particle.cpp): TestFamComponent - 40 seeds: Create, register, destructors, 6 random
+    UnloadFam / LoadFam / PlayFam / Obj_PlayFam / Obj_StopLastFam calls each (streams there or not, assets there or
+    not, load failing, no object, script structures from the pool or the manager); TestFlexibleParticleComponent -
+    48 seeds: Create / Construct (dirty memory), the destructors, InitFromStructure from random parameter sets (perm
+    finding a system or not, the system made or not, update_Brightness without ObjID), 8 updates each (no system,
+    suspended in / out of network games, the update time reached exactly / NaN, idle, EnableRotate, a brightness
+    model, hidden), Hide, every member with and without a system, the entry runner (with an adjustment, through slot
+    12), DestroyParticles, SetFlag.
+  - Mutations: 80 deliberate bugs, all caught (76 at first; the update time reached exactly, an entry adjustment and
+    update_Brightness without ObjID added for 3; one mutation rewritten that didn't compile).

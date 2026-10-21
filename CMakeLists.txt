@@ -337,6 +337,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_obj_color_camera.cpp
     src/hook/selftests_obj_car_physics.cpp
     src/hook/selftests_obj_collide_light.cpp
+    src/hook/selftests_obj_fam_particle.cpp
     src/hook/selftests_editor_shared_coll.cpp
     src/hook/selftests_editor_chains.cpp
     src/hook/selftests_editor_fields.cpp
@@ -629,6 +630,8 @@ add_library(thug2_code OBJECT
     src/game/obj/car_physics.cpp
     src/game/obj/collide_and_die.cpp
     src/game/obj/dynamic_light.cpp
+    src/game/obj/fam.cpp
+    src/game/obj/flexible_particle.cpp
     src/game/obj/motion.cpp
     src/game/obj/object.cpp
     src/game/obj/objman.cpp
