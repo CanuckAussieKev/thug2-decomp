@@ -140,6 +140,12 @@ public descriptions of the Xbox 360's texture fetch constant / tiling and of Hav
 - Restarts (phase 2): THP8's network spawns (Multiplayer) also single-player restarts (Player1) - most zones have
   one Player1 restart; restarts over nothing or a kill zone no network spawns (nodes.groundRestarts).
 
-Not yet (docs/pending/thp8.md): peds, vehicles, game objects with models (the zone's own .mdl / .skin), particles,
+- Props (phase 2): THP8's bouncy physics props (GameObject Type GO_Cafe_Chair, GO_TrafficCone, GO_Aluminum_Can, the
+  cartoon world's skulls...: their models from ZONES\global.pak or the zone's archive) as THUG2's bouncy LevelObjects -
+  the model drawn under the node's name in its own space, a box of its size as collision and contacts, THAW's bouncy
+  coefficients. Scripted ones (the Capitol's pendulum) left out.
+- Interiors' ambient rolled off (x 6 / (1 + 4 x)): the factory's floor came out white at x 4.
+
+Not yet (docs/pending/thp8.md): peds, vehicles, other game objects with models (the zone's own .mdl / .skin), particles,
 the sub-zones' (_gfx / _sfx) nodes, sounds, music, goals, normal / specular / environment maps, the network areas of
 several zones.

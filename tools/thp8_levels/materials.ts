@@ -291,6 +291,7 @@ export interface Lighting {
     sun: number[]; // R, G, B 0-1 (the zone's time-of-day sun colour)
     ambientScale: number;
     sunScale: number;
+    ambientKnee?: number; // the ambient term rolled off: scale x a / (1 + knee x a) - bright spots not burnt out
 }
 
 // THP8's light at a vertex from its light maps: the ambient map (sky light) scaled, plus the sun's colour times the
@@ -298,7 +299,11 @@ export interface Lighting {
 // full brightness and shade at about half - see docs/level-port-compromises.md section 10. R, G, B.
 export function light(ambient: number[], shadow: number[], l: Lighting): number[] {
     const s = shadow[2]!; // (grey: red)
-    return [0, 1, 2].map((c) => ambient[2 - c]! * l.ambientScale + l.sun[c]! * s * l.sunScale);
+    const k = l.ambientKnee ?? 0;
+    return [0, 1, 2].map((c) => {
+        const a = ambient[2 - c]!;
+        return (a * l.ambientScale) / (1 + k * a) + l.sun[c]! * s * l.sunScale;
+    });
 }
 
 // Light baked into vertex colours is only as fine as the mesh: a big floor triangle under a tree spans hundreds of

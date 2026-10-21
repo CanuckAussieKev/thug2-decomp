@@ -155,3 +155,19 @@ DLL in the workspace for the runs: this branch's verify build (main's C++ at 55d
   flattened, such statements made GotParam, unrunnable).
 - Not verifiable by automation (for the user): gaps firing (skate the skate park's front stairs - "Over the Steps",
   the slums' Hemlock rail gap...), the Capitol lake / city park drown kills, the gym fans turning in the school.
+
+## Step 3 - objects
+
+- THP8's node arrays hold few objects: no Pedestrian / car nodes made at the start (THP8 spawns its peds and traffic
+  from its grid / ped systems at run time; the shops' two peds are story ones), its Vehicle nodes are grid pieces (left
+  out, step 2), its particles are .pfx systems made by scripts (CreateGlobalFlexParticleSystem - the _gfx sub-zones'
+  ProximNodes run them) and its sounds SoundEvents: none has a THUG2 counterpart - documented, not ported. The
+  sub-zones' scripts are translation sources (step 2); their nodes aren't converted.
+- **Props**: THP8's bouncy physics props (GO_ game objects with the Bouncy flag, made at the start, no script) as
+  THUG2 bouncy LevelObjects with THP8's own models (from ZONES\global.pak or the zone's archive): 1-13 a zone (cafe
+  chairs and tables, cones, cans, bottles, barrels, pallets, the cartoon world's skulls and castle pieces, the fun
+  park's jewels). Seen in the game: the skate park's table and chair under the snack hut (p5_crete_props).
+- Script objects (Ghost game objects), moving LevelObjects, waypoints: made by thaw_scripts.PortedNodes (step 2).
+- Interiors re-tuned (ambient x 6 / (1 + 4 x)): the factory's floor was white (p5_factory).
+- All 15 zones load (p4 run: every zone, start + overview captures, no exception / run-time check / pool dry in the
+  log). For the user: bump a cafe chair / cone (do they bounce?), the props' look.

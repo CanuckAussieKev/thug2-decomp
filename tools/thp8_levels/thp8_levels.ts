@@ -266,13 +266,15 @@ export const SUN_WHITEN = 0.5;
 
 // Interiors (the materials whose technique is an ..._InteriorLighting one: the factory, the school inside, the skate
 // shop, the bedroom) are lit by their ambient map alone - their shadow map is the white stand-in - which holds the
-// rooms' light (warm, darker than outdoors': the factory's averages 0.18): x INTERIOR_SCALE (ours, as the outdoor
-// scales).
-export const INTERIOR_SCALE = 4.0;
+// rooms' light (warm, darker than outdoors': the factory's averages 0.18): x INTERIOR_SCALE / (1 + INTERIOR_KNEE x)
+// - ours, as the outdoor scales: dim rooms brought up, the bright ones not burnt white (x 4 straight left the
+// factory's floor white).
+export const INTERIOR_SCALE = 6.0;
+export const INTERIOR_KNEE = 4.0;
 // Light maps this small (texels) are THP8's stand-ins (32 x 32, one colour: 128 grey ambient, white shadow).
 export const STAND_IN = 32 * 32;
 export function interiorLighting(): mats.Lighting {
-    return { sun: [0, 0, 0], ambientScale: INTERIOR_SCALE, sunScale: 0 };
+    return { sun: [0, 0, 0], ambientScale: INTERIOR_SCALE, sunScale: 0, ambientKnee: INTERIOR_KNEE };
 }
 
 export function zoneLighting(tod: Struct | undefined): mats.Lighting {
@@ -570,7 +572,7 @@ export function convertScenes(
                 mat.drawOrder = 1500.0;
                 glows.set(m.checksum, glowScale(m));
             }
-            if (plan && texture) {
+            if (plan && texture && plan.layers.length) {
                 const out: Plan = { plan, slots: [plan.layers[0]!.slot], vertexMask: null };
                 // (THUG2's pass colour: 0.5 = as the texture)
                 const tint = (pass: thug2Scene.Pass, c: readonly number[]): void => {
@@ -829,6 +831,121 @@ export function refineLit(
             Math.max(maps.shadow.width, maps.shadow.height),
         options,
     );
+}
+
+// --- game objects: THP8's physics props ------------------------------------------------------------------------------
+
+// THP8's props (GameObject nodes of Type GO_Cafe_Chair, GO_TrafficCone, GO_Aluminum_Can...: Havok rigid bodies its
+// profiles bounce) have their model under the Type's name - most in ZONES\global.pak, the rest in the zone's archive:
+// .mdl (the scene layout), .stex / .tex and a Havok packfile (their physics shape). THUG2 has the same kind of thing
+// as a LevelObject with `bouncy` (THAW's bouncy boxes): its sector and collision in their own space, rigid-body
+// contacts and coefficients.
+// Each prop made one: the model's sector drawn under the node's name, a box of the model's size as its collision, the
+// box's corners its contacts, THAW's bouncy boxes' coefficients (THP8's profiles - mass, friction in qb.pak's
+// profile_GO_* structures - not read).
+export interface PropModel {
+    geom: geom.Geom;
+    textures: Map<number, xenos.XenosTexture>;
+    box: number[]; // the model's box, metres (min x y z, max x y z)
+}
+
+export function propModels(pak: thp8.Pak): Map<number, PropModel> {
+    const out = new Map<number, PropModel>();
+    for (const e of pak.entries) {
+        if (e.extension !== ".mdl") continue;
+        // (its textures: the entry the model names - a .stex in a zone's archive, a .tex in global.pak)
+        const stex = pak.entries.find((x) => (x.extension === ".stex" || x.extension === ".tex") && x.full === e.own);
+        const g = geom.readGeom(thp8.entryData(pak, e), "mdl");
+        if (!g.sectors.length) continue;
+        const textures = new Map<number, xenos.XenosTexture>();
+        if (stex) for (const t of xenos.readXenosTex(thp8.entryData(pak, stex), "stex")) textures.set(t.checksum, t);
+        const box = [0, 1, 2, 3, 4, 5].map((k) =>
+            k < 3 ? Math.min(...g.sectors.map((x) => x.bbox[k]!)) : Math.max(...g.sectors.map((x) => x.bbox[k]!)),
+        );
+        out.set(e.name, { geom: g, textures, box });
+    }
+    return out;
+}
+
+export const BOUNCY_KEYS: readonly [string, QbValue][] = [
+    ["coeff_restitution", new Float(0.4)],
+    ["coeff_friction", new Float(0.5)],
+    ["skater_collision_impulse_factor", new Float(1.0)],
+    ["skater_collision_rotation_factor", new Float(1.0)],
+    ["skater_collision_assent", new Float(25.0)],
+    ["skater_collision_radius", new Float(48.0)],
+];
+
+// The props made bouncy LevelObjects (in place): node name -> its model's Type. Only the ones made at the start.
+export function bouncyProps(
+    array: readonly QbValue[],
+    names: Map<number, string>,
+    models: ReadonlyMap<number, PropModel>,
+): Map<number, number> {
+    const out = new Map<number, number>();
+    const key = (text: string): Name => {
+        const v = checksum(text);
+        if (!names.has(v)) names.set(v, text);
+        return new Name(v);
+    };
+    for (const node of array) {
+        if (!(node instanceof Struct) || nodes.classOf(node, names) !== "gameobject") continue;
+        const type = node.get("Type");
+        const name = nodeName(node);
+        // (THP8's own Bouncy ones; not the scripted ones - the Capitol's pendulum swings on its script and fell flat)
+        if (!(type instanceof Name) || name === null || !node.hasFlag("CreatedAtStart") || !node.hasFlag("Bouncy"))
+            continue;
+        if (node.get("TriggerScript") !== undefined) continue;
+        const model = models.get(type.value);
+        if (!/^go_/i.test(names.get(type.value) ?? "") || model === undefined) continue;
+        const [x0, y0, z0, x1, y1, z1] = model.box.map((v) => v * SCALE) as [
+            number,
+            number,
+            number,
+            number,
+            number,
+            number,
+        ];
+        const contacts = [x0, x1].flatMap((x) =>
+            [y0, y1].flatMap((y) => [z0, z1].map((z) => new Vector("vector", [x, y, z]))),
+        );
+        node.entries = [
+            [key("Pos"), node.get("Pos") ?? new Vector("vector", [0, 0, 0])],
+            [key("Angles"), node.get("Angles") ?? new Vector("vector", [0, 0, 0])],
+            [key("Name"), new Name(name)],
+            [key("Class"), key("LevelObject")],
+            [key("Type"), key("Bouncy_Default")],
+            [null, key("CreatedAtStart")],
+            [null, key("bouncy")],
+            [key("CollisionMode"), key("Geometry")],
+            [key("SuspendDistance"), 0],
+            [key("lod_dist1"), 300],
+            [key("lod_dist2"), 400],
+            [key("contacts"), contacts],
+            [key("center_of_mass"), new Vector("vector", [0, 0, 0])],
+            ...BOUNCY_KEYS.map(([k, v]): qb.Entry => [key(k), v]),
+        ];
+        out.set(name, type.value);
+    }
+    return out;
+}
+
+// A box's twelve triangles (metres), as collision owned by `owner`.
+export function boxTriangles(box: readonly number[], owner: number): havok.HkTriangle[] {
+    const [x0, y0, z0, x1, y1, z1] = box as [number, number, number, number, number, number];
+    const p = (i: number): number[] => [i & 1 ? x1 : x0, i & 2 ? y1 : y0, i & 4 ? z1 : z0];
+    const quads = [
+        [0, 2, 3, 1],
+        [4, 5, 7, 6],
+        [0, 1, 5, 4],
+        [2, 6, 7, 3],
+        [0, 4, 6, 2],
+        [1, 3, 7, 5],
+    ];
+    return quads.flatMap(([a, b, c, d]) => [
+        { a: p(a!), b: p(b!), c: p(c!), material: 0, owner },
+        { a: p(a!), b: p(c!), c: p(d!), material: 0, owner },
+    ]);
 }
 
 // The most triangles a zone's scene may have after refining: half as many again as THP8's or REFINE_EXTRA more, at most
@@ -1356,6 +1473,7 @@ export function zoneNodes(
     flags: ReadonlyMap<number, boolean> = new Map(),
     port: ScriptPort | null = null,
     moreQbs: readonly thaw.QbItems[] = [], // more scripts the zone's may call (sub-zones', other zones')
+    props: ReadonlyMap<number, PropModel> = new Map(), // the zone's prop models (propModels)
 ): NodeResult {
     const key = checksum(`${zone}_NodeArray`);
     const raw = nqb.globals.find(([n]) => n.value === key)?.[1];
@@ -1363,6 +1481,7 @@ export function zoneNodes(
     const globals = new Map(nqb.globals.map(([k, v]) => [k.value, v]));
     let array = nodes.expandIncludes(raw, globals);
     applyNodeFlags(array, flags);
+    bouncyProps(array, names, props);
     movePositions(array, shift);
     const restartNames = new Set<number>();
     for (const n of array) {
@@ -1605,6 +1724,8 @@ export function cmdConvert(args: Args): number {
     const techniques = library ? mats.readTechniques(thp8.unpack(library)) : new Map<number, string[]>();
     const port = makeScriptPort(args.thug2, compressed, names);
     const zoneScripts = new ZoneScripts(compressed, names);
+    const globalPak = zonePak(compressed, "global");
+    const globalProps = globalPak ? propModels(thp8.openPak(globalPak)) : new Map<number, PropModel>();
     // (only the levels converted now are made again: a partial convert keeps the others, as levels.json does -
     // ported_levels.writeManifest)
     for (const info of wanted) {
@@ -1645,6 +1766,9 @@ export function cmdConvert(args: Args): number {
             const node = array.find((n) => n instanceof Struct && nodeName(n) === k) as Struct | undefined;
             if (node?.hasFlag("CreatedAtStart")) placed.set(k, v);
         }
+        // (the props first: they become LevelObjects - local, drawn and collided as theirs)
+        const props = new Map([...globalProps, ...propModels(z.pak)]);
+        const made = bouncyProps(array, names, props);
         const hidden = notMade(array, names);
         const local = localObjects(array, names);
         if (args.leaveOut) {
@@ -1665,6 +1789,25 @@ export function cmdConvert(args: Args): number {
                         techniques,
                         local,
                     },
+                    // (the props: their model's sector drawn under each node's name, in its own space)
+                    ...[...new Set(made.values())].map(
+                        (type): SceneParts => ({
+                            geom: props.get(type)!.geom,
+                            textures: props.get(type)!.textures,
+                            placed: new Map(
+                                [...made]
+                                    .filter(([, t]) => t === type)
+                                    .map(([node]) => [
+                                        node,
+                                        {
+                                            master: props.get(type)!.geom.sectors[0]!.checksum,
+                                            at: { pos: [0, 0, 0], angles: [0, 0, 0], scale: [1, 1, 1] },
+                                        },
+                                    ]),
+                            ),
+                            local: new Set(made.keys()),
+                        }),
+                    ),
                 ],
                 shift,
                 warnings,
@@ -1702,10 +1845,22 @@ export function cmdConvert(args: Args): number {
             flags,
             port,
             moreQbs,
+            props,
         );
         // collision
         const volumes = triggerVolumes(array, names, new Set(z.geom.sectors.map((x) => x.checksum)));
         const sets = [{ bodies: z.bodies, sectors: z.geom.sectors, hidden, local, volumes }];
+        // (the props' boxes, in their own space)
+        sets.push({
+            bodies: [...made].map(([node, type], i) => ({
+                index: -1 - i,
+                triangles: boxTriangles(props.get(type)!.box, node),
+            })),
+            sectors: [],
+            hidden: new Set(),
+            local: new Set(made.keys()),
+            volumes: [],
+        });
         if (online?.geom) {
             sets.push({
                 bodies: online.bodies,
@@ -1720,6 +1875,10 @@ export function cmdConvert(args: Args): number {
         common.writeLevel(levelDir, name, done.scene, done.textures, col.col);
         common.reportLevel(report, name, done.scene, done.textures, col.col, [...new Set(warnings)].sort());
         const c = done.counts;
+        if (made.size)
+            report.push(
+                `  ${made.size} props as bouncy objects (${[...new Set([...made.values()].map((t) => names.get(t)))].join(", ")})`,
+            );
         report.push(
             `  ${info.zone}${online ? ` + ${info.online}` : ""}: ${c.sectors} sectors, ${c.instances} instances of ` +
                 `${c.masters} masters, ${c.billboards} billboard meshes left out, ` +

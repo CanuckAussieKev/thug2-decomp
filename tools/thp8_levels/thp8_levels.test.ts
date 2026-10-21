@@ -11,6 +11,8 @@ import * as geom from "./geom.ts";
 import * as havok from "./havok.ts";
 import { readPak, readToc, readTocList } from "./thp8.ts";
 import {
+    bouncyProps,
+    boxTriangles,
     cloudFade,
     emptyScript,
     endlessLoop,
@@ -459,4 +461,42 @@ test("endless loops: a while with no count and no wait that can run is found; th
     ];
     assert.equal(endlessLoop(body(elseWait), names), false);
     assert.deepEqual([...emptyScript(body(neverWait))], [0x23, ...name("s"), 0x01, 0x24]);
+});
+
+test("props: GO_ game objects made at the start become bouncy LevelObjects with their model's box as contacts", () => {
+    const names = new Map<number, string>([
+        [checksum("GameObject"), "GameObject"],
+        [checksum("GO_Cafe_Chair"), "GO_Cafe_Chair"],
+        [checksum("Ghost"), "Ghost"],
+    ]);
+    const node = (name: string, type: string, made: boolean): Struct => {
+        const s = new Struct([
+            [new Name(checksum("Name")), new Name(checksum(name))],
+            [new Name(checksum("Pos")), new Vector("vector", [1, 2, 3])],
+            [new Name(checksum("Class")), new Name(checksum("GameObject"))],
+            [new Name(checksum("Type")), new Name(checksum(type))],
+        ]);
+        if (made) s.entries.push([null, new Name(checksum("CreatedAtStart"))]);
+        s.entries.push([null, new Name(checksum("Bouncy"))]);
+        return s;
+    };
+    const chair = node("Chair1", "GO_Cafe_Chair", true);
+    const later = node("Chair2", "GO_Cafe_Chair", false);
+    const ghost = node("G", "Ghost", true);
+    const models = new Map([[checksum("GO_Cafe_Chair"), { box: [-0.5, 0, -0.5, 0.5, 1, 0.5] } as never]]);
+    const made = bouncyProps([chair, later, ghost], names, models);
+    assert.deepEqual([...made], [[checksum("Chair1"), checksum("GO_Cafe_Chair")]]);
+    assert.equal(names.get((chair.get("Class") as Name).value), "LevelObject");
+    assert.ok(chair.hasFlag("bouncy") && chair.hasFlag("CreatedAtStart"));
+    const contacts = chair.get("contacts") as Vector[];
+    assert.equal(contacts.length, 8);
+    assert.deepEqual(
+        contacts[7]!.values.map((v) => +v.toFixed(3)),
+        [0.5 * SCALE, SCALE, 0.5 * SCALE].map((v) => +v.toFixed(3)),
+    );
+    assert.equal(names.get((later.get("Class") as Name).value), "GameObject");
+    // the box: twelve triangles owned by the node, covering the six sides
+    const tris = boxTriangles([0, 0, 0, 1, 2, 3], 42);
+    assert.equal(tris.length, 12);
+    assert.ok(tris.every((t) => t.owner === 42));
 });
