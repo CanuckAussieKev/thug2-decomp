@@ -1495,6 +1495,186 @@ function ufo(): Layer[] {
     ];
 }
 
+// --- THPS2's levels (tools/thps2_levels): ten more, none like the others' (THUG1's Hangar has the helicopter, its
+// School II the apple, its Venice the dumbbell, its Philadelphia the LOVE sign; Alcatraz the lighthouse) -------------
+
+// Hangar: the airfield's windsock on its pole.
+function windsock(): Layer[] {
+    return [
+        [INK, rect(23.5, 16, 26.5, 47.5)],
+        [INK, poly([26.5, 16], [44, 21], [44, 26.5], [26.5, 30])],
+        [CUT, poly([31.5, 16.9], [35, 17.9], [35, 28.3], [31.5, 28.9])],
+        [CUT, poly([39.5, 19.4], [42, 20.2], [42, 26.9], [39.5, 27.5])],
+        [INK, rect(22, 45.5, 28, 47.3)],
+    ];
+}
+
+// School II: a pencil, point down to the left.
+function pencil(): Layer[] {
+    const shapes: Layer[] = [
+        [INK, poly([15, 32], [22, 28.5], [22, 35.5])],
+        [CUT, poly([17.2, 32], [21, 30.1], [21, 33.9])],
+        [INK, poly([15, 32], [17.6, 30.7], [17.6, 33.3])],
+        [INK, rect(22, 28.5, 42.5, 35.5)],
+        [CUT, rect(23.5, 31.4, 41, 32.6)],
+        [INK, rect(43.5, 28.5, 45.5, 35.5)],
+        [INK, rrect(46.5, 28.5, 49.5, 35.5, 1.2)],
+    ];
+    return turnAll(shapes, 32, 32, -45);
+}
+
+// Marseille: a sailboat of the Vieux-Port.
+function sailboat(): Layer[] {
+    return [
+        [INK, line(32, 14, 32, 38, 1.8)],
+        [INK, poly([33.6, 15], [33.6, 35.5], [46, 35.5])],
+        [INK, poly([30.4, 19], [30.4, 35.5], [19.5, 35.5])],
+        [INK, poly([17.5, 38], [46.5, 38], [42, 44.5], [22, 44.5])],
+    ];
+}
+
+// NY City: the Empire State Building.
+function empire(): Layer[] {
+    const shapes: Layer[] = [
+        [INK, rect(23.5, 37, 40.5, 48.5)],
+        [INK, rect(25.5, 28, 38.5, 37)],
+        [INK, rect(28, 21.5, 36, 28)],
+        [INK, rect(30, 16.5, 34, 21.5)],
+        [INK, line(32, 8.5, 32, 17, 1.6)],
+    ];
+    for (const x of [27, 30.3, 33.7, 37]) shapes.push([CUT, rect(x - 0.6, 39, x + 0.6, 47)]);
+    for (const x of [29, 32, 35]) shapes.push([CUT, rect(x - 0.6, 30, x + 0.6, 35.5)]);
+    return shapes;
+}
+
+// Venice Beach: a roller skate of the boardwalk.
+function rollerskate(): Layer[] {
+    const shapes: Layer[] = [
+        [INK, poly([22.5, 17], [31, 17], [32, 29], [42.5, 31.5], [45.5, 35.5], [45.5, 39.5], [20.5, 39.5], [21.5, 28])],
+        [INK, circle(25, 44.2, 3.4)],
+        [INK, circle(40.5, 44.2, 3.4)],
+        [CUT, circle(25, 44.2, 1.1)],
+        [CUT, circle(40.5, 44.2, 1.1)],
+        [INK, circle(45.8, 40, 1.8)],
+    ];
+    for (const y of [21, 24.5, 28]) shapes.push([CUT, line(25, y, 30, y, 1.2)]);
+    return shapes;
+}
+
+// Skatestreet: a skate helmet, side on (facing right: the back comes down lower), its vents and strap.
+function helmet(): Layer[] {
+    return [
+        [INK, ellipse(32, 34, 14.5, 13.5)],
+        [CUT, rect(27, 36, 64, 64)],
+        [CUT, rect(0, 42, 64, 64)],
+        [INK, rrect(39, 34, 48, 37, 1.2)],
+        [CUT, circle(26, 27.5, 1.7)],
+        [CUT, circle(32, 25, 1.7)],
+        [CUT, circle(38, 27.5, 1.7)],
+        [CUT, circle(33.5, 31.5, 1.4)],
+        [INK, line(29, 36, 33, 44, 1.6)],
+    ];
+}
+
+// Philadelphia: a soft pretzel.
+function pretzel(): Layer[] {
+    return [
+        [INK, ring(25.5, 29, 7, 3.4)],
+        [INK, ring(38.5, 29, 7, 3.4)],
+        [INK, arc(32, 31, 13.2, 3.4, 25, 155)],
+        [CUT, circle(25.5, 22, 0.8)],
+        [CUT, circle(38.5, 22, 0.8)],
+        [CUT, circle(32, 44.2, 0.8)],
+    ];
+}
+
+// The Bullring: a bull's head.
+function bull(): Layer[] {
+    return [
+        [
+            INK,
+            polyline(
+                [
+                    [28, 27],
+                    [23, 25.5],
+                    [21.5, 22],
+                    [22.5, 19.5],
+                ],
+                3.2,
+            ),
+        ],
+        [
+            INK,
+            polyline(
+                [
+                    [36, 27],
+                    [41, 25.5],
+                    [42.5, 22],
+                    [41.5, 19.5],
+                ],
+                3.2,
+            ),
+        ],
+        [INK, ellipse(23, 30.5, 3.6, 1.8, 20)],
+        [INK, ellipse(41, 30.5, 3.6, 1.8, -20)],
+        [INK, poly([25.5, 25.5], [38.5, 25.5], [36.5, 42], [27.5, 42])],
+        [INK, ellipse(32, 43, 5.5, 3.8)],
+        [CUT, circle(28.8, 31.5, 1.3)],
+        [CUT, circle(35.2, 31.5, 1.3)],
+        [CUT, circle(30, 44, 0.9)],
+        [CUT, circle(34, 44, 0.9)],
+    ];
+}
+
+// Chopper Drop (Hawaii): a volcano, smoking.
+function volcano(): Layer[] {
+    return [
+        [INK, poly([20, 44.5], [27.5, 25], [36.5, 25], [44, 44.5])],
+        [CUT, ellipse(32, 25, 4.5, 1.4)],
+        [
+            CUT,
+            polyline(
+                [
+                    [31, 26.5],
+                    [29.5, 32],
+                    [30.5, 38],
+                ],
+                1.5,
+            ),
+        ],
+        [INK, circle(30.5, 19.5, 3)],
+        [INK, circle(34.5, 15.5, 3.4)],
+        [INK, circle(29.5, 12.5, 2.5)],
+    ];
+}
+
+// Skate Heaven: a halo over wings.
+function halo(): Layer[] {
+    // (the left wing, its feathers fanning up and out)
+    const wing: Point[] = [
+        [31, 36],
+        [28.5, 30],
+        [24.5, 25.5],
+        [19.5, 22],
+        [17.5, 25],
+        [20, 27],
+        [15.5, 28.5],
+        [19, 31],
+        [15.5, 33.5],
+        [20, 35],
+        [18, 38],
+        [24, 38.5],
+        [31, 39],
+    ];
+    return [
+        [INK, ellipse(32, 18.5, 8, 3)],
+        [CUT, ellipse(32, 18.5, 5.6, 1.4)],
+        [INK, poly(...wing)],
+        [INK, poly(...wing.map(([x, y]): Point => [64 - x, y]))],
+        [INK, ellipse(32, 33, 2.4, 5)],
+    ];
+}
+
 export const PICTOGRAMS: ReadonlyMap<string, () => Layer[]> = new Map(
     [
         skateboard,
@@ -1555,6 +1735,16 @@ export const PICTOGRAMS: ReadonlyMap<string, () => Layer[]> = new Map(
         horseshoe,
         dice,
         rig,
+        windsock,
+        pencil,
+        sailboat,
+        empire,
+        rollerskate,
+        helmet,
+        pretzel,
+        bull,
+        volcano,
+        halo,
     ].map((f) => [f.name, f]),
 );
 

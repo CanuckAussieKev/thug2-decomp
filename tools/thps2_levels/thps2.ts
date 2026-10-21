@@ -118,6 +118,9 @@ export interface PsxTexture {
     width: number;
     height: number;
     rgba: Buffer; // width x height x RGBA, the palette applied (0x0000 transparent)
+    // per texel 1 where the colour has the semi-transparency bit (bit 15) and isn't transparent: on a face drawn
+    // semi-transparent (face flag 0x40) the PlayStation blends only those texels, the others are drawn opaque
+    semi: Buffer;
 }
 
 export interface Psx {
@@ -292,16 +295,18 @@ function readTextureLibrary(buf: Buffer, at: number, name: string): PsxTexture[]
         const palette = palettes.get(key);
         if (palette === undefined) throw new FormatError(`${name}: texture ${i}: no palette ${key.toString(16)}`);
         const rgba = Buffer.alloc(width * height * 4);
+        const semi = Buffer.alloc(width * height);
         for (let y = 0; y < height; y++) {
             for (let x = 0; x < width; x++) {
                 const v =
                     paletteSize === 16 ? (buf[p + y * row + (x >> 1)]! >> ((x & 1) * 4)) & 15 : buf[p + y * row + x]!;
                 const [r, g, b, a] = ps1Color(palette[v]!);
                 rgba.set([r, g, b, a], (y * width + x) * 4);
+                if (a && palette[v]! & 0x8000) semi[y * width + x] = 1;
             }
         }
         p += row * height;
-        out.push({ paletteSize, key, index, width, height, rgba });
+        out.push({ paletteSize, key, index, width, height, rgba, semi });
     }
     if (p !== buf.length) throw new FormatError(`${name}: ${buf.length - p} bytes after the textures`);
     return out;
@@ -408,6 +413,261 @@ export function restartOf(node: TrgNode): Restart {
         angles: [d.readInt16LE(l + 12), d.readInt16LE(l + 14), d.readInt16LE(l + 16)],
         name,
     };
+}
+
+// --- the command lists ---------------------------------------------------------------------------------------------
+//
+// Nodes of types 4 / 15 (the level's start commands, one and two players), 6 (command points) and 8 (restarts: what
+// runs when the skater starts there) carry a command list: u16 opcodes, each followed by its arguments, up to 0xFFFF.
+// The opcodes' names are those of the trigger symbol file the retail game ships in ALL.PKR (data/symbols.tdf -
+// "symbol definitions for use in defining TRG files": node types, commands, terrain types, sounds); the argument
+// layouts were worked out from the ten levels' files (every list of the ten parses to its end with this table). Strings
+// are zero-terminated and padded to an even length; 32-bit arguments are aligned to 4 in the file, as the nodes' data.
+//
+// A command point (type 6): u16 6, u16 link count, links, [aligned] u32 trigger - the name checksum of the world model
+// whose trigger faces (surface 0x02) run its list when the skater meets them (0: a point run only by a pulse from
+// another), then its list. SendPulse pulses the linked nodes: a command point runs its list, a restart puts a killed
+// skater there, an object (type 1) starts its script. SetInitialPulses(n) is how many pulses a point takes (0xFFFF:
+// any number). GapPolyHit(other, gap): meeting this trigger after `other` is gap number `gap` (the game's own gap
+// table - the names and scores are in the executable, SafeDisc-encrypted on the PC: not read).
+
+export const CMD = {
+    SetCheatRestarts: 2,
+    SendPulse: 3,
+    SendActivate: 4,
+    SendSuspend: 5,
+    SendSignal: 10,
+    SendKill: 11,
+    SendKillLoudly: 12,
+    SendVisible: 13,
+    SetFoggingParams: 104,
+    SetResetHeight: 109,
+    Text: 115,
+    DebugText: 119,
+    SpoolIn: 126,
+    SpoolOut: 127,
+    SpoolEnv: 128,
+    BackgroundOn: 131,
+    BackgroundOff: 132,
+    SetInitialPulses: 134,
+    SetRestart: 140,
+    SetVisibilityInBox: 141,
+    SetObjFile: 142,
+    SetGameLevel: 147,
+    IfPulseCount: 148,
+    Endif: 149,
+    KillBruce: 152,
+    SetReverbType: 157,
+    SetOTPushback: 166,
+    SetOTPushback2: 169,
+    BackgroundCreate: 171,
+    SetRestartNoMessage: 176,
+    SetRestart2: 178,
+    SetFadeColor: 200,
+    GapPolyHit: 201,
+    SetSkyColor: 202,
+    SetCareerFlag: 203,
+    IfCareerFlag: 204,
+    IfCareerGoal: 205,
+} as const;
+export const END_COMMANDS = 0xffff;
+
+// Argument layouts: h u16, w aligned u32, s a string, S strings up to an empty one, B boxes (aligned 6 x i32) up to a
+// u16 0xFF. Opcodes 0 and 1 (no arguments) appear twice, unnamed in the symbol file.
+const COMMAND_ARGS: ReadonlyMap<number, string> = new Map([
+    [0, ""],
+    [1, ""],
+    [CMD.SetCheatRestarts, "S"],
+    [CMD.SendPulse, ""],
+    [CMD.SendActivate, ""],
+    [CMD.SendSuspend, ""],
+    [CMD.SendSignal, ""],
+    [CMD.SendKill, ""],
+    [CMD.SendKillLoudly, ""],
+    [CMD.SendVisible, ""],
+    [CMD.SetFoggingParams, "hhh"],
+    [CMD.Text, "s"],
+    [CMD.DebugText, "s"],
+    [CMD.SpoolIn, "s"],
+    [CMD.SpoolOut, "s"],
+    [CMD.SpoolEnv, "s"],
+    [CMD.BackgroundOn, "h"],
+    [CMD.BackgroundOff, "h"],
+    [CMD.SetInitialPulses, "h"],
+    [CMD.SetRestart, "s"],
+    [CMD.SetVisibilityInBox, "hhB"],
+    [CMD.SetObjFile, "s"],
+    [CMD.SetGameLevel, "h"],
+    [CMD.IfPulseCount, "h"],
+    [CMD.Endif, ""],
+    [CMD.KillBruce, ""],
+    [CMD.SetReverbType, "h"],
+    [CMD.SetOTPushback, "h"],
+    [CMD.SetOTPushback2, "h"],
+    [CMD.BackgroundCreate, "whhh"],
+    [CMD.SetRestartNoMessage, "s"],
+    [CMD.SetRestart2, "s"],
+    [CMD.SetFadeColor, "hh"],
+    [CMD.GapPolyHit, "wh"],
+    [CMD.SetSkyColor, "hh"],
+    [CMD.SetCareerFlag, "h"],
+    [CMD.IfCareerFlag, "h"],
+    [CMD.IfCareerGoal, "h"],
+]);
+
+export type CommandArg = number | string | string[] | number[][];
+
+export interface Command {
+    op: number;
+    args: CommandArg[];
+}
+
+// The command list starting at node-local offset `at`.
+export function readCommands(node: TrgNode, at: number): Command[] {
+    const d = node.data;
+    const out: Command[] = [];
+    let p = at;
+    const u16 = (): number => {
+        if (p + 2 > d.length) throw new FormatError(`node ${node.index}: command list past its end`);
+        const v = d.readUInt16LE(p);
+        p += 2;
+        return v;
+    };
+    const align = (): void => {
+        p += (4 - ((node.offset + p) % 4)) % 4;
+    };
+    const str = (): string => {
+        const end = d.indexOf(0, p);
+        if (end < 0) throw new FormatError(`node ${node.index}: unterminated string`);
+        const s = d.toString("latin1", p, end);
+        p = end + 1;
+        if (p & 1) p++;
+        return s;
+    };
+    for (;;) {
+        const op = u16();
+        if (op === END_COMMANDS) return out;
+        const layout = COMMAND_ARGS.get(op);
+        if (layout === undefined)
+            throw new FormatError(`node ${node.index}: unknown command ${op} at +${p - 2} (type ${node.type})`);
+        const args: CommandArg[] = [];
+        for (const c of layout) {
+            if (c === "h") args.push(u16());
+            else if (c === "w") {
+                align();
+                if (p + 4 > d.length) throw new FormatError(`node ${node.index}: command list past its end`);
+                args.push(d.readUInt32LE(p));
+                p += 4;
+            } else if (c === "s") args.push(str());
+            else if (c === "S") {
+                const list: string[] = [];
+                for (let s = str(); s; s = str()) list.push(s);
+                args.push(list);
+            } else if (c === "B") {
+                const boxes: number[][] = [];
+                for (;;) {
+                    if (p + 2 <= d.length && d.readUInt16LE(p) === 0xff) {
+                        p += 2;
+                        break;
+                    }
+                    align();
+                    if (p + 24 > d.length) throw new FormatError(`node ${node.index}: box list past its end`);
+                    boxes.push([0, 1, 2, 3, 4, 5].map((k) => d.readInt32LE(p + 4 * k)));
+                    p += 24;
+                }
+                args.push(boxes);
+            }
+        }
+        out.push({ op, args });
+    }
+}
+
+export const NODE_COMMAND_POINT = 6;
+export const NODE_START = 4;
+export const NODE_START_2P = 15;
+
+export interface CommandPoint {
+    trigger: number; // the world model's name checksum, 0: none
+    commands: Command[];
+}
+
+export function commandPointOf(node: TrgNode): CommandPoint {
+    if (node.type !== NODE_COMMAND_POINT) throw new FormatError(`node ${node.index}: not a command point`);
+    const at = align4(node.dataAt) - node.offset;
+    if (at + 4 > node.data.length) throw new FormatError(`node ${node.index}: command point cut short`);
+    return { trigger: node.data.readUInt32LE(at), commands: readCommands(node, at + 4) };
+}
+
+// A restart's commands (after its name) / the level's start commands (types 4, 15).
+export function restartCommands(node: TrgNode): Command[] {
+    if (node.type !== NODE_RESTART) throw new FormatError(`node ${node.index}: not a restart`);
+    const l = align4(node.dataAt) - node.offset + 18;
+    let end = node.data.indexOf(0, l);
+    if (end < 0) throw new FormatError(`node ${node.index}: unterminated name`);
+    end++;
+    if (end & 1) end++;
+    return readCommands(node, end);
+}
+
+export function startCommands(node: TrgNode): Command[] {
+    if (node.type !== NODE_START && node.type !== NODE_START_2P)
+        throw new FormatError(`node ${node.index}: not a start node`);
+    return readCommands(node, 2);
+}
+
+// --- objects (type 1: "Baddy" in the symbol file) ------------------------------------------------------------------
+//
+// u16 1, u16 kind (402 Platform: a model of the _o file; 203 ScriptOnlyBaddy: sounds, no model; 213-220 the cars), u16,
+// u16 link count, links, u8 creation flags up to 0xFF (NotCreatedAtStart 0 / CreatedAtStart 1, ActiveWhenCreated 2,
+// ManualSuspendControl 4 / RadialSuspendControl 5), [aligned] i32 x, y, z, i16 angle x, y, z (4096 = a turn), then the
+// object's script: u16 tokens of the symbol file's script language - commands (C_*, 0x41xx-0x47xx) and variables
+// (V_*, 0x21xx-0x23xx) followed by their values (u16 numbers or variables). V_MODEL_CHECKSUM (0x212F) takes an
+// aligned u32: the model's name checksum.
+
+export const OBJECT_PLATFORM = 402;
+export const OBJECT_SCRIPT_ONLY = 203;
+
+export const V_MODEL_CHECKSUM = 0x212f;
+export const V_ANGULAR_VELOCITY = 0x2127; // (x, y, z: angle units a frame)
+export const C_DONE = 0x4100;
+
+export interface ObjectNode {
+    kind: number;
+    created: number[]; // the creation flags
+    position: [number, number, number];
+    angles: [number, number, number];
+    model: number; // 0: none
+    tokens: number[]; // the script's u16 tokens (V_MODEL_CHECKSUM's u32 left out)
+}
+
+export function objectOf(node: TrgNode): ObjectNode {
+    if (node.type !== 1) throw new FormatError(`node ${node.index}: not an object`);
+    const d = node.data;
+    if (d.length < 6) throw new FormatError(`node ${node.index}: object cut short`);
+    const kind = d.readUInt16LE(2);
+    let p = node.dataAt - node.offset;
+    const created: number[] = [];
+    while (p < d.length && d[p] !== 0xff) created.push(d[p++]!);
+    p = align4(node.offset + p + 1) - node.offset;
+    if (p + 18 > d.length) throw new FormatError(`node ${node.index}: object cut short`);
+    const position: [number, number, number] = [d.readInt32LE(p), d.readInt32LE(p + 4), d.readInt32LE(p + 8)];
+    const angles: [number, number, number] = [d.readInt16LE(p + 12), d.readInt16LE(p + 14), d.readInt16LE(p + 16)];
+    p += 18;
+    let model = 0;
+    const tokens: number[] = [];
+    while (p + 2 <= d.length) {
+        const t = d.readUInt16LE(p);
+        p += 2;
+        if (t === V_MODEL_CHECKSUM) {
+            p = align4(node.offset + p) - node.offset;
+            if (p + 4 > d.length) throw new FormatError(`node ${node.index}: model checksum past its end`);
+            if (!model) model = d.readUInt32LE(p);
+            p += 4;
+            continue;
+        }
+        tokens.push(t);
+    }
+    return { kind, created, position, angles, model, tokens };
 }
 
 export function railPointOf(node: TrgNode): RailPoint {
