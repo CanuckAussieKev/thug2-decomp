@@ -2,6 +2,7 @@
 // display region and black bars (contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md).
 
 #include "game/gfx/render.h"
+#include "game/gfx/view_mode.h"
 #include "game/gfx/wireframe.h"
 
 #include <cmath>
@@ -229,6 +230,10 @@ void Draw2DWithBlackBars()
     }
 }
 
+// Not original - the level editor's ortho views (game/front/level_editor_camera.h): the near plane brought up for the
+// editor's camera while RenderViewport draws the world with it (2, the original's, otherwise).
+static float s_nearZ = 2.0f;
+
 // 0x004DB200
 void SetCamera(const Mth::Matrix* orientation, const Mth::Vector* position, float angle, float aspect, float zoom,
                bool infinite)
@@ -252,7 +257,8 @@ void SetCamera(const Mth::Matrix* orientation, const Mth::Vector* position, floa
     world = Mth::Matrix{{{1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 1, 0}, {0, 0, 0, 1}}};
     MatrixLookAt(&view, camera.position, target, camera.up);
 
-    camera.nearZ = 2.0f;
+    // (not original: s_nearZ - the original: camera.nearZ = 2.0f;)
+    camera.nearZ = s_nearZ;
     // Originally from PartyMod Fixes (its float at 0x004DB35D): the far plane 96000 - further, for large levels' backgrounds (e.g.
     // Skatopia). The original: camera.farZ = 32000.0f;
     camera.farZ = 96000.0f;
@@ -545,9 +551,16 @@ void RenderViewport(int index)
     SetLightingMode(0);
     float aspect = GameFunction<float(__thiscall*)(const Viewport*)>(0x004A0D20)(view);
 
+    // Not original - the level editor's ortho views (game/front/level_editor_camera.h): its camera's field of view
+    // narrowed and the near plane brought up for the world's passes (the sky's keeps the near plane).
+    // Original behaviour: the camera's own angle, the near plane at 2.
+    auto* editorCamera = static_cast<Gfx::Camera*>(camera);
+    float editorNear = Front::LevelEditor::NearPlane(static_cast<Gfx::Camera*>(camera));
+
     // The world: every scene but the sky.
     {
-        float angle = CameraAngle(camera);
+        float angle = Front::LevelEditor::ViewAngle(editorCamera, CameraAngle(camera));
+        s_nearZ = editorNear;
         const Mth::Vector* position = CameraPosition(camera);
         SetCamera(CameraMatrix(camera), position, angle, aspect, 1.0f, false);
         // Not original - the level editor: the view's projection noted (its mouse ray and outlines).
@@ -584,7 +597,8 @@ void RenderViewport(int index)
     // The sky: from the origin, far plane at infinity, fog over 20-21 (the fog range put back after).
     {
         Mth::Vector origin = {0.0f, 0.0f, 0.0f, 1.0f};
-        float angle = CameraAngle(camera);
+        float angle = Front::LevelEditor::ViewAngle(editorCamera, CameraAngle(camera));
+        s_nearZ = 2.0f;
         SetCamera(CameraMatrix(camera), &origin, angle, aspect, 1.0f, true);
     }
     float& fogStart = GameVariable<float>(0x00787340);
@@ -625,9 +639,11 @@ void RenderViewport(int index)
 
     // The world again, for the later passes.
     {
-        float angle = CameraAngle(camera);
+        float angle = Front::LevelEditor::ViewAngle(editorCamera, CameraAngle(camera));
         const Mth::Vector* position = CameraPosition(camera);
+        s_nearZ = editorNear;
         SetCamera(CameraMatrix(camera), position, angle, aspect, 1.0f, false);
+        s_nearZ = 2.0f;
     }
     SetPass(0x82);
     SetRenderState(1, 1);
@@ -676,8 +692,10 @@ void RenderWorld()
         // Not original - the wireframe render mode (game/gfx/wireframe.h): the 3D passes in wireframe when asked.
         // Original behaviour: the render mode (0x006FA734) isn't read.
         Wireframe::BeginWorld();
+        ViewMode::BeginWorld(); // (not original either: the editor's view modes - game/gfx/view_mode.h)
         for (int i = 0; i < count; ++i)
             RenderViewport(i);
+        ViewMode::EndWorld();
         Wireframe::EndWorld();
 
         // Full-screen effects and the 2D on top.

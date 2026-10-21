@@ -158,6 +158,7 @@ void InvalidateDeviceObjects()
         ImGui_ImplDX9_InvalidateDeviceObjects();
     // (the picture is in the default pool: it must go before a reset; made again when next drawn)
     FreeOffscreen();
+    FreeAtlas(); // (the thumbnails' atlas too: its cells drawn again - level_editor_thumbs.h)
 }
 
 void WindowSize(int* width, int* height)
@@ -228,6 +229,133 @@ void FreeOffscreen()
 {
     EndOffscreen();
     ReleaseOffscreen();
+}
+
+// --- the thumbnails' atlas ----------------------------------------------------------------------------------------
+
+namespace {
+
+struct Atlas {
+    IDirect3DTexture9* texture = nullptr;
+    IDirect3DSurface9* depth = nullptr;
+    int size = 0;
+    bool stencil = false;
+    bool failedLogged = false;
+    uint32_t generation = 1;
+    bool active = false;
+    IDirect3DSurface9* savedTarget = nullptr;
+    IDirect3DSurface9* savedDepth = nullptr;
+    D3DVIEWPORT9 savedViewport = {};
+    D3DMATRIX savedTransforms[3] = {};
+};
+Atlas g_atlas;
+
+void ReleaseAtlas()
+{
+    if (g_atlas.texture || g_atlas.depth)
+        ++g_atlas.generation;
+    if (g_atlas.texture)
+        g_atlas.texture->Release();
+    if (g_atlas.depth)
+        g_atlas.depth->Release();
+    g_atlas.texture = nullptr;
+    g_atlas.depth = nullptr;
+    g_atlas.size = 0;
+}
+
+bool MakeAtlas(IDirect3DDevice9* device, int size)
+{
+    if (g_atlas.texture && g_atlas.size == size)
+        return true;
+    ReleaseAtlas();
+    D3DFORMAT depthFormat = D3DFMT_D24S8;
+    IDirect3DSurface9* gameDepth = nullptr;
+    if (SUCCEEDED(device->GetDepthStencilSurface(&gameDepth)) && gameDepth) {
+        D3DSURFACE_DESC desc;
+        if (SUCCEEDED(gameDepth->GetDesc(&desc)))
+            depthFormat = desc.Format;
+        gameDepth->Release();
+    }
+    HRESULT made = device->CreateTexture(size, size, 1, D3DUSAGE_RENDERTARGET, D3DFMT_X8R8G8B8, D3DPOOL_DEFAULT,
+                                         &g_atlas.texture, nullptr);
+    if (SUCCEEDED(made))
+        made = device->CreateDepthStencilSurface(size, size, depthFormat, D3DMULTISAMPLE_NONE, 0, TRUE, &g_atlas.depth,
+                                                 nullptr);
+    if (FAILED(made)) {
+        if (!g_atlas.failedLogged)
+            Log("level editor UI: no thumbnail atlas of %d pixels (%08X)", size, static_cast<unsigned>(made));
+        g_atlas.failedLogged = true;
+        ReleaseAtlas();
+        return false;
+    }
+    g_atlas.size = size;
+    g_atlas.stencil = depthFormat == D3DFMT_D24S8 || depthFormat == D3DFMT_D24X4S4 || depthFormat == D3DFMT_D15S1 ||
+                      depthFormat == D3DFMT_D24FS8;
+    // (a new atlas: every cell cleared once, so an unfilled one isn't garbage)
+    IDirect3DSurface9* surface = nullptr;
+    if (SUCCEEDED(g_atlas.texture->GetSurfaceLevel(0, &surface))) {
+        device->ColorFill(surface, nullptr, D3DCOLOR_XRGB(42, 44, 48));
+        surface->Release();
+    }
+    return true;
+}
+
+} // namespace
+
+bool BeginAtlasCell(int atlasSize, int x, int y, int size, uint32_t argb)
+{
+    IDirect3DDevice9* device = Device();
+    if (!device || g_atlas.active || g_offscreen.active || atlasSize <= 0 || size <= 0 || x < 0 || y < 0 ||
+        x + size > atlasSize || y + size > atlasSize || !MakeAtlas(device, atlasSize))
+        return false;
+    IDirect3DSurface9* surface = nullptr;
+    if (FAILED(g_atlas.texture->GetSurfaceLevel(0, &surface)))
+        return false;
+    Atlas& a = g_atlas;
+    device->GetRenderTarget(0, &a.savedTarget);
+    device->GetDepthStencilSurface(&a.savedDepth);
+    device->GetViewport(&a.savedViewport);
+    for (int i = 0; i < 3; ++i)
+        device->GetTransform(kSavedTransforms[i], &a.savedTransforms[i]);
+    device->SetRenderTarget(0, surface);
+    surface->Release();
+    device->SetDepthStencilSurface(a.depth);
+    D3DVIEWPORT9 viewport = {static_cast<DWORD>(x), static_cast<DWORD>(y), static_cast<DWORD>(size),
+                             static_cast<DWORD>(size), 0.0f, 1.0f};
+    device->SetViewport(&viewport);
+    // (no rectangles: the viewport - the cell - is cleared)
+    device->Clear(0, nullptr, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER | (a.stencil ? D3DCLEAR_STENCIL : 0), argb, 1.0f, 0);
+    a.active = true;
+    return true;
+}
+
+void EndAtlasCell()
+{
+    Atlas& a = g_atlas;
+    IDirect3DDevice9* device = Device();
+    if (!a.active || !device)
+        return;
+    device->SetRenderTarget(0, a.savedTarget);
+    device->SetDepthStencilSurface(a.savedDepth);
+    device->SetViewport(&a.savedViewport);
+    for (int i = 0; i < 3; ++i)
+        device->SetTransform(kSavedTransforms[i], &a.savedTransforms[i]);
+    if (a.savedTarget)
+        a.savedTarget->Release();
+    if (a.savedDepth)
+        a.savedDepth->Release();
+    a.savedTarget = a.savedDepth = nullptr;
+    a.active = false;
+}
+
+uint64_t AtlasTexture() { return g_atlas.texture ? TextureId(g_atlas.texture) : 0; }
+
+uint32_t AtlasGeneration() { return g_atlas.generation; }
+
+void FreeAtlas()
+{
+    EndAtlasCell();
+    ReleaseAtlas();
 }
 
 } // namespace Front::LevelEditor::UiBackend

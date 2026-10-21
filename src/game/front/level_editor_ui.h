@@ -332,6 +332,8 @@ struct Request {
     LevelProps::Props props;
 };
 std::vector<Request> TakeRequests();
+// A request from another module's panel (level_editor_ux3.h: the command search's settings), as the UI's own.
+void PushRequest(const Request& request);
 
 // The Inspector's chain section (level_editor_chains_ui.cpp): drawn inside the node's section; what's asked for added
 // to `requests`.

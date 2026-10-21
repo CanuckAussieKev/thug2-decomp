@@ -72,11 +72,28 @@ class CScript;
 //   level_editor_walls.cpp    collision switched off and on with the game's own switch (CSector::SetActive): invisible
 //                             walls deleted (Delete) / restored and moved / turned, a drawn piece's collision off by
 //                             itself (the Inspector's Collision); undo, `wall` layout records
+//   level_editor_overlays.cpp the toolbar's View menu (Lit / Unlit / Wireframe / Collision only, Alt+1..4 - drawn by
+//                             game/gfx/view_mode.h) and Overlays menu (every overlay's checkbox, [editor] overlays=);
+//                             level_editor_arcs.cpp jump arcs off the selected scenery's lips (Y),
+//                             level_editor_grind_preview.cpp the rail under the cursor whole, level_editor_ruler.cpp
+//                             the ruler (M), level_editor_thumbs.cpp the Add palette's thumbnail grid, Recent, Favourites
+//   level_editor_checks.cpp   (UX5) the problem checker (Alt+P / the toolbar's Problems: Go to / Fix / Ignore; layout
+//                             records that don't resolve kept, never dropped), level_editor_budget.cpp the budget
+//                             meter (the engine's limits, on the toolbar), level_editor_notes.cpp note pins
 //   level_editor_hud.cpp      the old HUD ([features] editor_ui=0, or when the UI can't start): a status panel top
 //                             left, the keys at the bottom, a message line, and a panel for the help (F1) and the
 //                             browser (B), made of the game's screen elements
+//   level_editor_camera.cpp   the camera tools: F frames the selection, Alt+drag orbits, the right button + wheel sets
+//                             the speed, Ctrl+1..9 / 1..9 camera bookmarks, the numpad's ortho views
+//   level_editor_play.cpp     play from here (F5 / Ctrl+P) and back to the editor with the same camera and selection
+//   level_editor_prefs.cpp    the preferences window ([editor] in the ini) and the first-run tips
 // The controls (F1 lists them in the game):
-//   - Flying: W A S D, Q / E down / up, Shift faster, the right mouse button looks, the wheel goes forward / back.
+//   - Flying: W A S D, Q / E down / up while the right mouse button is held (it looks too; [editor] wasd_flies=1: without
+//     it, as the editor first was), Shift faster, the wheel goes forward / back.
+//   - Tools (level_editor_transform.h, level_editor_snap.h): W / E / R (right button up) or Space pick Move / Rotate /
+//     Scale - their gizmos' arrows, ring and cubes; ` World / Local; the toolbar's pivot, grid (1 - 100) and rotation
+//     snap; while dragging X / Y / Z and digits type exact amounts, Ctrl / Ctrl+Shift / Alt+Shift / Ctrl+Alt snap to the
+//     grid / the world's grid / a surface / a vertex; Alt+G a modal transform; Ctrl+Shift+D repeats the last duplicate.
 //   - Seeing (the UI): the Outliner lists the level's nodes by family (search; the chips show / hide a family, in
 //     the view too - kept in the ini as [editor] families=<bits>); a click on a row or a gizmo selects it (an
 //     object's or scenery's node selects the object / scenery; a flag's object selects the flag's node), a
@@ -117,6 +134,10 @@ class CScript;
 //     Ctrl+Shift+R discards it. A crash logs the editor's last action. Leaving: Escape, Enter (the Pause key) or a controller's Start (level_editor_exit) - Escape
 //     first cancels a drag, closes a panel or drops the selection.
 //
+//   - Keys are the action registry's (level_editor_actions.h: rebindable, [editor_keys]); the command search
+//     (Ctrl+Space / F3), the undo history (Ctrl+H), the Changes panel (Ctrl+Shift+H), box select, select similar
+//     (Shift+G), the Outliner's toggles / groups / labels, copy / paste between levels (Ctrl+C / Ctrl+V) and layout
+//     snapshots: level_editor_ux3.h.
 // thug2-decomp.ini [features] level_editor=1 (default; 0: LevelEditor_Available is false - no menu item - and
 // LevelEditor_Start refuses), debug_editor=1 logs picks, moves and the view. `-edit <level>` (or edit_level=) starts the
 // game in the editor in that level (game/front/start_level.h; tools/game/edit_level.ts). editor_ui=0 (default 1) brings
@@ -149,6 +170,10 @@ void PlaceCamera(Gfx::Camera* camera);
 // Called by the renderer once a viewport is set up: what the view's projection is (for the mouse ray and the
 // outlines). `viewport`: the device viewport (x, y, width, height in back buffer pixels).
 void NoteView(Gfx::Camera* camera, float angle, float aspect, const uint32_t viewport[4]);
+// Called by the renderer for a viewport's camera (Nx::RenderViewport): its field of view (degrees) and near plane - the
+// game's own, except for the editor's camera in an ortho view (level_editor_camera.h: a long lens from far back).
+float ViewAngle(Gfx::Camera* camera, float angle);
+float NearPlane(Gfx::Camera* camera);
 // After the 2D pass: the selected scenery's grind rails, and outlines of what couldn't be tinted.
 void Draw();
 // For the screenshot sidecar (game/sys/screenshot.h): what the editor shows now - its mode, the level, its camera,

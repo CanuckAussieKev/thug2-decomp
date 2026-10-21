@@ -269,6 +269,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_editor_nodes.cpp
     src/hook/selftests_editor_create.cpp
     src/hook/selftests_editor_preview.cpp
+    src/hook/selftests_editor_ux4.cpp
     src/hook/selftests_editor_levels.cpp
     src/hook/selftests_editor_picking.cpp
     src/hook/selftests_editor_view.cpp
@@ -288,6 +289,10 @@ add_library(thug2_code OBJECT
     src/hook/selftests_editor_carry.cpp
     src/hook/selftests_editor_entities.cpp
     src/hook/selftests_editor_modes.cpp
+    src/hook/selftests_editor_ux3.cpp
+    src/hook/selftests_editor_ux5.cpp
+    src/hook/selftests_editor_transform.cpp
+    src/hook/selftests_editor_ux1.cpp
     src/hook/selftests_pcmstream.cpp
     src/hook/selftests_pcmplay.cpp
     src/game/ass/asset.cpp
@@ -345,11 +350,17 @@ add_library(thug2_code OBJECT
     src/game/front/level_editor_cameras.cpp
     src/game/front/level_editor_goals.cpp
     src/game/front/level_editor_goals_ui.cpp
+    src/game/front/level_editor_checks.cpp
+    src/game/front/level_editor_budget.cpp
+    src/game/front/level_editor_notes.cpp
     src/game/front/level_editor_carry.cpp
     src/game/front/level_editor_scenery.cpp
     src/game/front/level_editor_scale.cpp
     src/game/front/level_editor_shared_coll.cpp
     src/game/front/level_editor_ui.cpp
+    src/game/front/level_editor_camera.cpp
+    src/game/front/level_editor_play.cpp
+    src/game/front/level_editor_prefs.cpp
     src/game/front/level_editor_ui_backend.cpp
     src/game/front/level_editor_ui_fonts.cpp
     src/game/front/level_editor_ui_layout.cpp
@@ -362,12 +373,27 @@ add_library(thug2_code OBJECT
     src/game/front/level_editor_entities_ui.cpp
     src/game/front/level_editor_career.cpp
     src/game/front/level_editor_preview.cpp
+    src/game/front/level_editor_overlays.cpp
+    src/game/front/level_editor_overlays_ui.cpp
+    src/game/front/level_editor_arcs.cpp
+    src/game/front/level_editor_grind_preview.cpp
+    src/game/front/level_editor_ruler.cpp
+    src/game/front/level_editor_thumbs.cpp
     src/game/front/level_editor_chains.cpp
     src/game/front/level_editor_chains_ui.cpp
     src/game/front/level_editor_spots_ui.cpp
     src/game/front/level_editor_fields.cpp
     src/game/front/level_editor_fields_ui.cpp
     src/game/front/level_editor_level_props.cpp
+    src/game/front/level_editor_actions.cpp
+    src/game/front/level_editor_changes.cpp
+    src/game/front/level_editor_organize.cpp
+    src/game/front/level_editor_clip.cpp
+    src/game/front/level_editor_ux3.cpp
+    src/game/front/level_editor_ux3_ui.cpp
+    src/game/front/level_editor_snap.cpp
+    src/game/front/level_editor_transform.cpp
+    src/game/front/level_editor_transform_ui.cpp
     src/game/skate/competition.cpp
     src/game/gfx/anim_controller.cpp
     src/game/gfx/screen.cpp
@@ -406,6 +432,7 @@ add_library(thug2_code OBJECT
     src/game/gfx/loading_bar.cpp
     src/game/gfx/render.cpp
     src/game/gfx/wireframe.cpp
+    src/game/gfx/view_mode.cpp
     src/game/gfx/sprite.cpp
     src/game/gfx/camera.cpp
     src/game/gfx/scene.cpp
