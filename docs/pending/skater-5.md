@@ -201,3 +201,52 @@ Switch off: `[replacements] disable=vehicle_camera.cpp` (and walk_camera.cpp, wa
     one exactly full after x 1/0.85, the run speed; shared short-list values for equal compares; -0 velocities; the
     current cache global recorded). 44 deliberate bugs caught, 3 after strengthening (the cache global, the
     velocity's -0 when nothing is taken away, a push exactly full).
+- [x] Batch SK5-7 (NOT run in the game yet; the rest of the range: the Walk component's collision checks, jumps,
+  ground velocity and its object, 16 functions): src/game/skater/walk_collision.cpp (new), walk_movement.cpp.
+  - Collision: 0x005264F0 UpdateCurbFloat (the facing along the ground, never downhill, made unit with a float
+    inverse; a feeler curb_float_feeler_length ahead and one down from snap_up_height half a unit past the hit; the
+    offset +0x714 eased toward the height there unless settled - |offset| < 0.01, no push, slower than
+    min_curb_height_adjust_vel), 0x00526BA0 CheckCeiling (walker_height, 18 less while falling; the velocity into the
+    ceiling projected away, the head moved back out of it; the object's 0x6E84ACF3 event), 0x00526E00
+    CheckStickerSlap (X and the pad's +0x20 button within 30 ms, a wall ahead - static collision only -,
+    Physics_Min_Wallplant_Height, Physics_Disallow_Rewallplant_Duration, Skater_Late_Jump_Slop, 0x00507500(0, 1, 0):
+    "walking sticker slap", walking_wallplant_switch), 0x00527080 UpdateGroundBelow (feelers down from the critical
+    point - uber_frig_current_height x 12 - and from 12 above, faces flagged 0x20 only: the height above the ground,
+    the shadow, the model shaded (0x00420670); nothing below: "applying uber frig" - back to the frame's start
+    position, velocity and facing reversed, forward control locked for 60 frames, the ground state, Land),
+    0x005278D0 EaseCriticalPointOffset (m_critical_point_offset - the game's own message - eased out at 1000 a second
+    in states 0, 1, 3; its path checked: "adjusting position due to bad critical point" with the game's two debug
+    lines; kept on the push plane's side).
+  - Jumps: 0x00526850 SteerJump (after the jump's delay +0x1898; across and along the jump's direction eased toward
+    the push by jump_adjust_speed / jump_accel_factor; no push: along eased to 0; faster ahead kept),
+    0x00529160 PlanJumpOverObstruction (a ledge within jump_obstruction_check_height with jump_obstruction_check_back
+    clear: the time to rise to it under GetGravity and the velocity back to it - +0x189C, +0x18AC, +0x1898),
+    0x005293F0 TryWallplant (X in the air not rising, the same three checks, the first touching contact in the order
+    0, 1, 6, 2, 5, 3, 4: off it mirrored, up by the hold of X - hold_time_for_max_jump, min_jump_factor,
+    vert_wall_jump_speed, horiz_wall_jump_speed -, a moving wall's velocity added; the trigger, the trick objects -
+    0x00522370 -, the wallplant time, Wallplant), 0x005299F0 TryGrind (bool: the level's rails, else each
+    RailManager component's in its object's space - 0x0042BA10, vtable +0x34 -; 0x00500020; a wall within 6 of the
+    rail's point is fine; output_tracking_lines; +0x748 = 1, rail).
+  - Ground and object: 0x00528950 UpdateGroundVelocity(velocity - the game passes +0x34): Run / Stand, the way it
+    goes (the velocity's past ignore_velocity_threshold - a float inverse, w from the unrounded one -, the push's,
+    the velocity's past 0.01, the facing); past slop_lock_angle (acos in degrees, CRT 0x00623630 in the register)
+    turned in place at rotate_in_place_rate (walk_rotate_factor walking; wall_rotate_factor against a wall - +0x186C -
+    or with a wall where it turns), snapped onto the push when it turns past; else eased by worse_turn_factor /
+    worse_worse_turn_factor; the speed eased toward the slope-adjusted target (walk/run_accel_rate up, decel_factor
+    down, low_speed_decel_factor stopping from walking speed). 0x00529800 UpdateRotateUpright (D3DXMatrixMultiply),
+    0x005298D0 ApplyTransition (the object at the transition's point, its member function pointer +0x1948 / +0x194C),
+    0x00529CE0 CopyToObject (the facing tilted back by +0x744 - 0.0001 when flat -, the orientation from up x facing,
+    the velocity by state through the jump table 0x00529F64: 0 / 1 the walk's, 2 sideways x climb scale, 3 up at its
+    speed, else none; the model's offset along up).
+  - Findings and fixes outside the range: Vector::ProjectOnto (0x00406200) kept the dot product in double in the
+    original - ours rounded it to float in another order (fixed); Mth::CreateRotateMatrix(axis, angle) (0x00404C60)
+    wasn't bit-exact (x, y unrounded, z rounded, 1 - cos at full precision, the sine rounded - rewritten as the x87
+    code); Matrix::Invert / Adjugate / Determinant still aren't bit-exact (float minors - left as they are; the test
+    stands in for Invert).
+  - Test (selftests_skater_walk_collision.cpp TestWalkCollision / TestWalkJumps / TestWalkObject - three parts
+    under the watchdog): every function, original vs ours, 300-4000 variants (feelers hitting or not, holding an
+    object or not, a hit exactly 6 from the rail's point, the contacts, the RailManager components' chain with a
+    stand-in vtable, the game's debug lines by their formats, Script::GetFloat values equal to the heights and times,
+    the offset eased by exactly its length, the velocity +0x34 passed as itself). 89 deliberate bugs: 87 caught, 5
+    after strengthening; 2 equivalent (EaseCriticalPointOffset's push-back at a distance of exactly 0 - the point's y
+    can't give -0; SteerJump adding 0 to a negative target).
