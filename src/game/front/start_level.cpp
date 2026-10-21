@@ -22,6 +22,7 @@
 #include "game/gfx/screen.h"
 #include "game/obj/object.h"
 #include "game/script/cscript.h"
+#include "game/script/qb.h"
 #include "game/script/struct.h"
 #include "game/sys/mlp.h"
 #include "hook/log.h"
@@ -98,6 +99,9 @@ enum class Edit { Off, WaitLevel, WaitPause, Done };
 Edit s_edit = Edit::Off;
 int s_editFrames;
 int s_presses;
+bool s_started;      // the requested level's load began
+bool s_poolsLogged;  // its script pool use logged (Script::LogScriptPoolUse)
+int s_poolFrames;
 
 // -at / start_at: the skater put there standing once the level is up (AtUpdate).
 constexpr int kAtSettleFrames = 60;  // (in the level, unpaused, before the teleport)
@@ -290,6 +294,17 @@ void Update(Mdl::FrontEnd* frontEnd)
         return;
     }
     if (s_done) {
+        // (once the level is up and settled: what it costs the script pools - for the converters' load checks,
+        // tools/game/load_check.ps1)
+        if (!s_poolsLogged && s_started) {
+            bool up = Nx::CurrentLevel() != 0 && Obj::FindObject(kSkater) != nullptr &&
+                      !(frontEnd && frontEnd->m_paused);
+            s_poolFrames = up ? s_poolFrames + 1 : 0;
+            if (s_poolFrames >= kLevelSettleFrames) {
+                s_poolsLogged = true;
+                Script::LogScriptPoolUse((std::string("in ") + Requested()).c_str());
+            }
+        }
         if (AtUpdate(frontEnd))
             return;  // (-edit's editor once the skater stands there)
         if (s_edit != Edit::Off && s_edit != Edit::Done)
@@ -304,6 +319,7 @@ void Update(Mdl::FrontEnd* frontEnd)
         return;
     s_done = true;
     bool loaded = Load(Requested(), nullptr);
+    s_started = loaded;
     if (loaded && !AtText().empty()) {
         if (ParseSpot(AtText(), nullptr)) {
             s_at = At::WaitLevel;
