@@ -300,7 +300,7 @@ void CorePhysicsComponent::BreakVert(bool force)
 
     float* velocity = &At<float>(object, kVelocity);
     if (triggers() || At<bool>(this, kBreakVertFlag)) {
-        if (GameFunction<bool(__thiscall*)(void*)>(0x00505F70)(this)) {
+        if (TrySpineTransfer()) {
             At<Mth::Matrix>(this, kDisplayMatrix) = ObjectMatrix(object);
             return;
         }

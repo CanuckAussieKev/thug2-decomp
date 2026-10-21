@@ -214,7 +214,7 @@ CSkaterStateHistoryComponent* CSkaterStateHistoryComponent::Construct()
 // 0x00519840
 CSkaterStateHistoryComponent* CSkaterStateHistoryComponent::Destroy(unsigned int flags)
 {
-    GameFunction<void(__thiscall*)(CSkaterStateHistoryComponent*)>(0x005197C0)(this); // the destructor body
+    DestroyBody();
     if (flags & 1)
         Mem::Manager::Get()->Free(this);
     return this;
