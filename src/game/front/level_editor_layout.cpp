@@ -15,6 +15,7 @@
 #include "game/core/crc.h"
 #include "game/front/level_editor.h"
 #include "game/front/level_editor_career.h"
+#include "game/front/level_editor_checks.h"
 #include "game/front/level_editor_node_edit.h"
 #include "game/front/level_editor_objects.h"
 #include "game/front/level_editor_scale.h"
@@ -315,6 +316,16 @@ std::string Write(const File& file)
     }
     for (const Cameras::Camera& c : file.cameras)
         out << Cameras::WriteRecord(c) << '\n';
+    for (const std::string& line : file.extra)
+        out << line << '\n';
+    // (UX5) note pins; the records that didn't resolve when loaded, kept (level_editor_checks.h)
+    for (const Notes::Note& n : file.notes)
+        out << Notes::WriteRecord(n) << '\n';
+    if (!file.carried.empty()) {
+        out << "# not found in the level when loaded - kept until the Problems window drops them\n";
+        for (const std::string& line : file.carried)
+            out << line << '\n';
+    }
     return out.str();
 }
 
@@ -463,7 +474,13 @@ bool Read(const std::string& text, File* file, int* lineNumber)
             ok = Clusters::ReadRecord(in, &file->clusters.emplace_back()); // (map3: level_editor_clusters.h)
         } else if (kind == "camera") {
             ok = Cameras::ReadRecord(in, &file->cameras.emplace_back()); // (map3: level_editor_cameras.h)
-        } // (anything else: a later version's record - skipped)
+        } else if (kind == "note") {
+            ok = Notes::ReadRecord(in, &file->notes.emplace_back()); // (UX5: level_editor_notes.h)
+        } else {
+            // (anything else: another module's record or a later version's - kept as it is: AddExtension)
+            size_t a = line.find_first_not_of(" \t"), b = line.find_last_not_of(" \t");
+            file->extra.push_back(line.substr(a, b - a + 1));
+        }
         if (!ok)
             return false;
     }
@@ -572,6 +589,34 @@ constexpr int kSettleFrames = 60;        // (a level's objects and rails are mad
 bool g_pending;
 int g_wait;
 int g_levelLoads;
+
+// Other modules' records (AddExtension).
+std::vector<Extension>& Extensions()
+{
+    static std::vector<Extension> extensions;
+    return extensions;
+}
+void ResetExtensions()
+{
+    for (const Extension& e : Extensions()) {
+        if (e.reset)
+            e.reset();
+    }
+}
+void ApplyExtensions(const std::vector<std::string>& extra)
+{
+    for (const Extension& e : Extensions()) {
+        if (!e.apply)
+            continue;
+        std::vector<std::string> mine;
+        for (const std::string& line : extra) {
+            std::string word = line.substr(0, line.find(' '));
+            if (std::find(e.keywords.begin(), e.keywords.end(), word) != e.keywords.end())
+                mine.push_back(line);
+        }
+        e.apply(mine);
+    }
+}
 
 // The autosave: the text made by the last Snapshot and where it goes (plain memory the crash hook can write without
 // allocating: `ready` is false while they change), whether it has been written since, whether this run wrote (or
@@ -760,6 +805,15 @@ bool Capture(File* file)
     file->faces = Faces::Changed();
     file->clusters = Clusters::Changed();
     file->cameras = Cameras::Capture();
+    for (const Extension& e : Extensions()) {
+        if (!e.capture)
+            continue;
+        for (const std::string& line : e.capture())
+            file->extra.push_back(line);
+    }
+    file->notes = Notes::Capture(); // (UX5)
+    // (UX5) the loaded layout's records that didn't resolve, kept unless captured again (level_editor_checks.h)
+    file->carried = Checks::CarriedRecords(Write(*file));
     return true;
 }
 
@@ -867,9 +921,13 @@ std::string Apply(const File& file)
     int faces = Faces::Apply(file.faces);
     int clusters = Clusters::Apply(file.clusters);
     int cameras = Cameras::Apply(file.cameras);
+    ApplyExtensions(file.extra); // (other modules' records: level_editor_organize.h)
     if (faces || clusters || cameras)
         Log("level editor: the layout's %d collision faces, %d trick-object clusters, %d cameras put in place", faces,
             clusters, cameras);
+    if (int notes = Notes::Apply(file.notes)) // (UX5: note pins)
+        Log("level editor: the layout's %d notes put in place", notes);
+    Checks::NoteLayoutApplied(file); // (UX5: records that don't resolve - logged, listed, kept)
     char summary[360];
     std::snprintf(summary, sizeof(summary),
                   "%u pieces, %u copies, %u rail points, %d objects, %d object copies, %d nodes, %d added, %d hidden, "
@@ -932,6 +990,9 @@ void ResetToLevel(const File& keep)
     Faces::ResetAll();
     Clusters::ResetAll();
     Cameras::ResetAll();
+    ResetExtensions();
+    Notes::ResetAll();             // (UX5)
+    Checks::ForgetLayoutRecords(); // (UX5: Apply notes the next layout's again)
 }
 
 // The crash hook's write: no C++ objects here (structured exception handling), no allocation.
@@ -945,6 +1006,8 @@ void WriteSnapshotGuarded()
 }
 
 } // namespace
+
+void AddExtension(const Extension& extension) { Extensions().push_back(extension); }
 
 bool Save(std::string* message)
 {
@@ -1206,10 +1269,13 @@ void OnSceneLoaded(const char* name, bool isNet)
     Faces::ForgetLevel(); // (map3: nothing written - the level's collision and trick objects went with it)
     Clusters::ForgetLevel();
     Cameras::ForgetLevel();
+    Notes::ForgetLevel();  // (UX5)
+    Checks::ForgetLevel(); // (UX5: the issues, the ignored list, the unresolved records)
     Chains::ForgetLevel(); // (before the overlay goes: the level's links put back while its array is the one loaded)
     NodeCreate::ForgetLevel();
     Entities::ForgetLevel();
     Picking::ClearLocks();
+    ResetExtensions();
     g_pending = true; // (Tick decides: the edited copy if it was picked, never in a network session)
     g_wait = 0;
     ++g_levelLoads;

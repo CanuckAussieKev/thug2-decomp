@@ -11,6 +11,7 @@
 #include "game/gfx/device.h"
 #include "game/gfx/occlusion.h"
 #include "game/gfx/shadow.h"
+#include "game/gfx/view_mode.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -110,6 +111,10 @@ void __cdecl RenderScene(sScene* scene, uint32_t flags, int viewport)
 {
     Pass pass{scene, flags, 0, (flags & kRenderNoCulling) != 0};
     if (scene->unknown40)
+        return;
+    // Not original - the level editor's Collision only view (game/gfx/view_mode.h): no scene drawn in the 3D passes.
+    // Original behaviour: drawn.
+    if (ViewMode::WorldHidden())
         return;
     if (flags & kRenderShadowVolumes) {
         DrawShadowVolumes(scene, viewport);

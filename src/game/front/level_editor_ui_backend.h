@@ -47,4 +47,16 @@ void EndOffscreen();
 uint64_t OffscreenTexture();
 void FreeOffscreen();
 
+// The Add palette's thumbnails (level_editor_thumbs.h): one square atlas of `atlasSize` pixels with its own depth
+// surface, made on first use and kept (freed by FreeAtlas and with the device objects, as the picture above).
+// BeginAtlasCell makes it the device's target with the viewport on one cell (x, y, size in pixels) - the target, depth
+// surface, viewport and transforms saved first as BeginOffscreen does - and clears that cell to `argb` (colour and
+// depth); EndAtlasCell puts back what was saved. AtlasGeneration changes whenever the atlas is freed (its cells are
+// then empty: what they held is drawn again).
+bool BeginAtlasCell(int atlasSize, int x, int y, int size, uint32_t argb);
+void EndAtlasCell();
+uint64_t AtlasTexture();
+uint32_t AtlasGeneration();
+void FreeAtlas();
+
 } // namespace Front::LevelEditor::UiBackend

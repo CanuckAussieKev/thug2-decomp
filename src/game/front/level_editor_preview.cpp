@@ -152,25 +152,26 @@ void DrawGeometry(uint8_t* geom)
         DrawMeshes(geom);
 }
 
-// The subject's box where it is (false: gone).
-bool SubjectBox(OrientedBox* box)
+// A subject's box where it is (false: gone).
+bool BoxOf(Kind kind, uint32_t id, OrientedBox* box)
 {
-    if (g_kind == Kind::kSector)
-        return Scenery::SectorGeometry(g_id) && Scenery::Box(g_id, box);
-    if (g_kind != Kind::kObject)
+    if (kind == Kind::kSector)
+        return Scenery::SectorGeometry(id) && Scenery::Box(id, box);
+    if (kind != Kind::kObject)
         return false;
-    auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(g_id));
+    auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(id));
     return object && !(object->m_objectFlags & Obj::OBJECT_FLAG_DEAD) && Objects::ModelBox(object, box);
 }
+bool SubjectBox(OrientedBox* box) { return BoxOf(g_kind, g_id, box); }
 
-void DrawSubject()
+void DrawSubject(Kind kind, uint32_t id)
 {
-    if (g_kind == Kind::kSector) {
-        if (uint8_t* geom = Scenery::SectorGeometry(g_id))
+    if (kind == Kind::kSector) {
+        if (uint8_t* geom = Scenery::SectorGeometry(id))
             DrawMeshes(geom);
         return;
     }
-    auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(g_id));
+    auto* object = static_cast<Obj::CCompositeObject*>(Obj::FindObject(id));
     for (int i = 0; object && i < 16; ++i) {
         auto* geom = static_cast<uint8_t*>(Objects::Geometry(object, i));
         if (!geom)
@@ -217,6 +218,22 @@ uint64_t Render(int size)
     OrientedBox box;
     if (!SubjectBox(&box))
         return 0;
+    if (!UiBackend::BeginOffscreen(size, kBackground)) {
+        if (!g_failedLogged)
+            Log("level editor: the Add palette's preview has no target - shown without one");
+        g_failedLogged = true;
+        return 0;
+    }
+    DrawView(g_kind, g_id, g_orbit);
+    UiBackend::EndOffscreen();
+    return UiBackend::OffscreenTexture();
+}
+
+bool DrawView(Kind kind, uint32_t id, const Orbit& orbit)
+{
+    OrientedBox box;
+    if (!BoxOf(kind, id, &box))
+        return false;
     V3 min, max;
     BoundsOf(box, &min, &max);
     V3 centre;
@@ -224,14 +241,7 @@ uint64_t Render(int size)
     SphereOf(min, max, 4.0f, &centre, &radius);
     Lens lens = LensFor(kAngle, kSquareAspect);
     float halfAngle = std::atan(std::min(lens.tanX, lens.tanY));
-    Eye eye = OrbitEye(centre, FitDistance(radius, halfAngle, kMargin) / g_orbit.zoom, g_orbit);
-
-    if (!UiBackend::BeginOffscreen(size, kBackground)) {
-        if (!g_failedLogged)
-            Log("level editor: the Add palette's preview has no target - shown without one");
-        g_failedLogged = true;
-        return 0;
-    }
+    Eye eye = OrbitEye(centre, FitDistance(radius, halfAngle, kMargin) / orbit.zoom, orbit);
     SavedView saved;
     saved.Save();
     Mth::Matrix orientation = {};
@@ -244,14 +254,13 @@ uint64_t Render(int size)
     Nx::SetWorldTransform(nullptr);
     Nx::SetState(Nx::kZWrite, 1);
     Nx::SetState(Nx::kZTest, 1);
-    DrawSubject();
+    DrawSubject(kind, id);
     // Put back: the camera's globals, the frustum from them, no instance's lights taken as set (0x007825BC: the
-    // next instance sets its own), the device's target and transforms.
+    // next instance sets its own); the device's target and transforms are the caller's (the backend's) to put back.
     saved.Restore();
     UpdateFrustum();
     GameVariable<uint32_t>(0x007825BC) = 0;
-    UiBackend::EndOffscreen();
-    return UiBackend::OffscreenTexture();
+    return true;
 }
 
 void Hide()

@@ -10,6 +10,7 @@
 #include <cstdint>
 
 #include "game/gfx/device.h"
+#include "game/gfx/view_mode.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 
@@ -406,7 +407,9 @@ void __cdecl SetPixelShader(void* shader, const void* material)
     }
     if (PixelShaderLocked() == 0) {
         if (CurrentPixelShader() != shader) {
-            Device()->SetPixelShader(static_cast<IDirect3DPixelShader9*>(shader));
+            // Not original - the level editor's Unlit view (game/gfx/view_mode.h): the shader's unlit twin during the 3D
+            // passes. Original behaviour: the device gets `shader`.
+            Device()->SetPixelShader(static_cast<IDirect3DPixelShader9*>(ViewMode::DeviceShader(shader)));
             CurrentPixelShader() = shader;
             PixelShaderChanged() = 1;
         }
@@ -420,7 +423,8 @@ void __cdecl SetPixelShaderWithConstants(void* shader, uint32_t count)
 {
     if (PixelShaderLocked() == 0) {
         if (CurrentPixelShader() != shader) {
-            Device()->SetPixelShader(static_cast<IDirect3DPixelShader9*>(shader));
+            // Not original - the Unlit view's twin (view_mode.h), as in SetPixelShader.
+            Device()->SetPixelShader(static_cast<IDirect3DPixelShader9*>(ViewMode::DeviceShader(shader)));
             CurrentPixelShader() = shader;
             PixelShaderChanged() = 1;
         }

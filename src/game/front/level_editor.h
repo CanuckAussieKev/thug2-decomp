@@ -72,6 +72,14 @@ class CScript;
 //   level_editor_walls.cpp    collision switched off and on with the game's own switch (CSector::SetActive): invisible
 //                             walls deleted (Delete) / restored and moved / turned, a drawn piece's collision off by
 //                             itself (the Inspector's Collision); undo, `wall` layout records
+//   level_editor_overlays.cpp the toolbar's View menu (Lit / Unlit / Wireframe / Collision only, Alt+1..4 - drawn by
+//                             game/gfx/view_mode.h) and Overlays menu (every overlay's checkbox, [editor] overlays=);
+//                             level_editor_arcs.cpp jump arcs off the selected scenery's lips (Y),
+//                             level_editor_grind_preview.cpp the rail under the cursor whole, level_editor_ruler.cpp
+//                             the ruler (M), level_editor_thumbs.cpp the Add palette's thumbnail grid, Recent, Favourites
+//   level_editor_checks.cpp   (UX5) the problem checker (Alt+P / the toolbar's Problems: Go to / Fix / Ignore; layout
+//                             records that don't resolve kept, never dropped), level_editor_budget.cpp the budget
+//                             meter (the engine's limits, on the toolbar), level_editor_notes.cpp note pins
 //   level_editor_hud.cpp      the old HUD ([features] editor_ui=0, or when the UI can't start): a status panel top
 //                             left, the keys at the bottom, a message line, and a panel for the help (F1) and the
 //                             browser (B), made of the game's screen elements
@@ -126,6 +134,10 @@ class CScript;
 //     Ctrl+Shift+R discards it. A crash logs the editor's last action. Leaving: Escape, Enter (the Pause key) or a controller's Start (level_editor_exit) - Escape
 //     first cancels a drag, closes a panel or drops the selection.
 //
+//   - Keys are the action registry's (level_editor_actions.h: rebindable, [editor_keys]); the command search
+//     (Ctrl+Space / F3), the undo history (Ctrl+H), the Changes panel (Ctrl+Shift+H), box select, select similar
+//     (Shift+G), the Outliner's toggles / groups / labels, copy / paste between levels (Ctrl+C / Ctrl+V) and layout
+//     snapshots: level_editor_ux3.h.
 // thug2-decomp.ini [features] level_editor=1 (default; 0: LevelEditor_Available is false - no menu item - and
 // LevelEditor_Start refuses), debug_editor=1 logs picks, moves and the view. `-edit <level>` (or edit_level=) starts the
 // game in the editor in that level (game/front/start_level.h; tools/game/edit_level.ts). editor_ui=0 (default 1) brings
