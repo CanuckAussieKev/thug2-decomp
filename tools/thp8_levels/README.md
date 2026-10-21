@@ -16,7 +16,7 @@ Needs Node 24+ (`npm install` once - docs/typescript.md), NeverScript (`tools\bu
 `convert` writes `<thug2>\thug2-decomp-thp8\` (not read by the game): `levels\thp8_<zone>\thp8_<zone>.scn.xbx /
 .tex.xbx / .col.xbx / .qb`, `levels\thp8_sky` (THP8's default sky) and `levels.json`. Name zones to convert only some
 (`convert houses shops` - `z_houses`, `houses` or `thp8_houses` all work); the default is all fifteen. Converting only
-some rewrites `levels.json` with only those: finish with a full convert. `--no-mips` skips the mip levels (faster).
+some updates their entries in `levels.json` and keeps the others. `--no-mips` skips the mip levels (faster).
 `make_menu_level.ts` then copies them into the data overlay and adds them to Levels.qb and the level select.
 
     node tools/thp8_levels/thp8_levels.ts selfcheck

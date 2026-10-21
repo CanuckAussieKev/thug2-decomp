@@ -8,6 +8,7 @@ import { checksum, Name, Struct } from "../level_port/qb.ts";
 import * as thaw from "../thaw_levels/thaw.ts";
 import * as dxt from "./dxt.ts";
 import * as geom from "./geom.ts";
+import * as havok from "./havok.ts";
 import { readPak, readToc, readTocList } from "./thp8.ts";
 import { place, rotate, SCALE, thug2Terrain, toThug } from "./thp8_levels.ts";
 import * as xenos from "./xenos.ts";
@@ -162,4 +163,133 @@ test("terrains: THP8's names as THUG2's terrain numbers", () => {
     assert.equal(thug2Terrain(table, 4), 20); // GRASS
     assert.equal(thug2Terrain(table, 5), 0);
     assert.equal(thug2Terrain(table, 99), 0);
+});
+
+// A packfile made here: its sections, fixups and class descriptions as havok.ts's header comment has them.
+interface TestSection {
+    name: string;
+    data: Buffer;
+    local: [number, number][];
+    global: [number, number, number][];
+    virt: [number, number, number][];
+}
+
+function packfile(sections: TestSection[]): Buffer {
+    const header = Buffer.alloc(0x40 + 0x30 * sections.length);
+    header.writeUInt32BE(havok.MAGIC[0]!, 0);
+    header.writeUInt32BE(havok.MAGIC[1]!, 4);
+    header.writeUInt32BE(4, 0x0c);
+    header[0x10] = 4; // pointer bytes
+    header[0x11] = 0; // big-endian
+    header.writeUInt32BE(sections.length, 0x14);
+    header.write("Havok-4.0.0-r1", 0x28, "latin1");
+    const parts: Buffer[] = [header];
+    let at = header.length;
+    sections.forEach((s, i) => {
+        const fix = (rows: number[][]): Buffer => be(...rows.flat(), 0xffffffff, 0xffffffff, 0xffffffff);
+        const local = fix(s.local); // (padded with 0xFFFFFFFF, as Havok pads them)
+        const global = fix(s.global);
+        const virt = fix(s.virt);
+        const h = 0x40 + 0x30 * i;
+        header.write(s.name, h, "latin1");
+        const l = s.data.length;
+        const g = l + local.length;
+        const v = g + global.length;
+        const end = v + virt.length;
+        [at, l, g, v, end, end, end].forEach((w, k) => {
+            header.writeUInt32BE(w, h + 20 + 4 * k);
+        });
+        parts.push(s.data, local, global, virt);
+        at += end;
+    });
+    return Buffer.concat(parts);
+}
+
+test("havok: a packfile's classes read from its __types__, an object's members by name, fixups", () => {
+    // __classnames__: {signature, 9, name}
+    const nameAt = new Map<string, number>();
+    const cn: Buffer[] = [];
+    let off = 0;
+    for (const n of ["hkClass", "Base", "Thing"]) {
+        nameAt.set(n, off + 5);
+        const b = Buffer.concat([be(0x12345678), Buffer.from([9]), Buffer.from(`${n}\0`, "latin1")]);
+        cn.push(b);
+        off += b.length;
+    }
+    const classnames: TestSection = {
+        name: "__classnames__",
+        data: Buffer.concat(cn),
+        local: [],
+        global: [],
+        virt: [],
+    };
+    // __types__: hkClass Base (size 8; id INT32 at 0), Thing : Base (size 28; scale REAL at 8, items ARRAY of INT32
+    // at 12, label CSTRING at 24); member records 0x14 bytes; the strings at the end
+    const types = Buffer.alloc(0x200);
+    const t: TestSection = { name: "__types__", data: types, local: [], global: [], virt: [] };
+    let str = 0x180;
+    const putString = (at: number, text: string): void => {
+        types.write(`${text}\0`, str, "latin1");
+        t.local.push([at, str]);
+        str += text.length + 1;
+    };
+    const member = (at: number, name: string, type: number, subtype: number, offset: number): void => {
+        putString(at, name);
+        types[at + 12] = type;
+        types[at + 13] = subtype;
+        types.writeUInt16BE(offset, at + 18);
+    };
+    // Base at 0, its member at 0x60; Thing at 0x30, its members at 0x80
+    putString(0x00, "Base");
+    types.writeUInt32BE(8, 0x08);
+    t.local.push([0x18, 0x60]);
+    types.writeUInt32BE(1, 0x1c);
+    member(0x60, "id", havok.T.INT32, 0, 0);
+    putString(0x30, "Thing");
+    t.local.push([0x34, 0x00]); // parent: Base
+    types.writeUInt32BE(28, 0x38);
+    t.local.push([0x48, 0x80]);
+    types.writeUInt32BE(3, 0x4c);
+    member(0x80, "scale", havok.T.REAL, 0, 8);
+    member(0x94, "items", havok.T.ARRAY, havok.T.INT32, 12);
+    member(0xa8, "label", havok.T.CSTRING, 0, 24);
+    t.virt.push([0x00, 0, nameAt.get("hkClass")!], [0x30, 0, nameAt.get("hkClass")!]);
+    // __data__: a Thing at 0 (id 7, scale 2.5, items -> 3 ints at 0x20, label -> "Thing" in __classnames__)
+    const data = Buffer.alloc(0x2c);
+    data.writeInt32BE(7, 0);
+    data.writeFloatBE(2.5, 8);
+    data.writeUInt32BE(3, 16);
+    [10, 20, -30].forEach((v, i) => {
+        data.writeInt32BE(v, 0x20 + 4 * i);
+    });
+    const d: TestSection = {
+        name: "__data__",
+        data,
+        local: [[12, 0x20]],
+        global: [[24, 0, nameAt.get("Thing")!]],
+        virt: [[0, 0, nameAt.get("Thing")!]],
+    };
+
+    const pf = new havok.Packfile(packfile([classnames, t, d]), "test.hkc");
+    assert.equal(pf.version, "Havok-4.0.0-r1");
+    assert.deepEqual(
+        pf.allMembers("Thing").map((m) => m.name),
+        ["id", "scale", "items", "label"],
+    );
+    const [thing] = pf.objectsOf("Thing");
+    assert.ok(thing);
+    assert.equal(pf.classOf(thing), "Thing");
+    assert.equal(pf.int(thing, "Thing", "id"), 7);
+    assert.equal(pf.real(thing, "Thing", "scale"), 2.5);
+    const [items, count] = pf.array(thing, "Thing", "items");
+    assert.equal(count, 3);
+    assert.deepEqual(
+        [0, 1, 2].map((i) => pf.data.readInt32BE(pf.abs(pf.at(items!, 4 * i)))),
+        [10, 20, -30],
+    );
+    assert.equal(pf.str(pf.pointer(thing, "Thing", "label")), "Thing");
+    assert.throws(() => pf.member("Thing", "missing"), /no member missing/);
+    const bad = packfile([classnames]);
+    bad.writeUInt32BE(0, 0);
+    assert.throws(() => new havok.Packfile(bad), /not a Havok packfile/);
 });
