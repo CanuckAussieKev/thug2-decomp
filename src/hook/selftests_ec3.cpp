@@ -14,6 +14,10 @@
 #include "game/core/dbg.h"
 #include "game/core/pool.h"
 #include "game/mth/random.h"
+#include "game/pcm/music.h"
+#include "game/pcm/music_api.h"
+#include "game/pcm/music_cfuncs.h"
+#include "game/pcm/stream_commands.h"
 #include "game/script/cscript.h"
 #include "game/script/names.h"
 #include "game/script/qb.h"
@@ -795,7 +799,194 @@ void TestScriptArrayCFuncs()
     Compare(traces[0], traces[1], "script array commands (0x0044C290-0x0044CEC0)");
 }
 
+// --- batch EC3-3: the music and stream commands -------------------------------------------------------------
+
+uint32_t g_pcmResult;        // what the stood-in Pcm functions return (varied between calls)
+uint64_t g_tracksOff[2];     // GetTracksOff's masks
+int g_numTracks;
+
+// Every Pcm function a command calls: the game's address and ours, recording its `count` arguments.
+void StandInPcmCalls(StandIns& s)
+{
+    struct Entry {
+        uint32_t address;
+        uint32_t ours;
+        int count;
+    };
+    const Entry entries[] = {
+        {0x00450500, AddressOf(&Pcm::StreamExists), 1},
+        {0x00451B80, AddressOf(&Pcm::AddStream), 3},
+        {0x00450AE0, AddressOf(&Pcm::RemoveStream), 3},
+        {0x004506D0, AddressOf(&Pcm::StopStream), 1},
+        {0x00450690, AddressOf(static_cast<void(__cdecl*)(int)>(&Pcm::StopStreams)), 1},
+        {0x00451660, AddressOf(&Pcm::IsStreamPlaying), 1},
+        {0x00450650, AddressOf(&Pcm::StopMusic), 0},
+        {0x004520D0, AddressOf(&Pcm::PlayTrack), 2},
+        {0x00450530, AddressOf(&Pcm::SetCurrentTrack), 1},
+        {0x00450EF0, AddressOf(&Pcm::PlayMusicStream), 2},
+        {0x004516A0, AddressOf(&Pcm::LoadStreamFrameAmp), 1},
+        {0x00451720, AddressOf(&Pcm::FreeStreamFrameAmp), 1},
+        {0x004510B0, AddressOf(static_cast<void(__cdecl*)(float)>(&Pcm::SetMusicVolume)), 1},
+        {0x00451130, AddressOf(&Pcm::SetMusicStreamVolume), 1},
+        {0x00450F70, AddressOf(&Pcm::PauseMusic), 1},
+        {0x00451010, AddressOf(&Pcm::PauseStream), 1},
+        {0x004511A0, AddressOf(&Pcm::AddTrackToPlaylist), 3},
+        {0x00451C70, AddressOf(&Pcm::ChangeTrackState), 3},
+        {0x004512D0, AddressOf(&Pcm::ClearPlaylist), 1},
+        {0x00451350, AddressOf(&Pcm::SkipMusicTrack), 0},
+        {0x004515A0, AddressOf(&Pcm::SetMusicMode), 1},
+        {0x00451380, AddressOf(&Pcm::SetRandomMode), 1},
+        {0x00450470, AddressOf(&Pcm::SetMusicLooping), 1},
+        {0x00450940, AddressOf(&Pcm::PreLoadStreamDone), 1},
+        {0x004503D0, AddressOf(&Pcm::UseUserSoundtrack), 1},
+        {0x00450410, AddressOf(&Pcm::UseStandardSoundtrack), 0},
+    };
+    for (const Entry& e : entries) {
+        uint32_t tag = e.address & 0xFFFF;
+        int count = e.count;
+        s.At({e.address, e.ours}, 0, [tag, count](Regs& r) {
+            Record({tag});
+            for (int i = 0; i < count; ++i) {
+                uint32_t value = r.args[i];
+                // (strings by their text; bools by their low byte)
+                if (tag == 0x11A0 && i != 1)
+                    value = Hash(reinterpret_cast<const char*>(value));
+                else if (tag == 0x20D0 && i == 0)
+                    value = Hash(reinterpret_cast<const char*>(value));
+                else if ((tag == 0x20D0 && i == 1) || (tag == 0x1C70 && i == 1) || tag == 0x0470)
+                    value &= 0xFF;
+                Record({value});
+            }
+            return g_pcmResult;
+        });
+    }
+    s.At({0x00451500, AddressOf(&Pcm::GetTrackName)}, 0, [](Regs& r) {
+        Record({0x1500, r.args[0], r.args[1]});
+        return reinterpret_cast<uint32_t>(r.args[0] == 3 ? "track_three.ogg" : "Song");
+    });
+    s.At({0x004514C0, AddressOf(&Pcm::GetNumTracks)}, 0, [](Regs& r) {
+        Record({0x14C0, r.args[0]});
+        return static_cast<uint32_t>(g_numTracks);
+    });
+    s.At({0x00450480, AddressOf(&Pcm::GetTracksOff)}, 0, [](Regs& r) {
+        Record({0x0480});
+        *reinterpret_cast<uint64_t*>(r.args[0]) = g_tracksOff[0];
+        *reinterpret_cast<uint64_t*>(r.args[1]) = g_tracksOff[1];
+        return 0u;
+    });
+}
+
+void TestMusicCFuncs()
+{
+    EmptySymbolTable();
+    auto* standIns = new StandIns;
+    StandInStructCalls(*standIns);
+    StandInPcmCalls(*standIns);
+
+    std::vector<uint32_t> traces[2];
+    for (int run = 0; run < 2; ++run) {
+        bool original = run == 0;
+        g_trace.clear();
+        auto call = [&](uint32_t address, CFunc ours, TestParams& params) {
+            std::memset(g_ec3Script, 0, sizeof(g_ec3Script));
+            reinterpret_cast<CStruct**>(g_ec3Script)[0x14 / 4] = g_ec3Own.Struct();
+            auto* script = reinterpret_cast<Script::CScript*>(g_ec3Script);
+            if (g_ec3Trace)
+                Log("ec3: %08X %s", address, original ? "original" : "ours");
+            for (uint32_t result : {0x00000000u, 0x00000001u, 0xFFFFFF00u, 0x00ABC000u}) {
+                g_pcmResult = result;
+                bool returned = original ? Original<CFunc>(address)(params.Struct(), script) : ours(params.Struct(), script);
+                Record({0xC0DE, address, returned ? 1u : 0u});
+            }
+        };
+        using namespace CFuncs;
+        TestParams none;
+        g_ec3Own.Reset();
+        // the stream commands: with and without their names
+        {
+            TestParams a; a.Checksum(0, 0x5EA);
+            TestParams b; b.Checksum(0, 0x5EB).Checksum(0x02E58C18, 0xADD);
+            TestParams c; c.Checksum(0x02E58C18, 0xADE);
+            TestParams d; d.Checksum(0, 0x5EC).Checksum(0x977FE2CF, 0x4E3);
+            TestParams e; e.Checksum(0x977FE2CF, 0x4E4);
+            for (TestParams* p : {&none, &a, &b, &c, &d, &e}) {
+                call(0x0044D100, CFunc_StreamExists, *p);
+                call(0x0044D140, CFunc_AddStream, *p);
+                call(0x0044D1B0, CFunc_RemoveStream, *p);
+                call(0x0044D220, CFunc_StopStream, *p);
+                call(0x0044D260, CFunc_IsStreamPlaying, *p);
+                call(0x0044D3E0, CFunc_LoadStreamFrameAmp, *p);
+                call(0x0044D420, CFunc_FreeStreamFrameAmp, *p);
+                if (p == &a || p == &b || p == &d) // (without a name the original passes an uninitialised id)
+                    call(0x0044D770, CFunc_PreLoadStreamDone, *p);
+            }
+            TestParams f; f.Checksum(0, 0x3051).Float(0xF6A36814, 72.5f);
+            for (TestParams* p : {&none, &a, &f})
+                call(0x0044D380, CFunc_PlayMusicStream, *p);
+        }
+        // PlayTrack: a file (looping), a track number, nothing
+        {
+            TestParams a; a.String(0, "music\\vag\\songs\\menu").Integer(0x5EA0E211, 2);
+            TestParams b; b.Integer(0, 3);
+            TestParams c; c.Integer(0, 7).Integer(0x5EA0E211, 0);
+            for (TestParams* p : {&a, &b, &c, &none})
+                call(0x0044D2A0, CFunc_PlayTrack, *p);
+        }
+        // the volume and mode commands: the defaults and given values
+        {
+            TestParams a; a.Float(0, 33.25f);
+            TestParams b; b.Integer(0, 0);
+            TestParams c; c.Integer(0, -1);
+            TestParams d; d.Integer(0, 5);
+            for (TestParams* p : {&none, &a, &b, &c, &d}) {
+                call(0x0044D460, CFunc_SetMusicVolume, *p);
+                call(0x0044D490, CFunc_SetMusicStreamVolume, *p);
+                call(0x0044D4D0, CFunc_PauseMusic, *p);
+                call(0x0044D500, CFunc_PauseStream, *p);
+                call(0x0044D6D0, CFunc_SetMusicMode, *p);
+                call(0x0044D710, CFunc_SetRandomMode, *p);
+                call(0x0044D740, CFunc_SetMusicLooping, *p);
+                if (p != &none && p != &a) // (without an integer the original passes an uninitialised one)
+                    call(0x0044D790, CFunc_UseUserSoundtrack, *p);
+                call(0x0044D5B0, CFunc_ChangeTrackState, *p);
+            }
+            TestParams e; e.Integer(0, 12).Flag(0xD443A2BC); // Off
+            call(0x0044D5B0, CFunc_ChangeTrackState, e);
+            call(0x0044D4C0, CFunc_StopMusic, none);
+            call(0x0044D6C0, CFunc_SkipMusicTrack, none);
+            call(0x0044D7C0, CFunc_UseStandardSoundtrack, none);
+        }
+        // AddMusicTrack / ClearMusicTrackList: with and without the playlist-0 flag, title, file
+        {
+            TestParams a; a.String(0, "music\\vag\\songs\\one").String(0x14BADF8A, "One");
+            TestParams b; b.String(0, "two").Flag(0x389129E4);
+            TestParams c; c.String(0x14BADF8A, "No file");
+            for (TestParams* p : {&none, &a, &b, &c}) {
+                call(0x0044D530, CFunc_AddMusicTrack, *p);
+                call(0x0044D690, CFunc_ClearMusicTrackList, *p);
+            }
+        }
+        // ChangeTrackState Off / TrackEnabled over the masks' edges
+        {
+            g_tracksOff[0] = 0x8000000000000005ull;
+            g_tracksOff[1] = 0x0000000180000003ull;
+            for (int tracks : {0, 9}) {
+                g_numTracks = tracks;
+                for (int track : {0, 1, 2, 31, 32, 63, 64, 65, 95, 96, 127, 128, 200, 320, -1, -64, -200, -126, 194}) {
+                    TestParams p; p.Integer(0, track);
+                    call(0x0044D5F0, CFunc_TrackEnabled, p);
+                }
+            }
+        }
+        traces[run] = g_trace;
+    }
+    RestoreEc3();
+    Check(traces[0].size() > 1500, "music commands: the original reached its calls");
+    Compare(traces[0], traces[1], "music and stream commands (0x0044D100-0x0044D7C0)");
+}
+
 } // namespace
 
 SELFTEST(Early, TestScriptUtilCFuncs, RestoreEc3);
 SELFTEST(Early, TestScriptArrayCFuncs, RestoreEc3);
+SELFTEST(Early, TestMusicCFuncs, RestoreEc3);

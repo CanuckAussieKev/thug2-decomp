@@ -450,6 +450,7 @@ add_library(thug2_code OBJECT
     src/game/pcm/stream_play.cpp
     src/game/pcm/stream_commands.cpp
     src/game/pcm/music_api.cpp
+    src/game/pcm/music_cfuncs.cpp
     src/game/gfx/loading_bar.cpp
     src/game/gfx/render.cpp
     src/game/gfx/wireframe.cpp

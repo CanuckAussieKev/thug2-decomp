@@ -48,3 +48,21 @@ Shared files touched: CMakeLists.txt (new files listed).
     global); 1 equivalent (PermuteArray's two Rnd calls swapped: the swap is symmetric).
   - Build note: the verify build's compile PDB (CMakeFiles\thug2_code.dir\vc140.pdb) got corrupted (C2471) after
     ~12 mutation builds; out\scripts\mutbuild.cmd retries after deleting it.
+- [x] Batch EC3-3 (NOT run in the game yet; the music and stream commands - 25 CFunctions): src/game/pcm/music_cfuncs.h
+  / .cpp (new).
+  - 0x0044D100 StreamExists, 0x0044D140 AddStream (add=), 0x0044D1B0 RemoveStream (remove=), 0x0044D220 StopStream
+    (one, or every stream with -1), 0x0044D260 IsStreamPlaying, 0x0044D2A0 PlayTrack (a file, or playlist 0's track
+    n as MUSIC\VAG\SONGS\<name> in a 40-byte buffer; loop=; the music stopped first, the current track set to n -
+    999 for a file), 0x0044D380 PlayMusicStream (vol= default -1), 0x0044D3E0 LoadStreamFrameAmp, 0x0044D420
+    FreeStreamFrameAmp, 0x0044D460 SetMusicVolume / 0x0044D490 SetMusicStreamVolume (default 100), 0x0044D4C0
+    StopMusic, 0x0044D4D0 PauseMusic / 0x0044D500 PauseStream (default 1), 0x0044D530 AddMusicTrack (TrackTitle=;
+    the flag 0x389129E4 - name unknown - picks playlist 0 instead of 1), 0x0044D5B0 ChangeTrackState (by the name
+    "Off"), 0x0044D5F0 TrackEnabled (playlist 0's off-masks; the bit made as the C runtime's _allshl does - from the
+    count's low byte, 0 from 64 on, so negative tracks read as enabled), 0x0044D690 ClearMusicTrackList,
+    0x0044D6C0 SkipMusicTrack, 0x0044D6D0 SetMusicMode (n == 0 -> playlist 1), 0x0044D710 SetRandomMode,
+    0x0044D740 SetMusicLooping, 0x0044D770 PreLoadStreamDone, 0x0044D790 UseUserSoundtrack, 0x0044D7C0
+    UseStandardSoundtrack. (0x0044D680 MusicIsPaused was already source-only in music.cpp.)
+  - Test TestMusicCFuncs: every Pcm function stood in for (recording its arguments; strings by text), each command
+    called with four different Pcm results, with and without its parameters (not the asserting getters' missing
+    cases: the original passes uninitialised values there), TrackEnabled over the masks' edges and negative /
+    large tracks. 35 of 35 deliberate bugs caught (2 after strengthening: track 64, the shift count's low byte).
