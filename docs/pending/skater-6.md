@@ -169,3 +169,25 @@ Switch off: `[replacements] disable=gamenet_state.cpp,gamenet_handlers.cpp,gamen
   - Tests: TestWalkMoves (selftests_skater_walk.cpp; 50 deliberate bugs caught, 10 after strengthening - a state
     snapshot after each call, a carried w, a dot of exactly 0, 64 rounding cases for the unrounded x move).
   - Switch off: `[replacements] disable=walk_moves.cpp`.
+- [x] Batch SK6-8 (NOT run in the game yet; the walk component's update and three of its states, 4 functions):
+  walk_moves.cpp. 0x0052D4B0 Update (vtable slot 1: the animation state restarted, the frame's length from
+  Tmr::GetSlomoFrameSeconds, the step smoothing's height taken off and - unless the state held it (+0x718) - eased
+  down by curb_float_lerp_down_rate and put back; the states 0-4 through a jump table (2 and 3 are 0x00440BF0 /
+  0x004425B0, placed far away by the linker); an acid drop tried after more than 500 ms on the ground (unsigned);
+  the animation state sent to the object as an event; the +0x710 countdown clearing +0x70C), 0x0052D300 the ground
+  (Skid becomes Stand before pegged_duration_for_skid; moved by the velocity - x's move unrounded; inside a moving
+  object it takes the object's velocity flattened and faces along it when its length is over 10 - the length squared
+  kept unrounded as 0x004023A0 leaves it in ST0; the debug line "WALKING_GROUND, within moving object"), 0x0052CEF0
+  the air (the gravity 0x005284C0 returns in ST0 is used unrounded; every move unrounded; the extra velocity dropped
+  above +0x18AC; ledges / ladders grabbed - 0x0043F030 takes the two positions by value - unless rehang_delay hasn't
+  passed since leaving states 2-4; inside a moving object the position goes through (p + offset) - offset as the
+  original's (rounding kept), a feeler 30 above and below the object's position finds what it stands on, stopped),
+  0x0052AD10 the animation wait (the lerp 0x0043D990 between +0x18E4 and +0x1904 by the animation's progress plus
+  what it was carried; the facing turned by turn * min(t / time, 1) - turn with unrounded sin / cos; the height
+  +0x9C eased). Nx's current collision cache (0x00691974) is cleared where the original clears it.
+  - Tests: TestWalkUpdate (selftests_skater_walk2.cpp: the original and ours with recording stand-ins, some changing
+    the state or halting the walk mid-way; functions returning in ST0 stood in for by FLD; the state hashed after
+    each call). 78 deliberate bugs: 70 caught at once, 7 after strengthening (the cleared cache recorded per call,
+    the step-smoothing flag preset, rounding cases for the ground move, a rehang time equal to the delay, a ride
+    offset that rounds), 1 equivalent (`--countdown <= 0` after `countdown > 0`).
+  - Note: building needed a fresh program database server endpoint once (C1060 "out of heap space" with the old one).

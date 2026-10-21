@@ -305,6 +305,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_skater_gamenet5.cpp
     src/hook/selftests_skater_gamenet6.cpp
     src/hook/selftests_skater_walk.cpp
+    src/hook/selftests_skater_walk2.cpp
     src/hook/selftests_thugpro.cpp
     src/hook/selftests_thugpro_join.cpp
     src/hook/selftests_gamenet_join.cpp

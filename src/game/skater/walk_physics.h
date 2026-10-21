@@ -30,6 +30,21 @@ public:
     CWalkComponent* Construct();
     // 0x0052A290 (vtable slot 0): the scalar deleting destructor (the body is 0x005288B0).
     CWalkComponent* Destroy(unsigned int flags);
+    // 0x0052D4B0 (vtable slot 1): one frame: the animation state (+0x78, the previous kept at +0x7C) started afresh,
+    // the frame's length, the step smoothing's height taken off, then the state's update (0 UpdateGround, 1
+    // UpdateAir, 2 hanging 0x00440BF0, 3 on a ladder 0x004425B0, 4 UpdateAnimWait); unless the walk was halted,
+    // the step smoothing eased down and put back, the state's checks (an acid drop after half a second on the
+    // ground), the animation state sent to the object as an event, the animation speed and the camera.
+    void Update();
+    // 0x0052D300 (state 0): riding, the contacts, moved by the velocity and onto the ground; inside a moving object
+    // it takes that object's velocity.
+    void UpdateGround();
+    // 0x0052CEF0 (state 1): moved by the velocity, the extra velocity (+0x189C) and gravity; ledges and ladders
+    // grabbed; inside a moving object it is put back and stopped, standing on it.
+    void UpdateAir();
+    // 0x0052AD10 (state 4: ANIMWAIT): placed along an animation - between two points (+0x18E4, +0x1904) by how far
+    // the animation is, turned toward +0x191C, the height +0x9C eased - and carried by what it rides on.
+    void UpdateAnimWait();
     // 0x00529F80: the walk camera's override facing for the animation state (+0x78): along the hang (turned 0.95
     // radians for moving left or right), the facing on a ladder or while waiting for an animation; else none.
     void UpdateCameraOverride();
