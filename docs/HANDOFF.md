@@ -34,6 +34,14 @@ then the "- [ ] Next:" line of docs/decomp-progress.md.
   chains, phase 5 triggers, and a check of face flag 0x80 (the view agent found the camera's feeler IGNORES 0x80 - our
   converters say 0x80 = camera collides and the THPS4 converter inverts it: possibly wrong; docs/pending/face-flag-0x80.md).
   Phase 6 (full Inspector + apply_layout.ts) starts after 4 and 5 merge.
+- **UX round (2026-10-21, later; user: "do it all" incl. research ideas):** running UX1 play/camera/prefs, UX2 transforms/
+  snapping/repeat (RMB-held flying default, Space cycles modes), UX3 selection/panels/command search+keymap, UX4 view
+  modes/assets/previews, UX5 problem checker/budget meter/notes, goals on Create-a-Goal (editor-goals.md). QUEUED after
+  merges: UX6 (after UX1) skater trail, validate gaps by skating, test from restart, simulate without skater; UX7 (after
+  UX2) adjust-last-action, placement ghost, live measurements, align/distribute, linked copies, replace selection,
+  edge-to-edge snapping, auto-rail along edge; UX8 (after UX1+UX3) context hints, named selection sets, radial menus +
+  controller mode, wheel drill-through, follow-selection / teleport / walk; UX9 (after UX4) gap wizard, skateability
+  overlay, raise/lower ground with auto-ramps. Research: docs/editor-ux-research.md.
 - **2026-10-21, end: every editor feature merged, installed, pushed** (main d062c85; 420 self-tests, 127 TS tests): career-mode
   guard (free skate / single session only), bake of triggers / level props / per-axis + object scale / exit triggers,
   bake backups + --uninstall, ladders, trick-object rails, grindable-on-flat-ground, carrying, Outliner markers, trigger
