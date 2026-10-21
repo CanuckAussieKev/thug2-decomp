@@ -21,6 +21,7 @@
 #include "game/front/level_editor_node_edit.h"
 #include "game/front/level_editor_nodes.h"
 #include "game/front/level_editor_picking.h"
+#include "game/front/level_editor_playtest.h"
 #include "game/front/level_editor_prefs.h"
 #include "game/front/level_editor_triggers.h"
 #include "game/front/level_editor_scale.h"
@@ -546,6 +547,8 @@ void Toolbar(const Model& model)
         Prefs::Open() = !Prefs::Open(); // (level_editor_prefs.h)
     if (ImGui::IsItemHovered())
         ImGui::SetTooltip("Preferences (Ctrl+,): camera speed, mouse, gizmo size, UI scale, autosave, snap, accent");
+    ImGui::SameLine();
+    PlayTest::ToolbarButtons(); // (Trail, Simulate - level_editor_playtest.h)
     ImGui::End();
 }
 
@@ -1038,6 +1041,7 @@ void NodeSection(const Model& model, int index)
         ImGui::NewLine();
         ChainSection(model.chain, &g_requests);
     }
+    PlayTest::RestartSection(index); // (a restart's Play from here - level_editor_playtest.h)
     SpawnSection(index, &g_requests); // (a HORSE spot - the feature map: level_editor_spots_ui.cpp)
     if (ImGui::Button("Go to"))
         Ask(Request::kGoToNode, index);
@@ -1321,6 +1325,11 @@ void Help(const Model& model)
         {"Play", "F5, Ctrl+P", "play from here: the skater on the ground below the camera, facing its way, the game "
                                "running; F5 / Ctrl+P in play comes back to the editor - the camera and the selection as "
                                "they were (offline, free skate / single session only)"},
+        {"", "F7", "the Trail window: each test run's path drawn back in the editor, coloured by what the skater did "
+                   "(air, grind, manual, bail...), gaps landed / lost and bails marked; the level's gaps landed or "
+                   "untested. A restart's Inspector: Play from here starts the run at that restart"},
+        {"", "F6", "Simulate: the world runs (peds, cars, moving objects) with the editor's camera, the skater frozen; "
+                   "F6 again - or a click in the view, an editing key - stops it and puts the objects back"},
         {"", "Ctrl+,", "preferences (the toolbar's Prefs): camera speed, acceleration, mouse, gizmo size, UI scale, "
                        "autosave, snap, accent - kept in thug2-decomp.ini [editor]"},
         {"Selecting", "Click", "an object or scenery (scenery takes its group); floors, ceilings, walls you're "
@@ -1966,6 +1975,7 @@ void Frame(const Model& model, const Overlay& overlay)
     OnlineWarning(model);
     Prefs::Window(g_scale, g_heading, g_small); // (level_editor_prefs.h)
     Prefs::TipsWindow(g_scale, g_heading, g_mono);
+    PlayTest::Window(g_scale, g_heading, g_small); // (level_editor_playtest.h)
     Triggers::Window(g_layout.viewport.x, g_layout.viewport.y, g_layout.viewport.width, g_layout.viewport.height, g_scale,
                      model.nodes.selected);
     ImGui::PopFont();

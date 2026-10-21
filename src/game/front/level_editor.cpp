@@ -33,6 +33,7 @@
 #include "game/front/level_editor_preview.h"
 #include "game/front/level_editor_picking.h"
 #include "game/front/level_editor_play.h"
+#include "game/front/level_editor_playtest.h"
 #include "game/front/level_editor_prefs.h"
 #include "game/front/level_editor_scale.h"
 #include "game/front/level_editor_scenery.h"
@@ -2448,6 +2449,7 @@ bool __cdecl CFunc_Start(Script::CStruct*, Script::CScript*)
     // (the camera tools and the preferences - level_editor_camera.h, level_editor_prefs.h)
     g_speed = static_cast<float>(Prefs::Get().flySpeed);
     Camera::Start(Scenery::SceneName(Scenery::MainScene()));
+    PlayTest::OnEditorStart(); // (the trail's run ends; the level's trails file read - level_editor_playtest.h)
     g_playKey = g_playPKey = true; // (the key that opened the editor doesn't leave it at once)
     Nx::OcclusionOff() = g_occlusionOff;
     g_hudTakenDown = 0;
@@ -2553,6 +2555,7 @@ bool __cdecl CFunc_Stop(Script::CStruct*, Script::CScript*)
 {
     if (!g_active)
         return true;
+    PlayTest::OnEditorStop(); // (a simulation stopped, the world put back - level_editor_playtest.h)
     EndDrag();
     Scenery::Commit(); // (the moved scenery's collision where it now is, before the skater is put down)
     // (unsaved changes autosaved - unless an older autosave is still offered)
@@ -5186,6 +5189,8 @@ void Update()
         if (Pressed(keys, SDL_SCANCODE_COMMA, &prefsKey) && ctrl && Ui::Running())
             Prefs::Open() = !Prefs::Open();
     }
+    // Simulate (F6) and the Trail window (F7) - level_editor_playtest.h.
+    PlayTest::Tick(keys, ctrl, alt, g_dragging);
 
     // Escape: a drag put back, else the browser or the help closed, else the selection dropped.
     if (g_cancelRequested) {
@@ -5976,6 +5981,8 @@ void Draw()
                             &g_overlay.texts); // (speed-ups, proximity shapes, breakables, boosts - the feature map)
         Triggers::AddHandles(&g_overlay.circles); // (the selected trigger volume's resize handles)
         Entities::AddOverlay(g_pos, frame, g_lens, g_viewport, kNearZ, &g_overlay.lines, &g_overlay.texts);
+        PlayTest::AddOverlay(g_pos, frame, g_lens, g_viewport, kNearZ, &g_overlay.lines, &g_overlay.circles,
+                             &g_overlay.texts); // (the test runs' trails, Simulate's banner - level_editor_playtest.h)
         for (size_t i = 0; i + 1 < lines.size(); i += 2)
             g_overlay.lines.push_back({lines[i].x, lines[i].y, lines[i + 1].x, lines[i + 1].y, lines[i].color, 1.0f});
         Ui::Frame(model, g_overlay);

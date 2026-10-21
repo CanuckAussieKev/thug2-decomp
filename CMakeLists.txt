@@ -289,6 +289,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_editor_modes.cpp
     src/hook/selftests_editor_transform.cpp
     src/hook/selftests_editor_ux1.cpp
+    src/hook/selftests_editor_ux6.cpp
     src/hook/selftests_pcmstream.cpp
     src/hook/selftests_pcmplay.cpp
     src/game/ass/asset.cpp
@@ -351,6 +352,8 @@ add_library(thug2_code OBJECT
     src/game/front/level_editor_ui.cpp
     src/game/front/level_editor_camera.cpp
     src/game/front/level_editor_play.cpp
+    src/game/front/level_editor_playtest.cpp
+    src/game/front/level_editor_playtest_ui.cpp
     src/game/front/level_editor_prefs.cpp
     src/game/front/level_editor_ui_backend.cpp
     src/game/front/level_editor_ui_fonts.cpp
