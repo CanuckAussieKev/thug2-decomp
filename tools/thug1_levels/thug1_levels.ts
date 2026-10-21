@@ -677,7 +677,7 @@ export function convertLevelNodes(
         wanted,
         spawnEdits === undefined && pc.on("PC-THUG1-3"),
     );
-    let converted = convertedStats[0];
+    const converted = convertedStats[0];
     const stats = convertedStats[1];
     if (spawnEdits !== undefined) {
         report.push(applySpawns(converted, names, spawnEdits, code));
@@ -728,9 +728,7 @@ export function convertLevelNodes(
             ported.globalsText +
             thug1Port.levelScriptsNs(made, anims, new Set([...scripts.keys(), ...port.thug2.scripts]));
     }
-    let includes = "";
-    if (port !== null) [converted, includes] = thug1Port.compressIncludes(converted, names, name, sectors);
-    let text = includes + nodes.nodeArrayNs(`${name}_NodeArray`, converted, names, kills) + extra;
+    let text = nodes.nodeArrayNs(`${name}_NodeArray`, converted, names, kills) + extra;
     // (a LevelGeometry TrickObject / Cluster whose sector the scene hasn't crashes ParseNodeArray)
     const [stripped, cleared] = nodes.stripMissingTrickObjects(text, sectors);
     text = stripped;
@@ -746,6 +744,7 @@ export function convertLevelNodes(
     if (marked) report.push(`  ${marked} node(s) changed for network games`);
 
     let newReported = false;
+    let sharedReported = false;
     const writeQb = (source: string): void => {
         common.nsCompile(ns, source, qbPath);
         if (scripts.size) fs.writeFileSync(qbPath, scriptPort.appendScripts(fs.readFileSync(qbPath), scripts, names));
@@ -756,6 +755,12 @@ export function convertLevelNodes(
             if (!newReported) report.push(...lines);
             newReported = true;
         }
+        // PC-THUG1-17 (required): the node fields shared, every node kind - the last step, after everything that reads
+        // the nodes' own fields (the text passes above, groundRestartsAt's rewrite through this): nodes.shareNodeFields
+        pc.required("PC-THUG1-17");
+        const shared = nodes.shareNodeFieldsIn(qbPath, `${name}_NodeArray`, name);
+        if (!sharedReported) report.push(`  node fields shared: ${shared.includes} structures, ${shared.nodes} nodes`);
+        sharedReported = true;
     };
 
     writeQb(text);

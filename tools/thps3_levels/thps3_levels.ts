@@ -2528,6 +2528,7 @@ export function writeLevelQb(
     tpNew: thugproNew.LevelNew | null = null,
     report: string[] | null = null,
     netRestarts = true,
+    share = true,
 ): void {
     // The node array's NeverScript text compiled, the brought scripts added (scriptPort.appendScripts); `tpNew`:
     // THUGPRO's new scripts too (TPN-THPS3: those whose name the file has already are left out and reported).
@@ -2556,6 +2557,16 @@ export function writeLevelQb(
         if (tpNew !== null) for (const [k, v] of tpNew.names) if (!names.has(k)) names.set(k, v);
         const data = scriptPort.appendScripts(read(file), all, names);
         fs.writeFileSync(file, data);
+    }
+    // PC-THPS3-17 (required): every node kind's common fields shared - the last step, after everything that reads the
+    // nodes' own fields (netGameNodes here; the TrickObject strip and groundRestartsAt write the .qb again through
+    // this): nodes.shareNodeFields
+    if (share) {
+        const level = path.win32.basename(file, ".qb");
+        const shared = nodes.shareNodeFieldsIn(file, `${level}_NodeArray`, level);
+        if (shared.includes) {
+            print(`  ${level}.qb: node fields shared: ${shared.includes} structures, ${shared.nodes} nodes`);
+        }
     }
 }
 
@@ -2821,7 +2832,7 @@ export function cmdConvert(args: Args): void {
         let text = nodeText;
         const qbPath = pyJoin(levelDir, `${name}.qb`);
         const qbReport: string[] = [];
-        writeLevelQb(args.ns, text, qbPath, scripts, port, tpNew, qbReport, pc.on("PC-THPS3-4"));
+        writeLevelQb(args.ns, text, qbPath, scripts, port, tpNew, qbReport, pc.on("PC-THPS3-4"), pc.on("PC-THPS3-17"));
         const tdxFile = files.get("tdx")!;
         let tdx = thps3.readTdx(read(tdxFile), tdxFile);
         let objects: [thps3.Sector[], ObjectMaterial[]] | null = null;
@@ -2881,7 +2892,7 @@ export function cmdConvert(args: Args): void {
             : [withoutTricks, [] as string[]];
         text = grounded;
         if (cleared || groundReport.length)
-            writeLevelQb(args.ns, text, qbPath, scripts, port, tpNew, null, pc.on("PC-THPS3-4"));
+            writeLevelQb(args.ns, text, qbPath, scripts, port, tpNew, null, pc.on("PC-THPS3-4"), pc.on("PC-THPS3-17"));
         if (cleared) report.push(`  ${cleared} geometry nodes without a scene sector: TrickObject / Cluster dropped`);
         report.push(...groundReport);
         report.push(`  ${nodeReport}`);

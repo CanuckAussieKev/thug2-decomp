@@ -26385,9 +26385,9 @@
         "id": "PC-THAW-13",
         "op": "set",
         "target": {
-          "rule": "rail nodes' common parts (all but Pos / Angles / Name / Links / TriggerScript) as global structures the nodes name, <level>_inc_<n> (nodes.shareIncludes) - as THUG2's own levels have them (ncomp_RailNode_<n>)"
+          "rule": "every node kind's common fields (all but Pos / Position / Angles / Name / Links / TriggerScript) as global structures the nodes name, <level>_inc_<n> - the converter's last step on the level's .qb (nodes.shareNodeFields), after every pass that reads nodes' own fields; as THUG2's own levels have them (ncomp_<class>_<n>). Until 2026-10-21 rail nodes only (Kyoto's expanded node array, 38,700 components, ran the pool dry: a crash loading Kyoto)"
         },
-        "why": "every node entry is a script component (THUG2's CComponent pool: 86000 for everything loaded); Kyoto's expanded node array (38,700 components, THUG2's largest level SE 29,000) ran it dry: a crash loading Kyoto",
+        "why": "node fields shared the way THUG2's own levels do (ncomp_*), so big levels fit the script component pool",
         "switch": "shared_parts",
         "required": true
       }

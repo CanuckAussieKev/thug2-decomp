@@ -12024,6 +12024,16 @@
         },
         "why": "THPS3's start scripts make them only in the career (JS_Mid_Smasher_CareerRestart: IsCareerMode and the TOK_SECRET_AREA_OPEN flag) or by a goal script; the static follow took both branches of every `if`, so free skate had both the building and its replacement",
         "required": false
+      },
+      {
+        "id": "PC-THPS3-17",
+        "op": "set",
+        "target": {
+          "what": "every node kind's common fields (all but Pos / Position / Angles / Name / Links / TriggerScript) as global structures the nodes name, <level>_inc_<n> - the converter's last step on the level's .qb (nodes.shareNodeFields), after every pass that reads nodes' own fields",
+          "levels": "*"
+        },
+        "why": "node fields shared the way THUG2's own levels do (ncomp_*), so big levels fit the script component pool",
+        "required": true
       }
     ]
   }

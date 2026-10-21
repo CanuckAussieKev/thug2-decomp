@@ -51,7 +51,10 @@ export const IMPLEMENTED: ReadonlyMap<string, string> = new Map([
     ["PC-THUG1-14", "path followers, peds and cars kept out of network games (nodes.absentInNetGames)"],
     ["PC-THUG1-15", "script statements THUG2 can't run left out, trigger scripts not brought taken off (script_port)"],
     ["PC-THUG1-16", "gap scripts given explicitly; the models' gap scripts defined empty (thug1_port)"],
-    ["PC-THUG1-17", "the node array's shared parts made global structures (thug1_port.compressIncludes)"],
+    [
+        "PC-THUG1-17",
+        "the node array's shared parts made global structures (nodes.shareNodeFields, every node kind, last)",
+    ],
     ["PC-THUG1-18", "restart_types from a restart's Type; kill scripts as THUG2's SK3_KillSkater (nodes)"],
     ["PC-THUG1-19", "level names thug1_<code> where THUG2 has the name (thug1_levels.levelName)"],
     [
