@@ -15,7 +15,9 @@
 // The THUG2 formats, the geometry conversion, the node arrays and the installing are shared with tools/thps4_levels
 // (tools/level_port); this folder has THUG1's own formats (thug1.ts) and its levels.
 
+import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import * as compat from "../compat/compat.ts";
 import { FormatError } from "../level_port/binio.ts";
@@ -32,6 +34,7 @@ import * as thug2Scene from "../level_port/thug2_scene.ts";
 import { parseConverterArgs } from "../lib/converter_args.ts";
 import { resolveInstall } from "../lib/install.ts";
 import { hex8, isMain, print, pyExit, pyJoin, pyRepr, runMain } from "../lib/py.ts";
+import { applyTextEdits, DRIVING_EDITS } from "./driving.ts";
 import * as handEdits from "./hand_edits.ts";
 import * as portChanges from "./port_changes.ts";
 import * as thug1 from "./thug1.ts";
@@ -820,14 +823,14 @@ export function convertLevelNodes(
 
 // PC-THUG1-22 (our own change - port_changes.ts): THUG1's driving scripts (player_controlled_vehicle.qb - the player's
 // car, its camera, every car's setup -, misc\car_scripts.qb - SetupDrivableCar, the "Press ... to drive" prompt, getting
-// in and out) written to <out>\scripts\... as they are (THUG1's .qb is THUG2's token format): THUG2 ships both files
-// empty but loads them (its qdir.txt) and keeps the engine side - the Vehicle / VehicleCamera / VehicleSound
-// components, the skater's SetDriving / Driving, BroadcastEnterVehicle - and the scripts that call into them
-// (goal_initialize_skater's GetVehicleSetup, switch_control's ToggleUserControlledVehicleMode). make_menu_level puts
-// them in the data overlay's scripts folder, where they replace the empty ones (ported_levels.installFiles). Their
-// scripts are then the game's own for the scripts of the levels the change names (port.driving; the other levels'
-// drivable cars stay parked, as before: untried). Returns the files written.
-export function drivingScripts(port: thug1Port.Thug1Port, qbPre: string, out: string): string[] {
+// in and out) written to <out>\scripts\... in their THUG2 form (DRIVING_EDITS: decompiled with ns.exe, edited,
+// compiled): THUG2 ships both files empty but loads them (its qdir.txt) and keeps the engine side - the Vehicle /
+// VehicleCamera / VehicleSound components, the skater's SetDriving / Driving, BroadcastEnterVehicle - and the scripts
+// that call into them (goal_initialize_skater's GetVehicleSetup, switch_control's ToggleUserControlledVehicleMode).
+// make_menu_level puts them in the data overlay's scripts folder, where they replace the empty ones
+// (ported_levels.installFiles). Their scripts are then the game's own for the scripts of the levels the change names
+// (port.driving; the other levels' drivable cars stay parked, as before: untried). Returns the files written.
+export function drivingScripts(port: thug1Port.Thug1Port, qbPre: string, out: string, ns: string): string[] {
     const written: string[] = [];
     for (const file of portChanges.drivingFiles(COMPAT.portChanges)) {
         const data = prx.find(qbPre, file);
@@ -839,7 +842,24 @@ export function drivingScripts(port: thug1Port.Thug1Port, qbPre: string, out: st
         for (const name of source.scripts.keys()) port.driving.add(name);
         const target = pyJoin(out, file);
         fs.mkdirSync(path.win32.dirname(target), { recursive: true });
-        fs.writeFileSync(target, data);
+        const edits = DRIVING_EDITS[file.toLowerCase()];
+        if (edits === undefined) {
+            fs.writeFileSync(target, data);
+        } else {
+            const work = fs.mkdtempSync(path.join(os.tmpdir(), "tmp"));
+            try {
+                const qbFile = path.join(work, "thug1.qb");
+                const nsFile = path.join(work, "thug1.ns");
+                fs.writeFileSync(qbFile, data);
+                const result = spawnSync(ns, ["-d", qbFile, "-o", nsFile]);
+                if (result.error) throw result.error;
+                if (result.status !== 0 || !fs.existsSync(nsFile)) pyExit(`ns couldn't decompile THUG1's ${file}`);
+                const text = fs.readFileSync(nsFile, "latin1");
+                common.nsCompile(ns, applyTextEdits(text, edits, file), target);
+            } finally {
+                fs.rmSync(work, { recursive: true, force: true });
+            }
+        }
         written.push(file);
     }
     return written;
@@ -868,7 +888,7 @@ export function cmdConvert(args: Args): void {
     if (fs.existsSync(out) && fs.statSync(out).isDirectory()) fs.rmSync(out, { recursive: true });
     fs.mkdirSync(out, { recursive: true });
     if (port !== null) {
-        const written = drivingScripts(port, prePath(args, "qb.pre")!, out);
+        const written = drivingScripts(port, prePath(args, "qb.pre")!, out, args.ns);
         if (written.length) print(`THUG1's driving scripts (PC-THUG1-22): ${written.join(", ")}`);
     }
     // TPN-THUG1-1 ... TPN-THUG1-4: what is new in THUGPRO, read from its install (thugpro_new.ts); missing: warned, left out

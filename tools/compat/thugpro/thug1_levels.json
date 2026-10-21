@@ -13208,7 +13208,7 @@
         "required": false,
         "target": {
           "levels": ["VC"],
-          "what": "THUG1's drivable cars: THUG1's driving scripts (scripts\\game\\player_controlled_vehicle.qb, scripts\\game\\misc\\car_scripts.qb - THUG2 ships both empty, its engine and its goal_initialize_skater still drive) installed as THUG2's; VC's limo (TRG_drive_veh_limo) kept drivable, its goal (VC_Goal_Race4, which unlocks it in THUG1) counted as won"
+          "what": "THUG1's drivable cars: THUG1's driving scripts (scripts\\game\\player_controlled_vehicle.qb, scripts\\game\\misc\\car_scripts.qb - THUG2 ships both empty, its engine and its goal_initialize_skater still drive) installed in their THUG2 form (tools/thug1_levels/driving.ts); VC's limo (TRG_drive_veh_limo) kept drivable, its goal (VC_Goal_Race4, which unlocks it in THUG1) counted as won"
         },
         "why": "the user's report (2026-10-21): THUG1's Vancouver has a limousine you can drive by the SJ kill zone; ours had none (no goals: the goal condition was never true; THUGPRO emptied the car's script and VC_startup; THUG2 hasn't the driving scripts)",
         "scripts": [

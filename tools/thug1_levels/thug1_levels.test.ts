@@ -4,6 +4,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { checksum, Name, Struct, Vector } from "../level_port/qb.ts";
+import { applyTextEdits, DRIVING_EDITS } from "./driving.ts";
 import * as portChanges from "./port_changes.ts";
 import { applySpawns, COMPAT, levelName, ownName, setCompat, skyName } from "./thug1_levels.ts";
 
@@ -111,4 +112,12 @@ test("PC-THUG1-21 / 22: THUGPRO's VC <-> SJ arrows and the limo's emptied script
     assert.equal(COMPAT.new.size, 0);
     assert.equal(portChanges.drivingFiles(COMPAT.portChanges).length, 2);
     setCompat("thugpro");
+});
+
+test("PC-THUG1-22 applyTextEdits: each THUG1 text replaced once, CRLF read as LF; missing or twice is an error", () => {
+    assert.equal(applyTextEdits("a \r\nb \r\n", [["a \n", "x \n"]], "f"), "x \nb \n");
+    assert.throws(() => applyTextEdits("a \n", [["b \n", "x \n"]], "f"));
+    assert.throws(() => applyTextEdits("a \na \n", [["a \n", "x \n"]], "f"));
+    // (the files PC-THUG1-22 installs have their THUG2 edits)
+    for (const file of portChanges.drivingFiles(portChanges.load())) assert.ok(DRIVING_EDITS[file.toLowerCase()]);
 });
