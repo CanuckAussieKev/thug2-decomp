@@ -6,7 +6,8 @@ calls they share). Tests: src/hook/selftests_skater_*.cpp, kit src/hook/skater_c
 stand-in component, every callee - and our rewrite of it where ours calls it directly - a recording stand-in; float
 results left on the x87 stack; traces compared with the whole arena). Shared files touched: CMakeLists.txt (new files
 listed), src/game/skater/core_physics.h (new declarations, a block before `private:`).
-Switch off: `[replacements] disable=core_jump.cpp` (and the batch files below).
+Switch off: `[replacements] disable=core_jump.cpp,core_collision.cpp,core_grind.cpp,core_states.cpp,core_rail.cpp,core_ground.cpp,core_wallride.cpp`
+(any of them alone).
 The physics states (+0x1528's +0x18): 0 ground, 1 air, 2 wall ride, 3 lip, 4 rail, 5 wallplant (core_fields.h).
 PartyMod: none of these functions is patched by PartyMod (its 48 patched functions were done in the PartyMod rounds).
 
@@ -242,3 +243,20 @@ PartyMod: none of these functions is patched by PartyMod (its 48 patched functio
     exact 0.68 heading and the 0.01 corner), 4 equivalent: two "+ 0 * t^2/2" terms (only a signed zero could show),
     a heading exactly at a turn's cosine (unreachable with the game's floats), and the display matrix reset on one
     way off the edge (set again before anything reads it).
+- [x] The range done: 23 functions (the 16 Ghidra functions not done before - 0x00509BD0 / 0x0050CA00 were - and 7
+  script member functions at 0x00509A40-0x00509BB0 Ghidra had no functions for); find_gaps: nothing in the range;
+  the register scan: nothing new; the call audit: no MISMATCH; check_code_writes: no overlaps; thug2_check on
+  THUG2PM.exe and the stock THUG2.exe: 0 MISMATCHED, every early self-test passes. 297 deliberate bugs in all: 275
+  caught, 22 equivalent (each listed with its batch).
+- [x] Game runs (workspace C:\Games\THUG2-3, under its lock; 2026-10-22): `-Level BO` twice (the second with
+  -FullTests) and `-Level NJ`, ~1-3 minutes each, skating forward, turning, jumping (x), grind / grab buttons held
+  near things, ending in a bail once: no crash, no run-time check, no exception, 3650 of 3650 replacements
+  installed; late (17) and engine-started (3) self-tests pass. Two early self-tests fail in the game only - "skate
+  net registration" (known: docs/pending/objsys.md, the time-of-day agent's) and "net compress message" (netD) -
+  neither touches this range; both pass offline.
+  - [ ] For the user to try (play-tested only by hand): grinding rails (onto them, along them round corners and
+    onto the next rail at a rail's end - TransferOrLeaveRail -, off them by jumping and by riding off the end),
+    point rails (a kick off, a Natas spin holding spin), lip tricks at the top of a quarter pipe, wall rides (up the
+    wall and over its top, round a corner, jumping off), wallplants, skitching (StartSkitch / StopSkitch, a car),
+    bonking walls in the air, ledges in the air (the snap up), side collisions while skating along walls,
+    manuals with the Perfect Manual cheat, getting off and back on the board.
