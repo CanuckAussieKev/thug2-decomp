@@ -15,20 +15,24 @@ import * as fs from "node:fs";
 import * as common from "../level_port/common.ts";
 import * as geometry from "../level_port/geometry.ts";
 import * as nodes from "../level_port/nodes.ts";
+import * as pedsCars from "../level_port/peds_cars.ts";
 import * as portedLevels from "../level_port/ported_levels.ts";
 import * as qb from "../level_port/qb.ts";
 import { checksum, Name, type QbValue, Struct, Vector } from "../level_port/qb.ts";
+import * as scriptPort from "../level_port/script_port.ts";
 import type * as tex from "../level_port/tex.ts";
 import * as thug2Col from "../level_port/thug2_col.ts";
 import * as thug2Scene from "../level_port/thug2_scene.ts";
 import { parseCli } from "../lib/cli.ts";
 import { findCaseless, resolveInstall } from "../lib/install.ts";
-import { isMain, print, pyExit, pyJoin, runMain } from "../lib/py.ts";
+import { Float, isMain, print, pyExit, pyJoin, pyMinBy, runMain } from "../lib/py.ts";
 import * as thaw from "../thaw_levels/thaw.ts";
 import { applyNodeFlags, nodeFlagScript } from "../thaw_levels/thaw_levels.ts";
+import * as thawScripts from "../thaw_levels/thaw_scripts.ts";
 import { makeMaterial, THUG2_TERRAIN_TYPES, trisToStrip } from "../thps2_levels/thps2_levels.ts";
 import * as geom from "./geom.ts";
 import * as havok from "./havok.ts";
+import * as mats from "./materials.ts";
 import * as thp8 from "./thp8.ts";
 import * as xenos from "./xenos.ts";
 
@@ -37,7 +41,8 @@ export const SCALE = 39.37; // THP8's metres in THUG2's inches
 
 export interface ZoneInfo {
     zone: string; // THP8's zone (z_houses)
-    sign: string; // the level select's sign text
+    sign: string; // the level select's sign text when THP8 names none (zoneNames: THP8's own area names win)
+    suffix?: string; // added to THP8's area name: a second zone of the same area
     location: string;
     levelNum: number;
     online?: string; // the network area whose barriers close it off (z_online_<x>)
@@ -60,7 +65,13 @@ export const ZONES: readonly ZoneInfo[] = [
         levelNum: 111,
         online: "z_online_school",
     },
-    { zone: "z_inschool", sign: "SCHOOL INSIDE", location: "THP8's city: inside the high school", levelNum: 112 },
+    {
+        zone: "z_inschool",
+        sign: "SCHOOL INSIDE",
+        suffix: " INSIDE",
+        location: "THP8's city: inside the high school",
+        levelNum: 112,
+    },
     { zone: "z_shops", sign: "SHOPS", location: "THP8's city: the shops", levelNum: 113, online: "z_online_shops" },
     { zone: "z_ghetto", sign: "SLUMS", location: "THP8's city: the slums", levelNum: 114, online: "z_online_ghetto" },
     {
@@ -98,6 +109,39 @@ export const ZONES: readonly ZoneInfo[] = [
     { zone: "z_skateshop", sign: "SKATE SHOP", location: "THP8's skate shop", levelNum: 123 },
     { zone: "z_bedroom", sign: "BEDROOM", location: "THP8's bedroom", levelNum: 124 },
 ];
+
+// THP8's English names of its city's areas (qb.pak's zone_info: {id=[z_center] Name="THE CAPITOL"} - its map's
+// labels): zone -> name. The Fun Park's entry also lists the cartoon world (a world of its own here: our sign).
+export function zoneNames(compressed: string, names: Map<number, string>): Map<string, string> {
+    const pak = thp8.openPak(findCaseless(compressed, "PAK", "qb.pak.xen")!);
+    const key = checksum("zone_info");
+    const out = new Map<string, string>();
+    for (const e of pak.entries) {
+        if (e.extension !== ".qb") continue;
+        const q = new thaw.QbItems(thp8.entryData(pak, e), "qb.pak", names, ">");
+        const table = q.globals.find(([n]) => n.value === key)?.[1];
+        if (!Array.isArray(table)) continue;
+        for (const entry of table) {
+            if (!(entry instanceof Struct)) continue;
+            const ids = entry.get("id");
+            const name = entry.get("Name");
+            const text = name instanceof qb.Local ? name.text : typeof name === "string" ? name : null;
+            if (!Array.isArray(ids) || text === null) continue;
+            for (const id of ids) {
+                const zone = id instanceof Name ? (names.get(id.value) ?? "").toLowerCase() : "";
+                if (zone && zone !== "z_cartoon") out.set(zone, text.toUpperCase().replace(/[^ -~]/g, ""));
+            }
+        }
+        return out;
+    }
+    return out;
+}
+
+// The sign's text: THP8's area name (with the zone's suffix), else ours.
+export function signText(info: ZoneInfo, areaNames: ReadonlyMap<string, string>): string {
+    const area = areaNames.get(info.zone);
+    return area !== undefined ? area + (info.suffix ?? "") : info.sign;
+}
 
 export function levelName(info: ZoneInfo): string {
     return `thp8_${info.zone.replace(/^z_/, "")}`;
@@ -230,14 +274,84 @@ export function nonStoryNodeFlags(compressed: string, names: Map<number, string>
     pyExit(`qb.pak.xen: no ${NODEFLAG_SCRIPT}`);
 }
 
+// The zones' time-of-day settings (qb.pak's `<zone>_tod_manager` structures; `Default_TOD_Manager` for zones without
+// one): their `tod` structure has THUG2's level lighting keys (ambient + two directional lights) and the sun's
+// colour (sun_red / _green / _blue), which lights the shadow maps.
+export function todManagers(compressed: string, names: Map<number, string>): Map<number, Struct> {
+    const pak = thp8.openPak(findCaseless(compressed, "PAK", "qb.pak.xen")!);
+    const out = new Map<number, Struct>();
+    for (const e of pak.entries) {
+        if (e.extension !== ".qb") continue;
+        const q = new thaw.QbItems(thp8.entryData(pak, e), "qb.pak", names, ">");
+        for (const [k, v] of q.globals) {
+            const tod = v instanceof Struct ? v.get("tod") : undefined;
+            if (tod instanceof Struct && /_tod_manager$/i.test(names.get(k.value) ?? "")) out.set(k.value, tod);
+        }
+    }
+    return out;
+}
+
+export function zoneTod(managers: ReadonlyMap<number, Struct>, zone: string): Struct | undefined {
+    return managers.get(checksum(`${zone}_tod_manager`)) ?? managers.get(checksum("Default_TOD_Manager"));
+}
+
+// How bright THP8's light maps are made (materials.light): the ambient map x AMBIENT_SCALE plus the sun's colour x
+// the shadow map x SUN_SCALE. Ours (THP8's shaders aren't read): sunlit ground near THUG2's full brightness, shade
+// about half.
+export const AMBIENT_SCALE = 1.5;
+export const SUN_SCALE = 0.6;
+// The sun's colour halfway to white (THP8 takes the saturation of its frames down after drawing - its Bright_Sat
+// screen effect, saturation 0.7 - which THUG2 doesn't: the full colour came out orange).
+export const SUN_WHITEN = 0.5;
+
+// Interiors (the materials whose technique is an ..._InteriorLighting one: the factory, the school inside, the skate
+// shop, the bedroom) are lit by their ambient map alone - their shadow map is the white stand-in - which holds the
+// rooms' light (warm, darker than outdoors': the factory's averages 0.18): x INTERIOR_SCALE / (1 + INTERIOR_KNEE x)
+// - ours, as the outdoor scales: dim rooms brought up, the bright ones not burnt white (x 4 straight left the
+// factory's floor white).
+export const INTERIOR_SCALE = 6.0;
+export const INTERIOR_KNEE = 4.0;
+// Light maps this small (texels) are THP8's stand-ins (32 x 32, one colour: 128 grey ambient, white shadow).
+export const STAND_IN = 32 * 32;
+export function interiorLighting(): mats.Lighting {
+    return { sun: [0, 0, 0], ambientScale: INTERIOR_SCALE, sunScale: 0, ambientKnee: INTERIOR_KNEE };
+}
+
+export function zoneLighting(tod: Struct | undefined): mats.Lighting {
+    const num = (key: string, fallback: number): number => {
+        const v = tod?.get(key);
+        return typeof v === "number" ? v : v instanceof Float ? v.value : fallback;
+    };
+    return {
+        sun: [num("sun_red", 255), num("sun_green", 211), num("sun_blue", 165)].map(
+            (c) => (c / 255) * (1 - SUN_WHITEN) + SUN_WHITEN,
+        ),
+        ambientScale: AMBIENT_SCALE,
+        sunScale: num("sun_on", 1) ? SUN_SCALE : 0,
+    };
+}
+
 // The sectors of LevelGeometry nodes left without CreatedAtStart (THUG2 never makes them: their geometry isn't drawn or
 // collided with) - left out of the scene and collision rather than kept unseen.
 export function notMade(array: readonly QbValue[], names: ReadonlyMap<number, string>): Set<number> {
     const out = new Set<number>();
     for (const n of array) {
-        if (!(n instanceof Struct) || nodes.classOf(n, names) !== "levelgeometry") continue;
+        if (!(n instanceof Struct) || !["levelgeometry", "levelobject"].includes(nodes.classOf(n, names))) continue;
         const name = nodeName(n);
         if (name !== null && !n.hasFlag("CreatedAtStart") && n.get("MasterName") === undefined) out.add(name);
+    }
+    return out;
+}
+
+// THP8's moving objects (LevelObject: the gym's roof fans, doors): their sectors and collision are in their own space
+// (centred on the origin) and THUG2 puts them at the node's Pos - left there, not moved with the zone. The ones made.
+export function localObjects(array: readonly QbValue[], names: ReadonlyMap<number, string>): Set<number> {
+    const out = new Set<number>();
+    for (const n of array) {
+        if (!(n instanceof Struct) || nodes.classOf(n, names) !== "levelobject" || !n.hasFlag("CreatedAtStart"))
+            continue;
+        const name = nodeName(n);
+        if (name !== null) out.add(name);
     }
     return out;
 }
@@ -345,6 +459,18 @@ export interface SceneParts {
     hidden?: ReadonlySet<number>; // sectors not made (notMade)
     dome?: boolean; // untextured materials coloured as a clear sky (THP8's atmosphere shader - the sky's dome)
     additive?: ReadonlySet<number>; // materials drawn adding (glowMaterials)
+    lighting?: mats.Lighting; // THP8's light maps baked into the vertex colours (materials.ts)
+    techniques?: ReadonlyMap<number, readonly string[]>; // the material library's (materials.readTechniques)
+    local?: ReadonlySet<number>; // sectors in their own space (localObjects): not moved
+}
+
+// A material's layers as converted: the uv slot each THUG2 pass reads, the light maps, and the mask read into the
+// vertex alpha (a layer whose mask has a uv field of its own).
+interface Plan {
+    plan: mats.MaterialPlan;
+    slots: number[];
+    light?: { ambient: mats.Decoded; shadow: mats.Decoded; lighting: mats.Lighting };
+    vertexMask: { slot: number; mask: mats.Decoded; opacity: number } | null;
 }
 
 // THP8's glows and light shafts (lamp halos, sun shafts: textures on black that its shaders add) by their sectors'
@@ -399,6 +525,10 @@ export interface ConvertedScene {
         skipped: number;
         hidden: number;
         billboards: number;
+        layers: number; // further passes made (materials.ts)
+        lit: number; // vertices lit from light maps
+        refined: number; // lit triangles after refineLit
+        refinedFrom: number; // ... and before
     };
 }
 
@@ -410,6 +540,7 @@ export function convertScenes(
     warnings: string[],
     mips = true,
     unit = SCALE, // inches per metre (the sky: SKY_UNIT)
+    refineOptions: mats.RefineOptions = REFINE,
 ): ConvertedScene {
     const materials = new Map<number, thug2Scene.Material>();
     const texOut = new Map<number, tex.Texture>();
@@ -418,26 +549,56 @@ export function convertScenes(
     const glows = new Map<number, number[]>(); // additive materials -> their R, G, B scale (glowScale)
     const sectors: geometry.SourceSector[] = [];
     const written = new Set<number>();
-    const counts = { sectors: 0, instances: 0, masters: 0, triangles: 0, skipped: 0, hidden: 0, billboards: 0 };
+    const counts = {
+        sectors: 0,
+        instances: 0,
+        masters: 0,
+        triangles: 0,
+        skipped: 0,
+        hidden: 0,
+        billboards: 0,
+        layers: 0,
+        lit: 0,
+        refined: 0,
+        refinedFrom: 0,
+    };
+    const plans = new Map<number, Plan>();
     for (const part of parts) {
         const g = part.geom;
+        const maps = mats.lightMaps(g.materials);
+        const decoded = new Map<number, mats.Decoded | null>();
+        const decode = (t: number): mats.Decoded | null => {
+            if (!decoded.has(t)) {
+                const x = part.textures.get(t);
+                decoded.set(t, x ? mats.decode(x) : null);
+            }
+            return decoded.get(t)!;
+        };
+        const meshesOf = new Map<number, geom.GeomMesh[]>();
+        for (const s of g.sectors)
+            for (const m of s.meshes) meshesOf.set(m.material, [...(meshesOf.get(m.material) ?? []), m]);
+        const convertTexture = (t: number): boolean => {
+            if (!texOut.has(t) && part.textures.has(t)) {
+                const c = xenos.toThug2(part.textures.get(t)!, mips);
+                if (c.texture) texOut.set(t, c.texture);
+                else warnings.push(`texture ${thp8.hex(t)}: ${c.note} - left out`);
+            }
+            return texOut.has(t);
+        };
         // materials
         for (const m of g.materials) {
             if (materials.has(m.checksum) || !m.checksum) continue;
             if (m.template === BILLBOARD) billboards.add(m.checksum);
+            const used = meshesOf.get(m.checksum) ?? [];
+            const slots = used.length ? geom.uvSlots(used[0]!.layout).length : 0;
+            const plan =
+                part.dome || part.additive?.has(m.checksum) ? null : mats.planMaterial(m, part.textures, maps, slots);
             let texture = 0;
             // (the first texture that isn't a normal map: a few shaders list theirs first)
-            const first = m.textures.find(
-                (t) => part.textures.has(t) && part.textures.get(t)!.format !== xenos.FMT_DXN,
-            );
-            if (first !== undefined) {
-                if (!texOut.has(first)) {
-                    const c = xenos.toThug2(part.textures.get(first)!, mips);
-                    if (c.texture) texOut.set(first, c.texture);
-                    else warnings.push(`texture ${thp8.hex(first)}: ${c.note} - left out`);
-                }
-                if (texOut.has(first)) texture = first;
-            }
+            const first =
+                plan?.layers[0]?.diffuse ??
+                m.textures.find((t) => part.textures.has(t) && part.textures.get(t)!.format !== xenos.FMT_DXN);
+            if (first !== undefined && convertTexture(first)) texture = first;
             const t = texOut.get(texture);
             const add = texture !== 0 && (part.additive?.has(m.checksum) ?? false);
             const alpha = !add && t !== undefined && (t.dxt === 5 || t.dxt === 2);
@@ -451,15 +612,94 @@ export function convertScenes(
                 mat.drawOrder = 1500.0;
                 glows.set(m.checksum, glowScale(m));
             }
+            if (plan && texture && plan.layers.length) {
+                const out: Plan = { plan, slots: [plan.layers[0]!.slot], vertexMask: null };
+                // (THUG2's pass colour: 0.5 = as the texture)
+                const tint = (pass: thug2Scene.Pass, c: readonly number[]): void => {
+                    if (c.slice(0, 3).every((x) => x === 1)) return;
+                    pass.hasColor = 1;
+                    pass.color = c.slice(0, 3).map((x) => x * 0.5);
+                };
+                tint(mat.passes[0]!, plan.layers[0]!.colour);
+                // the further layers (an opaque pass 0 only: a blended one's vertex alpha is its own)
+                for (const layer of alpha ? [] : plan.layers.slice(1)) {
+                    const shared =
+                        layer.maskSlot === layer.slot ||
+                        used.every((mesh) =>
+                            geom.readVertices(mesh).every((v) => {
+                                const a = v.uvs[layer.slot];
+                                const b = v.uvs[layer.maskSlot];
+                                return a && b && Math.abs(a[0]! - b[0]!) < 1e-3 && Math.abs(a[1]! - b[1]!) < 1e-3;
+                            }),
+                        );
+                    let layerTexture: number;
+                    if (shared) {
+                        // (mask in the texture's alpha)
+                        const opacity = Math.round(layer.colour[3]! * 100);
+                        layerTexture = checksum(
+                            `thp8_layer_${thp8.hex(layer.diffuse)}_${thp8.hex(layer.mask!)}_${opacity}`,
+                        );
+                        if (!texOut.has(layerTexture)) {
+                            const d = decode(layer.diffuse);
+                            const k = decode(layer.mask!);
+                            if (!d || !k) continue;
+                            texOut.set(
+                                layerTexture,
+                                xenos.fromBgra(
+                                    layerTexture,
+                                    d.width,
+                                    d.height,
+                                    mats.maskedLayer(d, k, opacity / 100),
+                                    mips,
+                                ),
+                            );
+                        }
+                    } else {
+                        // (mask in the vertex alpha: one layer can)
+                        if (out.vertexMask !== null || !convertTexture(layer.diffuse) || !decode(layer.mask!)) continue;
+                        out.vertexMask = {
+                            slot: layer.maskSlot,
+                            mask: decode(layer.mask!)!,
+                            opacity: layer.colour[3]!,
+                        };
+                        layerTexture = layer.diffuse;
+                    }
+                    const pass = makeMaterial(0, layerTexture, false, true).passes[0]!;
+                    pass.blendMode = 5; // (THUG2's blend: by the pass's texture alpha times the vertex alpha x 2)
+                    if (shared) pass.flags |= thug2Scene.PASS_IGNORE_VERTEX_ALPHA;
+                    else pass.flags &= ~thug2Scene.PASS_IGNORE_VERTEX_ALPHA;
+                    tint(pass, layer.colour);
+                    mat.passes.push(pass);
+                    out.slots.push(layer.slot);
+                    counts.layers++;
+                }
+                if (part.lighting && plan.ambient !== null && plan.shadow !== null) {
+                    const a = decode(plan.ambient);
+                    const s = decode(plan.shadow);
+                    // (an interior technique, or a real ambient map with the shadow map's stand-in - the factory's
+                    // floors, a plain technique: under the sun they came out white - lit by the ambient map alone,
+                    // interiorLighting)
+                    const standIn = (d: mats.Decoded | null): boolean => d !== null && d.width * d.height <= STAND_IN;
+                    const inside =
+                        (part.techniques ? mats.interior(m, part.techniques) : false) || (standIn(s) && !standIn(a));
+                    if (a && s) {
+                        out.light = { ambient: a, shadow: s, lighting: inside ? interiorLighting() : part.lighting };
+                    }
+                }
+                plans.set(m.checksum, out);
+            }
             materials.set(m.checksum, mat);
         }
         const bySector = new Map(g.sectors.map((s) => [s.checksum, s]));
         const masters = new Set([...part.placed.values()].map((p) => p.master));
         const emit = (checksumOut: number, s: geom.GeomSector, at: Placement | null): void => {
+            const move = part.local?.has(checksumOut) ? [0, 0, 0] : shift;
             const positions: number[][] = [];
             const colors: number[][] = [];
             const uvs: number[][] = [];
             const meshes: { flags: number; material: number; strip: number[] }[] = [];
+            // (one uv set per pass: the sector's vertices carry as many as its materials' most)
+            const sets = Math.max(1, ...s.meshes.map((m) => plans.get(m.material)?.slots.length ?? 1));
             for (const m of s.meshes) {
                 if (!materials.has(m.material)) {
                     counts.skipped++;
@@ -475,12 +715,23 @@ export function convertScenes(
                 const blend = transparent.has(m.material);
                 const glow = glows.get(m.material);
                 const dome = part.dome && !materials.get(m.material)!.passes[0]!.texture;
-                for (const v of geom.readVertices(m)) {
+                const plan = plans.get(m.material);
+                const verts = geom.readVertices(m);
+                let meshTris = geom.triangles(m);
+                // (light maps: the mesh's last two uv fields - a mesh with fewer fields than its material's first isn't
+                // lit)
+                const lit = plan?.light && part.lighting && (verts[0]?.uvs.length ?? 0) >= 3 ? plan.light : null;
+                if (lit && part.lighting) {
+                    counts.refinedFrom += meshTris.length;
+                    meshTris = refineLit(verts, meshTris, lit, lit.lighting, refineOptions);
+                    counts.refined += meshTris.length;
+                }
+                for (const v of verts) {
                     const q = place(v.position, at);
-                    positions.push([q[0] * unit + shift[0]!, q[1] * unit + shift[1]!, q[2] * unit + shift[2]!]);
+                    positions.push([q[0] * unit + move[0]!, q[1] * unit + move[1]!, q[2] * unit + move[2]!]);
                     if (dome) {
                         colors.push(skyColour(v.position));
-                        uvs.push([0, 0]);
+                        uvs.push(Array<number>(2 * sets).fill(0));
                         continue;
                     }
                     // (255 = full as THUG2's 128; opaque materials' vertex alpha - THP8's layer blend weights - full)
@@ -488,16 +739,39 @@ export function convertScenes(
                     // (the sky's cloud layers faded out towards the horizon: THP8's city and haze hide their low
                     // edges, which in THUG2's small sky stood up as grey spikes)
                     const fade = part.dome ? cloudFade(v.position) : 1;
-                    const k = glow ?? [1, 1, 1];
+                    let k = glow ?? [1, 1, 1];
+                    const uvOf = (slot: number): number[] => {
+                        const uv = v.uvs[slot] ?? [0, 0];
+                        return uv.map((x) => (Number.isFinite(x) ? x : 0));
+                    };
+                    const n = v.uvs.length;
+                    if (lit && part.lighting) {
+                        // THP8's light maps baked into the vertex colour
+                        const am = lit.ambient;
+                        const sh = lit.shadow;
+                        const [au, av] = uvOf(n - 2) as [number, number];
+                        const [su, sv] = uvOf(n - 1) as [number, number];
+                        k = mats.light(mats.sample(am, au, av), mats.sample(sh, su, sv), lit.lighting);
+                        counts.lit++;
+                    }
+                    let alpha = blend ? Math.round((a >> 1) * fade) : 128;
+                    if (plan?.vertexMask) {
+                        const [mu, mv] = uvOf(plan.vertexMask.slot) as [number, number];
+                        const s2 = mats.sample(plan.vertexMask.mask, mu, mv);
+                        alpha = Math.round(((s2[0]! + s2[1]! + s2[2]!) / 3) * plan.vertexMask.opacity * 128);
+                    }
                     colors.push([
-                        Math.round((b >> 1) * k[2]!),
-                        Math.round((g2 >> 1) * k[1]!),
-                        Math.round((r >> 1) * k[0]!),
-                        blend ? Math.round((a >> 1) * fade) : 128,
+                        Math.min(255, Math.round((b >> 1) * k[2]!)),
+                        Math.min(255, Math.round((g2 >> 1) * k[1]!)),
+                        Math.min(255, Math.round((r >> 1) * k[0]!)),
+                        alpha,
                     ]);
-                    uvs.push(v.uvs[0] ?? [0, 0]);
+                    const flat: number[] = [];
+                    const slots = plan?.slots ?? [0];
+                    for (let set = 0; set < sets; set++) flat.push(...uvOf(slots[set] ?? slots[0]!));
+                    uvs.push(flat);
                 }
-                let tris = geom.triangles(m).map((t) => t.map((i) => i + base));
+                let tris = meshTris.map((t) => t.map((i) => i + base));
                 if (part.dome && !dome) {
                     // (the sky's cloud layers reach below the horizon, where THP8's city hides them - THUG2's sky
                     // turns with the camera, and looking down it showed them as sheets: their triangles wholly
@@ -518,7 +792,7 @@ export function convertScenes(
                 sphere: [center[0]!, center[1]!, center[2]!, radius],
                 positions,
                 colors,
-                uvSets: 1,
+                uvSets: sets,
                 uvs,
                 meshes,
             });
@@ -556,11 +830,213 @@ export function convertScenes(
     };
 }
 
+// Lit triangles split where the light maps vary inside them (materials.refine), so shadows keep their shape in the
+// vertex colours.
+export const REFINE: mats.RefineOptions = { threshold: 0.2, minLength: 6, depth: 3, maxVertices: 60000 };
+
+export function refineLit(
+    verts: geom.Vertex[],
+    tris: number[][],
+    maps: { ambient: mats.Decoded; shadow: mats.Decoded },
+    lighting: mats.Lighting,
+    options: mats.RefineOptions = REFINE,
+): number[][] {
+    const n = verts[0]!.uvs.length;
+    const lerp = (a: readonly number[], b: readonly number[], c: readonly number[], wa: number, wb: number): number[] =>
+        a.map((x, k) => x * wa + b[k]! * wb + c[k]! * (1 - wa - wb));
+    const lum = (ambientUv: readonly number[], shadowUv: readonly number[]): number => {
+        const l = mats.light(
+            mats.sample(maps.ambient, ambientUv[0]!, ambientUv[1]!),
+            mats.sample(maps.shadow, shadowUv[0]!, shadowUv[1]!),
+            lighting,
+        );
+        return 0.299 * l[0]! + 0.587 * l[1]! + 0.114 * l[2]!;
+    };
+    return mats.refine(
+        verts,
+        tris,
+        (a, b) => ({
+            position: lerp(a.position, b.position, b.position, 0.5, 0.5),
+            color: lerp(a.color, b.color, b.color, 0.5, 0.5).map(Math.round),
+            uvs: a.uvs.map((uv, k) => lerp(uv, b.uvs[k]!, b.uvs[k]!, 0.5, 0.5)),
+        }),
+        (v) => lum(v.uvs[n - 2]!, v.uvs[n - 1]!),
+        (a, b, c, wa, wb) =>
+            lum(
+                lerp(a.uvs[n - 2]!, b.uvs[n - 2]!, c.uvs[n - 2]!, wa, wb),
+                lerp(a.uvs[n - 1]!, b.uvs[n - 1]!, c.uvs[n - 1]!, wa, wb),
+            ),
+        (a, b) =>
+            Math.hypot(a.uvs[n - 1]![0]! - b.uvs[n - 1]![0]!, a.uvs[n - 1]![1]! - b.uvs[n - 1]![1]!) *
+            Math.max(maps.shadow.width, maps.shadow.height),
+        options,
+    );
+}
+
+// --- game objects: THP8's physics props ------------------------------------------------------------------------------
+
+// THP8's props (GameObject nodes of Type GO_Cafe_Chair, GO_TrafficCone, GO_Aluminum_Can...: Havok rigid bodies its
+// profiles bounce) have their model under the Type's name - most in ZONES\global.pak, the rest in the zone's archive:
+// .mdl (the scene layout), .stex / .tex and a Havok packfile (their physics shape). THUG2 has the same kind of thing
+// as a LevelObject with `bouncy` (THAW's bouncy boxes): its sector and collision in their own space, rigid-body
+// contacts and coefficients.
+// Each prop made one: the model's sector drawn under the node's name, a box of the model's size as its collision, the
+// box's corners its contacts, THAW's bouncy boxes' coefficients (THP8's profiles - mass, friction in qb.pak's
+// profile_GO_* structures - not read).
+export interface PropModel {
+    geom: geom.Geom;
+    textures: Map<number, xenos.XenosTexture>;
+    box: number[]; // the model's box, metres (min x y z, max x y z)
+}
+
+export function propModels(pak: thp8.Pak): Map<number, PropModel> {
+    const out = new Map<number, PropModel>();
+    for (const e of pak.entries) {
+        if (e.extension !== ".mdl") continue;
+        // (its textures: the entry the model names - a .stex in a zone's archive, a .tex in global.pak)
+        const stex = pak.entries.find((x) => (x.extension === ".stex" || x.extension === ".tex") && x.full === e.own);
+        const g = geom.readGeom(thp8.entryData(pak, e), "mdl");
+        if (!g.sectors.length) continue;
+        const textures = new Map<number, xenos.XenosTexture>();
+        if (stex) for (const t of xenos.readXenosTex(thp8.entryData(pak, stex), "stex")) textures.set(t.checksum, t);
+        const box = [0, 1, 2, 3, 4, 5].map((k) =>
+            k < 3 ? Math.min(...g.sectors.map((x) => x.bbox[k]!)) : Math.max(...g.sectors.map((x) => x.bbox[k]!)),
+        );
+        out.set(e.name, { geom: g, textures, box });
+    }
+    return out;
+}
+
+export const BOUNCY_KEYS: readonly [string, QbValue][] = [
+    ["coeff_restitution", new Float(0.4)],
+    ["coeff_friction", new Float(0.5)],
+    ["skater_collision_impulse_factor", new Float(1.0)],
+    ["skater_collision_rotation_factor", new Float(1.0)],
+    ["skater_collision_assent", new Float(25.0)],
+    ["skater_collision_radius", new Float(48.0)],
+];
+
+// The props made bouncy LevelObjects (in place): node name -> its model's Type. Only the ones made at the start.
+export function bouncyProps(
+    array: readonly QbValue[],
+    names: Map<number, string>,
+    models: ReadonlyMap<number, PropModel>,
+): Map<number, number> {
+    const out = new Map<number, number>();
+    const key = (text: string): Name => {
+        const v = checksum(text);
+        if (!names.has(v)) names.set(v, text);
+        return new Name(v);
+    };
+    for (const node of array) {
+        if (!(node instanceof Struct) || nodes.classOf(node, names) !== "gameobject") continue;
+        const type = node.get("Type");
+        const name = nodeName(node);
+        // (THP8's own Bouncy ones; not the scripted ones - the Capitol's pendulum swings on its script and fell flat)
+        if (!(type instanceof Name) || name === null || !node.hasFlag("CreatedAtStart") || !node.hasFlag("Bouncy"))
+            continue;
+        if (node.get("TriggerScript") !== undefined) continue;
+        const model = models.get(type.value);
+        if (!/^go_/i.test(names.get(type.value) ?? "") || model === undefined) continue;
+        const [x0, y0, z0, x1, y1, z1] = model.box.map((v) => v * SCALE) as [
+            number,
+            number,
+            number,
+            number,
+            number,
+            number,
+        ];
+        const contacts = [x0, x1].flatMap((x) =>
+            [y0, y1].flatMap((y) => [z0, z1].map((z) => new Vector("vector", [x, y, z]))),
+        );
+        node.entries = [
+            [key("Pos"), node.get("Pos") ?? new Vector("vector", [0, 0, 0])],
+            [key("Angles"), node.get("Angles") ?? new Vector("vector", [0, 0, 0])],
+            [key("Name"), new Name(name)],
+            [key("Class"), key("LevelObject")],
+            [key("Type"), key("Bouncy_Default")],
+            [null, key("CreatedAtStart")],
+            [null, key("bouncy")],
+            [key("CollisionMode"), key("Geometry")],
+            [key("SuspendDistance"), 0],
+            [key("lod_dist1"), 300],
+            [key("lod_dist2"), 400],
+            [key("contacts"), contacts],
+            [key("center_of_mass"), new Vector("vector", [0, 0, 0])],
+            ...BOUNCY_KEYS.map(([k, v]): qb.Entry => [key(k), v]),
+        ];
+        out.set(name, type.value);
+    }
+    return out;
+}
+
+// A box's twelve triangles (metres), as collision owned by `owner`.
+export function boxTriangles(box: readonly number[], owner: number): havok.HkTriangle[] {
+    const [x0, y0, z0, x1, y1, z1] = box as [number, number, number, number, number, number];
+    const p = (i: number): number[] => [i & 1 ? x1 : x0, i & 2 ? y1 : y0, i & 4 ? z1 : z0];
+    const quads = [
+        [0, 2, 3, 1],
+        [4, 5, 7, 6],
+        [0, 1, 5, 4],
+        [2, 6, 7, 3],
+        [0, 4, 6, 2],
+        [1, 3, 7, 5],
+    ];
+    return quads.flatMap(([a, b, c, d]) => [
+        { a: p(a!), b: p(b!), c: p(c!), material: 0, owner },
+        { a: p(a!), b: p(c!), c: p(d!), material: 0, owner },
+    ]);
+}
+
+// The most triangles a zone's scene may have after refining: half as many again as THP8's or REFINE_EXTRA more, at most
+// MAX_TRIANGLES
+// (the largest zones as THP8 has them - the Capitol, 178,000 - load in THUG2 without a pool running dry; more wasn't
+// tried).
+export const MAX_TRIANGLES = 190000;
+export const REFINE_EXTRA = 40000;
+export function refineBudget(counts: ConvertedScene["counts"]): number {
+    const before = counts.triangles - counts.refined + counts.refinedFrom;
+    return Math.max(before, Math.min(MAX_TRIANGLES, before + Math.max(REFINE_EXTRA, Math.round(before * 0.5))));
+}
+
 // --- collision ----------------------------------------------------------------------------------------------------
 
 // THP8's face flags that mean the same in THUG2 (skatable, not skatable, wallridable, vert, not collidable, decal,
 // trigger, camera passes, no skater shadow, skater shadow, no shadow wall, under ok, invisible).
 export const FACE_KEEP = 0x1fff;
+
+// THP8's trigger volumes (the Capitol's lake kill, its eternal flame) are faces marked 0x20 and non-collidable (0x10),
+// no 0x40: THUG2's trigger is 0x40 - given them (convertCol keeps trigger faces only on the objects whose node's
+// script is brought along or kills).
+export const FACE_VOLUME = 0x20;
+export const VOLUME_DROP = 10; // metres
+export function faceFlags(material: number): number {
+    let f = material & FACE_KEEP;
+    if (f & FACE_VOLUME && f & thug2Col.FACE_NON_COLLIDABLE) f = (f & ~FACE_VOLUME) | 0x40;
+    return f;
+}
+
+// A LevelGeometry node with a TriggerScript and no scene sector (a collision-only volume): its name and Pos (metres).
+export interface Volume {
+    name: number;
+    pos: readonly number[];
+}
+
+export function triggerVolumes(
+    array: readonly QbValue[],
+    names: ReadonlyMap<number, string>,
+    sectors: ReadonlySet<number>,
+): Volume[] {
+    const out: Volume[] = [];
+    for (const n of array) {
+        if (!(n instanceof Struct) || nodes.classOf(n, names) !== "levelgeometry") continue;
+        const name = nodeName(n);
+        const pos = vec(n.get("Pos"));
+        if (name === null || pos === null || sectors.has(name) || !(n.get("TriggerScript") instanceof Name)) continue;
+        out.push({ name, pos });
+    }
+    return out;
+}
 
 export interface CollisionResult {
     col: thug2Col.ColFile;
@@ -588,7 +1064,13 @@ const boxOf = (tris: readonly havok.HkTriangle[]): number[] => {
 // primitive's node, else <level>_Col_<n>. Faces: THP8's flags (FACE_KEEP; trigger faces only on `keepTriggers`'
 // objects - THUG2 runs a trigger face's node's script without checking it's there), terrain by thug2Terrain.
 export function convertCollision(
-    sets: readonly { bodies: havok.HkBody[]; sectors: readonly geom.GeomSector[]; hidden?: ReadonlySet<number> }[],
+    sets: readonly {
+        bodies: havok.HkBody[];
+        sectors: readonly geom.GeomSector[];
+        hidden?: ReadonlySet<number>;
+        local?: ReadonlySet<number>; // bodies in their own space (localObjects): not moved
+        volumes?: readonly Volume[]; // collision-only trigger nodes (triggerVolumes)
+    }[],
     level: string,
     shift: readonly number[],
     terrains: readonly string[],
@@ -600,7 +1082,21 @@ export function convertCollision(
     let named = 0;
     let n = 0;
     let hiddenBodies = 0;
-    for (const { bodies, sectors, hidden } of sets) {
+    for (const { bodies: whole, sectors, hidden, local, volumes } of sets) {
+        // (a body holding trigger-volume faces and others - the Capitol's lake kill inside its reflection's body - as
+        // two: the volume's faces their own object, named after the volume's node)
+        const isVolume = (t: havok.HkTriangle): boolean =>
+            (t.material & FACE_VOLUME) !== 0 && (t.material & thug2Col.FACE_NON_COLLIDABLE) !== 0;
+        const bodies = volumes?.length
+            ? whole.flatMap((b) => {
+                  const v = b.triangles.filter(isVolume);
+                  if (!v.length || v.length === b.triangles.length) return [b];
+                  return [
+                      { index: b.index, triangles: b.triangles.filter((t) => !isVolume(t)) },
+                      { index: b.index, triangles: v },
+                  ];
+              })
+            : whole;
         for (const body of bodies) {
             if (!body.triangles.length) continue;
             const box = boxOf(body.triangles);
@@ -620,8 +1116,25 @@ export function convertCollision(
                 named++;
             } else {
                 const owner = body.triangles.find((t) => t.owner)?.owner;
-                name = owner !== undefined && !used.has(owner) ? owner : checksum(`${level}_Col_${n}`);
-                if (owner !== undefined && name === owner) named++;
+                // (a collision-only trigger node - THP8's water kills - whose Pos is inside the body's box)
+                // (the one nearest the box's middle: goal triggers stand inside the big boxes too)
+                const middle = [0, 1, 2].map((k) => (box[k]! + box[3 + k]!) / 2);
+                const inside = (volumes ?? []).filter(
+                    (v) =>
+                        !used.has(v.name) &&
+                        // (x / z inside; y within VOLUME_DROP: a water kill's faces are its surface, its node lower)
+                        [0, 1, 2].every((k) => {
+                            const slack = k === 1 ? VOLUME_DROP : 0.5;
+                            return v.pos[k]! >= box[k]! - slack && v.pos[k]! <= box[3 + k]! + slack;
+                        }),
+                );
+                const volume = inside.length
+                    ? pyMinBy(inside, (v) => Math.hypot(...[0, 1, 2].map((k) => v.pos[k]! - middle[k]!)))
+                    : undefined;
+                if (owner !== undefined && !used.has(owner)) name = owner;
+                else if (volume !== undefined) name = volume.name;
+                else name = checksum(`${level}_Col_${n}`);
+                if ((owner !== undefined && name === owner) || volume?.name === name) named++;
             }
             n++;
             if (hidden?.has(name)) {
@@ -629,10 +1142,11 @@ export function convertCollision(
                 continue;
             }
             used.add(name);
+            const move = local?.has(name) ? [0, 0, 0] : shift;
             const verts: number[][] = [];
             const index = new Map<string, number>();
             const vertex = (p: readonly number[]): number => {
-                const q = toThug(p, shift);
+                const q = toThug(p, move);
                 const key = q.map((x) => x.toFixed(3)).join(",");
                 let i = index.get(key);
                 if (i === undefined) {
@@ -648,7 +1162,7 @@ export function convertCollision(
                 const b = vertex(t.b);
                 const c = vertex(t.c);
                 if (a === b || b === c || a === c) continue;
-                faces.push([t.material & FACE_KEEP, thug2Terrain(terrains, (t.material >>> 16) & 0xff), a, b, c]);
+                faces.push([faceFlags(t.material), thug2Terrain(terrains, (t.material >>> 16) & 0xff), a, b, c]);
             }
             if (!faces.length) continue;
             if (faces.length > 0xffff || verts.length > 0xffff) {
@@ -689,6 +1203,8 @@ export interface NodeResult {
     rails: number;
     triggers: Set<number>;
     added: boolean; // a restart made (the zone had none)
+    scripts: Map<number, Buffer>; // the scripts brought along (THUG2 bytes, appended to the compiled .qb)
+    scriptReport: string;
 }
 
 // The highest collision face under (x, z) (metres), or null.
@@ -770,6 +1286,221 @@ export function addRestart(
     return true;
 }
 
+// THP8's zones have one or two single-player restarts each and about ten network spawns (Multiplayer); THUG2's
+// restart choices (free skate's restart list, the F8 restart tester) go by Player1 - the spawns get Player1 too.
+// Returns [text, restarts changed].
+export function soloRestarts(text: string): [string, number] {
+    let changed = 0;
+    const out = text.replace(/\{[^{}]*\}/g, (node) => {
+        if (!/\bClass=Restart\b/i.test(node)) return node;
+        return node.replace(/\brestart_types=\[([^\]]*)\]/, (whole, types: string) => {
+            const listed = types.split(/\s+/).filter((x) => x);
+            if (!listed.some((t) => /^multiplayer$/i.test(t)) || listed.some((t) => /^player1$/i.test(t))) return whole;
+            changed++;
+            return `restart_types=[${["Player1", ...listed].join(" ")}]`;
+        });
+    });
+    return [out, changed];
+}
+
+// What bringing a zone's scripts along needs (tools/thaw_levels/thaw_scripts.ts, which reads THP8's scripts too: the
+// same token stream, big-endian inline structures): THUG2's commands and assets.
+export interface ScriptPort {
+    thug2: scriptPort.Thug2;
+    assets: pedsCars.Thug2Assets | null;
+    particles: Map<string, string>;
+    text: ReadonlyMap<number, string>; // englishText
+}
+
+export function makeScriptPort(thug2: string, compressed: string, names: Map<number, string>): ScriptPort {
+    return {
+        thug2: new scriptPort.Thug2(thug2),
+        assets: new pedsCars.Thug2Assets(thug2),
+        particles: thawScripts.particleTextures(thug2),
+        text: englishText(compressed, names),
+    };
+}
+
+// THP8's English text: qb.pak's globals whose value is a (wide) string - the gaps' names (`str_z_cretepark_scripts_2 =
+// "Over the Steps"`), which THP8's scripts name instead of giving the text (EndGap text=str_z_cretepark_scripts_2).
+// The other languages' are in the _f / _g / _i / _s paks.
+export function englishText(compressed: string, names: Map<number, string>): Map<number, string> {
+    const pak = thp8.openPak(findCaseless(compressed, "PAK", "qb.pak.xen")!);
+    const out = new Map<number, string>();
+    for (const e of pak.entries) {
+        if (e.extension !== ".qb") continue;
+        const q = new thaw.QbItems(thp8.entryData(pak, e), "qb.pak", names, ">");
+        for (const [k, v] of q.globals) {
+            if (v instanceof qb.Local) out.set(k.value, v.text);
+            else if (typeof v === "string") out.set(k.value, v);
+        }
+    }
+    return out;
+}
+
+// A THP8 qb file's scripts for the translator, the names of English text in them as the text itself (THUG2's
+// commands take the string: a name there was no text at all).
+export function scriptSource(
+    q: thaw.QbItems,
+    names: Map<number, string>,
+    text: ReadonlyMap<number, string>,
+): thawScripts.ThawSource {
+    const source = new thawScripts.ThawSource(q, thawScripts.LEVEL, names);
+    for (const [name, toks] of source.scripts) source.scripts.set(name, flattenArgs(toks));
+    for (const toks of source.scripts.values()) {
+        toks.forEach((t, k) => {
+            const s = t.t === 0x16 ? text.get(t.p.readUInt32LE(0)) : undefined;
+            if (s === undefined) return;
+            const latin = s.replace(/[^ -ÿ]/g, "");
+            toks[k] = new scriptPort.Tok(0x1b, Buffer.concat([Buffer.from(latin, "latin1"), Buffer.from([0])]), t.i);
+        });
+    }
+    return source;
+}
+
+// THP8 writes some calls' arguments as a structure over several lines (funpark_RollerCoasterMovement:
+// `RunScriptOnObject {` / `id=...` / `funpark_RollerCoasterBonker` / `}`) - THUG2 takes the structure as one unnamed
+// argument (RunScriptOnObject then ran a script that wasn't there: the fun park crashed). As plain arguments: a
+// command followed straight by `{` has the braces and the line ends inside them dropped.
+export function flattenArgs(toks: readonly scriptPort.Tok[]): scriptPort.Tok[] {
+    const out: scriptPort.Tok[] = [];
+    for (let k = 0; k < toks.length; k++) {
+        const t = toks[k]!;
+        out.push(t);
+        const lineStart = k === 0 || toks[k - 1]!.t === 0x01 || toks[k - 1]!.t === 0x02;
+        if (!(lineStart && t.t === 0x16 && toks[k + 1]?.t === 0x03)) continue;
+        let depth = 0;
+        let end = -1;
+        for (let j = k + 1; j < toks.length; j++) {
+            if (toks[j]!.t === 0x03 || toks[j]!.t === 0x05) depth++;
+            else if (toks[j]!.t === 0x04 || toks[j]!.t === 0x06) depth--;
+            if (depth === 0) {
+                end = j;
+                break;
+            }
+        }
+        if (end < 0 || toks[end]!.t !== 0x04) continue;
+        for (let j = k + 2; j < end; j++) {
+            const x = toks[j]!;
+            if ((x.t === 0x01 || x.t === 0x02) && !x.targets) continue;
+            out.push(x);
+        }
+        k = end;
+    }
+    return out;
+}
+
+// A brought script that would hang THUG2: an endless `while` (no count after its `repeat`) with no wait that can run -
+// none at all, or only under conditions the translator made never true (`if GotParam thps3_port_never`: THP8's
+// IsCreated / goal checks THUG2 can't ask). The slums' Z_Ghetto_Pipe_Box_Launch loops over its boxes that way, the
+// wait inside the never-true `if`: the game hung loading. Waits: any command whose name has "wait" or "block" in it.
+export const NEVER = checksum("thps3_port_never");
+export function endlessLoop(code: Uint8Array, names: ReadonlyMap<number, string>): boolean {
+    const toks = [...qb.tokens(Buffer.concat([code, Buffer.from([0])]), true)].map(([, t, p]) => [t, p] as const);
+    const name = (k: number): number | null => (toks[k]?.[0] === 0x16 ? toks[k]![1].readUInt32LE(0) : null);
+    const waits = (k: number): boolean => {
+        const n = name(k);
+        return n !== null && /wait|block/i.test(names.get(n) ?? "");
+    };
+    // per token: inside a never-true branch?
+    const never: boolean[] = [];
+    const ifs: boolean[] = []; // each open if: its branch never runs
+    for (let k = 0; k < toks.length; k++) {
+        const t = toks[k]![0];
+        if (t === 0x47 || t === 0x25) {
+            let n = false;
+            for (let j = k + 1; j < toks.length && toks[j]![0] !== 0x01 && toks[j]![0] !== 0x02; j++) {
+                if (name(j) === NEVER) n = true;
+            }
+            ifs.push(n);
+        } else if (t === 0x48 || t === 0x26) {
+            if (ifs.length) ifs[ifs.length - 1] = false;
+        } else if (t === 0x28) {
+            ifs.pop();
+        }
+        never.push(ifs.some((x) => x));
+    }
+    const loops: number[] = [];
+    for (let k = 0; k < toks.length; k++) {
+        const t = toks[k]![0];
+        if (t === 0x20) loops.push(k);
+        else if (t === 0x21 && loops.length) {
+            const start = loops.pop()!;
+            const next = toks[k + 1]?.[0];
+            const counted = next !== undefined && next !== 0x01 && next !== 0x02 && next !== 0x24 && next !== 0x00;
+            if (counted || never[start]) continue;
+            let wait = false;
+            for (let j = start + 1; j < k && !wait; j++) if (!never[j] && waits(j)) wait = true;
+            if (!wait) return true;
+        }
+    }
+    return false;
+}
+
+// RunScriptOnObject naming a script that isn't there (the fun park's coaster: funpark_RollerCoasterBonker, a THP8 game
+// script not brought) crashed THUG2 (ParseArguments on nothing). Such a statement's command is made GotParam - the same
+// length in the bytes (no jump moves), a question with no effect. Returns the code (patched in place) and how many.
+export const RUN_ON_OBJECT = checksum("RunScriptOnObject");
+export function unrunnable(code: Buffer, available: (script: number) => boolean): number {
+    const toks = [...qb.tokens(Buffer.concat([code, Buffer.from([0])]), true)];
+    let patched = 0;
+    for (let k = 0; k < toks.length; k++) {
+        const [off, t, p] = toks[k]!;
+        const lineStart = k === 0 || toks[k - 1]![1] === 0x01 || toks[k - 1]![1] === 0x02;
+        if (!lineStart || t !== 0x16 || p.readUInt32LE(0) !== RUN_ON_OBJECT) continue;
+        const scripts: number[] = [];
+        for (let j = k + 1; j < toks.length && toks[j]![1] !== 0x01 && toks[j]![1] !== 0x02; j++) {
+            const [, tj, pj] = toks[j]!;
+            if (tj !== 0x16 || toks[j + 1]?.[1] === 0x07 || toks[j - 1]?.[1] === 0x07) continue;
+            scripts.push(pj.readUInt32LE(0));
+        }
+        if (scripts.some(available)) continue;
+        code.writeUInt32LE(checksum("GotParam"), off + 1);
+        patched++;
+    }
+    return patched;
+}
+
+// The script emptied (its name kept: what calls it still finds it).
+export function emptyScript(code: Uint8Array): Buffer {
+    const data = Buffer.from(code);
+    for (const [off, t, p] of qb.tokens(Buffer.concat([data, Buffer.from([0])]), true)) {
+        if (t === 0x16) return Buffer.concat([data.subarray(0, off + 1 + p.length), Buffer.from([0x01, 0x24])]);
+    }
+    return data;
+}
+
+// THP8's kill scripts also kill through the skater object (`Skater:KillSkater node=...`, Z_Houses_2P_Kill) - the
+// call's statement as nodes.killCommands sees a plain call: the member's name first, the object and colon dropped.
+export function memberCalls(q: thaw.QbItems): Pick<thaw.QbItems, "scripts" | "calls"> {
+    return {
+        scripts: q.scripts,
+        calls: (script: number) => {
+            const out = q.calls(script);
+            for (const line of q.scripts.get(script) ?? []) {
+                if (line.length >= 3 && line[0]![0] === 0x16 && line[1]![0] === 0x42 && line[2]![0] === 0x16) {
+                    out.push([line[2]![1].readUInt32LE(0), line.slice(2)]);
+                }
+            }
+            return out;
+        },
+    };
+}
+
+// Positions: THP8's metres as THUG2's inches, moved by `shift` - every node's Pos (in place, before the nodes are
+// made THUG2's: the made objects copy theirs).
+export function movePositions(array: readonly QbValue[], shift: readonly number[]): void {
+    const POS = checksum("Pos");
+    for (const node of array) {
+        if (!(node instanceof Struct)) continue;
+        node.entries = node.entries.map(([k, v]) =>
+            k !== null && k.value === POS && v instanceof Vector && v.kind === "vector"
+                ? [k, new Vector("vector", toThug(v.values, shift))]
+                : [k, v],
+        );
+    }
+}
+
 export function zoneNodes(
     nqb: thaw.QbItems,
     zone: string,
@@ -780,22 +1511,63 @@ export function zoneNodes(
     scriptQbs: readonly thaw.QbItems[],
     bodies: readonly havok.HkBody[] = [],
     flags: ReadonlyMap<number, boolean> = new Map(),
+    port: ScriptPort | null = null,
+    moreQbs: readonly thaw.QbItems[] = [], // more scripts the zone's may call (sub-zones', other zones')
+    props: ReadonlyMap<number, PropModel> = new Map(), // the zone's prop models (propModels)
 ): NodeResult {
     const key = checksum(`${zone}_NodeArray`);
     const raw = nqb.globals.find(([n]) => n.value === key)?.[1];
     if (!Array.isArray(raw)) pyExit(`${zone}: no ${zone}_NodeArray`);
     const globals = new Map(nqb.globals.map(([k, v]) => [k.value, v]));
-    const array = nodes.expandIncludes(raw, globals);
+    let array = nodes.expandIncludes(raw, globals);
     applyNodeFlags(array, flags);
+    bouncyProps(array, names, props);
+    movePositions(array, shift);
     const restartNames = new Set<number>();
     for (const n of array) {
         const v = n instanceof Struct ? nodeName(n) : null;
         if (v !== null && nodes.classOf(n as Struct, names) === "restart") restartNames.add(v);
     }
-    let kills = nodes.killCommands(scriptQbs, restartNames, names);
-    const [converted, stats] = nodes.convertNodes(array, names, kills, ["pos"]);
-    // positions: metres -> inches
-    const POS = checksum("Pos");
+    let kills = nodes.killCommands(scriptQbs.map(memberCalls), restartNames, names);
+    const original = array;
+    // the scripts' objects, peds, cars (thaw_scripts.PortedNodes: THUG2's forms of THAW's classes - THP8's are the
+    // same); the geometry's and rails' trigger scripts brought along (gaps)
+    let made: thawScripts.PortedNodes | null = null;
+    const wanted = new Set<number>();
+    // THP8's Vehicle nodes are its grid pieces (veh_schoolkicker, veh_ghetto_QP...: kickers, quarter pipes and rails
+    // its grid scripts place), not cars - left out (PortedNodes would park THUG2's cars there)
+    const placeholder = new Struct([[new Name(checksum("Class")), new Name(checksum("LeftOut"))]]);
+    let gridPieces = 0;
+    array = array.map((n) => {
+        if (!(n instanceof Struct) || nodes.classOf(n, names) !== "vehicle") return n;
+        gridPieces++;
+        return placeholder;
+    });
+    if (port !== null) {
+        made = new thawScripts.PortedNodes(
+            array,
+            names,
+            sectors,
+            sectors,
+            scriptQbs,
+            port.thug2,
+            port.assets,
+            port.particles,
+        );
+        const m = made;
+        array = array.map((n) => (n instanceof Struct ? (m.convert(n) ?? n) : n));
+        for (const node of array) {
+            const script = node instanceof Struct ? node.get("TriggerScript") : undefined;
+            if (
+                script instanceof Name &&
+                !kills.has(script.value) &&
+                ["levelgeometry", "railnode"].includes(nodes.classOf(node as Struct, names))
+            ) {
+                wanted.add(script.value);
+            }
+        }
+    }
+    const [converted, stats] = nodes.convertNodes(array, names, kills, ["pos"], made ? made.ids : [], wanted);
     const RESTART_NAME = checksum("RestartName");
     for (const node of converted) {
         // (THP8's RestartName is a wide local string: as THUG2's plain one - left out when empty, NeverScript takes no
@@ -807,28 +1579,93 @@ export function zoneNodes(
                     ? [k, v.text.replace(/[^ -~]/g, "").replaceAll('"', "")]
                     : [k, v],
             );
-        node.entries = node.entries.map(([k, v]) =>
-            k !== null && k.value === POS && v instanceof Vector && v.kind === "vector"
-                ? [k, new Vector("vector", toThug(v.values, shift))]
-                : [k, v],
-        );
     }
     // (LevelGeometry nodes whose sector isn't drawn - collision-only pieces, masters - lose TrickObject / Cluster:
     // stripMissingTrickObjects, on the text)
     const added = addRestart(converted, bodies, level, shift, names);
     kills = nodes.addKillRestarts(converted, kills, names);
+    let scripts = new Map<number, Buffer>();
+    let extraText = "";
+    let scriptReport = "";
+    const emptied: string[] = [];
+    let unrun = 0;
+    if (made !== null && port !== null) {
+        const sources = [...scriptQbs, ...moreQbs].map((x) => scriptSource(x, names, port.text));
+        const provided = new Set([
+            ...kills.keys(),
+            ...[thawScripts.PED_WALK, thawScripts.PED_STAND, thawScripts.CAR_DRIVE, thawScripts.RAIL_ACCELERATE].map(
+                checksum,
+            ),
+        ]);
+        const undrawn = new Set<number>();
+        for (const n of converted) {
+            const v = nodeName(n);
+            if (v !== null && nodes.classOf(n, names) === "levelgeometry" && !sectors.has(v)) undrawn.add(v);
+        }
+        let globalsText: string;
+        [scripts, globalsText, scriptReport] = thawScripts.portScripts(
+            converted,
+            original,
+            made,
+            sources,
+            port.thug2,
+            names,
+            provided,
+            undrawn,
+        );
+        // (THAW's rail speed-up, RailAccelerate: THP8's uphill rails name it too)
+        extraText =
+            globalsText +
+            thawScripts.MADE_SCRIPTS +
+            thawScripts.RAIL_SCRIPTS +
+            thawScripts.loadParticleTexturesNs(made.particleTextures);
+        // (THP8's own tokens - 0x4B "$", 0x4C wide strings - are made THUG2's by thaw_scripts.scriptToks: none may be
+        // left in what THUG2 runs)
+        for (const [script, code] of scripts) {
+            if (endlessLoop(code, names)) {
+                scripts.set(script, emptyScript(code));
+                emptied.push(names.get(script) ?? thp8.hex(script));
+                continue;
+            }
+            const available = (x: number): boolean => scripts.has(x) || port.thug2.scripts.has(x) || provided.has(x);
+            const fixed = Buffer.from(code);
+            const n = unrunnable(fixed, available);
+            if (n) {
+                scripts.set(script, fixed);
+                unrun += n;
+            }
+            for (const [t] of scriptPort.plainTokens(code)) {
+                if (t >= 0x4a)
+                    pyExit(`${level}: script ${names.get(script) ?? thp8.hex(script)}: token 0x${t.toString(16)}`);
+            }
+        }
+    }
     const triggers = nodes.killTriggerNames(converted, kills);
-    let text = nodes.nodeArrayNs(`${level}_NodeArray`, converted, names, kills);
+    // (the geometry whose trigger script is brought along keeps its trigger faces: gaps)
+    for (const n of converted) {
+        const v = nodeName(n);
+        const t = n.get("TriggerScript");
+        if (v !== null && t instanceof Name && nodes.classOf(n, names) === "levelgeometry" && scripts.has(t.value)) {
+            triggers.add(v);
+        }
+    }
+    let text = nodes.nodeArrayNs(`${level}_NodeArray`, converted, names, kills) + extraText;
     [text] = nodes.stripMissingTrickObjects(text, sectors);
     const count = (cls: string): number => converted.filter((n) => nodes.classOf(n, names) === cls).length;
     return {
         text,
         stats,
-        kills: triggers.size,
+        kills: nodes.killTriggerNames(converted, kills).size,
         restarts: count("restart"),
         rails: count("railnode"),
         triggers,
         added,
+        scripts,
+        scriptReport:
+            scriptReport +
+            (emptied.length ? `; emptied (endless loops without a wait): ${emptied.join(", ")}` : "") +
+            (unrun ? `; ${unrun} RunScriptOnObject of scripts not there made harmless` : "") +
+            (gridPieces ? `; ${gridPieces} grid pieces (Vehicle nodes) left out` : ""),
     };
 }
 
@@ -852,6 +1689,7 @@ interface ZoneData {
     bodies: havok.HkBody[];
     nqb: thaw.QbItems | null;
     qbs: thaw.QbItems[];
+    subQbs: thaw.QbItems[]; // the _gfx / _sfx sub-zones' scripts
 }
 
 function readZone(file: string, names: Map<number, string>, warnings: string[]): ZoneData {
@@ -873,7 +1711,39 @@ function readZone(file: string, names: Map<number, string>, warnings: string[]):
         qbs: main
             .filter((e) => e.extension === ".qb")
             .map((e) => new thaw.QbItems(thp8.entryData(pak, e), `${file} qb`, names, ">")),
+        subQbs: pak.entries
+            .filter((e) => e.flags !== 0 && (e.extension === ".qb" || e.extension === ".nqb"))
+            .map((e) => new thaw.QbItems(thp8.entryData(pak, e), `${file} sub-zone qb`, names, ">")),
     };
+}
+
+// Every zone's scripts (its own and its sub-zones'), read once: a zone's gaps can end in the next zone's scripts
+// (the Capitol's boat terrace gap ends with the city park's Z_Park_CZGapBoatTerraceEnd).
+export class ZoneScripts {
+    private readonly cache = new Map<string, thaw.QbItems[]>();
+    private readonly compressed: string;
+    private readonly names: Map<number, string>;
+    constructor(compressed: string, names: Map<number, string>) {
+        this.compressed = compressed;
+        this.names = names;
+    }
+
+    of(zone: string): thaw.QbItems[] {
+        let qbs = this.cache.get(zone);
+        if (qbs === undefined) {
+            const file = zonePak(this.compressed, zone);
+            qbs = [];
+            if (file !== null) {
+                const pak = thp8.openPak(file);
+                for (const e of pak.entries) {
+                    if (e.extension !== ".qb" && e.extension !== ".nqb") continue;
+                    qbs.push(new thaw.QbItems(thp8.entryData(pak, e), `${zone} qb`, this.names, ">"));
+                }
+            }
+            this.cache.set(zone, qbs);
+        }
+        return qbs;
+    }
 }
 
 export function cmdConvert(args: Args): number {
@@ -889,6 +1759,14 @@ export function cmdConvert(args: Args): number {
     const names = thp8.loadNames(findCaseless(compressed, "PAK", "dbg.pak.xen")!);
     const terrains = terrainTable(compressed, names);
     const flags = nonStoryNodeFlags(compressed, names);
+    const managers = todManagers(compressed, names);
+    const areaNames = zoneNames(compressed, names);
+    const library = findCaseless(compressed, "FXFILES", "MaterialLibrary.bin.xen");
+    const techniques = library ? mats.readTechniques(thp8.unpack(library)) : new Map<number, string[]>();
+    const port = makeScriptPort(args.thug2, compressed, names);
+    const zoneScripts = new ZoneScripts(compressed, names);
+    const globalPak = zonePak(compressed, "global");
+    const globalProps = globalPak ? propModels(thp8.openPak(globalPak)) : new Map<number, PropModel>();
     // (only the levels converted now are made again: a partial convert keeps the others, as levels.json does -
     // ported_levels.writeManifest)
     for (const info of wanted) {
@@ -915,6 +1793,7 @@ export function cmdConvert(args: Args): number {
         const onlineFile = info.online ? zonePak(compressed, info.online) : null;
         const online = onlineFile ? readZone(onlineFile, names, warnings) : null;
         const shift = centreShift(z.bodies);
+        const tod = zoneTod(managers, zoneName);
         // scene
         const placed = new Map<number, { master: number; at: Placement }>();
         const key = checksum(`${zoneName}_NodeArray`);
@@ -928,36 +1807,140 @@ export function cmdConvert(args: Args): number {
             const node = array.find((n) => n instanceof Struct && nodeName(n) === k) as Struct | undefined;
             if (node?.hasFlag("CreatedAtStart")) placed.set(k, v);
         }
+        // (the props first: they become LevelObjects - local, drawn and collided as theirs)
+        const props = new Map([...globalProps, ...propModels(z.pak)]);
+        const made = bouncyProps(array, names, props);
         const hidden = notMade(array, names);
+        const local = localObjects(array, names);
         if (args.leaveOut) {
             for (const s of z.geom.sectors) if (args.leaveOut.test(names.get(s.checksum) ?? "")) hidden.add(s.checksum);
         }
         // (the network barriers: collision only - THP8 draws them as a shimmering wall when the skater is near)
-        const done = convertScenes(
-            [{ geom: z.geom, textures: z.textures, placed, hidden, additive: glowMaterials(z.geom, names) }],
-            shift,
-            warnings,
-            !args.noMips,
-        );
+        const zoneGeom = z.geom;
+        const scene = (options: mats.RefineOptions): ConvertedScene =>
+            convertScenes(
+                [
+                    {
+                        geom: zoneGeom,
+                        textures: z.textures,
+                        placed,
+                        hidden,
+                        additive: glowMaterials(zoneGeom, names),
+                        lighting: zoneLighting(tod),
+                        techniques,
+                        local,
+                    },
+                    // (the props: their model's sector drawn under each node's name, in its own space)
+                    ...[...new Set(made.values())].map(
+                        (type): SceneParts => ({
+                            geom: props.get(type)!.geom,
+                            textures: props.get(type)!.textures,
+                            placed: new Map(
+                                [...made]
+                                    .filter(([, t]) => t === type)
+                                    .map(([node]) => [
+                                        node,
+                                        {
+                                            master: props.get(type)!.geom.sectors[0]!.checksum,
+                                            at: { pos: [0, 0, 0], angles: [0, 0, 0], scale: [1, 1, 1] },
+                                        },
+                                    ]),
+                            ),
+                            local: new Set(made.keys()),
+                        }),
+                    ),
+                ],
+                shift,
+                warnings,
+                !args.noMips,
+                SCALE,
+                options,
+            );
+        // (refining the light keeps to a budget: the threshold raised until the zone fits)
+        let refineOptions = { ...REFINE };
+        let done = scene(refineOptions);
+        for (let tries = 0; tries < 4 && done.counts.triangles > refineBudget(done.counts); tries++) {
+            refineOptions = { ...refineOptions, threshold: refineOptions.threshold * 1.6 };
+            done = scene(refineOptions);
+        }
+        if (refineOptions.threshold !== REFINE.threshold) {
+            report.push(
+                `  light refined at a threshold of ${refineOptions.threshold.toFixed(2)} (the triangle budget)`,
+            );
+        }
         // nodes (the kill zones' trigger faces kept)
         const scriptQbs = [z.nqb, ...z.qbs];
-        const nodeResult = zoneNodes(z.nqb, zoneName, name, names, shift, done.sectors, scriptQbs, z.bodies, flags);
+        const moreQbs = [
+            ...z.subQbs,
+            ...ZONES.filter((x) => x.zone !== info.zone).flatMap((x) => zoneScripts.of(x.zone)),
+        ];
+        const nodeResult = zoneNodes(
+            z.nqb,
+            zoneName,
+            name,
+            names,
+            shift,
+            done.sectors,
+            scriptQbs,
+            z.bodies,
+            flags,
+            port,
+            moreQbs,
+            props,
+        );
         // collision
-        const sets = [{ bodies: z.bodies, sectors: z.geom.sectors, hidden }];
-        if (online?.geom) sets.push({ bodies: online.bodies, sectors: online.geom.sectors, hidden: new Set() });
+        const volumes = triggerVolumes(array, names, new Set(z.geom.sectors.map((x) => x.checksum)));
+        const sets = [{ bodies: z.bodies, sectors: z.geom.sectors, hidden, local, volumes }];
+        // (the props' boxes, in their own space)
+        sets.push({
+            bodies: [...made].map(([node, type], i) => ({
+                index: -1 - i,
+                triangles: boxTriangles(props.get(type)!.box, node),
+            })),
+            sectors: [],
+            hidden: new Set(),
+            local: new Set(made.keys()),
+            volumes: [],
+        });
+        if (online?.geom) {
+            sets.push({
+                bodies: online.bodies,
+                sectors: online.geom.sectors,
+                hidden: new Set(),
+                local: new Set(),
+                volumes: [],
+            });
+        }
         const col = convertCollision(sets, name, shift, terrains, (c) => nodeResult.triggers.has(c), warnings);
         const levelDir = pyJoin(out, "levels", name);
         common.writeLevel(levelDir, name, done.scene, done.textures, col.col);
         common.reportLevel(report, name, done.scene, done.textures, col.col, [...new Set(warnings)].sort());
         const c = done.counts;
+        if (made.size)
+            report.push(
+                `  ${made.size} props as bouncy objects (${[...new Set([...made.values()].map((t) => names.get(t)))].join(", ")})`,
+            );
         report.push(
             `  ${info.zone}${online ? ` + ${info.online}` : ""}: ${c.sectors} sectors, ${c.instances} instances of ` +
                 `${c.masters} masters, ${c.billboards} billboard meshes left out, ` +
-                `${c.triangles} triangles; collision ${col.objects.size} objects (${col.named} ` +
+                `${c.triangles} triangles, ${c.layers} further layers, ${c.lit} vertices lit from light maps (${c.refined} lit triangles after refining); collision ${col.objects.size} objects (${col.named} ` +
                 `named after their sector / node; ${col.hidden} of nodes not made left out); ${flagged} nodes made ` +
                 `from THP8's non-story node flags, ${hidden.size} not made; moved by (${shift.map((x) => x.toFixed(1)).join(", ")})`,
         );
-        common.nsCompile(args.ns, nodeResult.text, pyJoin(levelDir, `${name}.qb`));
+        const qbFile = pyJoin(levelDir, `${name}.qb`);
+        // restarts: THP8's network spawns usable in single play too (soloRestarts); against the collision just made -
+        // restarts over nothing / a kill zone are no network spawns, kills go to grounded ones (nodes.groundRestarts);
+        // network games' needs (nodes.netGameNodes: Player1 restarts as spawns where a zone has none)
+        const [soloText, solo] = soloRestarts(nodeResult.text);
+        const [groundedText, grounded] = nodes.groundRestarts(soloText, col.col);
+        const [text] = nodes.netGameNodes(groundedText, nodeResult.scripts);
+        if (solo) report.push(`  ${solo} network restarts also single-player ones`);
+        report.push(...grounded);
+        common.nsCompile(args.ns, text, qbFile);
+        if (nodeResult.scripts.size) {
+            fs.writeFileSync(qbFile, scriptPort.appendScripts(fs.readFileSync(qbFile), nodeResult.scripts, names));
+        }
+        if (nodeResult.scriptReport) report.push(`  ${nodeResult.scriptReport}`);
         report.push(
             `  nodes: ${nodeResult.restarts} restarts${nodeResult.added ? " (one made: it had none)" : ""}, ` +
                 `${nodeResult.rails} rail nodes, ${nodeResult.kills} kill zones ` +
@@ -967,14 +1950,16 @@ export function cmdConvert(args: Args): number {
             folder: info.zone,
             level: name,
             sky,
-            display: `THP8 ${info.sign}`,
-            name: `${info.sign.charAt(0)}${info.sign.slice(1).toLowerCase()}`,
+            display: `THP8 ${signText(info, areaNames)}`,
+            name: signText(info, areaNames)
+                .toLowerCase()
+                .replace(/\b\w/g, (c) => c.toUpperCase()),
             game: "THP8",
             location: info.location,
             icon: "sign_training",
             level_num: info.levelNum,
             default_stats: 6,
-            lighting: {},
+            lighting: tod ? common.lighting(tod) : {},
         });
     }
     portedLevels.writeManifest(pyJoin(out, portedLevels.MANIFEST), manifest);
