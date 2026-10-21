@@ -270,8 +270,8 @@ void Build(Random& r)
     if (r.OneIn(4)) {
         // Edge cases: a standing skater whose eased speed rounds to 0 from just below it, a gear shift point at
         // exactly that speed, the shift's recovery at exactly full, the engine's speed just over the top of its range.
-        float* vel = reinterpret_cast<float*>(g_object + 0xAC);
-        vel[0] = vel[1] = vel[2] = 0.0f;
+        float* still = reinterpret_cast<float*>(g_object + 0xAC);
+        still[0] = still[1] = still[2] = 0.0f;
         At<int>(g_flags, 0x18) = 1;
         auto* c2 = reinterpret_cast<CSkaterVehicleSoundComponent*>(g_component);
         c2->m_speed = r.Bit() ? -1e-30f : 0.0f;

@@ -64,3 +64,27 @@ src/game/skater/<class>.cpp + .h; tests in src/hook/selftests_skater_<class>.cpp
     structures' calls stood in for, sVolume's methods real), each method; edge cases (a speed that rounds to 0 from
     just below, a shift point at exactly the speed, an engine just over its range). 46 deliberate bugs: 45 caught (4
     after adding the edge cases), 1 equivalent (the shift recovery capped at exactly 1 gives 1 either way).
+- [x] Batch SK4-3 (NOT run in the game yet; the skitch and special item components, 15 functions):
+  src/game/skater/skitch.cpp, special_item.cpp (new).
+  - Skitch (type 0x3506CE64, vtable 0x0064C218, 0x20 bytes): 0x0051BA10 Create (allowed), 0x0051B960 / 0x0051B980
+    destructors, 0x0051B9B0 InitFromStructure (the object hook manager, 0x27443708), 0x0051B9D0 CallMemberFunction
+    (Obj_AllowSkitching 0xC38CCE3B: allowed unless "off"; Ghidra splits the function at 0x0051B9D8 - no separate
+    entry), 0x0051BA70 GetNearestHookPoint (each hook node through the car's matrix and position, its height above
+    the car dropped - projected onto the car's up row -, the nearest by squared distance; its index, -1 without
+    nodes) and 0x0051BC70 GetHookPoint(index) (true also when there's no such point).
+  - 0x0051B970: the shared Update of components with nothing to update (suspends itself) - ComponentWithoutUpdate.
+  - SpecialItem (type 0xF27A294D, vtable 0x0064C250, 0x20 bytes, two item objects at +0x18): 0x0051BD80 Create,
+    0x0051BF20 / 0x0051C130 destructors (both items destroyed first), 0x0051BE00 DestroyItem (the item's tag
+    0x40764820 script run on it, then marked dead through its vtable), 0x0051BF00 DestroyItems, 0x0051BF80
+    CreateItem (a game object from a global structure - its id, if any, offset by the object's id and WRITTEN BACK
+    into that global structure, as the original does -, tagged with the owner, in the owner's model colour via
+    0x00492EE0), 0x0051C160 CallMemberFunction (CreateSpecialItem: index, bone, params; its lock component given the
+    params and the owner's id; message 0x77 to the server in a network game: params, bone, owner id, slot;
+    DestroySpecialItem: message 0x78 - the original sends 8 uninitialised bytes before the id and slot -,
+    DestroyAllSpecialItems, SpecialItemExists).
+  - Fix outside the range: Obj::CreateGameObjectFromNode (0x00468EB0, node_objects.cpp) now returns the object it
+    makes - the original returns it and CreateItem reads it (scan_register_assumptions had listed the site).
+  - Test (src/hook/selftests_skater_skitch_items.cpp; stand-ins for the script structures, objects, network; fake
+    vtables for the items, locks, hook manager): 5000 random cases over every function; exact whole-number hook
+    cases for ties. 33 deliberate bugs: 32 caught (1 after adding the exact ties), 1 not observable (the order of
+    the squared distance's sum: rounding only, against a float-rounded best).
