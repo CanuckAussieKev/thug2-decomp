@@ -367,6 +367,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_obj_text_input.cpp
     src/hook/selftests_obj_lock_quat.cpp
     src/hook/selftests_obj_model.cpp
+    src/hook/selftests_obj_model_init.cpp
     src/hook/selftests_editor_shared_coll.cpp
     src/hook/selftests_editor_chains.cpp
     src/hook/selftests_editor_fields.cpp
@@ -661,6 +662,7 @@ add_library(thug2_code OBJECT
     src/game/obj/lock_obj.cpp
     src/game/obj/lock_obj_update.cpp
     src/game/obj/model_component.cpp
+    src/game/obj/model_component_init.cpp
     src/game/obj/bbox_component.cpp
     src/game/obj/color_cycle.cpp
     src/game/obj/camera_component.cpp

@@ -28,7 +28,7 @@ The range's classes / topics:
 - 0x00422D00-0x004230B0: the model light update component (0xE3FCA939).
 - 0x00423130-0x00423643: the motion component's member-function registration and its first members.
 
-Switch off: `[replacements] disable=bbox_component.cpp,color_cycle.cpp,camera_component.cpp,car_physics.cpp,collide_and_die.cpp,dynamic_light.cpp,fam.cpp,flexible_particle.cpp,floating_text.cpp,input_component.cpp,lock_obj_update.cpp,quaternion.cpp,model_component.cpp` (any of them alone; the files of later batches are added here).
+Switch off: `[replacements] disable=bbox_component.cpp,color_cycle.cpp,camera_component.cpp,car_physics.cpp,collide_and_die.cpp,dynamic_light.cpp,fam.cpp,flexible_particle.cpp,floating_text.cpp,input_component.cpp,lock_obj_update.cpp,quaternion.cpp,model_component.cpp,model_component_init.cpp` (any of them alone; the files of later batches are added here).
 
 - [x] Batch OC1-1 (NOT run in the game yet; the bounding box component, 19 functions): src/game/obj/bbox_component.{h,cpp}
   (new), src/game/skate/skate_module.{h,cpp} (new: Mdl::Skate's skater list only), objman.cpp, matrix.cpp, vector.cpp.
@@ -263,3 +263,31 @@ Switch off: `[replacements] disable=bbox_component.cpp,color_cycle.cpp,camera_co
     axes, no turns and the axis's state after Clear; 2 retried after a build failure); 3 equivalent: GetDisplayMatrix
     skipping an inactive axis (its angle is 0 anyway), the pivot shift's w (only the position's w gets it, then set
     to 1), and TestCollision's skeleton check (the original reads through the pointer before it, so never gets there).
+- [x] Batch OC1-8 (NOT run in the game yet; the model component's construction, destruction, initialisation and
+  update, 13 functions): src/game/obj/model_component_init.cpp (new).
+  - Obj::CModelComponent: 0x00421490 Create, 0x00420BF0 Construct (a new model 0x0048BFA0, the spins off, the pivot and
+    display offset (0, 0, 0, 1), brightness 1), 0x00420000 / 0x00420270 the destructors (the model deleted,
+    0x0048C3C0), 0x004204B0 Finalize (skeleton, animation blender, suspend), 0x004214F0 InitFromStructure
+    (UseModelLights: lights made at the object, Max_Scene_Lights - else taken away -; the skeleton; ShadowVolume; then
+    InitModel), 0x00420D10 InitModel (the geoms cleared, the scale; Class=LevelObject: the sector's geometry
+    (InitFromSector); refObjectName: a level object (Update follows its sector's model; active flags 6); assetName
+    (multicolor); CloneFrom: another object's colour values and geoms - GEOM (not there: nothing more, not even the
+    tail), geoms (an array; 0 names skipped, one not there: nothing more) or all of them, each cloned, activated and
+    added under its name; Model / modelname: a file - "none" skipped - with .skin (SkeletonName) or .mdl, lowercased,
+    use_asset_manager, texDictOffset, AllowReplaceTex; 0x354BA8E9: an asset by checksum; Model as a checksum: a
+    sector's geometry; then - finalized objects - Update and the lights' brightness, the bounding sphere, the bone
+    volumes when the script global 0x74FF5CB4 is set), 0x0041FFA0 InitFromSector, 0x00420350 InitBoneVolumes (shared by
+    skeleton name in the Collision heap; a new set is made and registered but not given to the model that made it, as
+    the original), 0x004219F0 Update (a level object: its sector's model placed and skinned; else an active, shown model
+    at the display matrix - not ready without the blender's model (or, without a blender, a skeleton)), 0x00420480
+    Teleport, 0x00421360 SetModel, 0x00421230 InitModelFromProfile (the model builder - an Obj::CObject, 0x004897D0 -
+    with the build script, 0x91C1EC93 by default).
+  - Tests (selftests_obj_model_init.cpp): TestModelComponentInit - 96 seeds: Create / Construct (out of memory, on 0xFF
+    bytes) / the destructors (flags 0-3), InitFromStructure over eleven kinds of parameter sets (each path above; the
+    lights there or not, the scale, shadow, file names and "none", geoms there or not), Finalize, updates (level object
+    or not, the model active / hidden / missing, skeleton and blender there or not), Teleport, SetModel,
+    InitModelFromProfile, InitBoneVolumes (volumes there, found, made or not), InitFromSector. Bool arguments compared
+    by their low byte (the original pushes the whole SETcc register).
+  - Mutations: 71 deliberate bugs, all caught (67 at first; the test then constructed on 0xFF bytes, destroyed with
+    flags 2, dumped the component after InitModel and made CloneFrom's GEOM missing for some seeds).
+  - Found while testing: 0x00494680 (a geom's name) takes one argument - the `1` pushed before it belongs to AddGeom.
