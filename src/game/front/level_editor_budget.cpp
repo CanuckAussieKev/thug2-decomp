@@ -323,11 +323,9 @@ void ToolbarItem(float scale)
         return;
     const Meter& w = meters[worst];
     Level level = LevelOf(w.used, w.limit);
-    ImGui::SameLine(0.0f, 12.0f * scale);
-    ImGui::TextDisabled("Budget");
-    ImGui::SameLine(0.0f, 4.0f * scale);
-    // A small bar: the worst meter's fill, coloured by its level.
-    float width = 64.0f * scale, height = ImGui::GetTextLineHeight() * 0.7f;
+    // A small bar (no label: the toolbar is full - the tooltip names it): the worst meter's fill, coloured by its level.
+    ImGui::SameLine(0.0f, 10.0f * scale);
+    float width = 44.0f * scale, height = ImGui::GetTextLineHeight() * 0.7f;
     ImVec2 at = ImGui::GetCursorScreenPos();
     at.y += (ImGui::GetTextLineHeight() - height) * 0.5f + ImGui::GetStyle().FramePadding.y * 0.5f;
     ImGui::InvisibleButton("##budget", ImVec2(width, ImGui::GetTextLineHeight() + ImGui::GetStyle().FramePadding.y));
@@ -340,7 +338,8 @@ void ToolbarItem(float scale)
     draw->AddRectFilled(at, ImVec2(at.x + width * fill, at.y + height), Colour(LevelColour(level)), 2.0f);
     if (hovered) {
         ImGui::BeginTooltip();
-        ImGui::Text("The level's budget (the engine's limits) - click for the table");
+        ImGui::Text("Budget: the level against the engine's limits (worst: %s %s) - click for the table", w.name,
+                    UsedText(w).c_str());
         ImGui::Separator();
         for (const Meter& m : meters) {
             Level l = LevelOf(m.used, m.limit);

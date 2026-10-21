@@ -105,8 +105,9 @@ never raise Limit problems (only the counts and pools do).
 
 ## In-game checklist (for the user)
 
-1. Open the editor in TR (`-edit TR`). The toolbar shows **Budget** (a small green bar) and **Problems** after the view
-   buttons; at 1280 x 720 check the right-hand buttons (Undo ... Place) still fit.
+1. Open the editor in TR (`-edit TR`). The toolbar shows the budget (a small unlabelled green bar - its tooltip names
+   it) and **Problems** after the view buttons; at 1280 x 720 check the toolbar (now with UX1 / UX2's tools too) still
+   fits - the right-hand buttons (Undo ... Prefs) on screen.
 2. Hover the Budget bar: crowns, restarts, lights, nodes, node arrays, script pools, script heap, main memory listed with
    used / limit. Click it: the Problems window opens on Budget; the table's fills are coloured.
 3. Press **Alt+P**: the Problems window opens on Problems (Alt+P again closes it; plain P still logs the camera pose).
