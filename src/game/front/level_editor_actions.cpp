@@ -442,6 +442,12 @@ std::vector<Action> Builtins()
         Make("ruler", "Ruler", "View", Kind::Press, {L('M')}, "Click two points to measure (snaps to corners; Alt: no snap)"),
         Make("ruler_clear", "Ruler: clear", "View", Kind::Press, {L('M', kShift)}, "The measurement taken away"),
         Make("problems", "Problems window", "Panels", Kind::Press, {L('P', kAlt)}, "What the checker finds in the edited copy"),
+        // (UX6 - level_editor_playtest.h)
+        Make("simulate", "Simulate", "Play", Kind::Press, {K(SDL_SCANCODE_F6)},
+             "The world runs (peds, cars, moving objects) with the editor's camera, the skater frozen; again: stops, "
+             "objects put back"),
+        Make("trail_window", "Trail window", "Panels", Kind::Press, {K(SDL_SCANCODE_F7)},
+             "The skater's trails from test runs, the gaps landed / untested, Simulate"),
     };
     b.insert(b.end(), views2.begin(), views2.end());
     // The hints (not rebindable): what the mouse and the modes' own keys do.

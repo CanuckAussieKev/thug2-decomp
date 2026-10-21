@@ -86,6 +86,8 @@ class CScript;
 //   level_editor_camera.cpp   the camera tools: F frames the selection, Alt+drag orbits, the right button + wheel sets
 //                             the speed, Ctrl+1..9 / 1..9 camera bookmarks, the numpad's ortho views
 //   level_editor_play.cpp     play from here (F5 / Ctrl+P) and back to the editor with the same camera and selection
+//   level_editor_playtest.cpp play testing: the skater's trails from test runs (F7's Trail window), gaps validated by
+//                             skating, a restart's Play from here, Simulate (F6: the world runs, the skater frozen)
 //   level_editor_prefs.cpp    the preferences window ([editor] in the ini) and the first-run tips
 // The controls (F1 lists them in the game):
 //   - Flying: W A S D, Q / E down / up while the right mouse button is held (it looks too; [editor] wasd_flies=1: without

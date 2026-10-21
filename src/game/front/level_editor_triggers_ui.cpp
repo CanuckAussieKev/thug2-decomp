@@ -14,6 +14,7 @@
 #include "game/front/level_editor_triggers.h"
 #include "game/script/qb.h"
 #include "game/script/struct.h"
+#include "game/front/level_editor_playtest.h"
 #include "imgui.h"
 
 namespace Front::LevelEditor::Triggers {
@@ -309,6 +310,8 @@ void Window(float viewX, float viewY, float viewWidth, float viewHeight, float s
             if (!a.alive)
                 continue;
             std::string text = a.spec.name + "  " + KindName(a.spec.kind);
+            if ((a.spec.kind == Kind::GapStart || a.spec.kind == Kind::GapEnd) && !a.spec.text.empty())
+                text += std::string("  - ") + PlayTest::GapNote(CleanText(a.spec.text)); // (landed in a test run?)
             ImGui::PushStyleColor(ImGuiCol_Text, Colour(a.problem ? 0xFFA0A0A0u : KindColour(a.spec.kind)));
             uint32_t name = NodeCreate::Checksum(a.spec.name);
             if (ImGui::Selectable((text + "##a" + a.spec.name).c_str(), false))
@@ -421,6 +424,12 @@ void InspectorSection(int index)
     case Kind::GapStart:
     case Kind::GapEnd: {
         ImGui::TextDisabled("Gap %s (%s)", s.gap.c_str(), s.kind == Kind::GapStart ? "StartGap here" : "EndGap here");
+        if (!s.text.empty()) {
+            // (validated by skating - level_editor_playtest.h)
+            bool landed = PlayTest::GapLanded(CleanText(s.text));
+            ImGui::TextColored(landed ? ImVec4(0.25f, 1.0f, 0.4f, 1.0f) : ImVec4(1.0f, 0.7f, 0.25f, 1.0f), "%s",
+                               landed ? "Landed in a test run" : "Untested: not landed in a test run yet (F5 and skate it)");
+        }
         changed |= NameField("Name", &s.text, text, sizeof(text), &textEditing);
         if (ImGui::IsItemHovered())
             ImGui::SetTooltip("The gap's name in the gap list and on screen (both ends)");
