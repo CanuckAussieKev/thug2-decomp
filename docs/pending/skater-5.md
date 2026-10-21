@@ -12,7 +12,7 @@ rounded to 53 bits by the precision control - and the game's C runtime acos / as
 src/hook/selftests_skater_*.cpp on a kit of their own, src/hook/sk5_testkit.h/.cpp (one arena both runs start from,
 every callee stood in for by a recording handler that can give a float in ST0, NaNs compared as NaNs).
 Shared files touched: CMakeLists.txt (new files listed, additive).
-Switch off: `[replacements] disable=vehicle_camera.cpp` (and walk_camera.cpp, walk_physics.cpp, the other files listed per batch).
+Switch off: `[replacements] disable=vehicle_camera.cpp` (and walk_camera.cpp, walk_physics.cpp, trick_queue.cpp, the other files listed per batch).
 
 - [x] Batch SK5-1 (NOT run in the game yet; the VehicleCamera component, 12 functions):
   src/game/skater/vehicle_camera.cpp/.h (new), src/game/skater/x87_math.h (new).
@@ -80,3 +80,42 @@ Switch off: `[replacements] disable=vehicle_camera.cpp` (and walk_camera.cpp, wa
     their matrices, CreateRotateXMatrix, D3DXMatrixMultiply, FrameBlend, the clock...). 52 deliberate bugs: 51
     caught (4 after adding the edge variants), 1 equivalent (the factor's bit compare against 1.0 - using a factor of
     exactly 1.0 gives the same).
+- [x] Batch SK5-3 (NOT run in the game yet; the Trick component's tricks, button buffer and trick object list, 30
+  functions): src/game/skater/trick_queue.cpp/.h (new; the class Obj::CTrickComponent with only this range's
+  methods - its fields by named offsets - so the next range's agent's declaration of the same class can be merged
+  with it).
+  - Life: 0x00523490 Create, 0x00522390 Construct (its trick object list +0x13B4, reset by 0x0051F320), 0x005234F0 /
+    0x005243F0 the destructors (the trick mappings structure freed); 0x005231D0 Update (suspended while the object's
+    +0xBC is clear; then the buttons, the balance trick's buttons, the extra tricks, 0x00521A10, the manual tricks,
+    the extra grind tricks - each pending one dropped after its time - and button mashing); 0x00522410
+    SetTrickMappings (the profile's 12 special trick slots: keys = trick, an integer when the slot's flag is set,
+    else a name; then its trick_mapping info); 0x00521E50 UpdateButtons (the d-pad direction 1-8, then 13 buttons
+    from the input's mask bits, in the original's order - 0xC before 0xB).
+  - Tricks: 0x00522520 TryTrick (Scr; a Grind needs a rail; Params without IsExtra counted by the 0x4FF8DAC6
+    component; the pending ones dropped; SwitchScript, the flag added unnamed, the extra params appended, one
+    Update; the state's +0xE0; CountTrick), 0x00522670 DoNextTrick (the queue +0xA2C / +0xA30 of 100 entries; the
+    first script as an interrupt; the slot's mapping: an integer - CreateATrick with trick_index -, or a structure,
+    the goal manager told first), 0x005228B0 DoNextManualTrick (ScriptToRunFirst run on a copy of the params, copied
+    back), 0x00522E80 DoExtraGrindTrick (four flags pick Scripts[n] or prefix + Template[n] through the game's
+    sprintf and the CRC; the core physics' +0x3A8 cleared for a skater - the original's stack cookie isn't kept),
+    0x00521BA0 UpdateManualTricks, 0x00521C10 / 0x00521D20 Check / UpdateExtraGrindTricks, 0x00522AA0
+    TryExtraTricks, 0x00522C00 UpdateExtraTricks, 0x00522CD0 SetExtraTricks (duration in frames x 16.67 ms
+    truncated; ignore= as a string is passed on as its address - a name nothing matches -, as the original does),
+    0x00521D80 GetIgnoreMask (no check that the array exists, as the original), 0x00521DF0 IgnoreTricks.
+  - Mashing: 0x00522030 GetBashSpeed (presses / releases but triangle within BashPeriod, marked used; x
+    BashSpeedupFactor rounded to float, at most BashMaxPercentSpeedup %, + 1 - returned unrounded), 0x00522170
+    CountTriangleBashes, 0x005230E0 UpdateBash (in RunOutQuick / 0xA4B7A992 the blender's speed; else over 1.5: 2 in
+    the state's +0x1C case, or TantrumOff then, once with a bail end pose, the "ButtonMash - trigger quick getup"
+    message and bail_quick_getup - otherwise the speed set as well).
+  - Trick objects and counting: 0x00522340 CountTrick (past 3 the object's 0x94182A08 event), 0x00522370,
+    0x005232A0, 0x005232E0 (not a Ghidra function), 0x00523310.
+  - Member functions through records (table 0x00683148): 0x00522280 Pressed (dur= 15), 0x005222F0
+    GetCurrentBailEndpose (not a Ghidra function). 0x00523350: the C function DoNextTrick (TrickParams copied into
+    a new structure for the call).
+  - Test (selftests_skater_trick_queue.cpp TestTrickQueue): every function, original vs ours, 50-4000 variants
+    with every CStruct / CArray / script / object / clock / profile / trick-object call stood in for (structures
+    and arrays as tokens; the inlined `new CStruct` and NewStruct through one stand-in pool), the button buffer, the
+    queue, the four trick array sets and every flag randomised, the trick script sometimes killing the extra tricks.
+    59 deliberate bugs: 58 caught (2 after strengthening: a direct TryExtraTricks test with scripts that kill the
+    extra tricks, and the kit compared -1 / -5 as equal NaNs - fixed: only the quiet NaN's sign is ignored now), 1
+    equivalent (GetBashSpeed's `>` against `>=`: equal values give the same result).

@@ -105,6 +105,17 @@ std::vector<uint32_t> Run(uint32_t seed, const std::function<uint32_t()>& call);
 // Compare two runs' traces (logging the first differences); true if equal.
 bool Same(const std::vector<uint32_t>& expected, const std::vector<uint32_t>& actual, const char* what, int variant);
 
+// A string made comparable (FNV-1a; null: 0xFFFFFFFF).
+inline uint32_t Hash(const char* text)
+{
+    if (!text)
+        return 0xFFFFFFFF;
+    uint32_t hash = 2166136261u;
+    for (; *text; ++text)
+        hash = (hash ^ static_cast<uint8_t>(*text)) * 16777619u;
+    return hash;
+}
+
 // A result for a handler.
 inline Result Int(uint32_t value)
 {

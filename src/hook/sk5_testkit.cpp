@@ -151,8 +151,8 @@ uint32_t Relative(uint32_t word)
     if (word >= base && word <= base + kArenaSize)
         return 0xA0000000u + (word - base);
     NT_TIB* tib = reinterpret_cast<NT_TIB*>(NtCurrentTeb());
-    uint32_t low = g_stackLow ? g_stackLow : reinterpret_cast<uint32_t>(&word);
-    if (word >= low - 0x10000 && word < reinterpret_cast<uint32_t>(tib->StackBase))
+    // (the thread's whole stack, the same range in both runs: a random word that falls in it maps alike)
+    if (word >= reinterpret_cast<uint32_t>(tib->StackLimit) && word < reinterpret_cast<uint32_t>(tib->StackBase))
         return 0x5AC00000u;
     return word;
 }
@@ -273,9 +273,10 @@ std::vector<uint32_t> Run(uint32_t seed, const std::function<uint32_t()>& call)
     trace.insert(trace.end(), g_trace.begin(), g_trace.end());
     for (uint32_t i = 0; i < kArenaSize; i += 4)
         trace.push_back(Relative(At<uint32_t>(i)));
-    // NaNs compared as NaNs: their sign and payload aren't (x87 and SSE propagate them differently).
+    // The quiet NaN's sign isn't compared (x87 and SSE code propagate it differently). (Only that NaN: every
+    // other pattern - -1 and other integers among them - stays as it is.)
     for (uint32_t& word : trace) {
-        if ((word & 0x7F800000u) == 0x7F800000u && (word & 0x007FFFFFu))
+        if (word == 0xFFC00000u)
             word = 0x7FC00000u;
     }
     return trace;

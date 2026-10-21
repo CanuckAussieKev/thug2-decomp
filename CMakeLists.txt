@@ -167,6 +167,7 @@ add_library(thug2_code OBJECT
     src/hook/sk5_testkit.cpp
     src/hook/selftests_skater_vehicle_camera.cpp
     src/hook/selftests_skater_walk_camera.cpp
+    src/hook/selftests_skater_trick_queue.cpp
     src/hook/selftests_menu.cpp
     src/hook/selftests_left.cpp
     src/hook/selftests_gfx.cpp
@@ -481,6 +482,7 @@ add_library(thug2_code OBJECT
     src/game/skater/vehicle_camera.cpp
     src/game/skater/walk_camera.cpp
     src/game/skater/walk_physics.cpp
+    src/game/skater/trick_queue.cpp
     src/game/obj/movie_manager.cpp
     src/game/obj/anim_movies.cpp
     src/game/obj/trick_objects.cpp
