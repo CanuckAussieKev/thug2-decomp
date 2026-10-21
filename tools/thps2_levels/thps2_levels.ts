@@ -1366,11 +1366,45 @@ export function convertSky(
 ): ConvertedWorld | null {
     const used = models.map((m) => objects.modelNames.indexOf(m)).filter((i) => i >= 0);
     if (!used.length) return null;
+    // (Skate Heaven's six backgrounds have every face flagged 0x80 - in the world "not drawn", here drawn: the
+    // background has no collision to be the only part of)
     const placed: thps2.Psx = {
         ...objects,
+        models: objects.models.map((m, i) =>
+            used.includes(i)
+                ? { ...m, faces: m.faces.map((f) => ({ ...f, flags: f.flags & ~thps2.FACE_INVISIBLE })) }
+                : m,
+        ),
         objects: used.map((model) => ({ flags: 0, position: [0, 0, 0], model, raw: Buffer.alloc(36) })),
     };
-    return convertWorld(placed, sky, textures, mips);
+    const out = convertWorld(placed, sky, textures, mips);
+    // (a sky with nothing drawn would be an empty scene: none)
+    if (!out.scene.sectors.length) return null;
+    // (Skate Heaven's six backgrounds are untextured, gouraud only: THUG2 loading that sky crashed - 0x004C62CA reads
+    // through a null - so a sky's untextured materials draw a 1 x 1 white texture, their vertex colours on it)
+    const white = qb.checksum(`${sky}_white`);
+    let untextured = false;
+    for (const m of out.scene.materials) {
+        for (const p of m.passes) {
+            if (p.texture) continue;
+            p.texture = white;
+            p.flags |= thug2Scene.PASS_TEXTURED;
+            untextured = true;
+        }
+    }
+    if (untextured) {
+        out.textures.textures.push({
+            checksum: white,
+            width: 1,
+            height: 1,
+            texelDepth: 32,
+            paletteDepth: 32,
+            dxt: 0,
+            palette: Buffer.alloc(0),
+            levels: [Buffer.from([255, 255, 255, 255])],
+        });
+    }
+    return out;
 }
 
 // --- convert -------------------------------------------------------------------------------------------------------

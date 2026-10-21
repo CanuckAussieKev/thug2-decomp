@@ -125,7 +125,7 @@ Cause: THPS2's uvs are texel numbers that run past their texture - 55% of the te
 past the last texel to the far edge and clamped: a face over 0..190 of a 64-wide texture drew one column stretched
 (stripes), 37..95 drew a sliver (a wrong strip), all past it one texel (flat colour). Now uv = texel / size, linear
 (shared edges stay continuous), and a texture any face repeats is wrap-addressed (the rest clamped). Checked: the uvs'
-corner order is right (of 6 permutations per triangle / 24 per quad, the identity gives the squarest texels for 86% of
+corner order is right (of 6 permutations per triangle / 24 per quad, the identity gives the squarest texels for 80-86% of
 faces), neighbouring faces' uvs differ by whole tiles at shared vertices. Decals and painted lines get a z bias
 (overlay_bias, 3-25 layer materials a level). Before: C:\Games\THUG2\Game\Screenshots\thug2_2026-10-21_21-42-37 / -46 /
 -53 / 21-43-03.png (the user's). After, the same spots: C:\Games\THUG2-1\Screenshots\fix2_thps2_hangar,
@@ -160,10 +160,13 @@ Bullring 211, Chopper Drop 13, Skate Heaven 158 - 371 gaps, 127 kill zones.
 ## 2. Terrains: as in the README; LoadTerrain loads DIRT, ROCK, GENERIC1 / 2 too. Not heard in the game (a player).
 
 ## 3. Skies: eight panoramas; captures C:\Games\THUG2-1\Screenshots\sky_thps2_* (Marseille's sunset, Venice's blue,
-School II's pale sky). The "dark spiky shapes": Hangar's mountains are a world object (flag 0x2000 - set on 143 large
+School II's pale sky), hvn_sky (Skate Heaven's space and Earth). Skate Heaven's six background models have every
+face flagged 0x80 ("not drawn" in the world): taken as an empty sky scene, loading it crashed THUG2 (0x004C62CA, a
+null read) - found by the final load check; a background's 0x80 is now ignored, an empty sky is never written and a
+sky's untextured materials draw a 1 x 1 white texture. Final load check (load_check.ps1): all ten load and run. The "dark spiky shapes": Hangar's mountains are a world object (flag 0x2000 - set on 140 large
 objects of six levels, not a backdrop flag), drawn dark by THPS2's own vertex colours: kept.
 
-## 4. Objects: 192 platform objects (kind 402) with _o models: 5 static, 104 bouncy, 8 spinning converted; 103 scripted
+## 4. Objects: 195 platform objects (kind 402) with _o models: 5 static, 104 bouncy, 8 spinning converted; 77 scripted
 left (Hangar 30, Chopper Drop's 17 moving ones...), 1 turned about x / z left. Venice's roof fans turn
 (C:\Games\THUG2-1\Screenshots\ventD: frames 1 and 6 differ), the bouncy oil cans stand in Hangar (han_over).
 
@@ -172,7 +175,7 @@ left (Hangar 30, Chopper Drop's 17 moving ones...), 1 turned about x / z left. V
 - Flag 0x40: the PlayStation's semi-transparency; bits 8-9 of the flags are its blend mode (only ever set with 0x40:
   mode 1 on 431 faces with dark vertex colours - added light beams, now THUG2's add). The PC's textures carry no
   semi-transparency bit on any texel, so whole faces blend.
-- Flag 0x400 (2,573 faces of five levels): textured, visible, solid, any orientation, as open-edged as other faces -
+- Flag 0x400 (2,573 faces of six levels): textured, visible, solid, any orientation, as open-edged as other faces -
   not double-sided; meaning not found, ignored.
 - Bowties: 780 quads (8-232 a level) have their corners going round; split along 0-2 now.
 - Off-floor restarts: Re_Start_2P_NY in Hangar (no floor at all: NY's leftover) left out; Hangar's Control Room (124
