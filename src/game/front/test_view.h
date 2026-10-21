@@ -41,7 +41,9 @@ void StandingRows(float headingDegrees, Vec3* right, Vec3* up, Vec3* at);
 // --- the game ---------------------------------------------------------------------------------------------------
 
 // The local skater to `position` standing; `outPosition` where it ended (after the ground snap). "" or why not.
-std::string Teleport(Vec3 position, bool hasHeading, float headingDegrees, Vec3* outPosition);
+// `onBoard`: on its board instead (the custom restart's skating form - still, no momentum; a test that skates on from
+// there: automation's `teleport ... board`).
+std::string Teleport(Vec3 position, bool hasHeading, float headingDegrees, Vec3* outPosition, bool onBoard = false);
 // Viewport 0's camera held at `position` looking along `direction`, moved by `drift` a game frame (false: a direction
 // CameraRows refuses).
 bool LockCamera(Vec3 position, Vec3 direction, Vec3 drift = {0.0f, 0.0f, 0.0f});

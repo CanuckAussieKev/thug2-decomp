@@ -681,7 +681,7 @@ void TestNetCompressMessage()
     cases.push_back({0x25, text, 2});
     cases.push_back({0x26, text, 1});
     cases.push_back({0x27, runs, 0});
-    cases.push_back({0x28, runs, 3});
+    cases.push_back({0x28, runs, 4}); // (3 is THUGPRO's LZHAM now: selftests_thugpro_join.cpp)
     cases.push_back({0x29, {}, 0});
     cases.push_back({0x2A, {}, 1});
     cases.push_back({0x2B, {7}, 1});
