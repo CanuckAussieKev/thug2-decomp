@@ -523,11 +523,13 @@ bool FindPitTiles(Spec* spec, std::string* why)
     Scenery::ForEachLevelSector(
         [](void* context, uint32_t checksum, uint8_t* sector) {
             auto* w = static_cast<Walk*>(context);
-            if (!w->refused.empty() || g_pool.count(checksum) || !IsActive(sector))
+            // (a tile a pit hides now still counts - the pit being edited)
+            bool mine = g_tileHides.count(checksum) && g_tileHides[checksum] > 0;
+            if (!w->refused.empty() || g_pool.count(checksum) || (!IsActive(sector) && !mine))
                 return;
             Nx::CCollStatic* coll = StaticOf(sector);
             const Nx::CCollObjTriData* tri = coll ? coll->m_geometry : nullptr;
-            if (!tri || !tri->m_faces || !tri->m_vertices || (coll->m_flags & 4))
+            if (!tri || !tri->m_faces || !tri->m_vertices || ((coll->m_flags & 4) && !mine))
                 return;
             const Spec& s = *w->spec;
             if (tri->m_max.x < s.x0 || tri->m_min.x > s.x1 || tri->m_max.z < s.z0 || tri->m_min.z > s.z1 ||
