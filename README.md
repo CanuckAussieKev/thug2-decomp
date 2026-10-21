@@ -105,6 +105,8 @@ opens the level editor there; `[features] skip_intro_movies=1`.
 |---|---|
 | `THUG2.exe -level <name>` or `[features] start_level=<name>` | Skips the menus and starts that level in free skate (`src/game/front/start_level.h`). `<name>` is the level's folder name (`TR`, `BO`, `foun`, `z_ma`...). |
 | `THUG2.exe -edit <name>` or `[features] edit_level=<name>` | The same, skips the intro movies and opens the level editor there. |
+| `THUG2.exe -level <name> -at x,y,z[,heading]` or `[features] start_at=x,y,z[,heading]` | With `-level` / `-edit`: once the level is up, the skater stands still at that spot (on the ground below it), facing `heading` (degrees, 0 = +z, 90 = +x - the screenshot sidecar's skater position and heading). |
+| `node tools/game/try_spot.ts <name> <x,y,z[,heading]>` | Starts the game that way (`--game <folder>` before the spot); `--list collfix` prints the spots in front of THUGPRO's collision overlays in the THPS3 ports, each with its command (`docs/pending/collfix-spots.md`). |
 | `node tools/game/edit_level.ts` | Lists every installed level by game (THUG2's own and the ported ones); `edit_level.ts <name> [--game <folder>]` starts one in the editor. A misspelt name is refused with the list. |
 | `tools\game\run_game.ps1 -Game <folder> -Level <name>` | A test run in a workspace: starts the level, waits, takes a picture, closes the game. |
 | `tools\game\load_check.ps1 -Game <folder> -Levels a, b, c` | Loads each level in turn and reports whether it loaded and ran without errors (under the folder's lock). |
@@ -293,6 +295,7 @@ The ini sits next to the exe. Every key is optional; the default applies when it
 | `menu_backdrop` | 1 | THPS4's skate shop behind a vertical main menu (needs the THPS4 levels converted); 0 = THUG2's original front end |
 | `level_editor` | 1 | The pause menu's LEVEL EDITOR (`editor_ui=0`: the old on-screen HUD instead of the Dear ImGui UI; `debug_editor=1` logs its picks and moves) |
 | `start_level` / `edit_level` | (none) | Start straight in a level / in the level editor (as `-level` / `-edit`) |
+| `start_at` | (none) | With a start level: the skater put standing at `x,y,z[,heading]` once it's up (as `-at`) |
 | `screenshots` | 1 | The screenshot key; `screenshot_dir=` changes the folder (default `Screenshots` next to the exe) |
 | `restart_tester` | 1 | F8 puts the skater at the level's next unvisited restart |
 | `debug_mode` | 0 | Neversoft's DEBUG OPTIONS in the pause menu, DEVKIT_ONLY levels, the viewer's free camera (F9) |
