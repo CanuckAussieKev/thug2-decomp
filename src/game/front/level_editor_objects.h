@@ -69,8 +69,9 @@ bool Tint(Obj::CCompositeObject* object, uint32_t rgba);
 void* ResolveTint(Scenery::TintOwner owner);
 
 // Copies: made from the source object's node (its structure copied, with a new name and position) through the
-// game's CreateFromStructure (0x005A2E50) - static props only (LevelObject, GameObject): peds and cars follow paths
-// and run scripts that don't expect a second one.
+// game's CreateFromStructure (0x005A2E50) - level objects and game objects; since the feature map's second round
+// (level_editor_entities.h) peds and cars too (a copy keeps its source's links - its path - and TriggerScript: it
+// behaves as its source) and particle systems (their MidPosition / EndPosition moved with the copy's pos=).
 bool CanCopy(uint32_t source);
 // A copy of `source` at `pos` (`name` 0: a new name). Null when it couldn't be made.
 Obj::CCompositeObject* MakeCopy(uint32_t source, V3 pos, uint32_t name = 0);

@@ -101,7 +101,7 @@ test("layout records: ledges, speed-ups, proximity nodes - read as the DLL reads
             "thug2-decomp layout 2",
             "point ed_ledge01 ClimbingNode pos=1,2,3 facing=0 type=Ledge hang=right",
             "point ed_rail01 RailNode pos=1,2,3 speed=0.0625",
-            "speed 00001234 0.25",
+            "railspeed 00001234 0.25",
             "proxim 12345678 enter=BO_Library_On exit=BO_Library_Off shape=box size=400,200,300 offset=0,100,-5.5  # TRG_x",
             "proxim ABCDEF01 shape=sphere radius=350",
         ].join("\n"),
@@ -109,7 +109,7 @@ test("layout records: ledges, speed-ups, proximity nodes - read as the DLL reads
     assert.equal(layout.points[0]!.type, "Ledge");
     assert.equal(layout.points[0]!.hang, 2);
     assert.equal(layout.points[1]!.speed, 0.0625);
-    assert.deepEqual(layout.speeds, [{ name: 0x1234, rate: 0.25 }]);
+    assert.deepEqual(layout.railSpeeds, [{ name: 0x1234, rate: 0.25 }]);
     assert.equal(layout.proxims.length, 2);
     assert.equal(layout.proxims[0]!.enter, "BO_Library_On");
     assert.deepEqual(layout.proxims[0]!.offset, { x: 0, y: 100, z: -5.5 });
@@ -121,8 +121,8 @@ test("layout records: ledges, speed-ups, proximity nodes - read as the DLL reads
     refused("point ed_ladder02 ClimbingNode pos=0,0,0 speed=0.05");
     refused("point ed_rail02 RailNode pos=0,0,0 type=Ledge");
     refused("point ed_ledge02 ClimbingNode pos=0,0,0 type=Ledge hang=up");
-    refused("speed 00001234 0.001");
-    refused("speed 00001234 0.05\nspeed 00001234 0.06");
+    refused("railspeed 00001234 0.001");
+    refused("railspeed 00001234 0.05\nrailspeed 00001234 0.06");
     refused("proxim 12345678 shape=box");
     refused("proxim 12345678 shape=sphere radius=5");
     refused("proxim 12345678 enter=a enter=b");

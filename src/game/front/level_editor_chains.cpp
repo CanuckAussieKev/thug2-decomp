@@ -280,7 +280,7 @@ std::string WriteRecords(const State& state)
     for (const SpeedEdit& e : state.speeds) {
         char rate[48];
         std::snprintf(rate, sizeof(rate), " %.9g", e.rate);
-        out << "speed ";
+        out << "railspeed ";
         Hex(out, e.name);
         out << rate << '\n';
     }
@@ -290,7 +290,7 @@ std::string WriteRecords(const State& state)
 bool IsRecord(const std::string& kind)
 {
     return kind == "point" || kind == "links" || kind == "drop" || kind == "terrain" || kind == "facing" ||
-           kind == "grindflat" || kind == "speed";
+           kind == "grindflat" || kind == "railspeed";
 }
 
 bool ReadRecord(const std::string& kind, std::istringstream& in, State* state)
@@ -419,7 +419,7 @@ bool ReadRecord(const std::string& kind, std::istringstream& in, State* state)
         }
         return true;
     }
-    if (kind == "speed") {
+    if (kind == "railspeed") {
         SpeedEdit e = {};
         std::string value;
         if (!ReadHexWord(in, &e.name) || !(in >> value) || !ReadFloat(value, &e.rate) ||

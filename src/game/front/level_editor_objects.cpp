@@ -15,6 +15,7 @@
 #include "game/obj/object.h"
 #include "game/script/names.h"
 #include "game/script/node_manager.h"
+#include "game/script/nodes.h"
 #include "game/script/qb.h"
 #include "game/script/struct.h"
 #include "hook/game.h"
@@ -30,6 +31,9 @@ constexpr uint32_t kClass = 0x12B4E660;                // Class
 constexpr uint32_t kName = 0xA1DC81F9;                 // Name
 constexpr uint32_t kPos = 0x7F261953;                  // Pos
 constexpr uint32_t kLevelObject = 0xB7B3BD86, kGameObject = 0xEF59C100;
+// (copied too since the feature map's second round - level_editor_entities.h: peds and cars of the types the level has
+// made, particle systems)
+constexpr uint32_t kPedestrian = 0xA0DFAC98, kVehicle = 0xE47F1B79, kParticleObject = 0x9E7D469E;
 constexpr float kPi = 3.14159265f;
 
 // The node of that name (0x0045C1B0: by name).
@@ -411,7 +415,7 @@ void* ResolveTint(Scenery::TintOwner owner)
 bool CanCopy(uint32_t source)
 {
     uint32_t cls = NodeClass(NodeOf(source));
-    return cls == kLevelObject || cls == kGameObject;
+    return cls == kLevelObject || cls == kGameObject || cls == kPedestrian || cls == kVehicle || cls == kParticleObject;
 }
 
 Obj::CCompositeObject* MakeCopy(uint32_t source, V3 pos, uint32_t name)
@@ -442,6 +446,20 @@ Obj::CCompositeObject* MakeCopy(uint32_t source, V3 pos, uint32_t name)
     copy->AddChecksum(kName, name);
     copy->RemoveComponent(kPos);
     copy->AddVector(kPos, pos.x, pos.y, pos.z);
+    if (NodeClass(node) == kParticleObject) {
+        // (a particle system's emitter has world places besides its pos=: moved with it - level_editor_entities.h)
+        static const uint32_t kMid = Crc::GenerateCRCFromString("MidPosition"),
+                              kEnd = Crc::GenerateCRCFromString("EndPosition");
+        Mth::Vector from;
+        SkateScript::GetPosition(node, &from);
+        for (uint32_t key : {kMid, kEnd}) {
+            Script::VectorValue v;
+            if (copy->GetVector(key, &v, 0)) {
+                copy->RemoveComponent(key);
+                copy->AddVector(key, v.x + pos.x - from.x, v.y + pos.y - from.y, v.z + pos.z - from.z);
+            }
+        }
+    }
     if (!AddCopyNode(copy)) {
         copy->Clear();
         Script::DeleteStruct(copy);
@@ -524,13 +542,17 @@ std::vector<Entry> Copyable()
         for (uint32_t i = 0; i < nodes->m_size; ++i) {
             auto* node = reinterpret_cast<Script::CStruct*>(nodes->GetElement(i));
             uint32_t cls = NodeClass(node), name = 0;
-            if ((cls != kLevelObject && cls != kGameObject) || !node->GetChecksum(kName, &name, 0))
+            if ((cls != kLevelObject && cls != kGameObject && cls != kPedestrian && cls != kVehicle) ||
+                !node->GetChecksum(kName, &name, 0))
                 continue;
             if (!Obj::FindObject(name)) // (only what's in the level now: nodes not created have nothing to copy)
                 continue;
             const char* model = nullptr;
             node->GetString(kModel, &model, 0);
-            std::string label = cls == kLevelObject ? "LevelObject " : "GameObject ";
+            std::string label = cls == kLevelObject  ? "LevelObject "
+                                : cls == kGameObject ? "GameObject "
+                                : cls == kPedestrian ? "Pedestrian "
+                                                     : "Vehicle ";
             label += Label(name);
             if (model && *model) {
                 const char* base = std::max(std::strrchr(model, '\\'), std::strrchr(model, '/'));

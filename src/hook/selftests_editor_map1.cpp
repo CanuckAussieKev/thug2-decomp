@@ -113,7 +113,7 @@ void TestEditorMapRailSpeed()
     state.speeds = {{0x00001234u, 0.25f}, {0x00ABCDEFu, 0.03125f}};
     std::string written = C::WriteRecords(state);
     Check(written.find(" speed=0.0625") != std::string::npos && written.find(" type=Ledge hang=right") != std::string::npos &&
-              written.find("speed 00001234 0.25") != std::string::npos,
+              written.find("railspeed 00001234 0.25") != std::string::npos,
           "editor map: speed= / type=Ledge / hang= / speed records written");
     C::State back;
     std::istringstream lines(written);
@@ -133,11 +133,11 @@ void TestEditorMapRailSpeed()
               !ReadChainLine("point ed_rail02 RailNode pos=0,0,0 type=Ledge", &refused) &&
               !ReadChainLine("point ed_ledge02 ClimbingNode pos=0,0,0 type=Ladder", &refused) &&
               !ReadChainLine("point ed_ledge02 ClimbingNode pos=0,0,0 type=Ledge hang=up", &refused) &&
-              !ReadChainLine("speed 00001234 0.001", &refused) && !ReadChainLine("speed 00001234", &refused) &&
-              !ReadChainLine("speed 1234 0.05", &refused),
+              !ReadChainLine("railspeed 00001234 0.001", &refused) && !ReadChainLine("railspeed 00001234", &refused) &&
+              !ReadChainLine("railspeed 1234 0.05", &refused),
           "editor map: malformed speed-up / ledge records refused");
     C::State twice;
-    Check(ReadChainLine("speed 00001234 0.05", &twice) && !ReadChainLine("speed 00001234 0.06", &twice),
+    Check(ReadChainLine("railspeed 00001234 0.05", &twice) && !ReadChainLine("railspeed 00001234 0.06", &twice),
           "editor map: a node's speed record twice refused");
     // States differ by a speed-up, a ledge's side, a point's speed.
     C::State other = state;

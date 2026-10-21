@@ -83,7 +83,7 @@
 //   terrain <node> <T>                                       a level rail point's terrain
 //   facing <node> <radians>                                  a level ladder point turned (its heading)
 //   grindflat <node>                                         a level rail point grindable on flat ground
-//   speed <node> <rate>                                      a level rail point given a speed-up (rate 0.005 - 0.5)
+//   railspeed <node> <rate>                                  a level rail point given a speed-up (rate 0.005 - 0.5)
 // Nodes are 8 hex digits (their checksums), terrains their names (TERRAIN_GRINDMETAL).
 namespace Front::LevelEditor::Chains {
 
