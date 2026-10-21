@@ -55,6 +55,7 @@ import {
 import { StructError, unpackNumbers } from "../lib/struct.ts";
 import * as collfix from "./collfix.ts";
 import * as thps3 from "./thps3.ts";
+import { Thps3Peds } from "./thps3_peds.ts";
 import { ROTATION_REWRITES } from "./thps3_rotation.ts";
 import * as thugproNew from "./thugpro_new.ts";
 
@@ -1037,13 +1038,24 @@ export class Port {
     copies = new Map<number, number>(); // node name -> clump checksum (game objects drawn with another clump of the level: model=)
     private readonly models = new Map<string, Model | null>();
     readonly assets: pedsCars.Thug2Assets;
+    // THPS3's own people (thps3_peds.ts); null: THUG2's people on THPS3's peds' places, as before (--thug2-peds)
+    readonly peds: Thps3Peds | null;
 
-    constructor(thug2: scriptPort.Thug2, sources: scriptPort.Source[], levelsQ: QbFile, thps3Dir: string) {
+    constructor(
+        thug2: scriptPort.Thug2,
+        sources: scriptPort.Source[],
+        levelsQ: QbFile,
+        thps3Dir: string,
+        ownPeds = true,
+    ) {
         this.thug2 = thug2;
         this.sources = sources;
         this.levelsQ = levelsQ;
         this.modelsDir = pyJoin(resolveInstall(thps3Dir, "thps3"), "Data", "Models");
         this.assets = new pedsCars.Thug2Assets(thug2.root);
+        this.peds = ownPeds
+            ? new Thps3Peds(resolveInstall(thps3Dir, "thps3"), { thug2: thug2.root, thug2Anims: thug2.anims })
+            : null;
     }
 
     model(name: string): Model | null {
@@ -1179,6 +1191,8 @@ export class PortedNodes {
     readonly scripts = new Set<number>();
     readonly moving = new Set<number>(); // the LevelObjects' names (their clumps become sectors in their own space)
     readonly animals = new Set<string>(); // THUG2 animal skeletons used (their animations loaded: loadAnimsNs)
+    readonly ownSets = new Map<string, Set<string>>(); // THPS3's people: animation set -> its models the level has
+    readonly ownProfiles = new Set<number>();
     readonly proxims: [number, number, number][] = []; // [node name, THPS3 script, radius] - proximScriptsNs
     readonly counts = new Map<string, number>();
     private index: Map<QbValue, number> | null = null;
@@ -1411,15 +1425,27 @@ export class PortedNodes {
         let chosen: QbValue | undefined = model ?? undefined;
         if (!pyTruthy(chosen)) chosen = node.get("model");
         if (!pyTruthy(chosen)) chosen = node.get("Model");
-        const profile = this.profile(chosen);
-        const female = profile === FEMALE;
+        // THPS3's own person of that model (thps3_peds.ts: not the crowds - model given - nor the pros), else THUG2's
+        const own =
+            model === null && typeof chosen === "string" && this.port?.peds ? this.port.peds.resolve(chosen) : null;
+        const profile = own?.profile ?? this.profile(chosen);
+        const female = own === null ? profile === FEMALE : own.rig.type === pedRigs.FEMALE.type;
+        const rig = own?.rig ?? (female ? pedRigs.FEMALE : pedRigs.MALE);
+        if (own !== null) {
+            const models = this.ownSets.get(own.set) ?? new Set<string>();
+            models.add(own.model);
+            this.ownSets.set(own.set, models);
+            this.ownProfiles.add(qb.checksum(own.profile));
+            this.count("peds as THPS3's own people");
+        }
         const entries: qb.Entry[] = [
             ...this.base(node, "Pedestrian"),
-            [key(n, "Type"), key(n, female ? "Ped_F_From_Profile" : "Ped_From_Profile")],
+            [key(n, "Type"), key(n, rig.type)],
             ...this.flags(node),
             [key(n, "PedAI_Type"), key(n, "Stand")],
-            [key(n, "skeletonName"), key(n, female ? "Ped_Female" : "THPS6_human")],
-            [key(n, "AnimName"), key(n, female ? "animload_ped_female" : "animload_THPS6_human")],
+            [key(n, "skeletonName"), key(n, rig.skeleton)],
+            [key(n, "AnimName"), key(n, rig.anims)],
+            ...(rig.reference ? [[key(n, "ReferenceChecksum"), key(n, rig.reference)] as qb.Entry] : []),
             [key(n, "profile"), key(n, profile)],
             [key(n, "SuspendDistance"), 0],
             [key(n, "lod_dist1"), 200],
@@ -1550,11 +1576,14 @@ export class PortedNodes {
     }
 }
 
-export function loadAnimsNs(animals: Iterable<string>): string {
+export function loadAnimsNs(animals: Iterable<string>, own: readonly [string, string][] = []): string {
     // THUG2's load_level runs the level's load_level_anims (every THUG2 level has one): the peds' animations
-    // (THPS6_human, Ped_Female) and the animals'.
-    const all = ["THPS6_human", "ped_female", ...[...animals].sort(compareStr)];
-    return `script load_level_anims {\n${all.map((a) => `    animload_${a} \n`).join("")}}\n`;
+    // (THPS6_human, Ped_Female), the animals' and THPS3's own people's (own: [script name, its NeverScript] -
+    // thps3_peds.setScript: their skeletons and animations).
+    const all = ["THPS6_human", "ped_female", ...[...animals].sort(compareStr)].map((a) => `animload_${a}`);
+    all.push(...own.map(([name]) => name));
+    const scripts = own.map(([, text]) => text).join("");
+    return `${scripts}script load_level_anims {\n${all.map((a) => `    ${a} \n`).join("")}}\n`;
 }
 
 export function proximScriptsNs(name: number, script: number, radius: number, names: Names): [string, string] {
@@ -2556,7 +2585,11 @@ export function convertNodeArray(
     if (port !== null) {
         // a ped profile THUG2 hasn't (THUGPRO's random_sk3_male_profile on its Rio ped, TPN-THPS3-2) crashes the game
         // when the ped is made (nodes.fixProfiles): THUG2's random one instead
-        const fixed = nodes.fixProfiles(converted, names, (v) => port.assets.profiles.has(v));
+        const fixed = nodes.fixProfiles(
+            converted,
+            names,
+            (v) => port.assets.profiles.has(v) || made?.ownProfiles.has(v) === true,
+        );
         if (fixed.length) newReport.push(`  ped profiles THUG2 hasn't, made THUG2's: ${fixed.join(", ")}`);
         // every human ped (THUGPRO's added ones too) on the skeleton its profile's model is rigged to - a woman's
         // on THPS6_human is twisted (tools/level_port/ped_rigs.ts; load_level_anims loads both: loadAnimsNs)
@@ -2628,7 +2661,11 @@ export function convertNodeArray(
     }
     let text = nodes.nodeArrayNs(`${name}_NodeArray`, converted, names, kills) + ctfScripts;
     if (port !== null && made !== null) {
-        text += globalsText + (setup ?? "") + PED_SCRIPTS + ANIMAL_SCRIPTS + CAR_SCRIPTS + loadAnimsNs(made.animals);
+        const own = port.peds
+            ? [...made.ownSets].sort((a, b) => compareStr(a[0], b[0])).map(([set]) => port.peds!.setScript(set))
+            : [];
+        text +=
+            globalsText + (setup ?? "") + PED_SCRIPTS + ANIMAL_SCRIPTS + CAR_SCRIPTS + loadAnimsNs(made.animals, own);
     }
     let report =
         `nodes: ${converted.length} of ${array.length} kept ${pyRepr(stats)}; ${triggers.size} kill zones, ` +
@@ -2828,6 +2865,7 @@ export interface Args {
     noThugproNew: boolean;
     noPortChanges: boolean; // PC-n: only the required ones
     noCollfix: boolean; // TPN-THPS3-1 / -2: THUGPRO's collision overlays left out (collfix.ts)
+    thug2Peds?: boolean; // THUG2's people on THPS3's peds' places (as before thps3_peds.ts)
     collfixOnly?: string[] | null; // --no-collfix-only: just these overlays (their base names, e.g. SUB_TRamp06) left out
 }
 
@@ -2871,6 +2909,7 @@ export function cmdConvert(args: Args): void {
             ),
             levelsQ,
             args.thps3,
+            !args.thug2Peds,
         );
     }
     const master = masterLevels(levelsQ);
@@ -3104,6 +3143,8 @@ export function cmdConvert(args: Args): void {
         if (hasSetup) entry.setup_script = `${name}_setup`;
         manifest.levels.push(entry);
     }
+    // THPS3's own people the levels use: models, skeletons, animations, peds.json (tools/level_port/ped_models.ts)
+    if (port?.peds) report.push(port.peds.write(out));
     portedLevels.writeManifest(pyJoin(out, portedLevels.MANIFEST), manifest);
     print(report.join("\n"));
     print(`wrote ${out} (${manifest.levels.length} levels); install with tools\\menu_level\\make_menu_level.ts`);
@@ -3165,6 +3206,13 @@ export function cmdSelfcheck(args: Args): number {
         checked += 1;
         print(`ok   ${path.win32.relative(args.thps3, file)}: ${what}`);
     }
+    // THPS3's people (thps3_peds.ts): every model and animation of the sets brought, posed as THPS3 poses them
+    const thug2 = new scriptPort.Thug2(args.thug2);
+    const peds = new Thps3Peds(resolveInstall(args.thps3, "thps3"), { thug2: thug2.root, thug2Anims: thug2.anims });
+    const [pedLines, pedFailures] = peds.selfcheck();
+    for (const line of pedLines) print(line);
+    checked += pedLines.length;
+    failures += pedFailures;
     print(`${checked} files checked, ${failures} failures`);
     return failures ? 1 : 0;
 }
@@ -3173,7 +3221,7 @@ export function cmdSelfcheck(args: Args): number {
 
 const USAGE =
     "usage: thps3_levels.ts [-h] [--thug2 THUG2] [--thps3 THPS3] [--out OUT] [--ns NS] [--no-objects] " +
-    "[--no-scripts] [--no-mips] [--legacy-names] [--compat {thugpro,none}] [--thugpro THUGPRO] [--no-thugpro-new] [--no-port-changes] [--no-collfix] [--collfix] [--extra [EXTRA ...]] {convert,selfcheck} [levels ...]";
+    "[--no-scripts] [--no-mips] [--legacy-names] [--compat {thugpro,none}] [--thugpro THUGPRO] [--no-thugpro-new] [--no-port-changes] [--no-collfix] [--collfix] [--thug2-peds] [--extra [EXTRA ...]] {convert,selfcheck} [levels ...]";
 
 const HELP = `${USAGE}
 
@@ -3201,6 +3249,7 @@ options:
                        *_coll - TPN-THPS3-1 / -2), Suburbia's Inviso_PicnicCollide01 kept as THPS3's (collfix.ts) -
                        the default since 2026-10-21
   --collfix            convert: THUGPRO's collision overlays kept
+  --thug2-peds         convert: THUG2's people on THPS3's peds' places (stand-ins) instead of THPS3's own
   --no-collfix-only NAMES
                        convert: only these overlays left out (comma-separated base names, e.g. SUB_TRamp06)
   --extra [EXTRA ...]  selfcheck: more THUG2 archives (Data\\pre\\*.prx)`;
@@ -3215,6 +3264,7 @@ const FLAG_OPTIONS = [
     "--no-port-changes",
     "--no-collfix",
     "--collfix",
+    "--thug2-peds",
 ] as const;
 const ALL_OPTIONS = [...VALUE_OPTIONS, ...FLAG_OPTIONS, "--extra", "--help"];
 
@@ -3293,6 +3343,7 @@ export function parseCommandLine(argv: readonly string[]): Args {
         thugpro: values["--thugpro"] ?? thugproNew.DEFAULT_THUGPRO,
         noThugproNew: flags.has("--no-thugpro-new"),
         noPortChanges: flags.has("--no-port-changes"),
+        thug2Peds: flags.has("--thug2-peds"),
         // (the user's decision 2026-10-21, all 8 spots tried by hand: our own collision covers every overlay - left out by
         // default; --collfix keeps THUGPRO's, --no-collfix-only NAMES leaves out just those)
         noCollfix: !flags.has("--collfix") || flags.has("--no-collfix") || values["--no-collfix-only"] !== undefined,
