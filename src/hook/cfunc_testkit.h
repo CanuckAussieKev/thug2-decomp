@@ -49,8 +49,8 @@ struct Params {
         return Add(Script::ESYMBOLTYPE_FLOAT, name, raw);
     }
     Params& String(uint32_t name, const char* value) { return Add(Script::ESYMBOLTYPE_STRING, name, reinterpret_cast<uint32_t>(value)); }
-    Params& Structure(uint32_t name, CStruct* value) { return Add(Script::ESYMBOLTYPE_STRUCTUREPOINTER, name, reinterpret_cast<uint32_t>(value)); }
-    Params& Array(uint32_t name, void* value) { return Add(Script::ESYMBOLTYPE_ARRAYPOINTER, name, reinterpret_cast<uint32_t>(value)); }
+    Params& Structure(uint32_t name, CStruct* value) { return Add(Script::ESYMBOLTYPE_STRUCTURE, name, reinterpret_cast<uint32_t>(value)); }
+    Params& Array(uint32_t name, void* value) { return Add(Script::ESYMBOLTYPE_ARRAY, name, reinterpret_cast<uint32_t>(value)); }
     Params& Vector(uint32_t name, void* value) { return Add(Script::ESYMBOLTYPE_VECTOR, name, reinterpret_cast<uint32_t>(value)); }
     Params& Pair(uint32_t name, void* value) { return Add(Script::ESYMBOLTYPE_PAIR, name, reinterpret_cast<uint32_t>(value)); }
 };

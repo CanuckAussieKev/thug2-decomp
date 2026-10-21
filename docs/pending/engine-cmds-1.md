@@ -35,3 +35,45 @@ Switch off: `[replacements] disable=cfuncs_lighting.cpp` (and cfuncs_render.cpp,
     time and both flags, the gamma over 5 start triples (including -0.0 and NaN) x 4 colours x 3 changes with the
     key failing for some, fog with distance clipping off / on, sectors missing from the scene. 40 deliberate bugs
     caught, 1 (change > 0 vs >= 0) after adding the -0.0 gamma start.
+- [x] Batch EC1-2 (NOT run in the game yet; render debugging, the animation system, the light manager, the screen,
+  texture splats, gamma / light values, clipping and fog, render modes, bone positions, 26 functions):
+  src/game/script/cfuncs_render.cpp (new); a fix in src/game/mth/vector.cpp.
+  - 0x00446460 DebugRenderIgnore (0x0048C110(ignore_1, ignore_0)), 0x004464C0 InitAnimCompressTable ("<file>"
+    copied with "%s"; t48 -> 0x00482A30, q48 -> 0x004829F0, other types nothing), 0x00446570 InitAnimSystem
+    (AnimHeapSize, a second size (name unknown), DefCacheType -> 2 standard / 3 / 4 (two unnamed types) / 0 else for
+    0x00480D10; two counts (one unnamed, MaxAnimSubsets) for 0x0047EB30), 0x00446650 UpdateAnimCache (enable /
+    disable do nothing - compiled out; clear -> cache 0x00480DB0(0), defrag -> 0x00480F20, neither -> the cache's
+    getter and a compiled-out report), 0x004466F0 FinishRendering and 0x00446810 AllowBoneLOD (0x0048C1B0 = the
+    empty function: empty inlines), 0x00446700 InitLightManager (max_lights, an unnamed count), 0x00446760
+    UninitLightManager, 0x00446770 PushWorldLights, 0x00446780 PopWorldLights (a 5-byte jump to 0x0048EA40: its
+    bool), 0x00446790 SetScreen (aspect -> Nx::SetScreenAspectRatio, angle -> 0x004A0B70, letterbox ->
+    Nx::SetLetterbox(n != 0)), 0x00446850 DebugLine (compiled out: Gfx::AddDebugLine), 0x004468E0
+    GetPausePosByResolution (pos=(50 at a 640-wide back buffer / 20, 240)).
+  - 0x00446930 KillAllTextureSplats: box={height dist width offset} - the box's corners at -/+ half of each size in
+    inches around the BOX's offset (read from the box structure, not the params; x/y/z of a missing offset are
+    uninitialised in the original); the low corner not above 0, the high not below 0; x87: the low half from the
+    unrounded product, the high one from the product rounded to a float (they differ past FLT_MAX); w = offset.w + 1
+    (1 without an offset); 0x00491630. texture= -> 0x004916F0, nothing -> 0x004915A0.
+  - 0x00446C20 GetGammaValues (red / green / blue removed then added as truncated percentages - the product in
+    double: 0.29 gives 28), 0x00446CD0 GetDynamicLightModulationFactor (ambient: 0x0048E9B0(1), (0); directional:
+    0x0048E9D0(i, 1), (i, 0) - both read the same array in the original; mod_value_lo / mod_value_hi),
+    0x00446D70 SetClippingDistances (both viewport cameras' +0xB8 / +0xBC; the defaults are swapped in the original:
+    Near defaults to 0x006487D4 = 12000 and Far to 0x006487D0 = 12), 0x00446DF0 SetFogDistance (false with distance
+    clipping; both cameras looked up and dropped), 0x00446E50 SetFogColor (r g b a 255/255/255/128; with distance
+    clipping: 0x0078733C = 0xAARRGGBB and FALSE; else 0x00490E20(bytes r g b a)), 0x00446F40 SetRenderMode
+    (0x006FA734), 0x00446F70 SetWireframeMode (0x006FA730), 0x00446FA0 SetLightAmbientColor and 0x004470A0
+    SetLightDiffuseColor (alpha 0x80; they return the callee's AL), 0x00447010 GetLightDirection (0x0048E920's
+    vector in degrees: heading = y, pitch = x), 0x00447130 GetLightCurrentColor (ambient_*, red_0.., red_1..),
+    0x00447220 GetBonePosition (the skeleton component's 0x00432050; x / y / z added even without the object -
+    uninitialised in the original).
+  - Found and fixed: Vector::RadiansToDegrees (0x00405F20, rewritten earlier) used 57.2957795f = 0x42652EE1; the
+    exe's constant (0x00645468) is 0x42652EE0 - one ulp lower. Its old self-test compares with a tolerance; this
+    batch's test (GetLightDirection) compares bits.
+  - Test (selftests_engcmd2.cpp TestEngineCommandsRender): every command, original vs ours, every callee stood in
+    (the modulation getters run as the original over stand-in arrays; RadiansToDegrees / FeetToInches / the BBox
+    constructor run as themselves); all 16 UpdateAnimCache flag combinations, each cache type, the splat box with
+    positive / negative / -0 / NaN / 3e37 sizes and an offset with z -0, gamma fractions that round differently in
+    float, distance clipping off / on, cameras missing, callee results passed back, bone found / not / no skeleton /
+    no object. 45 deliberate bugs caught (6 after fixing the hand-built params' structure / array types, 3 more after
+    an offset with -0, 1 after a fog alpha without bit 0, 1 after letterbox=1); 1 equivalent (0x0048E9D0's flag:
+    both branches of the original read the same array).
