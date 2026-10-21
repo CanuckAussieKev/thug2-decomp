@@ -117,3 +117,7 @@ Shared files touched: CMakeLists.txt (new files listed).
     real flags), the timer across the clock's wrap and NaN. 26 of 27 deliberate bugs caught (1 after
     strengthening: the recordings checked after each task run); 1 equivalent (ButtonIndex searching from entry 0:
     entry 0 found gives 0 as not found does).
+- [x] Game run (C:\Games\THUG2-4, under the lock, after EC3-5): -FullTests, -level BO: 517 early + 17 late + 2
+  engine-started self-tests passed, 3471 of 3471 replacements installed, free skate in Boston up and responding
+  after 100 s; no EXCEPTION / RUN-TIME CHECK / DEBUG CRT in the log. Music, sounds and the commands themselves
+  still want a player's check (menus' music, level sounds, PlayStream speech, pause / unpause music).
