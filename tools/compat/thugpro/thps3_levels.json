@@ -7885,294 +7885,12 @@
         "kind": "node",
         "target": {
           "level": "rio",
-          "name": "TRG_Car_PathC_Car_OldsBlue01_carplant_collision"
-        },
-        "why": "THUGPRO's own vehicle node - in no THPS3 file",
-        "archive": "RIO_scripts.prx",
-        "file": "levels\\rio\\rio.qb",
-        "crc32": "c88d1337",
-        "add_flags": [
-          "CreatedAtStart"
-        ],
-        "adapt_why": "THUGPRO creates it from its rewrite of the car's THPS3 trigger script (THUGPRO_ForceCreate); ours makes THUG2's cars with our own script, there from the start - so is this"
-      },
-      {
-        "op": "add",
-        "id": "TPN-THPS3-2",
-        "kind": "node",
-        "target": {
-          "level": "rio",
-          "name": "TRG_Car_PathB_Car_MicroBusGrey01_carplant_collision"
-        },
-        "why": "THUGPRO's own vehicle node - in no THPS3 file",
-        "archive": "RIO_scripts.prx",
-        "file": "levels\\rio\\rio.qb",
-        "crc32": "533e6001",
-        "add_flags": [
-          "CreatedAtStart"
-        ],
-        "adapt_why": "THUGPRO creates it from its rewrite of the car's THPS3 trigger script (THUGPRO_ForceCreate); ours makes THUG2's cars with our own script, there from the start - so is this"
-      },
-      {
-        "op": "add",
-        "id": "TPN-THPS3-2",
-        "kind": "node",
-        "target": {
-          "level": "rio",
-          "name": "TRG_Car_PathB_Car_2CVGrey01_carplant_collision"
-        },
-        "why": "THUGPRO's own vehicle node - in no THPS3 file",
-        "archive": "RIO_scripts.prx",
-        "file": "levels\\rio\\rio.qb",
-        "crc32": "ddcb2850",
-        "add_flags": [
-          "CreatedAtStart"
-        ],
-        "adapt_why": "THUGPRO creates it from its rewrite of the car's THPS3 trigger script (THUGPRO_ForceCreate); ours makes THUG2's cars with our own script, there from the start - so is this"
-      },
-      {
-        "op": "add",
-        "id": "TPN-THPS3-2",
-        "kind": "node",
-        "target": {
-          "level": "rio",
-          "name": "TRG_Car_PathC_Car_Police01_carplant_collision"
-        },
-        "why": "THUGPRO's own vehicle node - in no THPS3 file",
-        "archive": "RIO_scripts.prx",
-        "file": "levels\\rio\\rio.qb",
-        "crc32": "987d08b1",
-        "add_flags": [
-          "CreatedAtStart"
-        ],
-        "adapt_why": "THUGPRO creates it from its rewrite of the car's THPS3 trigger script (THUGPRO_ForceCreate); ours makes THUG2's cars with our own script, there from the start - so is this"
-      },
-      {
-        "op": "add",
-        "id": "TPN-THPS3-2",
-        "kind": "node",
-        "target": {
-          "level": "rio",
-          "name": "TRG_Car_PathA_Car_2CVYellow01_carplant_collision"
-        },
-        "why": "THUGPRO's own vehicle node - in no THPS3 file",
-        "archive": "RIO_scripts.prx",
-        "file": "levels\\rio\\rio.qb",
-        "crc32": "95b45731",
-        "add_flags": [
-          "CreatedAtStart"
-        ],
-        "adapt_why": "THUGPRO creates it from its rewrite of the car's THPS3 trigger script (THUGPRO_ForceCreate); ours makes THUG2's cars with our own script, there from the start - so is this"
-      },
-      {
-        "op": "add",
-        "id": "TPN-THPS3-2",
-        "kind": "node",
-        "target": {
-          "level": "rio",
-          "name": "TRG_Car_PathA_Car_OldsBeige01_carplant_collision"
-        },
-        "why": "THUGPRO's own vehicle node - in no THPS3 file",
-        "archive": "RIO_scripts.prx",
-        "file": "levels\\rio\\rio.qb",
-        "crc32": "f306380d",
-        "add_flags": [
-          "CreatedAtStart"
-        ],
-        "adapt_why": "THUGPRO creates it from its rewrite of the car's THPS3 trigger script (THUGPRO_ForceCreate); ours makes THUG2's cars with our own script, there from the start - so is this"
-      },
-      {
-        "op": "add",
-        "id": "TPN-THPS3-2",
-        "kind": "node",
-        "target": {
-          "level": "rio",
-          "name": "TRG_Car_PathD_Car_BigBus01_carplant_collision"
-        },
-        "why": "THUGPRO's own vehicle node - in no THPS3 file",
-        "archive": "RIO_scripts.prx",
-        "file": "levels\\rio\\rio.qb",
-        "crc32": "cff41c2c",
-        "add_flags": [
-          "CreatedAtStart"
-        ],
-        "adapt_why": "THUGPRO creates it from its rewrite of the car's THPS3 trigger script (THUGPRO_ForceCreate); ours makes THUG2's cars with our own script, there from the start - so is this"
-      },
-      {
-        "op": "add",
-        "id": "TPN-THPS3-2",
-        "kind": "node",
-        "target": {
-          "level": "rio",
-          "name": "TRG_Car_PathD_Car_BigBus02_carplant_collision"
-        },
-        "why": "THUGPRO's own vehicle node - in no THPS3 file",
-        "archive": "RIO_scripts.prx",
-        "file": "levels\\rio\\rio.qb",
-        "crc32": "464a51e6",
-        "add_flags": [
-          "CreatedAtStart"
-        ],
-        "adapt_why": "THUGPRO creates it from its rewrite of the car's THPS3 trigger script (THUGPRO_ForceCreate); ours makes THUG2's cars with our own script, there from the start - so is this"
-      },
-      {
-        "op": "add",
-        "id": "TPN-THPS3-2",
-        "kind": "node",
-        "target": {
-          "level": "rio",
           "name": "ES_Building_collision"
         },
         "why": "THUGPRO's own geometry node - in no THPS3 file",
         "archive": "RIO_scripts.prx",
         "file": "levels\\rio\\rio.qb",
         "crc32": "b8cf7ec6"
-      },
-      {
-        "op": "add",
-        "id": "TPN-THPS3-6",
-        "kind": "model",
-        "target": {
-          "level": "rio",
-          "name": "carplantnode"
-        },
-        "why": "THUGPRO's model for TRG_Car_PathC_Car_OldsBlue01_carplant_collision",
-        "archive": "RIO_scripts.prx",
-        "files": {
-          "models\\CarPlantNode\\CarPlantNode.col.xbx": "48e5e63b",
-          "models\\CarPlantNode\\CarPlantNode.mdl.xbx": "c2a6c70b",
-          "models\\CarPlantNode\\CarPlantNode.tex.xbx": "11a9b822",
-          "models\\CarPlantNode\\CarPlantNode.qb": "ff4de910"
-        }
-      },
-      {
-        "op": "add",
-        "id": "TPN-THPS3-6",
-        "kind": "model",
-        "target": {
-          "level": "rio",
-          "name": "carplantnode_bus"
-        },
-        "why": "THUGPRO's model for TRG_Car_PathD_Car_BigBus01_carplant_collision",
-        "archive": "RIO_scripts.prx",
-        "files": {
-          "models\\CarPlantNode_Bus\\CarPlantNode_Bus.col.xbx": "7843722e",
-          "models\\CarPlantNode_Bus\\CarPlantNode_Bus.mdl.xbx": "a391e5f3",
-          "models\\CarPlantNode_Bus\\CarPlantNode_Bus.tex.xbx": "11a9b822",
-          "models\\CarPlantNode_Bus\\CarPlantNode_Bus.qb": "c1012f97"
-        }
-      },
-      {
-        "op": "add",
-        "id": "TPN-THPS3-4",
-        "kind": "script",
-        "target": {
-          "level": "rio",
-          "name": "TRG_Car_PathC_Car_OldsBlue01_carplant_collisionScript"
-        },
-        "why": "THUGPRO's own script - in no THPS3 file",
-        "archive": "RIO_scripts.prx",
-        "file": "levels\\rio\\rio.qb",
-        "crc32": "f0bb7cb6",
-        "context": "object"
-      },
-      {
-        "op": "add",
-        "id": "TPN-THPS3-4",
-        "kind": "script",
-        "target": {
-          "level": "rio",
-          "name": "TRG_Car_PathB_Car_MicroBusGrey01_carplant_collisionScript"
-        },
-        "why": "THUGPRO's own script - in no THPS3 file",
-        "archive": "RIO_scripts.prx",
-        "file": "levels\\rio\\rio.qb",
-        "crc32": "276f7d98",
-        "context": "object"
-      },
-      {
-        "op": "add",
-        "id": "TPN-THPS3-4",
-        "kind": "script",
-        "target": {
-          "level": "rio",
-          "name": "TRG_Car_PathB_Car_2CVGrey01_carplant_collisionScript"
-        },
-        "why": "THUGPRO's own script - in no THPS3 file",
-        "archive": "RIO_scripts.prx",
-        "file": "levels\\rio\\rio.qb",
-        "crc32": "abbc7da1",
-        "context": "object"
-      },
-      {
-        "op": "add",
-        "id": "TPN-THPS3-4",
-        "kind": "script",
-        "target": {
-          "level": "rio",
-          "name": "TRG_Car_PathC_Car_Police01_carplant_collisionScript"
-        },
-        "why": "THUGPRO's own script - in no THPS3 file",
-        "archive": "RIO_scripts.prx",
-        "file": "levels\\rio\\rio.qb",
-        "crc32": "0182a24e",
-        "context": "object"
-      },
-      {
-        "op": "add",
-        "id": "TPN-THPS3-4",
-        "kind": "script",
-        "target": {
-          "level": "rio",
-          "name": "TRG_Car_PathA_Car_2CVYellow01_carplant_collisionScript"
-        },
-        "why": "THUGPRO's own script - in no THPS3 file",
-        "archive": "RIO_scripts.prx",
-        "file": "levels\\rio\\rio.qb",
-        "crc32": "de05a19f",
-        "context": "object"
-      },
-      {
-        "op": "add",
-        "id": "TPN-THPS3-4",
-        "kind": "script",
-        "target": {
-          "level": "rio",
-          "name": "TRG_Car_PathA_Car_OldsBeige01_carplant_collisionScript"
-        },
-        "why": "THUGPRO's own script - in no THPS3 file",
-        "archive": "RIO_scripts.prx",
-        "file": "levels\\rio\\rio.qb",
-        "crc32": "e6c4a5fb",
-        "context": "object"
-      },
-      {
-        "op": "add",
-        "id": "TPN-THPS3-4",
-        "kind": "script",
-        "target": {
-          "level": "rio",
-          "name": "TRG_Car_PathD_Car_BigBus01_carplant_collisionScript"
-        },
-        "why": "THUGPRO's own script - in no THPS3 file",
-        "archive": "RIO_scripts.prx",
-        "file": "levels\\rio\\rio.qb",
-        "crc32": "3dd51987",
-        "context": "object"
-      },
-      {
-        "op": "add",
-        "id": "TPN-THPS3-4",
-        "kind": "script",
-        "target": {
-          "level": "rio",
-          "name": "TRG_Car_PathD_Car_BigBus02_carplant_collisionScript"
-        },
-        "why": "THUGPRO's own script - in no THPS3 file",
-        "archive": "RIO_scripts.prx",
-        "file": "levels\\rio\\rio.qb",
-        "crc32": "f250ed3c",
-        "context": "object"
       },
       {
         "op": "add",
@@ -8407,19 +8125,6 @@
         "crc32": "cf56423a"
       },
       {
-        "op": "add",
-        "id": "TPN-THPS3-2",
-        "kind": "node",
-        "target": {
-          "level": "sub",
-          "name": "TRG_IceCreamTruck_Carplant_collision"
-        },
-        "why": "THUGPRO's own vehicle node - in no THPS3 file",
-        "archive": "SUB_scripts.prx",
-        "file": "levels\\sub\\sub.qb",
-        "crc32": "752ab407"
-      },
-      {
         "op": "set",
         "id": "TPN-THPS3-3",
         "kind": "node",
@@ -8455,23 +8160,6 @@
           "model": "light_airplane01\\light_airplane01.mdl"
         },
         "drop_sector": true
-      },
-      {
-        "op": "add",
-        "id": "TPN-THPS3-6",
-        "kind": "model",
-        "target": {
-          "level": "sub",
-          "name": "carplantnode"
-        },
-        "why": "THUGPRO's model for TRG_IceCreamTruck_Carplant_collision",
-        "archive": "SUB_scripts.prx",
-        "files": {
-          "models\\CarPlantNode\\CarPlantNode.col.xbx": "48e5e63b",
-          "models\\CarPlantNode\\CarPlantNode.mdl.xbx": "c2a6c70b",
-          "models\\CarPlantNode\\CarPlantNode.tex.xbx": "11a9b822",
-          "models\\CarPlantNode\\CarPlantNode.qb": "ff4de910"
-        }
       },
       {
         "op": "add",
@@ -8562,20 +8250,6 @@
         "file": "levels\\sub\\sub.qb",
         "crc32": "52b44c45",
         "context": "none"
-      },
-      {
-        "op": "add",
-        "id": "TPN-THPS3-4",
-        "kind": "script",
-        "target": {
-          "level": "sub",
-          "name": "TRG_IceCreamTruck_Carplant_collisionScript"
-        },
-        "why": "THUGPRO's own script - in no THPS3 file",
-        "archive": "SUB_scripts.prx",
-        "file": "levels\\sub\\sub.qb",
-        "crc32": "06daf1a6",
-        "context": "object"
       },
       {
         "op": "add",
@@ -11054,6 +10728,86 @@
           "why": "ours makes a script of this name itself (load_level_anims / <level>_setup / CTF flags)"
         },
         {
+          "kind": "node",
+          "target": "TRG_Car_PathC_Car_OldsBlue01_carplant_collision",
+          "why": "a shadow Vehicle locked onto another object (Obj_LockToObject) whose model CarPlantNode\\CarPlantNode.mdl holds only triggers running what THUG2 hasn't (#C653CCB8): an inert invisible box in ours, on a car that carries its own collision and triggers"
+        },
+        {
+          "kind": "node",
+          "target": "TRG_Car_PathB_Car_MicroBusGrey01_carplant_collision",
+          "why": "a shadow Vehicle locked onto another object (Obj_LockToObject) whose model CarPlantNode\\CarPlantNode.mdl holds only triggers running what THUG2 hasn't (#C653CCB8): an inert invisible box in ours, on a car that carries its own collision and triggers"
+        },
+        {
+          "kind": "node",
+          "target": "TRG_Car_PathB_Car_2CVGrey01_carplant_collision",
+          "why": "a shadow Vehicle locked onto another object (Obj_LockToObject) whose model CarPlantNode\\CarPlantNode.mdl holds only triggers running what THUG2 hasn't (#C653CCB8): an inert invisible box in ours, on a car that carries its own collision and triggers"
+        },
+        {
+          "kind": "node",
+          "target": "TRG_Car_PathC_Car_Police01_carplant_collision",
+          "why": "a shadow Vehicle locked onto another object (Obj_LockToObject) whose model CarPlantNode\\CarPlantNode.mdl holds only triggers running what THUG2 hasn't (#C653CCB8): an inert invisible box in ours, on a car that carries its own collision and triggers"
+        },
+        {
+          "kind": "node",
+          "target": "TRG_Car_PathA_Car_2CVYellow01_carplant_collision",
+          "why": "a shadow Vehicle locked onto another object (Obj_LockToObject) whose model CarPlantNode\\CarPlantNode.mdl holds only triggers running what THUG2 hasn't (#C653CCB8): an inert invisible box in ours, on a car that carries its own collision and triggers"
+        },
+        {
+          "kind": "node",
+          "target": "TRG_Car_PathA_Car_OldsBeige01_carplant_collision",
+          "why": "a shadow Vehicle locked onto another object (Obj_LockToObject) whose model CarPlantNode\\CarPlantNode.mdl holds only triggers running what THUG2 hasn't (#C653CCB8): an inert invisible box in ours, on a car that carries its own collision and triggers"
+        },
+        {
+          "kind": "node",
+          "target": "TRG_Car_PathD_Car_BigBus01_carplant_collision",
+          "why": "a shadow Vehicle locked onto another object (Obj_LockToObject) whose model CarPlantNode_Bus\\CarPlantNode_Bus.mdl holds only triggers running what THUG2 hasn't (#C653CCB8): an inert invisible box in ours, on a car that carries its own collision and triggers"
+        },
+        {
+          "kind": "node",
+          "target": "TRG_Car_PathD_Car_BigBus02_carplant_collision",
+          "why": "a shadow Vehicle locked onto another object (Obj_LockToObject) whose model CarPlantNode_Bus\\CarPlantNode_Bus.mdl holds only triggers running what THUG2 hasn't (#C653CCB8): an inert invisible box in ours, on a car that carries its own collision and triggers"
+        },
+        {
+          "kind": "script",
+          "target": "TRG_Car_PathC_Car_OldsBlue01_carplant_collisionScript",
+          "why": "the trigger script of left-out TRG_Car_PathC_Car_OldsBlue01_carplant_collision"
+        },
+        {
+          "kind": "script",
+          "target": "TRG_Car_PathB_Car_MicroBusGrey01_carplant_collisionScript",
+          "why": "the trigger script of left-out TRG_Car_PathB_Car_MicroBusGrey01_carplant_collision"
+        },
+        {
+          "kind": "script",
+          "target": "TRG_Car_PathB_Car_2CVGrey01_carplant_collisionScript",
+          "why": "the trigger script of left-out TRG_Car_PathB_Car_2CVGrey01_carplant_collision"
+        },
+        {
+          "kind": "script",
+          "target": "TRG_Car_PathC_Car_Police01_carplant_collisionScript",
+          "why": "the trigger script of left-out TRG_Car_PathC_Car_Police01_carplant_collision"
+        },
+        {
+          "kind": "script",
+          "target": "TRG_Car_PathA_Car_2CVYellow01_carplant_collisionScript",
+          "why": "the trigger script of left-out TRG_Car_PathA_Car_2CVYellow01_carplant_collision"
+        },
+        {
+          "kind": "script",
+          "target": "TRG_Car_PathA_Car_OldsBeige01_carplant_collisionScript",
+          "why": "the trigger script of left-out TRG_Car_PathA_Car_OldsBeige01_carplant_collision"
+        },
+        {
+          "kind": "script",
+          "target": "TRG_Car_PathD_Car_BigBus01_carplant_collisionScript",
+          "why": "the trigger script of left-out TRG_Car_PathD_Car_BigBus01_carplant_collision"
+        },
+        {
+          "kind": "script",
+          "target": "TRG_Car_PathD_Car_BigBus02_carplant_collisionScript",
+          "why": "the trigger script of left-out TRG_Car_PathD_Car_BigBus02_carplant_collision"
+        },
+        {
           "kind": "script",
           "target": "RIO_LEVEL_CHANGE_01",
           "why": "calls what THUG2 hasn't: THUGPRO_SafeKill"
@@ -11134,6 +10888,16 @@
           "kind": "node",
           "target": "#D77EB7CF",
           "why": "an unnamed levelgeometry without a sector or collision anywhere: a toolchain leftover"
+        },
+        {
+          "kind": "node",
+          "target": "TRG_IceCreamTruck_Carplant_collision",
+          "why": "a shadow Vehicle locked onto another object (Obj_LockToObject) whose model CarPlantNode\\CarPlantNode.mdl holds only triggers running what THUG2 hasn't (#C653CCB8): an inert invisible box in ours, on a car that carries its own collision and triggers"
+        },
+        {
+          "kind": "script",
+          "target": "TRG_IceCreamTruck_Carplant_collisionScript",
+          "why": "the trigger script of left-out TRG_IceCreamTruck_Carplant_collision"
         },
         {
           "kind": "script",
@@ -11615,24 +11379,6 @@
       ]
     }
   },
-  "free_skate": {
-    "_register": "TP-41",
-    "_source": "THUGPRO's Foundry scripts (data\\pre\\FOUN_scripts.prx: foun_scripts.qb CJR_Foun_LoadingScript / CJR_Foun_Valve_Check / CJR_Foun_Secret_Gen_Doors) read against THPS3's cjr_scripts.qb. THUGPRO runs every game, free skate too, as a network game: THPS3's `InMultiPlayerGame` is `InNetGame` there, so the level always takes THPS3's multiplayer branch - the generator's doors open, GenDoor01/02/03_Open made, the closed doors killed, the secret generator room (TRG_Ledge_SecretGen*, Secret_Gen*, Collision_Secret_Gen*, Air_Polys_Secret_Gen*) made. THPS3's own free skate (not career, no network) leaves them closed until the career's valve goal sets CJR_FLAG_GEN_OPEN. Our ports have no career: in a network game ours already takes the multiplayer branch (THUG2's InMultiplayerGame is true there too), so online both sides agree; offline free skate: the flag set from <level>_setup.",
-    "si": {
-      "kill": [
-        "SI_OuterDoor",
-        "SI_Sponsors06",
-        "si_lighting02"
-      ],
-      "what": "Skater Island's outer door (SI_OuterDoor, with the banner SI_Sponsors06 and light si_lighting02 THPS3 takes down with it) is gone in free skate: THPS3 blows it with the cannon goal (ALF_SI_BlowDoor, ALF_SI_CheckFlags: SI_FLAG_OUTSIDE_OPEN) or, in a multiplayer game, kills it from ALF_SI_Unhide_Inside (`if InMultiPlayerGame`); THUGPRO's SI_OuterDoor is CreatedAtStart + AbsentInNetGames (TP-14) and its free skate is a network game. Killed a second after ALF_SI_Init made it (no shatter, no sound); the outside is reachable"
-    },
-    "foun": {
-      "set_flags": [
-        "CJR_FLAG_GEN_OPEN"
-      ],
-      "what": "Foundry's GENERATOR 1 CORE doors (GenDoor01 / 02, the big double door, and GenDoor03) open in free skate and the generator room behind is reachable, as in THUGPRO and THPS3's multiplayer: CJR_Foun_Valve_Check's GetFlag branch (kills the GenDoor_Closed* sectors, makes GenDoor01-03_Open) - the same script THPS3's career runs once the five valves are un-jammed"
-    }
-  },
   "_notes": {
     "foun": [
       "flags of Particle_Valve_Steam01: class environmentobject -> gameobject (translation)",
@@ -11984,7 +11730,7 @@
         "id": "PC-THPS3-15",
         "op": "set",
         "target": {
-          "what": "plain moving props THUGPRO made Vehicles (TPN-THPS3-3 `set`, left out for them): Foundry's molten-metal bucket and Tokyo's two bullet trains stay our LevelObjects (drawn with THPS3's own model, moved by THPS3's scripts with THPS3's timing) and get CollisionMode=Geometry - their collision the level's collision object of their name, in their own space: THUGPRO's when TPN-THPS3-1 adds one (the bucket's 134 faces), else made from the drawn geometry (the trains) - tools/level_port/movers.ts",
+          "what": "plain moving props THUGPRO made Vehicles (TPN-THPS3-3 `set`, left out for them): Foundry's molten-metal bucket and Tokyo's two bullet trains stay our LevelObjects (drawn with THPS3's own model, moved by THPS3's scripts with THPS3's timing) and get CollisionMode=Geometry - their collision the level's collision object of their name, in their own space, made from THPS3's drawn model (THPS3's own shape - the user's decision 2026-10-21; THUGPRO's smaller collision of the bucket, TPN-THPS3-1's 134 faces, is left out for it) - tools/level_port/movers.ts",
           "levels": [
             "foun",
             "tok"
@@ -12013,7 +11759,7 @@
             "thugpro_set": "TPN-THPS3-3"
           }
         ],
-        "kept_vehicles": "Vehicles kept as THUGPRO makes them: Tokyo's three jets TRG_Plane_* (plane_jet: its node array's trigger node Box02) and Subway's plane TRG_Plane (light_airplane01: trigger nodes TRGP_CarPlant01 / TRGP_Killskater01) - movers carrying trigger nodes, THUG2's Vehicle form; Rio's 8 and Subway's 1 invisible carplant_collision Vehicles (Obj_LockToObject on a car) - left for a separate decision; road traffic (Tokyo's 18 cars, Subway's ice-cream truck) and every car our converters make"
+        "kept_vehicles": "Vehicles kept as THUGPRO makes them: Tokyo's three jets TRG_Plane_* (plane_jet: its node array's trigger node Box02) and Subway's plane TRG_Plane (light_airplane01: trigger nodes TRGP_CarPlant01 / TRGP_Killskater01) - movers carrying trigger nodes, THUG2's Vehicle form; (Rio's 8 and Suburbia's 1 invisible carplant_collision Vehicles are no longer brought at all: thugpro_new `_left_out`, the user's decision 2026-10-21); road traffic (Tokyo's 18 cars, Subway's ice-cream truck) and every car our converters make"
       },
       {
         "id": "PC-THPS3-16",
@@ -12026,5 +11772,23 @@
         "required": false
       }
     ]
+  },
+  "free_skate": {
+    "_register": "TP-41",
+    "_source": "THUGPRO's Foundry scripts (data\\pre\\FOUN_scripts.prx: foun_scripts.qb CJR_Foun_LoadingScript / CJR_Foun_Valve_Check / CJR_Foun_Secret_Gen_Doors) read against THPS3's cjr_scripts.qb. THUGPRO runs every game, free skate too, as a network game: THPS3's `InMultiPlayerGame` is `InNetGame` there, so the level always takes THPS3's multiplayer branch - the generator's doors open, GenDoor01/02/03_Open made, the closed doors killed, the secret generator room (TRG_Ledge_SecretGen*, Secret_Gen*, Collision_Secret_Gen*, Air_Polys_Secret_Gen*) made. THPS3's own free skate (not career, no network) leaves them closed until the career's valve goal sets CJR_FLAG_GEN_OPEN. Our ports have no career: in a network game ours already takes the multiplayer branch (THUG2's InMultiplayerGame is true there too), so online both sides agree; offline free skate: the flag set from <level>_setup.",
+    "si": {
+      "kill": [
+        "SI_OuterDoor",
+        "SI_Sponsors06",
+        "si_lighting02"
+      ],
+      "what": "Skater Island's outer door (SI_OuterDoor, with the banner SI_Sponsors06 and light si_lighting02 THPS3 takes down with it) is gone in free skate: THPS3 blows it with the cannon goal (ALF_SI_BlowDoor, ALF_SI_CheckFlags: SI_FLAG_OUTSIDE_OPEN) or, in a multiplayer game, kills it from ALF_SI_Unhide_Inside (`if InMultiPlayerGame`); THUGPRO's SI_OuterDoor is CreatedAtStart + AbsentInNetGames (TP-14) and its free skate is a network game. Killed a second after ALF_SI_Init made it (no shatter, no sound); the outside is reachable"
+    },
+    "foun": {
+      "set_flags": [
+        "CJR_FLAG_GEN_OPEN"
+      ],
+      "what": "Foundry's GENERATOR 1 CORE doors (GenDoor01 / 02, the big double door, and GenDoor03) open in free skate and the generator room behind is reachable, as in THUGPRO and THPS3's multiplayer: CJR_Foun_Valve_Check's GetFlag branch (kills the GenDoor_Closed* sectors, makes GenDoor01-03_Open) - the same script THPS3's career runs once the five valves are un-jammed"
+    }
   }
 }
