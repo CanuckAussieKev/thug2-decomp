@@ -35,13 +35,17 @@ const float kHalfPi = FloatFromBits(0x3FC90FDB);
 const float kQuarterPi = FloatFromBits(0x3F490FDB);
 const float kThreeQuarterPi = FloatFromBits(0x4016CBE4);
 
-// The FPU's own cosine and arctangent (as the original's FCOS / FPATAN), at double precision.
-double X87Cos(double angle)
+// The FPU's own cosine and arctangent (as the original's FCOS / FPATAN).
+// `factor` x |cos(angle)|, the cosine kept at the FPU's full precision (only the product is rounded).
+double TimesAbsCos(double factor, double angle)
 {
     double result;
     __asm {
+        fld factor
         fld angle
         fcos
+        fabs
+        fmulp st(1), st
         fstp result
     }
     return result;
@@ -322,7 +326,7 @@ float DPadAngle(uint8_t up, uint8_t down, uint8_t left, uint8_t right)
 }
 
 // 0x0046C370
-float __stdcall StickLength(float x, float y, float angle)
+double __stdcall StickLength(float x, float y, float angle)
 {
     double nx = x / static_cast<double>(x > 0.0f ? 127.0f : 128.0f);
     double ny = y / static_cast<double>(y > 0.0f ? 127.0f : 128.0f);
@@ -337,9 +341,8 @@ float __stdcall StickLength(float x, float y, float angle)
         toGate = std::fabs(a) - kPi;
     else
         toGate = a + kHalfPi;
-    double gate = std::fabs(X87Cos(toGate));
-    double length = std::sqrt(ny * ny + nx * nx) * gate * static_cast<double>(FloatFromBits(0x3F969696));
-    return length > 1.0 ? 1.0f : static_cast<float>(length);
+    double length = TimesAbsCos(std::sqrt(ny * ny + nx * nx), toGate) * static_cast<double>(FloatFromBits(0x3F969696));
+    return length > 1.0 ? 1.0 : length; // (unrounded: the original leaves it in ST0)
 }
 
 } // namespace Obj

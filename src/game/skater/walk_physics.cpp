@@ -17,6 +17,7 @@
 #include "game/script/names.h"
 #include "game/script/struct.h"
 #include "game/skate/career.h"
+#include "game/skater/walk_fields.h"
 #include "game/skater/x87_math.h"
 #include "game/sys/game_clock.h"
 #include "game/sys/timer.h"
@@ -27,43 +28,12 @@ namespace Obj {
 
 namespace {
 
-template <typename T>
-T& At(void* object, uint32_t offset)
-{
-    return *reinterpret_cast<T*>(static_cast<uint8_t*>(object) + offset);
-}
+using namespace WalkFields;
 
-constexpr uint32_t kWalk = 0x726E85AA;
 void** const kVtable = reinterpret_cast<void**>(0x0064C75C);
 
-// The fields (offsets into the component).
-constexpr uint32_t kState = 0x18, kStateTime = 0x1C, kPreviousState = 0x20;
-constexpr uint32_t kFacing = 0x48;           // Mth::Vector
-constexpr uint32_t kAnimState = 0x78;        // a name: Run, Stand, Skid, Land, AcidDrop, rail, Wallplant...
-constexpr uint32_t kOnRail = 0x9B;           // bool
-constexpr uint32_t kContacts = 0xA0;         // 8 x 0xCC
-constexpr uint32_t kAnimSpeedScaling = 0x700; // 0 off, 1 Run, 2 HangMove, 3 LadderMove
-constexpr uint32_t kSpeed = 0x704, kLastSpeed = 0x708;
-constexpr uint32_t kForwardControlLock = 0x70C; // bool
-constexpr uint32_t kFrames710 = 0x710;
-constexpr uint32_t kCollCache = 0x790;
-constexpr uint32_t kCamera = 0x175C, kWalkCamera = 0x1760;
-constexpr uint32_t kHangNode = 0x1764, kHangNextNode = 0x1768, kRailManager = 0x176C;
-constexpr uint32_t kInput = 0x1770, kAnimBlender = 0x1774, kModel = 0x1778, kTrigger = 0x177C,
-                   kPhysicsControl = 0x1780, kMovableContact = 0x1784, kSkaterState = 0x1788,
-                   kCorePhysics = 0x178C, kTaggingControl = 0x1790;
-constexpr uint32_t kRunning = 0x17A4, kFlag17A8 = 0x17A8;
-constexpr uint32_t kStandardSpeed = 0x17B0;
-constexpr uint32_t kObjectRef = 0x184C;      // CSmtPtr
-constexpr uint32_t kRunAdjustment = 0x1868;
-constexpr uint32_t kFlag186C = 0x186C, kHeight1870 = 0x1870, kFlag1874 = 0x1874;
-constexpr uint32_t kJumpTime = 0x1898, kJumpVelocity = 0x189C;
-constexpr uint32_t kPushing = 0x18B0;
-constexpr uint32_t kHangInitAnimType = 0x18D8, kClimbScale = 0x18DC, kLadderDirection = 0x18E0;
-constexpr uint32_t kClimbOffset = 0x1934;
-
 // Script names.
-constexpr uint32_t kWalkParameters = 0x6775E538, kHangControlDebounceTime = 0xAC96D24B,
+constexpr uint32_t kHangControlDebounceTime = 0xAC96D24B,
                    kFeelerHeight = 0x6DA7F696, kStandPosSearchDepth = 0xAEBFA9CD, kRunAdjustRate = 0x3FB31DFC,
                    kGravity = 0xA5E2DA58, kCheatMoon = 0x9C8C6DF1, kMaxSlowWalkSpeed = 0xF3649996,
                    kMaxFastWalkSpeed = 0x6A5805D8, kMaxSlowRunSpeed = 0x1C94CC9C;
@@ -83,20 +53,6 @@ constexpr float kHalf = 0.5f;                  // 0x006453BC
 
 // The state names (0x0064C618: WALKING_GROUND, WALKING_AIR, ...).
 uint32_t StateName(int state) { return reinterpret_cast<const uint32_t*>(0x0064C618)[state]; }
-
-// The original's _ftol (0x006236FC): truncated toward zero.
-int Truncate(double value) { return static_cast<int>(static_cast<int64_t>(value)); }
-
-// A float of walk_parameters (asserted).
-float WalkParameter(uint32_t name)
-{
-    float value;
-    Script::GetStructure(kWalkParameters)->GetFloat(name, &value, 1);
-    return value;
-}
-
-// The game clock with its offset (0x00696D60), and the time since `then` on it.
-int ClockSince(int then) { return Tmr::GameClockElapsed() + (GameVariable<int>(0x00696D60) - then); }
 
 // The skate module's career (0x007CE478's +0x20).
 CSkaterCareer* Career() { return At<CSkaterCareer*>(GameVariable<void*>(0x007CE478), 0x20); }

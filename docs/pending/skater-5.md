@@ -174,3 +174,30 @@ Switch off: `[replacements] disable=vehicle_camera.cpp` (and walk_camera.cpp, wa
     (TestTrickQueue / TestTrickQueueExtra): it ran past the watchdog's 45 s on a loaded machine.
     36 deliberate bugs caught, 1 after strengthening (Walk_GetSpeedScale's `<` against `<=`: the parameters and
     the speed now drawn from a shared short list half the time).
+- [x] Batch SK5-6 (NOT run in the game yet; the Walk component's control, speed and facing, 10 functions):
+  src/game/skater/walk_movement.cpp (new), src/game/skater/walk_fields.h (new: the component's fields by offset and
+  the helpers walk_physics.cpp and walk_movement.cpp share).
+  - 0x00527F20 UpdateControl: the control direction (+0x84) is the camera's flat forward turned by the pad's stick
+    angle (m_polar[1], straight ahead within forward_tolerance degrees; FSIN / FCOS kept in registers); the push
+    (+0x94): the stick's (StickLength x 1/0.85, full - +0x98 - from 1), else the d-pad's (walk_point on the ground
+    without X - the original reads it through 0x0043DA70 -, else 1); the forward control lock holds it on the facing.
+    0x00528120 GetControlSpeed (unrounded in ST0): (push - 0.3) / (walk_point - 0.3) x walk_speed, past walk_point up
+    to the run speed (0x0043DAA0); +0x17A4 running.
+  - 0x00526260 TurnFacingToVelocity (wall_turn_*: the rate rounded to float below 1), 0x00526430 AdjustSpeedForSlope
+    (unrounded in ST0: on a ground normal y <= 0.95 faster than walk_speed, ((1 - |d|) + |d| x normal.y) x speed),
+    0x00527420 UpdateUpright (the up vector eased upright at lerp_upright_rate while +0x72C is 0; snapped past 0.999;
+    exactly 1 by its bits), 0x00527720 SetTransitionFacing (the turn to a facing by FPATAN, folded the shorter way;
+    6 callers in the script commands at 0x0043EA41-0x0044210B), 0x005277B0 UpdateCollisionCache (the box: feeler_length
+    + 1 across, walker_height + 1 up, snap_down_height + 1 down; the feelers' current cache 0x00691974),
+    0x00527BE0 RestoreDisplayOffset, 0x00527C50 UpdatePush (off the plane it hit within push_feeler_length at
+    push_strength - x's product kept unrounded -, the velocity into it taken away unless exactly 0),
+    0x00527DB0 CopyFromObject (flat velocity and facing; a facing under 0.001 long becomes the up row backwards and
+    the up vector is nudged).
+  - Finding (and fix outside the range): StickLength (0x0046C370, control_pad.cpp) leaves its length unrounded in ST0
+    and its cosine at the FPU's full precision; ours rounded both. It now returns double, the cosine multiplied in
+    the register (TimesAbsCos); TestControlPadMath compares the doubles.
+  - Test (selftests_skater_walk.cpp TestWalkMovement): every function, original vs ours, 300-3000 variants
+    (stand-ins for Lerp 0x0043D990, the cache's Update - its box recorded -, StickLength with unrounded values and
+    one exactly full after x 1/0.85, the run speed; shared short-list values for equal compares; -0 velocities; the
+    current cache global recorded). 44 deliberate bugs caught, 3 after strengthening (the cache global, the
+    velocity's -0 when nothing is taken away, a push exactly full).

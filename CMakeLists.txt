@@ -496,6 +496,7 @@ add_library(thug2_code OBJECT
     src/game/skater/vehicle_camera.cpp
     src/game/skater/walk_camera.cpp
     src/game/skater/walk_physics.cpp
+    src/game/skater/walk_movement.cpp
     src/game/skater/trick_queue.cpp
     src/game/skater/trick_member_functions.cpp
     src/game/obj/movie_manager.cpp

@@ -11,6 +11,7 @@
 #include "game/nx/coll_cache.h"
 #include "game/nx/feeler.h"
 #include "game/obj/anim_blender.h"
+#include "game/obj/control_pad.h"
 #include "game/obj/objman.h"
 #include "game/obj/rail_manager.h"
 #include "game/obj/smtptr.h"
@@ -375,6 +376,225 @@ void TestWalkPieces()
     Check(ok, "walk: the Walk component's small pieces (original vs ours)");
 }
 
+// --- the movement (walk_movement.cpp) ---
+
+// More stand-ins: Lerp (0x0043D990), the collision cache's Update, StickLength, the run speed (0x0043DAA0).
+void MovementStandIns(Kit& kit)
+{
+    kit.Add({0x0043D990}, 0, [](Frame& f) {
+        Record(0x43D990);
+        Record(Relative(f.args[0]));
+        for (int i = 1; i <= 2; ++i) {
+            Record(Relative(f.args[i]));
+            const uint32_t* v = reinterpret_cast<const uint32_t*>(f.args[i]);
+            for (int j = 0; j < 4; ++j)
+                Record(v[j]);
+        }
+        Record(f.args[3]);
+        float* out = reinterpret_cast<float*>(f.args[0]);
+        for (int j = 0; j < 4; ++j)
+            out[j] = RandomFloat(2.0f);
+        return Int(f.args[0]);
+    });
+    kit.Add({0x0040ABA0}, 4, [](Frame& f) {
+        Record(0x40ABA0);
+        Record(Relative(f.ecx));
+        const uint32_t* box = reinterpret_cast<const uint32_t*>(f.args[0]);
+        for (int j = 0; j < 8; ++j)
+            Record(box[j]);
+        return Result();
+    }, {Code(&Nx::CCollCache::Update)});
+    kit.Add({0x0046C370}, 12, [](Frame& f) {
+        Record(0x46C370);
+        for (int j = 0; j < 3; ++j)
+            Record(f.args[j]);
+        // (unrounded values, and around 0.85 - the full push after x 1/0.85)
+        static const double values[] = {0.0, 0.5, 0.85, 0.85000002384185791, 0.8499999, 1.0, 1.0 / 3.0, 0.7071067811865476};
+        double value = values[Next() % 8];
+        if (Chance(15)) {
+            // exactly a full push once scaled by 1/0.85 (0x00647B28)
+            const double scale = 1.1764705181121826;
+            value = 1.0 / scale;
+            while (value * scale < 1.0)
+                value = std::nextafter(value, 2.0);
+            while (value * scale > 1.0)
+                value = std::nextafter(value, 0.0);
+        }
+        uint32_t bits[2];
+        std::memcpy(bits, &value, 8);
+        Record(bits[0]);
+        return Float(value);
+    }, {Code(&Obj::StickLength)});
+    kit.Add({0x0043DAA0}, 0, [](Frame& f) {
+        Record(0x43DAA0);
+        Record(Relative(f.ecx));
+        static const double values[] = {0.0, 1.0, 2.0 / 3.0, 300.5, 12.000000000000002};
+        return Float(values[Next() % 5]);
+    });
+}
+
+void FillMovement()
+{
+    FillVariant(0);
+    Pointer(kComponent + 0x175C, kCamera);
+    // the pad (the input's +0x20)
+    uint32_t pad = kInput + 0x20;
+    if (Chance(40))
+        At<float>(pad + 0x208) = 0.0f;
+    if (Chance(40))
+        At<float>(pad + 0x20C) = 0.0f;
+    if (Chance(30))
+        At<float>(pad + 0x22C) = 0.0f;
+    if (Chance(20))
+        At<float>(pad + 0x228) = Chance(50) ? 0.0f : -0.0f;
+    At<uint8_t>(pad + 0x1A0) = Chance(50) ? 1 : 0;
+    At<uint8_t>(kComponent + 0x70C) = Chance(50) ? 1 : 0;
+    At<uint8_t>(kComponent + 0x18B0) = Chance(70) ? 1 : 0;
+    // the camera's at-row flat or not
+    if (Chance(20)) {
+        At<float>(kCamera + 0x8C) = 0.0f;
+        At<float>(kCamera + 0x94) = 0.0f;
+    }
+    // the velocity: zero, along x by a shared value, or random
+    if (Chance(20))
+        for (int i = 0; i < 4; ++i)
+            At<float>(kComponent + 0x34 + 4 * i) = 0.0f;
+    else if (Chance(30)) {
+        At<float>(kComponent + 0x34) = SharedFloat();
+        At<float>(kComponent + 0x38) = 0.0f;
+        At<float>(kComponent + 0x3C) = 0.0f;
+    } else if (Chance(20)) {
+        // (negative zeros: taking away nothing would turn them positive)
+        At<float>(kComponent + 0x34) = -0.0f;
+        At<float>(kComponent + 0x38) = 0.0f;
+        At<float>(kComponent + 0x3C) = -0.0f;
+        At<float>(kComponent + 0x18B4) = -1.0f;
+        At<float>(kComponent + 0x18BC) = -1.0f;
+    }
+    if (Chance(30))
+        At<float>(kComponent + 0x80) = SharedFloat();
+    // the up vector: exactly upright, nearly, or not
+    if (Chance(20))
+        At<float>(kComponent + 0x5C) = 1.0f;
+    else if (Chance(20))
+        At<float>(kComponent + 0x5C) = Chance(50) ? 0.999f : 0.9995f;
+    if (Chance(50))
+        At<float>(kComponent + 0x72C) = Chance(50) ? 0.0f : -0.0f;
+    // the ground normal's y at the steep slope's limit
+    if (Chance(30))
+        At<float>(kComponent + 0x1798) = Chance(50) ? 0.95f : 0.5f;
+    // the push plane: level, its distance a shared value; the height at the position's
+    if (Chance(50)) {
+        At<float>(kComponent + 0x18B4) = 0.0f;
+        At<float>(kComponent + 0x18B8) = 1.0f;
+        At<float>(kComponent + 0x18BC) = 0.0f;
+        At<float>(kComponent + 0x28) = 0.0f;
+        At<float>(kComponent + 0x18C4) = SharedFloat();
+    }
+    if (Chance(20))
+        At<float>(kComponent + 0x18C8) = At<float>(kComponent + 0x28);
+    // the object's at-row nearly vertical
+    if (Chance(30)) {
+        At<float>(kObject + 0x8C) = Chance(50) ? 0.0005f : 0.0f;
+        At<float>(kObject + 0x94) = Chance(50) ? 0.0005f : 0.0f;
+    }
+    // the push asked for
+    if (Chance(40))
+        At<float>(kComponent + 0x94) = SharedFloat();
+    else if (Chance(20))
+        At<float>(kComponent + 0x94) = 0.3f;
+}
+
+template <typename Original, typename Ours>
+bool CompareMovement(const char* what, int variants, Original original, Ours ours)
+{
+    for (int variant = 0; variant < variants; ++variant) {
+        Seed(0x85EBCA6Bu * (variant + 1));
+        FillMovement();
+        KeepStart();
+        uint32_t seed = Next() | 1;
+        // (the feelers' current collision cache, 0x00691974, recorded too)
+        auto& cache = GameVariable<uint32_t>(0x00691974);
+        uint32_t savedCache = cache;
+        std::vector<uint32_t> expected = Run(seed, [&] {
+            cache = 0;
+            uint32_t result = original(Arena() + kComponent);
+            Record(Relative(cache));
+            return result;
+        });
+        std::vector<uint32_t> actual = Run(seed, [&] {
+            cache = 0;
+            uint32_t result = ours(reinterpret_cast<CWalkComponent*>(Arena() + kComponent));
+            Record(Relative(cache));
+            return result;
+        });
+        cache = savedCache;
+        if (!Same(expected, actual, what, variant))
+            return false;
+    }
+    return true;
+}
+
+void TestWalkMovement()
+{
+    Kit kit;
+    StandIns(kit);
+    MovementStandIns(kit);
+    bool ok = true;
+    auto check = [&](const char* what, int variants, auto original, auto ours) {
+        ok = ok && CompareMovement(what, variants, original, ours);
+    };
+    using Self = void*;
+    using Void = void(__thiscall*)(Self);
+    struct Plain {
+        uint32_t address;
+        void (CWalkComponent::*ours)();
+        const char* name;
+        int variants;
+    };
+    static const Plain plain[] = {
+        {0x00526260, &CWalkComponent::TurnFacingToVelocity, "TurnFacingToVelocity", 3000},
+        {0x00527420, &CWalkComponent::UpdateUpright, "UpdateUpright", 1000},
+        {0x005277B0, &CWalkComponent::UpdateCollisionCache, "UpdateCollisionCache", 300},
+        {0x00527BE0, &CWalkComponent::RestoreDisplayOffset, "RestoreDisplayOffset", 500},
+        {0x00527C50, &CWalkComponent::UpdatePush, "UpdatePush", 3000},
+        {0x00527DB0, &CWalkComponent::CopyFromObject, "CopyFromObject", 1000},
+        {0x00527F20, &CWalkComponent::UpdateControl, "UpdateControl", 3000},
+    };
+    for (const Plain& p : plain) {
+        static const Plain* current;
+        current = &p;
+        char what[80];
+        std::snprintf(what, sizeof(what), "walk: %s", p.name);
+        check(what, p.variants, [](uint8_t* c) { Original<Void>(current->address)(c); return 0u; },
+              [](CWalkComponent* c) { (c->*(current->ours))(); return 0u; });
+    }
+    check("walk: AdjustSpeedForSlope", 3000,
+          [](uint8_t* c) {
+              float speed = Chance(50) ? SharedFloat() : RandomFloat(3.0f);
+              return D(Original<double(__thiscall*)(Self, float, Self)>(0x00526430)(c, speed, Arena() + 0x5900));
+          },
+          [](CWalkComponent* c) {
+              float speed = Chance(50) ? SharedFloat() : RandomFloat(3.0f);
+              return D(c->AdjustSpeedForSlope(speed, reinterpret_cast<Mth::Vector*>(Arena() + 0x5900)));
+          });
+    check("walk: SetTransitionFacing", 2000,
+          [](uint8_t* c) {
+              float rate = RandomFloat(2.0f);
+              Original<void(__thiscall*)(Self, Self, float)>(0x00527720)(c, Arena() + 0x5900, rate);
+              return 0u;
+          },
+          [](CWalkComponent* c) {
+              float rate = RandomFloat(2.0f);
+              c->SetTransitionFacing(reinterpret_cast<Mth::Vector*>(Arena() + 0x5900), rate);
+              return 0u;
+          });
+    check("walk: GetControlSpeed", 3000, [](uint8_t* c) { return D(Original<double(__thiscall*)(Self)>(0x00528120)(c)); },
+          [](CWalkComponent* c) { return D(c->GetControlSpeed()); });
+    Check(ok, "walk: the Walk component's movement (original vs ours)");
+}
+
 } // namespace
 
 SELFTEST(Early, TestWalkPieces, Sk5::Cleanup);
+SELFTEST(Early, TestWalkMovement, Sk5::Cleanup);
