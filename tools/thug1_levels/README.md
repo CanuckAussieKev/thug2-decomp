@@ -83,6 +83,10 @@ its BSP trees, textures written back byte-identical, qb files): 333 files.
   levels' `DuplicateTrigger` gap sectors get the trigger script of the node they link to.
 - Level structure: THUG1's name, sky, lighting, startup_script and setup_script (from its Levels.qb); no music, no
   goals.
+- Drivable cars (PC-THUG1-22): THUG1's driving scripts (`scripts\game\player_controlled_vehicle.qb`,
+  `scripts\game\misc\car_scripts.qb` - THUG2 ships both empty) go to `<out>\scripts\` and make_menu_level installs them
+  in the overlay; VC's limo is parked by the SJ restart and drivable ("Press ... to drive"), its goal counted as won.
+  The other levels' drivable cars stay parked or absent (docs/level-port-compromises.md, THUG1).
 
 The shared code (THUG2 writers, geometry conversion, nodes, installing) is in `tools/level_port`, used by
 `tools/thps4_levels` too.
