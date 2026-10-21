@@ -177,6 +177,7 @@ add_library(thug2_code OBJECT
     src/hook/selftests_skater_states.cpp
     src/hook/selftests_skater_rail.cpp
     src/hook/selftests_skater_ground.cpp
+    src/hook/selftests_skater_wallride.cpp
     src/hook/selftests_skater_state_history.cpp
     src/hook/selftests_skater_vehicle_sound.cpp
     src/hook/selftests_skater_skitch_items.cpp
@@ -640,6 +641,7 @@ add_library(thug2_code OBJECT
     src/game/skater/core_states.cpp
     src/game/skater/core_rail.cpp
     src/game/skater/core_ground.cpp
+    src/game/skater/core_wallride.cpp
     src/game/skater/state_history.cpp
     src/game/skater/vehicle_sound.cpp
     src/game/skater/skitch.cpp

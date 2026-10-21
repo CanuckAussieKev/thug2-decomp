@@ -172,6 +172,16 @@ public:
     // +0x48 / +0xD8), 0x00522370 with +0x1B0.
     void DoGroundPhysics();
 
+    // --- core_wallride.cpp ---
+    // 0x0050F830: the wall ride state's update (state 2). No rail, +0x39C the time; carried by what the skater rides
+    // on; the move under Wall_Ride_Gravity; turned along the wall (Wall_Ride_Turn_Speed, about the wall's normal +0x38C)
+    // when not heading up it enough. A feeler ahead along the move: onto the top of the wall (a hit facing up: the
+    // ground, TryGrind first) or round a corner (another wall) - or off the wall's edge (0x005051B0 too). Then a
+    // feeler down the up: the wall still there (at it again; not a wall: pushed off it), or gone (off, pushed out
+    // 18). Button +0x1C0 -> flag +0x20; jumping off (0x004FFB10): out (Wall_Ride_Jump_Out_Speed) and up
+    // (Wall_Ride_Jump_Up_Speed), upright.
+    void DoWallRidePhysics();
+
 private:
     // (Parts of 0x0050DDF0: still on the rail - along the segment, the matrices, the move and the feeler ahead; and
     // what every way out of the update does.)
@@ -179,6 +189,8 @@ private:
     void FinishRail();
     // (Part of 0x0050EE70: the move along the ground, once more for the rest when stopped short.)
     void MoveOnGround(Mth::Vector step);
+    // (Part of 0x0050F830: off the wall's edge - the up straight, pushed out 18, into the air.)
+    void OffWallEdge(bool resetDisplay);
 
     // (Part of 0x0050CA00: landing on something skatable - the velocity into the ground's plane, the ground
     // normal as the new up.)

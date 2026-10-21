@@ -216,3 +216,29 @@ PartyMod: none of these functions is patched by PartyMod (its 48 patched functio
     returning full-precision angles. 40 deliberate bugs: 39 caught (3 after adding the full-precision angles, the
     exactly-0.001 speed and a dead stop short of the step), 1 equivalent in practice (the moved distance's
     summation order).
+- [x] Batch SK2-7 (NOT run in the game yet; the wall ride state, 1 function, 4 KB): src/game/skater/core_wallride.cpp
+  (new).
+  - 0x0050F830 DoWallRidePhysics (state 2; the private OffWallEdge for its three ways off the edge): flags +0x78 /
+    +0xA8 / +0x80 / +0xB0 off, +0x2E4, no rail, +0x39C = now. The ride tracker's carry (and turn). The move: velocity
+    * t + (0, Wall_Ride_Gravity, 0, 1) * t^2 / 2 (z, w and x's velocity part unrounded as the original), plus the
+    carry; the velocity += (0, gravity, 0, 1) * t. Up the wall: the wall normal's (+0x38C) level tangent (normalised;
+    none for a level wall) crossed with the normal; not heading up it more than 0.68 (nor, heading up, within
+    Wall_Ride_Turn_Speed's cosine): the velocity turned (0x00421440, about the wall normal, the way the right says)
+    by Wall_Ride_Turn_Speed, the matrix rebuilt from it (right in double precision). A feeler from the last position
+    to past the new one (Skater_First_Forward_Collision_Length along the move): at the hit + its normal; a wall
+    (+0x22A) at an angle to this one (|dot| >= 0.01): round the corner (the new wall normal, 0x004FE860, along it);
+    else facing up over 0.9: onto the top - at the hit, upright, the matrix queries component's copy, the ground
+    normals, TryGrind(true), the ground and Landed unless it grinds; else off the edge. 0x005051B0: off the edge too.
+    A feeler down the up (Physics_Ground_Snap_Up to Wall_Ride_Down_Collision_Check_Length): the hit's normal as the
+    wall, the skater just off it, along it; not a wall: pushed away (100), into the air (the other feeler's trigger);
+    a wall: triggers when +0xFC differs from +0x1AC, 0x005232A0, the feeler kept (0x0043A930), +0x1D of the sound
+    component. No hit: off the edge (18 out), the trigger. Button +0x1C0 -> flag +0x20; 0x004FFB10 (jump): flag
+    +0xD8, the trigger {2,4,0}, out (Wall_Ride_Jump_Out_Speed) and up (Wall_Ride_Jump_Up_Speed), upright
+    (OrthoNormalizeAbout(1)), +0x88 cleared, the ground normals. 0x00522370 with +0x1B0.
+  - Test (selftests_skater_wallride.cpp TestDoWallRidePhysics): 16000 variants - walls level / straight up /
+    axis-aligned (heading up exactly 0.68), facings up / down / across, the feelers hitting the top (incl. exactly
+    0.9), the same wall, a corner at exactly 0.01, other walls, or nothing; ride states, frame lengths, TryGrind
+    taking it to a rail; the vector and matrix functions pointed at ours. 42 deliberate bugs: 38 caught (2 after the
+    exact 0.68 heading and the 0.01 corner), 4 equivalent: two "+ 0 * t^2/2" terms (only a signed zero could show),
+    a heading exactly at a turn's cosine (unreachable with the game's floats), and the display matrix reset on one
+    way off the edge (set again before anything reads it).
