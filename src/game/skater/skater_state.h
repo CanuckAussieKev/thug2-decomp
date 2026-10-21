@@ -96,16 +96,12 @@ static_assert(offsetof(CSkaterStateComponent, m_state) == 0x18 &&
                   offsetof(CSkaterStateComponent, m_sparksPos) == 0x124 && sizeof(CSkaterStateComponent) == 0x128,
               "layout must match the original (0x00519740 allocates 0x128 bytes)");
 
-// The skater's state history (SkaterStateHistory, type 0x18223FD6, vtable 0x0064C174 - the rest of it is after this
-// range): its frame records (0x84 bytes; 20 of them from the component's +0x1C) keep their time as two halves.
+// The skater's state history (SkaterStateHistory, state_history.h): its state records (0x84 bytes; 20 of them from
+// the component's +0x1C) keep their time as two halves. (Its destructor body 0x005197C0 is here too.)
 struct SkaterStateHistoryFrame {
     // 0x005197D0 / 0x005197E0: the frame's time (+0x78 the low 16 bits, +0x7A the high).
     uint32_t GetTime();
     void SetTime(uint32_t time);
-};
-struct SkaterStateHistoryBase : CBaseComponent {
-    // 0x005197C0: the state history component's destructor body (the base's).
-    void DestroyBody();
 };
 
 } // namespace Obj

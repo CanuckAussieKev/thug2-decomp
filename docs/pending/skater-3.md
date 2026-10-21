@@ -181,8 +181,11 @@ Switch off: `[replacements] disable=end_run.cpp` (and the other files named belo
     doingtrick (+0xE0), HasPowerup / pickeduppowerup (the one name at 0x0067F09C), GetTerrain, GetSparksPos,
     SetSparksPos (names matched from the table's filler 0x00644340; OnGround is 0x00525E90's). States: 0 ground, 1
     air, 2 wall, 3 lip, 4 rail, 5 wallplant; physics 0 skating, 1 walking.
-  - The state history (SkaterStateHistory 0x18223FD6, the next range's): 0x005197C0 its destructor body (registered
-    here as SkaterStateHistoryBase::DestroyBody - the class's own source may take it over), 0x005197D0 /
-    0x005197E0 a frame record's time (two 16-bit halves at +0x78 / +0x7A; SkaterStateHistoryFrame).
+  - The state history (SkaterStateHistory 0x18223FD6, SK4's state_history.h): 0x005197C0 its destructor body
+    (CSkaterStateHistoryComponent::DestroyBody, declared in state_history.h - additive - and now called directly by
+    its Destroy), 0x005197D0 / 0x005197E0 a state record's time (two 16-bit halves at +0x78 / +0x7A;
+    SkaterStateHistoryFrame).
+  - Game run (THUG2-3, -level BO, ~20 s with the automation channel: skating, ollies, a trick, turning): loads, the
+    skater skates, the score / special HUD shown; no exception, run-time check or CRT report in the log.
   - Test: TestSkaterSound / TestSkaterStancePanel / TestSkaterState (selftests_skater_state.cpp). 48 deliberate
     bugs: 47 caught; 1 equivalent (the bonk / cess speed's sum regrouped: the same float).

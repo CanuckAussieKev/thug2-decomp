@@ -2,6 +2,7 @@
 // skater_state.h.
 
 #include "game/skater/skater_state.h"
+#include "game/skater/state_history.h"
 
 #include <cstdint>
 
@@ -209,7 +210,7 @@ void SkaterStateHistoryFrame::SetTime(uint32_t time)
 }
 
 // 0x005197C0
-void SkaterStateHistoryBase::DestroyBody()
+void CSkaterStateHistoryComponent::DestroyBody()
 {
     m_vtable = kStateHistoryVtable;
     CBaseComponent::DestroyBody();
@@ -246,4 +247,4 @@ REPLACE(0x00519720, &Obj::CSkaterStateComponent::GetSparksPos);
 REPLACE(0x00519600, &Obj::CSkaterStateComponent::SetSparksPos);
 REPLACE(0x005197D0, &Obj::SkaterStateHistoryFrame::GetTime);
 REPLACE(0x005197E0, &Obj::SkaterStateHistoryFrame::SetTime);
-REPLACE(0x005197C0, &Obj::SkaterStateHistoryBase::DestroyBody);
+REPLACE(0x005197C0, &Obj::CSkaterStateHistoryComponent::DestroyBody);
