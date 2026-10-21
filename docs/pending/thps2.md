@@ -241,3 +241,106 @@ d8e631f0, the same size). With one anywhere on disk: `node tools/thps2_levels/th
 shows what the finder makes of it (layout + names per level); if it names them, convert with the same option (or put
 it in the THPS2 folder as THawk2.exe - the user's own choice; agents never write there). If the finder finds nothing
 in a readable exe, its layout differs from the records assumed: look at the strings around a known gap name there.
+
+# Phase 3 (2026-10-22) - agents "thps2-phase3" (stopped by accident) and "thps2-phase3b" (its continuation), branch worktree-agent-a22bcae150da2e941, workspace C:\Games\THUG2-1
+
+The user's report (on phase 2): "THPS2 textures are for the most part OK. There is some Z fighting. In e.g. Hangar, the
+glass does not shatter, and the door to the outside is not open. We may not have imported scripts." NOT played by a
+person yet. The first agent's work (thps2_scripts.ts, the per-face layers, turned objects, automation's
+`teleport ... board`) was merged and its uncommitted files brought over; the continuation found the strip bug, tested
+in the game and wrote this.
+
+## 1. The levels' logic (tools/thps2_levels/thps2_scripts.ts - README "Phase 3")
+
+The .trg's command points and the objects' scripts as THUG2 scripts: the start's commands followed once offline (what
+exists at the start), triggers running their command points (pulses, signals, kills, loud kills shattering crates,
+SendVisible, pulse budgets), the object script language translated (waits, signals, registers, jumps, velocities,
+spins, script-point paths, shattering, dying), timers' links pulsed when they end. Career-only blocks left out.
+
+| Level | point scripts | object scripts | script-only | crates (glass) | created at start / later |
+|---|---|---|---|---|---|
+| Hangar | 42 | 30 | 1 | 26 (22) | 43 / 24 |
+| School II | 5 | 6 | 0 | 2 (1) | 24 / 0 |
+| Marseille | 37 | 3 | 0 | 17 (1) | 14 / 0 |
+| NY City | 13 | 2 | 1 | 5 (0) | 26 / 0 |
+| Venice Beach | 15 | 2 | 7 | 0 | 27 / 4 |
+| Skatestreet | 6 | 0 | 0 | 0 | 30 / 0 |
+| Philadelphia | 16 | 5 | 0 | 9 (3) | 30 / 0 |
+| The Bullring | 85 | 2 | 0 | 53 (0) | 4 / 0 |
+| Chopper Drop | 9 | 17 | 1 | 0 | 8 / 12 |
+| Skate Heaven | 6 | 4 | 7 | 2 (0) | 5 / 0 |
+
+Left out (counted per level in convert's report): sounds (THPS2's audio isn't converted - 627 sound commands in all),
+sparks, FMV, screen flashes, water levels, goal counters, gravity (Skate Heaven's 4 thrown rocks fly straight, their
+random velocities at the middle), visibility boxes (THPS2's draw culling), fog / sky colours.
+
+**Hangar's "door to the outside"**: the door at the end of the wind tunnel (the halfpipe with the propeller) is closed
+at the start in THPS2's free skate too - the data: the start pulses node 250, which creates the two propeller blades
+(objects 96 / 105) waiting for a signal; the door (crate 424, world object 172) and the way out stay until trigger
+538139a1 - a strip across the door at the propeller hub's height, 220-290 inches above the halfpipe's floor - is met:
+its point 104 signals the blades (they spin up, slow, stop), loudly kills the door (it shatters) and creates the big fan
+outside (object 167, turning for good) and four more objects. No career flag on any of it. So a player opens it by
+flying into the door at the hub's height.
+
+## 2. Z-fighting: the strips' stray triangles
+
+Most of it wasn't coplanar layers but the strips: trisToStrip (THPS2's, copied from THPS3's) joined triangles with
+last, a (and a again only for parity), which left (last, a, b) a real triangle at every other join - drawn over the
+next face's first triangle with the previous face's material and uvs, coplanar with it, so the two fought. Now last,
+last, a, a (+ a for parity): every join triangle degenerate (a test checks a strip draws exactly its triangles). The same
+fix in tools/thps3_levels/thps3_levels.ts (the THPS3 port had the same stray triangles; thps3_peds.ts already joined
+its own strips right and its comment says so now). Also: the per-face layer search bucketed faces by rounded normal
+components, so near-coplanar faces whose normals straddled a rounding step were never compared - now by the normal's
+main axis and sign.
+
+Measured offline (`layer_check.ts`' overlap: square inches of drawn surface lying on another material's with the same z
+bias - what can fight; out\scripts\fights.ts in the worktree prints it), phase 2 -> now:
+
+| Level | phase 2 | now |
+|---|---|---|
+| Hangar | 1,386,561 | 0 |
+| School II | 3,235,677 | 6,289 |
+| Marseille | 600,043 | 2,439 |
+| NY City | 5,843,910 | 0 |
+| Venice Beach | 3,344,636 | 234,551 (LevelObjects' own spaces overlapping at the origin: not real) |
+| Skatestreet | 1,078,508 | 0 |
+| Philadelphia | 5,065,131 | 0 |
+| The Bullring | 1,156,431 | 23,279 (one object's faces 0.8 / 1.7 inches apart) |
+| Chopper Drop | 36,368 | 0 |
+| Skate Heaven | 2,783,541 | 0 |
+
+(frame_diff.ts on drifting-camera captures can't separate this from ordinary edge crawl: the first agent's Hangar
+captures before / after its layer change measured 1.66 / 4.66 / 4.11 / 2.47% flickering pixels vs 1.66 / 4.67 / 3.95 /
+3.52% - unchanged within noise; the offline measure above is the one that tells.)
+
+## 3. Game runs (C:\Games\THUG2-1 under its lock; this branch's DLL - automation's `teleport ... board`)
+
+Captures in C:\Games\THUG2-1\Screenshots:
+- hd_before / hd_open: the wind tunnel's door closed at the start, propeller still (walking into its foot does
+  nothing: the trigger is high up). hd_trig20 / hd_trig120 / hd_trig520 / hd_through: its trigger script run
+  (automation `run thps2_hangar_Trigger_538139a1`) - the door shatters, the propeller spins, the way through is open.
+- hg_before / hg_shatter (30 frames) / hg_gone: two glass panes' triggers run - the lower row above the quarter pipe
+  shatters (THUG2's glass pieces) and is gone.
+- cd_t0 ... cd_t25 (5 s apart): Chopper Drop - a boat comes past the ship's tower and leaves (its path), the start's
+  drop gap scored ("GAP 1200").
+- Load check of all ten (load_check.ps1): all load and run - no exception, run-time check failure or CRT report in the log; Philadelphia's first try timed out before its collision was read (82 s window), a second run loaded it cleanly.
+The first agent's captures there: h3_door_*, h3_glass_*, h3_event, z_before_* / z_after_*.
+
+## For the user to try
+1. Hangar: fly into the wind tunnel's end door at the propeller's height - the door should shatter, the propeller spin
+   up and the fan outside turn; the way out open.
+2. Hangar: air from the quarter pipes through the glass panes above them - each pane shatters (glass sound) when flown
+   through; the control room's windows don't break (THPS2's don't either).
+3. Hangar: the roof debris (its trigger, bb62e280) - pieces fall, shake the camera and shatter.
+4. The z-fighting: any surface still flickering? (Hangar, NY, Philadelphia, Skate Heaven had the most.)
+5. Chopper Drop's boats / planes, Venice's timers, Skate Heaven's thrown rocks (straight, no gravity), the Bullring's
+   crates (53, killed / shown by its triggers).
+
+## Not done
+Sounds (THPS2's WAVs and the sound emitters), cars (Car_* objects), gravity, SetSkyColor / SetFadeColor, gap names
+(encrypted executable), music. A trigger crossing in flight (gaps, glass, the door) can't be scripted by an agent: the
+trigger scripts were run directly.
+
+Shared files changed: tools/thps3_levels/thps3_levels.ts (trisToStrip's join), tools/thps3_levels/thps3_peds.ts (a
+comment), src/game/front/automation.cpp + test_view.cpp / .h (`teleport <x> <y> <z> [heading] board` - the first
+agent's).
