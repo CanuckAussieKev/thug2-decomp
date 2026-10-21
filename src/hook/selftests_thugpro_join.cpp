@@ -64,8 +64,8 @@ std::vector<uint8_t> Pattern(size_t size, uint32_t seed, bool repetitive)
 constexpr char kGoldenInput[] = "THUGPRO THUGPRO THUGPRO THUGPRO THUGPRO ";
 const char* const kGoldenStream = "406CA20005448554750524F200056068B0C0ED990B6E";
 // And of a larger, mixed input (TestThugproLzham builds it): its size and hash, computed the same way.
-constexpr size_t kGoldenMixedSize = 409;
-constexpr uint32_t kGoldenMixedHash = 0x4A1A6D6C;
+constexpr size_t kGoldenMixedSize = 483;
+constexpr uint32_t kGoldenMixedHash = 0x45DBD912;
 
 void TestThugproLzham()
 {
@@ -100,26 +100,17 @@ void TestThugproLzham()
             Log("LZHAM golden stream: %s", hex.c_str());
         Check(hex == kGoldenStream, "LZHAM: THUGPRO's parameters make the fixed stream");
         // A larger one (an appearance-sized mix of text and noise), where the level changes the stream too.
-        std::vector<uint8_t> mixed = Pattern(1500, 11, true);
-        std::vector<uint8_t> noisy = Pattern(300, 5, false);
-        std::copy(noisy.begin(), noisy.end(), mixed.begin() + 600);
-        std::vector<uint8_t> big(4096);
+        // (4000 bytes of text with a noise byte every 37: smaller, plainer inputs come out the same at other levels.)
+        std::vector<uint8_t> mixed = Pattern(4000, 1, true);
+        for (size_t i = 0; i < mixed.size(); i += 37)
+            mixed[i] = Pattern(1, static_cast<uint32_t>(i), false)[0];
+        std::vector<uint8_t> big(8192);
         size_t bigSize = Net::Lzham::Compress(mixed.data(), mixed.size(), big.data(), big.size());
         uint32_t bigHash = HashBytes(big.data(), static_cast<uint32_t>(bigSize));
-        for (uint32_t seed = 1; seed < 6; ++seed) { // TEMP experiment
-            for (size_t n : {size_t(4000), size_t(20000), size_t(60000)}) {
-                std::vector<uint8_t> x = Pattern(n, seed, true);
-                for (size_t i = 0; i < n; i += 37 * seed)
-                    x[i] = static_cast<uint8_t>(Pattern(1, static_cast<uint32_t>(i), false)[0]);
-                std::vector<uint8_t> y(n * 2);
-                size_t ys = Net::Lzham::Compress(x.data(), n, y.data(), y.size());
-                Log("  EXP seed %u n %u: %u %08X", seed, static_cast<unsigned>(n), static_cast<unsigned>(ys), HashBytes(y.data(), static_cast<uint32_t>(ys)));
-            }
-        }
         if (bigSize != kGoldenMixedSize || bigHash != kGoldenMixedHash)
             Log("  LZHAM mixed stream: %u bytes, hash %08X", static_cast<unsigned>(bigSize), bigHash);
         Check(bigSize == kGoldenMixedSize && bigHash == kGoldenMixedHash,
-              "LZHAM: THUGPRO's parameters make the fixed stream of 1500 mixed bytes");
+              "LZHAM: THUGPRO's parameters make the fixed stream of 4000 mixed bytes");
         uint8_t out[64];
         size_t outSize = 0;
         std::vector<uint8_t> golden;

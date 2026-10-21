@@ -96,13 +96,13 @@ dropped (handler result 4) before anything is written.
 
 ## Tests
 
-- TestGameNetJoin (selftests_gamenet_join.cpp, Early): **294 cases, the original against ours** on a stand-in world
+- TestGameNetJoin (selftests_gamenet_join.cpp, Early): **327 cases, the original against ours** on a stand-in world
   (the GameNet manager and its apps / connections in one allocation, every call - net library, GameNet's not-yet-source
   getters, scripts, GameSpy's CD-key SDK, memory manager, tasks, timer, sprintf - stood in by recorders; the messages'
   defined bytes, the handlers added with their ids / codes / flags / data / priorities, the manager's 0x1D0 bytes, the
-  passwords and the connections compared): ok_to_join 26 cases (every refusal, each check on / off, signed ranks, both
-  rank tests, local connections), SpawnClient 32, SpawnMatchClient, SpawnServer 8, JoinServer 32 (local / remote, both
-  clients, password typed, observing, modem), the reattempts 16, HandleConnection 33 (local, foreign flag, foreign
+  passwords and the connections compared): ok_to_join 27 cases (every refusal, each check on / off, signed ranks, both
+  rank tests, local connections, a CD-key response one too long), SpawnClient 32, SpawnMatchClient, SpawnServer 8,
+  JoinServer 32 (local / remote, both clients, password typed, observing, modem; each to its own port), the reattempts 16, HandleConnection 65 (local, foreign flag, foreign
   connections taken, LAN / internet, banned, the CD-key challenge), ClientAuthorized 8, HandleJoinRequest 32,
   HandleJoinProceed 64, HandleJoinRefused 42 (reasons -1..9, 30, 38, 127 in join states 0 / 4 / 5).
 - TestGameNetJoinThugpro (ours): the four senders' 124-byte request checked byte for byte and against THUGPRO's host
@@ -112,17 +112,33 @@ dropped (handler result 4) before anything is written.
   refused state; the bounds (short requests not read, a short appearance read with zeros, a cut challenge) in and out
   of the mode.
 - TestThugproLzham / TestThugproCompressedMessages (selftests_thugpro_join.cpp): LZHAM round trips (1 B ... 64 KB,
-  repetitive and random), a fixed stream (THUGPRO's parameters can't drift), cut / changed / too-big streams refused
+  repetitive and random), two fixed streams (40 bytes; 4000 mixed bytes, whose stream depends on the level too -
+  THUGPRO's parameters can't drift), cut / changed / too-big streams refused
   without writing past the room; CompressMessage's method 3, LZSS -> LZHAM only in the mode, RLE kept, incompressible /
-  tiny data uncompressed; HandleCompressedMessages: LZHAM and LZSS messages dispatched, every malformed one dropped.
+  tiny data uncompressed; HandleCompressedMessages: LZHAM and LZSS messages dispatched, every malformed one dropped; each message ends
+  where a no-access page begins (a read past it crashes the test), 1- and 2-byte messages of every method, inner lengths
+  one past / exactly filling the data.
 - selftests_netC / netD adjusted: HandleCompressedMessages' original-vs-ours cases use real streams (ours checks them
   before expanding); CompressMessage's "unknown method" case is method 4 (3 is LZHAM now).
-- Mutations (out/mut_join.ts, 91): see below.
+- Mutations (out/mut_join.ts, 90; `node tools/mutate.ts out/mut_join.ts`): **86 caught**. 4 equivalent, missed: `join-index`
+  (`index == 0` -> `index != 1`: the manager has two client slots, 0 and 1), `lzham-capacity` (lzham_compress_memory
+  never reports more than the room it was given - it fails instead), `recv-size3` (an expanded size under 3 is dropped
+  by the inner-length check anyway; only a one-byte read past the 2-byte block differs), `recv-lzss-over` (the scan's
+  early exit: its final `expanded == expected` refuses the same streams).
 
 ## Checks
 
-thug2_check (THUGPRO PM / stock): see below. check_code_writes, scan_register_assumptions, audit_game_function_calls,
-find_gaps: see below.
+- thug2_check on THUG2PM.exe and on C:\Games\THUG2\Game\THUG2.exe: 3579 replacements, 0 MISMATCHED; early self-tests
+  all passed (540) on both.
+- check_code_writes: 26 run-time writes, no overlaps. audit_game_function_calls: no MISMATCH.
+- scan_register_assumptions: nothing for this batch (SpawnClient / SpawnMatchClient's return values are read - they
+  return them); its RISK lines are older (CStruct::AddVector, Ed::InitEditedGoalStub).
+- find_gaps - new gaps next to this batch, left for a later batch: 0x0052F730 / 0x0052F760 (scalar deleting
+  destructors of vtables 0x0064C828 / 0x0064C82C, no direct callers), 0x00536640 (calls 0x005F9C40, then 0x005FBBA0(0)
+  when 0x007CCA82, the lobby 0x007CCE14's 0x0044E4F0 and 0x007CCE1C are set), 0x00536670 (scalar deleting destructor over
+  0x00577280), 0x005366A0 / 0x005366C0 / 0x005366E0 / 0x00536700 (list-node destructors, vtables 0x0064C9E8 / 0x0064C9EC
+  / 0x0064C9E4 / 0x0064C8EC: unlink, point at themselves) and their scalar deleting forms 0x00536720 ... 0x005367E0,
+  0x00536820 (a list's clear at +0x13C: each node's virtual delete, 0x00543560 on its object, freed).
 
 ## Switching it off
 

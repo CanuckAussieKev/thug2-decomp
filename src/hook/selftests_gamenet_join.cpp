@@ -657,6 +657,7 @@ void TestGameNetJoin()
         {0, 0, 0, 2, 1, 8, GameNet::kVersion, true, 0, 3, 4, true, 0x1C471C60, false, "pw", "px", 72, 6}, // unchecked
         {0, 0, 0, 2, 1, 8, GameNet::kVersion, true, 0, 3, 4, true, 0x1C471C60, false, "", "px", 72, 7},  // no password
         {0, 0, 0, 2, 1, 8, GameNet::kVersion, true, 0, 3, 4, true, 0x1C471C60, false, "", "", 71, 7},   // CD key
+        {0, 0, 0, 2, 1, 8, GameNet::kVersion, true, 0, 3, 4, true, 0x1C471C60, false, "", "", 73, 7},   // one too long
         {0, 0, 0, 2, 1, 8, GameNet::kVersion, true, 0, 3, 4, true, 0x1C471C60, false, "", "", 0, 7},    // none
         {0, 0, 0, 2, 1, 8, GameNet::kVersion, true, 0, 3, 4, true, 0x1C471C60, false, "", "", 71, 3},   // unchecked
     };
@@ -734,10 +735,12 @@ void TestGameNetJoin()
             M()->m_joinMode = (flags & 8) ? 1 : 0;
             *reinterpret_cast<int*>(At(kNetManager) + 0x128) = (flags & 16) ? 1 : 0; // a modem
             g_script.rankDefined = !local; // (the local path leaves the rank as its stack had it)
+            // (a port other than the world's own 5153, so the join's port is seen written)
+            uint16_t port = static_cast<uint16_t>(6000 + flags);
             if (original)
-                Original<void(__thiscall*)(Manager*, uint32_t, uint16_t, int)>(0x00534480)(M(), 0x11223344, 5153, index);
+                Original<void(__thiscall*)(Manager*, uint32_t, uint16_t, int)>(0x00534480)(M(), 0x11223344, port, index);
             else
-                M()->JoinServer(0x11223344, 5153, index);
+                M()->JoinServer(0x11223344, port, index);
         });
     }
     g_script.rankDefined = true;
