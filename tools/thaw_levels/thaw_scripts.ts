@@ -52,16 +52,18 @@ export const MADE_SCRIPTS =
     `script ${CAR_DRIVE} {\n    Car_Generic01 \n}\n`;
 
 // THAW's rail speed-up (skutils.qb's RailAccelerate, the trigger script of uphill rails: while the skater grinds the
-// rail and climbs, 5% more speed a frame). THAW's checks the trigger type first (`if TriggerType {land onto}`): THUG2's
+// rail and climbs, rate= more speed a frame - 5% by default). THAW's checks the trigger type first (`if TriggerType {land onto}`): THUG2's
 // TriggerType with GetTriggerArray's numbers for those flags (script_port.triggerFlags). THAW's spawns the loop through
 // the skater's id (`<objid>:Obj_SpawnScriptLater`); a rail's trigger script runs on the skater here, so
-// Obj_SpawnScript. (Written from THAW's own script; THUGPRO has one of the same shape in its thugpro_utils.q.)
+// Obj_SpawnScript. THAW's passes its own parameters on (`params=<...>`): the rail scripts' rate= (THAW's levels use
+// 0.01 - 0.5, Z_OI's MegaBoost 2; without one RailAccelerate2's default 0.05) - THUG2's Obj_SpawnScript takes params=
+// as well (0x004617E0). (Written from THAW's own script; THUGPRO has one of the same shape in its thugpro_utils.q.)
 export const RAIL_ACCELERATE = "RailAccelerate";
 const LAND_ONTO = scriptPort.triggerFlags(["land", "onto"]) as number[];
 export const RAIL_SCRIPTS = `script RailAccelerate {
     if TriggerType [${LAND_ONTO.join(", ")}] {
         KillSpawnedScript name=RailAccelerate2
-        Obj_SpawnScript RailAccelerate2
+        Obj_SpawnScript RailAccelerate2 params=<...>
     }
 }
 script RailAccelerate2 {rate=0.05
