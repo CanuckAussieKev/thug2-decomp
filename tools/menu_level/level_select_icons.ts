@@ -9,8 +9,9 @@
 // Nothing of the game is stored here: the frame is read from the user's Levelselect.prx each time.
 //
 // A preview:
-//   node tools/menu_level/level_select_icons.ts <out.png> [--game C:\Games\THUG2] [pictogram...]
-// draws the signs (3x, on grey) into a PNG to look at.
+//   node tools/menu_level/level_select_icons.ts <out.png> [--game C:\Games\THUG2] [--scale N] [pictogram...]
+// draws the signs (3x, on grey) into a PNG to look at; with --sheet, a contact sheet instead: a row of THUG2's own
+// signs, then ours section by section (THUG2's two added levels, THUG1, THPS4, THPS3, THAW), tinted yellow.
 
 import * as fs from "node:fs";
 import * as zlib from "node:zlib";
@@ -20,7 +21,7 @@ import { resolveInstall } from "../lib/install.ts";
 import { isMain, print, pyHypot, pyJoin, pyMinBy, runMain } from "../lib/py.ts";
 import { pack, unpackNumbers } from "../lib/struct.ts";
 
-const USAGE = "usage: level_select_icons.ts out [names ...] [--game GAME]";
+const USAGE = "usage: level_select_icons.ts out [names ...] [--game GAME] [--scale N] [--sheet]";
 
 export const SIZE = 64;
 export const FRAME_SOURCE = "images\\LevelSelectSprites\\sign_training.img.xbx";
@@ -73,7 +74,7 @@ export function writeImg(w: number, h: number, palette: readonly Colour[], indic
 // --- shapes: each a function (x, y) -> inside, on the 64 x 64 sign (y down) ----------------------------------------
 
 export type Shape = (x: number, y: number) => boolean;
-type Point = readonly [number, number];
+export type Point = readonly [number, number];
 
 const sq = (x: number): number => x * x;
 // math.radians
@@ -176,7 +177,7 @@ function leaf(x0: number, y0: number, x1: number, y1: number, bend: number, widt
 
 const INK = 1;
 const CUT = 0;
-type Layer = [number, Shape];
+export type Layer = [number, Shape];
 
 function skateboard(): Layer[] {
     return [
@@ -206,23 +207,16 @@ function cone(): Layer[] {
         [INK, poly([29.5, 14], [34.5, 14], [41.5, 41], [22.5, 41])],
         [CUT, rect(0, 21.5, 64, 25)],
         [CUT, rect(0, 30, 64, 33.5)],
-        [INK, rect(19, 41, 45, 45)],
+        [INK, rect(19.5, 41, 44.5, 44.5)],
     ];
-}
-
-// A barred cell window (Alcatraz).
-function bars(): Layer[] {
-    const shapes: Layer[] = [
-        [INK, rect(21, 17, 43, 47)],
-        [CUT, rect(24.5, 20.5, 39.5, 43.5)],
-    ];
-    for (const x of [28.5, 32, 35.5]) shapes.push([INK, rect(x - 1.1, 20, x + 1.1, 44)]);
-    shapes.push([INK, rect(24, 30.8, 40, 33)]);
-    return shapes;
 }
 
 // The Golden Gate: two towers, the main cable, the deck and the hangers.
 function bridge(): Layer[] {
+    return scaleAll(bridgeDrawn(), 32, 30, 0.8);
+}
+
+function bridgeDrawn(): Layer[] {
     const cable = (x: number): number => {
         if (x < 24) return 30 - ((x - 13) / 11) * 11;
         if (x > 40) return 19 + ((x - 40) / 11) * 11;
@@ -252,6 +246,10 @@ function bridge(): Layer[] {
 }
 
 function mortarboard(): Layer[] {
+    return scaleAll(mortarboardDrawn(), 32, 29, 0.95);
+}
+
+function mortarboardDrawn(): Layer[] {
     const board: Point[] = [
         [32, 16],
         [49, 24.5],
@@ -284,6 +282,10 @@ function mortarboard(): Layer[] {
 }
 
 function palm(): Layer[] {
+    return scaleAll(palmDrawn(), 32, 31, 0.9);
+}
+
+function palmDrawn(): Layer[] {
     const trunk: Point[] = [
         [35, 47],
         [34, 41],
@@ -339,17 +341,6 @@ function bigben(): Layer[] {
     ];
 }
 
-function paw(): Layer[] {
-    return [
-        [INK, poly([25, 40], [28.5, 33], [35.5, 33], [39, 40], [36, 44.5], [28, 44.5])],
-        [INK, circle(32, 38.5, 5.6)],
-        [INK, ellipse(21.5, 30, 3.1, 4.1, -25)],
-        [INK, ellipse(27.5, 22.5, 3.2, 4.3, -8)],
-        [INK, ellipse(36.5, 22.5, 3.2, 4.3, 8)],
-        [INK, ellipse(42.5, 30, 3.1, 4.1, 25)],
-    ];
-}
-
 function ferris(): Layer[] {
     const cx = 32;
     const cy = 27;
@@ -371,6 +362,10 @@ function ferris(): Layer[] {
 
 // Chicago: a stepped tower with two masts among smaller blocks.
 function skyline(): Layer[] {
+    return scaleAll(skylineDrawn(), 32, 30, 0.87);
+}
+
+function skylineDrawn(): Layer[] {
     const shapes: Layer[] = [
         [INK, rect(29, 13, 35, 43)],
         [INK, rect(26.5, 21, 37.5, 43)],
@@ -386,6 +381,10 @@ function skyline(): Layer[] {
 }
 
 function motorbike(): Layer[] {
+    return scaleAll(motorbikeDrawn(), 32, 33, 0.82);
+}
+
+function motorbikeDrawn(): Layer[] {
     return [
         [INK, ring(20.5, 38, 5.6, 2.4)],
         [INK, ring(43.5, 38, 5.6, 2.4)],
@@ -434,7 +433,7 @@ function wave(): Layer[] {
                 [46.5, 40],
             ),
         ],
-        [INK, rect(18.5, 42, 45.5, 44.5)],
+        [INK, rect(19.5, 42, 44.5, 44.3)],
     ];
 }
 
@@ -540,20 +539,6 @@ function flame(): Layer[] {
     ];
 }
 
-// A cog (THPS3's Foundry).
-function gear(): Layer[] {
-    const shapes: Layer[] = [];
-    for (let i = 0; i < 8; i++) {
-        const a = radians(i * 45);
-        shapes.push([
-            INK,
-            line(32 + 8 * Math.cos(a), 31 + 8 * Math.sin(a), 32 + 14 * Math.cos(a), 31 + 14 * Math.sin(a), 4.2),
-        ]);
-    }
-    shapes.push([INK, circle(32, 31, 11)], [CUT, circle(32, 31, 4)]);
-    return shapes;
-}
-
 // A fir tree (Canada).
 function pine(): Layer[] {
     return [
@@ -577,25 +562,897 @@ function pine(): Layer[] {
     ];
 }
 
-// Christ the Redeemer (Rio): a figure with its arms out, on its pedestal.
+// Christ the Redeemer (Rio): the robed figure with its arms out, on its pedestal on Corcovado's peak.
 function redeemer(): Layer[] {
     return [
-        [INK, circle(32, 15, 2.6)],
-        [INK, rect(17, 18.5, 47, 21.5)],
-        [INK, poly([28.5, 18.5], [35.5, 18.5], [35, 40], [29, 40])],
-        [INK, rect(27.5, 40, 36.5, 46)],
+        [INK, circle(32, 14.5, 2.5)],
+        [INK, poly([20, 18.5], [44, 18.5], [44, 21], [35.5, 22.5], [28.5, 22.5], [20, 21])],
+        [INK, poly([29, 17.5], [35, 17.5], [36.5, 36], [27.5, 36])],
+        [CUT, line(32, 24, 32, 36, 0.7)],
+        [INK, rect(28.5, 35.5, 35.5, 39)],
+        [INK, poly([28, 39], [36, 39], [39, 41], [44, 45], [20, 45], [25, 41])],
     ];
 }
 
-// A shrine gate (Tokyo).
+// A shrine gate (Kyoto).
 function torii(): Layer[] {
     return [
-        [INK, poly([15.5, 16], [48.5, 16], [46, 21], [18, 21])],
-        [INK, rect(19.5, 25, 44.5, 27.5)],
-        [INK, rect(22, 20, 25.5, 47)],
-        [INK, rect(38.5, 20, 42, 47)],
-        [INK, rect(30.5, 20, 33.5, 25.5)],
+        [INK, poly([20, 19.5], [32, 21], [44, 19.5], [43, 24], [21, 24])],
+        [INK, rect(21.5, 27.5, 42.5, 30)],
+        [INK, poly([23.8, 23.5], [27, 23.5], [27.5, 46], [23.3, 46])],
+        [INK, poly([37, 23.5], [40.2, 23.5], [40.7, 46], [36.5, 46])],
+        [INK, rect(30.5, 23.5, 33.5, 28)],
     ];
+}
+
+// --- the signs added for every ported level (each its own; a landmark or symbol of the level) --------------------
+
+// `shape` turned by `degrees` (clockwise on the y-down sign) about (cx, cy).
+function turned(shape: Shape, cx: number, cy: number, degrees: number): Shape {
+    const c = Math.cos(radians(degrees));
+    const s = Math.sin(radians(degrees));
+    return (x, y) => {
+        const dx = x - cx;
+        const dy = y - cy;
+        return shape(cx + dx * c + dy * s, cy - dx * s + dy * c);
+    };
+}
+
+function turnAll(layers: readonly Layer[], cx: number, cy: number, degrees: number): Layer[] {
+    return layers.map(([mode, shape]): Layer => [mode, turned(shape, cx, cy, degrees)]);
+}
+
+// `layers` scaled by `k` about (cx, cy) and moved by (dx, dy).
+function scaleAll(layers: readonly Layer[], cx: number, cy: number, k: number, dx = 0, dy = 0): Layer[] {
+    return layers.map(
+        ([mode, shape]): Layer => [mode, (x, y) => shape(cx + (x - dx - cx) / k, cy + (y - dy - cy) / k)],
+    );
+}
+
+// A rectangle with rounded corners.
+function rrect(x0: number, y0: number, x1: number, y1: number, r: number): Shape {
+    const inner = rect(x0 + r, y0 + r, x1 - r, y1 - r);
+    return (x, y) => {
+        if (x < x0 || x > x1 || y < y0 || y > y1) return false;
+        const cx = Math.max(x0 + r, Math.min(x1 - r, x));
+        const cy = Math.max(y0 + r, Math.min(y1 - r, y));
+        return inner(x, y) || sq(x - cx) + sq(y - cy) <= r * r;
+    };
+}
+
+// A digit 0 / 1 in a w x h box at (x, y), strokes `t` wide (the freeway shield's number).
+function digit(n: number, x: number, y: number, w: number, h: number, t: number): Shape[] {
+    if (n === 1)
+        return [rect(x + w / 2 - t / 2, y, x + w / 2 + t / 2, y + h), line(x + w / 2, y + 0.5, x + 0.6, y + 2.2, t)];
+    const outer = rrect(x, y, x + w, y + h, w / 2.5);
+    const inner = rrect(x + t, y + t, x + w - t, y + h - t, (w - 2 * t) / 2.5);
+    return [(px, py) => outer(px, py) && !inner(px, py)];
+}
+
+// THPS3's Foundry: a ladle tipped to pour molten metal.
+function ladle(): Layer[] {
+    const cx = 32;
+    const cy = 26.5;
+    const r = 9.5;
+    const tilt = radians(25);
+    // the bowl: the circle below its rim (a line through the middle, tipped down to the right)
+    const bowl: Shape = (x, y) =>
+        sq(x - cx) + sq(y - cy) <= r * r && -(x - cx) * Math.sin(tilt) + (y - cy) * Math.cos(tilt) >= -0.5;
+    return [
+        [INK, bowl],
+        [
+            CUT,
+            (x, y) =>
+                sq(x - cx) + sq(y - cy) <= sq(r - 2.2) &&
+                -(x - cx) * Math.sin(tilt) + (y - cy) * Math.cos(tilt) >= 0.6 &&
+                -(x - cx) * Math.sin(tilt) + (y - cy) * Math.cos(tilt) <= 1.6,
+        ],
+        [INK, line(cx - r * Math.cos(tilt) + 1, cy - r * Math.sin(tilt) + 0.5, 20.5, 21.2, 2.4)],
+        [
+            INK,
+            polyline(
+                [
+                    [cx + r * Math.cos(tilt) - 0.3, cy + r * Math.sin(tilt) + 0.3],
+                    [41.6, 35],
+                    [41.3, 40.5],
+                ],
+                2.6,
+            ),
+        ],
+        [INK, ellipse(38.5, 42.5, 5.5, 2.2)],
+        [INK, circle(33.6, 39.8, 1.1)],
+        [INK, circle(45, 38.8, 0.9)],
+    ];
+}
+
+// THPS3's Airport: the control tower.
+function tower(): Layer[] {
+    const shapes: Layer[] = [
+        [INK, line(32, 10.5, 32, 16, 1.3)],
+        [INK, poly([25.5, 16], [38.5, 16], [40, 19], [24, 19])],
+        [INK, poly([21.5, 19], [42.5, 19], [39.5, 28], [24.5, 28])],
+        [CUT, poly([23.4, 20.6], [40.6, 20.6], [39.6, 24.2], [24.4, 24.2])],
+        [INK, rect(28.5, 27, 35.5, 44)],
+        [INK, poly([26, 44], [38, 44], [40, 47], [24, 47])],
+        [CUT, rect(31.3, 31, 32.7, 40)],
+    ];
+    for (const x of [27.8, 32, 36.2]) shapes.push([INK, rect(x - 0.6, 20, x + 0.6, 25)]);
+    return shapes;
+}
+
+// THPS3's Skater Island (a competition park): the trophy.
+function trophy(): Layer[] {
+    return [
+        [INK, poly([23, 17], [41, 17], [40.5, 23], [37.5, 29], [32, 32.5], [26.5, 29], [23.5, 23])],
+        [INK, arc(23.5, 23, 4.4, 2.2, 90, 270)],
+        [INK, arc(40.5, 23, 4.4, 2.2, -90, 90)],
+        [CUT, poly([26.2, 19.5], [28.2, 19.5], [29.2, 27], [27.8, 27])],
+        [INK, rect(30.5, 31, 33.5, 38)],
+        [INK, poly([26.5, 38], [37.5, 38], [39.5, 42.5], [24.5, 42.5])],
+        [INK, rect(23.5, 42.5, 40.5, 45.5)],
+    ];
+}
+
+// THPS3's Los Angeles (its freeway): a US route shield, 101.
+function freeway(): Layer[] {
+    const shapes: Layer[] = [
+        [
+            INK,
+            poly(
+                [22, 19],
+                [27, 18],
+                [32, 19.5],
+                [37, 18],
+                [42, 19],
+                [43.5, 24],
+                [43, 32],
+                [40, 39],
+                [35, 44],
+                [32, 46.5],
+                [29, 44],
+                [24, 39],
+                [21, 32],
+                [20.5, 24],
+            ),
+        ],
+    ];
+    const h = 11;
+    const y = 24.5;
+    for (const [n, x] of [
+        [1, 23],
+        [0, 28.8],
+        [1, 35.4],
+    ] as const) {
+        for (const s of digit(n, x, y, 5.6, h, 2.0)) shapes.push([CUT, s]);
+    }
+    return shapes;
+}
+
+// THPS3's Tokyo: Tokyo Tower.
+function tokyotower(): Layer[] {
+    return [
+        [INK, line(32, 8.6, 32, 17, 1.2)],
+        [INK, poly([30.6, 16], [33.4, 16], [35.5, 30], [28.5, 30])],
+        [INK, rect(28.2, 20, 35.8, 22)],
+        [INK, rect(25.5, 29.5, 38.5, 33)],
+        [INK, poly([27.5, 33], [36.5, 33], [42, 46], [22, 46])],
+        [CUT, ellipse(32, 47, 5.5, 7.5)],
+        [CUT, rect(20, 25.5, 44, 26.5)],
+        [CUT, rect(20, 37, 44, 38)],
+    ];
+}
+
+// THPS3's Burnside (under Portland's Burnside Bridge): the bridge, its two leaves raised between its towers.
+function burnside(): Layer[] {
+    const shapes: Layer[] = [
+        [INK, rect(17.5, 33, 25, 35.5)],
+        [INK, rect(39, 33, 46.5, 35.5)],
+        [INK, line(27.5, 34.2, 30.6, 25.5, 2.6)],
+        [INK, line(36.5, 34.2, 33.4, 25.5, 2.6)],
+    ];
+    for (const x of [25.25, 38.75]) {
+        shapes.push(
+            [INK, rect(x - 2.4, 24, x + 2.4, 40.5)],
+            [INK, poly([x - 3, 24.5], [x + 3, 24.5], [x, 19.5])],
+            [CUT, rect(x - 0.8, 27, x + 0.8, 30)],
+            [INK, rect(x - 3, 40, x + 3, 44)],
+        );
+    }
+    shapes.push([
+        INK,
+        polyline(
+            [
+                [21.5, 45],
+                [25, 44],
+                [28.5, 45],
+                [32, 44],
+                [35.5, 45],
+                [39, 44],
+                [42.5, 45],
+            ],
+            1.4,
+        ),
+    ]);
+    return shapes;
+}
+
+// THPS3's Tutorials: the coach's whistle.
+function whistle(): Layer[] {
+    return [
+        [INK, circle(28, 33.5, 8.5)],
+        [INK, rrect(28, 24.5, 46, 31, 0.8)],
+        [CUT, poly([30.5, 24], [35, 24], [35, 28], [32, 28])],
+        [CUT, circle(28, 34, 3.2)],
+        [INK, ring(19, 25.5, 3, 1.6)],
+    ];
+}
+
+// THPS3's skate shop: a shop front with a striped awning.
+function shop(): Layer[] {
+    const shapes: Layer[] = [
+        [INK, rect(24.5, 16.5, 39.5, 21)],
+        [CUT, rect(26.5, 18.2, 37.5, 19.3)],
+        [INK, poly([20, 22], [44, 22], [46.5, 28.5], [17.5, 28.5])],
+    ];
+    for (const x of [24, 32, 40])
+        shapes.push([CUT, poly([x - 1.4, 22.8], [x + 1.4, 22.8], [x + 2.4, 28.6], [x - 2.4, 28.6])]);
+    for (let x = 19.5; x <= 45; x += 4) shapes.push([INK, circle(x, 28.6, 2)]);
+    shapes.push(
+        [INK, rect(20, 29, 44, 44)],
+        [CUT, rect(22.5, 32.5, 32, 40.5)],
+        [CUT, rect(35, 32.5, 41.5, 44.5)],
+        [INK, line(23.8, 39, 30.8, 39, 1.2)],
+        [INK, circle(25.3, 40, 0.8)],
+        [INK, circle(29.3, 40, 0.8)],
+    );
+    return shapes;
+}
+
+// THPS4's Alcatraz: its lighthouse.
+function lighthouse(): Layer[] {
+    return [
+        [INK, line(32, 12.5, 32, 15.5, 1.1)],
+        [INK, ellipse(32, 19, 4.5, 3.6)],
+        [INK, rect(28.5, 19, 35.5, 24.5)],
+        [CUT, rect(30, 20, 34, 23.5)],
+        [INK, poly([29, 21.2], [21.5, 18.5], [21.5, 23.8])],
+        [INK, poly([35, 21.2], [42.5, 18.5], [42.5, 23.8])],
+        [INK, rect(26, 24.5, 38, 27)],
+        [INK, poly([28, 27], [36, 27], [38.5, 45], [25.5, 45])],
+        [CUT, rect(20, 31, 44, 33.3)],
+        [CUT, rect(20, 37.5, 44, 39.8)],
+        [INK, poly([22, 44.5], [42, 44.5], [40.5, 46.8], [23.5, 46.8])],
+    ];
+}
+
+// THPS4's Carnival: the big top.
+function tent(): Layer[] {
+    const shapes: Layer[] = [
+        [INK, line(32, 9.6, 32, 15, 1.2)],
+        [INK, poly([32, 10], [35.5, 11.2], [32, 12.6])],
+        [INK, poly([32, 14], [38, 19], [45, 27.5], [45, 30], [19, 30], [19, 27.5], [26, 19])],
+        [INK, rect(21, 29, 43, 44.5)],
+    ];
+    for (const x of [23.5, 28, 36, 40.5]) shapes.push([CUT, line(32, 15.5, x, 29.6, 1.1)]);
+    shapes.push([CUT, rect(19, 30, 45, 31.2)]);
+    for (const x of [25.5, 38.5]) shapes.push([CUT, rect(x - 0.55, 31, x + 0.55, 45)]);
+    shapes.push([CUT, poly([32, 33.5], [36.5, 44.6], [27.5, 44.6])]);
+    return shapes;
+}
+
+// THPS4's Kona: the snake run - a snake.
+function snake(): Layer[] {
+    return scaleAll(snakeDrawn(), 32, 30, 0.92, -1.5, 1.5);
+}
+
+function snakeDrawn(): Layer[] {
+    return [
+        [
+            INK,
+            polyline(
+                [
+                    [35, 17.5],
+                    [29, 18.2],
+                    [24.5, 21],
+                    [23.5, 25.5],
+                    [27, 29],
+                    [34, 30.5],
+                    [39.5, 33.5],
+                    [40.5, 38.5],
+                    [36.5, 42.5],
+                    [29, 43.8],
+                    [22, 42.5],
+                ],
+                4.4,
+            ),
+        ],
+        [INK, ellipse(37.5, 17, 4.6, 3.4, -8)],
+        [CUT, circle(38.5, 15.8, 0.9)],
+        [
+            INK,
+            polyline(
+                [
+                    [41.5, 17.2],
+                    [44.5, 17.6],
+                    [46, 16.2],
+                ],
+                0.9,
+            ),
+        ],
+        [INK, line(44.5, 17.6, 46, 19.2, 0.9)],
+        [INK, line(22, 42.5, 19.5, 41, 2.2)],
+    ];
+}
+
+// THPS4's Zoo: an elephant.
+function elephant(): Layer[] {
+    return [
+        [INK, ellipse(35, 29.5, 11, 8.5)],
+        [INK, circle(23, 25.5, 6.5)],
+        [
+            INK,
+            polyline(
+                [
+                    [19.5, 27],
+                    [17.3, 33],
+                    [17.6, 38.5],
+                    [20.2, 41],
+                ],
+                3.4,
+            ),
+        ],
+        [INK, line(45.5, 27, 47.5, 34, 1.2)],
+        [CUT, ellipse(27.8, 27.8, 5.3, 7.2)],
+        [INK, ellipse(27.8, 27.8, 4.2, 6.1)],
+        [CUT, circle(21, 24, 1)],
+        [INK, rect(25, 33, 29.5, 43)],
+        [INK, rect(31, 33, 35, 43)],
+        [INK, rect(37.5, 33, 41.5, 43)],
+        [INK, rect(42.5, 31, 45.5, 42.5)],
+    ];
+}
+
+// THPS4's skate shop: a T-shirt.
+function tshirt(): Layer[] {
+    return [
+        [
+            INK,
+            poly(
+                [26, 17.5],
+                [29, 17],
+                [32, 20],
+                [35, 17],
+                [38, 17.5],
+                [46, 23],
+                [43, 29],
+                [39.5, 27],
+                [39.5, 45],
+                [24.5, 45],
+                [24.5, 27],
+                [21, 29],
+                [18, 23],
+            ),
+        ],
+        [CUT, ring(32, 32.5, 3.4, 1.4)],
+        [CUT, line(29.5, 32.5, 34.5, 32.5, 1)],
+    ];
+}
+
+// THUG1's New Jersey: a fire hydrant.
+function hydrant(): Layer[] {
+    return [
+        [INK, rect(30.5, 15.5, 33.5, 19)],
+        [INK, ellipse(32, 23, 6.5, 4.5)],
+        [INK, rrect(24.5, 22.5, 39.5, 25.5, 0.8)],
+        [INK, rect(26.5, 25, 37.5, 43)],
+        [INK, rrect(20.5, 29, 27, 35, 0.8)],
+        [INK, rrect(37, 29, 43.5, 35, 0.8)],
+        [CUT, ring(32, 32, 3.1, 1)],
+        [CUT, rect(28, 38, 36, 39)],
+        [INK, rrect(23.5, 42.5, 40.5, 46, 0.8)],
+    ];
+}
+
+// THUG1's Vancouver: a totem pole crowned by its thunderbird.
+function totem(): Layer[] {
+    const shapes: Layer[] = [
+        [INK, poly([28, 15], [32, 11.5], [36, 15], [36.5, 20], [27.5, 20])],
+        [INK, poly([26.5, 19.5], [17.5, 21], [18.5, 24.5], [22, 23.5], [26.5, 26])],
+        [INK, poly([37.5, 19.5], [46.5, 21], [45.5, 24.5], [42, 23.5], [37.5, 26])],
+        [INK, rect(26.5, 19.5, 37.5, 46)],
+        [CUT, ellipse(29.8, 16.5, 1, 1)],
+        [CUT, ellipse(34.2, 16.5, 1, 1)],
+        [CUT, poly([29.5, 20.5], [34.5, 20.5], [32, 25.5])],
+        [INK, poly([30.6, 20.5], [33.4, 20.5], [32, 24])],
+        [CUT, rect(25, 26.3, 39, 27.1)],
+        [CUT, rect(25, 36.4, 39, 37.2)],
+    ];
+    for (const y of [29.8, 39.8]) {
+        shapes.push(
+            [CUT, ellipse(29.5, y, 2, 1.4)],
+            [CUT, ellipse(34.5, y, 2, 1.4)],
+            [INK, circle(29.5, y, 0.7)],
+            [INK, circle(34.5, y, 0.7)],
+            [CUT, rrect(28.5, y + 2.8, 35.5, y + 4.8, 0.6)],
+            [INK, rect(31.5, y + 2.8, 32.5, y + 4.8)],
+        );
+    }
+    return shapes;
+}
+
+// THUG1's Downhill Jam (Phoenix): a saguaro.
+function cactus(): Layer[] {
+    return [
+        [INK, line(32, 14.5, 32, 45, 6)],
+        [
+            INK,
+            polyline(
+                [
+                    [29.5, 33],
+                    [23.5, 33],
+                    [23.5, 23.5],
+                ],
+                4.6,
+            ),
+        ],
+        [
+            INK,
+            polyline(
+                [
+                    [34.5, 28.5],
+                    [40.5, 28.5],
+                    [40.5, 21],
+                ],
+                4.6,
+            ),
+        ],
+        [INK, rect(23, 44.5, 41, 46.8)],
+    ];
+}
+
+// THUG1's Philadelphia (THPS2's Philly): the LOVE sculpture.
+function love(): Layer[] {
+    const t = 3.2;
+    const shapes: Layer[] = [
+        // L
+        [INK, rect(20.5, 20.5, 20.5 + t, 31)],
+        [INK, rect(20.5, 31 - t, 30.5, 31)],
+        // O, tilted
+        ...turnAll(
+            [
+                [INK, ellipse(38.3, 25.7, 5.2, 5.7)],
+                [CUT, ellipse(38.3, 25.7, 2.1, 2.5)],
+            ],
+            38.3,
+            25.7,
+            30,
+        ),
+        // V
+        [INK, poly([20.5, 33.5], [23.9, 33.5], [25.5, 40], [27.1, 33.5], [30.5, 33.5], [27.2, 43.5], [23.8, 43.5])],
+        // E
+        [INK, rect(33.5, 33.5, 33.5 + t, 43.5)],
+        [INK, rect(33.5, 33.5, 43.5, 33.5 + 2.6)],
+        [INK, rect(33.5, 37.3, 42, 39.7)],
+        [INK, rect(33.5, 43.5 - 2.6, 43.5, 43.5)],
+    ];
+    return shapes;
+}
+
+// THUG1's Venice (Muscle Beach): a barbell.
+function dumbbell(): Layer[] {
+    const shapes: Layer[] = [[INK, rect(17.5, 30.8, 46.5, 33.2)]];
+    for (const side of [-1, 1]) {
+        const x = 32 + side * 10;
+        shapes.push(
+            [INK, rrect(x - 2, 21.5, x + 2, 42.5, 1)],
+            [INK, rrect(x + side * 2.2 - 1.6, 24.5, x + side * 2.2 + 1.6, 39.5, 0.8)],
+        );
+    }
+    return shapes;
+}
+
+// THUG1's Hangar (Mullet Falls): a helicopter.
+function helicopter(): Layer[] {
+    return [
+        [INK, line(18.5, 21.5, 45, 21.5, 1.6)],
+        [INK, rect(29, 21.5, 31.5, 25)],
+        [INK, ellipse(29.5, 31, 9.5, 6.5)],
+        [INK, poly([36, 28], [47, 27], [47, 29.5], [37, 33])],
+        [INK, line(46.5, 24.5, 46.5, 31, 1.6)],
+        [CUT, poly([21, 30], [23, 26.5], [28, 26], [28, 30.5])],
+        [INK, line(24, 37, 24, 41, 1.3)],
+        [INK, line(34, 37, 34, 41, 1.3)],
+        [
+            INK,
+            polyline(
+                [
+                    [19.5, 40],
+                    [21, 41.3],
+                    [38, 41.3],
+                ],
+                1.6,
+            ),
+        ],
+    ];
+}
+
+// THUG1's Old School (THPS1's School, Miami): a school bus.
+function bus(): Layer[] {
+    const shapes: Layer[] = [
+        [INK, rrect(17, 23, 42, 39, 1.5)],
+        [INK, rrect(40, 29, 48, 39, 1.5)],
+        [CUT, rect(19.5, 25.5, 39.5, 30)],
+        [CUT, rect(43, 30.5, 46.5, 31.5)],
+        [CUT, rect(17, 33, 42, 33.8)],
+    ];
+    for (const x of [24.5, 29.5, 34.5]) shapes.push([INK, rect(x - 0.6, 25, x + 0.6, 30.5)]);
+    for (const x of [23, 41.5])
+        shapes.push([CUT, circle(x, 39.5, 4.6)], [INK, circle(x, 39.5, 3.4)], [CUT, circle(x, 39.5, 1)]);
+    return shapes;
+}
+
+// THUG1's School II (THPS2's, Southern California): an apple for the teacher.
+function apple(): Layer[] {
+    return [
+        [INK, circle(28.3, 33, 8.6)],
+        [INK, circle(35.7, 33, 8.6)],
+        [INK, ellipse(32, 38, 9, 7)],
+        [CUT, circle(32, 23.2, 2.4)],
+        [
+            INK,
+            polyline(
+                [
+                    [31.6, 26],
+                    [32, 21.5],
+                    [33.5, 18],
+                ],
+                1.8,
+            ),
+        ],
+        [INK, leaf(33.5, 21.5, 41.5, 17.5, -2.2, 4.2)],
+        [CUT, ellipse(26, 30.5, 1.3, 2.6, 25)],
+    ];
+}
+
+// THUG1's NJ skate shop: a price tag.
+function tag(): Layer[] {
+    const flat: Layer[] = [
+        [INK, poly([18.5, 32], [25, 25], [45.5, 25], [45.5, 39], [25, 39])],
+        [CUT, circle(25, 32, 2.2)],
+        // a $
+        [CUT, line(36, 27, 36, 37, 1.1)],
+        [CUT, arc(36, 30, 2.4, 1.5, 0, 270)],
+        [CUT, arc(36, 34, 2.4, 1.5, 180, 450)],
+    ];
+    return [
+        ...turnAll(flat, 32, 32, -30),
+        [
+            INK,
+            polyline(
+                [
+                    [22.4, 30.2],
+                    [20, 26],
+                    [21.5, 20],
+                    [26, 17],
+                ],
+                1.2,
+            ),
+        ],
+    ];
+}
+
+// THAW's Chicago: an L train on its elevated track.
+function train(): Layer[] {
+    const shapes: Layer[] = [
+        [INK, rrect(18, 22, 46, 34, 1.5)],
+        [CUT, rect(20.5, 24.5, 43.5, 29)],
+        [CUT, rect(18, 31, 46, 31.8)],
+        [INK, rect(21, 34, 26, 36)],
+        [INK, rect(38, 34, 43, 36)],
+        [INK, rect(15.5, 36, 48.5, 38.5)],
+        [INK, rect(21, 38.5, 24, 46)],
+        [INK, rect(40, 38.5, 43, 46)],
+        [INK, line(24, 39, 40, 45.5, 1.2)],
+        [INK, line(40, 39, 24, 45.5, 1.2)],
+    ];
+    for (const x of [26.2, 32, 37.8]) shapes.push([INK, rect(x - 0.6, 24, x + 0.6, 29.5)]);
+    return shapes;
+}
+
+// THAW's The Mall: a shopping cart.
+function cart(): Layer[] {
+    const shapes: Layer[] = [
+        [
+            INK,
+            polyline(
+                [
+                    [17.5, 23.5],
+                    [21.5, 23.5],
+                    [26, 39],
+                    [43, 39],
+                ],
+                2,
+            ),
+        ],
+        [INK, poly([22, 25], [47, 25], [43.5, 36], [25.2, 36])],
+    ];
+    for (const x of [28, 33, 38, 43]) shapes.push([CUT, line(x, 26.8, x - 0.8, 34.4, 1.2)]);
+    shapes.push([CUT, rect(20, 30.3, 48, 31.3)]);
+    shapes.push([INK, circle(27.5, 43, 2.4)], [INK, circle(41, 43, 2.4)]);
+    return shapes;
+}
+
+// THAW's Minneapolis: the Spoonbridge and Cherry.
+function spoonbridge(): Layer[] {
+    return scaleAll(spoonbridgeDrawn(), 32, 29, 0.88);
+}
+
+function spoonbridgeDrawn(): Layer[] {
+    return [
+        [
+            INK,
+            polyline(
+                [
+                    [17, 41],
+                    [24, 39.5],
+                    [31, 36.5],
+                    [36, 33],
+                ],
+                2.6,
+            ),
+        ],
+        [INK, ellipse(40.5, 30.5, 7, 3.6, -28)],
+        [CUT, ellipse(41.5, 29, 4.6, 1.2, -28)],
+        [INK, circle(40.5, 22.5, 5)],
+        [CUT, ellipse(38.4, 20.6, 1, 1.6, 30)],
+        [
+            INK,
+            polyline(
+                [
+                    [40.5, 17.5],
+                    [39, 14],
+                    [35.5, 11.5],
+                ],
+                1.4,
+            ),
+        ],
+        [
+            INK,
+            polyline(
+                [
+                    [18, 44.5],
+                    [24, 43],
+                    [30, 44.5],
+                    [36, 43],
+                    [42, 44.5],
+                ],
+                1.6,
+            ),
+        ],
+    ];
+}
+
+// THAW's Santa Cruz: a surfboard.
+function surfboard(): Layer[] {
+    return scaleAll(surfboardDrawn(), 32, 30, 0.88);
+}
+
+function surfboardDrawn(): Layer[] {
+    const board: Layer[] = [
+        [
+            INK,
+            poly(
+                [32, 10.5],
+                [35.5, 16],
+                [37.5, 26],
+                [37.5, 38],
+                [35.5, 46],
+                [32, 48],
+                [28.5, 46],
+                [26.5, 38],
+                [26.5, 26],
+                [28.5, 16],
+            ),
+        ],
+        [CUT, rect(31.4, 14, 32.6, 46)],
+        [CUT, rect(26, 21.5, 38, 23.2)],
+        [INK, poly([31.5, 40], [32.5, 40], [32.5, 46], [31.5, 46])],
+    ];
+    return turnAll(board, 32, 29.5, 28);
+}
+
+// THAW's The Ruins: broken fluted columns on their steps.
+function column(): Layer[] {
+    const shapes: Layer[] = [
+        [INK, poly([21.5, 19], [24, 16.5], [26, 19.5], [29, 17.5], [29, 41], [21.5, 41])],
+        [INK, poly([34.5, 29], [37, 31], [39.5, 27.5], [42, 30], [42, 41], [34.5, 41])],
+        [INK, rect(20, 40.5, 44, 43.8)],
+        [INK, rect(22, 43.8, 42, 46)],
+    ];
+    for (const x of [24, 26.5, 37, 39.5]) shapes.push([CUT, rect(x - 0.45, 21, x + 0.45, 39.5)]);
+    shapes.push([CUT, rect(20, 42, 44, 42.6)]);
+    return shapes;
+}
+
+// THAW's Vans Park: a skate shoe with its side stripe.
+function shoe(): Layer[] {
+    return [
+        [
+            INK,
+            poly(
+                [16.5, 36],
+                [18.5, 31.5],
+                [24, 29.5],
+                [29.5, 26.5],
+                [34, 22],
+                [37, 19.5],
+                [44, 19.5],
+                [46, 23],
+                [47.5, 36],
+            ),
+        ],
+        [INK, rrect(16, 36, 48, 41.5, 2)],
+        [CUT, rect(16, 37.4, 48, 38.4)],
+        [
+            CUT,
+            polyline(
+                [
+                    [22, 35],
+                    [30, 31.5],
+                    [38, 31],
+                    [44, 26],
+                ],
+                1.5,
+            ),
+        ],
+        [CUT, line(29, 27.6, 31.8, 30.4, 1.0)],
+        [CUT, line(32, 24.8, 34.8, 27.6, 1.0)],
+        [CUT, ellipse(41, 21.7, 2.6, 1.0)],
+    ];
+}
+
+// THAW's Hollywood: a clapperboard.
+function clapper(): Layer[] {
+    const stick: Layer[] = [[INK, rect(20.5, 22, 44, 26)]];
+    for (const x of [24, 30, 36, 42])
+        stick.push([CUT, poly([x, 22.7], [x + 2.4, 22.7], [x + 0.6, 25.3], [x - 1.8, 25.3])]);
+    return [
+        ...turnAll(stick, 21, 26.5, -13),
+        [INK, rect(20.5, 27.5, 44, 44)],
+        [CUT, rect(22.5, 29.5, 42, 30.4)],
+        [CUT, rect(22.5, 32.5, 42, 32.9)],
+        [CUT, rect(31.7, 29.5, 32.5, 42)],
+        [CUT, rect(22.5, 36.5, 42, 37.2)],
+    ];
+}
+
+// THAW's Beverly Hills: a mansion's columned front.
+function mansion(): Layer[] {
+    const shapes: Layer[] = [
+        [INK, poly([19, 24], [32, 15.5], [45, 24])],
+        [CUT, poly([25, 22.4], [32, 18.6], [39, 22.4])],
+        [INK, rect(20, 24, 44, 27)],
+        [INK, rect(19.5, 41, 44.5, 43.5)],
+        [INK, rect(21.5, 43.5, 42.5, 46)],
+    ];
+    for (const x of [22.5, 27.5, 36.5, 41.5]) shapes.push([INK, rect(x - 1.4, 27, x + 1.4, 41)]);
+    shapes.push([INK, rrect(29.6, 31, 34.4, 41, 1.6)]);
+    return shapes;
+}
+
+// THAW's Downtown: Los Angeles City Hall.
+function cityhall(): Layer[] {
+    const shapes: Layer[] = [
+        [INK, poly([28.8, 15.5], [35.2, 15.5], [32, 9.5])],
+        [INK, rect(29, 15, 35, 19)],
+        [INK, rect(27.5, 19, 36.5, 36)],
+        [INK, rect(21.5, 34, 42.5, 45)],
+        [INK, rect(25, 30, 39, 34)],
+    ];
+    for (const x of [30.2, 33.8]) shapes.push([CUT, rect(x - 0.45, 21, x + 0.45, 33)]);
+    for (const x of [24.5, 28, 36, 39.5]) shapes.push([CUT, rect(x - 0.5, 36.5, x + 0.5, 43)]);
+    return shapes;
+}
+
+// THAW's East L.A.: a lowrider, long and low, nose up on its hydraulics.
+function lowrider(): Layer[] {
+    const car: Layer[] = [
+        [INK, poly([15.5, 36], [16, 31.5], [25, 30], [28.5, 26], [38, 26], [41.5, 30], [48.5, 31], [48.5, 36])],
+        [CUT, poly([29.3, 27.5], [32.6, 27.5], [32.6, 30.2], [27.1, 30.2])],
+        [CUT, poly([34.2, 27.5], [37.4, 27.5], [39.7, 30.2], [34.2, 30.2])],
+        [CUT, rect(16, 33, 48.5, 33.6)],
+    ];
+    const shapes = turnAll(car, 32, 35, -6);
+    for (const [x, y] of [
+        [22.5, 37.4],
+        [41.5, 35.4],
+    ] as const) {
+        shapes.push(
+            [CUT, circle(x, y, 4.2)],
+            [INK, circle(x, y, 3.3)],
+            [CUT, circle(x, y, 1.7)],
+            [INK, circle(x, y, 0.9)],
+        );
+    }
+    return shapes;
+}
+
+// THAW's Skate Ranch: a horseshoe.
+function horseshoe(): Layer[] {
+    const shapes: Layer[] = [
+        [INK, arc(32, 30, 9.5, 5.5, -10, 190)],
+        [INK, line(22.6, 28.3, 23.8, 18.5, 5.2)],
+        [INK, line(41.4, 28.3, 40.2, 18.5, 5.2)],
+    ];
+    for (let i = 0; i < 7; i++) {
+        const a = radians(-5 + i * 31.7);
+        shapes.push([CUT, ellipse(32 + 9.7 * Math.cos(a), 30 + 9.7 * Math.sin(a), 0.6, 1.0, i * 31.7 - 5 + 90)]);
+    }
+    return shapes;
+}
+
+// THAW's Casino: a pair of dice.
+function dice(): Layer[] {
+    const pip = (cx: number, cy: number, at: readonly (readonly [number, number])[]): Layer[] =>
+        at.map(([u, v]): Layer => [CUT, circle(cx + u * 4.2, cy + v * 4.2, 1.45)]);
+    const back: Layer[] = [
+        [INK, rrect(30.5, 18.5, 44.5, 32.5, 2.1)],
+        ...pip(37.5, 25.5, [
+            [-1, -1],
+            [0, 0],
+            [1, 1],
+        ]),
+    ];
+    const front: Layer[] = [
+        [INK, rrect(18, 27, 34, 43, 2.2)],
+        ...pip(26, 35, [
+            [-1, -1],
+            [1, -1],
+            [0, 0],
+            [-1, 1],
+            [1, 1],
+        ]),
+    ];
+    return [
+        ...turnAll(back, 37.5, 25.5, 14),
+        [CUT, turned(rrect(16.5, 25.5, 35.5, 44.5, 3), 26, 35, -10)],
+        ...turnAll(front, 26, 35, -10),
+    ];
+}
+
+// THAW's Oil Rig: the derrick on its platform.
+function rig(): Layer[] {
+    const shapes: Layer[] = [
+        [INK, poly([30, 10.5], [34, 10.5], [38.5, 28], [25.5, 28])],
+        [CUT, poly([31, 14], [33, 14], [35.6, 26], [28.4, 26])],
+        [INK, line(30.5, 15, 36, 26.5, 1.1)],
+        [INK, line(33.5, 15, 28, 26.5, 1.1)],
+        [INK, rect(27, 20, 37, 21)],
+        [INK, rect(18, 28, 46, 31.5)],
+        [INK, rect(19.5, 23.5, 25, 28)],
+        [INK, rect(40, 25, 44, 28)],
+        [INK, rect(21.5, 31.5, 24.5, 44)],
+        [INK, rect(39.5, 31.5, 42.5, 44)],
+        [INK, line(24, 33, 40, 41, 1.1)],
+        [INK, line(40, 33, 24, 41, 1.1)],
+        [
+            INK,
+            polyline(
+                [
+                    [18.5, 43],
+                    [22, 41.5],
+                    [26, 43],
+                    [30, 41.5],
+                    [34, 43],
+                    [38, 41.5],
+                    [42, 43],
+                    [45.5, 41.5],
+                ],
+                1.6,
+            ),
+        ],
+    ];
+    return shapes;
 }
 
 // A cruise liner.
@@ -613,11 +1470,11 @@ function ship(): Layer[] {
 // A shipping crate (the Warehouse).
 function crate(): Layer[] {
     return [
-        [INK, rect(19, 19, 45, 45)],
-        [CUT, rect(22, 22, 42, 42)],
-        [INK, line(22, 22, 42, 42, 3.4)],
-        [INK, line(42, 22, 22, 42, 3.4)],
-        [INK, rect(19, 30.5, 45, 33.5)],
+        [INK, rect(20, 20, 44, 44)],
+        [CUT, rect(23, 23, 41, 41)],
+        [INK, line(23, 23, 41, 41, 3.4)],
+        [INK, line(41, 23, 23, 41, 3.4)],
+        [INK, rect(20, 30.5, 44, 33.5)],
     ];
 }
 
@@ -637,13 +1494,11 @@ export const PICTOGRAMS: ReadonlyMap<string, () => Layer[]> = new Map(
     [
         skateboard,
         cone,
-        bars,
         bridge,
         mortarboard,
         palm,
         anchor,
         bigben,
-        paw,
         ferris,
         skyline,
         motorbike,
@@ -654,13 +1509,47 @@ export const PICTOGRAMS: ReadonlyMap<string, () => Layer[]> = new Map(
         ramp,
         dome,
         flame,
-        gear,
         pine,
         redeemer,
         torii,
         ship,
         crate,
         ufo,
+        ladle,
+        tower,
+        trophy,
+        freeway,
+        tokyotower,
+        burnside,
+        whistle,
+        shop,
+        lighthouse,
+        tent,
+        snake,
+        elephant,
+        tshirt,
+        hydrant,
+        totem,
+        cactus,
+        love,
+        dumbbell,
+        helicopter,
+        bus,
+        apple,
+        tag,
+        train,
+        cart,
+        spoonbridge,
+        surfboard,
+        column,
+        shoe,
+        clapper,
+        mansion,
+        cityhall,
+        lowrider,
+        horseshoe,
+        dice,
+        rig,
     ].map((f) => [f.name, f]),
 );
 
@@ -683,6 +1572,30 @@ export function coverage(shapes: readonly Layer[]): number[] {
                 }
             }
             out[y * SIZE + x] = hits / (SAMPLES * SAMPLES);
+        }
+    }
+    return out;
+}
+
+// The pictograms keep clear of the frame: every ink sample point within this of the middle (|dx| + |dy|) - THUG2's
+// own reach as far (their dark pixels' centres to 25).
+export const MARGIN_LIMIT = INSIDE - 0.5;
+
+// The sample points (as coverage() takes them, over the whole sign) where `shapes` leave ink beyond MARGIN_LIMIT.
+export function strayInk(shapes: readonly Layer[]): Point[] {
+    const out: Point[] = [];
+    for (let y = 0; y < SIZE; y++) {
+        for (let x = 0; x < SIZE; x++) {
+            for (let j = 0; j < SAMPLES; j++) {
+                for (let i = 0; i < SAMPLES; i++) {
+                    const px = x + (i + 0.5) / SAMPLES;
+                    const py = y + (j + 0.5) / SAMPLES;
+                    if (Math.abs(px - 32) + Math.abs(py - 32) <= MARGIN_LIMIT) continue;
+                    let ink = 0;
+                    for (const [mode, shape] of shapes) if (shape(px, py)) ink = mode;
+                    if (ink) out.push([px, py]);
+                }
+            }
         }
     }
     return out;
@@ -732,45 +1645,79 @@ export function writePng(file: string, w: number, h: number, rgba: Uint8Array): 
     );
 }
 
+// The sign's yellow (the level select tints the grey signs; roughly what it shows): a grey's share of the fill.
+const YELLOW = [242, 200, 24] as const;
+
 async function main(): Promise<number> {
-    const { prxFile } = await import("./make_menu_level.ts");
+    const { prxFile, prxFiles } = await import("./make_menu_level.ts");
+    const levelSelect = await import("./level_select.ts");
     const { values, positionals } = parseCli(USAGE, {
-        options: { game: { type: "string", default: "C:\\Games\\THUG2\\Game" } },
+        options: {
+            game: { type: "string", default: "C:\\Games\\THUG2\\Game" },
+            scale: { type: "string", default: "3" },
+            sheet: { type: "boolean", default: false },
+        },
         allowPositionals: true,
     });
     const [out, ...given] = positionals;
     if (out === undefined) {
-        process.stderr.write("usage: level_select_icons.ts out [names ...] [--game GAME]\n");
+        process.stderr.write(`${USAGE}\n`);
         return 2;
     }
-    let game = values.game;
     // (the install root or the game folder itself: C:\Games\THUG2 -> C:\Games\THUG2\Game - tools/lib/install.ts)
-    game = resolveInstall(game, "thug2");
-    const frame = prxFile(pyJoin(game, "Data", "pre", "Levelselect.prx"), FRAME_SOURCE);
-    const names = given.length ? given : [...PICTOGRAMS.keys()];
-    const scale = 3;
-    const cols = 7;
+    const game = resolveInstall(values.game, "thug2");
+    const prx = pyJoin(game, "Data", "pre", "Levelselect.prx");
+    const frame = prxFile(prx, FRAME_SOURCE);
+    const scale = Number(values.scale);
+    // rows of signs: [a row's images (as read), its names]
+    const groups: [Img[], string[]][] = [];
+    const ours = (names: string[]): [Img[], string[]] => [names.map((name) => readImg(makeSign(frame, name))), names];
+    if (values.sheet) {
+        // THUG2's own signs, then ours section by section (THUG2's added two, THUG1, THPS4, THPS3, THAW), in yellow
+        const own = [...prxFiles(prx, ".img.xbx")].filter(([name]) => /\\sign_/i.test(name));
+        groups.push([
+            own.map(([, data]) => readImg(data)),
+            own.map(([name]) => name.replace(/^.*\\|\.img\.xbx$/g, "")),
+        ]);
+        groups.push(ours([...levelSelect.THUG2_EXTRA.values()].map((e) => e.icon)));
+        for (const table of [
+            levelSelect.THUG1_LEVELS,
+            levelSelect.THPS4_LEVELS,
+            levelSelect.THPS3_LEVELS,
+            levelSelect.THAW_LEVELS,
+        ]) {
+            groups.push(ours([...table.values()].map((e) => e.icon!).filter((icon) => !icon.startsWith("texture:"))));
+        }
+    } else {
+        groups.push(ours(given.length ? given : [...PICTOGRAMS.keys()]));
+    }
+    const cols = values.sheet ? 17 : 7;
     const grey = 90;
     const cell = SIZE * scale + 6;
-    const rows = Math.floor((names.length + cols - 1) / cols);
+    const gap = values.sheet ? Math.floor(cell / 4) : 0;
+    const rowsOf = (n: number): number => Math.floor((n + cols - 1) / cols);
     const width = cols * cell;
-    const height = rows * cell;
+    const height = groups.reduce((h, [images]) => h + rowsOf(images.length) * cell + gap, 0) - gap;
     const image = new Uint8Array(width * height * 4);
     for (let i = 0; i < width * height; i++) image.set([grey, grey, grey, 255], i * 4);
-    names.forEach((name, n) => {
-        const { palette, indices } = readImg(makeSign(frame, name));
-        const ox = (n % cols) * cell;
-        const oy = Math.floor(n / cols) * cell;
-        for (let y = 0; y < SIZE * scale; y++) {
-            for (let x = 0; x < SIZE * scale; x++) {
-                const [b, g, r, a] = palette[indices[Math.floor(y / scale) * SIZE + Math.floor(x / scale)]!]!;
-                const o = ((oy + y) * width + ox + x) * 4;
-                image.set([...[r, g, b].map((c) => Math.trunc((c * a) / 255 + grey * (1 - a / 255))), 255], o);
+    let top = 0;
+    for (const [images] of groups) {
+        images.forEach(({ palette, indices }, n) => {
+            const ox = (n % cols) * cell;
+            const oy = top + Math.floor(n / cols) * cell;
+            for (let y = 0; y < SIZE * scale; y++) {
+                for (let x = 0; x < SIZE * scale; x++) {
+                    const [b, g, r, a] = palette[indices[Math.floor(y / scale) * SIZE + Math.floor(x / scale)]!]!;
+                    const rgb = values.sheet ? YELLOW.map((c) => Math.min(255, (c * r) / FILL)) : [r, g, b];
+                    const o = ((oy + y) * width + ox + x) * 4;
+                    image.set([...rgb.map((c) => Math.trunc((c * a) / 255 + grey * (1 - a / 255))), 255], o);
+                }
             }
-        }
-    });
+        });
+        top += rowsOf(images.length) * cell + gap;
+    }
     writePng(out, width, height, image);
-    print(`wrote ${out}: ${names.join(", ")}`);
+    print(`wrote ${out}:\n${groups.map(([, names]) => `    ${names.join(", ")}`).join("\n")}`);
     return 0;
 }
 
