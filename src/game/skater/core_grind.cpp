@@ -33,7 +33,7 @@ constexpr uint32_t kSkaterFlipAndRotate = 0x488AF07A; // (a component)
 constexpr uint32_t kSkaterGap = 0x11B4C67F;           // (a component)
 constexpr uint32_t kTriggerScript = 0x2CA8A299;
 constexpr uint32_t kName = 0xA1DC81F9;
-constexpr uint32_t kPointRailSpinWait = 0x0A477668;   // (a script float, seconds; name not known)
+constexpr uint32_t kNatasDelay = 0x0A477668;          // Physics_Natas_Delay (seconds)
 constexpr uint32_t kKickUpwardAngle = 0xBB357ECB;     // Physics_Point_Rail_Kick_Upward_Angle
 constexpr uint32_t kPointRailSpeedBoost = 0xA3EF4833; // Point_Rail_Speed_Boost
 constexpr uint32_t kRailSpeedBoost = 0x457BB395;      // Rail_Speed_Boost
@@ -248,7 +248,7 @@ void KickOffPointRail(CorePhysicsComponent* c, const Mth::Vector* point, bool fr
     static_cast<Obj::CObject*>(ObjectOf(c))->SelfEvent(kPointRail, nullptr);
 }
 
-// (0x0050A770, a node on its own, a spin button held) A point rail spin: stopped on the point.
+// (0x0050A770, a node on its own, a spin button held) A point rail spin (a Natas spin): stopped on the point.
 void SpinOnPointRail(CorePhysicsComponent* c, const Mth::Vector* point)
 {
     At<uint8_t>(c, 0x2EC) = 1;
@@ -487,7 +487,7 @@ void CorePhysicsComponent::StartGrind(const Mth::Vector* point, Obj::CRailNode* 
         // A point rail: a spin when a spin button is held, long enough after the last one; else a kick.
         if (input[0x100] || input[0xA0]) {
             int elapsed = static_cast<int>(Since(At<uint32_t>(this, 0x1504)));
-            if (!(static_cast<double>(Script::GetFloat(kPointRailSpinWait)) * 1000.0f > static_cast<float>(elapsed))) {
+            if (!(static_cast<double>(Script::GetFloat(kNatasDelay)) * 1000.0f > static_cast<float>(elapsed))) {
                 SpinOnPointRail(this, point);
                 return;
             }

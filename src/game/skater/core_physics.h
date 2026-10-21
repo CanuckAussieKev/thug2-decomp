@@ -160,11 +160,25 @@ public:
     // air (OffRail).
     void TransferOrLeaveRail(const Mth::Vector* end);
 
+    // --- core_ground.cpp ---
+    // 0x0050EE70: the ground state's update (state 0). Off vert, no rail, the heading (+0x348, degrees from the facing,
+    // FastACos), the velocity turned into the ground's plane when moving, Physics_Ground_Gravity (or +0x360 going up
+    // while +0x350 is set) along the ground; the balance trick (none: 0x004FE320 / 0x005019E0 or 0x004FE490 /
+    // 0x004FE530; a skitch or a manual: its balance and its Perfect cheat); 0x00506DF0, 0x005055B0. Skitching: the
+    // skitched object's velocity (skitch_speed_match) and no move of its own. Carried by what the skater rides on.
+    // Then the move, kept to the ground (CheckForGround - skitching: a feeler down the up for the terrain); stopped
+    // short on the ground, the rest of the move once more along the velocity. Still on the ground: 0x00503560,
+    // 0x004FF590, the side collisions and 0x00503B30 (not skitching), 0x004FF920, 0x004FFB10 (off: 0x004FEBA0, flags
+    // +0x48 / +0xD8), 0x00522370 with +0x1B0.
+    void DoGroundPhysics();
+
 private:
     // (Parts of 0x0050DDF0: still on the rail - along the segment, the matrices, the move and the feeler ahead; and
     // what every way out of the update does.)
     void GrindAlong(Obj::CRailNode* startNode, Obj::CRailNode* goOnTo, bool noNextSegment, float overshoot);
     void FinishRail();
+    // (Part of 0x0050EE70: the move along the ground, once more for the rest when stopped short.)
+    void MoveOnGround(Mth::Vector step);
 
     // (Part of 0x0050CA00: landing on something skatable - the velocity into the ground's plane, the ground
     // normal as the new up.)

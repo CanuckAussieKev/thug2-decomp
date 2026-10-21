@@ -191,3 +191,28 @@ PartyMod: none of these functions is patched by PartyMod (its 48 patched functio
     transfer), 5 equivalent in practice: exact equalities that random data can't reach (the move's length vs the
     segment's, the overshoot vs the next segment's length, the climb difference at 0.01) and two summation orders
     of squared lengths that are then rounded or compared (one-ulp changes).
+- [x] Batch SK2-6 (NOT run in the game yet; the ground state, 1 function, 2.5 KB): src/game/skater/core_ground.cpp
+  (new); core_grind.cpp's point rail spin wait named (Physics_Natas_Delay).
+  - 0x0050EE70 DoGroundPhysics (state 0; the move in the private MoveOnGround): flags +0x48 / +0x30 / +0x38 / +0x78 /
+    +0xA8 / +0x80 / +0xB0 off, no rail (+0x22C, +0x244), +0x4E8 / +0x2D0 / +0x2E4 / +0x14CC cleared. The heading
+    +0x348 = FastACos(facing.x) in degrees (360 less it when facing.z < 0; the product unrounded for that). Moving
+    (|v| > 0.001): the velocity turned into the ground's plane (+0x68). Physics_Ground_Gravity - or +0x360 when +0x350
+    isn't 0 and going up - projected onto the ground's plane, over the frame into the velocity (x unrounded). The
+    balance trick (+0x1524's +0x18): none - 0x004FE320 ? 0x005019E0 : (+0x324 cleared, 0x004FE490 ? 0x004FE530);
+    skitch - its balance (+0x12C) and CHEAT_PERFECT_SKITCH (lean +0x15C); a manual (0x0AC90769 or Manual) - +0x324
+    cleared, with +0x302: +0x303 set and 0x004FE490 / 0x004FE530, its balance (+0x24), 0x005232A0(true),
+    CHEAT_PERFECT_MANUAL (lean +0x54). 0x00506DF0, 0x005055B0. The step = velocity * frame; skitching (flag +0x88):
+    the velocity the skitched object's * skitch_speed_match, no step of its own, 0x00501DB0. Riding: the ride
+    tracker's carry (not while skitching) with the old position and +0x98 kept, its turn on both matrices. The move:
+    the step, 0x00506E50 (not skitching), then CheckForGround - skitching instead a feeler (the component's own feeler
+    line, +0xA8 / +0xB8: 36 above to 200 below along the up) for the terrain. Stopped more than 0.1 short of the step
+    (on the ground, once): the rest of the step's length along the velocity (normalised: x / y unrounded, z rounded;
+    w as it is) times what's left (1 - moved / step, rounded except for x) - and again. Still on the ground: 0x00503560
+    (not +0x2D8), 0x004FF590 with the velocity (not +0x388), CheckSideCollisions and 0x00503B30 (not skitching),
+    0x004FF920 (not +0x388), 0x004FFB10 -> 0x004FEBA0 and flags +0x48 / +0xD8; 0x00522370(+0x1B0), +0x30C cleared.
+  - Test (selftests_skater_ground.cpp TestDoGroundPhysics): 16000 variants - every balance kind, the cheats,
+    skitching with and without the object, ride states, frame lengths, still / exactly-0.001 / full-precision
+    velocities; CheckForGround stood in (moving the skater back, stopping it dead, leaving the ground), FastACos
+    returning full-precision angles. 40 deliberate bugs: 39 caught (3 after adding the full-precision angles, the
+    exactly-0.001 speed and a dead stop short of the step), 1 equivalent in practice (the moved distance's
+    summation order).
