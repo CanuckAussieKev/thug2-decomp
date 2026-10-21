@@ -26211,6 +26211,16 @@
         "why": "THAW's components and their scripts don't exist in THUG2",
         "switch": "objects_our_way",
         "required": true
+      },
+      {
+        "id": "PC-THAW-13",
+        "op": "set",
+        "target": {
+          "rule": "rail nodes' common parts (all but Pos / Angles / Name / Links / TriggerScript) as global structures the nodes name, <level>_inc_<n> (nodes.shareIncludes) - as THUG2's own levels have them (ncomp_RailNode_<n>)"
+        },
+        "why": "every node entry is a script component (THUG2's CComponent pool: 86000 for everything loaded); Kyoto's expanded node array (38,700 components, THUG2's largest level SE 29,000) ran it dry: a crash loading Kyoto",
+        "switch": "shared_parts",
+        "required": true
       }
     ]
   }

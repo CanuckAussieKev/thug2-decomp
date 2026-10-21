@@ -517,9 +517,7 @@ export function resolveDuplicateTriggers(
 }
 
 // Keys every node keeps for itself when the rest is shared (compressIncludes).
-export const OWN_KEYS: ReadonlySet<number> = new Set(
-    ["Pos", "Position", "Angles", "Name", "Links", "TriggerScript"].map(checksum),
-);
+export const OWN_KEYS: ReadonlySet<number> = nodes.OWN_KEYS;
 
 export function compressIncludes(
     converted: Struct[],
@@ -545,37 +543,7 @@ export function compressIncludes(
             );
         }
     }
-    const groups = new Map<string, qb.Entry[][]>();
-    const sharedOf: [qb.Entry[], string | null][] = [];
-    for (const node of converted) {
-        const shared = node.entries.filter(([k]) => k === null || !OWN_KEYS.has(k.value));
-        const k = shared.length > 1 ? qb.toNs(new Struct(shared), names) : null;
-        sharedOf.push([shared, k]);
-        if (k !== null) {
-            const members = groups.get(k);
-            if (members === undefined) groups.set(k, [shared]);
-            else members.push(shared);
-        }
-    }
-    const made = new Map<string, Name>();
-    const lines: string[] = [];
-    for (const [k, members] of groups) {
-        if (members.length < 2) continue;
-        const inc = `${prefix}_inc_${made.size}`;
-        made.set(k, nameOf(names, inc));
-        lines.push(`${inc} = ${k}`);
-    }
-    const linksKey = checksum("Links");
-    const triggerKey = checksum("TriggerScript");
-    const out = converted.map((node, i) => {
-        const k = sharedOf[i]![1];
-        const include = k === null ? undefined : made.get(k);
-        if (include === undefined) return node;
-        const own = node.entries.filter(([key]) => key !== null && OWN_KEYS.has(key.value));
-        const late = (e: qb.Entry): boolean => e[0]!.value === linksKey || e[0]!.value === triggerKey;
-        return new Struct([...own.filter((e) => !late(e)), [null, include], ...own.filter(late)]);
-    });
-    return [out, lines.join("\n") + (lines.length ? "\n" : "")];
+    return nodes.shareIncludes(converted, names, prefix);
 }
 
 export function runsBy(node: Struct, names: ReadonlyMap<number, string>): scriptPort.Context {
