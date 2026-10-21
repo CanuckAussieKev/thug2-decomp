@@ -85,6 +85,12 @@ Spec Default(Kind kind, Team team, V3 pos, float yaw, const std::string& name);
 Spec Base(const Spec& flag);
 // The fixed names of the name-driven kinds ("" for the others): TRG_CTF_Restart_<Colour>, TRG_CTF_<Colour>.
 std::string FixedName(Kind kind, Team team);
+// A team lobby flag (the feature map's second round): a FlagSet node (GameObject Flag_<Colour>, its flag model) named
+// TRG_Flag_<Colour> - the name SK4_Scripts' Create_Team_Flags makes in a lobby (NodeExists / create name=) - whose
+// TriggerScript is its level's TRG_Flag_<Colour>Script (Team_Flag <colour>, as BO's and TR's); no base (the shipped
+// levels' lobby flags have none). IsLobbyFlag: a FlagSet spec named so.
+std::string LobbyFlagName(Team team);
+bool IsLobbyFlag(const std::string& name);
 // The stem fresh names start with: ed_restart, ed_crown, ed_light, ed_sound, ed_proxim.
 const char* NameStem(Kind kind);
 // The first of stem01, stem02... (three digits past 99) that `taken` says is free.
@@ -139,6 +145,8 @@ bool NameTaken(const std::string& name);
 Counts CountsNow();
 // Why `kind` / `team` can't be placed now (null: it can): the limits, a name-driven node already in the level.
 const char* WhyNot(Kind kind, Team team);
+// Why a team lobby flag of `team` can't be placed now (null: it can) - the level has one by that name.
+const char* WhyNotLobbyFlag(Team team);
 // Added (`index`: in the overlay, -1 at the end) - its structure made, the overlay re-registered, the game's
 // proximity node / emitter / light made. False (and `message`): a name already there, not in a level.
 bool Create(const Spec& spec, int index, std::string* message);

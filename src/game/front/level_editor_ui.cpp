@@ -13,6 +13,7 @@
 #include <cstdio>
 #include <cstring>
 
+#include "game/front/level_editor_entities.h"
 #include "game/front/level_editor_cameras.h"
 #include "game/front/level_editor_clusters.h"
 #include "game/front/level_editor_faces.h"
@@ -1090,6 +1091,7 @@ void Inspector(const Model& model)
     if (model.nodes.nodeOnly) {
         NodeSection(model, model.nodes.selected);
         Triggers::InspectorSection(model.nodes.selected); // (a trigger volume's settings - level_editor_triggers.h)
+        Entities::InspectorSection(model.nodes.selected, 0, g_mono, &g_requests); // (sound, particles, ghosts)
         // (map3: a camera node's pitch, target, preview - level_editor_cameras.h)
         if (model.nodes.selected >= 0 && model.nodes.selected < static_cast<int>(Nodes::All().size()))
             Cameras::InspectorSection(Nodes::All()[model.nodes.selected].name, g_mono, g_small);
@@ -1193,6 +1195,9 @@ void Inspector(const Model& model)
                 ImGui::SetTooltip("A locked piece or object is passed by every click in the view (the Outliner still "
                                   "selects it); kept in the layout");
         }
+        // (one object: its model, physics, path speed and preview - level_editor_entities.h)
+        if (s.objects == 1)
+            Entities::InspectorSection(-1, s.checksum, g_mono, &g_requests);
         if (model.nodes.selected >= 0)
             NodeSection(model, model.nodes.selected);
     }
@@ -1207,6 +1212,7 @@ void Inspector(const Model& model)
         ImGui::TextWrapped("%s", model.hover.c_str());
     }
     ViewSection(model);
+    Entities::ViewOptions(); // (Show uncreated objects)
     LockList(model);
     Cameras::ListSection(g_mono, g_small); // (map3: the camera nodes - level_editor_cameras.h)
     LevelSection(model.levelProps, g_mono, g_small, &g_requests); // (phase 6: level_editor_fields_ui.cpp)
@@ -1584,6 +1590,10 @@ void Place(const Model& model)
     ImGui::SetNextItemWidth(-1.0f);
     ImGui::InputTextWithHint("##placesearch", "spawn\xE2\x80\xA6", g_placeSearch, sizeof(g_placeSearch));
     const std::vector<Model::PlaceView::Entry>& entries = model.place.entries;
+    // (a list that scrolls: the level's peds, cars, sets, particles and sounds make it long - level_editor_entities.h)
+    float listHeight = std::min(static_cast<float>(entries.size()) * ImGui::GetTextLineHeightWithSpacing() + 8.0f,
+                                std::max(160.0f * g_scale, g_layout.viewport.height * 0.6f));
+    ImGui::BeginChild("##placelist", ImVec2(0.0f, listHeight));
     for (int i = 0; i < static_cast<int>(entries.size()); ++i) {
         const Model::PlaceView::Entry& e = entries[i];
         if (!Matches(e.label, g_placeSearch))
@@ -1608,6 +1618,7 @@ void Place(const Model& model)
                                         : e.why.c_str());
         ImGui::PopID();
     }
+    ImGui::EndChild();
     ImGui::Separator();
     ImGui::PushFont(g_small);
     if (model.place.armed >= 0 && model.place.armed < static_cast<int>(entries.size()))

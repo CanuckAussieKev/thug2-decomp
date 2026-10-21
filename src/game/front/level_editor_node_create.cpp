@@ -208,6 +208,10 @@ std::string FixedName(Kind kind, Team team)
     return "";
 }
 
+std::string LobbyFlagName(Team team) { return std::string("TRG_Flag_") + TeamName(team); }
+
+bool IsLobbyFlag(const std::string& name) { return StartsWith(name, "TRG_Flag_"); }
+
 const char* NameStem(Kind kind)
 {
     switch (kind) {
@@ -326,8 +330,10 @@ std::vector<Field> Fields(const Spec& spec)
         string("Model", "gameobjects\\flags\\" + model + "\\" + model + ".mdl");
         integer("lod_dist1", 800);
         integer("lod_dist2", 801);
+        // (a team lobby flag, TRG_Flag_<Colour>: its level's TRG_Flag_<Colour>Script - SK4_Scripts' Create_Team_Flags
+        // makes it by name in a lobby; a CTF flag's TRG_CTF_<Colour>Script)
         if (!base)
-            name("TriggerScript", "TRG_CTF_" + colour + "Script");
+            name("TriggerScript", (IsLobbyFlag(spec.name) ? "TRG_Flag_" : "TRG_CTF_") + colour + "Script");
         break;
     }
     case Kind::Light: {
@@ -805,6 +811,15 @@ const char* WhyNot(Kind kind, Team team)
     if (!fixed.empty() && (NameTaken(fixed) || (kind == Kind::FlagSet && NameTaken(fixed + "_Base"))))
         return kind == Kind::FlagSet ? "This level has that team's flag already (the game finds it by name) - move it"
                                      : "This level has that team's spawn already (the game finds it by name) - move it";
+    return nullptr;
+}
+
+const char* WhyNotLobbyFlag(Team team)
+{
+    if (!InLevel())
+        return "Not in a level";
+    if (NameTaken(LobbyFlagName(team)))
+        return "This level has that team's lobby flag already (the game finds it by name) - move it";
     return nullptr;
 }
 

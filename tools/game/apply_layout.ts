@@ -45,6 +45,10 @@
 //   (phase 4b, level_editor_chains.h) a ladder's points: ClimbingNode, Type Ladder, Angles (0, facing, 0); a drawn rail's
 //     cluster=: TrickObject + Cluster=; grindflat / `grindflat` records: the flag ed_grind_flat (only this project's
 //     DLL reads it - warned); `facing`: a level ladder point's Angles (0, facing, 0);
+//   (level_editor_entities.h) a copy of a particle system, or a particle node's set pos=: its MidPosition / EndPosition
+//     moved with it; `speed`: the node field ed_path_speed (mph); `emitter`: the node's Radius (when given) and the
+//     fields ed_sound / ed_volume - fields only this project's DLL reads (warned); a team lobby flag (TRG_Flag_<Colour>)
+//     gets TRG_Flag_<Colour>Script;
 //   lock: ignored (an editor-only aid);
 //   level (level_editor_level_props.h): the level's structure in Levels.qb (Level_<x>, else the one whose level= is
 //     the level's) gets the keys the DLL writes into it for the edited copy (LevelProps::StructureValues): tod=
@@ -574,6 +578,13 @@ const K = {
     marker: checksum(MARKER),
     grindFlat: checksum("ed_grind_flat"),
     scale: checksum("scale"),
+    particleObject: checksum("ParticleObject"),
+    midPosition: checksum("MidPosition"),
+    endPosition: checksum("EndPosition"),
+    radius: checksum("Radius"),
+    edPathSpeed: checksum("ed_path_speed"),
+    edSound: checksum("ed_sound"),
+    edVolume: checksum("ed_volume"),
 };
 // A rail point's flag: grindable on flat ground - only this project's DLL reads it (level_editor_chains.h: RailClear's
 // override); the game itself has no such field.
@@ -718,6 +729,34 @@ export function setField(array: NodeArray, node: Struct, key: number, value: Fie
     return true;
 }
 
+// A field as the game reads it: the node's own last one, else its shared structures' (the last include that has it).
+function fieldOf(array: NodeArray, node: Struct, key: number): QbValue | undefined {
+    let found: QbValue | undefined;
+    for (const entry of node.entries) {
+        if (entry[0]?.value === key) found = entry[1];
+        const inc = array.isInclude(entry);
+        if (inc) for (const [k, v] of inc.entries) if (k?.value === key) found = v;
+    }
+    return found;
+}
+
+// A particle system's emitter places (MidPosition, EndPosition: world places in its node) moved by `delta` with its
+// pos= - as the DLL does (level_editor_entities.h; its copies: level_editor_objects.h MakeCopy).
+export function shiftParticle(array: NodeArray, node: Struct, delta: V3): boolean {
+    const cls = fieldOf(array, node, K.cls);
+    if (!(cls instanceof Name) || cls.value !== K.particleObject) return false;
+    if (delta.x === 0 && delta.y === 0 && delta.z === 0) return true;
+    for (const key of [K.midPosition, K.endPosition]) {
+        const v = fieldOf(array, node, key);
+        if (v instanceof Vector && v.kind === "vector") {
+            const [x, y, z] = v.values as [number, number, number];
+            node.entries = node.entries.filter(([k]) => k?.value !== key);
+            node.entries.push([new Name(key), v3({ x: x + delta.x, y: y + delta.y, z: z + delta.z })]);
+        }
+    }
+    return true;
+}
+
 function setVector(node: Struct, key: number, v: V3): void {
     const at = node.entries.findIndex(([k]) => k?.value === key);
     if (at >= 0) node.entries[at] = [node.entries[at]![0], v3(v)];
@@ -846,7 +885,8 @@ export function addedNode(array: NodeArray, r: Layout["nodes"][number]): Struct 
         flag("NeverSuspend");
         s.entries.push([new Name(checksum("Model")), `gameobjects\\flags\\${model}\\${model}.mdl`]);
         s.entries.push([new Name(checksum("lod_dist1")), 800], [new Name(checksum("lod_dist2")), 801]);
-        if (!base) name("TriggerScript", `TRG_CTF_${team}Script`);
+        // (a team lobby flag TRG_Flag_<Colour>: its level's TRG_Flag_<Colour>Script - NodeCreate's IsLobbyFlag)
+        if (!base) name("TriggerScript", `${/^TRG_Flag_/i.test(r.name) ? "TRG_Flag_" : "TRG_CTF_"}${team}Script`);
     } else if (same(r.cls, "LevelLight")) {
         flag("CreatedAtStart");
         s.entries.push(
@@ -1265,6 +1305,8 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
         if (i < 0) continue;
         const copy = new Struct(array.nodes[i]!.entries.filter(([k]) => k?.value !== K.name).map(([k, v]) => [k, v]));
         copy.entries.unshift([new Name(K.name), new Name(c.name)]);
+        const from = readVector(array.level[i]!, K.pos) ?? { x: 0, y: 0, z: 0 };
+        shiftParticle(array, copy, { x: c.pos.x - from.x, y: c.pos.y - from.y, z: c.pos.z - from.z });
         setVector(copy, K.pos, c.pos);
         setVector(copy, K.angles, anglesOfRows(c.rows).angles);
         if (scaleAsLoaded.has(i)) {
@@ -1284,7 +1326,12 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
         if (i < 0) continue;
         const node = array.edit(i);
         const kind = nodeKind(node);
-        if (s.pos) setVector(node, K.pos, s.pos);
+        if (s.pos) {
+            // (a particle system's emitter places move with it - level_editor_entities.h)
+            const was = readVector(node, K.pos);
+            if (was) shiftParticle(array, node, { x: s.pos.x - was.x, y: s.pos.y - was.y, z: s.pos.z - was.z });
+            setVector(node, K.pos, s.pos);
+        }
         if (s.angles) setVector(node, K.angles, s.angles);
         if ((s.pos || s.angles) && kind) breaks(`${kind} ${label(s.name)} moved / turned`);
         for (const f of s.fields) {
@@ -1376,7 +1423,9 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
         array.append(node);
         const kind = nodeKind(node);
         if (kind) breaks(`${kind} ${r.name} added`);
-        if (same(r.cls, "EmitterObject")) warnings.push(`sound emitter ${r.name}: silent until a script plays on it`);
+        const sound = layout.emitters.find((e) => e.name === checksum(r.name) && e.sound !== 0);
+        if (same(r.cls, "EmitterObject") && !sound)
+            warnings.push(`sound emitter ${r.name}: silent until a script plays on it`);
     }
     for (const p of layout.points) {
         if (array.index(checksum(p.name)) >= 0) {
@@ -1398,6 +1447,41 @@ export function bake(layout: Layout, files: LevelFiles, shared: Shared | null): 
         array.append(cameraNode(c));
         for (const n of [c.name, ...CAMERA_NODE_NAMES]) array.remember(n);
         report.push(`camera ${c.name}: a GenericNode (Type ed_camera) at ${c.pos.x},${c.pos.y},${c.pos.z}`);
+    }
+    // (level_editor_entities.h) path speeds and emitters' sounds: node fields only this project's DLL reads (it reads them
+    // when the level loads, as it plays the layout's records); an emitter's radius: its Radius.
+    const own = (node: Struct, key: number, value: QbValue): void => {
+        node.entries = node.entries.filter(([k]) => k?.value !== key);
+        node.entries.push([new Name(key), value]);
+    };
+    for (const s of layout.speeds) {
+        const i = nodeAt(s.name, "speed");
+        if (i < 0) continue;
+        own(array.edit(i), K.edPathSpeed, new Float(s.mph));
+        array.remember("ed_path_speed");
+        warnings.push(
+            `${label(s.name)}: path speed ${s.mph} mph as the field ed_path_speed - only this project's DLL reads it ` +
+                "(Obj_SetPathVelocity when the object is made); a level script setting its own speed later wins",
+        );
+    }
+    for (const e of layout.emitters) {
+        const i = nodeAt(e.name, "emitter");
+        if (i < 0) continue;
+        const node = array.edit(i);
+        if (e.radius > 0) {
+            own(node, K.radius, new Float(e.radius));
+            array.remember("Radius");
+        }
+        if (e.sound !== 0) {
+            own(node, K.edSound, new Name(e.sound));
+            own(node, K.edVolume, new Float(e.volume));
+            array.remember("ed_sound");
+            array.remember("ed_volume");
+            warnings.push(
+                `sound emitter ${label(e.name)}: its sound ${label(e.sound)} as the fields ed_sound / ed_volume - only ` +
+                    "this project's DLL plays it",
+            );
+        }
     }
     if (flat)
         warnings.push(

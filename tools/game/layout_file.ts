@@ -146,11 +146,25 @@ export interface Layout {
     // (phase 5) the editor's trigger volumes: name, kind and their key=value fields as written (level_editor_triggers.h),
     // and the record as the DLL reads it (`spec`)
     triggers: { line: number; name: string; kind: string; fields: Record<string, string>; spec: TriggerSpec }[];
+    // (level_editor_entities.h) moving objects' path speeds (mph) and sound emitters' sounds (sound 0: none; radius 0:
+    // the node's own)
+    speeds: { name: number; mph: number }[];
+    emitters: { name: number; sound: number; volume: number; radius: number }[];
     // (map3) collision faces' flags, scenery clusters, camera nodes
     faces: FaceRecord[];
     clusters: ClusterRecord[];
     cameras: CameraRecord[];
 }
+
+// The DLL's limits for those (level_editor_entities.h kMinMph...).
+export const ENTITY_LIMITS = {
+    minMph: 0.1,
+    maxMph: 200,
+    minVolume: 0,
+    maxVolume: 400,
+    minRadius: 1,
+    maxRadius: 100000,
+};
 
 export class LayoutError extends Error {
     readonly line: number;
@@ -361,6 +375,8 @@ export function readLayout(text: string): Layout {
         level: {},
         unknown: [],
         triggers: [],
+        speeds: [],
+        emitters: [],
         faces: [],
         clusters: [],
         cameras: [],
@@ -540,6 +556,41 @@ export function readLayout(text: string): Layout {
                 const name = hex(1);
                 if (layout.facings.some((f) => f.name === name)) fail("a point's facing twice");
                 layout.facings.push({ name, facing: parseNumber(words[2] ?? "") ?? fail("bad facing") });
+                break;
+            }
+            case "speed": {
+                // (level_editor_entities.h: a node's path speed in mph - the DLL refuses the file over a bad one)
+                const name = parseHex8(words[1]) ?? fail("bad speed node");
+                const mph = Math.fround(parseNumber(words[2]) ?? fail("bad speed"));
+                if (mph < Math.fround(ENTITY_LIMITS.minMph) || mph > ENTITY_LIMITS.maxMph) fail("speed out of range");
+                if (layout.speeds.some((s) => s.name === name)) fail("a node's speed twice");
+                layout.speeds.push({ name, mph });
+                break;
+            }
+            case "emitter": {
+                const name = parseHex8(words[1]) ?? fail("bad emitter node");
+                if (name === 0) fail("bad emitter node");
+                if (layout.emitters.some((e) => e.name === name)) fail("an emitter twice");
+                const e = { name, sound: 0, volume: 100, radius: 0 };
+                const seen = new Set<string>();
+                for (const [key, value] of keyValues(words.slice(2), number)) {
+                    if (seen.has(key)) fail(`${key} twice`);
+                    seen.add(key);
+                    if (key === "sound") e.sound = parseHex8(value) ?? fail("bad sound");
+                    else if (key === "vol") {
+                        e.volume = Math.fround(parseNumber(value) ?? fail("bad vol"));
+                        if (e.volume < ENTITY_LIMITS.minVolume || e.volume > ENTITY_LIMITS.maxVolume)
+                            fail("vol out of range");
+                    } else if (key === "radius") {
+                        e.radius = Math.fround(parseNumber(value) ?? fail("bad radius"));
+                        if (
+                            e.radius !== 0 &&
+                            (e.radius < ENTITY_LIMITS.minRadius || e.radius > ENTITY_LIMITS.maxRadius)
+                        )
+                            fail("radius out of range");
+                    } // (other keys: a later version's - skipped)
+                }
+                layout.emitters.push(e);
                 break;
             }
             case "grindflat": {

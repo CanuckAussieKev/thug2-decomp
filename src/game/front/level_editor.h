@@ -64,6 +64,9 @@ class CScript;
 //                             copy's node array as it loads; level_editor_fields_ui.cpp its ImGui table
 //   level_editor_level_props.cpp (phase 6) the edited copy's level properties (name, start, time of day, ambient,
 //                             fog): its `level` record, written into the level structure only for its load
+//   level_editor_entities.cpp peds and cars copied (the Place palette's types), model swaps, uncreated objects as ghosts,
+//                             bouncy sets and physics fields, moving objects' path speed and preview, sound emitters'
+//                             sounds, particle systems moved / copied, `speed` / `emitter` records
 //   level_editor_view.cpp     the view options: the collision shown (C; invisible walls magenta, Shift+click one), the
 //                             selection hidden (H) or isolated (I or /) while editing only, Alt+H shows all
 //   level_editor_walls.cpp    collision switched off and on with the game's own switch (CSector::SetActive): invisible

@@ -1140,3 +1140,124 @@ test("bake: (map3) camera nodes appended (virtual_cam offsets); the level's sky 
     const s = lv.globals.find(([k]) => k.value === checksum(`Level_${LEVEL}`))![1] as Struct;
     assert.equal(s.get("sky"), "BO_Sky");
 });
+
+// --- level_editor_entities.h: speeds, emitters' sounds, particle systems moved / copied, team lobby flags -----------
+
+function entityLevel(): LevelFiles {
+    const emitterShared = struct([
+        ["Class", NAME("EmitterObject")],
+        ["Type", NAME("BoundingBox")],
+        [null, NAME("CreatedAtStart")],
+    ]);
+    const nodes = [
+        struct([
+            ["Pos", vec(100, 0, 0)],
+            ["Name", NAME("Smoke01")],
+            ["Class", NAME("ParticleObject")],
+            ["MidPosition", vec(110, 20, 0)],
+            ["EndPosition", vec(120, 40, 0)],
+        ]),
+        struct([
+            ["Pos", vec(0, 0, 0)],
+            ["Name", NAME("TRG_SFX_SOB_Fire01")],
+            [null, NAME("ncomp_EmitterObject_1")],
+        ]),
+        struct([
+            ["Pos", vec(5, 0, 5)],
+            ["Name", NAME("TRG_Car01")],
+            ["Class", NAME("Vehicle")],
+        ]),
+    ];
+    const names = ["Pos", "Name", "Class", "Type", "Smoke01", "ParticleObject", "MidPosition", "EndPosition"];
+    names.push("TRG_SFX_SOB_Fire01", "EmitterObject", "BoundingBox", "CreatedAtStart", "ncomp_EmitterObject_1");
+    names.push("TRG_Car01", "Vehicle", `${LEVEL}_NodeArray`);
+    const global = (name: string, value: QbValue): Buffer =>
+        Buffer.concat([encodeValue(NAME(name)), Buffer.from([0x07]), encodeValue(value), Buffer.from([0x01])]);
+    const qb = Buffer.concat([
+        global("ncomp_EmitterObject_1", emitterShared),
+        global(`${LEVEL}_NodeArray`, nodes),
+        ...names.map((n) =>
+            Buffer.concat([Buffer.from([0x2b]), pack("<I", checksum(n)), Buffer.from(`${n}\0`, "latin1")]),
+        ),
+        Buffer.from([0x00]),
+    ]);
+    return { ...level(), qb };
+}
+
+test("layout_file: speed and emitter records as the DLL writes and refuses them", () => {
+    const layout = readLayout(
+        [
+            "thug2-decomp layout 2",
+            `scene ${hex(LEVEL)}`,
+            `speed ${hex("TRG_Car01")} 27.125`,
+            `emitter ${hex("TRG_SFX_SOB_Fire01")} sound=DEADBEEF vol=75.5 radius=320.25 later=1`,
+            `emitter ${hex("ed_sound01")} sound=00000000 vol=100 radius=0`,
+        ].join("\n"),
+    );
+    assert.deepEqual(layout.speeds, [{ name: checksum("TRG_Car01"), mph: 27.125 }]);
+    assert.deepEqual(layout.emitters[0], {
+        name: checksum("TRG_SFX_SOB_Fire01"),
+        sound: 0xdeadbeef,
+        volume: 75.5,
+        radius: 320.25,
+    });
+    assert.equal(layout.emitters.length, 2);
+    assert.equal(layout.unknown.length, 0);
+    const refused = (line: string): void =>
+        assert.throws(
+            () => readLayout(["thug2-decomp layout 2", `scene ${hex(LEVEL)}`, line].join("\n")),
+            (e: unknown) => e instanceof LayoutError && e.line === 3,
+            line,
+        );
+    refused("speed 0000ABCD 0");
+    refused("speed 0000ABCD 201");
+    refused("speed ABCD 5");
+    refused("emitter 00000001 sound=1");
+    refused("emitter 00000001 vol=401");
+    refused("emitter 00000001 radius=0.5");
+    refused("emitter 00000001 vol=5 vol=6");
+    assert.throws(() =>
+        readLayout(["thug2-decomp layout 2", `scene ${hex(LEVEL)}`, "speed 0000ABCD 5", "speed 0000ABCD 6"].join("\n")),
+    );
+});
+
+test("bake: particle systems moved and copied with their emitter places; speeds and emitters' sounds as node fields", () => {
+    const layout = readLayout(
+        [
+            "thug2-decomp layout 2",
+            `scene ${hex(LEVEL)}`,
+            `set ${hex("Smoke01")} pos=150,10,0`,
+            `copy 0000ABCD ${hex("Smoke01")} 100 0 500 1 0 0 0 1 0 0 0 1`,
+            `speed ${hex("TRG_Car01")} 30`,
+            `emitter ${hex("TRG_SFX_SOB_Fire01")} sound=DEADBEEF vol=75.5 radius=320`,
+            "node ed_sound01 EmitterObject pos=1,2,3 angles=0,0,0 radius=300",
+            `emitter ${hex("ed_sound01")} sound=0000BEEF vol=100 radius=0`,
+            "node TRG_Flag_Green GameObject type=Flag_Green pos=7,8,9 angles=0,0,0",
+        ].join("\n"),
+    );
+    const out = bake(layout, entityLevel(), null);
+    const nodes = nodesOf(out.qb);
+    const smoke = named(nodes, "Smoke01");
+    assert.deepEqual((smoke.get("Pos") as Vector).values, [150, 10, 0]);
+    assert.deepEqual((smoke.get("MidPosition") as Vector).values, [160, 30, 0], "moved with its pos=");
+    assert.deepEqual((smoke.get("EndPosition") as Vector).values, [170, 50, 0]);
+    const copy = nodes.find((s) => (s.get("Name") as Name | undefined)?.value === 0xabcd)!;
+    assert.ok(copy, "the copy appended");
+    assert.deepEqual((copy.get("MidPosition") as Vector).values, [110, 20, 500], "relative to its source as loaded");
+    assert.deepEqual((copy.get("EndPosition") as Vector).values, [120, 40, 500]);
+    const car = named(nodes, "TRG_Car01");
+    assert.equal((car.get("ed_path_speed") as Float).value, 30);
+    const fire = named(nodes, "TRG_SFX_SOB_Fire01");
+    assert.equal((fire.get("ed_sound") as Name).value, 0xdeadbeef);
+    assert.equal((fire.get("ed_volume") as Float).value, 75.5);
+    assert.equal((fire.get("Radius") as Float).value, 320);
+    const added = named(nodes, "ed_sound01");
+    assert.equal((added.get("ed_sound") as Name).value, 0xbeef);
+    assert.equal((added.get("Radius") as Float).value, 300, "radius=0: the node record's own");
+    assert.ok(!out.warnings.some((w) => w.includes("ed_sound01: silent")), "it has a sound now");
+    assert.ok(out.warnings.some((w) => w.includes("ed_path_speed")));
+    assert.ok(out.warnings.some((w) => w.includes("ed_sound / ed_volume")));
+    const flag = named(nodes, "TRG_Flag_Green");
+    assert.equal((flag.get("TriggerScript") as Name).value, checksum("TRG_Flag_GreenScript"), "a lobby flag's script");
+    assert.equal(out.unsupported.length, 0);
+});
