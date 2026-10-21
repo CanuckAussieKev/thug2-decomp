@@ -82,7 +82,7 @@ public:
     // 0x0051F9B0: the spin sequence of `buttons` (the second pressed, then within two events the first, then the
     // third - or with `any` anything): within a second; marks the events (0x100), sets the button map.
     bool CheckSpinSequence(const uint32_t* buttons, bool any);
-    // 0x0051FB90: `button` released then pressed (with `twice`: one of the d-pad's ... released, pressed, then
+    // 0x0051FB90: `button` released then pressed (with `twice`: Triangle, Circle or Square released, pressed, then
     // `button` pressed) within a second; with `setMap`, all events marked and the button map set from the
     // arguments themselves (as the original does).
     bool CheckReleasePress(uint32_t button, bool twice, bool setMap);
@@ -106,6 +106,12 @@ public:
     bool TrickNamed(Script::CStruct* trick, const char* name);
     // 0x0051F010: the newest 10 events printed (compiled-out debug output).
     void DumpEventBuffer();
+    // 0x0051FDA0: whether the trigger `trigger` (its first component the kind - Press, Tap, InOrder... -, then its
+    // buttons and time) was done: matched against the newest events within its time, not by events with any of
+    // `mask`'s flags. When it is, its events get `markFlags` and (mostly) the button map is set; when the events ran
+    // out, the used marks are cleared. With `scaled`, a Press's time is stretched by the core physics' rate (+0x2E8)
+    // below 1.
+    bool CheckTrigger(Script::CStruct* trigger, uint32_t markFlags, uint32_t mask, bool scaled);
     // 0x00521930: the tricks of the list `list` whose trigger (or alternate trigger) was done are queued.
     void QueueDoneTricks(uint32_t list, bool flag, uint32_t used);
     // 0x00521A10: the manual tricks list (+0x1230, when the balance component's +0x74) and the extra lists checked.
@@ -121,7 +127,7 @@ public:
     uint8_t* m_balance1C;          // +0x1C (+0x74: manuals checked)
     uint8_t* m_input;              // +0x20 (+0x498 / +0x499: no tricks)
     CBaseComponent* m_balanceTrick;  // +0x24
-    CBaseComponent* m_corePhysics;   // +0x28
+    uint8_t* m_corePhysics;          // +0x28 (+0x2E8: a rate, the trick windows' stretch below 1)
     CBaseComponent* m_flipRotate;    // +0x2C
     CBaseComponent* m_skaterState;   // +0x30
     CBaseComponent* m_statsManager;  // +0x34
@@ -155,9 +161,10 @@ static_assert(offsetof(CTrickComponent, m_input) == 0x20 && offsetof(CTrickCompo
                   offsetof(CTrickComponent, m_manualList) == 0x1230,
               "layout must match the original");
 
-// 0x0051EA40 (the button in EAX; ECX and EDX kept): whether `button` is one of the eight face and shoulder buttons.
-bool IsTrickButton(uint32_t button);
-void IsTrickButtonStub();
+// 0x0051EA40 (the button in EAX; ECX and EDX kept): whether `button` is one of the d-pad's eight directions (Up, Down,
+// Left, Right and the diagonals).
+bool IsDirection(uint32_t button);
+void IsDirectionStub();
 // 0x0051EBD0's entry: MarkUsed keeping ECX and EDX (its callers use ECX after it).
 void MarkUsedStub();
 

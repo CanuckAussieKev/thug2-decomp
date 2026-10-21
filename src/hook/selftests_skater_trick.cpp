@@ -83,7 +83,7 @@ uint32_t Id(uint32_t p)
     return 0xBAD00000;
 }
 
-void StandInAll(StandIns& s)
+void StandInAll(StandIns& s, bool standInCheck)
 {
     using Script::CStruct;
     s.At({0x005BE970, AddressOf(&Tmr::GetTime)}, 0, [](Regs&) {
@@ -160,7 +160,8 @@ void StandInAll(StandIns& s)
             Record({r.args[1], r.args[2]});
         return 0u;
     });
-    s.At({0x0051FDA0}, 0x10, [](Regs& r) {
+    if (standInCheck)
+    s.At({0x0051FDA0, AddressOf(&CTrickComponent::CheckTrigger)}, 0x10, [](Regs& r) {
         bool yes = (g_checkResults & 1) != 0;
         g_checkResults = (g_checkResults >> 1) | (g_checkResults << 31);
         Record({0x51FD, Id(r.args[0]), r.args[1], r.args[2], r.args[3] & 0xFF, yes});
@@ -285,7 +286,7 @@ void TestTrickEvents()
     int matches = 0;
     {
         auto* s = new StandIns;
-        StandInAll(*s);
+        StandInAll(*s, true);
         for (int run = 0; run < 2; ++run) {
             bool original = run == 0;
             g_trace.clear();
@@ -365,7 +366,7 @@ void TestTrickEvents()
                     }
                     for (uint32_t button : kButtons) {
                         uint32_t c = 0x33333333, d = 0x44444444;
-                        uint32_t yes = CallButtonStub(original ? OriginalFunction(0x0051EA40) : reinterpret_cast<void*>(&Obj::IsTrickButtonStub),
+                        uint32_t yes = CallButtonStub(original ? OriginalFunction(0x0051EA40) : reinterpret_cast<void*>(&Obj::IsDirectionStub),
                                                       button, c, d);
                         Record({yes, c, d});
                     }
@@ -492,6 +493,125 @@ void TestTrickEvents()
     Compare(traces[0], traces[1], "trick events: presses, sequences, buttons, queue, lists, resets");
 }
 
+// The trigger check (0x0051FDA0): every kind over random event rings (often of just the trigger's buttons).
+alignas(16) uint8_t g_physics[0x300];
+alignas(16) uint8_t g_kind[0x10];
+alignas(16) uint8_t g_triggerNodes[6][0x10];
+bool g_noKind;
+
+const uint32_t kKinds[] = {0x823B8342, 0x7FA5CDBB, 0x61B8FCE2, 0x7D482318, 0xA2E042D7, 0xC1AD35C0, 0x3FE7C311,
+                           0x3C3028F4, 0x395EC2D4, 0x14FE9B7D, 0x2C434C90, 0xA8123ECF, 0xFFB718BD, 0x696E5E66,
+                           0x3F369070, 0xF630DAE5, 0xAC2B1445, 0xB6258557, 0x12345678};
+const int kKindButtons[] = {1, 1, 1, 2, 3, 3, 3, 2, 2, 2, 2, 3, 2, 2, 2, 3, 3, 1, 2};
+constexpr int kKindCount = sizeof(kKinds) / sizeof(kKinds[0]);
+
+void TestTrickTriggers()
+{
+    std::vector<uint32_t> traces[2];
+    int found[2][kKindCount] = {};
+    {
+        auto* s = new StandIns;
+        StandInAll(*s, false);
+        s->At({0x00476490, AddressOf(&Script::CStruct::GetNextComponent)}, 4, [](Regs& r) {
+            Record({0x6C0, Id(r.ecx), r.args[0]});
+            return g_noKind ? 0u : reinterpret_cast<uint32_t>(g_kind);
+        });
+        for (int run = 0; run < 2; ++run) {
+            bool original = run == 0;
+            g_trace.clear();
+            Random r{0x0051FDA0};
+            for (int n = 0; n < 12000; ++n) {
+                Build(r);
+                auto* t = reinterpret_cast<CTrickComponent*>(g_trick);
+                t->m_input = g_input;
+                g_input[0x498] = r.OneIn(20);
+                g_input[0x499] = r.OneIn(20);
+                t->m_corePhysics = g_physics;
+                static const float rates[] = {1.0f, 0.5f, 0.3f, 0.25f, 2.0f, 0.0f, -0.5f, 0.999f};
+                At<float>(g_physics, 0x2E8) = rates[r.Below(8)];
+                int kind = static_cast<int>(r.Below(kKindCount));
+                g_noKind = r.OneIn(40);
+                At<uint32_t>(g_kind, 8) = kKinds[kind];
+                At<uint8_t*>(g_kind, 0xC) = g_triggerNodes[0];
+                // The trigger's buttons: the common four, the map's names, the d-pad, others.
+                static const uint32_t names[] = {0x9A7DC229, 0x03749393, 0x7473A305};
+                uint32_t pool[3];
+                for (int i = 0; i < 3; ++i) {
+                    uint32_t b = r.OneIn(8) ? names[r.Below(3)] : kButtons[r.OneIn(5) ? r.Below(18) : r.Below(4)];
+                    pool[i] = b;
+                    g_triggerNodes[i][0] = static_cast<uint8_t>(r.Below(6) << 1);
+                    At<uint32_t>(g_triggerNodes[i], 8) = b;
+                    At<uint8_t*>(g_triggerNodes[i], 0xC) = g_triggerNodes[i + 1];
+                }
+                for (int i = 3; i < 6; ++i) {
+                    g_triggerNodes[i][0] = 0;
+                    At<uint32_t>(g_triggerNodes[i], 8) = kButtons[r.Below(4)];
+                    At<uint8_t*>(g_triggerNodes[i], 0xC) = g_triggerNodes[(i + 1) % 6];
+                }
+                // Often events of just the trigger's buttons (as mapped), mostly without flags.
+                uint32_t mapped[3];
+                for (int i = 0; i < 3; ++i)
+                    mapped[i] = pool[i] == names[0]   ? t->m_buttonMap[0]
+                                : pool[i] == names[1] ? t->m_buttonMap[1]
+                                : pool[i] == names[2] ? t->m_buttonMap[2]
+                                                      : pool[i];
+                if (r.Bit()) {
+                    int spread = 1 + static_cast<int>(r.Below(3));
+                    for (TrickEvent& e : t->m_events) {
+                        e.button = r.OneIn(8) ? kButtons[r.Below(18)] : mapped[r.Below(spread)];
+                        e.type = r.OneIn(16) ? 0 : 1 + static_cast<int>(r.Below(2));
+                        if (!r.OneIn(4))
+                            e.flags = 0;
+                    }
+                    if (r.Bit())
+                        t->m_eventCount = static_cast<uint16_t>(20 + r.Below(81));
+                }
+                if (kKinds[kind] == 0x696E5E66 && r.Bit()) { // (ReleaseAndTap's three, newest first)
+                    static const int types[] = {2, 1, 2}, which[] = {1, 1, 0};
+                    for (int i = 0; i < 3; ++i) {
+                        TrickEvent& e = t->m_events[(t->m_eventHead + 100 - i) % 100];
+                        e.type = types[i];
+                        e.button = mapped[which[i]];
+                        e.flags = 0;
+                    }
+                }
+                // The time after the buttons: a number or a global's name.
+                uint32_t ms = r.OneIn(2) ? 1000 : (r.OneIn(4) ? r.Below(200) : 300 + r.Below(1500));
+                if (g_clockStep == 0 && t->m_eventCount && r.OneIn(3)) // (exactly an event's age)
+                    ms = g_now - t->m_events[(t->m_eventHead + 100 - r.Below(t->m_eventCount)) % 100].time;
+                int count = r.OneIn(20) ? static_cast<int>(r.Below(4)) : kKindButtons[kind];
+                bool number = r.Bit();
+                g_triggerNodes[count][0] = number ? 2 : 0x1A;
+                At<uint32_t>(g_triggerNodes[count], 8) = number ? ms : ms ^ 0x5555;
+                auto* trigger = r.OneIn(40) ? nullptr : reinterpret_cast<Script::CStruct*>(g_structs[r.Below(4)]);
+                uint32_t markFlags = r.OneIn(4) ? 1 : (r.Bit() ? 4 : r.Next() & 0x30F);
+                uint32_t mask = r.OneIn(2) ? 0 : (r.Bit() ? 0x100 : r.Next() & 0x10F);
+                bool scaled = r.Bit();
+                Record({0xC4EC, static_cast<uint32_t>(kind), markFlags, mask, scaled});
+                bool result = original
+                                  ? Original<bool(__thiscall*)(void*, Script::CStruct*, uint32_t, uint32_t, bool)>(0x0051FDA0)(
+                                        t, trigger, markFlags, mask, scaled)
+                                  : t->CheckTrigger(trigger, markFlags, mask, scaled);
+                Record({0xE, result});
+                found[run][kind] += result;
+                Trace();
+            }
+            traces[run] = g_trace;
+        }
+        delete s;
+    }
+    int total = 0;
+    for (int k = 0; k < kKindCount; ++k) {
+        Log("  trick triggers: %08X found %d times by the original", kKinds[k], found[0][k]);
+        total += found[0][k];
+        if (k + 1 < kKindCount)
+            Check(found[0][k] > 5, "trick triggers: every kind is found now and then");
+    }
+    Check(total > 1000, "trick triggers: found often");
+    Compare(traces[0], traces[1], "trick triggers: every kind over random events");
+}
+
 } // namespace
 
 SELFTEST(Early, TestTrickEvents, RemoveStandIns);
+SELFTEST(Early, TestTrickTriggers, RemoveStandIns);

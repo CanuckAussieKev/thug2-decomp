@@ -145,7 +145,7 @@ src/game/skater/<class>.cpp + .h; tests in src/hook/selftests_skater_<class>.cpp
     setMap the button map is set from its own three stack arguments, as the original does), 0x0051F8F0 UpdateButton
     (held-off buttons +0x9A8, ignored buttons +0xA1C), 0x0051F290 HoldOffButton, 0x0051F010 DumpEventBuffer
     (compiled-out debug output: the strings kept).
-  - Triggers: 0x0051EA40 IsTrickButton (the button in EAX; a naked stub keeping ECX / EDX), 0x0051EC40 ReadTrigger
+  - Triggers: 0x0051EA40 IsDirection (the button in EAX; a naked stub keeping ECX / EDX), 0x0051EC40 ReadTrigger
     (the generic button names 0x9A7DC229 / 0x03749393 / 0x7473A305 mapped through +0x99C; the time a number or a
     global integer), 0x0051ECC0 SetButtonMap, 0x0051ECF0 IsButtonDown.
   - Lists and the queue: 0x0051ED10 ClearQueue, 0x0051ED20 QueueTrick (100 of 0x14 bytes at +0xA34; dropped when
@@ -161,3 +161,24 @@ src/game/skater/<class>.cpp + .h; tests in src/hook/selftests_skater_<class>.cpp
     registers set and checked), the trigger check stood in for. 50 deliberate bugs caught, 6 after strengthening
     (ties at exactly an event's age and exactly the hold-off time, the d-pad buttons, aliases that name nothing,
     queued lists that get removed).
+- [x] Batch SK4-7 (NOT run in the game yet; the trick trigger check, 1 function of 7 KB):
+  src/game/skater/trick_component.cpp 0x0051FDA0 CheckTrigger (thiscall, RET 0x10: the trigger, the flags its events
+  get, the mask of flags that rule an event out, Press's stretch). The trigger's first component names its kind, the
+  next ones its buttons and time (ReadTrigger). 19 kinds (names checked with the checksum): Press, Release, Tap,
+  InOrder, PressAndRelease, TapTwiceRelease, TripleInOrderSloppy, TripleInOrderStrict (these as step lists),
+  TripleInOrder, HoldTwoAndPress, ReleaseTwo, ReleaseTwoAndPress, PressTwoAnyOrder, AirTrickLogic, PressTwo,
+  HoldThree, ReleaseAndTap and 0xB6258557 (name unknown: a press with no d-pad direction but the button map's).
+  Each read from the disassembly case by case (the decompiler's output was unreliable): when an event is too old
+  or rules the trigger out the used marks stay, when the events run out they're cleared (but not for
+  PressTwoAnyOrder); Press / Release give the event the flags themselves; Tap leaves the button map; HoldThree reads
+  its buttons unmapped. Press's stretch: with the flag and the core physics' rate (+0x28 -> +0x2E8) below 1, the
+  time divided by it (_ftol: int64 cast). QueueDoneTricks / SetPendingTrick call it directly now.
+  - IsTrickButton (0x0051EA40, SK4-6) renamed IsDirection: its eight buttons are the d-pad's directions (Up, Down,
+    Left, Right, the diagonals); CheckReleasePress's three are Triangle, Circle and Square (comments fixed).
+  - With 0x0051FDA0 rewritten, scan_register_assumptions' RISK on 0x0051EA40 (ECX / EDX read after the call in
+    0x0051FDA0) is gone from the running code; the stub keeps both anyway.
+  - Test (TestTrickTriggers in src/hook/selftests_skater_trick.cpp): 12000 random checks over every kind (half the
+    event rings of just the trigger's buttons; ReleaseAndTap's pattern planted; times exactly an event's age; mapped
+    button names; no kind, no trigger, input blocked); every kind found by the original (25-312 times each).
+    41 deliberate bugs: 40 caught, 1 equivalent (rate <= 1 instead of < 1: dividing by 1 changes nothing).
+  - find_gaps over 0x005197F2-0x00521B90: only 0x0051B9D8 (a Ghidra split inside 0x0051B9D0, SK4-3: no separate entry).
