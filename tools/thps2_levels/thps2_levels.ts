@@ -239,6 +239,96 @@ export function faceColors(face: thps2.PsxFace, rgbs: readonly (readonly number[
     return out;
 }
 
+// --- terrains ------------------------------------------------------------------------------------------------------
+
+// THUG2's terrain numbers: a collision face's terrain byte is an index into scripts\game\terrain.qb's Terrain_Types
+// (its first entries, in its order).
+export const THUG2_TERRAIN_TYPES = [
+    "DEFAULT",
+    "CONCSMOOTH",
+    "CONCROUGH",
+    "METALSMOOTH",
+    "METALROUGH",
+    "METALCORRUGATED",
+    "METALGRATING",
+    "METALTIN",
+    "WOOD",
+    "WOODMASONITE",
+    "WOODPLYWOOD",
+    "WOODFLIMSY",
+    "WOODSHINGLE",
+    "WOODPIER",
+    "BRICK",
+    "TILE",
+    "ASPHALT",
+    "ROCK",
+    "GRAVEL",
+    "SIDEWALK",
+    "GRASS",
+    "GRASSDRIED",
+    "DIRT",
+    "DIRTPACKED",
+    "WATER",
+    "ICE",
+    "SNOW",
+    "SAND",
+    "PLEXIGLASS",
+    "FIBERGLASS",
+    "CARPET",
+    "CONVEYOR",
+    "CHAINLINK",
+    "METALFUTURE",
+    "GENERIC1",
+    "GENERIC2",
+] as const;
+
+// THPS2's terrain numbers (a collision surface's bits 9-12) by the names its trigger symbol file gives them (T_CONCRETE
+// = 0 ... T_SIDEWALK = 15 - data/symbols.tdf in ALL.PKR), as THUG2's terrains: the nearest of the same material.
+// THPS2's metal pole and metal (9, 12) are both THUG2's smooth metal; its two generic ones stay generic.
+export const THPS2_TERRAINS: readonly (typeof THUG2_TERRAIN_TYPES)[number][] = [
+    "CONCSMOOTH", // T_CONCRETE
+    "TILE",
+    "WOOD",
+    "DIRT",
+    "ASPHALT",
+    "GRASS",
+    "WATER",
+    "CHAINLINK",
+    "BRICK",
+    "METALSMOOTH", // T_METALPOLE
+    "GENERIC1",
+    "GENERIC2",
+    "METALSMOOTH", // T_METAL
+    "ROCK",
+    "GRAVEL",
+    "SIDEWALK",
+];
+
+export function faceTerrain(face: thps2.PsxFace): number {
+    return THUG2_TERRAIN_TYPES.indexOf(THPS2_TERRAINS[thps2.surfaceTerrain(face.surface)]!);
+}
+
+// A rail point's flags' low four bits: 0 concrete (Philadelphia's ledges: most of its points), 1 metal (Hangar's
+// rails), 2 wood (Skatestreet's, the Bullring's) - as THUG2's rail Type and TerrainType (THPS3's ports use the same
+// pairs). Other values: metal.
+export function railTerrain(flags: number): [string, string] {
+    switch (flags & 15) {
+        case 0:
+            return ["Concrete", "CONCSMOOTH"];
+        case 2:
+            return ["Wood", "WOOD"];
+        default:
+            return ["Metal", "METALSMOOTH"];
+    }
+}
+
+// The level's LoadTerrain: the ported levels' terrains (level_port/nodes.ts) and the others THPS2's faces use.
+export function loadTerrainNs(): string {
+    const all = [...nodes.TERRAINS];
+    for (const t of THPS2_TERRAINS) if (!all.includes(t)) all.push(t);
+    return `script LoadTerrain {\n${all.map((t) => `    LoadTerrainSounds terrain=TERRAIN_${t} \n`).join("")}}`;
+}
+
 // A face's collision in THUG2's flags, or null: not collided with (THPS2's trigger planes and the invisible walls on
 // vert lips - THUG2 keeps a skater in the air over a vert face itself). `up`: the THUG2 normal's y.
 export function collisionFlags(face: thps2.PsxFace, up: number): number | null {
@@ -527,7 +617,7 @@ export function convertWorld(
             if (flags === null) counts.noCollision++;
             else
                 for (const [a, b, c] of faceTriangles(face))
-                    faces.push([flags, 0, face.vertices[a]!, face.vertices[b]!, face.vertices[c]!]);
+                    faces.push([flags, faceTerrain(face), face.vertices[a]!, face.vertices[b]!, face.vertices[c]!]);
             if (face.flags & thps2.FACE_INVISIBLE) {
                 counts.hidden++;
                 continue;
@@ -941,9 +1031,9 @@ export function nodeArrayText(
             "        Angles=(0.0, 0.0, 0.0) ",
             `        Name=TRG_Rail_${t.index} `,
             "        Class=RailNode ",
-            "        Type=Metal ",
+            `        Type=${railTerrain(p.flags)[0]} `,
             "        CreatedAtStart ",
-            "        TerrainType=TERRAIN_METALSMOOTH ",
+            `        TerrainType=TERRAIN_${railTerrain(p.flags)[1]} `,
         ];
         if (links.length) lines.push(`        Links=[${links.join(", ")}] `);
         lines.push("    } ");
@@ -983,7 +1073,7 @@ export function nodeArrayText(
             ),
         );
     }
-    const text = `${level}_NodeArray = [\n${blocks.join("\n")}\n]\n${nodes.loadTerrainNs()}\n${scripts.map((s) => `${s}\n`).join("")}`;
+    const text = `${level}_NodeArray = [\n${blocks.join("\n")}\n]\n${loadTerrainNs()}\n${scripts.map((s) => `${s}\n`).join("")}`;
     return {
         text,
         restarts: order.length,

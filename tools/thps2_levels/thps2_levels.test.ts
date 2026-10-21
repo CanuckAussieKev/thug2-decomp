@@ -545,6 +545,25 @@ test("convertWorld: a trigger's faces become a trigger object of its node's name
     assert.deepEqual(t.faces[0]!.slice(2), [t.faces[1]![2], t.faces[1]![4], t.faces[1]![3]]);
 });
 
+test("terrains: THPS2's numbers as THUG2's Terrain_Types indices; rails by their flags", () => {
+    const psx = thps2.readPsx(worldPsx(), "test");
+    const quad = psx.models[0]!.faces[0]!; // terrain 3: T_DIRT
+    assert.equal(conv.faceTerrain(quad), conv.THUG2_TERRAIN_TYPES.indexOf("DIRT"));
+    assert.equal(conv.THUG2_TERRAIN_TYPES.indexOf("DIRT"), 22);
+    assert.equal(conv.THUG2_TERRAIN_TYPES.indexOf("CONCSMOOTH"), 1);
+    const out = conv.convertWorld(psx, "thps2_test", { byName: new Map(), bmps: new Map() }, false);
+    assert.equal(out.col.objects[0]!.faces[0]![1], 22);
+    assert.deepEqual(conv.railTerrain(0x10), ["Concrete", "CONCSMOOTH"]);
+    assert.deepEqual(conv.railTerrain(1), ["Metal", "METALSMOOTH"]);
+    assert.deepEqual(conv.railTerrain(0x22), ["Wood", "WOOD"]);
+    assert.match(conv.loadTerrainNs(), /terrain=TERRAIN_DIRT [\s\S]*terrain=TERRAIN_GENERIC2 /);
+    const nodes = conv.nodeArrayText("thps2_test", thps2.readTrg(trgFile(), "test"));
+    assert.match(
+        nodes.text,
+        /Name=TRG_Rail_1 \n {8}Class=RailNode \n {8}Type=Metal [\s\S]*TerrainType=TERRAIN_METALSMOOTH /,
+    );
+});
+
 test("levels: ten, each its own name and level select number", () => {
     assert.equal(conv.LEVELS.length, 10);
     assert.equal(new Set(conv.LEVELS.map((l) => conv.levelName(l))).size, 10);
