@@ -16,10 +16,18 @@ foreach ($l in $Levels) {
     $r = & "$PSScriptRoot\run_game.ps1" -Game $Game -Seconds $Seconds -Shot $l -ShotDir $ShotDir -Level $l
     $text = Get-Content $log -ErrorAction SilentlyContinue
     # (case-sensitive: the scripts' SetOnExceptionScript lines aren't errors; the reports: src/hook/crash.h)
-    $bad = $text | Select-String -CaseSensitive -Pattern '^EXCEPTION|RUN-TIME CHECK FAILURE|DEBUG CRT REPORT|^INVALID PARAMETER|^PURE VIRTUAL CALL|^ABORT|^BUFFER OVERRUN|^GAME CRT MESSAGE|SELFTEST' | Select-Object -First 3
+    $bad = $text | Select-String -CaseSensitive -Pattern '^EXCEPTION|RUN-TIME CHECK FAILURE|DEBUG CRT REPORT|^INVALID PARAMETER|^PURE VIRTUAL CALL|^ABORT|^BUFFER OVERRUN|^GAME CRT MESSAGE|SELFTEST' |
+        Where-Object { $_.Line -notmatch 'self-tests: skipped' } | Select-Object -First 3
     $loaded = ($text | Select-String -SimpleMatch "levels\$l\$l.col.xbx" | Measure-Object).Count -gt 0
+    # (the script pools once the level is up - start_level.cpp's line; CComponent / CStruct, and any pool full)
+    $pools = ''
+    $p = $text | Select-String -Pattern 'script pools in use .*' | Select-Object -Last 1
+    if ($p -and $p.Line -match 'CComponent (\d+) \(peak (\d+)\) of (\d+), CStruct (\d+) \(peak (\d+)\) of (\d+)') {
+        $pools = "CComponent=$($Matches[1])/peak $($Matches[2])/$($Matches[3]) CStruct=$($Matches[4])/peak $($Matches[5])/$($Matches[6])"
+    }
+    $full = ($text | Select-String -Pattern 'pool \S+ (full|80% full)' | % { $_.Line -replace '^.*?(pool )', '$1' }) -join ' | '
     # (a crashed or stuck game: run_game closed it and printed "GAME IN TROUBLE: ..." with the log's end - shown whole)
     $trouble = $r | Select-String -SimpleMatch 'GAME IN TROUBLE'
-    "$l : $(($r | Select-String 'running after|exited early|GAME IN TROUBLE') -join ' ') loaded=$loaded $(($bad | % Line) -join ' | ')"
+    "$l : $(($r | Select-String 'running after|exited early|GAME IN TROUBLE') -join ' ') loaded=$loaded $pools $full $(($bad | % Line) -join ' | ')"
     if ($trouble) { $r | Select-Object -Skip 1 }
 }
