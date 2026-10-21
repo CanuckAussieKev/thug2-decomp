@@ -57,6 +57,60 @@ public:
     // triggers are held. PartyMod's PS2 controls take either trigger in the three trigger checks.
     void DoAirPhysics();
 
+    // --- core_physics_state.cpp: the component made, reset and destroyed; timers ---
+    // (Fields: core_physics_fields.h. The component is 0x153C bytes, type 0x5BD63B29 SkaterCorePhysics, vtable
+    // 0x0064BC48: 0 Destroy, 1 its update 0x00510830, 12 CallMemberFunction 0x00501600.)
+    // 0x00505440 (the component type's maker): a new one (0 if out of memory).
+    static void* __cdecl Create();
+    // 0x00500CA0: the base's constructor, then its vtable and type; its two feelers (+0xA8, +0x158) and its collision
+    // cache (+0x4F4) made; no components (+0x150C-+0x1538); a few flags cleared, +0x308 = -1, +0x2E8 = 1. The rest
+    // isn't initialised. Returns this.
+    CorePhysicsComponent* Construct();
+    // 0x00500DB0 (vtable slot 0): the destructor body (0x004FC500), then freed with `flags` bit 0. Returns this.
+    CorePhysicsComponent* Destroy(unsigned int flags);
+    // 0x00506BE0: back to rest - the old position and +0x98 = the position (not in a network game), no velocity,
+    // the ground state, every timed flag set and cleared (flag 7 telling +0x1514's +0x1E so), the ride let go of,
+    // and the speed / trick timers and flags cleared.
+    void Reset();
+    // 0x00506BA0: `feeler` copied as the last ground hit (+0x158); +0x1514's +0x1D = +0x1AA.
+    void SetLastGroundFeeler(const void* feeler);
+    // 0x00500710: a free revert earned when Physics_Time_Before_Free_Revert seconds have passed since +0x31C while
+    // +0x318 (the ones pending) isn't 0 ("You earned a free revert!!!!"); the next one timed from now.
+    void UpdateFreeRevert();
+    // 0x005007A0: the focus button (pad +0xE0) held longer than focus_button_pressed_time: toggle_bullettime run
+    // (once until it's let go: +0x14C1).
+    void UpdateFocusButton();
+    // 0x00500820: projectiles (+0x2F4 on, +0x2F8 of them, not in states +0x70 / the +0x1538 component's): the
+    // throw (0x004FC3C0) at most every 30 frames (+0x14C4) - then walk_ or skate_maybe_throw_projectile run.
+    void UpdateProjectiles();
+    // 0x00500900: a timed model rotation (+0x2DB on, +0x2E0 left, +0x2E8 a frame): counted down in the air (+0x3A4
+    // cleared at 20 or less); at 0 or less, or out of the air at once, the model's rotations reset (0x004208D0;
+    // with +0x2DC, the SkaterFlipAndRotate component's 0x005114F0 first).
+    void UpdateModelRotation();
+    // 0x00500BC0: a special's time (+0x301 on; the score's first float) counted down by the frame; at 0 or less,
+    // KillSpecial run with TimeLimit.
+    void UpdateSpecialTime();
+    // 0x00500DE0 (the script member function GetAirTimeLeft): AirTimeLeft = the time until the skater falls back
+    // to the height it took off from (+0x11C of the flags block), from its upward speed and the gravity: 0 if
+    // that's in the past, 0.00001 if it never gets there. Added to the script's parameters. 1.
+    int GetAirTimeLeft(Script::CStruct* params, Script::CScript* script);
+
+    // --- core_physics_speed.cpp: friction, brakes, the speed limits ---
+    // 0x00501850: the horizontal speed limited - to the max-max speed stat (+0x358 while +0x350's timer runs), and
+    // above the max speed stat (+0x354) slowed by Physics_Heavy_Air_Friction (0x004FE1F0); the timers +0x350 (not
+    // at -1 / -2) and +0x320 (then the rolling friction +0x314 back to Physics_Rolling_Friction) counted down.
+    void LimitSpeed();
+    // 0x005019E0: braking (+0x324): unless the skater may turn on the slope instead (0x004FE420), the speed cut
+    // by Physics_Brake_Acceleration a second - to 0 when less than two frames' worth is left.
+    void Brake();
+    // 0x00506DF0: on the ground, the friction (0x004FE6A0), then either the turn down a slope (0x00501B00) or the
+    // rolling friction (0x004FE730) - only while +0x2D9 or flag +0x70 is set or the rolling friction isn't the
+    // physics value.
+    void ApplyGroundFriction();
+    // 0x005021D0: unless flag +0x88 is set, a ride on the object the feeler hit (0x00427CD0: true when one starts);
+    // a new ride makes the velocity relative to it (its velocity taken off).
+    void StartRidingHitObject();
+
 private:
     // (Part of 0x0050CA00: landing on something skatable - the velocity into the ground's plane, the ground
     // normal as the new up.)
