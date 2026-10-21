@@ -331,7 +331,16 @@ test("convertWorld: a sector and a collision object per object; invisible faces 
     // the quad's two triangles (vert); the trigger triangle left out
     assert.equal(o.faces.length, 2);
     for (const f of o.faces) assert.equal(f[0], thug2Col.FACE_VERT);
-    assert.deepEqual(done.counts, { objects: 1, faces: 2, hidden: 1, noCollision: 1, bmps: 0, triggers: 0 });
+    assert.deepEqual(done.counts, {
+        objects: 1,
+        faces: 2,
+        hidden: 1,
+        noCollision: 1,
+        bmps: 0,
+        triggers: 0,
+        duplicates: 0,
+        layers: 0,
+    });
     // placed: the object's position, THUG2's space
     // (z: the model's 0..64 at 300, turned: -364 .. -300)
     assert.deepEqual(
@@ -610,7 +619,7 @@ function objectNode(kind: number, angles: number[], tokens: number[]): (at: numb
     };
 }
 
-test("objects: static, bouncy and spinning platforms as LevelObjects of their own sectors; scripted ones left", () => {
+test("objects: static, bouncy, spinning, scripted and turned platforms as LevelObjects of their own sectors", () => {
     const trg = thps2.readTrg(
         trgOf([
             objectNode(thps2.OBJECT_PLATFORM, [0, 1024, 0], [0x2127, 0, 0, 128, thps2.C_DONE]),
@@ -635,17 +644,30 @@ test("objects: static, bouncy and spinning platforms as LevelObjects of their ow
     const world = thps2.readPsx(worldPsx(), "world");
     const objs = conv.levelObjects(world, world, trg);
     assert.deepEqual(objs.counts, { static: 1, bouncy: 1, spinning: 1, scripted: 1, turned: 1, noModel: 0 });
-    assert.equal(objs.world.objects.length, world.objects.length + 2);
+    assert.equal(objs.world.objects.length, world.objects.length + 4);
     assert.deepEqual(
         objs.placed.map((p) => [p.name, p.behaviour]),
         [
             ["TRG_Object_0", "spinning"],
             ["TRG_Object_1", "bouncy"],
+            ["TRG_Object_2", "scripted"],
+            ["TRG_Object_3", "static"],
         ],
     );
-    // the model appended once, its texture renumbered after the world's names
-    assert.equal(objs.world.models.length, world.models.length + 1);
+    // the model appended once (and a turned copy for the one turned about x), its texture renumbered after the
+    // world's names
+    assert.equal(objs.world.models.length, world.models.length + 2);
     assert.equal(objs.world.models[1]!.faces[0]!.texture, world.textureNames.length);
+    // (100 / 4096 of a turn about x: the turned copy's vertices are the model's turned)
+    const plain = objs.world.models[1]!.vertices;
+    const turned = objs.world.models[2]!.vertices;
+    const ax = (100 * 2 * Math.PI) / 4096;
+    plain.forEach((v, k) => {
+        const t = turned[k]!;
+        assert.ok(Math.abs(t[0]! - v[0]!) < 1e-6);
+        assert.ok(Math.abs(t[1]! - (v[1]! * Math.cos(ax) - v[2]! * Math.sin(ax))) < 1e-6);
+        assert.ok(Math.abs(t[2]! - (v[1]! * Math.sin(ax) + v[2]! * Math.cos(ax))) < 1e-6);
+    });
     const out = conv.convertWorld(
         objs.world,
         "thps2_test",
@@ -715,4 +737,23 @@ test("levels: ten, each its own name and level select number", () => {
     assert.equal(new Set(conv.LEVELS.map((l) => l.levelNum)).size, 10);
     assert.equal(conv.findLevel("skhan")?.name, "hangar");
     assert.equal(conv.findLevel("thps2_hangar")?.base, "skhan");
+});
+
+test("trisToStrip: the joins draw nothing - every triangle but the given ones has a corner twice, windings kept", () => {
+    const tris = [
+        [0, 1, 2],
+        [3, 4, 5],
+        [5, 4, 6],
+        [7, 8, 9],
+        [2, 9, 10],
+    ];
+    const strip = conv.trisToStrip(tris);
+    const drawn: number[][] = [];
+    for (let i = 0; i + 2 < strip.length; i++) {
+        const [a, b, c] = [strip[i]!, strip[i + 1]!, strip[i + 2]!];
+        if (a === b || b === c || a === c) continue;
+        drawn.push(i % 2 ? [a, c, b] : [a, b, c]);
+    }
+    // (a stray (last, a, b) at every other join: what the strips had until 2026-10-22)
+    assert.deepEqual(drawn, tris);
 });

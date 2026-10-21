@@ -27,7 +27,6 @@ import * as fs from "node:fs";
 import * as common from "../level_port/common.ts";
 import * as geometry from "../level_port/geometry.ts";
 import * as nodes from "../level_port/nodes.ts";
-import * as overlayBias from "../level_port/overlay_bias.ts";
 import * as portedLevels from "../level_port/ported_levels.ts";
 import * as qb from "../level_port/qb.ts";
 import type * as tex from "../level_port/tex.ts";
@@ -40,6 +39,7 @@ import { mipDown } from "../thps3_levels/thps3_levels.ts";
 import * as gapTable from "./gap_table.ts";
 import { Pkr } from "./pkr.ts";
 import * as thps2 from "./thps2.ts";
+import { LevelLogic, type Logic } from "./thps2_scripts.ts";
 
 export const STAGING = "thug2-decomp-thps2";
 
@@ -553,12 +553,14 @@ export const SEMI_ALPHA = 64; // a half, in THUG2's 128 = full
 
 export function trisToStrip(tris: readonly (readonly number[])[]): number[] {
     // A triangle list as one strip, the triangles joined by degenerate ones (each starts at an even index, so its
-    // turning order is kept) - as tools/thps3_levels' trisToStrip.
+    // turning order is kept) - as tools/thps3_levels' trisToStrip. The join is last, last, a, a (a once more when the
+    // triangle would start at an odd index): every triangle between two real ones has a corner twice. (Until
+    // 2026-10-22 a was pushed once when the parity allowed it, which left (last, a, b) a real triangle: drawn over the
+    // next face's first triangle with the previous face's material - z-fighting the user saw, ~1 join in 2.)
     const s: number[] = [];
     for (const [a, b, c] of tris as [number, number, number][]) {
         if (s.length) {
-            s.push(s[s.length - 1]!);
-            s.push(a);
+            s.push(s[s.length - 1]!, a, a);
             if ((s.length - 1) % 2) s.push(a);
             s.push(b, c);
         } else {
@@ -578,7 +580,16 @@ export interface ConvertedWorld {
     textures: tex.TexFile;
     col: thug2Col.ColFile;
     warnings: string[];
-    counts: { objects: number; faces: number; hidden: number; noCollision: number; bmps: number; triggers: number };
+    counts: {
+        objects: number;
+        faces: number;
+        hidden: number;
+        noCollision: number;
+        bmps: number;
+        triggers: number;
+        duplicates: number;
+        layers: number;
+    };
 }
 
 // THUG2's trigger faces (as its own trigger boxes and tools/game/triggers.ts): trigger, not collidable, no skater
@@ -596,10 +607,16 @@ export function convertWorld(
     mips = true,
     triggers: ReadonlyMap<number, number> = new Map(),
     named: ReadonlyMap<number, NamedObject> = new Map(),
+    localFrom = Number.POSITIVE_INFINITY, // objects from here on are in their own space (LevelObjects' models)
 ): ConvertedWorld {
     const warnings: string[] = [];
+    const layers = faceLayers(world, localFrom);
     const triggerObjects = new Map<number, geometry.SourceColObject>();
-    const counts = { objects: 0, faces: 0, hidden: 0, noCollision: 0, bmps: 0, triggers: 0 };
+    const counts = { objects: 0, faces: 0, hidden: 0, noCollision: 0, bmps: 0, triggers: 0, duplicates: 0, layers: 0 };
+    // (drawn triangles already drawn by an earlier face: THPS2's worlds have exact copies - 44 in Hangar, some
+    // with other uvs - that THUG2's depth buffer would draw flickering over each other. The PlayStation drew the one
+    // put into its ordering table first on top (a slot's list is drawn from the last added): the first one is kept.)
+    const drawnTriangles = new Set<string>();
     const materials = new Map<string, thug2Scene.Material>();
     const texOut = new Map<number, tex.Texture>();
     // the textures some face repeats
@@ -612,11 +629,12 @@ export function convertWorld(
             if (t !== undefined && faceTiles(face, t.width, t.height)) tiled.add(name!);
         }
     }
-    const materialFor = (texture: number, blend: Blend): number => {
-        const key = `${texture}|${blend}`;
+    const materialFor = (texture: number, blend: Blend, layer = 0): number => {
+        const key = `${texture}|${blend}|${layer}`;
         let m = materials.get(key);
         if (m === undefined) {
             m = makeMaterial(qb.checksum(`${level}_material_${materials.size}`), texture, blend, tiled.has(texture));
+            m.zBias = layer;
             materials.set(key, m);
         }
         return m.checksum;
@@ -640,7 +658,7 @@ export function convertWorld(
         const intensity = new Array<number>(verts.length).fill(-1);
         const faces: thug2Col.Face[] = [];
         const triggerName = triggers.get(world.modelNames[object.model] ?? 0);
-        for (const face of model.faces) {
+        model.faces.forEach((face, faceIndex) => {
             counts.faces++;
             if (triggerName !== undefined && face.surface & thps2.SURFACE_TRIGGER) {
                 let t = triggerObjects.get(triggerName);
@@ -662,14 +680,16 @@ export function convertWorld(
                 const c = colorsOf[k]!;
                 intensity[v] = Math.max(intensity[v]!, Math.min(255, Math.max(c[0], c[1], c[2])));
             });
-            const flags = collisionFlags(face, normal[1]);
+            let flags = collisionFlags(face, normal[1]);
+            // (glass the skater breaks by going into it - THUG2's own breakable glass is not collidable either)
+            if (flags !== null && own?.passThrough) flags = thug2Col.FACE_NON_COLLIDABLE | thug2Col.FACE_CAMERA_PASSES;
             if (flags === null) counts.noCollision++;
             else
                 for (const [a, b, c] of faceTriangles(face, model.vertices))
                     faces.push([flags, faceTerrain(face), face.vertices[a]!, face.vertices[b]!, face.vertices[c]!]);
             if (face.flags & thps2.FACE_INVISIBLE) {
                 counts.hidden++;
-                continue;
+                return;
             }
             let texture = 0;
             let size: [number, number] = [1, 1];
@@ -691,7 +711,9 @@ export function convertWorld(
                 }
             }
             const blend = faceBlend(face);
-            const material = materialFor(texture, blend);
+            const layer = index < localFrom ? (layers.get(`${index}.${faceIndex}`) ?? 0) : 0;
+            if (layer) counts.layers++;
+            const material = materialFor(texture, blend, layer);
             const cornerUvs = texture
                 ? faceUvs(face, size[0], size[1])
                 : face.vertices.map((): [number, number] => [0, 0]);
@@ -715,8 +737,20 @@ export function convertWorld(
                 list = [];
                 byMaterial.set(material, list);
             }
-            for (const [a, b, c] of faceTriangles(face, model.vertices)) list.push([corner(a), corner(b), corner(c)]);
-        }
+            for (const [a, b, c] of faceTriangles(face, model.vertices)) {
+                // (world objects only: LevelObjects' models are each in their own space)
+                const key =
+                    index < localFrom
+                        ? triangleKey(verts[face.vertices[a]!]!, verts[face.vertices[b]!]!, verts[face.vertices[c]!]!)
+                        : "";
+                if (key && drawnTriangles.has(key)) {
+                    counts.duplicates++;
+                    continue;
+                }
+                drawnTriangles.add(key);
+                list.push([corner(a), corner(b), corner(c)]);
+            }
+        });
         counts.objects++;
         if (positions.length) {
             const [lo, hi, center, radius] = geometry.bounds(positions);
@@ -762,6 +796,143 @@ export function convertWorld(
         (f) => f,
     );
     return { scene, textures: { version: 1, textures: [...texOut.values()] }, col, warnings, counts };
+}
+
+// --- layers: coplanar faces drawn over each other -----------------------------------------------------------------
+//
+// The PlayStation has no depth buffer: THPS2 sorts its faces into an ordering table, and a face lying on another (a
+// decal, a painted line, a dirt patch, the second of two faces covering the same spot) is simply drawn after it.
+// THUG2's depth buffer makes such a pair fight (the stripes / flicker the user saw). So each drawn face that lies on
+// another (coplanar - same facing, within kLayerTolerance of its plane - with a triangle's centre inside the other
+// face's) is a layer one above it: the smaller face lies on the larger (a decal on its wall); of two the same size
+// the earlier one in the file is on top (the PlayStation draws a slot's faces from the last added, so the first one
+// put in ends up on top). A layer's triangles get a material of their own with that z bias (THUG2's depth bias -
+// tools/level_port/overlay_bias.ts has how it is drawn). Per face, not per material as overlay_bias decides for the
+// other ports: in THPS2 the same texture is a base in one place and a layer in another.
+
+export const kLayerTolerance = 1.0; // inches off the other face's plane that still count as on it (THPS2 lifts its
+// layers 0 - 1 vertex unit, 0.44 inch)
+export const kMaxLayer = 6;
+
+interface LayerTri {
+    face: string; // "object.face"
+    order: number; // the face's place in the file
+    area: number; // the whole face's
+    p: [Vec3, Vec3, Vec3];
+    n: Vec3;
+    d: number;
+    axis: number;
+}
+
+// Each drawn face's layer (0: on nothing), by "object.face"; objects from `localFrom` on are in their own space
+// (LevelObjects: not compared).
+export function faceLayers(world: thps2.Psx, localFrom = Number.POSITIVE_INFINITY): Map<string, number> {
+    const sub = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+    const cross = (a: Vec3, b: Vec3): Vec3 => [
+        a[1] * b[2] - a[2] * b[1],
+        a[2] * b[0] - a[0] * b[2],
+        a[0] * b[1] - a[1] * b[0],
+    ];
+    const dot = (a: Vec3, b: Vec3): number => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    const tris: LayerTri[] = [];
+    let order = 0;
+    world.objects.forEach((object, oi) => {
+        if (oi >= localFrom) return;
+        const model = world.models[object.model]!;
+        model.faces.forEach((face, fi) => {
+            order++;
+            if (face.flags & thps2.FACE_INVISIBLE) return;
+            const vs = face.vertices.map((v) => toThug(model.vertices[v]!.map((c, k) => c + object.position[k]!)));
+            const parts: [Vec3, Vec3, Vec3][] = [];
+            let area = 0;
+            for (const [a, b, c] of faceTriangles(face, model.vertices)) {
+                const p: [Vec3, Vec3, Vec3] = [vs[a]!, vs[b]!, vs[c]!];
+                area += Math.hypot(...cross(sub(p[1], p[0]), sub(p[2], p[0]))) / 2;
+                parts.push(p);
+            }
+            for (const p of parts) {
+                const n = cross(sub(p[1], p[0]), sub(p[2], p[0]));
+                const l = Math.hypot(...n);
+                if (!(l > 1e-6)) continue;
+                const nn: Vec3 = [n[0] / l, n[1] / l, n[2] / l];
+                const ax = Math.abs(nn[0]);
+                const ay = Math.abs(nn[1]);
+                const az = Math.abs(nn[2]);
+                const axis = ax >= ay && ax >= az ? 0 : ay >= az ? 1 : 2;
+                tris.push({ face: `${oi}.${fi}`, order, area, p, n: nn, d: dot(nn, p[0]), axis });
+            }
+        });
+    });
+    const contains = (t: LayerTri, q: Vec3): boolean => {
+        const [i, j] = t.axis === 0 ? [1, 2] : t.axis === 1 ? [0, 2] : [0, 1];
+        let side = 0;
+        for (let e = 0; e < 3; e++) {
+            const a = t.p[e]!;
+            const b = t.p[(e + 1) % 3]!;
+            const c = (b[i]! - a[i]!) * (q[j]! - a[j]!) - (b[j]! - a[j]!) * (q[i]! - a[i]!);
+            if (Math.abs(c) < 1e-9) continue;
+            const s = Math.sign(c);
+            if (side && s !== side) return false;
+            side = s;
+        }
+        return side !== 0;
+    };
+    const cell = 2 * kLayerTolerance;
+    // (by the normal's main axis and its sign, and the plane's distance: faces whose normals differ a little - which
+    // a key of rounded normal components would split between buckets never compared - still meet; dot >= 0.99 below)
+    const key = (t: LayerTri, plane: number): string => `${t.axis},${Math.sign(t.n[t.axis]!)},${plane}`;
+    const buckets = new Map<string, LayerTri[]>();
+    for (const t of tris) {
+        const k = key(t, Math.round(t.d / cell));
+        const list = buckets.get(k);
+        if (list) list.push(t);
+        else buckets.set(k, [t]);
+    }
+    // under.get(face) = the faces it lies on
+    const under = new Map<string, Set<string>>();
+    for (const t of tris) {
+        const centre = [0, 1, 2].map((k) => (t.p[0][k]! + t.p[1][k]! + t.p[2][k]!) / 3) as Vec3;
+        const plane = Math.round(t.d / cell);
+        for (const near of [plane - 1, plane, plane + 1]) {
+            for (const o of buckets.get(key(t, near)) ?? []) {
+                if (o.face === t.face || dot(t.n, o.n) < 0.99) continue;
+                if (Math.abs(dot(o.n, centre) - o.d) > kLayerTolerance || !contains(o, centre)) continue;
+                // (whichever of the two lies on the other - a big face's triangle on a small one is still under it)
+                const same = Math.abs(t.area - o.area) <= 1e-3 * Math.max(t.area, o.area);
+                const tOnTop = same ? t.order < o.order : t.area < o.area;
+                const [top, below] = tOnTop ? [t, o] : [o, t];
+                const set = under.get(top.face) ?? new Set<string>();
+                set.add(below.face);
+                under.set(top.face, set);
+            }
+        }
+    }
+    const layer = new Map<string, number>();
+    const visiting = new Set<string>();
+    const settle = (face: string): number => {
+        const done = layer.get(face);
+        if (done !== undefined) return done;
+        if (visiting.has(face)) return 0; // (a loop: can't be - smaller / earlier is a strict order - but safe)
+        visiting.add(face);
+        let l = 0;
+        for (const o of under.get(face) ?? []) l = Math.max(l, Math.min(kMaxLayer, settle(o) + 1));
+        visiting.delete(face);
+        layer.set(face, l);
+        return l;
+    };
+    for (const face of under.keys()) settle(face);
+    return layer;
+}
+
+// A triangle's place and facing as a key (its corners rounded to a tenth of an inch, in a fixed order, and which way
+// round they go): two faces with the same key draw over each other.
+export function triangleKey(a: readonly number[], b: readonly number[], c: readonly number[]): string {
+    const r = (p: readonly number[]): string => p.map((v) => Math.round(v * 10)).join(",");
+    const corners = [r(a), r(b), r(c)];
+    // (rotate the smallest first: the winding stays)
+    let first = 0;
+    for (let k = 1; k < 3; k++) if (corners[k]! < corners[first]!) first = k;
+    return [0, 1, 2].map((k) => corners[(first + k) % 3]).join("|");
 }
 
 function hex(value: number): string {
@@ -1005,6 +1176,17 @@ export interface PlacedTrigger {
 // puts the skater - as restarts of no type, so not in the restart list), then the rails (each point a RailNode linked
 // to the next points of its rail), then a GenericNode per trigger (named after its collision object; its TriggerScript
 // one of the scripts after the array).
+// The level's logic in the node array (thps2_scripts.ts): the objects' placement, the crates' LevelGeometry nodes, the
+// point scripts each trigger runs, the logic's globals and scripts.
+export interface LevelExtra {
+    objects?: ObjectLogic;
+    crates?: readonly PlacedCrate[];
+    triggerCalls?: ReadonlyMap<number, readonly string[]>;
+    offAtStart?: ReadonlySet<number>; // crates and rail points the start takes away (not CreatedAtStart)
+    globals?: readonly string[];
+    scripts?: readonly string[];
+}
+
 export function nodeArrayText(
     level: string,
     trg: readonly thps2.TrgNode[],
@@ -1012,7 +1194,10 @@ export function nodeArrayText(
     objects: readonly PlacedObject[] = [],
     leaveOut: ReadonlySet<string> = new Set(),
     gapNames: ReadonlyMap<number, gapTable.GapInfo> = new Map(),
+    extra: LevelExtra = {},
 ): NodeArrayResult {
+    const calls = extra.triggerCalls ?? new Map<number, readonly string[]>();
+    const off = extra.offAtStart ?? new Set<number>();
     const restartNodes = trg.filter((n) => n.type === thps2.NODE_RESTART);
     const restarts = restartNodes.map(thps2.restartOf);
     const startNode = trg.find((n) => n.type === thps2.NODE_START);
@@ -1102,7 +1287,8 @@ export function nodeArrayText(
             `        Name=TRG_Rail_${t.index} `,
             "        Class=RailNode ",
             `        Type=${railTerrain(p.flags)[0]} `,
-            "        CreatedAtStart ",
+            // (a rail the start takes away - School II's: not there at the start)
+            ...(off.has(t.index) ? [] : ["        CreatedAtStart "]),
             `        TerrainType=TERRAIN_${railTerrain(p.flags)[1]} `,
         ];
         if (links.length) lines.push(`        Links=[${links.join(", ")}] `);
@@ -1110,14 +1296,30 @@ export function nodeArrayText(
         blocks.push(lines.join("\n"));
     }
     // objects
-    const [objectBlocks, objectScripts] = objectNodesText(level, objects);
+    const [objectBlocks, objectScripts] = objectNodesText(level, objects, extra.objects);
     blocks.push(...objectBlocks);
+    // crates: their world objects' LevelGeometry nodes (what the logic's Kill / Shatter / Visible name)
+    for (const c of extra.crates ?? []) {
+        blocks.push(
+            [
+                "    {",
+                `        Position=${vec(toNodePosition(c.position))} `,
+                "        Angles=(0.0, 0.0, 0.0) ",
+                `        Name=${c.name} `,
+                "        Class=LevelGeometry ",
+                // (one the start hides - Hangar's invisible wall over the heli pit: not there at the start)
+                ...(off.has(c.index) ? [] : ["        CreatedAtStart "]),
+                "    } ",
+            ].join("\n"),
+        );
+    }
     // triggers
     const scripts: string[] = [];
     const gaps = new Set<number>();
     let kills = 0;
     for (const t of triggers) {
-        if (!triggerActive(t.effect)) continue;
+        const more = calls.get(t.effect.trigger) ?? [];
+        if (!triggerActive(t.effect) && !more.length) continue;
         const e = t.effect;
         const r = killTarget.get(t);
         const effect: TriggerEffect = e.kill
@@ -1138,16 +1340,19 @@ export function nodeArrayText(
                 "    } ",
             ].join("\n"),
         );
+        const own = triggerScriptText(
+            level,
+            effect,
+            (index) => restartNames.get(restartOfNode.get(index) ?? -1) ?? "TRG_Restart_01",
+            gapNames,
+        );
+        // (then the command points of the trigger: thps2_scripts.ts)
         scripts.push(
-            triggerScriptText(
-                level,
-                effect,
-                (index) => restartNames.get(restartOfNode.get(index) ?? -1) ?? "TRG_Restart_01",
-                gapNames,
-            ),
+            more.length ? `${own.slice(0, own.lastIndexOf("}"))}${more.map((c) => `    ${c} \n`).join("")}}` : own,
         );
     }
-    const text = `${level}_NodeArray = [\n${blocks.join("\n")}\n]\n${loadTerrainNs()}\n${[...scripts, ...objectScripts].map((s) => `${s}\n`).join("")}`;
+    const logicText = [...(extra.globals ?? []).map((g) => `${g}\n`), ...(extra.scripts ?? []).map((s) => `${s}\n`)];
+    const text = `${level}_NodeArray = [\n${blocks.join("\n")}\n]\n${loadTerrainNs()}\n${[...scripts, ...objectScripts].map((s) => `${s}\n`).join("")}${logicText.join("")}`;
     return {
         text,
         restarts: order.length,
@@ -1219,6 +1424,49 @@ export function restartsWithoutFloor(trg: readonly thps2.TrgNode[], col: thug2Co
 export interface NamedObject {
     checksum: number;
     collide: boolean;
+    passThrough?: boolean; // its collision faces non-collidable (glass: broken by the skater going into it)
+}
+
+// --- crates: named world objects the logic breaks, hides and shows ----------------------------------------------------
+
+export interface PlacedCrate {
+    index: number; // the crate node's
+    name: string; // its LevelGeometry node / sector (TRG_Crate_<node>)
+    position: Vec3; // THPS2's units (the world object's)
+    glass: boolean; // every drawn face semi-transparent: THUG2's breakable glass (the skater goes through, it breaks)
+    drawn: boolean; // some face drawn (else collision only: never shattered)
+}
+
+// The crates (node type 2) that name a world object of the level, each object named after its crate (its first one).
+// Returns them and the world objects' names (by object index, for convertWorld).
+export function levelCrates(
+    world: thps2.Psx,
+    trg: readonly thps2.TrgNode[],
+): [PlacedCrate[], Map<number, NamedObject>] {
+    const crates: PlacedCrate[] = [];
+    const named = new Map<number, NamedObject>();
+    // (the crates something breaks: only glass that breaks lets the skater through - Hangar's control room windows
+    // are glass that never breaks)
+    const broken = new Set<number>();
+    for (const n of trg) {
+        if (n.type !== thps2.NODE_COMMAND_POINT) continue;
+        const ops = thps2.commandPointOf(n).commands.map((c) => c.op);
+        if (ops.includes(thps2.CMD.SendKill) || ops.includes(thps2.CMD.SendKillLoudly))
+            for (const l of n.links) broken.add(l);
+    }
+    for (const n of trg) {
+        if (n.type !== thps2.NODE_CRATE) continue;
+        const model = thps2.crateOf(n);
+        const index = world.objects.findIndex((o, i) => world.modelNames[o.model] === model && !named.has(i));
+        if (index < 0) continue;
+        const object = world.objects[index]!;
+        const drawn = world.models[object.model]!.faces.filter((f) => !(f.flags & thps2.FACE_INVISIBLE));
+        const glass = drawn.length > 0 && drawn.every((f) => f.flags & thps2.FACE_SEMI_TRANSPARENT);
+        const name = `TRG_Crate_${n.index}`;
+        named.set(index, { checksum: qb.checksum(name), collide: true, passThrough: glass && broken.has(n.index) });
+        crates.push({ index: n.index, name, position: [...object.position], glass, drawn: drawn.length > 0 });
+    }
+    return [crates, named];
 }
 
 // What a platform object's script does, as far as it's converted: nothing (static), C_IS_BOUNCY (a prop the skater
@@ -1259,8 +1507,30 @@ export interface LevelObjects {
     counts: Record<ObjectBehaviour | "turned" | "noModel", number>;
 }
 
-// The platform objects with a model in the _o file, static / bouncy / spinning and turned about y only, appended to the
-// world as objects of their own (their faces' textures and colours renumbered into the world's lists).
+// A model turned about THPS2's x, then z (its own space, about its origin): a node's Angles turn it about y only,
+// so an object turned about x / z (Hangar's wind tunnel fans, tilted; its debris) gets a turned copy of its model.
+// (The order of THPS2's turns is not known: every such object in the ten levels but two is turned about one axis.)
+export function turnModel(model: thps2.PsxModel, angles: readonly number[]): thps2.PsxModel {
+    const ax = (angles[0]! * 2 * Math.PI) / 4096;
+    const az = (angles[2]! * 2 * Math.PI) / 4096;
+    const turn = (v: readonly number[]): [number, number, number] => {
+        // about z
+        const x1 = v[0]! * Math.cos(az) - v[1]! * Math.sin(az);
+        const y1 = v[0]! * Math.sin(az) + v[1]! * Math.cos(az);
+        const z1 = v[2]!;
+        // about x
+        return [x1, y1 * Math.cos(ax) - z1 * Math.sin(ax), y1 * Math.sin(ax) + z1 * Math.cos(ax)];
+    };
+    return {
+        ...model,
+        vertices: model.vertices.map(turn),
+        normals: model.normals.map(turn),
+    };
+}
+
+// The platform objects with a model in the _o file (static, bouncy, spinning and scripted - their scripts:
+// thps2_scripts.ts), appended to the world as objects of their own (their faces' textures and colours renumbered into
+// the world's lists; one turned about x / z gets a turned copy of its model).
 export function levelObjects(world: thps2.Psx, objects: thps2.Psx | null, trg: readonly thps2.TrgNode[]): LevelObjects {
     const counts = { static: 0, bouncy: 0, spinning: 0, scripted: 0, turned: 0, noModel: 0 };
     const merged: thps2.Psx = {
@@ -1285,16 +1555,15 @@ export function levelObjects(world: thps2.Psx, objects: thps2.Psx | null, trg: r
         }
         const behaviour = objectBehaviour(o);
         counts[behaviour]++;
-        if (behaviour === "scripted") continue;
-        if (o.angles[0] || o.angles[2]) {
-            counts.turned++;
-            continue;
-        }
-        let m = modelAt.get(source);
+        const turned = o.angles[0] !== 0 || o.angles[2] !== 0;
+        if (turned) counts.turned++;
+        const key = turned ? -1 - n.index : source; // (a turned one: its own copy)
+        let m = modelAt.get(key);
         if (m === undefined) {
-            const model = objects.models[source]!;
-            const textureBase = merged.textureNames.length;
-            const rgbBase = merged.rgbs.length;
+            const model = turned ? turnModel(objects.models[source]!, o.angles) : objects.models[source]!;
+            // (the _o file's texture names and colours go after the world's: below)
+            const textureBase = world.textureNames.length;
+            const rgbBase = world.rgbs.length;
             m = merged.models.length;
             merged.models.push({
                 ...model,
@@ -1308,7 +1577,7 @@ export function levelObjects(world: thps2.Psx, objects: thps2.Psx | null, trg: r
                 })),
             });
             merged.modelNames.push(objects.modelNames[source]!);
-            modelAt.set(source, m);
+            modelAt.set(key, m);
         }
         const name = `TRG_Object_${n.index}`;
         named.set(merged.objects.length, { checksum: qb.checksum(name), collide: behaviour !== "bouncy" });
@@ -1323,9 +1592,20 @@ export function levelObjects(world: thps2.Psx, objects: thps2.Psx | null, trg: r
     return { world: merged, named, placed, counts };
 }
 
+// How the level's logic (thps2_scripts.ts) places the objects: those a pulse creates later aren't CreatedAtStart
+// (Hangar's falling roof debris); the scripted ones run their script.
+export interface ObjectLogic {
+    pulsedLater: ReadonlySet<number>;
+    objectScripts: ReadonlyMap<number, string>;
+}
+
 // The objects' nodes: LevelObjects of their sectors (collidable ones CollisionMode=Geometry), turned about y; the
-// spinning ones a TriggerScript that turns them for good.
-export function objectNodesText(level: string, placed: readonly PlacedObject[]): [string[], string[]] {
+// spinning ones a TriggerScript that turns them for good, the scripted ones their script's.
+export function objectNodesText(
+    level: string,
+    placed: readonly PlacedObject[],
+    logic: ObjectLogic = { pulsedLater: new Set(), objectScripts: new Map() },
+): [string[], string[]] {
     const blocks: string[] = [];
     const scripts: string[] = [];
     for (const p of placed) {
@@ -1335,10 +1615,12 @@ export function objectNodesText(level: string, placed: readonly PlacedObject[]):
             `        Angles=${vec([0, heading(p.object.angles[1]), 0])} `,
             `        Name=${p.name} `,
             "        Class=LevelObject ",
-            "        CreatedAtStart ",
         ];
+        if (!logic.pulsedLater.has(p.index)) lines.push("        CreatedAtStart ");
         if (p.behaviour !== "bouncy") lines.push("        CollisionMode=Geometry ");
-        if (p.behaviour === "spinning") {
+        const own = logic.objectScripts.get(p.index);
+        if (own !== undefined) lines.push(`        TriggerScript=${own} `);
+        else if (p.behaviour === "spinning") {
             const script = `${level}_Spin_${p.index}`;
             lines.push(`        TriggerScript=${script} `);
             const speeds = spinSpeeds(p.object);
@@ -1351,6 +1633,49 @@ export function objectNodesText(level: string, placed: readonly PlacedObject[]):
         blocks.push(lines.join("\n"));
     }
     return [blocks, scripts];
+}
+
+// --- the level's logic ---------------------------------------------------------------------------------------------
+
+// The restart node the level starts at (the start node's SetRestart, as nodeArrayText's Player1), or null.
+export function startRestartNode(trg: readonly thps2.TrgNode[]): number | null {
+    const restartNodes = trg.filter((n) => n.type === thps2.NODE_RESTART);
+    if (!restartNodes.length) return null;
+    const startNode = trg.find((n) => n.type === thps2.NODE_START);
+    const commands = startNode ? thps2.startCommands(startNode) : [];
+    const named = (op: number): string | undefined => commands.find((c) => c.op === op)?.args[0] as string | undefined;
+    const kinds = restartKinds(
+        restartNodes.map(thps2.restartOf),
+        named(thps2.CMD.SetRestart),
+        named(thps2.CMD.SetRestart2),
+    );
+    const i = kinds.indexOf("Player1");
+    return i < 0 ? null : restartNodes[i]!.index;
+}
+
+// The level's logic (thps2_scripts.ts) over its converted objects and crates.
+export function levelLogic(
+    level: string,
+    trg: readonly thps2.TrgNode[],
+    objects: LevelObjects,
+    crates: readonly PlacedCrate[],
+): Logic {
+    const objectName = new Map(objects.placed.map((p) => [p.index, p.name]));
+    const scripted = new Set(objects.placed.filter((p) => p.behaviour === "scripted").map((p) => p.index));
+    const crate = new Map(crates.map((c) => [c.index, c]));
+    const logic: LevelLogic = new LevelLogic({
+        level,
+        trg,
+        toThug,
+        objectName: (i) => objectName.get(i) ?? null,
+        crateName: (i) => crate.get(i)?.name ?? null,
+        glass: (i) => crate.get(i)?.glass ?? false,
+        drawn: (i) => crate.get(i)?.drawn ?? true,
+        railName: (i) => (trg[i]?.type === thps2.NODE_RAIL_POINT ? `TRG_Rail_${i}` : null),
+        translate: (i) => scripted.has(i) || logic.isScriptOnly(i),
+        start: startRestartNode(trg),
+    });
+    return logic.build();
 }
 
 // --- the sky -------------------------------------------------------------------------------------------------------
@@ -1474,8 +1799,14 @@ export function cmdConvert(args: Args): number {
         // the _o file's static / bouncy / spinning objects, appended to the world
         const levelObjs = levelObjects(world, objects, trg);
         const textures = levelTextures(pkr, info, world, ...(objects ? [objects] : []));
-        // the triggers that do something here (gaps, kills) and have trigger faces in the world
-        const effects = [...triggerEffects(trg).values()].filter(triggerActive);
+        // the crates (named world objects) and the level's logic: what the start, the triggers and the objects'
+        // scripts do (thps2_scripts.ts)
+        const [crates, crateNamed] = levelCrates(world, trg);
+        const logic = levelLogic(name, trg, levelObjs, crates);
+        // the triggers that do something here (gaps, kills, the logic's points) and have trigger faces in the world
+        const effects = [...triggerEffects(trg).values()].filter(
+            (e) => triggerActive(e) || logic.triggerCalls.has(e.trigger),
+        );
         const places = triggerPositions(
             world,
             effects.map((e) => e.trigger),
@@ -1486,21 +1817,55 @@ export function cmdConvert(args: Args): number {
         const triggerNames = new Map(
             placed.map((t) => [t.effect.trigger, qb.checksum(triggerNodeName(t.effect.trigger))]),
         );
-        const done = convertWorld(levelObjs.world, name, textures, !args.noMips, triggerNames, levelObjs.named);
+        const done = convertWorld(
+            levelObjs.world,
+            name,
+            textures,
+            !args.noMips,
+            triggerNames,
+            new Map([...levelObjs.named, ...crateNamed]),
+            world.objects.length,
+        );
         const levelDir = pyJoin(out, "levels", name);
         // (THPS2 draws its layers - painted lines, decals, shadows on the floors - in the PlayStation's order with no
-        // depth buffer: coplanar with the surface under them they'd fight over THUG2's depth buffer as stripes)
-        const biased = overlayBias.biasOverlays(done.scene);
+        // depth buffer: coplanar with the surface under them they'd fight over THUG2's depth buffer as stripes. Each
+        // face lying on another has a z bias above it: faceLayers - per face; phase 2's per-material overlay_bias
+        // left pairs it couldn't order, and a texture that is a layer in one place is the base in another.)
         common.writeLevel(levelDir, name, done.scene, done.textures, done.col);
         common.reportLevel(report, name, done.scene, done.textures, done.col, [...new Set(done.warnings)].sort());
         const c = done.counts;
         report.push(
             `  ${c.objects} objects, ${c.faces} faces (${c.hidden} not drawn, ${c.noCollision} not collided with), ` +
-                `${c.bmps} of ${done.textures.textures.length} textures from newtex, ${biased} layer materials given a z bias`,
+                `${c.bmps} of ${done.textures.textures.length} textures from newtex, ${c.layers} faces lying on others given a z bias, ` +
+                `${c.duplicates} duplicate triangles left out`,
         );
         const noFloor = restartsWithoutFloor(trg, done.col);
-        const nodeArray = nodeArrayText(name, trg, placed, levelObjs.placed, noFloor, gaps.gaps);
-        common.nsCompile(args.ns, nodeArray.text, pyJoin(levelDir, `${name}.qb`));
+        const setupName = logic.setup.length ? `${name}_setup` : null;
+        const logicScripts = [...logic.scripts];
+        if (setupName !== null)
+            logicScripts.push(`script ${setupName} {\n${logic.setup.map((l) => `    ${l}\n`).join("")}}`);
+        const nodeArray = nodeArrayText(name, trg, placed, levelObjs.placed, noFloor, gaps.gaps, {
+            objects: logic,
+            crates,
+            triggerCalls: logic.triggerCalls,
+            offAtStart: logic.offAtStart,
+            globals: logic.globals,
+            scripts: logicScripts,
+        });
+        let nodeText = nodeArray.text;
+        if (logic.glassBroken) {
+            // The glass's sound (THUG2's own breakable glass plays HitGlassPane2x - THPS2's own audio isn't converted),
+            // loaded by the level's LoadTerrain, as tools/thaw_levels does.
+            const start = "script LoadTerrain {\n";
+            nodeText = nodeText.replace(
+                start,
+                () => `${start}    LoadSound "Shared\\\\Hits\\\\HitGlassPane2x" vol=100 dropoff=0 \n`,
+            );
+        }
+        common.nsCompile(args.ns, nodeText, pyJoin(levelDir, `${name}.qb`));
+        // (the NeverScript text too, to read: <out>\source - not installed, make_menu_level copies levels\ only)
+        fs.mkdirSync(pyJoin(out, "source"), { recursive: true });
+        fs.writeFileSync(pyJoin(out, "source", `${name}.ns`), nodeText);
         report.push(
             `  nodes: ${nodeArray.restarts} restarts, ${nodeArray.rails} rail points, ${nodeArray.triggers} triggers ` +
                 `(${nodeArray.gaps} gaps - ${nodeArray.gapsNamed} named by THPS2's table, ${nodeArray.kills} kill ` +
@@ -1508,9 +1873,23 @@ export function cmdConvert(args: Args): number {
         );
         const oc = levelObjs.counts;
         report.push(
-            `  objects: ${oc.static} static, ${oc.bouncy} bouncy (not collided with), ${oc.spinning} spinning; not yet: ` +
-                `${oc.scripted} scripted, ${oc.turned} turned about x / z, ${oc.noModel} without a model`,
+            `  objects: ${oc.static} static, ${oc.bouncy} bouncy (not collided with), ${oc.spinning} spinning, ` +
+                `${oc.scripted} scripted (${oc.turned} turned about x / z); ${oc.noModel} without a model left out`,
         );
+        const lc = logic.counts;
+        report.push(
+            `  logic: ${lc.points} command point scripts, ${lc.objects} object scripts, ${lc.scriptOnly} script-only ` +
+                `objects, ${crates.length} crates (${crates.filter((c) => c.glass).length} glass), ` +
+                `${logic.createdAtStart.size} objects created at the start, ${logic.pulsedLater.size} later`,
+        );
+        if (lc.leftOut.size)
+            report.push(
+                `  left out: ${[...lc.leftOut]
+                    .sort()
+                    .map(([w, n]) => `${w} ${n}`)
+                    .join(", ")}`,
+            );
+        for (const w of [...new Set(logic.warnings)].sort()) report.push(`  logic: ${w}`);
         for (const problem of checkRestarts(trg, done.col))
             report.push(`  restart ${problem}${/: no floor/.test(problem) ? " - left out" : ""}`);
         // the sky: the background models of the _o file
@@ -1536,6 +1915,7 @@ export function cmdConvert(args: Args): number {
         manifest.levels.push({
             folder: info.base,
             level: name,
+            ...(setupName !== null ? { setup_script: setupName } : {}),
             sky: skyName,
             display: `THPS2 ${info.sign}`,
             name: titleCase(info.sign),

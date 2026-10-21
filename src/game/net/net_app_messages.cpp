@@ -10,6 +10,7 @@
 #include "game/lst/search.h"
 #include "game/net/net_access_c.h"
 #include "game/net/net_compress.h"
+#include "game/net/net_lzham.h"
 #include "game/util/lzss.h"
 #include "hook/hook.h"
 
@@ -28,6 +29,53 @@ void ConstructContext(MsgHandlerContext* context) { context->Construct(); }
 int Decompress(const char* in, int inSize, char* out, int* size)
 {
     return RleDecompress(reinterpret_cast<const uint8_t*>(in), inSize, reinterpret_cast<uint8_t*>(out), size);
+}
+
+// NOT ORIGINAL: the received streams' bounds (a compressed message comes from the network - THUGPRO's players among
+// others, docs/thugpro-online.md section 9). The original decoders read past a stream that ends inside a code, and
+// LZSS writes as much as the stream says: each stream is walked first, and expanded only when it ends exactly at its
+// end (RLE) or expands to exactly `expected` bytes (LZSS) - what the original's own size check then accepts.
+bool RleStreamFits(const uint8_t* in, int size)
+{
+    while (size > 0) {
+        uint8_t code = *in++;
+        --size;
+        int bytes = code < 0x80 ? code + 1 : 1; // a literal's bytes, or a run's one byte
+        if (bytes > size)
+            return false;
+        in += bytes;
+        size -= bytes;
+    }
+    return true;
+}
+bool LzssStreamFits(const uint8_t* in, int size, int expected)
+{
+    int expanded = 0;
+    unsigned int flags = 0;
+    for (;;) {
+        flags >>= 1;
+        if ((flags & 0x100) == 0) {
+            if (size == 0)
+                return expanded == expected;
+            flags = *in++ | 0xFF00;
+            --size;
+        }
+        if (size == 0)
+            return expanded == expected;
+        if (flags & 1) {
+            ++in;
+            --size;
+            ++expanded;
+        } else {
+            if (size < 2)
+                return false; // the original reads on past the end here
+            expanded += (in[1] & 0x0F) + 3;
+            in += 2;
+            size -= 2;
+        }
+        if (expanded > expected)
+            return false;
+    }
 }
 
 void FreeQueuedMsg(QueuedMsg* msg)
@@ -237,30 +285,60 @@ int App::HandleCompressedMessages(MsgHandlerContext* context)
     MsgHandlerContext inner;
     ConstructContext(&inner);
     char* msg = context->m_Msg;
+    // NOT ORIGINAL: a message too short for its header, or expanding to less than a message's id and length, is
+    // dropped (the original reads past them).
+    if (context->m_MsgLength < 3)
+        return kHandlerMsgDone;
     int size = *reinterpret_cast<uint16_t*>(msg + 1);
     uint8_t method = static_cast<uint8_t>(msg[0]);
+    if (size < 3)
+        return kHandlerMsgDone;
+    const auto* stream = reinterpret_cast<const uint8_t*>(msg + 3);
+    int streamSize = static_cast<int>(context->m_MsgLength) - 3;
     auto* data = static_cast<char*>(Mem::New(size));
     int expectedSize = size;
     if (method == 1) {
-        if (Decompress(msg + 3, context->m_MsgLength - 3, data, &size) != 0 || expectedSize != size) {
+        if (!RleStreamFits(stream, streamSize) || Decompress(msg + 3, streamSize, data, &size) != 0 ||
+            expectedSize != size) {
             Mem::Manager::Get()->Free(data);
             return kHandlerMsgDone;
         }
     } else if (method == 2) {
+        if (!LzssStreamFits(stream, streamSize, expectedSize)) {
+            Mem::Manager::Get()->Free(data);
+            return kHandlerMsgDone;
+        }
         size = static_cast<int>(reinterpret_cast<char*>(Lzss::Decode(reinterpret_cast<uint8_t*>(msg + 3),
                                                                      reinterpret_cast<uint8_t*>(data),
-                                                                     context->m_MsgLength - 3)) -
+                                                                     streamSize)) -
                                 data);
         if (expectedSize != size) {
             Mem::Manager::Get()->Free(data);
             return kHandlerMsgDone;
         }
-    } // (any other method: the buffer is used as it is, not expanded)
+    } else if (method == Lzham::kMethod) {
+        // NOT ORIGINAL: THUGPRO's LZHAM (TP-R11), expanded into the header's size and no further.
+        size_t expanded = 0;
+        if (!Lzham::Decompress(stream, static_cast<size_t>(streamSize), reinterpret_cast<uint8_t*>(data),
+                               static_cast<size_t>(expectedSize), &expanded) ||
+            expanded != static_cast<size_t>(expectedSize)) {
+            Mem::Manager::Get()->Free(data);
+            return kHandlerMsgDone;
+        }
+    } else {
+        // (The original uses the buffer as it is, not expanded - uninitialised memory dispatched. NOT ORIGINAL: dropped.)
+        Mem::Manager::Get()->Free(data);
+        return kHandlerMsgDone;
+    }
 
     // The expanded data is one message: id, length, data.
     inner.m_Conn = context->m_Conn;
     uint8_t id = static_cast<uint8_t>(data[0]);
     uint16_t length = *reinterpret_cast<uint16_t*>(data + 1);
+    if (length > expectedSize - 3) { // NOT ORIGINAL: a length past the expanded data (the original copies on)
+        Mem::Manager::Get()->Free(data);
+        return kHandlerMsgDone;
+    }
     auto* copy = static_cast<char*>(Mem::New(length));
     std::memcpy(copy, data + 3, length);
     inner.m_Msg = copy;

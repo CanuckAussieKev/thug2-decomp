@@ -452,8 +452,8 @@ function stripTriangles(strip: readonly number[]): [number, number, number][] {
 
 // Triangles as one strip, each joined to the last by degenerate ones only: ..., c, c, a, a, (a,) b, c' - the first
 // vertex doubled so no triangle spans the join, and once more when needed to start it at an even place (its winding
-// kept). (thps3_levels.trisToStrip doubles only the last vertex: its joins draw a stray triangle (c, a, b) between
-// every pair - not used here.)
+// kept) - as thps3_levels.trisToStrip does since 2026-10-22 (before, it doubled only the last vertex: its joins drew
+// a stray triangle (c, a, b) between pairs).
 export function joinTriangles(tris: readonly (readonly number[])[]): number[] {
     const s: number[] = [];
     for (const [a, b, c] of tris as [number, number, number][]) {

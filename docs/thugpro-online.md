@@ -40,6 +40,18 @@ much of it already done for the ported levels by the compatibility register.
 
 ## 2. Version / compatibility handshake
 
+**Update (2026-10-21, the join agent - docs/pending/thugpro-join.md): done in the THUGPRO peer mode, and corrected.**
+The installed release thugpro.dll does *not* use the 48-byte `MsgSkProConnectInfo` of thugpro_proxy's source (that
+snapshot is an unreleased 0.8): its client sends THUG2's 92-byte connection request (version 0x0004000B) followed by
+32 bytes - `_THUG_PRO_`, protocol version 0x00070000, release type, scripts hash, machine id, a "modified scripts"
+byte - 124 bytes, LZHAM; its host (a hook on Net::Server's connection request handler) refuses a remote THUG2-version
+request without the text (reason 6), with a version below 0.7 (31), "modified" while mods aren't allowed (32) or a
+banned machine id (36) - the scripts hash itself isn't compared by the host. Its join request is THUG2's with the
+machine id as the profile id. Its client maps reasons 31-37 to its own texts. Ours now sends exactly that (TP-R12, the
+user's decision on the hash; our own release type "TUG2"), shows 31-37 in words (TP-R13), and as host skips the CD-key
+check (TP-R12). The join path is source (src/game/net/gamenet_join.cpp). Hosting reads THUG2's 92 bytes of either
+request; a 48-byte request is too short and ignored.
+
 | | |
 |---|---|
 | THUGPRO | Replaces JoinServer 0x00534480, ReattemptJoin 0x00534AF0 / 0x00534BD0, SpawnServer 0x0053C380, SpawnClient 0x00537220, SpawnMatchClient 0x00534430 and ok_to_join 0x0052F560 (GameNet/Manager.cpp). The client's connection request (message 3) and join request (80) carry `MsgSkProConnectInfo`: version (big-endian int), flags (observer / willing to wait / broadband / developer / modified), password, name, machine id, profile, **scripts hash**; the join request adds the appearance after byte 48. Its ok_to_join refuses: banned IP; banned machine id (reason 35); full; game in progress; wrong password; version below `VERSION_MIN_COMPAT` (reason 31); **scripts hash** different from the host's release hash, or the modified flag set (reason 32, "modifications"). The scripts hash is the CRC-32 of `data\pre\thugpro_qb.prx` (fileproxy.cpp `getScriptsChecksum`; the toolchain's `calculate_qb_prx_hash.bat` runs a CRC tool on the same file). Checked: the installed `thugpro_qb.prx`'s CRC-32 is `0x09FC08B0`, and that constant is in the installed thugpro.dll (file offset 0x11B64) - the release hash. Message 159 (`MSG_ID_TP_CHANGE_MODS_ALLOWED`) lets a host drop clients with modified scripts later. There's no THUGPRO flag in the GameSpy server info. |
@@ -48,6 +60,9 @@ much of it already done for the ported levels by the compatibility register.
 | Work | (a) A per-session "THUGPRO peer" mode: send THUGPRO's request layout with a version >= its minimum, our name, a machine id and a scripts hash (S once the join path is source). (b) **A decision first**: the hash check exists so that everyone runs THUGPRO's scripts (its anti-cheat). Sending the release hash (computable from the user's own install at run time, nothing stored) while running THUG2's scripts would get us in, but defeats that check. Recommended: ask Morten1337 for an agreed identity (a release type or flag THUGPRO hosts recognise and can allow or refuse), and say so in the register. (c) Host side: accept both layouts (by length: 48 + appearance vs 92 / 120 + appearance), refuse with THUG2's reasons. (d) Map reasons 30-37 to messages (S). |
 
 ## 3. Network protocol changes
+
+**Update (2026-10-21):** LZHAM (method 3) is done (TP-R11): expanded always, sent in the peer mode where THUG2 sent
+LZSS; every received compressed message's lengths are bounded.
 
 THUGPRO keeps THUG2's message numbering (0-154; GameMsg.h lists THUG2 PC's own messages up to 154, CAG included) and adds:
 

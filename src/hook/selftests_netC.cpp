@@ -1171,9 +1171,22 @@ void TestNetStreamHandlers()
     World world;
     CompareRuns("net App::HandleCompressedMessages", 9, [](bool original, int i) {
         TheDispatcher()->AddHandler(0x33, RecordingHandler, 0xFFFFFFFF, reinterpret_cast<void*>(6), 0x80);
-        uint8_t method = i < 3 || i >= 6 ? 1 : i < 5 ? 2 : 3;
+        // (The streams are real ones - ours checks them before expanding, the decoders are stood in. Case 5 was method
+        // 3, which the original used unexpanded: now THUGPRO's LZHAM, tested in selftests_thugpro_join.cpp.)
+        uint8_t method = i < 3 || i >= 5 ? 1 : 2;
         auto* msg = Make<char>(0x20);
-        Writer{msg}.Byte(method).Word(7).Bytes(12, 0x21);
+        uint32_t length = 15;
+        if (method == 2) {
+            Writer{msg}.Byte(method).Word(7).Byte(0x7F).Bytes(7, 0x21); // 7 literals
+            length = 11;
+        } else if (i == 5) {
+            Writer w{msg};
+            w.Byte(method).Word(7);
+            for (int run = 0; run < 6; ++run)
+                w.Byte(0x80).Byte(0x21); // runs
+        } else {
+            Writer{msg}.Byte(method).Word(7).Byte(0x0A).Bytes(11, 0x21); // one literal of 11
+        }
         Answers(0x4C22, {0x33, 4, 0, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5});
         Answers(0x4C21, {i == 2 ? 6u : 7u});
         Answers(0x14F1, {i == 4 ? 8u : 7u});
@@ -1186,7 +1199,7 @@ void TestNetStreamHandlers()
         if (i == 8)
             Answers(0x4C22, {0x34, 4, 0}); // no handler for it
         Handle(original, 0x0045ABF0, App::HandleCompressedMessages,
-               MakeContext(TheConn(0), kMsgCompressed, msg, 15, 2));
+               MakeContext(TheConn(0), kMsgCompressed, msg, length, 2));
     });
     CompareRuns("net App::HandleStreamMessages", 14, [](bool original, int i) {
         TheDispatcher()->AddHandler(0x34, RecordingHandler, 0xFFFFFFFF, reinterpret_cast<void*>(7), 0x80);
