@@ -316,6 +316,8 @@ std::string Write(const File& file)
     }
     for (const Cameras::Camera& c : file.cameras)
         out << Cameras::WriteRecord(c) << '\n';
+    for (const Goals::Goal& g : file.goals)
+        out << "goal " << Goals::WriteRecord(g) << '\n'; // (level_editor_goals.h)
     for (const Links::Record& r : file.links)
         out << Links::WriteRecord(r) << '\n'; // (UX7: linked copies)
     for (const std::string& line : file.extra)
@@ -476,6 +478,10 @@ bool Read(const std::string& text, File* file, int* lineNumber)
             ok = Clusters::ReadRecord(in, &file->clusters.emplace_back()); // (map3: level_editor_clusters.h)
         } else if (kind == "camera") {
             ok = Cameras::ReadRecord(in, &file->cameras.emplace_back()); // (map3: level_editor_cameras.h)
+        } else if (kind == "goal") {
+            std::string rest;
+            std::getline(in, rest);
+            ok = Goals::ReadRecord(rest, &file->goals.emplace_back()); // (level_editor_goals.h)
         } else if (kind == "note") {
             ok = Notes::ReadRecord(in, &file->notes.emplace_back()); // (UX5: level_editor_notes.h)
         } else if (kind == "link") {
@@ -813,6 +819,7 @@ bool Capture(File* file)
     file->faces = Faces::Changed();
     file->clusters = Clusters::Changed();
     file->cameras = Cameras::Capture();
+    file->goals = Goals::Capture(); // (their points are owned nodes: not `node` records)
     for (const Extension& e : Extensions()) {
         if (!e.capture)
             continue;
@@ -932,6 +939,7 @@ std::string Apply(const File& file)
     int faces = Faces::Apply(file.faces);
     int clusters = Clusters::Apply(file.clusters);
     int cameras = Cameras::Apply(file.cameras);
+    Goals::Apply(file.goals); // (after the nodes: their points' nodes made; in play unless the editor runs)
     if (int links = Links::Apply(file.links, cloneMade)) // (UX7: the linked copies - after their copies were made)
         Log("level editor: the layout's %d linked-copy groups in place", links);
     ApplyExtensions(file.extra); // (other modules' records: level_editor_organize.h)
@@ -1003,6 +1011,7 @@ void ResetToLevel(const File& keep)
     Faces::ResetAll();
     Clusters::ResetAll();
     Cameras::ResetAll();
+    Goals::ResetAll(); // (out of play, their points' nodes removed - Apply makes the layout's again)
     Links::ResetAll(); // (UX7)
     ResetExtensions();
     Notes::ResetAll();             // (UX5)
@@ -1283,6 +1292,7 @@ void OnSceneLoaded(const char* name, bool isNet)
     Faces::ForgetLevel(); // (map3: nothing written - the level's collision and trick objects went with it)
     Clusters::ForgetLevel();
     Cameras::ForgetLevel();
+    Goals::ForgetLevel(); // (a goal of ours still in the goal manager taken out: its nodes went with the level)
     Links::ForgetLevel(); // (UX7)
     Notes::ForgetLevel();  // (UX5)
     Checks::ForgetLevel(); // (UX5: the issues, the ignored list, the unresolved records)

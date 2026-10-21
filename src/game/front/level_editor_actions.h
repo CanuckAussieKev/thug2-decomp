@@ -109,6 +109,8 @@ enum Id : int {
     // (UX4 / UX5: the view modes, jump arcs, the ruler - level_editor_overlays.h, level_editor_arcs.h,
     // level_editor_ruler.h; the Problems window - level_editor_checks.h)
     kViewModeLit, kViewModeUnlit, kViewModeWireframe, kViewModeCollision, kJumpArcs, kRuler, kRulerClear, kProblems,
+    // (UX6: Simulate and the Trail window - level_editor_playtest.h)
+    kSimulate, kTrailWindow,
     kBuiltinCount
 };
 

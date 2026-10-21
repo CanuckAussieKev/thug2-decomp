@@ -13,6 +13,7 @@
 #include "game/front/front_end.h"
 #include "game/front/level_editor.h"
 #include "game/front/level_editor_play.h"
+#include "game/front/level_editor_playtest.h"
 #include "game/front/restart_tester.h"
 #include "game/front/start_level.h"
 #include "game/sys/debug_mode.h"
@@ -880,6 +881,8 @@ void Update(Mdl::FrontEnd* frontEnd)
     Front::RestartTester::Update(frontEnd);
     // (and play from here's way back to the level editor, F5 / Ctrl+P - game/front/level_editor_play.h)
     Front::LevelEditor::Play::Update(frontEnd);
+    // (and play testing: the skater's trail recorded, a restart's play from here - game/front/level_editor_playtest.h)
+    Front::LevelEditor::PlayTest::Update(frontEnd);
     // (and debug mode's viewer and F keys - game/sys/debug_mode.h)
     Sys::DebugMode::Update(frontEnd);
     // (and the start level: -level <name> - game/front/start_level.h)

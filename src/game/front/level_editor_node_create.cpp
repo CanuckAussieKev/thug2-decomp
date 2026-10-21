@@ -127,6 +127,8 @@ bool SameSpec(const Spec& a, const Spec& b)
 
 bool KindOf(const Spec& spec, Kind* kind)
 {
+    if (spec.owned)
+        return false; // (another module's node, its fields its own: e.g. a goal's restart - level_editor_goals.h)
     if (SameText(spec.cls, "Restart"))
         *kind = StartsWith(spec.name, "TRG_CTF_Restart_") ? Kind::TeamSpawn : Kind::Spawn;
     else if (SameText(spec.cls, "GenericNode") && SameText(spec.type, "Crown"))
