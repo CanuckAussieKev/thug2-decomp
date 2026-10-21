@@ -16,12 +16,14 @@
 #include <vector>
 
 #include "game/core/crc.h"
+#include "game/front/level_editor_arcs.h"
 #include "game/front/level_editor_cameras.h"
 #include "game/front/level_editor_carry.h"
 #include "game/front/level_editor_chains.h"
 #include "game/front/level_editor_entities.h"
 #include "game/front/level_editor_clusters.h"
 #include "game/front/level_editor_faces.h"
+#include "game/front/level_editor_grind_preview.h"
 #include "game/front/level_editor_hud.h"
 #include "game/front/level_editor_layout.h"
 #include "game/front/level_editor_modules.h"
@@ -29,11 +31,14 @@
 #include "game/front/level_editor_node_edit.h"
 #include "game/front/level_editor_nodes.h"
 #include "game/front/level_editor_objects.h"
+#include "game/front/level_editor_overlays.h"
 #include "game/front/level_editor_preview.h"
 #include "game/front/level_editor_picking.h"
+#include "game/front/level_editor_ruler.h"
 #include "game/front/level_editor_scale.h"
 #include "game/front/level_editor_scenery.h"
 #include "game/front/level_editor_shadows.h"
+#include "game/front/level_editor_thumbs.h"
 #include "game/front/level_editor_triggers.h"
 #include "game/front/level_editor_ui.h"
 #include "game/front/level_editor_view.h"
@@ -1871,6 +1876,7 @@ bool __cdecl CFunc_Start(Script::CStruct*, Script::CScript*)
     // The UI (Dear ImGui) - else the HUD of screen elements.
     bool ui = Ui::Start();
     View::Start();
+    Overlays::Start(); // (the view menus: Lit to start with - level_editor_overlays.h)
     Faces::Start(); // (map3: Faces mode off, nothing selected)
     Triggers::Start(); // (the level's trigger volumes found)
     Entities::Start();
@@ -1991,6 +1997,9 @@ bool __cdecl CFunc_Stop(Script::CStruct*, Script::CScript*)
     Hud::HidePanel();
     Preview::Hide();
     View::Stop(); // (everything hidden in the editor shown again)
+    Overlays::Stop(); // (the view mode back to Lit)
+    Thumbs::Stop();   // (the Add palette's thumbnails freed)
+    Ruler::SetArmed(false);
     Faces::Stop();
     Carry::Disarm();
     Triggers::Stop();
@@ -3193,6 +3202,7 @@ void PlaceFromBrowser(V3 at)
         step.copies.push_back({object->m_id, source, Objects::Save(object)});
     }
     PushUndo(step);
+    Thumbs::NoteUsed(g_browser.tab, source); // (the palette's Recently used - level_editor_thumbs.h)
     g_browser.open = false;
     Hud::HidePanel();
     Hud::Message("Placed a copy of " + Objects::Label(source) + " - B adds another");
@@ -4381,6 +4391,35 @@ void Update()
     if ((Pressed(keys, SDL_SCANCODE_SLASH, &slashKey) || isolateKey) && !ctrl && !noChange && !g_browser.open)
         ViewHide(true);
     View::Tick();
+    // The view menus' keys (level_editor_overlays.h): Alt+1..4 the view mode (Lit, Unlit, Wireframe, Collision only);
+    // Y the jump arcs (level_editor_arcs.h); M the ruler (level_editor_ruler.h), Shift+M clears its measurement.
+    static bool viewKeys[Overlays::kViewModes], yKeyArcs, mKey;
+    for (int mode = 0; mode < Overlays::kViewModes; ++mode) {
+        bool pressed = Pressed(keys, static_cast<SDL_Scancode>(SDL_SCANCODE_1 + mode), &viewKeys[mode]);
+        if (pressed && alt && !ctrl) {
+            Overlays::SetViewMode(mode);
+            Hud::Message(std::string("View: ") + Overlays::ViewModeName(mode) + " (Alt+1 Lit, Alt+2 Unlit, Alt+3 "
+                                                                               "Wireframe, Alt+4 Collision only)");
+        }
+    }
+    if (Pressed(keys, SDL_SCANCODE_Y, &yKeyArcs) && !ctrl && !g_browser.open) {
+        bool on = !Overlays::Shown(Overlays::kJumpArcs);
+        Overlays::Set(Overlays::kJumpArcs, on);
+        Hud::Message(on ? "Jump arcs on (Y): select a kicker, a quarter pipe or a ramp - push / top / max speed"
+                        : "Jump arcs off (Y)");
+    }
+    if (Pressed(keys, SDL_SCANCODE_M, &mKey) && !ctrl && !g_browser.open && !g_dragging) {
+        if (shift) {
+            Ruler::Clear();
+            Hud::Message("Ruler cleared");
+        } else {
+            Ruler::SetArmed(!Ruler::Armed());
+            if (Ruler::Armed())
+                Overlays::Set(Overlays::kRuler, true);
+            Hud::Message(Ruler::Armed() ? "Ruler (M): click two points - snaps to corners (Alt: no snap); Shift+M clears"
+                                        : "Ruler off (M) - the measurement stays until Shift+M");
+        }
+    }
     // T: the trigger volumes shown (and the Triggers window) - level_editor_triggers.h; their changes, undo steps and
     // selections.
     static bool tKey;
@@ -4653,6 +4692,8 @@ void Update()
                            ? View::PickWall(g_pos, Normalize(dir))
                            : 0);
     Faces::Hover(g_pos, Normalize(dir), haveRay && !g_dragging && g_hoverAxis < 0); // (map3: Faces mode's hover)
+    if (Ruler::Armed() && haveRay && !g_dragging)
+        Ruler::Hover(g_pos, Normalize(dir), backX, backY, alt); // (the ruler's next end - level_editor_ruler.h)
     // Dragging, or what's under the cursor (an arrow first, then an object or scenery - the nearer).
     if (g_dragging && HaveSelection() && haveRay) {
         if (!g_dragMoved && std::fabs(input.x - g_pressX) + std::fabs(input.y - g_pressY) >= 4.0f)
@@ -4742,6 +4783,9 @@ void Update()
                          !Triggers::Resizing() && Triggers::BeginResize(g_hoverHandle, g_pos, dir);
     if (handlePressed) {
         Hud::Message("Resizing: drag the face (Ctrl snaps to 25); Ctrl+Z undoes", 3.0);
+    } else if (input.leftPresses && haveRay && !g_dragging && Ruler::Armed() && g_hoverAxis < 0) {
+        // (the ruler armed: a click puts an end - level_editor_ruler.h)
+        Hud::Message(Ruler::Click(), 6.0);
     } else if (input.leftPresses && haveRay && !g_dragging && Faces::Picking() && g_hoverAxis < 0) {
         // (map3: Faces mode - the collision face clicked, Shift adds / drops it: level_editor_faces.h)
         Faces::ClickAt(g_pos, Normalize(dir), shift);
@@ -4964,12 +5008,25 @@ void Draw()
         Cameras::AddOverlay(g_pos, frame, g_lens, g_viewport, kNearZ,
                             model.nodes.selected >= 0 ? Nodes::All()[model.nodes.selected].name : 0, &g_overlay.lines);
         Triggers::AddOverlay(g_pos, frame, g_lens, g_viewport, kNearZ, &g_overlay.lines, &g_overlay.texts);
-        Triggers::AddExtras(g_pos, frame, g_lens, g_viewport, kNearZ, model.nodes.selected, &g_overlay.lines,
-                            &g_overlay.texts); // (speed-ups, proximity shapes, breakables, boosts - the feature map)
+        if (Overlays::Shown(Overlays::kFeatureMap)) // (the Overlays menu - level_editor_overlays.h)
+            Triggers::AddExtras(g_pos, frame, g_lens, g_viewport, kNearZ, model.nodes.selected, &g_overlay.lines,
+                                &g_overlay.texts); // (speed-ups, proximity shapes, breakables, boosts - the feature map)
         Triggers::AddHandles(&g_overlay.circles); // (the selected trigger volume's resize handles)
         Entities::AddOverlay(g_pos, frame, g_lens, g_viewport, kNearZ, &g_overlay.lines, &g_overlay.texts);
         for (size_t i = 0; i + 1 < lines.size(); i += 2)
             g_overlay.lines.push_back({lines[i].x, lines[i].y, lines[i + 1].x, lines[i + 1].y, lines[i].color, 1.0f});
+        // The view menus' overlays (level_editor_overlays.h): labels off - the texts so far dropped; the grid and the
+        // carried things, the jump arcs, the grind preview, the ruler (their own texts kept: they are the readings).
+        if (!Overlays::Shown(Overlays::kLabels))
+            g_overlay.texts.clear();
+        Overlays::Painter painter;
+        if (Overlays::PainterNow(&g_overlay, &painter)) {
+            Overlays::AddOverlay(painter, g_dragging || g_keyMoving, g_markBase, HaveSelection());
+            Arcs::AddOverlay(painter, objects.empty() ? Scenery::Selection() : std::vector<uint32_t>{});
+            GrindPreview::AddOverlay(painter, g_dragging ? -1 : model.nodes.hovered, model.nodes.selected);
+            Ruler::AddOverlay(painter);
+        }
+        Thumbs::Frame(model); // (the Add palette's thumbnails drawn off-screen - level_editor_thumbs.h)
         Ui::Frame(model, g_overlay);
         return;
     }
@@ -5033,6 +5090,13 @@ std::vector<std::pair<std::string, std::string>> DescribeForScreenshot()
         out.emplace_back("inspected node", text);
     }
     out.emplace_back("under the cursor", model.hover);
+    // (the view menus - level_editor_overlays.h: the view mode, the overlays' bits, the arcs, the ruler, the rail shown)
+    std::snprintf(text, sizeof(text), "%s, overlays 0x%03X", Overlays::ViewModeName(Overlays::ViewMode()),
+                  Overlays::Current());
+    out.emplace_back("view mode", text);
+    for (const std::string& line : {Arcs::Describe(), Ruler::Describe(), GrindPreview::Describe()})
+        if (!line.empty())
+            out.emplace_back("measure", line);
     std::snprintf(text, sizeof(text), "%d changes, %d pieces moved%s", model.changes, model.moved,
                   model.unsaved ? ", unsaved" : "");
     out.emplace_back("changes", text);

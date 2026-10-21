@@ -2,6 +2,7 @@
 // display region and black bars (contains code from PartyMod (MIT, (c) 2024 PARTYMANX) - see THIRD_PARTY_NOTICES.md).
 
 #include "game/gfx/render.h"
+#include "game/gfx/view_mode.h"
 #include "game/gfx/wireframe.h"
 
 #include <cmath>
@@ -676,8 +677,10 @@ void RenderWorld()
         // Not original - the wireframe render mode (game/gfx/wireframe.h): the 3D passes in wireframe when asked.
         // Original behaviour: the render mode (0x006FA734) isn't read.
         Wireframe::BeginWorld();
+        ViewMode::BeginWorld(); // (not original either: the editor's view modes - game/gfx/view_mode.h)
         for (int i = 0; i < count; ++i)
             RenderViewport(i);
+        ViewMode::EndWorld();
         Wireframe::EndWorld();
 
         // Full-screen effects and the 2D on top.

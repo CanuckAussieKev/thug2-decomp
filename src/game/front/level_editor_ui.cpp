@@ -19,10 +19,12 @@
 #include "game/front/level_editor_faces.h"
 #include "game/front/level_editor_node_edit.h"
 #include "game/front/level_editor_nodes.h"
+#include "game/front/level_editor_overlays.h"
 #include "game/front/level_editor_picking.h"
 #include "game/front/level_editor_triggers.h"
 #include "game/front/level_editor_scale.h"
 #include "game/front/level_editor_scenery.h"
+#include "game/front/level_editor_thumbs.h"
 #include "game/front/level_editor_ui_backend.h"
 #include "game/front/level_editor_ui_fonts.h"
 #include "game/front/level_editor_ui_layout.h"
@@ -220,22 +222,9 @@ void PanelTitle(const char* title)
 // The toolbar's Collision (C) and, while pieces are hidden in the editor, Show all.
 void ViewToolbar(const Model& model)
 {
-    ImGui::SameLine(0.0f, 10.0f * g_scale);
-    bool collision = model.view.collision;
-    if (ImGui::Checkbox("Collision (C)", &collision))
-        Ask(Request::kCollision, collision ? 1 : 0);
-    if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Shows the level's collision near the camera, coloured by surface (the legend: bottom left);\n"
-                          "invisible walls in magenta - Shift+click one to see what it is");
-    // (map3: Faces mode - level_editor_faces.h)
-    ImGui::SameLine();
-    bool faces = Faces::Picking();
-    if (ImGui::Checkbox("Faces (K)", &faces))
-        Faces::SetPicking(faces);
-    if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Faces mode: a click takes a collision face (Shift+click adds / drops one); the Inspector sets "
-                          "or clears their flags\n(skatable, wallride, vert, not collidable, trigger, camera passes, not "
-                          "taggable) - live, saved, Home puts them back");
+    // The View (Lit / Unlit / Wireframe / Collision only) and Overlays menus - Collision (C) is in Overlays - and
+    // Faces mode (K): level_editor_overlays.h.
+    Overlays::ToolbarMenus(model, g_scale, &g_requests);
     if (model.view.hidden > 0) {
         ImGui::SameLine();
         char label[48];
@@ -253,7 +242,7 @@ void ViewToolbar(const Model& model)
 // The collision's legend, over the bottom left of the view while it's shown.
 void CollisionLegend(const Model& model)
 {
-    if (!model.view.collision)
+    if (!model.view.collision || !Overlays::Shown(Overlays::kLegend)) // (the Overlays menu: level_editor_overlays.h)
         return;
     const UiLayout::Rect& view = g_layout.viewport;
     ImGui::SetNextWindowPos(ImVec2(view.x + 8.0f * g_scale, view.y + view.height - 8.0f * g_scale), ImGuiCond_Always,
@@ -725,7 +714,8 @@ void Outliner(const Model& model)
                 // (the markers - what the editor has done to it - at the row's end, the tag before them)
                 auto found = model.marks.find(node.name);
                 uint8_t marks = found == model.marks.end() ? 0 : found->second;
-                std::string letters = MarkLetters(marks);
+                // (the Overlays menu's Outliner markers off: none shown - Changed only still filters by them)
+                std::string letters = Overlays::Shown(Overlays::kOutlinerMarks) ? MarkLetters(marks) : std::string();
                 float rowRight = ImGui::GetWindowWidth() - ImGui::GetStyle().WindowPadding.x - ImGui::GetStyle().ScrollbarSize;
                 float marksWidth = letters.empty() ? 0.0f : ImGui::CalcTextSize(letters.c_str()).x + 6.0f * g_scale;
                 if (!tag.empty()) {
@@ -1377,7 +1367,11 @@ void Help(const Model& model)
         ImGui::TableSetupColumn("##section", ImGuiTableColumnFlags_WidthFixed, 90.0f * g_scale);
         ImGui::TableSetupColumn("##keys", ImGuiTableColumnFlags_WidthFixed, 190.0f * g_scale);
         ImGui::TableSetupColumn("##what", ImGuiTableColumnFlags_WidthStretch);
-        for (const Row& row : kRows) {
+        // (the view menus' and their modules' rows after the editor's own: level_editor_overlays.h)
+        std::vector<Row> rows(std::begin(kRows), std::end(kRows));
+        for (const Overlays::HelpRow& extra : Overlays::HelpRows())
+            rows.push_back({extra.section, extra.keys, extra.what});
+        for (const Row& row : rows) {
             ImGui::TableNextRow();
             ImGui::TableNextColumn();
             if (row.section[0]) {
@@ -1485,34 +1479,13 @@ void Browser(const Model& model)
     ImGui::SetNextItemWidth(-1.0f);
     ImGui::InputTextWithHint("##filter", "Filter\xE2\x80\xA6", g_browserSearch, sizeof(g_browserSearch));
     float buttons = ImGui::GetFrameHeightWithSpacing() * 2.0f;
-    ImGui::BeginChild("##items", ImVec2(0.0f, -buttons), ImGuiChildFlags_Borders);
-    ImGui::PushFont(g_mono);
     const std::vector<BrowserItem>& items = *model.browserItems;
     bool follow = model.browserIndex != g_browserShownIndex; // (the keys moved it: keep it in view)
     g_browserShownIndex = model.browserIndex;
     if (follow)
         g_browserKeysWon = true;
-    int hovered = -1;
-    if (items.empty())
-        Muted(model.browserTab == 0 ? "(no pieces that can be moved)" : "(no objects that can be copied)");
-    for (int i = 0; i < static_cast<int>(items.size()); ++i) {
-        if (!Matches(items[i].label, g_browserSearch))
-            continue;
-        ImGui::PushID(i);
-        bool selected = i == model.browserIndex;
-        if (ImGui::Selectable(items[i].label.c_str(), selected, ImGuiSelectableFlags_AllowDoubleClick)) {
-            Ask(Request::kBrowserIndex, i);
-            if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
-                Ask(Request::kBrowserPlace);
-        }
-        if (ImGui::IsItemHovered())
-            hovered = i;
-        if (selected && follow)
-            ImGui::SetScrollHereY(0.5f);
-        ImGui::PopID();
-    }
-    ImGui::PopFont();
-    ImGui::EndChild();
+    // The entries: a grid of thumbnails or the list, All / Recent / Favourites (level_editor_thumbs.h).
+    int hovered = Thumbs::ItemsPanel(model, g_browserSearch, follow, -buttons, g_mono, g_small, g_scale, &g_requests);
     // The preview follows the mouse over the list, or the keys when they moved the highlight since.
     if (hovered != g_browserHovered) {
         g_browserHovered = hovered;
