@@ -99,7 +99,7 @@ void __cdecl RecordStandInCall(uint32_t* frame)
             data[i] = g_fixedOut ? kFixed[i % 4] : RandomFloat(s.outScale);
     }
     if (s.after)
-        s.after(reinterpret_cast<uint8_t*>(frame[1]));
+        s.after(reinterpret_cast<uint8_t*>(frame[1]), args);
     g_stubFloatKind = 0;
     switch (s.ret) {
     case Ret::None:

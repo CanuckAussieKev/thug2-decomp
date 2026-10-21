@@ -359,7 +359,7 @@ public:
     // state 2. Whether it started.
     bool StartWallRide();
 
-    // --- core_physics_acid_drop.cpp: the acid drop ---
+    // --- core_physics_acid_drop.cpp: the acid drop, the spine transfer ---
     // 0x00502240: looking for an acid drop from `position` (from the higher of it and `lastPosition`) along the
     // horizontal `velocity` (walking: the walking direction): feelers 4000 down, 0.01, then 3 (beyond 100: 27) at a time
     // up to 500 ahead (walking on the ground: Physics_Acid_Drop_Walking_On_Ground_Search_Distance, 200 up), through a
@@ -373,6 +373,15 @@ public:
     // +0xE4), the wall's orientation (+0x3B0, +0x490) and the slerp to it (+0x3F0) over that time; flags +0x78 (in the
     // drop), +0x30, +0xA8; SkaterAcidDropTriggered with DropHeight; Ollied handlers cleared.
     void StartAcidDrop(const AcidDrop* drop);
+    // 0x00505F70 (from BreakVert): a spine or hip transfer - the vert wall found by a feeler 4000 down from half a unit
+    // back down the wall (the velocity's opposite turned a quarter round), then a target to land on (0x004FEE10: looking
+    // back, else - one of input +0x60 / +0x80 held - back and along the wall that way). Too flat a target or one more
+    // than 24 away: all the speed straight up; too slow to cover the distance in the fall's time (at least 0.1): false.
+    // Something between the skater and the target: +0x2D0 set (BreakVert tries again), true. Otherwise the drop's
+    // orientation (a spine: along the target's slope; a hip: straight up or down), the slerp there (+0x3F0, at least
+    // 0.9 seconds), +0x490 / +0x37C / the flags block's +0xE4 as the acid drop's, SkaterAwardTransfer or
+    // SkaterAwardHipTransfer, the Ollied handler cleared, flags 0x78 set and 0xA8 / 0x38 / 0x48 cleared, +0x14C0. True.
+    bool TrySpineTransfer();
 
 private:
     // (Parts of 0x0050DDF0: still on the rail - along the segment, the matrices, the move and the feeler ahead; and

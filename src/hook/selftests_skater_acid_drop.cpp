@@ -39,7 +39,7 @@ std::vector<float> g_exactSteps; // the search's steps that are floats exactly
 
 // GetCollision's extra: whether the feeler goes through the cache; at an edge, a vert wall (normal (1, 0.5, 0)) - at the
 // skater's height for Level.
-void AfterGetCollision(uint8_t* feeler)
+void AfterGetCollision(uint8_t* feeler, uint32_t*)
 {
     RecordValue(*reinterpret_cast<uint32_t*>(feeler + 0xAC) != 0);
     if (g_edge == Edge::None || g_edge == Edge::Reach)
@@ -224,6 +224,139 @@ void TestSkaterPhysicsAcidDrop()
     Check(same && covered, "skater physics: FindAcidDrop, StartAcidDrop");
 }
 
+// --- the spine transfer ---
+
+// Variants at a threshold: the target exactly 24 / 23 from the wall (the distance's and the reach's checks), straight
+// across from the skater with a normal along x (a hip's side exactly 0), facing the wall's way out at exactly 0.9 (the
+// skater's up flattened to (0.9, 0, 0.436), the target's normal along x).
+enum class Spine { None, Far24, Far23, Across, Flat };
+Spine g_spine = Spine::None;
+float g_wallX, g_wallZ; // (where the wall feeler hit)
+int g_finds;             // (0x004FEE10's calls in a run)
+bool g_hip;              // (the last one's answer)
+
+void AfterSpineFeeler(uint8_t* feeler, uint32_t*)
+{
+    g_wallX = *reinterpret_cast<float*>(feeler + 0x78);
+    g_wallZ = *reinterpret_cast<float*>(feeler + 0x80);
+}
+
+// 0x004FEE10's stand-in: `look` and `normal` recorded; the target, its normal and the two flags made up.
+void AfterFindTarget(uint8_t*, uint32_t* args)
+{
+    for (int arg = 0; arg < 2; ++arg)
+        for (int i = 0; i < 4; ++i)
+            RecordValue(reinterpret_cast<const uint32_t*>(args[arg])[i]);
+    ++g_finds;
+    g_hip = RandomBool(50);
+    *reinterpret_cast<uint8_t*>(args[2]) = g_hip;
+    *reinterpret_cast<uint8_t*>(args[5]) = RandomBool(50);
+    float* target = reinterpret_cast<float*>(args[3]);
+    float* normal = reinterpret_cast<float*>(args[4]);
+    for (int i = 0; i < 4; ++i) {
+        target[i] = RandomFloat(RandomBool(50) ? 30.0f : 3.0f);
+        normal[i] = RandomFloat(1.0f);
+    }
+    switch (g_spine) {
+    case Spine::Far24:
+    case Spine::Far23:
+        target[0] = g_wallX + (g_spine == Spine::Far24 ? 24.0f : 23.0f);
+        target[2] = g_wallZ;
+        break;
+    case Spine::Flat:
+        normal[0] = 1.0f;
+        normal[2] = 0.0f;
+        break;
+    case Spine::Across:
+        target[0] = ArenaAt<float>(kObject + 0x4C);
+        normal[0] = 1.0f;
+        normal[1] = RandomBool(50) ? 0.5f : 1.0f;
+        normal[2] = 0.0f;
+        break;
+    default:
+        break;
+    }
+}
+
+std::vector<StandIn> SpineStandIns()
+{
+    return {
+        {0x0044ECE0, 0, 0, Ret::Int, false, 0, -1, -1, 0}, // the clock
+        {0x004FF470, 0, 0, Ret::Double, true, 0, -1, -1, 0}, // the gravity
+        {0x004172F0, 8, 2, Ret::Bool, true, 3, -1, -1, 18, CodeAddress(&Nx::CFeeler::GetCollision), nullptr, 0, 0,
+         0x50, 0, 8, 6.0f, nullptr, &AfterSpineFeeler}, // (the line recorded; the hit filled in)
+        {0x004FEE10, 0x18, 6, Ret::Bool, true, 0, -1, -1, 0, nullptr, nullptr, 0, 0, -1, -1, 0, 4.0f, nullptr,
+         &AfterFindTarget},
+        {0x00461480, 20, 5, Ret::Int, true, 12, -1, -1, 0, CodeAddress(&Obj::CObject::SpawnAndRunScript)},
+        {0x004607A0, 4, 1, Ret::None, true, 0, -1, -1, 0, CodeAddress(&Obj::CObject::ClearEventHandler)},
+    };
+}
+
+void TestSkaterPhysicsSpineTransfer()
+{
+    StandIns standIns(SpineStandIns());
+    OurMath math;
+    int savedOffset = GameVariable<int>(0x00696D60);
+    GameVariable<int>(0x00696D60) = 0;
+    bool same = true;
+    int transferred = 0, blocked = 0, hips = 0, tooSlow = 0, turned = 0;
+    for (int variant = 0; variant < 30000 && same; ++variant) {
+        g_rng = 0x2B5E61F3u * (variant + 1);
+        FillArena();
+        for (uint32_t flag = 0x20; flag < 0x100; flag += 8)
+            ArenaAt<uint8_t>(kFlags + flag) = RandomBool(50);
+        ArenaAt<uint8_t>(kInput + 0x60) = RandomBool(50);
+        ArenaAt<uint8_t>(kInput + 0x80) = RandomBool(50);
+        float* velocity = &ArenaAt<float>(kObject + 0xAC);
+        for (int i = 0; i < 3; ++i)
+            velocity[i] = RandomFloat(RandomBool(50) ? 2000.0f : 50.0f);
+        switch (Next() % 8) { // (still; an up with no horizontal part)
+        case 0:
+            velocity[0] = velocity[1] = velocity[2] = 0.0f;
+            break;
+        case 1:
+            ArenaAt<float>(kObject + 0x7C) = 0.0f;
+            ArenaAt<float>(kObject + 0x84) = 0.0f;
+            break;
+        default:
+            break;
+        }
+        if (RandomBool(30)) { // (full-mantissa vectors)
+            for (uint32_t i = 0x4C; i < 0xBC; i += 4)
+                ArenaAt<uint32_t>(kObject + i) = (Next() & 0x80000000u) | 0x3F000000u | (Next() & 0x00FFFFFF);
+        }
+        g_spine = static_cast<Spine>(Next() % 6 < 3 ? Next() % 5 : 0);
+        if (g_spine == Spine::Flat) {
+            ArenaAt<float>(kObject + 0x7C) = 0.9f;
+            ArenaAt<float>(kObject + 0x84) = RandomBool(50) ? 0.43588989f : -0.43588989f;
+        }
+        SaveStart();
+        uint32_t seed = Next() | 1;
+        std::vector<uint32_t> expected = RunOnArena(seed, [](uint8_t* component) {
+            return static_cast<uint32_t>(Original<bool(__thiscall*)(void*)>(0x00505F70)(component));
+        });
+        std::vector<uint32_t> actual = RunOnArena(seed, [](uint8_t* component) {
+            g_finds = 0;
+            return static_cast<uint32_t>(Ours(component)->TrySpineTransfer());
+        });
+        bool spawned = Called(actual, 0x00461480);
+        transferred += spawned;
+        hips += spawned && g_hip;
+        blocked += actual[0] && !spawned;
+        tooSlow += !actual[0] && Called(actual, 0x004FF470);
+        turned += spawned && g_finds > 1;
+        same = Compare(expected, actual, "TrySpineTransfer", variant);
+    }
+    GameVariable<int>(0x00696D60) = savedOffset;
+    g_spine = Spine::None;
+    bool covered = transferred > 1000 && blocked > 500 && hips > 300 && tooSlow > 300 && turned > 100;
+    if (!covered)
+        Log("  physics spine transfer coverage: transferred %d (hips %d, along the wall %d), blocked %d, too slow %d",
+            transferred, hips, turned, blocked, tooSlow);
+    Check(same && covered, "skater physics: TrySpineTransfer");
+}
+
 } // namespace
 
 SELFTEST(Early, TestSkaterPhysicsAcidDrop);
+SELFTEST(Early, TestSkaterPhysicsSpineTransfer);

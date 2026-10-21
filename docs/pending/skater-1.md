@@ -152,4 +152,37 @@ Shared files touched (additive): src/game/skater/core_physics.h (declarations ad
 - Merge note: SK1's names that clashed with SK2's (both are CorePhysicsComponent methods) were renamed when the
   branches met: 0x005055B0 CheckSideFeelers, 0x00501C90 CheckSideFeeler, 0x00503EC0 TryStartSkitch; SK1's calls of
   the state change helper are Physics::SetState (the class has the script member SetState now).
-- [ ] Next: the spine transfer 0x00505F70.
+- [x] Batch SK1-7 (NOT run in the game yet; the spine transfer, 1 function): core_physics_acid_drop.cpp.
+  - 0x00505F70 TrySpineTransfer (from BreakVert 0x00507120, which now calls ours): the skater's up flattened and
+    normalised; the velocity's opposite (x, y, z normalised, w only negated) turned a quarter round (0x00420AC0 /
+    0x00420B50) about the horizontal across the wall; a feeler 4000 down from half a unit along it finds the wall
+    (its point, its normal flattened). 0x004FEE10 (not rewritten: this, look, normal, &hip, &target, &targetNormal,
+    &objectHit; RET 0x18) looks back for a target; failing that, with exactly one of input +0x60 / +0x80 held, back
+    and along the wall that way (left: -back + (-n.z, 0, n.x, 1) inline; right: (n.z, 0, -n.x, -1) + back through
+    operator+). The target's height is the skater's own (the original overwrites its y). A target facing the wall's
+    way out by less than 0.9, or more than 24 from the wall: all the speed straight up. The fall time (as the acid
+    drop's FallTime) at least 0.1; beyond 24 (+1) too slow to cover it: false. A feeler to the target at the
+    skater's height hitting something: +0x2D0 = 1 (BreakVert tries again), true. Then the landing direction (a
+    spine: along the target's slope, -1 / n.y times its normal against the offset, unrounded; a hip: straight up
+    or down by the side of the target's normal it lies on), the orientation [cross; normal; along projected to its
+    plane] turned by the facing against the old velocity (under 30 degrees: none), the slerp at +0x3F0 (at least
+    0.9 seconds; the long way round when the halfway matrix is upside down), +0x490 / +0x488 / +0x48C / +0x4A0 /
+    +0x37C, the flags block's +0xE4 (the offset over the time; w left unrounded; y 0), SkaterAwardTransfer or
+    SkaterAwardHipTransfer (node 0), Ollied cleared, flags 0x78 set and 0xA8 / 0x38 / 0x48 cleared, +0x14C0.
+  - Test (selftests_skater_acid_drop.cpp TestSkaterPhysicsSpineTransfer, 30000 variants; the real 0x00420AC0 /
+    0x00420B50 / Matrix copy run, the math helpers pointed at ours, 0x004FEE10 a stand-in recording `look` and
+    `normal` and making up the rest): still velocities, an up with no horizontal part, full-mantissa vectors, the
+    target exactly 24 / 23 from the wall, straight across the skater (a hip's side exactly 0), the target facing
+    exactly 0.9 (the up flattened to (0.9, 0, 0.436) normalises back to 0.9f). selftests_skaterB.cpp's BreakVert test
+    now stands in for ours as well as the original. 53 deliberate bugs: 51 caught (1 after strengthening), 2 not:
+    the velocity's w (equivalent - 0x00420B50 takes the vector's w as 1), the speed check at exact equality (a sum of
+    float squares equal to the square of the time's inverse times a float: not constructible).
+
+## The range's summary
+- 48 functions, all rewritten (46 here, Spin and BreakVert before): find_gaps lists nothing in 0x00500020-0x00508773.
+- Checks: thug2_check on THUG2PM.exe and the stock THUG2.exe: 0 MISMATCHED, all 579 early self-tests pass;
+  check_code_writes: no overlaps; audit_game_function_calls: no MISMATCH; scan_register_assumptions: only the known
+  RISK lines (0x004EFF92; Ed::InitEditedGoalStub's, not in this range).
+- Switching it off: `[replacements] disable=` core_physics_state.cpp, core_physics_speed.cpp, core_physics_feelers.cpp,
+  core_physics_skitch.cpp, core_physics_turning.cpp, core_physics_walls.cpp, core_physics_wallplant.cpp,
+  core_physics_acid_drop.cpp (by file name).
