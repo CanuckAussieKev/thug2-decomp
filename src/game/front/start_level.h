@@ -31,6 +31,19 @@ struct FrontEnd;
 // pause menu, then free skate). With [features] level_editor=0, or without the overlay's level_editor_enter, that is
 // logged and it stays -level (free skate); an unknown level stays the main menu, as with -level. Never in network
 // games (free skate only).
+//
+// At a spot, standing (ours too, at the user's request: "launch the game in the exact spot, standing so I don't move,
+// and I can try it" - tools/game/try_spot.ts starts it):
+//
+//   THUG2.exe -level <name> -at x,y,z[,heading]  (or --at x,y,z / --at=x,y,z; commas and / or spaces, quoted if spaces)
+//   thug2-decomp.ini [features] start_at=x,y,z[,heading]   (the command line wins)
+//
+// With -level / -edit (or start_level / edit_level): once the level is up - the skater there, not paused, a second
+// settled - the skater is put at (x, y, z) STANDING, as the test views' teleport does it (game/front/test_view.h: on
+// the ground below the point, walking, no momentum, the camera behind it), facing `heading` (degrees, 0 = +z, 90 =
+// +x - as the screenshot sidecar gives it) or the way it faced. Once per run, before -edit's editor opens. Without a
+// level it is logged and ignored; never in network games (the level is loaded in free skate). A malformed spot is
+// logged and ignored.
 namespace Front::StartLevel {
 
 // The level asked for ("" if none), and whether it came from -edit / edit_level (the editor opens there).
@@ -46,5 +59,15 @@ bool Load(const char* name, std::string* why);
 // The command line's option (pure, self-tested): the word after `-<option> `, `--<option> ` or `--<option>=` in
 // `line` ("" if none; a quoted value keeps what is inside the quotes).
 std::string OptionValue(const std::string& line, const char* option);
+
+// -at / start_at (pure, self-tested): three or four numbers separated by commas and / or spaces (optionally in
+// parentheses, as the screenshot sidecar writes a position). False for anything else: fewer than three or more than
+// four, a word, an empty field ("1,,2,3"), a number that isn't finite.
+struct Spot {
+    float x = 0.0f, y = 0.0f, z = 0.0f;
+    bool hasHeading = false;
+    float heading = 0.0f;
+};
+bool ParseSpot(const std::string& text, Spot* out);
 
 } // namespace Front::StartLevel

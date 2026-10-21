@@ -83,6 +83,14 @@ TypeScript tools' --game / --thug2 the same, tools/lib/install.ts).
   levels by game (load names and names); a level starts the game with `-edit <level>` (free skate there, intro movies
   skipped, the level editor opened once it's up - also `[features] edit_level=`). Refuses while a game runs from that
   folder; never closes one. Not for agents' test runs (no lock, no workspace handling).
+- `node tools/game/try_spot.ts <level> <x,y,z[,heading]> [--game <folder>]` - for the user: the game started with
+  `-level <level> -at <spot>`: free skate there, and once the level is up the skater stands still at the spot (on the
+  ground below it, facing `heading` degrees: 0 = +z, 90 = +x; src/game/front/start_level.h - also
+  `[features] start_at=`). `--game` goes before a spot that starts with a minus. `--list collfix` prints the spots in
+  `spots.json`'s list `collfix` (in front of THUGPRO's collision overlays in the THPS3 ports -
+  docs/pending/collfix-spots.md) with each one's command; `--list collfix <n>` starts the n-th. Refuses while a game
+  runs from that folder. In a workspace run, `run_game.ps1 -Level` plus the automation channel's `teleport` does the
+  same.
 - `node tools/game/apply_layout.ts <layout.txt> | --level <name> [--game <folder>] [--out <folder>] [--dry-run]
   [--install [--allow-main]]` - bakes a level editor layout into a copy of the level's .scn.xbx / .col.xbx / .qb
   (default out\baked\<level>; `--install` writes the game folder's overlay - a workspace; the main install only with

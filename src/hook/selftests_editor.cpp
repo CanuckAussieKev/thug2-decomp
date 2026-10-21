@@ -492,6 +492,34 @@ void TestEditorAutosave()
     Check(StartLevel::OptionValue(std::string(exe) + " -edit", "edit").empty() &&
               StartLevel::OptionValue(std::string(exe), "edit").empty(),
           "edit level: no name, no level");
+
+    // -at / start_at (start_level.h)
+    Check(StartLevel::OptionValue(std::string(exe) + " -level foun -at 120,-40.5,3000", "at") == "120,-40.5,3000" &&
+              StartLevel::OptionValue(std::string(exe) + " -level foun --at=1,2,3,90", "at") == "1,2,3,90" &&
+              StartLevel::OptionValue(std::string(exe) + " -at \"1, 2, 3\" -level foun", "at") == "1, 2, 3",
+          "start at: -at / --at= / a quoted spot");
+    Check(StartLevel::OptionValue(std::string(exe) + " -attract 1 -level foun", "at").empty(),
+          "start at: -attract isn't -at");
+    StartLevel::Spot spot;
+    Check(StartLevel::ParseSpot("120,-40.5,3000", &spot) && spot.x == 120.0f && spot.y == -40.5f &&
+              spot.z == 3000.0f && !spot.hasHeading,
+          "start at: x,y,z");
+    Check(StartLevel::ParseSpot(" 1, 2 ,3 , -90 ", &spot) && spot.x == 1.0f && spot.y == 2.0f && spot.z == 3.0f &&
+              spot.hasHeading && spot.heading == -90.0f,
+          "start at: x,y,z,heading with spaces");
+    Check(StartLevel::ParseSpot("1 2 3 45", &spot) && spot.hasHeading && spot.heading == 45.0f,
+          "start at: numbers separated by spaces only");
+    Check(StartLevel::ParseSpot("(10.5, 20.0, -30.25)", &spot) && spot.x == 10.5f && spot.z == -30.25f &&
+              !spot.hasHeading,
+          "start at: the sidecar's (x, y, z)");
+    Check(StartLevel::ParseSpot("1e2,0,0", &spot) && spot.x == 100.0f, "start at: an exponent");
+    Check(!StartLevel::ParseSpot("", &spot) && !StartLevel::ParseSpot("1,2", &spot) &&
+              !StartLevel::ParseSpot("1,2,3,4,5", &spot) && !StartLevel::ParseSpot("1,,2,3", &spot) &&
+              !StartLevel::ParseSpot("1,2,3,", &spot) && !StartLevel::ParseSpot("1,2,x", &spot) &&
+              !StartLevel::ParseSpot("1x,2,3", &spot) && !StartLevel::ParseSpot("1,2,inf", &spot) &&
+              !StartLevel::ParseSpot("nan,2,3", &spot) && !StartLevel::ParseSpot(",1,2,3", &spot),
+          "start at: malformed spots refused");
+    Check(StartLevel::ParseSpot("1,2,3", nullptr), "start at: a check without a result");
 }
 SELFTEST(Early, TestEditorAutosave);
 
