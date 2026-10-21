@@ -330,7 +330,7 @@ test("convertWorld: a sector and a collision object per object; invisible faces 
     // the quad's two triangles (vert); the trigger triangle left out
     assert.equal(o.faces.length, 2);
     for (const f of o.faces) assert.equal(f[0], thug2Col.FACE_VERT);
-    assert.deepEqual(done.counts, { objects: 1, faces: 2, hidden: 1, noCollision: 1, bmps: 0 });
+    assert.deepEqual(done.counts, { objects: 1, faces: 2, hidden: 1, noCollision: 1, bmps: 0, triggers: 0 });
     // placed: the object's position, THUG2's space
     // (z: the model's 0..64 at 300, turned: -364 .. -300)
     assert.deepEqual(
@@ -402,6 +402,147 @@ test("nodeArrayText: restarts then rails, links renumbered to the rail points", 
     assert.match(out.text, /RestartName="Start"/);
     assert.match(out.text, /Name=TRG_Rail_1 [\s\S]*Links=\[2\]/);
     assert.match(out.text, /script LoadTerrain/);
+});
+
+// --- the command language ------------------------------------------------------------------------------------------
+
+// A .trg whose nodes are built knowing their file offset (each pads its own 32-bit data to 4 in the file).
+function trgOf(builders: ((at: number) => Buffer)[]): Buffer {
+    const header = 12 + builders.length * 4;
+    const offsets: number[] = [];
+    const parts: Buffer[] = [];
+    let at = header;
+    for (const b of builders) {
+        offsets.push(at);
+        const n = b(at);
+        parts.push(n);
+        at += n.length;
+    }
+    return Buffer.concat([Buffer.from("_TRG"), u32(2, builders.length), u32(...offsets), ...parts]);
+}
+const pad4 = (at: number, size: number): Buffer => Buffer.alloc((4 - ((at + size) % 4)) % 4);
+const cstr = (s: string): Buffer => {
+    const b = Buffer.from(`${s}\0`, "latin1");
+    return b.length & 1 ? Buffer.concat([b, Buffer.alloc(1)]) : b;
+};
+// a command point: links, [aligned] trigger, then the commands (built with the offset of where they start)
+function commandPoint(links: number[], trigger: number, commands: (at: number) => Buffer): (at: number) => Buffer {
+    return (at) => {
+        const head = u16(thps2.NODE_COMMAND_POINT, links.length, ...links);
+        const pad = pad4(at, head.length);
+        const before = Buffer.concat([head, pad, u32(trigger)]);
+        return Buffer.concat([before, commands(at + before.length)]);
+    };
+}
+const C = thps2.CMD;
+// GapPolyHit: op, [aligned] other trigger, gap
+const gapHit = (at: number, other: number, gap: number): Buffer => {
+    const op = u16(C.GapPolyHit);
+    return Buffer.concat([op, pad4(at, 2), u32(other), u16(gap)]);
+};
+
+// Restarts 0 "Start" and 1 "Bowl"; 2 the level's start commands (SetRestart "Bowl", SetRestart2 "Start"); command
+// points 3 (trigger 0xAAAA: gap 2700 after 0xBBBB), 4 (0xBBBB: gap 2700 after 0xAAAA, and a career-only pulse),
+// 5 (0xCCCC: pulses 6), 6 (no trigger: KillBruce, pulses restart 1); 7 the end.
+function commandTrg(): Buffer {
+    const restart = (name: string, commands: Buffer) => (at: number) => {
+        const head = u16(thps2.NODE_RESTART, 0);
+        return Buffer.concat([head, pad4(at, head.length), i32(0, 0, 0), i16(0, 0, 0), cstr(name), commands]);
+    };
+    return trgOf([
+        restart(
+            "Start",
+            Buffer.concat([
+                u16(C.SetReverbType, 1, C.SetCheatRestarts),
+                cstr("Start"),
+                cstr("Bowl"),
+                u16(0),
+                u16(0xffff),
+            ]),
+        ),
+        restart("Bowl", u16(0xffff)),
+        () =>
+            Buffer.concat([
+                u16(thps2.NODE_START, C.SetRestart),
+                cstr("Bowl"),
+                u16(C.SetRestart2),
+                cstr("Start"),
+                u16(C.SpoolIn),
+                cstr("SkTest_O"),
+                u16(C.SetFadeColor, 1, 2, 0xffff),
+            ]),
+        commandPoint([], 0xaaaa, (at) =>
+            Buffer.concat([gapHit(at, 0xbbbb, 2700), u16(C.SetInitialPulses, 1, C.SendPulse, 0xffff)]),
+        ),
+        commandPoint([5], 0xbbbb, (at) =>
+            Buffer.concat([gapHit(at, 0xaaaa, 2700), u16(C.IfCareerFlag, 3, C.SendPulse, C.Endif, 0xffff)]),
+        ),
+        commandPoint([6], 0xcccc, () => u16(C.SetInitialPulses, 0xffff, C.SendPulse, 0xffff)),
+        commandPoint([1], 0, () => u16(C.KillBruce, C.SendPulse, 0xffff)),
+        () => u16(thps2.NODE_END),
+    ]);
+}
+
+test("commands: lists of command points, restarts and the start node parse to their ends", () => {
+    const trg = thps2.readTrg(commandTrg(), "test");
+    assert.deepEqual(thps2.restartCommands(trg[0]!), [
+        { op: C.SetReverbType, args: [1] },
+        { op: C.SetCheatRestarts, args: [["Start", "Bowl"]] },
+    ]);
+    assert.deepEqual(thps2.startCommands(trg[2]!), [
+        { op: C.SetRestart, args: ["Bowl"] },
+        { op: C.SetRestart2, args: ["Start"] },
+        { op: C.SpoolIn, args: ["SkTest_O"] },
+        { op: C.SetFadeColor, args: [1, 2] },
+    ]);
+    const a = thps2.commandPointOf(trg[3]!);
+    assert.equal(a.trigger, 0xaaaa);
+    assert.deepEqual(a.commands[0], { op: C.GapPolyHit, args: [0xbbbb, 2700] });
+    assert.equal(thps2.commandPointOf(trg[6]!).trigger, 0);
+    // an unknown opcode is a FormatError
+    const bad = thps2.readTrg(trgOf([commandPoint([], 1, () => u16(999, 0xffff))]), "bad");
+    assert.throws(() => thps2.commandPointOf(bad[0]!), thps2.FormatError);
+});
+
+test("triggers: gaps both ways, kills to the restart they pulse, career-only pulses left out", () => {
+    const trg = thps2.readTrg(commandTrg(), "test");
+    const effects = conv.triggerEffects(trg);
+    const a = effects.get(0xaaaa)!;
+    const b = effects.get(0xbbbb)!;
+    assert.deepEqual([a.gapEnds, a.gapStarts], [[2700], [2700]]);
+    assert.deepEqual([b.gapEnds, b.gapStarts], [[2700], [2700]]);
+    assert.equal(b.kill, false); // (its pulse of 5 is under IfCareerFlag)
+    const k = effects.get(0xcccc)!;
+    assert.equal(k.kill, true);
+    assert.equal(k.killRestart, 1);
+    assert.equal(effects.has(0), false);
+    // the node array: the start command's restart is Player1, the triggers' nodes and scripts
+    const placed = [...effects.values()].map((effect) => ({ effect, position: [0, 0, 0] as conv.Vec3 }));
+    const out = conv.nodeArrayText("thps2_test", trg, placed);
+    assert.deepEqual([out.triggers, out.gaps, out.kills], [3, 1, 1]);
+    assert.match(
+        out.text,
+        /Name=TRG_Restart_01 [\s\S]*RestartName="Bowl" [\s\S]*Type=Player1|Type=Player1 [\s\S]*RestartName="Bowl"/,
+    );
+    assert.match(out.text, /Name=TRG_Trigger_0000aaaa [\s\S]*TriggerScript=thps2_test_Trigger_0000aaaa/);
+    assert.match(
+        out.text,
+        /script thps2_test_Trigger_0000aaaa \{\n {4}EndGap GapID=thps2_test_Gap_2700 score=250 text="GAP 2700" \n {4}StartGap GapID=thps2_test_Gap_2700 flags=\[CANCEL_GROUND\] \n\}/,
+    );
+    // "Bowl" is restart 1, the first listed (Player1): TRG_Restart_01
+    assert.match(out.text, /script thps2_test_Trigger_0000cccc \{\n {4}SK3_KillSkater nodename=TRG_Restart_01 \n\}/);
+});
+
+test("convertWorld: a trigger's faces become a trigger object of its node's name, both windings", () => {
+    const psx = thps2.readPsx(worldPsx(), "test");
+    const textures: conv.LevelTextures = { byName: new Map(), bmps: new Map() };
+    const name = 0x12345678;
+    const out = conv.convertWorld(psx, "thps2_test", textures, false, new Map([[psx.modelNames[0]!, name]]));
+    assert.equal(out.counts.triggers, 1);
+    const t = out.col.objects.find((o) => o.checksum === name)!;
+    assert.equal(t.faces.length, 2);
+    for (const f of t.faces) assert.equal(f[0], conv.TRIGGER_FACE_FLAGS);
+    assert.deepEqual(t.faces[0]!.slice(2), [t.faces[1]![2], t.faces[1]![4], t.faces[1]![3]]);
 });
 
 test("levels: ten, each its own name and level select number", () => {

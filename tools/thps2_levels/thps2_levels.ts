@@ -441,12 +441,27 @@ export interface ConvertedWorld {
     textures: tex.TexFile;
     col: thug2Col.ColFile;
     warnings: string[];
-    counts: { objects: number; faces: number; hidden: number; noCollision: number; bmps: number };
+    counts: { objects: number; faces: number; hidden: number; noCollision: number; bmps: number; triggers: number };
 }
 
-export function convertWorld(world: thps2.Psx, level: string, textures: LevelTextures, mips = true): ConvertedWorld {
+// THUG2's trigger faces (as its own trigger boxes and tools/game/triggers.ts): trigger, not collidable, no skater
+// shadow, invisible.
+export const TRIGGER_FACE_FLAGS =
+    thug2Col.FACE_TRIGGER | thug2Col.FACE_NON_COLLIDABLE | thug2Col.FACE_NO_SKATER_SHADOW | thug2Col.FACE_INVISIBLE;
+
+// `triggers`: the world models (by name checksum) whose trigger faces (surface 0x02) run a command point, and the
+// name of the THUG2 node / collision object they become. Each such face goes into that collision object twice, both
+// windings: THUG2's static trigger faces are one-sided (met only from the front), THPS2's planes fire either way.
+export function convertWorld(
+    world: thps2.Psx,
+    level: string,
+    textures: LevelTextures,
+    mips = true,
+    triggers: ReadonlyMap<number, number> = new Map(),
+): ConvertedWorld {
     const warnings: string[] = [];
-    const counts = { objects: 0, faces: 0, hidden: 0, noCollision: 0, bmps: 0 };
+    const triggerObjects = new Map<number, geometry.SourceColObject>();
+    const counts = { objects: 0, faces: 0, hidden: 0, noCollision: 0, bmps: 0, triggers: 0 };
     const materials = new Map<string, thug2Scene.Material>();
     const texOut = new Map<number, tex.Texture>();
     // the textures some face repeats
@@ -485,8 +500,23 @@ export function convertWorld(world: thps2.Psx, level: string, textures: LevelTex
         const verts = model.vertices.map(place);
         const intensity = new Array<number>(verts.length).fill(-1);
         const faces: thug2Col.Face[] = [];
+        const triggerName = triggers.get(world.modelNames[object.model] ?? 0);
         for (const face of model.faces) {
             counts.faces++;
+            if (triggerName !== undefined && face.surface & thps2.SURFACE_TRIGGER) {
+                let t = triggerObjects.get(triggerName);
+                if (t === undefined) {
+                    t = { checksum: triggerName, flags: 0, verts: [], intensities: [], faces: [], bbox: [] };
+                    triggerObjects.set(triggerName, t);
+                }
+                const base = t.verts.length;
+                for (const v of face.vertices) t.verts.push(verts[v]!);
+                for (const [a, b, c] of faceTriangles(face)) {
+                    const k = face.vertices.map((_, i) => base + i);
+                    t.faces.push([TRIGGER_FACE_FLAGS, 0, k[a]!, k[b]!, k[c]!]);
+                    t.faces.push([TRIGGER_FACE_FLAGS, 0, k[a]!, k[c]!, k[b]!]);
+                }
+            }
             const colorsOf = faceColors(face, world.rgbs);
             const normal = toThugNormal(model.normals[face.plane] ?? [0, -4096, 0]);
             face.vertices.forEach((v, k) => {
@@ -577,10 +607,18 @@ export function convertWorld(world: thps2.Psx, level: string, textures: LevelTex
             });
         }
     });
+    counts.triggers = triggerObjects.size;
+    for (const t of triggerObjects.values()) {
+        const lo = [0, 1, 2].map((k) => Math.min(...t.verts.map((v) => v[k]!)));
+        const hi = [0, 1, 2].map((k) => Math.max(...t.verts.map((v) => v[k]!)));
+        t.bbox = [lo[0]!, lo[1]!, lo[2]!, 1.0, hi[0]!, hi[1]!, hi[2]!, 1.0];
+        t.intensities = Buffer.alloc(t.verts.length, 128);
+        colObjects.push(t);
+    }
     const scene = geometry.convertScene({ sectors }, warnings, [...materials.values()]);
     const col = geometry.convertCol(
         { objects: colObjects },
-        () => false,
+        (checksum) => triggerObjects.has(checksum),
         warnings,
         (f) => f,
     );
@@ -617,18 +655,159 @@ export function levelTextures(pkr: Pkr, info: LevelInfo, world: thps2.Psx): Leve
     return { byName, bmps };
 }
 
+// --- triggers: gaps and kill zones ---------------------------------------------------------------------------------
+
+// What meeting a trigger does, flattened through the pulses it sends (thps2.ts: command points).
+export interface TriggerEffect {
+    trigger: number; // the world model's name checksum
+    gapEnds: number[]; // gaps completed here (GapPolyHit: after the other trigger)
+    gapStarts: number[]; // gaps started here (this is another trigger's GapPolyHit `other`)
+    kill: boolean; // KillBruce
+    killRestart: number | null; // the restart (node index) a kill pulses - where the skater is put back
+    pulsed: number[]; // objects (type 1) pulsed: their scripts start
+    killed: number[]; // nodes killed (SendKill / SendKillLoudly): breakables, objects
+}
+
+// Every trigger of the level: a command point with a trigger checksum, its list run - SendPulse runs the linked
+// command points' lists too (once each), a restart pulsed after KillBruce is where the kill puts the skater. Lists
+// under IfCareerFlag / IfCareerGoal / IfPulseCount up to Endif are left out (career and counting: free skate runs
+// none of them).
+export function triggerEffects(trg: readonly thps2.TrgNode[]): Map<number, TriggerEffect> {
+    const points = new Map<number, thps2.CommandPoint>();
+    for (const n of trg) if (n.type === thps2.NODE_COMMAND_POINT) points.set(n.index, thps2.commandPointOf(n));
+    const out = new Map<number, TriggerEffect>();
+    const effectOf = (trigger: number): TriggerEffect => {
+        let e = out.get(trigger);
+        if (e === undefined) {
+            e = { trigger, gapEnds: [], gapStarts: [], kill: false, killRestart: null, pulsed: [], killed: [] };
+            out.set(trigger, e);
+        }
+        return e;
+    };
+    const starts: [number, number][] = []; // (other trigger, gap)
+    const run = (index: number, e: TriggerEffect, seen: Set<number>): void => {
+        if (seen.has(index)) return;
+        seen.add(index);
+        const point = points.get(index);
+        if (point === undefined) return;
+        let depth = 0;
+        for (const c of point.commands) {
+            if (c.op === thps2.CMD.IfCareerFlag || c.op === thps2.CMD.IfCareerGoal || c.op === thps2.CMD.IfPulseCount) {
+                depth++;
+                continue;
+            }
+            if (c.op === thps2.CMD.Endif) {
+                depth = Math.max(0, depth - 1);
+                continue;
+            }
+            if (depth) continue;
+            if (c.op === thps2.CMD.GapPolyHit) {
+                const [other, gap] = c.args as [number, number];
+                if (gap && other) {
+                    if (!e.gapEnds.includes(gap)) e.gapEnds.push(gap);
+                    starts.push([other, gap]);
+                }
+            } else if (c.op === thps2.CMD.KillBruce) e.kill = true;
+            else if (c.op === thps2.CMD.SendPulse) {
+                for (const l of trg[index]!.links) {
+                    const t = trg[l]?.type;
+                    if (t === thps2.NODE_COMMAND_POINT) run(l, e, seen);
+                    else if (t === thps2.NODE_RESTART && e.kill && e.killRestart === null) e.killRestart = l;
+                    else if (t === 1 && !e.pulsed.includes(l)) e.pulsed.push(l);
+                }
+            } else if (c.op === thps2.CMD.SendKill || c.op === thps2.CMD.SendKillLoudly) {
+                for (const l of trg[index]!.links) if (!e.killed.includes(l)) e.killed.push(l);
+            }
+        }
+    };
+    for (const [index, point] of points) if (point.trigger) run(index, effectOf(point.trigger), new Set());
+    for (const [other, gap] of starts) {
+        const e = effectOf(other);
+        if (!e.gapStarts.includes(gap)) e.gapStarts.push(gap);
+    }
+    return out;
+}
+
+// Gaps: THPS2's gap table (names, scores) is in its executable - SafeDisc-encrypted on the PC, not read here - so a
+// gap is named by its number and scored by its kind (the number's ten-thousands, as THPS1's table in the PC release
+// shows: 0 air, 1 ..., 2 grinds): the stand-ins docs/level-port-compromises.md section 9 lists.
+export const GAP_SCORE = 250;
+export function gapName(level: string, gap: number): string {
+    return `${level}_Gap_${gap}`;
+}
+export function gapText(gap: number): string {
+    return `GAP ${gap}`;
+}
+
+export function triggerNodeName(trigger: number): string {
+    return `TRG_Trigger_${hex(trigger)}`;
+}
+export function triggerScriptName(level: string, trigger: number): string {
+    return `${level}_Trigger_${hex(trigger)}`;
+}
+
+// The middle of each trigger's faces (THPS2's units) - its node's place.
+export function triggerPositions(world: thps2.Psx, triggers: Iterable<number>): Map<number, Vec3> {
+    const wanted = new Set(triggers);
+    const sums = new Map<number, [number, number, number, number]>();
+    for (const o of world.objects) {
+        const name = world.modelNames[o.model] ?? 0;
+        if (!wanted.has(name)) continue;
+        const m = world.models[o.model]!;
+        const s = sums.get(name) ?? [0, 0, 0, 0];
+        for (const f of m.faces) {
+            if (!(f.surface & thps2.SURFACE_TRIGGER)) continue;
+            for (const v of f.vertices) {
+                for (let k = 0; k < 3; k++) s[k]! += m.vertices[v]![k]! + o.position[k]!;
+                s[3]++;
+            }
+        }
+        sums.set(name, s);
+    }
+    const out = new Map<number, Vec3>();
+    for (const [name, s] of sums) if (s[3]) out.set(name, [s[0] / s[3], s[1] / s[3], s[2] / s[3]]);
+    return out;
+}
+
+// Whether a trigger does anything THUG2 runs (a gap or a kill).
+export function triggerActive(e: TriggerEffect): boolean {
+    return e.gapEnds.length > 0 || e.gapStarts.length > 0 || e.kill;
+}
+
+// A trigger's script (NeverScript text): the gaps it ends, then those it starts (meeting it again from the other side
+// starts the way back), or a kill back to its restart.
+export function triggerScriptText(level: string, e: TriggerEffect, restartName: (index: number) => string): string {
+    const lines: string[] = [];
+    if (e.kill) {
+        lines.push(
+            e.killRestart === null
+                ? "    SK3_KillSkater "
+                : `    SK3_KillSkater nodename=${restartName(e.killRestart)} `,
+        );
+    } else {
+        for (const g of e.gapEnds)
+            lines.push(`    EndGap GapID=${gapName(level, g)} score=${GAP_SCORE} text="${gapText(g)}" `);
+        for (const g of e.gapStarts) lines.push(`    StartGap GapID=${gapName(level, g)} flags=[CANCEL_GROUND] `);
+    }
+    return `script ${triggerScriptName(level, e.trigger)} {\n${lines.join("\n")}\n}`;
+}
+
 // --- nodes ---------------------------------------------------------------------------------------------------------
 
 export type RestartKind = "Player1" | "Player2" | "MultiPlayer" | "Horse" | "Generic";
 
 // What a THPS2 restart is for, by its name: the level's start (Start, Re_Start, Re_Start_Skate - else the first
-// restart), the second player's / multiplayer starts (2P in the name), HORSE's spots (Ho_), the rest generic.
-export function restartKinds(restarts: readonly thps2.Restart[]): RestartKind[] {
+// restart), the second player's / multiplayer starts (2P in the name), HORSE's spots (Ho_), the rest generic. `start`
+// / `start2`: the restarts the level's start commands name (SetRestart / SetRestart2 of node type 4) - they decide.
+export function restartKinds(restarts: readonly thps2.Restart[], start?: string, start2?: string): RestartKind[] {
     const isStart = (n: string): boolean => /^(re_)?start(_skate)?$/i.test(n.trim());
-    let first = restarts.findIndex((r) => isStart(r.name));
+    let first = start === undefined ? -1 : restarts.findIndex((r) => r.name === start);
+    if (first < 0) first = restarts.findIndex((r) => isStart(r.name));
     if (first < 0) first = 0;
+    const second = start2 === undefined ? -1 : restarts.findIndex((r) => r.name === start2);
     return restarts.map((r, i): RestartKind => {
         if (i === first) return "Player1";
+        if (i === second) return "Player2";
         if (/2p/i.test(r.name)) return /start_2p|2p start/i.test(r.name) ? "Player2" : "MultiPlayer";
         if (/^ho_/i.test(r.name)) return "Horse";
         return "Generic";
@@ -654,16 +833,51 @@ export interface NodeArrayResult {
     text: string;
     restarts: number;
     rails: number;
+    triggers: number;
+    gaps: number;
+    kills: number;
 }
 
-// The level's node array as NeverScript text: the restarts (Player1 first), then the rails (each point a RailNode
-// linked to the next points of its rail).
-export function nodeArrayText(level: string, trg: readonly thps2.TrgNode[]): NodeArrayResult {
+// A trigger to put in the node array: what it does, where (THPS2's vertex units: the middle of its trigger faces).
+export interface PlacedTrigger {
+    effect: TriggerEffect;
+    position: Vec3;
+}
+
+// The level's node array as NeverScript text: the restarts (Player1 first; THPS2's "Dummy" ones only where a kill
+// puts the skater - as restarts of no type, so not in the restart list), then the rails (each point a RailNode linked
+// to the next points of its rail), then a GenericNode per trigger (named after its collision object; its TriggerScript
+// one of the scripts after the array).
+export function nodeArrayText(
+    level: string,
+    trg: readonly thps2.TrgNode[],
+    triggers: readonly PlacedTrigger[] = [],
+): NodeArrayResult {
     const restartNodes = trg.filter((n) => n.type === thps2.NODE_RESTART);
     const restarts = restartNodes.map(thps2.restartOf);
-    const kinds = restartKinds(restarts);
-    const order = restarts.map((_, i) => i).filter((i) => !/dummy/i.test(restarts[i]!.name));
+    const startNode = trg.find((n) => n.type === thps2.NODE_START);
+    const startCommands = startNode ? thps2.startCommands(startNode) : [];
+    const named = (op: number): string | undefined =>
+        startCommands.find((c) => c.op === op)?.args[0] as string | undefined;
+    const kinds = restartKinds(restarts, named(thps2.CMD.SetRestart), named(thps2.CMD.SetRestart2));
+    const dummy = (i: number): boolean => /dummy/i.test(restarts[i]!.name);
+    const order = restarts.map((_, i) => i).filter((i) => !dummy(i));
     order.sort((a, b) => (kinds[a] === "Player1" ? -1 : kinds[b] === "Player1" ? 1 : a - b));
+    // the kills' restarts: the one pulsed, else the nearest of the listed ones
+    const restartOfNode = new Map(restartNodes.map((n, i) => [n.index, i]));
+    const killTarget = new Map<PlacedTrigger, number>();
+    for (const t of triggers) {
+        if (!t.effect.kill) continue;
+        let r = t.effect.killRestart === null ? undefined : restartOfNode.get(t.effect.killRestart);
+        if (r === undefined && order.length) {
+            const d2 = (i: number): number =>
+                restarts[i]!.position.reduce((s, v, k) => s + (v - t.position[k]!) ** 2, 0);
+            r = order.reduce((best, i) => (d2(i) < d2(best) ? i : best), order[0]!);
+        }
+        if (r !== undefined) killTarget.set(t, r);
+    }
+    const used = new Set(killTarget.values());
+    const dummies = restarts.map((_, i) => i).filter((i) => dummy(i) && used.has(i));
     const blocks: string[] = [];
     const types: Record<RestartKind, string> = {
         Player1: "[Player1, MultiPlayer, Horse]",
@@ -673,21 +887,41 @@ export function nodeArrayText(level: string, trg: readonly thps2.TrgNode[]): Nod
         Generic: "[Generic]",
     };
     let n = 0;
+    const restartNames = new Map<number, string>();
     for (const i of order) {
         const r = restarts[i]!;
         const kind = kinds[i]!;
         n++;
+        const name = `TRG_Restart_${String(n).padStart(2, "0")}`;
+        restartNames.set(i, name);
         blocks.push(
             [
                 "    {",
                 `        Position=${vec(toNodePosition(r.position))} `,
                 `        Angles=${vec([0, heading(r.angles[1]), 0])} `,
-                `        Name=TRG_Restart_${String(n).padStart(2, "0")} `,
+                `        Name=${name} `,
                 "        Class=Restart ",
                 `        Type=${kind} `,
                 "        CreatedAtStart ",
                 `        RestartName="${restartTitle(r.name).replaceAll('"', "")}" `,
                 `        restart_types=${types[kind]} `,
+                "    } ",
+            ].join("\n"),
+        );
+    }
+    for (const i of dummies) {
+        const r = restarts[i]!;
+        const name = `TRG_KillRestart_${restartNodes[i]!.index}`;
+        restartNames.set(i, name);
+        blocks.push(
+            [
+                "    {",
+                `        Position=${vec(toNodePosition(r.position))} `,
+                `        Angles=${vec([0, heading(r.angles[1]), 0])} `,
+                `        Name=${name} `,
+                "        Class=Restart ",
+                "        Type=Generic ",
+                "        CreatedAtStart ",
                 "    } ",
             ].join("\n"),
         );
@@ -715,8 +949,49 @@ export function nodeArrayText(level: string, trg: readonly thps2.TrgNode[]): Nod
         lines.push("    } ");
         blocks.push(lines.join("\n"));
     }
-    const text = `${level}_NodeArray = [\n${blocks.join("\n")}\n]\n${nodes.loadTerrainNs()}\n`;
-    return { text, restarts: order.length, rails: railNodes.length };
+    // triggers
+    const scripts: string[] = [];
+    const gaps = new Set<number>();
+    let kills = 0;
+    for (const t of triggers) {
+        if (!triggerActive(t.effect)) continue;
+        const e = t.effect;
+        const r = killTarget.get(t);
+        const effect: TriggerEffect = e.kill
+            ? { ...e, killRestart: r === undefined ? null : restartNodes[r]!.index }
+            : e;
+        if (e.kill) kills++;
+        for (const g of [...e.gapEnds, ...e.gapStarts]) gaps.add(g);
+        blocks.push(
+            [
+                "    {",
+                `        Position=${vec(toNodePosition(t.position))} `,
+                "        Angles=(0.0, 0.0, 0.0) ",
+                `        Name=${triggerNodeName(e.trigger)} `,
+                "        Class=GenericNode ",
+                "        Type=Default ",
+                "        CreatedAtStart ",
+                `        TriggerScript=${triggerScriptName(level, e.trigger)} `,
+                "    } ",
+            ].join("\n"),
+        );
+        scripts.push(
+            triggerScriptText(
+                level,
+                effect,
+                (index) => restartNames.get(restartOfNode.get(index) ?? -1) ?? "TRG_Restart_01",
+            ),
+        );
+    }
+    const text = `${level}_NodeArray = [\n${blocks.join("\n")}\n]\n${nodes.loadTerrainNs()}\n${scripts.map((s) => `${s}\n`).join("")}`;
+    return {
+        text,
+        restarts: order.length,
+        rails: railNodes.length,
+        triggers: scripts.length,
+        gaps: gaps.size,
+        kills,
+    };
 }
 
 // The height of the highest collision face under (x, z) at or below `top` (THUG2's geometry), or null.
@@ -794,7 +1069,21 @@ export function cmdConvert(args: Args): number {
         const worldFile = `data/${info.base}.psx`;
         const world = thps2.readPsx(pkr.read(worldFile), worldFile);
         const textures = levelTextures(pkr, info, world);
-        const done = convertWorld(world, name, textures, !args.noMips);
+        const trgFile = `data/${info.base}_t.trg`;
+        const trg = thps2.readTrg(pkr.read(trgFile), trgFile);
+        // the triggers that do something here (gaps, kills) and have trigger faces in the world
+        const effects = [...triggerEffects(trg).values()].filter(triggerActive);
+        const places = triggerPositions(
+            world,
+            effects.map((e) => e.trigger),
+        );
+        const placed: PlacedTrigger[] = effects
+            .filter((e) => places.has(e.trigger))
+            .map((e) => ({ effect: e, position: places.get(e.trigger)! }));
+        const triggerNames = new Map(
+            placed.map((t) => [t.effect.trigger, qb.checksum(triggerNodeName(t.effect.trigger))]),
+        );
+        const done = convertWorld(world, name, textures, !args.noMips, triggerNames);
         const levelDir = pyJoin(out, "levels", name);
         // (THPS2 draws its layers - painted lines, decals, shadows on the floors - in the PlayStation's order with no
         // depth buffer: coplanar with the surface under them they'd fight over THUG2's depth buffer as stripes)
@@ -806,11 +1095,12 @@ export function cmdConvert(args: Args): number {
             `  ${c.objects} objects, ${c.faces} faces (${c.hidden} not drawn, ${c.noCollision} not collided with), ` +
                 `${c.bmps} of ${done.textures.textures.length} textures from newtex, ${biased} layer materials given a z bias`,
         );
-        const trgFile = `data/${info.base}_t.trg`;
-        const trg = thps2.readTrg(pkr.read(trgFile), trgFile);
-        const nodeArray = nodeArrayText(name, trg);
+        const nodeArray = nodeArrayText(name, trg, placed);
         common.nsCompile(args.ns, nodeArray.text, pyJoin(levelDir, `${name}.qb`));
-        report.push(`  nodes: ${nodeArray.restarts} restarts, ${nodeArray.rails} rail points`);
+        report.push(
+            `  nodes: ${nodeArray.restarts} restarts, ${nodeArray.rails} rail points, ${nodeArray.triggers} triggers ` +
+                `(${nodeArray.gaps} gaps, ${nodeArray.kills} kill zones; ${effects.length - placed.length} without trigger faces)`,
+        );
         for (const problem of checkRestarts(trg, done.col)) report.push(`  restart ${problem}`);
         manifest.levels.push({
             folder: info.base,
@@ -860,7 +1150,16 @@ export function cmdSelfcheck(args: Args): number {
                     const t = thps2.readTrg(pkr.readEntry(e), e.path);
                     const restarts = t.filter((n) => n.type === thps2.NODE_RESTART).map(thps2.restartOf).length;
                     const rails = t.filter((n) => n.type === thps2.NODE_RAIL_POINT).map(thps2.railPointOf).length;
-                    what = `${t.length} nodes, ${restarts} restarts, ${rails} rail points`;
+                    // every command list to its end
+                    let lists = 0;
+                    for (const n of t) {
+                        if (n.type === thps2.NODE_COMMAND_POINT) thps2.commandPointOf(n);
+                        else if (n.type === thps2.NODE_RESTART) thps2.restartCommands(n);
+                        else if (n.type === thps2.NODE_START || n.type === thps2.NODE_START_2P) thps2.startCommands(n);
+                        else continue;
+                        lists++;
+                    }
+                    what = `${t.length} nodes, ${restarts} restarts, ${rails} rail points, ${lists} command lists`;
                 } else continue;
             } catch (err) {
                 if (!(err instanceof thps2.FormatError)) throw err;
