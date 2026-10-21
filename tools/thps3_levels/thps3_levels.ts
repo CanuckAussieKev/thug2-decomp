@@ -2706,6 +2706,7 @@ export interface Args {
     noThugproNew: boolean;
     noPortChanges: boolean; // PC-n: only the required ones
     noCollfix: boolean; // TPN-THPS3-1 / -2: THUGPRO's collision overlays left out (collfix.ts)
+    collfixOnly?: string[] | null; // --no-collfix-only: just these overlays (their base names, e.g. SUB_TRamp06) left out
 }
 
 function isDir(p: string): boolean {
@@ -2802,9 +2803,14 @@ export function cmdConvert(args: Args): void {
         // out, and the THPS3 node one replaced (TP-14 switched it off) kept as THPS3 has it - to try both (collfix.ts)
         if (args.noCollfix) {
             const all = newEntries;
-            newEntries = collfix.withoutCollfix(all);
+            newEntries = collfix.withoutCollfix(all, args.collfixOnly ?? null);
             const flags = compatData.edits?.flags;
-            const kept = flags ? collfix.replacedNodes(all, Object.keys(flags)) : [];
+            const kept = flags
+                ? collfix.replacedNodes(
+                      all.filter((e) => !newEntries.includes(e)),
+                      Object.keys(flags),
+                  )
+                : [];
             if (flags && kept.length) {
                 compatData.edits!.flags = Object.fromEntries(Object.entries(flags).filter(([n]) => !kept.includes(n)));
             }
@@ -3057,9 +3063,11 @@ options:
   --no-port-changes    convert: our own changes to THPS3's data left out (PC-n) but those the game needs
   --no-collfix         convert: THUGPRO's invisible collision overlays left out (Suburbia's *_collfix, Foundry's
                        *_coll - TPN-THPS3-1 / -2), Suburbia's Inviso_PicnicCollide01 kept as THPS3's (collfix.ts)
+  --no-collfix-only NAMES
+                       convert: only these overlays left out (comma-separated base names, e.g. SUB_TRamp06)
   --extra [EXTRA ...]  selfcheck: more THUG2 archives (Data\\pre\\*.prx)`;
 
-const VALUE_OPTIONS = ["--thug2", "--thps3", "--out", "--ns", "--compat", "--thugpro"] as const;
+const VALUE_OPTIONS = ["--thug2", "--thps3", "--out", "--ns", "--compat", "--thugpro", "--no-collfix-only"] as const;
 const FLAG_OPTIONS = [
     "--no-objects",
     "--no-scripts",
@@ -3146,7 +3154,12 @@ export function parseCommandLine(argv: readonly string[]): Args {
         thugpro: values["--thugpro"] ?? thugproNew.DEFAULT_THUGPRO,
         noThugproNew: flags.has("--no-thugpro-new"),
         noPortChanges: flags.has("--no-port-changes"),
-        noCollfix: flags.has("--no-collfix"),
+        noCollfix: flags.has("--no-collfix") || values["--no-collfix-only"] !== undefined,
+        collfixOnly:
+            values["--no-collfix-only"]
+                ?.split(",")
+                .map((n) => n.trim())
+                .filter(Boolean) ?? null,
     };
 }
 

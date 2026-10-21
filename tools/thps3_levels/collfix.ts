@@ -37,8 +37,17 @@ export function isCollfix(name: string): boolean {
 }
 
 // The TPN-THPS3 entries without the overlays' collision objects and geometry nodes.
-export function withoutCollfix<T extends compat.Entry>(entries: readonly T[]): T[] {
-    return entries.filter((e) => !isCollfix(String(e.target?.name ?? "")));
+// `only`: just the overlays of these base names (SUB_TRamp06 for SUB_TRamp06_collfix) left out - to try one at a time.
+export function withoutCollfix<T extends compat.Entry>(
+    entries: readonly T[],
+    only: readonly string[] | null = null,
+): T[] {
+    const picked = only ? new Set(only.map((n) => n.toLowerCase())) : null;
+    return entries.filter((e) => {
+        const name = String(e.target?.name ?? "");
+        if (!isCollfix(name)) return true;
+        return picked !== null && !picked.has(name.replace(/_coll(fix)?$/i, "").toLowerCase());
+    });
 }
 
 // The THPS3 nodes an overlay replaces (THUGPRO switched them off - TP-14's flags - and laid `<name>_collfix` there
