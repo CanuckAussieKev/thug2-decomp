@@ -15,7 +15,15 @@ foreach ($l in $Levels) {
     $r = & "$PSScriptRoot\run_game.ps1" -Game $Game -Seconds $Seconds -Shot $l -ShotDir $ShotDir -Level $l
     $text = Get-Content $log -ErrorAction SilentlyContinue
     # (case-sensitive: the scripts' SetOnExceptionScript lines aren't errors)
-    $bad = $text | Select-String -CaseSensitive -Pattern '^EXCEPTION|RUN-TIME CHECK FAILURE|DEBUG CRT REPORT|SELFTEST' | Select-Object -First 3
+    $bad = $text | Select-String -CaseSensitive -Pattern '^EXCEPTION|RUN-TIME CHECK FAILURE|DEBUG CRT REPORT|SELFTEST' |
+        Where-Object { $_.Line -notmatch 'self-tests: skipped' } | Select-Object -First 3
     $loaded = ($text | Select-String -SimpleMatch "levels\$l\$l.col.xbx" | Measure-Object).Count -gt 0
-    "$l : $(($r | Select-String 'running after|exited early') -join ' ') loaded=$loaded $(($bad | % Line) -join ' | ')"
+    # (the script pools once the level is up - start_level.cpp's line; CComponent / CStruct, and any pool full)
+    $pools = ''
+    $p = $text | Select-String -Pattern 'script pools in use .*' | Select-Object -Last 1
+    if ($p -and $p.Line -match 'CComponent (\d+) \(peak (\d+)\) of (\d+), CStruct (\d+) \(peak (\d+)\) of (\d+)') {
+        $pools = "CComponent=$($Matches[1])/peak $($Matches[2])/$($Matches[3]) CStruct=$($Matches[4])/peak $($Matches[5])/$($Matches[6])"
+    }
+    $full = ($text | Select-String -Pattern 'pool \S+ (full|80% full)' | % { $_.Line -replace '^.*?(pool )', '$1' }) -join ' | '
+    "$l : $(($r | Select-String 'running after|exited early') -join ' ') loaded=$loaded $pools $full $(($bad | % Line) -join ' | ')"
 }
