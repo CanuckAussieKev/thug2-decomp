@@ -88,7 +88,7 @@ back: the crash is in THUG2's code, which we are rewriting.
 | A shader pass blending on an unwritten register | THUG2's ps.1.1 builder 0x004DD2C0 | A third pass blending like the second is dropped | One Santa Monica material |
 | Particle boxes not there at the start | LoadQBData, Kyoto (cause unknown) | Left out | JA 9, SZ 1, SV 1, BH 14 boxes |
 | Peds / cars added to THPS4 College | CNodeManager::HashNodes (cause unknown) | College has no THUG2 walkers or cars | College traffic |
-| An object following a path in a network game (no path manager there) | 0x004695D0 from Obj_FollowPathLinked | nodes.absent_in_net_games: CreatedAtStart path followers get AbsentInNetGames (all games) | Tokyo's shinkansen, College's blimp, Alcatraz / SF objects absent online |
+| An object following a path in a network game (no path manager there: THUG2's Levels.qb / ReloadScene call AllocatePathManMemory only `if ! InNetGame`, Cleanup frees it, and the motion component's 0x00423FC0 adds to a path group unconditionally - THUG2 itself never makes a path follower online: they're all AbsentInNetGames, as THUGPRO's Tokyo trains and planes) | 0x004695D0 from Obj_FollowPathLinked | nodes.absent_in_net_games: CreatedAtStart path followers get AbsentInNetGames (all games) | Tokyo's shinkansen, College's blimp, Alcatraz / SF objects absent online |
 | A pedestrian in a network game (THUG2 loads no ped animations there) | 0x00482BA0 from the anim controller's PlayAnim | The same pass: CreatedAtStart peds and vehicles get AbsentInNetGames (as THUG2's own levels) | No peds or cars online (THPS4's skate shop guy) |
 | A restart whose own script "kills" (respawn loop) | a restart's TriggerScript runs when the skater is put there | nodes.is_kill_call: camera animations (KillSkaterCamAnim) and other "kill" names that aren't kills don't count; add_kill_restarts never gives a restart a kill | THPS4 skate shop's start point and THAW BH's Gap14 restart lose their (camera / goal) scripts |
 | No Multiplayer restart (single-player levels) | a network game's spawn | nodes.net_restarts: Player1 restarts also Multiplayer and Horse (as THUG2's skate shop) | None |
@@ -135,6 +135,7 @@ counts across all levels:
 - Traffic: THUG2 look-alike cars (police -> veh_cop, vans / buses -> veh_van...). THPS3's spare cars, made by its car
   scripts, missing (Burnside 44, LA 1).
 - Other vehicles (bullet trains, planes, boats, snowmobiles, karts) use their THPS3 models.
+- Foundry's bucket and Tokyo's bullet trains collide with THPS3's own drawn shape (PC-THPS3-15; THUGPRO's smaller bucket collision left out, 2026-10-21); THUGPRO's invisible carplant_collision boxes on Rio's cars and Suburbia's ice-cream truck are not brought (inert here: their trigger runs a THUGPRO script).
 - Skinned game objects missing (Suburbia 2, LA 1).
 
 ## 5. THPS4

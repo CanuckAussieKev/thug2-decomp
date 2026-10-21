@@ -714,7 +714,7 @@ export interface ConvertWorldOptions {
     // TPN-THPS3: THUGPRO's new sectors, textures and collision objects (thugpro_new.ts applyGeometry)
     thugproNew?: thugproNew.LevelNew;
     // PC-THPS3-15: the moving sectors (objects) that get collision of their own - in their own space, as drawn - for
-    // their LevelObject's CollisionMode=Geometry (unless THUGPRO's collision of the name is added)
+    // their LevelObject's CollisionMode=Geometry (THPS3's shape: THUGPRO's collision of the name is left out)
     solid?: ReadonlySet<number>;
 }
 
@@ -773,7 +773,7 @@ export function convertWorld(
     if (withCol) {
         const source = collisionObjects(world.sectors, world.materials, skip, options.colEdits, counts);
         if (options.solid?.size) {
-            // (PC-THPS3-15; THUGPRO's collision of the name, when it adds one, is the object's instead)
+            // (PC-THPS3-15; cmdConvert leaves THUGPRO's collision of the name out - should one remain, it wins)
             const theirs = new Set((options.thugproNew?.collision ?? []).map((o) => o.checksum));
             const ours = solidCollision(objectList, raw, options.solid, skip).filter((o) => !theirs.has(o.checksum));
             source.objects.push(...ours);
@@ -2420,8 +2420,9 @@ export function convertNodeArray(
     // foun_wire cluster)
     const newReport = tpNew.nodes.length || tpNew.sets.length ? thugproNew.applyNodes(converted, names, tpNew) : [];
     // PC-THPS3-15: plain moving props (Foundry's bucket, Tokyo's bullet trains) solid as THUG2 builds them: our
-    // LevelObjects with CollisionMode=Geometry - their collision made in convertWorld (Port.solid) unless THUGPRO's of
-    // the name is added (TPN-THPS3-1: the bucket's); THUGPRO's Vehicle `set` is left out for them (cmdConvert)
+    // LevelObjects with CollisionMode=Geometry - their collision made in convertWorld (Port.solid) from THPS3's drawn
+    // model; THUGPRO's Vehicle `set` and its collision of the name (TPN-THPS3-1: the bucket's) are left out for them
+    // (cmdConvert)
     const moverChange = pc.get("PC-THPS3-15", base.toLowerCase());
     if (moverChange !== null && port !== null && made !== null) {
         const [solid, solidReport] = movers.makeSolid(
@@ -2805,6 +2806,14 @@ export function cmdConvert(args: Args): void {
             if (kept.length !== tpNew.sets.length)
                 report.push(`  PC-THPS3-15: ${tpNew.sets.length - kept.length} TPN-THPS3-3 Vehicle sets left out`);
             tpNew.sets = kept;
+            // (their collision is THPS3's own shape, made from the drawn model in convertWorld - the user's decision
+            // 2026-10-21: THUGPRO's smaller collision of the name (TPN-THPS3-1, the bucket's 134 faces) left out)
+            const keptCol = tpNew.collision.filter((o) => !listed.has(o.checksum));
+            if (keptCol.length !== tpNew.collision.length)
+                report.push(
+                    `  PC-THPS3-15: ${tpNew.collision.length - keptCol.length} TPN-THPS3-1 collision objects left out (THPS3's shape instead)`,
+                );
+            tpNew.collision = keptCol;
         }
         const [nodeText, hidden, triggers, nodeReport, scripts, hasSetup] = convertNodeArray(
             q,
