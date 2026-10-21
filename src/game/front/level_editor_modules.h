@@ -83,15 +83,15 @@ int SetFieldsOnNodes(const std::vector<uint32_t>& nodes, const std::vector<Field
                      std::string* message);
 // The selection's transform (its position, heading in radians - objects and point nodes - and scale), and one put on it
 // (one undo step; what the selection can't take is left: scenery turns by quarters).
-struct Transform {
+struct TransformValues {
     V3 pos = {};
     bool hasHeading = false;
     float heading = 0.0f;
     bool hasScale = false;
     V3 scale = {1.0f, 1.0f, 1.0f};
 };
-bool SelectionTransform(Transform* transform);
-bool SetSelectionTransform(const Transform& transform);
+bool SelectionTransform(TransformValues* transform);
+bool SetSelectionTransform(const TransformValues& transform);
 // The status bar's message line.
 void ShowMessage(const std::string& text, double seconds = 4.0);
 

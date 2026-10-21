@@ -346,14 +346,15 @@ std::vector<Action> Builtins()
         Make("scale_up", "Scale up", "Transform", Kind::Press, {K(SDL_SCANCODE_RIGHTBRACKET)}, "10% (Shift: 1%; Alt: stretch along the axis faced)"),
         Make("drop", "Drop to the ground", "Transform", Kind::Press, {L('G')}, "The selection down onto the ground below it"),
 
-        Make("forward", "Forward (fly / nudge)", "Camera", Kind::Hold, {L('W')}, "Fly forward; with a selection: nudge it along the view"),
-        Make("back", "Back (fly / nudge)", "Camera", Kind::Hold, {L('S')}, "Fly back; with a selection: nudge it"),
-        Make("left", "Left (fly / nudge)", "Camera", Kind::Hold, {L('A')}, "Fly left; with a selection: nudge it"),
-        Make("right", "Right (fly / nudge)", "Camera", Kind::Hold, {L('D')}, "Fly right; with a selection: nudge it"),
+        Make("forward", "Fly forward", "Camera", Kind::Hold, {L('W')},
+             "With the right button held (wasd_flies=1: always - and it nudges a selection)"),
+        Make("back", "Fly back", "Camera", Kind::Hold, {L('S')}, "With the right button held (wasd_flies=1: always)"),
+        Make("left", "Fly left", "Camera", Kind::Hold, {L('A')}, "With the right button held (wasd_flies=1: always)"),
+        Make("right", "Fly right", "Camera", Kind::Hold, {L('D')}, "With the right button held (wasd_flies=1: always)"),
         Make("fly_up", "Fly up", "Camera", Kind::Hold, {L('E'), K(SDL_SCANCODE_SPACE)}, "The camera up"),
         Make("fly_down", "Fly down", "Camera", Kind::Hold, {L('Q')}, "The camera down"),
-        Make("nudge_up", "Nudge up", "Transform", Kind::Hold, {L('E'), L('R'), K(SDL_SCANCODE_PAGEUP)}, "The selection up"),
-        Make("nudge_down", "Nudge down", "Transform", Kind::Hold, {L('Q'), K(SDL_SCANCODE_PAGEDOWN)}, "The selection down"),
+        Make("nudge_up", "Nudge up", "Transform", Kind::Hold, {K(SDL_SCANCODE_PAGEUP)}, "The selection up"),
+        Make("nudge_down", "Nudge down", "Transform", Kind::Hold, {K(SDL_SCANCODE_PAGEDOWN)}, "The selection down"),
         Make("faster", "Flying speed up", "Camera", Kind::Press, {K(SDL_SCANCODE_EQUALS)}, "1.5 times faster"),
         Make("slower", "Flying speed down", "Camera", Kind::Press, {K(SDL_SCANCODE_MINUS)}, "1.5 times slower"),
 
@@ -411,6 +412,24 @@ std::vector<Action> Builtins()
              "Perspective and orthographic switched"),
     };
     b.insert(b.end(), views.begin(), views.end());
+    // (UX2 - level_editor_transform.h)
+    std::vector<Action> tools = {
+        Make("tool_move", "Tool: move", "Transform", Kind::Press, {L('W')}, "The gizmo moves (without the right button held)"),
+        Make("tool_rotate", "Tool: rotate", "Transform", Kind::Press, {L('E')}, "The gizmo turns"),
+        Make("tool_scale", "Tool: scale", "Transform", Kind::Press, {L('R')}, "The gizmo scales"),
+        Make("tool_cycle", "Tool: next", "Transform", Kind::Press, {K(SDL_SCANCODE_SPACE)}, "Move, rotate, scale in turn"),
+        Make("tool_space", "World / local axes", "Transform", Kind::Press, {K(SDL_SCANCODE_GRAVE)},
+             "The gizmo along the world's axes or the selection's own"),
+        Make("modal_transform", "Transform without the mouse held", "Transform", Kind::Press, {L('G', kAlt)},
+             "The tool's transform follows the mouse: X / Y / Z an axis, type an amount, a click or Enter applies"),
+        Make("repeat_duplicate", "Repeat duplicate", "Edit", Kind::Press, {L('D', kCtrl | kShift)},
+             "The last Ctrl+D again, with the copy's move and turn since"),
+        Make("nudge_forward", "Nudge forward", "Transform", Kind::Hold, {K(SDL_SCANCODE_UP)}, "The selection along the view"),
+        Make("nudge_back", "Nudge back", "Transform", Kind::Hold, {K(SDL_SCANCODE_DOWN)}, "The selection back"),
+        Make("nudge_left", "Nudge left", "Transform", Kind::Hold, {K(SDL_SCANCODE_LEFT)}, "The selection left"),
+        Make("nudge_right", "Nudge right", "Transform", Kind::Hold, {K(SDL_SCANCODE_RIGHT)}, "The selection right"),
+    };
+    b.insert(b.end(), tools.begin(), tools.end());
     // The hints (not rebindable): what the mouse and the modes' own keys do.
     struct Hint {
         const char *id, *name, *category, *keys, *tip;
@@ -430,6 +449,10 @@ std::vector<Action> Builtins()
         {"hint_escape", "Cancel / close / leave", "Panels", "Esc", "A drag put back, a window closed, the selection dropped, then leaves"},
         {"hint_orbit", "Orbit", "Camera", "Alt+drag", "About the point looked at (UX1: level_editor_camera.h)"},
         {"hint_speed", "Flying speed", "Camera", "Right mouse + wheel", "The flying speed up / down while looking"},
+        {"hint_fly", "Fly", "Camera", "Right mouse + W A S D Q E", "wasd_flies=0 (the default): the camera flies while the right button is held"},
+        {"hint_snaps", "Snap while dragging", "Transform", "Ctrl / Ctrl+Shift / Alt+Shift / Ctrl+Alt",
+         "The snap modifiers while a gizmo is dragged (level_editor_snap.h)"},
+        {"hint_typed", "Typed values", "Transform", "X / Y / Z, digits (dragging)", "An axis and an amount typed during a drag; Enter applies"},
         {"hint_browser", "Browser keys", "Panels", "Up / Down, Left / Right, F, Enter", "Choose, scenery / objects, show me, place it"},
         {"hint_outliner", "Outliner", "Panels", "Click, double-click", "Selects; takes the camera there"},
     };

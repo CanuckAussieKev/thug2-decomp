@@ -146,7 +146,7 @@ bool SpecOfLevelNode(const Nodes::Node& n, NodeCreate::Spec* spec)
 // The Inspector's clipboard.
 struct Props {
     bool haveTransform = false;
-    Transform transform;
+    TransformValues transform;
     std::string from;
     std::vector<FieldSet> fields;
 } g_props;
