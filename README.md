@@ -12,14 +12,21 @@ paths below are the project's defaults; every tool takes a flag (`--thug2`, `--t
 
 **Games** (your own copies; nothing from them is ever committed):
 
-| Game | Needed for | Default folder | What the tools read |
-|---|---|---|---|
-| Tony Hawk's Underground 2 (PC) | Everything | `C:\Games\THUG2` (the game in its `Game` subfolder) | The exe, `Game\Data\...` |
-| THPS3 (PC) | Porting THPS3's levels | `C:\Games\THPS3` | `Data\Levels\<Lvl>\` (`.bsp`, `.tdx`, `.qb`), `Data\Scripts\` |
-| THPS4 (PC) | Porting THPS4's levels, the THPS4 skate-shop menu backdrop | `C:\Games\THPS4` | `Game\data\levels\` |
-| THUG (PC) | Porting THUG1's levels | `C:\Games\THUG1` | `Game\Data\pre\` (`<LV>scn.pre`, `<LV>col.pre`, `<LV>.pre`, `qb.pre`) |
-| THAW (PC, version 1.01) | Porting THAW's levels | `C:\Games\THAW` | `Game\data\worlds\worldzones\<zone>\<zone>_net.pak.wpc`, `data\pak\qb.pak.wpc`, `data\pak\dbg.pak.wpc`, `data\skies\` |
-| THUGPRO (optional) | THUGPRO's own additions to the ported levels, and online parity with its players | `%LOCALAPPDATA%\THUG Pro` | Read only, by reference (`tools/compat/thugpro`) |
+| Game | Needed for | Default folder | Recognised by (in the folder or its `Game` folder) | What the tools read |
+|---|---|---|---|---|
+| Tony Hawk's Underground 2 (PC) | Everything | `C:\Games\THUG2` (the game in its `Game` subfolder) | `THUG2.exe` or `THUG2PM.exe`, or `Data\pre\qb_scripts.prx` | The exe, `Data\...` |
+| THPS3 (PC) | Porting THPS3's levels | `C:\Games\THPS3` | `Data\Levels` | `Data\Levels\<Lvl>\` (`.bsp`, `.tdx`, `.qb`), `Data\Scripts\` |
+| THPS4 (PC) | Porting THPS4's levels, the THPS4 skate-shop menu backdrop | `C:\Games\THPS4` | `data\levels` and `data\skeletons` | `data\levels\`, `data\scripts\`, `data\models\` |
+| THUG (PC) | Porting THUG1's levels | `C:\Games\THUG1` | `Data\pre\qb.pre` | `Data\pre\` (`<LV>scn.pre`, `<LV>col.pre`, `<LV>.pre`, `qb.pre`) |
+| THAW (PC, version 1.01) | Porting THAW's levels | `C:\Games\THAW` | `data\worlds\worldzones` or `data\pak\qb.pak.wpc` | `data\worlds\worldzones\<zone>\<zone>_net.pak.wpc`, `data\pak\qb.pak.wpc`, `data\pak\dbg.pak.wpc`, `data\skies\` |
+| THUGPRO (optional) | THUGPRO's own additions to the ported levels, and online parity with its players | `%LOCALAPPDATA%\THUG Pro` | | Read only, by reference (`tools/compat/thugpro`) |
+
+**Layout:** every folder you give a tool (`--thug2`, `--thps3`, `--thps4`, `--thug1`, `--thaw`, `--game`, `-Game`, CMake's
+`THUG2_GAME_DIR`) may be the install root - with the game in a `Game` subfolder, as the stock installs of THUG2, THPS4,
+THUG and THAW have it - or the game folder itself (`Game`'s contents at the top, e.g. after deleting the launcher, docs
+and readme around it). The tools look for the markers in the column above in the folder itself first, then in its
+`Game` folder, without regard to case, and say what they expected when neither matches (`tools/lib/install.ts`;
+`tools/game/game_exe.ps1` for the PowerShell scripts, which also need the exe).
 
 THUG2 needs an **unwrapped exe**: a no-CD `THUG2.exe`, or PartyMod's `THUG2PM.exe` (the addresses the code is
 named after; both have the same layout). The retail SafeDisc-encrypted exe can't run anything. The exe is never

@@ -3,8 +3,9 @@
 Scripts for testing builds and converted levels in the game without disturbing the user. Read CLAUDE.md first: the
 game is only launched when the user allows it, C:\Games\THUG2 is the main install (merged work only, installed by the
 lead; the user's own for manual testing - self-tests off, no test runs there), and parallel work uses the workspace copies C:\Games\THUG2-1 ... THUG2-4 (one agent each). Every script takes
-`-Game <folder>` (default C:\Games\THUG2 - a stock install: the scripts step into its Game folder; the exe can be
-THUG2.exe or THUG2PM.exe, tools/game/game_exe.ps1).
+`-Game <folder>` (default C:\Games\THUG2 - a stock install: the scripts step into its Game folder; a folder with the
+game at the top works too; the exe can be THUG2.exe or THUG2PM.exe, tools/game/game_exe.ps1's Resolve-GameFolder - the
+TypeScript tools' --game / --thug2 the same, tools/lib/install.ts).
 
 - `make_workspace.ps1 -Number <n>` - makes or refreshes C:\Games\THUG2-<n> as a mirror of the main install (1280x720
   window, allow_multiple_instances=1, debug_collision=0). Refuses while its lock is held or a game runs. Refresh a

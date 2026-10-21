@@ -19,6 +19,7 @@ import { tokens } from "../level_port/qb.ts";
 import { readCol } from "../level_port/thug2_col.ts";
 import { type Material, type Mesh, readScene, type Sector } from "../level_port/thug2_scene.ts";
 import { parseCli } from "../lib/cli.ts";
+import { resolveInstall } from "../lib/install.ts";
 import { hex8, isMain, print, pyExit, runMain } from "../lib/py.ts";
 
 // level_editor_picking.h
@@ -167,7 +168,7 @@ function main(): number {
     });
     const level = positionals[0];
     if (!level) return pyExit("give a level (TR, BO, foun, z_ma ...)");
-    const dir = findLevel(values.game as string, level);
+    const dir = findLevel(resolveInstall(values.game as string, "thug2"), level);
     if (!dir) return pyExit(`no ${level}.scn.xbx under ${values.game}`);
     const scene = readScene(fs.readFileSync(path.join(dir, `${level}.scn.xbx`)), level);
     const colPath = path.join(dir, `${level}.col.xbx`);

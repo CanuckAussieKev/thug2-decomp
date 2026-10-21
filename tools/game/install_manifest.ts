@@ -14,6 +14,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
+import { findInstall } from "../lib/install.ts";
 import { formatFixed, isMain, print, pyExit, pyJsonDumps, pyParseInt, runMain } from "../lib/py.ts";
 
 const ROOT = path.dirname(path.dirname(path.dirname(fileURLToPath(import.meta.url))));
@@ -73,11 +74,10 @@ function skipped(top: string): boolean {
     return SKIP.has(low) || low.startsWith("thug2-decomp");
 }
 
-// A stock install keeps the game in a Game subfolder (Game\Data, Game\THUG2.exe); PartyMod's and ours at the top.
+// A stock install keeps the game in a Game subfolder (Game\Data, Game\THUG2.exe); PartyMod's, ours and a stock one
+// whose launcher and docs were deleted have it at the top (tools/lib/install.ts).
 export function gameRoot(folder: string): string {
-    const isDir = (p: string): boolean => fs.statSync(p, { throwIfNoEntry: false })?.isDirectory() ?? false;
-    if (!isDir(path.join(folder, "Data")) && isDir(path.join(folder, "Game", "Data"))) return path.join(folder, "Game");
-    return folder;
+    return findInstall(folder, "thug2") ?? folder;
 }
 
 function kind(rel: string): Kind {

@@ -11,7 +11,7 @@ param([Parameter(Mandatory = $true)][ValidateRange(1, 9)][int]$Number, [string]$
 # (the main install is a stock one: its game is in C:\Games\THUG2\Game - a workspace is a copy of that folder)
 $From = Resolve-GameFolder $From
 $to = "C:\Games\THUG2-$Number"
-if (-not (Find-GameExe $From)) { "NO GAME IN $From"; exit 2 }
+if (-not (Find-GameExe $From)) { "NO GAME IN $From (no THUG2PM.exe or THUG2.exe in it or in its Game folder)"; exit 2 }
 if (Test-Path (Join-Path $to '.game-lock')) { "LOCKED: $to (game_lock.ps1 -Action status -Game $to)"; exit 1 }
 $running = Get-GameProcesses | Where-Object { $_.Path -and (Split-Path $_.Path -Parent) -in @($From, $to) }
 if ($running) { 'A GAME IS RUNNING FROM ONE OF THE FOLDERS - not copied'; exit 3 }

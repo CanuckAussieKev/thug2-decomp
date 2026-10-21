@@ -27,6 +27,7 @@ import { Name, type QbValue, Struct, Vector } from "../level_port/qb.ts";
 import * as scriptPort from "../level_port/script_port.ts";
 import * as thug2Col from "../level_port/thug2_col.ts";
 import * as thug2Scene from "../level_port/thug2_scene.ts";
+import { resolveInstall } from "../lib/install.ts";
 import {
     Float,
     formatFixed,
@@ -708,7 +709,7 @@ export function extractThugpro(
     const notes: Record<string, string[]> = {};
     const globalNames = new Map<number, string>();
     for (const q of scriptNames(thps3Dir)) for (const [k, v] of q.names) globalNames.set(k, v);
-    const scriptsDir = pyJoin(thps3Dir, "Data", "Scripts");
+    const scriptsDir = pyJoin(resolveInstall(thps3Dir, "thps3"), "Data", "Scripts");
     const globalUses = nameUses(
         fs
             .readdirSync(scriptsDir)
@@ -719,7 +720,7 @@ export function extractThugpro(
         const key = base.toLowerCase();
         if (THUG2_OWN.has(key) || NO_COUNTERPART.has(key)) continue;
         const scripts = findPath(thugpro, "data", "pre", `${key}_scripts.prx`);
-        const folder = findFolder(pyJoin(thps3Dir, "Data", "Levels"), base);
+        const folder = findFolder(pyJoin(resolveInstall(thps3Dir, "thps3"), "Data", "Levels"), base);
         if (!scripts || !folder) continue;
         const data = prx.find(scripts, `levels\\${key}\\${key}.qb`);
         if (data === null) continue;
@@ -870,9 +871,7 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
         print(USAGE);
         return 0;
     }
-    let thug2 = v.thug2 ?? "C:\\Games\\THUG2\\Game";
-    if (!fs.existsSync(pyJoin(thug2, "Data")) && fs.existsSync(pyJoin(thug2, "Game", "Data")))
-        thug2 = pyJoin(thug2, "Game");
+    const thug2 = resolveInstall(v.thug2 ?? "C:\\Games\\THUG2\\Game", "thug2");
     const thugpro = v.thugpro ?? DEFAULT_THUGPRO;
     if (v["extract-thugpro"]) {
         const data = extractThugpro(v.thps3 ?? "C:\\Games\\THPS3", thugpro, thug2);
