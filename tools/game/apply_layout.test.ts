@@ -1361,3 +1361,47 @@ test("bake: particle systems moved and copied with their emitter places; speeds 
     assert.equal((flag.get("TriggerScript") as Name).value, checksum("TRG_Flag_GreenScript"), "a lobby flag's script");
     assert.equal(out.unsupported.length, 0);
 });
+
+// --- (UX7) linked copies -------------------------------------------------------------------------------------------
+
+test("layout_file: (UX7) link records - read as Links::ReadRecord, malformed refused", () => {
+    const l = readLayout(
+        [
+            "thug2-decomp layout 2",
+            `scene ${hex(LEVEL)}`,
+            "link sector 1A2B3C4D c0@1,DEADBEEF,c3@2",
+            "link object 11111111 22222222 later=1",
+        ].join("\n"),
+    );
+    assert.deepEqual(l.linkGroups, [
+        {
+            scenery: true,
+            source: { id: 0x1a2b3c4d, clone: -1, quarters: 0 },
+            members: [
+                { id: 0, clone: 0, quarters: 1 },
+                { id: 0xdeadbeef, clone: -1, quarters: 0 },
+                { id: 0, clone: 3, quarters: 2 },
+            ],
+        },
+        {
+            scenery: false,
+            source: { id: 0x11111111, clone: -1, quarters: 0 },
+            members: [{ id: 0x22222222, clone: -1, quarters: 0 }],
+        },
+    ]);
+    assert.deepEqual(l.unknown, []);
+    for (const line of [
+        "link object c1 22222222",
+        "link object 11111111 22222222@1",
+        "link sector 1A2B3C4D",
+        "link thing 11111111 22222222",
+        "link sector 1A2B3C4D c0@7",
+        "link sector 1A2B3C4D 123",
+    ]) {
+        assert.throws(
+            () => readLayout(`thug2-decomp layout 2\nscene ${hex(LEVEL)}\n${line}\n`),
+            (e: unknown) => e instanceof LayoutError && e.line === 3,
+            line,
+        );
+    }
+});

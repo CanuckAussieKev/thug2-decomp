@@ -309,6 +309,10 @@ Draw Drawing();
 // onto it and finishes. True: a point was added.
 bool DrawAt(V3 at, uint32_t end, std::string* message, uint32_t* select);
 void StopDrawing();
+// (UX7: auto-rail along an edge - level_editor_arrange.h) A new rail through `points` in order (each a point of its own,
+// linked to the next), a trick object of `cluster` (0: of its own first point) as a drawn rail's first click makes it.
+// False (`message`: why): fewer than two points, not in a level. `select`: its first point.
+bool AddRail(const std::vector<V3>& points, uint32_t cluster, std::string* message, uint32_t* select);
 // The point a click in the view gives: the first collision the ray from `from` along `dir` meets (edges snapped:
 // SnapToEdge, unless `free`), a rail's end within 24 units taken as it is (`end`: its name - drawing links to it).
 bool SnapPoint(V3 from, V3 dir, float maxT, bool free, V3* point, uint32_t* end);

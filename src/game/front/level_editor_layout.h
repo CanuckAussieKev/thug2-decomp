@@ -13,6 +13,7 @@
 #include "game/front/level_editor_fields.h"
 #include "game/front/level_editor_goals.h"
 #include "game/front/level_editor_level_props.h"
+#include "game/front/level_editor_links.h"
 #include "game/front/level_editor_node_create.h"
 #include "game/front/level_editor_notes.h"
 #include "game/front/level_editor_picking.h"
@@ -116,6 +117,8 @@ class CScript;
 //   goal <id> type=<type> name="..." ... p0=x,y,z,heading,height ...  a Create-a-Goal goal of the edited copy
 //                                                      (level_editor_goals.h - played in free skate / single session)
 // An older reader skips faces / cluster / camera / goal records and a level record's sky= (the level's own sky then).
+//   link sector|object <source> <member>,...          (UX7) linked copies (level_editor_links.h; an older reader skips
+//                                                      them: the copies stay, unlinked)
 //   note <name> pos=x,y,z color=RRGGBB text="..."      (UX5) a note pin - editor only (level_editor_notes.h)
 // (UX5) Records that didn't resolve to anything in the level when the layout went in (level_editor_checks.h) are
 // written again at the file's end, as they were, under a comment - until the Problems window drops them.
@@ -172,6 +175,7 @@ struct File {
     std::vector<Clusters::Membership> clusters; // (map3) `cluster`
     std::vector<Cameras::Camera> cameras;       // (map3) `camera`
     std::vector<Goals::Goal> goals;             // `goal` (level_editor_goals.h)
+    std::vector<Links::Record> links;           // (UX7) `link`: linked copies (level_editor_links.h)
     // Records this reader doesn't know, as they are (comments taken off): another module's (AddExtension - the
     // editor's own records: level_editor_organize.h) or a later version's. Write writes them back.
     std::vector<std::string> extra;
