@@ -478,7 +478,7 @@ export function nodeFlagScript(
 // The node flags as THAW's non-story games have them (data\pak\qb.pak.wpc's chapter_info.qb).
 export function nonStoryNodeFlags(thawFolder: string, names: Map<number, string>): Map<number, boolean> {
     const found = thaw
-        .pakFiles(findPath(thawFolder, "Game", "data", "pak", "qb.pak.wpc")!)
+        .pakFiles(findPath(resolveInstall(thawFolder, "thaw"), "data", "pak", "qb.pak.wpc")!)
         .find(([e]) => e.path?.toLowerCase().endsWith("\\chapter_info.qb.wpc"));
     if (found === undefined) throw new FormatError(`${thawFolder}: no chapter_info.qb in qb.pak (THAW's node flags)`);
     const q = new thaw.QbItems(found[1], "chapter_info.qb", names);
