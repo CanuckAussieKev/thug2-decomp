@@ -104,7 +104,9 @@ TypeScript tools' --game / --thug2 the same, tools/lib/install.ts).
 - `node tools/game/boot_level.ts <level> <folder>` - TEST ONLY, superseded by `-Level`: patches the installed overlay's SKATE NOW to
   load a level in free skate. `make_menu_level.ts --game <folder>` puts the real one back.
 - `load_check.ps1 -Game <folder> -Levels a, b, ...` - run_game -Level for each level in turn, then reads the log:
-  `<level> : running after 50 s; responding=True loaded=True` or the errors.
+  `<level> : running after 50 s; responding=True loaded=True CComponent=<in use>/peak <peak>/<count> CStruct=...` or
+  the errors (the pools: the log's `script pools in use in <level>` line, written once the level is up -
+  src/game/front/start_level.cpp; and any `pool ... full` / `80% full` line).
 
 Reference sources the agents read (re-fetch anonymously if needed; none of their code is in the repo except where
 THIRD_PARTY_NOTICES.md says): https://github.com/Morten1337/thps-formats (MIT), https://github.com/denetii/io_thps_scene
