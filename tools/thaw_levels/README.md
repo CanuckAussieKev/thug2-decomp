@@ -57,6 +57,10 @@ header is off) and scenes (read and converted).
 - Scene and textures (THAW's FVF vertices straight into THUG2's mesh buffers), collision. Left out: LOD copies
   (a node's LOD_Name), billboards (glows: every vertex sits at the pivot, spread by THAW's shader), night-time
   sectors (NightOn_*, *_tod_light_*: lit at night only by THAW's time of day).
+- Node flags: THAW's story areas make much of their geometry, rails and objects from node flags
+  (`CreatedFromVariable=NODEFLAG_...`, set by scripts). Nodes whose flag is on in THAW's non-story games
+  (chapter_info.qb's `game_progress_set_non_story_mode_nodeflags`, read from qb.pak) get CreatedAtStart; the others stay
+  not made, as in THAW (Skate Ranch: every piece built, its `_DEF` stand-ins gone).
 - Nodes: restarts, rails, level geometry (LevelObjects as static geometry), KOTH crowns; kill zones (a trigger script
   calling a "killskater" script) become THUG2's SK3_KillSkater naming the nearest restart.
 - Areas with a `<zone>_Zone_Origin` node are moved by minus its position (all axes, in sixteenths), as THUGPRO's

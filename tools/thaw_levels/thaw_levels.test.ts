@@ -8,7 +8,16 @@ import { formatG, pySplit, pySplitlines, pyTitle } from "../lib/py.ts";
 import { pack } from "../lib/struct.ts";
 import { migrateText, quarterTurn } from "./migrate_layouts.ts";
 import { inlineStruct, statements, tokens } from "./thaw.ts";
-import { applySpawns, COMPAT, levelName, moveTree, setCompat, sixteenths } from "./thaw_levels.ts";
+import {
+    applyNodeFlags,
+    applySpawns,
+    COMPAT,
+    levelName,
+    moveTree,
+    nodeFlagScript,
+    setCompat,
+    sixteenths,
+} from "./thaw_levels.ts";
 import { RAIL_SCRIPTS, scriptToks } from "./thaw_scripts.ts";
 
 test("formatG is Python's %g / %.9g: exact value, halves to even", () => {
@@ -199,4 +208,61 @@ test("RailAccelerate passes its parameters (a rail's rate=) on to RailAccelerate
 
 test("RailAccelerate starts the loop on THUG2's rail event (grind onto), not land onto - never true on a rail", () => {
     assert.match(RAIL_SCRIPTS, /if TriggerType \[3, 13, -1\] \{\n/);
+});
+
+test("node flags: the non-story script runs the initial one first, then its own list; flagged nodes made at the start", () => {
+    const name = (text: string): Buffer => Buffer.concat([Buffer.from([0x16]), pack("<I", checksum(text))]);
+    const flag = (text: string, on: number): Buffer =>
+        Buffer.concat([Buffer.from([0x03]), name(text), Buffer.from([0x17]), pack("<i", on), Buffer.from([0x04])]);
+    const flags = (...entries: Buffer[]): Buffer =>
+        Buffer.concat([
+            name("Flags"),
+            Buffer.from([0x07, 0x05]),
+            ...entries,
+            Buffer.from([0x06, 0x01]),
+            name("ChangeNodeFlag"),
+            Buffer.from([0x01, 0x24]),
+        ]);
+    const scripts = new Map([
+        [checksum("initial"), flags(flag("NODEFLAG_A", 1), flag("NODEFLAG_B_DEF", 1))],
+        [
+            checksum("non_story"),
+            Buffer.concat([
+                Buffer.from([0x01]),
+                name("initial"),
+                Buffer.from([0x01]),
+                flags(flag("NODEFLAG_B_DEF", 0), flag("NODEFLAG_B", 1)),
+            ]),
+        ],
+    ]);
+    const values = nodeFlagScript(scripts, checksum("non_story"));
+    assert.deepEqual(
+        [...values].map(([k, v]) => [k, v]),
+        [
+            [checksum("NODEFLAG_A"), true],
+            [checksum("NODEFLAG_B_DEF"), false],
+            [checksum("NODEFLAG_B"), true],
+        ],
+    );
+    // (a list applied some other way than ChangeNodeFlag: not guessed at)
+    assert.throws(() => nodeFlagScript(new Map([[1, Buffer.concat([flag("NODEFLAG_A", 1), Buffer.from([0x24])])]]), 1));
+    const node = (flagName: string | null, created = false): Struct => {
+        const n = new Struct([[new Name(checksum("Class")), new Name(checksum("LevelGeometry"))]]);
+        if (flagName) n.entries.push([new Name(checksum("CreatedFromVariable")), new Name(checksum(flagName))]);
+        if (created) n.entries.push([null, new Name(checksum("CreatedAtStart"))]);
+        return n;
+    };
+    const array = [
+        node("NODEFLAG_B"),
+        node("NODEFLAG_B_DEF"),
+        node("NODEFLAG_UNSET"),
+        node(null),
+        node("NODEFLAG_A", true),
+    ];
+    assert.equal(applyNodeFlags(array, values), 1);
+    assert.deepEqual(
+        array.map((n) => n.hasFlag("CreatedAtStart")),
+        [true, false, false, false, true],
+    );
+    assert.equal(array[4]!.entries.filter(([k]) => k === null).length, 1);
 });
