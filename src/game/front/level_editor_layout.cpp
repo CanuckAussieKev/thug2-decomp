@@ -316,6 +316,8 @@ std::string Write(const File& file)
     }
     for (const Cameras::Camera& c : file.cameras)
         out << Cameras::WriteRecord(c) << '\n';
+    for (const Goals::Goal& g : file.goals)
+        out << "goal " << Goals::WriteRecord(g) << '\n'; // (level_editor_goals.h)
     for (const std::string& line : file.extra)
         out << line << '\n';
     // (UX5) note pins; the records that didn't resolve when loaded, kept (level_editor_checks.h)
@@ -474,6 +476,10 @@ bool Read(const std::string& text, File* file, int* lineNumber)
             ok = Clusters::ReadRecord(in, &file->clusters.emplace_back()); // (map3: level_editor_clusters.h)
         } else if (kind == "camera") {
             ok = Cameras::ReadRecord(in, &file->cameras.emplace_back()); // (map3: level_editor_cameras.h)
+        } else if (kind == "goal") {
+            std::string rest;
+            std::getline(in, rest);
+            ok = Goals::ReadRecord(rest, &file->goals.emplace_back()); // (level_editor_goals.h)
         } else if (kind == "note") {
             ok = Notes::ReadRecord(in, &file->notes.emplace_back()); // (UX5: level_editor_notes.h)
         } else {
@@ -805,6 +811,7 @@ bool Capture(File* file)
     file->faces = Faces::Changed();
     file->clusters = Clusters::Changed();
     file->cameras = Cameras::Capture();
+    file->goals = Goals::Capture(); // (their points are owned nodes: not `node` records)
     for (const Extension& e : Extensions()) {
         if (!e.capture)
             continue;
@@ -921,6 +928,7 @@ std::string Apply(const File& file)
     int faces = Faces::Apply(file.faces);
     int clusters = Clusters::Apply(file.clusters);
     int cameras = Cameras::Apply(file.cameras);
+    Goals::Apply(file.goals); // (after the nodes: their points' nodes made; in play unless the editor runs)
     ApplyExtensions(file.extra); // (other modules' records: level_editor_organize.h)
     if (faces || clusters || cameras)
         Log("level editor: the layout's %d collision faces, %d trick-object clusters, %d cameras put in place", faces,
@@ -990,6 +998,7 @@ void ResetToLevel(const File& keep)
     Faces::ResetAll();
     Clusters::ResetAll();
     Cameras::ResetAll();
+    Goals::ResetAll(); // (out of play, their points' nodes removed - Apply makes the layout's again)
     ResetExtensions();
     Notes::ResetAll();             // (UX5)
     Checks::ForgetLayoutRecords(); // (UX5: Apply notes the next layout's again)
@@ -1269,6 +1278,7 @@ void OnSceneLoaded(const char* name, bool isNet)
     Faces::ForgetLevel(); // (map3: nothing written - the level's collision and trick objects went with it)
     Clusters::ForgetLevel();
     Cameras::ForgetLevel();
+    Goals::ForgetLevel(); // (a goal of ours still in the goal manager taken out: its nodes went with the level)
     Notes::ForgetLevel();  // (UX5)
     Checks::ForgetLevel(); // (UX5: the issues, the ignored list, the unresolved records)
     Chains::ForgetLevel(); // (before the overlay goes: the level's links put back while its array is the one loaded)
