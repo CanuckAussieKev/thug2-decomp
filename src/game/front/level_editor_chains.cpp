@@ -1998,8 +1998,7 @@ bool LadderOp(Op op, uint32_t name, const Nodes::Node& node, uint32_t arg, std::
                                 state.facings.end());
         }
         std::sort(state.dropped.begin(), state.dropped.end());
-        return Apply(state, message, level ? "The level's ladder deleted (hidden; Ctrl+Z, Reset level bring it back)"
-                                           : "Ladder deleted (Ctrl+Z brings it back)");
+        return Apply(state, message, level ? "Ladder hidden" : "Ladder deleted");
     }
     case kOpTurn: {
         int notches = static_cast<int>(arg);
@@ -2008,7 +2007,7 @@ bool LadderOp(Op op, uint32_t name, const Nodes::Node& node, uint32_t arg, std::
             SetFacing(&state, point, facing);
         *select = name;
         char text[96];
-        std::snprintf(text, sizeof(text), "Ladder turned: facing %.0f degrees (Home: as the level has it)",
+        std::snprintf(text, sizeof(text), "Ladder facing %.0f degrees",
                       static_cast<double>(NodeEdit::HeadingDegrees({0.0f, facing, 0.0f})));
         std::string done = text;
         return Apply(state, message, done.c_str());
@@ -2134,9 +2133,7 @@ bool Do(Op op, uint32_t name, uint32_t arg, std::string* message, uint32_t* sele
                                              [&](const LinkEdit& l) { return l.name == name; }),
                               state.links.end());
         }
-        return Apply(state, message, node.added ? "Point deleted, its neighbours linked (Ctrl+Z brings it back)"
-                                                : "The level's point deleted (hidden), its neighbours linked (Ctrl+Z, "
-                                                  "Reset level bring it back)");
+        return Apply(state, message, node.added ? "Point deleted" : "Point hidden");
     }
     case kOpUnlink: {
         if (!Unlink(&graph, name)) {
@@ -2219,8 +2216,8 @@ bool Do(Op op, uint32_t name, uint32_t arg, std::string* message, uint32_t* sele
             return false;
         }
         *select = name;
-        return Apply(state, message, arg ? "A trick object now (its cluster as the skater's combo counts it)"
-                                         : "Not a trick object now");
+        return Apply(state, message, arg ? "Trick object on"
+                                         : "Trick object off");
     }
     case kOpGrindFlat: {
         if (family != Nodes::Family::Rail) {
@@ -2249,7 +2246,7 @@ bool Do(Op op, uint32_t name, uint32_t arg, std::string* message, uint32_t* sele
             Log("level editor: %s's rail grindable on flat ground - RailClear (0x0057C600) passes it as the park "
                 "editor's level passes every rail; the game itself has no node flag for this",
                 Objects::Label(name).c_str());
-        return Apply(state, message, arg ? "Grindable on flat ground now (the game's check for ground beside it skipped)"
+        return Apply(state, message, arg ? "Grind on flat ground on"
                                          : "Ground beside it checked again, as the game does");
     }
     case kOpSpeed:
@@ -2288,10 +2285,10 @@ bool Do(Op op, uint32_t name, uint32_t arg, std::string* message, uint32_t* sele
         *select = name;
         char text[160];
         if (rate > 0.0f)
-            std::snprintf(text, sizeof(text), "Speed-up on %d segment%s: %.1f%% more speed a frame while climbing on it",
+            std::snprintf(text, sizeof(text), "Speed-up on %d segment%s: %.1f%% per frame",
                           changed, changed == 1 ? "" : "s", rate * 100.0f);
         else
-            std::snprintf(text, sizeof(text), "Speed-up taken off %d segment%s", changed, changed == 1 ? "" : "s");
+            std::snprintf(text, sizeof(text), "Speed-up removed from %d segment%s", changed, changed == 1 ? "" : "s");
         return Apply(state, message, text);
     }
     case kOpHang: {
@@ -2395,10 +2392,9 @@ bool DrawAt(V3 at, uint32_t end, std::string* message, uint32_t* select)
     g_drawLast = made;
     *select = made;
     if (message->empty())
-        *message = first ? (family == Nodes::Family::Path     ? "Path started - click more waypoints (Enter finishes)"
-                            : family == Nodes::Family::Ladder ? "Ledge started - click more points along the edge (Enter "
-                                                                "finishes)"
-                                                              : "Rail started - click more points (Enter finishes)")
+        *message = first ? (family == Nodes::Family::Path     ? "Path started (Enter: finish)"
+                            : family == Nodes::Family::Ladder ? "Ledge started (Enter: finish)"
+                                                              : "Rail started (Enter: finish)")
                          : "Point added - Enter or a right click finishes";
     return true;
 }
@@ -2515,7 +2511,7 @@ bool LadderClick(V3 from, V3 dir, float maxT, std::string* message, uint32_t* se
     StopDrawing();
     *select = Checksum(foot.name);
     char text[128];
-    std::snprintf(text, sizeof(text), "Ladder made (%.0f high) - climb it from its foot; Z / X turn it",
+    std::snprintf(text, sizeof(text), "Ladder added (%.0f high)",
                   static_cast<double>(top.y - g_ladderFoot.y));
     *message = text;
     Log("level editor: added %s / %s (a ladder, facing %.0f degrees)", foot.name.c_str(), upper.name.c_str(),
@@ -2604,7 +2600,7 @@ bool Picked(uint32_t name, std::string* message, uint32_t* select)
         }
         SetLinkEdit(&state, from, links);
         *select = from;
-        return Apply(state, message, "Its path starts there now - it is made again to follow it");
+        return Apply(state, message, "Path assigned");
     }
     return false;
 }
@@ -2616,17 +2612,17 @@ const char* Waiting()
     if (g_pick == kOpAssignArm)
         return "Click the first waypoint (Esc: cancel)";
     if (g_draw == Draw::Rail)
-        return g_drawLast ? "Drawing a rail: click the next point (Enter / right click finishes; near an end: links)"
-                          : "Drawing a rail: click its first point";
+        return g_drawLast ? "Rail: click the next point (Enter: finish)"
+                          : "Rail: click the first point";
     if (g_draw == Draw::Path)
-        return g_drawLast ? "Drawing a path: click the next waypoint (Enter / right click finishes)"
-                          : "Drawing a path: click its first waypoint";
+        return g_drawLast ? "Path: click the next waypoint (Enter: finish)"
+                          : "Path: click the first waypoint";
     if (g_draw == Draw::Ledge)
-        return g_drawLast ? "Drawing a ledge: click the next point along the edge (Enter / right click finishes)"
-                          : "Drawing a ledge: click its first point on an edge the skater can hang from";
+        return g_drawLast ? "Ledge: click the next point (Enter: finish)"
+                          : "Ledge: click the first point on an edge";
     if (g_draw == Draw::Ladder)
-        return g_ladderHaveFoot ? "A ladder: click where its top goes (straight above the foot; Esc stops)"
-                                : "A ladder: click a wall where its foot goes (it faces the wall)";
+        return g_ladderHaveFoot ? "Ladder: click to place the top"
+                                : "Ladder: click a wall to place the foot";
     return nullptr;
 }
 

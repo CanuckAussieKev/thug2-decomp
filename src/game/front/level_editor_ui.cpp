@@ -1341,7 +1341,7 @@ void Browser(const Model& model)
     Arrange::BrowserExtras(g_scale); // (UX7: Replace selection, Click places - level_editor_arrange.h)
     ImGui::EndDisabled();
     ImGui::PushFont(g_small);
-    Muted("Enter places a copy where the cursor points (over a panel: where the view looks).");
+    Muted("Enter: place at the cursor");
     ImGui::PopFont();
     ImGui::End();
     if (!open)

@@ -1516,7 +1516,7 @@ bool EnterEditedCopy(std::string* message)
     }
     if (const char* mode = CareerModeActive()) {
         *message = std::string("The level editor isn't offered in ") + mode +
-                   " - only in free skate or single session (nothing edited may reach the career)";
+                   " (free skate and single session only)";
         return false;
     }
     g_switch = 0;
@@ -1558,8 +1558,7 @@ bool ResetLevel(std::string* before, std::string* message)
     g_snapshotWritten = true;
     g_autosaveOurs = false;
     g_offerPending = false;
-    *message = deleted ? "Level reset as shipped, its saved layout deleted (Ctrl+Z undoes)"
-                       : "Level reset as shipped (Ctrl+Z undoes)";
+    *message = deleted ? "Level reset; saved layout deleted" : "Level reset";
     Log("level editor: %s", message->c_str());
     return true;
 }

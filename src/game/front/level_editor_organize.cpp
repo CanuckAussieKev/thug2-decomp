@@ -710,11 +710,11 @@ void SelectGroup(int index)
     std::string note;
     if (!ids.objects.empty()) {
         if (!ids.sectors.empty() || node)
-            note = " (its objects - objects and scenery aren't selected together)";
+            note = " (objects only)";
         ids.sectors.clear();
     } else if (!ids.sectors.empty()) {
         if (node)
-            note = " (its scenery - nodes select one at a time)";
+            note = " (scenery only)";
     } else {
         ids.node = node;
     }
@@ -861,7 +861,7 @@ void ApplyBox()
         }
         if (best && op != 2) {
             next.node = best;
-            std::snprintf(text, sizeof(text), "Box: %d nodes - the nearest the middle selected (nodes select one at a time)",
+            std::snprintf(text, sizeof(text), "Box: %d nodes, nearest selected",
                           inBox);
         } else if (op == 0) {
             std::snprintf(text, sizeof(text), "Box (%s): nothing there", how);
@@ -1041,7 +1041,7 @@ bool SaveSnapshot(const std::string& name, std::string* message)
         g_state.snapshot = before;
         return false;
     }
-    *message = "Snapshot \"" + name + "\" saved - it's the active one (Ctrl+S makes it the edited copy's layout)";
+    *message = "Snapshot \"" + name + "\" saved";
     return true;
 }
 
@@ -1069,8 +1069,7 @@ bool SwitchSnapshot(const std::string& name, std::string* message)
         return false;
     g_state.snapshot = name;
     Actions::Trigger(Actions::kSave); // (saved as the edited copy's layout - the (EDITED) entry's: the active one)
-    *message = "Snapshot \"" + name + "\" in place and saved as the edited copy's layout (the one before kept as \"" + keep +
-               "\"; Ctrl+Z undoes)";
+    *message = "Snapshot \"" + name + "\" loaded (previous kept as \"" + keep + "\")";
     return true;
 }
 

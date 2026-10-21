@@ -1732,7 +1732,7 @@ void Create(std::vector<Placed> made, const char* what)
     Sync();
     if (first >= 0) {
         g_select = Nodes::Find(NameChecksum(g_specs[first].name));
-        Hud::Message(std::string("Added ") + what + "", 4.0);
+        Hud::Message(std::string("Added ") + what, 4.0);
     }
 }
 
@@ -1863,7 +1863,7 @@ void AddScript()
     p.spec.size = {300.0f, 200.0f, 300.0f};
     p.pos = PlaceAhead(p.spec.size, 0.0f);
     p.yaw = g_yaw;
-    Create({p}, "a trigger that runs a script (choose it in the Inspector)");
+    Create({p}, "a script trigger");
 }
 
 void AddGap()
@@ -1890,7 +1890,7 @@ void AddGap()
     // (two fresh names: the first isn't taken until it's made)
     std::string first = start.spec.name;
     end.spec.name = NodeCreate::FreshName("ed_trigger", [&](const std::string& n) { return SameText(n, first) || NameTaken(n); });
-    Create({start, end}, "a gap: its start and its end");
+    Create({start, end}, "a gap");
 }
 
 // (UX9: the gap wizard - level_editor_gap_wizard.h) A gap's two ends as given, their names and GapID fresh.
@@ -1911,7 +1911,7 @@ void AddGapPair(Placed start, Placed end)
     end.spec.flags = start.spec.flags;
     end.spec.text = start.spec.text;
     end.spec.score = start.spec.score;
-    Create({start, end}, "a gap from the wizard: its start and its end");
+    Create({start, end}, "a gap");
 }
 
 void SetSpec(const std::string& name, const Spec& spec, bool undo)
@@ -2001,7 +2001,7 @@ void MakeEditable(uint32_t sector)
                              std::max(20.0f, t->max.z - t->min.z)});
     p.pos = (t->min + t->max) * 0.5f;
     p.yaw = 0.0f;
-    Create({p}, ("an editable copy of " + LabelOf(sector) + " (the original is off while it's there)").c_str());
+    Create({p}, ("an editable copy of " + LabelOf(sector)).c_str());
 }
 
 void SelectPartner(const std::string& name)
@@ -2876,7 +2876,7 @@ void AddBoost()
     p.spec.strength = 900;
     p.pos = PlaceAhead(p.spec.size, 0.0f);
     p.yaw = g_yaw;
-    Create({p}, "a jump boost (strength in the Inspector)");
+    Create({p}, "a jump boost");
 }
 
 void AddCamera()
@@ -2898,8 +2898,8 @@ void AddCamera()
         }
     }
     std::string what = p.spec.target.empty()
-                           ? std::string("a camera trigger - make a camera (V) and choose it in the Inspector")
-                           : "a camera trigger playing " + p.spec.target + " (camera and seconds in the Inspector)";
+                           ? std::string("a camera trigger")
+                           : "a camera trigger (" + p.spec.target + ")";
     Create({p}, what.c_str());
 }
 
@@ -2928,7 +2928,7 @@ void SetBreakable(uint32_t sector, bool on)
             Hud::Message("Piece has no bounds", 4.0);
             return;
         }
-        Create({p}, "a breakable: it shatters when the skater hits it");
+        Create({p}, "a breakable");
         return;
     }
     // (off: its trigger removed - its collision comes back with it - and the piece shown if a test run broke it)

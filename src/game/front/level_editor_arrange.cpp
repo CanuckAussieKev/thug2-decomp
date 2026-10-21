@@ -493,7 +493,7 @@ bool Align(int axis, Edge edge, Reference reference, bool local)
     Edit::Selected selection = Edit::Selection();
     std::vector<Unit> units = UnitsOf(selection);
     if (units.size() < 2) {
-        Hud::Message("Align: select two or more objects or scenery pieces (Shift+click; Alt+click one piece)", 4.0);
+        Hud::Message("Align: select 2 or more items", 4.0);
         return false;
     }
     axis = std::clamp(axis, 0, 2);
@@ -505,7 +505,7 @@ bool Align(int axis, Edge edge, Reference reference, bool local)
     std::vector<float> moves = AlignMoves(spans, edge, reference);
     MoveUnits(selection, units, axes[axis], moves);
     char text[128];
-    std::snprintf(text, sizeof(text), "Aligned %d pieces: %s on %s (%s, %s) - F4 adjusts, Ctrl+Z undoes",
+    std::snprintf(text, sizeof(text), "Aligned %d pieces: %s on %s (%s, %s)",
                   static_cast<int>(units.size()), edge == Edge::Min ? "min" : edge == Edge::Max ? "max" : "centre",
                   AxisName(axis), local ? "local" : "world", reference == Reference::First ? "the first" : "the bounds");
     Hud::Message(text, 4.0);
@@ -524,7 +524,7 @@ bool Distribute(int axis, bool gaps, bool local)
     Edit::Selected selection = Edit::Selection();
     std::vector<Unit> units = UnitsOf(selection);
     if (units.size() < 3) {
-        Hud::Message("Distribute: select three or more objects or scenery pieces", 4.0);
+        Hud::Message("Distribute: select 3 or more items", 4.0);
         return false;
     }
     axis = std::clamp(axis, 0, 2);
@@ -535,7 +535,7 @@ bool Distribute(int axis, bool gaps, bool local)
         spans.push_back(SpanAlong(unit.corners, axes[axis]));
     MoveUnits(selection, units, axes[axis], DistributeMoves(spans, gaps));
     char text[128];
-    std::snprintf(text, sizeof(text), "Distributed %d pieces along %s (%s) - F4 adjusts, Ctrl+Z undoes",
+    std::snprintf(text, sizeof(text), "Distributed %d pieces along %s (%s)",
                   static_cast<int>(units.size()), AxisName(axis), gaps ? "equal gaps" : "evenly spaced centres");
     Hud::Message(text, 4.0);
     Adjust::Action action;
@@ -585,7 +585,7 @@ std::string ModelOf(uint32_t name)
 bool ReplaceScenery(const Edit::Selected& selection, uint32_t source)
 {
     if (std::find(selection.ids.begin(), selection.ids.end(), source) != selection.ids.end()) {
-        Hud::Message("Replace: the Add palette's piece is one of those selected", 4.0);
+        Hud::Message("Replace: the replacement is part of the selection", 4.0);
         return false;
     }
     std::vector<Unit> units = UnitsOf(selection);
@@ -656,9 +656,8 @@ bool ReplaceObjects(const Edit::Selected& selection, uint32_t source)
         }
     }
     if (copies.empty() && (swapped.empty() || model.empty())) {
-        Hud::Message(model.empty() ? "Replace: a level's own object can't be removed, and that object has no model= to "
-                                     "give it (copies of objects can be replaced)"
-                                   : "Replace: nothing selected to replace",
+        Hud::Message(model.empty() ? "Replace: original object has no model to swap"
+                                   : "Replace: nothing selected",
                      5.0);
         return false;
     }
@@ -693,7 +692,7 @@ bool ReplaceObjects(const Edit::Selected& selection, uint32_t source)
     if (!made.empty())
         Edit::Select({Edit::Kind::Objects, made});
     char text[160];
-    std::snprintf(text, sizeof(text), "Replaced %d copies; %d level objects given its model - Ctrl+Z puts them back",
+    std::snprintf(text, sizeof(text), "Replaced %d copies; %d level objects re-modelled",
                   static_cast<int>(made.size()), swaps);
     Hud::Message(text, 5.0);
     Log("level editor: replace with %s: %d copies made again, %d model swaps", Objects::Label(source).c_str(),
@@ -708,7 +707,7 @@ bool Replace()
     int tab = 0;
     uint32_t source = 0;
     if (!Edit::BrowserItem(&tab, &source)) {
-        Hud::Message("Replace: open the Add palette (B) and highlight the piece or object to put in their place", 5.0);
+        Hud::Message("Replace: highlight an item in Add Piece (B)", 5.0);
         return false;
     }
     Edit::Selected selection = Edit::Selection();
@@ -716,10 +715,9 @@ bool Replace()
         return ReplaceScenery(selection, source);
     if (selection.kind == Edit::Kind::Objects && tab == 1)
         return ReplaceObjects(selection, source);
-    Hud::Message(selection.kind == Edit::Kind::Scenery   ? "Replace: scenery is replaced by a scenery piece (the Add "
-                                                           "palette's Scenery tab)"
-                 : selection.kind == Edit::Kind::Objects ? "Replace: objects are replaced by an object (the Objects tab)"
-                                                         : "Replace: select scenery pieces or objects first",
+    Hud::Message(selection.kind == Edit::Kind::Scenery   ? "Replace: choose a scenery piece"
+                 : selection.kind == Edit::Kind::Objects ? "Replace: choose an object"
+                                                         : "Replace: nothing selected",
                  5.0);
     return false;
 }
@@ -883,15 +881,15 @@ bool EdgePicking() { return g_edgePicking; }
 void SetEdgePicking(bool on)
 {
     if (on && Edit::Selection().kind != Edit::Kind::Scenery) {
-        Hud::Message("Rail along an edge: select a scenery piece first (its top edges are offered)", 4.0);
+        Hud::Message("Rail Along Edge: select a scenery piece", 4.0);
         on = false;
     }
     g_edgePicking = on;
     g_edgeHover = -1;
     if (on) {
         size_t runs = EdgeRuns().size();
-        Hud::Message(runs ? "Rail along an edge: click one of its top edges (cyan) - Shift+click lays more; Alt+R / Esc stops"
-                          : "Rail along an edge: no top edges found on that piece",
+        Hud::Message(runs ? "Rail Along Edge: click a top edge (Shift: more)"
+                          : "Rail Along Edge: no top edges found",
                      5.0);
         if (!runs)
             g_edgePicking = false;
@@ -909,7 +907,7 @@ bool EdgeClick(float x, float y)
     int pick = RunAt(runs, [&](V3 p, float* px, float* py) { return PixelOf(view, p, px, py); }, x, y,
                      12.0f * static_cast<float>(view.viewport[3]) / 720.0f);
     if (pick < 0) {
-        Hud::Message("Rail along an edge: click on one of the cyan edges (Alt+R / Esc stops)");
+        Hud::Message("Rail Along Edge: click a highlighted edge");
         return true;
     }
     Run run = runs[pick];
@@ -925,7 +923,7 @@ bool EdgeClick(float x, float y)
     const uint8_t* keys = SDL_GetKeyboardState(nullptr);
     bool more = keys[SDL_SCANCODE_LSHIFT] || keys[SDL_SCANCODE_RSHIFT];
     char text[128];
-    std::snprintf(text, sizeof(text), "Rail laid along the edge: %d points, %.0f long - Ctrl+Z takes it away",
+    std::snprintf(text, sizeof(text), "Rail added: %d points, %.0f long",
                   static_cast<int>(run.points.size()), run.length);
     // (Shift: the piece stays selected for the next edge; else the rail's first point is selected)
     Edit::ChainChanged(&before, more ? 0 : select, text);
@@ -1090,7 +1088,7 @@ void Update()
     RunQueued();
     if (!Edit::Dragging()) {
         if (Actions::Pressed(g_actWindow) && !Ui::Running())
-            Hud::Message("The Arrange window (F2) needs the editor's UI ([features] editor_ui=1)");
+            Hud::Message("Requires the editor UI (editor_ui=1)");
         else if (Actions::Pressed(g_actWindow))
             Toggle(&Current().window);
         if (Actions::Pressed(g_actAdjust))

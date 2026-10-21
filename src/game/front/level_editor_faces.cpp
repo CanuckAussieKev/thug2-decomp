@@ -26,17 +26,14 @@ namespace Front::LevelEditor::Faces {
 namespace {
 
 const FlagInfo kFlags[kFlagCount] = {
-    {0x0001, "Skatable (0x01)", "Skatable whatever its slope (the skater's feeler check 0x005003A0)"},
-    {0x0002, "Not skatable (0x02)", "Not skatable - unless 0x01 or 0x08 is set too (0x005003A0)"},
-    {0x0004, "Wallride (0x04)", "Wall-ridable, not skatable (0x005003A0: +0x22A)"},
-    {0x0008, "Vert (0x08)", "Vert: skatable, the skater launches off it as off a quarter pipe (0x005003A0: +0x229)"},
-    {0x0010, "Not collidable (0x10)", "Every feeler's default ignore mask (0x00417760 / 0x00417250): the skater, the "
-                                      "camera and objects pass through it"},
-    {0x0040, "Trigger (0x40)", "A trigger face: its node's TriggerScript runs when crossed (0x004131F0); with 0x10 a "
-                               "volume passed through - kill zones, water. A face without a trigger node does nothing"},
-    {0x0080, "Camera passes (0x80)", "The camera's collision feeler ignores it (0x004E4425: ignore 0x90) - the camera "
-                                     "goes through, the skater doesn't"},
-    {0x2000, "Not taggable (0x2000)", "The graffiti feelers ignore it (0x0051DF71 / 0x0051E74B: ignore 0x3000)"},
+    {0x0001, "Skatable", "Skatable at any slope"},
+    {0x0002, "Not Skatable", "Not skatable unless Skatable or Vert is set"},
+    {0x0004, "Wallride", "Wallride only"},
+    {0x0008, "Vert", "Launches like a quarter pipe"},
+    {0x0010, "Not Collidable", "Skater, camera and objects pass through"},
+    {0x0040, "Trigger", "Runs its node's TriggerScript when crossed"},
+    {0x0080, "Camera Pass-Through", "Camera passes through"},
+    {0x2000, "Not Taggable", "Can't be tagged with graffiti"},
 };
 
 int HexDigit(char c)
@@ -447,7 +444,7 @@ bool SetFlag(uint16_t bit, bool on)
     PushModuleUndo(before);
     View::InvalidateCache();
     char text[128];
-    std::snprintf(text, sizeof(text), "Face flag 0x%04X %s on %d face%s (live; saved with Ctrl+S)", bit,
+    std::snprintf(text, sizeof(text), "Face flag 0x%04X %s on %d face%s", bit,
                   on ? "set" : "cleared", faces, faces == 1 ? "" : "s");
     Hud::Message(text);
     Log("level editor: %s", text);

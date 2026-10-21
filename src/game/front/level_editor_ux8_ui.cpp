@@ -225,7 +225,7 @@ void Windows(float vx, float vy, float vw, float vh, const Fonts& fonts)
         draw->AddLine(ImVec2(centre.x, centre.y + r), ImVec2(centre.x, centre.y + 2.0f * r), IM_COL32(255, 255, 255, 200), 1.5f * s);
     }
     if (Walking() && fonts.ui) {
-        const char* text = "WALKING  -  W A S D walk, Space jumps, Shift runs  -  Shift+` or Esc stops";
+        const char* text = "WALK MODE  -  WASD walk, Space jump, Shift run, Esc exit";
         ImVec2 size = fonts.ui->CalcTextSizeA(fonts.ui->FontSize, 1e9f, 0.0f, text);
         ImVec2 at(centre.x - size.x * 0.5f, vy + 14.0f * s);
         draw->AddRectFilled(ImVec2(at.x - 8.0f * s, at.y - 4.0f * s), ImVec2(at.x + size.x + 8.0f * s, at.y + size.y + 4.0f * s),

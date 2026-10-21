@@ -1217,7 +1217,7 @@ bool Export(const std::string& id, std::string* message)
     FillImage(g, level, index, GapNumbers(g), &image);
     std::memcpy(slots + slot * kSlotSize, image.bytes, kSlotSize);
     *message = "\"" + g.name + "\" copied to Create-a-Goal as this level's goal " + std::to_string(index + 1) +
-               " - CREATE-A-MODES > create goals in this level lists it; its SAVE GOALS saves it";
+               "";
     Log("level editor: goal %s exported to the goal editor (slot %d, CreatedGoal%d)", g.id.c_str(), slot, index);
     return true;
 }

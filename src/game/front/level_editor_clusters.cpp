@@ -260,10 +260,10 @@ bool Set(const std::vector<uint32_t>& sectors, bool trick, uint32_t cluster)
     PushModuleUndo(before);
     char text[160];
     if (trick)
-        std::snprintf(text, sizeof(text), "%d piece%s now trick objects of %s (live; saved with Ctrl+S)", changed,
+        std::snprintf(text, sizeof(text), "%d piece%s set to cluster %s", changed,
                       changed == 1 ? "" : "s", cluster ? NameOf(cluster).c_str() : "their own names");
     else
-        std::snprintf(text, sizeof(text), "%d piece%s no longer trick objects (live; saved with Ctrl+S)", changed,
+        std::snprintf(text, sizeof(text), "%d piece%s cleared", changed,
                       changed == 1 ? "" : "s");
     Hud::Message(text);
     Log("level editor: %s", text);

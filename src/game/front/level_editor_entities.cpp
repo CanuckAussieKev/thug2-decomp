@@ -1141,7 +1141,7 @@ Placed Place(int index, V3 at, float yaw)
         placed.copies.push_back(copy->m_id);
         placed.message = "Placed a copy of " + Nodes::Label(source.names.front()) +
                          (cls == kPedestrian || cls == kVehicle
-                              ? " - it follows its source's path (Inspector > Path assigns another)"
+                              ? ""
                               : "");
         return placed;
     }
