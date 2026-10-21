@@ -57,6 +57,17 @@ Bridge_Damaged, the THPS3 tutorial's lessons, LOD copies) - as in their free ska
   a TP-n entry could take THUGPRO's values if that matters.
 - Not done: `NightOff_*` / time-of-day pieces with neither flag (THAW's TOD manager) - small, mostly shadows.
 
-## Game runs
+## Verification
 
-(see below)
+- npm typecheck / lint / test pass (183 tests); `thaw_levels.ts selfcheck`: 735 files, 0 failures; THUGPRO compare for
+  z_sr unchanged (nodes, crowns, mp restarts, net spawns, CTF nodes all the same).
+- Offline, at the reported spot: a grid of vertical ray casts over the collision that is *made* (CreatedAtStart or
+  not a node), +-400 units around (2451, 1130): before 246 / 1089 points with no ground (a ~300 x 450 unit hole, the
+  ropes area at x 2100-2400, z 1080-1530); after 0 / 1089.
+- Game (C:\Games\THUG2-3 under its lock, this branch's DLL merged with main 12155c3 - main's bigger script pools):
+  z_sr loads into free skate with the 2,208 extra nodes; no pool ran dry, no errors in the log; the picture shows the
+  built pieces (the crane). The automation channel can't place the skater, and the nearest restart is ~1000 units
+  away, so the exact spot wasn't framed in the game - **the user should check it by hand** (skate to the spine at
+  (2451, 18, 1130): ground on its right, no hole; also look round SR, OI, SM, BH, HO for pieces now there).
+- Note: another agent sharing THUG2-3 reconverted THAW with code without this fix at 19:06 (the staging and overlay
+  were overwritten between my convert and my game run); reconverted under the lock before the run that counts.
