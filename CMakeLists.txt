@@ -11,7 +11,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Static CRT so the DLL doesn't need a separate runtime installed next to the game.
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
-set(THUG2_GAME_DIR "C:/Games/THUG2/Game" CACHE PATH "Game folder the built dinput8.dll is copied into")
+set(THUG2_GAME_DIR "C:/Games/THUG2/Game" CACHE PATH
+    "The folder holding THUG2's exe, which the built dinput8.dll is copied into (an install root steps into its Game folder)")
 
 # --- SDL2 (PartyMod's window and input: src/game/sys/sdl_*.cpp, src/game/sio/sdl_input.cpp) --------------
 # The official 2.30.9 Visual C++ development package: the same version as the SDL2.dll PartyMod ships with (the
@@ -646,9 +647,20 @@ target_compile_options(thug2_decomp PRIVATE /W4 /permissive- /utf-8)
 # The proxy has to be called dinput8.dll for Windows to load it instead of the system one.
 set_target_properties(thug2_decomp PROPERTIES OUTPUT_NAME dinput8)
 
-# A stock install keeps the game in a Game subfolder (C:/Games/THUG2/Game): a cached C:/Games/THUG2 steps into it.
+# THUG2_GAME_DIR is the folder holding the exe (THUG2.exe / THUG2PM.exe). A stock install keeps the game in a Game
+# subfolder (C:/Games/THUG2/Game) - some players delete what's around it and keep Game's contents at the top: a cached
+# install root (C:/Games/THUG2) steps into its Game folder when the game isn't at the top (as tools/lib/install.ts).
 set(THUG2_DEPLOY_DIR "${THUG2_GAME_DIR}")
-if(NOT EXISTS "${THUG2_DEPLOY_DIR}/Data" AND EXISTS "${THUG2_DEPLOY_DIR}/Game/Data")
+function(thug2_is_game_folder dir out)
+    if(EXISTS "${dir}/THUG2.exe" OR EXISTS "${dir}/THUG2PM.exe" OR EXISTS "${dir}/Data/pre/qb_scripts.prx")
+        set(${out} TRUE PARENT_SCOPE)
+    else()
+        set(${out} FALSE PARENT_SCOPE)
+    endif()
+endfunction()
+thug2_is_game_folder("${THUG2_DEPLOY_DIR}" THUG2_AT_TOP)
+thug2_is_game_folder("${THUG2_DEPLOY_DIR}/Game" THUG2_IN_GAME)
+if(NOT THUG2_AT_TOP AND THUG2_IN_GAME)
     set(THUG2_DEPLOY_DIR "${THUG2_DEPLOY_DIR}/Game")
 endif()
 if(EXISTS "${THUG2_DEPLOY_DIR}")

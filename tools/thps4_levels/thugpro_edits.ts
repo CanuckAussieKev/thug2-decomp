@@ -29,6 +29,7 @@ import * as prx from "../level_port/prx.ts";
 import * as qb from "../level_port/qb.ts";
 import { Name, type QbValue, Struct, Vector } from "../level_port/qb.ts";
 import * as thug2Col from "../level_port/thug2_col.ts";
+import { resolveInstall } from "../lib/install.ts";
 import { Float, hex8, intFromBytesLE } from "../lib/py.ts";
 import { findPath } from "../thaw_levels/thaw_levels.ts";
 import { maxDiff, nodeArray, position, TOLERANCE } from "../thaw_levels/thugpro_compare.ts";
@@ -173,7 +174,7 @@ export function extractEdits(base: string, key: string, thugpro: string, thps4Di
     const data = scripts === null ? null : prx.find(scripts, `levels\\${key}\\${key}.qb`);
     if (data === null) throw new TypeError(`THUGPRO has no levels\\${key}\\${key}.qb`);
     const [tpArray, tpNames] = nodeArray(data, `${key}.qb`);
-    const folder = findPath(thps4Dir, "Game", "data", "levels", base);
+    const folder = findPath(resolveInstall(thps4Dir, "thps4"), "data", "levels", base);
     const ownFile = folder === null ? null : findPath(folder, `${base}.qb`);
     if (folder === null || ownFile === null) throw new TypeError(`no THPS4 ${base}.qb in ${thps4Dir}`);
     const ownQ = new qb.QbFile(fs.readFileSync(ownFile), ownFile);

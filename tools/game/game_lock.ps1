@@ -12,7 +12,7 @@ param(
 #   status:  who holds it, since when.
 . (Join-Path $PSScriptRoot 'game_exe.ps1')
 $game = Resolve-GameFolder $Game
-if (-not (Find-GameExe $game)) { "NO GAME IN $game"; exit 2 }
+if (-not (Find-GameExe $game)) { "NO GAME IN $game (no THUG2PM.exe or THUG2.exe in it or in its Game folder)"; exit 2 }
 $lock = Join-Path $game '.game-lock'
 # (the games running from this folder only - the other folders' games are someone else's)
 function Get-GamesHere { Get-GameProcesses | Where-Object { $_.Path -and (Split-Path $_.Path -Parent) -eq $game } }

@@ -28,6 +28,7 @@ import * as scriptPort from "../level_port/script_port.ts";
 import type * as tex from "../level_port/tex.ts";
 import * as thug2Col from "../level_port/thug2_col.ts";
 import * as thug2Scene from "../level_port/thug2_scene.ts";
+import { resolveInstall } from "../lib/install.ts";
 import {
     formatG,
     isMain,
@@ -363,7 +364,7 @@ export function findPath(folder: string, ...parts: string[]): string | null {
 }
 
 export function zonePak(thawFolder: string, zone: string): string | null {
-    return findPath(thawFolder, "Game", "data", "worlds", "worldzones", zone, `${zone}_net.pak.wpc`);
+    return findPath(resolveInstall(thawFolder, "thaw"), "data", "worlds", "worldzones", zone, `${zone}_net.pak.wpc`);
 }
 
 // {".geom" / ".tex" / ".col": data, "<file name>.qb": data} of a zone's archive, without its _sfx sub-zone.
@@ -380,7 +381,7 @@ export function zoneFiles(file: string): Map<string, Buffer> {
 // TP-6: THAW's full zone archive (<zone>.pak.wpc, with the story's pieces; without its _sfx sub-zone), for the pieces
 // THUGPRO shows in network games that the net archive hasn't.
 export function fullArchive(thawFolder: string, zone: string): thugproEdits.FullArchive {
-    const file = findPath(thawFolder, "Game", "data", "worlds", "worldzones", zone, `${zone}.pak.wpc`);
+    const file = findPath(resolveInstall(thawFolder, "thaw"), "data", "worlds", "worldzones", zone, `${zone}.pak.wpc`);
     if (file === null) throw new FormatError(`${zone}: no ${zone}.pak.wpc (TP-6 needs THAW's full archive)`);
     const files = zoneFiles(file);
     return {
@@ -410,7 +411,7 @@ export function zoneArray(files: ReadonlyMap<string, Buffer>, zone: string, name
 
 function levelStructs(thawFolder: string, names: Map<number, string>): Map<string, Struct> {
     const found = thaw
-        .pakFiles(findPath(thawFolder, "Game", "data", "pak", "qb.pak.wpc")!)
+        .pakFiles(findPath(resolveInstall(thawFolder, "thaw"), "data", "pak", "qb.pak.wpc")!)
         .find(([e]) => e.path?.toLowerCase().endsWith("\\levels.qb.wpc"));
     if (found === undefined) throw new RangeError("StopIteration: no levels.qb");
     const q = new thaw.QbItems(found[1], "levels.qb", names);
@@ -810,7 +811,10 @@ export class Port {
     constructor(args: Args, names: Map<number, string>) {
         this.thug2 = new scriptPort.Thug2(args.thug2);
         this.assets = new pedsCars.Thug2Assets(args.thug2);
-        this.globals = thawScripts.globalSources(findPath(args.thaw, "Game", "data", "pak", "qb.pak.wpc")!, names);
+        this.globals = thawScripts.globalSources(
+            findPath(resolveInstall(args.thaw, "thaw"), "data", "pak", "qb.pak.wpc")!,
+            names,
+        );
         this.particles = thawScripts.particleTextures(args.thug2);
     }
 }
@@ -1232,7 +1236,7 @@ export function recentreShift(col: thug2Col.ColFile, limit: number): number[] {
 }
 
 function convertSky(args: Args, out: string, report: string[]): string | null {
-    const file = findPath(args.thaw, "Game", "data", "skies", SKY, `${SKY.toLowerCase()}.pak.wpc`);
+    const file = findPath(resolveInstall(args.thaw, "thaw"), "data", "skies", SKY, `${SKY.toLowerCase()}.pak.wpc`);
     if (!file) return null;
     const files = zoneFiles(file);
     const warnings: string[] = [];
@@ -1304,8 +1308,8 @@ function newCollision(r: thugproNew.Resolved, col: thug2Col.ColFile, tpFrame: re
 function cmdConvert(args: Args): void {
     const out = args.out || pyJoin(args.thug2, STAGING);
     if (!fs.existsSync(args.ns)) pyExit(`${args.ns} not found: build it with tools\\build_neverscript.ps1`);
-    if (!findPath(args.thaw, "Game", "data", "pak", "dbg.pak.wpc"))
-        pyExit(`${args.thaw}: THAW's Game\\data\\pak not found`);
+    if (!findPath(resolveInstall(args.thaw, "thaw"), "data", "pak", "dbg.pak.wpc"))
+        pyExit(`${args.thaw}: THAW's data\\pak not found`);
     const names = thaw.loadNames(args.thaw);
     const structs = levelStructs(args.thaw, names);
     const wanted = args.levels.length ? args.levels : LEVELS.filter((l) => l[5]).map((l) => l[0]);
@@ -1494,7 +1498,7 @@ function cmdSelfcheck(args: Args): number {
     let [checked, failures] = common.thug2RoundTrips(pre, ["LAscn.prx", "LAcol.prx"]);
     const names = thaw.loadNames(args.thaw);
     print(`${names.size} checksum names from dbg.pak`);
-    const data = findPath(args.thaw, "Game", "data")!;
+    const data = findPath(resolveInstall(args.thaw, "thaw"), "data")!;
     const paks = [findPath(data, "pak", "qb.pak.wpc")!];
     for (const folder of ["worlds\\worldzones", "skies"]) {
         const root = pyJoin(data, folder);
@@ -1639,10 +1643,8 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
     const args = parseCommandLine(argv);
     setCompat(args.compat, !args.noThugproNew);
     setPortChanges(!args.noPortChanges);
-    // (a stock install keeps the game in a Game subfolder: C:\Games\THUG2 -> C:\Games\THUG2\Game)
-    if (!isDir(pyJoin(args.thug2, "Data")) && isDir(pyJoin(args.thug2, "Game", "Data"))) {
-        args.thug2 = pyJoin(args.thug2, "Game");
-    }
+    // (the install root or the game folder itself: C:\Games\THUG2 -> C:\Games\THUG2\Game - tools/lib/install.ts)
+    args.thug2 = resolveInstall(args.thug2, "thug2");
     if (args.command === "selfcheck") return cmdSelfcheck(args);
     cmdConvert(args);
     return 0;

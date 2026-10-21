@@ -23,6 +23,7 @@ import { readManifest, STAGINGS } from "../level_port/ported_levels.ts";
 import { Name, QbFile, Struct } from "../level_port/qb.ts";
 import { parseCli } from "../lib/cli.ts";
 import { getCloseMatches } from "../lib/difflib.ts";
+import { findInstall } from "../lib/install.ts";
 import { isMain, print, pyExit, runMain } from "../lib/py.ts";
 
 const USAGE = `usage: edit_level.ts [-h] [--game GAME] [--list] [level]
@@ -34,7 +35,7 @@ positional arguments:
 
 options:
   -h, --help   show this help message and exit
-  --game GAME  the game folder (default C:\\Games\\THUG2; a stock install's Game folder is stepped into)
+  --game GAME  the game folder (default C:\\Games\\THUG2): the install root or its Game folder
   --list       only list the installed levels`;
 
 const EXE_NAMES = ["THUG2PM.exe", "THUG2.exe"]; // (tools/game/game_exe.ps1's order)
@@ -49,12 +50,10 @@ export interface Level {
     installed: boolean;
 }
 
-// The folder with the exe: `folder`, or its Game folder (a stock install).
-export function resolveGameFolder(folder: string, exists: (p: string) => boolean = fs.existsSync): string {
-    const trimmed = folder.replace(/[\\/]+$/, "");
-    const hasExe = (f: string): boolean => EXE_NAMES.some((n) => exists(path.join(f, n)));
-    if (!hasExe(trimmed) && hasExe(path.join(trimmed, "Game"))) return path.join(trimmed, "Game");
-    return trimmed;
+// The game folder: `folder` itself or its Game folder (a stock install) - tools/lib/install.ts; `folder` (without
+// trailing separators) when neither holds THUG2.
+export function resolveGameFolder(folder: string): string {
+    return findInstall(folder, "thug2") ?? folder.replace(/[\\/]+$/, "");
 }
 
 export function findExe(folder: string, exists: (p: string) => boolean = fs.existsSync): string | null {

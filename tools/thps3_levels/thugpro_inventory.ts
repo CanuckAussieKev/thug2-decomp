@@ -32,6 +32,7 @@ import * as qb from "../level_port/qb.ts";
 import { Name, type QbValue, Struct, Vector } from "../level_port/qb.ts";
 import * as thug2Col from "../level_port/thug2_col.ts";
 import * as thug2Scene from "../level_port/thug2_scene.ts";
+import { resolveInstall } from "../lib/install.ts";
 import { hex8, isMain, print, pyExit, pyJoin, runMain } from "../lib/py.ts";
 import { findPath } from "../thaw_levels/thaw_levels.ts";
 import { maxDiff, nameOf, nodeArray, position } from "../thaw_levels/thugpro_compare.ts";
@@ -110,7 +111,7 @@ export function inventory(
     limit = 8,
 ): LevelInventory | null {
     const row = LEVELS.find(([b]) => b.toLowerCase() === level);
-    const folder = row ? findFolder(pyJoin(thps3Dir, "Data", "Levels"), row[0]) : null;
+    const folder = row ? findFolder(pyJoin(resolveInstall(thps3Dir, "thps3"), "Data", "Levels"), row[0]) : null;
     const scriptsPrx = findPath(thugpro, "data", "pre", `${level}_scripts.prx`);
     if (!row || !folder || !scriptsPrx) return null;
     const ownQ = new qb.QbFile(fs.readFileSync(levelFiles(folder, row[0]).get("qb")!), level);
@@ -476,9 +477,7 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
         print(USAGE);
         return 0;
     }
-    let thug2 = v.thug2 ?? "C:\\Games\\THUG2\\Game";
-    if (!fs.existsSync(pyJoin(thug2, "Data")) && fs.existsSync(pyJoin(thug2, "Game", "Data")))
-        thug2 = pyJoin(thug2, "Game");
+    const thug2 = resolveInstall(v.thug2 ?? "C:\\Games\\THUG2\\Game", "thug2");
     const thps3 = v.thps3 ?? "C:\\Games\\THPS3";
     const thugpro = v.thugpro ?? DEFAULT_THUGPRO;
     const limit = v.examples ? Number.parseInt(v.examples, 10) : 8;

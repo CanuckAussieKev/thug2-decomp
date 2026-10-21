@@ -26,6 +26,7 @@ import * as prx from "../level_port/prx.ts";
 import * as qb from "../level_port/qb.ts";
 import { Name, type QbValue, Struct, Vector } from "../level_port/qb.ts";
 import * as thug2Col from "../level_port/thug2_col.ts";
+import { resolveInstall } from "../lib/install.ts";
 import { hex8, isMain, print, pyExit, pyJoin, pyJsonDumps, runMain, writeTextPy } from "../lib/py.ts";
 import { findPath } from "../thaw_levels/thaw_levels.ts";
 import { maxDiff, nodeArray, position } from "../thaw_levels/thugpro_compare.ts";
@@ -153,7 +154,7 @@ export function inventory(base: string, thps4Dir: string, thugpro: string, thug2
         thugpro_files: [],
     };
     const scriptsPrx = findPath(thugpro, "data", "pre", `${key}_scripts.prx`);
-    const folder = findPath(thps4Dir, "Game", "data", "levels", base);
+    const folder = findPath(resolveInstall(thps4Dir, "thps4"), "data", "levels", base);
     if (scriptsPrx === null || folder === null) {
         out.error = scriptsPrx === null ? `THUGPRO has no ${key}_scripts.prx` : `no THPS4 ${base}`;
         return out;
@@ -497,7 +498,7 @@ export function main(argv: readonly string[] = process.argv.slice(2)): number {
             base,
             v.thps4 ?? "C:\\Games\\THPS4",
             v.thugpro ?? DEFAULT_THUGPRO,
-            v.thug2 ?? "C:\\Games\\THUG2\\Game",
+            resolveInstall(v.thug2 ?? "C:\\Games\\THUG2\\Game", "thug2"),
         );
         results.push(r);
         if (r.error) {
