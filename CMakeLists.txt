@@ -178,6 +178,13 @@ add_library(thug2_code OBJECT
     src/hook/selftests_skater_rail.cpp
     src/hook/selftests_skater_ground.cpp
     src/hook/selftests_skater_wallride.cpp
+    src/hook/selftests_skater_physics_harness.cpp
+    src/hook/selftests_skater_state.cpp
+    src/hook/selftests_skater_feelers.cpp
+    src/hook/selftests_skater_turning.cpp
+    src/hook/selftests_skater_walls.cpp
+    src/hook/selftests_skater_wallplant.cpp
+    src/hook/selftests_skater_acid_drop.cpp
     src/hook/selftests_skater_state_history.cpp
     src/hook/selftests_skater_vehicle_sound.cpp
     src/hook/selftests_skater_skitch_items.cpp
@@ -311,6 +318,14 @@ add_library(thug2_code OBJECT
     src/hook/selftests_menulvl.cpp
     src/hook/selftests_motion.cpp
     src/hook/selftests_gamenet.cpp
+    src/hook/selftests_skater_gamenet.cpp
+    src/hook/selftests_skater_gamenet2.cpp
+    src/hook/selftests_skater_gamenet3.cpp
+    src/hook/selftests_skater_gamenet4.cpp
+    src/hook/selftests_skater_gamenet5.cpp
+    src/hook/selftests_skater_gamenet6.cpp
+    src/hook/selftests_skater_walk.cpp
+    src/hook/selftests_skater_walk2.cpp
     src/hook/selftests_thugpro.cpp
     src/hook/selftests_thugpro_join.cpp
     src/hook/selftests_gamenet_join.cpp
@@ -569,6 +584,12 @@ add_library(thug2_code OBJECT
     src/game/net/stats.cpp
     src/game/net/gamenet_join.cpp
     src/game/net/gamenet_manager.cpp
+    src/game/net/gamenet_state.cpp
+    src/game/net/gamenet_handlers.cpp
+    src/game/net/gamenet_game_handlers.cpp
+    src/game/net/gamenet_server_handlers.cpp
+    src/game/net/gamenet_session_handlers.cpp
+    src/game/net/gamenet_tasks.cpp
     src/game/ed/park_accessors.cpp
     src/game/ed/cursor_tools.cpp
     src/game/ed/upper_menu.cpp
@@ -644,6 +665,14 @@ add_library(thug2_code OBJECT
     src/game/sio/sdl_input.cpp
     src/game/skater/controls.cpp
     src/game/skater/core_physics.cpp
+    src/game/skater/core_physics_state.cpp
+    src/game/skater/core_physics_speed.cpp
+    src/game/skater/core_physics_feelers.cpp
+    src/game/skater/core_physics_skitch.cpp
+    src/game/skater/core_physics_turning.cpp
+    src/game/skater/core_physics_walls.cpp
+    src/game/skater/core_physics_wallplant.cpp
+    src/game/skater/core_physics_acid_drop.cpp
     src/game/skater/debug_collision.cpp
     src/game/skater/core_jump.cpp
     src/game/skater/core_collision.cpp
@@ -652,6 +681,7 @@ add_library(thug2_code OBJECT
     src/game/skater/core_rail.cpp
     src/game/skater/core_ground.cpp
     src/game/skater/core_wallride.cpp
+    src/game/skater/walk_moves.cpp
     src/game/skater/state_history.cpp
     src/game/skater/vehicle_sound.cpp
     src/game/skater/skitch.cpp
