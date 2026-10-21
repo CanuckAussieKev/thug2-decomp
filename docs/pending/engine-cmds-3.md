@@ -95,3 +95,25 @@ Shared files touched: CMakeLists.txt (new files listed).
   - Build: after this batch's first mutation run hung on the PDB server (link.exe waiting for ever), the verify
     build was reconfigured with CMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded (/Z7; the EC2 agent's tip) and a fresh
     _MSPDBSRV_ENDPOINT_: mutations then ran at a few seconds each.
+- [x] Batch EC3-5 (NOT run in the game yet; platform and timer commands, the network manager's mode checks, the
+  input manager's helpers - 20 functions; the range 0x0044B7E0-0x0044E6B0 is now done): src/game/sys/system_cfuncs.h
+  / .cpp (new), src/game/net/gamenet_manager.h / .cpp, src/game/sio/inpman.h / .cpp.
+  - 0x0044E3A0 IsWIN32 (platform 0x007CEFA8 == 7), 0x0044E3B0 GetPlatform (platform=xbox - the PC build answers as
+    the Xbox one), 0x0044E3D0 Randomize (InitialRand(GetTime)), 0x0044E3F0 ResetTimer (0x00696D3C), 0x0044E400
+    TimeGreaterThan (seconds * 1000 < the unsigned ms since ResetTimer; NaN false), 0x0044E460 GetStartTime /
+    0x0044E490 GetElapsedTime (the game clock + its offset 0x00696D60).
+  - GameNet::Manager (fields +0 flags, +4 server app, +8 client app added to the header): 0x0044E4E0 InNetMode
+    (flags bits 2-3; returns int 0 / 1), 0x0044E4F0 InNetGame (in net mode with a non-local server or client app).
+  - Inp: 0x0044E520 Server::Destruct (a jump-like ADD ECX,4 / JMP to Tsk::Stack's destructor - not a Ghidra
+    function), 0x0044E530 Manager::Destruct (the task's virtual scalar deleting destructor; the servers last first,
+    as the C runtime's eh vector destructor iterator does), 0x0044E5D0 / 0x0044E5F0 Disable / EnableActuators by
+    server, 0x0044E610 / 0x0044E620 the pad-override flag, 0x0044E630 / 0x0044E640 m_unknown110 as
+    Get / SetPlayerController (Construct gives player 0 controller 0), 0x0044E660 Manager::ServiceTask (the task's
+    code - not a Ghidra function: recordings at their end stop, then each server's frame), 0x0044E590
+    ButtonChecksum / 0x0044E5A0 ButtonIndex (the button table 0x0067D6D8; skate_cfuncs.cpp still reaches 0x0044E5A0
+    through GameFunction).
+  - Test TestSystemCFuncs: GetTime / InitialRand / the game clock / DisableActuators / Tsk::Stack's destructor /
+    ServiceHandlers stood in for; a fake task with a vtable thunk, fake devices, network apps (IsLocal by their
+    real flags), the timer across the clock's wrap and NaN. 26 of 27 deliberate bugs caught (1 after
+    strengthening: the recordings checked after each task run); 1 equivalent (ButtonIndex searching from entry 0:
+    entry 0 found gives 0 as not found does).

@@ -14,8 +14,11 @@
 
 #include "game/core/dbg.h"
 #include "game/core/manager.h"
+#include "game/core/task.h"
 #include "game/core/pool.h"
 #include "game/mth/random.h"
+#include "game/net/gamenet_manager.h"
+#include "game/net/net_app.h"
 #include "game/pcm/music.h"
 #include "game/pcm/music_api.h"
 #include "game/pcm/music_cfuncs.h"
@@ -28,6 +31,11 @@
 #include "game/script/struct.h"
 #include "game/sfx/sfx.h"
 #include "game/sfx/sound_cfuncs.h"
+#include "game/sio/device.h"
+#include "game/sio/inpman.h"
+#include "game/sys/game_clock.h"
+#include "game/sys/system_cfuncs.h"
+#include "game/sys/timer.h"
 #include "hook/game.h"
 #include "hook/hook.h"
 #include "hook/log.h"
@@ -1232,9 +1240,222 @@ void TestSoundCFuncs()
     Compare(traces[0], traces[1], "sound effects and stream commands (0x0044D7D0-0x0044E2C0)");
 }
 
+// --- batch EC3-5: platform and timer commands, the network manager's mode checks, the input manager's helpers --
+
+using ThisCall0Fn = uint32_t(__thiscall*)(void*);
+uint32_t g_ec3Now;
+int g_ec3Clock;
+alignas(16) uint8_t g_fakeInput[sizeof(Inp::Manager)];
+alignas(16) uint8_t g_fakeTask[0x20];
+alignas(16) uint8_t g_fakeDevices[2][sizeof(Sio::Device)];
+alignas(16) uint8_t g_fakeApps[2][sizeof(Net::App)];
+alignas(16) uint8_t g_fakeNet[0x40];
+void* g_fakeTaskVtable[4];
+Inp::RecordedData g_recordings[8];
+
+uint32_t InputRel(uint32_t value)
+{
+    auto base = reinterpret_cast<uint32_t>(g_fakeInput);
+    if (value - base < sizeof(g_fakeInput))
+        return 0x51000000u + (value - base);
+    auto recordings = reinterpret_cast<uint32_t>(g_recordings);
+    if (value - recordings < sizeof(g_recordings))
+        return 0x52000000u + (value - recordings);
+    auto devices = reinterpret_cast<uint32_t>(g_fakeDevices);
+    if (value - devices < sizeof(g_fakeDevices))
+        return 0x53000000u + (value - devices);
+    return value;
+}
+
+void StandInSystemCalls(StandIns& s)
+{
+    s.At({0x005BE970, AddressOf(&Tmr::GetTime)}, 0, [](Regs&) {
+        Record({0xE970});
+        return g_ec3Now;
+    });
+    s.At({0x00403DA0, AddressOf(&Mth::InitialRand)}, 0, [](Regs& r) {
+        Record({0x3DA0, r.args[0]});
+        return 0u;
+    });
+    s.At({0x0044ECE0, AddressOf(&Tmr::GameClockElapsed)}, 0, [](Regs&) {
+        Record({0xECE0});
+        return static_cast<uint32_t>(g_ec3Clock);
+    });
+    s.At({0x005BDAD0, AddressOf(&Sio::Device::DisableActuators)}, 0, [](Regs& r) {
+        Record({0xDAD0, InputRel(r.ecx)});
+        return 0u;
+    });
+    s.At({0x004070E0, AddressOf(&Tsk::Stack::Destruct)}, 0, [](Regs& r) {
+        Record({0x70E0, InputRel(r.ecx)});
+        return 0u;
+    });
+    s.At({0x0044EAA0, AddressOf(&Inp::Server::ServiceHandlers)}, 0, [](Regs& r) {
+        Record({0xEAA0, InputRel(r.ecx)});
+        return 0u;
+    });
+    g_fakeTaskVtable[2] = s.Thunk(4, [](Regs& r) {
+        Record({0x7A5C, r.ecx == reinterpret_cast<uint32_t>(g_fakeTask) ? 1u : r.ecx, r.args[0]});
+        return r.ecx;
+    });
+}
+
+void TestSystemCFuncs()
+{
+    EmptySymbolTable();
+    for (Saved s : std::initializer_list<Saved>{{0x007CEFA8, 4, {}}, {0x00696D3C, 4, {}}, {0x00696D60, 4, {}}}) {
+        s.bytes.resize(s.size);
+        std::memcpy(s.bytes.data(), reinterpret_cast<void*>(s.address), s.size);
+        g_ec3Saved.push_back(s);
+    }
+    auto* standIns = new StandIns;
+    StandInStructCalls(*standIns);
+    StandInSystemCalls(*standIns);
+
+    std::vector<uint32_t> traces[2];
+    for (int run = 0; run < 2; ++run) {
+        bool original = run == 0;
+        g_trace.clear();
+        auto call = [&](uint32_t address, CFunc ours, TestParams& params) {
+            std::memset(g_ec3Script, 0, sizeof(g_ec3Script));
+            reinterpret_cast<CStruct**>(g_ec3Script)[0x14 / 4] = g_ec3Own.Struct();
+            auto* script = reinterpret_cast<Script::CScript*>(g_ec3Script);
+            bool returned = original ? Original<CFunc>(address)(params.Struct(), script) : ours(params.Struct(), script);
+            Record({0xC0DE, address, returned ? 1u : 0u, GameVariable<uint32_t>(0x00696D3C)});
+        };
+        using namespace CFuncs;
+        TestParams none;
+        g_ec3Own.Reset();
+        GameVariable<uint32_t>(0x00696D3C) = 0x13579BDF;
+        for (int platform : {7, 6, 0, 8}) {
+            GameVariable<int>(0x007CEFA8) = platform;
+            call(0x0044E3A0, CFunc_IsWIN32, none);
+        }
+        call(0x0044E3B0, CFunc_GetPlatform, none);
+        g_ec3Now = 0x8123ABCD;
+        call(0x0044E3D0, CFunc_Randomize, none);
+        call(0x0044E3F0, CFunc_ResetTimer, none);
+        // TimeGreaterThan: around the elapsed time (and past the clock's wrap: unsigned)
+        for (uint32_t start : {0x00001000u, 0xFFFFF000u, 0x80000000u}) {
+            GameVariable<uint32_t>(0x00696D3C) = start;
+            for (uint32_t elapsed : {0u, 1500u, 2500u, 0x7FFFFFFFu, 0x80000010u, 0xFFFFFFF0u}) {
+                g_ec3Now = start + elapsed;
+                for (float seconds : {0.0f, 1.5f, 1.4999f, 2.5f, -1.0f, 2147483.75f, 4294967.0f,
+                                      std::numeric_limits<float>::quiet_NaN()}) {
+                    TestParams p; p.Float(0, seconds);
+                    call(0x0044E400, CFunc_TimeGreaterThan, p);
+                }
+                call(0x0044E400, CFunc_TimeGreaterThan, none);
+            }
+        }
+        // the script clock: StartTime / ElapsedTime with an offset
+        for (int offset : {0, 250, -1000}) {
+            GameVariable<int>(0x00696D60) = offset;
+            g_ec3Clock = 123456 + offset * 7;
+            call(0x0044E460, CFunc_GetStartTime, none);
+            TestParams p; p.Integer(0xD16B61E6, 100000);
+            call(0x0044E490, CFunc_GetElapsedTime, p);
+            TestParams q; q.Integer(0xD16B61E6, -5);
+            call(0x0044E490, CFunc_GetElapsedTime, q);
+        }
+
+        // the network manager's checks: the flag bits, no apps / local / remote server and client
+        {
+            using ThisCall0 = uint32_t(__thiscall*)(void*);
+            auto* net = reinterpret_cast<GameNet::Manager*>(g_fakeNet);
+            auto& serverFlags = *reinterpret_cast<uint32_t*>(g_fakeApps[0] + 0x1E84);
+            auto& clientFlags = *reinterpret_cast<uint32_t*>(g_fakeApps[1] + 0x1E84);
+            for (uint32_t flags : {0x00u, 0x04u, 0x08u, 0x0Cu, 0xF3u, 0x10u}) {
+                for (int apps = 0; apps < 9; ++apps) {
+                    std::memset(g_fakeNet, 0, sizeof(g_fakeNet));
+                    g_fakeNet[0] = static_cast<uint8_t>(flags);
+                    g_fakeNet[1] = 0x77; // (other bits of the word: not the flags tested)
+                    int server = apps % 3; // none, local, remote
+                    int client = apps / 3;
+                    reinterpret_cast<void**>(g_fakeNet)[1] = server ? g_fakeApps[0] : nullptr;
+                    reinterpret_cast<void**>(g_fakeNet)[2] = client ? g_fakeApps[1] : nullptr;
+                    serverFlags = server == 1 ? 0x08u : 0xF7u;
+                    clientFlags = client == 1 ? 0x18u : 0x10u;
+                    uint32_t mode = original ? Original<ThisCall0>(0x0044E4E0)(net) : static_cast<uint32_t>(net->InNetMode());
+                    uint32_t game = original ? Original<ThisCall0>(0x0044E4F0)(net) & 0xFF : net->InNetGame();
+                    Record({0xE4E0, mode, game});
+                }
+            }
+        }
+
+        // the input manager: the button table both ways, actuators, the controller slots, the pad override, the
+        // service task (recordings that ended dropped), the destructor
+        {
+            using IndexFn = uint32_t(__cdecl*)(uint32_t);
+            for (uint32_t i = 0; i < 22; ++i)
+                Record({0xE590, original ? Original<IndexFn>(0x0044E590)(i) : Inp::ButtonChecksum(static_cast<int>(i))});
+            const uint32_t* table = reinterpret_cast<const uint32_t*>(0x0067D6D8);
+            for (uint32_t i = 0; i < 23; ++i) {
+                uint32_t checksum = i < 22 ? table[i] : 0x12345678u;
+                Record({0xE5A0, original ? Original<IndexFn>(0x0044E5A0)(checksum) : static_cast<uint32_t>(Inp::ButtonIndex(checksum))});
+            }
+            auto* manager = reinterpret_cast<Inp::Manager*>(g_fakeInput);
+            std::memset(g_fakeInput, 0, sizeof(g_fakeInput));
+            std::memset(g_fakeDevices, 0x11, sizeof(g_fakeDevices));
+            manager->m_servers[0].m_device = reinterpret_cast<Sio::Device*>(g_fakeDevices[0]);
+            manager->m_servers[1].m_device = nullptr;
+            using ThisCallInt = uint32_t(__thiscall*)(void*, int);
+            using ThisCallIntInt = uint32_t(__thiscall*)(void*, int, int);
+            for (int i : {0, 1}) {
+                original ? Original<ThisCallInt>(0x0044E5D0)(manager, i) : (manager->DisableActuators(i), 0u);
+                original ? Original<ThisCallInt>(0x0044E5F0)(manager, i) : (manager->EnableActuators(i), 0u);
+            }
+            for (int i : {0, 1}) {
+                original ? Original<ThisCallIntInt>(0x0044E640)(manager, i, 0x40 + i) : (manager->SetPlayerController(i, 0x40 + i), 0u);
+                Record({0xE630, original ? Original<ThisCallInt>(0x0044E630)(manager, i) : static_cast<uint32_t>(manager->GetPlayerController(i))});
+            }
+            for (uint32_t value : {0x101u, 0x100u, 0x201u}) { // (a bool in the low byte; the rest stale)
+                original ? Original<ThisCallInt>(0x0044E610)(manager, static_cast<int>(value))
+                         : (manager->SetOverridePadWithStick(static_cast<bool>(value & 0xFF)), 0u);
+                Record({0xE620, (original ? Original<ThisCall0Fn>(0x0044E620)(manager) : manager->OverridePadWithStick()) & 0xFFu});
+            }
+            // the service task: a recording at its end, one before, none; both directions
+            Inp::Server* servers = manager->m_servers;
+            servers[0].m_dataIn = &g_recordings[3];
+            servers[0].m_dataInEnd = &g_recordings[3];
+            servers[0].m_dataOut = &g_recordings[1];
+            servers[0].m_dataOutEnd = &g_recordings[2];
+            servers[1].m_dataIn = &g_recordings[5];
+            servers[1].m_dataInEnd = &g_recordings[4];
+            servers[1].m_dataOut = &g_recordings[7];
+            servers[1].m_dataOutEnd = &g_recordings[7];
+            *reinterpret_cast<void**>(g_fakeTask + 0x1C) = manager;
+            using TaskFn = void(__cdecl*)(void*);
+            original ? Original<TaskFn>(0x0044E660)(g_fakeTask) : Inp::Manager::ServiceTask(g_fakeTask);
+            for (const Inp::Server& server : manager->m_servers)
+                Record({InputRel(reinterpret_cast<uint32_t>(server.m_dataIn)), InputRel(reinterpret_cast<uint32_t>(server.m_dataOut))});
+            servers[0].m_dataIn = nullptr;
+            servers[1].m_dataOut = &g_recordings[0];
+            original ? Original<TaskFn>(0x0044E660)(g_fakeTask) : Inp::Manager::ServiceTask(g_fakeTask);
+            // the destructor: with a task (its scalar deleting destructor) and without
+            *reinterpret_cast<void***>(g_fakeTask) = g_fakeTaskVtable;
+            manager->m_task = g_fakeTask;
+            original ? Original<ThisCall0Fn>(0x0044E530)(manager) : (manager->Destruct(), 0u);
+            manager->m_task = nullptr;
+            original ? Original<ThisCall0Fn>(0x0044E530)(manager) : (manager->Destruct(), 0u);
+            original ? Original<ThisCall0Fn>(0x0044E520)(&servers[1]) : (servers[1].Destruct(), 0u);
+            const uint32_t* words = reinterpret_cast<const uint32_t*>(g_fakeInput);
+            for (size_t i = 0; i < sizeof(g_fakeInput) / 4; ++i)
+                Record({InputRel(words[i])});
+            const uint32_t* deviceWords = reinterpret_cast<const uint32_t*>(g_fakeDevices);
+            for (size_t i = 0; i < sizeof(g_fakeDevices) / 4; ++i)
+                Record({deviceWords[i]});
+        }
+        traces[run] = g_trace;
+    }
+    RestoreEc3();
+    Check(traces[0].size() > 700, "system commands: the original reached its calls");
+    Compare(traces[0], traces[1], "platform / timer commands, network mode, input manager helpers (0x0044E3A0-0x0044E660)");
+}
+
 } // namespace
 
 SELFTEST(Early, TestScriptUtilCFuncs, RestoreEc3);
 SELFTEST(Early, TestScriptArrayCFuncs, RestoreEc3);
 SELFTEST(Early, TestMusicCFuncs, RestoreEc3);
 SELFTEST(Early, TestSoundCFuncs, RestoreEc3);
+SELFTEST(Early, TestSystemCFuncs, RestoreEc3);

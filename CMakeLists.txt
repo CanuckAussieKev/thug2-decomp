@@ -587,6 +587,7 @@ add_library(thug2_code OBJECT
     src/game/sys/main.cpp
     src/game/sys/mlp.cpp
     src/game/sys/game_clock.cpp
+    src/game/sys/system_cfuncs.cpp
     src/game/sys/module.cpp
     src/game/sys/winmain.cpp
     src/game/mc/memcard.cpp
