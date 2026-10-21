@@ -342,13 +342,10 @@ void PrefsSection()
     ImGui::TextUnformatted("Controller");
     ImGui::Separator();
     bool pad = PadMode();
-    if (ImGui::Checkbox("Controller mode", &pad))
+    if (ImGui::Checkbox("Controller Mode", &pad))
         SetPadMode(pad);
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("The first game controller drives the editor ([editor] pad=1):\n"
-                          "left stick fly, right stick look, LT / RT down / up, L3 faster,\n"
-                          "A select at the crosshair (hold: drag), B back, X pie, Y view pie,\n"
-                          "D-pad nudge, LB / RB turn, R3 frame, Back undo. Start leaves the editor.");
+        ImGui::SetTooltip("Use a game controller in the editor");
 }
 
 } // namespace Front::LevelEditor::Ux8

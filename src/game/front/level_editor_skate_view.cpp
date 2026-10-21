@@ -301,7 +301,7 @@ void Legend(float viewX, float viewY, float viewWidth, float viewHeight, float s
         ImGui::End();
         return;
     }
-    ImGui::TextUnformatted("Skateability (Alt+K)");
+    ImGui::TextUnformatted("Skateability");
     float box = ImGui::GetTextLineHeight();
     auto row = [&](uint32_t argb, const char* name, int count) {
         ImVec2 at = ImGui::GetCursorScreenPos();
@@ -317,9 +317,9 @@ void Legend(float viewX, float viewY, float viewWidth, float viewHeight, float s
     for (int k = 1; k < kKinds; ++k)
         row(Colour(static_cast<Kind>(k)), Name(static_cast<Kind>(k)), g_counts[k]);
     row(kRail, "Grind rail (the rail manager's)", g_railSegments);
-    ImGui::TextDisabled("Plain faces skatable up to normal y %.2f (the game's slope limit)", GameThreshold());
+    ImGui::TextDisabled("Slope limit: normal y %.2f", GameThreshold());
     if (g_capped)
-        ImGui::TextDisabled("(the nearest %d faces only)", kMaxFaces);
+        ImGui::TextDisabled("(nearest %d faces)", kMaxFaces);
     ImGui::End();
 }
 

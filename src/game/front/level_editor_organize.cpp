@@ -646,7 +646,7 @@ bool SelectionLocked(bool say)
     for (uint32_t id : s.sectors)
         locked = locked || Locked(id);
     if (locked && say)
-        ShowMessage("Locked against changes (the Outliner's lock) - unlock it to move, turn, scale or delete it");
+        ShowMessage("Locked: unlock in the Outliner to edit");
     return locked;
 }
 
@@ -663,7 +663,7 @@ void MakeGroup(const std::string& wanted)
     if (s.node)
         g.members.push_back({'n', s.node});
     if (g.members.empty()) {
-        ShowMessage("Select something first - a group is made of the selection");
+        ShowMessage("Nothing selected");
         return;
     }
     std::string name;
@@ -681,7 +681,7 @@ void MakeGroup(const std::string& wanted)
     State next = g_state;
     next.groups.push_back(g);
     Change(next, "Make group");
-    ShowMessage("Group \"" + name + "\" made of " + std::to_string(g.members.size()) + " - the Outliner's Groups select it");
+    ShowMessage("Created group \"" + name + "\" (" + std::to_string(g.members.size()) + ")");
 }
 
 void SelectGroup(int index)
@@ -720,7 +720,7 @@ void SelectGroup(int index)
     }
     SetSelection(ids);
     ShowMessage("Group \"" + g_state.groups[index].name + "\" selected" + note +
-                (missing ? " - " + std::to_string(missing) + " of it aren't in the level now" : ""));
+                (missing ? " - " + std::to_string(missing) + " missing" : ""));
 }
 
 void DeleteGroup(int index)
@@ -739,7 +739,7 @@ void RenameGroup(int index, const std::string& wanted)
         return;
     for (int i = 0; i < static_cast<int>(g_state.groups.size()); ++i) {
         if (i != index && g_state.groups[i].name == name) {
-            ShowMessage("There is a group of that name already");
+            ShowMessage("Group name already in use");
             return;
         }
     }
@@ -787,8 +787,7 @@ bool InGroup(const std::string& group, const Nodes::Node& node)
 void ArmBox()
 {
     g_box.armed = true;
-    ShowMessage("Box select: drag in the view (to the right: what's inside; to the left: what it crosses; Shift adds, "
-                "Ctrl removes)");
+    ShowMessage("Box Select: drag in the view");
 }
 bool BoxArmed() { return g_box.armed; }
 
@@ -943,10 +942,10 @@ void SelectSimilar(Similar by)
         }
         std::string family = Nodes::FamilyName(n.family);
         g_outlinerSearch = Lower(family) + ":";
-        ShowMessage(std::to_string(count) + " similar nodes - nodes select one at a time: the Outliner lists the " + family);
+        ShowMessage(std::to_string(count) + " similar nodes listed in the Outliner: " + family);
         return;
     }
-    ShowMessage("Select something first (Select similar takes the selection's mesh, class, family or type)");
+    ShowMessage("Nothing selected");
 }
 
 void SelectFamily() { SelectSimilar(Similar::Family); }
@@ -959,7 +958,7 @@ void SelectAll()
     else
         next.objects = Combine(s.objects, SelectableObjects(), 1);
     SetSelection(next);
-    ShowMessage("Selected all: " + std::to_string(next.objects.empty() ? next.sectors.size() : next.objects.size()) +
+    ShowMessage("Selected " + std::to_string(next.objects.empty() ? next.sectors.size() : next.objects.size()) +
                 (next.objects.empty() ? " scenery pieces" : " objects"));
 }
 

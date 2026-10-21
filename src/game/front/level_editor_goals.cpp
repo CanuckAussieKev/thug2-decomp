@@ -1050,11 +1050,11 @@ bool Create(Type type)
 {
     ViewNow view;
     if (!CurrentView(&view)) {
-        Hud::Message("No view to place a goal from");
+        Hud::Message("No view available");
         return false;
     }
     if (static_cast<int>(g_goals.size()) >= kMaxGoals) {
-        Hud::Message("Ten goals is the most a level has (Create-a-Goal's limit)", 4.0);
+        Hud::Message("Goal limit reached (10)", 4.0);
         return false;
     }
     Frame frame = FrameFromYawPitch(view.yaw, view.pitch);
@@ -1082,8 +1082,7 @@ bool Create(Type type)
     g_goals.push_back(g);
     SyncNodes({g});
     SelectPoint(g, 0);
-    Hud::Message("Goal \"" + g.name + "\" placed - move its points (Pro, Start" +
-                 std::string(count > 2 ? ", letters / checkpoints" : "") + "); it plays when you leave the editor", 5.0);
+    Hud::Message("Added goal \"" + g.name + "\"", 5.0);
     Log("level editor: goal %s (%s) made at (%.1f, %.1f, %.1f)", g.id.c_str(), TypeName(type), base.x, base.y, base.z);
     return true;
 }
@@ -1127,7 +1126,7 @@ bool Remove(const std::string& id)
     for (size_t k = 0; k < g.points.size(); ++k)
         RemoveNode(PointNode(g, static_cast<int>(k)));
     g_goals.erase(g_goals.begin() + i);
-    Hud::Message("Goal \"" + g.name + "\" deleted (Ctrl+Z brings it back)");
+    Hud::Message("Deleted goal \"" + g.name + "\"");
     return true;
 }
 

@@ -349,7 +349,7 @@ bool ClickAt(V3 origin, V3 unitDir, bool add)
     if (!View::PickFace(origin, unitDir, &hit)) {
         if (!add)
             g_selection.clear();
-        Hud::Message("No collision face there (the faces drawn near the camera are the ones a click takes)");
+        Hud::Message("No collision face under cursor");
         return false;
     }
     FaceKey key;
@@ -359,7 +359,7 @@ bool ClickAt(V3 origin, V3 unitDir, bool add)
         return false;
     }
     if (add && g_selection.size() >= kMostSelected && std::find(g_selection.begin(), g_selection.end(), key) == g_selection.end()) {
-        Hud::Message("At most 8192 faces at once");
+        Hud::Message("Limit: 8192 faces");
         return false;
     }
     bool selected = Click(&g_selection, key, add);
@@ -470,8 +470,7 @@ bool HomeSelection()
         PushModuleUndo(before);
         View::InvalidateCache();
     }
-    Hud::Message(faces ? "The selected faces' flags put back as the level has them"
-                       : "The selected faces' flags are as the level has them");
+    Hud::Message(faces ? "Face flags reverted" : "Face flags already original");
     return true;
 }
 
@@ -586,15 +585,13 @@ void InspectorSection(ImFont* mono, ImFont* smallFont)
     if (!ImGui::CollapsingHeader("Collision faces###faceflags", ImGuiTreeNodeFlags_DefaultOpen))
         return;
     ImGui::PushFont(smallFont);
-    ImGui::TextWrapped(g_picking ? "Faces mode (K): a click takes a collision face, Shift+click adds / drops one. Set "
-                                   "or clear the flags below - live, saved with Ctrl+S, Home puts them back."
-                                 : "Faces mode is off (K): the faces stay selected.");
+    ImGui::TextDisabled("%s", g_picking ? "Click a face to select, Shift+click to add" : "Face Select is off");
     ImGui::PopFont();
     bool picking = g_picking;
-    if (ImGui::Checkbox("Faces mode (K)", &picking))
+    if (ImGui::Checkbox("Face Select Mode", &picking))
         g_queue.push_back([picking] { SetPicking(picking); });
     if (g_selection.empty()) {
-        ImGui::TextDisabled("No faces selected.");
+        ImGui::TextDisabled("No faces selected");
         return;
     }
     std::vector<uint16_t> flags;
@@ -638,19 +635,19 @@ void InspectorSection(ImFont* mono, ImFont* smallFont)
     if (ImGui::Button(allLabel.c_str()))
         g_queue.push_back([piece] {
             if (SelectPiece(piece, false))
-                Hud::Message("Every face of " + PieceLabel(piece) + " selected");
+                Hud::Message("Selected all faces of " + PieceLabel(piece));
         });
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("The piece's whole collision (and the faces its shared collision took along)");
+        ImGui::SetTooltip("Select all faces of this piece");
     if (Scenery::HasSelection()) {
         ImGui::SameLine();
-        if (ImGui::Button("All faces of the selected scenery"))
+        if (ImGui::Button("Select All Faces"))
             g_queue.push_back([] {
                 std::vector<uint32_t> sectors = Scenery::Selection();
                 bool any = false;
                 for (size_t i = 0; i < sectors.size(); ++i)
                     any = SelectPiece(sectors[i], any) || any;
-                Hud::Message(any ? "Every face of the selected scenery selected" : "The selected scenery has no collision of its own");
+                Hud::Message(any ? "Selected all faces" : "Selection has no collision");
             });
     }
 }

@@ -586,7 +586,7 @@ void CloseRun(const char* why)
     g_rec.run.number = level.nextNumber;
     Log("level editor: trail run %d recorded (%s): %.1f s, %u points, %d gaps landed, %d bails, best combo %d%s",
         g_rec.run.number, why, g_rec.run.seconds, static_cast<unsigned>(g_rec.run.samples.size()), g_rec.run.GapsLanded(),
-        g_rec.run.Bails(), g_rec.run.BestCombo(), g_rec.run.full ? " (full - recording stopped)" : "");
+        g_rec.run.Bails(), g_rec.run.BestCombo(), g_rec.run.full ? " (full)" : "");
     level.Add(std::move(g_rec.run));
 }
 
@@ -691,7 +691,7 @@ void RestartStep(Mdl::FrontEnd* frontEnd)
     Script::DeleteStruct(params);
     std::string label = Nodes::Label(restart);
     Log("level editor: play from the restart %s (ResetSkaters)", label.c_str());
-    Layout::PanelMessage(("Playing from " + label + " - F5: back to the editor").c_str());
+    Layout::PanelMessage(("Playing from " + label + " (F5: return to editor)").c_str());
 }
 
 // --- simulate ---
@@ -754,11 +754,11 @@ void StartSimulation()
     if (g_simulating || !frontEnd)
         return;
     if (!frontEnd->m_paused) {
-        Hud::Message("Simulate: the game isn't paused here - nothing to start");
+        Hud::Message("Simulate unavailable here");
         return;
     }
     if (Layout::Refused()) {
-        Hud::Message("Simulate: not here (a network session or a refused mode)");
+        Hud::Message("Simulate unavailable here");
         return;
     }
     g_snapshots.clear();
@@ -777,8 +777,7 @@ void StartSimulation()
     g_simulating = true;
     g_simStarted = SDL_GetTicks();
     Log("level editor: simulate on (%u objects noted to put back)", static_cast<unsigned>(g_snapshots.size()));
-    Hud::Message(g_keepSimulation ? "Simulating - F6 stops (objects stay where they get to)"
-                                  : "Simulating - F6 stops (objects put back where they were)",
+    Hud::Message("Simulating (F6: stop)",
                  3.0);
 }
 
@@ -816,8 +815,7 @@ void StopSimulation(const char* why)
                             (gone ? ", " + std::to_string(gone) + " gone" : "") +
                             (kept ? ", " + std::to_string(kept) + " moved in the editor meanwhile kept" : ""))
                                .c_str());
-    Hud::Message(g_keepSimulation ? "Simulation stopped - objects left where they got to"
-                                  : "Simulation stopped - objects put back",
+    Hud::Message("Simulation stopped",
                  2.0);
 }
 
@@ -860,7 +858,7 @@ void Tick(bool dragging)
         if (Ui::Running())
             g_windowOpen = !g_windowOpen;
         else
-            Hud::Message("The Trail window needs the editor's UI ([features] editor_ui=1)");
+            Hud::Message("Requires the editor UI (editor_ui=1)");
     }
     Ask ask = g_ask;
     g_ask = Ask::None;
@@ -873,7 +871,7 @@ void Tick(bool dragging)
         break;
     case Ask::Clear: {
         g_levels[g_editorScene] = LevelTrails{};
-        Hud::Message("Trails cleared (and the gaps' landed marks)");
+        Hud::Message("Trails cleared");
         break;
     }
     case Ask::Save: {

@@ -75,8 +75,7 @@ void SetStage(Stage stage)
     g_stage = stage;
     g_haveHover = false;
     if (stage == Stage::First)
-        ShowMessage("Ground tool: click a corner of the rectangle (on the grid; a click on a generated piece edits it) - "
-                    "Esc cancels",
+        ShowMessage("Ground Tool: click the first corner",
                     6.0);
 }
 
@@ -129,9 +128,9 @@ void GroundForm(float viewX, float viewY, float viewWidth, float scale)
     }
     Ground::Spec& d = g_draft;
     int mode = d.lower ? 1 : 0;
-    ImGui::RadioButton("Raise (a platform)", &mode, 0);
+    ImGui::RadioButton("Raise", &mode, 0);
     ImGui::SameLine();
-    ImGui::RadioButton("Lower (a pit)", &mode, 1);
+    ImGui::RadioButton("Lower", &mode, 1);
     d.lower = mode == 1;
     ImGui::DragFloat(d.lower ? "Depth" : "Height", &d.height, 1.0f, Ground::kMinHeight, Ground::kMaxHeight, "%.0f");
     float rect[4] = {d.x0, d.z0, d.x1, d.z1};
@@ -154,10 +153,10 @@ void GroundForm(float viewX, float viewY, float viewWidth, float scale)
     }
     ImGui::DragFloat("Ramp length", &d.length, 1.0f, 0.0f, Ground::kMaxLength, d.length > 0.0f ? "%.0f" : "auto");
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("0: automatic - a kicker twice the height long, a quarter pipe its height as its radius");
+        ImGui::SetTooltip("0: automatic");
     ImGui::DragFloat("Grid", &g_grid, 1.0f, 0.0f, 500.0f, g_grid > 0.0f ? "%.0f" : "off");
-    ImGui::TextDisabled("Material: %s", d.material ? Objects::Label(d.material).c_str() : "(chosen when made)");
-    if (ImGui::Button("Material from the selected scenery"))
+    ImGui::TextDisabled("Material: %s", d.material ? Objects::Label(d.material).c_str() : "(automatic)");
+    if (ImGui::Button("Use Selected Material"))
         g_queue.push_back([] {
             const std::vector<uint32_t>& selection = Scenery::Selection();
             std::string why;
@@ -171,8 +170,7 @@ void GroundForm(float viewX, float viewY, float viewWidth, float scale)
                 g_draft.terrain = spec.terrain, g_formMessage.clear();
         });
     if (d.lower)
-        ImGui::TextWrapped("A pit hides the floor pieces under the rectangle: it is refused where the floor is one piece "
-                           "reaching outside it (THUG2's floors can't be cut).");
+        ImGui::TextDisabled("Pits need floor pieces inside the rectangle");
     if (!g_formMessage.empty())
         ImGui::TextWrapped("%s", g_formMessage.c_str());
     ImGui::Separator();
@@ -183,12 +181,12 @@ void GroundForm(float viewX, float viewY, float viewWidth, float scale)
         if (ImGui::Button("Remove"))
             g_queue.push_back([] {
                 Ground::Remove(g_draft.name);
-                ShowMessage("Ground piece " + g_draft.name + " removed - Ctrl+Z brings it back");
+                ShowMessage("Removed ground piece " + g_draft.name);
                 SetStage(Stage::Off);
             });
     }
     ImGui::SameLine();
-    if (ImGui::Button("New rectangle"))
+    if (ImGui::Button("New Rectangle"))
         g_queue.push_back([] { SetStage(Stage::First); });
     ImGui::SameLine();
     if (ImGui::Button("Close"))
@@ -236,7 +234,7 @@ bool GroundClick(V3 origin, V3 unitDir)
     V3 hit;
     uint32_t sector = 0;
     if (!Cast(origin, origin + unitDir * 20000.0f, &hit, &sector)) {
-        ShowMessage("Ground tool: click on the ground");
+        ShowMessage("Ground Tool: click on the ground");
         return true;
     }
     if (g_stage == Stage::First && Ground::IsPiece(sector)) {
@@ -252,7 +250,7 @@ bool GroundClick(V3 origin, V3 unitDir)
         g_first = corner;
         g_floor = Ground::IsPiece(sector) ? 0 : sector;
         g_stage = Stage::Second;
-        ShowMessage("Ground tool: now the opposite corner", 6.0);
+        ShowMessage("Ground Tool: click the opposite corner", 6.0);
         return true;
     }
     Ground::Spec spec;
@@ -262,7 +260,7 @@ bool GroundClick(V3 origin, V3 unitDir)
     spec.base = GroundAt(centre, g_first.y);
     std::string why;
     if (!Ground::ChooseMaterial(g_floor, &spec, &why)) {
-        ShowMessage("Ground tool: " + why, 8.0);
+        ShowMessage("Ground Tool: " + why, 8.0);
         SetStage(Stage::Off);
         return true;
     }
@@ -323,7 +321,7 @@ void Update()
         g_stage = Stage::Off;
         GapWizard::SetArmed(on);
         if (!on)
-            ShowMessage("Gap wizard off");
+            ShowMessage("Gap Wizard off");
     }
     if (g_skateAction >= 0 && Actions::Pressed(g_skateAction)) {
         SkateView::SetShown(!SkateView::Shown());
@@ -335,7 +333,7 @@ void Update()
             SetStage(Stage::First);
         else {
             SetStage(Stage::Off);
-            ShowMessage("Ground tool off");
+            ShowMessage("Ground Tool off");
         }
     }
     GapWizard::Update();
@@ -361,7 +359,7 @@ bool Cancel()
     if (g_stage == Stage::Off)
         return false;
     SetStage(Stage::Off);
-    ShowMessage("Ground tool off");
+    ShowMessage("Ground Tool off");
     return true;
 }
 

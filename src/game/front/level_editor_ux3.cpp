@@ -241,7 +241,7 @@ void GoTo(const ChangeRow& row)
     uint32_t id = row.entry.id;
     Queue([id] {
         if (!id || !GoToThing(id))
-            Say("Nothing to go to for that change (it isn't in the level now)");
+            Say("Item not found in the level");
     });
 }
 
@@ -251,7 +251,7 @@ void Revert(const ChangeRow& row)
     Queue([record, summary] {
         std::string text, message;
         if (!Layout::CaptureText(&text)) {
-            Say("Not in a level");
+            Say("No level loaded");
             return;
         }
         // (the record as it is now: the line the list showed, found again)
@@ -266,15 +266,15 @@ void Revert(const ChangeRow& row)
             start = end + 1;
         }
         if (line < 0) {
-            Say("That change has changed since - the list is refreshed");
+            Say("List refreshed");
             g_refreshAsked = true;
             return;
         }
         std::string label = "Revert: " + summary.substr(0, 48);
         if (ApplyLayoutStep(Changes::Without(text, line), label.c_str(), &message))
-            Say("Reverted: " + summary + " (Ctrl+Z puts it back)");
+            Say("Reverted: " + summary);
         else
-            Say("Couldn't revert it: " + message);
+            Say("Couldn't revert: " + message);
         g_refreshAsked = true;
     });
 }

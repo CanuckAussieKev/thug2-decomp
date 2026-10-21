@@ -351,12 +351,10 @@ void Table()
 {
     const std::vector<Meter>& meters = Cached();
     if (meters.empty()) {
-        ImGui::TextDisabled("No level loaded.");
+        ImGui::TextDisabled("No level loaded");
         return;
     }
-    ImGui::TextWrapped("What the level uses of the engine's limits now, and what the edits added (memory: the change "
-                       "since the level came up - about). Red: over (the game overruns a fixed array or runs out); "
-                       "amber: 80%% or more.");
+    ImGui::TextDisabled("Usage against engine limits. Amber: 80%% or more; red: over.");
     if (!ImGui::BeginTable("##budgetTable", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp))
         return;
     ImGui::TableSetupColumn("What");

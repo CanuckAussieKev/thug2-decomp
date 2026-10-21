@@ -164,7 +164,7 @@ void Apply(const Action& wanted)
     g_applying = false;
     if (n.kind != Kind::Place && !pushed) {
         g_last.valid = false; // (nothing made: the step under it isn't this action's)
-        Hud::Message("Adjust: nothing could be made with those numbers");
+        Hud::Message("Adjust: invalid values");
         return;
     }
     (void)depth;
@@ -228,7 +228,7 @@ void Tick()
         return;
     g_pending = false;
     if (!Adjustable()) {
-        Hud::Message("Adjust: the last action has changed since (only the newest can be adjusted)");
+        Hud::Message("Adjust: only the last operation can be adjusted");
         return;
     }
     Apply(g_request);

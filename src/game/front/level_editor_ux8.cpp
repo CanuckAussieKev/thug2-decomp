@@ -115,18 +115,18 @@ void StoreSet(const std::string& name)
     Organize::State next = Organize::Current();
     std::vector<Organize::Member> members = SelectionMembers();
     if (!Nav::StoreGroup(&next, name, members)) {
-        Say("Select something first - \"" + name + "\" is made of the selection");
+        Say("Nothing selected");
         return;
     }
     Organize::Change(next, "Store selection set");
-    Say("\"" + name + "\" stored: " + std::to_string(members.size()) + " (the Outliner's Groups, the toolbar's Sets)");
+    Say("Stored " + name + " (" + std::to_string(members.size()) + ")");
 }
 
 void RecallSet(const std::string& name)
 {
     int at = Nav::FindGroup(Organize::Current(), name);
     if (at < 0) {
-        Say("No \"" + name + "\" yet - Ctrl+Alt+digit stores the selection as a set");
+        Say(name + " is empty");
         return;
     }
     Organize::SelectGroup(at);
@@ -135,7 +135,7 @@ void RecallSet(const std::string& name)
 void AddToSet(int index)
 {
     if (SelectionMembers().empty()) {
-        Say("Select something to add first");
+        Say("Nothing selected");
         return;
     }
     Organize::AddToGroup(index);
@@ -145,7 +145,7 @@ void TakeFromSet(int index)
 {
     Organize::State next = Organize::Current();
     if (!Nav::RemoveFromGroup(&next, index, SelectionMembers())) {
-        Say("None of the selection is in that set");
+        Say("Selection is not in the set");
         return;
     }
     Organize::Change(next, "Take from selection set");
@@ -413,14 +413,14 @@ void Update(Frame& f)
     if (Pressed(g_ids.follow) && !f.dragging) {
         if (g_following) {
             g_following = false;
-            Say("Follow off (Shift+F)");
+            Say("Follow off");
         } else if (!f.haveSelection) {
-            Say("Select something to follow first (Shift+F)");
+            Say("Nothing selected");
         } else {
             g_following = true;
             g_follower = {};
             Trigger(kFrameSelection);
-            Say("Following the selection - the camera keeps with it as it moves (Shift+F stops)");
+            Say("Following selection");
         }
     }
     // The pies.
@@ -505,7 +505,7 @@ void SetWalking(bool on, V3 camera)
     if (on) {
         g_walker = Nav::WalkerAt(camera);
         g_glide.on = false;
-        Say("Walk mode: W A S D walk, Space jumps, Shift runs, the mouse looks - Shift+` or Esc stops", 5.0);
+        Say("Walk Mode: WASD walk, Space jump, Shift run, Esc exit", 5.0);
     } else {
         Say("Walk mode off");
     }

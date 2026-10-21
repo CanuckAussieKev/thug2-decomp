@@ -371,7 +371,7 @@ bool LinkedDuplicate()
 {
     Edit::Selected selection = Edit::Selection();
     if (selection.kind != Edit::Kind::Objects && selection.kind != Edit::Kind::Scenery) {
-        Hud::Message("Linked copies (Ctrl+Alt+D): objects and scenery pieces", 4.0);
+        Hud::Message("Only objects and scenery can be linked", 4.0);
         return false;
     }
     bool scenery = selection.kind == Edit::Kind::Scenery;
@@ -392,8 +392,7 @@ bool LinkedDuplicate()
         Join(&g_state, scenery, pair.first, {{pair.second, q}});
     }
     Adjust::Note(Adjust::Action{}); // (a linked copy isn't adjusted afterwards: its count would make plain copies)
-    Hud::Message("Linked copy - the source's scale" + std::string(scenery ? "" : ", fields and model") +
-                     " reach it (Arrange: Unlink makes it independent)",
+    Hud::Message(std::string("Linked copy created"),
                  5.0);
     Log("level editor: %u linked cop%s made", static_cast<unsigned>(pairs.size()), pairs.size() == 1 ? "y" : "ies");
     return true;
@@ -407,14 +406,14 @@ bool UnlinkSelection()
     for (uint32_t id : selection.ids)
         any = Unlink(&next, id) || any;
     if (!any) {
-        Hud::Message("Unlink: nothing selected is linked");
+        Hud::Message("Selection is not linked");
         return false;
     }
     auto before = std::make_shared<Step>();
     before->state = g_state;
     PushModuleUndo(before);
     g_state = next;
-    Hud::Message("Unlinked - independent now (Ctrl+Z links it again)");
+    Hud::Message("Unlinked");
     return true;
 }
 

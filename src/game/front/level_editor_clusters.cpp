@@ -282,7 +282,7 @@ bool Home(const std::vector<uint32_t>& sectors)
     PushModuleUndo(Capture(pieces));
     for (uint32_t s : pieces)
         Put(g_level[s]);
-    Hud::Message("Trick object: back as the level has it");
+    Hud::Message("Trick object reverted");
     return true;
 }
 
@@ -360,7 +360,7 @@ void InspectorSection(const std::vector<uint32_t>& sectors, ImFont* mono, ImFont
     });
     ImGui::PushFont(mono);
     if (!same)
-        ImGui::TextUnformatted("(the pieces differ)");
+        ImGui::TextUnformatted("(mixed)");
     else if (now[0].trick)
         ImGui::Text("cluster %s", NameOf(now[0].cluster).c_str());
     else
@@ -371,12 +371,11 @@ void InspectorSection(const std::vector<uint32_t>& sectors, ImFont* mono, ImFont
         ImGui::TextColored(ImVec4(1.0f, 0.65f, 0.3f, 1.0f), "(edited)");
     }
     ImGui::PushFont(smallFont);
-    ImGui::TextWrapped("A trick object's tricks count for its cluster (graffiti tags, trick-object goals). Live; saved; "
-                       "baked as the node's TrickObject Cluster=.");
+    ImGui::TextDisabled("Tricks count toward the cluster (graffiti, goals)");
     ImGui::PopFont();
     ImGui::SetNextItemWidth(-1.0f);
     ImGui::PushFont(mono);
-    ImGui::InputTextWithHint("##clustername", "a cluster's name (e.g. another piece's)", g_typed, sizeof(g_typed));
+    ImGui::InputTextWithHint("##clustername", "Cluster name", g_typed, sizeof(g_typed));
     ImGui::PopFont();
     std::vector<uint32_t> pieces = sectors;
     std::string typed = g_typed;
@@ -384,7 +383,7 @@ void InspectorSection(const std::vector<uint32_t>& sectors, ImFont* mono, ImFont
     for (char c : typed)
         valid = valid && (std::isalnum(static_cast<unsigned char>(c)) || c == '_');
     ImGui::BeginDisabled(!valid);
-    if (ImGui::Button("Put in this cluster")) {
+    if (ImGui::Button("Set Cluster")) {
         g_queue.push_back([pieces, typed] {
             Fields::Remember(typed);
             Set(pieces, true, Crc::GenerateCRCFromString(typed.c_str()));
@@ -392,22 +391,20 @@ void InspectorSection(const std::vector<uint32_t>& sectors, ImFont* mono, ImFont
     }
     ImGui::EndDisabled();
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Every selected piece a trick object of the cluster typed above (a new name makes a new "
-                          "cluster)");
+        ImGui::SetTooltip("Add the selection to the named cluster");
     ImGui::SameLine();
-    if (ImGui::Button("Each its own"))
+    if (ImGui::Button("Separate Clusters"))
         g_queue.push_back([pieces] { Set(pieces, true, 0); });
     if (ImGui::IsItemHovered())
-        ImGui::SetTooltip("Each selected piece a trick object of its own (its cluster its own name - as a TrickObject "
-                          "node without Cluster=)");
+        ImGui::SetTooltip("Give each piece its own cluster");
     if (same && now[0].trick) {
         uint32_t cluster = now[0].cluster;
         ImGui::SameLine();
-        if (ImGui::SmallButton("Use its name"))
+        if (ImGui::SmallButton("Use Name"))
             std::snprintf(g_typed, sizeof(g_typed), "%s", NameOf(cluster).c_str());
     }
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.62f, 0.22f, 0.30f, 0.85f));
-    if (ImGui::Button("Not a trick object"))
+    if (ImGui::Button("Clear Trick Object"))
         g_queue.push_back([pieces] { Set(pieces, false, 0); });
     ImGui::PopStyleColor();
     ImGui::SameLine();
