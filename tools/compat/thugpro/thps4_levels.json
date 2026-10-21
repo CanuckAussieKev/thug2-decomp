@@ -4233,6 +4233,17 @@
           "where": "LevelObjects / GameObjects whose TriggerScript plays a stream on them, through THUG2's scripts too (the trams' Car_Generic01: SpawnSound Auto_SFX_Car_Tire_Squeal)"
         },
         "why": "Crash guard: the stream members run on the object's stream component, which a LevelObject only has with SupportStreams (gameobj_add_components) - Alcatraz and San Francisco crashed when a tram braked for the skater (nodes.supportStreams)"
+      },
+      {
+        "id": "PC-THPS4-14",
+        "op": "set",
+        "rule": "shared_fields",
+        "required": true,
+        "target": {
+          "levels": "*",
+          "nodes": "every node kind's common fields (all but Pos / Position / Angles / Name / Links / TriggerScript) as global structures the nodes name, <level>_inc_<n> - the converter's last step on the level's .qb (nodes.shareNodeFields), after every pass that reads nodes' own fields"
+        },
+        "why": "node fields shared the way THUG2's own levels do (ncomp_*), so big levels fit the script component pool"
       }
     ]
   },
