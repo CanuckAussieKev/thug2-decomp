@@ -21,6 +21,10 @@ Small hooks in shared files (additive):
 - `level_editor_triggers.h/.cpp`: `Triggers::AddGapPair(start, end)` (the wizard's two ends, names / GapID fresh,
   one undo step, the start selected).
 - `level_editor.h`: the module list's comment. `CMakeLists.txt`: 6 lines.
+- (after merging UX8) `level_editor_hints.h/.cpp` + the context's fill in `level_editor.cpp`: `ux9Tool` - the status
+  bar's hints while the gap wizard picks (LMB pick an end, Alt+J off, Esc) or the ground tool marks (LMB a corner / edit a
+  piece, Alt+U off, Esc). The pies (fixed built-in slices) aren't given the tools - the command search and keys are.
+  Escape order: UX8's pie first, then the UX9 tools.
 - `tools/game/layout_file.ts`: `grounds` (the `ground` record; an unreadable one goes to `unknown`, as the DLL skips it);
   `tools/game/apply_layout.ts`: the bake of `ground` records (after the clones), its header comment.
 
@@ -99,7 +103,7 @@ Warned and skipped: a donor not in the scene / of another format, a name already
 
 ## Checks (offline)
 - Built (own dir out\build\ux9, PDB endpoint thug2ux9); `thug2_check.exe` on THUG2PM.exe and on
-  C:\Games\THUG2\Game\THUG2.exe (read only): 0 MISMATCHED, all 498 early self-tests pass (6 new: TestEditorGroundShapes,
+  C:\Games\THUG2\Game\THUG2.exe (read only): 0 MISMATCHED, all early self-tests pass (503 after merging UX8; 6 new: TestEditorGroundShapes,
   TestEditorGroundStripAndVertices, TestEditorGroundRecords, TestEditorGapWizard, TestEditorSkateability,
   TestEditorUx9Keys).
 - `node tools/check_code_writes.ts`: No overlaps (no REPLACE added).
@@ -114,7 +118,7 @@ Warned and skipped: a donor not in the scene / of another format, a name already
 ## In-game checklist (NOT run in the game)
 Use a workspace with this branch's DLL; watch `thug2-decomp.log` (`level editor:` lines; EXCEPTION / RUN-TIME CHECK /
 DEBUG CRT). `node tools/game/edit_level.ts TR` (Training) unless said otherwise.
-1. **Keys:** F1 / the command search (Ctrl+Space) list Gap wizard (Alt+J), Skateability overlay (Alt+K), Raise / lower
+1. **Keys:** the status bar's hints show the tools' clicks / keys while one is armed. F1 / the command search (Ctrl+Space) list Gap wizard (Alt+J), Skateability overlay (Alt+K), Raise / lower
    ground (Alt+U). Plain J / K / U still do chain link / Faces mode / chain unlink.
 2. **Skateability:** Alt+K (or Overlays > Skateability): floors green, slopes teal, quarter pipes orange, wallride walls
    yellow, other walls red, legend bottom right with counts and the slope limit (expect about 0.5 - 0.8). Rails thick

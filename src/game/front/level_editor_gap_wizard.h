@@ -69,6 +69,8 @@ int ClampScore(int score);
 // Armed: the next clicks pick the ends; then the form until made or cancelled.
 bool Armed();
 void SetArmed(bool on);
+// Picking its ends (not the form).
+bool Picking();
 // Escape: what it was doing given up (false: nothing to give up).
 bool Cancel();
 // The mouse ray each frame (the cursor's pixel in the back buffer) and a click (true: taken).

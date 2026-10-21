@@ -40,6 +40,7 @@
 #include "game/front/level_editor_ui_fonts.h"
 #include "game/front/level_editor_ui_layout.h"
 #include "game/front/level_editor_ux3.h"
+#include "game/front/level_editor_ux8.h"
 #include "game/front/level_editor_view.h"
 #include "hook/log.h"
 #include "imgui.h"
@@ -210,6 +211,17 @@ void KeyHint(const char* key, const char* what)
     ImGui::PushFont(g_small);
     ImGui::TextUnformatted(what);
     ImGui::PopFont();
+}
+
+// (UX8's drawing: the UI's fonts and scale)
+Ux8::Fonts Ux8Fonts()
+{
+    Ux8::Fonts fonts;
+    fonts.ui = g_ui;
+    fonts.small = g_small;
+    fonts.mono = g_mono;
+    fonts.scale = g_scale;
+    return fonts;
 }
 
 bool Matches(const std::string& text, const char* filter)
@@ -486,6 +498,7 @@ void Toolbar(const Model& model)
     ImGui::EndDisabled();
     ViewToolbar(model);
     Ux3::Toolbar(model); // (Search, History, Changes, Snapshots - level_editor_ux3.h)
+    Ux8::Toolbar(Ux8Fonts()); // (UX8: the Sets menu - level_editor_ux8.h)
     Budget::ToolbarItem(g_scale);   // (UX5: the budget meter - level_editor_budget.h)
     Checks::ToolbarButton(g_scale); // (UX5: Problems, Alt+P - level_editor_checks.h)
     ImGui::SameLine(0.0f, 14.0f * g_scale);
@@ -1285,11 +1298,8 @@ void StatusBar(const Model& model)
     if (!model.message.empty()) {
         ImGui::TextColored(ImVec4(1.0f, 0.86f, 0.5f, 1.0f), "%s", model.message.c_str());
     } else {
-        for (size_t i = 0; i < model.keys.size(); ++i) {
-            if (i)
-                ImGui::SameLine(0.0f, 12.0f * g_scale);
-            KeyHint(model.keys[i].first.c_str(), model.keys[i].second.c_str());
-        }
+        // (UX8: key caps and mouse / controller glyphs - level_editor_ux8.h)
+        Ux8::HintRow(model.keys, Ux8Fonts());
     }
     ImGui::PopFont();
     // Right: the changes and the camera.
@@ -2022,6 +2032,8 @@ void Frame(const Model& model, const Overlay& overlay)
     // (UX9: the gap wizard's and the ground tool's forms, the skateability legend - level_editor_ux9.h)
     Ux9::Windows(g_layout.viewport.x, g_layout.viewport.y, g_layout.viewport.width, g_layout.viewport.height, g_scale);
     Ux3::Windows(model);         // (the search, history, changes, keys, snapshots - level_editor_ux3.h)
+    Ux8::Windows(g_layout.viewport.x, g_layout.viewport.y, g_layout.viewport.width, g_layout.viewport.height,
+                 Ux8Fonts()); // (UX8: the pie, the crosshair - level_editor_ux8.h)
     Ux3::RememberSections();     // (the Inspector's sections folded as last time)
     ImGui::PopFont();
     ImGui::Render();

@@ -351,6 +351,13 @@ void Update()
 
 bool Busy() { return GapWizard::Armed() || g_stage != Stage::Off; }
 
+int PickingTool()
+{
+    if (GapWizard::Picking())
+        return 1;
+    return g_stage == Stage::First || g_stage == Stage::Second ? 2 : 0;
+}
+
 bool Cancel()
 {
     if (GapWizard::Cancel())

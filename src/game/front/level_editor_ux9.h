@@ -29,6 +29,9 @@ void Update();
 // A tool armed or a form open: Escape goes to Cancel first.
 bool Busy();
 bool Cancel();
+// For the status bar's hints (level_editor_hints.h): 1 the gap wizard picking its ends, 2 the ground tool marking its
+// rectangle, 0 neither (a form open counts as neither).
+int PickingTool();
 // The mouse ray each frame (`x`, `y`: the cursor in back buffer pixels), and a left click (true: taken by a tool).
 void Hover(V3 origin, V3 unitDir, float x, float y, bool haveRay);
 bool Click(V3 origin, V3 unitDir, float x, float y);

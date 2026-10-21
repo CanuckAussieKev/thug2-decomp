@@ -247,6 +247,7 @@ void Make()
 } // namespace
 
 bool Armed() { return g_armed || g_formOpen; }
+bool Picking() { return g_armed && g_picked < 2; }
 
 void SetArmed(bool on)
 {
