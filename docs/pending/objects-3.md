@@ -61,4 +61,36 @@ other members added; TriggerNode unchanged).
     the fader's slot 5 recording vtables, the three constructors, the allocators (Calloc and the manager's Allocate),
     the model's shadow flag / hierarchy, the struct getters stood in for; the component and both shadow objects
     compared. 35 deliberate bugs caught (the two crashes: a shadow updated through null).
-- [ ] Next: the skeleton component (0x431BE0-0x432B90).
+- [x] Batch OC3-3 (NOT run in the game yet; the skeleton component, 15 functions): src/game/obj/skeleton_component.*
+  (new). CSkeletonComponent (0x222756D5 "skeleton", vtable 0x006464DC, 0x1C bytes: +0x18 the renderer's skeleton):
+  Create 0x00431F60, RegisterMemberFunctions 0x00431BE0 (not a Ghidra function; table 0x00684DE0, filled by
+  0x00644760), DestroyBody 0x00431FE0 (0x004A2CB0 + Free), Destroy 0x00432790, InitSkeleton 0x00431C70 (asset data ->
+  0x004A3D30 on Mem::New(0x1C)), InitFromStructure 0x00431CF0 (CopySkeletonFrom=<id>: 0x004A3E80 copy of that
+  object's skeleton; else skeleton= / skeletonName= (asserted; neither: the params pointer's value), and
+  max_bone_skip_lod= to the skeleton's +0x10), GetLocalBonePosition 0x00431C60 (a jump to the skeleton's 0x004A3870),
+  GetBonePosition 0x00432050 (the bone's position - (0,0,0,1) if not found - through the object's matrix at its
+  position; ALWAYS returns false: the original clears AL), SpawnTextureSplat 0x004320F0 (RET 0x38: the start from
+  the bone or `start`; dropdown: the end straight down by dropdown_length feet; else `end`, or - when its length is 0
+  - that far down the object's up; the start then raised a foot up the up; the end scattered by two rand()s along
+  right / at; x87 detail kept: several products unrounded (x, and x / y of the raise), the second scatter offset
+  unrounded; 0x004928A0 with the bone when `trail`), SpawnCompositeObjectAtBone 0x00432490 (RET 0x1C: the bone's
+  matrix (0x004A36E0) with rows 1 / 2 swapped and the new row 2 negated, moved by the offset (whose w is cleared -
+  the caller's vector), times the object's matrix at its position (rows' w cleared) by D3DX; pos, Orientation (the
+  quaternion 0x0042E1F0, negated unless w > 0), vel (scale * object vel + vel turned) and rotvel (turned) added to
+  `params`; 0x0045F3A0 with finalize). Members (table): Obj_SetBoneActive 0x00431C00 (not a Ghidra function; bone
+  missing: the component's address - the slot PUSH ECX made; active missing: the params pointer), Obj_SetBoneScale
+  0x00431E30 (propagate -> 0x004A2D80's last argument = !propagate; propagate_reverse: every bone from 1 not under it
+  and not it, flag 0x8000000, force_update -> 0x004A4000), obj_GetBonePosition 0x004327C0 (x, y, z added to the
+  script's params; returns GetBonePosition's false), TextureSplat 0x00432860 (size, 0x3786B657 (height?, size by
+  default), radius (spread), lifetime 5, dropdown_length 3, 0x78AAF97F degrees 180 (turn), blendmode (blend), name= /
+  texture= as string (0x0049F560) or checksum (0x0049F540), bone (or forward= along the at), end_pos, spin =
+  rand()*2pi/32767 or - with 0x744E673F - acos(at.z) signed by at.x < 0, trail, dropdown_vertical),
+  Skeleton_SpawnCompositeObject 0x00432B90 (not a Ghidra function). Not original: TextureSplat's size starts at 0 and
+  its start at the object's position when there's neither bone nor forward= (the original's are uninitialised stack);
+  the asserted values of the member functions start at 0.
+  - Test (selftests_obj_skeleton.cpp TestSkeletonComponent): 4000 random cases over the 15 (and SpawnTextureSplat /
+    SpawnCompositeObjectAtBone called directly with every flag), the skeleton's functions, rand(), the splat, D3DX
+    (sometimes a half turn: the quaternion's w = 0), the struct getters / adders, the manager stood in for; values
+    with full mantissas so x87 roundings show. 44 deliberate bugs caught, 6 after strengthening (full-mantissa
+    values, the half turn, the offset checked); 1 equivalent (Create's explicit null skeleton: Calloc zeroes).
+- [ ] Next: the sound component (0x432C80-0x4335D0, 0x433630).
