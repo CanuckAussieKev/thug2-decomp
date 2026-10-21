@@ -129,22 +129,28 @@ export function baseLevel(t: XenosTexture): Buffer {
             src.copy(out, (y * w + x) * bpb, from, from + bpb);
         }
     }
-    if (t.format === FMT_8888) {
-        // (8:8:8:8 as A, R, G, B bytes once swapped back: Direct3D's A8R8G8B8 is B, G, R, A in memory)
-        for (let i = 0; i < out.length; i += 4) {
-            const [a, r, g, b] = [out[i]!, out[i + 1]!, out[i + 2]!, out[i + 3]!];
-            out[i] = b;
-            out[i + 1] = g;
-            out[i + 2] = r;
-            out[i + 3] = a;
-        }
-    }
+    // (8:8:8:8: swapped back - the 32-bit words' bytes reversed - it is B, G, R, A already, Direct3D's A8R8G8B8 in
+    // memory. Until 2026-10-22 it was turned round once more, as if A, R, G, B: every 8:8:8:8 texture came out with
+    // its alpha as blue - the factory's light map a solid blue.)
     return out;
 }
 
 export interface Converted {
     texture: tex.Texture | null;
     note?: string;
+}
+
+// A texture we make (B, G, R, A texels) as THUG2's DXT5, with its mip chain down to 4 x 4 when `mips`.
+export function fromBgra(checksum: number, width: number, height: number, bgra: Buffer, mips = true): tex.Texture {
+    const levels = [dxt.encode(bgra, width, height, 5)];
+    let [w, h, rgba] = [width, height, bgra];
+    while (mips && Math.min(w, h) > 4) {
+        rgba = dxt.halve(rgba, w, h);
+        w = Math.max(1, w >> 1);
+        h = Math.max(1, h >> 1);
+        levels.push(dxt.encode(rgba, w, h, 5));
+    }
+    return { checksum, width, height, texelDepth: 32, paletteDepth: 32, dxt: 5, palette: Buffer.alloc(0), levels };
 }
 
 // THUG2's texture: DXT1 / DXT5 kept compressed (mips made by dxt.ts), DXT3 and 8:8:8:8 as 32-bit; DXN (normal maps)

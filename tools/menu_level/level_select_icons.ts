@@ -1675,6 +1675,199 @@ function halo(): Layer[] {
     ];
 }
 
+// --- THP8's zones (tools/thp8_levels): THP8's own area names, a pictogram each ------------------------------------
+
+// Suburbia: a mailbox on its post, the flag up.
+function mailbox(): Layer[] {
+    return [
+        [INK, ellipse(30, 25, 10, 5)],
+        [INK, rect(20, 25, 40, 34)],
+        [CUT, rect(36, 27, 37.5, 32)],
+        [INK, rect(28, 34, 32, 46)],
+        [INK, rect(40.5, 20, 42.5, 30)],
+        [INK, rect(40.5, 20, 45, 23.5)],
+    ];
+}
+
+// The school: its bell.
+function schoolbell(): Layer[] {
+    return [
+        [INK, ring(32, 16, 2, 1.6)],
+        [INK, poly([32, 17.5], [36, 19], [38, 24], [38.5, 32], [43, 37.5], [21, 37.5], [25.5, 32], [26, 24], [28, 19])],
+        [CUT, rect(21, 34, 43, 35)],
+        [INK, circle(32, 41, 3)],
+    ];
+}
+
+// The school inside: two lockers.
+function locker(): Layer[] {
+    const door = (x0: number): Layer[] => [
+        [INK, rect(x0, 17, x0 + 9, 46)],
+        [CUT, rect(x0 + 2, 20, x0 + 7, 21)],
+        [CUT, rect(x0 + 2, 22.5, x0 + 7, 23.5)],
+        [CUT, rect(x0 + 2, 25, x0 + 7, 26)],
+        [CUT, rect(x0 + 6.5, 30, x0 + 7.5, 35)],
+    ];
+    return [...door(22), ...door(33)];
+}
+
+// Main Street: a traffic light.
+function trafficlight(): Layer[] {
+    return [
+        [INK, rect(26, 15, 38, 41)],
+        [CUT, circle(32, 20.5, 3.6)],
+        [CUT, circle(32, 28, 3.6)],
+        [CUT, circle(32, 35.5, 3.6)],
+        [INK, circle(32, 20.5, 2.2)],
+        [INK, rect(30.5, 41, 33.5, 48)],
+    ];
+}
+
+// The slums: a brick wall.
+function bricks(): Layer[] {
+    const layers: Layer[] = [[INK, rect(19, 21, 45, 43)]];
+    const rows = [21, 26.5, 32, 37.5, 43];
+    for (let r = 0; r < 4; r++) {
+        if (r) layers.push([CUT, rect(19, rows[r]! - 0.6, 45, rows[r]! + 0.6)]);
+        for (let x = r % 2 ? 23 : 28; x < 45; x += 9)
+            layers.push([CUT, rect(x - 0.6, rows[r]!, x + 0.6, rows[r + 1]!)]);
+    }
+    return layers;
+}
+
+// The factory: a gear.
+function gear(): Layer[] {
+    const layers: Layer[] = [[INK, circle(32, 32, 10)]];
+    for (let k = 0; k < 8; k++) {
+        const a = radians(k * 45 + 22.5);
+        layers.push([
+            INK,
+            line(32 + 9 * Math.cos(a), 32 + 9 * Math.sin(a), 32 + 14 * Math.cos(a), 32 + 14 * Math.sin(a), 5),
+        ]);
+    }
+    layers.push([CUT, circle(32, 32, 4.5)]);
+    return layers;
+}
+
+// The Capitol: a flag on its pole.
+function capitolflag(): Layer[] {
+    return [
+        [INK, rect(24, 16, 26.5, 46)],
+        [INK, circle(25.25, 16, 1.6)],
+        [INK, poly([26.5, 19], [31, 17.5], [36, 20], [42, 19.5], [42, 31], [37.5, 32.5], [32, 29.5], [26.5, 31])],
+        [CUT, rect(26.5, 24, 42, 25)],
+        [INK, rect(22.5, 44, 29.5, 46)],
+    ];
+}
+
+// The city park: a park bench.
+function bench(): Layer[] {
+    return [
+        [INK, rect(19, 23, 45, 27.5)],
+        [CUT, rect(19, 25, 45, 25.6)],
+        [INK, rect(21, 27.5, 23, 31)],
+        [INK, rect(41, 27.5, 43, 31)],
+        [INK, rect(17, 31, 47, 34.5)],
+        [INK, rect(20, 34.5, 23, 42)],
+        [INK, rect(41, 34.5, 44, 42)],
+    ];
+}
+
+// The skate park: a bowl, its coping and deck.
+function bowl(): Layer[] {
+    return [
+        [INK, arc(32, 25, 12.5, 3.4, 0, 180)],
+        [INK, circle(19.5, 25, 2)],
+        [INK, circle(44.5, 25, 2)],
+        [INK, rect(16, 23.5, 19.5, 26)],
+        [INK, rect(44.5, 23.5, 48, 26)],
+        [INK, rect(26, 40.5, 38, 43)],
+    ];
+}
+
+// The fun park: a roller coaster's loop.
+function coaster(): Layer[] {
+    return [
+        [INK, ring(32, 27, 9, 3)],
+        [
+            INK,
+            polyline(
+                [
+                    [18, 41],
+                    [28, 41],
+                    [32, 36],
+                ],
+                3,
+            ),
+        ],
+        [
+            INK,
+            polyline(
+                [
+                    [32, 36],
+                    [36, 41],
+                    [46, 41],
+                ],
+                3,
+            ),
+        ],
+        [INK, rect(21, 41, 23, 46)],
+        [INK, rect(41, 41, 43, 46)],
+        [INK, rect(30.8, 36, 33.2, 47)],
+    ];
+}
+
+// Hill Top: a parking sign.
+function parking(): Layer[] {
+    return [
+        [INK, rect(22, 17, 42, 37)],
+        [CUT, rect(27, 21, 30, 33)],
+        [CUT, arc(30.5, 24.75, 3.75, 3, -90, 90)],
+        [INK, rect(30.5, 37, 33.5, 47)],
+    ];
+}
+
+// Training: a target.
+function target(): Layer[] {
+    return [
+        [INK, ring(32, 32, 12, 3)],
+        [INK, ring(32, 32, 6.5, 3)],
+        [INK, circle(32, 32, 2.5)],
+    ];
+}
+
+// The cartoon world: a cloud.
+function cloud(): Layer[] {
+    return [
+        [INK, circle(25, 33, 7)],
+        [INK, circle(33, 28, 9)],
+        [INK, circle(41, 34, 6)],
+        [INK, rect(25, 33, 41, 40)],
+    ];
+}
+
+// The skate shop: a skate tool (the T-shaped wrench).
+function skatetool(): Layer[] {
+    return [
+        [INK, line(21.5, 23, 42.5, 23, 5.5)],
+        [INK, line(32, 23, 32, 44, 5)],
+        [CUT, circle(22, 23, 1.5)],
+        [CUT, circle(42, 23, 1.5)],
+        [CUT, circle(32, 42.5, 1.4)],
+    ];
+}
+
+// The bedroom: a bed.
+function bed(): Layer[] {
+    return [
+        [INK, rect(17, 22, 20, 42)],
+        [INK, rect(20, 31, 47, 37)],
+        [INK, rect(44, 28, 47, 42)],
+        [INK, ellipse(24.5, 28.5, 3.5, 2)],
+        [INK, rect(29, 28.5, 44, 31)],
+    ];
+}
+
 export const PICTOGRAMS: ReadonlyMap<string, () => Layer[]> = new Map(
     [
         skateboard,
@@ -1745,6 +1938,21 @@ export const PICTOGRAMS: ReadonlyMap<string, () => Layer[]> = new Map(
         bull,
         volcano,
         halo,
+        mailbox,
+        schoolbell,
+        locker,
+        trafficlight,
+        bricks,
+        gear,
+        capitolflag,
+        bench,
+        bowl,
+        coaster,
+        parking,
+        target,
+        cloud,
+        skatetool,
+        bed,
     ].map((f) => [f.name, f]),
 );
 
